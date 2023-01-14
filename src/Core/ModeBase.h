@@ -9,8 +9,9 @@
 #include "Core/Line.h"
 #include "Core/Cursor.h"
 
+#include "Core/ScreenBase.h"
 
-class NCursesScreen;
+//class NCursesScreen;
 
 class ModeBase {
         public:
@@ -20,8 +21,8 @@ class ModeBase {
         ModeBase() = default;
         void SetOnExitMode(OnExitMode newOnExitMode) { onExitMode = newOnExitMode; }
         void SetOnExitApp(OnExitApp newOnExitApp) { onExitApp = newOnExitApp; }
-        virtual void DrawLines(NCursesScreen &screen) {}
-        virtual void Update(NCursesScreen &screen) {}
+        virtual void DrawLines(ScreenBase &screen) {}
+        virtual void Update(ScreenBase &screen) {}
         virtual const std::vector<Line *> &Lines() const = 0;
         bool DefaultEditLine(Line *line, int ch);
         protected:

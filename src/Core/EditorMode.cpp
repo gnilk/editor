@@ -4,7 +4,6 @@
 
 // TMP
 #include <ncurses.h>
-#include "Core/NCurses/NCursesScreen.h"
 // END-TMP
 
 #include "Core/Line.h"
@@ -56,7 +55,7 @@ void EditorMode::NewLine() {
     cursor.activeColumn = cursorPos;
 }
 
-void EditorMode::DrawLines(NCursesScreen &screen) {
+void EditorMode::DrawLines(ScreenBase &screen) {
     screen.DrawGutter(idxActiveLine);
     screen.SetCursorColumn(cursor.activeColumn);
     screen.DrawLines(Lines(),idxActiveLine);
@@ -68,7 +67,7 @@ void EditorMode::DrawLines(NCursesScreen &screen) {
 }
 
 
-void EditorMode::Update(NCursesScreen &screen) {
+void EditorMode::Update(ScreenBase &screen) {
     auto ch = getch();
     lastChar = ch;
     if (ch == ERR) {

@@ -5,6 +5,7 @@
 #ifndef EDITOR_EDITORMODE_H
 #define EDITOR_EDITORMODE_H
 
+#include "Core/ScreenBase.h"
 #include "Core/ModeBase.h"
 
 class EditorMode : public ModeBase {
@@ -12,8 +13,8 @@ class EditorMode : public ModeBase {
         EditorMode();
         virtual ~EditorMode() = default;
 
-        void Update(NCursesScreen &screen) override;
-        void DrawLines(NCursesScreen &screen) override;
+        void Update(ScreenBase &screen) override;
+        void DrawLines(ScreenBase &screen) override;
 
         // Navigate
         void OnNavigateUp(int rows);

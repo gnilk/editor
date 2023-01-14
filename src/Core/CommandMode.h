@@ -5,16 +5,15 @@
 #ifndef EDITOR_COMMANDMODE_H
 #define EDITOR_COMMANDMODE_H
 
-class NCursesScreen;
-
+#include "Core/ScreenBase.h"
 #include "Core/ModeBase.h"
 
 class CommandMode : public ModeBase {
 public:
     CommandMode();
     virtual ~CommandMode() = default;
-    void Update(NCursesScreen &screen) override;
-    void DrawLines(NCursesScreen &screen) override;
+    void Update(ScreenBase &screen) override;
+    void DrawLines(ScreenBase &screen) override;
     const std::vector<Line *> &Lines() const override { return historyBuffer; }
 protected:
     void NewLine();

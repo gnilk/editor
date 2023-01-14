@@ -19,17 +19,14 @@ public:
     void Clear() override;
     void Update() override;
     // Make these virtual and part of base class
-    void SetCursorColumn(int cCol) { cursorColumn = cCol; }
-    void DrawGutter(int idxStart);
-    void DrawLines(const std::vector<Line *> &lines, int idxActiveLine);
-    void DrawStatusBar(const char *str);
-    std::pair<int, int> Dimensions();
+    void DrawGutter(int idxStart) override;
+    void DrawLines(const std::vector<Line *> &lines, int idxActiveLine) override;
+    void DrawStatusBar(const char *str) override;
+    std::pair<int, int> Dimensions() override;
 protected:
     std::pair<int, int> ComputeView(int idxActiveLine);
 private:
     std::pair<int, int> view = {0,0};
-    int cursorColumn = 0;
-    int szGutter = 0;
     int lastTopLine = 0;
     int tmp_dyLast = 0;
 };

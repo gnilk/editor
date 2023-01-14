@@ -4,7 +4,6 @@
 
 // TMP
 #include <ncurses.h>
-#include "Core/NCurses/NCursesScreen.h"
 
 /*
  * Command Mode is where you sort of have a shell with an interpretator sitting before it..
@@ -46,11 +45,11 @@ void CommandMode::NewLine() {
 
 }
 
-void CommandMode::DrawLines(NCursesScreen &screen) {
+void CommandMode::DrawLines(ScreenBase &screen) {
     screen.SetCursorColumn(cursor.activeColumn);
     screen.DrawLines(Lines(),0);
 }
-void CommandMode::Update(NCursesScreen &screen) {
+void CommandMode::Update(ScreenBase &screen) {
     auto ch = getch();
     if (ch == ERR) {
         return;

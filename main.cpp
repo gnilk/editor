@@ -32,6 +32,8 @@
 #include "Core/KeyCodes.h"
 #include "Core/KeyboardDriverBase.h"
 
+#include "Core/RuntimeConfig.h"
+
 #include <map>
 
 ////
@@ -93,11 +95,13 @@ static void testKeyboard() {
 
 int main(int argc, const char **argv) {
 
-    testKeyboard();
-    exit(1);
     bool bQuit = false;
     NCursesScreen screen;
-    kMainState state;
+    NCursesKeyboardDriver keyBoard;
+
+    // Setup the runtime enviornment
+    RuntimeConfig::Instance().SetScreen(screen);
+    RuntimeConfig::Instance().SetKeyboard(keyBoard);
 
 
     EditorMode editorMode;
@@ -134,9 +138,9 @@ int main(int argc, const char **argv) {
     screen.Clear();
 
     while(!bQuit) {
-        currentMode->DrawLines(screen);
+        currentMode->DrawLines();
         screen.Update();
-        currentMode->Update(screen);
+        currentMode->Update();
     }
     screen.Close();
     return 0;

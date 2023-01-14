@@ -7,18 +7,6 @@
 
 #include <cstdint>
 
-struct KeyPress {
-    union {
-        int64_t editorkey;  // this is special | code
-        struct {
-            int32_t special;
-            int32_t code;
-        } data;
-    };
-
-    // This is from the underlying keyboard driver...
-    int64_t rawCode;
-};
 
 typedef enum {
     kKeyCtrl_None       = 0,
@@ -43,10 +31,15 @@ typedef enum {
     kKey_Return = 10,
     kKey_Escape = 27,
     kKey_Backspace = 127,   // through inspection
-    kKey_Delete = 330,      // through inspection
-    kKey_End = 360,         // through inspection
-    kKey_Home = 262,        // Through inspection
     kKey_ShiftTab = 353,    // Through inspection
+
+
+    kKey_Delete = 400,
+    kKey_Home = 401,        // Through inspection
+    kKey_PageUp = 402,
+
+    kKey_End = 404,         // through inspection
+    kKey_PageDown = 405,
 
     // Self defined
     kKey_Left = 1024,

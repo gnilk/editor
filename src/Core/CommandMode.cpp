@@ -52,8 +52,11 @@ void CommandMode::DrawLines() {
     screen->DrawLines(Lines(),0);
 }
 void CommandMode::Update() {
-    auto ch = getch();
-    if (ch == ERR) {
+
+    auto kbd = RuntimeConfig::Instance().Keyboard();
+
+    auto ch = kbd->GetCh();
+    if (!kbd->IsValid(ch)) {
         return;
     }
 
@@ -61,7 +64,7 @@ void CommandMode::Update() {
         return;
     }
 
-    switch(ch) {
+    switch(ch.data.code) {
         case kKey_Return :
             // Proper handling here!
             // Here we should parse the buffer and map to the command list..

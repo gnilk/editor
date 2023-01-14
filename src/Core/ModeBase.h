@@ -8,6 +8,7 @@
 #include <vector>
 #include "Core/Line.h"
 #include "Core/Cursor.h"
+#include "Core/KeyboardDriverBase.h"
 
 //class NCursesScreen;
 
@@ -22,7 +23,7 @@ class ModeBase {
         virtual void DrawLines() {}
         virtual void Update() {}
         virtual const std::vector<Line *> &Lines() const = 0;
-        bool DefaultEditLine(Line *line, int ch);
+        bool DefaultEditLine(Line *line, KeyPress &ch);
         protected:
         OnExitMode onExitMode = nullptr;
         OnExitApp  onExitApp = nullptr;

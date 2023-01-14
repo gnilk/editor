@@ -7,9 +7,10 @@
 
 #include "Core/ScreenBase.h"
 #include "Core/ModeBase.h"
+#include "Core/KeyboardDriverBase.h"
 
 class EditorMode : public ModeBase {
-        public:
+public:
         EditorMode();
         virtual ~EditorMode() = default;
 
@@ -23,10 +24,10 @@ class EditorMode : public ModeBase {
         void SetBuffer(Buffer &newBuffer);
 
         const std::vector<Line *> &Lines() const override { return lines; }
-        protected:
+protected:
         void NewLine();
-        private:
-        int lastChar = 0;
+private:
+        KeyPress lastChar {};
         int idxActiveLine = 0;
         Line *currentLine = nullptr;
 //    std::vector<Line *>::iterator it;

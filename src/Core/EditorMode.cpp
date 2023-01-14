@@ -65,15 +65,20 @@ void EditorMode::DrawLines() {
 
     auto indent = currentLine->Indent();
     char tmp[256];
-    snprintf(tmp, 256, "Goat Editor v0.1 - lc: %d (%s)- al: %d - ts: %d - ", lastChar, keyname(lastChar), idxActiveLine, indent);
+    snprintf(tmp, 256, "Goat Editor v0.1 - lc: %d (%s)- al: %d - ts: %d - ", (int)lastChar.rawCode, keyname((int)lastChar.rawCode), idxActiveLine, indent);
     screen->DrawStatusBar(tmp);
 }
 
 
 void EditorMode::Update() {
-    auto ch = getch();
+
+    auto kbd = RuntimeConfig::Instance().Keyboard();
+
+    auto ch = kbd->GetCh();
+
+    //auto ch = getch();
     lastChar = ch;
-    if (ch == ERR) {
+    if (!kbd->IsValid(ch)) {
         return;
     }
 
@@ -82,7 +87,7 @@ void EditorMode::Update() {
     auto [rows, cols] = screen->Dimensions();
 
     if (DefaultEditLine(currentLine, ch)) {
-        if ((ch > 31) && (ch < 127)) {
+        if (kbd->IsHumanReadable(ch)) {
             // TODO: Check language features here
             // Like:
             //  if '}' was entered as first char on a line - unindent it
@@ -91,25 +96,25 @@ void EditorMode::Update() {
         return;
     }
 
-    switch (ch) {
-        case KEY_DOWN :
+    switch (ch.data.code) {
+        case kKey_Down :
             OnNavigateDown(1);
             cursor.activeColumn = cursor.wantedColumn;
             if (cursor.activeColumn > currentLine->Length()) {
                 cursor.activeColumn = currentLine->Length();
             }
             break;
-        case KEY_UP :
+        case kKey_Up :
             OnNavigateUp(1);
             cursor.activeColumn = cursor.wantedColumn;
             if (cursor.activeColumn > currentLine->Length()) {
                 cursor.activeColumn = currentLine->Length();
             }
             break;
-        case KEY_PPAGE :
+        case kKey_PageUp :
             OnNavigateUp(rows-1);
             break;
-        case KEY_NPAGE :
+        case kKey_PageDown :
             OnNavigateDown(rows-1);
             break;
         case kKey_Return :

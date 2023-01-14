@@ -9,11 +9,15 @@
 #include "Core/Line.h"
 #include "Core/ModeBase.h"
 #include "Core/EditorConfig.h"
+#include "Core/KeyboardDriverBase.h"
+#include "Core/RuntimeConfig.h"
 
-bool ModeBase::DefaultEditLine(Line *line, int ch) {
+bool ModeBase::DefaultEditLine(Line *line, KeyPress &ch) {
 
-    if ((ch > 31) && (ch < 127)) {
-        line->Insert(cursor.activeColumn, ch);
+    auto kbd = RuntimeConfig::Instance().Keyboard();
+
+    if (kbd->IsHumanReadable(ch )) {
+        line->Insert(cursor.activeColumn, ch.data.code);
         cursor.activeColumn++;
         cursor.wantedColumn = cursor.activeColumn;
         return true;
@@ -21,7 +25,7 @@ bool ModeBase::DefaultEditLine(Line *line, int ch) {
 
     bool handled = true;
 
-    switch(ch) {
+    switch(ch.data.code) {
         case kKey_ShiftTab :
         {
             auto nChars = line->Unindent();
@@ -37,14 +41,14 @@ bool ModeBase::DefaultEditLine(Line *line, int ch) {
             cursor.activeColumn += EditorConfig::Instance().tabSize;
             cursor.wantedColumn = cursor.activeColumn;
             break;
-        case KEY_LEFT :
+        case kKey_Left :
             cursor.activeColumn--;
             if (cursor.activeColumn < 0) {
                 cursor.activeColumn = 0;
             }
             cursor.wantedColumn = cursor.activeColumn;
             break;
-        case KEY_RIGHT :
+        case kKey_Right :
             cursor.activeColumn++;
             if (cursor.activeColumn > line->Length()) {
                 cursor.activeColumn = line->Length();
@@ -56,9 +60,6 @@ bool ModeBase::DefaultEditLine(Line *line, int ch) {
                 onExitMode();
             }
             break;
-        case KEY_BACKSPACE :
-            [[fallthrough]];
-
         case kKey_Backspace :
             if (cursor.activeColumn > 0) {
                 cursor.activeColumn--;
@@ -69,11 +70,11 @@ bool ModeBase::DefaultEditLine(Line *line, int ch) {
         case kKey_Delete :
             line->Delete(cursor.activeColumn);
             break;
-        case KEY_END :
+        case kKey_End :
             cursor.activeColumn = line->Length();
             cursor.wantedColumn = cursor.activeColumn;
             break;
-        case KEY_HOME :
+        case kKey_Home :
             cursor.activeColumn = 0;
             cursor.wantedColumn = cursor.activeColumn;
             break;

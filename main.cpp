@@ -19,6 +19,8 @@
 #include "Core/macOS/MacOSKeyboardMonitor.h"
 
 #include "Core/NCurses/NCursesScreen.h"
+#include "Core/NCurses/NCursesKeyboardDriver.h"
+
 #include "Core/Line.h"
 #include "Core/ModeBase.h"
 #include "Core/CommandMode.h"
@@ -28,116 +30,13 @@
 #include "Core/StrUtil.h"
 #include "Core/Cursor.h"
 #include "Core/KeyCodes.h"
+#include "Core/KeyboardDriverBase.h"
 
 #include <map>
 
 ////
 // Test the keyboard handling
 ////
-
-class KeyBoard {
-public:
-    virtual bool Initialize() { return false; };
-    virtual KeyPress GetCh();
-    static bool IsValid(KeyPress &key);
-    static bool IsShift(KeyPress &key);
-    static bool IsHumanReadable(KeyPress &key);
-protected:
-
-};
-
-class NCursesKeyBoard : public KeyBoard {
-public:
-    bool Initialize() override;
-    KeyPress GetCh() override;
-protected:
-    KeyPress Translate(int ch);
-private:
-    MacOSKeyboardMonitor kbdMonitor;
-};
-
-
-KeyPress KeyBoard::GetCh() {
-    return {};
-}
-
-bool KeyBoard::IsValid(KeyPress &key) {
-    return (key.editorkey != kKey_NoKey_InQueue);
-}
-
-bool KeyBoard::IsShift(KeyPress &key) {
-    return ((key.data.special & kKeyCtrl_LeftShift) | (key.data.special & kKeyCtrl_RightShift));
-}
-
-bool KeyBoard::IsHumanReadable(KeyPress &key) {
-    // Human readables..  NOTE: we don't support unicode..  I'm old-skool...
-    if ((key.data.code > 31) && (key.data.code < 128)) {
-        return true;
-    }
-    return false;
-}
-
-
-
-// NCurses variant
-bool NCursesKeyBoard::Initialize() {
-    // TODO: Kick off monitoring here
-    if (!kbdMonitor.Start()) {
-        printf("ERR: Unable to start keyboard monitor for trapping of special keys (SHIFT, CTRL, CMD, etc..)\n");
-        printf("Try fix this by enable 'Monitoring Input' for Terminal in macOS settings\n");
-        printf("Otherwise disable this feature in the configuration file 'enable_keyboard_monitor = false'\n");
-        printf("Hint: If disabled, you should consider using a different keyboard mapping than default!\n");
-        return false;
-    }
-    return true;
-}
-
-KeyPress NCursesKeyBoard::GetCh() {
-    auto ch = getch();
-    return Translate(ch);
-}
-static std::map<int, int> ncurses_translation_map = {
-    {KEY_LEFT, kKey_Left},
-    { KEY_RIGHT, kKey_Right},
-    { KEY_UP, kKey_Up},
-    {KEY_DOWN, kKey_Down},
-    {KEY_BACKSPACE, kKey_Backspace},
-    {KEY_DC, kKey_Delete},  // DC = Delete Char
-    {KEY_HOME, kKey_Home},
-    {KEY_END, kKey_End},
-    {KEY_BTAB, kKey_Tab },
-    // The following has no formal definition in NCurses but are standard ASCII codes
-    {9, kKey_Tab},
-    {10, kKey_Return},
-    { 27, kKey_Escape},     // ^]
-};
-
-static KeyPress kp = {.data = {.special = kKeyCtrl_None, .code = kKey_Tab}};
-
-KeyPress NCursesKeyBoard::Translate(int ch) {
-    KeyPress key {kKey_NoKey_InQueue};
-
-    // Regardless - we set this...
-    key.rawCode = ch;
-
-    if (ch == ERR) {
-        return key;
-    }
-    // Assume...
-    key.data.special = 0;
-
-    if ((ch > 31) && (ch < 128)) {
-        key.data.code = ch;
-        return key;
-    }
-
-    if (ncurses_translation_map.find(ch) != ncurses_translation_map.end()) {
-        key.data.code = ncurses_translation_map[ch];
-        return key;
-    }
-    // Now translate whatever if missing, if any..
-    return key;
-}
 
 static bool LoadToBuffer(Buffer &outBuffer, const char *filename) {
     FILE *f = fopen(filename,"r");
@@ -161,7 +60,7 @@ typedef enum {
 } kMainState;
 
 static void testKeyboard() {
-    NCursesKeyBoard keyBoard;
+    NCursesKeyboardDriver keyBoard;
 
     if (!keyBoard.Initialize()) {
         exit(1);
@@ -172,18 +71,22 @@ static void testKeyboard() {
     noecho();
     cbreak();
 
-    printw("%s\n",keyname(353));
+    printw("%s\n",keyname(330));
 
     while(true) {
         auto key = keyBoard.GetCh();
-        if (!KeyBoard::IsValid(key)) {
+        if (!KeyboardDriverBase::IsValid(key)) {
             continue;
         }
-        if (KeyBoard::IsHumanReadable(key)) {
-            addch(key.data.code);
-        } else {
-            printw("code: %d\n", key.data.code);
-        }
+        printw("code: %d, special: %d, raw: %d\n", key.data.code,key.data.special, (int)key.rawCode);
+
+//        if (KeyboardDriverBase::IsHumanReadable(key)) {
+//            addch(key.data.code);
+//        } else {
+//            if (key.data.special != 0) {
+//                printw("special: %x, %x\n", key.data.special, key.data.code);
+//            }
+//        }
         //printf("%d",key.data.code);
     }
 }

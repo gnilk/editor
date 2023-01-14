@@ -26,9 +26,11 @@ list(APPEND editorsrc src/Core/StrUtil.cpp src/Core/StrUtil.h)
 list(APPEND editorsrc src/Core/ModeBase.cpp src/Core/ModeBase.h)
 list(APPEND editorsrc src/Core/CommandMode.cpp src/Core/CommandMode.cpp)
 list(APPEND editorsrc src/Core/EditorMode.cpp src/Core/EditorMode.cpp)
+list(APPEND editorsrc src/Core/KeyboardDriverBase.cpp src/Core/KeyboardDriverBase.h)
 
 # TODO: Revisit this - perhaps better somewhere else
 list(APPEND editorsrc src/Core/NCurses/NCursesScreen.cpp src/Core/NCurses/NCursesScreen.h)
+list(APPEND editorsrc src/Core/NCurses/NCursesKeyboardDriver.cpp src/Core/NCurses/NCursesKeyboardDriver.h)
 
 list(APPEND appsrc main.cpp)
 

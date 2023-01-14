@@ -40,6 +40,18 @@ bool MacOSKeyboardMonitor::IsPressed(kStdControlKeys ctrlKey) {
     return false;
 }
 
+int32_t MacOSKeyboardMonitor::GetSpecialCurrentlyPressed() {
+    int32_t pressedMask = 0;
+    for(auto const &kvp : keyPressStatus) {
+        //printf(" %d - %s\n", kvp.first, kvp.second?"d":"u");
+        if (kvp.second) {
+            pressedMask |= kvp.first;
+        }
+    }
+    return pressedMask;
+}
+
+
 // Translation table from original source
 static std::map<uint32_t, kStdControlKeys> scancodemap = {
         {0xE0, kKeyCtrl_LeftCtrl},    // Left Control
@@ -54,11 +66,9 @@ static std::map<uint32_t, kStdControlKeys> scancodemap = {
 
 void MacOSKeyboardMonitor::OnKeyEvent(uint32_t scancode, long pressed, int32_t pid) {
     // printf("scancode: %d, pressed: %ld, keyboardId=%d\n", scancode, pressed, pid);
-
-    kStdControlKeys ctrlKey = kKeyCtrl_None;
+    // kStdControlKeys ctrlKey = kKeyCtrl_None;
     if (scancodemap.find(scancode) != scancodemap.end()) {
         keyPressStatus[scancodemap[scancode]] = pressed?true:false;
-        return;
     }
 }
 

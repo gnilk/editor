@@ -15,6 +15,7 @@ public:
 
     virtual bool Start() { return false; }
     virtual bool IsPressed(kStdControlKeys ctrlKey) { return false; }
+    virtual int32_t GetSpecialCurrentlyPressed() { return 0; }
 };
 
 #endif //EDITOR_KBDBASEMONITOR_H

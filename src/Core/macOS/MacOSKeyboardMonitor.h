@@ -16,6 +16,7 @@ public:
 
     bool Start() override;
     bool IsPressed(kStdControlKeys ctrlKey) override;
+    int32_t GetSpecialCurrentlyPressed() override;
 public:
     void OnKeyEvent(uint32_t scancode, long pressed, int32_t pid);
 private:

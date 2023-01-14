@@ -28,7 +28,7 @@
 #include "Core/CommandMode.h"
 #include "Core/Line.h"
 #include "Core/KeyCodes.h"
-
+#include "Core/RuntimeConfig.h"
 CommandMode::CommandMode() {
     NewLine();
 }
@@ -45,11 +45,13 @@ void CommandMode::NewLine() {
 
 }
 
-void CommandMode::DrawLines(ScreenBase &screen) {
+void CommandMode::DrawLines() {
+    auto screen = RuntimeConfig::Instance().Screen();
+
     screen.SetCursorColumn(cursor.activeColumn);
     screen.DrawLines(Lines(),0);
 }
-void CommandMode::Update(ScreenBase &screen) {
+void CommandMode::Update() {
     auto ch = getch();
     if (ch == ERR) {
         return;

@@ -12,8 +12,8 @@ class CommandMode : public ModeBase {
 public:
     CommandMode();
     virtual ~CommandMode() = default;
-    void Update(ScreenBase &screen) override;
-    void DrawLines(ScreenBase &screen) override;
+    void Update() override;
+    void DrawLines() override;
     const std::vector<Line *> &Lines() const override { return historyBuffer; }
 protected:
     void NewLine();

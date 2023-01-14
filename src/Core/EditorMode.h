@@ -13,8 +13,8 @@ class EditorMode : public ModeBase {
         EditorMode();
         virtual ~EditorMode() = default;
 
-        void Update(ScreenBase &screen) override;
-        void DrawLines(ScreenBase &screen) override;
+        void Update() override;
+        void DrawLines() override;
 
         // Navigate
         void OnNavigateUp(int rows);

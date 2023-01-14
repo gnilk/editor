@@ -9,6 +9,7 @@
 #include "Core/Line.h"
 #include "Core/EditorMode.h"
 #include "Core/KeyCodes.h"
+#include "Core/RuntimeConfig.h"
 
 EditorMode::EditorMode() {
     NewLine();
@@ -55,7 +56,9 @@ void EditorMode::NewLine() {
     cursor.activeColumn = cursorPos;
 }
 
-void EditorMode::DrawLines(ScreenBase &screen) {
+void EditorMode::DrawLines() {
+    auto screen = RuntimeConfig::Instance().Screen();
+
     screen.DrawGutter(idxActiveLine);
     screen.SetCursorColumn(cursor.activeColumn);
     screen.DrawLines(Lines(),idxActiveLine);
@@ -67,13 +70,15 @@ void EditorMode::DrawLines(ScreenBase &screen) {
 }
 
 
-void EditorMode::Update(ScreenBase &screen) {
+void EditorMode::Update() {
     auto ch = getch();
     lastChar = ch;
     if (ch == ERR) {
         return;
     }
 
+
+    auto screen = RuntimeConfig::Instance().Screen();
     auto [rows, cols] = screen.Dimensions();
 
     if (DefaultEditLine(currentLine, ch)) {

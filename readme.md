@@ -13,9 +13,9 @@ Goals
   - IMGUI (?) for Portable UI
   - etc...
 
-Noteworthy
-A terminal application can't properly trap the SHIFT key (at least not through ncurses).
-Therefore the terminal backend (NCurses for now) will spawn a special thread very similar
+Noteworthy:
+A terminal application can't properly trap SHIFT + <certain keys> (at least not through ncurses).
+Therefore, the terminal backend (NCurses for now) will spawn a special thread very similar
 to a keylogger. You will have to allow the terminal "Input Monitoring" capabilities in 
 the macOS settings IF you want SHIFT+Arrow keys to work properly.
 

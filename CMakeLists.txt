@@ -1,0 +1,50 @@
+cmake_minimum_required(VERSION 3.22)
+project(editor)
+
+set(CMAKE_CXX_STANDARD 17)
+
+if (APPLE)
+    set(CMAKE_OSX_ARCHITECTURES "x86_64;arm64" CACHE STRING "")
+    set(CMAKE_OSX_SYSROOT /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk)
+
+
+    find_library(COCOA_FRAMEWORK Cocoa)
+    find_library(IOKIT_FRAMEWORK IOKit)
+    find_library(GAMECONTROLLER_FRAMEWORK GameController)
+    find_library(CORE_FOUNDATION CoreFoundation)
+
+    list(APPEND extlibs ncurses)
+endif()
+
+
+list(APPEND editorsrc src/Core/Line.cpp src/Core/Line.h)
+list(APPEND editorsrc src/Core/StrUtil.cpp src/Core/StrUtil.h)
+list(APPEND editorsrc src/Core/ModeBase.cpp src/Core/ModeBase.h)
+list(APPEND editorsrc src/Core/CommandMode.cpp src/Core/CommandMode.cpp)
+list(APPEND editorsrc src/Core/EditorMode.cpp src/Core/EditorMode.cpp)
+
+# TODO: Revisit this - perhaps better somewhere else
+list(APPEND editorsrc src/Core/NCurses/NCursesScreen.cpp src/Core/NCurses/NCursesScreen.h)
+
+list(APPEND appsrc main.cpp)
+
+## THIS IS FOR macOS - homebrew installation...
+set(NCURSES_HOME /opt/homebrew/opt/ncurses)
+
+add_executable(editor ${appsrc} ${editorsrc})
+target_include_directories(editor PUBLIC src)
+
+
+target_include_directories(editor PUBLIC ${NCURSES_HOME}/include)
+target_link_directories(editor  PUBLIC ${NCURSES_HOME}/lib)
+
+list(APPEND libs ncurses)
+
+
+target_link_libraries(editor ${libs})
+
+add_executable(kbdhook tests/kbdhooking.m)
+target_link_libraries(kbdhook ${COCOA_FRAMEWORK} ${IOKIT_FRAMEWORK} ${GAMECONTROLLER_FRAMEWORK} ${CORE_FOUNDATION})
+
+add_executable(gckeys tests/gckeys.m)
+target_link_libraries(gckeys ${COCOA_FRAMEWORK} ${IOKIT_FRAMEWORK} ${GAMECONTROLLER_FRAMEWORK} ${CORE_FOUNDATION})

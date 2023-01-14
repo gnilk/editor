@@ -48,8 +48,8 @@ void CommandMode::NewLine() {
 void CommandMode::DrawLines() {
     auto screen = RuntimeConfig::Instance().Screen();
 
-    screen.SetCursorColumn(cursor.activeColumn);
-    screen.DrawLines(Lines(),0);
+    screen->SetCursorColumn(cursor.activeColumn);
+    screen->DrawLines(Lines(),0);
 }
 void CommandMode::Update() {
     auto ch = getch();

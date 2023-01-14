@@ -95,8 +95,6 @@ void NCursesScreen::DrawGutter(int idxStart) {
 
     auto [top, bottom] = ComputeView(idxStart);
 
-
-
     for(int i=0;i<rows-1;i++) {
         mvprintw(i, 0, "%3d|",i + top);
     }

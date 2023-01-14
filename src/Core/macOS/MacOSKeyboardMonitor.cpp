@@ -365,7 +365,7 @@ void *CaptureThread(void *arg) {
         printf("Failed IOHIDManagerOpen: %d\n", res);
         return NULL;
     }
-    printf("Running!\n");
+    //printf("[MacOSKeyboardMonitor] Driver - Running!\n");
     CFRunLoopRun();
 
     return NULL;

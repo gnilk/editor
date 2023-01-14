@@ -59,14 +59,14 @@ void EditorMode::NewLine() {
 void EditorMode::DrawLines() {
     auto screen = RuntimeConfig::Instance().Screen();
 
-    screen.DrawGutter(idxActiveLine);
-    screen.SetCursorColumn(cursor.activeColumn);
-    screen.DrawLines(Lines(),idxActiveLine);
+    screen->DrawGutter(idxActiveLine);
+    screen->SetCursorColumn(cursor.activeColumn);
+    screen->DrawLines(Lines(),idxActiveLine);
 
     auto indent = currentLine->Indent();
     char tmp[256];
     snprintf(tmp, 256, "Goat Editor v0.1 - lc: %d (%s)- al: %d - ts: %d - ", lastChar, keyname(lastChar), idxActiveLine, indent);
-    screen.DrawStatusBar(tmp);
+    screen->DrawStatusBar(tmp);
 }
 
 
@@ -79,7 +79,7 @@ void EditorMode::Update() {
 
 
     auto screen = RuntimeConfig::Instance().Screen();
-    auto [rows, cols] = screen.Dimensions();
+    auto [rows, cols] = screen->Dimensions();
 
     if (DefaultEditLine(currentLine, ch)) {
         if ((ch > 31) && (ch < 127)) {
@@ -114,7 +114,7 @@ void EditorMode::Update() {
             break;
         case kKey_Return :
             NewLine();
-            screen.InvalidateAll();
+            screen->InvalidateAll();
             break;
     }
 }

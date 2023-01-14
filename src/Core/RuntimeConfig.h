@@ -19,18 +19,18 @@ public:
         screen = &scr;
     }
 
-    KeyboardDriverBase &Keyboard() {
-        return *keyboard;
+    KeyboardDriverBase *Keyboard() {
+        return keyboard;
     }
-    ScreenBase &Screen() {
-        return *screen;
+    ScreenBase *Screen() {
+        return screen;
     }
 
 private:
     RuntimeConfig() = default;
 private:
     KeyboardDriverBase *keyboard = nullptr;
-    ScreenBase *screen;
+    ScreenBase *screen = nullptr;
 
 };
 

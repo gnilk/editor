@@ -99,11 +99,6 @@ int main(int argc, const char **argv) {
     NCursesScreen screen;
     NCursesKeyboardDriver keyBoard;
 
-    // Setup the runtime enviornment
-    RuntimeConfig::Instance().SetScreen(screen);
-    RuntimeConfig::Instance().SetKeyboard(keyBoard);
-
-
     EditorMode editorMode;
     CommandMode commandMode;
 
@@ -133,6 +128,14 @@ int main(int argc, const char **argv) {
         printf("Lines: %d\n", (int)buffer.size());
         editorMode.SetBuffer(buffer);
     }
+
+    if (!keyBoard.Initialize()) {
+        return -1;
+    }
+
+    // Setup the runtime enviornment
+    RuntimeConfig::Instance().SetScreen(screen);
+    RuntimeConfig::Instance().SetKeyboard(keyBoard);
 
     screen.Open();
     screen.Clear();

@@ -7,6 +7,8 @@ if (APPLE)
     set(CMAKE_OSX_ARCHITECTURES "x86_64;arm64" CACHE STRING "")
     set(CMAKE_OSX_SYSROOT /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk)
 
+    list(APPEND editorsrc src/Core/macOS/MacOSKeyboardMonitor.cpp src/Core/macOS/MacOSKeyboardMonitor.h)
+
 
     find_library(COCOA_FRAMEWORK Cocoa)
     find_library(IOKIT_FRAMEWORK IOKit)
@@ -14,6 +16,8 @@ if (APPLE)
     find_library(CORE_FOUNDATION CoreFoundation)
 
     list(APPEND extlibs ncurses)
+    # list(APPEND extlibs ${COCOA_FRAMEWORK} ${IOKIT_FRAMEWORK} ${GAMECONTROLLER_FRAMEWORK} ${CORE_FOUNDATION})
+    list(APPEND extlibs ${IOKIT_FRAMEWORK} ${CORE_FOUNDATION})
 endif()
 
 
@@ -38,10 +42,8 @@ target_include_directories(editor PUBLIC src)
 target_include_directories(editor PUBLIC ${NCURSES_HOME}/include)
 target_link_directories(editor  PUBLIC ${NCURSES_HOME}/lib)
 
-list(APPEND libs ncurses)
 
-
-target_link_libraries(editor ${libs})
+target_link_libraries(editor ${extlibs})
 
 add_executable(kbdhook tests/kbdhooking.m)
 target_link_libraries(kbdhook ${COCOA_FRAMEWORK} ${IOKIT_FRAMEWORK} ${GAMECONTROLLER_FRAMEWORK} ${CORE_FOUNDATION})

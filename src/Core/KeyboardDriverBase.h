@@ -13,8 +13,11 @@ class KeyboardDriverBase {
 public:
     virtual bool Initialize() { return false; };
     virtual KeyPress GetCh();
+    void SetDebugMode(bool enable) {
+        debugMode = enable;
+    }
 protected:
-
+    bool debugMode = false;
 };
 
 #endif //EDITOR_KEYBOARDDRIVERBASE_H

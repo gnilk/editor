@@ -120,7 +120,13 @@ void NCursesScreen::DrawLines(const std::vector<Line *> &lines, int idxActiveLin
             int nCharToPrint = line->Length()>(cols-szGutter)?(cols-szGutter):line->Length();
             move(i, szGutter);
             clrtoeol();
+            if (line->IsSelected()) {
+                attron(A_REVERSE);
+            }
             mvaddnstr(i, szGutter, line->Buffer().data(), nCharToPrint);
+            if (line->IsSelected()) {
+                attroff(A_REVERSE);
+            }
         }
     }
 

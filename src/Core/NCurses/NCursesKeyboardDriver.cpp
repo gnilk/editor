@@ -42,6 +42,7 @@ static std::map<int, int> ncurses_translation_map = {
         {9, kKey_Tab},
         {10, kKey_Return},
         { 27, kKey_Escape},     // ^]
+        {127, kKey_Backspace},  // Certain macOS keyboards
 };
 
 static KeyPress kp = {.data = {.special = kKeyCtrl_None, .code = kKey_Tab}};
@@ -57,11 +58,18 @@ KeyPress NCursesKeyboardDriver::Translate(int ch) {
     }
 
     key.data.special = kbdMonitor.GetSpecialCurrentlyPressed();
+    if (debugMode) printw("raw: %d ", ch);
 
     if ((ch > 31) && (ch < 127)) {
+        if (debugMode) printw("notrans ");
         key.data.code = ch;
     } else if (ncurses_translation_map.find(ch) != ncurses_translation_map.end()) {
+        if (debugMode) {
+            printw("trans: %d ", ncurses_translation_map[ch]);
+        }
         key.data.code = ncurses_translation_map[ch];
+    } else {
+        if(debugMode) printw("not found: %d, %s ", ch, keyname(ch));
     }
 
     // Just set this one for now..

@@ -28,6 +28,7 @@ list(APPEND editorsrc src/Core/CommandMode.cpp src/Core/CommandMode.cpp)
 list(APPEND editorsrc src/Core/EditorMode.cpp src/Core/EditorMode.cpp)
 list(APPEND editorsrc src/Core/KeyboardDriverBase.cpp src/Core/KeyboardDriverBase.h)
 list(APPEND editorsrc src/Core/RuntimeConfig.cpp src/Core/RuntimeConfig.cpp)
+list(APPEND editorsrc src/Core/KeyPress.cpp src/Core/KeyPress.h)
 
 # TODO: Revisit this - perhaps better somewhere else
 list(APPEND editorsrc src/Core/NCurses/NCursesScreen.cpp src/Core/NCurses/NCursesScreen.h)

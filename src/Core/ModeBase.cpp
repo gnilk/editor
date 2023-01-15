@@ -12,12 +12,12 @@
 #include "Core/KeyboardDriverBase.h"
 #include "Core/RuntimeConfig.h"
 
-bool ModeBase::DefaultEditLine(Line *line, KeyPress &ch) {
+bool ModeBase::DefaultEditLine(Line *line, KeyPress &keyPress) {
 
     auto kbd = RuntimeConfig::Instance().Keyboard();
 
-    if (kbd->IsHumanReadable(ch )) {
-        line->Insert(cursor.activeColumn, ch.data.code);
+    if (keyPress.IsHumanReadable()) {
+        line->Insert(cursor.activeColumn, keyPress.data.code);
         cursor.activeColumn++;
         cursor.wantedColumn = cursor.activeColumn;
         return true;
@@ -25,7 +25,7 @@ bool ModeBase::DefaultEditLine(Line *line, KeyPress &ch) {
 
     bool handled = true;
 
-    switch(ch.data.code) {
+    switch(keyPress.data.code) {
         case kKey_ShiftTab :
         {
             auto nChars = line->Unindent();

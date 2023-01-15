@@ -55,16 +55,16 @@ void CommandMode::Update() {
 
     auto kbd = RuntimeConfig::Instance().Keyboard();
 
-    auto ch = kbd->GetCh();
-    if (!kbd->IsValid(ch)) {
+    auto keyPress = kbd->GetCh();
+    if (!keyPress.IsValid()) {
         return;
     }
 
-    if (DefaultEditLine(currentLine, ch)) {
+    if (DefaultEditLine(currentLine, keyPress)) {
         return;
     }
 
-    switch(ch.data.code) {
+    switch(keyPress.data.code) {
         case kKey_Return :
             // Proper handling here!
             // Here we should parse the buffer and map to the command list..

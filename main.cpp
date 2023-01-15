@@ -76,11 +76,11 @@ static void testKeyboard() {
     printw("%s\n",keyname(330));
 
     while(true) {
-        auto key = keyBoard.GetCh();
-        if (!KeyboardDriverBase::IsValid(key)) {
+        auto keyPress = keyBoard.GetCh();
+        if (!keyPress.IsValid()) {
             continue;
         }
-        printw("code: %d, special: %d, raw: %d\n", key.data.code,key.data.special, (int)key.rawCode);
+        printw("code: %d, special: %d, raw: %d\n", keyPress.data.code,keyPress.data.special, (int)keyPress.rawCode);
 
 //        if (KeyboardDriverBase::IsHumanReadable(key)) {
 //            addch(key.data.code);

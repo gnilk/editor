@@ -74,11 +74,11 @@ void EditorMode::Update() {
 
     auto kbd = RuntimeConfig::Instance().Keyboard();
 
-    auto ch = kbd->GetCh();
+    auto keyPress = kbd->GetCh();
 
     //auto ch = getch();
-    lastChar = ch;
-    if (!kbd->IsValid(ch)) {
+    lastChar = keyPress;
+    if (!keyPress.IsValid()) {
         return;
     }
 
@@ -86,8 +86,8 @@ void EditorMode::Update() {
     auto screen = RuntimeConfig::Instance().Screen();
     auto [rows, cols] = screen->Dimensions();
 
-    if (DefaultEditLine(currentLine, ch)) {
-        if (kbd->IsHumanReadable(ch)) {
+    if (DefaultEditLine(currentLine, keyPress)) {
+        if (keyPress.IsHumanReadable()) {
             // TODO: Check language features here
             // Like:
             //  if '}' was entered as first char on a line - unindent it
@@ -96,7 +96,7 @@ void EditorMode::Update() {
         return;
     }
 
-    switch (ch.data.code) {
+    switch (keyPress.data.code) {
         case kKey_Down :
             OnNavigateDown(1);
             cursor.activeColumn = cursor.wantedColumn;

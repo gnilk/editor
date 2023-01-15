@@ -2,10 +2,11 @@
 // Created by gnilk on 14.01.23.
 //
 
-// TMP
+// tmp
 #include <ncurses.h>
-// END-TMP
+// end-tmp
 
+#include <utility>
 #include "Core/Line.h"
 #include "Core/EditorMode.h"
 #include "Core/KeyCodes.h"
@@ -59,13 +60,35 @@ void EditorMode::NewLine() {
 void EditorMode::DrawLines() {
     auto screen = RuntimeConfig::Instance().Screen();
 
+    if (bSelectionActive) {
+
+        // FIXME: We don't want to clear all, once we have a proper selection structure we should
+        //        keep delta and clear only what is needed
+        for(auto &line : lines) {
+            line->SetSelected(false);
+        }
+        screen->InvalidateAll();
+
+
+        int idxStart = idxSelectionStartLine;
+        int idxEnd = idxSelectionEndLine;
+        if (idxStart > idxEnd) {
+            std::swap(idxStart, idxEnd);
+        }
+        for(int i=idxStart;i<idxEnd;i++) {
+            lines[i]->SetSelected(true);
+        }
+    }
+
+
     screen->DrawGutter(idxActiveLine);
     screen->SetCursorColumn(cursor.activeColumn);
     screen->DrawLines(Lines(),idxActiveLine);
 
     auto indent = currentLine->Indent();
     char tmp[256];
-    snprintf(tmp, 256, "Goat Editor v0.1 - lc: %d (%s)- al: %d - ts: %d - ", (int)lastChar.rawCode, keyname((int)lastChar.rawCode), idxActiveLine, indent);
+    snprintf(tmp, 256, "Goat Editor v0.1 - lc: %d (%s)- al: %d - ts: %d - s: %s (%d - %d)",
+             (int)lastChar.data.code, keyname((int)lastChar.rawCode), idxActiveLine, indent, bSelectionActive?"y":"n", idxSelectionStartLine, idxSelectionEndLine);
     screen->DrawStatusBar(tmp);
 }
 
@@ -98,17 +121,36 @@ void EditorMode::Update() {
 
     switch (keyPress.data.code) {
         case kKey_Down :
+            if (keyPress.IsShiftPressed()) {
+                if (bSelectionActive == false) {
+                    idxSelectionStartLine = idxActiveLine;
+                }
+                bSelectionActive = true;
+            }
             OnNavigateDown(1);
             cursor.activeColumn = cursor.wantedColumn;
             if (cursor.activeColumn > currentLine->Length()) {
                 cursor.activeColumn = currentLine->Length();
             }
+            if (bSelectionActive) {
+                idxSelectionEndLine = idxActiveLine;
+            }
             break;
         case kKey_Up :
+            if (keyPress.IsShiftPressed()) {
+                if (bSelectionActive == false) {
+                    idxSelectionStartLine = idxActiveLine;
+                }
+                bSelectionActive = true;
+
+            }
             OnNavigateUp(1);
             cursor.activeColumn = cursor.wantedColumn;
             if (cursor.activeColumn > currentLine->Length()) {
                 cursor.activeColumn = currentLine->Length();
+            }
+            if (bSelectionActive) {
+                idxSelectionEndLine = idxActiveLine;
             }
             break;
         case kKey_PageUp :

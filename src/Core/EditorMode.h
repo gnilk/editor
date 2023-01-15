@@ -32,6 +32,11 @@ private:
         Line *currentLine = nullptr;
 //    std::vector<Line *>::iterator it;
         Buffer lines;
+
+        // Selection stuff
+        bool bSelectionActive = false;
+        int idxSelectionStartLine;
+        int idxSelectionEndLine;
 };
 
 #endif //EDITOR_EDITORMODE_H

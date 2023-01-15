@@ -31,12 +31,20 @@ class Line {
         int Indent() { return indent; }
         int ComputeIndent();
 
+        void SetSelected(bool bSelected) {
+            selected = bSelected;
+        }
+        bool IsSelected() {
+            return selected;
+        }
+
         const size_t Length() const { return buffer.size(); }
         const std::string_view Buffer() const { return buffer.c_str(); }
         private:
         std::string buffer = "";
         bool active = false;
         int indent = 0;
+        bool selected = false;
 };
 
 typedef std::vector<Line *> Buffer;

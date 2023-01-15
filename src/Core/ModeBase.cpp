@@ -14,8 +14,6 @@
 
 bool ModeBase::DefaultEditLine(Line *line, KeyPress &keyPress) {
 
-    auto kbd = RuntimeConfig::Instance().Keyboard();
-
     if (keyPress.IsHumanReadable()) {
         line->Insert(cursor.activeColumn, keyPress.data.code);
         cursor.activeColumn++;

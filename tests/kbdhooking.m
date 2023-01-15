@@ -231,12 +231,7 @@ void myHIDKeyboardCallback( void* context,  IOReturn result,  void* sender,  IOH
 
     printf("scancode: %d, pressed: %ld, keyboardId=%d\n", scancode, pressed, pid);
 
-//    if (pressed == 1)
-//    {
-//        printf("%s\n", keyboard_map(scancode));
-//        write_to_file(keyboard_map(scancode));
-//
-//    }
+    // TODO: Update ctrl-table here
 }
 
 
@@ -284,8 +279,6 @@ void *CaptureThread(void *arg) {
         return NULL;
     }
 
-
-
     CFMutableArrayRef matches = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
     {
         CFMutableDictionaryRef keyboard = myCreateDeviceMatchingDictionary( kHIDPage_GenericDesktop, kHIDUsage_GD_Keyboard ); //usage page: 0x01, usage: 0x06
@@ -293,23 +286,11 @@ void *CaptureThread(void *arg) {
 
         CFArrayAppendValue(matches, keyboard);
         CFArrayAppendValue(matches, keypad);
-
-//        CFMutableDictionaryRef matchesList[] = { keyboard, keypad };
-//
-//        matches = CFArrayCreate( kCFAllocatorDefault, (const void **)matchesList, 2, NULL );
-
-        //todo:
-        //need to add kHIDPage_KeyboardOrKeypad    = 0x07
     }
 
-
-
     IOHIDManagerSetDeviceMatchingMultiple( hidManager, matches );
-
     IOHIDManagerRegisterInputValueCallback( hidManager, myHIDKeyboardCallback, NULL );
-
     IOHIDManagerScheduleWithRunLoop( hidManager, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode );
-
     IOReturn res = IOHIDManagerOpen( hidManager, kIOHIDOptionsTypeNone );
     if (res != kIOReturnSuccess) {
         printf("Failed IOHIDManagerOpen: %d\n", res);

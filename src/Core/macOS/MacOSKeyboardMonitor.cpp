@@ -8,6 +8,8 @@
 
 #include <map>
 
+#include <ncurses.h>
+
 #include "Core/KeyCodes.h"
 #include "MacOSKeyboardMonitor.h"
 static void *CaptureThread(void *arg);
@@ -282,8 +284,9 @@ void myHIDKeyboardCallback( void* context,  IOReturn result,  void* sender,  IOH
     MacOSKeyboardMonitor *kbdMonitor = (MacOSKeyboardMonitor *)context;
 
     IOHIDElementRef elem = IOHIDValueGetElement(value);
-    if (IOHIDElementGetUsagePage(elem) != 0x07)
+    if (IOHIDElementGetUsagePage(elem) != 0x07) {
         return;
+    }
 
     IOHIDDeviceRef device = static_cast<IOHIDDeviceRef>(sender);
 
@@ -292,11 +295,16 @@ void myHIDKeyboardCallback( void* context,  IOReturn result,  void* sender,  IOH
     CFNumberGetValue((CFNumberRef)IOHIDDeviceGetProperty(device, CFSTR(kIOHIDProductIDKey)), kCFNumberSInt32Type, &pid);
 
     uint32_t scancode = IOHIDElementGetUsage(elem);
-
-    if (scancode < 4 || scancode > 231)
+    if (scancode < 4 || scancode > 231) {
+        // See: kHIDUsage_GD_X
+        // long pressed = IOHIDValueGetIntegerValue(value);
+        // printw("scdiscard: %d, pressed: %d, pid: %d\n", scancode, (int)pressed, (int)pid);
         return;
+    }
 
     long pressed = IOHIDValueGetIntegerValue(value);
+
+    //printw("nodicsc: %d, pressed: %d\n", scancode, (int)pressed);
 
     kbdMonitor->OnKeyEvent(scancode, pressed, pid);
 

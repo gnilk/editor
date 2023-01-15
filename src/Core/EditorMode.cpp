@@ -56,22 +56,25 @@ void EditorMode::NewLine() {
 
     cursor.activeColumn = cursorPos;
 }
+void EditorMode::ClearSelectedLines() {
+    // FIXME: We don't want to clear all, once we have a proper selection structure we should
+    //        keep delta and clear only what is needed
+    for(auto &line : lines) {
+        line->SetSelected(false);
+    }
+}
+
 
 void EditorMode::DrawLines() {
     auto screen = RuntimeConfig::Instance().Screen();
 
-    if (bSelectionActive) {
+    if (selection.IsActive()) {
 
-        // FIXME: We don't want to clear all, once we have a proper selection structure we should
-        //        keep delta and clear only what is needed
-        for(auto &line : lines) {
-            line->SetSelected(false);
-        }
+        ClearSelectedLines();
         screen->InvalidateAll();
 
-
-        int idxStart = idxSelectionStartLine;
-        int idxEnd = idxSelectionEndLine;
+        int idxStart = selection.idxStartLine;
+        int idxEnd = selection.idxEndLine;
         if (idxStart > idxEnd) {
             std::swap(idxStart, idxEnd);
         }
@@ -88,13 +91,14 @@ void EditorMode::DrawLines() {
     auto indent = currentLine->Indent();
     char tmp[256];
     snprintf(tmp, 256, "Goat Editor v0.1 - lc: %d (%s)- al: %d - ts: %d - s: %s (%d - %d)",
-             (int)lastChar.data.code, keyname((int)lastChar.rawCode), idxActiveLine, indent, bSelectionActive?"y":"n", idxSelectionStartLine, idxSelectionEndLine);
+             (int)lastChar.data.code, keyname((int)lastChar.rawCode), idxActiveLine, indent,
+             selection.IsActive()?"y":"n", selection.idxStartLine, selection.idxEndLine);
     screen->DrawStatusBar(tmp);
 }
 
 
-void EditorMode::Update() {
 
+void EditorMode::Update() {
     auto kbd = RuntimeConfig::Instance().Keyboard();
 
     auto keyPress = kbd->GetCh();
@@ -104,10 +108,6 @@ void EditorMode::Update() {
     if (!keyPress.IsValid()) {
         return;
     }
-
-
-    auto screen = RuntimeConfig::Instance().Screen();
-    auto [rows, cols] = screen->Dimensions();
 
     if (DefaultEditLine(currentLine, keyPress)) {
         if (keyPress.IsHumanReadable()) {
@@ -119,38 +119,38 @@ void EditorMode::Update() {
         return;
     }
 
+    // Update any navigation related, including selection handling (as it relates to navigation)
+    if (UpdateNavigation(keyPress, keyPress.IsShiftPressed())) {
+        return;
+    }
+    // Do other things here...
+}
+
+//
+// Returns true if the keypress was handled
+//
+bool EditorMode::UpdateNavigation(KeyPress &keyPress, bool isShiftPressed) {
+
+    auto screen = RuntimeConfig::Instance().Screen();
+    auto [rows, cols] = screen->Dimensions();
+
+    // save current line - as it will update with navigation
+    // we need it when we update the selection status...
+    auto idxLineBeforeNavigation = idxActiveLine;
+
     switch (keyPress.data.code) {
         case kKey_Down :
-            if (keyPress.IsShiftPressed()) {
-                if (bSelectionActive == false) {
-                    idxSelectionStartLine = idxActiveLine;
-                }
-                bSelectionActive = true;
-            }
             OnNavigateDown(1);
             cursor.activeColumn = cursor.wantedColumn;
             if (cursor.activeColumn > currentLine->Length()) {
                 cursor.activeColumn = currentLine->Length();
             }
-            if (bSelectionActive) {
-                idxSelectionEndLine = idxActiveLine;
-            }
             break;
         case kKey_Up :
-            if (keyPress.IsShiftPressed()) {
-                if (bSelectionActive == false) {
-                    idxSelectionStartLine = idxActiveLine;
-                }
-                bSelectionActive = true;
-
-            }
             OnNavigateUp(1);
             cursor.activeColumn = cursor.wantedColumn;
             if (cursor.activeColumn > currentLine->Length()) {
                 cursor.activeColumn = currentLine->Length();
-            }
-            if (bSelectionActive) {
-                idxSelectionEndLine = idxActiveLine;
             }
             break;
         case kKey_PageUp :
@@ -163,7 +163,25 @@ void EditorMode::Update() {
             NewLine();
             screen->InvalidateAll();
             break;
+        default:
+            // Not navigation
+            return false;
     }
+
+    // Do selection handling
+    if (isShiftPressed) {
+        if (!selection.IsActive()) {
+            selection.Begin(idxLineBeforeNavigation);
+        }
+        selection.Continue(idxActiveLine);
+    } else if (selection.IsActive()) {
+        selection.SetActive(false);
+        ClearSelectedLines();
+        screen->InvalidateAll();
+    }
+
+    return true;
+
 }
 void EditorMode::OnNavigateDown(int rows) {
     currentLine->SetActive(false);

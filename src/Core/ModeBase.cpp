@@ -80,5 +80,5 @@ bool ModeBase::DefaultEditLine(Line *line, KeyPress &keyPress) {
             handled = false;
             break;
     }
-    return false;
+    return handled;
 }

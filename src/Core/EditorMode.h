@@ -9,6 +9,40 @@
 #include "Core/ModeBase.h"
 #include "Core/KeyboardDriverBase.h"
 
+struct Selection {
+
+    bool IsActive() {
+        return active;
+    }
+    void SetActive(bool bActive) {
+        active = bActive;
+    }
+
+    void Begin(int startLine, int startColumn = 0) {
+        active = true;
+
+        idxStartLine = startLine;
+        idxStartColumn = startColumn;
+
+        idxEndLine = startLine;
+        idxEndColumn = startColumn;
+    }
+
+    void Continue(int newEndLine, int newEndColumn = 0) {
+        if (!active) {
+            return;
+        }
+        idxEndLine = newEndLine;
+        idxEndColumn = newEndColumn;
+    }
+
+    bool active = false;
+    int idxStartLine = 0;
+    int idxStartColumn = 0;
+    int idxEndLine = 0;
+    int idxEndColumn = 0;
+};
+
 class EditorMode : public ModeBase {
 public:
         EditorMode();
@@ -25,6 +59,8 @@ public:
 
         const std::vector<Line *> &Lines() const override { return lines; }
 protected:
+        bool UpdateNavigation(KeyPress &keyPress, bool isShiftPressed);
+        void ClearSelectedLines();
         void NewLine();
 private:
         KeyPress lastChar {};
@@ -34,9 +70,8 @@ private:
         Buffer lines;
 
         // Selection stuff
-        bool bSelectionActive = false;
-        int idxSelectionStartLine;
-        int idxSelectionEndLine;
+        struct Selection selection;
+        bool bClearSelectionNextUpdate = false;
 };
 
 #endif //EDITOR_EDITORMODE_H

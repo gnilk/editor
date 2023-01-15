@@ -9,7 +9,7 @@ bool KeyPress::IsValid() {
     return (editorkey != kKey_NoKey_InQueue);
 }
 
-bool KeyPress::IsShift() {
+bool KeyPress::IsShiftPressed() {
     return ((data.special & kKeyCtrl_LeftShift) | (data.special & kKeyCtrl_RightShift));
 }
 

@@ -20,7 +20,7 @@ struct KeyPress {
     int64_t rawCode;
 
     bool IsValid();
-    bool IsShift();
+    bool IsShiftPressed();
     bool IsHumanReadable();
 };
 

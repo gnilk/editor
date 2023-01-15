@@ -68,6 +68,8 @@ static void testKeyboard() {
         exit(1);
     }
 
+    keyBoard.SetDebugMode(true);
+
     initscr();
     keypad(stdscr, TRUE);
     noecho();
@@ -94,7 +96,8 @@ static void testKeyboard() {
 }
 
 int main(int argc, const char **argv) {
-
+//    testKeyboard();
+//    exit(1);
     bool bQuit = false;
     NCursesScreen screen;
     NCursesKeyboardDriver keyBoard;

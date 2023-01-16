@@ -111,13 +111,16 @@ int main(int argc, const char **argv) {
     editorMode.SetOnExitApp([&bQuit]() { bQuit = true; });
 
     commandMode.SetOnExitMode([&screen, &currentMode, &editorMode]() {
+        currentMode->OnSwitchMode(false);
         currentMode = &editorMode;
         screen.Clear();
+        currentMode->OnSwitchMode(true);
     });
 
     editorMode.SetOnExitMode([&screen, &currentMode, &commandMode]() {
+        currentMode->OnSwitchMode(false);
         currentMode = &commandMode;
-        screen.Clear();
+        currentMode->OnSwitchMode(true);
     });
 
     if (argc > 1) {

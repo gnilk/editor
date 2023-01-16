@@ -38,7 +38,7 @@ CGEventRef _tapCallback(
         NSLog(@"Initializing an event tap.");
 
         // kCGHeadInsertEventTap -- new event tap should be inserted before any pre-existing event taps at the same location,
-        _eventTap = CGEventTapCreate( kCGAnnotatedSessionEventTap,   //kCGHIDEventTap, kCGSessionEventTap
+        _eventTap = CGEventTapCreate( kCGSessionEventTap,   //kCGHIDEventTap, kCGSessionEventTap, kCGAnnotatedSessionEventTap
                                       kCGHeadInsertEventTap,
                                       kCGEventTapOptionDefault,
                                       CGEventMaskBit( kCGEventKeyDown )
@@ -119,7 +119,7 @@ CGEventRef _tapCallback(
     }
 
     // Retruning NIL will explicitly prohibt any key-strokes in the system...
-    //return nil;
+    return nil;
     if (
             event.keyCode == kVK_PageUp
             && modifiers == NSEventModifierFlagShift

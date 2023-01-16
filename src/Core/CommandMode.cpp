@@ -30,8 +30,21 @@
 #include "Core/KeyCodes.h"
 #include "Core/RuntimeConfig.h"
 CommandMode::CommandMode() {
+    for(int i=0;i<50;i++) {
+        NewLine();
+        char tmp[64];
+        snprintf(tmp, 64, "this is line %d", i);
+        currentLine->Append(tmp);
+    }
     NewLine();
 }
+
+void CommandMode::OnSwitchMode(bool enter) {
+    if (enter) {
+        scrollOnNextUpdate = true;
+    }
+}
+
 
 void CommandMode::NewLine() {
     if (currentLine != nullptr) {
@@ -47,13 +60,40 @@ void CommandMode::NewLine() {
 
 void CommandMode::DrawLines() {
     auto screen = RuntimeConfig::Instance().Screen();
+    auto [rows, cols] = screen->Dimensions();
+
+    // When changing modes it is nice to contain some part of the editor screen
+    // So we don't swap out the full editor but rather contain at least half
+    if (scrollOnNextUpdate) {
+        int nLinesToScroll = historyBuffer.size();
+        // Cut off at half of the rows of the screen...
+        if (historyBuffer.size() > rows/2) {
+            nLinesToScroll = rows/2;
+        }
+        screen->Scroll(nLinesToScroll);
+        scrollOnNextUpdate = false;
+    }
 
     screen->SetCursorColumn(cursor.activeColumn);
-    screen->DrawLines(Lines(),0);
+
+    // Print backwards, but only show part of our history buffer...
+    int nHistoryLines = historyBuffer.size();
+    if (nHistoryLines > rows/2) {
+        nHistoryLines = rows/2;
+    }
+    for(int i=0;i<nHistoryLines;i++) {
+        screen->DrawLineAt(rows-i-1, historyBuffer[historyBuffer.size() - i - 1]);
+    }
+    screen->DrawLineAt(rows -1, currentLine);
 }
+//
+// Update data - this is called before draw
+// We process input here!
+//
 void CommandMode::Update() {
 
     auto kbd = RuntimeConfig::Instance().Keyboard();
+    auto screen = RuntimeConfig::Instance().Screen();
 
     auto keyPress = kbd->GetCh();
     if (!keyPress.IsValid()) {
@@ -82,6 +122,7 @@ void CommandMode::Update() {
                 return;
             }
             NewLine();
+            screen->Scroll(1);
             // Execute..
             break;
         case kKey_Escape :
@@ -89,6 +130,9 @@ void CommandMode::Update() {
             if (onExitMode != nullptr) {
                 onExitMode();
             }
+            break;
+        case kKey_Down :
+            scroll(stdscr);
             break;
     }
 }

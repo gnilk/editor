@@ -15,9 +15,12 @@ public:
     void Update() override;
     void DrawLines() override;
     const std::vector<Line *> &Lines() const override { return historyBuffer; }
+    void OnSwitchMode(bool enter) override;
+
 protected:
     void NewLine();
 private:
+    bool scrollOnNextUpdate = false;
     Line *currentLine = nullptr;
     std::vector<Line *> historyBuffer;
 };

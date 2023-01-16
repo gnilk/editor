@@ -67,7 +67,7 @@ static std::map<uint32_t, kStdControlKeys> scancodemap = {
 };
 
 void MacOSKeyboardMonitor::OnKeyEvent(uint32_t scancode, long pressed, int32_t pid) {
-    // printf("scancode: %d, pressed: %ld, keyboardId=%d\n", scancode, pressed, pid);
+    //printw("scancode: %d, pressed: %ld, keyboardId=%d\n", scancode, pressed, pid);
     // kStdControlKeys ctrlKey = kKeyCtrl_None;
     if (scancodemap.find(scancode) != scancodemap.end()) {
         keyPressStatus[scancodemap[scancode]] = pressed?true:false;

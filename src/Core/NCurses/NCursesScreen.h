@@ -21,8 +21,10 @@ public:
     // Make these virtual and part of base class
     void DrawGutter(int idxStart) override;
     void DrawLines(const std::vector<Line *> &lines, int idxActiveLine) override;
+    void DrawLineAt(int row, const Line *line) override;
     void DrawStatusBar(const char *str) override;
     std::pair<int, int> Dimensions() override;
+    void Scroll(int nLines) override;
 protected:
     std::pair<int, int> ComputeView(int idxActiveLine);
 private:

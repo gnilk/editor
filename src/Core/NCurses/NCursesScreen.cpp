@@ -21,6 +21,7 @@ bool NCursesScreen::Open() {
     clear();
     //raw();
     keypad(stdscr, TRUE);
+    scrollok(stdscr, TRUE);
     noecho();
     cbreak();
     //nonl();
@@ -101,6 +102,14 @@ void NCursesScreen::DrawGutter(int idxStart) {
     szGutter = 4;
 }
 
+void NCursesScreen::DrawLineAt(int row, const Line *line) {
+    auto [rows, cols] = Dimensions();
+    move(row, szGutter);
+    clrtoeol();
+    int nCharToPrint = line->Length()>(cols-szGutter)?(cols-szGutter):line->Length();
+    mvaddnstr(row, szGutter, line->Buffer().data(), nCharToPrint);
+}
+
 void NCursesScreen::DrawLines(const std::vector<Line *> &lines, int idxActiveLine) {
     auto [rows, cols] = Dimensions();
     int idxRowActive = 0;
@@ -160,3 +169,8 @@ std::pair<int, int> NCursesScreen::Dimensions() {
     return std::make_pair(row, col);
 }
 
+void NCursesScreen::Scroll(int nLines) {
+    for(int i=0;i<nLines;i++) {
+        scroll(stdscr);
+    }
+}

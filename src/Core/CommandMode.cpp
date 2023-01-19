@@ -1,7 +1,10 @@
 //
 // Created by gnilk on 14.01.23.
 //
-
+// TODO:
+// ! Replace Process.cpp with: https://dev.to/aggsol/calling-shell-commands-from-c-8ej
+// - Create a shell thread directly, use stdin to feed it
+//    i.e. if argument is a shell cmd pass it directly to the running shell thread
 // TMP
 #include <ncurses.h>
 
@@ -29,6 +32,15 @@
 #include "Core/Line.h"
 #include "Core/KeyCodes.h"
 #include "Core/RuntimeConfig.h"
+#include "Core/StrUtil.h"
+#include "Core/unix/ShellCommand.h"
+#include <pthread.h>
+#include <thread>
+#include <sstream>
+
+
+static ShellCommand shCommand;
+
 CommandMode::CommandMode() {
     for(int i=0;i<50;i++) {
         NewLine();
@@ -46,12 +58,15 @@ void CommandMode::OnSwitchMode(bool enter) {
 }
 
 
-void CommandMode::NewLine() {
+void CommandMode::NewLine(bool addCmdMarker) {
     if (currentLine != nullptr) {
         currentLine->SetActive(false);
     }
     currentLine = new Line();
-    currentLine->Append('>');
+    if (addCmdMarker) {
+        // FIXME: Allow this to be configureable
+        currentLine->Append('>');
+    }
     cursor.activeColumn = 1;
     currentLine->SetActive(true);
     historyBuffer.push_back(currentLine);
@@ -95,6 +110,18 @@ void CommandMode::Update() {
     auto kbd = RuntimeConfig::Instance().Keyboard();
     auto screen = RuntimeConfig::Instance().Screen();
 
+    // FIXME: Splt in two depending on state
+    // Don't accept input if we are executing shell command
+    if (state == kState::kExecuteShell) {
+        if (shCommand.IsDone()) {
+            state = kState::kIdle;
+            NewLine();
+            screen->Scroll(1);
+
+        }
+        return;
+    }
+
     auto keyPress = kbd->GetCh();
     if (!keyPress.IsValid()) {
         return;
@@ -116,14 +143,21 @@ void CommandMode::Update() {
             //  'make' run make
             //  'cd' change current working directory
             // .....
-
+        {
+            // FIXME: Refactor into several functions!!
             if ((currentLine->Buffer() == ">quit") || (currentLine->Buffer() == ">.q")) {
                 onExitApp();
                 return;
+            } else {
+                // Just push this to the shell "process"...
+                if (currentLine->Length() > 1) {
+                    std::string argBuffer(&currentLine->Buffer().at(1));
+                    ExecuteShellCmd(argBuffer);
+                }
             }
             NewLine();
             screen->Scroll(1);
-            // Execute..
+        }
             break;
         case kKey_Escape :
             // toogle into terminal mode...
@@ -135,4 +169,37 @@ void CommandMode::Update() {
             scroll(stdscr);
             break;
     }
+}
+
+bool CommandMode::ExecuteShellCmd(std::string &cmdBuffer) {
+    shCommand.SetStdoutDelegate([this](std::string &str) {
+        //printf("l: %s\n", str.c_str());
+        auto screen = RuntimeConfig::Instance().Screen();
+        strutil::trim(str);
+        currentLine->Append(str.c_str());
+        if (screen != nullptr) {
+            screen->Scroll(1);
+        }
+        NewLine(false);
+    });
+    state = kExecuteShell;
+    shCommand.Execute(cmdBuffer);
+    return true;
+}
+
+void CommandMode::TestExecuteShellCmd() {
+    CommandMode mode;
+    // this works, but need context..
+    std::string argv = {"cd ..;pwd"};
+    printf("1\n");
+    shCommand.SetStdoutDelegate([](std::string &str) {
+        printf("%s\n",str.c_str());
+    });
+
+    shCommand.Execute(argv);
+    while(!shCommand.IsDone()) {
+        std::this_thread::yield();
+    }
+    printf("Err: %s\n", shCommand.StdErr.c_str());
+    printf("Complete\n");
 }

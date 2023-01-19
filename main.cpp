@@ -98,6 +98,10 @@ static void testKeyboard() {
 int main(int argc, const char **argv) {
 //    testKeyboard();
 //    exit(1);
+
+    CommandMode::TestExecuteShellCmd();
+    exit(1);
+
     bool bQuit = false;
     NCursesScreen screen;
     NCursesKeyboardDriver keyBoard;

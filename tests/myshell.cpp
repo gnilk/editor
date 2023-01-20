@@ -22,7 +22,7 @@ public:
     std::string     StdErr;
 
 
-
+    void SendCmd(std::string &cmd);
     void Execute();
     void ConsumePipes();
     void CleanUp();
@@ -42,6 +42,12 @@ private:
     int errfd[2] = {0, 0};
 };
 
+void Command::SendCmd(std::string &cmd) {
+    int res = write(infd[WRITE_END], cmd.c_str(), cmd.size());
+
+    printf("Sent: %d\n", res);
+}
+
 void Command::ConsumePipes() {
     // PARENT
     if(pid < 0)
@@ -50,25 +56,32 @@ void Command::ConsumePipes() {
         throw std::runtime_error("Failed to fork");
     }
 
-    int status = 0;
-    ::waitpid(pid, &status, 0);
+    printf("Consuming pipes\n");
+
+    // FIXME: Should be with select..
 
     std::array<char, 256> buffer;
 
     char *res;
     auto fd = fdopen(outfd[READ_END],"r");
     ssize_t bytes = 0;
-    do
-    {
-        //bytes = ::read(outfd[READ_END], buffer.data(), buffer.size());
-        res = fgets(buffer.data(), buffer.size(), fd);
-        if (onStdout != nullptr) {
-            std::string str(buffer.data());
-            onStdout(str);
-        }
-        StdOut.append(buffer.data());
+    while(true) {
+        do {
+            //bytes = ::read(outfd[READ_END], buffer.data(), buffer.size());
+            res = fgets(buffer.data(), buffer.size(), fd);
+            if (res != nullptr) {
+                printf("got: %s\n", res);
+                if (onStdout != nullptr) {
+//                    std::string str(buffer.data());
+//                    onStdout(str);
+                }
+//                StdOut.append(buffer.data());
+            }
+        } while (res != nullptr);
     }
-    while(res != nullptr);
+
+    int status = 0;
+    ::waitpid(pid, &status, 0);
 
     do
     {
@@ -84,19 +97,8 @@ void Command::ConsumePipes() {
 
     CleanUp();
 }
+
 void Command::Execute() {
-
-
-    auto cleanup = [&]() {
-        ::close(infd[READ_END]);
-        ::close(infd[WRITE_END]);
-
-        ::close(outfd[READ_END]);
-        ::close(outfd[WRITE_END]);
-
-        ::close(errfd[READ_END]);
-        ::close(errfd[WRITE_END]);
-    };
 
     auto rc = ::pipe(infd);
     if(rc < 0)
@@ -134,7 +136,6 @@ void Command::Execute() {
         {
             throw std::runtime_error(std::strerror(errno));
         }
-        ::close(infd[WRITE_END]); // Done writing
     }
     else if(pid == 0) // CHILD
     {
@@ -146,7 +147,8 @@ void Command::Execute() {
         ::close(outfd[READ_END]);   // Child does not read from stdout
         ::close(errfd[READ_END]);   // Child does not read from stderr
 
-        ::execl("/bin/zsh", "zsh", "-lc", Command.c_str(), nullptr);
+        ::execl("/bin/zsh", "/bin/zsh" "-is", nullptr, nullptr);
+        printf("execl-done\n");
         ::exit(EXIT_SUCCESS);
     }
     done = false;
@@ -176,17 +178,13 @@ int main(int argc, char **argv) {
         printf("%d: %s\n", lc, str.c_str());
         lc++;
     });
+    char buffer[256];
     cmd.Execute();
     while(!cmd.IsDone()) {
+        if (fgets(buffer, 256, stdin) != nullptr) {
+            std::string cmdString(buffer);
+            cmd.SendCmd(cmdString);
+        }
         std::this_thread::yield();
     }
- //   printf("output: %s\n", cmd.StdOut.c_str());
-
-//    cmd.Command = "make";
-//    cmd.Execute();
-//    while(!cmd.IsDone()) {
-//        std::this_thread::yield();
-//    }
-//    printf("output: %s\n", cmd.StdOut.c_str());
-
 }

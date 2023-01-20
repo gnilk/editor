@@ -8,7 +8,7 @@ if (APPLE)
     set(CMAKE_OSX_SYSROOT /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk)
 
     list(APPEND editorsrc src/Core/macOS/MacOSKeyboardMonitor.cpp src/Core/macOS/MacOSKeyboardMonitor.h)
-    list(APPEND editorsrc src/Core/unix/ShellCommand.cpp src/Core/unix/ShellCommand.h)
+    list(APPEND editorsrc src/Core/unix/Shell.cpp src/Core/unix/Shell.h)
 
     find_library(COCOA_FRAMEWORK Cocoa)
     find_library(IOKIT_FRAMEWORK IOKit)
@@ -57,3 +57,6 @@ target_link_libraries(gckeys ${COCOA_FRAMEWORK} ${IOKIT_FRAMEWORK} ${GAMECONTROL
 
 add_executable(myshell tests/myshell.cpp)
 target_link_libraries(myshell ${COCOA_FRAMEWORK} ${IOKIT_FRAMEWORK} ${GAMECONTROLLER_FRAMEWORK} ${CORE_FOUNDATION})
+
+add_executable(myshell2 tests/myshell2.cpp src/Core/unix/Shell.cpp src/Core/StrUtil.cpp)
+target_include_directories(myshell2 PUBLIC src/)

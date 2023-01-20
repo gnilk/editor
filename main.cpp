@@ -99,8 +99,8 @@ int main(int argc, const char **argv) {
 //    testKeyboard();
 //    exit(1);
 
-    CommandMode::TestExecuteShellCmd();
-    exit(1);
+//    CommandMode::TestExecuteShellCmd();
+//    exit(1);
 
     bool bQuit = false;
     NCursesScreen screen;
@@ -108,6 +108,12 @@ int main(int argc, const char **argv) {
 
     EditorMode editorMode;
     CommandMode commandMode;
+
+    // Doesn't work with NCurses - probably messing up the TTY
+    // We should try using 'forkpty'
+    // Must be done early..
+    commandMode.Begin();
+
 
     ModeBase *currentMode = &editorMode;
 
@@ -146,6 +152,7 @@ int main(int argc, const char **argv) {
     // Setup the runtime enviornment
     RuntimeConfig::Instance().SetScreen(screen);
     RuntimeConfig::Instance().SetKeyboard(keyBoard);
+
 
     screen.Open();
     screen.Clear();

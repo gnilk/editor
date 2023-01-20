@@ -2,8 +2,9 @@
 // Created by gnilk on 19.01.23.
 //
 
-#ifndef EDITOR_SHELLCOMMAND_H
-#define EDITOR_SHELLCOMMAND_H
+#ifndef EDITOR_SHELL_H
+#define EDITOR_SHELL_H
+
 
 #include <vector>
 #include <string>
@@ -14,22 +15,16 @@
 #include <unistd.h>
 
 
-class ShellCommand {
+class Shell {
 public:
     using OutputDelegate = std::function<void(std::string &)>;
-    public:
-    int             ExitStatus = 0;
-    std::string     Command;
-    std::string     StdIn;
-    std::string     StdOut;
-    std::string     StdErr;
+public:
+    bool Begin();
+    void Close();
+    int SendCmd(std::string &cmd);
 
-
-
-    void Execute(std::string &cmdString);
     void ConsumePipes();
     void CleanUp();
-    bool IsDone() { return done; }
     void SetStdoutDelegate(OutputDelegate handler) {
         onStdout = handler;
     }
@@ -37,8 +32,10 @@ public:
 private:
     const int READ_END = 0;
     const int WRITE_END = 1;
+
+    int exitStatus = 0;
+
     OutputDelegate onStdout = nullptr;
-    bool done = false;
     pid_t pid;
     int infd[2] = {0, 0};
     int outfd[2] = {0, 0};
@@ -46,5 +43,4 @@ private:
 };
 
 
-
-#endif //EDITOR_SHELLCOMMAND_H
+#endif //EDITOR_SHELL_H

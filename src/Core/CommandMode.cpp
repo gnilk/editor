@@ -33,13 +33,10 @@
 #include "Core/KeyCodes.h"
 #include "Core/RuntimeConfig.h"
 #include "Core/StrUtil.h"
-#include "Core/unix/ShellCommand.h"
 #include <pthread.h>
 #include <thread>
 #include <sstream>
 
-
-static ShellCommand shCommand;
 
 CommandMode::CommandMode() {
     for(int i=0;i<50;i++) {
@@ -47,11 +44,37 @@ CommandMode::CommandMode() {
         char tmp[64];
         snprintf(tmp, 64, "this is line %d", i);
         currentLine->Append(tmp);
+
     }
     NewLine();
 }
 
+bool CommandMode::Begin() {
+    log = fopen("log.txt", "w+");
+    terminal.SetStdoutDelegate([this](std::string &output) {
+        // TODO: Remove marker on current line...
+
+        currentLine->Append(output);
+        fprintf(log, "GOT: %s\n", output.c_str());
+
+        NewLine(true);
+
+        if (isModeActive) {
+            auto screen = RuntimeConfig::Instance().Screen();
+            screen->Scroll(1);
+        }
+
+        fflush(log);
+    });
+
+    fprintf(log, "test\n");
+    terminal.Begin();
+    return true;
+}
+
 void CommandMode::OnSwitchMode(bool enter) {
+    isModeActive = enter;
+
     if (enter) {
         scrollOnNextUpdate = true;
     }
@@ -62,6 +85,7 @@ void CommandMode::NewLine(bool addCmdMarker) {
     if (currentLine != nullptr) {
         currentLine->SetActive(false);
     }
+    std::lock_guard<std::mutex> guard(lineLock);
     currentLine = new Line();
     if (addCmdMarker) {
         // FIXME: Allow this to be configureable
@@ -70,7 +94,6 @@ void CommandMode::NewLine(bool addCmdMarker) {
     cursor.activeColumn = 1;
     currentLine->SetActive(true);
     historyBuffer.push_back(currentLine);
-
 }
 
 void CommandMode::DrawLines() {
@@ -112,15 +135,15 @@ void CommandMode::Update() {
 
     // FIXME: Splt in two depending on state
     // Don't accept input if we are executing shell command
-    if (state == kState::kExecuteShell) {
-        if (shCommand.IsDone()) {
-            state = kState::kIdle;
-            NewLine();
-            screen->Scroll(1);
-
-        }
-        return;
-    }
+//    if (state == kState::kExecuteShell) {
+//        if (shCommand.IsDone()) {
+//            state = kState::kIdle;
+//            NewLine();
+//            screen->Scroll(1);
+//
+//        }
+//        return;
+//    }
 
     auto keyPress = kbd->GetCh();
     if (!keyPress.IsValid()) {
@@ -146,13 +169,17 @@ void CommandMode::Update() {
         {
             // FIXME: Refactor into several functions!!
             if ((currentLine->Buffer() == ">quit") || (currentLine->Buffer() == ">.q")) {
+                fclose(log);
                 onExitApp();
                 return;
             } else {
                 // Just push this to the shell "process"...
                 if (currentLine->Length() > 1) {
                     std::string argBuffer(&currentLine->Buffer().at(1));
-                    ExecuteShellCmd(argBuffer);
+                    strutil::trim(argBuffer);
+                    fprintf(log, "%s\n", currentLine->Buffer().data());
+                    argBuffer += "\n";
+                    terminal.SendCmd(argBuffer);
                 }
             }
             NewLine();
@@ -171,35 +198,22 @@ void CommandMode::Update() {
     }
 }
 
-bool CommandMode::ExecuteShellCmd(std::string &cmdBuffer) {
-    shCommand.SetStdoutDelegate([this](std::string &str) {
-        //printf("l: %s\n", str.c_str());
-        auto screen = RuntimeConfig::Instance().Screen();
-        strutil::trim(str);
-        currentLine->Append(str.c_str());
-        if (screen != nullptr) {
-            screen->Scroll(1);
-        }
-        NewLine(false);
-    });
-    state = kExecuteShell;
-    shCommand.Execute(cmdBuffer);
-    return true;
-}
 
 void CommandMode::TestExecuteShellCmd() {
-    CommandMode mode;
-    // this works, but need context..
-    std::string argv = {"cd ..;pwd"};
-    printf("1\n");
-    shCommand.SetStdoutDelegate([](std::string &str) {
+    Shell sh;
+    sh.SetStdoutDelegate([](std::string &str) {
         printf("%s\n",str.c_str());
     });
+    sh.Begin();
 
-    shCommand.Execute(argv);
-    while(!shCommand.IsDone()) {
+    char buffer[256];
+    while(true) {
+        auto res = fgets(buffer, 256, stdin);
+        if (res == nullptr) {
+            continue;
+        }
+        std::string strCommand(buffer);
+        sh.SendCmd(strCommand);
         std::this_thread::yield();
     }
-    printf("Err: %s\n", shCommand.StdErr.c_str());
-    printf("Complete\n");
 }

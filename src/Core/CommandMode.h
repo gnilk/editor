@@ -7,15 +7,18 @@
 
 #include <vector>
 #include <string>
+#include <mutex>
 
 #include "Core/ScreenBase.h"
 #include "Core/ModeBase.h"
+#include "Core/unix/Shell.h"
 
 
 class CommandMode : public ModeBase {
 public:
     CommandMode();
     virtual ~CommandMode() = default;
+    bool Begin() override;
     void Update() override;
     void DrawLines() override;
     const std::vector<Line *> &Lines() const override { return historyBuffer; }
@@ -31,10 +34,14 @@ private:
         kExecuteShell,
     } kState;
 private:
+    Shell terminal;
     bool scrollOnNextUpdate = false;
     kState state = kState::kIdle;
     Line *currentLine = nullptr;
     std::vector<Line *> historyBuffer;
+    FILE *log = nullptr;
+    std::mutex lineLock;
+    bool isModeActive = false;
 };
 
 #endif //EDITOR_COMMANDMODE_H

@@ -24,25 +24,38 @@ void Line::Clear() {
 }
 
 void Line::Append(int ch) {
+    std::lock_guard<std::mutex> guard(lock);
     buffer += ch;
 }
 
 void Line::Append(std::string_view &srcdata) {
+    std::lock_guard<std::mutex> guard(lock);
     buffer += srcdata;
 }
 
+void Line::Append(std::string &srcdata) {
+    std::lock_guard<std::mutex> guard(lock);
+    buffer += srcdata;
+}
+
+
 void Line::Append(const char *srcdata) {
+    std::lock_guard<std::mutex> guard(lock);
     buffer += srcdata;
 }
 
 void Line::Insert(int at, int ch) {
+    std::lock_guard<std::mutex> guard(lock);
     buffer.insert(at, 1, ch);
 }
 int Line::Insert(int at, int n, int ch) {
+    std::lock_guard<std::mutex> guard(lock);
     buffer.insert(at, n, ch);
     return n;
 }
 void Line::Move(Line *dst, int dstOfs, int srcOfs, int nChar) {
+    std::lock_guard<std::mutex> guard(lock);
+
     if (nChar == -1) {
         nChar = buffer.size() - srcOfs;
         if (nChar < 0) {
@@ -56,12 +69,15 @@ void Line::Move(Line *dst, int dstOfs, int srcOfs, int nChar) {
 }
 
 void Line::Delete(int at) {
+    std::lock_guard<std::mutex> guard(lock);
     buffer.erase(at, 1);
 }
 void Line::Delete(int at, int n) {
+    std::lock_guard<std::mutex> guard(lock);
     buffer.erase(at, n);
 }
 int Line::Unindent() {
+    std::lock_guard<std::mutex> guard(lock);
     if (buffer.size() == 0) {
         return 0;
     }
@@ -81,6 +97,7 @@ int Line::Unindent() {
 // TODO: here we should have proper language support!!
 //
 int Line::ComputeIndent() {
+    std::lock_guard<std::mutex> guard(lock);
     static const std::string& chars = "\t\n\v\f\r ";
     if (buffer.size() == 0) {
         return 0;

@@ -21,6 +21,7 @@ public:
 
     void SetCursorColumn(int cCol) { cursorColumn = cCol; }
 
+    virtual void NoGutter() { szGutter = 0; }
     virtual void DrawGutter(int idxStart) {}
     virtual void DrawLines(const std::vector<Line *> &lines, int idxActiveLine) {}
     virtual void DrawLineAt(int row, const Line *line) {}

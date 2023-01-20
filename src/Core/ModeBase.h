@@ -20,10 +20,15 @@ public:
     ModeBase() = default;
     void SetOnExitMode(OnExitMode newOnExitMode) { onExitMode = newOnExitMode; }
     void SetOnExitApp(OnExitApp newOnExitApp) { onExitApp = newOnExitApp; }
+    // Called before update-loop, one time initialization goes here
+    virtual bool Begin() { return true; }
+    // These are called in an update loop - DO NOT BLOCK!
     virtual void DrawLines() {}
     virtual void Update() {}
     virtual const std::vector<Line *> &Lines() const = 0;
+    // Called when user switches mode
     virtual void OnSwitchMode(bool enter) {};
+    // Holds default editing logic..
     bool DefaultEditLine(Line *line, KeyPress &ch);
 protected:
     OnExitMode onExitMode = nullptr;

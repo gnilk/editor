@@ -18,6 +18,7 @@ bool NCursesScreen::Open() {
     } else {
         printf("No colors, going with defaults...\n");
     }
+    timeout(1); // Make 'getch' non-blocking..
     clear();
     //raw();
     keypad(stdscr, TRUE);

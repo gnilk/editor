@@ -100,6 +100,8 @@ void CommandMode::DrawLines() {
     auto screen = RuntimeConfig::Instance().Screen();
     auto [rows, cols] = screen->Dimensions();
 
+    screen->NoGutter();
+
     // When changing modes it is nice to contain some part of the editor screen
     // So we don't swap out the full editor but rather contain at least half
     if (scrollOnNextUpdate) {

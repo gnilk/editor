@@ -88,6 +88,10 @@ void EditorMode::DrawLines() {
     screen->SetCursorColumn(cursor.activeColumn);
     screen->DrawLines(Lines(),idxActiveLine);
 
+    // FIXME: Status bar should have '<buffer>:<filename> | <type> | <indent size> | ..  perhaps..
+    // like: 0:config.yml
+
+
     auto indent = currentLine->Indent();
     char tmp[256];
     snprintf(tmp, 256, "Goat Editor v0.1 - lc: %d (%s)- al: %d - ts: %d - s: %s (%d - %d)",

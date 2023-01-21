@@ -5,6 +5,8 @@ an editor.
 
 This is my playground....
 
+Currently only macOS....
+
 Goals
 - Mimic Amiga AsmOne with a dedicated cmd-line mode (like a shell) for editor commands
 - Pass through to underlying shell in case the command is not an editor command
@@ -20,3 +22,9 @@ to a keylogger. You will have to allow the terminal "Input Monitoring" capabilit
 the macOS settings IF you want SHIFT+Arrow keys to work properly.
 
 The code for this "keylogger" is also part of the repository.
+
+
+Dependencies:
+- yaml-cpp, https://github.com/jbeder/yaml-cpp
+- ncurses, on *nix it is generally available, otherwise: https://invisible-island.net/ncurses/announce.html
+

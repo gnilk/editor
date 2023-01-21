@@ -31,6 +31,7 @@
 #include "Core/Cursor.h"
 #include "Core/KeyCodes.h"
 #include "Core/KeyboardDriverBase.h"
+#include "Core/Config/Config.h"
 
 #include "Core/RuntimeConfig.h"
 
@@ -95,6 +96,35 @@ static void testKeyboard() {
     }
 }
 
+static void testConfig() {
+    auto configOk = Config::Instance().LoadConfig("config.yml");
+    if (!configOk) {
+        printf("[ERR] Unable to load default configuration from 'config.yml' - defaults will be used\n");
+        exit(1);
+    }
+    auto terminal = Config::Instance()["terminal"];
+    auto shell = terminal.GetStr("shell","<noshell>");
+    printf("shell: %s\n", shell.c_str());
+
+    auto nothing = terminal.GetSequenceOfStr("dummy");
+    if (nothing.empty()) {
+        printf("dummy is empty\n");
+    }
+
+    auto bootstrap = terminal.GetSequenceOfStr("bootstrap");
+    for(auto &s : bootstrap) {
+        printf("- %s\n",s.c_str());
+    }
+
+    auto languages = Config::Instance()["languages"];
+    auto langDefault = languages["default"];
+    auto indent = langDefault.GetInt("indent");
+    auto insertSpaces = langDefault.GetBool("insert_spaces");
+    printf("Indent: %d\n", indent);
+    printf("Insert Spaces: %s\n", insertSpaces?"yes":"no");
+
+}
+
 int main(int argc, const char **argv) {
 //    testKeyboard();
 //    exit(1);
@@ -102,12 +132,16 @@ int main(int argc, const char **argv) {
 //    CommandMode::TestExecuteShellCmd();
 //    exit(1);
 
+    testConfig();
+    exit(1);
+
     bool bQuit = false;
     NCursesScreen screen;
     NCursesKeyboardDriver keyBoard;
 
     EditorMode editorMode;
     CommandMode commandMode;
+
 
     // Doesn't work with NCurses - probably messing up the TTY
     // We should try using 'forkpty'

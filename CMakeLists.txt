@@ -16,6 +16,8 @@ if (APPLE)
     find_library(CORE_FOUNDATION CoreFoundation)
 
     list(APPEND extlibs ncurses)
+    list(APPEND extlibs yaml-cpp)
+
     # list(APPEND extlibs ${COCOA_FRAMEWORK} ${IOKIT_FRAMEWORK} ${GAMECONTROLLER_FRAMEWORK} ${CORE_FOUNDATION})
     list(APPEND extlibs ${IOKIT_FRAMEWORK} ${CORE_FOUNDATION})
 endif()
@@ -29,6 +31,7 @@ list(APPEND editorsrc src/Core/EditorMode.cpp src/Core/EditorMode.cpp)
 list(APPEND editorsrc src/Core/KeyboardDriverBase.cpp src/Core/KeyboardDriverBase.h)
 list(APPEND editorsrc src/Core/RuntimeConfig.cpp src/Core/RuntimeConfig.cpp)
 list(APPEND editorsrc src/Core/KeyPress.cpp src/Core/KeyPress.h)
+list(APPEND editorsrc src/Core/Config/Config.cpp src/Core/Config/Config.h)
 
 # TODO: Revisit this - perhaps better somewhere else
 list(APPEND editorsrc src/Core/NCurses/NCursesScreen.cpp src/Core/NCurses/NCursesScreen.h)
@@ -38,6 +41,8 @@ list(APPEND appsrc main.cpp)
 
 ## THIS IS FOR macOS - homebrew installation...
 set(NCURSES_HOME /opt/homebrew/opt/ncurses)
+set(YAML_CPP_HOME /opt/homebrew/opt/yaml-cpp)
+
 
 add_executable(editor ${appsrc} ${editorsrc})
 target_include_directories(editor PUBLIC src)
@@ -45,6 +50,9 @@ target_include_directories(editor PUBLIC src)
 
 target_include_directories(editor PUBLIC ${NCURSES_HOME}/include)
 target_link_directories(editor  PUBLIC ${NCURSES_HOME}/lib)
+
+target_include_directories(editor PUBLIC ${YAML_CPP_HOME}/include)
+target_link_directories(editor  PUBLIC ${YAML_CPP_HOME}/lib)
 
 
 target_link_libraries(editor ${extlibs})

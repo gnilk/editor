@@ -1,0 +1,36 @@
+main:
+  backend: ncurses
+  keymap: default
+
+macos:
+  allow_kbd_hook: yes
+
+ncurses:
+
+editor:
+
+commandmode:
+  prompt: ">"
+
+
+terminal:
+  shell: zsh
+  init: -is
+  bootstrap:
+    - SET XYZ=4
+    - export path=%path%
+    - ls -laF
+
+
+
+
+languages:
+  default:
+    indent: 4
+    tabsize: 4
+    insert_spaces: yes
+  cpp:
+    insert_closing_brace: yes
+    auto_indent: yes
+    continue_comment: yes
+

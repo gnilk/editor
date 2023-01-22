@@ -2,14 +2,34 @@
 // Created by gnilk on 19.01.23.
 //
 
-#include "Shell.h"
-#include "Core/StrUtil.h"
 #include <util.h>
 #include <termios.h>
 #include <thread>
 #include <array>
+#include <sys/stat.h>
+#include "Core/StrUtil.h"
+#include "Core/Config/Config.h"
+#include "Shell.h"
+
 
 bool Shell::Begin() {
+    if (!StartShellProc()) {
+        return false;
+    }
+    SendInitScript();
+    return true;
+}
+bool Shell::StartShellProc() {
+    auto shell = Config::Instance()["terminal"].GetStr("shell","/bin/bash");
+    auto shellInitStr = Config::Instance()["terminal"].GetStr("init", "-ils");
+
+    struct stat shellstat;
+    // Verify if shell exists...
+    if (stat(shell.c_str(),&shellstat)) {
+        printf("[ERR] can't stat shell '%s' - please verify path\n", shell.c_str());
+        return false;
+    }
+    // FIXME: We could make sure it is an executeable and so forth...
 
     auto rc = ::pipe(infd);
     if(rc < 0) {
@@ -71,11 +91,21 @@ bool Shell::Begin() {
         //::execl("/bin/bash", "/bin/bash", "-ils", nullptr);       // this works for bash
 
         // zsh - Can't have -i ??
-        ::execl("/bin/zsh", "/bin/zsh", "-is", nullptr);
+        //::execl("/bin/zsh", "/bin/zsh", "-is", nullptr);
+        ::execl(shell.c_str(), shell.c_str(), shellInitStr.c_str(), nullptr);
         ::exit(EXIT_SUCCESS);
     }
     std::thread(&Shell::ConsumePipes, this).detach();
     return true;
+}
+
+void Shell::SendInitScript() {
+    auto initScript = Config::Instance()["terminal"].GetSequenceOfStr("bootstrap");
+    for(auto &s : initScript) {
+        std::string strCmd(s);
+        strCmd += "\n";
+        SendCmd(strCmd);
+    }
 }
 
 void Shell::CleanUp() {

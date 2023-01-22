@@ -28,7 +28,9 @@ public:
     void SetStdoutDelegate(OutputDelegate handler) {
         onStdout = handler;
     }
-
+private:
+    bool StartShellProc();
+    void SendInitScript();
 private:
     const int READ_END = 0;
     const int WRITE_END = 1;

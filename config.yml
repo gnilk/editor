@@ -14,7 +14,7 @@ commandmode:
 
 
 terminal:
-  shell: zsh
+  shell: /bin/zsh
   init: -is
   bootstrap:
     - SET XYZ=4

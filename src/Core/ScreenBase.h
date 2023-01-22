@@ -25,7 +25,8 @@ public:
     virtual void DrawGutter(int idxStart) {}
     virtual void DrawLines(const std::vector<Line *> &lines, int idxActiveLine) {}
     virtual void DrawLineAt(int row, const Line *line) {}
-    virtual void DrawStatusBar(const char *str) {}
+    virtual void DrawBottomBar(const char *str) {}
+    virtual void DrawTopBar(const char *str) {}
     virtual std::pair<int, int> Dimensions() { return std::make_pair(0,0); }
     virtual void Scroll(int nLines) {}
 

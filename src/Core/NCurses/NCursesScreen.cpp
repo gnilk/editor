@@ -53,7 +53,7 @@ std::pair<int, int> NCursesScreen::ComputeView(int idxActiveLine) {
     auto [rows, cols] = Dimensions();
 
     int topLine = lastTopLine;
-    int bottomLine = topLine + (rows - 2);  // -2, size of status bar => FIX THIS!
+    int bottomLine = topLine + (rows - 3);  // -2, size of status bar => FIX THIS!
 
     bool bInside = true;
     int dy = 0;
@@ -98,8 +98,8 @@ void NCursesScreen::DrawGutter(int idxStart) {
     auto [top, bottom] = ComputeView(idxStart);
 
     // FIXME: deduct gutter from idxStart...
-    for(int i=0;i<rows-1;i++) {
-        mvprintw(i, 0, "%3d|",i + top);
+    for(int i=1;i<rows-1;i++) {
+        mvprintw(i, 0, "%3d|",i-1 + top);
     }
     szGutter = 4;
 }
@@ -118,8 +118,8 @@ void NCursesScreen::DrawLines(const std::vector<Line *> &lines, int idxActiveLin
 
     auto [topLine, bottomLine] = ComputeView(idxActiveLine);
 
-    for(int i=0;i<rows-1;i++) {
-        int idxLine = topLine + i;
+    for(int i=1;i<rows-1;i++) {
+        int idxLine = topLine + i - 1;
         if (idxLine >= lines.size()) break;
 
         auto line = lines[idxLine];
@@ -150,14 +150,46 @@ void NCursesScreen::DrawLines(const std::vector<Line *> &lines, int idxActiveLin
     // Always switch off...
     invalidateAll = false;
     move(idxRowActive, szGutter + cursorColumn);
+
+
+    move(idxRowActive, szGutter + cursorColumn);
+
+
+
 }
-void NCursesScreen::DrawStatusBar(const char *str) {
+
+void NCursesScreen::DrawTopBar(const char *str) {
+    auto [rows, cols] = Dimensions();
+    int y,x;
+    // Save the cursor position (as we move it when we print the status bar)
+    getyx(stdscr, y, x);
+
+    // test:
+    move(0,0);
+    attron(A_REVERSE);
+    clrtoeol();
+    hline(' ', cols);
+    mvprintw(0,0,"%s",str);
+    attroff(A_REVERSE);
+    // end test
+
+
+    // restore cursor to it's position before the status bar was drawn..
+    move(y,x);
+}
+
+
+void NCursesScreen::DrawBottomBar(const char *str) {
     auto [rows, cols] = Dimensions();
     int y,x;
     // Save the cursor position (as we move it when we print the status bar)
     getyx(stdscr, y, x);
 
     attron(A_REVERSE);
+    move(rows-1, 0);
+    clrtoeol();
+    hline(' ', cols);
+
     mvprintw(rows-1,0, "%s [%d:%d]", str, y, x - szGutter);
     attroff(A_REVERSE);
     // restore cursor to it's position before the status bar was drawn..

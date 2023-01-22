@@ -97,14 +97,14 @@ static void testKeyboard() {
 }
 
 static void testConfig() {
-    auto configOk = Config::Instance().LoadConfig("config.yml");
-    if (!configOk) {
-        printf("[ERR] Unable to load default configuration from 'config.yml' - defaults will be used\n");
-        exit(1);
-    }
-    auto terminal = Config::Instance()["terminal"];
-    auto shell = terminal.GetStr("shell","<noshell>");
+
+    auto shell = Config::Instance()["terminal"].GetStr("shell", "<noshell>");
+    auto shellInitStr = Config::Instance()["terminal"].GetStr("init", "-ils");
     printf("shell: %s\n", shell.c_str());
+    printf("shellInit: %s\n", shellInitStr.c_str());
+
+    auto terminal = Config::Instance()["terminal"];
+    //auto shell = terminal.GetStr("shell","<noshell>");
 
     auto nothing = terminal.GetSequenceOfStr("dummy");
     if (nothing.empty()) {
@@ -126,14 +126,22 @@ static void testConfig() {
 }
 
 int main(int argc, const char **argv) {
+    auto configOk = Config::Instance().LoadConfig("config.yml");
+    if (!configOk) {
+        printf("[ERR] Unable to load default configuration from 'config.yml' - defaults will be used\n");
+        exit(1);
+    }
+
+
 //    testKeyboard();
 //    exit(1);
 
 //    CommandMode::TestExecuteShellCmd();
 //    exit(1);
+//
+//    testConfig();
+//    exit(1);
 
-    testConfig();
-    exit(1);
 
     bool bQuit = false;
     NCursesScreen screen;
@@ -146,7 +154,9 @@ int main(int argc, const char **argv) {
     // Doesn't work with NCurses - probably messing up the TTY
     // We should try using 'forkpty'
     // Must be done early..
-    commandMode.Begin();
+    if (!commandMode.Begin()) {
+        return -1;
+    }
 
 
     ModeBase *currentMode = &editorMode;

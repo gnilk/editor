@@ -50,7 +50,6 @@ CommandMode::CommandMode() {
 }
 
 bool CommandMode::Begin() {
-    log = fopen("log.txt", "w+");
     terminal.SetStdoutDelegate([this](std::string &output) {
         // TODO: Remove marker on current line...
 
@@ -67,8 +66,12 @@ bool CommandMode::Begin() {
         fflush(log);
     });
 
+    if (!terminal.Begin()) {
+        return false;
+    }
+
+    log = fopen("log.txt", "w+");
     fprintf(log, "test\n");
-    terminal.Begin();
     return true;
 }
 

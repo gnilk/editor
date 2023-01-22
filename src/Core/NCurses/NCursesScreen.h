@@ -22,7 +22,8 @@ public:
     void DrawGutter(int idxStart) override;
     void DrawLines(const std::vector<Line *> &lines, int idxActiveLine) override;
     void DrawLineAt(int row, const Line *line) override;
-    void DrawStatusBar(const char *str) override;
+    void DrawBottomBar(const char *str) override;
+    void DrawTopBar(const char *str) override;
     std::pair<int, int> Dimensions() override;
     void Scroll(int nLines) override;
 protected:

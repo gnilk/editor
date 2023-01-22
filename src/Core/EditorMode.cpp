@@ -91,13 +91,20 @@ void EditorMode::DrawLines() {
     // FIXME: Status bar should have '<buffer>:<filename> | <type> | <indent size> | ..  perhaps..
     // like: 0:config.yml
 
-
+    // Bottom bar: status
     auto indent = currentLine->Indent();
     char tmp[256];
     snprintf(tmp, 256, "Goat Editor v0.1 - lc: %d (%s)- al: %d - ts: %d - s: %s (%d - %d)",
              (int)lastChar.data.code, keyname((int)lastChar.rawCode), idxActiveLine, indent,
              selection.IsActive()?"y":"n", selection.idxStartLine, selection.idxEndLine);
-    screen->DrawStatusBar(tmp);
+    // TODO: Pad this to end of screen
+    screen->DrawBottomBar(tmp);
+
+
+    // Top bar: Active buffers bar
+    screen->DrawTopBar("1:file.txt | 2:main.cpp | 3:readme.md | 4:CMakeLists.txt | 5:dummy.xyz");
+
+
 }
 
 
@@ -158,10 +165,10 @@ bool EditorMode::UpdateNavigation(KeyPress &keyPress, bool isShiftPressed) {
             }
             break;
         case kKey_PageUp :
-            OnNavigateUp(rows-1);
+            OnNavigateUp(rows-2);
             break;
         case kKey_PageDown :
-            OnNavigateDown(rows-1);
+            OnNavigateDown(rows-2);
             break;
         case kKey_Return :
             NewLine();

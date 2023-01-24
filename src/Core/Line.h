@@ -12,6 +12,7 @@
 
 #define MAX_LINE_LENGTH 1024
 
+
 class Line {
 public:
     Line();
@@ -45,6 +46,7 @@ public:
 private:
     std::mutex lock;
     std::string buffer = "";
+    //std::vector<LineAttrib> attribs;
     bool active = false;
     int indent = 0;
     bool selected = false;

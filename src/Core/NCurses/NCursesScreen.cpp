@@ -131,6 +131,9 @@ void NCursesScreen::DrawLines(const std::vector<Line *> &lines, int idxActiveLin
             int nCharToPrint = line->Length()>(cols-szGutter)?(cols-szGutter):line->Length();
             move(i, szGutter);
             clrtoeol();
+            // let's see...
+            attrset(A_NORMAL);
+
             if (line->IsSelected()) {
                 attron(A_REVERSE);
             }

@@ -50,4 +50,49 @@ namespace strutil {
         }
     }
 
+    bool isnumber(const std::string& s) {
+        // not empty, and we want the iterator to any non-digit (or end() if all are digits)
+        return (!s.empty() && std::find_if(s.begin(),
+                                           s.end(),
+                                           [](unsigned char c) { return !std::isdigit(c); }) == s.end());
+    }
+
+
+//
+// hex2dec converts an hexadecimal string to it's base 10 representative
+// prefix either with 0x or $ or skip if you know....
+//
+// 16 = hex2dec("0x10")
+// 16 = hex2dec("$10")
+// 16 = hex2dec("10")
+//
+
+    uint32_t hex2dec(const char *s) {
+        uint32_t n = 0;
+        size_t length = strlen(s);
+        size_t idxStart = 0;
+
+        if (s[0] == '$') {
+            idxStart = 1;
+        } else if ((length > 2) && (s[0] == '0') && (s[1] == 'x')) {
+            idxStart = 2;
+        }
+
+        for (size_t i = idxStart; i < length && s[i] != '\0'; i++) {
+            int v = 0;
+            if ('a' <= s[i] && s[i] <= 'f') { v = s[i] - 97 + 10; }
+            else if ('A' <= s[i] && s[i] <= 'F') { v = s[i] - 65 + 10; }
+            else if ('0' <= s[i] && s[i] <= '9') { v = s[i] - 48; }
+            else break;
+            n *= 16;
+            n += v;
+        }
+        return n;
+    }
+
+    uint32_t hex2dec(const std::string &str) {
+        return hex2dec(str.c_str());
+    }
+
+
 }

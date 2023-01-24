@@ -28,3 +28,19 @@ Dependencies:
 - yaml-cpp, https://github.com/jbeder/yaml-cpp
 - ncurses, on *nix it is generally available, otherwise: https://invisible-island.net/ncurses/announce.html
 
+
+Playing around with embedding a script language to drive command-mode cmd-let's.
+## Python
+- You can do most and it is familiar to many
+- Quite a lot of boilerplate for integration
+- Tricky to "pre-compile and cache" (or it least it looks like it from documentation)
+  - as we don't want to compile the cmd-let's every time we open the editor (defeats the purpose of beeing fast)
+
+## Lua
+- Way more simple to integrate
+- Can expose LUA objects but must be backed by c-style interface, see: https://www.lua.org/pil/28.1.html 
+- Pre-compile??
+- Use LuaCpp library (C++ wrapper) instead of directly dealing with low-level C-api?
+  - https://github.com/jordanvrtanoski/luacpp
+- 
+

@@ -4,6 +4,10 @@
 
 #include <vector>
 #include <string>
+#include <algorithm>
+#include <cctype>
+#include <cstdlib>
+#include <cmath>
 #include "Core/StrUtil.h"
 
 namespace strutil {
@@ -50,11 +54,18 @@ namespace strutil {
         }
     }
 
-    bool isnumber(const std::string& s) {
+    bool isinteger(const std::string& s) {
         // not empty, and we want the iterator to any non-digit (or end() if all are digits)
         return (!s.empty() && std::find_if(s.begin(),
                                            s.end(),
                                            [](unsigned char c) { return !std::isdigit(c); }) == s.end());
+    }
+
+    bool isdouble(const std::string& s)
+    {
+        char* end = nullptr;
+        double val = strtod(s.c_str(), &end);
+        return end != s.c_str() && *end == '\0' && val != HUGE_VAL;
     }
 
 

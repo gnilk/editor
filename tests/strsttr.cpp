@@ -103,11 +103,6 @@ void DrawLine(Line &l) {
     }
 }
 
-
-
-
-
-
 static void loadSublimeColorFile(const std::string &filename) {
     std::ifstream f(filename);
 
@@ -124,11 +119,11 @@ static void loadSublimeColorFile(const std::string &filename) {
 
             auto [ok, color] = scriptEngine.ExecuteColorScript(value);
 
-            scriptEngine.AddValue<ColorRGBA>(col.key(), SublimeConfigScriptEngine::kColor, color);
+            scriptEngine.AddVarFromValue<ColorRGBA>(col.key(), SublimeConfigScriptEngine::kColor, color);
         }
     }
     printf("Testing script engine\n");
-    auto colValue = scriptEngine.GetValue("blue3").Color();
+    auto colValue = scriptEngine.GetVariable("blue3").Color();
     printf("col: %f, %f, %f", colValue.R(), colValue.G(), colValue.B());
 }
 

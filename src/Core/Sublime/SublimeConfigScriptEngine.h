@@ -48,9 +48,8 @@ public:
     using FunctionDelegate = std::function<ScriptValue(std::vector<ScriptValue> &args)>;
 public:
 
-    void RegisterBuiltIn();
+    virtual void RegisterBuiltIn();
     std::pair<bool, ScriptValue> ExecuteScript(const std::string &str);
-    std::pair<bool, ColorRGBA> ExecuteColorScript(const std::string &str);
 
     std::pair<bool, SublimeConfigScriptEngine::ScriptValue> ExecuteWithTokenizer(gnilk::Tokenizer &tokenizer);
     std::pair<bool, SublimeConfigScriptEngine::ScriptValue> ExecuteFunction(gnilk::Tokenizer &tokenizer);
@@ -85,16 +84,6 @@ public:
         }
         return true;
     }
-
-private:
-    // These are actually only used in the color script..
-    ScriptValue ExecuteHSL(std::vector<ScriptValue> &args);
-    ScriptValue ExecuteHSLA(std::vector<ScriptValue> &args);
-    ScriptValue ExecuteVAR(std::vector<ScriptValue> &args);
-    ScriptValue ExecuteColor(std::vector<ScriptValue> &args);
-    ScriptValue ExecuteAlpha(std::vector<ScriptValue> &args);
-    ScriptValue ExecuteRGB(std::vector<ScriptValue> &args);
-    ScriptValue ExecuteRGBA(std::vector<ScriptValue> &args);
 
 
 private:

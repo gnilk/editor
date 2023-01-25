@@ -16,7 +16,7 @@
 #include "Core/Tokenizer.h"
 #include "Core/ColorRGBA.h"
 #include "Core/Sublime/SublimeConfigScriptEngine.h"
-
+#include "Core/Sublime/SublimeConfigColorScript.h"
 
 using json = nlohmann::json;
 
@@ -103,11 +103,11 @@ void DrawLine(Line &l) {
     }
 }
 
-static void loadSublimeColorFile(const std::string &filename) {
+static void loadSublimeColorFile(const std::string &filename, SublimeConfigColorScript &scriptEngine) {
     std::ifstream f(filename);
 
-    SublimeConfigScriptEngine scriptEngine;
-    scriptEngine.RegisterBuiltIn();
+//    SublimeConfigScriptEngine scriptEngine;
+//    scriptEngine.RegisterBuiltIn();
 
     json data = json::parse(f);
     auto variables = data["variables"];
@@ -127,9 +127,7 @@ static void loadSublimeColorFile(const std::string &filename) {
     printf("col: %f, %f, %f", colValue.R(), colValue.G(), colValue.B());
 }
 
-static int testScriptEngine() {
-    SublimeConfigScriptEngine scriptEngine;
-    scriptEngine.RegisterBuiltIn();
+static int testScriptEngine(SublimeConfigScriptEngine scriptEngine) {
 
     scriptEngine.RegisterFunction("func",[](std::vector<SublimeConfigScriptEngine::ScriptValue> &args)->SublimeConfigScriptEngine::ScriptValue {
         printf("func exec, args: %d\n", (int)args.size());
@@ -151,8 +149,7 @@ static int testScriptEngine() {
 
     scriptEngine.AddVariable("myVar", {.vType = SublimeConfigScriptEngine::kNumber, .data = 2.0f});
 
-    auto [ok, v] = scriptEngine.ExecuteScript("hsla(210, 13%, 40%, 0.7)");
-//    auto [ok, v] = scriptEngine.ExecuteScript("add(2, sq(var(myVar)))");
+    auto [ok, v] = scriptEngine.ExecuteScript("add(2, sq(var(myVar)))");
 
     if (!ok) {
         printf("ERRROROROR\n");
@@ -170,13 +167,14 @@ static int testScriptEngine() {
 
 
 int main(int argc, char **argv) {
+    SublimeConfigColorScript scriptEngine;
 
     // return testScriptEngine();
-
     // This can now load the default sublime color configuration...
-    loadSublimeColorFile("tests/colors.sublime.json");
-    return 1;
-
+//    loadSublimeColorFile("tests/colors.sublime.json");
+//    return 1;
+    scriptEngine.RegisterBuiltIn();
+    loadSublimeColorFile("tests/colors.sublime.json", scriptEngine);
 
     atexit(Close);
     Open();

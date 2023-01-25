@@ -39,6 +39,7 @@ list(APPEND editorsrc src/Core/ColorRGBA.cpp src/Core/ColorRGBA.h)
 
 # sublime config/scripting support
 list(APPEND editorsrc src/Core/Sublime/SublimeConfigScriptEngine.cpp src/Core/Sublime/SublimeConfigScriptEngine.h)
+list(APPEND editorsrc src/Core/Sublime/SublimeConfigColorScript.cpp src/Core/Sublime/SublimeConfigColorScript.h)
 
 # TODO: Revisit this - perhaps better somewhere else
 list(APPEND editorsrc src/Core/NCurses/NCursesScreen.cpp src/Core/NCurses/NCursesScreen.h)

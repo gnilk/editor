@@ -97,49 +97,49 @@ void Close(void) {
 
 struct LineAttrib {
     int cStart = 0;
-    int cEnd = 0;
     int idxColorPair;
 };
-
-//static RGB HSLToRGB(HSL hsl) {
-//    unsigned char r = 0;
-//    unsigned char g = 0;
-//    unsigned char b = 0;
-//
-//    if (hsl.S == 0)
-//    {
-//        r = g = b = (unsigned char)(hsl.L * 255);
-//    }
-//    else
-//    {
-//        float v1, v2;
-//        float hue = (float)hsl.H / 360;
-//
-//        v2 = (hsl.L < 0.5) ? (hsl.L * (1 + hsl.S)) : ((hsl.L + hsl.S) - (hsl.L * hsl.S));
-//        v1 = 2 * hsl.L - v2;
-//
-//        r = (unsigned char)(255 * HueToRGB(v1, v2, hue + (1.0f / 3)));
-//        g = (unsigned char)(255 * HueToRGB(v1, v2, hue));
-//        b = (unsigned char)(255 * HueToRGB(v1, v2, hue - (1.0f / 3)));
-//    }
-//
-//    return RGB(r, g, b);
-//}
-
 
 
 //
 // TODO: Load sublime theme JSON file with colors...
 //
 
-void DrawLine(Line &l) {
+void DrawLine(Line &l, std::vector<LineAttrib> &attribs) {
 
     move(0,0);
     clrtoeol();
     move(0,0);
-    for(int i=0;i<l.Length();i++) {
-        addch(l.Buffer().at(i));
+
+    int idxColorPair = 0;
+    // If no attribs - just dump it out...
+    if (attribs.size() == 0) {
+        for (int i = 0; i < l.Length(); i++) {
+            addch(l.Buffer().at(i));
+        }
+    } else {
+        int idxAttrib = 0;
+        int cNext = attribs[0].cStart;
+        for (int i = 0; i < l.Length(); i++) {
+            if ((i >= cNext) && (cNext >= 0)){
+                auto attrib = attribs[idxAttrib];
+                attr_t newAttr;
+                newAttr = COLOR_PAIR(attrib.idxColorPair);
+                attrset(newAttr);
+
+                idxAttrib++;
+                if (idxAttrib < attribs.size()) {
+                    cNext = attribs[idxAttrib].cStart;
+                } else {
+                    // Here we can just continue to dump the line data!
+                    // This is usefull for comments and stuff...
+                    cNext = -1;
+                }
+            }
+            addch(l.Buffer().at(i));
+        }
     }
+    attrset(A_NORMAL);
 }
 
 static void loadSublimeColorFile(const std::string &filename, SublimeConfigColorScript &scriptEngine) {
@@ -220,8 +220,42 @@ static int testScriptEngine(SublimeConfigScriptEngine &scriptEngine) {
     return 1;
 }
 
+void testAttribLogic() {
+    const std::string str =  {"this is a very color full line of stuff I want to see"};
+
+    std::vector<LineAttrib> attribs;
+    attribs.push_back({.cStart = 0, .idxColorPair = 0});
+    attribs.push_back({.cStart = 5, .idxColorPair = 1});
+    attribs.push_back({.cStart = 10,.idxColorPair = 2});
+    attribs.push_back({.cStart = 15,.idxColorPair = 3});
+
+    int idxColor = 0;
+    int idxAttrib = 0;
+    int cNext = attribs[0].cStart;
+    printf("%s\n", str.c_str());
+    for (int i = 0; i < str.size(); i++) {
+        if ((i >= cNext) && (cNext>=0)){
+            auto attrib = attribs[idxAttrib];
+            idxColor = attrib.idxColorPair;
+            printf("\nNew Attrib: %d:%d\n", idxAttrib, idxColor);
+            idxAttrib++;
+            if (idxAttrib < attribs.size()) {
+                cNext = attribs[idxAttrib].cStart;
+            } else {
+                cNext = -1;
+            }
+        }
+        printf("%d", idxColor);
+    }
+    printf("\n");
+
+}
+
 
 int main(int argc, char **argv) {
+//    testAttribLogic();
+//    return -1;
+
     SublimeConfigColorScript scriptEngine;
     scriptEngine.RegisterBuiltIn();
 
@@ -243,7 +277,10 @@ int main(int argc, char **argv) {
 
 
     loadSublimeColorFile("tests/colors.sublime.json", scriptEngine);
-    return 1;
+
+    auto colFG = colorConfig.GetColor("foreground");
+    auto colBG = colorConfig.GetColor("background");
+    auto colOther = colorConfig.GetColor("accent");
 
     atexit(Close);
     Open();
@@ -259,26 +296,31 @@ int main(int argc, char **argv) {
         auto pink = ColorRGBA::FromHSL(300, 30/100.0f, 68/100.0f);
         auto blue3 = ColorRGBA::FromHSL(210, 15/100.0f, 22/100.0f);
 
+        init_color(0, colBG.RedAsInt(1000), colBG.GreenAsInt(1000), colBG.BlueAsInt(1000));
+        init_color(1, colFG.RedAsInt(1000), colFG.GreenAsInt(1000), colFG.BlueAsInt(1000));
 
-        // black
-        init_color(0, blue3.RedAsInt(1000), blue3.GreenAsInt(1000), blue3.BlueAsInt(1000));
-        // white
-        init_color(1, white.RedAsInt(1000), white.GreenAsInt(1000), white.BlueAsInt(1000));
-//        init_color();
-//        init_pair(1, COLOR_GREEN, COLOR_BLACK);
-//        init_pair(2, COLOR_BLACK, COLOR_GREEN);
-        init_pair(1, 0, 1);
+        init_color(2, colOther.RedAsInt(1000), colOther.GreenAsInt(1000), colOther.BlueAsInt(1000));
+
+        // init_pair is <pair>,<fg>,<bg>
+        init_pair(0, 1, 0); // 0 - default color pair
+        init_pair(1, 2, 0);
 
     }
 
 
     Line line;
-    char buffer[256];
-    snprintf(buffer, 256, "line, colors: %d", nColors);
+    char buffer[256];                   /* 012345678901234567890123456   */
+    snprintf(buffer, 256, "this is a very color full line of stuff I want to see");
     line.Append(buffer);
 
+    std::vector<LineAttrib> lineAttribs;
+    lineAttribs.push_back({.cStart = 0,  .idxColorPair = 0});
+    lineAttribs.push_back({.cStart = 5,  .idxColorPair = 1});
+    lineAttribs.push_back({.cStart = 10, .idxColorPair = 0});
+    lineAttribs.push_back({.cStart = 15, .idxColorPair = 1});
+
     attron(COLOR_PAIR(1));
-    DrawLine(line);
+    DrawLine(line, lineAttribs);
     int ch;
     while((ch = getch()) != KEY_F(1)) {
         //

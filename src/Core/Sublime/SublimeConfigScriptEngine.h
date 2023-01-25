@@ -63,6 +63,7 @@ public:
 
     void AddVariable(const std::string &name, ScriptValue value);
     ScriptValue GetVariable(const std::string &name);
+    // Check if a variable is present...
     bool HasVariable(const std::string &name) {
         if (variables.find(name) == variables.end()) {
             return false;
@@ -70,12 +71,12 @@ public:
         return true;
     }
 
+    // This add's a variable from a ScriptValueType - short for AddVariable when you have a valid type...
     template<typename T>
-    void AddValue(const std::string &name, kValueType valueType, T value) {
+    void AddVarFromValue(const std::string &name, kValueType valueType, T value) {
         ScriptValue scriptValue = {.vType = valueType, .data = value};
         variables[name] = scriptValue;
     }
-    const ScriptValue &GetValue(const std::string &name);
 
     void RegisterFunction(const std::string &name, FunctionDelegate function);
     bool HasFunction(const std::string &name) {

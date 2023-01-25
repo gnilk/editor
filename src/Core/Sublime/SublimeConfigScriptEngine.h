@@ -61,9 +61,9 @@ public:
     bool ParseNumberArgs(gnilk::Tokenizer &tokenizer, std::vector<float> &args);
 
     void AddVariable(const std::string &name, ScriptValue value);
-    ScriptValue GetVariable(const std::string &name);
+    const ScriptValue GetVariable(const std::string &name) const;
     // Check if a variable is present...
-    bool HasVariable(const std::string &name) {
+    bool HasVariable(const std::string &name) const {
         if (variables.find(name) == variables.end()) {
             return false;
         }
@@ -84,6 +84,8 @@ public:
         }
         return true;
     }
+private:
+    ScriptValue ExecuteVAR(std::vector<ScriptValue> &args);
 
 
 private:

@@ -10,17 +10,17 @@
 class SublimeConfigColorScript : public SublimeConfigScriptEngine {
 public:
     std::pair<bool, ColorRGBA> ExecuteColorScript(const std::string &str);
+    const ColorRGBA GetColor(const std::string &name) const;
+
     void RegisterBuiltIn() override;
 private:
     // These are actually only used in the color script..
     ScriptValue ExecuteHSL(std::vector<ScriptValue> &args);
     ScriptValue ExecuteHSLA(std::vector<ScriptValue> &args);
-    ScriptValue ExecuteVAR(std::vector<ScriptValue> &args);
     ScriptValue ExecuteColor(std::vector<ScriptValue> &args);
     ScriptValue ExecuteAlpha(std::vector<ScriptValue> &args);
     ScriptValue ExecuteRGB(std::vector<ScriptValue> &args);
     ScriptValue ExecuteRGBA(std::vector<ScriptValue> &args);
-
 };
 
 #endif //EDITOR_SUBLIMECONFIGCOLORSCRIPT_H

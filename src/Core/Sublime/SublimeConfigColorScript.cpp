@@ -33,9 +33,6 @@ void SublimeConfigColorScript::RegisterBuiltIn() {
     RegisterFunction("hsla",[this](std::vector<SublimeConfigScriptEngine::ScriptValue> &args)->SublimeConfigScriptEngine::ScriptValue {
         return this->ExecuteHSLA(args);
     });
-    RegisterFunction("var",[this](std::vector<SublimeConfigScriptEngine::ScriptValue> &args)->SublimeConfigScriptEngine::ScriptValue {
-        return this->ExecuteVAR(args);
-    });
     RegisterFunction("color",[this](std::vector<SublimeConfigScriptEngine::ScriptValue> &args)->SublimeConfigScriptEngine::ScriptValue {
         return this->ExecuteColor(args);
     });
@@ -49,6 +46,17 @@ void SublimeConfigColorScript::RegisterBuiltIn() {
         return this->ExecuteRGBA(args);
     });
 }
+
+const ColorRGBA SublimeConfigColorScript::GetColor(const std::string &name) const {
+    if (!HasVariable(name)) {
+        return {};
+    }
+    auto var = GetVariable(name);
+    if (!var.IsColor()) {
+        return {};
+    }
+    return var.Color();
+};
 
 //
 // Built-in functionality
@@ -82,21 +90,6 @@ SublimeConfigScriptEngine::ScriptValue SublimeConfigColorScript::ExecuteHSLA(std
         }
     }
     return {.vType = SublimeConfigScriptEngine::kColor, .data = {ColorRGBA::FromHSLA(args[0].Number(), args[1].Number(), args[2].Number(), args[3].Number())}};
-}
-
-SublimeConfigScriptEngine::ScriptValue SublimeConfigColorScript::ExecuteVAR(std::vector<ScriptValue> &args) {
-    if (args.size() != 1) {
-        printf("Err: Parameter mismatch, VAR expects 1 argument");
-        printf("   var(name_of_variable)\n");
-        return invalidScriptValue;
-    }
-    auto param = args[0];
-    if (param.vType != SublimeConfigScriptEngine::kString) {
-        printf("Err: Argument type mismatch, only strings allowed\n");
-        return invalidScriptValue;
-    }
-
-    return GetVariable(param.String());
 }
 
 SublimeConfigScriptEngine::ScriptValue SublimeConfigColorScript::ExecuteColor(std::vector<ScriptValue> &args) {

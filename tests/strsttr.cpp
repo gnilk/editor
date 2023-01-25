@@ -18,6 +18,45 @@
 #include "Core/Sublime/SublimeConfigScriptEngine.h"
 #include "Core/Sublime/SublimeConfigColorScript.h"
 
+
+class ColorConfig {
+public:
+    ColorConfig();
+    void SetDefaults() noexcept;
+    void SetColor(const std::string &name, ColorRGBA color);
+
+    bool HasColor(const std::string &name) const {
+        return (colors.find(name) != colors.end());
+    }
+    const ColorRGBA GetColor(const std::string &name) const {
+        if (!HasColor(name)) {
+            return {};
+        }
+        auto it = colors.find(name);
+        return it->second;
+    }
+    const ColorRGBA operator[](const std::string &name) const {
+        return GetColor(name);
+    }
+
+private:
+    std::unordered_map<std::string, ColorRGBA> colors;
+};
+ColorConfig::ColorConfig() {
+    SetDefaults();
+}
+
+void ColorConfig::SetDefaults() noexcept {
+
+}
+
+void ColorConfig::SetColor(const std::string &name, ColorRGBA color) {
+    colors[name] = color;
+}
+
+static ColorConfig colorConfig;
+
+
 using json = nlohmann::json;
 
 bool Open() {
@@ -122,12 +161,27 @@ static void loadSublimeColorFile(const std::string &filename, SublimeConfigColor
             scriptEngine.AddVarFromValue<ColorRGBA>(col.key(), SublimeConfigScriptEngine::kColor, color);
         }
     }
+    auto globals = data["globals"];
+    for(auto &col : globals.items()) {
+        if (col.value().is_string()) {
+            auto value = col.value().get<std::string>();
+
+            auto [ok, color] = scriptEngine.ExecuteColorScript(value);
+            if (ok) {
+                colorConfig.SetColor(col.key(), color);
+            } else {
+                printf("  Color '%s' undefined - using default\n", col.key().c_str());
+            }
+        }
+    }
+
+
     printf("Testing script engine\n");
     auto colValue = scriptEngine.GetVariable("blue3").Color();
     printf("col: %f, %f, %f", colValue.R(), colValue.G(), colValue.B());
 }
 
-static int testScriptEngine(SublimeConfigScriptEngine scriptEngine) {
+static int testScriptEngine(SublimeConfigScriptEngine &scriptEngine) {
 
     scriptEngine.RegisterFunction("func",[](std::vector<SublimeConfigScriptEngine::ScriptValue> &args)->SublimeConfigScriptEngine::ScriptValue {
         printf("func exec, args: %d\n", (int)args.size());
@@ -149,7 +203,8 @@ static int testScriptEngine(SublimeConfigScriptEngine scriptEngine) {
 
     scriptEngine.AddVariable("myVar", {.vType = SublimeConfigScriptEngine::kNumber, .data = 2.0f});
 
-    auto [ok, v] = scriptEngine.ExecuteScript("add(2, sq(var(myVar)))");
+    printf("Execute script\n");
+    auto [ok, v] = scriptEngine.ExecuteScript("add(var(myVar) 2)");
 
     if (!ok) {
         printf("ERRROROROR\n");
@@ -167,13 +222,36 @@ static int testScriptEngine(SublimeConfigScriptEngine scriptEngine) {
 
 
 int main(int argc, char **argv) {
+
+
     SublimeConfigColorScript scriptEngine;
+    scriptEngine.RegisterBuiltIn();
+    return testScriptEngine(scriptEngine);
+
 
     // return testScriptEngine();
     // This can now load the default sublime color configuration...
 //    loadSublimeColorFile("tests/colors.sublime.json");
 //    return 1;
     scriptEngine.RegisterBuiltIn();
+
+    printf("Execute and set 'black'\n");
+    auto [ok, color] = scriptEngine.ExecuteScript("hsl(0, 0%, 0%)");
+    if (ok) {
+        scriptEngine.AddVariable("black", color);
+    } else {
+        return -1;
+    }
+    printf("Execute 'shadow'\n");
+
+    auto [ok2, color2] = scriptEngine.ExecuteScript("color(var(black) alpha(0.25))");
+    if (!ok2) {
+        printf("Error in shadow\n");
+        return -1;
+    }
+    return 0;
+
+
     loadSublimeColorFile("tests/colors.sublime.json", scriptEngine);
 
     atexit(Close);

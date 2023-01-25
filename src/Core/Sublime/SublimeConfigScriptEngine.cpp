@@ -27,6 +27,10 @@ const SublimeConfigScriptEngine::ScriptValue SublimeConfigScriptEngine::invalidS
 // Register built-in functionality
 // FIXME: IF this gets used for different purposes than colors - we should move this to a specialization class (SublimeColorScript)
 void SublimeConfigScriptEngine::RegisterBuiltIn() {
+    RegisterFunction("var",[this](std::vector<SublimeConfigScriptEngine::ScriptValue> &args)->SublimeConfigScriptEngine::ScriptValue {
+        return this->ExecuteVAR(args);
+    });
+
 }
 
 // Register a global scope function (just add to the function map)
@@ -42,11 +46,13 @@ void SublimeConfigScriptEngine::AddVariable(const std::string &name, ScriptValue
 }
 
 // Return a variable from the global scope
-SublimeConfigScriptEngine::ScriptValue SublimeConfigScriptEngine::GetVariable(const std::string &name) {
+const SublimeConfigScriptEngine::ScriptValue SublimeConfigScriptEngine::GetVariable(const std::string &name) const {
     if (!HasVariable(name)) {
         return invalidScriptValue;
     }
-    return variables[name];
+    auto it = variables.find(name);
+    return it->second;
+//    return variables[name];
 }
 
 
@@ -117,6 +123,7 @@ std::pair<bool, SublimeConfigScriptEngine::ScriptValue> SublimeConfigScriptEngin
     while(tokenizer.HasMore()) {
         if (tokenizer.Peek() == std::string(")")) {
             // Execute and return..
+            tokenizer.Next(); // consume ')'
             printf("EXECUTE: %s, with: %d args\n", funcName, (int)args.size());
             auto value = functions[funcName](args);
             return {true, {value}};
@@ -207,4 +214,24 @@ std::pair<bool, SublimeConfigScriptEngine::ScriptValue> SublimeConfigScriptEngin
     return {true, {.vType = SublimeConfigScriptEngine::kNumber, .data = v}};
 }
 
+//
+// built in functionality
+//
+
+SublimeConfigScriptEngine::ScriptValue SublimeConfigScriptEngine::ExecuteVAR(std::vector<ScriptValue> &args) {
+    if (args.size() != 1) {
+        printf("Err: Parameter mismatch, 'var' expects a single parameter - the variable name\n");
+        printf("  var(<name of variable>)\n");
+        return invalidScriptValue;
+    }
+    if (!args[0].IsString()) {
+        printf("Err: Type mismatch, parameter type is not string\n");
+        return invalidScriptValue;
+    }
+    if (!HasVariable(args[0].String())) {
+        printf("Err: no variable named '%s'\n", args[0].String().c_str());
+        return invalidScriptValue;
+    }
+    return GetVariable(args[0].String());
+}
 

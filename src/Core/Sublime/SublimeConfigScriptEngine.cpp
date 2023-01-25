@@ -124,7 +124,7 @@ std::pair<bool, SublimeConfigScriptEngine::ScriptValue> SublimeConfigScriptEngin
         if (tokenizer.Peek() == std::string(")")) {
             // Execute and return..
             tokenizer.Next(); // consume ')'
-            printf("EXECUTE: %s, with: %d args\n", funcName, (int)args.size());
+            //printf("EXECUTE: %s, with: %d args\n", funcName, (int)args.size());
             auto value = functions[funcName](args);
             return {true, {value}};
         }

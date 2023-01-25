@@ -166,11 +166,11 @@ static void loadSublimeColorFile(const std::string &filename, SublimeConfigColor
         if (col.value().is_string()) {
             auto value = col.value().get<std::string>();
 
-            auto [ok, color] = scriptEngine.ExecuteColorScript(value);
-            if (ok) {
-                colorConfig.SetColor(col.key(), color);
+            auto [ok, scriptValue] = scriptEngine.ExecuteScript(value);
+            if (ok && scriptValue.IsColor()) {
+                colorConfig.SetColor(col.key(), scriptValue.Color());
             } else {
-                printf("  Color '%s' undefined - using default\n", col.key().c_str());
+                printf("  Value for '%s' is not color, constants not supported - skipping\n", col.key().c_str());
             }
         }
     }
@@ -222,37 +222,28 @@ static int testScriptEngine(SublimeConfigScriptEngine &scriptEngine) {
 
 
 int main(int argc, char **argv) {
-
-
     SublimeConfigColorScript scriptEngine;
     scriptEngine.RegisterBuiltIn();
-    return testScriptEngine(scriptEngine);
 
-
-    // return testScriptEngine();
-    // This can now load the default sublime color configuration...
-//    loadSublimeColorFile("tests/colors.sublime.json");
-//    return 1;
-    scriptEngine.RegisterBuiltIn();
-
-    printf("Execute and set 'black'\n");
-    auto [ok, color] = scriptEngine.ExecuteScript("hsl(0, 0%, 0%)");
-    if (ok) {
-        scriptEngine.AddVariable("black", color);
-    } else {
-        return -1;
-    }
-    printf("Execute 'shadow'\n");
-
-    auto [ok2, color2] = scriptEngine.ExecuteScript("color(var(black) alpha(0.25))");
-    if (!ok2) {
-        printf("Error in shadow\n");
-        return -1;
-    }
-    return 0;
+//    printf("Execute and set 'black'\n");
+//    auto [ok, color] = scriptEngine.ExecuteScript("hsl(0, 0%, 0%)");
+//    if (ok) {
+//        scriptEngine.AddVariable("black", color);
+//    } else {
+//        return -1;
+//    }
+//    printf("Execute 'shadow'\n");
+//
+//    auto [ok2, color2] = scriptEngine.ExecuteScript("color(var(black) alpha(0.25))");
+//    if (!ok2) {
+//        printf("Error in shadow\n");
+//        return -1;
+//    }
+//    return 0;
 
 
     loadSublimeColorFile("tests/colors.sublime.json", scriptEngine);
+    return 1;
 
     atexit(Close);
     Open();

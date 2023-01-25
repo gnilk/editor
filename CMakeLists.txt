@@ -34,6 +34,11 @@ list(APPEND editorsrc src/Core/KeyboardDriverBase.cpp src/Core/KeyboardDriverBas
 list(APPEND editorsrc src/Core/RuntimeConfig.cpp src/Core/RuntimeConfig.cpp)
 list(APPEND editorsrc src/Core/KeyPress.cpp src/Core/KeyPress.h)
 list(APPEND editorsrc src/Core/Config/Config.cpp src/Core/Config/Config.h)
+list(APPEND editorsrc src/Core/Tokenizer.cpp src/Core/Tokenizer.h)
+list(APPEND editorsrc src/Core/ColorRGBA.cpp src/Core/ColorRGBA.h)
+
+# sublime config/scripting support
+list(APPEND editorsrc src/Core/Sublime/SublimeConfigScriptEngine.cpp src/Core/Sublime/SublimeConfigScriptEngine.h)
 
 # TODO: Revisit this - perhaps better somewhere else
 list(APPEND editorsrc src/Core/NCurses/NCursesScreen.cpp src/Core/NCurses/NCursesScreen.h)
@@ -72,10 +77,15 @@ target_link_libraries(myshell ${COCOA_FRAMEWORK} ${IOKIT_FRAMEWORK} ${GAMECONTRO
 add_executable(myshell2 tests/myshell2.cpp src/Core/unix/Shell.cpp src/Core/StrUtil.cpp)
 target_include_directories(myshell2 PUBLIC src/)
 
-add_executable(strattr tests/strsttr.cpp src/Core/Line.cpp src/Core/Line.h src/Core/StrUtil.cpp tests/Tokenizer.cpp tests/Tokenizer.h)
+#
+# I include all of the editor stuff in this test app
+#
+add_executable(strattr tests/strsttr.cpp ${editorsrc})
 target_include_directories(strattr PUBLIC src)
 target_include_directories(strattr PUBLIC ${NCURSES_HOME}/include)
 target_link_directories(strattr  PUBLIC ${NCURSES_HOME}/lib)
+target_include_directories(strattr PUBLIC ${YAML_CPP_HOME}/include)
+target_link_directories(strattr  PUBLIC ${YAML_CPP_HOME}/lib)
 
-target_link_libraries(strattr ncurses)
+target_link_libraries(strattr ${extlibs})
 

@@ -17,6 +17,8 @@ namespace strutil {
     uint32_t hex2dec(const char *s);
     uint32_t hex2dec(const std::string &str);
 
+    bool skipWhiteSpace(char **input);
+
 }
 
 #endif //EDITOR_STRUTIL_H

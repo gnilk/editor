@@ -14,6 +14,7 @@
 
 #include "Core/StrUtil.h"
 #include "Core/Tokenizer.h"
+#include "Core/LangLineTokenizer.h"
 #include "Core/ColorRGBA.h"
 #include "Core/Sublime/SublimeConfigScriptEngine.h"
 #include "Core/Sublime/SublimeConfigColorScript.h"
@@ -118,29 +119,63 @@ void DrawLine(Line &l, std::vector<LineAttrib> &attribs) {
             addch(l.Buffer().at(i));
         }
     } else {
-        int idxAttrib = 0;
-        int cNext = attribs[0].cStart;
-        for (int i = 0; i < l.Length(); i++) {
-            if ((i >= cNext) && (cNext >= 0)){
-                auto attrib = attribs[idxAttrib];
-                attr_t newAttr;
-                newAttr = COLOR_PAIR(attrib.idxColorPair);
-                attrset(newAttr);
 
-                idxAttrib++;
-                if (idxAttrib < attribs.size()) {
-                    cNext = attribs[idxAttrib].cStart;
-                } else {
-                    // Here we can just continue to dump the line data!
-                    // This is usefull for comments and stuff...
-                    cNext = -1;
+        int idxAttrib = 0;
+        attr_t attrib;
+        auto itAttrib = attribs.begin();
+        //int cNext = attribs[0].cStart;
+        for (int i = 0; i < l.Length(); i++) {
+
+            if (i >= itAttrib->cStart) {
+                // FIXME: Convert - must be done in driver...
+                attrib = COLOR_PAIR(itAttrib->idxColorPair);
+                itAttrib++;
+                if (itAttrib == attribs.end()) {
+                    --itAttrib;
                 }
             }
+            attrset(attrib);
             addch(l.Buffer().at(i));
         }
     }
     attrset(A_NORMAL);
 }
+
+void DrawLine2(Line &l, std::vector<gnilk::LangLineTokenizer::Token> &attribs) {
+
+    move(0,0);
+    clrtoeol();
+    move(0,0);
+
+    int idxColorPair = 0;
+    // If no attribs - just dump it out...
+    if (attribs.size() == 0) {
+        for (int i = 0; i < l.Length(); i++) {
+            addch(l.Buffer().at(i));
+        }
+    } else {
+
+        int idxAttrib = 0;
+        attr_t attrib;
+        auto itAttrib = attribs.begin();
+        //int cNext = attribs[0].cStart;
+        for (int i = 0; i < l.Length(); i++) {
+
+            if (i >= itAttrib->idxOrigStr) {
+                // FIXME: Convert - must be done in driver...
+                attrib = COLOR_PAIR(itAttrib->classification);
+                itAttrib++;
+                if (itAttrib == attribs.end()) {
+                    --itAttrib;
+                }
+            }
+            attrset(attrib);
+            addch(l.Buffer().at(i));
+        }
+    }
+    attrset(A_NORMAL);
+}
+
 
 static void loadSublimeColorFile(const std::string &filename, SublimeConfigColorScript &scriptEngine) {
     std::ifstream f(filename);
@@ -252,7 +287,77 @@ void testAttribLogic() {
 }
 
 
+static std::string cppTypes = "void int char";
+static std::string cppKeywords = "auto typedef class struct static enum for while if return const";
+// Note: Multi char operators must be declared first...
+static std::string cppOperators = "== ++ -- << >> += -= *= /= = + - < > ( , * ) { [ ] } < > ; ' \"";
+static std::string cppLineComment = "//";
+static std::string cppBlockCommentStart = "/* */";
+static std::string cppBlockCommentStop = "*/";
+
+// declare in-string operators
+static std::string inStringOperators = R"_(\" \\ ")_";
+static std::string inStringPostFixOp = "\"";
+
+
+static void testTokenizer() {
+    std::string strCode = R"_(const char *str="hello \" world"; number++; /* void main func() */ int anothervar;)_";
+
+    //
+    // This can be put in a configuration file...
+    // Not as advanced as Sublime (by a long-shot) but good enough for a first try...
+    //
+
+    // Each buffer will have this
+    gnilk::LangLineTokenizer tokenizer(cppOperators.c_str(), cppKeywords.c_str(), cppTypes.c_str());
+
+    auto state = tokenizer.GetOrAddState("main");
+    state->SetIdentifiers(gnilk::LangLineTokenizer::kOperator, cppOperators.c_str());
+    state->SetIdentifiers(gnilk::LangLineTokenizer::kKeyword, cppKeywords.c_str());
+    state->SetIdentifiers(gnilk::LangLineTokenizer::kKnownType, cppTypes.c_str());
+    state->SetIdentifiers(gnilk::LangLineTokenizer::kLineComment, cppLineComment.c_str());
+    state->SetIdentifiers(gnilk::LangLineTokenizer::kBlockComment, cppBlockCommentStart.c_str());
+    state->SetPostFixIdentifiers(cppOperators.c_str());
+
+    state->GetOrAddAction("\"",gnilk::LangLineTokenizer::kAction::kPushState, "in_string");
+    state->GetOrAddAction("/*", gnilk::LangLineTokenizer::kAction::kPushState, "in_block_comment");
+
+    auto stateStr = tokenizer.GetOrAddState("in_string");
+    stateStr->SetIdentifiers(gnilk::LangLineTokenizer::kFunky, inStringOperators.c_str());
+    stateStr->SetPostFixIdentifiers(inStringPostFixOp.c_str());
+    stateStr->GetOrAddAction("\"", gnilk::LangLineTokenizer::kAction::kPopState);
+
+    auto stateBlkComment = tokenizer.GetOrAddState("in_block_comment");
+    stateBlkComment->SetIdentifiers(gnilk::LangLineTokenizer::kFunky, cppBlockCommentStop.c_str());
+    stateBlkComment->GetOrAddAction("*/", gnilk::LangLineTokenizer::kAction::kPopState);
+
+
+    tokenizer.PushState("main");
+
+    // Each line structure should have this!
+    // Basically the 'Token' replaces the LineAttrib structure
+    // Classification -> will be used to look up the actual attribute
+    // idxOrigStr -> same as LineAttrib.cStart
+    //
+    std::vector<gnilk::LangLineTokenizer::Token> tokens;
+
+    tokenizer.PrepareTokens2(tokens, strCode.c_str());
+
+
+    printf("%s\n", strCode.c_str());
+    for(int i=0;i<strCode.size();i++) {
+        printf("%d", i % 10);
+    }
+    printf("\n");
+
+    for(auto &token : tokens) {
+        printf("%d:%d:%s\n", token.idxOrigStr, token.classification,token.string.c_str());
+    }
+}
+
 int main(int argc, char **argv) {
+    testTokenizer();
+    return -1;
 //    testAttribLogic();
 //    return -1;
 
@@ -278,9 +383,16 @@ int main(int argc, char **argv) {
 
     loadSublimeColorFile("tests/colors.sublime.json", scriptEngine);
 
+    // Regular
     auto colFG = colorConfig.GetColor("foreground");
     auto colBG = colorConfig.GetColor("background");
-    auto colOther = colorConfig.GetColor("accent");
+
+    // Operator
+    auto colOperatorFG = colorConfig.GetColor("operators");
+    auto colKeywordFG = colorConfig.GetColor("keywords");
+    auto colKnownTypeFG = colorConfig.GetColor("types");
+
+
 
     atexit(Close);
     Open();
@@ -289,38 +401,56 @@ int main(int argc, char **argv) {
     if (has_colors()) {
         nColors = COLORS;
 
-        auto black = ColorRGBA::FromRGB(0,0,0);
-        auto white = ColorRGBA::FromRGB(255,255,255);
-
-
         auto pink = ColorRGBA::FromHSL(300, 30/100.0f, 68/100.0f);
         auto blue3 = ColorRGBA::FromHSL(210, 15/100.0f, 22/100.0f);
 
         init_color(0, colBG.RedAsInt(1000), colBG.GreenAsInt(1000), colBG.BlueAsInt(1000));
         init_color(1, colFG.RedAsInt(1000), colFG.GreenAsInt(1000), colFG.BlueAsInt(1000));
+        init_color(2, colOperatorFG.RedAsInt(1000), colOperatorFG.GreenAsInt(1000), colOperatorFG.BlueAsInt(1000) );
+        init_color(3, colKeywordFG.RedAsInt(1000), colKeywordFG.GreenAsInt(1000), colKeywordFG.BlueAsInt(1000) );
+        init_color(4, colKnownTypeFG.RedAsInt(1000), colKnownTypeFG.GreenAsInt(1000), colKnownTypeFG.BlueAsInt(1000) );
 
-        init_color(2, colOther.RedAsInt(1000), colOther.GreenAsInt(1000), colOther.BlueAsInt(1000));
 
         // init_pair is <pair>,<fg>,<bg>
         init_pair(0, 1, 0); // 0 - default color pair
-        init_pair(1, 2, 0);
+        // Pairing it up like this allows us to use classification directly...
+        init_pair(gnilk::LangLineTokenizer::kTokenClass::kRegular, 1, 0); // 0 - default color pair
+        init_pair(gnilk::LangLineTokenizer::kTokenClass::kOperator, 2, 0); // 0 - default color pair
+        init_pair(gnilk::LangLineTokenizer::kTokenClass::kKeyword, 3, 0); // 0 - default color pair
+        init_pair(gnilk::LangLineTokenizer::kTokenClass::kKnownType, 4, 0); // 0 - default color pair
 
     }
 
 
+//    Line line;
+//    char buffer[256];                   /* 012345678901234567890123456   */
+//    snprintf(buffer, 256, "this is a very color full line of stuff I want to see");
+//    line.Append(buffer);
+//
+//    std::vector<LineAttrib> lineAttribs;
+//    lineAttribs.push_back({.cStart = 0,  .idxColorPair = 0});
+//    lineAttribs.push_back({.cStart = 5,  .idxColorPair = 1});
+//    lineAttribs.push_back({.cStart = 10, .idxColorPair = 0});
+//    lineAttribs.push_back({.cStart = 15, .idxColorPair = 1});
+//
+//    attron(COLOR_PAIR(1));
+//    DrawLine(line, lineAttribs);
+
+    // Each buffer will have a reference to the language tokenizer
+    gnilk::LangLineTokenizer tokenizer(cppOperators.c_str(), cppKeywords.c_str(), cppTypes.c_str());
+
+//    std::string strCode = "main func {{{}}} [[]]] static typedef int void char";
+    std::string strCode = "void main(int argc, char *argv[]) typedef struct apa {";
     Line line;
-    char buffer[256];                   /* 012345678901234567890123456   */
-    snprintf(buffer, 256, "this is a very color full line of stuff I want to see");
-    line.Append(buffer);
+    line.Append(strCode);
 
-    std::vector<LineAttrib> lineAttribs;
-    lineAttribs.push_back({.cStart = 0,  .idxColorPair = 0});
-    lineAttribs.push_back({.cStart = 5,  .idxColorPair = 1});
-    lineAttribs.push_back({.cStart = 10, .idxColorPair = 0});
-    lineAttribs.push_back({.cStart = 15, .idxColorPair = 1});
+    // Each line will have this
+    std::vector<gnilk::LangLineTokenizer::Token> tokens;
+    tokenizer.PrepareTokens(tokens, strCode.c_str());
 
-    attron(COLOR_PAIR(1));
-    DrawLine(line, lineAttribs);
+    DrawLine2(line, tokens);
+
+
     int ch;
     while((ch = getch()) != KEY_F(1)) {
         //

@@ -105,5 +105,20 @@ namespace strutil {
         return hex2dec(str.c_str());
     }
 
+    // Skips white space and moves input forward..
+    bool skipWhiteSpace(char **input) {
+        if (**input == '\0') {
+            return false;
+        }
+        while ((isspace(**input)) && (**input != '\0')) {
+            (*input)++;
+        }
+        if (**input == '\0') {
+            return false;    // only trailing space
+        }
+        return true;
+    }
+
+
 
 }

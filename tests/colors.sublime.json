@@ -27,6 +27,9 @@
   {
     "foreground": "var(white3)",
     "background": "var(blue3)",
+    "operators" : "var(pink)",
+    "keywords" : "var(orange)",
+    "types" : "var(red)",
     "accent": "var(blue-vibrant)",
     "caret": "var(orange)",
     "line_highlight": "var(blue2)",

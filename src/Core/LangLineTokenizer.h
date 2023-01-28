@@ -234,19 +234,14 @@ namespace gnilk
             return top;
         }
 	public:
-		explicit LangLineTokenizer(const char *sOperators = nullptr, const char *sKeywords = nullptr, const char *sTypes = nullptr);
+		explicit LangLineTokenizer();
 		virtual ~LangLineTokenizer() = default;
 
         void PrepareTokens(std::vector<Token> &tokens, const char *input);
-        void PrepareTokens2(std::vector<Token> &tokens, const char *input);
     protected:
-        bool IsOperator(const char *input, int &outSzOperator);
-        bool IsKeyword(const char *input, int &outSzKeyword);
-        bool IsKnownType(const char *input, int &outSzType);
         bool InStringList(std::vector<std::string> &strList, const char *input, int &outSz);
         bool SkipWhiteSpace(char **input);
         std::pair<bool, kTokenClass> GetNextToken(char *dst, int nMax, char **input);
-        std::pair<bool, kTokenClass> GetNextTokenNew(char *dst, int nMax, char **input);
         char *GetNextTokenNoOperator(char *dst, int nMax, char **input);
 
         void SplitToStringList(const char *input, std::vector<std::string> &outList);

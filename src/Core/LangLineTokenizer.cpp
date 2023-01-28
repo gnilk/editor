@@ -25,10 +25,7 @@ Modified: $Date: $ by $Author: FKling $
 
 using namespace gnilk;
 
-LangLineTokenizer::LangLineTokenizer(const char *sOperators, const char *sKeywords, const char *sTypes) {
-    SplitToStringList(sOperators, operators);
-    SplitToStringList(sKeywords, keywords);
-    SplitToStringList(sTypes, knowntypes);
+LangLineTokenizer::LangLineTokenizer() {
 
 }
 
@@ -40,16 +37,6 @@ bool LangLineTokenizer::InStringList(std::vector<std::string> &strList, const ch
         }
     }
     return false;
-}
-
-bool LangLineTokenizer::IsOperator(const char *input, int &outSzOperator) {
-    return InStringList(operators, input, outSzOperator);
-}
-bool LangLineTokenizer::IsKeyword(const char *input, int &outSzKeyword) {
-    return InStringList(keywords, input, outSzKeyword);
-}
-bool LangLineTokenizer::IsKnownType(const char *input, int &outSzType) {
-    return InStringList(knowntypes, input, outSzType);
 }
 
 void LangLineTokenizer::SplitToStringList(const char *input, std::vector<std::string> &outList) {
@@ -74,36 +61,12 @@ void LangLineTokenizer::PrepareTokens(std::vector<Token> &tokens, const char *in
     // FIXME: It should be possible to set this
     currentTokenClass = kUnknown;
 
-    while(true) {
-        auto [ok, classification] = GetNextToken(tmp, 256, &parsepoint);
-        if (!ok) {
-            break;
-        }
-
-        int len = strlen(tmp);
-        int pos = (parsepoint - input) - len;
-        Token token { .string = std::string(tmp), .classification = classification, .idxOrigStr = pos };
-        tokens.push_back(token);
-
-        // Save this, has implications...
-        currentTokenClass = classification;
-    }
-}
-
-void LangLineTokenizer::PrepareTokens2(std::vector<Token> &tokens, const char *input) {
-    char tmp[256];
-    char *parsepoint = (char *) input;
-
-    // Reset current token
-    // FIXME: It should be possible to set this
-    currentTokenClass = kUnknown;
-
     printf("CurrentState: %s\n", stateStack.top()->name.c_str());
 
     while(true) {
         auto currentState = stateStack.top();
 
-        auto [ok, classification] = GetNextTokenNew(tmp, 256, &parsepoint);
+        auto [ok, classification] = GetNextToken(tmp, 256, &parsepoint);
         if (!ok) {
             break;
         }
@@ -210,7 +173,7 @@ void LangLineTokenizer::PrepareTokens2(std::vector<Token> &tokens, const char *i
 //
 //
 //
-std::pair<bool, LangLineTokenizer::kTokenClass> LangLineTokenizer::GetNextTokenNew(char *dst, int nMax, char **input) {
+std::pair<bool, LangLineTokenizer::kTokenClass> LangLineTokenizer::GetNextToken(char *dst, int nMax, char **input) {
 
     auto currentState = stateStack.top();
 
@@ -256,74 +219,6 @@ std::pair<bool, LangLineTokenizer::kTokenClass> LangLineTokenizer::GetNextTokenN
     dst[idxDst] = '\0';
     return {true, kRegular};
 
-}
-
-std::pair<bool, LangLineTokenizer::kTokenClass> LangLineTokenizer::GetNextToken(char *dst, int nMax, char **input) {
-
-    if (!SkipWhiteSpace(input)) {
-        return {false, kTokenClass::kRegular};
-    }
-
-    int szOperator = 0;
-    kTokenClass classification = kRegular;
-
-    int i = 0;
-    if (IsOperator(*input, szOperator)) {
-        //
-        // need rules here, perhaps a classification stack???
-        //
-
-        strncpy(dst, *input, szOperator);
-        (*input) += szOperator;
-        i = szOperator;
-        // Not needed - but makes rules easier...
-        dst[szOperator] = '\0';
-
-        // Here we have some kind of rule to detect '\"' inside a string...
-        // can we generalize this? (Sublime has a quite complex scripting scheme for it - not sure I want to replicate
-        // that...
-
-        // We should direct this to some kind of rules engine..
-        // since each language will have their own set of rules...
-        if ((currentTokenClass == kString) && !strcmp(dst,"\\\"")) {
-          classification = currentTokenClass;
-        } else {
-           if (!strcmp(dst, "\"")) {
-                classification = kString;
-            } else {
-                classification = kOperator;
-            }
-        }
-    } else if (IsKeyword(*input, szOperator)) {
-        strncpy(dst, *input, szOperator);
-        (*input) += szOperator;
-        i = szOperator;
-        classification = kKeyword;
-    } else if (IsKnownType(*input, szOperator)) {
-        strncpy(dst, *input, szOperator);
-        (*input) += szOperator;
-        i = szOperator;
-        classification = kKnownType;
-    } else {
-        //while (!isspace(**input) && !IsOperator(*input, szOperator) && (**input != '\0')) {
-        while (!isspace(**input) && !IsOperator(*input, szOperator) && (**input != '\0')) {
-            dst[i++] = **input;
-
-            // This is a developer problem, ergo - safe to exit..
-            if (i >= nMax) {
-                fprintf(stderr, "ERR: GetNextToken, token size larger than buffer (>nMax)\n");
-                exit(1);
-            }
-
-            (*input)++;
-        }
-        if (currentTokenClass == kString) {
-            classification = kString;
-        }
-    }
-
-    dst[i] = '\0';
-    return {true, classification};
 }
 
 char *LangLineTokenizer::GetNextTokenNoOperator(char *dst, int nMax, char **input) {

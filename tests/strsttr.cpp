@@ -286,31 +286,49 @@ void testAttribLogic() {
 
 }
 
+class LanguageBase {
+public:
+    LanguageBase() = default;
+    virtual ~LanguageBase() = default;
 
-static std::string cppTypes = "void int char";
-static std::string cppKeywords = "auto typedef class struct static enum for while if return const";
-// Note: Multi char operators must be declared first...
-static std::string cppOperators = "== ++ -- << >> += -= *= /= = + - < > ( , * ) { [ ] } < > ; ' \"";
-static std::string cppLineComment = "//";
-static std::string cppBlockCommentStart = "/* */";
-static std::string cppBlockCommentStop = "*/";
+    // Implement this and setup the tokenizer
+    virtual bool Initialize() { return false; }; // You should really implement this...
+
+    const gnilk::LangLineTokenizer &Tokenizer() { return  tokenizer; }
+protected:
+    gnilk::LangLineTokenizer tokenizer;
+};
+
+class CPPLanguage : public LanguageBase {
+public:
+    CPPLanguage() = default;
+    virtual ~CPPLanguage() = default;
+
+    bool Initialize() override;
+private:
 
 // declare in-string operators
-static std::string inStringOperators = R"_(\" \\ ")_";
-static std::string inStringPostFixOp = "\"";
 
 
-static void testTokenizer() {
-    std::string strCode = R"_(const char *str="hello \" world"; number++; /* void main func() */ int anothervar;)_";
+};
 
-    //
-    // This can be put in a configuration file...
-    // Not as advanced as Sublime (by a long-shot) but good enough for a first try...
-    //
+// state: main (and probably a few others)
+static const std::string cppTypes = "void int char";
+static const std::string cppKeywords = "auto typedef class struct static enum for while if return const";
+// Note: Multi char operators must be declared first...
+static const std::string cppOperators = "== ++ -- << >> += -= *= /= = + - < > ( , * ) { [ ] } < > ; ' \"";
+static const std::string cppLineComment = "//";
+// state: main & in_block_comment
+static const std::string cppBlockCommentStart = "/* */";
+static const std::string cppBlockCommentStop = "*/";
+// state: in_string
+static const std::string inStringOperators = R"_(\" \\ ")_";
+static const std::string inStringPostFixOp = "\"";
 
-    // Each buffer will have this
-    gnilk::LangLineTokenizer tokenizer(cppOperators.c_str(), cppKeywords.c_str(), cppTypes.c_str());
-
+//
+// Configure the tokenizer for C++
+//
+bool CPPLanguage::Initialize() {
     auto state = tokenizer.GetOrAddState("main");
     state->SetIdentifiers(gnilk::LangLineTokenizer::kOperator, cppOperators.c_str());
     state->SetIdentifiers(gnilk::LangLineTokenizer::kKeyword, cppKeywords.c_str());
@@ -334,14 +352,35 @@ static void testTokenizer() {
 
     tokenizer.PushState("main");
 
+    return true;
+}
+
+
+static void testTokenizer() {
+    std::string strCode = R"_(const char *str="hello \" world"; number++; /* void main func() */ int anothervar;)_";
+
+    //
+    // This can be put in a configuration file...
+    // Not as advanced as Sublime (by a long-shot) but good enough for a first try...
+    //
+
+    // Each buffer will have this
+//    gnilk::LangLineTokenizer tokenizer;
+    CPPLanguage cppLanguage;
+    if (!cppLanguage.Initialize()) {
+        printf("ERR: Configuration error when configuring CPP parser\n");
+        exit(1);
+    }
+    auto tokenizer = cppLanguage.Tokenizer();
+
+
     // Each line structure should have this!
     // Basically the 'Token' replaces the LineAttrib structure
     // Classification -> will be used to look up the actual attribute
     // idxOrigStr -> same as LineAttrib.cStart
     //
     std::vector<gnilk::LangLineTokenizer::Token> tokens;
-
-    tokenizer.PrepareTokens2(tokens, strCode.c_str());
+    tokenizer.PrepareTokens(tokens, strCode.c_str());
 
 
     printf("%s\n", strCode.c_str());
@@ -358,6 +397,7 @@ static void testTokenizer() {
 int main(int argc, char **argv) {
     testTokenizer();
     return -1;
+    /*
 //    testAttribLogic();
 //    return -1;
 
@@ -423,7 +463,7 @@ int main(int argc, char **argv) {
 
 
 //    Line line;
-//    char buffer[256];                   /* 012345678901234567890123456   */
+//    char buffer[256];
 //    snprintf(buffer, 256, "this is a very color full line of stuff I want to see");
 //    line.Append(buffer);
 //
@@ -437,7 +477,7 @@ int main(int argc, char **argv) {
 //    DrawLine(line, lineAttribs);
 
     // Each buffer will have a reference to the language tokenizer
-    gnilk::LangLineTokenizer tokenizer(cppOperators.c_str(), cppKeywords.c_str(), cppTypes.c_str());
+    //gnilk::LangLineTokenizer tokenizer(cppOperators.c_str(), cppKeywords.c_str(), cppTypes.c_str());
 
 //    std::string strCode = "main func {{{}}} [[]]] static typedef int void char";
     std::string strCode = "void main(int argc, char *argv[]) typedef struct apa {";
@@ -455,4 +495,5 @@ int main(int argc, char **argv) {
     while((ch = getch()) != KEY_F(1)) {
         //
     }
+    */
 }

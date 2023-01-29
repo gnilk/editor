@@ -28,14 +28,16 @@ namespace gnilk {
     };
 
     //
-    // TODO: Refactor this, it is a bloody mess right now!
+    // WARNING: WIP Refactoring in progress...
     //
+
 
 
     // This is the language tokenize
     class LangLineTokenizer {
     public:
-        typedef enum : uint8_t {
+        // Extend this as we go along...
+        typedef enum  : uint8_t {
             kUnknown = 0,
             kRegular = 1,
             kOperator = 2,
@@ -53,6 +55,7 @@ namespace gnilk {
             kPushState,
             kPopState,
         };
+
         struct Action {
             kAction action; // push/pop
             std::string stateName;
@@ -62,9 +65,16 @@ namespace gnilk {
         // FIXME: Create factory which takes the token list...
         //
         struct IdentiferList {
+
+            using Ref = std::shared_ptr<IdentiferList>;
+            static IdentiferList::Ref Factory() {
+                return std::make_shared<IdentiferList>();
+            }
+
             kTokenClass classification;
             std::vector<std::string> tokens;
 
+            // FIXME: Ability to set user supplied matching function...
             bool IsMatch(const char *input, int &outSzToken) {
                 for (auto s: tokens) {
                     if (!strncmp(s.c_str(), input, s.size())) {
@@ -74,7 +84,6 @@ namespace gnilk {
                 }
                 return false;
             }
-
         };
 
         struct State {
@@ -140,7 +149,7 @@ namespace gnilk {
             //
             void SetPostFixIdentifiers(const char *strTokens) {
                 postfixIdentifiers.classification = kRegular;
-                SplitToStringList(postfixIdentifiers.tokens, strTokens);
+                strutil::splitToStringList(postfixIdentifiers.tokens, strTokens);
 
             }
 
@@ -155,7 +164,7 @@ namespace gnilk {
             void SetIdentifiers(kTokenClass classification, const char *strTokens) {
                 IdentiferList identiferList = {};
                 identiferList.classification = classification;
-                SplitToStringList(identiferList.tokens, strTokens);
+                strutil::splitToStringList(identiferList.tokens, strTokens);
                 identifiers[classification] = identiferList;
             }
 
@@ -168,42 +177,6 @@ namespace gnilk {
                     }
                 }
                 return {false, kTokenClass::kUnknown};
-            }
-
-            // FIXME: Remove from there...
-            void SplitToStringList(std::vector<std::string> &outList, const char *input) {
-                char tmp[256];
-                char *parsePoint = (char *) input;
-
-                if (input == nullptr) {
-                    return;
-                }
-
-                while (GetNextTokenNoOperator(tmp, 256, &parsePoint)) {
-                    outList.push_back(std::string(tmp));
-                }
-            }
-
-            // FIXME: Remove from there...
-            char *GetNextTokenNoOperator(char *dst, int nMax, char **input) {
-                if (!strutil::skipWhiteSpace(input)) {
-                    return nullptr;
-                }
-
-                int i = 0;
-                while (!isspace(**input) && (**input != '\0')) {
-                    dst[i++] = **input;
-
-                    // This is a developer problem, ergo - safe to exit..
-                    if (i >= nMax) {
-                        fprintf(stderr, "ERR: GetNextToken, token size larger than buffer (>nMax)\n");
-                        exit(1);
-                    }
-
-                    (*input)++;
-                }
-                dst[i] = '\0';
-                return dst;
             }
         };  // State
 
@@ -260,12 +233,7 @@ namespace gnilk {
 
         void PrepareTokens(std::vector<Token> &tokens, const char *input);
     protected:
-        bool InStringList(std::vector<std::string> &strList, const char *input, int &outSz);
-        bool SkipWhiteSpace(char **input);
         std::pair<bool, kTokenClass> GetNextToken(char *dst, int nMax, char **input);
-        char *GetNextTokenNoOperator(char *dst, int nMax, char **input);
-
-        void SplitToStringList(const char *input, std::vector<std::string> &outList);
     protected:
 
         // Note: These should be 'global' and not per tokenizer!!!
@@ -275,7 +243,5 @@ namespace gnilk {
 
         //size_t iTokenIndex;
         kTokenClass currentTokenClass;
-
-
     };
 }

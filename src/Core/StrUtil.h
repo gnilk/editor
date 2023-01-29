@@ -17,8 +17,14 @@ namespace strutil {
     uint32_t hex2dec(const char *s);
     uint32_t hex2dec(const std::string &str);
 
+    // The following has been added from the Tokenizer code
     bool skipWhiteSpace(char **input);
+    char *getNextTokenNoOperator(char *dst, int nMax, char **input);
+    void splitToStringList(std::vector<std::string> &outList, const char *input);
+    bool inStringList(std::vector<std::string> &strList, const char *input, int &outSz);
 
 }
+
+
 
 #endif //EDITOR_STRUTIL_H

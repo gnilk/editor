@@ -31,30 +31,6 @@ LangLineTokenizer::LangLineTokenizer() {
 
 }
 
-bool LangLineTokenizer::InStringList(std::vector<std::string> &strList, const char *input, int &outSz) {
-    for (auto s: strList) {
-        if (!strncmp(s.c_str(), input, s.size())) {
-            outSz = s.size();
-            return true;
-        }
-    }
-    return false;
-}
-
-void LangLineTokenizer::SplitToStringList(const char *input, std::vector<std::string> &outList) {
-    char tmp[256];
-    char *parsepoint = (char *)input;
-
-    if (input == nullptr) {
-        return;
-    }
-
-    while (GetNextTokenNoOperator(tmp, 256, &parsepoint)) {
-        outList.push_back(std::string(tmp));
-    }
-}
-
-
 void LangLineTokenizer::PrepareTokens(std::vector<Token> &tokens, const char *input) {
     char tmp[256];
     char *parsepoint = (char *) input;
@@ -179,7 +155,7 @@ std::pair<bool, LangLineTokenizer::kTokenClass> LangLineTokenizer::GetNextToken(
 
     auto currentState = stateStack.top();
 
-    if (!SkipWhiteSpace(input)) {
+    if (!strutil::skipWhiteSpace(input)) {
         return {false, kTokenClass::kRegular};
     }
     int szOperator = 0;
@@ -222,46 +198,3 @@ std::pair<bool, LangLineTokenizer::kTokenClass> LangLineTokenizer::GetNextToken(
     return {true, kRegular};
 
 }
-
-//
-// FIXME: Break this out of here (requires 'SkipWhiteSpace' is also moved elsewhere
-//        Reason: this is ued by identifier lists during initial parsing
-//
-char *LangLineTokenizer::GetNextTokenNoOperator(char *dst, int nMax, char **input) {
-    if (!SkipWhiteSpace(input)) {
-        return nullptr;
-    }
-
-    int i = 0;
-    while (!isspace(**input) && (**input != '\0')) {
-        dst[i++] = **input;
-
-        // This is a developer problem, ergo - safe to exit..
-        if (i >= nMax) {
-            fprintf(stderr, "ERR: GetNextToken, token size larger than buffer (>nMax)\n");
-            exit(1);
-        }
-
-        (*input)++;
-    }
-    dst[i] = '\0';
-    return dst;
-}
-
-//
-// FIXME: Can be made static
-//
-bool LangLineTokenizer::SkipWhiteSpace(char **input) {
-    if (**input == '\0') {
-        return false;
-    }
-    while ((isspace(**input)) && (**input != '\0')) {
-        (*input)++;
-    }
-    if (**input == '\0') {
-        return false;    // only trailing space
-    }
-    return true;
-}
-
-

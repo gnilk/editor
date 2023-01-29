@@ -105,6 +105,9 @@ namespace strutil {
         return hex2dec(str.c_str());
     }
 
+    //
+    // The following comes originally from the tokenizer code
+    //
     // Skips white space and moves input forward..
     bool skipWhiteSpace(char **input) {
         if (**input == '\0') {
@@ -119,6 +122,48 @@ namespace strutil {
         return true;
     }
 
+    char *getNextTokenNoOperator(char *dst, int nMax, char **input) {
+        if (!skipWhiteSpace(input)) {
+            return nullptr;
+        }
 
+        int i = 0;
+        while (!isspace(**input) && (**input != '\0')) {
+            dst[i++] = **input;
+
+            // This is a developer problem, ergo - safe to exit..
+            if (i >= nMax) {
+                fprintf(stderr, "ERR: GetNextToken, token size larger than buffer (>nMax)\n");
+                exit(1);
+            }
+
+            (*input)++;
+        }
+        dst[i] = '\0';
+        return dst;
+    }
+
+    void splitToStringList(std::vector<std::string> &outList, const char *input) {
+        char tmp[256];
+        char *parsepoint = (char *)input;
+
+        if (input == nullptr) {
+            return;
+        }
+
+        while (getNextTokenNoOperator(tmp, 256, &parsepoint)) {
+            outList.push_back(std::string(tmp));
+        }
+    }
+
+    bool inStringList(std::vector<std::string> &strList, const char *input, int &outSz) {
+        for (auto s: strList) {
+            if (!strncmp(s.c_str(), input, s.size())) {
+                outSz = s.size();
+                return true;
+            }
+        }
+        return false;
+    }
 
 }

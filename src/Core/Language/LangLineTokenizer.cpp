@@ -31,19 +31,19 @@ LangLineTokenizer::LangLineTokenizer() {
 
 }
 
+//
+// This is the heavy lifting, part 1
+//
 void LangLineTokenizer::PrepareTokens(std::vector<Token> &tokens, const char *input) {
     char tmp[256];
     char *parsepoint = (char *) input;
-
-    // Reset current token
-    // FIXME: It should be possible to set this
-    currentTokenClass = kUnknown;
 
     printf("CurrentState: %s\n", stateStack.top()->name.c_str());
 
     while(true) {
         auto currentState = stateStack.top();
 
+        // Get a token and the classification...
         auto [ok, classification] = GetNextToken(tmp, 256, &parsepoint);
         if (!ok) {
             break;
@@ -56,52 +56,66 @@ void LangLineTokenizer::PrepareTokens(std::vector<Token> &tokens, const char *in
             return;
         }
         int pos = (parsepoint - input) - len;
-
-        if (currentState->HasActionForToken(tmp)) {
-            auto action = currentState->GetAction(tmp);
-            if (action->action == kAction::kPushState) {
-                printf("PushState, %s -> %s (at token: %s)\n", currentState->name.c_str(), action->stateName.c_str(), tmp);
-                PushState(action->stateName.c_str());
-            } else if (action->action == kAction::kPopState) {
-
-                auto oldState  = PopState();
-                currentState = stateStack.top();
-
-                printf("PopState, %s -> %s (at token: %s)\n", oldState->name.c_str(), stateStack.top()->name.c_str(), tmp);
-
-                // When we pop, the token causing the pop belongs to the popped-context
-                // As it is the tail end of the token causing the push in the first place...   <- read several times...
-
-                // Rewrite classification...
-                auto [ok, tokenClass] = currentState->ClassifyToken(tmp);
-                if (ok) {
-                    printf("  Reclassification: %d -> %d\n", classification, tokenClass);
-                    classification = tokenClass;
-                }
-            }
-        }
-
+        classification = CheckExecuteActionForToken(currentState, tmp, classification);
         // If this is regular text - reclassify it depending on the state (this allows for comments/string and other
         // encapsulation statements to override... (#include)
         if (classification == kTokenClass::kRegular) {
             classification = currentState->regularTokenClass;
         }
-
         Token token { .string = std::string(tmp), .classification = classification, .idxOrigStr = pos };
         tokens.push_back(token);
+    }
+}
 
-        // Save this, has implications...
-        currentTokenClass = classification;
+//
+// A Pop action will reclassify the token using the popped state as that's where the classification belongs..
+// Generally an operator is causing a push and there is another operator causing the pop...
+// Example:
+//   Comments, start/end - block comment operators
+//   assume we have a comment like this:  /* this is a block comment */
+//
+//  1) We will hit '/*' and push new state 'block_comment' on to the stack
+//  2) block comment will ignore everything until it finds '*/' where it will break
+//
+//  now - '*/' is consumed and parsed by the 'block_comment' state (which is all good)
+//  but we really want it classified by the outer/parent state.
+//
+LangLineTokenizer::kTokenClass LangLineTokenizer::CheckExecuteActionForToken(State::Ref currentState, const char *token, kTokenClass tokenClass) {
+    // Check if we have an action for this token
+    if (!currentState->HasActionForToken(token)) {
+        return tokenClass;
     }
 
+    auto action = currentState->GetAction(token);
+    if (action->action == kAction::kPopState) {
+
+        auto oldState  = PopState();
+        currentState = stateStack.top();
+
+        printf("PopState, %s -> %s (at token: %s)\n", oldState->name.c_str(), stateStack.top()->name.c_str(), token);
+
+        // When we pop, the token causing the pop belongs to the popped-context
+        // As it is the tail end of the token causing the push in the first place...   <- read several times...
+
+        // Rewrite classification...
+        auto [ok, tokenClass] = currentState->ClassifyToken(token);
+        if (ok) {
+            printf("  Reclassification: %d -> %d\n", tokenClass, tokenClass);
+            tokenClass = tokenClass;
+        }
+    } else if (action->action == kAction::kPushState) {
+        printf("PushState, %s -> %s (at token: %s)\n", currentState->name.c_str(), action->stateName.c_str(), token);
+        PushState(action->stateName.c_str());
+    }
+
+    return tokenClass;
 }
 
 
+
 //
-// Perhaps split this to own CPP language handler, this way we can reuse..
 //
-//
-// FIXME: need state handling and also (presumable) state handling between call's into the instance...
+// state handling and also (presumable) state handling between call's into the instance...
 //        reasons:
 //        - Keep C/CPP strings "\""  - strings have 'escape' operator
 //        - /*   - is multi-line
@@ -154,47 +168,98 @@ void LangLineTokenizer::PrepareTokens(std::vector<Token> &tokens, const char *in
 std::pair<bool, LangLineTokenizer::kTokenClass> LangLineTokenizer::GetNextToken(char *dst, int nMax, char **input) {
 
     auto currentState = stateStack.top();
+    assert(currentState != nullptr);
 
     if (!strutil::skipWhiteSpace(input)) {
-        return {false, kTokenClass::kRegular};
+        return {false, kTokenClass::kUnknown};
     }
     int szOperator = 0;
-    if (currentState == nullptr) {
-        fprintf(stderr,"ERR: state stack empty!\n");
-        exit(1);
+
+    // Check if we have an identifier in the current state
+    for(auto &kvp : currentState->identifiers) {
+        if (!kvp.second->IsMatch(*input, szOperator)) {
+            continue;
+        }
+
+        // we had a match, copy it as the token and return the classification..
+        strncpy(dst, *input, szOperator);
+        (*input) += szOperator;
+        // Not needed - but makes rules easier...
+        dst[szOperator] = '\0';
+        return {true, kvp.second->classification};
     }
 
-    for(auto &kvp : currentState->identifiers) {
-        if (kvp.second.IsMatch(*input, szOperator)) {
-           strncpy(dst, *input, szOperator);
-            (*input) += szOperator;
-            // Not needed - but makes rules easier...
-            dst[szOperator] = '\0';
-            return {true, kvp.second.classification};
-        }
-    }
+    //
+    // No identifier, so just a regular token (something user defined)
+    // Such tokens can have a post-fix operator so we need something that 'breaks' parsing...
+    // Each state has a set of post-fix operators that are allowed to be place directly in conjunction with the
+    // token itself...
+    // like: variable++;  where '++' is a postfix token..
+    // or:   myInstance;  where ';' is a postfix token..
+    //
+    // generally the postfix tokens are same as operators - but I've opted to put them separate - not sure if this
+    // always holds true...
+    //
+
 
     // This is just to avoid clutter in the while-loop below
     int idxDst=0;
     auto chkPostFix= [currentState, input, &szOperator](char *dst)->bool {
-        if (currentState == nullptr) {
+        // Currentstate can't be null here...
+        if (currentState->postfixIdentifiers == nullptr) {
             return false;
         }
-        return currentState->postfixIdentifiers.IsMatch(*input, szOperator);
+        return currentState->postfixIdentifiers->IsMatch(*input, szOperator);
     };
 
+    // Get the token...
     while ((**input != '\0') && !isspace(**input) && !chkPostFix(dst)) {
         dst[idxDst++] = **input;
-
         // This is a developer problem, ergo - safe to exit..
         if (idxDst >= nMax) {
             fprintf(stderr, "ERR: GetNextToken, token size larger than buffer (>nMax)\n");
             exit(1);
         }
-
         (*input)++;
     }
+
+    // Make sure we terminate, and then we
     dst[idxDst] = '\0';
     return {true, kRegular};
-
 }
+
+
+LangLineTokenizer::State::Ref LangLineTokenizer::GetOrAddState(const char *stateName) {
+    if (states.find(stateName) == states.end()) {
+        auto state = State::Factory();
+        state->name = stateName;
+        states[stateName] = state;
+    }
+    return states[stateName];
+}
+bool LangLineTokenizer::HasState(const char *stateName) {
+    if (states.find(stateName) == states.end()) {
+        return false;
+    }
+    return true;
+}
+LangLineTokenizer::State::Ref LangLineTokenizer::GetState(const char *stateName) {
+    return states[stateName];
+}
+
+bool LangLineTokenizer::PushState(const char *stateName) {
+    if (!HasState(stateName)) {
+        return false;
+    }
+    PushState(states[stateName]);
+    return true;
+}
+void LangLineTokenizer::PushState(State::Ref state) {
+    stateStack.push(state);
+}
+LangLineTokenizer::State::Ref LangLineTokenizer::PopState() {
+    auto top = stateStack.top();
+    stateStack.pop();
+    return top;
+}
+

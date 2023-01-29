@@ -33,7 +33,7 @@ namespace gnilk {
 
 
 
-    // This is the language tokenize
+    // Consider placing this in a namespace instead of using internal classes...
     class LangLineTokenizer {
     public:
         // Extend this as we go along...
@@ -61,21 +61,23 @@ namespace gnilk {
             std::string stateName;
         };
 
-        //
-        // FIXME: Create factory which takes the token list...
-        //
-        struct IdentiferList {
+        // FIXME: Ability to set user supplied matching function...
+        struct IdentifierList {
 
-            using Ref = std::shared_ptr<IdentiferList>;
-            static IdentiferList::Ref Factory() {
-                return std::make_shared<IdentiferList>();
+            using Ref = std::shared_ptr<IdentifierList>;
+            static IdentifierList::Ref Factory(kTokenClass tokenClass, const char *strTokens) {
+                auto instance = std::make_shared<IdentifierList>();
+
+                instance->classification = tokenClass;
+                strutil::splitToStringList(instance->tokens, strTokens);
+
+                return instance;
             }
 
             kTokenClass classification;
             std::vector<std::string> tokens;
 
-            // FIXME: Ability to set user supplied matching function...
-            bool IsMatch(const char *input, int &outSzToken) {
+            __inline bool IsMatch(const char *input, int &outSzToken) {
                 for (auto s: tokens) {
                     if (!strncmp(s.c_str(), input, s.size())) {
                         outSzToken = s.size();
@@ -99,11 +101,11 @@ namespace gnilk {
             kTokenClass regularTokenClass = kTokenClass::kRegular;
 
             std::string name;
-            std::unordered_map<kTokenClass, IdentiferList> identifiers;
+            std::unordered_map<kTokenClass, IdentifierList::Ref> identifiers;
 
             // This list is a list of all allowed postfix tokens
             // Used to abort regular value, like variable names and such (i.e. not language components)
-            IdentiferList postfixIdentifiers = {};
+            IdentifierList::Ref postfixIdentifiers = nullptr;
 
             // Actions that should happen on specific tokens in this state
             std::unordered_map<std::string, Action> actions;
@@ -148,9 +150,7 @@ namespace gnilk {
             // Like for CPP you want '*/' as postfix-operator in the block_comment state...
             //
             void SetPostFixIdentifiers(const char *strTokens) {
-                postfixIdentifiers.classification = kRegular;
-                strutil::splitToStringList(postfixIdentifiers.tokens, strTokens);
-
+                postfixIdentifiers = IdentifierList::Factory(kRegular, strTokens);
             }
 
             //
@@ -162,18 +162,15 @@ namespace gnilk {
             // Each identifier list belongs to a classification
             //
             void SetIdentifiers(kTokenClass classification, const char *strTokens) {
-                IdentiferList identiferList = {};
-                identiferList.classification = classification;
-                strutil::splitToStringList(identiferList.tokens, strTokens);
-                identifiers[classification] = identiferList;
+                auto identifierList = IdentifierList::Factory(classification, strTokens);
+                identifiers[classification] = identifierList;
             }
 
             std::pair<bool, kTokenClass> ClassifyToken(const char *token) {
-
                 for (auto &kvp: identifiers) {
                     int dummy;
-                    if (kvp.second.IsMatch(token, dummy)) {
-                        return {true, kvp.second.classification};
+                    if (kvp.second->IsMatch(token, dummy)) {
+                        return {true, kvp.second->classification};
                     }
                 }
                 return {false, kTokenClass::kUnknown};
@@ -184,25 +181,6 @@ namespace gnilk {
         std::unordered_map<std::string, State::Ref> states;
         std::stack<State::Ref> stateStack;
 
-        State::Ref GetOrAddState(const char *stateName) {
-            if (states.find(stateName) == states.end()) {
-                auto state = State::Factory();
-                state->name = stateName;
-                states[stateName] = state;
-            }
-            return states[stateName];
-        }
-        bool HasState(const char *stateName) {
-            if (states.find(stateName) == states.end()) {
-                return false;
-            }
-            return true;
-        }
-        State::Ref GetState(const char *stateName) {
-            return states[stateName];
-        }
-
-
     public:
         struct Token {
             std::string string;     // The token
@@ -212,36 +190,23 @@ namespace gnilk {
             const std::string &String() const { return string; }
         };
 
-        bool PushState(const char *stateName) {
-            if (!HasState(stateName)) {
-                return false;
-            }
-            PushState(states[stateName]);
-            return true;
-        }
-        void PushState(State::Ref state) {
-            stateStack.push(state);
-        }
-        State::Ref PopState() {
-            auto top = stateStack.top();
-            stateStack.pop();
-            return top;
-        }
     public:
         explicit LangLineTokenizer();
         virtual ~LangLineTokenizer() = default;
 
         void PrepareTokens(std::vector<Token> &tokens, const char *input);
+
+        // State handling
+        State::Ref GetOrAddState(const char *stateName);
+        bool HasState(const char *stateName);
+        State::Ref GetState(const char *stateName);
+
+        bool PushState(const char *stateName);
+        void PushState(State::Ref state);
+        State::Ref PopState();
+
     protected:
+        kTokenClass CheckExecuteActionForToken(State::Ref currentState, const char *token, kTokenClass tokenClass);
         std::pair<bool, kTokenClass> GetNextToken(char *dst, int nMax, char **input);
-    protected:
-
-        // Note: These should be 'global' and not per tokenizer!!!
-        std::vector<std::string> operators;
-        std::vector<std::string> keywords;
-        std::vector<std::string> knowntypes;
-
-        //size_t iTokenIndex;
-        kTokenClass currentTokenClass;
     };
 }

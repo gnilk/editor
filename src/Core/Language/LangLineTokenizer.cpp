@@ -8,6 +8,11 @@ Descr   : Small stack state based tokenizer with multi classifications of tokens
  Note: When dealing with operators make sure you define the "longest" (char wise) operators first
        otherwise there will be false positives...
 
+Note_1: EACH LINE IS PASSED THROUGH THIS ONE!!!
+
+Note_2: If you want to run multiple instances (like multi-threaded) you need multiple instances of this tokenizer..
+        YOU CAN NOT CALL THE SAME INSTANCE FROM SEVERAL DIFFERENT THREADS!!!! (use thread_local storage attribute!)
+
 Modified: $Date: $ by $Author: FKling $
 ---------------------------------------------------------------------------
 
@@ -34,11 +39,13 @@ LangLineTokenizer::LangLineTokenizer() {
 //
 // This is the heavy lifting, part 1
 //
-void LangLineTokenizer::PrepareTokens(std::vector<Token> &tokens, const char *input) {
+void LangLineTokenizer::ParseLine(std::vector<LangToken> &tokens, const char *input) {
     char tmp[256];
     char *parsepoint = (char *) input;
 
-    printf("CurrentState: %s\n", stateStack.top()->name.c_str());
+    if (!ResetStateStack()) {
+        return;
+    }
 
     while(true) {
         auto currentState = stateStack.top();
@@ -59,13 +66,36 @@ void LangLineTokenizer::PrepareTokens(std::vector<Token> &tokens, const char *in
         classification = CheckExecuteActionForToken(currentState, tmp, classification);
         // If this is regular text - reclassify it depending on the state (this allows for comments/string and other
         // encapsulation statements to override... (#include)
-        if (classification == kTokenClass::kRegular) {
+        if (classification == kLanguageTokenClass::kRegular) {
             classification = currentState->regularTokenClass;
         }
-        Token token { .string = std::string(tmp), .classification = classification, .idxOrigStr = pos };
+        LangToken token { .string = std::string(tmp), .classification = classification, .idxOrigStr = pos };
         tokens.push_back(token);
     }
 }
+
+//
+// Reset the state stack, empty any left-overs (this is not good) and set the proper start state..
+//
+bool LangLineTokenizer::ResetStateStack() {
+    if (!stateStack.empty()) {
+        printf("WARNING: State stack is not empty!!!!\n");
+        while(!stateStack.empty()) {
+            stateStack.pop();
+        }
+    }
+
+    if (!HasState(startState.c_str())) {
+        // This is developer related, we can exit here...
+        printf("ERR: Illegal start state!\n");
+        exit(1);
+    }
+
+    PushState(startState.c_str());
+    printf("StartState: %s\n", stateStack.top()->name.c_str());
+    return true;
+}
+
 
 //
 // A Pop action will reclassify the token using the popped state as that's where the classification belongs..
@@ -80,7 +110,7 @@ void LangLineTokenizer::PrepareTokens(std::vector<Token> &tokens, const char *in
 //  now - '*/' is consumed and parsed by the 'block_comment' state (which is all good)
 //  but we really want it classified by the outer/parent state.
 //
-LangLineTokenizer::kTokenClass LangLineTokenizer::CheckExecuteActionForToken(State::Ref currentState, const char *token, kTokenClass tokenClass) {
+kLanguageTokenClass LangLineTokenizer::CheckExecuteActionForToken(State::Ref currentState, const char *token, kLanguageTokenClass tokenClass) {
     // Check if we have an action for this token
     if (!currentState->HasActionForToken(token)) {
         return tokenClass;
@@ -98,10 +128,10 @@ LangLineTokenizer::kTokenClass LangLineTokenizer::CheckExecuteActionForToken(Sta
         // As it is the tail end of the token causing the push in the first place...   <- read several times...
 
         // Rewrite classification...
-        auto [ok, tokenClass] = currentState->ClassifyToken(token);
+        auto [ok, newTokenClass] = currentState->ClassifyToken(token);
         if (ok) {
-            printf("  Reclassification: %d -> %d\n", tokenClass, tokenClass);
-            tokenClass = tokenClass;
+            printf("  Reclassification: %d -> %d\n", tokenClass, newTokenClass);
+            tokenClass = newTokenClass;
         }
     } else if (action->action == kAction::kPushState) {
         printf("PushState, %s -> %s (at token: %s)\n", currentState->name.c_str(), action->stateName.c_str(), token);
@@ -165,13 +195,13 @@ LangLineTokenizer::kTokenClass LangLineTokenizer::CheckExecuteActionForToken(Sta
 //
 //
 //
-std::pair<bool, LangLineTokenizer::kTokenClass> LangLineTokenizer::GetNextToken(char *dst, int nMax, char **input) {
+std::pair<bool, kLanguageTokenClass> LangLineTokenizer::GetNextToken(char *dst, int nMax, char **input) {
 
     auto currentState = stateStack.top();
     assert(currentState != nullptr);
 
     if (!strutil::skipWhiteSpace(input)) {
-        return {false, kTokenClass::kUnknown};
+        return {false, kLanguageTokenClass::kUnknown};
     }
     int szOperator = 0;
 
@@ -225,7 +255,15 @@ std::pair<bool, LangLineTokenizer::kTokenClass> LangLineTokenizer::GetNextToken(
 
     // Make sure we terminate, and then we
     dst[idxDst] = '\0';
-    return {true, kRegular};
+    return {true, kLanguageTokenClass::kRegular};
+}
+
+//
+// State handling follows below
+//
+
+void LangLineTokenizer::SetStartState(const std::string &newStartState) {
+    startState = newStartState;
 }
 
 

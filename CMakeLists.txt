@@ -38,11 +38,13 @@ list(APPEND editorsrc src/Core/Tokenizer.cpp src/Core/Tokenizer.h)
 list(APPEND editorsrc src/Core/ColorRGBA.cpp src/Core/ColorRGBA.h)
 list(APPEND editorsrc src/Core/Language/LangLineTokenizer.cpp src/Core/Language/LangLineTokenizer.h)
 
+
 #
 # Language analysis
 #
 list(APPEND editorsrc src/Core/Language/LanguageBase.cpp src/Core/Language/LanguageBase.h)
 list(APPEND editorsrc src/Core/Language/CPP/CPPLanguage.cpp src/Core/Language/CPP/CPPLanguage.h)
+list(APPEND editorsrc src/Core/Language/LangToken.cpp src/Core/Language/LangToken.h)
 
 
 # sublime config/scripting support

@@ -20,6 +20,7 @@
 
 #include "Core/Language/LangLineTokenizer.h"
 #include "Core/Language/CPP/CPPLanguage.h"
+#include "Core/Language/LangToken.h"
 
 
 class ColorConfig {
@@ -143,7 +144,7 @@ void DrawLine(Line &l, std::vector<LineAttrib> &attribs) {
     attrset(A_NORMAL);
 }
 
-void DrawLine2(Line &l, std::vector<gnilk::LangLineTokenizer::Token> &attribs) {
+void DrawLine2(Line &l, std::vector<gnilk::LangToken> &attribs) {
 
     move(0,0);
     clrtoeol();
@@ -295,13 +296,8 @@ void testAttribLogic() {
 static void testTokenizer() {
     std::string strCode = R"_(const char *str="hello \" world"; number++; /* void main func()*/ int anothervar;)_";
 
-    //
-    // This can be put in a configuration file...
-    // Not as advanced as Sublime (by a long-shot) but good enough for a first try...
-    //
 
     // Each buffer will have this
-//    gnilk::LangLineTokenizer tokenizer;
     CPPLanguage cppLanguage;
     if (!cppLanguage.Initialize()) {
         printf("ERR: Configuration error when configuring CPP parser\n");
@@ -311,12 +307,12 @@ static void testTokenizer() {
 
 
     // Each line structure should have this!
-    // Basically the 'Token' replaces the LineAttrib structure
+    // Basically the 'LangToken' replaces the LineAttrib structure
     // Classification -> will be used to look up the actual attribute
     // idxOrigStr -> same as LineAttrib.cStart
     //
-    std::vector<gnilk::LangLineTokenizer::Token> tokens;
-    tokenizer.PrepareTokens(tokens, strCode.c_str());
+    std::vector<gnilk::LangToken> tokens;
+    tokenizer.ParseLine(tokens, strCode.c_str());
 
 
     printf("%s\n", strCode.c_str());
@@ -326,7 +322,8 @@ static void testTokenizer() {
     printf("\n");
 
     for(auto &token : tokens) {
-        printf("%d:%d:%s\n", token.idxOrigStr, token.classification,token.string.c_str());
+        auto strTokenClass = gnilk::LanguageTokenClassToString(token.classification);
+        printf("%d:%s (%d):%s\n", token.idxOrigStr, strTokenClass.c_str(), token.classification,token.string.c_str());
     }
 }
 
@@ -390,10 +387,10 @@ int main(int argc, char **argv) {
         // init_pair is <pair>,<fg>,<bg>
         init_pair(0, 1, 0); // 0 - default color pair
         // Pairing it up like this allows us to use classification directly...
-        init_pair(gnilk::LangLineTokenizer::kTokenClass::kRegular, 1, 0); // 0 - default color pair
-        init_pair(gnilk::LangLineTokenizer::kTokenClass::kOperator, 2, 0); // 0 - default color pair
-        init_pair(gnilk::LangLineTokenizer::kTokenClass::kKeyword, 3, 0); // 0 - default color pair
-        init_pair(gnilk::LangLineTokenizer::kTokenClass::kKnownType, 4, 0); // 0 - default color pair
+        init_pair(gnilk::LangLineTokenizer::kLanguageTokenClass::kRegular, 1, 0); // 0 - default color pair
+        init_pair(gnilk::LangLineTokenizer::kLanguageTokenClass::kOperator, 2, 0); // 0 - default color pair
+        init_pair(gnilk::LangLineTokenizer::kLanguageTokenClass::kKeyword, 3, 0); // 0 - default color pair
+        init_pair(gnilk::LangLineTokenizer::kLanguageTokenClass::kKnownType, 4, 0); // 0 - default color pair
 
     }
 
@@ -421,7 +418,7 @@ int main(int argc, char **argv) {
     line.Append(strCode);
 
     // Each line will have this
-    std::vector<gnilk::LangLineTokenizer::Token> tokens;
+    std::vector<gnilk::LangLineTokenizer::LangToken> tokens;
     tokenizer.PrepareTokens(tokens, strCode.c_str());
 
     DrawLine2(line, tokens);

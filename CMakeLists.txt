@@ -36,7 +36,14 @@ list(APPEND editorsrc src/Core/KeyPress.cpp src/Core/KeyPress.h)
 list(APPEND editorsrc src/Core/Config/Config.cpp src/Core/Config/Config.h)
 list(APPEND editorsrc src/Core/Tokenizer.cpp src/Core/Tokenizer.h)
 list(APPEND editorsrc src/Core/ColorRGBA.cpp src/Core/ColorRGBA.h)
-list(APPEND editorsrc src/Core/LangLineTokenizer.cpp src/Core/LangLineTokenizer.h)
+list(APPEND editorsrc src/Core/Language/LangLineTokenizer.cpp src/Core/Language/LangLineTokenizer.h)
+
+#
+# Language analysis
+#
+list(APPEND editorsrc src/Core/Language/LanguageBase.cpp src/Core/Language/LanguageBase.h)
+list(APPEND editorsrc src/Core/Language/CPP/CPPLanguage.cpp src/Core/Language/CPP/CPPLanguage.h)
+
 
 # sublime config/scripting support
 list(APPEND editorsrc src/Core/Sublime/SublimeConfigScriptEngine.cpp src/Core/Sublime/SublimeConfigScriptEngine.h)

@@ -5,11 +5,10 @@
 #include <unordered_map>
 #include <stack>
 #include <memory>
-#include "StrUtil.h"
-#include "Line.h"
+#include "Core/StrUtil.h"
+#include "Core/Line.h"
 
-namespace gnilk
-{
+namespace gnilk {
     //
     // Language tokenizer and classifier
     //
@@ -34,13 +33,13 @@ namespace gnilk
 
 
     // This is the language tokenize
-	class LangLineTokenizer {
+    class LangLineTokenizer {
     public:
         typedef enum : uint8_t {
-            kUnknown   = 0,
-            kRegular   = 1,
-            kOperator  = 2,
-            kKeyword   = 3,
+            kUnknown = 0,
+            kRegular = 1,
+            kOperator = 2,
+            kKeyword = 3,
             kKnownType = 4,
             // FIXME: Implement this...
             kNumber = 5,
@@ -59,6 +58,9 @@ namespace gnilk
             std::string stateName;
         };
 
+        //
+        // FIXME: Create factory which takes the token list...
+        //
         struct IdentiferList {
             kTokenClass classification;
             std::vector<std::string> tokens;
@@ -102,13 +104,17 @@ namespace gnilk
             }
 
 
+            //
+            // Actions are stack related...  currently only push/pop implemented...
+            // FIXME: Move these to Tokenizer - should not be in the state...
+            //
             const Action &GetOrAddAction(const char *token, kAction action, const char *nextState = nullptr) {
                 if (actions.find(token) == actions.end()) {
                     if ((action == kAction::kPushState) && (nextState == nullptr)) {
                         fprintf(stderr, "ERR: PushState can't push nullptr as state name\n");
                         exit(1);
                     }
-                    actions[token] = {.action = action, .stateName = (nextState== nullptr) ? "" : nextState };
+                    actions[token] = {.action = action, .stateName = (nextState == nullptr) ? "" : nextState};
                 }
                 return actions[token];
             }
@@ -126,13 +132,26 @@ namespace gnilk
                 return true;
             }
 
-
+            //
+            // Post fix identifiers are identifiers that should break regular text parsing.
+            // Normally this is your regular 'operators' but in case of comments you might want to
+            // set something else...
+            // Like for CPP you want '*/' as postfix-operator in the block_comment state...
+            //
             void SetPostFixIdentifiers(const char *strTokens) {
                 postfixIdentifiers.classification = kRegular;
                 SplitToStringList(postfixIdentifiers.tokens, strTokens);
 
             }
 
+            //
+            // Identifiers should be declared in length order
+            // like:
+            // "++= <<= >>= ++ << >> + < >"
+            // Other wise you will have false positives
+            //
+            // Each identifier list belongs to a classification
+            //
             void SetIdentifiers(kTokenClass classification, const char *strTokens) {
                 IdentiferList identiferList = {};
                 identiferList.classification = classification;
@@ -140,20 +159,21 @@ namespace gnilk
                 identifiers[classification] = identiferList;
             }
 
-            std::pair<bool, kTokenClass > ClassifyToken(const char *token) {
+            std::pair<bool, kTokenClass> ClassifyToken(const char *token) {
 
-                for(auto &kvp : identifiers) {
+                for (auto &kvp: identifiers) {
                     int dummy;
                     if (kvp.second.IsMatch(token, dummy)) {
-                        return {true,kvp.second.classification};
+                        return {true, kvp.second.classification};
                     }
                 }
                 return {false, kTokenClass::kUnknown};
             }
 
+            // FIXME: Remove from there...
             void SplitToStringList(std::vector<std::string> &outList, const char *input) {
                 char tmp[256];
-                char *parsePoint = (char *)input;
+                char *parsePoint = (char *) input;
 
                 if (input == nullptr) {
                     return;
@@ -164,6 +184,7 @@ namespace gnilk
                 }
             }
 
+            // FIXME: Remove from there...
             char *GetNextTokenNoOperator(char *dst, int nMax, char **input) {
                 if (!strutil::skipWhiteSpace(input)) {
                     return nullptr;
@@ -184,7 +205,7 @@ namespace gnilk
                 dst[i] = '\0';
                 return dst;
             }
-        };
+        };  // State
 
 
         std::unordered_map<std::string, State::Ref> states;
@@ -233,9 +254,9 @@ namespace gnilk
             stateStack.pop();
             return top;
         }
-	public:
-		explicit LangLineTokenizer();
-		virtual ~LangLineTokenizer() = default;
+    public:
+        explicit LangLineTokenizer();
+        virtual ~LangLineTokenizer() = default;
 
         void PrepareTokens(std::vector<Token> &tokens, const char *input);
     protected:
@@ -247,7 +268,6 @@ namespace gnilk
         void SplitToStringList(const char *input, std::vector<std::string> &outList);
     protected:
 
-
         // Note: These should be 'global' and not per tokenizer!!!
         std::vector<std::string> operators;
         std::vector<std::string> keywords;
@@ -257,5 +277,5 @@ namespace gnilk
         kTokenClass currentTokenClass;
 
 
-	};
+    };
 }

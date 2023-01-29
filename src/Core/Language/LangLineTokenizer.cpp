@@ -3,8 +3,10 @@ File    : $Archive: LangLineTokenizer.cpp $
 Author  : $Author: FKling $
 Version : $Revision: 1 $
 Orginal : 2009-10-17, 15:50
-Descr   : Simple and extensible line tokenzier, pre-processes the data 
-	      and stores tokens in a list.
+Descr   : Small stack state based tokenizer with multi classifications of tokens
+
+ Note: When dealing with operators make sure you define the "longest" (char wise) operators first
+       otherwise there will be false positives...
 
 Modified: $Date: $ by $Author: FKling $
 ---------------------------------------------------------------------------
@@ -221,6 +223,10 @@ std::pair<bool, LangLineTokenizer::kTokenClass> LangLineTokenizer::GetNextToken(
 
 }
 
+//
+// FIXME: Break this out of here (requires 'SkipWhiteSpace' is also moved elsewhere
+//        Reason: this is ued by identifier lists during initial parsing
+//
 char *LangLineTokenizer::GetNextTokenNoOperator(char *dst, int nMax, char **input) {
     if (!SkipWhiteSpace(input)) {
         return nullptr;
@@ -242,6 +248,9 @@ char *LangLineTokenizer::GetNextTokenNoOperator(char *dst, int nMax, char **inpu
     return dst;
 }
 
+//
+// FIXME: Can be made static
+//
 bool LangLineTokenizer::SkipWhiteSpace(char **input) {
     if (**input == '\0') {
         return false;

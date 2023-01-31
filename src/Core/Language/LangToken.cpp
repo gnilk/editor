@@ -24,6 +24,15 @@ static const std::unordered_map<kLanguageTokenClass, std::string> tokenNames = {
         {kLanguageTokenClass::kFunky,"funky"},
 };
 
+bool gnilk::IsLanguageTokenClass(int num) {
+    static constexpr int maxLangClass = static_cast<int>(gnilk::kLanguageTokenClass::kLastTokenClass);
+    if ((num < 0) || (num >=  maxLangClass)) {
+        return false;
+    }
+    return true;
+}
+
+
 
 const std::string &gnilk::LanguageTokenClassToString(kLanguageTokenClass tokenClass) {
     auto it = tokenNames.find(tokenClass);

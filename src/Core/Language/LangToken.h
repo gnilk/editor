@@ -7,7 +7,7 @@
 
 namespace gnilk {
 // Extend this as we go along...
-    enum class kLanguageTokenClass {
+    enum class kLanguageTokenClass : int {
         kUnknown = 0,
         kRegular = 1,
         kOperator = 2,
@@ -19,10 +19,15 @@ namespace gnilk {
         kLineComment = 7,
         kBlockComment = 8,
         kCommentedText = 9,
+        kLastTokenClass = 10,         // this is used as numeric detection of the last token class
         kFunky = 196,       // USED for debugging..
     };
 
+
+
+    bool IsLanguageTokenClass(int num);
     const std::string &LanguageTokenClassToString(kLanguageTokenClass tokenClass);
+
 
     class LangToken {
     public:

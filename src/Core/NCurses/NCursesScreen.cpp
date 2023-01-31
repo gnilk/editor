@@ -48,6 +48,17 @@ void NCursesScreen::Update() {
     refresh();
 }
 
+static int colorCounter = 0;
+void NCursesScreen::RegisterColor(int appIndex, const ColorRGBA &foreground, const ColorRGBA &background) {
+
+    int currentColor = colorCounter;
+
+    init_color(colorCounter++, background.R() * 1000, background.G() * 1000, background.B() * 1000);
+    init_color(colorCounter++, foreground.R() * 1000, foreground.G() * 1000, foreground.B() * 1000);
+
+    init_pair(appIndex,  currentColor + 1, currentColor);
+}
+
 
 std::pair<int, int> NCursesScreen::ComputeView(int idxActiveLine) {
     auto [rows, cols] = Dimensions();
@@ -111,6 +122,39 @@ void NCursesScreen::DrawLineAt(int row, const Line *line) {
     int nCharToPrint = line->Length()>(cols-szGutter)?(cols-szGutter):line->Length();
     mvaddnstr(row, szGutter, line->Buffer().data(), nCharToPrint);
 }
+void NCursesScreen::DrawLineWithAttributes(Line &l, int nCharToPrint) {
+
+
+    auto &attribs = l.Attributes();
+
+    int idxColorPair = 0;
+    // If no attribs - just dump it out...
+    if (attribs.size() == 0) {
+        for (int i = 0; i < l.Length(); i++) {
+            addch(l.Buffer().at(i));
+        }
+        return;
+    }
+
+    int idxAttrib = 0;
+    attr_t attrib;
+    auto itAttrib = attribs.begin();
+    //int cNext = attribs[0].cStart;
+    for (int i = 0; i < nCharToPrint; i++) {
+
+        if (i >= itAttrib->idxOrigString) {
+            // FIXME: Convert - must be done in driver...
+            attrib = COLOR_PAIR(itAttrib->idxColor);
+            itAttrib++;
+            if (itAttrib == attribs.end()) {
+                --itAttrib;
+            }
+        }
+        attrset(attrib);
+        addch(l.Buffer().at(i));
+    }
+    attrset(A_NORMAL);
+}
 
 void NCursesScreen::DrawLines(const std::vector<Line *> &lines, int idxActiveLine) {
     auto [rows, cols] = Dimensions();
@@ -131,16 +175,19 @@ void NCursesScreen::DrawLines(const std::vector<Line *> &lines, int idxActiveLin
             int nCharToPrint = line->Length()>(cols-szGutter)?(cols-szGutter):line->Length();
             move(i, szGutter);
             clrtoeol();
-            // let's see...
-            attrset(A_NORMAL);
+            // FIXME: selection!
+            DrawLineWithAttributes(*line, nCharToPrint);
 
-            if (line->IsSelected()) {
-                attron(A_REVERSE);
-            }
-            mvaddnstr(i, szGutter, line->Buffer().data(), nCharToPrint);
-            if (line->IsSelected()) {
-                attroff(A_REVERSE);
-            }
+//            // let's see...
+//            attrset(A_NORMAL);
+//
+//            if (line->IsSelected()) {
+//                attron(A_REVERSE);
+//            }
+//            mvaddnstr(i, szGutter, line->Buffer().data(), nCharToPrint);
+//            if (line->IsSelected()) {
+//                attroff(A_REVERSE);
+//            }
         }
     }
 

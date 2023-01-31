@@ -15,6 +15,12 @@
 
 class Line {
 public:
+    struct LineAttrib {
+        int idxOrigString;   // index in original string...
+        // Attributes from this cursor position and onwards..
+        int idxColor;       // index to color (or token classification)
+    };
+public:
     Line();
     Line(const char *data);
     void Clear();
@@ -34,6 +40,8 @@ public:
     int Indent() { return indent; }
     int ComputeIndent();
 
+    std::vector<LineAttrib> &Attributes() { return attribs; }
+
     void SetSelected(bool bSelected) {
         selected = bSelected;
     }
@@ -46,13 +54,13 @@ public:
 private:
     std::mutex lock;
     std::string buffer = "";
-    //std::vector<LineAttrib> attribs;
+    std::vector<LineAttrib> attribs;
     bool active = false;
     int indent = 0;
     bool selected = false;
 };
 
-typedef std::vector<Line *> Buffer;
+//typedef std::vector<Line *> Buffer;
 
 
 #endif //EDITOR_LINE_H

@@ -7,6 +7,8 @@
 
 #include <string>
 #include <vector>
+#include "Core/Language/LanguageBase.h"
+#include "ColorConfig.h"
 #include <yaml-cpp/yaml.h>
 
 class ConfigNode {
@@ -61,12 +63,27 @@ protected:
 
 class Config : public ConfigNode {
 public:
-
     static Config &Instance();
+
+    void RegisterLanguage(const std::string &extension, LanguageBase *languageBase);
+    LanguageBase *GetLanguageForFilename(const std::string &extension);
+
+    // Load configuration include theme and color files
     bool LoadConfig(const std::string &filename);
+
+    // Returns the current color configuration
+    const ColorConfig &ColorConfiguration() {
+        return colorConfig;
+    }
+protected:
+    bool LoadSublimeColorFile(const std::string &filename);
 
 private:
     Config();   // Hide CTOR...
+    ColorConfig colorConfig;
+
+    std::unordered_map<std::string, LanguageBase *> extToLanguages;
+
 };
 
 

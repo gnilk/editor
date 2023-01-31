@@ -33,7 +33,12 @@
 #include "Core/KeyboardDriverBase.h"
 #include "Core/Config/Config.h"
 
+#include "Core/Language/CPP/CPPLanguage.h"
+#include "Core/Language/LangToken.h"
+
+
 #include "Core/RuntimeConfig.h"
+#include "Core/Buffer.h"
 
 #include <map>
 
@@ -49,7 +54,7 @@ static bool LoadToBuffer(Buffer &outBuffer, const char *filename) {
     }
     char tmp[MAX_LINE_LENGTH];
     while(fgets(tmp, MAX_LINE_LENGTH, f)) {
-        outBuffer.push_back(new Line(tmp));
+        outBuffer.Lines().push_back(new Line(tmp));
     }
 
     fclose(f);
@@ -124,6 +129,20 @@ static void testConfig() {
     printf("Insert Spaces: %s\n", insertSpaces?"yes":"no");
 
 }
+static void testBufferLoading(const char *filename) {
+    Buffer *buffer = new Buffer();
+    printf("Loading: %s\n", filename);
+    if (!LoadToBuffer(*buffer, filename)) {
+        printf("Unable to load: %s\n", filename);
+        exit(1);
+    }
+    buffer->SetLanguage(Config::Instance().GetLanguageForFilename(filename));
+
+    printf("Ok, file '%s' loaded\n", filename);
+    printf("Lines: %d\n", (int)buffer->Lines().size());
+//    editorMode.SetBuffer(buffer);
+
+}
 
 int main(int argc, const char **argv) {
     auto configOk = Config::Instance().LoadConfig("config.yml");
@@ -132,16 +151,9 @@ int main(int argc, const char **argv) {
         exit(1);
     }
 
-
-//    testKeyboard();
-//    exit(1);
-
-//    CommandMode::TestExecuteShellCmd();
-//    exit(1);
-//
-//    testConfig();
-//    exit(1);
-
+    CPPLanguage cppLanguage;
+    cppLanguage.Initialize();
+    Config::Instance().RegisterLanguage(".cpp", &cppLanguage);
 
     bool bQuit = false;
     NCursesScreen screen;
@@ -177,15 +189,18 @@ int main(int argc, const char **argv) {
         currentMode->OnSwitchMode(true);
     });
 
+    // FIXME: Call to 'BufferManager->CreateEmptyBuffer()'
     if (argc > 1) {
-        Buffer buffer;
+        Buffer *buffer = new Buffer();
         printf("Loading: %s\n", argv[1]);
-        if (!LoadToBuffer(buffer, argv[1])) {
+        if (!LoadToBuffer(*buffer, argv[1])) {
             printf("Unable to load: %s\n", argv[1]);
             exit(1);
         }
+        buffer->SetLanguage(Config::Instance().GetLanguageForFilename(argv[1]));
+
         printf("Ok, file '%s' loaded\n", argv[1]);
-        printf("Lines: %d\n", (int)buffer.size());
+        printf("Lines: %d\n", (int)buffer->Lines().size());
         editorMode.SetBuffer(buffer);
     }
 
@@ -197,9 +212,21 @@ int main(int argc, const char **argv) {
     RuntimeConfig::Instance().SetScreen(screen);
     RuntimeConfig::Instance().SetKeyboard(keyBoard);
 
-
     screen.Open();
     screen.Clear();
+
+    // NOTE: This must be done after the screen has been opened as the color handling might require the underlying graphics
+    //       context to be initialized...
+    auto &colorConfig = Config::Instance().ColorConfiguration();
+    for(int i=0;gnilk::IsLanguageTokenClass(i);i++) {
+        auto langClass = gnilk::LanguageTokenClassToString(static_cast<gnilk::kLanguageTokenClass>(i));
+        if (!colorConfig.HasColor(langClass)) {
+            printf("\nErr, missing color configuration for: %s\n", langClass.c_str());
+            return -1;
+        }
+        screen.RegisterColor(i, colorConfig.GetColor(langClass), colorConfig.GetColor("background"));
+    }
+
 
     while(!bQuit) {
         currentMode->DrawLines();

@@ -47,6 +47,8 @@ void LangLineTokenizer::ParseLine(std::vector<LangToken> &tokens, const char *in
         return;
     }
 
+    PushState(startState.c_str());
+
     while(true) {
         auto currentState = stateStack.top();
 
@@ -56,7 +58,7 @@ void LangLineTokenizer::ParseLine(std::vector<LangToken> &tokens, const char *in
             break;
         }
 
-        printf("s: %s, tok: %s\n", currentState->name.c_str(), tmp);
+        // printf("s: %s, tok: %s\n", currentState->name.c_str(), tmp);
 
         int len = strlen(tmp);
         if (len == 0) {
@@ -72,6 +74,8 @@ void LangLineTokenizer::ParseLine(std::vector<LangToken> &tokens, const char *in
         LangToken token { .string = std::string(tmp), .classification = classification, .idxOrigStr = pos };
         tokens.push_back(token);
     }
+    // Let's pop the  'start'
+    PopState();
 }
 
 //
@@ -91,8 +95,6 @@ bool LangLineTokenizer::ResetStateStack() {
         exit(1);
     }
 
-    PushState(startState.c_str());
-    printf("StartState: %s\n", stateStack.top()->name.c_str());
     return true;
 }
 
@@ -122,7 +124,7 @@ kLanguageTokenClass LangLineTokenizer::CheckExecuteActionForToken(State::Ref cur
         auto oldState  = PopState();
         currentState = stateStack.top();
 
-        printf("PopState, %s -> %s (at token: %s)\n", oldState->name.c_str(), stateStack.top()->name.c_str(), token);
+        // printf("PopState, %s -> %s (at token: %s)\n", oldState->name.c_str(), stateStack.top()->name.c_str(), token);
 
         // When we pop, the token causing the pop belongs to the popped-context
         // As it is the tail end of the token causing the push in the first place...   <- read several times...
@@ -130,11 +132,11 @@ kLanguageTokenClass LangLineTokenizer::CheckExecuteActionForToken(State::Ref cur
         // Rewrite classification...
         auto [ok, newTokenClass] = currentState->ClassifyToken(token);
         if (ok) {
-            printf("  Reclassification: %d -> %d\n", tokenClass, newTokenClass);
+            // printf("  Reclassification: %d -> %d\n", tokenClass, newTokenClass);
             tokenClass = newTokenClass;
         }
     } else if (action->action == kAction::kPushState) {
-        printf("PushState, %s -> %s (at token: %s)\n", currentState->name.c_str(), action->stateName.c_str(), token);
+        // printf("PushState, %s -> %s (at token: %s)\n", currentState->name.c_str(), action->stateName.c_str(), token);
         PushState(action->stateName.c_str());
     }
 

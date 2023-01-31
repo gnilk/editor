@@ -21,49 +21,13 @@
 #include "Core/Language/LangLineTokenizer.h"
 #include "Core/Language/CPP/CPPLanguage.h"
 #include "Core/Language/LangToken.h"
-
-
-class ColorConfig {
-public:
-    ColorConfig();
-    void SetDefaults() noexcept;
-    void SetColor(const std::string &name, ColorRGBA color);
-
-    bool HasColor(const std::string &name) const {
-        return (colors.find(name) != colors.end());
-    }
-    const ColorRGBA GetColor(const std::string &name) const {
-        if (!HasColor(name)) {
-            return {};
-        }
-        auto it = colors.find(name);
-        return it->second;
-    }
-    const ColorRGBA operator[](const std::string &name) const {
-        return GetColor(name);
-    }
-
-private:
-    std::unordered_map<std::string, ColorRGBA> colors;
-};
-ColorConfig::ColorConfig() {
-    SetDefaults();
-}
-
-void ColorConfig::SetDefaults() noexcept {
-
-}
-
-void ColorConfig::SetColor(const std::string &name, ColorRGBA color) {
-    colors[name] = color;
-}
-
-static ColorConfig colorConfig;
+#include "Core/Config/Config.h"
+#include "Core/Buffer.h"
 
 
 using json = nlohmann::json;
 
-bool Open() {
+bool Screen_Open() {
     use_extended_names(TRUE);
     initscr();
     if (has_colors()) {
@@ -199,6 +163,10 @@ static void loadSublimeColorFile(const std::string &filename, SublimeConfigColor
             scriptEngine.AddVarFromValue<ColorRGBA>(col.key(), SublimeConfigScriptEngine::kColor, color);
         }
     }
+
+    // Push colors to color configuration
+    auto colorConfig = Config::Instance().ColorConfiguration();
+
     auto globals = data["globals"];
     for(auto &col : globals.items()) {
         if (col.value().is_string()) {
@@ -286,11 +254,7 @@ void testAttribLogic() {
         printf("%d", idxColor);
     }
     printf("\n");
-
 }
-
-
-
 
 
 static void testTokenizer() {
@@ -321,14 +285,81 @@ static void testTokenizer() {
     }
     printf("\n");
 
+    auto colorConfig = Config::Instance().ColorConfiguration();
     for(auto &token : tokens) {
         auto strTokenClass = gnilk::LanguageTokenClassToString(token.classification);
+        if (!colorConfig.HasColor(strTokenClass)) {
+            printf("Missing color with name: %s\n", strTokenClass.c_str());
+            exit(1);
+        }
         printf("%d:%s (%d):%s\n", token.idxOrigStr, strTokenClass.c_str(), token.classification,token.string.c_str());
     }
 }
 
+
+
+static int colorCounter = 0;
+static void Screen_RegisterColor(int appIndex, const ColorRGBA &foreground, const ColorRGBA &background) {
+
+    int currentColor = colorCounter;
+
+    init_color(colorCounter++, background.R() * 1000, background.G() * 1000, background.B() * 1000);
+    init_color(colorCounter++, foreground.R() * 1000, foreground.G() * 1000, foreground.B() * 1000);
+
+    init_pair(appIndex,  currentColor + 1, currentColor);
+}
+
+
+
 int main(int argc, char **argv) {
-    testTokenizer();
+
+    Config::Instance().LoadConfig("tests/config.yml");
+
+    atexit(Close);
+    Screen_Open();
+
+    // FIXME: This must be moved into "post-processing" of config loading...
+    //        Or part of 'Screen::Open' call
+    auto colorConfig = Config::Instance().ColorConfiguration();
+    for(int i=0;IsLanguageTokenClass(i);i++) {
+        auto langClass = gnilk::LanguageTokenClassToString(static_cast<gnilk::kLanguageTokenClass>(i));
+        if (!colorConfig.HasColor(langClass)) {
+            printf("\nErr, missing color configuration for: %s\n", langClass.c_str());
+            return -1;
+        }
+        Screen_RegisterColor(i, colorConfig.GetColor(langClass), colorConfig.GetColor("background"));
+    }
+
+
+    std::string strCode = R"_(const char *str="hello \" world"; number++; /* void main func()*/ int anothervar;)_";
+
+    Line line;
+    Buffer buffer;
+    line.Append(strCode);
+
+
+    CPPLanguage cppLanguage;
+    if (!cppLanguage.Initialize()) {
+        printf("ERR: Configuration error when configuring CPP parser\n");
+        exit(1);
+    }
+    auto tokenizer = cppLanguage.Tokenizer();
+
+    std::vector<gnilk::LangToken> tokens;
+    tokenizer.ParseLine(tokens, strCode.c_str());
+
+    for(auto &t : tokens) {
+        printf("%d:%d, %s\n", t.idxOrigStr, t.classification, t.string.c_str());
+    }
+
+    DrawLine2(line, tokens);
+
+    int ch;
+    while((ch = getch()) != KEY_F(1)) {
+        //
+    }
+
+    //testTokenizer();
     return -1;
     /*
 //    testAttribLogic();
@@ -352,7 +383,6 @@ int main(int argc, char **argv) {
 //        return -1;
 //    }
 //    return 0;
-
 
     loadSublimeColorFile("tests/colors.sublime.json", scriptEngine);
 

@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "Core/Line.h"
+#include "Core/ColorRGBA.h"
 
 class ScreenBase {
 public:
@@ -18,6 +19,8 @@ public:
     virtual void Close() { }
     virtual void Clear() { }
     virtual void Update() { }
+
+    virtual void RegisterColor(int appIndex, const ColorRGBA &foreground, const ColorRGBA &background) {}
 
     void SetCursorColumn(int cCol) { cursorColumn = cCol; }
 

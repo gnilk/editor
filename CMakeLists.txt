@@ -24,7 +24,7 @@ if (APPLE)
     list(APPEND extlibs ${IOKIT_FRAMEWORK} ${CORE_FOUNDATION})
 endif()
 
-
+list(APPEND editorsrc src/Core/Buffer.cpp src/Core/Buffer.h)
 list(APPEND editorsrc src/Core/Line.cpp src/Core/Line.h)
 list(APPEND editorsrc src/Core/StrUtil.cpp src/Core/StrUtil.h)
 list(APPEND editorsrc src/Core/ModeBase.cpp src/Core/ModeBase.h)
@@ -33,11 +33,12 @@ list(APPEND editorsrc src/Core/EditorMode.cpp src/Core/EditorMode.cpp)
 list(APPEND editorsrc src/Core/KeyboardDriverBase.cpp src/Core/KeyboardDriverBase.h)
 list(APPEND editorsrc src/Core/RuntimeConfig.cpp src/Core/RuntimeConfig.cpp)
 list(APPEND editorsrc src/Core/KeyPress.cpp src/Core/KeyPress.h)
-list(APPEND editorsrc src/Core/Config/Config.cpp src/Core/Config/Config.h)
 list(APPEND editorsrc src/Core/Tokenizer.cpp src/Core/Tokenizer.h)
 list(APPEND editorsrc src/Core/ColorRGBA.cpp src/Core/ColorRGBA.h)
 list(APPEND editorsrc src/Core/Language/LangLineTokenizer.cpp src/Core/Language/LangLineTokenizer.h)
 
+list(APPEND editorsrc src/Core/Config/Config.cpp src/Core/Config/Config.h)
+list(APPEND editorsrc src/Core/Config/ColorConfig.cpp src/Core/Config/ColorConfig.h)
 
 #
 # Language analysis

@@ -3,6 +3,7 @@
 //
 
 #include <string>
+
 #include "CPPLanguage.h"
 
 // state: main (and probably a few others)
@@ -35,7 +36,8 @@ bool CPPLanguage::Initialize() {
     state->GetOrAddAction("//", gnilk::LangLineTokenizer::kAction::kPushState, "in_line_comment");
 
     auto stateStr = tokenizer.GetOrAddState("in_string");
-    stateStr->SetIdentifiers(gnilk::kLanguageTokenClass::kFunky, inStringOperators.c_str());
+    stateStr->SetRegularTokenClass(gnilk::kLanguageTokenClass::kString);
+    stateStr->SetIdentifiers(gnilk::kLanguageTokenClass::kString, inStringOperators.c_str());
     stateStr->SetPostFixIdentifiers(inStringPostFixOp.c_str());
     stateStr->GetOrAddAction("\"", gnilk::LangLineTokenizer::kAction::kPopState);
 
@@ -51,6 +53,8 @@ bool CPPLanguage::Initialize() {
     stateBlkComment->SetRegularTokenClass(gnilk::kLanguageTokenClass::kCommentedText);
 
     tokenizer.SetStartState("main");
+
+    // Register with the configuration
 
     return true;
 }

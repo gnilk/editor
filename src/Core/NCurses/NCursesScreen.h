@@ -18,7 +18,9 @@ public:
     void Close() override;
     void Clear() override;
     void Update() override;
-    // Make these virtual and part of base class
+
+    void RegisterColor(int appIndex, const ColorRGBA &foreground, const ColorRGBA &background) override;
+
     void DrawGutter(int idxStart) override;
     void DrawLines(const std::vector<Line *> &lines, int idxActiveLine) override;
     void DrawLineAt(int row, const Line *line) override;
@@ -27,9 +29,13 @@ public:
     std::pair<int, int> Dimensions() override;
     void Scroll(int nLines) override;
 protected:
+    void DrawLineWithAttributes(Line &l, int nCharToPrint);
+
+
     std::pair<int, int> ComputeView(int idxActiveLine);
 private:
     std::pair<int, int> view = {0,0};
+
     int lastTopLine = 0;
     int tmp_dyLast = 0;
 };

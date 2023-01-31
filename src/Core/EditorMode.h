@@ -5,6 +5,7 @@
 #ifndef EDITOR_EDITORMODE_H
 #define EDITOR_EDITORMODE_H
 
+#include "Core/Buffer.h"
 #include "Core/ScreenBase.h"
 #include "Core/ModeBase.h"
 #include "Core/KeyboardDriverBase.h"
@@ -51,13 +52,15 @@ public:
         void Update() override;
         void DrawLines() override;
 
-        // Navigate
+        const std::vector<Line *> &Lines() const override { return buffer->Lines(); };
+
+
+    // Navigate
         void OnNavigateUp(int rows);
         void OnNavigateDown(int rows);
 
-        void SetBuffer(Buffer &newBuffer);
+        void SetBuffer(Buffer *newBuffer);
 
-        const std::vector<Line *> &Lines() const override { return lines; }
 protected:
         bool UpdateNavigation(KeyPress &keyPress, bool isShiftPressed);
         void ClearSelectedLines();
@@ -66,8 +69,8 @@ private:
         KeyPress lastChar {};
         int idxActiveLine = 0;
         Line *currentLine = nullptr;
-//    std::vector<Line *>::iterator it;
-        Buffer lines;
+        //Buffer lines;
+        Buffer *buffer = nullptr;
 
         // Selection stuff
         struct Selection selection;

@@ -13,13 +13,14 @@
 #include "Core/RuntimeConfig.h"
 
 EditorMode::EditorMode() {
+    buffer = new Buffer();
     NewLine();
     idxActiveLine = 0;
 }
 
-void EditorMode::SetBuffer(Buffer &newBuffer) {
-    lines = std::move(newBuffer);
-    currentLine = lines[0];
+void EditorMode::SetBuffer(Buffer *newBuffer) {
+    buffer = newBuffer;
+    currentLine = buffer->LineAt(0);
     idxActiveLine = 0;
 }
 
@@ -30,8 +31,10 @@ void EditorMode::NewLine() {
         indentPrevious = currentLine->ComputeIndent();
     }
 
+    auto &lines = buffer->Lines();
+
     auto it = lines.begin() + idxActiveLine;
-    if (lines.size() == 0) {
+    if (buffer->Lines().size() == 0) {
         it = lines.insert(it, new Line());
     } else {
         if (cursor.activeColumn == 0) {
@@ -59,7 +62,7 @@ void EditorMode::NewLine() {
 void EditorMode::ClearSelectedLines() {
     // FIXME: We don't want to clear all, once we have a proper selection structure we should
     //        keep delta and clear only what is needed
-    for(auto &line : lines) {
+    for(auto &line : buffer->Lines()) {
         line->SetSelected(false);
     }
 }
@@ -67,6 +70,7 @@ void EditorMode::ClearSelectedLines() {
 
 void EditorMode::DrawLines() {
     auto screen = RuntimeConfig::Instance().Screen();
+    auto &lines = buffer->Lines();
 
     if (selection.IsActive()) {
 
@@ -196,6 +200,7 @@ bool EditorMode::UpdateNavigation(KeyPress &keyPress, bool isShiftPressed) {
 }
 void EditorMode::OnNavigateDown(int rows) {
     currentLine->SetActive(false);
+    auto &lines = buffer->Lines();
 
     idxActiveLine+=rows;
     if (idxActiveLine >= lines.size()) {
@@ -208,6 +213,7 @@ void EditorMode::OnNavigateDown(int rows) {
 
 void EditorMode::OnNavigateUp(int rows) {
     currentLine->SetActive(false);
+    auto &lines = buffer->Lines();
 
     idxActiveLine -= rows;
     if (idxActiveLine < 0) {

@@ -5,6 +5,8 @@ an editor.
 
 This is my playground....
 
+![screenshot](https://github.com/gnilk/editor/blob/master/main_edit_mode.png?raw=true)
+
 Currently only macOS....
 
 Goals
@@ -23,10 +25,13 @@ the macOS settings IF you want SHIFT+Arrow keys to work properly.
 
 The code for this "keylogger" is also part of the repository.
 
+Got q quite simple but nice stack-based language tokenizer running. Use it to drive syntax highlighting.
+
 
 Dependencies:
 - yaml-cpp, https://github.com/jbeder/yaml-cpp
 - ncurses, on *nix it is generally available, otherwise: https://invisible-island.net/ncurses/announce.html
+- nlohmann/json, https://github.com/nlohmann/json
 
 
 Playing around with embedding a script language to drive command-mode cmd-let's.

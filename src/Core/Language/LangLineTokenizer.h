@@ -159,6 +159,9 @@ namespace gnilk {
         State::Ref GetState(const char *stateName);
 
     protected:
+        void ParseLineWithCurrentState(std::vector<LangToken> &tokens, const char *input);
+
+
         kLanguageTokenClass CheckExecuteActionForToken(State::Ref currentState, const char *token, kLanguageTokenClass tokenClass);
         std::pair<bool, kLanguageTokenClass> GetNextToken(char *dst, int nMax, char **input);
 

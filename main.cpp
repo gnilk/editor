@@ -205,6 +205,8 @@ int main(int argc, const char **argv) {
         editorMode.SetBuffer(buffer);
     }
 
+
+
     if (!keyBoard.Initialize()) {
         return -1;
     }

@@ -87,7 +87,6 @@ void EditorMode::DrawLines() {
         }
     }
 
-
     screen->DrawGutter(idxActiveLine);
     screen->SetCursorColumn(cursor.activeColumn);
     screen->DrawLines(Lines(),idxActiveLine);
@@ -111,6 +110,14 @@ void EditorMode::DrawLines() {
 
 }
 
+void EditorMode::UpdateSyntaxForCurrentLine() {
+    auto &tokenizer = buffer->LangParser().Tokenizer();
+    std::vector<gnilk::LangToken> tokens;
+
+    tokenizer.ParseLine(tokens, currentLine->Buffer().data());
+
+    gnilk::LangToken::ToLineAttrib(currentLine->Attributes(), tokens);
+}
 
 
 void EditorMode::Update() {
@@ -131,6 +138,7 @@ void EditorMode::Update() {
             //  if '}' was entered as first char on a line - unindent it
             //  if '{' was entered add '}'
         }
+        UpdateSyntaxForCurrentLine();
         return;
     }
 

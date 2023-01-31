@@ -32,6 +32,16 @@ bool gnilk::IsLanguageTokenClass(int num) {
     return true;
 }
 
+void LangToken::ToLineAttrib(std::vector<Line::LineAttrib> &outAttributes, std::vector<LangToken> &tokens) {
+    outAttributes.clear();
+    for(auto &t : tokens) {
+        Line::LineAttrib attrib;
+        attrib.idxOrigString = t.idxOrigStr;
+        attrib.idxColor = static_cast<int>(t.classification);
+        outAttributes.push_back(attrib);
+    }
+
+}
 
 
 const std::string &gnilk::LanguageTokenClassToString(kLanguageTokenClass tokenClass) {

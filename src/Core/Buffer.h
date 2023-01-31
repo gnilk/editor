@@ -16,7 +16,7 @@ public:
         Reparse();
     }
     void Reparse();
-    const LanguageBase &LangParser() { return *language; }
+    LanguageBase &LangParser() { return *language; }
     std::vector<Line *> &Lines() { return lines; }
 
     Line *LineAt(size_t idxLine) {

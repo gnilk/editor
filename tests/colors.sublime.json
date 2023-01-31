@@ -34,7 +34,7 @@
     "known_type" : "var(red)",
     "number": "var(blue-vibrant)",
     "string": "var(green)",
-    "line_comment": "var(grey)",
+    "line_comment": "var(blue6)",
     "block_comment": "var(blue6)",
     "commented_text": "var(blue6)",
     "selection": "var(blue2)",

@@ -15,7 +15,7 @@ public:
     // Implement this and setup the tokenizer
     virtual bool Initialize() { return false; }; // You should really implement this...
 
-    const gnilk::LangLineTokenizer &Tokenizer() { return  tokenizer; }
+    gnilk::LangLineTokenizer &Tokenizer() { return  tokenizer; }
 protected:
     gnilk::LangLineTokenizer tokenizer;
 };

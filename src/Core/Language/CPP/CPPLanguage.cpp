@@ -50,7 +50,7 @@ bool CPPLanguage::Initialize() {
 
     // a line comment run's to new-line...
     auto stateLineComment = tokenizer.GetOrAddState("in_line_comment");
-    stateBlkComment->SetRegularTokenClass(gnilk::kLanguageTokenClass::kCommentedText);
+    stateLineComment->SetRegularTokenClass(gnilk::kLanguageTokenClass::kCommentedText);
 
     tokenizer.SetStartState("main");
 

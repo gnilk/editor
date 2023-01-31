@@ -259,6 +259,16 @@ void testAttribLogic() {
 
 static void testTokenizer() {
     std::string strCode = R"_(const char *str="hello \" world"; number++; /* void main func()*/ int anothervar;)_";
+    std::vector<std::string> codeLines={
+            {"i"},
+            {"in"},
+            {"int"},
+            {"int m"},
+            {"int ma"},
+            {"int mai"},
+            {"int main"},
+            {"int main("},
+    };
 
 
     // Each buffer will have this
@@ -270,30 +280,28 @@ static void testTokenizer() {
     auto tokenizer = cppLanguage.Tokenizer();
 
 
-    // Each line structure should have this!
-    // Basically the 'LangToken' replaces the LineAttrib structure
-    // Classification -> will be used to look up the actual attribute
-    // idxOrigStr -> same as LineAttrib.cStart
-    //
-    std::vector<gnilk::LangToken> tokens;
-    tokenizer.ParseLine(tokens, strCode.c_str());
+    for(int i=0;i<8;i++) {
+        printf("-----[: %s\n", codeLines[i].c_str());
 
-
-    printf("%s\n", strCode.c_str());
-    for(int i=0;i<strCode.size();i++) {
-        printf("%d", i % 10);
-    }
-    printf("\n");
-
-    auto colorConfig = Config::Instance().ColorConfiguration();
-    for(auto &token : tokens) {
-        auto strTokenClass = gnilk::LanguageTokenClassToString(token.classification);
-        if (!colorConfig.HasColor(strTokenClass)) {
-            printf("Missing color with name: %s\n", strTokenClass.c_str());
-            exit(1);
+        std::vector<gnilk::LangToken> tokens;
+        tokenizer.ParseLine(tokens, codeLines[i].c_str());
+        for (auto &t: tokens) {
+            printf("%d:%d - %s\n", t.idxOrigStr, static_cast<int>(t.classification), t.string.c_str());
         }
-        printf("%d:%s (%d):%s\n", token.idxOrigStr, strTokenClass.c_str(), token.classification,token.string.c_str());
     }
+    return;
+
+
+
+//    auto colorConfig = Config::Instance().ColorConfiguration();
+//    for(auto &token : tokens) {
+//        auto strTokenClass = gnilk::LanguageTokenClassToString(token.classification);
+//        if (!colorConfig.HasColor(strTokenClass)) {
+//            printf("Missing color with name: %s\n", strTokenClass.c_str());
+//            exit(1);
+//        }
+//        printf("%d:%s (%d):%s\n", token.idxOrigStr, strTokenClass.c_str(), token.classification,token.string.c_str());
+//    }
 }
 
 
@@ -310,8 +318,11 @@ static void Screen_RegisterColor(int appIndex, const ColorRGBA &foreground, cons
 }
 
 
-
 int main(int argc, char **argv) {
+
+    testTokenizer();
+
+    return -1;
 
     Config::Instance().LoadConfig("tests/config.yml");
 
@@ -321,7 +332,7 @@ int main(int argc, char **argv) {
     // FIXME: This must be moved into "post-processing" of config loading...
     //        Or part of 'Screen::Open' call
     auto colorConfig = Config::Instance().ColorConfiguration();
-    for(int i=0;IsLanguageTokenClass(i);i++) {
+    for(int i=0;gnilk::IsLanguageTokenClass(i);i++) {
         auto langClass = gnilk::LanguageTokenClassToString(static_cast<gnilk::kLanguageTokenClass>(i));
         if (!colorConfig.HasColor(langClass)) {
             printf("\nErr, missing color configuration for: %s\n", langClass.c_str());

@@ -5,6 +5,8 @@
 #ifndef EDITOR_LANGTOKEN_H
 #define EDITOR_LANGTOKEN_H
 
+#include "Core/Line.h"
+
 namespace gnilk {
 // Extend this as we go along...
     enum class kLanguageTokenClass : int {
@@ -28,7 +30,6 @@ namespace gnilk {
     bool IsLanguageTokenClass(int num);
     const std::string &LanguageTokenClassToString(kLanguageTokenClass tokenClass);
 
-
     class LangToken {
     public:
         std::string string;     // The token
@@ -36,6 +37,8 @@ namespace gnilk {
         kLanguageTokenClass classification;     // Classification (keyword, user, operator, reserved, comment, etc...)
 
         const std::string &String() const { return string; }
+
+        static void ToLineAttrib(std::vector<Line::LineAttrib> &attribs, std::vector<LangToken> &tokens);
     };
 }
 

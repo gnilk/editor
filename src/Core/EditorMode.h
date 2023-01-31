@@ -65,6 +65,7 @@ protected:
         bool UpdateNavigation(KeyPress &keyPress, bool isShiftPressed);
         void ClearSelectedLines();
         void NewLine();
+        void UpdateSyntaxForCurrentLine();
 private:
         KeyPress lastChar {};
         int idxActiveLine = 0;

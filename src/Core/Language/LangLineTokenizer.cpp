@@ -44,9 +44,11 @@ void LangLineTokenizer::ParseLines(std::vector<Line *> &lines) {
 
     PushState(startState.c_str());
 
+    int lineCounter = 0;
     for(auto &l : lines) {
         std::vector<gnilk::LangToken> tokens;
-        ParseLine(tokens, l->Buffer().data());
+        ParseLineWithCurrentState(tokens, l->Buffer().data());
+        l->Attributes().clear();
         for(auto &t : tokens) {
             Line::LineAttrib attrib;
             attrib.idxOrigString = t.idxOrigStr;
@@ -54,26 +56,49 @@ void LangLineTokenizer::ParseLines(std::vector<Line *> &lines) {
             l->Attributes().push_back(attrib);
         }
         tokens.clear();
+        if (l->Length() == 0) {
+            //printf("line %d is empty, reset stack!\n", lineCounter);
+            ResetStateStack();
+            PushState(startState.c_str());
+        }
+        lineCounter++;
     }
 
     // Let's pop the  'start'
+    auto top = stateStack.top();
     PopState();
     if (!stateStack.empty()) {
         // emit warning!
-        printf("State stack not empty!");
+        printf("Last State was: %s\n", top->name.c_str());
+        printf("State stack not empty, size=%d!\n",(int)stateStack.size());
     }
 }
 
+// External, will reset the state machine...
+void LangLineTokenizer::ParseLine(std::vector<LangToken> &tokens, const char *input) {
+    if (!ResetStateStack()) {
+        return;
+    }
+    PushState(startState.c_str());
+    ParseLineWithCurrentState(tokens, input);
+    PopState();
+}
+
+
 //
 // This is the heavy lifting, part 1
+// Internal, assumes the current state has been properly set-up
 //
-void LangLineTokenizer::ParseLine(std::vector<LangToken> &tokens, const char *input) {
+void LangLineTokenizer::ParseLineWithCurrentState(std::vector<LangToken> &tokens, const char *input) {
     char tmp[256];
     char *parsepoint = (char *) input;
 
 
     while(true) {
         auto currentState = stateStack.top();
+        if (currentState == nullptr) {
+            return;
+        }
 
         // Get a token and the classification...
         auto [ok, classification] = GetNextToken(tmp, 256, &parsepoint);
@@ -104,7 +129,6 @@ void LangLineTokenizer::ParseLine(std::vector<LangToken> &tokens, const char *in
 //
 bool LangLineTokenizer::ResetStateStack() {
     if (!stateStack.empty()) {
-        printf("WARNING: State stack is not empty!!!!\n");
         while(!stateStack.empty()) {
             stateStack.pop();
         }

@@ -122,6 +122,8 @@ void NCursesScreen::DrawLineAt(int row, const Line *line) {
     int nCharToPrint = line->Length()>(cols-szGutter)?(cols-szGutter):line->Length();
     mvaddnstr(row, szGutter, line->Buffer().data(), nCharToPrint);
 }
+
+// TODO: Properly handle tab char (i.e. move cursor properly)
 void NCursesScreen::DrawLineWithAttributes(Line &l, int nCharToPrint) {
 
 
@@ -168,7 +170,7 @@ void NCursesScreen::DrawLines(const std::vector<Line *> &lines, int idxActiveLin
 
         auto line = lines[idxLine];
         if (line->IsActive()) {
-            idxRowActive = i;
+            idxRowActive = i-1;
         }
         if (invalidateAll || line->IsActive()) {
             // Clip
@@ -191,21 +193,17 @@ void NCursesScreen::DrawLines(const std::vector<Line *> &lines, int idxActiveLin
         }
     }
 
-    move(rows-1,0);
+    idxRowActive += 1;  // We have a top-bar
+
+    move(rows-2,0);
     clrtoeol();
-    mvprintw(rows-1, 0, "al: %d (%d) - tl: %d - bl: %d - dy: %d - iva: %s - r: %d", idxActiveLine,  idxRowActive, topLine, bottomLine, tmp_dyLast, invalidateAll?"y":"n", rows);
+    mvprintw(rows-2, 0, "al: %d (%d) - tl: %d - bl: %d - dy: %d - iva: %s - r: %d", idxActiveLine,  idxRowActive, topLine, bottomLine, tmp_dyLast, invalidateAll?"y":"n", rows);
 
     lastTopLine = topLine;
 
     // Always switch off...
     invalidateAll = false;
     move(idxRowActive, szGutter + cursorColumn);
-
-
-    move(idxRowActive, szGutter + cursorColumn);
-
-
-
 }
 
 void NCursesScreen::DrawTopBar(const char *str) {

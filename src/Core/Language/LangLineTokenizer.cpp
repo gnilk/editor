@@ -35,6 +35,34 @@ using namespace gnilk;
 LangLineTokenizer::LangLineTokenizer() {
 
 }
+void LangLineTokenizer::ParseLines(std::vector<Line *> &lines) {
+    if (!ResetStateStack()) {
+        return;
+    }
+
+    std::vector<gnilk::LangToken> tokens;
+
+    PushState(startState.c_str());
+
+    for(auto &l : lines) {
+        std::vector<gnilk::LangToken> tokens;
+        ParseLine(tokens, l->Buffer().data());
+        for(auto &t : tokens) {
+            Line::LineAttrib attrib;
+            attrib.idxOrigString = t.idxOrigStr;
+            attrib.idxColor = static_cast<int>(t.classification);
+            l->Attributes().push_back(attrib);
+        }
+        tokens.clear();
+    }
+
+    // Let's pop the  'start'
+    PopState();
+    if (!stateStack.empty()) {
+        // emit warning!
+        printf("State stack not empty!");
+    }
+}
 
 //
 // This is the heavy lifting, part 1
@@ -43,11 +71,6 @@ void LangLineTokenizer::ParseLine(std::vector<LangToken> &tokens, const char *in
     char tmp[256];
     char *parsepoint = (char *) input;
 
-    if (!ResetStateStack()) {
-        return;
-    }
-
-    PushState(startState.c_str());
 
     while(true) {
         auto currentState = stateStack.top();
@@ -74,8 +97,6 @@ void LangLineTokenizer::ParseLine(std::vector<LangToken> &tokens, const char *in
         LangToken token { .string = std::string(tmp), .classification = classification, .idxOrigStr = pos };
         tokens.push_back(token);
     }
-    // Let's pop the  'start'
-    PopState();
 }
 
 //

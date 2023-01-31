@@ -7,15 +7,9 @@
 #include <memory>
 #include "Core/StrUtil.h"
 #include "Core/Line.h"
-
 #include "Core/Language/LangToken.h"
 
 namespace gnilk {
-
-
-//    static const std::string &LanguageTokenClassToString(kLanguageTokenClass tokenClass);
-
-
 
     // Consider placing this in a namespace instead of using internal classes...
     class LangLineTokenizer {
@@ -156,6 +150,7 @@ namespace gnilk {
         virtual ~LangLineTokenizer() = default;
 
         void ParseLine(std::vector<LangToken> &tokens, const char *input);
+        void ParseLines(std::vector<Line *> &lines);
 
         // State management - this is available
         void SetStartState(const std::string &newStartState);

@@ -5,6 +5,7 @@
  * - cmd-mode (like old Amiga AsmOne had)
  *
  * TODO:
+ *  - CPP Language tokenizer needs to keep states between lines...
  *  - Scrolling past screen boundaries (i.e. navigate outside visible area)
  *  - Lines extending screen (incl. wrapping)
  *  - Start cmd-let parsing...

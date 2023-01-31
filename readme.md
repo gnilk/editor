@@ -5,7 +5,7 @@ an editor.
 
 This is my playground....
 
-![screenshot](https://github.com/gnilk/editor/blob/master/main_edit_mode.png?raw=true)
+![screenshot](screenshots/main_edit_mode.png?raw=true)
 
 Currently only macOS....
 

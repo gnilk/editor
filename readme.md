@@ -25,7 +25,7 @@ the macOS settings IF you want SHIFT+Arrow keys to work properly.
 
 The code for this "keylogger" is also part of the repository.
 
-Got q quite simple but nice stack-based language tokenizer running. Use it to drive syntax highlighting.
+Got a quite simple but nice stack-based language tokenizer running. Use it to drive syntax highlighting.
 
 
 Dependencies:

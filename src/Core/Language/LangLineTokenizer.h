@@ -15,6 +15,7 @@ namespace gnilk {
     class LangLineTokenizer {
     public:
         enum class kAction {
+            kNone,          // No action - this is used by EOL states..
             kPushState,
             kPopState,
         };
@@ -51,6 +52,7 @@ namespace gnilk {
         };
 
         // FIXME: Quite a large internal class - consider putting it somewhere else??
+        //        Add 'EOLAction()',
         struct State {
             // Reference
             using Ref = std::shared_ptr<State>;
@@ -72,6 +74,7 @@ namespace gnilk {
 
             // Actions that should happen on specific tokens in this state
             std::unordered_map<std::string, Action> actions;
+            Action eolAction = {.action = kAction::kNone, .stateName = ""};
 
             void SetRegularTokenClass(kLanguageTokenClass newRegularClass) {
                 regularTokenClass = newRegularClass;

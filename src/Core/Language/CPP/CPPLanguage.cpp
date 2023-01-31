@@ -21,6 +21,7 @@ static const std::string inStringPostFixOp = "\"";
 
 //
 // Configure the tokenizer for C++
+// NOTE: This can probably be driven 100% from a configuration file - it just set's up stuff...
 //
 bool CPPLanguage::Initialize() {
     auto state = tokenizer.GetOrAddState("main");

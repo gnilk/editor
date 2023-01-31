@@ -48,14 +48,10 @@ void LangLineTokenizer::ParseLines(std::vector<Line *> &lines) {
     for(auto &l : lines) {
         std::vector<gnilk::LangToken> tokens;
         ParseLineWithCurrentState(tokens, l->Buffer().data());
-        l->Attributes().clear();
-        for(auto &t : tokens) {
-            Line::LineAttrib attrib;
-            attrib.idxOrigString = t.idxOrigStr;
-            attrib.idxColor = static_cast<int>(t.classification);
-            l->Attributes().push_back(attrib);
-        }
+        LangToken::ToLineAttrib(l->Attributes(), tokens);
         tokens.clear();
+        // FIXME: this is due to missing features in the action
+        //        we need support for EOL actions!!
         if (l->Length() == 0) {
             //printf("line %d is empty, reset stack!\n", lineCounter);
             ResetStateStack();

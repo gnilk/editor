@@ -5,7 +5,34 @@
  * - cmd-mode (like old Amiga AsmOne had)
  *
  * TODO:
- *  - CPP Language tokenizer needs to keep states between lines...
+ *  - Add logging functions (use external logger or rewrite it to be more simple?)
+ *
+ *  - Work on keymap to navigate code.. I want this fast, configurable and flawless...
+ *    - CMD-left/right, jump to end/beg of current/next word
+ *      Note: I rather have 'ALT-left/right', but CMD-left/right is more mac..
+ *    - Navigate previous position..
+ *    - ALT-Enter, insert line at cursor but DO NOT move cursor..
+ *    - ALT+CMD - left/right, change active buffer (left/right)
+ *
+ *  - Keyboard mapping handling, from configuration files...
+ *
+ *  - General editor commands
+ *    - ALT+Fx, fast buffer switching
+ *    -
+ *
+ *  - Buffer Manager
+ *    - Create, Load, Save, etc..
+ *  - Clean up of source around the language handling, perhaps introduce a new namespace
+ *    - It is quite messy right now...
+ *  - Generalization of language tokenizer
+ *    + EOL actions
+ *    - See if we can make it generic and drive it via configuration files (should be possible)
+ *  - More languages (mostly as a test)
+ *    + C/CPP, needs quite a bit of work
+ *    - JSON/XML/YAML/INI/etc.. <- files I do work with...
+ *    - Python
+ *    -
+ *  ! CPP Language tokenizer needs to keep states between lines...
  *  - Scrolling past screen boundaries (i.e. navigate outside visible area)
  *  - Lines extending screen (incl. wrapping)
  *  - Start cmd-let parsing...
@@ -40,6 +67,8 @@
 
 #include "Core/RuntimeConfig.h"
 #include "Core/Buffer.h"
+
+#include "logger.h"
 
 #include <map>
 
@@ -145,13 +174,26 @@ static void testBufferLoading(const char *filename) {
 
 }
 
+static void SetupLogger() {
+    char *sinkArgv[]={"file","logfile.log"};
+    auto fileSink = new gnilk::LogFileSink();
+    gnilk::Logger::AddSink(fileSink, "fileSink", 2, sinkArgv);
+    auto logger = gnilk::Logger::GetLogger("main");
+}
+
 int main(int argc, const char **argv) {
+
+    SetupLogger();
+    auto logger = gnilk::Logger::GetLogger("main");
+
+    logger->Debug("Loading configuration");
     auto configOk = Config::Instance().LoadConfig("config.yml");
     if (!configOk) {
-        printf("[ERR] Unable to load default configuration from 'config.yml' - defaults will be used\n");
+        logger->Error("Unable to load default configuration from 'config.yml' - defaults will be used");
         exit(1);
     }
 
+    logger->Debug("Configuring language parser(s)");
     CPPLanguage cppLanguage;
     cppLanguage.Initialize();
     Config::Instance().RegisterLanguage(".cpp", &cppLanguage);
@@ -193,21 +235,23 @@ int main(int argc, const char **argv) {
     // FIXME: Call to 'BufferManager->CreateEmptyBuffer()'
     if (argc > 1) {
         Buffer *buffer = new Buffer();
-        printf("Loading: %s\n", argv[1]);
+        logger->Debug("Loading file given from cmd-line: %s", argv[1]);
+
         if (!LoadToBuffer(*buffer, argv[1])) {
-            printf("Unable to load: %s\n", argv[1]);
+            logger->Error("Unable to load: %s", argv[1]);
             exit(1);
         }
         buffer->SetLanguage(Config::Instance().GetLanguageForFilename(argv[1]));
 
-        printf("Ok, file '%s' loaded\n", argv[1]);
-        printf("Lines: %d\n", (int)buffer->Lines().size());
+        logger->Debug("Ok, file loaded (line: %d)", (int)buffer->Lines().size());
+        logger->Debug("Assigning buffer");
         editorMode.SetBuffer(buffer);
     }
 
 
-
+    logger->Debug("Initialize keyboard driver");
     if (!keyBoard.Initialize()) {
+        logger->Error("Unable to initialize keyboard driver - check your permissions!");
         return -1;
     }
 
@@ -215,27 +259,37 @@ int main(int argc, const char **argv) {
     RuntimeConfig::Instance().SetScreen(screen);
     RuntimeConfig::Instance().SetKeyboard(keyBoard);
 
+    logger->Debug("Initialize Graphics subsystem");
+
     screen.Open();
     screen.Clear();
 
+
+    logger->Debug("Configuring colors and theme");
     // NOTE: This must be done after the screen has been opened as the color handling might require the underlying graphics
     //       context to be initialized...
     auto &colorConfig = Config::Instance().ColorConfiguration();
     for(int i=0;gnilk::IsLanguageTokenClass(i);i++) {
         auto langClass = gnilk::LanguageTokenClassToString(static_cast<gnilk::kLanguageTokenClass>(i));
         if (!colorConfig.HasColor(langClass)) {
-            printf("\nErr, missing color configuration for: %s\n", langClass.c_str());
+            logger->Warning("Missing color configuration for: %s", langClass.c_str());
             return -1;
         }
         screen.RegisterColor(i, colorConfig.GetColor(langClass), colorConfig.GetColor("background"));
     }
 
+    logger->Debug("Entering mainloop");
 
+    // This is currently the run loop...
     while(!bQuit) {
         currentMode->DrawLines();
         screen.Update();
         currentMode->Update();
+        if (screen.IsSizeChanged(true)) {
+            screen.Clear();
+        }
     }
+    logger->Debug("Left main loop, closing graphics subsystem");
     screen.Close();
     return 0;
 }

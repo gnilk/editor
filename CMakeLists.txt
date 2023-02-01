@@ -1,7 +1,9 @@
 cmake_minimum_required(VERSION 3.22)
 project(editor)
-
 set(CMAKE_CXX_STANDARD 17)
+
+
+set(CMAKE_BUILD_TYPE DEBUG)
 
 if (APPLE)
     set(CMAKE_OSX_ARCHITECTURES "x86_64;arm64" CACHE STRING "")
@@ -23,6 +25,10 @@ if (APPLE)
     # list(APPEND extlibs ${COCOA_FRAMEWORK} ${IOKIT_FRAMEWORK} ${GAMECONTROLLER_FRAMEWORK} ${CORE_FOUNDATION})
     list(APPEND extlibs ${IOKIT_FRAMEWORK} ${CORE_FOUNDATION})
 endif()
+
+add_subdirectory(ext/logger ${CMAKE_BINARY_DIR}/logger)
+list(APPEND extlibs logger)
+
 
 list(APPEND editorsrc src/Core/Buffer.cpp src/Core/Buffer.h)
 list(APPEND editorsrc src/Core/Line.cpp src/Core/Line.h)
@@ -65,6 +71,8 @@ set(YAML_CPP_HOME /opt/homebrew/opt/yaml-cpp)
 
 
 add_executable(editor ${appsrc} ${editorsrc})
+target_include_directories(editor PUBLIC ext/logger/src)
+
 target_include_directories(editor PUBLIC src)
 
 
@@ -73,6 +81,7 @@ target_link_directories(editor  PUBLIC ${NCURSES_HOME}/lib)
 
 target_include_directories(editor PUBLIC ${YAML_CPP_HOME}/include)
 target_link_directories(editor  PUBLIC ${YAML_CPP_HOME}/lib)
+
 
 
 target_link_libraries(editor ${extlibs})

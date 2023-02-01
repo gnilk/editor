@@ -98,6 +98,11 @@ std::pair<int, int> NCursesScreen::ComputeView(int idxActiveLine) {
 }
 
 //
+//
+// There are several ways of doing, one is to prepare the gutter string and then let 'DrawLine' output it..
+// Benefit is we can have all line-attribute logic in one place.
+// Perhaps a marker if the line exceeds the width..
+//
 // Should probably have multiple draw-lines
 // We need a 'base-core' version - which just outputs the dat
 // We need one for the editor which has a 'gutter' and a few other things - as we need to offset the cursor properly
@@ -110,9 +115,9 @@ void NCursesScreen::DrawGutter(int idxStart) {
 
     // FIXME: deduct gutter from idxStart...
     for(int i=1;i<rows-1;i++) {
-        mvprintw(i, 0, "%3d|",i-1 + top);
+        mvprintw(i, 0, "%4d|",i-1 + top);
     }
-    szGutter = 4;
+    szGutter = 5;
 }
 
 void NCursesScreen::DrawLineAt(int row, const Line *line) {

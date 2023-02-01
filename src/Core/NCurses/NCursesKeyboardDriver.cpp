@@ -5,6 +5,7 @@
 #include <ncurses.h>
 #include "Core/KeyCodes.h"
 #include "Core/NCurses/NCursesKeyboardDriver.h"
+#include "Core/RuntimeConfig.h"
 
 // NCurses variant
 bool NCursesKeyboardDriver::Initialize() {
@@ -54,6 +55,14 @@ KeyPress NCursesKeyboardDriver::Translate(int ch) {
     key.rawCode = ch;
 
     if (ch == ERR) {
+        return key;
+    }
+
+    // This is a special case..
+    if (ch == KEY_RESIZE) {
+        // bubble this up somehow...
+        auto screenBase = RuntimeConfig::Instance().Screen();
+        screenBase->SetExtScreenSizeNotificationFlag();
         return key;
     }
 

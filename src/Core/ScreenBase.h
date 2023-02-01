@@ -23,6 +23,16 @@ public:
     virtual void RegisterColor(int appIndex, const ColorRGBA &foreground, const ColorRGBA &background) {}
 
     void SetCursorColumn(int cCol) { cursorColumn = cCol; }
+    void SetExtScreenSizeNotificationFlag() {
+        sizeChanged = true;
+    }
+    bool IsSizeChanged(bool bResetFlag) {
+        auto result = sizeChanged;
+        if (bResetFlag) {
+            sizeChanged = false;
+        }
+        return result;
+    }
 
     virtual void NoGutter() { szGutter = 0; }
     virtual void DrawGutter(int idxStart) {}
@@ -36,6 +46,7 @@ public:
 
     void InvalidateAll() { invalidateAll = true; }
 protected:
+    bool sizeChanged = false;
     bool invalidateAll = false;
     int cursorColumn = 0;
     int szGutter = 0;

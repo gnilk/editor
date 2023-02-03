@@ -59,7 +59,6 @@ void NCursesScreen::RegisterColor(int appIndex, const ColorRGBA &foreground, con
     init_pair(appIndex,  currentColor + 1, currentColor);
 }
 
-
 std::pair<int, int> NCursesScreen::ComputeView(int idxActiveLine) {
     auto [rows, cols] = Dimensions();
 
@@ -120,12 +119,15 @@ void NCursesScreen::DrawGutter(int idxStart) {
     szGutter = 5;
 }
 
-void NCursesScreen::DrawLineAt(int row, const Line *line) {
+void NCursesScreen::DrawLineAt(int row, const std::string &prefix, const Line *line) {
     auto [rows, cols] = Dimensions();
     move(row, szGutter);
     clrtoeol();
-    int nCharToPrint = line->Length()>(cols-szGutter)?(cols-szGutter):line->Length();
-    mvaddnstr(row, szGutter, line->Buffer().data(), nCharToPrint);
+    int nCharToPrint = (line->Length() + prefix.length())>(cols-szGutter)?(cols-szGutter):line->Length();
+    move(row, szGutter);
+    addstr(prefix.c_str());
+    addnstr(line->Buffer().data(), nCharToPrint);
+//    mvaddnstr(row, szGutter, line->Buffer().data(), nCharToPrint);
 }
 
 // TODO: Properly handle tab char (i.e. move cursor properly)
@@ -148,7 +150,6 @@ void NCursesScreen::DrawLineWithAttributes(Line &l, int nCharToPrint) {
     auto itAttrib = attribs.begin();
     //int cNext = attribs[0].cStart;
     for (int i = 0; i < nCharToPrint; i++) {
-
         if (i >= itAttrib->idxOrigString) {
             // FIXME: Convert - must be done in driver...
             attrib = COLOR_PAIR(itAttrib->idxColor);
@@ -158,7 +159,16 @@ void NCursesScreen::DrawLineWithAttributes(Line &l, int nCharToPrint) {
             }
         }
         attrset(attrib);
+        // Note: Improve selection visualization - allow a specific selection background
+        //       set the selection background for all foregrounds add to a new pair...
+        //       THIS should be done "automatically" by the driver...
+        if (l.IsSelected()) {
+            attron(A_REVERSE);
+        }
         addch(l.Buffer().at(i));
+        if (l.IsSelected()) {
+            attroff(A_REVERSE);
+        }
     }
     attrset(A_NORMAL);
 }

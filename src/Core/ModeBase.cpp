@@ -15,7 +15,7 @@
 bool ModeBase::DefaultEditLine(Line *line, KeyPress &keyPress) {
 
     if (keyPress.IsHumanReadable()) {
-        line->Insert(cursor.activeColumn, keyPress.data.code);
+        line->Insert(cursor.activeColumn - columnOffset, keyPress.data.code);
         cursor.activeColumn++;
         cursor.wantedColumn = cursor.activeColumn;
         return true;
@@ -28,8 +28,8 @@ bool ModeBase::DefaultEditLine(Line *line, KeyPress &keyPress) {
         {
             auto nChars = line->Unindent();
             cursor.activeColumn -= nChars;
-            if (cursor.activeColumn < 0) {
-                cursor.activeColumn = 0;
+            if (cursor.activeColumn < columnOffset) {
+                cursor.activeColumn = columnOffset;
             }
             cursor.wantedColumn = cursor.activeColumn;
         }
@@ -41,8 +41,8 @@ bool ModeBase::DefaultEditLine(Line *line, KeyPress &keyPress) {
             break;
         case kKey_Left :
             cursor.activeColumn--;
-            if (cursor.activeColumn < 0) {
-                cursor.activeColumn = 0;
+            if (cursor.activeColumn < columnOffset) {
+                cursor.activeColumn = columnOffset;
             }
             cursor.wantedColumn = cursor.activeColumn;
             break;
@@ -59,21 +59,21 @@ bool ModeBase::DefaultEditLine(Line *line, KeyPress &keyPress) {
             }
             break;
         case kKey_Backspace :
-            if (cursor.activeColumn > 0) {
+            if (cursor.activeColumn > columnOffset) {
                 cursor.activeColumn--;
-                line->Delete(cursor.activeColumn);
+                line->Delete(cursor.activeColumn - columnOffset);
             }
             cursor.wantedColumn = cursor.activeColumn;
             break;
         case kKey_Delete :
-            line->Delete(cursor.activeColumn);
+            line->Delete(cursor.activeColumn - columnOffset);
             break;
         case kKey_End :
             cursor.activeColumn = line->Length();
             cursor.wantedColumn = cursor.activeColumn;
             break;
         case kKey_Home :
-            cursor.activeColumn = 0;
+            cursor.activeColumn = columnOffset;
             cursor.wantedColumn = cursor.activeColumn;
             break;
         default :

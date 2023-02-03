@@ -8,6 +8,8 @@
 // TMP
 #include <ncurses.h>
 
+#include "Core/Config/Config.h"
+
 /*
  * Command Mode is where you sort of have a shell with an interpretator sitting before it..
  * unless it is a known command it will be sent to the shell..
@@ -70,6 +72,12 @@ bool CommandMode::Begin() {
         return false;
     }
 
+    logger = gnilk::Logger::GetLogger("CommandMode");
+    auto prompt = Config::Instance()["commandmode"].GetStr("prompt");
+
+    SetColumnOffset(prompt.length());
+
+
     log = fopen("log.txt", "w+");
     fprintf(log, "test\n");
     return true;
@@ -90,11 +98,7 @@ void CommandMode::NewLine(bool addCmdMarker) {
     }
     std::lock_guard<std::mutex> guard(lineLock);
     currentLine = new Line();
-    if (addCmdMarker) {
-        // FIXME: Allow this to be configureable
-        currentLine->Append('>');
-    }
-    cursor.activeColumn = 1;
+    cursor.activeColumn = columnOffset;
     currentLine->SetActive(true);
     historyBuffer.push_back(currentLine);
 }
@@ -102,6 +106,8 @@ void CommandMode::NewLine(bool addCmdMarker) {
 void CommandMode::DrawLines() {
     auto screen = RuntimeConfig::Instance().Screen();
     auto [rows, cols] = screen->Dimensions();
+
+    auto prompt = Config::Instance()["commandmode"].GetStr("prompt");
 
     screen->NoGutter();
 
@@ -125,9 +131,9 @@ void CommandMode::DrawLines() {
         nHistoryLines = rows/2;
     }
     for(int i=0;i<nHistoryLines;i++) {
-        screen->DrawLineAt(rows-i-1, historyBuffer[historyBuffer.size() - i - 1]);
+        screen->DrawLineAt(rows-i-1, prompt, historyBuffer[historyBuffer.size() - i - 1]);
     }
-    screen->DrawLineAt(rows -1, currentLine);
+    screen->DrawLineAt(rows -1, prompt, currentLine);
 }
 //
 // Update data - this is called before draw
@@ -161,35 +167,9 @@ void CommandMode::Update() {
 
     switch(keyPress.data.code) {
         case kKey_Return :
-            // Proper handling here!
-            // Here we should parse the buffer and map to the command list..
-            // like:
-            //  'o <filename>' for 'open file'
-            //  's' - save
-            //  's <filename>'
-            //  '? <expr>' resolve expression
-            //  'make' run make
-            //  'cd' change current working directory
-            // .....
-        {
-            // FIXME: Refactor into several functions!!
-            if ((currentLine->Buffer() == ">quit") || (currentLine->Buffer() == ">.q")) {
-                fclose(log);
-                onExitApp();
-                return;
-            } else {
-                // Just push this to the shell "process"...
-                if (currentLine->Length() > 1) {
-                    std::string argBuffer(&currentLine->Buffer().at(1));
-                    strutil::trim(argBuffer);
-                    fprintf(log, "%s\n", currentLine->Buffer().data());
-                    argBuffer += "\n";
-                    terminal.SendCmd(argBuffer);
-                }
-            }
+            HandleReturn();
             NewLine();
             screen->Scroll(1);
-        }
             break;
         case kKey_Escape :
             // toogle into terminal mode...
@@ -197,12 +177,43 @@ void CommandMode::Update() {
                 onExitMode();
             }
             break;
+            // TEST TEST
         case kKey_Down :
             scroll(stdscr);
             break;
     }
 }
 
+// Proper handling here!
+// Here we should parse the buffer and map to the command list..
+// like:
+//  'o <filename>' for 'open file'
+//  's' - save
+//  's <filename>'
+//  '? <expr>' resolve expression
+//  'make' run make
+//  'cd' change current working directory
+// .....
+void CommandMode::HandleReturn() {
+    std::string cmdLine(currentLine->Buffer().data());
+
+
+    if ((cmdLine == "quit") || (cmdLine == ".q")) {
+        fclose(log);
+        onExitApp();
+        return;
+    }
+    // Just push this to the shell "process"...
+    if (cmdLine.size() < 1) {
+        return;
+    }
+
+    strutil::trim(cmdLine);
+    logger->Debug("ExecuteShell: %s", currentLine->Buffer().data());
+    fprintf(log, "%s\n", currentLine->Buffer().data());
+    cmdLine += "\n";
+    terminal.SendCmd(cmdLine);
+}
 
 void CommandMode::TestExecuteShellCmd() {
     Shell sh;
@@ -222,3 +233,4 @@ void CommandMode::TestExecuteShellCmd() {
         std::this_thread::yield();
     }
 }
+

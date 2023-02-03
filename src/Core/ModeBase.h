@@ -18,6 +18,7 @@ public:
     using OnExitApp = std::function<void()>;
 public:
     ModeBase() = default;
+    void SetColumnOffset(int newColumnOffset) { columnOffset = newColumnOffset; }
     void SetOnExitMode(OnExitMode newOnExitMode) { onExitMode = newOnExitMode; }
     void SetOnExitApp(OnExitApp newOnExitApp) { onExitApp = newOnExitApp; }
     // Called before update-loop, one time initialization goes here
@@ -35,7 +36,7 @@ protected:
     OnExitApp  onExitApp = nullptr;
     // not sure...
     Cursor cursor = {0,0};
-    //int cursorColumn = 0;
+    int columnOffset = 0;
 };
 
 #endif //EDITOR_MODEBASE_H

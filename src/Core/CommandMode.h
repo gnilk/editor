@@ -13,6 +13,8 @@
 #include "Core/ModeBase.h"
 #include "Core/unix/Shell.h"
 
+#include "logger.h"
+
 
 class CommandMode : public ModeBase {
 public:
@@ -27,6 +29,7 @@ public:
     static void TestExecuteShellCmd();
 protected:
     void NewLine(bool addCmdMarker = true);
+    void HandleReturn();
     bool ExecuteShellCmd(std::string &cmd);
 private:
     typedef enum {
@@ -35,6 +38,7 @@ private:
     } kState;
 private:
     Shell terminal;
+    gnilk::ILogger *logger = nullptr;
     bool scrollOnNextUpdate = false;
     kState state = kState::kIdle;
     Line *currentLine = nullptr;

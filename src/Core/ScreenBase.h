@@ -37,7 +37,7 @@ public:
     virtual void NoGutter() { szGutter = 0; }
     virtual void DrawGutter(int idxStart) {}
     virtual void DrawLines(const std::vector<Line *> &lines, int idxActiveLine) {}
-    virtual void DrawLineAt(int row, const Line *line) {}
+    virtual void DrawLineAt(int row, const std::string &prefix, const Line *line) {}
     virtual void DrawBottomBar(const char *str) {}
     virtual void DrawTopBar(const char *str) {}
     virtual std::pair<int, int> Dimensions() { return std::make_pair(0,0); }

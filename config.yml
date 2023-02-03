@@ -9,8 +9,11 @@ ncurses:
 
 editor:
 
+#
+# Add ability to include user-name, and other things here (working dir???)
+#
 commandmode:
-  prompt: ">"
+  prompt: "ed>"
 
 
 terminal:

@@ -7,6 +7,7 @@
 
 #include "Core/ScreenBase.h"
 #include "Core/KeyboardDriverBase.h"
+#include "Core/ModeBase.h"
 
 class RuntimeConfig {
 public:
@@ -18,6 +19,9 @@ public:
     void SetScreen(ScreenBase &scr) {
         screen = &scr;
     }
+    void SetOutputConsole(IOutputConsole *newOutputConsole) {
+        outputConsole = newOutputConsole;
+    }
 
     KeyboardDriverBase *Keyboard() {
         return keyboard;
@@ -25,12 +29,17 @@ public:
     ScreenBase *Screen() {
         return screen;
     }
+    IOutputConsole *OutputConsole() {
+        return outputConsole;
+    }
+
 
 private:
     RuntimeConfig() = default;
 private:
     KeyboardDriverBase *keyboard = nullptr;
     ScreenBase *screen = nullptr;
+    IOutputConsole *outputConsole = nullptr;
 
 };
 

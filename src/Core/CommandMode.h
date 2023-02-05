@@ -16,7 +16,7 @@
 #include "logger.h"
 
 
-class CommandMode : public ModeBase {
+class CommandMode : public ModeBase, public IOutputConsole {
 public:
     CommandMode();
     virtual ~CommandMode() = default;
@@ -28,11 +28,16 @@ public:
 
     void ResetVariablesFromConfig();
 
-    static void TestExecuteShellCmd();
+public: // IOutputConsole
+    void WriteLine(const std::string &str) override;
+
+
 protected:
     void NewLine(bool addCmdMarker = true);
     void HandleReturn();
-    bool ExecuteShellCmd(std::string &cmd);
+    bool TryExecuteInternalCmd(std::string &cmdline);
+    void TryExecuteShellCmd(std::string &cmdline);
+    bool DoesCmdLineHavePrefix(std::string &cmdline);
 private:
     typedef enum {
         kIdle,
@@ -45,7 +50,6 @@ private:
     kState state = kState::kIdle;
     Line *currentLine = nullptr;
     std::vector<Line *> historyBuffer;
-    FILE *log = nullptr;
     std::mutex lineLock;
     std::string cmdPrompt = ">";
     char cmdletPrefix = '.';

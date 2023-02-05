@@ -34,6 +34,7 @@
 #include "Core/KeyCodes.h"
 #include "Core/RuntimeConfig.h"
 #include "Core/StrUtil.h"
+#include "Core/HexDump.h"
 #include "logger.h"
 #include <unordered_map>
 #include <pthread.h>
@@ -48,6 +49,11 @@ struct EditorCmdLetAPI {
         breakme = 1;
         exit(1);
     }
+
+    void WriteLine(const std::string &str) {
+        auto console = RuntimeConfig::Instance().OutputConsole();
+        console->WriteLine(str);
+    }
 };
 
 class CmdLet {
@@ -55,7 +61,7 @@ public:
     CmdLet() = default;
     // Note: not quite sure yet what to do with the result...
     virtual const std::string &GetShortName() const { return emptyName; };
-    virtual bool Execute(std::vector<std::string_view> &args) { return false; };
+    virtual bool Execute(std::vector<std::string> &args) { return false; };
 public:
     // TODO: Fix proxy functions here...
 protected:
@@ -113,7 +119,7 @@ public:
         static std::string shortName="q!";
         return shortName;
     }
-    bool Execute(std::vector<std::string_view> &args) override {
+    bool Execute(std::vector<std::string> &args) override {
         // TODO: Need an API here..
         api->Quit();
         return true;
@@ -125,27 +131,55 @@ public:
         static std::string shortName="qs";
         return shortName;
     }
-    bool Execute(std::vector<std::string_view> &args) override {
+    bool Execute(std::vector<std::string> &args) override {
         // TODO: Need an API here..
         api->Quit();
         return true;
     }
 };
+class CmdEcho : public CmdLet {
+public:
+    const std::string &GetShortName() const override {
+        static std::string shortName = "ec";
+        return shortName;
+    }
+    bool Execute(std::vector<std::string> &args) override {
+        std::string concat;
+        for(size_t i=1;i<args.size();i++) {
+            concat += args[i] + ' ';
+        }
+        api->WriteLine(concat);
+        return true;
+    }
+};
+
+class CmdGenStrings : public CmdLet {
+public:
+    const std::string &GetShortName() const override {
+        static std::string shortName = "gs";
+        return shortName;
+    }
+    bool Execute(std::vector<std::string> &args) override {
+        for(int i=0;i<10;i++) {
+            char buffer[128];
+            snprintf(buffer, 128, "== %d Generated %d ==",lc,lc);
+            api->WriteLine(buffer);
+            lc++;
+        }
+        return true;
+    }
+private:
+    int lc = 0;
+};
 
 static std::vector<std::pair<std::string, CmdLet *>> builtInCmds = {
         {"quit!", new CmdQuit()},
         {"quit", new CmdQuitAndSave()},
+        {"echo", new CmdEcho()},
+        {"genstrings", new CmdGenStrings()},
 };
 
-
 CommandMode::CommandMode() {
-    for(int i=0;i<50;i++) {
-        NewLine();
-        char tmp[64];
-        snprintf(tmp, 64, "this is line %d", i);
-        currentLine->Append(tmp);
-
-    }
     NewLine();
 }
 
@@ -159,30 +193,15 @@ bool CommandMode::Begin() {
     }
     ResetVariablesFromConfig();
 
-
+    // Terminal sends any output from the thread through this, so we hook this up to the writeline function
     terminal.SetStdoutDelegate([this](std::string &output) {
-        // TODO: Remove marker on current line...
-
-        currentLine->Append(output);
-        fprintf(log, "GOT: %s\n", output.c_str());
-
-        NewLine(true);
-
-        if (isModeActive) {
-            auto screen = RuntimeConfig::Instance().Screen();
-            screen->Scroll(1);
-        }
-
-        fflush(log);
+        WriteLine(output);
     });
 
+    // Now we start the terminal, this will fork a shell process and hook up stdin/stdout properly
     if (!terminal.Begin()) {
         return false;
     }
-
-
-    SetColumnOffset(cmdPrompt.length());
-
 
 
     // Use a factory/callback thingie here..
@@ -193,19 +212,38 @@ bool CommandMode::Begin() {
     // });
     // Register all built in commands..
 
-
-    log = fopen("log.txt", "w+");
-    fprintf(log, "test\n");
     return true;
 }
+
+//
+// Write a line, this will essentially just append on the current line, create a new line and scroll (if active)
+//
+void CommandMode::WriteLine(const std::string &str) {
+    currentLine->Append(str);
+    NewLine(true);
+    if (isModeActive) {
+        auto screen = RuntimeConfig::Instance().Screen();
+        screen->Scroll(1);
+    }
+}
+
+//
+// Read out variables from config with defaults if not present..
+//
 void CommandMode::ResetVariablesFromConfig() {
     cmdletPrefix = Config::Instance()["commandmode"].GetChar("cmdlet_prefix",'.');
     cmdPrompt = Config::Instance()["commandmode"].GetStr("prompt",">");
+    SetColumnOffset(cmdPrompt.length());
+
     logger->Debug("Config load/reload");
     logger->Debug("prompt       : %s",cmdPrompt.c_str());
     logger->Debug("cmdlet prefix: %c",cmdletPrefix);
+    logger->Debug("Column Offset: %d",columnOffset);
 }
 
+//
+// When switching modes we will push history buffer and scroll on next update...
+//
 void CommandMode::OnSwitchMode(bool enter) {
     isModeActive = enter;
 
@@ -214,7 +252,9 @@ void CommandMode::OnSwitchMode(bool enter) {
     }
 }
 
-
+//
+// Create a new line and push to the history buffer...
+//
 void CommandMode::NewLine(bool addCmdMarker) {
     if (currentLine != nullptr) {
         currentLine->SetActive(false);
@@ -226,10 +266,15 @@ void CommandMode::NewLine(bool addCmdMarker) {
     historyBuffer.push_back(currentLine);
 }
 
+//
+// Draw our lines...
+//
 void CommandMode::DrawLines() {
     auto screen = RuntimeConfig::Instance().Screen();
     auto [rows, cols] = screen->Dimensions();
 
+    // NOTE: we should probably have a setting for a 'safe' zone
+    int maxRowsToScroll = rows;
 
     screen->NoGutter();
 
@@ -238,8 +283,8 @@ void CommandMode::DrawLines() {
     if (scrollOnNextUpdate) {
         int nLinesToScroll = historyBuffer.size();
         // Cut off at half of the rows of the screen...
-        if (historyBuffer.size() > rows/2) {
-            nLinesToScroll = rows/2;
+        if (historyBuffer.size() > maxRowsToScroll) {
+            nLinesToScroll = maxRowsToScroll;
         }
         screen->Scroll(nLinesToScroll);
         scrollOnNextUpdate = false;
@@ -249,8 +294,8 @@ void CommandMode::DrawLines() {
 
     // Print backwards, but only show part of our history buffer...
     int nHistoryLines = historyBuffer.size();
-    if (nHistoryLines > rows/2) {
-        nHistoryLines = rows/2;
+    if (nHistoryLines > maxRowsToScroll) {
+        nHistoryLines = maxRowsToScroll;
     }
     for(int i=0;i<nHistoryLines;i++) {
         screen->DrawLineAt(rows-i-1, cmdPrompt, historyBuffer[historyBuffer.size() - i - 1]);
@@ -264,19 +309,6 @@ void CommandMode::DrawLines() {
 void CommandMode::Update() {
 
     auto kbd = RuntimeConfig::Instance().Keyboard();
-    auto screen = RuntimeConfig::Instance().Screen();
-
-    // FIXME: Splt in two depending on state
-    // Don't accept input if we are executing shell command
-//    if (state == kState::kExecuteShell) {
-//        if (shCommand.IsDone()) {
-//            state = kState::kIdle;
-//            NewLine();
-//            screen->Scroll(1);
-//
-//        }
-//        return;
-//    }
 
     auto keyPress = kbd->GetCh();
     if (!keyPress.IsValid()) {
@@ -290,8 +322,6 @@ void CommandMode::Update() {
     switch(keyPress.data.code) {
         case kKey_Return :
             HandleReturn();
-            NewLine();
-            screen->Scroll(1);
             break;
         case kKey_Escape :
             // toogle into terminal mode...
@@ -306,66 +336,78 @@ void CommandMode::Update() {
     }
 }
 
-// Proper handling here!
-// Here we should parse the buffer and map to the command list..
-// like:
-//  'o <filename>' for 'open file'
-//  's' - save
-//  's <filename>'
-//  '? <expr>' resolve expression
-//  'make' run make
-//  'cd' change current working directory
-// .....
+//
+// Handle a new committed line (i..e after return)
+//
 void CommandMode::HandleReturn() {
     std::string cmdLine(currentLine->Buffer().data());
     if (cmdLine.size() < 1) {
         return;
     }
-    // Make this configurable?? - yes of course - we want all of the editor to be configurable...  =)
-    if (cmdLine[0] == cmdletPrefix && (cmdLine.size() > 1)) {
-        // remove 'bang' char
-        cmdLine.erase(0,1);
-        auto cmd = CommandRepository::GetCommand(cmdLine);
-        if (cmd != nullptr) {
-            std::vector<std::string_view> args = {};
-            cmd->Execute(args);
-        }
-    }
-
-    // TEMPORARY - this should be built in...
-//    if ((cmdLine == "quit") || (cmdLine == ".q")) {
-//        fclose(log);
-//        onExitApp();
-//        return;
-//    }
-    if (cmdLine.size() < 1) {
+    if (TryExecuteInternalCmd(cmdLine)) {
         return;
     }
-    // Just push this to the shell "process"...
-
-    strutil::trim(cmdLine);
-    logger->Debug("ExecuteShell: %s", currentLine->Buffer().data());
-    fprintf(log, "%s\n", currentLine->Buffer().data());
-    cmdLine += "\n";
-    terminal.SendCmd(cmdLine);
+    TryExecuteShellCmd(cmdLine);
 }
 
-void CommandMode::TestExecuteShellCmd() {
-    Shell sh;
-    sh.SetStdoutDelegate([](std::string &str) {
-        printf("%s\n",str.c_str());
-    });
-    sh.Begin();
+//
+// Try and execute the cmd line as an internal command
+// Note: Internal command must be properly prefixed ('config.commandmode.cmdlet_prefix')
+//
+bool CommandMode::TryExecuteInternalCmd(std::string &cmdline) {
+    auto screen = RuntimeConfig::Instance().Screen();
 
-    char buffer[256];
-    while(true) {
-        auto res = fgets(buffer, 256, stdin);
-        if (res == nullptr) {
-            continue;
-        }
-        std::string strCommand(buffer);
-        sh.SendCmd(strCommand);
-        std::this_thread::yield();
+    if (!DoesCmdLineHavePrefix(cmdline)) {
+        return false;
     }
+
+    // check if we start with prefix - in that case we check if an internal command first before passing it on...
+    std::vector<std::string> args;
+
+    // Split string to arg-list and grab first item as the internal command
+    strutil::splitToStringList(args, strutil::trim(cmdline).c_str());
+    std::string internalCmd(args[0],1);
+
+    auto cmd = CommandRepository::GetCommand(internalCmd);
+    if (cmd != nullptr) {
+        logger->Debug("Executing internal cmd: '%s'", internalCmd.c_str());
+        // Need to scroll here as well otherwise the 'STATUS' bar from edit-mode is deleted..
+        NewLine(true);
+        screen->Scroll(1);
+        return cmd->Execute(args);
+    } else {
+        logger->Error("InternalCmd: '%s' not found", internalCmd.c_str());
+    }
+    return true;
+}
+
+//
+// Execute through the shell - this essentially just writes the cmdline out to stdin for the shell thread...
+//
+void CommandMode::TryExecuteShellCmd(std::string &cmdline) {
+    // Just push this to the shell "process"...
+    strutil::trim(cmdline);
+    logger->Debug("Trying shell: %s", cmdline.c_str());
+
+    // Make sure to append CRLN otherwise the shell won't execute...
+    // Should this be configurable??
+    cmdline += "\n";
+    terminal.SendCmd(cmdline);
+
+    // We have executed the shell - even though it might require a long time to execute this is needed
+    // like 'make' and such...  we don't track that, so basically you can send more commands down to the shell
+    NewLine();
+    auto screen = RuntimeConfig::Instance().Screen();
+    screen->Scroll(1);
+}
+
+//
+// Verify if the current line can possibly be an internal command..
+//
+bool CommandMode::DoesCmdLineHavePrefix(std::string &cmdline) {
+    if (cmdline[0] != cmdletPrefix) return false;
+    if (cmdline.size() < 2) return false;
+
+    return true;
 }
 

@@ -212,7 +212,8 @@ void NCursesScreen::DrawLines(const std::vector<Line *> &lines, int idxActiveLin
 
     move(rows-2,0);
     clrtoeol();
-    mvprintw(rows-2, 0, "al: %d (%d) - tl: %d - bl: %d - dy: %d - iva: %s - r: %d", idxActiveLine,  idxRowActive, topLine, bottomLine, tmp_dyLast, invalidateAll?"y":"n", rows);
+    mvprintw(rows-2, 0, "al: %d (%d) - tl: %d - bl: %d - dy: %d - iva: %s - r: %d",
+             idxActiveLine,  idxRowActive, topLine, bottomLine, tmp_dyLast, invalidateAll?"y":"n", rows);
 
     lastTopLine = topLine;
 

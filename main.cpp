@@ -176,9 +176,11 @@ static void testBufferLoading(const char *filename) {
 
 static void SetupLogger() {
     char *sinkArgv[]={"file","logfile.log"};
+    gnilk::Logger::Initialize();
     auto fileSink = new gnilk::LogFileSink();
     gnilk::Logger::AddSink(fileSink, "fileSink", 2, sinkArgv);
-    auto logger = gnilk::Logger::GetLogger("main");
+    // Remove the console sink (it is auto-created in debug-mode)
+    gnilk::Logger::RemoveSink("console");
 }
 
 int main(int argc, const char **argv) {
@@ -192,6 +194,14 @@ int main(int argc, const char **argv) {
         logger->Error("Unable to load default configuration from 'config.yml' - defaults will be used");
         exit(1);
     }
+
+//    if (Config::Instance().HasKey("commandemode")) {
+//        auto prompt = Config::Instance()["commandemode"].GetStr("prompt");
+//        printf("Prompt is: %s\n", prompt.c_str());
+//    } else {
+//        printf("No prompt!");
+//    }
+
 
     logger->Debug("Configuring language parser(s)");
     CPPLanguage cppLanguage;
@@ -258,6 +268,7 @@ int main(int argc, const char **argv) {
     // Setup the runtime enviornment
     RuntimeConfig::Instance().SetScreen(screen);
     RuntimeConfig::Instance().SetKeyboard(keyBoard);
+    RuntimeConfig::Instance().SetOutputConsole(&commandMode);
 
     logger->Debug("Initialize Graphics subsystem");
 

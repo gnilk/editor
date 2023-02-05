@@ -11,6 +11,10 @@ static void SetupLogger() {
 
 int main(int argc, char **argv) {
     SetupLogger();
+    if (gnilk::Logger::RemoveSink("console")) {
+        printf("Console sink removed\n");
+    }
+
     auto logger = gnilk::Logger::GetLogger("main");
     logger->Debug("Test");
     auto log2 = gnilk::Logger::GetLogger("apa");

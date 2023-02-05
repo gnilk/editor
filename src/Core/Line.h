@@ -10,6 +10,9 @@
 #include <string>
 #include <mutex>
 
+#include "Core/Language/LanguageTokenClass.h"
+
+
 #define MAX_LINE_LENGTH 1024
 
 
@@ -19,6 +22,8 @@ public:
         int idxOrigString;   // index in original string...
         // Attributes from this cursor position and onwards..
         int idxColor;       // index to color (or token classification)
+
+        kLanguageTokenClass tokenClass; // this one is for better (more formal) analysis when computing indent and similar
     };
 public:
     Line();

@@ -15,6 +15,8 @@ static const std::string cppKeywords = "auto typedef class struct static enum fo
 //        count block-start/ends in order to properly compute indentation...
 // Note: Multi char operators must be declared first...
 static const std::string cppOperators = "== ++ -- << >> += -= *= /= = + - < > ( , * ) [ ] < > ; ' \"";
+// The full operator set is used to identify post-fix operators but they are not used for classification..
+static const std::string cppOperatorsFull = "== ++ -- << >> += -= *= /= /* */ // = + - < > ( , * ) [ ] < > ; ' { } \"";
 static const std::string cppLineComment = "//";
 static const std::string cppCodeBlockStart = "{";
 static const std::string cppCodeBlockEnd = "}";
@@ -38,7 +40,7 @@ bool CPPLanguage::Initialize() {
     state->SetIdentifiers(kLanguageTokenClass::kBlockComment, cppBlockCommentStart.c_str());
     state->SetIdentifiers(kLanguageTokenClass::kCodeBlockStart, cppCodeBlockStart.c_str());
     state->SetIdentifiers(kLanguageTokenClass::kCodeBlockEnd, cppCodeBlockEnd.c_str());
-    state->SetPostFixIdentifiers(cppOperators.c_str());
+    state->SetPostFixIdentifiers(cppOperatorsFull.c_str());
 
     state->GetOrAddAction("\"",gnilk::LangLineTokenizer::kAction::kPushState, "in_string");
     state->GetOrAddAction("/*", gnilk::LangLineTokenizer::kAction::kPushState, "in_block_comment");

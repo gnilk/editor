@@ -10,7 +10,11 @@
 #include "Core/Cursor.h"
 #include "Core/KeyboardDriverBase.h"
 
-//class NCursesScreen;
+// This defines a general purpose output console
+class IOutputConsole {
+public:
+    virtual void WriteLine(const std::string &str) = 0;
+};
 
 class ModeBase {
 public:

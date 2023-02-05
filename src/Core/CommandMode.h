@@ -26,6 +26,8 @@ public:
     const std::vector<Line *> &Lines() const override { return historyBuffer; }
     void OnSwitchMode(bool enter) override;
 
+    void ResetVariablesFromConfig();
+
     static void TestExecuteShellCmd();
 protected:
     void NewLine(bool addCmdMarker = true);
@@ -45,6 +47,8 @@ private:
     std::vector<Line *> historyBuffer;
     FILE *log = nullptr;
     std::mutex lineLock;
+    std::string cmdPrompt = ">";
+    char cmdletPrefix = '.';
     bool isModeActive = false;
 };
 

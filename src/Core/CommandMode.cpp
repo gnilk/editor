@@ -28,16 +28,114 @@
  *
  */
 
-
 #include "Core/ScreenBase.h"
 #include "Core/CommandMode.h"
 #include "Core/Line.h"
 #include "Core/KeyCodes.h"
 #include "Core/RuntimeConfig.h"
 #include "Core/StrUtil.h"
+#include "logger.h"
+#include <unordered_map>
 #include <pthread.h>
 #include <thread>
 #include <sstream>
+
+// TODO: Define some simple API stuff (WriteLine/Printf, etc..)
+//       And define the commands we need
+struct EditorCmdLetAPI {
+    void Quit() {
+        int breakme;
+        breakme = 1;
+        exit(1);
+    }
+};
+
+class CmdLet {
+public:
+    CmdLet() = default;
+    // Note: not quite sure yet what to do with the result...
+    virtual const std::string &GetShortName() const { return emptyName; };
+    virtual bool Execute(std::vector<std::string_view> &args) { return false; };
+public:
+    // TODO: Fix proxy functions here...
+protected:
+    EditorCmdLetAPI *api;
+private:
+    static std::string emptyName;
+};
+std::string CmdLet::emptyName("");
+
+class CommandRepository {
+public:
+    static bool HasCommand(const std::string &name) {
+        if (commands.find(name) != commands.end()) {
+            return true;
+        }
+        if (shortNameCommands.find(name) != shortNameCommands.end()) {
+            return true;
+        }
+        return false;
+    }
+    static void RegisterCommand(const std::string &name, CmdLet *cmdlet) {
+        auto logger = gnilk::Logger::GetLogger("CmdRepo");
+        logger->Debug("Register cmdlet '%s', short: '%s'", name.c_str(), cmdlet->GetShortName().c_str());
+
+        commands[name] = cmdlet;
+        auto shortName = cmdlet->GetShortName();
+        if (shortName.empty()) {
+            return;
+        }
+        shortNameCommands[shortName] = cmdlet;
+    }
+    static CmdLet *GetCommand(const std::string &name) {
+        if (commands.find(name) != commands.end()) {
+            return commands[name];
+        }
+        if (shortNameCommands.find(name) != shortNameCommands.end()) {
+            return shortNameCommands[name];
+        }
+        return nullptr;
+    }
+private:
+    static std::unordered_map<std::string, CmdLet *> commands;
+    static std::unordered_map<std::string, CmdLet *> shortNameCommands;
+};
+
+std::unordered_map<std::string, CmdLet *> CommandRepository::commands;
+std::unordered_map<std::string, CmdLet *> CommandRepository::shortNameCommands;
+
+//
+// this will exit no matter what..
+//
+class CmdQuit : public CmdLet {
+public:
+    const std::string &GetShortName() const override {
+        static std::string shortName="q!";
+        return shortName;
+    }
+    bool Execute(std::vector<std::string_view> &args) override {
+        // TODO: Need an API here..
+        api->Quit();
+        return true;
+    }
+};
+class CmdQuitAndSave : public CmdLet {
+public:
+    const std::string &GetShortName() const override {
+        static std::string shortName="qs";
+        return shortName;
+    }
+    bool Execute(std::vector<std::string_view> &args) override {
+        // TODO: Need an API here..
+        api->Quit();
+        return true;
+    }
+};
+
+static std::vector<std::pair<std::string, CmdLet *>> builtInCmds = {
+        {"quit!", new CmdQuit()},
+        {"quit", new CmdQuitAndSave()},
+};
 
 
 CommandMode::CommandMode() {
@@ -52,6 +150,16 @@ CommandMode::CommandMode() {
 }
 
 bool CommandMode::Begin() {
+    logger = gnilk::Logger::GetLogger("CommandMode");
+    logger->Debug("Begin");
+
+
+    for(auto &cmd : builtInCmds) {
+        CommandRepository::RegisterCommand(cmd.first, cmd.second);
+    }
+    ResetVariablesFromConfig();
+
+
     terminal.SetStdoutDelegate([this](std::string &output) {
         // TODO: Remove marker on current line...
 
@@ -72,15 +180,30 @@ bool CommandMode::Begin() {
         return false;
     }
 
-    logger = gnilk::Logger::GetLogger("CommandMode");
-    auto prompt = Config::Instance()["commandmode"].GetStr("prompt");
 
-    SetColumnOffset(prompt.length());
+    SetColumnOffset(cmdPrompt.length());
+
+
+
+    // Use a factory/callback thingie here..
+    // like: dload("file.dylib");
+    // factory = dlsym(factory);
+    // factory([this](const std::string &name, CmdLet *cmdLet) {
+    //    CommandRepository::RegisterCommand(name, cmdLet);
+    // });
+    // Register all built in commands..
 
 
     log = fopen("log.txt", "w+");
     fprintf(log, "test\n");
     return true;
+}
+void CommandMode::ResetVariablesFromConfig() {
+    cmdletPrefix = Config::Instance()["commandmode"].GetChar("cmdlet_prefix",'.');
+    cmdPrompt = Config::Instance()["commandmode"].GetStr("prompt",">");
+    logger->Debug("Config load/reload");
+    logger->Debug("prompt       : %s",cmdPrompt.c_str());
+    logger->Debug("cmdlet prefix: %c",cmdletPrefix);
 }
 
 void CommandMode::OnSwitchMode(bool enter) {
@@ -107,7 +230,6 @@ void CommandMode::DrawLines() {
     auto screen = RuntimeConfig::Instance().Screen();
     auto [rows, cols] = screen->Dimensions();
 
-    auto prompt = Config::Instance()["commandmode"].GetStr("prompt");
 
     screen->NoGutter();
 
@@ -131,9 +253,9 @@ void CommandMode::DrawLines() {
         nHistoryLines = rows/2;
     }
     for(int i=0;i<nHistoryLines;i++) {
-        screen->DrawLineAt(rows-i-1, prompt, historyBuffer[historyBuffer.size() - i - 1]);
+        screen->DrawLineAt(rows-i-1, cmdPrompt, historyBuffer[historyBuffer.size() - i - 1]);
     }
-    screen->DrawLineAt(rows -1, prompt, currentLine);
+    screen->DrawLineAt(rows -1, cmdPrompt, currentLine);
 }
 //
 // Update data - this is called before draw
@@ -196,17 +318,30 @@ void CommandMode::Update() {
 // .....
 void CommandMode::HandleReturn() {
     std::string cmdLine(currentLine->Buffer().data());
-
-
-    if ((cmdLine == "quit") || (cmdLine == ".q")) {
-        fclose(log);
-        onExitApp();
-        return;
-    }
-    // Just push this to the shell "process"...
     if (cmdLine.size() < 1) {
         return;
     }
+    // Make this configurable?? - yes of course - we want all of the editor to be configurable...  =)
+    if (cmdLine[0] == cmdletPrefix && (cmdLine.size() > 1)) {
+        // remove 'bang' char
+        cmdLine.erase(0,1);
+        auto cmd = CommandRepository::GetCommand(cmdLine);
+        if (cmd != nullptr) {
+            std::vector<std::string_view> args = {};
+            cmd->Execute(args);
+        }
+    }
+
+    // TEMPORARY - this should be built in...
+//    if ((cmdLine == "quit") || (cmdLine == ".q")) {
+//        fclose(log);
+//        onExitApp();
+//        return;
+//    }
+    if (cmdLine.size() < 1) {
+        return;
+    }
+    // Just push this to the shell "process"...
 
     strutil::trim(cmdLine);
     logger->Debug("ExecuteShell: %s", currentLine->Buffer().data());

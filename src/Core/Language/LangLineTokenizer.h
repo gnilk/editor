@@ -108,6 +108,15 @@ namespace gnilk {
                 return true;
             }
 
+            // Set action for what happens at end-of-line in this state
+            // like, when you have line-comments the state should be popped at the end of line...
+            void SetEOLAction(kAction action, const char *nextState = nullptr) {
+                eolAction.action = action;
+                if (nextState != nullptr) {
+                    eolAction.stateName = nextState;
+                }
+            }
+
             //
             // Post fix identifiers are identifiers that should break regular text parsing.
             // Normally this is your regular 'operators' but in case of comments you might want to
@@ -154,6 +163,7 @@ namespace gnilk {
 
         void ParseLine(std::vector<LangToken> &tokens, const char *input);
         void ParseLines(std::vector<Line *> &lines);
+        void ParseLineFromStartState(std::string &listStartState, Line *line);
 
         // State management - this is available
         void SetStartState(const std::string &newStartState);
@@ -174,6 +184,7 @@ namespace gnilk {
         bool PushState(const char *stateName);
         void PushState(State::Ref state);
         State::Ref PopState();
+        State::Ref CurrentState();
 
     protected:
         std::string startState = "main";

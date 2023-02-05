@@ -44,7 +44,7 @@ bool CPPLanguage::Initialize() {
 
     auto stateBlkComment = tokenizer.GetOrAddState("in_block_comment");
     // just testing, kFunky should be reclassified to 'kBlockComment' once this state is popped...
-    stateBlkComment->SetIdentifiers(gnilk::kLanguageTokenClass::kFunky, cppBlockCommentStop.c_str());
+    stateBlkComment->SetIdentifiers(gnilk::kLanguageTokenClass::kBlockComment, cppBlockCommentStop.c_str());
     stateBlkComment->SetPostFixIdentifiers(cppBlockCommentStop.c_str());
     stateBlkComment->GetOrAddAction("*/", gnilk::LangLineTokenizer::kAction::kPopState);
     stateBlkComment->SetRegularTokenClass(gnilk::kLanguageTokenClass::kCommentedText);
@@ -52,6 +52,8 @@ bool CPPLanguage::Initialize() {
     // a line comment run's to new-line...
     auto stateLineComment = tokenizer.GetOrAddState("in_line_comment");
     stateLineComment->SetRegularTokenClass(gnilk::kLanguageTokenClass::kCommentedText);
+    stateLineComment->SetEOLAction(gnilk::LangLineTokenizer::kAction::kPopState);
+
 
     tokenizer.SetStartState("main");
 

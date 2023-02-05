@@ -47,16 +47,15 @@ void LangLineTokenizer::ParseLines(std::vector<Line *> &lines) {
     int lineCounter = 0;
     for(auto &l : lines) {
         std::vector<gnilk::LangToken> tokens;
+
+        l->startState = CurrentState()->name;
+
         ParseLineWithCurrentState(tokens, l->Buffer().data());
+
+        l->endState = CurrentState()->name;
+
         LangToken::ToLineAttrib(l->Attributes(), tokens);
         tokens.clear();
-        // FIXME: this is due to missing features in the action
-        //        we need support for EOL actions!!
-        if (l->Length() == 0) {
-            //printf("line %d is empty, reset stack!\n", lineCounter);
-            ResetStateStack();
-            PushState(startState.c_str());
-        }
         lineCounter++;
     }
 
@@ -65,8 +64,8 @@ void LangLineTokenizer::ParseLines(std::vector<Line *> &lines) {
     PopState();
     if (!stateStack.empty()) {
         // emit warning!
-        printf("Last State was: %s\n", top->name.c_str());
-        printf("State stack not empty, size=%d!\n",(int)stateStack.size());
+//        printf("Last State was: %s\n", top->name.c_str());
+//        printf("State stack not empty, size=%d!\n",(int)stateStack.size());
     }
 }
 
@@ -79,6 +78,27 @@ void LangLineTokenizer::ParseLine(std::vector<LangToken> &tokens, const char *in
     ParseLineWithCurrentState(tokens, input);
     PopState();
 }
+
+
+// FIXME: Supply some kind of feedback if we entered a block or similar - telling the application it should probably 'reparse' the whole thing..
+void LangLineTokenizer::ParseLineFromStartState(std::string &lineStartState, Line *line) {
+    // Reset the state stack, start all over...
+    if (!ResetStateStack()) {
+        return;
+    }
+    // Push this first, IF we are in a block (like a block comment) we want to break out to the start state
+    // And if we don't push this here - we will simply pop 'null' when (if) the block ends during editing...
+    PushState(startState.c_str());
+
+    PushState(lineStartState.c_str());
+    std::vector<gnilk::LangToken> tokens;
+
+    ParseLineWithCurrentState(tokens, line->Buffer().data());
+    LangToken::ToLineAttrib(line->Attributes(), tokens);
+    line->endState = CurrentState()->name;
+    PopState();
+}
+
 
 
 //
@@ -118,6 +138,15 @@ void LangLineTokenizer::ParseLineWithCurrentState(std::vector<LangToken> &tokens
         LangToken token { .string = std::string(tmp), .classification = classification, .idxOrigStr = pos };
         tokens.push_back(token);
     }
+
+    if (!stateStack.empty()) {
+        auto currentState = stateStack.top();
+        if (currentState->eolAction.action == kAction::kNone) {
+            return;
+        }
+        PopState();
+    }
+
 }
 
 //
@@ -344,3 +373,6 @@ LangLineTokenizer::State::Ref LangLineTokenizer::PopState() {
     return top;
 }
 
+LangLineTokenizer::State::Ref LangLineTokenizer::CurrentState() {
+    return stateStack.top();
+}

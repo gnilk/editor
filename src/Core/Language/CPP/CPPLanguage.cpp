@@ -11,12 +11,11 @@
 // state: main (and probably a few others)
 static const std::string cppTypes = "void int char";
 static const std::string cppKeywords = "auto typedef class struct static enum for while if return const";
-// FIXME: Remove '{' and '}' from here - add separatley with own identifiers, this way we can parse the meta data and
-//        count block-start/ends in order to properly compute indentation...
 // Note: Multi char operators must be declared first...
-static const std::string cppOperators = "== ++ -- << >> += -= *= /= = + - < > ( , * ) [ ] < > ; ' \"";
-// The full operator set is used to identify post-fix operators but they are not used for classification..
-static const std::string cppOperatorsFull = "== ++ -- << >> += -= *= /= /* */ // = + - < > ( , * ) [ ] < > ; ' { } \"";
+static const std::string cppOperators = "== ++ -- << >> <= >= != += -= *= /= &= ^= |= -> && || :: ^ & ? : ! . = + - < > ( , * / ) [ ] < > ; ' \"";
+// The full operator set is used to identify post-fix operators but not used for classification..
+// missing: % and %=
+static const std::string cppOperatorsFull = "== ++ -- << >> <= >= != += -= *= /= &= ^= |= :: /* */ // -> && || ^ & ? : ! . = + - < > ( , * / ) [ ] < > ; ' { } \"";
 static const std::string cppLineComment = "//";
 static const std::string cppCodeBlockStart = "{";
 static const std::string cppCodeBlockEnd = "}";

@@ -286,7 +286,7 @@ int main(int argc, const char **argv) {
     //       context to be initialized...
     auto &colorConfig = Config::Instance().ColorConfiguration();
     for(int i=0;gnilk::IsLanguageTokenClass(i);i++) {
-        auto langClass = gnilk::LanguageTokenClassToString(static_cast<gnilk::kLanguageTokenClass>(i));
+        auto langClass = gnilk::LanguageTokenClassToString(static_cast<kLanguageTokenClass>(i));
         if (!colorConfig.HasColor(langClass)) {
             logger->Warning("Missing color configuration for: %s", langClass.c_str());
             return -1;

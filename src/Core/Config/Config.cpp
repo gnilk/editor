@@ -42,6 +42,8 @@ LanguageBase *Config::GetLanguageForFilename(const std::string &extension) {
 
 bool Config::LoadConfig(const std::string &filename) {
     dataNode = YAML::LoadFile(filename);
+    SetDefaultsIfMissing();
+    // FIXME: add defaults to missing stuff
     if (!dataNode.IsDefined()) {
         return false;
     }
@@ -111,4 +113,41 @@ bool Config::LoadSublimeColorFile(const std::string &filename) {
     return true;
 }
 
+extern std::string glbDefaultConfig;
+void Config::SetDefaultsIfMissing() {
+    return;
+    // Check root..
+    auto defaultConfNode = YAML::Load(glbDefaultConfig);
+    if (!HasKey("commandmode")) {
+        dataNode.push_back(defaultConfNode["commandmode"]);
+    }
+}
 
+std::string glbDefaultConfig=""\
+"main:"\
+"  backend: ncurses"\
+"  keymap: default"\
+"macos:"\
+"  allow_kbd_hook: yes"\
+"ncurses:"\
+"editor:"\
+"commandmode:"\
+"  prompt: \"ed>\""\
+"terminal:"\
+"  shell: /bin/zsh"\
+"  init: -is"\
+"  bootstrap:"\
+"    - SET XYZ=4"\
+"    - export path=%path%"\
+"    - ls -laF"\
+"theme:"\
+"  sublime_colorfile: \"tests/colors.sublime.json\""\
+"languages:"\
+"  default:"\
+"    indent: 4"\
+"    tabsize: 4"\
+"    insert_spaces: yes"\
+"  cpp:"\
+"    insert_closing_brace: yes"\
+"    auto_indent: yes"\
+"    continue_comment: yes";

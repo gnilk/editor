@@ -48,6 +48,12 @@ public:
         }
         return (dataNode[key].as<std::string>());
     }
+    char GetChar(const std::string &key, char defValue) {
+        if (!dataNode[key].IsDefined()) {
+            return defValue;
+        }
+        return (dataNode[key].as<char>());
+    }
 
     auto GetSequenceOfStr(const std::string &key) {
         if (!HasKey(key)) {
@@ -75,12 +81,14 @@ public:
     const ColorConfig &ColorConfiguration() {
         return colorConfig;
     }
+
 protected:
     bool LoadSublimeColorFile(const std::string &filename);
 
 private:
     Config();   // Hide CTOR...
     ColorConfig colorConfig;
+    void SetDefaultsIfMissing();
 
     std::unordered_map<std::string, LanguageBase *> extToLanguages;
 

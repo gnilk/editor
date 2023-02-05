@@ -59,6 +59,11 @@ private:
     bool active = false;
     int indent = 0;
     bool selected = false;
+
+    // TEST
+public:
+    std::string startState = "";
+    std::string endState = "";
 };
 
 //typedef std::vector<Line *> Buffer;

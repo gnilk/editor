@@ -98,6 +98,11 @@ target_link_libraries(myshell ${COCOA_FRAMEWORK} ${IOKIT_FRAMEWORK} ${GAMECONTRO
 add_executable(myshell2 tests/myshell2.cpp src/Core/unix/Shell.cpp src/Core/StrUtil.cpp)
 target_include_directories(myshell2 PUBLIC src/)
 
+add_executable(tstlog tests/tstlog.cpp)
+target_include_directories(tstlog PUBLIC ext/logger/src)
+target_link_libraries(tstlog logger)
+
+
 #
 # I include all of the editor stuff in this test app
 #

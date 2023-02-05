@@ -39,6 +39,7 @@ void EditorMode::NewLine() {
 
     if (currentLine != nullptr) {
         currentLine->SetActive(false);
+        // FIXME: the line should not compute the indent - we should search in the parsing meta-data for indent indication..
         indentPrevious = currentLine->ComputeIndent();
 
 //        logger->Debug("Previous Line: %d", idxActiveLine);

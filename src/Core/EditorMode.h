@@ -9,7 +9,7 @@
 #include "Core/ScreenBase.h"
 #include "Core/ModeBase.h"
 #include "Core/KeyboardDriverBase.h"
-
+#include "logger.h"
 struct Selection {
 
     bool IsActive() {
@@ -49,6 +49,8 @@ public:
         EditorMode();
         virtual ~EditorMode() = default;
 
+        bool Begin() override;
+
         void Update() override;
         void DrawLines() override;
 
@@ -66,7 +68,10 @@ protected:
         void ClearSelectedLines();
         void NewLine();
         void UpdateSyntaxForCurrentLine();
+        void UpdateSyntaxForLine(Line *line);
+            void UpdateSyntaxForBuffer();
 private:
+        gnilk::ILogger *logger;
         KeyPress lastChar {};
         int idxActiveLine = 0;
         Line *currentLine = nullptr;

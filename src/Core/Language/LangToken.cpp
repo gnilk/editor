@@ -6,9 +6,16 @@
 #include <unordered_map>
 #include <map>
 #include "LangToken.h"
+#include "LanguageTokenClass.h"
 
 using namespace gnilk;
 
+//
+// This mapping is used to identify the color to be used.
+// Currently several are mapped to the same (like operator is used multiple times)
+// so lookup is currently...
+//  tokenClass => name => color_index => color
+//
 static const std::unordered_map<kLanguageTokenClass, std::string> tokenNames = {
         {kLanguageTokenClass::kUnknown,"unknown"},
         {kLanguageTokenClass::kRegular,"regular"},
@@ -21,11 +28,13 @@ static const std::unordered_map<kLanguageTokenClass, std::string> tokenNames = {
         {kLanguageTokenClass::kLineComment,"line_comment"},
         {kLanguageTokenClass::kBlockComment,"block_comment"},
         {kLanguageTokenClass::kCommentedText,"commented_text"},
+        {kLanguageTokenClass::kCodeBlockStart,"operator"},
+        {kLanguageTokenClass::kCodeBlockEnd,"operator"},
         {kLanguageTokenClass::kFunky,"funky"},
 };
 
 bool gnilk::IsLanguageTokenClass(int num) {
-    static constexpr int maxLangClass = static_cast<int>(gnilk::kLanguageTokenClass::kLastTokenClass);
+    static constexpr int maxLangClass = static_cast<int>(kLanguageTokenClass::kLastTokenClass);
     if ((num < 0) || (num >=  maxLangClass)) {
         return false;
     }
@@ -38,12 +47,13 @@ void LangToken::ToLineAttrib(std::vector<Line::LineAttrib> &outAttributes, std::
         Line::LineAttrib attrib;
         attrib.idxOrigString = t.idxOrigStr;
         attrib.idxColor = static_cast<int>(t.classification);
+        attrib.tokenClass = t.classification;
         outAttributes.push_back(attrib);
     }
 
 }
 
-
+// This is wrong, should be named "LanguageTokenClassToGroup"..
 const std::string &gnilk::LanguageTokenClassToString(kLanguageTokenClass tokenClass) {
     auto it = tokenNames.find(tokenClass);
     if (it == tokenNames.end()) {

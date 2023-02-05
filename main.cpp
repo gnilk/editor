@@ -175,10 +175,10 @@ static void testBufferLoading(const char *filename) {
 }
 
 static void SetupLogger() {
-    char *sinkArgv[]={"file","logfile.log"};
+    char *sinkArgv[]={"autoflush","file","logfile.log"};
     gnilk::Logger::Initialize();
     auto fileSink = new gnilk::LogFileSink();
-    gnilk::Logger::AddSink(fileSink, "fileSink", 2, sinkArgv);
+    gnilk::Logger::AddSink(fileSink, "fileSink", 3, sinkArgv);
     // Remove the console sink (it is auto-created in debug-mode)
     gnilk::Logger::RemoveSink("console");
 }
@@ -214,6 +214,11 @@ int main(int argc, const char **argv) {
 
     EditorMode editorMode;
     CommandMode commandMode;
+
+    if (!editorMode.Begin()) {
+        return -1;
+    }
+
 
 
     // Doesn't work with NCurses - probably messing up the TTY

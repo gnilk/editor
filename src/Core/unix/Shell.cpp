@@ -86,9 +86,6 @@ bool Shell::StartShellProc() {
         ::close(outfd[READ_END]);   // Child does not read from stdout
         ::close(errfd[READ_END]);   // Child does not read from stderr
 
-        // TODO: Need to specify configuration in the settings regarding shell to use and the prompt!
-
-        //::execl("/bin/bash", "/bin/bash", "-ils", nullptr);       // this works for bash
 
         // zsh - Can't have -i ??
         //::execl("/bin/zsh", "/bin/zsh", "-is", nullptr);

@@ -38,6 +38,9 @@ void Line::Append(std::string &srcdata) {
     buffer += srcdata;
 }
 
+void Line::Append(const std::string &srcdata) {
+    Append(srcdata.c_str());
+}
 
 void Line::Append(const char *srcdata) {
     std::lock_guard<std::mutex> guard(lock);

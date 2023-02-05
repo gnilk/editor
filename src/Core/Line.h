@@ -27,6 +27,7 @@ public:
     void Append(int ch);
     void Append(std::string_view &srcdata);
     void Append(std::string &srcdata);
+    void Append(const std::string &srcdata);
     void Append(const char *srcdata);
     void Insert(int at, int ch);
     int Insert(int at, int n, int ch);

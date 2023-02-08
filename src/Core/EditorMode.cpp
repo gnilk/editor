@@ -174,6 +174,12 @@ void EditorMode::Update() {
         return;
     }
 
+    if (keyPress.rawCode != -1) {
+        logger->Debug("Key, raw=0x%.2x (special=0x%.2x, code=0x%.2x)", keyPress.rawCode, keyPress.data.special,
+                      keyPress.data.code);
+    }
+
+
     if (DefaultEditLine(currentLine, keyPress)) {
         if (keyPress.IsHumanReadable()) {
             // TODO: Check language features here

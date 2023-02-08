@@ -7,15 +7,21 @@
 
 #include "Core/KeyboardDriverBase.h"
 #include "Core/macOS/MacOSKeyboardMonitor.h"
+#include "Core/SafeQueue.h"
+
 
 class NCursesKeyboardDriver : public KeyboardDriverBase {
 public:
     bool Initialize() override;
-    KeyPress GetCh() override;
+    KeyPress GetCh() const override;
+    KeyboardBaseMonitor *Monitor() override {
+        return &kbdMonitor;
+    }
 protected:
-    KeyPress Translate(int ch);
+    KeyPress Translate(int ch) const;
 private:
     MacOSKeyboardMonitor kbdMonitor;
+    SafeQueue<Keyboard::HWKeyEvent> keyEventQueue;
 };
 
 #endif //EDITOR_NCURSESKEYBOARDDRIVER_H

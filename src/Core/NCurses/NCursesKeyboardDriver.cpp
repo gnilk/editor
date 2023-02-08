@@ -17,10 +17,16 @@ bool NCursesKeyboardDriver::Initialize() {
         printf("Hint: If disabled, you should consider using a different keyboard mapping than default!\n");
         return false;
     }
+    kbdMonitor.SetOnKeyPressDelegate([this](Keyboard::HWKeyEvent &event){
+        // We only push 'pressed'
+        if (event.isPressedDown) {
+            keyEventQueue.push(event);
+        }
+    });
     return true;
 }
 
-KeyPress NCursesKeyboardDriver::GetCh() {
+KeyPress NCursesKeyboardDriver::GetCh() const {
     auto ch = getch();
     return Translate(ch);
 }
@@ -48,11 +54,26 @@ static std::map<int, int> ncurses_translation_map = {
 
 static KeyPress kp = {.data = {.special = kKeyCtrl_None, .code = kKey_Tab}};
 
-KeyPress NCursesKeyboardDriver::Translate(int ch) {
-    KeyPress key {kKey_NoKey_InQueue};
+// TODO: This needs to be fixed in order to use the new keyboard driver...
+KeyPress NCursesKeyboardDriver::Translate(int ch) const {
+    KeyPress key;
+
+    key.data.code = kKey_NoKey_InQueue;
+    key.data.special = kKeyCtrl_None;
 
     // Regardless - we set this...
     key.rawCode = ch;
+    auto special = kbdMonitor.GetModifiersCurrentlyPressed();
+
+    //
+    // We should process the input queue first...
+    //
+
+
+    if (special) {
+        // FIXME: process the queue here
+        key.data.special = special;
+    }
 
     if (ch == ERR) {
         return key;
@@ -66,7 +87,6 @@ KeyPress NCursesKeyboardDriver::Translate(int ch) {
         return key;
     }
 
-    key.data.special = kbdMonitor.GetSpecialCurrentlyPressed();
     if (debugMode) printw("raw: %d ", ch);
 
     if ((ch > 31) && (ch < 127)) {

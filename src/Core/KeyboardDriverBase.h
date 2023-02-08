@@ -7,15 +7,18 @@
 
 #include <cstdint>
 #include "Core/KeyPress.h"
+#include "KeyboardBaseMonitor.h"
 
 
 class KeyboardDriverBase {
 public:
     virtual bool Initialize() { return false; };
-    virtual KeyPress GetCh();
+    virtual KeyPress GetCh() const;
     void SetDebugMode(bool enable) {
         debugMode = enable;
     }
+    virtual KeyboardBaseMonitor *Monitor() { return nullptr; }
+
 protected:
     bool debugMode = false;
 };

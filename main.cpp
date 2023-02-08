@@ -5,7 +5,14 @@
  * - cmd-mode (like old Amiga AsmOne had)
  *
  * TODO:
- *  - Add logging functions (use external logger or rewrite it to be more simple?)
+ *  ! Add logging functions (use external logger or rewrite it to be more simple?)
+ *
+ *  - Keyboard driver needs more work (NCurses)
+ *    Seems like NCurses won't give us Arrows if CTRL/CMD/ALT is pressed (most likely true for alot of other keys)
+ *    Thus, I need proper translation (and perhaps an input queue) for NCurses from the Keyboard Monitor...
+ *    Question is which one has priority - probably the monitor - and if so, should translate all key's?
+ *
+ *
  *
  *  - Work on keymap to navigate code.. I want this fast, configurable and flawless...
  *    - CMD-left/right, jump to end/beg of current/next word
@@ -219,6 +226,9 @@ int main(int argc, const char **argv) {
         return -1;
     }
 
+    keyBoard.Monitor()->SetOnKeyPressDelegate([logger, &keyBoard](Keyboard::HWKeyEvent &event) {
+        logger->Debug("onKeyPress, modmask=0x%.2x (scancode=0x%.2x : %s)", event.modifiers, event.scanCode, event.isPressedDown?"down":"up");
+    });
 
 
     // Doesn't work with NCurses - probably messing up the TTY

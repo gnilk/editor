@@ -47,7 +47,11 @@ bool ModeBase::DefaultEditLine(Line *line, KeyPress &keyPress) {
             cursor.wantedColumn = cursor.activeColumn;
             break;
         case kKey_Right :
-            cursor.activeColumn++;
+            if (keyPress.IsCtrlPressed()) {
+                cursor.activeColumn+=4;
+            } else {
+                cursor.activeColumn++;
+            }
             if (cursor.activeColumn > line->Length()) {
                 cursor.activeColumn = line->Length();
             }

@@ -14,10 +14,12 @@ if (APPLE)
     list(APPEND editorsrc src/Core/macOS/MacOSKeyboardMonitor.cpp src/Core/macOS/MacOSKeyboardMonitor.h)
     list(APPEND editorsrc src/Core/unix/Shell.cpp src/Core/unix/Shell.h)
 
+    find_library(CARBON_FRAMEWORK Carbon)
     find_library(COCOA_FRAMEWORK Cocoa)
     find_library(IOKIT_FRAMEWORK IOKit)
     find_library(GAMECONTROLLER_FRAMEWORK GameController)
     find_library(CORE_FOUNDATION CoreFoundation)
+    find_library(CORE_SERVICES CoreServices)
 
     list(APPEND extlibs ncurses)
     list(APPEND extlibs yaml-cpp)
@@ -88,6 +90,19 @@ target_link_libraries(editor ${extlibs})
 
 add_executable(kbdhook tests/kbdhooking.m)
 target_link_libraries(kbdhook ${COCOA_FRAMEWORK} ${IOKIT_FRAMEWORK} ${GAMECONTROLLER_FRAMEWORK} ${CORE_FOUNDATION})
+
+#
+# Keyboard monitor test
+#
+add_executable(kbdmon tests/kbdmon.cpp tests/MacOSKeyMonCGEvents.cpp ${editorsrc})
+target_include_directories(kbdmon PUBLIC ${NCURSES_HOME}/include)
+target_link_directories(kbdmon  PUBLIC ${NCURSES_HOME}/lib)
+target_include_directories(kbdmon PUBLIC ${YAML_CPP_HOME}/include)
+target_link_directories(kbdmon  PUBLIC ${YAML_CPP_HOME}/lib)
+target_include_directories(kbdmon PUBLIC ext/logger/src)
+target_include_directories(kbdmon PUBLIC src)
+target_link_libraries(kbdmon ${extlibs}  ${CARBON_FRAMEWORK})
+# end kbdmon
 
 add_executable(gckeys tests/gckeys.m)
 target_link_libraries(gckeys ${COCOA_FRAMEWORK} ${IOKIT_FRAMEWORK} ${GAMECONTROLLER_FRAMEWORK} ${CORE_FOUNDATION})

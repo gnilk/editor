@@ -21,6 +21,7 @@ struct KeyPress {
 
     bool IsValid();
     bool IsShiftPressed();
+    bool IsCtrlPressed();
     bool IsHumanReadable();
 };
 

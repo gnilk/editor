@@ -5,7 +5,7 @@
 #include "Core/KeyCodes.h"
 #include "Core/KeyboardDriverBase.h"
 
-KeyPress KeyboardDriverBase::GetCh() {
+KeyPress KeyboardDriverBase::GetCh() const {
     return {};
 }
 

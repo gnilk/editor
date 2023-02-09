@@ -2,6 +2,34 @@
 // Created by gnilk on 14.01.23.
 // HID hooking based on: https://github.com/theevilbit/macos
 //
+//
+// Reading of low-level keyboard data in macOS. All keyboard data emitting from here are lowlevel scan-code's and not
+// human readable. There is a lame attempt to translate to various categories.
+//
+// The main purpose is to use it to drive keyboard shortcut handling.
+// Features:
+// - Can handle modifier keys, distinguish between LEFT/RIGHT shift/ctrl/alt/cmd
+// - Can handle all non-printable (ESC, F1..F12,HOME,INSERT,ARROWS,PageUp,PageDown, etc..)
+//   These are translated to KeyBoard::kKeyCode_XYZ (raw value is also provided)
+// - Do a rough translation if scancode is a well-known ASCII char..
+//
+// The monitor runs in its own thread, you should attach to it through the event delegate/callback function
+//  see: SetEventNotificationsForKeyUpDown
+//
+// You also need to synchronize reading data off from your "normal" input (getchar, ncruses::getch, or whatever).
+// For NCurses the event might pop-up before the actual getch() returns data.
+// There are several ways of dealing with this.
+// 1) read from 'getch' in a non-blocking fashion - timeout(1) - and if return is ERR and you have an event, do a
+//    quick spin around 'getch' until you get something. Need to take care about modifiers!!!
+//
+// 2) Read only from 'getch' when you get an event - risk of getting out of sync...
+//
+// etc..
+//
+// See kbdmon.cpp for an example on how this can be done!
+//
+// You should NOT use this as a generic keyboard input - better use
+//
 #include <IOKit/hid/IOHIDValue.h>
 #include <IOKit/hid/IOHIDManager.h>
 #include <Carbon/Carbon.h>
@@ -21,7 +49,6 @@ static void *CaptureThread(void *arg);
 static pthread_t captureThread;
 
 
-
 // Translation table from original source
 static std::map<uint32_t, Keyboard::kModifierKeys> scancodeToModifierMap = {
         {0xE0, Keyboard::kMod_LeftCtrl},    // Left Control
@@ -37,23 +64,17 @@ static std::map<uint32_t, Keyboard::kModifierKeys> scancodeToModifierMap = {
 //
 // These are all non-printable editing keys, we can translate from scan-code to these
 // So tactics:
-// - ONLY translate what we know, this table defines the scan-code we translate (need to add KEYPAD keys to it)
-// editorKeyCode {
-//    uint8_t modifierMask; // this is ctrl keys (ALT, SHIFT, CMD, CTRL)
-//    uint8_t keyCode;      //  This is the key code
-//    uint8_t charCode;     // This is the human readable character - this should not be used unless the modifier mask has been pressed...
-//    uint8_t reserved;     // future use...
-// }
+// ONLY translate what we know, this table defines the scan-code we translate (need to add KEYPAD keys to it)
 // modifierMask and keyCode will be 0,0 respectively if we don't know about it...
 // modifierMask can be set (in cast we need to trap CTRL+<char>
 //
 //
 static std::unordered_map<int, Keyboard::kKeyCode> scancodeToKeycodeMap = {
         {0x28, Keyboard::kKeyCode_Return},
+        {0x29, Keyboard::kKeyCode_Escape},
         {0x2a, Keyboard::kKeyCode_Backspace},
         {0x2b, Keyboard::kKeyCode_Tab},
         {0x2c, Keyboard::kKeyCode_Space},
-        {0x35, Keyboard::kKeyCode_Escape},
         {0x3a, Keyboard::kKeyCode_F1},
         {0x3b, Keyboard::kKeyCode_F2},
         {0x3c, Keyboard::kKeyCode_F3},
@@ -104,6 +125,22 @@ static int createTranslationTable() {
         asciiShiftTranslationMap[scanCode] = numbersShift[i];
         scanCode++;
     }
+
+    // These are next to the enter key on my keyboard...
+    asciiTranslationMap[0x2f] = '[';
+    asciiTranslationMap[0x30] = ']';
+    asciiTranslationMap[0x32] = '\\';
+    asciiTranslationMap[0x33] = ';';
+    asciiTranslationMap[0x34] = '\'';
+    asciiTranslationMap[0x35] = 0x60; //'`';
+    asciiTranslationMap[0x36] = ',';
+    asciiTranslationMap[0x37] = '.';
+    asciiTranslationMap[0x38] = '/';
+    // 0x64 - key left of 'Z' (Y - physically on a german layout)
+
+    auto testMe = asciiTranslationMap[0x35];
+
+
     return scanCode;
 }
 
@@ -157,8 +194,10 @@ Keyboard::kKeyCode MacOSKeyboardMonitor::TranslateScanCodeToKeyCode(uint32_t sca
 
 uint8_t MacOSKeyboardMonitor::TranslateScanCodeToASCII(uint32_t scancode) {
     if (asciiTranslationMap.find(scancode) == asciiTranslationMap.end()) {
+        //printw("not found for 0x%.2x", scancode);
         return 0;
     }
+    //printw("found for 0x%.2x", scancode);
     return asciiTranslationMap[scancode];
 }
 

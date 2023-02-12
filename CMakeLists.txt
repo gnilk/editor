@@ -20,6 +20,8 @@ if (APPLE)
     find_library(GAMECONTROLLER_FRAMEWORK GameController)
     find_library(CORE_FOUNDATION CoreFoundation)
     find_library(CORE_SERVICES CoreServices)
+    find_library(CORE_GRAPHICS CoreGraphics)
+    find_library(APPKIT AppKit)
 
     list(APPEND extlibs ncurses)
     list(APPEND extlibs yaml-cpp)
@@ -130,3 +132,12 @@ target_link_directories(strattr  PUBLIC ${YAML_CPP_HOME}/lib)
 
 target_link_libraries(strattr ${extlibs})
 
+
+add_executable(focuscheck tests/focusdet.cpp tests/focus_oc_wrapper.mm)
+target_link_libraries(focuscheck ${CORE_FOUNDATION} ${APPKIT})
+
+add_executable(cgsniff tests/cgeventsniff.cpp)
+target_link_libraries(cgsniff ${CORE_FOUNDATION} ${CORE_SERVICES} ${CORE_GRAPHICS} ${APPKIT})
+
+add_executable(nseventmon tests/nseventmon.m)
+target_link_libraries(nseventmon ${CORE_FOUNDATION} ${CORE_SERVICES} ${CORE_GRAPHICS} ${APPKIT})

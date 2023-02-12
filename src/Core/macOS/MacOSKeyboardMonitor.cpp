@@ -49,6 +49,8 @@ static void *CaptureThread(void *arg);
 static pthread_t captureThread;
 
 
+// See: IOHIDUsageTables.h (look for table containing: kHIDUsage_KeyboardEscape)
+// FIXME: Replace numbers in mapping table with enums from IOHIDUsageTables.h
 // Translation table from original source
 static std::map<uint32_t, Keyboard::kModifierKeys> scancodeToModifierMap = {
         {0xE0, Keyboard::kMod_LeftCtrl},    // Left Control
@@ -273,9 +275,10 @@ void myHIDKeyboardCallback( void* context,  IOReturn result,  void* sender,  IOH
     }
 
     long pressed = IOHIDValueGetIntegerValue(value);
-
     // Dispatch to above
     kbdMonitor->OnKeyEvent(scancode, pressed, pid);
+
+    //result = kIOReturnUnsupported;
 }
 
 
@@ -325,6 +328,8 @@ void *CaptureThread(void *arg) {
 
     CFMutableArrayRef matches = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
     {
+//        CFMutableDictionaryRef keyboard = myCreateDeviceMatchingDictionary( kHIDPage_GenericDesktop, kHIDUsage_GD_Keyboard ); //usage page: 0x01, usage: 0x06
+//        CFMutableDictionaryRef keypad   = myCreateDeviceMatchingDictionary( kHIDPage_GenericDesktop, kHIDUsage_GD_Keypad ); //usage page: 0x01, usage: 0x07
         CFMutableDictionaryRef keyboard = myCreateDeviceMatchingDictionary( kHIDPage_GenericDesktop, kHIDUsage_GD_Keyboard ); //usage page: 0x01, usage: 0x06
         CFMutableDictionaryRef keypad   = myCreateDeviceMatchingDictionary( kHIDPage_GenericDesktop, kHIDUsage_GD_Keypad ); //usage page: 0x01, usage: 0x07
 

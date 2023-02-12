@@ -6,8 +6,11 @@
  *
  * TODO:
  *  ! Add logging functions (use external logger or rewrite it to be more simple?)
+ *  - Add a 'view' between the Mode's and the screen - allow for 'dock' style windowing with NCurses
+ *    this might also help with other backends such as IMGUI
+ *  - Add namespace for this 'gedit' or whatever...
  *
- *  - Keyboard driver needs more work (NCurses)
+ *  + Keyboard driver needs more work (NCurses)
  *    Seems like NCurses won't give us Arrows if CTRL/CMD/ALT is pressed (most likely true for alot of other keys)
  *    Thus, I need proper translation (and perhaps an input queue) for NCurses from the Keyboard Monitor...
  *    Question is which one has priority - probably the monitor - and if so, should translate all key's?

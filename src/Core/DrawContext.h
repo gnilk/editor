@@ -20,6 +20,10 @@ namespace gedit {
 
         void Update(Rect &newClipRect);
 
+        const Rect &ContextRect() {
+            return clipRect;
+        }
+
         void SetTextColor();
         void SetTextAttributes();
 

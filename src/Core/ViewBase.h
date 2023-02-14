@@ -78,7 +78,6 @@ namespace gedit {
     public:
         ViewBase() = default;
         explicit ViewBase(const Rect &viewArea) : viewRect(viewArea) {
-
             contentRect = viewRect;
             contentRect.Deflate(1,1);
         }
@@ -128,6 +127,14 @@ namespace gedit {
         Rect contentRect;   // Content rectangle is the rect -1
         std::vector<ViewBase *> subviews;
         DrawContext contentAreaDrawContext;
+    };
+
+    // This view is simply to hold and position other views..
+    class LayoutView : public ViewBase {
+    public:
+        explicit LayoutView(const Rect &viewArea) : ViewBase(viewArea) {
+            SetFlags(kViewFlags::kViewNone);
+        }
     };
 
 

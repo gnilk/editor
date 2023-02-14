@@ -30,6 +30,7 @@ public:
 
 private:
     LanguageBase *language;
+    //EditController *editController;
     std::vector<Line *> lines;
 };
 

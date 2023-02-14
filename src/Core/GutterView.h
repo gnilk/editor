@@ -1,0 +1,22 @@
+//
+// Created by gnilk on 14.02.23.
+//
+
+#ifndef EDITOR_GUTTERVIEW_H
+#define EDITOR_GUTTERVIEW_H
+
+#include "ViewBase.h"
+
+namespace gedit {
+    class GutterView : public ViewBase {
+    public:
+        explicit GutterView(const Rect &viewArea) : ViewBase(viewArea) {
+
+        }
+        virtual ~GutterView() = default;
+        void DrawViewContents() override;
+    };
+}
+
+
+#endif //EDITOR_GUTTERVIEW_H

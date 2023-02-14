@@ -1,6 +1,9 @@
 //
 // Created by gnilk on 14.01.23.
 //
+// - Cursor is global, put cursor functions here...
+//
+//
 
 #include <ncurses.h>
 #include "NCursesScreen.h"

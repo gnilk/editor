@@ -34,6 +34,7 @@
 #include "Core/NCurses/NCursesKeyboardDriver.h"
 #include "Core/macOS/MacOSKeyboardMonitor.h"
 
+#include "Core/GutterView.h"
 #include "Core/EditorView.h"
 
 #include "logger.h"
@@ -116,32 +117,54 @@ int main(int argc, const char **argv) {
     // Disable any drawing on updates
     rootView.SetFlags(gedit::ViewBase::kViewNone);
 
-    // Editor view
-    gedit::Rect subViewRect1(baseRect);
-    subViewRect1.SetHeight(2 * baseRect.Height()/3);
-    subViewRect1.Move(0,0);
-    gedit::EditorView editorView(subViewRect1);
-    editorView.SetCaption("Editor");
-    rootView.AddView(&editorView);
+    // TODO: We can reverse the creation process...
+    gedit::Rect rectUpperLayoutView(baseRect);
+    rectUpperLayoutView.SetHeight(2 * baseRect.Height()/3);
+    rectUpperLayoutView.Move(0,0);
+    gedit::LayoutView viewUpperLayout(rectUpperLayoutView);
+    rootView.AddView(&viewUpperLayout);
 
-    gedit::Rect subViewRect2(baseRect);
-    subViewRect2.SetHeight(1 + baseRect.Height()/3);
-    subViewRect2.Move(0,2 * baseRect.Height()/3);
-    gedit::ViewBase subView2(subViewRect2);
-    subView2.SetCaption("CommandView");
-    rootView.AddView(&subView2);
+    // The gutter
+    gedit::Rect rectGutter(rectUpperLayoutView);
+    rectGutter.SetWidth(6);
+    gedit::GutterView gutterView(rectGutter);
+    viewUpperLayout.AddView(&gutterView);
 
-    RuntimeConfig::Instance().SetRootView(&editorView);
+    // The editor
+    gedit::Rect rectEditor(rectUpperLayoutView);
+    rectEditor.SetWidth(rectUpperLayoutView.Width()-6);
+    rectEditor.Move(6,0);
+    gedit::EditorView editorView(rectEditor);
+    viewUpperLayout.AddView(&editorView);
+
+    // Setup the command view...
+    gedit::Rect commandViewRect(baseRect);
+    commandViewRect.SetHeight(1 + baseRect.Height()/3);
+    commandViewRect.Move(0,2 * baseRect.Height()/3);
+    gedit::ViewBase commandView(commandViewRect);
+    commandView.SetCaption("CommandView");
+    rootView.AddView(&commandView);
+
+    //RuntimeConfig::Instance().SetRootView(&editorView);
+    RuntimeConfig::Instance().SetRootView(&rootView);
+
+    //
+    // FIXME: The edit-controller can't be made part of the view it-self, it must be kept outside..
+    //        We should associate the edit-controller with the buffer...
+    //
+    // FIXME: Rewrite 'EditMode' to EditController, assign it to the buffer..
+    //        => We must rewrite the TerminalMode and BaseMode to 'TerminalController' and 'BaseController' respectively
+    //
 
     editorView.Begin();
-
     loadBuffer("test_src2.cpp", editorView.GetEditorController());
 
 
     // This is currently the run loop...
     while(!bQuit) {
         auto keyPress = keyboardDriver.GetKeyPress();
-        editorView.OnKeyPress(keyPress);
+
+        // editorView.OnKeyPress(keyPress);
         //rootView.OnKeyPress(keyPress);
         rootView.Draw();
         screen.Update();

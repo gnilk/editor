@@ -12,11 +12,15 @@ void EditorView::Begin() {
 }
 
 void EditorView::DrawViewContents() {
-    auto screen = RuntimeConfig::Instance().Screen();
-    auto rect = ContentRect();
-    if (editorMode.CurrentLine() != nullptr) {
-        screen->DrawStringAt(rect.TopLeft().x, rect.TopLeft().y, editorMode.CurrentLine()->Buffer().data());
-    }
+
+    auto &ctx = ViewBase::ContentAreaDrawContext();
+
+    ctx.DrawLines(editorMode.Lines(), 0);
+
+//    DrawLines();
+//    if (editorMode.CurrentLine() != nullptr) {
+//        ctx.DrawStringAt(0,0, editorMode.CurrentLine()->Buffer().data());
+//    }
 }
 
 void EditorView::OnKeyPress(gedit::NCursesKeyboardDriverNew::KeyPress keyPress) {

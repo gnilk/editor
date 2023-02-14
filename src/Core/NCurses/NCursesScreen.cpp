@@ -138,9 +138,15 @@ void NCursesScreen::DrawLineAt(int row, const std::string &prefix, const Line *l
 //    mvaddnstr(row, szGutter, line->Buffer().data(), nCharToPrint);
 }
 
+// Reposition the cursor and then draw the line
+void NCursesScreen::DrawLineWithAttributesAt(int x, int y, Line &l, int nCharToPrint) {
+    move(y, x);
+    clrtoeol();     // THIS IS STUPID
+    DrawLineWithAttributes(l, nCharToPrint);
+}
+
 // TODO: Properly handle tab char (i.e. move cursor properly)
 void NCursesScreen::DrawLineWithAttributes(Line &l, int nCharToPrint) {
-
 
     auto &attribs = l.Attributes();
 
@@ -181,6 +187,7 @@ void NCursesScreen::DrawLineWithAttributes(Line &l, int nCharToPrint) {
     attrset(A_NORMAL);
 }
 
+// This loop should be moved to view...
 void NCursesScreen::DrawLines(const std::vector<Line *> &lines, int idxActiveLine) {
     //auto [rows, cols] = Dimensions();
     auto dimensions = Dimensions();

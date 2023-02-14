@@ -42,6 +42,39 @@
 static MacOSKeyboardMonitor keyboardMonitor;
 static gedit::NCursesKeyboardDriverNew keyboardDriver;
 
+static bool LoadToBuffer(Buffer &outBuffer, const char *filename) {
+    FILE *f = fopen(filename,"r");
+    if (f == nullptr) {
+        printf("Unable to open file\n");
+        return false;
+    }
+    char tmp[MAX_LINE_LENGTH];
+    while(fgets(tmp, MAX_LINE_LENGTH, f)) {
+        outBuffer.Lines().push_back(new Line(tmp));
+    }
+
+    fclose(f);
+    return true;
+}
+
+
+static void loadBuffer(const char *filename, EditorMode &editorMode) {
+    auto logger = gnilk::Logger::GetLogger("loader");
+
+    Buffer *buffer = new Buffer();
+    logger->Debug("Loading file given from cmd-line: %s", filename);
+
+    if (!LoadToBuffer(*buffer, filename)) {
+        logger->Error("Unable to load: %s", filename);
+        exit(1);
+    }
+    buffer->SetLanguage(Config::Instance().GetLanguageForFilename(filename));
+
+    logger->Debug("Ok, file loaded (line: %d)", (int)buffer->Lines().size());
+    logger->Debug("Assigning buffer");
+    editorMode.SetBuffer(buffer);
+}
+
 static void SetupLogger() {
     char *sinkArgv[]={"autoflush","file","logfile.log"};
     gnilk::Logger::Initialize();
@@ -100,8 +133,9 @@ int main(int argc, const char **argv) {
 
     RuntimeConfig::Instance().SetRootView(&editorView);
 
-
     editorView.Begin();
+
+    loadBuffer("test_src2.cpp", editorView.GetEditorController());
 
 
     // This is currently the run loop...

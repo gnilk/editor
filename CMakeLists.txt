@@ -51,6 +51,7 @@ list(APPEND editorsrc src/Core/Config/Config.cpp src/Core/Config/Config.h)
 list(APPEND editorsrc src/Core/Config/ColorConfig.cpp src/Core/Config/ColorConfig.h)
 list(APPEND editorsrc src/Core/ViewBase.cpp src/Core/ViewBase.h)
 list(APPEND editorsrc src/Core/EditorView.cpp src/Core/EditorView.h)
+list(APPEND editorsrc src/Core/DrawContext.cpp src/Core/DrawContext.h)
 list(APPEND editorsrc src/Core/Point.h)
 list(APPEND editorsrc src/Core/Rect.h)
 

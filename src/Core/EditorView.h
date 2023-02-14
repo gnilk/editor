@@ -20,6 +20,9 @@ namespace gedit {
         void Begin() override;
         void OnKeyPress(gedit::NCursesKeyboardDriverNew::KeyPress keyPress) override;
         void DrawViewContents() override;
+
+        // TEMP TEMP
+        EditorMode &GetEditorController() { return editorMode; }
     private:
         void DrawLines();
 

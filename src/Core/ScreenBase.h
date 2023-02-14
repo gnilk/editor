@@ -41,6 +41,9 @@ public:
     virtual void DrawGutter(int idxStart) {}
     virtual void DrawLines(const std::vector<Line *> &lines, int idxActiveLine) {}
     virtual void DrawLineAt(int row, const std::string &prefix, const Line *line) {}
+
+    virtual void DrawLineWithAttributesAt(int x, int y, Line &l, int nCharToPrint) {}
+
     virtual void DrawBottomBar(const char *str) {}
     virtual void DrawTopBar(const char *str) {}
 

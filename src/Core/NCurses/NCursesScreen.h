@@ -32,6 +32,9 @@ public:
     void DrawRect(const gedit::Rect &rect) override;
 
 
+    void DrawLineWithAttributesAt(int x, int y, Line &l, int nCharToPrint) override;
+
+
 
 
     //std::pair<int, int> Dimensions() override;

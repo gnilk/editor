@@ -12,6 +12,8 @@
 #include "Point.h"
 #include "Line.h"
 
+#include "DrawContext.h"
+
 // TEMP
 #include "Core/NCurses/NCursesKeyboardDriver.h"
 
@@ -50,26 +52,13 @@ namespace gedit {
 
 
     // The base of a context area where we can draw text
-    class DrawContextBase {
-    public:
-        // Parameters?
-        DrawContextBase(const Rect &rect) : clipRect(rect) {}
 
-        void SetTextColor() {}
-        void SetTextAttributes() {}
-
-        void DrawStringAt(const Point &pt, const char *str) {}
-        void DrawStringAt(int x, int y, const char *str) {}
-    private:
-        Rect clipRect;
-    };
-
-    class LineDrawing {
-    public:
-        LineDrawing(DrawContextBase *wef) {}
-        virtual void DrawLines(const std::vector<Line *> &lines, int idxActiveLine) {}
-        virtual void DrawLineAt(int row, const std::string &prefix, const Line *line) {}
-    };
+//    class LineDrawing {
+//    public:
+//        LineDrawing(DrawContextBase *wef) {}
+//        virtual void DrawLines(const std::vector<Line *> &lines, int idxActiveLine) {}
+//        virtual void DrawLineAt(int row, const std::string &prefix, const Line *line) {}
+//    };
 
 
 // Make views contain views - this will give us a nice docking feature layout..
@@ -107,6 +96,8 @@ namespace gedit {
             caption = newCaption;
         }
 
+        DrawContext &ContentAreaDrawContext();
+
         // These are specifically for drawing of the view itself
         virtual void Draw();
         virtual void DrawCaption();
@@ -127,7 +118,6 @@ namespace gedit {
         // Methods (?) for drawing IN the view
 
 
-
         // Events, need proper interface
         virtual void OnKeyPress(gedit::NCursesKeyboardDriverNew::KeyPress keyPress) {}
 
@@ -137,6 +127,7 @@ namespace gedit {
         Rect viewRect;
         Rect contentRect;   // Content rectangle is the rect -1
         std::vector<ViewBase *> subviews;
+        DrawContext contentAreaDrawContext;
     };
 
 

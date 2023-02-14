@@ -13,6 +13,7 @@
 #include "Core/NCurses/NCursesScreen.h"
 #include "Core/KeyCodes.h"
 #include "Core/SafeQueue.h"
+#include "Core/NCurses/NCursesKeyboardDriver.h"
 
 #include <ApplicationServices/ApplicationServices.h>
 
@@ -26,8 +27,9 @@ static void runOnlyMonitor() {
     while(true) {
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }
-
 }
+
+static gedit::NCursesKeyboardDriverNew keyboardDriver;
 
 static void runMonitorWithNCurses() {
     auto flog = fopen("kbdmon.log","w+");
@@ -110,71 +112,10 @@ static void runMonitorWithNCurses() {
 
 }
 
-class KeyboardHandler {
-public:
-    struct KeyPress {
-        bool isKeyValid = false;
-        bool isHwEventValid = false;
-        Keyboard::HWKeyEvent hwEvent;
-        uint8_t modifiers;
-        int key;
-    };
-public:
-    KeyboardHandler() = default;
-    void Begin(MacOSKeyboardMonitor *monitor) {
-        ptrKeyboardMonitor = monitor;
-
-        kbdMonitor.SetOnKeyPressDelegate([this](Keyboard::HWKeyEvent &event) {
-            kbdEvents.push(event);
-        });
-    }
-    // since we are monitoring _all_ keys in the system
-    // the stdin for PID will run out of sync...
-    KeyPress GetKeyPress() {
-        KeyPress keyPress;
-
-        keyPress.isHwEventValid = false;
-        if (!kbdEvents.empty()) {
-            keyPress.hwEvent = kbdEvents.pop();
-            keyPress.modifiers = kbdMonitor.GetModifiersCurrentlyPressed();
-            keyPress.isHwEventValid = true;
-            if (keyPress.hwEvent.translatedScanCode != 0) {
-                //auto ch = getch();
-                int ch;
-                do {
-                    ch = getch();
-                } while (ch == ERR);
-                keyPress.key = ch;
-                keyPress.isKeyValid = (ch==ERR)?false:true;
-            }
-
-        }
-        return keyPress;
-/*
-        auto ch = getch();
-        if (!kbdEvents.empty()) {
-            while((ch = getch()) == ERR) {
-                // FIXME: timeout handling
-            }
-            keyPress.hwEvent = kbdEvents.pop();
-            keyPress.isHwEventValid = true;
-
-        }
-        keyPress.isKeyValid = (ch==ERR)?false:true;
-        keyPress.modifiers = kbdMonitor.GetModifiersCurrentlyPressed();
-        keyPress.key = ch;
-        return keyPress;
-*/
-    }
-private:
-    MacOSKeyboardMonitor *ptrKeyboardMonitor;
-    SafeQueue<Keyboard::HWKeyEvent> kbdEvents;
-
-};
 
 static void runkeyboardhandler() {
-    KeyboardHandler kbdHandler;
-    kbdHandler.Begin(&kbdMonitor);
+
+    keyboardDriver.Begin(&kbdMonitor);
 
     use_extended_names(TRUE);
     initscr();
@@ -207,7 +148,7 @@ static void runkeyboardhandler() {
     getmaxyx(stdscr,row,col);
 
     while(true) {
-        auto keyPress = kbdHandler.GetKeyPress();
+        auto keyPress = keyboardDriver.GetKeyPress();
         if (keyPress.isKeyValid) {
             mvprintw(y,0,"%d - 0x%x - %s [driver, modifiers: 0x%.2x]", keyPress.key, keyPress.key, keyname(keyPress.key), keyPress.modifiers);
             printw("- HW:%s ", keyPress.isHwEventValid?"y":"n");
@@ -241,8 +182,8 @@ int main(int argc, char **argv) {
     kbdMonitor.SetEventNotificationsForKeyUpDown(true, false);
     kbdMonitor.SetDebug(false);
 
-    //runkeyboardhandler();
-    runMonitorWithNCurses();
+    runkeyboardhandler();
+    //runMonitorWithNCurses();
     //runOnlyMonitor();
 
 }

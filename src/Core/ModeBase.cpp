@@ -12,6 +12,18 @@
 #include "Core/KeyboardDriverBase.h"
 #include "Core/RuntimeConfig.h"
 
+// New keyboard stuff
+bool ModeBase::DefaultEditLine(Line *line, gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) {
+    if (keyPress.IsHumanReadable()) {
+        line->Insert(cursor.activeColumn - columnOffset, keyPress.key);
+        cursor.activeColumn++;
+        cursor.wantedColumn = cursor.activeColumn;
+        return true;
+    }
+    return false;
+}
+
+
 bool ModeBase::DefaultEditLine(Line *line, KeyPress &keyPress) {
 
     if (keyPress.IsHumanReadable()) {

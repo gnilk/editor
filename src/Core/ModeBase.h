@@ -10,6 +10,9 @@
 #include "Core/Cursor.h"
 #include "Core/KeyboardDriverBase.h"
 
+// TEMP
+#include "NCurses/NCursesKeyboardDriver.h"
+
 // This defines a general purpose output console
 class IOutputConsole {
 public:
@@ -35,6 +38,9 @@ public:
     virtual void OnSwitchMode(bool enter) {};
     // Holds default editing logic..
     bool DefaultEditLine(Line *line, KeyPress &ch);
+
+    bool DefaultEditLine(Line *line, gedit::NCursesKeyboardDriverNew::KeyPress &keyPress);
+
 protected:
     OnExitMode onExitMode = nullptr;
     OnExitApp  onExitApp = nullptr;

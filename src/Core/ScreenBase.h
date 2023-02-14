@@ -11,6 +11,8 @@
 #include "Core/Line.h"
 #include "Core/ColorRGBA.h"
 
+#include "Rect.h"
+
 class ScreenBase {
 public:
     ScreenBase() = default;
@@ -35,14 +37,28 @@ public:
     }
 
     virtual void NoGutter() { szGutter = 0; }
+    // Note: This is very specific for the editor-view
     virtual void DrawGutter(int idxStart) {}
     virtual void DrawLines(const std::vector<Line *> &lines, int idxActiveLine) {}
     virtual void DrawLineAt(int row, const std::string &prefix, const Line *line) {}
     virtual void DrawBottomBar(const char *str) {}
     virtual void DrawTopBar(const char *str) {}
-    virtual std::pair<int, int> Dimensions() { return std::make_pair(0,0); }
+
+    // TODO: Recactor this to take a Rect instead!!
+//    virtual std::pair<int, int> Dimensions() { return std::make_pair(0,0); }
+    virtual gedit::Rect Dimensions() { return {}; }
+
     virtual void Scroll(int nLines) {}
 
+    // RAW Drawing routines
+    virtual void DrawCharAt(int x, int y, const char ch) {}
+    virtual void DrawStringAt(int x, int y, const char *str) {}
+    // TODO: Fix drawing flags for rect in screen
+    virtual void DrawRect(const gedit::Rect &rect) {}
+
+    virtual void SetClipRect(const gedit::Rect &newClipRect) {
+        clipRect = newClipRect;
+    }
 
     void InvalidateAll() { invalidateAll = true; }
 protected:
@@ -51,6 +67,7 @@ protected:
     int cursorColumn = 0;
     int szGutter = 0;
 
+    gedit::Rect clipRect = {};
 
 
 };

@@ -142,6 +142,13 @@ void EditorMode::UpdateSyntaxForCurrentLine() {
 }
 
 void EditorMode::UpdateSyntaxForLine(Line *line) {
+    if (!buffer) {
+        return;
+    }
+    if (!buffer->HaveLanguage()) {
+        return;
+    }
+
     auto &tokenizer = buffer->LangParser().Tokenizer();
 
     if (!line->startState.empty()) {
@@ -197,6 +204,22 @@ void EditorMode::Update() {
     }
     // Do other things here...
 }
+// New interface with view based rendering
+void EditorMode::HandleKeyPress(gedit::NCursesKeyboardDriverNew::KeyPress keyPress) {
+    if (DefaultEditLine(currentLine, keyPress)) {
+        UpdateSyntaxForCurrentLine();
+        return;
+    }
+    if (UpdateNavigation(keyPress)) {
+        return;
+    }
+}
+
+// New interface, view based
+bool EditorMode::UpdateNavigation(gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) {
+    return true;
+}
+
 
 //
 // Returns true if the keypress was handled
@@ -204,7 +227,8 @@ void EditorMode::Update() {
 bool EditorMode::UpdateNavigation(KeyPress &keyPress, bool isShiftPressed) {
 
     auto screen = RuntimeConfig::Instance().Screen();
-    auto [rows, cols] = screen->Dimensions();
+    auto view = RuntimeConfig::Instance().View();
+    auto dimensions = view->Dimensions();
 
     // save current line - as it will update with navigation
     // we need it when we update the selection status...
@@ -226,10 +250,10 @@ bool EditorMode::UpdateNavigation(KeyPress &keyPress, bool isShiftPressed) {
             }
             break;
         case kKey_PageUp :
-            OnNavigateUp(rows-2);
+            OnNavigateUp(dimensions.Height()-2);
             break;
         case kKey_PageDown :
-            OnNavigateDown(rows-2);
+            OnNavigateDown(dimensions.Height()-2);
             break;
         case kKey_Return :
             NewLine();

@@ -28,6 +28,10 @@ bool NCursesScreen::Open() {
     //nonl();
     // Make this configurable...
 
+    int row, col;
+    getmaxyx(stdscr,row,col);
+    clipRect = gedit::Rect(col, row);
+
 
     ESCDELAY = 1;
     // TODO: Add 'atexit' call which enforces call of 'endwin'
@@ -60,10 +64,11 @@ void NCursesScreen::RegisterColor(int appIndex, const ColorRGBA &foreground, con
 }
 
 std::pair<int, int> NCursesScreen::ComputeView(int idxActiveLine) {
-    auto [rows, cols] = Dimensions();
+    //auto [rows, cols] = Dimensions();
+    auto dimensions = Dimensions();
 
     int topLine = lastTopLine;
-    int bottomLine = topLine + (rows - 3);  // -2, size of status bar => FIX THIS!
+    int bottomLine = topLine + (dimensions.Height() - 3);  // -2, size of status bar => FIX THIS!
 
     bool bInside = true;
     int dy = 0;
@@ -108,22 +113,25 @@ std::pair<int, int> NCursesScreen::ComputeView(int idxActiveLine) {
 // Also need to indicate which line is the current line..
 //
 void NCursesScreen::DrawGutter(int idxStart) {
-    auto [rows, cols] = Dimensions();
+    //auto [rows, cols] = Dimensions();
+    auto dimensions = Dimensions();
 
     auto [top, bottom] = ComputeView(idxStart);
 
     // FIXME: deduct gutter from idxStart...
-    for(int i=1;i<rows-1;i++) {
+    for(int i=1;i<dimensions.Height()-1;i++) {
         mvprintw(i, 0, "%4d|",i-1 + top);
     }
     szGutter = 5;
 }
 
 void NCursesScreen::DrawLineAt(int row, const std::string &prefix, const Line *line) {
-    auto [rows, cols] = Dimensions();
+    //auto [rows, cols] = Dimensions();
+    auto dimensions = Dimensions();
+
     move(row, szGutter);
     clrtoeol();
-    int nCharToPrint = (line->Length() + prefix.length())>(cols-szGutter)?(cols-szGutter):line->Length();
+    int nCharToPrint = (line->Length() + prefix.length())>(dimensions.Width()-szGutter)?(dimensions.Width()-szGutter):line->Length();
     move(row, szGutter);
     addstr(prefix.c_str());
     addnstr(line->Buffer().data(), nCharToPrint);
@@ -174,12 +182,14 @@ void NCursesScreen::DrawLineWithAttributes(Line &l, int nCharToPrint) {
 }
 
 void NCursesScreen::DrawLines(const std::vector<Line *> &lines, int idxActiveLine) {
-    auto [rows, cols] = Dimensions();
+    //auto [rows, cols] = Dimensions();
+    auto dimensions = Dimensions();
+
     int idxRowActive = 0;
 
     auto [topLine, bottomLine] = ComputeView(idxActiveLine);
 
-    for(int i=1;i<rows-1;i++) {
+    for(int i=1;i<dimensions.Height()-1;i++) {
         int idxLine = topLine + i - 1;
         if (idxLine >= lines.size()) break;
 
@@ -189,7 +199,7 @@ void NCursesScreen::DrawLines(const std::vector<Line *> &lines, int idxActiveLin
         }
         if (invalidateAll || line->IsActive()) {
             // Clip
-            int nCharToPrint = line->Length()>(cols-szGutter)?(cols-szGutter):line->Length();
+            int nCharToPrint = line->Length()>(dimensions.Width()-szGutter)?(dimensions.Width()-szGutter):line->Length();
             move(i, szGutter);
             clrtoeol();
             // FIXME: selection!
@@ -210,10 +220,10 @@ void NCursesScreen::DrawLines(const std::vector<Line *> &lines, int idxActiveLin
 
     idxRowActive += 1;  // We have a top-bar
 
-    move(rows-2,0);
+    move(dimensions.Height()-2,0);
     clrtoeol();
-    mvprintw(rows-2, 0, "al: %d (%d) - tl: %d - bl: %d - dy: %d - iva: %s - r: %d",
-             idxActiveLine,  idxRowActive, topLine, bottomLine, tmp_dyLast, invalidateAll?"y":"n", rows);
+    mvprintw(dimensions.Height()-2, 0, "al: %d (%d) - tl: %d - bl: %d - dy: %d - iva: %s - r: %d",
+             idxActiveLine,  idxRowActive, topLine, bottomLine, tmp_dyLast, invalidateAll?"y":"n", dimensions.Height());
 
     lastTopLine = topLine;
 
@@ -223,7 +233,7 @@ void NCursesScreen::DrawLines(const std::vector<Line *> &lines, int idxActiveLin
 }
 
 void NCursesScreen::DrawTopBar(const char *str) {
-    auto [rows, cols] = Dimensions();
+    //auto [rows, cols] = Dimensions();
     int y,x;
     // Save the cursor position (as we move it when we print the status bar)
     getyx(stdscr, y, x);
@@ -232,7 +242,7 @@ void NCursesScreen::DrawTopBar(const char *str) {
     move(0,0);
     attron(A_REVERSE);
     clrtoeol();
-    hline(' ', cols);
+    hline(' ', Dimensions().Width());
     mvprintw(0,0,"%s",str);
     attroff(A_REVERSE);
     // end test
@@ -244,31 +254,61 @@ void NCursesScreen::DrawTopBar(const char *str) {
 
 
 void NCursesScreen::DrawBottomBar(const char *str) {
-    auto [rows, cols] = Dimensions();
+    //auto [rows, cols] = Dimensions();
     int y,x;
     // Save the cursor position (as we move it when we print the status bar)
     getyx(stdscr, y, x);
 
     attron(A_REVERSE);
-    move(rows-1, 0);
+    move(Dimensions().Height()-1, 0);
     clrtoeol();
-    hline(' ', cols);
+    hline(' ', Dimensions().Width());
 
-    mvprintw(rows-1,0, "%s [%d:%d]", str, y, x - szGutter);
+    mvprintw(Dimensions().Height()-1,0, "%s [%d:%d]", str, y, x - szGutter);
     attroff(A_REVERSE);
     // restore cursor to it's position before the status bar was drawn..
     move(y,x);
 }
 
 
-std::pair<int, int> NCursesScreen::Dimensions() {
+//std::pair<int, int> NCursesScreen::Dimensions() {
+//    int row, col;
+//    getmaxyx(stdscr,row,col);
+//    return std::make_pair(row, col);
+//}
+gedit::Rect NCursesScreen::Dimensions() {
     int row, col;
     getmaxyx(stdscr,row,col);
-    return std::make_pair(row, col);
+    return gedit::Rect(col, row);
 }
+
 
 void NCursesScreen::Scroll(int nLines) {
     for(int i=0;i<nLines;i++) {
         scroll(stdscr);
+    }
+}
+
+// Raw drawing stuff
+void NCursesScreen::DrawCharAt(int x, int y, const char ch) {
+    move(y, x);
+    addch(ch);
+}
+void NCursesScreen::DrawStringAt(int x, int y, const char *str) {
+    move(y, x);
+    addstr(str);
+}
+
+void NCursesScreen::DrawRect(const gedit::Rect &rect) {
+    auto topLeft = rect.TopLeft();
+    auto bottomRight = rect.BottomRight();
+    for(int x = topLeft.x;x<bottomRight.x;x++) {
+        if (clipRect.PointInRect(x, topLeft.y)) DrawCharAt(x, topLeft.y, '-');
+        if (clipRect.PointInRect(x, bottomRight.y)) DrawCharAt(x, bottomRight.y, '-');
+    }
+
+    for(int y = topLeft.y;y<bottomRight.y;y++) {
+        if (clipRect.PointInRect(topLeft.x,y)) DrawCharAt(topLeft.x, y, '|');
+        if (clipRect.PointInRect(bottomRight.x,y)) DrawCharAt(bottomRight.x, y, '|');
     }
 }

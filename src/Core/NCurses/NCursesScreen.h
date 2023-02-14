@@ -26,7 +26,16 @@ public:
     void DrawLineAt(int row, const std::string &prefix, const Line *line) override;
     void DrawBottomBar(const char *str) override;
     void DrawTopBar(const char *str) override;
-    std::pair<int, int> Dimensions() override;
+    // Raw drawing routines
+    void DrawCharAt(int x, int y, const char ch) override;
+    void DrawStringAt(int x, int y, const char *str) override;
+    void DrawRect(const gedit::Rect &rect) override;
+
+
+
+
+    //std::pair<int, int> Dimensions() override;
+    gedit::Rect Dimensions() override;
     void Scroll(int nLines) override;
 protected:
     void DrawLineWithAttributes(Line &l, int nCharToPrint);

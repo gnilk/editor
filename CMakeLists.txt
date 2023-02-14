@@ -49,6 +49,10 @@ list(APPEND editorsrc src/Core/Language/LangLineTokenizer.cpp src/Core/Language/
 list(APPEND editorsrc src/Core/HexDump.cpp src/Core/HexDump.h)
 list(APPEND editorsrc src/Core/Config/Config.cpp src/Core/Config/Config.h)
 list(APPEND editorsrc src/Core/Config/ColorConfig.cpp src/Core/Config/ColorConfig.h)
+list(APPEND editorsrc src/Core/ViewBase.cpp src/Core/ViewBase.h)
+list(APPEND editorsrc src/Core/EditorView.cpp src/Core/EditorView.h)
+list(APPEND editorsrc src/Core/Point.h)
+list(APPEND editorsrc src/Core/Rect.h)
 
 #
 # Language analysis
@@ -141,3 +145,15 @@ target_link_libraries(cgsniff ${CORE_FOUNDATION} ${CORE_SERVICES} ${CORE_GRAPHIC
 
 add_executable(nseventmon tests/nseventmon.m)
 target_link_libraries(nseventmon ${CORE_FOUNDATION} ${CORE_SERVICES} ${CORE_GRAPHICS} ${APPKIT})
+
+#
+# view handling test renderering
+#
+add_executable(renderview tests/viewrender.cpp ${editorsrc})
+target_include_directories(renderview PUBLIC ext/logger/src)
+target_include_directories(renderview PUBLIC src)
+target_include_directories(renderview PUBLIC ${NCURSES_HOME}/include)
+target_link_directories(renderview  PUBLIC ${NCURSES_HOME}/lib)
+target_include_directories(renderview PUBLIC ${YAML_CPP_HOME}/include)
+target_link_directories(renderview  PUBLIC ${YAML_CPP_HOME}/lib)
+target_link_libraries(renderview ${extlibs})

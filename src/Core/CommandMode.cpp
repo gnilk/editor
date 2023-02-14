@@ -271,10 +271,12 @@ void CommandMode::NewLine(bool addCmdMarker) {
 //
 void CommandMode::DrawLines() {
     auto screen = RuntimeConfig::Instance().Screen();
-    auto [rows, cols] = screen->Dimensions();
+    auto view = RuntimeConfig::Instance().View();
+    auto dimensions = view->Dimensions();
+
 
     // NOTE: we should probably have a setting for a 'safe' zone
-    int maxRowsToScroll = rows;
+    int maxRowsToScroll = dimensions.Height();
 
     screen->NoGutter();
 
@@ -286,6 +288,7 @@ void CommandMode::DrawLines() {
         if (historyBuffer.size() > maxRowsToScroll) {
             nLinesToScroll = maxRowsToScroll;
         }
+        // FIXME: this request should go to the view and not the screen!!!
         screen->Scroll(nLinesToScroll);
         scrollOnNextUpdate = false;
     }
@@ -298,9 +301,9 @@ void CommandMode::DrawLines() {
         nHistoryLines = maxRowsToScroll;
     }
     for(int i=0;i<nHistoryLines;i++) {
-        screen->DrawLineAt(rows-i-1, cmdPrompt, historyBuffer[historyBuffer.size() - i - 1]);
+        screen->DrawLineAt(dimensions.Height()-i-1, cmdPrompt, historyBuffer[historyBuffer.size() - i - 1]);
     }
-    screen->DrawLineAt(rows -1, cmdPrompt, currentLine);
+    screen->DrawLineAt(dimensions.Height()-1, cmdPrompt, currentLine);
 }
 //
 // Update data - this is called before draw

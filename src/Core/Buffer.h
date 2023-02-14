@@ -16,6 +16,7 @@ public:
         Reparse();
     }
     void Reparse();
+    bool HaveLanguage() { return language!= nullptr; }
     LanguageBase &LangParser() { return *language; }
     std::vector<Line *> &Lines() { return lines; }
 

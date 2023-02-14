@@ -8,6 +8,7 @@
 #include "Core/ScreenBase.h"
 #include "Core/KeyboardDriverBase.h"
 #include "Core/ModeBase.h"
+#include "Core/ViewBase.h"
 
 class RuntimeConfig {
 public:
@@ -22,6 +23,9 @@ public:
     void SetOutputConsole(IOutputConsole *newOutputConsole) {
         outputConsole = newOutputConsole;
     }
+    void SetRootView(gedit::ViewBase *newRootView) {
+        view = newRootView;
+    }
 
     KeyboardDriverBase *Keyboard() {
         return keyboard;
@@ -33,12 +37,17 @@ public:
         return outputConsole;
     }
 
+    gedit::ViewBase *View() {
+        return view;
+    }
+
 
 private:
     RuntimeConfig() = default;
 private:
     KeyboardDriverBase *keyboard = nullptr;
     ScreenBase *screen = nullptr;
+    gedit::ViewBase *view = nullptr;
     IOutputConsole *outputConsole = nullptr;
 
 };

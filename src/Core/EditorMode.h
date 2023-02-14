@@ -10,6 +10,10 @@
 #include "Core/ModeBase.h"
 #include "Core/KeyboardDriverBase.h"
 #include "logger.h"
+
+// TEMP
+#include "NCurses/NCursesKeyboardDriver.h"
+
 struct Selection {
 
     bool IsActive() {
@@ -55,6 +59,10 @@ public:
         void DrawLines() override;
 
         const std::vector<Line *> &Lines() const override { return buffer->Lines(); };
+        const Line *CurrentLine() const { return currentLine; }
+
+
+
 
 
     // Navigate
@@ -62,6 +70,10 @@ public:
         void OnNavigateDown(int rows);
 
         void SetBuffer(Buffer *newBuffer);
+
+        // NEW STUFF
+        void HandleKeyPress(gedit::NCursesKeyboardDriverNew::KeyPress keyPress);
+        bool UpdateNavigation(gedit::NCursesKeyboardDriverNew::KeyPress &keyPress);
 
 protected:
         bool UpdateNavigation(KeyPress &keyPress, bool isShiftPressed);

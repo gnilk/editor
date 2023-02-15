@@ -24,6 +24,9 @@ public:
     }
 
     bool HasKey(const std::string &key) {
+        if (!dataNode.IsDefined()) {
+            return false;
+        }
         return dataNode[key].IsDefined();
     }
 
@@ -43,6 +46,9 @@ public:
 
     std::string GetStr(const std::string &key, const std::string &defValue = "") {
         // If not defined, return default
+        if (!dataNode.IsDefined()) {
+            return {defValue};
+        }
         if (!dataNode[key].IsDefined()) {
             return {defValue};
         }

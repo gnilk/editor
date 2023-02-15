@@ -5,7 +5,9 @@
 #ifndef EDITOR_COMMANDVIEW_H
 #define EDITOR_COMMANDVIEW_H
 
+#include "Core/Controllers/CommandController.h"
 #include "Core/ViewBase.h"
+#include "logger.h"
 
 namespace gedit {
 
@@ -16,11 +18,13 @@ namespace gedit {
 
         }
         virtual ~CommandView() = default;
+
         void Begin() override;
         void OnKeyPress(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) override;
         void DrawViewContents() override;
     private:
-
+        CommandController commandController;
+        gnilk::ILogger *logger = nullptr;
     };
 }
 

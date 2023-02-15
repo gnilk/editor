@@ -6,7 +6,7 @@
 
 using namespace gedit;
 
-bool BaseController::DefaultEditLine(Line *line, const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) {
+bool BaseController::DefaultEditLine(Cursor &cursor, Line *line, const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) {
     if (keyPress.IsHumanReadable()) {
         line->Insert(cursor.position.x, keyPress.key);
         cursor.position.x++;

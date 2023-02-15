@@ -32,10 +32,11 @@ public:
     // Raw drawing routines
     void DrawCharAt(int x, int y, const char ch) override;
     void DrawStringAt(int x, int y, const char *str) override;
+    void DrawStringAt(int x, int y, int nCharToPrint, const char *str) override;
     void DrawRect(const gedit::Rect &rect) override;
 
 
-    void DrawLineWithAttributesAt(int x, int y, Line &l, int nCharToPrint) override;
+    void DrawLineWithAttributesAt(int x, int y, int nCharToPrint, Line &l) override;
 
 
 

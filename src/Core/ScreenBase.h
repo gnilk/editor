@@ -48,7 +48,7 @@ public:
     virtual void DrawLines(const std::vector<Line *> &lines, int idxActiveLine) {}
     virtual void DrawLineAt(int row, const std::string &prefix, const Line *line) {}
 
-    virtual void DrawLineWithAttributesAt(int x, int y, Line &l, int nCharToPrint) {}
+    virtual void DrawLineWithAttributesAt(int x, int y, int nCharToPrint, Line &l) {}
 
     virtual void DrawBottomBar(const char *str) {}
     virtual void DrawTopBar(const char *str) {}
@@ -62,6 +62,7 @@ public:
     // RAW Drawing routines
     virtual void DrawCharAt(int x, int y, const char ch) {}
     virtual void DrawStringAt(int x, int y, const char *str) {}
+    virtual void DrawStringAt(int x, int y, int nCharToPrint, const char *str) {}
     // TODO: Fix drawing flags for rect in screen
     virtual void DrawRect(const gedit::Rect &rect) {}
 

@@ -44,7 +44,7 @@ void EditorView::DrawViewContents() {
 }
 
 void EditorView::OnKeyPress(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) {
-    if (viewData.editController.HandleKeyPress(viewData.idxActiveLine, keyPress)) {
+    if (viewData.editController.HandleKeyPress(cursor, viewData.idxActiveLine, keyPress)) {
         return;
     }
     if (UpdateNavigation(keyPress)) {
@@ -80,10 +80,10 @@ bool EditorView::UpdateNavigation(const gedit::NCursesKeyboardDriverNew::KeyPres
             }
             break;
         case kKey_PageUp :
-            OnNavigateUp(dimensions.Height()-2);
+            OnNavigateUp(dimensions.Height());
             break;
         case kKey_PageDown :
-            OnNavigateDown(dimensions.Height()-2);
+            OnNavigateDown(dimensions.Height());
             break;
         case Keyboard::kKeyCode_Return :
             viewData.editController.NewLine(viewData.idxActiveLine, cursor);
@@ -123,16 +123,16 @@ void EditorView::OnNavigateDown(int rows) {
     currentLine = lines[viewData.idxActiveLine];
     currentLine->SetActive(true);
 
-    if (viewData.idxActiveLine > ContentRect().Height()-2) {
-        if (!(cursor.position.y < ContentRect().Height()-2)) {
+    if (viewData.idxActiveLine > ContentRect().Height()) {
+        if (!(cursor.position.y < ContentRect().Height())) {
             viewData.viewTopLine += rows;
             viewData.viewBottomLine += rows;
         }
     }
 
     cursor.position.y = viewData.idxActiveLine - viewData.viewTopLine;
-    if (cursor.position.y >= ContentRect().Height()-2) {
-        cursor.position.y = ContentRect().Height()-2;
+    if (cursor.position.y > ContentRect().Height()) {
+        cursor.position.y = ContentRect().Height();
     }
 
 

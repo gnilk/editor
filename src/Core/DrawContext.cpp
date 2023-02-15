@@ -27,6 +27,26 @@ Point DrawContext::ToScreen(Point pt) {
     return ptRes;
 }
 
+static std::string clrStr(200,'*');
+void DrawContext::Clear() {
+    auto screen = RuntimeConfig::Instance().Screen();
+    Point ptStart = ToScreen(ContextRect().TopLeft());
+    for(int i=0;i<20;i++) {
+        screen->DrawCharAt(ptStart.x + i, ptStart.y + i, '*');
+    }
+//    for(int i=0;i<ContextRect().Height();i++) {
+//        int nCharToPrint = clrStr.length()>clipRect.Width()?(clipRect.Width()):clrStr.length();
+//        std::string dummy(40,'A'+i);
+//        //screen->DrawStringAt(ptStart.x, ptStart.y+i, 20, clrStr.c_str());
+//        for(int x = 0;x<20;x++) {
+//            screen->DrawCharAt(ptStart.x + x, ptStart.y + i, 'A'+i);
+//        }
+//        //screen->DrawStringAt(ptStart.x, ptStart.y+i, 20, dummy.c_str());
+//
+//    }
+}
+
+
 
 // Relative coordinates
 void DrawContext::DrawStringAt(const Point &pt, const char *str) {
@@ -42,6 +62,7 @@ void DrawContext::DrawStringAt(int x, int y, const char *str) {
 
     // FIXME: This needs proper clipping!!!
     if (clipRect.PointInRect(x,y)) {
+
         screen->DrawStringAt(x, y, str);
     }
 }
@@ -58,7 +79,7 @@ void DrawContext::DrawLines(const std::vector<Line *> &lines, int idxTopLine, in
         // Clip
         int nCharToPrint = line->Length()>clipRect.Width()?(clipRect.Width()):line->Length();
         // Translate to screen coords and draw...
-        screen->DrawLineWithAttributesAt(offset.x,(i-idxTopLine)+offset.y,*line, nCharToPrint);
+        screen->DrawLineWithAttributesAt(offset.x, (i-idxTopLine)+offset.y, nCharToPrint, *line);
     }
 
 //    idxRowActive += 1;  // We have a top-bar

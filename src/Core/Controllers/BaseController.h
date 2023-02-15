@@ -18,16 +18,14 @@ namespace gedit {
         virtual void Begin() {}
 
         // This implements some default behavior for editing on a single line
-        bool DefaultEditLine(Line *line, const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress);
+        bool DefaultEditLine(Cursor &cursor, Line *line, const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress);
 
         // Return true if keypress was handled, false otherwise
-        virtual bool HandleKeyPress(size_t idxActiveLine, const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) {
+        virtual bool HandleKeyPress(Cursor &cursor, size_t idxActiveLine, const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) {
             return false;
         }
 
     private:
-        // Not sure, we need this to edit the line - just for now..  =)
-        Cursor cursor = {0,0};
 
     };
 }

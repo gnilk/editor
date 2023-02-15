@@ -7,16 +7,40 @@
 using namespace gedit;
 
 void CommandView::Begin() {
-
+    // We own the cursor, so we need to reset it on new lines...
+    logger = gnilk::Logger::GetLogger("CommandView");
+    commandController.SetNewLineNotificationHandler([this]()->void {
+        logger->Debug("NewLine notified!");
+       cursor.position.x = 0;
+    });
+    commandController.Begin();
 }
 
 void CommandView::OnKeyPress(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) {
 
+    commandController.HandleKeyPress(cursor, 0, keyPress);
     // Must call base class - perhaps this is a stupid thing..
     ViewBase::OnKeyPress(keyPress);
 }
 
 void CommandView::DrawViewContents() {
     auto ctx = ContentAreaDrawContext();
-    ctx.DrawStringAt(0,0,"Hello");
+
+    auto &lines = commandController.Lines();
+
+    int lOffset = 0;
+    if (lines.size() > (ctx.ContextRect().Height() - 1)) {
+        lOffset = lines.size() - (ctx.ContextRect().Height() - 1);
+    }
+
+    for(int i=0;i<ctx.ContextRect().Height()-1;i++) {
+        if ((i + lOffset) >= lines.size()) {
+            break;
+        }
+        ctx.DrawStringAt(0,i,lines[i+lOffset]->Buffer().data());
+    }
+    if (lines.size() > ctx.ContextRect().Height()-2) {
+        cursor.position.y = ctx.ContextRect().Height()-2;
+    }
+
 }

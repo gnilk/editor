@@ -25,7 +25,7 @@ namespace gedit {
         void SetTextBufferChangedHandler(TextBufferChangedDelegate newOnTextBufferChanged) {
             onTextBufferChanged = newOnTextBufferChanged;
         }
-        bool HandleKeyPress(size_t idxActiveLine, const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) override;
+        bool HandleKeyPress(Cursor &cursor, size_t idxActiveLine, const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) override;
 
         // Returns index to the new active line
         size_t NewLine(size_t idxCurrentLine, Cursor &cursor);

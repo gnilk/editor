@@ -18,13 +18,12 @@ void EditController::SetTextBuffer(TextBuffer *newTextBuffer) {
 }
 
 
-bool EditController::HandleKeyPress(size_t idxLine, const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) {
+bool EditController::HandleKeyPress(Cursor &cursor, size_t idxLine, const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) {
     if (!textBuffer) {
         return false;
     }
     auto line = textBuffer->LineAt(idxLine);
-    if (DefaultEditLine(line, keyPress)) {
-//        UpdateSyntaxForCurrentLine();
+    if (DefaultEditLine(cursor, line, keyPress)) {
         return true;
     }
     return false;

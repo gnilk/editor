@@ -17,11 +17,10 @@ DrawContext &ViewBase::ContentAreaDrawContext() {
 }
 void ViewBase::RecomputeContentRect() {
     contentRect = viewRect;
-
-    // Hmm, normally this would be 'Deflate(1,1)' to shrink screen with one row above and below..
-    // But for NCurses we don't waste space on the extra row a border char would need...
-    contentRect.Deflate(1,0);
-    contentRect.Move(0,1);
+    // FIXME: Need to take care of FLAGS - for instance 'editView' has no bottom border
+    //        Deflate will push all by delta
+    contentRect.Deflate(1,1);
+    contentRect.Move(0,0);
 }
 void ViewBase::OnKeyPress(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) {
     // Send down to root..

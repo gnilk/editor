@@ -175,7 +175,7 @@ int main(int argc, const char **argv) {
         screen.BeginRefreshCycle();
         rootView.Draw();
         screen.EndRefreshCycle();
-        screen.Update();
+        //screen.Update();
         if (screen.IsSizeChanged(true)) {
             screen.Clear();
         }

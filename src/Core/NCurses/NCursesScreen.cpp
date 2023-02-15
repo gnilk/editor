@@ -55,10 +55,11 @@ void NCursesScreen::Update() {
     refresh();
 }
 void NCursesScreen::BeginRefreshCycle() {
-
+    // clear();
 }
 void NCursesScreen::EndRefreshCycle() {
     move(cursor.position.y, cursor.position.x);
+    refresh();
 }
 
 
@@ -148,8 +149,9 @@ void NCursesScreen::DrawLineAt(int row, const std::string &prefix, const Line *l
 //    mvaddnstr(row, szGutter, line->Buffer().data(), nCharToPrint);
 }
 
+
 // Reposition the cursor and then draw the line
-void NCursesScreen::DrawLineWithAttributesAt(int x, int y, Line &l, int nCharToPrint) {
+void NCursesScreen::DrawLineWithAttributesAt(int x, int y, int nCharToPrint, Line &l) {
     move(y, x);
     clrtoeol();     // THIS IS STUPID
     DrawLineWithAttributes(l, nCharToPrint);
@@ -315,6 +317,13 @@ void NCursesScreen::DrawStringAt(int x, int y, const char *str) {
     move(y, x);
     addstr(str);
 }
+void NCursesScreen::DrawStringAt(int x, int y, int nCharToPrint, const char *str) {
+    move(y, x);
+    clrtoeol();
+    printw(str);
+    //addnstr(str,nCharToPrint);
+}
+
 
 void NCursesScreen::DrawRect(const gedit::Rect &rect) {
     auto topLeft = rect.TopLeft();

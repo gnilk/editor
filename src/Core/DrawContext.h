@@ -24,6 +24,8 @@ namespace gedit {
             return clipRect;
         }
 
+        void Clear();
+
         void SetTextColor();
         void SetTextAttributes();
 

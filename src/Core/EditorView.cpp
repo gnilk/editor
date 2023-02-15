@@ -13,6 +13,11 @@ void EditorView::Begin() {
     // This is the visible area...
     viewData.viewTopLine = 0;
     viewData.viewBottomLine = ContentRect().Height();
+    viewData.editController.SetTextBufferChangedHandler([this]()->void {
+       auto textBuffer = viewData.editController.GetTextBuffer();
+       this->SetCaption(textBuffer->Name());
+    });
+
 
     // We own the view-data but let's share it - this allows other views to READ it..
     if (ParentView() != nullptr) {
@@ -39,17 +44,17 @@ void EditorView::DrawViewContents() {
 }
 
 void EditorView::OnKeyPress(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) {
-    if (keyPress.isKeyValid) {
-        int breakme;
-        breakme = 1;
-    }
     if (viewData.editController.HandleKeyPress(viewData.idxActiveLine, keyPress)) {
         return;
     }
-    UpdateNavigation(keyPress);
+    if (UpdateNavigation(keyPress)) {
+        return;
+    }
+    // It was not to us..
+    ViewBase::OnKeyPress(keyPress);
 }
 
-void EditorView::UpdateNavigation(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) {
+bool EditorView::UpdateNavigation(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) {
     auto screen = RuntimeConfig::Instance().Screen();
     auto dimensions = Dimensions();
 
@@ -86,7 +91,7 @@ void EditorView::UpdateNavigation(const gedit::NCursesKeyboardDriverNew::KeyPres
             break;
         default:
             // Not navigation
-            return;
+            return false;
     }
 
 //    // Do selection handling
@@ -101,7 +106,7 @@ void EditorView::UpdateNavigation(const gedit::NCursesKeyboardDriverNew::KeyPres
 //        screen->InvalidateAll();
 //    }
 
-    return;
+    return true;
 
 }
 
@@ -131,7 +136,7 @@ void EditorView::OnNavigateDown(int rows) {
     }
 
 
-    logger->Debug("OnNavigateDown, activeLine=%d, rows=%d, ypos=%d, height=%d", viewData.idxActiveLine, rows, cursor.position.y, ContentRect().Height());
+    //logger->Debug("OnNavigateDown, activeLine=%d, rows=%d, ypos=%d, height=%d", viewData.idxActiveLine, rows, cursor.position.y, ContentRect().Height());
 }
 
 void EditorView::OnNavigateUp(int rows) {

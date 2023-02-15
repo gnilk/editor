@@ -32,7 +32,7 @@ namespace gedit {
         }
 
     private:
-        void UpdateNavigation(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress);
+        bool UpdateNavigation(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress);
 
         void OnNavigateUp(int rows);
         void OnNavigateDown(int rows);

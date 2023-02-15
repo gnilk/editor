@@ -12,11 +12,19 @@
 namespace gedit {
     class EditController : public BaseController {
     public:
+        using TextBufferChangedDelegate = std::function<void()>;
+    public:
         EditController() = default;
         virtual ~EditController() = default;
 
         void Begin() override;
         void SetTextBuffer(TextBuffer *newTextBuffer);
+        const TextBuffer *GetTextBuffer() {
+            return textBuffer;
+        }
+        void SetTextBufferChangedHandler(TextBufferChangedDelegate newOnTextBufferChanged) {
+            onTextBufferChanged = newOnTextBufferChanged;
+        }
         bool HandleKeyPress(size_t idxActiveLine, const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) override;
 
         // Returns index to the new active line
@@ -38,6 +46,7 @@ namespace gedit {
     private:
         gnilk::ILogger *logger = nullptr;
         TextBuffer *textBuffer = nullptr;
+        TextBufferChangedDelegate onTextBufferChanged = nullptr;
     };
 
     struct EditViewSharedData {

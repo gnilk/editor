@@ -37,6 +37,7 @@
 #include "Core/GutterView.h"
 #include "Core/EditorView.h"
 #include "Core/BufferManager.h"
+#include "Core/RootView.h"
 #include "Core/TextBuffer.h"
 
 #include "logger.h"
@@ -117,7 +118,7 @@ int main(int argc, const char **argv) {
     logger->Debug("Dimensions (x,y): %d, %d", dimensions.Width(), dimensions.Height());
 
     gedit::Rect baseRect(dimensions.Width()-1, dimensions.Height()-1);
-    gedit::ViewBase rootView(baseRect);
+    gedit::RootView rootView(baseRect);
     // Disable any drawing on updates
     rootView.SetFlags(gedit::ViewBase::kViewNone);
 
@@ -139,6 +140,7 @@ int main(int argc, const char **argv) {
     rectEditor.SetWidth(rectUpperLayoutView.Width()-6);
     rectEditor.Move(6,0);
     gedit::EditorView editorView(rectEditor);
+    editorView.SetCaption("Editor");
     viewUpperLayout.AddView(&editorView);
 
     // Setup the command view...
@@ -152,31 +154,23 @@ int main(int argc, const char **argv) {
     //RuntimeConfig::Instance().SetRootView(&editorView);
     RuntimeConfig::Instance().SetRootView(&rootView);
 
-    //
-    // FIXME: The edit-controller can't be made part of the view it-self, it must be kept outside..
-    //        We should associate the edit-controller with the buffer...
-    //
-    // FIXME: Rewrite 'EditMode' to EditController, assign it to the buffer..
-    //        => We must rewrite the TerminalMode and BaseMode to 'TerminalController' and 'BaseController' respectively
-    //
-
     // Kick off the whole thing..
     rootView.Begin();
-
 
     //loadBuffer("test_src2.cpp", editorView.GetEditorController());
     auto buffer = BufferManager::Instance().NewBufferFromFile("test_src2.cpp");
     editorView.GetEditController().SetTextBuffer(buffer);
+
+    rootView.AddTopView(&editorView);
+    rootView.AddTopView(&commandView);
 
 
 
     // This is currently the run loop...
     while(!bQuit) {
         auto keyPress = keyboardDriver.GetKeyPress();
-        editorView.OnKeyPress(keyPress);
+        rootView.TopView()->OnKeyPress(keyPress);
 
-        // editorView.OnKeyPress(keyPress);
-        //rootView.OnKeyPress(keyPress);
         screen.BeginRefreshCycle();
         rootView.Draw();
         screen.EndRefreshCycle();

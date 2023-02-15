@@ -8,14 +8,13 @@ using namespace gedit;
 
 void EditController::Begin() {
     logger = gnilk::Logger::GetLogger("EditorController");
-
-//    buffer = new Buffer();
-//    NewLine();
-//    idxActiveLine = 0;
-
 }
+
 void EditController::SetTextBuffer(TextBuffer *newTextBuffer) {
     textBuffer = newTextBuffer;
+    if (onTextBufferChanged != nullptr) {
+        onTextBufferChanged();
+    }
 }
 
 
@@ -28,9 +27,6 @@ bool EditController::HandleKeyPress(size_t idxLine, const gedit::NCursesKeyboard
 //        UpdateSyntaxForCurrentLine();
         return true;
     }
-//    if (UpdateNavigation(keyPress)) {
-//        return;
-//    }
     return false;
 }
 

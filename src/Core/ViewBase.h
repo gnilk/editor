@@ -128,10 +128,10 @@ namespace gedit {
             return parentView;
         }
         // Methods (?) for drawing IN the view
-
+        const std::string &Caption() const { return caption; }
 
         // Events, need proper interface
-        virtual void OnKeyPress(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) {}
+        virtual void OnKeyPress(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress);
     protected:
         void RecomputeContentRect();
     private:
@@ -141,7 +141,7 @@ namespace gedit {
         Rect contentRect;   // Content rectangle is the rect -1
         void *sharedDataPtr = nullptr;
         ViewBase *parentView = nullptr;
-        std::vector<ViewBase *> subviews;
+        std::vector<ViewBase *> subviews;       // List of all topviews
         DrawContext contentAreaDrawContext;
     };
 

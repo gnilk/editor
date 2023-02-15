@@ -4,6 +4,7 @@
 #include "ViewBase.h"
 #include "Core/ScreenBase.h"
 #include "Core/RuntimeConfig.h"
+#include "logger.h"
 
 
 using namespace gedit;
@@ -22,6 +23,14 @@ void ViewBase::RecomputeContentRect() {
     contentRect.Deflate(1,0);
     contentRect.Move(0,1);
 }
+void ViewBase::OnKeyPress(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) {
+    // Send down to root..
+    if (parentView != nullptr) {
+        parentView->OnKeyPress(keyPress);
+        return;
+    }
+}
+
 
 
 void ViewBase::Begin() {

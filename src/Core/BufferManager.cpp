@@ -24,7 +24,7 @@ TextBuffer *BufferManager::NewBuffer(const std::string &name) {
         logger->Error("Trying to create buffer with same name");
         return nullptr;
     }
-    TextBuffer *buffer = new TextBuffer();
+    TextBuffer *buffer = new TextBuffer(name);
     buffers[name] = buffer;
     return buffer;
 }

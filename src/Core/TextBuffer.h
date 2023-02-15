@@ -12,7 +12,9 @@
 namespace gedit {
     class TextBuffer {
     public:
-        TextBuffer() = default;
+        explicit TextBuffer(const std::string &bufferName) : name(bufferName) {
+
+        }
         virtual ~TextBuffer() = default;
 
         std::vector<Line *> &Lines() { return lines; }
@@ -25,7 +27,12 @@ namespace gedit {
             return lines.size();
         }
 
+        const std::string &Name() const {
+            return name;
+        }
+
     private:
+        std::string name;
         std::vector<Line *> lines;
 
         // Do not put the edit controller here - might make sense, but it will cause problems later

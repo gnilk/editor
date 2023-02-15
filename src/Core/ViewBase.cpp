@@ -58,6 +58,14 @@ void ViewBase::Draw() {
 
     screen->SetClipRect(contentRect);
     DrawViewContents();
+
+    // Update cursor - if this view is active
+    if (isActive) {
+        Cursor screenCursor;
+        auto &ctx = ViewBase::ContentAreaDrawContext();
+        screenCursor.position = ctx.ToScreen(cursor.position);
+        screen->SetCursor(screenCursor);
+    }
 }
 
 void ViewBase::DrawCaption() {

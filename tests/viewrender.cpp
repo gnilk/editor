@@ -38,6 +38,7 @@
 #include "Core/EditorView.h"
 #include "Core/BufferManager.h"
 #include "Core/RootView.h"
+#include "Core/CommandView.h"
 #include "Core/TextBuffer.h"
 
 #include "logger.h"
@@ -147,7 +148,7 @@ int main(int argc, const char **argv) {
     gedit::Rect commandViewRect(baseRect);
     commandViewRect.SetHeight(1 + baseRect.Height()/3);
     commandViewRect.Move(0,2 * baseRect.Height()/3);
-    gedit::ViewBase commandView(commandViewRect);
+    gedit::CommandView commandView(commandViewRect);
     commandView.SetCaption("CommandView");
     rootView.AddView(&commandView);
 

@@ -35,12 +35,12 @@ void EditorView::DrawViewContents() {
 
 
     // Update cursor screen position, need to translate to screen coords..
-    Cursor screenCursor;
-    screenCursor.position = ctx.ToScreen(cursor.position);
+//    Cursor screenCursor;
+//    screenCursor.position = ctx.ToScreen(cursor.position);
 
-    auto screen = RuntimeConfig::Instance().Screen();
-    screen->SetCursor(screenCursor);
 
+//    auto screen = RuntimeConfig::Instance().Screen();
+//    screen->SetCursor(screenCursor);
 }
 
 void EditorView::OnKeyPress(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) {

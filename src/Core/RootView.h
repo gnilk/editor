@@ -28,6 +28,7 @@ namespace gedit {
             topViews.push_back(newTopView);
             if (idxCurrentTopView == -1) {
                 idxCurrentTopView = 0;
+                TopView()->SetActive(true);
             }
         }
 

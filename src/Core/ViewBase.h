@@ -11,6 +11,7 @@
 #include "Rect.h"
 #include "Point.h"
 #include "Line.h"
+#include "Cursor.h"
 
 #include "DrawContext.h"
 
@@ -124,6 +125,10 @@ namespace gedit {
             subviews.push_back(view);
         }
 
+        void SetActive(bool newIsActive) {
+            isActive = newIsActive;
+        }
+
         ViewBase *ParentView() {
             return parentView;
         }
@@ -134,6 +139,9 @@ namespace gedit {
         virtual void OnKeyPress(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress);
     protected:
         void RecomputeContentRect();
+
+    protected:
+        Cursor cursor = {};
     private:
         kViewFlags flags = (kViewFlags)(kViewDrawBorder | kViewDrawCaption);
         std::string caption = "";
@@ -143,6 +151,7 @@ namespace gedit {
         ViewBase *parentView = nullptr;
         std::vector<ViewBase *> subviews;       // List of all topviews
         DrawContext contentAreaDrawContext;
+        bool isActive = false;
     };
 
     // This view is simply to hold and position other views..
@@ -153,14 +162,6 @@ namespace gedit {
         }
     };
 
-
-    class CommandView : public ViewBase {
-    public:
-    private:
-        // Rewrite this to be a bit more like a controller serving the view
-        //   View <-> Controller <-> Data
-        // CommandMode commandMode;
-    };
 
 }
 #endif //EDITOR_VIEWBASE_H

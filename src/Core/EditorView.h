@@ -38,7 +38,6 @@ namespace gedit {
         void OnNavigateDown(int rows);
 
     private:
-        Cursor cursor = {};
         // This is shared data...
         EditViewSharedData viewData;
         // --

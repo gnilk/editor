@@ -23,7 +23,7 @@ namespace gedit {
             int key;
 
             // Human readables..  NOTE: we don't support unicode..  I'm old-skool...
-            bool IsHumanReadable() {
+            bool IsHumanReadable() const {
                 if (isKeyValid) {
                     if ((key > 31) && (key < 127)) {
                         return true;
@@ -43,27 +43,9 @@ namespace gedit {
         }
         // since we are monitoring _all_ keys in the system
         // the stdin for PID will run out of sync...
-        KeyPress GetKeyPress() {
-            KeyPress keyPress;
-
-            auto ch = getch();
-            if (!kbdEvents.empty()) {
-                while ((ch = getch()) == ERR) {
-                    // FIXME: timeout handling
-                }
-                keyPress.isHwEventValid = true;
-                // Remove and assign the last to match with the getch
-                while (!kbdEvents.empty()) {
-                    keyPress.hwEvent = kbdEvents.pop();
-                }
-
-            }
-            keyPress.isKeyValid = (ch == ERR) ? false : true;
-            keyPress.modifiers = ptrKeyboardMonitor->GetModifiersCurrentlyPressed();
-            keyPress.key = ch;
-            return keyPress;
-
-        }
+        KeyPress GetKeyPress();
+    private:
+        int TranslateNCurseKey(int ch);
     private:
         MacOSKeyboardMonitor *ptrKeyboardMonitor;
         SafeQueue <Keyboard::HWKeyEvent> kbdEvents;

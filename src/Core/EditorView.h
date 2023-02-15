@@ -7,6 +7,8 @@
 
 #include "Core/ViewBase.h"
 #include "Core/EditorMode.h"
+#include "Core/Controllers/EditController.h"
+#include "Core/Cursor.h"
 
 namespace gedit {
     class EditorView : public ViewBase {
@@ -18,16 +20,25 @@ namespace gedit {
         virtual ~EditorView() = default;
 
         void Begin() override;
-        void OnKeyPress(gedit::NCursesKeyboardDriverNew::KeyPress keyPress) override;
+        void OnKeyPress(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) override;
         void DrawViewContents() override;
 
-        // TEMP TEMP
-        EditorMode &GetEditorController() { return editorMode; }
-    private:
-        void DrawLines();
+        EditController &GetEditController() {
+            return editController;
+        }
 
     private:
-        EditorMode editorMode;
+        void UpdateNavigation(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress);
+        void DrawLines();
+
+        void OnNavigateUp(int rows);
+        void OnNavigateDown(int rows);
+
+    private:
+        size_t idxActiveLine = 0;
+        Cursor cursor = {};
+        EditorMode editorMode;      // REMOVE
+        EditController editController;
     };
 }
 

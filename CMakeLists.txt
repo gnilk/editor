@@ -53,6 +53,10 @@ list(APPEND editorsrc src/Core/ViewBase.cpp src/Core/ViewBase.h)
 list(APPEND editorsrc src/Core/EditorView.cpp src/Core/EditorView.h)
 list(APPEND editorsrc src/Core/GutterView.cpp src/Core/GutterView.h)
 list(APPEND editorsrc src/Core/DrawContext.cpp src/Core/DrawContext.h)
+list(APPEND editorsrc src/Core/Controllers/BaseController.cpp src/Core/Controllers/BaseController.h)
+list(APPEND editorsrc src/Core/Controllers/EditController.cpp src/Core/Controllers/EditController.h)
+list(APPEND editorsrc src/Core/BufferManager.cpp src/Core/BufferManager.h)
+list(APPEND editorsrc src/Core/TextBuffer.cpp src/Core/TextBuffer.h)
 list(APPEND editorsrc src/Core/Point.h)
 list(APPEND editorsrc src/Core/Rect.h)
 
@@ -159,3 +163,20 @@ target_link_directories(renderview  PUBLIC ${NCURSES_HOME}/lib)
 target_include_directories(renderview PUBLIC ${YAML_CPP_HOME}/include)
 target_link_directories(renderview  PUBLIC ${YAML_CPP_HOME}/lib)
 target_link_libraries(renderview ${extlibs})
+
+
+#
+# unit tests
+#
+list(APPEND utestsrc utests/test_buffermanager.cpp)
+
+
+add_library(libeditor SHARED ${editorsrc} ${utestsrc})
+target_include_directories(libeditor PUBLIC ext/logger/src)
+target_include_directories(libeditor PUBLIC src)
+target_include_directories(libeditor PUBLIC ${NCURSES_HOME}/include)
+target_link_directories(libeditor  PUBLIC ${NCURSES_HOME}/lib)
+target_include_directories(libeditor PUBLIC ${YAML_CPP_HOME}/include)
+target_link_directories(libeditor  PUBLIC ${YAML_CPP_HOME}/lib)
+target_link_libraries(libeditor ${extlibs})
+

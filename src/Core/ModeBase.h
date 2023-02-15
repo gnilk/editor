@@ -40,7 +40,6 @@ public:
     bool DefaultEditLine(Line *line, KeyPress &ch);
 
     bool DefaultEditLine(Line *line, gedit::NCursesKeyboardDriverNew::KeyPress &keyPress);
-
 protected:
     OnExitMode onExitMode = nullptr;
     OnExitApp  onExitApp = nullptr;

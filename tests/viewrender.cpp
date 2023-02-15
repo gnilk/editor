@@ -36,12 +36,16 @@
 
 #include "Core/GutterView.h"
 #include "Core/EditorView.h"
+#include "Core/BufferManager.h"
+#include "Core/TextBuffer.h"
 
 #include "logger.h"
 #include <map>
 
 static MacOSKeyboardMonitor keyboardMonitor;
 static gedit::NCursesKeyboardDriverNew keyboardDriver;
+
+using namespace gedit;
 
 static bool LoadToBuffer(Buffer &outBuffer, const char *filename) {
     FILE *f = fopen(filename,"r");
@@ -157,16 +161,22 @@ int main(int argc, const char **argv) {
     //
 
     editorView.Begin();
-    loadBuffer("test_src2.cpp", editorView.GetEditorController());
+    //loadBuffer("test_src2.cpp", editorView.GetEditorController());
+    auto buffer = BufferManager::Instance().NewBufferFromFile("test_src2.cpp");
+    editorView.GetEditController().SetTextBuffer(buffer);
+
 
 
     // This is currently the run loop...
     while(!bQuit) {
         auto keyPress = keyboardDriver.GetKeyPress();
+        editorView.OnKeyPress(keyPress);
 
         // editorView.OnKeyPress(keyPress);
         //rootView.OnKeyPress(keyPress);
+        screen.BeginRefreshCycle();
         rootView.Draw();
+        screen.EndRefreshCycle();
         screen.Update();
         if (screen.IsSizeChanged(true)) {
             screen.Clear();

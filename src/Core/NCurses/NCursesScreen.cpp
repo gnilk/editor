@@ -54,6 +54,13 @@ void NCursesScreen::Clear() {
 void NCursesScreen::Update() {
     refresh();
 }
+void NCursesScreen::BeginRefreshCycle() {
+
+}
+void NCursesScreen::EndRefreshCycle() {
+    move(cursor.position.y, cursor.position.x);
+}
+
 
 static int colorCounter = 0;
 void NCursesScreen::RegisterColor(int appIndex, const ColorRGBA &foreground, const ColorRGBA &background) {

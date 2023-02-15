@@ -10,7 +10,7 @@
 
 #include "Core/Line.h"
 #include "Core/ColorRGBA.h"
-
+#include "Core/Cursor.h"
 #include "Rect.h"
 
 class ScreenBase {
@@ -21,10 +21,16 @@ public:
     virtual void Close() { }
     virtual void Clear() { }
     virtual void Update() { }
+    virtual void BeginRefreshCycle() {}
+    virtual void EndRefreshCycle() {}
 
     virtual void RegisterColor(int appIndex, const ColorRGBA &foreground, const ColorRGBA &background) {}
 
     void SetCursorColumn(int cCol) { cursorColumn = cCol; }
+
+    void SetCursor(const Cursor &newCursor) {
+        cursor = newCursor;
+    }
     void SetExtScreenSizeNotificationFlag() {
         sizeChanged = true;
     }
@@ -67,7 +73,8 @@ public:
 protected:
     bool sizeChanged = false;
     bool invalidateAll = false;
-    int cursorColumn = 0;
+    int cursorColumn = 0;   // Replace
+    Cursor cursor;
     int szGutter = 0;
 
     gedit::Rect clipRect = {};

@@ -27,6 +27,8 @@ namespace gedit {
         void SetTextColor();
         void SetTextAttributes();
 
+        Point ToScreen(Point pt);
+
         void DrawStringAt(const Point &pt, const char *str);
         void DrawStringAt(int x, int y, const char *str);
 

@@ -18,6 +18,9 @@ public:
     void Close() override;
     void Clear() override;
     void Update() override;
+    void BeginRefreshCycle();
+    void EndRefreshCycle();
+
 
     void RegisterColor(int appIndex, const ColorRGBA &foreground, const ColorRGBA &background) override;
 

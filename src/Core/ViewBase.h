@@ -118,7 +118,7 @@ namespace gedit {
 
 
         // Events, need proper interface
-        virtual void OnKeyPress(gedit::NCursesKeyboardDriverNew::KeyPress keyPress) {}
+        virtual void OnKeyPress(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) {}
 
     private:
         kViewFlags flags = (kViewFlags)(kViewDrawBorder | kViewDrawCaption);

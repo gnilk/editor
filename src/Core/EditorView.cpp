@@ -8,28 +8,129 @@
 using namespace gedit;
 
 void EditorView::Begin() {
-    editorMode.Begin();
+    //editorMode.Begin();
 }
 
 void EditorView::DrawViewContents() {
-
     auto &ctx = ViewBase::ContentAreaDrawContext();
+    ctx.DrawLines(editController.Lines(),0);
 
-    ctx.DrawLines(editorMode.Lines(), 0);
 
-//    DrawLines();
-//    if (editorMode.CurrentLine() != nullptr) {
-//        ctx.DrawStringAt(0,0, editorMode.CurrentLine()->Buffer().data());
-//    }
+    // Update cursor screen position, need to translate to screen coords..
+    Cursor screenCursor;
+    screenCursor.position = ctx.ToScreen(cursor.position);
+
+    auto screen = RuntimeConfig::Instance().Screen();
+    screen->SetCursor(screenCursor);
+
 }
 
-void EditorView::OnKeyPress(gedit::NCursesKeyboardDriverNew::KeyPress keyPress) {
+void EditorView::OnKeyPress(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) {
     if (keyPress.isKeyValid) {
         int breakme;
         breakme = 1;
     }
-    editorMode.HandleKeyPress(keyPress);
+    if (editController.HandleKeyPress(idxActiveLine, keyPress)) {
+        return;
+    }
+    UpdateNavigation(keyPress);
 }
+
+void EditorView::UpdateNavigation(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) {
+    auto screen = RuntimeConfig::Instance().Screen();
+    auto dimensions = Dimensions();
+
+    auto currentLine = editController.LineAt(idxActiveLine);
+
+    // save current line - as it will update with navigation
+    // we need it when we update the selection status...
+    auto idxLineBeforeNavigation = idxActiveLine;
+
+    switch (keyPress.key) {
+        case kKey_Down:
+            OnNavigateDown(1);
+            cursor.position.x = cursor.wantedColumn;
+            if (cursor.position.x > currentLine->Length()) {
+                cursor.position.x = currentLine->Length();
+            }
+            break;
+        case kKey_Up :
+            OnNavigateUp(1);
+            cursor.position.x = cursor.wantedColumn;
+            if (cursor.position.x > currentLine->Length()) {
+                cursor.position.x = currentLine->Length();
+            }
+            break;
+        case kKey_PageUp :
+            OnNavigateUp(dimensions.Height()-2);
+            break;
+        case kKey_PageDown :
+            OnNavigateDown(dimensions.Height()-2);
+            break;
+        case Keyboard::kKeyCode_Return :
+            editController.NewLine(idxActiveLine, cursor);
+            screen->InvalidateAll();
+            break;
+        default:
+            // Not navigation
+            return;
+    }
+
+//    // Do selection handling
+//    if (isShiftPressed) {
+//        if (!selection.IsActive()) {
+//            selection.Begin(idxLineBeforeNavigation);
+//        }
+//        selection.Continue(idxActiveLine);
+//    } else if (selection.IsActive()) {
+//        selection.SetActive(false);
+//        ClearSelectedLines();
+//        screen->InvalidateAll();
+//    }
+
+    return;
+
+}
+
+void EditorView::OnNavigateDown(int rows) {
+    auto currentLine = editController.LineAt(idxActiveLine);
+    currentLine->SetActive(false);
+    auto &lines = editController.Lines();
+
+    idxActiveLine+=rows;
+    if (idxActiveLine >= lines.size()) {
+        idxActiveLine = lines.size()-1;
+    }
+
+    currentLine = lines[idxActiveLine];
+    currentLine->SetActive(true);
+
+    cursor.position.y = idxActiveLine;
+    if (cursor.position.y > ContentRect().Height()) {
+        cursor.position.y = ContentRect().Height();
+    }
+}
+
+void EditorView::OnNavigateUp(int rows) {
+    auto currentLine = editController.LineAt(idxActiveLine);
+    currentLine->SetActive(false);
+    auto &lines = editController.Lines();
+
+    idxActiveLine -= rows;
+    if (idxActiveLine < 0) {
+        idxActiveLine = 0;
+    }
+
+    cursor.position.y = idxActiveLine;
+    if (cursor.position.y > ContentRect().Height()) {
+        cursor.position.y = ContentRect().Height();
+    }
+
+    currentLine = lines[idxActiveLine];
+    currentLine->SetActive(true);
+}
+
+
 
 
 void EditorView::DrawLines() {

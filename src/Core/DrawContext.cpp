@@ -19,6 +19,14 @@ void DrawContext::SetTextAttributes() {
 
 }
 
+Point DrawContext::ToScreen(Point pt) {
+    Point ptRes;
+    ptRes.x = pt.x + offset.x;
+    ptRes.y = pt.y + offset.y;
+    return ptRes;
+}
+
+
 // Relative coordinates
 void DrawContext::DrawStringAt(const Point &pt, const char *str) {
     DrawStringAt(pt.x, pt.y, str);

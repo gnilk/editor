@@ -83,7 +83,7 @@ namespace gedit {
         }
         ~ViewBase() = default;
 
-        virtual void Begin() {}
+        virtual void Begin();
 
         void SetFlags(kViewFlags newFlags) {
             flags = newFlags;
@@ -119,7 +119,8 @@ namespace gedit {
 
         // Events, need proper interface
         virtual void OnKeyPress(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) {}
-
+    protected:
+        void RecomputeContentRect();
     private:
         kViewFlags flags = (kViewFlags)(kViewDrawBorder | kViewDrawCaption);
         std::string caption = "";

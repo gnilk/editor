@@ -8,12 +8,19 @@
 using namespace gedit;
 
 void EditorView::Begin() {
-    //editorMode.Begin();
+    ViewBase::Begin();  // This is a good idea..
+    logger = gnilk::Logger::GetLogger("EditorView");
+    // This is the visible area...
+    viewTopLine = 0;
+    viewBottomLine = ContentRect().Height();
+
 }
 
 void EditorView::DrawViewContents() {
     auto &ctx = ViewBase::ContentAreaDrawContext();
-    ctx.DrawLines(editController.Lines(),0);
+
+    // Draw from line array between these..
+    ctx.DrawLines(editController.Lines(),viewTopLine, viewBottomLine);
 
 
     // Update cursor screen position, need to translate to screen coords..
@@ -106,9 +113,15 @@ void EditorView::OnNavigateDown(int rows) {
     currentLine->SetActive(true);
 
     cursor.position.y = idxActiveLine;
-    if (cursor.position.y > ContentRect().Height()) {
-        cursor.position.y = ContentRect().Height();
+    if (cursor.position.y >= ContentRect().Height()-2) {
+        cursor.position.y = ContentRect().Height()-2;
     }
+    if (idxActiveLine > ContentRect().Height()-2) {
+        viewTopLine += rows;
+        viewBottomLine += rows;
+    }
+
+    logger->Debug("OnNavigateDown, activeLine=%d, rows=%d, ypos=%d, height=%d", idxActiveLine, rows, cursor.position.y, ContentRect().Height());
 }
 
 void EditorView::OnNavigateUp(int rows) {
@@ -121,9 +134,16 @@ void EditorView::OnNavigateUp(int rows) {
         idxActiveLine = 0;
     }
 
-    cursor.position.y = idxActiveLine;
-    if (cursor.position.y > ContentRect().Height()) {
-        cursor.position.y = ContentRect().Height();
+    cursor.position.y -= rows;
+    if (cursor.position.y < 0) {
+        int delta = 0 - cursor.position.y;
+        cursor.position.y = 0;
+        viewTopLine -= delta;
+        viewBottomLine -= delta;
+        if (viewTopLine < 0) {
+            viewTopLine = 0;
+            viewBottomLine = ContentRect().Height();
+        }
     }
 
     currentLine = lines[idxActiveLine];

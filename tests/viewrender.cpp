@@ -160,7 +160,10 @@ int main(int argc, const char **argv) {
     //        => We must rewrite the TerminalMode and BaseMode to 'TerminalController' and 'BaseController' respectively
     //
 
-    editorView.Begin();
+    // Kick off the whole thing..
+    rootView.Begin();
+
+
     //loadBuffer("test_src2.cpp", editorView.GetEditorController());
     auto buffer = BufferManager::Instance().NewBufferFromFile("test_src2.cpp");
     editorView.GetEditController().SetTextBuffer(buffer);

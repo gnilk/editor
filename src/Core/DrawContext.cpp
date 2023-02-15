@@ -3,6 +3,7 @@
 //
 #include "DrawContext.h"
 #include "Core/RuntimeConfig.h"
+#include "logger.h"
 
 using namespace gedit;
 // Absolute coordinates
@@ -45,16 +46,15 @@ void DrawContext::DrawStringAt(int x, int y, const char *str) {
     }
 }
 
-
-
-void DrawContext::DrawLines(const std::vector<Line *> &lines, int idxActiveLine) {
-    //auto [rows, cols] = Dimensions();
+static int old_active = -1;
+void DrawContext::DrawLines(const std::vector<Line *> &lines, int idxTopLine, int idxBottomLine) {
     auto screen = RuntimeConfig::Instance().Screen();
 
     bool invalidateAll = true;      // FIXME: not sure where we put this flag!
     int idxRowActive = 0;
 
-    for(int i=0;i<clipRect.Height();i++) {
+
+    for(int i=idxTopLine;i<idxBottomLine;i++) {
         int idxLine = i;
         if (idxLine >= lines.size()) break;
 
@@ -66,7 +66,7 @@ void DrawContext::DrawLines(const std::vector<Line *> &lines, int idxActiveLine)
             // Clip
             int nCharToPrint = line->Length()>clipRect.Width()?(clipRect.Width()):line->Length();
             // Translate to screen coords and draw...
-            screen->DrawLineWithAttributesAt(offset.x,i+offset.y,*line, nCharToPrint);
+            screen->DrawLineWithAttributesAt(offset.x,(i-idxTopLine)+offset.y,*line, nCharToPrint);
         }
     }
 

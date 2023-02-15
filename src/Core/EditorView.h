@@ -10,6 +10,8 @@
 #include "Core/Controllers/EditController.h"
 #include "Core/Cursor.h"
 
+#include "logger.h"
+
 namespace gedit {
     class EditorView : public ViewBase {
     public:
@@ -35,10 +37,15 @@ namespace gedit {
         void OnNavigateDown(int rows);
 
     private:
-        size_t idxActiveLine = 0;
+        ssize_t idxActiveLine = 0;
+        int32_t viewTopLine = 0;
+        int32_t viewBottomLine = 0;
+
         Cursor cursor = {};
         EditorMode editorMode;      // REMOVE
         EditController editController;
+
+        gnilk::ILogger *logger = nullptr;
     };
 }
 

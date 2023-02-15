@@ -10,15 +10,25 @@ using namespace gedit;
 
 // This prepares and returns a reference to a bunch of drawing routines...
 DrawContext &ViewBase::ContentAreaDrawContext() {
+    RecomputeContentRect();
+    contentAreaDrawContext.Update(contentRect);
+    return contentAreaDrawContext;
+}
+void ViewBase::RecomputeContentRect() {
     contentRect = viewRect;
 
     // Hmm, normally this would be 'Deflate(1,1)' to shrink screen with one row above and below..
     // But for NCurses we don't waste space on the extra row a border char would need...
     contentRect.Deflate(1,0);
     contentRect.Move(0,1);
+}
 
-    contentAreaDrawContext.Update(contentRect);
-    return contentAreaDrawContext;
+
+void ViewBase::Begin() {
+    RecomputeContentRect();
+    for(auto subView : subviews) {
+        subView->Begin();
+    }
 }
 
 void ViewBase::Draw() {

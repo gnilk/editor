@@ -32,7 +32,7 @@ namespace gedit {
         void DrawStringAt(const Point &pt, const char *str);
         void DrawStringAt(int x, int y, const char *str);
 
-        void DrawLines(const std::vector<Line *> &lines, int idxActiveLine);
+        void DrawLines(const std::vector<Line *> &lines, int idxTopLine, int idxBottomLine);
     private:
         Rect clipRect;  // Absolute coords
         Point offset;   // Offset from absolute to start of client

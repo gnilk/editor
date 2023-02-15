@@ -111,8 +111,21 @@ namespace gedit {
             return contentRect;
         }
 
+        void SetSharedData(void *newSharedData) {
+            sharedDataPtr = newSharedData;
+        }
+        template<typename T>
+        const T *GetSharedData() {
+            return ((T *)(sharedDataPtr));
+        }
+
         void AddView(ViewBase *view) {
+            view->parentView = this;
             subviews.push_back(view);
+        }
+
+        ViewBase *ParentView() {
+            return parentView;
         }
         // Methods (?) for drawing IN the view
 
@@ -126,6 +139,8 @@ namespace gedit {
         std::string caption = "";
         Rect viewRect;
         Rect contentRect;   // Content rectangle is the rect -1
+        void *sharedDataPtr = nullptr;
+        ViewBase *parentView = nullptr;
         std::vector<ViewBase *> subviews;
         DrawContext contentAreaDrawContext;
     };

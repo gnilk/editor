@@ -2,17 +2,29 @@
 // Created by gnilk on 14.02.23.
 //
 
+#include "Controllers/EditController.h"
 #include "GutterView.h"
 
 using namespace gedit;
 
 void GutterView::DrawViewContents() {
+
+    // Can't draw if no parent.. (as it will hold the shared data
+    if (ParentView() == nullptr) {
+        return;
+    }
+    auto viewData = ParentView()->GetSharedData<EditViewSharedData>();
+    if (viewData == nullptr) {
+        return;
+    }
+
     auto &ctx = ViewBase::ContentAreaDrawContext();
     char str[64];
     for(int i=0;i<ctx.ContextRect().Height();i++) {
-        snprintf(str, 64, " %4d", i);
-        if (i == 9) {
-            snprintf(str, 64, "*%4d", i);
+        int idxLine = i + viewData->viewTopLine;
+        snprintf(str, 64, " %4d", idxLine);
+        if (idxLine == viewData->idxActiveLine) {
+            snprintf(str, 64, "*%4d", idxLine);
         }
         ctx.DrawStringAt(0,i,str);
     }

@@ -13,6 +13,8 @@
 #include "logger.h"
 
 namespace gedit {
+
+
     class EditorView : public ViewBase {
     public:
         EditorView() = default;
@@ -26,26 +28,22 @@ namespace gedit {
         void DrawViewContents() override;
 
         EditController &GetEditController() {
-            return editController;
+            return viewData.editController;
         }
 
     private:
         void UpdateNavigation(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress);
-        void DrawLines();
 
         void OnNavigateUp(int rows);
         void OnNavigateDown(int rows);
 
     private:
-        ssize_t idxActiveLine = 0;
-        int32_t viewTopLine = 0;
-        int32_t viewBottomLine = 0;
-
         Cursor cursor = {};
-        EditorMode editorMode;      // REMOVE
-        EditController editController;
-
+        // This is shared data...
+        EditViewSharedData viewData;
+        // --
         gnilk::ILogger *logger = nullptr;
+
     };
 }
 

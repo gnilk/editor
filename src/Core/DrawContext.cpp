@@ -50,24 +50,15 @@ static int old_active = -1;
 void DrawContext::DrawLines(const std::vector<Line *> &lines, int idxTopLine, int idxBottomLine) {
     auto screen = RuntimeConfig::Instance().Screen();
 
-    bool invalidateAll = true;      // FIXME: not sure where we put this flag!
-    int idxRowActive = 0;
-
-
     for(int i=idxTopLine;i<idxBottomLine;i++) {
         int idxLine = i;
         if (idxLine >= lines.size()) break;
 
         auto line = lines[idxLine];
-        if (line->IsActive()) {
-            idxRowActive = i;
-        }
-        if (invalidateAll || line->IsActive()) {
-            // Clip
-            int nCharToPrint = line->Length()>clipRect.Width()?(clipRect.Width()):line->Length();
-            // Translate to screen coords and draw...
-            screen->DrawLineWithAttributesAt(offset.x,(i-idxTopLine)+offset.y,*line, nCharToPrint);
-        }
+        // Clip
+        int nCharToPrint = line->Length()>clipRect.Width()?(clipRect.Width()):line->Length();
+        // Translate to screen coords and draw...
+        screen->DrawLineWithAttributesAt(offset.x,(i-idxTopLine)+offset.y,*line, nCharToPrint);
     }
 
 //    idxRowActive += 1;  // We have a top-bar

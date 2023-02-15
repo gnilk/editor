@@ -39,6 +39,14 @@ namespace gedit {
         gnilk::ILogger *logger = nullptr;
         TextBuffer *textBuffer = nullptr;
     };
+
+    struct EditViewSharedData {
+        EditController editController;
+        int32_t idxActiveLine = 0;
+        int32_t viewTopLine = 0;
+        int32_t viewBottomLine = 0;
+    };
+
 }
 
 

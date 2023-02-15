@@ -25,6 +25,8 @@ void CommandView::OnKeyPress(const gedit::NCursesKeyboardDriverNew::KeyPress &ke
 
 void CommandView::DrawViewContents() {
     auto ctx = ContentAreaDrawContext();
+    ctx.Clear();
+    return;
 
     auto &lines = commandController.Lines();
 

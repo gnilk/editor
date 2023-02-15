@@ -310,6 +310,12 @@ void NCursesScreen::Scroll(int nLines) {
 
 // Raw drawing stuff
 void NCursesScreen::DrawCharAt(int x, int y, const char ch) {
+//    int row, col;
+//    getmaxyx(stdscr,row,col);
+//    auto res = move(y, x);
+//    if (res == ERR) {
+//        exit(1);
+//    }
     move(y, x);
     addch(ch);
 }

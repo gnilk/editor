@@ -30,8 +30,8 @@ Point DrawContext::ToScreen(Point pt) {
 static std::string clrStr(200,'*');
 void DrawContext::Clear() {
     auto screen = RuntimeConfig::Instance().Screen();
-    Point ptStart = ToScreen(ContextRect().TopLeft());
-    for(int i=0;i<20;i++) {
+    Point ptStart = ContextRect().TopLeft();
+    for(int i=0;i<ContextRect().Height();i++) {
         screen->DrawCharAt(ptStart.x + i, ptStart.y + i, '*');
     }
 //    for(int i=0;i<ContextRect().Height();i++) {

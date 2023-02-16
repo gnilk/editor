@@ -25,6 +25,7 @@ namespace gedit {
         }
 
         void Clear();
+        void Fill(const Rect &rect, char ch);
 
         void SetTextColor();
         void SetTextAttributes();

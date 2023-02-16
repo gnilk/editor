@@ -19,8 +19,13 @@ void ViewBase::RecomputeContentRect() {
     contentRect = viewRect;
     // FIXME: Need to take care of FLAGS - for instance 'editView' has no bottom border
     //        Deflate will push all by delta
-    contentRect.Deflate(1,1);
-    contentRect.Move(0,0);
+
+    // Verify this
+    // contentRect.Deflate(1,0);
+    // This works, now we can draw in context from 0.. < Height()
+    contentRect.SetHeight(contentRect.Height()-1);
+    contentRect.SetWidth(contentRect.Width()-1);
+    contentRect.Move(1,1);
 }
 void ViewBase::OnKeyPress(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) {
     // Send down to root..

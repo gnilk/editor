@@ -108,7 +108,10 @@ namespace gedit {
             return viewRect;
         }
 
-        const Rect &ContentRect() const {
+        // FIXME: Better naming and also definition if this is in screen-coords or window-coords
+        //        currently this is in window coords..
+        const Rect &ContentRect() {
+            RecomputeContentRect();
             return contentRect;
         }
 

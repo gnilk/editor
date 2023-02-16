@@ -26,23 +26,22 @@ void CommandView::OnKeyPress(const gedit::NCursesKeyboardDriverNew::KeyPress &ke
 void CommandView::DrawViewContents() {
     auto ctx = ContentAreaDrawContext();
     ctx.Clear();
-    return;
 
     auto &lines = commandController.Lines();
 
     int lOffset = 0;
-    if (lines.size() > (ctx.ContextRect().Height() - 1)) {
-        lOffset = lines.size() - (ctx.ContextRect().Height() - 1);
+    if (lines.size() > (ctx.ContextRect().Height())) {
+        lOffset = lines.size() - (ctx.ContextRect().Height());
     }
 
-    for(int i=0;i<ctx.ContextRect().Height()-1;i++) {
+    for(int i=0;i<ctx.ContextRect().Height();i++) {
         if ((i + lOffset) >= lines.size()) {
             break;
         }
         ctx.DrawStringAt(0,i,lines[i+lOffset]->Buffer().data());
     }
-    if (lines.size() > ctx.ContextRect().Height()-2) {
-        cursor.position.y = ctx.ContextRect().Height()-2;
+    if (lines.size() > ctx.ContextRect().Height()-1) {
+        cursor.position.y = ctx.ContextRect().Height()-1;
     }
 
 }

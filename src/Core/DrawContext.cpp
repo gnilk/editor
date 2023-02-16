@@ -27,23 +27,27 @@ Point DrawContext::ToScreen(Point pt) {
     return ptRes;
 }
 
-static std::string clrStr(200,'*');
-void DrawContext::Clear() {
-    auto screen = RuntimeConfig::Instance().Screen();
-    Point ptStart = ContextRect().TopLeft();
-    for(int i=0;i<ContextRect().Height();i++) {
-        screen->DrawCharAt(ptStart.x + i, ptStart.y + i, '*');
-    }
-//    for(int i=0;i<ContextRect().Height();i++) {
-//        int nCharToPrint = clrStr.length()>clipRect.Width()?(clipRect.Width()):clrStr.length();
-//        std::string dummy(40,'A'+i);
-//        //screen->DrawStringAt(ptStart.x, ptStart.y+i, 20, clrStr.c_str());
-//        for(int x = 0;x<20;x++) {
-//            screen->DrawCharAt(ptStart.x + x, ptStart.y + i, 'A'+i);
-//        }
-//        //screen->DrawStringAt(ptStart.x, ptStart.y+i, 20, dummy.c_str());
+
 //
-//    }
+// NOTE: 'Rect' is in Screen-Coords
+// Currently you can pass the view's 'ContentRect' directly...
+//
+void DrawContext::Fill(const Rect &rect, char ch) {
+    auto screen = RuntimeConfig::Instance().Screen();
+    std::string clrStr(screen->Dimensions().Width(), ch);
+
+    Point ptStart = rect.TopLeft(); //ToScreen(rect.TopLeft());
+
+    for(int i=0;i<ContextRect().Height();i++) {
+        int nCharToPrint = clrStr.length()>clipRect.Width()?(clipRect.Width()):clrStr.length();
+        screen->DrawStringAt(ptStart.x, ptStart.y+i, nCharToPrint, clrStr.c_str());
+    }
+
+}
+
+
+void DrawContext::Clear() {
+    Fill(ContextRect(), ' ');
 }
 
 

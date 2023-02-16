@@ -31,16 +31,12 @@ void EditorView::DrawViewContents() {
     auto &ctx = ViewBase::ContentAreaDrawContext();
 
     // Draw from line array between these..
-    ctx.DrawLines(viewData.editController.Lines(), viewData.viewTopLine, viewData.viewBottomLine);
-
-
-    // Update cursor screen position, need to translate to screen coords..
-//    Cursor screenCursor;
-//    screenCursor.position = ctx.ToScreen(cursor.position);
-
-
-//    auto screen = RuntimeConfig::Instance().Screen();
-//    screen->SetCursor(screenCursor);
+    if (IsInvalid()) {
+        logger->Debug("Redrawing everything");
+        ctx.DrawLines(viewData.editController.Lines(), viewData.viewTopLine, viewData.viewBottomLine);
+    } else {
+        ctx.DrawLine(viewData.editController.LineAt(viewData.idxActiveLine), cursor.position.y);
+    }
 }
 
 void EditorView::OnKeyPress(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) {
@@ -62,7 +58,7 @@ bool EditorView::UpdateNavigation(const gedit::NCursesKeyboardDriverNew::KeyPres
 
     // save current line - as it will update with navigation
     // we need it when we update the selection status...
-    auto idxLineBeforeNavigation = viewData.idxActiveLine;
+    //auto idxLineBeforeNavigation = viewData.idxActiveLine;
 
     switch (keyPress.key) {
         case kKey_Down:
@@ -127,6 +123,8 @@ void EditorView::OnNavigateDown(int rows) {
         if (!(cursor.position.y < ContentRect().Height()-1)) {
             viewData.viewTopLine += rows;
             viewData.viewBottomLine += rows;
+            // Request full redraw next time, as this caused a scroll...
+            InvalidateAll();
         }
     }
 
@@ -159,6 +157,8 @@ void EditorView::OnNavigateUp(int rows) {
             viewData.viewTopLine = 0;
             viewData.viewBottomLine = ContentRect().Height();
         }
+        // Request full redraw (this caused a scroll)
+        InvalidateAll();
     }
 
     currentLine = lines[viewData.idxActiveLine];

@@ -85,18 +85,13 @@ void DrawContext::DrawLines(const std::vector<Line *> &lines, int idxTopLine, in
         // Translate to screen coords and draw...
         screen->DrawLineWithAttributesAt(offset.x, (i-idxTopLine)+offset.y, nCharToPrint, *line);
     }
+}
+void DrawContext::DrawLine(Line *line, int idxLine) {
+    auto screen = RuntimeConfig::Instance().Screen();
 
-//    idxRowActive += 1;  // We have a top-bar
-//
-//    move(dimensions.Height()-2,0);
-//    clrtoeol();
-//    mvprintw(dimensions.Height()-2, 0, "al: %d (%d) - tl: %d - bl: %d - dy: %d - iva: %s - r: %d",
-//             idxActiveLine,  idxRowActive, topLine, bottomLine, tmp_dyLast, invalidateAll?"y":"n", dimensions.Height());
-//
-//    lastTopLine = topLine;
-//
-//    // Always switch off...
-//    invalidateAll = false;
-//    move(idxRowActive, szGutter + cursorColumn);
+    // Clip
+    int nCharToPrint = line->Length()>clipRect.Width()?(clipRect.Width()):line->Length();
+    // Translate to screen coords and draw...
+    screen->DrawLineWithAttributesAt(offset.x, idxLine+offset.y, nCharToPrint, *line);
 }
 

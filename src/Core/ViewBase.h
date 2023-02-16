@@ -132,6 +132,26 @@ namespace gedit {
             isActive = newIsActive;
         }
 
+        // Invalidate all nodes in the tree...
+        void InvalidateAll() {
+            // Set to invalid
+            invalidate = true;
+            // Walk down, but NOT if parent already is set (i.e. avoid infinte recursion)
+            if ((parentView != nullptr) && (!parentView->IsInvalid())){
+                parentView->InvalidateAll();
+            }
+            // For each sub-view not already invalidated, set it...
+            for(auto subview : subviews) {
+                if (!subview->IsInvalid()) {
+                    subview->InvalidateAll();
+                }
+            }
+        }
+
+        bool IsInvalid() {
+            return invalidate;
+        }
+
         ViewBase *ParentView() {
             return parentView;
         }
@@ -148,6 +168,7 @@ namespace gedit {
     private:
         kViewFlags flags = (kViewFlags)(kViewDrawBorder | kViewDrawCaption);
         std::string caption = "";
+        bool invalidate = false;
         Rect viewRect;
         Rect contentRect;   // Content rectangle is the rect -1
         void *sharedDataPtr = nullptr;

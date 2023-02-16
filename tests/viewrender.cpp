@@ -166,12 +166,19 @@ int main(int argc, const char **argv) {
     rootView.AddTopView(&commandView);
 
 
+    // Initial draw - draw everything...
+    rootView.InvalidateAll();
+    screen.BeginRefreshCycle();
+    rootView.Draw();
+    screen.EndRefreshCycle();
 
     // This is currently the run loop...
     while(!bQuit) {
+        // This is way too simple - need better handling here!
+        // Background stuff can cause need to repaint...
         auto keyPress = keyboardDriver.GetKeyPress();
-        rootView.TopView()->OnKeyPress(keyPress);
 
+        rootView.TopView()->OnKeyPress(keyPress);
         screen.BeginRefreshCycle();
         rootView.Draw();
         screen.EndRefreshCycle();
@@ -179,6 +186,8 @@ int main(int argc, const char **argv) {
         if (screen.IsSizeChanged(true)) {
             screen.Clear();
         }
+
+
     }
     logger->Debug("Left main loop, closing graphics subsystem");
     screen.Close();

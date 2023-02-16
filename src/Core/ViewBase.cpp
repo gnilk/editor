@@ -49,6 +49,7 @@ void ViewBase::Draw() {
     screen->SetClipRect(viewRect);
     for(auto subView : subviews) {
         subView->Draw();
+        // reset this regardless - drawing should not cause full redraw - that is triggered by something else
     }
     if (flags & kViewDrawBorder) {
         // TODO: Fix drawing flags for rect in screen
@@ -62,6 +63,7 @@ void ViewBase::Draw() {
 
     screen->SetClipRect(contentRect);
     DrawViewContents();
+    invalidate = false;
 
     // Update cursor - if this view is active
     if (isActive) {

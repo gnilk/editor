@@ -1,6 +1,27 @@
 //
 // Created by gnilk on 13.02.23.
 //
+/*
+ * TO-DO List
+ * - BaseController, handle key press (take from old ModeBase/EditorMode)
+ * - Figure out how to handle 'HasContentChanged' notfications to force redraws..
+ *   a) be in the redraw loop and just do it (let the views take care of it)
+ *   b) Somehow let a controller or view set a flag that a redraw is needed..
+ * - CommandController, NOTE: THIS IS QUITE THE TASK
+ *   a) Make it on par with the old CommandMode
+ *   b) Break-out and start implement CmdLet handling
+ *   c) Define the proper API for talking to the editor through the cmd-let's
+ * - Create a specific HSplitView which can support a 'split' window like feature and on-request resize
+ *   both views (upper/lower) in tandem..
+ * - Create a 'StatusBar' view (Single line, no border)
+ * - Create a VStackView, which simply 'stacks' and computes sizes accordingly when updated
+ * - Import the language/color features in to this project
+ * - Promote this project to the new 'main' project...
+ * - BufferManager should store 'fullPathName' and 'name'
+ * - Unsaved file should have '*' marking in the top..
+ *
+ *
+ */
 #include <iostream>
 #include <ncurses.h>
 #include <string_view>

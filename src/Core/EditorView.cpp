@@ -123,16 +123,16 @@ void EditorView::OnNavigateDown(int rows) {
     currentLine = lines[viewData.idxActiveLine];
     currentLine->SetActive(true);
 
-    if (viewData.idxActiveLine > ContentRect().Height()) {
-        if (!(cursor.position.y < ContentRect().Height())) {
+    if (viewData.idxActiveLine > ContentRect().Height()-1) {
+        if (!(cursor.position.y < ContentRect().Height()-1)) {
             viewData.viewTopLine += rows;
             viewData.viewBottomLine += rows;
         }
     }
 
     cursor.position.y = viewData.idxActiveLine - viewData.viewTopLine;
-    if (cursor.position.y > ContentRect().Height()) {
-        cursor.position.y = ContentRect().Height();
+    if (cursor.position.y > ContentRect().Height()-1) {
+        cursor.position.y = ContentRect().Height()-1;
     }
 
 

@@ -325,9 +325,8 @@ void NCursesScreen::DrawStringAt(int x, int y, const char *str) {
 }
 void NCursesScreen::DrawStringAt(int x, int y, int nCharToPrint, const char *str) {
     move(y, x);
-    clrtoeol();
-    printw(str);
-    //addnstr(str,nCharToPrint);
+//    clrtoeol();
+    addnstr(str,nCharToPrint);
 }
 
 

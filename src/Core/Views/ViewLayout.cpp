@@ -103,7 +103,7 @@ const Rect &ViewLayout::ComputeLayout(const Rect &suggestedRect) {
             calcRect.Next = [](CalcRect &calcRect, bool last, ViewBase *view)  {
                 calcRect.next = calcRect.initialRect;
             };
-            newRect.SetWidth((rect.Width()));
+            rect.SetHeight(suggestedRect.Height());
             break;
         case kViewAnchor_FixedHeight :
             // We have fixed height, so set it...
@@ -114,7 +114,8 @@ const Rect &ViewLayout::ComputeLayout(const Rect &suggestedRect) {
             calcRect.Next = [](CalcRect &calcRect, bool last, ViewBase *view) {
                 calcRect.next = calcRect.initialRect;
             };
-            newRect.SetHeight(rect.Height());
+            rect.SetWidth(suggestedRect.Width());
+            //newRect.SetHeight(rect.Height());
             break;
         case kViewAnchor_HorizontalStack :
             calcRect.Init = InitHZStackCalc;
@@ -125,8 +126,10 @@ const Rect &ViewLayout::ComputeLayout(const Rect &suggestedRect) {
             calcRect.Next = NextVertStackRect;
             break;
     }
-    // Now commit the new rectangle to our rect...
-    rect = newRect;
+    // If our rect is already set, we have decided already - don't mess it up...
+    if (rect.IsEmpty()) {
+        rect = newRect;
+    }
 
     // If we have sub-views, do the initial calculations..
     if (viewBase->subviews.size() > 0) {
@@ -135,7 +138,7 @@ const Rect &ViewLayout::ComputeLayout(const Rect &suggestedRect) {
             logger->Error("CalcRect Init or Next are NULL and you have subviews!!!!");
             exit(1);
         }
-        calcRect.Init(calcRect, newRect, viewBase->subviews.size());
+        calcRect.Init(calcRect, rect, viewBase->subviews.size());
         Rect next(0,0);
         for (int i = 0; i < viewBase->subviews.size(); i++) {
             auto view = viewBase->subviews[i];

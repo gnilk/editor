@@ -32,6 +32,14 @@ namespace gedit {
             p2.x = width;
             p2.y = height;
         }
+
+        bool IsEmpty() {
+            if ((Width() == 0) && (Height() == 0)) {
+                return true;
+            }
+            return false;
+        }
+
         int Height() const {
             return p2.y - p1.y;
         }

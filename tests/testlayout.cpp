@@ -6,6 +6,8 @@
 #include "Core/Views/HSplitView.h"
 #include "Core/Views/VSplitView.h"
 #include "Core/Views/GutterView.h"
+#include "Core/Views/CommandView.h"
+#include "Core/Views/EditorView.h"
 #include "Core/Views/RootView.h"
 
 using namespace gedit;
@@ -19,7 +21,7 @@ int main(int argc, char **argv) {
     hSplitView.SetCaption("HSplit");
     rootView.AddView(&hSplitView);
 
-    VSplitView vSplitView;
+    VSplitView vSplitView(Rect(100,70));
     vSplitView.SetCaption("VSplit");
     hSplitView.SetTopView(&vSplitView);
 

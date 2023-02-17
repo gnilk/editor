@@ -55,6 +55,7 @@ list(APPEND editorsrc src/Core/Views/RootView.cpp src/Core/Views/RootView.h)
 list(APPEND editorsrc src/Core/Views/EditorView.cpp src/Core/Views/EditorView.h)
 list(APPEND editorsrc src/Core/Views/GutterView.cpp src/Core/Views/GutterView.h)
 list(APPEND editorsrc src/Core/Views/CommandView.cpp src/Core/Views/CommandView.h)
+list(APPEND editorsrc src/Core/Views/HSplitView.cpp src/Core/Views/HSplitView.h)
 # draw helper
 list(APPEND editorsrc src/Core/DrawContext.cpp src/Core/DrawContext.h)
 list(APPEND editorsrc src/Core/Point.h)

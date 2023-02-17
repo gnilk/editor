@@ -14,6 +14,7 @@
 #include "Core/Cursor.h"
 
 #include "Core/DrawContext.h"
+#include "ViewLayout.h"
 
 // TEMP
 #include "Core/NCurses/NCursesKeyboardDriver.h"
@@ -65,7 +66,11 @@ namespace gedit {
 // Make views contain views - this will give us a nice docking feature layout..
 // if you want 'floating' we just de-couple a view from the parent...
 // Might need something to handle the layout and reposition the views
+
+
+
     class ViewBase {
+        friend ViewLayout;
     public:
         typedef enum {
             kViewNone = 0,
@@ -78,8 +83,8 @@ namespace gedit {
         } kViewFlags;
     public:
         ViewBase() = default;
-        explicit ViewBase(const Rect &viewArea) : viewRect(viewArea) {
-            contentRect = viewRect;
+        explicit ViewBase(const Rect &viewArea) : layout(viewArea) {
+            contentRect = layout.GetRect();
             contentRect.Deflate(1,1);
         }
         ~ViewBase() = default;
@@ -87,8 +92,8 @@ namespace gedit {
         virtual void Begin();
 
         void Move(const Rect &newViewArea) {
-            viewRect = newViewArea;
-            contentRect = viewRect;
+            layout.SetNewRect(newViewArea);
+            contentRect = newViewArea;
             contentRect.Deflate(1,1);
             InvalidateAll();
         }
@@ -113,8 +118,8 @@ namespace gedit {
         // This is what a view normally should override - called to draw the view contents
         virtual void DrawViewContents() {}
 
-        const Rect &Dimensions() const {
-            return viewRect;
+        const Rect &ViewRect() const {
+            return layout.GetRect();
         }
 
         // FIXME: Better naming and also definition if this is in screen-coords or window-coords
@@ -180,7 +185,7 @@ namespace gedit {
         kViewFlags flags = (kViewFlags)(kViewDrawBorder | kViewDrawCaption);
         std::string caption = "";
         bool invalidate = false;
-        Rect viewRect;
+        ViewLayout layout;
         Rect contentRect;   // Content rectangle is the rect -1
         void *sharedDataPtr = nullptr;
         ViewBase *parentView = nullptr;
@@ -188,6 +193,9 @@ namespace gedit {
         DrawContext contentAreaDrawContext;
         bool isActive = false;
     };
+
+
+    // REMOVE THIS
 
     // This view is simply to hold and position other views..
     class LayoutView : public ViewBase {

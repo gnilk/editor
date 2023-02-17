@@ -228,7 +228,7 @@ bool EditorMode::UpdateNavigation(KeyPress &keyPress, bool isShiftPressed) {
 
     auto screen = RuntimeConfig::Instance().Screen();
     auto view = RuntimeConfig::Instance().View();
-    auto dimensions = view->Dimensions();
+    auto dimensions = view->ViewRect();
 
     // save current line - as it will update with navigation
     // we need it when we update the selection status...

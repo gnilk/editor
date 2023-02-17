@@ -65,6 +65,7 @@
 #include "Core/Views/EditorView.h"
 #include "Core/Views/RootView.h"
 #include "Core/Views/CommandView.h"
+#include "Core/Views/HSplitView.h"
 
 
 #include "logger.h"
@@ -149,12 +150,20 @@ int main(int argc, const char **argv) {
     // Disable any drawing on updates
     rootView.SetFlags(gedit::ViewBase::kViewNone);
 
+    // The splitter holds Editor (upper) and Cmd (lower)
+    gedit::HSplitView hSplitView(baseRect);
+    hSplitView.SetFlags(gedit::ViewBase::kViewNone);
+
+    // Add the splitter to the root view..
+    rootView.AddView(&hSplitView);
+
+
     // TODO: We can reverse the creation process...
     gedit::Rect rectUpperLayoutView(baseRect);
     rectUpperLayoutView.SetHeight(2 * baseRect.Height()/3);
     rectUpperLayoutView.Move(0,0);
     gedit::LayoutView viewUpperLayout(rectUpperLayoutView);
-    rootView.AddView(&viewUpperLayout);
+    hSplitView.AddView(&viewUpperLayout);
 
     // The gutter
     gedit::Rect rectGutter(rectUpperLayoutView);
@@ -176,7 +185,7 @@ int main(int argc, const char **argv) {
     commandViewRect.Move(0,2 * baseRect.Height()/3);
     gedit::CommandView commandView(commandViewRect);
     commandView.SetCaption("CommandView");
-    rootView.AddView(&commandView);
+    hSplitView.AddView(&commandView);
 
     //RuntimeConfig::Instance().SetRootView(&editorView);
     RuntimeConfig::Instance().SetRootView(&rootView);
@@ -187,6 +196,7 @@ int main(int argc, const char **argv) {
     //loadBuffer("test_src2.cpp", editorView.GetEditorController());
     auto buffer = BufferManager::Instance().NewBufferFromFile("test_src2.cpp");
     editorView.GetEditController().SetTextBuffer(buffer);
+
 
     rootView.AddTopView(&editorView);
     rootView.AddTopView(&commandView);

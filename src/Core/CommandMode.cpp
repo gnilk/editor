@@ -272,7 +272,7 @@ void CommandMode::NewLine(bool addCmdMarker) {
 void CommandMode::DrawLines() {
     auto screen = RuntimeConfig::Instance().Screen();
     auto view = RuntimeConfig::Instance().View();
-    auto dimensions = view->Dimensions();
+    auto dimensions = view->ViewRect();
 
 
     // NOTE: we should probably have a setting for a 'safe' zone

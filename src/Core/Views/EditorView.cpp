@@ -40,6 +40,8 @@ void EditorView::DrawViewContents() {
 }
 
 void EditorView::OnKeyPress(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) {
+    if (!keyPress.isKeyValid) return;
+
     if (viewData.editController.HandleKeyPress(cursor, viewData.idxActiveLine, keyPress)) {
         return;
     }
@@ -52,7 +54,7 @@ void EditorView::OnKeyPress(const gedit::NCursesKeyboardDriverNew::KeyPress &key
 
 bool EditorView::UpdateNavigation(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) {
     auto screen = RuntimeConfig::Instance().Screen();
-    auto dimensions = Dimensions();
+    auto viewRect = ViewRect();
 
     auto currentLine = viewData.editController.LineAt(viewData.idxActiveLine);
 
@@ -76,10 +78,10 @@ bool EditorView::UpdateNavigation(const gedit::NCursesKeyboardDriverNew::KeyPres
             }
             break;
         case kKey_PageUp :
-            OnNavigateUp(dimensions.Height());
+            OnNavigateUp(viewRect.Height());
             break;
         case kKey_PageDown :
-            OnNavigateDown(dimensions.Height());
+            OnNavigateDown(viewRect.Height());
             break;
         case Keyboard::kKeyCode_Return :
             viewData.editController.NewLine(viewData.idxActiveLine, cursor);

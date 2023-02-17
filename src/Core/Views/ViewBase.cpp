@@ -16,7 +16,8 @@ DrawContext &ViewBase::ContentAreaDrawContext() {
     return contentAreaDrawContext;
 }
 void ViewBase::RecomputeContentRect() {
-    contentRect = viewRect;
+    // Reset the content rect...
+    contentRect = ViewRect();
     // FIXME: Need to take care of FLAGS - for instance 'editView' has no bottom border
     //        Deflate will push all by delta
 
@@ -47,14 +48,14 @@ void ViewBase::Begin() {
 void ViewBase::Draw() {
     auto screen = RuntimeConfig::Instance().Screen();
 
-    screen->SetClipRect(viewRect);
+    screen->SetClipRect(ViewRect());
     for(auto subView : subviews) {
         subView->Draw();
         // reset this regardless - drawing should not cause full redraw - that is triggered by something else
     }
     if (flags & kViewDrawBorder) {
         // TODO: Fix drawing flags for rect in screen
-        screen->DrawRect(viewRect);
+        screen->DrawRect(ViewRect());
     }
     if ((!caption.empty()) && (flags & kViewDrawCaption)) {
         DrawCaption();
@@ -77,7 +78,7 @@ void ViewBase::Draw() {
 
 void ViewBase::DrawCaption() {
     auto screen = RuntimeConfig::Instance().Screen();
-    auto topLeft = viewRect.TopLeft();
+    auto topLeft = ViewRect().TopLeft();
     screen->DrawCharAt(topLeft.x+2,topLeft.y,'|');
     screen->DrawStringAt(topLeft.x+3, topLeft.y, caption.c_str());
     screen->DrawCharAt(topLeft.x+3+caption.length(),topLeft.y,'|');

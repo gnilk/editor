@@ -83,3 +83,32 @@ void ViewBase::DrawCaption() {
     screen->DrawStringAt(topLeft.x+3, topLeft.y, caption.c_str());
     screen->DrawCharAt(topLeft.x+3+caption.length(),topLeft.y,'|');
 }
+
+void ViewBase::ComputeInitialLayout(const Rect &rect) {
+
+    layout.ComputeLayout(rect);
+
+//    layout.SetNewRect(rect);
+//    auto &subViewArea = ContentRect();
+//
+//    for(auto s : subviews) {
+//        s->ComputeInitialLayout(subViewArea);
+//        s->ViewRect();
+//    }
+}
+
+
+void ViewBase::DumpViewTree() {
+    DoDumpViewTree(this, 0);
+}
+
+void ViewBase::DoDumpViewTree(ViewBase *view, int depth) {
+    std::string indent(depth*4, ' ');
+    printf("%s%s (%d,%d)\n",
+           indent.c_str(), view->Caption().c_str(),
+           view->ViewRect().Width(),
+           view->ViewRect().Height());
+    for(auto s : subviews) {
+        s->DoDumpViewTree(s, depth+1);
+    }
+}

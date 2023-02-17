@@ -66,6 +66,7 @@
 #include "Core/Views/RootView.h"
 #include "Core/Views/CommandView.h"
 #include "Core/Views/HSplitView.h"
+#include "Core/Views/VSplitView.h"
 
 
 #include "logger.h"
@@ -162,14 +163,14 @@ int main(int argc, const char **argv) {
     gedit::Rect rectUpperLayoutView(baseRect);
     rectUpperLayoutView.SetHeight(2 * baseRect.Height()/3);
     rectUpperLayoutView.Move(0,0);
-    gedit::LayoutView viewUpperLayout(rectUpperLayoutView);
-    hSplitView.AddView(&viewUpperLayout);
+    gedit::VSplitView viewUpper(rectUpperLayoutView);
+    hSplitView.AddView(&viewUpper);
 
     // The gutter
     gedit::Rect rectGutter(rectUpperLayoutView);
     rectGutter.SetWidth(6);
     gedit::GutterView gutterView(rectGutter);
-    viewUpperLayout.AddView(&gutterView);
+    viewUpper.SetLeftView(&gutterView);
 
     // The editor
     gedit::Rect rectEditor(rectUpperLayoutView);
@@ -177,7 +178,7 @@ int main(int argc, const char **argv) {
     rectEditor.Move(6,0);
     gedit::EditorView editorView(rectEditor);
     editorView.SetCaption("Editor");
-    viewUpperLayout.AddView(&editorView);
+    viewUpper.SetRightView(&editorView);
 
     // Setup the command view...
     gedit::Rect commandViewRect(baseRect);

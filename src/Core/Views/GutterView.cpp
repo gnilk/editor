@@ -7,6 +7,16 @@
 
 using namespace gedit;
 
+GutterView::GutterView() : ViewBase() {
+    // Width is important...
+    layout.SetNewRect(Rect(6,0));
+    SetViewAnchoring(ViewLayout::kViewAnchor_FixedWidth);
+}
+GutterView::GutterView(const Rect &viewArea) : ViewBase(viewArea) {
+        SetViewAnchoring(ViewLayout::kViewAnchor_FixedWidth);
+}
+
+
 void GutterView::DrawViewContents() {
 
     // Can't draw if no parent.. (as it will hold the shared data

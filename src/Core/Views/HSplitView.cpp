@@ -6,6 +6,18 @@
 
 using namespace gedit;
 
+//
+// Split screen horizontally and stack items veritcally
+//
+HSplitView::HSplitView() : ViewBase() {
+    layout.SetAnchoring(ViewLayout::kViewAnchor_VerticalStack);
+}
+
+HSplitView::HSplitView(const Rect &viewArea) : ViewBase(viewArea) {
+    layout.SetAnchoring(ViewLayout::kViewAnchor_VerticalStack);
+}
+
+
 void HSplitView::OnKeyPress(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) {
     if ((keyPress.modifiers & Keyboard::kModifierKeys::kMod_LeftCommand) && (keyPress.isHwEventValid)) {
         switch (keyPress.key) {
@@ -41,4 +53,21 @@ void HSplitView::MaximizeView() {
     InvalidateAll();
 }
 
+void HSplitView::ComputeInitialLayout(const Rect &rect) {
+    // We occupy 100%..
+    layout.SetNewRect(rect);
+
+    int midY = (rect.BottomRight().y - rect.TopLeft().y) / 2;
+
+    Rect upperRect(rect.TopLeft(), rect.BottomRight());
+    upperRect.SetHeight(rect.Height()/2);
+
+    Rect lowerRect(rect.TopLeft(), rect.BottomRight());
+    lowerRect.SetHeight(rect.Height()/2);
+    lowerRect.Move(0, midY);
+
+    // Now compute for our initial views...
+    topView->ComputeInitialLayout(upperRect);
+    bottomView->ComputeInitialLayout(lowerRect);
+}
 

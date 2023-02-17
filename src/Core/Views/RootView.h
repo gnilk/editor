@@ -34,6 +34,7 @@ namespace gedit {
             }
         }
 
+
         void OnKeyPress(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) override;
     protected:
         void MaximizeView();

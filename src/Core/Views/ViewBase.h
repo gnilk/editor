@@ -82,8 +82,10 @@ namespace gedit {
             kViewDrawCaption = 16,
         } kViewFlags;
     public:
-        ViewBase() = default;
-        explicit ViewBase(const Rect &viewArea) : layout(viewArea) {
+        ViewBase() : layout(Rect(), this) {
+
+        }
+        explicit ViewBase(const Rect &viewArea) : layout(viewArea, this) {
             contentRect = layout.GetRect();
             contentRect.Deflate(1,1);
         }
@@ -162,6 +164,10 @@ namespace gedit {
             }
         }
 
+        void SetViewAnchoring(ViewLayout::kViewAnchoring newAnchoring) {
+            layout.SetAnchoring(newAnchoring);
+        }
+
         bool IsInvalid() {
             return invalidate;
         }
@@ -174,18 +180,25 @@ namespace gedit {
 
         // Events, need proper interface
         virtual void OnKeyPress(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress);
+
+        virtual void ComputeInitialLayout(const Rect &rect);
+
+        void DumpViewTree();
+
     protected:
         void RecomputeContentRect();
+    private:
+        void DoDumpViewTree(ViewBase *view, int depth);
 
     protected:
         Cursor cursor = {};
         std::vector<ViewBase *> subviews;       // List of all topviews
+        ViewLayout layout;
 
     private:
         kViewFlags flags = (kViewFlags)(kViewDrawBorder | kViewDrawCaption);
         std::string caption = "";
         bool invalidate = false;
-        ViewLayout layout;
         Rect contentRect;   // Content rectangle is the rect -1
         void *sharedDataPtr = nullptr;
         ViewBase *parentView = nullptr;

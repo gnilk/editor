@@ -9,24 +9,28 @@
 namespace gedit {
     class HSplitView : public ViewBase {
     public:
-        explicit HSplitView(const Rect &viewArea) : ViewBase(viewArea) {
-
-        }
+        HSplitView();
+        explicit HSplitView(const Rect &viewArea);
         virtual ~HSplitView() = default;
 
-        void SetLeftView(ViewBase *newLeftView) {
-            leftView = newLeftView;
+        void SetTopView(ViewBase *newTopView) {
+            topView = newTopView;
+            AddView(topView);
         }
-        void SetRightView(ViewBase *newRightView) {
-            rightView = newRightView;
+        void SetBottomView(ViewBase *newBottomView) {
+            bottomView = newBottomView;
+            AddView(bottomView);
         }
-
         void OnKeyPress(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) override;
+
+        void ComputeInitialLayout(const Rect &rect) override;
+
+
     protected:
         void MaximizeView();
     private:
-        ViewBase *leftView = nullptr;
-        ViewBase *rightView = nullptr;
+        ViewBase *topView = nullptr;
+        ViewBase *bottomView = nullptr;
     };
 }
 

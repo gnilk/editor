@@ -343,3 +343,14 @@ void NCursesScreen::DrawRect(const gedit::Rect &rect) {
         if (clipRect.PointInRect(bottomRight.x,y)) DrawCharAt(bottomRight.x, y, '|');
     }
 }
+void NCursesScreen::DrawVLine(const gedit::Point &ptStart, const gedit::Point &ptEnd) {
+    for(int y = ptStart.y; y<ptEnd.y; y++) {
+        if (clipRect.PointInRect(ptStart.x,y)) DrawCharAt(ptStart.x, y, '|');
+    }
+}
+void NCursesScreen::DrawHLine(const gedit::Point &ptStart, const gedit::Point &ptEnd) {
+    for(int x = ptStart.x; x<ptEnd.x; x++) {
+        if (clipRect.PointInRect(x, ptStart.y)) DrawCharAt(x, ptStart.y, '-');
+    }
+}
+

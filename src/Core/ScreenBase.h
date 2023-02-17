@@ -65,6 +65,8 @@ public:
     virtual void DrawStringAt(int x, int y, int nCharToPrint, const char *str) {}
     // TODO: Fix drawing flags for rect in screen
     virtual void DrawRect(const gedit::Rect &rect) {}
+    virtual void DrawVLine(const gedit::Point &ptStart, const gedit::Point &ptEnd) {}
+    virtual void DrawHLine(const gedit::Point &ptStart, const gedit::Point &ptEnd) {}
 
     virtual void SetClipRect(const gedit::Rect &newClipRect) {
         clipRect = newClipRect;

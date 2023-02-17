@@ -34,6 +34,8 @@ public:
     void DrawStringAt(int x, int y, const char *str) override;
     void DrawStringAt(int x, int y, int nCharToPrint, const char *str) override;
     void DrawRect(const gedit::Rect &rect) override;
+    void DrawVLine(const gedit::Point &ptStart, const gedit::Point &ptEnd) override;
+    void DrawHLine(const gedit::Point &ptStart, const gedit::Point &ptEnd) override;
 
 
     void DrawLineWithAttributesAt(int x, int y, int nCharToPrint, Line &l) override;

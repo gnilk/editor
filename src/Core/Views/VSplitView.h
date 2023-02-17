@@ -13,8 +13,7 @@ namespace gedit {
         VSplitView();
         explicit VSplitView(const Rect &viewRect);
         virtual ~VSplitView() = default;
-        void Begin() override {
-        }
+
         void SetLeftView(ViewBase *newLeftView) {
             leftView = newLeftView;
             AddView(leftView);

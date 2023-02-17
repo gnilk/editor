@@ -119,6 +119,7 @@ static void SetupLogger() {
     gnilk::Logger::RemoveSink("console");
 }
 
+
 int main(int argc, const char **argv) {
 
     SetupLogger();
@@ -146,58 +147,43 @@ int main(int argc, const char **argv) {
 
     logger->Debug("Dimensions (x,y): %d, %d", dimensions.Width(), dimensions.Height());
 
-    gedit::Rect baseRect(dimensions.Width()-1, dimensions.Height()-1);
-    gedit::RootView rootView(baseRect);
-    // Disable any drawing on updates
+    RootView rootView;
     rootView.SetFlags(gedit::ViewBase::kViewNone);
 
     // The splitter holds Editor (upper) and Cmd (lower)
-    gedit::HSplitView hSplitView(baseRect);
+    HSplitView hSplitView;
     hSplitView.SetFlags(gedit::ViewBase::kViewNone);
-
-    // Add the splitter to the root view..
     rootView.AddView(&hSplitView);
 
+    VSplitView vSplitView(Rect(dimensions.Width(), dimensions.Height() * 0.7));
+    vSplitView.SetFlags(gedit::ViewBase::kViewNone);
+    hSplitView.SetTopView(&vSplitView);
 
-    // TODO: We can reverse the creation process...
-    gedit::Rect rectUpperLayoutView(baseRect);
-    rectUpperLayoutView.SetHeight(2 * baseRect.Height()/3);
-    rectUpperLayoutView.Move(0,0);
-    gedit::VSplitView viewUpper(rectUpperLayoutView);
-    hSplitView.AddView(&viewUpper);
+    CommandView commandView;
+    commandView.SetCaption("CmdView");
+    hSplitView.SetBottomView(&commandView);
 
-    // The gutter
-    gedit::Rect rectGutter(rectUpperLayoutView);
-    rectGutter.SetWidth(6);
-    gedit::GutterView gutterView(rectGutter);
-    viewUpper.SetLeftView(&gutterView);
+    GutterView gutterView;
+    gutterView.SetFlags(gedit::ViewBase::kViewNone);
+    vSplitView.SetLeftView(&gutterView);
 
-    // The editor
-    gedit::Rect rectEditor(rectUpperLayoutView);
-    rectEditor.SetWidth(rectUpperLayoutView.Width()-6);
-    rectEditor.Move(6,0);
-    gedit::EditorView editorView(rectEditor);
+    EditorView editorView;
     editorView.SetCaption("Editor");
-    viewUpper.SetRightView(&editorView);
+    vSplitView.SetRightView(&editorView);
 
-    // Setup the command view...
-    gedit::Rect commandViewRect(baseRect);
-    commandViewRect.SetHeight(1 + baseRect.Height()/3);
-    commandViewRect.Move(0,2 * baseRect.Height()/3);
-    gedit::CommandView commandView(commandViewRect);
-    commandView.SetCaption("CommandView");
-    hSplitView.AddView(&commandView);
 
     //RuntimeConfig::Instance().SetRootView(&editorView);
     RuntimeConfig::Instance().SetRootView(&rootView);
 
+    rootView.ComputeInitialLayout(Rect(dimensions.Width()-1, dimensions.Height()-1));
+
     // Kick off the whole thing..
     rootView.Begin();
 
-    //loadBuffer("test_src2.cpp", editorView.GetEditorController());
+
+
     auto buffer = BufferManager::Instance().NewBufferFromFile("test_src2.cpp");
     editorView.GetEditController().SetTextBuffer(buffer);
-
 
     rootView.AddTopView(&editorView);
     rootView.AddTopView(&commandView);
@@ -223,8 +209,6 @@ int main(int argc, const char **argv) {
         if (screen.IsSizeChanged(true)) {
             screen.Clear();
         }
-
-
     }
     logger->Debug("Left main loop, closing graphics subsystem");
     screen.Close();

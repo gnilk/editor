@@ -53,9 +53,30 @@ void ViewBase::Draw() {
         subView->Draw();
         // reset this regardless - drawing should not cause full redraw - that is triggered by something else
     }
-    if (flags & kViewDrawBorder) {
-        // TODO: Fix drawing flags for rect in screen
+    if ((flags & kViewDrawBorder) == kViewDrawBorder) {
         screen->DrawRect(ViewRect());
+    } else {
+        // Rect in is drawn Horizontal first then Vertical
+        if (flags & kViewDrawUpperBorder) {
+            auto ptEnd = ViewRect().BottomRight();
+            ptEnd.y = ViewRect().TopLeft().y;
+            screen->DrawHLine(ViewRect().TopLeft(), ptEnd);
+        }
+        if (flags & kViewDrawLowerBorder) {
+            auto ptStart = ViewRect().TopLeft();
+            ptStart.y = ViewRect().BottomRight().y;
+            screen->DrawHLine(ptStart, ViewRect().BottomRight());
+        }
+        if (flags & kViewDrawLeftBorder) {
+            auto ptEnd = ViewRect().TopLeft();
+            ptEnd.y = ViewRect().BottomRight().y;
+            screen->DrawVLine(ViewRect().TopLeft(), ptEnd);
+        }
+        if (flags & kViewDrawRightBorder) {
+            auto ptStart = ViewRect().TopLeft();
+            ptStart.x = ViewRect().BottomRight().x;
+            screen->DrawVLine(ptStart, ViewRect().BottomRight());
+        }
     }
     if ((!caption.empty()) && (flags & kViewDrawCaption)) {
         DrawCaption();

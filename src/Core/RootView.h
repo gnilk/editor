@@ -16,6 +16,8 @@ namespace gedit {
         }
         virtual ~RootView() = default;
 
+        void Draw() override;
+
         ViewBase *TopView() {
             if (idxCurrentTopView == -1) {
                 // No views added
@@ -33,6 +35,8 @@ namespace gedit {
         }
 
         void OnKeyPress(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) override;
+    protected:
+        void MaximizeView();
     private:
         int idxCurrentTopView = -1;
         std::vector<ViewBase *> topViews;

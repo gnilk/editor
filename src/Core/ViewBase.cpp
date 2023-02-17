@@ -46,6 +46,7 @@ void ViewBase::Begin() {
 
 void ViewBase::Draw() {
     auto screen = RuntimeConfig::Instance().Screen();
+
     screen->SetClipRect(viewRect);
     for(auto subView : subviews) {
         subView->Draw();

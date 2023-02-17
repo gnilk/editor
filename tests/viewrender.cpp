@@ -13,6 +13,8 @@
  *   c) Define the proper API for talking to the editor through the cmd-let's
  * - Create a specific HSplitView which can support a 'split' window like feature and on-request resize
  *   both views (upper/lower) in tandem..
+ *   Note: This requires ability for a view to define 'lock'/'anchor' points and also to define relative vs absolute
+ *   layout handling (this is getting frustratingly similar to CSS)
  * - Create a 'StatusBar' view (Single line, no border)
  * - Create a VStackView, which simply 'stacks' and computes sizes accordingly when updated
  * - Import the language/color features in to this project

@@ -6,7 +6,7 @@
 #include "Core/KeyCodes.h"
 #include "Core/NCurses/NCursesKeyboardDriver.h"
 #include "Core/RuntimeConfig.h"
-
+#include "Core/KeyCodes.h"
 
 using namespace gedit;
 
@@ -49,8 +49,14 @@ NCursesKeyboardDriverNew::KeyPress NCursesKeyboardDriverNew::GetKeyPress() {
     }
     keyPress.isKeyValid = (ch == ERR) ? false : true;
     keyPress.modifiers = ptrKeyboardMonitor->GetModifiersCurrentlyPressed();
-
     keyPress.key = TranslateNCurseKey(ch);
+    // FIXME: I think this is macos specific...
+    // In case of LeftCommand, NCurses will send another key (this is to deal with CTRL/CMD+<char>) - we don't want
+    // this behaviour so we consume the other key (which is the <char> key pressed while holding CTRL/CMD)
+    if ((keyPress.modifiers & Keyboard::kModifierKeys::kMod_LeftCommand) && (keyPress.isHwEventValid)) {
+        ch = getch();
+        keyPress.key = TranslateNCurseKey(ch);
+    }
     return keyPress;
 
 }

@@ -26,6 +26,7 @@ namespace gedit {
 
         void Begin() override;
         void OnKeyPress(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) override;
+        void OnResized() override;
         void DrawViewContents() override;
 
         EditController &GetEditController() {

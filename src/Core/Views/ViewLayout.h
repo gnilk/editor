@@ -32,6 +32,7 @@ namespace gedit {
 
         // Compute the layout given a certain base...
         void SetNewRect(const Rect &newViewRect) {
+            rect = newViewRect;
             ComputeLayout(newViewRect);
         }
         const Rect &GetRect() const {

@@ -27,6 +27,13 @@ void EditorView::Begin() {
 
 }
 
+void EditorView::OnResized() {
+    // Update the view Bottom line - as this affects how many lines we draw...
+    viewData.viewBottomLine = ContentRect().Height();
+    ViewBase::OnResized();
+}
+
+
 void EditorView::DrawViewContents() {
     auto &ctx = ViewBase::ContentAreaDrawContext();
 

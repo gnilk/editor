@@ -93,10 +93,12 @@ namespace gedit {
 
         virtual void Begin();
 
-        void Move(const Rect &newViewArea) {
+        // Call this to move the window but OnResize to handle the result
+        virtual void Move(const Rect &newViewArea) final {
             layout.SetNewRect(newViewArea);
             contentRect = newViewArea;
             contentRect.Deflate(1,1);
+            OnResized();
             InvalidateAll();
         }
 
@@ -180,8 +182,15 @@ namespace gedit {
 
         // Events, need proper interface
         virtual void OnKeyPress(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress);
+        // You should implement this one...
+        virtual void OnResized() {
+            for(auto s : subviews) {
+                s->OnResized();
+            }
+        }
 
-        virtual void ComputeInitialLayout(const Rect &rect);
+        // This is just a gateway to kick off the Layout manager - you should NOT call this
+        virtual void ComputeInitialLayout(const Rect &rect) final;
 
         void DumpViewTree();
 

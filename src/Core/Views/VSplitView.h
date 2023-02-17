@@ -22,8 +22,6 @@ namespace gedit {
             rightView = newRightView;
             AddView(rightView);
         }
-
-        void ComputeInitialLayout(const Rect &rect) override;
     private:
         ViewBase *leftView;
         ViewBase *rightView;

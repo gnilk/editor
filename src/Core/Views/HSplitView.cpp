@@ -4,6 +4,7 @@
 
 #include "HSplitView.h"
 
+#include "logger.h"
 using namespace gedit;
 
 //
@@ -19,13 +20,18 @@ HSplitView::HSplitView(const Rect &viewArea) : ViewBase(viewArea) {
 
 
 void HSplitView::OnKeyPress(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) {
+    auto logger = gnilk::Logger::GetLogger("HSplitView");
+    if (keyPress.isKeyValid) {
+        logger->Debug("OnKeyPress, key=%d (%c), modifier=0x%.2x, scan=%d (0x%.2x), translated=%d (%c)", keyPress.key, keyPress.key, keyPress.modifiers, keyPress.hwEvent.scanCode, keyPress.hwEvent.scanCode, keyPress.hwEvent.translatedScanCode, keyPress.hwEvent.translatedScanCode);
+    }
     if ((keyPress.modifiers & Keyboard::kModifierKeys::kMod_LeftCommand) && (keyPress.isHwEventValid)) {
-        switch (keyPress.key) {
+        switch (keyPress.hwEvent.translatedScanCode) {
             case 'm' :
                 MaximizeView();
                 break;
         }
     }
+    ViewBase::OnKeyPress(keyPress);
 }
 
 // FIXME: This should go to a dual-splitter view
@@ -35,6 +41,8 @@ void HSplitView::MaximizeView() {
     auto bottomView = subviews[1];
     auto &rectTop = topView->ViewRect();
     auto &rectBottom = bottomView->ViewRect();
+
+    DumpViewTree();
 
     // Move bottom
     Point ptBottomTopLeft = rectBottom.TopLeft();
@@ -48,26 +56,8 @@ void HSplitView::MaximizeView() {
     Rect newTopRect(rectTop.TopLeft(), ptTopBottomRight);
     topView->Move(newTopRect);
 
+    DumpViewTree();
 
     // This is already done, but let's be sure..
     InvalidateAll();
 }
-
-void HSplitView::ComputeInitialLayout(const Rect &rect) {
-    // We occupy 100%..
-    layout.SetNewRect(rect);
-
-    int midY = (rect.BottomRight().y - rect.TopLeft().y) / 2;
-
-    Rect upperRect(rect.TopLeft(), rect.BottomRight());
-    upperRect.SetHeight(rect.Height()/2);
-
-    Rect lowerRect(rect.TopLeft(), rect.BottomRight());
-    lowerRect.SetHeight(rect.Height()/2);
-    lowerRect.Move(0, midY);
-
-    // Now compute for our initial views...
-    topView->ComputeInitialLayout(upperRect);
-    bottomView->ComputeInitialLayout(lowerRect);
-}
-

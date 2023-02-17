@@ -93,6 +93,7 @@ const Rect &ViewLayout::ComputeLayout(const Rect &suggestedRect) {
             calcRect.Next = [](CalcRect &calcRect, bool last, ViewBase *view) {
                 calcRect.next = calcRect.initialRect;
             };
+            rect = suggestedRect;
             break;
         case kViewAnchor_FixedWidth :
             // We have fixed with, so set it...

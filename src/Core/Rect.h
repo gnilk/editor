@@ -40,6 +40,13 @@ namespace gedit {
             return false;
         }
 
+        const Point MidPt() const {
+            Point pt;
+            pt.x = (p2.x + p1.x) / 2;
+            pt.y = (p2.y + p1.y) / 2;
+            return pt;
+        }
+
         int Height() const {
             return p2.y - p1.y;
         }

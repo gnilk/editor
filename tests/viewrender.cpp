@@ -148,14 +148,17 @@ int main(int argc, const char **argv) {
     logger->Debug("Dimensions (x,y): %d, %d", dimensions.Width(), dimensions.Height());
 
     RootView rootView;
+    rootView.SetCaption("RootView");
     rootView.SetFlags(gedit::ViewBase::kViewNone);
 
     // The splitter holds Editor (upper) and Cmd (lower)
     HSplitView hSplitView;
+    hSplitView.SetCaption("HSplitView");
     hSplitView.SetFlags(gedit::ViewBase::kViewNone);
     rootView.AddView(&hSplitView);
 
     VSplitView vSplitView(Rect(dimensions.Width(), dimensions.Height() * 0.7));
+    vSplitView.SetCaption("VSplitView");
     vSplitView.SetFlags(gedit::ViewBase::kViewNone);
     hSplitView.SetTopView(&vSplitView);
 
@@ -164,6 +167,7 @@ int main(int argc, const char **argv) {
     hSplitView.SetBottomView(&commandView);
 
     GutterView gutterView;
+    gutterView.SetCaption("GutterView");
     gutterView.SetFlags((ViewBase::kViewFlags ) (ViewBase::kViewDrawLeftBorder | ViewBase::kViewDrawUpperBorder | ViewBase::kViewDrawLowerBorder));
     vSplitView.SetLeftView(&gutterView);
 
@@ -194,6 +198,9 @@ int main(int argc, const char **argv) {
     screen.BeginRefreshCycle();
     rootView.Draw();
     screen.EndRefreshCycle();
+
+    // Dump initial view tree..
+    rootView.DumpViewTree();
 
     // This is currently the run loop...
     while(!bQuit) {

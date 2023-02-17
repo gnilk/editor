@@ -47,7 +47,7 @@ void NCursesScreen::Close() {
 
 void NCursesScreen::Clear() {
     InvalidateAll();
-    clear();
+    //clear();
     szGutter = 0;
 }
 

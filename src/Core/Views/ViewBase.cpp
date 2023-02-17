@@ -53,6 +53,12 @@ void ViewBase::Draw() {
         subView->Draw();
         // reset this regardless - drawing should not cause full redraw - that is triggered by something else
     }
+
+//    screen->DrawRect(ViewRect());
+//    DrawCaption();
+
+
+
     if ((flags & kViewDrawBorder) == kViewDrawBorder) {
         screen->DrawRect(ViewRect());
     } else {
@@ -125,7 +131,8 @@ void ViewBase::DumpViewTree() {
 
 void ViewBase::DoDumpViewTree(ViewBase *view, int depth) {
     std::string indent(depth*4, ' ');
-    printf("%s%s (%d x %d) - (%d,%d)\n",
+    auto logger = gnilk::Logger::GetLogger("DumpViewTree");
+    logger->Debug("%s%s (%d x %d) - (%d,%d)",
            indent.c_str(), view->Caption().c_str(),
            view->ViewRect().TopLeft().x,
            view->ViewRect().TopLeft().y,

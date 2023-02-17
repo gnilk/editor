@@ -164,7 +164,7 @@ int main(int argc, const char **argv) {
     hSplitView.SetBottomView(&commandView);
 
     GutterView gutterView;
-    gutterView.SetFlags(gedit::ViewBase::kViewNone);
+    gutterView.SetFlags((ViewBase::kViewFlags ) (ViewBase::kViewDrawLeftBorder | ViewBase::kViewDrawUpperBorder | ViewBase::kViewDrawLowerBorder));
     vSplitView.SetLeftView(&gutterView);
 
     EditorView editorView;

@@ -22,6 +22,9 @@ bool EditController::HandleKeyPress(Cursor &cursor, size_t idxLine, const gedit:
     if (!textBuffer) {
         return false;
     }
+    // FIXME - not quite true, but as long as we don't deal with it yet....
+    if (keyPress.modifiers) return  false;
+
     auto line = textBuffer->LineAt(idxLine);
     if (DefaultEditLine(cursor, line, keyPress)) {
         return true;

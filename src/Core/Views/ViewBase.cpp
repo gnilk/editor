@@ -104,8 +104,10 @@ void ViewBase::DumpViewTree() {
 
 void ViewBase::DoDumpViewTree(ViewBase *view, int depth) {
     std::string indent(depth*4, ' ');
-    printf("%s%s (%d,%d)\n",
+    printf("%s%s (%d x %d) - (%d,%d)\n",
            indent.c_str(), view->Caption().c_str(),
+           view->ViewRect().TopLeft().x,
+           view->ViewRect().TopLeft().y,
            view->ViewRect().Width(),
            view->ViewRect().Height());
     for(auto s : subviews) {

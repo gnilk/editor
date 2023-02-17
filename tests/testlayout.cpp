@@ -19,13 +19,14 @@ int main(int argc, char **argv) {
     hSplitView.SetCaption("HSplit");
     rootView.AddView(&hSplitView);
 
+    VSplitView vSplitView;
+    vSplitView.SetCaption("VSplit");
+    hSplitView.SetTopView(&vSplitView);
+
     ViewBase cmdView;
     cmdView.SetCaption("CmdView");
     hSplitView.SetBottomView(&cmdView);
 
-    VSplitView vSplitView;
-    vSplitView.SetCaption("VSplit");
-    hSplitView.SetTopView(&vSplitView);
 
     GutterView gutterView;
     gutterView.SetCaption("Gutter");
@@ -35,6 +36,8 @@ int main(int argc, char **argv) {
     editorView.SetCaption("Editor");
     vSplitView.SetRightView(&editorView);
 
+    // Must...
+    rootView.Begin();
 
     // Compute the initial layout based on this rect...
     rootView.ComputeInitialLayout(Rect(100,100));

@@ -15,13 +15,15 @@ using namespace gedit;
 struct CalcRect {
     Point ptStart;
     Rect initialRect;
+    Rect next;
     int stepX;
     int stepY;
     int moveX;
     int moveY;
 
+
     std::function<void(CalcRect &, const Rect &, int)> Init = nullptr;
-    std::function<Rect(CalcRect &, int, ViewBase *view)> Next = nullptr;
+    std::function<void(CalcRect &, bool, ViewBase *view)> Next = nullptr;
 };
 
 static void InitHZStackCalc(CalcRect &calcRect, const Rect &initialRect, int nSubViews) {
@@ -29,15 +31,24 @@ static void InitHZStackCalc(CalcRect &calcRect, const Rect &initialRect, int nSu
     calcRect.initialRect = initialRect;
     calcRect.stepX = initialRect.Width() / nSubViews;
     calcRect.moveX = 0;
+
+    // 0
+    calcRect.next = initialRect;
+    calcRect.next.SetWidth(calcRect.stepX);
+
 }
 
-static Rect NextHZStackRect(CalcRect &calcRect, int viewNum, ViewBase *view) {
-    Rect nextRect(calcRect.ptStart, calcRect.initialRect.BottomRight());
-    nextRect.SetWidth(calcRect.stepX);
-    nextRect.Move(calcRect.moveX, 0);
-    calcRect.moveX += calcRect.stepX;
-    return nextRect;
+static void NextHZStackRect(CalcRect &calcRect, bool last, ViewBase *view) {
+    // Width of previous
+    calcRect.moveX += calcRect.next.Width();
 
+    calcRect.next = Rect(calcRect.initialRect.TopLeft(), calcRect.initialRect.BottomRight());
+    if (!last) {
+        calcRect.next.SetWidth(calcRect.stepX);
+    } else {
+        calcRect.next.SetWidth(calcRect.initialRect.Width() - calcRect.moveX);
+    }
+    calcRect.next.Move(calcRect.moveX, 0);
 }
 
 static void InitVertStackCalc(CalcRect &calcRect, const Rect &initialRect, int nSubViews) {
@@ -45,13 +56,21 @@ static void InitVertStackCalc(CalcRect &calcRect, const Rect &initialRect, int n
     calcRect.initialRect = initialRect;
     calcRect.stepY = initialRect.Height() / nSubViews;
     calcRect.moveY = 0;
+
+    // 0
+    calcRect.next = initialRect;
+    calcRect.next.SetHeight(calcRect.stepY);
+
 }
-static Rect NextVertStackRect(CalcRect &calcRect, int viewNum, ViewBase *view) {
-    Rect nextRect(calcRect.ptStart, calcRect.initialRect.BottomRight());
-    nextRect.SetHeight(calcRect.stepY);
-    nextRect.Move(0, calcRect.moveY);
-    calcRect.moveY += calcRect.stepY;
-    return nextRect;
+static void NextVertStackRect(CalcRect &calcRect, bool last, ViewBase *view) {
+    calcRect.moveY += calcRect.next.Height();
+    calcRect.next = Rect(calcRect.ptStart, calcRect.initialRect.BottomRight());
+    if (!last) {
+        calcRect.next.SetHeight(calcRect.stepY);
+    } else {
+        calcRect.next.SetHeight(calcRect.initialRect.Height() - calcRect.moveY);
+    }
+    calcRect.next.Move(0, calcRect.moveY);
 }
 
 
@@ -69,18 +88,20 @@ const Rect &ViewLayout::ComputeLayout(const Rect &suggestedRect) {
             // Fill mode - parent decides, do nothing...
             calcRect.Init = [](CalcRect &calcRect, const Rect &initialRect, int nSubViews) {
                 calcRect.initialRect = initialRect;
+                calcRect.next = calcRect.initialRect;
             };
-            calcRect.Next = [](CalcRect &calcRect, int viewNum, ViewBase *view) -> Rect {
-                return calcRect.initialRect;
+            calcRect.Next = [](CalcRect &calcRect, bool last, ViewBase *view) {
+                calcRect.next = calcRect.initialRect;
             };
             break;
         case kViewAnchor_FixedWidth :
             // We have fixed with, so set it...
             calcRect.Init = [](CalcRect &calcRect, const Rect &initialRect, int nSubViews) {
                 calcRect.initialRect = initialRect;
+                calcRect.next = calcRect.initialRect;
             };
-            calcRect.Next = [](CalcRect &calcRect, int viewNum, ViewBase *view) -> Rect {
-                return calcRect.initialRect;
+            calcRect.Next = [](CalcRect &calcRect, bool last, ViewBase *view)  {
+                calcRect.next = calcRect.initialRect;
             };
             newRect.SetWidth((rect.Width()));
             break;
@@ -88,9 +109,10 @@ const Rect &ViewLayout::ComputeLayout(const Rect &suggestedRect) {
             // We have fixed height, so set it...
             calcRect.Init = [](CalcRect &calcRect, const Rect &initialRect, int nSubViews) {
                 calcRect.initialRect = initialRect;
+                calcRect.next = calcRect.initialRect;
             };
-            calcRect.Next = [](CalcRect &calcRect, int viewNum, ViewBase *view) -> Rect {
-                return calcRect.initialRect;
+            calcRect.Next = [](CalcRect &calcRect, bool last, ViewBase *view) {
+                calcRect.next = calcRect.initialRect;
             };
             newRect.SetHeight(rect.Height());
             break;
@@ -114,11 +136,13 @@ const Rect &ViewLayout::ComputeLayout(const Rect &suggestedRect) {
             exit(1);
         }
         calcRect.Init(calcRect, newRect, viewBase->subviews.size());
-        Rect next;
+        Rect next(0,0);
         for (int i = 0; i < viewBase->subviews.size(); i++) {
             auto view = viewBase->subviews[i];
-            next = calcRect.Next(calcRect, i, view);
-            view->layout.ComputeLayout(next);
+            calcRect.next = view->layout.ComputeLayout(calcRect.next);
+
+            bool bLast = ((i+1) == (viewBase->subviews.size()-1));
+            calcRect.Next(calcRect, bLast, view);
         }
     }
     return rect;

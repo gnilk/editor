@@ -5,10 +5,11 @@
 #ifndef EDITOR_EDITORVIEW_H
 #define EDITOR_EDITORVIEW_H
 
-#include "Core/ViewBase.h"
 #include "Core/EditorMode.h"
 #include "Core/Controllers/EditController.h"
 #include "Core/Cursor.h"
+
+#include "ViewBase.h"
 
 #include "logger.h"
 

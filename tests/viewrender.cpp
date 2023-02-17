@@ -34,7 +34,6 @@
 
 #include "Core/NCurses/NCursesScreen.h"
 #include "Core/NCurses/NCursesKeyboardDriver.h"
-#include "Core/ViewBase.h"
 
 #include "Core/Line.h"
 #include "Core/ModeBase.h"
@@ -57,12 +56,16 @@
 #include "Core/NCurses/NCursesKeyboardDriver.h"
 #include "Core/macOS/MacOSKeyboardMonitor.h"
 
-#include "Core/GutterView.h"
-#include "Core/EditorView.h"
 #include "Core/BufferManager.h"
-#include "Core/RootView.h"
-#include "Core/CommandView.h"
 #include "Core/TextBuffer.h"
+
+// Bring in the view handling
+#include "Core/Views/ViewBase.h"
+#include "Core/Views/GutterView.h"
+#include "Core/Views/EditorView.h"
+#include "Core/Views/RootView.h"
+#include "Core/Views/CommandView.h"
+
 
 #include "logger.h"
 #include <map>

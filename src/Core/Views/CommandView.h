@@ -6,7 +6,7 @@
 #define EDITOR_COMMANDVIEW_H
 
 #include "Core/Controllers/CommandController.h"
-#include "Core/ViewBase.h"
+#include "ViewBase.h"
 #include "logger.h"
 
 namespace gedit {

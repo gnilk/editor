@@ -2,7 +2,7 @@
 // Created by gnilk on 14.02.23.
 //
 
-#include "Controllers/EditController.h"
+#include "Core/Controllers/EditController.h"
 #include "GutterView.h"
 
 using namespace gedit;

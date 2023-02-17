@@ -2,7 +2,7 @@
 // Created by gnilk on 14.02.23.
 //
 
-#include "RuntimeConfig.h"
+#include "Core/RuntimeConfig.h"
 #include "EditorView.h"
 
 using namespace gedit;

@@ -8,7 +8,7 @@
 #include "Core/ScreenBase.h"
 #include "Core/KeyboardDriverBase.h"
 #include "Core/ModeBase.h"
-#include "Core/ViewBase.h"
+#include "Core/Views/ViewBase.h"
 
 class RuntimeConfig {
 public:

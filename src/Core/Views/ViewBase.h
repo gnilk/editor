@@ -8,12 +8,12 @@
 #include <string>
 #include <vector>
 
-#include "Rect.h"
-#include "Point.h"
-#include "Line.h"
-#include "Cursor.h"
+#include "Core/Rect.h"
+#include "Core/Point.h"
+#include "Core/Line.h"
+#include "Core/Cursor.h"
 
-#include "DrawContext.h"
+#include "Core/DrawContext.h"
 
 // TEMP
 #include "Core/NCurses/NCursesKeyboardDriver.h"

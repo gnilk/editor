@@ -5,7 +5,7 @@
 #ifndef EDITOR_ROOTVIEW_H
 #define EDITOR_ROOTVIEW_H
 
-#include "Core/ViewBase.h"
+#include "ViewBase.h"
 
 namespace gedit {
     class RootView : public ViewBase {

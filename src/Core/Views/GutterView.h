@@ -5,6 +5,7 @@
 #ifndef EDITOR_GUTTERVIEW_H
 #define EDITOR_GUTTERVIEW_H
 
+#include "Core/Rect.h"
 #include "ViewBase.h"
 
 namespace gedit {

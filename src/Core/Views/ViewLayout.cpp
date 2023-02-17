@@ -34,19 +34,19 @@ static void InitHZStackCalc(CalcRect &calcRect, const Rect &initialRect, int nSu
 
     // 0
     calcRect.next = initialRect;
-    calcRect.next.SetWidth(calcRect.stepX);
+    calcRect.next.SetWidth(calcRect.stepX - 1);
 
 }
 
 static void NextHZStackRect(CalcRect &calcRect, bool last, ViewBase *view) {
     // Width of previous
-    calcRect.moveX += calcRect.next.Width();
+    calcRect.moveX += calcRect.next.Width() + 1;
 
     calcRect.next = Rect(calcRect.initialRect.TopLeft(), calcRect.initialRect.BottomRight());
     if (!last) {
-        calcRect.next.SetWidth(calcRect.stepX);
+        calcRect.next.SetWidth(calcRect.stepX - 1);
     } else {
-        calcRect.next.SetWidth(calcRect.initialRect.Width() - calcRect.moveX);
+        calcRect.next.SetWidth(calcRect.initialRect.Width() - calcRect.moveX - 1);
     }
     calcRect.next.Move(calcRect.moveX, 0);
 }
@@ -59,16 +59,16 @@ static void InitVertStackCalc(CalcRect &calcRect, const Rect &initialRect, int n
 
     // 0
     calcRect.next = initialRect;
-    calcRect.next.SetHeight(calcRect.stepY);
+    calcRect.next.SetHeight(calcRect.stepY - 1);
 
 }
 static void NextVertStackRect(CalcRect &calcRect, bool last, ViewBase *view) {
-    calcRect.moveY += calcRect.next.Height();
+    calcRect.moveY += calcRect.next.Height()+1;
     calcRect.next = Rect(calcRect.ptStart, calcRect.initialRect.BottomRight());
     if (!last) {
-        calcRect.next.SetHeight(calcRect.stepY);
+        calcRect.next.SetHeight(calcRect.stepY - 1);
     } else {
-        calcRect.next.SetHeight(calcRect.initialRect.Height() - calcRect.moveY);
+        calcRect.next.SetHeight(calcRect.initialRect.Height() - calcRect.moveY -1);
     }
     calcRect.next.Move(0, calcRect.moveY);
 }

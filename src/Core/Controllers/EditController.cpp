@@ -57,7 +57,7 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
     if (lines.size() == 0) {
         it = lines.insert(it, new Line());
     } else {
-        if (cursor.activeColumn == 0) {
+        if (cursor.position.x == 0) {
 //            logger->Debug("New line, previous was empty...");
 
             // Insert empty line...
@@ -68,7 +68,7 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
 //            logger->Debug("New line, split at %d", cursor.activeColumn);
             // Split, move some chars from current to new...
             auto newLine = new Line();
-            currentLine->Move(newLine, 0, cursor.activeColumn);
+            currentLine->Move(newLine, 0, cursor.position.x);
 
 //            logger->Debug("NewLine: 0,%d,%s", cursor.activeColumn, newLine->Buffer().data());
             // TODO: We should invalidate at least X number of lines...
@@ -91,7 +91,8 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
 //    logger->Debug("Line StartState: %d:%s:%s", idxActiveLine, lines[idxActiveLine]->startState.c_str(), lines[idxActiveLine]->Buffer().data());
 //    logger->Debug("---> NEW LINE DONE");
 
-    cursor.activeColumn = cursorPos;
+    cursor.wantedColumn = cursorPos;
+    cursor.position.x = cursorPos;
     return idxActiveLine;
 
 }

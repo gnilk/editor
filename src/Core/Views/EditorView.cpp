@@ -84,15 +84,35 @@ bool EditorView::UpdateNavigation(const gedit::NCursesKeyboardDriverNew::KeyPres
                 cursor.position.x = currentLine->Length();
             }
             break;
+        case kKey_Left :
+            cursor.position.x--;
+            if (cursor.position.x < 0) {
+                cursor.position.x = 0;
+            }
+            cursor.wantedColumn = cursor.position.x;
+            break;
+        case kKey_Right :
+//            if (keyPress.IsCtrlPressed()) {
+//                cursor.activeColumn+=4;
+//            } else {
+//                cursor.activeColumn++;
+//            }
+            cursor.position.x++;
+            if (cursor.position.x > currentLine->Length()) {
+                cursor.position.x = currentLine->Length();
+            }
+            cursor.wantedColumn = cursor.position.x;
+            break;
         case kKey_PageUp :
             OnNavigateUp(viewRect.Height());
             break;
         case kKey_PageDown :
             OnNavigateDown(viewRect.Height());
             break;
-        case Keyboard::kKeyCode_Return :
+        case kKey_Return :
             viewData.editController.NewLine(viewData.idxActiveLine, cursor);
-            screen->InvalidateAll();
+            OnNavigateDown(1);
+            InvalidateAll();
             break;
         default:
             // Not navigation

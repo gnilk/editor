@@ -3,20 +3,24 @@
 //
 /*
  * TO-DO List
- * - BaseController, handle key press (take from old ModeBase/EditorMode)
- * - Figure out how to handle 'HasContentChanged' notfications to force redraws..
+ * + BaseController, handle key press (take from old ModeBase/EditorMode)
+ * - Consolidate NCursesKeyBoard kKeyCode_xxxx with Keyboard::kKeyCode - currently there is a mismatch..
+ * + Figure out how to handle 'HasContentChanged' notfications to force redraws..
  *   a) be in the redraw loop and just do it (let the views take care of it)
  *   b) Somehow let a controller or view set a flag that a redraw is needed..
  * - CommandController, NOTE: THIS IS QUITE THE TASK
  *   a) Make it on par with the old CommandMode
  *   b) Break-out and start implement CmdLet handling
  *   c) Define the proper API for talking to the editor through the cmd-let's
- * - Create a specific HSplitView which can support a 'split' window like feature and on-request resize
+ * ! Create a specific HSplitView which can support a 'split' window like feature and on-request resize
  *   both views (upper/lower) in tandem..
  *   Note: This requires ability for a view to define 'lock'/'anchor' points and also to define relative vs absolute
  *   layout handling (this is getting frustratingly similar to CSS)
+ * - HSplitView - ability to a view to request 'Increased Size' by X..
+ *   This is nice to allow the command view to grow automatically to a certain size..
+ *   Could be that we 'lock' it to a minimum size (could be a configuration option)
  * - Create a 'StatusBar' view (Single line, no border)
- * - Create a VStackView, which simply 'stacks' and computes sizes accordingly when updated
+ * ! VStackView, which simply 'stacks' and computes sizes accordingly when updated
  * - Import the language/color features in to this project
  * - Promote this project to the new 'main' project...
  * - BufferManager should store 'fullPathName' and 'name'
@@ -164,15 +168,17 @@ int main(int argc, const char **argv) {
 
     CommandView commandView;
     commandView.SetCaption("CmdView");
+    commandView.SetFlags((ViewBase::kViewFlags)(ViewBase::kViewDrawUpperBorder | ViewBase::kViewDrawCaption));
     hSplitView.SetBottomView(&commandView);
 
     GutterView gutterView;
     gutterView.SetCaption("GutterView");
-    gutterView.SetFlags((ViewBase::kViewFlags ) (ViewBase::kViewDrawLeftBorder | ViewBase::kViewDrawUpperBorder | ViewBase::kViewDrawLowerBorder));
+    gutterView.SetFlags((ViewBase::kViewFlags)(ViewBase::kViewDrawRightBorder | ViewBase::kViewDrawUpperBorder));
     vSplitView.SetLeftView(&gutterView);
 
     EditorView editorView;
     editorView.SetCaption("Editor");
+    editorView.SetFlags((ViewBase::kViewFlags)(ViewBase::kViewDrawUpperBorder | ViewBase::kViewDrawCaption));
     vSplitView.SetRightView(&editorView);
 
 

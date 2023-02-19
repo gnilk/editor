@@ -41,6 +41,7 @@ public:
     void DrawLineWithAttributesAt(int x, int y, int nCharToPrint, Line &l) override;
 
 
+    NativeWindow CreateWindow(const gedit::Rect &rect) override;
 
 
     //std::pair<int, int> Dimensions() override;

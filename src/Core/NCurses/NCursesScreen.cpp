@@ -354,3 +354,8 @@ void NCursesScreen::DrawHLine(const gedit::Point &ptStart, const gedit::Point &p
     }
 }
 
+ScreenBase::NativeWindow NCursesScreen::CreateWindow(const gedit::Rect &rect) {
+    auto ncursesWindows = newwin(rect.Height(), rect.Width(), rect.TopLeft().y, rect.TopLeft().x);
+    wrefresh(ncursesWindows);
+    return (ScreenBase::NativeWindow)ncursesWindows;
+}

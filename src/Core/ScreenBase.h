@@ -15,6 +15,8 @@
 
 class ScreenBase {
 public:
+    using NativeWindow = void *;
+public:
     ScreenBase() = default;
     virtual ~ScreenBase() = default;
     virtual bool Open() { return false; }
@@ -67,6 +69,8 @@ public:
     virtual void DrawRect(const gedit::Rect &rect) {}
     virtual void DrawVLine(const gedit::Point &ptStart, const gedit::Point &ptEnd) {}
     virtual void DrawHLine(const gedit::Point &ptStart, const gedit::Point &ptEnd) {}
+
+    virtual NativeWindow CreateWindow(const gedit::Rect &rect) { return nullptr; }
 
     virtual void SetClipRect(const gedit::Rect &newClipRect) {
         clipRect = newClipRect;

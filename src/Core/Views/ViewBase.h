@@ -12,6 +12,7 @@
 #include "Core/Point.h"
 #include "Core/Line.h"
 #include "Core/Cursor.h"
+#include "Core/ScreenBase.h"
 
 #include "Core/DrawContext.h"
 #include "ViewLayout.h"
@@ -96,14 +97,16 @@ namespace gedit {
         // Call this to move the window but OnResize to handle the result
         virtual void Move(const Rect &newViewArea) final {
             layout.SetNewRect(newViewArea);
-            contentRect = newViewArea;
-            contentRect.Deflate(1,1);
+            RecomputeContentRect();
+//            contentRect = newViewArea;
+//            contentRect.Deflate(1,1);
             OnResized();
             InvalidateAll();
         }
 
         void SetFlags(kViewFlags newFlags) {
             flags = newFlags;
+            RecomputeContentRect();
         }
 
         kViewFlags Flags() {
@@ -205,7 +208,7 @@ namespace gedit {
         ViewLayout layout;
 
     private:
-        kViewFlags flags = (kViewFlags)(kViewDrawBorder | kViewDrawCaption);
+        kViewFlags flags = (kViewFlags)(kViewDrawCaption);
         std::string caption = "";
         bool invalidate = false;
         Rect contentRect;   // Content rectangle is the rect -1
@@ -214,6 +217,7 @@ namespace gedit {
         //std::vector<ViewBase *> subviews;       // List of all topviews
         DrawContext contentAreaDrawContext;
         bool isActive = false;
+        ScreenBase::NativeWindow nativeWindow;
     };
 
 

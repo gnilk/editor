@@ -24,9 +24,20 @@ void ViewBase::RecomputeContentRect() {
     // Verify this
     // contentRect.Deflate(1,0);
     // This works, now we can draw in context from 0.. < Height()
-    contentRect.SetHeight(contentRect.Height()-1);
-    contentRect.SetWidth(contentRect.Width()-1);
-    contentRect.Move(1,1);
+    if (flags & kViewFlags::kViewDrawLowerBorder) {
+        contentRect.SetHeight(contentRect.Height() - 1);
+    }
+
+    if (flags & kViewFlags::kViewDrawRightBorder) {
+        contentRect.SetWidth(contentRect.Width() - 1);
+    }
+    if (flags & kViewFlags::kViewDrawLeftBorder) {
+        contentRect.Move(1,0);
+    }
+
+    if ((flags & kViewFlags::kViewDrawUpperBorder) || ((flags & kViewFlags::kViewDrawCaption) && !caption.empty())) {
+        contentRect.Move(0, 1);
+    }
 }
 void ViewBase::OnKeyPress(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) {
     // Send down to root..
@@ -40,6 +51,7 @@ void ViewBase::OnKeyPress(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPr
 
 void ViewBase::Begin() {
     RecomputeContentRect();
+    nativeWindow = RuntimeConfig::Instance().Screen()->CreateWindow(ViewRect());
     for(auto subView : subviews) {
         subView->Begin();
     }
@@ -106,6 +118,10 @@ void ViewBase::Draw() {
 void ViewBase::DrawCaption() {
     auto screen = RuntimeConfig::Instance().Screen();
     auto topLeft = ViewRect().TopLeft();
+    if (!(flags & kViewDrawUpperBorder)) {
+        screen->DrawCharAt(topLeft.x,topLeft.y,'-');
+        screen->DrawCharAt(topLeft.x+1,topLeft.y,'-');
+    }
     screen->DrawCharAt(topLeft.x+2,topLeft.y,'|');
     screen->DrawStringAt(topLeft.x+3, topLeft.y, caption.c_str());
     screen->DrawCharAt(topLeft.x+3+caption.length(),topLeft.y,'|');

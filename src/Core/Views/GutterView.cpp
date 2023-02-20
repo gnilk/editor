@@ -28,14 +28,14 @@ void GutterView::DrawViewContents() {
         return;
     }
 
-    auto &ctx = ViewBase::ContentAreaDrawContext();
+    auto ctx = ViewBase::ContentAreaDrawContext();
     char str[64];
-    for(int i=0;i<ctx.ContextRect().Height();i++) {
+    for(int i=0;i<ctx->ContextRect().Height();i++) {
         int idxLine = i + viewData->viewTopLine;
         snprintf(str, 64, " %4d", idxLine);
         if (idxLine == viewData->idxActiveLine) {
             snprintf(str, 64, "*%4d", idxLine);
         }
-        ctx.DrawStringAt(0,i,str);
+        ctx->DrawStringAt(0,i,str);
     }
 }

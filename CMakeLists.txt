@@ -58,6 +58,7 @@ list(APPEND editorsrc src/Core/ScreenBase.h)
 list(APPEND editorsrc src/Core/NCurses/NCursesScreen.cpp src/Core/NCurses/NCursesScreen.h)
 list(APPEND editorsrc src/Core/NCurses/NCursesKeyboardDriver.cpp src/Core/NCurses/NCursesKeyboardDriver.h)
 list(APPEND editorsrc src/Core/NCurses/NCursesWindow.cpp src/Core/NCurses/NCursesWindow.h)
+list(APPEND editorsrc src/Core/NCurses/NCursesDrawContext.cpp src/Core/NCurses/NCursesDrawContext.h)
 
 # views
 list(APPEND editorsrc src/Core/Views/ViewBase.cpp src/Core/Views/ViewBase.h)
@@ -98,22 +99,15 @@ list(APPEND appsrc main.cpp)
 set(NCURSES_HOME /opt/homebrew/opt/ncurses)
 set(YAML_CPP_HOME /opt/homebrew/opt/yaml-cpp)
 
+# include and link directories for project and dependencies
+list(APPEND linkdirs ${NCURSES_HOME}/lib ${YAML_CPP_HOME}/lib)
+list(APPEND includedirs ${NCURSES_HOME}/include PUBLIC ${YAML_CPP_HOME}/include ext/logger/src src/)
+
 
 
 add_executable(editor ${appsrc} ${editorsrc})
-target_include_directories(editor PUBLIC ext/logger/src)
-
-target_include_directories(editor PUBLIC src)
-
-
-target_include_directories(editor PUBLIC ${NCURSES_HOME}/include)
-target_link_directories(editor  PUBLIC ${NCURSES_HOME}/lib)
-
-target_include_directories(editor PUBLIC ${YAML_CPP_HOME}/include)
-target_link_directories(editor  PUBLIC ${YAML_CPP_HOME}/lib)
-
-
-
+target_link_directories(editor PUBLIC ${linkdirs})
+target_include_directories(editor PUBLIC ${includedirs})
 target_link_libraries(editor ${extlibs})
 
 add_executable(kbdhook tests/kbdhooking.m)
@@ -123,12 +117,8 @@ target_link_libraries(kbdhook ${COCOA_FRAMEWORK} ${IOKIT_FRAMEWORK} ${GAMECONTRO
 # Keyboard monitor test
 #
 add_executable(kbdmon tests/kbdmon.cpp tests/MacOSKeyMonCGEvents.cpp ${editorsrc})
-target_include_directories(kbdmon PUBLIC ${NCURSES_HOME}/include)
-target_link_directories(kbdmon  PUBLIC ${NCURSES_HOME}/lib)
-target_include_directories(kbdmon PUBLIC ${YAML_CPP_HOME}/include)
-target_link_directories(kbdmon  PUBLIC ${YAML_CPP_HOME}/lib)
-target_include_directories(kbdmon PUBLIC ext/logger/src)
-target_include_directories(kbdmon PUBLIC src)
+target_link_directories(kbdmon PUBLIC ${linkdirs})
+target_include_directories(kbdmon PUBLIC ${includedirs})
 target_link_libraries(kbdmon ${extlibs}  ${CARBON_FRAMEWORK})
 # end kbdmon
 
@@ -172,22 +162,19 @@ target_link_libraries(nseventmon ${CORE_FOUNDATION} ${CORE_SERVICES} ${CORE_GRAP
 # view handling test renderering
 #
 add_executable(renderview tests/viewrender.cpp ${editorsrc})
-target_include_directories(renderview PUBLIC ext/logger/src)
-target_include_directories(renderview PUBLIC src)
-target_include_directories(renderview PUBLIC ${NCURSES_HOME}/include)
-target_link_directories(renderview  PUBLIC ${NCURSES_HOME}/lib)
-target_include_directories(renderview PUBLIC ${YAML_CPP_HOME}/include)
-target_link_directories(renderview  PUBLIC ${YAML_CPP_HOME}/lib)
+target_link_directories(renderview PUBLIC ${linkdirs})
+target_include_directories(renderview PUBLIC ${includedirs})
 target_link_libraries(renderview ${extlibs})
 
 add_executable(testlayout tests/testlayout.cpp ${editorsrc})
-target_include_directories(testlayout PUBLIC ext/logger/src)
-target_include_directories(testlayout PUBLIC src)
-target_include_directories(testlayout PUBLIC ${NCURSES_HOME}/include)
-target_link_directories(testlayout  PUBLIC ${NCURSES_HOME}/lib)
-target_include_directories(testlayout PUBLIC ${YAML_CPP_HOME}/include)
-target_link_directories(testlayout  PUBLIC ${YAML_CPP_HOME}/lib)
+target_link_directories(kbdmon PUBLIC ${linkdirs})
+target_include_directories(kbdmon PUBLIC ${includedirs})
 target_link_libraries(testlayout ${extlibs})
+
+add_executable(testscroll tests/testscroll.cpp ${editorsrc})
+target_link_directories(testscroll PUBLIC ${linkdirs})
+target_include_directories(testscroll PUBLIC ${includedirs})
+target_link_libraries(testscroll ${extlibs})
 
 
 #
@@ -197,11 +184,7 @@ list(APPEND utestsrc utests/test_buffermanager.cpp)
 
 
 add_library(libeditor SHARED ${editorsrc} ${utestsrc})
-target_include_directories(libeditor PUBLIC ext/logger/src)
-target_include_directories(libeditor PUBLIC src)
-target_include_directories(libeditor PUBLIC ${NCURSES_HOME}/include)
-target_link_directories(libeditor  PUBLIC ${NCURSES_HOME}/lib)
-target_include_directories(libeditor PUBLIC ${YAML_CPP_HOME}/include)
-target_link_directories(libeditor  PUBLIC ${YAML_CPP_HOME}/lib)
+target_link_directories(libeditor PUBLIC ${linkdirs})
+target_include_directories(libeditor PUBLIC ${includedirs})
 target_link_libraries(libeditor ${extlibs})
 

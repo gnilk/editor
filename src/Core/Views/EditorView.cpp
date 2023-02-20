@@ -35,14 +35,14 @@ void EditorView::OnResized() {
 
 
 void EditorView::DrawViewContents() {
-    auto &ctx = ViewBase::ContentAreaDrawContext();
+    auto ctx = ViewBase::ContentAreaDrawContext();
 
     // Draw from line array between these..
     if (IsInvalid()) {
         logger->Debug("Redrawing everything");
-        ctx.DrawLines(viewData.editController.Lines(), viewData.viewTopLine, viewData.viewBottomLine);
+        ctx->DrawLines(viewData.editController.Lines(), viewData.viewTopLine, viewData.viewBottomLine);
     } else {
-        ctx.DrawLine(viewData.editController.LineAt(viewData.idxActiveLine), cursor.position.y);
+        ctx->DrawLine(viewData.editController.LineAt(viewData.idxActiveLine), cursor.position.y);
     }
 }
 

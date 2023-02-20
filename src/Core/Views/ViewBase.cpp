@@ -10,9 +10,13 @@
 using namespace gedit;
 
 // This prepares and returns a reference to a bunch of drawing routines...
-DrawContext &ViewBase::ContentAreaDrawContext() {
+DrawContext *ViewBase::ContentAreaDrawContext() {
     RecomputeContentRect();
-    contentAreaDrawContext.Update(contentRect);
+    // Not good..
+    if (contentAreaDrawContext == nullptr) {
+        contentAreaDrawContext = new DrawContext();
+    }
+    contentAreaDrawContext->Update(contentRect);
     return contentAreaDrawContext;
 }
 void ViewBase::RecomputeContentRect() {
@@ -39,6 +43,7 @@ void ViewBase::RecomputeContentRect() {
         contentRect.Move(0, 1);
     }
 }
+
 void ViewBase::OnKeyPress(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) {
     // Send down to root..
     if (parentView != nullptr) {
@@ -47,11 +52,14 @@ void ViewBase::OnKeyPress(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPr
     }
 }
 
-
-
 void ViewBase::Begin() {
-    RecomputeContentRect();
     nativeWindow = RuntimeConfig::Instance().Screen()->CreateWindow(ViewRect());
+    if (contentAreaDrawContext != nullptr) {
+        delete contentAreaDrawContext;
+    }
+    contentAreaDrawContext = nativeWindow->CreateDrawContext();
+
+    RecomputeContentRect();
     for(auto subView : subviews) {
         subView->Begin();
     }
@@ -101,7 +109,6 @@ void ViewBase::Draw() {
     }
 
     // FIXME: Make sure we have the content area rect setup properly..
-
     screen->SetClipRect(contentRect);
     DrawViewContents();
     invalidate = false;
@@ -109,13 +116,19 @@ void ViewBase::Draw() {
     // Update cursor - if this view is active
     if (isActive) {
         Cursor screenCursor;
-        auto &ctx = ViewBase::ContentAreaDrawContext();
-        screenCursor.position = ctx.ToScreen(cursor.position);
+        // TODO: Revisit this, we probably do NOT need the cursor in absolute terms here...
+        auto ctx = ViewBase::ContentAreaDrawContext();
+        screenCursor.position = ctx->ToScreen(cursor.position);
         screen->SetCursor(screenCursor);
     }
+
+    // Always???
+    nativeWindow->Refresh();
+
 }
 
 void ViewBase::DrawCaption() {
+    // TODO: This needs to be verified
     auto screen = RuntimeConfig::Instance().Screen();
     auto topLeft = ViewRect().TopLeft();
     if (!(flags & kViewDrawUpperBorder)) {

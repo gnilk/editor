@@ -27,10 +27,12 @@ public:
     void RegisterColor(int appIndex, const ColorRGBA &foreground, const ColorRGBA &background) override;
 
     void DrawGutter(int idxStart) override;
-    void DrawLines(const std::vector<Line *> &lines, int idxActiveLine) override;
-    void DrawLineAt(int row, const std::string &prefix, const Line *line) override;
     void DrawBottomBar(const char *str) override;
     void DrawTopBar(const char *str) override;
+
+    // TODO: Put these in the WinDrawContext instead...
+    void DrawLines(const std::vector<Line *> &lines, int idxActiveLine) override;
+    void DrawLineAt(int row, const std::string &prefix, const Line *line) override;
     // Raw drawing routines
     void DrawCharAt(int x, int y, const char ch) override;
     void DrawStringAt(int x, int y, const char *str) override;
@@ -38,8 +40,6 @@ public:
     void DrawRect(const gedit::Rect &rect) override;
     void DrawVLine(const gedit::Point &ptStart, const gedit::Point &ptEnd) override;
     void DrawHLine(const gedit::Point &ptStart, const gedit::Point &ptEnd) override;
-
-
     void DrawLineWithAttributesAt(int x, int y, int nCharToPrint, Line &l) override;
 
 

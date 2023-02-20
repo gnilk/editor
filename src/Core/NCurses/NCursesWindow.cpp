@@ -14,5 +14,8 @@ void NCursesWindow::Scroll(int rows) {
         auto logger = gnilk::Logger::GetLogger("NCursesWindow");
         logger->Error("wscrl");
     }
+}
 
+void NCursesWindow::Refresh() {
+    wrefresh(window);
 }

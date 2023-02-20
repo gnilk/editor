@@ -117,7 +117,7 @@ namespace gedit {
             caption = newCaption;
         }
 
-        DrawContext &ContentAreaDrawContext();
+        DrawContext *ContentAreaDrawContext();
 
         // These are specifically for drawing of the view itself
         virtual void Draw();
@@ -197,6 +197,10 @@ namespace gedit {
 
         void DumpViewTree();
 
+        NativeWindow *GetNativeWindow() {
+            return nativeWindow;
+        }
+
     protected:
         void RecomputeContentRect();
     private:
@@ -206,7 +210,7 @@ namespace gedit {
         Cursor cursor = {};
         std::vector<ViewBase *> subviews;       // List of all topviews
         ViewLayout layout;
-        NativeWindow *nativeWindow = nullptr;   // Underlying Window (if any)
+        NativeWindow *nativeWindow = nullptr;   // Underlying Window
 
     private:
         kViewFlags flags = (kViewFlags)(kViewDrawCaption);
@@ -216,7 +220,7 @@ namespace gedit {
         void *sharedDataPtr = nullptr;
         ViewBase *parentView = nullptr;
         //std::vector<ViewBase *> subviews;       // List of all topviews
-        DrawContext contentAreaDrawContext;
+        DrawContext *contentAreaDrawContext = nullptr;
         bool isActive = false;
     };
 

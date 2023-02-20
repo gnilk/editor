@@ -6,6 +6,7 @@
 #define EDITOR_NCURSESWINDOW_H
 
 #include "Core/NativeWindow.h"
+#include "NCursesDrawContext.h"
 namespace gedit {
     class NCursesWindow : public NativeWindow {
     public:
@@ -15,7 +16,19 @@ namespace gedit {
         }
         virtual ~NCursesWindow() = default;
 
+        DrawContext *CreateDrawContext() override {
+            return new NCursesDrawContext((NativeWindowHandle)window);
+        }
+
+
         void Scroll(int rows) override;
+
+        void Refresh() override;
+
+        NativeWindowHandle NativeHandle() override {
+            return (NativeWindowHandle)window;
+        }
+
 
     private:
         WINDOW *window = nullptr;

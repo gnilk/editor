@@ -154,6 +154,7 @@ void EditorView::OnNavigateDown(int rows) {
             viewData.viewBottomLine += rows;
             // Request full redraw next time, as this caused a scroll...
             InvalidateAll();
+            //nativeWindow->Scroll(1);
         }
     }
 

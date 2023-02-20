@@ -10,6 +10,8 @@
 #include "Core/ScreenBase.h"
 #include "Core/Line.h"
 
+#include "NCursesWindow.h"
+
 class NCursesScreen : public ScreenBase {
 public:
     NCursesScreen() = default;
@@ -41,7 +43,7 @@ public:
     void DrawLineWithAttributesAt(int x, int y, int nCharToPrint, Line &l) override;
 
 
-    NativeWindow CreateWindow(const gedit::Rect &rect) override;
+    gedit::NativeWindow *CreateWindow(const gedit::Rect &rect) override;
 
 
     //std::pair<int, int> Dimensions() override;

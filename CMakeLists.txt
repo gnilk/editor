@@ -34,21 +34,31 @@ add_subdirectory(ext/logger ${CMAKE_BINARY_DIR}/logger)
 list(APPEND extlibs logger)
 
 
-list(APPEND editorsrc src/Core/Buffer.cpp src/Core/Buffer.h)
-list(APPEND editorsrc src/Core/Line.cpp src/Core/Line.h)
+# utility stuff
 list(APPEND editorsrc src/Core/StrUtil.cpp src/Core/StrUtil.h)
+list(APPEND editorsrc src/Core/HexDump.cpp src/Core/HexDump.h)
+list(APPEND editorsrc src/Core/ColorRGBA.cpp src/Core/ColorRGBA.h)
+list(APPEND editorsrc src/Core/KeyPress.cpp src/Core/KeyPress.h)
+
+# deprecation - once we are ready...
 list(APPEND editorsrc src/Core/ModeBase.cpp src/Core/ModeBase.h)
 list(APPEND editorsrc src/Core/CommandMode.cpp src/Core/CommandMode.cpp)
 list(APPEND editorsrc src/Core/EditorMode.cpp src/Core/EditorMode.cpp)
 list(APPEND editorsrc src/Core/KeyboardDriverBase.cpp src/Core/KeyboardDriverBase.h)
+
+# Config
 list(APPEND editorsrc src/Core/RuntimeConfig.cpp src/Core/RuntimeConfig.cpp)
-list(APPEND editorsrc src/Core/KeyPress.cpp src/Core/KeyPress.h)
-list(APPEND editorsrc src/Core/Tokenizer.cpp src/Core/Tokenizer.h)
-list(APPEND editorsrc src/Core/ColorRGBA.cpp src/Core/ColorRGBA.h)
-list(APPEND editorsrc src/Core/Language/LangLineTokenizer.cpp src/Core/Language/LangLineTokenizer.h)
-list(APPEND editorsrc src/Core/HexDump.cpp src/Core/HexDump.h)
 list(APPEND editorsrc src/Core/Config/Config.cpp src/Core/Config/Config.h)
 list(APPEND editorsrc src/Core/Config/ColorConfig.cpp src/Core/Config/ColorConfig.h)
+# Native/Platform
+list(APPEND editorsrc src/Core/NativeWindow.h)
+list(APPEND editorsrc src/Core/ScreenBase.h)
+
+# NCurses
+list(APPEND editorsrc src/Core/NCurses/NCursesScreen.cpp src/Core/NCurses/NCursesScreen.h)
+list(APPEND editorsrc src/Core/NCurses/NCursesKeyboardDriver.cpp src/Core/NCurses/NCursesKeyboardDriver.h)
+list(APPEND editorsrc src/Core/NCurses/NCursesWindow.cpp src/Core/NCurses/NCursesWindow.h)
+
 # views
 list(APPEND editorsrc src/Core/Views/ViewBase.cpp src/Core/Views/ViewBase.h)
 list(APPEND editorsrc src/Core/Views/RootView.cpp src/Core/Views/RootView.h)
@@ -67,24 +77,20 @@ list(APPEND editorsrc src/Core/Controllers/BaseController.cpp src/Core/Controlle
 list(APPEND editorsrc src/Core/Controllers/EditController.cpp src/Core/Controllers/EditController.h)
 list(APPEND editorsrc src/Core/Controllers/CommandController.cpp src/Core/Controllers/CommandController.h)
 # text buffer handling
+list(APPEND editorsrc src/Core/Buffer.cpp src/Core/Buffer.h)
+list(APPEND editorsrc src/Core/Line.cpp src/Core/Line.h)
 list(APPEND editorsrc src/Core/BufferManager.cpp src/Core/BufferManager.h)
 list(APPEND editorsrc src/Core/TextBuffer.cpp src/Core/TextBuffer.h)
-
-#
 # Language analysis
-#
+list(APPEND editorsrc src/Core/Tokenizer.cpp src/Core/Tokenizer.h)
+list(APPEND editorsrc src/Core/Language/LangLineTokenizer.cpp src/Core/Language/LangLineTokenizer.h)
 list(APPEND editorsrc src/Core/Language/LanguageBase.cpp src/Core/Language/LanguageBase.h)
 list(APPEND editorsrc src/Core/Language/CPP/CPPLanguage.cpp src/Core/Language/CPP/CPPLanguage.h)
 list(APPEND editorsrc src/Core/Language/LangToken.cpp src/Core/Language/LangToken.h)
-
-
 # sublime config/scripting support
 list(APPEND editorsrc src/Core/Sublime/SublimeConfigScriptEngine.cpp src/Core/Sublime/SublimeConfigScriptEngine.h)
 list(APPEND editorsrc src/Core/Sublime/SublimeConfigColorScript.cpp src/Core/Sublime/SublimeConfigColorScript.h)
 
-# TODO: Revisit this - perhaps better somewhere else
-list(APPEND editorsrc src/Core/NCurses/NCursesScreen.cpp src/Core/NCurses/NCursesScreen.h)
-list(APPEND editorsrc src/Core/NCurses/NCursesKeyboardDriver.cpp src/Core/NCurses/NCursesKeyboardDriver.h)
 
 list(APPEND appsrc main.cpp)
 

@@ -11,11 +11,10 @@
 #include "Core/Line.h"
 #include "Core/ColorRGBA.h"
 #include "Core/Cursor.h"
+#include "Core/NativeWindow.h"
 #include "Rect.h"
 
 class ScreenBase {
-public:
-    using NativeWindow = void *;
 public:
     ScreenBase() = default;
     virtual ~ScreenBase() = default;
@@ -70,7 +69,7 @@ public:
     virtual void DrawVLine(const gedit::Point &ptStart, const gedit::Point &ptEnd) {}
     virtual void DrawHLine(const gedit::Point &ptStart, const gedit::Point &ptEnd) {}
 
-    virtual NativeWindow CreateWindow(const gedit::Rect &rect) { return nullptr; }
+    virtual gedit::NativeWindow *CreateWindow(const gedit::Rect &rect) { return nullptr; }
 
     virtual void SetClipRect(const gedit::Rect &newClipRect) {
         clipRect = newClipRect;

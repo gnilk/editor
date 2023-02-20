@@ -6,6 +6,7 @@
 //
 
 #include <ncurses.h>
+#include "NCursesWindow.h"
 #include "NCursesScreen.h"
 
 bool NCursesScreen::Open() {
@@ -354,8 +355,9 @@ void NCursesScreen::DrawHLine(const gedit::Point &ptStart, const gedit::Point &p
     }
 }
 
-ScreenBase::NativeWindow NCursesScreen::CreateWindow(const gedit::Rect &rect) {
-    auto ncursesWindows = newwin(rect.Height(), rect.Width(), rect.TopLeft().y, rect.TopLeft().x);
-    wrefresh(ncursesWindows);
-    return (ScreenBase::NativeWindow)ncursesWindows;
+gedit::NativeWindow *NCursesScreen::CreateWindow(const gedit::Rect &rect) {
+    auto winptr = newwin(rect.Height(), rect.Width(), rect.TopLeft().y, rect.TopLeft().x);
+    wrefresh(winptr);
+    scrollok(winptr, TRUE);
+    return new gedit::NCursesWindow(winptr);
 }

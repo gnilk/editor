@@ -13,7 +13,7 @@
 #include "Core/Line.h"
 #include "Core/Cursor.h"
 #include "Core/ScreenBase.h"
-
+#include "Core/NativeWindow.h"
 #include "Core/DrawContext.h"
 #include "ViewLayout.h"
 
@@ -206,6 +206,7 @@ namespace gedit {
         Cursor cursor = {};
         std::vector<ViewBase *> subviews;       // List of all topviews
         ViewLayout layout;
+        NativeWindow *nativeWindow = nullptr;   // Underlying Window (if any)
 
     private:
         kViewFlags flags = (kViewFlags)(kViewDrawCaption);
@@ -217,7 +218,6 @@ namespace gedit {
         //std::vector<ViewBase *> subviews;       // List of all topviews
         DrawContext contentAreaDrawContext;
         bool isActive = false;
-        ScreenBase::NativeWindow nativeWindow;
     };
 
 

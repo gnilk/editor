@@ -9,10 +9,10 @@
 using namespace gedit;
 
 void RootView::Draw() {
-    if (IsInvalid()) {
-        auto screen = RuntimeConfig::Instance().Screen();
-        screen->Clear();
-    }
+//    if (IsInvalid()) {
+//        auto screen = RuntimeConfig::Instance().Screen();
+//        screen->Clear();
+//    }
     // Let's draw the rest...
     ViewBase::Draw();
 }

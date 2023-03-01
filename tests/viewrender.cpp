@@ -25,7 +25,8 @@
  * - Promote this project to the new 'main' project...
  * - BufferManager should store 'fullPathName' and 'name'
  * - Unsaved file should have '*' marking in the top..
- *
+ * - Consider relationship between view/context/window - right now there is too much flexibility
+ * - Only views with content should have an NCurses Window structure..
  *
  */
 #include <iostream>
@@ -213,14 +214,15 @@ int main(int argc, const char **argv) {
         // This is way too simple - need better handling here!
         // Background stuff can cause need to repaint...
         auto keyPress = keyboardDriver.GetKeyPress();
-
-        rootView.TopView()->OnKeyPress(keyPress);
-        screen.BeginRefreshCycle();
-        rootView.Draw();
-        screen.EndRefreshCycle();
-        //screen.Update();
-        if (screen.IsSizeChanged(true)) {
-            screen.Clear();
+        if (keyPress.isKeyValid) {
+            rootView.TopView()->OnKeyPress(keyPress);
+            screen.BeginRefreshCycle();
+            rootView.Draw();
+            screen.EndRefreshCycle();
+            //screen.Update();
+            if (screen.IsSizeChanged(true)) {
+                screen.Clear();
+            }
         }
     }
     logger->Debug("Left main loop, closing graphics subsystem");

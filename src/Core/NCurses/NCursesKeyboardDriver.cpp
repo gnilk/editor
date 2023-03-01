@@ -35,6 +35,7 @@ static std::map<int, int> ncurses_translation_map_new = {
 
 NCursesKeyboardDriverNew::KeyPress NCursesKeyboardDriverNew::GetKeyPress() {
     KeyPress keyPress;
+    auto rootView = RuntimeConfig::Instance().View();
 
     auto ch = getch();
     if (!kbdEvents.empty()) {

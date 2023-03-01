@@ -118,6 +118,18 @@ const Rect &ViewLayout::ComputeLayout(const Rect &suggestedRect) {
             rect.SetWidth(suggestedRect.Width());
             //newRect.SetHeight(rect.Height());
             break;
+        case kViewAnchor_Fixed :
+            // We have fixed height, so set it...
+            calcRect.Init = [](CalcRect &calcRect, const Rect &initialRect, int nSubViews) {
+                calcRect.initialRect = initialRect;
+                calcRect.next = calcRect.initialRect;
+            };
+            calcRect.Next = [](CalcRect &calcRect, bool last, ViewBase *view) {
+                calcRect.next = calcRect.initialRect;
+            };
+            rect.SetWidth(suggestedRect.Width());
+            rect.SetHeight(suggestedRect.Height());
+            break;
         case kViewAnchor_HorizontalStack :
             calcRect.Init = InitHZStackCalc;
             calcRect.Next = NextHZStackRect;

@@ -7,6 +7,7 @@
 using namespace gedit;
 
 void CommandView::Begin() {
+    ViewBase::Begin();
     // We own the cursor, so we need to reset it on new lines...
     logger = gnilk::Logger::GetLogger("CommandView");
     commandController.SetNewLineNotificationHandler([this]()->void {

@@ -111,7 +111,6 @@ void ViewBase::Draw() {
     // FIXME: Make sure we have the content area rect setup properly..
     screen->SetClipRect(contentRect);
     DrawViewContents();
-    invalidate = false;
 
     // Update cursor - if this view is active
     if (isActive) {
@@ -121,10 +120,10 @@ void ViewBase::Draw() {
         screenCursor.position = ctx->ToScreen(cursor.position);
         screen->SetCursor(screenCursor);
     }
-
-    // Always???
-    nativeWindow->Refresh();
-
+    if (invalidate && (nativeWindow!= nullptr) && (subviews.size() == 0)) {
+        nativeWindow->Refresh();
+    }
+    invalidate = false;
 }
 
 void ViewBase::DrawCaption() {

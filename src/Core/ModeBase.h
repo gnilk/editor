@@ -44,7 +44,7 @@ protected:
     OnExitMode onExitMode = nullptr;
     OnExitApp  onExitApp = nullptr;
     // not sure...
-    Cursor cursor = {0,0};
+    Cursor cursor = {.position = {0,0}};
     int columnOffset = 0;
 };
 

@@ -17,5 +17,6 @@ void NCursesWindow::Scroll(int rows) {
 }
 
 void NCursesWindow::Refresh() {
-    wrefresh(window);
+    touchwin(window);
+    wnoutrefresh(window);
 }

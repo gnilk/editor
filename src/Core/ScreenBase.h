@@ -45,6 +45,7 @@ public:
 
     virtual void NoGutter() { szGutter = 0; }
     // Note: This is very specific for the editor-view
+    // FIXME: Remove this
     virtual void DrawGutter(int idxStart) {}
     virtual void DrawLines(const std::vector<Line *> &lines, int idxActiveLine) {}
     virtual void DrawLineAt(int row, const std::string &prefix, const Line *line) {}
@@ -58,6 +59,7 @@ public:
 //    virtual std::pair<int, int> Dimensions() { return std::make_pair(0,0); }
     virtual gedit::Rect Dimensions() { return {}; }
 
+    // FIXME: Remove this
     virtual void Scroll(int nLines) {}
 
     // RAW Drawing routines

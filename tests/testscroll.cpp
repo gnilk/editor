@@ -89,23 +89,55 @@ int main(int argc, char **argv) {
     auto dimensions = screen.Dimensions();
 
     logger->Debug("Dimensions (x,y): %d, %d", dimensions.Width(), dimensions.Height());
-    RootView rootView;
+
+    //Rect rootRect(Point(5,5),5,5);
+    RootView rootView;//(rootRect);
     rootView.SetCaption("EditorView");
     rootView.SetFlags(gedit::ViewBase::kViewNone);
+    rootView.SetViewAnchoring(gedit::ViewLayout::kViewAnchor_Fill);
 
     rootView.ComputeInitialLayout(Rect(dimensions.Width()-1, dimensions.Height()-1));
     rootView.Begin();
+
+    rootView.InvalidateAll();
+    //screen.BeginRefreshCycle();
     //rootView.InvalidateAll();
 
+    RuntimeConfig::Instance().SetRootView(&rootView);
+
     // In order for scrolling to work the output must be associated with the native-window
-    auto dc = rootView.ContentAreaDrawContext();
+    auto window = rootView.GetNativeWindow()->NativeHandle();
+
+//    wclear((WINDOW *)window);
+    //auto dc = rootView.ContentAreaDrawContext();
     for(int i=0;i<10;i++) {
         char buffer[64];
         snprintf(buffer, 64, "line %d", i);
-        //mvwprintw(win, i,0, buffer);
+        int res = mvwprintw((WINDOW *)window, i,0, buffer);
+        if (res == ERR) {
+            int breakme;
+            breakme = 1;
+        }
         // mvprintw(i,0, buffer);
-        dc->DrawStringAt(0,i, buffer);
+        //dc->DrawStringAt(0,i, buffer);
     }
+    wnoutrefresh((WINDOW *)window);
+    doupdate();
+    while(!bQuit) {
+        // Maybe I need to do something here...
+        auto key = wgetch((WINDOW *)window);
+        if (key == ERR) {
+            continue;
+        }
+        bQuit = true;
+    }
+    return -1;
+
+
+
+//    screen.EndRefreshCycle();
+//    rootView.GetNativeWindow()->Refresh();
+//    screen.Update();
 
 //    auto buffer = BufferManager::Instance().NewBufferFromFile("test_src2.cpp");
 //    rootView.GetEditController().SetTextBuffer(buffer);
@@ -116,9 +148,9 @@ int main(int argc, char **argv) {
         }
 
 //        screen.BeginRefreshCycle();
-        rootView.Draw();
+//        rootView.Draw();
 //        screen.EndRefreshCycle();
-        //screen.Update();
+//        screen.Update();
 //        if (screen.IsSizeChanged(true)) {
 //            screen.Clear();
 //        }

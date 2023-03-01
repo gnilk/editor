@@ -54,9 +54,7 @@ void NCursesDrawContext::DrawCharAt(int x, int y, const char ch) {
 
 void NCursesDrawContext::DrawStringAt(const Point &pt, const char *str) {
     wmove((WINDOW *)win, pt.y, pt.x);
-
     waddstr((WINDOW *)win, str);
-
 }
 
 void NCursesDrawContext::DrawStringAt(int x, int y, const char *str) {
@@ -65,7 +63,7 @@ void NCursesDrawContext::DrawStringAt(int x, int y, const char *str) {
 }
 
 void NCursesDrawContext::DrawStringAt(int x, int y, int nCharToPrint, const char *str) {
-    move(y, x);
+    wmove((WINDOW *)win, y, x);
     waddnstr((WINDOW *)win,str,nCharToPrint);
 }
 

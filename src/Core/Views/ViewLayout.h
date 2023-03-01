@@ -20,8 +20,9 @@ namespace gedit {
             kViewAnchor_Fill = 0,           // This is the default
             kViewAnchor_FixedWidth = 1,
             kViewAnchor_FixedHeight = 2,
-            kViewAnchor_VerticalStack = 3,      // Split sub items vertically (stack subviews on top of each other)
-            kViewAnchor_HorizontalStack = 4,    // Split sub items horizontally (stack subviews next of each other)
+            kViewAnchor_Fixed = 3,              // Fixed width and height
+            kViewAnchor_VerticalStack = 4,      // Split sub items vertically (stack subviews on top of each other)
+            kViewAnchor_HorizontalStack = 5,    // Split sub items horizontally (stack subviews next of each other)
             // Note: A fully fledged system should have plenty more (Relative, etc..) but I don't need them
         } kViewAnchoring;
     public:

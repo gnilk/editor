@@ -53,14 +53,17 @@ void NCursesScreen::Clear() {
 }
 
 void NCursesScreen::Update() {
-    refresh();
+    doupdate();
+//    refresh();
+//    doupdate();
+//    wrefresh(curscr);
 }
 void NCursesScreen::BeginRefreshCycle() {
     // clear();
 }
 void NCursesScreen::EndRefreshCycle() {
     move(cursor.position.y, cursor.position.x);
-    refresh();
+ //   refresh();
 }
 
 

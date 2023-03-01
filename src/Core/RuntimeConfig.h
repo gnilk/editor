@@ -7,49 +7,62 @@
 
 #include "Core/ScreenBase.h"
 #include "Core/KeyboardDriverBase.h"
-#include "Core/ModeBase.h"
 #include "Core/Views/ViewBase.h"
+namespace gedit {
+    class IOutputConsole {
+    public:
+        virtual void WriteLine(const std::string &str) = 0;
+    };
+    class RuntimeConfig {
+    public:
+        static RuntimeConfig &Instance();
 
-class RuntimeConfig {
-public:
-    static RuntimeConfig &Instance();
-
-    void SetKeyboard(KeyboardDriverBase &kbd) {
-        keyboard = &kbd;
-    }
-    void SetScreen(ScreenBase &scr) {
-        screen = &scr;
-    }
-    void SetOutputConsole(IOutputConsole *newOutputConsole) {
-        outputConsole = newOutputConsole;
-    }
-    void SetRootView(gedit::ViewBase *newRootView) {
-        view = newRootView;
-    }
-
-    KeyboardDriverBase *Keyboard() {
-        return keyboard;
-    }
-    ScreenBase *Screen() {
-        return screen;
-    }
-    IOutputConsole *OutputConsole() {
-        return outputConsole;
-    }
-
-    gedit::ViewBase *View() {
-        return view;
-    }
+        void SetKeyboard(KeyboardDriverBase &kbd) {
+            keyboard = &kbd;
+        }
+        void SetScreen(ScreenBase &scr) {
+            screen = &scr;
+        }
+        void SetOutputConsole(IOutputConsole *newOutputConsole) {
+            outputConsole = newOutputConsole;
+        }
+        void SetRootView(gedit::ViewBase *newRootView) {
+            view = newRootView;
+        }
+        void SetWindow(WindowBase *newWindow) {
+            window = newWindow;
+        }
 
 
-private:
-    RuntimeConfig() = default;
-private:
-    KeyboardDriverBase *keyboard = nullptr;
-    ScreenBase *screen = nullptr;
-    gedit::ViewBase *view = nullptr;
-    IOutputConsole *outputConsole = nullptr;
+        KeyboardDriverBase *Keyboard() {
+            return keyboard;
+        }
+        ScreenBase *Screen() {
+            return screen;
+        }
+        IOutputConsole *OutputConsole() {
+            return outputConsole;
+        }
 
-};
+        WindowBase *Window() {
+            return window;
+        }
+
+        ViewBase *View() {
+            return view;
+        }
+
+
+    private:
+        RuntimeConfig() = default;
+    private:
+        KeyboardDriverBase *keyboard = nullptr;
+        ScreenBase *screen = nullptr;
+        ViewBase *view = nullptr;
+        WindowBase *window = nullptr;
+        IOutputConsole *outputConsole = nullptr;
+
+    };
+}
 
 #endif //EDITOR_RUNTIMECONFIG_H

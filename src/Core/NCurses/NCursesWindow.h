@@ -1,39 +1,44 @@
 //
-// Created by gnilk on 20.02.23.
+// Created by gnilk on 22.02.23.
 //
 
-#ifndef EDITOR_NCURSESWINDOW_H
-#define EDITOR_NCURSESWINDOW_H
+#ifndef NCWIN_NCURSESWINDOW_H
+#define NCWIN_NCURSESWINDOW_H
 
-#include "Core/NativeWindow.h"
-#include "NCursesDrawContext.h"
+#include "Core/WindowBase.h"
+#include "Core/Rect.h"
 namespace gedit {
-    class NCursesWindow : public NativeWindow {
+    class NCursesWindow : public WindowBase {
     public:
         NCursesWindow() = default;
-        explicit NCursesWindow(WINDOW *ncursesWindow) : window(ncursesWindow) {
+        explicit NCursesWindow(const Rect &rect) : WindowBase(rect) {
 
         }
         virtual ~NCursesWindow() = default;
+        void Initialize(WindowBase::kWinFlags flags, WindowBase::kWinDecoration newDecoFlags) override;
 
-        DrawContext *CreateDrawContext() override {
-            return new NCursesDrawContext((NativeWindowHandle)window);
+        DrawContext &GetContentDC() override;
+        void Clear() override {
+            wclear((WINDOW *)winptr);
+        }
+        void Refresh() override {
+            wnoutrefresh((WINDOW *)winptr);
+            if (clientWindow != nullptr) {
+                wnoutrefresh((WINDOW *)clientWindow);
+            }
         }
 
 
-        void Scroll(int rows) override;
-
-        void Refresh() override;
-
-        NativeWindowHandle NativeHandle() override {
-            return (NativeWindowHandle)window;
-        }
-
-
+    public:
+        // Border, menus and such
+        void DrawWindowDecoration() override;
     private:
-        WINDOW *window = nullptr;
+        void CreateNCursesWindows();
+    private:
+        DrawContext *clientContext = nullptr;
+        WINDOW *clientWindow = nullptr;
     };
+
 }
 
-
-#endif //EDITOR_NCURSESWINDOW_H
+#endif //NCWIN_NCURSESWINDOW_H

@@ -7,21 +7,29 @@
 
 using namespace gedit;
 
-void EditorView::Begin() {
-    ViewBase::Begin();  // This is a good idea..
+void EditorView::InitView()  {
     logger = gnilk::Logger::GetLogger("EditorView");
+
+    auto screen = RuntimeConfig::Instance().Screen();
+    if (viewRect.IsEmpty()) {
+        viewRect = screen->Dimensions();
+    }
+    window = screen->CreateWindow(viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_Border);
+
+    auto &rect = window->GetContentDC().GetRect();
+
     // This is the visible area...
     viewData.viewTopLine = 0;
-    viewData.viewBottomLine = ContentRect().Height();
+    viewData.viewBottomLine = rect.Height();
     viewData.editController.SetTextBufferChangedHandler([this]()->void {
        auto textBuffer = viewData.editController.GetTextBuffer();
-       this->SetCaption(textBuffer->Name());
+       window->SetCaption(textBuffer->Name());
     });
 
 
     // We own the view-data but let's share it - this allows other views to READ it..
-    if (ParentView() != nullptr) {
-        ParentView()->SetSharedData(&viewData);
+    if (GetParentView() != nullptr) {
+        GetParentView()->SetSharedData(&viewData);
     }
 
 
@@ -29,24 +37,24 @@ void EditorView::Begin() {
 
 void EditorView::OnResized() {
     // Update the view Bottom line - as this affects how many lines we draw...
-    viewData.viewBottomLine = ContentRect().Height();
+    viewData.viewBottomLine = GetContentRect().Height();
     ViewBase::OnResized();
 }
 
 
 void EditorView::DrawViewContents() {
-    auto ctx = ViewBase::ContentAreaDrawContext();
+    auto ctx = window->GetContentDC(); //ViewBase::ContentAreaDrawContext();
 
     // Draw from line array between these..
     if (IsInvalid()) {
         logger->Debug("Redrawing everything");
-        ctx->DrawLines(viewData.editController.Lines(), viewData.viewTopLine, viewData.viewBottomLine);
+        //ctx.DrawLines(viewData.editController.Lines(), viewData.viewTopLine, viewData.viewBottomLine);
     } else {
-        ctx->DrawLine(viewData.editController.LineAt(viewData.idxActiveLine), cursor.position.y);
+        //ctx.DrawLine(viewData.editController.LineAt(viewData.idxActiveLine), cursor.position.y);
     }
 }
 
-void EditorView::OnKeyPress(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) {
+void EditorView::OnKeyPress(const KeyPress &keyPress) {
     if (!keyPress.isKeyValid) return;
 
     if (viewData.editController.HandleKeyPress(cursor, viewData.idxActiveLine, keyPress)) {
@@ -59,9 +67,9 @@ void EditorView::OnKeyPress(const gedit::NCursesKeyboardDriverNew::KeyPress &key
     ViewBase::OnKeyPress(keyPress);
 }
 
-bool EditorView::UpdateNavigation(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) {
+bool EditorView::UpdateNavigation(const KeyPress &keyPress) {
     auto screen = RuntimeConfig::Instance().Screen();
-    auto viewRect = ViewRect();
+    auto viewRect = GetContentRect();
 
     auto currentLine = viewData.editController.LineAt(viewData.idxActiveLine);
 
@@ -148,8 +156,8 @@ void EditorView::OnNavigateDown(int rows) {
     currentLine = lines[viewData.idxActiveLine];
     currentLine->SetActive(true);
 
-    if (viewData.idxActiveLine > ContentRect().Height()-1) {
-        if (!(cursor.position.y < ContentRect().Height()-1)) {
+    if (viewData.idxActiveLine > GetContentRect().Height()-1) {
+        if (!(cursor.position.y < GetContentRect().Height()-1)) {
             viewData.viewTopLine += rows;
             viewData.viewBottomLine += rows;
             // Request full redraw next time, as this caused a scroll...
@@ -159,8 +167,8 @@ void EditorView::OnNavigateDown(int rows) {
     }
 
     cursor.position.y = viewData.idxActiveLine - viewData.viewTopLine;
-    if (cursor.position.y > ContentRect().Height()-1) {
-        cursor.position.y = ContentRect().Height()-1;
+    if (cursor.position.y > GetContentRect().Height()-1) {
+        cursor.position.y = GetContentRect().Height()-1;
     }
 
 
@@ -185,7 +193,7 @@ void EditorView::OnNavigateUp(int rows) {
         viewData.viewBottomLine -= delta;
         if (viewData.viewTopLine < 0) {
             viewData.viewTopLine = 0;
-            viewData.viewBottomLine = ContentRect().Height();
+            viewData.viewBottomLine = GetContentRect().Height();
         }
         // Request full redraw (this caused a scroll)
         InvalidateAll();

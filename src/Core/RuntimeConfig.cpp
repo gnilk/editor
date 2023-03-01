@@ -4,6 +4,7 @@
 
 #include "Core/RuntimeConfig.h"
 
+using namespace gedit;
 RuntimeConfig &RuntimeConfig::Instance() {
     static RuntimeConfig config;
     return config;

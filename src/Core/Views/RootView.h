@@ -1,48 +1,37 @@
 //
-// Created by gnilk on 15.02.23.
+// Created by gnilk on 24.02.23.
 //
 
-#ifndef EDITOR_ROOTVIEW_H
-#define EDITOR_ROOTVIEW_H
+#ifndef NCWIN_ROOTVIEW_H
+#define NCWIN_ROOTVIEW_H
 
+#include "Core/RuntimeConfig.h"
 #include "ViewBase.h"
 
 namespace gedit {
+    // The root view should be the first view and cover the full screen...
     class RootView : public ViewBase {
     public:
-        RootView() = default;
-        explicit RootView(const Rect &viewArea) : ViewBase(viewArea) {
-
+        RootView() {
         }
-        virtual ~RootView() = default;
-
-        void Draw() override;
-
+        void InitView() override {
+            auto screen = RuntimeConfig::Instance().Screen();
+            viewRect = screen->Dimensions();
+            window = screen->CreateWindow(viewRect, WindowBase::kWin_Invisible, WindowBase::kWinDeco_None);
+        }
+        // TEMP
+        void SetTopView(ViewBase *view) {
+            topView = view;
+        }
         ViewBase *TopView() {
-            if (idxCurrentTopView == -1) {
-                // No views added
-                return nullptr;
-            }
-            return topViews[idxCurrentTopView];
+            return topView;
         }
-
-        void AddTopView(ViewBase *newTopView) {
-            topViews.push_back(newTopView);
-            if (idxCurrentTopView == -1) {
-                idxCurrentTopView = 0;
-                TopView()->SetActive(true);
-            }
+        void HandleKeyPress(const KeyPress &keyPress) override {
+            topView->HandleKeyPress(keyPress);
         }
-
-
-        void OnKeyPress(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) override;
     protected:
-        void MaximizeView();
-    private:
-        int idxCurrentTopView = -1;
-        std::vector<ViewBase *> topViews;
+        ViewBase *topView;
     };
 }
 
-
-#endif //EDITOR_ROOTVIEW_H
+#endif //NCWIN_ROOTVIEW_H

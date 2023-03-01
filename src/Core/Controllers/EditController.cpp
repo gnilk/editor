@@ -18,7 +18,7 @@ void EditController::SetTextBuffer(TextBuffer *newTextBuffer) {
 }
 
 
-bool EditController::HandleKeyPress(Cursor &cursor, size_t idxLine, const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) {
+bool EditController::HandleKeyPress(Cursor &cursor, size_t idxLine, const KeyPress &keyPress) {
     if (!textBuffer) {
         return false;
     }

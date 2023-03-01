@@ -13,8 +13,9 @@ namespace gedit {
     public:
         GutterView();
         explicit GutterView(const Rect &viewArea);
-
         virtual ~GutterView() = default;
+
+        void InitView() override;
         void DrawViewContents() override;
     };
 }

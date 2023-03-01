@@ -41,9 +41,6 @@
 #include "Core/NCurses/NCursesKeyboardDriver.h"
 
 #include "Core/Line.h"
-#include "Core/ModeBase.h"
-#include "Core/CommandMode.h"
-#include "Core/EditorMode.h"
 #include "Core/ScreenBase.h"
 #include "Core/EditorConfig.h"
 #include "Core/StrUtil.h"
@@ -72,13 +69,16 @@
 #include "Core/Views/CommandView.h"
 #include "Core/Views/HSplitView.h"
 #include "Core/Views/VSplitView.h"
+#include "Core/Views/HStackView.h"
 
 
 #include "logger.h"
 #include <map>
 
+using namespace gedit;
+
 static MacOSKeyboardMonitor keyboardMonitor;
-static gedit::NCursesKeyboardDriverNew keyboardDriver;
+static NCursesKeyboardDriver keyboardDriver;
 
 using namespace gedit;
 
@@ -97,23 +97,6 @@ static bool LoadToBuffer(Buffer &outBuffer, const char *filename) {
     return true;
 }
 
-
-static void loadBuffer(const char *filename, EditorMode &editorMode) {
-    auto logger = gnilk::Logger::GetLogger("loader");
-
-    Buffer *buffer = new Buffer();
-    logger->Debug("Loading file given from cmd-line: %s", filename);
-
-    if (!LoadToBuffer(*buffer, filename)) {
-        logger->Error("Unable to load: %s", filename);
-        exit(1);
-    }
-    buffer->SetLanguage(Config::Instance().GetLanguageForFilename(filename));
-
-    logger->Debug("Ok, file loaded (line: %d)", (int)buffer->Lines().size());
-    logger->Debug("Assigning buffer");
-    editorMode.SetBuffer(buffer);
-}
 
 static void SetupLogger() {
     char *sinkArgv[]={"autoflush","file","logfile.log"};
@@ -153,51 +136,59 @@ int main(int argc, const char **argv) {
     logger->Debug("Dimensions (x,y): %d, %d", dimensions.Width(), dimensions.Height());
 
     RootView rootView;
-    rootView.SetCaption("RootView");
-    rootView.SetFlags(gedit::ViewBase::kViewNone);
+//    rootView.SetCaption("RootView");
+//    rootView.SetFlags(gedit::ViewBase::kViewNone);
 
     // The splitter holds Editor (upper) and Cmd (lower)
     HSplitView hSplitView;
-    hSplitView.SetCaption("HSplitView");
-    hSplitView.SetFlags(gedit::ViewBase::kViewNone);
+//    hSplitView.SetCaption("HSplitView");
+//    hSplitView.SetFlags(gedit::ViewBase::kViewNone);
     rootView.AddView(&hSplitView);
 
-    VSplitView vSplitView(Rect(dimensions.Width(), dimensions.Height() * 0.7));
-    vSplitView.SetCaption("VSplitView");
-    vSplitView.SetFlags(gedit::ViewBase::kViewNone);
-    hSplitView.SetTopView(&vSplitView);
+
+//    VSplitView vSplitView(Rect(dimensions.Width(), dimensions.Height() * 0.7));
+//    vSplitView.SetCaption("VSplitView");
+//    vSplitView.SetFlags(gedit::ViewBase::kViewNone);
+//    hSplitView.SetTopView(&vSplitView);
 
     CommandView commandView;
-    commandView.SetCaption("CmdView");
-    commandView.SetFlags((ViewBase::kViewFlags)(ViewBase::kViewDrawUpperBorder | ViewBase::kViewDrawCaption));
-    hSplitView.SetBottomView(&commandView);
+//    commandView.SetCaption("CmdView");
+//    commandView.SetFlags((ViewBase::kViewFlags)(ViewBase::kViewDrawUpperBorder | ViewBase::kViewDrawCaption));
+    hSplitView.SetLower(&commandView);
+
+    HStackView hStackView;
+    hSplitView.SetUpper(&hStackView);
 
     GutterView gutterView;
-    gutterView.SetCaption("GutterView");
-    gutterView.SetFlags((ViewBase::kViewFlags)(ViewBase::kViewDrawRightBorder | ViewBase::kViewDrawUpperBorder));
-    vSplitView.SetLeftView(&gutterView);
+//    gutterView.SetCaption("GutterView");
+//    gutterView.SetFlags((ViewBase::kViewFlags)(ViewBase::kViewDrawRightBorder | ViewBase::kViewDrawUpperBorder));
+//    vSplitView.SetLeftView(&gutterView);
+    hStackView.AddSubView(&gutterView, HStackView::kFixed);
 
     EditorView editorView;
-    editorView.SetCaption("Editor");
-    editorView.SetFlags((ViewBase::kViewFlags)(ViewBase::kViewDrawUpperBorder | ViewBase::kViewDrawCaption));
-    vSplitView.SetRightView(&editorView);
+//    editorView.SetCaption("Editor");
+//    editorView.SetFlags((ViewBase::kViewFlags)(ViewBase::kViewDrawUpperBorder | ViewBase::kViewDrawCaption));
+//    vSplitView.SetRightView(&editorView);
+    hStackView.AddSubView(&editorView, HStackView::kFill);
 
 
     //RuntimeConfig::Instance().SetRootView(&editorView);
     RuntimeConfig::Instance().SetRootView(&rootView);
 
-    rootView.ComputeInitialLayout(Rect(dimensions.Width()-1, dimensions.Height()-1));
+    //rootView.ComputeInitialLayout(Rect(dimensions.Width()-1, dimensions.Height()-1));
+    rootView.Initialize();
 
     // Kick off the whole thing..
-    rootView.Begin();
+    //rootView.Begin();
 
 
 
     auto buffer = BufferManager::Instance().NewBufferFromFile("test_src2.cpp");
     editorView.GetEditController().SetTextBuffer(buffer);
 
-    rootView.AddTopView(&editorView);
-    rootView.AddTopView(&commandView);
+    rootView.SetTopView(&editorView);
+//    rootView.AddTopView(&editorView);
+//    rootView.AddTopView(&commandView);
 
 
     // Initial draw - draw everything...
@@ -205,9 +196,10 @@ int main(int argc, const char **argv) {
     screen.BeginRefreshCycle();
     rootView.Draw();
     screen.EndRefreshCycle();
+    screen.Update();
 
     // Dump initial view tree..
-    rootView.DumpViewTree();
+//    rootView.DumpViewTree();
 
     // This is currently the run loop...
     while(!bQuit) {
@@ -215,14 +207,14 @@ int main(int argc, const char **argv) {
         // Background stuff can cause need to repaint...
         auto keyPress = keyboardDriver.GetKeyPress();
         if (keyPress.isKeyValid) {
-            rootView.TopView()->OnKeyPress(keyPress);
+            rootView.TopView()->HandleKeyPress(keyPress);
             screen.BeginRefreshCycle();
             rootView.Draw();
             screen.EndRefreshCycle();
-            //screen.Update();
-            if (screen.IsSizeChanged(true)) {
-                screen.Clear();
-            }
+            screen.Update();
+//            if (screen.IsSizeChanged(true)) {
+//                screen.Clear();
+//            }
         }
     }
     logger->Debug("Left main loop, closing graphics subsystem");

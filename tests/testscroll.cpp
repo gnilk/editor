@@ -12,9 +12,6 @@
 #include "Core/NCurses/NCursesKeyboardDriver.h"
 
 #include "Core/Line.h"
-#include "Core/ModeBase.h"
-#include "Core/CommandMode.h"
-#include "Core/EditorMode.h"
 #include "Core/ScreenBase.h"
 #include "Core/EditorConfig.h"
 #include "Core/StrUtil.h"
@@ -51,7 +48,7 @@
 using namespace gedit;
 
 static MacOSKeyboardMonitor keyboardMonitor;
-static gedit::NCursesKeyboardDriverNew keyboardDriver;
+static NCursesKeyboardDriver keyboardDriver;
 
 static void SetupLogger() {
     char *sinkArgv[]={"autoflush","file","logfile.log"};
@@ -92,22 +89,25 @@ int main(int argc, char **argv) {
 
     //Rect rootRect(Point(5,5),5,5);
     RootView rootView;//(rootRect);
-    rootView.SetCaption("EditorView");
-    rootView.SetFlags(gedit::ViewBase::kViewNone);
-    rootView.SetViewAnchoring(gedit::ViewLayout::kViewAnchor_Fill);
+//    rootView.SetCaption("EditorView");
+//    rootView.SetFlags(gedit::ViewBase::kViewNone);
+//    rootView.SetViewAnchoring(gedit::ViewLayout::kViewAnchor_Fill);
+//
+//    rootView.ComputeInitialLayout(Rect(dimensions.Width()-1, dimensions.Height()-1));
+//    rootView.Begin();
 
-    rootView.ComputeInitialLayout(Rect(dimensions.Width()-1, dimensions.Height()-1));
-    rootView.Begin();
-
-    rootView.InvalidateAll();
+    rootView.Initialize();
+    rootView.Draw();
+    //rootView.InvalidateAll();
     //screen.BeginRefreshCycle();
     //rootView.InvalidateAll();
 
     RuntimeConfig::Instance().SetRootView(&rootView);
 
     // In order for scrolling to work the output must be associated with the native-window
-    auto window = rootView.GetNativeWindow()->NativeHandle();
+    //auto window = rootView.GetNativeWindow()->NativeHandle();
 
+    auto window = rootView.GetWindow()->GetNativeWindow();
 //    wclear((WINDOW *)window);
     //auto dc = rootView.ContentAreaDrawContext();
     for(int i=0;i<10;i++) {
@@ -144,7 +144,7 @@ int main(int argc, char **argv) {
     while(!bQuit) {
         auto keyPress = keyboardDriver.GetKeyPress();
         if (keyPress.key == kKey_Down) {
-            rootView.GetNativeWindow()->Scroll(1);
+            rootView.GetWindow()->GetContentDC().Scroll(1);
         }
 
 //        screen.BeginRefreshCycle();

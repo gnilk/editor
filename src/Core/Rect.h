@@ -8,7 +8,7 @@
 #include "Point.h"
 
 namespace gedit {
-// move to own file
+    // Requires points to be proper (i.e. sorted)..
     struct Rect {
         Rect() {
             p1.x = 0;
@@ -18,7 +18,7 @@ namespace gedit {
         }
         Rect(const Point &topLeft, const Point &bottomRight) :
                 p1(topLeft), p2(bottomRight) {
-            // TODO: Sort
+
         }
         Rect(const Point &topLeft, int width, int height) {
             p1 = topLeft;
@@ -76,10 +76,21 @@ namespace gedit {
             if (pt.y > p2.y) return false;
             return true;
         }
+        // Move relative to current
         void Move(int xDelta, int yDelta) {
             p1.Move(xDelta, yDelta);
             p2.Move(xDelta, yDelta);
         }
+        // Move to absolute position
+        void MoveTo(int xPos, int yPos) {
+            int w = Width();
+            int h = Height();
+            p1.x = xPos;
+            p1.y = yPos;
+            p2.x = p1.x + w;
+            p2.y = p2.y + h;
+        }
+
         void MoveTo(const Point &pOrigin) {
             int w = Width();
             int h = Height();

@@ -48,6 +48,8 @@
 static void *CaptureThread(void *arg);
 static pthread_t captureThread;
 
+using namespace gedit;
+
 
 // See: IOHIDUsageTables.h (look for table containing: kHIDUsage_KeyboardEscape)
 // FIXME: Replace numbers in mapping table with enums from IOHIDUsageTables.h

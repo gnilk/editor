@@ -49,7 +49,7 @@ void CommandController::WriteLine(const std::string &str) {
 }
 
 
-bool CommandController::HandleKeyPress(Cursor &cursor, size_t idxLine, const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) {
+bool CommandController::HandleKeyPress(Cursor &cursor, size_t idxLine, const KeyPress &keyPress) {
     if (DefaultEditLine(cursor, currentLine, keyPress)) {
         return true;
     }

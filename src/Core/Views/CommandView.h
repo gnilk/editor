@@ -19,8 +19,8 @@ namespace gedit {
         }
         virtual ~CommandView() = default;
 
-        void Begin() override;
-        void OnKeyPress(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) override;
+        void InitView() override;
+        void OnKeyPress(const KeyPress &keyPress) override;
         void DrawViewContents() override;
     private:
         CommandController commandController;

@@ -38,39 +38,39 @@ list(APPEND extlibs logger)
 list(APPEND editorsrc src/Core/StrUtil.cpp src/Core/StrUtil.h)
 list(APPEND editorsrc src/Core/HexDump.cpp src/Core/HexDump.h)
 list(APPEND editorsrc src/Core/ColorRGBA.cpp src/Core/ColorRGBA.h)
-list(APPEND editorsrc src/Core/KeyPress.cpp src/Core/KeyPress.h)
 
-# deprecation - once we are ready...
-list(APPEND editorsrc src/Core/ModeBase.cpp src/Core/ModeBase.h)
-list(APPEND editorsrc src/Core/CommandMode.cpp src/Core/CommandMode.cpp)
-list(APPEND editorsrc src/Core/EditorMode.cpp src/Core/EditorMode.cpp)
+# Keyboard handling
+list(APPEND editorsrc src/Core/KeyPress.h)
 list(APPEND editorsrc src/Core/KeyboardDriverBase.cpp src/Core/KeyboardDriverBase.h)
 
 # Config
 list(APPEND editorsrc src/Core/RuntimeConfig.cpp src/Core/RuntimeConfig.cpp)
 list(APPEND editorsrc src/Core/Config/Config.cpp src/Core/Config/Config.h)
 list(APPEND editorsrc src/Core/Config/ColorConfig.cpp src/Core/Config/ColorConfig.h)
+
 # Native/Platform
 list(APPEND editorsrc src/Core/NativeWindow.h)
 list(APPEND editorsrc src/Core/ScreenBase.h)
-
+list(APPEND editorsrc src/Core/WindowBase.h)
 # NCurses
-list(APPEND editorsrc src/Core/NCurses/NCursesScreen.cpp src/Core/NCurses/NCursesScreen.h)
-list(APPEND editorsrc src/Core/NCurses/NCursesKeyboardDriver.cpp src/Core/NCurses/NCursesKeyboardDriver.h)
-list(APPEND editorsrc src/Core/NCurses/NCursesWindow.cpp src/Core/NCurses/NCursesWindow.h)
 list(APPEND editorsrc src/Core/NCurses/NCursesDrawContext.cpp src/Core/NCurses/NCursesDrawContext.h)
+list(APPEND editorsrc src/Core/NCurses/NCursesKeyboardDriver.cpp src/Core/NCurses/NCursesKeyboardDriver.h)
+list(APPEND editorsrc src/Core/NCurses/NCursesScreen.cpp src/Core/NCurses/NCursesScreen.h)
+list(APPEND editorsrc src/Core/NCurses/NCursesWindow.cpp src/Core/NCurses/NCursesWindow.h)
 
-# views
-list(APPEND editorsrc src/Core/Views/ViewBase.cpp src/Core/Views/ViewBase.h)
-list(APPEND editorsrc src/Core/Views/RootView.cpp src/Core/Views/RootView.h)
+# base views
+list(APPEND editorsrc src/Core/Views/HSplitView.h)
+list(APPEND editorsrc src/Core/Views/HStackView.h)
+list(APPEND editorsrc src/Core/Views/RootView.h)
+list(APPEND editorsrc src/Core/Views/ViewBase.h)
+list(APPEND editorsrc src/Core/Views/VSplitView.h)
+# specific views
 list(APPEND editorsrc src/Core/Views/EditorView.cpp src/Core/Views/EditorView.h)
 list(APPEND editorsrc src/Core/Views/GutterView.cpp src/Core/Views/GutterView.h)
 list(APPEND editorsrc src/Core/Views/CommandView.cpp src/Core/Views/CommandView.h)
-list(APPEND editorsrc src/Core/Views/HSplitView.cpp src/Core/Views/HSplitView.h)
-list(APPEND editorsrc src/Core/Views/VSplitView.cpp src/Core/Views/VSplitView.h)
-list(APPEND editorsrc src/Core/Views/ViewLayout.cpp src/Core/Views/ViewLayout.h)
+
 # draw helper
-list(APPEND editorsrc src/Core/DrawContext.cpp src/Core/DrawContext.h)
+list(APPEND editorsrc src/Core/DrawContext.h)
 list(APPEND editorsrc src/Core/Point.h)
 list(APPEND editorsrc src/Core/Rect.h)
 # controllers

@@ -60,9 +60,6 @@
 #include "Core/NCurses/NCursesKeyboardDriver.h"
 
 #include "Core/Line.h"
-#include "Core/ModeBase.h"
-#include "Core/CommandMode.h"
-#include "Core/EditorMode.h"
 #include "Core/ScreenBase.h"
 #include "Core/EditorConfig.h"
 #include "Core/StrUtil.h"
@@ -85,6 +82,7 @@
 ////
 // Test the keyboard handling
 ////
+using namespace gedit;
 
 static bool LoadToBuffer(Buffer &outBuffer, const char *filename) {
     FILE *f = fopen(filename,"r");
@@ -128,7 +126,7 @@ static void testKeyboard() {
         if (!keyPress.IsValid()) {
             continue;
         }
-        printw("code: %d, special: %d, raw: %d\n", keyPress.data.code,keyPress.data.special, (int)keyPress.rawCode);
+        //printw("code: %d, special: %d, raw: %d\n", keyPress.data.code,keyPress.data.special, (int)keyPress.rawCode);
 
 //        if (KeyboardDriverBase::IsHumanReadable(key)) {
 //            addch(key.data.code);
@@ -222,12 +220,6 @@ int main(int argc, const char **argv) {
     NCursesScreen screen;
     NCursesKeyboardDriver keyBoard;
 
-    EditorMode editorMode;
-    CommandMode commandMode;
-
-    if (!editorMode.Begin()) {
-        return -1;
-    }
 
     keyBoard.Monitor()->SetOnKeyPressDelegate([logger, &keyBoard](Keyboard::HWKeyEvent &event) {
         logger->Debug("onKeyPress, modmask=0x%.2x (scancode=0x%.2x : %s)", event.modifiers, event.scanCode, event.isPressedDown?"down":"up");
@@ -237,28 +229,6 @@ int main(int argc, const char **argv) {
     // Doesn't work with NCurses - probably messing up the TTY
     // We should try using 'forkpty'
     // Must be done early..
-    if (!commandMode.Begin()) {
-        return -1;
-    }
-
-
-    ModeBase *currentMode = &editorMode;
-
-    commandMode.SetOnExitApp([&bQuit]() { bQuit = true; });
-    editorMode.SetOnExitApp([&bQuit]() { bQuit = true; });
-
-    commandMode.SetOnExitMode([&screen, &currentMode, &editorMode]() {
-        currentMode->OnSwitchMode(false);
-        currentMode = &editorMode;
-        screen.Clear();
-        currentMode->OnSwitchMode(true);
-    });
-
-    editorMode.SetOnExitMode([&screen, &currentMode, &commandMode]() {
-        currentMode->OnSwitchMode(false);
-        currentMode = &commandMode;
-        currentMode->OnSwitchMode(true);
-    });
 
     // FIXME: Call to 'BufferManager->CreateEmptyBuffer()'
     if (argc > 1) {

@@ -5,7 +5,6 @@
 #ifndef EDITOR_EDITORVIEW_H
 #define EDITOR_EDITORVIEW_H
 
-#include "Core/EditorMode.h"
 #include "Core/Controllers/EditController.h"
 #include "Core/Cursor.h"
 
@@ -24,17 +23,18 @@ namespace gedit {
         }
         virtual ~EditorView() = default;
 
-        void Begin() override;
-        void OnKeyPress(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) override;
-        void OnResized() override;
-        void DrawViewContents() override;
+        void InitView() override;
 
         EditController &GetEditController() {
             return viewData.editController;
         }
+    protected:
+        void OnKeyPress(const KeyPress &keyPress) override;
+        void OnResized() override;
+        void DrawViewContents() override;
 
     private:
-        bool UpdateNavigation(const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress);
+        bool UpdateNavigation(const KeyPress &keyPress);
 
         void OnNavigateUp(int rows);
         void OnNavigateDown(int rows);

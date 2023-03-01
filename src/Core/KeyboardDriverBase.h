@@ -9,18 +9,19 @@
 #include "Core/KeyPress.h"
 #include "KeyboardBaseMonitor.h"
 
+namespace gedit {
+    class KeyboardDriverBase {
+    public:
+        virtual bool Initialize() { return false; };
+        virtual KeyPress GetCh() const;
+        void SetDebugMode(bool enable) {
+            debugMode = enable;
+        }
+        virtual KeyboardBaseMonitor *Monitor() { return nullptr; }
 
-class KeyboardDriverBase {
-public:
-    virtual bool Initialize() { return false; };
-    virtual KeyPress GetCh() const;
-    void SetDebugMode(bool enable) {
-        debugMode = enable;
-    }
-    virtual KeyboardBaseMonitor *Monitor() { return nullptr; }
-
-protected:
-    bool debugMode = false;
-};
+    protected:
+        bool debugMode = false;
+    };
+}
 
 #endif //EDITOR_KEYBOARDDRIVERBASE_H

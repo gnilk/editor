@@ -5,6 +5,7 @@
 #include "Core/KeyCodes.h"
 #include "Core/KeyboardDriverBase.h"
 
+using namespace gedit;
 KeyPress KeyboardDriverBase::GetCh() const {
     return {};
 }

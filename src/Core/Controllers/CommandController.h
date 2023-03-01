@@ -22,7 +22,7 @@ namespace gedit {
         virtual ~CommandController() = default;
 
         void Begin() override;
-        bool HandleKeyPress(Cursor &cursor, size_t idxActiveLine, const gedit::NCursesKeyboardDriverNew::KeyPress &keyPress) override;
+        bool HandleKeyPress(Cursor &cursor, size_t idxActiveLine, const KeyPress &keyPress) override;
 
         const std::vector<Line *> &Lines() const {
             return historyBuffer;

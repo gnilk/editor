@@ -12,28 +12,9 @@
 #include "Core/SafeQueue.h"
 
 namespace gedit {
-    class NCursesKeyboardDriverNew : public KeyboardDriverBase {
+    class NCursesKeyboardDriver : public KeyboardDriverBase {
     public:
-
-        struct KeyPress {
-            bool isKeyValid = false;
-            bool isHwEventValid = false;
-            Keyboard::HWKeyEvent hwEvent;
-            uint8_t modifiers;
-            int key;
-
-            // Human readables..  NOTE: we don't support unicode..  I'm old-skool...
-            bool IsHumanReadable() const {
-                if (isKeyValid) {
-                    if ((key > 31) && (key < 127)) {
-                        return true;
-                    }
-                }
-                return false;
-            }
-        };
-    public:
-        NCursesKeyboardDriverNew() = default;
+        NCursesKeyboardDriver() = default;
         void Begin(MacOSKeyboardMonitor *monitor) {
             ptrKeyboardMonitor = monitor;
 
@@ -52,23 +33,5 @@ namespace gedit {
 
     };
 }
-
-
-//
-// OLD - remove me!
-//
-class NCursesKeyboardDriver : public KeyboardDriverBase {
-public:
-    bool Initialize() override;
-    KeyPress GetCh() const override;
-    KeyboardBaseMonitor *Monitor() override {
-        return &kbdMonitor;
-    }
-protected:
-    KeyPress Translate(int ch) const;
-private:
-    MacOSKeyboardMonitor kbdMonitor;
-    SafeQueue<Keyboard::HWKeyEvent> keyEventQueue;
-};
 
 #endif //EDITOR_NCURSESKEYBOARDDRIVER_H

@@ -9,6 +9,7 @@
 #include <vector>
 #include "Core/Rect.h"
 #include "Core/WindowBase.h"
+#include "Core/ColorRGBA.h"
 
 namespace gedit {
     class ScreenBase {
@@ -19,6 +20,8 @@ namespace gedit {
         virtual void Close() {}
         virtual void Clear() {}
         virtual void Update() {}
+        virtual void RegisterColor(int appIndex, const ColorRGBA &foreground, const ColorRGBA &background) {}
+
         virtual void BeginRefreshCycle() {}
         virtual void EndRefreshCycle() {}
         virtual Rect Dimensions() {

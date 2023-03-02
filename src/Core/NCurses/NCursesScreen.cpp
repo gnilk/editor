@@ -73,6 +73,19 @@ void NCursesScreen::Clear() {
 void NCursesScreen::Update() {
     doupdate();
 }
+
+static int colorCounter = 0;
+void NCursesScreen::RegisterColor(int appIndex, const ColorRGBA &foreground, const ColorRGBA &background) {
+
+    int currentColor = colorCounter;
+
+    init_color(colorCounter++, background.R() * 1000, background.G() * 1000, background.B() * 1000);
+    init_color(colorCounter++, foreground.R() * 1000, foreground.G() * 1000, foreground.B() * 1000);
+
+    init_pair(appIndex,  currentColor + 1, currentColor);
+}
+
+
 void NCursesScreen::BeginRefreshCycle() {
 }
 void NCursesScreen::EndRefreshCycle() {

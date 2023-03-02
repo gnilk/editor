@@ -140,7 +140,22 @@ int main(int argc, const char **argv) {
     screen.Open();
     screen.Clear();
 
-    logger->Debug("Entering mainloop");
+    logger->Debug("Configuring colors and theme");
+    // NOTE: This must be done after the screen has been opened as the color handling might require the underlying graphics
+    //       context to be initialized...
+    auto &colorConfig = Config::Instance().ColorConfiguration();
+    for(int i=0;gnilk::IsLanguageTokenClass(i);i++) {
+        auto langClass = gnilk::LanguageTokenClassToString(static_cast<kLanguageTokenClass>(i));
+        if (!colorConfig.HasColor(langClass)) {
+            logger->Warning("Missing color configuration for: %s", langClass.c_str());
+            return -1;
+        }
+        screen.RegisterColor(i, colorConfig.GetColor(langClass), colorConfig.GetColor("background"));
+    }
+
+
+
+    logger->Debug("Creating views");
 
     auto dimensions = screen.Dimensions();
 

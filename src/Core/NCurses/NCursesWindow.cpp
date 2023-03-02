@@ -25,6 +25,7 @@ void NCursesWindow::CreateNCursesWindows() {
     werase(nativeWin);
     scrollok(nativeWin, TRUE);
     wtimeout(nativeWin, 1);
+    leaveok(nativeWin, TRUE);
     winptr = nativeWin;
     drawContext = new NCursesDrawContext(winptr, windowRect);
 
@@ -39,6 +40,7 @@ void NCursesWindow::CreateNCursesWindows() {
     }
     clientWindow = newwin(clientRect.Height(), clientRect.Width(), clientRect.TopLeft().y, clientRect.TopLeft().x);
     scrollok(clientWindow, TRUE);
+    leaveok(clientWindow, TRUE);
     wtimeout(clientWindow, 1);
     clientContext = new NCursesDrawContext(clientWindow, clientRect);
 }
@@ -88,4 +90,14 @@ DrawContext &NCursesWindow::GetContentDC() {
         clientContext = new NCursesDrawContext(nullptr, windowRect);
     }
     return *clientContext;
+}
+
+void NCursesWindow::SetCursor(const Cursor &cursor) {
+    int win_y, win_x;
+    if (clientWindow != nullptr) {
+        getbegyx((WINDOW *) clientWindow, win_y, win_x);
+    } else {
+        getbegyx((WINDOW *) winptr, win_y, win_x);
+    }
+    move(cursor.position.y + win_y, cursor.position.x + win_x);
 }

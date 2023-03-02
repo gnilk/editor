@@ -7,6 +7,7 @@
 
 #include "Core/WindowBase.h"
 #include "Core/Rect.h"
+#include "Core/Cursor.h"
 namespace gedit {
     class NCursesWindow : public WindowBase {
     public:
@@ -27,6 +28,9 @@ namespace gedit {
                 wnoutrefresh((WINDOW *)clientWindow);
             }
         }
+
+        void SetCursor(const Cursor &cursor) override;
+
 
 
     public:

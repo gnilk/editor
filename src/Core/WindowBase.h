@@ -11,6 +11,7 @@
 
 #include "Core/Rect.h"
 #include "Core/DrawContext.h"
+#include "Core/Cursor.h"
 
 namespace gedit {
     class WindowBase {
@@ -58,6 +59,10 @@ namespace gedit {
         }
 
         virtual void Refresh() {
+
+        }
+
+        virtual void SetCursor(const Cursor &cursor) {
 
         }
 

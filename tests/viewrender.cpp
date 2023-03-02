@@ -158,7 +158,8 @@ int main(int argc, const char **argv) {
     auto buffer = BufferManager::Instance().NewBufferFromFile("test_src2.cpp");
     editorView.GetEditController().SetTextBuffer(buffer);
 
-    rootView.SetTopView(&editorView);
+    rootView.AddTopView(&editorView);
+    rootView.AddTopView(&cmdView);
 
     rootView.Initialize();
     rootView.InvalidateAll();

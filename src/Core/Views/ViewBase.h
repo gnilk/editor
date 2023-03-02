@@ -65,6 +65,11 @@ namespace gedit {
             if (window->GetFlags() & WindowBase::kWin_Visible) {
                 DrawViewContents();
             }
+
+            if (isActive) {
+                window->SetCursor(cursor);
+            }
+
             window->Refresh();
 
             // Reset once we are done..
@@ -90,6 +95,13 @@ namespace gedit {
         bool IsInvalid() {
             return isInvalid;
         }
+        void SetActive(bool newIsActive) {
+            isActive = newIsActive;
+        }
+        bool IsActive() {
+            return isActive;
+        }
+
 
         virtual void InvalidateAll() final {
             isInvalid = true;
@@ -112,7 +124,11 @@ namespace gedit {
             OnKeyPress(keyPress);
         }
     protected:
-        virtual void OnKeyPress(const KeyPress &keyPress) {}
+        virtual void OnKeyPress(const KeyPress &keyPress) {
+            if (parentView != nullptr) {
+                parentView->OnKeyPress(keyPress);
+            }
+        }
         virtual void OnResized() {}
 
     protected:
@@ -125,6 +141,7 @@ namespace gedit {
         }
 
     protected:
+        bool isActive = false;
         Cursor cursor = {};
         std::vector<ViewBase *> subviews = {};
         WindowBase *window = nullptr;

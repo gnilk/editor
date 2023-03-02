@@ -19,18 +19,46 @@ namespace gedit {
             viewRect = screen->Dimensions();
             window = screen->CreateWindow(viewRect, WindowBase::kWin_Invisible, WindowBase::kWinDeco_None);
         }
+
+
         // TEMP
-        void SetTopView(ViewBase *view) {
-            topView = view;
+        void AddTopView(ViewBase *view) {
+            topViews.push_back(view);
+            if (idxCurrentTopView == -1) {
+                idxCurrentTopView = 0;
+                TopView()->SetActive(true);
+            }
         }
+
         ViewBase *TopView() {
-            return topView;
+            if (idxCurrentTopView == -1) {
+                return nullptr;
+            }
+            return topViews[idxCurrentTopView];
         }
+
         void HandleKeyPress(const KeyPress &keyPress) override {
-            topView->HandleKeyPress(keyPress);
+            if (TopView() == nullptr) {
+                return;
+            }
+            TopView()->HandleKeyPress(keyPress);
         }
     protected:
-        ViewBase *topView;
+        void OnKeyPress(const KeyPress &keyPress) override {
+            if (keyPress.key == kKey_Escape) {
+                auto logger = gnilk::Logger::GetLogger("RootView");
+                TopView()->SetActive(false);
+                idxCurrentTopView = (idxCurrentTopView+1) % topViews.size();
+                TopView()->SetActive(true);
+
+
+                logger->Debug("ESC pressed, cycle active view, new = %d", idxCurrentTopView);
+            }
+        }
+
+    protected:
+        int idxCurrentTopView = -1;
+        std::vector<ViewBase *> topViews;
     };
 }
 

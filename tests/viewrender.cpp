@@ -14,20 +14,16 @@
  *   c) Define the proper API for talking to the editor through the cmd-let's
  * ! Create a specific HSplitView which can support a 'split' window like feature and on-request resize
  *   both views (upper/lower) in tandem..
- *   Note: This requires ability for a view to define 'lock'/'anchor' points and also to define relative vs absolute
- *   layout handling (this is getting frustratingly similar to CSS)
- * - HSplitView - ability to a view to request 'Increased Size' by X..
- *   This is nice to allow the command view to grow automatically to a certain size..
- *   Could be that we 'lock' it to a minimum size (could be a configuration option)
+ * ! HSplitView - ability to a view to request 'Increased Size' by X..
  * - Create a 'StatusBar' view (Single line, no border)
- * ! VStackView, which simply 'stacks' and computes sizes accordingly when updated
+ * ! HStackView, which simply 'stacks' and computes sizes accordingly when updated
  * - Import the language/color features in to this project
  * - Promote this project to the new 'main' project...
  * - BufferManager should store 'fullPathName' and 'name'
  * - Unsaved file should have '*' marking in the top..
- * - Consider relationship between view/context/window - right now there is too much flexibility
- * - Only views with content should have an NCurses Window structure..
- *
+ * ! Consider relationship between viexw/context/window - right now there is too much flexibility
+ * ! Only views with content should have an NCurses Window structure..
+ * ! Rewrote the view/window handling tossed out the old layout thingie
  */
 #include <iostream>
 #include <ncurses.h>

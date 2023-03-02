@@ -109,6 +109,21 @@ int main(int argc, const char **argv) {
     SetupLogger();
     auto logger = gnilk::Logger::GetLogger("main");
 
+
+    logger->Debug("Loading configuration");
+    auto configOk = Config::Instance().LoadConfig("config.yml");
+    if (!configOk) {
+        logger->Error("Unable to load default configuration from 'config.yml' - defaults will be used");
+        exit(1);
+    }
+
+    logger->Debug("Configuring language parser(s)");
+    CPPLanguage cppLanguage;
+    cppLanguage.Initialize();
+    Config::Instance().RegisterLanguage(".cpp", &cppLanguage);
+
+
+
     bool bQuit = false;
     NCursesScreen screen;
 
@@ -154,9 +169,17 @@ int main(int argc, const char **argv) {
 
     RuntimeConfig::Instance().SetRootView(&rootView);
 
+    if (argc > 1) {
+        logger->Debug("Loading file: %s", argv[1]);
+        auto buffer = BufferManager::Instance().NewBufferFromFile(argv[1]);
 
-    auto buffer = BufferManager::Instance().NewBufferFromFile("test_src2.cpp");
-    editorView.GetEditController().SetTextBuffer(buffer);
+        buffer->SetLanguage(Config::Instance().GetLanguageForFilename(argv[1]));
+
+        editorView.GetEditController().SetTextBuffer(buffer);
+    } else {
+        auto buffer = BufferManager::Instance().NewBuffer("no_name");
+        editorView.GetEditController().SetTextBuffer(buffer);
+    }
 
     rootView.AddTopView(&editorView);
     rootView.AddTopView(&cmdView);

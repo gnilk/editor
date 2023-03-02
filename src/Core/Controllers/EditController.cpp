@@ -97,5 +97,5 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
 
 }
 void EditController::UpdateSyntaxForBuffer() {
-
+    textBuffer->Reparse();
 }

@@ -7,6 +7,7 @@
 
 #include <vector>
 
+#include "Core/Language/LanguageBase.h"
 #include "Core/Line.h"
 
 namespace gedit {
@@ -31,9 +32,21 @@ namespace gedit {
             return name;
         }
 
+        void SetLanguage(LanguageBase *newLanguage) {
+            language = newLanguage;
+            Reparse();
+        }
+
+        bool HaveLanguage() { return language!= nullptr; }
+        LanguageBase &LangParser() { return *language; }
+
+        void Reparse();
+
+
     private:
         std::string name;
         std::vector<Line *> lines;
+        LanguageBase *language = nullptr;
 
         // Do not put the edit controller here - might make sense, but it will cause problems later
         // Example: split-window editing with same file => won't work

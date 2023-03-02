@@ -52,7 +52,8 @@ namespace gedit {
 
 
         virtual void Draw() final {
-            if (isInvalid) {
+            // Note: Not sure...
+            if ((isInvalid) && (parentView == nullptr)) {
                 window->Clear();
             }
             window->Draw();

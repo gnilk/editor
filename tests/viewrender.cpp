@@ -132,70 +132,39 @@ int main(int argc, const char **argv) {
     logger->Debug("Dimensions (x,y): %d, %d", dimensions.Width(), dimensions.Height());
 
     RootView rootView;
-//    rootView.SetCaption("RootView");
-//    rootView.SetFlags(gedit::ViewBase::kViewNone);
 
-    // The splitter holds Editor (upper) and Cmd (lower)
-    HSplitView hSplitView;
-//    hSplitView.SetCaption("HSplitView");
-//    hSplitView.SetFlags(gedit::ViewBase::kViewNone);
+    auto hSplitView = HSplitView(dimensions);
     rootView.AddView(&hSplitView);
 
 
-//    VSplitView vSplitView(Rect(dimensions.Width(), dimensions.Height() * 0.7));
-//    vSplitView.SetCaption("VSplitView");
-//    vSplitView.SetFlags(gedit::ViewBase::kViewNone);
-//    hSplitView.SetTopView(&vSplitView);
+    auto cmdView = CommandView();
+    hSplitView.SetLower(&cmdView);
 
-    CommandView commandView;
-//    commandView.SetCaption("CmdView");
-//    commandView.SetFlags((ViewBase::kViewFlags)(ViewBase::kViewDrawUpperBorder | ViewBase::kViewDrawCaption));
-    hSplitView.SetLower(&commandView);
-
-    HStackView hStackView;
+    auto hStackView = HStackView();
     hSplitView.SetUpper(&hStackView);
 
-    GutterView gutterView;
-//    gutterView.SetCaption("GutterView");
-//    gutterView.SetFlags((ViewBase::kViewFlags)(ViewBase::kViewDrawRightBorder | ViewBase::kViewDrawUpperBorder));
-//    vSplitView.SetLeftView(&gutterView);
-    hStackView.AddSubView(&gutterView, HStackView::kFixed);
+    auto gutterView = GutterView();
+    gutterView.SetWidth(10);
 
-    EditorView editorView;
-//    editorView.SetCaption("Editor");
-//    editorView.SetFlags((ViewBase::kViewFlags)(ViewBase::kViewDrawUpperBorder | ViewBase::kViewDrawCaption));
-//    vSplitView.SetRightView(&editorView);
+    //EditorView editorView;
+    auto editorView = EditorView();
+
+    hStackView.AddSubView(&gutterView, HStackView::kFixed);
     hStackView.AddSubView(&editorView, HStackView::kFill);
 
-
-    //RuntimeConfig::Instance().SetRootView(&editorView);
     RuntimeConfig::Instance().SetRootView(&rootView);
-
-    //rootView.ComputeInitialLayout(Rect(dimensions.Width()-1, dimensions.Height()-1));
-    rootView.Initialize();
-
-    // Kick off the whole thing..
-    //rootView.Begin();
-
 
 
     auto buffer = BufferManager::Instance().NewBufferFromFile("test_src2.cpp");
     editorView.GetEditController().SetTextBuffer(buffer);
 
     rootView.SetTopView(&editorView);
-//    rootView.AddTopView(&editorView);
-//    rootView.AddTopView(&commandView);
 
-
-    // Initial draw - draw everything...
+    rootView.Initialize();
     rootView.InvalidateAll();
-    screen.BeginRefreshCycle();
     rootView.Draw();
-    screen.EndRefreshCycle();
     screen.Update();
 
-    // Dump initial view tree..
-//    rootView.DumpViewTree();
 
     // This is currently the run loop...
     while(!bQuit) {
@@ -204,14 +173,13 @@ int main(int argc, const char **argv) {
         auto keyPress = keyboardDriver.GetKeyPress();
         if (keyPress.isKeyValid) {
             rootView.TopView()->HandleKeyPress(keyPress);
-            screen.BeginRefreshCycle();
-            rootView.Draw();
-            screen.EndRefreshCycle();
-            screen.Update();
 //            if (screen.IsSizeChanged(true)) {
 //                screen.Clear();
 //            }
         }
+        rootView.Draw();
+        screen.Update();
+
     }
     logger->Debug("Left main loop, closing graphics subsystem");
     screen.Close();

@@ -83,5 +83,9 @@ void NCursesWindow::DrawWindowDecoration() {
 }
 
 DrawContext &NCursesWindow::GetContentDC() {
+    // Sometimes we need this for just sub-component calculation - so let's create a dummy context
+    if (clientContext == nullptr) {
+        clientContext = new NCursesDrawContext(nullptr, windowRect);
+    }
     return *clientContext;
 }

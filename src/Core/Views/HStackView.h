@@ -32,9 +32,9 @@ namespace gedit {
             if (viewRect.IsEmpty()) {
                 viewRect = screen->Dimensions();
             }
-            window = screen->CreateWindow(viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
+            window = screen->CreateWindow(viewRect, WindowBase::kWin_Invisible, WindowBase::kWinDeco_None);
             //window = screen->CreateWindow(viewRect, WindowBase::kWin_Visible, (WindowBase::kWinDecoration)(WindowBase::kWinDeco_Border | WindowBase::kWinDeco_DrawCaption));
-            window->SetCaption("HStackView");
+            //window->SetCaption("HStackView");
             RecomputeLayout();
         }
 

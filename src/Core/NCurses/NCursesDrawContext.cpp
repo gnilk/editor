@@ -37,12 +37,13 @@ void NCursesDrawContext::DrawLines(const std::vector<Line *> &lines, int idxTopL
 
 void NCursesDrawContext::DrawLineWithAttributesAt(int x, int y, int nCharToPrint, Line &l) {
     wmove((WINDOW *)win, y, x);
+
     auto &attribs = l.Attributes();
 
     int idxColorPair = 0;
     // If no attribs - just dump it out...
     if (attribs.size() == 0) {
-        for (int i = 0; i < l.Length(); i++) {
+        for (int i = 0; i < nCharToPrint; i++) {
             waddch((WINDOW *)win, l.Buffer().at(i));
         }
         return;

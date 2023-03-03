@@ -201,6 +201,10 @@ int main(int argc, const char **argv) {
 
     rootView.Initialize();
     rootView.InvalidateAll();
+    screen.Clear();
+    rootView.Draw();
+    screen.Update();
+    refresh();
     rootView.Draw();
     screen.Update();
 
@@ -209,16 +213,23 @@ int main(int argc, const char **argv) {
     while(!bQuit) {
         // This is way too simple - need better handling here!
         // Background stuff can cause need to repaint...
+        bool redraw = false;
         auto keyPress = keyboardDriver.GetKeyPress();
         if (keyPress.isKeyValid) {
             rootView.TopView()->HandleKeyPress(keyPress);
+            redraw = true;
 //            if (screen.IsSizeChanged(true)) {
 //                screen.Clear();
 //            }
         }
-        rootView.Draw();
-        screen.Update();
-
+        if (rootView.IsInvalid()) {
+            redraw = true;
+        }
+        if (redraw == true) {
+            rootView.Draw();
+            screen.Update();
+            redraw = false;
+        }
     }
     logger->Debug("Left main loop, closing graphics subsystem");
     screen.Close();

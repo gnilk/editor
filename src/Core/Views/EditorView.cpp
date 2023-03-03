@@ -69,18 +69,17 @@ void EditorView::OnKeyPress(const KeyPress &keyPress) {
 }
 
 bool EditorView::UpdateNavigation(const KeyPress &keyPress) {
-    auto screen = RuntimeConfig::Instance().Screen();
-    auto viewRect = GetContentRect();
 
+    auto viewRect = GetContentRect();
     auto currentLine = viewData.editController.LineAt(viewData.idxActiveLine);
 
-    // save current line - as it will update with navigation
-    // we need it when we update the selection status...
-    //auto idxLineBeforeNavigation = viewData.idxActiveLine;
+    // Need to consider how to update the current line
+    // the 'OnNavigateDown()' could return it, or we just leave it as is...
 
     switch (keyPress.key) {
         case kKey_Down:
             OnNavigateDown(1);
+            currentLine = viewData.editController.LineAt(viewData.idxActiveLine);
             cursor.position.x = cursor.wantedColumn;
             if (cursor.position.x > currentLine->Length()) {
                 cursor.position.x = currentLine->Length();
@@ -88,6 +87,7 @@ bool EditorView::UpdateNavigation(const KeyPress &keyPress) {
             break;
         case kKey_Up :
             OnNavigateUp(1);
+            currentLine = viewData.editController.LineAt(viewData.idxActiveLine);
             cursor.position.x = cursor.wantedColumn;
             if (cursor.position.x > currentLine->Length()) {
                 cursor.position.x = currentLine->Length();

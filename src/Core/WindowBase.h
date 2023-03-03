@@ -72,7 +72,6 @@ namespace gedit {
         NativeWindow GetNativeWindow() {
             return winptr;
         }
-
         virtual DrawContext &GetWindowDC() {
             return *drawContext;
         }

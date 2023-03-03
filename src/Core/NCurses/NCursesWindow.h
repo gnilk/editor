@@ -31,8 +31,6 @@ namespace gedit {
 
         void SetCursor(const Cursor &cursor) override;
 
-
-
     public:
         // Border, menus and such
         void DrawWindowDecoration() override;

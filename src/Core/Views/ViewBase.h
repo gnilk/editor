@@ -102,11 +102,25 @@ namespace gedit {
             return isActive;
         }
 
-
+        // This will mark all views in the full view hierarchy as invalid...
         virtual void InvalidateAll() final {
             isInvalid = true;
             for(auto s : subviews) {
-                s->InvalidateAll();
+                if (!s->IsInvalid()) {
+                    s->InvalidateAll();
+                }
+            }
+            if (parentView != nullptr) {
+                parentView->InvalidateAll();
+            }
+
+        }
+        // This will mark the hierarchy from the view and down to root as invalid - without touching siblings of
+        // the underlying windows
+        virtual void InvalidateView() {
+            isInvalid = true;
+            if (parentView != nullptr) {
+                parentView->InvalidateView();
             }
         }
 

@@ -18,8 +18,9 @@ void CommandView::InitView() {
     window = screen->CreateWindow(viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_Border);
 
     commandController.SetNewLineNotificationHandler([this]()->void {
-       logger->Debug("NewLine notified!");
-       cursor.position.x = 0;
+        logger->Debug("NewLine notified!");
+        cursor.position.x = 0;
+        InvalidateView();
     });
     commandController.Begin();
 }
@@ -45,6 +46,7 @@ void CommandView::DrawViewContents() {
         if ((i + lOffset) >= lines.size()) {
             break;
         }
+        dc.ClearLine(i);
         dc.DrawStringAt(0,i,lines[i+lOffset]->Buffer().data());
     }
     if (lines.size() > dc.GetRect().Height()-1) {

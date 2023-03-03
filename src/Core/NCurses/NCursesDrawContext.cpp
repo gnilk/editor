@@ -76,3 +76,7 @@ void NCursesDrawContext::DrawLineWithAttributesAt(int x, int y, int nCharToPrint
     }
     wattrset((WINDOW *)win, A_NORMAL);
 }
+
+void NCursesDrawContext::ClearLine(int y) {
+    wclrtoeol((WINDOW *)win);
+}

@@ -23,6 +23,8 @@ namespace gedit {
         virtual void DrawLines(const std::vector<Line *> &lines, int idxTopLine, int idxBottomLine) {}
         virtual void DrawLineWithAttributesAt(int x, int y, int nCharToPrint, Line &l) {}
 
+        virtual void ClearLine(int y) {}
+
         virtual void Clear() {}
         virtual void Scroll(int nRows) {}
         virtual const Rect &GetRect() {

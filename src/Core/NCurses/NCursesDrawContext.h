@@ -22,6 +22,9 @@ namespace gedit {
         void DrawLines(const std::vector<Line *> &lines, int idxTopLine, int idxBottomLine) override;
         void DrawLineWithAttributesAt(int x, int y, int nCharToPrint, Line &l) override;
 
+        void ClearLine(int y);
+
+
         void Scroll(int nRows) override;
 
     };

@@ -5,6 +5,7 @@
 #include "Core/Controllers/EditController.h"
 #include "Core/RuntimeConfig.h"
 #include "GutterView.h"
+#include "logger.h"
 
 
 using namespace gedit;
@@ -39,10 +40,18 @@ void GutterView::DrawViewContents() {
         return;
     }
 
+    auto logger = gnilk::Logger::GetLogger("GutterView");
+    logger->Debug("Active Line: %d", viewData->idxActiveLine);
+
     auto &ctx = window->GetContentDC();
     char str[64];
     for(int i=0;i<ctx.GetRect().Height();i++) {
         int idxLine = i + viewData->viewTopLine;
+
+        if (idxLine >= viewData->editController.Lines().size()) {
+            break;
+        }
+
         snprintf(str, 64, " %4d", idxLine);
         if (idxLine == viewData->idxActiveLine) {
             snprintf(str, 64, "*%4d", idxLine);

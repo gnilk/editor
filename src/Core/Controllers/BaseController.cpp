@@ -39,12 +39,13 @@ bool BaseController::DefaultEditLine(Cursor &cursor, Line *line, const KeyPress 
                     line->Delete(cursor.position.x);
                     wasHandled = true;
                     break;
+                    // We ONLY handle backspace within the current line..
                 case Keyboard::kKeyCode_Backspace :
                     if (cursor.position.x > 0) {
                         line->Delete(cursor.position.x-1);
                         cursor.position.x--;
+                        wasHandled = true;
                     }
-                    wasHandled = true;
                     break;
             }
 

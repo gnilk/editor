@@ -3,6 +3,7 @@
 //
 
 #include <ncurses.h>
+#include "Core/Config/Config.h"
 #include "Core/KeyCodes.h"
 #include "Core/NCurses/NCursesKeyboardDriver.h"
 #include "Core/KeyCodes.h"
@@ -33,6 +34,16 @@ static std::map<int, int> ncurses_translation_map_new = {
         {127, kKey_Backspace},  // Certain macOS keyboards
 };
 
+void NCursesKeyboardDriver::Begin(MacOSKeyboardMonitor *monitor) {
+    ptrKeyboardMonitor = monitor;
+
+    ptrKeyboardMonitor->SetOnKeyPressDelegate([this](Keyboard::HWKeyEvent &event) {
+        kbdEvents.push(event);
+    });
+
+    timeoutGetChMSec = Config::Instance()["ncurses"].GetInt("timeoutKeyEvent", 150);
+}
+
 
 KeyPress NCursesKeyboardDriver::GetKeyPress() {
     KeyPress keyPress;
@@ -48,8 +59,15 @@ KeyPress NCursesKeyboardDriver::GetKeyPress() {
 
     if (!kbdEvents.empty()) {
         logger->Debug("kbdEvent not empty, ch=%d", ch);
+        auto t1 = std::chrono::high_resolution_clock::now();
+
         while ((ch = getch()) == ERR) {
-            // FIXME: timeout handling
+            auto t2 = std::chrono::high_resolution_clock::now();
+            if ((t2-t1).count() > timeoutGetChMSec) {
+                logger->Debug("getch, timeout...");
+                break;
+            }
+
         }
         logger->Debug("  ch=%d (%s)", ch, keyname(ch));
         keyPress.isHwEventValid = true;
@@ -72,6 +90,7 @@ KeyPress NCursesKeyboardDriver::GetKeyPress() {
     keyPress.isKeyValid = (ch == ERR) ? false : true;
     keyPress.modifiers = ptrKeyboardMonitor->GetModifiersCurrentlyPressed();
     keyPress.key = TranslateNCurseKey(ch);
+
     // FIXME: I think this is macos specific...
     // In case of LeftCommand, NCurses will send another key (this is to deal with CTRL/CMD+<char>) - we don't want
     // this behaviour so we consume the other key (which is the <char> key pressed while holding CTRL/CMD)
@@ -79,6 +98,19 @@ KeyPress NCursesKeyboardDriver::GetKeyPress() {
         ch = getch();
         keyPress.key = TranslateNCurseKey(ch);
     }
+    if ((keyPress.isKeyValid) || (keyPress.isHwEventValid)) {
+        logger->Debug("KeyPress, isKeyValid=%s, isHwEventValid=%s, modeifiers=0x%x",
+                      keyPress.isKeyValid ? "yes" : "no", keyPress.isHwEventValid ? "yes" : "no", keyPress.modifiers);
+        if (keyPress.isKeyValid) {
+            logger->Debug("key data, key=%d (%s)", keyPress.key, keyname(keyPress.key));
+        }
+        if (keyPress.isHwEventValid) {
+            logger->Debug(" hw data, keyCode=%d, scanCode=%d, translatedKeyCode=%d", keyPress.hwEvent.keyCode,
+                          keyPress.hwEvent.scanCode, keyPress.hwEvent.translatedScanCode);
+        }
+    }
+
+
     return keyPress;
 
 }

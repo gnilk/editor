@@ -29,6 +29,7 @@ bool EditController::HandleKeyPress(Cursor &cursor, size_t idxLine, const KeyPre
     if (DefaultEditLine(cursor, line, keyPress)) {
         return true;
     }
+    // Handle backspace in case of cursor.position.x == 0 (i.e. move the line up to the next)
     return false;
 }
 
@@ -40,7 +41,7 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
     auto &lines = Lines();
     auto currentLine = LineAt(idxActiveLine);
 
-//    logger->Debug("---> NEW LINE BEGIN");
+    //logger->Debug("---> NEW LINE BEGIN");
 
     if (currentLine != nullptr) {
         currentLine->SetActive(false);

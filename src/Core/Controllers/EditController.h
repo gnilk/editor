@@ -34,6 +34,10 @@ namespace gedit {
         std::vector<Line *> &Lines() {
             return textBuffer->Lines();
         }
+        // Const accessor...
+        const std::vector<Line *> &Lines() const {
+            return textBuffer->Lines();
+        }
         Line *LineAt(size_t idxLine) {
             return textBuffer->LineAt(idxLine);
         }

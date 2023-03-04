@@ -51,7 +51,7 @@ namespace gedit {
             kKeyCode_End,
             kKeyCode_PageDown,
             kKeyCode_LeftArrow,
-            kKeyCode_RightArraow,
+            kKeyCode_RightArrow,
             kKeyCode_DownArrow,
             kKeyCode_UpArrow,
             kKeyCode_NumLock,

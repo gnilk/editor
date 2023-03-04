@@ -19,7 +19,7 @@ bool BaseController::DefaultEditLine(Cursor &cursor, Line *line, const KeyPress 
     bool wasHandled = false;
     if (keyPress.isKeyValid) {
         auto logger = gnilk::Logger::GetLogger("BaseController");
-        logger->Debug("DefaultEditLine, keyPress, key=%d",keyPress.key);
+        logger->Debug("DefaultEditLine, keyPress, key=%d, modifiers=%x",keyPress.key, keyPress.modifiers);
         if (keyPress.isHwEventValid) {
             logger->Debug("  HWEvent, scancode=%d, keyCode=%d", keyPress.hwEvent.scanCode, (int)keyPress.hwEvent.keyCode);
 

@@ -100,7 +100,7 @@ static std::unordered_map<int, Keyboard::kKeyCode> scancodeToKeycodeMap = {
         {0x4c, Keyboard::kKeyCode_DeleteForward},
         {0x4d, Keyboard::kKeyCode_End},
         {0x4e, Keyboard::kKeyCode_PageDown},
-        {0x4f, Keyboard::kKeyCode_RightArraow},
+        {0x4f, Keyboard::kKeyCode_RightArrow},
         {0x50, Keyboard::kKeyCode_LeftArrow},
         {0x51, Keyboard::kKeyCode_DownArrow},
         {0x52, Keyboard::kKeyCode_UpArrow},

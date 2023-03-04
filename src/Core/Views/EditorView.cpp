@@ -57,7 +57,9 @@ void EditorView::DrawViewContents() {
 }
 
 void EditorView::OnKeyPress(const KeyPress &keyPress) {
-    if (!keyPress.isKeyValid) return;
+    // Bogus check...
+    if (!keyPress.isKeyValid && !keyPress.isHwEventValid) return;
+
 
     if (viewData.editController.HandleKeyPress(cursor, viewData.idxActiveLine, keyPress)) {
         InvalidateView();
@@ -78,8 +80,8 @@ bool EditorView::UpdateNavigation(const KeyPress &keyPress) {
     // Need to consider how to update the current line
     // the 'OnNavigateDown()' could return it, or we just leave it as is...
 
-    switch (keyPress.key) {
-        case kKey_Down:
+    switch (keyPress.hwEvent.keyCode) {
+        case Keyboard::kKeyCode_DownArrow:
             OnNavigateDownVSCode(1);
             currentLine = viewData.editController.LineAt(viewData.idxActiveLine);
             cursor.position.x = cursor.wantedColumn;
@@ -87,7 +89,7 @@ bool EditorView::UpdateNavigation(const KeyPress &keyPress) {
                 cursor.position.x = currentLine->Length();
             }
             break;
-        case kKey_Up :
+        case Keyboard::kKeyCode_UpArrow:
             OnNavigateUpVSCode(1);
             currentLine = viewData.editController.LineAt(viewData.idxActiveLine);
             cursor.position.x = cursor.wantedColumn;
@@ -95,26 +97,21 @@ bool EditorView::UpdateNavigation(const KeyPress &keyPress) {
                 cursor.position.x = currentLine->Length();
             }
             break;
-        case kKey_Left :
+        case Keyboard::kKeyCode_LeftArrow :
             cursor.position.x--;
             if (cursor.position.x < 0) {
                 cursor.position.x = 0;
             }
             cursor.wantedColumn = cursor.position.x;
             break;
-        case kKey_Right :
-//            if (keyPress.IsCtrlPressed()) {
-//                cursor.activeColumn+=4;
-//            } else {
-//                cursor.activeColumn++;
-//            }
+        case Keyboard::kKeyCode_RightArrow:
             cursor.position.x++;
             if (cursor.position.x > currentLine->Length()) {
                 cursor.position.x = currentLine->Length();
             }
             cursor.wantedColumn = cursor.position.x;
             break;
-        case kKey_PageUp :
+        case Keyboard::kKeyCode_PageUp :
             /*
              * Page Up/Down navigation works differently depending on your editor
              * CLion/Sublime:
@@ -130,15 +127,22 @@ bool EditorView::UpdateNavigation(const KeyPress &keyPress) {
                 OnNavigateUpCLion(viewRect.Height() - 1);
             }
             break;
-        case kKey_PageDown :
-            if (!bUseCLionPageNav) {
-                OnNavigateDownVSCode(viewRect.Height() - 1);
+        case Keyboard::kKeyCode_PageDown :
+            if (keyPress.IsAltPressed()) {
+                auto logger = gnilk::Logger::GetLogger("EditorView");
+                logger->Debug("PageDown+CMDKey");
+                cursor.position.y = GetContentRect().Height()-1;
+                viewData.idxActiveLine = viewData.viewBottomLine;
             } else {
-                OnNavigateDownCLion(viewRect.Height() - 1);
+                if (!bUseCLionPageNav) {
+                    OnNavigateDownVSCode(viewRect.Height() - 1);
+                } else {
+                    OnNavigateDownCLion(viewRect.Height() - 1);
+                }
             }
             break;
             // Return is a bit "stupid"...
-        case kKey_Return :
+        case Keyboard::kKeyCode_Return :
             viewData.editController.NewLine(viewData.idxActiveLine, cursor);
             OnNavigateDownVSCode(1);
             InvalidateView();

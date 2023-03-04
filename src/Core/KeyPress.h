@@ -44,8 +44,9 @@ namespace gedit {
             return false;
         }
         bool IsValid() const {
-            return isKeyValid;
+            return (isKeyValid || isHwEventValid);
         }
+
         bool IsShiftPressed() const {
             if (!isHwEventValid) return false;
             if ((modifiers & kKeyCtrl_LeftShift) || (modifiers & kKeyCtrl_RightShift)) {
@@ -53,9 +54,26 @@ namespace gedit {
             }
             return false;
         }
+
         bool IsCtrlPressed() const {
             if (!isHwEventValid) return false;
             if ((modifiers & kKeyCtrl_LeftCtrl) || (modifiers & kKeyCtrl_RightCtrl)) {
+                return true;
+            }
+            return false;
+        }
+
+        bool IsCommandPressed() const {
+            if (!isHwEventValid) return false;
+            if ((modifiers & kKeyCtrl_LeftCommand) || (modifiers & kKeyCtrl_RightCommand)) {
+                return true;
+            }
+            return false;
+        }
+
+        bool IsAltPressed() const {
+            if (!isHwEventValid) return false;
+            if ((modifiers & kKeyCtrl_LeftAlt) || (modifiers & kKeyCtrl_RightAlt)) {
                 return true;
             }
             return false;

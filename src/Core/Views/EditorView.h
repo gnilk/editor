@@ -43,6 +43,7 @@ namespace gedit {
         void OnNavigateDownCLion(int rows);
 
     private:
+        bool bUseCLionPageNav = true;
         // This is shared data...
         EditViewSharedData viewData;
         // --

@@ -8,6 +8,8 @@ macos:
 ncurses:
 
 editor:
+  # content_first is CLion/Sublime style (no = VSCode style, cursor first)
+  pgupdown_content_first: yes
 
 #
 # Add ability to include user-name, and other things here (working dir???)

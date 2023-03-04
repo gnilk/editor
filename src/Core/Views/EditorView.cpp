@@ -2,6 +2,7 @@
 // Created by gnilk on 14.02.23.
 //
 
+#include "Core/Config/Config.h"
 #include "Core/RuntimeConfig.h"
 #include "EditorView.h"
 
@@ -32,9 +33,7 @@ void EditorView::InitView()  {
         GetParentView()->SetSharedData(&viewData);
     }
 
-    OnNavigateDownCLion(35);
-
-
+    bUseCLionPageNav = Config::Instance()["editor"].GetBool("pgupdown_content_first", true);
 }
 
 void EditorView::OnResized() {
@@ -125,12 +124,18 @@ bool EditorView::UpdateNavigation(const KeyPress &keyPress) {
              *      The cursor moves to next to last-visible line
              *      ALT+Up/Down the view area moves but cursor/activeline stays
              */
-            //OnNavigateUpVSCode(viewRect.Height()-1);
-            OnNavigateUpCLion(viewRect.Height()-1);
+            if (!bUseCLionPageNav) {
+                OnNavigateUpVSCode(viewRect.Height() - 1);
+            } else {
+                OnNavigateUpCLion(viewRect.Height() - 1);
+            }
             break;
         case kKey_PageDown :
-            //OnNavigateDownVSCode(viewRect.Height()-1);
-            OnNavigateDownCLion(viewRect.Height()-1);
+            if (!bUseCLionPageNav) {
+                OnNavigateDownVSCode(viewRect.Height() - 1);
+            } else {
+                OnNavigateDownCLion(viewRect.Height() - 1);
+            }
             break;
             // Return is a bit "stupid"...
         case kKey_Return :
@@ -225,6 +230,7 @@ void EditorView::OnNavigateUpVSCode(int rows) {
     currentLine->SetActive(true);
 }
 
+// CLion/Sublime style of navigation on pageup/down - this first moves the content and then adjust cursor
 // This moves content first and cursor rather stays
 void EditorView::OnNavigateDownCLion(int rows) {
     auto currentLine = viewData.editController.LineAt(viewData.idxActiveLine);
@@ -296,7 +302,7 @@ void EditorView::OnNavigateUpCLion(int rows) {
         cursor.position.y = 0;
         viewData.idxActiveLine = 0;
         viewData.viewTopLine = 0;
-        viewData.viewBottomLine = GetContentRect().Height() - 1;
+        viewData.viewBottomLine = GetContentRect().Height();
         logger->Debug("       force to first!");
     } else {
         viewData.idxActiveLine -= nRowsToMove;

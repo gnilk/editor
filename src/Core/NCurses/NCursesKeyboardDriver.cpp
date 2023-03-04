@@ -14,24 +14,24 @@ using namespace gedit;
 
 // FIXME: Review this..
 static std::map<int, int> ncurses_translation_map_new = {
-        {KEY_LEFT, kKey_Left},
-        {KEY_RIGHT, kKey_Right},
-        {KEY_UP, kKey_Up},
-        {KEY_DOWN, kKey_Down},
-        {KEY_BACKSPACE, kKey_Backspace},
-        {KEY_DC, kKey_Delete},  // DC = Delete Char
-        {KEY_HOME, kKey_Home},
-        {KEY_END, kKey_End},
-        {KEY_BTAB, kKey_Tab },
-        {KEY_SRIGHT, kKey_Right},   // Note: Shift handled by kbdMonitor
-        {KEY_SLEFT, kKey_Right},    // Note: Shift handled by kbdMonitor
-        {KEY_PPAGE, kKey_PageUp},
-        {KEY_NPAGE, kKey_PageDown},
+        {KEY_LEFT, Keyboard::kKeyCode_LeftArrow},
+        {KEY_RIGHT, Keyboard::kKeyCode_RightArrow},
+        {KEY_UP, Keyboard::kKeyCode_UpArrow},
+        {KEY_DOWN, Keyboard::kKeyCode_DownArrow},
+        {KEY_BACKSPACE, Keyboard::kKeyCode_Backspace},
+        {KEY_DC, Keyboard::kKeyCode_DeleteForward},  // DC = Delete Char
+        {KEY_HOME, Keyboard::kKeyCode_Home},
+        {KEY_END, Keyboard::kKeyCode_End},
+        {KEY_BTAB, Keyboard::kKeyCode_Tab},
+        {KEY_SRIGHT, Keyboard::kKeyCode_RightArrow},   // Note: Shift handled by kbdMonitor
+        {KEY_SLEFT, Keyboard::kKeyCode_LeftArrow},    // Note: Shift handled by kbdMonitor
+        {KEY_PPAGE, Keyboard::kKeyCode_PageUp},
+        {KEY_NPAGE, Keyboard::kKeyCode_PageDown},
         // The following has no formal definition in NCurses but are standard ASCII codes
-        {9, kKey_Tab},
-        {10, kKey_Return},
-        { 27, kKey_Escape},     // ^]
-        {127, kKey_Backspace},  // Certain macOS keyboards
+        {9, Keyboard::kKeyCode_Tab},
+        {10, Keyboard::kKeyCode_Return},
+        { 27, Keyboard::kKeyCode_Escape},     // ^]
+        {127, Keyboard::kKeyCode_Backspace},  // Certain macOS keyboards
 };
 
 void NCursesKeyboardDriver::Begin(MacOSKeyboardMonitor *monitor) {
@@ -42,6 +42,9 @@ void NCursesKeyboardDriver::Begin(MacOSKeyboardMonitor *monitor) {
     });
 
     timeoutGetChMSec = Config::Instance()["ncurses"].GetInt("timeoutKeyEvent", 150);
+    auto logger = gnilk::Logger::GetLogger("NCursesKeyboardDriver");
+    logger->Debug("NCurses Timeout: %d msec", timeoutGetChMSec);
+
 }
 
 
@@ -63,8 +66,10 @@ KeyPress NCursesKeyboardDriver::GetKeyPress() {
 
         while ((ch = getch()) == ERR) {
             auto t2 = std::chrono::high_resolution_clock::now();
-            if ((t2-t1).count() > timeoutGetChMSec) {
-                logger->Debug("getch, timeout...");
+            auto msec = std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1);
+
+            if (msec.count() > timeoutGetChMSec) {
+                logger->Debug("getch, timeout: %d", (int)msec.count());
                 break;
             }
 
@@ -87,25 +92,39 @@ KeyPress NCursesKeyboardDriver::GetKeyPress() {
 
     }
 
-    keyPress.isKeyValid = (ch == ERR) ? false : true;
     keyPress.modifiers = ptrKeyboardMonitor->GetModifiersCurrentlyPressed();
-    keyPress.key = TranslateNCurseKey(ch);
 
     // FIXME: I think this is macos specific...
     // In case of LeftCommand, NCurses will send another key (this is to deal with CTRL/CMD+<char>) - we don't want
     // this behaviour so we consume the other key (which is the <char> key pressed while holding CTRL/CMD)
     if ((keyPress.modifiers & Keyboard::kModifierKeys::kMod_LeftCommand) && (keyPress.isHwEventValid)) {
         ch = getch();
-        keyPress.key = TranslateNCurseKey(ch);
     }
+
+    keyPress.isKeyValid = !(ch == ERR);
+    keyPress.key = ch;
+    keyPress.specialKey = TranslateNCurseKey(ch);
+    keyPress.isSpecialKey = !(keyPress.specialKey == -1);
+
+    // Not sure...
+    if (keyPress.isHwEventValid) {
+        keyPress.specialKey = keyPress.hwEvent.keyCode;
+    }
+
+    //
+    // Dump details of keypress to log
+    //
     if ((keyPress.isKeyValid) || (keyPress.isHwEventValid)) {
-        logger->Debug("KeyPress, isKeyValid=%s, isHwEventValid=%s, modeifiers=0x%x",
+        logger->Debug("KeyPress, isKeyValid=%s, isHwEventValid=%s, modifiers=0x%x",
                       keyPress.isKeyValid ? "yes" : "no", keyPress.isHwEventValid ? "yes" : "no", keyPress.modifiers);
         if (keyPress.isKeyValid) {
-            logger->Debug("key data, key=%d (%s)", keyPress.key, keyname(keyPress.key));
+            logger->Debug("  key data, key=%d (%s)", keyPress.key, keyname(keyPress.key));
+        }
+        if (keyPress.isSpecialKey) {
+            logger->Debug("  special, key=%d", keyPress.specialKey);
         }
         if (keyPress.isHwEventValid) {
-            logger->Debug(" hw data, keyCode=%d, scanCode=%d, translatedKeyCode=%d", keyPress.hwEvent.keyCode,
+            logger->Debug("   hw data, keyCode=%d, scanCode=%d, translatedKeyCode=%d", keyPress.hwEvent.keyCode,
                           keyPress.hwEvent.scanCode, keyPress.hwEvent.translatedScanCode);
         }
     }
@@ -121,5 +140,5 @@ int NCursesKeyboardDriver::TranslateNCurseKey(int ch) {
     if (ncurses_translation_map_new.find(ch) != ncurses_translation_map_new.end()) {
         return ncurses_translation_map_new[ch];
     }
-    return ch;
+    return -1;
 }

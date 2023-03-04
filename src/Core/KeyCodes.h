@@ -80,7 +80,7 @@ namespace gedit {
     };
 
 
-
+/*
 //
 // This the old stuff
 //
@@ -124,5 +124,6 @@ namespace gedit {
         kKey_Up = 1026,
         kKey_Down = 1027,
     } kStdKeyCodes;
+ */
 }
 #endif //EDITOR_KEYCODES_H

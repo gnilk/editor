@@ -215,17 +215,16 @@ int main(int argc, const char **argv) {
         // Background stuff can cause need to repaint...
         bool redraw = false;
         auto keyPress = keyboardDriver.GetKeyPress();
-        if ((keyPress.isKeyValid) || (keyPress.isHwEventValid)) {
+        if (keyPress.IsAnyValid()) {
+            logger->Debug("KeyPress Valid - passing on...");
             rootView.TopView()->HandleKeyPress(keyPress);
             redraw = true;
-//            if (screen.IsSizeChanged(true)) {
-//                screen.Clear();
-//            }
         }
         if (rootView.IsInvalid()) {
             redraw = true;
         }
         if (redraw == true) {
+            logger->Debug("Redraw was triggered...");
             rootView.Draw();
             screen.Update();
             redraw = false;

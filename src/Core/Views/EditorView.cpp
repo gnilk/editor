@@ -57,9 +57,6 @@ void EditorView::DrawViewContents() {
 }
 
 void EditorView::OnKeyPress(const KeyPress &keyPress) {
-    // Bogus check...
-    if (!keyPress.isKeyValid && !keyPress.isHwEventValid) return;
-
 
     if (viewData.editController.HandleKeyPress(cursor, viewData.idxActiveLine, keyPress)) {
         InvalidateView();
@@ -80,7 +77,37 @@ bool EditorView::UpdateNavigation(const KeyPress &keyPress) {
     // Need to consider how to update the current line
     // the 'OnNavigateDown()' could return it, or we just leave it as is...
 
-    switch (keyPress.hwEvent.keyCode) {
+    switch (keyPress.specialKey) {
+        case Keyboard::kKeyCode_Home :
+            if (keyPress.IsCommandPressed()) {
+                auto logger = gnilk::Logger::GetLogger("EditorView");
+                logger->Debug("CMD+Home, resetting cursor and view data!");
+                viewData.editController.LineAt(viewData.idxActiveLine)->SetActive(false);
+                cursor.position.x = 0;
+                cursor.position.y = 0;
+                viewData.idxActiveLine = 0;
+                viewData.viewTopLine = 0;
+                viewData.viewBottomLine = GetContentRect().Height();
+                viewData.editController.LineAt(viewData.idxActiveLine)->SetActive(true);
+            }
+            break;
+        case Keyboard::kKeyCode_End :
+            if (keyPress.IsCommandPressed()) {
+                auto logger = gnilk::Logger::GetLogger("EditorView");
+                logger->Debug("CMD+End, set cursor to last line!");
+
+                viewData.editController.LineAt(viewData.idxActiveLine)->SetActive(false);
+
+                cursor.position.x = 0;
+                cursor.position.y = GetContentRect().Height()-1;
+                viewData.idxActiveLine = viewData.editController.Lines().size()-1;
+                viewData.viewBottomLine = viewData.editController.Lines().size();
+                viewData.viewTopLine = viewData.viewBottomLine - GetContentRect().Height();
+
+                viewData.editController.LineAt(viewData.idxActiveLine)->SetActive(true);
+
+            }
+            break;
         case Keyboard::kKeyCode_DownArrow:
             OnNavigateDownVSCode(1);
             currentLine = viewData.editController.LineAt(viewData.idxActiveLine);
@@ -121,18 +148,27 @@ bool EditorView::UpdateNavigation(const KeyPress &keyPress) {
              *      The cursor moves to next to last-visible line
              *      ALT+Up/Down the view area moves but cursor/activeline stays
              */
-            if (!bUseCLionPageNav) {
-                OnNavigateUpVSCode(viewRect.Height() - 1);
+            if (keyPress.IsCommandPressed()) {
+                auto logger = gnilk::Logger::GetLogger("EditorView");
+                logger->Debug("PageUp+CMDKey, cursor=(%d:%d)", cursor.position.x, cursor.position.y);
+                cursor.position.y = 0;
+                viewData.idxActiveLine = viewData.viewTopLine;
+                logger->Debug("PageUp+CMDKey, cursor=(%d:%d)", cursor.position.x, cursor.position.y);
             } else {
-                OnNavigateUpCLion(viewRect.Height() - 1);
+                if (!bUseCLionPageNav) {
+                    OnNavigateUpVSCode(viewRect.Height() - 1);
+                } else {
+                    OnNavigateUpCLion(viewRect.Height() - 1);
+                }
             }
             break;
         case Keyboard::kKeyCode_PageDown :
-            if (keyPress.IsAltPressed()) {
+            if (keyPress.IsCommandPressed()) {
                 auto logger = gnilk::Logger::GetLogger("EditorView");
-                logger->Debug("PageDown+CMDKey");
+                logger->Debug("PageDown+CMDKey, cursor=(%d:%d)", cursor.position.x, cursor.position.y);
                 cursor.position.y = GetContentRect().Height()-1;
-                viewData.idxActiveLine = viewData.viewBottomLine;
+                viewData.idxActiveLine = viewData.viewBottomLine-1;
+                logger->Debug("PageDown+CMDKey, cursor=(%d:%d)", cursor.position.x, cursor.position.y);
             } else {
                 if (!bUseCLionPageNav) {
                     OnNavigateDownVSCode(viewRect.Height() - 1);
@@ -185,9 +221,11 @@ void EditorView::OnNavigateDownVSCode(int rows) {
 
     if (viewData.idxActiveLine > GetContentRect().Height()-1) {
         if (!(cursor.position.y < GetContentRect().Height()-1)) {
-            logger->Debug("Clipping top/bottom lines");
-            viewData.viewTopLine += rows;
-            viewData.viewBottomLine += rows;
+            if ((viewData.viewBottomLine + rows) < lines.size()) {
+                logger->Debug("Clipping top/bottom lines");
+                viewData.viewTopLine += rows;
+                viewData.viewBottomLine += rows;
+            }
             // Request full redraw next time, as this caused a scroll...
             InvalidateAll();
             //nativeWindow->Scroll(1);
@@ -244,13 +282,23 @@ void EditorView::OnNavigateDownCLion(int rows) {
     int nRowsToMove = rows;
     int maxRows = viewData.editController.Lines().size() - 1;
 
+    logger->Debug("OnNavDownCLion");
+
     // Note: We might want to revisit this clipping, if we want a margin to the bottom...
     // Maybe we should adjust for the visible margin at the end
     if ((viewData.viewTopLine+nRowsToMove) > maxRows) {
+        logger->Debug("  Move beyond last line!");
         nRowsToMove = 0;
         forceCursorToLastLine = true;
     }
-    logger->Debug("OnNavDownCLion");
+    if ((viewData.viewBottomLine+nRowsToMove) > maxRows) {
+        logger->Debug("  Clip nRowsToMove");
+        nRowsToMove = viewData.editController.Lines().size() - viewData.viewBottomLine;
+        // If this results to zero, we are exactly at the bottom...
+        if (!nRowsToMove) {
+            forceCursorToLastLine = true;
+        }
+    }
     logger->Debug("  nRowsToMove=%d, forceCursor=%s, nLines=%d, maxRows=%d",
                   nRowsToMove, forceCursorToLastLine?"Y":"N", (int)viewData.editController.Lines().size(), maxRows);
     logger->Debug("  Before, topLine=%d, bottomLine=%d, activeLine=%d, cursor.y=%d", viewData.viewTopLine, viewData.viewBottomLine, viewData.idxActiveLine, cursor.position.y);

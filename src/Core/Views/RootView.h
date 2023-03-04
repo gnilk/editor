@@ -45,7 +45,7 @@ namespace gedit {
         }
     protected:
         void OnKeyPress(const KeyPress &keyPress) override {
-            if (keyPress.key == kKey_Escape) {
+            if (keyPress.IsSpecialKeyPressed(Keyboard::kKeyCode_Escape)) {
                 auto logger = gnilk::Logger::GetLogger("RootView");
                 TopView()->SetActive(false);
                 idxCurrentTopView = (idxCurrentTopView+1) % topViews.size();

@@ -99,5 +99,7 @@ void NCursesWindow::SetCursor(const Cursor &cursor) {
     } else {
         getbegyx((WINDOW *) winptr, win_y, win_x);
     }
+    auto logger = gnilk::Logger::GetLogger("NCursesWindow");
+    logger->Debug("SetCursor, pos=%d:%d, translation: %d:%d", cursor.position.x, cursor.position.y, win_x, win_y);
     move(cursor.position.y + win_y, cursor.position.x + win_x);
 }

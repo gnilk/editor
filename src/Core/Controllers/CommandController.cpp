@@ -53,7 +53,7 @@ bool CommandController::HandleKeyPress(Cursor &cursor, size_t idxLine, const Key
     if (DefaultEditLine(cursor, currentLine, keyPress)) {
         return true;
     }
-    if (keyPress.key == kKey_Return) {
+    if (keyPress.IsSpecialKeyPressed(Keyboard::kKeyCode_Return)) {
         HandleReturn();
         return true;
     }

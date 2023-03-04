@@ -6,7 +6,7 @@ macos:
   allow_kbd_hook: yes
 
 ncurses:
-  timeoutKeyEvent: 150
+  timeoutKeyEvent: 500
 
 editor:
   # content_first is CLion/Sublime style (no = VSCode style, cursor first)

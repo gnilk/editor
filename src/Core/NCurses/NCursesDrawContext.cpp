@@ -26,7 +26,7 @@ void NCursesDrawContext::DrawLine(Line *line, int idxLine) {
 
 void NCursesDrawContext::DrawLines(const std::vector<Line *> &lines, int idxTopLine, int idxBottomLine) {
     for(int i=idxTopLine;i<idxBottomLine;i++) {
-        if (i > lines.size()) {
+        if (i >= lines.size()) {
             break;
         }
         auto line = lines[i];

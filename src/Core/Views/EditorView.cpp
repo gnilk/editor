@@ -32,6 +32,8 @@ void EditorView::InitView()  {
         GetParentView()->SetSharedData(&viewData);
     }
 
+    OnNavigateDownCLion(35);
+
 
 }
 
@@ -123,7 +125,8 @@ bool EditorView::UpdateNavigation(const KeyPress &keyPress) {
              *      The cursor moves to next to last-visible line
              *      ALT+Up/Down the view area moves but cursor/activeline stays
              */
-            OnNavigateUpVSCode(viewRect.Height()-1);
+            //OnNavigateUpVSCode(viewRect.Height()-1);
+            OnNavigateUpCLion(viewRect.Height()-1);
             break;
         case kKey_PageDown :
             //OnNavigateDownVSCode(viewRect.Height()-1);
@@ -265,5 +268,44 @@ void EditorView::OnNavigateDownCLion(int rows) {
 }
 
 void EditorView::OnNavigateUpCLion(int rows) {
+    auto currentLine = viewData.editController.LineAt(viewData.idxActiveLine);
+    currentLine->SetActive(false);
+
+    int nRowsToMove = rows;
+    int maxRows = viewData.editController.Lines().size() - 1;
+    bool forceCursorToFirstLine = false;
+
+    if ((viewData.viewTopLine - nRowsToMove) < 0) {
+        forceCursorToFirstLine = true;
+        nRowsToMove = 0;
+    }
+
+
+    logger->Debug("OnNavUpCLion");
+    logger->Debug("  nRowsToMove=%d, forceCursor=%s, nLines=%d, maxRows=%d",
+                  nRowsToMove, forceCursorToFirstLine?"Y":"N", (int)viewData.editController.Lines().size(), maxRows);
+    logger->Debug("  Before, topLine=%d, bottomLine=%d, activeLine=%d, cursor.y=%d", viewData.viewTopLine, viewData.viewBottomLine, viewData.idxActiveLine, cursor.position.y);
+
+
+    // Reposition the view
+    viewData.viewTopLine -= nRowsToMove;
+    viewData.viewBottomLine -= nRowsToMove;
+
+    // In case we would have moved beyond the visible part, let's enforce the cursor position..
+    if (forceCursorToFirstLine) {
+        cursor.position.y = 0;
+        viewData.idxActiveLine = 0;
+        viewData.viewTopLine = 0;
+        viewData.viewBottomLine = GetContentRect().Height() - 1;
+        logger->Debug("       force to first!");
+    } else {
+        viewData.idxActiveLine -= nRowsToMove;
+        cursor.position.y = viewData.idxActiveLine - viewData.viewTopLine;
+        if (cursor.position.y < 0) {
+            cursor.position.y = 0;
+        }
+    }
+    logger->Debug("  After, topLine=%d, bottomLine=%d, activeLine=%d, cursor.y=%d", viewData.viewTopLine, viewData.viewBottomLine, viewData.idxActiveLine, cursor.position.y);
+    InvalidateAll();
 
 }

@@ -36,8 +36,11 @@ namespace gedit {
     private:
         bool UpdateNavigation(const KeyPress &keyPress);
 
-        void OnNavigateUp(int rows);
-        void OnNavigateDown(int rows);
+        void OnNavigateUpVSCode(int rows);
+        void OnNavigateDownVSCode(int rows);
+
+        void OnNavigateUpCLion(int rows);
+        void OnNavigateDownCLion(int rows);
 
     private:
         // This is shared data...

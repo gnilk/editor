@@ -59,6 +59,7 @@ void EditorView::OnKeyPress(const KeyPress &keyPress) {
     if (!keyPress.isKeyValid) return;
 
     if (viewData.editController.HandleKeyPress(cursor, viewData.idxActiveLine, keyPress)) {
+        InvalidateView();
         return;
     }
     if (UpdateNavigation(keyPress)) {
@@ -78,7 +79,7 @@ bool EditorView::UpdateNavigation(const KeyPress &keyPress) {
 
     switch (keyPress.key) {
         case kKey_Down:
-            OnNavigateDown(1);
+            OnNavigateDownVSCode(1);
             currentLine = viewData.editController.LineAt(viewData.idxActiveLine);
             cursor.position.x = cursor.wantedColumn;
             if (cursor.position.x > currentLine->Length()) {
@@ -86,7 +87,7 @@ bool EditorView::UpdateNavigation(const KeyPress &keyPress) {
             }
             break;
         case kKey_Up :
-            OnNavigateUp(1);
+            OnNavigateUpVSCode(1);
             currentLine = viewData.editController.LineAt(viewData.idxActiveLine);
             cursor.position.x = cursor.wantedColumn;
             if (cursor.position.x > currentLine->Length()) {
@@ -113,15 +114,26 @@ bool EditorView::UpdateNavigation(const KeyPress &keyPress) {
             cursor.wantedColumn = cursor.position.x;
             break;
         case kKey_PageUp :
-            OnNavigateUp(viewRect.Height());
+            /*
+             * Page Up/Down navigation works differently depending on your editor
+             * CLion/Sublime:
+             *      The content/text moves and cursor stays in position
+             *      ALT+Up/Down, the cursor moves within the view area, content/text stays
+             * VSCode:
+             *      The cursor moves to next to last-visible line
+             *      ALT+Up/Down the view area moves but cursor/activeline stays
+             */
+            OnNavigateUpVSCode(viewRect.Height()-1);
             break;
         case kKey_PageDown :
-            OnNavigateDown(viewRect.Height());
+            //OnNavigateDownVSCode(viewRect.Height()-1);
+            OnNavigateDownCLion(viewRect.Height()-1);
             break;
+            // Return is a bit "stupid"...
         case kKey_Return :
             viewData.editController.NewLine(viewData.idxActiveLine, cursor);
-            OnNavigateDown(1);
-            InvalidateAll();
+            OnNavigateDownVSCode(1);
+            InvalidateView();
             break;
         default:
             // Not navigation
@@ -143,8 +155,10 @@ bool EditorView::UpdateNavigation(const KeyPress &keyPress) {
     return true;
 
 }
-
-void EditorView::OnNavigateDown(int rows) {
+//
+// This implements VSCode style of downwards navigation
+// Cursor if moved first then content (i.e if standing on first-line, the cursor is moved to the bottom line on first press)
+void EditorView::OnNavigateDownVSCode(int rows) {
     auto currentLine = viewData.editController.LineAt(viewData.idxActiveLine);
     currentLine->SetActive(false);
     auto &lines = viewData.editController.Lines();
@@ -159,6 +173,7 @@ void EditorView::OnNavigateDown(int rows) {
 
     if (viewData.idxActiveLine > GetContentRect().Height()-1) {
         if (!(cursor.position.y < GetContentRect().Height()-1)) {
+            logger->Debug("Clipping top/bottom lines");
             viewData.viewTopLine += rows;
             viewData.viewBottomLine += rows;
             // Request full redraw next time, as this caused a scroll...
@@ -166,6 +181,9 @@ void EditorView::OnNavigateDown(int rows) {
             //nativeWindow->Scroll(1);
         }
     }
+    logger->Debug("OnNavDownVScode, rows=%d, new active line=%d", rows, viewData.idxActiveLine);
+    logger->Debug("                 viewTopLine=%d, viewBottomLine=%d", viewData.viewTopLine, viewData.viewBottomLine);
+
 
     cursor.position.y = viewData.idxActiveLine - viewData.viewTopLine;
     if (cursor.position.y > GetContentRect().Height()-1) {
@@ -176,7 +194,7 @@ void EditorView::OnNavigateDown(int rows) {
     //logger->Debug("OnNavigateDown, activeLine=%d, rows=%d, ypos=%d, height=%d", viewData.idxActiveLine, rows, cursor.position.y, ContentRect().Height());
 }
 
-void EditorView::OnNavigateUp(int rows) {
+void EditorView::OnNavigateUpVSCode(int rows) {
     auto currentLine = viewData.editController.LineAt(viewData.idxActiveLine);
     currentLine->SetActive(false);
     auto &lines = viewData.editController.Lines();
@@ -202,4 +220,50 @@ void EditorView::OnNavigateUp(int rows) {
 
     currentLine = lines[viewData.idxActiveLine];
     currentLine->SetActive(true);
+}
+
+// This moves content first and cursor rather stays
+void EditorView::OnNavigateDownCLion(int rows) {
+    auto currentLine = viewData.editController.LineAt(viewData.idxActiveLine);
+    currentLine->SetActive(false);
+
+    bool forceCursorToLastLine = false;
+    int nRowsToMove = rows;
+    int maxRows = viewData.editController.Lines().size() - 1;
+
+    // Note: We might want to revisit this clipping, if we want a margin to the bottom...
+    // Maybe we should adjust for the visible margin at the end
+    if ((viewData.viewTopLine+nRowsToMove) > maxRows) {
+        nRowsToMove = 0;
+        forceCursorToLastLine = true;
+    }
+    logger->Debug("OnNavDownCLion");
+    logger->Debug("  nRowsToMove=%d, forceCursor=%s, nLines=%d, maxRows=%d",
+                  nRowsToMove, forceCursorToLastLine?"Y":"N", (int)viewData.editController.Lines().size(), maxRows);
+    logger->Debug("  Before, topLine=%d, bottomLine=%d, activeLine=%d, cursor.y=%d", viewData.viewTopLine, viewData.viewBottomLine, viewData.idxActiveLine, cursor.position.y);
+
+
+    // Reposition the view
+    int activeLineDelta = viewData.idxActiveLine - viewData.viewTopLine;
+    viewData.viewTopLine += nRowsToMove;
+    viewData.viewBottomLine += nRowsToMove;
+
+    // In case we would have moved beyond the visible part, let's enforce the cursor position..
+    if (forceCursorToLastLine) {
+        cursor.position.y = viewData.editController.Lines().size() - viewData.viewTopLine - 1;
+        viewData.idxActiveLine = viewData.editController.Lines().size()-1;
+        logger->Debug("       force to last!");
+    } else {
+        viewData.idxActiveLine = viewData.viewTopLine + activeLineDelta;
+        cursor.position.y = viewData.idxActiveLine - viewData.viewTopLine;
+        if (cursor.position.y > GetContentRect().Height() - 1) {
+            cursor.position.y = GetContentRect().Height() - 1;
+        }
+    }
+    logger->Debug("  After, topLine=%d, bottomLine=%d, activeLine=%d, cursor.y=%d", viewData.viewTopLine, viewData.viewBottomLine, viewData.idxActiveLine, cursor.position.y);
+    InvalidateAll();
+}
+
+void EditorView::OnNavigateUpCLion(int rows) {
+
 }

@@ -62,6 +62,10 @@ namespace gedit {
 
         }
 
+        virtual void ResetContentHeight() {
+
+        }
+
         virtual void Draw() final {
             // Note: Not sure...
             if ((isInvalid) && (parentView == nullptr)) {

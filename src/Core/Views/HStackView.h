@@ -51,6 +51,9 @@ namespace gedit {
         void RestoreContentHeight() override {
             parentView->RestoreContentHeight();
         }
+        void ResetContentHeight() override {
+            parentView->ResetContentHeight();
+        }
 
             // Recompute the layout - we stack items horizontally (i.e. along the X-axis)
         // This is VERY simple

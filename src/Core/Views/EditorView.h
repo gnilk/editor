@@ -32,6 +32,10 @@ namespace gedit {
         void RestoreContentHeight() override {
             parentView->RestoreContentHeight();
         }
+        void ResetContentHeight() override {
+            parentView->ResetContentHeight();
+        }
+
 
 
         EditController &GetEditController() {

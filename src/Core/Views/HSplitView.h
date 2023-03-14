@@ -87,6 +87,8 @@ namespace gedit {
             Initialize();
             InvalidateAll();
         }
+
+        // This restore the content stuff to whatever it was before..  We should add another - 'Reset' to set it back to the default
         void RestoreContentHeight() override {
             bUseFullView = false;
             upperView->SetVisible(true);
@@ -97,8 +99,17 @@ namespace gedit {
             InvalidateAll();
         }
 
+        void ResetContentHeight() override {
+            bUseFullView = false;
+            upperView->SetVisible(true);
+            lowerView->SetVisible(true);
+            splitterPos = 0;        // This will cause default initialization behaviour
+            Initialize();
+            InvalidateAll();
+        }
 
-            void SetViewRect(const Rect &rect) override {
+
+        void SetViewRect(const Rect &rect) override {
             viewRect = rect;
             // FIXME: make sure the splitter pos fits within the rect..
             if (splitterPos == 0) {

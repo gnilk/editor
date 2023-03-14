@@ -60,7 +60,7 @@ void EditorView::OnActivate(bool isActive) {
     logger->Debug("OnActive, isActive: %s", isActive?"yes":"no");
     if (!isActive) {
         // store height of view..
-        RestoreContentHeight();
+        ResetContentHeight();
     } else {
         // Maximize editor content view...
         MaximizeContentHeight();

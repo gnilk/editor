@@ -72,17 +72,33 @@ namespace gedit {
             SetSplitterPos(current);
         }
 
-        // TODO: When we maximize we should 'disable' the splt drawing and
-        //       instead draw the upper (or lower) view in full glory (as a single view container)
+        // If we toggle this - we need a way to untoggle it as well...
         void MaximizeContentHeight() override {
+            bUseFullView = true;
             if (upperView->IsActive()) {
-                SetSplitterPos(GetContentRect().Height()-5);
+                upperView->SetVisible(true);
+                lowerView->SetVisible(false);
             } else {
-                SetSplitterPos(1);
+                lowerView->SetVisible(true);
+                upperView->SetVisible(false);
             }
+            UpdateUpperViewRect();
+            UpdateLowerViewRect();
+            Initialize();
+            InvalidateAll();
+        }
+        void RestoreContentHeight() override {
+            bUseFullView = false;
+            upperView->SetVisible(true);
+            lowerView->SetVisible(true);
+            UpdateUpperViewRect();
+            UpdateLowerViewRect();
+            Initialize();
+            InvalidateAll();
         }
 
-        void SetViewRect(const Rect &rect) override {
+
+            void SetViewRect(const Rect &rect) override {
             viewRect = rect;
             // FIXME: make sure the splitter pos fits within the rect..
             if (splitterPos == 0) {
@@ -106,9 +122,11 @@ namespace gedit {
         }
     protected:
         void DrawViewContents() override {
-            auto &dc = window->GetWindowDC();
-            std::string dummy(viewRect.Width(),'*');
-            dc.DrawStringAt(0,splitterPos,dummy.c_str());
+            if (!bUseFullView) {
+                auto &dc = window->GetWindowDC();
+                std::string dummy(viewRect.Width(), '*');
+                dc.DrawStringAt(0, splitterPos, dummy.c_str());
+            }
         }
 
         void UpdateUpperViewRect() {
@@ -118,7 +136,9 @@ namespace gedit {
             // so we need to adjust the height relative to upper-left corner (the offset from screen border)
             // Since it will change depending on if the window has borders or not...
             Rect upperRect = GetContentRect();
-            upperRect.SetHeight(splitterPos-upperRect.TopLeft().y);
+            if (!bUseFullView) {
+                upperRect.SetHeight(splitterPos - upperRect.TopLeft().y);
+            }
 
 //            auto logger = gnilk::Logger::GetLogger("HSplitView");
 //            logger->Debug("UpperRect: W=%d, H=%d (%d,%d)-(%d,%d)",
@@ -132,10 +152,12 @@ namespace gedit {
             if (!lowerView) return;
             Rect lowerRect = GetContentRect();
 
-            // Splitter occupies the first line of the second part in the splitter view...
-            // So we must offset everything by '1' in addition to offset by screen position (in case borders)
-            lowerRect.SetHeight(lowerRect.Height() - splitterPos-1+lowerRect.TopLeft().y);
-            lowerRect.Move(0,splitterPos+1-lowerRect.TopLeft().y);
+            if (!bUseFullView) {
+                // Splitter occupies the first line of the second part in the splitter view...
+                // So we must offset everything by '1' in addition to offset by screen position (in case borders)
+                lowerRect.SetHeight(lowerRect.Height() - splitterPos - 1 + lowerRect.TopLeft().y);
+                lowerRect.Move(0, splitterPos + 1 - lowerRect.TopLeft().y);
+            }
 
             auto logger = gnilk::Logger::GetLogger("HSplitView");
             logger->Debug("LowerRect: W=%d, H=%d", lowerRect.Width(), lowerRect.Height());
@@ -149,6 +171,7 @@ namespace gedit {
 
     protected:
         int splitterPos;
+        bool bUseFullView = false;  // This affects the computation of full view semantics
 
         ViewBase *upperView = nullptr;
         ViewBase *lowerView = nullptr;

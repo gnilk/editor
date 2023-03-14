@@ -48,7 +48,11 @@ namespace gedit {
         void MaximizeContentHeight() override {
             parentView->MaximizeContentHeight();
         }
-        // Recompute the layout - we stack items horizontally (i.e. along the X-axis)
+        void RestoreContentHeight() override {
+            parentView->RestoreContentHeight();
+        }
+
+            // Recompute the layout - we stack items horizontally (i.e. along the X-axis)
         // This is VERY simple
         // 1) Calculate how much all fixed items need
         // 2) Distribute the rest evenly across the 'fill' (dynamic) items

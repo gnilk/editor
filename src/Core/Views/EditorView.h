@@ -29,6 +29,9 @@ namespace gedit {
         void MaximizeContentHeight() override {
             parentView->MaximizeContentHeight();
         }
+        void RestoreContentHeight() override {
+            parentView->RestoreContentHeight();
+        }
 
 
         EditController &GetEditController() {

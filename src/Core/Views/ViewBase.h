@@ -56,7 +56,10 @@ namespace gedit {
 
         virtual void MaximizeContentHeight() {
             // Do nothing, override in specific view to handle
-            int breakme = 1;
+        }
+        // Lousy name????
+        virtual void RestoreContentHeight() {
+
         }
 
         virtual void Draw() final {
@@ -67,7 +70,9 @@ namespace gedit {
             window->Draw();
 
             for(auto view : subviews) {
-                view->Draw();
+                if (view->IsVisible()) {
+                    view->Draw();
+                }
             }
 
             if (window->GetFlags() & WindowBase::kWin_Visible) {
@@ -81,6 +86,7 @@ namespace gedit {
             window->Refresh();
 
             // Reset once we are done..
+            // FIXME: This should perhaps be placed in separate call - as 'isVisible' will stop the recursion...
             isInvalid = false;
         }
 
@@ -102,6 +108,12 @@ namespace gedit {
         }
         bool IsInvalid() {
             return isInvalid;
+        }
+        bool IsVisible() {
+            return isVisible;
+        }
+        virtual void SetVisible(bool newIsVisible) final {
+            isVisible = newIsVisible;
         }
         virtual void SetActive(bool newIsActive) final {
             isActive = newIsActive;
@@ -182,15 +194,16 @@ namespace gedit {
         }
 
     protected:
-        bool isActive = false;
+        bool isActive = false;  // If receiving keyboard/mouse input
+        bool isVisible = true; // If subject to draw-call's
         Cursor cursor = {};
         std::vector<ViewBase *> subviews = {};
-        WindowBase *window = nullptr;
+        WindowBase *window = nullptr;       // The underlying graphical window
         ViewBase *parentView = nullptr;
         Rect viewRect = {};
         bool isInitialized = false;
         bool isInvalid = false;
-        void *sharedDataPtr = nullptr;
+        void *sharedDataPtr = nullptr;      // Whatever you want - this is to share data between views - liked HSTack or Tab's or similar
     };
 
 }

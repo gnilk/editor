@@ -61,16 +61,25 @@ KeyPress NCursesKeyboardDriver::GetKeyPress() {
     auto ch = getch();
 
     if (!kbdEvents.empty()) {
-        logger->Debug("kbdEvent not empty, ch=%d", ch);
+        // This will flood the logger in case we are not the focus window
+        // logger->Debug("kbdEvent not empty, ch=%d", ch);
         auto t1 = std::chrono::high_resolution_clock::now();
 
         while ((ch = getch()) == ERR) {
             auto t2 = std::chrono::high_resolution_clock::now();
             auto msec = std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1);
 
+            // This needs a bit more elaborate design,
+            // Currently we bail if there are no keys coming from NCurses
+            // This means we will miss keys - basically we are just extending NCurses with information from the low-level
+            // However, since I simply can't figure out WHICH process/window has the keyboard input it turns out
+            // my keyboard logger get's everything and thus if you use arrow keys in another window the editor will still
+            // pick them up...
+
             if (msec.count() > timeoutGetChMSec) {
-                logger->Debug("getch, timeout: %d", (int)msec.count());
-                break;
+                // This will flood the logger in case we are not the focus window
+                //logger->Debug("getch, timeout: %d", (int)msec.count());
+                return keyPress;
             }
 
         }
@@ -101,6 +110,8 @@ KeyPress NCursesKeyboardDriver::GetKeyPress() {
         ch = getch();
     }
 
+    // We can only pass on very specific keys here...
+
     keyPress.isKeyValid = !(ch == ERR);
     keyPress.key = ch;
     keyPress.specialKey = TranslateNCurseKey(ch);
@@ -108,6 +119,7 @@ KeyPress NCursesKeyboardDriver::GetKeyPress() {
 
     // Not sure...
     if (keyPress.isHwEventValid) {
+        keyPress.isSpecialKey = true;
         keyPress.specialKey = keyPress.hwEvent.keyCode;
     }
 

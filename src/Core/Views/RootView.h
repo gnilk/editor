@@ -26,7 +26,9 @@ namespace gedit {
             topViews.push_back(view);
             if (idxCurrentTopView == -1) {
                 idxCurrentTopView = 0;
-                TopView()->SetActive(true);
+                if (IsInitialized()) {
+                    TopView()->SetActive(true);
+                }
             }
         }
 
@@ -44,13 +46,16 @@ namespace gedit {
             TopView()->HandleKeyPress(keyPress);
         }
     protected:
+        void OnViewInitialized() override {
+            ViewBase::OnViewInitialized();
+            TopView()->SetActive(true);
+        }
         void OnKeyPress(const KeyPress &keyPress) override {
             if (keyPress.IsSpecialKeyPressed(Keyboard::kKeyCode_Escape)) {
                 auto logger = gnilk::Logger::GetLogger("RootView");
                 TopView()->SetActive(false);
                 idxCurrentTopView = (idxCurrentTopView+1) % topViews.size();
                 TopView()->SetActive(true);
-
 
                 logger->Debug("ESC pressed, cycle active view, new = %d", idxCurrentTopView);
             }

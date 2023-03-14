@@ -26,6 +26,7 @@ namespace gedit {
                 view->Initialize();
             }
             isInitialized = true;
+            OnViewInitialized();
         }
 
         virtual void SetViewRect(const Rect &rect) {
@@ -49,7 +50,14 @@ namespace gedit {
         virtual void SetHeight(int newHeight) final {
             viewRect.SetHeight(newHeight);
         }
+        virtual void AdjustHeight(int deltaHeight) {
+            // we do nothing, you are supposed to override this
+        }
 
+        virtual void MaximizeContentHeight() {
+            // Do nothing, override in specific view to handle
+            int breakme = 1;
+        }
 
         virtual void Draw() final {
             // Note: Not sure...
@@ -95,10 +103,18 @@ namespace gedit {
         bool IsInvalid() {
             return isInvalid;
         }
-        void SetActive(bool newIsActive) {
+        virtual void SetActive(bool newIsActive) final {
             isActive = newIsActive;
+            OnActivate(isActive);
         }
         bool IsActive() {
+            if (!isActive) {
+                for(auto s : subviews) {
+                    if (s->IsActive()) {
+                        return true;
+                    }
+                }
+            }
             return isActive;
         }
 
@@ -137,7 +153,18 @@ namespace gedit {
         virtual void HandleKeyPress(const KeyPress &keyPress) {
             OnKeyPress(keyPress);
         }
+        //
+        // Override these to handles, they are called in an event kind of manner on certain actions
+        //
     protected:
+        virtual void OnViewInitialized() {
+            for(auto view : subviews) {
+                view->OnViewInitialized();
+            }
+        }
+        virtual void OnActivate(bool isActive) {
+        }
+
         virtual void OnKeyPress(const KeyPress &keyPress) {
             if (parentView != nullptr) {
                 parentView->OnKeyPress(keyPress);

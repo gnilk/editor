@@ -43,7 +43,7 @@ void CommandController::NewLine() {
 }
 
 void CommandController::WriteLine(const std::string &str) {
-    logger->Debug("WriteLine: %s", str.c_str());
+    //logger->Debug("WriteLine: %s", str.c_str());
     currentLine->Append(str);
     NewLine();
 }

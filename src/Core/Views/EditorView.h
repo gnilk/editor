@@ -25,12 +25,19 @@ namespace gedit {
 
         void InitView() override;
 
+        // Pass this on to someone who actually know how to deal with this - HStackView don't deal with height related stuff
+        void MaximizeContentHeight() override {
+            parentView->MaximizeContentHeight();
+        }
+
+
         EditController &GetEditController() {
             return viewData.editController;
         }
     protected:
         void OnKeyPress(const KeyPress &keyPress) override;
         void OnResized() override;
+        void OnActivate(bool isActive) override;
         void DrawViewContents() override;
 
     private:

@@ -22,6 +22,10 @@ namespace gedit {
         void InitView() override;
         void OnKeyPress(const KeyPress &keyPress) override;
         void DrawViewContents() override;
+
+    protected:
+        // events - or sort of
+        void OnActivate(bool isActive) override;
     private:
         CommandController commandController;
         gnilk::ILogger *logger = nullptr;

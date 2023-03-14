@@ -4,6 +4,7 @@
 
 #include "Core/RuntimeConfig.h"
 #include "CommandView.h"
+#include "Core/Views/HSplitView.h"
 
 using namespace gedit;
 
@@ -18,16 +19,34 @@ void CommandView::InitView() {
     window = screen->CreateWindow(viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_Border);
 
     commandController.SetNewLineNotificationHandler([this]()->void {
-        logger->Debug("NewLine notified!");
+        //logger->Debug("NewLine notified!");
         cursor.position.x = 0;
         InvalidateView();
     });
     commandController.Begin();
 }
 
+void CommandView::OnActivate(bool isActive) {
+    logger->Debug("OnActive, isActive: %s", isActive?"yes":"no");
+    if (!isActive) {
+        // store height of view..
+    } else {
+        // restore height of view...
+    }
+}
+
+
 void CommandView::OnKeyPress(const KeyPress &keyPress) {
 
-    commandController.HandleKeyPress(cursor, 0, keyPress);
+    if (commandController.HandleKeyPress(cursor, 0, keyPress)) {
+        return;
+    }
+    if (keyPress.IsSpecialKeyPressed(Keyboard::kKeyCode_F1)) {
+        parentView->AdjustHeight(-1);
+    } else if (keyPress.IsSpecialKeyPressed(Keyboard::kKeyCode_F2)) {
+        parentView->AdjustHeight(+1);
+    }
+
     // Must call base class - perhaps this is a stupid thing..
     ViewBase::OnKeyPress(keyPress);
 }

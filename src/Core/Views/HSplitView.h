@@ -39,6 +39,9 @@ namespace gedit {
         }
 
         void SetSplitterPos(int newSplitterPos) {
+            auto logger = gnilk::Logger::GetLogger("HSplitView");
+            logger->Debug("SetSplitterPos, newPos=%d, height=%d", newSplitterPos, GetViewRect().Height());
+
             splitterPos = newSplitterPos;
             UpdateUpperViewRect();
             UpdateLowerViewRect();
@@ -57,6 +60,27 @@ namespace gedit {
             return splitterPos / (float)GetContentRect().Height();
         }
 
+        void AdjustHeight(int deltaHeight) override {
+            auto current = GetSplitterPos();
+            current += deltaHeight;
+            auto yPos = GetViewRect().TopLeft().y;
+            if (current < 1) {
+                current = 1;
+            } else if (current > (GetContentRect().Height()-5)) {
+                current = GetContentRect().Height()-5;
+            }
+            SetSplitterPos(current);
+        }
+
+        // TODO: When we maximize we should 'disable' the splt drawing and
+        //       instead draw the upper (or lower) view in full glory (as a single view container)
+        void MaximizeContentHeight() override {
+            if (upperView->IsActive()) {
+                SetSplitterPos(GetContentRect().Height()-5);
+            } else {
+                SetSplitterPos(1);
+            }
+        }
 
         void SetViewRect(const Rect &rect) override {
             viewRect = rect;
@@ -81,7 +105,7 @@ namespace gedit {
             UpdateLowerViewRect();
         }
     protected:
-        void DrawViewContents() {
+        void DrawViewContents() override {
             auto &dc = window->GetWindowDC();
             std::string dummy(viewRect.Width(),'*');
             dc.DrawStringAt(0,splitterPos,dummy.c_str());
@@ -118,9 +142,14 @@ namespace gedit {
 
             lowerView->SetViewRect(lowerRect);
         }
+    protected:
+        void OnViewInitialized() override {
+            ViewBase::OnViewInitialized();
+        }
 
     protected:
         int splitterPos;
+
         ViewBase *upperView = nullptr;
         ViewBase *lowerView = nullptr;
     };

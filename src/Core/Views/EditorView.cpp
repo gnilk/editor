@@ -56,6 +56,18 @@ void EditorView::DrawViewContents() {
     }
 }
 
+void EditorView::OnActivate(bool isActive) {
+    logger->Debug("OnActive, isActive: %s", isActive?"yes":"no");
+    if (!isActive) {
+        // store height of view..
+    } else {
+        // Maximize editor content view...
+        MaximizeContentHeight();
+    }
+}
+
+
+
 void EditorView::OnKeyPress(const KeyPress &keyPress) {
 
     if (viewData.editController.HandleKeyPress(cursor, viewData.idxActiveLine, keyPress)) {

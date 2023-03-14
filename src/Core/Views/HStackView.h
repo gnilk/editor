@@ -44,7 +44,10 @@ namespace gedit {
             AddView(view);
             RecomputeLayout();
         }
-    protected:
+        // Pass this on to someone who actually know how to deal with this - HStackView don't deal with height related stuff
+        void MaximizeContentHeight() override {
+            parentView->MaximizeContentHeight();
+        }
         // Recompute the layout - we stack items horizontally (i.e. along the X-axis)
         // This is VERY simple
         // 1) Calculate how much all fixed items need

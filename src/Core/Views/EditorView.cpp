@@ -10,12 +10,14 @@ using namespace gedit;
 
 void EditorView::InitView()  {
     logger = gnilk::Logger::GetLogger("EditorView");
+    logger->Debug("InitView!");
 
     auto screen = RuntimeConfig::Instance().Screen();
     if (viewRect.IsEmpty()) {
         viewRect = screen->Dimensions();
     }
-    window = screen->CreateWindow(viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_Border);
+    window = screen->CreateWindow(viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
+    window->SetCaption("EditorView");
 
     auto &rect = window->GetContentDC().GetRect();
 
@@ -36,6 +38,31 @@ void EditorView::InitView()  {
     bUseCLionPageNav = Config::Instance()["editor"].GetBool("pgupdown_content_first", true);
 }
 
+void EditorView::ReInitView() {
+    auto screen = RuntimeConfig::Instance().Screen();
+    if (viewRect.IsEmpty()) {
+        viewRect = screen->Dimensions();
+    }
+    window = screen->UpdateWindow(window, viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
+
+    auto &rect = window->GetContentDC().GetRect();
+//    // This is the visible area...
+    viewData.viewTopLine = 0;
+    viewData.viewBottomLine = rect.Height();
+//    viewData.editController.SetTextBufferChangedHandler([this]()->void {
+//        auto textBuffer = viewData.editController.GetTextBuffer();
+//        window->SetCaption(textBuffer->Name());
+//    });
+
+
+    // We own the view-data but let's share it - this allows other views to READ it..
+//    if (GetParentView() != nullptr) {
+//        GetParentView()->SetSharedData(&viewData);
+//    }
+
+    bUseCLionPageNav = Config::Instance()["editor"].GetBool("pgupdown_content_first", true);
+}
+
 void EditorView::OnResized() {
     // Update the view Bottom line - as this affects how many lines we draw...
     viewData.viewBottomLine = GetContentRect().Height();
@@ -45,6 +72,7 @@ void EditorView::OnResized() {
 
 void EditorView::DrawViewContents() {
     auto &dc = window->GetContentDC(); //ViewBase::ContentAreaDrawContext();
+    logger->Debug("DrawViewContents, dc Height=%d, topLine=%d, bottomLine=%d", dc.GetRect().Height(), viewData.viewTopLine, viewData.viewBottomLine);
     dc.DrawLines(viewData.editController.Lines(), viewData.viewTopLine, viewData.viewBottomLine);
     return;
     // Draw from line array between these..
@@ -59,7 +87,8 @@ void EditorView::DrawViewContents() {
 void EditorView::OnActivate(bool isActive) {
     logger->Debug("OnActive, isActive: %s", isActive?"yes":"no");
     if (!isActive) {
-        // store height of view..
+        // reset height of view..
+        // We should have this configureable - restore or reset (I can imagine some people will hate a reset)
         ResetContentHeight();
     } else {
         // Maximize editor content view...

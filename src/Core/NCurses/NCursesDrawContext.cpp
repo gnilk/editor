@@ -16,8 +16,11 @@ void NCursesDrawContext::Scroll(int nRows) {
 }
 
 void NCursesDrawContext::DrawStringAt(int x, int y, const char *str) {
-    wmove((WINDOW *)win, y, x);
-    waddstr((WINDOW *)win,str);
+    int err = wmove((WINDOW *)win, y, x);
+    if (err < 0) {
+        return;
+    }
+    waddnstr((WINDOW *)win, str, rect.Width()-x-1);
 }
 
 void NCursesDrawContext::DrawLine(Line *line, int idxLine) {

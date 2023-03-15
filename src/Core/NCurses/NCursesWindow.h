@@ -15,17 +15,25 @@ namespace gedit {
         explicit NCursesWindow(const Rect &rect) : WindowBase(rect) {
 
         }
-        virtual ~NCursesWindow() = default;
+        NCursesWindow(const Rect &rect, NCursesWindow *other);
+
+
+        virtual ~NCursesWindow() noexcept;
         void Initialize(WindowBase::kWinFlags flags, WindowBase::kWinDecoration newDecoFlags) override;
 
         DrawContext &GetContentDC() override;
-        void Clear() override {
-            wclear((WINDOW *)winptr);
-        }
+        void Clear() override;
+
         void Refresh() override {
             wnoutrefresh((WINDOW *)winptr);
             if (clientWindow != nullptr) {
                 wnoutrefresh((WINDOW *)clientWindow);
+            }
+        }
+        void TestRefreshEx() override {
+            wrefresh((WINDOW *)winptr);
+            if (clientWindow != nullptr) {
+                wrefresh((WINDOW *)clientWindow);
             }
         }
 
@@ -37,6 +45,7 @@ namespace gedit {
     private:
         void CreateNCursesWindows();
     private:
+        char tmp_fillChar = 'x';
         DrawContext *clientContext = nullptr;
         WINDOW *clientWindow = nullptr;
     };

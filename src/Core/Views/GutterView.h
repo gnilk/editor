@@ -16,6 +16,7 @@ namespace gedit {
         virtual ~GutterView() = default;
 
         void InitView() override;
+        void ReInitView() override;
         void DrawViewContents() override;
     };
 }

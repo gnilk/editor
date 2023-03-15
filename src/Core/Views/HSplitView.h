@@ -25,14 +25,29 @@ namespace gedit {
             }
 
             window = screen->CreateWindow(viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
-//            window = screen->CreateWindow(viewRect, WindowBase::kWin_Visible, (WindowBase::kWinDecoration)(WindowBase::kWinDeco_Border | WindowBase::kWinDeco_DrawCaption));
             window->SetCaption("HSplitView");
 
             if (splitterPos == 0) {
                 splitterPos = GetContentRect().Height()/2;
             }
-//            auto logger = gnilk::Logger::GetLogger("HSplitView");
-//            logger->Debug("InitView, splitterPos=%d", splitterPos);
+
+            UpdateLowerViewRect();
+            UpdateUpperViewRect();
+        }
+
+        void ReInitView() override {
+            auto screen = RuntimeConfig::Instance().Screen();
+            if (viewRect.IsEmpty()) {
+                viewRect = screen->Dimensions();
+            }
+            auto logger = gnilk::Logger::GetLogger("HSplitView");
+            logger->Debug("ReInitView, Height=%d", viewRect.Height());
+
+            window = screen->UpdateWindow(window, viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
+
+            if (splitterPos == 0) {
+                splitterPos = GetContentRect().Height()/2;
+            }
 
             UpdateLowerViewRect();
             UpdateUpperViewRect();
@@ -128,15 +143,26 @@ namespace gedit {
 
         void SetLower(ViewBase *newLower) {
             lowerView = newLower;
-            AddView(newLower);
+            AddView(lowerView);
             UpdateLowerViewRect();
+
         }
     protected:
         void DrawViewContents() override {
+            auto &dc = window->GetContentDC();
+
+            auto logger = gnilk::Logger::GetLogger("HSplitView");
+            logger->Debug("DrawViewContents, Height=%d", dc.GetRect().Height());
+
+
+            std::string dummy(dc.GetRect().Width(), 'x');
+            //std::string statusLine = "GoatEdit v0.1 - we are editing files";
+
+
             if (!bUseFullView) {
-                auto &dc = window->GetWindowDC();
-                std::string dummy(viewRect.Width(), '*');
                 dc.DrawStringAt(0, splitterPos, dummy.c_str());
+            } else {
+                dc.DrawStringAt(0, dc.GetRect().Height()-1, dummy.c_str());
             }
         }
 
@@ -149,6 +175,8 @@ namespace gedit {
             Rect upperRect = GetContentRect();
             if (!bUseFullView) {
                 upperRect.SetHeight(splitterPos - upperRect.TopLeft().y);
+            } else {
+                upperRect.SetHeight(upperRect.Height()-1);
             }
 
 //            auto logger = gnilk::Logger::GetLogger("HSplitView");
@@ -168,10 +196,17 @@ namespace gedit {
                 // So we must offset everything by '1' in addition to offset by screen position (in case borders)
                 lowerRect.SetHeight(lowerRect.Height() - splitterPos - 1 + lowerRect.TopLeft().y);
                 lowerRect.Move(0, splitterPos + 1 - lowerRect.TopLeft().y);
+            } else {
+                lowerRect.SetHeight(lowerRect.Height()-1);
             }
 
             auto logger = gnilk::Logger::GetLogger("HSplitView");
-            logger->Debug("LowerRect: W=%d, H=%d", lowerRect.Width(), lowerRect.Height());
+            logger->Debug("SplitterPos: %d (ViewRect.Height = %d)", splitterPos, viewRect.Height());
+            logger->Debug("LowerRect: W=%d, H=%d TL:(%d,%d) BR:(%d,%d)",
+                          lowerRect.Width(), lowerRect.Height(),
+                          lowerRect.TopLeft().x, lowerRect.TopLeft().y,
+                          lowerRect.BottomRight().x,lowerRect.BottomRight().y);
+
 
             lowerView->SetViewRect(lowerRect);
         }

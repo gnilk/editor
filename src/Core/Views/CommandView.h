@@ -19,7 +19,12 @@ namespace gedit {
         }
         virtual ~CommandView() = default;
 
+        virtual void DoDraw() override {
+                ViewBase::DoDraw();
+        }
+
         void InitView() override;
+        void ReInitView() override;
         void OnKeyPress(const KeyPress &keyPress) override;
         void DrawViewContents() override;
 

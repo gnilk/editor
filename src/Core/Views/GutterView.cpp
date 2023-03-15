@@ -24,9 +24,19 @@ void GutterView::InitView() {
     if (viewRect.IsEmpty()) {
         viewRect = screen->Dimensions();
     }
-    window = screen->CreateWindow(viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_Border);
+    window = screen->CreateWindow(viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
+    window->SetCaption("GutterView");
+
 
 }
+void GutterView::ReInitView() {
+    auto screen = RuntimeConfig::Instance().Screen();
+    if (viewRect.IsEmpty()) {
+        viewRect = screen->Dimensions();
+    }
+    window = screen->UpdateWindow(window, viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
+}
+
 
 
 void GutterView::DrawViewContents() {

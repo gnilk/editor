@@ -34,7 +34,16 @@ namespace gedit {
             }
             window = screen->CreateWindow(viewRect, WindowBase::kWin_Invisible, WindowBase::kWinDeco_None);
             //window = screen->CreateWindow(viewRect, WindowBase::kWin_Visible, (WindowBase::kWinDecoration)(WindowBase::kWinDeco_Border | WindowBase::kWinDeco_DrawCaption));
-            //window->SetCaption("HStackView");
+            window->SetCaption("HStackView");
+            RecomputeLayout();
+        }
+
+        void ReInitView() override {
+            auto screen = RuntimeConfig::Instance().Screen();
+            if (viewRect.IsEmpty()) {
+                viewRect = screen->Dimensions();
+            }
+            window = screen->UpdateWindow(window, viewRect, WindowBase::kWin_Invisible, WindowBase::kWinDeco_None);
             RecomputeLayout();
         }
 

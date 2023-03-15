@@ -102,7 +102,7 @@ static void SetupLogger() {
     // Remove the console sink (it is auto-created in debug-mode)
     gnilk::Logger::RemoveSink("console");
 }
-
+extern char glbFillchar;
 
 int main(int argc, const char **argv) {
 
@@ -213,7 +213,10 @@ int main(int argc, const char **argv) {
     while(!bQuit) {
         // This is way too simple - need better handling here!
         // Background stuff can cause need to repaint...
+        //rootView.TopView()->GetWindow()->TestRefreshEx();
         bool redraw = false;
+        glbFillchar = 'a';
+
         auto keyPress = keyboardDriver.GetKeyPress();
         if (keyPress.IsAnyValid()) {
             logger->Debug("KeyPress Valid - passing on...");
@@ -227,7 +230,6 @@ int main(int argc, const char **argv) {
             logger->Debug("Redraw was triggered...");
             rootView.Draw();
             screen.Update();
-            redraw = false;
         }
     }
     logger->Debug("Left main loop, closing graphics subsystem");

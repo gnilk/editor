@@ -19,7 +19,18 @@ namespace gedit {
             viewRect = screen->Dimensions();
             window = screen->CreateWindow(viewRect, WindowBase::kWin_Invisible, WindowBase::kWinDeco_None);
         }
+        void ReInitView() override {
+            auto screen = RuntimeConfig::Instance().Screen();
+            viewRect = screen->Dimensions();
+            window = screen->UpdateWindow(window, viewRect, WindowBase::kWin_Invisible, WindowBase::kWinDeco_None);
+        }
 
+        virtual void Draw() override {
+            auto logger = gnilk::Logger::GetLogger("RootView");
+            logger->Debug("==== Begin Draw Cycle ====");
+            ViewBase::Draw();
+            logger->Debug("==== End Draw Cycle ====");
+        }
 
         // TEMP
         void AddTopView(ViewBase *view) {
@@ -48,7 +59,9 @@ namespace gedit {
     protected:
         void OnViewInitialized() override {
             ViewBase::OnViewInitialized();
-            TopView()->SetActive(true);
+            if (TopView() != nullptr) {
+                TopView()->SetActive(true);
+            }
         }
         void OnKeyPress(const KeyPress &keyPress) override {
             if (keyPress.IsSpecialKeyPressed(Keyboard::kKeyCode_Escape)) {

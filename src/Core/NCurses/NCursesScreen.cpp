@@ -102,3 +102,13 @@ WindowBase *NCursesScreen::CreateWindow(const gedit::Rect &rect, WindowBase::kWi
     window->Initialize(flags, decoFlags);
     return window;
 }
+
+WindowBase *NCursesScreen::UpdateWindow(WindowBase *window, const gedit::Rect &rect, WindowBase::kWinFlags flags, WindowBase::kWinDecoration decoFlags) {
+    auto newWindow = new NCursesWindow(rect, static_cast<NCursesWindow *>(window));
+    newWindow->Initialize(flags, decoFlags);
+
+    delete window;
+
+    return newWindow;
+
+}

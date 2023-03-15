@@ -21,12 +21,11 @@ namespace gedit {
         virtual ~ViewBase() = default;
 
         virtual void Initialize() final {
-            InitView();
-            for(auto view : subviews) {
-                view->Initialize();
+            if (!isInitialized) {
+                DoInitialize();
+            } else {
+                DoReInitialize();
             }
-            isInitialized = true;
-            OnViewInitialized();
         }
 
         virtual void SetViewRect(const Rect &rect) {
@@ -65,13 +64,29 @@ namespace gedit {
         virtual void ResetContentHeight() {
 
         }
+        // This is purely done in order to handle the window stuff...
+        virtual void Draw() {
+            DoDraw();
+            //FinalizeDraw();
+        }
 
-        virtual void Draw() final {
-            // Note: Not sure...
-            if ((isInvalid) && (parentView == nullptr)) {
-                window->Clear();
+        virtual void FinalizeDraw() final {
+            window->Refresh();
+            for (auto view : subviews) {
+                view->FinalizeDraw();
             }
-            window->Draw();
+        }
+
+        virtual void DoDraw() {
+//            if ((isInvalid) && (parentView == nullptr)) {
+//                window->Clear();
+//            }
+//            window->Clear();
+            window->DrawWindowDecoration();
+            if (window->GetFlags() & WindowBase::kWin_Visible) {
+                DrawViewContents();
+            }
+            window->Refresh();
 
             for(auto view : subviews) {
                 if (view->IsVisible()) {
@@ -79,15 +94,9 @@ namespace gedit {
                 }
             }
 
-            if (window->GetFlags() & WindowBase::kWin_Visible) {
-                DrawViewContents();
-            }
-
             if (isActive) {
                 window->SetCursor(cursor);
             }
-
-            window->Refresh();
 
             // Reset once we are done..
             // FIXME: This should perhaps be placed in separate call - as 'isVisible' will stop the recursion...
@@ -189,12 +198,35 @@ namespace gedit {
         virtual void OnResized() {}
 
     protected:
-        // You should override these to draw your contents
+        // Called the first time a view should be created
         virtual void InitView() {
 
         }
+        // Called when view proprties (like size, and so forth) has changed and you
+        // need to reinitialize/move or other wise fiddle with the underlying graphical subsystem
+        virtual void ReInitView() {
+
+        }
+        // You should override these to draw your contents
         virtual void DrawViewContents() {
 
+        }
+    private:
+        void DoInitialize() {
+            InitView();
+            for(auto view : subviews) {
+                view->Initialize();
+            }
+            isInitialized = true;
+            OnViewInitialized();
+        }
+        void DoReInitialize() {
+            ReInitView();
+            for(auto view : subviews) {
+                view->Initialize();
+            }
+            isInitialized = true;
+            OnViewInitialized();
         }
 
     protected:

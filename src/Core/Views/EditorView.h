@@ -24,6 +24,7 @@ namespace gedit {
         virtual ~EditorView() = default;
 
         void InitView() override;
+        void ReInitView() override;
 
         // Pass this on to someone who actually know how to deal with this - HStackView don't deal with height related stuff
         void MaximizeContentHeight() override {

@@ -8,11 +8,34 @@
 #include "NCursesDrawContext.h"
 
 using namespace gedit;
+
+char glbFillchar = 'a';
+
+
+NCursesWindow::NCursesWindow(const Rect &rect, NCursesWindow *other) : WindowBase(rect) {
+    caption = other->caption;
+    flags = other->flags;
+    decorationFlags = other->decorationFlags;
+}
+
+NCursesWindow::~NCursesWindow() noexcept {
+    if (clientWindow != nullptr) {
+        delwin(clientWindow);
+    }
+    if (drawContext != nullptr) {
+        delete drawContext;
+    }
+}
 void NCursesWindow::Initialize(WindowBase::kWinFlags flags, WindowBase::kWinDecoration newDecoFlags) {
     WindowBase::Initialize(flags, newDecoFlags);
     // Create underlying UI window unless we are invisible...
     if (flags & WindowBase::kWin_Visible) {
         CreateNCursesWindows();
+        tmp_fillChar = glbFillchar;
+        glbFillchar += 1;
+        if (glbFillchar > 'z') {
+            glbFillchar = 'a';
+        }
     }
 }
 
@@ -21,14 +44,18 @@ void NCursesWindow::CreateNCursesWindows() {
         delwin((WINDOW *)winptr);
     }
 
+    // Can't do it like this - will cause overlapping windows and screw up redrawing...
+
     auto nativeWin = newwin(windowRect.Height(), windowRect.Width(), windowRect.TopLeft().y, windowRect.TopLeft().x);
     werase(nativeWin);
     scrollok(nativeWin, TRUE);
     wtimeout(nativeWin, 1);
     leaveok(nativeWin, TRUE);
     winptr = nativeWin;
+    if (drawContext != nullptr) {
+        delete drawContext;
+    }
     drawContext = new NCursesDrawContext(winptr, windowRect);
-
 
     if (clientWindow != nullptr) {
         delwin(clientWindow);
@@ -38,11 +65,53 @@ void NCursesWindow::CreateNCursesWindows() {
     if (decorationFlags & kWinDeco_Border) {
         clientRect.Deflate(1,1);
     }
+//    clientWindow = subwin(nativeWin, clientRect.Height(), clientRect.Width(), clientRect.TopLeft().y, clientRect.TopLeft().x);
     clientWindow = newwin(clientRect.Height(), clientRect.Width(), clientRect.TopLeft().y, clientRect.TopLeft().x);
     scrollok(clientWindow, TRUE);
     leaveok(clientWindow, TRUE);
     wtimeout(clientWindow, 1);
+    if (clientContext != nullptr) {
+        delete clientContext;
+    }
     clientContext = new NCursesDrawContext(clientWindow, clientRect);
+}
+
+void NCursesWindow::Clear() {
+    std::string marker;
+    //wclear((WINDOW *)winptr);
+
+    if (caption.empty()) {
+        marker += tmp_fillChar;
+    } else {
+        marker = caption;
+    }
+
+    auto logger = gnilk::Logger::GetLogger("NCursesWindow");
+    logger->Debug("Clear - %s, p:(%d:%d) d:(%d:%d)", marker.c_str(),
+                  windowRect.TopLeft().x, windowRect.TopLeft().y,
+                  windowRect.Width(), windowRect.Height());
+
+
+    int ec=0;
+//    for(int y=windowRect.TopLeft().y;y<windowRect.BottomRight().y;y++) {
+    for(int y=0;y<windowRect.Height();y++) {
+        int xp = 0;
+        while(xp < windowRect.Width()) {
+            if ((xp + marker.size()) > windowRect.Width()) {
+                break;
+            }
+            auto res = mvwprintw((WINDOW *)winptr, y,xp,"%s",marker.c_str());
+            if (res < 0) {
+                ec++;
+            }
+            xp += marker.size();
+        }
+    }
+    if (ec) {
+        logger->Error("  mvprintfw, errors=%d", ec);
+    }
+    touchwin((WINDOW *)winptr);
+
 }
 
 
@@ -50,6 +119,7 @@ void NCursesWindow::DrawWindowDecoration() {
     if (flags & WindowBase::kWin_Invisible) {
         return;
     }
+
     // Erase the whole window
     werase((WINDOW *)winptr);
 
@@ -80,7 +150,7 @@ void NCursesWindow::DrawWindowDecoration() {
         waddstr((WINDOW *)winptr, caption.c_str());
     }
 
-    wnoutrefresh((WINDOW *)winptr);
+//    wnoutrefresh((WINDOW *)winptr);
 
 }
 

@@ -62,6 +62,11 @@ namespace gedit {
 
         }
 
+        virtual void TestRefreshEx() {
+
+        }
+
+
         virtual void SetCursor(const Cursor &cursor) {
 
         }
@@ -82,6 +87,9 @@ namespace gedit {
 
         void SetCaption(const std::string &newCaption) {
             caption = newCaption;
+        }
+        const std::string &GetCaption() {
+            return caption;
         }
 
     public:

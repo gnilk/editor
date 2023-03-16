@@ -3,6 +3,22 @@
 //
 /*
  * TO-DO List
+ * 1)
+ * - Move EditorView 'EditViewSharedData' to TextBuffer
+ * - Add ability to get 'ActiveBuffer' through BufferManager or RuntimeConfig (regardless)
+ * - In BufferManager - make it possible to iterate through all buffers currently open..
+ * - headerView -> Specialize SingleLineView to 'HeaderView' make the draw function
+ * - new single view for status line / splitter -> make this a specific "HSplitView"
+ *
+ * 2)
+ * - CommandView, Store/Restore splitter when view goes inactive/active
+ *   Note: this can be tested before adjusting on new line
+ * - CommandView should adjust height of splitter on new lines..
+ *   note: once done, remove f1/f2 adjustment keys...
+ *
+ *
+ *
+ *
  * + BaseController, handle key press (take from old ModeBase/EditorMode)
  * - Consolidate NCursesKeyBoard kKeyCode_xxxx with Keyboard::kKeyCode - currently there is a mismatch..
  * + Figure out how to handle 'HasContentChanged' notfications to force redraws..
@@ -66,6 +82,8 @@
 #include "Core/Views/HSplitView.h"
 #include "Core/Views/VSplitView.h"
 #include "Core/Views/HStackView.h"
+#include "Core/Views/VStackView.h"
+#include "Core/Views/SingleLineView.h"
 
 
 #include "logger.h"
@@ -170,17 +188,24 @@ int main(int argc, const char **argv) {
     auto cmdView = CommandView();
     hSplitView.SetLower(&cmdView);
 
-    auto hStackView = HStackView();
-    hSplitView.SetUpper(&hStackView);
+    auto vStackView = VStackView();
+    auto headerView = SingleLineView();
+    headerView.SetHeight(1);        // This is done in the SingleLineView
 
+    hSplitView.SetUpper(&vStackView);
+
+    auto hStackView = HStackView();
     auto gutterView = GutterView();
     gutterView.SetWidth(10);
 
     //EditorView editorView;
     auto editorView = EditorView();
 
-    hStackView.AddSubView(&gutterView, HStackView::kFixed);
-    hStackView.AddSubView(&editorView, HStackView::kFill);
+    hStackView.AddSubView(&gutterView, kFixed);
+    hStackView.AddSubView(&editorView, kFill);
+
+    vStackView.AddSubView(&headerView, kFixed);
+    vStackView.AddSubView(&hStackView, kFill);
 
     RuntimeConfig::Instance().SetRootView(&rootView);
 

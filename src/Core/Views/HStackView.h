@@ -9,18 +9,13 @@
 
 #include "Core/RuntimeConfig.h"
 #include "ViewBase.h"
+#include "StackableView.h"
 
 namespace gedit {
+
+
     class HStackView : public ViewBase {
     public:
-        typedef enum : int32_t {
-            kFill = 1,
-            kFixed = 2,
-        } kLayout;
-        struct StackableView {
-            kLayout layout = kFill;
-            ViewBase *view = nullptr;
-        } ;
     public:
         HStackView() = default;
         explicit HStackView(const Rect &rect) : ViewBase (rect) {

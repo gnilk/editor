@@ -13,9 +13,11 @@ namespace gedit {
     public:
         virtual void WriteLine(const std::string &str) = 0;
     };
+    // Should have active buffer
     class RuntimeConfig {
     public:
         static RuntimeConfig &Instance();
+
 
         void SetKeyboard(KeyboardDriverBase &kbd) {
             keyboard = &kbd;

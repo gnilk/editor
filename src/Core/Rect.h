@@ -88,7 +88,7 @@ namespace gedit {
             p1.x = xPos;
             p1.y = yPos;
             p2.x = p1.x + w;
-            p2.y = p2.y + h;
+            p2.y = p1.y + h;
         }
 
         void MoveTo(const Point &pOrigin) {

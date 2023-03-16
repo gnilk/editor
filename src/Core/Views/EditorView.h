@@ -59,7 +59,7 @@ namespace gedit {
 
     private:
         bool bUseCLionPageNav = true;
-        // This is shared data...
+        // FIXME: Move this to the active buffer structure...
         EditViewSharedData viewData;
         // --
         gnilk::ILogger *logger = nullptr;

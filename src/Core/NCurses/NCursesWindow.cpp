@@ -92,6 +92,10 @@ void NCursesWindow::Clear() {
                   windowRect.Width(), windowRect.Height());
 
 
+    if (caption == "SingleLineView") {
+        int breakme = 1;
+    }
+
     int ec=0;
 //    for(int y=windowRect.TopLeft().y;y<windowRect.BottomRight().y;y++) {
     for(int y=0;y<windowRect.Height();y++) {

@@ -64,10 +64,12 @@ list(APPEND editorsrc src/Core/Views/HStackView.h)
 list(APPEND editorsrc src/Core/Views/RootView.h)
 list(APPEND editorsrc src/Core/Views/ViewBase.h)
 list(APPEND editorsrc src/Core/Views/VSplitView.h)
+list(APPEND editorsrc src/Core/Views/VStackView.h)
 # specific views
 list(APPEND editorsrc src/Core/Views/EditorView.cpp src/Core/Views/EditorView.h)
 list(APPEND editorsrc src/Core/Views/GutterView.cpp src/Core/Views/GutterView.h)
 list(APPEND editorsrc src/Core/Views/CommandView.cpp src/Core/Views/CommandView.h)
+list(APPEND editorsrc src/Core/Views/SingleLineView.h)
 
 # draw helper
 list(APPEND editorsrc src/Core/DrawContext.h)

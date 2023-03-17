@@ -34,7 +34,7 @@ namespace gedit {
             window = screen->UpdateWindow(window, viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
         }
     protected:
-        void DrawViewContents() {
+        void DrawViewContents() override {
             auto &dc = window->GetContentDC();
             // FIXME: should have attribute...
             dc.DrawStringAt(0,0,"File1.txt | File2.txt | File3.txt                 - wefwef");

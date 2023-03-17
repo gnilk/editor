@@ -7,7 +7,7 @@
 
 #include "Core/Controllers/EditController.h"
 #include "Core/Cursor.h"
-
+#include "Core/EditorModel.h"
 #include "ViewBase.h"
 
 #include "logger.h"
@@ -37,11 +37,14 @@ namespace gedit {
             parentView->ResetContentHeight();
         }
 
-
-
-        EditController &GetEditController() {
-            return viewData.editController;
+        void SetEditorModel(EditorModel::Ref newEditorModel) {
+            editorModel = newEditorModel;
         }
+        void SetWindowCursor(const Cursor &cursor) override {
+            window->SetCursor(editorModel->cursor);
+        }
+
+
     protected:
         void OnKeyPress(const KeyPress &keyPress) override;
         void OnResized() override;
@@ -59,8 +62,7 @@ namespace gedit {
 
     private:
         bool bUseCLionPageNav = true;
-        // FIXME: Move this to the active buffer structure...
-        EditViewSharedData viewData;
+        EditorModel::Ref editorModel;
         // --
         gnilk::ILogger *logger = nullptr;
 

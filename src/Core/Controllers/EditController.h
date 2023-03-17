@@ -8,18 +8,21 @@
 #include "Core/TextBuffer.h"
 #include "BaseController.h"
 #include "logger.h"
+#include <memory>
 
 namespace gedit {
     class EditController : public BaseController {
     public:
+        using Ref = std::shared_ptr<EditController>;
         using TextBufferChangedDelegate = std::function<void()>;
+
     public:
         EditController() = default;
         virtual ~EditController() = default;
 
         void Begin() override;
-        void SetTextBuffer(TextBuffer *newTextBuffer);
-        const TextBuffer *GetTextBuffer() {
+        void SetTextBuffer(TextBuffer::Ref newTextBuffer);
+        const TextBuffer::Ref GetTextBuffer() {
             return textBuffer;
         }
         void SetTextBufferChangedHandler(TextBufferChangedDelegate newOnTextBufferChanged) {
@@ -49,17 +52,9 @@ namespace gedit {
 
     private:
         gnilk::ILogger *logger = nullptr;
-        TextBuffer *textBuffer = nullptr;
+        TextBuffer::Ref textBuffer = nullptr;
         TextBufferChangedDelegate onTextBufferChanged = nullptr;
     };
-
-    struct EditViewSharedData {
-        EditController editController;
-        int32_t idxActiveLine = 0;
-        int32_t viewTopLine = 0;
-        int32_t viewBottomLine = 0;
-    };
-
 }
 
 

@@ -95,12 +95,17 @@ namespace gedit {
             }
 
             if (isActive) {
-                window->SetCursor(cursor);
+                SetWindowCursor(cursor);
             }
 
             // Reset once we are done..
             // FIXME: This should perhaps be placed in separate call - as 'isVisible' will stop the recursion...
             isInvalid = false;
+        }
+
+        // We override this in the editor view as we have a cursor in the EditorModel that is shared
+        virtual void SetWindowCursor(const Cursor &cursor) {
+            window->SetCursor(cursor);
         }
 
         virtual void AddView(ViewBase *view) final {

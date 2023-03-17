@@ -4,14 +4,17 @@
 /*
  * TO-DO List
  * 1)
- * - New CompositionObject between View/Controller/Data => EditorBuffer (?)
+ * - New CompositionObject between View/Controller/Data => EditorModel
  *      - Should hold an EditController, TextBuffer and ViewData
  *      - Change the way EditView works, instead of owning the controller - the controller is set
- *      - BufferManager should create these composition objects
- *      - RuntimeConfiguration should have a function to retrieve the active composition object
+ *      - BufferManager should create these composition objects (?)
+ *      - RuntimeConfiguration should have a function to retrieve the active EditorModel
+ *      - Move Cursor to EditorModel instance!!
  * - In BufferManager - make it possible to iterate through all buffers currently open..
  * - headerView -> Specialize SingleLineView to 'HeaderView' make the draw function
  * - new single view for status line / splitter -> make this a specific "HSplitView"
+ *
+ *
  *
  * 2)
  * - CommandView, Store/Restore splitter when view goes inactive/active
@@ -212,17 +215,23 @@ int main(int argc, const char **argv) {
 
     RuntimeConfig::Instance().SetRootView(&rootView);
 
+    TextBuffer::Ref textBuffer;
+    EditController::Ref editController = std::make_shared<EditController>();
+
     if (argc > 1) {
         logger->Debug("Loading file: %s", argv[1]);
-        auto buffer = BufferManager::Instance().NewBufferFromFile(argv[1]);
+        textBuffer = BufferManager::Instance().NewBufferFromFile(argv[1]);
+        textBuffer->SetLanguage(Config::Instance().GetLanguageForFilename(argv[1]));
 
-        buffer->SetLanguage(Config::Instance().GetLanguageForFilename(argv[1]));
-
-        editorView.GetEditController().SetTextBuffer(buffer);
     } else {
-        auto buffer = BufferManager::Instance().NewBuffer("no_name");
-        editorView.GetEditController().SetTextBuffer(buffer);
+        textBuffer = BufferManager::Instance().NewBuffer("no_name");
     }
+
+    EditorModel::Ref editorModel = std::make_shared<EditorModel>();
+    editorModel->Initialize(editController, textBuffer);
+    editorView.SetEditorModel(editorModel);
+
+    RuntimeConfig::Instance().SetActiveEditorModel(editorModel);
 
     rootView.AddTopView(&editorView);
     rootView.AddTopView(&cmdView);

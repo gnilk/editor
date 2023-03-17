@@ -9,9 +9,12 @@
 
 #include "Core/Language/LanguageBase.h"
 #include "Core/Line.h"
+#include <memory>
 
 namespace gedit {
     class TextBuffer {
+    public:
+        using Ref = std::shared_ptr<TextBuffer>;
     public:
         explicit TextBuffer(const std::string &bufferName) : name(bufferName) {
 

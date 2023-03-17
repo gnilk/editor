@@ -19,17 +19,17 @@ BufferManager &BufferManager::Instance() {
 
 // Create a new buffer with a given name
 // Note: If loading files - supply the filename as the name..
-TextBuffer *BufferManager::NewBuffer(const std::string &name) {
+TextBuffer::Ref BufferManager::NewBuffer(const std::string &name) {
     if (HaveBuffer(name)) {
         logger->Error("Trying to create buffer with same name");
         return nullptr;
     }
-    TextBuffer *buffer = new TextBuffer(name);
-    buffers[name] = buffer;
-    return buffer;
+    auto textBuffer = std::make_shared<TextBuffer>(name);
+    buffers[name] = textBuffer;
+    return textBuffer;
 }
 
-TextBuffer *BufferManager::NewBufferFromFile(const std::string &filename) {
+TextBuffer::Ref BufferManager::NewBufferFromFile(const std::string &filename) {
     FILE *f = fopen(filename.c_str(), "r");
     if (f == nullptr) {
         logger->Error("Unable to open file '%s'", filename.c_str());
@@ -49,7 +49,7 @@ bool BufferManager::HaveBuffer(const std::string &name) {
     return (buffers.find(name) != buffers.end());
 }
 
-TextBuffer *BufferManager::GetBuffer(const std::string &name) {
+TextBuffer::Ref BufferManager::GetBuffer(const std::string &name) {
     return buffers[name];
 }
 

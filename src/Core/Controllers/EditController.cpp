@@ -10,7 +10,7 @@ void EditController::Begin() {
     logger = gnilk::Logger::GetLogger("EditorController");
 }
 
-void EditController::SetTextBuffer(TextBuffer *newTextBuffer) {
+void EditController::SetTextBuffer(TextBuffer::Ref newTextBuffer) {
     textBuffer = newTextBuffer;
     if (onTextBufferChanged != nullptr) {
         onTextBufferChanged();

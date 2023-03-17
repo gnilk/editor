@@ -4,6 +4,7 @@
 
 #include "Core/Controllers/EditController.h"
 #include "Core/RuntimeConfig.h"
+#include "Core/EditorModel.h"
 #include "GutterView.h"
 #include "logger.h"
 
@@ -45,25 +46,25 @@ void GutterView::DrawViewContents() {
     if (GetParentView() == nullptr) {
         return;
     }
-    auto viewData = GetParentView()->GetSharedData<EditViewSharedData>();
-    if (viewData == nullptr) {
+    auto editorModel = RuntimeConfig::Instance().ActiveEditorModel();
+    if (editorModel == nullptr) {
         return;
     }
 
     auto logger = gnilk::Logger::GetLogger("GutterView");
-    logger->Debug("Active Line: %d", viewData->idxActiveLine);
+    logger->Debug("Active Line: %d", editorModel->idxActiveLine);
 
     auto &ctx = window->GetContentDC();
     char str[64];
     for(int i=0;i<ctx.GetRect().Height();i++) {
-        int idxLine = i + viewData->viewTopLine;
+        int idxLine = i + editorModel->viewTopLine;
 
-        if (idxLine >= viewData->editController.Lines().size()) {
+        if (idxLine >= editorModel->Lines().size()) {
             break;
         }
 
         snprintf(str, 64, " %4d", idxLine);
-        if (idxLine == viewData->idxActiveLine) {
+        if (idxLine == editorModel->idxActiveLine) {
             snprintf(str, 64, "*%4d", idxLine);
         }
         ctx.DrawStringAt(0,i,str);

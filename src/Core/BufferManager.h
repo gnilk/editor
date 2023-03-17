@@ -11,21 +11,25 @@
 #include "logger.h"
 
 namespace gedit {
+    // This class handles open buffers in the editor
     class BufferManager {
     public:
         virtual ~BufferManager() = default;
         static BufferManager &Instance();
 
-        TextBuffer *NewBuffer(const std::string &name);
+        TextBuffer::Ref NewBuffer(const std::string &name);
         bool HaveBuffer(const std::string &name);
-        TextBuffer *GetBuffer(const std::string &name);
+        TextBuffer::Ref GetBuffer(const std::string &name);
+        TextBuffer::Ref NewBufferFromFile(const std::string &filename);
 
-        TextBuffer *NewBufferFromFile(const std::string &filename);
+        const std::map<std::string, TextBuffer::Ref> &GetBuffers() {
+            return buffers;
+        }
 
     private:
         BufferManager();
         gnilk::ILogger *logger = nullptr;
-        std::map<std::string, TextBuffer *> buffers;
+        std::map<std::string, TextBuffer::Ref> buffers;
     };
 }
 

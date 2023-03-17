@@ -8,6 +8,8 @@
 #include "Core/ScreenBase.h"
 #include "Core/KeyboardDriverBase.h"
 #include "Core/Views/ViewBase.h"
+#include "Core/EditorModel.h"
+
 namespace gedit {
     class IOutputConsole {
     public:
@@ -18,7 +20,9 @@ namespace gedit {
     public:
         static RuntimeConfig &Instance();
 
-
+        void SetActiveEditorModel(EditorModel::Ref newActiveEditorModel) {
+            activeEditorModel = newActiveEditorModel;
+        }
         void SetKeyboard(KeyboardDriverBase &kbd) {
             keyboard = &kbd;
         }
@@ -35,6 +39,9 @@ namespace gedit {
             window = newWindow;
         }
 
+        EditorModel::Ref ActiveEditorModel() {
+            return activeEditorModel;
+        }
 
         KeyboardDriverBase *Keyboard() {
             return keyboard;
@@ -58,6 +65,7 @@ namespace gedit {
     private:
         RuntimeConfig() = default;
     private:
+        EditorModel::Ref activeEditorModel;
         KeyboardDriverBase *keyboard = nullptr;
         ScreenBase *screen = nullptr;
         ViewBase *view = nullptr;

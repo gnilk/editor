@@ -4,8 +4,11 @@
 /*
  * TO-DO List
  * 1)
- * - Move EditorView 'EditViewSharedData' to TextBuffer
- * - Add ability to get 'ActiveBuffer' through BufferManager or RuntimeConfig (regardless)
+ * - New CompositionObject between View/Controller/Data => EditorBuffer (?)
+ *      - Should hold an EditController, TextBuffer and ViewData
+ *      - Change the way EditView works, instead of owning the controller - the controller is set
+ *      - BufferManager should create these composition objects
+ *      - RuntimeConfiguration should have a function to retrieve the active composition object
  * - In BufferManager - make it possible to iterate through all buffers currently open..
  * - headerView -> Specialize SingleLineView to 'HeaderView' make the draw function
  * - new single view for status line / splitter -> make this a specific "HSplitView"

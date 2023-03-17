@@ -4,12 +4,12 @@
 /*
  * TO-DO List
  * 1)
- * - New CompositionObject between View/Controller/Data => EditorModel
- *      - Should hold an EditController, TextBuffer and ViewData
- *      - Change the way EditView works, instead of owning the controller - the controller is set
+ * ! New CompositionObject between View/Controller/Data => EditorModel
+ *      ! Should hold an EditController, TextBuffer and ViewData
+ *      ! Change the way EditView works, instead of owning the controller - the controller is set
  *      - BufferManager should create these composition objects (?)
- *      - RuntimeConfiguration should have a function to retrieve the active EditorModel
- *      - Move Cursor to EditorModel instance!!
+ *      ! RuntimeConfiguration should have a function to retrieve the active EditorModel
+ *      ! Move Cursor to EditorModel instance!!
  * - In BufferManager - make it possible to iterate through all buffers currently open..
  * - headerView -> Specialize SingleLineView to 'HeaderView' make the draw function
  * - new single view for status line / splitter -> make this a specific "HSplitView"
@@ -79,6 +79,8 @@
 #include "Core/BufferManager.h"
 #include "Core/TextBuffer.h"
 
+#include "Core/Editor.h"
+
 // Bring in the view handling
 #include "Core/Views/ViewBase.h"
 #include "Core/Views/GutterView.h"
@@ -97,92 +99,31 @@
 
 using namespace gedit;
 
-static MacOSKeyboardMonitor keyboardMonitor;
-static NCursesKeyboardDriver keyboardDriver;
 
-using namespace gedit;
-
-static bool LoadToBuffer(Buffer &outBuffer, const char *filename) {
-    FILE *f = fopen(filename,"r");
-    if (f == nullptr) {
-        printf("Unable to open file\n");
-        return false;
-    }
-    char tmp[MAX_LINE_LENGTH];
-    while(fgets(tmp, MAX_LINE_LENGTH, f)) {
-        outBuffer.Lines().push_back(new Line(tmp));
-    }
-
-    fclose(f);
-    return true;
-}
 
 
 static void SetupLogger() {
-    char *sinkArgv[]={"autoflush","file","logfile.log"};
-    gnilk::Logger::Initialize();
-    auto fileSink = new gnilk::LogFileSink();
-    gnilk::Logger::AddSink(fileSink, "fileSink", 3, sinkArgv);
-    // Remove the console sink (it is auto-created in debug-mode)
-    gnilk::Logger::RemoveSink("console");
 }
 extern char glbFillchar;
 
 int main(int argc, const char **argv) {
 
-    SetupLogger();
+    Editor::Instance().Initialize(argc, argv);
+
     auto logger = gnilk::Logger::GetLogger("main");
-
-
-    logger->Debug("Loading configuration");
-    auto configOk = Config::Instance().LoadConfig("config.yml");
-    if (!configOk) {
-        logger->Error("Unable to load default configuration from 'config.yml' - defaults will be used");
-        exit(1);
-    }
-
-    logger->Debug("Configuring language parser(s)");
-    CPPLanguage cppLanguage;
-    cppLanguage.Initialize();
-    Config::Instance().RegisterLanguage(".cpp", &cppLanguage);
-
-
-
     bool bQuit = false;
-    NCursesScreen screen;
 
-    if (!keyboardMonitor.Start()) {
-        exit(1);
+    auto screen = RuntimeConfig::Instance().Screen();
+    auto keyboardDriver = RuntimeConfig::Instance().Keyboard();
+    auto dimensions = screen->Dimensions();
+
+    auto models = Editor::Instance().GetModels();
+    for(auto m : models) {
+        logger->Debug("File: %s",m->GetTextBuffer()->Name().c_str());
     }
-    keyboardDriver.Begin(&keyboardMonitor);
-
-    RuntimeConfig::Instance().SetScreen(screen);
-    RuntimeConfig::Instance().SetKeyboard(keyboardDriver);
-
-    logger->Debug("Initialize Graphics subsystem");
-
-    screen.Open();
-    screen.Clear();
-
-    logger->Debug("Configuring colors and theme");
-    // NOTE: This must be done after the screen has been opened as the color handling might require the underlying graphics
-    //       context to be initialized...
-    auto &colorConfig = Config::Instance().ColorConfiguration();
-    for(int i=0;gnilk::IsLanguageTokenClass(i);i++) {
-        auto langClass = gnilk::LanguageTokenClassToString(static_cast<kLanguageTokenClass>(i));
-        if (!colorConfig.HasColor(langClass)) {
-            logger->Warning("Missing color configuration for: %s", langClass.c_str());
-            return -1;
-        }
-        screen.RegisterColor(i, colorConfig.GetColor(langClass), colorConfig.GetColor("background"));
-    }
-
 
 
     logger->Debug("Creating views");
-
-    auto dimensions = screen.Dimensions();
-
     logger->Debug("Dimensions (x,y): %d, %d", dimensions.Width(), dimensions.Height());
 
     RootView rootView;
@@ -204,8 +145,9 @@ int main(int argc, const char **argv) {
     auto gutterView = GutterView();
     gutterView.SetWidth(10);
 
-    //EditorView editorView;
     auto editorView = EditorView();
+    auto currentModel = RuntimeConfig::Instance().ActiveEditorModel();
+    editorView.SetEditorModel(currentModel);
 
     hStackView.AddSubView(&gutterView, kFixed);
     hStackView.AddSubView(&editorView, kFill);
@@ -215,35 +157,17 @@ int main(int argc, const char **argv) {
 
     RuntimeConfig::Instance().SetRootView(&rootView);
 
-    TextBuffer::Ref textBuffer;
-    EditController::Ref editController = std::make_shared<EditController>();
-
-    if (argc > 1) {
-        logger->Debug("Loading file: %s", argv[1]);
-        textBuffer = BufferManager::Instance().NewBufferFromFile(argv[1]);
-        textBuffer->SetLanguage(Config::Instance().GetLanguageForFilename(argv[1]));
-
-    } else {
-        textBuffer = BufferManager::Instance().NewBuffer("no_name");
-    }
-
-    EditorModel::Ref editorModel = std::make_shared<EditorModel>();
-    editorModel->Initialize(editController, textBuffer);
-    editorView.SetEditorModel(editorModel);
-
-    RuntimeConfig::Instance().SetActiveEditorModel(editorModel);
-
     rootView.AddTopView(&editorView);
     rootView.AddTopView(&cmdView);
 
     rootView.Initialize();
     rootView.InvalidateAll();
-    screen.Clear();
+    screen->Clear();
     rootView.Draw();
-    screen.Update();
+    screen->Update();
     refresh();
     rootView.Draw();
-    screen.Update();
+    screen->Update();
 
 
     // This is currently the run loop...
@@ -254,7 +178,7 @@ int main(int argc, const char **argv) {
         bool redraw = false;
         glbFillchar = 'a';
 
-        auto keyPress = keyboardDriver.GetKeyPress();
+        auto keyPress = keyboardDriver->GetKeyPress();
         if (keyPress.IsAnyValid()) {
             logger->Debug("KeyPress Valid - passing on...");
             rootView.TopView()->HandleKeyPress(keyPress);
@@ -266,11 +190,11 @@ int main(int argc, const char **argv) {
         if (redraw == true) {
             logger->Debug("Redraw was triggered...");
             rootView.Draw();
-            screen.Update();
+            screen->Update();
         }
     }
     logger->Debug("Left main loop, closing graphics subsystem");
-    screen.Close();
+    screen->Close();
     return 0;
 
     return -1;

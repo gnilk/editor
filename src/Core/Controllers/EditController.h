@@ -22,6 +22,7 @@ namespace gedit {
 
         void Begin() override;
         void SetTextBuffer(TextBuffer::Ref newTextBuffer);
+
         const TextBuffer::Ref GetTextBuffer() {
             return textBuffer;
         }

@@ -18,7 +18,7 @@ namespace gedit {
         void Begin(MacOSKeyboardMonitor *monitor);
         // since we are monitoring _all_ keys in the system
         // the stdin for PID will run out of sync...
-        KeyPress GetKeyPress();
+        KeyPress GetKeyPress() override;
     private:
         int TranslateNCurseKey(int ch);
     private:

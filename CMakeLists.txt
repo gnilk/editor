@@ -33,6 +33,9 @@ endif()
 add_subdirectory(ext/logger ${CMAKE_BINARY_DIR}/logger)
 list(APPEND extlibs logger)
 
+# Editor main stuff
+list(APPEND editorsrc src/Core/Editor.cpp src/Core/Editor.h)
+list(APPEND editorsrc src/Core/EditorModel.h)
 
 # utility stuff
 list(APPEND editorsrc src/Core/StrUtil.cpp src/Core/StrUtil.h)

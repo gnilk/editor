@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 #include <unordered_map>
+#include <map>
 #include <stack>
 #include <memory>
 #include "Core/StrUtil.h"
@@ -66,14 +67,16 @@ namespace gnilk {
             kLanguageTokenClass regularTokenClass = kLanguageTokenClass::kRegular;
 
             std::string name;
-            std::unordered_map<kLanguageTokenClass, IdentifierList::Ref> identifiers;
+            //std::unordered_map<kLanguageTokenClass, IdentifierList::Ref> identifiers;
+            std::map<kLanguageTokenClass, IdentifierList::Ref> identifiers;
 
             // This list is a list of all allowed postfix tokens
             // Used to abort regular value, like variable names and such (i.e. not language components)
             IdentifierList::Ref postfixIdentifiers = nullptr;
 
             // Actions that should happen on specific tokens in this state
-            std::unordered_map<std::string, Action> actions;
+            //std::unordered_map<std::string, Action> actions;
+            std::map<std::string, Action> actions;
             Action eolAction = {.action = kAction::kNone, .stateName = ""};
 
             void SetRegularTokenClass(kLanguageTokenClass newRegularClass) {
@@ -152,7 +155,8 @@ namespace gnilk {
         };  // State
 
 
-        std::unordered_map<std::string, State::Ref> states;
+        //std::unordered_map<std::string, State::Ref> states;
+        std::map<std::string, State::Ref> states;
         std::stack<State::Ref> stateStack;
 
     public:

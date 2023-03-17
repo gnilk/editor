@@ -13,7 +13,8 @@ namespace gedit {
     class KeyboardDriverBase {
     public:
         virtual bool Initialize() { return false; };
-        virtual KeyPress GetCh() const;
+
+        virtual KeyPress GetKeyPress() { return {}; }
         void SetDebugMode(bool enable) {
             debugMode = enable;
         }

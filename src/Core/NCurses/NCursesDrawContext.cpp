@@ -22,6 +22,39 @@ void NCursesDrawContext::DrawStringAt(int x, int y, const char *str) {
     }
     waddnstr((WINDOW *)win, str, rect.Width()-x-1);
 }
+static int attribToNCAttrib(kTextAttributes attrib) {
+    int ncAttrib = A_NORMAL;
+    if (attrib & kTextAttributes::kInverted) {
+        ncAttrib |= A_REVERSE;
+    }
+    if (attrib & kTextAttributes::kBold) {
+        ncAttrib |= A_BOLD;
+    }
+    if (attrib & kTextAttributes::kItalic) {
+        ncAttrib |= A_ITALIC;
+    }
+    if (attrib & kTextAttributes::kUnderline) {
+        ncAttrib |= A_UNDERLINE;
+    }
+    return ncAttrib;
+}
+void NCursesDrawContext::DrawStringWithAttributesAt(int x, int y, kTextAttributes attrib, const char *str) {
+    auto ncAttr = attribToNCAttrib(attrib);
+    wattrset((WINDOW *)win, A_NORMAL);  // Reset to normal
+    wattron((WINDOW *)win, ncAttr);     // Enable whatever we have
+    int err = wmove((WINDOW *)win, y, x);
+    if (err < 0) {
+        return;
+    }
+    waddnstr((WINDOW *)win, str, rect.Width()-x-1);
+    // To occupy the last char we need to do this
+    if (strlen(str) >= rect.Width()) {
+        winsch((WINDOW *) win, str[rect.Width()-1]);
+    }
+
+    wattrset((WINDOW *)win, A_NORMAL);
+}
+
 
 void NCursesDrawContext::DrawLine(Line *line, int idxLine) {
 
@@ -82,4 +115,9 @@ void NCursesDrawContext::DrawLineWithAttributesAt(int x, int y, int nCharToPrint
 
 void NCursesDrawContext::ClearLine(int y) {
     wclrtoeol((WINDOW *)win);
+}
+void NCursesDrawContext::FillLine(int y, kTextAttributes attrib, char c) {
+    std::string fillStr(rect.Width(), c);
+    DrawStringWithAttributesAt(0,y,attrib, fillStr.c_str());
+
 }

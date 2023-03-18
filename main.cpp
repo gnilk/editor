@@ -1,52 +1,50 @@
+//
+// Created by gnilk on 13.02.23.
+//
 /*
- * Very unfancy editor
- * Some core features I want:
- * - an editor with different backends for rendering (ncurses, imgui, etc..)
- * - cmd-mode (like old Amiga AsmOne had)
- *
- * TODO:
- *  ! Add logging functions (use external logger or rewrite it to be more simple?)
- *  - Add a 'view' between the Mode's and the screen - allow for 'dock' style windowing with NCurses
- *    this might also help with other backends such as IMGUI
- *  - Add namespace for this 'gedit' or whatever...
- *
- *  + Keyboard driver needs more work (NCurses)
- *    Seems like NCurses won't give us Arrows if CTRL/CMD/ALT is pressed (most likely true for alot of other keys)
- *    Thus, I need proper translation (and perhaps an input queue) for NCurses from the Keyboard Monitor...
- *    Question is which one has priority - probably the monitor - and if so, should translate all key's?
+ * TO-DO List
+ * 1)
+ * ! New CompositionObject between View/Controller/Data => EditorModel
+ *      ! Should hold an EditController, TextBuffer and ViewData
+ *      ! Change the way EditView works, instead of owning the controller - the controller is set
+ *      ! RuntimeConfiguration should have a function to retrieve the active EditorModel
+ *      ! Move Cursor to EditorModel instance!!
+ * - In BufferManager - make it possible to iterate through all buffers currently open..
+ * - headerView -> Specialize SingleLineView to 'HeaderView' make the draw function
+ * - new single view for status line / splitter -> make this a specific "HSplitView"
  *
  *
  *
- *  - Work on keymap to navigate code.. I want this fast, configurable and flawless...
- *    - CMD-left/right, jump to end/beg of current/next word
- *      Note: I rather have 'ALT-left/right', but CMD-left/right is more mac..
- *    - Navigate previous position..
- *    - ALT-Enter, insert line at cursor but DO NOT move cursor..
- *    - ALT+CMD - left/right, change active buffer (left/right)
+ * 2)
+ * - CommandView, Store/Restore splitter when view goes inactive/active
+ *   Note: this can be tested before adjusting on new line
+ * - CommandView should adjust height of splitter on new lines..
+ *   note: once done, remove f1/f2 adjustment keys...
  *
- *  - Keyboard mapping handling, from configuration files...
  *
- *  - General editor commands
- *    - ALT+Fx, fast buffer switching
- *    -
  *
- *  - Buffer Manager
- *    - Create, Load, Save, etc..
- *  - Clean up of source around the language handling, perhaps introduce a new namespace
- *    - It is quite messy right now...
- *  - Generalization of language tokenizer
- *    + EOL actions
- *    - See if we can make it generic and drive it via configuration files (should be possible)
- *  - More languages (mostly as a test)
- *    + C/CPP, needs quite a bit of work
- *    - JSON/XML/YAML/INI/etc.. <- files I do work with...
- *    - Python
- *    -
- *  ! CPP Language tokenizer needs to keep states between lines...
- *  - Scrolling past screen boundaries (i.e. navigate outside visible area)
- *  - Lines extending screen (incl. wrapping)
- *  - Start cmd-let parsing...
- *  #key_sup				kUP	str	!5	KEY_SUP		+	-----	shifted up-arrow key
+ *
+ * + BaseController, handle key press (take from old ModeBase/EditorMode)
+ * - Consolidate NCursesKeyBoard kKeyCode_xxxx with Keyboard::kKeyCode - currently there is a mismatch..
+ * + Figure out how to handle 'HasContentChanged' notfications to force redraws..
+ *   a) be in the redraw loop and just do it (let the views take care of it)
+ *   b) Somehow let a controller or view set a flag that a redraw is needed..
+ * - CommandController, NOTE: THIS IS QUITE THE TASK
+ *   a) Make it on par with the old CommandMode
+ *   b) Break-out and start implement CmdLet handling
+ *   c) Define the proper API for talking to the editor through the cmd-let's
+ * ! Create a specific HSplitView which can support a 'split' window like feature and on-request resize
+ *   both views (upper/lower) in tandem..
+ * ! HSplitView - ability to a view to request 'Increased Size' by X..
+ * - Create a 'StatusBar' view (Single line, no border)
+ * ! HStackView, which simply 'stacks' and computes sizes accordingly when updated
+ * - Import the language/color features in to this project
+ * - Promote this project to the new 'main' project...
+ * - BufferManager should store 'fullPathName' and 'name'
+ * - Unsaved file should have '*' marking in the top..
+ * ! Consider relationship between viexw/context/window - right now there is too much flexibility
+ * ! Only views with content should have an NCurses Window structure..
+ * ! Rewrote the view/window handling tossed out the old layout thingie
  */
 #include <iostream>
 #include <ncurses.h>
@@ -74,221 +72,128 @@
 
 #include "Core/RuntimeConfig.h"
 #include "Core/Buffer.h"
+#include "Core/NCurses/NCursesKeyboardDriver.h"
+#include "Core/macOS/MacOSKeyboardMonitor.h"
+
+#include "Core/BufferManager.h"
+#include "Core/TextBuffer.h"
+
+#include "Core/Editor.h"
+
+// Bring in the view handling
+#include "Core/Views/ViewBase.h"
+#include "Core/Views/GutterView.h"
+#include "Core/Views/EditorView.h"
+#include "Core/Views/RootView.h"
+#include "Core/Views/CommandView.h"
+#include "Core/Views/HSplitView.h"
+#include "Core/Views/VSplitView.h"
+#include "Core/Views/HStackView.h"
+#include "Core/Views/VStackView.h"
+#include "Core/Views/HeaderView.h"
+#include "Core/Views/HSplitViewStatus.h"
+
 
 #include "logger.h"
-
 #include <map>
 
-////
-// Test the keyboard handling
-////
 using namespace gedit;
 
-static bool LoadToBuffer(Buffer &outBuffer, const char *filename) {
-    FILE *f = fopen(filename,"r");
-    if (f == nullptr) {
-        printf("Unable to open file\n");
-        return false;
-    }
-    char tmp[MAX_LINE_LENGTH];
-    while(fgets(tmp, MAX_LINE_LENGTH, f)) {
-        outBuffer.Lines().push_back(new Line(tmp));
-    }
-
-    fclose(f);
-    return true;
-}
 
 
-typedef enum {
-    kMainState_Editor = 1,
-    kMainState_Command = 2,
-} kMainState;
-
-static void testKeyboard() {
-    NCursesKeyboardDriver keyBoard;
-
-    if (!keyBoard.Initialize()) {
-        exit(1);
-    }
-
-    keyBoard.SetDebugMode(true);
-
-    initscr();
-    keypad(stdscr, TRUE);
-    noecho();
-    cbreak();
-
-    printw("%s\n",keyname(330));
-
-    while(true) {
-        auto keyPress = keyBoard.GetCh();
-        if (!keyPress.IsValid()) {
-            continue;
-        }
-        //printw("code: %d, special: %d, raw: %d\n", keyPress.data.code,keyPress.data.special, (int)keyPress.rawCode);
-
-//        if (KeyboardDriverBase::IsHumanReadable(key)) {
-//            addch(key.data.code);
-//        } else {
-//            if (key.data.special != 0) {
-//                printw("special: %x, %x\n", key.data.special, key.data.code);
-//            }
-//        }
-        //printf("%d",key.data.code);
-    }
-}
-
-static void testConfig() {
-
-    auto shell = Config::Instance()["terminal"].GetStr("shell", "<noshell>");
-    auto shellInitStr = Config::Instance()["terminal"].GetStr("init", "-ils");
-    printf("shell: %s\n", shell.c_str());
-    printf("shellInit: %s\n", shellInitStr.c_str());
-
-    auto terminal = Config::Instance()["terminal"];
-    //auto shell = terminal.GetStr("shell","<noshell>");
-
-    auto nothing = terminal.GetSequenceOfStr("dummy");
-    if (nothing.empty()) {
-        printf("dummy is empty\n");
-    }
-
-    auto bootstrap = terminal.GetSequenceOfStr("bootstrap");
-    for(auto &s : bootstrap) {
-        printf("- %s\n",s.c_str());
-    }
-
-    auto languages = Config::Instance()["languages"];
-    auto langDefault = languages["default"];
-    auto indent = langDefault.GetInt("indent");
-    auto insertSpaces = langDefault.GetBool("insert_spaces");
-    printf("Indent: %d\n", indent);
-    printf("Insert Spaces: %s\n", insertSpaces?"yes":"no");
-
-}
-static void testBufferLoading(const char *filename) {
-    Buffer *buffer = new Buffer();
-    printf("Loading: %s\n", filename);
-    if (!LoadToBuffer(*buffer, filename)) {
-        printf("Unable to load: %s\n", filename);
-        exit(1);
-    }
-    buffer->SetLanguage(Config::Instance().GetLanguageForFilename(filename));
-
-    printf("Ok, file '%s' loaded\n", filename);
-    printf("Lines: %d\n", (int)buffer->Lines().size());
-//    editorMode.SetBuffer(buffer);
-
-}
 
 static void SetupLogger() {
-    char *sinkArgv[]={"autoflush","file","logfile.log"};
-    gnilk::Logger::Initialize();
-    auto fileSink = new gnilk::LogFileSink();
-    gnilk::Logger::AddSink(fileSink, "fileSink", 3, sinkArgv);
-    // Remove the console sink (it is auto-created in debug-mode)
-    gnilk::Logger::RemoveSink("console");
 }
+extern char glbFillchar;
 
 int main(int argc, const char **argv) {
 
-    SetupLogger();
+    Editor::Instance().Initialize(argc, argv);
+
     auto logger = gnilk::Logger::GetLogger("main");
-
-    logger->Debug("Loading configuration");
-    auto configOk = Config::Instance().LoadConfig("config.yml");
-    if (!configOk) {
-        logger->Error("Unable to load default configuration from 'config.yml' - defaults will be used");
-        exit(1);
-    }
-
-//    if (Config::Instance().HasKey("commandemode")) {
-//        auto prompt = Config::Instance()["commandemode"].GetStr("prompt");
-//        printf("Prompt is: %s\n", prompt.c_str());
-//    } else {
-//        printf("No prompt!");
-//    }
-
-
-    logger->Debug("Configuring language parser(s)");
-    CPPLanguage cppLanguage;
-    cppLanguage.Initialize();
-    Config::Instance().RegisterLanguage(".cpp", &cppLanguage);
-
     bool bQuit = false;
-    NCursesScreen screen;
-    NCursesKeyboardDriver keyBoard;
 
+    auto screen = RuntimeConfig::Instance().Screen();
+    auto keyboardDriver = RuntimeConfig::Instance().Keyboard();
+    auto dimensions = screen->Dimensions();
 
-    keyBoard.Monitor()->SetOnKeyPressDelegate([logger, &keyBoard](Keyboard::HWKeyEvent &event) {
-        logger->Debug("onKeyPress, modmask=0x%.2x (scancode=0x%.2x : %s)", event.modifiers, event.scanCode, event.isPressedDown?"down":"up");
-    });
-
-
-    // Doesn't work with NCurses - probably messing up the TTY
-    // We should try using 'forkpty'
-    // Must be done early..
-
-    // FIXME: Call to 'BufferManager->CreateEmptyBuffer()'
-    if (argc > 1) {
-        Buffer *buffer = new Buffer();
-        logger->Debug("Loading file given from cmd-line: %s", argv[1]);
-
-        if (!LoadToBuffer(*buffer, argv[1])) {
-            logger->Error("Unable to load: %s", argv[1]);
-            exit(1);
-        }
-        buffer->SetLanguage(Config::Instance().GetLanguageForFilename(argv[1]));
-
-        logger->Debug("Ok, file loaded (line: %d)", (int)buffer->Lines().size());
-        logger->Debug("Assigning buffer");
-        editorMode.SetBuffer(buffer);
+    auto models = Editor::Instance().GetModels();
+    for(auto m : models) {
+        logger->Debug("File: %s",m->GetTextBuffer()->Name().c_str());
     }
 
 
-    logger->Debug("Initialize keyboard driver");
-    if (!keyBoard.Initialize()) {
-        logger->Error("Unable to initialize keyboard driver - check your permissions!");
-        return -1;
-    }
+    logger->Debug("Creating views");
+    logger->Debug("Dimensions (x,y): %d, %d", dimensions.Width(), dimensions.Height());
 
-    // Setup the runtime enviornment
-    RuntimeConfig::Instance().SetScreen(screen);
-    RuntimeConfig::Instance().SetKeyboard(keyBoard);
-    RuntimeConfig::Instance().SetOutputConsole(&commandMode);
+    RootView rootView;
 
-    logger->Debug("Initialize Graphics subsystem");
-
-    screen.Open();
-    screen.Clear();
+    auto hSplitView = HSplitViewStatus(dimensions);
+    rootView.AddView(&hSplitView);
 
 
-    logger->Debug("Configuring colors and theme");
-    // NOTE: This must be done after the screen has been opened as the color handling might require the underlying graphics
-    //       context to be initialized...
-    auto &colorConfig = Config::Instance().ColorConfiguration();
-    for(int i=0;gnilk::IsLanguageTokenClass(i);i++) {
-        auto langClass = gnilk::LanguageTokenClassToString(static_cast<kLanguageTokenClass>(i));
-        if (!colorConfig.HasColor(langClass)) {
-            logger->Warning("Missing color configuration for: %s", langClass.c_str());
-            return -1;
-        }
-        screen.RegisterColor(i, colorConfig.GetColor(langClass), colorConfig.GetColor("background"));
-    }
+    auto cmdView = CommandView();
+    hSplitView.SetLower(&cmdView);
 
-    logger->Debug("Entering mainloop");
+    auto vStackView = VStackView();
+    auto headerView = HeaderView();
+    headerView.SetHeight(1);        // This is done in the SingleLineView
+
+    hSplitView.SetUpper(&vStackView);
+
+    auto hStackView = HStackView();
+    auto gutterView = GutterView();
+    gutterView.SetWidth(10);
+
+    auto editorView = EditorView();
+
+    hStackView.AddSubView(&gutterView, kFixed);
+    hStackView.AddSubView(&editorView, kFill);
+
+    vStackView.AddSubView(&headerView, kFixed);
+    vStackView.AddSubView(&hStackView, kFill);
+
+    RuntimeConfig::Instance().SetRootView(&rootView);
+
+    rootView.AddTopView(&editorView);
+    rootView.AddTopView(&cmdView);
+
+    rootView.Initialize();
+    rootView.InvalidateAll();
+    screen->Clear();
+    rootView.Draw();
+    screen->Update();
+    refresh();
+    rootView.Draw();
+    screen->Update();
+
 
     // This is currently the run loop...
     while(!bQuit) {
-        currentMode->DrawLines();
-        screen.Update();
-        currentMode->Update();
-        if (screen.IsSizeChanged(true)) {
-            screen.Clear();
+        // This is way too simple - need better handling here!
+        // Background stuff can cause need to repaint...
+        //rootView.TopView()->GetWindow()->TestRefreshEx();
+        bool redraw = false;
+        glbFillchar = 'a';
+
+        auto keyPress = keyboardDriver->GetKeyPress();
+        if (keyPress.IsAnyValid()) {
+            logger->Debug("KeyPress Valid - passing on...");
+            rootView.TopView()->HandleKeyPress(keyPress);
+            redraw = true;
+        }
+        if (rootView.IsInvalid()) {
+            redraw = true;
+        }
+        if (redraw == true) {
+            logger->Debug("Redraw was triggered...");
+            rootView.Draw();
+            screen->Update();
         }
     }
     logger->Debug("Left main loop, closing graphics subsystem");
-    screen.Close();
+    screen->Close();
     return 0;
+
+    return -1;
 }

@@ -7,7 +7,6 @@
  * ! New CompositionObject between View/Controller/Data => EditorModel
  *      ! Should hold an EditController, TextBuffer and ViewData
  *      ! Change the way EditView works, instead of owning the controller - the controller is set
- *      - BufferManager should create these composition objects (?)
  *      ! RuntimeConfiguration should have a function to retrieve the active EditorModel
  *      ! Move Cursor to EditorModel instance!!
  * - In BufferManager - make it possible to iterate through all buffers currently open..
@@ -91,7 +90,8 @@
 #include "Core/Views/VSplitView.h"
 #include "Core/Views/HStackView.h"
 #include "Core/Views/VStackView.h"
-#include "Core/Views/SingleLineView.h"
+#include "Core/Views/HeaderView.h"
+#include "Core/Views/HSplitViewStatus.h"
 
 
 #include "logger.h"
@@ -128,7 +128,7 @@ int main(int argc, const char **argv) {
 
     RootView rootView;
 
-    auto hSplitView = HSplitView(dimensions);
+    auto hSplitView = HSplitViewStatus(dimensions);
     rootView.AddView(&hSplitView);
 
 
@@ -136,7 +136,7 @@ int main(int argc, const char **argv) {
     hSplitView.SetLower(&cmdView);
 
     auto vStackView = VStackView();
-    auto headerView = SingleLineView();
+    auto headerView = HeaderView();
     headerView.SetHeight(1);        // This is done in the SingleLineView
 
     hSplitView.SetUpper(&vStackView);
@@ -146,8 +146,6 @@ int main(int argc, const char **argv) {
     gutterView.SetWidth(10);
 
     auto editorView = EditorView();
-//    auto currentModel = RuntimeConfig::Instance().ActiveEditorModel();
-//    editorView.SetEditorModel(currentModel);
 
     hStackView.AddSubView(&gutterView, kFixed);
     hStackView.AddSubView(&editorView, kFill);

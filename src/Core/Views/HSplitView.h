@@ -149,21 +149,23 @@ namespace gedit {
         }
     protected:
         void DrawViewContents() override {
+            if (!bUseFullView) {
+                DrawSplitter(splitterPos);
+            } else {
+                auto &dc = window->GetContentDC();
+                DrawSplitter(dc.GetRect().Height()-1);
+            }
+        }
+
+        virtual void DrawSplitter(int row) {
             auto &dc = window->GetContentDC();
 
             auto logger = gnilk::Logger::GetLogger("HSplitView");
-            logger->Debug("DrawViewContents, Height=%d", dc.GetRect().Height());
+            logger->Debug("DrawRow, Row=%d, Height=%d", row, dc.GetRect().Height());
 
+            std::string dummy(dc.GetRect().Width(), '-');
+            dc.DrawStringWithAttributesAt(0,row, kTextAttributes::kInverted, dummy.c_str());
 
-            std::string dummy(dc.GetRect().Width(), 'x');
-            //std::string statusLine = "GoatEdit v0.1 - we are editing files";
-
-
-            if (!bUseFullView) {
-                dc.DrawStringAt(0, splitterPos, dummy.c_str());
-            } else {
-                dc.DrawStringAt(0, dc.GetRect().Height()-1, dummy.c_str());
-            }
         }
 
         void UpdateUpperViewRect() {

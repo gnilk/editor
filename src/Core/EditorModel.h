@@ -45,7 +45,12 @@ namespace gedit {
             return editController->LineAt(idxLine);
         }
 
-
+        bool IsActive() {
+            return isActive;
+        }
+        void SetActive(bool newIsActive) {
+            isActive = newIsActive;
+        }
 
     public:
         Cursor cursor;
@@ -55,6 +60,7 @@ namespace gedit {
     private:
         EditController::Ref editController;     // Pointer???
         TextBuffer::Ref textBuffer;             // This is 'owned' by BufferManager
+        bool isActive = false;
 
     };
 }

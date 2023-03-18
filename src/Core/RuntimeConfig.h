@@ -21,7 +21,11 @@ namespace gedit {
         static RuntimeConfig &Instance();
 
         void SetActiveEditorModel(EditorModel::Ref newActiveEditorModel) {
+            if (activeEditorModel != nullptr) {
+                activeEditorModel->SetActive(false);
+            }
             activeEditorModel = newActiveEditorModel;
+            activeEditorModel->SetActive(true);
         }
         void SetKeyboard(KeyboardDriverBase &kbd) {
             keyboard = &kbd;

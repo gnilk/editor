@@ -71,6 +71,17 @@ namespace gedit {
                 TopView()->SetActive(true);
 
                 logger->Debug("ESC pressed, cycle active view, new = %d", idxCurrentTopView);
+            } else if (keyPress.IsSpecialKeyPressed(Keyboard::kKeyCode_F3)) {
+                // TEST: Cycling through actively open editors
+                auto idxCurrent = Editor::Instance().GetActiveModelIndex();
+                auto idxNext = Editor::Instance().NextModelIndex(idxCurrent);
+                if (idxCurrent != idxNext) {
+                    auto nextModel = Editor::Instance().GetModelFromIndex(idxNext);
+                    RuntimeConfig::Instance().SetActiveEditorModel(nextModel);
+                }
+                Initialize();
+                InvalidateAll();
+
             }
         }
 

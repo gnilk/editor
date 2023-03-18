@@ -146,8 +146,8 @@ int main(int argc, const char **argv) {
     gutterView.SetWidth(10);
 
     auto editorView = EditorView();
-    auto currentModel = RuntimeConfig::Instance().ActiveEditorModel();
-    editorView.SetEditorModel(currentModel);
+//    auto currentModel = RuntimeConfig::Instance().ActiveEditorModel();
+//    editorView.SetEditorModel(currentModel);
 
     hStackView.AddSubView(&gutterView, kFixed);
     hStackView.AddSubView(&editorView, kFill);

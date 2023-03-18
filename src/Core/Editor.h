@@ -7,6 +7,7 @@
 
 #include <vector>
 
+#include "logger.h"
 #include "Core/NCurses/NCursesScreen.h"
 #include "Core/macOS/MacOSKeyboardMonitor.h"
 
@@ -27,6 +28,27 @@ namespace gedit {
         bool LoadConfig(const char *configFile);
         std::vector<EditorModel::Ref> &GetModels() {
             return models;
+        }
+        size_t GetActiveModelIndex() {
+            for(size_t i=0;i<models.size();i++) {
+                if (models[i]->IsActive()) {
+                    return i;
+                }
+            }
+            auto logger = gnilk::Logger::GetLogger("Editor");
+            logger->Error("No active model!!!!!");
+            // THIS SHOULD NOT HAPPEN!!!
+            return 0;
+        }
+        size_t NextModelIndex(size_t idxCurrent) {
+            auto next = (idxCurrent + 1) % models.size();
+            return next;
+        }
+        EditorModel::Ref GetModelFromIndex(size_t idxModel) {
+            if (idxModel > (models.size()-1)) {
+                return nullptr;
+            }
+            return models[idxModel];
         }
     protected:
         void ConfigureLogger();

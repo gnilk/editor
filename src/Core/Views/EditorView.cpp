@@ -21,6 +21,13 @@ void EditorView::InitView()  {
 
     auto &rect = window->GetContentDC().GetRect();
 
+    editorModel = RuntimeConfig::Instance().ActiveEditorModel();
+    if (editorModel == nullptr) {
+        logger->Error("EditorModel is null - no active textbuffer");
+        exit(1);
+    }
+
+
     // This is the visible area...
     editorModel->viewTopLine = 0;
     editorModel->viewBottomLine = rect.Height();
@@ -46,6 +53,14 @@ void EditorView::ReInitView() {
     window = screen->UpdateWindow(window, viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
 
     auto &rect = window->GetContentDC().GetRect();
+
+
+    editorModel = RuntimeConfig::Instance().ActiveEditorModel();
+    if (editorModel == nullptr) {
+        logger->Error("EditorModel is null - no active textbuffer");
+        exit(1);
+    }
+
 //    // This is the visible area...
     editorModel->viewTopLine = 0;
     editorModel->viewBottomLine = rect.Height();

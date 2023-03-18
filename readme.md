@@ -5,7 +5,7 @@ an editor.
 
 This is my playground....
 
-![screenshot](screenshots/main_edit_mode.png?raw=true)
+![screenshot](screenshots/main_edit_230318.png?raw=true)
 
 Currently only macOS....
 
@@ -16,6 +16,14 @@ Goals
   - NCurses (terminal)
   - IMGUI (?) for Portable UI
   - etc...
+
+Pressing ESC enters command mode, which is an embedded terminal (bash/sh/zsh or whatever you fancy)
+![screenshot](screenshots/cmd_view_230318.png?raw=true)
+
+The idea with the shell/command is similar to a game-console or if you want 
+a multi-line VI/VIM command mode. Allows us to execute editor functionality through a command-line interface.
+If the given command is not an editor command it is sent to the terminal. In order to avoid actual terminal commands
+being blocked by editor commands or vice-verse a special prefix (configurable) must be present before any editor command.
 
 Noteworthy:
 A terminal application can't properly trap SHIFT + <certain keys> (at least not through ncurses).

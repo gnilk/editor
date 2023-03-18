@@ -14,7 +14,10 @@ public:
 
     // Implement this and setup the tokenizer
     virtual bool Initialize() { return false; }; // You should really implement this...
-
+    virtual const std::string &Identifier() {
+        static std::string noIdentifier = "default";
+        return noIdentifier;
+    }
     gnilk::LangLineTokenizer &Tokenizer() { return  tokenizer; }
 protected:
     gnilk::LangLineTokenizer tokenizer;

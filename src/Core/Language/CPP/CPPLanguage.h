@@ -14,6 +14,11 @@ public:
     virtual ~CPPLanguage() = default;
 
     bool Initialize() override;
+    const std::string &Identifier() override {
+        static std::string cppIdentifier = "c/c++";
+        return cppIdentifier;
+    }
+
 private:
 
 // declare in-string operators

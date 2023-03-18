@@ -116,7 +116,6 @@ void EditorView::OnActivate(bool isActive) {
 void EditorView::OnKeyPress(const KeyPress &keyPress) {
 
     if (editorModel->GetEditController()->HandleKeyPress(editorModel->cursor, editorModel->idxActiveLine, keyPress)) {
-        editorModel->cursor = cursor;
         InvalidateView();
         return;
     }

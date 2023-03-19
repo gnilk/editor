@@ -19,6 +19,13 @@ commandmode:
   prompt: "ed>"
   cmdlet_prefix: '.'
 
+defaultkeymap: {
+  KeyCode_Shift + KeyCode_UpArrow : NavigateEnd,
+  KeyCode_Ctrl + KeyCode_Shift + KeyCode_UpArrow : NavigateHome,
+  KeyCode_UpArrow : NavigateLineUp,
+  KeyCode_DownArrow : NavigateLineDown,
+}
+
 
 terminal:
   shell: /bin/zsh

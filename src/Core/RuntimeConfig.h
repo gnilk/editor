@@ -37,7 +37,7 @@ namespace gedit {
             outputConsole = newOutputConsole;
         }
         void SetRootView(gedit::ViewBase *newRootView) {
-            view = newRootView;
+            rootView = newRootView;
         }
         void SetWindow(WindowBase *newWindow) {
             window = newWindow;
@@ -61,8 +61,8 @@ namespace gedit {
             return window;
         }
 
-        ViewBase *View() {
-            return view;
+        ViewBase *RootView() {
+            return rootView;
         }
 
 
@@ -72,7 +72,7 @@ namespace gedit {
         EditorModel::Ref activeEditorModel;
         KeyboardDriverBase *keyboard = nullptr;
         ScreenBase *screen = nullptr;
-        ViewBase *view = nullptr;
+        ViewBase *rootView = nullptr;
         WindowBase *window = nullptr;
         IOutputConsole *outputConsole = nullptr;
 

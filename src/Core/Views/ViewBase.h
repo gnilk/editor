@@ -9,6 +9,7 @@
 #include "Core/WindowBase.h"
 #include "Core/KeyPress.h"
 #include "Core/Cursor.h"
+#include "Core/Action.h"
 
 namespace gedit {
     // Should never be used on it's own...
@@ -183,6 +184,14 @@ namespace gedit {
         virtual void HandleKeyPress(const KeyPress &keyPress) {
             OnKeyPress(keyPress);
         }
+
+        // TESTING ACTIONS!!!!
+        virtual bool OnAction(kAction action) {
+            return false;
+        }
+        // END OF ACTION TEST
+
+
         //
         // Override these to handles, they are called in an event kind of manner on certain actions
         //
@@ -201,7 +210,6 @@ namespace gedit {
             }
         }
         virtual void OnResized() {}
-
     protected:
         // Called the first time a view should be created
         virtual void InitView() {

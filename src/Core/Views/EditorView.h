@@ -44,12 +44,18 @@ namespace gedit {
             window->SetCursor(editorModel->cursor);
         }
 
+        bool OnAction(kAction action) override;
+
 
     protected:
         void OnKeyPress(const KeyPress &keyPress) override;
         void OnResized() override;
         void OnActivate(bool isActive) override;
         void DrawViewContents() override;
+    protected:
+        // Action handlers
+        bool OnActionLineDown();
+        bool OnActionLineUp();
 
     private:
         bool UpdateNavigation(const KeyPress &keyPress);

@@ -24,7 +24,7 @@ namespace gedit {
 
         typedef enum : uint8_t {
             kKeyCode_None = 0,
-            kKeyCode_Return = 1,
+            kKeyCode_Return,
             kKeyCode_Escape,
             kKeyCode_Backspace,        // Backspace??
             kKeyCode_Tab,

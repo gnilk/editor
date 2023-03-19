@@ -5,8 +5,10 @@
 #include "Core/Config/Config.h"
 #include "Core/RuntimeConfig.h"
 #include "EditorView.h"
+#include <unordered_map>
 
 using namespace gedit;
+
 
 void EditorView::InitView()  {
     logger = gnilk::Logger::GetLogger("EditorView");
@@ -127,6 +129,38 @@ void EditorView::OnKeyPress(const KeyPress &keyPress) {
     // It was not to us..
     ViewBase::OnKeyPress(keyPress);
 }
+
+bool EditorView::OnAction(kAction action) {
+    switch(action) {
+        case kAction::kActionLineDown :
+            return OnActionLineDown();
+        case kAction::kActionLineUp :
+            return OnActionLineUp();
+    }
+    return false;
+}
+
+bool EditorView::OnActionLineDown() {
+    auto currentLine = editorModel->GetEditController()->LineAt(editorModel->idxActiveLine);
+    OnNavigateDownVSCode(1);
+    currentLine = editorModel->LineAt(editorModel->idxActiveLine);
+    cursor.position.x = cursor.wantedColumn;
+    if (cursor.position.x > currentLine->Length()) {
+        cursor.position.x = currentLine->Length();
+    }
+    return true;
+}
+bool EditorView::OnActionLineUp() {
+    auto currentLine = editorModel->GetEditController()->LineAt(editorModel->idxActiveLine);
+    OnNavigateUpVSCode(1);
+    currentLine = editorModel->LineAt(editorModel->idxActiveLine);
+    cursor.position.x = cursor.wantedColumn;
+    if (cursor.position.x > currentLine->Length()) {
+        cursor.position.x = currentLine->Length();
+    }
+    return true;
+}
+
 
 bool EditorView::UpdateNavigation(const KeyPress &keyPress) {
 

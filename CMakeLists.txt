@@ -37,6 +37,9 @@ list(APPEND extlibs logger)
 list(APPEND editorsrc src/Core/Editor.cpp src/Core/Editor.h)
 list(APPEND editorsrc src/Core/EditorModel.h)
 
+# API and Actions
+list(APPEND editorsrc src/Core/Action.cpp src/Core/Action.h)
+
 # utility stuff
 list(APPEND editorsrc src/Core/StrUtil.cpp src/Core/StrUtil.h)
 list(APPEND editorsrc src/Core/HexDump.cpp src/Core/HexDump.h)

@@ -68,6 +68,13 @@ public:
         return dataNode[key].as<std::vector<std::string>>();
     }
 
+    auto GetMap(const std::string &key) {
+        if (HasKey(key)) {
+            return dataNode[key].as<std::map<std::string, std::string>>();
+        }
+        return std::map<std::string, std::string>();
+    }
+
 protected:
     YAML::Node dataNode;
 };

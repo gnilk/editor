@@ -101,6 +101,10 @@
 
 using namespace gedit;
 
+//
+// Note: This is not needed for built in stuff (like navigation and so forth)
+//       But once we want scriptable keyboard short-cuts we need a proxy...
+//
 
 static auto defaultDispatch = [](kAction action) {
     RuntimeConfig::Instance().RootView()->OnAction(action);
@@ -120,6 +124,11 @@ static std::unordered_map<std::string, kAction> strToActionMap = {
         {"NavigateLineHome", kAction::kActionLineHome},
         {"NavigateHome", kAction::kActionBufferStart},
         {"NavigateEnd", kAction::kActionBufferEnd},
+        {"NavigateLineStepLeft", kAction::kActionLineStepSingleLeft},
+        {"NavigateLineStepRight", kAction::kActionLineStepSingleRight},
+        {"CommitLine", kAction::kActionCommitLine},
+        {"GotoFirstLine", kAction::kActionGotoFirstLine},
+        {"GotoLastLine", kAction::kActionGotoLastLine},
 };
 
 static std::unordered_map<std::string, Keyboard::kKeyCode> strToKeyCodeMap = {
@@ -470,8 +479,10 @@ int main(int argc, const char **argv) {
             logger->Debug("KeyPress Valid - passing on...");
             auto action = TestActionHandleKeyPress(keyPress);
             if (action != gedit::kAction::kActionNone) {
+                logger->Debug("Action found, handling as such!");
                 rootView.TopView()->OnAction(action);
             } else {
+                logger->Debug("No action for keypress, treating as regular input");
                 rootView.TopView()->HandleKeyPress(keyPress);
             }
             redraw = true;

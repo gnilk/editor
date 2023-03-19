@@ -20,10 +20,19 @@ commandmode:
   cmdlet_prefix: '.'
 
 defaultkeymap: {
+  # test
   KeyCode_Shift + KeyCode_UpArrow : NavigateEnd,
   KeyCode_Ctrl + KeyCode_Shift + KeyCode_UpArrow : NavigateHome,
+  # properly mapped
   KeyCode_UpArrow : NavigateLineUp,
   KeyCode_DownArrow : NavigateLineDown,
+  KeyCode_LeftArrow : NavigateLineStepLeft,
+  KeyCode_RightArrow : NavigateLineStepRight,
+  KeyCode_Return : CommitLine,
+  KeyCode_Command + KeyCode_Home : GotoFirstList,
+  KeyCode_Command + KeyCode_End : GotoLastList,
+  KeyCode_Command + KeyCode_PageUp : NavigateToTopLine,
+  KeyCode_Command + KeyCode_PageDown : NavigateToBottomLine,
 }
 
 

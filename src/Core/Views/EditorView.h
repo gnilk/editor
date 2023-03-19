@@ -56,6 +56,15 @@ namespace gedit {
         // Action handlers
         bool OnActionLineDown();
         bool OnActionLineUp();
+        bool OnActionPageUp();
+        bool OnActionPageDown();
+        bool OnActionStepLeft();
+        bool OnActionStepRight();
+        bool OnActionCommitLine();
+        bool OnActionGotoFirstLine();   // First line of buffer
+        bool OnActionGotoLastLine();    // Last line of buffer
+        bool OnActionGotoTopLine();     // Top line of screen
+        bool OnActionGotoBottomLine();    // Last visible line on screen
 
     private:
         bool UpdateNavigation(const KeyPress &keyPress);

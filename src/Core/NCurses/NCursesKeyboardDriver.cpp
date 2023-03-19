@@ -115,7 +115,7 @@ KeyPress NCursesKeyboardDriver::GetKeyPress() {
     keyPress.isKeyValid = !(ch == ERR);
     keyPress.key = ch;
     keyPress.specialKey = TranslateNCurseKey(ch);
-    keyPress.isSpecialKey = !(keyPress.specialKey == -1);
+    keyPress.isSpecialKey = (keyPress.specialKey != -1);
 
     // Not sure...
     if (keyPress.isHwEventValid) {
@@ -127,8 +127,9 @@ KeyPress NCursesKeyboardDriver::GetKeyPress() {
     // Dump details of keypress to log
     //
     if ((keyPress.isKeyValid) || (keyPress.isHwEventValid)) {
-        logger->Debug("KeyPress, isKeyValid=%s, isHwEventValid=%s, modifiers=0x%x",
-                      keyPress.isKeyValid ? "yes" : "no", keyPress.isHwEventValid ? "yes" : "no", keyPress.modifiers);
+        logger->Debug("KeyPress, isKeyValid=%s, isHwEventValid=%s, isSpecialKey=%s, modifiers=0x%x",
+                      keyPress.isKeyValid ? "yes" : "no", keyPress.isHwEventValid ? "yes" : "no",
+                      keyPress.isSpecialKey ? "yes" : "no", keyPress.modifiers);
         if (keyPress.isKeyValid) {
             logger->Debug("  key data, key=%d (%s)", keyPress.key, keyname(keyPress.key));
         }
@@ -148,9 +149,15 @@ KeyPress NCursesKeyboardDriver::GetKeyPress() {
 
 
 int NCursesKeyboardDriver::TranslateNCurseKey(int ch) {
+    if (ch == ERR) {
+        return -1;
+    }
     // If we have this in the translation map we translate it..
     if (ncurses_translation_map_new.find(ch) != ncurses_translation_map_new.end()) {
         return ncurses_translation_map_new[ch];
     }
+    auto logger = gnilk::Logger::GetLogger("NCursesKeyboardDriver");
+    logger->Debug("TranslateNCurseKey, no special key found");
+
     return -1;
 }

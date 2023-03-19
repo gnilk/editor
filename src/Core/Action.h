@@ -16,14 +16,21 @@
 namespace gedit {
     enum class kAction {
         kActionNone,
-        kActionPageUp,
-        kActionPageDown,
+        kActionPageUp,              // default: PageUp
+        kActionPageDown,            // default: PageDown
         kActionLineUp,
         kActionLineDown,
         kActionLineHome,
         kActionLineEnd,
+        kActionLineStepSingleLeft,  // default: left arrow
+        kActionLineStepSingleRight, // default: right arrow
+        kActionCommitLine,          // default: return
         kActionBufferStart,
         kActionBufferEnd,
+        kActionGotoFirstLine,           // default: CMD+Home
+        kActionGotoLastLine,           // default: CMD+Home
+        kActionGotoTopLine,             // Default: cmd + pageUp
+        kActionGotoBottomLine,          // Default: cmd + pageDown
     };
 
     class ActionItem {
@@ -41,8 +48,9 @@ namespace gedit {
 
         // Not sure about this one..
         bool MatchKeyPress(const KeyPress &keyPress) {
-            if (!keyPress.isHwEventValid) return false;
-            if (keyCode != keyPress.hwEvent.keyCode) return false;
+            //if (!keyPress.isHwEventValid) return false;
+            if (!keyPress.isSpecialKey) return false;
+            if (keyCode != keyPress.specialKey) return false;
             if (keyPress.modifiers != modiferMask) return false;
             return true;
         }

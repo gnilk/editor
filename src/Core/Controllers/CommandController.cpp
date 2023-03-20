@@ -53,14 +53,14 @@ bool CommandController::HandleKeyPress(Cursor &cursor, size_t idxLine, const Key
     if (DefaultEditLine(cursor, currentLine, keyPress)) {
         return true;
     }
-    if (keyPress.IsSpecialKeyPressed(Keyboard::kKeyCode_Return)) {
-        HandleReturn();
-        return true;
-    }
+//    if (keyPress.IsSpecialKeyPressed(Keyboard::kKeyCode_Return)) {
+//        CommitLine();
+//        return true;
+//    }
     return false;
 }
 
-void CommandController::HandleReturn() {
+void CommandController::CommitLine() {
     std::string cmdLine(currentLine->Buffer().data());
     if (cmdLine.size() < 1) {
         return;

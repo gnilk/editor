@@ -5,6 +5,7 @@
 #include "Core/RuntimeConfig.h"
 #include "CommandView.h"
 #include "Core/Views/HSplitView.h"
+#include "Core/Config/Config.h"
 
 using namespace gedit;
 
@@ -22,12 +23,13 @@ void CommandView::InitView() {
                   viewRect.BottomRight().x, viewRect.BottomRight().y,
                   viewRect.Width(), viewRect.Height());
 
+    prompt = Config::Instance()["commandmode"].GetStr("prompt","gedit>");
 
     window = screen->CreateWindow(viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
     window->SetCaption("CommandView");
     commandController.SetNewLineNotificationHandler([this]()->void {
         //logger->Debug("NewLine notified!");
-        cursor.position.x = 0;
+        cursor.position.x = prompt.size();
         InvalidateView();
     });
     commandController.Begin();
@@ -40,6 +42,8 @@ void CommandView::ReInitView() {
         viewRect = screen->Dimensions();
     }
     window = screen->UpdateWindow(window, viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
+    prompt = Config::Instance()["commandmode"].GetStr("prompt","gedit>");
+    cursor.position.x = prompt.size();
 }
 
 
@@ -53,10 +57,24 @@ void CommandView::OnActivate(bool isActive) {
     }
 }
 
+bool CommandView::OnAction(kAction action) {
+    switch(action) {
+        case kAction::kActionCommitLine :
+            return OnActionCommitLine();
+    }
+}
+
+bool CommandView::OnActionCommitLine() {
+    commandController.CommitLine();
+    return true;
+}
 
 void CommandView::OnKeyPress(const KeyPress &keyPress) {
-
-    if (commandController.HandleKeyPress(cursor, 0, keyPress)) {
+    auto strCursor = cursor;
+    strCursor.position.x -= prompt.size();
+    if (commandController.HandleKeyPress(strCursor, 0, keyPress)) {
+        cursor = strCursor;
+        cursor.position.x += prompt.size();
         return;
     }
     // FIXME: Remove
@@ -90,5 +108,9 @@ void CommandView::DrawViewContents() {
     if (lines.size() > dc.GetRect().Height()-1) {
         cursor.position.y = dc.GetRect().Height()-1;
     }
+    auto currentLine = commandController.CurrentLine();
+    auto prompt = Config::Instance()["commandmode"].GetStr("prompt","gedit>");
+    dc.DrawStringAt(0, cursor.position.y, prompt.c_str());
+    dc.DrawStringAt(prompt.size(), cursor.position.y, currentLine->Buffer().data());
 
 }

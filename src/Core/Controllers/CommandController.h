@@ -34,6 +34,7 @@ namespace gedit {
         void SetNewLineNotificationHandler(NewLineDelegate newOnNewLine) {
             onNewLine = newOnNewLine;
         }
+        void CommitLine();
 
 
         // This is from IOutputConsole - which is/was used by the expermintal API
@@ -41,7 +42,6 @@ namespace gedit {
 
     protected:
         void NewLine();
-        void HandleReturn();
         bool TryExecuteInternalCmd(std::string &cmdline);
         void TryExecuteShellCmd(std::string &cmdline);
 

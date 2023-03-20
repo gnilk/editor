@@ -28,12 +28,16 @@ namespace gedit {
         void OnKeyPress(const KeyPress &keyPress) override;
         void DrawViewContents() override;
 
+        bool OnAction(kAction action) override;
+    protected:
+        bool OnActionCommitLine();
     protected:
         // events - or sort of
         void OnActivate(bool isActive) override;
     private:
         CommandController commandController;
         gnilk::ILogger *logger = nullptr;
+        std::string prompt;
     };
 }
 

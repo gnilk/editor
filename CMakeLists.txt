@@ -102,6 +102,7 @@ list(APPEND editorsrc src/Core/Language/LangToken.cpp src/Core/Language/LangToke
 list(APPEND editorsrc src/Core/Sublime/SublimeConfigScriptEngine.cpp src/Core/Sublime/SublimeConfigScriptEngine.h)
 list(APPEND editorsrc src/Core/Sublime/SublimeConfigColorScript.cpp src/Core/Sublime/SublimeConfigColorScript.h)
 
+# append configuration stuff - these are copied with custom command
 
 list(APPEND appsrc main.cpp)
 
@@ -197,4 +198,15 @@ add_library(libeditor SHARED ${editorsrc} ${utestsrc})
 target_link_directories(libeditor PUBLIC ${linkdirs})
 target_include_directories(libeditor PUBLIC ${includedirs})
 target_link_libraries(libeditor ${extlibs})
+
+#
+# Add configuration files so they get copied when changed...
+#
+ADD_CUSTOM_TARGET(config ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_CURRENT_LIST_DIR}/config.yml ${CMAKE_CURRENT_BINARY_DIR})
+
+ADD_CUSTOM_TARGET(colors ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_CURRENT_LIST_DIR}/colors.sublime.json ${CMAKE_CURRENT_BINARY_DIR})
+
+ADD_DEPENDENCIES(editor config colors)
 

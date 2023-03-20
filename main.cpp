@@ -131,9 +131,10 @@ static std::unordered_map<std::string, kAction> strToActionMap = {
         {"GotoLastLine", kAction::kActionGotoLastLine},
 };
 
+
 static std::unordered_map<std::string, Keyboard::kKeyCode> strToKeyCodeMap = {
         {"KeyCode_None",Keyboard::kKeyCode_None},
-        {"KeyCode_Return.",Keyboard::kKeyCode_Return},
+        {"KeyCode_Return",Keyboard::kKeyCode_Return},
         {"KeyCode_Escape",Keyboard::kKeyCode_Escape},
         {"KeyCode_Backspace",Keyboard::kKeyCode_Backspace},
         {"KeyCode_Tab",Keyboard::kKeyCode_Tab},

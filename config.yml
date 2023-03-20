@@ -29,12 +29,13 @@ defaultkeymap: {
   KeyCode_LeftArrow : NavigateLineStepLeft,
   KeyCode_RightArrow : NavigateLineStepRight,
   KeyCode_Return : CommitLine,
-  KeyCode_Command + KeyCode_Home : GotoFirstList,
-  KeyCode_Command + KeyCode_End : GotoLastList,
+  KeyCode_Command + KeyCode_Home : GotoFirstLine,
+  KeyCode_Command + KeyCode_End : GotoLastLine,
   KeyCode_Command + KeyCode_PageUp : NavigateToTopLine,
   KeyCode_Command + KeyCode_PageDown : NavigateToBottomLine,
 }
 
+# we
 
 terminal:
   shell: /bin/zsh
@@ -45,7 +46,7 @@ terminal:
     - ls -laF
 
 theme:
-  sublime_colorfile: "tests/colors.sublime.json"
+  sublime_colorfile: "colors.sublime.json"
 
 languages:
   default:
@@ -56,5 +57,3 @@ languages:
     insert_closing_brace: yes
     auto_indent: yes
     continue_comment: yes
-
-

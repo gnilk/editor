@@ -34,6 +34,7 @@ namespace gedit {
     protected:
         // events - or sort of
         void OnActivate(bool isActive) override;
+        void OnNewLineNotification();
     private:
         CommandController commandController;
         gnilk::ILogger *logger = nullptr;

@@ -28,12 +28,11 @@ void CommandView::InitView() {
     window = screen->CreateWindow(viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
     window->SetCaption("CommandView");
     commandController.SetNewLineNotificationHandler([this]()->void {
-        //logger->Debug("NewLine notified!");
-        cursor.position.x = prompt.size();
-        InvalidateView();
+        OnNewLineNotification();
     });
     commandController.Begin();
 }
+
 void CommandView::ReInitView() {
     logger->Debug("ReInitialize View!");
     auto screen = RuntimeConfig::Instance().Screen();
@@ -54,6 +53,7 @@ void CommandView::OnActivate(bool isActive) {
         // store height of view..
     } else {
         // restore height of view...
+        //parentView->MaximizeContentHeight();
     }
 }
 
@@ -69,6 +69,15 @@ bool CommandView::OnActionCommitLine() {
     return true;
 }
 
+void CommandView::OnNewLineNotification() {
+    cursor.position.x = prompt.size();
+    if (IsActive()) {
+        auto &dc = window->GetContentDC();
+        auto nLines = commandController.Lines().size();
+        InvalidateView();
+    }
+}
+
 void CommandView::OnKeyPress(const KeyPress &keyPress) {
     auto strCursor = cursor;
     strCursor.position.x -= prompt.size();
@@ -77,7 +86,8 @@ void CommandView::OnKeyPress(const KeyPress &keyPress) {
         cursor.position.x += prompt.size();
         return;
     }
-    // FIXME: Remove
+
+    // Check if we should auto adjust the height...
     if (keyPress.IsSpecialKeyPressed(Keyboard::kKeyCode_F1)) {
         parentView->AdjustHeight(-1);
     } else if (keyPress.IsSpecialKeyPressed(Keyboard::kKeyCode_F2)) {
@@ -87,7 +97,7 @@ void CommandView::OnKeyPress(const KeyPress &keyPress) {
     // Must call base class - perhaps this is a stupid thing..
     ViewBase::OnKeyPress(keyPress);
 }
-
+static int nLines = -1;
 void CommandView::DrawViewContents() {
     auto &dc = window->GetContentDC();
 
@@ -112,5 +122,16 @@ void CommandView::DrawViewContents() {
     auto prompt = Config::Instance()["commandmode"].GetStr("prompt","gedit>");
     dc.DrawStringAt(0, cursor.position.y, prompt.c_str());
     dc.DrawStringAt(prompt.size(), cursor.position.y, currentLine->Buffer().data());
+
+    // can't really do this during the invalidation loop
+    if (nLines < 0) {
+        nLines = lines.size();
+    } else {
+        if (nLines != lines.size()) {
+            parentView->AdjustHeight(-1);
+            nLines = lines.size();
+            InvalidateAll();
+        }
+    }
 
 }

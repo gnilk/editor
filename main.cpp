@@ -4,16 +4,10 @@
 /*
  * TO-DO List
  * 1)
- * ! New CompositionObject between View/Controller/Data => EditorModel
- *      ! Should hold an EditController, TextBuffer and ViewData
- *      ! Change the way EditView works, instead of owning the controller - the controller is set
- *      ! RuntimeConfiguration should have a function to retrieve the active EditorModel
- *      ! Move Cursor to EditorModel instance!!
- * - In BufferManager - make it possible to iterate through all buffers currently open..
- * - headerView -> Specialize SingleLineView to 'HeaderView' make the draw function
- * - new single view for status line / splitter -> make this a specific "HSplitView"
- *
- *
+ * - Make some classes thread aware (TextBuffer / Line class - perhaps most important)
+ * - Ability to push events (with data) from one thread to the main thread...
+ *   These events should be executed _BEFORE_ any keyhandling is done..
+ *   Note: This would make it nicer with an event based UI.....
  *
  * 2)
  * - CommandView, Store/Restore splitter when view goes inactive/active
@@ -21,7 +15,15 @@
  * - CommandView should adjust height of splitter on new lines..
  *   note: once done, remove f1/f2 adjustment keys...
  *
- *
+ * Done:
+ * ! New CompositionObject between View/Controller/Data => EditorModel
+ *      ! Should hold an EditController, TextBuffer and ViewData
+ *      ! Change the way EditView works, instead of owning the controller - the controller is set
+ *      ! RuntimeConfiguration should have a function to retrieve the active EditorModel
+ *      ! Move Cursor to EditorModel instance!!
+ * ! In BufferManager - make it possible to iterate through all buffers currently open..
+ * ! headerView -> Specialize SingleLineView to 'HeaderView' make the draw function
+ * ! new single view for status line / splitter -> make this a specific "HSplitView"
  *
  *
  * + BaseController, handle key press (take from old ModeBase/EditorMode)

@@ -78,7 +78,6 @@ namespace gedit {
         void AdjustHeight(int deltaHeight) override {
             auto current = GetSplitterPos();
             current += deltaHeight;
-            auto yPos = GetViewRect().TopLeft().y;
             if (current < 1) {
                 current = 1;
             } else if (current > (GetContentRect().Height()-5)) {
@@ -103,7 +102,7 @@ namespace gedit {
             InvalidateAll();
         }
 
-        // This restore the content stuff to whatever it was before..  We should add another - 'Reset' to set it back to the default
+        // This restore the content stuff to whatever it was before maximize
         void RestoreContentHeight() override {
             bUseFullView = false;
             upperView->SetVisible(true);

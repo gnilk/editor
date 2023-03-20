@@ -73,6 +73,8 @@ void NCursesDrawContext::DrawLines(const std::vector<Line *> &lines, int idxTopL
 
 void NCursesDrawContext::DrawLineWithAttributesAt(int x, int y, int nCharToPrint, Line &l) {
     wmove((WINDOW *)win, y, x);
+    // Reset attributes before drawing..
+    wattrset((WINDOW *)win, A_NORMAL);
 
     auto &attribs = l.Attributes();
 

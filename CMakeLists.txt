@@ -68,7 +68,7 @@ list(APPEND editorsrc src/Core/NCurses/NCursesWindow.cpp src/Core/NCurses/NCurse
 list(APPEND editorsrc src/Core/Views/HSplitView.h)
 list(APPEND editorsrc src/Core/Views/HStackView.h)
 list(APPEND editorsrc src/Core/Views/RootView.h)
-list(APPEND editorsrc src/Core/Views/ViewBase.h)
+list(APPEND editorsrc src/Core/Views/ViewBase.cpp src/Core/Views/ViewBase.h)
 list(APPEND editorsrc src/Core/Views/VSplitView.h)
 list(APPEND editorsrc src/Core/Views/VStackView.h)
 # specific views

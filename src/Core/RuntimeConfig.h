@@ -10,6 +10,8 @@
 #include "Core/Views/ViewBase.h"
 #include "Core/EditorModel.h"
 
+#include <thread>
+
 namespace gedit {
     class IOutputConsole {
     public:
@@ -19,6 +21,10 @@ namespace gedit {
     class RuntimeConfig {
     public:
         static RuntimeConfig &Instance();
+
+        void SetMainThreadID() {
+            mainThreadId = std::this_thread::get_id();
+        }
 
         void SetActiveEditorModel(EditorModel::Ref newActiveEditorModel) {
             if (activeEditorModel != nullptr) {
@@ -65,6 +71,10 @@ namespace gedit {
             return rootView;
         }
 
+        std::thread::id MainThread() {
+            return mainThreadId;
+        }
+
 
     private:
         RuntimeConfig() = default;
@@ -75,6 +85,7 @@ namespace gedit {
         ViewBase *rootView = nullptr;
         WindowBase *window = nullptr;
         IOutputConsole *outputConsole = nullptr;
+        std::thread::id mainThreadId;
 
     };
 }

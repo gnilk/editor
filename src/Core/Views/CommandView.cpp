@@ -73,8 +73,13 @@ void CommandView::OnNewLineNotification() {
     cursor.position.x = prompt.size();
     if (IsActive()) {
         auto &dc = window->GetContentDC();
-        auto nLines = commandController.Lines().size();
-        InvalidateView();
+
+        // Let this be handled by the main thread...
+        PostMessage([this]()->void {
+            logger->Debug("Adjusting height...");
+            parentView->AdjustHeight(-1);
+            InvalidateView();
+        });
     }
 }
 
@@ -122,16 +127,5 @@ void CommandView::DrawViewContents() {
     auto prompt = Config::Instance()["commandmode"].GetStr("prompt","gedit>");
     dc.DrawStringAt(0, cursor.position.y, prompt.c_str());
     dc.DrawStringAt(prompt.size(), cursor.position.y, currentLine->Buffer().data());
-
-    // can't really do this during the invalidation loop
-    if (nLines < 0) {
-        nLines = lines.size();
-    } else {
-        if (nLines != lines.size()) {
-            parentView->AdjustHeight(-1);
-            nLines = lines.size();
-            InvalidateAll();
-        }
-    }
 
 }

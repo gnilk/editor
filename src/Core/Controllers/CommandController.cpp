@@ -65,6 +65,7 @@ void CommandController::CommitLine() {
     if (cmdLine.size() < 1) {
         return;
     }
+
     if (TryExecuteInternalCmd(cmdLine)) {
         return;
     }
@@ -72,7 +73,8 @@ void CommandController::CommitLine() {
 }
 
 bool CommandController::TryExecuteInternalCmd(std::string &cmdline) {
-    return false;
+    WriteLine("MAMMA");
+    return true;
 }
 void CommandController::TryExecuteShellCmd(std::string &cmdline) {
     // Just push this to the shell "process"...

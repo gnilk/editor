@@ -410,6 +410,9 @@ int main(int argc, const char **argv) {
 
     TestKeyMappings();
 
+    // Note: This can be implicit
+    RuntimeConfig::Instance().SetMainThreadID();
+
     auto logger = gnilk::Logger::GetLogger("main");
     bool bQuit = false;
 
@@ -473,7 +476,15 @@ int main(int argc, const char **argv) {
         // This is way too simple - need better handling here!
         // Background stuff can cause need to repaint...
         //rootView.TopView()->GetWindow()->TestRefreshEx();
+
+        // Process any messages from other threads before we do anything else..
         bool redraw = false;
+
+        if (rootView.ProcessMessageQueue() > 0) {
+            redraw = true;
+        }
+
+
         glbFillchar = 'a';
 
         auto keyPress = keyboardDriver->GetKeyPress();
@@ -490,6 +501,8 @@ int main(int argc, const char **argv) {
             }
             redraw = true;
         }
+
+
         if (rootView.IsInvalid()) {
             redraw = true;
         }
@@ -497,6 +510,7 @@ int main(int argc, const char **argv) {
             logger->Debug("Redraw was triggered...");
             rootView.Draw();
             screen->Update();
+            refresh();
         }
     }
     logger->Debug("Left main loop, closing graphics subsystem");

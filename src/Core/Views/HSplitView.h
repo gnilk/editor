@@ -78,8 +78,8 @@ namespace gedit {
         void AdjustHeight(int deltaHeight) override {
             auto current = GetSplitterPos();
             current += deltaHeight;
-            if (current < 1) {
-                current = 1;
+            if (current < 5) {
+                current = 5;
             } else if (current > (GetContentRect().Height()-5)) {
                 current = GetContentRect().Height()-5;
             }

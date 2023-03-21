@@ -10,10 +10,13 @@
 #include "Core/KeyPress.h"
 #include "Core/Cursor.h"
 #include "Core/Action.h"
+#include "Core/SafeQueue.h"
 
 namespace gedit {
     // Should never be used on it's own...
     class ViewBase {
+    public:
+        using MessageCallback = std::function<void(void)>;
     public:
         ViewBase() = default;
         explicit ViewBase(const Rect &rect) : viewRect(rect) {
@@ -189,6 +192,9 @@ namespace gedit {
         virtual bool OnAction(kAction action) {
             return false;
         }
+
+        virtual void PostMessage(MessageCallback callback) final;
+        virtual int ProcessMessageQueue() final;
         // END OF ACTION TEST
 
 
@@ -253,6 +259,7 @@ namespace gedit {
         bool isInitialized = false;
         bool isInvalid = false;
         void *sharedDataPtr = nullptr;      // Whatever you want - this is to share data between views - liked HSTack or Tab's or similar
+        SafeQueue<MessageCallback> threadMessages;
     };
 
 }

@@ -128,9 +128,14 @@ static std::unordered_map<std::string, kAction> strToActionMap = {
         {"NavigateEnd", kAction::kActionBufferEnd},
         {"NavigateLineStepLeft", kAction::kActionLineStepSingleLeft},
         {"NavigateLineStepRight", kAction::kActionLineStepSingleRight},
+        {"NavigateLineWordLeft", kAction::kActionLineWordLeft},
+        {"NavigateLineWordRight", kAction::kActionLineWordRight},
         {"CommitLine", kAction::kActionCommitLine},
         {"GotoFirstLine", kAction::kActionGotoFirstLine},
         {"GotoLastLine", kAction::kActionGotoLastLine},
+        {"GotoBottomLine", kAction::kActionGotoBottomLine},
+        {"GotoTopLine", kAction::kActionGotoTopLine},
+
 };
 
 
@@ -378,7 +383,8 @@ static void TestKeyMappings() {
         auto strAction = kvp.second;
 
         if (strToActionMap.find(strAction) == strToActionMap.end()) {
-            logger->Error("No action for: %s:%s", nameKeyCode.c_str(), strAction.c_str());
+            logger->Error("No action named '%s' for: %s:%s", strAction.c_str(), nameKeyCode.c_str(), strAction.c_str());
+            exit(1);
             continue;
         }
         logger->Debug("Action %s, keyCode=%s, modifierMask=0x%x", strAction.c_str(), nameKeyCode.c_str(), modifierMask);

@@ -31,8 +31,11 @@ defaultkeymap: {
   KeyCode_Return : CommitLine,
   KeyCode_Command + KeyCode_Home : GotoFirstLine,
   KeyCode_Command + KeyCode_End : GotoLastLine,
-  KeyCode_Command + KeyCode_PageUp : NavigateToTopLine,
-  KeyCode_Command + KeyCode_PageDown : NavigateToBottomLine,
+  KeyCode_Command + KeyCode_PageUp : GotoTopLine,
+  KeyCode_Command + KeyCode_PageDown : GotoBottomLine,
+  # doesnt work on MacBookPro laptop keyboard (ALT+Left/RightArrow return 'b'/'f' - modifier is correct!)
+  KeyCode_Alt + KeyCode_LeftArrow : NavigateLineWordLeft,
+  KeyCode_Alt + KeyCode_RightArrow : NavigateLineWordRight,
 }
 
 # we

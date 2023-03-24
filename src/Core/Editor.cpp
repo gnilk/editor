@@ -6,6 +6,7 @@
 #include "Core/BufferManager.h"
 #include "Core/RuntimeConfig.h"
 #include "Core/Config/Config.h"
+#include "Core/KeyMapping.h"
 
 #include "Core/Language/LanguageBase.h"
 #include "Core/Language/CPP/CPPLanguage.h"
@@ -32,6 +33,7 @@ bool Editor::Initialize(int argc, const char **argv) {
 
     // --
     // Encapsulate this
+    //
 
     if (argc > 1) {
         for(int i=1;i<argc;i++) {
@@ -48,6 +50,13 @@ bool Editor::Initialize(int argc, const char **argv) {
     }
 
     RuntimeConfig::Instance().SetActiveEditorModel(models[0]);
+
+    bool keyMapperOk = KeyMapping::Instance().IsInitialized();
+    if (!keyMapperOk) {
+        logger->Error("KeyMapper failed to initalize");
+        return false;
+    }
+
 
     isInitialized = true;
     return true;

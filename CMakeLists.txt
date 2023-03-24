@@ -39,6 +39,7 @@ list(APPEND editorsrc src/Core/EditorModel.h)
 
 # API and Actions
 list(APPEND editorsrc src/Core/Action.cpp src/Core/Action.h)
+list(APPEND editorsrc src/Core/KeyMapping.cpp src/Core/KeyMapping.h)
 
 # utility stuff
 list(APPEND editorsrc src/Core/StrUtil.cpp src/Core/StrUtil.h)

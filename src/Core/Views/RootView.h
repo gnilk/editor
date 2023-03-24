@@ -50,6 +50,31 @@ namespace gedit {
             return topViews[idxCurrentTopView];
         }
 
+        bool OnAction(kAction action) override {
+            bool wasHandled = false;
+            if (TopView() != nullptr) {
+                wasHandled = TopView()->OnAction(action);
+            }
+            // Now handle internally..
+            if (action == kAction::kActionCycleActiveView) {
+                TopView()->SetActive(false);
+                idxCurrentTopView = (idxCurrentTopView+1) % topViews.size();
+                TopView()->SetActive(true);
+                wasHandled = true;
+
+            } else if (action == kAction::kActionCycleActiveEditor) {
+                auto idxCurrent = Editor::Instance().GetActiveModelIndex();
+                auto idxNext = Editor::Instance().NextModelIndex(idxCurrent);
+                if (idxCurrent != idxNext) {
+                    auto nextModel = Editor::Instance().GetModelFromIndex(idxNext);
+                    RuntimeConfig::Instance().SetActiveEditorModel(nextModel);
+                }
+                Initialize();
+                InvalidateAll();
+            }
+            return wasHandled;
+        }
+
         void HandleKeyPress(const KeyPress &keyPress) override {
             if (TopView() == nullptr) {
                 return;
@@ -61,27 +86,6 @@ namespace gedit {
             ViewBase::OnViewInitialized();
             if (TopView() != nullptr) {
                 TopView()->SetActive(true);
-            }
-        }
-        void OnKeyPress(const KeyPress &keyPress) override {
-            if (keyPress.IsSpecialKeyPressed(Keyboard::kKeyCode_Escape)) {
-                auto logger = gnilk::Logger::GetLogger("RootView");
-                TopView()->SetActive(false);
-                idxCurrentTopView = (idxCurrentTopView+1) % topViews.size();
-                TopView()->SetActive(true);
-
-                logger->Debug("ESC pressed, cycle active view, new = %d", idxCurrentTopView);
-            } else if (keyPress.IsSpecialKeyPressed(Keyboard::kKeyCode_F3)) {
-                // TEST: Cycling through actively open editors
-                auto idxCurrent = Editor::Instance().GetActiveModelIndex();
-                auto idxNext = Editor::Instance().NextModelIndex(idxCurrent);
-                if (idxCurrent != idxNext) {
-                    auto nextModel = Editor::Instance().GetModelFromIndex(idxNext);
-                    RuntimeConfig::Instance().SetActiveEditorModel(nextModel);
-                }
-                Initialize();
-                InvalidateAll();
-
             }
         }
 

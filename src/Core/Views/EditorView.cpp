@@ -148,8 +148,12 @@ bool EditorView::OnAction(kAction action) {
             return OnActionLineUp();
         case kAction::kActionCommitLine :
             return OnActionCommitLine();
+        case kAction::kActionBufferStart :
+            [[fallthrough]];
         case kAction::kActionGotoFirstLine :
             return OnActionGotoFirstLine();
+        case kAction::kActionBufferEnd :
+            [[fallthrough]];
         case kAction::kActionGotoLastLine :
             return OnActionGotoLastLine();
         case kAction::kActionGotoTopLine :

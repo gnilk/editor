@@ -33,6 +33,8 @@ namespace gedit {
         kActionGotoLastLine,           // default: CMD+Home
         kActionGotoTopLine,             // Default: cmd + pageUp
         kActionGotoBottomLine,          // Default: cmd + pageDown
+        kActionCycleActiveView,         // Default: esc
+        kActionCycleActiveEditor,       // TEST-TEST Default: F3
     };
 
     class ActionItem {
@@ -51,9 +53,20 @@ namespace gedit {
         // Not sure about this one..
         bool MatchKeyPress(const KeyPress &keyPress) {
             //if (!keyPress.isHwEventValid) return false;
+            if (keyCode == Keyboard::kKeyCode_PageUp) {
+                int breakme = 1;
+            }
+
+
             if (!keyPress.isSpecialKey) return false;
             if (keyCode != keyPress.specialKey) return false;
-            if (keyPress.modifiers != modiferMask) return false;
+
+            if ((modiferMask != 0) && (keyPress.modifiers == 0)) {
+                return false;
+            }
+            if ((keyPress.modifiers & modiferMask) != keyPress.modifiers) {
+                return false;
+            }
             return true;
         }
 

@@ -23,6 +23,8 @@ namespace strutil {
     void splitToStringList(std::vector<std::string> &outList, const char *input);
     bool inStringList(std::vector<std::string> &strList, const char *input, int &outSz);
 
+    bool startsWith(const std::string &str, const std::string &prefix);
+
 }
 
 

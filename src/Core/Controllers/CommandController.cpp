@@ -5,6 +5,7 @@
 #include "CommandController.h"
 #include "Core/RuntimeConfig.h"
 #include "Core/StrUtil.h"
+#include "Core/Config/Config.h"
 
 using namespace gedit;
 
@@ -21,11 +22,6 @@ void CommandController::Begin() {
     if (!terminal.Begin()) {
         logger->Error("Unable to start terminal");
         return;
-    }
-    for(int i=0;i<25;i++) {
-        char tmp[64];
-        snprintf(tmp, 64, "test line %d", i);
-        WriteLine(tmp);
     }
 }
 
@@ -73,7 +69,16 @@ void CommandController::CommitLine() {
 }
 
 bool CommandController::TryExecuteInternalCmd(std::string &cmdline) {
-    WriteLine("MAMMA");
+    auto prefix = Config::Instance()["commandmode"].GetStr("cmdlet_prefix");
+    if (!strutil::startsWith(cmdline, prefix)) {
+        return false;
+    }
+    std::string cmdLineNoPrefix = cmdline.substr(prefix.length());
+    std::vector<std::string> commandList;
+    // We should have a 'smarter' that keeps strings and so forth
+    strutil::split(commandList, cmdLineNoPrefix.c_str(), ' ');
+
+    WriteLine("internal execute: " + commandList[0]);
     return true;
 }
 void CommandController::TryExecuteShellCmd(std::string &cmdline) {

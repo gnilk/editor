@@ -143,7 +143,7 @@ void Shell::ConsumePipes() {
             if ((onStdout != nullptr) && (res != NULL)) {
                 //printf("GOT: %s\n", buffer.data());
                 std::string str(buffer.data());
-                strutil::trim(str);
+                // Consider strip ANSI escape stuff...
                 onStdout(str);
             }
         } while (res != nullptr);

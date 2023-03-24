@@ -320,9 +320,11 @@ static void TestKeyMappings() {
     //
 
     for (auto &kvp : keymap) {
-        auto nameKeyCode = std::string(kvp.first);
+        auto nameKeyCode = std::string(kvp.first);  // This one is mutable..
+        auto origKeyPressCombo = std::string(kvp.first);
         int modifierMask = 0;
 
+        logger->Debug("Parsing: '%s'", nameKeyCode.c_str());
         // Split the keycode in parts
         std::vector<std::string> keyCodeParts;
         strutil::split(keyCodeParts, nameKeyCode.c_str(), '+');
@@ -366,7 +368,7 @@ static void TestKeyMappings() {
             }
 
             // Wow - we finally have the key-combination
-            logger->Debug("nameKeyCode = %s, modifierMask: 0x%x", nameKeyCode.c_str(), modifierMask);
+            logger->Debug("  nameKeyCode = '%s', modifierMask: 0x%x", nameKeyCode.c_str(), modifierMask);
         }
 
         // FIXME: This can be removed, covered by if (size==1) -> when splitting the above if-mess to functions
@@ -387,7 +389,7 @@ static void TestKeyMappings() {
             exit(1);
             continue;
         }
-        logger->Debug("Action %s, keyCode=%s, modifierMask=0x%x", strAction.c_str(), nameKeyCode.c_str(), modifierMask);
+        logger->Debug("  Action '%s', from '%s' (keyCode=%s, modifierMask=0x%x)", strAction.c_str(), origKeyPressCombo.c_str(), nameKeyCode.c_str(), modifierMask);
         // Compose an action based on modifierMask + keyCode + kAction
         auto actionItem = ActionItem::Create(strToActionMap[strAction], modifierMask, keyCode, strAction);
         actionItems.push_back(actionItem);

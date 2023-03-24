@@ -119,3 +119,13 @@ int Line::ComputeIndent() {
     }
     return pos;
 }
+
+Line::LineAttribIterator Line::AttributeAt(int pos) {
+    for(int i=0;i<attribs.size()-1;i++) {
+        if ((pos >= attribs[i].idxOrigString) && (pos < attribs[i+1].idxOrigString)) {
+            return attribs.begin()+i;
+        }
+    }
+    // Not sure...
+    return attribs.begin();
+}

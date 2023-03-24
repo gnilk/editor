@@ -25,6 +25,7 @@ public:
 
         kLanguageTokenClass tokenClass; // this one is for better (more formal) analysis when computing indent and similar
     };
+    using LineAttribIterator = std::vector<LineAttrib>::iterator;
 public:
     Line();
     Line(const char *data);
@@ -45,6 +46,9 @@ public:
     void SetIndent(int newIndent) { indent = newIndent; }
     int Indent() { return indent; }
     int ComputeIndent();
+
+    LineAttribIterator AttributeAt(int pos);
+
 
     std::vector<LineAttrib> &Attributes() { return attribs; }
 

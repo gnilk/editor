@@ -156,15 +156,40 @@ bool EditorView::OnAction(kAction action) {
             return OnActionGotoTopLine();
         case kAction::kActionGotoBottomLine :
             return OnActionGotoBottomLine();
+        case kAction::kActionLineWordLeft :
+            return OnActionWordLeft();
+        case kAction::kActionLineWordRight :
+            return OnActionWordRight();
+
     }
     return false;
 }
+
 bool EditorView::OnActionCommitLine() {
     editorModel->GetEditController()->NewLine(editorModel->idxActiveLine, editorModel->cursor);
     OnNavigateDownVSCode(1);
     InvalidateView();
     return true;
 }
+
+bool EditorView::OnActionWordRight() {
+    auto currentLine = editorModel->GetEditController()->LineAt(editorModel->idxActiveLine);
+    auto attrib = currentLine->AttributeAt(editorModel->cursor.position.x);
+    attrib++;
+    editorModel->cursor.position.x = attrib->idxOrigString;
+
+    return true;
+}
+
+bool EditorView::OnActionWordLeft() {
+    auto currentLine = editorModel->GetEditController()->LineAt(editorModel->idxActiveLine);
+    auto attrib = currentLine->AttributeAt(editorModel->cursor.position.x);
+    if (editorModel->cursor.position.x == attrib->idxOrigString) {
+        attrib--;
+    }
+    editorModel->cursor.position.x = attrib->idxOrigString;
+}
+
 bool EditorView::OnActionGotoFirstLine() {
     auto logger = gnilk::Logger::GetLogger("EditorView");
     logger->Debug("GotoFirstLine (def: CMD+Home), resetting cursor and view data!");

@@ -2,14 +2,21 @@ cmake_minimum_required(VERSION 3.22)
 project(editor)
 set(CMAKE_CXX_STANDARD 17)
 
-
 set(CMAKE_BUILD_TYPE DEBUG)
+
+set(SDL_HOME /usr/local)
+
 
 if (APPLE)
     set(CMAKE_OSX_ARCHITECTURES "x86_64;arm64" CACHE STRING "")
     set(CMAKE_OSX_SYSROOT /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk)
 
     include_directories(AFTER SYSTEM /usr/local/include)
+
+    ## THIS IS FOR macOS - homebrew installation...
+    set(NCURSES_HOME /opt/homebrew/opt/ncurses)
+    set(YAML_CPP_HOME /opt/homebrew/opt/yaml-cpp)
+
 
     list(APPEND editorsrc src/Core/macOS/MacOSKeyboardMonitor.cpp src/Core/macOS/MacOSKeyboardMonitor.h)
     list(APPEND editorsrc src/Core/unix/Shell.cpp src/Core/unix/Shell.h)
@@ -103,17 +110,29 @@ list(APPEND editorsrc src/Core/Language/LangToken.cpp src/Core/Language/LangToke
 list(APPEND editorsrc src/Core/Sublime/SublimeConfigScriptEngine.cpp src/Core/Sublime/SublimeConfigScriptEngine.h)
 list(APPEND editorsrc src/Core/Sublime/SublimeConfigColorScript.cpp src/Core/Sublime/SublimeConfigColorScript.h)
 
+
+# SDL3 integration, make this optional!
+# test integration files for editor
+list(APPEND editorsrc src/Core/SDL3/SDLScreen.cpp src/Core/SDL3/SDLScreen.h)
+list(APPEND editorsrc src/Core/SDL3/SDLDrawContext.cpp src/Core/SDL3/SDLDrawContext.h)
+list(APPEND editorsrc src/Core/SDL3/SDLWindow.cpp src/Core/SDL3/SDLWindow.h)
+list(APPEND editorsrc src/Core/SDL3/SDLTranslate.cpp src/Core/SDL3/SDLTranslate.h)
+list(APPEND editorsrc src/Core/SDL3/SDLFontManager.cpp src/Core/SDL3/SDLFontManager.h)
+
+
 # append configuration stuff - these are copied with custom command
 
 list(APPEND appsrc main.cpp)
 
-## THIS IS FOR macOS - homebrew installation...
-set(NCURSES_HOME /opt/homebrew/opt/ncurses)
-set(YAML_CPP_HOME /opt/homebrew/opt/yaml-cpp)
-
 # include and link directories for project and dependencies
 list(APPEND linkdirs ${NCURSES_HOME}/lib ${YAML_CPP_HOME}/lib)
+list(APPEND linkdirs ${SDL_HOME}/lib)
+
 list(APPEND includedirs ${NCURSES_HOME}/include PUBLIC ${YAML_CPP_HOME}/include ext/logger/src src/)
+list(APPEND includedirs ${SDL_HOME}/include)
+
+# make this optional
+list(APPEND extlibs SDL3)
 
 
 

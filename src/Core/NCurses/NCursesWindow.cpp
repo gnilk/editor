@@ -19,6 +19,9 @@ NCursesWindow::NCursesWindow(const Rect &rect, NCursesWindow *other) : WindowBas
 }
 
 NCursesWindow::~NCursesWindow() noexcept {
+    if (winptr != nullptr) {
+        delwin((WINDOW *)winptr);
+    }
     if (clientWindow != nullptr) {
         delwin(clientWindow);
     }

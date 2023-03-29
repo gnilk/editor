@@ -32,7 +32,7 @@ bool SDLScreen::Open() {
     SDL_Init(SDL_INIT_VIDEO);
     // FIXME: restore window size!
     window = SDL_CreateWindow("gedit", widthPixels, heightPixels,  SDL_WINDOW_OPENGL);
-    renderer = SDL_CreateRenderer(window, nullptr, SDL_RENDERER_ACCELERATED);
+    renderer = SDL_CreateRenderer(window, nullptr, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
     // FIXME: Font handling should not be here
@@ -70,8 +70,10 @@ void SDLScreen::Clear() {
 
 void SDLScreen::Update() {
     SDL_SetRenderTarget(renderer, nullptr);
-    auto font = SDLFontManager::Instance().GetActiveFont();
-    STBTTF_RenderText(renderer, font, 0, font->size * 10, "0123456789012345678901234567890123456789012345678901234567890123456789");
+
+//    SDL_SetRenderDrawColor(renderer, 255,255,255, 255);
+//    auto font = SDLFontManager::Instance().GetActiveFont();
+//    STBTTF_RenderText(renderer, font, 0, font->size * 10, "0123456789012345678901234567890123456789012345678901234567890123456789");
     SDL_RenderPresent(renderer);
 
     //
@@ -79,8 +81,13 @@ void SDLScreen::Update() {
     //
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
-        if (event.type == SDL_EventType::SDL_EVENT_QUIT) exit(0);
+        if (event.type == SDL_EventType::SDL_EVENT_QUIT) {
+            SDL_Quit();
+            exit(0);
+        }
         if ((event.type == SDL_EventType::SDL_EVENT_KEY_DOWN) && (event.key.keysym.sym == SDLK_ESCAPE)) {
+            SDL_Quit();
+            exit(1);
             //bQuit = true;
             continue;
         }
@@ -94,7 +101,7 @@ void SDLScreen::Update() {
 }
 
 void SDLScreen::RegisterColor(int appIndex, const ColorRGBA &foreground, const ColorRGBA &background) {
-
+    colorpairs[appIndex] = std::make_pair(foreground, background);
 }
 
 void SDLScreen::BeginRefreshCycle() {

@@ -17,7 +17,7 @@
 
 using namespace gedit;
 
-static bool glbDebugSDLWindows = true;
+static bool glbDebugSDLWindows = false;
 
 SDLWindow::SDLWindow(const Rect &rect, SDLWindow *other) : WindowBase(rect) {
     caption = other->caption;
@@ -69,12 +69,15 @@ void SDLWindow::CreateSDLBackBuffer() {
 
     auto winPixRect = SDLTranslate::RowColToPixel(windowRect);
 
-    windowBackBuffer = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_TARGET, winPixRect.Width(), winPixRect.Height());
+//    windowBackBuffer = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_TARGET, winPixRect.Width(), winPixRect.Height());
+//    SDL_SetTextureScaleMode(windowBackBuffer, SDL_ScaleMode::SDL_SCALEMODE_BEST);
+
+    windowBackBuffer = nullptr;
     winptr = windowBackBuffer;
     if (drawContext) {
         delete drawContext;
     }
-    drawContext = new SDLDrawContext(windowBackBuffer, windowRect);
+    drawContext = new SDLDrawContext(renderer, windowBackBuffer, windowRect);
 
     // Now the client window
     if (clientBackBuffer != nullptr) {
@@ -86,18 +89,19 @@ void SDLWindow::CreateSDLBackBuffer() {
     }
     auto clientPixRect = SDLTranslate::RowColToPixel(clientRect);
 
-    clientBackBuffer = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_TARGET, clientPixRect.Width(), clientPixRect.Height());
+    //clientBackBuffer = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_TARGET, clientPixRect.Width(), clientPixRect.Height());
+    //SDL_SetTextureScaleMode(clientBackBuffer, SDL_ScaleMode::SDL_SCALEMODE_BEST);
+
+    clientBackBuffer = nullptr;
     if (clientContext != nullptr) {
         delete clientContext;
     }
-    clientContext = new SDLDrawContext(clientBackBuffer, clientRect);
-
-
+    clientContext = new SDLDrawContext(renderer, clientBackBuffer, clientRect);
 }
 
 DrawContext &SDLWindow::GetContentDC() {
     if (clientContext == nullptr) {
-        clientContext = new SDLDrawContext(nullptr, windowRect);
+        clientContext = new SDLDrawContext(nullptr, nullptr, windowRect);
     }
     return *clientContext;
 }
@@ -117,11 +121,6 @@ void SDLWindow::DrawWindowDecoration() {
     if (windowBackBuffer == nullptr) {
         return;
     }
-
-    if (caption == "EditorView") {
-        int breakme = 1;
-    }
-
 
     SDL_SetRenderTarget(renderer, windowBackBuffer);
 
@@ -147,10 +146,6 @@ void SDLWindow::DrawWindowDecoration() {
     }
 
     if (glbDebugSDLWindows || decorationFlags & kWinDeco_DrawCaption) {
-        if (caption.empty()) {
-            caption = "dummy";
-        }
-        // FIXME: Should fill a bloody rectangle
         // Need a font-class to store this - should be initalized by screen...
         auto font = SDLFontManager::Instance().GetActiveFont();
         STBTTF_RenderText(renderer, font, 0, font->size * 1, caption.c_str());
@@ -162,11 +157,24 @@ void SDLWindow::DrawWindowDecoration() {
 }
 
 void SDLWindow::Refresh() {
+
     auto pixRect = SDLTranslate::RowColToPixel(windowRect);
     SDL_FRect dstRect = {(float)pixRect.TopLeft().x, (float)pixRect.TopLeft().y, (float)pixRect.Width(), (float)pixRect.Height()};
 
     SDL_SetRenderTarget(renderer, nullptr);
-    SDL_RenderTexture(renderer, windowBackBuffer, nullptr, &dstRect);
+    if (windowBackBuffer != nullptr) {
+        SDL_RenderTexture(renderer, windowBackBuffer, nullptr, &dstRect);
+    }
+
+    if (clientContext != nullptr) {
+        auto pixRectClient = SDLTranslate::RowColToPixel(clientContext->GetRect());
+        dstRect = {(float) pixRectClient.TopLeft().x, (float) pixRectClient.TopLeft().y, (float) pixRectClient.Width(),
+                   (float) pixRectClient.Height()};
+
+        if (clientBackBuffer != nullptr) {
+            SDL_RenderTexture(renderer, clientBackBuffer, nullptr, &dstRect);
+        }
+    }
 }
 
 void SDLWindow::SetCursor(const Cursor &cursor) {

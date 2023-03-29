@@ -12,7 +12,8 @@
 #include "Core/Rect.h"
 
 #include <SDL3/SDL.h>
-
+#include <utility>
+#include <map>
 
 namespace gedit {
     class SDLScreen : public ScreenBase {
@@ -43,6 +44,8 @@ namespace gedit {
         // In characters (which is what the editor works with)
         int rows = 0;
         int cols = 0;
+
+        std::map<int, std::pair<ColorRGBA, ColorRGBA>> colorpairs;
     };
 }
 

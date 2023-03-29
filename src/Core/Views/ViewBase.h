@@ -86,10 +86,15 @@ namespace gedit {
 //                window->Clear();
 //            }
 //            window->Clear();
-            window->DrawWindowDecoration();
-            if (window->GetFlags() & WindowBase::kWin_Visible) {
-                DrawViewContents();
+
+            // DEBUG CODE
+            if (isVisible) {
+                window->DrawWindowDecoration();
+                if (window->GetFlags() & WindowBase::kWin_Visible) {
+                    DrawViewContents();
+                }
             }
+            // END DEBUG CODE
             window->Refresh();
 
             for(auto view : subviews) {

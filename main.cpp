@@ -186,8 +186,6 @@ int main(int argc, const char **argv) {
         if (rootView.ProcessMessageQueue() > 0) {
             redraw = true;
         }
-
-
         glbFillchar = 'a';
 
         auto keyPress = keyboardDriver->GetKeyPress();
@@ -206,15 +204,18 @@ int main(int argc, const char **argv) {
             redraw = true;
         }
 
+        // TEMP - while testing SDL backend
+        redraw = true;
 
         if (rootView.IsInvalid()) {
             redraw = true;
         }
         if (redraw == true) {
-            logger->Debug("Redraw was triggered...");
+            //logger->Debug("Redraw was triggered...");
+            screen->Clear();
             rootView.Draw();
             screen->Update();
-            refresh();
+            //refresh();
         }
     }
     logger->Debug("Left main loop, closing graphics subsystem");

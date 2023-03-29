@@ -1,12 +1,20 @@
 main:
   backend: ncurses
+  # select the keymap default for the backend
+  # 'default' is a reserved word - replace with your file name when forking it...
   keymap: default
 
 macos:
   allow_kbd_hook: yes
 
+sdl3:
+  default_width: 1920
+  default_height: 1080
+  keymap: "sdl3_default.keymap"
+
 ncurses:
   timeoutKeyEvent: 500
+  keymap: "ncurses_default.keymap"
 
 editor:
   # content_first is CLion/Sublime style (no = VSCode style, cursor first)
@@ -20,6 +28,7 @@ commandmode:
   cmdlet_prefix: "."
 
 # This keymap is tested with macbook with external keyboard..
+# Note: Keymap should point to a file instead..
 defaultkeymap: {
   # test
   KeyCode_Shift + KeyCode_UpArrow : NavigateEnd,

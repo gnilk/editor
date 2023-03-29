@@ -118,7 +118,7 @@ list(APPEND editorsrc src/Core/SDL3/SDLDrawContext.cpp src/Core/SDL3/SDLDrawCont
 list(APPEND editorsrc src/Core/SDL3/SDLWindow.cpp src/Core/SDL3/SDLWindow.h)
 list(APPEND editorsrc src/Core/SDL3/SDLTranslate.cpp src/Core/SDL3/SDLTranslate.h)
 list(APPEND editorsrc src/Core/SDL3/SDLFontManager.cpp src/Core/SDL3/SDLFontManager.h)
-
+list(APPEND editorsrc src/Core/SDL3/SDLKeyboardDriver.cpp src/Core/SDL3/SDLKeyboardDriver.h)
 
 # append configuration stuff - these are copied with custom command
 
@@ -228,5 +228,8 @@ ADD_CUSTOM_TARGET(config ${CMAKE_COMMAND} -E copy_if_different
 ADD_CUSTOM_TARGET(colors ${CMAKE_COMMAND} -E copy_if_different
         ${CMAKE_CURRENT_LIST_DIR}/colors.sublime.json ${CMAKE_CURRENT_BINARY_DIR})
 
-ADD_DEPENDENCIES(editor config colors)
+ADD_CUSTOM_TARGET(font ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_CURRENT_LIST_DIR}/Andale\ Mono.ttf ${CMAKE_CURRENT_BINARY_DIR})
+
+ADD_DEPENDENCIES(editor config colors font)
 

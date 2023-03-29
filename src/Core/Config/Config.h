@@ -30,6 +30,10 @@ public:
         return dataNode[key].IsDefined();
     }
 
+    void SetStr(const std::string &key, const std::string &newValue) {
+        dataNode[key] = newValue;
+    }
+
     int GetInt(const std::string &key, const int defValue = 0) {
         if (!HasKey(key)) {
             return defValue;

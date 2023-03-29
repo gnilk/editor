@@ -311,6 +311,7 @@ bool KeyMapping::RebuildActionMapping() {
             }
 
             nameKeyCode = keyCodeParts[idxKeyCode];
+
             // Compile the modifier mask...
             for(auto m : modifiers) {
                 if (!strToModifierMap[m]) {
@@ -324,7 +325,7 @@ bool KeyMapping::RebuildActionMapping() {
             logger->Debug("  nameKeyCode = '%s', modifierMask: 0x%x", nameKeyCode.c_str(), modifierMask);
         }
 
-        // FIXME: This can be removed, covered by if (size==1) -> when splitting the above if-mess to functions
+        // FIXME: Support 'f' with modifierMask.. (for CTRL+'f' etc...)
         if (!strToKeyCodeMap[nameKeyCode]) {
             logger->Error("Mapping missing for: %s\n", nameKeyCode.c_str());
             continue;

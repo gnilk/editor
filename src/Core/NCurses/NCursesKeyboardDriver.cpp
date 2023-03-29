@@ -121,6 +121,7 @@ KeyPress NCursesKeyboardDriver::GetKeyPress() {
     if (keyPress.isHwEventValid) {
         keyPress.isSpecialKey = true;
         keyPress.specialKey = keyPress.hwEvent.keyCode;
+        //keyPress.specialKey = keyPress.hwEvent.translatedScanCode;
     }
 
     //

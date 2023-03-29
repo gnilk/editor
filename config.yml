@@ -17,7 +17,7 @@ editor:
 #
 commandmode:
   prompt: "ed>"
-  cmdlet_prefix: '.'
+  cmdlet_prefix: "."
 
 # This keymap is tested with macbook with external keyboard..
 defaultkeymap: {

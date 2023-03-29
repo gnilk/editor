@@ -9,7 +9,6 @@
 
 using namespace gedit;
 
-
 void EditorView::InitView()  {
     logger = gnilk::Logger::GetLogger("EditorView");
     logger->Debug("InitView!");
@@ -129,6 +128,7 @@ void EditorView::OnKeyPress(const KeyPress &keyPress) {
     // It was not to us..
     ViewBase::OnKeyPress(keyPress);
 }
+
 //
 // Add actions here - all except human-readable inserting of text
 //

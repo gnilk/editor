@@ -78,7 +78,17 @@ bool CommandController::TryExecuteInternalCmd(std::string &cmdline) {
     // We should have a 'smarter' that keeps strings and so forth
     strutil::split(commandList, cmdLineNoPrefix.c_str(), ' ');
 
+    //
+    //
+    //
+
+    // There is more to come...
+    if ((commandList[0] == "q") || (commandList[0]=="quit")) {
+        exit(1);
+    }
+
     WriteLine("internal execute: " + commandList[0]);
+
     return true;
 }
 void CommandController::TryExecuteShellCmd(std::string &cmdline) {

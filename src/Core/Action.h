@@ -56,17 +56,20 @@ namespace gedit {
             if (keyCode == Keyboard::kKeyCode_PageUp) {
                 int breakme = 1;
             }
-
-
-            if (!keyPress.isSpecialKey) return false;
-            if (keyCode != keyPress.specialKey) return false;
-
             if ((modiferMask != 0) && (keyPress.modifiers == 0)) {
                 return false;
             }
             if ((keyPress.modifiers & modiferMask) != keyPress.modifiers) {
                 return false;
             }
+
+
+
+            // TODO: if 'isSpecialKey' is false - then we should check if the 'isHwEventVali == true' && hwEvent.translatedKeyCode == 'asciiCode'
+
+            if (!keyPress.isSpecialKey) return false;
+            if (keyCode != keyPress.specialKey) return false;
+
             return true;
         }
 

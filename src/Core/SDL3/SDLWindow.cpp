@@ -17,6 +17,8 @@
 
 using namespace gedit;
 
+static bool glbDebugSDLWindows = true;
+
 SDLWindow::SDLWindow(const Rect &rect, SDLWindow *other) : WindowBase(rect) {
     caption = other->caption;
     flags = other->flags;
@@ -42,6 +44,24 @@ void SDLWindow::Initialize(WindowBase::kWinFlags flags, WindowBase::kWinDecorati
         CreateSDLBackBuffer();
     }
 }
+
+void SDLWindow::Update(const gedit::Rect &newRect, WindowBase::kWinFlags newFlags, WindowBase::kWinDecoration newDecoFlags) {
+    flags = newFlags;
+    decorationFlags = newDecoFlags;
+    windowRect = newRect;
+
+    // The client context is created on GetContentDC event for Invisible windows - we can ALWAYS delete it here
+    if (clientContext != nullptr) {
+        delete clientContext;
+        clientContext = nullptr;
+    }
+
+    // TODO: We can probably optimize this...
+    if (flags & WindowBase::kWin_Visible) {
+        CreateSDLBackBuffer();
+    }
+}
+
 void SDLWindow::CreateSDLBackBuffer() {
     if (windowBackBuffer != nullptr) {
         SDL_DestroyTexture(windowBackBuffer);
@@ -91,9 +111,18 @@ void SDLWindow::Clear() {
 }
 
 void SDLWindow::DrawWindowDecoration() {
-    if (flags & WindowBase::kWin_Invisible) {
+    if ((flags & WindowBase::kWin_Invisible) && (!glbDebugSDLWindows)) {
         return;
     }
+    if (windowBackBuffer == nullptr) {
+        return;
+    }
+
+    if (caption == "EditorView") {
+        int breakme = 1;
+    }
+
+
     SDL_SetRenderTarget(renderer, windowBackBuffer);
 
     Point pxTopLeft = {0,0}; //SDLTranslate::RowColToPixel(windowRect.TopLeft());
@@ -104,20 +133,23 @@ void SDLWindow::DrawWindowDecoration() {
     SDL_SetRenderDrawColor(renderer, 255,255,255,255);
 
     // NOTE: We can have a much more filled border - as the border is always one char...
-    if (decorationFlags & kWinDeco_TopBorder) {
+    if (glbDebugSDLWindows || decorationFlags & kWinDeco_TopBorder) {
         SDL_RenderLine(renderer, pxTopLeft.x, pxTopLeft.y, pxBottomRight.x-1, pxTopLeft.y);
     }
-    if (decorationFlags & kWinDeco_BottomBorder) {
+    if (glbDebugSDLWindows ||decorationFlags & kWinDeco_BottomBorder) {
         SDL_RenderLine(renderer, pxTopLeft.x, pxBottomRight.y-1, pxBottomRight.x-1, pxBottomRight.y-1);
     }
-    if (decorationFlags & kWinDeco_LeftBorder) {
+    if (glbDebugSDLWindows ||decorationFlags & kWinDeco_LeftBorder) {
         SDL_RenderLine(renderer, pxTopLeft.x, pxTopLeft.y, pxTopLeft.x, pxBottomRight.y-2);
     }
-    if (decorationFlags & kWinDeco_RightBorder) {
+    if (glbDebugSDLWindows ||decorationFlags & kWinDeco_RightBorder) {
         SDL_RenderLine(renderer, pxBottomRight.x-1, pxTopLeft.y, pxBottomRight.x-1, pxBottomRight.y-1);
     }
 
-    if (decorationFlags & kWinDeco_DrawCaption) {
+    if (glbDebugSDLWindows || decorationFlags & kWinDeco_DrawCaption) {
+        if (caption.empty()) {
+            caption = "dummy";
+        }
         // FIXME: Should fill a bloody rectangle
         // Need a font-class to store this - should be initalized by screen...
         auto font = SDLFontManager::Instance().GetActiveFont();
@@ -125,11 +157,10 @@ void SDLWindow::DrawWindowDecoration() {
     }
 
     SDL_RenderLine(renderer, pxTopLeft.x, pxTopLeft.y, pxBottomRight.x, pxBottomRight.y);
-
-
     SDL_SetRenderTarget(renderer, nullptr);
 
 }
+
 void SDLWindow::Refresh() {
     auto pixRect = SDLTranslate::RowColToPixel(windowRect);
     SDL_FRect dstRect = {(float)pixRect.TopLeft().x, (float)pixRect.TopLeft().y, (float)pixRect.Width(), (float)pixRect.Height()};

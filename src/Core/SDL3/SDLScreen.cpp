@@ -72,8 +72,25 @@ void SDLScreen::Update() {
     SDL_SetRenderTarget(renderer, nullptr);
     auto font = SDLFontManager::Instance().GetActiveFont();
     STBTTF_RenderText(renderer, font, 0, font->size * 10, "0123456789012345678901234567890123456789012345678901234567890123456789");
-
     SDL_RenderPresent(renderer);
+
+    //
+    // TODO: Move the event loop out from here
+    //
+    SDL_Event event;
+    while (SDL_PollEvent(&event)) {
+        if (event.type == SDL_EventType::SDL_EVENT_QUIT) exit(0);
+        if ((event.type == SDL_EventType::SDL_EVENT_KEY_DOWN) && (event.key.keysym.sym == SDLK_ESCAPE)) {
+            //bQuit = true;
+            continue;
+        }
+    }
+    SDL_Delay(1000/60);
+    //
+    // End of event loop
+    //
+
+
 }
 
 void SDLScreen::RegisterColor(int appIndex, const ColorRGBA &foreground, const ColorRGBA &background) {
@@ -97,8 +114,8 @@ WindowBase *SDLScreen::CreateWindow(const gedit::Rect &rect, WindowBase::kWinFla
 
 WindowBase *SDLScreen::UpdateWindow(WindowBase *window, const gedit::Rect &rect, WindowBase::kWinFlags flags, WindowBase::kWinDecoration decoFlags) {
     auto sdlWindow = static_cast<SDLWindow *>(window);
-    //sdlWindow->Update(rect, flags, decoFlags);
-    return nullptr;
+    sdlWindow->Update(rect, flags, decoFlags);
+    return window;
 }
 
 Rect SDLScreen::Dimensions() {

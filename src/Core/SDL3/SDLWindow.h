@@ -36,6 +36,7 @@ namespace gedit {
         void SetCursor(const Cursor &cursor) override;
         void DrawWindowDecoration() override;
     protected:
+        void Update(const gedit::Rect &newRect, WindowBase::kWinFlags newFlags, WindowBase::kWinDecoration newDecoFlags);
         void CreateSDLBackBuffer();
     protected:
         // Assigned by SDLScreen when window is created...

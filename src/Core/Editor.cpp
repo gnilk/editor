@@ -7,9 +7,18 @@
 #include "Core/RuntimeConfig.h"
 #include "Core/Config/Config.h"
 #include "Core/KeyMapping.h"
+#include "Core/StrUtil.h"
 
 #include "Core/Language/LanguageBase.h"
 #include "Core/Language/CPP/CPPLanguage.h"
+
+// NCurses backend
+#include "Core/NCurses/NCursesScreen.h"
+#include "Core/NCurses/NCursesKeyboardDriver.h"
+
+// SDL3 backend
+#include "Core/SDL3/SDLScreen.h"
+#include "Core/SDL3/SDLKeyboardDriver.h"
 
 using namespace gedit;
 
@@ -27,20 +36,33 @@ bool Editor::Initialize(int argc, const char **argv) {
 
     LoadConfig("config.yml");
 
+    // Language configuration must currently be done before we load editor models
     ConfigureLanguages();
+
+
+    for(int i=1;i<argc;i++) {
+        if (strutil::startsWith(argv[i], "--")) {
+            std::string cmdSwitch = std::string(&argv[i][2]);
+            if (cmdSwitch == "backend") {
+                auto strBackend = argv[++i];
+                Config::Instance()["main"].SetStr("backend",strBackend);
+            } else {
+                printf("Error: Unknown command line option: %s\n", argv[i]);
+                exit(1);
+            }
+        } else {
+            auto model = LoadEditorModelFromFile(argv[i]);
+            if (model != nullptr) {
+                models.push_back(model);
+            }
+        }
+    }
+
+
     ConfigureSubSystems();
     ConfigureColorTheme();
 
-    // --
-    // Encapsulate this
-    //
-
-    if (argc > 1) {
-        for(int i=1;i<argc;i++) {
-            auto model = LoadEditorModelFromFile(argv[i]);
-            models.push_back(model);
-        }
-    } else {
+    if (models.size() == 0) {
         EditController::Ref editController = std::make_shared<EditController>();
         auto textBuffer = BufferManager::Instance().NewBuffer("no_name");
 
@@ -68,6 +90,10 @@ EditorModel::Ref Editor::LoadEditorModelFromFile(const char *filename) {
     EditController::Ref editController = std::make_shared<EditController>();
 
     textBuffer = BufferManager::Instance().NewBufferFromFile(filename);
+    if (textBuffer == nullptr) {
+        logger->Error("Unable to load file: '%s'", filename);
+        return nullptr;
+    }
     textBuffer->SetLanguage(Config::Instance().GetLanguageForFilename(filename));
 
     EditorModel::Ref editorModel = std::make_shared<EditorModel>();
@@ -115,22 +141,40 @@ void Editor::ConfigureColorTheme() {
         if (!colorConfig.HasColor(langClass)) {
             logger->Warning("Missing color configuration for: %s", langClass.c_str());
         }
-        screen.RegisterColor(i, colorConfig.GetColor(langClass), colorConfig.GetColor("background"));
+        screen->RegisterColor(i, colorConfig.GetColor(langClass), colorConfig.GetColor("background"));
     }
 }
 
 void Editor::ConfigureSubSystems() {
+    auto backend = Config::Instance()["main"].GetStr("backend","ncurses");
+
+    if (backend == "ncurses") {
+        SetupNCurses();
+    } else if (backend == "sdl") {
+        SetupSDL();
+    }
+
+
+    RuntimeConfig::Instance().SetScreen(*screen);
+    RuntimeConfig::Instance().SetKeyboard(*keyboardDriver);
+
+    logger->Debug("Initialize Graphics subsystem");
+
+    screen->Open();
+    screen->Clear();
+}
+void Editor::SetupNCurses() {
     if (!keyboardMonitor.Start()) {
         logger->Error("Keyboard monitor failed to start");
         exit(1);
     }
-    keyboardDriver.Begin(&keyboardMonitor);
 
-    RuntimeConfig::Instance().SetScreen(screen);
-    RuntimeConfig::Instance().SetKeyboard(keyboardDriver);
-
-    logger->Debug("Initialize Graphics subsystem");
-
-    screen.Open();
-    screen.Clear();
+    screen = new NCursesScreen();
+    auto ncKeyboard = new NCursesKeyboardDriver();
+    ncKeyboard->Begin(&keyboardMonitor);
+    keyboardDriver = ncKeyboard;
+}
+void Editor::SetupSDL() {
+    screen = new SDLScreen();
+    keyboardDriver  = new SDLKeyboardDriver();
 }

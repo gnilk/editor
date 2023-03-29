@@ -8,7 +8,6 @@
 #include <vector>
 
 #include "logger.h"
-#include "Core/NCurses/NCursesScreen.h"
 #include "Core/macOS/MacOSKeyboardMonitor.h"
 
 #include "KeyboardDriverBase.h"
@@ -56,6 +55,10 @@ namespace gedit {
         void ConfigureColorTheme();
         void ConfigureSubSystems();
 
+        // TEMP - backend configuration
+        void SetupNCurses();
+        void SetupSDL();
+
         EditorModel::Ref LoadEditorModelFromFile(const char *filename);
     private:
         Editor() = default;
@@ -64,9 +67,11 @@ namespace gedit {
         gnilk::ILogger *logger = nullptr;
         std::vector<EditorModel::Ref> models;   // rename..
         // This depends on the OS/Backend - consider creating a platform layer or something to handle this...
-        NCursesScreen screen;
         MacOSKeyboardMonitor keyboardMonitor;
-        NCursesKeyboardDriver keyboardDriver;
+
+        ScreenBase *screen = nullptr;
+        KeyboardDriverBase *keyboardDriver = nullptr;
+
     };
 
 }

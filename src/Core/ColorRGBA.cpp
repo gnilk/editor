@@ -99,11 +99,21 @@ ColorRGBA ColorRGBA::FromRGB(float r, float g, float b) {
     col.b = b;
     return col;
 }
+
 ColorRGBA ColorRGBA::FromRGBA(float r, float g, float b, float a) {
     ColorRGBA col;
     col.r = r;
     col.g = g;
     col.b = b;
     col.a = a;
+    return col;
+}
+
+ColorRGBA ColorRGBA::FromRGBA(int r, int g, int b, int a) {
+    ColorRGBA col;
+    col.r = r/255.0f;
+    col.g = g/255.0f;
+    col.b = b/255.0f;
+    col.a = a/255.0f;
     return col;
 }

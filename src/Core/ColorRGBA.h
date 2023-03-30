@@ -16,6 +16,7 @@ public:
 
     static ColorRGBA FromRGB(float r, float g, float b);
     static ColorRGBA FromRGBA(float r, float g, float b, float a);
+    static ColorRGBA FromRGBA(int r, int g, int b, int a);
     static ColorRGBA FromRGB(uint8_t r, uint8_t g, uint8_t b);
     static ColorRGBA FromRGB(int r, int g, int b);
     static ColorRGBA FromRGB(uint32_t r, uint32_t g, uint32_t b);
@@ -45,16 +46,16 @@ public:
         a = alpha;
     }
 
-    int RedAsInt(int mul = 255) {
+    int RedAsInt(int mul = 255) const {
         return r * (float)mul;
     }
-    int GreenAsInt(int mul = 255) {
+    int GreenAsInt(int mul = 255) const {
         return g * (float)mul;
     }
-    int BlueAsInt(int mul = 255) {
+    int BlueAsInt(int mul = 255) const {
         return b * (float)mul;
     }
-    int AlphaAsInt(int mul = 255) {
+    int AlphaAsInt(int mul = 255) const {
         return a * (float)mul;
     }
 
@@ -67,7 +68,7 @@ private:
     float r = 1.0f;
     float g = 1.0f;
     float b = 1.0f;
-    float a = 0.0f; // no transparency
+    float a = 0.0f; // no transparency, is this really what it means??
 };
 
 #endif //EDITOR_COLORRGBA_H

@@ -40,6 +40,11 @@ Dependencies:
 - yaml-cpp, https://github.com/jbeder/yaml-cpp
 - ncurses, on *nix it is generally available, otherwise: https://invisible-island.net/ncurses/announce.html
 - nlohmann/json, https://github.com/nlohmann/json
+- libSDL, https://github.com/libsdl-org/SDL currently using master branch (SDL3)
+- stb, https://github.com/nothings/stb, ttf and rect_pack (added to my repo)
+
+libSDL, ncurses you can download and install the packages. Stb is added to the project under 'ext'.
+yaml-cpp, nlohmann you should clone and link - see CMakeLists.txt
 
 ## SDL3 Backend
 ![screenshot](screenshots/sdlbackend_only_editor.png?raw=true)

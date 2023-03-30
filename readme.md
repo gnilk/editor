@@ -41,8 +41,28 @@ Dependencies:
 - ncurses, on *nix it is generally available, otherwise: https://invisible-island.net/ncurses/announce.html
 - nlohmann/json, https://github.com/nlohmann/json
 
+## SDL3 Backend
+![screenshot](screenshots/sdlbackend_only_editor.png?raw=true)
+Took a stab at testing if multiple backends where actually possible. Decided to try libSDL - haven't used it before.
+Worked fine, using stb_ttf for true type fond rendering.
+Only rendering right now - keyboard driver up next..
+
+
 
 Playing around with embedding a script language to drive command-mode cmd-let's.
+## JavaSript
+Played around with DukTape and QuickJS.
+QuickJS is probably good but it is completely lacking in documentation (or I can't find it). In the end
+I had ChatGPT generating a simple stub with a hello world kind of example for me. 
+
+Had better luck with Duktape. In the end I got a structure where you can write plugins nicely and with
+support for `require` and such. Will start integrating it as a proof-of-concept. Still not sure what I want
+to use it for except one little thing...
+
+- People know it
+- I don't like it
+- Small programs, so it doesn't really matter
+
 ## Python
 - You can do most and it is familiar to many
 - Quite a lot of boilerplate for integration

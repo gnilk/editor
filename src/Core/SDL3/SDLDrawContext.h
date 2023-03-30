@@ -33,10 +33,17 @@ namespace gedit {
         void FillLine(int y, kTextAttributes attrib, char c) override;
         void Scroll(int nRows) override;
     protected:
+
+        void DrawStringWithAttributesAndColAt(int x, int y, kTextAttributes attrib, int idxColor, const char *str);
+
+
         // Fill Rect use current color
         __inline void FillRect(float x, float y, float w, float h);
         // DrawLine use current color
         __inline void DrawLine(float x1, float y1, float x2, float y2);
+
+        // Draw a line with a specific pixel offset - applied after editor -> screen transformation has happened
+        void DrawLineWithPixelOffset(float x1, float y1, float x2, float y2, float ofsX = 0.0f, float ofsY = 0.0f);
 
         std::pair<float, float>CoordsToScreen(float x, float y);
 

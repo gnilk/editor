@@ -4,8 +4,9 @@
 
 #include "Config.h"
 #include <yaml-cpp/yaml.h>
-
 #include <nlohmann/json.hpp>
+
+#include "logger.h"
 
 #include "Core/Sublime/SublimeConfigScriptEngine.h"
 #include "Core/Sublime/SublimeConfigColorScript.h"
@@ -71,7 +72,8 @@ bool Config::LoadSublimeColorFile(const std::string &filename) {
     SublimeConfigColorScript scriptEngine;
     scriptEngine.RegisterBuiltIn();
 
-    printf("Loading Sublime Color file: %s\n", filename.c_str());
+    auto logger = gnilk::Logger::GetLogger("Config");
+    logger->Debug("Loading Sublime Color file: %s\n", filename.c_str());
 
     std::ifstream f(filename);
 
@@ -98,7 +100,7 @@ bool Config::LoadSublimeColorFile(const std::string &filename) {
             if (ok && scriptValue.IsColor()) {
                 colorConfig.SetColor(col.key(), scriptValue.Color());
             } else {
-                printf("  Value for '%s' is not color, constants not supported - skipping\n", col.key().c_str());
+                logger->Error("  Value for '%s' is not color, constants not supported - skipping\n", col.key().c_str());
             }
         }
     }

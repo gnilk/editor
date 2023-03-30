@@ -61,7 +61,7 @@ namespace gedit {
             return y * fac_y_to_rc;
         }
         static float ColToXPos(int col) {
-            return col / fac_y_to_rc;
+            return col / fac_x_to_rc;
         }
         static float RowToYPos(int row) {
             return row / fac_y_to_rc;

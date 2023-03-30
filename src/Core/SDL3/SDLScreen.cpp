@@ -16,6 +16,7 @@
 #include "SDLTranslate.h"
 #include "SDLFontManager.h"
 #include "SDLColorRepository.h"
+#include "SDLDrawContext.h"
 
 #include "Core/RuntimeConfig.h"
 #include "Core/Config/Config.h"
@@ -39,34 +40,57 @@ using namespace gedit;
 static const std::string fontName = "Andale Mono.ttf";
 
 bool SDLScreen::Open() {
+
+    auto logger = gnilk::Logger::GetLogger("SDLScreen");
+
+    logger->Debug("Opening window");
+
     SDL_Init(SDL_INIT_VIDEO);
     // FIXME: restore window size!
     window = SDL_CreateWindow("gedit", widthPixels, heightPixels,  SDL_WINDOW_OPENGL);
     renderer = SDL_CreateRenderer(window, nullptr, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
+    logger->Debug("Resolution: %d x %d", widthPixels, heightPixels);
+    logger->Debug("Loading font: '%s'", fontName.c_str());
+
     // FIXME: Font handling should not be here
     auto font = STBTTF_OpenFont(renderer, fontName.c_str(), 18);
     if (font == nullptr) {
-        printf("Unable to open font: '%s'\n", fontName.c_str());
+        logger->Error("Unable to open font: '%s'\n", fontName.c_str());
         return -1;
     }
     SDLFontManager::Instance().SetActiveFont(font);
 
     if (!Config::Instance().ColorConfiguration().HasColor("background")) {
+        logger->Warning("No background color found - assigning default");
         // Auto assign background here..
         backgroundColor = SDLColor(ColorRGBA::FromRGBA(46, 54, 62, 255));
     } else {
         backgroundColor = SDLColor(Config::Instance().ColorConfiguration().GetColor("background"));
     }
-
     // This allows access to all different rendering sub-systems (text/window/etc...)
     SDLColorRepository::Instance().SetBackgroundColor(backgroundColor);
 
 
+    float line_margin = Config::Instance()["sdl3"].GetInt("line_margin", 4);
+    rows = heightPixels / (font->baseline + line_margin); // baseline = font->ascent * font->scale
 
-    rows = heightPixels / font->size;
-    cols = widthPixels / font->size;
+    // subjective representation of average type of chars you might find in a something
+    // small,wide,average type of chars
+    std::string textToMeasure = "AaWwiI109 []{}/*.,\"";
+    auto textWidth =  STBTTF_MeasureText(font, textToMeasure.c_str());
+    auto fontWidthAverage = textWidth / (float)textToMeasure.length();
+    cols = widthPixels / fontWidthAverage;
+
+    logger->Debug("Font scaling factors:");
+    logger->Debug("  Height: %d px (font: %d, line margin: %f)", font->baseline + line_margin, font->baseline, line_margin);
+    logger->Debug("  Width : %d px (based on average widht for '%s')", fontWidthAverage, textToMeasure.c_str());
+
+
+    logger->Debug("Text to Graphics defined as");
+    logger->Debug("Rows=%d, Cols=%d", rows, cols);
+
 
     // Setup translation
     SDLTranslate::fac_x_to_rc = (float)cols / (float)widthPixels;
@@ -89,12 +113,27 @@ void SDLScreen::Clear() {
     SDL_RenderClear(renderer);
 }
 
+
 void SDLScreen::Update() {
     SDL_SetRenderTarget(renderer, nullptr);
 
+    // MEGA TEST
+//    SDLDrawContext dc = SDLDrawContext(renderer, nullptr, Rect(widthPixels, heightPixels));
+//    SDL_SetRenderDrawColor(renderer, 0,0,0,0);
+//    backgroundColor.Use(renderer);
+//    //SDL_SetRenderDrawColor(renderer, 46, 54, 62, 255);
+//    SDL_RenderClear(renderer);
 //    SDL_SetRenderDrawColor(renderer, 255,255,255, 255);
+//    dc.DrawStringAt(0,0,"01 23 45 67 89 01 23 45 67 8901234567890123456789012345678901234567890123456789");
+//    dc.DrawStringAt(1,1,"01 23 45 67 89 01 23 45 67 8901234567890123456789012345678901234567890123456789");
+//    dc.DrawStringAt(2,2,"01 23 45 67 89 01 23 45 67 8901234567890123456789012345678901234567890123456789");
+//    dc.DrawStringAt(3,3,"01 23 45 67 89 01 23 45 67 8901234567890123456789012345678901234567890123456789");
+//    dc.DrawStringAt(4,4,"01 23 45 67 89 01 23 45 67 8901234567890123456789012345678901234567890123456789");
+
 //    auto font = SDLFontManager::Instance().GetActiveFont();
-//    STBTTF_RenderText(renderer, font, 0, font->size * 10, "0123456789012345678901234567890123456789012345678901234567890123456789");
+//    STBTTF_RenderText(renderer, font, 0, font->size * 2, "0123456789012345678901234567890123456789012345678901234567890123456789");
+//    STBTTF_RenderText(renderer, font, 1, font->size * 3, "0123456789012345678901234567890123456789012345678901234567890123456789");
+//    STBTTF_RenderText(renderer, font, 2, font->size * 4, "0123456789012345678901234567890123456789012345678901234567890123456789");
     SDL_RenderPresent(renderer);
 
     //

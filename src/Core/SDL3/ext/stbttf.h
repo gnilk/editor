@@ -3,6 +3,8 @@
 // SDL3 Fix by Gnilk
 // Also added casting and stuff so we can compile without too many warnings in C++
 //
+// We should REALLY rewrite this...
+//
 #ifndef __STBTTF_H__
 #define __STBTTF_H__
 

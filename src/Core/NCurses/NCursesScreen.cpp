@@ -36,10 +36,10 @@ bool NCursesScreen::Open() {
     if (has_colors()) {
         // Just test it a bit...
         start_color();
-        init_color(COLOR_GREEN, 200,1000,200);
-        init_pair(1, COLOR_GREEN, COLOR_BLACK);
-        init_pair(2, COLOR_BLACK, COLOR_GREEN);
-        attron(COLOR_PAIR(1));
+//        init_color(COLOR_GREEN, 200,1000,200);
+//        init_pair(1, COLOR_GREEN, COLOR_BLACK);
+//        init_pair(2, COLOR_BLACK, COLOR_GREEN);
+//        attron(COLOR_PAIR(1));
     } else {
         printf("No colors, going with defaults...\n");
     }

@@ -10,6 +10,8 @@ macos:
 sdl3:
   default_width: 1920
   default_height: 1080
+  # this increases the spacing between lines - it is added to the baseline of the font
+  line_margin: 4
   keymap: "sdl3_default.keymap"
 
 ncurses:

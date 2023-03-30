@@ -141,6 +141,11 @@ void Editor::ConfigureColorTheme() {
         if (!colorConfig.HasColor(langClass)) {
             logger->Warning("Missing color configuration for: %s", langClass.c_str());
         }
+        auto &fg = colorConfig.GetColor(langClass);
+        auto &bg = colorConfig.GetColor("background");
+        logger->Debug("  %d:%s - fg=(%d,%d,%d) bg=(%d,%d,%d)",i,langClass.c_str(),
+                      fg.RedAsInt(255),fg.GreenAsInt(255),fg.BlueAsInt(255),
+                      bg.RedAsInt(255),bg.GreenAsInt(255),bg.BlueAsInt(255));
         screen->RegisterColor(i, colorConfig.GetColor(langClass), colorConfig.GetColor("background"));
     }
 }

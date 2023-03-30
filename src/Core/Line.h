@@ -10,6 +10,7 @@
 #include <string>
 #include <mutex>
 
+#include "Core/TextAttributes.h"
 #include "Core/Language/LanguageTokenClass.h"
 
 
@@ -22,7 +23,7 @@ public:
         int idxOrigString;   // index in original string...
         // Attributes from this cursor position and onwards..
         int idxColor;       // index to color (or token classification)
-
+        gedit::kTextAttributes textAttributes = gedit::kTextAttributes::kNormal;
         kLanguageTokenClass tokenClass; // this one is for better (more formal) analysis when computing indent and similar
     };
     using LineAttribIterator = std::vector<LineAttrib>::iterator;

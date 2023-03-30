@@ -27,22 +27,13 @@ void SDLDrawContext::ClearLine(int y) {
 }
 
 void SDLDrawContext::FillLine(int y, kTextAttributes attrib, char c) {
-    Rect pixRect = SDLTranslate::RowColToPixel(rect);
-    float pixYStart = SDLTranslate::RowToYPos(y);
-    float pixYEnd = SDLTranslate::RowToYPos(y + 1);
-    SDL_FRect rect = {(float) pixRect.TopLeft().x, pixYStart, (float) pixRect.Width(), pixYEnd - pixYStart-1};
-
-    SDL_SetRenderTarget(renderer, renderTarget);
-
     auto [fg, bg] = SDLColorRepository::Instance().GetColor(0);
     if (attrib & kTextAttributes::kInverted) {
         fg.Use(renderer);
     } else {
         bg.Use(renderer);
     }
-
-    SDL_RenderFillRect(renderer, &rect);
-
+    FillRect(0,y,rect.Width(),1);
 }
 
 void SDLDrawContext::Scroll(int nRows) {
@@ -56,12 +47,14 @@ std::pair<float, float> SDLDrawContext::CoordsToScreen(float x, float y) {
     float screenYPos = SDLTranslate::RowToYPos(y) + pixWinOfs.y;
 
     return {screenXPos, screenYPos};
-
 }
 
 void SDLDrawContext::FillRect(float x, float y, float w, float h) {
     auto [pixXStart, pixYStart] = CoordsToScreen(x, y);
-    auto [pixWidth, pixHeight] = CoordsToScreen(w, h);
+    //auto [pixWidth, pixHeight] = CoordsToScreen(w, h);
+
+    auto pixWidth = SDLTranslate::ColToXPos(w);
+    auto pixHeight = SDLTranslate::RowToYPos(h);
 
     SDL_FRect rect = {pixXStart, pixYStart, pixWidth, pixHeight};
     SDL_RenderFillRect(renderer, &rect);
@@ -78,7 +71,6 @@ void SDLDrawContext::DrawLineWithPixelOffset(float x1, float y1, float x2, float
     auto [px2, py2] = CoordsToScreen(x2, y2);
 
     SDL_RenderLine(renderer, px1 + ofsX, py1 + ofsY, px2 + ofsX, py2 + ofsY);
-
 }
 
 
@@ -112,10 +104,8 @@ void SDLDrawContext::DrawStringWithAttributesAndColAt(int x, int y, kTextAttribu
         bg.Use(renderer);
     }
     // Fill the background...
-    if (y<2) {
-        SDL_SetRenderDrawColor(renderer,255,0,0,255);
-    }
-    FillRect(x, y, strlen(str), y + 1);
+    // SDL_SetRenderDrawColor(renderer,0,255,0,255);
+    FillRect(x, y, strlen(str), 1);
 
     // Change color to use depending on inverted or not
     if (attrib & kTextAttributes::kInverted) {
@@ -135,7 +125,6 @@ void SDLDrawContext::DrawStringWithAttributesAndColAt(int x, int y, kTextAttribu
         if (margin > Config::Instance()["sdl3"].GetInt("line_margin",4)) {
             margin = Config::Instance()["sdl3"].GetInt("line_margin",4) - 1;
         }
-        SDL_SetRenderDrawColor(renderer,0,255,0,255);
         DrawLineWithPixelOffset(x, y , x + strlen(str), y,0,font->baseline+margin);
     }
 }

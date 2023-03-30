@@ -76,6 +76,7 @@ bool SDLScreen::Open() {
     float line_margin = Config::Instance()["sdl3"].GetInt("line_margin", 4);
     rows = heightPixels / (font->baseline + line_margin); // baseline = font->ascent * font->scale
 
+
     // subjective representation of average type of chars you might find in a something
     // small,wide,average type of chars
     std::string textToMeasure = "AaWwiI109 []{}/*.,\"";

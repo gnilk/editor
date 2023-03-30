@@ -45,9 +45,6 @@ namespace gedit {
             statusLine += tmp;
 
             dc.DrawStringWithAttributesAt(dc.GetRect().Width()-statusLine.size()-4,row, kTextAttributes::kInverted, statusLine.c_str());
-
-
-
         }
     };
 }

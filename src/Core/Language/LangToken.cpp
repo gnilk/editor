@@ -43,6 +43,22 @@ bool gnilk::IsLanguageTokenClass(int num) {
 
 void LangToken::ToLineAttrib(std::vector<Line::LineAttrib> &outAttributes, std::vector<LangToken> &tokens) {
     outAttributes.clear();
+
+    // The rendering don't require us to have 'attributes' for each line, inserting one by default
+    // is perhaps not needed...  should re-think this...
+    // Could also exit early if this is the case...
+    // However, forcing attributes to be set will make the rendering logic a bit easier...
+
+    // Attributes should start at '0' if not it means we have white space in the beginning
+    // In that case, insert a 'regular'
+    if ((tokens.size() == 0) || (tokens[0].idxOrigStr > 0)) {
+        Line::LineAttrib attrib;
+        attrib.idxOrigString = 0;
+        attrib.idxColor = static_cast<int>(kLanguageTokenClass::kRegular);
+        attrib.tokenClass = kLanguageTokenClass::kRegular;
+        outAttributes.push_back(attrib);
+    }
+    // Now do the rest...
     for(auto &t : tokens) {
         Line::LineAttrib attrib;
         attrib.idxOrigString = t.idxOrigStr;

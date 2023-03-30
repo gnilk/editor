@@ -3,6 +3,8 @@
 //
 
 #include "SDLDrawContext.h"
+#include "Core/ColorRGBA.h"
+#include "SDLColor.h"
 #include "SDLTranslate.h"
 #include "SDLFontManager.h"
 #include "SDLColorRepository.h"
@@ -43,6 +45,32 @@ void SDLDrawContext::FillLine(int y, kTextAttributes attrib, char c) {
 void SDLDrawContext::Scroll(int nRows) {
 
 }
+
+std::pair<float, float>SDLDrawContext::CoordsToScreen(float x, float y) {
+    auto pixWinOfs = SDLTranslate::RowColToPixel(rect.TopLeft());
+
+    float screenXPos = SDLTranslate::ColToXPos(x) + pixWinOfs.x;
+    float screenYPos = SDLTranslate::RowToYPos(y) + pixWinOfs.y;
+
+    return {screenXPos, screenYPos};
+
+}
+
+void SDLDrawContext::FillRect(float x, float y, float w, float h) {
+    auto [pixXStart, pixYStart] = CoordsToScreen(x,y);
+    auto [pixWidth, pixHeight] = CoordsToScreen(w,h);
+
+    SDL_FRect rect = {pixXStart, pixYStart, pixWidth, pixHeight};
+    SDL_RenderFillRect(renderer, &rect);
+}
+
+void SDLDrawContext::DrawLine(float x1, float y1, float x2, float y2) {
+    auto [px1, py1] = CoordsToScreen(x1,y1);
+    auto [px2, py2] = CoordsToScreen(x2,y2);
+
+    SDL_RenderLine(renderer, px1, py1, px2, py2);
+}
+
 //
 // ALL STRINGS ARE DRAWN BOTTOM UP
 // YPOS means the LOWER scanline of the text-texture
@@ -51,42 +79,23 @@ void SDLDrawContext::Scroll(int nRows) {
 void SDLDrawContext::DrawStringAt(int x, int y, const char *str) {
     auto font = SDLFontManager::Instance().GetActiveFont();
 
-    auto pixWinOfs = SDLTranslate::RowColToPixel(rect.TopLeft());
-
-    float pixXpos = SDLTranslate::ColToXPos(x);
-    float pixYpos = SDLTranslate::RowToYPos(y);
-
-
     SDL_SetRenderTarget(renderer, renderTarget);
     SDL_SetRenderDrawColor(renderer, 255,255,255,255);
 
+    auto [px, py] = CoordsToScreen(x,y);
 
-    STBTTF_RenderText(renderer, font, pixWinOfs.x +  pixXpos, pixWinOfs.y + pixYpos + font->baseline , str);
+    STBTTF_RenderText(renderer, font, px, py + font->baseline , str);
 }
+
 
 // TODO: Refactor this - rect should be encapsulated, etc..
 // Note: 'Blink' is NOT supported
 void SDLDrawContext::DrawStringWithAttributesAt(int x, int y, kTextAttributes attrib, const char *str) {
     auto font = SDLFontManager::Instance().GetActiveFont();
-
-    auto pixWinOfs = SDLTranslate::RowColToPixel(rect.TopLeft());
-
-
-    float pixXpos = SDLTranslate::ColToXPos(x);
-    float pixYpos = SDLTranslate::RowToYPos(y);
-
     SDL_SetRenderTarget(renderer, renderTarget);
 
     // Get colors
     auto [fg, bg] = SDLColorRepository::Instance().GetColor(0);
-
-    // Compute text rect
-    float textWidth = SDLTranslate::ColToXPos(strlen(str));
-
-    float pixXStart = SDLTranslate::ColToXPos(x) + pixWinOfs.x;
-    float pixYStart = SDLTranslate::RowToYPos(y) + pixWinOfs.x;
-    float pixYEnd = SDLTranslate::RowToYPos(y+1) + pixWinOfs.y;
-    SDL_FRect rect = {(float)pixXStart, pixYStart, textWidth,pixYEnd - pixYStart};
 
     // If we are inverted, flip the useage of color (Note: I know this can be a oneliner - perhaps in this case it would ease readability)
     if (attrib & kTextAttributes::kInverted) {
@@ -94,8 +103,8 @@ void SDLDrawContext::DrawStringWithAttributesAt(int x, int y, kTextAttributes at
     } else {
         bg.Use(renderer);
     }
-    // Now fill the rect (Regardless if we are inverted or not - someone might have filled the line)
-    SDL_RenderFillRect(renderer, &rect);
+    // Fill the background...
+    FillRect(x,y,strlen(str),y+1);
 
     // Change color to use depending on inverted or not
     if (attrib & kTextAttributes::kInverted) {
@@ -104,14 +113,14 @@ void SDLDrawContext::DrawStringWithAttributesAt(int x, int y, kTextAttributes at
         fg.Use(renderer);
     }
 
-
-    STBTTF_RenderText(renderer, font, pixXpos + pixWinOfs.x, pixYpos + pixWinOfs.y + font->baseline, str);
+    // Translate coordinates and draw text...
+    auto[px, py] = CoordsToScreen(x,y);
+    STBTTF_RenderText(renderer, font, px, py + font->baseline, str);
 
     // underlined???  draw a line under the text
     if (attrib & kTextAttributes::kUnderline) {
-        SDL_RenderLine(renderer, pixXStart, pixYEnd, pixXStart+textWidth, pixYEnd);
+        DrawLine(x,y+1,x + strlen(str),y+1);
     }
-
 }
 
 // This assumes X = 0

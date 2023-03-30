@@ -6,6 +6,8 @@
 #define STBMEETSDL_SDLDRAWCONTEXT_H
 
 #include "Core/DrawContext.h"
+#include "Core/ColorRGBA.h"
+#include "SDLColor.h"
 #include <SDL3/SDL.h>
 
 namespace gedit {
@@ -30,7 +32,13 @@ namespace gedit {
         void ClearLine(int y) override;
         void FillLine(int y, kTextAttributes attrib, char c) override;
         void Scroll(int nRows) override;
+    protected:
+        // Fill Rect use current color
+        __inline void FillRect(float x, float y, float w, float h);
+        // DrawLine use current color
+        __inline void DrawLine(float x1, float y1, float x2, float y2);
 
+        std::pair<float, float>CoordsToScreen(float x, float y);
 
     private:
         SDL_Renderer *renderer;

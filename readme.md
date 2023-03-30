@@ -50,7 +50,8 @@ yaml-cpp, nlohmann you should clone and link - see CMakeLists.txt
 ![screenshot](screenshots/sdlbackend_only_editor.png?raw=true)
 Took a stab at testing if multiple backends where actually possible. Decided to try libSDL - haven't used it before.
 Worked fine, using stb_ttf for true type fond rendering.
-Only rendering right now - keyboard driver up next..
+Basic keyboard handling is in place - currently doing it wrong - no locale handling..  i.e changing keyboard layouts
+does not give the desired result
 
 
 

@@ -18,7 +18,7 @@ namespace gedit {
             b = col.BlueAsInt();
             a = 255 - col.AlphaAsInt();
         }
-        void Use(SDL_Renderer *renderer) {
+        void Use(SDL_Renderer *renderer) const {
             SDL_SetRenderDrawColor(renderer, r,g,b,a);
         }
     private:

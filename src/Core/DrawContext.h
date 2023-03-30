@@ -10,36 +10,9 @@
 #include "Core/NativeWindow.h"
 #include "Core/Line.h"
 #include "Core/Rect.h"
+#include "Core/TextAttributes.h"
 
 namespace gedit {
-    enum class kTextAttributes : uint8_t {
-        kNormal = 1,
-        kInverted = 2,
-        kBold = 4,
-        kItalic = 8,
-        kUnderline = 16,
-    };
-
-    inline kTextAttributes operator|(kTextAttributes lhs, kTextAttributes rhs) {
-        return static_cast<kTextAttributes>(
-                static_cast<std::underlying_type_t<kTextAttributes>>(lhs) |
-                static_cast<std::underlying_type_t<kTextAttributes>>(rhs)
-        );
-    }
-
-    // Should this return bool or kTextAttributes
-    inline bool operator&(kTextAttributes lhs, kTextAttributes rhs) {
-        return static_cast<bool>(
-                static_cast<std::underlying_type_t<kTextAttributes>>(lhs) &
-                static_cast<std::underlying_type_t<kTextAttributes>>(rhs)
-        );
-    }
-
-
-    struct TextAttribute {
-        kTextAttributes attribute;
-        int idxColor;
-    };
 
     class DrawContext {
     public:

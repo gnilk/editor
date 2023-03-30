@@ -5,15 +5,19 @@
 #ifndef EDITOR_SDLSCREEN_H
 #define EDITOR_SDLSCREEN_H
 
-#include <vector>
-#include <utility>
+//#include <vector>
+//#include <utility>
+//#include <utility>
+//#include <map>
+
+#include <SDL3/SDL.h>
+
 #include "Core/ScreenBase.h"
 #include "Core/WindowBase.h"
 #include "Core/Rect.h"
 
-#include <SDL3/SDL.h>
-#include <utility>
-#include <map>
+#include "SDLColor.h"
+
 
 namespace gedit {
     class SDLScreen : public ScreenBase {
@@ -37,6 +41,8 @@ namespace gedit {
     private:
         SDL_Window* window = nullptr;
         SDL_Renderer* renderer = nullptr;
+        SDLColor backgroundColor;
+
         // Initialize screen dimensions to default values
         // This is in pixels
         int widthPixels = 1920;
@@ -45,7 +51,6 @@ namespace gedit {
         int rows = 0;
         int cols = 0;
 
-        std::map<int, std::pair<ColorRGBA, ColorRGBA>> colorpairs;
     };
 }
 

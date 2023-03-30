@@ -4,11 +4,21 @@
 // We keep everything in editor coordinates (character row/col) until we must communicate with SDL
 // Only the native window dimensions are stored in pixel coordinates (might change) - but for now that's how it is...
 //
+// Note: There are two code-paths available - one using textures and one using primary render target directly..
+//
+// Note2: I need a color repository (local for SDL) as NCurses is using a color macro and the DrawContext don't have
+//        access to the Screen class...
+//        This can be a singleton with a simple RegisterColor/GetColor
+//
 
 #include "SDLScreen.h"
 #include "SDLWindow.h"
 #include "SDLTranslate.h"
 #include "SDLFontManager.h"
+#include "SDLColorRepository.h"
+
+#include "Core/RuntimeConfig.h"
+#include "Core/Config/Config.h"
 
 #include <SDL3/SDL.h>
 
@@ -43,6 +53,17 @@ bool SDLScreen::Open() {
     }
     SDLFontManager::Instance().SetActiveFont(font);
 
+    if (!Config::Instance().ColorConfiguration().HasColor("background")) {
+        // Auto assign background here..
+        backgroundColor = SDLColor(ColorRGBA::FromRGBA(46, 54, 62, 255));
+    } else {
+        backgroundColor = SDLColor(Config::Instance().ColorConfiguration().GetColor("background"));
+    }
+
+    // This allows access to all different rendering sub-systems (text/window/etc...)
+    SDLColorRepository::Instance().SetBackgroundColor(backgroundColor);
+
+
 
     rows = heightPixels / font->size;
     cols = widthPixels / font->size;
@@ -63,8 +84,8 @@ void SDLScreen::Close() {
 
 void SDLScreen::Clear() {
     SDL_SetRenderTarget(renderer, nullptr);
-    // FIXME: This is not correct
-    SDL_SetRenderDrawColor(renderer, 46, 54, 62, 255);
+    backgroundColor.Use(renderer);
+    //SDL_SetRenderDrawColor(renderer, 46, 54, 62, 255);
     SDL_RenderClear(renderer);
 }
 
@@ -101,7 +122,7 @@ void SDLScreen::Update() {
 }
 
 void SDLScreen::RegisterColor(int appIndex, const ColorRGBA &foreground, const ColorRGBA &background) {
-    colorpairs[appIndex] = std::make_pair(foreground, background);
+    SDLColorRepository::Instance().RegisterColor(appIndex, foreground, background);
 }
 
 void SDLScreen::BeginRefreshCycle() {

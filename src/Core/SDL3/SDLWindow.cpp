@@ -11,6 +11,8 @@
 #include "SDLTranslate.h"
 #include "SDLScreen.h"
 #include "SDLFontManager.h"
+#include "SDLColorRepository.h"
+
 #include <SDL3/SDL.h>
 
 #include "ext/stbttf.h"
@@ -107,9 +109,11 @@ DrawContext &SDLWindow::GetContentDC() {
 }
 
 void SDLWindow::Clear() {
+
     SDL_SetRenderTarget(renderer, windowBackBuffer);
-//    SDL_SetRenderDrawColor(renderer, 46, 54, 62, 255);
-    SDL_SetRenderDrawColor(renderer, 255, 54, 62, 255);
+
+    SDLColorRepository::Instance().UseBackgroundColor(renderer);
+
     SDL_RenderClear(renderer);
     SDL_SetRenderTarget(renderer, nullptr);
 }
@@ -147,8 +151,10 @@ void SDLWindow::DrawWindowDecoration() {
 
     if (glbDebugSDLWindows || decorationFlags & kWinDeco_DrawCaption) {
         // Need a font-class to store this - should be initalized by screen...
-        auto font = SDLFontManager::Instance().GetActiveFont();
-        STBTTF_RenderText(renderer, font, 0, font->size * 1, caption.c_str());
+        auto dcWin = GetWindowDC();
+        dcWin.DrawStringAt(0,0,caption.c_str());
+//        auto font = SDLFontManager::Instance().GetActiveFont();
+//        STBTTF_RenderText(renderer, font, 0, font->size * 1, caption.c_str());
     }
 
     SDL_RenderLine(renderer, pxTopLeft.x, pxTopLeft.y, pxBottomRight.x, pxBottomRight.y);
@@ -178,5 +184,6 @@ void SDLWindow::Refresh() {
 }
 
 void SDLWindow::SetCursor(const Cursor &cursor) {
+
 }
 

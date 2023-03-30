@@ -179,7 +179,10 @@ void Editor::SetupNCurses() {
     ncKeyboard->Begin(&keyboardMonitor);
     keyboardDriver = ncKeyboard;
 }
+
 void Editor::SetupSDL() {
     screen = new SDLScreen();
     keyboardDriver  = new SDLKeyboardDriver();
+    keyboardDriver->Initialize();
 }
+

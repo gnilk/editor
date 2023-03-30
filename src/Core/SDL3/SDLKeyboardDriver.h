@@ -5,6 +5,8 @@
 #ifndef EDITOR_SDLKEYBOARDDRIVER_H
 #define EDITOR_SDLKEYBOARDDRIVER_H
 
+#include <SDL3/SDL.h>
+#include "Core/KeyPress.h"
 #include "Core/KeyboardDriverBase.h"
 
 namespace gedit {
@@ -12,6 +14,9 @@ namespace gedit {
     public:
         bool Initialize() override;
         KeyPress GetKeyPress() override;
+    protected:
+        KeyPress TranslateSDLEvent(const SDL_KeyboardEvent &kbdEvent);
+        uint8_t TranslateModifiers(const uint16_t sdlModifiers);
     };
 }
 

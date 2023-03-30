@@ -137,26 +137,6 @@ void SDLScreen::Update() {
 //    STBTTF_RenderText(renderer, font, 2, font->size * 4, "0123456789012345678901234567890123456789012345678901234567890123456789");
     SDL_RenderPresent(renderer);
 
-    //
-    // TODO: Move the event loop out from here
-    //
-    SDL_Event event;
-    while (SDL_PollEvent(&event)) {
-        if (event.type == SDL_EventType::SDL_EVENT_QUIT) {
-            SDL_Quit();
-            exit(0);
-        }
-        if ((event.type == SDL_EventType::SDL_EVENT_KEY_DOWN) && (event.key.keysym.sym == SDLK_ESCAPE)) {
-            SDL_Quit();
-            exit(1);
-            //bQuit = true;
-            continue;
-        }
-    }
-    SDL_Delay(1000/60);
-    //
-    // End of event loop
-    //
 
 
 }

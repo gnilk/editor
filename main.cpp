@@ -82,7 +82,7 @@
 #include "Core/TextBuffer.h"
 
 #include "Core/Editor.h"
-
+#include "Core/KeyMapping.h"
 // Bring in the view handling
 #include "Core/Views/ViewBase.h"
 #include "Core/Views/GutterView.h"
@@ -109,12 +109,43 @@ static void SetupLogger() {
 }
 extern char glbFillchar;
 
+static void TestKeyBoardDriver() {
+    auto screen = RuntimeConfig::Instance().Screen();
+    auto keyboardDriver = RuntimeConfig::Instance().Keyboard();
+    auto logger = gnilk::Logger::GetLogger("kbdtest");
+
+    bool bQuit = false;
+    while(!bQuit) {
+        auto kp = keyboardDriver->GetKeyPress();
+        if (!kp.IsAnyValid()) {
+            continue;
+        }
+        if ((kp.isSpecialKey) && (kp.specialKey == Keyboard::kKeyCode_Escape)) {
+            bQuit = true;
+            continue;
+        }
+        if (kp.isSpecialKey) {
+            auto keyName = KeyMapping::Instance().KeyCodeName(static_cast<Keyboard::kKeyCode>(kp.specialKey));
+            logger->Debug("special kp, modifiers=%.2x, key=%.2x (%s)", kp.modifiers, kp.specialKey, keyName.c_str());
+        } else {
+            logger->Debug("kp, modifiers=%.2x, scancode=%.2x, key=%.2x (%c), ", kp.modifiers, kp.hwEvent.scanCode, kp.key, kp.key);
+        }
+    }
+    screen->Close();
+    exit(1);
+
+}
+
 int main(int argc, const char **argv) {
 
     Editor::Instance().Initialize(argc, argv);
 
     // Note: This can be implicit
     RuntimeConfig::Instance().SetMainThreadID();
+
+//    TestKeyBoardDriver();
+//    exit(1);
+
 
     auto logger = gnilk::Logger::GetLogger("main");
     bool bQuit = false;

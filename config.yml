@@ -8,8 +8,8 @@ macos:
   allow_kbd_hook: yes
 
 sdl3:
-  default_width: 1920
-  default_height: 1080
+  default_width: 1024
+  default_height: 768
   # When drawing underlined text this defines how many pixels from the regular baseline of the font to offset the line
   text_underline_margin: 16
   # this increases the spacing between lines - it is added to the baseline of the font

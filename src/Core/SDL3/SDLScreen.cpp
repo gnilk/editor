@@ -46,6 +46,11 @@ bool SDLScreen::Open() {
 
     logger->Debug("Opening window");
 
+    widthPixels = Config::Instance()["sdl3"].GetInt("default_width", 1920);
+    heightPixels = Config::Instance()["sdl3"].GetInt("default_height", 1080);
+
+
+
     SDL_Init(SDL_INIT_VIDEO);
     // FIXME: restore window size!
     window = SDL_CreateWindow("gedit", widthPixels, heightPixels,  SDL_WINDOW_OPENGL);

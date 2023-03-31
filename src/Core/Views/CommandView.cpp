@@ -76,8 +76,12 @@ void CommandView::OnNewLineNotification() {
 
         // Let this be handled by the main thread...
         PostMessage([this]()->void {
-            logger->Debug("Adjusting height...");
-            parentView->AdjustHeight(-1);
+            auto &dc = window->GetContentDC();
+            auto &lines = commandController.Lines();
+            // Only adjust height if the amount of text exceeds the height...
+            if (lines.size() > dc.GetRect().Height() - 1) {
+                parentView->AdjustHeight(-1);
+            }
             InvalidateView();
         });
     }
@@ -90,13 +94,6 @@ void CommandView::OnKeyPress(const KeyPress &keyPress) {
         cursor = strCursor;
         cursor.position.x += prompt.size();
         return;
-    }
-
-    // Check if we should auto adjust the height...
-    if (keyPress.IsSpecialKeyPressed(Keyboard::kKeyCode_F1)) {
-        parentView->AdjustHeight(-1);
-    } else if (keyPress.IsSpecialKeyPressed(Keyboard::kKeyCode_F2)) {
-        parentView->AdjustHeight(+1);
     }
 
     // Must call base class - perhaps this is a stupid thing..
@@ -113,12 +110,15 @@ void CommandView::DrawViewContents() {
         lOffset = lines.size() - (dc.GetRect().Height());
     }
 
-    for(int i=0;i<dc.GetRect().Height();i++) {
+    cursor.position.y = 0;
+    // Never print on the last line - we reserve that for input..
+    for(int i=0;i<(dc.GetRect().Height() - 1);i++) {
         if ((i + lOffset) >= lines.size()) {
             break;
         }
         dc.ClearLine(i);
         dc.DrawStringAt(0,i,lines[i+lOffset]->Buffer().data());
+        cursor.position.y += 1;
     }
     if (lines.size() > dc.GetRect().Height()-1) {
         cursor.position.y = dc.GetRect().Height()-1;
@@ -127,5 +127,7 @@ void CommandView::DrawViewContents() {
     auto prompt = Config::Instance()["commandmode"].GetStr("prompt","gedit>");
     dc.DrawStringAt(0, cursor.position.y, prompt.c_str());
     dc.DrawStringAt(prompt.size(), cursor.position.y, currentLine->Buffer().data());
+
+    logger->Debug("DrawViewContents, cursor at: %d,%d", cursor.position.x, cursor.position.y);
 
 }

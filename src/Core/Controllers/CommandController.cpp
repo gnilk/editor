@@ -32,15 +32,16 @@ void CommandController::NewLine() {
     std::lock_guard<std::mutex> guard(lineLock);
     currentLine = new Line();
     currentLine->SetActive(true);
-    historyBuffer.push_back(currentLine);
+//    historyBuffer.push_back(currentLine);
     if (onNewLine != nullptr) {
         onNewLine();
     }
 }
 
 void CommandController::WriteLine(const std::string &str) {
-    //logger->Debug("WriteLine: %s", str.c_str());
+    // Let's append to current line and commit to history buffer
     currentLine->Append(str);
+    historyBuffer.push_back(currentLine);
     NewLine();
 }
 
@@ -57,10 +58,14 @@ bool CommandController::HandleKeyPress(Cursor &cursor, size_t idxLine, const Key
 }
 
 void CommandController::CommitLine() {
+    // When a line is commited, it is history..
+    historyBuffer.push_back(currentLine);
+
     std::string cmdLine(currentLine->Buffer().data());
     if (cmdLine.size() < 1) {
         return;
     }
+
 
     if (TryExecuteInternalCmd(cmdLine)) {
         return;

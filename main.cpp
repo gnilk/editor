@@ -4,8 +4,7 @@
 /*
  * TO-DO List
  * - Make some classes thread aware (TextBuffer / Line class - perhaps most important)
- * - Fix NCurses, currently broken (due to work on SDL3 backend)
- *
+ * ! Fix NCurses, currently broken (due to work on SDL3 backend)
  *
  * Done:
  * ! CommandView, Store/Restore splitter when view goes inactive/active

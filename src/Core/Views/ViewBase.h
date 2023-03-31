@@ -82,19 +82,11 @@ namespace gedit {
         }
 
         virtual void DoDraw() {
-//            if ((isInvalid) && (parentView == nullptr)) {
-//                window->Clear();
-//            }
-//            window->Clear();
 
-            // DEBUG CODE
-            if (isVisible) {
-                window->DrawWindowDecoration();
-                if (window->GetFlags() & WindowBase::kWin_Visible) {
-                    DrawViewContents();
-                }
+            window->DrawWindowDecoration();
+            if (window->GetFlags() & WindowBase::kWin_Visible) {
+                DrawViewContents();
             }
-            // END DEBUG CODE
             window->Refresh();
 
             for(auto view : subviews) {

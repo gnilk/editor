@@ -67,11 +67,14 @@ void NCursesScreen::Close() {
 }
 
 void NCursesScreen::Clear() {
-    clear();
+    // DO NOT CALL CLEAR - it does more than just clearing the screen
+    // and I don't have a firm grasp of how the states in NCurses trickels down...
+    //clear();
 }
 
 void NCursesScreen::Update() {
     doupdate();
+    refresh();
 }
 
 static int colorCounter = 0;

@@ -211,8 +211,6 @@ int main(int argc, const char **argv) {
     rootView.Draw();
     screen->Update();
 
-    // NOTE: Currently the NCurses branch is broken...
-
     // This is currently the run loop...
     while(!bQuit) {
         // This is way too simple - need better handling here!
@@ -251,8 +249,6 @@ int main(int argc, const char **argv) {
             screen->Clear();
             rootView.Draw();
             screen->Update();
-            // NCurses specific - should not be needed
-            //refresh();
         }
     }
     logger->Debug("Left main loop, closing graphics subsystem");

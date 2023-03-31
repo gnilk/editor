@@ -2,6 +2,7 @@
 // Created by gnilk on 14.02.23.
 //
 
+#include "Core/Action.h"
 #include "Core/Config/Config.h"
 #include "Core/RuntimeConfig.h"
 #include "EditorView.h"
@@ -117,13 +118,10 @@ void EditorView::OnActivate(bool isActive) {
 void EditorView::OnKeyPress(const KeyPress &keyPress) {
 
     if (editorModel->GetEditController()->HandleKeyPress(editorModel->cursor, editorModel->idxActiveLine, keyPress)) {
+        editorModel->GetEditController()->UpdateSyntaxForBuffer();
         InvalidateView();
         return;
     }
-//    if (UpdateNavigation(keyPress)) {
-//        editorModel->cursor = cursor;
-//        return;
-//    }
 
     // It was not to us..
     ViewBase::OnKeyPress(keyPress);
@@ -164,9 +162,40 @@ bool EditorView::OnAction(kAction action) {
             return OnActionWordLeft();
         case kAction::kActionLineWordRight :
             return OnActionWordRight();
+        case kAction::kActionEditBackspace :
+            return OnActionBackspace();
 
     }
     return false;
+}
+
+bool EditorView::OnActionBackspace() {
+    auto currentLine = editorModel->GetEditController()->LineAt(editorModel->idxActiveLine);
+    if (editorModel->cursor.position.x > 0) {
+        logger->Debug("OnActionBackspace");
+        std::string strMarker(editorModel->cursor.position.x-1,' ');
+        logger->Debug("  LineBefore: '%s'", currentLine->Buffer().data());
+        logger->Debug("               %s*", strMarker.c_str());
+        logger->Debug("  Delete at: %d", editorModel->cursor.position.x-1);
+        currentLine->Delete(editorModel->cursor.position.x-1);
+        logger->Debug("  LineAfter: '%s'", currentLine->Buffer().data());
+        editorModel->cursor.position.x--;
+        editorModel->GetEditController()->UpdateSyntaxForBuffer();
+    }
+    return true;
+}
+bool EditorView::OnActionLineHome() {
+    editorModel->cursor.position.x = 0;
+    editorModel->cursor.wantedColumn = 0;
+    return true;
+}
+
+bool EditorView::OnActionLineEnd() {
+    auto currentLine = editorModel->GetEditController()->LineAt(editorModel->idxActiveLine);
+    auto endpos = currentLine->Length();
+    editorModel->cursor.position.x = endpos;
+    editorModel->cursor.wantedColumn = endpos;
+    return true;
 }
 
 bool EditorView::OnActionCommitLine() {

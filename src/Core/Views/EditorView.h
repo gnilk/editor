@@ -67,6 +67,9 @@ namespace gedit {
         bool OnActionGotoBottomLine();    // Last visible line on screen
         bool OnActionWordRight();
         bool OnActionWordLeft();
+        bool OnActionLineHome();
+        bool OnActionLineEnd();
+        bool OnActionBackspace();
 
     private:
         bool UpdateNavigation(const KeyPress &keyPress);

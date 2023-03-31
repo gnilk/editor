@@ -8,6 +8,7 @@
 #include <vector>
 #include "Core/Line.h"
 #include "Core/DrawContext.h"
+#include "Core/EditorModel.h"   // FIXME: Only because of selection
 
 namespace gedit {
     class LineRender {
@@ -16,8 +17,8 @@ namespace gedit {
 
         }
         void DrawLine(Line *line, int idxLine);
-        void DrawLines(const std::vector<Line *> &lines, int idxTopLine, int idxBottomLine);
-        void DrawLineWithAttributesAt(int x, int y, int nCharToPrint, Line &l);
+        void DrawLines(const std::vector<Line *> &lines, int idxTopLine, int idxBottomLine, const Selection &selection);
+        void DrawLineWithAttributesAt(int x, int y, int nCharToPrint, Line &l, const Selection &selection);
 
     private:
         const DrawContext &dc;

@@ -8,7 +8,7 @@
 #include <vector>
 
 namespace gedit {
-    enum class kTextAttributes : uint8_t {
+    enum class kTextAttributes : uint16_t {
         kNormal = 1,
         kInverted = 2,
         kBold = 4,

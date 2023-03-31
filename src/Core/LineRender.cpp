@@ -2,13 +2,14 @@
 // Created by gnilk on 31.03.23.
 //
 
+#include "DrawContext.h"
 #include "logger.h"
 #include "LineRender.h"
 
 using namespace gedit;
 
 // This assumes X = 0
-void LineRender::DrawLines(const std::vector<Line *> &lines, int idxTopLine, int idxBottomLine) {
+void LineRender::DrawLines(const std::vector<Line *> &lines, int idxTopLine, int idxBottomLine, const Selection &selection) {
     auto rect = dc.GetRect();
 
     for (int i = idxTopLine; i < idxBottomLine; i++) {
@@ -17,12 +18,13 @@ void LineRender::DrawLines(const std::vector<Line *> &lines, int idxTopLine, int
         }
         auto line = lines[i];
         auto nCharToPrint = line->Length() > rect.Width() ? rect.Width() : line->Length();
-        DrawLineWithAttributesAt(0, i - idxTopLine, nCharToPrint, *line);
+        DrawLineWithAttributesAt(0, i - idxTopLine, nCharToPrint, *line, selection);
     }
 }
 
 // This is the more advanced drawing routine...
-void LineRender::DrawLineWithAttributesAt(int x, int y, int nCharToPrint, Line &l) {
+void LineRender::DrawLineWithAttributesAt(int x, int y, int nCharToPrint, Line &l, const Selection &selection) {
+
     // No attributes?  Just dump the string...
     auto &attribs = l.Attributes();
     if (attribs.size() == 0) {

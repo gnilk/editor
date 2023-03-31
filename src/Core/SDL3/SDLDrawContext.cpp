@@ -123,6 +123,12 @@ void SDLDrawContext::DrawStringWithAttributesAndColAt(int x, int y, kTextAttribu
         }
         DrawLineWithPixelOffset(x, y , x + strlen(str), y,0,font->baseline+margin);
     }
+
+    if (overlay.IsInsideLine(y)) {
+        SDL_SetRenderDrawColor(renderer,80,100,128,64);
+        FillRect(x,y,GetRect().Width(), 1);
+    }
+
 }
 
 void SDLDrawContext::DrawStringWithAttributesAt(int x, int y, kTextAttributes attrib, const char *str) const {

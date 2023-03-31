@@ -5,6 +5,8 @@
 
 #include "Core/Action.h"
 #include "Core/Config/Config.h"
+#include "Core/DrawContext.h"
+#include "Core/EditorModel.h"
 #include "Core/KeyMapping.h"
 #include "Core/RuntimeConfig.h"
 #include "Core/LineRender.h"
@@ -93,8 +95,20 @@ void EditorView::DrawViewContents() {
     auto &dc = window->GetContentDC(); //ViewBase::ContentAreaDrawContext();
     logger->Debug("DrawViewContents, dc Height=%d, topLine=%d, bottomLine=%d", dc.GetRect().Height(), editorModel->viewTopLine, editorModel->viewBottomLine);
 
+    auto selection = editorModel->GetSelection();
+    if (selection.isActive) {
+        DrawContext::Overlay overlay;
+        overlay.start = selection.startPos.position;
+        overlay.end = selection.endPos.position;
+        overlay.attributes = 0;     // ??
+
+        dc.SetOverlay(overlay);
+    } else {
+        dc.RemoveOverlay();
+    }
     LineRender lineRender(dc);
-    lineRender.DrawLines(editorModel->GetEditController()->Lines(), editorModel->viewTopLine, editorModel->viewBottomLine);
+    // Consider refactoring this function call...
+    lineRender.DrawLines(editorModel->GetEditController()->Lines(), editorModel->viewTopLine, editorModel->viewBottomLine, editorModel->GetSelection());
 }
 
 void EditorView::OnActivate(bool isActive) {
@@ -134,6 +148,10 @@ bool EditorView::OnAction(const KeyPressAction &kpAction) {
     if (kpAction.keyPress.IsShiftPressed()) {
         if (!editorModel->IsSelectionActive()) {
             editorModel->BeginSelection();
+        }
+    } else {
+        if (editorModel->IsSelectionActive()) {
+            editorModel->CancelSelection();
         }
     }
     auto result = DispatchAction(kpAction);
@@ -234,6 +252,7 @@ bool EditorView::OnActionWordLeft() {
         attrib--;
     }
     editorModel->cursor.position.x = attrib->idxOrigString;
+    return true;
 }
 
 bool EditorView::OnActionGotoFirstLine() {

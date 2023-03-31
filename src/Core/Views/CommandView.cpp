@@ -62,6 +62,7 @@ bool CommandView::OnAction(const KeyPressAction &kpAction) {
         case kAction::kActionCommitLine :
             return OnActionCommitLine();
     }
+    return false;
 }
 
 bool CommandView::OnActionCommitLine() {

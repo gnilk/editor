@@ -12,18 +12,37 @@
 #include <memory>
 
 namespace gedit {
+
+    struct Selection {
+        bool isActive = false;
+        Cursor startPos = {};
+        Cursor endPos = {};
+
+        bool IsSelected(int x, int y) {
+            if (!isActive) return false;
+            if (y < startPos.position.y) return false;
+            if (y > endPos.position.y) return false;
+
+            if ((y == startPos.position.y) && (x < startPos.position.x)) return false;
+            if ((y == endPos.position.y) && (x > endPos.position.x)) return false;
+
+            return true;
+        }
+
+        bool IsLineSelected(int y) {
+            return IsSelected(0, y);
+        }
+
+
+    };
+
+
     // This is the composite object linking TextBuffer/EditController together
     // It also holds data to reconstruct the view of the text (topLine/bottomLine)
     // Note: the cursor is owned by the view (for now) - but needs to move here, as it must follow..
     class EditorModel {
     public:
         using Ref = std::shared_ptr<EditorModel>;
-
-        struct Selection {
-            bool isActive = false;
-            Cursor startPos = {};
-            Cursor endPos = {};
-        };
 
     public:
         EditorModel() = default;

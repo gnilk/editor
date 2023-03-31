@@ -35,11 +35,15 @@ commandmode:
 # Note: Keymap should point to a file instead..
 defaultkeymap: {
   # test
-  KeyCode_Shift + KeyCode_UpArrow : NavigateEnd,
-  KeyCode_Ctrl + KeyCode_Shift + KeyCode_UpArrow : NavigateHome,
+  #KeyCode_Shift + KeyCode_UpArrow : NavigateEnd,
+  #KeyCode_Ctrl + KeyCode_Shift + KeyCode_UpArrow : NavigateHome,
   # properly mapped
   KeyCode_UpArrow : NavigateLineUp,
   KeyCode_DownArrow : NavigateLineDown,
+  # Test - map to same action - but NavigateLineDown will check if this is pressed and invoke selection..
+  KeyCode_Shift + KeyCode_DownArrow : NavigateLineDown,
+  KeyCode_Shift + KeyCode_UpArrow : NavigateLineUp,
+
   KeyCode_LeftArrow : NavigateLineStepLeft,
   KeyCode_RightArrow : NavigateLineStepRight,
   KeyCode_PageUp : NavigatePageUp,

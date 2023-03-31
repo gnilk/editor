@@ -44,7 +44,7 @@ namespace gedit {
             window->SetCursor(editorModel->cursor);
         }
 
-        bool OnAction(kAction action) override;
+        bool OnAction(const KeyPressAction &kpAction) override;
 
 
     protected:

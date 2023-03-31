@@ -28,7 +28,7 @@ namespace gedit {
         void OnKeyPress(const KeyPress &keyPress) override;
         void DrawViewContents() override;
 
-        bool OnAction(kAction action) override;
+        bool OnAction(const KeyPressAction &kpAction) override;
     protected:
         bool OnActionCommitLine();
     protected:

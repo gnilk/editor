@@ -50,19 +50,19 @@ namespace gedit {
             return topViews[idxCurrentTopView];
         }
 
-        bool OnAction(kAction action) override {
+        bool OnAction(const KeyPressAction &kpAction) override {
             bool wasHandled = false;
             if (TopView() != nullptr) {
-                wasHandled = TopView()->OnAction(action);
+                wasHandled = TopView()->OnAction(kpAction);
             }
             // Now handle internally..
-            if (action == kAction::kActionCycleActiveView) {
+            if (kpAction.action == kAction::kActionCycleActiveView) {
                 TopView()->SetActive(false);
                 idxCurrentTopView = (idxCurrentTopView+1) % topViews.size();
                 TopView()->SetActive(true);
                 wasHandled = true;
 
-            } else if (action == kAction::kActionCycleActiveEditor) {
+            } else if (kpAction.action == kAction::kActionCycleActiveEditor) {
                 auto idxCurrent = Editor::Instance().GetActiveModelIndex();
                 auto idxNext = Editor::Instance().NextModelIndex(idxCurrent);
                 if (idxCurrent != idxNext) {

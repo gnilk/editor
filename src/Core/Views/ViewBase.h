@@ -10,6 +10,7 @@
 #include "Core/KeyPress.h"
 #include "Core/Cursor.h"
 #include "Core/Action.h"
+#include "Core/KeyMapping.h"
 #include "Core/SafeQueue.h"
 
 namespace gedit {
@@ -186,7 +187,7 @@ namespace gedit {
         }
 
         // TESTING ACTIONS!!!!
-        virtual bool OnAction(kAction action) {
+        virtual bool OnAction(const KeyPressAction &action) {
             return false;
         }
 

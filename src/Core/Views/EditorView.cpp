@@ -130,8 +130,8 @@ void EditorView::OnKeyPress(const KeyPress &keyPress) {
 //
 // Add actions here - all except human-readable inserting of text
 //
-bool EditorView::OnAction(kAction action) {
-    switch(action) {
+bool EditorView::OnAction(const KeyPressAction &kpAction) {
+    switch(kpAction.action) {
         case kAction::kActionLineStepSingleLeft :
             return OnActionStepLeft();
         case kAction::kActionLineStepSingleRight :

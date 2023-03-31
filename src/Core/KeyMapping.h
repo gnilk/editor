@@ -5,11 +5,17 @@
 #ifndef EDITOR_KEYMAPPING_H
 #define EDITOR_KEYMAPPING_H
 
+#include <vector>
+#include <optional>
+
 #include "KeyCodes.h"
 #include "Action.h"
-#include <vector>
 
 namespace gedit {
+    struct KeyPressAction {
+        kAction action = kAction::kActionNone;     // Key press was mapped to this action
+        KeyPress keyPress = {};  // Underlying keypress
+    };
     class KeyMapping {
     public:
         virtual ~KeyMapping() = default;
@@ -19,7 +25,7 @@ namespace gedit {
         const std::string &ActionName(const kAction action);
         int ModifierMaskFromString(const std::string &strModifiers);
         kAction ActionFromName(const std::string &strAction);
-        kAction ActionFromKeyPress(const KeyPress &keyPress);
+        std::optional<KeyPressAction> ActionFromKeyPress(const KeyPress &keyPress);
         bool RebuildActionMapping();
         bool IsInitialized() {
             return isInitialized;

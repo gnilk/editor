@@ -57,8 +57,8 @@ void CommandView::OnActivate(bool isActive) {
     }
 }
 
-bool CommandView::OnAction(kAction action) {
-    switch(action) {
+bool CommandView::OnAction(const KeyPressAction &kpAction) {
+    switch(kpAction.action) {
         case kAction::kActionCommitLine :
             return OnActionCommitLine();
     }

@@ -229,11 +229,11 @@ int main(int argc, const char **argv) {
 
             logger->Debug("KeyPress Valid - passing on...");
 
-            auto action = KeyMapping::Instance().ActionFromKeyPress(keyPress);
-            if (action != gedit::kAction::kActionNone) {
-                logger->Debug("Action '%s' found - sending to RootView", KeyMapping::Instance().ActionName(action).c_str());
+            auto kpAction = KeyMapping::Instance().ActionFromKeyPress(keyPress);
+            if (kpAction.has_value()) {
+                logger->Debug("Action '%s' found - sending to RootView", KeyMapping::Instance().ActionName(kpAction->action).c_str());
 
-                rootView.OnAction(action);
+                rootView.OnAction(*kpAction);
             } else {
                 logger->Debug("No action for keypress, treating as regular input");
                 rootView.TopView()->HandleKeyPress(keyPress);

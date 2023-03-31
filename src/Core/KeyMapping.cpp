@@ -204,15 +204,18 @@ kAction KeyMapping::ActionFromName(const std::string &strAction) {
 
 
 // Translate from KeyPress to Action..
-kAction KeyMapping::ActionFromKeyPress(const KeyPress &keyPress) {
+std::optional<KeyPressAction> KeyMapping::ActionFromKeyPress(const KeyPress &keyPress) {
     auto logger = gnilk::Logger::GetLogger("KeyMapping");
     for(auto &actionItem : actionItems) {
         if (actionItem->MatchKeyPress(keyPress)) {
             logger->Debug("ActionItem found!!!");
-            return actionItem->GetAction();
+            KeyPressAction kpAction;
+            kpAction.action = actionItem->GetAction();
+            kpAction.keyPress = keyPress;
+            return kpAction;
         }
     }
-    return kAction::kActionNone;
+    return {};
 }
 
 //

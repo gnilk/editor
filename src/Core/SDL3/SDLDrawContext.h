@@ -8,10 +8,12 @@
 #include "Core/DrawContext.h"
 #include "Core/ColorRGBA.h"
 #include "SDLColor.h"
+#include "SDLWindow.h"
 #include <SDL3/SDL.h>
 
 namespace gedit {
     class SDLDrawContext : public DrawContext {
+        friend SDLWindow;
     public:
         SDLDrawContext() = default;
         explicit SDLDrawContext(SDL_Renderer *sdlRenderer, SDL_Texture *sdlRenderTarget, Rect clientRect) :
@@ -38,9 +40,9 @@ namespace gedit {
 
 
         // Fill Rect use current color
-        __inline void FillRect(float x, float y, float w, float h);
+        void FillRect(float x, float y, float w, float h);
         // DrawLine use current color
-        __inline void DrawLine(float x1, float y1, float x2, float y2);
+        void DrawLine(float x1, float y1, float x2, float y2);
 
         // Draw a line with a specific pixel offset - applied after editor -> screen transformation has happened
         void DrawLineWithPixelOffset(float x1, float y1, float x2, float y2, float ofsX = 0.0f, float ofsY = 0.0f);

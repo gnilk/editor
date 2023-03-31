@@ -7,11 +7,13 @@
 //
 
 #include "SDLWindow.h"
+#include "SDLCursor.h"
 #include "SDLDrawContext.h"
 #include "SDLTranslate.h"
 #include "SDLScreen.h"
 #include "SDLFontManager.h"
 #include "SDLColorRepository.h"
+#include "SDLCursor.h"
 
 #include <SDL3/SDL.h>
 
@@ -183,7 +185,29 @@ void SDLWindow::Refresh() {
     }
 }
 
-void SDLWindow::SetCursor(const Cursor &cursor) {
+// The 'View' handles what is active and not and will set the cursor to the underlying window
+// we can simply update the global cursor from here...
+void SDLWindow::SetCursor(const Cursor &newCursor) {
+    // Just set the global SDL cursor
+    SDLCursor::Instance().SetCursor(newCursor,[this](const Cursor &c)->void {
+        OnDrawCursor(c);
+    });
+    // Cache it locally so - not sure why right now..
+    cursor = newCursor;
+}
 
+void SDLWindow::OnDrawCursor(const Cursor &cursor) {
+    //clientContext.
+    if (clientContext == nullptr) {
+        return;
+    }
+    auto dc = static_cast<SDLDrawContext *>(clientContext);
+
+    // FillRect assumes the render target has been set..
+    SDL_SetRenderTarget(renderer, dc->renderTarget);
+    SDLColorRepository::Instance().UseCursorColor(renderer);
+
+    //dc->FillRect(cursor.position.x, cursor.position.y,1,1);
+    dc->DrawLine(cursor.position.x, cursor.position.y, cursor.position.x, cursor.position.y + 1);
 }
 

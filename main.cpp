@@ -3,19 +3,20 @@
 //
 /*
  * TO-DO List
- * 1)
  * - Make some classes thread aware (TextBuffer / Line class - perhaps most important)
- * - Ability to push events (with data) from one thread to the main thread...
+ * - Fix NCurses, currently broken (due to work on SDL3 backend)
+ *
+ *
+ * Done:
+ * ! CommandView, Store/Restore splitter when view goes inactive/active
+ *   Note: this can be tested before adjusting on new line
+ * ! CommandView should adjust height of splitter on new lines..
+ *   note: once done, remove f1/f2 adjustment keys...
+ *
+ * ! Ability to push events (with data) from one thread to the main thread...
  *   These events should be executed _BEFORE_ any keyhandling is done..
  *   Note: This would make it nicer with an event based UI.....
  *
- * 2)
- * - CommandView, Store/Restore splitter when view goes inactive/active
- *   Note: this can be tested before adjusting on new line
- * - CommandView should adjust height of splitter on new lines..
- *   note: once done, remove f1/f2 adjustment keys...
- *
- * Done:
  * ! New CompositionObject between View/Controller/Data => EditorModel
  *      ! Should hold an EditController, TextBuffer and ViewData
  *      ! Change the way EditView works, instead of owning the controller - the controller is set
@@ -200,13 +201,17 @@ int main(int argc, const char **argv) {
 
     rootView.Initialize();
     rootView.InvalidateAll();
+
+    // No clue why I have to do this twice - but otherwise it doesn't work...
     screen->Clear();
     rootView.Draw();
     screen->Update();
-    refresh();
+
+    screen->Clear();
     rootView.Draw();
     screen->Update();
 
+    // NOTE: Currently the NCurses branch is broken...
 
     // This is currently the run loop...
     while(!bQuit) {
@@ -238,9 +243,6 @@ int main(int argc, const char **argv) {
             redraw = true;
         }
 
-        // TEMP - while testing SDL backend
-        redraw = true;
-
         if (rootView.IsInvalid()) {
             redraw = true;
         }
@@ -249,6 +251,7 @@ int main(int argc, const char **argv) {
             screen->Clear();
             rootView.Draw();
             screen->Update();
+            // NCurses specific - should not be needed
             //refresh();
         }
     }

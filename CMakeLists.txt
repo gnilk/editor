@@ -121,6 +121,7 @@ list(APPEND editorsrc src/Core/SDL3/SDLFontManager.cpp src/Core/SDL3/SDLFontMana
 list(APPEND editorsrc src/Core/SDL3/SDLKeyboardDriver.cpp src/Core/SDL3/SDLKeyboardDriver.h)
 list(APPEND editorsrc src/Core/SDL3/SDLColorRepository.cpp src/Core/SDL3/SDLColorRepository.h)
 list(APPEND editorsrc src/Core/SDL3/SDLColor.h)
+list(APPEND editorsrc src/Core/SDL3/SDLCursor.h)
 
 # append configuration stuff - these are copied with custom command
 

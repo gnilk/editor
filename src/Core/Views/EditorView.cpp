@@ -162,41 +162,38 @@ bool EditorView::OnAction(kAction action) {
             return OnActionWordLeft();
         case kAction::kActionLineWordRight :
             return OnActionWordRight();
-        case kAction::kActionEditBackspace :
-            return OnActionBackspace();
-
     }
     return false;
 }
 
-bool EditorView::OnActionBackspace() {
-    auto currentLine = editorModel->GetEditController()->LineAt(editorModel->idxActiveLine);
-    if (editorModel->cursor.position.x > 0) {
-        logger->Debug("OnActionBackspace");
-        std::string strMarker(editorModel->cursor.position.x-1,' ');
-        logger->Debug("  LineBefore: '%s'", currentLine->Buffer().data());
-        logger->Debug("               %s*", strMarker.c_str());
-        logger->Debug("  Delete at: %d", editorModel->cursor.position.x-1);
-        currentLine->Delete(editorModel->cursor.position.x-1);
-        logger->Debug("  LineAfter: '%s'", currentLine->Buffer().data());
-        editorModel->cursor.position.x--;
-        editorModel->GetEditController()->UpdateSyntaxForBuffer();
-    }
-    return true;
-}
-bool EditorView::OnActionLineHome() {
-    editorModel->cursor.position.x = 0;
-    editorModel->cursor.wantedColumn = 0;
-    return true;
-}
-
-bool EditorView::OnActionLineEnd() {
-    auto currentLine = editorModel->GetEditController()->LineAt(editorModel->idxActiveLine);
-    auto endpos = currentLine->Length();
-    editorModel->cursor.position.x = endpos;
-    editorModel->cursor.wantedColumn = endpos;
-    return true;
-}
+//bool EditorView::OnActionBackspace() {
+//    auto currentLine = editorModel->GetEditController()->LineAt(editorModel->idxActiveLine);
+//    if (editorModel->cursor.position.x > 0) {
+//        logger->Debug("OnActionBackspace");
+//        std::string strMarker(editorModel->cursor.position.x-1,' ');
+//        logger->Debug("  LineBefore: '%s'", currentLine->Buffer().data());
+//        logger->Debug("               %s*", strMarker.c_str());
+//        logger->Debug("  Delete at: %d", editorModel->cursor.position.x-1);
+//        currentLine->Delete(editorModel->cursor.position.x-1);
+//        logger->Debug("  LineAfter: '%s'", currentLine->Buffer().data());
+//        editorModel->cursor.position.x--;
+//        editorModel->GetEditController()->UpdateSyntaxForBuffer();
+//    }
+//    return true;
+//}
+//bool EditorView::OnActionLineHome() {
+//    editorModel->cursor.position.x = 0;
+//    editorModel->cursor.wantedColumn = 0;
+//    return true;
+//}
+//
+//bool EditorView::OnActionLineEnd() {
+//    auto currentLine = editorModel->GetEditController()->LineAt(editorModel->idxActiveLine);
+//    auto endpos = currentLine->Length();
+//    editorModel->cursor.position.x = endpos;
+//    editorModel->cursor.wantedColumn = endpos;
+//    return true;
+//}
 
 bool EditorView::OnActionCommitLine() {
     editorModel->GetEditController()->NewLine(editorModel->idxActiveLine, editorModel->cursor);

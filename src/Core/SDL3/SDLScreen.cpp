@@ -17,6 +17,7 @@
 #include "SDLFontManager.h"
 #include "SDLColorRepository.h"
 #include "SDLDrawContext.h"
+#include "SDLCursor.h"
 
 #include "Core/RuntimeConfig.h"
 #include "Core/Config/Config.h"
@@ -62,16 +63,8 @@ bool SDLScreen::Open() {
     }
     SDLFontManager::Instance().SetActiveFont(font);
 
-    if (!Config::Instance().ColorConfiguration().HasColor("background")) {
-        logger->Warning("No background color found - assigning default");
-        // Auto assign background here..
-        backgroundColor = SDLColor(ColorRGBA::FromRGBA(46, 54, 62, 255));
-    } else {
-        backgroundColor = SDLColor(Config::Instance().ColorConfiguration().GetColor("background"));
-    }
-    // This allows access to all different rendering sub-systems (text/window/etc...)
-    SDLColorRepository::Instance().SetBackgroundColor(backgroundColor);
-
+    // this will just trigger the initialization process - unless not yet done...
+    SDLColorRepository::Instance();
 
     float line_margin = Config::Instance()["sdl3"].GetInt("line_margin", 4);
     rows = heightPixels / (font->baseline + line_margin); // baseline = font->ascent * font->scale
@@ -88,15 +81,12 @@ bool SDLScreen::Open() {
     logger->Debug("  Height: %d px (font: %d, line margin: %f)", font->baseline + line_margin, font->baseline, line_margin);
     logger->Debug("  Width : %d px (based on average widht for '%s')", fontWidthAverage, textToMeasure.c_str());
 
-
     logger->Debug("Text to Graphics defined as");
     logger->Debug("Rows=%d, Cols=%d", rows, cols);
-
 
     // Setup translation
     SDLTranslate::fac_x_to_rc = (float)cols / (float)widthPixels;
     SDLTranslate::fac_y_to_rc = (float)rows / (float)heightPixels;
-
 
     return true;
 }
@@ -109,11 +99,10 @@ void SDLScreen::Close() {
 
 void SDLScreen::Clear() {
     SDL_SetRenderTarget(renderer, nullptr);
-    backgroundColor.Use(renderer);
+    SDLColorRepository::Instance().UseBackgroundColor(renderer);
     //SDL_SetRenderDrawColor(renderer, 46, 54, 62, 255);
     SDL_RenderClear(renderer);
 }
-
 
 void SDLScreen::Update() {
     SDL_SetRenderTarget(renderer, nullptr);
@@ -121,7 +110,7 @@ void SDLScreen::Update() {
     // MEGA TEST
 //    SDLDrawContext dc = SDLDrawContext(renderer, nullptr, Rect(widthPixels, heightPixels));
 //    SDL_SetRenderDrawColor(renderer, 0,0,0,0);
-//    backgroundColor.Use(renderer);
+//    SDLColorRepository::Instance().UseBackgroundColor(renderer);
 //    //SDL_SetRenderDrawColor(renderer, 46, 54, 62, 255);
 //    SDL_RenderClear(renderer);
 //    SDL_SetRenderDrawColor(renderer, 255,255,255, 255);
@@ -135,10 +124,14 @@ void SDLScreen::Update() {
 //    STBTTF_RenderText(renderer, font, 0, font->size * 2, "0123456789012345678901234567890123456789012345678901234567890123456789");
 //    STBTTF_RenderText(renderer, font, 1, font->size * 3, "0123456789012345678901234567890123456789012345678901234567890123456789");
 //    STBTTF_RenderText(renderer, font, 2, font->size * 4, "0123456789012345678901234567890123456789012345678901234567890123456789");
+
+    SDLCursor::Instance().Draw();
+
     SDL_RenderPresent(renderer);
 
-
-
+    // Not quite sure what this is supposed to do...
+    // Most SDL example has a small delay - assume they just want 'yield' in order to avoid 100% CPU usage...
+    SDL_Delay(1000/60);
 }
 
 void SDLScreen::RegisterColor(int appIndex, const ColorRGBA &foreground, const ColorRGBA &background) {

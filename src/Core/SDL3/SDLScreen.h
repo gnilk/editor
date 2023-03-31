@@ -16,9 +16,6 @@
 #include "Core/WindowBase.h"
 #include "Core/Rect.h"
 
-#include "SDLColor.h"
-
-
 namespace gedit {
     class SDLScreen : public ScreenBase {
     public:
@@ -36,12 +33,9 @@ namespace gedit {
         WindowBase *CreateWindow(const gedit::Rect &rect, WindowBase::kWinFlags flags, WindowBase::kWinDecoration decoFlags) override;
         WindowBase *UpdateWindow(WindowBase *window, const gedit::Rect &rect, WindowBase::kWinFlags flags, WindowBase::kWinDecoration decoFlags) override;
         Rect Dimensions() override;
-
-    public:
     private:
         SDL_Window* window = nullptr;
         SDL_Renderer* renderer = nullptr;
-        SDLColor backgroundColor;
 
         // Initialize screen dimensions to default values
         // This is in pixels

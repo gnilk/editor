@@ -232,7 +232,8 @@ int main(int argc, const char **argv) {
 
             auto action = KeyMapping::Instance().ActionFromKeyPress(keyPress);
             if (action != gedit::kAction::kActionNone) {
-                logger->Debug("Action found - sending to RootView");
+                logger->Debug("Action '%s' found - sending to RootView", KeyMapping::Instance().ActionName(action).c_str());
+
                 rootView.OnAction(action);
             } else {
                 logger->Debug("No action for keypress, treating as regular input");

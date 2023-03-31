@@ -5,6 +5,7 @@
 #include "Buffer.h"
 #include "Line.h"
 
+using namespace gedit;
 //
 // Reparse all lines and create attributes
 //

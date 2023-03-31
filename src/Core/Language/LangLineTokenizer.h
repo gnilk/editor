@@ -163,8 +163,8 @@ namespace gnilk {
         virtual ~LangLineTokenizer() = default;
 
         void ParseLine(std::vector<LangToken> &tokens, const char *input);
-        void ParseLines(std::vector<Line *> &lines);
-        void ParseLineFromStartState(std::string &listStartState, Line *line);
+        void ParseLines(std::vector<gedit::Line *> &lines);
+        void ParseLineFromStartState(std::string &listStartState, gedit::Line *line);
 
         // State management - this is available
         void SetStartState(const std::string &newStartState);

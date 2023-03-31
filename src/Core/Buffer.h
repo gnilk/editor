@@ -8,31 +8,32 @@
 #include "Core/Language/LanguageBase.h"
 #include "Core/Line.h"
 
-class Buffer {
-public:
+namespace gedit {
+    class Buffer {
+    public:
 
-    void SetLanguage(LanguageBase *newLanguage) {
-        language = newLanguage;
-        Reparse();
-    }
-    void Reparse();
-    bool HaveLanguage() { return language!= nullptr; }
-    LanguageBase &LangParser() { return *language; }
-    std::vector<Line *> &Lines() { return lines; }
+        void SetLanguage(LanguageBase *newLanguage) {
+            language = newLanguage;
+            Reparse();
+        }
+        void Reparse();
+        bool HaveLanguage() { return language != nullptr; }
+        LanguageBase &LangParser() { return *language; }
+        std::vector<Line *> &Lines() { return lines; }
 
-    Line *LineAt(size_t idxLine) {
-        return lines[idxLine];
-    }
-    size_t NumLines() {
-        return lines.size();
-    }
+        Line *LineAt(size_t idxLine) {
+            return lines[idxLine];
+        }
+        size_t NumLines() {
+            return lines.size();
+        }
 
 
-private:
-    LanguageBase *language;
-    //EditController *editController;
-    std::vector<Line *> lines;
-};
-
+    private:
+        LanguageBase *language;
+        //EditController *editController;
+        std::vector<Line *> lines;
+    };
+}
 
 #endif //EDITOR_BUFFER_H

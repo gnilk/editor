@@ -22,7 +22,7 @@ namespace gnilk {
 
         const std::string &String() const { return string; }
 
-        static void ToLineAttrib(std::vector<Line::LineAttrib> &attribs, std::vector<LangToken> &tokens);
+        static void ToLineAttrib(std::vector<gedit::Line::LineAttrib> &attribs, std::vector<LangToken> &tokens);
     };
 }
 

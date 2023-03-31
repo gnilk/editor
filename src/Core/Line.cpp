@@ -9,6 +9,7 @@
 #include "Core/StrUtil.h"
 #include "Core/Line.h"
 
+using namespace gedit;
 
 Line::Line() {
 

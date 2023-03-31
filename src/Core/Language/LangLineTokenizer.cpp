@@ -35,7 +35,7 @@ using namespace gnilk;
 LangLineTokenizer::LangLineTokenizer() {
 
 }
-void LangLineTokenizer::ParseLines(std::vector<Line *> &lines) {
+void LangLineTokenizer::ParseLines(std::vector<gedit::Line *> &lines) {
     if (!ResetStateStack()) {
         return;
     }
@@ -81,7 +81,7 @@ void LangLineTokenizer::ParseLine(std::vector<LangToken> &tokens, const char *in
 
 
 // FIXME: Supply some kind of feedback if we entered a block or similar - telling the application it should probably 'reparse' the whole thing..
-void LangLineTokenizer::ParseLineFromStartState(std::string &lineStartState, Line *line) {
+void LangLineTokenizer::ParseLineFromStartState(std::string &lineStartState, gedit::Line *line) {
     // Reset the state stack, start all over...
     if (!ResetStateStack()) {
         return;

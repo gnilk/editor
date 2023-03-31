@@ -1,6 +1,7 @@
 //
 // Created by gnilk on 29.03.23.
 //
+#include <SDL3/SDL_events.h>
 #include <SDL3/SDL_keyboard.h>
 #include <SDL3/SDL_scancode.h>
 #include <map>
@@ -8,6 +9,8 @@
 #include <string>
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_keycode.h>
+
+#include "logger.h"
 
 #include "Core/KeyCodes.h"
 #include "Core/KeyPress.h"
@@ -21,6 +24,7 @@ static int createTranslationTable();
 
 bool SDLKeyboardDriver::Initialize() {
     createTranslationTable();
+    SDL_StartTextInput();
     return true;
 }
 KeyPress SDLKeyboardDriver::GetKeyPress() {
@@ -29,13 +33,23 @@ KeyPress SDLKeyboardDriver::GetKeyPress() {
         if (event.type == SDL_EventType::SDL_EVENT_QUIT) {
             SDL_Quit();
             exit(0);
-        }
-        if (event.type == SDL_EventType::SDL_EVENT_KEY_DOWN) {
-            return TranslateSDLEvent(event.key);
+        }  else if (event.type == SDL_EventType::SDL_EVENT_KEY_DOWN) {
+            auto kp =  TranslateSDLEvent(event.key);
+            if (!kp.isSpecialKey) continue;
+            return kp;
+        } else if (event.type == SDL_EventType::SDL_EVENT_TEXT_INPUT) {
+            auto logger = gnilk::Logger::GetLogger("SDLKeyboardDriver");
+            KeyPress kp;
+            kp.isSpecialKey = false;
+            kp.isKeyValid = true;
+            kp.modifiers = TranslateModifiers(SDL_GetModState());
+            // This seems to work, but I assume that we can get buffered input here
+            // Need to check if there are some flags in SDL to deal with it
+            kp.key = event.text.text[0];
+            //logger->Debug("SDL_EVENT_TEXT_INPUT, event.text.text=%s", event.text.text);
+            return kp;
         }
     }
-    SDL_Delay(1000/60);
-
     return {};
 }
 
@@ -167,24 +181,18 @@ KeyPress SDLKeyboardDriver::TranslateSDLEvent(const SDL_KeyboardEvent &kbdEvent)
             keyPress.isSpecialKey = true;
             keyPress.isKeyValid = true;
             keyPress.specialKey = sdlToKeyCodes[kbdEvent.keysym.sym];
-        } else {
+        }
+        else {
 
-            // Assume this..
-//            keyPress.key = SDL_GetKeyFromScancode(kbdEvent.keysym.scancode);
+//            // Note: This is very wrong for any other locale than mine...
+//            // This should NOT use scan-codes!!!
 //            if (kbdEvent.keysym.mod & (SDL_KMOD_SHIFT | SDL_KMOD_CAPS)) {
-//                keyPress.key &= ~0x20;
+//                keyPress.key = asciiShiftTranslationMap[kbdEvent.keysym.scancode];
+//            } else {
+//                keyPress.key = asciiTranslationMap[kbdEvent.keysym.scancode];
 //            }
-
-
-            // Note: This is very wrong for any other locale than mine...
-            // This should NOT use scan-codes!!!
-            if (kbdEvent.keysym.mod & (SDL_KMOD_SHIFT | SDL_KMOD_CAPS)) {
-                keyPress.key = asciiShiftTranslationMap[kbdEvent.keysym.scancode];
-            } else {
-                keyPress.key = asciiTranslationMap[kbdEvent.keysym.scancode];
-            }
-            keyPress.isSpecialKey = false;
-            keyPress.isKeyValid = true;
+//            keyPress.isSpecialKey = false;
+//            keyPress.isKeyValid = true;
 
         }
     }

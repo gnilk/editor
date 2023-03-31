@@ -20,18 +20,18 @@ namespace gedit {
         explicit DrawContext(NativeWindow window, Rect clientRect) : win(window), rect(clientRect) {
         }
         virtual ~DrawContext() = default;
-        virtual void DrawStringAt(int x, int y, const char *str) {}
-        virtual void DrawStringWithAttributesAt(int x, int y, kTextAttributes attrib, const char *str) {}
-        virtual void DrawLine(Line *line, int idxLine) {}
-        virtual void DrawLines(const std::vector<Line *> &lines, int idxTopLine, int idxBottomLine) {}
-        virtual void DrawLineWithAttributesAt(int x, int y, int nCharToPrint, Line &l) {}
 
-        virtual void ClearLine(int y) {}
-        virtual void FillLine(int y, kTextAttributes attrib, char c) {}
+        virtual void ClearLine(int y) const {}
+        virtual void FillLine(int y, kTextAttributes attrib, char c) const {}
 
-        virtual void Clear() {}
-        virtual void Scroll(int nRows) {}
-        virtual const Rect &GetRect() {
+        virtual void Clear() const {}
+        virtual void Scroll(int nRows) const {}
+
+        virtual void DrawStringAt(int x, int y, const char *str) const {}
+        virtual void DrawStringWithAttributesAt(int x, int y, kTextAttributes attrib, const char *str) const {}
+        virtual void DrawStringWithAttributesAndColAt(int x, int y, kTextAttributes attrib, int idxColor, const char *str) const {}
+
+        virtual const Rect &GetRect() const {
             return rect;
         }
     protected:

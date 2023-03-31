@@ -1,0 +1,70 @@
+//
+// Created by gnilk on 31.03.23.
+//
+
+#include "logger.h"
+#include "LineRender.h"
+
+using namespace gedit;
+
+// This assumes X = 0
+void LineRender::DrawLines(const std::vector<Line *> &lines, int idxTopLine, int idxBottomLine) {
+    auto rect = dc.GetRect();
+
+    for (int i = idxTopLine; i < idxBottomLine; i++) {
+        if (i >= lines.size()) {
+            break;
+        }
+        auto line = lines[i];
+        auto nCharToPrint = line->Length() > rect.Width() ? rect.Width() : line->Length();
+        DrawLineWithAttributesAt(0, i - idxTopLine, nCharToPrint, *line);
+    }
+}
+
+// This is the more advanced drawing routine...
+void LineRender::DrawLineWithAttributesAt(int x, int y, int nCharToPrint, Line &l) {
+    // No attributes?  Just dump the string...
+    auto &attribs = l.Attributes();
+    if (attribs.size() == 0) {
+        dc.DrawStringAt(x, y, l.Buffer().data());
+        return;
+    }
+
+    // While the NCurses backend draw a char at the time this one will draw chunks
+    auto itAttrib = attribs.begin();
+    int xp = x;
+
+    while (itAttrib != attribs.end()) {
+        auto next = itAttrib + 1;
+        size_t len = std::string::npos;
+        // Not at the end - replace with length of this attribute
+        if (next != attribs.end()) {
+            // Some kind of assert!
+            if (itAttrib->idxOrigString > next->idxOrigString) {
+                auto logger = gnilk::Logger::GetLogger("SDLDrawContext");
+                logger->Error("DrawLineWithAttributesAt, attribute index is wrong for line: '%s'", l.Buffer().data());
+                return;
+            }
+            len = next->idxOrigString - itAttrib->idxOrigString;
+        }
+
+        // Grab the substring for this attribute range
+        std::string strOut = std::string(l.Buffer().data(), itAttrib->idxOrigString, len);
+
+        // Draw string with the correct color...
+        dc.DrawStringWithAttributesAndColAt(xp,y, itAttrib->textAttributes, itAttrib->idxColor, strOut.c_str());
+
+        xp += len;
+        itAttrib = next;
+    }
+
+
+    // Selection should be between cursor positions...
+    // ...Just testing...
+//    if (l.IsSelected()) {
+//        SDL_SetRenderDrawColor(renderer,80,100,128,64);
+//        FillRect(x,y,GetRect().Width(), 1);
+//    }
+
+}
+

@@ -23,31 +23,26 @@ namespace gedit {
         }
         virtual ~SDLDrawContext() = default;
 
-        void Clear() override;
-        void DrawStringAt(int x, int y, const char *str) override;
-        void DrawStringWithAttributesAt(int x, int y, kTextAttributes attrib, const char *str) override;
+        void Clear() const override;
+        void Scroll(int nRows) const override;
+        void FillLine(int y, kTextAttributes attrib, char c) const override;
+        void ClearLine(int y) const override;
 
-        void DrawLine(Line *line, int idxLine) override;
-        void DrawLines(const std::vector<Line *> &lines, int idxTopLine, int idxBottomLine) override;
-        void DrawLineWithAttributesAt(int x, int y, int nCharToPrint, Line &l) override;
+        void DrawStringAt(int x, int y, const char *str) const override;
+        void DrawStringWithAttributesAt(int x, int y, kTextAttributes attrib, const char *str) const override;
+        void DrawStringWithAttributesAndColAt(int x, int y, kTextAttributes attrib, int idxColor, const char *str) const override;
 
-        void ClearLine(int y) override;
-        void FillLine(int y, kTextAttributes attrib, char c) override;
-        void Scroll(int nRows) override;
     protected:
 
-        void DrawStringWithAttributesAndColAt(int x, int y, kTextAttributes attrib, int idxColor, const char *str);
-
-
         // Fill Rect use current color
-        void FillRect(float x, float y, float w, float h);
+        void FillRect(float x, float y, float w, float h) const;
         // DrawLine use current color
-        void DrawLine(float x1, float y1, float x2, float y2);
+        void DrawLine(float x1, float y1, float x2, float y2) const;
 
         // Draw a line with a specific pixel offset - applied after editor -> screen transformation has happened
-        void DrawLineWithPixelOffset(float x1, float y1, float x2, float y2, float ofsX = 0.0f, float ofsY = 0.0f);
+        void DrawLineWithPixelOffset(float x1, float y1, float x2, float y2, float ofsX = 0.0f, float ofsY = 0.0f) const;
 
-        std::pair<float, float>CoordsToScreen(float x, float y);
+        std::pair<float, float>CoordsToScreen(float x, float y) const;
 
     private:
         SDL_Renderer *renderer;

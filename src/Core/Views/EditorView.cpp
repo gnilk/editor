@@ -1,12 +1,14 @@
 //
 // Created by gnilk on 14.02.23.
 //
+#include <unordered_map>
 
 #include "Core/Action.h"
 #include "Core/Config/Config.h"
+#include "Core/KeyMapping.h"
 #include "Core/RuntimeConfig.h"
+#include "Core/LineRender.h"
 #include "EditorView.h"
-#include <unordered_map>
 
 using namespace gedit;
 
@@ -90,15 +92,9 @@ void EditorView::OnResized() {
 void EditorView::DrawViewContents() {
     auto &dc = window->GetContentDC(); //ViewBase::ContentAreaDrawContext();
     logger->Debug("DrawViewContents, dc Height=%d, topLine=%d, bottomLine=%d", dc.GetRect().Height(), editorModel->viewTopLine, editorModel->viewBottomLine);
-    dc.DrawLines(editorModel->GetEditController()->Lines(), editorModel->viewTopLine, editorModel->viewBottomLine);
-    return;
-    // Draw from line array between these..
-    if (IsInvalid()) {
-        logger->Debug("Redrawing everything");
-        dc.DrawLines(editorModel->GetEditController()->Lines(), editorModel->viewTopLine, editorModel->viewBottomLine);
-    } else {
-        dc.DrawLine(editorModel->LineAt(editorModel->idxActiveLine), cursor.position.y);
-    }
+
+    LineRender lineRender(dc);
+    lineRender.DrawLines(editorModel->GetEditController()->Lines(), editorModel->viewTopLine, editorModel->viewBottomLine);
 }
 
 void EditorView::OnActivate(bool isActive) {
@@ -119,6 +115,10 @@ void EditorView::OnKeyPress(const KeyPress &keyPress) {
 
     if (editorModel->GetEditController()->HandleKeyPress(editorModel->cursor, editorModel->idxActiveLine, keyPress)) {
         editorModel->GetEditController()->UpdateSyntaxForBuffer();
+        // Cancel selection if we had one...
+        if (editorModel->IsSelectionActive()) {
+            editorModel->CancelSelection();
+        }
         InvalidateView();
         return;
     }
@@ -131,6 +131,21 @@ void EditorView::OnKeyPress(const KeyPress &keyPress) {
 // Add actions here - all except human-readable inserting of text
 //
 bool EditorView::OnAction(const KeyPressAction &kpAction) {
+    if (kpAction.keyPress.IsShiftPressed()) {
+        if (!editorModel->IsSelectionActive()) {
+            editorModel->BeginSelection();
+        }
+    }
+    auto result = DispatchAction(kpAction);
+
+    // Update with cursor after navigation (if any happened)
+    if (editorModel->IsSelectionActive()) {
+        editorModel->UpdateSelection();
+    }
+
+    return result;
+}
+bool EditorView::DispatchAction(const KeyPressAction &kpAction) {
     switch(kpAction.action) {
         case kAction::kActionLineStepSingleLeft :
             return OnActionStepLeft();
@@ -141,7 +156,7 @@ bool EditorView::OnAction(const KeyPressAction &kpAction) {
         case kAction::kActionPageDown :
             return OnActionPageDown();
         case kAction::kActionLineDown :
-            return OnActionLineDown();
+            return OnActionLineDown(kpAction);
         case kAction::kActionLineUp :
             return OnActionLineUp();
         case kAction::kActionCommitLine :
@@ -165,6 +180,7 @@ bool EditorView::OnAction(const KeyPressAction &kpAction) {
     }
     return false;
 }
+
 
 //bool EditorView::OnActionBackspace() {
 //    auto currentLine = editorModel->GetEditController()->LineAt(editorModel->idxActiveLine);
@@ -295,8 +311,9 @@ bool EditorView::OnActionPageUp() {
     return true;
 }
 
-bool EditorView::OnActionLineDown() {
+bool EditorView::OnActionLineDown(const KeyPressAction &kpAction) {
     auto currentLine = editorModel->GetEditController()->LineAt(editorModel->idxActiveLine);
+
     OnNavigateDownVSCode(1);
     currentLine = editorModel->LineAt(editorModel->idxActiveLine);
     editorModel->cursor.position.x = editorModel->cursor.wantedColumn;

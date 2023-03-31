@@ -91,6 +91,7 @@ list(APPEND editorsrc src/Core/Views/HSplitViewStatus.h)
 list(APPEND editorsrc src/Core/DrawContext.h)
 list(APPEND editorsrc src/Core/Point.h)
 list(APPEND editorsrc src/Core/Rect.h)
+list(APPEND editorsrc src/Core/LineRender.cpp src/Core/LineRender.h)
 # controllers
 list(APPEND editorsrc src/Core/Controllers/BaseController.cpp src/Core/Controllers/BaseController.h)
 list(APPEND editorsrc src/Core/Controllers/EditController.cpp src/Core/Controllers/EditController.h)

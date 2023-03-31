@@ -14,7 +14,6 @@
 
 namespace gedit {
 
-
     class EditorView : public ViewBase {
     public:
         EditorView() = default;
@@ -54,7 +53,7 @@ namespace gedit {
         void DrawViewContents() override;
     protected:
         // Action handlers
-        bool OnActionLineDown();
+        bool OnActionLineDown(const KeyPressAction &kpAction);
         bool OnActionLineUp();
         bool OnActionPageUp();
         bool OnActionPageDown();
@@ -72,6 +71,8 @@ namespace gedit {
 //        bool OnActionBackspace();
 
     private:
+        bool DispatchAction(const KeyPressAction &kpAction);
+
         bool UpdateNavigation(const KeyPress &keyPress);
 
         void OnNavigateUpVSCode(int rows);
@@ -85,7 +86,6 @@ namespace gedit {
         EditorModel::Ref editorModel;
         // --
         gnilk::ILogger *logger = nullptr;
-
     };
 }
 

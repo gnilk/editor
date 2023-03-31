@@ -14,19 +14,15 @@
 
 using namespace gedit;
 
-void SDLDrawContext::Clear() {
+void SDLDrawContext::Clear() const {
 
 }
 
-void SDLDrawContext::DrawLine(Line *line, int idxLine) {
-    // REMOVE ME!
-}
-
-void SDLDrawContext::ClearLine(int y) {
+void SDLDrawContext::ClearLine(int y) const {
 
 }
 
-void SDLDrawContext::FillLine(int y, kTextAttributes attrib, char c) {
+void SDLDrawContext::FillLine(int y, kTextAttributes attrib, char c) const {
     auto [fg, bg] = SDLColorRepository::Instance().GetColor(0);
     if (attrib & kTextAttributes::kInverted) {
         fg.Use(renderer);
@@ -36,11 +32,11 @@ void SDLDrawContext::FillLine(int y, kTextAttributes attrib, char c) {
     FillRect(0,y,rect.Width(),1);
 }
 
-void SDLDrawContext::Scroll(int nRows) {
+void SDLDrawContext::Scroll(int nRows) const {
 
 }
 
-std::pair<float, float> SDLDrawContext::CoordsToScreen(float x, float y) {
+std::pair<float, float> SDLDrawContext::CoordsToScreen(float x, float y) const {
     auto pixWinOfs = SDLTranslate::RowColToPixel(rect.TopLeft());
 
     float screenXPos = SDLTranslate::ColToXPos(x) + pixWinOfs.x;
@@ -49,7 +45,7 @@ std::pair<float, float> SDLDrawContext::CoordsToScreen(float x, float y) {
     return {screenXPos, screenYPos};
 }
 
-void SDLDrawContext::FillRect(float x, float y, float w, float h) {
+void SDLDrawContext::FillRect(float x, float y, float w, float h) const {
     auto [pixXStart, pixYStart] = CoordsToScreen(x, y);
     //auto [pixWidth, pixHeight] = CoordsToScreen(w, h);
 
@@ -60,13 +56,13 @@ void SDLDrawContext::FillRect(float x, float y, float w, float h) {
     SDL_RenderFillRect(renderer, &rect);
 }
 
-void SDLDrawContext::DrawLine(float x1, float y1, float x2, float y2) {
+void SDLDrawContext::DrawLine(float x1, float y1, float x2, float y2) const {
     auto [px1, py1] = CoordsToScreen(x1, y1);
     auto [px2, py2] = CoordsToScreen(x2, y2);
 
     SDL_RenderLine(renderer, px1, py1, px2, py2);
 }
-void SDLDrawContext::DrawLineWithPixelOffset(float x1, float y1, float x2, float y2, float ofsX, float ofsY) {
+void SDLDrawContext::DrawLineWithPixelOffset(float x1, float y1, float x2, float y2, float ofsX, float ofsY) const {
     auto [px1, py1] = CoordsToScreen(x1, y1);
     auto [px2, py2] = CoordsToScreen(x2, y2);
 
@@ -78,7 +74,7 @@ void SDLDrawContext::DrawLineWithPixelOffset(float x1, float y1, float x2, float
 // ALL STRINGS ARE DRAWN BOTTOM UP
 // YPOS means the LOWER scanline of the text-texture
 //
-void SDLDrawContext::DrawStringAt(int x, int y, const char *str) {
+void SDLDrawContext::DrawStringAt(int x, int y, const char *str) const {
     auto font = SDLFontManager::Instance().GetActiveFont();
 
     SDL_SetRenderTarget(renderer, renderTarget);
@@ -90,7 +86,7 @@ void SDLDrawContext::DrawStringAt(int x, int y, const char *str) {
 }
 
 // Note: 'Blink' is NOT supported
-void SDLDrawContext::DrawStringWithAttributesAndColAt(int x, int y, kTextAttributes attrib, int idxColor, const char *str) {
+void SDLDrawContext::DrawStringWithAttributesAndColAt(int x, int y, kTextAttributes attrib, int idxColor, const char *str) const {
     auto font = SDLFontManager::Instance().GetActiveFont();
     SDL_SetRenderTarget(renderer, renderTarget);
 
@@ -129,69 +125,74 @@ void SDLDrawContext::DrawStringWithAttributesAndColAt(int x, int y, kTextAttribu
     }
 }
 
-void SDLDrawContext::DrawStringWithAttributesAt(int x, int y, kTextAttributes attrib, const char *str) {
+void SDLDrawContext::DrawStringWithAttributesAt(int x, int y, kTextAttributes attrib, const char *str) const {
     DrawStringWithAttributesAndColAt(x,y, attrib, 0, str);
 }
 
-// This assumes X = 0
-void SDLDrawContext::DrawLines(const std::vector<Line *> &lines, int idxTopLine, int idxBottomLine) {
-    SDL_SetRenderTarget(renderer, renderTarget);
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+//
+// Note: These draw line function's shouldn't sit here
+//       As we can't supply enough information for them..
+//
+//
+//
 
-    for (int i = idxTopLine; i < idxBottomLine; i++) {
-        if (i >= lines.size()) {
-            break;
-        }
-        auto line = lines[i];
-        auto nCharToPrint = line->Length() > rect.Width() ? rect.Width() : line->Length();
-        DrawLineWithAttributesAt(0, i - idxTopLine, nCharToPrint, *line);
-    }
-}
 
-// This is the more advanced drawing routine...
-void SDLDrawContext::DrawLineWithAttributesAt(int x, int y, int nCharToPrint, Line &l) {
-    auto font = SDLFontManager::Instance().GetActiveFont();
-    SDL_SetRenderTarget(renderer, renderTarget);
-
-    // No attributes?  Just dump the string...
-    auto &attribs = l.Attributes();
-    if (attribs.size() == 0) {
-        DrawStringAt(x, y, l.Buffer().data());
-        return;
-    }
-
-    // While the NCurses backend draw a char at the time this one will draw chunks
-    auto itAttrib = attribs.begin();
-    int xp = x;
-
-    while (itAttrib != attribs.end()) {
-        auto next = itAttrib + 1;
-        size_t len = std::string::npos;
-        // Not at the end - replace with length of this attribute
-        if (next != attribs.end()) {
-            // Some kind of assert!
-            if (itAttrib->idxOrigString > next->idxOrigString) {
-                auto logger = gnilk::Logger::GetLogger("SDLDrawContext");
-                logger->Error("DrawLineWithAttributesAt, attribute index is wrong for line: '%s'", l.Buffer().data());
-                return;
-            }
-            len = next->idxOrigString - itAttrib->idxOrigString;
-        }
-
-        // Grab the substring for this attribute range
-        std::string strOut = std::string(l.Buffer().data(), itAttrib->idxOrigString, len);
-
-        // Draw string with the correct color...
-
-        DrawStringWithAttributesAndColAt(xp,y, itAttrib->textAttributes, itAttrib->idxColor, strOut.c_str());
-
-//        auto [fgColor, bgColor] = SDLColorRepository::Instance().GetColor(itAttrib->idxColor);
-//        auto [px, py] = CoordsToScreen(xp,y);
-//        fgColor.Use(renderer);
-//        STBTTF_RenderText(renderer, font, px, py + font->baseline, strOut.c_str());
-
-        xp += len;
-        itAttrib = next;
-    }
-}
-
+//// This assumes X = 0
+//void SDLDrawContext::DrawLines(const std::vector<Line *> &lines, int idxTopLine, int idxBottomLine) {
+//    for (int i = idxTopLine; i < idxBottomLine; i++) {
+//        if (i >= lines.size()) {
+//            break;
+//        }
+//        auto line = lines[i];
+//        auto nCharToPrint = line->Length() > rect.Width() ? rect.Width() : line->Length();
+//        DrawLineWithAttributesAt(0, i - idxTopLine, nCharToPrint, *line);
+//    }
+//}
+//
+//// This is the more advanced drawing routine...
+//void SDLDrawContext::DrawLineWithAttributesAt(int x, int y, int nCharToPrint, Line &l) {
+//    // No attributes?  Just dump the string...
+//    auto &attribs = l.Attributes();
+//    if (attribs.size() == 0) {
+//        DrawStringAt(x, y, l.Buffer().data());
+//        return;
+//    }
+//
+//    // While the NCurses backend draw a char at the time this one will draw chunks
+//    auto itAttrib = attribs.begin();
+//    int xp = x;
+//
+//    while (itAttrib != attribs.end()) {
+//        auto next = itAttrib + 1;
+//        size_t len = std::string::npos;
+//        // Not at the end - replace with length of this attribute
+//        if (next != attribs.end()) {
+//            // Some kind of assert!
+//            if (itAttrib->idxOrigString > next->idxOrigString) {
+//                auto logger = gnilk::Logger::GetLogger("SDLDrawContext");
+//                logger->Error("DrawLineWithAttributesAt, attribute index is wrong for line: '%s'", l.Buffer().data());
+//                return;
+//            }
+//            len = next->idxOrigString - itAttrib->idxOrigString;
+//        }
+//
+//        // Grab the substring for this attribute range
+//        std::string strOut = std::string(l.Buffer().data(), itAttrib->idxOrigString, len);
+//
+//        // Draw string with the correct color...
+//        DrawStringWithAttributesAndColAt(xp,y, itAttrib->textAttributes, itAttrib->idxColor, strOut.c_str());
+//
+//        xp += len;
+//        itAttrib = next;
+//    }
+//
+//
+//    // Selection should be between cursor positions...
+//    // ...Just testing...
+//    if (l.IsSelected()) {
+//        SDL_SetRenderDrawColor(renderer,80,100,128,64);
+//        FillRect(x,y,GetRect().Width(), 1);
+//    }
+//
+//}
+//

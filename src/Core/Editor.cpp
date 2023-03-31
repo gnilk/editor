@@ -2,6 +2,9 @@
 // Created by gnilk on 17.03.23.
 //
 
+#include <vector>
+#include <string>
+
 #include "Editor.h"
 #include "Core/BufferManager.h"
 #include "Core/RuntimeConfig.h"
@@ -150,8 +153,26 @@ void Editor::ConfigureColorTheme() {
     }
 }
 
+
+static std::vector<std::string> glbSupportedBackends = {
+        {"ncurses"},
+        {"sdl"},
+};
+
 void Editor::ConfigureSubSystems() {
     auto backend = Config::Instance()["main"].GetStr("backend","ncurses");
+
+    // See if supported, if not - print supported and die...
+    // This is one of the few places where we exit..
+    if (std::find(glbSupportedBackends.begin(), glbSupportedBackends.end(), backend) == glbSupportedBackends.end()) {
+        logger->Error("Unknown backend: '%s'",backend.c_str());
+        fprintf(stderr, "Unknown backend: '%s'\n",backend.c_str());
+        fprintf(stderr, "Supported: \n");
+        for(auto &be : glbSupportedBackends) {
+            fprintf(stderr,"  %s\n", be.c_str());
+        }
+        exit(1);
+    }
 
     if (backend == "ncurses") {
         SetupNCurses();

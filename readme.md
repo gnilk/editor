@@ -14,7 +14,7 @@ Goals
 - Pass through to underlying shell in case the command is not an editor command
 - Support for different backends
   - NCurses (terminal)
-  - IMGUI (?) for Portable UI
+  - SDL3 for a proper (i.e. a real application) frontend
   - etc...
 
 Pressing ESC enters command mode, which is an embedded terminal (bash/sh/zsh or whatever you fancy)
@@ -50,8 +50,11 @@ yaml-cpp, nlohmann you should clone and link - see CMakeLists.txt
 ![screenshot](screenshots/sdlbackend_only_editor.png?raw=true)
 Took a stab at testing if multiple backends where actually possible. Decided to try libSDL - haven't used it before.
 Worked fine, using stb_ttf for true type fond rendering.
-Basic keyboard handling is in place - currently doing it wrong - no locale handling..  i.e changing keyboard layouts
-does not give the desired result
+
+Keyboard handling is solved listening to the SDL_TEXT_INPUT event, not quite sure if this will works. Seems like SDL
+has the ability to buffer things (I dont) - but haven't seen it yet.
+
+![screenshot](screenshots/sdlbackend_cmdview.png?raw=true)
 
 
 

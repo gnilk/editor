@@ -38,6 +38,7 @@ static std::unordered_map<std::string, kAction> strToActionMap = {
         {"GotoTopLine", kAction::kActionGotoTopLine},
         {"CycleActiveView", kAction::kActionCycleActiveView},
         {"CycleActiveEditor", kAction::kActionCycleActiveEditor},
+        {"EditBackspace", kAction::kActionEditBackspace},
 };
 
 
@@ -181,6 +182,16 @@ bool KeyMapping::Initialize() {
 
 const std::string &KeyMapping::KeyCodeName(const Keyboard::kKeyCode keyCode) {
     return keyCodeToStrMap[keyCode];
+}
+
+// Note: This is a slow operation, it is used for debugging purposes...
+const std::string &KeyMapping::ActionName(const kAction action) {
+    for(auto &it : strToActionMap) {
+        if (it.second == action) {
+            return it.first;
+        }
+    }
+    return {};
 }
 
 int KeyMapping::ModifierMaskFromString(const std::string &strModifiers) {

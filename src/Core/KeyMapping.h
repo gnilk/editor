@@ -16,6 +16,7 @@ namespace gedit {
         static KeyMapping &Instance();
 
         const std::string &KeyCodeName(const Keyboard::kKeyCode keyCode);
+        const std::string &ActionName(const kAction action);
         int ModifierMaskFromString(const std::string &strModifiers);
         kAction ActionFromName(const std::string &strAction);
         kAction ActionFromKeyPress(const KeyPress &keyPress);

@@ -35,6 +35,8 @@ namespace gedit {
         kActionGotoBottomLine,          // Default: cmd + pageDown
         kActionCycleActiveView,         // Default: esc
         kActionCycleActiveEditor,       // TEST-TEST Default: F3
+        // Edit actions
+        kActionEditBackspace,
     };
 
     class ActionItem {

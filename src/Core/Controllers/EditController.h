@@ -46,9 +46,6 @@ namespace gedit {
             return textBuffer->LineAt(idxLine);
         }
 
-    protected:
-        // This can probably be moved to the view
-        bool UpdateNavigation(const KeyPress &keyPress);
         void UpdateSyntaxForBuffer();
 
     private:

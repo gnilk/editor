@@ -48,6 +48,7 @@
  * ! Only views with content should have an NCurses Window structure..
  * ! Rewrote the view/window handling tossed out the old layout thingie
  */
+#include <SDL3/SDL_keyboard.h>
 #include <iostream>
 #include <ncurses.h>
 #include <string_view>
@@ -113,6 +114,8 @@ static void TestKeyBoardDriver() {
     auto screen = RuntimeConfig::Instance().Screen();
     auto keyboardDriver = RuntimeConfig::Instance().Keyboard();
     auto logger = gnilk::Logger::GetLogger("kbdtest");
+
+    SDL_StartTextInput();
 
     bool bQuit = false;
     while(!bQuit) {

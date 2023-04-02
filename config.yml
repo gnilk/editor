@@ -58,6 +58,10 @@ defaultkeymap: {
   KeyCode_LeftCmd + KeyCode_RightArrow : NavigateLineWordRight,
   KeyCode_Escape : CycleActiveView,
   KeyCode_F3 : CycleActiveEditor,
+
+  KeyCode_Command + 'c' : CopyToClipboard,
+  KeyCode_Command + 'v' : PasteFromClipboard,
+
 }
 
 # we

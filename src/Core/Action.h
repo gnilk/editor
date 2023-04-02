@@ -64,10 +64,6 @@ namespace gedit {
 
         // Not sure about this one..
         bool MatchKeyPress(const KeyPress &keyPress) {
-            //if (!keyPress.isHwEventValid) return false;
-            if (keyCode == Keyboard::kKeyCode_PageUp) {
-                int breakme = 1;
-            }
             if ((modiferMask != 0) && (keyPress.modifiers == 0)) {
                 return false;
             }

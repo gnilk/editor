@@ -317,7 +317,6 @@ bool KeyMapping::RebuildActionMapping() {
             nameKeyCode = keyCodeParts[0];
         } else {
             // We have more tokens - this indicates modifiers and keycode...
-            // FIXME: Split this...
             int idxKeyCode = -1;
             std::vector<std::string> modifiers;
 

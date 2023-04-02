@@ -45,9 +45,6 @@ KeyPress SDLKeyboardDriver::GetKeyPress() {
                 return kp;
             } else if (kp.modifiers != 0) {
                 kp.key = TranslateScanCode(event.key.keysym.scancode); //  kp.hwEvent.scanCode);
-                if (kp.key != 0) {
-                    int breakme = 1;
-                }
                 kp.isKeyValid = true;
                 logger->Debug("  kp, modifiers=%.2x, scancode=%.2x, key=%.2x (%c), ", kp.modifiers, kp.hwEvent.scanCode, kp.key, kp.key);
                 return kp;

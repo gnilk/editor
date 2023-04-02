@@ -129,9 +129,19 @@ static void TestKeyBoardDriver() {
         }
         if (kp.isSpecialKey) {
             auto keyName = KeyMapping::Instance().KeyCodeName(static_cast<Keyboard::kKeyCode>(kp.specialKey));
-            logger->Debug("special kp, modifiers=%.2x, key=%.2x (%s)", kp.modifiers, kp.specialKey, keyName.c_str());
+            logger->Debug("special kp, modifiers=%.2x, specialKey=%.2x (%s)", kp.modifiers, kp.specialKey, keyName.c_str());
         } else {
             logger->Debug("kp, modifiers=%.2x, scancode=%.2x, key=%.2x (%c), ", kp.modifiers, kp.hwEvent.scanCode, kp.key, kp.key);
+        }
+        if (kp.IsAnyValid()) {
+
+            logger->Debug("KeyPress Valid - checking actions");
+
+            auto kpAction = KeyMapping::Instance().ActionFromKeyPress(kp);
+            if (kpAction.has_value()) {
+                logger->Debug("Action '%s' found",
+                              KeyMapping::Instance().ActionName(kpAction->action).c_str());
+            }
         }
     }
     screen->Close();
@@ -147,7 +157,6 @@ int main(int argc, const char **argv) {
     RuntimeConfig::Instance().SetMainThreadID();
 
 //    TestKeyBoardDriver();
-//    exit(1);
 
 
     auto logger = gnilk::Logger::GetLogger("main");

@@ -12,6 +12,9 @@
 #include "Core/LineRender.h"
 #include "EditorView.h"
 
+// TEMP
+#include <SDL3/SDL_clipboard.h>
+
 using namespace gedit;
 
 void EditorView::InitView()  {
@@ -153,6 +156,19 @@ bool EditorView::OnAction(const KeyPressAction &kpAction) {
         if (editorModel->IsSelectionActive()) {
             editorModel->CancelSelection();
         }
+    }
+    if (kpAction.action == kAction::kActionCopyToClipboard) {
+        logger->Debug("Set text to clip board");
+        SDL_SetClipboardText("mamma mia, hundar lagar mat..");
+    } else if (kpAction.action == kAction::kActionPasteFromClipboard) {
+        if (SDL_HasClipboardText()) {
+            auto clipBoardText = SDL_GetClipboardText();
+            logger->Debug("Past from clipboard: '%s'", clipBoardText);
+        } else {
+            logger->Debug("No text in clipboard");
+        }
+
+
     }
     auto result = DispatchAction(kpAction);
 

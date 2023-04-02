@@ -15,7 +15,7 @@
 #include "Core/KeyCodes.h"
 #include "Core/KeyPress.h"
 #include "SDLKeyboardDriver.h"
-
+#include "Core/KeyMapping.h"
 
 using namespace gedit;
 
@@ -35,10 +35,26 @@ KeyPress SDLKeyboardDriver::GetKeyPress() {
             exit(0);
         }  else if (event.type == SDL_EventType::SDL_EVENT_KEY_DOWN) {
             auto kp =  TranslateSDLEvent(event.key);
-            if (!kp.isSpecialKey) continue;
-            return kp;
-        } else if (event.type == SDL_EventType::SDL_EVENT_TEXT_INPUT) {
+
             auto logger = gnilk::Logger::GetLogger("SDLKeyboardDriver");
+            logger->Debug("KeyDown event: %d (0x%.x)", event.type, event.type);
+
+            if (kp.isSpecialKey) {
+                auto keyName = KeyMapping::Instance().KeyCodeName(static_cast<Keyboard::kKeyCode>(kp.specialKey));
+                logger->Debug("  special kp, modifiers=%.2x, specialKey=%.2x (%s)", kp.modifiers, kp.specialKey, keyName.c_str());
+                return kp;
+            } else if (kp.modifiers != 0) {
+                kp.key = TranslateScanCode(event.key.keysym.scancode); //  kp.hwEvent.scanCode);
+                if (kp.key != 0) {
+                    int breakme = 1;
+                }
+                kp.isKeyValid = true;
+                logger->Debug("  kp, modifiers=%.2x, scancode=%.2x, key=%.2x (%c), ", kp.modifiers, kp.hwEvent.scanCode, kp.key, kp.key);
+                return kp;
+            }
+            continue;
+        } else if (event.type == SDL_EventType::SDL_EVENT_TEXT_INPUT) {
+            //  auto logger = gnilk::Logger::GetLogger("SDLKeyboardDriver");
             KeyPress kp;
             kp.isSpecialKey = false;
             kp.isKeyValid = true;
@@ -48,6 +64,9 @@ KeyPress SDLKeyboardDriver::GetKeyPress() {
             kp.key = event.text.text[0];
             //logger->Debug("SDL_EVENT_TEXT_INPUT, event.text.text=%s", event.text.text);
             return kp;
+        }  else {
+//            auto logger = gnilk::Logger::GetLogger("SDLKeyboardDriver");
+//            logger->Debug("Unhandled event: %d (0x%.x)", event.type, event.type);
         }
     }
     return {};
@@ -87,8 +106,16 @@ static std::map<SDL_Keycode, Keyboard::kKeyCode> sdlToKeyCodes {
         {SDLK_KP_ENTER, Keyboard::kKeyCode_Return},
 };
 
-static std::unordered_map<int, char> asciiTranslationMap;
+static std::unordered_map<int, char> scanCodeToAscii;
 static std::unordered_map<int, char> asciiShiftTranslationMap;
+
+int SDLKeyboardDriver::TranslateScanCode(int scanCode) {
+    if (scanCodeToAscii.find(scanCode) == scanCodeToAscii.end()) {
+        return 0;
+    }
+    return scanCodeToAscii[scanCode];
+}
+
 
 //
 // This is based on inspection...
@@ -97,7 +124,7 @@ static std::unordered_map<int, char> asciiShiftTranslationMap;
 static int createTranslationTable() {
     int scanCode = 0x04;
     for(int i='a';i<='z';i++) {
-        asciiTranslationMap[scanCode] = i;
+        scanCodeToAscii[scanCode] = i;
         asciiShiftTranslationMap[scanCode] = std::toupper(i);
         scanCode++;
     }
@@ -105,38 +132,38 @@ static int createTranslationTable() {
     static std::string numbers="1234567890";
     static std::string numbersShift="!@#$%^&*()";
     for(int i=0;i<numbers.size();i++) {
-        asciiTranslationMap[scanCode] = numbers[i];
-        asciiShiftTranslationMap[scanCode] = numbersShift[i];
+        scanCodeToAscii[scanCode] = numbers[i];
+  //      asciiShiftTranslationMap[scanCode] = numbersShift[i];
         scanCode++;
     }
 
     // These are next to the enter key on my keyboard...
-    asciiTranslationMap[0x2f] = '[';
-    asciiTranslationMap[0x30] = ']';
-    asciiTranslationMap[0x32] = '\\';
-    asciiTranslationMap[0x33] = ';';
-    asciiTranslationMap[0x34] = '\'';
-    asciiTranslationMap[0x35] = 0x60; //'`';
-    asciiTranslationMap[0x36] = ',';
-    asciiTranslationMap[0x37] = '.';
-    asciiTranslationMap[0x38] = '/';
+    scanCodeToAscii[0x2f] = '[';
+    scanCodeToAscii[0x30] = ']';
+    scanCodeToAscii[0x32] = '\\';
+    scanCodeToAscii[0x33] = ';';
+    scanCodeToAscii[0x34] = '\'';
+    scanCodeToAscii[0x35] = 0x60; //'`';
+    scanCodeToAscii[0x36] = ',';
+    scanCodeToAscii[0x37] = '.';
+    scanCodeToAscii[0x38] = '/';
     // Numpad
-    asciiTranslationMap[0x59] = '1';
-    asciiTranslationMap[0x5a] = '2';
-    asciiTranslationMap[0x5b] = '3';
-    asciiTranslationMap[0x5c] = '4';
-    asciiTranslationMap[0x5d] = '5';
-    asciiTranslationMap[0x5e] = '6';
-    asciiTranslationMap[0x5f] = '7';
-    asciiTranslationMap[0x60] = '8';
-    asciiTranslationMap[0x61] = '9';
-    asciiTranslationMap[0x62] = '0';
-    asciiTranslationMap[SDL_SCANCODE_KP_DIVIDE] = '/';
-    asciiTranslationMap[SDL_SCANCODE_KP_PLUS] = '+';
-    asciiTranslationMap[SDL_SCANCODE_KP_MINUS] = '-';
-    asciiTranslationMap[SDL_SCANCODE_KP_MULTIPLY] = '*';
-    asciiTranslationMap[SDL_SCANCODE_KP_COMMA] = '.';
-
+    scanCodeToAscii[0x59] = '1';
+    scanCodeToAscii[0x5a] = '2';
+    scanCodeToAscii[0x5b] = '3';
+    scanCodeToAscii[0x5c] = '4';
+    scanCodeToAscii[0x5d] = '5';
+    scanCodeToAscii[0x5e] = '6';
+    scanCodeToAscii[0x5f] = '7';
+    scanCodeToAscii[0x60] = '8';
+    scanCodeToAscii[0x61] = '9';
+    scanCodeToAscii[0x62] = '0';
+    scanCodeToAscii[SDL_SCANCODE_KP_DIVIDE] = '/';
+    scanCodeToAscii[SDL_SCANCODE_KP_PLUS] = '+';
+    scanCodeToAscii[SDL_SCANCODE_KP_MINUS] = '-';
+    scanCodeToAscii[SDL_SCANCODE_KP_MULTIPLY] = '*';
+    scanCodeToAscii[SDL_SCANCODE_KP_COMMA] = '.';
+/*
     // SHIFT
     asciiShiftTranslationMap[0x2f] = '{';
     asciiShiftTranslationMap[0x30] = '}';
@@ -164,7 +191,7 @@ static int createTranslationTable() {
     asciiTranslationMap[SDL_SCANCODE_KP_MULTIPLY] = '*';
     asciiTranslationMap[SDL_SCANCODE_KP_COMMA] = '.';       // This should probably be localized...
 
-
+*/
 
     return scanCode;
 }

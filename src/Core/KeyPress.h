@@ -49,7 +49,7 @@ namespace gedit {
             return (isKeyValid && isHwEventValid);
         }
         bool IsAnyValid() const {
-            return (isKeyValid || isHwEventValid);
+            return (isKeyValid || isHwEventValid || isSpecialKey);
         }
 
         bool IsSpecialKeyPressed(Keyboard::kKeyCode keyCode) const {

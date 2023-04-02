@@ -37,6 +37,9 @@ namespace gedit {
         kActionCycleActiveEditor,       // TEST-TEST Default: F3
         // Edit actions
         kActionEditBackspace,
+        // Other
+        kActionCopyToClipboard,
+        kActionPasteFromClipboard,
     };
 
     class ActionItem {
@@ -47,9 +50,16 @@ namespace gedit {
         ActionItem(kAction mAction, int mModiferMask, Keyboard::kKeyCode mKeycode, std::string &actionName)
                 : action(mAction), modiferMask(mModiferMask), keyCode(mKeycode), name(actionName) {
         }
+        ActionItem(kAction mAction, int mModiferMask, int asciiValue, std::string &actionName)
+                : action(mAction), modiferMask(mModiferMask), asciiKeyCode(asciiValue), name(actionName) {
+        }
 
         static ActionItem::Ref Create(kAction mAction, int mModiferMask, Keyboard::kKeyCode mKeycode, std::string &actionName) {
             return std::make_shared<ActionItem>(mAction, mModiferMask, mKeycode, actionName);
+        }
+
+        static ActionItem::Ref Create(kAction mAction, int mModiferMask, int asciiValue, std::string &actionName) {
+            return std::make_shared<ActionItem>(mAction, mModiferMask, asciiValue, actionName);
         }
 
         // Not sure about this one..
@@ -65,11 +75,10 @@ namespace gedit {
                 return false;
             }
 
-
-
-            // TODO: if 'isSpecialKey' is false - then we should check if the 'isHwEventVali == true' && hwEvent.translatedKeyCode == 'asciiCode'
-
-            if (!keyPress.isSpecialKey) return false;
+            // If not special key is pressed, we check if the 'key' is valid and match against asciiKeyCode..
+            if (!keyPress.isSpecialKey && keyPress.isKeyValid) {
+                return (keyPress.key == asciiKeyCode);
+            }
             if (keyCode != keyPress.specialKey) return false;
 
             return true;
@@ -91,7 +100,8 @@ namespace gedit {
     private:
         kAction action = kAction::kActionNone;
         int modiferMask = 0;
-        Keyboard::kKeyCode keyCode;
+        int asciiKeyCode = 0;
+        Keyboard::kKeyCode keyCode = Keyboard::kKeyCode_None;
         std::string name;
         KeyPress keyPress = {};      // Keypress that caused this action
     };

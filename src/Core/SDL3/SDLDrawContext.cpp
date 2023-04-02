@@ -47,7 +47,6 @@ std::pair<float, float> SDLDrawContext::CoordsToScreen(float x, float y) const {
 
 void SDLDrawContext::FillRect(float x, float y, float w, float h) const {
     auto [pixXStart, pixYStart] = CoordsToScreen(x, y);
-    //auto [pixWidth, pixHeight] = CoordsToScreen(w, h);
 
     auto pixWidth = SDLTranslate::ColToXPos(w);
     auto pixHeight = SDLTranslate::RowToYPos(h);

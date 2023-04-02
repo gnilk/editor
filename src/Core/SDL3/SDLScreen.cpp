@@ -105,7 +105,7 @@ void SDLScreen::Close() {
 void SDLScreen::Clear() {
     SDL_SetRenderTarget(renderer, nullptr);
     SDLColorRepository::Instance().UseBackgroundColor(renderer);
-    //SDL_SetRenderDrawColor(renderer, 46, 54, 62, 255);
+    //SDL_SetRenderDrawColor(renderer, 128,0,0,255);
     SDL_RenderClear(renderer);
 }
 

@@ -14,3 +14,11 @@ void TextBuffer::Reparse() {
     auto tokenizer = language->Tokenizer();
     tokenizer.ParseLines(lines);
 }
+
+void TextBuffer::CopyRegionToString(std::string &outText, const Cursor &start, const Cursor &end) {
+    for (int idxLine=start.position.y;idxLine<end.position.y;idxLine++) {
+        outText += lines[idxLine]->Buffer();
+        outText += "\n";
+    }
+}
+

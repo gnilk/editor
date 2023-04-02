@@ -40,9 +40,26 @@ defaultkeymap: {
   # properly mapped
   KeyCode_UpArrow : NavigateLineUp,
   KeyCode_DownArrow : NavigateLineDown,
+
   # Test - map to same action - but NavigateLineDown will check if this is pressed and invoke selection..
   KeyCode_Shift + KeyCode_DownArrow : NavigateLineDown,
   KeyCode_Shift + KeyCode_UpArrow : NavigateLineUp,
+
+  # Should be able to mark a modifier as 'optional' for an action
+  # like: KeyCode_DownArray + @KeyCode_Shift : NavigateDown
+  # or:   @KeyCode_Shift + KeyCode_DownArray : NavigateDown
+  #
+  # This would then insert two actions in the table one with 'Shift' and one without..
+  # Or Perhaps lik this:
+  #
+  # @SelectionModifier + KeyCode_DownArray : NavigateDown
+  #
+  # Change this to:
+  # Action = Key combo
+  # Will allow for other stuff like: var <variable> : some key code stuff
+  # and then reuse/substitue later will be easier and more 'logical'
+  # It also reads like a proper expression...
+  #
 
   KeyCode_LeftArrow : NavigateLineStepLeft,
   KeyCode_RightArrow : NavigateLineStepRight,

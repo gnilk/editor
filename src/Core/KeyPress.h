@@ -58,7 +58,7 @@ namespace gedit {
         }
 
         bool IsShiftPressed() const {
-            if (!isHwEventValid) return false;
+//            if (!isHwEventValid) return false;
             if ((modifiers & Keyboard::kMod_LeftShift) || (modifiers & Keyboard::kMod_RightShift)) {
                 return true;
             }
@@ -66,7 +66,7 @@ namespace gedit {
         }
 
         bool IsCtrlPressed() const {
-            if (!isHwEventValid) return false;
+//            if (!isHwEventValid) return false;
             if ((modifiers & Keyboard::kMod_LeftCtrl) || (modifiers & Keyboard::kMod_RightCtrl)) {
                 return true;
             }
@@ -74,7 +74,7 @@ namespace gedit {
         }
 
         bool IsCommandPressed() const {
-            if (!isHwEventValid) return false;
+//            if (!isHwEventValid) return false;
             if ((modifiers & Keyboard::kMod_LeftCommand) || (modifiers & Keyboard::kMod_RightCommand)) {
                 return true;
             }
@@ -82,7 +82,7 @@ namespace gedit {
         }
 
         bool IsAltPressed() const {
-            if (!isHwEventValid) return false;
+//            if (!isHwEventValid) return false;
             if ((modifiers & Keyboard::kMod_LeftAlt) || (modifiers & Keyboard::kMod_RightAlt)) {
                 return true;
             }

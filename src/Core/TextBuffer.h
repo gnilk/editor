@@ -9,6 +9,7 @@
 
 #include "Core/Language/LanguageBase.h"
 #include "Core/Line.h"
+#include "Core/Cursor.h"
 #include <memory>
 
 namespace gedit {
@@ -30,6 +31,8 @@ namespace gedit {
         size_t NumLines() {
             return lines.size();
         }
+
+        void CopyRegionToString(std::string &outText, const Cursor &start, const Cursor &end);
 
         const std::string &Name() const {
             return name;

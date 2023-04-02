@@ -37,7 +37,9 @@ KeyPress SDLKeyboardDriver::GetKeyPress() {
             auto kp =  TranslateSDLEvent(event.key);
 
             auto logger = gnilk::Logger::GetLogger("SDLKeyboardDriver");
-            logger->Debug("KeyDown event: %d (0x%.x)", event.type, event.type);
+            logger->Debug("KeyDown event: %d (0x%.x) - sym: %x (%d), scancode: %x (%d)", event.type, event.type,
+                          event.key.keysym.sym, event.key.keysym.sym,
+                          event.key.keysym.scancode, event.key.keysym.scancode);
 
             if (kp.isSpecialKey) {
                 auto keyName = KeyMapping::Instance().KeyCodeName(static_cast<Keyboard::kKeyCode>(kp.specialKey));
@@ -45,7 +47,9 @@ KeyPress SDLKeyboardDriver::GetKeyPress() {
                 return kp;
             } else if (kp.modifiers != 0) {
                 kp.key = TranslateScanCode(event.key.keysym.scancode); //  kp.hwEvent.scanCode);
-                kp.isKeyValid = true;
+                if (kp.key != 0) {
+                    kp.isKeyValid = true;
+                }
                 logger->Debug("  kp, modifiers=%.2x, scancode=%.2x, key=%.2x (%c), ", kp.modifiers, kp.hwEvent.scanCode, kp.key, kp.key);
                 return kp;
             }
@@ -196,11 +200,11 @@ static int createTranslationTable() {
 
 
 KeyPress SDLKeyboardDriver::TranslateSDLEvent(const SDL_KeyboardEvent &kbdEvent) {
-    KeyPress keyPress;
+    KeyPress keyPress{};
     keyPress.modifiers = TranslateModifiers(SDL_GetModState());
     if (kbdEvent.keysym.sym) {
-        keyPress.isHwEventValid = true;
-        keyPress.hwEvent.scanCode = kbdEvent.keysym.scancode;
+//        keyPress.isHwEventValid = true;
+//        keyPress.hwEvent.scanCode = kbdEvent.keysym.scancode;
         if (sdlToKeyCodes.find(kbdEvent.keysym.sym) != sdlToKeyCodes.end()) {
             keyPress.isSpecialKey = true;
             keyPress.isKeyValid = true;

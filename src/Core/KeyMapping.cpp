@@ -189,12 +189,13 @@ const std::string &KeyMapping::KeyCodeName(const Keyboard::kKeyCode keyCode) {
 
 // Note: This is a slow operation, it is used for debugging purposes...
 const std::string &KeyMapping::ActionName(const kAction action) {
+    static std::string empty = {};
     for (auto &it: strToActionMap) {
         if (it.second == action) {
             return it.first;
         }
     }
-    return {};
+    return empty;
 }
 
 int KeyMapping::ModifierMaskFromString(const std::string &strModifiers) {

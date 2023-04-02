@@ -29,7 +29,7 @@ namespace gedit {
                 if (y > end.y) return false;
 
                 if ((y == start.y) && (x < start.x)) return false;
-                if ((y == end.y) && (x > end.x)) return false;
+                if ((y == end.y) && (x >= end.x)) return false;
 
                 return true;
             }

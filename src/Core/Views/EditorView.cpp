@@ -150,16 +150,21 @@ void EditorView::OnKeyPress(const KeyPress &keyPress) {
 bool EditorView::OnAction(const KeyPressAction &kpAction) {
     if (kpAction.keyPress.IsShiftPressed()) {
         if (!editorModel->IsSelectionActive()) {
+            logger->Debug("Shift pressed, selection inactive - BeginSelection");
             editorModel->BeginSelection();
         }
     } else {
         if (editorModel->IsSelectionActive()) {
+            logger->Debug("Shift pressed, selection active - cancelling selection");
             editorModel->CancelSelection();
         }
     }
     if (kpAction.action == kAction::kActionCopyToClipboard) {
         logger->Debug("Set text to clip board");
-        SDL_SetClipboardText("mamma mia, hundar lagar mat..");
+        std::string buffer;
+        auto selection = editorModel->GetSelection();
+        editorModel->GetTextBuffer()->CopyRegionToString(buffer, selection.startPos, selection.endPos);
+        SDL_SetClipboardText(buffer.c_str());
     } else if (kpAction.action == kAction::kActionPasteFromClipboard) {
         if (SDL_HasClipboardText()) {
             auto clipBoardText = SDL_GetClipboardText();
@@ -175,6 +180,9 @@ bool EditorView::OnAction(const KeyPressAction &kpAction) {
     // Update with cursor after navigation (if any happened)
     if (editorModel->IsSelectionActive()) {
         editorModel->UpdateSelection();
+        logger->Debug(" Selection is Active, start=(%d:%d), end=(%d:%d)",
+                      editorModel->GetSelection().startPos.position.x, editorModel->GetSelection().startPos.position.y,
+                      editorModel->GetSelection().endPos.position.x, editorModel->GetSelection().endPos.position.y);
     }
 
     return result;

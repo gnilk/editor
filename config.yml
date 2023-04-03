@@ -31,6 +31,20 @@ commandmode:
   prompt: "ed>"
   cmdlet_prefix: "."
 
+
+keymap: {
+    aliases: {
+      SelectionModifier: KeyCode_Shift,
+    },
+    actions: {
+      NavigateLineUp : KeyCode_UpArrow + @SelectionModifier,
+      NavigatePageUp : KeyCode_UpArrow + @SelectionModifier + @KeyCode_Ctrl,
+      NavigateLineDown : KeyCode_DownArrow,
+      NavigatePageDown : Ctrl + 'w',
+    },
+}
+
+# old keymap
 # This keymap is tested with macbook with external keyboard..
 # Note: Keymap should point to a file instead..
 defaultkeymap: {

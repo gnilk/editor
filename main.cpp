@@ -3,6 +3,12 @@
 //
 /*
  * TO-DO List
+ * - Refactor the Action parser (KeyMapping.cpp) so that Action = Keymapp
+ *   - Add 'optional' (for modifiers) on action
+ *   - Make the optional a lookup:
+ *     set SelectionModifier : KeyCode_Shift
+ *     NavigateLineDown : KeyCode_DownArrow + @SelectionModifier
+ *
  * - Make some classes thread aware (TextBuffer / Line class - perhaps most important)
  * ! Fix NCurses, currently broken (due to work on SDL3 backend)
  *
@@ -153,8 +159,16 @@ int main(int argc, const char **argv) {
 
     Editor::Instance().Initialize(argc, argv);
 
+    {
+        auto screen = RuntimeConfig::Instance().Screen();
+        screen->Close();
+        return -1;
+    }
+
+
     // Note: This can be implicit
     RuntimeConfig::Instance().SetMainThreadID();
+
 
 //    TestKeyBoardDriver();
 

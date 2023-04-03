@@ -6,6 +6,7 @@
 #define EDITOR_KEYMAPPING_H
 
 #include <vector>
+#include <map>
 #include <optional>
 
 #include "KeyCodes.h"
@@ -27,9 +28,12 @@ namespace gedit {
         kAction ActionFromName(const std::string &strAction);
         std::optional<KeyPressAction> ActionFromKeyPress(const KeyPress &keyPress);
         bool RebuildActionMapping();
+        bool RebuildActionMappingNew();
         bool IsInitialized() {
             return isInitialized;
         }
+    protected:
+        bool ParseKeyPressCombinationString(const std::string &actionName, const std::string &keyPressCombo, const std::map<std::string, std::string> &keymapAliases);
     private:
         KeyMapping() = default;
         bool Initialize();

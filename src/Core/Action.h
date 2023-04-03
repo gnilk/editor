@@ -47,18 +47,18 @@ namespace gedit {
         using Ref = std::shared_ptr<ActionItem>;
     public:
         ActionItem()  = default;
-        ActionItem(kAction mAction, int mModiferMask, Keyboard::kKeyCode mKeycode, std::string &actionName)
+        ActionItem(kAction mAction, int mModiferMask, Keyboard::kKeyCode mKeycode, const std::string &actionName)
                 : action(mAction), modiferMask(mModiferMask), keyCode(mKeycode), name(actionName) {
         }
-        ActionItem(kAction mAction, int mModiferMask, int asciiValue, std::string &actionName)
+        ActionItem(kAction mAction, int mModiferMask, int asciiValue, const std::string &actionName)
                 : action(mAction), modiferMask(mModiferMask), asciiKeyCode(asciiValue), name(actionName) {
         }
 
-        static ActionItem::Ref Create(kAction mAction, int mModiferMask, Keyboard::kKeyCode mKeycode, std::string &actionName) {
+        static ActionItem::Ref Create(kAction mAction, int mModiferMask, Keyboard::kKeyCode mKeycode, const std::string &actionName) {
             return std::make_shared<ActionItem>(mAction, mModiferMask, mKeycode, actionName);
         }
 
-        static ActionItem::Ref Create(kAction mAction, int mModiferMask, int asciiValue, std::string &actionName) {
+        static ActionItem::Ref Create(kAction mAction, int mModiferMask, int asciiValue, const std::string &actionName) {
             return std::make_shared<ActionItem>(mAction, mModiferMask, asciiValue, actionName);
         }
 

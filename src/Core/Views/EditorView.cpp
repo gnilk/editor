@@ -148,7 +148,7 @@ void EditorView::OnKeyPress(const KeyPress &keyPress) {
 // Add actions here - all except human-readable inserting of text
 //
 bool EditorView::OnAction(const KeyPressAction &kpAction) {
-    if (kpAction.keyPress.IsShiftPressed()) {
+    if (kpAction.modifier == kModifier::kModifierSelection) {
         if (!editorModel->IsSelectionActive()) {
             logger->Debug("Shift pressed, selection inactive - BeginSelection");
             editorModel->BeginSelection();

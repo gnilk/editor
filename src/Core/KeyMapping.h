@@ -13,15 +13,28 @@
 #include "Action.h"
 
 namespace gedit {
-    struct KeyPressAction {
-        kAction action = kAction::kActionNone;     // Key press was mapped to this action
-        KeyPress keyPress = {};  // Underlying keypress
-    };
 
+    // TODO: Consider renaming/moving this whole thing (incl. the 'Action' stuff)
+
+    //
+    // This defines the keymapping modifiers...
+    // A modifier is an action overlaid on the keypress as defined through the configuration file
+    //
     enum class kModifier {
         kModifierSelection,
         kModifierCopyPaste,
     };
+
+    //
+    // When a keypress is given this is given to the UI from the ActionFromKeyPress
+    //
+    struct KeyPressAction {
+        kAction action = kAction::kActionNone;     // Key press was mapped to this action
+        std::optional <kModifier> modifier = {};
+        int modifierMask = {};
+        KeyPress keyPress = {};  // Underlying keypress
+    };
+
 
     class KeyMapping {
     public:
@@ -40,6 +53,16 @@ namespace gedit {
             return isInitialized;
         }
 
+        std::optional<kModifier> ModifierFromMask(int modifierMask) {
+            if (modifierMask == 0) return {};
+            for (auto &[modifier, mask] : modifiers) {
+                if ((mask & modifierMask) == modifierMask) {
+                    return modifier;
+                }
+            }
+            return {};
+        }
+
         std::optional<int> MaskForModifier(kModifier modifier) {
             if (modifiers.find(modifier) == modifiers.end()) {
                 return {};
@@ -47,11 +70,10 @@ namespace gedit {
             return modifiers[modifier];
         }
 
-        bool HasActionModifier(const ActionItem::Ref action, kModifier modifier) {
-            return false;
-        }
+        const std::string &ModifierName(kModifier modifier);
+
     protected:
-        bool ParseKeyPressCombinationString(const std::string &actionName, const std::string &keyPressCombo, const std::map<std::string, std::string> &keymapModifiers);
+        bool ParseKeyPressCombinationString(kAction action, const std::string &keyPressCombo, const std::map<std::string, std::string> &keymapModifiers);
         bool ParseModifiers(const std::map<std::string, std::string> &keymapModifiers);
     private:
         KeyMapping() = default;

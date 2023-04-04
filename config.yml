@@ -44,8 +44,11 @@ keymap: {
       NavigateLineDown : KeyCode_DownArrow + @SelectionModifier,
       NavigatePageUp : KeyCode_PageUp + @SelectionModifier,
       NavigatePageDown : KeyCode_PageDown + @SelectionModifier,
-      CopySelection : CopyPasteModifier + 'c',
-      PasteSelection : CopyPasteModifier + 'v',
+      CopyToClipboard : CopyPasteModifier + 'c',
+      PasteFromClipboard : CopyPasteModifier + 'v',
+      CycleActiveView : KeyCode_Escape,
+      CycleActiveEditor : KeyCode_F3,
+      CommitLine : KeyCode_Return,
     }
 }
 

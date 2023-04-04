@@ -194,6 +194,16 @@ bool KeyMapping::Initialize() {
     isInitialized = true;
     return true;
 }
+const std::string &KeyMapping::ModifierName(kModifier modifier) {
+    static std::string noname = "<none>";   // this is just for debugging purposes anyway...
+    for(auto &[nameModifier, modf] : strToModifierMap) {
+        if (modf == modifier) {
+            return nameModifier;
+        }
+    }
+    return noname;
+}
+
 
 const std::string &KeyMapping::KeyCodeName(const Keyboard::kKeyCode keyCode) {
     return keyCodeToStrMap[keyCode];
@@ -227,6 +237,8 @@ std::optional<KeyPressAction> KeyMapping::ActionFromKeyPress(const KeyPress &key
             logger->Debug("ActionItem found!!!");
             KeyPressAction kpAction;
             kpAction.action = actionItem->GetAction();
+            kpAction.modifierMask = keyPress.modifiers; // redundant..
+            kpAction.modifier = ModifierFromMask(keyPress.modifiers);
             kpAction.keyPress = keyPress;
             return kpAction;
         }
@@ -471,8 +483,13 @@ bool KeyMapping::RebuildActionMapping() {
 
     for (const auto &[actionName, keyPressCombo] : keymapActions) {
         logger->Debug("Parsing: '%s' = '%s'", actionName.c_str(), keyPressCombo.c_str());
+        if (strToActionMap.find(actionName) == strToActionMap.end()) {
+            logger->Error("Invalid Action '%s'; not found");
+            return false;
+        }
+        auto action = strToActionMap.at(actionName);
 
-        if (!ParseKeyPressCombinationString(actionName, keyPressCombo, keymapModifiers)) {
+        if (!ParseKeyPressCombinationString(action, keyPressCombo, keymapModifiers)) {
             logger->Error("KeyMap parse error for '%s : %s'", actionName.c_str(), keyPressCombo.c_str());
             return false;
         }
@@ -497,7 +514,7 @@ bool KeyMapping::ParseModifiers(const std::map<std::string, std::string> &keymap
             return false;
         }
         logger->Debug("  '%s' = '%s'", name.c_str(), keyCode.c_str());
-        auto modifier = strToModifierMap["name"];
+        auto modifier = strToModifierMap.at(name);
         modifiers[modifier] = strToModifierBitMaskMap[keyCode];
     }
     return true;
@@ -514,7 +531,7 @@ bool KeyMapping::ParseModifiers(const std::map<std::string, std::string> &keymap
 // Thus, if you have multiple modifiers we need to permutate all possible options (which is 2^numOptionals) for the
 // whole string. Therefore we first parse the list to a temporary structure, then we permutate and create the actions..
 //
-bool KeyMapping::ParseKeyPressCombinationString(const std::string &actionName, const std::string &keyPressCombo, const std::map<std::string, std::string> &keymapModifiers) {
+bool KeyMapping::ParseKeyPressCombinationString(kAction action, const std::string &keyPressCombo, const std::map<std::string, std::string> &keymapModifiers) {
     auto logger = gnilk::Logger::GetLogger("KeyMapping");
 
     bool isKeyCodeASCII = false;
@@ -624,9 +641,9 @@ bool KeyMapping::ParseKeyPressCombinationString(const std::string &actionName, c
 
         ActionItem::Ref actionItem = {};
         if (isKeyCodeASCII) {
-            actionItem =ActionItem::Create(strToActionMap[actionName], modifierMask, asciiKeyCode, actionName);
+            actionItem =ActionItem::Create(action, modifierMask, asciiKeyCode, ActionName(action));
         } else {
-            actionItem = ActionItem::Create(strToActionMap[actionName], modifierMask, primaryKeycode, actionName);
+            actionItem = ActionItem::Create(action, modifierMask, primaryKeycode, ActionName(action));
         }
         actionItems.push_back(actionItem);
     }

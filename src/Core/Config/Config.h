@@ -23,6 +23,10 @@ public:
         return ConfigNode(dataNode[key]);
     }
 
+    ConfigNode GetNode(const std::string &key) const {
+        return ConfigNode(dataNode[key]);
+    }
+
     bool HasKey(const std::string &key) {
         if (!dataNode.IsDefined()) {
             return false;

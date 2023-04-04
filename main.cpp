@@ -159,18 +159,18 @@ int main(int argc, const char **argv) {
 
     Editor::Instance().Initialize(argc, argv);
 
-    {
-        auto screen = RuntimeConfig::Instance().Screen();
-        screen->Close();
-        return -1;
-    }
+//    {
+//        auto screen = RuntimeConfig::Instance().Screen();
+//        screen->Close();
+//        return -1;
+//    }
 
 
     // Note: This can be implicit
     RuntimeConfig::Instance().SetMainThreadID();
 
 
-//    TestKeyBoardDriver();
+    TestKeyBoardDriver();
 
 
     auto logger = gnilk::Logger::GetLogger("main");

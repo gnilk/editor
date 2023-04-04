@@ -17,6 +17,12 @@ namespace gedit {
         kAction action = kAction::kActionNone;     // Key press was mapped to this action
         KeyPress keyPress = {};  // Underlying keypress
     };
+
+    enum class kModifier {
+        kModifierSelection,
+        kModifierCopyPaste,
+    };
+
     class KeyMapping {
     public:
         virtual ~KeyMapping() = default;
@@ -27,18 +33,33 @@ namespace gedit {
         int ModifierMaskFromString(const std::string &strModifiers);
         kAction ActionFromName(const std::string &strAction);
         std::optional<KeyPressAction> ActionFromKeyPress(const KeyPress &keyPress);
+        bool RebuildActionMappingOld();
         bool RebuildActionMapping();
-        bool RebuildActionMappingNew();
+
         bool IsInitialized() {
             return isInitialized;
         }
+
+        std::optional<int> MaskForModifier(kModifier modifier) {
+            if (modifiers.find(modifier) == modifiers.end()) {
+                return {};
+            }
+            return modifiers[modifier];
+        }
+
+        bool HasActionModifier(const ActionItem::Ref action, kModifier modifier) {
+            return false;
+        }
     protected:
-        bool ParseKeyPressCombinationString(const std::string &actionName, const std::string &keyPressCombo, const std::map<std::string, std::string> &keymapAliases);
+        bool ParseKeyPressCombinationString(const std::string &actionName, const std::string &keyPressCombo, const std::map<std::string, std::string> &keymapModifiers);
+        bool ParseModifiers(const std::map<std::string, std::string> &keymapModifiers);
     private:
         KeyMapping() = default;
         bool Initialize();
         bool isInitialized = false;
         std::vector<ActionItem::Ref> actionItems = {};
+        std::map<kModifier, int> modifiers = {};
+
     };
 }
 

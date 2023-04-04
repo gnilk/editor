@@ -20,6 +20,13 @@
 using namespace gedit;
 
 // mapping tables...
+static std::unordered_map<std::string, kModifier> strToModifierMap = {
+        {"SelectionModifier", kModifier::kModifierSelection},
+        {"Selection", kModifier::kModifierSelection},
+
+        {"CopyPasteModifier", kModifier::kModifierCopyPaste},
+        {"CopyPaste", kModifier::kModifierCopyPaste},
+};
 static std::unordered_map<std::string, kAction> strToActionMap = {
         {"NavigateLineDown",      kAction::kActionLineDown},
         {"NavigateLineUp",        kAction::kActionLineUp},
@@ -81,7 +88,7 @@ static std::unordered_map<std::string, Keyboard::kKeyCode> strToKeyCodeMap = {
         {"KeyCode_NumLock",       Keyboard::kKeyCode_NumLock},
 };
 
-static std::unordered_map<std::string, int> strToModifierMap = {
+static std::unordered_map<std::string, int> strToModifierBitMaskMap = {
         {"Shift",                  Keyboard::kMod_LeftShift | Keyboard::kMod_RightShift},
         {"Ctrl",                   Keyboard::kMod_LeftCtrl | Keyboard::kMod_RightCtrl},
         {"Alt",                    Keyboard::kMod_LeftAlt | Keyboard::kMod_RightAlt},
@@ -176,7 +183,7 @@ bool KeyMapping::Initialize() {
         return true;
     }
 
-    if (!RebuildActionMappingNew()) {
+    if (!RebuildActionMapping()) {
         return false;
     }
 
@@ -204,7 +211,7 @@ const std::string &KeyMapping::ActionName(const kAction action) {
 }
 
 int KeyMapping::ModifierMaskFromString(const std::string &strModifiers) {
-    return strToModifierMap[strModifiers];
+    return strToModifierBitMaskMap[strModifiers];
 }
 
 kAction KeyMapping::ActionFromName(const std::string &strAction) {
@@ -240,7 +247,7 @@ static bool IsAsciiKeyCode(const std::string &strKeyCode) {
 //
 // Go through configuration and rebuild the action map
 //
-bool KeyMapping::RebuildActionMapping() {
+bool KeyMapping::RebuildActionMappingOld() {
 
     //
     // There are several different categories of actions
@@ -347,11 +354,11 @@ bool KeyMapping::RebuildActionMapping() {
 
             // Compile the modifier mask...
             for(auto m : modifiers) {
-                if (!strToModifierMap[m]) {
+                if (!strToModifierBitMaskMap[m]) {
                     logger->Error("No modifier for '%s'", m.c_str());
                     exit(1);
                 }
-                modifierMask |= strToModifierMap[m];
+                modifierMask |= strToModifierBitMaskMap[m];
             }
 
             // Wow - we finally have the key-combination
@@ -409,37 +416,37 @@ struct TempKeyMap {
 //
 // New parser, let this sit next to the old one
 //
-bool KeyMapping::RebuildActionMappingNew() {
-    if (!Config::Instance().HasKey("defaultkeymap")) {
+bool KeyMapping::RebuildActionMapping() {
+    if (!Config::Instance().HasKey("keymap")) {
         exit(1);
     }
 
     auto logger = gnilk::Logger::GetLogger("KeyMapping");
     auto keymap = Config::Instance()["keymap"];
-//
-//
+
+    // Verify we have 'actions' (this is the most important)
     if (!keymap.HasKey("actions")) {
         logger->Error("Keymap must at least have an action section!");
         return false;
 
     }
 
-    if (keymap.HasKey("aliases")) {
-        auto keymapAliases = keymap.GetMap("aliases");
-        logger->Debug("Alias section found");
-        for(auto &kvp : keymapAliases) {
-            logger->Debug("  '%s' = '%s'", kvp.first.c_str(), kvp.second.c_str());
+    // Build up the modifier table
+    if (keymap.HasKey("modifiers")) {
+        auto keymapModifiers = keymap.GetMap("modifiers");
+        if (!ParseModifiers(keymapModifiers)) {
+            return false;
         }
     }
 
-    auto keymapAliases = keymap.GetMap("aliases");
+    auto keymapModifiers = keymap.GetMap("modifiers");
     auto keymapActions = keymap.GetMap("actions");
 
     /*
      * Rework the parser
      * We have two sections in the keymap; aliases and actions
-     * Aliases are defined first like:
-     *  myalias = keycode_name
+     * Modifers are defined first like:
+     *  mymodifiers = keycode_name
      *
      *  Aliases allow for changing the whole keymap for certain keys, like the CopyPaste modifier is 'CMD' on macOS and 'CTRL' on Windows
      *
@@ -465,14 +472,37 @@ bool KeyMapping::RebuildActionMappingNew() {
     for (const auto &[actionName, keyPressCombo] : keymapActions) {
         logger->Debug("Parsing: '%s' = '%s'", actionName.c_str(), keyPressCombo.c_str());
 
-
-        if (!ParseKeyPressCombinationString(actionName, keyPressCombo, keymapAliases)) {
+        if (!ParseKeyPressCombinationString(actionName, keyPressCombo, keymapModifiers)) {
             logger->Error("KeyMap parse error for '%s : %s'", actionName.c_str(), keyPressCombo.c_str());
             return false;
         }
     }
-    return false;
+    logger->Debug("**** PARSE OK ****");
+    return true;
 }
+
+//
+// Parse and build the modifier table
+//
+bool KeyMapping::ParseModifiers(const std::map<std::string, std::string> &keymapModifiers) {
+    auto logger = gnilk::Logger::GetLogger("KeyMapping");
+    logger->Debug("modifer section found");
+    for(auto &[name, keyCode] : keymapModifiers) {
+        if (strToModifierMap.find(name) == strToModifierMap.end()) {
+            logger->Error("No modifier named '%s'", name.c_str());
+            return false;
+        }
+        if (strToModifierBitMaskMap.find(keyCode) == strToModifierBitMaskMap.end()) {
+            logger->Error("No keycode named '%s' for modifier '%s'", keyCode.c_str(), name.c_str());
+            return false;
+        }
+        logger->Debug("  '%s' = '%s'", name.c_str(), keyCode.c_str());
+        auto modifier = strToModifierMap["name"];
+        modifiers[modifier] = strToModifierBitMaskMap[keyCode];
+    }
+    return true;
+}
+
 
 //
 // This parse an key press combination string on the form
@@ -484,7 +514,7 @@ bool KeyMapping::RebuildActionMappingNew() {
 // Thus, if you have multiple modifiers we need to permutate all possible options (which is 2^numOptionals) for the
 // whole string. Therefore we first parse the list to a temporary structure, then we permutate and create the actions..
 //
-bool KeyMapping::ParseKeyPressCombinationString(const std::string &actionName, const std::string &keyPressCombo, const std::map<std::string, std::string> &keymapAliases) {
+bool KeyMapping::ParseKeyPressCombinationString(const std::string &actionName, const std::string &keyPressCombo, const std::map<std::string, std::string> &keymapModifiers) {
     auto logger = gnilk::Logger::GetLogger("KeyMapping");
 
     bool isKeyCodeASCII = false;
@@ -524,16 +554,16 @@ bool KeyMapping::ParseKeyPressCombinationString(const std::string &actionName, c
             keycodeName = s;
         }
 
-        // Substitue with an alias (if any)
-        if (keymapAliases.find(keycodeName) != keymapAliases.end()) {
-            logger->Debug("  Alias (%s) => %s", keycodeName.c_str(), keymapAliases.at(keycodeName).c_str());
-            keycodeName = keymapAliases.at(keycodeName);
+        // Substitue with a modifier (if any)
+        if (keymapModifiers.find(keycodeName) != keymapModifiers.end()) {
+            logger->Debug("  Modifier (%s) => %s", keycodeName.c_str(), keymapModifiers.at(keycodeName).c_str());
+            keycodeName = keymapModifiers.at(keycodeName);
         }
 
         // check if the keycode is a modifier
-        if (strToModifierMap.find(keycodeName) != strToModifierMap.end()) {
+        if (strToModifierBitMaskMap.find(keycodeName) != strToModifierBitMaskMap.end()) {
             tempKeyMap.isModifier = true;
-            tempKeyMap.modifiermask = strToModifierMap[keycodeName];
+            tempKeyMap.modifiermask = strToModifierBitMaskMap[keycodeName];
         } else if (strToKeyCodeMap.find(keycodeName) != strToKeyCodeMap.end()) {
             primaryKeycode = strToKeyCodeMap[keycodeName];
             // Not sure...
@@ -561,7 +591,7 @@ bool KeyMapping::ParseKeyPressCombinationString(const std::string &actionName, c
 
         // If this is a modifier save it to the permutation list
         if (tempKeyMap.isModifier) {
-            tempKeyMap.modifiermask = strToModifierMap[keycodeName];
+            tempKeyMap.modifiermask = strToModifierBitMaskMap[keycodeName];
             keycodePermutationList.push_back(tempKeyMap);
         }
     }

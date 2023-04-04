@@ -33,21 +33,26 @@ commandmode:
 
 
 keymap: {
-    aliases: {
+    # Editor will read this and check the modifier mask controlling an action
+    # For instance, the 'SelectionModifier' is used to enable/disable selections
+    modifiers: {
       SelectionModifier: KeyCode_Shift,
+      CopyPasteModifier: KeyCode_Cmd,
     },
     actions: {
       NavigateLineUp : KeyCode_UpArrow + @SelectionModifier,
-      NavigatePageUp : KeyCode_UpArrow + @SelectionModifier + @KeyCode_Ctrl,
-      NavigateLineDown : KeyCode_DownArrow,
-      NavigatePageDown : Ctrl + 'w',
-    },
+      NavigateLineDown : KeyCode_DownArrow + @SelectionModifier,
+      NavigatePageUp : KeyCode_PageUp + @SelectionModifier,
+      NavigatePageDown : KeyCode_PageDown + @SelectionModifier,
+      CopySelection : CopyPasteModifier + 'c',
+      PasteSelection : CopyPasteModifier + 'v',
+    }
 }
 
 # old keymap
 # This keymap is tested with macbook with external keyboard..
 # Note: Keymap should point to a file instead..
-defaultkeymap: {
+temptemp: {
   # test
   #KeyCode_Shift + KeyCode_UpArrow : NavigateEnd,
   #KeyCode_Ctrl + KeyCode_Shift + KeyCode_UpArrow : NavigateHome,

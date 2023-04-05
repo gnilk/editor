@@ -15,8 +15,8 @@ void TextBuffer::Reparse() {
     tokenizer.ParseLines(lines);
 }
 
-void TextBuffer::CopyRegionToString(std::string &outText, const Cursor &start, const Cursor &end) {
-    for (int idxLine=start.position.y;idxLine<end.position.y;idxLine++) {
+void TextBuffer::CopyRegionToString(std::string &outText, const Point &start, const Point &end) {
+    for (int idxLine=start.y;idxLine<end.y;idxLine++) {
         outText += lines[idxLine]->Buffer();
         outText += "\n";
     }

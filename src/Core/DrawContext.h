@@ -15,13 +15,30 @@
 
 namespace gedit {
 
+    // TO DO
+    // - Support multiple overlays with and 'id' (application defined)
+    // - ability to loop over overlays through a lambda filtering on id's (or all)
+    // - this allows us to have transform loops for overlays depending on various functions (search results, refactoring, etc..)
     class DrawContext {
     public:
         struct Overlay {
             bool isActive = false;
 
+            // Editor set's these based on text-buffer coordinates
+            // where y = row, and x = column...
+            // We need to transform these to screen..
             Point start;
             Point end;
+
+            void Set(const Point &newStart, const Point &newEnd) {
+                start = newStart;
+                end = newEnd;
+                // Swap...
+                if (start.y > end.y) {
+                    start = newEnd;
+                    end = newStart;
+                }
+            }
 
             bool IsInside(int x, int y) const {
                 if (!isActive) return false;

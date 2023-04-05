@@ -13,18 +13,16 @@
 
 namespace gedit {
 
+    class EditorModel;
     struct Selection {
-        bool isActive = false;
-        Cursor startPos = {};
-        Cursor endPos = {};
-
+        friend EditorModel;
         bool IsSelected(int x, int y) {
             if (!isActive) return false;
-            if (y < startPos.position.y) return false;
-            if (y > endPos.position.y) return false;
+            if (y < startPos.y) return false;
+            if (y > endPos.y) return false;
 
-            if ((y == startPos.position.y) && (x < startPos.position.x)) return false;
-            if ((y == endPos.position.y) && (x > endPos.position.x)) return false;
+            if ((y == startPos.y) && (x < startPos.x)) return false;
+            if ((y == endPos.y) && (x > endPos.x)) return false;
 
             return true;
         }
@@ -33,6 +31,46 @@ namespace gedit {
             return IsSelected(0, y);
         }
 
+        bool IsActive() {
+            return isActive;
+        }
+        //
+        // This returns the coords sorted!!!
+        //
+        const Point &GetStart() {
+            if (endPos > startPos) {
+                return startPos;
+            }
+            return endPos;
+        }
+
+        const Point &GetStart() const {
+            if (endPos > startPos) {
+                return startPos;
+            }
+            return endPos;
+        }
+
+        const Point &GetEnd() {
+            if (endPos < startPos) {
+                return startPos;
+            }
+            return endPos;
+        }
+
+        const Point &GetEnd() const {
+            if (endPos < startPos) {
+                return startPos;
+            }
+            return endPos;
+        }
+
+
+    protected:
+        // Consider making these private...
+        bool isActive = false;
+        Point startPos = {};
+        Point endPos = {};
 
     };
 
@@ -79,12 +117,16 @@ namespace gedit {
         }
         void BeginSelection() {
             currentSelection.isActive = true;
-            currentSelection.startPos = cursor;
-            currentSelection.endPos = cursor;
+            currentSelection.startPos.y = idxActiveLine;
+            currentSelection.startPos.x = cursor.position.x;
+
+            currentSelection.endPos = currentSelection.startPos;
         }
         void UpdateSelection() {
             // perhaps check if active...
-            currentSelection.endPos = cursor;
+            Point newEnd(cursor.position.x, idxActiveLine);
+            currentSelection.endPos = newEnd;
+
         }
         void CancelSelection() {
             currentSelection.isActive = false;
@@ -93,6 +135,10 @@ namespace gedit {
             return currentSelection.isActive;
         }
         const Selection &GetSelection() {
+            return currentSelection;
+        }
+
+        const Selection &GetSelection() const {
             return currentSelection;
         }
 

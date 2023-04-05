@@ -93,22 +93,40 @@ void EditorView::OnResized() {
     ViewBase::OnResized();
 }
 
-
 void EditorView::DrawViewContents() {
     auto &dc = window->GetContentDC(); //ViewBase::ContentAreaDrawContext();
     logger->Debug("DrawViewContents, dc Height=%d, topLine=%d, bottomLine=%d", dc.GetRect().Height(), editorModel->viewTopLine, editorModel->viewBottomLine);
 
     auto selection = editorModel->GetSelection();
-    if (selection.isActive) {
+    if (selection.IsActive()) {
         DrawContext::Overlay overlay;
-        overlay.start = selection.startPos.position;
-        overlay.end = selection.endPos.position;
+        overlay.Set(selection.GetStart(), selection.GetEnd());
         overlay.attributes = 0;     // ??
 
         dc.SetOverlay(overlay);
+
+        // ---- start test
+        // Test overlay transform
+
+//        logger->Debug("Transform overlay from:");
+//        logger->Debug("  (%d:%d) - (%d:%d)", overlay.start.x, overlay.start.y, overlay.end.x, overlay.end.y);
+//        logger->Debug("  viewTopLine: %d, bottomLine: %d", editorModel->viewTopLine, editorModel->viewBottomLine);
+
+        int dy = selection.GetEnd().y - selection.GetStart().y;
+//        logger->Debug("dy = %d", dy);
+        overlay.start.y -= editorModel->viewTopLine;
+        overlay.end.y = overlay.start.y + dy;
+
+        dc.SetOverlay(overlay);
+
+//        logger->Debug("Transform overlay to:");
+//        logger->Debug("  (%d:%d) - (%d:%d)", overlay.start.x, overlay.start.y, overlay.end.x, overlay.end.y);
+        // ---- End test
+
     } else {
         dc.RemoveOverlay();
     }
+
     LineRender lineRender(dc);
     // Consider refactoring this function call...
     lineRender.DrawLines(editorModel->GetEditController()->Lines(), editorModel->viewTopLine, editorModel->viewBottomLine, editorModel->GetSelection());
@@ -125,8 +143,6 @@ void EditorView::OnActivate(bool isActive) {
         MaximizeContentHeight();
     }
 }
-
-
 
 void EditorView::OnKeyPress(const KeyPress &keyPress) {
 
@@ -159,30 +175,31 @@ bool EditorView::OnAction(const KeyPressAction &kpAction) {
             editorModel->CancelSelection();
         }
     }
+
+    // This is convoluted - will be dealt with when copy/paste works...
     if (kpAction.action == kAction::kActionCopyToClipboard) {
         logger->Debug("Set text to clip board");
         std::string buffer;
         auto selection = editorModel->GetSelection();
-        editorModel->GetTextBuffer()->CopyRegionToString(buffer, selection.startPos, selection.endPos);
+        editorModel->GetTextBuffer()->CopyRegionToString(buffer, selection.GetStart(), selection.GetEnd());
         SDL_SetClipboardText(buffer.c_str());
     } else if (kpAction.action == kAction::kActionPasteFromClipboard) {
-        if (SDL_HasClipboardText()) {
+        if (!SDL_HasClipboardText()) {
             auto clipBoardText = SDL_GetClipboardText();
             logger->Debug("Past from clipboard: '%s'", clipBoardText);
         } else {
             logger->Debug("No text in clipboard");
         }
-
-
     }
+
     auto result = DispatchAction(kpAction);
 
     // Update with cursor after navigation (if any happened)
     if (editorModel->IsSelectionActive()) {
         editorModel->UpdateSelection();
         logger->Debug(" Selection is Active, start=(%d:%d), end=(%d:%d)",
-                      editorModel->GetSelection().startPos.position.x, editorModel->GetSelection().startPos.position.y,
-                      editorModel->GetSelection().endPos.position.x, editorModel->GetSelection().endPos.position.y);
+                      editorModel->GetSelection().GetStart().x, editorModel->GetSelection().GetStart().y,
+                      editorModel->GetSelection().GetEnd().x, editorModel->GetSelection().GetEnd().y);
     }
 
     return result;

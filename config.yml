@@ -42,6 +42,8 @@ keymap: {
     actions: {
       NavigateLineUp : KeyCode_UpArrow + @SelectionModifier,
       NavigateLineDown : KeyCode_DownArrow + @SelectionModifier,
+      NavigateLeft : KeyCode_LeftArrow + @SelectionModifier,
+      NavigateRight : KeyCode_RightArrow + @SelectionModifier,
       NavigatePageUp : KeyCode_PageUp + @SelectionModifier,
       NavigatePageDown : KeyCode_PageDown + @SelectionModifier,
       CopyToClipboard : CopyPasteModifier + 'c',

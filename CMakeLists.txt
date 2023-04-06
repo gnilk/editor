@@ -4,12 +4,12 @@ set(CMAKE_CXX_STANDARD 17)
 
 set(CMAKE_BUILD_TYPE DEBUG)
 
-set(SDL_HOME /usr/local)
 
 
 if (APPLE)
     set(CMAKE_OSX_ARCHITECTURES "x86_64;arm64" CACHE STRING "")
     set(CMAKE_OSX_SYSROOT /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk)
+    set(SDL_HOME /usr/local)
 
     include_directories(AFTER SYSTEM /usr/local/include)
 
@@ -33,8 +33,26 @@ if (APPLE)
     list(APPEND extlibs ncurses)
     list(APPEND extlibs yaml-cpp)
 
+    add_definitions(-DGEDIT_MACOS)
+
     # list(APPEND extlibs ${COCOA_FRAMEWORK} ${IOKIT_FRAMEWORK} ${GAMECONTROLLER_FRAMEWORK} ${CORE_FOUNDATION})
     list(APPEND extlibs ${IOKIT_FRAMEWORK} ${CORE_FOUNDATION})
+elseif(UNIX)
+    message(STATUS "Linux build")
+    set(YAML_CPP_HOME /usr)
+    set(NCURSES_HOME /usr)
+    set(SDL_HOME /usr/local)
+
+    list(APPEND includedirs /home/gnilk/src/ext/json/single_include)
+
+    list(APPEND editorsrc src/Core/unix/Shell.cpp src/Core/unix/Shell.h)
+
+    add_definitions(-DGEDIT_LINUX)
+
+    list(APPEND extlibs util)   ## see: man forkpty
+    list(APPEND extlibs ncurses)
+    list(APPEND extlibs yaml-cpp)
+
 endif()
 
 add_subdirectory(ext/logger ${CMAKE_BINARY_DIR}/logger)

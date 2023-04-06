@@ -189,6 +189,7 @@ void Editor::ConfigureSubSystems() {
     screen->Open();
     screen->Clear();
 }
+
 void Editor::SetupNCurses() {
     if (!keyboardMonitor.Start()) {
         logger->Error("Keyboard monitor failed to start");

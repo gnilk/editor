@@ -8,6 +8,7 @@
 #include <cctype>
 #include <cstdlib>
 #include <cmath>
+#include <cstring>
 #include "Core/StrUtil.h"
 
 namespace strutil {

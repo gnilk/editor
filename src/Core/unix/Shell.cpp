@@ -2,7 +2,14 @@
 // Created by gnilk on 19.01.23.
 //
 
+#if defined(GEDIT_MACOS)
 #include <util.h>
+#elif defined(GEDIT_LINUX)
+#include <pty.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#endif
+
 #include <termios.h>
 #include <thread>
 #include <array>
@@ -156,7 +163,7 @@ void Shell::ConsumePipes() {
     while(bytes > 0);
 
     int status = 0;
-    ::waitpid(pid, &status, 0);
+    waitpid(pid, &status, 0);
 
     if(WIFEXITED(status)) {
         exitStatus = WEXITSTATUS(status);

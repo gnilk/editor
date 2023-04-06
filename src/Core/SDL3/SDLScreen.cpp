@@ -23,6 +23,7 @@
 #include "Core/Config/Config.h"
 
 #include <SDL3/SDL.h>
+#include <SDL3/SDL_video.h>
 
 #define STB_RECT_PACK_IMPLEMENTATION
 #define STB_TRUETYPE_IMPLEMENTATION
@@ -49,9 +50,23 @@ bool SDLScreen::Open() {
     widthPixels = Config::Instance()["sdl3"].GetInt("default_width", 1920);
     heightPixels = Config::Instance()["sdl3"].GetInt("default_height", 1080);
 
+    auto currentDriver = SDL_GetHint(SDL_HINT_VIDEO_DRIVER);
+    printf("Driver: %s\n", currentDriver);
 
+    int nDrivers = SDL_GetNumVideoDrivers();
+    printf("Available Video Drivers (%d):\n",nDrivers);
+    for(int i=0;i<nDrivers;i++) {
+        auto driverName = SDL_GetVideoDriver(i);
+        printf("  %d:%s\n",i,driverName);
+    }
+    //SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "evdev");
 
-    SDL_Init(SDL_INIT_VIDEO);
+    int err = SDL_Init(SDL_INIT_VIDEO);
+    if (err) {
+        logger->Error("SDL_Init, %s", SDL_GetError());
+        printf("Error: SDL_Init, %s\n", SDL_GetError());
+        exit(1);
+    }
     // FIXME: restore window size!
     window = SDL_CreateWindow("gedit", widthPixels, heightPixels,  SDL_WINDOW_OPENGL);
     renderer = SDL_CreateRenderer(window, nullptr, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);

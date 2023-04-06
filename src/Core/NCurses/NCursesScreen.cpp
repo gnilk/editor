@@ -10,6 +10,7 @@
 #include "NCursesScreen.h"
 #include <signal.h>
 #include "logger.h"
+#include <string.h>
 using namespace gedit;
 
 static void handle_winch(int sig)

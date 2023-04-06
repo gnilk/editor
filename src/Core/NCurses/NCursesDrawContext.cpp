@@ -4,7 +4,7 @@
 
 #include <ncurses.h>
 #include "NCursesDrawContext.h"
-
+#include <string.h>
 //
 // Note: no editor output since I am missing: DrawStringWithAttributesAndColAt
 //

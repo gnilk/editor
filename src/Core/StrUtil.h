@@ -6,6 +6,8 @@
 #define EDITOR_STRUTIL_H
 
 #include <string>
+#include <vector>
+
 
 namespace strutil {
     std::string& ltrim(std::string& str, const std::string& chars = "\t\n\v\f\r ");

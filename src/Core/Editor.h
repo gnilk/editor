@@ -66,9 +66,12 @@ namespace gedit {
         bool isInitialized = false;
         gnilk::ILogger *logger = nullptr;
         std::vector<EditorModel::Ref> models;   // rename..
+#ifdef GEDIT_MACOS
         // This depends on the OS/Backend - consider creating a platform layer or something to handle this...
         MacOSKeyboardMonitor keyboardMonitor;
-
+#else
+        KeyboardBaseMonitor keyboardMonitor;
+#endif
         ScreenBase *screen = nullptr;
         KeyboardDriverBase *keyboardDriver = nullptr;
 

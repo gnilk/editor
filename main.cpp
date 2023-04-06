@@ -3,16 +3,16 @@
 //
 /*
  * TO-DO List
- * - Refactor the Action parser (KeyMapping.cpp) so that Action = Keymapp
- *   - Add 'optional' (for modifiers) on action
- *   - Make the optional a lookup:
- *     set SelectionModifier : KeyCode_Shift
- *     NavigateLineDown : KeyCode_DownArrow + @SelectionModifier
- *
  * - Make some classes thread aware (TextBuffer / Line class - perhaps most important)
  * ! Fix NCurses, currently broken (due to work on SDL3 backend)
  *
  * Done:
+ * ! Handling of overlay's or 'selection marking', added special function for drawing overlays for a specific line
+ * ! Refactor the Action parser (KeyMapping.cpp) so that Action = Keymapp
+ *   ! Add 'optional' (for modifiers) on action
+ *   ! Make the optional a lookup:
+ *     set SelectionModifier : KeyCode_Shift
+ *     NavigateLineDown : KeyCode_DownArrow + @SelectionModifier
  * ! CommandView, Store/Restore splitter when view goes inactive/active
  *   Note: this can be tested before adjusting on new line
  * ! CommandView should adjust height of splitter on new lines..

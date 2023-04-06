@@ -22,8 +22,8 @@ namespace gedit {
         kActionLineDown,
         kActionLineHome,
         kActionLineEnd,
-        kActionLineStepSingleLeft,  // default: left arrow
-        kActionLineStepSingleRight, // default: right arrow
+        kActionLineLeft,  // default: left arrow
+        kActionLineRight, // default: right arrow
         kActionLineWordLeft,
         kActionLineWordRight,
         kActionCommitLine,          // default: return

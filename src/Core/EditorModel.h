@@ -117,8 +117,8 @@ namespace gedit {
         }
         void BeginSelection() {
             currentSelection.isActive = true;
-            currentSelection.startPos.y = idxActiveLine;
             currentSelection.startPos.x = cursor.position.x;
+            currentSelection.startPos.y = idxActiveLine;
 
             currentSelection.endPos = currentSelection.startPos;
         }

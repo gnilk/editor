@@ -119,8 +119,8 @@ void EditorView::DrawViewContents() {
 
         dc.SetOverlay(overlay);
 
-//        logger->Debug("Transform overlay to:");
-//        logger->Debug("  (%d:%d) - (%d:%d)", overlay.start.x, overlay.start.y, overlay.end.x, overlay.end.y);
+        logger->Debug("Transform overlay to:");
+        logger->Debug("  (%d:%d) - (%d:%d)", overlay.start.x, overlay.start.y, overlay.end.x, overlay.end.y);
         // ---- End test
 
     } else {
@@ -206,9 +206,9 @@ bool EditorView::OnAction(const KeyPressAction &kpAction) {
 }
 bool EditorView::DispatchAction(const KeyPressAction &kpAction) {
     switch(kpAction.action) {
-        case kAction::kActionLineStepSingleLeft :
+        case kAction::kActionLineLeft :
             return OnActionStepLeft();
-        case kAction::kActionLineStepSingleRight :
+        case kAction::kActionLineRight :
             return OnActionStepRight();
         case kAction::kActionPageUp :
             return OnActionPageUp();

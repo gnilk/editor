@@ -17,12 +17,18 @@ namespace gedit {
             y += yDelta;
         }
 
-        // Need X as well
         bool operator > (const Point &other) const {
-            return (y > other.y);   // returns true if y>
+            if (y != other.y)
+                return (y > other.y);
+
+            return (x > other. x);
         }
+
         bool operator < (const Point &other) const {
-            return (y < other.y);   // returns true if y<
+            if (y != other.y)
+                return (y < other.y);
+
+            return (x < other. x);
         }
 
         int x = 0;

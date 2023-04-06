@@ -6,6 +6,9 @@ set(CMAKE_BUILD_TYPE DEBUG)
 
 set(SDL_HOME /usr/local)
 
+list(APPEND appsrc main.cpp)
+
+set(CUR_TARGET editor)
 
 if (APPLE)
     set(CMAKE_OSX_ARCHITECTURES "x86_64;arm64" CACHE STRING "")
@@ -33,9 +36,22 @@ if (APPLE)
     list(APPEND extlibs ncurses)
     list(APPEND extlibs yaml-cpp)
 
+    add_executable(${CUR_TARGET} MACOSX_BUNDLE ${appsrc})
+    set_target_properties(${CUR_TARGET} PROPERTIES
+            BUNDLE True
+            MACOSX_BUNDLE_GUI_IDENTIFIER gnilk.com.${CUR_TARGET}
+            MACOSX_BUNDLE_BUNDLE_NAME ${CUR_TARGET}
+            MACOSX_BUNDLE_BUNDLE_VERSION "0.1"
+            MACOSX_BUNDLE_SHORT_VERSION_STRING "0.1"
+            MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/Assets/CMake/Info.plist.in
+            )
+
+
     # list(APPEND extlibs ${COCOA_FRAMEWORK} ${IOKIT_FRAMEWORK} ${GAMECONTROLLER_FRAMEWORK} ${CORE_FOUNDATION})
     list(APPEND extlibs ${IOKIT_FRAMEWORK} ${CORE_FOUNDATION})
-endif()
+else()
+    add_executable(${CUR_TARGET} ${appsrc})
+endif ()
 
 add_subdirectory(ext/logger ${CMAKE_BINARY_DIR}/logger)
 list(APPEND extlibs logger)
@@ -126,7 +142,6 @@ list(APPEND editorsrc src/Core/SDL3/SDLCursor.h)
 
 # append configuration stuff - these are copied with custom command
 
-list(APPEND appsrc main.cpp)
 
 # include and link directories for project and dependencies
 list(APPEND linkdirs ${NCURSES_HOME}/lib ${YAML_CPP_HOME}/lib)
@@ -140,7 +155,7 @@ list(APPEND extlibs SDL3)
 
 
 
-add_executable(editor ${appsrc} ${editorsrc})
+target_sources(editor PUBLIC ${editorsrc})
 target_link_directories(editor PUBLIC ${linkdirs})
 target_include_directories(editor PUBLIC ${includedirs})
 target_link_libraries(editor ${extlibs})

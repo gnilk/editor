@@ -5,11 +5,12 @@
 #ifndef STBMEETSDL_SDLDRAWCONTEXT_H
 #define STBMEETSDL_SDLDRAWCONTEXT_H
 
+#include <SDL3/SDL.h>
+
 #include "Core/DrawContext.h"
 #include "Core/ColorRGBA.h"
 #include "SDLColor.h"
 #include "SDLWindow.h"
-#include <SDL3/SDL.h>
 
 namespace gedit {
     class SDLDrawContext : public DrawContext {
@@ -25,8 +26,10 @@ namespace gedit {
 
         void Clear() const override;
         void Scroll(int nRows) const override;
-        void FillLine(int y, kTextAttributes attrib, char c) const override;
+
         void ClearLine(int y) const override;
+        void FillLine(int y, kTextAttributes attrib, char c) const override;
+        void DrawLineOverlays(int y) const override;
 
         void DrawStringAt(int x, int y, const char *str) const override;
         void DrawStringWithAttributesAt(int x, int y, kTextAttributes attrib, const char *str) const override;

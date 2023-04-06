@@ -13,7 +13,7 @@
 namespace gedit {
     class LineRender {
     public:
-        LineRender(const DrawContext &drawContext) : dc(drawContext) {
+        LineRender(DrawContext &drawContext) : dc(drawContext) {
 
         }
         void DrawLine(Line *line, int idxLine);

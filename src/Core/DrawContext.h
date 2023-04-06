@@ -51,8 +51,21 @@ namespace gedit {
                 return true;
             }
 
-            bool IsInsideLine(int y) const {
-                return IsInside(0, y);
+            bool IsLineFullyCovered(int y) const {
+                if (!isActive) return false;
+                if (y < start.y) return false;
+                if (y > end.y) return false;       // Verify
+                if (start.x > 0) return false;
+
+                // Not sure how to deal with end.x right now
+                return true;
+            }
+
+            bool IsLinePartiallyCovered(int y) const {
+                if (!isActive) return false;
+                if (y < start.y) return false;
+                if (y > end.y) return false;
+                return true;
             }
 
             int attributes; // let's see...
@@ -63,11 +76,12 @@ namespace gedit {
         }
         virtual ~DrawContext() = default;
 
-        virtual void ClearLine(int y) const {}
-        virtual void FillLine(int y, kTextAttributes attrib, char c) const {}
-
         virtual void Clear() const {}
         virtual void Scroll(int nRows) const {}
+
+        virtual void ClearLine(int y) const {}
+        virtual void FillLine(int y, kTextAttributes attrib, char c) const {}
+        virtual void DrawLineOverlays(int y) const {}
 
         virtual void DrawStringAt(int x, int y, const char *str) const {}
         virtual void DrawStringWithAttributesAt(int x, int y, kTextAttributes attrib, const char *str) const {}

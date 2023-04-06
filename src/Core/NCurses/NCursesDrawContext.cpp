@@ -5,6 +5,11 @@
 #include <ncurses.h>
 #include "NCursesDrawContext.h"
 
+//
+// Note: no editor output since I am missing: DrawStringWithAttributesAndColAt
+//
+
+
 using namespace gedit;
 
 void NCursesDrawContext::Clear() const {

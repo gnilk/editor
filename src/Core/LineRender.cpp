@@ -18,7 +18,9 @@ void LineRender::DrawLines(const std::vector<Line *> &lines, int idxTopLine, int
         }
         auto line = lines[i];
         auto nCharToPrint = line->Length() > rect.Width() ? rect.Width() : line->Length();
+        dc.ClearLine(i - idxTopLine);
         DrawLineWithAttributesAt(0, i - idxTopLine, nCharToPrint, *line, selection);
+        dc.DrawLineOverlays(i - idxTopLine);
     }
 }
 
@@ -32,7 +34,7 @@ void LineRender::DrawLineWithAttributesAt(int x, int y, int nCharToPrint, Line &
         return;
     }
 
-    // While the NCurses backend draw a char at the time this one will draw chunks
+    // We split the line in attribute chunks and draw partial lines...
     auto itAttrib = attribs.begin();
     int xp = x;
 

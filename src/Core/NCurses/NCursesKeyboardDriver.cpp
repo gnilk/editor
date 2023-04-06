@@ -34,7 +34,7 @@ static std::map<int, int> ncurses_translation_map_new = {
         {127, Keyboard::kKeyCode_Backspace},  // Certain macOS keyboards
 };
 
-void NCursesKeyboardDriver::Begin(MacOSKeyboardMonitor *monitor) {
+void NCursesKeyboardDriver::Begin(KeyboardBaseMonitor *monitor) {
     ptrKeyboardMonitor = monitor;
 
     ptrKeyboardMonitor->SetOnKeyPressDelegate([this](Keyboard::HWKeyEvent &event) {

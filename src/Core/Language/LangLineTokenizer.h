@@ -9,6 +9,7 @@
 #include "Core/StrUtil.h"
 #include "Core/Line.h"
 #include "Core/Language/LangToken.h"
+#include <string.h>
 
 namespace gnilk {
 

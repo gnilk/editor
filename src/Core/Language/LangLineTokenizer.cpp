@@ -29,7 +29,7 @@ Modified: $Date: $ by $Author: FKling $
 #include <string.h>
 
 #include "LangLineTokenizer.h"
-
+#include <assert.h>
 using namespace gnilk;
 
 LangLineTokenizer::LangLineTokenizer() {
@@ -135,7 +135,7 @@ void LangLineTokenizer::ParseLineWithCurrentState(std::vector<LangToken> &tokens
         if (classification == kLanguageTokenClass::kRegular) {
             classification = currentState->regularTokenClass;
         }
-        LangToken token { .string = std::string(tmp), .classification = classification, .idxOrigStr = pos };
+        LangToken token { .string = std::string(tmp), .idxOrigStr = pos, .classification = classification };
         tokens.push_back(token);
     }
 

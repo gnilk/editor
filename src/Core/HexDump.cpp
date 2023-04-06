@@ -3,6 +3,7 @@
 //
 
 #include "HexDump.h"
+#include <string.h>
 
 void HexDump::Write(std::function<void(const char *str)> printer, const uint8_t *pData, const size_t szData) {
     char hexdump[16*5+2];

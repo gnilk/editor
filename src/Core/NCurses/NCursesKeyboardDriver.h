@@ -15,7 +15,8 @@ namespace gedit {
     class NCursesKeyboardDriver : public KeyboardDriverBase {
     public:
         NCursesKeyboardDriver() = default;
-        void Begin(MacOSKeyboardMonitor *monitor);
+        //void Begin(MacOSKeyboardMonitor *monitor);
+        void Begin(KeyboardBaseMonitor *monitor);
         // since we are monitoring _all_ keys in the system
         // the stdin for PID will run out of sync...
         KeyPress GetKeyPress() override;
@@ -24,7 +25,7 @@ namespace gedit {
     private:
         // Timeout (in milliseconds) waiting for a NCurses event in case of a hardware event...
         unsigned int timeoutGetChMSec = 100;
-        MacOSKeyboardMonitor *ptrKeyboardMonitor;
+        KeyboardBaseMonitor *ptrKeyboardMonitor;
         SafeQueue <Keyboard::HWKeyEvent> kbdEvents;
 
     };

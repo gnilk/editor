@@ -145,83 +145,76 @@ target_link_directories(editor PUBLIC ${linkdirs})
 target_include_directories(editor PUBLIC ${includedirs})
 target_link_libraries(editor ${extlibs})
 
-add_executable(kbdhook tests/kbdhooking.m)
-target_link_libraries(kbdhook ${COCOA_FRAMEWORK} ${IOKIT_FRAMEWORK} ${GAMECONTROLLER_FRAMEWORK} ${CORE_FOUNDATION})
+#add_executable(kbdhook tests/kbdhooking.m)
+#target_link_libraries(kbdhook ${COCOA_FRAMEWORK} ${IOKIT_FRAMEWORK} ${GAMECONTROLLER_FRAMEWORK} ${CORE_FOUNDATION})
 
 #
 # Keyboard monitor test
 #
-add_executable(kbdmon tests/kbdmon.cpp tests/MacOSKeyMonCGEvents.cpp ${editorsrc})
-target_link_directories(kbdmon PUBLIC ${linkdirs})
-target_include_directories(kbdmon PUBLIC ${includedirs})
-target_link_libraries(kbdmon ${extlibs}  ${CARBON_FRAMEWORK})
-# end kbdmon
-
-add_executable(gckeys tests/gckeys.m)
-target_link_libraries(gckeys ${COCOA_FRAMEWORK} ${IOKIT_FRAMEWORK} ${GAMECONTROLLER_FRAMEWORK} ${CORE_FOUNDATION})
-
-add_executable(myshell tests/myshell.cpp)
-target_link_libraries(myshell ${COCOA_FRAMEWORK} ${IOKIT_FRAMEWORK} ${GAMECONTROLLER_FRAMEWORK} ${CORE_FOUNDATION})
-
-add_executable(myshell2 tests/myshell2.cpp src/Core/unix/Shell.cpp src/Core/StrUtil.cpp)
-target_include_directories(myshell2 PUBLIC src/)
-
-add_executable(tstlog tests/tstlog.cpp)
-target_include_directories(tstlog PUBLIC ext/logger/src)
-target_link_libraries(tstlog logger)
-
-
+#add_executable(kbdmon tests/kbdmon.cpp tests/MacOSKeyMonCGEvents.cpp ${editorsrc})
+#target_link_directories(kbdmon PUBLIC ${linkdirs})
+#target_include_directories(kbdmon PUBLIC ${includedirs})
+#target_link_libraries(kbdmon ${extlibs}  ${CARBON_FRAMEWORK})
+## end kbdmon
+#
+#add_executable(gckeys tests/gckeys.m)
+#target_link_libraries(gckeys ${COCOA_FRAMEWORK} ${IOKIT_FRAMEWORK} ${GAMECONTROLLER_FRAMEWORK} ${CORE_FOUNDATION})
+#
+#add_executable(myshell tests/myshell.cpp)
+#target_link_libraries(myshell ${COCOA_FRAMEWORK} ${IOKIT_FRAMEWORK} ${GAMECONTROLLER_FRAMEWORK} ${CORE_FOUNDATION})
+#
+#add_executable(myshell2 tests/myshell2.cpp src/Core/unix/Shell.cpp src/Core/StrUtil.cpp)
+#target_include_directories(myshell2 PUBLIC src/)
+#
+#add_executable(tstlog tests/tstlog.cpp)
+#target_include_directories(tstlog PUBLIC ext/logger/src)
+#target_link_libraries(tstlog logger)
 #
 # I include all of the editor stuff in this test app
 #
-add_executable(strattr tests/strsttr.cpp ${editorsrc})
-target_include_directories(strattr PUBLIC src)
-target_include_directories(strattr PUBLIC ${NCURSES_HOME}/include)
-target_link_directories(strattr  PUBLIC ${NCURSES_HOME}/lib)
-target_include_directories(strattr PUBLIC ${YAML_CPP_HOME}/include)
-target_link_directories(strattr  PUBLIC ${YAML_CPP_HOME}/lib)
+#add_executable(strattr tests/strsttr.cpp ${editorsrc})
+#target_include_directories(strattr PUBLIC src)
+#target_include_directories(strattr PUBLIC ${NCURSES_HOME}/include)
+#target_link_directories(strattr  PUBLIC ${NCURSES_HOME}/lib)
+#target_include_directories(strattr PUBLIC ${YAML_CPP_HOME}/include)
+#target_link_directories(strattr  PUBLIC ${YAML_CPP_HOME}/lib)
+#target_link_libraries(strattr ${extlibs})
 
-target_link_libraries(strattr ${extlibs})
 
-
-add_executable(focuscheck tests/focusdet.cpp tests/focus_oc_wrapper.mm)
-target_link_libraries(focuscheck ${CORE_FOUNDATION} ${APPKIT})
-
-add_executable(cgsniff tests/cgeventsniff.cpp)
-target_link_libraries(cgsniff ${CORE_FOUNDATION} ${CORE_SERVICES} ${CORE_GRAPHICS} ${APPKIT})
-
-add_executable(nseventmon tests/nseventmon.m)
-target_link_libraries(nseventmon ${CORE_FOUNDATION} ${CORE_SERVICES} ${CORE_GRAPHICS} ${APPKIT})
+#add_executable(focuscheck tests/focusdet.cpp tests/focus_oc_wrapper.mm)
+#target_link_libraries(focuscheck ${CORE_FOUNDATION} ${APPKIT})
+#
+#add_executable(cgsniff tests/cgeventsniff.cpp)
+#target_link_libraries(cgsniff ${CORE_FOUNDATION} ${CORE_SERVICES} ${CORE_GRAPHICS} ${APPKIT})
+#
+#add_executable(nseventmon tests/nseventmon.m)
+#target_link_libraries(nseventmon ${CORE_FOUNDATION} ${CORE_SERVICES} ${CORE_GRAPHICS} ${APPKIT})
 
 #
 # view handling test renderering
 #
-add_executable(renderview tests/viewrender.cpp ${editorsrc})
-target_link_directories(renderview PUBLIC ${linkdirs})
-target_include_directories(renderview PUBLIC ${includedirs})
-target_link_libraries(renderview ${extlibs})
-
-add_executable(testlayout tests/testlayout.cpp ${editorsrc})
-target_link_directories(kbdmon PUBLIC ${linkdirs})
-target_include_directories(kbdmon PUBLIC ${includedirs})
-target_link_libraries(testlayout ${extlibs})
-
-add_executable(testscroll tests/testscroll.cpp ${editorsrc})
-target_link_directories(testscroll PUBLIC ${linkdirs})
-target_include_directories(testscroll PUBLIC ${includedirs})
-target_link_libraries(testscroll ${extlibs})
-
-
+#add_executable(renderview tests/viewrender.cpp ${editorsrc})
+#target_link_directories(renderview PUBLIC ${linkdirs})
+#target_include_directories(renderview PUBLIC ${includedirs})
+#target_link_libraries(renderview ${extlibs})
 #
-# unit tests
+#add_executable(testlayout tests/testlayout.cpp ${editorsrc})
+#target_link_directories(kbdmon PUBLIC ${linkdirs})
+#target_include_directories(kbdmon PUBLIC ${includedirs})
+#target_link_libraries(testlayout ${extlibs})
 #
-list(APPEND utestsrc utests/test_buffermanager.cpp)
+#add_executable(testscroll tests/testscroll.cpp ${editorsrc})
+#target_link_directories(testscroll PUBLIC ${linkdirs})
+#target_include_directories(testscroll PUBLIC ${includedirs})
+#target_link_libraries(testscroll ${extlibs})
 
 
-add_library(libeditor SHARED ${editorsrc} ${utestsrc})
-target_link_directories(libeditor PUBLIC ${linkdirs})
-target_include_directories(libeditor PUBLIC ${includedirs})
-target_link_libraries(libeditor ${extlibs})
+
+
+#add_library(libeditor SHARED ${editorsrc} ${utestsrc})
+#target_link_directories(libeditor PUBLIC ${linkdirs})
+#target_include_directories(libeditor PUBLIC ${includedirs})
+#target_link_libraries(libeditor ${extlibs})
 
 #
 # Add configuration files so they get copied when changed...
@@ -237,3 +230,22 @@ ADD_CUSTOM_TARGET(font ${CMAKE_COMMAND} -E copy_if_different
 
 ADD_DEPENDENCIES(editor config colors font)
 
+#
+# unit testing
+#
+list(APPEND utestsrc utests/test_buffermanager.cpp)
+list(APPEND utestsrc src/Core/Tests/test_dcoverlay.cpp)
+
+
+
+add_library(utests SHARED ${editorsrc} ${utestsrc})
+target_link_directories(utests PUBLIC ${linkdirs})
+target_include_directories(utests PUBLIC ${includedirs})
+target_link_libraries(utests ${extlibs})
+
+
+add_custom_target(
+        Unit_Tests ALL
+        DEPENDS utests
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+)

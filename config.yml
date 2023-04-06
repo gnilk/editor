@@ -7,6 +7,8 @@ main:
 macos:
   allow_kbd_hook: yes
 
+linux:
+
 sdl3:
   default_width: 1024
   default_height: 768

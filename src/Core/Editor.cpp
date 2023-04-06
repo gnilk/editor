@@ -191,10 +191,13 @@ void Editor::ConfigureSubSystems() {
 }
 
 void Editor::SetupNCurses() {
+#ifndef GEDIT_LINUX
     if (!keyboardMonitor.Start()) {
         logger->Error("Keyboard monitor failed to start");
+        printf("Unable to start keyboard monitor!");
         exit(1);
     }
+#endif
 
     screen = new NCursesScreen();
     auto ncKeyboard = new NCursesKeyboardDriver();

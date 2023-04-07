@@ -22,9 +22,12 @@ namespace gedit {
 
         void ClearLine(int y) const override;
         void FillLine(int y, kTextAttributes attrib, char c) const override;
+        void DrawLineOverlays(int y) const override;
 
         void DrawStringAt(int x, int y, const char *str) const override;
         void DrawStringWithAttributesAt(int x, int y, kTextAttributes attrib, const char *str) const override;
+        void DrawStringWithAttributesAndColAt(int x, int y, kTextAttributes attrib, int idxColor, const char *str) const override;
+
 
 //        void DrawLines(const std::vector<Line *> &lines, int idxTopLine, int idxBottomLine) override;
 //        void DrawLineWithAttributesAt(int x, int y, int nCharToPrint, Line &l) override;

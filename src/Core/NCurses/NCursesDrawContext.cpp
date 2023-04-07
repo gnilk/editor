@@ -3,6 +3,7 @@
 //
 
 #include <ncurses.h>
+#include "logger.h"
 #include "NCursesDrawContext.h"
 
 //
@@ -55,7 +56,36 @@ static int attribToNCAttrib(kTextAttributes attrib) {
     return ncAttrib;
 }
 
+//
+// There is something wrong with the color_pair, all I get is 'black'
+//
+void NCursesDrawContext::DrawLineOverlays(int y) const {
+    return;
+    if (!overlay.isActive) return;
+    if (!overlay.IsLinePartiallyCovered(y)) {
+        return;
+    }
+    // Assume fully covered line...
+    int start = 0;
+    int end = GetRect().Width();
+    // If only partially covered, take start/end column values depending on which line we are rendering
+    if(overlay.IsLinePartiallyCovered(y)) {
+        if (y == overlay.start.y) start = overlay.start.x;
+        if (y == overlay.end.y) end = overlay.end.x;
+    }
+
+    // Color argument don't work..
+    // It is supposed to be just the number we give when register
+    // From docs 'the color argument is a color-pair index (as in the first argument of init_pair, see curs_color(3X)'
+    int res = mvwchgat((WINDOW *)win, y, start, end, A_NORMAL, 2, nullptr);
+    if (res == ERR) {
+        exit(1);
+    }
+}
+
+
 void NCursesDrawContext::DrawStringWithAttributesAt(int x, int y, kTextAttributes attrib, const char *str) const {
+
     auto ncAttr = attribToNCAttrib(attrib);
     wattrset((WINDOW *)win, A_NORMAL);  // Reset to normal
     wattron((WINDOW *)win, ncAttr);     // Enable whatever we have
@@ -69,6 +99,37 @@ void NCursesDrawContext::DrawStringWithAttributesAt(int x, int y, kTextAttribute
         winsch((WINDOW *) win, str[rect.Width()-1]);
     }
 
+    wattrset((WINDOW *)win, A_NORMAL);
+}
+
+void NCursesDrawContext::DrawStringWithAttributesAndColAt(int x, int y, kTextAttributes attrib, int idxColor, const char *str) const {
+
+    wmove((WINDOW *)win, y, x);
+
+    auto ncAttr = attribToNCAttrib(attrib);
+    auto ncColorAttrib = COLOR_PAIR(idxColor);
+    wattrset((WINDOW *)win, A_NORMAL);  // Reset to normal
+    wattron((WINDOW *)win, ncAttr);     // Enable whatever we have
+    wattron((WINDOW *)win, ncColorAttrib);
+
+    bool bWasActive = false;
+    for(int i=0;i<strlen(str);i++) {
+        // Note: This can be removed if I manage to get the drawoverlay function to work..
+        // Switch on selection drawing if we are inside the overlay
+        if (overlay.isActive && overlay.IsInside(x+i, y)) {
+            wattrset((WINDOW *)win, A_NORMAL);  // Reset to normal
+            wattron((WINDOW *)win, ncAttr);     // Enable whatever we have
+            wattron((WINDOW *)win, A_REVERSE);
+            bWasActive = true;
+        } else if (bWasActive) {
+            wattrset((WINDOW *)win, A_NORMAL);  // Reset to normal
+            wattron((WINDOW *)win, ncAttr);     // Enable whatever we have
+            wattron((WINDOW *)win, ncColorAttrib);
+            bWasActive = false;
+        }
+        waddch((WINDOW *)win, str[i]);
+    }
+//    waddstr((WINDOW *)win, str);
     wattrset((WINDOW *)win, A_NORMAL);
 }
 

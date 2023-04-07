@@ -24,7 +24,7 @@ namespace gedit {
         DrawContext &GetContentDC() override;
         void Clear() override;
 
-        void Refresh() override {
+        void Refresh()  override {
             wnoutrefresh((WINDOW *)winptr);
             if (clientWindow != nullptr) {
                 wnoutrefresh((WINDOW *)clientWindow);

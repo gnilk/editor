@@ -90,6 +90,7 @@ namespace gedit {
             }
             window->Refresh();
 
+
             for(auto view : subviews) {
                 if (view->IsVisible()) {
                     view->Draw();

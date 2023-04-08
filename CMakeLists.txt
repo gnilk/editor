@@ -14,6 +14,8 @@ if (APPLE)
     set(CMAKE_OSX_ARCHITECTURES "x86_64;arm64" CACHE STRING "")
     set(CMAKE_OSX_SYSROOT /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk)
 
+    add_definitions(-DGEDIT_MACOS)
+
     include_directories(AFTER SYSTEM /usr/local/include)
 
     ## THIS IS FOR macOS - homebrew installation...

@@ -20,8 +20,15 @@
 #include "Core/NCurses/NCursesKeyboardDriver.h"
 
 // SDL3 backend
+#ifdef GEDIT_USE_SDL3
 #include "Core/SDL3/SDLScreen.h"
 #include "Core/SDL3/SDLKeyboardDriver.h"
+#endif
+
+#ifdef GEDIT_USE_SDL2
+#include "Core/SDL3/SDLScreen.h"
+#include "Core/SDL3/SDLKeyboardDriver.h"
+#endif
 
 // API stuff
 #include "Core/API/EditorAPI.h"

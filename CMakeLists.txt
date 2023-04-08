@@ -4,6 +4,9 @@ set(CMAKE_CXX_STANDARD 17)
 
 set(CMAKE_BUILD_TYPE DEBUG)
 
+option(GEDIT_BUILD_SDL3 "Build SDL3" OFF)
+option(GEDIT_BUILD_SDL2 "Build SDL2" ON)
+
 set(SDL_HOME /usr/local)
 
 list(APPEND appsrc main.cpp)
@@ -148,15 +151,36 @@ list(APPEND editorsrc src/Core/Sublime/SublimeConfigColorScript.cpp src/Core/Sub
 
 # SDL3 integration, make this optional!
 # test integration files for editor
-list(APPEND editorsrc src/Core/SDL3/SDLScreen.cpp src/Core/SDL3/SDLScreen.h)
-list(APPEND editorsrc src/Core/SDL3/SDLDrawContext.cpp src/Core/SDL3/SDLDrawContext.h)
-list(APPEND editorsrc src/Core/SDL3/SDLWindow.cpp src/Core/SDL3/SDLWindow.h)
-list(APPEND editorsrc src/Core/SDL3/SDLTranslate.cpp src/Core/SDL3/SDLTranslate.h)
-list(APPEND editorsrc src/Core/SDL3/SDLFontManager.cpp src/Core/SDL3/SDLFontManager.h)
-list(APPEND editorsrc src/Core/SDL3/SDLKeyboardDriver.cpp src/Core/SDL3/SDLKeyboardDriver.h)
-list(APPEND editorsrc src/Core/SDL3/SDLColorRepository.cpp src/Core/SDL3/SDLColorRepository.h)
-list(APPEND editorsrc src/Core/SDL3/SDLColor.h)
-list(APPEND editorsrc src/Core/SDL3/SDLCursor.h)
+if (GEDIT_BUILD_SDL3)
+    list(APPEND editorsrc src/Core/SDL3/SDLScreen.cpp src/Core/SDL3/SDLScreen.h)
+    list(APPEND editorsrc src/Core/SDL3/SDLDrawContext.cpp src/Core/SDL3/SDLDrawContext.h)
+    list(APPEND editorsrc src/Core/SDL3/SDLWindow.cpp src/Core/SDL3/SDLWindow.h)
+    list(APPEND editorsrc src/Core/SDL3/SDLTranslate.cpp src/Core/SDL3/SDLTranslate.h)
+    list(APPEND editorsrc src/Core/SDL3/SDLFontManager.cpp src/Core/SDL3/SDLFontManager.h)
+    list(APPEND editorsrc src/Core/SDL3/SDLKeyboardDriver.cpp src/Core/SDL3/SDLKeyboardDriver.h)
+    list(APPEND editorsrc src/Core/SDL3/SDLColorRepository.cpp src/Core/SDL3/SDLColorRepository.h)
+    list(APPEND editorsrc src/Core/SDL3/SDLColor.h)
+    list(APPEND editorsrc src/Core/SDL3/SDLCursor.h)
+    # make this optional
+    list(APPEND extlibs SDL3)
+    add_definitions(-DGEDIT_USE_SDL3)
+endif()
+
+if (GEDIT_BUILD_SDL2)
+    list(APPEND editorsrc src/Core/SDL2/SDLScreen.cpp src/Core/SDL2/SDLScreen.h)
+    list(APPEND editorsrc src/Core/SDL2/SDLDrawContext.cpp src/Core/SDL2/SDLDrawContext.h)
+    list(APPEND editorsrc src/Core/SDL2/SDLWindow.cpp src/Core/SDL2/SDLWindow.h)
+    list(APPEND editorsrc src/Core/SDL2/SDLTranslate.cpp src/Core/SDL2/SDLTranslate.h)
+    list(APPEND editorsrc src/Core/SDL2/SDLFontManager.cpp src/Core/SDL2/SDLFontManager.h)
+    list(APPEND editorsrc src/Core/SDL2/SDLKeyboardDriver.cpp src/Core/SDL2/SDLKeyboardDriver.h)
+    list(APPEND editorsrc src/Core/SDL2/SDLColorRepository.cpp src/Core/SDL2/SDLColorRepository.h)
+    list(APPEND editorsrc src/Core/SDL2/SDLColor.h)
+    list(APPEND editorsrc src/Core/SDL2/SDLCursor.h)
+    # make this optional
+    list(APPEND extlibs SDL2)
+    add_definitions(-DGEDIT_USE_SDL2)
+endif()
+
 
 # append configuration stuff - these are copied with custom command
 
@@ -168,8 +192,6 @@ list(APPEND linkdirs ${SDL_HOME}/lib)
 list(APPEND includedirs ${NCURSES_HOME}/include PUBLIC ${YAML_CPP_HOME}/include ext/logger/src src/)
 list(APPEND includedirs ${SDL_HOME}/include)
 
-# make this optional
-list(APPEND extlibs SDL3)
 
 
 

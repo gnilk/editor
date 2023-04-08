@@ -49,8 +49,23 @@ if (APPLE)
 
     # list(APPEND extlibs ${COCOA_FRAMEWORK} ${IOKIT_FRAMEWORK} ${GAMECONTROLLER_FRAMEWORK} ${CORE_FOUNDATION})
     list(APPEND extlibs ${IOKIT_FRAMEWORK} ${CORE_FOUNDATION})
-else()
+elseif(UNIX)
+    message(STATUS "Linux build")
+    set(YAML_CPP_HOME /usr)
+    set(NCURSES_HOME /usr)
+    set(SDL_HOME /usr/local)
+
+    list(APPEND includedirs /home/gnilk/src/ext/json/single_include)
+
+    list(APPEND editorsrc src/Core/unix/Shell.cpp src/Core/unix/Shell.h)
+
+    add_definitions(-DGEDIT_LINUX)
+
+    list(APPEND extlibs util)   ## see: man forkpty
+    list(APPEND extlibs ncurses)
+    list(APPEND extlibs yaml-cpp)
     add_executable(${CUR_TARGET} ${appsrc})
+
 endif ()
 
 add_subdirectory(ext/logger ${CMAKE_BINARY_DIR}/logger)

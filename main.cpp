@@ -3,6 +3,7 @@
 //
 /*
  * TO-DO List
+ * - Restore colors when leaving editor
  * - Make some classes thread aware (TextBuffer / Line class - perhaps most important)
  * ! Fix NCurses, currently broken (due to work on SDL3 backend)
  *

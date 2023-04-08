@@ -101,6 +101,7 @@ EditorModel::Ref Editor::LoadEditorModelFromFile(const char *filename) {
         logger->Error("Unable to load file: '%s'", filename);
         return nullptr;
     }
+    logger->Debug("End Loading");
     textBuffer->SetLanguage(Config::Instance().GetLanguageForFilename(filename));
 
     EditorModel::Ref editorModel = std::make_shared<EditorModel>();

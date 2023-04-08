@@ -3,7 +3,8 @@
 //
 /*
  * TO-DO List
- * - Restore colors when leaving editor
+ * - SDL2 backend, SDL3 is way too instable (no Linux support) so we need another one...
+ * ! Properly quit editor through API
  * - Make some classes thread aware (TextBuffer / Line class - perhaps most important)
  * ! Fix NCurses, currently broken (due to work on SDL3 backend)
  *
@@ -34,7 +35,7 @@
  *
  *
  * + BaseController, handle key press (take from old ModeBase/EditorMode)
- * - Consolidate NCursesKeyBoard kKeyCode_xxxx with Keyboard::kKeyCode - currently there is a mismatch..
+ * ! Consolidate NCursesKeyBoard kKeyCode_xxxx with Keyboard::kKeyCode - currently there is a mismatch..
  * + Figure out how to handle 'HasContentChanged' notfications to force redraws..
  *   a) be in the redraw loop and just do it (let the views take care of it)
  *   b) Somehow let a controller or view set a flag that a redraw is needed..
@@ -45,10 +46,10 @@
  * ! Create a specific HSplitView which can support a 'split' window like feature and on-request resize
  *   both views (upper/lower) in tandem..
  * ! HSplitView - ability to a view to request 'Increased Size' by X..
- * - Create a 'StatusBar' view (Single line, no border)
+ * ! Create a 'StatusBar' view (Single line, no border)
  * ! HStackView, which simply 'stacks' and computes sizes accordingly when updated
- * - Import the language/color features in to this project
- * - Promote this project to the new 'main' project...
+ * ! Import the language/color features in to this project
+ * ! Promote this project to the new 'main' project...
  * - BufferManager should store 'fullPathName' and 'name'
  * - Unsaved file should have '*' marking in the top..
  * ! Consider relationship between viexw/context/window - right now there is too much flexibility

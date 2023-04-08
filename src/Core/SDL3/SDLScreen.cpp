@@ -23,6 +23,7 @@
 #include "Core/Config/Config.h"
 
 #include <SDL3/SDL.h>
+#include <SDL3/SDL_video.h>
 
 #define STB_RECT_PACK_IMPLEMENTATION
 #define STB_TRUETYPE_IMPLEMENTATION
@@ -46,45 +47,48 @@ bool SDLScreen::Open() {
 
     logger->Debug("Opening window");
 
-    auto nDrivers = SDL_GetNumVideoDrivers();
-    logger->Debug("Available drivers: %d", nDrivers);
-    for(int i=0;i<nDrivers;i++) {
-        auto driverName = SDL_GetVideoDriver(i);
-        logger->Debug("  %d:%s", i, driverName);
-    }
-
     widthPixels = Config::Instance()["sdl3"].GetInt("default_width", 1920);
     heightPixels = Config::Instance()["sdl3"].GetInt("default_height", 1080);
 
-    SDL_Init(SDL_INIT_VIDEO);
+    auto currentDriver = SDL_GetHint(SDL_HINT_VIDEO_DRIVER);
+    printf("Driver: %s\n", currentDriver);
+
+    int nDrivers = SDL_GetNumVideoDrivers();
+    printf("Available Video Drivers (%d):\n",nDrivers);
+    for(int i=0;i<nDrivers;i++) {
+        auto driverName = SDL_GetVideoDriver(i);
+        printf("  %d:%s\n",i,driverName);
+    }
+    //SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "evdev");
+
+    int err = SDL_Init(SDL_INIT_VIDEO);
+    if (err) {
+        logger->Error("SDL_Init, %s", SDL_GetError());
+        printf("Error: SDL_Init, %s\n", SDL_GetError());
+        exit(1);
+    }
     // FIXME: restore window size!
     window = SDL_CreateWindow("gedit", widthPixels, heightPixels,  SDL_WINDOW_OPENGL);
     renderer = SDL_CreateRenderer(window, nullptr, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
-    auto displayId = SDL_GetDisplayForWindow(window);
-    auto displayMode = SDL_GetDesktopDisplayMode(displayId);
-
     logger->Debug("Resolution: %d x %d", widthPixels, heightPixels);
-    logger->Debug("Display, pixels: %d x %d (scale: %f)", displayMode->pixel_w, displayMode->pixel_h, displayMode->display_scale);
-    logger->Debug("Display, points: %d x %d\n", displayMode->screen_w, displayMode->screen_h);
     logger->Debug("Loading font: '%s'", fontName.c_str());
 
     // FIXME: Font handling should not be here
-    auto font = STBTTF_OpenFont(renderer, fontName.c_str(), 18 * displayMode->display_scale);
+    auto font = STBTTF_OpenFont(renderer, fontName.c_str(), 18);
     if (font == nullptr) {
         logger->Error("Unable to open font: '%s'\n", fontName.c_str());
         return -1;
     }
-
     SDLFontManager::Instance().SetActiveFont(font);
 
     // this will just trigger the initialization process - unless not yet done...
     SDLColorRepository::Instance();
 
     float line_margin = Config::Instance()["sdl3"].GetInt("line_margin", 4);
-    line_margin *= displayMode->display_scale;
     rows = heightPixels / (font->baseline + line_margin); // baseline = font->ascent * font->scale
+
 
     // subjective representation of average type of chars you might find in a something
     // small,wide,average type of chars
@@ -98,13 +102,11 @@ bool SDLScreen::Open() {
     logger->Debug("  Width : %d px (based on average widht for '%s')", fontWidthAverage, textToMeasure.c_str());
 
     logger->Debug("Text to Graphics defined as");
-    cols *= displayMode->display_scale;
-    rows *= displayMode->display_scale;
     logger->Debug("Rows=%d, Cols=%d", rows, cols);
 
     // Setup translation
-    SDLTranslate::fac_x_to_rc = (float)cols / (float)(widthPixels * displayMode->display_scale);
-    SDLTranslate::fac_y_to_rc = (float)rows / (float)(heightPixels * displayMode->display_scale);
+    SDLTranslate::fac_x_to_rc = (float)cols / (float)widthPixels;
+    SDLTranslate::fac_y_to_rc = (float)rows / (float)heightPixels;
 
     return true;
 }

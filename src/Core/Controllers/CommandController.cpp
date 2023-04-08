@@ -7,6 +7,9 @@
 #include "Core/StrUtil.h"
 #include "Core/Config/Config.h"
 
+#include "Core/Editor.h"
+#include "Core/API/EditorAPI.h"
+
 using namespace gedit;
 
 void CommandController::Begin() {
@@ -89,7 +92,9 @@ bool CommandController::TryExecuteInternalCmd(std::string &cmdline) {
 
     // There is more to come...
     if ((commandList[0] == "q") || (commandList[0]=="quit")) {
-        exit(1);
+        // FIX: Can't just exit here!
+        auto mainEditorAPI = Editor::Instance().GetAPI<EditorAPI>(0x01);
+        mainEditorAPI->ExitEditor();
     }
 
     WriteLine("internal execute: " + commandList[0]);

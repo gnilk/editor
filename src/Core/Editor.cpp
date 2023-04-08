@@ -23,6 +23,9 @@
 #include "Core/SDL3/SDLScreen.h"
 #include "Core/SDL3/SDLKeyboardDriver.h"
 
+// API stuff
+#include "Core/API/EditorAPI.h"
+
 using namespace gedit;
 
 
@@ -61,6 +64,7 @@ bool Editor::Initialize(int argc, const char **argv) {
         }
     }
 
+    ConfigureAPI();
 
     ConfigureSubSystems();
     ConfigureColorTheme();
@@ -153,6 +157,10 @@ void Editor::ConfigureColorTheme() {
     }
 }
 
+void Editor::ConfigureAPI() {
+    static EditorAPI editorApi;
+    RegisterAPI(0x01, &editorApi);
+}
 
 static std::vector<std::string> glbSupportedBackends = {
         {"ncurses"},

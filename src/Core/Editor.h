@@ -49,15 +49,27 @@ namespace gedit {
             }
             return models[idxModel];
         }
+        // API Object Handling
+        void RegisterAPI(int id, void *apiObject) {
+            editorApiObjects.insert({id, apiObject});
+        }
+        template<class T>
+        T *GetAPI(int id) {
+            auto apiObject = editorApiObjects[id];
+            return static_cast<T *>(apiObject);
+        }
     protected:
         void ConfigureLogger();
         void ConfigureLanguages();
         void ConfigureColorTheme();
         void ConfigureSubSystems();
 
+        void ConfigureAPI();
+
         // TEMP - backend configuration
         void SetupNCurses();
         void SetupSDL();
+
 
         EditorModel::Ref LoadEditorModelFromFile(const char *filename);
     private:
@@ -74,6 +86,8 @@ namespace gedit {
 #endif
         ScreenBase *screen = nullptr;
         KeyboardDriverBase *keyboardDriver = nullptr;
+
+        std::unordered_map<int, void *> editorApiObjects;
 
     };
 

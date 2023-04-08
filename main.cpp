@@ -109,7 +109,7 @@
 
 #include "logger.h"
 #include <map>
-
+#include "Core/API/EditorAPI.h"
 using namespace gedit;
 
 
@@ -177,12 +177,19 @@ int main(int argc, const char **argv) {
     // Note: This can be implicit
     RuntimeConfig::Instance().SetMainThreadID();
 
-
 //    TestKeyBoardDriver();
 
 
     auto logger = gnilk::Logger::GetLogger("main");
     bool bQuit = false;
+
+
+    auto editorApi = Editor::Instance().GetAPI<EditorAPI>(0x01);
+    editorApi->SetExitEditorDelegate([&bQuit]()->void{
+        bQuit = true;
+    });
+
+
 
     auto screen = RuntimeConfig::Instance().Screen();
     auto keyboardDriver = RuntimeConfig::Instance().Keyboard();

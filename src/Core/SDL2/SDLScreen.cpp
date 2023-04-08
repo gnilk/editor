@@ -61,7 +61,7 @@ bool SDLScreen::Open() {
     }
     //SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "evdev");
 
-    int err = SDL_Init(SDL_INIT_VIDEO);
+    int err = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_HAPTIC);
     if (err) {
         logger->Error("SDL_Init, %s", SDL_GetError());
         printf("Error: SDL_Init, %s\n", SDL_GetError());

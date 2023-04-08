@@ -33,7 +33,7 @@ KeyPress SDLKeyboardDriver::GetKeyPress() {
         if (event.type == SDL_EventType::SDL_QUIT) {
             SDL_Quit();
             exit(0);
-        }  else if (event.type == SDL_EventType::SDL_QUIT) {
+        }  else if (event.type == SDL_EventType::SDL_KEYDOWN) {
             auto kp =  TranslateSDLEvent(event.key);
 
             auto logger = gnilk::Logger::GetLogger("SDLKeyboardDriver");

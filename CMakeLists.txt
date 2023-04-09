@@ -17,6 +17,10 @@ if (APPLE)
     set(CMAKE_OSX_ARCHITECTURES "x86_64;arm64" CACHE STRING "")
     set(CMAKE_OSX_SYSROOT /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk)
 
+    # Not sure if this is the right way to change the macOS defaults...
+    set(GEDIT_BUILD_SDL3 ON)
+    set(GEDIT_BUILD_SDL2 OFF)
+
     add_definitions(-DGEDIT_MACOS)
 
     include_directories(AFTER SYSTEM /usr/local/include)

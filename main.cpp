@@ -184,7 +184,7 @@ int main(int argc, const char **argv) {
     // Note: This can be implicit
     RuntimeConfig::Instance().SetMainThreadID();
 
-//    TestKeyBoardDriver();
+    //TestKeyBoardDriver();
 
 
     auto logger = gnilk::Logger::GetLogger("main");

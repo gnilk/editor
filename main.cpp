@@ -3,7 +3,7 @@
 //
 /*
  * TO-DO List
- * - SDL2 backend, SDL3 is way too instable (no Linux support) so we need another one...
+ * ! SDL2 backend, SDL3 is way too instable (no Linux support) so we need another one...
  * - Speed up tokenizer in editor - consider putting in on a background thread...
  *   Consider making ReparseLine a function to use.
  *   Add a marker (like stack-size from parser) to each line, an intelligent reparse function
@@ -11,7 +11,7 @@
  *   which would indicate a clean state for the parser... We probably would need a cut-off as well
  *   in which the Reparse function spawns a background thread to update the full buffer...
  * ! Properly quit editor through API
- * - Make some classes thread aware (TextBuffer / Line class - perhaps most important)
+ * ! Make some classes thread aware (TextBuffer / Line class - perhaps most important)
  * ! Fix NCurses, currently broken (due to work on SDL3 backend)
  *
  * Done:

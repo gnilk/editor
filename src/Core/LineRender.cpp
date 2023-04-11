@@ -17,10 +17,12 @@ void LineRender::DrawLines(const std::vector<Line *> &lines, int idxTopLine, int
             break;
         }
         auto line = lines[i];
+        line->Lock();
         auto nCharToPrint = line->Length() > rect.Width() ? rect.Width() : line->Length();
         dc.ClearLine(i - idxTopLine);
         DrawLineWithAttributesAt(0, i - idxTopLine, nCharToPrint, *line, selection);
         dc.DrawLineOverlays(i - idxTopLine);
+        line->Release();
     }
 }
 

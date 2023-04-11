@@ -15,6 +15,16 @@ Line::Line() {
 
 }
 
+void Line::Lock() {
+    lock.lock();
+    isLocked = true;
+}
+void Line::Release() {
+    lock.unlock();
+    isLocked = false;
+}
+
+
 Line::Line(const char *data) {
     buffer = data;
     strutil::rtrim(buffer);

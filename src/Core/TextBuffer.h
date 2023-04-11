@@ -16,6 +16,15 @@ namespace gedit {
     class TextBuffer {
     public:
         using Ref = std::shared_ptr<TextBuffer>;
+
+    public:
+        typedef enum {
+            kState_None,
+            kState_Idle,
+            kState_Start,
+            kState_Parsing,
+        } State;
+
     public:
         explicit TextBuffer(const std::string &bufferName) : name(bufferName) {
 
@@ -48,11 +57,14 @@ namespace gedit {
 
         void Reparse();
 
-
+    protected:
+        void StartReparseThread();
     private:
+        volatile State state = kState_None;
         std::string name;
         std::vector<Line *> lines;
         LanguageBase *language = nullptr;
+        std::thread *reparseThread = nullptr;
 
         // Do not put the edit controller here - might make sense, but it will cause problems later
         // Example: split-window editing with same file => won't work

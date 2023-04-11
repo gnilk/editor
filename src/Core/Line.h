@@ -48,8 +48,6 @@ namespace gedit {
         int ComputeIndent();
 
         LineAttribIterator AttributeAt(int pos);
-
-
         std::vector<LineAttrib> &Attributes() { return attribs; }
 
         void SetSelected(bool bSelected) {
@@ -61,8 +59,12 @@ namespace gedit {
 
         const size_t Length() const { return buffer.size(); }
         const std::string_view Buffer() const { return buffer.c_str(); }
+
+        void Lock();
+        void Release();
     private:
         std::mutex lock;
+        bool isLocked = false;
         std::string buffer = "";
         std::vector<LineAttrib> attribs;
         bool active = false;

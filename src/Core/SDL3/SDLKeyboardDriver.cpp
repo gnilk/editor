@@ -33,10 +33,11 @@ KeyPress SDLKeyboardDriver::GetKeyPress() {
         if (event.type == SDL_EventType::SDL_EVENT_QUIT) {
             SDL_Quit();
             exit(0);
-        }  else if (event.type == SDL_EventType::SDL_EVENT_KEY_DOWN) {
+        } else if (event.type == SDL_EventType::SDL_EVENT_KEY_DOWN) {
             auto kp =  TranslateSDLEvent(event.key);
 
             auto logger = gnilk::Logger::GetLogger("SDLKeyboardDriver");
+            logger->Debug("SDL_EVENT_KEY_DOWN");
             logger->Debug("KeyDown event: %d (0x%.x) - sym: %x (%d), scancode: %x (%d)", event.type, event.type,
                           event.key.keysym.sym, event.key.keysym.sym,
                           event.key.keysym.scancode, event.key.keysym.scancode);
@@ -46,7 +47,12 @@ KeyPress SDLKeyboardDriver::GetKeyPress() {
                 logger->Debug("  special kp, modifiers=%.2x, specialKey=%.2x (%s)", kp.modifiers, kp.specialKey, keyName.c_str());
                 return kp;
             } else if (kp.modifiers != 0) {
+                static int shiftModifiers = Keyboard::kModifierKeys::kMod_RightShift | Keyboard::kModifierKeys::kMod_LeftShift;
                 kp.key = TranslateScanCode(event.key.keysym.scancode); //  kp.hwEvent.scanCode);
+                if ((kp.modifiers & shiftModifiers) && (kp.key != 0)) {
+                    logger->Debug("Shift+ASCII - skipping, this is handled by EVENT_TEXT_INPUT");
+                    continue;
+                }
                 if (kp.key != 0) {
                     kp.isKeyValid = true;
                 }
@@ -55,7 +61,8 @@ KeyPress SDLKeyboardDriver::GetKeyPress() {
             }
             continue;
         } else if (event.type == SDL_EventType::SDL_EVENT_TEXT_INPUT) {
-            //  auto logger = gnilk::Logger::GetLogger("SDLKeyboardDriver");
+            auto logger = gnilk::Logger::GetLogger("SDLKeyboardDriver");
+
             KeyPress kp;
             kp.isSpecialKey = false;
             kp.isKeyValid = true;
@@ -63,7 +70,7 @@ KeyPress SDLKeyboardDriver::GetKeyPress() {
             // This seems to work, but I assume that we can get buffered input here
             // Need to check if there are some flags in SDL to deal with it
             kp.key = event.text.text[0];
-            //logger->Debug("SDL_EVENT_TEXT_INPUT, event.text.text=%s", event.text.text);
+            logger->Debug("SDL_EVENT_TEXT_INPUT, event.text.text=%s", event.text.text);
             return kp;
         }  else {
 //            auto logger = gnilk::Logger::GetLogger("SDLKeyboardDriver");

@@ -66,7 +66,7 @@ void GutterView::DrawViewContents() {
         auto line = editorModel->LineAt(idxLine);
         snprintf(str, 64, " %4d", idxLine);
         if (idxLine == editorModel->idxActiveLine) {
-            snprintf(str, 64, "%2d*%4d", (int)line->GetStateStackDepth(), idxLine);
+            snprintf(str, 64, "*%4d",  idxLine);
         }
         ctx.DrawStringAt(0,i,str);
     }

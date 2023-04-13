@@ -41,6 +41,22 @@ void TextBuffer::StartReparseThread() {
     });
 }
 
+std::optional<Line *>TextBuffer::FindParseStart(size_t idxStartLine) {
+    if (!HaveLanguage()) {
+        return {};
+    }
+    if (idxStartLine >= lines.size()) {
+        return {};
+    }
+    while (lines[idxStartLine]->GetStateStackDepth() != gnilk::LangLineTokenizer::RootStateDepth) {
+        if (idxStartLine == 0) {
+            return lines[0];
+        }
+        idxStartLine -= 1;
+    }
+    return lines[idxStartLine];
+}
+
 
 void TextBuffer::CopyRegionToString(std::string &outText, const Point &start, const Point &end) {
     for (int idxLine=start.y;idxLine<end.y;idxLine++) {

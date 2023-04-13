@@ -16,6 +16,9 @@ namespace gnilk {
     // Consider placing this in a namespace instead of using internal classes...
     class LangLineTokenizer {
     public:
+        static const int RootStateDepth = 1;
+
+    public:
         enum class kAction {
             kNone,          // No action - this is used by EOL states..
             kPushState,

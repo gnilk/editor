@@ -49,9 +49,8 @@ void LangLineTokenizer::ParseLines(std::vector<gedit::Line *> &lines) {
         std::vector<gnilk::LangToken> tokens;
 
         l->Lock();
-        l->startState = CurrentState()->name;
+        l->SetStateStackDepth((int)stateStack.size());
         ParseLineWithCurrentState(tokens, l->Buffer().data());
-        l->endState = CurrentState()->name;
         LangToken::ToLineAttrib(l->Attributes(), tokens);
         l->Release();
 
@@ -95,7 +94,6 @@ void LangLineTokenizer::ParseLineFromStartState(std::string &lineStartState, ged
 
     ParseLineWithCurrentState(tokens, line->Buffer().data());
     LangToken::ToLineAttrib(line->Attributes(), tokens);
-    line->endState = CurrentState()->name;
     PopState();
 }
 

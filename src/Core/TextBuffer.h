@@ -55,6 +55,8 @@ namespace gedit {
         bool HaveLanguage() { return language!= nullptr; }
         LanguageBase &LangParser() { return *language; }
 
+        std::optional<Line *>FindParseStart(size_t idxStartLine);
+
         void Reparse();
 
     protected:

@@ -62,6 +62,15 @@ namespace gedit {
 
         void Lock();
         void Release();
+
+
+        int GetStateStackDepth() {
+            return stateDepthAtStart;
+        }
+        void SetStateStackDepth(int newStateDepth) {
+            stateDepthAtStart = newStateDepth;
+        }
+
     private:
         std::mutex lock;
         bool isLocked = false;
@@ -70,9 +79,12 @@ namespace gedit {
         bool active = false;
         int indent = 0;
         bool selected = false;
-    public:
-        std::string startState = "";
-        std::string endState = "";
+    private:
+        // This tells us how deeply nested the language state stack is at this point
+        // It is set when reparsing the whole file
+        // It is used to parse the smallest region of a file
+        // Search the first line backwards 'til the stateDepth == 1 and start parsing from that line
+        int stateDepthAtStart = 0;
     };
 }
 

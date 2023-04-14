@@ -3,16 +3,18 @@
 //
 /*
  * TO-DO List
+ * - Move render loop out of here, we need control over it in case we want to display modal dialogs.
  * - Make large files > 10k lines read-only, alt. disable reparsing and syntax highlighting for large files..
  *   Disabling syntax can be deduced on-the fly by measuring the reparsing process..
  * ! SDL2 backend, SDL3 is way too instable (no Linux support) so we need another one...
- * - Speed up tokenizer in editor - consider putting in on a background thread...
+ * ! Speed up tokenizer in editor - consider putting in on a background thread...
  *   Consider making ReparseLine a function to use.
  *   Add a marker (like stack-size from parser) to each line, an intelligent reparse function
  *   would search (from current line) backwards to the first line where the stack marker = 0
  *   which would indicate a clean state for the parser... We probably would need a cut-off as well
  *   in which the Reparse function spawns a background thread to update the full buffer...
  *   Note: The above won't work cleanly - assume we put a block comment at the top and then remove it => whole buffer reparsing
+ *   Note2: It actually might work - but in case you start putting a comment in the beginning I must reparse the whole file..
  * ! Properly quit editor through API
  * ! Make some classes thread aware (TextBuffer / Line class - perhaps most important)
  * ! Fix NCurses, currently broken (due to work on SDL3 backend)
@@ -121,6 +123,7 @@
 #include <map>
 #include "Core/API/EditorAPI.h"
 #include "Core/Views/ModalView.h"
+#include "Core/Views/ListSelectionModal.h"
 
 using namespace gedit;
 
@@ -248,7 +251,12 @@ int main(int argc, const char **argv) {
     rootView.AddTopView(&editorView);
     rootView.AddTopView(&cmdView);
 
-    ModalView myModal(Rect(Point(10,10),64,64));
+    //ModalView myModal(Rect(Point(10,10),64,64));
+    ListSelectionModal myModal(Rect(Point(10,10),64,64));
+    myModal.AddItem("Item1");
+    myModal.AddItem("Item2");
+    myModal.AddItem("Item3");
+    myModal.AddItem("Item4");
     rootView.ShowModal(&myModal);
 
     rootView.Initialize();
@@ -264,6 +272,9 @@ int main(int argc, const char **argv) {
     screen->Update();
 
     // This is currently the run loop...
+    // In case we have modal's we need to enter a specific copy of this run-loop..
+    // Basically it is a sub-loop, not sure how to deal with it..
+    // Once that is done, we won't need special handling in the RootView for modals...
     while(!bQuit) {
         // This is way too simple - need better handling here!
         // Background stuff can cause need to repaint...
@@ -275,7 +286,6 @@ int main(int argc, const char **argv) {
         if (rootView.ProcessMessageQueue() > 0) {
             redraw = true;
         }
-        glbFillchar = 'a';
 
         auto keyPress = keyboardDriver->GetKeyPress();
         if (keyPress.IsAnyValid()) {

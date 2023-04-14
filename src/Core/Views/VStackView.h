@@ -72,6 +72,9 @@ namespace gedit {
             int fixedHeight = 0;
             int nFixed = 0;
             for(auto &view : viewStack) {
+                if (!view.view->IsInitialized()) {
+                    view.view->Initialize();
+                }
                 if (view.layout == kFixed) {
                     fixedHeight += view.view->GetViewRect().Height();
                     nFixed++;

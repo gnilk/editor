@@ -130,6 +130,7 @@ list(APPEND editorsrc src/Core/Views/HSplitViewStatus.h)
 
 # modals/dialogs/etc..
 list(APPEND editorsrc src/Core/Views/ModalView.cpp src/Core/Views/ModalView.h)
+list(APPEND editorsrc src/Core/Views/ListSelectionModal.cpp src/Core/Views/ListSelectionModal.h)
 
 # draw helper
 list(APPEND editorsrc src/Core/DrawContext.h)

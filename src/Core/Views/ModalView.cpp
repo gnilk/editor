@@ -7,15 +7,17 @@
 
 using namespace gedit;
 
+static const WindowBase::kWinDecoration deco = (WindowBase::kWinDecoration)(WindowBase::kWinDeco_Border | WindowBase::kWinDeco_DrawCaption);
+
 void ModalView::InitView() {
-    logger = gnilk::Logger::GetLogger("EditorView");
+    logger = gnilk::Logger::GetLogger("ModalView");
     logger->Debug("InitView!");
 
     auto screen = RuntimeConfig::Instance().Screen();
     if (viewRect.IsEmpty()) {
         viewRect = screen->Dimensions();
     }
-    window = screen->CreateWindow(viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
+    window = screen->CreateWindow(viewRect, WindowBase::kWin_Visible, deco);
     window->SetCaption("ModalView");
 }
 void ModalView::ReInitView() {
@@ -23,7 +25,7 @@ void ModalView::ReInitView() {
     if (viewRect.IsEmpty()) {
         viewRect = screen->Dimensions();
     }
-    window = screen->UpdateWindow(window, viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
+    window = screen->UpdateWindow(window, viewRect, WindowBase::kWin_Visible, deco);
 
     auto &rect = window->GetContentDC().GetRect();
 }

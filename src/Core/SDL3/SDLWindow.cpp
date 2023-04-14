@@ -124,9 +124,12 @@ void SDLWindow::DrawWindowDecoration() {
     if ((flags & WindowBase::kWin_Invisible) && (!glbDebugSDLWindows)) {
         return;
     }
-    if (windowBackBuffer == nullptr) {
-        return;
-    }
+//    if (windowBackBuffer == nullptr) {
+//        return;
+//    }
+
+    // FIXME: Need to translate coordinates for this to work..
+    return;
 
     SDL_SetRenderTarget(renderer, windowBackBuffer);
 
@@ -159,7 +162,7 @@ void SDLWindow::DrawWindowDecoration() {
 //        STBTTF_RenderText(renderer, font, 0, font->size * 1, caption.c_str());
     }
 
-    SDL_RenderLine(renderer, pxTopLeft.x, pxTopLeft.y, pxBottomRight.x, pxBottomRight.y);
+    //SDL_RenderLine(renderer, pxTopLeft.x, pxTopLeft.y, pxBottomRight.x, pxBottomRight.y);
     SDL_SetRenderTarget(renderer, nullptr);
 
 }

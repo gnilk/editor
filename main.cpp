@@ -3,6 +3,8 @@
 //
 /*
  * TO-DO List
+ * - Make large files > 10k lines read-only, alt. disable reparsing and syntax highlighting for large files..
+ *   Disabling syntax can be deduced on-the fly by measuring the reparsing process..
  * ! SDL2 backend, SDL3 is way too instable (no Linux support) so we need another one...
  * - Speed up tokenizer in editor - consider putting in on a background thread...
  *   Consider making ReparseLine a function to use.
@@ -10,6 +12,7 @@
  *   would search (from current line) backwards to the first line where the stack marker = 0
  *   which would indicate a clean state for the parser... We probably would need a cut-off as well
  *   in which the Reparse function spawns a background thread to update the full buffer...
+ *   Note: The above won't work cleanly - assume we put a block comment at the top and then remove it => whole buffer reparsing
  * ! Properly quit editor through API
  * ! Make some classes thread aware (TextBuffer / Line class - perhaps most important)
  * ! Fix NCurses, currently broken (due to work on SDL3 backend)
@@ -117,6 +120,8 @@
 #include "logger.h"
 #include <map>
 #include "Core/API/EditorAPI.h"
+#include "Core/Views/ModalView.h"
+
 using namespace gedit;
 
 
@@ -243,6 +248,9 @@ int main(int argc, const char **argv) {
     rootView.AddTopView(&editorView);
     rootView.AddTopView(&cmdView);
 
+    ModalView myModal(Rect(Point(10,10),64,64));
+    rootView.ShowModal(&myModal);
+
     rootView.Initialize();
     rootView.InvalidateAll();
 
@@ -281,7 +289,7 @@ int main(int argc, const char **argv) {
                 rootView.OnAction(*kpAction);
             } else {
                 logger->Debug("No action for keypress, treating as regular input");
-                rootView.TopView()->HandleKeyPress(keyPress);
+                rootView.HandleKeyPress(keyPress);
             }
             redraw = true;
         }

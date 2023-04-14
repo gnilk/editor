@@ -128,6 +128,9 @@ list(APPEND editorsrc src/Core/Views/SingleLineView.h)
 list(APPEND editorsrc src/Core/Views/HeaderView.cpp src/Core/Views/HeaderView.h)
 list(APPEND editorsrc src/Core/Views/HSplitViewStatus.h)
 
+# modals/dialogs/etc..
+list(APPEND editorsrc src/Core/Views/ModalView.cpp src/Core/Views/ModalView.h)
+
 # draw helper
 list(APPEND editorsrc src/Core/DrawContext.h)
 list(APPEND editorsrc src/Core/Point.h)

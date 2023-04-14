@@ -40,6 +40,8 @@ namespace gedit {
         // Other
         kActionCopyToClipboard,
         kActionPasteFromClipboard,
+        // Modals
+        kActionCloseModal,
     };
 
     class ActionItem {

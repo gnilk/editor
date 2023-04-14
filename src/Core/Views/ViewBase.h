@@ -71,8 +71,11 @@ namespace gedit {
         }
         // This is purely done in order to handle the window stuff...
         virtual void Draw() {
+            if (modal != nullptr) {
+                modal->Draw();
+                return;
+            }
             DoDraw();
-            //FinalizeDraw();
         }
 
         virtual void FinalizeDraw() final {
@@ -197,6 +200,21 @@ namespace gedit {
         // END OF ACTION TEST
 
 
+        // Modal handling
+        void ShowModal(ViewBase *newModal) {
+            modal = newModal;
+            modal->SetActive(true);
+            modal->Initialize();
+            modal->InvalidateAll();
+            modal->parentView = this;
+        }
+        void CloseModal() {
+            if (parentView != nullptr) {
+                parentView->CloseModal();
+            }
+            modal = nullptr;
+        }
+
         //
         // Override these to handles, they are called in an event kind of manner on certain actions
         //
@@ -254,6 +272,7 @@ namespace gedit {
         std::vector<ViewBase *> subviews = {};
         WindowBase *window = nullptr;       // The underlying graphical window
         ViewBase *parentView = nullptr;
+        ViewBase *modal = nullptr;
         Rect viewRect = {};
         bool isInitialized = false;
         bool isInvalid = false;

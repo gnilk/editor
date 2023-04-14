@@ -51,6 +51,14 @@ namespace gedit {
         }
 
         bool OnAction(const KeyPressAction &kpAction) override {
+            // The modal takes control over everything...
+            if (modal != nullptr) {
+                modal->OnAction(kpAction);
+                return true;
+            }
+
+
+
             bool wasHandled = false;
             if (TopView() != nullptr) {
                 wasHandled = TopView()->OnAction(kpAction);
@@ -76,6 +84,9 @@ namespace gedit {
         }
 
         void HandleKeyPress(const KeyPress &keyPress) override {
+            if (modal != nullptr) {
+                modal->HandleKeyPress(keyPress);
+            }
             if (TopView() == nullptr) {
                 return;
             }

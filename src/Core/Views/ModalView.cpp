@@ -7,8 +7,9 @@
 
 using namespace gedit;
 
-static const WindowBase::kWinDecoration deco = WindowBase::kWinDeco_None;
-        //(WindowBase::kWinDecoration)(WindowBase::kWinDeco_Border | WindowBase::kWinDeco_DrawCaption);
+static const WindowBase::kWinDecoration deco = (WindowBase::kWinDecoration)(WindowBase::kWinDeco_Border | WindowBase::kWinDeco_DrawCaption);
+        //
+        //WindowBase::kWinDeco_None;
 
 void ModalView::InitView() {
     logger = gnilk::Logger::GetLogger("ModalView");

@@ -255,10 +255,15 @@ int main(int argc, const char **argv) {
 
     //ModalView myModal(Rect(Point(10,10),64,64));
     ListSelectionModal myModal;
-    myModal.AddItem("Item1");
-    myModal.AddItem("Item2");
-    myModal.AddItem("Item3");
-    myModal.AddItem("Item4");
+    char buffer[128];
+    for(int i=0;i<64;i++) {
+        snprintf(buffer, 128, "Item %d", i);
+        myModal.AddItem(buffer);
+    }
+//    myModal.AddItem("Item1");
+//    myModal.AddItem("Item2");
+//    myModal.AddItem("Item3");
+//    myModal.AddItem("Item4");
     Runloop::ShowModal(&myModal);
 
     rootView.Initialize();
@@ -281,64 +286,4 @@ int main(int argc, const char **argv) {
     logger->Debug("Left main loop, closing graphics subsystem");
     screen->Close();
     return 0;
-
-
-
-
-    //
-    // Old run loop here..
-    //
-
-
-
-/*
-    // This is currently the run loop...
-    // In case we have modal's we need to enter a specific copy of this run-loop..
-    // Basically it is a sub-loop, not sure how to deal with it..
-    // Once that is done, we won't need special handling in the RootView for modals...
-    while(!bQuit) {
-        // This is way too simple - need better handling here!
-        // Background stuff can cause need to repaint...
-        //rootView.TopView()->GetWindow()->TestRefreshEx();
-
-        // Process any messages from other threads before we do anything else..
-        bool redraw = false;
-
-        if (rootView.ProcessMessageQueue() > 0) {
-            redraw = true;
-        }
-
-        auto keyPress = keyboardDriver->GetKeyPress();
-        if (keyPress.IsAnyValid()) {
-
-            logger->Debug("KeyPress Valid - passing on...");
-
-            auto kpAction = KeyMapping::Instance().ActionFromKeyPress(keyPress);
-            if (kpAction.has_value()) {
-                logger->Debug("Action '%s' found - sending to RootView", KeyMapping::Instance().ActionName(kpAction->action).c_str());
-
-                rootView.OnAction(*kpAction);
-            } else {
-                logger->Debug("No action for keypress, treating as regular input");
-                rootView.HandleKeyPress(keyPress);
-            }
-            redraw = true;
-        }
-
-        if (rootView.IsInvalid()) {
-            redraw = true;
-        }
-        if (redraw == true) {
-            //logger->Debug("Redraw was triggered...");
-            screen->Clear();
-            rootView.Draw();
-            screen->Update();
-        }
-    }
-*/
-    logger->Debug("Left main loop, closing graphics subsystem");
-    screen->Close();
-    return 0;
-
-    return -1;
 }

@@ -146,6 +146,7 @@ void Editor::ConfigureLanguages() {
     Config::Instance().RegisterLanguage(".cpp", cppLanguage);
 }
 
+// FIXME: this is using the kLanguageTokenClass as the color mapping index - this was lazy - and is not good...
 void Editor::ConfigureColorTheme() {
     logger->Debug("Configuring colors and theme");
     // NOTE: This must be done after the screen has been opened as the color handling might require the underlying graphics

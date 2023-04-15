@@ -88,9 +88,10 @@ void SDLWindow::CreateSDLBackBuffer() {
         SDL_DestroyTexture(clientBackBuffer);
     }
     auto clientRect = windowRect;
-    if (decorationFlags & kWinDeco_Border) {
-        //clientRect.Deflate(SDLTranslate::ColToXPos(1),SDLTranslate::RowToYPos(1));
-        //clientRect.Deflate(1,1);
+    if (decorationFlags & kWinDeco_DrawCaption) {
+        //clientRect.Deflate(0,1);
+        clientRect.SetHeight(clientRect.Height()-1);
+        clientRect.Move(0,1);
     }
     auto clientPixRect = SDLTranslate::RowColToPixel(clientRect);
 
@@ -125,12 +126,6 @@ void SDLWindow::DrawWindowDecoration() {
     if ((flags & WindowBase::kWin_Invisible) && (!glbDebugSDLWindows)) {
         return;
     }
-//    if (windowBackBuffer == nullptr) {
-//        return;
-//    }
-
-    // FIXME: Need to translate coordinates for this to work..
-    //return;
 
     SDL_SetRenderTarget(renderer, windowBackBuffer);
 
@@ -146,19 +141,20 @@ void SDLWindow::DrawWindowDecoration() {
         SDL_RenderLine(renderer, pxTopLeft.x-1, pxTopLeft.y-1, pxBottomRight.x, pxTopLeft.y-1);
     }
     if (glbDebugSDLWindows ||decorationFlags & kWinDeco_BottomBorder) {
-        SDL_RenderLine(renderer, pxTopLeft.x, pxBottomRight.y-1, pxBottomRight.x-1, pxBottomRight.y-1);
+        SDL_RenderLine(renderer, pxTopLeft.x, pxBottomRight.y+1, pxBottomRight.x-1, pxBottomRight.y+1);
     }
     if (glbDebugSDLWindows ||decorationFlags & kWinDeco_LeftBorder) {
-        SDL_RenderLine(renderer, pxTopLeft.x-1, pxTopLeft.y, pxTopLeft.x-1, pxBottomRight.y-2);
+        SDL_RenderLine(renderer, pxTopLeft.x-1, pxTopLeft.y, pxTopLeft.x-1, pxBottomRight.y+1);
     }
     if (glbDebugSDLWindows ||decorationFlags & kWinDeco_RightBorder) {
-        SDL_RenderLine(renderer, pxBottomRight.x-1, pxTopLeft.y, pxBottomRight.x-1, pxBottomRight.y-1);
+        SDL_RenderLine(renderer, pxBottomRight.x-1, pxTopLeft.y, pxBottomRight.x-1, pxBottomRight.y+1);
     }
 
     if (glbDebugSDLWindows || decorationFlags & kWinDeco_DrawCaption) {
         // Need a font-class to store this - should be initalized by screen...
-        auto dcWin = GetWindowDC();
-        dcWin.DrawStringAt(0,0,caption.c_str());
+        auto &dcWin = GetWindowDC();
+        dcWin.FillLine(0, kTextAttributes::kInverted, ' ');
+        dcWin.DrawStringWithAttributesAndColAt(0,0,kTextAttributes::kInverted | kTextAttributes::kNormal, 0, caption.c_str());
 //        auto font = SDLFontManager::Instance().GetActiveFont();
 //        STBTTF_RenderText(renderer, font, 0, font->size * 1, caption.c_str());
     }

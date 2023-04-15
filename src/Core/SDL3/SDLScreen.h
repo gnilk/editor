@@ -26,6 +26,9 @@ namespace gedit {
         void Close() override;
         void Clear() override;
         void Update() override;
+        void CopyToTexture() override;
+        void ClearWithTexture() override;
+
         void RegisterColor(int appIndex, const ColorRGBA &foreground, const ColorRGBA &background) override;
 
         void BeginRefreshCycle() override;
@@ -36,6 +39,8 @@ namespace gedit {
     private:
         SDL_Window* window = nullptr;
         SDL_Renderer* renderer = nullptr;
+        SDL_Texture* screenAsTexture = nullptr;
+        SDL_Surface* screenAsSurface = nullptr;
 
         // Initialize screen dimensions to default values
         // This is in pixels

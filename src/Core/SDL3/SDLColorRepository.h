@@ -56,6 +56,9 @@ namespace gedit {
         void UseBackgroundColor(SDL_Renderer *renderer) {
             backgroundColor.Use(renderer);
         }
+        void UseBackgroundColor(SDL_Renderer *renderer, int otherAlpha) {
+            backgroundColor.Use(renderer, otherAlpha);
+        }
 
         void SetCursorColor(const SDLColor &newCursorColor) {
             cursorColor = newCursorColor;

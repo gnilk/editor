@@ -45,6 +45,8 @@ namespace gedit {
         bool TryExecuteInternalCmd(std::string &cmdline);
         void TryExecuteShellCmd(std::string &cmdline);
 
+
+        void TestShowDialog();
     private:
         Shell terminal;
         std::mutex lineLock;

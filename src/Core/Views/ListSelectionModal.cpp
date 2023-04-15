@@ -59,6 +59,7 @@ void ListView::DrawViewContents() {
     int lineCount = 0;
     for(auto &s : listItems) {
         if (lineCount == idxSelectedLine) {
+            dc.FillLine(lineCount, kTextAttributes::kNormal | kTextAttributes::kInverted, ' ');
             dc.DrawStringWithAttributesAt(0,lineCount,kTextAttributes::kNormal  | kTextAttributes::kInverted, s.c_str());
         } else {
             dc.DrawStringWithAttributesAt(0, lineCount, kTextAttributes::kNormal, s.c_str());
@@ -71,18 +72,13 @@ void ListView::DrawViewContents() {
 //
 
 void ListSelectionModal::InitView() {
-    auto screen = RuntimeConfig::Instance().Screen();
-    if (viewRect.IsEmpty()) {
-        viewRect = screen->Dimensions();
-    }
+    ModalView::InitView();
 
     auto layoutView = new VStackView(viewRect);
     AddView(layoutView);
 
     layoutView->AddSubView(new ListHeaderView(), kFixed);
     layoutView->AddSubView(listView, kFill);
-
-    ModalView::InitView();
 }
 
 bool ListSelectionModal::OnAction(const KeyPressAction &kpAction) {
@@ -114,3 +110,8 @@ void ListSelectionModal::SetListItems(std::vector<std::string> &newItems) {
 void ListSelectionModal::AddItem(const std::string &strItem) {
     listView->AddItem(strItem);
 }
+void ListSelectionModal::DrawViewContents() {
+//    auto &dc = window->GetContentDC();
+//    dc.DrawStringWithAttributesAt(0,0,kTextAttributes::kNormal, "baseclass");
+}
+

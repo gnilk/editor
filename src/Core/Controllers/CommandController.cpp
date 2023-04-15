@@ -9,6 +9,8 @@
 
 #include "Core/Editor.h"
 #include "Core/API/EditorAPI.h"
+#include "Core/Runloop.h"
+#include "Core/Views/ListSelectionModal.h"
 
 using namespace gedit;
 
@@ -95,6 +97,8 @@ bool CommandController::TryExecuteInternalCmd(std::string &cmdline) {
         // FIX: Can't just exit here!
         auto mainEditorAPI = Editor::Instance().GetAPI<EditorAPI>(0x01);
         mainEditorAPI->ExitEditor();
+    } else if (commandList[0] == "li") {
+        TestShowDialog();
     }
 
     WriteLine("internal execute: " + commandList[0]);
@@ -121,4 +125,16 @@ void CommandController::TryExecuteShellCmd(std::string &cmdline) {
 
 
 
+//
+// This actually works...
+//
+void CommandController::TestShowDialog() {
+    logger->Debug("Creating dialog");
+    ListSelectionModal myModal;
+    myModal.AddItem("Item1");
+    myModal.AddItem("Item2");
+    myModal.AddItem("Item3");
+    myModal.AddItem("Item4");
+    Runloop::ShowModal(&myModal);
 
+}

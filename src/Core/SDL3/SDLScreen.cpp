@@ -106,6 +106,14 @@ bool SDLScreen::Open() {
     SDLTranslate::fac_x_to_rc = (float)cols / (float)(widthPixels * displayMode->display_scale);
     SDLTranslate::fac_y_to_rc = (float)rows / (float)(heightPixels * displayMode->display_scale);
 
+
+
+    screenAsSurface = SDL_CreateSurface(widthPixels, heightPixels, SDL_PIXELFORMAT_RGBA32);
+    screenAsTexture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, widthPixels, heightPixels);
+
+//    screenAsTexture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_TARGET,widthPixels, heightPixels);
+
+
     return true;
 }
 
@@ -144,13 +152,23 @@ void SDLScreen::Update() {
 //    STBTTF_RenderText(renderer, font, 2, font->size * 4, "0123456789012345678901234567890123456789012345678901234567890123456789");
 
     SDLCursor::Instance().Draw();
-
     SDL_RenderPresent(renderer);
+    SDL_RenderReadPixels(renderer, nullptr, screenAsSurface->format->format, screenAsSurface->pixels, screenAsSurface->pitch);
 
     // Not quite sure what this is supposed to do...
     // Most SDL example has a small delay - assume they just want 'yield' in order to avoid 100% CPU usage...
     SDL_Delay(1000/60);
 }
+
+void SDLScreen::CopyToTexture() {
+    SDL_UpdateTexture(screenAsTexture, nullptr, screenAsSurface->pixels, screenAsSurface->pitch);
+}
+void SDLScreen::ClearWithTexture() {
+    Clear();
+    SDL_SetRenderTarget(renderer, nullptr);
+    SDL_RenderTexture(renderer, screenAsTexture, nullptr, nullptr);
+}
+
 
 void SDLScreen::RegisterColor(int appIndex, const ColorRGBA &foreground, const ColorRGBA &background) {
     SDLColorRepository::Instance().RegisterColor(appIndex, foreground, background);

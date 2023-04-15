@@ -7,7 +7,8 @@
 
 using namespace gedit;
 
-static const WindowBase::kWinDecoration deco = (WindowBase::kWinDecoration)(WindowBase::kWinDeco_Border | WindowBase::kWinDeco_DrawCaption);
+static const WindowBase::kWinDecoration deco = WindowBase::kWinDeco_None;
+        //(WindowBase::kWinDecoration)(WindowBase::kWinDeco_Border | WindowBase::kWinDeco_DrawCaption);
 
 void ModalView::InitView() {
     logger = gnilk::Logger::GetLogger("ModalView");
@@ -15,7 +16,12 @@ void ModalView::InitView() {
 
     auto screen = RuntimeConfig::Instance().Screen();
     if (viewRect.IsEmpty()) {
-        viewRect = screen->Dimensions();
+        auto dim = screen->Dimensions();
+        // Position ourselves in the middle...
+        Rect newViewRect(Point(dim.Width()/4, dim.Height()/4), dim.Width()/2, dim.Height()/2);
+        //Rect newViewRect(Point(26,0), dim.Width()/2, dim.Height()/2);
+        viewRect = newViewRect;
+
     }
     window = screen->CreateWindow(viewRect, WindowBase::kWin_Visible, deco);
     window->SetCaption("ModalView");
@@ -43,8 +49,7 @@ void ModalView::OnKeyPress(const KeyPress &keyPress) {
     }
 }
 void ModalView::DrawViewContents() {
-    auto &dc = window->GetContentDC();
-    dc.DrawStringAt(1,1,"hello modal");
-
+//    auto &dc = window->GetContentDC();
+//    dc.DrawStringAt(1,1,"hello modal");
 }
 

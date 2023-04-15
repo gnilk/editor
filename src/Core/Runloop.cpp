@@ -73,6 +73,8 @@ void Runloop::ShowModal(ViewBase *modal) {
     modal->Initialize();
     modal->InvalidateAll();
 
+    screen->CopyToTexture();
+
     while(modal->IsActive()) {
         // Process any messages from other threads before we do anything else..
         bool redraw = false;
@@ -103,7 +105,13 @@ void Runloop::ShowModal(ViewBase *modal) {
         }
         if (redraw == true) {
             //logger->Debug("Redraw was triggered...");
-            screen->Clear();
+            //screen->Clear();
+            screen->ClearWithTexture();
+            {
+                auto &dc = modal->GetWindow()->GetContentDC();
+                dc.Clear();
+
+            }
             modal->Draw();
             screen->Update();
         }

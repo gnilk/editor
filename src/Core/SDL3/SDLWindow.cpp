@@ -89,7 +89,8 @@ void SDLWindow::CreateSDLBackBuffer() {
     }
     auto clientRect = windowRect;
     if (decorationFlags & kWinDeco_Border) {
-        clientRect.Deflate(SDLTranslate::ColToXPos(1),SDLTranslate::RowToYPos(1));
+        //clientRect.Deflate(SDLTranslate::ColToXPos(1),SDLTranslate::RowToYPos(1));
+        clientRect.Deflate(1,1);
     }
     auto clientPixRect = SDLTranslate::RowColToPixel(clientRect);
 

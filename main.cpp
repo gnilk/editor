@@ -254,14 +254,12 @@ int main(int argc, const char **argv) {
     rootView.AddTopView(&cmdView);
 
     //ModalView myModal(Rect(Point(10,10),64,64));
-    ListSelectionModal myModal(Rect(Point(10,10),64,64));
+    ListSelectionModal myModal;
     myModal.AddItem("Item1");
     myModal.AddItem("Item2");
     myModal.AddItem("Item3");
     myModal.AddItem("Item4");
     Runloop::ShowModal(&myModal);
-
-
 
     rootView.Initialize();
     rootView.InvalidateAll();

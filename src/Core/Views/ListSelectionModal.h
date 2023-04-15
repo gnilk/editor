@@ -58,7 +58,9 @@ namespace gedit {
 
     class ListSelectionModal : public ModalView {
     public:
-        ListSelectionModal() = default;
+        ListSelectionModal() {
+            listView = new ListView();
+        }
         explicit ListSelectionModal(const Rect & rect) : ModalView(rect) {
             listView = new ListView();
         }
@@ -72,6 +74,8 @@ namespace gedit {
         const std::string &GetSelectedItem();
         void SetListItems(std::vector<std::string> &newItems);
         void AddItem(const std::string &strItem);
+    protected:
+        void DrawViewContents() override;
     protected:
         int idxSelectedItem = -1;
         ListView *listView;

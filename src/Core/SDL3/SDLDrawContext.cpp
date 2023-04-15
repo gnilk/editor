@@ -2,6 +2,10 @@
 // Created by gnilk on 29.03.23.
 //
 
+//
+// NOTE: All routines accepts LOCAL (for the drawcontext) Coordinates and will translate - unless specifically specified...
+//
+
 #include "SDLDrawContext.h"
 #include "Core/ColorRGBA.h"
 #include "Core/Config/Config.h"
@@ -14,8 +18,16 @@
 
 using namespace gedit;
 
+//
+// Consider having a special function to clear the area
+//
 void SDLDrawContext::Clear() const {
-
+    // TEST
+    auto &rect = GetRect();
+    SDL_SetRenderTarget(renderer, renderTarget);
+    SDLColorRepository::Instance().UseBackgroundColor(renderer, 196);
+    FillRect(0,0, rect.Width(), rect.Height());
+    // END TEST
 }
 
 void SDLDrawContext::ClearLine(int y) const {

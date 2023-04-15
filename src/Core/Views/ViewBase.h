@@ -115,6 +115,10 @@ namespace gedit {
         }
 
         virtual void AddView(ViewBase *view) final {
+            // We don't allow an empty view rect, so let's set it to our own...
+            if (view->GetViewRect().IsEmpty()) {
+                view->SetViewRect(viewRect);
+            }
             subviews.push_back(view);
             view->parentView = this;
         }

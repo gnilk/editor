@@ -67,8 +67,11 @@ namespace gedit {
             return window;
         }
 
-        ViewBase *RootView() {
-            return rootView;
+        bool IsRootView(ViewBase *other) {
+            return (other == rootView);
+        }
+        ViewBase &GetRootView() {
+            return *rootView;
         }
 
         std::thread::id MainThread() {

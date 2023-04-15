@@ -83,6 +83,7 @@ list(APPEND extlibs logger)
 # Editor main stuff
 list(APPEND editorsrc src/Core/Editor.cpp src/Core/Editor.h)
 list(APPEND editorsrc src/Core/EditorModel.h)
+list(APPEND editorsrc src/Core/Runloop.cpp src/Core/Runloop.h)
 
 # API and Actions
 list(APPEND editorsrc src/Core/Action.cpp src/Core/Action.h)

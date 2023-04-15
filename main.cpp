@@ -3,6 +3,12 @@
 //
 /*
  * TO-DO List
+ * - Test if the underlying VStack view (or editor view) can have a popup-one/two liner (Search)
+ * - Embryo for what is needed for the API lies within the ListSelectionModal, example:
+ *   - List/Select/Switch buffer (Popup with list of active buffers)
+ *   - Open file
+ *   - etc..
+ * - Create a view base class 'Visible' / 'Drawable' - View, which contain the setup code found in "ListSelectionModal'
  * - Move render loop out of here, we need control over it in case we want to display modal dialogs.
  * - Make large files > 10k lines read-only, alt. disable reparsing and syntax highlighting for large files..
  *   Disabling syntax can be deduced on-the fly by measuring the reparsing process..
@@ -117,7 +123,7 @@
 #include "Core/Views/HSplitViewStatus.h"
 
 #include "Core/Action.h"
-
+#include "Core/Runloop.h"
 
 #include "logger.h"
 #include <map>
@@ -178,6 +184,9 @@ static void TestKeyBoardDriver() {
 
 }
 
+
+
+
 int main(int argc, const char **argv) {
 
     Editor::Instance().Initialize(argc, argv);
@@ -196,18 +205,8 @@ int main(int argc, const char **argv) {
 
 
     auto logger = gnilk::Logger::GetLogger("main");
-    bool bQuit = false;
-
-
-    auto editorApi = Editor::Instance().GetAPI<EditorAPI>(0x01);
-    editorApi->SetExitEditorDelegate([&bQuit]()->void{
-        bQuit = true;
-    });
-
-
 
     auto screen = RuntimeConfig::Instance().Screen();
-    auto keyboardDriver = RuntimeConfig::Instance().Keyboard();
     auto dimensions = screen->Dimensions();
 
     auto models = Editor::Instance().GetModels();
@@ -215,6 +214,9 @@ int main(int argc, const char **argv) {
         logger->Debug("File: %s",m->GetTextBuffer()->Name().c_str());
     }
 
+    //
+    // This set's up the UI and configures all the views...
+    //
 
     logger->Debug("Creating views");
     logger->Debug("Dimensions (x,y): %d, %d", dimensions.Width(), dimensions.Height());
@@ -257,7 +259,9 @@ int main(int argc, const char **argv) {
     myModal.AddItem("Item2");
     myModal.AddItem("Item3");
     myModal.AddItem("Item4");
-    rootView.ShowModal(&myModal);
+    Runloop::ShowModal(&myModal);
+
+
 
     rootView.Initialize();
     rootView.InvalidateAll();
@@ -271,6 +275,25 @@ int main(int argc, const char **argv) {
     rootView.Draw();
     screen->Update();
 
+    //
+    // Once done, we just run the main loop
+    //
+
+    Runloop::DefaultLoop();
+    logger->Debug("Left main loop, closing graphics subsystem");
+    screen->Close();
+    return 0;
+
+
+
+
+    //
+    // Old run loop here..
+    //
+
+
+
+/*
     // This is currently the run loop...
     // In case we have modal's we need to enter a specific copy of this run-loop..
     // Basically it is a sub-loop, not sure how to deal with it..
@@ -314,6 +337,7 @@ int main(int argc, const char **argv) {
             screen->Update();
         }
     }
+*/
     logger->Debug("Left main loop, closing graphics subsystem");
     screen->Close();
     return 0;

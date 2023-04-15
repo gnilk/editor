@@ -199,20 +199,8 @@ namespace gedit {
         virtual int ProcessMessageQueue() final;
         // END OF ACTION TEST
 
-
-        // Modal handling
-        void ShowModal(ViewBase *newModal) {
-            modal = newModal;
-            modal->SetActive(true);
-            modal->Initialize();
-            modal->InvalidateAll();
-            modal->parentView = this;
-        }
         void CloseModal() {
-            if (parentView != nullptr) {
-                parentView->CloseModal();
-            }
-            modal = nullptr;
+            SetActive(false);
         }
 
         //

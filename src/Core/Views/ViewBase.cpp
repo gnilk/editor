@@ -15,10 +15,10 @@ void ViewBase::PostMessage(gedit::ViewBase::MessageCallback callback) {
 //        callback();
 //        return;
 //    }
-    if (this == RuntimeConfig::Instance().RootView()) {
+    if (RuntimeConfig::Instance().IsRootView(this)) {
         threadMessages.push(callback);
     } else {
-        RuntimeConfig::Instance().RootView()->PostMessage(callback);
+        RuntimeConfig::Instance().GetRootView().PostMessage(callback);
     }
 }
 

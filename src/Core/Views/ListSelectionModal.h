@@ -8,12 +8,20 @@
 #include <vector>
 #include <string>
 #include "ModalView.h"
+#include "Core/Cursor.h"
+#include "Core/VerticalNavigationViewModel.h"
 
 
 namespace gedit {
 
+    class ItemContainer {
+    public:
+        virtual size_t size() = 0;
+    };
+
+
     //template<typename T>
-    class ListView : public ViewBase {
+    class ListView : public ViewBase, public VerticalNavigationViewModel {
     public:
         ListView() = default;
         virtual ~ListView() = default;
@@ -35,7 +43,7 @@ namespace gedit {
             return listItems;
         }
         int GetSelectedItemIndex() {
-            return idxSelectedLine;
+            return idxActiveLine;
         }
         void SetSelectedItem(int newSelection) {
             if (newSelection < 0) {
@@ -43,15 +51,15 @@ namespace gedit {
             } else if (newSelection > (listItems.size()-1)) {
                 newSelection = listItems.size()-1;
             }
-            idxSelectedLine = newSelection;
+            idxActiveLine = newSelection;
         }
         const std::string &GetSelectedItem() {
-            return listItems[idxSelectedLine];
+            return listItems[idxActiveLine];
         }
     protected:
         void DrawViewContents() override;
     private:
-        int idxSelectedLine = 0;
+
         std::vector<std::string> listItems;
 
     };

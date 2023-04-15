@@ -32,11 +32,11 @@ void CommandController::Begin() {
 
 void CommandController::NewLine() {
     if (currentLine != nullptr) {
-        currentLine->SetActive(false);
+        //currentLine->SetActive(false);
     }
     std::lock_guard<std::mutex> guard(lineLock);
     currentLine = new Line();
-    currentLine->SetActive(true);
+    //currentLine->SetActive(true);
 //    historyBuffer.push_back(currentLine);
     if (onNewLine != nullptr) {
         onNewLine();

@@ -5,6 +5,8 @@
 #include "ListSelectionModal.h"
 #include "VStackView.h"
 #include "SingleLineView.h"
+#include "Core/Config/Config.h"
+#include "Core/Config/ColorConfig.h"
 
 
 using namespace gedit;
@@ -16,7 +18,7 @@ protected:
     void DrawViewContents() override {
         auto &dc = window->GetContentDC();
         dc.FillLine(0, kTextAttributes::kInverted, ' ');
-        dc.DrawStringWithAttributesAt(0,0,kTextAttributes::kNormal | kTextAttributes::kInverted, "mamma was here");
+        dc.DrawStringWithAttributesAndColAt(0,0,kTextAttributes::kNormal | kTextAttributes::kInverted, 0, "Header");
     }
 };
 
@@ -31,6 +33,8 @@ void ListView::InitView() {
     if (viewRect.IsEmpty()) {
         viewRect = screen->Dimensions();
     }
+    viewTopLine = 0;
+    viewBottomLine = viewRect.Height();
     window = screen->CreateWindow(viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
     window->SetCaption("ListView");
 }
@@ -39,32 +43,48 @@ void ListView::ReInitView() {
     if (viewRect.IsEmpty()) {
         viewRect = screen->Dimensions();
     }
+    viewTopLine = 0;
+    viewBottomLine = viewRect.Height();
     window = screen->UpdateWindow(window, viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
 }
 
 bool ListView::OnAction(const KeyPressAction &kpAction){
-    if (kpAction.action == kAction::kActionLineUp) {
-        SetSelectedItem(GetSelectedItemIndex()-1);
-        return true;
-    } else if (kpAction.action == kAction::kActionLineDown) {
-        SetSelectedItem(GetSelectedItemIndex()+1);
-        return true;
+    bool wasHandled = true;
+    switch(kpAction.action) {
+        case kAction::kActionLineUp :
+            OnNavigateUpCLion(cursor, 1, GetContentRect(), listItems.size());
+            break;
+        case kAction::kActionLineDown :
+            OnNavigateDownCLion(cursor, 1, GetContentRect(), listItems.size());
+            break;
+        case kAction::kActionPageUp :
+            OnNavigateUpCLion(cursor, GetContentRect().Height()-1, GetContentRect(), listItems.size());
+            break;
+        case kAction::kActionPageDown :
+            OnNavigateDownCLion(cursor, GetContentRect().Height()-1, GetContentRect(), listItems.size());
+            break;
+        default:
+            wasHandled = false;
+            break;
     }
-    return false;
+    if (!wasHandled) {
+        return false;
+    }
+    InvalidateAll();
+    return true;
 }
-
 
 void ListView::DrawViewContents() {
     auto &dc = window->GetContentDC();
-    int lineCount = 0;
-    for(auto &s : listItems) {
-        if (lineCount == idxSelectedLine) {
-            dc.FillLine(lineCount, kTextAttributes::kNormal | kTextAttributes::kInverted, ' ');
-            dc.DrawStringWithAttributesAt(0,lineCount,kTextAttributes::kNormal  | kTextAttributes::kInverted, s.c_str());
+    for (int i = viewTopLine; i < viewBottomLine; i++) {
+        int yPos = i - viewTopLine;
+        auto &str = listItems[i];
+        if (i == idxActiveLine) {
+            dc.FillLine(yPos, kTextAttributes::kNormal | kTextAttributes::kInverted, ' ');
+            dc.DrawStringWithAttributesAt(0,yPos,kTextAttributes::kNormal  | kTextAttributes::kInverted, str.c_str());
         } else {
-            dc.DrawStringWithAttributesAt(0, lineCount, kTextAttributes::kNormal, s.c_str());
+            dc.DrawStringWithAttributesAt(0, yPos, kTextAttributes::kNormal, str.c_str());
         }
-        lineCount++;
     }
 }
 ////////////////
@@ -74,7 +94,7 @@ void ListView::DrawViewContents() {
 void ListSelectionModal::InitView() {
     ModalView::InitView();
 
-    auto layoutView = new VStackView(viewRect);
+    auto layoutView = new VStackView(GetContentRect());
     AddView(layoutView);
 
     layoutView->AddSubView(new ListHeaderView(), kFixed);

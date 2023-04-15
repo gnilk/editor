@@ -2,6 +2,10 @@
 // Created by gnilk on 29.03.23.
 //
 
+// TO-DO
+// - Copy the new 'CopyToTexture' and 'ClearWithTexture' from SDL3
+//
+
 #ifndef EDITOR_SDLSCREEN_H
 #define EDITOR_SDLSCREEN_H
 

@@ -90,7 +90,7 @@ void SDLWindow::CreateSDLBackBuffer() {
     auto clientRect = windowRect;
     if (decorationFlags & kWinDeco_Border) {
         //clientRect.Deflate(SDLTranslate::ColToXPos(1),SDLTranslate::RowToYPos(1));
-        clientRect.Deflate(1,1);
+        //clientRect.Deflate(1,1);
     }
     auto clientPixRect = SDLTranslate::RowColToPixel(clientRect);
 
@@ -130,26 +130,26 @@ void SDLWindow::DrawWindowDecoration() {
 //    }
 
     // FIXME: Need to translate coordinates for this to work..
-    return;
+    //return;
 
     SDL_SetRenderTarget(renderer, windowBackBuffer);
 
-    Point pxTopLeft = {0,0}; //SDLTranslate::RowColToPixel(windowRect.TopLeft());
-    Point pxBottomRight {windowRect.Width(), windowRect.Height()};
-    pxBottomRight = SDLTranslate::RowColToPixel(pxBottomRight);
+    Point pxTopLeft = SDLTranslate::RowColToPixel(windowRect.TopLeft());
+    Point pxBottomRight = SDLTranslate::RowColToPixel(windowRect.BottomRight()); //{windowRect.Width(), windowRect.Height()};
+    //pxBottomRight = SDLTranslate::RowColToPixel(pxBottomRight);
 
     // FIXME: Figure out which color is the windowing color (we don't have that themed)
     SDL_SetRenderDrawColor(renderer, 255,255,255,255);
 
     // NOTE: We can have a much more filled border - as the border is always one char...
     if (glbDebugSDLWindows || decorationFlags & kWinDeco_TopBorder) {
-        SDL_RenderLine(renderer, pxTopLeft.x, pxTopLeft.y, pxBottomRight.x-1, pxTopLeft.y);
+        SDL_RenderLine(renderer, pxTopLeft.x-1, pxTopLeft.y-1, pxBottomRight.x, pxTopLeft.y-1);
     }
     if (glbDebugSDLWindows ||decorationFlags & kWinDeco_BottomBorder) {
         SDL_RenderLine(renderer, pxTopLeft.x, pxBottomRight.y-1, pxBottomRight.x-1, pxBottomRight.y-1);
     }
     if (glbDebugSDLWindows ||decorationFlags & kWinDeco_LeftBorder) {
-        SDL_RenderLine(renderer, pxTopLeft.x, pxTopLeft.y, pxTopLeft.x, pxBottomRight.y-2);
+        SDL_RenderLine(renderer, pxTopLeft.x-1, pxTopLeft.y, pxTopLeft.x-1, pxBottomRight.y-2);
     }
     if (glbDebugSDLWindows ||decorationFlags & kWinDeco_RightBorder) {
         SDL_RenderLine(renderer, pxBottomRight.x-1, pxTopLeft.y, pxBottomRight.x-1, pxBottomRight.y-1);

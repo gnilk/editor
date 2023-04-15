@@ -7,7 +7,7 @@ This is my playground....
 
 ![screenshot](screenshots/main_edit_230318.png?raw=true)
 
-Currently only macOS....
+Currently running on Linux (NCurses and SDL2) and macOS (NCurses and SDL3).
 
 Goals
 - Mimic Amiga AsmOne with a dedicated cmd-line mode (like a shell) for editor commands

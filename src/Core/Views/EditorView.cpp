@@ -299,13 +299,11 @@ bool EditorView::OnActionWordLeft() {
 bool EditorView::OnActionGotoFirstLine() {
     auto logger = gnilk::Logger::GetLogger("EditorView");
     logger->Debug("GotoFirstLine (def: CMD+Home), resetting cursor and view data!");
-    editorModel->GetEditController()->LineAt(editorModel->idxActiveLine)->SetActive(false);
     editorModel->cursor.position.x = 0;
     editorModel->cursor.position.y = 0;
     editorModel->idxActiveLine = 0;
     editorModel->viewTopLine = 0;
     editorModel->viewBottomLine = GetContentRect().Height();
-    editorModel->LineAt(editorModel->idxActiveLine)->SetActive(true);
 
     return true;
 }
@@ -313,15 +311,12 @@ bool EditorView::OnActionGotoLastLine() {
     auto logger = gnilk::Logger::GetLogger("EditorView");
     logger->Debug("GotoLastLine (def: CMD+End), set cursor to last line!");
 
-    editorModel->LineAt(editorModel->idxActiveLine)->SetActive(false);
-
     editorModel->cursor.position.x = 0;
     editorModel->cursor.position.y = GetContentRect().Height()-1;
     editorModel->idxActiveLine = editorModel->Lines().size()-1;
     editorModel->viewBottomLine = editorModel->Lines().size();
     editorModel->viewTopLine = editorModel->viewBottomLine - GetContentRect().Height();
 
-    editorModel->LineAt(editorModel->idxActiveLine)->SetActive(true);
     return true;
 }
 
@@ -511,17 +506,12 @@ bool EditorView::UpdateNavigation(const KeyPress &keyPress) {
 // This implements VSCode style of downwards navigation
 // Cursor if moved first then content (i.e if standing on first-line, the cursor is moved to the bottom line on first press)
 void EditorView::OnNavigateDownVSCode(int rows) {
-    auto currentLine = editorModel->LineAt(editorModel->idxActiveLine);
-    currentLine->SetActive(false);
     auto &lines = editorModel->Lines();
 
     editorModel->idxActiveLine+=rows;
     if (editorModel->idxActiveLine >= lines.size()) {
         editorModel->idxActiveLine = lines.size()-1;
     }
-
-    currentLine = lines[editorModel->idxActiveLine];
-    currentLine->SetActive(true);
 
     if (editorModel->idxActiveLine > GetContentRect().Height()-1) {
         if (!(editorModel->cursor.position.y < GetContentRect().Height()-1)) {
@@ -530,9 +520,7 @@ void EditorView::OnNavigateDownVSCode(int rows) {
                 editorModel->viewTopLine += rows;
                 editorModel->viewBottomLine += rows;
             }
-            // Request full redraw next time, as this caused a scroll...
             InvalidateAll();
-            //nativeWindow->Scroll(1);
         }
     }
     logger->Debug("OnNavDownVScode, rows=%d, new active line=%d", rows, editorModel->idxActiveLine);
@@ -543,16 +531,10 @@ void EditorView::OnNavigateDownVSCode(int rows) {
     if (editorModel->cursor.position.y > GetContentRect().Height()-1) {
         editorModel->cursor.position.y = GetContentRect().Height()-1;
     }
-
-
     //logger->Debug("OnNavigateDown, activeLine=%d, rows=%d, ypos=%d, height=%d", viewData.idxActiveLine, rows, cursor.position.y, ContentRect().Height());
 }
 
 void EditorView::OnNavigateUpVSCode(int rows) {
-    auto currentLine = editorModel->LineAt(editorModel->idxActiveLine);
-    currentLine->SetActive(false);
-    auto &lines = editorModel->Lines();
-
     editorModel->idxActiveLine -= rows;
     if (editorModel->idxActiveLine < 0) {
         editorModel->idxActiveLine = 0;
@@ -571,17 +553,11 @@ void EditorView::OnNavigateUpVSCode(int rows) {
         // Request full redraw (this caused a scroll)
         InvalidateAll();
     }
-
-    currentLine = lines[editorModel->idxActiveLine];
-    currentLine->SetActive(true);
 }
 
 // CLion/Sublime style of navigation on pageup/down - this first moves the content and then adjust cursor
 // This moves content first and cursor rather stays
 void EditorView::OnNavigateDownCLion(int rows) {
-    auto currentLine = editorModel->LineAt(editorModel->idxActiveLine);
-    currentLine->SetActive(false);
-
     bool forceCursorToLastLine = false;
     int nRowsToMove = rows;
     int maxRows = editorModel->Lines().size() - 1;
@@ -630,9 +606,6 @@ void EditorView::OnNavigateDownCLion(int rows) {
 }
 
 void EditorView::OnNavigateUpCLion(int rows) {
-    auto currentLine = editorModel->LineAt(editorModel->idxActiveLine);
-    currentLine->SetActive(false);
-
     int nRowsToMove = rows;
     int maxRows = editorModel->Lines().size() - 1;
     bool forceCursorToFirstLine = false;

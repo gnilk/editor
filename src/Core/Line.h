@@ -41,8 +41,6 @@ namespace gedit {
         void Move(Line *dst, int dstOfs, int srcOfs, int nChar = -1);
         void Delete(int at, int n);
         int Unindent();
-        bool IsActive() { return active; }
-        void SetActive(bool isActive) { active = isActive; }
         void SetIndent(int newIndent) { indent = newIndent; }
         int Indent() { return indent; }
         int ComputeIndent();

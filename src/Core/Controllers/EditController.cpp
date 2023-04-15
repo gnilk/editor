@@ -44,7 +44,6 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
     //logger->Debug("---> NEW LINE BEGIN");
 
     if (currentLine != nullptr) {
-        currentLine->SetActive(false);
         // FIXME: the line should not compute the indent - we should search in the parsing meta-data for indent indication..
         indentPrevious = currentLine->ComputeIndent();
 
@@ -83,8 +82,6 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
     currentLine = lines[idxActiveLine];
     currentLine->SetIndent(indentPrevious);
     int cursorPos = currentLine->Insert(0, indentPrevious, ' ');
-
-    lines[idxActiveLine]->SetActive(true);
 
     UpdateSyntaxForBuffer();
 

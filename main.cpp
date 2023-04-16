@@ -3,13 +3,15 @@
 //
 /*
  * TO-DO List
+ * - Swap out the vertical navigation code in EditorView for the 'VerticalNavigationModel'
+ * - Make a tree-list-view (for files and such)
  * - Test if the underlying VStack view (or editor view) can have a popup-one/two liner (Search)
  * - Embryo for what is needed for the API lies within the ListSelectionModal, example:
  *   - List/Select/Switch buffer (Popup with list of active buffers)
  *   - Open file
  *   - etc..
  * - Create a view base class 'Visible' / 'Drawable' - View, which contain the setup code found in "ListSelectionModal'
- * - Move render loop out of here, we need control over it in case we want to display modal dialogs.
+ * ! Move render loop out of here, we need control over it in case we want to display modal dialogs.
  * - Make large files > 10k lines read-only, alt. disable reparsing and syntax highlighting for large files..
  *   Disabling syntax can be deduced on-the fly by measuring the reparsing process..
  * ! SDL2 backend, SDL3 is way too instable (no Linux support) so we need another one...

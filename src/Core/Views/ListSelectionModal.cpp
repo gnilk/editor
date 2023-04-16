@@ -1,5 +1,6 @@
 //
 // Created by gnilk on 14.04.23.
+// Simple list selection modal dialog
 //
 
 #include "ListSelectionModal.h"
@@ -89,15 +90,19 @@ void ListView::DrawViewContents() {
 }
 ////////////////
 //
+// This is the modal dialog box...
+// It has a Vertical Stacked layout with a header (optional) and a listview..
 //
-
+static ListHeaderView *listHeader = nullptr;
 void ListSelectionModal::InitView() {
     ModalView::InitView();
 
-    auto layoutView = new VStackView(GetContentRect());
+    layoutView = new VStackView(GetContentRect());
     AddView(layoutView);
 
-    layoutView->AddSubView(new ListHeaderView(), kFixed);
+    listHeader = new ListHeaderView();
+    listHeader->SetVisible(false);
+    layoutView->AddSubView(listHeader, kFixed);
     layoutView->AddSubView(listView, kFill);
 }
 
@@ -109,6 +114,15 @@ bool ListSelectionModal::OnAction(const KeyPressAction &kpAction) {
     if (kpAction.action == kAction::kActionCommitLine) {
         listView->GetSelectedItemIndex();
         CloseModal();
+    }
+    if (kpAction.action == kAction::kActionLineRight) {
+        if (listHeader->IsVisible()) {
+            listHeader->SetVisible(false);
+        } else {
+            listHeader->SetVisible(true);
+        }
+        layoutView->RecomputeLayout();
+        InvalidateAll();
     }
     return ModalView::OnAction(kpAction);
 }

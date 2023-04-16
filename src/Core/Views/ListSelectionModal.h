@@ -10,6 +10,7 @@
 #include "ModalView.h"
 #include "Core/Cursor.h"
 #include "Core/VerticalNavigationViewModel.h"
+#include "Core/Views/VStackView.h"
 
 
 namespace gedit {
@@ -59,7 +60,6 @@ namespace gedit {
     protected:
         void DrawViewContents() override;
     private:
-
         std::vector<std::string> listItems;
 
     };
@@ -86,6 +86,7 @@ namespace gedit {
         void DrawViewContents() override;
     protected:
         int idxSelectedItem = -1;
+        VStackView *layoutView;
         ListView *listView;
     };
 }

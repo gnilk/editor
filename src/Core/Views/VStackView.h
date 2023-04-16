@@ -75,15 +75,23 @@ namespace gedit {
                 if (!view.view->IsInitialized()) {
                     view.view->Initialize();
                 }
-                if (view.layout == kFixed) {
+                if ((view.layout == kFixed) && (view.view->IsVisible())) {
                     fixedHeight += view.view->GetViewRect().Height();
                     nFixed++;
                 }
             }
+
+            int nFlexible = 0;
+            for(auto &view : viewStack) {
+                if ((view.layout == kFill) && view.view->IsVisible()) {
+                    nFlexible++;
+                }
+            }
+
             // 2) Distribute the rest amongst the flexible width items..
             int flexHeight = 0;
-            if ((viewStack.size() - nFixed) > 0) {
-                flexHeight = (GetContentRect().Height() - fixedHeight) / (viewStack.size() - nFixed);
+            if (nFlexible > 0) {
+                flexHeight = (GetContentRect().Height() - fixedHeight) / nFlexible;
             }
 
             // All subwindows are full height (enforced)
@@ -91,6 +99,9 @@ namespace gedit {
             int yPos = GetContentRect().TopLeft().y;
 
             for(auto &view : viewStack) {
+                if (!view.view->IsVisible()) {
+                    continue;
+                }
                 auto viewRect = view.view->GetViewRect();
                 viewRect.MoveTo(xPos,yPos);
                 // Set the flex-width, otherwise keep the width (assuming the user has set its width properly)
@@ -101,6 +112,8 @@ namespace gedit {
                 viewRect.SetWidth(GetContentRect().Width());
                 view.view->SetViewRect(viewRect);
                 yPos += viewRect.Height();
+                // Need too call initialize, if the view has already been initalized this will call 'reinit' which moves the view
+                view.view->Initialize();
             }
         }
     protected:

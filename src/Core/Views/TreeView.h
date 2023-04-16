@@ -11,17 +11,30 @@
 #include "Core/VerticalNavigationViewModel.h"
 
 namespace gedit {
+
+    //
+    // Generic tree view - you MUST call 'SetToStringDelegate' with a function that converts your data to a std::string
+    //
+
+    //
+    // Note to self: ANY modification to the tree MUST call 'Flatten' in order for the change to be reflected during drawing!!!!
+    //
+
     template<typename T>
     class TreeView : public VisibleView, public VerticalNavigationViewModel {
     public:
-        struct TreeItem {
-            using Ref = std::shared_ptr<TreeItem>;
+        struct TreeNode {
+            using Ref = std::shared_ptr<TreeNode>;
             T data = {};
             Ref parent = nullptr;
+            bool isExpanded = false;
+
+            int indent = 0;
+
             std::vector<Ref> children = {};
 
             static Ref Create(const T &itemData) {
-                auto treeItem = std::make_shared<TreeItem>();
+                auto treeItem = std::make_shared<TreeNode>();
                 treeItem->data = itemData;
                 return treeItem;
             }
@@ -30,10 +43,13 @@ namespace gedit {
         using Ref = std::shared_ptr<TreeView>;
         using ToStringDelegate = std::function<std::string(const T &data)>;
     public:
-        TreeView() = default;
+        TreeView() {
+            rootNode = TreeNode::Create({});
+        }
         virtual ~TreeView() = default;
         void InitView() override {
             VisibleView::InitView();
+            rootNode->isExpanded = true;
             viewTopLine = 0;
             viewBottomLine = viewRect.Height();
         }
@@ -44,21 +60,53 @@ namespace gedit {
         }
 
         bool OnAction(const KeyPressAction &kpAction) {
-            return false;
+            bool wasHandled = true;
+            switch(kpAction.action) {
+                case kAction::kActionLineLeft :
+                    Collapse();
+                    break;
+                case kAction::kActionLineRight :
+                    Expand();
+                    break;
+                case kAction::kActionLineUp :
+                    OnNavigateUpCLion(cursor, 1, GetContentRect(), flattenNodeList.size());
+                    break;
+                case kAction::kActionLineDown :
+                    OnNavigateDownCLion(cursor, 1, GetContentRect(), flattenNodeList.size());
+                    break;
+                case kAction::kActionPageUp :
+                    OnNavigateUpCLion(cursor, GetContentRect().Height()-1, GetContentRect(), flattenNodeList.size());
+                    break;
+                case kAction::kActionPageDown :
+                    OnNavigateDownCLion(cursor, GetContentRect().Height()-1, GetContentRect(), flattenNodeList.size());
+                    break;
+                default:
+                    wasHandled = false;
+                    break;
+            }
+            if (!wasHandled) {
+                return false;
+            }
+            InvalidateAll();
+            return true;
         }
 
         void SetToStringDelegate(ToStringDelegate newToString) {
             cbToString = newToString;
         }
 
-        typename TreeItem::Ref AddItem(const T &item) {
-            auto treeItem = TreeItem::Create(item);
-            rootNode.children.push_back(treeItem);
-            return treeItem;
+        typename TreeNode::Ref AddItem(const T &item) {
+            return AddItem(rootNode, item);
         }
-        typename TreeItem::Ref AddItem(typename TreeItem::Ref parent, const T &item) {
-            auto treeItem = TreeItem::Create(item);
+
+        typename TreeNode::Ref AddItem(typename TreeNode::Ref parent, const T &item) {
+            auto treeItem = TreeNode::Create(item);
+            parent->isExpanded = true;
             parent->children.push_back(treeItem);
+
+            // Flatten tree!!!
+            Flatten();
+
             return treeItem;
         }
 
@@ -66,28 +114,76 @@ namespace gedit {
             return std::make_shared<TreeView<T> >();
         }
     protected:
+
+        void Collapse() {
+            auto &node = flattenNodeList[idxActiveLine];
+            node->isExpanded = false;
+            Flatten();
+        }
+        void Expand() {
+            auto &node = flattenNodeList[idxActiveLine];
+            node->isExpanded = true;
+            Flatten();
+        }
+
+        // Note: Depends on flattening
         void DrawViewContents() override {
             auto &dc = window->GetContentDC();
-            std::vector<std::string> treeAsVector;
-            Flatten(treeAsVector, rootNode, 0);
-            for (int i = viewTopLine; i < viewBottomLine; i++) {
-                if (i >= treeAsVector.size()) {
+            for(int i=viewTopLine;i<viewBottomLine;i++) {
+                if (i >= flattenNodeList.size()) {
                     break;
                 }
                 int yPos = i - viewTopLine;
-                dc.DrawStringWithAttributesAt(0, yPos, kTextAttributes::kNormal, treeAsVector[i].c_str());
+                auto &node = flattenNodeList[i];
+                auto str = cbToString(node->data);
+
+                if (node->children.size() > 0) {
+                    if (node->isExpanded) {
+                        str = "-" + str;
+                    } else {
+                        str = "+" + str;
+                    }
+                } else {
+                    str = " " + str;
+                }
+                dc.FillLine(yPos, kTextAttributes::kNormal, ' ');
+                if (i == idxActiveLine) {
+                    dc.FillLine(yPos, kTextAttributes::kNormal | kTextAttributes::kInverted, ' ');
+                    dc.DrawStringWithAttributesAt(node->indent, yPos, kTextAttributes::kNormal | kTextAttributes::kInverted, str.c_str());
+
+                } else {
+                    dc.DrawStringWithAttributesAt(node->indent, yPos, kTextAttributes::kNormal, str.c_str());
+                }
             }
         }
-    private:
-        void Flatten(std::vector<std::string> &outVector, const TreeItem &node, int depth) {
-            for(int i=0;i<node.children.size();i++) {
-                auto strData = cbToString(node.children[i]->data);
-                outVector.push_back(strData);
+
+        //
+        // This will flatten the tree to a vector making it way easier to handle during drawing...
+        //
+        void Flatten() {
+            int idxLine = 0;
+            flattenNodeList.clear();
+            for(auto &node : rootNode->children) {
+                idxLine = FlattenFromNode(idxLine, node, 0);
             }
         }
+
+        int FlattenFromNode(int idxLine, typename TreeNode::Ref node, int indent) {
+            node->indent = indent;
+            flattenNodeList.push_back(node);
+            idxLine += 1;
+            if (node->isExpanded) {
+                for (auto &child: node->children) {
+                    idxLine = FlattenFromNode(idxLine, child, indent+2);
+                }
+            }
+            return idxLine;
+        }
+
     private:
+        std::vector<typename TreeNode::Ref> flattenNodeList;
         ToStringDelegate cbToString = nullptr;
-        TreeItem rootNode;
+        typename TreeNode::Ref rootNode;
 
     };
 

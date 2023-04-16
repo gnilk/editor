@@ -261,9 +261,17 @@ int main(int argc, const char **argv) {
     });
 
     auto tree = myModal.GetTree();
-    tree->AddItem("Item 1");
+    auto subNode = tree->AddItem("Item 1");
+    auto subba = tree->AddItem(subNode, "Item 1:1");
+    tree->AddItem(subba, "Item 1:2:1");
+    tree->AddItem(subba, "Item 1:2:2");
+    tree->AddItem(subNode, "Item 1:2");
+
     tree->AddItem("Item 2");
-    tree->AddItem("Item 3");
+    subNode = tree->AddItem("Item 3");
+    subba = tree->AddItem(subNode, "Item 3:1");
+    subba = tree->AddItem(subNode, "Item 3:2");
+    subba = tree->AddItem(subNode, "Item 3:3");
     tree->AddItem("Item 4");
 
 //    ListSelectionModal myModal;

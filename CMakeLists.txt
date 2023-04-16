@@ -122,6 +122,7 @@ list(APPEND editorsrc src/Core/Views/RootView.h)
 list(APPEND editorsrc src/Core/Views/ViewBase.cpp src/Core/Views/ViewBase.h)
 list(APPEND editorsrc src/Core/Views/VSplitView.h)
 list(APPEND editorsrc src/Core/Views/VStackView.h)
+list(APPEND editorsrc src/Core/Views/VisibleView.cpp src/Core/Views/VisibleView.h)
 # specific views
 list(APPEND editorsrc src/Core/Views/EditorView.cpp src/Core/Views/EditorView.h)
 list(APPEND editorsrc src/Core/Views/GutterView.cpp src/Core/Views/GutterView.h)
@@ -133,6 +134,8 @@ list(APPEND editorsrc src/Core/Views/HSplitViewStatus.h)
 # modals/dialogs/etc..
 list(APPEND editorsrc src/Core/Views/ModalView.cpp src/Core/Views/ModalView.h)
 list(APPEND editorsrc src/Core/Views/ListSelectionModal.cpp src/Core/Views/ListSelectionModal.h)
+list(APPEND editorsrc src/Core/Views/TreeView.h)
+list(APPEND editorsrc src/Core/Views/TreeSelectionModal.cpp src/Core/Views/TreeSelectionModal.h)
 
 # draw helper
 list(APPEND editorsrc src/Core/DrawContext.h)

@@ -132,7 +132,7 @@
 #include "Core/API/EditorAPI.h"
 #include "Core/Views/ModalView.h"
 #include "Core/Views/ListSelectionModal.h"
-
+#include "Core/Views/TreeSelectionModal.h"
 using namespace gedit;
 
 
@@ -256,12 +256,22 @@ int main(int argc, const char **argv) {
     rootView.AddTopView(&cmdView);
 
     //ModalView myModal(Rect(Point(10,10),64,64));
-    ListSelectionModal myModal;
-    char buffer[128];
-    for(int i=0;i<64;i++) {
-        snprintf(buffer, 128, "Item %d", i);
-        myModal.AddItem(buffer);
-    }
+    TreeSelectionModal<std::string> myModal;
+
+    myModal.GetTree()->SetToStringDelegate([](const std::string &data) -> std::string {
+       return data;
+    });
+
+    auto tree = myModal.GetTree();
+    tree->AddItem("Item 1");
+    tree->AddItem("Item 2");
+    tree->AddItem("Item 3");
+    tree->AddItem("Item 4");
+//    char buffer[128];
+//    for(int i=0;i<64;i++) {
+//        snprintf(buffer, 128, "Item %d", i);
+//        myModal.AddItem(buffer);
+//    }
 //    myModal.AddItem("Item1");
 //    myModal.AddItem("Item2");
 //    myModal.AddItem("Item3");

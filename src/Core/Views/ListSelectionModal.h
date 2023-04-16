@@ -15,13 +15,7 @@
 
 namespace gedit {
 
-    class ItemContainer {
-    public:
-        virtual size_t size() = 0;
-    };
 
-
-    //template<typename T>
     class ListView : public ViewBase, public VerticalNavigationViewModel {
     public:
         ListView() = default;

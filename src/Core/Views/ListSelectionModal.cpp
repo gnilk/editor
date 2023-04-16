@@ -80,6 +80,7 @@ void ListView::DrawViewContents() {
     for (int i = viewTopLine; i < viewBottomLine; i++) {
         int yPos = i - viewTopLine;
         auto &str = listItems[i];
+        dc.FillLine(yPos, kTextAttributes::kNormal, ' ');
         if (i == idxActiveLine) {
             dc.FillLine(yPos, kTextAttributes::kNormal | kTextAttributes::kInverted, ' ');
             dc.DrawStringWithAttributesAt(0,yPos,kTextAttributes::kNormal  | kTextAttributes::kInverted, str.c_str());

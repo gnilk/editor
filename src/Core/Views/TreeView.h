@@ -71,7 +71,7 @@ namespace gedit {
             std::vector<std::string> treeAsVector;
             Flatten(treeAsVector, rootNode, 0);
             for (int i = viewTopLine; i < viewBottomLine; i++) {
-                if (i > treeAsVector.size()) {
+                if (i >= treeAsVector.size()) {
                     break;
                 }
                 int yPos = i - viewTopLine;

@@ -78,6 +78,9 @@ bool ListView::OnAction(const KeyPressAction &kpAction){
 void ListView::DrawViewContents() {
     auto &dc = window->GetContentDC();
     for (int i = viewTopLine; i < viewBottomLine; i++) {
+        if (i >= listItems.size()) {
+            break;
+        }
         int yPos = i - viewTopLine;
         auto &str = listItems[i];
         dc.FillLine(yPos, kTextAttributes::kNormal, ' ');

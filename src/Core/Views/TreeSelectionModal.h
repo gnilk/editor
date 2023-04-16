@@ -30,6 +30,7 @@ namespace gedit {
 
         void InitView() override {
             ModalView::InitView();
+            window->SetCaption("Tree");
             AddView(treeView.get());
         }
         bool OnAction(const KeyPressAction &kpAction) override {

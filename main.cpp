@@ -255,9 +255,7 @@ int main(int argc, const char **argv) {
     rootView.AddTopView(&editorView);
     rootView.AddTopView(&cmdView);
 
-    //ModalView myModal(Rect(Point(10,10),64,64));
     TreeSelectionModal<std::string> myModal;
-
     myModal.GetTree()->SetToStringDelegate([](const std::string &data) -> std::string {
        return data;
     });
@@ -267,15 +265,13 @@ int main(int argc, const char **argv) {
     tree->AddItem("Item 2");
     tree->AddItem("Item 3");
     tree->AddItem("Item 4");
+
+//    ListSelectionModal myModal;
 //    char buffer[128];
 //    for(int i=0;i<64;i++) {
 //        snprintf(buffer, 128, "Item %d", i);
 //        myModal.AddItem(buffer);
 //    }
-//    myModal.AddItem("Item1");
-//    myModal.AddItem("Item2");
-//    myModal.AddItem("Item3");
-//    myModal.AddItem("Item4");
     Runloop::ShowModal(&myModal);
 
     rootView.Initialize();

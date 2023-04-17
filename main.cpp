@@ -232,47 +232,78 @@ int main(int argc, const char **argv) {
     auto cmdView = CommandView();
     hSplitView.SetLower(&cmdView);
 
-    auto vStackView = VStackView();
+    auto vStackViewEditor = VStackView();   // This is where the editor and the 'FileHeader' lives, they are stacked vertically
     auto headerView = HeaderView();
     headerView.SetHeight(1);        // This is done in the SingleLineView
 
-    hSplitView.SetUpper(&vStackView);
 
-    auto hStackView = HStackView();
+    auto vStackViewExplorer = VStackView();
+    vStackViewExplorer.SetWidth(16);
+    auto fileExplorerHeader = SingleLineView();
+    auto fileExplorer = TreeView<std::string>::Create();
+    fileExplorer->SetToStringDelegate([](const std::string &data) -> std::string {
+        return data;
+    });
+
+    vStackViewExplorer.AddSubView(&fileExplorerHeader, kFixed);
+    vStackViewExplorer.AddSubView(fileExplorer.get(), kFill);
+
+    auto subNode = fileExplorer->AddItem("Item 1");
+    auto subba = fileExplorer->AddItem(subNode, "Item 1:1");
+    fileExplorer->AddItem(subba, "Item 1:2:1");
+    fileExplorer->AddItem(subba, "Item 1:2:2");
+    fileExplorer->AddItem(subNode, "Item 1:2");
+
+    fileExplorer->AddItem("Item 2");
+    subNode = fileExplorer->AddItem("Item 3");
+    subba = fileExplorer->AddItem(subNode, "Item 3:1");
+    subba = fileExplorer->AddItem(subNode, "Item 3:2");
+    subba = fileExplorer->AddItem(subNode, "Item 3:3");
+    fileExplorer->AddItem("Item 4");
+
+
+
+    auto hStackViewUpper = HStackView();
+    auto hStackViewEditor = HStackView();
     auto gutterView = GutterView();
     gutterView.SetWidth(10);
 
     auto editorView = EditorView();
 
-    hStackView.AddSubView(&gutterView, kFixed);
-    hStackView.AddSubView(&editorView, kFill);
+    hStackViewEditor.AddSubView(&gutterView, kFixed);
+    hStackViewEditor.AddSubView(&editorView, kFill);
 
-    vStackView.AddSubView(&headerView, kFixed);
-    vStackView.AddSubView(&hStackView, kFill);
+    hStackViewUpper.AddSubView(&vStackViewExplorer, kFixed);
+    hStackViewUpper.AddSubView(&vStackViewEditor, kFill);
+
+    vStackViewEditor.AddSubView(&headerView, kFixed);
+    vStackViewEditor.AddSubView(&hStackViewEditor, kFill);
 
     RuntimeConfig::Instance().SetRootView(&rootView);
+
+    hSplitView.SetUpper(&hStackViewUpper);
 
     rootView.AddTopView(&editorView);
     rootView.AddTopView(&cmdView);
 
-    TreeSelectionModal<std::string> myModal;
-    myModal.GetTree()->SetToStringDelegate([](const std::string &data) -> std::string {
-       return data;
-    });
-
-    auto tree = myModal.GetTree();
-    auto subNode = tree->AddItem("Item 1");
-    auto subba = tree->AddItem(subNode, "Item 1:1");
-    tree->AddItem(subba, "Item 1:2:1");
-    tree->AddItem(subba, "Item 1:2:2");
-    tree->AddItem(subNode, "Item 1:2");
-
-    tree->AddItem("Item 2");
-    subNode = tree->AddItem("Item 3");
-    subba = tree->AddItem(subNode, "Item 3:1");
-    subba = tree->AddItem(subNode, "Item 3:2");
-    subba = tree->AddItem(subNode, "Item 3:3");
-    tree->AddItem("Item 4");
+//    TreeSelectionModal<std::string> myModal;
+//    myModal.GetTree()->SetToStringDelegate([](const std::string &data) -> std::string {
+//       return data;
+//    });
+//
+//    auto tree = myModal.GetTree();
+//    auto subNode = tree->AddItem("Item 1");
+//    auto subba = tree->AddItem(subNode, "Item 1:1");
+//    tree->AddItem(subba, "Item 1:2:1");
+//    tree->AddItem(subba, "Item 1:2:2");
+//    tree->AddItem(subNode, "Item 1:2");
+//
+//    tree->AddItem("Item 2");
+//    subNode = tree->AddItem("Item 3");
+//    subba = tree->AddItem(subNode, "Item 3:1");
+//    subba = tree->AddItem(subNode, "Item 3:2");
+//    subba = tree->AddItem(subNode, "Item 3:3");
+//    tree->AddItem("Item 4");
 
 //    ListSelectionModal myModal;
 //    char buffer[128];
@@ -280,7 +311,7 @@ int main(int argc, const char **argv) {
 //        snprintf(buffer, 128, "Item %d", i);
 //        myModal.AddItem(buffer);
 //    }
-    Runloop::ShowModal(&myModal);
+//    Runloop::ShowModal(&myModal);
 
     rootView.Initialize();
     rootView.InvalidateAll();

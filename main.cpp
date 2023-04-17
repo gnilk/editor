@@ -223,6 +223,25 @@ int main(int argc, const char **argv) {
     logger->Debug("Creating views");
     logger->Debug("Dimensions (x,y): %d, %d", dimensions.Width(), dimensions.Height());
 
+
+    //
+    // The views are configured like this; the number indicates the view depth/hierachy
+    // Note: There is another HStackView for Editor+Gutter
+    //
+    //        [fixed]                 [fill]
+    //  | 3) VStackView       |  3) VStackView
+    //  |   4) Singleline     |    4) HeaderView [tabs]     <- fixed (1 line)
+    //  |    <-------  2) HStackView  ------->
+    //  |    4) TreeView      | <-- 4) HStackView -->           <- fill
+    //  |                     | 5) Gutter | 5) Editor
+    //  |                     |           |
+    //  |                     |           |
+    //  |                     |           |
+    //  |                     |           |
+    //  1) --------- HSplitViewStatus ----------------
+    //  |                                           |
+    //  |             2) CmdView                    |
+    //  |                                           |
     RootView rootView;
 
     auto hSplitView = HSplitViewStatus(dimensions);

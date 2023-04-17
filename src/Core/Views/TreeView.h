@@ -59,7 +59,7 @@ namespace gedit {
             viewBottomLine = viewRect.Height();
         }
 
-        bool OnAction(const KeyPressAction &kpAction) {
+        bool OnAction(const KeyPressAction &kpAction) override {
             bool wasHandled = true;
             switch(kpAction.action) {
                 case kAction::kActionLineLeft :

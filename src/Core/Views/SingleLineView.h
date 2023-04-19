@@ -7,33 +7,37 @@
 
 #include "Core/Editor.h"
 #include "Core/RuntimeConfig.h"
-#include "ViewBase.h"
+#include "VisibleView.h"
+
 
 namespace gedit {
-    class SingleLineView : public ViewBase {
+    class SingleLineView : public VisibleView {
     public:
         SingleLineView() = default;
-        explicit SingleLineView(const Rect &rect) : ViewBase (rect) {
-
-        }
         void InitView() override {
-            auto screen = RuntimeConfig::Instance().Screen();
-            if (viewRect.IsEmpty()) {
-                viewRect = screen->Dimensions();
-            }
             viewRect.SetHeight(1);
-            window = screen->CreateWindow(viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
-            window->SetCaption("SingleLineView");
+            VisibleView::InitView();
         }
 
         void ReInitView() override {
-            auto screen = RuntimeConfig::Instance().Screen();
-            if (viewRect.IsEmpty()) {
-                viewRect = screen->Dimensions();
-            }
             viewRect.SetHeight(1);
-            window = screen->UpdateWindow(window, viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
+            VisibleView::ReInitView();
         }
+
+        void SetText(const std::string &newHeading) {
+            heading = newHeading;
+        }
+        const std::string &GetText() {
+            return heading;
+        }
+    protected:
+        void DrawViewContents() override {
+            auto &dc = window->GetContentDC();
+            dc.FillLine(0, kTextAttributes::kNormal | kTextAttributes::kInverted, ' ');
+            dc.DrawStringWithAttributesAt(0, 0, kTextAttributes::kNormal | kTextAttributes::kInverted, heading.c_str());
+        }
+    private:
+        std::string heading;
     };
 }
 

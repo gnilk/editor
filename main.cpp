@@ -3,9 +3,12 @@
 //
 /*
  * TO-DO List
+ * - Views should have an option saying if they can have focus, make this a flags
+ *   'ViewBase::SetViewOptions(kViewOption::kCanHaveFocus);'
+ *   Make 'CycleActiveView' a left/right function and go through the list of view which can have focus...
  * - Swap out the vertical navigation code in EditorView for the 'VerticalNavigationModel'
- * - Make a tree-list-view (for files and such)
- * - Test if the underlying VStack view (or editor view) can have a popup-one/two liner (Search)
+ * ! Make a tree-list-view (for files and such)
+ * ! Test if the underlying VStack view (or editor view) can have a popup-one/two liner (Search)
  * - Embryo for what is needed for the API lies within the ListSelectionModal, example:
  *   - List/Select/Switch buffer (Popup with list of active buffers)
  *   - Open file
@@ -121,7 +124,7 @@
 #include "Core/Views/VSplitView.h"
 #include "Core/Views/HStackView.h"
 #include "Core/Views/VStackView.h"
-#include "Core/Views/HeaderView.h"
+#include "Core/Views/EditorHeaderView.h"
 #include "Core/Views/HSplitViewStatus.h"
 
 #include "Core/Action.h"
@@ -252,13 +255,14 @@ int main(int argc, const char **argv) {
     hSplitView.SetLower(&cmdView);
 
     auto vStackViewEditor = VStackView();   // This is where the editor and the 'FileHeader' lives, they are stacked vertically
-    auto headerView = HeaderView();
+    auto headerView = EditorHeaderView();
     headerView.SetHeight(1);        // This is done in the SingleLineView
 
 
     auto vStackViewExplorer = VStackView();
     vStackViewExplorer.SetWidth(16);
     auto fileExplorerHeader = SingleLineView();
+    fileExplorerHeader.SetText("Project");
     auto fileExplorer = TreeView<std::string>::Create();
     fileExplorer->SetToStringDelegate([](const std::string &data) -> std::string {
         return data;
@@ -304,6 +308,7 @@ int main(int argc, const char **argv) {
 
     rootView.AddTopView(&editorView);
     rootView.AddTopView(&cmdView);
+    rootView.AddTopView(fileExplorer.get());
 
 //    TreeSelectionModal<std::string> myModal;
 //    myModal.GetTree()->SetToStringDelegate([](const std::string &data) -> std::string {

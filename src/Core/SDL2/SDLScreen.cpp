@@ -67,13 +67,16 @@ bool SDLScreen::Open() {
         printf("Error: SDL_Init, %s\n", SDL_GetError());
         exit(1);
     }
-    // FIXME: restore window size!
+
+    // FIXME: Need to determine how HighDPI stuff works...
     window = SDL_CreateWindow("gedit", 0,0,widthPixels, heightPixels,  SDL_WINDOW_OPENGL);
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
     logger->Debug("Resolution: %d x %d", widthPixels, heightPixels);
     logger->Debug("Loading font: '%s'", fontName.c_str());
+
+    //SDL_RenderSetScale(renderer, 2, 2);
 
     // FIXME: Font handling should not be here
     auto font = STBTTF_OpenFont(renderer, fontName.c_str(), 18);

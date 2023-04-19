@@ -10,7 +10,9 @@
 #include "Core/Language/LanguageBase.h"
 #include "Core/Line.h"
 #include "Core/Point.h"
+#include <thread>
 #include <memory>
+#include <optional>
 
 namespace gedit {
     class TextBuffer {

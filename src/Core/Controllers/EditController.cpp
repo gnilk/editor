@@ -3,6 +3,7 @@
 //
 
 #include "EditController.h"
+#include "Core/EditorConfig.h"
 
 using namespace gedit;
 
@@ -41,15 +42,9 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
     auto &lines = Lines();
     auto currentLine = LineAt(idxActiveLine);
 
-    //logger->Debug("---> NEW LINE BEGIN");
-
     if (currentLine != nullptr) {
-        // FIXME: the line should not compute the indent - we should search in the parsing meta-data for indent indication..
-        indentPrevious = currentLine->ComputeIndent();
-
-//        logger->Debug("Previous Line: %d", idxActiveLine);
-//        logger->Debug("Previous: %d:%s-%s:%s", idxActiveLine, lines[idxActiveLine]->startState.c_str(),lines[idxActiveLine]->endState.c_str(), lines[idxActiveLine]->Buffer().data());
-
+        auto tabSize = EditorConfig::Instance().tabSize;
+        indentPrevious = currentLine->Indent() * tabSize;
     }
 
 

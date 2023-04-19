@@ -107,29 +107,29 @@ int Line::Unindent() {
     return maxLen;
 }
 
+////
+//// TODO: here we should have proper language support!!
+////
+//int Line::ComputeIndent() {
+//    std::lock_guard<std::mutex> guard(lock);
+//    static const std::string& chars = "\t\n\v\f\r ";
+//    if (buffer.size() == 0) {
+//        return 0;
+//    }
+//    auto lastPos = buffer.find_last_not_of(chars);
+//    // Next line should be indented
+//    if ((lastPos != std::string::npos) && ('{' == buffer[lastPos])) {
+//        // Is this 'good enough'
+//        return EditorConfig::Instance().tabSize + indent;
+//    }
 //
-// TODO: here we should have proper language support!!
-//
-int Line::ComputeIndent() {
-    std::lock_guard<std::mutex> guard(lock);
-    static const std::string& chars = "\t\n\v\f\r ";
-    if (buffer.size() == 0) {
-        return 0;
-    }
-    auto lastPos = buffer.find_last_not_of(chars);
-    // Next line should be indented
-    if ((lastPos != std::string::npos) && ('{' == buffer[lastPos])) {
-        // Is this 'good enough'
-        return EditorConfig::Instance().tabSize + indent;
-    }
-
-    auto pos = buffer.find_first_not_of(chars);
-    // String is empty - no need
-    if (pos == std::string::npos) {
-        return 0;
-    }
-    return pos;
-}
+//    auto pos = buffer.find_first_not_of(chars);
+//    // String is empty - no need
+//    if (pos == std::string::npos) {
+//        return 0;
+//    }
+//    return pos;
+//}
 
 Line::LineAttribIterator Line::AttributeAt(int pos) {
     for(int i=0;i<attribs.size()-1;i++) {

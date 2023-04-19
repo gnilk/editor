@@ -3,20 +3,25 @@
 //
 /*
  * TO-DO List
- * - Views should have an option saying if they can have focus, make this a flags
- *   'ViewBase::SetViewOptions(kViewOption::kCanHaveFocus);'
- *   Make 'CycleActiveView' a left/right function and go through the list of view which can have focus...
+ * - Language tokenizer should use kBlockCodeStart/End to track indent
+ * - Make 'CycleActiveView' a left/right function and go through the list of view which can have focus...
  * - Swap out the vertical navigation code in EditorView for the 'VerticalNavigationModel'
- * ! Make a tree-list-view (for files and such)
- * ! Test if the underlying VStack view (or editor view) can have a popup-one/two liner (Search)
  * - Embryo for what is needed for the API lies within the ListSelectionModal, example:
  *   - List/Select/Switch buffer (Popup with list of active buffers)
  *   - Open file
  *   - etc..
- * - Create a view base class 'Visible' / 'Drawable' - View, which contain the setup code found in "ListSelectionModal'
- * ! Move render loop out of here, we need control over it in case we want to display modal dialogs.
  * - Make large files > 10k lines read-only, alt. disable reparsing and syntax highlighting for large files..
  *   Disabling syntax can be deduced on-the fly by measuring the reparsing process..
+ * - BufferManager should store 'fullPathName' and 'name'
+ * - Unsaved file should have '*' marking in the top..
+ *
+ * Done:
+ * ! Views should have an option saying if they can have focus, make this a flags
+ *   [note: Already supported, use 'AddTopView' and it will work]
+ * ! Make a tree-list-view (for files and such)
+ * ! Test if the underlying VStack view (or editor view) can have a popup-one/two liner (Search)
+ * ! Create a view base class 'Visible' / 'Drawable' - View, which contain the setup code found in "ListSelectionModal'
+ * ! Move render loop out of here, we need control over it in case we want to display modal dialogs.
  * ! SDL2 backend, SDL3 is way too instable (no Linux support) so we need another one...
  * ! Speed up tokenizer in editor - consider putting in on a background thread...
  *   Consider making ReparseLine a function to use.
@@ -29,8 +34,6 @@
  * ! Properly quit editor through API
  * ! Make some classes thread aware (TextBuffer / Line class - perhaps most important)
  * ! Fix NCurses, currently broken (due to work on SDL3 backend)
- *
- * Done:
  * ! Handling of overlay's or 'selection marking', added special function for drawing overlays for a specific line
  * ! Refactor the Action parser (KeyMapping.cpp) so that Action = Keymapp
  *   ! Add 'optional' (for modifiers) on action
@@ -72,8 +75,6 @@
  * ! HStackView, which simply 'stacks' and computes sizes accordingly when updated
  * ! Import the language/color features in to this project
  * ! Promote this project to the new 'main' project...
- * - BufferManager should store 'fullPathName' and 'name'
- * - Unsaved file should have '*' marking in the top..
  * ! Consider relationship between viexw/context/window - right now there is too much flexibility
  * ! Only views with content should have an NCurses Window structure..
  * ! Rewrote the view/window handling tossed out the old layout thingie

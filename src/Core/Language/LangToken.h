@@ -22,6 +22,10 @@ namespace gnilk {
 
         const std::string &String() const { return string; }
 
+        bool operator == (const kLanguageTokenClass otherClassification) const {
+            return classification == otherClassification;
+        }
+
         static void ToLineAttrib(std::vector<gedit::Line::LineAttrib> &attribs, std::vector<LangToken> &tokens);
     };
 }

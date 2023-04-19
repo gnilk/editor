@@ -43,7 +43,7 @@ namespace gedit {
         int Unindent();
         void SetIndent(int newIndent) { indent = newIndent; }
         int Indent() { return indent; }
-        int ComputeIndent();
+//        int ComputeIndent();
 
         LineAttribIterator AttributeAt(int pos);
         std::vector<LineAttrib> &Attributes() { return attribs; }

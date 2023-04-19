@@ -23,6 +23,7 @@ namespace gedit {
     enum class kModifier {
         kModifierSelection,
         kModifierCopyPaste,
+        kModifierUINavigation,
     };
 
     //

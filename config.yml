@@ -40,6 +40,7 @@ keymap: {
     modifiers: {
       SelectionModifier: KeyCode_Shift,
       CopyPasteModifier: KeyCode_Cmd,
+      UINavigationModifier : KeyCode_Alt,
     },
     # We could allow different actions depending on what we have..
     # for instance when a 'modal' is active we don't really need all of this...
@@ -54,6 +55,8 @@ keymap: {
       CopyToClipboard : CopyPasteModifier + 'c',
       PasteFromClipboard : CopyPasteModifier + 'v',
       CycleActiveView : KeyCode_Escape,
+      CycleActiveViewNext : "UINavigationModifier + ']'",
+      CycleActiveViewPrev : "UINavigationModifier + '['",
       CycleActiveEditor : KeyCode_F3,
       CommitLine : KeyCode_Return,
       # This doesn't work unless we are in modal-mode..

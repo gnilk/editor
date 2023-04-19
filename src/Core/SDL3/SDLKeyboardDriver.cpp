@@ -56,7 +56,7 @@ KeyPress SDLKeyboardDriver::GetKeyPress() {
                 if (kp.key != 0) {
                     kp.isKeyValid = true;
                 }
-                logger->Debug("  kp, modifiers=%.2x, scancode=%.2x, key=%.2x (%c), ", kp.modifiers, kp.hwEvent.scanCode, kp.key, kp.key);
+                logger->Debug("  kp, modifiers=%.2x (%d), scancode=%.2x, key=%.2x (%c), ", kp.modifiers, kp.modifiers, kp.hwEvent.scanCode, kp.key, kp.key);
                 return kp;
             }
             continue;

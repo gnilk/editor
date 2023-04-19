@@ -34,6 +34,8 @@ namespace gedit {
         kActionGotoTopLine,             // Default: cmd + pageUp
         kActionGotoBottomLine,          // Default: cmd + pageDown
         kActionCycleActiveView,         // Default: esc
+        kActionCycleActiveViewNext,     // Default: Left_CMD + ]
+        kActionCycleActiveViewPrev,     // Default: Left_CMD + [
         kActionCycleActiveEditor,       // TEST-TEST Default: F3
         // Edit actions
         kActionEditBackspace,

@@ -26,6 +26,9 @@ static std::unordered_map<std::string, kModifier> strToModifierMap = {
 
         {"CopyPasteModifier", kModifier::kModifierCopyPaste},
         {"CopyPaste", kModifier::kModifierCopyPaste},
+
+        {"UINavigationModifier", kModifier::kModifierUINavigation},
+        {"UINavigation", kModifier::kModifierUINavigation},
 };
 static std::unordered_map<std::string, kAction> strToActionMap = {
         {"NavigateLineDown",      kAction::kActionLineDown},
@@ -46,6 +49,8 @@ static std::unordered_map<std::string, kAction> strToActionMap = {
         {"GotoBottomLine",        kAction::kActionGotoBottomLine},
         {"GotoTopLine",           kAction::kActionGotoTopLine},
         {"CycleActiveView",       kAction::kActionCycleActiveView},
+        {"CycleActiveViewNext",       kAction::kActionCycleActiveViewNext},
+        {"CycleActiveViewPrev",       kAction::kActionCycleActiveViewPrev},
         {"CycleActiveEditor",     kAction::kActionCycleActiveEditor},
         {"EditBackspace",         kAction::kActionEditBackspace},
         {"CopyToClipboard",       kAction::kActionCopyToClipboard},
@@ -538,6 +543,9 @@ bool KeyMapping::ParseKeyPressCombinationString(kAction action, const std::strin
     bool isKeyCodeASCII = false;
     int  asciiKeyCode = 0;
 
+    if (action == kAction::kActionCycleActiveViewNext) {
+        int breakme = 1;
+    }
 
     // Split the key combination string to a list of items
     std::vector<std::string> keypressList;

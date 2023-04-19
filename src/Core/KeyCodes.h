@@ -16,10 +16,11 @@ namespace gedit {
             kMod_RightShift = 2,
             kMod_LeftCtrl = 4,
             kMod_RightCtrl = 8,
-            kMod_LeftAlt = 16,
-            kMod_RightAlt = 32,
-            kMod_LeftCommand = 64,
-            kMod_RightCommand = 128,
+            // My ext. Das Keyboard have left/right of these swapped...
+            kMod_LeftAlt = 0x10,
+            kMod_RightAlt = 0x20,
+            kMod_LeftCommand = 0x40,
+            kMod_RightCommand = 0x80,
         } kModifierKeys;
 
         typedef enum : uint8_t {

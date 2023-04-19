@@ -59,26 +59,26 @@ namespace gedit {
 
 
 
-            bool wasHandled = false;
+            bool wasHandled = true;
             if (TopView() != nullptr) {
                 wasHandled = TopView()->OnAction(kpAction);
             }
-            // Now handle internally..
-            if (kpAction.action == kAction::kActionCycleActiveView) {
-                TopView()->SetActive(false);
-                idxCurrentTopView = (idxCurrentTopView+1) % topViews.size();
-                TopView()->SetActive(true);
-                wasHandled = true;
 
-            } else if (kpAction.action == kAction::kActionCycleActiveEditor) {
-                auto idxCurrent = Editor::Instance().GetActiveModelIndex();
-                auto idxNext = Editor::Instance().NextModelIndex(idxCurrent);
-                if (idxCurrent != idxNext) {
-                    auto nextModel = Editor::Instance().GetModelFromIndex(idxNext);
-                    RuntimeConfig::Instance().SetActiveEditorModel(nextModel);
-                }
-                Initialize();
-                InvalidateAll();
+            switch(kpAction.action) {
+                case kAction::kActionCycleActiveView :
+                    OnCycleActiveView();
+                    break;
+                case kAction::kActionCycleActiveEditor :
+                    OnCycleActiveEditor();
+                    break;
+                case kAction::kActionCycleActiveViewNext :
+                    OnCycleActiveViewNext();
+                    break;
+                case kAction::kActionCycleActiveViewPrev :
+                    OnCycleActiveViewPrev();
+                    break;
+                default:
+                    wasHandled = false;
             }
             return wasHandled;
         }
@@ -98,6 +98,33 @@ namespace gedit {
             if (TopView() != nullptr) {
                 TopView()->SetActive(true);
             }
+        }
+
+        void OnCycleActiveView() {
+            TopView()->SetActive(false);
+            idxCurrentTopView = (idxCurrentTopView+1) % topViews.size();
+            TopView()->SetActive(true);
+        }
+        void OnCycleActiveViewNext() {
+            TopView()->SetActive(false);
+            idxCurrentTopView = (idxCurrentTopView+1) % topViews.size();
+            TopView()->SetActive(true);
+        }
+        void OnCycleActiveViewPrev() {
+            TopView()->SetActive(false);
+            idxCurrentTopView = (topViews.size() + (idxCurrentTopView-1)) % topViews.size();
+            TopView()->SetActive(true);
+        }
+
+        void OnCycleActiveEditor() {
+            auto idxCurrent = Editor::Instance().GetActiveModelIndex();
+            auto idxNext = Editor::Instance().NextModelIndex(idxCurrent);
+            if (idxCurrent != idxNext) {
+                auto nextModel = Editor::Instance().GetModelFromIndex(idxNext);
+                RuntimeConfig::Instance().SetActiveEditorModel(nextModel);
+            }
+            Initialize();
+            InvalidateAll();
         }
 
     protected:

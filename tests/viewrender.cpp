@@ -90,7 +90,7 @@
 #include "Core/Views/VSplitView.h"
 #include "Core/Views/HStackView.h"
 #include "Core/Views/VStackView.h"
-#include "Core/Views/HeaderView.h"
+#include "Core/Views/EditorHeaderView.h"
 #include "Core/Views/HSplitViewStatus.h"
 
 

@@ -2,16 +2,16 @@
 // Created by gnilk on 18.03.23.
 //
 
-#ifndef EDITOR_HEADERVIEW_H
-#define EDITOR_HEADERVIEW_H
+#ifndef EDITOR_EDITORHEADERVIEW_H
+#define EDITOR_EDITORHEADERVIEW_H
 
 #include "SingleLineView.h"
 
 namespace gedit {
-    class HeaderView : public SingleLineView {
+    class EditorHeaderView : public SingleLineView {
     public:
-        HeaderView() = default;
-        virtual ~HeaderView() = default;
+        EditorHeaderView() = default;
+        virtual ~EditorHeaderView() = default;
     protected:
         void DrawViewContents() override {
             auto &dc = window->GetContentDC();
@@ -53,4 +53,4 @@ namespace gedit {
 }
 
 
-#endif //EDITOR_HEADERVIEW_H
+#endif //EDITOR_EDITORHEADERVIEW_H

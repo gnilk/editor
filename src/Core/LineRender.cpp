@@ -5,7 +5,7 @@
 #include "DrawContext.h"
 #include "logger.h"
 #include "LineRender.h"
-
+#include "Editor.h"
 using namespace gedit;
 
 // This assumes X = 0
@@ -58,19 +58,13 @@ void LineRender::DrawLineWithAttributesAt(int x, int y, int nCharToPrint, Line &
         std::string strOut = std::string(l.Buffer().data(), itAttrib->idxOrigString, len);
 
         // Draw string with the correct color...
-        dc.DrawStringWithAttributesAndColAt(xp,y, itAttrib->textAttributes, itAttrib->idxColor, strOut.c_str());
+        auto [fgColor, bgColor] = Editor::Instance().ColorFromLanguageToken(itAttrib->tokenClass);
+        dc.SetColor(fgColor, bgColor);
+        dc.DrawStringWithAttributesAt(xp,y, itAttrib->textAttributes, strOut.c_str());
 
         xp += len;
         itAttrib = next;
     }
-
-
-    // Selection should be between cursor positions...
-    // ...Just testing...
-//    if (l.IsSelected()) {
-//        SDL_SetRenderDrawColor(renderer,80,100,128,64);
-//        FillRect(x,y,GetRect().Width(), 1);
-//    }
 
 }
 

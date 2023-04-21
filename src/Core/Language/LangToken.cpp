@@ -54,7 +54,6 @@ void LangToken::ToLineAttrib(std::vector<gedit::Line::LineAttrib> &outAttributes
     if ((tokens.size() == 0) || (tokens[0].idxOrigStr > 0)) {
         gedit::Line::LineAttrib attrib;
         attrib.idxOrigString = 0;
-        attrib.idxColor = static_cast<int>(kLanguageTokenClass::kRegular);
         attrib.tokenClass = kLanguageTokenClass::kRegular;
         outAttributes.push_back(attrib);
     }
@@ -62,8 +61,6 @@ void LangToken::ToLineAttrib(std::vector<gedit::Line::LineAttrib> &outAttributes
     for(auto &t : tokens) {
         gedit::Line::LineAttrib attrib;
         attrib.idxOrigString = t.idxOrigStr;
-        // TODO: FIX THIS!!!!
-        attrib.idxColor = static_cast<int>(t.classification);
         attrib.tokenClass = t.classification;
         outAttributes.push_back(attrib);
     }

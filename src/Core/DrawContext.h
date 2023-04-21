@@ -12,6 +12,7 @@
 #include "Core/Rect.h"
 #include "Core/Point.h"
 #include "Core/TextAttributes.h"
+#include "Core/ColorRGBA.h"
 
 namespace gedit {
 
@@ -87,6 +88,22 @@ namespace gedit {
         virtual void DrawStringWithAttributesAt(int x, int y, kTextAttributes attrib, const char *str) const {}
         virtual void DrawStringWithAttributesAndColAt(int x, int y, kTextAttributes attrib, int idxColor, const char *str) const {}
 
+        __inline void SetBGColor(const ColorRGBA &newBackgroundColor) {
+            const_cast<DrawContext *>(this)->bgColor = newBackgroundColor;
+            OnColorUpdate();
+        }
+
+        __inline void SetFGColor(const ColorRGBA &newForegroundColor) const {
+            const_cast<DrawContext *>(this)->fgColor = newForegroundColor;
+            OnColorUpdate();
+        }
+
+        __inline void SetColor(const ColorRGBA &newForegroundColor, const ColorRGBA &newBackgroundColor) const {
+            const_cast<DrawContext *>(this)->bgColor = newBackgroundColor;
+            const_cast<DrawContext *>(this)->fgColor = newForegroundColor;
+            OnColorUpdate();
+        }
+
         void SetOverlay(const Overlay &newOverlay) {
             overlay = newOverlay;
             overlay.isActive = true;
@@ -100,10 +117,16 @@ namespace gedit {
             return rect;
         }
     protected:
+        virtual void OnColorUpdate() const {
+
+        }
+    protected:
         Rect rect = {};
         NativeWindow win = nullptr;
         // probably need a list of overlays - like highlighting search results and similar...
         Overlay overlay = {};
+        ColorRGBA bgColor;
+        ColorRGBA fgColor;
     };
 }
 #endif //NCWIN_DRAWCONTEXT_H

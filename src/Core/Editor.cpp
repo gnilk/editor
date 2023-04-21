@@ -159,6 +159,11 @@ void Editor::ConfigureColorTheme() {
         }
         auto &fg = colorConfig.GetColor(langClass);
         auto &bg = colorConfig.GetColor("background");
+
+        // Store this..
+        languageColorConfig[static_cast<kLanguageTokenClass>(i)] = std::make_pair(fg, bg);
+
+
         logger->Debug("  %d:%s - fg=(%d,%d,%d) bg=(%d,%d,%d)",i,langClass.c_str(),
                       fg.RedAsInt(255),fg.GreenAsInt(255),fg.BlueAsInt(255),
                       bg.RedAsInt(255),bg.GreenAsInt(255),bg.BlueAsInt(255));

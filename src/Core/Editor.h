@@ -53,6 +53,14 @@ namespace gedit {
         void RegisterAPI(int id, void *apiObject) {
             editorApiObjects.insert({id, apiObject});
         }
+
+        std::pair<ColorRGBA, ColorRGBA> ColorFromLanguageToken(kLanguageTokenClass tokenClass) {
+            if (languageColorConfig.find(tokenClass) == languageColorConfig.end()) {
+                return {};
+            }
+            return languageColorConfig[tokenClass];
+        }
+
         template<class T>
         T *GetAPI(int id) {
             auto apiObject = editorApiObjects[id];
@@ -78,6 +86,9 @@ namespace gedit {
         bool isInitialized = false;
         gnilk::ILogger *logger = nullptr;
         std::vector<EditorModel::Ref> models;   // rename..
+
+        std::unordered_map<kLanguageTokenClass, std::pair<ColorRGBA, ColorRGBA>> languageColorConfig;
+
 #ifdef GEDIT_MACOS
         // This depends on the OS/Backend - consider creating a platform layer or something to handle this...
         MacOSKeyboardMonitor keyboardMonitor;

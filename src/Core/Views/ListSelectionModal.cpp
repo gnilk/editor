@@ -18,6 +18,7 @@ public:
 protected:
     void DrawViewContents() override {
         auto &dc = window->GetContentDC();
+        dc.ResetDrawColors();
         dc.FillLine(0, kTextAttributes::kInverted, ' ');
         dc.DrawStringWithAttributesAndColAt(0,0,kTextAttributes::kNormal | kTextAttributes::kInverted, 0, "Header");
     }
@@ -77,6 +78,7 @@ bool ListView::OnAction(const KeyPressAction &kpAction){
 
 void ListView::DrawViewContents() {
     auto &dc = window->GetContentDC();
+    dc.ResetDrawColors();
     for (int i = viewTopLine; i < viewBottomLine; i++) {
         if (i >= listItems.size()) {
             break;

@@ -103,6 +103,7 @@ void CommandView::OnKeyPress(const KeyPress &keyPress) {
 static int nLines = -1;
 void CommandView::DrawViewContents() {
     auto &dc = window->GetContentDC();
+    dc.ResetDrawColors();
 
     auto &lines = commandController.Lines();
 

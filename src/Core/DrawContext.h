@@ -13,6 +13,7 @@
 #include "Core/Point.h"
 #include "Core/TextAttributes.h"
 #include "Core/ColorRGBA.h"
+#include "Core/Config/Config.h"
 
 namespace gedit {
 
@@ -102,6 +103,13 @@ namespace gedit {
             const_cast<DrawContext *>(this)->bgColor = newBackgroundColor;
             const_cast<DrawContext *>(this)->fgColor = newForegroundColor;
             OnColorUpdate();
+        }
+
+        __inline void ResetDrawColors() const {
+            auto bgColor = Config::Instance().ColorConfiguration().GetColor("background");
+            auto fgColor = Config::Instance().ColorConfiguration().GetColor("foreground");
+            SetColor(fgColor, bgColor);
+
         }
 
         void SetOverlay(const Overlay &newOverlay) {

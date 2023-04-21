@@ -33,6 +33,7 @@ namespace gedit {
     protected:
         void DrawViewContents() override {
             auto &dc = window->GetContentDC();
+            dc.ResetDrawColors();
             dc.FillLine(0, kTextAttributes::kNormal | kTextAttributes::kInverted, ' ');
             dc.DrawStringWithAttributesAt(0, 0, kTextAttributes::kNormal | kTextAttributes::kInverted, heading.c_str());
         }

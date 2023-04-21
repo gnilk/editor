@@ -15,6 +15,9 @@ namespace gedit {
     protected:
         void DrawViewContents() override {
             auto &dc = window->GetContentDC();
+
+            dc.ResetDrawColors();
+
             auto &models = Editor::Instance().GetModels();
             dc.FillLine(0, kTextAttributes::kInverted, ' ');
 

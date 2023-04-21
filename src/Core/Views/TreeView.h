@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <functional>
+#include "Core/Config/Config.h"
 #include "VisibleView.h"
 #include "Core/VerticalNavigationViewModel.h"
 
@@ -129,6 +130,8 @@ namespace gedit {
         // Note: Depends on flattening
         void DrawViewContents() override {
             auto &dc = window->GetContentDC();
+            dc.ResetDrawColors();
+
             for(int i=viewTopLine;i<viewBottomLine;i++) {
                 if (i >= flattenNodeList.size()) {
                     break;

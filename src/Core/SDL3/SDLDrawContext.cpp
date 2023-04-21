@@ -36,8 +36,14 @@ void SDLDrawContext::ClearLine(int y) const {
 }
 
 void SDLDrawContext::FillLine(int y, kTextAttributes attrib, char c)  const {
-    SetRenderColor(attrib);
-    FillRect(0,y,rect.Width(),1);
+
+    if (attrib & kTextAttributes::kInverted) {
+        SDLColor(fgColor).Use(renderer);
+    } else {
+        SDLColor(bgColor).Use(renderer);
+    }
+
+    FillRect(0,y,rect.Width(),1, true);
 }
 
 void SDLDrawContext::Scroll(int nRows) const {

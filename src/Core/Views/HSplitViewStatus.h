@@ -20,6 +20,8 @@ namespace gedit {
         void DrawSplitter(int row) override {
             auto &dc = window->GetContentDC();
 
+            dc.ResetDrawColors();
+
             auto logger = gnilk::Logger::GetLogger("HSplitViewStatus");
             logger->Debug("DrawSplitter, row=%d, height=%d", row, dc.GetRect().Height());
 

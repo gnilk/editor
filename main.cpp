@@ -3,7 +3,12 @@
 //
 /*
  * TO-DO List
- * - Language tokenizer should use kBlockCodeStart/End to track indent
+ * - colors, need to fix the color handling!!!
+ *   - Make everything work with ColorRGBA
+ *   - Let the driver handle caching and mapping to it's internal structures
+ *   - Add a hash function to the ColorRGBA
+ * - macOS swaps left/right scancodes between keyboards (laptop has left/right one way my ext.keyboard another)
+ *   need to consider a solution for this...
  * - Make 'CycleActiveView' a left/right function and go through the list of view which can have focus...
  * - Swap out the vertical navigation code in EditorView for the 'VerticalNavigationModel'
  * - Embryo for what is needed for the API lies within the ListSelectionModal, example:
@@ -16,6 +21,7 @@
  * - Unsaved file should have '*' marking in the top..
  *
  * Done:
+ * ! Language tokenizer should use kBlockCodeStart/End to track indent
  * ! Views should have an option saying if they can have focus, make this a flags
  *   [note: Already supported, use 'AddTopView' and it will work]
  * ! Make a tree-list-view (for files and such)

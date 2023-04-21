@@ -52,23 +52,17 @@ void LangLineTokenizer::ParseLines(std::vector<gedit::Line *> &lines) {
         l->Lock();
         l->SetStateStackDepth((int)stateStack.size());
         ParseLineWithCurrentState(tokens, l->Buffer().data());
+        // Indent handling
         if (std::find(tokens.begin(), tokens.end(), kLanguageTokenClass::kCodeBlockStart) != std::end(tokens)) {
             indentCounter++;
         }
         if (std::find(tokens.begin(), tokens.end(), kLanguageTokenClass::kCodeBlockEnd) != std::end(tokens)) {
             indentCounter--;
             assert(indentCounter >= 0);
-//            if (indentCounter < 0) {
-//                assert(false);
-//                indentCounter = 0;
-//            }
         }
         l->SetIndent(indentCounter);
+
         LangToken::ToLineAttrib(l->Attributes(), tokens);
-        // Use 'kCodeBlockStart' to calculate indent level per line
-        // kCodeBlockStart => indentLevel++;
-        // kCodeBlockEnd   => indentLevel--;
-        // Store this in the line object..  this case it is easy to implement correct indention
         l->Release();
 
         tokens.clear();
@@ -80,8 +74,6 @@ void LangLineTokenizer::ParseLines(std::vector<gedit::Line *> &lines) {
     PopState();
     if (!stateStack.empty()) {
         // emit warning!
-//        printf("Last State was: %s\n", top->name.c_str());
-//        printf("State stack not empty, size=%d!\n",(int)stateStack.size());
     }
 }
 

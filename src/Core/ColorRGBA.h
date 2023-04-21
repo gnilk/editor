@@ -8,7 +8,10 @@
 #include <cstdint>
 #include <string>
 
-// FIXME: clamping and satmul/satadd/etc...
+// TO-DO:
+//  - clamping and satmul/satadd/etc...
+//  - Hash value function
+
 class ColorRGBA {
 public:
     //constexpr ColorRGBA() : r(1.0f), g(1.0f), b(1.0f), a(0.0f) { } ;

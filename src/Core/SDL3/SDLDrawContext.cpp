@@ -12,7 +12,6 @@
 #include "SDLColor.h"
 #include "SDLTranslate.h"
 #include "SDLFontManager.h"
-#include "SDLColorRepository.h"
 
 #include "logger.h"
 

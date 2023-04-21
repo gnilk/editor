@@ -5,6 +5,8 @@
 // We keep EVERYTHING in editor coordinate (character row/col) until we must communicate with SDL
 //
 //
+#include "Core/Config/Config.h"
+
 
 #include "SDLWindow.h"
 #include "SDLCursor.h"
@@ -12,8 +14,8 @@
 #include "SDLTranslate.h"
 #include "SDLScreen.h"
 #include "SDLFontManager.h"
-#include "SDLColorRepository.h"
 #include "SDLCursor.h"
+
 
 #include <SDL3/SDL.h>
 
@@ -116,7 +118,9 @@ void SDLWindow::Clear() {
 
     SDL_SetRenderTarget(renderer, windowBackBuffer);
 
-    SDLColorRepository::Instance().UseBackgroundColor(renderer);
+    SDLColor bgColor(Config::Instance().ColorConfiguration().GetColor("background"));
+    bgColor.Use(renderer);
+
 
     SDL_RenderClear(renderer);
     SDL_SetRenderTarget(renderer, nullptr);
@@ -205,7 +209,8 @@ void SDLWindow::OnDrawCursor(const Cursor &cursor) {
 
     // FillRect assumes the render target has been set..
     SDL_SetRenderTarget(renderer, dc->renderTarget);
-    SDLColorRepository::Instance().UseCursorColor(renderer);
+    auto caretColor = SDLColor(Config::Instance().ColorConfiguration().GetColor("caret"));
+    caretColor.Use(renderer);
 
     //dc->FillRect(cursor.position.x, cursor.position.y,1,1);
     dc->DrawLine(cursor.position.x, cursor.position.y, cursor.position.x, cursor.position.y + 1);

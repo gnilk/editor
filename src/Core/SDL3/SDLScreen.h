@@ -29,8 +29,6 @@ namespace gedit {
         void CopyToTexture() override;
         void ClearWithTexture() override;
 
-        void RegisterColor(int appIndex, const ColorRGBA &foreground, const ColorRGBA &background) override;
-
         void BeginRefreshCycle() override;
         void EndRefreshCycle() override;
         WindowBase *CreateWindow(const gedit::Rect &rect, WindowBase::kWinFlags flags, WindowBase::kWinDecoration decoFlags) override;

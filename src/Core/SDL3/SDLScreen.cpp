@@ -15,7 +15,6 @@
 #include "SDLWindow.h"
 #include "SDLTranslate.h"
 #include "SDLFontManager.h"
-#include "SDLColorRepository.h"
 #include "SDLDrawContext.h"
 #include "SDLCursor.h"
 
@@ -79,9 +78,6 @@ bool SDLScreen::Open() {
 
     SDLFontManager::Instance().SetActiveFont(font);
 
-    // this will just trigger the initialization process - unless not yet done...
-    SDLColorRepository::Instance();
-
     float line_margin = Config::Instance()["sdl3"].GetInt("line_margin", 4);
     line_margin *= displayMode->display_scale;
     rows = heightPixels / (font->baseline + line_margin); // baseline = font->ascent * font->scale
@@ -125,8 +121,10 @@ void SDLScreen::Close() {
 
 void SDLScreen::Clear() {
     SDL_SetRenderTarget(renderer, nullptr);
-    SDLColorRepository::Instance().UseBackgroundColor(renderer);
-    //SDL_SetRenderDrawColor(renderer, 128,0,0,255);
+
+    SDLColor bgColor(Config::Instance().ColorConfiguration().GetColor("background"));
+    bgColor.Use(renderer);
+
     SDL_RenderClear(renderer);
 }
 
@@ -169,10 +167,6 @@ void SDLScreen::ClearWithTexture() {
     SDL_RenderTexture(renderer, screenAsTexture, nullptr, nullptr);
 }
 
-
-void SDLScreen::RegisterColor(int appIndex, const ColorRGBA &foreground, const ColorRGBA &background) {
-    SDLColorRepository::Instance().RegisterColor(appIndex, foreground, background);
-}
 
 void SDLScreen::BeginRefreshCycle() {
     SDL_SetRenderTarget(renderer, nullptr);

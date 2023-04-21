@@ -171,7 +171,6 @@ if (GEDIT_BUILD_SDL3)
     list(APPEND editorsrc src/Core/SDL3/SDLTranslate.cpp src/Core/SDL3/SDLTranslate.h)
     list(APPEND editorsrc src/Core/SDL3/SDLFontManager.cpp src/Core/SDL3/SDLFontManager.h)
     list(APPEND editorsrc src/Core/SDL3/SDLKeyboardDriver.cpp src/Core/SDL3/SDLKeyboardDriver.h)
-    list(APPEND editorsrc src/Core/SDL3/SDLColorRepository.cpp src/Core/SDL3/SDLColorRepository.h)
     list(APPEND editorsrc src/Core/SDL3/SDLColor.h)
     list(APPEND editorsrc src/Core/SDL3/SDLCursor.h)
     # make this optional

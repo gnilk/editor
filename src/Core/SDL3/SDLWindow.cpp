@@ -118,7 +118,7 @@ void SDLWindow::Clear() {
 
     SDL_SetRenderTarget(renderer, windowBackBuffer);
 
-    SDLColor bgColor(Config::Instance().ColorConfiguration().GetColor("background"));
+    SDLColor bgColor(Config::Instance().GetNamedColors().GetColor("background"));
     bgColor.Use(renderer);
 
 
@@ -209,7 +209,7 @@ void SDLWindow::OnDrawCursor(const Cursor &cursor) {
 
     // FillRect assumes the render target has been set..
     SDL_SetRenderTarget(renderer, dc->renderTarget);
-    auto caretColor = SDLColor(Config::Instance().ColorConfiguration().GetColor("caret"));
+    auto caretColor = SDLColor(Config::Instance().GetNamedColors().GetColor("caret"));
     caretColor.Use(renderer);
 
     //dc->FillRect(cursor.position.x, cursor.position.y,1,1);

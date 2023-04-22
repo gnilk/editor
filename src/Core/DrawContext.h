@@ -106,8 +106,8 @@ namespace gedit {
         }
 
         __inline void ResetDrawColors() const {
-            auto bgColor = Config::Instance().ColorConfiguration().GetColor("background");
-            auto fgColor = Config::Instance().ColorConfiguration().GetColor("foreground");
+            auto bgColor = Config::Instance().GetNamedColors().GetColor("background");
+            auto fgColor = Config::Instance().GetNamedColors().GetColor("foreground");
             SetColor(fgColor, bgColor);
 
         }

@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 #include "Core/Language/LanguageBase.h"
-#include "ColorConfig.h"
+#include "NamedColorConfig.h"
 #include <yaml-cpp/yaml.h>
 
 class ConfigNode {
@@ -99,8 +99,8 @@ public:
     bool LoadConfig(const std::string &filename);
 
     // Returns the current color configuration
-    const ColorConfig &ColorConfiguration() {
-        return colorConfig;
+    const NamedColorConfig &GetNamedColors() {
+        return namedColors;
     }
 
 protected:
@@ -108,7 +108,7 @@ protected:
 
 private:
     Config();   // Hide CTOR...
-    ColorConfig colorConfig;
+    NamedColorConfig namedColors;
     void SetDefaultsIfMissing();
 
     std::unordered_map<std::string, LanguageBase *> extToLanguages;

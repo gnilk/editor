@@ -103,7 +103,7 @@ list(APPEND editorsrc src/Core/KeyboardDriverBase.cpp src/Core/KeyboardDriverBas
 # Config
 list(APPEND editorsrc src/Core/RuntimeConfig.cpp src/Core/RuntimeConfig.cpp)
 list(APPEND editorsrc src/Core/Config/Config.cpp src/Core/Config/Config.h)
-list(APPEND editorsrc src/Core/Config/ColorConfig.cpp src/Core/Config/ColorConfig.h)
+list(APPEND editorsrc src/Core/Config/NamedColorConfig.cpp src/Core/Config/NamedColorConfig.h)
 
 # Native/Platform
 list(APPEND editorsrc src/Core/NativeWindow.h)

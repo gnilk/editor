@@ -2,16 +2,16 @@
 // Created by gnilk on 31.01.23.
 //
 
-#ifndef EDITOR_COLORCONFIG_H
-#define EDITOR_COLORCONFIG_H
+#ifndef EDITOR_NAMEDCOLORCONFIG_H
+#define EDITOR_NAMEDCOLORCONFIG_H
 
 #include "Core/ColorRGBA.h"
 #include <string>
 #include <unordered_map>
 
-class ColorConfig {
+class NamedColorConfig {
 public:
-    ColorConfig();
+    NamedColorConfig();
     void SetDefaults() noexcept;
     void SetColor(const std::string &name, ColorRGBA color);
 
@@ -34,4 +34,4 @@ private:
 };
 
 
-#endif //EDITOR_COLORCONFIG_H
+#endif //EDITOR_NAMEDCOLORCONFIG_H

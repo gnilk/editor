@@ -98,7 +98,7 @@ bool Config::LoadSublimeColorFile(const std::string &filename) {
 
             auto [ok, scriptValue] = scriptEngine.ExecuteScript(value);
             if (ok && scriptValue.IsColor()) {
-                colorConfig.SetColor(col.key(), scriptValue.Color());
+                namedColors.SetColor(col.key(), scriptValue.Color());
             } else {
                 logger->Error("  Value for '%s' is not color, constants not supported - skipping\n", col.key().c_str());
             }

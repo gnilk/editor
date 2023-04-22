@@ -18,6 +18,7 @@
 #include "Core/Config/Config.h"
 #include "Shell.h"
 
+using namespace gedit;
 
 bool Shell::Begin() {
     if (!StartShellProc()) {

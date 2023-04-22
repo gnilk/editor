@@ -20,7 +20,7 @@
 
 // for sublime color script handling
 using json = nlohmann::json;
-
+using namespace gedit;
 
 Config::Config() : ConfigNode() {
 

@@ -3,6 +3,8 @@
 //
 #include "NamedColorConfig.h"
 
+using namespace gedit;
+
 NamedColorConfig::NamedColorConfig() {
     SetDefaults();
 }

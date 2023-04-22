@@ -11,109 +11,111 @@
 #include "NamedColorConfig.h"
 #include <yaml-cpp/yaml.h>
 
-class ConfigNode {
-public:
-    ConfigNode() = default;
+namespace gedit {
+    class ConfigNode {
+    public:
+        ConfigNode() = default;
 
-    explicit ConfigNode(const YAML::Node &node) : dataNode(node) {
+        explicit ConfigNode(const YAML::Node &node) : dataNode(node) {
 
-    }
-
-    ConfigNode operator [](const std::string &key) const {
-        return ConfigNode(dataNode[key]);
-    }
-
-    ConfigNode GetNode(const std::string &key) const {
-        return ConfigNode(dataNode[key]);
-    }
-
-    bool HasKey(const std::string &key) {
-        if (!dataNode.IsDefined()) {
-            return false;
         }
-        return dataNode[key].IsDefined();
-    }
 
-    void SetStr(const std::string &key, const std::string &newValue) {
-        dataNode[key] = newValue;
-    }
-
-    int GetInt(const std::string &key, const int defValue = 0) {
-        if (!HasKey(key)) {
-            return defValue;
+        ConfigNode operator[](const std::string &key) const {
+            return ConfigNode(dataNode[key]);
         }
-        return dataNode[key].as<int>();
-    }
 
-    bool GetBool(const std::string &key, const bool defValue = false) {
-        if (!HasKey(key)) {
-            return defValue;
+        ConfigNode GetNode(const std::string &key) const {
+            return ConfigNode(dataNode[key]);
         }
-        return dataNode[key].as<bool>();
-    }
 
-    std::string GetStr(const std::string &key, const std::string &defValue = "") {
-        // If not defined, return default
-        if (!dataNode.IsDefined()) {
-            return {defValue};
+        bool HasKey(const std::string &key) {
+            if (!dataNode.IsDefined()) {
+                return false;
+            }
+            return dataNode[key].IsDefined();
         }
-        if (!dataNode[key].IsDefined()) {
-            return {defValue};
+
+        void SetStr(const std::string &key, const std::string &newValue) {
+            dataNode[key] = newValue;
         }
-        return (dataNode[key].as<std::string>());
-    }
-    char GetChar(const std::string &key, char defValue) {
-        if (!dataNode[key].IsDefined()) {
-            return defValue;
+
+        int GetInt(const std::string &key, const int defValue = 0) {
+            if (!HasKey(key)) {
+                return defValue;
+            }
+            return dataNode[key].as<int>();
         }
-        return (dataNode[key].as<char>());
-    }
 
-    auto GetSequenceOfStr(const std::string &key) {
-        if (!HasKey(key)) {
-            return std::vector<std::string>();
+        bool GetBool(const std::string &key, const bool defValue = false) {
+            if (!HasKey(key)) {
+                return defValue;
+            }
+            return dataNode[key].as<bool>();
         }
-        return dataNode[key].as<std::vector<std::string>>();
-    }
 
-    auto GetMap(const std::string &key) {
-        if (HasKey(key)) {
-            return dataNode[key].as<std::map<std::string, std::string>>();
+        std::string GetStr(const std::string &key, const std::string &defValue = "") {
+            // If not defined, return default
+            if (!dataNode.IsDefined()) {
+                return {defValue};
+            }
+            if (!dataNode[key].IsDefined()) {
+                return {defValue};
+            }
+            return (dataNode[key].as<std::string>());
         }
-        return std::map<std::string, std::string>();
-    }
+        char GetChar(const std::string &key, char defValue) {
+            if (!dataNode[key].IsDefined()) {
+                return defValue;
+            }
+            return (dataNode[key].as<char>());
+        }
 
-protected:
-    YAML::Node dataNode;
-};
+        auto GetSequenceOfStr(const std::string &key) {
+            if (!HasKey(key)) {
+                return std::vector<std::string>();
+            }
+            return dataNode[key].as<std::vector<std::string>>();
+        }
+
+        auto GetMap(const std::string &key) {
+            if (HasKey(key)) {
+                return dataNode[key].as<std::map<std::string, std::string>>();
+            }
+            return std::map<std::string, std::string>();
+        }
+
+    protected:
+        YAML::Node dataNode;
+    };
 
 
-class Config : public ConfigNode {
-public:
-    static Config &Instance();
+    class Config : public ConfigNode {
+    public:
+        static Config &Instance();
 
-    void RegisterLanguage(const std::string &extension, LanguageBase *languageBase);
-    LanguageBase *GetLanguageForFilename(const std::string &extension);
+        void RegisterLanguage(const std::string &extension, LanguageBase *languageBase);
+        LanguageBase *GetLanguageForFilename(const std::string &extension);
 
-    // Load configuration include theme and color files
-    bool LoadConfig(const std::string &filename);
+        // Load configuration include theme and color files
+        bool LoadConfig(const std::string &filename);
 
-    // Returns the current color configuration
-    const NamedColorConfig &GetNamedColors() {
-        return namedColors;
-    }
+        // Returns the current color configuration
+        const NamedColorConfig &GetNamedColors() {
+            return namedColors;
+        }
 
-protected:
-    bool LoadSublimeColorFile(const std::string &filename);
+    protected:
+        bool LoadSublimeColorFile(const std::string &filename);
 
-private:
-    Config();   // Hide CTOR...
-    NamedColorConfig namedColors;
-    void SetDefaultsIfMissing();
+    private:
+        Config();   // Hide CTOR...
+        NamedColorConfig namedColors;
+        void SetDefaultsIfMissing();
 
-    std::unordered_map<std::string, LanguageBase *> extToLanguages;
+        std::unordered_map<std::string, LanguageBase *> extToLanguages;
 
-};
+    };
+}
 
 
 #endif //EDITOR_CONFIG_H

@@ -1,6 +1,6 @@
 {
   "name": "Mariana",
-  "author": "Sublime HQ Pty Ltd, Dmitri Voronianski",
+  "author": "Gnilk, based on work by Sublime HQ Pty Ltd, Dmitri Voronianski",
   "variables":
   {
     "black": "hsl(0, 0%, 0%)",

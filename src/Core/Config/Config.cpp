@@ -76,44 +76,48 @@ bool Config::LoadSublimeColorFile(const std::string &filename) {
     logger->Debug("Loading Sublime Color file: %s\n", filename.c_str());
 
     std::ifstream f(filename);
-
     json data = json::parse(f);
-    auto variables = data["variables"];
+
+    ParseVariablesInScript<json, SublimeConfigColorScript>(data["variables"], scriptEngine);
+    SetNamedColorsFromScript<json, SublimeConfigColorScript>(data["globals"], scriptEngine);
+
+    return true;
+}
+
+template<typename T, typename E>
+void Config::ParseVariablesInScript(const T &variables, E &scriptEngine) {
     for (auto &col : variables.items()) {
         if (col.value().is_string()) {
-            auto value = col.value().get<std::string>();
-
-            //printf("  %s:%s\n", col.key().c_str(), value.c_str());
+            // Ok, this is a bit weird (at least it was for me) but the deal goes like this
+            // due to 'get<std::string>' (which is a template specialization) and we are calling that on a templated resuls (col.value())
+            // we need to tell the compiler that this is really a template specialization otherwise it would treat it as '>' '<' (larger than/smaller than)
+            // This is actually outlined in the standard (found it in draft through some site) https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n4296.pdf
+            auto value = col.value().template get<std::string>();
 
             auto [ok, color] = scriptEngine.ExecuteColorScript(value);
 
-            scriptEngine.AddVarFromValue<ColorRGBA>(col.key(), SublimeConfigScriptEngine::kColor, color);
+            scriptEngine.template AddVarFromValue<ColorRGBA>(col.key(), SublimeConfigScriptEngine::kColor, color);
         }
     }
+}
 
-    auto globals = data["globals"];
+template<typename T, typename E>
+void Config::SetNamedColorsFromScript(const T &globals, E &scriptEngine) {
     for(auto &col : globals.items()) {
         if (col.value().is_string()) {
-            auto value = col.value().get<std::string>();
+            auto value = col.value().template get<std::string>();
 
             auto [ok, scriptValue] = scriptEngine.ExecuteScript(value);
             if (ok && scriptValue.IsColor()) {
                 namedColors.SetColor(col.key(), scriptValue.Color());
             } else {
+                auto logger = gnilk::Logger::GetLogger("Config");
                 logger->Error("  Value for '%s' is not color, constants not supported - skipping\n", col.key().c_str());
             }
         }
     }
-
-
-
-
-//    printf("Testing script engine\n");
-//    auto colValue = scriptEngine.GetVariable("blue3").Color();
-//    printf("col: %f, %f, %f", colValue.R(), colValue.G(), colValue.B());
-//
-    return true;
 }
+
 
 extern std::string glbDefaultConfig;
 void Config::SetDefaultsIfMissing() {

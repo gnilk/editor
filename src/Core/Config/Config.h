@@ -107,6 +107,16 @@ namespace gedit {
     protected:
         bool LoadSublimeColorFile(const std::string &filename);
 
+        // Using templates here to avoid including the header files of the currently only supported script engine
+        // I simply want to hide the implementation details from the header file..
+        // This could also have been done with simple static C-functions (i.e. not bound to object)
+        // But I wanted to test another method...
+        template<typename T, typename E>
+        void ParseVariablesInScript(const T &from, E &scriptEngine);
+
+        template<typename T, typename E>
+        void SetNamedColorsFromScript(const T &from, E &scriptEngine);
+
     private:
         Config();   // Hide CTOR...
         NamedColorConfig namedColors;

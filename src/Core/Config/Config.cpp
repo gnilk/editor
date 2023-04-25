@@ -79,8 +79,16 @@ bool Config::LoadSublimeColorFile(const std::string &filename) {
     json data = json::parse(f);
 
     ParseVariablesInScript<json, SublimeConfigColorScript>(data["variables"], scriptEngine);
-    SetNamedColorsFromScript<json, SublimeConfigColorScript>(data["globals"], scriptEngine);
+    logger->Debug("Mapping color variables to sections");
+    for (auto &colorSection : data["colors"].items()) {
+        if (!colorSection.value().is_object()) {
+            logger->Debug("Colors should only contain objects!");
+            continue;
+        }
+        logger->Debug("- %s", colorSection.key().c_str());
+        SetNamedColorsFromScript<json, SublimeConfigColorScript>(colorConfig[colorSection.key()], colorSection.value(), scriptEngine);
 
+    }
     return true;
 }
 
@@ -102,14 +110,14 @@ void Config::ParseVariablesInScript(const T &variables, E &scriptEngine) {
 }
 
 template<typename T, typename E>
-void Config::SetNamedColorsFromScript(const T &globals, E &scriptEngine) {
+void Config::SetNamedColorsFromScript(NamedColorConfig &dstColorConfig, const T &globals, E &scriptEngine) {
     for(auto &col : globals.items()) {
         if (col.value().is_string()) {
             auto value = col.value().template get<std::string>();
 
             auto [ok, scriptValue] = scriptEngine.ExecuteScript(value);
             if (ok && scriptValue.IsColor()) {
-                namedColors.SetColor(col.key(), scriptValue.Color());
+                dstColorConfig.SetColor(col.key(), scriptValue.Color());
             } else {
                 auto logger = gnilk::Logger::GetLogger("Config");
                 logger->Error("  Value for '%s' is not color, constants not supported - skipping\n", col.key().c_str());

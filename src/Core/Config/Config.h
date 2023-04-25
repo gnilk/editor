@@ -100,9 +100,18 @@ namespace gedit {
         bool LoadConfig(const std::string &filename);
 
         // Returns the current color configuration
-        const NamedColorConfig &GetNamedColors() {
-            return namedColors;
+        const NamedColorConfig &GetGlobalColors() {
+            return colorConfig["globals"];
         }
+
+        const NamedColorConfig &GetContentColors() {
+            return colorConfig["content"];
+        }
+
+        const NamedColorConfig &GetUIColors() {
+            return colorConfig["ui"];
+        }
+
 
     protected:
         bool LoadSublimeColorFile(const std::string &filename);
@@ -115,11 +124,13 @@ namespace gedit {
         void ParseVariablesInScript(const T &from, E &scriptEngine);
 
         template<typename T, typename E>
-        void SetNamedColorsFromScript(const T &from, E &scriptEngine);
+        void SetNamedColorsFromScript(NamedColorConfig &dstColorConfig, const T &from, E &scriptEngine);
 
     private:
         Config();   // Hide CTOR...
-        NamedColorConfig namedColors;
+
+        std::unordered_map<std::string, NamedColorConfig> colorConfig;
+
         void SetDefaultsIfMissing();
 
         std::unordered_map<std::string, LanguageBase *> extToLanguages;

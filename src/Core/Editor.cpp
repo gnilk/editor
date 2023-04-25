@@ -151,7 +151,7 @@ void Editor::ConfigureColorTheme() {
     logger->Debug("Configuring colors and theme");
     // NOTE: This must be done after the screen has been opened as the color handling might require the underlying graphics
     //       context to be initialized...
-    auto &colorConfig = Config::Instance().GetNamedColors();
+    auto &colorConfig = Config::Instance().GetContentColors();
     for(int i=0;gnilk::IsLanguageTokenClass(i);i++) {
         auto langClass = gnilk::LanguageTokenClassToString(static_cast<kLanguageTokenClass>(i));
         if (!colorConfig.HasColor(langClass)) {

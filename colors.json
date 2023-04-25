@@ -23,42 +23,42 @@
     "white2": "hsl(0, 0%, 97%)",
     "white3": "hsl(219, 28%, 88%)"
   },
-  "globals":
-  {
-    "unknown": "var(white3)",
-    "foreground": "var(white3)",
-    "caret": "var(orange)",
-    "regular": "var(white3)",
-    "background": "var(blue3)",
-    "operator" : "var(red2)",
-    "keyword" : "var(orange)",
-    "known_type" : "var(red)",
-    "number": "var(blue-vibrant)",
-    "string": "var(green)",
-    "line_comment": "var(blue6)",
-    "block_comment": "var(blue6)",
-    "commented_text": "var(blue6)",
-    "selection": "var(blue2)",
-    "funky": "var(white3)"
-  },
-  "content" : {
-    "unknown": "var(white3)",
-    "foreground": "var(white3)",
-    "caret": "var(orange)",
-    "regular": "var(white3)",
-    "background": "var(blue3)",
-    "operator" : "var(red2)",
-    "keyword" : "var(orange)",
-    "known_type" : "var(red)",
-    "number": "var(blue-vibrant)",
-    "string": "var(green)",
-    "line_comment": "var(blue6)",
-    "block_comment": "var(blue6)",
-    "commented_text": "var(blue6)",
-    "selection": "var(blue2)",
-    "funky": "var(white3)"
-  },
-  "ui" : {
-
+  "colors" : {
+    "globals": {
+      "unknown": "var(white3)",
+      "foreground": "var(white3)",
+      "caret": "var(orange)",
+      "regular": "var(white3)",
+      "background": "var(blue3)",
+      "operator": "var(red2)",
+      "keyword": "var(orange)",
+      "known_type": "var(red)",
+      "number": "var(blue-vibrant)",
+      "string": "var(green)",
+      "line_comment": "var(blue6)",
+      "block_comment": "var(blue6)",
+      "commented_text": "var(blue6)",
+      "selection": "var(blue2)",
+      "funky": "var(white3)"
+    },
+    "content": {
+      "unknown": "var(white3)",
+      "foreground": "var(white3)",
+      "caret": "var(orange)",
+      "regular": "var(white3)",
+      "background": "var(blue3)",
+      "operator": "var(red2)",
+      "keyword": "var(orange)",
+      "known_type": "var(red)",
+      "number": "var(blue-vibrant)",
+      "string": "var(green)",
+      "line_comment": "var(blue6)",
+      "block_comment": "var(blue6)",
+      "commented_text": "var(blue6)",
+      "selection": "var(blue2)",
+      "funky": "var(white3)"
+    },
+    "ui": {
+    }
   }
 }

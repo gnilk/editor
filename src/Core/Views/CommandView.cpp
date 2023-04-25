@@ -50,11 +50,10 @@ static int oldHeight = -1;
 void CommandView::OnActivate(bool isActive) {
     logger->Debug("OnActive, isActive: %s", isActive?"yes":"no");
     if (!isActive) {
-        // store height of view..
+        // restore the content height
         parentView->RestoreContentHeight();
     } else {
-        // restore height of view...
-        //parentView->MaximizeContentHeight();
+        // Reset content height to 50/50 when we become active..
         parentView->ResetContentHeight();
     }
 }

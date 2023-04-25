@@ -126,7 +126,7 @@ terminal:
     - ls -laF
 
 theme:
-  sublime_colorfile: "colors.sublime.json"
+  colorfile: "colors.json"
 
 languages:
   default:

@@ -51,8 +51,8 @@ bool Config::LoadConfig(const std::string &filename) {
     // Load theme
     if (HasKey("theme")) {
         auto themeKey = (*this)["theme"];
-        if (themeKey.HasKey("sublime_colorfile")) {
-            auto filename = themeKey.GetStr("sublime_colorfile");
+        if (themeKey.HasKey("colorfile")) {
+            auto filename = themeKey.GetStr("colorfile");
             if (!LoadSublimeColorFile(filename)) {
                 printf("ERR: Unable to load sublime color file (%s)\n", filename.c_str());
             }

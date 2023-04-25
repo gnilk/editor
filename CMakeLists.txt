@@ -290,7 +290,7 @@ ADD_CUSTOM_TARGET(config ${CMAKE_COMMAND} -E copy_if_different
         ${CMAKE_CURRENT_LIST_DIR}/config.yml ${CMAKE_CURRENT_BINARY_DIR})
 
 ADD_CUSTOM_TARGET(colors ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_CURRENT_LIST_DIR}/colors.sublime.json ${CMAKE_CURRENT_BINARY_DIR})
+        ${CMAKE_CURRENT_LIST_DIR}/colors.json ${CMAKE_CURRENT_BINARY_DIR})
 
 ADD_CUSTOM_TARGET(font ${CMAKE_COMMAND} -E copy_if_different
         ${CMAKE_CURRENT_LIST_DIR}/Andale\ Mono.ttf ${CMAKE_CURRENT_BINARY_DIR})

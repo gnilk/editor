@@ -45,15 +45,17 @@ void CommandView::ReInitView() {
     cursor.position.x = prompt.size();
 }
 
-
+static int oldHeight = -1;
 
 void CommandView::OnActivate(bool isActive) {
     logger->Debug("OnActive, isActive: %s", isActive?"yes":"no");
     if (!isActive) {
         // store height of view..
+        parentView->RestoreContentHeight();
     } else {
         // restore height of view...
         //parentView->MaximizeContentHeight();
+        parentView->ResetContentHeight();
     }
 }
 

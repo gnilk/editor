@@ -104,7 +104,14 @@ namespace gedit {
 
         // This restore the content stuff to whatever it was before maximize
         void RestoreContentHeight() override {
-            bUseFullView = false;
+            bUseFullView = bWasUseFullView;
+            if (splitterPosBeforeReset > 0) {
+                splitterPos = splitterPosBeforeReset;
+            }
+            if (bUseFullView) {
+                MaximizeContentHeight();
+                return;
+            }
             upperView->SetVisible(true);
             lowerView->SetVisible(true);
             UpdateUpperViewRect();
@@ -114,6 +121,11 @@ namespace gedit {
         }
 
         void ResetContentHeight() override {
+            // Save these so we can restore...
+            bWasUseFullView = bUseFullView;
+            splitterPosBeforeReset = splitterPos;
+
+
             bUseFullView = false;
             upperView->SetVisible(true);
             lowerView->SetVisible(true);
@@ -217,7 +229,9 @@ namespace gedit {
         }
 
     protected:
-        int splitterPos;
+        int splitterPos = {};
+        int splitterPosBeforeReset = -1;
+        bool bWasUseFullView = false;
         bool bUseFullView = false;  // This affects the computation of full view semantics
 
         ViewBase *upperView = nullptr;

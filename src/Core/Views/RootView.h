@@ -100,20 +100,24 @@ namespace gedit {
             }
         }
 
+        // This should probably go away..
         void OnCycleActiveView() {
-            TopView()->SetActive(false);
+            auto currentView = TopView();
             idxCurrentTopView = (idxCurrentTopView+1) % topViews.size();
             TopView()->SetActive(true);
+            currentView->SetActive(false);
         }
         void OnCycleActiveViewNext() {
-            TopView()->SetActive(false);
+            auto currentView = TopView();
             idxCurrentTopView = (idxCurrentTopView+1) % topViews.size();
             TopView()->SetActive(true);
+            currentView->SetActive(false);
         }
         void OnCycleActiveViewPrev() {
-            TopView()->SetActive(false);
+            auto currentView = TopView();
             idxCurrentTopView = (topViews.size() + (idxCurrentTopView-1)) % topViews.size();
             TopView()->SetActive(true);
+            currentView->SetActive(false);
         }
 
         void OnCycleActiveEditor() {

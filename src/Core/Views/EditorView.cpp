@@ -137,7 +137,7 @@ void EditorView::OnActivate(bool isActive) {
     if (!isActive) {
         // reset height of view..
         // We should have this configureable - restore or reset (I can imagine some people will hate a reset)
-        ResetContentHeight();
+        // ResetContentHeight();
     } else {
         // Maximize editor content view...
         MaximizeContentHeight();

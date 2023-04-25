@@ -132,6 +132,10 @@ namespace gedit {
             auto &dc = window->GetContentDC();
             dc.ResetDrawColors();
 
+            auto uiColors = Config::Instance().GetUIColors();
+            dc.SetColor(uiColors["foreground"], uiColors["background"]);
+
+
             for(int i=viewTopLine;i<viewBottomLine;i++) {
                 if (i >= flattenNodeList.size()) {
                     break;

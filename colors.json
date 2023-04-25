@@ -59,6 +59,12 @@
       "funky": "var(white3)"
     },
     "ui": {
+      "background": "var(blue3)",
+      "foreground": "var(white3)",
+      "header_background": "var(blue4)",
+      "header_foreground": "var(white3)",
+      "header_active_background": "var(grey)",
+      "header_active_foreground": "var(pink)"
     }
   }
 }

@@ -262,8 +262,8 @@ int main(int argc, const char **argv) {
     hSplitView.SetLower(&cmdView);
 
     auto vStackViewEditor = VStackView();   // This is where the editor and the 'FileHeader' lives, they are stacked vertically
-    auto headerView = EditorHeaderView();
-    headerView.SetHeight(1);        // This is done in the SingleLineView
+    auto editorHeaderView = EditorHeaderView();
+    editorHeaderView.SetHeight(1);        // This is done in the SingleLineView
 
 
     auto vStackViewExplorer = VStackView();
@@ -306,7 +306,7 @@ int main(int argc, const char **argv) {
     hStackViewUpper.AddSubView(&vStackViewExplorer, kFixed);
     hStackViewUpper.AddSubView(&vStackViewEditor, kFill);
 
-    vStackViewEditor.AddSubView(&headerView, kFixed);
+    vStackViewEditor.AddSubView(&editorHeaderView, kFixed);
     vStackViewEditor.AddSubView(&hStackViewEditor, kFill);
 
     RuntimeConfig::Instance().SetRootView(&rootView);

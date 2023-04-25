@@ -19,17 +19,24 @@ namespace gedit {
             dc.ResetDrawColors();
 
             auto &models = Editor::Instance().GetModels();
-            dc.FillLine(0, kTextAttributes::kInverted, ' ');
+            auto uiColors = Config::Instance().GetUIColors();
+            if (parentView->IsActive()) {
+                dc.SetColor(uiColors["header_active_foreground"], uiColors["header_active_background"]);
+            } else {
+                dc.SetColor(uiColors["header_foreground"], uiColors["header_background"]);
+            }
+
+            dc.FillLine(0, kTextAttributes::kNormal, ' ');
 
             int xp = 0;
 
             // FIXME: Should be space enough to fill the gutter, as we want filename 'tabs' list starting over the editor view
-            std::string header = "Files:>";
-            dc.DrawStringWithAttributesAt(xp,0,kTextAttributes::kNormal | kTextAttributes::kInverted, header.c_str());
+            std::string header = "[Files]";
+            dc.DrawStringWithAttributesAt(xp,0,kTextAttributes::kNormal, header.c_str());
 
             xp += header.length();
             dc.DrawStringWithAttributesAt(xp,0,kTextAttributes::kNormal, " ");
-            xp ++;
+            xp++;
             for(size_t i=0;i<models.size();i++) {
                 auto m = models[i];
                 auto &name = m->GetTextBuffer()->Name();

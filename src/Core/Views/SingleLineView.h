@@ -33,9 +33,15 @@ namespace gedit {
     protected:
         void DrawViewContents() override {
             auto &dc = window->GetContentDC();
-            dc.ResetDrawColors();
-            dc.FillLine(0, kTextAttributes::kNormal | kTextAttributes::kInverted, ' ');
-            dc.DrawStringWithAttributesAt(0, 0, kTextAttributes::kNormal | kTextAttributes::kInverted, heading.c_str());
+            auto uiColors = Config::Instance().GetUIColors();
+
+            if (parentView->IsActive()) {
+                dc.SetColor(uiColors["header_active_foreground"], uiColors["header_active_background"]);
+            } else {
+                dc.SetColor(uiColors["header_foreground"], uiColors["header_background"]);
+            }
+            dc.FillLine(0, kTextAttributes::kNormal, ' ');
+            dc.DrawStringWithAttributesAt(0, 0, kTextAttributes::kNormal, heading.c_str());
         }
     private:
         std::string heading;

@@ -62,6 +62,8 @@ bool CommandView::OnAction(const KeyPressAction &kpAction) {
     switch(kpAction.action) {
         case kAction::kActionCommitLine :
             return OnActionCommitLine();
+        default:
+            break;
     }
     return false;
 }

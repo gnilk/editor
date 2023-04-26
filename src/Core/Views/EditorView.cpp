@@ -232,6 +232,8 @@ bool EditorView::DispatchAction(const KeyPressAction &kpAction) {
             return OnActionWordLeft();
         case kAction::kActionLineWordRight :
             return OnActionWordRight();
+        default:
+            break;
     }
     return false;
 }

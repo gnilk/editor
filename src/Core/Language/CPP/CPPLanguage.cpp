@@ -5,6 +5,7 @@
 #include <string>
 
 #include "CPPLanguage.h"
+#include "Core/EditorConfig.h"
 
 using namespace gedit;
 
@@ -69,4 +70,23 @@ bool CPPLanguage::Initialize() {
     // Register with the configuration
 
     return true;
+}
+
+
+void CPPLanguage::OnPreInsertChar(Cursor &cursor, Line *line, int ch) {
+    // FIXME: This needs much more logic...
+    if(ch == '}') {
+        // FIXME: Check if line is 'empty' up-to x-pos
+        cursor.position.x -= EditorConfig::Instance().tabSize;
+        if (cursor.position.x < 0) {
+            cursor.position.x = 0;
+        }
+    }
+}
+
+void CPPLanguage::OnPostInsertChar(Cursor &cursor, Line *line, int ch) {
+    if (ch == '{') {
+        // FIXME: Check if chars to right are whitespace...
+        line->Insert(cursor.position.x, '}');
+    }
 }

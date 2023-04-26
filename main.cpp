@@ -361,6 +361,9 @@ int main(int argc, const char **argv) {
     //
 
     Runloop::DefaultLoop();
+
+    Editor::Instance().Close();
+
     logger->Debug("Left main loop, closing graphics subsystem");
     screen->Close();
     return 0;

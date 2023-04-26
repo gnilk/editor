@@ -41,8 +41,9 @@ bool ModalView::OnAction(const KeyPressAction &kpAction) {
     // Hmm - action alias???
     if (kpAction.action == kAction::kActionCycleActiveView) {
         CloseModal();
+        return true;
     }
-
+    return false;
 }
 void ModalView::OnKeyPress(const KeyPress &keyPress) {
     if (keyPress.isSpecialKey && (keyPress.specialKey == Keyboard::kKeyCode::kKeyCode_Escape)) {

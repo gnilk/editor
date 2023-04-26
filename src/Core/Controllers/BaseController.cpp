@@ -5,7 +5,7 @@
 #include "logger.h"
 
 #include "BaseController.h"
-
+#include "Core/EditorConfig.h"
 
 using namespace gedit;
 
@@ -14,9 +14,11 @@ using namespace gedit;
 //
 bool BaseController::DefaultEditLine(Cursor &cursor, Line *line, const KeyPress &keyPress) {
     if (keyPress.IsHumanReadable()) {
+
         line->Insert(cursor.position.x, keyPress.key);
         cursor.position.x++;
         cursor.wantedColumn = cursor.position.x;
+
         return true;
     }
     bool wasHandled = false;

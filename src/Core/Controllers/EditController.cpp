@@ -27,10 +27,17 @@ bool EditController::HandleKeyPress(Cursor &cursor, size_t idxLine, const KeyPre
     //if (keyPress.modifiers) return false;
 
     auto line = textBuffer->LineAt(idxLine);
+    if (keyPress.IsHumanReadable()) {
+        textBuffer->LangParser().OnPreInsertChar(cursor, line, keyPress.key);
+    }
     if (DefaultEditLine(cursor, line, keyPress)) {
+        if (keyPress.IsHumanReadable()) {
+            textBuffer->LangParser().OnPostInsertChar(cursor, line, keyPress.key);
+        }
         return true;
     }
-    // Handle backspace in case of cursor.position.x == 0 (i.e. move the line up to the next)
+
+    // FIXME: Handle backspace in case of cursor.position.x == 0 (i.e. move the line up to the next)
     return false;
 }
 

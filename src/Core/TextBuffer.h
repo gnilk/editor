@@ -33,6 +33,8 @@ namespace gedit {
         }
         virtual ~TextBuffer() = default;
 
+        void Close();
+
         std::vector<Line *> &Lines() { return lines; }
 
         Line *LineAt(size_t idxLine) {
@@ -69,6 +71,8 @@ namespace gedit {
         std::vector<Line *> lines;
         LanguageBase *language = nullptr;
         std::thread *reparseThread = nullptr;
+
+        bool bQuitReparse = false;
 
         // Do not put the edit controller here - might make sense, but it will cause problems later
         // Example: split-window editing with same file => won't work

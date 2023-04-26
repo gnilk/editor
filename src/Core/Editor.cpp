@@ -38,7 +38,7 @@ using namespace gedit;
 
 Editor &Editor::Instance() {
     static Editor glbSystem;
-    return glbSystem;
+    return glbSystem;{}
 }
 
 bool Editor::Initialize(int argc, const char **argv) {
@@ -98,6 +98,14 @@ bool Editor::Initialize(int argc, const char **argv) {
     return true;
 }
 
+void Editor::Close() {
+    logger->Debug("Closing editor");
+    for(auto &model : models) {
+        model->Close();
+    }
+    models.clear();
+}
+
 EditorModel::Ref Editor::LoadEditorModelFromFile(const char *filename) {
     logger->Debug("Loading file: %s", filename);
     TextBuffer::Ref textBuffer;
@@ -119,7 +127,7 @@ EditorModel::Ref Editor::LoadEditorModelFromFile(const char *filename) {
 
 
 void Editor::ConfigureLogger() {
-    char *sinkArgv[]={"autoflush","file","logfile.log"};
+    static const char *sinkArgv[]={"autoflush","file","logfile.log"};
     gnilk::Logger::Initialize();
     auto fileSink = new gnilk::LogFileSink();
     gnilk::Logger::AddSink(fileSink, "fileSink", 3, sinkArgv);

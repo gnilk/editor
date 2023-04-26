@@ -91,7 +91,10 @@ namespace gedit {
             textBuffer = newTextBuffer;
 
             editController->SetTextBuffer(textBuffer);
+        }
 
+        void Close() {
+            textBuffer->Close();
         }
 
         EditController::Ref GetEditController() {

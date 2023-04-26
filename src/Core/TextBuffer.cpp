@@ -21,12 +21,18 @@ void TextBuffer::Reparse() {
     } else if (state == kState_Idle){
         state = kState_Start;
     }
-
+}
+void TextBuffer::Close() {
+    if (reparseThread != nullptr) {
+        bQuitReparse = true;
+        reparseThread->join();
+        reparseThread = nullptr;
+    }
 }
 
 void TextBuffer::StartReparseThread() {
     reparseThread = new std::thread([this]() {
-        while(true) {
+        while(!bQuitReparse) {
             state = kState_Parsing;
             auto logger = gnilk::Logger::GetLogger("TextBuffer");
             logger->Debug("Begin syntax parsing");
@@ -34,7 +40,7 @@ void TextBuffer::StartReparseThread() {
             tokenizer.ParseLines(lines);
             logger->Debug("End syntax parsing");
             state = kState_Idle;
-            while (state == kState_Idle) {
+            while ((state == kState_Idle) && (!bQuitReparse)) {
                 std::this_thread::yield();
             }
         }

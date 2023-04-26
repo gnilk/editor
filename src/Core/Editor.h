@@ -24,6 +24,7 @@ namespace gedit {
     public:
         static Editor &Instance();
         bool Initialize(int argc, const char **argv);
+        void Close();
         bool LoadConfig(const char *configFile);
         std::vector<EditorModel::Ref> &GetModels() {
             return models;

@@ -24,7 +24,8 @@ namespace gedit {
         LangLineTokenizer &Tokenizer() { return tokenizer; }
 
         // Not too key on adding dependencies on these things
-        virtual void OnBeforeCharInsert(Cursor &cursor, Line *line, int ch) {}
+        virtual void OnPreInsertChar(Cursor &cursor, Line *line, int ch) {}
+        virtual void OnPostInsertChar(Cursor &cursor, Line *line, int ch) {}
     protected:
         LangLineTokenizer tokenizer;
     };

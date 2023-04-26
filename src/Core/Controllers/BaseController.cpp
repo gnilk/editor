@@ -12,7 +12,7 @@ using namespace gedit;
 //
 // Note: This is all wrong... need to update this one...
 //
-bool BaseController::DefaultEditLine(Cursor &cursor, Line *line, const KeyPress &keyPress) {
+bool BaseController::DefaultEditLine(Cursor &cursor, Line::Ref line, const KeyPress &keyPress) {
     if (keyPress.IsHumanReadable()) {
         AddCharToLine(cursor, line, keyPress.key);
         return true;
@@ -52,12 +52,12 @@ bool BaseController::DefaultEditLine(Cursor &cursor, Line *line, const KeyPress 
     return wasHandled;
 }
 
-void BaseController::AddCharToLine(Cursor &cursor, Line *line, int ch) {
+void BaseController::AddCharToLine(Cursor &cursor, Line::Ref line, int ch) {
     line->Insert(cursor.position.x, ch);
     cursor.position.x++;
     cursor.wantedColumn = cursor.position.x;
 }
-void BaseController::RemoveCharFromLine(gedit::Cursor &cursor, gedit::Line *line) {
+void BaseController::RemoveCharFromLine(gedit::Cursor &cursor, Line::Ref line) {
     if (cursor.position.x > 0) {
         line->Delete(cursor.position.x-1);
         cursor.position.x--;

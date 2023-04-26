@@ -38,7 +38,7 @@ TextBuffer::Ref BufferManager::NewBufferFromFile(const std::string &filename) {
     auto textBuffer = NewBuffer(filename);
     char tmp[MAX_LINE_LENGTH];
     while(fgets(tmp, MAX_LINE_LENGTH, f)) {
-        textBuffer->Lines().push_back(new Line(tmp));
+        textBuffer->AddLine(tmp);
     }
 
     fclose(f);

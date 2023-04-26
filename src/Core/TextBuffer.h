@@ -35,9 +35,16 @@ namespace gedit {
 
         void Close();
 
-        std::vector<Line *> &Lines() { return lines; }
+        void AddLine(Line::Ref line) {
+            lines.push_back(line);
+        }
+        void AddLine(const char *textString) {
+            auto newLine = std::make_shared<Line>(textString);
+            lines.push_back(newLine);
+        }
+        std::vector<Line::Ref> &Lines() { return lines; }
 
-        Line *LineAt(size_t idxLine) {
+        Line::Ref LineAt(size_t idxLine) {
             return lines[idxLine];
         }
 
@@ -50,7 +57,6 @@ namespace gedit {
             line->Lock();
             lines.erase(lines.begin() + idxLine);
             line->Release();
-            delete line;
         }
 
         void CopyRegionToString(std::string &outText, const Point &start, const Point &end);
@@ -67,7 +73,7 @@ namespace gedit {
         bool HaveLanguage() { return language!= nullptr; }
         LanguageBase &LangParser() { return *language; }
 
-        std::optional<Line *>FindParseStart(size_t idxStartLine);
+        std::optional<Line::Ref>FindParseStart(size_t idxStartLine);
 
         void Reparse();
 
@@ -76,7 +82,8 @@ namespace gedit {
     private:
         volatile State state = kState_None;
         std::string name;
-        std::vector<Line *> lines;
+        //std::vector<Line *> lines;
+        std::vector<Line::Ref> lines;
         LanguageBase *language = nullptr;
         std::thread *reparseThread = nullptr;
 

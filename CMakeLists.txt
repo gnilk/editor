@@ -147,7 +147,6 @@ list(APPEND editorsrc src/Core/Controllers/BaseController.cpp src/Core/Controlle
 list(APPEND editorsrc src/Core/Controllers/EditController.cpp src/Core/Controllers/EditController.h)
 list(APPEND editorsrc src/Core/Controllers/CommandController.cpp src/Core/Controllers/CommandController.h)
 # text buffer handling
-list(APPEND editorsrc src/Core/Buffer.cpp src/Core/Buffer.h)
 list(APPEND editorsrc src/Core/Line.cpp src/Core/Line.h)
 list(APPEND editorsrc src/Core/BufferManager.cpp src/Core/BufferManager.h)
 list(APPEND editorsrc src/Core/TextBuffer.cpp src/Core/TextBuffer.h)

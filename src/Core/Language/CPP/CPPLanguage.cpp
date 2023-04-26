@@ -73,7 +73,7 @@ bool CPPLanguage::Initialize() {
 }
 
 
-void CPPLanguage::OnPreInsertChar(Cursor &cursor, Line *line, int ch) {
+void CPPLanguage::OnPreInsertChar(Cursor &cursor, Line::Ref line, int ch) {
     // FIXME: This needs much more logic...
     if(ch == '}') {
         // FIXME: Check if line is 'empty' up-to x-pos
@@ -84,7 +84,7 @@ void CPPLanguage::OnPreInsertChar(Cursor &cursor, Line *line, int ch) {
     }
 }
 
-void CPPLanguage::OnPostInsertChar(Cursor &cursor, Line *line, int ch) {
+void CPPLanguage::OnPostInsertChar(Cursor &cursor, Line::Ref line, int ch) {
     if (ch == '{') {
         // FIXME: Check if chars to right are whitespace...
         line->Insert(cursor.position.x, '}');

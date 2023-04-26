@@ -9,6 +9,7 @@
 #include <string_view>
 #include <string>
 #include <mutex>
+#include <memory>
 
 #include "Core/TextAttributes.h"
 #include "Core/Language/LanguageTokenClass.h"
@@ -24,6 +25,7 @@ namespace gedit {
             kLanguageTokenClass tokenClass; // this one is for better (more formal) analysis when computing indent and similar
         };
         using LineAttribIterator = std::vector<LineAttrib>::iterator;
+        using Ref = std::shared_ptr<Line>;
     public:
         Line();
         Line(const char *data);
@@ -33,11 +35,11 @@ namespace gedit {
         void Append(std::string &srcdata);
         void Append(const std::string &srcdata);
         void Append(const char *srcdata);
-        void Append(Line *other);
+        void Append(Line::Ref other);
         void Insert(int at, int ch);
         int Insert(int at, int n, int ch);
         void Delete(int at);
-        void Move(Line *dst, int dstOfs, int srcOfs, int nChar = -1);
+        void Move(Line::Ref dst, int dstOfs, int srcOfs, int nChar = -1);
         void Delete(int at, int n);
         int Unindent();
         void SetIndent(int newIndent) { indent = newIndent; }

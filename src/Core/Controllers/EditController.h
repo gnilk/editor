@@ -36,14 +36,14 @@ namespace gedit {
         size_t NewLine(size_t idxCurrentLine, Cursor &cursor);
 
         // Proxy for buffer
-        std::vector<Line *> &Lines() {
+        std::vector<Line::Ref> &Lines() {
             return textBuffer->Lines();
         }
         // Const accessor...
-        const std::vector<Line *> &Lines() const {
+        const std::vector<Line::Ref> &Lines() const {
             return textBuffer->Lines();
         }
-        Line *LineAt(size_t idxLine) {
+        Line::Ref LineAt(size_t idxLine) {
             return textBuffer->LineAt(idxLine);
         }
 

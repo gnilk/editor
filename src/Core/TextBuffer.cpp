@@ -47,7 +47,7 @@ void TextBuffer::StartReparseThread() {
     });
 }
 
-std::optional<Line *>TextBuffer::FindParseStart(size_t idxStartLine) {
+std::optional<Line::Ref>TextBuffer::FindParseStart(size_t idxStartLine) {
     if (!HaveLanguage()) {
         return {};
     }

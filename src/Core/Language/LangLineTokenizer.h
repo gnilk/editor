@@ -167,8 +167,8 @@ namespace gedit {
         virtual ~LangLineTokenizer() = default;
 
         void ParseLine(std::vector<LangToken> &tokens, const char *input);
-        void ParseLines(std::vector<gedit::Line *> &lines);
-        void ParseLineFromStartState(std::string &listStartState, gedit::Line *line);
+        void ParseLines(std::vector<Line::Ref> &lines);
+        void ParseLineFromStartState(std::string &listStartState, Line::Ref line);
 
         // State management - this is available
         void SetStartState(const std::string &newStartState);

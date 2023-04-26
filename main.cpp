@@ -114,7 +114,6 @@
 
 
 #include "Core/RuntimeConfig.h"
-#include "Core/Buffer.h"
 #include "Core/NCurses/NCursesKeyboardDriver.h"
 #include "Core/macOS/MacOSKeyboardMonitor.h"
 

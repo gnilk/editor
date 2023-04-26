@@ -111,10 +111,10 @@ namespace gedit {
         }
 
         // proxy
-        std::vector<Line *> &Lines() {
+        std::vector<Line::Ref> &Lines() {
             return editController->Lines();
         }
-        Line *LineAt(size_t idxLine) {
+        Line::Ref LineAt(size_t idxLine) {
             return editController->LineAt(idxLine);
         }
 

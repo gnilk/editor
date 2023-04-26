@@ -57,7 +57,7 @@ void Line::Append(const char *srcdata) {
     std::lock_guard<std::mutex> guard(lock);
     buffer += srcdata;
 }
-void Line::Append(Line *other) {
+void Line::Append(Line::Ref other) {
     Append(other->Buffer().data());
 }
 
@@ -71,7 +71,7 @@ int Line::Insert(int at, int n, int ch) {
     buffer.insert(at, n, ch);
     return n;
 }
-void Line::Move(Line *dst, int dstOfs, int srcOfs, int nChar) {
+void Line::Move(Line::Ref dst, int dstOfs, int srcOfs, int nChar) {
     std::lock_guard<std::mutex> guard(lock);
 
     if (nChar == -1) {

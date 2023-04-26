@@ -18,15 +18,15 @@ namespace gedit {
         virtual void Begin() {}
 
         // This implements some default behavior for editing on a single line
-        bool DefaultEditLine(Cursor &cursor, Line *line, const KeyPress &keyPress);
+        bool DefaultEditLine(Cursor &cursor, Line::Ref line, const KeyPress &keyPress);
 
         // Return true if keypress was handled, false otherwise
         virtual bool HandleKeyPress(Cursor &cursor, size_t idxActiveLine, const KeyPress &keyPress) {
             return false;
         }
 
-        void AddCharToLine(Cursor &cursor, Line *line, int ch);
-        void RemoveCharFromLine(Cursor &cursor, Line *line);
+        void AddCharToLine(Cursor &cursor, Line::Ref line, int ch);
+        void RemoveCharFromLine(Cursor &cursor, Line::Ref line);
     private:
 
     };

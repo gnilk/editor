@@ -57,16 +57,16 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
 
     auto it = lines.begin() + idxActiveLine;
     if (lines.size() == 0) {
-        lines.insert(it, new Line());
+        lines.insert(it, std::make_shared<Line>());
     } else {
         if (cursor.position.x == 0) {
             // Insert empty line...
-            lines.insert(it, new Line());
+            lines.insert(it, std::make_shared<Line>());
             idxActiveLine++;
             indentPrevious = 0;
         } else {
             // Split, move some chars from current to new...
-            auto newLine = new Line();
+            auto newLine = std::make_shared<Line>();
             currentLine->Move(newLine, 0, cursor.position.x);
             lines.insert(it + 1, newLine);
             idxActiveLine++;

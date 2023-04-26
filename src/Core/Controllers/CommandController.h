@@ -24,10 +24,10 @@ namespace gedit {
         void Begin() override;
         bool HandleKeyPress(Cursor &cursor, size_t idxActiveLine, const KeyPress &keyPress) override;
 
-        const std::vector<Line *> &Lines() const {
+        const std::vector<Line::Ref> &Lines() const {
             return historyBuffer;
         }
-        const Line *CurrentLine() const {
+        const Line::Ref CurrentLine() const {
             return currentLine;
         }
 
@@ -54,9 +54,9 @@ namespace gedit {
         NewLineDelegate onNewLine = nullptr;
 
         gnilk::ILogger *logger = nullptr;
-        Line *currentLine = nullptr;
+        Line::Ref currentLine = nullptr;
 
-        std::vector<Line *> historyBuffer;
+        std::vector<Line::Ref> historyBuffer;
     };
 }
 

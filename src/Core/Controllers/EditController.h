@@ -11,6 +11,7 @@
 #include <memory>
 
 namespace gedit {
+    // FIXME: Reconsider this class, most stuff moved to EditorModel instead...
     class EditController : public BaseController {
     public:
         using Ref = std::shared_ptr<EditController>;

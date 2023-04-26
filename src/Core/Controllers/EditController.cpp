@@ -1,6 +1,8 @@
 //
 // Created by gnilk on 15.02.23.
 //
+// FIXME: Reconsider this class, most stuff moved to model
+//
 
 #include "EditController.h"
 #include "Core/EditorConfig.h"
@@ -39,32 +41,7 @@ bool EditController::HandleKeyPress(Cursor &cursor, size_t idxLine, const KeyPre
         return true;
     }
 
-    // FIXME: Handle backspace in case of cursor.position.x == 0 (i.e. move the line up to the next)
-    if (!keyPress.isSpecialKey) {
-        return false;
-    }
-    bool wasHandled = true;
-    switch (keyPress.specialKey) {
-        case Keyboard::kKeyCode_Tab :
-            // FIXME: Handle selection..
-            if (keyPress.modifiers == 0) {
-                for (int i = 0; i < EditorConfig::Instance().tabSize; i++) {
-                    AddCharToLine(cursor, line, ' ');
-                }
-            } else if (keyPress.IsShiftPressed()) {
-                for (int i = 0; i < EditorConfig::Instance().tabSize; i++) {
-                    RemoveCharFromLine(cursor, line);
-                }
-            }
-
-            break;
-
-        default:
-            wasHandled = false;
-            break;
-    }
-
-    return wasHandled;
+    return false;
 }
 
 
@@ -80,16 +57,18 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
 
     auto it = lines.begin() + idxActiveLine;
     if (lines.size() == 0) {
-        it = lines.insert(it, new Line());
+        lines.insert(it, new Line());
     } else {
         if (cursor.position.x == 0) {
             // Insert empty line...
+            lines.insert(it, new Line());
             idxActiveLine++;
             indentPrevious = 0;
         } else {
             // Split, move some chars from current to new...
             auto newLine = new Line();
             currentLine->Move(newLine, 0, cursor.position.x);
+            lines.insert(it + 1, newLine);
             idxActiveLine++;
         }
     }

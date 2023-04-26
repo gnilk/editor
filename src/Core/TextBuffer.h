@@ -45,6 +45,14 @@ namespace gedit {
             return lines.size();
         }
 
+        void DeleteLineAt(size_t idxLine) {
+            auto line = LineAt(idxLine);
+            line->Lock();
+            lines.erase(lines.begin() + idxLine);
+            line->Release();
+            delete line;
+        }
+
         void CopyRegionToString(std::string &outText, const Point &start, const Point &end);
 
         const std::string &Name() const {

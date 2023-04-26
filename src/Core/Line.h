@@ -33,6 +33,7 @@ namespace gedit {
         void Append(std::string &srcdata);
         void Append(const std::string &srcdata);
         void Append(const char *srcdata);
+        void Append(Line *other);
         void Insert(int at, int ch);
         int Insert(int at, int n, int ch);
         void Delete(int at);

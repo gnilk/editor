@@ -57,6 +57,10 @@ void Line::Append(const char *srcdata) {
     std::lock_guard<std::mutex> guard(lock);
     buffer += srcdata;
 }
+void Line::Append(Line *other) {
+    Append(other->Buffer().data());
+}
+
 
 void Line::Insert(int at, int ch) {
     std::lock_guard<std::mutex> guard(lock);

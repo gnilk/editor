@@ -8,6 +8,7 @@
 #include "Controllers/EditController.h"
 #include "Core/TextBuffer.h"
 #include "Core/Cursor.h"
+#include "Core/KeyPress.h"
 
 #include <memory>
 
@@ -95,6 +96,9 @@ namespace gedit {
             editController->SetTextBuffer(textBuffer);
         }
 
+        bool HandleKeyPress(const KeyPress &keyPress);
+
+
         void Close() {
             textBuffer->Close();
         }
@@ -146,7 +150,8 @@ namespace gedit {
         const Selection &GetSelection() const {
             return currentSelection;
         }
-
+    private:
+        void MoveLineUp();
     public:
         Cursor cursor;
         int32_t idxActiveLine = 0;

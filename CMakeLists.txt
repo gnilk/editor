@@ -82,7 +82,7 @@ list(APPEND extlibs logger)
 
 # Editor main stuff
 list(APPEND editorsrc src/Core/Editor.cpp src/Core/Editor.h)
-list(APPEND editorsrc src/Core/EditorModel.h)
+list(APPEND editorsrc src/Core/EditorModel.cpp src/Core/EditorModel.h)
 list(APPEND editorsrc src/Core/VerticalNavigationViewModel.cpp src/Core/VerticalNavigationViewModel.h)
 list(APPEND editorsrc src/Core/Runloop.cpp src/Core/Runloop.h)
 

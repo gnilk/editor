@@ -88,5 +88,11 @@ void CPPLanguage::OnPostInsertChar(Cursor &cursor, Line *line, int ch) {
     if (ch == '{') {
         // FIXME: Check if chars to right are whitespace...
         line->Insert(cursor.position.x, '}');
+    } else if (ch == '[') {
+        // FIXME: Check if chars to right are whitespace...
+        line->Insert(cursor.position.x, ']');
+    } else if (ch == '(') {
+        // FIXME: Check if chars to right are whitespace...
+        line->Insert(cursor.position.x, ')');
     }
 }

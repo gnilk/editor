@@ -25,6 +25,8 @@ namespace gedit {
             return false;
         }
 
+        void AddCharToLine(Cursor &cursor, Line *line, int ch);
+        void RemoveCharFromLine(Cursor &cursor, Line *line);
     private:
 
     };

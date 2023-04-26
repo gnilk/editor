@@ -14,11 +14,7 @@ using namespace gedit;
 //
 bool BaseController::DefaultEditLine(Cursor &cursor, Line *line, const KeyPress &keyPress) {
     if (keyPress.IsHumanReadable()) {
-
-        line->Insert(cursor.position.x, keyPress.key);
-        cursor.position.x++;
-        cursor.wantedColumn = cursor.position.x;
-
+        AddCharToLine(cursor, line, keyPress.key);
         return true;
     }
     bool wasHandled = false;
@@ -44,13 +40,30 @@ bool BaseController::DefaultEditLine(Cursor &cursor, Line *line, const KeyPress 
                 break;
                 // We ONLY handle backspace within the current line..
             case Keyboard::kKeyCode_Backspace :
-                if (cursor.position.x > 0) {
-                    line->Delete(cursor.position.x-1);
-                    cursor.position.x--;
-                    wasHandled = true;
-                }
+                RemoveCharFromLine(cursor, line);
+                wasHandled = true;
+//                if (cursor.position.x > 0) {
+//                    line->Delete(cursor.position.x-1);
+//                    cursor.position.x--;
+//                    wasHandled = true;
+//                }
                 break;
         }
     }
     return wasHandled;
 }
+
+void BaseController::AddCharToLine(Cursor &cursor, Line *line, int ch) {
+    line->Insert(cursor.position.x, ch);
+    cursor.position.x++;
+    cursor.wantedColumn = cursor.position.x;
+}
+void BaseController::RemoveCharFromLine(gedit::Cursor &cursor, gedit::Line *line) {
+    if (cursor.position.x > 0) {
+        line->Delete(cursor.position.x-1);
+        cursor.position.x--;
+    }
+
+}
+
+

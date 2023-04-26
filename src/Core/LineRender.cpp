@@ -53,7 +53,10 @@ void LineRender::DrawLineWithAttributesAt(int x, int y, int nCharToPrint, Line &
             }
             len = next->idxOrigString - itAttrib->idxOrigString;
         }
-
+        // we need reparse!
+        if (itAttrib->idxOrigString > l.Length()) {
+            return;
+        }
         // Grab the substring for this attribute range
         std::string strOut = std::string(l.Buffer().data(), itAttrib->idxOrigString, len);
 

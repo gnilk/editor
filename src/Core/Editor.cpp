@@ -109,7 +109,6 @@ void Editor::Close() {
 EditorModel::Ref Editor::LoadEditorModelFromFile(const char *filename) {
     logger->Debug("Loading file: %s", filename);
     TextBuffer::Ref textBuffer;
-    EditController::Ref editController = std::make_shared<EditController>();
 
     textBuffer = BufferManager::Instance().NewBufferFromFile(filename);
     if (textBuffer == nullptr) {
@@ -117,9 +116,12 @@ EditorModel::Ref Editor::LoadEditorModelFromFile(const char *filename) {
         return nullptr;
     }
     logger->Debug("End Loading");
+
     textBuffer->SetLanguage(Config::Instance().GetLanguageForFilename(filename));
 
+    EditController::Ref editController = std::make_shared<EditController>();
     EditorModel::Ref editorModel = std::make_shared<EditorModel>();
+
     editorModel->Initialize(editController, textBuffer);
 
     return editorModel;

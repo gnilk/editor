@@ -27,7 +27,7 @@ void SDLDrawContext::Clear() const {
     //SDLColorRepository::Instance().UseBackgroundColor(renderer, 196);
     SDLColor bgCol(bgColor);
     bgCol.Use(renderer, 196);
-    FillRect(0,0, rect.Width(), rect.Height());
+    FillRect(0,0, rect.Width(), rect.Height(), true);
     // END TEST
 }
 

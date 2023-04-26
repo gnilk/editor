@@ -8,11 +8,14 @@
     "blue-vibrant": "hsl(210, 60%, 60%)",
     "blue2": "hsla(210, 13%, 40%, 0.7)",
     "blue3": "hsl(210, 15%, 22%)",
-    "blue4": "hsl(210, 13%, 45%)",
+    "blue4": "hsl(210, 15%, 25%)",
     "blue5": "hsl(180, 36%, 54%)",
     "blue6": "hsl(221, 12%, 69%)",
     "green": "hsl(114, 31%, 68%)",
     "grey": "hsl(0, 0%, 20%)",
+    "grey2": "hsl(0, 0%, 40%)",
+    "grey3": "hsl(0, 0%, 60%)",
+    "grey4": "hsl(0, 0%, 80%)",
     "orange": "hsl(32, 93%, 66%)",
     "orange2": "hsl(32, 85%, 55%)",
     "orange3": "hsl(40, 94%, 68%)",
@@ -61,10 +64,12 @@
     "ui": {
       "background": "var(blue3)",
       "foreground": "var(white3)",
+      "gutter_background" : "var(blue4)",
+      "gutter_foreground": "var(grey3)",
       "header_background": "var(blue4)",
-      "header_foreground": "var(white3)",
+      "header_foreground": "var(grey2)",
       "header_active_background": "var(grey)",
-      "header_active_foreground": "var(pink)"
+      "header_active_foreground": "var(white3)"
     }
   }
 }

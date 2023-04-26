@@ -17,6 +17,11 @@
 #include <iostream>
 #include <fstream>
 
+//
+// TO-DO:
+// - Move sublime color file handling away from here
+// - Support helix toml files
+//
 
 // for sublime color script handling
 using json = nlohmann::json;
@@ -36,7 +41,6 @@ void Config::RegisterLanguage(const std::string &extension, LanguageBase *langua
 }
 
 LanguageBase *Config::GetLanguageForFilename(const std::string &extension) {
-    // FIXME: We have this one (for now)
     return extToLanguages[".cpp"];
 }
 
@@ -66,6 +70,9 @@ bool Config::LoadConfig(const std::string &filename) {
     return true;
 }
 
+//
+// Move this to the sublime folder
+//
 bool Config::LoadSublimeColorFile(const std::string &filename) {
 
     // Only enough here - or do we need this one out side???

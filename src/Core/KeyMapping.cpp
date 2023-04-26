@@ -30,6 +30,9 @@ static std::unordered_map<std::string, kModifier> strToModifierMap = {
         {"UINavigationModifier", kModifier::kModifierUINavigation},
         {"UINavigation", kModifier::kModifierUINavigation},
 };
+//
+// TO-DO consider renaming the actions
+//
 static std::unordered_map<std::string, kAction> strToActionMap = {
         {"NavigateLineDown",      kAction::kActionLineDown},
         {"NavigateLineUp",        kAction::kActionLineUp},

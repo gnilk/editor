@@ -51,11 +51,16 @@ void GutterView::DrawViewContents() {
         return;
     }
 
-    auto logger = gnilk::Logger::GetLogger("GutterView");
-    logger->Debug("Active Line: %d", editorModel->idxActiveLine);
+//    auto logger = gnilk::Logger::GetLogger("GutterView");
+//    logger->Debug("Active Line: %d", editorModel->idxActiveLine);
 
     auto &dc = window->GetContentDC();
-    dc.ResetDrawColors();
+
+    auto uiColors = Config::Instance().GetUIColors();
+    dc.SetColor(uiColors["gutter_foreground"], uiColors["gutter_background"]);
+
+    dc.Clear();
+
     char str[64];
     for(int i=0;i<dc.GetRect().Height();i++) {
         int idxLine = i + editorModel->viewTopLine;
@@ -65,9 +70,9 @@ void GutterView::DrawViewContents() {
         }
 
         auto line = editorModel->LineAt(idxLine);
-        snprintf(str, 64, " %4d", idxLine);
+        snprintf(str, 64, "%6d", idxLine);
         if (idxLine == editorModel->idxActiveLine) {
-            snprintf(str, 64, "*%4d",  idxLine);
+            snprintf(str, 64, "%6d  *",  idxLine);
         }
         dc.DrawStringAt(0,i,str);
     }

@@ -4,6 +4,7 @@
 #include <Carbon/Carbon.h>
 #include <CoreServices/CoreServices.h>
 #include <ApplicationServices/ApplicationServices.h>
+#include <sys/sysctl.h>
 
 #define MY_DEBUGGED_KEYBOARD 44
 static int keyboard = 0;
@@ -37,6 +38,18 @@ myCGEventCallback(CGEventTapProxy proxy, CGEventType type,
 // We must return the event for it to be useful.
     return event;
 }
+
+static int32_t getParentPid(pid_t pid) {
+    struct kinfo_proc info;
+    size_t length = sizeof(struct kinfo_proc);
+    int mib[4] = { CTL_KERN, KERN_PROC, KERN_PROC_PID, pid };
+    if (sysctl(mib, 4, &info, &length, NULL, 0) < 0)
+        return -1;
+    if (length == 0)
+        return -1;
+    return info.kp_proc.e_ppid;
+}
+
 
 int main(int argc, char* argv[]) {
     CFMachPortRef      eventTap;
@@ -92,6 +105,8 @@ int main(int argc, char* argv[]) {
 
 // Enable the event tap.
     CGEventTapEnable(eventTap, true);
+
+
 
 // Set it all running.
     CFRunLoopRun();

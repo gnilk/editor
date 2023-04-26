@@ -4,7 +4,6 @@
 /*
  * TO-DO List
  * - Move EditorController functionality to EditorModel
- * - Make TextBuffer work with shared_ptr<Line> instead of raw Line *
  * - macOS swaps left/right scancodes between keyboards (laptop has left/right one way my ext.keyboard another)
  *   need to consider a solution for this...
  * - Swap out the vertical navigation code in EditorView for the 'VerticalNavigationModel'
@@ -18,6 +17,7 @@
  * - Unsaved file should have '*' marking in the top..
  *
  * Done:
+ * ! Make TextBuffer work with shared_ptr<Line> instead of raw Line *
  * ! Make 'CycleActiveView' a left/right function and go through the list of view which can have focus...
  * ! colors, need to fix the color handling!!!
  *   ! Make everything work with ColorRGBA

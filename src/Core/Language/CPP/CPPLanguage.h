@@ -7,22 +7,23 @@
 
 #include "Core/Language/LanguageBase.h"
 
+namespace gedit {
+    class CPPLanguage : public LanguageBase {
+    public:
+        CPPLanguage() = default;
+        virtual ~CPPLanguage() = default;
 
-class CPPLanguage : public LanguageBase {
-public:
-    CPPLanguage() = default;
-    virtual ~CPPLanguage() = default;
+        bool Initialize() override;
+        const std::string &Identifier() override {
+            static std::string cppIdentifier = "c/c++";
+            return cppIdentifier;
+        }
 
-    bool Initialize() override;
-    const std::string &Identifier() override {
-        static std::string cppIdentifier = "c/c++";
-        return cppIdentifier;
-    }
-
-private:
+    private:
 
 // declare in-string operators
-};
+    };
+}
 
 
 #endif //EDITOR_CPPLANGUAGE_H

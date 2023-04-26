@@ -8,7 +8,7 @@
 #include "LangToken.h"
 #include "LanguageTokenClass.h"
 
-using namespace gnilk;
+using namespace gedit;
 
 //
 // This mapping is used to identify the color to be used.
@@ -32,14 +32,6 @@ static const std::unordered_map<kLanguageTokenClass, std::string> tokenNames = {
         {kLanguageTokenClass::kCodeBlockEnd,"operator"},
         {kLanguageTokenClass::kFunky,"funky"},
 };
-
-bool gnilk::IsLanguageTokenClass(int num) {
-    static constexpr int maxLangClass = static_cast<int>(kLanguageTokenClass::kLastTokenClass);
-    if ((num < 0) || (num >=  maxLangClass)) {
-        return false;
-    }
-    return true;
-}
 
 void LangToken::ToLineAttrib(std::vector<gedit::Line::LineAttrib> &outAttributes, std::vector<LangToken> &tokens) {
     outAttributes.clear();
@@ -67,12 +59,22 @@ void LangToken::ToLineAttrib(std::vector<gedit::Line::LineAttrib> &outAttributes
 
 }
 
-// This is wrong, should be named "LanguageTokenClassToGroup"..
-const std::string &gnilk::LanguageTokenClassToString(kLanguageTokenClass tokenClass) {
-    auto it = tokenNames.find(tokenClass);
-    if (it == tokenNames.end()) {
-        printf("UNSUPPORTED TOKEN CLASS (%d), UPDATE THE ARRAY!!!!\n", tokenClass);
-        exit(1);
+namespace gedit {
+    bool IsLanguageTokenClass(int num) {
+        static constexpr int maxLangClass = static_cast<int>(kLanguageTokenClass::kLastTokenClass);
+        if ((num < 0) || (num >=  maxLangClass)) {
+            return false;
+        }
+        return true;
     }
-    return it->second;
+
+
+    const std::string &LanguageTokenClassToString(kLanguageTokenClass tokenClass) {
+        auto it = tokenNames.find(tokenClass);
+        if (it == tokenNames.end()) {
+            printf("UNSUPPORTED TOKEN CLASS (%d), UPDATE THE ARRAY!!!!\n", tokenClass);
+            exit(1);
+        }
+        return it->second;
+    }
 }

@@ -30,7 +30,7 @@ Modified: $Date: $ by $Author: FKling $
 
 #include "LangLineTokenizer.h"
 #include <assert.h>
-using namespace gnilk;
+using namespace gedit;
 
 LangLineTokenizer::LangLineTokenizer() {
 
@@ -40,14 +40,14 @@ void LangLineTokenizer::ParseLines(std::vector<gedit::Line *> &lines) {
         return;
     }
 
-    std::vector<gnilk::LangToken> tokens;
+    std::vector<LangToken> tokens;
 
     PushState(startState.c_str());
 
     int indentCounter = 0;
     int lineCounter = 0;
     for(auto &l : lines) {
-        std::vector<gnilk::LangToken> tokens;
+        std::vector<LangToken> tokens;
 
         l->Lock();
         l->SetStateStackDepth((int)stateStack.size());
@@ -58,6 +58,10 @@ void LangLineTokenizer::ParseLines(std::vector<gedit::Line *> &lines) {
         }
         if (std::find(tokens.begin(), tokens.end(), kLanguageTokenClass::kCodeBlockEnd) != std::end(tokens)) {
             indentCounter--;
+            // NOTE: This can happen during editing when inserting multiple like: { } } }
+            if (indentCounter < 0) {
+                indentCounter = 0;
+            }
             assert(indentCounter >= 0);
         }
         l->SetIndent(indentCounter);
@@ -99,7 +103,7 @@ void LangLineTokenizer::ParseLineFromStartState(std::string &lineStartState, ged
     PushState(startState.c_str());
 
     PushState(lineStartState.c_str());
-    std::vector<gnilk::LangToken> tokens;
+    std::vector<LangToken> tokens;
 
     ParseLineWithCurrentState(tokens, line->Buffer().data());
     LangToken::ToLineAttrib(line->Attributes(), tokens);

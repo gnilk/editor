@@ -11,7 +11,7 @@
 #include "Core/Language/LangToken.h"
 #include <string.h>
 
-namespace gnilk {
+namespace gedit {
 
     // Consider placing this in a namespace instead of using internal classes...
     class LangLineTokenizer {

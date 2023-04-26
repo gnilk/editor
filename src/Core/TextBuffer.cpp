@@ -48,7 +48,7 @@ std::optional<Line *>TextBuffer::FindParseStart(size_t idxStartLine) {
     if (idxStartLine >= lines.size()) {
         return {};
     }
-    while (lines[idxStartLine]->GetStateStackDepth() != gnilk::LangLineTokenizer::RootStateDepth) {
+    while (lines[idxStartLine]->GetStateStackDepth() != LangLineTokenizer::RootStateDepth) {
         if (idxStartLine == 0) {
             return lines[0];
         }

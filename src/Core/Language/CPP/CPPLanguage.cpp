@@ -6,7 +6,7 @@
 
 #include "CPPLanguage.h"
 
-
+using namespace gedit;
 
 // state: main (and probably a few others)
 static const std::string cppTypes = "void int char";
@@ -41,27 +41,27 @@ bool CPPLanguage::Initialize() {
     state->SetIdentifiers(kLanguageTokenClass::kCodeBlockEnd, cppCodeBlockEnd.c_str());
     state->SetPostFixIdentifiers(cppOperatorsFull.c_str());
 
-    state->GetOrAddAction("\"",gnilk::LangLineTokenizer::kAction::kPushState, "in_string");
-    state->GetOrAddAction("/*", gnilk::LangLineTokenizer::kAction::kPushState, "in_block_comment");
-    state->GetOrAddAction("//", gnilk::LangLineTokenizer::kAction::kPushState, "in_line_comment");
+    state->GetOrAddAction("\"",LangLineTokenizer::kAction::kPushState, "in_string");
+    state->GetOrAddAction("/*",LangLineTokenizer::kAction::kPushState, "in_block_comment");
+    state->GetOrAddAction("//",LangLineTokenizer::kAction::kPushState, "in_line_comment");
 
     auto stateStr = tokenizer.GetOrAddState("in_string");
     stateStr->SetRegularTokenClass(kLanguageTokenClass::kString);
     stateStr->SetIdentifiers(kLanguageTokenClass::kString, inStringOperators.c_str());
     stateStr->SetPostFixIdentifiers(inStringPostFixOp.c_str());
-    stateStr->GetOrAddAction("\"", gnilk::LangLineTokenizer::kAction::kPopState);
+    stateStr->GetOrAddAction("\"",LangLineTokenizer::kAction::kPopState);
 
     auto stateBlkComment = tokenizer.GetOrAddState("in_block_comment");
     // just testing, kFunky should be reclassified to 'kBlockComment' once this state is popped...
     stateBlkComment->SetIdentifiers(kLanguageTokenClass::kBlockComment, cppBlockCommentStop.c_str());
     stateBlkComment->SetPostFixIdentifiers(cppBlockCommentStop.c_str());
-    stateBlkComment->GetOrAddAction("*/", gnilk::LangLineTokenizer::kAction::kPopState);
+    stateBlkComment->GetOrAddAction("*/",LangLineTokenizer::kAction::kPopState);
     stateBlkComment->SetRegularTokenClass(kLanguageTokenClass::kCommentedText);
 
     // a line comment run's to new-line...
     auto stateLineComment = tokenizer.GetOrAddState("in_line_comment");
     stateLineComment->SetRegularTokenClass(kLanguageTokenClass::kCommentedText);
-    stateLineComment->SetEOLAction(gnilk::LangLineTokenizer::kAction::kPopState);
+    stateLineComment->SetEOLAction(LangLineTokenizer::kAction::kPopState);
 
 
     tokenizer.SetStartState("main");

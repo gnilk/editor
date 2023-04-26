@@ -8,8 +8,7 @@
 #include "Core/Line.h"
 #include "Core/Language/LanguageTokenClass.h"
 
-namespace gnilk {
-
+namespace gedit {
 
     bool IsLanguageTokenClass(int num);
     const std::string &LanguageTokenClassToString(kLanguageTokenClass tokenClass);

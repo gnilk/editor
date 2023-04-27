@@ -16,6 +16,7 @@
 #include "Core/KeyPress.h"
 #include "SDLKeyboardDriver.h"
 #include "Core/KeyMapping.h"
+#include "Core/RuntimeConfig.h"
 
 using namespace gedit;
 
@@ -29,6 +30,8 @@ bool SDLKeyboardDriver::Initialize() {
 }
 KeyPress SDLKeyboardDriver::GetKeyPress() {
     SDL_Event event;
+    auto logger = gnilk::Logger::GetLogger("SDLKeyboardDriver");
+
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_EventType::SDL_EVENT_QUIT) {
             SDL_Quit();
@@ -36,7 +39,6 @@ KeyPress SDLKeyboardDriver::GetKeyPress() {
         } else if (event.type == SDL_EventType::SDL_EVENT_KEY_DOWN) {
             auto kp =  TranslateSDLEvent(event.key);
 
-            auto logger = gnilk::Logger::GetLogger("SDLKeyboardDriver");
             logger->Debug("SDL_EVENT_KEY_DOWN");
             logger->Debug("KeyDown event: %d (0x%.x) - sym: %x (%d), scancode: %x (%d)", event.type, event.type,
                           event.key.keysym.sym, event.key.keysym.sym,
@@ -61,8 +63,6 @@ KeyPress SDLKeyboardDriver::GetKeyPress() {
             }
             continue;
         } else if (event.type == SDL_EventType::SDL_EVENT_TEXT_INPUT) {
-            auto logger = gnilk::Logger::GetLogger("SDLKeyboardDriver");
-
             KeyPress kp;
             kp.isSpecialKey = false;
             kp.isKeyValid = true;
@@ -72,9 +72,11 @@ KeyPress SDLKeyboardDriver::GetKeyPress() {
             kp.key = event.text.text[0];
             logger->Debug("SDL_EVENT_TEXT_INPUT, event.text.text=%s", event.text.text);
             return kp;
-        }  else {
-//            auto logger = gnilk::Logger::GetLogger("SDLKeyboardDriver");
-//            logger->Debug("Unhandled event: %d (0x%.x)", event.type, event.type);
+        }  else if (event.type == SDL_EventType::SDL_EVENT_WINDOW_RESIZED){
+            logger->Debug("SDL_EVENT_WINDOW_RESIZED");
+            RuntimeConfig::Instance().Screen()->OnSizeChanged();
+        } else {
+            logger->Debug("Unhandled event: %d (0x%.x)", event.type, event.type);
         }
     }
     return {};

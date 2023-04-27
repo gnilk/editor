@@ -257,12 +257,12 @@ int main(int argc, const char **argv) {
     //  |                                           |
     RootView rootView;
 
-    auto hSplitView = HSplitViewStatus(dimensions);
-    rootView.AddView(&hSplitView);
+    HSplitViewStatus hSplitViewStatus;
+    rootView.AddView(&hSplitViewStatus);
 
 
     auto cmdView = CommandView();
-    hSplitView.SetLower(&cmdView);
+    hSplitViewStatus.SetLower(&cmdView);
 
     auto vStackViewEditor = VStackView();   // This is where the editor and the 'FileHeader' lives, they are stacked vertically
     auto editorHeaderView = EditorHeaderView();
@@ -314,7 +314,7 @@ int main(int argc, const char **argv) {
 
     RuntimeConfig::Instance().SetRootView(&rootView);
 
-    hSplitView.SetUpper(&hStackViewUpper);
+    hSplitViewStatus.SetUpper(&hStackViewUpper);
 
     rootView.AddTopView(&editorView);
     rootView.AddTopView(&cmdView);

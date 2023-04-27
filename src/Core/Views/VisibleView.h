@@ -10,6 +10,10 @@ namespace gedit {
     // This implements the common Init/ReInit needed by basically all VisibleViews
     class VisibleView : public ViewBase {
     public:
+        VisibleView() = default;
+        explicit VisibleView(const Rect &rect) : ViewBase(rect) {
+
+        }
         virtual ~VisibleView() = default;
         void InitView() override;
         void ReInitView() override;

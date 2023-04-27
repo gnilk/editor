@@ -21,7 +21,7 @@ namespace gedit {
     public:
         ViewBase() = default;
         explicit ViewBase(const Rect &rect) : viewRect(rect) {
-
+            hasExplicitSize = true;
         }
         virtual ~ViewBase() = default;
 
@@ -35,6 +35,7 @@ namespace gedit {
 
         virtual void SetViewRect(const Rect &rect) {
             viewRect = rect;
+            hasExplicitSize = true;
         }
 
         virtual Rect GetViewRect() {
@@ -198,17 +199,20 @@ namespace gedit {
             OnKeyPress(keyPress);
         }
 
-        // TESTING ACTIONS!!!!
         virtual bool OnAction(const KeyPressAction &action) {
             return false;
         }
 
         virtual void PostMessage(MessageCallback callback) final;
         virtual int ProcessMessageQueue() final;
-        // END OF ACTION TEST
 
         void CloseModal() {
             SetActive(false);
+        }
+
+        virtual void Resize() final {
+            DoResize();
+            Initialize();
         }
 
         //
@@ -237,16 +241,27 @@ namespace gedit {
         // Called when view proprties (like size, and so forth) has changed and you
         // need to reinitialize/move or other wise fiddle with the underlying graphical subsystem
         virtual void ReInitView() {
-
         }
         // You should override these to draw your contents
         virtual void DrawViewContents() {
 
         }
     private:
+        void DoResize() {
+            // unless the user has set the size explicitly, we clear it...
+            if (!hasExplicitSize) {
+                viewRect = {};
+            }
+
+            ReInitView();
+            for(auto &view : subviews) {
+                view->DoResize();
+            }
+        }
+
         void DoInitialize() {
             InitView();
-            for(auto view : subviews) {
+            for(auto &view : subviews) {
                 view->Initialize();
             }
             isInitialized = true;
@@ -254,7 +269,7 @@ namespace gedit {
         }
         void DoReInitialize() {
             ReInitView();
-            for(auto view : subviews) {
+            for(auto &view : subviews) {
                 view->Initialize();
             }
             isInitialized = true;
@@ -262,6 +277,7 @@ namespace gedit {
         }
 
     protected:
+        bool hasExplicitSize = false;  // Won't be affected by resize
         bool isActive = false;  // If receiving keyboard/mouse input
         bool isVisible = true; // If subject to draw-call's
         Cursor cursor = {};

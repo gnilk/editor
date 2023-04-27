@@ -48,7 +48,8 @@ bool Editor::Initialize(int argc, const char **argv) {
         return true;
     }
     ConfigureLogger();
-
+    // Makes it easier to detect starting in file-appending log-file...
+    logger->Debug("*************** EDITOR STARTING ***************");
     LoadConfig("config.yml");
 
     // Language configuration must currently be done before we load editor models

@@ -34,6 +34,11 @@ namespace gedit {
         WindowBase *CreateWindow(const gedit::Rect &rect, WindowBase::kWinFlags flags, WindowBase::kWinDecoration decoFlags) override;
         WindowBase *UpdateWindow(WindowBase *window, const gedit::Rect &rect, WindowBase::kWinFlags flags, WindowBase::kWinDecoration decoFlags) override;
         Rect Dimensions() override;
+        void OnSizeChanged() override;
+    private:
+        void ComputeScalingFactors();
+        void CreateTextures();
+
     private:
         SDL_Window* window = nullptr;
         SDL_Renderer* renderer = nullptr;

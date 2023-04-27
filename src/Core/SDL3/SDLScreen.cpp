@@ -57,16 +57,13 @@ bool SDLScreen::Open() {
 
     SDL_Init(SDL_INIT_VIDEO);
     // FIXME: restore window size!
-    window = SDL_CreateWindow("gedit", widthPixels, heightPixels,  SDL_WINDOW_OPENGL);
+    window = SDL_CreateWindow("gedit", widthPixels, heightPixels,  SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
     renderer = SDL_CreateRenderer(window, nullptr, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
     auto displayId = SDL_GetDisplayForWindow(window);
     auto displayMode = SDL_GetDesktopDisplayMode(displayId);
 
-    logger->Debug("Resolution: %d x %d", widthPixels, heightPixels);
-    logger->Debug("Display, pixels: %d x %d (scale: %f)", displayMode->pixel_w, displayMode->pixel_h, displayMode->display_scale);
-    logger->Debug("Display, points: %d x %d\n", displayMode->screen_w, displayMode->screen_h);
     logger->Debug("Loading font: '%s'", fontName.c_str());
 
     // FIXME: Font handling should not be here
@@ -77,6 +74,27 @@ bool SDLScreen::Open() {
     }
 
     SDLFontManager::Instance().SetActiveFont(font);
+
+    ComputeScalingFactors();
+    CreateTextures();
+
+    return true;
+}
+
+// This is called also from resize...
+void SDLScreen::ComputeScalingFactors() {
+    auto logger = gnilk::Logger::GetLogger("SDLScreen");
+
+    auto displayId = SDL_GetDisplayForWindow(window);
+    auto displayMode = SDL_GetDesktopDisplayMode(displayId);
+
+    SDL_GetWindowSize(window, &widthPixels, &heightPixels);
+
+    logger->Debug("Resolution: %d x %d", widthPixels, heightPixels);
+    logger->Debug("Display, pixels: %d x %d (scale: %f)", displayMode->pixel_w, displayMode->pixel_h, displayMode->display_scale);
+    logger->Debug("Display, points: %d x %d\n", displayMode->screen_w, displayMode->screen_h);
+
+    auto font = SDLFontManager::Instance().GetActiveFont();
 
     float line_margin = Config::Instance()["sdl3"].GetInt("line_margin", 4);
     line_margin *= displayMode->display_scale;
@@ -90,8 +108,8 @@ bool SDLScreen::Open() {
     cols = widthPixels / fontWidthAverage;
 
     logger->Debug("Font scaling factors:");
-    logger->Debug("  Height: %d px (font: %d, line margin: %f)", font->baseline + line_margin, font->baseline, line_margin);
-    logger->Debug("  Width : %d px (based on average widht for '%s')", fontWidthAverage, textToMeasure.c_str());
+    logger->Debug("  Height: %d px (font: %d, line margin: %f)", (int)(font->baseline + line_margin), font->baseline, line_margin);
+    logger->Debug("  Width : %d px (based on average widht for '%s')", (int)fontWidthAverage, textToMeasure.c_str());
 
     logger->Debug("Text to Graphics defined as");
     cols *= displayMode->display_scale;
@@ -101,17 +119,39 @@ bool SDLScreen::Open() {
     // Setup translation
     SDLTranslate::fac_x_to_rc = (float)cols / (float)(widthPixels * displayMode->display_scale);
     SDLTranslate::fac_y_to_rc = (float)rows / (float)(heightPixels * displayMode->display_scale);
+}
 
+void SDLScreen::CreateTextures() {
 
+    SDL_GetWindowSize(window, &widthPixels, &heightPixels);
 
+    if (screenAsSurface != nullptr) {
+        SDL_DestroySurface(screenAsSurface);
+    }
+    if (screenAsTexture != nullptr) {
+        SDL_DestroyTexture(screenAsTexture);
+    }
     screenAsSurface = SDL_CreateSurface(widthPixels, heightPixels, SDL_PIXELFORMAT_RGBA32);
     screenAsTexture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, widthPixels, heightPixels);
-
-//    screenAsTexture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_TARGET,widthPixels, heightPixels);
-
-
-    return true;
 }
+
+
+
+void SDLScreen::OnSizeChanged() {
+    auto logger = gnilk::Logger::GetLogger("SDLScreen");
+    logger->Debug("Size changed!!!");
+    logger->Debug("Recomputing scaling factors and recreating tetxures");
+    ComputeScalingFactors();
+    CreateTextures();
+    logger->Debug("ReInitialize UI!");
+    RuntimeConfig::Instance().GetRootView().Resize();
+    RuntimeConfig::Instance().GetRootView().InvalidateAll();
+
+    // This a mechanism we can use to trigger a redraw in the main run-loop..
+    // Just post a message, but we don't care about the callback - so an empty lambda..
+    RuntimeConfig::Instance().GetRootView().PostMessage([](){});
+}
+
 
 void SDLScreen::Close() {
     auto font = SDLFontManager::Instance().GetActiveFont();

@@ -8,23 +8,20 @@
 #include "logger.h"
 #include "ViewBase.h"
 #include "Core/RuntimeConfig.h"
+#include "VisibleView.h"
 
 namespace gedit {
     // Horizontal splitter
-    class HSplitView : public ViewBase {
+    class HSplitView : public VisibleView {
     public:
         HSplitView() = default;
-        explicit HSplitView(const Rect &rect) : ViewBase(rect) {
+        explicit HSplitView(const Rect &rect) : VisibleView(rect) {
 
         }
 
         void InitView() override {
-            auto screen = RuntimeConfig::Instance().Screen();
-            if (viewRect.IsEmpty()) {
-                viewRect = screen->Dimensions();
-            }
+            VisibleView::InitView();
 
-            window = screen->CreateWindow(viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
             window->SetCaption("HSplitView");
 
             if (splitterPos == 0) {
@@ -36,14 +33,10 @@ namespace gedit {
         }
 
         void ReInitView() override {
-            auto screen = RuntimeConfig::Instance().Screen();
-            if (viewRect.IsEmpty()) {
-                viewRect = screen->Dimensions();
-            }
+            VisibleView::ReInitView();
+
             auto logger = gnilk::Logger::GetLogger("HSplitView");
             logger->Debug("ReInitView, Height=%d", viewRect.Height());
-
-            window = screen->UpdateWindow(window, viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
 
             if (splitterPos == 0) {
                 splitterPos = GetContentRect().Height()/2;

@@ -112,9 +112,9 @@ void SDLDrawContext::DrawLineOverlays(int y) const {
         if (y == overlay.end.y) end = overlay.end.x;
     }
 
-    // Fixme: need to verify caller...
-    SDL_SetRenderDrawColor(renderer, 80, 100, 128, 64);
-    FillRect(start, y, end, 1);
+    // FIXME: Color...
+    SDL_SetRenderDrawColor(renderer, 196, 100, 128, 64);
+    FillRect(start, y, end - start, 1, true);
 
 }
 

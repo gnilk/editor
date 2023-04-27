@@ -71,7 +71,7 @@ private:
     float r = 1.0f;
     float g = 1.0f;
     float b = 1.0f;
-    float a = 0.0f; // no transparency, is this really what it means??
+    float a = 1.0f; // no transparency, is this really what it means??
 };
 
 #endif //EDITOR_COLORRGBA_H

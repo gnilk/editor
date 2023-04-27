@@ -24,7 +24,8 @@
     "red2": "hsl(13, 93%, 66%)",
     "white": "hsl(0, 0%, 100%)",
     "white2": "hsl(0, 0%, 97%)",
-    "white3": "hsl(219, 28%, 88%)"
+    "white3": "hsl(219, 28%, 88%)",
+    "selection_alpha" : "alpha(224)"
   },
   "colors" : {
     "globals": {
@@ -58,7 +59,7 @@
       "line_comment": "var(blue6)",
       "block_comment": "var(blue6)",
       "commented_text": "var(blue6)",
-      "selection": "var(blue2)",
+      "selection": "color(var(orange),var(selection_alpha))",
       "funky": "var(white3)"
     },
     "ui": {

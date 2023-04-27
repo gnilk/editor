@@ -12,6 +12,9 @@ using namespace gedit;
 void LineRender::DrawLines(const std::vector<Line::Ref> &lines, int idxTopLine, int idxBottomLine, const Selection &selection) {
     auto rect = dc.GetRect();
 
+    auto contentColors = Config::Instance().GetContentColors();
+
+
     for (int i = idxTopLine; i < idxBottomLine; i++) {
         if (i >= lines.size()) {
             break;
@@ -21,6 +24,9 @@ void LineRender::DrawLines(const std::vector<Line::Ref> &lines, int idxTopLine, 
         auto nCharToPrint = line->Length() > rect.Width() ? rect.Width() : line->Length();
         dc.ClearLine(i - idxTopLine);
         DrawLineWithAttributesAt(0, i - idxTopLine, nCharToPrint, *line, selection);
+
+
+        dc.SetFGColor(contentColors["selection"]);
         dc.DrawLineOverlays(i - idxTopLine);
         line->Release();
     }

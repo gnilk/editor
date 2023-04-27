@@ -113,6 +113,8 @@ SublimeConfigScriptEngine::ScriptValue SublimeConfigColorScript::ExecuteColor(st
         } else {
             printf("Err: Argument type mismatch, adjuster (second) argument must be number or color!\n");
         }
+    } else {
+        return { .vType = kColor, .data = color.Color() };
     }
     return invalidScriptValue;
 }

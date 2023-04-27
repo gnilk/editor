@@ -113,7 +113,8 @@ void SDLDrawContext::DrawLineOverlays(int y) const {
     }
 
     // FIXME: Color...
-    SDL_SetRenderDrawColor(renderer, 196, 100, 128, 64);
+    //SDL_SetRenderDrawColor(renderer, 196, 100, 128, 64);
+    SetRenderColor();
     FillRect(start, y, end - start, 1, true);
 
 }

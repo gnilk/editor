@@ -125,7 +125,6 @@ void Config::SetNamedColorsFromScript(NamedColorConfig &dstColorConfig, const T 
     for(auto &col : globals.items()) {
         if (col.value().is_string()) {
             auto value = col.value().template get<std::string>();
-
             auto [ok, scriptValue] = scriptEngine.ExecuteScript(value);
             if (ok && scriptValue.IsColor()) {
                 dstColorConfig.SetColor(col.key(), scriptValue.Color());

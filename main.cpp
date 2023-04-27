@@ -4,7 +4,6 @@
 /*
  * TO-DO List
  * - Move language parser files to other directory (currently in 'cpp' should be 'languages' or something)
- * - Add an 'Array' kind of block definition to the language token specification
  * - Move EditorController functionality to EditorModel
  * - macOS swaps left/right scancodes between keyboards (laptop has left/right one way my ext.keyboard another)
  *   need to consider a solution for this...
@@ -19,6 +18,7 @@
  * - Unsaved file should have '*' marking in the top..
  *
  * Done:
+ * ! Add an 'Array' kind of block definition to the language token specification
  * ! Make TextBuffer work with shared_ptr<Line> instead of raw Line *
  * ! Make 'CycleActiveView' a left/right function and go through the list of view which can have focus...
  * ! colors, need to fix the color handling!!!
@@ -179,10 +179,6 @@ static void TestKeyBoardDriver() {
         if (kp.IsAnyValid()) {
 
             logger->Debug("KeyPress Valid - checking actions");
-
-            if (kp.isKeyValid) {
-                int breakme = 0;
-            }
 
 
             auto kpAction = KeyMapping::Instance().ActionFromKeyPress(kp);

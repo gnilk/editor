@@ -546,10 +546,6 @@ bool KeyMapping::ParseKeyPressCombinationString(kAction action, const std::strin
     bool isKeyCodeASCII = false;
     int  asciiKeyCode = 0;
 
-    if (action == kAction::kActionCycleActiveViewNext) {
-        int breakme = 1;
-    }
-
     // Split the key combination string to a list of items
     std::vector<std::string> keypressList;
     strutil::split(keypressList, keyPressCombo.c_str(),'+');

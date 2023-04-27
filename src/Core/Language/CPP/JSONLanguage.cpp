@@ -3,23 +3,34 @@
 //
 
 #include "JSONLanguage.h"
+#include "Core/EditorConfig.h"
 
 using namespace gedit;
 
 static const std::string jsonOperatorsFull = ", : [ ] { } \" \'";
 
-static const std::string jsonBlockStart = "{";
-static const std::string jsonBlockEnd = "}";
+// Well, not quite right - but until we have an 'array' classification we use this...
+static const std::string jsonObjectStart = "{";
+static const std::string jsonObjectEnd = "}";
+
+static const std::string jsonArrayStart = "[";
+static const std::string jsonArrayEnd = "]";
 
 static const std::string inStringOp = "\"";
 static const std::string inStringPostFixOp = "\"";
+
+static const std::string jsonKeywords = "true false null";
+
 
 bool JSONLanguage::Initialize() {
 
     auto state = tokenizer.GetOrAddState("main");
     state->SetIdentifiers(kLanguageTokenClass::kOperator, jsonOperatorsFull.c_str());
-    state->SetIdentifiers(kLanguageTokenClass::kCodeBlockStart, jsonBlockStart.c_str());
-    state->SetIdentifiers(kLanguageTokenClass::kCodeBlockEnd, jsonBlockEnd.c_str());
+    state->SetIdentifiers(kLanguageTokenClass::kKeyword, jsonKeywords.c_str());
+    state->SetIdentifiers(kLanguageTokenClass::kCodeBlockStart, jsonObjectStart.c_str());
+    state->SetIdentifiers(kLanguageTokenClass::kCodeBlockEnd, jsonObjectEnd.c_str());
+    state->SetIdentifiers(kLanguageTokenClass::kArrayStart, jsonArrayStart.c_str());
+    state->SetIdentifiers(kLanguageTokenClass::kArrayEnd, jsonArrayEnd.c_str());
 //    state->SetPostFixIdentifiers(jsonOperatorsFull.c_str());
 
     state->GetOrAddAction("\"",LangLineTokenizer::kAction::kPushState, "in_string");
@@ -33,4 +44,31 @@ bool JSONLanguage::Initialize() {
     tokenizer.SetStartState("main");
 
     return true;
+}
+
+void JSONLanguage::OnPreInsertChar(Cursor &cursor, Line::Ref line, int ch) {
+    // FIXME: This needs much more logic...
+    if (ch == '}') {
+        // FIXME: Check if line is 'empty' up-to x-pos
+        cursor.position.x -= EditorConfig::Instance().tabSize;
+        if (cursor.position.x < 0) {
+            cursor.position.x = 0;
+        }
+    } else if (ch == ']') {
+        // FIXME: Check if line is 'empty' up-to x-pos
+        cursor.position.x -= EditorConfig::Instance().tabSize;
+        if (cursor.position.x < 0) {
+            cursor.position.x = 0;
+        }
+    }
+}
+
+void JSONLanguage::OnPostInsertChar(Cursor &cursor, Line::Ref line, int ch) {
+    if (ch == '{') {
+        // FIXME: Check if chars to right are whitespace...
+        line->Insert(cursor.position.x, '}');
+    } else if (ch == '[') {
+        // FIXME: Check if chars to right are whitespace...
+        line->Insert(cursor.position.x, ']');
+    }
 }

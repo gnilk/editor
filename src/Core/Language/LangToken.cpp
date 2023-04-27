@@ -30,6 +30,8 @@ static const std::unordered_map<kLanguageTokenClass, std::string> tokenNames = {
         {kLanguageTokenClass::kCommentedText,"commented_text"},
         {kLanguageTokenClass::kCodeBlockStart,"operator"},
         {kLanguageTokenClass::kCodeBlockEnd,"operator"},
+        {kLanguageTokenClass::kArrayStart,"operator"},
+        {kLanguageTokenClass::kArrayEnd,"operator"},
         {kLanguageTokenClass::kFunky,"funky"},
 };
 

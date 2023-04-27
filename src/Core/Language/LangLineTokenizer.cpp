@@ -53,10 +53,17 @@ void LangLineTokenizer::ParseLines(std::vector<Line::Ref> &lines) {
         l->SetStateStackDepth((int)stateStack.size());
         ParseLineWithCurrentState(tokens, l->Buffer().data());
         // Indent handling
-        if (std::find(tokens.begin(), tokens.end(), kLanguageTokenClass::kCodeBlockStart) != std::end(tokens)) {
+//        if (std::find(tokens.begin(), tokens.end(), kLanguageTokenClass::kCodeBlockStart) != std::end(tokens)) {
+//            indentCounter++;
+//        }
+        if (std::find_if(tokens.begin(), tokens.end(), [](LangToken &tClass)->bool {
+            return ((tClass == kLanguageTokenClass::kCodeBlockStart) | (tClass == kLanguageTokenClass::kArrayStart));
+        }) != std::end(tokens)) {
             indentCounter++;
         }
-        if (std::find(tokens.begin(), tokens.end(), kLanguageTokenClass::kCodeBlockEnd) != std::end(tokens)) {
+        if (std::find_if(tokens.begin(), tokens.end(), [](LangToken &tClass)->bool {
+            return ((tClass == kLanguageTokenClass::kCodeBlockEnd) | (tClass == kLanguageTokenClass::kArrayEnd));
+        }) != std::end(tokens)) {
             indentCounter--;
             // NOTE: This can happen during editing when inserting multiple like: { } } }
             if (indentCounter < 0) {

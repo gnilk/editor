@@ -34,7 +34,7 @@ bool EditController::HandleKeyPress(Cursor &cursor, size_t idxLine, const KeyPre
     if (keyPress.IsHumanReadable()) {
         textBuffer->LangParser().OnPreInsertChar(cursor, line, keyPress.key);
     }
-    if (DefaultEditLine(cursor, line, keyPress)) {
+    if (DefaultEditLine(cursor, line, keyPress, false)) {
         if (keyPress.IsHumanReadable()) {
             textBuffer->LangParser().OnPostInsertChar(cursor, line, keyPress.key);
         }

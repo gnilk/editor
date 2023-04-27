@@ -151,7 +151,9 @@ void EditorView::OnKeyPress(const KeyPress &keyPress) {
         InvalidateView();
         return;
     }
+
     if (editorModel->HandleKeyPress(keyPress)) {
+        InvalidateView();
         return;
     }
 

@@ -12,12 +12,19 @@ bool EditorModel::HandleKeyPress(const gedit::KeyPress &keyPress) {
     auto line = textBuffer->LineAt(idxActiveLine);
     switch (keyPress.specialKey) {
         case Keyboard::kKeyCode_DeleteForward :
-            if ((cursor.position.x == line->Length()) && ((idxActiveLine+1) < textBuffer->NumLines())) {
+            if (IsSelectionActive()) {
+                DeleteSelection();
+                CancelSelection();
 
-                auto next = textBuffer->LineAt(idxActiveLine+1);
-                line->Append(next);
-                textBuffer->DeleteLineAt(idxActiveLine+1);
-                wasHandled = true;
+            } else {
+                if ((cursor.position.x == line->Length()) && ((idxActiveLine + 1) < textBuffer->NumLines())) {
+
+
+                    auto next = textBuffer->LineAt(idxActiveLine + 1);
+                    line->Append(next);
+                    textBuffer->DeleteLineAt(idxActiveLine + 1);
+                    wasHandled = true;
+                }
             }
             break;
         case Keyboard::kKeyCode_Backspace :
@@ -60,6 +67,28 @@ void EditorModel::MoveLineUp() {
     textBuffer->DeleteLineAt(idxActiveLine);
     idxActiveLine--;
     cursor.position.y--;
+}
+
+void EditorModel::DeleteSelection() {
+    auto startPos = currentSelection.GetStart();
+    auto endPos = currentSelection.GetEnd();
+
+    int yStart = startPos.y;
+    int yEnd = endPos.y;
+    if (startPos.x > 0) {
+        yStart++;
+    }
+    if (endPos.x > 0) {
+        yEnd--;
+    }
+    for(int lineIndex = yStart;lineIndex < yEnd; lineIndex++) {
+        // delete line = lineIndex;
+        textBuffer->DeleteLineAt(yStart);
+    }
+    idxActiveLine = yStart;
+    cursor.position.y = yStart;
 
 }
+
+
 

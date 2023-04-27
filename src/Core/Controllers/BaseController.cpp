@@ -12,11 +12,17 @@ using namespace gedit;
 //
 // Note: This is all wrong... need to update this one...
 //
-bool BaseController::DefaultEditLine(Cursor &cursor, Line::Ref line, const KeyPress &keyPress) {
+bool BaseController::DefaultEditLine(Cursor &cursor, Line::Ref line, const KeyPress &keyPress, bool handleSpecialKeys) {
     if (keyPress.IsHumanReadable()) {
         AddCharToLine(cursor, line, keyPress.key);
         return true;
     }
+    if (!handleSpecialKeys) {
+        return false;
+    }
+    return DefaultEditSpecial(cursor, line, keyPress);
+}
+bool BaseController::DefaultEditSpecial(Cursor &cursor, Line::Ref line, const KeyPress &keyPress) {
     bool wasHandled = false;
     // We don't handle any modifiers!!!
     if ((keyPress.isSpecialKey) && (keyPress.modifiers == 0)) {
@@ -51,6 +57,7 @@ bool BaseController::DefaultEditLine(Cursor &cursor, Line::Ref line, const KeyPr
     }
     return wasHandled;
 }
+
 
 void BaseController::AddCharToLine(Cursor &cursor, Line::Ref line, int ch) {
     line->Insert(cursor.position.x, ch);

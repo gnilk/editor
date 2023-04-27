@@ -150,6 +150,7 @@ namespace gedit {
         const Selection &GetSelection() const {
             return currentSelection;
         }
+        void DeleteSelection();
     private:
         void MoveLineUp();
     public:

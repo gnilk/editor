@@ -94,7 +94,7 @@ namespace gedit {
         static Config &Instance();
 
         void RegisterLanguage(const std::string &extension, LanguageBase *languageBase);
-        LanguageBase *GetLanguageForFilename(const std::string &extension);
+        LanguageBase *GetLanguageForExtension(const std::string &extension);
 
         // Load configuration include theme and color files
         bool LoadConfig(const std::string &filename);

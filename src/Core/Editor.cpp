@@ -4,6 +4,7 @@
 
 #include <vector>
 #include <string>
+#include <filesystem>
 
 #include "Editor.h"
 #include "Core/BufferManager.h"
@@ -117,7 +118,10 @@ EditorModel::Ref Editor::LoadEditorModelFromFile(const char *filename) {
     }
     logger->Debug("End Loading");
 
-    textBuffer->SetLanguage(Config::Instance().GetLanguageForFilename(filename));
+
+    std::filesystem::path pathName(filename);
+    auto extension = pathName.extension();
+    textBuffer->SetLanguage(Config::Instance().GetLanguageForExtension(extension));
 
     EditController::Ref editController = std::make_shared<EditController>();
     EditorModel::Ref editorModel = std::make_shared<EditorModel>();

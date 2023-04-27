@@ -40,8 +40,12 @@ void Config::RegisterLanguage(const std::string &extension, LanguageBase *langua
     extToLanguages[extension] = languageBase;
 }
 
-LanguageBase *Config::GetLanguageForFilename(const std::string &extension) {
-    return extToLanguages[".cpp"];
+LanguageBase *Config::GetLanguageForExtension(const std::string &extension) {
+
+    if (extToLanguages.find(extension) == extToLanguages.end()) {
+        return nullptr;
+    }
+    return extToLanguages[extension];
 }
 
 

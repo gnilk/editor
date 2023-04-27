@@ -3,6 +3,8 @@
 //
 /*
  * TO-DO List
+ * - Move language parser files to other directory (currently in 'cpp' should be 'languages' or something)
+ * - Add an 'Array' kind of block definition to the language token specification
  * - Move EditorController functionality to EditorModel
  * - macOS swaps left/right scancodes between keyboards (laptop has left/right one way my ext.keyboard another)
  *   need to consider a solution for this...

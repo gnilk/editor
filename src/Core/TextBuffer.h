@@ -65,7 +65,7 @@ namespace gedit {
             return name;
         }
 
-        void SetLanguage(LanguageBase *newLanguage) {
+        void SetLanguage(LanguageBase::Ref newLanguage) {
             language = newLanguage;
             Reparse();
         }
@@ -84,7 +84,7 @@ namespace gedit {
         std::string name;
         //std::vector<Line *> lines;
         std::vector<Line::Ref> lines;
-        LanguageBase *language = nullptr;
+        LanguageBase::Ref language = nullptr;
         std::thread *reparseThread = nullptr;
 
         bool bQuitReparse = false;

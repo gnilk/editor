@@ -16,7 +16,7 @@ static const std::string cppKeywords = "auto typedef class struct static enum fo
 static const std::string cppOperators = "== ++ -- << >> <= >= != += -= *= /= &= ^= |= -> && || :: ^ & ? : ! . = + - < > ( , * / ) [ ] < > ; ' \"";
 // The full operator set is used to identify post-fix operators but not used for classification..
 // missing: % and %=
-static const std::string cppOperatorsFull = "== ++ -- << >> <= >= != += -= *= /= &= ^= |= :: /* */ // -> && || ^ & ? : ! . = + - < > ( , * / ) [ ] < > ; ' { } \"";
+static const std::string cppOperatorsFull = "== ++ -- << >> <= >= != += -= *= /= &= ^= |= :: /* */ // -> && || ^ & ? : ! . = + - < > ( , * / ) [ ] < > ; ' { } \" \'";
 static const std::string cppLineComment = "//";
 static const std::string cppCodeBlockStart = "{";
 static const std::string cppCodeBlockEnd = "}";

@@ -13,6 +13,10 @@ namespace gedit {
         CPPLanguage() = default;
         virtual ~CPPLanguage() = default;
 
+        static LanguageBase::Ref Create() {
+            return std::make_shared<CPPLanguage>();
+        }
+
         bool Initialize() override;
         const std::string &Identifier() override {
             static std::string cppIdentifier = "c/c++";

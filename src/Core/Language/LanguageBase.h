@@ -8,9 +8,12 @@
 #include "LangLineTokenizer.h"
 #include "Core/Cursor.h"
 #include "Core/Line.h"
+#include <memory>
 
 namespace gedit {
     class LanguageBase {
+    public:
+        using Ref = std::shared_ptr<LanguageBase>;
     public:
         LanguageBase() = default;
         virtual ~LanguageBase() = default;

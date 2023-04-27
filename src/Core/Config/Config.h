@@ -93,8 +93,8 @@ namespace gedit {
     public:
         static Config &Instance();
 
-        void RegisterLanguage(const std::string &extension, LanguageBase *languageBase);
-        LanguageBase *GetLanguageForExtension(const std::string &extension);
+        void RegisterLanguage(const std::string &extension, LanguageBase::Ref languageBase);
+        LanguageBase::Ref GetLanguageForExtension(const std::string &extension);
 
         // Load configuration include theme and color files
         bool LoadConfig(const std::string &filename);
@@ -133,7 +133,7 @@ namespace gedit {
 
         void SetDefaultsIfMissing();
 
-        std::unordered_map<std::string, LanguageBase *> extToLanguages;
+        std::unordered_map<std::string, LanguageBase::Ref> extToLanguages;
 
     };
 }

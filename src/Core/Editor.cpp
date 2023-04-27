@@ -15,6 +15,7 @@
 
 #include "Core/Language/LanguageBase.h"
 #include "Core/Language/CPP/CPPLanguage.h"
+#include "Core/Language/CPP/JSONLanguage.h"
 
 // NCurses backend
 #include "Core/NCurses/NCursesScreen.h"
@@ -155,9 +156,14 @@ bool Editor::LoadConfig(const char *configFile) {
 
 void Editor::ConfigureLanguages() {
     logger->Debug("Configuring language parser(s)");
-    auto cppLanguage = new CPPLanguage();
+    auto cppLanguage = CPPLanguage::Create();
     cppLanguage->Initialize();
     Config::Instance().RegisterLanguage(".cpp", cppLanguage);
+
+    auto jsonLanguage = JSONLanguage::Create();
+    jsonLanguage->Initialize();
+    Config::Instance().RegisterLanguage(".json", jsonLanguage);
+
 }
 
 // FIXME: this is using the kLanguageTokenClass as the color mapping index - this was lazy - and is not good...

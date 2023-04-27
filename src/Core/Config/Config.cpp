@@ -36,11 +36,11 @@ Config &Config::Instance() {
     return glbConfig;
 }
 
-void Config::RegisterLanguage(const std::string &extension, LanguageBase *languageBase) {
+void Config::RegisterLanguage(const std::string &extension, LanguageBase::Ref languageBase) {
     extToLanguages[extension] = languageBase;
 }
 
-LanguageBase *Config::GetLanguageForExtension(const std::string &extension) {
+LanguageBase::Ref Config::GetLanguageForExtension(const std::string &extension) {
 
     if (extToLanguages.find(extension) == extToLanguages.end()) {
         return nullptr;

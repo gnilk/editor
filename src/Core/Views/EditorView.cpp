@@ -157,6 +157,12 @@ void EditorView::OnKeyPress(const KeyPress &keyPress) {
         return;
     }
 
+    // This handles regular backspace/delete/home/end (which are default actions for any single-line editing)
+    if (editorModel->GetEditController()->DefaultEditSpecial(editorModel->cursor, editorModel->LineAt(editorModel->idxActiveLine), keyPress)) {
+        InvalidateView();
+        return;
+    }
+
     // It was not to us..
     ViewBase::OnKeyPress(keyPress);
 }

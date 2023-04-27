@@ -16,16 +16,14 @@ bool EditorModel::HandleKeyPress(const gedit::KeyPress &keyPress) {
                 DeleteSelection();
                 CancelSelection();
 
-            } else {
-                if ((cursor.position.x == line->Length()) && ((idxActiveLine + 1) < textBuffer->NumLines())) {
-
-
+            } else if ((cursor.position.x == line->Length()) && ((idxActiveLine + 1) < textBuffer->NumLines())) {
                     auto next = textBuffer->LineAt(idxActiveLine + 1);
                     line->Append(next);
                     textBuffer->DeleteLineAt(idxActiveLine + 1);
-                    wasHandled = true;
-                }
+            } else {
+                wasHandled = false;
             }
+
             break;
         case Keyboard::kKeyCode_Backspace :
             if ((cursor.position.x == 0) && (idxActiveLine > 0)) {

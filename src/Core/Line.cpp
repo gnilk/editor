@@ -144,3 +144,7 @@ Line::LineAttribIterator Line::AttributeAt(int pos) {
     // Not sure...
     return attribs.begin();
 }
+
+bool Line::StartsWith(const std::string &prefix) {
+    return strutil::startsWith(buffer, prefix);
+}

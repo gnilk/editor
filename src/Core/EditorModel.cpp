@@ -88,5 +88,32 @@ void EditorModel::DeleteSelection() {
 
 }
 
+void EditorModel::CommentSelectionOrLine() {
+    if (!IsSelectionActive()) {
+        auto line = LineAt(idxActiveLine);
+        if (!line->StartsWith("//")) {
+            line->Insert(0, 2, '/');
+        } else {
+            line->Delete(0,2);
+        }
+        textBuffer->Reparse();
+        return;
+    }
+    auto start = currentSelection.GetStart();
+    auto end = currentSelection.GetEnd();
+    int y = start.y;
+    while (y < end.y) {
+        auto line = LineAt(y);
+        if (!line->StartsWith("//")) {
+            line->Insert(0, 2, '/');
+        } else {
+            line->Delete(0,2);
+        }
+        y++;
+    }
+    textBuffer->Reparse();
+
+}
+
 
 

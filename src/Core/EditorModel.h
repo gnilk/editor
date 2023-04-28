@@ -15,6 +15,7 @@
 namespace gedit {
 
     class EditorModel;
+    // NOTE: Selection coordinates are in TextBuffer coordinates!!!!!
     struct Selection {
         friend EditorModel;
         bool IsSelected(int x, int y) {
@@ -151,6 +152,8 @@ namespace gedit {
             return currentSelection;
         }
         void DeleteSelection();
+
+        void CommentSelectionOrLine();
     private:
         void MoveLineUp();
     public:

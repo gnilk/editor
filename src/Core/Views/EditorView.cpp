@@ -176,11 +176,6 @@ bool EditorView::OnAction(const KeyPressAction &kpAction) {
             logger->Debug("Shift pressed, selection inactive - BeginSelection");
             editorModel->BeginSelection();
         }
-    } else {
-        if (editorModel->IsSelectionActive()) {
-            logger->Debug("Shift pressed, selection active - cancelling selection");
-            editorModel->CancelSelection();
-        }
     }
 
     // This is convoluted - will be dealt with when copy/paste works...
@@ -197,11 +192,26 @@ bool EditorView::OnAction(const KeyPressAction &kpAction) {
         } else {
             logger->Debug("No text in clipboard");
         }
+    } else if (kpAction.action == kAction::kActionInsertLineComment) {
+        // Handle this here since we want to keep the selection...
+        editorModel->CommentSelectionOrLine();
     }
 
     auto result = DispatchAction(kpAction);
 
-    // Update with cursor after navigation (if any happened)
+    // FIXME: Not sure this is the correct thing to do...
+
+    if ((kpAction.modifier != kModifier::kModifierSelection) && result && editorModel->IsSelectionActive()) {
+        editorModel->CancelSelection();
+    }
+//        if (editorModel->IsSelectionActive()) {
+//            logger->Debug("Shift pressed, selection active - cancelling selection");
+//
+//        }
+
+
+
+        // Update with cursor after navigation (if any happened)
     if (editorModel->IsSelectionActive()) {
         editorModel->UpdateSelection();
         logger->Debug(" Selection is Active, start=(%d:%d), end=(%d:%d)",

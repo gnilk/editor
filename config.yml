@@ -59,6 +59,7 @@ keymap: {
       CycleActiveViewPrev : "UINavigationModifier + '['",
       CycleActiveEditor : KeyCode_F3,
       CommitLine : KeyCode_Return,
+      CommentLine: CopyPasteModifier + '/'
       # This doesn't work unless we are in modal-mode..
       # CloseModal : KeyCode_Escape,
     }

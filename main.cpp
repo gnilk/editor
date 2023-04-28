@@ -3,8 +3,9 @@
 //
 /*
  * TO-DO List
- * - Move language parser files to other directory (currently in 'cpp' should be 'languages' or something)
+ * - Add action to 'Comment Selection'
  * - Move EditorController functionality to EditorModel
+ * - Make a proper 'project' viewer
  * - macOS swaps left/right scancodes between keyboards (laptop has left/right one way my ext.keyboard another)
  *   need to consider a solution for this...
  * - Swap out the vertical navigation code in EditorView for the 'VerticalNavigationModel'
@@ -18,6 +19,7 @@
  * - Unsaved file should have '*' marking in the top..
  *
  * Done:
+ * ! Move language parser files to other directory (currently in 'cpp' should be 'languages' or something)
  * ! Add an 'Array' kind of block definition to the language token specification
  * ! Make TextBuffer work with shared_ptr<Line> instead of raw Line *
  * ! Make 'CycleActiveView' a left/right function and go through the list of view which can have focus...
@@ -90,38 +92,18 @@
  * ! Rewrote the view/window handling tossed out the old layout thingie
  */
 #include <SDL3/SDL_keyboard.h>
-#include <iostream>
-#include <ncurses.h>
-#include <string_view>
 #include <vector>
 
 
-#include "Core/macOS/MacOSKeyboardMonitor.h"
-
-#include "Core/NCurses/NCursesScreen.h"
-#include "Core/NCurses/NCursesKeyboardDriver.h"
-
-#include "Core/Line.h"
-#include "Core/ScreenBase.h"
-#include "Core/EditorConfig.h"
-#include "Core/StrUtil.h"
-#include "Core/Cursor.h"
-#include "Core/KeyCodes.h"
-#include "Core/KeyboardDriverBase.h"
-#include "Core/Config/Config.h"
-#include "Core/KeyMapping.h"
-
-
-
-#include "Core/RuntimeConfig.h"
-#include "Core/NCurses/NCursesKeyboardDriver.h"
-#include "Core/macOS/MacOSKeyboardMonitor.h"
-
-#include "Core/BufferManager.h"
-#include "Core/TextBuffer.h"
-
 #include "Core/Editor.h"
 #include "Core/KeyMapping.h"
+#include "Core/Runloop.h"
+#include "Core/StrUtil.h"
+#include "Core/KeyCodes.h"
+#include "logger.h"
+
+#include "Core/RuntimeConfig.h"
+
 // Bring in the view handling
 #include "Core/Views/ViewBase.h"
 #include "Core/Views/GutterView.h"
@@ -135,15 +117,8 @@
 #include "Core/Views/EditorHeaderView.h"
 #include "Core/Views/HSplitViewStatus.h"
 
-#include "Core/Action.h"
-#include "Core/Runloop.h"
-
-#include "logger.h"
-#include <map>
-#include "Core/API/EditorAPI.h"
-#include "Core/Views/ModalView.h"
-#include "Core/Views/ListSelectionModal.h"
 #include "Core/Views/TreeSelectionModal.h"
+
 using namespace gedit;
 
 

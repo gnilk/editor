@@ -56,6 +56,8 @@ namespace gedit {
             return selected;
         }
 
+        bool StartsWith(const std::string &prefix);
+
         const size_t Length() const { return buffer.size(); }
         const std::string_view Buffer() const { return buffer.c_str(); }
 

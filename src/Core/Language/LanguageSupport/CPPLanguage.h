@@ -17,6 +17,12 @@ namespace gedit {
             return std::make_shared<CPPLanguage>();
         }
 
+        const std::string_view &GetLineComment() override {
+            static constexpr std::string_view lineCommentPrefix("//");
+            return lineCommentPrefix;
+        }
+
+
         bool Initialize() override;
         const std::string &Identifier() override {
             static std::string cppIdentifier = "c/c++";

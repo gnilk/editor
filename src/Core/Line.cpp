@@ -66,11 +66,19 @@ void Line::Insert(int at, int ch) {
     std::lock_guard<std::mutex> guard(lock);
     buffer.insert(at, 1, ch);
 }
+
+void Line::Insert(int at, const std::string_view &srcdata) {
+    std::lock_guard<std::mutex> guard(lock);
+    buffer.insert(at, srcdata);
+}
+
 int Line::Insert(int at, int n, int ch) {
     std::lock_guard<std::mutex> guard(lock);
     buffer.insert(at, n, ch);
     return n;
 }
+
+
 void Line::Move(Line::Ref dst, int dstOfs, int srcOfs, int nChar) {
     std::lock_guard<std::mutex> guard(lock);
 
@@ -146,5 +154,10 @@ Line::LineAttribIterator Line::AttributeAt(int pos) {
 }
 
 bool Line::StartsWith(const std::string &prefix) {
+    std::lock_guard<std::mutex> guard(lock);
     return strutil::startsWith(buffer, prefix);
+}
+bool Line::StartsWith(const std::string_view &prefix) {
+    std::lock_guard<std::mutex> guard(lock);
+    return strutil::startsWith(buffer, prefix.data());
 }

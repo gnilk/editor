@@ -89,10 +89,19 @@ void EditorModel::DeleteSelection() {
 }
 
 void EditorModel::CommentSelectionOrLine() {
+
+    if (!textBuffer->HaveLanguage()) {
+        return;
+    }
+    auto lineCommentPrefix = textBuffer->LangParser().GetLineComment();
+    if (lineCommentPrefix.empty()) {
+        return;
+    }
+
     if (!IsSelectionActive()) {
         auto line = LineAt(idxActiveLine);
-        if (!line->StartsWith("//")) {
-            line->Insert(0, 2, '/');
+        if (!line->StartsWith(lineCommentPrefix)) {
+            line->Insert(0, lineCommentPrefix);
         } else {
             line->Delete(0,2);
         }
@@ -104,8 +113,8 @@ void EditorModel::CommentSelectionOrLine() {
     int y = start.y;
     while (y < end.y) {
         auto line = LineAt(y);
-        if (!line->StartsWith("//")) {
-            line->Insert(0, 2, '/');
+        if (!line->StartsWith(lineCommentPrefix)) {
+            line->Insert(0, lineCommentPrefix);
         } else {
             line->Delete(0,2);
         }

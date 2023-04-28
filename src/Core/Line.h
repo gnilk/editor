@@ -36,8 +36,11 @@ namespace gedit {
         void Append(const std::string &srcdata);
         void Append(const char *srcdata);
         void Append(Line::Ref other);
+
         void Insert(int at, int ch);
+        void Insert(int at, const std::string_view &srcdata);
         int Insert(int at, int n, int ch);
+
         void Delete(int at);
         void Move(Line::Ref dst, int dstOfs, int srcOfs, int nChar = -1);
         void Delete(int at, int n);
@@ -57,6 +60,7 @@ namespace gedit {
         }
 
         bool StartsWith(const std::string &prefix);
+        bool StartsWith(const std::string_view &prefix);
 
         const size_t Length() const { return buffer.size(); }
         const std::string_view Buffer() const { return buffer.c_str(); }

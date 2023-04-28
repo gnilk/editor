@@ -25,6 +25,10 @@ namespace gedit {
             return noIdentifier;
         }
         LangLineTokenizer &Tokenizer() { return tokenizer; }
+        virtual const std::string_view &GetLineComment() {
+            static constexpr std::string_view lineCommentPrefix("");
+            return lineCommentPrefix;
+        }
 
         // Not too key on adding dependencies on these things
         virtual void OnPreInsertChar(Cursor &cursor, Line::Ref line, int ch) {}

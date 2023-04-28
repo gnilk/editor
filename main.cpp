@@ -3,7 +3,7 @@
 //
 /*
  * TO-DO List
- * - Add action to 'Comment Selection'
+ * - Something is causing sigsev, I strongly suspect that it is related to threading in Syntax Coloring / Language code
  * - Move EditorController functionality to EditorModel
  * - Make a proper 'project' viewer
  * - macOS swaps left/right scancodes between keyboards (laptop has left/right one way my ext.keyboard another)
@@ -19,6 +19,7 @@
  * - Unsaved file should have '*' marking in the top..
  *
  * Done:
+ * ! Add action to 'Comment Selection'
  * ! Move language parser files to other directory (currently in 'cpp' should be 'languages' or something)
  * ! Add an 'Array' kind of block definition to the language token specification
  * ! Make TextBuffer work with shared_ptr<Line> instead of raw Line *

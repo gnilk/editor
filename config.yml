@@ -3,6 +3,7 @@ main:
   # select the keymap default for the backend
   # 'default' is a reserved word - replace with your file name when forking it...
   keymap: default
+  threaded_syntaxparser: no
 
 macos:
   allow_kbd_hook: yes
@@ -16,6 +17,7 @@ sdl3:
   text_underline_margin: 16
   # this increases the spacing between lines - it is added to the baseline of the font
   line_margin: 4
+  # unused, all is using the 'keymap' section - this considered for the future...
   keymap: "sdl3_default.keymap"
 
 ncurses:

@@ -16,10 +16,9 @@ namespace gedit {
         LineRender(DrawContext &drawContext) : dc(drawContext) {
 
         }
-        void DrawLine(Line::Ref line, int idxLine);
         void DrawLines(const std::vector<Line::Ref> &lines, int idxTopLine, int idxBottomLine, const Selection &selection);
+    protected:
         void DrawLineWithAttributesAt(int x, int y, int nCharToPrint, Line &l, const Selection &selection);
-
     private:
         const DrawContext &dc;
     };

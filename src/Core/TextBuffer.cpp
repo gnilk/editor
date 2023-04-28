@@ -4,6 +4,7 @@
 
 #include "logger.h"
 #include "TextBuffer.h"
+#include "Core/Config/Config.h"
 #include <thread>
 using namespace gedit;
 
@@ -12,14 +13,20 @@ void TextBuffer::Reparse() {
     if (language == nullptr) {
         return;
     }
+    auto useThreads = Config::Instance()["main"].GetBool("threaded_syntaxparser", false);
 
-    if (reparseThread == nullptr) {
-        StartReparseThread();
-        while(state == kState_None) {
-            std::this_thread::yield();
+    if (!useThreads) {
+        auto tokenizer = language->Tokenizer();
+        tokenizer.ParseLines(lines);
+    } else {
+        if (reparseThread == nullptr) {
+            StartReparseThread();
+            while (state == kState_None) {
+                std::this_thread::yield();
+            }
+        } else if (state == kState_Idle) {
+            state = kState_Start;
         }
-    } else if (state == kState_Idle){
-        state = kState_Start;
     }
 }
 void TextBuffer::Close() {

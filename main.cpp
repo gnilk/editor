@@ -3,16 +3,20 @@
 //
 /*
  * TO-DO List
+ * - Start with API work
+ *   - Goal: Javascript function to associate the current buffer with a specific language parser
+ *   - API requires:
+ *     - list installed languages; <array> EditorAPI::GetInstalledLanguages();
+ *     - get a language reference; <LanguageRef> EditorAPI::GetLanguage(<str_identifier>);
+ *     - get current buffer; <TextBufferReference> EditorAPI::GetCurrentTextBuffer();
+ *     - associate language reference with buffer; TextBufferAPI::SetLanguage(<LanguageRef>)
+ *
  * - Something is causing sigsev, I strongly suspect that it is related to threading in Syntax Coloring / Language code
  * - Move EditorController functionality to EditorModel
  * - Make a proper 'project' viewer
  * - macOS swaps left/right scancodes between keyboards (laptop has left/right one way my ext.keyboard another)
  *   need to consider a solution for this...
  * - Swap out the vertical navigation code in EditorView for the 'VerticalNavigationModel'
- * - Embryo for what is needed for the API lies within the ListSelectionModal, example:
- *   - List/Select/Switch buffer (Popup with list of active buffers)
- *   - Open file
- *   - etc..
  * - Make large files > 10k lines read-only, alt. disable reparsing and syntax highlighting for large files..
  *   Disabling syntax can be deduced on-the fly by measuring the reparsing process..
  * - BufferManager should store 'fullPathName' and 'name'

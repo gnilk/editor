@@ -16,6 +16,7 @@
 #include "Core/Language/LanguageBase.h"
 #include "Core/Language/LanguageSupport/CPPLanguage.h"
 #include "Core/Language/LanguageSupport/JSONLanguage.h"
+#include "Core/Language/LanguageSupport/DefaultLanguage.h"
 
 // NCurses backend
 #include "Core/NCurses/NCursesScreen.h"
@@ -56,6 +57,7 @@ bool Editor::Initialize(int argc, const char **argv) {
     ConfigureLanguages();
 
 
+
     for(int i=1;i<argc;i++) {
         if (strutil::startsWith(argv[i], "--")) {
             std::string cmdSwitch = std::string(&argv[i][2]);
@@ -80,12 +82,8 @@ bool Editor::Initialize(int argc, const char **argv) {
     ConfigureColorTheme();
 
     if (models.size() == 0) {
-        EditController::Ref editController = std::make_shared<EditController>();
-        auto textBuffer = BufferManager::Instance().NewBuffer("no_name");
-
-        EditorModel::Ref editorModel = std::make_shared<EditorModel>();
-        editorModel->Initialize(editController, textBuffer);
-        models.push_back(editorModel);
+        auto newModel = NewModel("no_name");
+        models.push_back(newModel);
     }
 
     RuntimeConfig::Instance().SetActiveEditorModel(models[0]);
@@ -108,6 +106,16 @@ void Editor::Close() {
     }
     models.clear();
 }
+EditorModel::Ref Editor::NewModel(const char *name) {
+    EditController::Ref editController = std::make_shared<EditController>();
+    auto textBuffer = BufferManager::Instance().NewBuffer(name);
+    textBuffer->AddLine("");
+    textBuffer->SetLanguage(Config::Instance().GetLanguageForExtension("default"));
+    EditorModel::Ref editorModel = std::make_shared<EditorModel>();
+    editorModel->Initialize(editController, textBuffer);
+    return editorModel;
+}
+
 
 EditorModel::Ref Editor::LoadEditorModelFromFile(const char *filename) {
     logger->Debug("Loading file: %s", filename);
@@ -164,6 +172,10 @@ void Editor::ConfigureLanguages() {
     auto jsonLanguage = JSONLanguage::Create();
     jsonLanguage->Initialize();
     Config::Instance().RegisterLanguage(".json", jsonLanguage);
+
+    auto defaultLanguage = DefaultLanguage::Create();
+    defaultLanguage->Initialize();
+    Config::Instance().SetDefaultLanguage(defaultLanguage);
 
 }
 

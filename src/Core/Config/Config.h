@@ -93,6 +93,9 @@ namespace gedit {
     public:
         static Config &Instance();
 
+        void SetDefaultLanguage(LanguageBase::Ref newDefaultLanguage) {
+            defaultLanguage = newDefaultLanguage;
+        }
         void RegisterLanguage(const std::string &extension, LanguageBase::Ref languageBase);
         LanguageBase::Ref GetLanguageForExtension(const std::string &extension);
 
@@ -133,6 +136,7 @@ namespace gedit {
 
         void SetDefaultsIfMissing();
 
+        LanguageBase::Ref defaultLanguage = {};
         std::unordered_map<std::string, LanguageBase::Ref> extToLanguages;
 
     };

@@ -81,6 +81,8 @@ namespace gedit {
 
 
         EditorModel::Ref LoadEditorModelFromFile(const char *filename);
+        EditorModel::Ref NewModel(const char *name);
+
     private:
         Editor() = default;
     private:

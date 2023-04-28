@@ -155,6 +155,7 @@ list(APPEND editorsrc src/Core/Tokenizer.cpp src/Core/Tokenizer.h)
 list(APPEND editorsrc src/Core/Language/LangLineTokenizer.cpp src/Core/Language/LangLineTokenizer.h)
 list(APPEND editorsrc src/Core/Language/LanguageBase.cpp src/Core/Language/LanguageBase.h)
 list(APPEND editorsrc src/Core/Language/LangToken.cpp src/Core/Language/LangToken.h)
+list(APPEND editorsrc src/Core/Language/LanguageSupport/DefaultLanguage.cpp src/Core/Language/LanguageSupport/DefaultLanguage.h)
 list(APPEND editorsrc src/Core/Language/LanguageSupport/CPPLanguage.cpp src/Core/Language/LanguageSupport/CPPLanguage.h)
 list(APPEND editorsrc src/Core/Language/LanguageSupport/JSONLanguage.cpp src/Core/Language/LanguageSupport/JSONLanguage.cpp)
 # sublime config/scripting support

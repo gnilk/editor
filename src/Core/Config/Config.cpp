@@ -43,7 +43,7 @@ void Config::RegisterLanguage(const std::string &extension, LanguageBase::Ref la
 LanguageBase::Ref Config::GetLanguageForExtension(const std::string &extension) {
 
     if (extToLanguages.find(extension) == extToLanguages.end()) {
-        return nullptr;
+        return defaultLanguage;
     }
     return extToLanguages[extension];
 }

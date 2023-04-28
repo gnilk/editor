@@ -14,8 +14,8 @@
 #include "Core/StrUtil.h"
 
 #include "Core/Language/LanguageBase.h"
-#include "Core/Language/CPP/CPPLanguage.h"
-#include "Core/Language/CPP/JSONLanguage.h"
+#include "Core/Language/LanguageSupport/CPPLanguage.h"
+#include "Core/Language/LanguageSupport/JSONLanguage.h"
 
 // NCurses backend
 #include "Core/NCurses/NCursesScreen.h"

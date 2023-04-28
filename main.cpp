@@ -111,8 +111,6 @@
 #include "Core/Config/Config.h"
 #include "Core/KeyMapping.h"
 
-#include "Core/Language/CPP/CPPLanguage.h"
-#include "Core/Language/LangToken.h"
 
 
 #include "Core/RuntimeConfig.h"

@@ -5,11 +5,13 @@
 
 #include "TextBufferAPIWrapper.h"
 
-class EditorAPIWrapper {
-public:
-    TextBufferAPIWrapper *GetActiveTextBuffer();
-    static void RegisterModule(duk_context *ctx);
-public:
-};
+namespace gedit {
+    class EditorAPIWrapper {
+    public:
+        TextBufferAPIWrapper *GetActiveTextBuffer();
+        static void RegisterModule(duk_context *ctx);
+    public:
+    };
+}
 
 #endif

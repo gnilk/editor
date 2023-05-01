@@ -1,7 +1,11 @@
 
+#include "Core/Editor.h"
+#include "Core/Config/Config.h"
 #include "dukglue/dukglue.h"
 
 #include "TextBufferAPIWrapper.h"
+
+using namespace gedit;
 
 void TextBufferAPIWrapper::RegisterModule(duk_context *ctx) {
     dukglue_register_constructor<TextBufferAPIWrapper>(ctx, "TextBuffer");
@@ -11,7 +15,9 @@ void TextBufferAPIWrapper::RegisterModule(duk_context *ctx) {
 //
 // Impl. API
 //
-
-void TextBufferAPIWrapper::SetLanguage(int param) {
-    printf("TextBufferAPIWrapper::SetLanguage, param=%d\n", param);
+void TextBufferAPIWrapper::SetLanguage(const char *param) {
+    printf("TextBufferAPIWrapper::SetLanguage, param=%s\n", param);
+    auto lang = Config::Instance().GetLanguageForExtension(param);
+    textBuffer->SetLanguage(lang);
+    textBuffer->Reparse();
 }

@@ -106,7 +106,7 @@ bool CommandController::TryExecuteInternalCmd(std::string &cmdline) {
         auto argEnd = commandList.end();
         auto argList = std::vector<std::string>(argStart, argEnd);
         jsEngine->RunScriptOnce("function main(args) {"\
-                                "  Editor.GetActiveTextBuffer().SetLanguage(2);"\
+                                "  Editor.GetActiveTextBuffer().SetLanguage(\".cpp\");"\
                                 "}",argList);
     }
 

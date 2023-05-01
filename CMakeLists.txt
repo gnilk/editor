@@ -241,6 +241,10 @@ target_link_directories(editor PUBLIC ${linkdirs})
 target_include_directories(editor PUBLIC ${includedirs})
 target_link_libraries(editor ${extlibs})
 
+# Ok, we should have enabled this from the beginning...
+#target_compile_options(editor PUBLIC -Wall -Wextra -Wpedantic)
+#target_compile_options(editor PUBLIC -Wno-unused-parameter)
+
 #add_executable(kbdhook tests/kbdhooking.m)
 #target_link_libraries(kbdhook ${COCOA_FRAMEWORK} ${IOKIT_FRAMEWORK} ${GAMECONTROLLER_FRAMEWORK} ${CORE_FOUNDATION})
 

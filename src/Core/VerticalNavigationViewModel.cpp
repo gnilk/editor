@@ -134,7 +134,6 @@ void VerticalNavigationViewModel::OnNavigateUpCLion(Cursor &cursor, int rows, co
 
 
     int nRowsToMove = rows;
-    int maxRows = nItems - 1;
     bool forceCursorToFirstLine = false;
 
     if ((viewTopLine - nRowsToMove) < 0) {

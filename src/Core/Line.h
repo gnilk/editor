@@ -62,7 +62,7 @@ namespace gedit {
         bool StartsWith(const std::string &prefix);
         bool StartsWith(const std::string_view &prefix);
 
-        const size_t Length() const { return buffer.size(); }
+        size_t Length() const { return buffer.size(); }
         const std::string_view Buffer() const { return buffer.c_str(); }
 
         void Lock();

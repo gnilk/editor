@@ -70,14 +70,12 @@ namespace gedit {
 
             // 1) Calculate amount occupied by fixed width items
             int fixedHeight = 0;
-            int nFixed = 0;
             for(auto &view : viewStack) {
                 if (!view.view->IsInitialized()) {
                     view.view->Initialize();
                 }
                 if ((view.layout == kFixed) && (view.view->IsVisible())) {
                     fixedHeight += view.view->GetViewRect().Height();
-                    nFixed++;
                 }
             }
 

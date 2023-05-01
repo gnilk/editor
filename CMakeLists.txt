@@ -77,8 +77,23 @@ elseif(UNIX)
 
 endif ()
 
+#
+# Dependencies
+#
+
+set(DUKTAPE_HOME ext/duktape-2.7.0/src)
+set(DUKTAPE_EXTRAS ext/duktape-2.7.0/extras)
+set(DUKGLUE_HOME ext/dukglue)
+
+list(APPEND duktape ${DUKTAPE_HOME}/duktape.c ${DUKTAPE_HOME}/duk_config.h ${DUKTAPE_HOME}/duktape.h)
+list(APPEND duktape ${DUKTAPE_EXTRAS}/module-node/duk_module_node.c)
+
 add_subdirectory(ext/logger ${CMAKE_BINARY_DIR}/logger)
 list(APPEND extlibs logger)
+
+#
+# Editor
+#
 
 # Editor main stuff
 list(APPEND editorsrc src/Core/Editor.cpp src/Core/Editor.h)
@@ -163,6 +178,15 @@ list(APPEND editorsrc src/Core/Sublime/SublimeConfigScriptEngine.cpp src/Core/Su
 list(APPEND editorsrc src/Core/Sublime/SublimeConfigColorScript.cpp src/Core/Sublime/SublimeConfigColorScript.h)
 
 
+#
+# JSAPI - separate
+#
+list(APPEND jsapi src/Core/JSEngine/Modules/TextBufferAPIWrapper.cpp src/Core/JSEngine/Modules/TextBufferAPIWrapper.h)
+list(APPEND jsapi src/Core/JSEngine/Modules/EditorAPIWrapper.cpp src/Core/JSEngine/Modules/EditorAPIWrapper.h)
+list(APPEND jsapi src/Core/JSEngine/JSWrapper.cpp src/Core/JSEngine/JSWrapper.h)
+
+
+
 # SDL3 integration, make this optional!
 # test integration files for editor
 if (GEDIT_BUILD_SDL3)
@@ -205,10 +229,14 @@ list(APPEND linkdirs ${SDL_HOME}/lib)
 list(APPEND includedirs ${NCURSES_HOME}/include PUBLIC ${YAML_CPP_HOME}/include ext/logger/src src/)
 list(APPEND includedirs ${SDL_HOME}/include)
 
+list(APPEND includedirs ${DUKGLUE_HOME}/include)
+list(APPEND includedirs ${DUKTAPE_HOME})
+list(APPEND includedirs ${DUKTAPE_EXTRAS}/module-node)
 
 
 
-target_sources(editor PUBLIC ${editorsrc})
+
+target_sources(editor PUBLIC ${editorsrc} ${jsapi} ${duktape})
 target_link_directories(editor PUBLIC ${linkdirs})
 target_include_directories(editor PUBLIC ${includedirs})
 target_link_libraries(editor ${extlibs})

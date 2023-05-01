@@ -95,10 +95,19 @@ bool CommandController::TryExecuteInternalCmd(std::string &cmdline) {
     // There is more to come...
     if ((commandList[0] == "q") || (commandList[0]=="quit")) {
         // FIX: Can't just exit here!
-        auto mainEditorAPI = Editor::Instance().GetAPI<EditorAPI>(0x01);
+        auto mainEditorAPI = Editor::Instance().GetAPI<EditorAPI>(kAPI_Native);
         mainEditorAPI->ExitEditor();
     } else if (commandList[0] == "li") {
         TestShowDialog();
+    } else if (commandList[0] == "sl") {
+        // Set language - test of JavaScript wrapper
+        auto jsEngine = Editor::Instance().GetAPI<JSWrapper>(kAPI_JSEngine);
+        auto argStart = commandList.begin()+1;
+        auto argEnd = commandList.end();
+        auto argList = std::vector<std::string>(argStart, argEnd);
+        jsEngine->RunScriptOnce("function main(args) {"\
+                                "  Editor.GetActiveTextBuffer().SetLanguage(2);"\
+                                "}",argList);
     }
 
     WriteLine("internal execute: " + commandList[0]);

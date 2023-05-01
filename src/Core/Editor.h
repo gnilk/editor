@@ -10,6 +10,8 @@
 #include "logger.h"
 #include "Core/macOS/MacOSKeyboardMonitor.h"
 
+#include "Core/JSEngine/JSWrapper.h"
+
 #include "KeyboardDriverBase.h"
 #include "KeyboardBaseMonitor.h"
 
@@ -17,6 +19,11 @@
 #include "Core/EditorModel.h"
 
 namespace gedit {
+
+    typedef enum {
+        kAPI_Native = 0x01,
+        kAPI_JSEngine = 0x02,
+    } kEditorAPIModuleID;
 //
 // The global editing class...
 //
@@ -72,7 +79,6 @@ namespace gedit {
         void ConfigureLanguages();
         void ConfigureColorTheme();
         void ConfigureSubSystems();
-
         void ConfigureAPI();
 
         // TEMP - backend configuration
@@ -100,8 +106,10 @@ namespace gedit {
 #endif
         ScreenBase *screen = nullptr;
         KeyboardDriverBase *keyboardDriver = nullptr;
-
         std::unordered_map<int, void *> editorApiObjects;
+
+        // Javascript API wrapper
+        JSWrapper jsWrapper;
 
     };
 

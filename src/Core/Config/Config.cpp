@@ -50,7 +50,9 @@ LanguageBase::Ref Config::GetLanguageForExtension(const std::string &extension) 
 
 
 bool Config::LoadConfig(const std::string &filename) {
-    dataNode = YAML::LoadFile(filename);
+    if (!ConfigNode::LoadConfig(filename)) {
+        return false;
+    }
     SetDefaultsIfMissing();
     // FIXME: add defaults to missing stuff
     if (!dataNode.IsDefined()) {

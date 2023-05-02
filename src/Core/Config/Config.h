@@ -21,17 +21,25 @@ namespace gedit {
         }
 
         ConfigNode operator[](const std::string &key) const {
+            assert(dataNode.IsMap());
             return ConfigNode(dataNode[key]);
         }
+
+        ConfigNode operator[](size_t idx) const {
+            assert(dataNode.IsSequence());
+            return ConfigNode(dataNode[idx]);
+        }
+
 
         ConfigNode GetNode(const std::string &key) const {
             return ConfigNode(dataNode[key]);
         }
 
-        bool HasKey(const std::string &key) {
+        bool HasKey(const std::string &key) const {
             if (!dataNode.IsDefined()) {
                 return false;
             }
+
             return dataNode[key].IsDefined();
         }
 
@@ -39,21 +47,21 @@ namespace gedit {
             dataNode[key] = newValue;
         }
 
-        int GetInt(const std::string &key, const int defValue = 0) {
+        int GetInt(const std::string &key, const int defValue = 0) const {
             if (!HasKey(key)) {
                 return defValue;
             }
             return dataNode[key].as<int>();
         }
 
-        bool GetBool(const std::string &key, const bool defValue = false) {
+        bool GetBool(const std::string &key, const bool defValue = false) const {
             if (!HasKey(key)) {
                 return defValue;
             }
             return dataNode[key].as<bool>();
         }
 
-        std::string GetStr(const std::string &key, const std::string &defValue = "") {
+        std::string GetStr(const std::string &key, const std::string &defValue = "") const {
             // If not defined, return default
             if (!dataNode.IsDefined()) {
                 return {defValue};
@@ -63,31 +71,51 @@ namespace gedit {
             }
             return (dataNode[key].as<std::string>());
         }
-        char GetChar(const std::string &key, char defValue) {
+        char GetChar(const std::string &key, char defValue) const {
             if (!dataNode[key].IsDefined()) {
                 return defValue;
             }
             return (dataNode[key].as<char>());
         }
 
-        auto GetSequenceOfStr(const std::string &key) {
+        template<typename T>
+        const auto GetSequence(const std::string &key) const {
+            if (!HasKey(key)) {
+                return T();
+            }
+            return dataNode[key].as<std::vector<T>>();
+        }
+        const auto GetSequenceOfStr(const std::string &key) const {
             if (!HasKey(key)) {
                 return std::vector<std::string>();
             }
             return dataNode[key].as<std::vector<std::string>>();
         }
 
-        auto GetMap(const std::string &key) {
+        const auto GetMap(const std::string &key) const {
             if (HasKey(key)) {
                 return dataNode[key].as<std::map<std::string, std::string>>();
             }
             return std::map<std::string, std::string>();
         }
 
+        virtual bool LoadConfig(const std::string &filename) {
+            dataNode = YAML::LoadFile(filename);
+            if (dataNode.IsDefined()) {
+                return true;
+            }
+            return false;
+        }
+
+        // This is more like a last resort kind of thing...
+        const YAML::Node &GetDataNode() const {
+            return dataNode;
+        }
+
+
     protected:
         YAML::Node dataNode;
     };
-
 
     class Config : public ConfigNode {
     public:
@@ -100,7 +128,7 @@ namespace gedit {
         LanguageBase::Ref GetLanguageForExtension(const std::string &extension);
 
         // Load configuration include theme and color files
-        bool LoadConfig(const std::string &filename);
+        bool LoadConfig(const std::string &filename) override;
 
         // Returns the current color configuration
         const NamedColorConfig &GetGlobalColors() {

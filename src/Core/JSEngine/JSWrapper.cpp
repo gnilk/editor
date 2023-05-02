@@ -6,13 +6,77 @@
 #include <vector>
 #include <filesystem>
 
-
+#include "Core/Config/Config.h"
 #include "JSWrapper.h"
 #include "Modules/TextBufferAPIWrapper.h"
 #include "Modules/EditorAPIWrapper.h"
+#include "Core/StrUtil.h"
+
 #include "duk_module_node.h"
 
 using namespace gedit;
+
+// MOVE THESE AWAY FROM HERE
+PluginCommand::Ref PluginCommand::CreateFromConfig(const ConfigNode &config) {
+    Ref cmd = std::make_shared<PluginCommand>();
+    cmd->InitializeFromConfig(config);
+    return cmd;
+}
+bool PluginCommand::InitializeFromConfig(const ConfigNode &config) {
+    name = config.GetStr("name","");
+    shortName = config.GetStr("short","");
+    description = config.GetStr("description","");
+
+    auto &strArgs = config.GetSequenceOfStr("arguments");
+    for(auto &arg : strArgs) {
+        std::vector<std::string> argvec;
+        strutil::split(argvec, arg.c_str(), ',');
+        assert(argvec.size() == 2);
+        if (argvec.size() != 2) {
+            // log this error
+            return false;
+        }
+        Argument argument = {argvec[0], argvec[1]};
+        argumentList.push_back(argument);
+    }
+    return true;
+}
+
+
+JSPluginCommand::Ref JSPluginCommand::CreateFromConfig(const ConfigNode &config) {
+
+    Ref cmd = std::make_shared<JSPluginCommand>();
+    if (!cmd->InitializeFromConfig(config)) {
+        return nullptr;
+    }
+    return cmd;
+}
+
+bool JSPluginCommand::InitializeFromConfig(const ConfigNode &config) {
+    if (!PluginCommand::InitializeFromConfig(config)) {
+        return false;
+    }
+    scriptFile = config.GetStr("script","");
+    return true;
+}
+
+bool JSPluginCommand::Execute() {
+    if (!isLoaded) {
+        TryLoad();
+    }
+}
+bool JSPluginCommand::TryLoad() {
+    // Need some IOUtils..
+
+    return true;
+}
+
+
+
+
+
+
+
 
 // Forward declare - implemented at the end - helpers...
 static void *LoadFile(const std::string &filename, size_t *outSz);
@@ -38,6 +102,28 @@ bool JSWrapper::Initialize() {
     }
     RegisterBuiltIns();
 
+    ConfigNode config;
+    if (!config.LoadConfig("Plugins/jsplugs.yml")) {
+        exit(1);
+    }
+
+    auto commands = config["commands"];
+    auto ymlnode = commands.GetDataNode();
+    for(auto node : ymlnode) {
+        if (!node.IsMap()) {
+            continue;
+        }
+        ConfigNode cfgPlugin(node);
+        auto cmd = JSPluginCommand::CreateFromConfig(cfgPlugin);
+        if (cmd == nullptr) {
+            continue;
+        }
+        if (!cmd->TryLoad()) {
+            continue;
+        }
+        // All good, let's push it to our list of supported plugins...
+        plugins.push_back(cmd);
+    }
     return true;
 }
 
@@ -186,5 +272,7 @@ static void *LoadFile(const std::string &filename, size_t *outSz) {
     *outSz = szFile;
     return buffer;
 }
+
+
 
 

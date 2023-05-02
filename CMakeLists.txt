@@ -100,6 +100,7 @@ list(APPEND editorsrc src/Core/Editor.cpp src/Core/Editor.h)
 list(APPEND editorsrc src/Core/EditorModel.cpp src/Core/EditorModel.h)
 list(APPEND editorsrc src/Core/VerticalNavigationViewModel.cpp src/Core/VerticalNavigationViewModel.h)
 list(APPEND editorsrc src/Core/Runloop.cpp src/Core/Runloop.h)
+list(APPEND editorsrc src/Core/AssetLoaderBase.cpp src/Core/AssetLoaderBase.h)
 
 # API and Actions
 list(APPEND editorsrc src/Core/Action.cpp src/Core/Action.h)
@@ -317,28 +318,17 @@ target_link_libraries(editor ${extlibs})
 #target_link_libraries(libeditor ${extlibs})
 
 #
-# Add configuration files so they get copied when changed...
-#
-ADD_CUSTOM_TARGET(config ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_CURRENT_LIST_DIR}/config.yml ${CMAKE_CURRENT_BINARY_DIR})
-
-ADD_CUSTOM_TARGET(colors ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_CURRENT_LIST_DIR}/colors.json ${CMAKE_CURRENT_BINARY_DIR})
-
-ADD_CUSTOM_TARGET(font ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_CURRENT_LIST_DIR}/Andale\ Mono.ttf ${CMAKE_CURRENT_BINARY_DIR})
-
-ADD_DEPENDENCIES(editor config colors font)
-
-#
 # unit testing
 #
+list(APPEND utestsrc utests/test_main.cpp)
 list(APPEND utestsrc utests/test_buffermanager.cpp)
+list(APPEND utestsrc utests/test_assetloader.cpp)
+list(APPEND utestsrc utests/test_jswrapper.cpp)
 list(APPEND utestsrc src/Core/Tests/test_dcoverlay.cpp)
 
 
 
-add_library(utests SHARED ${editorsrc} ${utestsrc})
+add_library(utests SHARED ${editorsrc} ${jsapi}  ${duktape} ${utestsrc})
 target_link_directories(utests PUBLIC ${linkdirs})
 target_include_directories(utests PUBLIC ${includedirs})
 target_link_libraries(utests ${extlibs})
@@ -349,3 +339,18 @@ add_custom_target(
         DEPENDS utests
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 )
+
+#
+# Add configuration files so they get copied when changed...
+#
+add_custom_target(config ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_CURRENT_LIST_DIR}/config.yml ${CMAKE_CURRENT_BINARY_DIR})
+
+add_custom_target(colors ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_CURRENT_LIST_DIR}/colors.json ${CMAKE_CURRENT_BINARY_DIR})
+
+add_custom_target(font ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_CURRENT_LIST_DIR}/Andale\ Mono.ttf ${CMAKE_CURRENT_BINARY_DIR})
+
+add_dependencies(editor config colors font)
+add_dependencies(Unit_Tests config colors font)

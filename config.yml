@@ -4,6 +4,7 @@ main:
   # 'default' is a reserved word - replace with your file name when forking it...
   keymap: default
   threaded_syntaxparser: no
+  plugin_directory: Plugins
 
 macos:
   allow_kbd_hook: yes

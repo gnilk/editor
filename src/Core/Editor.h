@@ -74,8 +74,10 @@ namespace gedit {
             auto apiObject = editorApiObjects[id];
             return static_cast<T *>(apiObject);
         }
-    protected:
+
         void ConfigureLogger();
+
+    protected:
         void ConfigureLanguages();
         void ConfigureColorTheme();
         void ConfigureSubSystems();

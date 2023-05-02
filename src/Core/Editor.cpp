@@ -41,7 +41,7 @@ using namespace gedit;
 
 Editor &Editor::Instance() {
     static Editor glbSystem;
-    return glbSystem;{}
+    return glbSystem;
 }
 
 bool Editor::Initialize(int argc, const char **argv) {
@@ -154,6 +154,9 @@ void Editor::ConfigureLogger() {
 }
 
 bool Editor::LoadConfig(const char *configFile) {
+    if (logger == nullptr) {
+        logger = gnilk::Logger::GetLogger("System");
+    }
     logger->Debug("Loading configuration");
     auto configOk = Config::Instance().LoadConfig(configFile);
     if (!configOk) {

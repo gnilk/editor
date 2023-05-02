@@ -6,11 +6,14 @@
 #include <vector>
 #include <filesystem>
 
+#include "logger.h"
+
 #include "Core/Config/Config.h"
 #include "JSWrapper.h"
 #include "Modules/TextBufferAPIWrapper.h"
 #include "Modules/EditorAPIWrapper.h"
 #include "Core/StrUtil.h"
+#include "Core/RuntimeConfig.h"
 
 #include "duk_module_node.h"
 
@@ -23,9 +26,14 @@ PluginCommand::Ref PluginCommand::CreateFromConfig(const ConfigNode &config) {
     return cmd;
 }
 bool PluginCommand::InitializeFromConfig(const ConfigNode &config) {
+    logger = gnilk::Logger::GetLogger("JSPluginCommand");
+
     name = config.GetStr("name","");
     shortName = config.GetStr("short","");
     description = config.GetStr("description","");
+
+    logger->Debug("Init JS Plug '%s', Short: '%s', Desc: %s", name.c_str(), shortName.c_str(), description.c_str());
+
 
     auto &strArgs = config.GetSequenceOfStr("arguments");
     for(auto &arg : strArgs) {
@@ -53,6 +61,7 @@ JSPluginCommand::Ref JSPluginCommand::CreateFromConfig(const ConfigNode &config)
 }
 
 bool JSPluginCommand::InitializeFromConfig(const ConfigNode &config) {
+    logger = gnilk::Logger::GetLogger("JSPluginCommand");
     if (!PluginCommand::InitializeFromConfig(config)) {
         return false;
     }
@@ -67,7 +76,22 @@ bool JSPluginCommand::Execute() {
 }
 bool JSPluginCommand::TryLoad() {
     // Need some IOUtils..
+    if (isLoaded) {
+        // reloading???
+        return true;
+    }
 
+    auto pluginRoot = Config::Instance()["main"].GetStr("plugin_directory","");
+    auto pluginScriptFile =  std::filesystem::path(pluginRoot).append(scriptFile);
+
+    logger->Debug("  Loading JS file from: %s", pluginScriptFile.c_str());
+    auto assetLoader = RuntimeConfig::Instance().GetAssetLoader();
+    scriptData = assetLoader.LoadTextAsset(pluginScriptFile);
+    if (scriptData == nullptr) {
+        logger->Error("Unable to load file!");
+        return false;
+    }
+    isLoaded = true;
     return true;
 }
 
@@ -103,7 +127,10 @@ bool JSWrapper::Initialize() {
     RegisterBuiltIns();
 
     ConfigNode config;
-    if (!config.LoadConfig("Plugins/jsplugs.yml")) {
+    auto pluginRoot = Config::Instance()["main"].GetStr("plugin_directory","");
+    auto pluginConfigFile =  std::filesystem::path(pluginRoot).append("jsplugs.yml");
+
+    if (!config.LoadConfig(pluginConfigFile.c_str())) {
         exit(1);
     }
 

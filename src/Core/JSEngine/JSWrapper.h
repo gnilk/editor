@@ -10,11 +10,14 @@
 #include <memory>
 
 #include "duktape.h"
+#include "logger.h"
 
+#include "Core/AssetLoaderBase.h"
 #include "Core/Config/Config.h"
 
 
 namespace gedit {
+    // This should go to it's own file...
     class PluginCommand {
     public:
         using Ref = std::shared_ptr<PluginCommand>;
@@ -62,8 +65,11 @@ namespace gedit {
     protected:
         bool isLoaded = false;
         bool isValid = false;
+    private:
+        gnilk::ILogger *logger = nullptr;
     };
 
+    // Split this to another file...
     class JSPluginCommand : public PluginCommand {
     public:
         using Ref = std::shared_ptr<JSPluginCommand>;
@@ -82,6 +88,9 @@ namespace gedit {
 
     protected:
         std::string scriptFile;                 // Consider moving this
+        AssetLoaderBase::Asset::Ref scriptData;
+    private:
+        gnilk::ILogger *logger = nullptr;
     };
 
 

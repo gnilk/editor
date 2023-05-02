@@ -4,15 +4,11 @@
 #include <testinterface.h>
 #include "Core/BufferManager.h"
 
-using namespace gedit;
+    using namespace gedit;
 
 extern "C" {
-    DLL_EXPORT int test_main(ITesting *t);
     DLL_EXPORT int test_buffermgr(ITesting *t);
     DLL_EXPORT int test_buffermgr_newbuffer(ITesting *t);
-}
-DLL_EXPORT int test_main(ITesting *t) {
-    return kTR_Pass;
 }
 
 DLL_EXPORT int test_buffermgr(ITesting *t) {

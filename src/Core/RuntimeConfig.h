@@ -9,6 +9,7 @@
 #include "Core/KeyboardDriverBase.h"
 #include "Core/Views/ViewBase.h"
 #include "Core/EditorModel.h"
+#include "Core/AssetLoaderBase.h"
 
 #include <thread>
 
@@ -49,6 +50,11 @@ namespace gedit {
             window = newWindow;
         }
 
+        // Compile time..
+        AssetLoaderBase &GetAssetLoader() {
+            return assetLoader;
+        }
+
         EditorModel::Ref ActiveEditorModel() {
             return activeEditorModel;
         }
@@ -83,12 +89,15 @@ namespace gedit {
         RuntimeConfig() = default;
     private:
         EditorModel::Ref activeEditorModel;
+        // These should all be ref's...
         KeyboardDriverBase *keyboard = nullptr;
         ScreenBase *screen = nullptr;
         ViewBase *rootView = nullptr;
         WindowBase *window = nullptr;
         IOutputConsole *outputConsole = nullptr;
         std::thread::id mainThreadId;
+
+        AssetLoaderBase assetLoader;
 
     };
 }

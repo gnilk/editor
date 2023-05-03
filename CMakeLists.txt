@@ -107,6 +107,7 @@ list(APPEND editorsrc src/Core/Action.cpp src/Core/Action.h)
 list(APPEND editorsrc src/Core/KeyMapping.cpp src/Core/KeyMapping.h)
 list(APPEND editorsrc src/Core/API/EditorAPI.cpp src/Core/API/EditorAPI.h)
 list(APPEND editorsrc src/Core/API/TextBufferAPI.cpp src/Core/API/TextBufferAPI.h)
+list(APPEND editorsrc src/Core/Plugins/PluginCommand.cpp src/Core/Plugins/PluginCommand.h)
 
 # utility stuff
 list(APPEND editorsrc src/Core/StrUtil.cpp src/Core/StrUtil.h)

@@ -355,5 +355,15 @@ add_custom_target(colors ${CMAKE_COMMAND} -E copy_if_different
 add_custom_target(font ${CMAKE_COMMAND} -E copy_if_different
         ${CMAKE_CURRENT_LIST_DIR}/Andale\ Mono.ttf ${CMAKE_CURRENT_BINARY_DIR})
 
-add_dependencies(editor config colors font)
-add_dependencies(Unit_Tests config colors font)
+
+# copy_directory_if_different available in cmake 3.26 or better...
+if (${CMAKE_VERSION} VERSION_LESS "3.26.0")
+    add_custom_target(plugins ${CMAKE_COMMAND} -E copy_directory
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/Plugins ${CMAKE_CURRENT_BINARY_DIR}/Plugins)
+else()
+    add_custom_target(plugins ${CMAKE_COMMAND} -E copy_directory_if_different
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/Plugins ${CMAKE_CURRENT_BINARY_DIR}/Plugins)
+endif()
+
+add_dependencies(editor config colors font plugins)
+add_dependencies(Unit_Tests config colors font plugins)

@@ -7,6 +7,10 @@
 
 #include <string_view>
 
+//
+// See: https://stackoverflow.com/questions/81870/is-it-possible-to-print-a-variables-type-in-standard-c/64490578#64490578
+//
+
 namespace gedit {
 
     template <typename T> constexpr std::string_view type_name();

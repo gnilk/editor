@@ -17,7 +17,5 @@ void TextBufferAPIWrapper::RegisterModule(duk_context *ctx) {
 //
 void TextBufferAPIWrapper::SetLanguage(const char *param) {
     printf("TextBufferAPIWrapper::SetLanguage, param=%s\n", param);
-    auto lang = Config::Instance().GetLanguageForExtension(param);
-    textBuffer->SetLanguage(lang);
-    textBuffer->Reparse();
+    textBuffer->SetLanguage(param);
 }

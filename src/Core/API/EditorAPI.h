@@ -6,6 +6,9 @@
 #define EDITOR_EDITORAPI_H
 
 #include <functional>
+#include "Core/Editor.h"
+
+#include "TextBufferAPI.h"
 
 namespace gedit {
     class EditorAPI {
@@ -15,6 +18,7 @@ namespace gedit {
         void ExitEditor() {
             cbExitEditor();
         }
+        TextBufferAPI *GetActiveTextBuffer();
     public:
         void SetExitEditorDelegate(APIFunc newExitEditor) {
             cbExitEditor = newExitEditor;

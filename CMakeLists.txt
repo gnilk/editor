@@ -106,11 +106,13 @@ list(APPEND editorsrc src/Core/AssetLoaderBase.cpp src/Core/AssetLoaderBase.h)
 list(APPEND editorsrc src/Core/Action.cpp src/Core/Action.h)
 list(APPEND editorsrc src/Core/KeyMapping.cpp src/Core/KeyMapping.h)
 list(APPEND editorsrc src/Core/API/EditorAPI.cpp src/Core/API/EditorAPI.h)
+list(APPEND editorsrc src/Core/API/TextBufferAPI.cpp src/Core/API/TextBufferAPI.h)
 
 # utility stuff
 list(APPEND editorsrc src/Core/StrUtil.cpp src/Core/StrUtil.h)
 list(APPEND editorsrc src/Core/HexDump.cpp src/Core/HexDump.h)
 list(APPEND editorsrc src/Core/ColorRGBA.cpp src/Core/ColorRGBA.h)
+list(APPEND editorsrc src/Core/TypeUtil.h)
 
 # Keyboard handling
 list(APPEND editorsrc src/Core/KeyPress.h)
@@ -185,6 +187,7 @@ list(APPEND editorsrc src/Core/Sublime/SublimeConfigColorScript.cpp src/Core/Sub
 list(APPEND jsapi src/Core/JSEngine/Modules/TextBufferAPIWrapper.cpp src/Core/JSEngine/Modules/TextBufferAPIWrapper.h)
 list(APPEND jsapi src/Core/JSEngine/Modules/EditorAPIWrapper.cpp src/Core/JSEngine/Modules/EditorAPIWrapper.h)
 list(APPEND jsapi src/Core/JSEngine/JSWrapper.cpp src/Core/JSEngine/JSWrapper.h)
+list(APPEND jsapi src/Core/JSEngine/JSPluginCommand.cpp src/Core/JSEngine/JSPluginCommand.h)
 
 
 

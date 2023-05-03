@@ -1,5 +1,5 @@
 #include "EditorAPIWrapper.h"
-#include "Core/Editor.h"
+#include "Core/API/EditorAPI.h"
 #include "dukglue/dukglue.h"
 
 using namespace gedit;
@@ -20,14 +20,8 @@ void EditorAPIWrapper::RegisterModule(duk_context *ctx) {
 
 TextBufferAPIWrapper *EditorAPIWrapper::GetActiveTextBuffer() {
     printf("GetActiveTextBuffer: %p\n", this);
-
-    auto idxActiveModel = Editor::Instance().GetActiveModelIndex();
-    auto model = Editor::Instance().GetModelFromIndex(idxActiveModel);
-    return new TextBufferAPIWrapper(model->GetTextBuffer());
-
-
-//    static TextBufferAPIWrapper dummy;
-//    return &dummy;
+    auto editorApi = Editor::Instance().GetAPI<EditorAPI>();
+    return new TextBufferAPIWrapper(editorApi->GetActiveTextBuffer());
 }
 
 

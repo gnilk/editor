@@ -17,13 +17,9 @@
 
 #include "ScreenBase.h"
 #include "Core/EditorModel.h"
+#include "Core/TypeUtil.h"
 
 namespace gedit {
-
-    typedef enum {
-        kAPI_Native = 0x01,
-        kAPI_JSEngine = 0x02,
-    } kEditorAPIModuleID;
 //
 // The global editing class...
 //
@@ -57,10 +53,12 @@ namespace gedit {
             }
             return models[idxModel];
         }
-        // API Object Handling
-        void RegisterAPI(int id, void *apiObject) {
-            editorApiObjects.insert({id, apiObject});
+
+        // FIXME: should return a PluginCommand instead
+        JSWrapper &GetPluginForCommand(const std::string &command) {
+            return jsWrapper;
         }
+
 
         std::pair<ColorRGBA, ColorRGBA> ColorFromLanguageToken(kLanguageTokenClass tokenClass) {
             if (languageColorConfig.find(tokenClass) == languageColorConfig.end()) {
@@ -69,9 +67,17 @@ namespace gedit {
             return languageColorConfig[tokenClass];
         }
 
+        // API Object Handling
         template<class T>
-        T *GetAPI(int id) {
-            auto apiObject = editorApiObjects[id];
+        void RegisterAPI(void *apiObject) {
+            auto typeName = gedit::type_name<T>();
+            editorApiObjects.insert({typeName, apiObject});
+        }
+
+        template<class T>
+        T *GetAPI() {
+            auto typeName = gedit::type_name<T>();
+            auto apiObject = editorApiObjects[typeName];
             return static_cast<T *>(apiObject);
         }
 
@@ -108,7 +114,7 @@ namespace gedit {
 #endif
         ScreenBase *screen = nullptr;
         KeyboardDriverBase *keyboardDriver = nullptr;
-        std::unordered_map<int, void *> editorApiObjects;
+        std::unordered_map<std::string_view, void *> editorApiObjects;
 
         // Javascript API wrapper
         JSWrapper jsWrapper;

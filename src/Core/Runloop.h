@@ -12,6 +12,11 @@ namespace gedit {
     public:
         static void DefaultLoop();
         static void ShowModal(ViewBase *modal);
+        static void StopRunLoop() {
+            bQuit = true;
+        }
+    private:
+        static bool bQuit;
     };
 }
 

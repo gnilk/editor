@@ -11,16 +11,17 @@
 
 using namespace gedit;
 
+bool Runloop::bQuit = false;
+
 void Runloop::DefaultLoop() {
-    bool bQuit = false;
     auto screen = RuntimeConfig::Instance().Screen();
     auto keyboardDriver = RuntimeConfig::Instance().Keyboard();
     auto &rootView = RuntimeConfig::Instance().GetRootView();
     auto logger = gnilk::Logger::GetLogger("MainLoop");
 
-    auto editorApi = Editor::Instance().GetAPI<EditorAPI>(0x01);
-    editorApi->SetExitEditorDelegate([&bQuit]()->void{
-        bQuit = true;
+    auto editorApi = Editor::Instance().GetAPI<EditorAPI>();
+    editorApi->SetExitEditorDelegate([]()->void{
+        Runloop::StopRunLoop();
     });
 
 
@@ -75,7 +76,7 @@ void Runloop::ShowModal(ViewBase *modal) {
 
     screen->CopyToTexture();
 
-    while(modal->IsActive()) {
+    while((modal->IsActive()) && (bQuit != false)) {
         // Process any messages from other threads before we do anything else..
         bool redraw = false;
 

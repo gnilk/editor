@@ -209,11 +209,13 @@ void Editor::ConfigureColorTheme() {
 
 void Editor::ConfigureAPI() {
     static EditorAPI editorApi;
-    RegisterAPI(kAPI_Native, &editorApi);
+    static TextBufferAPI textBufferAPI;
+
+    RegisterAPI<EditorAPI>(&editorApi);
+    RegisterAPI<TextBufferAPI>(&textBufferAPI);
 
     // Initialize the Javascript wrapper engine...
     jsWrapper.Initialize();
-    RegisterAPI(kAPI_JSEngine, &jsWrapper);
 }
 
 static std::vector<std::string> glbSupportedBackends = {

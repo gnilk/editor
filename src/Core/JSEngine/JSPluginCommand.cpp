@@ -6,7 +6,7 @@
 #include "Core/RuntimeConfig.h"
 
 #include "JSPluginCommand.h"
-#include "JSWrapper.h"
+#include "JSPluginEngine.h"
 
 using namespace gedit;
 
@@ -28,7 +28,7 @@ bool JSPluginCommand::InitializeFromConfig(const ConfigNode &config) {
     return true;
 }
 
-void JSPluginCommand::SetExecutor(JSWrapper *newJsEngine) {
+void JSPluginCommand::SetExecutor(JSPluginEngine *newJsEngine) {
     jsEngine = newJsEngine;
 }
 

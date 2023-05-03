@@ -10,7 +10,7 @@
 #include "logger.h"
 #include "Core/macOS/MacOSKeyboardMonitor.h"
 
-#include "Core/JSEngine/JSWrapper.h"
+#include "Core/JSEngine/JSPluginEngine.h"
 
 #include "KeyboardDriverBase.h"
 #include "KeyboardBaseMonitor.h"
@@ -55,7 +55,7 @@ namespace gedit {
         }
 
         // FIXME: should return a PluginCommand instead
-        JSWrapper &GetPluginForCommand(const std::string &command) {
+        JSPluginEngine &GetPluginForCommand(const std::string &command) {
             return jsWrapper;
         }
 
@@ -117,7 +117,7 @@ namespace gedit {
         std::unordered_map<std::string_view, void *> editorApiObjects;
 
         // Javascript API wrapper
-        JSWrapper jsWrapper;
+        JSPluginEngine jsWrapper;
 
     };
 

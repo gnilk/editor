@@ -22,7 +22,7 @@
 
 
 namespace gedit {
-    class JSWrapper : PluginExecutor<JSPluginCommand> {
+    class JSPluginEngine : PluginExecutor<JSPluginCommand> {
     public:
     public:
         bool Initialize();

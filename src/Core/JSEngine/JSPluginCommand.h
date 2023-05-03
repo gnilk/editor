@@ -18,7 +18,7 @@
 
 namespace gedit {
 
-    class JSWrapper;
+    class JSPluginEngine;
     class JSPluginCommand : public PluginCommand {
     public:
         using Ref = std::shared_ptr<JSPluginCommand>;
@@ -26,7 +26,7 @@ namespace gedit {
         static JSPluginCommand::Ref CreateFromConfig(const ConfigNode &cfgNode);
         bool Execute(const std::vector<std::string> &args) override;
 
-        void SetExecutor(JSWrapper *newJsEngine);
+        void SetExecutor(JSPluginEngine *newJsEngine);
 
         const std::string &GetScriptFile() const {
             return scriptFile;
@@ -41,7 +41,7 @@ namespace gedit {
         std::string scriptFile;                 // Consider moving this
         AssetLoaderBase::Asset::Ref scriptData;
     private:
-        JSWrapper *jsEngine = nullptr;
+        JSPluginEngine *jsEngine = nullptr;
         gnilk::ILogger *logger = nullptr;
     };
 

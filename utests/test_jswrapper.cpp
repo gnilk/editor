@@ -3,7 +3,7 @@
 //
 #include <testinterface.h>
 #include <filesystem>
-#include "Core/JSEngine/JSWrapper.h"
+#include "Core/JSEngine/JSPluginEngine.h"
 
 using namespace gedit;
 
@@ -17,7 +17,7 @@ DLL_EXPORT int test_jswrapper(ITesting *t) {
 }
 
 DLL_EXPORT int test_jswrapper_init(ITesting *t) {
-    JSWrapper jsWrapper;
+    JSPluginEngine jsWrapper;
     if (!jsWrapper.Initialize()) {
         return kTR_Fail;
     }

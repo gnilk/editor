@@ -9,7 +9,7 @@
 #include "logger.h"
 
 #include "Core/Config/Config.h"
-#include "JSWrapper.h"
+#include "JSPluginEngine.h"
 #include "Modules/TextBufferAPIWrapper.h"
 #include "Modules/EditorAPIWrapper.h"
 #include "Core/StrUtil.h"
@@ -36,7 +36,7 @@ static void glbFatalErrorHandler(void *udata, const char *msg) {
 }
 
 
-bool JSWrapper::Initialize() {
+bool JSPluginEngine::Initialize() {
     ctx = duk_create_heap(NULL, NULL, NULL, NULL, glbFatalErrorHandler);
     if (!ConfigureNodeModuleSupport()) {
         printf("ERR: failed to initalize node-module support loading");
@@ -74,12 +74,12 @@ bool JSWrapper::Initialize() {
     return true;
 }
 
-bool JSWrapper::RunScriptOnce(const std::string_view script, const std::vector<std::string> &args) {
+bool JSPluginEngine::RunScriptOnce(const std::string_view script, const std::vector<std::string> &args) {
     return RunScriptOnce(std::string(script), args);
 }
 
 
-bool JSWrapper::RunScriptOnce(const std::string &script, const std::vector<std::string> &args) {
+bool JSPluginEngine::RunScriptOnce(const std::string &script, const std::vector<std::string> &args) {
     printf("[JSWrapper::RunScript] Begin, stack is now: %d\n", (int)duk_get_top(ctx));
 
     // Consider creating a local context for running this function - this would (probably) remove the need to pop the function out of scope when done
@@ -129,7 +129,7 @@ bool JSWrapper::RunScriptOnce(const std::string &script, const std::vector<std::
 
 
 // TODO: Error checking...
-bool JSWrapper::ConfigureNodeModuleSupport() {
+bool JSPluginEngine::ConfigureNodeModuleSupport() {
     duk_push_object(ctx);
     duk_push_c_function(ctx, cb_resolve_module, DUK_VARARGS);
     duk_put_prop_string(ctx, -2, "resolve");
@@ -139,7 +139,7 @@ bool JSWrapper::ConfigureNodeModuleSupport() {
     return true;
 }
 
-void JSWrapper::RegisterBuiltIns() {
+void JSPluginEngine::RegisterBuiltIns() {
     // Showing two ways of registering native objects (these are singletons)
 //    fileio_register(ctx);
 //    MyClass::RegisterModule(ctx);

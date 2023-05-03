@@ -100,14 +100,23 @@ bool CommandController::TryExecuteInternalCmd(std::string &cmdline) {
     } else if (commandList[0] == "li") {
         TestShowDialog();
     } else if (commandList[0] == "sl") {
+        if (RuntimeConfig::Instance().HasPluginCommand(commandList[0])) {
+            auto cmd = RuntimeConfig::Instance().GetPluginCommand(commandList[0]);
+            auto argStart = commandList.begin()+1;
+            auto argEnd = commandList.end();
+            auto argList = std::vector<std::string>(argStart, argEnd);
+            cmd->Execute(argList);
+        }
+
         // Set language - test of JavaScript wrapper
-        auto jsEngine = Editor::Instance().GetPluginForCommand(commandList[0]);
-        auto argStart = commandList.begin()+1;
-        auto argEnd = commandList.end();
-        auto argList = std::vector<std::string>(argStart, argEnd);
-        jsEngine.RunScriptOnce("function main(args) {"\
-                                "  Editor.GetActiveTextBuffer().SetLanguage(\".cpp\");"\
-                                "}",argList);
+//        auto jsEngine = Editor::Instance().GetPluginForCommand(commandList[0]);
+//        auto argStart = commandList.begin()+1;
+//        auto argEnd = commandList.end();
+//        auto argList = std::vector<std::string>(argStart, argEnd);
+//        std::string mScript = "function main(args) {"\
+//                                "  Editor.GetActiveTextBuffer().SetLanguage(\".cpp\");"\
+//                                "}";
+//        jsEngine.RunScriptOnce(mScript,argList);
     }
 
     WriteLine("internal execute: " + commandList[0]);

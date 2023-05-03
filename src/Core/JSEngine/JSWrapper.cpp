@@ -66,13 +66,20 @@ bool JSWrapper::Initialize() {
         if (!cmd->TryLoad()) {
             continue;
         }
+        cmd->SetExecutor(this);
+        RuntimeConfig::Instance().RegisterPluginCommand(cmd);
         // All good, let's push it to our list of supported plugins...
         plugins.push_back(cmd);
     }
     return true;
 }
 
-bool JSWrapper::RunScriptOnce(const std::string &script, std::vector<std::string> &args) {
+bool JSWrapper::RunScriptOnce(const std::string_view script, const std::vector<std::string> &args) {
+    return RunScriptOnce(std::string(script), args);
+}
+
+
+bool JSWrapper::RunScriptOnce(const std::string &script, const std::vector<std::string> &args) {
     printf("[JSWrapper::RunScript] Begin, stack is now: %d\n", (int)duk_get_top(ctx));
 
     // Consider creating a local context for running this function - this would (probably) remove the need to pop the function out of scope when done

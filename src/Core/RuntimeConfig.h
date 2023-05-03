@@ -10,7 +10,9 @@
 #include "Core/Views/ViewBase.h"
 #include "Core/EditorModel.h"
 #include "Core/AssetLoaderBase.h"
+#include "Core/Plugins/PluginCommand.h"
 
+#include <map>
 #include <thread>
 
 namespace gedit {
@@ -84,6 +86,9 @@ namespace gedit {
             return mainThreadId;
         }
 
+        void RegisterPluginCommand(const PluginCommand::Ref pluginCommand);
+        bool HasPluginCommand(const std::string &name);
+        PluginCommand::Ref GetPluginCommand(const std::string &name);
 
     private:
         RuntimeConfig() = default;
@@ -96,8 +101,9 @@ namespace gedit {
         WindowBase *window = nullptr;
         IOutputConsole *outputConsole = nullptr;
         std::thread::id mainThreadId;
-
         AssetLoaderBase assetLoader;
+
+        std::map<std::string, const PluginCommand::Ref> pluginCommands;
 
     };
 }

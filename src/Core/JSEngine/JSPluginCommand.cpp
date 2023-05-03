@@ -6,11 +6,9 @@
 #include "Core/RuntimeConfig.h"
 
 #include "JSPluginCommand.h"
+#include "JSWrapper.h"
 
 using namespace gedit;
-
-
-
 
 JSPluginCommand::Ref JSPluginCommand::CreateFromConfig(const ConfigNode &config) {
 
@@ -30,12 +28,18 @@ bool JSPluginCommand::InitializeFromConfig(const ConfigNode &config) {
     return true;
 }
 
-bool JSPluginCommand::Execute() {
+void JSPluginCommand::SetExecutor(JSWrapper *newJsEngine) {
+    jsEngine = newJsEngine;
+}
+
+bool JSPluginCommand::Execute(const std::vector<std::string> &args) {
     if (!isLoaded) {
         return TryLoad();
     }
-    return true;
+    std::string_view strData(static_cast<char *>(scriptData->ptrData));
+    return jsEngine->RunScriptOnce(strData, args);
 }
+
 bool JSPluginCommand::TryLoad() {
     // Need some IOUtils..
     if (isLoaded) {

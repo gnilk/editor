@@ -14,6 +14,14 @@
 #include "Core/Config/Config.h"
 
 namespace gedit {
+    class PluginCommand;
+
+    template<typename T>
+    class PluginExecutor {
+    public:
+        PluginExecutor() = default;
+        virtual ~PluginExecutor() = default;
+    };
 
     class PluginCommand {
     public:
@@ -27,7 +35,7 @@ namespace gedit {
         static Ref CreateFromConfig(const ConfigNode &cfgNode);
 
         // You should override this one...
-        virtual bool Execute() {
+        virtual bool Execute(const std::vector<std::string> &args) {
             return false;
         }
 

@@ -3,9 +3,6 @@
 //
 /*
  * TO-DO List
- * - Make API register commands in the runtime configuration
- *   - Move 'PluginCommand' class from JSEngine/JSPluginCommand to Core/Plugin/
- *   - Create a 'PluginExecutor' and associate with each PluginCommand
  * - Something is causing sigsev, I strongly suspect that it is related to threading in Syntax Coloring / Language code
  * - Move EditorController functionality to EditorModel
  * - Make a proper 'project' viewer
@@ -18,6 +15,9 @@
  * - Unsaved file should have '*' marking in the top..
  *
  * Done:
+ * ! Make API register commands in the runtime configuration
+ *   ! Move 'PluginCommand' class from JSEngine/JSPluginCommand to Core/Plugin/
+ *   ! Create a 'PluginExecutor' and associate with each PluginCommand
  * ! Start with API work
  *   ! Goal: Javascript function to associate the current buffer with a specific language parser
  *   ! API requires:

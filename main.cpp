@@ -3,14 +3,9 @@
 //
 /*
  * TO-DO List
- * - Start with API work
- *   - Goal: Javascript function to associate the current buffer with a specific language parser
- *   - API requires:
- *     - list installed languages; <array> EditorAPI::GetInstalledLanguages();
- *     - get a language reference; <LanguageRef> EditorAPI::GetLanguage(<str_identifier>);
- *     - get current buffer; <TextBufferReference> EditorAPI::GetCurrentTextBuffer();
- *     - associate language reference with buffer; TextBufferAPI::SetLanguage(<LanguageRef>)
- *
+ * - Make API register commands in the runtime configuration
+ *   - Move 'PluginCommand' class from JSEngine/JSPluginCommand to Core/Plugin/
+ *   - Create a 'PluginExecutor' and associate with each PluginCommand
  * - Something is causing sigsev, I strongly suspect that it is related to threading in Syntax Coloring / Language code
  * - Move EditorController functionality to EditorModel
  * - Make a proper 'project' viewer
@@ -23,6 +18,13 @@
  * - Unsaved file should have '*' marking in the top..
  *
  * Done:
+ * ! Start with API work
+ *   ! Goal: Javascript function to associate the current buffer with a specific language parser
+ *   ! API requires:
+ *     ! list installed languages; <array> EditorAPI::GetInstalledLanguages();
+ *     ! get a language reference; <LanguageRef> EditorAPI::GetLanguage(<str_identifier>);
+ *     ! get current buffer; <TextBufferReference> EditorAPI::GetCurrentTextBuffer();
+ *     !associate language reference with buffer; TextBufferAPI::SetLanguage(<LanguageRef>)
  * ! Add action to 'Comment Selection'
  * ! Move language parser files to other directory (currently in 'cpp' should be 'languages' or something)
  * ! Add an 'Array' kind of block definition to the language token specification

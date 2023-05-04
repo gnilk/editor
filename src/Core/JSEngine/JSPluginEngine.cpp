@@ -127,6 +127,8 @@ bool JSPluginEngine::RunScriptOnce(const std::string &script, const std::vector<
     duk_pop(ctx);   // ctx (global)
     logger->Error("End, stack is now: %d", (int)duk_get_top(ctx));
 
+    // Need to sweep twice - see documentation
+    // First sweep marks, second sweep finializes..
     duk_gc(ctx,0);
     duk_gc(ctx,0);
 

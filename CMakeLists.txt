@@ -327,7 +327,7 @@ target_link_libraries(editor ${extlibs})
 list(APPEND utestsrc utests/test_main.cpp)
 list(APPEND utestsrc utests/test_buffermanager.cpp)
 list(APPEND utestsrc utests/test_assetloader.cpp)
-list(APPEND utestsrc utests/test_jswrapper.cpp)
+list(APPEND utestsrc utests/test_jsengine.cpp)
 list(APPEND utestsrc src/Core/Tests/test_dcoverlay.cpp)
 
 

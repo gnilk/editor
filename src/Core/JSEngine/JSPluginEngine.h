@@ -18,6 +18,7 @@
 
 #include "Core/Plugins/PluginCommand.h"
 
+
 #include "JSPluginCommand.h"
 
 
@@ -35,8 +36,9 @@ namespace gedit {
         bool ConfigureNodeModuleSupport();
         void RegisterBuiltIns();
     private:
+        gnilk::ILogger *logger = nullptr;
+        duk_context *ctx = nullptr;
         std::vector<PluginCommand::Ref> plugins;
-        duk_context *ctx;
     };
 }
 

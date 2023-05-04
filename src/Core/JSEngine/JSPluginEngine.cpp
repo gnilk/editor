@@ -37,9 +37,10 @@ static void glbFatalErrorHandler(void *udata, const char *msg) {
 
 
 bool JSPluginEngine::Initialize() {
+    logger = gnilk::Logger::GetLogger("JSEngine");
     ctx = duk_create_heap(NULL, NULL, NULL, NULL, glbFatalErrorHandler);
     if (!ConfigureNodeModuleSupport()) {
-        printf("ERR: failed to initalize node-module support loading");
+        logger->Error("Failed to initalize node-module support loading");
         return false;
     }
     RegisterBuiltIns();
@@ -80,7 +81,7 @@ bool JSPluginEngine::RunScriptOnce(const std::string_view script, const std::vec
 
 
 bool JSPluginEngine::RunScriptOnce(const std::string &script, const std::vector<std::string> &args) {
-    printf("[JSWrapper::RunScript] Begin, stack is now: %d\n", (int)duk_get_top(ctx));
+    logger->Debug("Begin, stack is now: %d", (int)duk_get_top(ctx));
 
     // Consider creating a local context for running this function - this would (probably) remove the need to pop the function out of scope when done
     //
@@ -93,7 +94,7 @@ bool JSPluginEngine::RunScriptOnce(const std::string &script, const std::vector<
     duk_push_string(ctx, script.c_str());
     duk_int_t idxEval = duk_peval(ctx);
     if (idxEval != 0) {
-        printf("Error: %s\n", duk_safe_to_string(ctx,-1));
+        logger->Error("%s", duk_safe_to_string(ctx,-1));
         return false;
     }
     duk_pop(ctx);
@@ -102,7 +103,7 @@ bool JSPluginEngine::RunScriptOnce(const std::string &script, const std::vector<
     if (!duk_get_prop_string(ctx,-1,"main")) {
         duk_pop(ctx);
         duk_pop(ctx);
-        printf("[JSWrapper::RunScript] You must begin your stuff with 'main'\n");
+        logger->Error("You must begin your stuff with 'main'");
         return false;
     }
 
@@ -115,15 +116,20 @@ bool JSPluginEngine::RunScriptOnce(const std::string &script, const std::vector<
         argCounter++;
     }
 
-    duk_pcall(ctx,1);
-    printf("[JSWrapper::RunScript] Script Executed, Res=%d\n", duk_get_int(ctx,-1));
+    duk_pcall(ctx, 1);
+
+    logger->Error("Script Executed, Res=%d", duk_get_int(ctx,-1));
     duk_pop(ctx);   // result
     if (!duk_del_prop_string(ctx,-1,"main")) {
-        printf("ERR: Unable to delete function\n");
+        logger->Error("Unable to delete function");
         return false;
     }
     duk_pop(ctx);   // ctx (global)
-    printf("[JSWrapper::RunScript] End, stack is now: %d\n", (int)duk_get_top(ctx));
+    logger->Error("End, stack is now: %d", (int)duk_get_top(ctx));
+
+    duk_gc(ctx,0);
+    duk_gc(ctx,0);
+
     return true;
 }
 
@@ -173,8 +179,8 @@ static duk_ret_t cb_resolve_module(duk_context *ctx) {
     parent_id = duk_require_string(ctx, 1);
 
     duk_push_sprintf(ctx, "%s.js", module_id);
-    printf("resolve_cb: id:'%s', parent-id:'%s', resolve-to:'%s'\n",
-           module_id, parent_id, duk_get_string(ctx, -1));
+//    printf("resolve_cb: id:'%s', parent-id:'%s', resolve-to:'%s'\n",
+//           module_id, parent_id, duk_get_string(ctx, -1));
 
     return 1;   // Number of return values...
 }
@@ -198,7 +204,7 @@ static duk_ret_t cb_load_module(duk_context *ctx) {
     std::string fullPath = "modules/";
     fullPath += filename;
 
-    printf("load_cb: id:'%s', filename:'%s'\n", module_id, fullPath.c_str()); //filename);
+//    printf("load_cb: id:'%s', filename:'%s'\n", module_id, fullPath.c_str()); //filename);
 
     size_t szBuffer;
     auto fileContents = LoadFile(fullPath, &szBuffer);
@@ -216,7 +222,8 @@ static void *LoadFile(const std::string &filename, size_t *outSz) {
         return nullptr;
     }
     auto szFile = std::filesystem::file_size(path);
-    void *buffer = malloc(szFile + 1);
+    void *buffer = calloc(1,szFile + 1);
+
 
     auto f = fopen(path.c_str(), "r");
     fread(buffer, szFile, 1, f);

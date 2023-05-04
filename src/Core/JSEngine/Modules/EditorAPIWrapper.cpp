@@ -12,6 +12,7 @@ void EditorAPIWrapper::RegisterModule(duk_context *ctx) {
     duk_put_global_string(ctx, "Editor");
 
     dukglue_register_method(ctx, &EditorAPIWrapper::GetActiveTextBuffer, "GetActiveTextBuffer");
+    dukglue_register_method(ctx, &EditorAPIWrapper::GetTestArray, "GetTestArray");
 }
 
 //
@@ -24,6 +25,10 @@ TextBufferAPIWrapper::Ref EditorAPIWrapper::GetActiveTextBuffer() {
     return TextBufferAPIWrapper::Create(editorApi->GetActiveTextBuffer());
 }
 
+std::vector<std::string> EditorAPIWrapper::GetTestArray() {
+    static std::vector<std::string> v = {"1","5","21","4"};
+    return v;
+}
 
 
 

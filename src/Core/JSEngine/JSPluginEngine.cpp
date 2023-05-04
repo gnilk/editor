@@ -12,6 +12,7 @@
 #include "JSPluginEngine.h"
 #include "Modules/TextBufferAPIWrapper.h"
 #include "Modules/EditorAPIWrapper.h"
+#include "Modules/ConsoleAPIWrapper.h"
 #include "Core/StrUtil.h"
 #include "Core/RuntimeConfig.h"
 
@@ -116,9 +117,11 @@ bool JSPluginEngine::RunScriptOnce(const std::string &script, const std::vector<
         argCounter++;
     }
 
-    duk_pcall(ctx, 1);
-
-    logger->Error("Script Executed, Res=%d", duk_get_int(ctx,-1));
+    if (duk_pcall(ctx, 1) != DUK_EXEC_SUCCESS) {
+        logger->Error("%s", duk_safe_to_string(ctx, -1));
+    } else {
+        logger->Debug("Script Executed, Res=%d", duk_get_int(ctx, -1));
+    }
     duk_pop(ctx);   // result
     if (!duk_del_prop_string(ctx,-1,"main")) {
         logger->Error("Unable to delete function");
@@ -155,6 +158,7 @@ void JSPluginEngine::RegisterBuiltIns() {
 //    EditorAPIWrapper::RegisterModule(ctx);
     EditorAPIWrapper::RegisterModule(ctx);
     TextBufferAPIWrapper::RegisterModule(ctx);
+    ConsoleAPIWrapper::RegisterModule(ctx);
 }
 
 

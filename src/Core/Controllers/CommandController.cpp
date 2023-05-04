@@ -95,7 +95,7 @@ bool CommandController::TryExecuteInternalCmd(std::string &cmdline) {
     // There is more to come...
     if ((commandList[0] == "q") || (commandList[0]=="quit")) {
         // FIX: Can't just exit here!
-        auto mainEditorAPI = Editor::Instance().GetAPI<EditorAPI>();
+        auto mainEditorAPI = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
         mainEditorAPI->ExitEditor();
     } else if (commandList[0] == "li") {
         TestShowDialog();

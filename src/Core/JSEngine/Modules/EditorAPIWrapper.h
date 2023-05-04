@@ -8,7 +8,7 @@
 namespace gedit {
     class EditorAPIWrapper {
     public:
-        TextBufferAPIWrapper *GetActiveTextBuffer();
+        TextBufferAPIWrapper::Ref GetActiveTextBuffer();
         static void RegisterModule(duk_context *ctx);
     public:
     };

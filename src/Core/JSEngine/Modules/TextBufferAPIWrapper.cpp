@@ -8,7 +8,8 @@
 using namespace gedit;
 
 void TextBufferAPIWrapper::RegisterModule(duk_context *ctx) {
-    dukglue_register_constructor<TextBufferAPIWrapper>(ctx, "TextBuffer");
+    dukglue_register_constructor_managed<TextBufferAPIWrapper>(ctx, "TextBuffer");
+    dukglue_register_delete<TextBufferAPIWrapper>(ctx);
     dukglue_register_method(ctx, &TextBufferAPIWrapper::SetLanguage, "SetLanguage");
 }
 
@@ -16,6 +17,9 @@ void TextBufferAPIWrapper::RegisterModule(duk_context *ctx) {
 // Impl. API
 //
 void TextBufferAPIWrapper::SetLanguage(const char *param) {
+    if (textBuffer == nullptr) {
+        return;
+    }
     printf("TextBufferAPIWrapper::SetLanguage, param=%s\n", param);
     textBuffer->SetLanguage(param);
 }

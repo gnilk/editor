@@ -18,10 +18,10 @@ void EditorAPIWrapper::RegisterModule(duk_context *ctx) {
 // Impl API
 //
 
-TextBufferAPIWrapper *EditorAPIWrapper::GetActiveTextBuffer() {
+TextBufferAPIWrapper::Ref EditorAPIWrapper::GetActiveTextBuffer() {
     printf("GetActiveTextBuffer: %p\n", this);
-    auto editorApi = Editor::Instance().GetAPI<EditorAPI>();
-    return new TextBufferAPIWrapper(editorApi->GetActiveTextBuffer());
+    auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
+    return TextBufferAPIWrapper::Create(editorApi->GetActiveTextBuffer());
 }
 
 

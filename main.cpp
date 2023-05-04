@@ -181,6 +181,7 @@ static void TestKeyBoardDriver() {
 int main(int argc, const char **argv) {
 
     Editor::Instance().Initialize(argc, argv);
+    Editor::Instance().OpenScreen();
 
 //    {
 //        auto screen = RuntimeConfig::Instance().Screen();

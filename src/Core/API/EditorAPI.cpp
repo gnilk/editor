@@ -2,13 +2,14 @@
 // Created by gnilk on 08.04.23.
 //
 
+#include <memory>
 #include "EditorAPI.h"
 
 
 using namespace gedit;
-TextBufferAPI *EditorAPI::GetActiveTextBuffer() {
+TextBufferAPI::Ref EditorAPI::GetActiveTextBuffer() {
     auto idxActiveModel = Editor::Instance().GetActiveModelIndex();
     auto model = Editor::Instance().GetModelFromIndex(idxActiveModel);
-    return new TextBufferAPI(model->GetTextBuffer());
+    return std::make_shared<TextBufferAPI>(model->GetTextBuffer());
 
 }

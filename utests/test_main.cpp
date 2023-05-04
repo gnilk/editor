@@ -13,8 +13,6 @@ extern "C" {
 
 DLL_EXPORT int test_main(ITesting *t) {
     // We need this..
-    gnilk::Logger::Initialize();
-
-    Editor::Instance().LoadConfig("config.yml");
+    Editor::Instance().Initialize(0, nullptr);
     return kTR_Pass;
 }

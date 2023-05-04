@@ -18,7 +18,7 @@ namespace gedit {
         void ExitEditor() {
             cbExitEditor();
         }
-        TextBufferAPI *GetActiveTextBuffer();
+        TextBufferAPI::Ref GetActiveTextBuffer();
     public:
         void SetExitEditorDelegate(APIFunc newExitEditor) {
             cbExitEditor = newExitEditor;

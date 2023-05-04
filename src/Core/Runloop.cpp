@@ -19,7 +19,7 @@ void Runloop::DefaultLoop() {
     auto &rootView = RuntimeConfig::Instance().GetRootView();
     auto logger = gnilk::Logger::GetLogger("MainLoop");
 
-    auto editorApi = Editor::Instance().GetAPI<EditorAPI>();
+    auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
     editorApi->SetExitEditorDelegate([]()->void{
         Runloop::StopRunLoop();
     });

@@ -185,10 +185,11 @@ list(APPEND editorsrc src/Core/Sublime/SublimeConfigColorScript.cpp src/Core/Sub
 #
 # JSAPI - separate
 #
-list(APPEND jsapi src/Core/JSEngine/Modules/TextBufferAPIWrapper.cpp src/Core/JSEngine/Modules/TextBufferAPIWrapper.h)
-list(APPEND jsapi src/Core/JSEngine/Modules/EditorAPIWrapper.cpp src/Core/JSEngine/Modules/EditorAPIWrapper.h)
 list(APPEND jsapi src/Core/JSEngine/JSPluginEngine.cpp src/Core/JSEngine/JSPluginEngine.h)
 list(APPEND jsapi src/Core/JSEngine/JSPluginCommand.cpp src/Core/JSEngine/JSPluginCommand.h)
+list(APPEND jsapi src/Core/JSEngine/Modules/TextBufferAPIWrapper.cpp src/Core/JSEngine/Modules/TextBufferAPIWrapper.h)
+list(APPEND jsapi src/Core/JSEngine/Modules/EditorAPIWrapper.cpp src/Core/JSEngine/Modules/EditorAPIWrapper.h)
+list(APPEND jsapi src/Core/JSEngine/Modules/ConsoleAPIWrapper.cpp src/Core/JSEngine/Modules/ConsoleAPIWrapper.h)
 
 
 

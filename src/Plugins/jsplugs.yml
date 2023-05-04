@@ -1,0 +1,40 @@
+commands:
+  -
+    name: setlanguage
+    short: sl
+    description: Set the language of the active buffer
+    script: Scripts/setlanguage.js
+    arguments:
+      - string, language identifier
+  -
+    name: listlanguages
+    short: ll
+    description: List supported languages
+    script: Scripts/listlanguages.js
+  -
+    name: openfile
+    short: o
+    description: Open a file for editing
+    script: Scripts/openfile.js
+    arguments:
+      - string, filename
+  -
+    name: save
+    short: s
+    description: Save active buffer
+    script: Scripts/savefile.js
+  -
+    name: saveas
+    short: sa
+    description: Save active buffer with a specific filename
+    script: Scripts/savefile.js
+    arguments:
+      - string, filename
+  -
+    name: openfolder
+    short: of
+    description: Open a folder in to the project viewer
+    script: Scripts/openfolder.js
+    arguments:
+      - string, folder name
+

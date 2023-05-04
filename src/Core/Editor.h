@@ -56,8 +56,8 @@ namespace gedit {
         }
 
         // FIXME: should return a PluginCommand instead
-        JSPluginEngine &GetPluginForCommand(const std::string &command) {
-            return jsWrapper;
+        JSPluginEngine &GetJSEngine() {
+            return jsEngine;
         }
 
 
@@ -119,7 +119,7 @@ namespace gedit {
         std::unordered_map<std::string_view, void *> editorApiObjects;
 
         // Javascript API wrapper
-        JSPluginEngine jsWrapper;
+        JSPluginEngine jsEngine;
 
     };
 

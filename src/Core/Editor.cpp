@@ -218,7 +218,7 @@ void Editor::ConfigureGlobalAPIObjects() {
 //    RegisterAPI<TextBufferAPI>(&textBufferAPI);
 
     // Initialize the Javascript wrapper engine...
-    jsWrapper.Initialize();
+    jsEngine.Initialize();
 }
 
 static std::vector<std::string> glbSupportedBackends = {

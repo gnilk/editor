@@ -76,10 +76,7 @@ bool Editor::Initialize(int argc, const char **argv) {
         }
     }
 
-    ConfigureAPI();
-
-    ConfigureSubSystems();
-    ConfigureColorTheme();
+    ConfigureGlobalAPIObjects();
 
     if (models.size() == 0) {
         auto newModel = NewModel("no_name");
@@ -96,6 +93,11 @@ bool Editor::Initialize(int argc, const char **argv) {
 
 
     isInitialized = true;
+    return true;
+}
+bool Editor::OpenScreen() {
+    ConfigureSubSystems();
+    ConfigureColorTheme();
     return true;
 }
 
@@ -207,12 +209,13 @@ void Editor::ConfigureColorTheme() {
     }
 }
 
-void Editor::ConfigureAPI() {
+// Configure global/static API objects..
+void Editor::ConfigureGlobalAPIObjects() {
     static EditorAPI editorApi;
-    static TextBufferAPI textBufferAPI;
+//    static TextBufferAPI textBufferAPI;
 
-    RegisterAPI<EditorAPI>(&editorApi);
-    RegisterAPI<TextBufferAPI>(&textBufferAPI);
+    RegisterGlobalAPIObject<EditorAPI>(&editorApi);
+//    RegisterAPI<TextBufferAPI>(&textBufferAPI);
 
     // Initialize the Javascript wrapper engine...
     jsWrapper.Initialize();

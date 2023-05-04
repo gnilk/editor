@@ -27,6 +27,7 @@ namespace gedit {
     public:
         static Editor &Instance();
         bool Initialize(int argc, const char **argv);
+        bool OpenScreen();
         void Close();
         bool LoadConfig(const char *configFile);
         std::vector<EditorModel::Ref> &GetModels() {
@@ -67,15 +68,16 @@ namespace gedit {
             return languageColorConfig[tokenClass];
         }
 
-        // API Object Handling
+        // API Object Handling for static/global objects
+        // Specific instances (like TextBufferAPI) should be aquired through one of the global API objects
+        // Example: auto currentTextBuffer = GetGlobalAPIObject<EditorAPI>()->GetActiveTextBuffer();
         template<class T>
-        void RegisterAPI(void *apiObject) {
+        void RegisterGlobalAPIObject(void *apiObject) {
             auto typeName = gedit::type_name<T>();
             editorApiObjects.insert({typeName, apiObject});
         }
-
         template<class T>
-        T *GetAPI() {
+        T *GetGlobalAPIObject() {
             auto typeName = gedit::type_name<T>();
             auto apiObject = editorApiObjects[typeName];
             return static_cast<T *>(apiObject);
@@ -87,7 +89,7 @@ namespace gedit {
         void ConfigureLanguages();
         void ConfigureColorTheme();
         void ConfigureSubSystems();
-        void ConfigureAPI();
+        void ConfigureGlobalAPIObjects();
 
         // TEMP - backend configuration
         void SetupNCurses();

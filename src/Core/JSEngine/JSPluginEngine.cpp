@@ -82,6 +82,7 @@ bool JSPluginEngine::RunScriptOnce(const std::string_view script, const std::vec
 
 
 bool JSPluginEngine::RunScriptOnce(const std::string &script, const std::vector<std::string> &args) {
+    bool result = true; // assume everything went fine..
     logger->Debug("Begin, stack is now: %d", (int)duk_get_top(ctx));
 
     // Consider creating a local context for running this function - this would (probably) remove the need to pop the function out of scope when done
@@ -119,6 +120,8 @@ bool JSPluginEngine::RunScriptOnce(const std::string &script, const std::vector<
 
     if (duk_pcall(ctx, 1) != DUK_EXEC_SUCCESS) {
         logger->Error("%s", duk_safe_to_string(ctx, -1));
+        result = false;
+        // Still need to unwind stack and clean up the context - hence, no early exit in this case...
     } else {
         logger->Debug("Script Executed, Res=%d", duk_get_int(ctx, -1));
     }
@@ -135,7 +138,7 @@ bool JSPluginEngine::RunScriptOnce(const std::string &script, const std::vector<
     duk_gc(ctx,0);
     duk_gc(ctx,0);
 
-    return true;
+    return result;
 }
 
 

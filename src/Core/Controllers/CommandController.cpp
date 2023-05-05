@@ -71,6 +71,7 @@ void CommandController::CommitLine() {
         return;
     }
 
+    NewLine();
 
     if (TryExecuteInternalCmd(cmdLine)) {
         return;
@@ -88,41 +89,18 @@ bool CommandController::TryExecuteInternalCmd(std::string &cmdline) {
     // We should have a 'smarter' that keeps strings and so forth
     strutil::split(commandList, cmdLineNoPrefix.c_str(), ' ');
 
-    //
-    //
-    //
-
     // There is more to come...
-    if ((commandList[0] == "q") || (commandList[0]=="quit")) {
-        // FIX: Can't just exit here!
-        auto mainEditorAPI = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
-        mainEditorAPI->ExitEditor();
-    } else if (commandList[0] == "li") {
-        TestShowDialog();
-    } else if (commandList[0] == "sl") {
-        if (RuntimeConfig::Instance().HasPluginCommand(commandList[0])) {
-            auto cmd = RuntimeConfig::Instance().GetPluginCommand(commandList[0]);
-            auto argStart = commandList.begin()+1;
-            auto argEnd = commandList.end();
-            auto argList = std::vector<std::string>(argStart, argEnd);
-            cmd->Execute(argList);
-        }
-
-        // Set language - test of JavaScript wrapper
-//        auto jsEngine = Editor::Instance().GetPluginForCommand(commandList[0]);
-//        auto argStart = commandList.begin()+1;
-//        auto argEnd = commandList.end();
-//        auto argList = std::vector<std::string>(argStart, argEnd);
-//        std::string mScript = "function main(args) {"\
-//                                "  Editor.GetActiveTextBuffer().SetLanguage(\".cpp\");"\
-//                                "}";
-//        jsEngine.RunScriptOnce(mScript,argList);
+    if (RuntimeConfig::Instance().HasPluginCommand(commandList[0])) {
+        auto cmd = RuntimeConfig::Instance().GetPluginCommand(commandList[0]);
+        auto argStart = commandList.begin()+1;
+        auto argEnd = commandList.end();
+        auto argList = std::vector<std::string>(argStart, argEnd);
+        cmd->Execute(argList);
     }
-
-    WriteLine("internal execute: " + commandList[0]);
 
     return true;
 }
+
 void CommandController::TryExecuteShellCmd(std::string &cmdline) {
     // Just push this to the shell "process"...
     strutil::trim(cmdline);

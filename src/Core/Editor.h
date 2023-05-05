@@ -89,7 +89,7 @@ namespace gedit {
         }
         void RegisterLanguage(const std::string &extension, LanguageBase::Ref languageBase);
         LanguageBase::Ref GetLanguageForExtension(const std::string &extension);
-
+        std::vector<std::string> GetRegisteredLanguages();
 
         void ConfigureLogger();
 

@@ -290,3 +290,11 @@ LanguageBase::Ref Editor::GetLanguageForExtension(const std::string &extension) 
     }
     return extToLanguages[extension];
 }
+
+std::vector<std::string> Editor::GetRegisteredLanguages() {
+    std::vector<std::string> keys;
+    for(auto &[key,value] : extToLanguages) {
+        keys.push_back(key);
+    }
+    return keys;
+}

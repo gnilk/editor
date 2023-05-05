@@ -1,7 +1,7 @@
 //
 // Created by gnilk on 03.05.23.
 //
-
+#include "Core/StrUtil.h"
 #include "PluginCommand.h"
 
 using namespace gedit;

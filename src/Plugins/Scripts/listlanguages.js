@@ -1,7 +1,7 @@
 function main(args) {
-    var languages = Config.GetLanguages();
-    Console.WriteLine("Supported languages");
-    foreach(l : languages) {
-        Console.WriteLine(l.GetExtension() + ", " + l.GetDescription());
+    var languages = Editor.GetRegisteredLanguages();
+    Console.WriteLine("Supported languages: ", languages.length);
+    for(i = 0; i<languages.length;i++) {
+        Console.WriteLine(languages[i]);
     }
 }

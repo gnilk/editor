@@ -8,6 +8,9 @@ namespace gedit {
     class EditorAPIWrapper {
     public:
         TextBufferAPIWrapper::Ref GetActiveTextBuffer();
+        void ExitEditor();
+        std::vector<std::string> GetRegisteredLanguages();
+
         static void RegisterModule(duk_context *ctx);
         // For testing purposes
         std::vector<std::string> GetTestArray();

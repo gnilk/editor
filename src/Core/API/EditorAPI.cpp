@@ -11,5 +11,8 @@ TextBufferAPI::Ref EditorAPI::GetActiveTextBuffer() {
     auto idxActiveModel = Editor::Instance().GetActiveModelIndex();
     auto model = Editor::Instance().GetModelFromIndex(idxActiveModel);
     return std::make_shared<TextBufferAPI>(model->GetTextBuffer());
+}
 
+std::vector<std::string> EditorAPI::GetRegisteredLanguages() {
+    return Editor::Instance().GetRegisteredLanguages();
 }

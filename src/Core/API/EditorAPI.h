@@ -6,7 +6,10 @@
 #define EDITOR_EDITORAPI_H
 
 #include <functional>
+#include <vector>
+#include <string>
 #include "Core/Editor.h"
+#include "Core/Runloop.h"
 
 #include "TextBufferAPI.h"
 
@@ -16,13 +19,10 @@ namespace gedit {
         using APIFunc = std::function<void(void)>;
     public:
         void ExitEditor() {
-            cbExitEditor();
+            Runloop::StopRunLoop();
         }
         TextBufferAPI::Ref GetActiveTextBuffer();
-    public:
-        void SetExitEditorDelegate(APIFunc newExitEditor) {
-            cbExitEditor = newExitEditor;
-        }
+        std::vector<std::string> GetRegisteredLanguages();
     protected:
         APIFunc cbExitEditor = nullptr;
 

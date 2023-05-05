@@ -12,6 +12,11 @@ commands:
     description: List supported languages
     script: Scripts/listlanguages.js
   -
+    name: quit
+    short: q
+    description: Quit/Exit Editor
+    script: Scripts/exiteditor.js
+  -
     name: openfile
     short: o
     description: Open a file for editing

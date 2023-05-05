@@ -2,7 +2,7 @@
 // Created by gnilk on 03.05.23.
 //
 
-#include "Core/Config/Config.h"
+#include "Core/Editor.h"
 #include "TextBufferAPI.h"
 
 using namespace gedit;
@@ -12,7 +12,7 @@ void TextBufferAPI::SetLanguage(const char *param) {
         return;
     }
     printf("TextBufferAPI::SetLanguage, param=%s\n", param);
-    auto lang = Config::Instance().GetLanguageForExtension(param);
+    auto lang = Editor::Instance().GetLanguageForExtension(param);
     textBuffer->SetLanguage(lang);
     textBuffer->Reparse();
 }

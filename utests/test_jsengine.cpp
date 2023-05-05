@@ -14,6 +14,7 @@ extern "C" {
     DLL_EXPORT int test_jsengine_builtin(ITesting *t);
     DLL_EXPORT int test_jsengine_console(ITesting *t);
     DLL_EXPORT int test_jsengine_array(ITesting *t);
+    DLL_EXPORT int test_jsengine_listlang(ITesting *t);
 }
 
 DLL_EXPORT int test_jsengine(ITesting *t) {
@@ -60,5 +61,12 @@ DLL_EXPORT int test_jsengine_array(ITesting *t) {
     "}";
     jsEngine.RunScriptOnce(script, {});
 
+    return kTR_Pass;
+}
+DLL_EXPORT int test_jsengine_listlang(ITesting *t) {
+    TR_ASSERT(t, RuntimeConfig::Instance().HasPluginCommand("listlanguages"));
+    auto cmd = RuntimeConfig::Instance().GetPluginCommand("listlanguages");
+    TR_ASSERT(t, cmd != nullptr);
+    cmd->Execute({});
     return kTR_Pass;
 }

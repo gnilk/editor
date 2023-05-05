@@ -4,9 +4,23 @@
 
 #include "dukglue/dukglue.h"
 
+#include "Core/Editor.h"
+#include "Core/RuntimeConfig.h"
+
 #include "ConsoleAPIWrapper.h"
 
 using namespace gedit;
+
+void ConsoleAPIWrapper::RegisterModule(duk_context *ctx) {
+    static ConsoleAPIWrapper consoleApiWrapper;
+
+    dukglue_push(ctx, &consoleApiWrapper);
+    duk_put_global_string(ctx, "Console");
+
+    dukglue_register_method_varargs(ctx,&ConsoleAPIWrapper::WriteLine, "WriteLine");
+    dukglue_register_method_varargs(ctx,&ConsoleAPIWrapper::WriteLine, "log");
+}
+
 
 // Do variadic argument printing - this is pretty much lifted directly from duktape/extras/console
 // I do understand (to some extent) what it is doing, but I wouldn't have been able to write it myself...
@@ -31,18 +45,15 @@ duk_ret_t ConsoleAPIWrapper::WriteLine(duk_context *ctx) {
     duk_join(ctx, n);
 
     // NOTE: This should NOT go here!
-    fprintf(stdout, "%s\n", duk_to_string(ctx, -1));
-    fflush(stdout);
+    auto cstr = duk_to_string(ctx, -1);
+    SendToConsole(cstr);
+//    fprintf(stdout, "%s\n", duk_to_string(ctx, -1));
+//    fflush(stdout);
     return 0;
 }
 
-void ConsoleAPIWrapper::RegisterModule(duk_context *ctx) {
-    static ConsoleAPIWrapper consoleApiWrapper;
-
-    dukglue_push(ctx, &consoleApiWrapper);
-    duk_put_global_string(ctx, "Console");
-
-    dukglue_register_method_varargs(ctx,&ConsoleAPIWrapper::WriteLine, "WriteLine");
-    dukglue_register_method_varargs(ctx,&ConsoleAPIWrapper::WriteLine, "log");
+void ConsoleAPIWrapper::SendToConsole(const char *str) {
+    auto console = RuntimeConfig::Instance().OutputConsole();
+    console->WriteLine(str);
 }
 

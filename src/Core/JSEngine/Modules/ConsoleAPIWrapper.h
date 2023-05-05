@@ -12,6 +12,8 @@ namespace gedit {
     public:
         duk_ret_t WriteLine(duk_context *ctx);
         static void RegisterModule(duk_context *ctx);
+    private:
+        void SendToConsole(const char *str);
     };
 }
 

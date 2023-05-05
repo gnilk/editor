@@ -11,6 +11,7 @@
 #include "Core/macOS/MacOSKeyboardMonitor.h"
 
 #include "Core/JSEngine/JSPluginEngine.h"
+#include "Core/Language/LanguageBase.h"
 
 #include "KeyboardDriverBase.h"
 #include "KeyboardBaseMonitor.h"
@@ -83,6 +84,13 @@ namespace gedit {
             return static_cast<T *>(apiObject);
         }
 
+        void SetDefaultLanguage(LanguageBase::Ref newDefaultLanguage) {
+            defaultLanguage = newDefaultLanguage;
+        }
+        void RegisterLanguage(const std::string &extension, LanguageBase::Ref languageBase);
+        LanguageBase::Ref GetLanguageForExtension(const std::string &extension);
+
+
         void ConfigureLogger();
 
     protected:
@@ -120,6 +128,9 @@ namespace gedit {
 
         // Javascript API wrapper
         JSPluginEngine jsEngine;
+
+        LanguageBase::Ref defaultLanguage = {};
+        std::unordered_map<std::string, LanguageBase::Ref> extToLanguages;
 
     };
 

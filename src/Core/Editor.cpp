@@ -112,7 +112,7 @@ EditorModel::Ref Editor::NewModel(const char *name) {
     EditController::Ref editController = std::make_shared<EditController>();
     auto textBuffer = BufferManager::Instance().NewBuffer(name);
     textBuffer->AddLine("");
-    textBuffer->SetLanguage(Config::Instance().GetLanguageForExtension("default"));
+    textBuffer->SetLanguage(Editor::Instance().GetLanguageForExtension("default"));
     EditorModel::Ref editorModel = std::make_shared<EditorModel>();
     editorModel->Initialize(editController, textBuffer);
     return editorModel;
@@ -133,7 +133,7 @@ EditorModel::Ref Editor::LoadEditorModelFromFile(const char *filename) {
 
     std::filesystem::path pathName(filename);
     auto extension = pathName.extension();
-    textBuffer->SetLanguage(Config::Instance().GetLanguageForExtension(extension));
+    textBuffer->SetLanguage(GetLanguageForExtension(extension));
 
     EditController::Ref editController = std::make_shared<EditController>();
     EditorModel::Ref editorModel = std::make_shared<EditorModel>();
@@ -172,15 +172,16 @@ void Editor::ConfigureLanguages() {
     logger->Debug("Configuring language parser(s)");
     auto cppLanguage = CPPLanguage::Create();
     cppLanguage->Initialize();
-    Config::Instance().RegisterLanguage(".cpp", cppLanguage);
+    RegisterLanguage(".cpp", cppLanguage);
 
     auto jsonLanguage = JSONLanguage::Create();
     jsonLanguage->Initialize();
-    Config::Instance().RegisterLanguage(".json", jsonLanguage);
+    RegisterLanguage(".json", jsonLanguage);
 
     auto defaultLanguage = DefaultLanguage::Create();
     defaultLanguage->Initialize();
-    Config::Instance().SetDefaultLanguage(defaultLanguage);
+    RegisterLanguage("default", defaultLanguage);
+    SetDefaultLanguage(defaultLanguage);
 
 }
 
@@ -278,3 +279,14 @@ void Editor::SetupSDL() {
     keyboardDriver->Initialize();
 }
 
+void Editor::RegisterLanguage(const std::string &extension, LanguageBase::Ref languageBase) {
+    extToLanguages[extension] = languageBase;
+}
+
+LanguageBase::Ref Editor::GetLanguageForExtension(const std::string &extension) {
+
+    if (extToLanguages.find(extension) == extToLanguages.end()) {
+        return defaultLanguage;
+    }
+    return extToLanguages[extension];
+}

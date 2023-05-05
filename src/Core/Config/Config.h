@@ -7,7 +7,6 @@
 
 #include <string>
 #include <vector>
-#include "Core/Language/LanguageBase.h"
 #include "NamedColorConfig.h"
 #include <yaml-cpp/yaml.h>
 
@@ -121,11 +120,6 @@ namespace gedit {
     public:
         static Config &Instance();
 
-        void SetDefaultLanguage(LanguageBase::Ref newDefaultLanguage) {
-            defaultLanguage = newDefaultLanguage;
-        }
-        void RegisterLanguage(const std::string &extension, LanguageBase::Ref languageBase);
-        LanguageBase::Ref GetLanguageForExtension(const std::string &extension);
 
         // Load configuration include theme and color files
         bool LoadConfig(const std::string &filename) override;
@@ -142,8 +136,6 @@ namespace gedit {
         const NamedColorConfig &GetUIColors() {
             return colorConfig["ui"];
         }
-
-
     protected:
         bool LoadSublimeColorFile(const std::string &filename);
 
@@ -163,10 +155,6 @@ namespace gedit {
         std::unordered_map<std::string, NamedColorConfig> colorConfig;
 
         void SetDefaultsIfMissing();
-
-        LanguageBase::Ref defaultLanguage = {};
-        std::unordered_map<std::string, LanguageBase::Ref> extToLanguages;
-
     };
 }
 

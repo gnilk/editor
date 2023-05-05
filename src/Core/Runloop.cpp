@@ -5,8 +5,6 @@
 #include "Runloop.h"
 #include "RuntimeConfig.h"
 #include "logger.h"
-#include "Editor.h"
-#include "API/EditorAPI.h"
 
 
 using namespace gedit;
@@ -18,13 +16,6 @@ void Runloop::DefaultLoop() {
     auto keyboardDriver = RuntimeConfig::Instance().Keyboard();
     auto &rootView = RuntimeConfig::Instance().GetRootView();
     auto logger = gnilk::Logger::GetLogger("MainLoop");
-
-    auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
-    editorApi->SetExitEditorDelegate([]()->void{
-        Runloop::StopRunLoop();
-    });
-
-
 
     while(!bQuit) {
         // Process any messages from other threads before we do anything else..

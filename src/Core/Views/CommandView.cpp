@@ -31,6 +31,8 @@ void CommandView::InitView() {
         OnNewLineNotification();
     });
     commandController.Begin();
+
+    RuntimeConfig::Instance().SetOutputConsole(this);
 }
 
 void CommandView::ReInitView() {
@@ -135,4 +137,10 @@ void CommandView::DrawViewContents() {
 
     logger->Debug("DrawViewContents, cursor at: %d,%d", cursor.position.x, cursor.position.y);
 
+}
+
+// impl of IOutputConsole
+void CommandView::WriteLine(const std::string &str) {
+    commandController.WriteLine(str);
+    InvalidateView();
 }

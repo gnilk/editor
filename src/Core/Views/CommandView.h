@@ -5,13 +5,16 @@
 #ifndef EDITOR_COMMANDVIEW_H
 #define EDITOR_COMMANDVIEW_H
 
+#include <string>
+
 #include "Core/Controllers/CommandController.h"
+#include "Core/RuntimeConfig.h"
 #include "ViewBase.h"
 #include "logger.h"
 
 namespace gedit {
 
-    class CommandView : public ViewBase {
+    class CommandView : public ViewBase,  IOutputConsole {
     public:
         CommandView() = default;
         explicit CommandView(const Rect &viewArea) : ViewBase(viewArea) {
@@ -29,6 +32,8 @@ namespace gedit {
         void DrawViewContents() override;
 
         bool OnAction(const KeyPressAction &kpAction) override;
+    public: // IOutputConsole
+         void WriteLine(const std::string &str) override;
     protected:
         bool OnActionCommitLine();
     protected:

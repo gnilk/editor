@@ -12,7 +12,7 @@
 
 #include "Core/JSEngine/JSPluginEngine.h"
 #include "Core/Language/LanguageBase.h"
-
+#include "Core/RuntimeConfig.h"
 #include "KeyboardDriverBase.h"
 #include "KeyboardBaseMonitor.h"
 
@@ -52,6 +52,7 @@ namespace gedit {
                 if (models[i]->GetTextBuffer() == textBuffer) {
                     models[idxCurrent]->SetActive(false);
                     models[i]->SetActive(true);
+                    RuntimeConfig::Instance().SetActiveEditorModel(models[i]);
                     return;
                 }
             }

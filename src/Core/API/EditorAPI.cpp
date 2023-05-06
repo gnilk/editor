@@ -3,6 +3,7 @@
 //
 
 #include <memory>
+#include "Core/RuntimeConfig.h"
 #include "EditorAPI.h"
 
 
@@ -15,4 +16,10 @@ TextBufferAPI::Ref EditorAPI::GetActiveTextBuffer() {
 
 std::vector<std::string> EditorAPI::GetRegisteredLanguages() {
     return Editor::Instance().GetRegisteredLanguages();
+}
+void EditorAPI::NewBuffer(const char *name) {
+    if (!Editor::Instance().NewBuffer(name)) {
+        // log this..
+        RuntimeConfig::Instance().OutputConsole()->WriteLine("Unable to create new buffer");
+    }
 }

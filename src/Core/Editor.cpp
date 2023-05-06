@@ -108,6 +108,19 @@ void Editor::Close() {
     }
     models.clear();
 }
+
+// this is a public function and exposed in the API
+bool Editor::NewBuffer(const std::string &name) {
+
+    auto model = NewModel(name.c_str());
+    if (model == nullptr) {
+        return false;
+    }
+    models.push_back(model);
+    return true;
+}
+
+// This is a
 EditorModel::Ref Editor::NewModel(const char *name) {
     EditController::Ref editController = std::make_shared<EditController>();
     auto textBuffer = BufferManager::Instance().NewBuffer(name);

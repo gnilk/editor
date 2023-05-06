@@ -17,6 +17,13 @@ commands:
     description: Quit/Exit Editor
     script: Scripts/exiteditor.js
   -
+    name: newbuffer
+    short: nb
+    description: New Buffer / File
+    script: Scripts/newbuffer.js
+    arguments:
+      - string, name
+  -
     name: openfile
     short: o
     description: Open a file for editing

@@ -15,6 +15,7 @@ extern "C" {
     DLL_EXPORT int test_jsengine_console(ITesting *t);
     DLL_EXPORT int test_jsengine_array(ITesting *t);
     DLL_EXPORT int test_jsengine_listlang(ITesting *t);
+    DLL_EXPORT int test_jsengine_newbuffer(ITesting *t);
 }
 
 DLL_EXPORT int test_jsengine(ITesting *t) {
@@ -68,5 +69,16 @@ DLL_EXPORT int test_jsengine_listlang(ITesting *t) {
     auto cmd = RuntimeConfig::Instance().GetPluginCommand("listlanguages");
     TR_ASSERT(t, cmd != nullptr);
     cmd->Execute({});
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_jsengine_newbuffer(ITesting *t) {
+    TR_ASSERT(t, RuntimeConfig::Instance().HasPluginCommand("newbuffer"));
+    auto cmd = RuntimeConfig::Instance().GetPluginCommand("newbuffer");
+    TR_ASSERT(t, cmd != nullptr);
+    auto numBefore = Editor::Instance().GetModels().size();
+    cmd->Execute({"mamma"});
+    auto numAfter = Editor::Instance().GetModels().size();
+    TR_ASSERT(t, numAfter > numBefore);
     return kTR_Pass;
 }

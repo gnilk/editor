@@ -10,6 +10,7 @@ namespace gedit {
         TextBufferAPIWrapper::Ref GetActiveTextBuffer();
         void ExitEditor();
         std::vector<std::string> GetRegisteredLanguages();
+        void NewBuffer(const char *name);
 
         static void RegisterModule(duk_context *ctx);
         // For testing purposes

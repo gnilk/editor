@@ -91,8 +91,9 @@ namespace gedit {
         LanguageBase::Ref GetLanguageForExtension(const std::string &extension);
         std::vector<std::string> GetRegisteredLanguages();
 
-        void ConfigureLogger();
+        bool NewBuffer(const std::string &name);
 
+        void ConfigureLogger();
     protected:
         void ConfigureLanguages();
         void ConfigureColorTheme();

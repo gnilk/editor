@@ -23,8 +23,18 @@ void EditorAPI::NewBuffer(const char *name) {
         RuntimeConfig::Instance().OutputConsole()->WriteLine("Unable to create new buffer");
     }
 }
-void EditorAPI::LoadBuffer(const char *filename) {
-    if (!Editor::Instance().LoadBuffer(filename)) {
-        // Error already printed!
+TextBufferAPI::Ref EditorAPI::LoadBuffer(const char *filename) {
+    auto idx =  Editor::Instance().LoadBuffer(filename);
+    if (idx < 0) {
+        return nullptr;
     }
+    auto model = Editor::Instance().GetModelFromIndex(idx);
+    if (model == nullptr) {
+        return nullptr;
+    }
+    return std::make_shared<TextBufferAPI>(model->GetTextBuffer());
+}
+void EditorAPI::SetActiveBuffer(TextBufferAPI::Ref activeBuffer) {
+    Editor::Instance().SetActiveModel(activeBuffer->GetTextBuffer());
+    RuntimeConfig::Instance().GetRootView().InvalidateAll();
 }

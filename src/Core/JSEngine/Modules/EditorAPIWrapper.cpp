@@ -16,6 +16,7 @@ void EditorAPIWrapper::RegisterModule(duk_context *ctx) {
     dukglue_register_method(ctx, &EditorAPIWrapper::GetRegisteredLanguages, "GetRegisteredLanguages");
     dukglue_register_method(ctx, &EditorAPIWrapper::NewBuffer, "NewBuffer");
     dukglue_register_method(ctx, &EditorAPIWrapper::LoadBuffer, "LoadBuffer");
+    dukglue_register_method(ctx, &EditorAPIWrapper::SetActiveBuffer, "SetActiveBuffer");
 
     // Some test stuff...
     dukglue_register_method(ctx, &EditorAPIWrapper::GetTestArray, "GetTestArray");
@@ -29,6 +30,7 @@ TextBufferAPIWrapper::Ref EditorAPIWrapper::GetActiveTextBuffer() {
     auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
     return TextBufferAPIWrapper::Create(editorApi->GetActiveTextBuffer());
 }
+
 void EditorAPIWrapper::ExitEditor() {
     auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
     editorApi->ExitEditor();
@@ -42,10 +44,15 @@ void EditorAPIWrapper::NewBuffer(const char *name) {
     auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
     editorApi->NewBuffer(name);
 }
-void EditorAPIWrapper::LoadBuffer(const char *name) {
+TextBufferAPI::Ref EditorAPIWrapper::LoadBuffer(const char *name) {
     auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
-    editorApi->LoadBuffer(name);
+    return editorApi->LoadBuffer(name);
 }
+void EditorAPIWrapper::SetActiveBuffer(TextBufferAPI::Ref activeBuffer) {
+    auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
+    editorApi->SetActiveBuffer(activeBuffer);
+}
+
 //
 // Test stuff
 //

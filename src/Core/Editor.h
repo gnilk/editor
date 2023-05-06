@@ -45,6 +45,18 @@ namespace gedit {
             // THIS SHOULD NOT HAPPEN!!!
             return 0;
         }
+
+        void SetActiveModel(TextBuffer::Ref textBuffer) {
+            auto idxCurrent = GetActiveModelIndex();
+            for(size_t i = 0; i<models.size();i++) {
+                if (models[i]->GetTextBuffer() == textBuffer) {
+                    models[idxCurrent]->SetActive(false);
+                    models[i]->SetActive(true);
+                    return;
+                }
+            }
+        }
+
         size_t NextModelIndex(size_t idxCurrent) {
             auto next = (idxCurrent + 1) % models.size();
             return next;
@@ -92,7 +104,8 @@ namespace gedit {
         std::vector<std::string> GetRegisteredLanguages();
 
         bool NewBuffer(const std::string &name);
-        bool LoadBuffer(const std::string &filename);
+        // Returns the index to the model if loaded or negative if failed
+        int LoadBuffer(const std::string &filename);
 
         void ConfigureLogger();
     protected:

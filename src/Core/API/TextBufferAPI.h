@@ -24,6 +24,9 @@ namespace gedit {
         }
         void SetLanguage(const char *param );
 
+        TextBuffer::Ref GetTextBuffer() {
+            return textBuffer;
+        }
     private:
         TextBuffer::Ref textBuffer = nullptr;
 

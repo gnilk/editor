@@ -27,7 +27,7 @@ commands:
     name: openfile
     short: o
     description: Open a file for editing
-    script: Scripts/openfile.js
+    script: Scripts/loadbuffer.js
     arguments:
       - string, filename
   -

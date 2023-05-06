@@ -15,6 +15,7 @@ void EditorAPIWrapper::RegisterModule(duk_context *ctx) {
     dukglue_register_method(ctx, &EditorAPIWrapper::ExitEditor, "ExitEditor");
     dukglue_register_method(ctx, &EditorAPIWrapper::GetRegisteredLanguages, "GetRegisteredLanguages");
     dukglue_register_method(ctx, &EditorAPIWrapper::NewBuffer, "NewBuffer");
+    dukglue_register_method(ctx, &EditorAPIWrapper::LoadBuffer, "LoadBuffer");
 
     // Some test stuff...
     dukglue_register_method(ctx, &EditorAPIWrapper::GetTestArray, "GetTestArray");
@@ -41,7 +42,10 @@ void EditorAPIWrapper::NewBuffer(const char *name) {
     auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
     editorApi->NewBuffer(name);
 }
-
+void EditorAPIWrapper::LoadBuffer(const char *name) {
+    auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
+    editorApi->LoadBuffer(name);
+}
 //
 // Test stuff
 //

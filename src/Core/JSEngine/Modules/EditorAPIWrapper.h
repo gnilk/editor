@@ -11,6 +11,7 @@ namespace gedit {
         void ExitEditor();
         std::vector<std::string> GetRegisteredLanguages();
         void NewBuffer(const char *name);
+        void LoadBuffer(const char *name);
 
         static void RegisterModule(duk_context *ctx);
         // For testing purposes

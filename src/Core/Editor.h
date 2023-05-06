@@ -92,6 +92,7 @@ namespace gedit {
         std::vector<std::string> GetRegisteredLanguages();
 
         bool NewBuffer(const std::string &name);
+        bool LoadBuffer(const std::string &filename);
 
         void ConfigureLogger();
     protected:

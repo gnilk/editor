@@ -131,6 +131,15 @@ EditorModel::Ref Editor::NewModel(const char *name) {
     return editorModel;
 }
 
+bool Editor::LoadBuffer(const std::string &filename) {
+    auto model = LoadEditorModelFromFile(filename.c_str());
+    if (model == nullptr) {
+        RuntimeConfig::Instance().OutputConsole()->WriteLine("Editor::LoadBuffer, Unable to load file");
+        return false;
+    }
+    models.push_back(model);
+    return true;
+}
 
 EditorModel::Ref Editor::LoadEditorModelFromFile(const char *filename) {
     logger->Debug("Loading file: %s", filename);

@@ -24,6 +24,7 @@ namespace gedit {
         TextBufferAPI::Ref GetActiveTextBuffer();
         std::vector<std::string> GetRegisteredLanguages();
         void NewBuffer(const char *name);
+        void LoadBuffer(const char *filename);
     protected:
         APIFunc cbExitEditor = nullptr;
 

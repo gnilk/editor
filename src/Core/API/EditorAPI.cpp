@@ -23,3 +23,8 @@ void EditorAPI::NewBuffer(const char *name) {
         RuntimeConfig::Instance().OutputConsole()->WriteLine("Unable to create new buffer");
     }
 }
+void EditorAPI::LoadBuffer(const char *filename) {
+    if (!Editor::Instance().LoadBuffer(filename)) {
+        // Error already printed!
+    }
+}

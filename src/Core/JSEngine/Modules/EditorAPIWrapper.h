@@ -13,6 +13,7 @@ namespace gedit {
         void NewBuffer(const char *name);
         TextBufferAPI::Ref LoadBuffer(const char *name);
         void SetActiveBuffer(TextBufferAPI::Ref activeBuffer);
+        std::vector<TextBufferAPIWrapper::Ref> GetBuffers();
 
         static void RegisterModule(duk_context *ctx);
         // For testing purposes

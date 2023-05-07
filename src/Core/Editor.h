@@ -52,6 +52,7 @@ namespace gedit {
                 if (models[i]->GetTextBuffer() == textBuffer) {
                     models[idxCurrent]->SetActive(false);
                     models[i]->SetActive(true);
+                    // THIS IS NOT A WORK OF BEAUTY
                     RuntimeConfig::Instance().SetActiveEditorModel(models[i]);
                     return;
                 }
@@ -107,6 +108,8 @@ namespace gedit {
         bool NewBuffer(const std::string &name);
         // Returns the index to the model if loaded or negative if failed
         int LoadBuffer(const std::string &filename);
+
+
 
         void ConfigureLogger();
     protected:

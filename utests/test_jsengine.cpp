@@ -17,6 +17,7 @@ extern "C" {
     DLL_EXPORT int test_jsengine_listlang(ITesting *t);
     DLL_EXPORT int test_jsengine_newbuffer(ITesting *t);
     DLL_EXPORT int test_jsengine_loadbuffer(ITesting *t);
+    DLL_EXPORT int test_jsengine_listbuffers(ITesting *t);
 }
 
 DLL_EXPORT int test_jsengine(ITesting *t) {
@@ -85,13 +86,22 @@ DLL_EXPORT int test_jsengine_newbuffer(ITesting *t) {
 }
 
 DLL_EXPORT int test_jsengine_loadbuffer(ITesting *t) {
-    TR_ASSERT(t, RuntimeConfig::Instance().HasPluginCommand("loadbuffer"));
-    auto cmd = RuntimeConfig::Instance().GetPluginCommand("loadbuffer");
+    TR_ASSERT(t, RuntimeConfig::Instance().HasPluginCommand("openfile"));
+    auto cmd = RuntimeConfig::Instance().GetPluginCommand("openfile");
     TR_ASSERT(t, cmd != nullptr);
     auto numBefore = Editor::Instance().GetModels().size();
     cmd->Execute({"example.json"});
     auto numAfter = Editor::Instance().GetModels().size();
     TR_ASSERT(t, numAfter > numBefore);
     return kTR_Pass;
+}
+DLL_EXPORT int test_jsengine_listbuffers(ITesting *t) {
+
+    TR_ASSERT(t, test_jsengine_loadbuffer(t) == kTR_Pass);
+
+    TR_ASSERT(t, RuntimeConfig::Instance().HasPluginCommand("listbuffers"));
+    auto cmd = RuntimeConfig::Instance().GetPluginCommand("listbuffers");
+    TR_ASSERT(t, cmd != nullptr);
+    cmd->Execute({});
     return kTR_Pass;
 }

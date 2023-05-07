@@ -17,6 +17,7 @@ void EditorAPIWrapper::RegisterModule(duk_context *ctx) {
     dukglue_register_method(ctx, &EditorAPIWrapper::NewBuffer, "NewBuffer");
     dukglue_register_method(ctx, &EditorAPIWrapper::LoadBuffer, "LoadBuffer");
     dukglue_register_method(ctx, &EditorAPIWrapper::SetActiveBuffer, "SetActiveBuffer");
+    dukglue_register_method(ctx, &EditorAPIWrapper::GetBuffers, "GetBuffers");
 
     // Some test stuff...
     dukglue_register_method(ctx, &EditorAPIWrapper::GetTestArray, "GetTestArray");
@@ -51,6 +52,15 @@ TextBufferAPI::Ref EditorAPIWrapper::LoadBuffer(const char *name) {
 void EditorAPIWrapper::SetActiveBuffer(TextBufferAPI::Ref activeBuffer) {
     auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
     editorApi->SetActiveBuffer(activeBuffer);
+}
+std::vector<TextBufferAPIWrapper::Ref> EditorAPIWrapper::GetBuffers() {
+    auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
+    auto buffers = editorApi->GetBuffers();
+    std::vector<TextBufferAPIWrapper::Ref> bufferWrappers;
+    for(auto &buf : buffers) {
+        bufferWrappers.push_back(std::make_shared<TextBufferAPIWrapper>(buf));
+    }
+    return bufferWrappers;
 }
 
 //

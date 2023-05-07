@@ -24,6 +24,11 @@ commands:
     arguments:
       - string, name
   -
+    name: listbuffers
+    short: lb
+    description: List Buffers
+    script: Scripts/listbuffers.js
+  -
     name: openfile
     short: o
     description: Open a file for editing

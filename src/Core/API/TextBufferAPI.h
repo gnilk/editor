@@ -27,6 +27,11 @@ namespace gedit {
         TextBuffer::Ref GetTextBuffer() {
             return textBuffer;
         }
+
+        const std::string &GetName() {
+            return textBuffer->Name();
+        }
+
     private:
         TextBuffer::Ref textBuffer = nullptr;
 

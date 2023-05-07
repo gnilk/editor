@@ -81,6 +81,9 @@ namespace gedit {
         ViewBase &GetRootView() {
             return *rootView;
         }
+        bool HasRootView() {
+            return (rootView != nullptr);
+        }
 
         std::thread::id MainThread() {
             return mainThreadId;

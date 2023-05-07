@@ -34,7 +34,24 @@ TextBufferAPI::Ref EditorAPI::LoadBuffer(const char *filename) {
     }
     return std::make_shared<TextBufferAPI>(model->GetTextBuffer());
 }
+
 void EditorAPI::SetActiveBuffer(TextBufferAPI::Ref activeBuffer) {
     Editor::Instance().SetActiveModel(activeBuffer->GetTextBuffer());
-    RuntimeConfig::Instance().GetRootView().InvalidateAll();
+
+    // If running headless (unit-testing) this is no true
+    if (RuntimeConfig::Instance().HasRootView()) {
+        RuntimeConfig::Instance().GetRootView().InvalidateAll();
+    }
 }
+
+std::vector<TextBufferAPI::Ref> EditorAPI::GetBuffers() {
+    auto models = Editor::Instance().GetModels();
+    std::vector<TextBufferAPI::Ref> buffers;
+    for(auto &model : models) {
+        auto bufferApi = std::make_shared<TextBufferAPI>(model->GetTextBuffer());
+        buffers.push_back(bufferApi);
+    }
+    return buffers;
+}
+
+

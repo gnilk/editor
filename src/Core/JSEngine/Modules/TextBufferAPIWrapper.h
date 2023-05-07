@@ -3,6 +3,7 @@
 #define GEDIT_TEXTBUFFERAPIWRAPPER_H
 
 #include <memory>
+#include <string>
 
 #include "duktape.h"
 
@@ -26,6 +27,7 @@ namespace gedit {
 
         void SetLanguage(const char *param );
         static void RegisterModule(duk_context *ctx);
+        const std::string &GetName();
     private:
         TextBufferAPI::Ref textBuffer = nullptr;
     };

@@ -63,6 +63,7 @@ void CommandController::CommitLine() {
 
     std::string cmdLine(currentLine->Buffer().data());
     if (cmdLine.size() < 1) {
+        NewLine();
         return;
     }
 

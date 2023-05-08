@@ -31,13 +31,8 @@ void CommandController::Begin() {
 }
 
 void CommandController::NewLine() {
-    if (currentLine != nullptr) {
-        //currentLine->SetActive(false);
-    }
     std::lock_guard<std::mutex> guard(lineLock);
     currentLine = std::make_shared<Line>();
-    //currentLine->SetActive(true);
-//    historyBuffer.push_back(currentLine);
     if (onNewLine != nullptr) {
         onNewLine();
     }

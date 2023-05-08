@@ -3,6 +3,7 @@
 //
 /*
  * TO-DO List
+ * - Put some performance timings in the LanguageParser (this will have to be optimized sooner or later)
  * - Something is causing sigsev, I strongly suspect that it is related to threading in Syntax Coloring / Language code
  * - Move EditorController functionality to EditorModel
  * - Make a proper 'project' viewer

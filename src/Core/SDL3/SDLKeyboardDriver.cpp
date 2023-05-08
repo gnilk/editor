@@ -76,7 +76,8 @@ KeyPress SDLKeyboardDriver::GetKeyPress() {
             logger->Debug("SDL_EVENT_WINDOW_RESIZED");
             RuntimeConfig::Instance().Screen()->OnSizeChanged();
         } else {
-            logger->Debug("Unhandled event: %d (0x%.x)", event.type, event.type);
+            // Note: Enable this to track any other event we might want...
+            // logger->Debug("Unhandled event: %d (0x%.x)", event.type, event.type);
         }
     }
     return {};

@@ -1,5 +1,10 @@
 commands:
   -
+    name: testcmd
+    short: tc
+    description: test command
+    script: Scripts/testcmd.js
+  -
     name: setlanguage
     short: sl
     description: Set the language of the active buffer

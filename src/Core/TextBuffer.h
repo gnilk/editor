@@ -39,6 +39,9 @@ namespace gedit {
         }
         void SetFileName(const std::string &newFileName);
         void Close();
+        const std::string_view GetFileName() {
+            return pathName.c_str();
+        }
 
         void AddLine(Line::Ref line) {
             lines.push_back(line);

@@ -4,7 +4,7 @@ function main(args) {
         Console.WriteLine("Saving as:",args[0]);
         textBuffer.SetFileName(args[0]);
         if (textBuffer.SaveBuffer()) {
-            Console.WriteLine("Buffer saved");
+            Console.WriteLine("Buffer saved as:", textBuffer.GetFileName());
         }
     } else if (textBuffer.HasFileName()) {
         if (textBuffer.SaveBuffer()) {

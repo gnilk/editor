@@ -6,6 +6,10 @@
 #include "TextBuffer.h"
 #include "Core/Config/Config.h"
 #include <thread>
+#include <filesystem>
+#include <fstream>
+
+
 using namespace gedit;
 
 void TextBuffer::Reparse() {
@@ -78,3 +82,21 @@ void TextBuffer::CopyRegionToString(std::string &outText, const Point &start, co
     }
 }
 
+bool TextBuffer::Save() {
+    if (!HasFileName()) {
+        return false;
+    }
+    std::ofstream out(pathName, std::ios::binary);
+    for(auto &l : lines) {
+        out << l->Buffer() << "\n";
+    }
+    out.close();
+
+    return true;
+}
+
+void TextBuffer::SetFileName(const std::string &newFileName) {
+    auto tmp = std::filesystem::path(newFileName);
+    pathName = std::filesystem::absolute(tmp);
+    name = pathName.filename();
+}

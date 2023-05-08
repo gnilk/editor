@@ -32,6 +32,16 @@ namespace gedit {
             return textBuffer->Name();
         }
 
+        bool HasFileName() {
+            return textBuffer->HasFileName();
+        }
+        void SetFileName(const std::string &name) {
+            return textBuffer->SetFileName(name);
+        }
+        bool SaveBuffer() {
+            return textBuffer->Save();
+        }
+
     private:
         TextBuffer::Ref textBuffer = nullptr;
 

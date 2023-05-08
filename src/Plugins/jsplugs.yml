@@ -44,7 +44,7 @@ commands:
     name: save
     short: s
     description: Save active buffer
-    script: Scripts/savefile.js
+    script: Scripts/savebuffer.js
   -
     name: saveas
     short: sa

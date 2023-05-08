@@ -29,6 +29,9 @@ TextBuffer::Ref BufferManager::NewBuffer(const std::string &name) {
     return textBuffer;
 }
 
+//
+// TODO: Rewrite this!
+//
 TextBuffer::Ref BufferManager::NewBufferFromFile(const std::string &filename) {
     FILE *f = fopen(filename.c_str(), "r");
     if (f == nullptr) {
@@ -36,6 +39,8 @@ TextBuffer::Ref BufferManager::NewBufferFromFile(const std::string &filename) {
         return nullptr;
     }
     auto textBuffer = NewBuffer(filename);
+    textBuffer->SetFileName(filename);
+
     char tmp[MAX_LINE_LENGTH];
     while(fgets(tmp, MAX_LINE_LENGTH, f)) {
         textBuffer->AddLine(tmp);

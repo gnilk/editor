@@ -137,6 +137,7 @@ int Editor::LoadBuffer(const std::string &filename) {
         RuntimeConfig::Instance().OutputConsole()->WriteLine("Editor::LoadBuffer, Unable to load file");
         return -1;
     }
+
     models.push_back(model);
 
     return models.size()-1;

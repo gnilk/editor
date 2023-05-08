@@ -25,7 +25,10 @@ namespace gedit {
             return std::make_shared<TextBufferAPIWrapper>(tBuffer);
         }
 
-        void SetLanguage(const char *param );
+        bool HasFileName();
+        void SetFileName(const char *newFileName);
+        bool SaveBuffer();
+        void SetLanguage(const char *param);
         static void RegisterModule(duk_context *ctx);
         const std::string &GetName();
     private:

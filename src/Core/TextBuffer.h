@@ -6,13 +6,14 @@
 #define EDITOR_TEXTBUFFER_H
 
 #include <vector>
+#include <thread>
+#include <memory>
+#include <optional>
+#include <filesystem>
 
 #include "Core/Language/LanguageBase.h"
 #include "Core/Line.h"
 #include "Core/Point.h"
-#include <thread>
-#include <memory>
-#include <optional>
 
 namespace gedit {
     class TextBuffer {
@@ -29,10 +30,14 @@ namespace gedit {
 
     public:
         explicit TextBuffer(const std::string &bufferName) : name(bufferName) {
-
         }
         virtual ~TextBuffer() = default;
 
+        bool Save();
+        bool HasFileName() {
+            return !pathName.empty();
+        }
+        void SetFileName(const std::string &newFileName);
         void Close();
 
         void AddLine(Line::Ref line) {
@@ -81,6 +86,7 @@ namespace gedit {
         void StartReparseThread();
     private:
         volatile State state = kState_None;
+        std::filesystem::path pathName = "";     // full path filename
         std::string name;
         //std::vector<Line *> lines;
         std::vector<Line::Ref> lines;

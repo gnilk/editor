@@ -12,6 +12,9 @@ void TextBufferAPIWrapper::RegisterModule(duk_context *ctx) {
     dukglue_register_delete<TextBufferAPIWrapper>(ctx);
     dukglue_register_method(ctx, &TextBufferAPIWrapper::SetLanguage, "SetLanguage");
     dukglue_register_method(ctx, &TextBufferAPIWrapper::GetName, "GetName");
+    dukglue_register_method(ctx, &TextBufferAPIWrapper::SaveBuffer, "SaveBuffer");
+    dukglue_register_method(ctx, &TextBufferAPIWrapper::HasFileName, "HasFileName");
+    dukglue_register_method(ctx, &TextBufferAPIWrapper::SetFileName, "SetFileName");
 }
 
 //
@@ -30,4 +33,16 @@ const std::string &TextBufferAPIWrapper::GetName() {
         return dummy;
     }
     return textBuffer->GetName();
+}
+
+bool TextBufferAPIWrapper::HasFileName() {
+    return textBuffer->HasFileName();
+}
+
+void TextBufferAPIWrapper::SetFileName(const char *newFileName) {
+    textBuffer->SetFileName(newFileName);
+}
+
+bool TextBufferAPIWrapper::SaveBuffer() {
+    textBuffer->SaveBuffer();
 }

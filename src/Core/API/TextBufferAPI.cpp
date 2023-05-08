@@ -16,3 +16,7 @@ void TextBufferAPI::SetLanguage(const char *param) {
     textBuffer->SetLanguage(lang);
     textBuffer->Reparse();
 }
+
+bool TextBufferAPI::SaveBuffer() {
+    return textBuffer->Save();
+}

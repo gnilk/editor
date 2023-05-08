@@ -5,6 +5,7 @@
 #include "logger.h"
 #include "TextBuffer.h"
 #include "Core/Config/Config.h"
+#include "Core/Editor.h"
 #include <thread>
 #include <filesystem>
 #include <fstream>
@@ -99,4 +100,11 @@ void TextBuffer::SetFileName(const std::string &newFileName) {
     auto tmp = std::filesystem::path(newFileName);
     pathName = std::filesystem::absolute(tmp);
     name = pathName.filename();
+
+    auto lang = Editor::Instance().GetLanguageForExtension(pathName.extension());
+    if (lang != nullptr) {
+        language = lang;
+        Reparse();
+    }
+
 }

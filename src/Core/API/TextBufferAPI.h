@@ -41,9 +41,7 @@ namespace gedit {
         const std::string_view GetFileName() {
             return textBuffer->GetFileName();
         }
-        bool SaveBuffer() {
-            return textBuffer->Save();
-        }
+        bool SaveBuffer();
 
     private:
         TextBuffer::Ref textBuffer = nullptr;

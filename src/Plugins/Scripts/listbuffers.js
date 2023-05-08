@@ -6,5 +6,4 @@ function main(args) {
         var name = buf.GetName();
         Console.WriteLine(i, "  - ", name);
     }
-    Console.WriteLine("-- Footer --");
 }

@@ -114,7 +114,7 @@ void CommandView::DrawViewContents() {
 
     int lOffset = 0;
     if (lines.size() > (dc.GetRect().Height())) {
-        lOffset = lines.size() - (dc.GetRect().Height());
+        lOffset = lines.size() - (dc.GetRect().Height()-1);
     }
 
     cursor.position.y = 0;

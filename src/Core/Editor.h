@@ -22,7 +22,7 @@
 
 namespace gedit {
 //
-// The global editing class...
+// This class represents the 'application'
 //
     class Editor {
     public:
@@ -31,6 +31,8 @@ namespace gedit {
         bool OpenScreen();
         void Close();
         bool LoadConfig(const char *configFile);
+
+        // Move to 'workspace'
         std::vector<EditorModel::Ref> &GetModels() {
             return models;
         }
@@ -70,6 +72,8 @@ namespace gedit {
             return models[idxModel];
         }
 
+        // -- End move to workspace
+
         // FIXME: should return a PluginCommand instead
         JSPluginEngine &GetJSEngine() {
             return jsEngine;
@@ -105,11 +109,8 @@ namespace gedit {
         LanguageBase::Ref GetLanguageForExtension(const std::string &extension);
         std::vector<std::string> GetRegisteredLanguages();
 
-        bool NewBuffer(const std::string &name);
-        // Returns the index to the model if loaded or negative if failed
-        int LoadBuffer(const std::string &filename);
-
-
+        EditorModel::Ref NewModel(const char *name);
+        EditorModel::Ref LoadModel(const std::string &filename);
 
         void ConfigureLogger();
     protected:
@@ -124,7 +125,6 @@ namespace gedit {
 
 
         EditorModel::Ref LoadEditorModelFromFile(const char *filename);
-        EditorModel::Ref NewModel(const char *name);
 
     private:
         Editor() = default;

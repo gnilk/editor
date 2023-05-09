@@ -17,18 +17,18 @@ TextBufferAPI::Ref EditorAPI::GetActiveTextBuffer() {
 std::vector<std::string> EditorAPI::GetRegisteredLanguages() {
     return Editor::Instance().GetRegisteredLanguages();
 }
-void EditorAPI::NewBuffer(const char *name) {
-    if (!Editor::Instance().NewBuffer(name)) {
-        // log this..
+
+TextBufferAPI::Ref EditorAPI::NewBuffer(const char *name) {
+    auto model = Editor::Instance().NewModel(name);
+    if (model == nullptr) {
         RuntimeConfig::Instance().OutputConsole()->WriteLine("Unable to create new buffer");
-    }
-}
-TextBufferAPI::Ref EditorAPI::LoadBuffer(const char *filename) {
-    auto idx =  Editor::Instance().LoadBuffer(filename);
-    if (idx < 0) {
         return nullptr;
     }
-    auto model = Editor::Instance().GetModelFromIndex(idx);
+    return std::make_shared<TextBufferAPI>(model->GetTextBuffer());
+}
+
+TextBufferAPI::Ref EditorAPI::LoadBuffer(const char *filename) {
+    auto model =  Editor::Instance().LoadModel(filename);
     if (model == nullptr) {
         return nullptr;
     }

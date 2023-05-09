@@ -56,8 +56,7 @@ bool Editor::Initialize(int argc, const char **argv) {
     // Language configuration must currently be done before we load editor models
     ConfigureLanguages();
 
-
-
+    // Parse cmd-line
     for(int i=1;i<argc;i++) {
         if (strutil::startsWith(argv[i], "--")) {
             std::string cmdSwitch = std::string(&argv[i][2]);
@@ -78,11 +77,13 @@ bool Editor::Initialize(int argc, const char **argv) {
 
     ConfigureGlobalAPIObjects();
 
+    // create a model if cmd-line didn't specify any
+    // this will cause editor to start with at least one new file...
     if (models.size() == 0) {
-        auto newModel = NewModel("no_name");
-        models.push_back(newModel);
+        NewModel("no_name");
     }
 
+    // Activate the first loaded file (or empty/new model)
     RuntimeConfig::Instance().SetActiveEditorModel(models[0]);
 
     bool keyMapperOk = KeyMapping::Instance().IsInitialized();
@@ -90,7 +91,6 @@ bool Editor::Initialize(int argc, const char **argv) {
         logger->Error("KeyMapper failed to initalize");
         return false;
     }
-
 
     isInitialized = true;
     return true;
@@ -109,18 +109,8 @@ void Editor::Close() {
     models.clear();
 }
 
-// this is a public function and exposed in the API
-bool Editor::NewBuffer(const std::string &name) {
 
-    auto model = NewModel(name.c_str());
-    if (model == nullptr) {
-        return false;
-    }
-    models.push_back(model);
-    return true;
-}
-
-// This is a
+// Create a new model/buffer
 EditorModel::Ref Editor::NewModel(const char *name) {
     EditController::Ref editController = std::make_shared<EditController>();
     auto textBuffer = BufferManager::Instance().NewBuffer(name);
@@ -128,19 +118,22 @@ EditorModel::Ref Editor::NewModel(const char *name) {
     textBuffer->SetLanguage(Editor::Instance().GetLanguageForExtension("default"));
     EditorModel::Ref editorModel = std::make_shared<EditorModel>();
     editorModel->Initialize(editController, textBuffer);
+
+    models.push_back(editorModel);
+
     return editorModel;
 }
 
-int Editor::LoadBuffer(const std::string &filename) {
+EditorModel::Ref Editor::LoadModel(const std::string &filename) {
     auto model = LoadEditorModelFromFile(filename.c_str());
     if (model == nullptr) {
         RuntimeConfig::Instance().OutputConsole()->WriteLine("Editor::LoadBuffer, Unable to load file");
-        return -1;
+        return nullptr;
     }
 
     models.push_back(model);
 
-    return models.size()-1;
+    return model;
 }
 
 EditorModel::Ref Editor::LoadEditorModelFromFile(const char *filename) {

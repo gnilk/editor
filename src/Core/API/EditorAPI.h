@@ -23,7 +23,8 @@ namespace gedit {
         }
         TextBufferAPI::Ref GetActiveTextBuffer();
         std::vector<std::string> GetRegisteredLanguages();
-        void NewBuffer(const char *name);
+
+        TextBufferAPI::Ref NewBuffer(const char *name);
         TextBufferAPI::Ref LoadBuffer(const char *filename);
 
         std::vector<TextBufferAPI::Ref> GetBuffers();

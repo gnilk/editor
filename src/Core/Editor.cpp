@@ -68,6 +68,7 @@ bool Editor::Initialize(int argc, const char **argv) {
                 exit(1);
             }
         } else {
+            // FIXME: THIS IS NOT WORKING WITH WORKSPACE!!!
             auto model = LoadEditorModelFromFile(argv[i]);
             if (model != nullptr) {
                 models.push_back(model);
@@ -82,6 +83,9 @@ bool Editor::Initialize(int argc, const char **argv) {
     if (models.size() == 0) {
         NewModel("no_name");
     }
+
+    // Open currently working folder...
+    workspace.OpenFolder("Plugins");
 
     // Activate the first loaded file (or empty/new model)
     RuntimeConfig::Instance().SetActiveEditorModel(models[0]);

@@ -124,6 +124,7 @@
 #include "Core/Views/VStackView.h"
 #include "Core/Views/EditorHeaderView.h"
 #include "Core/Views/HSplitViewStatus.h"
+#include "Core/Views/WorkspaceView.h"
 
 #include "Core/Views/TreeSelectionModal.h"
 
@@ -247,30 +248,30 @@ int main(int argc, const char **argv) {
     editorHeaderView.SetHeight(1);        // This is done in the SingleLineView
 
 
-    auto vStackViewExplorer = VStackView();
-    vStackViewExplorer.SetWidth(16);
-    auto fileExplorerHeader = SingleLineView();
-    fileExplorerHeader.SetText("Project");
-    auto fileExplorer = TreeView<std::string>::Create();
-    fileExplorer->SetToStringDelegate([](const std::string &data) -> std::string {
-        return data;
-    });
+    auto vStackViewWorkspace = VStackView();
+    vStackViewWorkspace.SetWidth(24);
+    auto workspaceHeader = SingleLineView();
+    workspaceHeader.SetText("Workspace");
+    auto workspaceExplorer = WorkspaceView();
+//    workspaceExplorer->SetToStringDelegate([](const std::string &data) -> std::string {
+//        return data;
+//    });
 
-    vStackViewExplorer.AddSubView(&fileExplorerHeader, kFixed);
-    vStackViewExplorer.AddSubView(fileExplorer.get(), kFill);
+    vStackViewWorkspace.AddSubView(&workspaceHeader, kFixed);
+    vStackViewWorkspace.AddSubView(&workspaceExplorer, kFill);
 
-    auto subNode = fileExplorer->AddItem("Item 1");
-    auto subba = fileExplorer->AddItem(subNode, "Item 1:1");
-    fileExplorer->AddItem(subba, "Item 1:2:1");
-    fileExplorer->AddItem(subba, "Item 1:2:2");
-    fileExplorer->AddItem(subNode, "Item 1:2");
-
-    fileExplorer->AddItem("Item 2");
-    subNode = fileExplorer->AddItem("Item 3");
-    subba = fileExplorer->AddItem(subNode, "Item 3:1");
-    subba = fileExplorer->AddItem(subNode, "Item 3:2");
-    subba = fileExplorer->AddItem(subNode, "Item 3:3");
-    fileExplorer->AddItem("Item 4");
+//    auto subNode = workspaceExplorer->AddItem("Item 1");
+//    auto subba = workspaceExplorer->AddItem(subNode, "Item 1:1");
+//    workspaceExplorer->AddItem(subba, "Item 1:2:1");
+//    workspaceExplorer->AddItem(subba, "Item 1:2:2");
+//    workspaceExplorer->AddItem(subNode, "Item 1:2");
+//
+//    workspaceExplorer->AddItem("Item 2");
+//    subNode = workspaceExplorer->AddItem("Item 3");
+//    subba = workspaceExplorer->AddItem(subNode, "Item 3:1");
+//    subba = workspaceExplorer->AddItem(subNode, "Item 3:2");
+//    subba = workspaceExplorer->AddItem(subNode, "Item 3:3");
+//    workspaceExplorer->AddItem("Item 4");
 
 
 
@@ -284,7 +285,7 @@ int main(int argc, const char **argv) {
     hStackViewEditor.AddSubView(&gutterView, kFixed);
     hStackViewEditor.AddSubView(&editorView, kFill);
 
-    hStackViewUpper.AddSubView(&vStackViewExplorer, kFixed);
+    hStackViewUpper.AddSubView(&vStackViewWorkspace, kFixed);
     hStackViewUpper.AddSubView(&vStackViewEditor, kFill);
 
     vStackViewEditor.AddSubView(&editorHeaderView, kFixed);
@@ -296,34 +297,12 @@ int main(int argc, const char **argv) {
 
     rootView.AddTopView(&editorView);
     rootView.AddTopView(&cmdView);
-    rootView.AddTopView(fileExplorer.get());
+    rootView.AddTopView(&workspaceExplorer);
 
-//    TreeSelectionModal<std::string> myModal;
-//    myModal.GetTree()->SetToStringDelegate([](const std::string &data) -> std::string {
-//       return data;
-//    });
-//
-//    auto tree = myModal.GetTree();
-//    auto subNode = tree->AddItem("Item 1");
-//    auto subba = tree->AddItem(subNode, "Item 1:1");
-//    tree->AddItem(subba, "Item 1:2:1");
-//    tree->AddItem(subba, "Item 1:2:2");
-//    tree->AddItem(subNode, "Item 1:2");
-//
-//    tree->AddItem("Item 2");
-//    subNode = tree->AddItem("Item 3");
-//    subba = tree->AddItem(subNode, "Item 3:1");
-//    subba = tree->AddItem(subNode, "Item 3:2");
-//    subba = tree->AddItem(subNode, "Item 3:3");
-//    tree->AddItem("Item 4");
-
-//    ListSelectionModal myModal;
-//    char buffer[128];
-//    for(int i=0;i<64;i++) {
-//        snprintf(buffer, 128, "Item %d", i);
-//        myModal.AddItem(buffer);
-//    }
-//    Runloop::ShowModal(&myModal);
+//    WorkspaceView workspaceView;
+//    ModalView dummy(dimensions, &workspaceView);
+//    Runloop::ShowModal(&dummy);
+//    exit(1);
 
     rootView.Initialize();
     rootView.InvalidateAll();

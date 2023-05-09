@@ -15,7 +15,7 @@
 #include "Core/RuntimeConfig.h"
 #include "KeyboardDriverBase.h"
 #include "KeyboardBaseMonitor.h"
-
+#include "Core/Workspace.h"
 #include "ScreenBase.h"
 #include "Core/EditorModel.h"
 #include "Core/TypeUtil.h"
@@ -109,6 +109,10 @@ namespace gedit {
         LanguageBase::Ref GetLanguageForExtension(const std::string &extension);
         std::vector<std::string> GetRegisteredLanguages();
 
+        const Workspace &GetWorkspace() {
+            return workspace;
+        }
+
         EditorModel::Ref NewModel(const char *name);
         EditorModel::Ref LoadModel(const std::string &filename);
 
@@ -145,6 +149,7 @@ namespace gedit {
         KeyboardDriverBase *keyboardDriver = nullptr;
         std::unordered_map<std::string_view, void *> editorApiObjects;
 
+        Workspace workspace;
         // Javascript API wrapper
         JSPluginEngine jsEngine;
 

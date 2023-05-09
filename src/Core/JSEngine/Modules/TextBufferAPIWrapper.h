@@ -28,7 +28,7 @@ namespace gedit {
 
         bool HasFileName();
         void SetFileName(const char *newFileName);
-        const char *GetFileName();
+        const std::string GetFileName();
         bool SaveBuffer();
         void SetLanguage(const char *param);
         static void RegisterModule(duk_context *ctx);

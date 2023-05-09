@@ -30,12 +30,12 @@ void TextBufferAPIWrapper::SetLanguage(const char *param) {
     textBuffer->SetLanguage(param);
 }
 
-const char *TextBufferAPIWrapper::GetFileName() {
+const std::string TextBufferAPIWrapper::GetFileName() {
     if (textBuffer == nullptr) {
         static std::string dummy = "";
         return dummy.c_str();
     }
-    return textBuffer->GetFileName().data();
+    return textBuffer->GetFileName();
 }
 
 const std::string &TextBufferAPIWrapper::GetName() {

@@ -158,9 +158,7 @@ void SDLWindow::DrawWindowDecoration() {
         // Need a font-class to store this - should be initalized by screen...
         auto &dcWin = GetWindowDC();
         dcWin.FillLine(0, kTextAttributes::kInverted, ' ');
-        dcWin.DrawStringWithAttributesAndColAt(0,0,kTextAttributes::kInverted | kTextAttributes::kNormal, 0, caption.c_str());
-//        auto font = SDLFontManager::Instance().GetActiveFont();
-//        STBTTF_RenderText(renderer, font, 0, font->size * 1, caption.c_str());
+        dcWin.DrawStringAt(0,0,caption.c_str());
     }
 
     //SDL_RenderLine(renderer, pxTopLeft.x, pxTopLeft.y, pxBottomRight.x, pxBottomRight.y);

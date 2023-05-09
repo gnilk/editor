@@ -10,6 +10,7 @@
 #include <memory>
 #include <optional>
 #include <filesystem>
+#include <vector>
 
 #include "logger.h"
 
@@ -19,6 +20,7 @@ namespace gedit {
     class Workspace {
         // Node define the structure of a workspace
     public:
+
     class Node : public std::enable_shared_from_this<Node> {
         public:
             using Ref = std::shared_ptr<Node>;
@@ -32,6 +34,11 @@ namespace gedit {
             virtual ~Node() = default;
             static Ref Create(const std::string &nodeName) {
                 return std::make_shared<Node>(nodeName);
+            }
+            static Ref Create(EditorModel::Ref editorModel) {
+                auto node = std::make_shared<Node>("");
+                node->model = editorModel;
+                return node;
             }
             const std::string &GetName() {
                 return name;
@@ -80,11 +87,20 @@ namespace gedit {
                 return path;
             }
 
+            const std::vector<Node::Ref> &GetModels() {
+                return models;
+            }
+
             //////////////////
             // Functionality related to models of a node
             void AddModel(EditorModel::Ref model) {
-                models.push_back(model);
+                auto node = Create(model);
+                models.push_back(node);
             }
+            EditorModel::Ref GetModel() {
+                return model;
+            }
+
         private:
             void RecursiveGetNodePath(std::filesystem::path &path) {
                 if (parent != nullptr) {
@@ -98,9 +114,11 @@ namespace gedit {
         private:
             std::string name = "";
             Node::Ref parent = nullptr;
-            std::unordered_map<std::string, Node::Ref> childNodes = {};
+            EditorModel::Ref model = nullptr;   // This is only set for leaf nodes..
 
-            std::vector<EditorModel::Ref> models = {};
+            std::unordered_map<std::string, Node::Ref> childNodes = {};
+            std::vector<Node::Ref> models = {};
+
         };
     public:
         Workspace() = default;
@@ -108,6 +126,10 @@ namespace gedit {
 
         std::vector<EditorModel::Ref> &GetModels();
         size_t GetActiveModelIndex();
+
+        Workspace::Node::Ref GetRootNode() {
+            return rootNode;
+        }
 
 
         void SetActiveModel(TextBuffer::Ref textBuffer);

@@ -38,7 +38,7 @@ namespace gedit {
         void SetFileName(const std::string &name) {
             return textBuffer->SetNameFromFileName(name);
         }
-        const std::string_view GetFileName() {
+        const std::string GetFileName() {
             return textBuffer->GetFileName();
         }
         bool SaveBuffer();

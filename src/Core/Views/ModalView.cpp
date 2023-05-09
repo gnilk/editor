@@ -26,6 +26,15 @@ void ModalView::InitView() {
     }
     window = screen->CreateWindow(viewRect, WindowBase::kWin_Visible, deco);
     window->SetCaption("ModalView");
+
+    if (viewPtr != nullptr) {
+        auto cRect = GetContentRect();
+        // Make the underlying view fill out the whole modal if needed...
+        viewPtr->SetWidth(cRect.Width());
+        viewPtr->SetHeight(cRect.Height());
+        AddView(viewPtr);
+    }
+
 }
 void ModalView::ReInitView() {
     auto screen = RuntimeConfig::Instance().Screen();
@@ -42,6 +51,12 @@ bool ModalView::OnAction(const KeyPressAction &kpAction) {
     if (kpAction.action == kAction::kActionCycleActiveView) {
         CloseModal();
         return true;
+    }
+
+    if (dispatchView != nullptr) {
+        return dispatchView->OnAction(kpAction);
+    } else if (viewPtr != nullptr) {
+        return viewPtr->OnAction(kpAction);
     }
     return false;
 }

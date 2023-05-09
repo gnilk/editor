@@ -48,6 +48,7 @@ namespace gedit {
 
         static TextBuffer::Ref CreateFileReferenceBuffer(const std::filesystem::path &fromPath) {
              auto buffer = CreateEmptyBuffer(fromPath.filename().string());
+             buffer->SetPathName(fromPath);
              buffer->bufferState = kBuffer_FileRef;
              return buffer;
         }
@@ -66,15 +67,15 @@ namespace gedit {
         bool HasPathName() {
             return !pathName.empty();
         }
-        void SetPathName(const std::filesystem::path newPathName) {
+        void SetPathName(const std::filesystem::path &newPathName) {
             pathName = newPathName;
         }
 
         void SetNameFromFileName(const std::string &newFileName);
 
         void Close();
-        const std::string_view GetFileName() {
-            return pathName.c_str();
+        const std::string GetFileName() {
+            return pathName.filename().string();
         }
 
         void AddLine(Line::Ref line) {

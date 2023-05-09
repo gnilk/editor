@@ -67,7 +67,7 @@ void Runloop::ShowModal(ViewBase *modal) {
 
     screen->CopyToTexture();
 
-    while((modal->IsActive()) && (bQuit != false)) {
+    while((modal->IsActive()) && !bQuit) {
         // Process any messages from other threads before we do anything else..
         bool redraw = false;
 

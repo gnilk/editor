@@ -150,6 +150,7 @@ list(APPEND editorsrc src/Core/Views/CommandView.cpp src/Core/Views/CommandView.
 list(APPEND editorsrc src/Core/Views/SingleLineView.h)
 list(APPEND editorsrc src/Core/Views/EditorHeaderView.h)
 list(APPEND editorsrc src/Core/Views/HSplitViewStatus.h)
+list(APPEND editorsrc src/Core/Views/WorkspaceView.cpp src/Core/Views/WorkspaceView.h)
 
 # modals/dialogs/etc..
 list(APPEND editorsrc src/Core/Views/ModalView.cpp src/Core/Views/ModalView.h)

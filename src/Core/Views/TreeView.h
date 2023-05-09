@@ -60,6 +60,12 @@ namespace gedit {
             viewBottomLine = viewRect.Height();
         }
 
+        const T &GetCurrentSelectedItem() {
+            return flattenNodeList[idxActiveLine]->data;
+
+
+        }
+
         bool OnAction(const KeyPressAction &kpAction) override {
             bool wasHandled = true;
             switch(kpAction.action) {
@@ -115,7 +121,6 @@ namespace gedit {
             return std::make_shared<TreeView<T> >();
         }
     protected:
-
         void Collapse() {
             auto &node = flattenNodeList[idxActiveLine];
             node->isExpanded = false;

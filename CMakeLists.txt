@@ -98,6 +98,7 @@ list(APPEND extlibs logger)
 # Editor main stuff
 list(APPEND editorsrc src/Core/Editor.cpp src/Core/Editor.h)
 list(APPEND editorsrc src/Core/EditorModel.cpp src/Core/EditorModel.h)
+list(APPEND editorsrc src/Core/Workspace.cpp src/Core/Workspace.h)
 list(APPEND editorsrc src/Core/VerticalNavigationViewModel.cpp src/Core/VerticalNavigationViewModel.h)
 list(APPEND editorsrc src/Core/Runloop.cpp src/Core/Runloop.h)
 list(APPEND editorsrc src/Core/AssetLoaderBase.cpp src/Core/AssetLoaderBase.h)
@@ -330,6 +331,7 @@ list(APPEND utestsrc utests/test_buffermanager.cpp)
 list(APPEND utestsrc utests/test_assetloader.cpp)
 list(APPEND utestsrc utests/test_jsengine.cpp)
 list(APPEND utestsrc utests/test_editorapi.cpp)
+list(APPEND utestsrc utests/test_workspace.cpp)
 list(APPEND utestsrc src/Core/Tests/test_dcoverlay.cpp)
 
 

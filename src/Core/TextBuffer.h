@@ -26,18 +26,52 @@ namespace gedit {
             kState_Idle,
             kState_Start,
             kState_Parsing,
-        } State;
+        } ParseState;
+
+        typedef enum {
+            kBuffer_Empty,      // Buffer has been created, but nothing commited
+            kBuffer_FileRef,    // Buffer references a file - but data is not loaded
+            kBuffer_Loaded,     // Data from file has been loaded
+            kBuffer_Changed,    // Data has been changed
+        } BufferState;
 
     public:
         explicit TextBuffer(const std::string &bufferName) : name(bufferName) {
         }
         virtual ~TextBuffer() = default;
 
+        static TextBuffer::Ref CreateEmptyBuffer(const std::string &bufferName) {
+            auto buffer = std::make_shared<TextBuffer>(bufferName);
+            buffer->bufferState = kBuffer_Empty;
+            return buffer;
+        }
+
+        static TextBuffer::Ref CreateFileReferenceBuffer(const std::filesystem::path &fromPath) {
+             auto buffer = CreateEmptyBuffer(fromPath.filename().string());
+             buffer->bufferState = kBuffer_FileRef;
+             return buffer;
+        }
+
+        static TextBuffer::Ref CreateBufferFromFile(const std::filesystem::path &fromPath) {
+            auto buffer = CreateFileReferenceBuffer(fromPath);
+            if (!buffer->Load()) {
+                return nullptr;
+            }
+            return buffer;
+        }
+
         bool Save();
-        bool HasFileName() {
+        bool Load();
+
+        bool HasPathName() {
             return !pathName.empty();
         }
-        void SetFileName(const std::string &newFileName);
+        void SetPathName(const std::filesystem::path newPathName) {
+            pathName = newPathName;
+        }
+
+        void SetNameFromFileName(const std::string &newFileName);
+
         void Close();
         const std::string_view GetFileName() {
             return pathName.c_str();
@@ -88,10 +122,13 @@ namespace gedit {
     protected:
         void StartReparseThread();
     private:
-        volatile State state = kState_None;
+        volatile ParseState state = kState_None;
+
+        BufferState bufferState = kBuffer_Empty;
+
         std::filesystem::path pathName = "";     // full path filename
         std::string name;
-        //std::vector<Line *> lines;
+
         std::vector<Line::Ref> lines;
         LanguageBase::Ref language = nullptr;
         std::thread *reparseThread = nullptr;

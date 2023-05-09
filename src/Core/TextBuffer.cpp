@@ -84,7 +84,7 @@ void TextBuffer::CopyRegionToString(std::string &outText, const Point &start, co
 }
 
 bool TextBuffer::Save() {
-    if (!HasFileName()) {
+    if (!HasPathName()) {
         return false;
     }
     std::ofstream out(pathName, std::ios::binary);
@@ -96,7 +96,31 @@ bool TextBuffer::Save() {
     return true;
 }
 
-void TextBuffer::SetFileName(const std::string &newFileName) {
+bool TextBuffer::Load() {
+    if (!HasPathName()) {
+        return false;
+    }
+    if (bufferState != kBuffer_FileRef) {
+        return false;
+    }
+
+    auto filename = pathName.string();
+
+    // Now load
+    FILE *f = fopen(filename.c_str(), "r");
+    if (f == nullptr) {
+        return false;
+    }
+
+    char tmp[MAX_LINE_LENGTH];
+    while(fgets(tmp, MAX_LINE_LENGTH, f)) {
+        AddLine(tmp);
+    }
+    fclose(f);
+    return true;
+}
+
+void TextBuffer::SetNameFromFileName(const std::string &newFileName) {
     auto tmp = std::filesystem::path(newFileName);
     pathName = std::filesystem::absolute(tmp);
     name = pathName.filename();

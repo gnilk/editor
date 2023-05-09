@@ -7,6 +7,7 @@
 
 using namespace gedit;
 
+// FIXME: This can be removed!
 BufferManager::BufferManager() {
     logger = gnilk::Logger::GetLogger("BufferManager");
 
@@ -39,7 +40,7 @@ TextBuffer::Ref BufferManager::NewBufferFromFile(const std::string &filename) {
         return nullptr;
     }
     auto textBuffer = NewBuffer(filename);
-    textBuffer->SetFileName(filename);
+    textBuffer->SetNameFromFileName(filename);
 
     char tmp[MAX_LINE_LENGTH];
     while(fgets(tmp, MAX_LINE_LENGTH, f)) {

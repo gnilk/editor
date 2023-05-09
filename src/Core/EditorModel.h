@@ -91,14 +91,14 @@ namespace gedit {
         void Initialize(EditController::Ref newController, TextBuffer::Ref newTextBuffer) {
             editController = newController;
             editController->Begin();
+
             textBuffer = newTextBuffer;
-
-
             editController->SetTextBuffer(textBuffer);
         }
 
-        bool HandleKeyPress(const KeyPress &keyPress);
+        static Ref Create();
 
+        bool HandleKeyPress(const KeyPress &keyPress);
 
         void Close() {
             textBuffer->Close();

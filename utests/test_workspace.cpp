@@ -11,6 +11,7 @@ using namespace gedit;
 extern "C" {
 DLL_EXPORT int test_workspace(ITesting *t);
 DLL_EXPORT int test_workspace_empty(ITesting *t);
+DLL_EXPORT int test_workspace_openfolder(ITesting *t);
 }
 
 DLL_EXPORT int test_workspace(ITesting *t) {
@@ -21,6 +22,12 @@ DLL_EXPORT int test_workspace_empty(ITesting *t) {
     Workspace workspace;
     TR_ASSERT(t, workspace.GetModels().size() == 0);
     workspace.GetActiveModelIndex();
+    return kTR_Pass;
+}
+DLL_EXPORT int test_workspace_openfolder(ITesting *t) {
+    Workspace workspace;
+    TR_ASSERT(t, workspace.GetModels().size() == 0);
+    workspace.OpenFolder(".");
     return kTR_Pass;
 }
 

@@ -2,10 +2,18 @@
 // Created by gnilk on 26.04.23.
 //
 
+#include "Editor.h"
 #include "EditorModel.h"
 #include "EditorConfig.h"
 
 using namespace gedit;
+
+EditorModel::Ref EditorModel::Create() {
+    EditorModel::Ref editorModel = std::make_shared<EditorModel>();
+    return editorModel;
+}
+
+
 
 bool EditorModel::HandleKeyPress(const gedit::KeyPress &keyPress) {
     bool wasHandled = true;
@@ -123,6 +131,4 @@ void EditorModel::CommentSelectionOrLine() {
     textBuffer->Reparse();
 
 }
-
-
 

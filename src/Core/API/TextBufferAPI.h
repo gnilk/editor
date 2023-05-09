@@ -33,10 +33,10 @@ namespace gedit {
         }
 
         bool HasFileName() {
-            return textBuffer->HasFileName();
+            return textBuffer->HasPathName();
         }
         void SetFileName(const std::string &name) {
-            return textBuffer->SetFileName(name);
+            return textBuffer->SetNameFromFileName(name);
         }
         const std::string_view GetFileName() {
             return textBuffer->GetFileName();

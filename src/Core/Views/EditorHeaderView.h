@@ -39,7 +39,7 @@ namespace gedit {
             xp++;
             for(size_t i=0;i<models.size();i++) {
                 auto m = models[i];
-                auto &name = m->GetTextBuffer()->Name();
+                auto &name = m->GetTextBuffer()->GetName();
                 header = name;
                 if (m->IsActive()) {
                     dc.DrawStringWithAttributesAt(xp,0,kTextAttributes::kUnderline, header.c_str());

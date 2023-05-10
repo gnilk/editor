@@ -35,7 +35,7 @@ const std::string TextBufferAPIWrapper::GetFileName() {
         static std::string dummy = "";
         return dummy.c_str();
     }
-    return textBuffer->GetFileName();
+    return textBuffer->GetPathName();
 }
 
 const std::string &TextBufferAPIWrapper::GetName() {

@@ -13,6 +13,11 @@
 
 using namespace gedit;
 
+TextBuffer::TextBuffer(const std::string &bufferName) {
+    SetPathName(bufferName);
+}
+
+
 void TextBuffer::Reparse() {
     // No language, don't do this...
     if (language == nullptr) {
@@ -127,7 +132,24 @@ bool TextBuffer::Load() {
     bufferState = kBuffer_Loaded;
     return true;
 }
+void TextBuffer::SetPathName(const std::filesystem::path &newPathName) {
+    pathName = newPathName;
+    UpdateLanguageParserFromFilename();
+}
+void TextBuffer::Rename(const std::string &newFileName) {
+    pathName = pathName.stem().append(newFileName);
+    UpdateLanguageParserFromFilename();
+}
+void TextBuffer::UpdateLanguageParserFromFilename() {
+    auto lang = Editor::Instance().GetLanguageForExtension(pathName.extension());
+    if (lang != nullptr) {
+        language = lang;
+        Reparse();
+    }
+}
 
+
+/*
 void TextBuffer::SetNameFromFileName(const std::string &newFileName) {
     auto tmp = std::filesystem::path(newFileName);
     pathName = std::filesystem::absolute(tmp);
@@ -140,3 +162,5 @@ void TextBuffer::SetNameFromFileName(const std::string &newFileName) {
     }
 
 }
+ */
+

@@ -32,7 +32,7 @@ void WorkspaceView::InitView() {
     treeView = TreeView<Workspace::Node::Ref>::Create();
     treeView->SetToStringDelegate([this](Workspace::Node::Ref node) -> std::string {
         if (node->GetModel() != nullptr) {
-            return std::string(node->GetModel()->GetTextBuffer()->GetFileName());
+            return std::string(node->GetModel()->GetTextBuffer()->GetName());
         }
         return node->GetName();
     });
@@ -63,7 +63,7 @@ bool WorkspaceView::OnAction(const KeyPressAction &kpAction) {
         auto logger = gnilk::Logger::GetLogger("WorkspaceView");
         auto itemSelected = treeView->GetCurrentSelectedItem();
         if (itemSelected->GetModel() != nullptr) {
-            logger->Debug("Selected Item: %s", itemSelected->GetModel()->GetTextBuffer()->GetFileName().c_str());
+            logger->Debug("Selected Item: %s", itemSelected->GetModel()->GetTextBuffer()->GetName().c_str());
         } else {
             logger->Debug("You selected a directory!");
         }

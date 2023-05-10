@@ -77,16 +77,21 @@ bool Editor::Initialize(int argc, const char **argv) {
     }
 
     ConfigureGlobalAPIObjects();
+    // Open currently working folder...
+    workspace = Workspace::Create();
+
+//    workspace->OpenFolder("Plugins");
+
 
     // create a model if cmd-line didn't specify any
     // this will cause editor to start with at least one new file...
     if (models.size() == 0) {
-        NewModel("no_name");
+//        NewModel("no_name");
+        workspace->GetDefaultWorkspace();
+        auto model = workspace->NewEmptyModel();
+        models.push_back(model);
     }
 
-    // Open currently working folder...
-    workspace = Workspace::Create();
-    workspace->OpenFolder("Plugins");
 
     // Activate the first loaded file (or empty/new model)
     RuntimeConfig::Instance().SetActiveEditorModel(models[0]);

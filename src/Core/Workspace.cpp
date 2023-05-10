@@ -17,7 +17,7 @@ static Workspace::Node::Ref GetOrAddNodePath(Workspace::Node::Ref rootNode, cons
 
 
 Workspace::Workspace() {
-    auto logger = gnilk::Logger::GetLogger("Editor");
+    logger = gnilk::Logger::GetLogger("Editor");
 }
 
 
@@ -88,10 +88,20 @@ EditorModel::Ref Workspace::NewEmptyModel() {
 // Create a new empty model under a specific parent
 EditorModel::Ref Workspace::NewEmptyModel(const Node::Ref parent) {
     auto nodePath = parent->GetNodePath();
-    nodePath.append("new");
+    char filename[32];
+    snprintf(filename,31,"new_%d",newFileCounter);
+    newFileCounter++;
+
+
+    nodePath.append(filename);
+
     EditController::Ref editController = std::make_shared<EditController>();
 
-    auto textBuffer = TextBuffer::CreateEmptyBuffer(nodePath);
+    auto textBuffer = TextBuffer::CreateEmptyBuffer(nodePath.filename());
+    textBuffer->SetPathName(nodePath);
+    textBuffer->AddLine("");
+    textBuffer->SetLanguage(Editor::Instance().GetLanguageForExtension("default"));
+
 
     EditorModel::Ref editorModel = EditorModel::Create();
     editorModel->Initialize(editController, textBuffer);

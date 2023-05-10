@@ -36,8 +36,7 @@ namespace gedit {
         } BufferState;
 
     public:
-        explicit TextBuffer(const std::string &bufferName) : name(bufferName) {
-        }
+        explicit TextBuffer(const std::string &bufferName);
         virtual ~TextBuffer() = default;
 
         static TextBuffer::Ref CreateEmptyBuffer(const std::string &bufferName) {
@@ -67,16 +66,19 @@ namespace gedit {
         bool HasPathName() {
             return !pathName.empty();
         }
-        void SetPathName(const std::filesystem::path &newPathName) {
-            pathName = newPathName;
+
+        void SetPathName(const std::filesystem::path &newPathName);
+        void Rename(const std::string &newFileName);
+
+        const std::string GetPathName() {
+            return pathName.string();
+        }
+        const std::string GetName() {
+            return pathName.filename();
         }
 
-        void SetNameFromFileName(const std::string &newFileName);
 
         void Close();
-        const std::string GetFileName() {
-            return pathName.filename().string();
-        }
 
         void AddLine(Line::Ref line) {
             lines.push_back(line);
@@ -104,10 +106,6 @@ namespace gedit {
 
         void CopyRegionToString(std::string &outText, const Point &start, const Point &end);
 
-        const std::string &Name() const {
-            return name;
-        }
-
         void SetLanguage(LanguageBase::Ref newLanguage) {
             language = newLanguage;
             Reparse();
@@ -125,6 +123,7 @@ namespace gedit {
             return bufferState;
         }
     protected:
+        void UpdateLanguageParserFromFilename();
         void StartReparseThread();
     private:
         volatile ParseState state = kState_None;
@@ -132,7 +131,6 @@ namespace gedit {
         BufferState bufferState = kBuffer_Empty;
 
         std::filesystem::path pathName = "";     // full path filename
-        std::string name;
 
         std::vector<Line::Ref> lines;
         LanguageBase::Ref language = nullptr;

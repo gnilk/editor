@@ -42,7 +42,7 @@ void EditorView::InitView()  {
     editorModel->viewBottomLine = rect.Height();
     editorModel->GetEditController()->SetTextBufferChangedHandler([this]()->void {
        auto textBuffer = editorModel->GetEditController()->GetTextBuffer();
-       window->SetCaption(textBuffer->Name());
+       window->SetCaption(textBuffer->GetName());
     });
 
 

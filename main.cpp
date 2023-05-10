@@ -205,7 +205,7 @@ int main(int argc, const char **argv) {
 
     auto models = Editor::Instance().GetModels();
     for(auto m : models) {
-        logger->Debug("File: %s",m->GetTextBuffer()->Name().c_str());
+        logger->Debug("File: %s",m->GetTextBuffer()->GetName().c_str());
     }
 
     //

@@ -33,7 +33,7 @@ namespace gedit {
             //model->cursor.position.x
             std::string dummy(dc.GetRect().Width(), ' ');
             std::string statusLine = " GoatEdit V0.1 | ";
-            statusLine += model->GetTextBuffer()->Name();
+            statusLine += model->GetTextBuffer()->GetName();
 
             statusLine += " | ";
             statusLine += model->GetTextBuffer()->HaveLanguage()?model->GetTextBuffer()->LangParser().Identifier():"none";

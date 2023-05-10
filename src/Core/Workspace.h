@@ -102,6 +102,7 @@ namespace gedit {
             // Functionality related to models of a node
             void AddModel(EditorModel::Ref model) {
                 auto node = Create(model);
+
                 models.push_back(node);
             }
             EditorModel::Ref GetModel() {
@@ -156,6 +157,7 @@ namespace gedit {
 
     private:
         gnilk::ILogger *logger = nullptr;
+        int newFileCounter = 0;
 
         std::unordered_map<std::string, Node::Ref> rootNodes = {};
         //Node::Ref rootNode = nullptr;

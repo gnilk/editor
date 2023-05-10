@@ -34,13 +34,16 @@ TextBuffer::Ref BufferManager::NewBuffer(const std::string &name) {
 // TODO: Rewrite this!
 //
 TextBuffer::Ref BufferManager::NewBufferFromFile(const std::string &filename) {
+    printf("DON'T CALL THIS! 'BufferManager::NewBufferFromFile'\n");
+    exit(1);
+/*
     FILE *f = fopen(filename.c_str(), "r");
     if (f == nullptr) {
         logger->Error("Unable to open file '%s'", filename.c_str());
         return nullptr;
     }
     auto textBuffer = NewBuffer(filename);
-    textBuffer->SetNameFromFileName(filename);
+    textBuffer->Rename(filename);
 
     char tmp[MAX_LINE_LENGTH];
     while(fgets(tmp, MAX_LINE_LENGTH, f)) {
@@ -49,6 +52,7 @@ TextBuffer::Ref BufferManager::NewBufferFromFile(const std::string &filename) {
 
     fclose(f);
     return textBuffer;
+*/
 }
 
 bool BufferManager::HaveBuffer(const std::string &name) {

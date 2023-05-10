@@ -36,7 +36,6 @@ void EditorView::InitView()  {
         exit(1);
     }
 
-
     // This is the visible area...
     editorModel->viewTopLine = 0;
     editorModel->viewBottomLine = rect.Height();
@@ -45,11 +44,6 @@ void EditorView::InitView()  {
        window->SetCaption(textBuffer->GetName());
     });
 
-
-    // We own the view-data but let's share it - this allows other views to READ it..
-//    if (GetParentView() != nullptr) {
-//        GetParentView()->SetSharedData(&viewData);
-//    }
 
     bUseCLionPageNav = Config::Instance()["editor"].GetBool("pgupdown_content_first", true);
 }
@@ -60,9 +54,7 @@ void EditorView::ReInitView() {
         viewRect = screen->Dimensions();
     }
     window = screen->UpdateWindow(window, viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
-
     auto &rect = window->GetContentDC().GetRect();
-
 
     editorModel = RuntimeConfig::Instance().ActiveEditorModel();
     if (editorModel == nullptr) {
@@ -70,19 +62,11 @@ void EditorView::ReInitView() {
         exit(1);
     }
 
-//    // This is the visible area...
+    logger->Debug("ReInitView, current model: %s", editorModel->GetTextBuffer()->GetName().c_str());
+
+    // This is the visible area...
     editorModel->viewTopLine = 0;
     editorModel->viewBottomLine = rect.Height();
-//    viewData.editController.SetTextBufferChangedHandler([this]()->void {
-//        auto textBuffer = viewData.editController.GetTextBuffer();
-//        window->SetCaption(textBuffer->Name());
-//    });
-
-
-    // We own the view-data but let's share it - this allows other views to READ it..
-//    if (GetParentView() != nullptr) {
-//        GetParentView()->SetSharedData(&viewData);
-//    }
 
     bUseCLionPageNav = Config::Instance()["editor"].GetBool("pgupdown_content_first", true);
 }

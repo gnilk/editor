@@ -32,7 +32,7 @@ namespace gedit {
         bool SaveBuffer();
         void SetLanguage(const char *param);
         static void RegisterModule(duk_context *ctx);
-        const std::string &GetName();
+        const std::string GetName();
     private:
         TextBufferAPI::Ref textBuffer = nullptr;
     };

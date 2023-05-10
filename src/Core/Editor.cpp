@@ -121,12 +121,21 @@ void Editor::Close() {
 
 EditorModel::Ref Editor::OpenModelFromWorkspace(Workspace::Node::Ref workspaceNode) {
     auto model = workspaceNode->GetModel();
+    if (IsModelOpen(model)) {
+        SetActiveModel(model);
+        return model;
+    }
+
+
+    logger->Debug("OpenModelFromWorkspace, new model selected: %s", model->GetTextBuffer()->GetName().c_str());
     // Make sure we load it if not yet done...
     if (model->GetTextBuffer()->GetBufferState() == TextBuffer::kBuffer_FileRef) {
         model->GetTextBuffer()->Load();
     }
     openModels.push_back(model);
-    SetActiveModel(model->GetTextBuffer());
+    logger->Debug("Activating new model");
+    SetActiveModel(model);
+
     return model;;
 }
 
@@ -327,3 +336,42 @@ std::vector<std::string> Editor::GetRegisteredLanguages() {
     }
     return keys;
 }
+
+
+void Editor::SetActiveModel(EditorModel::Ref model) {
+    auto idxCurrent = GetActiveModelIndex();
+    for(size_t i = 0; i < openModels.size(); i++) {
+        if (openModels[i] == model) {
+            openModels[idxCurrent]->SetActive(false);
+            openModels[i]->SetActive(true);
+            // THIS IS NOT A WORK OF BEAUTY
+            RuntimeConfig::Instance().SetActiveEditorModel(openModels[i]);
+
+            if (RuntimeConfig::Instance().HasRootView()) {
+                RuntimeConfig::Instance().GetRootView().Initialize();
+            }
+            return;
+        }
+    }
+}
+
+
+bool Editor::IsModelOpen(EditorModel::Ref model) {
+    auto idxCurrent = GetActiveModelIndex();
+    for(size_t i = 0; i < openModels.size(); i++) {
+        if (openModels[i] == model) {
+            return true;
+        }
+    }
+    return false;
+}
+
+EditorModel::Ref Editor::GetModelFromTextBuffer(TextBuffer::Ref textBuffer) {
+    for(size_t i = 0; i < openModels.size(); i++) {
+        if (openModels[i]->GetTextBuffer() == textBuffer) {
+            return openModels[i];
+        }
+    }
+    return nullptr;
+}
+

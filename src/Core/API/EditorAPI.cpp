@@ -36,12 +36,11 @@ TextBufferAPI::Ref EditorAPI::LoadBuffer(const char *filename) {
 }
 
 void EditorAPI::SetActiveBuffer(TextBufferAPI::Ref activeBuffer) {
-    Editor::Instance().SetActiveModel(activeBuffer->GetTextBuffer());
-
-    // If running headless (unit-testing) this is no true
-    if (RuntimeConfig::Instance().HasRootView()) {
-        RuntimeConfig::Instance().GetRootView().InvalidateAll();
+    auto model = Editor::Instance().GetModelFromTextBuffer(activeBuffer->GetTextBuffer());
+    if (model == nullptr) {
+        return;
     }
+    Editor::Instance().SetActiveModel(model);
 }
 
 std::vector<TextBufferAPI::Ref> EditorAPI::GetBuffers() {

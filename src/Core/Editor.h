@@ -37,6 +37,7 @@ namespace gedit {
         std::vector<EditorModel::Ref> &GetModels() {
             return openModels;
         }
+
         size_t GetActiveModelIndex() {
             for(size_t i=0; i < openModels.size(); i++) {
                 if (openModels[i]->IsActive()) {
@@ -49,18 +50,9 @@ namespace gedit {
             return 0;
         }
 
-        void SetActiveModel(TextBuffer::Ref textBuffer) {
-            auto idxCurrent = GetActiveModelIndex();
-            for(size_t i = 0; i < openModels.size(); i++) {
-                if (openModels[i]->GetTextBuffer() == textBuffer) {
-                    openModels[idxCurrent]->SetActive(false);
-                    openModels[i]->SetActive(true);
-                    // THIS IS NOT A WORK OF BEAUTY
-                    RuntimeConfig::Instance().SetActiveEditorModel(openModels[i]);
-                    return;
-                }
-            }
-        }
+        void SetActiveModel(EditorModel::Ref model);
+        bool IsModelOpen(EditorModel::Ref model);
+        EditorModel::Ref GetModelFromTextBuffer(TextBuffer::Ref textBuffer);
 
         size_t NextModelIndex(size_t idxCurrent) {
             auto next = (idxCurrent + 1) % openModels.size();

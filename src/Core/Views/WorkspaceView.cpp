@@ -80,6 +80,7 @@ bool WorkspaceView::OnAction(const KeyPressAction &kpAction) {
         if (itemSelected->GetModel() != nullptr) {
             Editor::Instance().OpenModelFromWorkspace(itemSelected);
             logger->Debug("Selected Item: %s", itemSelected->GetModel()->GetTextBuffer()->GetName().c_str());
+            InvalidateAll();
             return true;
         } else {
             logger->Debug("You selected a directory!");

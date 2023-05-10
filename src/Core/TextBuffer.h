@@ -119,7 +119,11 @@ namespace gedit {
         std::optional<Line::Ref>FindParseStart(size_t idxStartLine);
 
         void Reparse();
-
+    public:
+        // For unit testing...
+        BufferState GetBufferState() {
+            return bufferState;
+        }
     protected:
         void StartReparseThread();
     private:

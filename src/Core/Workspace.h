@@ -17,10 +17,17 @@
 #include "EditorModel.h"
 
 namespace gedit {
+    //
+    // perhaps refactor this, workspace is more or less the container for multiple workspaces
+    // a folder (or root-node in the container) is a specific workspace...
+    //
     class Workspace {
+    public:
+        using Ref = std::shared_ptr<Workspace>;
         // Node define the structure of a workspace
     public:
 
+        // This is the actual workspace...
     class Node : public std::enable_shared_from_this<Node> {
         public:
             using Ref = std::shared_ptr<Node>;
@@ -121,35 +128,39 @@ namespace gedit {
 
         };
     public:
-        Workspace() = default;
-        virtual ~Workspace() = default;
+        Workspace();
+        virtual ~Workspace();
 
-        std::vector<EditorModel::Ref> &GetModels();
-        size_t GetActiveModelIndex();
+        static Ref Create();
+        const Workspace::Node::Ref GetDefaultWorkspace();
+        const Workspace::Node::Ref GetNamedWorkspace(const std::string &name);
 
-        Workspace::Node::Ref GetRootNode() {
-            return rootNode;
+        const std::unordered_map<std::string, Workspace::Node::Ref> &GetRootNodes() {
+            return rootNodes;
         }
-
-
-        void SetActiveModel(TextBuffer::Ref textBuffer);
-
-        size_t NextModelIndex(size_t idxCurrent);
-        EditorModel::Ref GetModelFromIndex(size_t idxModel);
 
         bool OpenFolder(const std::string &folder);
 
-        EditorModel::Ref NewModelWithFileRef(const std::filesystem::path &pathFileName);
-        EditorModel::Ref NewModelWithParent(const Node::Ref parent);
+        EditorModel::Ref NewEmptyModel();                       // Adds an empty model/file to the default workspace
+        EditorModel::Ref NewEmptyModel(const Node::Ref parent); // Adds an empty model/file to a specific workspace
 
+        // Adds a file-reference (i.e. doesn't load contents) to the default workspace
+        EditorModel::Ref NewModelWithFileRef(const std::filesystem::path &pathFileName);
+        // Adds a file-reference (i.e doesn't load contents) to a specific (named) workedspace
+        EditorModel::Ref NewModelWithFileRef(Node::Ref parent, const std::filesystem::path &pathFileName);
 
     protected:
-        EditorModel::Ref LoadEditorModelFromFile(const char *filename);
+        bool ReadFolderToNode(Node::Ref rootNode, const std::string &folder);
+        Node::Ref GetOrAddNode(const std::string &name);
+        //EditorModel::Ref LoadEditorModelFromFile(const char *filename);
 
     private:
         gnilk::ILogger *logger = nullptr;
-        Node::Ref rootNode = nullptr;
-        // WorkspaceNode root;
+
+        std::unordered_map<std::string, Node::Ref> rootNodes = {};
+        //Node::Ref rootNode = nullptr;
+
+        // FIXME: Remove this
         std::vector<EditorModel::Ref> models;   // rename..
 
     };

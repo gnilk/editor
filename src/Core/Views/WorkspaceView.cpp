@@ -38,9 +38,13 @@ void WorkspaceView::InitView() {
     });
 
     auto workspace = Editor::Instance().GetWorkspace();
-    auto node = workspace.GetRootNode();
-    auto item = treeView->AddItem(node);
-    FillTreeView(treeView, item, node);
+
+    // Fixme: there are multiple root-nodes in the workspace...
+    auto nodes = workspace->GetRootNodes();
+    for(auto &[key, node] : nodes) {
+        auto item = treeView->AddItem(node);
+        FillTreeView(treeView, item, node);
+    }
 
     // Traverse and add items
 

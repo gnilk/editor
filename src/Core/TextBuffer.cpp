@@ -87,6 +87,11 @@ bool TextBuffer::Save() {
     if (!HasPathName()) {
         return false;
     }
+    // Check if we even have data!
+    if ((bufferState == kBuffer_Empty) || (bufferState == kBuffer_FileRef)) {
+        return false;
+    }
+
     std::ofstream out(pathName, std::ios::binary);
     for(auto &l : lines) {
         out << l->Buffer() << "\n";
@@ -117,6 +122,9 @@ bool TextBuffer::Load() {
         AddLine(tmp);
     }
     fclose(f);
+
+    // Change state..
+    bufferState = kBuffer_Loaded;
     return true;
 }
 

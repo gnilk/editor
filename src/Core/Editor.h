@@ -109,7 +109,7 @@ namespace gedit {
         LanguageBase::Ref GetLanguageForExtension(const std::string &extension);
         std::vector<std::string> GetRegisteredLanguages();
 
-        const Workspace &GetWorkspace() {
+        const Workspace::Ref GetWorkspace() {
             return workspace;
         }
 
@@ -149,7 +149,7 @@ namespace gedit {
         KeyboardDriverBase *keyboardDriver = nullptr;
         std::unordered_map<std::string_view, void *> editorApiObjects;
 
-        Workspace workspace;
+        Workspace::Ref workspace;
         // Javascript API wrapper
         JSPluginEngine jsEngine;
 

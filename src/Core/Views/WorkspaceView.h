@@ -23,7 +23,7 @@ namespace gedit {
         void InitView() override;
         void ReInitView() override;
 
-        void SetViewRect(const Rect &rect) {
+        void SetViewRect(const Rect &rect) override {
             if (treeView != nullptr) {
                 treeView->SetViewRect(rect);
             }

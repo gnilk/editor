@@ -85,7 +85,8 @@ bool Editor::Initialize(int argc, const char **argv) {
     }
 
     // Open currently working folder...
-    workspace.OpenFolder("Plugins");
+    workspace = Workspace::Create();
+    workspace->OpenFolder("Plugins");
 
     // Activate the first loaded file (or empty/new model)
     RuntimeConfig::Instance().SetActiveEditorModel(models[0]);

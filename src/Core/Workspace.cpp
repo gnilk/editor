@@ -3,7 +3,7 @@
 //
 #include <filesystem>
 
-
+#include "Core/Config/Config.h"
 #include "Core/Editor.h"
 #include "Core/RuntimeConfig.h"
 #include "Core/BufferManager.h"
@@ -13,49 +13,56 @@
 using namespace gedit;
 namespace fs = std::filesystem;
 
-std::vector<EditorModel::Ref> &Workspace::GetModels() {
-    return models;
-}
-size_t Workspace::GetActiveModelIndex() {
-    for(size_t i=0;i<models.size();i++) {
-        if (models[i]->IsActive()) {
-            return i;
-        }
-    }
+static Workspace::Node::Ref GetOrAddNodePath(Workspace::Node::Ref rootNode, const fs::directory_entry &entry, const fs::path &rootPath);
+
+
+Workspace::Workspace() {
     auto logger = gnilk::Logger::GetLogger("Editor");
-    logger->Error("No active model!!!!!");
-    // THIS SHOULD NOT HAPPEN!!!
-    return 0;
 }
 
-void Workspace::SetActiveModel(TextBuffer::Ref textBuffer) {
-    auto idxCurrent = GetActiveModelIndex();
-    for(size_t i = 0; i<models.size();i++) {
-        if (models[i]->GetTextBuffer() == textBuffer) {
-            models[idxCurrent]->SetActive(false);
-            models[i]->SetActive(true);
-            // THIS IS NOT A WORK OF BEAUTY
-            RuntimeConfig::Instance().SetActiveEditorModel(models[i]);
-            return;
-        }
+
+Workspace::~Workspace() {
+    rootNodes.clear();
+}
+
+Workspace::Ref Workspace::Create() {
+    auto ref = std::make_shared<Workspace>();
+    return ref;
+}
+
+const Workspace::Node::Ref Workspace::GetDefaultWorkspace() {
+    // Default not created?  - create it...
+    if (rootNodes.find("default") == rootNodes.end()) {
+        logger->Debug("Default workspace does not exists, creating...");
+        auto nameDefault = Config::Instance()["main"].GetStr("default_workspace_name", "default");
+        rootNodes["default"] = Workspace::Node::Create(nameDefault);
     }
+
+    return rootNodes["default"];
 }
 
-size_t Workspace::NextModelIndex(size_t idxCurrent) {
-    auto next = (idxCurrent + 1) % models.size();
-    return next;
-}
-
-EditorModel::Ref Workspace::GetModelFromIndex(size_t idxModel) {
-    if (idxModel > (models.size()-1)) {
+// Returns a named workspace - currently the workspace is named after the folder name (this is however not needed)
+const Workspace::Node::Ref Workspace::GetNamedWorkspace(const std::string &name) {
+    // Default not created?  - create it...
+    if (rootNodes.find("name") == rootNodes.end()) {
+        logger->Debug("Namespace '%s' does not exists", name.c_str());
         return nullptr;
     }
-    return models[idxModel];
+    return rootNodes[name];
 }
 
+// Create a new model with a file-reference but don't load the contents...
+EditorModel::Ref Workspace::NewModelWithFileRef(const std::filesystem::path &pathFileName) {
+    auto parent = GetDefaultWorkspace();
+    if (parent == nullptr) {
+        logger->Error("Can't find default workspace");
+        exit(1);
+    }
+    return NewModelWithFileRef(parent, pathFileName);
+}
 
 // Create a new model/buffer
-EditorModel::Ref Workspace::NewModelWithFileRef(const std::filesystem::path &pathFileName) {
+EditorModel::Ref Workspace::NewModelWithFileRef(Node::Ref parent, const std::filesystem::path &pathFileName) {
     EditController::Ref editController = std::make_shared<EditController>();
 
     auto textBuffer = TextBuffer::CreateFileReferenceBuffer(pathFileName);
@@ -63,12 +70,23 @@ EditorModel::Ref Workspace::NewModelWithFileRef(const std::filesystem::path &pat
     EditorModel::Ref editorModel = EditorModel::Create();
     editorModel->Initialize(editController, textBuffer);
 
-    models.push_back(editorModel);
+    parent->AddModel(editorModel);
     return editorModel;
 }
 
-// Create a new model under a specific parent
-EditorModel::Ref Workspace::NewModelWithParent(const Node::Ref parent) {
+// Create an empty model in the default workspace
+EditorModel::Ref Workspace::NewEmptyModel() {
+    auto parent = GetDefaultWorkspace();
+    if (parent == nullptr) {
+        logger->Error("Can't find default workspace");
+        exit(1);
+    }
+    return NewEmptyModel(parent);
+
+}
+
+// Create a new empty model under a specific parent
+EditorModel::Ref Workspace::NewEmptyModel(const Node::Ref parent) {
     auto nodePath = parent->GetNodePath();
     nodePath.append("new");
     EditController::Ref editController = std::make_shared<EditController>();
@@ -78,8 +96,38 @@ EditorModel::Ref Workspace::NewModelWithParent(const Node::Ref parent) {
     EditorModel::Ref editorModel = EditorModel::Create();
     editorModel->Initialize(editController, textBuffer);
 
-    models.push_back(editorModel);
+    parent->AddModel(editorModel);
     return editorModel;
+}
+
+
+// Open a folder and create the workspace from the folder name...
+bool Workspace::OpenFolder(const std::string &folder) {
+    auto rootNode = GetOrAddNode(folder);
+    return ReadFolderToNode(rootNode, folder);
+}
+
+
+bool Workspace::ReadFolderToNode(Node::Ref rootNode, const std::string &folder) {
+    auto rootPath = fs::path(folder);
+    for(const fs::directory_entry &entry : fs::recursive_directory_iterator(rootPath)) {
+        if (!fs::is_regular_file(entry)) continue;
+        auto currentNode = GetOrAddNodePath(rootNode, entry, rootPath);
+        assert(currentNode != nullptr);
+        auto model = NewModelWithFileRef(currentNode, entry.path());
+    }
+    return true;
+}
+
+// Get/Create node and add it to the map of nodes...
+Workspace::Node::Ref Workspace::GetOrAddNode(const std::string &name) {
+    Node::Ref rootNode = nullptr;
+    if (rootNodes.find(name) != rootNodes.end()) {
+        return rootNodes[name];
+    }
+    rootNode = Node::Create(name);
+    rootNodes[name] = rootNode;
+    return rootNode;
 }
 
 // Helper, create nodes for the whole path-tree and return the leaf node
@@ -88,65 +136,13 @@ static Workspace::Node::Ref GetOrAddNodePath(Workspace::Node::Ref rootNode, cons
 
     if (entry.path().parent_path() != rootPath) {
         auto parentPath = entry.path().parent_path();
-        printf("%s, %s\n", parentPath.c_str(), entry.path().filename().c_str());
         for (auto const &elem: parentPath) {
             if (elem == rootPath) continue; // skip root
-
             currentNode = currentNode->GetOrAddChild(elem.string());
-            if (currentNode->GetParent() != nullptr) {
-                printf("   %s (p: %s)\n", elem.c_str(), currentNode->GetParent()->GetName().c_str());
-            } else {
-                printf("R: %s\n", elem.c_str());
-            }
         }
         if (currentNode == nullptr) {
-            // something went awfully wrong
             return nullptr;
         }
-    } else {
-        printf("[root] %s\n", entry.path().filename().c_str());
     }
     return currentNode;
 }
-
-// Open a folder and create the workspace tree
-bool Workspace::OpenFolder(const std::string &folder) {
-    rootNode = Node::Create(folder);
-    auto rootPath = fs::path(folder);
-    for(const fs::directory_entry &entry : fs::recursive_directory_iterator(rootPath)) {
-        if (!fs::is_regular_file(entry)) continue;
-        auto currentNode = GetOrAddNodePath(rootNode, entry, rootPath);
-        assert(currentNode != nullptr);
-
-        printf("Adding model with name: %s\n", entry.path().filename().c_str());
-        auto model = NewModelWithFileRef(entry.path());
-        currentNode->AddModel(model);
-    }
-    return true;
-}
-
-// tmp tmp tmp
-EditorModel::Ref Workspace::LoadEditorModelFromFile(const char *filename) {
-    logger->Debug("Loading file: %s", filename);
-    TextBuffer::Ref textBuffer;
-
-    textBuffer = BufferManager::Instance().NewBufferFromFile(filename);
-    if (textBuffer == nullptr) {
-        logger->Error("Unable to load file: '%s'", filename);
-        return nullptr;
-    }
-    logger->Debug("End Loading");
-
-
-    std::filesystem::path pathName(filename);
-    auto extension = pathName.extension();
-    textBuffer->SetLanguage(Editor::Instance().GetLanguageForExtension(extension));
-
-    EditController::Ref editController = std::make_shared<EditController>();
-    EditorModel::Ref editorModel = std::make_shared<EditorModel>();
-
-    editorModel->Initialize(editController, textBuffer);
-
-    return editorModel;
-}
-

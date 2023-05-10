@@ -18,6 +18,7 @@
 #include "Core/Workspace.h"
 #include "ScreenBase.h"
 #include "Core/EditorModel.h"
+#include "Core/Workspace.h"
 #include "Core/TypeUtil.h"
 
 namespace gedit {
@@ -112,6 +113,8 @@ namespace gedit {
         const Workspace::Ref GetWorkspace() {
             return workspace;
         }
+
+        EditorModel::Ref OpenModelFromWorkspace(Workspace::Node::Ref workspaceNode);
 
         EditorModel::Ref NewModel(const std::string &name);
         EditorModel::Ref LoadModel(const std::string &filename);

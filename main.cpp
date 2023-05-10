@@ -3,19 +3,23 @@
 //
 /*
  * TO-DO List
+ * + Make a proper 'project' viewer
+ *   - Enter on selection should load (if needed) and set the model active in the editor
+ *   - Ability to search/filter for files
+ * - Consolidate configuration (or sort it up properly) currently spread out beween 'Editor', 'Config', 'RuntimeConfig'
  * - Put some performance timings in the LanguageParser (this will have to be optimized sooner or later)
  * - Something is causing sigsev, I strongly suspect that it is related to threading in Syntax Coloring / Language code
- * - Move EditorController functionality to EditorModel
- * - Make a proper 'project' viewer
  * - macOS swaps left/right scancodes between keyboards (laptop has left/right one way my ext.keyboard another)
  *   need to consider a solution for this...
  * - Swap out the vertical navigation code in EditorView for the 'VerticalNavigationModel'
  * - Make large files > 10k lines read-only, alt. disable reparsing and syntax highlighting for large files..
  *   Disabling syntax can be deduced on-the fly by measuring the reparsing process..
- * - BufferManager should store 'fullPathName' and 'name'
  * - Unsaved file should have '*' marking in the top..
+ * - Remove the buffer manager class - not needed
  *
  * Done:
+ * ! [deprecated] BufferManager should store 'fullPathName' and 'name'
+ * ! Move EditorController functionality to EditorModel
  * ! Make API register commands in the runtime configuration
  *   ! Move 'PluginCommand' class from JSEngine/JSPluginCommand to Core/Plugin/
  *   ! Create a 'PluginExecutor' and associate with each PluginCommand

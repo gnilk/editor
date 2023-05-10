@@ -119,6 +119,18 @@ void Editor::Close() {
     openModels.clear();
 }
 
+EditorModel::Ref Editor::OpenModelFromWorkspace(Workspace::Node::Ref workspaceNode) {
+    auto model = workspaceNode->GetModel();
+    // Make sure we load it if not yet done...
+    if (model->GetTextBuffer()->GetBufferState() == TextBuffer::kBuffer_FileRef) {
+        model->GetTextBuffer()->Load();
+    }
+    openModels.push_back(model);
+    SetActiveModel(model->GetTextBuffer());
+    return model;;
+}
+
+
 
 // Create a new model/buffer
 EditorModel::Ref Editor::NewModel(const std::string &name) {

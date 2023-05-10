@@ -128,18 +128,23 @@ bool TextBuffer::Load() {
     }
     fclose(f);
 
+    UpdateLanguageParserFromFilename();
+
     // Change state..
     bufferState = kBuffer_Loaded;
     return true;
 }
+
 void TextBuffer::SetPathName(const std::filesystem::path &newPathName) {
     pathName = newPathName;
     UpdateLanguageParserFromFilename();
 }
+
 void TextBuffer::Rename(const std::string &newFileName) {
     pathName = pathName.stem().append(newFileName);
     UpdateLanguageParserFromFilename();
 }
+
 void TextBuffer::UpdateLanguageParserFromFilename() {
     auto lang = Editor::Instance().GetLanguageForExtension(pathName.extension());
     if (lang != nullptr) {

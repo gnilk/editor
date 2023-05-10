@@ -78,7 +78,9 @@ bool WorkspaceView::OnAction(const KeyPressAction &kpAction) {
         auto logger = gnilk::Logger::GetLogger("WorkspaceView");
         auto itemSelected = treeView->GetCurrentSelectedItem();
         if (itemSelected->GetModel() != nullptr) {
+            Editor::Instance().OpenModelFromWorkspace(itemSelected);
             logger->Debug("Selected Item: %s", itemSelected->GetModel()->GetTextBuffer()->GetName().c_str());
+            return true;
         } else {
             logger->Debug("You selected a directory!");
         }

@@ -30,7 +30,8 @@ namespace gedit {
         }
 
         bool OnAction(const KeyPressAction &kpAction) override;
-
+    protected:
+        void PopulateTree();
     private:
         TreeRef treeView;
     };

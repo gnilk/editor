@@ -11,6 +11,7 @@
 #include <optional>
 #include <filesystem>
 #include <vector>
+#include <functional>
 
 #include "logger.h"
 
@@ -24,6 +25,7 @@ namespace gedit {
     class Workspace {
     public:
         using Ref = std::shared_ptr<Workspace>;
+        using ContentsChangedDelegate = std::function<void()>;
         // Node define the structure of a workspace
     public:
 
@@ -136,6 +138,10 @@ namespace gedit {
         const Workspace::Node::Ref GetDefaultWorkspace();
         const Workspace::Node::Ref GetNamedWorkspace(const std::string &name);
 
+        void SetChangeDelegate(ContentsChangedDelegate newChangeHandler) {
+            onChangeHandler = newChangeHandler;
+        }
+
         const std::unordered_map<std::string, Workspace::Node::Ref> &GetRootNodes() {
             return rootNodes;
         }
@@ -153,11 +159,25 @@ namespace gedit {
     protected:
         bool ReadFolderToNode(Node::Ref rootNode, const std::string &folder);
         Node::Ref GetOrAddNode(const std::string &name);
+        void DisableNotifications() {
+            isChangeHandlerEnabled = false;
+        }
+        void EnableNotifications() {
+            isChangeHandlerEnabled = true;
+        }
+        void NotifyChangeHandler() {
+            if ((onChangeHandler != nullptr) && (isChangeHandlerEnabled)) {
+                onChangeHandler();
+            }
+        }
         //EditorModel::Ref LoadEditorModelFromFile(const char *filename);
 
     private:
         gnilk::ILogger *logger = nullptr;
         int newFileCounter = 0;
+
+        bool isChangeHandlerEnabled = true;
+        ContentsChangedDelegate onChangeHandler = {};
 
         std::unordered_map<std::string, Node::Ref> rootNodes = {};
         //Node::Ref rootNode = nullptr;

@@ -34,6 +34,16 @@ namespace gedit {
 
             std::vector<Ref> children = {};
 
+            void Clear() {
+                if (children.size() != 0) {
+                    for(auto &child : children) {
+                        child->Clear();
+                    }
+                    children.clear();
+                }
+                data = {};
+            }
+
             static Ref Create(const T &itemData) {
                 auto treeItem = std::make_shared<TreeNode>();
                 treeItem->data = itemData;
@@ -64,6 +74,12 @@ namespace gedit {
             return flattenNodeList[idxActiveLine]->data;
 
 
+        }
+        void Clear() {
+            if (rootNode != nullptr) {
+                rootNode->Clear();
+            }
+            flattenNodeList.clear();
         }
 
         bool OnAction(const KeyPressAction &kpAction) override {

@@ -34,11 +34,11 @@ namespace gedit {
 
         // Move to 'workspace'
         std::vector<EditorModel::Ref> &GetModels() {
-            return models;
+            return openModels;
         }
         size_t GetActiveModelIndex() {
-            for(size_t i=0;i<models.size();i++) {
-                if (models[i]->IsActive()) {
+            for(size_t i=0; i < openModels.size(); i++) {
+                if (openModels[i]->IsActive()) {
                     return i;
                 }
             }
@@ -50,26 +50,26 @@ namespace gedit {
 
         void SetActiveModel(TextBuffer::Ref textBuffer) {
             auto idxCurrent = GetActiveModelIndex();
-            for(size_t i = 0; i<models.size();i++) {
-                if (models[i]->GetTextBuffer() == textBuffer) {
-                    models[idxCurrent]->SetActive(false);
-                    models[i]->SetActive(true);
+            for(size_t i = 0; i < openModels.size(); i++) {
+                if (openModels[i]->GetTextBuffer() == textBuffer) {
+                    openModels[idxCurrent]->SetActive(false);
+                    openModels[i]->SetActive(true);
                     // THIS IS NOT A WORK OF BEAUTY
-                    RuntimeConfig::Instance().SetActiveEditorModel(models[i]);
+                    RuntimeConfig::Instance().SetActiveEditorModel(openModels[i]);
                     return;
                 }
             }
         }
 
         size_t NextModelIndex(size_t idxCurrent) {
-            auto next = (idxCurrent + 1) % models.size();
+            auto next = (idxCurrent + 1) % openModels.size();
             return next;
         }
         EditorModel::Ref GetModelFromIndex(size_t idxModel) {
-            if (idxModel > (models.size()-1)) {
+            if (idxModel > (openModels.size() - 1)) {
                 return nullptr;
             }
-            return models[idxModel];
+            return openModels[idxModel];
         }
 
         // -- End move to workspace
@@ -113,7 +113,7 @@ namespace gedit {
             return workspace;
         }
 
-        EditorModel::Ref NewModel(const char *name);
+        EditorModel::Ref NewModel(const std::string &name);
         EditorModel::Ref LoadModel(const std::string &filename);
 
         void ConfigureLogger();
@@ -135,7 +135,8 @@ namespace gedit {
     private:
         bool isInitialized = false;
         gnilk::ILogger *logger = nullptr;
-        std::vector<EditorModel::Ref> models;   // rename..
+        // Holds all open models/buffers in the text editor
+        std::vector<EditorModel::Ref> openModels = {};
 
         std::unordered_map<kLanguageTokenClass, std::pair<ColorRGBA, ColorRGBA>> languageColorConfig;
 

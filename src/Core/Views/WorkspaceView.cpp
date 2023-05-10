@@ -28,32 +28,47 @@ static void FillTreeView(WorkspaceView::TreeRef tree, WorkspaceView::TreeNodeRef
 
 void WorkspaceView::InitView() {
     VisibleView::InitView();
-
-    treeView = TreeView<Workspace::Node::Ref>::Create();
-    treeView->SetToStringDelegate([this](Workspace::Node::Ref node) -> std::string {
-        if (node->GetModel() != nullptr) {
-            return std::string(node->GetModel()->GetTextBuffer()->GetName());
-        }
-        return node->GetName();
+    PopulateTree();
+    auto workspace = Editor::Instance().GetWorkspace();
+    // Repopulate the tree on changes...
+    workspace->SetChangeDelegate([this](){
+       PopulateTree();
     });
+
+    // TODO: this should have a VStackView and a Header...
+    AddView(treeView.get());
+}
+
+void WorkspaceView::ReInitView() {
+    VisibleView::ReInitView();
+}
+
+void WorkspaceView::PopulateTree() {
+    if (treeView == nullptr) {
+        treeView = TreeView<Workspace::Node::Ref>::Create();
+
+        treeView->SetToStringDelegate([this](Workspace::Node::Ref node) -> std::string {
+            if (node->GetModel() != nullptr) {
+                return std::string(node->GetModel()->GetTextBuffer()->GetName());
+            }
+            return node->GetName();
+        });
+    } else {
+        treeView->Clear();
+    }
+
 
     auto workspace = Editor::Instance().GetWorkspace();
 
-    // Fixme: there are multiple root-nodes in the workspace...
+    // Traverse and add items
     auto nodes = workspace->GetRootNodes();
     for(auto &[key, node] : nodes) {
         auto item = treeView->AddItem(node);
         FillTreeView(treeView, item, node);
     }
 
-    // Traverse and add items
+}
 
-    // TODO: this should have a VStackView and a Header...
-    AddView(treeView.get());
-}
-void WorkspaceView::ReInitView() {
-    VisibleView::ReInitView();
-}
 
 bool WorkspaceView::OnAction(const KeyPressAction &kpAction) {
     if (treeView->OnAction(kpAction)) {

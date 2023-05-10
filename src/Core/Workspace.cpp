@@ -71,6 +71,9 @@ EditorModel::Ref Workspace::NewModelWithFileRef(Node::Ref parent, const std::fil
     editorModel->Initialize(editController, textBuffer);
 
     parent->AddModel(editorModel);
+
+    NotifyChangeHandler();  // Note: This can be enabled/disabled - when reading a directory it is disabled and called once reading has completed./..
+
     return editorModel;
 }
 
@@ -82,7 +85,6 @@ EditorModel::Ref Workspace::NewEmptyModel() {
         exit(1);
     }
     return NewEmptyModel(parent);
-
 }
 
 // Create a new empty model under a specific parent
@@ -107,14 +109,27 @@ EditorModel::Ref Workspace::NewEmptyModel(const Node::Ref parent) {
     editorModel->Initialize(editController, textBuffer);
 
     parent->AddModel(editorModel);
+
+    NotifyChangeHandler();
+
     return editorModel;
 }
 
 
 // Open a folder and create the workspace from the folder name...
 bool Workspace::OpenFolder(const std::string &folder) {
+    // Disable notifications - otherwise the callback is invoked for each added model...
+    DisableNotifications();
     auto rootNode = GetOrAddNode(folder);
-    return ReadFolderToNode(rootNode, folder);
+    if (!ReadFolderToNode(rootNode, folder)) {
+        // Make sure we enable notification again...
+        EnableNotifications();
+        return false;
+    }
+
+    EnableNotifications();
+    NotifyChangeHandler();
+    return true;
 }
 
 

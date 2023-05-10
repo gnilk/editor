@@ -71,7 +71,7 @@ bool Editor::Initialize(int argc, const char **argv) {
             // FIXME: THIS IS NOT WORKING WITH WORKSPACE!!!
             auto model = LoadEditorModelFromFile(argv[i]);
             if (model != nullptr) {
-                models.push_back(model);
+                openModels.push_back(model);
             }
         }
     }
@@ -80,21 +80,21 @@ bool Editor::Initialize(int argc, const char **argv) {
     // Open currently working folder...
     workspace = Workspace::Create();
 
-//    workspace->OpenFolder("Plugins");
+    workspace->OpenFolder("Plugins");
 
 
     // create a model if cmd-line didn't specify any
     // this will cause editor to start with at least one new file...
-    if (models.size() == 0) {
-//        NewModel("no_name");
+    if (openModels.size() == 0) {
+        // Default workspace will be created if not already..
         workspace->GetDefaultWorkspace();
         auto model = workspace->NewEmptyModel();
-        models.push_back(model);
+        openModels.push_back(model);
     }
 
 
     // Activate the first loaded file (or empty/new model)
-    RuntimeConfig::Instance().SetActiveEditorModel(models[0]);
+    RuntimeConfig::Instance().SetActiveEditorModel(openModels[0]);
 
     bool keyMapperOk = KeyMapping::Instance().IsInitialized();
     if (!keyMapperOk) {
@@ -113,35 +113,25 @@ bool Editor::OpenScreen() {
 
 void Editor::Close() {
     logger->Debug("Closing editor");
-    for(auto &model : models) {
+    for(auto &model : openModels) {
         model->Close();
     }
-    models.clear();
+    openModels.clear();
 }
 
 
 // Create a new model/buffer
-EditorModel::Ref Editor::NewModel(const char *name) {
-    EditController::Ref editController = std::make_shared<EditController>();
-    auto textBuffer = BufferManager::Instance().NewBuffer(name);
-    textBuffer->AddLine("");
-    textBuffer->SetLanguage(Editor::Instance().GetLanguageForExtension("default"));
-    EditorModel::Ref editorModel = std::make_shared<EditorModel>();
-    editorModel->Initialize(editController, textBuffer);
-
-    models.push_back(editorModel);
-
-    return editorModel;
+EditorModel::Ref Editor::NewModel(const std::string &name) {
+    auto model = workspace->NewEmptyModel();
+    model->GetTextBuffer()->SetPathName(name);
+    openModels.push_back(model);
+    return model;
 }
 
 EditorModel::Ref Editor::LoadModel(const std::string &filename) {
-    auto model = LoadEditorModelFromFile(filename.c_str());
-    if (model == nullptr) {
-        RuntimeConfig::Instance().OutputConsole()->WriteLine("Editor::LoadBuffer, Unable to load file");
-        return nullptr;
-    }
-
-    models.push_back(model);
+    auto model = workspace->NewModelWithFileRef(filename);
+    model->GetTextBuffer()->Load();
+    openModels.push_back(model);
 
     return model;
 }

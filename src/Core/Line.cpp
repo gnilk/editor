@@ -15,6 +15,11 @@ Line::Line() {
 
 }
 
+Line::Ref Line::Create(const char *data) {
+    return std::make_shared<Line>(data);
+}
+
+
 void Line::Lock() {
     lock.lock();
     isLocked = true;

@@ -14,7 +14,9 @@
 #include "Core/TextAttributes.h"
 #include "Core/Language/LanguageTokenClass.h"
 
-#define MAX_LINE_LENGTH 1024
+#ifndef GEDIT_MAX_LINE_LENGTH
+#define GEDIT_MAX_LINE_LENGTH 1024
+#endif
 
 namespace gedit {
     class Line {
@@ -29,6 +31,8 @@ namespace gedit {
     public:
         Line();
         Line(const char *data);
+        static Line::Ref Create(const char *data);
+
         void Clear();
         void Append(int ch);
         void Append(std::string_view &srcdata);

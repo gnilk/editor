@@ -151,7 +151,8 @@ static int createTranslationTable() {
     // These are next to the enter key on my keyboard...
     scanCodeToAscii[0x2f] = '[';
     scanCodeToAscii[0x30] = ']';
-    scanCodeToAscii[0x32] = '\\';
+    scanCodeToAscii[0x31] = '\\';
+    scanCodeToAscii[0x32] = '\\';       // Not sure - can't seem to generate this one now...  might have been a typo..
     scanCodeToAscii[0x33] = ';';
     scanCodeToAscii[0x34] = '\'';
     scanCodeToAscii[0x35] = 0x60; //'`';

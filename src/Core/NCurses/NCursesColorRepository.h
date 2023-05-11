@@ -31,10 +31,12 @@ namespace gedit {
         NCursesColorRepository() = default;
         virtual ~NCursesColorRepository() = default;
 
+        static NCursesColorRepository &Instance();
+
         int GetColorPairIndex(const ColorRGBA &fgColor, const ColorRGBA &bgColor);
     private:
-        int colorIndex = 0;
-        int colorPairIndex = 0;
+        int colorIndex = 1;
+        int colorPairIndex = 1;
         std::unordered_map<ColorPair, int, ColorPairHash, ColorPairEqual> colorPairs;
     };
 }

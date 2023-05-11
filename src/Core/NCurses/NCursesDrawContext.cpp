@@ -7,17 +7,23 @@
 #include "NCursesDrawContext.h"
 #include <string.h>
 #include "logger.h"
-//
-// Note: no editor output since I am missing: DrawStringWithAttributesAndColAt
-//
-
 
 using namespace gedit;
 
 void NCursesDrawContext::Clear() const {
+    std::string clrstr(rect.Width(), ' ');
+
     SetRenderColors();
-    wbkgd((WINDOW *)win, COLOR_PAIR(activeColorPair));
-    wclear((WINDOW *)win);
+    wattrset((WINDOW *)win, A_NORMAL);  // Reset to normal
+    wattron((WINDOW *)win, COLOR_PAIR(activeColorPair)); // COLOR_PAIR(activeColorPair));
+
+    for(int y=0;y<rect.Height()-1;y++) {
+        wmove((WINDOW *)win, y + rect.TopLeft().y, 0);
+        waddstr((WINDOW *)win, clrstr.c_str());
+    }
+    wmove((WINDOW *)win, rect.Height(), 0);
+    waddnstr((WINDOW *)win, clrstr.c_str(),rect.Width()-1);
+    winsch((WINDOW *) win, ' ');
 }
 
 void NCursesDrawContext::Scroll(int nRows) const {
@@ -38,10 +44,14 @@ void NCursesDrawContext::FillLine(int y, kTextAttributes attrib, char c) const {
 }
 
 void NCursesDrawContext::DrawStringAt(int x, int y, const char *str) const {
+    SetRenderColors();
     int err = wmove((WINDOW *)win, y, x);
     if (err < 0) {
         return;
     }
+    wattrset((WINDOW *)win, A_NORMAL);  // Reset to normal
+    wattron((WINDOW *)win, COLOR_PAIR(activeColorPair)); // COLOR_PAIR(activeColorPair));
+
     waddnstr((WINDOW *)win, str, rect.Width()-x-1);
 }
 
@@ -201,9 +211,7 @@ void NCursesDrawContext::OnColorUpdate() const {
 }
 void NCursesDrawContext::SetRenderColors() const {
     // The colors can't be const as we perhaps need to modify them
-    auto colorPair = const_cast<NCursesDrawContext *>(this)->colors.GetColorPairIndex(fgColor, bgColor);
-    auto logger = gnilk::Logger::GetLogger("NCDrawContext");
-    logger->Debug("SetRenderColors, active colorIndex=%d", colorPair);
-
+    auto colorPair = NCursesColorRepository::Instance().GetColorPairIndex(fgColor, bgColor);
+    //auto colorPair = const_cast<NCursesDrawContext *>(this)->.GetColorPairIndex(fgColor, bgColor);
     const_cast<NCursesDrawContext *>(this)->activeColorPair = colorPair;
 }

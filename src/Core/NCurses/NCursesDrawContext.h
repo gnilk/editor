@@ -36,7 +36,6 @@ namespace gedit {
 
     private:
         int activeColorPair = 0;
-        NCursesColorRepository colors;
     };
 }
 

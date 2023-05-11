@@ -8,6 +8,11 @@
 #include "NCursesColorRepository.h"
 
 using namespace gedit;
+NCursesColorRepository &NCursesColorRepository::Instance() {
+    static NCursesColorRepository glbColorRepo;
+    return glbColorRepo;
+}
+
 int NCursesColorRepository::GetColorPairIndex(const ColorRGBA &fgColor, const ColorRGBA &bgColor) {
     ColorPair pair = {fgColor, bgColor};
     if (colorPairs.find(pair) != colorPairs.end()) {
@@ -15,17 +20,20 @@ int NCursesColorRepository::GetColorPairIndex(const ColorRGBA &fgColor, const Co
     }
     auto logger = gnilk::Logger::GetLogger("NCursesColorRepo");
 
+
     int err = 0;
-    int idxFg = colorIndex++;
-    int idxBg = colorIndex++;
-    err = init_color(idxFg, fgColor.RedAsInt(1000), fgColor.GreenAsInt(1000), fgColor.BlueAsInt(1000));
+    int idxFg = colorIndex;
+    int idxBg = colorIndex+1;
+    err = init_color(idxFg, fgColor.RedAsInt(999), fgColor.GreenAsInt(999), fgColor.BlueAsInt(999));
     if (err == ERR) {
         logger->Error("failed to initialize color with index %d", idxFg);
     }
-    err = init_color(idxBg, bgColor.RedAsInt(1000), bgColor.GreenAsInt(1000), bgColor.BlueAsInt(1000));
+    err = init_color(idxBg, bgColor.RedAsInt(999), bgColor.GreenAsInt(999), bgColor.BlueAsInt(999));
     if (err == ERR) {
         logger->Error("failed to initialize color with index %d", idxBg);
     }
+
+    logger->Debug("NewColorPair, idxPair: %d, idxFg; %d, idxBg: %d (ci: %d, cpi: %d)", colorPairIndex, idxFg, idxBg, colorIndex, colorPairIndex);
 
     int newColorIndex = colorPairIndex;
     err = init_pair(newColorIndex, idxFg, idxBg);
@@ -34,6 +42,7 @@ int NCursesColorRepository::GetColorPairIndex(const ColorRGBA &fgColor, const Co
     }
     colorPairs[pair] = newColorIndex;
 
+    colorIndex+=2;
     colorPairIndex++;
     return newColorIndex;
 }

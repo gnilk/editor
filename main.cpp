@@ -131,6 +131,7 @@
 #include "Core/Views/WorkspaceView.h"
 
 #include "Core/Views/TreeSelectionModal.h"
+#include "Core/Views/TestView.h"
 
 using namespace gedit;
 
@@ -180,6 +181,28 @@ static void TestKeyBoardDriver() {
     exit(1);
 
 }
+static void TestViewDrawing() {
+    //TestView testView(Rect(Point(10,10),40,30));
+    TestView testView;
+    auto screen = RuntimeConfig::Instance().Screen();
+
+
+    testView.Initialize();
+    testView.InvalidateAll();
+    RuntimeConfig::Instance().SetRootView(&testView);
+
+    screen->Clear();
+    testView.Draw();
+    screen->Update();
+
+    screen->Clear();
+    testView.Draw();
+    screen->Update();
+
+    Runloop::DefaultLoop();
+
+
+}
 
 
 
@@ -219,6 +242,8 @@ int main(int argc, const char **argv) {
     logger->Debug("Creating views");
     logger->Debug("Dimensions (x,y): %d, %d", dimensions.Width(), dimensions.Height());
 
+    TestViewDrawing();
+    exit(1);
 
     //
     // The views are configured like this; the number indicates the view depth/hierachy
@@ -295,7 +320,6 @@ int main(int argc, const char **argv) {
     vStackViewEditor.AddSubView(&editorHeaderView, kFixed);
     vStackViewEditor.AddSubView(&hStackViewEditor, kFill);
 
-    RuntimeConfig::Instance().SetRootView(&rootView);
 
     hSplitViewStatus.SetUpper(&hStackViewUpper);
 
@@ -307,6 +331,8 @@ int main(int argc, const char **argv) {
 //    ModalView dummy(dimensions, &workspaceView);
 //    Runloop::ShowModal(&dummy);
 //    exit(1);
+
+    RuntimeConfig::Instance().SetRootView(&rootView);
 
     rootView.Initialize();
     rootView.InvalidateAll();

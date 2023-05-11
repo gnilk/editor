@@ -143,6 +143,7 @@ list(APPEND editorsrc src/Core/Views/ViewBase.cpp src/Core/Views/ViewBase.h)
 list(APPEND editorsrc src/Core/Views/VSplitView.h)
 list(APPEND editorsrc src/Core/Views/VStackView.h)
 list(APPEND editorsrc src/Core/Views/VisibleView.cpp src/Core/Views/VisibleView.h)
+list(APPEND editorsrc src/Core/Views/TestView.cpp src/Core/Views/TestView.h)
 # specific views
 list(APPEND editorsrc src/Core/Views/EditorView.cpp src/Core/Views/EditorView.h)
 list(APPEND editorsrc src/Core/Views/GutterView.cpp src/Core/Views/GutterView.h)

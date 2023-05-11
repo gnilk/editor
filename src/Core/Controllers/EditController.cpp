@@ -86,6 +86,7 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
     return idxActiveLine;
 }
 
+// FIX-ME: This needs more info - like the cursor in order to paste the block middle of another block..
 void EditController::Paste(size_t idxActiveLine, const char *buffer) {
     std::stringstream strStream(buffer);
     char tmp[GEDIT_MAX_LINE_LENGTH];

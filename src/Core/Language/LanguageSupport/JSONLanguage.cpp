@@ -6,8 +6,11 @@
 #include "Core/EditorConfig.h"
 
 using namespace gedit;
+//
+// This is JS (JSON is also obviously supported - but will have a few keywords standing out)
+//
 
-static const std::string jsonOperatorsFull = ", : [ ] { } \" \'";
+static const std::string jsonOperatorsFull = "=== ++ -- == = < > ; . , : [ ] { } \' ( ) \"";
 
 // Well, not quite right - but until we have an 'array' classification we use this...
 static const std::string jsonObjectStart = "{";
@@ -19,7 +22,7 @@ static const std::string jsonArrayEnd = "]";
 static const std::string inStringOp = "\"";
 static const std::string inStringPostFixOp = "\"";
 
-static const std::string jsonKeywords = "true false null";
+static const std::string jsonKeywords = "true false null function for var let const";
 
 
 bool JSONLanguage::Initialize() {
@@ -31,7 +34,7 @@ bool JSONLanguage::Initialize() {
     state->SetIdentifiers(kLanguageTokenClass::kCodeBlockEnd, jsonObjectEnd.c_str());
     state->SetIdentifiers(kLanguageTokenClass::kArrayStart, jsonArrayStart.c_str());
     state->SetIdentifiers(kLanguageTokenClass::kArrayEnd, jsonArrayEnd.c_str());
-//    state->SetPostFixIdentifiers(jsonOperatorsFull.c_str());
+    state->SetPostFixIdentifiers(jsonOperatorsFull.c_str());
 
     state->GetOrAddAction("\"",LangLineTokenizer::kAction::kPushState, "in_string");
 

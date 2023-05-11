@@ -125,7 +125,7 @@ namespace gedit {
         typename TreeNode::Ref AddItem(typename TreeNode::Ref parent, const T &item) {
             auto treeItem = TreeNode::Create(item);
             parent->isExpanded = true;
-            parent->children.push_back(treeItem);
+            parent->children.emplace_back(treeItem);
 
             // Flatten tree!!!
             Flatten();
@@ -198,7 +198,7 @@ namespace gedit {
 
         int FlattenFromNode(int idxLine, typename TreeNode::Ref node, int indent) {
             node->indent = indent;
-            flattenNodeList.push_back(node);
+            flattenNodeList.emplace_back(node);
             idxLine += 1;
             if (node->isExpanded) {
                 for (auto &child: node->children) {

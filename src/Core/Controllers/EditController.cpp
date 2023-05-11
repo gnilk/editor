@@ -6,6 +6,7 @@
 
 #include "EditController.h"
 #include "Core/EditorConfig.h"
+#include <sstream>
 
 using namespace gedit;
 
@@ -85,6 +86,20 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
     return idxActiveLine;
 }
 
+void EditController::Paste(size_t idxActiveLine, const char *buffer) {
+    std::stringstream strStream(buffer);
+    char tmp[GEDIT_MAX_LINE_LENGTH];
+
+    while(!strStream.eof()) {
+        strStream.getline(tmp, GEDIT_MAX_LINE_LENGTH);
+        auto line = Line::Create(tmp);
+        textBuffer->Insert(idxActiveLine, line);
+        idxActiveLine++;
+    }
+    textBuffer->Reparse();
+}
+
 void EditController::UpdateSyntaxForBuffer() {
     textBuffer->Reparse();
 }
+

@@ -47,6 +47,8 @@ namespace gedit {
             return textBuffer->LineAt(idxLine);
         }
 
+        void Paste(size_t idxActiveLine, const char *buffer);
+
         void UpdateSyntaxForBuffer();
 
     private:

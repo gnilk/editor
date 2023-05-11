@@ -60,6 +60,8 @@ keymap: {
       CycleActiveView : KeyCode_Escape,
       CycleActiveViewNext : "UINavigationModifier + ']'",
       CycleActiveViewPrev : "UINavigationModifier + '['",
+      CycleBufferNext : "UINavigationModifier + '\\'",
+      CycleBufferPrev : "UINavigationModifier + '\''",
       CycleActiveEditor : KeyCode_F3,
       CommitLine : KeyCode_Return,
       CommentLine: CopyPasteModifier + '/'

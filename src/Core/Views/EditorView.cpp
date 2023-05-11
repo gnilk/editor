@@ -14,6 +14,7 @@
 #include "Core/Editor.h"
 // TEMP
 #include <SDL3/SDL_clipboard.h>
+#include <SDL3/SDL_error.h>
 
 using namespace gedit;
 
@@ -168,10 +169,14 @@ bool EditorView::OnAction(const KeyPressAction &kpAction) {
         std::string buffer;
         auto selection = editorModel->GetSelection();
         editorModel->GetTextBuffer()->CopyRegionToString(buffer, selection.GetStart(), selection.GetEnd());
-        SDL_SetClipboardText(buffer.c_str());
+        logger->Debug("%s", buffer.c_str());
+        if (SDL_SetClipboardText(buffer.c_str()) != 0) {
+            logger->Error("SDL_SetClipboardText, error=%s", SDL_GetError());
+        }
     } else if (kpAction.action == kAction::kActionPasteFromClipboard) {
-        if (!SDL_HasClipboardText()) {
+        if (SDL_HasClipboardText() == SDL_TRUE) {
             auto clipBoardText = SDL_GetClipboardText();
+            editorModel->GetEditController()->Paste(editorModel->idxActiveLine, clipBoardText);
             logger->Debug("Past from clipboard: '%s'", clipBoardText);
         } else {
             logger->Debug("No text in clipboard");

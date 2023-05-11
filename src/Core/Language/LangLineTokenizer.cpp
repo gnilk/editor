@@ -1,28 +1,6 @@
-/*-------------------------------------------------------------------------
-File    : $Archive: LangLineTokenizer.cpp $
-Author  : $Author: FKling $
-Version : $Revision: 1 $
-Orginal : 2009-10-17, 15:50
-Descr   : Small stack state based tokenizer with multi classifications of tokens
-
- Note: When dealing with operators make sure you define the "longest" (char wise) operators first
-       otherwise there will be false positives...
-
-Note_1: EACH LINE IS PASSED THROUGH THIS ONE!!!
-
-Note_2: If you want to run multiple instances (like multi-threaded) you need multiple instances of this tokenizer..
-        YOU CAN NOT CALL THE SAME INSTANCE FROM SEVERAL DIFFERENT THREADS!!!! (use thread_local storage attribute!)
-
-Modified: $Date: $ by $Author: FKling $
----------------------------------------------------------------------------
-
-\History
-- 23.09.22, FKling, Multi char operators
-- 14.03.14, FKling, published on github
-- 25.10.09, FKling, Implementation
-
----------------------------------------------------------------------------*/
-
+//
+// See 'LangLineTokenizer.h' for details...
+//
 #include <stdlib.h>
 #include <vector>
 #include <string>
@@ -32,9 +10,9 @@ Modified: $Date: $ by $Author: FKling $
 #include <assert.h>
 using namespace gedit;
 
-LangLineTokenizer::LangLineTokenizer() {
-
-}
+//
+// Parse a set of lines
+//
 void LangLineTokenizer::ParseLines(std::vector<Line::Ref> &lines) {
     if (!ResetStateStack()) {
         return;
@@ -88,7 +66,8 @@ void LangLineTokenizer::ParseLines(std::vector<Line::Ref> &lines) {
     }
 }
 
-// External, will reset the state machine...
+// Parse a single line
+// Note: Don't use this - this is a bit bogus...
 void LangLineTokenizer::ParseLine(std::vector<LangToken> &tokens, const char *input) {
     if (!ResetStateStack()) {
         return;
@@ -98,8 +77,12 @@ void LangLineTokenizer::ParseLine(std::vector<LangToken> &tokens, const char *in
     PopState();
 }
 
-
-// FIXME: Supply some kind of feedback if we entered a block or similar - telling the application it should probably 'reparse' the whole thing..
+//
+// ParseLine start from a specific state
+// This has flaws, considering parsing a single line when entering a block-comment...
+//
+// Instead we should have a parse function which start at a specific state and parses until that state is reached..
+//
 void LangLineTokenizer::ParseLineFromStartState(std::string &lineStartState, Line::Ref line) {
     // Reset the state stack, start all over...
     if (!ResetStateStack()) {
@@ -117,14 +100,15 @@ void LangLineTokenizer::ParseLineFromStartState(std::string &lineStartState, Lin
     PopState();
 }
 
-
-
+//
+// ParseLine start from current state on the stack..
 //
 // This is the heavy lifting, part 1
 // Internal, assumes the current state has been properly set-up
 //
 void LangLineTokenizer::ParseLineWithCurrentState(std::vector<LangToken> &tokens, const char *input) {
-    char tmp[256];
+    // Max token length...
+    char rawToken[GEDIT_MAX_LANG_TOKEN_LENGTH];
     char *parsepoint = (char *) input;
 
 
@@ -135,25 +119,25 @@ void LangLineTokenizer::ParseLineWithCurrentState(std::vector<LangToken> &tokens
         }
 
         // Get a token and the classification...
-        auto [ok, classification] = GetNextToken(tmp, 256, &parsepoint);
+        auto [ok, classification] = GetNextToken(rawToken, 256, &parsepoint);
         if (!ok) {
             break;
         }
 
         // printf("s: %s, tok: %s\n", currentState->name.c_str(), tmp);
 
-        int len = strlen(tmp);
+        int len = strlen(rawToken);
         if (len == 0) {
             return;
         }
         int pos = (parsepoint - input) - len;
-        classification = CheckExecuteActionForToken(currentState, tmp, classification);
+        classification = CheckExecuteActionForToken(currentState, rawToken, classification);
         // If this is regular text - reclassify it depending on the state (this allows for comments/string and other
         // encapsulation statements to override... (#include)
         if (classification == kLanguageTokenClass::kRegular) {
             classification = currentState->regularTokenClass;
         }
-        LangToken token { .string = std::string(tmp), .idxOrigStr = pos, .classification = classification };
+        LangToken token { .string = std::string(rawToken), .idxOrigStr = pos, .classification = classification };
         tokens.push_back(token);
     }
 

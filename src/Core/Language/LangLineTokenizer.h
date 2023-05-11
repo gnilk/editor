@@ -10,8 +10,17 @@
 #include "Core/Line.h"
 #include "Core/Language/LangToken.h"
 #include <string.h>
-
+//
+// General purpose stateful stack based language parser/tokenizer.
+// The aim was to be fast on regular files (less than 1000 loc per file/unit).
+// Can probably be driven straight from JSON/YAML or something..
+//
 namespace gedit {
+
+#ifndef GEDIT_MAX_LANG_TOKEN_LENGTH
+// define the maximum length of a single token
+#define GEDIT_MAX_LANG_TOKEN_LENGTH 256
+#endif
 
     // Consider placing this in a namespace instead of using internal classes...
     class LangLineTokenizer {
@@ -30,7 +39,7 @@ namespace gedit {
             std::string stateName;
         };
 
-        // FIXME: Ability to set user supplied matching function...
+        // Consider: Ability to set user supplied matching function...
         struct IdentifierList {
             using Ref = std::shared_ptr<IdentifierList>;
             static IdentifierList::Ref Factory(kLanguageTokenClass tokenClass, const char *strTokens) {
@@ -56,8 +65,20 @@ namespace gedit {
             }
         };
 
-        // FIXME: Quite a large internal class - consider putting it somewhere else??
-        //        Add 'EOLAction()',
+        // TO-DO: Quite a large internal class - consider putting it somewhere else??
+        // Some notes about when and where to use certain functions.
+        //
+        // use the Tokenizer class to create a state by calling 'GetOrAddState'
+        //
+        // Define state behaviour through these functions.
+        //   'SetIdentifiers' - Set a list of space-delimited token that should be classified accordingly
+        //   'SetAction' - Define an action (Push/Pop of state) when a certain token is matched
+        //   'SetEOLAction' - Set special action for when EOL is found
+        //   'SetRegularTokenClass' - Define what classification a regular token should have, used when inside a comment or string - we don't want to recognize keywords - instead classify with this
+        //   'SetPostFixIdentifiers' - Define a set of tokens that can occur at the end, like myVariable++ or just 'myVariable;' Generally they are the same as operators - but I've opted to keep them separate..
+        //
+        // A state can have multiple lists of 'Identifiers' and 'Actions' but only one of 'EOLAction', 'RegularTokenClass' and 'PostFixIdentifiers'.
+        //
         struct State {
             // Reference
             using Ref = std::shared_ptr<State>;
@@ -163,7 +184,7 @@ namespace gedit {
     public:
 
     public:
-        explicit LangLineTokenizer();
+        LangLineTokenizer() = default;
         virtual ~LangLineTokenizer() = default;
 
         void ParseLine(std::vector<LangToken> &tokens, const char *input);
@@ -178,7 +199,6 @@ namespace gedit {
 
     protected:
         void ParseLineWithCurrentState(std::vector<LangToken> &tokens, const char *input);
-
 
         kLanguageTokenClass CheckExecuteActionForToken(State::Ref currentState, const char *token, kLanguageTokenClass tokenClass);
         std::pair<bool, kLanguageTokenClass> GetNextToken(char *dst, int nMax, char **input);

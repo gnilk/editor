@@ -68,9 +68,6 @@ namespace gedit {
                 case kAction::kActionCycleActiveView :
                     OnCycleActiveView();
                     break;
-                case kAction::kActionCycleActiveEditor :
-                    OnCycleActiveEditor();
-                    break;
                 case kAction::kActionCycleActiveViewNext :
                     OnCycleActiveViewNext();
                     break;
@@ -118,17 +115,6 @@ namespace gedit {
             idxCurrentTopView = (topViews.size() + (idxCurrentTopView-1)) % topViews.size();
             TopView()->SetActive(true);
             currentView->SetActive(false);
-        }
-
-        void OnCycleActiveEditor() {
-            auto idxCurrent = Editor::Instance().GetActiveModelIndex();
-            auto idxNext = Editor::Instance().NextModelIndex(idxCurrent);
-            if (idxCurrent != idxNext) {
-                auto nextModel = Editor::Instance().GetModelFromIndex(idxNext);
-                RuntimeConfig::Instance().SetActiveEditorModel(nextModel);
-            }
-            Initialize();
-            InvalidateAll();
         }
 
     protected:

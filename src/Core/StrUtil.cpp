@@ -43,7 +43,7 @@ namespace strutil {
                 std::string str = input.substr(iStart, iPos - iStart);
                 trim(str);
                 // 2018-11-29, Gnilk: Push back even if length is 0
-                strings.push_back(str);
+                strings.emplace_back(str);
                 iPos++;
             } else {
                 std::string str = input.substr(iStart, input.length() - iStart);
@@ -153,7 +153,7 @@ namespace strutil {
         }
 
         while (getNextTokenNoOperator(tmp, 256, &parsepoint)) {
-            outList.push_back(std::string(tmp));
+            outList.emplace_back(std::string(tmp));
         }
     }
 

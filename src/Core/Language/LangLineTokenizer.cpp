@@ -138,7 +138,8 @@ void LangLineTokenizer::ParseLineWithCurrentState(std::vector<LangToken> &tokens
             classification = currentState->regularTokenClass;
         }
         LangToken token { .string = std::string(rawToken), .idxOrigStr = pos, .classification = classification };
-        tokens.push_back(token);
+        //tokens.push_back(token);
+        tokens.emplace_back(token);
     }
 
     if (!stateStack.empty()) {

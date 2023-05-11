@@ -58,6 +58,12 @@ namespace gedit {
             auto next = (idxCurrent + 1) % openModels.size();
             return next;
         }
+
+        size_t PreviousModelIndex(size_t idxCurrent) {
+            auto next = (openModels.size() + (idxCurrent - 1)) % openModels.size();
+            return next;
+        }
+
         EditorModel::Ref GetModelFromIndex(size_t idxModel) {
             if (idxModel > (openModels.size() - 1)) {
                 return nullptr;

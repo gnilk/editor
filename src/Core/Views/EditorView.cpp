@@ -11,7 +11,7 @@
 #include "Core/RuntimeConfig.h"
 #include "Core/LineRender.h"
 #include "EditorView.h"
-
+#include "Core/Editor.h"
 // TEMP
 #include <SDL3/SDL_clipboard.h>
 
@@ -237,6 +237,12 @@ bool EditorView::DispatchAction(const KeyPressAction &kpAction) {
             return OnActionWordLeft();
         case kAction::kActionLineWordRight :
             return OnActionWordRight();
+        case kAction::kActionCycleActiveBufferNext :
+            return OnActionNextBuffer();
+        case kAction::kActionCycleActiveBufferPrev :
+            return OnActionPreviousBuffer();
+        case kAction::kActionCycleActiveEditor :
+            return OnActionCycleActiveBuffer();
         default:
             break;
     }
@@ -404,6 +410,45 @@ bool EditorView::OnActionGotoBottomLine() {
     editorModel->cursor.position.y = GetContentRect().Height()-1;
     editorModel->idxActiveLine = editorModel->viewBottomLine-1;
     logger->Debug("GotoBottomLine, new  cursor=(%d:%d)", editorModel->cursor.position.x, editorModel->cursor.position.y);
+    return true;
+}
+
+bool EditorView::OnActionNextBuffer() {
+    auto idxCurrent = Editor::Instance().GetActiveModelIndex();
+    auto idxNext = Editor::Instance().NextModelIndex(idxCurrent);
+    if (idxCurrent == idxNext) {
+        return true;
+    }
+    auto nextModel = Editor::Instance().GetModelFromIndex(idxNext);
+    RuntimeConfig::Instance().SetActiveEditorModel(nextModel);
+    RuntimeConfig::Instance().GetRootView().Initialize();
+    InvalidateAll();
+    return true;
+}
+
+bool EditorView::OnActionPreviousBuffer() {
+    auto idxCurrent = Editor::Instance().GetActiveModelIndex();
+    auto idxNext = Editor::Instance().PreviousModelIndex(idxCurrent);
+    if (idxCurrent == idxNext) {
+        return true;
+    }
+    auto nextModel = Editor::Instance().GetModelFromIndex(idxNext);
+    RuntimeConfig::Instance().SetActiveEditorModel(nextModel);
+    RuntimeConfig::Instance().GetRootView().Initialize();
+    InvalidateAll();
+    return true;
+}
+
+bool EditorView::OnActionCycleActiveBuffer() {
+    auto idxCurrent = Editor::Instance().GetActiveModelIndex();
+    auto idxNext = Editor::Instance().NextModelIndex(idxCurrent);
+    if (idxCurrent == idxNext) {
+        return true;
+    }
+    auto nextModel = Editor::Instance().GetModelFromIndex(idxNext);
+    RuntimeConfig::Instance().SetActiveEditorModel(nextModel);
+    RuntimeConfig::Instance().GetRootView().Initialize();
+    InvalidateAll();
     return true;
 }
 

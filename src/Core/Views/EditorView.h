@@ -66,6 +66,9 @@ namespace gedit {
         bool OnActionGotoBottomLine();    // Last visible line on screen
         bool OnActionWordRight();
         bool OnActionWordLeft();
+        bool OnActionPreviousBuffer();
+        bool OnActionNextBuffer();
+        bool OnActionCycleActiveBuffer();
 //        bool OnActionLineHome();
 //        bool OnActionLineEnd();
 //        bool OnActionBackspace();

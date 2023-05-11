@@ -210,11 +210,11 @@ void Editor::ConfigureLanguages() {
     logger->Debug("Configuring language parser(s)");
     auto cppLanguage = CPPLanguage::Create();
     cppLanguage->Initialize();
-    RegisterLanguage(".cpp", cppLanguage);
+    RegisterLanguage(".cpp|.h|.c|.hpp", cppLanguage);
 
     auto jsonLanguage = JSONLanguage::Create();
     jsonLanguage->Initialize();
-    RegisterLanguage(".json", jsonLanguage);
+    RegisterLanguage(".json|.js", jsonLanguage);
 
     auto defaultLanguage = DefaultLanguage::Create();
     defaultLanguage->Initialize();
@@ -318,7 +318,11 @@ void Editor::SetupSDL() {
 }
 
 void Editor::RegisterLanguage(const std::string &extension, LanguageBase::Ref languageBase) {
-    extToLanguages[extension] = languageBase;
+    std::vector<std::string> extensionList;
+    strutil::split(extensionList, extension.c_str(), '|');
+    for(auto &ext : extensionList) {
+        extToLanguages[ext] = languageBase;
+    }
 }
 
 LanguageBase::Ref Editor::GetLanguageForExtension(const std::string &extension) {

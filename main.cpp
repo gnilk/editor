@@ -4,7 +4,7 @@
 /*
  * TO-DO List
  * + Make a proper 'project' viewer
- *   - Enter on selection should load (if needed) and set the model active in the editor
+ *   ! Enter on selection should load (if needed) and set the model active in the editor
  *   - Ability to search/filter for files
  * - Consolidate configuration (or sort it up properly) currently spread out beween 'Editor', 'Config', 'RuntimeConfig'
  * - Put some performance timings in the LanguageParser (this will have to be optimized sooner or later)

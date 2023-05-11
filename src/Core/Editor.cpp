@@ -55,6 +55,9 @@ bool Editor::Initialize(int argc, const char **argv) {
 
     // Language configuration must currently be done before we load editor models
     ConfigureLanguages();
+    // Open currently working folder...
+    workspace = Workspace::Create();
+
 
     // Parse cmd-line
     for(int i=1;i<argc;i++) {
@@ -68,17 +71,13 @@ bool Editor::Initialize(int argc, const char **argv) {
                 exit(1);
             }
         } else {
-            // FIXME: THIS IS NOT WORKING WITH WORKSPACE!!!
-            auto model = LoadEditorModelFromFile(argv[i]);
-            if (model != nullptr) {
-                openModels.push_back(model);
+            if (!LoadModel(argv[i])) {
+                printf("Error: No such file '%s'\n", argv[i]);
             }
         }
     }
 
     ConfigureGlobalAPIObjects();
-    // Open currently working folder...
-    workspace = Workspace::Create();
 
     workspace->OpenFolder("Plugins");
 

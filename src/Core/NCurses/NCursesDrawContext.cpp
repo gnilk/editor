@@ -6,6 +6,7 @@
 #include "logger.h"
 #include "NCursesDrawContext.h"
 #include <string.h>
+#include "logger.h"
 //
 // Note: no editor output since I am missing: DrawStringWithAttributesAndColAt
 //
@@ -14,21 +15,26 @@
 using namespace gedit;
 
 void NCursesDrawContext::Clear() const {
+    SetRenderColors();
+    wbkgd((WINDOW *)win, COLOR_PAIR(activeColorPair));
     wclear((WINDOW *)win);
 }
 
 void NCursesDrawContext::Scroll(int nRows) const {
+    SetRenderColors();
+    wbkgd((WINDOW *)win, COLOR_PAIR(activeColorPair));
     wscrl((WINDOW *)win, nRows);
 }
 
 void NCursesDrawContext::ClearLine(int y) const {
+    SetRenderColors();
+    wbkgd((WINDOW *)win, COLOR_PAIR(activeColorPair));
     wclrtoeol((WINDOW *)win);
 }
 
 void NCursesDrawContext::FillLine(int y, kTextAttributes attrib, char c) const {
     std::string fillStr(rect.Width(), c);
     DrawStringWithAttributesAt(0,y,attrib, fillStr.c_str());
-
 }
 
 void NCursesDrawContext::DrawStringAt(int x, int y, const char *str) const {
@@ -89,6 +95,7 @@ void NCursesDrawContext::DrawStringWithAttributesAt(int x, int y, kTextAttribute
     auto ncAttr = attribToNCAttrib(attrib);
     wattrset((WINDOW *)win, A_NORMAL);  // Reset to normal
     wattron((WINDOW *)win, ncAttr);     // Enable whatever we have
+    wattron((WINDOW *)win, COLOR_PAIR(activeColorPair));
     int err = wmove((WINDOW *)win, y, x);
     if (err < 0) {
         return;
@@ -189,3 +196,14 @@ void NCursesDrawContext::DrawStringWithAttributesAndColAt(int x, int y, kTextAtt
 //    wattrset((WINDOW *)win, A_NORMAL);
 //}
 
+void NCursesDrawContext::OnColorUpdate() const {
+    SetRenderColors();
+}
+void NCursesDrawContext::SetRenderColors() const {
+    // The colors can't be const as we perhaps need to modify them
+    auto colorPair = const_cast<NCursesDrawContext *>(this)->colors.GetColorPairIndex(fgColor, bgColor);
+    auto logger = gnilk::Logger::GetLogger("NCDrawContext");
+    logger->Debug("SetRenderColors, active colorIndex=%d", colorPair);
+
+    const_cast<NCursesDrawContext *>(this)->activeColorPair = colorPair;
+}

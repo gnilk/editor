@@ -4,10 +4,9 @@
 
 #ifndef NCWIN_NCURSESDRAWCONTEXT_H
 #define NCWIN_NCURSESDRAWCONTEXT_H
-
 #include "Core/DrawContext.h"
 #include "Core/Line.h"
-
+#include "NCursesColorRepository.h"
 namespace gedit {
     class NCursesDrawContext : public DrawContext {
     public:
@@ -28,11 +27,16 @@ namespace gedit {
         void DrawStringWithAttributesAt(int x, int y, kTextAttributes attrib, const char *str) const override;
         void DrawStringWithAttributesAndColAt(int x, int y, kTextAttributes attrib, int idxColor, const char *str) const override;
 
+    protected:
+        void OnColorUpdate() const override;
+        void SetRenderColors() const;
 
 //        void DrawLines(const std::vector<Line *> &lines, int idxTopLine, int idxBottomLine) override;
 //        void DrawLineWithAttributesAt(int x, int y, int nCharToPrint, Line &l) override;
 
-
+    private:
+        int activeColorPair = 0;
+        NCursesColorRepository colors;
     };
 }
 

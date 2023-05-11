@@ -134,7 +134,7 @@ list(APPEND editorsrc src/Core/NCurses/NCursesDrawContext.cpp src/Core/NCurses/N
 list(APPEND editorsrc src/Core/NCurses/NCursesKeyboardDriver.cpp src/Core/NCurses/NCursesKeyboardDriver.h)
 list(APPEND editorsrc src/Core/NCurses/NCursesScreen.cpp src/Core/NCurses/NCursesScreen.h)
 list(APPEND editorsrc src/Core/NCurses/NCursesWindow.cpp src/Core/NCurses/NCursesWindow.h)
-
+list(APPEND editorsrc src/Core/NCurses/NCursesColorRepository.cpp src/Core/NCurses/NCursesColorRepository.h)
 # base views
 list(APPEND editorsrc src/Core/Views/HSplitView.h)
 list(APPEND editorsrc src/Core/Views/HStackView.h)

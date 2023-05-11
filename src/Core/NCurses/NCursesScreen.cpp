@@ -81,6 +81,7 @@ void NCursesScreen::Update() {
 static int colorCounter = 0;
 void NCursesScreen::RegisterColor(int appIndex, const ColorRGBA &foreground, const ColorRGBA &background) {
 
+    return;
     int currentColor = colorCounter;
 
     init_color(colorCounter++, background.R() * 1000, background.G() * 1000, background.B() * 1000);

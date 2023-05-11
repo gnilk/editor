@@ -122,8 +122,8 @@ bool TextBuffer::Load() {
         return false;
     }
 
-    char tmp[MAX_LINE_LENGTH];
-    while(fgets(tmp, MAX_LINE_LENGTH, f)) {
+    char tmp[GEDIT_MAX_LINE_LENGTH];
+    while(fgets(tmp, GEDIT_MAX_LINE_LENGTH, f)) {
         AddLine(tmp);
     }
     fclose(f);

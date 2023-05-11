@@ -87,6 +87,11 @@ namespace gedit {
             auto newLine = std::make_shared<Line>(textString);
             lines.push_back(newLine);
         }
+        void Insert(size_t idxPos, Line::Ref line) {
+            auto it = lines.begin() + idxPos;
+            lines.insert(it, line);
+        }
+
         std::vector<Line::Ref> &Lines() { return lines; }
 
         Line::Ref LineAt(size_t idxLine) {

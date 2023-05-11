@@ -37,6 +37,8 @@ namespace gedit {
         kActionCycleActiveViewNext,     // Default: Left_CMD + ]
         kActionCycleActiveViewPrev,     // Default: Left_CMD + [
         kActionCycleActiveEditor,       // TEST-TEST Default: F3
+        kActionCycleActiveBufferNext,
+        kActionCycleActiveBufferPrev,
         // Edit actions
         kActionEditBackspace,
         // Other

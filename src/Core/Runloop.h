@@ -15,6 +15,9 @@ namespace gedit {
         static void StopRunLoop() {
             bQuit = true;
         }
+
+        static void TestLoop();
+
     private:
         static bool bQuit;
     };

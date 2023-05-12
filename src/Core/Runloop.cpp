@@ -109,3 +109,49 @@ void Runloop::ShowModal(ViewBase *modal) {
         }
     }
 }
+
+//
+// simplified run loop that always redraws, this is used to test rendering pipeline
+//
+void Runloop::TestLoop() {
+    auto screen = RuntimeConfig::Instance().Screen();
+    auto keyboardDriver = RuntimeConfig::Instance().Keyboard();
+    auto &rootView = RuntimeConfig::Instance().GetRootView();
+    auto logger = gnilk::Logger::GetLogger("MainLoop");
+
+    while(!bQuit) {
+        // Process any messages from other threads before we do anything else..
+        bool redraw = true;
+
+        if (rootView.ProcessMessageQueue() > 0) {
+            redraw = true;
+        }
+
+        auto keyPress = keyboardDriver->GetKeyPress();
+        if (keyPress.IsAnyValid()) {
+
+            logger->Debug("KeyPress Valid - passing on...");
+
+            auto kpAction = KeyMapping::Instance().ActionFromKeyPress(keyPress);
+            if (kpAction.has_value()) {
+                logger->Debug("Action '%s' found - sending to RootView", KeyMapping::Instance().ActionName(kpAction->action).c_str());
+
+                rootView.OnAction(*kpAction);
+            } else {
+                logger->Debug("No action for keypress, treating as regular input");
+                rootView.HandleKeyPress(keyPress);
+            }
+            redraw = true;
+        }
+
+        if (rootView.IsInvalid()) {
+            redraw = true;
+        }
+        if (redraw == true) {
+            //logger->Debug("Redraw was triggered...");
+            screen->Clear();
+            rootView.Draw();
+            screen->Update();
+        }
+    }
+}

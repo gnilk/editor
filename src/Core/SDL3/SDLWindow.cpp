@@ -62,7 +62,6 @@ void SDLWindow::Update(const gedit::Rect &newRect, WindowBase::kWinFlags newFlag
         clientContext = nullptr;
     }
 
-    // TODO: We can probably optimize this...
     if (flags & WindowBase::kWin_Visible) {
         CreateSDLBackBuffer();
     }
@@ -91,7 +90,6 @@ void SDLWindow::CreateSDLBackBuffer() {
     }
     auto clientRect = windowRect;
     if (decorationFlags & kWinDeco_DrawCaption) {
-        //clientRect.Deflate(0,1);
         clientRect.SetHeight(clientRect.Height()-1);
         clientRect.Move(0,1);
     }

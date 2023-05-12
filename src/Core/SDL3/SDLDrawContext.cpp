@@ -2,10 +2,6 @@
 // Created by gnilk on 29.03.23.
 //
 
-//
-// NOTE: All routines accepts LOCAL (for the drawcontext) Coordinates and will translate - unless specifically specified...
-//
-
 #include "SDLDrawContext.h"
 #include "Core/ColorRGBA.h"
 #include "Core/Config/Config.h"
@@ -32,7 +28,7 @@ void SDLDrawContext::Clear() const {
 }
 
 void SDLDrawContext::ClearLine(int y) const {
-
+    // Not needed
 }
 
 void SDLDrawContext::FillLine(int y, kTextAttributes attrib, char c)  const {
@@ -47,7 +43,7 @@ void SDLDrawContext::FillLine(int y, kTextAttributes attrib, char c)  const {
 }
 
 void SDLDrawContext::Scroll(int nRows) const {
-
+    // Not needed
 }
 
 std::pair<float, float> SDLDrawContext::CoordsToScreen(float x, float y) const {
@@ -77,9 +73,6 @@ void SDLDrawContext::DrawLine(float x1, float y1, float x2, float y2) const {
     auto [px1, py1] = CoordsToScreen(x1, y1);
     auto [px2, py2] = CoordsToScreen(x2, y2);
 
-//    SDLColor col(fgColor);
-//    col.Use(renderer);
-
     SetRenderColor();
     SDL_RenderLine(renderer, px1, py1, px2, py2);
 }
@@ -88,17 +81,15 @@ void SDLDrawContext::DrawLineWithPixelOffset(float x1, float y1, float x2, float
     auto [px1, py1] = CoordsToScreen(x1, y1);
     auto [px2, py2] = CoordsToScreen(x2, y2);
 
-//    SDLColor col(fgColor);
-//    col.Use(renderer);
     SetRenderColor();
-
     SDL_RenderLine(renderer, px1 + ofsX, py1 + ofsY, px2 + ofsX, py2 + ofsY);
 }
 
-
 void SDLDrawContext::DrawLineOverlays(int y) const {
 
-    if (!overlay.isActive) return;
+    if (!overlay.isActive) {
+        return;
+    }
     if (!overlay.IsLinePartiallyCovered(y)) {
         return;
     }
@@ -112,30 +103,23 @@ void SDLDrawContext::DrawLineOverlays(int y) const {
         if (y == overlay.end.y) end = overlay.end.x;
     }
 
-    // FIXME: Color...
-    //SDL_SetRenderDrawColor(renderer, 196, 100, 128, 64);
     SetRenderColor();
     FillRect(start, y, end - start, 1, true);
-
 }
 
 
 //
-// ALL STRINGS ARE DRAWN BOTTOM UP
+// ALL CHARS ARE DRAWN BOTTOM UP
 // YPOS means the LOWER scanline of the text-texture
 //
 void SDLDrawContext::DrawStringAt(int x, int y, const char *str) const {
     auto font = SDLFontManager::Instance().GetActiveFont();
 
     SDL_SetRenderTarget(renderer, renderTarget);
-
     SetRenderColor();
-
     auto [px, py] = CoordsToScreen(x, y);
-
     STBTTF_RenderText(renderer, font, px, py + font->baseline, str);
 }
-
 
 void SDLDrawContext::DrawStringWithAttributesAndColAt(int x, int y, kTextAttributes attrib, int idxColor, const char *str) const {
     // This should not be used...
@@ -165,10 +149,9 @@ void SDLDrawContext::DrawStringWithAttributesAt(int x, int y, kTextAttributes at
 
     // underlined???  draw a line under the text
     if (attrib & kTextAttributes::kUnderline) {
-        // FIXME: Cache this value...
-        auto margin = Config::Instance()["sdl3"].GetInt("text_underline_margin",2);
-        if (margin > Config::Instance()["sdl3"].GetInt("line_margin",4)) {
-            margin = Config::Instance()["sdl3"].GetInt("line_margin",4) - 1;
+        auto margin = Config::Instance()["sdl"].GetInt("text_underline_margin",2);
+        if (margin > Config::Instance()["sdl"].GetInt("line_margin",4)) {
+            margin = Config::Instance()["sdl"].GetInt("line_margin",4) - 1;
         }
         DrawLineWithPixelOffset(x, y , x + strlen(str), y,0,font->baseline+margin);
     }

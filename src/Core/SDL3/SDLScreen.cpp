@@ -52,8 +52,8 @@ bool SDLScreen::Open() {
         logger->Debug("  %d:%s", i, driverName);
     }
 
-    widthPixels = Config::Instance()["sdl3"].GetInt("default_width", 1920);
-    heightPixels = Config::Instance()["sdl3"].GetInt("default_height", 1080);
+    widthPixels = Config::Instance()["sdl"].GetInt("default_width", 1920);
+    heightPixels = Config::Instance()["sdl"].GetInt("default_height", 1080);
 
     SDL_Init(SDL_INIT_VIDEO);
     // FIXME: restore window size!
@@ -96,7 +96,7 @@ void SDLScreen::ComputeScalingFactors() {
 
     auto font = SDLFontManager::Instance().GetActiveFont();
 
-    float line_margin = Config::Instance()["sdl3"].GetInt("line_margin", 4);
+    float line_margin = Config::Instance()["sdl"].GetInt("line_margin", 4);
     line_margin *= displayMode->display_scale;
     rows = heightPixels / (font->baseline + line_margin); // baseline = font->ascent * font->scale
 
@@ -119,6 +119,8 @@ void SDLScreen::ComputeScalingFactors() {
     // Setup translation
     SDLTranslate::fac_x_to_rc = (float)cols / (float)(widthPixels * displayMode->display_scale);
     SDLTranslate::fac_y_to_rc = (float)rows / (float)(heightPixels * displayMode->display_scale);
+
+    logger->Debug("Scaling factors = (%f,%f)", SDLTranslate::fac_x_to_rc, SDLTranslate::fac_y_to_rc);
 }
 
 void SDLScreen::CreateTextures() {

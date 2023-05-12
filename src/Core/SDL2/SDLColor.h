@@ -16,11 +16,15 @@ namespace gedit {
             r = col.RedAsInt();
             g = col.GreenAsInt();
             b = col.BlueAsInt();
-            a = 255 - col.AlphaAsInt();
+            a = col.AlphaAsInt();
         }
         void Use(SDL_Renderer *renderer) const {
             SDL_SetRenderDrawColor(renderer, r,g,b,a);
         }
+        void Use(SDL_Renderer *renderer, int otherAlpha) const {
+            SDL_SetRenderDrawColor(renderer, r,g,b,otherAlpha);
+        }
+
     private:
         int r = 255;
         int g = 255;

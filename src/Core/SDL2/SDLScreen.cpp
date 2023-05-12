@@ -15,7 +15,6 @@
 #include "SDLWindow.h"
 #include "SDLTranslate.h"
 #include "SDLFontManager.h"
-#include "SDLColorRepository.h"
 #include "SDLDrawContext.h"
 #include "SDLCursor.h"
 
@@ -47,19 +46,15 @@ bool SDLScreen::Open() {
 
     logger->Debug("Opening window");
 
-    widthPixels = Config::Instance()["sdl3"].GetInt("default_width", 1920);
-    heightPixels = Config::Instance()["sdl3"].GetInt("default_height", 1080);
-
-//    auto currentDriver = SDL_GetHint(SDL_HINT_VIDEO_DRIVER);
-//    printf("Driver: %s\n", currentDriver);
-
     int nDrivers = SDL_GetNumVideoDrivers();
     printf("Available Video Drivers (%d):\n",nDrivers);
     for(int i=0;i<nDrivers;i++) {
         auto driverName = SDL_GetVideoDriver(i);
         printf("  %d:%s\n",i,driverName);
     }
-    //SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "evdev");
+
+    widthPixels = Config::Instance()["sdl"].GetInt("default_width", 1920);
+    heightPixels = Config::Instance()["sdl"].GetInt("default_height", 1080);
 
     int err = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_HAPTIC);
     if (err) {
@@ -86,12 +81,34 @@ bool SDLScreen::Open() {
     }
     SDLFontManager::Instance().SetActiveFont(font);
 
-    // this will just trigger the initialization process - unless not yet done...
-    SDLColorRepository::Instance();
+    ComputeScalingFactors();
+    CreateTextures();
+    return true;
+}
 
-    float line_margin = Config::Instance()["sdl3"].GetInt("line_margin", 4);
+// This is called also from resize...
+void SDLScreen::ComputeScalingFactors() {
+    auto logger = gnilk::Logger::GetLogger("SDLScreen");
+
+    auto displayId = SDL_GetWindowDisplayIndex(window);
+    SDL_DisplayMode displayMode;
+    SDL_GetDesktopDisplayMode(displayId, &displayMode);
+    SDL_GetWindowSize(window, &widthPixels, &heightPixels);
+    float ddpi, vdpi, hdpi;
+    SDL_GetDisplayDPI(displayId, &ddpi, &hdpi, &vdpi);
+
+    // FIXME: need the correct value here...
+    float display_scale = 1.0f;
+
+    logger->Debug("Resolution: %d x %d", widthPixels, heightPixels);
+    logger->Debug("Display, pixels: %d x %d (scale: %f)", displayMode.w, displayMode.h, display_scale);
+    logger->Debug("Display, points: %d x %d\n", displayMode.w, displayMode.h);
+
+    auto font = SDLFontManager::Instance().GetActiveFont();
+
+    float line_margin = Config::Instance()["sdl"].GetInt("line_margin", 4);
+    line_margin *= display_scale;
     rows = heightPixels / (font->baseline + line_margin); // baseline = font->ascent * font->scale
-
 
     // subjective representation of average type of chars you might find in a something
     // small,wide,average type of chars
@@ -101,18 +118,55 @@ bool SDLScreen::Open() {
     cols = widthPixels / fontWidthAverage;
 
     logger->Debug("Font scaling factors:");
-    logger->Debug("  Height: %d px (font: %d, line margin: %f)", font->baseline + line_margin, font->baseline, line_margin);
-    logger->Debug("  Width : %d px (based on average widht for '%s')", fontWidthAverage, textToMeasure.c_str());
+    logger->Debug("  Height: %d px (font: %d, line margin: %f)", (int)(font->baseline + line_margin), font->baseline, line_margin);
+    logger->Debug("  Width : %d px (based on average widht for '%s')", (int)fontWidthAverage, textToMeasure.c_str());
 
     logger->Debug("Text to Graphics defined as");
+    cols *= display_scale;
+    rows *= display_scale;
     logger->Debug("Rows=%d, Cols=%d", rows, cols);
 
     // Setup translation
-    SDLTranslate::fac_x_to_rc = (float)cols / (float)widthPixels;
-    SDLTranslate::fac_y_to_rc = (float)rows / (float)heightPixels;
+    SDLTranslate::fac_x_to_rc = (float)cols / (float)(widthPixels * display_scale);
+    SDLTranslate::fac_y_to_rc = (float)rows / (float)(heightPixels * display_scale);
 
-    return true;
+    logger->Debug("Scaling factors = (%f,%f)", SDLTranslate::fac_x_to_rc, SDLTranslate::fac_y_to_rc);
+
 }
+
+void SDLScreen::CreateTextures() {
+
+    SDL_GetWindowSize(window, &widthPixels, &heightPixels);
+
+    if (screenAsSurface != nullptr) {
+        SDL_FreeSurface(screenAsSurface);
+    }
+    if (screenAsTexture != nullptr) {
+        SDL_DestroyTexture(screenAsTexture);
+    }
+    // Note: Might not need this can perhaps use: SDL_LockTextureToSurface
+    screenAsSurface = SDL_CreateRGBSurfaceWithFormat(0, widthPixels, heightPixels, 0, SDL_PIXELFORMAT_RGBA32);
+    screenAsTexture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, widthPixels, heightPixels);
+
+
+}
+
+
+void SDLScreen::OnSizeChanged() {
+    auto logger = gnilk::Logger::GetLogger("SDLScreen");
+    logger->Debug("Size changed!!!");
+    logger->Debug("Recomputing scaling factors and recreating tetxures");
+    ComputeScalingFactors();
+    CreateTextures();
+    logger->Debug("ReInitialize UI!");
+    RuntimeConfig::Instance().GetRootView().Resize();
+    RuntimeConfig::Instance().GetRootView().InvalidateAll();
+
+    // This a mechanism we can use to trigger a redraw in the main run-loop..
+    // Just post a message, but we don't care about the callback - so an empty lambda..
+    RuntimeConfig::Instance().GetRootView().PostMessage([](){});
+}
+
 
 void SDLScreen::Close() {
     auto font = SDLFontManager::Instance().GetActiveFont();
@@ -122,8 +176,8 @@ void SDLScreen::Close() {
 
 void SDLScreen::Clear() {
     SDL_SetRenderTarget(renderer, nullptr);
-    SDLColorRepository::Instance().UseBackgroundColor(renderer);
-    //SDL_SetRenderDrawColor(renderer, 128,0,0,255);
+    SDLColor bgColor(Config::Instance().GetGlobalColors().GetColor("background"));
+    bgColor.Use(renderer);
     SDL_RenderClear(renderer);
 }
 
@@ -149,16 +203,21 @@ void SDLScreen::Update() {
 //    STBTTF_RenderText(renderer, font, 2, font->size * 4, "0123456789012345678901234567890123456789012345678901234567890123456789");
 
     SDLCursor::Instance().Draw();
-
     SDL_RenderPresent(renderer);
+    SDL_RenderReadPixels(renderer, nullptr, screenAsSurface->format->format, screenAsSurface->pixels, screenAsSurface->pitch);
 
     // Not quite sure what this is supposed to do...
     // Most SDL example has a small delay - assume they just want 'yield' in order to avoid 100% CPU usage...
     SDL_Delay(1000/60);
 }
 
-void SDLScreen::RegisterColor(int appIndex, const ColorRGBA &foreground, const ColorRGBA &background) {
-    SDLColorRepository::Instance().RegisterColor(appIndex, foreground, background);
+void SDLScreen::CopyToTexture() {
+    SDL_UpdateTexture(screenAsTexture, nullptr, screenAsSurface->pixels, screenAsSurface->pitch);
+}
+void SDLScreen::ClearWithTexture() {
+    Clear();
+    SDL_SetRenderTarget(renderer, nullptr);
+    SDL_RenderCopy(renderer, screenAsTexture, nullptr, nullptr);
 }
 
 void SDLScreen::BeginRefreshCycle() {

@@ -16,6 +16,7 @@
 #include "Core/KeyPress.h"
 #include "SDLKeyboardDriver.h"
 #include "Core/KeyMapping.h"
+#include "Core/RuntimeConfig.h"
 
 using namespace gedit;
 
@@ -29,6 +30,8 @@ bool SDLKeyboardDriver::Initialize() {
 }
 KeyPress SDLKeyboardDriver::GetKeyPress() {
     SDL_Event event;
+    auto logger = gnilk::Logger::GetLogger("SDLKeyboardDriver");
+
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_EventType::SDL_QUIT) {
             SDL_Quit();
@@ -36,7 +39,6 @@ KeyPress SDLKeyboardDriver::GetKeyPress() {
         }  else if (event.type == SDL_EventType::SDL_KEYDOWN) {
             auto kp =  TranslateSDLEvent(event.key);
 
-            auto logger = gnilk::Logger::GetLogger("SDLKeyboardDriver");
             logger->Debug("KeyDown event: %d (0x%.x) - sym: %x (%d), scancode: %x (%d)", event.type, event.type,
                           event.key.keysym.sym, event.key.keysym.sym,
                           event.key.keysym.scancode, event.key.keysym.scancode);
@@ -46,16 +48,20 @@ KeyPress SDLKeyboardDriver::GetKeyPress() {
                 logger->Debug("  special kp, modifiers=%.2x, specialKey=%.2x (%s)", kp.modifiers, kp.specialKey, keyName.c_str());
                 return kp;
             } else if (kp.modifiers != 0) {
+                static int shiftModifiers = Keyboard::kModifierKeys::kMod_RightShift | Keyboard::kModifierKeys::kMod_LeftShift;
                 kp.key = TranslateScanCode(event.key.keysym.scancode); //  kp.hwEvent.scanCode);
+                if ((kp.modifiers & shiftModifiers) && (kp.key != 0)) {
+                    logger->Debug("Shift+ASCII - skipping, this is handled by EVENT_TEXT_INPUT");
+                    continue;
+                }
                 if (kp.key != 0) {
                     kp.isKeyValid = true;
                 }
-                logger->Debug("  kp, modifiers=%.2x, scancode=%.2x, key=%.2x (%c), ", kp.modifiers, kp.hwEvent.scanCode, kp.key, kp.key);
+                logger->Debug("  kp, modifiers=%.2x (%d), scancode=%.2x, key=%.2x (%c), ", kp.modifiers, kp.modifiers, kp.hwEvent.scanCode, kp.key, kp.key);
                 return kp;
             }
             continue;
         } else if (event.type == SDL_EventType::SDL_TEXTINPUT) {
-            //  auto logger = gnilk::Logger::GetLogger("SDLKeyboardDriver");
             KeyPress kp;
             kp.isSpecialKey = false;
             kp.isKeyValid = true;
@@ -65,9 +71,12 @@ KeyPress SDLKeyboardDriver::GetKeyPress() {
             kp.key = event.text.text[0];
             //logger->Debug("SDL_EVENT_TEXT_INPUT, event.text.text=%s", event.text.text);
             return kp;
-        }  else {
-//            auto logger = gnilk::Logger::GetLogger("SDLKeyboardDriver");
-//            logger->Debug("Unhandled event: %d (0x%.x)", event.type, event.type);
+        }  else if ((event.type == SDL_EventType::SDL_WINDOWEVENT) && (event.window.event == SDL_WINDOWEVENT_RESIZED)) {
+            logger->Debug("SDL_EVENT_WINDOW_RESIZED");
+            RuntimeConfig::Instance().Screen()->OnSizeChanged();
+        } else {
+            // Note: Enable this to track any other event we might want...
+            // logger->Debug("Unhandled event: %d (0x%.x)", event.type, event.type);
         }
     }
     return {};
@@ -141,7 +150,8 @@ static int createTranslationTable() {
     // These are next to the enter key on my keyboard...
     scanCodeToAscii[0x2f] = '[';
     scanCodeToAscii[0x30] = ']';
-    scanCodeToAscii[0x32] = '\\';
+    scanCodeToAscii[0x31] = '\\';
+    scanCodeToAscii[0x32] = '\\';       // Not sure - can't seem to generate this one now...  might have been a typo..
     scanCodeToAscii[0x33] = ';';
     scanCodeToAscii[0x34] = '\'';
     scanCodeToAscii[0x35] = 0x60; //'`';

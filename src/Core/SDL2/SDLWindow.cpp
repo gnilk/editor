@@ -12,7 +12,6 @@
 #include "SDLTranslate.h"
 #include "SDLScreen.h"
 #include "SDLFontManager.h"
-#include "SDLColorRepository.h"
 #include "SDLCursor.h"
 
 #include <SDL2/SDL.h>
@@ -60,7 +59,6 @@ void SDLWindow::Update(const gedit::Rect &newRect, WindowBase::kWinFlags newFlag
         clientContext = nullptr;
     }
 
-    // TODO: We can probably optimize this...
     if (flags & WindowBase::kWin_Visible) {
         CreateSDLBackBuffer();
     }
@@ -88,9 +86,11 @@ void SDLWindow::CreateSDLBackBuffer() {
         SDL_DestroyTexture(clientBackBuffer);
     }
     auto clientRect = windowRect;
-    if (decorationFlags & kWinDeco_Border) {
-        clientRect.Deflate(SDLTranslate::ColToXPos(1),SDLTranslate::RowToYPos(1));
+    if (decorationFlags & kWinDeco_DrawCaption) {
+        clientRect.SetHeight(clientRect.Height()-1);
+        clientRect.Move(0,1);
     }
+
     auto clientPixRect = SDLTranslate::RowColToPixel(clientRect);
 
     //clientBackBuffer = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_TARGET, clientPixRect.Width(), clientPixRect.Height());
@@ -114,7 +114,8 @@ void SDLWindow::Clear() {
 
     SDL_SetRenderTarget(renderer, windowBackBuffer);
 
-    SDLColorRepository::Instance().UseBackgroundColor(renderer);
+    SDLColor bgColor(Config::Instance().GetGlobalColors().GetColor("background"));
+    bgColor.Use(renderer);
 
     SDL_RenderClear(renderer);
     SDL_SetRenderTarget(renderer, nullptr);
@@ -139,27 +140,26 @@ void SDLWindow::DrawWindowDecoration() {
 
     // NOTE: We can have a much more filled border - as the border is always one char...
     if (glbDebugSDLWindows || decorationFlags & kWinDeco_TopBorder) {
-        SDL_RenderDrawLine(renderer, pxTopLeft.x, pxTopLeft.y, pxBottomRight.x-1, pxTopLeft.y);
+        SDL_RenderDrawLine(renderer, pxTopLeft.x-1, pxTopLeft.y-1, pxBottomRight.x, pxTopLeft.y-1);
     }
     if (glbDebugSDLWindows ||decorationFlags & kWinDeco_BottomBorder) {
-        SDL_RenderDrawLine(renderer, pxTopLeft.x, pxBottomRight.y-1, pxBottomRight.x-1, pxBottomRight.y-1);
+        SDL_RenderDrawLine(renderer, pxTopLeft.x, pxBottomRight.y+1, pxBottomRight.x-1, pxBottomRight.y+1);
     }
     if (glbDebugSDLWindows ||decorationFlags & kWinDeco_LeftBorder) {
-        SDL_RenderDrawLine(renderer, pxTopLeft.x, pxTopLeft.y, pxTopLeft.x, pxBottomRight.y-2);
+        SDL_RenderDrawLine(renderer, pxTopLeft.x-1, pxTopLeft.y, pxTopLeft.x-1, pxBottomRight.y+1);
     }
     if (glbDebugSDLWindows ||decorationFlags & kWinDeco_RightBorder) {
-        SDL_RenderDrawLine(renderer, pxBottomRight.x-1, pxTopLeft.y, pxBottomRight.x-1, pxBottomRight.y-1);
+        SDL_RenderDrawLine(renderer, pxBottomRight.x-1, pxTopLeft.y, pxBottomRight.x-1, pxBottomRight.y+1);
     }
 
     if (glbDebugSDLWindows || decorationFlags & kWinDeco_DrawCaption) {
         // Need a font-class to store this - should be initalized by screen...
-        auto dcWin = GetWindowDC();
+        auto &dcWin = GetWindowDC();
+        dcWin.FillLine(0, kTextAttributes::kInverted, ' ');
         dcWin.DrawStringAt(0,0,caption.c_str());
-//        auto font = SDLFontManager::Instance().GetActiveFont();
-//        STBTTF_RenderText(renderer, font, 0, font->size * 1, caption.c_str());
     }
 
-    SDL_RenderDrawLine(renderer, pxTopLeft.x, pxTopLeft.y, pxBottomRight.x, pxBottomRight.y);
+    //SDL_RenderDrawLine(renderer, pxTopLeft.x, pxTopLeft.y, pxBottomRight.x, pxBottomRight.y);
     SDL_SetRenderTarget(renderer, nullptr);
 
 }
@@ -206,7 +206,7 @@ void SDLWindow::OnDrawCursor(const Cursor &cursor) {
 
     // FillRect assumes the render target has been set..
     SDL_SetRenderTarget(renderer, dc->renderTarget);
-    SDLColorRepository::Instance().UseCursorColor(renderer);
+    dc->SetFGColor(Config::Instance().GetGlobalColors().GetColor("caret"));
 
     //dc->FillRect(cursor.position.x, cursor.position.y,1,1);
     dc->DrawLine(cursor.position.x, cursor.position.y, cursor.position.x, cursor.position.y + 1);

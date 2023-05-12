@@ -2,8 +2,6 @@
 // Created by gnilk on 29.03.23.
 //
 
-// TO-DO
-// - Copy the new 'CopyToTexture' and 'ClearWithTexture' from SDL3
 //
 
 #ifndef EDITOR_SDLSCREEN_H
@@ -30,16 +28,25 @@ namespace gedit {
         void Close() override;
         void Clear() override;
         void Update() override;
-        void RegisterColor(int appIndex, const ColorRGBA &foreground, const ColorRGBA &background) override;
+        void CopyToTexture() override;
+        void ClearWithTexture() override;
 
         void BeginRefreshCycle() override;
         void EndRefreshCycle() override;
         WindowBase *CreateWindow(const gedit::Rect &rect, WindowBase::kWinFlags flags, WindowBase::kWinDecoration decoFlags) override;
         WindowBase *UpdateWindow(WindowBase *window, const gedit::Rect &rect, WindowBase::kWinFlags flags, WindowBase::kWinDecoration decoFlags) override;
         Rect Dimensions() override;
+        void OnSizeChanged() override;
+    private:
+        void ComputeScalingFactors();
+        void CreateTextures();
+
     private:
         SDL_Window* window = nullptr;
         SDL_Renderer* renderer = nullptr;
+        SDL_Texture* screenAsTexture = nullptr;
+        SDL_Surface* screenAsSurface = nullptr;
+
 
         // Initialize screen dimensions to default values
         // This is in pixels

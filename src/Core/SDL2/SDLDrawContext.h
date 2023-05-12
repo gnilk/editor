@@ -34,11 +34,14 @@ namespace gedit {
         void DrawStringAt(int x, int y, const char *str) const override;
         void DrawStringWithAttributesAt(int x, int y, kTextAttributes attrib, const char *str) const override;
         void DrawStringWithAttributesAndColAt(int x, int y, kTextAttributes attrib, int idxColor, const char *str) const override;
+    protected:
+        void SetRenderColor() const;
+        void SetRenderColor(kTextAttributes attrib) const;
 
     protected:
 
         // Fill Rect use current color
-        void FillRect(float x, float y, float w, float h) const;
+        void FillRect(float x, float y, float w, float h, bool isColorSet = false) const;
         // DrawLine use current color
         void DrawLine(float x1, float y1, float x2, float y2) const;
 

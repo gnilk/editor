@@ -135,6 +135,7 @@ list(APPEND editorsrc src/Core/NCurses/NCursesKeyboardDriver.cpp src/Core/NCurse
 list(APPEND editorsrc src/Core/NCurses/NCursesScreen.cpp src/Core/NCurses/NCursesScreen.h)
 list(APPEND editorsrc src/Core/NCurses/NCursesWindow.cpp src/Core/NCurses/NCursesWindow.h)
 list(APPEND editorsrc src/Core/NCurses/NCursesColorRepository.cpp src/Core/NCurses/NCursesColorRepository.h)
+list(APPEND editorsrc src/Core/NCurses/NCursesTranslate.cpp src/Core/NCurses/NCursesTranslate.h)
 # base views
 list(APPEND editorsrc src/Core/Views/HSplitView.h)
 list(APPEND editorsrc src/Core/Views/HStackView.h)

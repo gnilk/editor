@@ -19,6 +19,7 @@
  * - Remove the buffer manager class - not needed
  *
  * Done:
+ * ! SDL2 on par with SDL3
  * ! [deprecated] BufferManager should store 'fullPathName' and 'name'
  * ! Move EditorController functionality to EditorModel
  * ! Make API register commands in the runtime configuration
@@ -200,9 +201,8 @@ static void TestViewDrawing() {
     testView.Draw();
     screen->Update();
 
-    Runloop::DefaultLoop();
-
-
+    //Runloop::DefaultLoop();
+    Runloop::TestLoop();
 }
 
 

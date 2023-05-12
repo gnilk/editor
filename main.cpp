@@ -184,8 +184,8 @@ static void TestKeyBoardDriver() {
 
 }
 static void TestViewDrawing() {
-    //TestView testView(Rect(Point(10,10),40,30));
-    TestView testView;
+    TestView testView(Rect(Point(10,10),40,30));
+    //TestView testView;
     auto screen = RuntimeConfig::Instance().Screen();
 
 
@@ -201,8 +201,8 @@ static void TestViewDrawing() {
     testView.Draw();
     screen->Update();
 
-    //Runloop::DefaultLoop();
-    Runloop::TestLoop();
+    Runloop::DefaultLoop();
+    //Runloop::TestLoop();
 }
 
 

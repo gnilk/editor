@@ -20,7 +20,7 @@ void TestView::DrawViewContents() {
     //dc.SetColor(fgtmp, bgtmp);
     dc.ResetDrawColors();
 
-//    dc.Clear();
+    dc.Clear();
 
     char str[64];
     for(int i=0;i<dc.GetRect().Height();i++) {

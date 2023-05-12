@@ -18,8 +18,8 @@ if (APPLE)
     set(CMAKE_OSX_SYSROOT /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk)
 
     # Not sure if this is the right way to change the macOS defaults...
-    set(GEDIT_BUILD_SDL3 ON)
-    set(GEDIT_BUILD_SDL2 OFF)
+    set(GEDIT_BUILD_SDL3 OFF)
+    set(GEDIT_BUILD_SDL2 ON)
 
     add_definitions(-DGEDIT_MACOS)
 
@@ -219,7 +219,6 @@ if (GEDIT_BUILD_SDL2)
     list(APPEND editorsrc src/Core/SDL2/SDLTranslate.cpp src/Core/SDL2/SDLTranslate.h)
     list(APPEND editorsrc src/Core/SDL2/SDLFontManager.cpp src/Core/SDL2/SDLFontManager.h)
     list(APPEND editorsrc src/Core/SDL2/SDLKeyboardDriver.cpp src/Core/SDL2/SDLKeyboardDriver.h)
-    list(APPEND editorsrc src/Core/SDL2/SDLColorRepository.cpp src/Core/SDL2/SDLColorRepository.h)
     list(APPEND editorsrc src/Core/SDL2/SDLColor.h)
     list(APPEND editorsrc src/Core/SDL2/SDLCursor.h)
     # make this optional

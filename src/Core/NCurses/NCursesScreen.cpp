@@ -92,8 +92,11 @@ void NCursesScreen::Clear() {
     std::string clrstr(widthChars, ' ');
 
     for(int line = 0; line < heightChars; line++) {
-        mvaddnstr(line, 0, clrstr.c_str(), widthChars);
+        move(line,0);
+        addnstr(clrstr.c_str(), widthChars-1);
+        insch(' ');
     }
+
 
 }
 

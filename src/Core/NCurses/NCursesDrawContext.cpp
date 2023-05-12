@@ -53,7 +53,11 @@ void NCursesDrawContext::FillRect(float x, float y, float w, float h, bool isCol
     std::string clrstr(pixWidth, ' ');
 
     for(int line = 0; line < pixHeight; line++) {
-        mvaddnstr(line + pixYStart, pixXStart, clrstr.c_str(), pixWidth);
+        move(line + pixYStart,pixXStart);
+        addnstr(clrstr.c_str(), pixWidth-1);
+        insch(' ');
+
+//        mvaddnstr(line + pixYStart, pixXStart, clrstr.c_str(), pixWidth);
     }
 }
 

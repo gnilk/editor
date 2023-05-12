@@ -8,13 +8,16 @@
 #include "NCursesTranslate.h"
 #include <string.h>
 #include "logger.h"
+#include "Core/StrUtil.h"
 
 using namespace gedit;
+
+static int attribToNCAttrib(kTextAttributes attrib);
+
 
 void NCursesDrawContext::Clear() const {
 
     SetRenderColors();
-
     FillRect(0,0,rect.Width(), rect.Height(), true);
 
 //    for(int y=0;y<rect.Height()-1;y++) {
@@ -61,45 +64,39 @@ void NCursesDrawContext::Scroll(int nRows) const {
 }
 
 void NCursesDrawContext::ClearLine(int y) const {
-//    SetRenderColors();
-//    wbkgd((WINDOW *)win, COLOR_PAIR(activeColorPair));
-//    wclrtoeol((WINDOW *)win);
+    return;
+//    auto [px, py] = CoordsToScreen(0, y);
+//    auto pixWidth = NCursesTranslate::ColToXPos(rect.Width());
+//
+//    move(py,px);
+//    std::string clrstr(pixWidth, ' ');
+//    addnstr(clrstr.c_str(), pixWidth);
+
 }
 
 void NCursesDrawContext::FillLine(int y, kTextAttributes attrib, char c) const {
-//    std::string fillStr(rect.Width(), c);
-//    DrawStringWithAttributesAt(0,y,attrib, fillStr.c_str());
+    auto [px, py] = CoordsToScreen(0, y);
+    auto pixWidth = NCursesTranslate::ColToXPos(rect.Width());
+
+    SetRenderColors();
+    auto ncAttrib = attribToNCAttrib(attrib);
+    attron(ncAttrib);
+
+    move(py,px);
+    std::string clrstr(pixWidth, c);
+    addnstr(clrstr.c_str(), pixWidth-1);
+    insch(c);
 }
 
 void NCursesDrawContext::DrawStringAt(int x, int y, const char *str) const {
     SetRenderColors();
-//    int err = wmove((WINDOW *)win, y, x);
-//    if (err < 0) {
-//        return;
-//    }
-//    wattrset((WINDOW *)win, A_NORMAL);  // Reset to normal
-//    wattron((WINDOW *)win, COLOR_PAIR(activeColorPair)); // COLOR_PAIR(activeColorPair));
+
+    // Note: In NCurses we can't have newlines...
+    std::string trimmedString(str);
+    strutil::rtrim(trimmedString);
 
     auto [px, py] = CoordsToScreen(x, y);
-    mvaddstr(py, px, str);
-    //waddnstr((WINDOW *)win, str, rect.Width()-x-1);
-}
-
-static int attribToNCAttrib(kTextAttributes attrib) {
-    int ncAttrib = A_NORMAL;
-    if (attrib & kTextAttributes::kInverted) {
-        ncAttrib |= A_REVERSE;
-    }
-    if (attrib & kTextAttributes::kBold) {
-        ncAttrib |= A_BOLD;
-    }
-    if (attrib & kTextAttributes::kItalic) {
-        ncAttrib |= A_ITALIC;
-    }
-    if (attrib & kTextAttributes::kUnderline) {
-        ncAttrib |= A_UNDERLINE;
-    }
-    return ncAttrib;
+    mvaddstr(py, px, trimmedString.c_str());
 }
 
 //
@@ -253,8 +250,8 @@ void NCursesDrawContext::SetRenderColors() const {
     const_cast<NCursesDrawContext *>(this)->activeColorPair = colorPair;
 
 
-    wattrset((WINDOW *)win, A_NORMAL);  // Reset to normal?? - should we?
-    wattron((WINDOW *)win, COLOR_PAIR(activeColorPair)); // COLOR_PAIR(activeColorPair));
+    attrset(A_NORMAL);  // Reset to normal?? - should we?
+    attron(COLOR_PAIR(activeColorPair)); // COLOR_PAIR(activeColorPair));
 }
 
 void NCursesDrawContext::DrawCursor(const gedit::Cursor &cursor) const {
@@ -274,4 +271,23 @@ void NCursesDrawContext::DrawCursor(const gedit::Cursor &cursor) const {
 //    logger->Debug("SetCursor, pos=%d:%d, translation: %d:%d", cursor.position.x, cursor.position.y, win_x, win_y);
 //    move(cursor.position.y + screenYPos, cursor.position.x + screenXPos);
 
+}
+
+
+
+static int attribToNCAttrib(kTextAttributes attrib) {
+    int ncAttrib = A_NORMAL;
+    if (attrib & kTextAttributes::kInverted) {
+        ncAttrib |= A_REVERSE;
+    }
+    if (attrib & kTextAttributes::kBold) {
+        ncAttrib |= A_BOLD;
+    }
+    if (attrib & kTextAttributes::kItalic) {
+        ncAttrib |= A_ITALIC;
+    }
+    if (attrib & kTextAttributes::kUnderline) {
+        ncAttrib |= A_UNDERLINE;
+    }
+    return ncAttrib;
 }

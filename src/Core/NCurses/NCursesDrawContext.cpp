@@ -5,54 +5,84 @@
 #include <ncurses.h>
 #include "logger.h"
 #include "NCursesDrawContext.h"
+#include "NCursesTranslate.h"
 #include <string.h>
 #include "logger.h"
 
 using namespace gedit;
 
 void NCursesDrawContext::Clear() const {
-    std::string clrstr(rect.Width(), ' ');
 
     SetRenderColors();
-    wattrset((WINDOW *)win, A_NORMAL);  // Reset to normal
-    wattron((WINDOW *)win, COLOR_PAIR(activeColorPair)); // COLOR_PAIR(activeColorPair));
 
-    for(int y=0;y<rect.Height()-1;y++) {
-        wmove((WINDOW *)win, y + rect.TopLeft().y, 0);
-        waddstr((WINDOW *)win, clrstr.c_str());
+    FillRect(0,0,rect.Width(), rect.Height(), true);
+
+//    for(int y=0;y<rect.Height()-1;y++) {
+//        wmove((WINDOW *)win, y + rect.TopLeft().y, 0);
+//        waddstr((WINDOW *)win, clrstr.c_str());
+//    }
+//    wmove((WINDOW *)win, rect.Height(), 0);
+//    waddnstr((WINDOW *)win, clrstr.c_str(),rect.Width()-1);
+//    winsch((WINDOW *) win, ' ');
+}
+
+std::pair<float, float> NCursesDrawContext::CoordsToScreen(float x, float y) const {
+    auto pixWinOfs = NCursesTranslate::RowColToPixel(rect.TopLeft());
+
+    float screenXPos = NCursesTranslate::ColToXPos(x) + pixWinOfs.x;
+    float screenYPos = NCursesTranslate::RowToYPos(y) + pixWinOfs.y;
+
+    return {screenXPos, screenYPos};
+}
+
+
+// Fill Rect use current color
+void NCursesDrawContext::FillRect(float x, float y, float w, float h, bool isColorSet) const {
+    auto [pixXStart, pixYStart] = CoordsToScreen(x, y);
+
+    auto pixWidth = NCursesTranslate::ColToXPos(w);
+    auto pixHeight = NCursesTranslate::RowToYPos(h);
+
+    if (!isColorSet) {
+        SetRenderColors();
     }
-    wmove((WINDOW *)win, rect.Height(), 0);
-    waddnstr((WINDOW *)win, clrstr.c_str(),rect.Width()-1);
-    winsch((WINDOW *) win, ' ');
+    // hmm... we can cache this one...
+    std::string clrstr(pixWidth, ' ');
+
+    for(int line = 0; line < pixHeight; line++) {
+        mvaddnstr(line + pixYStart, pixXStart, clrstr.c_str(), pixWidth);
+    }
 }
 
 void NCursesDrawContext::Scroll(int nRows) const {
-    SetRenderColors();
-    wbkgd((WINDOW *)win, COLOR_PAIR(activeColorPair));
-    wscrl((WINDOW *)win, nRows);
+
+    // not needed..
+
 }
 
 void NCursesDrawContext::ClearLine(int y) const {
-    SetRenderColors();
-    wbkgd((WINDOW *)win, COLOR_PAIR(activeColorPair));
-    wclrtoeol((WINDOW *)win);
+//    SetRenderColors();
+//    wbkgd((WINDOW *)win, COLOR_PAIR(activeColorPair));
+//    wclrtoeol((WINDOW *)win);
 }
 
 void NCursesDrawContext::FillLine(int y, kTextAttributes attrib, char c) const {
-    std::string fillStr(rect.Width(), c);
-    DrawStringWithAttributesAt(0,y,attrib, fillStr.c_str());
+//    std::string fillStr(rect.Width(), c);
+//    DrawStringWithAttributesAt(0,y,attrib, fillStr.c_str());
 }
 
 void NCursesDrawContext::DrawStringAt(int x, int y, const char *str) const {
     SetRenderColors();
-    int err = wmove((WINDOW *)win, y, x);
-    if (err < 0) {
-        return;
-    }
-    wattrset((WINDOW *)win, A_NORMAL);  // Reset to normal
-    wattron((WINDOW *)win, COLOR_PAIR(activeColorPair)); // COLOR_PAIR(activeColorPair));
+//    int err = wmove((WINDOW *)win, y, x);
+//    if (err < 0) {
+//        return;
+//    }
+//    wattrset((WINDOW *)win, A_NORMAL);  // Reset to normal
+//    wattron((WINDOW *)win, COLOR_PAIR(activeColorPair)); // COLOR_PAIR(activeColorPair));
 
-    waddnstr((WINDOW *)win, str, rect.Width()-x-1);
+    auto [px, py] = CoordsToScreen(x, y);
+    mvaddstr(py, px, str);
+    //waddnstr((WINDOW *)win, str, rect.Width()-x-1);
 }
 
 static int attribToNCAttrib(kTextAttributes attrib) {
@@ -102,24 +132,31 @@ void NCursesDrawContext::DrawLineOverlays(int y) const {
 
 void NCursesDrawContext::DrawStringWithAttributesAt(int x, int y, kTextAttributes attrib, const char *str) const {
 
+    SetRenderColors();
     auto ncAttr = attribToNCAttrib(attrib);
     wattrset((WINDOW *)win, A_NORMAL);  // Reset to normal
     wattron((WINDOW *)win, ncAttr);     // Enable whatever we have
     wattron((WINDOW *)win, COLOR_PAIR(activeColorPair));
-    int err = wmove((WINDOW *)win, y, x);
-    if (err < 0) {
-        return;
-    }
-    waddnstr((WINDOW *)win, str, rect.Width()-x-1);
-    // To occupy the last char we need to do this
-    if (strlen(str) >= rect.Width()) {
-        winsch((WINDOW *) win, str[rect.Width()-1]);
-    }
 
-    wattrset((WINDOW *)win, A_NORMAL);
+    auto [px, py] = CoordsToScreen(x, y);
+    mvaddstr(py, px, str);
+
+//    int err = wmove((WINDOW *)win, y, x);
+//    if (err < 0) {
+//        return;
+//    }
+//    waddnstr((WINDOW *)win, str, rect.Width()-x-1);
+//    // To occupy the last char we need to do this
+//    if (strlen(str) >= rect.Width()) {
+//        winsch((WINDOW *) win, str[rect.Width()-1]);
+//    }
+//
+//    wattrset((WINDOW *)win, A_NORMAL);
 }
 
 void NCursesDrawContext::DrawStringWithAttributesAndColAt(int x, int y, kTextAttributes attrib, int idxColor, const char *str) const {
+
+    exit(1);
 
     wmove((WINDOW *)win, y, x);
 
@@ -214,4 +251,25 @@ void NCursesDrawContext::SetRenderColors() const {
     auto colorPair = NCursesColorRepository::Instance().GetColorPairIndex(fgColor, bgColor);
     //auto colorPair = const_cast<NCursesDrawContext *>(this)->.GetColorPairIndex(fgColor, bgColor);
     const_cast<NCursesDrawContext *>(this)->activeColorPair = colorPair;
+
+
+    wattrset((WINDOW *)win, A_NORMAL);  // Reset to normal?? - should we?
+    wattron((WINDOW *)win, COLOR_PAIR(activeColorPair)); // COLOR_PAIR(activeColorPair));
+}
+
+void NCursesDrawContext::DrawCursor(const gedit::Cursor &cursor) const {
+
+    auto [cx, cy] = CoordsToScreen(cursor.position.x, cursor.position.y);
+    move(cy, cx);
+
+//    auto pixWinOfs = NCursesTranslate::RowColToPixel(windowRect.TopLeft());
+//    float screenXPos = NCursesTranslate::ColToXPos(win_x) + pixWinOfs.x;
+//    float screenYPos = NCursesTranslate::RowToYPos(win_y) + pixWinOfs.y;
+//
+//
+//
+//    auto logger = gnilk::Logger::GetLogger("NCursesWindow");
+//    logger->Debug("SetCursor, pos=%d:%d, translation: %d:%d", cursor.position.x, cursor.position.y, win_x, win_y);
+//    move(cursor.position.y + screenYPos, cursor.position.x + screenXPos);
+
 }

@@ -11,6 +11,7 @@
 #include <signal.h>
 #include "logger.h"
 #include <string.h>
+#include "NCursesColorRepository.h"
 using namespace gedit;
 
 static void handle_winch(int sig)
@@ -31,6 +32,9 @@ static void install_sigwinch() {
 }
 
 bool NCursesScreen::Open() {
+
+    logger = gnilk::Logger::GetLogger("NCursesScreen");
+
     use_extended_names(TRUE);
     initscr();
     //install_sigwinch();
@@ -54,9 +58,8 @@ bool NCursesScreen::Open() {
     //nonl();
     // Make this configurable...
 
-    int row, col;
-    getmaxyx(stdscr,row,col);
-
+    getmaxyx(stdscr,heightChars, widthChars);
+    logger->Debug("Resolution: %d x %d chars", widthChars, heightChars);
 
     ESCDELAY = 1;
 
@@ -71,6 +74,23 @@ void NCursesScreen::Clear() {
     // DO NOT CALL CLEAR - it does more than just clearing the screen
     // and I don't have a firm grasp of how the states in NCurses trickels down...
     //clear();
+    // hmm... we can cache this one...
+
+    auto bgColor = Config::Instance().GetGlobalColors().GetColor("background");
+    auto fgColor = Config::Instance().GetGlobalColors().GetColor("foreground");
+
+    auto colorPair = NCursesColorRepository::Instance().GetColorPairIndex(fgColor, bgColor);
+
+    attrset(A_NORMAL);
+    attron(COLOR_PAIR(colorPair));
+
+
+    std::string clrstr(widthChars, ' ');
+
+    for(int line = 0; line < heightChars; line++) {
+        mvaddnstr(line, 0, clrstr.c_str(), widthChars);
+    }
+
 }
 
 void NCursesScreen::Update() {

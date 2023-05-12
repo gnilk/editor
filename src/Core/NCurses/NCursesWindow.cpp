@@ -6,11 +6,11 @@
 #include "logger.h"
 #include "NCursesWindow.h"
 #include "NCursesDrawContext.h"
-
+#include "NCursesTranslate.h"
 using namespace gedit;
 
 char glbFillchar = 'a';
-
+bool glbDebugNCWindow = false;
 
 NCursesWindow::NCursesWindow(const Rect &rect, NCursesWindow *other) : WindowBase(rect) {
     caption = other->caption;
@@ -47,8 +47,31 @@ void NCursesWindow::CreateNCursesWindows() {
         delwin((WINDOW *)winptr);
     }
 
-    // Can't do it like this - will cause overlapping windows and screw up redrawing...
+    winptr = nullptr;
+    if (drawContext != nullptr) {
+        delete drawContext;
+    }
+    drawContext = new NCursesDrawContext(winptr, windowRect);
 
+    if (clientWindow != nullptr) {
+        delwin(clientWindow);
+    }
+
+    auto clientRect = windowRect;
+    if (decorationFlags & kWinDeco_Border) {
+        clientRect.Deflate(1,1);
+    }
+
+    if (clientContext != nullptr) {
+        delete clientContext;
+    }
+    clientContext = new NCursesDrawContext(stdscr, clientRect);
+
+    return;
+
+    // Old code below here...
+/*
+    // Can't do it like this - will cause overlapping windows and screw up redrawing...
     auto nativeWin = newwin(windowRect.Height(), windowRect.Width(), windowRect.TopLeft().y, windowRect.TopLeft().x);
     werase(nativeWin);
     scrollok(nativeWin, TRUE);
@@ -77,11 +100,21 @@ void NCursesWindow::CreateNCursesWindows() {
         delete clientContext;
     }
     clientContext = new NCursesDrawContext(clientWindow, clientRect);
+*/
 }
 
+DrawContext &NCursesWindow::GetContentDC() {
+    // Sometimes we need this for just sub-component calculation - so let's create a dummy context
+    if (clientContext == nullptr) {
+        clientContext = new NCursesDrawContext(nullptr, windowRect);
+    }
+    return *clientContext;
+}
+
+
 void NCursesWindow::Clear() {
+    exit(1);
     std::string marker;
-    //wclear((WINDOW *)winptr);
 
     if (caption.empty()) {
         marker += tmp_fillChar;
@@ -118,12 +151,11 @@ void NCursesWindow::Clear() {
         logger->Error("  mvprintfw, errors=%d", ec);
     }
     touchwin((WINDOW *)winptr);
-
 }
 
 
 void NCursesWindow::DrawWindowDecoration() {
-    if (flags & WindowBase::kWin_Invisible) {
+    if ((flags & WindowBase::kWin_Invisible) && (!glbDebugNCWindow)) {
         return;
     }
 
@@ -161,22 +193,11 @@ void NCursesWindow::DrawWindowDecoration() {
 
 }
 
-DrawContext &NCursesWindow::GetContentDC() {
-    // Sometimes we need this for just sub-component calculation - so let's create a dummy context
-    if (clientContext == nullptr) {
-        clientContext = new NCursesDrawContext(nullptr, windowRect);
-    }
-    return *clientContext;
-}
-
 void NCursesWindow::SetCursor(const Cursor &cursor) {
-    int win_y, win_x;
-    if (clientWindow != nullptr) {
-        getbegyx((WINDOW *) clientWindow, win_y, win_x);
-    } else {
-        getbegyx((WINDOW *) winptr, win_y, win_x);
+    if (clientContext == nullptr) {
+        return;
     }
-    auto logger = gnilk::Logger::GetLogger("NCursesWindow");
-    logger->Debug("SetCursor, pos=%d:%d, translation: %d:%d", cursor.position.x, cursor.position.y, win_x, win_y);
-    move(cursor.position.y + win_y, cursor.position.x + win_x);
+
+    auto dc = static_cast<NCursesDrawContext *>(clientContext);
+    dc->DrawCursor(cursor);
 }

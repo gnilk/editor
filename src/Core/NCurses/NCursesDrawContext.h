@@ -7,6 +7,7 @@
 #include "Core/DrawContext.h"
 #include "Core/Line.h"
 #include "NCursesColorRepository.h"
+#include "Core/Cursor.h"
 namespace gedit {
     class NCursesDrawContext : public DrawContext {
     public:
@@ -27,9 +28,16 @@ namespace gedit {
         void DrawStringWithAttributesAt(int x, int y, kTextAttributes attrib, const char *str) const override;
         void DrawStringWithAttributesAndColAt(int x, int y, kTextAttributes attrib, int idxColor, const char *str) const override;
 
+        void DrawCursor(const Cursor &cursor) const;
     protected:
         void OnColorUpdate() const override;
         void SetRenderColors() const;
+    protected:
+        std::pair<float, float> CoordsToScreen(float x, float y) const;
+
+        // Fill Rect use current color
+        void FillRect(float x, float y, float w, float h, bool isColorSet = false) const;
+
 
 //        void DrawLines(const std::vector<Line *> &lines, int idxTopLine, int idxBottomLine) override;
 //        void DrawLineWithAttributesAt(int x, int y, int nCharToPrint, Line &l) override;

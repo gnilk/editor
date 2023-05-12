@@ -7,6 +7,9 @@
 
 #include <vector>
 #include <utility>
+
+#include "logger.h"
+
 #include "Core/ScreenBase.h"
 #include "Core/WindowBase.h"
 #include "Core/Rect.h"
@@ -27,7 +30,10 @@ namespace gedit {
         WindowBase *CreateWindow(const gedit::Rect &rect, WindowBase::kWinFlags flags, WindowBase::kWinDecoration decoFlags) override;
         WindowBase *UpdateWindow(WindowBase *window, const gedit::Rect &rect, WindowBase::kWinFlags flags, WindowBase::kWinDecoration decoFlags) override;
         Rect Dimensions() override;
-
+    private:
+        gnilk::ILogger *logger = nullptr;
+        int widthChars = 0;
+        int heightChars = 0;
    };
 }
 #endif //EDITOR_NCURSESSCREEN_H

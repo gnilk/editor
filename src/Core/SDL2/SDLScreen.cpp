@@ -63,8 +63,25 @@ bool SDLScreen::Open() {
         exit(1);
     }
 
+    int windowFlags = SDL_WINDOW_RESIZABLE;
+
+    // Check SDL 'backend' to see if OPENGL/METAL/Other should be used...
+    auto sdlBackend = Config::Instance()["sdl"].GetStr("backend", "opengl");
+    if (sdlBackend == "opengl") {
+        logger->Debug("Using backend: '%s'", sdlBackend.c_str());
+        windowFlags |= SDL_WindowFlags::SDL_WINDOW_OPENGL;
+    } else if (sdlBackend == "metal") {
+        logger->Debug("Using backend: '%s'", sdlBackend.c_str());
+        windowFlags |= SDL_WindowFlags::SDL_WINDOW_METAL;
+    } else if (sdlBackend == "vulkan") {
+        logger->Debug("Using backend: '%s'", sdlBackend.c_str());
+        windowFlags |= SDL_WindowFlags::SDL_WINDOW_VULKAN;
+    } else {
+        logger->Error("Unknown backend ('%s'), using default", sdlBackend.c_str());
+    }
+
     // FIXME: Need to determine how HighDPI stuff works...
-    window = SDL_CreateWindow("gedit", 0,0,widthPixels, heightPixels,  SDL_WINDOW_OPENGL);
+    window = SDL_CreateWindow("gedit", 0,0,widthPixels, heightPixels,  windowFlags);
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 

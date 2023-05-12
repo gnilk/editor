@@ -14,6 +14,8 @@ linux:
 sdl:
   default_width: 1024
   default_height: 768
+  # Defines the SDL window rendering backend 'opengl', 'vulkan', 'metal' - empty or unknown means default...
+  backend: "opengl"
   # When drawing underlined text this defines how many pixels from the regular baseline of the font to offset the line
   text_underline_margin: 16
   # this increases the spacing between lines - it is added to the baseline of the font

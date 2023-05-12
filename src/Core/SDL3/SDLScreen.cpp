@@ -56,8 +56,27 @@ bool SDLScreen::Open() {
     heightPixels = Config::Instance()["sdl"].GetInt("default_height", 1080);
 
     SDL_Init(SDL_INIT_VIDEO);
+
+    int windowFlags = SDL_WINDOW_RESIZABLE;
+
+    // Check SDL 'backend' to see if OPENGL/METAL/Other should be used...
+    auto sdlBackend = Config::Instance()["sdl"].GetStr("backend", "opengl");
+    if (sdlBackend == "opengl") {
+        logger->Debug("Using backend: '%s'", sdlBackend.c_str());
+        windowFlags |= SDL_WindowFlags::SDL_WINDOW_OPENGL;
+    } else if (sdlBackend == "metal") {
+        logger->Debug("Using backend: '%s'", sdlBackend.c_str());
+        windowFlags |= SDL_WindowFlags::SDL_WINDOW_METAL;
+    } else if (sdlBackend == "vulkan") {
+        logger->Debug("Using backend: '%s'", sdlBackend.c_str());
+        windowFlags |= SDL_WindowFlags::SDL_WINDOW_VULKAN;
+    } else {
+        logger->Error("Unknown backend ('%s'), using default", sdlBackend.c_str());
+    }
+
+
     // FIXME: restore window size!
-    window = SDL_CreateWindow("gedit", widthPixels, heightPixels,  SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+    window = SDL_CreateWindow("gedit", widthPixels, heightPixels,  windowFlags);
     renderer = SDL_CreateRenderer(window, nullptr, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 

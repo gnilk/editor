@@ -6,12 +6,16 @@
 //
 
 #include <ncurses.h>
+#include <signal.h>
+#include <string.h>
+
+#include "logger.h"
+
+#include "NCursesColorRepository.h"
 #include "NCursesWindow.h"
 #include "NCursesScreen.h"
-#include <signal.h>
-#include "logger.h"
-#include <string.h>
-#include "NCursesColorRepository.h"
+#include "NCursesCursor.h"
+
 using namespace gedit;
 
 static void handle_winch(int sig)
@@ -94,6 +98,8 @@ void NCursesScreen::Clear() {
 }
 
 void NCursesScreen::Update() {
+    // All drawing is complete, let's move the cursor to it's correct position...
+    NCursesCursor::Instance().Draw();
     doupdate();
     refresh();
 }

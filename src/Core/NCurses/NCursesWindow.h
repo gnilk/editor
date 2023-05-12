@@ -42,7 +42,8 @@ namespace gedit {
     public:
         // Border, menus and such
         void DrawWindowDecoration() override;
-    private:
+    protected:
+        void OnDrawCursor(const Cursor &cursor);
         void CreateNCursesWindows();
     private:
         char tmp_fillChar = 'x';

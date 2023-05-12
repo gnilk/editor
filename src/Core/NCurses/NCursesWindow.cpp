@@ -7,6 +7,7 @@
 #include "NCursesWindow.h"
 #include "NCursesDrawContext.h"
 #include "NCursesTranslate.h"
+#include "NCursesCursor.h"
 using namespace gedit;
 
 char glbFillchar = 'a';
@@ -194,6 +195,13 @@ void NCursesWindow::DrawWindowDecoration() {
 }
 
 void NCursesWindow::SetCursor(const Cursor &cursor) {
+
+    NCursesCursor::Instance().SetCursor(cursor, [this](const Cursor &c) -> void {
+       OnDrawCursor(c);
+    });
+
+}
+void NCursesWindow::OnDrawCursor(const Cursor &cursor) {
     if (clientContext == nullptr) {
         return;
     }

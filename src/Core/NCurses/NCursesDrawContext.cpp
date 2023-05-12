@@ -260,7 +260,9 @@ void NCursesDrawContext::SetRenderColors() const {
 void NCursesDrawContext::DrawCursor(const gedit::Cursor &cursor) const {
 
     auto [cx, cy] = CoordsToScreen(cursor.position.x, cursor.position.y);
-    move(cy, cx);
+    auto logger = gnilk::Logger::GetLogger("NCursesDrawContext");
+    logger->Debug("DrawCursor, abs pos: %d, %d", (int)cx,(int)cy);
+    move((int)cy, (int)cx);
 
 //    auto pixWinOfs = NCursesTranslate::RowColToPixel(windowRect.TopLeft());
 //    float screenXPos = NCursesTranslate::ColToXPos(win_x) + pixWinOfs.x;

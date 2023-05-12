@@ -3,6 +3,7 @@
 //
 /*
  * TO-DO List
+ * - Might need to rewrite NCurses like SDL - not using the underlying 'windowing' mechanism but rather reposition everything myself
  * + Make a proper 'project' viewer
  *   ! Enter on selection should load (if needed) and set the model active in the editor
  *   - Ability to search/filter for files
@@ -242,8 +243,8 @@ int main(int argc, const char **argv) {
     logger->Debug("Creating views");
     logger->Debug("Dimensions (x,y): %d, %d", dimensions.Width(), dimensions.Height());
 
-    TestViewDrawing();
-    exit(1);
+//    TestViewDrawing();
+//    exit(1);
 
     //
     // The views are configured like this; the number indicates the view depth/hierachy

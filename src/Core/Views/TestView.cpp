@@ -2,6 +2,8 @@
 // Created by gnilk on 11.05.23.
 //
 
+#include "logger.h"
+
 #include "Core/Config/Config.h"
 #include "Core/ColorRGBA.h"
 #include "TestView.h"
@@ -34,6 +36,10 @@ void TestView::DrawViewContents() {
 }
 void TestView::DrawSplitter(int row) {
     auto &dc = window->GetContentDC();
+
+    auto logger = gnilk::Logger::GetLogger("HSplitViewStatus");
+    logger->Debug("DrawSplitter, row=%d, height=%d", row, dc.GetRect().Height());
+
 
     dc.ResetDrawColors();
 

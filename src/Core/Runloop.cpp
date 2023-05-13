@@ -2,6 +2,7 @@
 // Created by gnilk on 15.04.23.
 //
 
+#include "Editor.h"
 #include "Runloop.h"
 #include "RuntimeConfig.h"
 #include "logger.h"
@@ -34,7 +35,12 @@ void Runloop::DefaultLoop() {
             if (kpAction.has_value()) {
                 logger->Debug("Action '%s' found - sending to RootView", KeyMapping::Instance().ActionName(kpAction->action).c_str());
 
-                rootView.OnAction(*kpAction);
+                if (!rootView.OnAction(*kpAction)) {
+                    // Here I introduce yet another dependency in this class
+                    // While it could be handled through a lambda set on the run loop (perhaps nicer) I choose not
+                    // in the end we are writing a specific application - this the way I choose to dispatch otherwise unhandled actions...
+                    Editor::Instance().HandleGlobalAction(*kpAction);
+                }
             } else {
                 logger->Debug("No action for keypress, treating as regular input");
                 rootView.HandleKeyPress(keyPress);

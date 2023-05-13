@@ -39,6 +39,7 @@ namespace gedit {
         kActionCycleActiveEditor,       // TEST-TEST Default: F3
         kActionCycleActiveBufferNext,
         kActionCycleActiveBufferPrev,
+        kActionEnterCommandMode,
         // Edit actions
         kActionEditBackspace,
         // Other
@@ -47,6 +48,7 @@ namespace gedit {
         kActionInsertLineComment,
         // Modals
         kActionCloseModal,
+
     };
 
     class ActionItem {

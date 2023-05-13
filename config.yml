@@ -59,7 +59,7 @@ keymap: {
       NavigatePageDown : KeyCode_PageDown + @SelectionModifier,
       CopyToClipboard : CopyPasteModifier + 'c',
       PasteFromClipboard : CopyPasteModifier + 'v',
-      CycleActiveView : KeyCode_Escape,
+      EnterCommandMode : KeyCode_Escape,
       CycleActiveViewNext : "UINavigationModifier + ']'",
       CycleActiveViewPrev : "UINavigationModifier + '['",
       CycleBufferNext : "UINavigationModifier + '\\'",

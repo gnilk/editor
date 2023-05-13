@@ -118,6 +118,14 @@ void Editor::Close() {
     openModels.clear();
 }
 
+void Editor::HandleGlobalAction(const KeyPressAction &kpAction) {
+    logger->Debug("Handling global actions!!");
+    if (kpAction.action == kAction::kActionEnterCommandMode) {
+        logger->Debug("Entering command mode!");
+    }
+}
+
+
 EditorModel::Ref Editor::OpenModelFromWorkspace(Workspace::Node::Ref workspaceNode) {
     auto model = workspaceNode->GetModel();
     if (IsModelOpen(model)) {

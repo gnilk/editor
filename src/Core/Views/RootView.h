@@ -2,8 +2,10 @@
 // Created by gnilk on 24.02.23.
 //
 
-#ifndef NCWIN_ROOTVIEW_H
-#define NCWIN_ROOTVIEW_H
+#ifndef GEDIT_ROOTVIEW_H
+#define GEDIT_ROOTVIEW_H
+
+#include "logger.h"
 
 #include "Core/RuntimeConfig.h"
 #include "ViewBase.h"
@@ -53,8 +55,7 @@ namespace gedit {
         bool OnAction(const KeyPressAction &kpAction) override {
             // The modal takes control over everything...
             if (modal != nullptr) {
-                modal->OnAction(kpAction);
-                return true;
+                return modal->OnAction(kpAction);
             }
 
 
@@ -65,6 +66,10 @@ namespace gedit {
             }
 
             switch(kpAction.action) {
+                case kAction::kActionEnterCommandMode :
+                    OnEnterCommandMode();
+                    wasHandled = false;
+                    break;
                 case kAction::kActionCycleActiveView :
                     OnCycleActiveView();
                     break;
@@ -116,6 +121,13 @@ namespace gedit {
             TopView()->SetActive(true);
             currentView->SetActive(false);
         }
+        void OnEnterCommandMode() {
+            // need to fix this...
+            auto logger = gnilk::Logger::GetLogger("RootView");
+            logger->Debug("Should enter command view!");
+
+        }
+
 
     protected:
         int idxCurrentTopView = -1;

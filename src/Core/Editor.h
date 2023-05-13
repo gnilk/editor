@@ -31,6 +31,10 @@ namespace gedit {
         bool Initialize(int argc, const char **argv);
         bool OpenScreen();
         void Close();
+
+        void HandleGlobalAction(const KeyPressAction &kpAction);
+
+
         bool LoadConfig(const char *configFile);
 
         // Move to 'workspace'
@@ -53,6 +57,7 @@ namespace gedit {
         void SetActiveModel(EditorModel::Ref model);
         bool IsModelOpen(EditorModel::Ref model);
         EditorModel::Ref GetModelFromTextBuffer(TextBuffer::Ref textBuffer);
+
 
         size_t NextModelIndex(size_t idxCurrent) {
             auto next = (idxCurrent + 1) % openModels.size();

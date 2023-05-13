@@ -61,7 +61,8 @@ static std::unordered_map<std::string, kAction> strToActionMap = {
         {"CopyToClipboard",       kAction::kActionCopyToClipboard},
         {"PasteFromClipboard",    kAction::kActionPasteFromClipboard},
         {"CloseModal",            kAction::kActionCloseModal},
-        {"CommentLine",           kAction::kActionInsertLineComment}
+        {"CommentLine",           kAction::kActionInsertLineComment},
+        {"EnterCommandMode",      kAction::kActionEnterCommandMode}
 };
 
 

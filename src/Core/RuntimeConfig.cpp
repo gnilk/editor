@@ -30,3 +30,19 @@ PluginCommand::Ref RuntimeConfig::GetPluginCommand(const std::string &name) {
     }
     return pluginCommands[name];
 }
+
+std::vector<PluginCommand::Ref> RuntimeConfig::GetPluginCommands() {
+    std::vector<PluginCommand::Ref> plugins;
+    // Note: Commands are registered multiple times
+    // 1) short command (like: sl)
+    // 2) real/long command (like: setlanguage)
+    // Thus if not checking we will end up with multiple same-help strings
+    for(auto &[key, pCommandRef] : pluginCommands) {
+        // Do we have this reference already...
+        if (std::find(plugins.begin(), plugins.end(), pCommandRef) == std::end(plugins)) {
+            plugins.push_back(pCommandRef);
+        }
+    }
+    return plugins;
+}
+

@@ -10,7 +10,7 @@
 #include <string>
 #include "Core/Editor.h"
 #include "Core/Runloop.h"
-
+#include "Core/Plugins/PluginCommand.h"
 #include "TextBufferAPI.h"
 
 namespace gedit {
@@ -23,6 +23,7 @@ namespace gedit {
         }
         TextBufferAPI::Ref GetActiveTextBuffer();
         std::vector<std::string> GetRegisteredLanguages();
+        std::vector<PluginCommand::Ref> GetRegisteredCommands();
 
         TextBufferAPI::Ref NewBuffer(const char *name);
         TextBufferAPI::Ref LoadBuffer(const char *filename);

@@ -18,6 +18,8 @@ void EditorAPIWrapper::RegisterModule(duk_context *ctx) {
     dukglue_register_method(ctx, &EditorAPIWrapper::LoadBuffer, "LoadBuffer");
     dukglue_register_method(ctx, &EditorAPIWrapper::SetActiveBuffer, "SetActiveBuffer");
     dukglue_register_method(ctx, &EditorAPIWrapper::GetBuffers, "GetBuffers");
+    dukglue_register_method(ctx, &EditorAPIWrapper::GetHelp, "GetCommandDescriptions");
+
 
     // Some test stuff...
     dukglue_register_method(ctx, &EditorAPIWrapper::GetTestArray, "GetTestArray");
@@ -39,6 +41,23 @@ void EditorAPIWrapper::ExitEditor() {
 std::vector<std::string> EditorAPIWrapper::GetRegisteredLanguages() {
     auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
     return editorApi->GetRegisteredLanguages();
+}
+
+std::vector<std::string> EditorAPIWrapper::GetHelp() {
+    auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
+    auto cmds = editorApi->GetRegisteredCommands();
+    std::vector<std::string> cmdHelp;
+    cmdHelp.push_back("Currently available plugin commands");
+    for (auto &cmd : cmds) {
+        char buffer[128];
+        snprintf(buffer, 128, "%s (%s) - %s",
+                 cmd->GetName().c_str(),
+                 cmd->GetShortName().c_str(),
+                 cmd->GetDescription().c_str());
+        cmdHelp.push_back(buffer);
+    }
+    return cmdHelp;
+
 }
 
 void EditorAPIWrapper::NewBuffer(const char *name) {

@@ -92,6 +92,8 @@ bool CommandController::TryExecuteInternalCmd(std::string &cmdline) {
         auto argEnd = commandList.end();
         auto argList = std::vector<std::string>(argStart, argEnd);
         cmd->Execute(argList);
+    } else {
+        logger->Error("Plugin '%s' not found", commandList[0].c_str());
     }
 
     return true;

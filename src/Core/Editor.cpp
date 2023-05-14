@@ -122,6 +122,8 @@ void Editor::HandleGlobalAction(const KeyPressAction &kpAction) {
     logger->Debug("Handling global actions!!");
     if (kpAction.action == kAction::kActionEnterCommandMode) {
         logger->Debug("Entering command mode!");
+        // Now we should hook the result of the keypress in the run loop
+
     }
 }
 

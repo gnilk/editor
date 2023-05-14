@@ -10,6 +10,7 @@ namespace gedit {
         TextBufferAPIWrapper::Ref GetActiveTextBuffer();
         void ExitEditor();
         std::vector<std::string> GetRegisteredLanguages();
+        std::vector<std::string> GetHelp();
         void NewBuffer(const char *name);
         TextBufferAPI::Ref LoadBuffer(const char *name);
         void SetActiveBuffer(TextBufferAPI::Ref activeBuffer);

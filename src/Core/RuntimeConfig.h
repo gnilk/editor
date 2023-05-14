@@ -89,9 +89,11 @@ namespace gedit {
             return mainThreadId;
         }
 
+        // Not sure this should be here - perhaps rather in the editor...
         void RegisterPluginCommand(const PluginCommand::Ref pluginCommand);
         bool HasPluginCommand(const std::string &name);
         PluginCommand::Ref GetPluginCommand(const std::string &name);
+        std::vector<PluginCommand::Ref> GetPluginCommands();
 
     private:
         RuntimeConfig() = default;

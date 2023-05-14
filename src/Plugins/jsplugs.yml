@@ -5,6 +5,11 @@ commands:
     description: test command
     script: Scripts/testcmd.js
   -
+    name: help
+    short: h
+    description: help
+    script: Scripts/help.js
+  -
     name: setlanguage
     short: sl
     description: Set the language of the active buffer

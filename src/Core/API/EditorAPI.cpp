@@ -5,7 +5,7 @@
 #include <memory>
 #include "Core/RuntimeConfig.h"
 #include "EditorAPI.h"
-
+#include "Core/RuntimeConfig.h"
 
 using namespace gedit;
 TextBufferAPI::Ref EditorAPI::GetActiveTextBuffer() {
@@ -17,6 +17,12 @@ TextBufferAPI::Ref EditorAPI::GetActiveTextBuffer() {
 std::vector<std::string> EditorAPI::GetRegisteredLanguages() {
     return Editor::Instance().GetRegisteredLanguages();
 }
+
+std::vector<PluginCommand::Ref> EditorAPI::GetRegisteredCommands() {
+    return RuntimeConfig::Instance().GetPluginCommands();
+}
+
+
 
 TextBufferAPI::Ref EditorAPI::NewBuffer(const char *name) {
     auto model = Editor::Instance().NewModel(name);

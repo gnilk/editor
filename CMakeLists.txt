@@ -109,6 +109,7 @@ list(APPEND editorsrc src/Core/KeyMapping.cpp src/Core/KeyMapping.h)
 list(APPEND editorsrc src/Core/API/EditorAPI.cpp src/Core/API/EditorAPI.h)
 list(APPEND editorsrc src/Core/API/TextBufferAPI.cpp src/Core/API/TextBufferAPI.h)
 list(APPEND editorsrc src/Core/Plugins/PluginCommand.cpp src/Core/Plugins/PluginCommand.h)
+list(APPEND editorsrc src/Core/KeypressAndActionHandler.h)
 
 # utility stuff
 list(APPEND editorsrc src/Core/StrUtil.cpp src/Core/StrUtil.h)
@@ -169,6 +170,7 @@ list(APPEND editorsrc src/Core/LineRender.cpp src/Core/LineRender.h)
 list(APPEND editorsrc src/Core/Controllers/BaseController.cpp src/Core/Controllers/BaseController.h)
 list(APPEND editorsrc src/Core/Controllers/EditController.cpp src/Core/Controllers/EditController.h)
 list(APPEND editorsrc src/Core/Controllers/CommandController.cpp src/Core/Controllers/CommandController.h)
+list(APPEND editorsrc src/Core/Controllers/QuickCommandController.cpp src/Core/Controllers/QuickCommandController.h)
 # text buffer handling
 list(APPEND editorsrc src/Core/Line.cpp src/Core/Line.h)
 list(APPEND editorsrc src/Core/BufferManager.cpp src/Core/BufferManager.h)

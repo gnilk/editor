@@ -51,6 +51,9 @@ bool BaseController::DefaultEditSpecial(Cursor &cursor, Line::Ref line, const Ke
                 if (cursor.position.x > 0){
                     RemoveCharFromLine(cursor, line);
                     wasHandled = true;
+                } else {
+                    // FIXME: This is not correct, but if we delete the first char we end up in a recursive state
+                    wasHandled = true;
                 }
                 break;
         }

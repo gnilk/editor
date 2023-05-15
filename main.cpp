@@ -113,7 +113,7 @@
 #include "Core/KeyMapping.h"
 #include "Core/Runloop.h"
 #include "Core/StrUtil.h"
-#include "Core/KeyCodes.h"
+#include "Core/Keyboard.h"
 #include "logger.h"
 
 #include "Core/RuntimeConfig.h"
@@ -160,7 +160,7 @@ static void TestKeyBoardDriver() {
             continue;
         }
         if (kp.isSpecialKey) {
-            auto keyName = KeyMapping::Instance().KeyCodeName(static_cast<Keyboard::kKeyCode>(kp.specialKey));
+            auto keyName = Keyboard::KeyCodeName(static_cast<Keyboard::kKeyCode>(kp.specialKey));
             logger->Debug("special kp, modifiers=%.2x, specialKey=%.2x (%s)", kp.modifiers, kp.specialKey, keyName.c_str());
         } else {
             logger->Debug("kp, modifiers=%.2x, scancode=%.2x, key=%.2x (%c), isKey=%s", kp.modifiers, kp.hwEvent.scanCode, kp.key, kp.key, kp.isKeyValid?"yes":"no");
@@ -169,13 +169,13 @@ static void TestKeyBoardDriver() {
 
             logger->Debug("KeyPress Valid - checking actions");
 
-
-            auto kpAction = KeyMapping::Instance().ActionFromKeyPress(kp);
+            auto &keyMap = Editor::Instance().GetActiveKeyMap();
+            auto kpAction = keyMap.ActionFromKeyPress(kp);
             if (kpAction.has_value()) {
                 logger->Debug("Action '%s' found - modifier: 0x%.2x (%s)",
-                              KeyMapping::Instance().ActionName(kpAction->action).c_str(),
+                              keyMap.ActionName(kpAction->action).c_str(),
                               kpAction->modifierMask,
-                              KeyMapping::Instance().ModifierName(*kpAction->modifier).c_str());
+                              keyMap.ModifierName(*kpAction->actionModifier).c_str());
             }
         }
     }

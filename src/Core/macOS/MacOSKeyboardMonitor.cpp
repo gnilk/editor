@@ -42,7 +42,7 @@
 
 #include <ncurses.h>
 
-#include "Core/KeyCodes.h"
+#include "Core/Keyboard.h"
 #include "Core/HexDump.h"
 #include "MacOSKeyboardMonitor.h"
 static void *CaptureThread(void *arg);

@@ -11,7 +11,7 @@
 #include <string>
 
 #include "KeyPress.h"
-#include "KeyCodes.h"
+#include "Keyboard.h"
 
 namespace gedit {
     enum class kAction {
@@ -40,6 +40,7 @@ namespace gedit {
         kActionCycleActiveBufferNext,
         kActionCycleActiveBufferPrev,
         kActionEnterCommandMode,
+        kActionLeaveCommandMode,
         // Edit actions
         kActionEditBackspace,
         // Other

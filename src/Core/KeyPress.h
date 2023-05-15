@@ -6,7 +6,7 @@
 #define EDITOR_KEYPRESS_H
 
 #include <cstdint>
-#include "Core/KeyCodes.h"
+#include "Core/Keyboard.h"
 /*
 struct KeyPress {
     union {

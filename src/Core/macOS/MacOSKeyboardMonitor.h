@@ -6,7 +6,7 @@
 #define EDITOR_MACOSKEYBOARDMONITOR_H
 
 #include <map>
-#include "Core/KeyCodes.h"
+#include "Core/Keyboard.h"
 #include "Core/KeyboardBaseMonitor.h"
 
 //

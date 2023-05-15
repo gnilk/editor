@@ -12,7 +12,7 @@
 
 #include "logger.h"
 
-#include "Core/KeyCodes.h"
+#include "Core/Keyboard.h"
 #include "Core/KeyPress.h"
 #include "SDLKeyboardDriver.h"
 #include "Core/KeyMapping.h"
@@ -45,7 +45,7 @@ KeyPress SDLKeyboardDriver::GetKeyPress() {
                           event.key.keysym.scancode, event.key.keysym.scancode);
 
             if (kp.isSpecialKey) {
-                auto keyName = KeyMapping::Instance().KeyCodeName(static_cast<Keyboard::kKeyCode>(kp.specialKey));
+                auto keyName = Keyboard::KeyCodeName(static_cast<Keyboard::kKeyCode>(kp.specialKey));
                 logger->Debug("  special kp, modifiers=%.2x, specialKey=%.2x (%s)", kp.modifiers, kp.specialKey, keyName.c_str());
                 return kp;
             } else if (kp.modifiers != 0) {

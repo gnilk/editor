@@ -5,7 +5,7 @@
 #ifndef EDITOR_KBDBASEMONITOR_H
 #define EDITOR_KBDBASEMONITOR_H
 
-#include "Core/KeyCodes.h"
+#include "Core/Keyboard.h"
 #include <functional>
 
 namespace gedit {

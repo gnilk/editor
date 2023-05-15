@@ -11,7 +11,7 @@
 #include "Core/macOS/MacOSKeyboardMonitor.h"
 #include "MacOSKeyMonCGEvents.h"
 #include "Core/NCurses/NCursesScreen.h"
-#include "Core/KeyCodes.h"
+#include "Core/Keyboard.h"
 #include "Core/SafeQueue.h"
 #include "Core/NCurses/NCursesKeyboardDriver.h"
 

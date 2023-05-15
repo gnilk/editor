@@ -38,6 +38,15 @@ commandmode:
   prompt: "ed>"
   cmdlet_prefix: "."
 
+quickmode_keymap: {
+  actions: {
+    CycleActiveViewNext: "']'",
+    CycleActiveViewPrev: "'['",
+    CycleBufferNext : "'\\'",
+    CycleBufferPrev : "'\''",
+    LeaveCommandMode : KeyCode_Escape,
+  }
+}
 
 keymap: {
     # Editor will read this and check the modifier mask controlling an action

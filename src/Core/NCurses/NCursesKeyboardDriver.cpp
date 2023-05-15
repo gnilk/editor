@@ -4,9 +4,9 @@
 
 #include <ncurses.h>
 #include "Core/Config/Config.h"
-#include "Core/KeyCodes.h"
+#include "Core/Keyboard.h"
 #include "Core/NCurses/NCursesKeyboardDriver.h"
-#include "Core/KeyCodes.h"
+#include "Core/Keyboard.h"
 #include "Core/RuntimeConfig.h"
 #include "logger.h"
 

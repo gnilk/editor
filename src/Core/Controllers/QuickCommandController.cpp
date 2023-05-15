@@ -4,6 +4,7 @@
 
 #include "QuickCommandController.h"
 #include "Core/Runloop.h"
+#include "Core/Editor.h"
 
 using namespace gedit;
 
@@ -23,10 +24,12 @@ void QuickCommandController::Leave() {
 }
 
 bool QuickCommandController::HandleAction(const KeyPressAction &kpAction) {
-    if (kpAction.action == kAction::kActionCycleActiveView) {
-        logger->Debug("Cycle back from CMD mode!");
-        Leave();
-        return true;
+    switch(kpAction.action) {
+        case kAction::kActionCycleActiveBufferNext :
+
+            return true;
+        case kAction::kActionCycleActiveBufferPrev :
+            return true;
     }
     return false;
 }

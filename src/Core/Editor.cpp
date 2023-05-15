@@ -55,6 +55,9 @@ bool Editor::Initialize(int argc, const char **argv) {
 
     // Language configuration must currently be done before we load editor models
     ConfigureLanguages();
+
+    ConfigureKeyMappings();
+
     // Open currently working folder...
     workspace = Workspace::Create();
 
@@ -95,7 +98,7 @@ bool Editor::Initialize(int argc, const char **argv) {
     // Activate the first loaded file (or empty/new model)
     RuntimeConfig::Instance().SetActiveEditorModel(openModels[0]);
 
-    bool keyMapperOk = KeyMapping::Instance().IsInitialized();
+    bool keyMapperOk = mappingsForEditState.IsInitialized();
     if (!keyMapperOk) {
         logger->Error("KeyMapper failed to initalize");
         return false;
@@ -120,12 +123,14 @@ void Editor::Close() {
 
 void Editor::HandleGlobalAction(const KeyPressAction &kpAction) {
     logger->Debug("Handling global actions!!");
-    if (kpAction.action == kAction::kActionEnterCommandMode) {
-        if (state == EditState) {
+    if (state == EditState) {
+        if (kpAction.action == kAction::kActionEnterCommandMode) {
             logger->Debug("Entering command mode!");
             state = CommandState;
             quickCommandController.Enter();
-        } else {
+        }
+    } else if (state == CommandState) {
+        if (kpAction.action == kAction::kActionLeaveCommandMode) {
             logger->Debug("Leaving command mode!");
             quickCommandController.Leave();
             state = EditState;
@@ -237,7 +242,6 @@ void Editor::ConfigureLanguages() {
 
 }
 
-// FIXME: this is using the kLanguageTokenClass as the color mapping index - this was lazy - and is not good...
 void Editor::ConfigureColorTheme() {
     logger->Debug("Configuring colors and theme");
     // NOTE: This must be done after the screen has been opened as the color handling might require the underlying graphics
@@ -261,6 +265,18 @@ void Editor::ConfigureColorTheme() {
         screen->RegisterColor(i, colorConfig.GetColor(langClass), colorConfig.GetColor("background"));
     }
 }
+
+void Editor::ConfigureKeyMappings() {
+    logger->Debug("===> reading edit mode keymappings from 'keymap'");
+    if (!mappingsForEditState.Initialize("keymap")) {
+        logger->Error("Edit mode keymappings failed - see section 'keymap' in 'config.yml'");
+    }
+    logger->Debug("===> reading quick command mode keymappings from 'quickmode_keymap'");
+    if (!mappingsForCmdState.Initialize("quickmode_keymap")) {
+        logger->Error("QuickCommand mode keymappings failed - see section 'quickmode_keymap' in 'config.yml'");
+    }
+}
+
 
 // Configure global/static API objects..
 void Editor::ConfigureGlobalAPIObjects() {
@@ -393,3 +409,13 @@ EditorModel::Ref Editor::GetModelFromTextBuffer(TextBuffer::Ref textBuffer) {
     return nullptr;
 }
 
+KeyMapping &Editor::GetActiveKeyMap() {
+    return GetKeyMapForState(state);
+}
+
+KeyMapping &Editor::GetKeyMapForState(State paramState) {
+    if (paramState == EditState) {
+        return mappingsForEditState;
+    }
+    return mappingsForCmdState;
+}

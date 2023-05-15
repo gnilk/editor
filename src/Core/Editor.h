@@ -21,6 +21,7 @@
 #include "Core/Workspace.h"
 #include "Core/TypeUtil.h"
 #include "Core/Controllers/QuickCommandController.h"
+#include "Core/KeyMapping.h"
 
 namespace gedit {
 //
@@ -39,7 +40,6 @@ namespace gedit {
         void Close();
 
         void HandleGlobalAction(const KeyPressAction &kpAction);
-
 
         bool LoadConfig(const char *configFile);
 
@@ -63,7 +63,6 @@ namespace gedit {
         void SetActiveModel(EditorModel::Ref model);
         bool IsModelOpen(EditorModel::Ref model);
         EditorModel::Ref GetModelFromTextBuffer(TextBuffer::Ref textBuffer);
-
 
         size_t NextModelIndex(size_t idxCurrent) {
             auto next = (idxCurrent + 1) % openModels.size();
@@ -89,6 +88,8 @@ namespace gedit {
             return jsEngine;
         }
 
+        KeyMapping &GetActiveKeyMap();
+        KeyMapping &GetKeyMapForState(State state);
 
         std::pair<ColorRGBA, ColorRGBA> ColorFromLanguageToken(kLanguageTokenClass tokenClass) {
             if (languageColorConfig.find(tokenClass) == languageColorConfig.end()) {
@@ -136,6 +137,7 @@ namespace gedit {
     protected:
         void ConfigureLanguages();
         void ConfigureColorTheme();
+        void ConfigureKeyMappings();
         void ConfigureSubSystems();
         void ConfigureGlobalAPIObjects();
 
@@ -174,6 +176,9 @@ namespace gedit {
 
         LanguageBase::Ref defaultLanguage = {};
         std::unordered_map<std::string, LanguageBase::Ref> extToLanguages;
+
+        KeyMapping mappingsForEditState;
+        KeyMapping mappingsForCmdState;
 
     };
 

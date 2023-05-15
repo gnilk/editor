@@ -16,7 +16,7 @@
 #include "Core/EditorConfig.h"
 #include "Core/StrUtil.h"
 #include "Core/Cursor.h"
-#include "Core/KeyCodes.h"
+#include "Core/Keyboard.h"
 #include "Core/KeyboardDriverBase.h"
 #include "Core/Config/Config.h"
 

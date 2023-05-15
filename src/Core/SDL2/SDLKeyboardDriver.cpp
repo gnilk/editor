@@ -12,7 +12,7 @@
 
 #include "logger.h"
 
-#include "Core/KeyCodes.h"
+#include "Core/Keyboard.h"
 #include "Core/KeyPress.h"
 #include "SDLKeyboardDriver.h"
 #include "Core/KeyMapping.h"

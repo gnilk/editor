@@ -6,17 +6,25 @@
 #include "Runloop.h"
 #include "RuntimeConfig.h"
 #include "logger.h"
-
+#include "KeypressAndActionHandler.h"
 
 using namespace gedit;
 
 bool Runloop::bQuit = false;
+KeypressAndActionHandler *Runloop::hookedActionHandler = nullptr;
+
+void Runloop::SetKeypressAndActionHook(KeypressAndActionHandler *newHook) {
+    hookedActionHandler = newHook;
+}
 
 void Runloop::DefaultLoop() {
     auto screen = RuntimeConfig::Instance().Screen();
     auto keyboardDriver = RuntimeConfig::Instance().Keyboard();
     auto &rootView = RuntimeConfig::Instance().GetRootView();
-    auto logger = gnilk::Logger::GetLogger("MainLoop");
+    auto logger = gnilk::Logger::GetLogger("DefaultLoop");
+
+
+    KeypressAndActionHandler &kpaHandler {rootView};
 
     while(!bQuit) {
         // Process any messages from other threads before we do anything else..
@@ -28,24 +36,11 @@ void Runloop::DefaultLoop() {
 
         auto keyPress = keyboardDriver->GetKeyPress();
         if (keyPress.IsAnyValid()) {
-
-            logger->Debug("KeyPress Valid - passing on...");
-
-            auto kpAction = KeyMapping::Instance().ActionFromKeyPress(keyPress);
-            if (kpAction.has_value()) {
-                logger->Debug("Action '%s' found - sending to RootView", KeyMapping::Instance().ActionName(kpAction->action).c_str());
-
-                if (!rootView.HandleAction(*kpAction)) {
-                    // Here I introduce yet another dependency in this class
-                    // While it could be handled through a lambda set on the run loop (perhaps nicer) I choose not
-                    // in the end we are writing a specific application - this the way I choose to dispatch otherwise unhandled actions...
-                    Editor::Instance().HandleGlobalAction(*kpAction);
-                }
+            if (hookedActionHandler) {
+                redraw = Runloop::DispatchToHandler(*hookedActionHandler, keyPress);
             } else {
-                logger->Debug("No action for keypress, treating as regular input");
-                rootView.HandleKeyPress(keyPress);
+                redraw = Runloop::DispatchToHandler(kpaHandler, keyPress);
             }
-            redraw = true;
         }
 
         if (rootView.IsInvalid()) {
@@ -70,8 +65,10 @@ void Runloop::ShowModal(ViewBase *modal) {
     modal->SetActive(true);
     modal->Initialize();
     modal->InvalidateAll();
-
     screen->CopyToTexture();
+
+    KeypressAndActionHandler &kpaHandler {*modal};
+
 
     while((modal->IsActive()) && !bQuit) {
         // Process any messages from other threads before we do anything else..
@@ -83,19 +80,11 @@ void Runloop::ShowModal(ViewBase *modal) {
 
         auto keyPress = keyboardDriver->GetKeyPress();
         if (keyPress.IsAnyValid()) {
-
-            logger->Debug("KeyPress Valid - passing on...");
-
-            auto kpAction = KeyMapping::Instance().ActionFromKeyPress(keyPress);
-            if (kpAction.has_value()) {
-                logger->Debug("Action '%s' found - sending to RootView", KeyMapping::Instance().ActionName(kpAction->action).c_str());
-
-                modal->HandleAction(*kpAction);
+            if (hookedActionHandler) {
+                redraw = Runloop::DispatchToHandler(*hookedActionHandler, keyPress);
             } else {
-                logger->Debug("No action for keypress, treating as regular input");
-                modal->HandleKeyPress(keyPress);
+                redraw = Runloop::DispatchToHandler(kpaHandler, keyPress);
             }
-            redraw = true;
         }
 
         if (modal->IsInvalid()) {
@@ -116,6 +105,29 @@ void Runloop::ShowModal(ViewBase *modal) {
     }
 }
 
+bool Runloop::DispatchToHandler(KeypressAndActionHandler &kpaHandler, KeyPress keyPress) {
+    auto logger = gnilk::Logger::GetLogger("Dispatcher");
+    logger->Debug("KeyPress Valid - passing on...");
+
+    auto kpAction = KeyMapping::Instance().ActionFromKeyPress(keyPress);
+    if (kpAction.has_value()) {
+        logger->Debug("Action '%s' found - sending to RootView", KeyMapping::Instance().ActionName(kpAction->action).c_str());
+
+        if (!kpaHandler.HandleAction(*kpAction)) {
+            // Here I introduce yet another dependency in this class
+            // While it could be handled through a lambda set on the run loop (perhaps nicer) I choose not
+            // in the end we are writing a specific application - this the way I choose to dispatch otherwise unhandled actions...
+            Editor::Instance().HandleGlobalAction(*kpAction);
+        }
+    } else {
+        logger->Debug("No action for keypress, treating as regular input");
+        kpaHandler.HandleKeyPress(keyPress);
+    }
+    // Well - this just controls the redraw for now..
+    return true;
+}
+
+
 //
 // simplified run loop that always redraws, this is used to test rendering pipeline
 //
@@ -124,40 +136,23 @@ void Runloop::TestLoop() {
     auto keyboardDriver = RuntimeConfig::Instance().Keyboard();
     auto &rootView = RuntimeConfig::Instance().GetRootView();
     auto logger = gnilk::Logger::GetLogger("MainLoop");
+    KeypressAndActionHandler &kpaHandler {rootView};
 
     while(!bQuit) {
-        // Process any messages from other threads before we do anything else..
-        bool redraw = true;
 
-        if (rootView.ProcessMessageQueue() > 0) {
-            redraw = true;
-        }
+        rootView.ProcessMessageQueue();
 
         auto keyPress = keyboardDriver->GetKeyPress();
         if (keyPress.IsAnyValid()) {
-
-            logger->Debug("KeyPress Valid - passing on...");
-
-            auto kpAction = KeyMapping::Instance().ActionFromKeyPress(keyPress);
-            if (kpAction.has_value()) {
-                logger->Debug("Action '%s' found - sending to RootView", KeyMapping::Instance().ActionName(kpAction->action).c_str());
-
-                rootView.HandleAction(*kpAction);
+            if (hookedActionHandler) {
+                Runloop::DispatchToHandler(*hookedActionHandler, keyPress);
             } else {
-                logger->Debug("No action for keypress, treating as regular input");
-                rootView.HandleKeyPress(keyPress);
+                Runloop::DispatchToHandler(kpaHandler, keyPress);
             }
-            redraw = true;
         }
 
-        if (rootView.IsInvalid()) {
-            redraw = true;
-        }
-        if (redraw == true) {
-            //logger->Debug("Redraw was triggered...");
-            screen->Clear();
-            rootView.Draw();
-            screen->Update();
-        }
+        screen->Clear();
+        rootView.Draw();
+        screen->Update();
     }
 }

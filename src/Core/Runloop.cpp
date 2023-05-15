@@ -43,7 +43,7 @@ void Runloop::DefaultLoop() {
                 }
             } else {
                 logger->Debug("No action for keypress, treating as regular input");
-                rootView.HandleKeyPress(keyPress);
+                rootView.OnKeyPress(keyPress);
             }
             redraw = true;
         }
@@ -93,7 +93,7 @@ void Runloop::ShowModal(ViewBase *modal) {
                 modal->OnAction(*kpAction);
             } else {
                 logger->Debug("No action for keypress, treating as regular input");
-                modal->HandleKeyPress(keyPress);
+                modal->OnKeyPress(keyPress);
             }
             redraw = true;
         }
@@ -145,7 +145,7 @@ void Runloop::TestLoop() {
                 rootView.OnAction(*kpAction);
             } else {
                 logger->Debug("No action for keypress, treating as regular input");
-                rootView.HandleKeyPress(keyPress);
+                rootView.OnKeyPress(keyPress);
             }
             redraw = true;
         }

@@ -195,8 +195,11 @@ namespace gedit {
         bool HasSharedData() {
             return (sharedDataPtr != nullptr);
         }
-        virtual void HandleKeyPress(const KeyPress &keyPress) {
-            OnKeyPress(keyPress);
+
+        virtual void OnKeyPress(const KeyPress &keyPress) {
+            if (parentView != nullptr) {
+                parentView->OnKeyPress(keyPress);
+            }
         }
 
         virtual bool OnAction(const KeyPressAction &action) {
@@ -227,11 +230,6 @@ namespace gedit {
         virtual void OnActivate(bool isActive) {
         }
 
-        virtual void OnKeyPress(const KeyPress &keyPress) {
-            if (parentView != nullptr) {
-                parentView->OnKeyPress(keyPress);
-            }
-        }
         virtual void OnResized() {}
     protected:
         // Called the first time a view should be created

@@ -85,14 +85,14 @@ namespace gedit {
             return wasHandled;
         }
 
-        void HandleKeyPress(const KeyPress &keyPress) override {
+        void OnKeyPress(const KeyPress &keyPress) override {
             if (modal != nullptr) {
-                modal->HandleKeyPress(keyPress);
+                modal->OnKeyPress(keyPress);
             }
             if (TopView() == nullptr) {
                 return;
             }
-            TopView()->HandleKeyPress(keyPress);
+            TopView()->OnKeyPress(keyPress);
         }
     protected:
         void OnViewInitialized() override {
@@ -127,7 +127,6 @@ namespace gedit {
             logger->Debug("Should enter command view!");
 
         }
-
 
     protected:
         int idxCurrentTopView = -1;

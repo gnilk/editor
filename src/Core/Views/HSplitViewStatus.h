@@ -33,6 +33,13 @@ namespace gedit {
             //model->cursor.position.x
             std::string dummy(dc.GetRect().Width(), ' ');
             std::string statusLine = " GoatEdit V0.1 | ";
+            // Indicate whatever the editor is in edit or cmd state.
+            if (Editor::Instance().GetState() == Editor::EditState) {
+                statusLine += "E | ";
+            } else {
+                statusLine += "C | ";
+            }
+
             statusLine += model->GetTextBuffer()->GetName();
 
             statusLine += " | ";

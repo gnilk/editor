@@ -85,14 +85,15 @@ namespace gedit {
             return wasHandled;
         }
 
-        void OnKeyPress(const KeyPress &keyPress) override {
+        void HandleKeyPress(const KeyPress &keyPress) override {
             if (modal != nullptr) {
-                modal->OnKeyPress(keyPress);
+                modal->HandleKeyPress(keyPress);
             }
             if (TopView() == nullptr) {
                 return;
             }
-            TopView()->OnKeyPress(keyPress);
+            // Note: we don't call 'OnKeyPress' here as it would result in a infinte recursive loop
+            TopView()->HandleKeyPress(keyPress);
         }
     protected:
         void OnViewInitialized() override {

@@ -35,7 +35,7 @@ void Runloop::DefaultLoop() {
             if (kpAction.has_value()) {
                 logger->Debug("Action '%s' found - sending to RootView", KeyMapping::Instance().ActionName(kpAction->action).c_str());
 
-                if (!rootView.OnAction(*kpAction)) {
+                if (!rootView.HandleAction(*kpAction)) {
                     // Here I introduce yet another dependency in this class
                     // While it could be handled through a lambda set on the run loop (perhaps nicer) I choose not
                     // in the end we are writing a specific application - this the way I choose to dispatch otherwise unhandled actions...
@@ -43,7 +43,7 @@ void Runloop::DefaultLoop() {
                 }
             } else {
                 logger->Debug("No action for keypress, treating as regular input");
-                rootView.OnKeyPress(keyPress);
+                rootView.HandleKeyPress(keyPress);
             }
             redraw = true;
         }
@@ -90,10 +90,10 @@ void Runloop::ShowModal(ViewBase *modal) {
             if (kpAction.has_value()) {
                 logger->Debug("Action '%s' found - sending to RootView", KeyMapping::Instance().ActionName(kpAction->action).c_str());
 
-                modal->OnAction(*kpAction);
+                modal->HandleAction(*kpAction);
             } else {
                 logger->Debug("No action for keypress, treating as regular input");
-                modal->OnKeyPress(keyPress);
+                modal->HandleKeyPress(keyPress);
             }
             redraw = true;
         }
@@ -142,10 +142,10 @@ void Runloop::TestLoop() {
             if (kpAction.has_value()) {
                 logger->Debug("Action '%s' found - sending to RootView", KeyMapping::Instance().ActionName(kpAction->action).c_str());
 
-                rootView.OnAction(*kpAction);
+                rootView.HandleAction(*kpAction);
             } else {
                 logger->Debug("No action for keypress, treating as regular input");
-                rootView.OnKeyPress(keyPress);
+                rootView.HandleKeyPress(keyPress);
             }
             redraw = true;
         }

@@ -12,10 +12,11 @@
 #include "Core/Action.h"
 #include "Core/KeyMapping.h"
 #include "Core/SafeQueue.h"
+#include "Core/KeypressAndActionHandler.h"
 
 namespace gedit {
     // Should never be used on it's own...
-    class ViewBase {
+    class ViewBase : public KeypressAndActionHandler {
     public:
         using MessageCallback = std::function<void(void)>;
     public:
@@ -194,6 +195,13 @@ namespace gedit {
         }
         bool HasSharedData() {
             return (sharedDataPtr != nullptr);
+        }
+
+        bool HandleAction(const KeyPressAction &action) override {
+            return OnAction(action);
+        }
+        void HandleKeyPress(const KeyPress &keyPress) override {
+            OnKeyPress(keyPress);
         }
 
         virtual void OnKeyPress(const KeyPress &keyPress) {

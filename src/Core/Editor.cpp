@@ -121,12 +121,17 @@ void Editor::Close() {
 void Editor::HandleGlobalAction(const KeyPressAction &kpAction) {
     logger->Debug("Handling global actions!!");
     if (kpAction.action == kAction::kActionEnterCommandMode) {
-        logger->Debug("Entering command mode!");
-        // Now we should hook the result of the keypress in the run loop
-
+        if (state == EditState) {
+            logger->Debug("Entering command mode!");
+            state = CommandState;
+            quickCommandController.Enter();
+        } else {
+            logger->Debug("Leaving command mode!");
+            quickCommandController.Leave();
+            state = EditState;
+        }
     }
 }
-
 
 EditorModel::Ref Editor::OpenModelFromWorkspace(Workspace::Node::Ref workspaceNode) {
     auto model = workspaceNode->GetModel();

@@ -20,12 +20,18 @@
 #include "Core/EditorModel.h"
 #include "Core/Workspace.h"
 #include "Core/TypeUtil.h"
+#include "Core/Controllers/QuickCommandController.h"
 
 namespace gedit {
 //
 // This class represents the 'application'
 //
     class Editor {
+    public:
+        typedef enum {
+            EditState,
+            CommandState,
+        } State;
     public:
         static Editor &Instance();
         bool Initialize(int argc, const char **argv);
@@ -122,6 +128,10 @@ namespace gedit {
         EditorModel::Ref NewModel(const std::string &name);
         EditorModel::Ref LoadModel(const std::string &filename);
 
+        State GetState() {
+            return state;
+        }
+
         void ConfigureLogger();
     protected:
         void ConfigureLanguages();
@@ -143,8 +153,9 @@ namespace gedit {
         gnilk::ILogger *logger = nullptr;
         // Holds all open models/buffers in the text editor
         std::vector<EditorModel::Ref> openModels = {};
-
         std::unordered_map<kLanguageTokenClass, std::pair<ColorRGBA, ColorRGBA>> languageColorConfig;
+
+        State state = EditState;
 
 #ifdef GEDIT_MACOS
         // This depends on the OS/Backend - consider creating a platform layer or something to handle this...
@@ -159,6 +170,7 @@ namespace gedit {
         Workspace::Ref workspace;
         // Javascript API wrapper
         JSPluginEngine jsEngine;
+        QuickCommandController quickCommandController;
 
         LanguageBase::Ref defaultLanguage = {};
         std::unordered_map<std::string, LanguageBase::Ref> extToLanguages;

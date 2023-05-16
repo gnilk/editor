@@ -12,6 +12,7 @@
 #include "Core/LineRender.h"
 #include "EditorView.h"
 #include "Core/Editor.h"
+#include "Core/ActionHelper.h"
 // TEMP
 #include <SDL3/SDL_clipboard.h>
 #include <SDL3/SDL_error.h>
@@ -418,28 +419,15 @@ bool EditorView::OnActionGotoBottomLine() {
     return true;
 }
 
+// FIXME: This can be made a static function in some kind of helper...
 bool EditorView::OnActionNextBuffer() {
-    auto idxCurrent = Editor::Instance().GetActiveModelIndex();
-    auto idxNext = Editor::Instance().NextModelIndex(idxCurrent);
-    if (idxCurrent == idxNext) {
-        return true;
-    }
-    auto nextModel = Editor::Instance().GetModelFromIndex(idxNext);
-    RuntimeConfig::Instance().SetActiveEditorModel(nextModel);
-    RuntimeConfig::Instance().GetRootView().Initialize();
+    ActionHelper::SwitchToNextBuffer();
     InvalidateAll();
     return true;
 }
 
 bool EditorView::OnActionPreviousBuffer() {
-    auto idxCurrent = Editor::Instance().GetActiveModelIndex();
-    auto idxNext = Editor::Instance().PreviousModelIndex(idxCurrent);
-    if (idxCurrent == idxNext) {
-        return true;
-    }
-    auto nextModel = Editor::Instance().GetModelFromIndex(idxNext);
-    RuntimeConfig::Instance().SetActiveEditorModel(nextModel);
-    RuntimeConfig::Instance().GetRootView().Initialize();
+    ActionHelper::SwitchToPreviousBuffer();
     InvalidateAll();
     return true;
 }

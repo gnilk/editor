@@ -61,8 +61,9 @@ namespace gedit {
 
 
             bool wasHandled = true;
-            if (TopView() != nullptr) {
-                wasHandled = TopView()->OnAction(kpAction);
+            // Dispatch to top-view...
+            if ((TopView() != nullptr) && TopView()->OnAction(kpAction)) {
+                return true;
             }
 
             switch(kpAction.action) {

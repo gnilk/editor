@@ -90,6 +90,7 @@ namespace gedit {
 
         KeyMapping &GetActiveKeyMap();
         KeyMapping &GetKeyMapForState(State state);
+        void LeaveCommandMode();
 
         std::pair<ColorRGBA, ColorRGBA> ColorFromLanguageToken(kLanguageTokenClass tokenClass) {
             if (languageColorConfig.find(tokenClass) == languageColorConfig.end()) {

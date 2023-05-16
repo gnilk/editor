@@ -131,12 +131,17 @@ void Editor::HandleGlobalAction(const KeyPressAction &kpAction) {
         }
     } else if (state == CommandState) {
         if (kpAction.action == kAction::kActionLeaveCommandMode) {
-            logger->Debug("Leaving command mode!");
-            quickCommandController.Leave();
-            state = EditState;
+            LeaveCommandMode();
         }
     }
 }
+
+void Editor::LeaveCommandMode() {
+    logger->Debug("Leaving command mode!");
+    quickCommandController.Leave();
+    state = EditState;
+}
+
 
 EditorModel::Ref Editor::OpenModelFromWorkspace(Workspace::Node::Ref workspaceNode) {
     auto model = workspaceNode->GetModel();

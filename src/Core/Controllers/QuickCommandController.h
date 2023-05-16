@@ -17,8 +17,9 @@ namespace gedit {
         void Leave();
 
         bool HandleAction(const KeyPressAction &kpAction) override;
-
         void HandleKeyPress(const KeyPress &keyPress) override;
+    protected:
+        void DoLeaveOnSuccess();
     private:
         gnilk::ILogger *logger = nullptr;
     };

@@ -118,7 +118,7 @@ KeyPress NCursesKeyboardDriver::GetKeyPress() {
     keyPress.isSpecialKey = (keyPress.specialKey != -1);
 
     // Not sure...
-    if (keyPress.isHwEventValid) {
+    if ((keyPress.isHwEventValid) && (keyPress.hwEvent.keyCode != Keyboard::kKeyCode_None)) {
         keyPress.isSpecialKey = true;
         keyPress.specialKey = keyPress.hwEvent.keyCode;
         //keyPress.specialKey = keyPress.hwEvent.translatedScanCode;

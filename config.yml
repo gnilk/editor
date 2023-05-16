@@ -31,12 +31,18 @@ editor:
   # content_first is CLion/Sublime style (no = VSCode style, cursor first)
   pgupdown_content_first: yes
 
+
 #
 # Add ability to include user-name, and other things here (working dir???)
 #
 commandmode:
   prompt: "ed>"
   cmdlet_prefix: "."
+
+quickmode:
+  # this will leave the quick-command mode automatically when a successfull command has been executed
+  # while this can be nice, it's cumbersome if used for navigation...
+  leave_automatically: false
 
 quickmode_keymap: {
   actions: {

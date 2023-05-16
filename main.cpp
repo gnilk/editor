@@ -3,7 +3,6 @@
 //
 /*
  * TO-DO List
- * - Might need to rewrite NCurses like SDL - not using the underlying 'windowing' mechanism but rather reposition everything myself
  * + Make a proper 'project' viewer
  *   ! Enter on selection should load (if needed) and set the model active in the editor
  *   - Ability to search/filter for files
@@ -19,6 +18,7 @@
  * - Remove the buffer manager class - not needed
  *
  * Done:
+ * ! Might need to rewrite NCurses like SDL - not using the underlying 'windowing' mechanism but rather reposition everything myself
  * ! SDL2 on par with SDL3
  * ! [deprecated] BufferManager should store 'fullPathName' and 'name'
  * ! Move EditorController functionality to EditorModel

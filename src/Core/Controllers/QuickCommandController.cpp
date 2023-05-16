@@ -16,6 +16,7 @@ void QuickCommandController::Enter() {
         logger = gnilk::Logger::GetLogger("QuickCmdCntr");
     }
     logger->Debug("Enter...");
+    cmdInput = Line::Create("");
     Runloop::SetKeypressAndActionHook(this);
 }
 
@@ -35,8 +36,9 @@ bool QuickCommandController::HandleAction(const KeyPressAction &kpAction) {
             ActionHelper::SwitchToPreviousBuffer();
             return true;
         case kAction::kActionCommitLine :
-            // TODO: Parse and execute from line
-            DoLeaveOnSuccess();
+            if (ParseAndExecute()) {
+                DoLeaveOnSuccess();
+            }
             return true;
         default:  // By default we forward the action to the active view, this allows navigation and other things
             if (!RuntimeConfig::Instance().GetRootView().HandleAction(kpAction)) {
@@ -49,8 +51,29 @@ bool QuickCommandController::HandleAction(const KeyPressAction &kpAction) {
 }
 
 void QuickCommandController::HandleKeyPress(const KeyPress &keyPress) {
-    logger->Debug("Handle keypress...");
-    // TODO: Append to command buffer
+    cmdInputBaseController.DefaultEditLine(cursor, cmdInput, keyPress, true);
+}
+
+bool QuickCommandController::ParseAndExecute() {
+    auto cmdLineNoPrefix = cmdInput->Buffer();
+
+    std::vector<std::string> commandList;
+    // We should have a 'smarter' that keeps strings and so forth
+    strutil::split(commandList, cmdLineNoPrefix.data(), ' ');
+
+    // There is more to come...
+    if (!RuntimeConfig::Instance().HasPluginCommand(commandList[0])) {
+        logger->Error("Plugin '%s' not found", commandList[0].c_str());
+        return false;
+    }
+
+    auto cmd = RuntimeConfig::Instance().GetPluginCommand(commandList[0]);
+    auto argStart = commandList.begin()+1;
+    auto argEnd = commandList.end();
+    auto argList = std::vector<std::string>(argStart, argEnd);
+    cmd->Execute(argList);
+
+    return true;
 }
 
 void QuickCommandController::DoLeaveOnSuccess() {

@@ -134,6 +134,10 @@ namespace gedit {
             return state;
         }
 
+        const QuickCommandController &GetQuickCommandController() {
+            return quickCommandController;
+        }
+
         void ConfigureLogger();
     protected:
         void ConfigureLanguages();

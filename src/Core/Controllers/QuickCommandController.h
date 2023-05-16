@@ -7,6 +7,8 @@
 
 #include "logger.h"
 #include "Core/KeypressAndActionHandler.h"
+#include "BaseController.h"
+#include "Core/Line.h"
 namespace gedit {
     class QuickCommandController : public KeypressAndActionHandler {
     public:
@@ -18,10 +20,19 @@ namespace gedit {
 
         bool HandleAction(const KeyPressAction &kpAction) override;
         void HandleKeyPress(const KeyPress &keyPress) override;
+
+        const std::string_view GetCmdLine() const {
+            return cmdInput->Buffer();
+        }
     protected:
+        bool ParseAndExecute();
         void DoLeaveOnSuccess();
     private:
         gnilk::ILogger *logger = nullptr;
+        BaseController cmdInputBaseController;
+        Cursor cursor = {};
+        Line::Ref cmdInput = nullptr;
+
     };
 }
 

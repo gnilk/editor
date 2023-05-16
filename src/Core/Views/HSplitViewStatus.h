@@ -37,7 +37,11 @@ namespace gedit {
             if (Editor::Instance().GetState() == Editor::EditState) {
                 statusLine += "E | ";
             } else {
-                statusLine += "C | ";
+                statusLine += "C:";
+                auto quickController = Editor::Instance().GetQuickCommandController();
+                auto currentCmdLine = quickController.GetCmdLine();
+                statusLine += currentCmdLine;
+                statusLine += " | ";
             }
 
             statusLine += model->GetTextBuffer()->GetName();

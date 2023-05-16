@@ -3,6 +3,7 @@
 //
 
 #include "QuickCommandController.h"
+#include "Core/ActionHelper.h"
 #include "Core/Runloop.h"
 #include "Core/Editor.h"
 
@@ -26,15 +27,22 @@ void QuickCommandController::Leave() {
 bool QuickCommandController::HandleAction(const KeyPressAction &kpAction) {
     switch(kpAction.action) {
         case kAction::kActionCycleActiveBufferNext :
-
+            ActionHelper::SwitchToNextBuffer();
             return true;
         case kAction::kActionCycleActiveBufferPrev :
+            ActionHelper::SwitchToPreviousBuffer();
             return true;
+        case kAction::kActionCommitLine :
+            // TODO: Parse and execute from line
+            Leave();
+            break;
+        default:        // Suppress warning about missing enum's in switch...
+            break;
     }
     return false;
 }
 
 void QuickCommandController::HandleKeyPress(const KeyPress &keyPress) {
-    //return false;
     logger->Debug("Handle keypress...");
+    // TODO: Append to command buffer
 }

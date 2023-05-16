@@ -51,6 +51,7 @@ quickmode_keymap: {
     CycleBufferNext : "'\\'",
     CycleBufferPrev : "'\''",
     LeaveCommandMode : KeyCode_Escape,
+    CommitLine : KeyCode_Return,
   }
 }
 

@@ -17,6 +17,7 @@ void QuickCommandController::Enter() {
     }
     logger->Debug("Enter...");
     cmdInput = Line::Create("");
+    cursor = {};
     Runloop::SetKeypressAndActionHook(this);
 }
 
@@ -78,7 +79,13 @@ bool QuickCommandController::ParseAndExecute() {
 
 void QuickCommandController::DoLeaveOnSuccess() {
     bool autoLeave = Config::Instance()["quickmode"].GetBool("leave_automatically", false);
+
+    // We can (and should) always reset these...
+    cmdInput = Line::Create("");
+    cursor = {};
+
     if (autoLeave) {
         Editor::Instance().LeaveCommandMode();
+        return;
     }
 }

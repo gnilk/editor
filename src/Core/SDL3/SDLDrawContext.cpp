@@ -87,6 +87,11 @@ void SDLDrawContext::DrawLineWithPixelOffset(float x1, float y1, float x2, float
 
 void SDLDrawContext::DrawLineOverlays(int y) const {
 
+    for (auto &overlay : overlays) {
+        DrawLineOverlay(y, overlay);
+    }
+}
+void SDLDrawContext::DrawLineOverlay(int y, const Overlay &overlay) const {
     if (!overlay.isActive) {
         return;
     }
@@ -105,6 +110,7 @@ void SDLDrawContext::DrawLineOverlays(int y) const {
 
     SetRenderColor();
     FillRect(start, y, end - start, 1, true);
+
 }
 
 

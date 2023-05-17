@@ -39,7 +39,7 @@ namespace gedit {
         void SetRenderColor() const;
         void SetRenderColor(kTextAttributes attrib) const;
     protected:
-
+        void DrawLineOverlay(int y, const Overlay &overlay) const;
         // Fill Rect use current color
         void FillRect(float x, float y, float w, float h, bool isColorSet = false) const;
         // DrawLine use current color

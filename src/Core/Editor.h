@@ -59,6 +59,17 @@ namespace gedit {
             // THIS SHOULD NOT HAPPEN!!!
             return 0;
         }
+        EditorModel::Ref GetActiveModel() {
+            for(size_t i=0; i < openModels.size(); i++) {
+                if (openModels[i]->IsActive()) {
+                    return openModels[i];
+                }
+            }
+            auto logger = gnilk::Logger::GetLogger("Editor");
+            logger->Error("No active model!!!!!");
+            // THIS SHOULD NOT HAPPEN!!!
+            return nullptr;
+        }
 
         void SetActiveModel(EditorModel::Ref model);
         bool IsModelOpen(EditorModel::Ref model);

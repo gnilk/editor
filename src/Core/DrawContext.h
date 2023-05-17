@@ -112,13 +112,12 @@ namespace gedit {
 
         }
 
-        void SetOverlay(const Overlay &newOverlay) {
-            overlay = newOverlay;
-            overlay.isActive = true;
+        void AddOverlay(const Overlay &newOverlay) {
+            overlays.push_back(newOverlay);
         }
 
-        void RemoveOverlay() {
-            overlay.isActive = false;
+        void ClearOverlays() {
+            overlays.clear();
         }
 
         virtual const Rect &GetRect() const {
@@ -132,7 +131,7 @@ namespace gedit {
         Rect rect = {};
         NativeWindow win = nullptr;
         // probably need a list of overlays - like highlighting search results and similar...
-        Overlay overlay = {};
+        std::vector<Overlay> overlays = {};
         ColorRGBA bgColor;
         ColorRGBA fgColor;
     };

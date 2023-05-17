@@ -84,12 +84,16 @@ void EditorView::DrawViewContents() {
     logger->Debug("DrawViewContents, dc Height=%d, topLine=%d, bottomLine=%d", dc.GetRect().Height(), editorModel->viewTopLine, editorModel->viewBottomLine);
 
     auto selection = editorModel->GetSelection();
+    dc.ClearOverlays();
+
+
+
     if (selection.IsActive()) {
         DrawContext::Overlay overlay;
         overlay.Set(selection.GetStart(), selection.GetEnd());
         overlay.attributes = 0;     // ??
-
-        dc.SetOverlay(overlay);
+        overlay.isActive = true;
+        dc.AddOverlay(overlay);
 
         // ---- start test
         // Test overlay transform
@@ -103,14 +107,12 @@ void EditorView::DrawViewContents() {
         overlay.start.y -= editorModel->viewTopLine;
         overlay.end.y = overlay.start.y + dy;
 
-        dc.SetOverlay(overlay);
+        dc.AddOverlay(overlay);
 
         logger->Debug("Transform overlay to:");
         logger->Debug("  (%d:%d) - (%d:%d)", overlay.start.x, overlay.start.y, overlay.end.x, overlay.end.y);
         // ---- End test
 
-    } else {
-        dc.RemoveOverlay();
     }
 
     LineRender lineRender(dc);

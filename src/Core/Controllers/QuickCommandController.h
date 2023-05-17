@@ -27,6 +27,7 @@ namespace gedit {
     protected:
         bool ParseAndExecute();
         void DoLeaveOnSuccess();
+        void SearchInActiveEditorModel(const std::string &searchItem);
     private:
         gnilk::ILogger *logger = nullptr;
         BaseController cmdInputBaseController;

@@ -53,6 +53,11 @@ bool QuickCommandController::HandleAction(const KeyPressAction &kpAction) {
 
 void QuickCommandController::HandleKeyPress(const KeyPress &keyPress) {
     cmdInputBaseController.DefaultEditLine(cursor, cmdInput, keyPress, true);
+    if ((cmdInput->Buffer().length() > 4) && (cmdInput->Buffer().at(0) == '/')) {
+        // we are searching, so let's update this in realtime
+        std::string searchItem = std::string(cmdInput->Buffer().substr(1));
+        SearchInActiveEditorModel(searchItem);
+    }
 }
 
 bool QuickCommandController::ParseAndExecute() {
@@ -65,6 +70,11 @@ bool QuickCommandController::ParseAndExecute() {
     // There is more to come...
     if (!RuntimeConfig::Instance().HasPluginCommand(commandList[0])) {
         logger->Error("Plugin '%s' not found", commandList[0].c_str());
+        if ((commandList[0].size() > 0) && (commandList[0].at(0) == '/')) {
+            // search
+            std::string searchItem = commandList[0].substr(1);
+            SearchInActiveEditorModel(searchItem);
+        }
         return false;
     }
 
@@ -89,3 +99,16 @@ void QuickCommandController::DoLeaveOnSuccess() {
         return;
     }
 }
+
+void QuickCommandController::SearchInActiveEditorModel(const std::string &searchItem) {
+    auto model = Editor::Instance().GetActiveModel();
+    model->ClearSearchResults();
+    if (searchItem.length() < 1) {
+        return;
+    }
+    auto numHits = model->SearchFor(searchItem);
+    char tmp[32];
+    snprintf(tmp,32,"Found: %d", numHits);
+    RuntimeConfig::Instance().OutputConsole()->WriteLine(tmp);
+}
+

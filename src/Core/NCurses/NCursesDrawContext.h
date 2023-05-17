@@ -33,6 +33,8 @@ namespace gedit {
         void OnColorUpdate() const override;
         void SetRenderColors() const;
     protected:
+        void DrawLineOverlay(int y, const Overlay &overlay) const;
+
         std::pair<float, float> CoordsToScreen(float x, float y) const;
 
         // Fill Rect use current color

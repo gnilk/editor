@@ -107,6 +107,11 @@ void NCursesDrawContext::DrawStringAt(int x, int y, const char *str) const {
 // There is something wrong with the color_pair, all I get is 'black'
 //
 void NCursesDrawContext::DrawLineOverlays(int y) const {
+    for(auto &overlay : overlays) {
+        DrawLineOverlay(y, overlay);
+    }
+}
+void NCursesDrawContext::DrawLineOverlay(int y, const Overlay &overlay) const {
     return;
     if (!overlay.isActive) return;
     if (!overlay.IsLinePartiallyCovered(y)) {
@@ -129,6 +134,7 @@ void NCursesDrawContext::DrawLineOverlays(int y) const {
         exit(1);
     }
 }
+
 
 
 void NCursesDrawContext::DrawStringWithAttributesAt(int x, int y, kTextAttributes attrib, const char *str) const {
@@ -171,16 +177,18 @@ void NCursesDrawContext::DrawStringWithAttributesAndColAt(int x, int y, kTextAtt
     for(int i=0;i<strlen(str);i++) {
         // Note: This can be removed if I manage to get the drawoverlay function to work..
         // Switch on selection drawing if we are inside the overlay
-        if (overlay.isActive && overlay.IsInside(x+i, y)) {
-            wattrset((WINDOW *)win, A_NORMAL);  // Reset to normal
-            wattron((WINDOW *)win, ncAttr);     // Enable whatever we have
-            wattron((WINDOW *)win, A_REVERSE);
-            bWasActive = true;
-        } else if (bWasActive) {
-            wattrset((WINDOW *)win, A_NORMAL);  // Reset to normal
-            wattron((WINDOW *)win, ncAttr);     // Enable whatever we have
-            wattron((WINDOW *)win, ncColorAttrib);
-            bWasActive = false;
+        for(auto &overlay : overlays) {
+            if (overlay.isActive && overlay.IsInside(x + i, y)) {
+                wattrset((WINDOW *) win, A_NORMAL);  // Reset to normal
+                wattron((WINDOW *) win, ncAttr);     // Enable whatever we have
+                wattron((WINDOW *) win, A_REVERSE);
+                bWasActive = true;
+            } else if (bWasActive) {
+                wattrset((WINDOW *) win, A_NORMAL);  // Reset to normal
+                wattron((WINDOW *) win, ncAttr);     // Enable whatever we have
+                wattron((WINDOW *) win, ncColorAttrib);
+                bWasActive = false;
+            }
         }
         waddch((WINDOW *)win, str[i]);
     }

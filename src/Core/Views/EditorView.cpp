@@ -86,7 +86,16 @@ void EditorView::DrawViewContents() {
     auto selection = editorModel->GetSelection();
     dc.ClearOverlays();
 
-
+    // Add in the result from search if any...
+    if (editorModel->searchResults.size() > 0) {
+        for(auto &result : editorModel->searchResults) {
+            DrawContext::Overlay overlay;
+            overlay.Set(Point(result.cursor_x,result.idxLine),
+                        Point(result.cursor_x + result.length, result.idxLine));
+            overlay.isActive = true;
+            dc.AddOverlay(overlay);
+        }
+    }
 
     if (selection.IsActive()) {
         DrawContext::Overlay overlay;

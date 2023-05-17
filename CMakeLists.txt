@@ -18,8 +18,8 @@ if (APPLE)
     set(CMAKE_OSX_SYSROOT /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk)
 
     # Not sure if this is the right way to change the macOS defaults...
-    set(GEDIT_BUILD_SDL3 ON)
-    set(GEDIT_BUILD_SDL2 OFF)
+    set(GEDIT_BUILD_SDL3 OFF)
+    set(GEDIT_BUILD_SDL2 ON)
 
     add_definitions(-DGEDIT_MACOS)
 

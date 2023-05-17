@@ -15,6 +15,11 @@
 namespace gedit {
 
     class EditorModel;
+    struct SearchResult {
+        size_t idxLine;
+        size_t cursor_x;
+        size_t length;
+    };
     // NOTE: Selection coordinates are in TextBuffer coordinates!!!!!
     struct Selection {
         friend EditorModel;
@@ -152,8 +157,10 @@ namespace gedit {
             return currentSelection;
         }
         void DeleteSelection();
-
         void CommentSelectionOrLine();
+
+        size_t SearchFor(const std::string &searchItem);
+        void ClearSearchResults();
     private:
         void MoveLineUp();
     public:
@@ -161,6 +168,7 @@ namespace gedit {
         int32_t idxActiveLine = 0;
         int32_t viewTopLine = 0;
         int32_t viewBottomLine = 0;
+        std::vector<SearchResult> searchResults;
     private:
         EditController::Ref editController = nullptr;     // Pointer???
         Selection currentSelection = {};

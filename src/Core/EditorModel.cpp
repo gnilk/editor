@@ -132,3 +132,28 @@ void EditorModel::CommentSelectionOrLine() {
 
 }
 
+size_t EditorModel::SearchFor(const std::string &searchItem) {
+    searchResults.clear();
+
+    auto nLines = textBuffer->NumLines();
+    auto len = searchItem.length();
+    for(size_t idxLine = 0; idxLine < nLines; idxLine++) {
+        auto line = textBuffer->LineAt(idxLine);
+        auto idxStart = line->Buffer().find(searchItem.c_str());
+        if (idxStart == std::string_view::npos) {
+            continue;
+        }
+        // FIXME: Do not create overlays here - rather save 'SearchResults' and transform properly in the EditorView
+        SearchResult result;
+        result.idxLine = idxLine;
+        result.cursor_x = idxStart;
+        result.length = len;
+        searchResults.push_back(result);
+    }
+    // Number of hits..
+    return searchResults.size();
+}
+
+void EditorModel::ClearSearchResults() {
+    searchResults.clear();
+}

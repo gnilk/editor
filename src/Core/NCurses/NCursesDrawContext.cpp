@@ -112,8 +112,6 @@ void NCursesDrawContext::DrawLineOverlays(int y) const {
     }
 }
 void NCursesDrawContext::DrawLineOverlay(int y, const Overlay &overlay) const {
-    return;
-    if (!overlay.isActive) return;
     if (!overlay.IsLinePartiallyCovered(y)) {
         return;
     }
@@ -126,10 +124,14 @@ void NCursesDrawContext::DrawLineOverlay(int y, const Overlay &overlay) const {
         if (y == overlay.end.y) end = overlay.end.x;
     }
 
+
+    auto [pixXStart, pixYStart] = CoordsToScreen(start, y);
+    auto [pixXEnd, pixYEnd] = CoordsToScreen(end, y);
+
     // Color argument don't work..
     // It is supposed to be just the number we give when register
     // From docs 'the color argument is a color-pair index (as in the first argument of init_pair, see curs_color(3X)'
-    int res = mvwchgat((WINDOW *)win, y, start, end, A_NORMAL, 2, nullptr);
+    int res = mvwchgat((WINDOW *)win, pixYStart, pixXStart, pixXEnd - pixXStart, A_NORMAL, 2, nullptr);
     if (res == ERR) {
         exit(1);
     }

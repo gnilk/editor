@@ -169,3 +169,25 @@ bool EditorModel::JumpToSearchHit(size_t idxHit) {
 void EditorModel::ClearSearchResults() {
     searchResults.clear();
 }
+
+void EditorModel::NextSearchResult() {
+    idxActiveSearchHit++;
+    if (!JumpToSearchHit(idxActiveSearchHit) && (idxActiveSearchHit > 0)) {
+        idxActiveSearchHit -=1;
+    }
+
+}
+void EditorModel::PrevSearchResult() {
+    if (idxActiveSearchHit > 0) {
+        idxActiveSearchHit -= 1;
+    }
+    JumpToSearchHit(idxActiveSearchHit);
+
+}
+
+void EditorModel::ResetSearchHitIndex() {
+    idxActiveSearchHit = 0;
+}
+size_t EditorModel::GetSearchHitIndex() {
+    return idxActiveSearchHit;
+}

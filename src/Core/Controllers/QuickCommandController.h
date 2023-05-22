@@ -35,7 +35,6 @@ namespace gedit {
         BaseController cmdInputBaseController;
         Cursor cursor = {};
         Line::Ref cmdInput = nullptr;
-        size_t idxHit = 0;
         bool isSearchMode = false;
 
     };

@@ -164,7 +164,11 @@ namespace gedit {
         bool HaveSearchResults() {
             return !searchResults.empty();
         }
+        size_t GetSearchHitIndex();
         bool JumpToSearchHit(size_t idxHit);
+        void NextSearchResult();
+        void PrevSearchResult();
+        void ResetSearchHitIndex();
     private:
         void MoveLineUp();
     public:
@@ -173,6 +177,7 @@ namespace gedit {
         int32_t viewTopLine = 0;
         int32_t viewBottomLine = 0;
         std::vector<SearchResult> searchResults;
+        size_t idxActiveSearchHit = 0;
     private:
         EditController::Ref editController = nullptr;     // Pointer???
         Selection currentSelection = {};

@@ -48,8 +48,8 @@ bool QuickCommandController::HandleAction(const KeyPressAction &kpAction) {
             ActionHelper::SwitchToPreviousBuffer();
             return true;
         case kAction::kActionStartSearch :
+            Editor::Instance().GetActiveModel()->ResetSearchHitIndex();
             isSearchMode = true;
-            idxHit = 0;
             logger->Debug("Entering search");
             break;
         case kAction::kActionNextSearchResult :
@@ -133,7 +133,7 @@ void QuickCommandController::SearchInActiveEditorModel(const std::string &search
     }
     auto numHits = model->SearchFor(searchItem);
     char tmp[32];
-    model->JumpToSearchHit(idxHit);
+    model->JumpToSearchHit(model->GetSearchHitIndex());
     snprintf(tmp,32,"Found: %d", numHits);
     RuntimeConfig::Instance().OutputConsole()->WriteLine(tmp);
 }
@@ -142,15 +142,9 @@ void QuickCommandController::SearchInActiveEditorModel(const std::string &search
 // obtained...
 void QuickCommandController::NextSearchResult() {
     auto model = Editor::Instance().GetActiveModel();
-    idxHit++;
-    if (!model->JumpToSearchHit(idxHit) && (idxHit > 0)) {
-        idxHit -=1;
-    }
+    model->NextSearchResult();
 }
 void QuickCommandController::PrevSearchResult() {
     auto model = Editor::Instance().GetActiveModel();
-    if (idxHit > 0) {
-        idxHit -= 1;
-    }
-    model->JumpToSearchHit(idxHit);
+    model->PrevSearchResult();
 }

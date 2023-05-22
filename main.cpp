@@ -3,6 +3,21 @@
 //
 /*
  * TO-DO List
+ * - QuickCommandMode
+ *   ! Ability to navigate through search results (next/previous) - should reposition the cursor
+ *   - How to search in none-editor mode (i.e ProjectViews, Terminal - history)
+ *   - Movement (see Helix editor)
+ * - Bookmarks
+ *   - visual (GutterView support)
+ *   - Add/Delete
+ *   - Jump (Next/Previous)
+ * - Rename actions (see Helix editor)
+ * - Make something like 'Telescope' (Neovim, Hybrid)
+ * - Intellisense
+ *    - Build and internal prefix-tree DB
+ *    - Be 'smart' depending on language search for type belonging to related files (C/CPP - header files)
+ *    - Make sure the prefix-tree can be quickly update when changing stuff on a line
+ *    - Make the Intellisense run in a background thread that locks the whole textbuffer (but does so when it sits Idle)
  * + Make a proper 'project' viewer
  *   ! Enter on selection should load (if needed) and set the model active in the editor
  *   - Ability to search/filter for files

@@ -28,11 +28,15 @@ namespace gedit {
         bool ParseAndExecute();
         void DoLeaveOnSuccess();
         void SearchInActiveEditorModel(const std::string &searchItem);
+        void NextSearchResult();
+        void PrevSearchResult();
     private:
         gnilk::ILogger *logger = nullptr;
         BaseController cmdInputBaseController;
         Cursor cursor = {};
         Line::Ref cmdInput = nullptr;
+        size_t idxHit = 0;
+        bool isSearchMode = false;
 
     };
 }

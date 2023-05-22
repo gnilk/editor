@@ -29,6 +29,17 @@ void QuickCommandController::Leave() {
 }
 
 bool QuickCommandController::HandleAction(const KeyPressAction &kpAction) {
+    if (isSearchMode) {
+        HandleKeyPress(kpAction.keyPress);
+        // Leave search mode in case of enter
+        if (kpAction.action == kAction::kActionCommitLine) {
+            logger->Debug("Leaving search");
+            isSearchMode = false;
+            return true;
+        }
+        return true;
+    }
+
     switch(kpAction.action) {
         case kAction::kActionCycleActiveBufferNext :
             ActionHelper::SwitchToNextBuffer();
@@ -36,6 +47,17 @@ bool QuickCommandController::HandleAction(const KeyPressAction &kpAction) {
         case kAction::kActionCycleActiveBufferPrev :
             ActionHelper::SwitchToPreviousBuffer();
             return true;
+        case kAction::kActionStartSearch :
+            isSearchMode = true;
+            idxHit = 0;
+            logger->Debug("Entering search");
+            break;
+        case kAction::kActionNextSearchResult :
+            NextSearchResult();
+            break;
+        case kAction::kActionPrevSearchResult :
+            PrevSearchResult();
+            break;
         case kAction::kActionCommitLine :
             if (ParseAndExecute()) {
                 DoLeaveOnSuccess();
@@ -53,9 +75,12 @@ bool QuickCommandController::HandleAction(const KeyPressAction &kpAction) {
 
 void QuickCommandController::HandleKeyPress(const KeyPress &keyPress) {
     cmdInputBaseController.DefaultEditLine(cursor, cmdInput, keyPress, true);
-    if ((cmdInput->Buffer().length() > 4) && (cmdInput->Buffer().at(0) == '/')) {
+    if ((cmdInput->Buffer().length() > 4) && (isSearchMode)) {
+        // Use the 'substr' if we keep the 'search' character visible in the cmd-input...
+        //std::string searchItem = std::string(cmdInput->Buffer().substr(1));
+        std::string searchItem = std::string(cmdInput->Buffer());
+
         // we are searching, so let's update this in realtime
-        std::string searchItem = std::string(cmdInput->Buffer().substr(1));
         SearchInActiveEditorModel(searchItem);
     }
 }
@@ -108,7 +133,24 @@ void QuickCommandController::SearchInActiveEditorModel(const std::string &search
     }
     auto numHits = model->SearchFor(searchItem);
     char tmp[32];
+    model->JumpToSearchHit(idxHit);
     snprintf(tmp,32,"Found: %d", numHits);
     RuntimeConfig::Instance().OutputConsole()->WriteLine(tmp);
 }
 
+// Move these to model, this allows the model to operate over the search-results how they were
+// obtained...
+void QuickCommandController::NextSearchResult() {
+    auto model = Editor::Instance().GetActiveModel();
+    idxHit++;
+    if (!model->JumpToSearchHit(idxHit) && (idxHit > 0)) {
+        idxHit -=1;
+    }
+}
+void QuickCommandController::PrevSearchResult() {
+    auto model = Editor::Instance().GetActiveModel();
+    if (idxHit > 0) {
+        idxHit -= 1;
+    }
+    model->JumpToSearchHit(idxHit);
+}

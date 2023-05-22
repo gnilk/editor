@@ -64,6 +64,9 @@ static std::unordered_map<std::string, kAction> strToActionMap = {
         {"CommentLine",           kAction::kActionInsertLineComment},
         {"EnterCommandMode",      kAction::kActionEnterCommandMode},
         {"LeaveCommandMode",      kAction::kActionLeaveCommandMode},
+        {"NextSearchResult",      kAction::kActionNextSearchResult},
+        {"PrevSearchResult",      kAction::kActionPrevSearchResult},
+        {"StartSearch",           kAction::kActionStartSearch},
 };
 
 

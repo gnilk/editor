@@ -154,6 +154,18 @@ size_t EditorModel::SearchFor(const std::string &searchItem) {
     return searchResults.size();
 }
 
+bool EditorModel::JumpToSearchHit(size_t idxHit) {
+    if (idxHit >= searchResults.size()) {
+        return false;
+    }
+    auto &result = searchResults[idxHit];
+    cursor.position.y = result.idxLine;
+    cursor.position.x = result.cursor_x;
+    idxActiveLine = result.idxLine;
+    return true;
+}
+
+
 void EditorModel::ClearSearchResults() {
     searchResults.clear();
 }

@@ -161,6 +161,10 @@ namespace gedit {
 
         size_t SearchFor(const std::string &searchItem);
         void ClearSearchResults();
+        bool HaveSearchResults() {
+            return !searchResults.empty();
+        }
+        bool JumpToSearchHit(size_t idxHit);
     private:
         void MoveLineUp();
     public:

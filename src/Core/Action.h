@@ -41,6 +41,9 @@ namespace gedit {
         kActionCycleActiveBufferPrev,
         kActionEnterCommandMode,
         kActionLeaveCommandMode,
+        kActionStartSearch,
+        kActionNextSearchResult,
+        kActionPrevSearchResult,
         // Edit actions
         kActionEditBackspace,
         // Other

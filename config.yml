@@ -52,6 +52,9 @@ quickmode_keymap: {
     CycleBufferPrev : "'\''",
     LeaveCommandMode : KeyCode_Escape,
     CommitLine : KeyCode_Return,
+    StartSearch : "'/'",
+    NextSearchResult : "'n'",
+    PrevSearchResult : "'p'",
   }
 }
 

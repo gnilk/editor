@@ -3,6 +3,7 @@
 //
 
 #include "ViewBase.h"
+#include "Core/Editor.h"
 // Ok, need .cpp file for implementation details about MainThread
 #include "Core/RuntimeConfig.h"
 
@@ -33,3 +34,11 @@ int ViewBase::ProcessMessageQueue() {
     return nMessages;
 }
 
+void ViewBase::SetWindowCursor(const Cursor &cursor) {
+    if (Editor::Instance().GetState() == Editor::CommandState) {
+        auto quickView = RuntimeConfig::Instance().GetQuickCmdView();
+        quickView->SetWindowCursor(cursor);
+    } else {
+        window->SetCursor(cursor);
+    }
+}

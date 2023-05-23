@@ -16,6 +16,17 @@ namespace gedit {
         }
         virtual ~HSplitViewStatus() = default;
 
+        void SetWindowCursor(const Cursor &cursor) override {
+            auto &quickController = Editor::Instance().GetQuickCommandController();
+            auto &newCursor = quickController.GetCursor();
+            // Need to reposition the cursor properly...
+            Cursor dummy = newCursor;
+            dummy.position.y = GetSplitRow();
+            // FIXME: This should be calculated...
+            dummy.position.x = 19 + newCursor.position.x;
+            window->SetCursor(dummy);
+        }
+
     protected:
         void DrawSplitter(int row) override {
             auto &dc = window->GetContentDC();
@@ -38,7 +49,7 @@ namespace gedit {
                 statusLine += "E | ";
             } else {
                 statusLine += "C:";
-                auto quickController = Editor::Instance().GetQuickCommandController();
+                auto &quickController = Editor::Instance().GetQuickCommandController();
                 auto currentCmdLine = quickController.GetCmdLine();
                 statusLine += currentCmdLine;
                 statusLine += " | ";

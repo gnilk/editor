@@ -89,6 +89,15 @@ namespace gedit {
             return mainThreadId;
         }
 
+        void SetQuickCmdView(ViewBase *view) {
+            quickModeView = view;
+        }
+        ViewBase *GetQuickCmdView() {
+            return quickModeView;
+        }
+
+
+
         // Not sure this should be here - perhaps rather in the editor...
         void RegisterPluginCommand(const PluginCommand::Ref pluginCommand);
         bool HasPluginCommand(const std::string &name);
@@ -109,6 +118,7 @@ namespace gedit {
         AssetLoaderBase assetLoader;
 
         std::map<std::string, const PluginCommand::Ref> pluginCommands;
+        ViewBase *quickModeView = nullptr;
 
     };
 }

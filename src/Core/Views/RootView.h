@@ -34,7 +34,6 @@ namespace gedit {
             logger->Debug("==== End Draw Cycle ====");
         }
 
-        // TEMP
         void AddTopView(ViewBase *view) {
             topViews.push_back(view);
             if (idxCurrentTopView == -1) {
@@ -127,7 +126,6 @@ namespace gedit {
             // need to fix this...
             auto logger = gnilk::Logger::GetLogger("RootView");
             logger->Debug("Should enter command view!");
-
         }
 
     protected:

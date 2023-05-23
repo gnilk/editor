@@ -39,9 +39,8 @@ namespace gedit {
         void SetEditorModel(EditorModel::Ref newEditorModel) {
             editorModel = newEditorModel;
         }
-        void SetWindowCursor(const Cursor &cursor) override {
-            window->SetCursor(editorModel->cursor);
-        }
+
+        void SetWindowCursor(const Cursor &cursor) override;
 
         bool OnAction(const KeyPressAction &kpAction) override;
 

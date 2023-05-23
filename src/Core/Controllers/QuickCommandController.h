@@ -24,6 +24,9 @@ namespace gedit {
         const std::string_view GetCmdLine() const {
             return cmdInput->Buffer();
         }
+        const Cursor &GetCursor() const {
+            return cursor;
+        }
     protected:
         bool ParseAndExecute();
         void DoLeaveOnSuccess();

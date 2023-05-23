@@ -4,6 +4,7 @@
 /*
  * TO-DO List
  * - QuickCommandMode
+ *   - Allow cursor to be positioned at the 'C' input
  *   ! Ability to navigate through search results (next/previous) - should reposition the cursor
  *   - How to search in none-editor mode (i.e ProjectViews, Terminal - history)
  *   - Movement (see Helix editor)
@@ -349,6 +350,7 @@ int main(int argc, const char **argv) {
 //    exit(1);
 
     RuntimeConfig::Instance().SetRootView(&rootView);
+    RuntimeConfig::Instance().SetQuickCmdView(&hSplitViewStatus);
 
     rootView.Initialize();
     rootView.InvalidateAll();

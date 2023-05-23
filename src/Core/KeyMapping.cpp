@@ -51,6 +51,7 @@ static std::unordered_map<std::string, kAction> strToActionMap = {
         {"GotoLastLine",          kAction::kActionGotoLastLine},
         {"GotoBottomLine",        kAction::kActionGotoBottomLine},
         {"GotoTopLine",           kAction::kActionGotoTopLine},
+        {"GotoLine",              kAction::kActionGotoLine},
         {"CycleActiveView",       kAction::kActionCycleActiveView},
         {"CycleActiveViewNext",       kAction::kActionCycleActiveViewNext},
         {"CycleActiveViewPrev",       kAction::kActionCycleActiveViewPrev},

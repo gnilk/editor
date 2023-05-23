@@ -33,6 +33,7 @@ namespace gedit {
         kActionGotoLastLine,           // default: CMD+Home
         kActionGotoTopLine,             // Default: cmd + pageUp
         kActionGotoBottomLine,          // Default: cmd + pageDown
+        kActionGotoLine,          // Quick cntrl command
         kActionCycleActiveView,         // Default: esc
         kActionCycleActiveViewNext,     // Default: Left_CMD + ]
         kActionCycleActiveViewPrev,     // Default: Left_CMD + [

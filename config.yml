@@ -55,6 +55,7 @@ quickmode_keymap: {
     StartSearch : "'/'",
     NextSearchResult : "'n'",
     PrevSearchResult : "'p'",
+    GotoLine : "'g'",
   }
 }
 

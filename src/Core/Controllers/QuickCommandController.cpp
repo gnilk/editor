@@ -30,7 +30,7 @@ void QuickCommandController::Leave() {
 
 bool QuickCommandController::HandleAction(const KeyPressAction &kpAction) {
     if (isSearchMode) {
-
+        // TO-DO clean this up
         if (kpAction.action == kAction::kActionLeaveCommandMode) {
             logger->Debug("LeaveCommandMode, in Search - leaving");
 

@@ -3,9 +3,13 @@
 //
 /*
  * TO-DO List
+ * - Code cleanup
+ *   - Switch to References everywhere, either C++ ref or shared_ptr type of refs (MyClass::Ref), there are still too many places using raw object pointers
  * - QuickCommandMode
- *   - Allow cursor to be positioned at the 'C' input
+ *   ! Allow cursor to be positioned at the 'C' input
  *   ! Ability to navigate through search results (next/previous) - should reposition the cursor
+ *   - Consider how to visualize various things coming from the quick-command mode
+ *     - you are in search and want 'hits', perhaps change 'C' to 'S' in the prefix??
  *   - How to search in none-editor mode (i.e ProjectViews, Terminal - history)
  *   - Movement (see Helix editor)
  * - Bookmarks

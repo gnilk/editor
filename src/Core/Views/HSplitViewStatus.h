@@ -16,8 +16,12 @@ namespace gedit {
         }
         virtual ~HSplitViewStatus() = default;
 
+        //
         // Temporary, this set's the cursor in the status bar...
         // Is being used when the Editor goes into 'QuickCmdMode'
+        // The main reason here is that the 'View'-system (i.e. UI) don't have
+        // widgets (buttons, editboxes, etc..) just windows..
+        //
         void SetWindowCursor(const Cursor &cursor) override {
             auto &quickController = Editor::Instance().GetQuickCommandController();
             auto &newCursor = quickController.GetCursor();

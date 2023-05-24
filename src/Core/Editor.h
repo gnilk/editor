@@ -31,7 +31,7 @@ namespace gedit {
     public:
         typedef enum {
             EditState,
-            CommandState,
+            QuickCommandState,
         } State;
     public:
         static Editor &Instance();

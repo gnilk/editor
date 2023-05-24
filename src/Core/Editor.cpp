@@ -126,10 +126,10 @@ void Editor::HandleGlobalAction(const KeyPressAction &kpAction) {
     if (state == EditState) {
         if (kpAction.action == kAction::kActionEnterCommandMode) {
             logger->Debug("Entering command mode!");
-            state = CommandState;
+            state = QuickCommandState;
             quickCommandController.Enter();
         }
-    } else if (state == CommandState) {
+    } else if (state == QuickCommandState) {
         if (kpAction.action == kAction::kActionLeaveCommandMode) {
             LeaveCommandMode();
         }

@@ -35,7 +35,7 @@ int ViewBase::ProcessMessageQueue() {
 }
 
 void ViewBase::SetWindowCursor(const Cursor &cursor) {
-    if (Editor::Instance().GetState() == Editor::CommandState) {
+    if (Editor::Instance().GetState() == Editor::QuickCommandState) {
         auto quickView = RuntimeConfig::Instance().GetQuickCmdView();
         quickView->SetWindowCursor(cursor);
     } else {

@@ -30,6 +30,19 @@ void QuickCommandController::Leave() {
 
 bool QuickCommandController::HandleAction(const KeyPressAction &kpAction) {
     if (isSearchMode) {
+
+        if (kpAction.action == kAction::kActionLeaveCommandMode) {
+            logger->Debug("LeaveCommandMode, in Search - leaving");
+
+            auto model = Editor::Instance().GetActiveModel();
+            model->ResetSearchHitIndex();
+            model->ClearSearchResults();
+            cursor.position.x = 0;
+            cmdInput->Clear();
+            isSearchMode = false;
+            return true;
+        }
+
         HandleKeyPress(kpAction.keyPress);
         // Leave search mode in case of enter
         if (kpAction.action == kAction::kActionCommitLine) {
@@ -49,8 +62,9 @@ bool QuickCommandController::HandleAction(const KeyPressAction &kpAction) {
             return true;
         case kAction::kActionStartSearch :
             Editor::Instance().GetActiveModel()->ResetSearchHitIndex();
+            logger->Debug("Entering search, key: %c",kpAction.keyPress.key);
             isSearchMode = true;
-            logger->Debug("Entering search");
+            cmdInputBaseController.DefaultEditLine(cursor, cmdInput, kpAction.keyPress, true);
             break;
         case kAction::kActionNextSearchResult :
             NextSearchResult();
@@ -77,8 +91,8 @@ void QuickCommandController::HandleKeyPress(const KeyPress &keyPress) {
     cmdInputBaseController.DefaultEditLine(cursor, cmdInput, keyPress, true);
     if ((cmdInput->Buffer().length() > 4) && (isSearchMode)) {
         // Use the 'substr' if we keep the 'search' character visible in the cmd-input...
-        //std::string searchItem = std::string(cmdInput->Buffer().substr(1));
-        std::string searchItem = std::string(cmdInput->Buffer());
+        std::string searchItem = std::string(cmdInput->Buffer().substr(1));
+        //std::string searchItem = std::string(cmdInput->Buffer());
 
         // we are searching, so let's update this in realtime
         SearchInActiveEditorModel(searchItem);
@@ -86,7 +100,19 @@ void QuickCommandController::HandleKeyPress(const KeyPress &keyPress) {
 }
 
 bool QuickCommandController::ParseAndExecute() {
-    auto cmdLineNoPrefix = cmdInput->Buffer();
+
+    auto cmdline = std::string(cmdInput->Buffer());
+    auto prefix = Config::Instance()["commandmode"].GetStr("cmdlet_prefix");
+
+    std::string cmdLineNoPrefix;
+    if (strutil::startsWith(cmdline, prefix)) {
+        cmdLineNoPrefix = cmdline.substr(prefix.length());
+    } else {
+        // support 'raw' (no prefix) commands?
+        // yes - I think so in the quick-mode we actually don't need it as we don't spawn stuff to the shell
+        cmdLineNoPrefix = cmdInput->Buffer();
+    }
+
 
     std::vector<std::string> commandList;
     // We should have a 'smarter' that keeps strings and so forth
@@ -134,7 +160,7 @@ void QuickCommandController::SearchInActiveEditorModel(const std::string &search
     auto numHits = model->SearchFor(searchItem);
     char tmp[32];
     model->JumpToSearchHit(model->GetSearchHitIndex());
-    snprintf(tmp,32,"Found: %d", numHits);
+    snprintf(tmp,32,"Search: %s, Found: %d", searchItem.c_str(), numHits);
     RuntimeConfig::Instance().OutputConsole()->WriteLine(tmp);
 }
 

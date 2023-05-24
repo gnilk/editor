@@ -143,7 +143,6 @@ size_t EditorModel::SearchFor(const std::string &searchItem) {
         if (idxStart == std::string_view::npos) {
             continue;
         }
-        // FIXME: Do not create overlays here - rather save 'SearchResults' and transform properly in the EditorView
         SearchResult result;
         result.idxLine = idxLine;
         result.cursor_x = idxStart;

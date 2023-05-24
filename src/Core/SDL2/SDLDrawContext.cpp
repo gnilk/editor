@@ -105,7 +105,7 @@ void SDLDrawContext::DrawLineOverlay(int y, const Overlay &overlay) const {
     }
 
     SetRenderColor();
-    FillRect(start, y, end, 1, true);
+    FillRect(start, y, end - start, 1, true);
 
 }
 

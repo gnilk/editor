@@ -88,6 +88,8 @@ void EditorView::DrawViewContents() {
 
     // Add in the result from search if any...
     if (editorModel->searchResults.size() > 0) {
+        logger->Debug("Overlays from search results");
+        logger->Debug("  SR0: x=%d, len=%d line=%d", editorModel->searchResults[0].cursor_x, editorModel->searchResults[0].length, editorModel->searchResults[0].idxLine);
         for(auto &result : editorModel->searchResults) {
             DrawContext::Overlay overlay;
             overlay.Set(Point(result.cursor_x,result.idxLine),

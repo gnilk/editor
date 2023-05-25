@@ -59,6 +59,17 @@ bool QuickCommandController::HandleActionInCommandState(const KeyPressAction &kp
             ChangeState(State::SearchState);
             cmdInputBaseController.DefaultEditLine(cursor, cmdInput, kpAction.keyPress, true);
             break;
+        case kAction::kActionLastSearch :
+            Editor::Instance().GetActiveModel()->ResetSearchHitIndex();
+            logger->Debug("Entering search, key: %c",kpAction.keyPress.key);
+            cmdInputBaseController.DefaultEditLine(cursor, cmdInput, kpAction.keyPress, true);
+            if (!searchHistory.empty()) {
+                auto &lastSearchItem = searchHistory.back();
+                cmdInput->Append(lastSearchItem);
+                cursor.position.x += lastSearchItem.length();
+            }
+            ChangeState(State::SearchState);
+            break;
         case kAction::kActionNextSearchResult :
             NextSearchResult();
             break;
@@ -96,6 +107,10 @@ bool QuickCommandController::HandleActionInSearch(const KeyPressAction &kpAction
     if (kpAction.action == kAction::kActionCommitLine) {
         std::string searchItem = std::string(cmdInput->Buffer().substr(1));
         SearchInActiveEditorModel(searchItem);
+
+        // Add to search history...
+        searchHistory.push_back(searchItem);
+
         logger->Debug("Leaving search");
         ChangeState(State::CommandState);
         return true;

@@ -50,6 +50,7 @@ namespace gedit {
         BaseController cmdInputBaseController;
         Cursor cursor = {};
         Line::Ref cmdInput = nullptr;
+        std::vector<std::string> searchHistory;
         std::string prompt = "C";
         State state = CommandState;
         //bool isSearchMode = false;

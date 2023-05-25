@@ -51,7 +51,7 @@ KeyPress SDLKeyboardDriver::GetKeyPress() {
                 static int shiftModifiers = Keyboard::kModifierKeys::kMod_RightShift | Keyboard::kModifierKeys::kMod_LeftShift;
                 kp.key = TranslateScanCode(event.key.keysym.scancode); //  kp.hwEvent.scanCode);
                 if ((kp.modifiers & shiftModifiers) && (kp.key != 0)) {
-                    logger->Debug("Shift+ASCII - skipping, this is handled by EVENT_TEXT_INPUT");
+                    logger->Debug("Shift+ASCII  (%c) - skipping, this is handled by EVENT_TEXT_INPUT", kp.key);
                     continue;
                 }
                 if (kp.key != 0) {
@@ -69,7 +69,7 @@ KeyPress SDLKeyboardDriver::GetKeyPress() {
             // This seems to work, but I assume that we can get buffered input here
             // Need to check if there are some flags in SDL to deal with it
             kp.key = event.text.text[0];
-            //logger->Debug("SDL_EVENT_TEXT_INPUT, event.text.text=%s", event.text.text);
+            logger->Debug("SDL_EVENT_TEXT_INPUT, event.text.text=%s", event.text.text);
             return kp;
         }  else if ((event.type == SDL_EventType::SDL_WINDOWEVENT) && (event.window.event == SDL_WINDOWEVENT_RESIZED)) {
             logger->Debug("SDL_EVENT_WINDOW_RESIZED");

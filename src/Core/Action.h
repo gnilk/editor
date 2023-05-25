@@ -43,6 +43,7 @@ namespace gedit {
         kActionEnterCommandMode,
         kActionLeaveCommandMode,
         kActionStartSearch,
+        kActionLastSearch,
         kActionNextSearchResult,
         kActionPrevSearchResult,
         // Edit actions
@@ -81,14 +82,19 @@ namespace gedit {
             if ((modiferMask != 0) && (keyPress.modifiers == 0)) {
                 return false;
             }
-            if ((keyPress.modifiers & modiferMask) != keyPress.modifiers) {
-                return false;
-            }
+
+            // 2023-05-25, gnilk, moved this to be _BEFORE_ the modifier check
+            //                    this allows ASCII commands like '?' to be detected even if SHIFT needs to be pressed
 
             // If not special key is pressed, we check if the 'key' is valid and match against asciiKeyCode..
             if (!keyPress.isSpecialKey && keyPress.isKeyValid) {
                 return (keyPress.key == asciiKeyCode);
             }
+
+            if ((keyPress.modifiers & modiferMask) != keyPress.modifiers) {
+                return false;
+            }
+
             if (keyCode != keyPress.specialKey) return false;
 
             return true;

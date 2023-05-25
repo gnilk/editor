@@ -57,6 +57,7 @@ quickmode_keymap: {
     LeaveCommandMode : KeyCode_Escape,
     CommitLine : KeyCode_Return,
     StartSearch : "'/'",
+    LastSearch : "'?'",
     NextSearchResult : "'n'",
     PrevSearchResult : "'p'",
     GotoLine : "'g'",

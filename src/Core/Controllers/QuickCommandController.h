@@ -12,6 +12,11 @@
 namespace gedit {
     class QuickCommandController : public KeypressAndActionHandler {
     public:
+        typedef enum {
+            CommandState,
+            SearchState,
+        } State;
+    public:
         QuickCommandController() = default;
         virtual ~QuickCommandController() = default;
 
@@ -24,21 +29,30 @@ namespace gedit {
         const std::string_view GetCmdLine() const {
             return cmdInput->Buffer();
         }
+        const std::string &GetPrompt() const {
+            return prompt;
+        }
         const Cursor &GetCursor() const {
             return cursor;
         }
     protected:
+        bool HandleActionInSearch(const KeyPressAction &kpAction);
+        bool HandleActionInCommandState(const KeyPressAction &kpAction);
         bool ParseAndExecute();
         void DoLeaveOnSuccess();
         void SearchInActiveEditorModel(const std::string &searchItem);
         void NextSearchResult();
         void PrevSearchResult();
     private:
+        void ChangeState(State newState);
+    private:
         gnilk::ILogger *logger = nullptr;
         BaseController cmdInputBaseController;
         Cursor cursor = {};
         Line::Ref cmdInput = nullptr;
-        bool isSearchMode = false;
+        std::string prompt = "C";
+        State state = CommandState;
+        //bool isSearchMode = false;
 
     };
 }

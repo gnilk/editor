@@ -18,6 +18,7 @@ void QuickCommandController::Enter() {
     logger->Debug("Enter...");
     cmdInput = Line::Create("");
     cursor = {};
+    ChangeState(State::CommandState);
     Runloop::SetKeypressAndActionHook(this);
 }
 
@@ -29,30 +30,22 @@ void QuickCommandController::Leave() {
 }
 
 bool QuickCommandController::HandleAction(const KeyPressAction &kpAction) {
-    if (isSearchMode) {
-        // TO-DO clean this up
-        if (kpAction.action == kAction::kActionLeaveCommandMode) {
-            logger->Debug("LeaveCommandMode, in Search - leaving");
 
-            auto model = Editor::Instance().GetActiveModel();
-            model->ResetSearchHitIndex();
-            model->ClearSearchResults();
-            cursor.position.x = 0;
-            cmdInput->Clear();
-            isSearchMode = false;
+    if (state == State::SearchState) {
+        // Leave via 'esc' - i.e. we don't save search results
+        if (HandleActionInSearch(kpAction)) {
             return true;
         }
-
+        // None of the above - pass it on, since 'QuickCommandMode' translates several
+        // regular ASCII key-codes to actions, we need to do this here..
         HandleKeyPress(kpAction.keyPress);
-        // Leave search mode in case of enter
-        if (kpAction.action == kAction::kActionCommitLine) {
-            logger->Debug("Leaving search");
-            isSearchMode = false;
-            return true;
-        }
         return true;
     }
 
+    // We are in the command state - let's just pass it on...
+    return HandleActionInCommandState(kpAction);
+}
+bool QuickCommandController::HandleActionInCommandState(const KeyPressAction &kpAction) {
     switch(kpAction.action) {
         case kAction::kActionCycleActiveBufferNext :
             ActionHelper::SwitchToNextBuffer();
@@ -63,7 +56,7 @@ bool QuickCommandController::HandleAction(const KeyPressAction &kpAction) {
         case kAction::kActionStartSearch :
             Editor::Instance().GetActiveModel()->ResetSearchHitIndex();
             logger->Debug("Entering search, key: %c",kpAction.keyPress.key);
-            isSearchMode = true;
+            ChangeState(State::SearchState);
             cmdInputBaseController.DefaultEditLine(cursor, cmdInput, kpAction.keyPress, true);
             break;
         case kAction::kActionNextSearchResult :
@@ -87,15 +80,50 @@ bool QuickCommandController::HandleAction(const KeyPressAction &kpAction) {
     return false;
 }
 
+
+// Handling of translated actions while search is active..
+bool QuickCommandController::HandleActionInSearch(const KeyPressAction &kpAction) {
+    if (kpAction.action == kAction::kActionLeaveCommandMode) {
+        logger->Debug("LeaveCommandMode, in Search - leaving");
+
+        auto model = Editor::Instance().GetActiveModel();
+        model->ResetSearchHitIndex();
+        model->ClearSearchResults();
+        ChangeState(State::CommandState);
+        return true;
+    }
+    // Leave search mode in case of enter
+    if (kpAction.action == kAction::kActionCommitLine) {
+        std::string searchItem = std::string(cmdInput->Buffer().substr(1));
+        SearchInActiveEditorModel(searchItem);
+        logger->Debug("Leaving search");
+        ChangeState(State::CommandState);
+        return true;
+    }
+    return false;
+}
+
 void QuickCommandController::HandleKeyPress(const KeyPress &keyPress) {
     cmdInputBaseController.DefaultEditLine(cursor, cmdInput, keyPress, true);
-    if ((cmdInput->Buffer().length() > 4) && (isSearchMode)) {
-        // Use the 'substr' if we keep the 'search' character visible in the cmd-input...
-        std::string searchItem = std::string(cmdInput->Buffer().substr(1));
-        //std::string searchItem = std::string(cmdInput->Buffer());
+    if (state == State::SearchState) {
+        if (cmdInput->Buffer().length() == 0) {
+            ChangeState(State::CommandState);
+            auto model = Editor::Instance().GetActiveModel();
+            model->ClearSearchResults();
+        }
+        if (cmdInput->Buffer().length() > 4) {
+            // Use the 'substr' if we keep the 'search' character visible in the cmd-input...
+            std::string searchItem = std::string(cmdInput->Buffer().substr(1));
+            //std::string searchItem = std::string(cmdInput->Buffer());
 
-        // we are searching, so let's update this in realtime
-        SearchInActiveEditorModel(searchItem);
+            // we are searching, so let's update this in realtime
+            SearchInActiveEditorModel(searchItem);
+        } else {
+            auto model = Editor::Instance().GetActiveModel();
+            if (model->HaveSearchResults()) {
+                model->ClearSearchResults();
+            }
+        }
     }
 }
 
@@ -160,7 +188,7 @@ void QuickCommandController::SearchInActiveEditorModel(const std::string &search
     auto numHits = model->SearchFor(searchItem);
     char tmp[32];
     model->JumpToSearchHit(model->GetSearchHitIndex());
-    snprintf(tmp,32,"Search: %s, Found: %d", searchItem.c_str(), numHits);
+    snprintf(tmp,32,"Search: %s, Found: %zu", searchItem.c_str(), numHits);
     RuntimeConfig::Instance().OutputConsole()->WriteLine(tmp);
 }
 
@@ -173,4 +201,22 @@ void QuickCommandController::NextSearchResult() {
 void QuickCommandController::PrevSearchResult() {
     auto model = Editor::Instance().GetActiveModel();
     model->PrevSearchResult();
+}
+
+void QuickCommandController::ChangeState(QuickCommandController::State newState) {
+    auto config = Config::Instance()["quickmode"];
+    state = newState;
+    switch(state) {
+        case CommandState :
+            prompt = config.GetStr("prompt_default", "C:");
+            cursor.position.x = 0;
+            cmdInput->Clear();
+            break;
+        case SearchState :
+            prompt = config.GetStr("prompt_search", "S:");
+            break;
+        default:
+            prompt = config.GetStr("prompt_default", "C:");
+            break;
+    }
 }

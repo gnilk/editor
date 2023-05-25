@@ -68,6 +68,7 @@ static std::unordered_map<std::string, kAction> strToActionMap = {
         {"NextSearchResult",      kAction::kActionNextSearchResult},
         {"PrevSearchResult",      kAction::kActionPrevSearchResult},
         {"StartSearch",           kAction::kActionStartSearch},
+        {"LastSearch",           kAction::kActionLastSearch},
 };
 
 
@@ -132,7 +133,7 @@ kAction KeyMapping::ActionFromName(const std::string &strAction) {
 std::optional<KeyPressAction> KeyMapping::ActionFromKeyPress(const KeyPress &keyPress) {
     auto logger = gnilk::Logger::GetLogger("KeyMapping");
     for (auto &actionItem: actionItems) {
-        if (actionItem->MatchKeyPress(keyPress)) {
+            if (actionItem->MatchKeyPress(keyPress)) {
             logger->Debug("ActionItem found!!!");
             KeyPressAction kpAction;
             kpAction.action = actionItem->GetAction();

@@ -8,8 +8,8 @@
  * - QuickCommandMode
  *   ! Allow cursor to be positioned at the 'C' input
  *   ! Ability to navigate through search results (next/previous) - should reposition the cursor
- *   - Consider how to visualize various things coming from the quick-command mode
- *     - you are in search and want 'hits', perhaps change 'C' to 'S' in the prefix??
+ *   ! Consider how to visualize various things coming from the quick-command mode
+ *     ! you are in search and want 'hits', perhaps change 'C' to 'S' in the prefix??
  *   - How to search in none-editor mode (i.e ProjectViews, Terminal - history)
  *   - Movement (see Helix editor)
  * - Bookmarks

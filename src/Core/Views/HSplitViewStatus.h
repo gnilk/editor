@@ -54,8 +54,9 @@ namespace gedit {
             if (Editor::Instance().GetState() == Editor::EditState) {
                 statusLine += "E | ";
             } else {
-                statusLine += "C:";
+
                 auto &quickController = Editor::Instance().GetQuickCommandController();
+                statusLine += quickController.GetPrompt();
                 auto currentCmdLine = quickController.GetCmdLine();
                 statusLine += currentCmdLine;
                 statusLine += " | ";

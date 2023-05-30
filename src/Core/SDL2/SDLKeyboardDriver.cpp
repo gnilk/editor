@@ -37,31 +37,14 @@ KeyPress SDLKeyboardDriver::GetKeyPress() {
             SDL_Quit();
             exit(0);
         }  else if (event.type == SDL_EventType::SDL_KEYDOWN) {
-            auto kp =  TranslateSDLEvent(event.key);
-
-            logger->Debug("KeyDown event: %d (0x%.x) - sym: %x (%d), scancode: %x (%d)", event.type, event.type,
-                          event.key.keysym.sym, event.key.keysym.sym,
-                          event.key.keysym.scancode, event.key.keysym.scancode);
-
-            if (kp.isSpecialKey) {
-                auto keyName = Keyboard::KeyCodeName(static_cast<Keyboard::kKeyCode>(kp.specialKey));
-                logger->Debug("  special kp, modifiers=%.2x, specialKey=%.2x (%s)", kp.modifiers, kp.specialKey, keyName.c_str());
-                return kp;
-            } else if (kp.modifiers != 0) {
-                static int shiftModifiers = Keyboard::kModifierKeys::kMod_RightShift | Keyboard::kModifierKeys::kMod_LeftShift;
-                kp.key = TranslateScanCode(event.key.keysym.scancode); //  kp.hwEvent.scanCode);
-                if ((kp.modifiers & shiftModifiers) && (kp.key != 0)) {
-                    logger->Debug("Shift+ASCII  (%c) - skipping, this is handled by EVENT_TEXT_INPUT", kp.key);
-                    continue;
-                }
-                if (kp.key != 0) {
-                    kp.isKeyValid = true;
-                }
-                logger->Debug("  kp, modifiers=%.2x (%d), scancode=%.2x, key=%.2x (%c), ", kp.modifiers, kp.modifiers, kp.hwEvent.scanCode, kp.key, kp.key);
-                return kp;
+            auto kp = HandleKeyPressEvent(event);
+            if (kp.has_value()) {
+                CheckRemoveTextInputEventForKeyPress(kp.value());
+                return *kp;
             }
             continue;
         } else if (event.type == SDL_EventType::SDL_TEXTINPUT) {
+            // TO-DO: On Linux we get an SDL_TEXTINPUT for the keydown - causing us to act twice for certain key combos..
             KeyPress kp;
             kp.isSpecialKey = false;
             kp.isKeyValid = true;
@@ -79,6 +62,73 @@ KeyPress SDLKeyboardDriver::GetKeyPress() {
             // logger->Debug("Unhandled event: %d (0x%.x)", event.type, event.type);
         }
     }
+    return {};
+}
+
+// Check if this is needed on the mac - currently enabled..
+void SDLKeyboardDriver::CheckRemoveTextInputEventForKeyPress(const KeyPress &kp) {
+    SDL_Event peekEvents[16];   // large enough? - normally just one event - so probably...
+    auto logger = gnilk::Logger::GetLogger("SDLKeyboardDriver");
+
+    SDL_PumpEvents();
+    int nEvents = SDL_PeepEvents(peekEvents, 16, SDL_PEEKEVENT, SDL_FIRSTEVENT, SDL_LASTEVENT);
+    if (nEvents < 0) {
+        logger->Error("SDL_PeepEvents, err=%s", SDL_GetError());
+        return;
+//        fprintf(stderr, "SDL_PeepEvents, err=%s\n",SDL_GetError());
+//        exit(1);
+    }
+
+//    logger->Debug("Checking %d events", nEvents);
+
+    for(int i=0;i<nEvents;i++) {
+        // Check and remove the next text-input even in the queue matching our key...
+        if (peekEvents[i].type == SDL_EventType::SDL_TEXTINPUT) {
+            if (peekEvents[i].text.text[0] == kp.key) {
+                SDL_Event dummy;
+                int nGet = SDL_PeepEvents(&dummy, 1, SDL_GETEVENT, SDL_EventType::SDL_TEXTINPUT, SDL_EventType::SDL_TEXTINPUT);
+                if (nGet < 0) {
+                    logger->Error("SDL_PeepEvents, err=%s", SDL_GetError());
+                    return;
+
+//                    fprintf(stderr, "SDL_PeepEvents, err=%s\n",SDL_GetError());
+//                    exit(1);
+                }
+                // logger->Debug("TextInput Event for KeyPress found - removed!");
+                return;
+            }
+        }
+    }
+}
+
+
+std::optional<KeyPress> SDLKeyboardDriver::HandleKeyPressEvent(const SDL_Event &event) {
+    auto logger = gnilk::Logger::GetLogger("SDLKeyboardDriver");
+
+    auto kp =  TranslateSDLEvent(event.key);
+
+    logger->Debug("KeyDown event: %d (0x%.x) - sym: %x (%d), scancode: %x (%d)", event.type, event.type,
+                  event.key.keysym.sym, event.key.keysym.sym,
+                  event.key.keysym.scancode, event.key.keysym.scancode);
+
+    if (kp.isSpecialKey) {
+        auto keyName = Keyboard::KeyCodeName(static_cast<Keyboard::kKeyCode>(kp.specialKey));
+        logger->Debug("  special kp, modifiers=%.2x, specialKey=%.2x (%s)", kp.modifiers, kp.specialKey, keyName.c_str());
+        return kp;
+    } else if (kp.modifiers != 0) {
+        static int shiftModifiers = Keyboard::kModifierKeys::kMod_RightShift | Keyboard::kModifierKeys::kMod_LeftShift;
+        kp.key = TranslateScanCode(event.key.keysym.scancode); //  kp.hwEvent.scanCode);
+        if ((kp.modifiers & shiftModifiers) && (kp.key != 0)) {
+            logger->Debug("Shift+ASCII  (%c) - skipping, this is handled by EVENT_TEXT_INPUT", kp.key);
+            return {};
+        }
+        if (kp.key != 0) {
+            kp.isKeyValid = true;
+        }
+        logger->Debug("  kp, modifiers=%.2x (%d), scancode=%.2x, key=%.2x (%c), ", kp.modifiers, kp.modifiers, kp.hwEvent.scanCode, kp.key, kp.key);
+        return kp;
+    }
+
     return {};
 }
 

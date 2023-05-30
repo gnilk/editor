@@ -137,11 +137,17 @@ bool TextBuffer::Load() {
 
 void TextBuffer::SetPathName(const std::filesystem::path &newPathName) {
     pathName = newPathName;
+    auto logger = gnilk::Logger::GetLogger("TextBuffer");
+    logger->Debug("SetPathName: %s", pathName.c_str());
+    // TEMP TEMP TEMP
+    bufferState = kBuffer_Changed;
     UpdateLanguageParserFromFilename();
 }
 
 void TextBuffer::Rename(const std::string &newFileName) {
     pathName = pathName.stem().append(newFileName);
+    auto logger = gnilk::Logger::GetLogger("TextBuffer");
+    logger->Debug("New name: %s", pathName.c_str());
     UpdateLanguageParserFromFilename();
 }
 

@@ -52,6 +52,8 @@ void Runloop::DefaultLoop() {
             rootView.Draw();
             screen->Update();
         }
+        // Yield the main-thread..
+        std::this_thread::yield();
     }
 }
 
@@ -102,6 +104,8 @@ void Runloop::ShowModal(ViewBase *modal) {
             modal->Draw();
             screen->Update();
         }
+        // Yield the main-thread..
+        std::this_thread::yield();
     }
 }
 

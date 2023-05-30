@@ -3,6 +3,8 @@
 //
 /*
  * TO-DO List
+ * - Add view-visibility to config (should be possible to remove project-viewer)
+ * - Fix save!
  * - Code cleanup
  *   - Switch to References everywhere, either C++ ref or shared_ptr type of refs (MyClass::Ref), there are still too many places using raw object pointers
  * - QuickCommandMode
@@ -10,6 +12,7 @@
  *   ! Ability to navigate through search results (next/previous) - should reposition the cursor
  *   ! Consider how to visualize various things coming from the quick-command mode
  *     ! you are in search and want 'hits', perhaps change 'C' to 'S' in the prefix??
+ *   - Require prefix '.' before entering commands (need states) as commands require bypassing short-cuts..
  *   - How to search in none-editor mode (i.e ProjectViews, Terminal - history)
  *   - Movement (see Helix editor)
  * - Bookmarks

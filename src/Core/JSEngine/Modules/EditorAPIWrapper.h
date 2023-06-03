@@ -3,6 +3,7 @@
 
 #include "duktape.h"
 #include "TextBufferAPIWrapper.h"
+#include "ViewAPIWrapper.h"
 
 namespace gedit {
     class EditorAPIWrapper {
@@ -17,6 +18,7 @@ namespace gedit {
         std::vector<TextBufferAPIWrapper::Ref> GetBuffers();
 
         std::vector<std::string> GetRootViewNames();
+        ViewAPIWrapper::Ref GetViewByName(const char *name);
 
         static void RegisterModule(duk_context *ctx);
         // For testing purposes

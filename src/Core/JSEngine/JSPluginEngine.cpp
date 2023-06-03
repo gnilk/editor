@@ -13,6 +13,7 @@
 #include "Modules/TextBufferAPIWrapper.h"
 #include "Modules/EditorAPIWrapper.h"
 #include "Modules/ConsoleAPIWrapper.h"
+#include "Modules/ViewAPIWrapper.h"
 #include "Core/StrUtil.h"
 #include "Core/RuntimeConfig.h"
 
@@ -162,6 +163,7 @@ void JSPluginEngine::RegisterBuiltIns() {
     EditorAPIWrapper::RegisterModule(ctx);
     TextBufferAPIWrapper::RegisterModule(ctx);
     ConsoleAPIWrapper::RegisterModule(ctx);
+    ViewAPIWrapper::RegisterModule(ctx);
 }
 
 

@@ -27,6 +27,11 @@ commands:
     description: List available views
     script: Scripts/listviews.js
   -
+    name: isviewvisible
+    short: ivv
+    description: Tells if view is visible or not
+    script: Scripts/isviewvisible.js
+  -
     name: quit
     short: q
     description: Quit/Exit Editor

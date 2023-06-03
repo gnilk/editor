@@ -16,7 +16,7 @@ namespace gedit {
     private:
         struct TopViewInstance {
             std::string name;
-            ViewBase *view;
+            ViewBase::Ref view;
         };
     public:
         RootView() {
@@ -40,7 +40,12 @@ namespace gedit {
         }
 
         void AddTopView(ViewBase *view, const std::string &name) {
-            TopViewInstance topView = {name, view};
+
+            // Let's do it like this for now...
+            auto ref = std::shared_ptr<ViewBase>(view, [this](ViewBase *ptr){
+            });
+
+            TopViewInstance topView = {name, ref};
             topViews.push_back(topView);
             if (idxCurrentTopView == -1) {
                 idxCurrentTopView = 0;
@@ -58,7 +63,16 @@ namespace gedit {
             return viewNames;
         }
 
-        ViewBase *TopView() {
+        ViewBase::Ref GetTopViewByName(const std::string &name) {
+            for(auto &t : topViews) {
+                if (t.name == name) {
+                    return t.view;
+                }
+            }
+            return nullptr;
+        }
+
+        ViewBase::Ref TopView() {
             if (idxCurrentTopView == -1) {
                 return nullptr;
             }

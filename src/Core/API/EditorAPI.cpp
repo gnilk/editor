@@ -29,6 +29,17 @@ const std::vector<std::string> EditorAPI::GetTopViews() {
     return rootView->GetTopViews();
 }
 
+ViewAPI::Ref EditorAPI::GetViewByName(const char *name) {
+    auto &rvBase = RuntimeConfig::Instance().GetRootView();
+    RootView *rootView = static_cast<RootView *>(&rvBase);
+    std::string strName(name);
+    auto viewRef = rootView->GetTopViewByName(strName);
+    if (viewRef == nullptr) {
+        return nullptr;
+    }
+    return std::make_shared<ViewAPI>(viewRef);
+}
+
 
 
 TextBufferAPI::Ref EditorAPI::NewBuffer(const char *name) {

@@ -12,6 +12,7 @@
 #include "Core/Runloop.h"
 #include "Core/Plugins/PluginCommand.h"
 #include "TextBufferAPI.h"
+#include "ViewAPI.h"
 
 namespace gedit {
     class EditorAPI {
@@ -29,6 +30,8 @@ namespace gedit {
         TextBufferAPI::Ref LoadBuffer(const char *filename);
 
         const std::vector<std::string> GetTopViews();
+        ViewAPI::Ref GetViewByName(const char *name);
+
 
         std::vector<TextBufferAPI::Ref> GetBuffers();
 

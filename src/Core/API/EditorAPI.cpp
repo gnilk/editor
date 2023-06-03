@@ -6,6 +6,7 @@
 #include "Core/RuntimeConfig.h"
 #include "EditorAPI.h"
 #include "Core/RuntimeConfig.h"
+#include "Core/Views/RootView.h"
 
 using namespace gedit;
 TextBufferAPI::Ref EditorAPI::GetActiveTextBuffer() {
@@ -20,6 +21,12 @@ std::vector<std::string> EditorAPI::GetRegisteredLanguages() {
 
 std::vector<PluginCommand::Ref> EditorAPI::GetRegisteredCommands() {
     return RuntimeConfig::Instance().GetPluginCommands();
+}
+
+const std::vector<std::string> EditorAPI::GetTopViews() {
+    auto &rvBase = RuntimeConfig::Instance().GetRootView();
+    RootView *rootView = static_cast<RootView *>(&rvBase);
+    return rootView->GetTopViews();
 }
 
 

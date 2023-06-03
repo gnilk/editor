@@ -16,6 +16,8 @@ namespace gedit {
         void SetActiveBuffer(TextBufferAPI::Ref activeBuffer);
         std::vector<TextBufferAPIWrapper::Ref> GetBuffers();
 
+        std::vector<std::string> GetRootViewNames();
+
         static void RegisterModule(duk_context *ctx);
         // For testing purposes
         std::vector<std::string> GetTestArray();

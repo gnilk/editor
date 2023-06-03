@@ -22,6 +22,11 @@ commands:
     description: List supported languages
     script: Scripts/listlanguages.js
   -
+    name: listviews
+    short: lv
+    description: List available views
+    script: Scripts/listviews.js
+  -
     name: quit
     short: q
     description: Quit/Exit Editor

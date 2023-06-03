@@ -347,9 +347,9 @@ int main(int argc, const char **argv) {
 
     hSplitViewStatus.SetUpper(&hStackViewUpper);
 
-    rootView.AddTopView(&editorView);
-    rootView.AddTopView(&cmdView);
-    rootView.AddTopView(&workspaceExplorer);
+    rootView.AddTopView(&editorView, "EditorView");
+    rootView.AddTopView(&cmdView, "CommandView");
+    rootView.AddTopView(&workspaceExplorer, "ProjectView");
 
 //    WorkspaceView workspaceView;
 //    ModalView dummy(dimensions, &workspaceView);

@@ -13,6 +13,11 @@
 namespace gedit {
     // The root view should be the first view and cover the full screen...
     class RootView : public ViewBase {
+    private:
+        struct TopViewInstance {
+            std::string name;
+            ViewBase *view;
+        };
     public:
         RootView() {
         }
@@ -34,8 +39,9 @@ namespace gedit {
             logger->Debug("==== End Draw Cycle ====");
         }
 
-        void AddTopView(ViewBase *view) {
-            topViews.push_back(view);
+        void AddTopView(ViewBase *view, const std::string &name) {
+            TopViewInstance topView = {name, view};
+            topViews.push_back(topView);
             if (idxCurrentTopView == -1) {
                 idxCurrentTopView = 0;
                 if (IsInitialized()) {
@@ -44,11 +50,19 @@ namespace gedit {
             }
         }
 
+        const std::vector<std::string> GetTopViews() {
+            std::vector<std::string> viewNames;
+            for(auto &t : topViews) {
+                viewNames.push_back(t.name);
+            }
+            return viewNames;
+        }
+
         ViewBase *TopView() {
             if (idxCurrentTopView == -1) {
                 return nullptr;
             }
-            return topViews[idxCurrentTopView];
+            return topViews[idxCurrentTopView].view;
         }
 
         bool OnAction(const KeyPressAction &kpAction) override {
@@ -130,7 +144,7 @@ namespace gedit {
 
     protected:
         int idxCurrentTopView = -1;
-        std::vector<ViewBase *> topViews;
+        std::vector<TopViewInstance> topViews;
     };
 }
 

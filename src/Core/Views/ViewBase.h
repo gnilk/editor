@@ -5,6 +5,9 @@
 #ifndef NCWIN_VIEWBASE_H
 #define NCWIN_VIEWBASE_H
 
+#include <functional>
+#include <memory>
+
 #include "Core/Rect.h"
 #include "Core/WindowBase.h"
 #include "Core/KeyPress.h"
@@ -18,6 +21,7 @@ namespace gedit {
     // Should never be used on it's own...
     class ViewBase : public KeypressAndActionHandler {
     public:
+        using Ref = std::shared_ptr<ViewBase>;
         using MessageCallback = std::function<void(void)>;
     public:
         ViewBase() = default;

@@ -144,10 +144,10 @@ namespace gedit {
         bool IsInvalid() {
             return isInvalid;
         }
-        bool IsVisible() {
+        virtual bool IsVisible() {
             return isVisible;
         }
-        virtual void SetVisible(bool newIsVisible) final {
+        virtual void SetVisible(bool newIsVisible) {
             isVisible = newIsVisible;
         }
         virtual void SetActive(bool newIsActive) final {

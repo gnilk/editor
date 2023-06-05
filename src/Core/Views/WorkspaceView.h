@@ -29,6 +29,15 @@ namespace gedit {
             }
         }
 
+        void SetVisible(bool newIsVisible) override {
+            parentView->SetVisible(newIsVisible);
+        }
+        bool IsVisible() override {
+            return parentView->IsVisible();
+        }
+
+
+
         bool OnAction(const KeyPressAction &kpAction) override;
     protected:
         void PopulateTree();

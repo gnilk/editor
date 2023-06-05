@@ -73,7 +73,7 @@ namespace gedit {
             int fixedWidth = 0;
             int nFixed = 0;
             for(auto &view : viewStack) {
-                if (view.layout == kFixed) {
+                if (view.view->IsVisible() && (view.layout == kFixed)) {
                     fixedWidth += view.view->GetViewRect().Width();
                     nFixed++;
                 }
@@ -89,6 +89,7 @@ namespace gedit {
             int yPos = GetContentRect().TopLeft().y;
 
             for(auto &view : viewStack) {
+                if (!view.view->IsVisible()) continue;
                 auto viewRect = view.view->GetViewRect();
                 viewRect.MoveTo(xPos,yPos);
                 // Set the flex-width, otherwise keep the width (assuming the user has set its width properly)

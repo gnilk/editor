@@ -27,6 +27,16 @@ commands:
     description: List available views
     script: Scripts/listviews.js
   -
+    name: hideview
+    short: hv
+    description: Hide a view
+    script: Scripts/hideview.js
+  -
+    name: showview
+    short: sv
+    description: Show a view
+    script: Scripts/showview.js
+  -
     name: isviewvisible
     short: ivv
     description: Tells if view is visible or not

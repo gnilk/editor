@@ -362,6 +362,8 @@ int main(int argc, const char **argv) {
     rootView.Initialize();
     rootView.InvalidateAll();
 
+    Editor::Instance().RunPostInitalizationScript();
+
     // No clue why I have to do this twice - but otherwise it doesn't work...
     screen->Clear();
     rootView.Draw();

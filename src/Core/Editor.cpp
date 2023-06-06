@@ -17,6 +17,7 @@
 #include "Core/Language/LanguageSupport/CPPLanguage.h"
 #include "Core/Language/LanguageSupport/JSONLanguage.h"
 #include "Core/Language/LanguageSupport/DefaultLanguage.h"
+#include <fstream>
 
 // NCurses backend
 #include "Core/NCurses/NCursesScreen.h"
@@ -32,6 +33,9 @@
 #include "Core/SDL3/SDLScreen.h"
 #include "Core/SDL3/SDLKeyboardDriver.h"
 #endif
+
+#include <sys/stat.h>
+#include <wordexp.h>
 
 // API stuff
 #include "Core/API/EditorAPI.h"
@@ -120,6 +124,71 @@ void Editor::Close() {
     }
     openModels.clear();
 }
+
+void Editor::RunPostInitalizationScript() {
+
+    auto scriptFiles = Config::Instance()["main"].GetSequenceOfStr("bootstrap_scripts");
+    for(auto &scriptFile : scriptFiles) {
+        wordexp_t exp_result;
+        wordexp(scriptFile.c_str(), &exp_result, 0);
+        std::string strScript(exp_result.we_wordv[0]);
+        wordfree(&exp_result);
+
+        logger->Debug("Trying: %s", strScript.c_str());
+        // Verify if shell exists...
+        struct stat scriptStat = {};
+        if (stat(strScript.c_str(),&scriptStat)) {
+            logger->Error("Can't find bootstrap script '%s' - please verify path\n", strScript.c_str());
+            continue;
+        }
+        logger->Debug("Ok, loading and executing '%s'", strScript.c_str());
+        ExecutePostScript(strScript);
+    }
+}
+void Editor::ExecutePostScript(const std::string &scriptFile) {
+    std::ifstream f(scriptFile);
+    auto comment = Config::Instance()["main"].GetStr("bootstrap_script_comment", "//");
+
+    while(!f.eof()) {
+        char buffer[128];
+        f.getline(buffer, 128);
+        std::string strcmd(buffer);
+        if (!strcmd.empty()) {
+            if (!strutil::startsWith(strcmd, comment)) {
+                TryExecuteInternalCmd(strcmd);
+            }
+        }
+    }
+}
+
+// FIXME: Put this in own file - third time I have duplicate this
+bool Editor::TryExecuteInternalCmd(std::string &cmdline) {
+    auto prefix = Config::Instance()["commandmode"].GetStr("cmdlet_prefix");
+    if (!strutil::startsWith(cmdline, prefix)) {
+        return false;
+    }
+    std::string cmdLineNoPrefix = cmdline.substr(prefix.length());
+    std::vector<std::string> commandList;
+    // We should have a 'smarter' that keeps strings and so forth
+    strutil::split(commandList, cmdLineNoPrefix.c_str(), ' ');
+
+    // There is more to come...
+    if (!RuntimeConfig::Instance().HasPluginCommand(commandList[0])) {
+        logger->Error("Plugin '%s' not found", commandList[0].c_str());
+        return false;
+    }
+
+    auto cmd = RuntimeConfig::Instance().GetPluginCommand(commandList[0]);
+    auto argStart = commandList.begin()+1;
+    auto argEnd = commandList.end();
+    auto argList = std::vector<std::string>(argStart, argEnd);
+    cmd->Execute(argList);
+
+    return true;
+}
+
+
+
 
 void Editor::HandleGlobalAction(const KeyPressAction &kpAction) {
     logger->Debug("Handling global actions!!");

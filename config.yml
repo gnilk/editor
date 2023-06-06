@@ -5,6 +5,10 @@ main:
   keymap: default
   threaded_syntaxparser: no
   plugin_directory: Plugins
+  bootstrap_script_comment: "//"
+  bootstrap_scripts:
+    - ~/.config/gedit/bootstrap.script
+    - ~/.gedit
 
 macos:
   allow_kbd_hook: yes

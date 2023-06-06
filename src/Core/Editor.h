@@ -39,6 +39,8 @@ namespace gedit {
         bool OpenScreen();
         void Close();
 
+        void RunPostInitalizationScript();
+
         void HandleGlobalAction(const KeyPressAction &kpAction);
 
         bool LoadConfig(const char *configFile);
@@ -161,6 +163,8 @@ namespace gedit {
         void SetupNCurses();
         void SetupSDL();
 
+        void ExecutePostScript(const std::string &scriptFile);
+        bool TryExecuteInternalCmd(std::string &cmdline);
 
         EditorModel::Ref LoadEditorModelFromFile(const char *filename);
 

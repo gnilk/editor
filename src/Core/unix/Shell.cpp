@@ -105,6 +105,7 @@ bool Shell::StartShellProc() {
 }
 
 void Shell::SendInitScript() {
+    // FIXME: move this to CommandController - which allows us to execute internal plugins as well as shell commands...
     auto initScript = Config::Instance()["terminal"].GetSequenceOfStr("bootstrap");
     for(auto &s : initScript) {
         std::string strCmd(s);

@@ -3,7 +3,7 @@
 //
 /*
  * TO-DO List
- * - Add view-visibility to config (should be possible to remove project-viewer)
+ * - Merge shell and 'Editor' bootstrap script capabilities and move to CommandController
  * - Fix save!
  * - Code cleanup
  *   - Switch to References everywhere, either C++ ref or shared_ptr type of refs (MyClass::Ref), there are still too many places using raw object pointers
@@ -12,7 +12,8 @@
  *   ! Ability to navigate through search results (next/previous) - should reposition the cursor
  *   ! Consider how to visualize various things coming from the quick-command mode
  *     ! you are in search and want 'hits', perhaps change 'C' to 'S' in the prefix??
- *   - Require prefix '.' before entering commands (need states) as commands require bypassing short-cuts..
+ *   ! Require prefix '.' before entering commands (need states) as commands require bypassing short-cuts..
+ *   - When '.' is entered we should disable ASCII commands (like we do for search) otherwise certain key-combos are not valid!
  *   - How to search in none-editor mode (i.e ProjectViews, Terminal - history)
  *   - Movement (see Helix editor)
  * - Bookmarks
@@ -41,6 +42,7 @@
  * - Remove the buffer manager class - not needed
  *
  * Done:
+ * ! Add view-visibility to config (should be possible to remove project-viewer)
  * ! Might need to rewrite NCurses like SDL - not using the underlying 'windowing' mechanism but rather reposition everything myself
  * ! SDL2 on par with SDL3
  * ! [deprecated] BufferManager should store 'fullPathName' and 'name'

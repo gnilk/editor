@@ -157,10 +157,11 @@ temptemp: {
 terminal:
   shell: /bin/zsh
   init: -is
+  # This is a set of shell commands run after starting the shell..
+  # Consider merging with the generic main bootstrap script..
   bootstrap:
     - SET XYZ=4
     - export path=%path%
-    - ls -laF
 
 theme:
   colorfile: "colors.json"

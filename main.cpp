@@ -14,7 +14,8 @@
  *     ! you are in search and want 'hits', perhaps change 'C' to 'S' in the prefix??
  *   ! Require prefix '.' before entering commands (need states) as commands require bypassing short-cuts..
  *   - When '.' is entered we should disable ASCII commands (like we do for search) otherwise certain key-combos are not valid!
- *   - How to search in none-editor mode (i.e ProjectViews, Terminal - history)
+ *     Illustrate: press './' and you will enter search... this should not be the case..
+ *   - How to search in node-editor mode (i.e ProjectViews, Terminal - history)
  *   - Movement (see Helix editor)
  * - Bookmarks
  *   - visual (GutterView support)
@@ -42,6 +43,8 @@
  * - Remove the buffer manager class - not needed
  *
  * Done:
+ * ! Switching views should leave quickcommand mode if in it..
+ * ! Workspace, need to separate name from which path (default should be '.')
  * ! Add view-visibility to config (should be possible to remove project-viewer)
  * ! Might need to rewrite NCurses like SDL - not using the underlying 'windowing' mechanism but rather reposition everything myself
  * ! SDL2 on par with SDL3

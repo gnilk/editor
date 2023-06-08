@@ -135,18 +135,21 @@ namespace gedit {
         void OnCycleActiveView() {
             auto currentView = TopView();
             idxCurrentTopView = (idxCurrentTopView+1) % topViews.size();
+            LeaveQuickCommand();
             TopView()->SetActive(true);
             currentView->SetActive(false);
         }
         void OnCycleActiveViewNext() {
             auto currentView = TopView();
             idxCurrentTopView = (idxCurrentTopView+1) % topViews.size();
+            LeaveQuickCommand();
             TopView()->SetActive(true);
             currentView->SetActive(false);
         }
         void OnCycleActiveViewPrev() {
             auto currentView = TopView();
             idxCurrentTopView = (topViews.size() + (idxCurrentTopView-1)) % topViews.size();
+            LeaveQuickCommand();
             TopView()->SetActive(true);
             currentView->SetActive(false);
         }
@@ -156,6 +159,13 @@ namespace gedit {
             logger->Debug("Should enter command view!");
         }
 
+    protected:
+        void LeaveQuickCommand() {
+            auto bAutoLeave = Config::Instance()["quickmode"].GetBool("leave_when_switching_view", true);
+            if ((Editor::Instance().GetState() == Editor::State::QuickCommandState) && bAutoLeave) {
+                Editor::Instance().LeaveCommandMode();
+            }
+        }
     protected:
         int idxCurrentTopView = -1;
         std::vector<TopViewInstance> topViews;

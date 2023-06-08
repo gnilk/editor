@@ -43,14 +43,14 @@ commandmode:
   prompt: "ed>"
   cmdlet_prefix: "."
 
-quickmode:
-  prompt_default: "C:"
-  prompt_search: "S:"
 
 quickmode:
   # this will leave the quick-command mode automatically when a successfull command has been executed
   # while this can be nice, it's cumbersome if used for navigation...
   leave_automatically: false
+  leave_when_switching_view: true
+  prompt_default: "C:"
+  prompt_search: "S:"
 
 quickmode_keymap: {
   actions: {

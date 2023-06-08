@@ -62,7 +62,7 @@ bool Editor::Initialize(int argc, const char **argv) {
 
     ConfigureKeyMappings();
 
-    // Open currently working folder...
+    // Create workspace
     workspace = Workspace::Create();
 
 
@@ -86,6 +86,7 @@ bool Editor::Initialize(int argc, const char **argv) {
 
     ConfigureGlobalAPIObjects();
 
+    // FIXME: Remove this..
     workspace->OpenFolder("Plugins");
 
 

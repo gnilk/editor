@@ -35,7 +35,9 @@ const Workspace::Node::Ref Workspace::GetDefaultWorkspace() {
     if (rootNodes.find("default") == rootNodes.end()) {
         logger->Debug("Default workspace does not exists, creating...");
         auto nameDefault = Config::Instance()["main"].GetStr("default_workspace_name", "default");
-        rootNodes["default"] = Workspace::Node::Create(nameDefault);
+        auto workspace = Workspace::Node::Create(".");
+        workspace->SetDisplayName(nameDefault);
+        rootNodes["default"] = workspace;
     }
 
     return rootNodes["default"];

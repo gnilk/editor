@@ -51,7 +51,7 @@ void WorkspaceView::PopulateTree() {
             if (node->GetModel() != nullptr) {
                 return std::string(node->GetModel()->GetTextBuffer()->GetName());
             }
-            return node->GetName();
+            return node->GetDisplayName();
         });
     } else {
         treeView->Clear();

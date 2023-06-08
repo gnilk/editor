@@ -29,6 +29,7 @@ namespace gedit {
         // Node define the structure of a workspace
     public:
 
+
         // This is the actual workspace...
     class Node : public std::enable_shared_from_this<Node> {
         public:
@@ -37,7 +38,7 @@ namespace gedit {
             // A node has a name and generally points to a directory - but we can create nodes a bit how we want..
             // Thus we can mimic VStudio with "Source", "Headers", etc.. which are virtual nodes but appear as
             // directories...
-            explicit Node(const std::string &nodeName) : name(nodeName) {
+            explicit Node(const std::string &nodeName) : name(nodeName), displayName(nodeName) {
 
             }
             virtual ~Node() = default;
@@ -49,8 +50,12 @@ namespace gedit {
                 node->model = editorModel;
                 return node;
             }
-            const std::string &GetName() {
-                return name;
+
+            const std::string &GetDisplayName() {
+                return displayName;
+            }
+            void SetDisplayName(const std::string &newDisplayName) {
+                displayName = newDisplayName;
             }
             const Node::Ref GetParent() {
                 return parent;
@@ -123,6 +128,7 @@ namespace gedit {
 
         private:
             std::string name = "";
+            std::string displayName = "";
             Node::Ref parent = nullptr;
             EditorModel::Ref model = nullptr;   // This is only set for leaf nodes..
 

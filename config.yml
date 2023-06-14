@@ -49,8 +49,9 @@ quickmode:
   # while this can be nice, it's cumbersome if used for navigation...
   leave_automatically: false
   leave_when_switching_view: true
-  prompt_default: "C:"
+  prompt_default: "Q:"
   prompt_search: "S:"
+  prompt_cmdlet: "C:"
 
 quickmode_keymap: {
   actions: {

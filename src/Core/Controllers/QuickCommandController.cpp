@@ -18,7 +18,7 @@ void QuickCommandController::Enter() {
     logger->Debug("Enter...");
     cmdInput = Line::Create("");
     cursor = {};
-    ChangeState(State::CommandState);
+    ChangeState(State::QuickCmdState);
     Runloop::SetKeypressAndActionHook(this);
 }
 
@@ -30,6 +30,9 @@ void QuickCommandController::Leave() {
 }
 
 bool QuickCommandController::HandleAction(const KeyPressAction &kpAction) {
+    if (state == State::QuickCmdState) {
+        return HandleActionInQuickCmdState(kpAction);
+    }
 
     if (state == State::SearchState) {
         // Leave via 'esc' - i.e. we don't save search results
@@ -42,10 +45,16 @@ bool QuickCommandController::HandleAction(const KeyPressAction &kpAction) {
         return true;
     }
 
-    // We are in the command state - let's just pass it on...
-    return HandleActionInCommandState(kpAction);
+    if (state == State::CmdLetState) {
+        if (HandleActionInCmdLetState(kpAction)) {
+            return true;
+        }
+        HandleKeyPress(kpAction.keyPress);
+        return true;
+    }
+    return false;
 }
-bool QuickCommandController::HandleActionInCommandState(const KeyPressAction &kpAction) {
+bool QuickCommandController::HandleActionInQuickCmdState(const KeyPressAction &kpAction) {
     switch(kpAction.action) {
         case kAction::kActionCycleActiveBufferNext :
             ActionHelper::SwitchToNextBuffer();
@@ -77,9 +86,6 @@ bool QuickCommandController::HandleActionInCommandState(const KeyPressAction &kp
             PrevSearchResult();
             break;
         case kAction::kActionCommitLine :
-            if (ParseAndExecute()) {
-                DoLeaveOnSuccess();
-            }
             return true;
         default:  // By default we forward the action to the active view, this allows navigation and other things
             if (!RuntimeConfig::Instance().GetRootView().HandleAction(kpAction)) {
@@ -100,7 +106,7 @@ bool QuickCommandController::HandleActionInSearch(const KeyPressAction &kpAction
         auto model = Editor::Instance().GetActiveModel();
         model->ResetSearchHitIndex();
         model->ClearSearchResults();
-        ChangeState(State::CommandState);
+        ChangeState(State::QuickCmdState);
         return true;
     }
     // Leave search mode in case of enter
@@ -112,17 +118,40 @@ bool QuickCommandController::HandleActionInSearch(const KeyPressAction &kpAction
         searchHistory.push_back(searchItem);
 
         logger->Debug("Leaving search");
-        ChangeState(State::CommandState);
+        ChangeState(State::QuickCmdState);
         return true;
     }
     return false;
 }
 
+bool QuickCommandController::HandleActionInCmdLetState(const KeyPressAction &kpAction) {
+    if (kpAction.action == kAction::kActionCommitLine) {
+        logger->Debug("Should execute cmdlet!");
+        if (ParseAndExecute()) {
+            DoLeaveOnSuccess();
+        }
+        return true;
+    }
+    return false;
+}
+
+
 void QuickCommandController::HandleKeyPress(const KeyPress &keyPress) {
     cmdInputBaseController.DefaultEditLine(cursor, cmdInput, keyPress, true);
+
+    if (state == State::QuickCmdState) {
+        auto cmdline = std::string(cmdInput->Buffer());
+        auto prefix = Config::Instance()["commandmode"].GetStr("cmdlet_prefix");
+        if (strutil::startsWith(cmdline, prefix)) {
+            // we have a cmdlet prefix, we should disable the Action stuff..
+            logger->Debug("CmdLet Prefix detected!");
+            ChangeState(State::CmdLetState);
+        }
+    }
+
     if (state == State::SearchState) {
         if (cmdInput->Buffer().length() == 0) {
-            ChangeState(State::CommandState);
+            ChangeState(State::QuickCmdState);
             auto model = Editor::Instance().GetActiveModel();
             model->ClearSearchResults();
         }
@@ -138,6 +167,13 @@ void QuickCommandController::HandleKeyPress(const KeyPress &keyPress) {
             if (model->HaveSearchResults()) {
                 model->ClearSearchResults();
             }
+        }
+    }
+
+
+    if (state == State::CmdLetState) {
+        if (cmdInput->Buffer().length() == 0) {
+            ChangeState(State::QuickCmdState);
         }
     }
 }
@@ -191,6 +227,8 @@ void QuickCommandController::DoLeaveOnSuccess() {
     if (autoLeave) {
         Editor::Instance().LeaveCommandMode();
         return;
+    } else {
+        ChangeState(State::QuickCmdState);
     }
 }
 
@@ -222,13 +260,16 @@ void QuickCommandController::ChangeState(QuickCommandController::State newState)
     auto config = Config::Instance()["quickmode"];
     state = newState;
     switch(state) {
-        case CommandState :
-            prompt = config.GetStr("prompt_default", "C:");
+        case QuickCmdState :
+            prompt = config.GetStr("prompt_default", "Q:");
             cursor.position.x = 0;
             cmdInput->Clear();
             break;
         case SearchState :
             prompt = config.GetStr("prompt_search", "S:");
+            break;
+        case CmdLetState :
+            prompt = config.GetStr("prompt_cmdlet", "C:");
             break;
         default:
             prompt = config.GetStr("prompt_default", "C:");

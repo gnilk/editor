@@ -13,7 +13,7 @@
  *   ! Consider how to visualize various things coming from the quick-command mode
  *     ! you are in search and want 'hits', perhaps change 'C' to 'S' in the prefix??
  *   ! Require prefix '.' before entering commands (need states) as commands require bypassing short-cuts..
- *   - When '.' is entered we should disable ASCII commands (like we do for search) otherwise certain key-combos are not valid!
+ *   ! When '.' is entered we should disable ASCII commands (like we do for search) otherwise certain key-combos are not valid!
  *     Illustrate: press './' and you will enter search... this should not be the case..
  *   - How to search in node-editor mode (i.e ProjectViews, Terminal - history)
  *   - Movement (see Helix editor)

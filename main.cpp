@@ -3,7 +3,6 @@
 //
 /*
  * TO-DO List
- * - Merge shell and 'Editor' bootstrap script capabilities and move to CommandController
  * - Fix save!
  * - Code cleanup
  *   - Switch to References everywhere, either C++ ref or shared_ptr type of refs (MyClass::Ref), there are still too many places using raw object pointers
@@ -43,6 +42,7 @@
  * - Remove the buffer manager class - not needed
  *
  * Done:
+ * ! Merge shell and 'Editor' bootstrap script capabilities and move to PluginExecutor [was: CommandController]
  * ! Switching views should leave quickcommand mode if in it..
  * ! Workspace, need to separate name from which path (default should be '.')
  * ! Add view-visibility to config (should be possible to remove project-viewer)

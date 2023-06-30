@@ -111,6 +111,7 @@ list(APPEND editorsrc src/Core/API/EditorAPI.cpp src/Core/API/EditorAPI.h)
 list(APPEND editorsrc src/Core/API/TextBufferAPI.cpp src/Core/API/TextBufferAPI.h)
 list(APPEND editorsrc src/Core/API/ViewAPI.cpp src/Core/API/ViewAPI.h)
 list(APPEND editorsrc src/Core/Plugins/PluginCommand.cpp src/Core/Plugins/PluginCommand.h)
+list(APPEND editorsrc src/Core/Plugins/PluginExecutor.cpp src/Core/Plugins/PluginExecutor.h)
 list(APPEND editorsrc src/Core/KeypressAndActionHandler.h)
 
 # utility stuff

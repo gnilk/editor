@@ -23,7 +23,7 @@
 
 
 namespace gedit {
-    class JSPluginEngine : PluginExecutor<JSPluginCommand> {
+    class JSPluginEngine {
     public:
     public:
         bool Initialize();

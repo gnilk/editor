@@ -14,14 +14,6 @@
 #include "Core/Config/Config.h"
 
 namespace gedit {
-    class PluginCommand;
-
-    template<typename T>
-    class PluginExecutor {
-    public:
-        PluginExecutor() = default;
-        virtual ~PluginExecutor() = default;
-    };
 
     class PluginCommand {
     public:

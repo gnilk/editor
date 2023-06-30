@@ -42,7 +42,6 @@ namespace gedit {
 
     protected:
         void NewLine();
-        bool TryExecuteInternalCmd(std::string &cmdline);
         void TryExecuteShellCmd(std::string &cmdline);
 
 

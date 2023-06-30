@@ -11,6 +11,7 @@
 #include "Core/API/EditorAPI.h"
 #include "Core/Runloop.h"
 #include "Core/Views/ListSelectionModal.h"
+#include "Core/Plugins/PluginExecutor.h"
 
 using namespace gedit;
 
@@ -69,34 +70,10 @@ void CommandController::CommitLine() {
 
     NewLine();
 
-    if (TryExecuteInternalCmd(cmdLine)) {
+    if (PluginExecutor::ParseAndExecuteWithCmdPrefix(cmdLine)) {
         return;
     }
     TryExecuteShellCmd(cmdLine);
-}
-
-bool CommandController::TryExecuteInternalCmd(std::string &cmdline) {
-    auto prefix = Config::Instance()["commandmode"].GetStr("cmdlet_prefix");
-    if (!strutil::startsWith(cmdline, prefix)) {
-        return false;
-    }
-    std::string cmdLineNoPrefix = cmdline.substr(prefix.length());
-    std::vector<std::string> commandList;
-    // We should have a 'smarter' that keeps strings and so forth
-    strutil::split(commandList, cmdLineNoPrefix.c_str(), ' ');
-
-    // There is more to come...
-    if (RuntimeConfig::Instance().HasPluginCommand(commandList[0])) {
-        auto cmd = RuntimeConfig::Instance().GetPluginCommand(commandList[0]);
-        auto argStart = commandList.begin()+1;
-        auto argEnd = commandList.end();
-        auto argList = std::vector<std::string>(argStart, argEnd);
-        cmd->Execute(argList);
-    } else {
-        logger->Error("Plugin '%s' not found", commandList[0].c_str());
-    }
-
-    return true;
 }
 
 void CommandController::TryExecuteShellCmd(std::string &cmdline) {

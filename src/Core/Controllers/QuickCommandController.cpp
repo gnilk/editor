@@ -7,6 +7,7 @@
 #include "Core/Runloop.h"
 #include "Core/Editor.h"
 #include "Core/Config/Config.h"
+#include "Core/Plugins/PluginExecutor.h"
 
 using namespace gedit;
 
@@ -97,7 +98,6 @@ bool QuickCommandController::HandleActionInQuickCmdState(const KeyPressAction &k
     return false;
 }
 
-
 // Handling of translated actions while search is active..
 bool QuickCommandController::HandleActionInSearch(const KeyPressAction &kpAction) {
     if (kpAction.action == kAction::kActionLeaveCommandMode) {
@@ -127,94 +127,14 @@ bool QuickCommandController::HandleActionInSearch(const KeyPressAction &kpAction
 bool QuickCommandController::HandleActionInCmdLetState(const KeyPressAction &kpAction) {
     if (kpAction.action == kAction::kActionCommitLine) {
         logger->Debug("Should execute cmdlet!");
-        if (ParseAndExecute()) {
-            DoLeaveOnSuccess();
+        auto cmdline = std::string(cmdInput->Buffer());
+        if (!PluginExecutor::ParseAndExecuteWithCmdPrefix(cmdline)) {
+            return false;
         }
+        DoLeaveOnSuccess();
         return true;
     }
     return false;
-}
-
-
-void QuickCommandController::HandleKeyPress(const KeyPress &keyPress) {
-    cmdInputBaseController.DefaultEditLine(cursor, cmdInput, keyPress, true);
-
-    if (state == State::QuickCmdState) {
-        auto cmdline = std::string(cmdInput->Buffer());
-        auto prefix = Config::Instance()["commandmode"].GetStr("cmdlet_prefix");
-        if (strutil::startsWith(cmdline, prefix)) {
-            // we have a cmdlet prefix, we should disable the Action stuff..
-            logger->Debug("CmdLet Prefix detected!");
-            ChangeState(State::CmdLetState);
-        }
-    }
-
-    if (state == State::SearchState) {
-        if (cmdInput->Buffer().length() == 0) {
-            ChangeState(State::QuickCmdState);
-            auto model = Editor::Instance().GetActiveModel();
-            model->ClearSearchResults();
-        }
-        if (cmdInput->Buffer().length() > 4) {
-            // Use the 'substr' if we keep the 'search' character visible in the cmd-input...
-            std::string searchItem = std::string(cmdInput->Buffer().substr(1));
-            //std::string searchItem = std::string(cmdInput->Buffer());
-
-            // we are searching, so let's update this in realtime
-            SearchInActiveEditorModel(searchItem);
-        } else {
-            auto model = Editor::Instance().GetActiveModel();
-            if (model->HaveSearchResults()) {
-                model->ClearSearchResults();
-            }
-        }
-    }
-
-
-    if (state == State::CmdLetState) {
-        if (cmdInput->Buffer().length() == 0) {
-            ChangeState(State::QuickCmdState);
-        }
-    }
-}
-
-bool QuickCommandController::ParseAndExecute() {
-
-    auto cmdline = std::string(cmdInput->Buffer());
-    auto prefix = Config::Instance()["commandmode"].GetStr("cmdlet_prefix");
-
-    std::string cmdLineNoPrefix;
-    if (strutil::startsWith(cmdline, prefix)) {
-        cmdLineNoPrefix = cmdline.substr(prefix.length());
-    } else {
-        // support 'raw' (no prefix) commands?
-        // yes - I think so in the quick-mode we actually don't need it as we don't spawn stuff to the shell
-        cmdLineNoPrefix = cmdInput->Buffer();
-    }
-
-
-    std::vector<std::string> commandList;
-    // We should have a 'smarter' that keeps strings and so forth
-    strutil::split(commandList, cmdLineNoPrefix.data(), ' ');
-
-    // There is more to come...
-    if (!RuntimeConfig::Instance().HasPluginCommand(commandList[0])) {
-        logger->Error("Plugin '%s' not found", commandList[0].c_str());
-        if ((commandList[0].size() > 0) && (commandList[0].at(0) == '/')) {
-            // search
-            std::string searchItem = commandList[0].substr(1);
-            SearchInActiveEditorModel(searchItem);
-        }
-        return false;
-    }
-
-    auto cmd = RuntimeConfig::Instance().GetPluginCommand(commandList[0]);
-    auto argStart = commandList.begin()+1;
-    auto argEnd = commandList.end();
-    auto argList = std::vector<std::string>(argStart, argEnd);
-    cmd->Execute(argList);
-
-    return true;
 }
 
 void QuickCommandController::DoLeaveOnSuccess() {
@@ -274,5 +194,47 @@ void QuickCommandController::ChangeState(QuickCommandController::State newState)
         default:
             prompt = config.GetStr("prompt_default", "C:");
             break;
+    }
+}
+
+void QuickCommandController::HandleKeyPress(const KeyPress &keyPress) {
+    cmdInputBaseController.DefaultEditLine(cursor, cmdInput, keyPress, true);
+
+    if (state == State::QuickCmdState) {
+        auto cmdline = std::string(cmdInput->Buffer());
+        auto prefix = Config::Instance()["commandmode"].GetStr("cmdlet_prefix");
+        if (strutil::startsWith(cmdline, prefix)) {
+            // we have a cmdlet prefix, we should disable the Action stuff..
+            logger->Debug("CmdLet Prefix detected!");
+            ChangeState(State::CmdLetState);
+        }
+    }
+
+    if (state == State::SearchState) {
+        if (cmdInput->Buffer().length() == 0) {
+            ChangeState(State::QuickCmdState);
+            auto model = Editor::Instance().GetActiveModel();
+            model->ClearSearchResults();
+        }
+        if (cmdInput->Buffer().length() > 4) {
+            // Use the 'substr' if we keep the 'search' character visible in the cmd-input...
+            std::string searchItem = std::string(cmdInput->Buffer().substr(1));
+            //std::string searchItem = std::string(cmdInput->Buffer());
+
+            // we are searching, so let's update this in realtime
+            SearchInActiveEditorModel(searchItem);
+        } else {
+            auto model = Editor::Instance().GetActiveModel();
+            if (model->HaveSearchResults()) {
+                model->ClearSearchResults();
+            }
+        }
+    }
+
+
+    if (state == State::CmdLetState) {
+        if (cmdInput->Buffer().length() == 0) {
+            ChangeState(State::QuickCmdState);
+        }
     }
 }

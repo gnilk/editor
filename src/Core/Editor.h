@@ -164,7 +164,6 @@ namespace gedit {
         void SetupSDL();
 
         void ExecutePostScript(const std::string &scriptFile);
-        bool TryExecuteInternalCmd(std::string &cmdline);
 
         EditorModel::Ref LoadEditorModelFromFile(const char *filename);
 

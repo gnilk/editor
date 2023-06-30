@@ -40,7 +40,6 @@ namespace gedit {
         bool HandleActionInQuickCmdState(const KeyPressAction &kpAction);
         bool HandleActionInSearch(const KeyPressAction &kpAction);
         bool HandleActionInCmdLetState(const KeyPressAction &kpAction);
-        bool ParseAndExecute();
         void DoLeaveOnSuccess();
         void SearchInActiveEditorModel(const std::string &searchItem);
         void NextSearchResult();
@@ -55,8 +54,6 @@ namespace gedit {
         std::vector<std::string> searchHistory;
         std::string prompt = "C";
         State state = QuickCmdState;
-        //bool isSearchMode = false;
-
     };
 }
 

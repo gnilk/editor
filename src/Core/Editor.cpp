@@ -17,6 +17,7 @@
 #include "Core/Language/LanguageSupport/CPPLanguage.h"
 #include "Core/Language/LanguageSupport/JSONLanguage.h"
 #include "Core/Language/LanguageSupport/DefaultLanguage.h"
+#include "Core/Plugins/PluginExecutor.h"
 #include <fstream>
 
 // NCurses backend
@@ -156,40 +157,11 @@ void Editor::ExecutePostScript(const std::string &scriptFile) {
         std::string strcmd(buffer);
         if (!strcmd.empty()) {
             if (!strutil::startsWith(strcmd, comment)) {
-                TryExecuteInternalCmd(strcmd);
+                PluginExecutor::ParseAndExecuteWithCmdPrefix(strcmd);
             }
         }
     }
 }
-
-// FIXME: Put this in own file - third time I have duplicate this
-bool Editor::TryExecuteInternalCmd(std::string &cmdline) {
-    auto prefix = Config::Instance()["commandmode"].GetStr("cmdlet_prefix");
-    if (!strutil::startsWith(cmdline, prefix)) {
-        return false;
-    }
-    std::string cmdLineNoPrefix = cmdline.substr(prefix.length());
-    std::vector<std::string> commandList;
-    // We should have a 'smarter' that keeps strings and so forth
-    strutil::split(commandList, cmdLineNoPrefix.c_str(), ' ');
-
-    // There is more to come...
-    if (!RuntimeConfig::Instance().HasPluginCommand(commandList[0])) {
-        logger->Error("Plugin '%s' not found", commandList[0].c_str());
-        return false;
-    }
-
-    auto cmd = RuntimeConfig::Instance().GetPluginCommand(commandList[0]);
-    auto argStart = commandList.begin()+1;
-    auto argEnd = commandList.end();
-    auto argList = std::vector<std::string>(argStart, argEnd);
-    cmd->Execute(argList);
-
-    return true;
-}
-
-
-
 
 void Editor::HandleGlobalAction(const KeyPressAction &kpAction) {
     logger->Debug("Handling global actions!!");

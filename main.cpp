@@ -3,6 +3,9 @@
 //
 /*
  * TO-DO List
+ * - Add change notification to line
+ *   - In TextBuffer, set change notification to all lines in the buffer
+ *   - In TextBuffer update the internal state when changed, clear on save..
  * - Fix save!
  * - Code cleanup
  *   - Switch to References everywhere, either C++ ref or shared_ptr type of refs (MyClass::Ref), there are still too many places using raw object pointers

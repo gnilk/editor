@@ -10,6 +10,7 @@
 #include <string>
 #include <mutex>
 #include <memory>
+#include <functional>
 
 #include "Core/TextAttributes.h"
 #include "Core/Language/LanguageTokenClass.h"
@@ -27,11 +28,16 @@ namespace gedit {
             kLanguageTokenClass tokenClass; // this one is for better (more formal) analysis when computing indent and similar
         };
         using LineAttribIterator = std::vector<LineAttrib>::iterator;
+        using OnChangeDelegate = std::function<void(const Line &)>;
         using Ref = std::shared_ptr<Line>;
     public:
         Line();
         Line(const char *data);
         static Line::Ref Create(const char *data);
+
+        void SetOnChangeDelegate(OnChangeDelegate newOnChangeDelegate) {
+            cbChanged = newOnChangeDelegate;
+        }
 
         void Clear();
         void Append(int ch);
@@ -79,6 +85,8 @@ namespace gedit {
         void SetStateStackDepth(int newStateDepth) {
             stateDepthAtStart = newStateDepth;
         }
+    private:
+        void NotifyChangeHandler();
 
     private:
         std::mutex lock;
@@ -88,6 +96,7 @@ namespace gedit {
         bool active = false;
         int indent = 0;
         bool selected = false;
+        OnChangeDelegate cbChanged = nullptr;
     private:
         // This tells us how deeply nested the language state stack is at this point
         // It is set when reparsing the whole file

@@ -41,6 +41,13 @@ namespace gedit {
                 auto m = models[i];
                 auto &name = m->GetTextBuffer()->GetName();
                 header = name;
+
+                // Add marker for changed
+                if (m->GetTextBuffer()->GetBufferState() == TextBuffer::kBuffer_Changed) {
+                    dc.DrawStringWithAttributesAt(xp,0,kTextAttributes::kUnderline, "* ");
+                    xp += 2;
+                }
+
                 if (m->IsActive()) {
                     dc.DrawStringWithAttributesAt(xp,0,kTextAttributes::kUnderline, header.c_str());
                 } else {

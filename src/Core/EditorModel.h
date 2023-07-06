@@ -115,6 +115,9 @@ namespace gedit {
         TextBuffer::Ref GetTextBuffer() {
             return textBuffer;
         }
+        const Cursor &GetCursor() {
+            return cursor;
+        }
 
         // proxy
         std::vector<Line::Ref> &Lines() {

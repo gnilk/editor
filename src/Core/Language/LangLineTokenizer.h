@@ -189,6 +189,7 @@ namespace gedit {
 
         void ParseLine(std::vector<LangToken> &tokens, const char *input);
         void ParseLines(std::vector<Line::Ref> &lines);
+        void ParseRegion(std::vector<Line::Ref> &lines, size_t idxRegion);
         void ParseLineFromStartState(std::string &listStartState, Line::Ref line);
 
         // State management - this is available
@@ -204,6 +205,9 @@ namespace gedit {
         std::pair<bool, kLanguageTokenClass> GetNextToken(char *dst, int nMax, char **input);
 
         bool ResetStateStack();
+
+        size_t StartParseRegion(std::vector<Line::Ref> &lines, size_t idxRegion);
+        size_t EndParseRegion(std::vector<Line::Ref> &lines, size_t idxRegion);
 
         // State stack manipulation - internal!
         bool PushState(const char *stateName);

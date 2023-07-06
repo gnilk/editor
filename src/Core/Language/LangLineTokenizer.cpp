@@ -9,7 +9,94 @@
 
 #include "LangLineTokenizer.h"
 #include <assert.h>
+#include "logger.h"
 using namespace gedit;
+
+void LangLineTokenizer::ParseRegion(std::vector<Line::Ref> &lines, size_t idxRegion) {
+    size_t idxStart = StartParseRegion(lines, idxRegion);
+    size_t idxEnd = EndParseRegion(lines, idxRegion);
+    auto logger = gnilk::Logger::GetLogger("LangLineRegion");
+
+    if (!ResetStateStack()) {
+        return;
+    }
+
+    PushState(startState.c_str());
+    int indentCounter = 0;
+    int lineCounter = 0;
+
+    logger->Debug("ParseRegion, idx=%zu, start=%zu, end=%zu", idxRegion, idxStart, idxEnd);
+
+    // FIXME: can't exit unless statStackDepth == l->StackStackDepth regardless if we go outside idxEnd
+    //        just enter a block thing on the first line - this would require the whole file to be parsed - but it won't
+
+
+    for(size_t i=idxStart;i<idxEnd;i++) {
+        std::vector<LangToken> tokens;
+        auto l = lines.at(i);
+        l->Lock();
+        l->SetStateStackDepth((int)stateStack.size());
+        ParseLineWithCurrentState(tokens, l->Buffer().data());
+        // Indent handling
+        if (std::find_if(tokens.begin(), tokens.end(), [](LangToken &tClass)->bool {
+            return ((tClass == kLanguageTokenClass::kCodeBlockStart) | (tClass == kLanguageTokenClass::kArrayStart));
+        }) != std::end(tokens)) {
+            indentCounter++;
+        }
+        if (std::find_if(tokens.begin(), tokens.end(), [](LangToken &tClass)->bool {
+            return ((tClass == kLanguageTokenClass::kCodeBlockEnd) | (tClass == kLanguageTokenClass::kArrayEnd));
+        }) != std::end(tokens)) {
+            indentCounter--;
+            // NOTE: This can happen during editing when inserting multiple like: { } } }
+            if (indentCounter < 0) {
+                indentCounter = 0;
+            }
+            assert(indentCounter >= 0);
+        }
+        l->SetIndent(indentCounter);
+
+        LangToken::ToLineAttrib(l->Attributes(), tokens);
+        l->Release();
+
+        tokens.clear();
+        lineCounter++;
+
+    }
+    // Let's pop the  'start'
+    auto top = stateStack.top();
+    PopState();
+    if (!stateStack.empty()) {
+        // emit warning!
+    }
+
+}
+size_t LangLineTokenizer::StartParseRegion(std::vector<Line::Ref> &lines, size_t idxRegion) {
+    size_t idxStart = 0;
+    if (idxRegion < 5) {
+        return idxStart;
+    }
+    // search backwards until the state-stack depth == 0
+
+    idxStart = idxRegion-1;
+    while((lines[idxStart]->GetStateStackDepth() > 1) && (idxStart != 0)) {
+        idxStart--;
+    }
+    return idxStart;
+}
+size_t LangLineTokenizer::EndParseRegion(std::vector<Line::Ref> &lines, size_t idxRegion) {
+    if (lines.size() < 5) {
+        return lines.size();
+    }
+    if (idxRegion > (lines.size()-5)) {
+        return lines.size();
+    }
+    idxRegion += 1;
+    while(lines[idxRegion]->GetStateStackDepth() > 1) {
+        idxRegion++;
+        if (idxRegion >= lines.size()) break;
+    }
+    return idxRegion;
+}
 
 //
 // Parse a set of lines
@@ -18,8 +105,6 @@ void LangLineTokenizer::ParseLines(std::vector<Line::Ref> &lines) {
     if (!ResetStateStack()) {
         return;
     }
-
-    std::vector<LangToken> tokens;
 
     PushState(startState.c_str());
 
@@ -32,9 +117,6 @@ void LangLineTokenizer::ParseLines(std::vector<Line::Ref> &lines) {
         l->SetStateStackDepth((int)stateStack.size());
         ParseLineWithCurrentState(tokens, l->Buffer().data());
         // Indent handling
-//        if (std::find(tokens.begin(), tokens.end(), kLanguageTokenClass::kCodeBlockStart) != std::end(tokens)) {
-//            indentCounter++;
-//        }
         if (std::find_if(tokens.begin(), tokens.end(), [](LangToken &tClass)->bool {
             return ((tClass == kLanguageTokenClass::kCodeBlockStart) | (tClass == kLanguageTokenClass::kArrayStart));
         }) != std::end(tokens)) {

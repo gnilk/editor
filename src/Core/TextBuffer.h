@@ -80,14 +80,25 @@ namespace gedit {
 
         void Close();
 
+
+
         void AddLine(Line::Ref line) {
+            line->SetOnChangeDelegate([this](const Line &line){
+                OnLineChanged(line);
+            });
             lines.push_back(line);
         }
         void AddLine(const char *textString) {
-            auto newLine = std::make_shared<Line>(textString);
+            auto newLine = Line::Create(textString);
+            newLine->SetOnChangeDelegate([this](const Line &line){
+                OnLineChanged(line);
+            });
             lines.push_back(newLine);
         }
         void Insert(size_t idxPos, Line::Ref line) {
+            line->SetOnChangeDelegate([this](const Line &line){
+                OnLineChanged(line);
+            });
             auto it = lines.begin() + idxPos;
             lines.insert(it, line);
         }
@@ -130,6 +141,8 @@ namespace gedit {
     protected:
         void UpdateLanguageParserFromFilename();
         void StartReparseThread();
+        void OnLineChanged(const Line &line);
+        void ChangeState(BufferState newState);
     private:
         volatile ParseState state = kState_None;
 

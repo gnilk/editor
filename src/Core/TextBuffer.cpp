@@ -96,6 +96,10 @@ bool TextBuffer::Save() {
     if ((bufferState == kBuffer_Empty) || (bufferState == kBuffer_FileRef)) {
         return false;
     }
+    // No need to save unless changed
+    if (bufferState != kBuffer_Changed) {
+        return true;
+    }
 
     std::ofstream out(pathName, std::ios::binary);
     for(auto &l : lines) {
@@ -103,6 +107,8 @@ bool TextBuffer::Save() {
     }
     out.close();
 
+    // Go back to 'clean' - i.e. data is loaded...
+    ChangeState(kBuffer_Loaded);
     return true;
 }
 
@@ -131,7 +137,7 @@ bool TextBuffer::Load() {
     UpdateLanguageParserFromFilename();
 
     // Change state..
-    bufferState = kBuffer_Loaded;
+    ChangeState(kBuffer_Loaded);
     return true;
 }
 
@@ -139,8 +145,8 @@ void TextBuffer::SetPathName(const std::filesystem::path &newPathName) {
     pathName = newPathName;
     auto logger = gnilk::Logger::GetLogger("TextBuffer");
     logger->Debug("SetPathName: %s", pathName.c_str());
-    // TEMP TEMP TEMP
-    bufferState = kBuffer_Changed;
+    // FIXME: should probably save the file here
+    ChangeState(kBuffer_Changed);
     UpdateLanguageParserFromFilename();
 }
 
@@ -148,6 +154,8 @@ void TextBuffer::Rename(const std::string &newFileName) {
     pathName = pathName.stem().append(newFileName);
     auto logger = gnilk::Logger::GetLogger("TextBuffer");
     logger->Debug("New name: %s", pathName.c_str());
+    // FIXME: should probably save the file here
+    ChangeState(kBuffer_Changed);
     UpdateLanguageParserFromFilename();
 }
 
@@ -159,19 +167,11 @@ void TextBuffer::UpdateLanguageParserFromFilename() {
     }
 }
 
-
-/*
-void TextBuffer::SetNameFromFileName(const std::string &newFileName) {
-    auto tmp = std::filesystem::path(newFileName);
-    pathName = std::filesystem::absolute(tmp);
-    name = pathName.filename();
-
-    auto lang = Editor::Instance().GetLanguageForExtension(pathName.extension());
-    if (lang != nullptr) {
-        language = lang;
-        Reparse();
-    }
-
+void TextBuffer::ChangeState(BufferState newState) {
+    bufferState = newState;
 }
- */
+
+void TextBuffer::OnLineChanged(const Line &line) {
+    ChangeState(kBuffer_Changed);
+}
 

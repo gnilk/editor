@@ -29,6 +29,13 @@ void Line::Release() {
     isLocked = false;
 }
 
+void Line::NotifyChangeHandler() {
+    if (cbChanged == nullptr) {
+        return;
+    }
+   cbChanged(*this);
+}
+
 
 Line::Line(const char *data) {
     buffer = data;
@@ -40,18 +47,27 @@ void Line::Clear() {
 }
 
 void Line::Append(int ch) {
-    std::lock_guard<std::mutex> guard(lock);
-    buffer += ch;
+    {
+        std::lock_guard<std::mutex> guard(lock);
+        buffer += ch;
+    }
+    NotifyChangeHandler();
 }
 
 void Line::Append(std::string_view &srcdata) {
-    std::lock_guard<std::mutex> guard(lock);
-    buffer += srcdata;
+    {
+        std::lock_guard<std::mutex> guard(lock);
+        buffer += srcdata;
+    }
+    NotifyChangeHandler();
 }
 
 void Line::Append(std::string &srcdata) {
-    std::lock_guard<std::mutex> guard(lock);
-    buffer += srcdata;
+    {
+        std::lock_guard<std::mutex> guard(lock);
+        buffer += srcdata;
+    }
+    NotifyChangeHandler();
 }
 
 void Line::Append(const std::string &srcdata) {
@@ -59,8 +75,11 @@ void Line::Append(const std::string &srcdata) {
 }
 
 void Line::Append(const char *srcdata) {
-    std::lock_guard<std::mutex> guard(lock);
-    buffer += srcdata;
+    {
+        std::lock_guard<std::mutex> guard(lock);
+        buffer += srcdata;
+    }
+    NotifyChangeHandler();
 }
 void Line::Append(Line::Ref other) {
     Append(other->Buffer().data());
@@ -68,59 +87,81 @@ void Line::Append(Line::Ref other) {
 
 
 void Line::Insert(int at, int ch) {
-    std::lock_guard<std::mutex> guard(lock);
-    buffer.insert(at, 1, ch);
+    {
+        std::lock_guard<std::mutex> guard(lock);
+        buffer.insert(at, 1, ch);
+    }
+    NotifyChangeHandler();
 }
 
 void Line::Insert(int at, const std::string_view &srcdata) {
-    std::lock_guard<std::mutex> guard(lock);
-    buffer.insert(at, srcdata);
+    {
+        std::lock_guard<std::mutex> guard(lock);
+        buffer.insert(at, srcdata);
+    }
+    NotifyChangeHandler();
 }
 
 int Line::Insert(int at, int n, int ch) {
-    std::lock_guard<std::mutex> guard(lock);
-    buffer.insert(at, n, ch);
+    {
+        std::lock_guard<std::mutex> guard(lock);
+        buffer.insert(at, n, ch);
+    }
+    NotifyChangeHandler();
     return n;
 }
 
 
 void Line::Move(Line::Ref dst, int dstOfs, int srcOfs, int nChar) {
-    std::lock_guard<std::mutex> guard(lock);
+    {
+        std::lock_guard<std::mutex> guard(lock);
 
-    if (nChar == -1) {
-        nChar = buffer.size() - srcOfs;
-        if (nChar < 0) {
-            return;
+        if (nChar == -1) {
+            nChar = buffer.size() - srcOfs;
+            if (nChar < 0) {
+                return;
+            }
         }
+        // nChar now holds the length from srcOfs
+        std::string str(buffer, srcOfs, nChar);
+        dst->Append(str.c_str());
+        buffer.erase(srcOfs, nChar);
     }
-    // nChar now holds the length from srcOfs
-    std::string str(buffer, srcOfs, nChar);
-    dst->Append(str.c_str());
-    buffer.erase(srcOfs, nChar);
+    NotifyChangeHandler();
 }
 
 void Line::Delete(int at) {
-    std::lock_guard<std::mutex> guard(lock);
-    buffer.erase(at, 1);
+    {
+        std::lock_guard<std::mutex> guard(lock);
+        buffer.erase(at, 1);
+    }
+    NotifyChangeHandler();
 }
 void Line::Delete(int at, int n) {
-    std::lock_guard<std::mutex> guard(lock);
-    buffer.erase(at, n);
+    {
+        std::lock_guard<std::mutex> guard(lock);
+        buffer.erase(at, n);
+    }
+    NotifyChangeHandler();
 }
 int Line::Unindent() {
-    std::lock_guard<std::mutex> guard(lock);
-    if (buffer.size() == 0) {
-        return 0;
+    int maxLen = 0;
+    {
+        std::lock_guard<std::mutex> guard(lock);
+        if (buffer.size() == 0) {
+            return 0;
+        }
+        static const std::string &chars = "\t\n\v\f\r ";
+        maxLen = buffer.find_first_not_of(chars);
+        if (maxLen == std::string::npos) {
+            return 0;
+        }
+        if (maxLen > EditorConfig::Instance().tabSize) {
+            maxLen = EditorConfig::Instance().tabSize;
+        }
+        buffer.erase(0, maxLen);
     }
-    static const std::string& chars = "\t\n\v\f\r ";
-    auto maxLen = buffer.find_first_not_of(chars);
-    if (maxLen == std::string::npos) {
-        return 0;
-    }
-    if (maxLen > EditorConfig::Instance().tabSize) {
-        maxLen = EditorConfig::Instance().tabSize;
-    }
-    buffer.erase(0, maxLen);
+    NotifyChangeHandler();
     return maxLen;
 }
 

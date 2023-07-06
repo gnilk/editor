@@ -49,17 +49,30 @@ void TextBuffer::Close() {
 
 void TextBuffer::StartReparseThread() {
     reparseThread = new std::thread([this]() {
+        auto logger = gnilk::Logger::GetLogger("TextBuffer");
+
+        // First time we need to parse the whole buffer, on any updates we will just reparse the affected region
+        logger->Debug("Begin Initial Syntax Parsing");
+        state = kState_Parsing;
+        auto tokenizer = language->Tokenizer();
+        tokenizer.ParseLines(lines);
+        logger->Debug("End Initial Syntax Parsing");
+        state = kState_Idle;
+
         while(!bQuitReparse) {
-            state = kState_Parsing;
-            auto logger = gnilk::Logger::GetLogger("TextBuffer");
-            logger->Debug("Begin syntax parsing");
-            auto tokenizer = language->Tokenizer();
-            tokenizer.ParseLines(lines);
-            logger->Debug("End syntax parsing");
-            state = kState_Idle;
             while ((state == kState_Idle) && (!bQuitReparse)) {
                 std::this_thread::yield();
             }
+            if (bQuitReparse) break;
+            if (Editor::Instance().GetActiveModel() == nullptr) continue;
+
+            state = kState_Parsing;
+            logger->Debug("Begin Regional Syntax Parsing");
+            tokenizer = language->Tokenizer();
+            int idxLine = Editor::Instance().GetActiveModel()->cursor.position.y;
+            tokenizer.ParseRegion(lines, idxLine);
+            logger->Debug("End Regional Syntax Parsing");
+            state = kState_Idle;
         }
     });
 }
@@ -133,11 +146,11 @@ bool TextBuffer::Load() {
         AddLine(tmp);
     }
     fclose(f);
-
+    // Change state, do this before UpdateLang - since lang checks if loaded before allowing parse to happen
+    ChangeState(kBuffer_Loaded);
     UpdateLanguageParserFromFilename();
 
-    // Change state..
-    ChangeState(kBuffer_Loaded);
+
     return true;
 }
 
@@ -145,8 +158,9 @@ void TextBuffer::SetPathName(const std::filesystem::path &newPathName) {
     pathName = newPathName;
     auto logger = gnilk::Logger::GetLogger("TextBuffer");
     logger->Debug("SetPathName: %s", pathName.c_str());
-    // FIXME: should probably save the file here
-    ChangeState(kBuffer_Changed);
+    if ((bufferState == kBuffer_Loaded) || (bufferState == kBuffer_Changed)){
+        // FIXME: Save here
+    }
     UpdateLanguageParserFromFilename();
 }
 
@@ -155,7 +169,9 @@ void TextBuffer::Rename(const std::string &newFileName) {
     auto logger = gnilk::Logger::GetLogger("TextBuffer");
     logger->Debug("New name: %s", pathName.c_str());
     // FIXME: should probably save the file here
-    ChangeState(kBuffer_Changed);
+    if ((bufferState == kBuffer_Loaded) || (bufferState == kBuffer_Changed)){
+        // FIXME: Save here
+    }
     UpdateLanguageParserFromFilename();
 }
 
@@ -163,7 +179,9 @@ void TextBuffer::UpdateLanguageParserFromFilename() {
     auto lang = Editor::Instance().GetLanguageForExtension(pathName.extension());
     if (lang != nullptr) {
         language = lang;
-        Reparse();
+        if ((bufferState == kBuffer_Loaded) || (bufferState == kBuffer_Changed)) {
+            Reparse();
+        }
     }
 }
 

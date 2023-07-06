@@ -61,6 +61,10 @@ namespace gedit {
                 statusLine += currentCmdLine;
                 statusLine += " | ";
             }
+            
+            if (model->GetTextBuffer()->GetBufferState() == TextBuffer::kBuffer_Changed) {
+                statusLine += "* ";
+            }
 
             statusLine += model->GetTextBuffer()->GetName();
 

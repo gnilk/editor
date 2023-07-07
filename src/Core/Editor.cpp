@@ -469,6 +469,9 @@ KeyMapping &Editor::GetKeyMapForState(State paramState) {
 
 
 void Editor::TriggerUIRedraw() {
+    // FIXME: Can't trigger this before the UI is up and running...
     // Trigger redraw by posting an empty message to the root view message queue
-    RuntimeConfig::Instance().GetRootView().PostMessage([](){});
+    if (Runloop::IsRunning()) {
+        RuntimeConfig::Instance().GetRootView().PostMessage([]() {});
+    }
 }

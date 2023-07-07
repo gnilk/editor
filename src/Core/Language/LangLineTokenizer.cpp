@@ -111,6 +111,11 @@ void LangLineTokenizer::ParseLines(std::vector<Line::Ref> &lines) {
     int indentCounter = 0;
     int lineCounter = 0;
     for(auto &l : lines) {
+        if (l == nullptr) {
+            // this can happen - seen it, not sure why...
+            // seems to happen if we delete a line and then update, but should really cause npe..
+            return;
+        }
         std::vector<LangToken> tokens;
 
         l->Lock();

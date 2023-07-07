@@ -77,10 +77,7 @@ namespace gedit {
             return pathName.filename();
         }
 
-
         void Close();
-
-
 
         void AddLine(Line::Ref line) {
             line->SetOnChangeDelegate([this](const Line &line){
@@ -131,7 +128,7 @@ namespace gedit {
         LanguageBase &LangParser() { return *language; }
 
         std::optional<Line::Ref>FindParseStart(size_t idxStartLine);
-
+        bool CanEdit();
         void Reparse();
     public:
         // For unit testing...
@@ -147,7 +144,6 @@ namespace gedit {
         volatile ParseState state = kState_None;
 
         BufferState bufferState = kBuffer_Empty;
-
         std::filesystem::path pathName = "";     // full path filename
 
         std::vector<Line::Ref> lines;

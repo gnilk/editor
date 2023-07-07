@@ -17,7 +17,6 @@ TextBuffer::TextBuffer(const std::string &bufferName) {
     SetPathName(bufferName);
 }
 
-
 void TextBuffer::Reparse() {
     // No language, don't do this...
     if (language == nullptr) {
@@ -47,6 +46,11 @@ void TextBuffer::Close() {
     }
 }
 
+bool TextBuffer::CanEdit() {
+    if (state == kState_Idle) return true;
+    return false;
+}
+
 void TextBuffer::StartReparseThread() {
     reparseThread = new std::thread([this]() {
         auto logger = gnilk::Logger::GetLogger("TextBuffer");
@@ -59,6 +63,9 @@ void TextBuffer::StartReparseThread() {
         logger->Debug("End Initial Syntax Parsing");
         state = kState_Idle;
 
+        // in a better world - we should probably have a subscription for this.
+        // but we are in a different thread - and this does hand over to the main thread
+        Editor::Instance().TriggerUIRedraw();
         while(!bQuitReparse) {
             while ((state == kState_Idle) && (!bQuitReparse)) {
                 std::this_thread::yield();

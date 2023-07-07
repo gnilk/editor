@@ -11,6 +11,7 @@
 using namespace gedit;
 
 bool Runloop::bQuit = false;
+bool Runloop::isRunning = false;
 KeypressAndActionHandler *Runloop::hookedActionHandler = nullptr;
 
 void Runloop::SetKeypressAndActionHook(KeypressAndActionHandler *newHook) {
@@ -25,6 +26,7 @@ void Runloop::DefaultLoop() {
 
 
     KeypressAndActionHandler &kpaHandler {rootView};
+    isRunning = true;
 
     while(!bQuit) {
         // Process any messages from other threads before we do anything else..
@@ -71,6 +73,7 @@ void Runloop::ShowModal(ViewBase *modal) {
 
     KeypressAndActionHandler &kpaHandler {*modal};
 
+    isRunning = true;
 
     while((modal->IsActive()) && !bQuit) {
         // Process any messages from other threads before we do anything else..
@@ -143,6 +146,7 @@ void Runloop::TestLoop() {
     auto &rootView = RuntimeConfig::Instance().GetRootView();
     auto logger = gnilk::Logger::GetLogger("MainLoop");
     KeypressAndActionHandler &kpaHandler {rootView};
+    isRunning = true;
 
     while(!bQuit) {
 

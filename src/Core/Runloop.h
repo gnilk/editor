@@ -16,6 +16,9 @@ namespace gedit {
         static void StopRunLoop() {
             bQuit = true;
         }
+        static bool IsRunning() {
+            return isRunning;
+        }
 
         // Call with 'null' to disable
         static void SetKeypressAndActionHook(KeypressAndActionHandler *newHook);
@@ -25,6 +28,7 @@ namespace gedit {
         static bool DispatchToHandler(KeypressAndActionHandler &handler, KeyPress keyPress);
     private:
         static bool bQuit;
+        static bool isRunning;
         static KeypressAndActionHandler *hookedActionHandler;
     };
 }

@@ -140,6 +140,8 @@ void EditorView::OnActivate(bool isActive) {
 }
 
 void EditorView::OnKeyPress(const KeyPress &keyPress) {
+    // Unless we can edit - we do nothing
+    if (!editorModel->GetTextBuffer()->CanEdit()) return;
 
     if (editorModel->GetEditController()->HandleKeyPress(editorModel->cursor, editorModel->idxActiveLine, keyPress)) {
         editorModel->GetEditController()->UpdateSyntaxForBuffer();

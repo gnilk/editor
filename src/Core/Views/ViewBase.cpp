@@ -10,12 +10,6 @@
 using namespace gedit;
 
 void ViewBase::PostMessage(gedit::ViewBase::MessageCallback callback) {
-    // We are on the main thread - just do this directly..
-    // Is this good or bad???
-//    if (std::this_thread::get_id() == RuntimeConfig::Instance().MainThread()) {
-//        callback();
-//        return;
-//    }
     if (RuntimeConfig::Instance().IsRootView(this)) {
         threadMessages.push(callback);
     } else {

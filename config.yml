@@ -99,8 +99,8 @@ keymap: {
       CycleActiveEditor : KeyCode_F3,
       CommitLine : KeyCode_Return,
       CommentLine: CopyPasteModifier + '/',
-      GotoFirstLine : KeyCode_Command + KeyCode_Home,
-      GotoLastLine : KeyCode_Command + KeyCode_End,
+      GotoFirstLine : KeyCode_Command + KeyCode_Home + @SelectionModifier,
+      GotoLastLine : KeyCode_Command + KeyCode_End + @SelectionModifier,
       GotoTopLine : KeyCode_Command + KeyCode_PageUp,
       GotoBottomLine : KeyCode_Command + KeyCode_PageDown,
 

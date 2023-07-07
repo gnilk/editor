@@ -76,9 +76,23 @@ namespace gedit {
         static ActionItem::Ref Create(kAction mAction, int mModiferMask, int asciiValue, const std::string &actionName) {
             return std::make_shared<ActionItem>(mAction, mModiferMask, asciiValue, actionName);
         }
+        virtual ~ActionItem() = default;
+
+        bool IsShift() {
+            return (modiferMask & (Keyboard::kMod_LeftShift | Keyboard::kMod_RightShift));
+        }
+        bool IsCtrl() {
+            return (modiferMask & (Keyboard::kMod_LeftCtrl | Keyboard::kMod_RightCtrl));
+        }
+        bool IsCommand() {
+            return (modiferMask & (Keyboard::kMod_LeftCommand | Keyboard::kMod_RightCommand));
+        }
 
         // Not sure about this one..
         bool MatchKeyPress(const KeyPress &keyPress) {
+            if (name == "GotoFirstLine" && (modiferMask == 0xc3)) {
+                int breakme = 1;
+            }
             if ((modiferMask != 0) && (keyPress.modifiers == 0)) {
                 return false;
             }
@@ -91,16 +105,39 @@ namespace gedit {
                 return (keyPress.key == asciiKeyCode);
             }
 
-            if ((keyPress.modifiers & modiferMask) != keyPress.modifiers) {
+            if (IsShift() && !keyPress.IsShiftPressed()) {
                 return false;
             }
+            if (IsCtrl() && !keyPress.IsCtrlPressed()) {
+                return false;
+            }
+            if (IsCommand() && !keyPress.IsCommandPressed()) {
+                return false;
+            }
+            if (!IsCommand() && keyPress.IsCommandPressed()) {
+                return false;
+            }
+            if (!IsShift() && keyPress.IsShiftPressed()) {
+                return false;
+            }
+            if (!IsCtrl() && keyPress.IsCtrlPressed()) {
+                return false;
+            }
+
+
+
+            // This doesn't work - will send false positives
+            // if keypress holds SHIFT and the modifier is CTRL + SHIFT this will return true (obviously)
+            // the modifier-mask of the action also could be ANY shift key
+//            if ((keyPress.modifiers & modiferMask) != keyPress.modifiers) {
+//                return false;
+//            }
 
             if (keyCode != keyPress.specialKey) return false;
 
             return true;
         }
 
-        virtual ~ActionItem() = default;
 
         kAction GetAction() {
             return action;

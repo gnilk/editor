@@ -61,7 +61,11 @@ namespace gedit {
         std::optional<kActionModifier> ActionModifierFromMask(int modifierMask) {
             if (modifierMask == 0) return {};
             for (auto &[modifier, mask] : modifiers) {
-                if ((mask & modifierMask) == modifierMask) {
+                // This will hit in priority order, we only allow one modifier per key-stroke
+                // IF a keymap is declared like: CMD+HOME+@Selection (which is CMD+HOME+SHIFT) we will take SHIFT as the modifier of this action
+                // FIXME: A key-action should explicitly declare the modifier and store it
+                //        ONLY allow one modifier per action!!
+                if (mask & modifierMask) {
                     return modifier;
                 }
             }

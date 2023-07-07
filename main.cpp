@@ -3,9 +3,6 @@
 //
 /*
  * TO-DO List
- * - Add change notification to line
- *   - In TextBuffer, set change notification to all lines in the buffer
- *   - In TextBuffer update the internal state when changed, clear on save..
  * - Fix save!
  * - Code cleanup
  *   - Switch to References everywhere, either C++ ref or shared_ptr type of refs (MyClass::Ref), there are still too many places using raw object pointers
@@ -35,16 +32,20 @@
  *   - Ability to search/filter for files
  * - Consolidate configuration (or sort it up properly) currently spread out beween 'Editor', 'Config', 'RuntimeConfig'
  * - Put some performance timings in the LanguageParser (this will have to be optimized sooner or later)
- * - Something is causing sigsev, I strongly suspect that it is related to threading in Syntax Coloring / Language code
  * - macOS swaps left/right scancodes between keyboards (laptop has left/right one way my ext.keyboard another)
  *   need to consider a solution for this...
  * - Swap out the vertical navigation code in EditorView for the 'VerticalNavigationModel'
- * - Make large files > 10k lines read-only, alt. disable reparsing and syntax highlighting for large files..
- *   Disabling syntax can be deduced on-the fly by measuring the reparsing process..
  * - Unsaved file should have '*' marking in the top..
  * - Remove the buffer manager class - not needed
  *
  * Done:
+ * ! Something is causing sigsev, I strongly suspect that it is related to threading in Syntax Coloring / Language code
+ *   [note: this was due to lines becoming invalid on certain operations while the parser was running]
+ * ! Make large files > 10k lines read-only, alt. disable reparsing and syntax highlighting for large files..
+ *   Disabling syntax can be deduced on-the fly by measuring the reparsing process..
+ * ! Add change notification to line
+ *   ! In TextBuffer, set change notification to all lines in the buffer
+ *   ! In TextBuffer update the internal state when changed, clear on save..
  * ! Merge shell and 'Editor' bootstrap script capabilities and move to PluginExecutor [was: CommandController]
  * ! Switching views should leave quickcommand mode if in it..
  * ! Workspace, need to separate name from which path (default should be '.')

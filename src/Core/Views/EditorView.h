@@ -68,8 +68,8 @@ namespace gedit {
         bool OnActionPreviousBuffer();
         bool OnActionNextBuffer();
         bool OnActionCycleActiveBuffer();
-//        bool OnActionLineHome();
-//        bool OnActionLineEnd();
+        bool OnActionLineHome();
+        bool OnActionLineEnd();
 //        bool OnActionBackspace();
 
     private:

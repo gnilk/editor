@@ -240,6 +240,10 @@ bool EditorView::DispatchAction(const KeyPressAction &kpAction) {
             return OnActionLineDown(kpAction);
         case kAction::kActionLineUp :
             return OnActionLineUp();
+        case kAction::kActionLineEnd :
+            return OnActionLineEnd();
+        case kAction::kActionLineHome :
+            return OnActionLineHome();
         case kAction::kActionCommitLine :
             return OnActionCommitLine();
         case kAction::kActionBufferStart :
@@ -286,19 +290,20 @@ bool EditorView::DispatchAction(const KeyPressAction &kpAction) {
 //    }
 //    return true;
 //}
-//bool EditorView::OnActionLineHome() {
-//    editorModel->cursor.position.x = 0;
-//    editorModel->cursor.wantedColumn = 0;
-//    return true;
-//}
-//
-//bool EditorView::OnActionLineEnd() {
-//    auto currentLine = editorModel->GetEditController()->LineAt(editorModel->idxActiveLine);
-//    auto endpos = currentLine->Length();
-//    editorModel->cursor.position.x = endpos;
-//    editorModel->cursor.wantedColumn = endpos;
-//    return true;
-//}
+
+bool EditorView::OnActionLineHome() {
+    editorModel->cursor.position.x = 0;
+    editorModel->cursor.wantedColumn = 0;
+    return true;
+}
+
+bool EditorView::OnActionLineEnd() {
+    auto currentLine = editorModel->GetEditController()->LineAt(editorModel->idxActiveLine);
+    auto endpos = currentLine->Length();
+    editorModel->cursor.position.x = endpos;
+    editorModel->cursor.wantedColumn = endpos;
+    return true;
+}
 
 bool EditorView::OnActionCommitLine() {
     editorModel->GetEditController()->NewLine(editorModel->idxActiveLine, editorModel->cursor);

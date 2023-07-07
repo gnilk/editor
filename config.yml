@@ -87,6 +87,8 @@ keymap: {
       NavigateRight : KeyCode_RightArrow + @SelectionModifier,
       NavigatePageUp : KeyCode_PageUp + @SelectionModifier,
       NavigatePageDown : KeyCode_PageDown + @SelectionModifier,
+      NavigateLineEnd : KeyCode_End + @SelectionModifier,
+      NavigateLineHome : KeyCode_Home + @SelectionModifier,
       CopyToClipboard : CopyPasteModifier + 'c',
       PasteFromClipboard : CopyPasteModifier + 'v',
       EnterCommandMode : KeyCode_Escape,
@@ -96,7 +98,13 @@ keymap: {
       CycleBufferPrev : "UINavigationModifier + '\''",
       CycleActiveEditor : KeyCode_F3,
       CommitLine : KeyCode_Return,
-      CommentLine: CopyPasteModifier + '/'
+      CommentLine: CopyPasteModifier + '/',
+      GotoFirstLine : KeyCode_Command + KeyCode_Home,
+      GotoLastLine : KeyCode_Command + KeyCode_End,
+      GotoTopLine : KeyCode_Command + KeyCode_PageUp,
+      GotoBottomLine : KeyCode_Command + KeyCode_PageDown,
+
+
       # This doesn't work unless we are in modal-mode..
       # CloseModal : KeyCode_Escape,
     }

@@ -3,6 +3,7 @@
 //
 /*
  * TO-DO List
+ * - Refactor initialization, split app init from data loading (data loading should happen afterwards - when UI is up and running)
  * - Fix save!
  * - Code cleanup
  *   - Switch to References everywhere, either C++ ref or shared_ptr type of refs (MyClass::Ref), there are still too many places using raw object pointers
@@ -30,7 +31,7 @@
  * + Make a proper 'project' viewer
  *   ! Enter on selection should load (if needed) and set the model active in the editor
  *   - Ability to search/filter for files
- * - Consolidate configuration (or sort it up properly) currently spread out beween 'Editor', 'Config', 'RuntimeConfig'
+ * - Consolidate configuration (or sort it up properly) currently spread out between 'Editor', 'Config', 'RuntimeConfig'
  * - Put some performance timings in the LanguageParser (this will have to be optimized sooner or later)
  * - macOS swaps left/right scancodes between keyboards (laptop has left/right one way my ext.keyboard another)
  *   need to consider a solution for this...

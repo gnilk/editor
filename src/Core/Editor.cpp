@@ -466,3 +466,9 @@ KeyMapping &Editor::GetKeyMapForState(State paramState) {
     }
     return mappingsForCmdState;
 }
+
+
+void Editor::TriggerUIRedraw() {
+    // Trigger redraw by posting an empty message to the root view message queue
+    RuntimeConfig::Instance().GetRootView().PostMessage([](){});
+}

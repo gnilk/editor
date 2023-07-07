@@ -150,8 +150,9 @@ namespace gedit {
         const QuickCommandController &GetQuickCommandController() {
             return quickCommandController;
         }
-
         void ConfigureLogger();
+
+        void TriggerUIRedraw();
     protected:
         void ConfigureLanguages();
         void ConfigureColorTheme();

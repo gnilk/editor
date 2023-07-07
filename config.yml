@@ -3,7 +3,7 @@ main:
   # select the keymap default for the backend
   # 'default' is a reserved word - replace with your file name when forking it...
   keymap: default
-  threaded_syntaxparser: no
+  threaded_syntaxparser: yes
   plugin_directory: Plugins
   bootstrap_script_comment: "//"
   bootstrap_scripts:

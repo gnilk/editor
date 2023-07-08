@@ -101,10 +101,19 @@ namespace gedit {
 
         virtual bool LoadConfig(const std::string &filename) {
             dataNode = YAML::LoadFile(filename);
-            if (dataNode.IsDefined()) {
-                return true;
+            if (!dataNode.IsDefined()) {
+                return false;
             }
-            return false;
+            return true;
+        }
+
+        static std::optional<ConfigNode> FromString(const std::string yamlData) {
+            ConfigNode cfgNode;
+            cfgNode.dataNode = YAML::Load(yamlData);
+            if (!cfgNode.dataNode.IsDefined()) {
+                return {};
+            }
+            return cfgNode;
         }
 
         // This is more like a last resort kind of thing...

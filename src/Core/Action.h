@@ -14,6 +14,18 @@
 #include "Keyboard.h"
 
 namespace gedit {
+    //
+    // This defines the keymapping modifiers...
+    // A modifier is an action overlaid on the keypress as defined through the configuration file
+    //
+    // RENAME THIS - Modifiers = CTRL/ALT/SHIFT/CMD/etc..  this is just causing confusion!!!
+    //
+    enum class kActionModifier {
+        kActionModifierSelection,
+        kActionModifierCopyPaste,
+        kActionModifierUINavigation,
+    };
+
     enum class kAction {
         kActionNone,
         kActionPageUp,              // default: PageUp
@@ -78,6 +90,13 @@ namespace gedit {
         }
         virtual ~ActionItem() = default;
 
+        void SetActionModifier(kActionModifier newActionModifier) {
+            actionModifier = newActionModifier;
+        }
+        std::optional<kActionModifier> GetActionModifier() {
+            return actionModifier;
+        }
+
         bool IsShift() {
             return (modiferMask & (Keyboard::kMod_LeftShift | Keyboard::kMod_RightShift));
         }
@@ -90,9 +109,6 @@ namespace gedit {
 
         // Not sure about this one..
         bool MatchKeyPress(const KeyPress &keyPress) {
-            if (name == "GotoFirstLine" && (modiferMask == 0xc3)) {
-                int breakme = 1;
-            }
             if ((modiferMask != 0) && (keyPress.modifiers == 0)) {
                 return false;
             }
@@ -105,6 +121,7 @@ namespace gedit {
                 return (keyPress.key == asciiKeyCode);
             }
 
+            // Note: Both test cases must be present..  otherwise we will have false positives!
             if (IsShift() && !keyPress.IsShiftPressed()) {
                 return false;
             }
@@ -114,6 +131,7 @@ namespace gedit {
             if (IsCommand() && !keyPress.IsCommandPressed()) {
                 return false;
             }
+
             if (!IsCommand() && keyPress.IsCommandPressed()) {
                 return false;
             }
@@ -154,8 +172,10 @@ namespace gedit {
         kAction action = kAction::kActionNone;
         int modiferMask = 0;
         int asciiKeyCode = 0;
+        std::optional<kActionModifier> actionModifier = {}; // FIXME: Consider renaming
         Keyboard::kKeyCode keyCode = Keyboard::kKeyCode_None;
         std::string name;
+
         KeyPress keyPress = {};      // Keypress that caused this action
     };
 

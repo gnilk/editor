@@ -86,9 +86,6 @@ static std::unordered_map<std::string, kAction> strToActionMap = {
 // This will build the action maps..
 //
 bool KeyMapping::Initialize(const std::string &cfgNodeName) {
-//    if (isInitialized) {
-//        return true;
-//    }
     if (isInitialized) {
         return true;
     }
@@ -138,7 +135,7 @@ std::optional<KeyPressAction> KeyMapping::ActionFromKeyPress(const KeyPress &key
             KeyPressAction kpAction;
             kpAction.action = actionItem->GetAction();
             kpAction.modifierMask = keyPress.modifiers; // redundant..
-            kpAction.actionModifier = ActionModifierFromMask(keyPress.modifiers);
+            kpAction.actionModifier = actionItem->GetActionModifier();
             kpAction.keyPress = keyPress;
             return kpAction;
         }
@@ -163,18 +160,23 @@ struct TempKeyMap {
     std::string keyCodeName;
     uint8_t permutationMask = 0;
     uint32_t modifiermask = 0;
+    std::optional<kActionModifier> actionModifier = {};
 };
 
-//
-// New parser, let this sit next to the old one
-//
 bool KeyMapping::RebuildActionMapping(const std::string &cfgNodeName) {
     if (!Config::Instance().HasKey(cfgNodeName)) {
         exit(1);
     }
+    auto keymap = Config::Instance()[cfgNodeName];
+    return RebuildActionMapping(keymap);
+}
+
+//
+// New parser, let this sit next to the old one
+//
+bool KeyMapping::RebuildActionMapping(const ConfigNode &keymap) {
 
     auto logger = gnilk::Logger::GetLogger("KeyMapping");
-    auto keymap = Config::Instance()[cfgNodeName];
 
     // Verify we have 'actions' (this is the most important)
     if (!keymap.HasKey("actions")) {
@@ -305,6 +307,7 @@ bool KeyMapping::ParseKeyPressCombinationString(kAction action, const std::strin
             numOptional++;
             // Strip away the '@'
             keycodeName = s.substr(1);
+            tempKeyMap.keyCodeName = keycodeName;
         } else {
             // play keycode...
             keycodeName = s;
@@ -313,6 +316,8 @@ bool KeyMapping::ParseKeyPressCombinationString(kAction action, const std::strin
         // Substitue with a modifier (if any)
         if (keymapModifiers.find(keycodeName) != keymapModifiers.end()) {
             logger->Debug("  Modifier (%s) => %s", keycodeName.c_str(), keymapModifiers.at(keycodeName).c_str());
+            // Save this action modifier first before substituting
+            tempKeyMap.actionModifier = strToModifierMap[keycodeName];
             keycodeName = keymapModifiers.at(keycodeName);
         }
 
@@ -366,6 +371,7 @@ bool KeyMapping::ParseKeyPressCombinationString(kAction action, const std::strin
     // permutations are 2^numOptional - it's binary...
     for(int i=0;i<pow(2, numOptional);i++) {
         int modifierMask = 0;
+        std::optional<kActionModifier> actionModifier = {};
         for(auto &tempKeyMap : keycodePermutationList) {
             if (!tempKeyMap.isOptional) {
                 modifierMask |= tempKeyMap.modifiermask;
@@ -373,7 +379,12 @@ bool KeyMapping::ParseKeyPressCombinationString(kAction action, const std::strin
                 // Magic goes here...
                 // Each optional is assigned an on/off bit (permutationMask) if set we multiply the mask with '1' (i.e. the mask is added)
                 // otherwise 0, the mask is not added (something | 0 = something)
-                modifierMask |= (tempKeyMap.modifiermask * ((i & tempKeyMap.permutationMask)?1:0));
+                if (i & tempKeyMap.permutationMask) {
+                    modifierMask |= (tempKeyMap.modifiermask * ((i & tempKeyMap.permutationMask) ? 1 : 0));
+                    if (tempKeyMap.actionModifier.has_value()) {
+                        actionModifier = tempKeyMap.actionModifier;
+                    }
+                }
             }
         }
         logger->Debug("  %d : %s + 0x%.2x", i, Keyboard::KeyCodeName(primaryKeycode).c_str(), modifierMask);
@@ -383,6 +394,9 @@ bool KeyMapping::ParseKeyPressCombinationString(kAction action, const std::strin
             actionItem =ActionItem::Create(action, modifierMask, asciiKeyCode, ActionName(action));
         } else {
             actionItem = ActionItem::Create(action, modifierMask, primaryKeycode, ActionName(action));
+            if (actionModifier.has_value()) {
+                actionItem->SetActionModifier(actionModifier.value());
+            }
         }
         actionItems.push_back(actionItem);
     }

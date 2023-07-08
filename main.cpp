@@ -3,7 +3,6 @@
 //
 /*
  * TO-DO List
- * - Action and Keymaps should store the modifier explicitly and not try to derive it from the masks in KeyMapping::ActionModifierFromMask
  * - Refactor initialization, split app init from data loading (data loading should happen afterwards - when UI is up and running)
  * - Fix save!
  * - Code cleanup
@@ -41,6 +40,7 @@
  * - Remove the buffer manager class - not needed
  *
  * Done:
+ * ! Action and Keymaps should store the modifier explicitly and not try to derive it from the masks in KeyMapping::ActionModifierFromMask
  * ! Something is causing sigsev, I strongly suspect that it is related to threading in Syntax Coloring / Language code
  *   [note: this was due to lines becoming invalid on certain operations while the parser was running]
  * ! Make large files > 10k lines read-only, alt. disable reparsing and syntax highlighting for large files..

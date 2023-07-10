@@ -1,7 +1,8 @@
 //
 // Created by gnilk on 15.02.23.
 //
-// FIXME: Reconsider this class, most stuff moved to model
+// The controller is in charge of MODIFYING the underlying textbuffer - any such function present in the Model should
+// be moved here - see comment in EditorModel.cpp
 //
 
 #include "EditController.h"

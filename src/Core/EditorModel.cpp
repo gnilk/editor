@@ -1,7 +1,9 @@
 //
-// Created by gnilk on 26.04.23.
+// Refactor this - controller should be the one modifying the textBuffer
+// The model should only hold data which sits between the actual text-data and the viewer, like selection and search stuff
+// We need a good way to define how the model and the controller interoperate as the controller either needs access to data in the model
+// OR the model needs to talk to a modifier API in the controller
 //
-
 #include "Editor.h"
 #include "EditorModel.h"
 #include "EditorConfig.h"
@@ -13,8 +15,7 @@ EditorModel::Ref EditorModel::Create() {
     return editorModel;
 }
 
-
-
+// This should not be done here - as it modifies the data
 bool EditorModel::HandleKeyPress(const gedit::KeyPress &keyPress) {
     bool wasHandled = true;
     auto line = textBuffer->LineAt(idxActiveLine);

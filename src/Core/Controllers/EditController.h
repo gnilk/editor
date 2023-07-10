@@ -74,6 +74,8 @@ namespace gedit {
             onTextBufferChanged = newOnTextBufferChanged;
         }
         bool HandleKeyPress(Cursor &cursor, size_t idxActiveLine, const KeyPress &keyPress) override;
+        bool HandleSpecialKeyPress(Cursor &cursor, size_t idxActiveLine, const KeyPress &keyPress);
+
 
         void Undo(Cursor &cursor);
 

@@ -52,6 +52,25 @@ bool EditController::HandleKeyPress(Cursor &cursor, size_t idxLine, const KeyPre
 
     return false;
 }
+
+bool EditController::HandleSpecialKeyPress(Cursor &cursor, size_t idxLine, const KeyPress &keyPress) {
+    auto line = textBuffer->LineAt(idxLine);
+
+    auto undoItem = historyBuffer.NewUndoItem();
+    undoItem->idxLine = idxLine;
+    undoItem->offset = cursor.position.x;
+    undoItem->data = line->Buffer();    // We are saving the "complete" previous line
+
+    if (!DefaultEditSpecial(cursor, line, keyPress)) {
+        return false;
+    }
+    historyBuffer.PushUndoItem(undoItem);
+    UpdateSyntaxForBuffer();
+
+
+    return true;
+}
+
 void EditController::Undo(Cursor &cursor) {
     if (!historyBuffer.HaveHistory()) {
         return;
@@ -65,6 +84,8 @@ void EditController::Undo(Cursor &cursor) {
     // Update cursor
     cursor.position.x = undoItem->offset;
     cursor.wantedColumn = undoItem->offset;
+
+    UpdateSyntaxForBuffer();
 }
 
 
@@ -100,7 +121,6 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
     currentLine->SetIndent(indentPrevious);
     int cursorPos = currentLine->Insert(0, indentPrevious, ' ');
 
-    // FIXME: Do not invalidate the whole buffer
     UpdateSyntaxForBuffer();
 
     cursor.wantedColumn = cursorPos;
@@ -120,6 +140,7 @@ void EditController::Paste(size_t idxActiveLine, const char *buffer) {
         idxActiveLine++;
     }
     textBuffer->Reparse();
+
 }
 
 void EditController::UpdateSyntaxForBuffer() {

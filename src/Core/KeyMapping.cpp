@@ -69,6 +69,7 @@ static std::unordered_map<std::string, kAction> strToActionMap = {
         {"PrevSearchResult",      kAction::kActionPrevSearchResult},
         {"StartSearch",           kAction::kActionStartSearch},
         {"LastSearch",           kAction::kActionLastSearch},
+        {"Undo", kAction::kActionUndo},
 };
 
 

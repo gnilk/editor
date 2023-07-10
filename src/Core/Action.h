@@ -64,6 +64,8 @@ namespace gedit {
         kActionCopyToClipboard,
         kActionPasteFromClipboard,
         kActionInsertLineComment,
+        kActionUndo,
+        kActionRedo,
         // Modals
         kActionCloseModal,
 

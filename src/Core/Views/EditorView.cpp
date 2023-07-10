@@ -159,10 +159,11 @@ void EditorView::OnKeyPress(const KeyPress &keyPress) {
     }
 
     // This handles regular backspace/delete/home/end (which are default actions for any single-line editing)
-    if (editorModel->GetEditController()->DefaultEditSpecial(editorModel->cursor, editorModel->LineAt(editorModel->idxActiveLine), keyPress)) {
+    if (editorModel->GetEditController()->HandleSpecialKeyPress(editorModel->cursor, editorModel->idxActiveLine, keyPress)) {
         InvalidateView();
         return;
     }
+
 
     // It was not to us..
     ViewBase::OnKeyPress(keyPress);
@@ -209,14 +210,8 @@ bool EditorView::OnAction(const KeyPressAction &kpAction) {
     if ((kpAction.actionModifier != kActionModifier::kActionModifierSelection) && result && editorModel->IsSelectionActive()) {
         editorModel->CancelSelection();
     }
-//        if (editorModel->IsSelectionActive()) {
-//            logger->Debug("Shift pressed, selection active - cancelling selection");
-//
-//        }
 
-
-
-        // Update with cursor after navigation (if any happened)
+    // Update with cursor after navigation (if any happened)
     if (editorModel->IsSelectionActive()) {
         editorModel->UpdateSelection();
         logger->Debug(" Selection is Active, start=(%d:%d), end=(%d:%d)",

@@ -22,6 +22,7 @@ bool BaseController::DefaultEditLine(Cursor &cursor, Line::Ref line, const KeyPr
     }
     return DefaultEditSpecial(cursor, line, keyPress);
 }
+// This takes care of single line editing of 'special' keys (delete, home, end, backspace)
 bool BaseController::DefaultEditSpecial(Cursor &cursor, Line::Ref line, const KeyPress &keyPress) {
     bool wasHandled = false;
     // We don't handle any modifiers!!!

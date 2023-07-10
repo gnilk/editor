@@ -4,6 +4,7 @@
 /*
  * TO-DO List
  * - Start work on history/undo
+ * - Cleanup/Refactor EditController/EditModel/TextBuffer - either remove one (controller) or have a clear distinction that changes must go through controller and other stuff (like search) through model
  * - Refactor initialization, split app init from data loading (data loading should happen afterwards - when UI is up and running)
  * - Fix save!
  * - Code cleanup

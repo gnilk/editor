@@ -32,6 +32,13 @@ bool EditController::HandleKeyPress(Cursor &cursor, size_t idxLine, const KeyPre
     //if (keyPress.modifiers) return false;
 
     auto line = textBuffer->LineAt(idxLine);
+
+    auto undoItem = historyBuffer.NewUndoItem();
+    undoItem->idxLine = idxLine;
+    undoItem->offset = cursor.position.x;
+    undoItem->data = line->Buffer();    // We are saving the "complete" previous line
+
+
     if (keyPress.IsHumanReadable()) {
         textBuffer->LangParser().OnPreInsertChar(cursor, line, keyPress.key);
     }
@@ -39,10 +46,25 @@ bool EditController::HandleKeyPress(Cursor &cursor, size_t idxLine, const KeyPre
         if (keyPress.IsHumanReadable()) {
             textBuffer->LangParser().OnPostInsertChar(cursor, line, keyPress.key);
         }
+        historyBuffer.PushUndoItem(undoItem);
         return true;
     }
 
     return false;
+}
+void EditController::Undo(Cursor &cursor) {
+    if (!historyBuffer.HaveHistory()) {
+        return;
+    }
+    historyBuffer.Dump();
+    auto undoItem = historyBuffer.PopItem();
+    auto line = textBuffer->LineAt(undoItem->idxLine);
+    line->Clear();
+    line->Append(undoItem->data);
+
+    // Update cursor
+    cursor.position.x = undoItem->offset;
+    cursor.wantedColumn = undoItem->offset;
 }
 
 

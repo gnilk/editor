@@ -15,6 +15,11 @@ Line::Line() {
 
 }
 
+Line::Line(const char *data) {
+    buffer = data;
+    strutil::rtrim(buffer);
+}
+
 Line::Ref Line::Create(const char *data) {
     return std::make_shared<Line>(data);
 }
@@ -34,12 +39,6 @@ void Line::NotifyChangeHandler() {
         return;
     }
    cbChanged(*this);
-}
-
-
-Line::Line(const char *data) {
-    buffer = data;
-    strutil::rtrim(buffer);
 }
 
 void Line::Clear() {

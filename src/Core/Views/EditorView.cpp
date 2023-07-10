@@ -268,6 +268,8 @@ bool EditorView::DispatchAction(const KeyPressAction &kpAction) {
             return OnActionPreviousBuffer();
         case kAction::kActionCycleActiveEditor :
             return OnActionCycleActiveBuffer();
+        case kAction::kActionUndo :
+            return OnActionUndo();
         default:
             break;
     }
@@ -290,6 +292,12 @@ bool EditorView::DispatchAction(const KeyPressAction &kpAction) {
 //    }
 //    return true;
 //}
+
+bool EditorView::OnActionUndo() {
+    //editorModel->GetTextBuffer()->Undo();
+    editorModel->GetEditController()->Undo(editorModel->cursor);
+    return true;
+}
 
 bool EditorView::OnActionLineHome() {
     editorModel->cursor.position.x = 0;

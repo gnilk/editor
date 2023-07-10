@@ -103,6 +103,7 @@ keymap: {
       GotoLastLine : KeyCode_Command + KeyCode_End + @SelectionModifier,
       GotoTopLine : KeyCode_Command + KeyCode_PageUp,
       GotoBottomLine : KeyCode_Command + KeyCode_PageDown,
+      Undo: CopyPasteModifier + 'z',
 
 
       # This doesn't work unless we are in modal-mode..

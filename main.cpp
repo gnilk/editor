@@ -3,6 +3,7 @@
 //
 /*
  * TO-DO List
+ * - Start work on history/undo
  * - Refactor initialization, split app init from data loading (data loading should happen afterwards - when UI is up and running)
  * - Fix save!
  * - Code cleanup

@@ -229,3 +229,19 @@ void EditController::DelTab(Cursor &cursor, size_t idxActiveLine) {
     EndUndoItem(undoItem);
 }
 
+void EditController::AddLineComment(Cursor &cursor, size_t idxLineStart, size_t idxLineEnd, const std::string_view &lineCommentPrefix) {
+
+    // FIXME: Undo for a range!!!
+
+    for (size_t idxLine = idxLineStart; idxLine < idxLineEnd; idxLine += 1) {
+        auto line = LineAt(idxLine);
+        if (!line->StartsWith(lineCommentPrefix)) {
+            line->Insert(0, lineCommentPrefix);
+        } else {
+            line->Delete(0, 2);
+        }
+    }
+
+    // FIXME: Need 'UpdateSyntaxFromLine(idxLine)'
+    UpdateSyntaxForBuffer();
+}

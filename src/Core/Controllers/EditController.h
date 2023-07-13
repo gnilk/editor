@@ -105,6 +105,8 @@ namespace gedit {
         void AddTab(Cursor &cursor, size_t idxActiveLine);
         void DelTab(Cursor &cursor, size_t idxActiveLine);
 
+        void AddLineComment(Cursor &cursor, size_t idxLineStart, size_t idxLineEnd, const std::string_view &lineCommentPrefix);
+
 
     private:
         gnilk::ILogger *logger = nullptr;

@@ -64,7 +64,6 @@ void EditorModel::DeleteSelection() {
 
 }
 
-// FIXME: Modification stuff goes to controller!!!
 void EditorModel::CommentSelectionOrLine() {
 
     if (!textBuffer->HaveLanguage()) {
@@ -76,29 +75,13 @@ void EditorModel::CommentSelectionOrLine() {
     }
 
     if (!IsSelectionActive()) {
-        auto line = LineAt(idxActiveLine);
-        if (!line->StartsWith(lineCommentPrefix)) {
-            line->Insert(0, lineCommentPrefix);
-        } else {
-            line->Delete(0,2);
-        }
-        textBuffer->Reparse();
+        editController->AddLineComment(cursor, idxActiveLine, idxActiveLine+1, lineCommentPrefix);
         return;
     }
+
     auto start = currentSelection.GetStart();
     auto end = currentSelection.GetEnd();
-    int y = start.y;
-    while (y < end.y) {
-        auto line = LineAt(y);
-        if (!line->StartsWith(lineCommentPrefix)) {
-            line->Insert(0, lineCommentPrefix);
-        } else {
-            line->Delete(0,2);
-        }
-        y++;
-    }
-    textBuffer->Reparse();
-
+    editController->AddLineComment(cursor, start.y, end.y, lineCommentPrefix);
 }
 
 size_t EditorModel::SearchFor(const std::string &searchItem) {

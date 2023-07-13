@@ -22,7 +22,7 @@ namespace gedit {
         bool DefaultEditSpecial(Cursor &cursor, Line::Ref line, const KeyPress &keyPress);
 
         // Return true if keypress was handled, false otherwise
-        virtual bool HandleKeyPress(Cursor &cursor, size_t idxActiveLine, const KeyPress &keyPress) {
+        virtual bool HandleKeyPress(Cursor &cursor, size_t &idxActiveLine, const KeyPress &keyPress) {
             return false;
         }
 

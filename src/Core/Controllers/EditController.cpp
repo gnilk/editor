@@ -25,7 +25,7 @@ void EditController::SetTextBuffer(TextBuffer::Ref newTextBuffer) {
 }
 
 
-bool EditController::HandleKeyPress(Cursor &cursor, size_t idxLine, const KeyPress &keyPress) {
+bool EditController::HandleKeyPress(Cursor &cursor, size_t &idxLine, const KeyPress &keyPress) {
     if (!textBuffer) {
         return false;
     }
@@ -34,11 +34,7 @@ bool EditController::HandleKeyPress(Cursor &cursor, size_t idxLine, const KeyPre
 
     auto line = textBuffer->LineAt(idxLine);
 
-    auto undoItem = historyBuffer.NewUndoItem();
-    undoItem->idxLine = idxLine;
-    undoItem->offset = cursor.position.x;
-    undoItem->data = line->Buffer();    // We are saving the "complete" previous line
-
+    auto undoItem = BeginUndoItem(cursor, idxLine);
 
     if (keyPress.IsHumanReadable()) {
         textBuffer->LangParser().OnPreInsertChar(cursor, line, keyPress.key);
@@ -47,29 +43,64 @@ bool EditController::HandleKeyPress(Cursor &cursor, size_t idxLine, const KeyPre
         if (keyPress.IsHumanReadable()) {
             textBuffer->LangParser().OnPostInsertChar(cursor, line, keyPress.key);
         }
-        historyBuffer.PushUndoItem(undoItem);
+        EndUndoItem(undoItem);
         return true;
     }
 
     return false;
 }
 
-bool EditController::HandleSpecialKeyPress(Cursor &cursor, size_t idxLine, const KeyPress &keyPress) {
+// FIXME: ability to influence active line (this is owned by Model) - currently we have no way to touch this..
+bool EditController::HandleSpecialKeyPress(Cursor &cursor, size_t &idxLine, const KeyPress &keyPress) {
     auto line = textBuffer->LineAt(idxLine);
 
-    auto undoItem = historyBuffer.NewUndoItem();
-    undoItem->idxLine = idxLine;
-    undoItem->offset = cursor.position.x;
-    undoItem->data = line->Buffer();    // We are saving the "complete" previous line
+    auto undoItem = BeginUndoItem(cursor, idxLine);
 
     if (!DefaultEditSpecial(cursor, line, keyPress)) {
-        return false;
+        bool wasHandled = false;
+        switch (keyPress.specialKey) {
+            case Keyboard::kKeyCode_DeleteForward :
+                // Handle delete at end of line
+                if ((cursor.position.x == line->Length()) && ((idxLine + 1) < textBuffer->NumLines())) {
+                    auto next = textBuffer->LineAt(idxLine + 1);
+                    line->Append(next);
+                    textBuffer->DeleteLineAt(idxLine + 1);
+                    wasHandled = true;
+                }
+                break;
+            case Keyboard::kKeyCode_Backspace :
+                if ((cursor.position.x == 0) && (idxLine > 0)) {
+                    MoveLineUp(cursor, idxLine);
+                    wasHandled = true;
+                }
+                break;
+            case Keyboard::kKeyCode_Tab :
+                if (keyPress.modifiers == 0) {
+                    AddTab(cursor, idxLine);
+                } else if (keyPress.IsShiftPressed()) {
+                    DelTab(cursor, idxLine);
+                }
+                wasHandled = true;
+                break;
+
+
+        }
+        return wasHandled;
     }
-    historyBuffer.PushUndoItem(undoItem);
+    EndUndoItem(undoItem);
     UpdateSyntaxForBuffer();
-
-
     return true;
+}
+
+void EditController::MoveLineUp(Cursor &cursor, size_t &idxActiveLine) {
+    auto line = textBuffer->LineAt(idxActiveLine);
+    auto linePrevious = textBuffer->LineAt((idxActiveLine-1));
+    cursor.position.x = linePrevious->Length();
+    linePrevious->Append(line);
+    textBuffer->DeleteLineAt(idxActiveLine);
+    // FIXME: need ability to change activeLine (sits in model)
+    idxActiveLine--;
+    cursor.position.y--;
 }
 
 void EditController::Undo(Cursor &cursor) {
@@ -146,5 +177,55 @@ void EditController::Paste(size_t idxActiveLine, const char *buffer) {
 
 void EditController::UpdateSyntaxForBuffer() {
     textBuffer->Reparse();
+}
+
+History::UndoItem::Ref EditController::BeginUndoItem(const Cursor &cursor, size_t idxActiveLine) {
+    auto undoItem = historyBuffer.NewUndoItem();
+    undoItem->idxLine = idxActiveLine;
+    undoItem->offset = cursor.position.x;
+    auto line = textBuffer->LineAt(idxActiveLine);
+    undoItem->data = line->Buffer();    // We are saving the "complete" previous line
+
+    return undoItem;
+}
+
+void EditController::EndUndoItem(History::UndoItem::Ref undoItem) {
+    historyBuffer.PushUndoItem(undoItem);
+}
+
+
+void EditController::AddCharToLineNoUndo(Cursor &cursor, Line::Ref line, int ch) {
+    line->Insert(cursor.position.x, ch);
+    cursor.position.x++;
+    cursor.wantedColumn = cursor.position.x;
+}
+
+void EditController::RemoveCharFromLineNoUndo(gedit::Cursor &cursor, Line::Ref line) {
+    if (cursor.position.x > 0) {
+        line->Delete(cursor.position.x-1);
+        cursor.position.x--;
+    }
+}
+
+void EditController::AddTab(Cursor &cursor, size_t idxActiveLine) {
+    auto line = textBuffer->LineAt(idxActiveLine);
+    auto undoItem = BeginUndoItem(cursor,idxActiveLine);
+    for (int i = 0; i < EditorConfig::Instance().tabSize; i++) {
+        AddCharToLineNoUndo(cursor, line, ' ');
+    }
+    EndUndoItem(undoItem);
+}
+
+void EditController::DelTab(Cursor &cursor, size_t idxActiveLine) {
+    auto line = textBuffer->LineAt(idxActiveLine);
+    auto nDel = EditorConfig::Instance().tabSize;
+    if(cursor.position.x < nDel) {
+        nDel = cursor.position.x;
+    }
+    auto undoItem = BeginUndoItem(cursor, idxActiveLine);
+    for (int i = 0; i < nDel; i++) {
+        RemoveCharFromLineNoUndo(cursor, line);
+    }
+    EndUndoItem(undoItem);
 }
 

@@ -172,11 +172,9 @@ namespace gedit {
         void NextSearchResult();
         void PrevSearchResult();
         void ResetSearchHitIndex();
-    private:
-        void MoveLineUp();
     public:
         Cursor cursor;
-        int32_t idxActiveLine = 0;
+        size_t idxActiveLine = 0;
         int32_t viewTopLine = 0;
         int32_t viewBottomLine = 0;
         std::vector<SearchResult> searchResults;

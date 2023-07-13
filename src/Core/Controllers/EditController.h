@@ -53,8 +53,6 @@ namespace gedit {
         std::deque<UndoItem::Ref> historystack;
     };
 
-
-    // FIXME: Reconsider this class, most stuff moved to EditorModel instead...
     class EditController : public BaseController {
     public:
         using Ref = std::shared_ptr<EditController>;
@@ -73,14 +71,15 @@ namespace gedit {
         void SetTextBufferChangedHandler(TextBufferChangedDelegate newOnTextBufferChanged) {
             onTextBufferChanged = newOnTextBufferChanged;
         }
-        bool HandleKeyPress(Cursor &cursor, size_t idxActiveLine, const KeyPress &keyPress) override;
-        bool HandleSpecialKeyPress(Cursor &cursor, size_t idxActiveLine, const KeyPress &keyPress);
+        bool HandleKeyPress(Cursor &cursor, size_t &idxActiveLine, const KeyPress &keyPress) override;
+        bool HandleSpecialKeyPress(Cursor &cursor, size_t &idxActiveLine, const KeyPress &keyPress);
 
 
         void Undo(Cursor &cursor);
 
         // Returns index to the new active line
         size_t NewLine(size_t idxCurrentLine, Cursor &cursor);
+        void MoveLineUp(Cursor &cursor, size_t &idxActiveLine);
 
         // Proxy for buffer
         std::vector<Line::Ref> &Lines() {
@@ -96,7 +95,16 @@ namespace gedit {
 
         void Paste(size_t idxActiveLine, const char *buffer);
 
+        History::UndoItem::Ref BeginUndoItem(const Cursor &cursor, size_t idxActiveLine);
+        void EndUndoItem(History::UndoItem::Ref undoItem);
+
         void UpdateSyntaxForBuffer();
+        void AddCharToLineNoUndo(Cursor &cursor, Line::Ref line, int ch);
+        void RemoveCharFromLineNoUndo(Cursor &cursor, Line::Ref line);
+
+        void AddTab(Cursor &cursor, size_t idxActiveLine);
+        void DelTab(Cursor &cursor, size_t idxActiveLine);
+
 
     private:
         gnilk::ILogger *logger = nullptr;

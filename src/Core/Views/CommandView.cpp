@@ -95,8 +95,9 @@ void CommandView::OnNewLineNotification() {
 
 void CommandView::OnKeyPress(const KeyPress &keyPress) {
     auto strCursor = cursor;
+    size_t dummyLineIndex = 0;  // Need this as the HandleKeyPress takes a reference
     strCursor.position.x -= prompt.size();
-    if (commandController.HandleKeyPress(strCursor, 0, keyPress)) {
+    if (commandController.HandleKeyPress(strCursor, dummyLineIndex, keyPress)) {
         cursor = strCursor;
         cursor.position.x += prompt.size();
         return;

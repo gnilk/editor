@@ -61,18 +61,17 @@ bool BaseController::DefaultEditSpecial(Cursor &cursor, Line::Ref line, const Ke
     return wasHandled;
 }
 
-
 void BaseController::AddCharToLine(Cursor &cursor, Line::Ref line, int ch) {
     line->Insert(cursor.position.x, ch);
     cursor.position.x++;
     cursor.wantedColumn = cursor.position.x;
 }
+
 void BaseController::RemoveCharFromLine(gedit::Cursor &cursor, Line::Ref line) {
     if (cursor.position.x > 0) {
         line->Delete(cursor.position.x-1);
         cursor.position.x--;
     }
-
 }
 
 

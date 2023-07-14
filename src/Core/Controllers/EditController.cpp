@@ -231,7 +231,7 @@ void EditController::DelTab(Cursor &cursor, size_t idxActiveLine) {
 
 void EditController::AddLineComment(Cursor &cursor, size_t idxLineStart, size_t idxLineEnd, const std::string_view &lineCommentPrefix) {
 
-    // FIXME: Undo for a range!!!
+    // FIXME: Undo for range!!!
 
     for (size_t idxLine = idxLineStart; idxLine < idxLineEnd; idxLine += 1) {
         auto line = LineAt(idxLine);
@@ -243,5 +243,15 @@ void EditController::AddLineComment(Cursor &cursor, size_t idxLineStart, size_t 
     }
 
     // FIXME: Need 'UpdateSyntaxFromLine(idxLine)'
+    UpdateSyntaxForBuffer();
+}
+
+void EditController::DeleteLines(size_t idxLineStart, size_t idxLineEnd) {
+    // Fixme: Need undo for range..
+    for(int lineIndex = idxLineStart;lineIndex < idxLineEnd; lineIndex++) {
+        // Delete the same line several times - as we move the lines after up..
+        textBuffer->DeleteLineAt(idxLineStart);
+    }
+
     UpdateSyntaxForBuffer();
 }

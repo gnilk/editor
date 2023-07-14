@@ -7,6 +7,7 @@
 
 #include "EditController.h"
 #include "Core/EditorConfig.h"
+#include "Core/UndoHistory.h"
 #include <sstream>
 
 using namespace gedit;
@@ -179,17 +180,13 @@ void EditController::UpdateSyntaxForBuffer() {
     textBuffer->Reparse();
 }
 
-History::UndoItem::Ref EditController::BeginUndoItem(const Cursor &cursor, size_t idxActiveLine) {
+UndoHistory::UndoItem::Ref EditController::BeginUndoItem(const Cursor &cursor, size_t idxActiveLine) {
     auto undoItem = historyBuffer.NewUndoItem();
-    undoItem->idxLine = idxActiveLine;
-    undoItem->offset = cursor.position.x;
-    auto line = textBuffer->LineAt(idxActiveLine);
-    undoItem->data = line->Buffer();    // We are saving the "complete" previous line
 
     return undoItem;
 }
 
-void EditController::EndUndoItem(History::UndoItem::Ref undoItem) {
+void EditController::EndUndoItem(UndoHistory::UndoItem::Ref undoItem) {
     historyBuffer.PushUndoItem(undoItem);
 }
 

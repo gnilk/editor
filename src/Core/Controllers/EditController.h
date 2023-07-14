@@ -6,52 +6,13 @@
 #define EDITOR_EDITCONTROLLER_H
 
 #include "Core/TextBuffer.h"
+#include "Core/UndoHistory.h"
 #include "BaseController.h"
 #include "logger.h"
 #include <memory>
 #include <deque>
 
 namespace gedit {
-    // Extremely simplistic undo buffer - works for regular edits but wastes an extreme amount of memory..
-    class History {
-    public:
-        class UndoItem {
-        public:
-            using Ref = std::shared_ptr<UndoItem>;
-        public:
-            int idxLine = {};
-            int offset = {};
-            int action = {};
-            std::string data = {};
-        };
-    public:
-        History() = default;
-        virtual ~History() = default;
-        UndoItem::Ref NewUndoItem() {
-            return std::make_shared<UndoItem>();
-        }
-        void PushUndoItem(UndoItem::Ref undoItem) {
-            historystack.push_front(undoItem);
-        }
-        UndoItem::Ref PopItem() {
-            auto top = historystack.front();
-            historystack.pop_front();
-            return top;
-        }
-        bool HaveHistory() {
-            return !historystack.empty();
-        }
-        void Dump() {
-            auto logger = gnilk::Logger::GetLogger("History");
-            int count = 0;
-            for(auto &undoItem : historystack) {
-                logger->Debug("%d: line=%d, offset=%d, data=%s", count, undoItem->idxLine, undoItem->offset, undoItem->data.c_str());
-                count ++;
-            }
-        }
-    private:
-        std::deque<UndoItem::Ref> historystack;
-    };
 
     class EditController : public BaseController {
     public:
@@ -95,8 +56,8 @@ namespace gedit {
 
         void Paste(size_t idxActiveLine, const char *buffer);
 
-        History::UndoItem::Ref BeginUndoItem(const Cursor &cursor, size_t idxActiveLine);
-        void EndUndoItem(History::UndoItem::Ref undoItem);
+        UndoHistory::UndoItem::Ref BeginUndoItem(const Cursor &cursor, size_t idxActiveLine);
+        void EndUndoItem(UndoHistory::UndoItem::Ref undoItem);
 
         void UpdateSyntaxForBuffer();
         void AddCharToLineNoUndo(Cursor &cursor, Line::Ref line, int ch);
@@ -113,7 +74,7 @@ namespace gedit {
         gnilk::ILogger *logger = nullptr;
         TextBuffer::Ref textBuffer = nullptr;
         TextBufferChangedDelegate onTextBufferChanged = nullptr;
-        History historyBuffer;
+        UndoHistory historyBuffer;
     };
 }
 

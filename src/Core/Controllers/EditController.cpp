@@ -246,7 +246,8 @@ void EditController::AddLineComment(Cursor &cursor, size_t idxLineStart, size_t 
     UpdateSyntaxForBuffer();
 }
 
-void EditController::DeleteLines(size_t idxLineStart, size_t idxLineEnd) {
+// Need cursor for undo...
+void EditController::DeleteLines(Cursor &cursor, size_t idxLineStart, size_t idxLineEnd) {
     // Fixme: Need undo for range..
     for(int lineIndex = idxLineStart;lineIndex < idxLineEnd; lineIndex++) {
         // Delete the same line several times - as we move the lines after up..

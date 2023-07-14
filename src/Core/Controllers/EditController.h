@@ -105,7 +105,7 @@ namespace gedit {
         void AddTab(Cursor &cursor, size_t idxActiveLine);
         void DelTab(Cursor &cursor, size_t idxActiveLine);
 
-        void DeleteLines(size_t idxLineStart, size_t idxLineEnd);
+        void DeleteLines(Cursor &cursor, size_t idxLineStart, size_t idxLineEnd);
         void AddLineComment(Cursor &cursor, size_t idxLineStart, size_t idxLineEnd, const std::string_view &lineCommentPrefix);
 
 

@@ -81,13 +81,13 @@ void EditorModel::CommentSelectionOrLine() {
     }
 
     if (!IsSelectionActive()) {
-        editController->AddLineComment(cursor, idxActiveLine, idxActiveLine+1, lineCommentPrefix);
+        editController->AddLineComment(idxActiveLine, idxActiveLine+1, lineCommentPrefix);
         return;
     }
 
     auto start = currentSelection.GetStart();
     auto end = currentSelection.GetEnd();
-    editController->AddLineComment(cursor, start.y, end.y, lineCommentPrefix);
+    editController->AddLineComment(start.y, end.y, lineCommentPrefix);
 }
 
 size_t EditorModel::SearchFor(const std::string &searchItem) {

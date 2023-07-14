@@ -226,7 +226,7 @@ void EditController::DelTab(Cursor &cursor, size_t idxActiveLine) {
     EndUndoItem(undoItem);
 }
 
-void EditController::AddLineComment(Cursor &cursor, size_t idxLineStart, size_t idxLineEnd, const std::string_view &lineCommentPrefix) {
+void EditController::AddLineComment(size_t idxLineStart, size_t idxLineEnd, const std::string_view &lineCommentPrefix) {
 
     // FIXME: Undo for range!!!
 
@@ -244,7 +244,7 @@ void EditController::AddLineComment(Cursor &cursor, size_t idxLineStart, size_t 
 }
 
 // Need cursor for undo...
-void EditController::DeleteLines(Cursor &cursor, size_t idxLineStart, size_t idxLineEnd) {
+void EditController::DeleteLines(size_t idxLineStart, size_t idxLineEnd) {
     // Fixme: Need undo for range..
     for(int lineIndex = idxLineStart;lineIndex < idxLineEnd; lineIndex++) {
         // Delete the same line several times - as we move the lines after up..

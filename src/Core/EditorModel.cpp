@@ -27,6 +27,13 @@ bool EditorModel::HandleKeyPress(const gedit::KeyPress &keyPress) {
                 wasHandled = true;
             }
             break;
+        case Keyboard::kKeyCode_Backspace :
+            if (IsSelectionActive()) {
+                DeleteSelection();
+                CancelSelection();
+                wasHandled = true;
+            }
+            break;
         case Keyboard::kKeyCode_Tab :
             // FIXME: Handle selection..
             break;
@@ -55,10 +62,9 @@ void EditorModel::DeleteSelection() {
     if (endPos.x > 0) {
         yEnd--;
     }
-    for(int lineIndex = yStart;lineIndex < yEnd; lineIndex++) {
-        // delete line = lineIndex;
-        textBuffer->DeleteLineAt(yStart);
-    }
+
+    editController->DeleteLines(yStart, yEnd);
+
     idxActiveLine = yStart;
     cursor.position.y = yStart;
 

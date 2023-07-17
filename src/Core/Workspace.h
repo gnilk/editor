@@ -68,31 +68,31 @@ namespace gedit {
                 return outNodes.size();
             }
 
-            Node::Ref AddChild(const std::string &name) {
-                auto child = Node::Create(name);
+            Node::Ref AddChild(const std::string &newName) {
+                auto child = Node::Create(newName);
                 child->parent = shared_from_this();
-                childNodes[name] = child;
+                childNodes[newName] = child;
                 // Resolve path??
                 return child;
             }
 
-            bool HasChild(const std::string &name) {
-                if(childNodes.find(name) == childNodes.end()) {
+            bool HasChild(const std::string &nameToFind) {
+                if(childNodes.find(nameToFind) == childNodes.end()) {
                     return false;
                 }
                 return true;
             }
-            Node::Ref GetOrAddChild(const std::string &name) {
-                if (HasChild(name)) {
-                    return childNodes[name];
+            Node::Ref GetOrAddChild(const std::string &childName) {
+                if (HasChild(childName)) {
+                    return childNodes[childName];
                 }
-                return AddChild(name);
+                return AddChild(childName);
             }
-            std::optional<Node::Ref> GetChild(const std::string &name) {
-                if (!HasChild(name)) {
+            std::optional<Node::Ref> GetChild(const std::string &childName) {
+                if (!HasChild(childName)) {
                     return {};
                 }
-                return childNodes[name];
+                return childNodes[childName];
             }
 
             std::filesystem::path GetNodePath() {
@@ -107,8 +107,8 @@ namespace gedit {
 
             //////////////////
             // Functionality related to models of a node
-            void AddModel(EditorModel::Ref model) {
-                auto node = Create(model);
+            void AddModel(EditorModel::Ref newModel) {
+                auto node = Create(newModel);
 
                 models.push_back(node);
             }

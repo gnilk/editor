@@ -15,6 +15,7 @@ namespace gedit {
     class ConfigNode {
     public:
         ConfigNode() = default;
+        virtual ~ConfigNode() = default;
 
         explicit ConfigNode(const YAML::Node &node) : dataNode(node) {
 
@@ -79,20 +80,21 @@ namespace gedit {
         }
 
         template<typename T>
-        const auto GetSequence(const std::string &key) const {
+        auto GetSequence(const std::string &key) const {
             if (!HasKey(key)) {
                 return T();
             }
             return dataNode[key].as<std::vector<T>>();
         }
-        const auto GetSequenceOfStr(const std::string &key) const {
+        // I get a warning here about const but without it I get an error... lovely...
+        auto GetSequenceOfStr(const std::string &key) const {
             if (!HasKey(key)) {
                 return std::vector<std::string>();
             }
             return dataNode[key].as<std::vector<std::string>>();
         }
 
-        const auto GetMap(const std::string &key) const {
+        auto GetMap(const std::string &key) const {
             if (HasKey(key)) {
                 return dataNode[key].as<std::map<std::string, std::string>>();
             }

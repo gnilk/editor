@@ -50,11 +50,11 @@ void NCursesKeyboardDriver::Begin(KeyboardBaseMonitor *monitor) {
 
 KeyPress NCursesKeyboardDriver::GetKeyPress() {
     KeyPress keyPress;
-    auto currentWindow = RuntimeConfig::Instance().Window();
-    WINDOW *winPtr = stdscr;
-    if (currentWindow != nullptr) {
-        winPtr = (WINDOW *)currentWindow->GetNativeWindow();
-    }
+//    auto currentWindow = RuntimeConfig::Instance().Window();
+//    WINDOW *winPtr = stdscr;
+//    if (currentWindow != nullptr) {
+//        winPtr = (WINDOW *)currentWindow->GetNativeWindow();
+//    }
     auto logger = gnilk::Logger::GetLogger("NCursesKeyboardDriver");
 
     //auto ch = wgetch(winPtr);

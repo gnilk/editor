@@ -16,12 +16,12 @@ void LineRender::DrawLines(const std::vector<Line::Ref> &lines, int idxTopLine, 
 
 
     for (int i = idxTopLine; i < idxBottomLine; i++) {
-        if (i >= lines.size()) {
+        if (i >= (int)lines.size()) {
             break;
         }
         auto line = lines[i];
         line->Lock();
-        auto nCharToPrint = line->Length() > rect.Width() ? rect.Width() : line->Length();
+        auto nCharToPrint = line->Length() > static_cast<size_t>(rect.Width()) ? static_cast<size_t>(rect.Width()) : line->Length();
         dc.ClearLine(i - idxTopLine);
         DrawLineWithAttributesAt(0, i - idxTopLine, nCharToPrint, *line, selection);
 
@@ -60,7 +60,7 @@ void LineRender::DrawLineWithAttributesAt(int x, int y, int nCharToPrint, Line &
             len = next->idxOrigString - itAttrib->idxOrigString;
         }
         // we need reparse!
-        if (itAttrib->idxOrigString > l.Length()) {
+        if (static_cast<size_t>(itAttrib->idxOrigString) > l.Length()) {
             return;
         }
         // Grab the substring for this attribute range

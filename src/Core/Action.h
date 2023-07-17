@@ -178,7 +178,7 @@ namespace gedit {
         Keyboard::kKeyCode keyCode = Keyboard::kKeyCode_None;
         std::string name;
 
-        KeyPress keyPress = {};      // Keypress that caused this action
+        //KeyPress keyPress = {};      // Keypress that caused this action
     };
 
     class ActionDispatch {

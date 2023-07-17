@@ -183,11 +183,8 @@ static duk_ret_t cb_resolve_module(duk_context *ctx) {
 //    duk_push_string(ctx, resolved_id);
 
     // Just pass through of module id
-    const char *module_id;
-    const char *parent_id;
-
-    module_id = duk_require_string(ctx, 0);
-    parent_id = duk_require_string(ctx, 1);
+    const char *module_id = duk_require_string(ctx, 0);
+//    const char *parent_id = duk_require_string(ctx, 1);
 
     duk_push_sprintf(ctx, "%s.js", module_id);
 //    printf("resolve_cb: id:'%s', parent-id:'%s', resolve-to:'%s'\n",

@@ -93,7 +93,7 @@ namespace gedit {
         bool isLocked = false;
         std::string buffer = "";
         std::vector<LineAttrib> attribs;
-        bool active = false;
+        //bool active = false;
         int indent = 0;
         bool selected = false;
         OnChangeDelegate cbChanged = nullptr;

@@ -47,8 +47,6 @@ void CommandView::ReInitView() {
     cursor.position.x = prompt.size();
 }
 
-static int oldHeight = -1;
-
 void CommandView::OnActivate(bool isActive) {
     logger->Debug("OnActive, isActive: %s", isActive?"yes":"no");
     if (!isActive) {
@@ -78,14 +76,13 @@ bool CommandView::OnActionCommitLine() {
 void CommandView::OnNewLineNotification() {
     cursor.position.x = prompt.size();
     if (IsActive()) {
-        auto &dc = window->GetContentDC();
 
         // Let this be handled by the main thread...
         PostMessage([this]()->void {
             auto &dc = window->GetContentDC();
             auto &lines = commandController.Lines();
             // Only adjust height if the amount of text exceeds the height...
-            if (lines.size() > dc.GetRect().Height() - 1) {
+            if ((int)lines.size() > dc.GetRect().Height() - 1) {
                 parentView->AdjustHeight(-1);
             }
             InvalidateView();
@@ -106,7 +103,7 @@ void CommandView::OnKeyPress(const KeyPress &keyPress) {
     // Must call base class - perhaps this is a stupid thing..
     ViewBase::OnKeyPress(keyPress);
 }
-static int nLines = -1;
+
 void CommandView::DrawViewContents() {
     auto &dc = window->GetContentDC();
     dc.ResetDrawColors();
@@ -114,21 +111,21 @@ void CommandView::DrawViewContents() {
     auto &lines = commandController.Lines();
 
     int lOffset = 0;
-    if (lines.size() > (dc.GetRect().Height())) {
-        lOffset = lines.size() - (dc.GetRect().Height()-1);
+    if ((int)lines.size() > (dc.GetRect().Height())) {
+        lOffset = lines.size() - (int)(dc.GetRect().Height()-1);
     }
 
     cursor.position.y = 0;
     // Never print on the last line - we reserve that for input..
     for(int i=0;i<(dc.GetRect().Height() - 1);i++) {
-        if ((i + lOffset) >= lines.size()) {
+        if ((i + lOffset) >= (int)lines.size()) {
             break;
         }
         dc.ClearLine(i);
         dc.DrawStringAt(0,i,lines[i+lOffset]->Buffer().data());
         cursor.position.y += 1;
     }
-    if (lines.size() > dc.GetRect().Height()-1) {
+    if ((int)lines.size() > dc.GetRect().Height()-1) {
         cursor.position.y = dc.GetRect().Height()-1;
     }
     auto currentLine = commandController.CurrentLine();

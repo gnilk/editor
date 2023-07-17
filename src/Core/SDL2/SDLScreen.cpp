@@ -81,9 +81,9 @@ bool SDLScreen::Open() {
     }
 
     // FIXME: Need to determine how HighDPI stuff works...
-    window = SDL_CreateWindow("gedit", 0,0,widthPixels, heightPixels,  windowFlags);
-    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    sdlWindow = SDL_CreateWindow("gedit", 0,0,widthPixels, heightPixels,  windowFlags);
+    sdlRenderer = SDL_CreateRenderer(sdlWindow, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    SDL_SetRenderDrawBlendMode(sdlRenderer, SDL_BLENDMODE_BLEND);
 
     logger->Debug("Resolution: %d x %d", widthPixels, heightPixels);
     logger->Debug("Loading font: '%s'", fontName.c_str());
@@ -91,7 +91,7 @@ bool SDLScreen::Open() {
     //SDL_RenderSetScale(renderer, 2, 2);
 
     // FIXME: Font handling should not be here
-    auto font = STBTTF_OpenFont(renderer, fontName.c_str(), 18);
+    auto font = STBTTF_OpenFont(sdlRenderer, fontName.c_str(), 18);
     if (font == nullptr) {
         logger->Error("Unable to open font: '%s'\n", fontName.c_str());
         return -1;
@@ -107,10 +107,10 @@ bool SDLScreen::Open() {
 void SDLScreen::ComputeScalingFactors() {
     auto logger = gnilk::Logger::GetLogger("SDLScreen");
 
-    auto displayId = SDL_GetWindowDisplayIndex(window);
+    auto displayId = SDL_GetWindowDisplayIndex(sdlWindow);
     SDL_DisplayMode displayMode;
     SDL_GetDesktopDisplayMode(displayId, &displayMode);
-    SDL_GetWindowSize(window, &widthPixels, &heightPixels);
+    SDL_GetWindowSize(sdlWindow, &widthPixels, &heightPixels);
     float ddpi, vdpi, hdpi;
     SDL_GetDisplayDPI(displayId, &ddpi, &hdpi, &vdpi);
 
@@ -153,17 +153,17 @@ void SDLScreen::ComputeScalingFactors() {
 
 void SDLScreen::CreateTextures() {
 
-    SDL_GetWindowSize(window, &widthPixels, &heightPixels);
+    SDL_GetWindowSize(sdlWindow, &widthPixels, &heightPixels);
 
-    if (screenAsSurface != nullptr) {
-        SDL_FreeSurface(screenAsSurface);
+    if (sdlScreenAsSurface != nullptr) {
+        SDL_FreeSurface(sdlScreenAsSurface);
     }
-    if (screenAsTexture != nullptr) {
-        SDL_DestroyTexture(screenAsTexture);
+    if (sdlScreenAsTexture != nullptr) {
+        SDL_DestroyTexture(sdlScreenAsTexture);
     }
     // Note: Might not need this can perhaps use: SDL_LockTextureToSurface
-    screenAsSurface = SDL_CreateRGBSurfaceWithFormat(0, widthPixels, heightPixels, 0, SDL_PIXELFORMAT_RGBA32);
-    screenAsTexture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, widthPixels, heightPixels);
+    sdlScreenAsSurface = SDL_CreateRGBSurfaceWithFormat(0, widthPixels, heightPixels, 0, SDL_PIXELFORMAT_RGBA32);
+    sdlScreenAsTexture = SDL_CreateTexture(sdlRenderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, widthPixels, heightPixels);
 
 
 }
@@ -192,14 +192,14 @@ void SDLScreen::Close() {
 }
 
 void SDLScreen::Clear() {
-    SDL_SetRenderTarget(renderer, nullptr);
+    SDL_SetRenderTarget(sdlRenderer, nullptr);
     SDLColor bgColor(Config::Instance().GetGlobalColors().GetColor("background"));
-    bgColor.Use(renderer);
-    SDL_RenderClear(renderer);
+    bgColor.Use(sdlRenderer);
+    SDL_RenderClear(sdlRenderer);
 }
 
 void SDLScreen::Update() {
-    SDL_SetRenderTarget(renderer, nullptr);
+    SDL_SetRenderTarget(sdlRenderer, nullptr);
 
     // MEGA TEST
 //    SDLDrawContext dc = SDLDrawContext(renderer, nullptr, Rect(widthPixels, heightPixels));
@@ -220,8 +220,8 @@ void SDLScreen::Update() {
 //    STBTTF_RenderText(renderer, font, 2, font->size * 4, "0123456789012345678901234567890123456789012345678901234567890123456789");
 
     SDLCursor::Instance().Draw();
-    SDL_RenderPresent(renderer);
-    SDL_RenderReadPixels(renderer, nullptr, screenAsSurface->format->format, screenAsSurface->pixels, screenAsSurface->pitch);
+    SDL_RenderPresent(sdlRenderer);
+    SDL_RenderReadPixels(sdlRenderer, nullptr, sdlScreenAsSurface->format->format, sdlScreenAsSurface->pixels, sdlScreenAsSurface->pitch);
 
     // Not quite sure what this is supposed to do...
     // Most SDL example has a small delay - assume they just want 'yield' in order to avoid 100% CPU usage...
@@ -229,16 +229,16 @@ void SDLScreen::Update() {
 }
 
 void SDLScreen::CopyToTexture() {
-    SDL_UpdateTexture(screenAsTexture, nullptr, screenAsSurface->pixels, screenAsSurface->pitch);
+    SDL_UpdateTexture(sdlScreenAsTexture, nullptr, sdlScreenAsSurface->pixels, sdlScreenAsSurface->pitch);
 }
 void SDLScreen::ClearWithTexture() {
     Clear();
-    SDL_SetRenderTarget(renderer, nullptr);
-    SDL_RenderCopy(renderer, screenAsTexture, nullptr, nullptr);
+    SDL_SetRenderTarget(sdlRenderer, nullptr);
+    SDL_RenderCopy(sdlRenderer, sdlScreenAsTexture, nullptr, nullptr);
 }
 
 void SDLScreen::BeginRefreshCycle() {
-    SDL_SetRenderTarget(renderer, nullptr);
+    SDL_SetRenderTarget(sdlRenderer, nullptr);
 }
 
 void SDLScreen::EndRefreshCycle() {
@@ -247,14 +247,14 @@ void SDLScreen::EndRefreshCycle() {
 
 WindowBase *SDLScreen::CreateWindow(const gedit::Rect &rect, WindowBase::kWinFlags flags, WindowBase::kWinDecoration decoFlags) {
     auto window = new SDLWindow(rect);
-    window->renderer = renderer;
+    window->renderer = sdlRenderer;
     window->Initialize(flags, decoFlags);
     return window;
 }
 
 WindowBase *SDLScreen::UpdateWindow(WindowBase *window, const gedit::Rect &rect, WindowBase::kWinFlags flags, WindowBase::kWinDecoration decoFlags) {
-    auto sdlWindow = static_cast<SDLWindow *>(window);
-    sdlWindow->Update(rect, flags, decoFlags);
+    auto sdlWindowPtr = static_cast<SDLWindow *>(window);
+    sdlWindowPtr->Update(rect, flags, decoFlags);
     return window;
 }
 

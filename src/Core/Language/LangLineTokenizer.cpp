@@ -24,7 +24,7 @@ void LangLineTokenizer::ParseRegion(std::vector<Line::Ref> &lines, size_t idxReg
 
     PushState(startState.c_str());
     int indentCounter = 0;
-    int lineCounter = 0;
+    //int lineCounter = 0;
 
     logger->Debug("ParseRegion, idx=%zu, start=%zu, end=%zu", idxRegion, idxStart, idxEnd);
 
@@ -40,12 +40,12 @@ void LangLineTokenizer::ParseRegion(std::vector<Line::Ref> &lines, size_t idxReg
         ParseLineWithCurrentState(tokens, l->Buffer().data());
         // Indent handling
         if (std::find_if(tokens.begin(), tokens.end(), [](LangToken &tClass)->bool {
-            return ((tClass == kLanguageTokenClass::kCodeBlockStart) | (tClass == kLanguageTokenClass::kArrayStart));
+            return ((tClass == kLanguageTokenClass::kCodeBlockStart) || (tClass == kLanguageTokenClass::kArrayStart));
         }) != std::end(tokens)) {
             indentCounter++;
         }
         if (std::find_if(tokens.begin(), tokens.end(), [](LangToken &tClass)->bool {
-            return ((tClass == kLanguageTokenClass::kCodeBlockEnd) | (tClass == kLanguageTokenClass::kArrayEnd));
+            return ((tClass == kLanguageTokenClass::kCodeBlockEnd) || (tClass == kLanguageTokenClass::kArrayEnd));
         }) != std::end(tokens)) {
             indentCounter--;
             // NOTE: This can happen during editing when inserting multiple like: { } } }
@@ -60,7 +60,7 @@ void LangLineTokenizer::ParseRegion(std::vector<Line::Ref> &lines, size_t idxReg
         l->Release();
 
         tokens.clear();
-        lineCounter++;
+        //lineCounter++;
 
     }
     // Let's pop the  'start'
@@ -117,7 +117,7 @@ void LangLineTokenizer::ParseLines(std::vector<Line::Ref> &lines) {
     PushState(startState.c_str());
 
     int indentCounter = 0;
-    int lineCounter = 0;
+    //int lineCounter = 0;
     for(auto &l : lines) {
         if (l == nullptr) {
             // this can happen - seen it, not sure why...
@@ -131,12 +131,12 @@ void LangLineTokenizer::ParseLines(std::vector<Line::Ref> &lines) {
         ParseLineWithCurrentState(tokens, l->Buffer().data());
         // Indent handling
         if (std::find_if(tokens.begin(), tokens.end(), [](LangToken &tClass)->bool {
-            return ((tClass == kLanguageTokenClass::kCodeBlockStart) | (tClass == kLanguageTokenClass::kArrayStart));
+            return ((tClass == kLanguageTokenClass::kCodeBlockStart) || (tClass == kLanguageTokenClass::kArrayStart));
         }) != std::end(tokens)) {
             indentCounter++;
         }
         if (std::find_if(tokens.begin(), tokens.end(), [](LangToken &tClass)->bool {
-            return ((tClass == kLanguageTokenClass::kCodeBlockEnd) | (tClass == kLanguageTokenClass::kArrayEnd));
+            return ((tClass == kLanguageTokenClass::kCodeBlockEnd) || (tClass == kLanguageTokenClass::kArrayEnd));
         }) != std::end(tokens)) {
             indentCounter--;
             // NOTE: This can happen during editing when inserting multiple like: { } } }
@@ -151,7 +151,7 @@ void LangLineTokenizer::ParseLines(std::vector<Line::Ref> &lines) {
         l->Release();
 
         tokens.clear();
-        lineCounter++;
+        //lineCounter++;
     }
 
     // Let's pop the  'start'

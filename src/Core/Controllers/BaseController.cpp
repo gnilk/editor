@@ -42,7 +42,7 @@ bool BaseController::DefaultEditSpecial(Cursor &cursor, Line::Ref line, const Ke
                 wasHandled = true;
                 break;
             case Keyboard::kKeyCode_DeleteForward :
-                if (cursor.position.x < line->Length()) {
+                if (cursor.position.x < (int)line->Length()) {
                     line->Delete(cursor.position.x);
                     wasHandled = true;
                 }

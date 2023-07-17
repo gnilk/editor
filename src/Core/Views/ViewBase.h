@@ -236,7 +236,7 @@ namespace gedit {
                 view->OnViewInitialized();
             }
         }
-        virtual void OnActivate(bool isActive) {
+        virtual void OnActivate(bool newIsActive) {
         }
 
         virtual void OnResized() {}

@@ -157,7 +157,7 @@ namespace gedit {
             dc.SetColor(uiColors["foreground"], uiColors["background"]);
 
 
-            for(int i=viewTopLine;i<viewBottomLine;i++) {
+            for(auto i=viewTopLine;i<viewBottomLine;i++) {
                 if (i >= flattenNodeList.size()) {
                     break;
                 }

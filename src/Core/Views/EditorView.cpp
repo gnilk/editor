@@ -335,7 +335,6 @@ bool EditorView::OnActionWordLeft() {
 }
 
 bool EditorView::OnActionGotoFirstLine() {
-    auto logger = gnilk::Logger::GetLogger("EditorView");
     logger->Debug("GotoFirstLine (def: CMD+Home), resetting cursor and view data!");
     editorModel->cursor.position.x = 0;
     editorModel->cursor.position.y = 0;
@@ -346,7 +345,6 @@ bool EditorView::OnActionGotoFirstLine() {
     return true;
 }
 bool EditorView::OnActionGotoLastLine() {
-    auto logger = gnilk::Logger::GetLogger("EditorView");
     logger->Debug("GotoLastLine (def: CMD+End), set cursor to last line!");
 
     editorModel->cursor.position.x = 0;
@@ -370,8 +368,8 @@ bool EditorView::OnActionStepLeft() {
 bool EditorView::OnActionStepRight() {
     auto currentLine = editorModel->GetEditController()->LineAt(editorModel->idxActiveLine);
     editorModel->cursor.position.x++;
-    if (editorModel->cursor.position.x > currentLine->Length()) {
-        editorModel->cursor.position.x = currentLine->Length();
+    if (editorModel->cursor.position.x > (int)currentLine->Length()) {
+        editorModel->cursor.position.x = (int)currentLine->Length();
     }
     editorModel->cursor.wantedColumn = editorModel->cursor.position.x;
     return true;
@@ -410,8 +408,8 @@ bool EditorView::OnActionLineDown(const KeyPressAction &kpAction) {
     OnNavigateDownVSCode(1);
     currentLine = editorModel->LineAt(editorModel->idxActiveLine);
     editorModel->cursor.position.x = editorModel->cursor.wantedColumn;
-    if (editorModel->cursor.position.x > currentLine->Length()) {
-        editorModel->cursor.position.x = currentLine->Length();
+    if (editorModel->cursor.position.x > (int)currentLine->Length()) {
+        editorModel->cursor.position.x = (int)currentLine->Length();
     }
     return true;
 }
@@ -420,13 +418,12 @@ bool EditorView::OnActionLineUp() {
     OnNavigateUpVSCode(1);
     currentLine = editorModel->LineAt(editorModel->idxActiveLine);
     editorModel->cursor.position.x = editorModel->cursor.wantedColumn;
-    if (editorModel->cursor.position.x > currentLine->Length()) {
-        editorModel->cursor.position.x = currentLine->Length();
+    if (editorModel->cursor.position.x > (int)currentLine->Length()) {
+        editorModel->cursor.position.x = (int)currentLine->Length();
     }
     return true;
 }
 bool EditorView::OnActionGotoTopLine() {
-    auto logger = gnilk::Logger::GetLogger("EditorView");
     logger->Debug("GotoTopLine (def: PageUp+CMDKey) cursor=(%d:%d)", editorModel->cursor.position.x, editorModel->cursor.position.y);
     editorModel->cursor.position.y = 0;
     editorModel->idxActiveLine = editorModel->viewTopLine;
@@ -434,7 +431,6 @@ bool EditorView::OnActionGotoTopLine() {
     return true;
 }
 bool EditorView::OnActionGotoBottomLine() {
-    auto logger = gnilk::Logger::GetLogger("EditorView");
     logger->Debug("GotoBottomLine (def: PageDown+CMDKey), cursor=(%d:%d)", editorModel->cursor.position.x, editorModel->cursor.position.y);
     editorModel->cursor.position.y = GetContentRect().Height()-1;
     editorModel->idxActiveLine = editorModel->viewBottomLine-1;
@@ -471,7 +467,7 @@ bool EditorView::OnActionCycleActiveBuffer() {
 
 bool EditorView::UpdateNavigation(const KeyPress &keyPress) {
 
-    auto viewRect = GetContentRect();
+    //auto viewRect = GetContentRect();
     auto currentLine = editorModel->GetEditController()->LineAt(editorModel->idxActiveLine);
 
     // Need to consider how to update the current line
@@ -577,9 +573,9 @@ void EditorView::OnNavigateDownVSCode(int rows) {
         editorModel->idxActiveLine = lines.size()-1;
     }
 
-    if (editorModel->idxActiveLine > GetContentRect().Height()-1) {
+    if (editorModel->idxActiveLine > static_cast<size_t>(GetContentRect().Height()-1)) {
         if (!(editorModel->cursor.position.y < GetContentRect().Height()-1)) {
-            if ((editorModel->viewBottomLine + rows) < lines.size()) {
+            if (static_cast<size_t>(editorModel->viewBottomLine + rows) < lines.size()) {
                 logger->Debug("Clipping top/bottom lines");
                 editorModel->viewTopLine += rows;
                 editorModel->viewBottomLine += rows;

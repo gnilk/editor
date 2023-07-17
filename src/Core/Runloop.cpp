@@ -22,7 +22,6 @@ void Runloop::DefaultLoop() {
     auto screen = RuntimeConfig::Instance().Screen();
     auto keyboardDriver = RuntimeConfig::Instance().Keyboard();
     auto &rootView = RuntimeConfig::Instance().GetRootView();
-    auto logger = gnilk::Logger::GetLogger("DefaultLoop");
 
 
     KeypressAndActionHandler &kpaHandler {rootView};
@@ -49,6 +48,7 @@ void Runloop::DefaultLoop() {
             redraw = true;
         }
         if (redraw == true) {
+            //auto logger = gnilk::Logger::GetLogger("DefaultLoop");
             //logger->Debug("Redraw was triggered...");
             screen->Clear();
             rootView.Draw();
@@ -64,7 +64,7 @@ void Runloop::ShowModal(ViewBase *modal) {
 
     auto screen = RuntimeConfig::Instance().Screen();
     auto keyboardDriver = RuntimeConfig::Instance().Keyboard();
-    auto logger = gnilk::Logger::GetLogger("ShowModal");
+    //auto logger = gnilk::Logger::GetLogger("ShowModal");
 
     modal->SetActive(true);
     modal->Initialize();
@@ -144,7 +144,7 @@ void Runloop::TestLoop() {
     auto screen = RuntimeConfig::Instance().Screen();
     auto keyboardDriver = RuntimeConfig::Instance().Keyboard();
     auto &rootView = RuntimeConfig::Instance().GetRootView();
-    auto logger = gnilk::Logger::GetLogger("MainLoop");
+    //auto logger = gnilk::Logger::GetLogger("MainLoop");
     KeypressAndActionHandler &kpaHandler {rootView};
     isRunning = true;
 

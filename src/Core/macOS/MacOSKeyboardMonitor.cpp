@@ -124,7 +124,7 @@ static int createTranslationTable() {
 
     static std::string numbers="1234567890";
     static std::string numbersShift="!@#$%^&*()";
-    for(int i=0;i<numbers.size();i++) {
+    for(size_t i=0;i<numbers.size();i++) {
         asciiTranslationMap[scanCode] = numbers[i];
         asciiShiftTranslationMap[scanCode] = numbersShift[i];
         scanCode++;
@@ -142,7 +142,7 @@ static int createTranslationTable() {
     asciiTranslationMap[0x38] = '/';
     // 0x64 - key left of 'Z' (Y - physically on a german layout)
 
-    auto testMe = asciiTranslationMap[0x35];
+    //auto testMe = asciiTranslationMap[0x35];
 
 
     return scanCode;

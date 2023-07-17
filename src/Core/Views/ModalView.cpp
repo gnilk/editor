@@ -43,7 +43,7 @@ void ModalView::ReInitView() {
     }
     window = screen->UpdateWindow(window, viewRect, WindowBase::kWin_Visible, deco);
 
-    auto &rect = window->GetContentDC().GetRect();
+//    auto &rect = window->GetContentDC().GetRect();
 }
 
 bool ModalView::OnAction(const KeyPressAction &kpAction) {

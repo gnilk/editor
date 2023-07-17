@@ -17,7 +17,7 @@ using namespace gedit;
 
 // This implements VSCode style of downwards navigation
 // Cursor if moved first then content (i.e if standing on first-line, the cursor is moved to the bottom line on first press)
-void VerticalNavigationViewModel::OnNavigateDownVSCode(Cursor &cursor, int rows, const Rect &rect, const size_t nItems) {
+void VerticalNavigationViewModel::OnNavigateDownVSCode(Cursor &cursor, size_t rows, const Rect &rect, const size_t nItems) {
 
     auto logger = gnilk::Logger::GetLogger("VNavModel");
 
@@ -28,7 +28,7 @@ void VerticalNavigationViewModel::OnNavigateDownVSCode(Cursor &cursor, int rows,
         idxActiveLine = nItems-1;
     }
 
-    if (idxActiveLine > rect.Height()-1) {
+    if (idxActiveLine > static_cast<size_t>(rect.Height()-1)) {
         if (!(cursor.position.y < rect.Height()-1)) {
             if ((viewBottomLine + rows) < nItems) {
                 logger->Debug("Clipping top/bottom lines");
@@ -52,7 +52,7 @@ void VerticalNavigationViewModel::OnNavigateDownVSCode(Cursor &cursor, int rows,
 //    logger->Debug("OnNavDownVSCode, activeLine=%d, rows=%d, ypos=%d, height=%d", idxActiveLine, rows, cursor.position.y, rect.Height());
 }
 
-void VerticalNavigationViewModel::OnNavigateUpVSCode(Cursor &cursor, int rows, const Rect &rect, const size_t nItems) {
+void VerticalNavigationViewModel::OnNavigateUpVSCode(Cursor &cursor, size_t rows, const Rect &rect, const size_t nItems) {
     idxActiveLine -= rows;
     if (idxActiveLine < 0) {
         idxActiveLine = 0;
@@ -73,15 +73,15 @@ void VerticalNavigationViewModel::OnNavigateUpVSCode(Cursor &cursor, int rows, c
 
 // CLion/Sublime style of navigation on pageup/down - this first moves the content and then adjust cursor
 // This moves content first and cursor rather stays
-void VerticalNavigationViewModel::OnNavigateDownCLion(Cursor &cursor, int rows, const Rect &rect, const size_t nItems) {
+void VerticalNavigationViewModel::OnNavigateDownCLion(Cursor &cursor, size_t rows, const Rect &rect, const size_t nItems) {
 
     if (rows == 1) {
         return OnNavigateDownVSCode(cursor, rows, rect, nItems);
     }
 
     bool forceCursorToLastLine = false;
-    int nRowsToMove = rows;
-    int maxRows = nItems - 1;
+    auto nRowsToMove = rows;
+    auto maxRows = nItems - 1;
 
     auto logger = gnilk::Logger::GetLogger("VNavModel");
     logger->Debug("OnNavDownCLion");
@@ -126,7 +126,7 @@ void VerticalNavigationViewModel::OnNavigateDownCLion(Cursor &cursor, int rows, 
     logger->Debug("  After, topLine=%d, bottomLine=%d, activeLine=%d, cursor.y=%d", viewTopLine, viewBottomLine, idxActiveLine, cursor.position.y);
 }
 
-void VerticalNavigationViewModel::OnNavigateUpCLion(Cursor &cursor, int rows, const Rect &rect, const size_t nItems) {
+void VerticalNavigationViewModel::OnNavigateUpCLion(Cursor &cursor, size_t rows, const Rect &rect, const size_t nItems) {
 
     if (rows == 1) {
         return OnNavigateUpVSCode(cursor, rows, rect, nItems);

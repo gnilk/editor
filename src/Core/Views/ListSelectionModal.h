@@ -43,7 +43,7 @@ namespace gedit {
         void SetSelectedItem(int newSelection) {
             if (newSelection < 0) {
                 newSelection = 0;
-            } else if (newSelection > (listItems.size()-1)) {
+            } else if (newSelection > ((int)listItems.size()-1)) {
                 newSelection = listItems.size()-1;
             }
             idxActiveLine = newSelection;

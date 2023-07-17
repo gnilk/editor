@@ -174,75 +174,73 @@
 using namespace gedit;
 
 
-static void SetupLogger() {
-}
 extern char glbFillchar;
 
-static void TestKeyBoardDriver() {
-    auto screen = RuntimeConfig::Instance().Screen();
-    auto keyboardDriver = RuntimeConfig::Instance().Keyboard();
-    auto logger = gnilk::Logger::GetLogger("kbdtest");
-
-    SDL_StartTextInput();
-
-    bool bQuit = false;
-    while(!bQuit) {
-        auto kp = keyboardDriver->GetKeyPress();
-        if (!kp.IsAnyValid()) {
-            continue;
-        }
-        if ((kp.isSpecialKey) && (kp.specialKey == Keyboard::kKeyCode_Escape)) {
-            bQuit = true;
-            continue;
-        }
-        if (kp.isSpecialKey) {
-            auto keyName = Keyboard::KeyCodeName(static_cast<Keyboard::kKeyCode>(kp.specialKey));
-            logger->Debug("special kp, modifiers=%.2x, specialKey=%.2x (%s)", kp.modifiers, kp.specialKey, keyName.c_str());
-        } else {
-            logger->Debug("kp, modifiers=%.2x, scancode=%.2x, key=%.2x (%c), isKey=%s", kp.modifiers, kp.hwEvent.scanCode, kp.key, kp.key, kp.isKeyValid?"yes":"no");
-        }
-        if (kp.IsAnyValid()) {
-
-            logger->Debug("KeyPress Valid - checking actions");
-
-            auto &keyMap = Editor::Instance().GetActiveKeyMap();
-            auto kpAction = keyMap.ActionFromKeyPress(kp);
-            if (kpAction.has_value()) {
-                logger->Debug("Action '%s' found - modifier: 0x%.2x (%s)",
-                              keyMap.ActionName(kpAction->action).c_str(),
-                              kpAction->modifierMask,
-                              keyMap.ModifierName(*kpAction->actionModifier).c_str());
-            }
-        }
-    }
-    screen->Close();
-    exit(1);
-
-}
-static void TestViewDrawing() {
-    TestView testView(Rect(Point(10,10),40,30));
-    //TestView testView;
-    auto screen = RuntimeConfig::Instance().Screen();
-
-
-    testView.Initialize();
-    testView.InvalidateAll();
-    RuntimeConfig::Instance().SetRootView(&testView);
-
-    screen->Clear();
-    testView.Draw();
-    screen->Update();
-
-    screen->Clear();
-    testView.Draw();
-    screen->Update();
-
-    Runloop::DefaultLoop();
-    //Runloop::TestLoop();
-}
-
-
-
+//static void TestKeyBoardDriver() {
+//    auto screen = RuntimeConfig::Instance().Screen();
+//    auto keyboardDriver = RuntimeConfig::Instance().Keyboard();
+//    auto logger = gnilk::Logger::GetLogger("kbdtest");
+//
+//    SDL_StartTextInput();
+//
+//    bool bQuit = false;
+//    while(!bQuit) {
+//        auto kp = keyboardDriver->GetKeyPress();
+//        if (!kp.IsAnyValid()) {
+//            continue;
+//        }
+//        if ((kp.isSpecialKey) && (kp.specialKey == Keyboard::kKeyCode_Escape)) {
+//            bQuit = true;
+//            continue;
+//        }
+//        if (kp.isSpecialKey) {
+//            auto keyName = Keyboard::KeyCodeName(static_cast<Keyboard::kKeyCode>(kp.specialKey));
+//            logger->Debug("special kp, modifiers=%.2x, specialKey=%.2x (%s)", kp.modifiers, kp.specialKey, keyName.c_str());
+//        } else {
+//            logger->Debug("kp, modifiers=%.2x, scancode=%.2x, key=%.2x (%c), isKey=%s", kp.modifiers, kp.hwEvent.scanCode, kp.key, kp.key, kp.isKeyValid?"yes":"no");
+//        }
+//        if (kp.IsAnyValid()) {
+//
+//            logger->Debug("KeyPress Valid - checking actions");
+//
+//            auto &keyMap = Editor::Instance().GetActiveKeyMap();
+//            auto kpAction = keyMap.ActionFromKeyPress(kp);
+//            if (kpAction.has_value()) {
+//                logger->Debug("Action '%s' found - modifier: 0x%.2x (%s)",
+//                              keyMap.ActionName(kpAction->action).c_str(),
+//                              kpAction->modifierMask,
+//                              keyMap.ModifierName(*kpAction->actionModifier).c_str());
+//            }
+//        }
+//    }
+//    screen->Close();
+//    exit(1);
+//
+//}
+//static void TestViewDrawing() {
+//    TestView testView(Rect(Point(10,10),40,30));
+//    //TestView testView;
+//    auto screen = RuntimeConfig::Instance().Screen();
+//
+//
+//    testView.Initialize();
+//    testView.InvalidateAll();
+//    RuntimeConfig::Instance().SetRootView(&testView);
+//
+//    screen->Clear();
+//    testView.Draw();
+//    screen->Update();
+//
+//    screen->Clear();
+//    testView.Draw();
+//    screen->Update();
+//
+//    Runloop::DefaultLoop();
+//    //Runloop::TestLoop();
+//}
+//
+//
+//
 
 int main(int argc, const char **argv) {
 

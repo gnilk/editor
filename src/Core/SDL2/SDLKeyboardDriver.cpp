@@ -191,7 +191,7 @@ static int createTranslationTable() {
 
     static std::string numbers="1234567890";
     static std::string numbersShift="!@#$%^&*()";
-    for(int i=0;i<numbers.size();i++) {
+    for(size_t i=0;i<numbers.size();i++) {
         scanCodeToAscii[scanCode] = numbers[i];
   //      asciiShiftTranslationMap[scanCode] = numbersShift[i];
         scanCode++;

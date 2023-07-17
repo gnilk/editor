@@ -24,6 +24,7 @@ namespace gedit {
         };
     public:
         PluginCommand() = default;
+        virtual ~PluginCommand() = default;
         static Ref CreateFromConfig(const ConfigNode &cfgNode);
 
         // You should override this one...

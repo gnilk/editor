@@ -42,10 +42,10 @@ namespace gedit {
         void CreateTextures();
 
     private:
-        SDL_Window* window = nullptr;
-        SDL_Renderer* renderer = nullptr;
-        SDL_Texture* screenAsTexture = nullptr;
-        SDL_Surface* screenAsSurface = nullptr;
+        SDL_Window* sdlWindow = nullptr;
+        SDL_Renderer* sdlRenderer = nullptr;
+        SDL_Texture* sdlScreenAsTexture = nullptr;
+        SDL_Surface* sdlScreenAsSurface = nullptr;
 
 
         // Initialize screen dimensions to default values

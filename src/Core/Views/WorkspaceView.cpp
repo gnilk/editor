@@ -47,7 +47,7 @@ void WorkspaceView::PopulateTree() {
     if (treeView == nullptr) {
         treeView = TreeView<Workspace::Node::Ref>::Create();
 
-        treeView->SetToStringDelegate([this](Workspace::Node::Ref node) -> std::string {
+        treeView->SetToStringDelegate([](Workspace::Node::Ref node) -> std::string {
             if (node->GetModel() != nullptr) {
                 return std::string(node->GetModel()->GetTextBuffer()->GetName());
             }

@@ -278,14 +278,18 @@ void Editor::ConfigureLanguages() {
     cppLanguage->Initialize();
     RegisterLanguage(".cpp|.h|.c|.hpp", cppLanguage);
 
-    auto jsonLanguage = JSONLanguage::Create();
-    jsonLanguage->Initialize();
-    RegisterLanguage(".json|.js", jsonLanguage);
+    {
+        auto language = JSONLanguage::Create();
+        language->Initialize();
+        RegisterLanguage(".json|.js", language);
+    }
 
-    auto defaultLanguage = DefaultLanguage::Create();
-    defaultLanguage->Initialize();
-    RegisterLanguage("default", defaultLanguage);
-    SetDefaultLanguage(defaultLanguage);
+    {
+        auto language = DefaultLanguage::Create();
+        language->Initialize();
+        RegisterLanguage("default", language);
+        SetDefaultLanguage(language);
+    }
 
 }
 
@@ -438,7 +442,6 @@ void Editor::SetActiveModel(EditorModel::Ref model) {
 
 
 bool Editor::IsModelOpen(EditorModel::Ref model) {
-    auto idxCurrent = GetActiveModelIndex();
     for(size_t i = 0; i < openModels.size(); i++) {
         if (openModels[i] == model) {
             return true;

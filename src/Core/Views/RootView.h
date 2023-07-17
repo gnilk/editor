@@ -42,7 +42,7 @@ namespace gedit {
         void AddTopView(ViewBase *view, const std::string &name) {
 
             // Let's do it like this for now...
-            auto ref = std::shared_ptr<ViewBase>(view, [this](ViewBase *ptr){
+            auto ref = std::shared_ptr<ViewBase>(view, [](ViewBase *ptr){
             });
 
             TopViewInstance topView = {name, ref};

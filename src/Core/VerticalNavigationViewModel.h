@@ -17,15 +17,15 @@ namespace gedit {
         VerticalNavigationViewModel() = default;
         virtual ~VerticalNavigationViewModel() = default;
 
-        void OnNavigateDownVSCode(Cursor &cursor, int rows, const Rect &rect, const size_t nItems);
-        void OnNavigateUpVSCode(Cursor &cursor, int rows, const Rect &rect, const size_t nItems);
-        void OnNavigateDownCLion(Cursor &cursor, int rows, const Rect &rect, const size_t nItems);
-        void OnNavigateUpCLion(Cursor &cursor, int rows, const Rect &rect, const size_t nItems);
+        void OnNavigateDownVSCode(Cursor &cursor, size_t rows, const Rect &rect, const size_t nItems);
+        void OnNavigateUpVSCode(Cursor &cursor, size_t rows, const Rect &rect, const size_t nItems);
+        void OnNavigateDownCLion(Cursor &cursor, size_t rows, const Rect &rect, const size_t nItems);
+        void OnNavigateUpCLion(Cursor &cursor, size_t rows, const Rect &rect, const size_t nItems);
 
     public:
-        int idxActiveLine = 0;
-        int32_t viewTopLine = 0;
-        int32_t viewBottomLine = 0;
+        size_t idxActiveLine = 0;       // can't be negative
+        size_t viewTopLine = 0;
+        size_t viewBottomLine = 0;
     };
 }
 

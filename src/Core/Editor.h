@@ -56,7 +56,6 @@ namespace gedit {
                     return i;
                 }
             }
-            auto logger = gnilk::Logger::GetLogger("Editor");
             logger->Error("No active model!!!!!");
             // THIS SHOULD NOT HAPPEN!!!
             return 0;
@@ -67,7 +66,6 @@ namespace gedit {
                     return openModels[i];
                 }
             }
-            auto logger = gnilk::Logger::GetLogger("Editor");
             logger->Error("No active model!!!!!");
             // THIS SHOULD NOT HAPPEN!!!
             return nullptr;

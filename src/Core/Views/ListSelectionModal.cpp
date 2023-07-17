@@ -79,7 +79,7 @@ bool ListView::OnAction(const KeyPressAction &kpAction){
 void ListView::DrawViewContents() {
     auto &dc = window->GetContentDC();
     dc.ResetDrawColors();
-    for (int i = viewTopLine; i < viewBottomLine; i++) {
+    for (auto i = viewTopLine; i < viewBottomLine; i++) {
         if (i >= listItems.size()) {
             break;
         }

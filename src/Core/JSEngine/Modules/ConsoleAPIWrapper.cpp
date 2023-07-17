@@ -25,7 +25,7 @@ void ConsoleAPIWrapper::RegisterModule(duk_context *ctx) {
 // Do variadic argument printing - this is pretty much lifted directly from duktape/extras/console
 // I do understand (to some extent) what it is doing, but I wouldn't have been able to write it myself...
 duk_ret_t ConsoleAPIWrapper::WriteLine(duk_context *ctx) {
-    duk_uint_t flags = (duk_uint_t) duk_get_current_magic(ctx);
+    //duk_uint_t flags = (duk_uint_t) duk_get_current_magic(ctx);
 
     duk_idx_t n = duk_get_top(ctx);
     duk_idx_t i;

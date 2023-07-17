@@ -22,7 +22,7 @@ bool PluginCommand::InitializeFromConfig(const ConfigNode &config) {
     logger->Debug("Init JS Plug '%s', Short: '%s', Desc: %s", name.c_str(), shortName.c_str(), description.c_str());
 
 
-    auto &strArgs = config.GetSequenceOfStr("arguments");
+    const auto &strArgs = config.GetSequenceOfStr("arguments");
     for(auto &arg : strArgs) {
         std::vector<std::string> argvec;
         strutil::split(argvec, arg.c_str(), ',');

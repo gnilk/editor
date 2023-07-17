@@ -62,7 +62,7 @@ bool EditController::HandleSpecialKeyPress(Cursor &cursor, size_t &idxLine, cons
         switch (keyPress.specialKey) {
             case Keyboard::kKeyCode_DeleteForward :
                 // Handle delete at end of line
-                if ((cursor.position.x == line->Length()) && ((idxLine + 1) < textBuffer->NumLines())) {
+                if ((cursor.position.x == (int)line->Length()) && ((idxLine + 1) < textBuffer->NumLines())) {
                     auto next = textBuffer->LineAt(idxLine + 1);
                     line->Append(next);
                     textBuffer->DeleteLineAt(idxLine + 1);
@@ -246,7 +246,7 @@ void EditController::AddLineComment(size_t idxLineStart, size_t idxLineEnd, cons
 // Need cursor for undo...
 void EditController::DeleteLines(size_t idxLineStart, size_t idxLineEnd) {
     // Fixme: Need undo for range..
-    for(int lineIndex = idxLineStart;lineIndex < idxLineEnd; lineIndex++) {
+    for(auto lineIndex = idxLineStart;lineIndex < idxLineEnd; lineIndex++) {
         // Delete the same line several times - as we move the lines after up..
         textBuffer->DeleteLineAt(idxLineStart);
     }

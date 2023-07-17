@@ -152,7 +152,7 @@ void STBTTF_RenderText(SDL_Renderer* renderer, STBTTF_Font* font, float x, float
     SDL_SetTextureColorMod(font->atlas, r, g, b);
     SDL_SetTextureAlphaMod(font->atlas, a);
     for(int i = 0; text[i]; i++) {
-        if (text[i] >= 32 && text[i] < 128) {
+        if (text[i] >= 32 && ((uint8_t)text[i]) < 128) {
             //if(i > 0) x += stbtt_GetCodepointKernAdvance(font->info, text[i - 1], text[i]) * font->scale;
 
             stbtt_packedchar* info = &font->chars[text[i] - 32];
@@ -168,7 +168,7 @@ void STBTTF_RenderText(SDL_Renderer* renderer, STBTTF_Font* font, float x, float
 float STBTTF_MeasureText(STBTTF_Font* font, const char *text) {
     float width = 0;
     for(int i = 0; text[i]; i++) {
-        if (text[i] >= 32 && text[i] < 128) {
+        if (text[i] >= 32 && ((uint8_t)text[i]) < 128) {
             //if(i > 0) width += stbtt_GetCodepointKernAdvance(font->info, text[i - 1], text[i]) * font->scale;
 
             stbtt_packedchar* info = &font->chars[text[i] - 32];

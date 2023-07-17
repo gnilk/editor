@@ -18,22 +18,22 @@
 
 using namespace gedit;
 
-static void handle_winch(int sig)
-{
-    auto logger = gnilk::Logger::GetLogger("winch");
-    logger->Debug("SIG WINCH!");
-    endwin();
-    // Needs to be called after an endwin() so ncurses will initialize
-    // itself with the new terminal dimensions.
-    refresh();
-    //clear();
-}
-static void install_sigwinch() {
-    struct sigaction sa;
-    memset(&sa, 0, sizeof(struct sigaction));
-    sa.sa_handler = handle_winch;
-    sigaction(SIGWINCH, &sa, NULL);
-}
+//static void handle_winch(int sig)
+//{
+//    auto logger = gnilk::Logger::GetLogger("winch");
+//    logger->Debug("SIG WINCH!");
+//    endwin();
+//    // Needs to be called after an endwin() so ncurses will initialize
+//    // itself with the new terminal dimensions.
+//    refresh();
+//    //clear();
+//}
+//static void install_sigwinch() {
+//    struct sigaction sa;
+//    memset(&sa, 0, sizeof(struct sigaction));
+//    sa.sa_handler = handle_winch;
+//    sigaction(SIGWINCH, &sa, NULL);
+//}
 
 bool NCursesScreen::Open() {
 

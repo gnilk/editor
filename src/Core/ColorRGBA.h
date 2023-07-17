@@ -27,7 +27,7 @@ public:
     static ColorRGBA FromHSLA(float h, float s, float l, float a);
     static ColorRGBA FromHexStr(std::string &str);
 
-    const bool operator == (const ColorRGBA &other) const {
+    bool operator == (const ColorRGBA &other) const {
         if (other.RedAsInt() != RedAsInt()) return false;
         if (other.GreenAsInt() != GreenAsInt()) return false;
         if (other.BlueAsInt() != BlueAsInt()) return false;

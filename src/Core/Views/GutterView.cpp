@@ -63,16 +63,16 @@ void GutterView::DrawViewContents() {
 
     char str[64];
     for(int i=0;i<dc.GetRect().Height();i++) {
-        int idxLine = i + editorModel->viewTopLine;
+        size_t idxLine = i + editorModel->viewTopLine;
 
         if (idxLine >= editorModel->Lines().size()) {
             break;
         }
 
         auto line = editorModel->LineAt(idxLine);
-        snprintf(str, 64, "%6d", idxLine);
+        snprintf(str, 64, "%6zu", idxLine);
         if (idxLine == editorModel->idxActiveLine) {
-            snprintf(str, 64, "%6d  *",  idxLine);
+            snprintf(str, 64, "%6zu  *",  idxLine);
         }
         dc.DrawStringAt(0,i,str);
     }

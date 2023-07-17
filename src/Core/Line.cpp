@@ -144,7 +144,7 @@ void Line::Delete(int at, int n) {
     NotifyChangeHandler();
 }
 int Line::Unindent() {
-    int maxLen = 0;
+    size_t maxLen = 0;
     {
         std::lock_guard<std::mutex> guard(lock);
         if (buffer.size() == 0) {
@@ -155,8 +155,8 @@ int Line::Unindent() {
         if (maxLen == std::string::npos) {
             return 0;
         }
-        if (maxLen > EditorConfig::Instance().tabSize) {
-            maxLen = EditorConfig::Instance().tabSize;
+        if (maxLen > static_cast<size_t>(EditorConfig::Instance().tabSize)) {
+            maxLen = static_cast<size_t>(EditorConfig::Instance().tabSize);
         }
         buffer.erase(0, maxLen);
     }
@@ -189,7 +189,7 @@ int Line::Unindent() {
 //}
 
 Line::LineAttribIterator Line::AttributeAt(int pos) {
-    for(int i=0;i<attribs.size()-1;i++) {
+    for(size_t i=0;i<attribs.size()-1;i++) {
         if ((pos >= attribs[i].idxOrigString) && (pos < attribs[i+1].idxOrigString)) {
             return attribs.begin()+i;
         }

@@ -148,3 +148,10 @@ void EditorModel::ResetSearchHitIndex() {
 size_t EditorModel::GetSearchHitIndex() {
     return idxActiveSearchHit;
 }
+
+size_t EditorModel::GetReparseStartLineIndex() {
+    if (!IsSelectionActive()) {
+        return idxActiveLine;
+    }
+    return currentSelection.GetStart().y;
+}

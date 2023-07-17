@@ -76,10 +76,16 @@ void TextBuffer::StartReparseThread() {
             state = kState_Parsing;
             logger->Debug("Begin Regional Syntax Parsing");
             tokenizer = language->Tokenizer();
-            int idxLine = Editor::Instance().GetActiveModel()->cursor.position.y;
+
+
+
+
+            int idxLine = Editor::Instance().GetActiveModel()->GetReparseStartLineIndex();
             tokenizer.ParseRegion(lines, idxLine);
             logger->Debug("End Regional Syntax Parsing");
             state = kState_Idle;
+
+            Editor::Instance().TriggerUIRedraw();
         }
     });
 }

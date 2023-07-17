@@ -46,8 +46,7 @@ void CommandController::WriteLine(const std::string &str) {
     NewLine();
 }
 
-
-bool CommandController::HandleKeyPress(Cursor &cursor, size_t idxLine, const KeyPress &keyPress) {
+bool CommandController::HandleKeyPress(Cursor &cursor, size_t &idxLine, const KeyPress &keyPress) {
     if (DefaultEditLine(cursor, currentLine, keyPress)) {
         return true;
     }

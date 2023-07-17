@@ -15,50 +15,33 @@ EditorModel::Ref EditorModel::Create() {
     return editorModel;
 }
 
-// This should not be done here - as it modifies the data
+// We should only handle stuff which might modify selection or similar...
 bool EditorModel::HandleKeyPress(const gedit::KeyPress &keyPress) {
-    bool wasHandled = true;
+    bool wasHandled = false;
     auto line = textBuffer->LineAt(idxActiveLine);
     switch (keyPress.specialKey) {
         case Keyboard::kKeyCode_DeleteForward :
             if (IsSelectionActive()) {
                 DeleteSelection();
                 CancelSelection();
-
-            } else if ((cursor.position.x == line->Length()) && ((idxActiveLine + 1) < textBuffer->NumLines())) {
-                    auto next = textBuffer->LineAt(idxActiveLine + 1);
-                    line->Append(next);
-                    textBuffer->DeleteLineAt(idxActiveLine + 1);
-            } else {
-                wasHandled = false;
+                wasHandled = true;
             }
-
             break;
         case Keyboard::kKeyCode_Backspace :
-            if ((cursor.position.x == 0) && (idxActiveLine > 0)) {
-                MoveLineUp();
-            } else {
-                wasHandled = false;
+            if (IsSelectionActive()) {
+                DeleteSelection();
+                CancelSelection();
+                wasHandled = true;
             }
             break;
         case Keyboard::kKeyCode_Tab :
             // FIXME: Handle selection..
-            if (keyPress.modifiers == 0) {
-                for (int i = 0; i < EditorConfig::Instance().tabSize; i++) {
-                    editController->AddCharToLine(cursor, line, ' ');
-                }
-            } else if (keyPress.IsShiftPressed()) {
-                for (int i = 0; i < EditorConfig::Instance().tabSize; i++) {
-                    editController->RemoveCharFromLine(cursor, line);
-                }
-            }
-
             break;
         default:
-            wasHandled = false;
             break;
     }
 
+    // Needed???
     if (wasHandled) {
         textBuffer->Reparse();
     }
@@ -66,15 +49,6 @@ bool EditorModel::HandleKeyPress(const gedit::KeyPress &keyPress) {
     return wasHandled;
 }
 
-void EditorModel::MoveLineUp() {
-    auto line = textBuffer->LineAt(idxActiveLine);
-    auto linePrevious = textBuffer->LineAt((idxActiveLine-1));
-    cursor.position.x = linePrevious->Length();
-    linePrevious->Append(line);
-    textBuffer->DeleteLineAt(idxActiveLine);
-    idxActiveLine--;
-    cursor.position.y--;
-}
 
 void EditorModel::DeleteSelection() {
     auto startPos = currentSelection.GetStart();
@@ -88,10 +62,9 @@ void EditorModel::DeleteSelection() {
     if (endPos.x > 0) {
         yEnd--;
     }
-    for(int lineIndex = yStart;lineIndex < yEnd; lineIndex++) {
-        // delete line = lineIndex;
-        textBuffer->DeleteLineAt(yStart);
-    }
+
+    editController->DeleteLines(yStart, yEnd);
+
     idxActiveLine = yStart;
     cursor.position.y = yStart;
 
@@ -108,29 +81,13 @@ void EditorModel::CommentSelectionOrLine() {
     }
 
     if (!IsSelectionActive()) {
-        auto line = LineAt(idxActiveLine);
-        if (!line->StartsWith(lineCommentPrefix)) {
-            line->Insert(0, lineCommentPrefix);
-        } else {
-            line->Delete(0,2);
-        }
-        textBuffer->Reparse();
+        editController->AddLineComment(idxActiveLine, idxActiveLine+1, lineCommentPrefix);
         return;
     }
+
     auto start = currentSelection.GetStart();
     auto end = currentSelection.GetEnd();
-    int y = start.y;
-    while (y < end.y) {
-        auto line = LineAt(y);
-        if (!line->StartsWith(lineCommentPrefix)) {
-            line->Insert(0, lineCommentPrefix);
-        } else {
-            line->Delete(0,2);
-        }
-        y++;
-    }
-    textBuffer->Reparse();
-
+    editController->AddLineComment(start.y, end.y, lineCommentPrefix);
 }
 
 size_t EditorModel::SearchFor(const std::string &searchItem) {
@@ -190,4 +147,11 @@ void EditorModel::ResetSearchHitIndex() {
 }
 size_t EditorModel::GetSearchHitIndex() {
     return idxActiveSearchHit;
+}
+
+size_t EditorModel::GetReparseStartLineIndex() {
+    if (!IsSelectionActive()) {
+        return idxActiveLine;
+    }
+    return currentSelection.GetStart().y;
 }

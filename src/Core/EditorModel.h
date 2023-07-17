@@ -162,6 +162,9 @@ namespace gedit {
         void DeleteSelection();
         void CommentSelectionOrLine();
 
+        // Returns the reparse start index - if selection is active, the top of selection is returned, otherwise the active line index is returned
+        size_t GetReparseStartLineIndex();
+
         size_t SearchFor(const std::string &searchItem);
         void ClearSearchResults();
         bool HaveSearchResults() {
@@ -172,11 +175,9 @@ namespace gedit {
         void NextSearchResult();
         void PrevSearchResult();
         void ResetSearchHitIndex();
-    private:
-        void MoveLineUp();
     public:
         Cursor cursor;
-        int32_t idxActiveLine = 0;
+        size_t idxActiveLine = 0;
         int32_t viewTopLine = 0;
         int32_t viewBottomLine = 0;
         std::vector<SearchResult> searchResults;

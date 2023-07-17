@@ -8,6 +8,7 @@
 #include <string.h>
 
 #include "LangLineTokenizer.h"
+#include "Core/Editor.h"
 #include <assert.h>
 #include "logger.h"
 using namespace gedit;
@@ -90,6 +91,13 @@ size_t LangLineTokenizer::EndParseRegion(std::vector<Line::Ref> &lines, size_t i
     if (idxRegion > (lines.size()-5)) {
         return lines.size();
     }
+
+    auto currentModel = Editor::Instance().GetActiveModel();
+    if (currentModel->IsSelectionActive()) {
+        auto selection = currentModel->GetSelection();
+        idxRegion = selection.GetEnd().y;
+    }
+
     idxRegion += 1;
     while(lines[idxRegion]->GetStateStackDepth() > 1) {
         idxRegion++;

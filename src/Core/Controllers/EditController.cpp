@@ -299,10 +299,8 @@ void EditController::DeleteRange(const Point &startPos, const Point &endPos) {
         startLine->Delete(startPos.x, startLine->Length()-startPos.x);
         y++;
     }
-    // If x = 0, we have marked a set number of lines so we need to decrease the height by one..
-    if (endPos.x == 0) {
-        dy-=1;
-    } else {
+    // If x > 0, we have a partial marked end-line so let's delete that partial data before we chunk the lines
+    if (endPos.x > 0) {
         // end-pos is not 0, so we need to chop off stuff at the last line and merge with the first line...
         auto line = textBuffer->LineAt(endPos.y);
         line->Delete(0, endPos.x);

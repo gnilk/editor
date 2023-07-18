@@ -37,16 +37,25 @@ bool EditController::HandleKeyPress(Cursor &cursor, size_t &idxLine, const KeyPr
 
     auto undoItem = BeginUndoItem(cursor, idxLine);
 
+    LanguageBase::kInsertAction parserAction = LanguageBase::kInsertAction::kDefault;
+
     if (keyPress.IsHumanReadable()) {
-        textBuffer->LangParser().OnPreInsertChar(cursor, line, keyPress.key);
+        parserAction = textBuffer->LangParser().OnPreInsertChar(cursor, line, keyPress.key);
     }
-    if (DefaultEditLine(cursor, line, keyPress, false)) {
+    // The pre-insert handler for a language can determine if we should 'stop' the default behavior..
+    if (parserAction == LanguageBase::kInsertAction::kNoInsert) {
+        EndUndoItem(undoItem);
+        return true;
+    }
+
+    if ((parserAction == LanguageBase::kInsertAction::kDefault) && DefaultEditLine(cursor, line, keyPress, false)) {
         if (keyPress.IsHumanReadable()) {
             textBuffer->LangParser().OnPostInsertChar(cursor, line, keyPress.key);
         }
         EndUndoItem(undoItem);
         return true;
     }
+
 
     return false;
 }

@@ -79,6 +79,13 @@ namespace gedit {
         void Release();
 
 
+        char First() {
+            return buffer.front();
+        }
+        char Last() {
+            return buffer.back();
+        }
+
         int GetStateStackDepth() {
             return stateDepthAtStart;
         }

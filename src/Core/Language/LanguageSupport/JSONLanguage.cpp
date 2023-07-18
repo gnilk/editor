@@ -22,6 +22,8 @@ static const std::string jsonArrayEnd = "]";
 static const std::string inStringOp = "\"";
 static const std::string inStringPostFixOp = "\"";
 
+static const std::string jsLineComment = "//";
+
 static const std::string jsonKeywords = "true false null function for var let const";
 
 
@@ -34,8 +36,10 @@ bool JSONLanguage::Initialize() {
     state->SetIdentifiers(kLanguageTokenClass::kCodeBlockEnd, jsonObjectEnd.c_str());
     state->SetIdentifiers(kLanguageTokenClass::kArrayStart, jsonArrayStart.c_str());
     state->SetIdentifiers(kLanguageTokenClass::kArrayEnd, jsonArrayEnd.c_str());
+    state->SetIdentifiers(kLanguageTokenClass::kLineComment, jsLineComment.c_str());
     state->SetPostFixIdentifiers(jsonOperatorsFull.c_str());
 
+    state->GetOrAddAction("//",LangLineTokenizer::kAction::kPushState, "in_line_comment");
     state->GetOrAddAction("\"",LangLineTokenizer::kAction::kPushState, "in_string");
 
     auto stateStr = tokenizer.GetOrAddState("in_string");
@@ -43,6 +47,13 @@ bool JSONLanguage::Initialize() {
     stateStr->SetIdentifiers(kLanguageTokenClass::kString, inStringOp.c_str());
     stateStr->SetPostFixIdentifiers(inStringPostFixOp.c_str());
     stateStr->GetOrAddAction("\"",LangLineTokenizer::kAction::kPopState);
+
+
+    // a line comment run's to new-line...
+    auto stateLineComment = tokenizer.GetOrAddState("in_line_comment");
+    stateLineComment->SetRegularTokenClass(kLanguageTokenClass::kCommentedText);
+    stateLineComment->SetEOLAction(LangLineTokenizer::kAction::kPopState);
+
 
     tokenizer.SetStartState("main");
 

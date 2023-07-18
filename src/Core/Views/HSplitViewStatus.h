@@ -76,9 +76,12 @@ namespace gedit {
             dc.FillLine(row, kTextAttributes::kInverted, ' ');
             dc.DrawStringWithAttributesAt(0,row, kTextAttributes::kInverted, statusLine.c_str());
 
+            // TEMP - this shows the computed indentation for the current line..
+            auto activeLine = model->GetTextBuffer()->LineAt(model->idxActiveLine);
+
             statusLine = "";
             char tmp[32];
-            snprintf(tmp,32, "Ln: %d, Col: %d", model->cursor.position.y, model->cursor.position.x);
+            snprintf(tmp,32, "Id: %d, Ln: %d, Col: %d", activeLine->Indent(), model->cursor.position.y, model->cursor.position.x);
             statusLine += tmp;
 
             dc.DrawStringWithAttributesAt(dc.GetRect().Width()-statusLine.size()-4,row, kTextAttributes::kInverted, statusLine.c_str());

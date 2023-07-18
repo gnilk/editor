@@ -43,7 +43,7 @@ namespace gedit {
         void MoveLineUp(Cursor &cursor, size_t &idxActiveLine);
 
         // Proxy for buffer
-        std::vector<Line::Ref> &Lines() {
+        const std::vector<Line::Ref> &Lines() {
             return textBuffer->Lines();
         }
         // Const accessor...

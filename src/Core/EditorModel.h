@@ -120,7 +120,7 @@ namespace gedit {
         }
 
         // proxy
-        std::vector<Line::Ref> &Lines() {
+        const std::vector<Line::Ref> &Lines() {
             return editController->Lines();
         }
         Line::Ref LineAt(size_t idxLine) {

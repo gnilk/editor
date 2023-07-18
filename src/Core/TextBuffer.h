@@ -102,14 +102,14 @@ namespace gedit {
             lines.insert(it, line);
         }
 
-        void Insert(const std::vector<Line::Ref>::iterator &it, Line::Ref line) {
+        void Insert(const std::vector<const Line::Ref>::iterator &it, Line::Ref line) {
             line->SetOnChangeDelegate([this](const Line &line){
                 OnLineChanged(line);
             });
             lines.insert(it, line);
         }
 
-        std::vector<Line::Ref> &Lines() { return lines; }
+        const std::vector<Line::Ref> &Lines() { return lines; }
 
         Line::Ref LineAt(size_t idxLine) {
             return lines[idxLine];

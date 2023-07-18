@@ -118,14 +118,7 @@ void EditController::Undo(Cursor &cursor) {
         return;
     }
     historyBuffer.Dump();
-    auto undoItem = historyBuffer.PopItem();
-    auto line = textBuffer->LineAt(undoItem->idxLine);
-    line->Clear();
-    line->Append(undoItem->data);
-
-    // Update cursor
-    cursor.position.x = undoItem->offset;
-    cursor.wantedColumn = undoItem->offset;
+    historyBuffer.RestoreOneItem(cursor, textBuffer);
 
     UpdateSyntaxForBuffer();
 }
@@ -284,6 +277,11 @@ void EditController::DeleteRange(const Point &startPos, const Point &endPos) {
     logger->Debug("DeleteRange, startPos (x=%d, y=%d), endPos (x=%d, y=%d)",
                   startPos.x, startPos.y,
                   endPos.x, endPos.y);
+
+    // Fixme: This should probably be 'range' instead of selection in this case
+    auto undoItem = historyBuffer.NewUndoFromSelection();
+    historyBuffer.PushUndoItem(undoItem);
+
 
     // Delete range within one line..
     if (startPos.y == endPos.y) {

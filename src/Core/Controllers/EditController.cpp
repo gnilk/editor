@@ -135,10 +135,13 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
     int indentPrevious = 0;
     auto &lines = Lines();
     auto currentLine = LineAt(idxActiveLine);
+    auto tabSize = EditorConfig::Instance().tabSize;
+
+    int cursorXPos = 0;
 
     if (currentLine != nullptr) {
-        auto tabSize = EditorConfig::Instance().tabSize;
-        indentPrevious = currentLine->Indent() * tabSize;
+        logger->Debug("NewLine, current=%s [indent=%d]", currentLine->Buffer().data(), currentLine->Indent());
+        indentPrevious = currentLine->Indent();
     }
 
     auto it = lines.begin() + idxActiveLine;
@@ -154,19 +157,38 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
             // Split, move some chars from current to new...
             auto newLine = std::make_shared<Line>();
             currentLine->Move(newLine, 0, cursor.position.x);
+
+            // FIXME: This is special case for the language parser
+            if (newLine->Last() == '}') {
+                // Insert an empty line - this will be the new active line...
+                auto emptyLine = Line::Create("");
+                auto newIndent = currentLine->Indent() + 1;
+                emptyLine->SetIndent(newIndent);
+                cursorXPos = emptyLine->Insert(0, newIndent * tabSize, ' ');
+
+                lines.insert(++it, emptyLine);
+            }
+            newLine->SetIndent(currentLine->Indent());
+            auto newX = newLine->Insert(0, currentLine->Indent() * tabSize, ' ');
+            // Only assign if not yet done...
+            if (cursorXPos == 0) {
+                cursorXPos = newX;
+                logger->Debug("NewLine, indent=%d, cursorX = %d", newLine->Indent(), cursorXPos);
+            }
+
             lines.insert(it + 1, newLine);
             idxActiveLine++;
         }
     }
 
-    currentLine = lines[idxActiveLine];
-    currentLine->SetIndent(indentPrevious);
-    int cursorPos = currentLine->Insert(0, indentPrevious, ' ');
+//    currentLine = lines[idxActiveLine];
+//    currentLine->SetIndent(indentPrevious);
+//    int cursorPos = currentLine->Insert(0, indentPrevious, ' ');
 
     UpdateSyntaxForBuffer();
 
-    cursor.wantedColumn = cursorPos;
-    cursor.position.x = cursorPos;
+    cursor.wantedColumn = cursorXPos;
+    cursor.position.x = cursorXPos;
     return idxActiveLine;
 }
 

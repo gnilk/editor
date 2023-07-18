@@ -47,6 +47,9 @@ void TextBuffer::Close() {
 }
 
 bool TextBuffer::CanEdit() {
+    // No reparse thread => we can always edit - single threaded mode...
+    if (reparseThread == nullptr) return true;
+
     if (state == kState_Idle) return true;
     return false;
 }

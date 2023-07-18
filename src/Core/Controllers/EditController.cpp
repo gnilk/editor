@@ -248,7 +248,10 @@ void EditController::DelTab(Cursor &cursor, size_t idxActiveLine) {
 
 void EditController::AddLineComment(size_t idxLineStart, size_t idxLineEnd, const std::string_view &lineCommentPrefix) {
 
-    // FIXME: Undo for range!!!
+    auto undoItem = historyBuffer.NewUndoFromLineRange(idxLineStart, idxLineEnd);
+    undoItem->SetRestoreAction(UndoHistory::kRestoreAction::kClearAndAppend);
+    historyBuffer.PushUndoItem(undoItem);
+
 
     for (size_t idxLine = idxLineStart; idxLine < idxLineEnd; idxLine += 1) {
         auto line = LineAt(idxLine);
@@ -280,6 +283,7 @@ void EditController::DeleteRange(const Point &startPos, const Point &endPos) {
 
     // Fixme: This should probably be 'range' instead of selection in this case
     auto undoItem = historyBuffer.NewUndoFromSelection();
+    undoItem->SetRestoreAction(UndoHistory::kRestoreAction::kInsertAsNew);
     historyBuffer.PushUndoItem(undoItem);
 
 

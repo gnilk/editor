@@ -155,8 +155,10 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
             auto newLine = Line::Create();
             currentLine->Move(newLine, 0, cursor.position.x);
 
-            // FIXME: This is special case for the language parser
-            if (newLine->Last() == '}') {
+
+
+            // Defer to the language parser if we should auto-insert a new line or not..
+            if (textBuffer->LangParser().OnPreCreateNewLine(newLine) == LanguageBase::kInsertAction::kNewLine) {
                 // Insert an empty line - this will be the new active line...
                 auto emptyLine = Line::Create("");
                 auto newIndent = currentLine->Indent() + 1;

@@ -13,6 +13,11 @@
 namespace gedit {
     class LanguageBase {
     public:
+        enum class kInsertAction {
+            kDefault,
+            kNoInsert,
+        };
+    public:
         using Ref = std::shared_ptr<LanguageBase>;
     public:
         LanguageBase() = default;
@@ -31,8 +36,8 @@ namespace gedit {
         }
 
         // Not too key on adding dependencies on these things
-        virtual void OnPreInsertChar(Cursor &cursor, Line::Ref line, int ch) {}
-        virtual void OnPostInsertChar(Cursor &cursor, Line::Ref line, int ch) {}
+        virtual kInsertAction OnPreInsertChar(Cursor &cursor, Line::Ref line, int ch) { return kInsertAction::kDefault; }
+        virtual void OnPostInsertChar(Cursor &cursor, Line::Ref line, int ch) { }
     protected:
         LangLineTokenizer tokenizer;
     };

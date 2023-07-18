@@ -144,15 +144,15 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
 
     auto it = lines.begin() + idxActiveLine;
     if (lines.size() == 0) {
-        lines.insert(it, std::make_shared<Line>());
+        textBuffer->Insert(it, Line::Create());
     } else {
         if (cursor.position.x == 0) {
             // Insert empty line...
-            lines.insert(it, std::make_shared<Line>());
+            textBuffer->Insert(it, Line::Create());
             idxActiveLine++;
         } else {
             // Split, move some chars from current to new...
-            auto newLine = std::make_shared<Line>();
+            auto newLine = Line::Create();
             currentLine->Move(newLine, 0, cursor.position.x);
 
             // FIXME: This is special case for the language parser
@@ -163,7 +163,7 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
                 emptyLine->SetIndent(newIndent);
                 cursorXPos = emptyLine->Insert(0, newIndent * tabSize, ' ');
 
-                lines.insert(++it, emptyLine);
+                textBuffer->Insert(++it, emptyLine);
             }
 
             newLine->SetIndent(currentLine->Indent());

@@ -77,7 +77,9 @@ bool CPPLanguage::Initialize() {
 }
 
 
-void CPPLanguage::OnPreInsertChar(Cursor &cursor, Line::Ref line, int ch) {
+
+
+LanguageBase::kInsertAction CPPLanguage::OnPreInsertChar(Cursor &cursor, Line::Ref line, int ch) {
     // FIXME: This needs much more logic...
     if(ch == '}') {
         // FIXME: Check if line is 'empty' up-to x-pos
@@ -85,7 +87,15 @@ void CPPLanguage::OnPreInsertChar(Cursor &cursor, Line::Ref line, int ch) {
         if (cursor.position.x < 0) {
             cursor.position.x = 0;
         }
+    } else if (ch == ')') {
+        if ((cursor.position.x == line->Length()-1) && (line->Last() == ')')) {
+            // no insert - just skip over ')' and stop the insert
+            cursor.position.x++;
+            return kInsertAction::kNoInsert;
+        }
     }
+    return kInsertAction::kDefault;
+
 }
 
 void CPPLanguage::OnPostInsertChar(Cursor &cursor, Line::Ref line, int ch) {

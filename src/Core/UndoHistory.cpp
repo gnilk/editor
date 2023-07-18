@@ -28,6 +28,19 @@ UndoHistory::UndoItem::Ref UndoHistory::NewUndoFromSelection() {
     return undoItem;
 }
 
+UndoHistory::UndoItem::Ref UndoHistory::NewUndoFromLineRange(size_t idxStartLine, size_t idxEndLine) {
+    auto undoItem = UndoItemRange::Create();
+    auto model = Editor::Instance().GetActiveModel();
+    if (model == nullptr) {
+        return undoItem;
+    }
+    Point ptStart(0, idxStartLine);
+    Point ptEnd(0, idxEndLine);
+    undoItem->InitRange(ptStart, ptEnd);
+    return undoItem;
+
+}
+
 
 void UndoHistory::RestoreOneItem(Cursor &cursor, TextBuffer::Ref textBuffer) {
     auto undoItem = PopItem();
@@ -96,13 +109,20 @@ void UndoHistory::UndoItemRange::InitRange(const gedit::Point &ptStart, const ge
 
     for(int y=start.y; y < end.y; y++) {
         auto line = model->LineAt(y);
-        data.push_back(line);
+        data.push_back(std::string(line->Buffer()));
     }
 }
 void UndoHistory::UndoItemRange::Restore(TextBuffer::Ref textBuffer) {
     int lineCounter = 0;
     for(int y=start.y; y<end.y;y++) {
-        textBuffer->Insert(start.y, data[lineCounter++]);
+        if (action == kRestoreAction::kInsertAsNew) {
+            auto line = Line::Create(data[lineCounter++]);
+            textBuffer->Insert(start.y, line);
+        } else {
+            auto line = textBuffer->LineAt(y);
+            line->Clear();
+            line->Append(data[lineCounter++]);
+        }
     }
 }
 

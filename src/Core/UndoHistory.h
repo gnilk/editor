@@ -16,6 +16,10 @@ namespace gedit {
     // Extremely simplistic undo buffer - works for regular edits but wastes an extreme amount of memory..
     class UndoHistory {
     public:
+        enum class kRestoreAction {
+            kInsertAsNew,
+            kClearAndAppend,
+        };
         // Base class for any item which can be un-done
         // holds common data
         class UndoItem {
@@ -27,13 +31,18 @@ namespace gedit {
             virtual ~UndoItem() = default;
             virtual void Restore(TextBuffer::Ref textBuffer) {}
             bool IsValid() { return isValid; }
+            void SetRestoreAction(kRestoreAction newRestoreAction) {
+                action = newRestoreAction;
+            }
         protected:
             virtual void Initialize();
         protected:
             bool isValid = false;
             int idxLine = {};
             int offset = {};
-            int action = {};
+            // The action tell's us if we should replace lines or insert lines..
+            // This depends if the undo item was created during a delete operation or a modify operation
+            kRestoreAction action = kRestoreAction::kInsertAsNew;
         };
 
         // Specialization for a single item (line) which can be un-done, this one holds the actual data
@@ -66,7 +75,7 @@ namespace gedit {
         private:
             Point start = {};
             Point end = {};
-            std::vector<Line::Ref> data;
+            std::vector<std::string> data;
         };
 
     public:
@@ -74,6 +83,7 @@ namespace gedit {
         virtual ~UndoHistory() = default;
         UndoItem::Ref NewUndoItem();
         UndoItem::Ref NewUndoFromSelection();
+        UndoItem::Ref NewUndoFromLineRange(size_t idxStartLine, size_t idxEndLine);
         void PushUndoItem(UndoItem::Ref undoItem) {
             historystack.push_front(undoItem);
         }

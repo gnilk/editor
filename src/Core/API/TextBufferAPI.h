@@ -13,15 +13,10 @@ namespace gedit {
     public:
         using Ref = std::shared_ptr<TextBufferAPI>;
     public:
-        TextBufferAPI() {
-            printf("TextBufferAPI::CTOR\n");
-        }
+        TextBufferAPI() = default;
         TextBufferAPI(TextBuffer::Ref tBuffer) : textBuffer(tBuffer) {
-            printf("TextBufferAPI::CTOR tBuffer\n");
         }
-        virtual ~TextBufferAPI() {
-            printf("TextBufferAPI::DTOR!\n");
-        }
+        virtual ~TextBufferAPI() = default;
         void SetLanguage(const char *param );
 
         TextBuffer::Ref GetTextBuffer() {

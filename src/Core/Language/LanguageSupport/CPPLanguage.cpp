@@ -76,6 +76,12 @@ bool CPPLanguage::Initialize() {
     return true;
 }
 
+LanguageBase::kInsertAction CPPLanguage::OnPreCreateNewLine(const Line::Ref newLine) {
+    if (newLine->Last() != '}') {
+        return kInsertAction::kDefault;
+    }
+    return kInsertAction::kNewLine;
+}
 
 
 

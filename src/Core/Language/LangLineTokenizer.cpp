@@ -127,6 +127,10 @@ void LangLineTokenizer::ParseLines(std::vector<Line::Ref> &lines) {
         std::vector<LangToken> tokens;
 
         l->Lock();
+
+        int currentIndentCounter = indentCounter;
+        l->SetIndent(indentCounter);
+
         l->SetStateStackDepth((int)stateStack.size());
         ParseLineWithCurrentState(tokens, l->Buffer().data());
         // Indent handling
@@ -145,7 +149,10 @@ void LangLineTokenizer::ParseLines(std::vector<Line::Ref> &lines) {
             }
             assert(indentCounter >= 0);
         }
-        l->SetIndent(indentCounter);
+        if (indentCounter < currentIndentCounter) {
+            l->SetIndent(indentCounter);
+        }
+
 
         LangToken::ToLineAttrib(l->Attributes(), tokens);
         l->Release();

@@ -7,7 +7,7 @@
 #include "Editor.h"
 #include "EditorModel.h"
 #include "EditorConfig.h"
-
+#include "logger.h"
 using namespace gedit;
 
 EditorModel::Ref EditorModel::Create() {
@@ -20,14 +20,8 @@ bool EditorModel::HandleKeyPress(const gedit::KeyPress &keyPress) {
     bool wasHandled = false;
     auto line = textBuffer->LineAt(idxActiveLine);
     switch (keyPress.specialKey) {
-        case Keyboard::kKeyCode_DeleteForward :
-            if (IsSelectionActive()) {
-                DeleteSelection();
-                CancelSelection();
-                wasHandled = true;
-            }
-            break;
         case Keyboard::kKeyCode_Backspace :
+        case Keyboard::kKeyCode_DeleteForward :
             if (IsSelectionActive()) {
                 DeleteSelection();
                 CancelSelection();
@@ -54,19 +48,11 @@ void EditorModel::DeleteSelection() {
     auto startPos = currentSelection.GetStart();
     auto endPos = currentSelection.GetEnd();
 
-    int yStart = startPos.y;
-    int yEnd = endPos.y;
-    if (startPos.x > 0) {
-        yStart++;
-    }
-    if (endPos.x > 0) {
-        yEnd--;
-    }
+    editController->DeleteRange(startPos, endPos);
 
-    editController->DeleteLines(yStart, yEnd);
-
-    idxActiveLine = yStart;
-    cursor.position.y = yStart;
+    idxActiveLine = startPos.y;
+    cursor.position.x = startPos.x;
+    cursor.position.y = startPos.y;
 
 }
 

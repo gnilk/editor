@@ -20,13 +20,15 @@ Line::Line(const char *data) {
     strutil::rtrim(buffer);
 }
 
-Line::Ref Line::Create(const char *data) {
-    return std::make_shared<Line>(data);
-}
 Line::Ref Line::Create() {
     return std::make_shared<Line>();
 }
-
+Line::Ref Line::Create(const char *data) {
+    return std::make_shared<Line>(data);
+}
+Line::Ref Line::Create(const std::string &data) {
+    return std::make_shared<Line>(data.c_str());
+}
 
 void Line::Lock() {
     lock.lock();

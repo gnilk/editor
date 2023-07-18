@@ -35,6 +35,7 @@ namespace gedit {
         Line(const char *data);
         static Line::Ref Create();
         static Line::Ref Create(const char *data);
+        static Line::Ref Create(const std::string &data);
 
         void SetOnChangeDelegate(OnChangeDelegate newOnChangeDelegate) {
             cbChanged = newOnChangeDelegate;

@@ -85,6 +85,7 @@ namespace gedit {
             });
             lines.push_back(line);
         }
+
         void AddLine(const char *textString) {
             auto newLine = Line::Create(textString);
             newLine->SetOnChangeDelegate([this](const Line &line){
@@ -92,11 +93,19 @@ namespace gedit {
             });
             lines.push_back(newLine);
         }
+
         void Insert(size_t idxPos, Line::Ref line) {
             line->SetOnChangeDelegate([this](const Line &line){
                 OnLineChanged(line);
             });
             auto it = lines.begin() + idxPos;
+            lines.insert(it, line);
+        }
+
+        void Insert(const std::vector<Line::Ref>::iterator &it, Line::Ref line) {
+            line->SetOnChangeDelegate([this](const Line &line){
+                OnLineChanged(line);
+            });
             lines.insert(it, line);
         }
 
@@ -115,6 +124,7 @@ namespace gedit {
             line->Lock();
             lines.erase(lines.begin() + idxLine);
             line->Release();
+            ChangeState(kBuffer_Changed);
         }
 
         void CopyRegionToString(std::string &outText, const Point &start, const Point &end);

@@ -18,9 +18,7 @@ namespace gedit {
         TextBufferAPIWrapper() = default;
         TextBufferAPIWrapper(TextBufferAPI::Ref tBuffer) : textBuffer(tBuffer) {
         }
-        virtual ~TextBufferAPIWrapper() {
-            printf("TextBufferAPIWrapper::DTOR\n");
-        };
+        virtual ~TextBufferAPIWrapper() = default;
 
         static Ref Create(TextBufferAPI::Ref tBuffer) {
             return std::make_shared<TextBufferAPIWrapper>(tBuffer);

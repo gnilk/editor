@@ -26,7 +26,6 @@ void TextBufferAPIWrapper::SetLanguage(const char *param) {
     if (textBuffer == nullptr) {
         return;
     }
-    printf("TextBufferAPIWrapper::SetLanguage, param=%s\n", param);
     textBuffer->SetLanguage(param);
 }
 

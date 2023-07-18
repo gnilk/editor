@@ -132,7 +132,6 @@ void EditController::Undo(Cursor &cursor) {
 
 
 size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
-    int indentPrevious = 0;
     auto &lines = Lines();
     auto currentLine = LineAt(idxActiveLine);
     auto tabSize = EditorConfig::Instance().tabSize;
@@ -141,7 +140,6 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
 
     if (currentLine != nullptr) {
         logger->Debug("NewLine, current=%s [indent=%d]", currentLine->Buffer().data(), currentLine->Indent());
-        indentPrevious = currentLine->Indent();
     }
 
     auto it = lines.begin() + idxActiveLine;
@@ -152,7 +150,6 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
             // Insert empty line...
             lines.insert(it, std::make_shared<Line>());
             idxActiveLine++;
-            indentPrevious = 0;
         } else {
             // Split, move some chars from current to new...
             auto newLine = std::make_shared<Line>();
@@ -168,6 +165,7 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
 
                 lines.insert(++it, emptyLine);
             }
+
             newLine->SetIndent(currentLine->Indent());
             auto newX = newLine->Insert(0, currentLine->Indent() * tabSize, ' ');
             // Only assign if not yet done...
@@ -180,10 +178,6 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
             idxActiveLine++;
         }
     }
-
-//    currentLine = lines[idxActiveLine];
-//    currentLine->SetIndent(indentPrevious);
-//    int cursorPos = currentLine->Insert(0, indentPrevious, ' ');
 
     UpdateSyntaxForBuffer();
 

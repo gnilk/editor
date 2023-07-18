@@ -67,6 +67,7 @@ namespace gedit {
         void DelTab(Cursor &cursor, size_t idxActiveLine);
 
         void DeleteLines(size_t idxLineStart, size_t idxLineEnd);
+        void DeleteRange(const Point &startPos, const Point &endPos);
         void AddLineComment(size_t idxLineStart, size_t idxLineEnd, const std::string_view &lineCommentPrefix);
 
 

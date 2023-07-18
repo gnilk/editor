@@ -270,11 +270,43 @@ void EditController::AddLineComment(size_t idxLineStart, size_t idxLineEnd, cons
 
 // Need cursor for undo...
 void EditController::DeleteLines(size_t idxLineStart, size_t idxLineEnd) {
-    // Fixme: Need undo for range..
     for(auto lineIndex = idxLineStart;lineIndex < idxLineEnd; lineIndex++) {
         // Delete the same line several times - as we move the lines after up..
         textBuffer->DeleteLineAt(idxLineStart);
     }
 
     UpdateSyntaxForBuffer();
+}
+
+void EditController::DeleteRange(const Point &startPos, const Point &endPos) {
+    logger->Debug("DeleteRange, startPos (x=%d, y=%d), endPos (x=%d, y=%d)",
+                  startPos.x, startPos.y,
+                  endPos.x, endPos.y);
+
+    // Delete range within one line..
+    if (startPos.y == endPos.y) {
+        auto line = textBuffer->LineAt(startPos.y);
+        line->Delete(startPos.x, endPos.x - startPos.x);
+        return;
+    }
+
+    auto startLine = textBuffer->LineAt(startPos.y);
+    int y = startPos.y;
+    int dy = endPos.y - startPos.y;
+    if (startPos.x != 0) {
+        startLine->Delete(startPos.x, startLine->Length()-startPos.x);
+        y++;
+    }
+    // If x = 0, we have marked a set number of lines so we need to decrease the height by one..
+    if (endPos.x == 0) {
+        dy-=1;
+    } else {
+        // end-pos is not 0, so we need to chop off stuff at the last line and merge with the first line...
+        auto line = textBuffer->LineAt(endPos.y);
+        line->Delete(0, endPos.x);
+        startLine->Append(line);
+    }
+
+    logger->Debug("DeleteRange, fromLine=%d, nLines=%d",y,dy);
+    DeleteLines(y, y+dy);
 }

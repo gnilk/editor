@@ -174,7 +174,7 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
                 logger->Debug("NewLine, indent=%d, cursorX = %d", newLine->Indent(), cursorXPos);
             }
 
-            lines.insert(it + 1, newLine);
+            textBuffer->Insert(it+1, newLine);
             idxActiveLine++;
         }
     }

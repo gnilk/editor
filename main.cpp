@@ -3,12 +3,11 @@
 //
 /*
  * TO-DO List
- * - Start work on history/undo
- * - Cleanup/Refactor EditController/EditModel/TextBuffer - either remove one (controller) or have a clear distinction that changes must go through controller and other stuff (like search) through model
  * - Refactor initialization, split app init from data loading (data loading should happen afterwards - when UI is up and running)
  * - Fix save!
  * - Code cleanup
  *   - Switch to References everywhere, either C++ ref or shared_ptr type of refs (MyClass::Ref), there are still too many places using raw object pointers
+ *     mainly in the graphics subsystem and also some in the view-system
  * - QuickCommandMode
  *   ! Allow cursor to be positioned at the 'C' input
  *   ! Ability to navigate through search results (next/previous) - should reposition the cursor
@@ -42,6 +41,8 @@
  * - Remove the buffer manager class - not needed
  *
  * Done:
+ * ! Start work on history/undo
+ * ! Cleanup/Refactor EditController/EditModel/TextBuffer - either remove one (controller) or have a clear distinction that changes must go through controller and other stuff (like search) through model
  * ! Action and Keymaps should store the modifier explicitly and not try to derive it from the masks in KeyMapping::ActionModifierFromMask
  * ! Something is causing sigsev, I strongly suspect that it is related to threading in Syntax Coloring / Language code
  *   [note: this was due to lines becoming invalid on certain operations while the parser was running]

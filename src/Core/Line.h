@@ -33,6 +33,7 @@ namespace gedit {
     public:
         Line();
         Line(const char *data);
+        static Line::Ref Create();
         static Line::Ref Create(const char *data);
 
         void SetOnChangeDelegate(OnChangeDelegate newOnChangeDelegate) {

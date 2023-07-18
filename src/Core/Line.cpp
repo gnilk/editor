@@ -23,6 +23,9 @@ Line::Line(const char *data) {
 Line::Ref Line::Create(const char *data) {
     return std::make_shared<Line>(data);
 }
+Line::Ref Line::Create() {
+    return std::make_shared<Line>();
+}
 
 
 void Line::Lock() {

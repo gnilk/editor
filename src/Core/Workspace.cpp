@@ -23,6 +23,7 @@ Workspace::Workspace() {
 
 Workspace::~Workspace() {
     rootNodes.clear();
+    models.clear();
 }
 
 Workspace::Ref Workspace::Create() {
@@ -110,11 +111,34 @@ EditorModel::Ref Workspace::NewEmptyModel(const Node::Ref parent) {
     EditorModel::Ref editorModel = EditorModel::Create();
     editorModel->Initialize(editController, textBuffer);
 
-    parent->AddModel(editorModel);
+    auto node = parent->AddModel(editorModel);
+    node->SetParent(parent);
 
     NotifyChangeHandler();
 
     return editorModel;
+}
+
+bool Workspace::CloseModel(EditorModel::Ref model) {
+    auto node = NodeFromModel(model);
+    if (!node.has_value()) {
+        return false;
+    }
+    auto nodePtr = node.value();
+    if (nodePtr->GetParent() == nullptr) {
+        return false;
+    }
+    return nodePtr->GetParent()->DelModel(nodePtr);
+}
+
+std::optional<Workspace::Node::Ref> Workspace::NodeFromModel(EditorModel::Ref model) {
+    for(auto &[name, node] : rootNodes) {
+        auto modelNode = node->FindModel(model);
+        if (modelNode != nullptr) {
+            return modelNode;
+        }
+    }
+    return {};
 }
 
 

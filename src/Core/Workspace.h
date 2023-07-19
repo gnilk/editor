@@ -34,6 +34,7 @@ namespace gedit {
     class Node : public std::enable_shared_from_this<Node> {
         public:
             using Ref = std::shared_ptr<Node>;
+            using ChildNodesValueType = std::unordered_map<std::string, Node::Ref>::value_type;
         public:
             // A node has a name and generally points to a directory - but we can create nodes a bit how we want..
             // Thus we can mimic VStudio with "Source", "Headers", etc.. which are virtual nodes but appear as
@@ -41,7 +42,10 @@ namespace gedit {
             explicit Node(const std::string &nodeName) : name(nodeName), displayName(nodeName) {
 
             }
-            virtual ~Node() = default;
+            virtual ~Node() {
+                // This is just here for debugging purposes...
+                // printf("Workspace::Node::DTOR\n");
+            }
             static Ref Create(const std::string &nodeName) {
                 return std::make_shared<Node>(nodeName);
             }
@@ -57,7 +61,16 @@ namespace gedit {
             void SetDisplayName(const std::string &newDisplayName) {
                 displayName = newDisplayName;
             }
-            const Node::Ref GetParent() {
+
+            void SetParent(Node::Ref newParent) {
+                // Do NOT support re-parenting
+                if (parent != nullptr) {
+                    return;
+                }
+                parent = newParent;
+            }
+
+            Node::Ref GetParent() {
                 return parent;
             }
 
@@ -76,12 +89,49 @@ namespace gedit {
                 return child;
             }
 
+            bool DelChild(Node::Ref child) {
+                if (!HasChild(name)) {
+                    return false;
+                }
+                auto it = childNodes.find(name);
+                childNodes.erase(it);
+                return true;
+            }
+
+            bool DelModel(Node::Ref nodeForModel) {
+                auto itModel = std::find_if(models.begin(), models.end(), [&nodeForModel](const Node::Ref &node){ return nodeForModel->GetModel() == node->GetModel(); });
+                if (itModel == models.end()) {
+                    return false;
+                }
+                models.erase(itModel);
+
+//                // No child is not an error as leaves are just stored in the models array...
+//                auto itNode = std::find_if(childNodes.begin(), childNodes.end(), [&nodeForModel](const ChildNodesValueType &pair) { return nodeForModel == pair.second; });
+//                if (itNode == childNodes.end()) {
+//                    childNodes.erase(itNode);
+//                }
+
+                return true;
+            }
+
             bool HasChild(const std::string &nameToFind) {
                 if(childNodes.find(nameToFind) == childNodes.end()) {
                     return false;
                 }
                 return true;
             }
+
+            Node::Ref FindModel(const EditorModel::Ref searchModel) {
+                for(auto &node : models) {
+                    auto nodeForModel = node->FindModel(searchModel);
+                    if (nodeForModel != nullptr) {
+                        return nodeForModel;
+                    }
+                    if (node->GetModel() == searchModel) return node;
+                }
+                return nullptr;
+            }
+
             Node::Ref GetOrAddChild(const std::string &childName) {
                 if (HasChild(childName)) {
                     return childNodes[childName];
@@ -107,14 +157,15 @@ namespace gedit {
 
             //////////////////
             // Functionality related to models of a node
-            void AddModel(EditorModel::Ref newModel) {
+            Node::Ref AddModel(EditorModel::Ref newModel) {
                 auto node = Create(newModel);
-
                 models.push_back(node);
+                return node;
             }
             EditorModel::Ref GetModel() {
                 return model;
             }
+
 
         private:
             void RecursiveGetNodePath(std::filesystem::path &path) {
@@ -131,6 +182,8 @@ namespace gedit {
             std::string displayName = "";
             Node::Ref parent = nullptr;
             EditorModel::Ref model = nullptr;   // This is only set for leaf nodes..
+
+
 
             std::unordered_map<std::string, Node::Ref> childNodes = {};
             std::vector<Node::Ref> models = {};
@@ -162,9 +215,12 @@ namespace gedit {
         // Adds a file-reference (i.e doesn't load contents) to a specific (named) workedspace
         EditorModel::Ref NewModelWithFileRef(Node::Ref parent, const std::filesystem::path &pathFileName);
 
+        bool CloseModel(EditorModel::Ref model);
+
     protected:
         bool ReadFolderToNode(Node::Ref rootNode, const std::string &folder);
         Node::Ref GetOrAddNode(const std::string &name);
+        std::optional<Node::Ref> NodeFromModel(EditorModel::Ref model);
         void DisableNotifications() {
             isChangeHandlerEnabled = false;
         }

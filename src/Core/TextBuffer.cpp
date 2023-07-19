@@ -17,27 +17,68 @@ TextBuffer::TextBuffer(const std::string &bufferName) {
     SetPathName(bufferName);
 }
 
+TextBuffer::~TextBuffer() {
+    // Close the debugging thread if it is running...
+    if (reparseThread != nullptr) {
+        bQuitReparse = true;
+        // Timeout????
+        while(GetParseState() != kState_None) {
+            std::this_thread::yield();
+        }
+    }
+}
+
+
 void TextBuffer::Reparse() {
     // No language, don't do this...
     if (language == nullptr) {
         return;
     }
+    // When a workspace is opened, a lot of text-buffers are created 'passively' and are not loaded until activiated
+    if(bufferState == kBuffer_FileRef) {
+        return;
+    }
+
     auto useThreads = Config::Instance()["main"].GetBool("threaded_syntaxparser", false);
 
     if (!useThreads) {
-        auto tokenizer = language->Tokenizer();
-        tokenizer.ParseLines(lines);
-    } else {
-        if (reparseThread == nullptr) {
-            StartReparseThread();
-            while (state == kState_None) {
-                std::this_thread::yield();
-            }
-        } else if (state == kState_Idle) {
-            state = kState_Start;
-        }
+        ExecuteFullParse();
+        return;
+    }
+
+    if (reparseThread == nullptr) {
+        StartParseThread();
+    }
+
+    // Don't queue up full-parse job's unless we are idle
+    // On large files this will literally never end and the queue will just fill up...
+    if (GetParseState() == kState_Idle) {
+        StartParseJob(ParseJobType::kParseFull);
     }
 }
+
+void TextBuffer::ReparseRegion(size_t idxStartLine, size_t idxEndLine) {
+    // No language, don't do this...
+    if (language == nullptr) {
+        return;
+    }
+    // When a workspace is opened, a lot of text-buffers are created 'passively' and are not loaded until activiated
+    if(bufferState == kBuffer_FileRef) {
+        return;
+    }
+
+    auto useThreads = Config::Instance()["main"].GetBool("threaded_syntaxparser", false);
+
+    if (!useThreads) {
+        ExecuteRegionParse(idxStartLine, idxEndLine);
+        return;
+    }
+    if (reparseThread == nullptr) {
+        StartParseThread();
+    }
+    StartParseJob(ParseJobType::kParseRegion, idxStartLine, idxEndLine);
+}
+
 void TextBuffer::Close() {
     if (reparseThread != nullptr) {
         bQuitReparse = true;
@@ -49,66 +90,85 @@ void TextBuffer::Close() {
 bool TextBuffer::CanEdit() {
     // No reparse thread => we can always edit - single threaded mode...
     if (reparseThread == nullptr) return true;
-
-    if (state == kState_Idle) return true;
+    if (GetParseState() == kState_Idle) return true;
     return false;
 }
 
-void TextBuffer::StartReparseThread() {
+void TextBuffer::StartParseJob(TextBuffer::ParseJobType jobType, size_t idxLineStart, size_t idxLineEnd) {
+    parseQueueLock.lock();
+    ParseJob job = {
+            .jobType = jobType,
+            .idxLineStart = idxLineStart,
+            .idxLineEnd = idxLineEnd
+    };
+    parseQueue.push_front(job);
+    parseQueueLock.unlock();
+    // Kick of the parse-job
+    ChangeParseState(kState_Start);
+    // Wait until we are actually parsing...
+    while (GetParseState() != kState_Parsing) {
+        std::this_thread::yield();
+    }
+}
+
+void TextBuffer::ChangeParseState(ParseState newState) {
+    parseState = newState;
+}
+
+
+void TextBuffer::StartParseThread() {
     reparseThread = new std::thread([this]() {
-        auto logger = gnilk::Logger::GetLogger("TextBuffer");
-
-        // First time we need to parse the whole buffer, on any updates we will just reparse the affected region
-        logger->Debug("Begin Initial Syntax Parsing");
-        state = kState_Parsing;
-        auto tokenizer = language->Tokenizer();
-        tokenizer.ParseLines(lines);
-        logger->Debug("End Initial Syntax Parsing");
-        state = kState_Idle;
-
-        // in a better world - we should probably have a subscription for this.
-        // but we are in a different thread - and this does hand over to the main thread
-        Editor::Instance().TriggerUIRedraw();
-        while(!bQuitReparse) {
-            while ((state == kState_Idle) && (!bQuitReparse)) {
-                std::this_thread::yield();
-            }
-            if (bQuitReparse) break;
-            if (Editor::Instance().GetActiveModel() == nullptr) continue;
-
-            state = kState_Parsing;
-            logger->Debug("Begin Regional Syntax Parsing");
-            tokenizer = language->Tokenizer();
-
-
-
-
-            int idxLine = Editor::Instance().GetActiveModel()->GetReparseStartLineIndex();
-            tokenizer.ParseRegion(lines, idxLine);
-            logger->Debug("End Regional Syntax Parsing");
-            state = kState_Idle;
-
-            Editor::Instance().TriggerUIRedraw();
-        }
+        ParseThread();
     });
+    // Wait until the thread has become idle...
+    while(GetParseState() != kState_Idle) {
+        std::this_thread::yield();
+    }
 }
 
-std::optional<Line::Ref>TextBuffer::FindParseStart(size_t idxStartLine) {
-    if (!HaveLanguage()) {
-        return {};
-    }
-    if (idxStartLine >= lines.size()) {
-        return {};
-    }
-    while (lines[idxStartLine]->GetStateStackDepth() != LangLineTokenizer::RootStateDepth) {
-        if (idxStartLine == 0) {
-            return lines[0];
+void TextBuffer::ParseThread() {
+    ChangeParseState(kState_Idle);
+    while(!bQuitReparse) {
+        if (GetParseState() == kState_Idle) {
+            std::this_thread::yield();
+            continue;
         }
-        idxStartLine -= 1;
+        ChangeParseState(kState_Parsing);
+        // Fetch job..
+        parseQueueLock.lock();
+        auto &job = parseQueue.front();
+        parseQueue.pop_front();
+        parseQueueLock.unlock();
+
+        ExecuteParseJob(job);
+        Editor::Instance().TriggerUIRedraw();
+
+        ChangeParseState(kState_Idle);
     }
-    return lines[idxStartLine];
+    ChangeParseState(kState_None);
 }
 
+void TextBuffer::ExecuteParseJob(const ParseJob &job) {
+    if (job.jobType == ParseJobType::kParseFull) {
+        ExecuteFullParse();
+    } else if (job.jobType == ParseJobType::kParseRegion) {
+        ExecuteRegionParse(job.idxLineStart, job.idxLineEnd);
+    }
+}
+
+void TextBuffer::ExecuteFullParse() {
+    auto tokenizer = language->Tokenizer();
+    tokenizer.ParseLines(lines);
+    parseMetrics.total += 1;
+    parseMetrics.full += 1;
+}
+
+void TextBuffer::ExecuteRegionParse(size_t idxLineStart, size_t idxLineEnd) {
+    auto tokenizer = language->Tokenizer();
+    tokenizer.ParseRegion(lines, idxLineStart, idxLineEnd);
+    parseMetrics.total += 1;
+    parseMetrics.region += 1;
+}
 
 void TextBuffer::CopyRegionToString(std::string &outText, const Point &start, const Point &end) {
     for (int idxLine=start.y;idxLine<end.y;idxLine++) {
@@ -137,7 +197,7 @@ bool TextBuffer::Save() {
     out.close();
 
     // Go back to 'clean' - i.e. data is loaded...
-    ChangeState(kBuffer_Loaded);
+    ChangeBufferState(kBuffer_Loaded);
     return true;
 }
 
@@ -163,7 +223,7 @@ bool TextBuffer::Load() {
     }
     fclose(f);
     // Change state, do this before UpdateLang - since lang checks if loaded before allowing parse to happen
-    ChangeState(kBuffer_Loaded);
+    ChangeBufferState(kBuffer_Loaded);
     UpdateLanguageParserFromFilename();
 
 
@@ -201,11 +261,11 @@ void TextBuffer::UpdateLanguageParserFromFilename() {
     }
 }
 
-void TextBuffer::ChangeState(BufferState newState) {
+void TextBuffer::ChangeBufferState(BufferState newState) {
     bufferState = newState;
 }
 
 void TextBuffer::OnLineChanged(const Line &line) {
-    ChangeState(kBuffer_Changed);
+    ChangeBufferState(kBuffer_Changed);
 }
 

@@ -28,6 +28,13 @@ namespace gedit {
             kState_Parsing,
         } ParseState;
 
+        struct ParseMetrics {
+            size_t total = 0;
+            size_t full = 0;
+            size_t region = 0;
+        } parseMetrics;
+
+
         typedef enum {
             kBuffer_Empty,      // Buffer has been created, but nothing commited
             kBuffer_FileRef,    // Buffer references a file - but data is not loaded
@@ -37,7 +44,7 @@ namespace gedit {
 
     public:
         explicit TextBuffer(const std::string &bufferName);
-        virtual ~TextBuffer() = default;
+        virtual ~TextBuffer();
 
         static TextBuffer::Ref CreateEmptyBuffer(const std::string &bufferName) {
             auto buffer = std::make_shared<TextBuffer>(bufferName);
@@ -124,7 +131,7 @@ namespace gedit {
             line->Lock();
             lines.erase(lines.begin() + idxLine);
             line->Release();
-            ChangeState(kBuffer_Changed);
+            ChangeBufferState(kBuffer_Changed);
         }
 
         void CopyRegionToString(std::string &outText, const Point &start, const Point &end);
@@ -137,28 +144,57 @@ namespace gedit {
         bool HaveLanguage() { return language!= nullptr; }
         LanguageBase &LangParser() { return *language; }
 
-        std::optional<Line::Ref>FindParseStart(size_t idxStartLine);
         bool CanEdit();
         void Reparse();
+        void ReparseRegion(size_t idxStartLine, size_t idxEndLine);
+        const ParseMetrics &GetParseMetrics() {
+            return parseMetrics;
+        }
     public:
         // For unit testing...
         BufferState GetBufferState() {
             return bufferState;
         }
+        ParseState  GetParseState() {
+            return parseState;
+        }
     protected:
         void UpdateLanguageParserFromFilename();
-        void StartReparseThread();
         void OnLineChanged(const Line &line);
-        void ChangeState(BufferState newState);
+        void ChangeBufferState(BufferState newState);
     private:
-        volatile ParseState state = kState_None;
+        enum class ParseJobType {
+            kParseFull,
+            kParseRegion,
+        };
+        struct ParseJob {
+            ParseJobType jobType = ParseJobType::kParseFull;
+            size_t idxLineStart = {};
+            size_t idxLineEnd = {};
+        };
+    private:
+        void StartParseThread();
+        void ParseThread();
+        void ChangeParseState(ParseState newState);
+        void StartParseJob(ParseJobType jobType, size_t idxLineStart = 0, size_t idxLineEnd = 0);
+        void ExecuteParseJob(const ParseJob &job);
+        void ExecuteFullParse();
+        void ExecuteRegionParse(size_t idxLineStart, size_t idxLineEnd);
+    private:
+        volatile ParseState parseState = kState_None;
 
         BufferState bufferState = kBuffer_Empty;
         std::filesystem::path pathName = "";     // full path filename
 
+
         std::vector<Line::Ref> lines;
+
+        // Language parsing variables
         LanguageBase::Ref language = nullptr;
         std::thread *reparseThread = nullptr;
+        std::mutex parseQueueLock;
+        std::deque<ParseJob> parseQueue;
+
 
         bool bQuitReparse = false;
 

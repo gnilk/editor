@@ -4,7 +4,7 @@
 #include <testinterface.h>
 #include "Core/Editor.h"
 #include "Core/API/EditorAPI.h"
-#include "Core/Keymapping.h"
+#include "Core/KeyMapping.h"
 
 using namespace gedit;
 

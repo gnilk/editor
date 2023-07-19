@@ -3,11 +3,19 @@
 //
 
 #include "ClipBoard.h"
+#include <string>
+#include <sstream>
 
 using namespace gedit;
 
 bool ClipBoard::CopyFromBuffer(TextBuffer::Ref srcBuffer, const Point &ptStart, const Point &ptEnd) {
     auto item = ClipBoardItem::Create(srcBuffer, ptStart, ptEnd);
+    history.push_front(item);
+    return true;
+}
+
+bool ClipBoard::CopyFromExternal(const char *srcBuffer) {
+    auto item = ClipBoardItem::CreateExternal(srcBuffer);
     history.push_front(item);
     return true;
 }
@@ -19,14 +27,6 @@ void ClipBoard::PasteToBuffer(TextBuffer::Ref dstBuffer, const Point &ptWhere) {
     }
 
     Top()->PasteToBuffer(dstBuffer, ptWhere);
-}
-
-ClipBoard::ClipBoardItem::Ref ClipBoard::ClipBoardItem::Create(TextBuffer::Ref srcBuffer, const Point &ptStart, const Point &ptEnd) {
-    auto item = std::make_shared<ClipBoardItem>();
-    item->start = ptStart;
-    item->end = ptEnd;
-    item->CopyFromBuffer(srcBuffer);
-    return item;
 }
 
 ClipBoard::ClipBoardItem::Ref ClipBoard::Top() {
@@ -44,6 +44,23 @@ void ClipBoard::Dump() {
 }
 
 
+
+
+ClipBoard::ClipBoardItem::Ref ClipBoard::ClipBoardItem::Create(TextBuffer::Ref srcBuffer, const Point &ptStart, const Point &ptEnd) {
+    auto item = std::make_shared<ClipBoardItem>();
+    item->start = ptStart;
+    item->end = ptEnd;
+    item->CopyFromBuffer(srcBuffer);
+    return item;
+}
+ClipBoard::ClipBoardItem::Ref ClipBoard::ClipBoardItem::CreateExternal(const char *srcData) {
+    auto item = std::make_shared<ClipBoardItem>();
+    item->isExternal = true;
+    item->CopyFromExternal(srcData);
+    return item;
+}
+
+
 void ClipBoard::ClipBoardItem::CopyFromBuffer(TextBuffer::Ref srcBuffer) {
 
     // If we have end at the start of a line we copy 'until' that line otherwise we include it...
@@ -56,6 +73,14 @@ void ClipBoard::ClipBoardItem::CopyFromBuffer(TextBuffer::Ref srcBuffer) {
     for(int i=start.y;i<yEnd;i++) {
         auto line = srcBuffer->LineAt(i);
         data.push_back(std::string(line->Buffer()));
+    }
+}
+
+void ClipBoard::ClipBoardItem::CopyFromExternal(const char *srcData) {
+    std::stringstream strStream(srcData);
+    std::string line;
+    while(std::getline(strStream, line)) {
+        data.push_back(line);
     }
 }
 

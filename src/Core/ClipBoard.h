@@ -26,13 +26,15 @@ namespace gedit {
             ClipBoardItem() = default;
             virtual ~ClipBoardItem() = default;
 
-            static Ref Create(TextBuffer::Ref textBuffer, const Point &ptStart, const Point &ptEnd);
+            static Ref Create(TextBuffer::Ref srcBuffer, const Point &ptStart, const Point &ptEnd);
+            static Ref CreateExternal(const char *srcData);
 
             size_t GetLineCount() {
                 return data.size();
             }
 
         protected:
+            void CopyFromExternal(const char *srcData);
             void CopyFromBuffer(TextBuffer::Ref srcBuffer);
             void PasteToBuffer(TextBuffer::Ref dstBuffer, const Point &ptWhere);
             void Dump();
@@ -40,12 +42,14 @@ namespace gedit {
         protected:
             Point start = {};
             Point end = {};
+            bool isExternal = false;
             std::vector<std::string> data;
         };
     public:
         ClipBoard() = default;
         virtual ~ClipBoard() = default;
 
+        bool CopyFromExternal(const char *srcBuffer);
         bool CopyFromBuffer(TextBuffer::Ref srcBuffer, const Point &ptStart, const Point &ptEnd);
         void PasteToBuffer(TextBuffer::Ref dstBuffer, const Point &ptWhere);
 

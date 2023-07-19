@@ -74,6 +74,10 @@ namespace gedit {
             return !pathName.empty();
         }
 
+        bool IsEmpty() {
+            return ((bufferState == kBuffer_Empty) || (bufferState == kBuffer_FileRef));
+        }
+
         void SetPathName(const std::filesystem::path &newPathName);
         void Rename(const std::string &newFileName);
 
@@ -107,6 +111,10 @@ namespace gedit {
             });
             auto it = lines.begin() + idxPos;
             lines.insert(it, line);
+        }
+        void Insert(size_t idxPos, const std::string &text) {
+            auto newLine = Line::Create(text);
+            Insert(idxPos, newLine);
         }
 
         void Insert(const std::vector<const Line::Ref>::iterator &it, Line::Ref line) {

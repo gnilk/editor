@@ -35,7 +35,7 @@ void TextBuffer::Reparse() {
         return;
     }
     // When a workspace is opened, a lot of text-buffers are created 'passively' and are not loaded until activiated
-    if(bufferState == kBuffer_FileRef) {
+    if(IsEmpty()) {
         return;
     }
 
@@ -63,7 +63,7 @@ void TextBuffer::ReparseRegion(size_t idxStartLine, size_t idxEndLine) {
         return;
     }
     // When a workspace is opened, a lot of text-buffers are created 'passively' and are not loaded until activated
-    if(bufferState == kBuffer_FileRef) {
+    if(IsEmpty()) {
         return;
     }
 

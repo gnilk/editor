@@ -16,6 +16,7 @@ DLL_EXPORT int test_clipboard_copyclippedstart(ITesting *t);
 DLL_EXPORT int test_clipboard_paste(ITesting *t);
 DLL_EXPORT int test_clipboard_pastelineregion(ITesting *t);
 DLL_EXPORT int test_clipboard_pasteregionover(ITesting *t);
+DLL_EXPORT int test_clipboard_copypasteexternal(ITesting *t);
 }
 
 DLL_EXPORT int test_clipboard(ITesting *t) {
@@ -160,5 +161,16 @@ DLL_EXPORT int test_clipboard_pasteregionover(ITesting *t) {
 
     TR_ASSERT(t, dstBuffer->NumLines() == 11);
     TR_ASSERT(t, lines[4]->Buffer() == "MAne 2MAMAMAMAMAMAMAMAM 4");
+    return kTR_Pass;
+}
+DLL_EXPORT int test_clipboard_copypasteexternal(ITesting *t) {
+    ClipBoard clipBoard;
+
+    auto dstBuffer = TextBuffer::CreateEmptyBuffer("dst");
+    auto strData = "hello\nthis is\na multiline\ncopy";
+    clipBoard.CopyFromExternal(strData);
+    clipBoard.PasteToBuffer(dstBuffer, {0,0});
+    TR_ASSERT(t, dstBuffer->NumLines() != 0);
+    TR_ASSERT(t, dstBuffer->NumLines() == 4);
     return kTR_Pass;
 }

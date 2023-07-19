@@ -13,9 +13,9 @@
 #include "logger.h"
 using namespace gedit;
 
-void LangLineTokenizer::ParseRegion(std::vector<Line::Ref> &lines, size_t idxRegion) {
-    size_t idxStart = StartParseRegion(lines, idxRegion);
-    size_t idxEnd = EndParseRegion(lines, idxRegion);
+void LangLineTokenizer::ParseRegion(std::vector<Line::Ref> &lines, size_t idxLineStart, size_t idxLineEnd) {
+    size_t idxStart = StartParseRegion(lines, idxLineStart);
+    size_t idxEnd = EndParseRegion(lines, idxLineEnd);
     auto logger = gnilk::Logger::GetLogger("LangLineRegion");
 
     if (!ResetStateStack()) {
@@ -26,7 +26,7 @@ void LangLineTokenizer::ParseRegion(std::vector<Line::Ref> &lines, size_t idxReg
     int indentCounter = 0;
     //int lineCounter = 0;
 
-    logger->Debug("ParseRegion, idx=%zu, start=%zu, end=%zu", idxRegion, idxStart, idxEnd);
+    logger->Debug("ParseRegion mapped, idxStart=%zu => %zu, idxEnd=%zu => %zu", idxLineStart, idxStart, idxStart, idxEnd);
 
     // FIXME: can't exit unless statStackDepth == l->StackStackDepth regardless if we go outside idxEnd
     //        just enter a block thing on the first line - this would require the whole file to be parsed - but it won't

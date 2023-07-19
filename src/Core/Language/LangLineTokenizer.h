@@ -189,7 +189,7 @@ namespace gedit {
 
         void ParseLine(std::vector<LangToken> &tokens, const char *input);
         void ParseLines(std::vector<Line::Ref> &lines);
-        void ParseRegion(std::vector<Line::Ref> &lines, size_t idxRegion);
+        void ParseRegion(std::vector<Line::Ref> &lines, size_t idxLineStart, size_t idxLineEnd);
         void ParseLineFromStartState(std::string &listStartState, Line::Ref line);
 
         // State management - this is available

@@ -3,9 +3,10 @@
 //
 /*
  * TO-DO List
- * + CopyPaste, rewrite to use own ClipBoard, need to figure out how to handle text from OS clipboard...
+ * ! CopyPaste, rewrite to use own ClipBoard, need to figure out how to handle text from OS clipboard...
  *   For SDL2 I use the SDL_CLIPBOARDUPDATE event to bring OS data in...  For NCurses I don't know yet..
- *
+ * - ClipBoard needs the ability to call a function which can set the OS clipboard text (for SDL this is SDL_SetClipboardText)
+ *   ex: ClipBoard::SetClipboardChangeDelegate([this](const std::vector<std::string> &data) { ... });
  * - Refactor initialization, split app init from data loading (data loading should happen afterwards - when UI is up and running)
  * - Fix save!
  * - Code cleanup

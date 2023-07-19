@@ -6,7 +6,6 @@
 #include "Core/Config/Config.h"
 #include "Core/Editor.h"
 #include "Core/RuntimeConfig.h"
-#include "Core/BufferManager.h"
 
 #include "Workspace.h"
 

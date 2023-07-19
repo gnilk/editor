@@ -13,9 +13,6 @@
 #include "EditorView.h"
 #include "Core/Editor.h"
 #include "Core/ActionHelper.h"
-// TEMP
-#include <SDL3/SDL_clipboard.h>
-#include <SDL3/SDL_error.h>
 
 using namespace gedit;
 
@@ -183,20 +180,19 @@ bool EditorView::OnAction(const KeyPressAction &kpAction) {
     // This is convoluted - will be dealt with when copy/paste works...
     if (kpAction.action == kAction::kActionCopyToClipboard) {
         logger->Debug("Set text to clip board");
-        std::string buffer;
         auto selection = editorModel->GetSelection();
-        editorModel->GetTextBuffer()->CopyRegionToString(buffer, selection.GetStart(), selection.GetEnd());
-        logger->Debug("%s", buffer.c_str());
-        if (SDL_SetClipboardText(buffer.c_str()) != 0) {
-            logger->Error("SDL_SetClipboardText, error=%s", SDL_GetError());
-        }
+
+        auto &clipboard = Editor::Instance().GetClipBoard();
+        clipboard.CopyFromBuffer(editorModel->GetTextBuffer(), selection.GetStart(), selection.GetEnd());
+
     } else if (kpAction.action == kAction::kActionPasteFromClipboard) {
-        if (SDL_HasClipboardText() == SDL_TRUE) {
-            auto clipBoardText = SDL_GetClipboardText();
-            editorModel->GetEditController()->Paste(editorModel->idxActiveLine, clipBoardText);
-            logger->Debug("Past from clipboard: '%s'", clipBoardText);
-        } else {
-            logger->Debug("No text in clipboard");
+        auto &clipboard = Editor::Instance().GetClipBoard();
+        if (clipboard.Top() != nullptr) {
+            auto nLines = clipboard.Top()->GetLineCount();
+            clipboard.PasteToBuffer(editorModel->GetTextBuffer(), editorModel->cursor.position);
+            editorModel->GetTextBuffer()->ReparseRegion(editorModel->idxActiveLine, editorModel->idxActiveLine + nLines);
+
+            // FIXME: move cursor down properly -> should really impl. VerticalNavigation!
         }
     } else if (kpAction.action == kAction::kActionInsertLineComment) {
         // Handle this here since we want to keep the selection...

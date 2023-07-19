@@ -351,13 +351,15 @@ target_link_libraries(editor ${extlibs})
 # unit testing
 #
 list(APPEND utestsrc utests/test_main.cpp)
-list(APPEND utestsrc utests/test_buffermanager.cpp)
+
 list(APPEND utestsrc utests/test_assetloader.cpp)
-list(APPEND utestsrc utests/test_jsengine.cpp)
-list(APPEND utestsrc utests/test_editorapi.cpp)
+list(APPEND utestsrc utests/test_buffermanager.cpp)
 list(APPEND utestsrc utests/test_cpplang.cpp)
-list(APPEND utestsrc utests/test_workspace.cpp)
+list(APPEND utestsrc utests/test_editorapi.cpp)
+list(APPEND utestsrc utests/test_jsengine.cpp)
 list(APPEND utestsrc utests/test_keymapping.cpp)
+list(APPEND utestsrc utests/test_textbuffer.cpp)
+list(APPEND utestsrc utests/test_workspace.cpp)
 list(APPEND utestsrc src/Core/Tests/test_dcoverlay.cpp)
 
 

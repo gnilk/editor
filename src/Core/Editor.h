@@ -140,6 +140,7 @@ namespace gedit {
 
         EditorModel::Ref NewModel(const std::string &name);
         EditorModel::Ref LoadModel(const std::string &filename);
+        bool CloseModel(EditorModel::Ref model);
 
         State GetState() {
             return state;

@@ -223,6 +223,11 @@ EditorModel::Ref Editor::LoadModel(const std::string &filename) {
     return model;
 }
 
+bool Editor::CloseModel(EditorModel::Ref model) {
+    return workspace->CloseModel(model);
+}
+
+
 EditorModel::Ref Editor::LoadEditorModelFromFile(const char *filename) {
     logger->Debug("Loading file: %s", filename);
     TextBuffer::Ref textBuffer;

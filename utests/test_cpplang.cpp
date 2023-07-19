@@ -1,9 +1,6 @@
 //
 // Created by gnilk on 18.07.23.
 //
-//
-// Created by gnilk on 05.05.23.
-//
 #include <testinterface.h>
 #include "Core/Editor.h"
 #include "Core/EditorModel.h"

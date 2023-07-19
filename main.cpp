@@ -3,6 +3,9 @@
 //
 /*
  * TO-DO List
+ * - CopyPaste, rewrite to use own ClipBoard, need to figure out how to handle text from OS clipboard...
+ *   the problem is figuring out when/if the clip-board has been updated (SDL2, event: SDL_CLIPBOARDUPDATE)
+ *   Problem here is to know when a copy/paste action was performed, might need some 'low-level' event handling for this..
  * - Refactor initialization, split app init from data loading (data loading should happen afterwards - when UI is up and running)
  * - Fix save!
  * - Code cleanup

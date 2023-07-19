@@ -48,6 +48,10 @@ namespace gedit {
             dataNode[key] = newValue;
         }
 
+        void SetBool(const std::string &key, bool newValue) {
+            dataNode[key] = newValue;
+        }
+
         int GetInt(const std::string &key, const int defValue = 0) const {
             if (!HasKey(key)) {
                 return defValue;

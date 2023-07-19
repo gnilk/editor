@@ -140,6 +140,7 @@ namespace gedit {
 
         EditorModel::Ref NewModel(const std::string &name);
         EditorModel::Ref LoadModel(const std::string &filename);
+        bool CloseModel(EditorModel::Ref model);
 
         State GetState() {
             return state;
@@ -163,9 +164,6 @@ namespace gedit {
         void SetupSDL();
 
         void ExecutePostScript(const std::string &scriptFile);
-
-        EditorModel::Ref LoadEditorModelFromFile(const char *filename);
-
     private:
         Editor() = default;
     private:

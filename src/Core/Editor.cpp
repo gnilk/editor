@@ -7,7 +7,6 @@
 #include <filesystem>
 
 #include "Editor.h"
-#include "Core/BufferManager.h"
 #include "Core/RuntimeConfig.h"
 #include "Core/Config/Config.h"
 #include "Core/KeyMapping.h"
@@ -223,30 +222,9 @@ EditorModel::Ref Editor::LoadModel(const std::string &filename) {
     return model;
 }
 
-EditorModel::Ref Editor::LoadEditorModelFromFile(const char *filename) {
-    logger->Debug("Loading file: %s", filename);
-    TextBuffer::Ref textBuffer;
-
-    textBuffer = BufferManager::Instance().NewBufferFromFile(filename);
-    if (textBuffer == nullptr) {
-        logger->Error("Unable to load file: '%s'", filename);
-        return nullptr;
-    }
-    logger->Debug("End Loading");
-
-
-    std::filesystem::path pathName(filename);
-    auto extension = pathName.extension();
-    textBuffer->SetLanguage(GetLanguageForExtension(extension));
-
-    EditController::Ref editController = std::make_shared<EditController>();
-    EditorModel::Ref editorModel = std::make_shared<EditorModel>();
-
-    editorModel->Initialize(editController, textBuffer);
-
-    return editorModel;
+bool Editor::CloseModel(EditorModel::Ref model) {
+    return workspace->CloseModel(model);
 }
-
 
 void Editor::ConfigureLogger() {
     static const char *sinkArgv[]={"autoflush","file","logfile.log"};

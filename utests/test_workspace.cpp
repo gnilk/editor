@@ -16,6 +16,8 @@ DLL_EXPORT int test_workspace_newtwice(ITesting *t);
 DLL_EXPORT int test_workspace_fileref(ITesting *t);
 DLL_EXPORT int test_workspace_newmodel(ITesting *t);
 DLL_EXPORT int test_workspace_openfolder(ITesting *t);
+DLL_EXPORT int test_workspace_closemodel(ITesting *t);
+DLL_EXPORT int test_workspace_recreate(ITesting *t);
 }
 
 DLL_EXPORT int test_workspace(ITesting *t) {
@@ -95,3 +97,30 @@ DLL_EXPORT int test_workspace_openfolder(ITesting *t) {
     return kTR_Pass;
 }
 
+DLL_EXPORT int test_workspace_closemodel(ITesting *t) {
+    Config::Instance()["main"].SetBool("threaded_syntaxparser", true);
+
+    Workspace workspace;
+    {
+        auto model = workspace.NewEmptyModel();
+        workspace.CloseModel(model);
+    } // should lose the shared_ptr for the model when leaving this block...
+
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_workspace_recreate(ITesting *t) {
+    Workspace::Ref workspace = Workspace::Create();
+    // Create a number of models
+    workspace->NewEmptyModel();
+    workspace->NewEmptyModel();
+    workspace->NewEmptyModel();
+
+    // Let's see if all DTOR's are invoked
+    // note: in order to test this - set breakpoints in DTORs
+    workspace = nullptr;
+    std::this_thread::sleep_for(500ms);
+    return kTR_Pass;
+
+
+}

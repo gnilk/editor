@@ -37,9 +37,9 @@
  * - macOS swaps left/right scancodes between keyboards (laptop has left/right one way my ext.keyboard another)
  *   need to consider a solution for this...
  * - Swap out the vertical navigation code in EditorView for the 'VerticalNavigationModel'
- * - Remove the buffer manager class - not needed
  *
  * Done:
+ * ! Remove the buffer manager class - not needed
  * ! Unsaved file should have '*' marking in the top..
  * ! Start work on history/undo
  * ! Cleanup/Refactor EditController/EditModel/TextBuffer - either remove one (controller) or have a clear distinction that changes must go through controller and other stuff (like search) through model

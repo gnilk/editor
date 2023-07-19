@@ -30,12 +30,9 @@ bool EditController::HandleKeyPress(Cursor &cursor, size_t &idxLine, const KeyPr
     if (!textBuffer) {
         return false;
     }
-    // Can't just be this blunt - because SHIFT+<number> won't work...
-    //if (keyPress.modifiers) return false;
 
     auto line = textBuffer->LineAt(idxLine);
-
-    auto undoItem = BeginUndoItem(cursor, idxLine);
+    auto undoItem = BeginUndoItem();
 
     LanguageBase::kInsertAction parserAction = LanguageBase::kInsertAction::kDefault;
 
@@ -56,15 +53,13 @@ bool EditController::HandleKeyPress(Cursor &cursor, size_t &idxLine, const KeyPr
         return true;
     }
 
-
     return false;
 }
 
-// FIXME: ability to influence active line (this is owned by Model) - currently we have no way to touch this..
 bool EditController::HandleSpecialKeyPress(Cursor &cursor, size_t &idxLine, const KeyPress &keyPress) {
     auto line = textBuffer->LineAt(idxLine);
 
-    auto undoItem = BeginUndoItem(cursor, idxLine);
+    auto undoItem = BeginUndoItem();
 
     if (!DefaultEditSpecial(cursor, line, keyPress)) {
         bool wasHandled = false;
@@ -108,7 +103,6 @@ void EditController::MoveLineUp(Cursor &cursor, size_t &idxActiveLine) {
     cursor.position.x = linePrevious->Length();
     linePrevious->Append(line);
     textBuffer->DeleteLineAt(idxActiveLine);
-    // FIXME: need ability to change activeLine (sits in model)
     idxActiveLine--;
     cursor.position.y--;
 }
@@ -186,23 +180,25 @@ void EditController::Paste(size_t idxActiveLine, const char *buffer) {
     std::stringstream strStream(buffer);
     char tmp[GEDIT_MAX_LINE_LENGTH];
 
+    int idxStart = idxActiveLine;
     while(!strStream.eof()) {
         strStream.getline(tmp, GEDIT_MAX_LINE_LENGTH);
         auto line = Line::Create(tmp);
         textBuffer->Insert(idxActiveLine, line);
         idxActiveLine++;
     }
-    textBuffer->Reparse();
-
+    UpdateSyntaxForRegion(idxStart, idxActiveLine);
 }
 
 void EditController::UpdateSyntaxForBuffer() {
     textBuffer->Reparse();
 }
+void EditController::UpdateSyntaxForRegion(size_t idxStartLine, size_t idxEndLine) {
+    textBuffer->ReparseRegion(idxStartLine, idxEndLine);
+}
 
-UndoHistory::UndoItem::Ref EditController::BeginUndoItem(const Cursor &cursor, size_t idxActiveLine) {
+UndoHistory::UndoItem::Ref EditController::BeginUndoItem() {
     auto undoItem = historyBuffer.NewUndoItem();
-
     return undoItem;
 }
 
@@ -226,7 +222,7 @@ void EditController::RemoveCharFromLineNoUndo(gedit::Cursor &cursor, Line::Ref l
 
 void EditController::AddTab(Cursor &cursor, size_t idxActiveLine) {
     auto line = textBuffer->LineAt(idxActiveLine);
-    auto undoItem = BeginUndoItem(cursor,idxActiveLine);
+    auto undoItem = BeginUndoItem();
     for (int i = 0; i < EditorConfig::Instance().tabSize; i++) {
         AddCharToLineNoUndo(cursor, line, ' ');
     }
@@ -239,7 +235,7 @@ void EditController::DelTab(Cursor &cursor, size_t idxActiveLine) {
     if(cursor.position.x < nDel) {
         nDel = cursor.position.x;
     }
-    auto undoItem = BeginUndoItem(cursor, idxActiveLine);
+    auto undoItem = BeginUndoItem();
     for (int i = 0; i < nDel; i++) {
         RemoveCharFromLineNoUndo(cursor, line);
     }
@@ -262,18 +258,15 @@ void EditController::AddLineComment(size_t idxLineStart, size_t idxLineEnd, cons
         }
     }
 
-    // FIXME: Need 'UpdateSyntaxFromLine(idxLine)'
-    UpdateSyntaxForBuffer();
+    UpdateSyntaxForRegion(idxLineStart, idxLineEnd);
 }
 
 // Need cursor for undo...
-void EditController::DeleteLines(size_t idxLineStart, size_t idxLineEnd) {
+void EditController::DeleteLinesNoSyntaxUpdate(size_t idxLineStart, size_t idxLineEnd) {
     for(auto lineIndex = idxLineStart;lineIndex < idxLineEnd; lineIndex++) {
         // Delete the same line several times - as we move the lines after up..
         textBuffer->DeleteLineAt(idxLineStart);
     }
-
-    UpdateSyntaxForBuffer();
 }
 
 void EditController::DeleteRange(const Point &startPos, const Point &endPos) {
@@ -281,7 +274,6 @@ void EditController::DeleteRange(const Point &startPos, const Point &endPos) {
                   startPos.x, startPos.y,
                   endPos.x, endPos.y);
 
-    // Fixme: This should probably be 'range' instead of selection in this case
     auto undoItem = historyBuffer.NewUndoFromSelection();
     undoItem->SetRestoreAction(UndoHistory::kRestoreAction::kInsertAsNew);
     historyBuffer.PushUndoItem(undoItem);
@@ -310,5 +302,8 @@ void EditController::DeleteRange(const Point &startPos, const Point &endPos) {
     }
 
     logger->Debug("DeleteRange, fromLine=%d, nLines=%d",y,dy);
-    DeleteLines(y, y+dy);
+    DeleteLinesNoSyntaxUpdate(y, y+dy);
+
+    UpdateSyntaxForRegion(startPos.y, endPos.y+1);
+
 }

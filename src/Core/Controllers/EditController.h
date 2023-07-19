@@ -56,21 +56,22 @@ namespace gedit {
 
         void Paste(size_t idxActiveLine, const char *buffer);
 
-        UndoHistory::UndoItem::Ref BeginUndoItem(const Cursor &cursor, size_t idxActiveLine);
+        UndoHistory::UndoItem::Ref BeginUndoItem();
         void EndUndoItem(UndoHistory::UndoItem::Ref undoItem);
 
-        void UpdateSyntaxForBuffer();
+        void UpdateSyntaxForBuffer();   // Does a full buffer reparse of the syntax
+        void UpdateSyntaxForRegion(size_t idxStartLine, size_t idxEndLine); // Partial reparse (between line index)
+
         void AddCharToLineNoUndo(Cursor &cursor, Line::Ref line, int ch);
         void RemoveCharFromLineNoUndo(Cursor &cursor, Line::Ref line);
 
         void AddTab(Cursor &cursor, size_t idxActiveLine);
         void DelTab(Cursor &cursor, size_t idxActiveLine);
 
-        void DeleteLines(size_t idxLineStart, size_t idxLineEnd);
         void DeleteRange(const Point &startPos, const Point &endPos);
         void AddLineComment(size_t idxLineStart, size_t idxLineEnd, const std::string_view &lineCommentPrefix);
-
-
+    protected:
+        void DeleteLinesNoSyntaxUpdate(size_t idxLineStart, size_t idxLineEnd);
     private:
         gnilk::ILogger *logger = nullptr;
         TextBuffer::Ref textBuffer = nullptr;

@@ -3,9 +3,9 @@
 //
 /*
  * TO-DO List
- * - CopyPaste, rewrite to use own ClipBoard, need to figure out how to handle text from OS clipboard...
- *   the problem is figuring out when/if the clip-board has been updated (SDL2, event: SDL_CLIPBOARDUPDATE)
- *   Problem here is to know when a copy/paste action was performed, might need some 'low-level' event handling for this..
+ * + CopyPaste, rewrite to use own ClipBoard, need to figure out how to handle text from OS clipboard...
+ *   For SDL2 I use the SDL_CLIPBOARDUPDATE event to bring OS data in...  For NCurses I don't know yet..
+ *
  * - Refactor initialization, split app init from data loading (data loading should happen afterwards - when UI is up and running)
  * - Fix save!
  * - Code cleanup
@@ -127,10 +127,10 @@
  *
  * + BaseController, handle key press (take from old ModeBase/EditorMode)
  * ! Consolidate NCursesKeyBoard kKeyCode_xxxx with Keyboard::kKeyCode - currently there is a mismatch..
- * + Figure out how to handle 'HasContentChanged' notfications to force redraws..
+ * ! Figure out how to handle 'HasContentChanged' notifications to force redraws..
  *   a) be in the redraw loop and just do it (let the views take care of it)
  *   b) Somehow let a controller or view set a flag that a redraw is needed..
- * - CommandController, NOTE: THIS IS QUITE THE TASK
+ * ! CommandController, NOTE: THIS IS QUITE THE TASK
  *   a) Make it on par with the old CommandMode
  *   b) Break-out and start implement CmdLet handling
  *   c) Define the proper API for talking to the editor through the cmd-let's

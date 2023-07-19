@@ -109,12 +109,13 @@ list(APPEND extlibs logger)
 #
 
 # Editor main stuff
+list(APPEND editorsrc src/Core/AssetLoaderBase.cpp src/Core/AssetLoaderBase.h)
+list(APPEND editorsrc src/Core/ClipBoard.cpp src/Core/ClipBoard.h)
 list(APPEND editorsrc src/Core/Editor.cpp src/Core/Editor.h)
 list(APPEND editorsrc src/Core/EditorModel.cpp src/Core/EditorModel.h)
-list(APPEND editorsrc src/Core/Workspace.cpp src/Core/Workspace.h)
-list(APPEND editorsrc src/Core/VerticalNavigationViewModel.cpp src/Core/VerticalNavigationViewModel.h)
 list(APPEND editorsrc src/Core/Runloop.cpp src/Core/Runloop.h)
-list(APPEND editorsrc src/Core/AssetLoaderBase.cpp src/Core/AssetLoaderBase.h)
+list(APPEND editorsrc src/Core/VerticalNavigationViewModel.cpp src/Core/VerticalNavigationViewModel.h)
+list(APPEND editorsrc src/Core/Workspace.cpp src/Core/Workspace.h)
 
 # API and Actions
 list(APPEND editorsrc src/Core/Action.cpp src/Core/Action.h)
@@ -352,6 +353,7 @@ target_link_libraries(editor ${extlibs})
 list(APPEND utestsrc utests/test_main.cpp)
 
 list(APPEND utestsrc utests/test_assetloader.cpp)
+list(APPEND utestsrc utests/test_clipboard.cpp)
 list(APPEND utestsrc utests/test_cpplang.cpp)
 list(APPEND utestsrc utests/test_editorapi.cpp)
 list(APPEND utestsrc utests/test_jsengine.cpp)

@@ -22,7 +22,7 @@
 #include "Core/TypeUtil.h"
 #include "Core/Controllers/QuickCommandController.h"
 #include "Core/KeyMapping.h"
-
+#include "ClipBoard.h"
 namespace gedit {
 //
 // This class represents the 'application'
@@ -136,10 +136,15 @@ namespace gedit {
             return workspace;
         }
 
-        EditorModel::Ref OpenModelFromWorkspace(Workspace::Node::Ref workspaceNode);
+        ClipBoard &GetClipBoard() {
+            return clipboard;
+        }
 
+
+        EditorModel::Ref OpenModelFromWorkspace(Workspace::Node::Ref workspaceNode);
         EditorModel::Ref NewModel(const std::string &name);
         EditorModel::Ref LoadModel(const std::string &filename);
+
         bool CloseModel(EditorModel::Ref model);
 
         State GetState() {
@@ -185,6 +190,7 @@ namespace gedit {
         KeyboardDriverBase *keyboardDriver = nullptr;
         std::unordered_map<std::string_view, void *> editorApiObjects;
 
+        ClipBoard clipboard;
         Workspace::Ref workspace;
         // Javascript API wrapper
         JSPluginEngine jsEngine;

@@ -17,6 +17,7 @@
 #include "SDLKeyboardDriver.h"
 #include "Core/KeyMapping.h"
 #include "Core/RuntimeConfig.h"
+#include "Core/Editor.h"
 
 using namespace gedit;
 
@@ -57,6 +58,14 @@ KeyPress SDLKeyboardDriver::GetKeyPress() {
         }  else if ((event.type == SDL_EventType::SDL_WINDOWEVENT) && (event.window.event == SDL_WINDOWEVENT_RESIZED)) {
             logger->Debug("SDL_EVENT_WINDOW_RESIZED");
             RuntimeConfig::Instance().Screen()->OnSizeChanged();
+        } else if (event.type == SDL_EventType::SDL_CLIPBOARDUPDATE) {
+            logger->Debug("SDL_EVENT_CLIPBOARDUPDATE!!!");
+            if (SDL_HasClipboardText()) {
+                auto clipBoardText = SDL_GetClipboardText();
+                auto &clipBoard = Editor::Instance().GetClipBoard();
+                clipBoard.CopyFromExternal(clipBoardText);
+                SDL_free(clipBoardText);
+            }
         } else {
             // Note: Enable this to track any other event we might want...
             // logger->Debug("Unhandled event: %d (0x%.x)", event.type, event.type);

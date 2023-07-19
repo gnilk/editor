@@ -62,7 +62,7 @@ void TextBuffer::ReparseRegion(size_t idxStartLine, size_t idxEndLine) {
     if (language == nullptr) {
         return;
     }
-    // When a workspace is opened, a lot of text-buffers are created 'passively' and are not loaded until activiated
+    // When a workspace is opened, a lot of text-buffers are created 'passively' and are not loaded until activated
     if(bufferState == kBuffer_FileRef) {
         return;
     }
@@ -75,6 +75,10 @@ void TextBuffer::ReparseRegion(size_t idxStartLine, size_t idxEndLine) {
     }
     if (reparseThread == nullptr) {
         StartParseThread();
+    }
+    // Cut this at the end...
+    if (idxEndLine > (lines.size()-1)) {
+        idxEndLine = lines.size();
     }
     StartParseJob(ParseJobType::kParseRegion, idxStartLine, idxEndLine);
 }

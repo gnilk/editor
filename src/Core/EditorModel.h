@@ -91,7 +91,10 @@ namespace gedit {
 
     public:
         EditorModel() = default;
-        virtual ~EditorModel() = default;
+        virtual ~EditorModel() {
+            // note: this is just here for debugging purposes..
+            // printf("EditorModel::DTOR\n");
+        }
 
         void Initialize(EditController::Ref newController, TextBuffer::Ref newTextBuffer) {
             editController = newController;

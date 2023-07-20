@@ -116,6 +116,7 @@ bool Runloop::DispatchToHandler(KeypressAndActionHandler &kpaHandler, KeyPress k
     auto logger = gnilk::Logger::GetLogger("Dispatcher");
     logger->Debug("KeyPress Valid - passing on...");
 
+    // FIXME: would be better with some kind of notification thingie...
     auto keyMap = Editor::Instance().GetActiveKeyMap();
     auto kpAction = keyMap->ActionFromKeyPress(keyPress);
 

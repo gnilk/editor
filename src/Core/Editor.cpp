@@ -484,6 +484,7 @@ KeyMapping::Ref Editor::GetKeyMapForState(State paramState) {
     // We allow views to map keys differently (workspace view can have a different keymap from the regular edit-view)
     if (paramState == ViewState) {
         if (HasKeyMapping(viewStateKeymapName)) {
+            //logger->Debug("Current ViewState keymap: %s", viewStateKeymapName.c_str());
             return GetKeyMapping(viewStateKeymapName);
         }
         logger->Error("keymap with name '%s' not found - reverting to default!", viewStateKeymapName.c_str());
@@ -514,15 +515,18 @@ KeyMapping::Ref Editor::GetKeyMapping(const std::string &name) {
     return keymap;
 }
 
+// This checks if a keymapping is loaded - not if it has been configured!!
 bool Editor::HasKeyMapping(const std::string &name) {
     return (keymappings.find(name) != keymappings.end());
 }
 
+// FIXME: Should have notifications for this!
 void Editor::SetKeyMappingForViewState(const std::string name) {
-    if (!HasKeyMapping(name)) {
+    if (GetKeyMapping(name) == nullptr) {
         logger->Error("No such keymapping '%s'", name.c_str());
         return;
     }
+    logger->Debug("ViewState Keymapping Changed: %s -> %s", viewStateKeymapName.c_str(), name.c_str());
     viewStateKeymapName = name;
 }
 

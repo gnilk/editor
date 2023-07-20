@@ -27,8 +27,10 @@ static int createTranslationTable();
 bool SDLKeyboardDriver::Initialize() {
     createTranslationTable();
     SDL_StartTextInput();
+    HookEditorClipBoard();
     return true;
 }
+
 KeyPress SDLKeyboardDriver::GetKeyPress() {
     SDL_Event event;
     auto logger = gnilk::Logger::GetLogger("SDLKeyboardDriver");
@@ -325,5 +327,21 @@ uint8_t SDLKeyboardDriver::TranslateModifiers(const uint16_t sdlModifiers) {
     return modifiers;
 }
 
+// We hook the clipboard in the keyboard driver as this is the one processing messages
+void SDLKeyboardDriver::HookEditorClipBoard() {
+    Editor::Instance().GetClipBoard().SetOnUpdateCallback([](ClipBoard::ClipBoardItem::Ref clipBoardItem) {
+        auto &srcData = clipBoardItem->GetData();
+        auto nBytes = clipBoardItem->GetByteSize();
+        char *buffer = (char *)malloc(nBytes + 10); // better safe than sorry?
+        size_t idxBuffer = 0;
+        for(auto &l : srcData) {
+            snprintf(&buffer[idxBuffer], nBytes - idxBuffer, "%s\n",l.c_str());
+            idxBuffer += l.size() + sizeof('\n');
+        }
+        // Buffer should be UTF-8 encoded...
+        SDL_SetClipboardText(buffer);
+        free(buffer);
+    });
+}
 
 

@@ -20,6 +20,7 @@ namespace gedit {
         KeyPress TranslateSDLEvent(const SDL_KeyboardEvent &kbdEvent);
         int TranslateScanCode(int scanCode);
         uint8_t TranslateModifiers(const uint16_t sdlModifiers);
+        void HookEditorClipBoard();
     };
 }
 

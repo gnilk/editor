@@ -11,6 +11,10 @@
 
 using namespace gedit;
 
+// We are reusing some details from the command view - so need access here
+static const std::string cfgSectionName = "commandview";
+
+
 void QuickCommandController::Enter() {
     // Hook run loop here
     if (logger == nullptr) {
@@ -202,7 +206,7 @@ void QuickCommandController::HandleKeyPress(const KeyPress &keyPress) {
 
     if (state == State::QuickCmdState) {
         auto cmdline = std::string(cmdInput->Buffer());
-        auto prefix = Config::Instance()["commandmode"].GetStr("cmdlet_prefix");
+        auto prefix = Config::Instance()[cfgSectionName].GetStr("cmdlet_prefix");
         if (strutil::startsWith(cmdline, prefix)) {
             // we have a cmdlet prefix, we should disable the Action stuff..
             logger->Debug("CmdLet Prefix detected!");

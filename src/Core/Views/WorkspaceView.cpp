@@ -17,8 +17,17 @@ static void FillTreeView(WorkspaceView::TreeRef tree, WorkspaceView::TreeNodeRef
             FillTreeView(tree, newParent, child);
         }
     }
+    // Note: We take a COPY here - not a reference (auto &) - this allows for sorting...
     auto models = node->GetModels();
     if (models.size() > 0) {
+        // Sort the models within
+        std::sort(models.begin(), models.end(), [](Workspace::Node::Ref a, Workspace::Node::Ref b) -> bool {
+            std::string strA = (a->GetModel() != nullptr) ? std::string(a->GetModel()->GetTextBuffer()->GetName()) : a->GetDisplayName();
+            std::string strB = (b->GetModel() != nullptr) ? std::string(b->GetModel()->GetTextBuffer()->GetName()) : b->GetDisplayName();
+
+            return (strA < strB);
+        });
+        // Now print them..
         for(auto &nodeModel : models) {
             tree->AddItem(parent, nodeModel);
         }
@@ -35,7 +44,6 @@ void WorkspaceView::InitView() {
        PopulateTree();
     });
 
-    // TODO: this should have a VStackView and a Header...
     AddView(treeView.get());
 }
 
@@ -85,7 +93,11 @@ bool WorkspaceView::OnAction(const KeyPressAction &kpAction) {
         } else {
             logger->Debug("You selected a directory!");
         }
-
     }
+    if (kpAction.action == kAction::kActionStartSearch) {
+        auto logger = gnilk::Logger::GetLogger("WorkspaceView");
+        logger->Debug("Start Searching!");
+    }
+
     return false;
 }

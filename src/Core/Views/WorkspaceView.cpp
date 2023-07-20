@@ -8,6 +8,9 @@
 
 using namespace gedit;
 
+static const std::string cfgSectionName = "workspaceview";
+
+
 static void FillTreeView(WorkspaceView::TreeRef tree, WorkspaceView::TreeNodeRef parent, Workspace::Node::Ref node) {
     std::vector<Workspace::Node::Ref> children;
     node->FlattenChilds(children);
@@ -101,3 +104,10 @@ bool WorkspaceView::OnAction(const KeyPressAction &kpAction) {
 
     return false;
 }
+
+void WorkspaceView::OnActivate(bool isActive) {
+    if (isActive) {
+        Editor::Instance().SetKeyMappingForViewState(Config::Instance()[cfgSectionName].GetStr("keymap", "default_keymap"));
+    }
+}
+

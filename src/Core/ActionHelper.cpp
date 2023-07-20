@@ -3,8 +3,6 @@
 //
 
 #include "ActionHelper.h"
-#include "Editor.h"
-#include "RuntimeConfig.h"
 #include "Core/Editor.h"
 
 using namespace gedit;

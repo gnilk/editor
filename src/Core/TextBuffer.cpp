@@ -273,3 +273,17 @@ void TextBuffer::OnLineChanged(const Line &line) {
     ChangeBufferState(kBuffer_Changed);
 }
 
+void TextBuffer::Flatten(char *outBuffer, size_t maxBytes, size_t idxFromLine, size_t nLines) {
+    if (idxFromLine > lines.size()) {
+        return;
+    }
+    size_t idxBuffer = 0;
+    for(size_t i=0;i<nLines;i++) {
+        auto l = LineAt(i);
+        if (l == nullptr) {
+            return;
+        }
+        snprintf(&outBuffer[idxBuffer], maxBytes - idxBuffer, "%s\n", l->Buffer().data());
+        idxBuffer += l->Length() + sizeof('\n');
+    }
+}

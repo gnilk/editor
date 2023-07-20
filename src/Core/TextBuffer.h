@@ -127,6 +127,9 @@ namespace gedit {
         const std::vector<Line::Ref> &Lines() { return lines; }
 
         Line::Ref LineAt(size_t idxLine) {
+            if (idxLine > NumLines()) {
+                return nullptr;
+            }
             return lines[idxLine];
         }
 
@@ -148,6 +151,8 @@ namespace gedit {
             language = newLanguage;
             Reparse();
         }
+
+        void Flatten(char *outBuffer, size_t maxBytes, size_t idxFromLine, size_t nLines);
 
         bool HaveLanguage() { return language!= nullptr; }
         LanguageBase &LangParser() { return *language; }

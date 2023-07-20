@@ -18,6 +18,7 @@
 #include "Core/KeyMapping.h"
 #include "Core/RuntimeConfig.h"
 #include "Core/Editor.h"
+#include "Core/TextBuffer.h"
 
 using namespace gedit;
 
@@ -332,15 +333,17 @@ void SDLKeyboardDriver::HookEditorClipBoard() {
     Editor::Instance().GetClipBoard().SetOnUpdateCallback([](ClipBoard::ClipBoardItem::Ref clipBoardItem) {
         auto &srcData = clipBoardItem->GetData();
         auto nBytes = clipBoardItem->GetByteSize();
-        char *buffer = (char *)malloc(nBytes + 10); // better safe than sorry?
-        size_t idxBuffer = 0;
-        for(auto &l : srcData) {
-            snprintf(&buffer[idxBuffer], nBytes - idxBuffer, "%s\n",l.c_str());
-            idxBuffer += l.size() + sizeof('\n');
-        }
-        // Buffer should be UTF-8 encoded...
-        SDL_SetClipboardText(buffer);
-        free(buffer);
+
+        char *sdlClipBoardText = (char *)malloc(nBytes + 10); // better safe than sorry?
+
+        auto dstBuffer = TextBuffer::CreateEmptyBuffer("dst");
+        clipBoardItem->PasteToBuffer(dstBuffer, {0,0});
+
+        dstBuffer->Flatten(sdlClipBoardText, nBytes, 0, clipBoardItem->GetLineCount());
+
+        SDL_SetClipboardText(sdlClipBoardText);
+        free(sdlClipBoardText);
+        // dstBuffer freed automatically when it goes out of scope...
     });
 }
 

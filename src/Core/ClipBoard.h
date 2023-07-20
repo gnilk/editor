@@ -44,10 +44,11 @@ namespace gedit {
                 return end;
             }
 
+            void PasteToBuffer(TextBuffer::Ref dstBuffer, const Point &ptWhere);
+
         protected:
             void CopyFromExternal(const char *srcData);
             void CopyFromBuffer(TextBuffer::Ref srcBuffer);
-            void PasteToBuffer(TextBuffer::Ref dstBuffer, const Point &ptWhere);
             void Dump();
 
         protected:

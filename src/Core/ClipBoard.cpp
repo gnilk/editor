@@ -101,19 +101,6 @@ void ClipBoard::ClipBoardItem::PasteToBuffer(TextBuffer::Ref dstBuffer, const Po
         idxLine = dstBuffer->NumLines();
     }
     size_t idxData = 0;
-    // First line should be inserted to an existing lien
-//    if (ptWhere.x != 0) {
-//        int dx = data[0].length() - start.x;
-//        if (start.y == end.y) {
-//            dx = end.x - start.x;
-//        }
-//        auto substr = data[0].substr(start.x, dx);
-//        if (dstBuffer->NumLines() == 0) {
-//            dstBuffer->AddLine(substr.data());
-//        } else
-//    }
-
-
 
     if ((start.x != 0) || (ptWhere.x != 0)) {
         int dx = data[0].length() - start.x;

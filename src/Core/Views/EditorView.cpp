@@ -705,7 +705,7 @@ void EditorView::OnNavigateUpCLion(int rows) {
 
 
 void EditorView::SetWindowCursor(const Cursor &cursor) {
-    if (Editor::Instance().GetState() == Editor::EditState) {
+    if (Editor::Instance().GetState() == Editor::ViewState) {
         window->SetCursor(editorModel->cursor);
     } else {
         // The editor view is NOT in 'command' but rather the 'owner' of the quick-cmd input view..

@@ -11,14 +11,24 @@ using namespace gedit;
 bool ClipBoard::CopyFromBuffer(TextBuffer::Ref srcBuffer, const Point &ptStart, const Point &ptEnd) {
     auto item = ClipBoardItem::Create(srcBuffer, ptStart, ptEnd);
     history.push_front(item);
+    NotifyChangeHandler(item);
     return true;
 }
 
 bool ClipBoard::CopyFromExternal(const char *srcBuffer) {
     auto item = ClipBoardItem::CreateExternal(srcBuffer);
     history.push_front(item);
+    // Note: WE DO NOT call 'NotifyChangeHandler' for data coming from the OS as the change handler is for the OS..
     return true;
 }
+
+void ClipBoard::NotifyChangeHandler(ClipBoardItem::Ref item) {
+    if (cbOnUpdate == nullptr) {
+        return;
+    }
+    cbOnUpdate(item);
+}
+
 
 void ClipBoard::PasteToBuffer(TextBuffer::Ref dstBuffer, const Point &ptWhere) {
     // Nothing to paste???
@@ -36,13 +46,11 @@ ClipBoard::ClipBoardItem::Ref ClipBoard::Top() {
     return history.front();
 }
 
-
 void ClipBoard::Dump() {
     for(auto &item : history) {
         item->Dump();
     }
 }
-
 
 
 
@@ -155,4 +163,16 @@ void ClipBoard::ClipBoardItem::Dump() {
         printf("  %d: %s\n", lc, s.c_str());
         lc++;
     }
+}
+
+// Return the size of data +1 for terminating null char (if needed)
+size_t ClipBoard::ClipBoardItem::GetByteSize() {
+    size_t nBytes = 0;
+    for(auto &l : data) {
+        nBytes += l.size();
+    }
+    // +1 for terminating null...
+    nBytes += sizeof('\n') * data.size() + 1;
+
+    return nBytes;
 }

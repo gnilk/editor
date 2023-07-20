@@ -2,7 +2,7 @@ main:
   backend: ncurses
   # select the keymap default for the backend
   # 'default' is a reserved word - replace with your file name when forking it...
-  keymap: default
+  keymap: "default_keymap"
   threaded_syntaxparser: yes
   plugin_directory: Plugins
   bootstrap_script_comment: "//"
@@ -24,22 +24,27 @@ sdl:
   text_underline_margin: 16
   # this increases the spacing between lines - it is added to the baseline of the font
   line_margin: 4
-  # unused, all is using the 'keymap' section - this considered for the future...
-  keymap: "sdl3_default.keymap"
 
 ncurses:
   timeoutKeyEvent: 500
   keymap: "ncurses_default.keymap"
 
-editor:
+#
+# Set up details for the 3 main views
+#
+
+editorview:
   # content_first is CLion/Sublime style (no = VSCode style, cursor first)
   pgupdown_content_first: yes
+  keymap: "default_keymap"
 
+workspaceview:
+  keymap: "workspace_keymap"
 
 #
 # Add ability to include user-name, and other things here (working dir???)
 #
-commandmode:
+commandview:
   prompt: "ed>"
   cmdlet_prefix: "."
 
@@ -69,7 +74,25 @@ quickmode_keymap: {
   }
 }
 
-keymap: {
+workspace_keymap: {
+  modifiers: {
+    SelectionModifier: KeyCode_Shift,
+    CopyPasteModifier: KeyCode_Cmd,
+    UINavigationModifier : KeyCode_Alt,
+  },
+  actions: {
+    NavigateLineUp : KeyCode_UpArrow + @SelectionModifier,
+    NavigateLineDown : KeyCode_DownArrow + @SelectionModifier,
+    NavigateLeft : KeyCode_LeftArrow + @SelectionModifier,
+    NavigateRight : KeyCode_RightArrow + @SelectionModifier,
+    CycleActiveViewNext : "UINavigationModifier + ']'",
+    CycleActiveViewPrev : "UINavigationModifier + '['",
+    EnterCommandMode : KeyCode_Escape,
+    CommitLine : KeyCode_Return,
+  }
+}
+
+default_keymap: {
     # Editor will read this and check the modifier mask controlling an action
     # For instance, the 'SelectionModifier' is used to enable/disable selections
     modifiers: {
@@ -162,8 +185,9 @@ temptemp: {
 
 }
 
-# we
-
+#
+# This defines the terminal to use in the command-view
+#
 terminal:
   shell: /bin/zsh
   init: -is

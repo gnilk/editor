@@ -42,7 +42,7 @@ namespace gedit {
             auto logger = gnilk::Logger::GetLogger("HSplitViewStatus");
             logger->Debug("DrawSplitter, row=%d, height=%d", row, dc.GetRect().Height());
 
-            auto model = RuntimeConfig::Instance().ActiveEditorModel();
+            auto model = Editor::Instance().GetActiveModel();
             if (model == nullptr) {
                 logger->Error("model is nullptr!");
                 exit(1);

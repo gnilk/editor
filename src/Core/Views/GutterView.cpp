@@ -7,7 +7,7 @@
 #include "Core/EditorModel.h"
 #include "GutterView.h"
 #include "logger.h"
-
+#include "Core/Editor.h"
 
 using namespace gedit;
 
@@ -46,7 +46,7 @@ void GutterView::DrawViewContents() {
     if (GetParentView() == nullptr) {
         return;
     }
-    auto editorModel = RuntimeConfig::Instance().ActiveEditorModel();
+    auto editorModel = Editor::Instance().GetActiveModel();
     if (editorModel == nullptr) {
         return;
     }

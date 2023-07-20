@@ -5,6 +5,7 @@
 #include "ActionHelper.h"
 #include "Editor.h"
 #include "RuntimeConfig.h"
+#include "Core/Editor.h"
 
 using namespace gedit;
 
@@ -14,9 +15,7 @@ void ActionHelper::SwitchToNextBuffer() {
     if (idxCurrent == idxNext) {
         return;
     }
-    auto nextModel = Editor::Instance().GetModelFromIndex(idxNext);
-    RuntimeConfig::Instance().SetActiveEditorModel(nextModel);
-    RuntimeConfig::Instance().GetRootView().Initialize();
+    Editor::Instance().SetActiveModelFromIndex(idxNext);
 }
 
 void ActionHelper::SwitchToPreviousBuffer() {
@@ -25,7 +24,5 @@ void ActionHelper::SwitchToPreviousBuffer() {
     if (idxCurrent == idxNext) {
         return;
     }
-    auto nextModel = Editor::Instance().GetModelFromIndex(idxNext);
-    RuntimeConfig::Instance().SetActiveEditorModel(nextModel);
-    RuntimeConfig::Instance().GetRootView().Initialize();
+    Editor::Instance().SetActiveModelFromIndex(idxNext);
 }

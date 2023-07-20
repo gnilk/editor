@@ -29,7 +29,7 @@ void EditorView::InitView()  {
 
     auto &rect = window->GetContentDC().GetRect();
 
-    editorModel = RuntimeConfig::Instance().ActiveEditorModel();
+    editorModel = Editor::Instance().GetActiveModel();
     if (editorModel == nullptr) {
         logger->Error("EditorModel is null - no active textbuffer");
         exit(1);
@@ -55,7 +55,7 @@ void EditorView::ReInitView() {
     window = screen->UpdateWindow(window, viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
     auto &rect = window->GetContentDC().GetRect();
 
-    editorModel = RuntimeConfig::Instance().ActiveEditorModel();
+    editorModel = Editor::Instance().GetActiveModel();
     if (editorModel == nullptr) {
         logger->Error("EditorModel is null - no active textbuffer");
         exit(1);
@@ -453,9 +453,10 @@ bool EditorView::OnActionCycleActiveBuffer() {
     if (idxCurrent == idxNext) {
         return true;
     }
-    auto nextModel = Editor::Instance().GetModelFromIndex(idxNext);
-    RuntimeConfig::Instance().SetActiveEditorModel(nextModel);
-    RuntimeConfig::Instance().GetRootView().Initialize();
+    Editor::Instance().SetActiveModelFromIndex(idxNext);
+//    auto nextModel = Editor::Instance().GetModelFromIndex(idxNext);
+//    RuntimeConfig::Instance().SetActiveEditorModel(nextModel);
+//    RuntimeConfig::Instance().GetRootView().Initialize();
     InvalidateAll();
     return true;
 }

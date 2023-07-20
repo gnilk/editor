@@ -16,6 +16,9 @@
 
 using namespace gedit;
 
+// This is the global section in the config.yml for this view
+static const std::string cfgSectionName = "editorview";
+
 void EditorView::InitView()  {
     logger = gnilk::Logger::GetLogger("EditorView");
     logger->Debug("InitView!");
@@ -44,7 +47,7 @@ void EditorView::InitView()  {
     });
 
 
-    bUseCLionPageNav = Config::Instance()["editor"].GetBool("pgupdown_content_first", true);
+    bUseCLionPageNav = Config::Instance()[cfgSectionName].GetBool("pgupdown_content_first", true);
 }
 
 void EditorView::ReInitView() {
@@ -67,7 +70,7 @@ void EditorView::ReInitView() {
     editorModel->viewTopLine = 0;
     editorModel->viewBottomLine = rect.Height();
 
-    bUseCLionPageNav = Config::Instance()["editor"].GetBool("pgupdown_content_first", true);
+    bUseCLionPageNav = Config::Instance()[cfgSectionName].GetBool("pgupdown_content_first", true);
 }
 
 void EditorView::OnResized() {
@@ -131,6 +134,7 @@ void EditorView::DrawViewContents() {
 void EditorView::OnActivate(bool isActive) {
     logger->Debug("OnActive, isActive: %s", isActive?"yes":"no");
     if (isActive) {
+        Editor::Instance().SetKeyMappingForViewState(Config::Instance()[cfgSectionName].GetStr("keymap", "default_keymap"));
         // Maximize editor content view...
         MaximizeContentHeight();
     }

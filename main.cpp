@@ -3,11 +3,10 @@
 //
 /*
  * TO-DO List
+ * - Theme handling needed, currently the 'Editor' class holds all theme related settings (which basically is just colors)
  * - Refactor initialization, split app init from data loading (data loading should happen afterwards - when UI is up and running)
- * - Fix save!
- * - Code cleanup
- *   - Switch to References everywhere, either C++ ref or shared_ptr type of refs (MyClass::Ref), there are still too many places using raw object pointers
- *     mainly in the graphics subsystem and also some in the view-system
+ * + Fix save!
+ * - Use references in view-system (most other code using references or smart pointers)
  * - QuickCommandMode
  *   ! Allow cursor to be positioned at the 'C' input
  *   ! Ability to navigate through search results (next/previous) - should reposition the cursor
@@ -32,13 +31,14 @@
  * + Make a proper 'project' viewer
  *   ! Enter on selection should load (if needed) and set the model active in the editor
  *   - Ability to search/filter for files
- * - Consolidate configuration (or sort it up properly) currently spread out between 'Editor', 'Config', 'RuntimeConfig'
  * - Put some performance timings in the LanguageParser (this will have to be optimized sooner or later)
  * - macOS swaps left/right scancodes between keyboards (laptop has left/right one way my ext.keyboard another)
  *   need to consider a solution for this...
  * - Swap out the vertical navigation code in EditorView for the 'VerticalNavigationModel'
  *
  * Done:
+ * ! Switch to References everywhere, either C++ ref or shared_ptr type of refs (MyClass::Ref), there are still too many places using raw object pointers
+ * ! Consolidate configuration (or sort it up properly) currently spread out between 'Editor', 'Config', 'RuntimeConfig'
  * ! CopyPaste, rewrite to use own ClipBoard, need to figure out how to handle text from OS clipboard...
  *   For SDL2 I use the SDL_CLIPBOARDUPDATE event to bring OS data in...  For NCurses I don't know yet..
  * ! ClipBoard needs the ability to call a function which can set the OS clipboard text (for SDL this is SDL_SetClipboardText)

@@ -27,7 +27,7 @@ namespace gedit {
     class Editor {
     public:
         typedef enum {
-            EditState,
+            ViewState,
             QuickCommandState,
         } State;
     public:
@@ -79,8 +79,11 @@ namespace gedit {
             return jsEngine;
         }
 
-        KeyMapping &GetActiveKeyMap();
-        KeyMapping &GetKeyMapForState(State state);
+        KeyMapping::Ref GetActiveKeyMap();
+        KeyMapping::Ref GetKeyMapForState(State state);
+        KeyMapping::Ref GetKeyMapping(const std::string &name);
+        bool HasKeyMapping(const std::string &name);
+        void SetKeyMappingForViewState(const std::string name);
         void LeaveCommandMode();
 
         std::pair<ColorRGBA, ColorRGBA> ColorFromLanguageToken(kLanguageTokenClass tokenClass) {
@@ -169,9 +172,12 @@ namespace gedit {
         LanguageBase::Ref defaultLanguage = {};
         std::unordered_map<std::string, LanguageBase::Ref> extToLanguages;
 
-        State state = EditState;
-        KeyMapping mappingsForEditState;
-        KeyMapping mappingsForCmdState;
+        State state = ViewState;
+        std::string viewStateKeymapName = "default_keymap";  // This is the default key-map for any 'view' related activity
+        std::unordered_map<std::string, KeyMapping::Ref> keymappings;
+
+//        KeyMapping::Ref mappingsForEditState = nullptr;
+//        KeyMapping::Ref mappingsForCmdState = nullptr;
         QuickCommandController quickCommandController;  // Special - used when in 'QuickCommandState'
 
         // Hmm... this should perhaps be runtime config - or some kind of 'API' management code (which I don't have)

@@ -22,12 +22,12 @@ namespace gedit {
         RootView() {
         }
         void InitView() override {
-            auto screen = RuntimeConfig::Instance().Screen();
+            auto screen = RuntimeConfig::Instance().GetScreen();
             viewRect = screen->Dimensions();
             window = screen->CreateWindow(viewRect, WindowBase::kWin_Invisible, WindowBase::kWinDeco_None);
         }
         void ReInitView() override {
-            auto screen = RuntimeConfig::Instance().Screen();
+            auto screen = RuntimeConfig::Instance().GetScreen();
             viewRect = screen->Dimensions();
             window = screen->UpdateWindow(window, viewRect, WindowBase::kWin_Invisible, WindowBase::kWinDeco_None);
         }

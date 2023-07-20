@@ -29,11 +29,11 @@ namespace gedit {
             mainThreadId = std::this_thread::get_id();
         }
 
-        void SetKeyboard(KeyboardDriverBase &kbd) {
-            keyboard = &kbd;
+        void SetKeyboard(KeyboardDriverBase::Ref kbd) {
+            keyboard = kbd;
         }
-        void SetScreen(ScreenBase &scr) {
-            screen = &scr;
+        void SetScreen(ScreenBase::Ref scr) {
+            screen = scr;
         }
         void SetOutputConsole(IOutputConsole *newOutputConsole) {
             outputConsole = newOutputConsole;
@@ -50,10 +50,10 @@ namespace gedit {
             return assetLoader;
         }
 
-        KeyboardDriverBase *Keyboard() {
+        KeyboardDriverBase::Ref GetKeyboard() {
             return keyboard;
         }
-        ScreenBase *Screen() {
+        ScreenBase::Ref GetScreen() {
             return screen;
         }
         IOutputConsole *OutputConsole() {
@@ -97,8 +97,8 @@ namespace gedit {
         RuntimeConfig() = default;
     private:
         // These should all be ref's...
-        KeyboardDriverBase *keyboard = nullptr;
-        ScreenBase *screen = nullptr;
+        KeyboardDriverBase::Ref keyboard = nullptr;
+        ScreenBase::Ref screen = nullptr;
         ViewBase *rootView = nullptr;
         WindowBase *window = nullptr;
         IOutputConsole *outputConsole = nullptr;

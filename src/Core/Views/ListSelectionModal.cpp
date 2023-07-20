@@ -31,7 +31,7 @@ protected:
 // These two functions should be in a 'VisibleView' or 'DrawableView'
 // As they are duplicated quite a lot...
 void ListView::InitView() {
-    auto screen = RuntimeConfig::Instance().Screen();
+    auto screen = RuntimeConfig::Instance().GetScreen();
     if (viewRect.IsEmpty()) {
         viewRect = screen->Dimensions();
     }
@@ -41,7 +41,7 @@ void ListView::InitView() {
     window->SetCaption("ListView");
 }
 void ListView::ReInitView() {
-    auto screen = RuntimeConfig::Instance().Screen();
+    auto screen = RuntimeConfig::Instance().GetScreen();
     if (viewRect.IsEmpty()) {
         viewRect = screen->Dimensions();
     }

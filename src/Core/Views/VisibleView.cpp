@@ -8,7 +8,7 @@
 using namespace gedit;
 
 void VisibleView::InitView() {
-    auto screen = RuntimeConfig::Instance().Screen();
+    auto screen = RuntimeConfig::Instance().GetScreen();
     if (viewRect.IsEmpty()) {
         viewRect = screen->Dimensions();
     }
@@ -17,7 +17,7 @@ void VisibleView::InitView() {
 }
 
 void VisibleView::ReInitView() {
-    auto screen = RuntimeConfig::Instance().Screen();
+    auto screen = RuntimeConfig::Instance().GetScreen();
     if (viewRect.IsEmpty()) {
         viewRect = screen->Dimensions();
     }

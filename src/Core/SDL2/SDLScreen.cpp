@@ -40,6 +40,12 @@ using namespace gedit;
 
 static const std::string fontName = "Andale Mono.ttf";
 
+ScreenBase::Ref SDLScreen::Create() {
+    auto instance = std::make_shared<SDLScreen>();
+    return instance;
+}
+
+
 bool SDLScreen::Open() {
 
     auto logger = gnilk::Logger::GetLogger("SDLScreen");

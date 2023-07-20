@@ -267,7 +267,7 @@ int main(int argc, const char **argv) {
 
     auto logger = gnilk::Logger::GetLogger("main");
 
-    auto screen = RuntimeConfig::Instance().Screen();
+    auto screen = RuntimeConfig::Instance().GetScreen();
     auto dimensions = screen->Dimensions();
 
     auto models = Editor::Instance().GetModels();

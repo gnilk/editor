@@ -30,8 +30,8 @@
 #endif
 
 #ifdef GEDIT_USE_SDL2
-#include "Core/SDL3/SDLScreen.h"
-#include "Core/SDL3/SDLKeyboardDriver.h"
+#include "Core/SDL2/SDLScreen.h"
+#include "Core/SDL2/SDLKeyboardDriver.h"
 #endif
 
 #include <sys/stat.h>
@@ -277,6 +277,7 @@ void Editor::ConfigureColorTheme() {
     // NOTE: This must be done after the screen has been opened as the color handling might require the underlying graphics
     //       context to be initialized...
     auto &colorConfig = Config::Instance().GetContentColors();
+    auto screen = RuntimeConfig::Instance().GetScreen();
     for(int i=0;IsLanguageTokenClass(i);i++) {
         auto langClass = gedit::LanguageTokenClassToString(static_cast<kLanguageTokenClass>(i));
         if (!colorConfig.HasColor(langClass)) {
@@ -292,6 +293,8 @@ void Editor::ConfigureColorTheme() {
         logger->Debug("  %d:%s - fg=(%d,%d,%d) bg=(%d,%d,%d)",i,langClass.c_str(),
                       fg.RedAsInt(255),fg.GreenAsInt(255),fg.BlueAsInt(255),
                       bg.RedAsInt(255),bg.GreenAsInt(255),bg.BlueAsInt(255));
+
+
         screen->RegisterColor(i, colorConfig.GetColor(langClass), colorConfig.GetColor("background"));
     }
 }
@@ -340,20 +343,13 @@ void Editor::ConfigureSubSystems() {
         exit(1);
     }
 
+    logger->Debug("Initialize Graphics Backend - %s", backend.c_str());
+
     if (backend == "ncurses") {
         SetupNCurses();
     } else if (backend == "sdl") {
         SetupSDL();
     }
-
-
-    RuntimeConfig::Instance().SetScreen(*screen);
-    RuntimeConfig::Instance().SetKeyboard(*keyboardDriver);
-
-    logger->Debug("Initialize Graphics subsystem");
-
-    screen->Open();
-    screen->Clear();
 }
 
 void Editor::SetupNCurses() {
@@ -365,16 +361,30 @@ void Editor::SetupNCurses() {
     }
 #endif
 
-    screen = new NCursesScreen();
-    auto ncKeyboard = new NCursesKeyboardDriver();
-    ncKeyboard->Begin(&keyboardMonitor);
-    keyboardDriver = ncKeyboard;
+    auto screenDriver = NCursesScreen::Create();
+    auto kbDriver = NCursesKeyboardDriver::Create(&keyboardMonitor);
+    RuntimeConfig::Instance().SetKeyboard(kbDriver);
+    RuntimeConfig::Instance().SetScreen(screenDriver);
+
+    screenDriver->Open();
+    screenDriver->Clear();
 }
 
 void Editor::SetupSDL() {
-    screen = new SDLScreen();
-    keyboardDriver  = new SDLKeyboardDriver();
-    keyboardDriver->Initialize();
+    auto keyDriver = SDLKeyboardDriver::Create();
+    if (keyDriver == nullptr) {
+        logger->Error("Failed to initalize SDL Keyboard driver!");
+        printf("Failed to initalize SDL Keyboard driver!\n");
+        exit(1);
+    }
+
+    auto screenDriver = SDLScreen::Create();
+
+    RuntimeConfig::Instance().SetKeyboard(keyDriver);
+    RuntimeConfig::Instance().SetScreen(screenDriver);
+
+    screenDriver->Open();
+    screenDriver->Clear();
 }
 
 void Editor::RegisterLanguage(const std::string &extension, LanguageBase::Ref languageBase) {

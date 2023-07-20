@@ -19,6 +19,9 @@ namespace gedit {
     public:
         NCursesScreen() = default;
         virtual ~NCursesScreen() = default;
+
+        static ScreenBase::Ref Create();
+
         bool Open() override;
         void Close() override;
         void Clear() override;

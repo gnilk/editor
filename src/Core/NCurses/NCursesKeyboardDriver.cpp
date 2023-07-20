@@ -9,6 +9,7 @@
 #include "Core/Keyboard.h"
 #include "Core/RuntimeConfig.h"
 #include "logger.h"
+#include <memory>
 
 using namespace gedit;
 
@@ -33,6 +34,13 @@ static std::map<int, int> ncurses_translation_map_new = {
         { 27, Keyboard::kKeyCode_Escape},     // ^]
         {127, Keyboard::kKeyCode_Backspace},  // Certain macOS keyboards
 };
+
+KeyboardDriverBase::Ref NCursesKeyboardDriver::Create(KeyboardBaseMonitor *monitor) {
+    auto instance = std::make_shared<NCursesKeyboardDriver>();
+    instance->Begin(monitor);
+    return instance;
+}
+
 
 void NCursesKeyboardDriver::Begin(KeyboardBaseMonitor *monitor) {
     ptrKeyboardMonitor = monitor;

@@ -35,6 +35,11 @@ using namespace gedit;
 //    sigaction(SIGWINCH, &sa, NULL);
 //}
 
+ScreenBase::Ref NCursesScreen::Create() {
+    return std::make_shared<NCursesScreen>();
+}
+
+
 bool NCursesScreen::Open() {
 
     logger = gnilk::Logger::GetLogger("NCursesScreen");

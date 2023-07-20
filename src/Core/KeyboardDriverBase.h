@@ -8,9 +8,12 @@
 #include <cstdint>
 #include "Core/KeyPress.h"
 #include "KeyboardBaseMonitor.h"
+#include <memory>
 
 namespace gedit {
     class KeyboardDriverBase {
+    public:
+        using Ref = std::shared_ptr<KeyboardDriverBase>;
     public:
         virtual bool Initialize() { return false; };
 

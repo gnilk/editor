@@ -16,7 +16,6 @@
 #include "KeyboardDriverBase.h"
 #include "KeyboardBaseMonitor.h"
 #include "Core/Workspace.h"
-#include "ScreenBase.h"
 #include "Core/EditorModel.h"
 #include "Core/Workspace.h"
 #include "Core/TypeUtil.h"
@@ -164,6 +163,8 @@ namespace gedit {
 
         State state = EditState;
 
+        // FIXME: This type of code can be directly in the KeyboardDriver...
+
 #ifdef GEDIT_MACOS
         // This depends on the OS/Backend - consider creating a platform layer or something to handle this...
         MacOSKeyboardMonitor keyboardMonitor;
@@ -171,10 +172,6 @@ namespace gedit {
         KeyboardBaseMonitor keyboardMonitor;
 #endif
         EditorModel::Ref activeEditorModel;
-
-        // Why are these here????
-        ScreenBase *screen = nullptr;
-        KeyboardDriverBase *keyboardDriver = nullptr;
 
         std::unordered_map<std::string_view, void *> editorApiObjects;
 

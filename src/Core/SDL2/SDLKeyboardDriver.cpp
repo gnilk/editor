@@ -1,12 +1,14 @@
 //
 // Created by gnilk on 29.03.23.
 //
+#include <map>
+#include <memory>
+#include <unordered_map>
+#include <string>
+
 #include <SDL2/SDL_events.h>
 #include <SDL2/SDL_keyboard.h>
 #include <SDL2/SDL_scancode.h>
-#include <map>
-#include <unordered_map>
-#include <string>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_keycode.h>
 
@@ -23,6 +25,14 @@
 using namespace gedit;
 
 static int createTranslationTable();
+
+KeyboardDriverBase::Ref SDLKeyboardDriver::Create() {
+    auto instance = std::make_shared<SDLKeyboardDriver>();
+    if (!instance->Initialize()) {
+        return nullptr;
+    }
+    return instance;
+}
 
 
 bool SDLKeyboardDriver::Initialize() {
@@ -60,7 +70,7 @@ KeyPress SDLKeyboardDriver::GetKeyPress() {
             return kp;
         }  else if ((event.type == SDL_EventType::SDL_WINDOWEVENT) && (event.window.event == SDL_WINDOWEVENT_RESIZED)) {
             logger->Debug("SDL_EVENT_WINDOW_RESIZED");
-            RuntimeConfig::Instance().Screen()->OnSizeChanged();
+            RuntimeConfig::Instance().GetScreen()->OnSizeChanged();
         } else if (event.type == SDL_EventType::SDL_CLIPBOARDUPDATE) {
             logger->Debug("SDL_EVENT_CLIPBOARDUPDATE!!!");
             if (SDL_HasClipboardText()) {

@@ -22,7 +22,7 @@ namespace gedit {
 
         }
         void InitView() override {
-            auto screen = RuntimeConfig::Instance().Screen();
+            auto screen = RuntimeConfig::Instance().GetScreen();
             if (viewRect.IsEmpty()) {
                 viewRect = screen->Dimensions();
             }
@@ -32,7 +32,7 @@ namespace gedit {
         }
 
         void ReInitView() override {
-            auto screen = RuntimeConfig::Instance().Screen();
+            auto screen = RuntimeConfig::Instance().GetScreen();
             if (viewRect.IsEmpty()) {
                 viewRect = screen->Dimensions();
             }

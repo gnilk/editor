@@ -14,6 +14,8 @@
 namespace gedit {
     class ScreenBase {
     public:
+        using Ref = std::shared_ptr<ScreenBase>;
+    public:
         ScreenBase() = default;
         virtual ~ScreenBase() = default;
         virtual bool Open() { return false; }

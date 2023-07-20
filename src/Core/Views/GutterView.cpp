@@ -21,7 +21,7 @@ GutterView::GutterView(const Rect &viewArea) : ViewBase(viewArea) {
         //SetViewAnchoring(ViewLayout::kViewAnchor_FixedWidth);
 }
 void GutterView::InitView() {
-    auto screen = RuntimeConfig::Instance().Screen();
+    auto screen = RuntimeConfig::Instance().GetScreen();
     if (viewRect.IsEmpty()) {
         viewRect = screen->Dimensions();
     }
@@ -31,7 +31,7 @@ void GutterView::InitView() {
 
 }
 void GutterView::ReInitView() {
-    auto screen = RuntimeConfig::Instance().Screen();
+    auto screen = RuntimeConfig::Instance().GetScreen();
     if (viewRect.IsEmpty()) {
         viewRect = screen->Dimensions();
     }

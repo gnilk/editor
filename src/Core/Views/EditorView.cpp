@@ -20,7 +20,7 @@ void EditorView::InitView()  {
     logger = gnilk::Logger::GetLogger("EditorView");
     logger->Debug("InitView!");
 
-    auto screen = RuntimeConfig::Instance().Screen();
+    auto screen = RuntimeConfig::Instance().GetScreen();
     if (viewRect.IsEmpty()) {
         viewRect = screen->Dimensions();
     }
@@ -48,7 +48,7 @@ void EditorView::InitView()  {
 }
 
 void EditorView::ReInitView() {
-    auto screen = RuntimeConfig::Instance().Screen();
+    auto screen = RuntimeConfig::Instance().GetScreen();
     if (viewRect.IsEmpty()) {
         viewRect = screen->Dimensions();
     }

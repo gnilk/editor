@@ -12,6 +12,11 @@
 namespace gedit {
     class SDLKeyboardDriver : public KeyboardDriverBase {
     public:
+        SDLKeyboardDriver() = default;
+        virtual ~SDLKeyboardDriver() = default;
+
+        static KeyboardDriverBase::Ref Create();
+
         bool Initialize() override;
         KeyPress GetKeyPress() override;
     protected:

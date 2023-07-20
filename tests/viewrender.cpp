@@ -113,8 +113,8 @@ int main(int argc, const char **argv) {
     auto logger = gnilk::Logger::GetLogger("main");
     bool bQuit = false;
 
-    auto screen = RuntimeConfig::Instance().Screen();
-    auto keyboardDriver = RuntimeConfig::Instance().Keyboard();
+    auto screen = RuntimeConfig::Instance().GetScreen();
+    auto keyboardDriver = RuntimeConfig::Instance().GetKeyboard();
     auto dimensions = screen->Dimensions();
 
     auto models = Editor::Instance().GetModels();

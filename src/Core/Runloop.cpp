@@ -19,8 +19,8 @@ void Runloop::SetKeypressAndActionHook(KeypressAndActionHandler *newHook) {
 }
 
 void Runloop::DefaultLoop() {
-    auto screen = RuntimeConfig::Instance().Screen();
-    auto keyboardDriver = RuntimeConfig::Instance().Keyboard();
+    auto screen = RuntimeConfig::Instance().GetScreen();
+    auto keyboardDriver = RuntimeConfig::Instance().GetKeyboard();
     auto &rootView = RuntimeConfig::Instance().GetRootView();
 
 
@@ -62,8 +62,8 @@ void Runloop::DefaultLoop() {
 void Runloop::ShowModal(ViewBase *modal) {
     // This is a special case of the main loop...
 
-    auto screen = RuntimeConfig::Instance().Screen();
-    auto keyboardDriver = RuntimeConfig::Instance().Keyboard();
+    auto screen = RuntimeConfig::Instance().GetScreen();
+    auto keyboardDriver = RuntimeConfig::Instance().GetKeyboard();
     //auto logger = gnilk::Logger::GetLogger("ShowModal");
 
     modal->SetActive(true);
@@ -141,8 +141,8 @@ bool Runloop::DispatchToHandler(KeypressAndActionHandler &kpaHandler, KeyPress k
 // simplified run loop that always redraws, this is used to test rendering pipeline
 //
 void Runloop::TestLoop() {
-    auto screen = RuntimeConfig::Instance().Screen();
-    auto keyboardDriver = RuntimeConfig::Instance().Keyboard();
+    auto screen = RuntimeConfig::Instance().GetScreen();
+    auto keyboardDriver = RuntimeConfig::Instance().GetKeyboard();
     auto &rootView = RuntimeConfig::Instance().GetRootView();
     //auto logger = gnilk::Logger::GetLogger("MainLoop");
     KeypressAndActionHandler &kpaHandler {rootView};

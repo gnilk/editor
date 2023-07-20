@@ -15,6 +15,8 @@ namespace gedit {
     class NCursesKeyboardDriver : public KeyboardDriverBase {
     public:
         NCursesKeyboardDriver() = default;
+        virtual ~NCursesKeyboardDriver() = default;
+        static KeyboardDriverBase::Ref Create(KeyboardBaseMonitor *monitor);
         //void Begin(MacOSKeyboardMonitor *monitor);
         void Begin(KeyboardBaseMonitor *monitor);
         // since we are monitoring _all_ keys in the system

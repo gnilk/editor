@@ -12,7 +12,7 @@ using namespace gedit;
 void CommandView::InitView() {
     // We own the cursor, so we need to reset it on new lines...
     logger = gnilk::Logger::GetLogger("CommandView");
-    auto screen = RuntimeConfig::Instance().Screen();
+    auto screen = RuntimeConfig::Instance().GetScreen();
     logger->Debug("InitView!");
     if (viewRect.IsEmpty()) {
         logger->Debug("View Rect is empty, initalizing to screen dimensions");
@@ -37,7 +37,7 @@ void CommandView::InitView() {
 
 void CommandView::ReInitView() {
     logger->Debug("ReInitialize View!");
-    auto screen = RuntimeConfig::Instance().Screen();
+    auto screen = RuntimeConfig::Instance().GetScreen();
     if (viewRect.IsEmpty()) {
         logger->Debug("View Rect is empty, initalizing to screen dimensions");
         viewRect = screen->Dimensions();

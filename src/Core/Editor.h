@@ -50,28 +50,17 @@ namespace gedit {
             return openModels;
         }
 
-        size_t GetActiveModelIndex() {
-            for(size_t i=0; i < openModels.size(); i++) {
-                if (openModels[i]->IsActive()) {
-                    return i;
-                }
+        void SetActiveModel(EditorModel::Ref model);
+        void SetActiveModelFromIndex(size_t idxModel);
+        size_t GetActiveModelIndex();
+        EditorModel::Ref GetActiveModel();
+        EditorModel::Ref GetModelFromIndex(size_t idxModel) {
+            if (idxModel > (openModels.size() - 1)) {
+                return nullptr;
             }
-            logger->Error("No active model!!!!!");
-            // THIS SHOULD NOT HAPPEN!!!
-            return 0;
-        }
-        EditorModel::Ref GetActiveModel() {
-            for(size_t i=0; i < openModels.size(); i++) {
-                if (openModels[i]->IsActive()) {
-                    return openModels[i];
-                }
-            }
-            logger->Error("No active model!!!!!");
-            // THIS SHOULD NOT HAPPEN!!!
-            return nullptr;
+            return openModels[idxModel];
         }
 
-        void SetActiveModel(EditorModel::Ref model);
         bool IsModelOpen(EditorModel::Ref model);
         EditorModel::Ref GetModelFromTextBuffer(TextBuffer::Ref textBuffer);
 
@@ -85,12 +74,6 @@ namespace gedit {
             return next;
         }
 
-        EditorModel::Ref GetModelFromIndex(size_t idxModel) {
-            if (idxModel > (openModels.size() - 1)) {
-                return nullptr;
-            }
-            return openModels[idxModel];
-        }
 
         // -- End move to workspace
 
@@ -131,6 +114,7 @@ namespace gedit {
         void RegisterLanguage(const std::string &extension, LanguageBase::Ref languageBase);
         LanguageBase::Ref GetLanguageForExtension(const std::string &extension);
         std::vector<std::string> GetRegisteredLanguages();
+
 
         const Workspace::Ref GetWorkspace() {
             return workspace;
@@ -186,8 +170,12 @@ namespace gedit {
 #else
         KeyboardBaseMonitor keyboardMonitor;
 #endif
+        EditorModel::Ref activeEditorModel;
+
+        // Why are these here????
         ScreenBase *screen = nullptr;
         KeyboardDriverBase *keyboardDriver = nullptr;
+
         std::unordered_map<std::string_view, void *> editorApiObjects;
 
         ClipBoard clipboard;

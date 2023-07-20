@@ -29,13 +29,6 @@ namespace gedit {
             mainThreadId = std::this_thread::get_id();
         }
 
-        void SetActiveEditorModel(EditorModel::Ref newActiveEditorModel) {
-            if (activeEditorModel != nullptr) {
-                activeEditorModel->SetActive(false);
-            }
-            activeEditorModel = newActiveEditorModel;
-            activeEditorModel->SetActive(true);
-        }
         void SetKeyboard(KeyboardDriverBase &kbd) {
             keyboard = &kbd;
         }
@@ -55,10 +48,6 @@ namespace gedit {
         // Compile time..
         AssetLoaderBase &GetAssetLoader() {
             return assetLoader;
-        }
-
-        EditorModel::Ref ActiveEditorModel() {
-            return activeEditorModel;
         }
 
         KeyboardDriverBase *Keyboard() {
@@ -107,7 +96,6 @@ namespace gedit {
     private:
         RuntimeConfig() = default;
     private:
-        EditorModel::Ref activeEditorModel;
         // These should all be ref's...
         KeyboardDriverBase *keyboard = nullptr;
         ScreenBase *screen = nullptr;

@@ -101,7 +101,8 @@ bool Editor::Initialize(int argc, const char **argv) {
 
 
     // Activate the first loaded file (or empty/new model)
-    RuntimeConfig::Instance().SetActiveEditorModel(openModels[0]);
+    //RuntimeConfig::Instance().SetActiveEditorModel(openModels[0]);
+    SetActiveModel(openModels[0]);
 
     bool keyMapperOk = mappingsForEditState.IsInitialized();
     if (!keyMapperOk) {
@@ -402,13 +403,15 @@ std::vector<std::string> Editor::GetRegisteredLanguages() {
 
 
 void Editor::SetActiveModel(EditorModel::Ref model) {
-    auto idxCurrent = GetActiveModelIndex();
+    auto currentModel = GetActiveModel();
     for(size_t i = 0; i < openModels.size(); i++) {
         if (openModels[i] == model) {
-            openModels[idxCurrent]->SetActive(false);
+            if (currentModel != nullptr) {
+                currentModel->SetActive(false);
+            }
             openModels[i]->SetActive(true);
-            // THIS IS NOT A WORK OF BEAUTY
-            RuntimeConfig::Instance().SetActiveEditorModel(openModels[i]);
+            // Not quite sure we need this
+            activeEditorModel = openModels[i];
 
             if (RuntimeConfig::Instance().HasRootView()) {
                 RuntimeConfig::Instance().GetRootView().Initialize();
@@ -417,6 +420,35 @@ void Editor::SetActiveModel(EditorModel::Ref model) {
         }
     }
 }
+void Editor::SetActiveModelFromIndex(size_t idxModel) {
+    auto model = GetModelFromIndex(idxModel);
+    if (model == nullptr) {
+        return;
+    }
+    SetActiveModel(model);
+}
+
+
+size_t Editor::GetActiveModelIndex() {
+    for(size_t i=0; i < openModels.size(); i++) {
+        if (openModels[i]->IsActive()) {
+            return i;
+        }
+    }
+    // This will happen the first time...
+    return 0;
+}
+
+EditorModel::Ref Editor::GetActiveModel() {
+    for(size_t i=0; i < openModels.size(); i++) {
+        if (openModels[i]->IsActive()) {
+            return openModels[i];
+        }
+    }
+    // This can happen if there is no model yet assigned (like startup)
+    return nullptr;
+}
+
 
 
 bool Editor::IsModelOpen(EditorModel::Ref model) {
@@ -456,3 +488,4 @@ void Editor::TriggerUIRedraw() {
         RuntimeConfig::Instance().GetRootView().PostMessage([]() {});
     }
 }
+

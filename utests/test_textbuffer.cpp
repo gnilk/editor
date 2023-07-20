@@ -18,6 +18,7 @@ DLL_EXPORT int test_textbuffer_parseregion(ITesting *t);
 DLL_EXPORT int test_textbuffer_thparsefull(ITesting *t);
 DLL_EXPORT int test_textbuffer_thparseregion(ITesting *t);
 DLL_EXPORT int test_textbuffer_parselarge(ITesting *t);
+DLL_EXPORT int test_textbuffer_flatten(ITesting *t);
 }
 
 static void PostCaseCallback(ITesting *t) {
@@ -129,4 +130,26 @@ DLL_EXPORT int test_textbuffer_parselarge(ITesting *t) {
 
     return kTR_Pass;
 
+}
+DLL_EXPORT int test_textbuffer_flatten(ITesting *t) {
+    auto buffer = TextBuffer::CreateEmptyBuffer("tst");
+    for(int i=0;i<10;i++) {
+        char tmp[32];
+        snprintf(tmp,32,"line %d",i);
+        buffer->AddLine(tmp);
+    }
+
+
+    char flattenBuffer[512];
+    memset(flattenBuffer, 0, 512);
+    // Below cases should stress all exit points of the function...
+    TR_ASSERT(t, 0 == buffer->Flatten(flattenBuffer, 512, 100, 10));
+    TR_ASSERT(t, 0 == buffer->Flatten(flattenBuffer, 512, buffer->NumLines(), 10));
+    TR_ASSERT(t, 5 == buffer->Flatten(flattenBuffer, 512, 5, 10));
+    TR_ASSERT(t, 5 == buffer->Flatten(flattenBuffer, 512, 5, 20));
+    TR_ASSERT(t, 10 == buffer->Flatten(flattenBuffer, 512, 0, 10));
+    TR_ASSERT(t, 10 == buffer->Flatten(flattenBuffer, 512, 0, 0));
+
+
+    return kTR_Pass;
 }

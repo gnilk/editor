@@ -273,17 +273,25 @@ void TextBuffer::OnLineChanged(const Line &line) {
     ChangeBufferState(kBuffer_Changed);
 }
 
-void TextBuffer::Flatten(char *outBuffer, size_t maxBytes, size_t idxFromLine, size_t nLines) {
-    if (idxFromLine > lines.size()) {
-        return;
+size_t TextBuffer::Flatten(char *outBuffer, size_t maxBytes, size_t idxFromLine, size_t nLines) {
+    size_t linesCopied = 0;
+    if (idxFromLine >= NumLines()) {
+        return linesCopied;
+    }
+    if (nLines == 0) {
+        nLines = NumLines();
     }
     size_t idxBuffer = 0;
+
     for(size_t i=0;i<nLines;i++) {
-        auto l = LineAt(i);
+        auto l = LineAt(i + idxFromLine);
+        // Break if we hit an invalid line..
         if (l == nullptr) {
-            return;
+            return linesCopied;
         }
         snprintf(&outBuffer[idxBuffer], maxBytes - idxBuffer, "%s\n", l->Buffer().data());
         idxBuffer += l->Length() + sizeof('\n');
+        linesCopied++;
     }
+    return linesCopied;
 }

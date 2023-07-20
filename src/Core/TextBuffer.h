@@ -127,7 +127,7 @@ namespace gedit {
         const std::vector<Line::Ref> &Lines() { return lines; }
 
         Line::Ref LineAt(size_t idxLine) {
-            if (idxLine > NumLines()) {
+            if (idxLine >= NumLines()) {
                 return nullptr;
             }
             return lines[idxLine];
@@ -152,7 +152,10 @@ namespace gedit {
             Reparse();
         }
 
-        void Flatten(char *outBuffer, size_t maxBytes, size_t idxFromLine, size_t nLines);
+        // Flatten the buffer to a regular char array with CRLN
+        // nLines = 0, process as much data as possible..
+        // returns the number of line..
+        size_t Flatten(char *outBuffer, size_t maxBytes, size_t idxFromLine, size_t nLines);
 
         bool HaveLanguage() { return language!= nullptr; }
         LanguageBase &LangParser() { return *language; }

@@ -16,7 +16,10 @@ namespace gedit {
         KeyboardBaseMonitor() = default;
         virtual ~KeyboardBaseMonitor() = default;
 
-        virtual bool Start() { return false; }
+        // This allows the base to be used without specialization - the base never fails to start (it doesn't do anything)
+        // Removes a few #ifdef's in the code path...
+        virtual bool Start() { return true; }
+
         virtual bool IsModifierPressed(Keyboard::kModifierKeys ctrlKey) { return false; }
         virtual uint8_t GetModifiersCurrentlyPressed() const { return 0; }
 

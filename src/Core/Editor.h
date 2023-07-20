@@ -8,13 +8,11 @@
 #include <vector>
 
 #include "logger.h"
-#include "Core/macOS/MacOSKeyboardMonitor.h"
 
 #include "Core/JSEngine/JSPluginEngine.h"
 #include "Core/Language/LanguageBase.h"
 #include "Core/RuntimeConfig.h"
 #include "KeyboardDriverBase.h"
-#include "KeyboardBaseMonitor.h"
 #include "Core/Workspace.h"
 #include "Core/EditorModel.h"
 #include "Core/Workspace.h"
@@ -157,35 +155,28 @@ namespace gedit {
     private:
         bool isInitialized = false;
         gnilk::ILogger *logger = nullptr;
+
         // Holds all open models/buffers in the text editor
         std::vector<EditorModel::Ref> openModels = {};
-        std::unordered_map<kLanguageTokenClass, std::pair<ColorRGBA, ColorRGBA>> languageColorConfig;
-
-        State state = EditState;
-
-        // FIXME: This type of code can be directly in the KeyboardDriver...
-
-#ifdef GEDIT_MACOS
-        // This depends on the OS/Backend - consider creating a platform layer or something to handle this...
-        MacOSKeyboardMonitor keyboardMonitor;
-#else
-        KeyboardBaseMonitor keyboardMonitor;
-#endif
-        EditorModel::Ref activeEditorModel;
-
-        std::unordered_map<std::string_view, void *> editorApiObjects;
 
         ClipBoard clipboard;
-        Workspace::Ref workspace;
+        Workspace::Ref workspace = nullptr;
         // Javascript API wrapper
         JSPluginEngine jsEngine;
-        QuickCommandController quickCommandController;
 
+        // This is probably not the correct place for this - consider moving
+        std::unordered_map<kLanguageTokenClass, std::pair<ColorRGBA, ColorRGBA>> languageColorConfig;
         LanguageBase::Ref defaultLanguage = {};
         std::unordered_map<std::string, LanguageBase::Ref> extToLanguages;
 
+        State state = EditState;
         KeyMapping mappingsForEditState;
         KeyMapping mappingsForCmdState;
+        QuickCommandController quickCommandController;  // Special - used when in 'QuickCommandState'
+
+        // Hmm... this should perhaps be runtime config - or some kind of 'API' management code (which I don't have)
+        std::unordered_map<std::string_view, void *> editorApiObjects;
+
 
     };
 

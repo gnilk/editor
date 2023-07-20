@@ -353,16 +353,9 @@ void Editor::ConfigureSubSystems() {
 }
 
 void Editor::SetupNCurses() {
-#ifndef GEDIT_LINUX
-    if (!keyboardMonitor.Start()) {
-        logger->Error("Keyboard monitor failed to start");
-        printf("Unable to start keyboard monitor!");
-        exit(1);
-    }
-#endif
 
     auto screenDriver = NCursesScreen::Create();
-    auto kbDriver = NCursesKeyboardDriver::Create(&keyboardMonitor);
+    auto kbDriver = NCursesKeyboardDriver::Create();
     RuntimeConfig::Instance().SetKeyboard(kbDriver);
     RuntimeConfig::Instance().SetScreen(screenDriver);
 
@@ -420,8 +413,6 @@ void Editor::SetActiveModel(EditorModel::Ref model) {
                 currentModel->SetActive(false);
             }
             openModels[i]->SetActive(true);
-            // Not quite sure we need this
-            activeEditorModel = openModels[i];
 
             if (RuntimeConfig::Instance().HasRootView()) {
                 RuntimeConfig::Instance().GetRootView().Initialize();

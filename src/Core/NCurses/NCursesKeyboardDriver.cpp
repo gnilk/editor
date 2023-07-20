@@ -6,6 +6,12 @@
 #include "Core/Config/Config.h"
 #include "Core/Keyboard.h"
 #include "Core/NCurses/NCursesKeyboardDriver.h"
+#include "Core/KeyboardBaseMonitor.h"
+
+#ifdef GEDIT_MACOS
+#include "Core/macOS/MacOSKeyboardMonitor.h"
+#endif
+
 #include "Core/Keyboard.h"
 #include "Core/RuntimeConfig.h"
 #include "logger.h"
@@ -35,9 +41,24 @@ static std::map<int, int> ncurses_translation_map_new = {
         {127, Keyboard::kKeyCode_Backspace},  // Certain macOS keyboards
 };
 
-KeyboardDriverBase::Ref NCursesKeyboardDriver::Create(KeyboardBaseMonitor *monitor) {
+
+#ifdef GEDIT_MACOS
+// This depends on the OS/Backend - consider creating a platform layer or something to handle this...
+static MacOSKeyboardMonitor keyboardMonitor;
+#else
+static KeyboardBaseMonitor keyboardMonitor;
+#endif
+
+// We don't handle multiple instances just yet...
+KeyboardDriverBase::Ref NCursesKeyboardDriver::Create() {
     auto instance = std::make_shared<NCursesKeyboardDriver>();
-    instance->Begin(monitor);
+
+    if (!keyboardMonitor.Start()) {
+        printf("FATAL: Unable to start keyboard monitor!");
+        exit(1);
+    }
+
+    instance->Begin(&keyboardMonitor);
     return instance;
 }
 

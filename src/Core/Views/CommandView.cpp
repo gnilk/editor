@@ -6,8 +6,11 @@
 #include "CommandView.h"
 #include "Core/Views/HSplitView.h"
 #include "Core/Config/Config.h"
-
+#include "Core/Editor.h"
 using namespace gedit;
+
+static const std::string cfgSectionName = "commandview";
+
 
 void CommandView::InitView() {
     // We own the cursor, so we need to reset it on new lines...
@@ -23,7 +26,7 @@ void CommandView::InitView() {
                   viewRect.BottomRight().x, viewRect.BottomRight().y,
                   viewRect.Width(), viewRect.Height());
 
-    prompt = Config::Instance()["commandmode"].GetStr("prompt","gedit>");
+    prompt = Config::Instance()[cfgSectionName].GetStr("prompt","gedit>");
 
     window = screen->CreateWindow(viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
     window->SetCaption("CommandView");
@@ -43,7 +46,7 @@ void CommandView::ReInitView() {
         viewRect = screen->Dimensions();
     }
     window = screen->UpdateWindow(window, viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
-    prompt = Config::Instance()["commandmode"].GetStr("prompt","gedit>");
+    prompt = Config::Instance()[cfgSectionName].GetStr("prompt","gedit>");
     cursor.position.x = prompt.size();
 }
 
@@ -55,6 +58,9 @@ void CommandView::OnActivate(bool isActive) {
     } else {
         // Reset content height to 50/50 when we become active..
         parentView->ResetContentHeight();
+
+        // Set the keymap for this view or default if not found...
+        Editor::Instance().SetKeyMappingForViewState(Config::Instance()[cfgSectionName].GetStr("keymap", "default_keymap"));
     }
 }
 
@@ -129,7 +135,7 @@ void CommandView::DrawViewContents() {
         cursor.position.y = dc.GetRect().Height()-1;
     }
     auto currentLine = commandController.CurrentLine();
-    auto prompt = Config::Instance()["commandmode"].GetStr("prompt","gedit>");
+    auto prompt = Config::Instance()[cfgSectionName].GetStr("prompt","gedit>");
     dc.DrawStringAt(0, cursor.position.y, prompt.c_str());
     dc.DrawStringAt(prompt.size(), cursor.position.y, currentLine->Buffer().data());
 

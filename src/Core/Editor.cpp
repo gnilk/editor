@@ -180,6 +180,7 @@ void Editor::HandleGlobalAction(const KeyPressAction &kpAction) {
     } else if (state == QuickCommandState) {
         if (kpAction.action == kAction::kActionLeaveCommandMode) {
             LeaveCommandMode();
+            RestoreViewStateKeymapping();
         }
     }
 }
@@ -520,15 +521,30 @@ bool Editor::HasKeyMapping(const std::string &name) {
     return (keymappings.find(name) != keymappings.end());
 }
 
-// FIXME: Should have notifications for this!
-void Editor::SetKeyMappingForViewState(const std::string name) {
-    if (GetKeyMapping(name) == nullptr) {
+void Editor::SetActiveKeyMapping(const std::string &name) {
+    auto newKeyMap = GetKeyMapping(name);
+    if (newKeyMap == nullptr) {
         logger->Error("No such keymapping '%s'", name.c_str());
         return;
     }
-    logger->Debug("ViewState Keymapping Changed: %s -> %s", viewStateKeymapName.c_str(), name.c_str());
-    viewStateKeymapName = name;
+
+    if (cbKeymapUpdate != nullptr) {
+        cbKeymapUpdate(newKeyMap);
+    }
+
+    // In case of view-state we save the active keymap - not quite sure if this is needed...
+    if (state == ViewState) {
+        logger->Debug("ViewState Keymapping Changed: %s -> %s", viewStateKeymapName.c_str(), name.c_str());
+        viewStateKeymapName = name;
+    }
 }
+void Editor::RestoreViewStateKeymapping() {
+    if (viewStateKeymapName.empty()) {
+        return;
+    }
+    SetActiveKeyMapping(viewStateKeymapName);
+}
+
 
 
 

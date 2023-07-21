@@ -60,7 +60,7 @@ void CommandView::OnActivate(bool isActive) {
         parentView->ResetContentHeight();
 
         // Set the keymap for this view or default if not found...
-        Editor::Instance().SetKeyMappingForViewState(Config::Instance()[cfgSectionName].GetStr("keymap", "default_keymap"));
+        Editor::Instance().SetActiveKeyMapping(Config::Instance()[cfgSectionName].GetStr("keymap", "default_keymap"));
     }
 }
 

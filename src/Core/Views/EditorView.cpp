@@ -134,7 +134,7 @@ void EditorView::DrawViewContents() {
 void EditorView::OnActivate(bool isActive) {
     logger->Debug("OnActive, isActive: %s", isActive?"yes":"no");
     if (isActive) {
-        Editor::Instance().SetKeyMappingForViewState(Config::Instance()[cfgSectionName].GetStr("keymap", "default_keymap"));
+        Editor::Instance().SetActiveKeyMapping(Config::Instance()[cfgSectionName].GetStr("keymap", "default_keymap"));
         // Maximize editor content view...
         MaximizeContentHeight();
     }

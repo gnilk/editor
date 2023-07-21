@@ -107,7 +107,7 @@ bool WorkspaceView::OnAction(const KeyPressAction &kpAction) {
 
 void WorkspaceView::OnActivate(bool isActive) {
     if (isActive) {
-        Editor::Instance().SetKeyMappingForViewState(Config::Instance()[cfgSectionName].GetStr("keymap", "default_keymap"));
+        Editor::Instance().SetActiveKeyMapping(Config::Instance()[cfgSectionName].GetStr("keymap", "default_keymap"));
     }
 }
 

@@ -36,12 +36,17 @@ The code for this "keylogger" is also part of the repository.
 Got a quite simple but nice stack-based language tokenizer running. Use it to drive syntax highlighting.
 
 ## SDL2/3 Backend
-![screenshot](screenshot_230721.png)
+![screenshot](screenshots/screenshot_230721.png)
 Took a stab at testing if multiple backends where actually possible. Decided to try libSDL - haven't used it before.
 Worked fine, using stb_ttf for true type fond rendering.
 
 Keyboard handling is solved listening to the SDL_TEXT_INPUT event, not quite sure if this will works. Seems like SDL
 has the ability to buffer things (I dont) - but haven't seen it yet.
+
+The quickcommand mode is a faster way to access certain features than going via the command/terminal view. It allows
+for a 'vi/vim' - like interface. It can also execute plugins (save/load/etc..) besides doing search and so forth. The
+output from quickcommand's are always the terminal. As you can see in the screenshot the search results are written 
+to the terminal.
 
 
 # Building

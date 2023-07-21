@@ -33,6 +33,7 @@ void QuickCommandController::Leave() {
     // Remove run loop hook here
     logger->Debug("Leave...");
     Runloop::SetKeypressAndActionHook(nullptr);
+    Editor::Instance().RestoreViewStateKeymapping();
 }
 
 bool QuickCommandController::HandleAction(const KeyPressAction &kpAction) {
@@ -124,6 +125,8 @@ bool QuickCommandController::HandleActionInSearch(const KeyPressAction &kpAction
 
         logger->Debug("Leaving search");
         ChangeState(State::QuickCmdState);
+
+        DoLeaveOnSuccess();
         return true;
     }
     return false;

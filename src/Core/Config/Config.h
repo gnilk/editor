@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <assert.h>
+#include <optional>
 #include "NamedColorConfig.h"
 #include <yaml-cpp/yaml.h>
 

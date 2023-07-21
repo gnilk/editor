@@ -22,7 +22,7 @@ std::pair<bool, ColorRGBA> SublimeConfigColorScript::ExecuteColorScript(const st
 }
 
 // Register built-in functionality
-// FIXME: IF this gets used for different purposes than colors - we should move this to a specialization class (SublimeColorScript)
+// IF this gets used for different purposes than colors - we should move this to a specialization class (SublimeColorScript)
 void SublimeConfigColorScript::RegisterBuiltIn() {
     // Make sure we register whatever is in the base class...
     SublimeConfigScriptEngine::RegisterBuiltIn();

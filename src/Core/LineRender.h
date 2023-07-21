@@ -8,7 +8,7 @@
 #include <vector>
 #include "Core/Line.h"
 #include "Core/DrawContext.h"
-#include "Core/EditorModel.h"   // FIXME: Only because of selection
+#include "Core/EditorModel.h"   // Because of selection in drawing routines...
 
 namespace gedit {
     class LineRender {

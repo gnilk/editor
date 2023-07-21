@@ -438,7 +438,6 @@ bool EditorView::OnActionGotoBottomLine() {
     return true;
 }
 
-// FIXME: This can be made a static function in some kind of helper...
 bool EditorView::OnActionNextBuffer() {
     ActionHelper::SwitchToNextBuffer();
     InvalidateAll();

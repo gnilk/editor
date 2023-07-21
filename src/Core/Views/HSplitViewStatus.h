@@ -28,7 +28,6 @@ namespace gedit {
             // Need to reposition the cursor properly...
             Cursor dummy = newCursor;
             dummy.position.y = GetSplitRow();
-            // FIXME: This should be calculated...
             dummy.position.x = 19 + newCursor.position.x;
             window->SetCursor(dummy);
         }

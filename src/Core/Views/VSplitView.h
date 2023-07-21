@@ -47,7 +47,6 @@ namespace gedit {
             return splitterPos / (float)viewRect.Width();
         }
 
-        // FIXME: make sure the splitter pos fits within the rect..
         void SetViewRect(const Rect &rect) override {
             viewRect = rect;
             if (splitterPos == 0) {

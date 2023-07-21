@@ -7,7 +7,7 @@ This is my playground....
 
 ![screenshot](screenshots/main_edit_230318.png?raw=true)
 
-Currently running on Linux (NCurses and SDL2) and macOS (NCurses and SDL3).
+Currently running on Linux (NCurses and SDL2) and macOS (NCurses and SDL2/SDL3).
 
 Goals
 - Mimic Amiga AsmOne with a dedicated cmd-line mode (like a shell) for editor commands
@@ -35,54 +35,49 @@ The code for this "keylogger" is also part of the repository.
 
 Got a quite simple but nice stack-based language tokenizer running. Use it to drive syntax highlighting.
 
-
-Dependencies:
-- yaml-cpp, https://github.com/jbeder/yaml-cpp
-- ncurses, on *nix it is generally available, otherwise: https://invisible-island.net/ncurses/announce.html
-- nlohmann/json, https://github.com/nlohmann/json
-- libSDL, https://github.com/libsdl-org/SDL currently using master branch (SDL3)
-- stb, https://github.com/nothings/stb, ttf and rect_pack (added to my repo)
-
-libSDL, ncurses you can download and install the packages. Stb is added to the project under 'ext'.
-yaml-cpp, nlohmann you should clone and link - see CMakeLists.txt
-
-## SDL3 Backend
-![screenshot](screenshots/sdlbackend_only_editor.png?raw=true)
+## SDL2/3 Backend
+![screenshot](screenshot_230721.png)
 Took a stab at testing if multiple backends where actually possible. Decided to try libSDL - haven't used it before.
 Worked fine, using stb_ttf for true type fond rendering.
 
 Keyboard handling is solved listening to the SDL_TEXT_INPUT event, not quite sure if this will works. Seems like SDL
 has the ability to buffer things (I dont) - but haven't seen it yet.
 
-![screenshot](screenshots/sdlbackend_cmdview.png?raw=true)
+
+# Building
+The build is driven by CMake.
+If it doesn't build out of box, check that stuff is installed properly and that CMakeLists.txt points to the dependencies
+in the proper way. You are looking for a bunch of:
+```
+    set(YAML_CPP_HOME /usr)
+    set(NCURSES_HOME /usr)
+    set(SDL_HOME /usr/local)
+    set(DUKTAPE_HOME ext/duktape-2.7.0/src)
+    set(DUKTAPE_EXTRAS ext/duktape-2.7.0/extras)
+    set(DUKGLUE_HOME ext/dukglue)    
+```
+
+## Dependencies
+- yaml-cpp, https://github.com/jbeder/yaml-cpp
+- ncurses, on *nix it is generally available, otherwise: https://invisible-island.net/ncurses/announce.html
+- nlohmann/json, https://github.com/nlohmann/json
+- libSDL, https://github.com/libsdl-org/SDL currently using master branch (SDL3)
+- duktape 2.7.0, https://github.com/svaarala/duktape - clone this to editor/ext/dukglue-2.7.0
+- dukglue (just take master), https://github.com/Aloshi/dukglue - clone this to editor/ext/dukglue
+- logger, https://github.com/gnilk/logger - clone this to editor/ext/logger
+- stb, https://github.com/nothings/stb, ttf and rect_pack (already added to my repo)
 
 
+- libSDL, ncurses, yaml, nlohmann you can download and install the packages. 
+- duktape, dukglue, logger you should clone and link - see CMakeLists.txt
 
-Playing around with embedding a script language to drive command-mode cmd-let's.
+# Plugins
+Playing around with embedding a script language to drive command-mode cmd-let's. At the end I settled for JavaScript.
+
 ## JavaSript
+Using duktape for javascript. Tried out QuickJS but had better luck with Duktape.
 Played around with DukTape and QuickJS.
-QuickJS is probably good but it is completely lacking in documentation (or I can't find it). In the end
-I had ChatGPT generating a simple stub with a hello world kind of example for me. 
 
-Had better luck with Duktape. In the end I got a structure where you can write plugins nicely and with
-support for `require` and such. Will start integrating it as a proof-of-concept. Still not sure what I want
-to use it for except one little thing...
-
-- People know it
-- I don't like it
-- Small programs, so it doesn't really matter
-
-## Python
-- You can do most and it is familiar to many
-- Quite a lot of boilerplate for integration
-- Tricky to "pre-compile and cache" (or it least it looks like it from documentation)
-  - as we don't want to compile the cmd-let's every time we open the editor (defeats the purpose of beeing fast)
-
-## Lua
-- Way more simple to integrate
-- Can expose LUA objects but must be backed by c-style interface, see: https://www.lua.org/pil/28.1.html 
-- Pre-compile??
-- Use LuaCpp library (C++ wrapper) instead of directly dealing with low-level C-api?
-  - https://github.com/jordanvrtanoski/luacpp
-- 
+Plugins are used to implement (mainly as a test) some administrative commands for the moment.
+I plan to extend the API so you can do more but right now there isn't much...
 

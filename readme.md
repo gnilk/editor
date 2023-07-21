@@ -1,7 +1,7 @@
 # Editor Project
 
 Someone (Peter Norton?) once said that in order to really become a programmer one has to write
-an editor.
+an editor. test
 
 This is my playground....
 

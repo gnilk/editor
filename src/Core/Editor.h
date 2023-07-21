@@ -151,9 +151,9 @@ namespace gedit {
     protected:
         void ConfigureLanguages();
         void ConfigureColorTheme();
-        void ConfigureKeyMappings();
         void ConfigureSubSystems();
         void ConfigureGlobalAPIObjects();
+        void ConfigureLogFilter();
 
         // TEMP - backend configuration
         void SetupNCurses();

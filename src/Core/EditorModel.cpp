@@ -104,6 +104,7 @@ bool EditorModel::JumpToSearchHit(size_t idxHit) {
     auto &result = searchResults[idxHit];
     cursor.position.y = result.idxLine;
     cursor.position.x = result.cursor_x;
+    cursor.wantedColumn = result.cursor_x;
     idxActiveLine = result.idxLine;
     return true;
 }
@@ -131,13 +132,7 @@ void EditorModel::PrevSearchResult() {
 void EditorModel::ResetSearchHitIndex() {
     idxActiveSearchHit = 0;
 }
+
 size_t EditorModel::GetSearchHitIndex() {
     return idxActiveSearchHit;
-}
-
-size_t EditorModel::GetReparseStartLineIndex() {
-    if (!IsSelectionActive()) {
-        return idxActiveLine;
-    }
-    return currentSelection.GetStart().y;
 }

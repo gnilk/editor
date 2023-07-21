@@ -53,18 +53,19 @@ bool Editor::Initialize(int argc, const char **argv) {
         return true;
     }
     ConfigureLogger();
+
     // Makes it easier to detect starting in file-appending log-file...
     logger->Debug("*************** EDITOR STARTING ***************");
     LoadConfig("config.yml");
 
+    // When we have the config we can set up the log-filter...
+    ConfigureLogFilter();
+
     // Language configuration must currently be done before we load editor models
     ConfigureLanguages();
 
-    ConfigureKeyMappings();
-
     // Create workspace
     workspace = Workspace::Create();
-
 
     // Parse cmd-line
     for(int i=1;i<argc;i++) {
@@ -109,16 +110,10 @@ bool Editor::Initialize(int argc, const char **argv) {
         return false;
     }
 
-
-//    bool keyMapperOk = mappingsForEditState.IsInitialized();
-//    if (!keyMapperOk) {
-//        logger->Error("KeyMapper failed to initalize");
-//        return false;
-//    }
-
     isInitialized = true;
     return true;
 }
+
 bool Editor::OpenScreen() {
     ConfigureSubSystems();
     ConfigureColorTheme();
@@ -153,6 +148,7 @@ void Editor::RunPostInitalizationScript() {
         ExecutePostScript(strScript);
     }
 }
+
 void Editor::ExecutePostScript(const std::string &scriptFile) {
     std::ifstream f(scriptFile);
     auto comment = Config::Instance()["main"].GetStr("bootstrap_script_comment", "//");
@@ -191,7 +187,6 @@ void Editor::LeaveCommandMode() {
     state = ViewState;
 }
 
-
 EditorModel::Ref Editor::OpenModelFromWorkspace(Workspace::Node::Ref workspaceNode) {
     auto model = workspaceNode->GetModel();
     if (IsModelOpen(model)) {
@@ -211,8 +206,6 @@ EditorModel::Ref Editor::OpenModelFromWorkspace(Workspace::Node::Ref workspaceNo
 
     return model;;
 }
-
-
 
 // Create a new model/buffer
 EditorModel::Ref Editor::NewModel(const std::string &name) {
@@ -234,6 +227,7 @@ bool Editor::CloseModel(EditorModel::Ref model) {
     return workspace->CloseModel(model);
 }
 
+// Must be called before 'LoadConfig' - as the config loader will output debug info...
 void Editor::ConfigureLogger() {
     static const char *sinkArgv[]={"autoflush","file","logfile.log"};
     gnilk::Logger::Initialize();
@@ -241,9 +235,22 @@ void Editor::ConfigureLogger() {
     gnilk::Logger::AddSink(fileSink, "fileSink", 3, sinkArgv);
     // Remove the console sink (it is auto-created in debug-mode)
     gnilk::Logger::RemoveSink("console");
-
     logger = gnilk::Logger::GetLogger("System");
+
 }
+
+// This must be called after 'LoadConfig' - part of initialization process
+void Editor::ConfigureLogFilter() {
+    if (Config::Instance()["logging"].GetBool("disable_all", false)) {
+        gnilk::Logger::DisableAllLoggers();
+    }
+
+    auto loggersEnabled = Config::Instance()["logging"].GetSequenceOfStr("enable_modules");
+    for(auto &logName : loggersEnabled) {
+        gnilk::Logger::EnableLogger(logName.c_str());
+    }
+}
+
 
 bool Editor::LoadConfig(const char *configFile) {
     if (logger == nullptr) {
@@ -255,6 +262,7 @@ bool Editor::LoadConfig(const char *configFile) {
         logger->Error("Unable to load default configuration from 'config.yml' - defaults will be used");
         return false;
     }
+
     return true;
 }
 
@@ -306,25 +314,11 @@ void Editor::ConfigureColorTheme() {
     }
 }
 
-void Editor::ConfigureKeyMappings() {
-//    logger->Debug("===> reading edit mode keymappings from 'keymap'");
-//    if (!mappingsForEditState.Initialize("keymap")) {
-//        logger->Error("Edit mode keymappings failed - see section 'keymap' in 'config.yml'");
-//    }
-//    logger->Debug("===> reading quick command mode keymappings from 'quickmode_keymap'");
-//    if (!mappingsForCmdState.Initialize("quickmode_keymap")) {
-//        logger->Error("QuickCommand mode keymappings failed - see section 'quickmode_keymap' in 'config.yml'");
-//    }
-}
-
-
 // Configure global/static API objects..
 void Editor::ConfigureGlobalAPIObjects() {
     static EditorAPI editorApi;
-//    static TextBufferAPI textBufferAPI;
 
     RegisterGlobalAPIObject<EditorAPI>(&editorApi);
-//    RegisterAPI<TextBufferAPI>(&textBufferAPI);
 
     // Initialize the Javascript wrapper engine...
     jsEngine.Initialize();
@@ -411,7 +405,6 @@ std::vector<std::string> Editor::GetRegisteredLanguages() {
     return keys;
 }
 
-
 void Editor::SetActiveModel(EditorModel::Ref model) {
     auto currentModel = GetActiveModel();
     for(size_t i = 0; i < openModels.size(); i++) {
@@ -428,6 +421,7 @@ void Editor::SetActiveModel(EditorModel::Ref model) {
         }
     }
 }
+
 void Editor::SetActiveModelFromIndex(size_t idxModel) {
     auto model = GetModelFromIndex(idxModel);
     if (model == nullptr) {
@@ -435,7 +429,6 @@ void Editor::SetActiveModelFromIndex(size_t idxModel) {
     }
     SetActiveModel(model);
 }
-
 
 size_t Editor::GetActiveModelIndex() {
     for(size_t i=0; i < openModels.size(); i++) {
@@ -456,8 +449,6 @@ EditorModel::Ref Editor::GetActiveModel() {
     // This can happen if there is no model yet assigned (like startup)
     return nullptr;
 }
-
-
 
 bool Editor::IsModelOpen(EditorModel::Ref model) {
     for(size_t i = 0; i < openModels.size(); i++) {
@@ -538,16 +529,13 @@ void Editor::SetActiveKeyMapping(const std::string &name) {
         viewStateKeymapName = name;
     }
 }
+
 void Editor::RestoreViewStateKeymapping() {
     if (viewStateKeymapName.empty()) {
         return;
     }
     SetActiveKeyMapping(viewStateKeymapName);
 }
-
-
-
-
 
 void Editor::TriggerUIRedraw() {
     // FIXME: Can't trigger this before the UI is up and running...

@@ -11,6 +11,13 @@ main:
     - ~/.config/gedit/bootstrap.script
     - ~/.gedit
 
+logging:
+  disable_all: yes
+  enable_modules:
+    - "Runloop"
+    - "System"
+    - "Editor"
+
 macos:
   allow_kbd_hook: yes
 
@@ -52,7 +59,7 @@ commandview:
 quickmode:
   # this will leave the quick-command mode automatically when a successfull command has been executed
   # while this can be nice, it's cumbersome if used for navigation...
-  leave_automatically: false
+  leave_automatically: true
   leave_when_switching_view: true
   prompt_default: "Q:"
   prompt_search: "S:"

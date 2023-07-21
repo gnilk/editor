@@ -6,6 +6,7 @@ main:
   threaded_syntaxparser: yes
   plugin_directory: Plugins
   bootstrap_script_comment: "//"
+  cmdlet_prefix: "."
   bootstrap_scripts:
     - ~/.config/gedit/bootstrap.script
     - ~/.gedit
@@ -46,7 +47,6 @@ workspaceview:
 #
 commandview:
   prompt: "ed>"
-  cmdlet_prefix: "."
 
 
 quickmode:
@@ -57,6 +57,7 @@ quickmode:
   prompt_default: "Q:"
   prompt_search: "S:"
   prompt_cmdlet: "C:"
+  keymap: "quickmode_keymap"
 
 quickmode_keymap: {
   actions: {

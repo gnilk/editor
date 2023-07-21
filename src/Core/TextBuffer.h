@@ -117,7 +117,7 @@ namespace gedit {
             Insert(idxPos, newLine);
         }
 
-        void Insert(const std::vector<const Line::Ref>::iterator &it, Line::Ref line) {
+        void Insert(std::vector<Line::Ref>::const_iterator it, Line::Ref line) {
             line->SetOnChangeDelegate([this](const Line &line){
                 OnLineChanged(line);
             });

@@ -58,6 +58,9 @@ bool Editor::Initialize(int argc, const char **argv) {
     logger->Debug("*************** EDITOR STARTING ***************");
     LoadConfig("config.yml");
 
+    // When we have the config we can set up the log-filter...
+    ConfigureLogFilter();
+
     // Language configuration must currently be done before we load editor models
     ConfigureLanguages();
 
@@ -224,6 +227,7 @@ bool Editor::CloseModel(EditorModel::Ref model) {
     return workspace->CloseModel(model);
 }
 
+// Must be called before 'LoadConfig' - as the config loader will output debug info...
 void Editor::ConfigureLogger() {
     static const char *sinkArgv[]={"autoflush","file","logfile.log"};
     gnilk::Logger::Initialize();
@@ -233,8 +237,20 @@ void Editor::ConfigureLogger() {
     gnilk::Logger::RemoveSink("console");
     logger = gnilk::Logger::GetLogger("System");
 
-//    gnilk::Logger::DisableAllLoggers();
 }
+
+// This must be called after 'LoadConfig' - part of initialization process
+void Editor::ConfigureLogFilter() {
+    if (Config::Instance()["logging"].GetBool("disable_all", false)) {
+        gnilk::Logger::DisableAllLoggers();
+    }
+
+    auto loggersEnabled = Config::Instance()["logging"].GetSequenceOfStr("enable_modules");
+    for(auto &logName : loggersEnabled) {
+        gnilk::Logger::EnableLogger(logName.c_str());
+    }
+}
+
 
 bool Editor::LoadConfig(const char *configFile) {
     if (logger == nullptr) {

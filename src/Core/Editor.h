@@ -153,6 +153,7 @@ namespace gedit {
         void ConfigureColorTheme();
         void ConfigureSubSystems();
         void ConfigureGlobalAPIObjects();
+        void ConfigureLogFilter();
 
         // TEMP - backend configuration
         void SetupNCurses();

@@ -6,6 +6,7 @@
 #define EDITOR_RUNLOOP_H
 
 #include "Core/KeypressAndActionHandler.h"
+#include "Core/KeyMapping.h"
 #include "Core/Views/ViewBase.h"
 
 namespace gedit {
@@ -26,10 +27,13 @@ namespace gedit {
         static void TestLoop();
     private:
         static bool DispatchToHandler(KeypressAndActionHandler &handler, KeyPress keyPress);
+        static void InstallKeymapChangeNotification();
     private:
         static bool bQuit;
         static bool isRunning;
         static KeypressAndActionHandler *hookedActionHandler;
+        static KeyMapping::Ref activeKeyMap;
+
     };
 }
 

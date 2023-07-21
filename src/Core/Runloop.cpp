@@ -13,6 +13,7 @@ using namespace gedit;
 bool Runloop::bQuit = false;
 bool Runloop::isRunning = false;
 KeypressAndActionHandler *Runloop::hookedActionHandler = nullptr;
+KeyMapping::Ref  Runloop::activeKeyMap = nullptr;
 
 void Runloop::SetKeypressAndActionHook(KeypressAndActionHandler *newHook) {
     hookedActionHandler = newHook;
@@ -23,6 +24,9 @@ void Runloop::DefaultLoop() {
     auto keyboardDriver = RuntimeConfig::Instance().GetKeyboard();
     auto &rootView = RuntimeConfig::Instance().GetRootView();
 
+    // Fetch the currently initialized keymapping
+    activeKeyMap = Editor::Instance().GetActiveKeyMap();
+    Runloop::InstallKeymapChangeNotification();
 
     KeypressAndActionHandler &kpaHandler {rootView};
     isRunning = true;
@@ -65,6 +69,11 @@ void Runloop::ShowModal(ViewBase *modal) {
     auto screen = RuntimeConfig::Instance().GetScreen();
     auto keyboardDriver = RuntimeConfig::Instance().GetKeyboard();
     //auto logger = gnilk::Logger::GetLogger("ShowModal");
+
+    // Fetch the currently initialized keymapping
+    activeKeyMap = Editor::Instance().GetActiveKeyMap();
+    Runloop::InstallKeymapChangeNotification();
+
 
     modal->SetActive(true);
     modal->Initialize();
@@ -112,15 +121,23 @@ void Runloop::ShowModal(ViewBase *modal) {
     }
 }
 
+
+void Runloop::InstallKeymapChangeNotification() {
+    Editor::Instance().SetKeymapUpdateDelegate([](KeyMapping::Ref newKeymap){
+        auto logger = gnilk::Logger::GetLogger("Runloop");
+        logger->Debug("Keymap changed!!!!");
+        activeKeyMap = newKeymap;
+    });
+}
+
 bool Runloop::DispatchToHandler(KeypressAndActionHandler &kpaHandler, KeyPress keyPress) {
     auto logger = gnilk::Logger::GetLogger("Dispatcher");
     logger->Debug("KeyPress Valid - passing on...");
 
-    auto &keyMap = Editor::Instance().GetActiveKeyMap();
-    auto kpAction = keyMap.ActionFromKeyPress(keyPress);
+    auto kpAction = activeKeyMap->ActionFromKeyPress(keyPress);
 
     if (kpAction.has_value()) {
-        logger->Debug("Action '%s' found - sending to handler", keyMap.ActionName(kpAction->action).c_str());
+        logger->Debug("Action '%s' found - sending to handler", activeKeyMap->ActionName(kpAction->action).c_str());
 
         if (!kpaHandler.HandleAction(*kpAction)) {
             // Here I introduce yet another dependency in this class

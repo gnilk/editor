@@ -29,8 +29,12 @@ namespace gedit {
 
     class KeyMapping {
     public:
+        using Ref = std::shared_ptr<KeyMapping>;
+    public:
         KeyMapping() = default;
         virtual ~KeyMapping() = default;
+
+        static Ref Create(const std::string &cfgNodeName);
 
         bool Initialize(const std::string &cfgNodeName);
 

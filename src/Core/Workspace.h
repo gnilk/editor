@@ -242,10 +242,8 @@ namespace gedit {
         ContentsChangedDelegate onChangeHandler = {};
 
         std::unordered_map<std::string, Node::Ref> rootNodes = {};
-        //Node::Ref rootNode = nullptr;
 
-        // FIXME: Remove this
-        std::vector<EditorModel::Ref> models;   // rename..
+        std::vector<EditorModel::Ref> models;
 
     };
 }

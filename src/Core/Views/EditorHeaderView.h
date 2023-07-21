@@ -30,7 +30,6 @@ namespace gedit {
 
             int xp = 0;
 
-            // FIXME: Should be space enough to fill the gutter, as we want filename 'tabs' list starting over the editor view
             std::string header = "[Files]";
             dc.DrawStringWithAttributesAt(xp,0,kTextAttributes::kNormal, header.c_str());
 

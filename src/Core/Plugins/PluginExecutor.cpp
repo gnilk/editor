@@ -12,7 +12,7 @@
 using namespace gedit;
 
 bool PluginExecutor::ParseAndExecuteWithCmdPrefix(const std::string &cmdline) {
-    auto prefix = Config::Instance()["commandmode"].GetStr("cmdlet_prefix");
+    auto prefix = Config::Instance()["main"].GetStr("cmdlet_prefix");
     if (!strutil::startsWith(cmdline, prefix)) {
         return false;
     }

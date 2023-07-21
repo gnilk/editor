@@ -18,14 +18,14 @@
 
 
 
-// FIXME: Move to class member
+// Perhaps: Move to class member
 static std::string colScriptOp = {"( ) % , #"};
 
 // Defined the 'invalidValue'
 const SublimeConfigScriptEngine::ScriptValue SublimeConfigScriptEngine::invalidScriptValue = {.vType = kNil, .data = nullptr };
 
 // Register built-in functionality
-// FIXME: IF this gets used for different purposes than colors - we should move this to a specialization class (SublimeColorScript)
+// IF this gets used for different purposes than colors - we should move this to a specialization class (SublimeColorScript)
 void SublimeConfigScriptEngine::RegisterBuiltIn() {
     RegisterFunction("var",[this](std::vector<SublimeConfigScriptEngine::ScriptValue> &args)->SublimeConfigScriptEngine::ScriptValue {
         return this->ExecuteVAR(args);
@@ -117,7 +117,7 @@ std::pair<bool, SublimeConfigScriptEngine::ScriptValue> SublimeConfigScriptEngin
         return {false, {}};
     }
 
-    // FIXME: The parsing is flaky...
+    // This parsing is flaky...
     std::vector<ScriptValue> args;
     tokenizer.Next();
     while(tokenizer.HasMore()) {
@@ -143,7 +143,7 @@ std::pair<bool, SublimeConfigScriptEngine::ScriptValue> SublimeConfigScriptEngin
 //
 // Parse web color definintion
 //  Color is either #<RR><GG><BB> or #<R><G><B>
-//  FIXME: support with alpha! #<RR><GG><BB><AA>
+//  support with alpha! #<RR><GG><BB><AA>
 //
 std::pair<bool, SublimeConfigScriptEngine::ScriptValue> SublimeConfigScriptEngine::ParseWebColor(gnilk::Tokenizer &tokenizer) {
     tokenizer.Next();   // eat '#'

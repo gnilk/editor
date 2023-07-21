@@ -7,16 +7,8 @@
  * - Refactor initialization, split app init from data loading (data loading should happen afterwards - when UI is up and running)
  * + Fix save!
  * - Use references in view-system (most other code using references or smart pointers)
- * - QuickCommandMode
- *   ! Allow cursor to be positioned at the 'C' input
- *   ! Ability to navigate through search results (next/previous) - should reposition the cursor
- *   ! Consider how to visualize various things coming from the quick-command mode
- *     ! you are in search and want 'hits', perhaps change 'C' to 'S' in the prefix??
- *   ! Require prefix '.' before entering commands (need states) as commands require bypassing short-cuts..
- *   ! When '.' is entered we should disable ASCII commands (like we do for search) otherwise certain key-combos are not valid!
- *     Illustrate: press './' and you will enter search... this should not be the case..
- *   - How to search in node-editor mode (i.e ProjectViews, Terminal - history)
- *   - Movement (see Helix editor)
+ * - How to search in node-editor mode (i.e ProjectViews, Terminal - history), also for quickmode?
+ * - QuickMode support for Movement (see Helix editor)
  * - Bookmarks
  *   - visual (GutterView support)
  *   - Add/Delete
@@ -28,15 +20,21 @@
  *    - Be 'smart' depending on language search for type belonging to related files (C/CPP - header files)
  *    - Make sure the prefix-tree can be quickly update when changing stuff on a line
  *    - Make the Intellisense run in a background thread that locks the whole textbuffer (but does so when it sits Idle)
- * + Make a proper 'project' viewer
- *   ! Enter on selection should load (if needed) and set the model active in the editor
- *   - Ability to search/filter for files
  * - Put some performance timings in the LanguageParser (this will have to be optimized sooner or later)
  * - macOS swaps left/right scancodes between keyboards (laptop has left/right one way my ext.keyboard another)
  *   need to consider a solution for this...
  * - Swap out the vertical navigation code in EditorView for the 'VerticalNavigationModel'
  *
  * Done:
+ * ! Workspace, pressing return/enter on selection should load (if needed) and set the model active in the editor
+ * ! QuickCommandMode
+ *   ! Allow cursor to be positioned at the 'C' input
+ *   ! Ability to navigate through search results (next/previous) - should reposition the cursor
+ *   ! Consider how to visualize various things coming from the quick-command mode
+ *     ! you are in search and want 'hits', perhaps change 'C' to 'S' in the prefix??
+ *   ! Require prefix '.' before entering commands (need states) as commands require bypassing short-cuts..
+ *   ! When '.' is entered we should disable ASCII commands (like we do for search) otherwise certain key-combos are not valid!
+ *     Illustrate: press './' and you will enter search... this should not be the case..
  * ! Switch to References everywhere, either C++ ref or shared_ptr type of refs (MyClass::Ref), there are still too many places using raw object pointers
  * ! Consolidate configuration (or sort it up properly) currently spread out between 'Editor', 'Config', 'RuntimeConfig'
  * ! CopyPaste, rewrite to use own ClipBoard, need to figure out how to handle text from OS clipboard...

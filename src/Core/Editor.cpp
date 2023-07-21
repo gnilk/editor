@@ -104,11 +104,17 @@ bool Editor::Initialize(int argc, const char **argv) {
     //RuntimeConfig::Instance().SetActiveEditorModel(openModels[0]);
     SetActiveModel(openModels[0]);
 
-    bool keyMapperOk = mappingsForEditState.IsInitialized();
-    if (!keyMapperOk) {
-        logger->Error("KeyMapper failed to initalize");
+    auto editKeyMap = GetKeyMapForState(Editor::State::ViewState);
+    if (editKeyMap == nullptr) {
         return false;
     }
+
+
+//    bool keyMapperOk = mappingsForEditState.IsInitialized();
+//    if (!keyMapperOk) {
+//        logger->Error("KeyMapper failed to initalize");
+//        return false;
+//    }
 
     isInitialized = true;
     return true;
@@ -165,7 +171,7 @@ void Editor::ExecutePostScript(const std::string &scriptFile) {
 
 void Editor::HandleGlobalAction(const KeyPressAction &kpAction) {
     logger->Debug("Handling global actions!!");
-    if (state == EditState) {
+    if (state == ViewState) {
         if (kpAction.action == kAction::kActionEnterCommandMode) {
             logger->Debug("Entering command mode!");
             state = QuickCommandState;
@@ -174,6 +180,7 @@ void Editor::HandleGlobalAction(const KeyPressAction &kpAction) {
     } else if (state == QuickCommandState) {
         if (kpAction.action == kAction::kActionLeaveCommandMode) {
             LeaveCommandMode();
+            RestoreViewStateKeymapping();
         }
     }
 }
@@ -181,7 +188,7 @@ void Editor::HandleGlobalAction(const KeyPressAction &kpAction) {
 void Editor::LeaveCommandMode() {
     logger->Debug("Leaving command mode!");
     quickCommandController.Leave();
-    state = EditState;
+    state = ViewState;
 }
 
 
@@ -300,14 +307,14 @@ void Editor::ConfigureColorTheme() {
 }
 
 void Editor::ConfigureKeyMappings() {
-    logger->Debug("===> reading edit mode keymappings from 'keymap'");
-    if (!mappingsForEditState.Initialize("keymap")) {
-        logger->Error("Edit mode keymappings failed - see section 'keymap' in 'config.yml'");
-    }
-    logger->Debug("===> reading quick command mode keymappings from 'quickmode_keymap'");
-    if (!mappingsForCmdState.Initialize("quickmode_keymap")) {
-        logger->Error("QuickCommand mode keymappings failed - see section 'quickmode_keymap' in 'config.yml'");
-    }
+//    logger->Debug("===> reading edit mode keymappings from 'keymap'");
+//    if (!mappingsForEditState.Initialize("keymap")) {
+//        logger->Error("Edit mode keymappings failed - see section 'keymap' in 'config.yml'");
+//    }
+//    logger->Debug("===> reading quick command mode keymappings from 'quickmode_keymap'");
+//    if (!mappingsForCmdState.Initialize("quickmode_keymap")) {
+//        logger->Error("QuickCommand mode keymappings failed - see section 'quickmode_keymap' in 'config.yml'");
+//    }
 }
 
 
@@ -470,16 +477,76 @@ EditorModel::Ref Editor::GetModelFromTextBuffer(TextBuffer::Ref textBuffer) {
     return nullptr;
 }
 
-KeyMapping &Editor::GetActiveKeyMap() {
+KeyMapping::Ref Editor::GetActiveKeyMap() {
     return GetKeyMapForState(state);
 }
 
-KeyMapping &Editor::GetKeyMapForState(State paramState) {
-    if (paramState == EditState) {
-        return mappingsForEditState;
+KeyMapping::Ref Editor::GetKeyMapForState(State paramState) {
+    // We allow views to map keys differently (workspace view can have a different keymap from the regular edit-view)
+    if (paramState == ViewState) {
+        if (HasKeyMapping(viewStateKeymapName)) {
+            //logger->Debug("Current ViewState keymap: %s", viewStateKeymapName.c_str());
+            return GetKeyMapping(viewStateKeymapName);
+        }
+        logger->Error("keymap with name '%s' not found - reverting to default!", viewStateKeymapName.c_str());
+        return GetKeyMapping("default_keymap");
     }
-    return mappingsForCmdState;
+
+    // If we are not in the 'ViewState' we are in QuickCommandMode - it has a special keymap!
+    return GetKeyMapping("quickmode_keymap");
 }
+
+// Return a keymapping based on name
+KeyMapping::Ref Editor::GetKeyMapping(const std::string &name) {
+    // If we have it - just return it...
+    if (HasKeyMapping(name)) {
+        return keymappings[name];
+    }
+    auto keymap = KeyMapping::Create(name);
+    if (keymap == nullptr) {
+        logger->Error("No keymap with name '%s'", name.c_str());
+        return nullptr;
+    }
+    if (!keymap->IsInitialized()) {
+        logger->Error("Keymap '%s' failed to initialize");
+        return nullptr;
+    }
+    // Add to the 'cache'
+    keymappings[name] = keymap;
+    return keymap;
+}
+
+// This checks if a keymapping is loaded - not if it has been configured!!
+bool Editor::HasKeyMapping(const std::string &name) {
+    return (keymappings.find(name) != keymappings.end());
+}
+
+void Editor::SetActiveKeyMapping(const std::string &name) {
+    auto newKeyMap = GetKeyMapping(name);
+    if (newKeyMap == nullptr) {
+        logger->Error("No such keymapping '%s'", name.c_str());
+        return;
+    }
+
+    if (cbKeymapUpdate != nullptr) {
+        cbKeymapUpdate(newKeyMap);
+    }
+
+    // In case of view-state we save the active keymap - not quite sure if this is needed...
+    if (state == ViewState) {
+        logger->Debug("ViewState Keymapping Changed: %s -> %s", viewStateKeymapName.c_str(), name.c_str());
+        viewStateKeymapName = name;
+    }
+}
+void Editor::RestoreViewStateKeymapping() {
+    if (viewStateKeymapName.empty()) {
+        return;
+    }
+    SetActiveKeyMapping(viewStateKeymapName);
+}
+
+
+
 
 
 void Editor::TriggerUIRedraw() {

@@ -83,6 +83,15 @@ static std::unordered_map<std::string, kAction> strToActionMap = {
 //    return glbKeyMapping;
 //}
 
+KeyMapping::Ref KeyMapping::Create(const std::string &cfgNodeName) {
+    auto instance = std::make_shared<KeyMapping>();
+    if (!instance->Initialize(cfgNodeName)) {
+        return nullptr;
+    }
+    return instance;
+}
+
+
 //
 // This will build the action maps..
 //

@@ -130,7 +130,7 @@ namespace gedit {
 
         void SetViewRect(const Rect &rect) override {
             viewRect = rect;
-            // FIXME: make sure the splitter pos fits within the rect..
+
             if (splitterPos == 0) {
                 splitterPos = GetContentRect().Height() / 2;
             }

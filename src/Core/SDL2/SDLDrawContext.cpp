@@ -124,45 +124,9 @@ void SDLDrawContext::DrawStringAt(int x, int y, const char *str) const {
     STBTTF_RenderText(renderer, font, px, py + font->baseline, str);
 }
 
-// Note: 'Blink' is NOT supported
 void SDLDrawContext::DrawStringWithAttributesAndColAt(int x, int y, kTextAttributes attrib, int idxColor, const char *str) const {
+    // Not implemented - only (currently) used in some legacy places (ListSelectionModal - which is not used)
     exit(1);
-//    auto font = SDLFontManager::Instance().GetActiveFont();
-//    SDL_SetRenderTarget(renderer, renderTarget);
-//
-//    // Get colors
-//    auto [fg, bg] = SDLColorRepository::Instance().GetColor(idxColor);
-//
-//    // If we are inverted, flip the useage of color (Note: I know this can be a oneliner - perhaps in this case it would ease readability)
-//    if (attrib & kTextAttributes::kInverted) {
-//        fg.Use(renderer);
-//    } else {
-//        bg.Use(renderer);
-//    }
-//    // Fill the background...
-//    // SDL_SetRenderDrawColor(renderer,0,255,0,255);
-//    FillRect(x, y, strlen(str), 1);
-//
-//    // Change color to use depending on inverted or not
-//    if (attrib & kTextAttributes::kInverted) {
-//        bg.Use(renderer);
-//    } else {
-//        fg.Use(renderer);
-//    }
-//
-//    // Translate coordinates and draw text...
-//    auto [px, py] = CoordsToScreen(x, y);
-//    STBTTF_RenderText(renderer, font, px, py + font->baseline, str);
-//
-//    // underlined???  draw a line under the text
-//    if (attrib & kTextAttributes::kUnderline) {
-//        // FIXME: Cache this value...
-//        auto margin = Config::Instance()["sdl3"].GetInt("text_underline_margin",2);
-//        if (margin > Config::Instance()["sdl3"].GetInt("line_margin",4)) {
-//            margin = Config::Instance()["sdl3"].GetInt("line_margin",4) - 1;
-//        }
-//        DrawLineWithPixelOffset(x, y , x + strlen(str), y,0,font->baseline+margin);
-//    }
 }
 
 void SDLDrawContext::DrawStringWithAttributesAt(int x, int y, kTextAttributes attrib, const char *str) const {

@@ -36,11 +36,11 @@ namespace gedit {
             return parentView->IsVisible();
         }
 
-
-
         bool OnAction(const KeyPressAction &kpAction) override;
     protected:
         void PopulateTree();
+        void OnActivate(bool isActive) override;
+
     private:
         TreeRef treeView;
     };

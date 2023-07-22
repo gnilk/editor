@@ -595,11 +595,14 @@ void EditorView::OnNavigateDownVSCode(int rows) {
 }
 
 void EditorView::OnNavigateUpVSCode(int rows) {
-    editorModel->idxActiveLine -= rows;
-    if (editorModel->idxActiveLine < 0) {
+    // idxActiveLine is unsigned..
+    if (rows < editorModel->idxActiveLine) {
+        editorModel->idxActiveLine -= rows;
+    } else {
         editorModel->idxActiveLine = 0;
     }
 
+    // This works, position.y is signed..
     editorModel->cursor.position.y -= rows;
     if (editorModel->cursor.position.y < 0) {
         int delta = 0 - editorModel->cursor.position.y;
@@ -694,7 +697,11 @@ void EditorView::OnNavigateUpCLion(int rows) {
         editorModel->viewBottomLine = GetContentRect().Height();
         logger->Debug("       force to first!");
     } else {
-        editorModel->idxActiveLine -= nRowsToMove;
+        if (nRowsToMove > editorModel->idxActiveLine) {
+            editorModel->idxActiveLine = 0;
+        } else {
+            editorModel->idxActiveLine -= nRowsToMove;
+        }
         editorModel->cursor.position.y = editorModel->idxActiveLine - editorModel->viewTopLine;
         if (editorModel->cursor.position.y < 0) {
             editorModel->cursor.position.y = 0;

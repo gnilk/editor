@@ -85,14 +85,15 @@ void LangLineTokenizer::ParseLines(std::vector<Line::Ref> &lines) {
 
     PushState(startState.c_str());
 
-    int indentCounter = 0;
+    int nextIndent = 0;
     for(auto &l : lines) {
         if (l == nullptr) {
             // this can happen - seen it, not sure why...
             // seems to happen if we delete a line and then update, but should really cause npe..
             return;
         }
-        ParseLine(l, indentCounter);
+        l->SetIndent(nextIndent);
+        ParseLine(l, nextIndent);
     }
 
     // Let's pop the  'start'
@@ -103,45 +104,44 @@ void LangLineTokenizer::ParseLines(std::vector<Line::Ref> &lines) {
     }
 }
 
-// Parse a single line
-void LangLineTokenizer::ParseLine(const Line::Ref l, int &indentCounter) {
+// Parse a single line and compute the next line indentation..
+void LangLineTokenizer::ParseLine(const Line::Ref l, int &nextIndent) {
     l->Lock();
 
     std::vector<LangToken> tokens;
-    int currentIndentCounter = indentCounter;
-    l->SetIndent(indentCounter);
+    int currentIndentCounter = nextIndent;
 
     l->SetStateStackDepth((int)stateStack.size());
     ParseLineWithCurrentState(tokens, l->Buffer().data());
-    // Indent handling
 
-    if (std::find_if(tokens.begin(), tokens.end(), [l](LangToken &tClass)->bool {
-        return ((tClass == kLanguageTokenClass::kCodeBlockStart) || (tClass == kLanguageTokenClass::kArrayStart));
-    }) != std::end(tokens)) {
-        // Only if we don't start with a codeblock end... this would solve } else {
-        if ((tokens.size() > 1) && (tokens[0] != kLanguageTokenClass::kCodeBlockEnd)) {
-            indentCounter++;
-        }
-    }
+    // Indent handling
     if (std::find_if(tokens.begin(), tokens.end(), [](LangToken &tClass)->bool {
         return ((tClass == kLanguageTokenClass::kCodeBlockEnd) || (tClass == kLanguageTokenClass::kArrayEnd));
     }) != std::end(tokens)) {
-        indentCounter--;
+        nextIndent--;
         // NOTE: This can happen during editing when inserting multiple like: { } } }
-        if (indentCounter < 0) {
-            indentCounter = 0;
+        if (nextIndent < 0) {
+            nextIndent = 0;
         }
-        assert(indentCounter >= 0);
+        assert(nextIndent >= 0);
     }
-    if (indentCounter < currentIndentCounter) {
-        l->SetIndent(indentCounter);
+    // Did we have a block end, then we should decrease indent for current line
+    if (nextIndent < currentIndentCounter) {
+        l->SetIndent(nextIndent);
     }
 
+    // If this line also has a block start - increase indent for next line..
+    if (std::find_if(tokens.begin(), tokens.end(), [l](LangToken &tClass)->bool {
+        return ((tClass == kLanguageTokenClass::kCodeBlockStart) || (tClass == kLanguageTokenClass::kArrayStart));
+    }) != std::end(tokens)) {
+        nextIndent++;
+    }
+
+    // Done, convert to line-attributes..
     LangToken::ToLineAttrib(l->Attributes(), tokens);
 
-    // End shared..
+    // End shared.
     l->Release();
-
 }
 
 //

@@ -95,6 +95,7 @@ namespace gedit {
                 OnLineChanged(line);
             });
             lines.push_back(line);
+            ChangeBufferState(kBuffer_Changed);
         }
 
         void AddLine(const char *textString) {
@@ -103,6 +104,7 @@ namespace gedit {
                 OnLineChanged(line);
             });
             lines.push_back(newLine);
+            ChangeBufferState(kBuffer_Changed);
         }
 
         void Insert(size_t idxPos, Line::Ref line) {
@@ -111,6 +113,7 @@ namespace gedit {
             });
             auto it = lines.begin() + idxPos;
             lines.insert(it, line);
+            ChangeBufferState(kBuffer_Changed);
         }
         void Insert(size_t idxPos, const std::string &text) {
             auto newLine = Line::Create(text);
@@ -122,6 +125,7 @@ namespace gedit {
                 OnLineChanged(line);
             });
             lines.insert(it, line);
+            ChangeBufferState(kBuffer_Changed);
         }
 
         const std::vector<Line::Ref> &Lines() { return lines; }

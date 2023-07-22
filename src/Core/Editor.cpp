@@ -287,17 +287,19 @@ void Editor::ConfigureLanguages() {
 
 }
 
+// FIXME: This is more than a bit ugly - not really sure where to stuff it..
+// Could put in the theme class but than I would depend on LanguageToken stuff - which I quite don't like..
 void Editor::ConfigureColorTheme() {
     logger->Debug("Configuring colors and theme");
-    // NOTE: This must be done after the screen has been opened as the color handling might require the underlying graphics
-    //       context to be initialized...
+
     auto theme = Config::Instance().GetTheme();
     if (theme == nullptr) {
         return;
     }
 
+    // This map's the various content colors to tokenizer classes for syntax highlighting
+
     auto &colorConfig = theme->GetContentColors();
-    auto screen = RuntimeConfig::Instance().GetScreen();
     for(int i=0;IsLanguageTokenClass(i);i++) {
         auto langClass = gedit::LanguageTokenClassToString(static_cast<kLanguageTokenClass>(i));
         if (!colorConfig.HasColor(langClass)) {
@@ -309,13 +311,9 @@ void Editor::ConfigureColorTheme() {
         // Store this..
         languageColorConfig[static_cast<kLanguageTokenClass>(i)] = std::make_pair(fg, bg);
 
-
         logger->Debug("  %d:%s - fg=(%d,%d,%d) bg=(%d,%d,%d)",i,langClass.c_str(),
                       fg.RedAsInt(255),fg.GreenAsInt(255),fg.BlueAsInt(255),
                       bg.RedAsInt(255),bg.GreenAsInt(255),bg.BlueAsInt(255));
-
-
-        screen->RegisterColor(i, colorConfig.GetColor(langClass), colorConfig.GetColor("background"));
     }
 }
 

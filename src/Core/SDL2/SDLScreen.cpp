@@ -199,7 +199,8 @@ void SDLScreen::Close() {
 
 void SDLScreen::Clear() {
     SDL_SetRenderTarget(sdlRenderer, nullptr);
-    SDLColor bgColor(Config::Instance().GetGlobalColors().GetColor("background"));
+    auto theme = Config::Instance().GetTheme();
+    SDLColor bgColor(theme->GetGlobalColors().GetColor("background"));
     bgColor.Use(sdlRenderer);
     SDL_RenderClear(sdlRenderer);
 }

@@ -291,7 +291,12 @@ void Editor::ConfigureColorTheme() {
     logger->Debug("Configuring colors and theme");
     // NOTE: This must be done after the screen has been opened as the color handling might require the underlying graphics
     //       context to be initialized...
-    auto &colorConfig = Config::Instance().GetContentColors();
+    auto theme = Config::Instance().GetTheme();
+    if (theme == nullptr) {
+        return;
+    }
+
+    auto &colorConfig = theme->GetContentColors();
     auto screen = RuntimeConfig::Instance().GetScreen();
     for(int i=0;IsLanguageTokenClass(i);i++) {
         auto langClass = gedit::LanguageTokenClassToString(static_cast<kLanguageTokenClass>(i));

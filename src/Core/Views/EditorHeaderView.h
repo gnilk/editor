@@ -19,7 +19,8 @@ namespace gedit {
             dc.ResetDrawColors();
 
             auto &models = Editor::Instance().GetModels();
-            auto uiColors = Config::Instance().GetUIColors();
+            auto theme = Config::Instance().GetTheme();
+            auto uiColors = theme->GetUIColors();
             if (parentView->IsActive()) {
                 dc.SetColor(uiColors["header_active_foreground"], uiColors["header_active_background"]);
             } else {

@@ -85,8 +85,14 @@ void NCursesScreen::Clear() {
     //clear();
     // hmm... we can cache this one...
 
-    auto bgColor = Config::Instance().GetGlobalColors().GetColor("background");
-    auto fgColor = Config::Instance().GetGlobalColors().GetColor("foreground");
+    auto theme = Config::Instance().GetTheme();
+    if (theme == nullptr) {
+        return;
+    }
+
+
+    auto bgColor = theme->GetGlobalColors().GetColor("background");
+    auto fgColor = theme->GetGlobalColors().GetColor("foreground");
 
     auto colorPair = NCursesColorRepository::Instance().GetColorPairIndex(fgColor, bgColor);
 

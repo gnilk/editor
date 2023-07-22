@@ -1,5 +1,6 @@
 main:
   backend: ncurses
+  theme: default.theme.yml
   # select the keymap default for the backend
   # 'default' is a reserved word - replace with your file name when forking it...
   keymap: "default_keymap"
@@ -16,8 +17,7 @@ logging:
   enable_modules:
     - "Runloop"
     - "System"
-    - "Editor"
-    - "KeyMapping"
+    - "Theme"
 
 macos:
   allow_kbd_hook: yes
@@ -217,9 +217,6 @@ terminal:
   bootstrap:
     - SET XYZ=4
     - export path=%path%
-
-theme:
-  colorfile: "colors.json"
 
 languages:
   default:

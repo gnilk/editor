@@ -23,14 +23,15 @@ void LangLineTokenizer::ParseRegion(std::vector<Line::Ref> &lines, size_t idxLin
     }
 
     PushState(startState.c_str());
-    int indentCounter = 0;
-    //int lineCounter = 0;
+    // Should be zero (that's what StartParseRegion has as exit criteria)
+    int nextIndent = lines[idxStart]->Indent();
 
     logger->Debug("ParseRegion mapped, idxStart=%zu => %zu, idxEnd=%zu => %zu", idxLineStart, idxStart, idxStart, idxEnd);
 
     for(size_t i=idxStart;i<idxEnd;i++) {
         auto l = lines.at(i);
-        ParseLine(l, indentCounter);
+        l->SetIndent(nextIndent);
+        ParseLine(l, nextIndent);
     }
     // Let's pop the  'start'
     auto top = stateStack.top();

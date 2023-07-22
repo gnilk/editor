@@ -17,6 +17,7 @@ logging:
     - "Runloop"
     - "System"
     - "Editor"
+    - "KeyMapping"
 
 macos:
   allow_kbd_hook: yes
@@ -116,10 +117,22 @@ default_keymap: {
       NavigateLineDown : KeyCode_DownArrow + @SelectionModifier,
       NavigateLeft : KeyCode_LeftArrow + @SelectionModifier,
       NavigateRight : KeyCode_RightArrow + @SelectionModifier,
-      NavigatePageUp : KeyCode_PageUp + @SelectionModifier,
-      NavigatePageDown : KeyCode_PageDown + @SelectionModifier,
-      NavigateLineEnd : KeyCode_End + @SelectionModifier,
-      NavigateLineHome : KeyCode_Home + @SelectionModifier,
+      NavigatePageUp : [
+        KeyCode_PageUp + @SelectionModifier,
+        KeyCode_UpArrow + KeyCode_Cmd + @SelectionModifier,
+      ],
+      NavigatePageDown : [
+        KeyCode_PageDown + @SelectionModifier,
+        KeyCode_DownArrow + KeyCode_Cmd + @SelectionModifier
+      ],
+      NavigateLineEnd : [
+        KeyCode_End + @SelectionModifier,
+        KeyCode_RightArrow + KeyCode_Cmd + @SelectionModifier
+      ],
+      NavigateLineHome : [
+        KeyCode_Home + @SelectionModifier,
+        KeyCode_LeftArrow + KeyCode_Cmd + @SelectionModifier
+      ],
       CopyToClipboard : CopyPasteModifier + 'c',
       PasteFromClipboard : CopyPasteModifier + 'v',
       EnterCommandMode : KeyCode_Escape,

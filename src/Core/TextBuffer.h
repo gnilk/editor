@@ -167,6 +167,7 @@ namespace gedit {
         bool CanEdit();
         void Reparse();
         void ReparseRegion(size_t idxStartLine, size_t idxEndLine);
+        void WaitForParseCompletion();
         const ParseMetrics &GetParseMetrics() {
             return parseMetrics;
         }

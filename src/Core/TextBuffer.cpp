@@ -82,6 +82,28 @@ void TextBuffer::ReparseRegion(size_t idxStartLine, size_t idxEndLine) {
     }
     StartParseJob(ParseJobType::kParseRegion, idxStartLine, idxEndLine);
 }
+void TextBuffer::WaitForParseCompletion() {
+    // No language, don't do this...
+    if (language == nullptr) {
+        return;
+    }
+    // When a workspace is opened, a lot of text-buffers are created 'passively' and are not loaded until activated
+    if (IsEmpty()) {
+        return;
+    }
+
+    auto useThreads = Config::Instance()["main"].GetBool("threaded_syntaxparser", false);
+
+    if (!useThreads) {
+        return;
+    }
+
+    // Start job's wait until the jobs are started - so here we
+    // can assume that if IDLE we are already done, no need to check if the queue has items..
+    while (GetParseState() != kState_Idle) {
+        std::this_thread::yield();
+    }
+}
 
 void TextBuffer::Close() {
     if (reparseThread != nullptr) {

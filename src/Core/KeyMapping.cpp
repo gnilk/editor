@@ -203,9 +203,6 @@ bool KeyMapping::RebuildActionMapping(const ConfigNode &keymap) {
         }
     }
 
-    auto keymapModifiers = keymap.GetMap("modifiers");
-    auto keymapActions = keymap.GetMap("actions");
-
     /*
      * Rework the parser
      * We have two sections in the keymap; aliases and actions
@@ -233,19 +230,69 @@ bool KeyMapping::RebuildActionMapping(const ConfigNode &keymap) {
      *
      */
 
-    for (const auto &[actionName, keyPressCombo] : keymapActions) {
-        logger->Debug("Parsing: '%s' = '%s'", actionName.c_str(), keyPressCombo.c_str());
+
+    auto keymapModifiers = keymap.GetMap("modifiers");
+
+    // We parse the RAW YAML Nodes here as we want to support mixed type of values..
+    // An action can be an array of values and a single value.
+    // IF we allow our configuration to support this - we can update this..
+    // NOTE: I am using 'auto' deliberately in order to explicitly depend on YAML-CPP
+    auto mixedNode = keymap.GetNode("actions");
+    auto rawNode = mixedNode.GetDataNode();     // Fetch the raw YAML node
+    for(auto it = rawNode.begin(); it != rawNode.end(); ++it) {
+        auto key = it->first;       // RAW YAML nodes
+        auto value = it->second;    // RAW YAML nodes
+        if (!key.IsScalar()) {
+            logger->Error("action must be string/scalar!");
+            return false;
+        }
+        auto actionName = key.Scalar();
         if (strToActionMap.find(actionName) == strToActionMap.end()) {
             logger->Error("Invalid Action '%s'; not found");
             return false;
         }
+
         auto action = strToActionMap.at(actionName);
 
-        if (!ParseKeyPressCombinationString(action, keyPressCombo, keymapModifiers)) {
-            logger->Error("KeyMap parse error for '%s : %s'", actionName.c_str(), keyPressCombo.c_str());
-            return false;
+        if (value.IsScalar()) {
+            // Parse single
+            auto keyPressCombo = value.Scalar();
+            logger->Debug("Parsing: '%s' = '%s'", actionName.c_str(), keyPressCombo.c_str());
+
+            if (!ParseKeyPressCombinationString(action, keyPressCombo, keymapModifiers)) {
+                logger->Error("KeyMap parse error for '%s : %s'", actionName.c_str(), keyPressCombo.c_str());
+                return false;
+            }
+
+        } else if (value.IsSequence()) {
+            auto actionName = key.Scalar();
+            auto sequence = value.as<std::vector<std::string>>();
+            for(auto &keyPressCombo : sequence) {
+                logger->Debug("Parsing: '%s' = '%s'", actionName.c_str(), keyPressCombo.c_str());
+
+                if (!ParseKeyPressCombinationString(action, keyPressCombo, keymapModifiers)) {
+                    logger->Error("KeyMap parse error for '%s : %s'", actionName.c_str(), keyPressCombo.c_str());
+                    return false;
+                }
+            }
         }
     }
+
+
+
+//    for (const auto &[actionName, keyPressCombo] : keymapActions) {
+//        logger->Debug("Parsing: '%s' = '%s'", actionName.c_str(), keyPressCombo.c_str());
+//        if (strToActionMap.find(actionName) == strToActionMap.end()) {
+//            logger->Error("Invalid Action '%s'; not found");
+//            return false;
+//        }
+//        auto action = strToActionMap.at(actionName);
+//
+//        if (!ParseKeyPressCombinationString(action, keyPressCombo, keymapModifiers)) {
+//            logger->Error("KeyMap parse error for '%s : %s'", actionName.c_str(), keyPressCombo.c_str());
+//            return false;
+//        }
+//    }
     logger->Debug("**** PARSE OK ****");
     return true;
 }

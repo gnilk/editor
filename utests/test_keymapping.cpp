@@ -12,6 +12,7 @@ extern "C" {
 DLL_EXPORT int test_keymapping(ITesting *t);
 DLL_EXPORT int test_keymapping_parse(ITesting *t);
 DLL_EXPORT int test_keymapping_kpaction(ITesting *t);
+DLL_EXPORT int test_keymapping_load(ITesting *t);
 }
 
 DLL_EXPORT int test_keymapping(ITesting *t) {
@@ -60,5 +61,11 @@ DLL_EXPORT int test_keymapping_kpaction(ITesting *t) {
     TR_ASSERT(t, action.value().actionModifier.has_value());
     TR_ASSERT(t, action->actionModifier.value() == kActionModifier::kActionModifierSelection);
 
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_keymapping_load(ITesting *t) {
+    auto keymap = Editor::Instance().GetKeyMapping("default_keymap");
+    TR_ASSERT(t, keymap != nullptr);
     return kTR_Pass;
 }

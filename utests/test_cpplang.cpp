@@ -52,15 +52,19 @@ DLL_EXPORT int test_cpplang_elseindent(ITesting *t) {
 
     buffer->AddLine("void func() {");
     buffer->AddLine("    if (a==b) {");
+    buffer->AddLine("        ");
     buffer->AddLine("    } else {");
+    buffer->AddLine("        ");
     buffer->AddLine("    }");
     buffer->AddLine("}");
 
     buffer->Reparse();
 
+    static int correntIndent[]={0,0,1,2,1,2,1,0};
     for(int i=0;i<buffer->NumLines();i++) {
         auto line = buffer->LineAt(i);
         printf("%d: indent: %d - data: %s\n", i, line->Indent(), line->Buffer().data());
+        TR_ASSERT(t, line->Indent() == correntIndent[i]);
     }
 
     return kTR_Pass;

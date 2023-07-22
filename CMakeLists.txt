@@ -142,7 +142,10 @@ list(APPEND editorsrc src/Core/Keyboard.cpp src/Core/Keyboard.cpp)
 # Config
 list(APPEND editorsrc src/Core/RuntimeConfig.cpp src/Core/RuntimeConfig.cpp)
 list(APPEND editorsrc src/Core/Config/Config.cpp src/Core/Config/Config.h)
+list(APPEND editorsrc src/Core/Config/ConfigNode.h)
 list(APPEND editorsrc src/Core/Config/NamedColorConfig.cpp src/Core/Config/NamedColorConfig.h)
+list(APPEND editorsrc src/Core/Theme/Theme.cpp src/Core/Theme/Theme.h)
+
 
 # Native/Platform
 list(APPEND editorsrc src/Core/NativeWindow.h)
@@ -360,6 +363,7 @@ list(APPEND utestsrc utests/test_jsengine.cpp)
 list(APPEND utestsrc utests/test_keymapping.cpp)
 list(APPEND utestsrc utests/test_logger.cpp)
 list(APPEND utestsrc utests/test_textbuffer.cpp)
+list(APPEND utestsrc utests/test_theme.cpp)
 list(APPEND utestsrc utests/test_workspace.cpp)
 list(APPEND utestsrc src/Core/Tests/test_dcoverlay.cpp)
 
@@ -386,6 +390,9 @@ add_custom_target(config ${CMAKE_COMMAND} -E copy_if_different
 add_custom_target(colors ${CMAKE_COMMAND} -E copy_if_different
         ${CMAKE_CURRENT_LIST_DIR}/colors.json ${CMAKE_CURRENT_BINARY_DIR})
 
+add_custom_target(default_theme ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_CURRENT_LIST_DIR}/default.theme.yml ${CMAKE_CURRENT_BINARY_DIR})
+
 add_custom_target(font ${CMAKE_COMMAND} -E copy_if_different
         ${CMAKE_CURRENT_LIST_DIR}/Andale\ Mono.ttf ${CMAKE_CURRENT_BINARY_DIR})
 
@@ -399,5 +406,5 @@ else()
             ${CMAKE_CURRENT_SOURCE_DIR}/src/Plugins ${CMAKE_CURRENT_BINARY_DIR}/Plugins)
 endif()
 
-add_dependencies(editor config colors font plugins)
-add_dependencies(Unit_Tests config colors font plugins)
+add_dependencies(editor config colors font plugins default_theme)
+add_dependencies(Unit_Tests config colors font plugins default_theme)

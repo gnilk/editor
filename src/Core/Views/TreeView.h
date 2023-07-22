@@ -153,7 +153,8 @@ namespace gedit {
             auto &dc = window->GetContentDC();
             dc.ResetDrawColors();
 
-            auto uiColors = Config::Instance().GetUIColors();
+            auto theme = Config::Instance().GetTheme();
+            auto &uiColors = theme->GetUIColors();
             dc.SetColor(uiColors["foreground"], uiColors["background"]);
 
 

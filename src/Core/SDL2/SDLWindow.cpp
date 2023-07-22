@@ -114,7 +114,8 @@ void SDLWindow::Clear() {
 
     SDL_SetRenderTarget(renderer, windowBackBuffer);
 
-    SDLColor bgColor(Config::Instance().GetGlobalColors().GetColor("background"));
+    auto theme = Config::Instance().GetTheme();
+    SDLColor bgColor(theme->GetGlobalColors().GetColor("background"));
     bgColor.Use(renderer);
 
     SDL_RenderClear(renderer);
@@ -203,10 +204,10 @@ void SDLWindow::OnDrawCursor(const Cursor &cursor) {
     }
     // SDL_PIXELFORMAT_RGBA8888
     auto dc = static_cast<SDLDrawContext *>(clientContext);
-
+    auto theme = Config::Instance().GetTheme();
     // FillRect assumes the render target has been set..
     SDL_SetRenderTarget(renderer, dc->renderTarget);
-    dc->SetFGColor(Config::Instance().GetGlobalColors().GetColor("caret"));
+    dc->SetFGColor(theme->GetGlobalColors().GetColor("caret"));
 
     //dc->FillRect(cursor.position.x, cursor.position.y,1,1);
     dc->DrawLine(cursor.position.x, cursor.position.y, cursor.position.x, cursor.position.y + 1);

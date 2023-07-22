@@ -13,7 +13,8 @@ using namespace gedit;
 void TestView::DrawViewContents() {
     auto &dc = window->GetContentDC();
 
-    auto uiColors = Config::Instance().GetUIColors();
+    auto theme = Config::Instance().GetTheme();
+    auto &uiColors = theme->GetUIColors();
 //    auto bgtmp = ColorRGBA::FromRGB(255,0,0);
 //    auto fgtmp = ColorRGBA::FromRGB(0,0,255);
     //dc.SetColor(uiColors["gutter_foreground"], uiColors["gutter_background"]);

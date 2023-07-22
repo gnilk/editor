@@ -3,7 +3,7 @@
 //
 /*
  * TO-DO List
- * - Theme handling needed, currently the 'Editor' class holds all theme related settings (which basically is just colors)
+ * - LanguageToken to ScreenColor mapping is right now done in the editor - not sure where this should be..
  * - Refactor initialization, split app init from data loading (data loading should happen afterwards - when UI is up and running)
  * + Fix save!
  * - Use references in view-system (most other code using references or smart pointers)
@@ -26,6 +26,7 @@
  * - Swap out the vertical navigation code in EditorView for the 'VerticalNavigationModel'
  *
  * Done:
+ * ! Theme handling needed, currently the 'Config' class holds all theme related settings (which basically is just colors)
  * ! Workspace, pressing return/enter on selection should load (if needed) and set the model active in the editor
  * ! QuickCommandMode
  *   ! Allow cursor to be positioned at the 'C' input

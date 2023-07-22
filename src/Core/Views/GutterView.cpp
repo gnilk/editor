@@ -56,7 +56,8 @@ void GutterView::DrawViewContents() {
 
     auto &dc = window->GetContentDC();
 
-    auto uiColors = Config::Instance().GetUIColors();
+    auto theme = Config::Instance().GetTheme();
+    auto &uiColors = theme->GetUIColors();
     dc.SetColor(uiColors["gutter_foreground"], uiColors["gutter_background"]);
 
     dc.Clear();

@@ -33,7 +33,8 @@ namespace gedit {
     protected:
         void DrawViewContents() override {
             auto &dc = window->GetContentDC();
-            auto uiColors = Config::Instance().GetUIColors();
+            auto theme = Config::Instance().GetTheme();
+            auto &uiColors = theme->GetUIColors();
 
             if (parentView->IsActive()) {
                 dc.SetColor(uiColors["header_active_foreground"], uiColors["header_active_background"]);

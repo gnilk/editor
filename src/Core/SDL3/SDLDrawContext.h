@@ -18,9 +18,9 @@ namespace gedit {
     public:
         SDLDrawContext() = default;
         explicit SDLDrawContext(SDL_Renderer *sdlRenderer, SDL_Texture *sdlRenderTarget, Rect clientRect) :
+        DrawContext((NativeWindow)sdlRenderTarget, clientRect),        // Pass this down as the window - sometimes this pointer is checked for validity
             renderer(sdlRenderer),
-            renderTarget(sdlRenderTarget),
-            DrawContext((NativeWindow)sdlRenderTarget, clientRect) {        // Pass this down as the window - sometimes this pointer is checked for validity
+            renderTarget(sdlRenderTarget) {
         }
         virtual ~SDLDrawContext() = default;
 

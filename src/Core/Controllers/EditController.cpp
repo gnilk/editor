@@ -14,7 +14,7 @@ using namespace gedit;
 
 void EditController::Begin() {
     if (logger == nullptr) {
-        logger = gnilk::Logger::GetLogger("EditorController");
+        logger = gnilk::Logger::GetLogger("EditController");
     }
 }
 
@@ -129,46 +129,56 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
         logger->Debug("NewLine, current=%s [indent=%d]", currentLine->Buffer().data(), currentLine->Indent());
     }
 
+    Line::Ref emptyLine = nullptr;
+
     auto it = lines.begin() + idxActiveLine;
     if (lines.size() == 0) {
         textBuffer->Insert(it, Line::Create());
+        UpdateSyntaxForBuffer();
     } else {
         if (cursor.position.x == 0) {
             // Insert empty line...
             textBuffer->Insert(it, Line::Create());
+            UpdateSyntaxForBuffer();
             idxActiveLine++;
         } else {
             // Split, move some chars from current to new...
             auto newLine = Line::Create();
             currentLine->Move(newLine, 0, cursor.position.x);
 
-
-
             // Defer to the language parser if we should auto-insert a new line or not..
             if (textBuffer->LangParser().OnPreCreateNewLine(newLine) == LanguageBase::kInsertAction::kNewLine) {
                 // Insert an empty line - this will be the new active line...
-                auto emptyLine = Line::Create("");
-                auto newIndent = currentLine->Indent() + 1;
-                emptyLine->SetIndent(newIndent);
-                cursorXPos = emptyLine->Insert(0, newIndent * tabSize, ' ');
-
+                logger->Debug("Creating empty line...");
+                emptyLine = Line::Create("");
                 textBuffer->Insert(++it, emptyLine);
             }
 
-            newLine->SetIndent(currentLine->Indent());
+            textBuffer->Insert(it+1, newLine);
+
+            // This will compute the correct indent, -2/+2 are just arbitary choosen to expand the region
+            // clipping is also performed by the syntax parser
+            size_t idxStartParse = (idxActiveLine>2)?idxActiveLine-2:0;
+            size_t idxEndParse = (textBuffer->NumLines() > (idxActiveLine + 2))?idxActiveLine+2:textBuffer->NumLines();
+
+            UpdateSyntaxForRegion(idxStartParse, idxEndParse);
+            WaitForSyntaxCompletion();
+
+            if (emptyLine != nullptr) {
+                logger->Debug("EmptyLine, inserting indent: %d", emptyLine->Indent());
+                cursorXPos = emptyLine->Insert(0, emptyLine->Indent() * tabSize, ' ');
+            }
+
             auto newX = newLine->Insert(0, currentLine->Indent() * tabSize, ' ');
             // Only assign if not yet done...
             if (cursorXPos == 0) {
                 cursorXPos = newX;
                 logger->Debug("NewLine, indent=%d, cursorX = %d", newLine->Indent(), cursorXPos);
             }
-
-            textBuffer->Insert(it+1, newLine);
             idxActiveLine++;
         }
     }
 
-    UpdateSyntaxForBuffer();
 
     cursor.wantedColumn = cursorXPos;
     cursor.position.x = cursorXPos;
@@ -193,9 +203,15 @@ void EditController::Paste(size_t idxActiveLine, const char *buffer) {
 void EditController::UpdateSyntaxForBuffer() {
     textBuffer->Reparse();
 }
+
 void EditController::UpdateSyntaxForRegion(size_t idxStartLine, size_t idxEndLine) {
     textBuffer->ReparseRegion(idxStartLine, idxEndLine);
 }
+
+void EditController::WaitForSyntaxCompletion() {
+    textBuffer->WaitForParseCompletion();
+}
+
 
 UndoHistory::UndoItem::Ref EditController::BeginUndoItem() {
     auto undoItem = historyBuffer.NewUndoItem();

@@ -61,6 +61,7 @@ namespace gedit {
 
         void UpdateSyntaxForBuffer();   // Does a full buffer reparse of the syntax
         void UpdateSyntaxForRegion(size_t idxStartLine, size_t idxEndLine); // Partial reparse (between line index)
+        void WaitForSyntaxCompletion();
 
         void AddCharToLineNoUndo(Cursor &cursor, Line::Ref line, int ch);
         void RemoveCharFromLineNoUndo(Cursor &cursor, Line::Ref line);

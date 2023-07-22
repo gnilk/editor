@@ -22,6 +22,9 @@ namespace gedit {
         SDLScreen() = default;
         virtual ~SDLScreen() = default;
 
+        static ScreenBase::Ref Create();
+
+
         bool Open() override;
         void Close() override;
         void Clear() override;

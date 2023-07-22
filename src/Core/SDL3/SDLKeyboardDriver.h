@@ -14,6 +14,9 @@ namespace gedit {
     public:
         bool Initialize() override;
         KeyPress GetKeyPress() override;
+
+        static KeyboardDriverBase::Ref Create();
+
     protected:
         KeyPress TranslateSDLEvent(const SDL_KeyboardEvent &kbdEvent);
         int TranslateScanCode(int scanCode);

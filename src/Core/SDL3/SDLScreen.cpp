@@ -39,6 +39,12 @@ using namespace gedit;
 
 static const std::string fontName = "Andale Mono.ttf";
 
+ScreenBase::Ref SDLScreen::Create() {
+    auto instance = std::make_shared<SDLScreen>();
+    return instance;
+}
+
+
 bool SDLScreen::Open() {
 
     auto logger = gnilk::Logger::GetLogger("SDLScreen");
@@ -183,7 +189,8 @@ void SDLScreen::Close() {
 void SDLScreen::Clear() {
     SDL_SetRenderTarget(renderer, nullptr);
 
-    SDLColor bgColor(Config::Instance().GetGlobalColors().GetColor("background"));
+    auto theme = Config::Instance().GetTheme();
+    SDLColor bgColor(theme->GetGlobalColors().GetColor("background"));
     bgColor.Use(renderer);
 
     SDL_RenderClear(renderer);

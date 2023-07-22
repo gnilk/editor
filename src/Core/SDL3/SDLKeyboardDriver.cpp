@@ -22,6 +22,14 @@ using namespace gedit;
 
 static int createTranslationTable();
 
+KeyboardDriverBase::Ref SDLKeyboardDriver::Create() {
+    auto instance = std::make_shared<SDLKeyboardDriver>();
+    if (!instance->Initialize()) {
+        return nullptr;
+    }
+    return instance;
+}
+
 
 bool SDLKeyboardDriver::Initialize() {
     createTranslationTable();

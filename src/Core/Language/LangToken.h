@@ -24,6 +24,9 @@ namespace gedit {
         bool operator == (const kLanguageTokenClass otherClassification) const {
             return classification == otherClassification;
         }
+        bool operator != (const kLanguageTokenClass otherClassification) const {
+            return classification != otherClassification;
+        }
 
         // FIXME: Move this out of here
         static void ToLineAttrib(std::vector<gedit::Line::LineAttrib> &attribs, std::vector<LangToken> &tokens);

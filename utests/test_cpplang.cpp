@@ -14,6 +14,7 @@ using namespace gedit;
 extern "C" {
 DLL_EXPORT int test_cpplang(ITesting *t);
 DLL_EXPORT int test_cpplang_indent(ITesting *t);
+DLL_EXPORT int test_cpplang_elseindent(ITesting *t);
 }
 
 DLL_EXPORT int test_cpplang(ITesting *t) {
@@ -39,4 +40,29 @@ DLL_EXPORT int test_cpplang_indent(ITesting *t) {
     }
 
     return kTR_Pass;
+}
+
+DLL_EXPORT int test_cpplang_elseindent(ITesting *t) {
+
+    // Switch of threading for this...
+    Config::Instance()["main"].SetBool("threaded_syntaxparser", false);
+
+    auto model = Editor::Instance().NewModel("test.cpp");
+    auto buffer = model->GetTextBuffer();
+
+    buffer->AddLine("void func() {");
+    buffer->AddLine("    if (a==b) {");
+    buffer->AddLine("    } else {");
+    buffer->AddLine("    }");
+    buffer->AddLine("}");
+
+    buffer->Reparse();
+
+    for(int i=0;i<buffer->NumLines();i++) {
+        auto line = buffer->LineAt(i);
+        printf("%d: indent: %d - data: %s\n", i, line->Indent(), line->Buffer().data());
+    }
+
+    return kTR_Pass;
+
 }

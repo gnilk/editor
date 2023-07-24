@@ -255,7 +255,7 @@ bool KeyMapping::RebuildActionMapping(const ConfigNode &keymap) {
         auto action = strToActionMap.at(actionName);
 
         if (value.IsScalar()) {
-            // Parse single
+            // Action is mapped to a single key-combo
             auto keyPressCombo = value.Scalar();
             logger->Debug("Parsing: '%s' = '%s'", actionName.c_str(), keyPressCombo.c_str());
 
@@ -265,6 +265,7 @@ bool KeyMapping::RebuildActionMapping(const ConfigNode &keymap) {
             }
 
         } else if (value.IsSequence()) {
+            // Action is a sequence of different possible key-mappings...
             auto actionName = key.Scalar();
             auto sequence = value.as<std::vector<std::string>>();
             for(auto &keyPressCombo : sequence) {
@@ -278,21 +279,6 @@ bool KeyMapping::RebuildActionMapping(const ConfigNode &keymap) {
         }
     }
 
-
-
-//    for (const auto &[actionName, keyPressCombo] : keymapActions) {
-//        logger->Debug("Parsing: '%s' = '%s'", actionName.c_str(), keyPressCombo.c_str());
-//        if (strToActionMap.find(actionName) == strToActionMap.end()) {
-//            logger->Error("Invalid Action '%s'; not found");
-//            return false;
-//        }
-//        auto action = strToActionMap.at(actionName);
-//
-//        if (!ParseKeyPressCombinationString(action, keyPressCombo, keymapModifiers)) {
-//            logger->Error("KeyMap parse error for '%s : %s'", actionName.c_str(), keyPressCombo.c_str());
-//            return false;
-//        }
-//    }
     logger->Debug("**** PARSE OK ****");
     return true;
 }

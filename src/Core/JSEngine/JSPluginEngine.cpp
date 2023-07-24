@@ -14,6 +14,7 @@
 #include "JSPluginEngine.h"
 #include "Modules/ConsoleAPIWrapper.h"
 #include "Modules/EditorAPIWrapper.h"
+#include "Modules/NamedColorsAPIWrapper.h"
 #include "Modules/TextBufferAPIWrapper.h"
 #include "Modules/ThemeAPIWrapper.h"
 #include "Modules/ViewAPIWrapper.h"
@@ -67,6 +68,7 @@ bool JSPluginEngine::Initialize() {
         if (cmd == nullptr) {
             continue;
         }
+
         if (!cmd->TryLoad()) {
             continue;
         }
@@ -166,6 +168,7 @@ void JSPluginEngine::RegisterBuiltIns() {
     TextBufferAPIWrapper::RegisterModule(ctx);
     ThemeAPIWrapper::RegisterModule(ctx);
     ViewAPIWrapper::RegisterModule(ctx);
+    NamedColorsAPIWrapper::RegisterModule(ctx);
 
 }
 

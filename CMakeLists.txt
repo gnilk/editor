@@ -133,6 +133,7 @@ list(APPEND editorsrc src/Core/KeypressAndActionHandler.h)
 list(APPEND editorsrc src/Core/StrUtil.cpp src/Core/StrUtil.h)
 list(APPEND editorsrc src/Core/HexDump.cpp src/Core/HexDump.h)
 list(APPEND editorsrc src/Core/ColorRGBA.cpp src/Core/ColorRGBA.h)
+list(APPEND editorsrc src/Core/NamedColor.cpp src/Core/NamedColor.h)
 list(APPEND editorsrc src/Core/TypeUtil.h)
 
 # Keyboard handling
@@ -144,7 +145,6 @@ list(APPEND editorsrc src/Core/Keyboard.cpp src/Core/Keyboard.cpp)
 list(APPEND editorsrc src/Core/RuntimeConfig.cpp src/Core/RuntimeConfig.cpp)
 list(APPEND editorsrc src/Core/Config/Config.cpp src/Core/Config/Config.h)
 list(APPEND editorsrc src/Core/Config/ConfigNode.h)
-list(APPEND editorsrc src/Core/Config/NamedColor.cpp src/Core/Config/NamedColor.h)
 list(APPEND editorsrc src/Core/Theme/Theme.cpp src/Core/Theme/Theme.h)
 
 

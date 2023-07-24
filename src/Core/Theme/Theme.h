@@ -9,7 +9,7 @@
 #include <string>
 #include "logger.h"
 
-#include "Core/Config/NamedColor.h"
+#include "Core/NamedColor.h"
 #include "Core/Config/ConfigNode.h"
 
 namespace gedit {

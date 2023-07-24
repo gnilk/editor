@@ -20,7 +20,7 @@ JSPluginCommand::Ref JSPluginCommand::CreateFromConfig(const ConfigNode &config)
 }
 
 bool JSPluginCommand::InitializeFromConfig(const ConfigNode &config) {
-    logger = gnilk::Logger::GetLogger("JSPluginCommand");
+    logger = gnilk::Logger::GetLogger("JSEngine");
     if (!PluginCommand::InitializeFromConfig(config)) {
         return false;
     }

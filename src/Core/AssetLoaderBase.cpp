@@ -7,17 +7,30 @@
 #include <string.h>
 #include <filesystem>
 #include <fstream>
+
+#include "logger.h"
+
 #include "Core/AssetLoaderBase.h"
 
+
 using namespace gedit;
+
+
+//
+// TO-DO implement loading strategy - and make it possible for a platform layer to decide..
+//
 
 AssetLoaderBase::Asset::Ref AssetLoaderBase::LoadAsset(const std::string &relPath) {
 
     auto path = std::filesystem::path(relPath);
     if (!std::filesystem::exists(path)) {
+        auto logger = gnilk::Logger::GetLogger("AssetLoader");
+        logger->Error("File not found: '%s'",path.filename().c_str());
         return {};
     }
     if (!std::filesystem::is_regular_file(relPath)) {
+        auto logger = gnilk::Logger::GetLogger("AssetLoader");
+        logger->Error("File is not a regular file: '%s'",path.filename().c_str());
         return {};
     }
 
@@ -38,9 +51,13 @@ AssetLoaderBase::Asset::Ref AssetLoaderBase::LoadTextAsset(const std::string &re
 
     auto path = std::filesystem::path(relPath);
     if (!std::filesystem::exists(path)) {
+        auto logger = gnilk::Logger::GetLogger("AssetLoader");
+        logger->Error("File not found: '%s'",path.filename().c_str());
         return {};
     }
     if (!std::filesystem::is_regular_file(relPath)) {
+        auto logger = gnilk::Logger::GetLogger("AssetLoader");
+        logger->Error("File is not a regular file: '%s'",path.filename().c_str());
         return {};
     }
 

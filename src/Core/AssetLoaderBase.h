@@ -16,6 +16,12 @@ namespace gedit {
             using Ref = std::shared_ptr<Asset>;
             size_t size = 0;
             void *ptrData = nullptr;
+
+            template<typename T>
+                T GetPtrAs() {
+                    //std::is_pointer<T>();
+                    return static_cast<T>(ptrData);
+                }
         };
     public:
         // Will load as-is

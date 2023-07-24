@@ -4,14 +4,13 @@
 
 // TO-DO: Consider supporting Helix TOML files..
 
-#include <fstream>
-
 #include <nlohmann/json.hpp>
 
 #include "Core/Sublime/SublimeConfigColorScript.h"
 #include "Theme.h"
 
 #include "logger.h"
+#include "Core/RuntimeConfig.h"
 
 using json = nlohmann::json;
 using namespace gedit;
@@ -79,8 +78,14 @@ bool Theme::LoadSublimeColorFile(std::string filename) {
 
     logger->Debug("Loading Sublime Color file: %s\n", filename.c_str());
 
-    std::ifstream f(filename);
-    json data = json::parse(f);
+
+    auto &assetLoader = RuntimeConfig::Instance().GetAssetLoader();
+    auto colorFileAsset = assetLoader.LoadTextAsset(filename);
+    if (colorFileAsset == nullptr) {
+        logger->Error("Failed to load color file!");
+        return false;
+    }
+    json data = json::parse(colorFileAsset->GetPtrAs<char *>());
 
     ParseVariablesInScript<json, SublimeConfigColorScript>(data["variables"], scriptEngine);
     logger->Debug("Mapping color variables to sections");

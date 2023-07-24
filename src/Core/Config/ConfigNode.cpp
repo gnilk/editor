@@ -13,7 +13,7 @@ bool ConfigNode::LoadConfig(const std::string &filename) {
     if (configAsset == nullptr) {
         return false;
     }
-    dataNode = YAML::Load(static_cast<char *>(configAsset->ptrData));
+    dataNode = YAML::Load(configAsset->GetPtrAs<char *>());
 
     if (!dataNode.IsDefined()) {
         return false;

@@ -7,6 +7,7 @@
 
 #include <memory>
 #include "Core/Theme/Theme.h"
+#include "NamedColorsAPI.h"
 
 namespace gedit {
     class ThemeAPI {
@@ -20,6 +21,8 @@ namespace gedit {
         virtual ~ThemeAPI() = default;
 
         bool Reload();
+        NamedColorsAPI::Ref GetColors(const std::string &clsColors);
+
     private:
         Theme::Ref theme;
     };

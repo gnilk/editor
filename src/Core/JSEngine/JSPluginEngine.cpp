@@ -6,18 +6,19 @@
 #include <vector>
 #include <filesystem>
 
+#include "duk_module_node.h"
+
 #include "logger.h"
 
 #include "Core/Config/Config.h"
 #include "JSPluginEngine.h"
-#include "Modules/TextBufferAPIWrapper.h"
-#include "Modules/EditorAPIWrapper.h"
 #include "Modules/ConsoleAPIWrapper.h"
+#include "Modules/EditorAPIWrapper.h"
+#include "Modules/TextBufferAPIWrapper.h"
+#include "Modules/ThemeAPIWrapper.h"
 #include "Modules/ViewAPIWrapper.h"
 #include "Core/StrUtil.h"
 #include "Core/RuntimeConfig.h"
-
-#include "duk_module_node.h"
 
 using namespace gedit;
 
@@ -160,10 +161,12 @@ void JSPluginEngine::RegisterBuiltIns() {
 //    MyClass::RegisterModule(ctx);
 //    //TextBufferAPIWrapper::RegisterModule(ctx);
 //    EditorAPIWrapper::RegisterModule(ctx);
+    ConsoleAPIWrapper::RegisterModule(ctx);
     EditorAPIWrapper::RegisterModule(ctx);
     TextBufferAPIWrapper::RegisterModule(ctx);
-    ConsoleAPIWrapper::RegisterModule(ctx);
+    ThemeAPIWrapper::RegisterModule(ctx);
     ViewAPIWrapper::RegisterModule(ctx);
+
 }
 
 

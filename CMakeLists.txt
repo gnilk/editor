@@ -144,7 +144,7 @@ list(APPEND editorsrc src/Core/Keyboard.cpp src/Core/Keyboard.cpp)
 list(APPEND editorsrc src/Core/RuntimeConfig.cpp src/Core/RuntimeConfig.cpp)
 list(APPEND editorsrc src/Core/Config/Config.cpp src/Core/Config/Config.h)
 list(APPEND editorsrc src/Core/Config/ConfigNode.h)
-list(APPEND editorsrc src/Core/Config/NamedColorConfig.cpp src/Core/Config/NamedColorConfig.h)
+list(APPEND editorsrc src/Core/Config/NamedColor.cpp src/Core/Config/NamedColor.h)
 list(APPEND editorsrc src/Core/Theme/Theme.cpp src/Core/Theme/Theme.h)
 
 

@@ -9,7 +9,7 @@
 #include <string>
 #include "logger.h"
 
-#include "Core/NamedColor.h"
+#include "Core/NamedColors.h"
 #include "Core/Config/ConfigNode.h"
 
 namespace gedit {
@@ -30,15 +30,15 @@ namespace gedit {
         bool Reload();
 
         // Returns the current color configuration
-        const NamedColor &GetGlobalColors() {
+        const NamedColors &GetGlobalColors() {
             return colorConfig["globals"];
         }
 
-        const NamedColor &GetContentColors() {
+        const NamedColors &GetContentColors() {
             return colorConfig["content"];
         }
 
-        const NamedColor &GetUIColors() {
+        const NamedColors &GetUIColors() {
             return colorConfig["ui"];
         }
 
@@ -51,13 +51,13 @@ namespace gedit {
         void ParseVariablesInScript(const T &from, E &scriptEngine);
 
         template<typename T, typename E>
-        void SetNamedColorsFromScript(NamedColor &dstColorConfig, const T &from, E &scriptEngine);
+        void SetNamedColorsFromScript(NamedColors &dstColorConfig, const T &from, E &scriptEngine);
 
     private:
         gnilk::ILogger *logger = nullptr;
         std::string filename = {};
         std::string name = "noname";
-        std::unordered_map<std::string, NamedColor> colorConfig;
+        std::unordered_map<std::string, NamedColors> colorConfig;
     };
 }
 

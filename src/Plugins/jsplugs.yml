@@ -85,7 +85,7 @@ commands:
     arguments:
       - string, folder name
   -
-    name: reloadtheme
+    name: theme_reload
     short: thr
     description: Reload current theme
     script: Scripts/themereload.js

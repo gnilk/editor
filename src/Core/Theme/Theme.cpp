@@ -109,7 +109,7 @@ void Theme::ParseVariablesInScript(const T &variables, E &scriptEngine) {
 }
 
 template<typename T, typename E>
-void Theme::SetNamedColorsFromScript(NamedColor &dstColorConfig, const T &globals, E &scriptEngine) {
+void Theme::SetNamedColorsFromScript(NamedColors &dstColorConfig, const T &globals, E &scriptEngine) {
     for(auto &col : globals.items()) {
         if (col.value().is_string()) {
             auto value = col.value().template get<std::string>();

@@ -7,7 +7,7 @@
 #include "VStackView.h"
 #include "SingleLineView.h"
 #include "Core/Config/Config.h"
-#include "Core/NamedColor.h"
+#include "Core/NamedColors.h"
 
 
 using namespace gedit;

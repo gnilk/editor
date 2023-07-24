@@ -74,6 +74,20 @@ public:
         return a * (float)mul;
     }
 
+    // Default is 'Float' and we need these shortcuts as the current JS integration can't handle default args
+    int IntRed() const {
+        return RedAsInt();
+    }
+    int IntGreen() const {
+        return GreenAsInt();
+    }
+    int IntBlue() const {
+        return BlueAsInt();
+    }
+    int IntAlpha() const {
+        return AlphaAsInt();
+    }
+
     float R() const { return r; }
     float G() const { return g; }
     float B() const { return b; }

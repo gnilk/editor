@@ -84,4 +84,8 @@ commands:
     script: Scripts/openfolder.js
     arguments:
       - string, folder name
-
+  -
+    name: reloadtheme
+    short: thr
+    description: Reload current theme
+    script: Scripts/themereload.js

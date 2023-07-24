@@ -3,6 +3,8 @@
 //
 /*
  * TO-DO List
+ * - Verify that Config can be merged with either 'Keep' or 'Override'
+ * - Implement loading strategy for asset loader (~/.config/gedit/.config/, ~/.gedit, Contents/MacOS/... / etc..)
  * - LanguageToken to ScreenColor mapping is right now done in the editor - not sure where this should be..
  * - Refactor initialization, split app init from data loading (data loading should happen afterwards - when UI is up and running)
  * + Fix save!

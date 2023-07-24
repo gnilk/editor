@@ -3,12 +3,16 @@
 
 #include "duktape.h"
 #include "TextBufferAPIWrapper.h"
+#include "ThemeAPIWrapper.h"
 #include "ViewAPIWrapper.h"
 
 namespace gedit {
     class EditorAPIWrapper {
     public:
         TextBufferAPIWrapper::Ref GetActiveTextBuffer();
+        ThemeAPIWrapper::Ref GetCurrentTheme();
+
+
         void ExitEditor();
         std::vector<std::string> GetRegisteredLanguages();
         std::vector<std::string> GetHelp();

@@ -12,6 +12,7 @@ void EditorAPIWrapper::RegisterModule(duk_context *ctx) {
     duk_put_global_string(ctx, "Editor");
 
     dukglue_register_method(ctx, &EditorAPIWrapper::GetActiveTextBuffer, "GetActiveTextBuffer");
+    dukglue_register_method(ctx, &EditorAPIWrapper::GetCurrentTheme, "GetCurrentTheme");
     dukglue_register_method(ctx, &EditorAPIWrapper::ExitEditor, "ExitEditor");
     dukglue_register_method(ctx, &EditorAPIWrapper::GetRegisteredLanguages, "GetRegisteredLanguages");
     dukglue_register_method(ctx, &EditorAPIWrapper::NewBuffer, "NewBuffer");
@@ -34,6 +35,11 @@ void EditorAPIWrapper::RegisterModule(duk_context *ctx) {
 TextBufferAPIWrapper::Ref EditorAPIWrapper::GetActiveTextBuffer() {
     auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
     return TextBufferAPIWrapper::Create(editorApi->GetActiveTextBuffer());
+}
+
+ThemeAPIWrapper::Ref EditorAPIWrapper::GetCurrentTheme() {
+    auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
+    return ThemeAPIWrapper::Create(editorApi->GetCurrentTheme());
 }
 
 void EditorAPIWrapper::ExitEditor() {

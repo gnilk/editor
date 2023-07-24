@@ -38,21 +38,25 @@ namespace gedit {
             return true;
         }
 
-        const NamedColors &GetColorsForClass(const std::string &clrClass) {
+
+        NamedColors::Ref GetColorsForClass(const std::string &clrClass) {
+            if (!HasColorsForClass(clrClass)) {
+                return nullptr;
+            }
             return colorConfig[clrClass];
         }
 
         // Returns the current color configuration
         const NamedColors &GetGlobalColors() {
-            return colorConfig[clrClassGlobals];
+            return *colorConfig[clrClassGlobals];
         }
 
         const NamedColors &GetContentColors() {
-            return colorConfig[clrClassContent];
+            return *colorConfig[clrClassContent];
         }
 
         const NamedColors &GetUIColors() {
-            return colorConfig[clrClassUI];
+            return *colorConfig[clrClassUI];
         }
 
     public:
@@ -65,13 +69,13 @@ namespace gedit {
         void ParseVariablesInScript(const T &from, E &scriptEngine);
 
         template<typename T, typename E>
-        void SetNamedColorsFromScript(NamedColors &dstColorConfig, const T &from, E &scriptEngine);
+        void SetNamedColorsFromScript(NamedColors::Ref dstColorConfig, const T &from, E &scriptEngine);
 
     private:
         gnilk::ILogger *logger = nullptr;
         std::string filename = {};
         std::string name = "noname";
-        std::unordered_map<std::string, NamedColors> colorConfig;
+        std::unordered_map<std::string, NamedColors::Ref> colorConfig;
     };
 }
 

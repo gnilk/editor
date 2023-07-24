@@ -94,8 +94,15 @@ bool Theme::LoadSublimeColorFile(std::string filename) {
             continue;
         }
         logger->Debug("%s", colorSection.key().c_str());
-        SetNamedColorsFromScript<json, SublimeConfigColorScript>(colorConfig[colorSection.key()], colorSection.value(), scriptEngine);
+        NamedColors::Ref colors = nullptr;
+        if (!HasColorsForClass(colorSection.key())) {
+            colors = NamedColors::Create();
+            colorConfig[colorSection.key()] = colors;
+        } else {
+            colors = colorConfig[colorSection.key()];
+        }
 
+        SetNamedColorsFromScript<json, SublimeConfigColorScript>(colors, colorSection.value(), scriptEngine);
     }
     return true;
 
@@ -119,13 +126,13 @@ void Theme::ParseVariablesInScript(const T &variables, E &scriptEngine) {
 }
 
 template<typename T, typename E>
-void Theme::SetNamedColorsFromScript(NamedColors &dstColorConfig, const T &globals, E &scriptEngine) {
+void Theme::SetNamedColorsFromScript(NamedColors::Ref dstColorConfig, const T &globals, E &scriptEngine) {
     for(auto &col : globals.items()) {
         if (col.value().is_string()) {
             auto value = col.value().template get<std::string>();
             auto [ok, scriptValue] = scriptEngine.ExecuteScript(value);
             if (ok && scriptValue.IsColor()) {
-                dstColorConfig.SetColor(col.key(), scriptValue.Color());
+                dstColorConfig->SetColor(col.key(), scriptValue.Color());
             } else {
                 logger->Error("  Value for '%s' is not color, constants not supported - skipping\n", col.key().c_str());
             }

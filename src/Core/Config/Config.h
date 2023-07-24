@@ -9,7 +9,7 @@
 #include <vector>
 #include <assert.h>
 #include <optional>
-#include "NamedColorConfig.h"
+#include "NamedColor.h"
 #include "Core/Theme/Theme.h"
 #include "Core/Config/ConfigNode.h"
 

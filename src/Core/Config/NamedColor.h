@@ -2,17 +2,17 @@
 // Created by gnilk on 31.01.23.
 //
 
-#ifndef EDITOR_NAMEDCOLORCONFIG_H
-#define EDITOR_NAMEDCOLORCONFIG_H
+#ifndef EDITOR_NAMEDCOLOR_H
+#define EDITOR_NAMEDCOLOR_H
 
 #include "Core/ColorRGBA.h"
 #include <string>
 #include <unordered_map>
 
 namespace gedit {
-    class NamedColorConfig {
+    class NamedColor {
     public:
-        NamedColorConfig();
+        NamedColor();
         void SetDefaults() noexcept;
         void SetColor(const std::string &name, ColorRGBA color);
 
@@ -36,4 +36,4 @@ namespace gedit {
 }
 
 
-#endif //EDITOR_NAMEDCOLORCONFIG_H
+#endif //EDITOR_NAMEDCOLOR_H

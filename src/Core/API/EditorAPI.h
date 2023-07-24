@@ -12,6 +12,7 @@
 #include "Core/Runloop.h"
 #include "Core/Plugins/PluginCommand.h"
 #include "TextBufferAPI.h"
+#include "ThemeAPI.h"
 #include "ViewAPI.h"
 
 namespace gedit {
@@ -19,10 +20,13 @@ namespace gedit {
     public:
         using APIFunc = std::function<void(void)>;
     public:
+        EditorAPI() = default;
+        virtual ~EditorAPI() = default;
         void ExitEditor() {
             Runloop::StopRunLoop();
         }
         TextBufferAPI::Ref GetActiveTextBuffer();
+        ThemeAPI::Ref GetCurrentTheme();
         std::vector<std::string> GetRegisteredLanguages();
         std::vector<PluginCommand::Ref> GetRegisteredCommands();
 

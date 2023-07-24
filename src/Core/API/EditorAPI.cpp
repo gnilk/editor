@@ -4,6 +4,7 @@
 
 #include <memory>
 #include "Core/RuntimeConfig.h"
+#include "Core/Config/Config.h"
 #include "EditorAPI.h"
 #include "Core/RuntimeConfig.h"
 #include "Core/Views/RootView.h"
@@ -13,6 +14,10 @@ TextBufferAPI::Ref EditorAPI::GetActiveTextBuffer() {
     auto idxActiveModel = Editor::Instance().GetActiveModelIndex();
     auto model = Editor::Instance().GetModelFromIndex(idxActiveModel);
     return std::make_shared<TextBufferAPI>(model->GetTextBuffer());
+}
+ThemeAPI::Ref EditorAPI::GetCurrentTheme() {
+    auto theme = Config::Instance().GetTheme();
+    return std::make_shared<ThemeAPI>(theme);
 }
 
 std::vector<std::string> EditorAPI::GetRegisteredLanguages() {

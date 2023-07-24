@@ -16,6 +16,10 @@ namespace gedit {
     class Theme : public ConfigNode {
     public:
         using Ref = std::shared_ptr<Theme>;
+        // Note: When adding a new color class - make sure to enhance 'IsValidColorClass' function!!
+        inline static const std::string clrClassGlobals = "globals";
+        inline static const std::string clrClassUI = "ui";
+        inline static const std::string clrClassContent = "content";
     public:
         Theme() = default;
         virtual ~Theme() = default;
@@ -29,22 +33,32 @@ namespace gedit {
         bool Load(const std::string &pathname);
         bool Reload();
 
+        bool HasColorsForClass(const std::string &clrClass) {
+            if (colorConfig.find(clrClass) == colorConfig.end()) return false;
+            return true;
+        }
+
+        const NamedColors &GetColorsForClass(const std::string &clrClass) {
+            return colorConfig[clrClass];
+        }
+
         // Returns the current color configuration
         const NamedColors &GetGlobalColors() {
-            return colorConfig["globals"];
+            return colorConfig[clrClassGlobals];
         }
 
         const NamedColors &GetContentColors() {
-            return colorConfig["content"];
+            return colorConfig[clrClassContent];
         }
 
         const NamedColors &GetUIColors() {
-            return colorConfig["ui"];
+            return colorConfig[clrClassUI];
         }
 
     public:
         bool Initialize();
     private:
+        bool IsValidColorClass(const std::string &name);
         bool LoadSublimeColorFile(std::string filename);
 
         template<typename T, typename E>

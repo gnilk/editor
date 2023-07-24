@@ -65,12 +65,18 @@ bool Theme::Load(const std::string &pathname) {
     return true;
 }
 
+bool Theme::IsValidColorClass(const std::string &name) {
+    if (name == clrClassContent) return true;
+    if (name == clrClassGlobals) return true;
+    if (name == clrClassUI) return true;
+    return false;
+}
+
 bool Theme::LoadSublimeColorFile(std::string filename) {
     // Only enough here - or do we need this one out side???
     SublimeConfigColorScript scriptEngine;
     scriptEngine.RegisterBuiltIn();
 
-    auto logger = gnilk::Logger::GetLogger("Config");
     logger->Debug("Loading Sublime Color file: %s\n", filename.c_str());
 
     std::ifstream f(filename);
@@ -83,7 +89,11 @@ bool Theme::LoadSublimeColorFile(std::string filename) {
             logger->Debug("Colors should only contain objects!");
             continue;
         }
-        logger->Debug("- %s", colorSection.key().c_str());
+        if (!IsValidColorClass(colorSection.key())) {
+            logger->Error("Section '%s' is not a valid section!");
+            continue;
+        }
+        logger->Debug("%s", colorSection.key().c_str());
         SetNamedColorsFromScript<json, SublimeConfigColorScript>(colorConfig[colorSection.key()], colorSection.value(), scriptEngine);
 
     }
@@ -117,7 +127,6 @@ void Theme::SetNamedColorsFromScript(NamedColors &dstColorConfig, const T &globa
             if (ok && scriptValue.IsColor()) {
                 dstColorConfig.SetColor(col.key(), scriptValue.Color());
             } else {
-                auto logger = gnilk::Logger::GetLogger("Config");
                 logger->Error("  Value for '%s' is not color, constants not supported - skipping\n", col.key().c_str());
             }
         }

@@ -89,3 +89,10 @@ commands:
     short: thr
     description: Reload current theme
     script: Scripts/themereload.js
+  -
+    name: theme_list_colors
+    short: thc
+    description: List colors for current theme
+    script: Scripts/listthemecolors.js
+    arguments:
+      - string, theme color class

@@ -8,6 +8,7 @@
 #include <memory>
 #include "duktape.h"
 #include "Core/API/ThemeAPI.h"
+#include "NamedColorsAPIWrapper.h"
 
 namespace gedit {
     class ThemeAPIWrapper {
@@ -28,6 +29,8 @@ namespace gedit {
         static void RegisterModule(duk_context *ctx);
 
         bool Reload();
+        NamedColorsAPIWrapper::Ref GetColorsForClass(const char *clsColors);
+
     private:
         ThemeAPI::Ref theme = nullptr;
 

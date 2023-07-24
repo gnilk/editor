@@ -122,6 +122,7 @@ list(APPEND editorsrc src/Core/Action.cpp src/Core/Action.h)
 list(APPEND editorsrc src/Core/ActionHelper.cpp src/Core/ActionHelper.h)
 list(APPEND editorsrc src/Core/KeyMapping.cpp src/Core/KeyMapping.h)
 list(APPEND editorsrc src/Core/API/EditorAPI.cpp src/Core/API/EditorAPI.h)
+list(APPEND editorsrc src/Core/API/ThemeAPI.cpp src/Core/API/ThemeAPI.cpp)
 list(APPEND editorsrc src/Core/API/TextBufferAPI.cpp src/Core/API/TextBufferAPI.h)
 list(APPEND editorsrc src/Core/API/ViewAPI.cpp src/Core/API/ViewAPI.h)
 list(APPEND editorsrc src/Core/Plugins/PluginCommand.cpp src/Core/Plugins/PluginCommand.h)
@@ -215,9 +216,10 @@ list(APPEND editorsrc src/Core/Sublime/SublimeConfigColorScript.cpp src/Core/Sub
 #
 list(APPEND jsapi src/Core/JSEngine/JSPluginEngine.cpp src/Core/JSEngine/JSPluginEngine.h)
 list(APPEND jsapi src/Core/JSEngine/JSPluginCommand.cpp src/Core/JSEngine/JSPluginCommand.h)
-list(APPEND jsapi src/Core/JSEngine/Modules/TextBufferAPIWrapper.cpp src/Core/JSEngine/Modules/TextBufferAPIWrapper.h)
-list(APPEND jsapi src/Core/JSEngine/Modules/EditorAPIWrapper.cpp src/Core/JSEngine/Modules/EditorAPIWrapper.h)
 list(APPEND jsapi src/Core/JSEngine/Modules/ConsoleAPIWrapper.cpp src/Core/JSEngine/Modules/ConsoleAPIWrapper.h)
+list(APPEND jsapi src/Core/JSEngine/Modules/EditorAPIWrapper.cpp src/Core/JSEngine/Modules/EditorAPIWrapper.h)
+list(APPEND jsapi src/Core/JSEngine/Modules/TextBufferAPIWrapper.cpp src/Core/JSEngine/Modules/TextBufferAPIWrapper.h)
+list(APPEND jsapi src/Core/JSEngine/Modules/ThemeAPIWrapper.cpp src/Core/JSEngine/Modules/ThemeAPIWrapper.h)
 list(APPEND jsapi src/Core/JSEngine/Modules/ViewAPIWrapper.cpp src/Core/JSEngine/Modules/ViewAPIWrapper.h)
 
 

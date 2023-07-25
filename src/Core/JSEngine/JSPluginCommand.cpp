@@ -36,7 +36,7 @@ bool JSPluginCommand::Execute(const std::vector<std::string> &args) {
     if (!isLoaded) {
         return TryLoad();
     }
-    std::string_view strData(static_cast<char *>(scriptData->ptrData));
+    std::string_view strData(scriptData->GetPtrAs<char *>());
     return jsEngine->RunScriptOnce(strData, args);
 }
 
@@ -51,7 +51,7 @@ bool JSPluginCommand::TryLoad() {
     auto pluginScriptFile =  std::filesystem::path(pluginRoot).append(scriptFile);
 
     logger->Debug("  Loading JS file from: %s", pluginScriptFile.c_str());
-    auto assetLoader = RuntimeConfig::Instance().GetAssetLoader();
+    auto &assetLoader = RuntimeConfig::Instance().GetAssetLoader();
     scriptData = assetLoader.LoadTextAsset(pluginScriptFile);
     if (scriptData == nullptr) {
         logger->Error("Unable to load file!");

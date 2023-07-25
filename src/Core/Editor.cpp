@@ -74,7 +74,6 @@ bool Editor::Initialize(int argc, const char **argv) {
 
     // should probably rename the config-file to 'goatedit.yml' or something...
     if (!TryLoadConfig("config.yml")) {
-        // FIXME: Drop default config here!
         logger->Error("Configuration file missing - please reinstall!!");
         return false;
     }

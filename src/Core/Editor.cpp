@@ -42,6 +42,7 @@
 
 using namespace gedit;
 
+static const std::string glbApplicationName = "goatedit";
 
 Editor &Editor::Instance() {
     static Editor glbSystem;
@@ -56,7 +57,32 @@ bool Editor::Initialize(int argc, const char **argv) {
 
     // Makes it easier to detect starting in file-appending log-file...
     logger->Debug("*************** EDITOR STARTING ***************");
-    LoadConfig("config.yml");
+
+    auto ptrEnvHome = getenv("HOME");
+    std::string envHome = {};
+    if (ptrEnvHome != nullptr) {
+        envHome = std::string(ptrEnvHome);
+        logger->Debug("$HOME = %s", ptrEnvHome);
+    }
+    std::filesystem::path pathHome = envHome;
+    logger->Debug("Home, path is now: %s",pathHome.c_str());
+
+    auto &assetLoader = RuntimeConfig::Instance().GetAssetLoader();
+    assetLoader.AddSearchPath(pathHome);
+    assetLoader.AddSearchPath( pathHome / ".config/" / glbApplicationName);
+    assetLoader.AddSearchPath(".");
+
+    // should probably rename the config-file to 'goatedit.yml' or something...
+    if (!TryLoadConfig("config.yml")) {
+        // FIXME: Drop default config here!
+        logger->Error("Configuration file missing - please reinstall!!");
+        return false;
+    }
+
+    // here - try merge the current configuration with '.goatedit.yml' from ~/.goatedit
+    // or just skip that and let the user change '~/.config/goatedit/goatedit.yml'
+
+    logger->Debug("Configuration loaded, proceeding with rest of startup");
 
     // When we have the config we can set up the log-filter...
     ConfigureLogFilter();
@@ -252,18 +278,8 @@ void Editor::ConfigureLogFilter() {
 }
 
 
-bool Editor::LoadConfig(const char *configFile) {
-    if (logger == nullptr) {
-        logger = gnilk::Logger::GetLogger("System");
-    }
-    logger->Debug("Loading configuration");
-    auto configOk = Config::Instance().LoadConfig(configFile);
-    if (!configOk) {
-        logger->Error("Unable to load default configuration from 'config.yml' - defaults will be used");
-        return false;
-    }
-
-    return true;
+bool Editor::TryLoadConfig(const char *configFile) {
+    return Config::Instance().LoadConfig(configFile);
 }
 
 void Editor::ConfigureLanguages() {
@@ -324,6 +340,7 @@ void Editor::ConfigureGlobalAPIObjects() {
     RegisterGlobalAPIObject<EditorAPI>(&editorApi);
 
     // Initialize the Javascript wrapper engine...
+    logger->Debug("Initialize JSEngine and Preload Plugins");
     jsEngine.Initialize();
 }
 

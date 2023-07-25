@@ -41,8 +41,6 @@ namespace gedit {
 
         void HandleGlobalAction(const KeyPressAction &kpAction);
 
-        bool LoadConfig(const char *configFile);
-
         // Move to 'workspace'
         std::vector<EditorModel::Ref> &GetModels() {
             return openModels;
@@ -149,6 +147,8 @@ namespace gedit {
 
         void TriggerUIRedraw();
     protected:
+        bool TryLoadConfig(const char *configFile);
+
         void ConfigureLanguages();
         void ConfigureColorTheme();
         void ConfigureSubSystems();

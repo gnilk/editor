@@ -7,6 +7,7 @@
 #include <string.h>
 #include <filesystem>
 #include <fstream>
+#include <algorithm>
 
 #include "logger.h"
 
@@ -15,62 +16,81 @@
 
 using namespace gedit;
 
+void AssetLoaderBase::AddSearchPath(const std::filesystem::path &path) {
+    baseSearchPaths.push_back({0, path});
+}
+
+AssetLoaderBase::Asset::Ref AssetLoaderBase::LoadAsset(const std::string &fileName) {
+    for(auto &searchPath : baseSearchPaths) {
+        auto asset = DoLoadAsset(searchPath, fileName);
+        if (asset != nullptr) {
+            searchPath.score += 1;  // Add a score to this path => higher probability we search it first next time...
+            SortSearchPaths();
+            return asset;
+        }
+    }
+    return nullptr;
+}
+AssetLoaderBase::Asset::Ref AssetLoaderBase::LoadTextAsset(const std::string &fileName) {
+    for(auto &searchPath : baseSearchPaths) {
+        auto asset = DoLoadAsset(searchPath, fileName,1);
+        if (asset != nullptr) {
+            searchPath.score += 1;
+            SortSearchPaths();
+            return asset;
+        }
+    }
+    return nullptr;
+}
+
+void AssetLoaderBase::SortSearchPaths() {
+    std::sort(baseSearchPaths.begin(), baseSearchPaths.end(),[](const SearchPath &a, const SearchPath &b) -> bool {
+        return a.score > b.score;
+    });
+    auto logger = gnilk::Logger::GetLogger("AssetLoader");
+    logger->Debug("Resorting paths");
+    for(auto &path : baseSearchPaths) {
+        logger->Debug("  S=%d, P=%s",path.score, path.path.c_str());
+    }
+}
 
 //
 // TO-DO implement loading strategy - and make it possible for a platform layer to decide..
 //
+AssetLoaderBase::Asset::Ref AssetLoaderBase::DoLoadAsset(const SearchPath &searchPath, const std::string &fileName, size_t nBytesToAdd) {
 
-AssetLoaderBase::Asset::Ref AssetLoaderBase::LoadAsset(const std::string &relPath) {
-
-    auto path = std::filesystem::path(relPath);
-    if (!std::filesystem::exists(path)) {
-        auto logger = gnilk::Logger::GetLogger("AssetLoader");
-        logger->Error("File not found: '%s'",path.filename().c_str());
-        return {};
-    }
-    if (!std::filesystem::is_regular_file(relPath)) {
-        auto logger = gnilk::Logger::GetLogger("AssetLoader");
-        logger->Error("File is not a regular file: '%s'",path.filename().c_str());
+    auto pathName = searchPath.path / fileName;
+    if (!CheckFilePath(pathName)) {
         return {};
     }
 
     Asset::Ref asset = std::make_shared<Asset>();
-    auto szFile = std::filesystem::file_size(relPath);
+    auto szFile = std::filesystem::file_size(pathName);
     asset->size = szFile;
-    asset->ptrData = new unsigned char [szFile];
+    asset->ptrData = new unsigned char [szFile + nBytesToAdd];
+    memset(asset->ptrData, 0, szFile + nBytesToAdd);
 
-    std::ifstream inputStream(relPath, std::ios::binary);
+    std::ifstream inputStream(pathName, std::ios::binary);
     inputStream.read(static_cast<char *>(asset->ptrData), szFile);
     inputStream.close();
+
+    auto logger = gnilk::Logger::GetLogger("AssetLoader");
+    logger->Info("Ok loaded %zu bytes from '%s'",szFile, pathName.c_str());
+
 
     return asset;
 }
 
-// This will zero terminate
-AssetLoaderBase::Asset::Ref AssetLoaderBase::LoadTextAsset(const std::string &relPath) {
-
-    auto path = std::filesystem::path(relPath);
-    if (!std::filesystem::exists(path)) {
+bool AssetLoaderBase::CheckFilePath(const std::filesystem::path filePath) {
+    if (!std::filesystem::exists(filePath)) {
         auto logger = gnilk::Logger::GetLogger("AssetLoader");
-        logger->Error("File not found: '%s'",path.filename().c_str());
+        logger->Error("File not found: '%s'",filePath.c_str());
         return {};
     }
-    if (!std::filesystem::is_regular_file(relPath)) {
+    if (!std::filesystem::is_regular_file(filePath)) {
         auto logger = gnilk::Logger::GetLogger("AssetLoader");
-        logger->Error("File is not a regular file: '%s'",path.filename().c_str());
+        logger->Error("File is not a regular file: '%s'",filePath.c_str());
         return {};
     }
-
-    Asset::Ref asset = std::make_shared<Asset>();
-    auto szFile = std::filesystem::file_size(relPath);
-    asset->size = szFile + 1;
-    asset->ptrData = new unsigned char [szFile + 1];
-    memset(asset->ptrData, 0, szFile+1);
-
-    // Still load as binary to avoid any stupid CRLN conversion - we want the text as-is
-    std::ifstream inputStream(relPath, std::ios::binary);
-    inputStream.read(static_cast<char *>(asset->ptrData), szFile);
-    inputStream.close();
-
-    return asset;
+    return true;
 }

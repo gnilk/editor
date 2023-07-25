@@ -9,6 +9,8 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <optional>
+#include <assert.h>
 
 namespace gedit {
     class ConfigNode {

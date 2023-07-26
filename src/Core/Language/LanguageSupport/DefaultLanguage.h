@@ -21,7 +21,7 @@ namespace gedit {
         bool Initialize() override;
 
         const std::string &Identifier() override {
-            static std::string identifier = "<default>>";
+            static std::string identifier = "default";
             return identifier;
         }
     };

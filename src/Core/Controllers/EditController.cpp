@@ -50,6 +50,7 @@ bool EditController::HandleKeyPress(Cursor &cursor, size_t &idxLine, const KeyPr
             textBuffer->LangParser().OnPostInsertChar(cursor, line, keyPress.key);
         }
         EndUndoItem(undoItem);
+        UpdateSyntaxForActiveLineRegion(idxLine);
         return true;
     }
 
@@ -93,7 +94,8 @@ bool EditController::HandleSpecialKeyPress(Cursor &cursor, size_t &idxLine, cons
         return wasHandled;
     }
     EndUndoItem(undoItem);
-    UpdateSyntaxForBuffer();
+    //UpdateSyntaxForBuffer();
+    UpdateSyntaxForActiveLineRegion(idxLine);
     return true;
 }
 
@@ -114,7 +116,9 @@ void EditController::Undo(Cursor &cursor) {
     historyBuffer.Dump();
     historyBuffer.RestoreOneItem(cursor, textBuffer);
 
-    UpdateSyntaxForBuffer();
+    //UpdateSyntaxForBuffer();
+    UpdateSyntaxForActiveLineRegion(cursor.position.y);
+
 }
 
 
@@ -139,7 +143,7 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
         if (cursor.position.x == 0) {
             // Insert empty line...
             textBuffer->Insert(it, Line::Create());
-            UpdateSyntaxForBuffer();
+            UpdateSyntaxForActiveLineRegion(idxActiveLine);
             idxActiveLine++;
         } else {
             // Split, move some chars from current to new...
@@ -201,11 +205,20 @@ void EditController::Paste(size_t idxActiveLine, const char *buffer) {
 }
 
 void EditController::UpdateSyntaxForBuffer() {
+    logger->Debug("Syntax update for full bufffer");
     textBuffer->Reparse();
 }
 
 void EditController::UpdateSyntaxForRegion(size_t idxStartLine, size_t idxEndLine) {
+    logger->Debug("Syntax update for region %zu - %zu", idxStartLine, idxEndLine);
     textBuffer->ReparseRegion(idxStartLine, idxEndLine);
+}
+
+void EditController::UpdateSyntaxForActiveLineRegion(size_t idxActiveLine) {
+    size_t idxStartParse = (idxActiveLine>2)?idxActiveLine-2:0;
+    size_t idxEndParse = (textBuffer->NumLines() > (idxActiveLine + 2))?idxActiveLine+2:textBuffer->NumLines();
+    logger->Debug("Syntax update for active line region, active line = %zu", idxActiveLine);
+    UpdateSyntaxForRegion(idxStartParse,idxEndParse);
 }
 
 void EditController::WaitForSyntaxCompletion() {

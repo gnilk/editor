@@ -21,14 +21,14 @@ DLL_EXPORT int test_assetloader_load(ITesting *t) {
     AssetLoaderBase assetLoaderBase;
     auto asset = assetLoaderBase.LoadAsset("dummy.fil");
     TR_ASSERT(t, asset != nullptr);
-    TR_ASSERT(t, asset->size != 0);
+    TR_ASSERT(t, asset->GetSize() != 0);
     return kTR_Pass;
 }
 DLL_EXPORT int test_assetloader_loadtext(ITesting *t) {
     AssetLoaderBase assetLoaderBase;
     auto asset = assetLoaderBase.LoadAsset("dummy.fil");
     TR_ASSERT(t, asset != nullptr);
-    TR_ASSERT(t, asset->size != 0);
+    TR_ASSERT(t, asset->GetSize() != 0);
     return kTR_Pass;
 }
 

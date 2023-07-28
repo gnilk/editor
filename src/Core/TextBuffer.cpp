@@ -17,6 +17,28 @@ TextBuffer::TextBuffer(const std::string &bufferName) {
     SetPathName(bufferName);
 }
 
+TextBuffer::Ref TextBuffer::CreateEmptyBuffer(const std::string &bufferName) {
+    auto buffer = std::make_shared<TextBuffer>(bufferName);
+    buffer->bufferState = kBuffer_Empty;
+    return buffer;
+}
+
+TextBuffer::Ref TextBuffer::CreateFileReferenceBuffer(const std::filesystem::path &fromPath) {
+    auto buffer = CreateEmptyBuffer(fromPath.filename().string());
+    buffer->SetPathName(fromPath);
+    buffer->bufferState = kBuffer_FileRef;
+    return buffer;
+}
+
+TextBuffer::Ref TextBuffer::CreateBufferFromFile(const std::filesystem::path &fromPath) {
+    auto buffer = CreateFileReferenceBuffer(fromPath);
+    if (!buffer->Load()) {
+        return nullptr;
+    }
+    return buffer;
+}
+
+
 TextBuffer::~TextBuffer() {
     // Close the debugging thread if it is running...
     if (reparseThread != nullptr) {
@@ -54,6 +76,7 @@ void TextBuffer::Reparse() {
     // On large files this will literally never end and the queue will just fill up...
     if (GetParseState() == kState_Idle) {
         StartParseJob(ParseJobType::kParseFull);
+        WaitForParseCompletion();
     }
 }
 
@@ -121,50 +144,70 @@ bool TextBuffer::CanEdit() {
 }
 
 void TextBuffer::StartParseJob(TextBuffer::ParseJobType jobType, size_t idxLineStart, size_t idxLineEnd) {
-    parseQueueLock.lock();
+    parseThreadLock.lock();
     ParseJob job = {
             .jobType = jobType,
             .idxLineStart = idxLineStart,
             .idxLineEnd = idxLineEnd
     };
     parseQueue.push_front(job);
-    parseQueueLock.unlock();
-    // Kick of the parse-job
-    ChangeParseState(kState_Start);
-    // Wait until we are actually parsing...
-    while (GetParseState() != kState_Parsing) {
-        std::this_thread::yield();
-    }
+    parseThreadLock.unlock();
+    // Note: We don't really care about kicking off the parse-job here
 }
 
 void TextBuffer::ChangeParseState(ParseState newState) {
+//    static unordered_map<ParseState, std::string> stateToString = {
+//            {kState_None, "None"},
+//            {kState_Idle, "Idle"},
+//            {kState_Start, "Start"},
+//            {kState_Parsing, "Parsing"}
+//    };
+//    auto logger = gnilk::Logger::GetLogger("TextBuffer");
+//    logger->Debug("ChangeParseState %s -> %s",
+//                  stateToString[GetParseState()].c_str(),
+//                  stateToString[newState].c_str());
+
+    parseThreadLock.lock();
     parseState = newState;
+    parseThreadLock.unlock();
 }
 
 
 void TextBuffer::StartParseThread() {
+    // Do not start twice...
+    if (reparseThread != nullptr) {
+        return;
+    }
+
+    // Ensure we are in the 'none' state
+    parseState = kState_None;
     reparseThread = new std::thread([this]() {
         ParseThread();
     });
-    // Wait until the thread has become idle...
+    // Wait until the thread has become idle, first thing the thread is doing...
     while(GetParseState() != kState_Idle) {
         std::this_thread::yield();
     }
 }
 
 void TextBuffer::ParseThread() {
+    auto logger = gnilk::Logger::GetLogger("TBThread");
     ChangeParseState(kState_Idle);
     while(!bQuitReparse) {
-        if (GetParseState() == kState_Idle) {
+        parseThreadLock.lock();
+        if (parseQueue.empty()) {
+            parseThreadLock.unlock();
             std::this_thread::yield();
             continue;
         }
+        parseThreadLock.unlock();
+
         ChangeParseState(kState_Parsing);
         // Fetch job..
-        parseQueueLock.lock();
+        parseThreadLock.lock();
         auto &job = parseQueue.front();
         parseQueue.pop_front();
-        parseQueueLock.unlock();
+        parseThreadLock.unlock();
 
         ExecuteParseJob(job);
         Editor::Instance().TriggerUIRedraw();

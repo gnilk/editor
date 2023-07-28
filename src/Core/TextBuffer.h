@@ -46,26 +46,9 @@ namespace gedit {
         explicit TextBuffer(const std::string &bufferName);
         virtual ~TextBuffer();
 
-        static TextBuffer::Ref CreateEmptyBuffer(const std::string &bufferName) {
-            auto buffer = std::make_shared<TextBuffer>(bufferName);
-            buffer->bufferState = kBuffer_Empty;
-            return buffer;
-        }
-
-        static TextBuffer::Ref CreateFileReferenceBuffer(const std::filesystem::path &fromPath) {
-             auto buffer = CreateEmptyBuffer(fromPath.filename().string());
-             buffer->SetPathName(fromPath);
-             buffer->bufferState = kBuffer_FileRef;
-             return buffer;
-        }
-
-        static TextBuffer::Ref CreateBufferFromFile(const std::filesystem::path &fromPath) {
-            auto buffer = CreateFileReferenceBuffer(fromPath);
-            if (!buffer->Load()) {
-                return nullptr;
-            }
-            return buffer;
-        }
+        static TextBuffer::Ref CreateEmptyBuffer(const std::string &bufferName);
+        static TextBuffer::Ref CreateFileReferenceBuffer(const std::filesystem::path &fromPath);
+        static TextBuffer::Ref CreateBufferFromFile(const std::filesystem::path &fromPath);
 
         bool Save();
         bool Load();
@@ -213,7 +196,7 @@ namespace gedit {
         // Language parsing variables
         LanguageBase::Ref language = nullptr;
         std::thread *reparseThread = nullptr;
-        std::mutex parseQueueLock;
+        std::mutex parseThreadLock;
         std::deque<ParseJob> parseQueue;
 
 

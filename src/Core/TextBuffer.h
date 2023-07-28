@@ -11,6 +11,8 @@
 #include <optional>
 #include <filesystem>
 
+#include "logger.h"
+
 #include "Core/Language/LanguageBase.h"
 #include "Core/Line.h"
 #include "Core/Point.h"
@@ -43,7 +45,7 @@ namespace gedit {
         } BufferState;
 
     public:
-        explicit TextBuffer(const std::string &bufferName);
+        explicit TextBuffer();
         virtual ~TextBuffer();
 
         static TextBuffer::Ref CreateEmptyBuffer(const std::string &bufferName);
@@ -202,9 +204,7 @@ namespace gedit {
 
         bool bQuitReparse = false;
 
-        // Do not put the edit controller here - might make sense, but it will cause problems later
-        // Example: split-window editing with same file => won't work
-        // EditController *editController = nullptr;
+        gnilk::ILogger *logger = nullptr;
     };
 }
 

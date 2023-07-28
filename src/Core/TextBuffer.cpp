@@ -13,13 +13,14 @@
 
 using namespace gedit;
 
-TextBuffer::TextBuffer(const std::string &bufferName) {
-    SetPathName(bufferName);
+TextBuffer::TextBuffer() {
 }
 
 TextBuffer::Ref TextBuffer::CreateEmptyBuffer(const std::string &bufferName) {
-    auto buffer = std::make_shared<TextBuffer>(bufferName);
+    auto buffer = std::make_shared<TextBuffer>();
     buffer->bufferState = kBuffer_Empty;
+    buffer->logger = gnilk::Logger::GetLogger("TextBuffer");
+    buffer->SetPathName(bufferName);
     return buffer;
 }
 
@@ -162,7 +163,6 @@ void TextBuffer::ChangeParseState(ParseState newState) {
 //            {kState_Start, "Start"},
 //            {kState_Parsing, "Parsing"}
 //    };
-//    auto logger = gnilk::Logger::GetLogger("TextBuffer");
 //    logger->Debug("ChangeParseState %s -> %s",
 //                  stateToString[GetParseState()].c_str(),
 //                  stateToString[newState].c_str());
@@ -191,7 +191,6 @@ void TextBuffer::StartParseThread() {
 }
 
 void TextBuffer::ParseThread() {
-    auto logger = gnilk::Logger::GetLogger("TBThread");
     ChangeParseState(kState_Idle);
     while(!bQuitReparse) {
         parseThreadLock.lock();
@@ -301,7 +300,6 @@ bool TextBuffer::Load() {
 
 void TextBuffer::SetPathName(const std::filesystem::path &newPathName) {
     pathName = newPathName;
-    auto logger = gnilk::Logger::GetLogger("TextBuffer");
     logger->Debug("SetPathName: %s", pathName.c_str());
     if ((bufferState == kBuffer_Loaded) || (bufferState == kBuffer_Changed)){
         // FIXME: Save here
@@ -311,7 +309,6 @@ void TextBuffer::SetPathName(const std::filesystem::path &newPathName) {
 
 void TextBuffer::Rename(const std::string &newFileName) {
     pathName = pathName.stem().append(newFileName);
-    auto logger = gnilk::Logger::GetLogger("TextBuffer");
     logger->Debug("New name: %s", pathName.c_str());
     // FIXME: should probably save the file here
     if ((bufferState == kBuffer_Loaded) || (bufferState == kBuffer_Changed)){

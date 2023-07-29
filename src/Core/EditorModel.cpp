@@ -4,6 +4,7 @@
 // We need a good way to define how the model and the controller interoperate as the controller either needs access to data in the model
 // OR the model needs to talk to a modifier API in the controller
 //
+#include <chrono>
 #include "Editor.h"
 #include "EditorModel.h"
 #include "EditorConfig.h"
@@ -76,12 +77,27 @@ void EditorModel::CommentSelectionOrLine() {
     editController->AddLineComment(start.y, end.y, lineCommentPrefix);
 }
 
+// This is a little naive and I should probably spin it of to a specific thread
 size_t EditorModel::SearchFor(const std::string &searchItem) {
-    searchResults.clear();
 
+    auto tStart = std::chrono::steady_clock::now();
+
+    searchResults.clear();
     auto nLines = textBuffer->NumLines();
     auto len = searchItem.length();
     for(size_t idxLine = 0; idxLine < nLines; idxLine++) {
+        // This is a cut-off time for searching, we don't want to stall
+        // Currently my Macbook M1 use 170ms to search through 105MB of data
+        auto tDuration = std::chrono::steady_clock::now() - tStart;
+        auto msDuration = std::chrono::duration_cast<std::chrono::milliseconds>(tDuration).count();
+        if (msDuration > 1000) {
+            auto logger = gnilk::Logger::GetLogger("EditModel");
+            logger->Debug("Search aborted at line: %zu, exceeding run-time!", idxLine);
+            break;
+        }
+
+
+
         auto line = textBuffer->LineAt(idxLine);
         auto idxStart = line->Buffer().find(searchItem.c_str());
         if (idxStart == std::string_view::npos) {
@@ -92,7 +108,14 @@ size_t EditorModel::SearchFor(const std::string &searchItem) {
         result.cursor_x = idxStart;
         result.length = len;
         searchResults.push_back(result);
+
     }
+
+    auto tDuration = std::chrono::steady_clock::now() - tStart;
+    auto msDuration = std::chrono::duration_cast<std::chrono::milliseconds>(tDuration).count();
+    auto logger = gnilk::Logger::GetLogger("EditModel");
+    logger->Debug("Search took %zu milliseconds", msDuration);
+
     // Number of hits..
     return searchResults.size();
 }

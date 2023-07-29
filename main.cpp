@@ -3,7 +3,6 @@
 //
 /*
  * TO-DO List
- * - Highlight of search results seems to be in screen coords (scrolling around when search results are active shows this)
  * - Searching should be threaded, see if we can use some new CPP features for this..
  * - Verify that Config can be merged with either 'Keep' or 'Override'
  * - Implement loading strategy for asset loader (~/.config/gedit/.config/, ~/.gedit, Contents/MacOS/... / etc..)
@@ -30,6 +29,7 @@
  * - Swap out the vertical navigation code in EditorView for the 'VerticalNavigationModel'
  *
  * Done:
+ * ! Highlight of search results seems to be in screen coords (scrolling around when search results are active shows this)
  * ! Theme handling needed, currently the 'Config' class holds all theme related settings (which basically is just colors)
  * ! Workspace, pressing return/enter on selection should load (if needed) and set the model active in the editor
  * ! QuickCommandMode

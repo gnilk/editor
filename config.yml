@@ -17,7 +17,8 @@ logging:
   enable_modules:
     - "Runloop"
     - "System"
-    - "Theme"
+    - "TextBuffer"
+    - "EditModel"
 
 macos:
   allow_kbd_hook: yes
@@ -149,6 +150,8 @@ default_keymap: {
       GotoBottomLine : KeyCode_Command + KeyCode_PageDown,
       Undo: CopyPasteModifier + 'z',
 
+      NextSearchResult : "KeyCode_Command + 'n'",
+      PrevSearchResult : "KeyCode_Command + 'p'",
 
       # This doesn't work unless we are in modal-mode..
       # CloseModal : KeyCode_Escape,

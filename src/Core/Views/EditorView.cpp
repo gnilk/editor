@@ -264,6 +264,10 @@ bool EditorView::DispatchAction(const KeyPressAction &kpAction) {
             return OnActionCycleActiveBuffer();
         case kAction::kActionUndo :
             return OnActionUndo();
+        case kAction::kActionNextSearchResult :
+            return OnNextSearchResult();
+        case kAction::kActionPrevSearchResult :
+            return OnPrevSearchResult();
         default:
             break;
     }
@@ -462,6 +466,21 @@ bool EditorView::OnActionCycleActiveBuffer() {
     InvalidateAll();
     return true;
 }
+bool EditorView::OnNextSearchResult() {
+    if (!editorModel->HaveSearchResults()) {
+        return false;
+    }
+    editorModel->NextSearchResult();
+    return true;
+}
+bool EditorView::OnPrevSearchResult() {
+    if (!editorModel->HaveSearchResults()) {
+        return false;
+    }
+    editorModel->PrevSearchResult();
+    return true;
+}
+
 
 
 bool EditorView::UpdateNavigation(const KeyPress &keyPress) {

@@ -72,6 +72,8 @@ namespace gedit {
         bool OnActionLineEnd();
         bool OnActionUndo();
 //        bool OnActionBackspace();
+        bool OnNextSearchResult();
+        bool OnPrevSearchResult();
 
     private:
         bool DispatchAction(const KeyPressAction &kpAction);

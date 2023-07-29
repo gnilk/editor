@@ -91,11 +91,15 @@ void EditorView::DrawViewContents() {
         logger->Debug("Overlays from search results");
         logger->Debug("  SR0: x=%d, len=%d line=%d", editorModel->searchResults[0].cursor_x, editorModel->searchResults[0].length, editorModel->searchResults[0].idxLine);
         for(auto &result : editorModel->searchResults) {
-            DrawContext::Overlay overlay;
-            overlay.Set(Point(result.cursor_x,result.idxLine),
-                        Point(result.cursor_x + result.length, result.idxLine));
-            overlay.isActive = true;
-            dc.AddOverlay(overlay);
+            // Perhaps a have a function to translate this - surprised I don't have one..
+            if ((result.idxLine > editorModel->viewTopLine) && (result.idxLine < editorModel->viewBottomLine)) {
+                DrawContext::Overlay overlay;
+                auto yPos = result.idxLine - editorModel->viewTopLine;
+                overlay.Set(Point(result.cursor_x, yPos),
+                            Point(result.cursor_x + result.length, yPos));
+                overlay.isActive = true;
+                dc.AddOverlay(overlay);
+            }
         }
     }
 

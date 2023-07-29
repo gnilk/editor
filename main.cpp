@@ -3,6 +3,8 @@
 //
 /*
  * TO-DO List
+ * - Highlight of search results seems to be in screen coords (scrolling around when search results are active shows this)
+ * - Searching should be threaded, see if we can use some new CPP features for this..
  * - Verify that Config can be merged with either 'Keep' or 'Override'
  * - Implement loading strategy for asset loader (~/.config/gedit/.config/, ~/.gedit, Contents/MacOS/... / etc..)
  * - LanguageToken to ScreenColor mapping is right now done in the editor - not sure where this should be..

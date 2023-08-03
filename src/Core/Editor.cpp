@@ -248,6 +248,10 @@ EditorModel::Ref Editor::NewModel(const std::string &name) {
 }
 
 EditorModel::Ref Editor::LoadModel(const std::string &filename) {
+    if (!std::filesystem::exists(std::filesystem::path(filename))) {
+        logger->Error("File not found: %s", filename.c_str());
+        return nullptr;
+    }
     auto model = workspace->NewModelWithFileRef(filename);
     model->GetTextBuffer()->Load();
     openModels.push_back(model);

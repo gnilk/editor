@@ -1,8 +1,15 @@
 cmake_minimum_required(VERSION 3.22)
-project(editor)
+project(editor VERSION 0.1)
 set(CMAKE_CXX_STANDARD 17)
 
-set(CMAKE_BUILD_TYPE DEBUG)
+# set(CMAKE_BUILD_TYPE DEBUG)
+
+set(EDITOR_ASSET_DIR ${CMAKE_CURRENT_BINARY_DIR}/goatedit)
+
+message(STATUS "Assets directory: ${EDITOR_ASSET_DIR}")
+if (NOT EXISTS ${EDITOR_ASSET_DIR})
+    execute_process(COMMAND mkdir ${EDITOR_ASSET_DIR})
+endif ()
 
 option(GEDIT_BUILD_SDL3 "Build SDL3" OFF)
 option(GEDIT_BUILD_SDL2 "Build SDL2" ON)
@@ -109,6 +116,7 @@ elseif(UNIX)
     set(NCURSES_HOME /usr)
     set(SDL_HOME /usr/local)
 
+
     list(APPEND includedirs ext/json/single_include)
     list(APPEND editorsrc src/Core/unix/Shell.cpp src/Core/unix/Shell.h)
 
@@ -118,6 +126,39 @@ elseif(UNIX)
     list(APPEND extlibs ncurses)
     list(APPEND extlibs yaml-cpp)
     add_executable(${CUR_TARGET} ${appsrc})
+
+
+    target_compile_options(${CUR_TARGET} PUBLIC -fPIC)
+    target_compile_options(${CUR_TARGET} PUBLIC -Wall -Wextra -Wpedantic -Wshadow)
+    target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-parameter)
+    target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-variable)
+
+    # DukGlue has quite a few type-defs causing pain - consider putting duglue into it's own compile target..
+    target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-local-typedef)
+    target_compile_options(${CUR_TARGET} PUBLIC -Wno-unneeded-internal-declaration)
+    # this one is irritating..
+    target_compile_options(${CUR_TARGET} PUBLIC -Wno-sign-compare)
+    target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-but-set-variable)
+
+    # YAML header library
+    target_compile_options(${CUR_TARGET} PUBLIC -Wno-shadow)
+
+    #
+    # Create a .deb install package..
+    # Note: The binary will currently be named 'editor' <- should fix this at some point...
+    #
+    install(TARGETS ${CUR_TARGET} COMPONENT goatedit RUNTIME DESTINATION bin)
+    install(DIRECTORY ${EDITOR_ASSET_DIR} DESTINATION share)
+
+    SET(CPACK_GENERATOR "DEB")
+    SET(CPACK_PACKAGE_NAME "goatedit")
+    SET(CPACK_PACKAGE_VENDOR "gnilk")
+    SET(CPACK_PACKAGE_DESCRIPTION "A text editor for my own personal use..")
+    SET(CPACK_PACKAGE_DESCRIPTION_SUMMARY "not a very fancy text/code editor..")
+    SET(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/gnilk/editor")
+    SET(CPACK_DEBIAN_PACKAGE_MAINTAINER "gnilk") #required
+    set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS YES)
+    INCLUDE(CPack)
 
 endif ()
 
@@ -405,6 +446,8 @@ list(APPEND utestsrc src/Core/Tests/test_dcoverlay.cpp)
 
 
 add_library(utests SHARED ${editorsrc} ${jsapi}  ${duktape} ${utestsrc})
+target_compile_options(logger PUBLIC -fPIC)
+target_compile_options(utests PUBLIC -fPIC)
 target_link_directories(utests PUBLIC ${linkdirs})
 target_include_directories(utests PUBLIC ${includedirs})
 target_link_libraries(utests ${extlibs})
@@ -419,27 +462,32 @@ add_custom_target(
 #
 # Add configuration files so they get copied when changed...
 #
+
 add_custom_target(config ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_CURRENT_LIST_DIR}/config.yml ${CMAKE_CURRENT_BINARY_DIR})
+        ${CMAKE_CURRENT_LIST_DIR}/config.yml ${EDITOR_ASSET_DIR})
 
 add_custom_target(colors ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_CURRENT_LIST_DIR}/colors.json ${CMAKE_CURRENT_BINARY_DIR})
+        ${CMAKE_CURRENT_LIST_DIR}/colors.json ${EDITOR_ASSET_DIR})
 
 add_custom_target(default_theme ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_CURRENT_LIST_DIR}/default.theme.yml ${CMAKE_CURRENT_BINARY_DIR})
+        ${CMAKE_CURRENT_LIST_DIR}/default.theme.yml ${EDITOR_ASSET_DIR})
 
 add_custom_target(font ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_CURRENT_LIST_DIR}/Andale\ Mono.ttf ${CMAKE_CURRENT_BINARY_DIR})
+        ${CMAKE_CURRENT_LIST_DIR}/Andale\ Mono.ttf ${EDITOR_ASSET_DIR})
 
 
 # copy_directory_if_different available in cmake 3.26 or better...
 if (${CMAKE_VERSION} VERSION_LESS "3.26.0")
     add_custom_target(plugins ${CMAKE_COMMAND} -E copy_directory
-            ${CMAKE_CURRENT_SOURCE_DIR}/src/Plugins ${CMAKE_CURRENT_BINARY_DIR}/Plugins)
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/Plugins ${EDITOR_ASSET_DIR}/Plugins)
 else()
     add_custom_target(plugins ${CMAKE_COMMAND} -E copy_directory_if_different
-            ${CMAKE_CURRENT_SOURCE_DIR}/src/Plugins ${CMAKE_CURRENT_BINARY_DIR}/Plugins)
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/Plugins ${EDITOR_ASSET_DIR}/Plugins)
 endif()
 
 add_dependencies(editor config colors font plugins default_theme)
 add_dependencies(Unit_Tests config colors font plugins default_theme)
+
+
+set_target_properties(logtest PROPERTIES EXCLUDE_FROM_ALL true)
+set_target_properties(utests PROPERTIES EXCLUDE_FROM_ALL true)

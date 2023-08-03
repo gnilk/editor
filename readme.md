@@ -69,7 +69,7 @@ in the proper way. You are looking for a bunch of:
 - ncurses, on *nix it is generally available, otherwise: https://invisible-island.net/ncurses/announce.html
 - nlohmann/json, https://github.com/nlohmann/json
 - libSDL, https://github.com/libsdl-org/SDL currently using master branch (SDL3)
-- duktape 2.7.0, https://github.com/svaarala/duktape - clone this to editor/ext/dukglue-2.7.0
+- duktape 2.7.0, https://github.com/svaarala/duktape - clone this to editor/ext/duktape-2.7.0
 - dukglue (just take master), https://github.com/Aloshi/dukglue - clone this to editor/ext/dukglue
 - logger, https://github.com/gnilk/logger - clone this to editor/ext/logger
 - stb, https://github.com/nothings/stb, ttf and rect_pack (already added to my repo)

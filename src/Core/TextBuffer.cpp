@@ -308,7 +308,7 @@ void TextBuffer::SetPathName(const std::filesystem::path &newPathName) {
 }
 
 void TextBuffer::Rename(const std::string &newFileName) {
-    pathName = pathName.stem().append(newFileName);
+    pathName = pathName.parent_path().append(newFileName);
     logger->Debug("New name: %s", pathName.c_str());
     // FIXME: should probably save the file here
     if ((bufferState == kBuffer_Loaded) || (bufferState == kBuffer_Changed)){

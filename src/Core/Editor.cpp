@@ -68,9 +68,16 @@ bool Editor::Initialize(int argc, const char **argv) {
     logger->Debug("Home, path is now: %s",pathHome.c_str());
 
     auto &assetLoader = RuntimeConfig::Instance().GetAssetLoader();
-    assetLoader.AddSearchPath(pathHome);
+    // During development, we search in the current directory
+    assetLoader.AddSearchPath("goatedit/");
+    // Add ".goatedit" in the root folder for the user
+    assetLoader.AddSearchPath(pathHome / ".goatedit");
+    // Add the Linux (Ubuntu?) .config folder
     assetLoader.AddSearchPath( pathHome / ".config/" / glbApplicationName);
-    assetLoader.AddSearchPath(".");
+    // Add the usr/share directory - this is our default from the install script...
+    assetLoader.AddSearchPath("/usr/share/goatedit");
+
+
 
     // should probably rename the config-file to 'goatedit.yml' or something...
     if (!TryLoadConfig("config.yml")) {

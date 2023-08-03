@@ -154,19 +154,17 @@ namespace gedit {
     protected:
         void DrawViewContents() override {
             DrawSplitter(GetSplitRow());
-//            if (!bUseFullView) {
-//                DrawSplitter(splitterPos);
-//            } else {
-//                auto &dc = window->GetContentDC();
-//                DrawSplitter(dc.GetRect().Height()-1);
-//            }
         }
         int GetSplitRow() {
             if (!bUseFullView) {
                 return splitterPos;
             }
             auto &dc = window->GetContentDC();
-            return dc.GetRect().Height()-1;
+            int splitRow =  dc.GetRect().Height()-1;
+            if (splitRow < 0) {
+                splitRow = 0;
+            }
+            return splitRow;
         }
 
         virtual void DrawSplitter(int row) {

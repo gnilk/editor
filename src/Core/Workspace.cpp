@@ -144,6 +144,12 @@ std::optional<Workspace::Node::Ref> Workspace::NodeFromModel(EditorModel::Ref mo
 // Open a folder and create the workspace from the folder name...
 bool Workspace::OpenFolder(const std::string &folder) {
     // Disable notifications - otherwise the callback is invoked for each added model...
+
+    // If it doesn't exists - just leave..
+    if (!fs::exists(fs::path(folder))) {
+        return false;
+    }
+
     DisableNotifications();
     auto rootNode = GetOrAddNode(folder);
     if (!ReadFolderToNode(rootNode, folder)) {

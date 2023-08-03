@@ -38,7 +38,8 @@ using namespace gedit;
 #define WIDTH 1920
 #define HEIGHT 1080
 
-static const std::string fontName = "Andale Mono.ttf";
+
+//static const std::string fontName = "Andale Mono.ttf";
 
 ScreenBase::Ref SDLScreen::Create() {
     auto instance = std::make_shared<SDLScreen>();
@@ -92,16 +93,37 @@ bool SDLScreen::Open() {
     SDL_SetRenderDrawBlendMode(sdlRenderer, SDL_BLENDMODE_BLEND);
 
     logger->Debug("Resolution: %d x %d", widthPixels, heightPixels);
+
+    //
+    // FIXME: The font handling should probably be in a separate function as we want to change this without reopening the window...
+    //
+
+    // Resolve font name from theme
+    auto currentTheme = Config::Instance().GetTheme();
+    if (currentTheme == nullptr) {
+        logger->Error("Theme not loaded!!!!");
+        return -1;
+    }
+    auto fontName = currentTheme->GetStr("font","Andale Mono.ttf");
     logger->Debug("Loading font: '%s'", fontName.c_str());
 
-    //SDL_RenderSetScale(renderer, 2, 2);
-
-    // FIXME: Font handling should not be here
-    auto font = STBTTF_OpenFont(sdlRenderer, fontName.c_str(), 18);
-    if (font == nullptr) {
+    // Load the font through the asset loader
+    auto &assetLoader = RuntimeConfig::Instance().GetAssetLoader();
+    auto fontAsset = assetLoader.LoadAsset(fontName);
+    if (fontAsset == nullptr) {
         logger->Error("Unable to open font: '%s'\n", fontName.c_str());
         return -1;
     }
+    // Create an in-memory loader for this asset and open the font
+    auto sdlRWOps = SDL_RWFromConstMem(fontAsset->GetPtrAs<const void *>(), (int)fontAsset->GetSize());
+    auto font = STBTTF_OpenFontRW(sdlRenderer, sdlRWOps, 18);
+
+    if (font == nullptr) {
+        logger->Error("Unable to load font: '%s'\n", fontName.c_str());
+        return -1;
+    }
+
+    // Set the font active..
     SDLFontManager::Instance().SetActiveFont(font);
 
     ComputeScalingFactors();

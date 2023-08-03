@@ -5,7 +5,6 @@
  * TO-DO List
  * - Searching should be threaded, see if we can use some new CPP features for this..
  * - Verify that Config can be merged with either 'Keep' or 'Override'
- * - Implement loading strategy for asset loader (~/.config/gedit/.config/, ~/.gedit, Contents/MacOS/... / etc..)
  * - LanguageToken to ScreenColor mapping is right now done in the editor - not sure where this should be..
  * - Refactor initialization, split app init from data loading (data loading should happen afterwards - when UI is up and running)
  * + Fix save!
@@ -29,6 +28,7 @@
  * - Swap out the vertical navigation code in EditorView for the 'VerticalNavigationModel'
  *
  * Done:
+ * ! Implement loading strategy for asset loader (~/.config/gedit/.config/, ~/.gedit, Contents/MacOS/... / etc..)
  * ! Highlight of search results seems to be in screen coords (scrolling around when search results are active shows this)
  * ! Theme handling needed, currently the 'Config' class holds all theme related settings (which basically is just colors)
  * ! Workspace, pressing return/enter on selection should load (if needed) and set the model active in the editor

@@ -11,6 +11,38 @@ set(SDL_HOME /usr/local)
 
 list(APPEND appsrc main.cpp)
 
+#
+# Installing dependencies - source dependencies...
+#
+if (NOT EXISTS ${CMAKE_SOURCE_DIR}/ext)
+    message(STATUS "ext directory (for dependencies) missing, creating...")
+    execute_process(COMMAND mkdir ${CMAKE_SOURCE_DIR}/ext)
+endif()
+
+if (NOT EXISTS ${CMAKE_SOURCE_DIR}/ext/json)
+    message(WARNING "Installing JSON library")
+    execute_process(COMMAND git clone https://github.com/nlohmann/json ${CMAKE_SOURCE_DIR}/ext/json)
+endif ()
+
+if (NOT EXISTS ${CMAKE_SOURCE_DIR}/ext/logger)
+    message(WARNING "Installing Logger library")
+    execute_process(COMMAND git clone https://github.com/gnilk/logger ${CMAKE_SOURCE_DIR}/ext/logger)
+endif ()
+
+if (NOT EXISTS ${CMAKE_SOURCE_DIR}/ext/dukglue)
+    message(WARNING "Installing dukglue library")
+    execute_process(COMMAND git clone https://github.com/Aloshi/dukglue ${CMAKE_SOURCE_DIR}/ext/dukglue)
+endif ()
+
+#
+# Note: This won't fly as we need to pre-process this further...
+#
+#if (NOT EXISTS ${CMAKE_SOURCE_DIR}/ext/duktape-2.7.0)
+#    message(WARNING "Installing DukTape 2.7.0 library")
+#    execute_process(COMMAND git clone --depth 1 --branch v2.7.0 https://github.com/svaarala/duktape ${CMAKE_SOURCE_DIR}/ext/duktape-2.7.0)
+#endif ()
+
+
 set(CUR_TARGET editor)
 
 if (APPLE)
@@ -77,8 +109,7 @@ elseif(UNIX)
     set(NCURSES_HOME /usr)
     set(SDL_HOME /usr/local)
 
-    list(APPEND includedirs /home/gnilk/src/ext/json/single_include)
-
+    list(APPEND includedirs ext/json/single_include)
     list(APPEND editorsrc src/Core/unix/Shell.cpp src/Core/unix/Shell.h)
 
     add_definitions(-DGEDIT_LINUX)

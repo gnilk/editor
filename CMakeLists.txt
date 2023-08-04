@@ -84,15 +84,29 @@ if (APPLE)
     list(APPEND extlibs ncurses)
     list(APPEND extlibs yaml-cpp)
 
+
     add_executable(${CUR_TARGET} MACOSX_BUNDLE ${appsrc})
     set_target_properties(${CUR_TARGET} PROPERTIES
-            BUNDLE True
+            MACOSX_BUNDLE TRUE
             MACOSX_BUNDLE_GUI_IDENTIFIER gnilk.com.${CUR_TARGET}
             MACOSX_BUNDLE_BUNDLE_NAME ${CUR_TARGET}
             MACOSX_BUNDLE_BUNDLE_VERSION "0.1"
             MACOSX_BUNDLE_SHORT_VERSION_STRING "0.1"
+            MACOSX_BUNDLE_ICON_FILE GoatEdit
             MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/Assets/CMake/Info.plist.in
             )
+
+    # This copies the 'goatedit' (shared resource folder) in to the application bundle...
+    add_custom_command(
+            TARGET ${CUR_TARGET}
+            POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_directory ${EDITOR_ASSET_DIR} $<TARGET_FILE_DIR:editor>/../SharedSupport
+    )
+    add_custom_command(
+            TARGET ${CUR_TARGET}
+            POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/Assets/CMake/GoatEdit.icns $<TARGET_FILE_DIR:editor>/../Resources
+    )
 
     target_compile_options(${CUR_TARGET} PUBLIC -Wall -Wextra -Wpedantic -Wshadow)
     target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-parameter)
@@ -107,6 +121,28 @@ if (APPLE)
 
     # YAML header library
     target_compile_options(${CUR_TARGET} PUBLIC -Wno-shadow)
+
+
+#    install(TARGETS ${CUR_TARGET} BUNDLE DESTINATION GoatEdit.app/Contents/MacOS COMPONENT GoatEdit)
+#    install(DIRECTORY ${EDITOR_ASSET_DIR} DESTINATION GoatEdit.app/Contents/Resources COMPONENT GoatEdit)
+#
+#    SET(CPACK_GENERATOR "DragNDrop")
+##    SET(CPACK_PACKAGE_EXECUTABLES ${CMAKE_CURRENT_BINARY_DIR}/editor.app)
+#    SET(CPACK_BUNDLE_NAME "GoatEdit")
+#    SET(CPACK_BUNDLE_STARTUP_COMMAND "editor")
+#    SET(CPACK_BUNDLE_ICON ${CMAKE_SOURCE_DIR}/Assets/CMake/GoatEdit.icns)
+#    SET(CPACK_BUNDLE_PLIST ${CMAKE_SOURCE_DIR}/Assets/CMake/GoatEdit.plist)
+#    SET(CPACK_PACKAGE_DESCRIPTION "A text editor for my own personal use..")
+#    SET(CPACK_PACKAGE_DESCRIPTION_SUMMARY "not a very fancy text/code editor..")
+#    SET(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/gnilk/editor")
+#    #configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Assets/CMake/Info.plist.in ${CMAKE_CURRENT_BINARY_DIR}/GoatEdit2.plist @ONLY)
+#    #SET(CPACK_BUNDLE_PLIST ${CMAKE_CURRENT_BINARY_DIR}/GoatEdit2.plist)
+##    SET(CPACK_DEBIAN_PACKAGE_MAINTAINER "gnilk") #required
+##    set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS YES)
+#    INCLUDE(CPack)
+
+
+
 
     # list(APPEND extlibs ${COCOA_FRAMEWORK} ${IOKIT_FRAMEWORK} ${GAMECONTROLLER_FRAMEWORK} ${CORE_FOUNDATION})
     list(APPEND extlibs ${IOKIT_FRAMEWORK} ${CORE_FOUNDATION})
@@ -148,7 +184,7 @@ elseif(UNIX)
     # Note: The binary will currently be named 'editor' <- should fix this at some point...
     #
     install(TARGETS ${CUR_TARGET} COMPONENT goatedit RUNTIME DESTINATION bin)
-    install(DIRECTORY ${EDITOR_ASSET_DIR} DESTINATION share)
+    install(DIRECTORY ${EDITOR_ASSET_DIR}/. DESTINATION share)
 
     SET(CPACK_GENERATOR "DEB")
     SET(CPACK_PACKAGE_NAME "goatedit")
@@ -351,81 +387,6 @@ target_link_directories(editor PUBLIC ${linkdirs})
 target_include_directories(editor PUBLIC ${includedirs})
 target_link_libraries(editor ${extlibs})
 
-# Ok, we should have enabled this from the beginning...
-#target_compile_options(editor PUBLIC -Wall -Wextra -Wpedantic)
-#target_compile_options(editor PUBLIC -Wno-unused-parameter)
-
-#add_executable(kbdhook tests/kbdhooking.m)
-#target_link_libraries(kbdhook ${COCOA_FRAMEWORK} ${IOKIT_FRAMEWORK} ${GAMECONTROLLER_FRAMEWORK} ${CORE_FOUNDATION})
-
-#
-# Keyboard monitor test
-#
-#add_executable(kbdmon tests/kbdmon.cpp tests/MacOSKeyMonCGEvents.cpp ${editorsrc})
-#target_link_directories(kbdmon PUBLIC ${linkdirs})
-#target_include_directories(kbdmon PUBLIC ${includedirs})
-#target_link_libraries(kbdmon ${extlibs}  ${CARBON_FRAMEWORK})
-## end kbdmon
-#
-#add_executable(gckeys tests/gckeys.m)
-#target_link_libraries(gckeys ${COCOA_FRAMEWORK} ${IOKIT_FRAMEWORK} ${GAMECONTROLLER_FRAMEWORK} ${CORE_FOUNDATION})
-#
-#add_executable(myshell tests/myshell.cpp)
-#target_link_libraries(myshell ${COCOA_FRAMEWORK} ${IOKIT_FRAMEWORK} ${GAMECONTROLLER_FRAMEWORK} ${CORE_FOUNDATION})
-#
-#add_executable(myshell2 tests/myshell2.cpp src/Core/unix/Shell.cpp src/Core/StrUtil.cpp)
-#target_include_directories(myshell2 PUBLIC src/)
-#
-#add_executable(tstlog tests/tstlog.cpp)
-#target_include_directories(tstlog PUBLIC ext/logger/src)
-#target_link_libraries(tstlog logger)
-#
-# I include all of the editor stuff in this test app
-#
-#add_executable(strattr tests/strsttr.cpp ${editorsrc})
-#target_include_directories(strattr PUBLIC src)
-#target_include_directories(strattr PUBLIC ${NCURSES_HOME}/include)
-#target_link_directories(strattr  PUBLIC ${NCURSES_HOME}/lib)
-#target_include_directories(strattr PUBLIC ${YAML_CPP_HOME}/include)
-#target_link_directories(strattr  PUBLIC ${YAML_CPP_HOME}/lib)
-#target_link_libraries(strattr ${extlibs})
-
-
-#add_executable(focuscheck tests/focusdet.cpp tests/focus_oc_wrapper.mm)
-#target_link_libraries(focuscheck ${CORE_FOUNDATION} ${APPKIT})
-#
-#add_executable(cgsniff tests/cgeventsniff.cpp)
-#target_link_libraries(cgsniff ${CORE_FOUNDATION} ${CORE_SERVICES} ${CORE_GRAPHICS} ${APPKIT})
-#
-#add_executable(nseventmon tests/nseventmon.m)
-#target_link_libraries(nseventmon ${CORE_FOUNDATION} ${CORE_SERVICES} ${CORE_GRAPHICS} ${APPKIT})
-
-#
-# view handling test renderering
-#
-#add_executable(renderview tests/viewrender.cpp ${editorsrc})
-#target_link_directories(renderview PUBLIC ${linkdirs})
-#target_include_directories(renderview PUBLIC ${includedirs})
-#target_link_libraries(renderview ${extlibs})
-#
-#add_executable(testlayout tests/testlayout.cpp ${editorsrc})
-#target_link_directories(kbdmon PUBLIC ${linkdirs})
-#target_include_directories(kbdmon PUBLIC ${includedirs})
-#target_link_libraries(testlayout ${extlibs})
-#
-#add_executable(testscroll tests/testscroll.cpp ${editorsrc})
-#target_link_directories(testscroll PUBLIC ${linkdirs})
-#target_include_directories(testscroll PUBLIC ${includedirs})
-#target_link_libraries(testscroll ${extlibs})
-
-
-
-
-#add_library(libeditor SHARED ${editorsrc} ${utestsrc})
-#target_link_directories(libeditor PUBLIC ${linkdirs})
-#target_include_directories(libeditor PUBLIC ${includedirs})
-#target_link_libraries(libeditor ${extlibs})
-
 #
 # unit testing
 #
@@ -474,7 +435,6 @@ add_custom_target(default_theme ${CMAKE_COMMAND} -E copy_if_different
 
 add_custom_target(font ${CMAKE_COMMAND} -E copy_if_different
         ${CMAKE_CURRENT_LIST_DIR}/Andale\ Mono.ttf ${EDITOR_ASSET_DIR})
-
 
 # copy_directory_if_different available in cmake 3.26 or better...
 if (${CMAKE_VERSION} VERSION_LESS "3.26.0")

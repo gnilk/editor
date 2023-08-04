@@ -1,8 +1,15 @@
+#
+# GoatEdit - CMakeLists.txt for Linux and macOS
+# Note: I throughly dislike CMake but I find it better than plain makefiles so that's it..
+#
 cmake_minimum_required(VERSION 3.22)
 project(editor VERSION 0.1)
 set(CMAKE_CXX_STANDARD 17)
 
-# set(CMAKE_BUILD_TYPE DEBUG)
+# When changing the Assets/CMake/Info.plist.in - which will rebuild the bundle Info.plist we must
+# reset the cache in macos for this to take effect...
+# /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -kill -seed
+
 
 set(EDITOR_ASSET_DIR ${CMAKE_CURRENT_BINARY_DIR}/goatedit)
 

@@ -32,5 +32,10 @@
 	<string>${MACOSX_BUNDLE_COPYRIGHT}</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
+	<key>LSEnvironment</key>
+	<dict>
+	    <key>GEDIT_MACOS_STARTED_FROM_UI</key>
+	    <string>TRUE</string>
+	</dict>
 </dict>
 </plist>

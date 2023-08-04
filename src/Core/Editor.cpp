@@ -36,9 +36,17 @@
 
 #include <sys/stat.h>
 #include <wordexp.h>
-
+#include <unistd.h>
 // API stuff
 #include "Core/API/EditorAPI.h"
+
+#if defined(GEDIT_MACOS)
+    #include "CoreFoundation/CoreFoundation.h"
+    #include <unistd.h>
+    #include <libgen.h>
+    #include <mach-o/dyld.h>
+#endif
+
 
 using namespace gedit;
 
@@ -74,8 +82,31 @@ bool Editor::Initialize(int argc, const char **argv) {
     assetLoader.AddSearchPath(pathHome / ".goatedit");
     // Add the Linux (Ubuntu?) .config folder
     assetLoader.AddSearchPath( pathHome / ".config/" / glbApplicationName);
-    // Add the usr/share directory - this is our default from the install script...
+
+    // On macOS we add the bundle-root/Contents/SharedSupport to the search path..
+#ifdef GEDIT_MACOS
+    CFBundleRef bundle = CFBundleGetMainBundle();
+    CFURLRef bundleURL = CFBundleCopyBundleURL(bundle);
+    char path[PATH_MAX];
+    Boolean success = CFURLGetFileSystemRepresentation(bundleURL, TRUE, (UInt8 *)path, PATH_MAX);
+    assert(success);
+    CFRelease(bundleURL);
+    std::filesystem::path pathBundle = path;
+    assetLoader.AddSearchPath(pathBundle / "Contents" / "SharedSupport");
+    logger->Debug("We are on macOS, bundle path: %s", path);
+#else
+    // On Linux (and others) Add the usr/share directory - this is our default from the install script...
+    logger->Debug("We are on Linux, adding '/usr/share/goatedit' to search path");
     assetLoader.AddSearchPath("/usr/share/goatedit");
+#endif
+    auto cwd = std::filesystem::current_path();
+    if (!strutil::startsWith(cwd.string(), pathHome.string())) {
+        logger->Warning("Working Directory (%s) outside of home directory, changing to home-root (%s)", cwd.c_str(), pathHome.c_str());
+        std::filesystem::current_path(pathHome);
+    }
+    cwd = std::filesystem::current_path();
+    logger->Debug("CWD is: %s", cwd.c_str());
+
 
 
 
@@ -265,7 +296,7 @@ bool Editor::CloseModel(EditorModel::Ref model) {
 
 // Must be called before 'LoadConfig' - as the config loader will output debug info...
 void Editor::ConfigureLogger() {
-    static const char *sinkArgv[]={"autoflush","file","logfile.log"};
+    static const char *sinkArgv[]={"autoflush","file","/Users/gnilk/logfile.log"};
     gnilk::Logger::Initialize();
     auto fileSink = new gnilk::LogFileSink();
     gnilk::Logger::AddSink(fileSink, "fileSink", 3, sinkArgv);

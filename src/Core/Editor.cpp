@@ -2,6 +2,8 @@
 // Created by gnilk on 17.03.23.
 //
 
+
+
 #include <vector>
 #include <string>
 #include <filesystem>
@@ -296,6 +298,7 @@ bool Editor::CloseModel(EditorModel::Ref model) {
 
 // Must be called before 'LoadConfig' - as the config loader will output debug info...
 void Editor::ConfigureLogger() {
+    // FIXME: Need better log-path's for real-world deployments
     static const char *sinkArgv[]={"autoflush","file","/Users/gnilk/logfile.log"};
     gnilk::Logger::Initialize();
     auto fileSink = new gnilk::LogFileSink();
@@ -390,8 +393,18 @@ static std::vector<std::string> glbSupportedBackends = {
         {"sdl"},
 };
 
+extern "C" char ** environ;
+
 void Editor::ConfigureSubSystems() {
     auto backend = Config::Instance()["main"].GetStr("backend","ncurses");
+
+    // When debugging the actual Bundle on macOS there is no way to launch the app from within CLion
+    // Instead we start from command-line and use 'attach to process' - use this loop to 'wait' for it..
+
+//    bool bWait = true;
+//    while(bWait) {
+//        std::this_thread::yield();
+//    }
 
     // See if supported, if not - print supported and die...
     // This is one of the few places where we exit..
@@ -404,12 +417,23 @@ void Editor::ConfigureSubSystems() {
         }
         exit(1);
     }
+    logger->Debug("Initialize Graphics Backend");
 
-    logger->Debug("Initialize Graphics Backend - %s", backend.c_str());
+    // This could probably be generalized to 'GEDIT_STARTED_FROM_UI' and also set through the Desktop file on Linux
+    // In case the default config specifies a non-graphical backend (like ncurses) we override it...
+    bool enforceSDL = false;
+#ifdef GEDIT_MACOS
+    if (std::getenv("GEDIT_MACOS_STARTED_FROM_UI") != nullptr) {
+        enforceSDL = true;
+        logger->Debug("Application started from desktop environment, enforcing SDL");
+    }
+#endif
 
-    if (backend == "ncurses") {
+    if ((backend == "ncurses") && (!enforceSDL)) {
+        logger->Debug("Starting NCurses backend");
         SetupNCurses();
-    } else if (backend == "sdl") {
+    } else if ((backend == "sdl") || (enforceSDL)) {
+        logger->Debug("Starting SDL backend");
         SetupSDL();
     }
 }

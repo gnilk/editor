@@ -2,6 +2,8 @@
 // Created by gnilk on 17.03.23.
 //
 
+// On Linux setup asset loader search-paths according to XDG stuff
+// see: https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
 
 
 #include <vector>

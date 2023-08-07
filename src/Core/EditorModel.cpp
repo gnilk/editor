@@ -62,7 +62,7 @@ void EditorModel::CommentSelectionOrLine() {
     if (!textBuffer->HaveLanguage()) {
         return;
     }
-    auto lineCommentPrefix = textBuffer->LangParser().GetLineComment();
+    auto lineCommentPrefix = textBuffer->GetLanguage().GetLineComment();
     if (lineCommentPrefix.empty()) {
         return;
     }

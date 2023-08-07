@@ -75,10 +75,10 @@ bool Editor::Initialize(int argc, const char **argv) {
     auto &assetLoader = RuntimeConfig::Instance().GetAssetLoader();
 
     // During development, we search in the current directory
-    assetLoader.AddSearchPath("goatedit/");
+    assetLoader.AddSearchPath("goatedit/", AssetLoaderBase::kLocationType::kSystem);
 
     // On macOS we add the bundle-root/Contents/SharedSupport to the search path..
-#ifdef GEDIT_MACOS
+#if defined(GEDIT_MACOS)
     // Add ".goatedit" in the root folder for the user
     assetLoader.AddSearchPath(pathHome / ".goatedit");
     // Add the Linux (Ubuntu?) .config folder
@@ -93,22 +93,22 @@ bool Editor::Initialize(int argc, const char **argv) {
     std::filesystem::path pathBundle = path;
     assetLoader.AddSearchPath(pathBundle / "Contents" / "SharedSupport");
     logger->Debug("We are on macOS, bundle path: %s", path);
-#elifdef GEDIT_LINUX
+#elif defined(GEDIT_LINUX)
     // On Linux (and others) Add the usr/share directory - this is our default from the install script...
     logger->Debug("We are on Linux, resolving XDG paths");
     auto usrLocalPath = XDGEnvironment::Instance().GetFirstSystemDataPathWithPrefix("/usr/local");
     if (usrLocalPath.has_value()) {
-        assetLoader.AddSearchPath(usrLocalPath.value());
+        assetLoader.AddSearchPath(usrLocalPath.value() / "goatedit",AssetLoaderBase::kLocationType::kSystem);
     } else {
         auto defaultSysPath = XDGEnvironment::Instance().GetFirstSystemDataPath();
-        assetLoader.AddSearchPath(defaultSysPath);
+        assetLoader.AddSearchPath(defaultSysPath / "goatedit",AssetLoaderBase::kLocationType::kSystem);
     }
     // Add in the user data...
     auto userData = XDGEnvironment::Instance().GetUserDataPath();
-    assetLoader.AddSearchPath(userData);
+    assetLoader.AddSearchPath(userData / "goatedit",AssetLoaderBase::kLocationType::kUser);
 
     // Add ".goatedit" in the root folder for the user - if someone is installing on old systems
-    assetLoader.AddSearchPath(pathHome / ".goatedit");
+    assetLoader.AddSearchPath(pathHome / ".goatedit",AssetLoaderBase::kLocationType::kUser);
 
 #else
     logger->Error("Unknown or unsupported/untested OS - assuming unix-based");
@@ -366,7 +366,12 @@ void Editor::ConfigureLogFilter() {
 
 
 bool Editor::TryLoadConfig(const char *configFile) {
-    return Config::Instance().LoadConfig(configFile);
+    auto isMainConfOk =  Config::Instance().LoadSystemConfig(configFile);
+
+    // Merge with user conf..
+    Config::Instance().MergeUserConfig(configFile, true);
+
+    return isMainConfOk;
 }
 
 void Editor::ConfigureLanguages() {

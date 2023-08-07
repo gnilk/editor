@@ -262,6 +262,7 @@ list(APPEND editorsrc src/Core/Keyboard.cpp src/Core/Keyboard.cpp)
 list(APPEND editorsrc src/Core/RuntimeConfig.cpp src/Core/RuntimeConfig.cpp)
 list(APPEND editorsrc src/Core/Config/Config.cpp src/Core/Config/Config.h)
 list(APPEND editorsrc src/Core/Config/ConfigNode.cpp src/Core/Config/ConfigNode.h)
+list(APPEND editorsrc src/Core/Config/YAMLMerge.cpp src/Core/Config/YAMLMerge.h)
 list(APPEND editorsrc src/Core/Theme/Theme.cpp src/Core/Theme/Theme.h)
 list(APPEND editorsrc src/Core/XDGEnvironment.cpp src/Core/XDGEnvironment.h)
 

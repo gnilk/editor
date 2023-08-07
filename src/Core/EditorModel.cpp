@@ -7,7 +7,6 @@
 #include <chrono>
 #include "Editor.h"
 #include "EditorModel.h"
-#include "EditorConfig.h"
 #include "logger.h"
 using namespace gedit;
 
@@ -62,7 +61,7 @@ void EditorModel::CommentSelectionOrLine() {
     if (!textBuffer->HaveLanguage()) {
         return;
     }
-    auto lineCommentPrefix = textBuffer->LangParser().GetLineComment();
+    auto lineCommentPrefix = textBuffer->GetLanguage().GetLineComment();
     if (lineCommentPrefix.empty()) {
         return;
     }

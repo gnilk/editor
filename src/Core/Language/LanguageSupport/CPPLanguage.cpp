@@ -9,7 +9,6 @@
 #include <string>
 
 #include "CPPLanguage.h"
-#include "Core/EditorConfig.h"
 
 using namespace gedit;
 
@@ -70,9 +69,10 @@ bool CPPLanguage::Initialize() {
 
 
     tokenizer.SetStartState("main");
-
     // Register with the configuration
 
+    // Grab configuration nodes
+    ConfigFromNodeName("cpp");
     return true;
 }
 
@@ -89,7 +89,7 @@ LanguageBase::kInsertAction CPPLanguage::OnPreInsertChar(Cursor &cursor, Line::R
     // FIXME: This needs much more logic...
     if(ch == '}') {
         // FIXME: Check if line is 'empty' up-to x-pos
-        cursor.position.x -= EditorConfig::Instance().tabSize;
+        cursor.position.x -= GetTabSize();
         if (cursor.position.x < 0) {
             cursor.position.x = 0;
         }

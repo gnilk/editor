@@ -5,7 +5,6 @@
 #include "logger.h"
 
 #include "BaseController.h"
-#include "Core/EditorConfig.h"
 
 using namespace gedit;
 

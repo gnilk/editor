@@ -6,7 +6,6 @@
 //
 
 #include "EditController.h"
-#include "Core/EditorConfig.h"
 #include "Core/UndoHistory.h"
 #include <sstream>
 
@@ -37,7 +36,7 @@ bool EditController::HandleKeyPress(Cursor &cursor, size_t &idxLine, const KeyPr
     LanguageBase::kInsertAction parserAction = LanguageBase::kInsertAction::kDefault;
 
     if (keyPress.IsHumanReadable()) {
-        parserAction = textBuffer->LangParser().OnPreInsertChar(cursor, line, keyPress.key);
+        parserAction = textBuffer->GetLanguage().OnPreInsertChar(cursor, line, keyPress.key);
     }
     // The pre-insert handler for a language can determine if we should 'stop' the default behavior..
     if (parserAction == LanguageBase::kInsertAction::kNoInsert) {
@@ -47,7 +46,7 @@ bool EditController::HandleKeyPress(Cursor &cursor, size_t &idxLine, const KeyPr
 
     if ((parserAction == LanguageBase::kInsertAction::kDefault) && DefaultEditLine(cursor, line, keyPress, false)) {
         if (keyPress.IsHumanReadable()) {
-            textBuffer->LangParser().OnPostInsertChar(cursor, line, keyPress.key);
+            textBuffer->GetLanguage().OnPostInsertChar(cursor, line, keyPress.key);
         }
         EndUndoItem(undoItem);
         UpdateSyntaxForActiveLineRegion(idxLine);
@@ -125,7 +124,8 @@ void EditController::Undo(Cursor &cursor) {
 size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
     auto &lines = Lines();
     auto currentLine = LineAt(idxActiveLine);
-    auto tabSize = EditorConfig::Instance().tabSize;
+    //auto tabSize = EditorConfig::Instance().tabSize;
+    auto tabSize = textBuffer->GetLanguage().GetTabSize();
 
     int cursorXPos = 0;
 
@@ -151,7 +151,7 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
             currentLine->Move(newLine, 0, cursor.position.x);
 
             // Defer to the language parser if we should auto-insert a new line or not..
-            if (textBuffer->LangParser().OnPreCreateNewLine(newLine) == LanguageBase::kInsertAction::kNewLine) {
+            if (textBuffer->GetLanguage().OnPreCreateNewLine(newLine) == LanguageBase::kInsertAction::kNewLine) {
                 // Insert an empty line - this will be the new active line...
                 logger->Debug("Creating empty line...");
                 emptyLine = Line::Create("");
@@ -252,7 +252,10 @@ void EditController::RemoveCharFromLineNoUndo(gedit::Cursor &cursor, Line::Ref l
 void EditController::AddTab(Cursor &cursor, size_t idxActiveLine) {
     auto line = textBuffer->LineAt(idxActiveLine);
     auto undoItem = BeginUndoItem();
-    for (int i = 0; i < EditorConfig::Instance().tabSize; i++) {
+
+    auto tabSize = textBuffer->GetLanguage().GetTabSize();
+
+    for (int i = 0; i < tabSize; i++) {
         AddCharToLineNoUndo(cursor, line, ' ');
     }
     EndUndoItem(undoItem);
@@ -260,7 +263,7 @@ void EditController::AddTab(Cursor &cursor, size_t idxActiveLine) {
 
 void EditController::DelTab(Cursor &cursor, size_t idxActiveLine) {
     auto line = textBuffer->LineAt(idxActiveLine);
-    auto nDel = EditorConfig::Instance().tabSize;
+    auto nDel = textBuffer->GetLanguage().GetTabSize();
     if(cursor.position.x < nDel) {
         nDel = cursor.position.x;
     }

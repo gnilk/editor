@@ -12,34 +12,44 @@
 #include "logger.h"
 
 #include "Core/AssetLoaderBase.h"
-
+#include <unordered_map>
 
 using namespace gedit;
 
-void AssetLoaderBase::AddSearchPath(const std::filesystem::path &path) {
+static unordered_map<AssetLoaderBase::kLocationType, std::string> locTypeToString = {
+        { AssetLoaderBase::kLocationType::kAny, "any"},
+        { AssetLoaderBase::kLocationType::kSystem, "system"},
+        { AssetLoaderBase::kLocationType::kUser, "user"}
+};
+
+void AssetLoaderBase::AddSearchPath(const std::filesystem::path &path, kLocationType locationType) {
     auto logger = gnilk::Logger::GetLogger("AssetLoader");
-    logger->Debug("Adding path: %s",path.c_str());
-    baseSearchPaths.push_back({0, path});
+    logger->Debug("Adding path (%s): %s",locTypeToString[locationType].c_str(), path.c_str());
+    baseSearchPaths.push_back({0, locationType, path});
 }
 
-AssetLoaderBase::Asset::Ref AssetLoaderBase::LoadAsset(const std::string &fileName) {
+AssetLoaderBase::Asset::Ref AssetLoaderBase::LoadAsset(const std::string &fileName, kLocationType locationType) {
     for(auto &searchPath : baseSearchPaths) {
-        auto asset = DoLoadAsset(searchPath, fileName);
-        if (asset != nullptr) {
-            searchPath.score += 1;  // Add a score to this path => higher probability we search it first next time...
-            SortSearchPaths();
-            return asset;
+        if ((searchPath.locationType == locationType) || (locationType == kLocationType::kAny)) {
+            auto asset = DoLoadAsset(searchPath, fileName);
+            if (asset != nullptr) {
+                searchPath.score += 1;  // Add a score to this path => higher probability we search it first next time...
+                SortSearchPaths();
+                return asset;
+            }
         }
     }
     return nullptr;
 }
-AssetLoaderBase::Asset::Ref AssetLoaderBase::LoadTextAsset(const std::string &fileName) {
+AssetLoaderBase::Asset::Ref AssetLoaderBase::LoadTextAsset(const std::string &fileName, kLocationType locationType) {
     for(auto &searchPath : baseSearchPaths) {
-        auto asset = DoLoadAsset(searchPath, fileName,1);
-        if (asset != nullptr) {
-            searchPath.score += 1;
-            SortSearchPaths();
-            return asset;
+        if ( (searchPath.locationType == locationType) || (locationType == kLocationType::kAny)) {
+            auto asset = DoLoadAsset(searchPath, fileName, 1);
+            if (asset != nullptr) {
+                searchPath.score += 1;
+                SortSearchPaths();
+                return asset;
+            }
         }
     }
     return nullptr;

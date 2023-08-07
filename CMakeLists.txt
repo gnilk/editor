@@ -170,6 +170,7 @@ elseif(UNIX)
     list(APPEND extlibs yaml-cpp)
     add_executable(${CUR_TARGET} ${appsrc})
 
+    add_definitions(-DGEDIT_LINUX)
 
     target_compile_options(${CUR_TARGET} PUBLIC -fPIC)
     target_compile_options(${CUR_TARGET} PUBLIC -Wall -Wextra -Wpedantic -Wshadow)
@@ -262,6 +263,7 @@ list(APPEND editorsrc src/Core/RuntimeConfig.cpp src/Core/RuntimeConfig.cpp)
 list(APPEND editorsrc src/Core/Config/Config.cpp src/Core/Config/Config.h)
 list(APPEND editorsrc src/Core/Config/ConfigNode.cpp src/Core/Config/ConfigNode.h)
 list(APPEND editorsrc src/Core/Theme/Theme.cpp src/Core/Theme/Theme.h)
+list(APPEND editorsrc src/Core/XDGEnvironment.cpp src/Core/XDGEnvironment.h)
 
 
 # Native/Platform
@@ -409,6 +411,8 @@ list(APPEND utestsrc utests/test_logger.cpp)
 list(APPEND utestsrc utests/test_textbuffer.cpp)
 list(APPEND utestsrc utests/test_theme.cpp)
 list(APPEND utestsrc utests/test_workspace.cpp)
+list(APPEND utestsrc utests/test_xgdenv.cpp)
+
 list(APPEND utestsrc src/Core/Tests/test_dcoverlay.cpp)
 
 

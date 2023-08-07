@@ -70,7 +70,7 @@ namespace gedit {
             if (!model->GetTextBuffer()->CanEdit()) {
                 statusLine += "[locked] | ";
             }
-            statusLine += model->GetTextBuffer()->HaveLanguage()?model->GetTextBuffer()->LangParser().Identifier():"none";
+            statusLine += model->GetTextBuffer()->HaveLanguage() ? model->GetTextBuffer()->GetLanguage().Identifier() : "none";
 
             dc.FillLine(row, kTextAttributes::kInverted, ' ');
             dc.DrawStringWithAttributesAt(0,row, kTextAttributes::kInverted, statusLine.c_str());

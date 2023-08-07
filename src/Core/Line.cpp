@@ -5,7 +5,6 @@
 #include <string_view>
 #include <string>
 
-#include "Core/EditorConfig.h"
 #include "Core/StrUtil.h"
 #include "Core/Line.h"
 

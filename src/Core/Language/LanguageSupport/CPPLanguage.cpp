@@ -9,7 +9,6 @@
 #include <string>
 
 #include "CPPLanguage.h"
-#include "Core/EditorConfig.h"
 
 using namespace gedit;
 

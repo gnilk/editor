@@ -3,7 +3,6 @@
 //
 
 #include "JSONLanguage.h"
-#include "Core/EditorConfig.h"
 
 using namespace gedit;
 //

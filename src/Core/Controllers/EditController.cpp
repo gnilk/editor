@@ -6,7 +6,6 @@
 //
 
 #include "EditController.h"
-#include "Core/EditorConfig.h"
 #include "Core/UndoHistory.h"
 #include <sstream>
 

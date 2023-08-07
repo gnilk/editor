@@ -56,10 +56,9 @@ namespace gedit {
         void Delete(int at);
         void Move(Line::Ref dst, int dstOfs, int srcOfs, int nChar = -1);
         void Delete(int at, int n);
-        int Unindent();
+        int Unindent(size_t tabSize);
         void SetIndent(int newIndent) { indent = newIndent; }
         int Indent() { return indent; }
-//        int ComputeIndent();
 
         LineAttribIterator AttributeAt(int pos);
         std::vector<LineAttrib> &Attributes() { return attribs; }

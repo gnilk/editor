@@ -148,7 +148,7 @@ void Line::Delete(int at, int n) {
     }
     NotifyChangeHandler();
 }
-int Line::Unindent() {
+int Line::Unindent(size_t tabSize) {
     size_t maxLen = 0;
     {
         std::lock_guard<std::mutex> guard(lock);
@@ -160,8 +160,8 @@ int Line::Unindent() {
         if (maxLen == std::string::npos) {
             return 0;
         }
-        if (maxLen > static_cast<size_t>(EditorConfig::Instance().tabSize)) {
-            maxLen = static_cast<size_t>(EditorConfig::Instance().tabSize);
+        if (maxLen > tabSize) {
+            maxLen = tabSize;
         }
         buffer.erase(0, maxLen);
     }

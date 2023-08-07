@@ -1,5 +1,5 @@
 main:
-  backend: ncurses
+  backend: sdl
   theme: default.theme.yml
   # select the keymap default for the backend
   # 'default' is a reserved word - replace with your file name when forking it...
@@ -12,7 +12,12 @@ main:
     - ~/.config/gedit/bootstrap.script
     - ~/.gedit
 
+#
+# During initial boot up the console is the logger but once we have the config loaded the logger will reinitalize
+#
 logging:
+  logsink: filesink
+  logfile: goatedit.log
   disable_all: yes
   enable_modules:
     - "Runloop"

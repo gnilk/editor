@@ -9,9 +9,10 @@
 #include "Core/Cursor.h"
 #include "Core/Line.h"
 #include <memory>
+#include "Core/Config/ConfigNode.h"
 
 namespace gedit {
-    class LanguageBase {
+    class LanguageBase : public ConfigNode {
     public:
         enum class kInsertAction {
             kDefault,
@@ -40,6 +41,12 @@ namespace gedit {
         virtual kInsertAction OnPreInsertChar(Cursor &cursor, Line::Ref line, int ch) { return kInsertAction::kDefault; }
         virtual kInsertAction OnPreCreateNewLine(const Line::Ref newLine) { return kInsertAction::kDefault; }
         virtual void OnPostInsertChar(Cursor &cursor, Line::Ref line, int ch) { }
+
+        // Common Language Settings
+        int GetTabSize();
+    protected:
+        void ConfigFromNodeName(const std::string nodeName);
+
     protected:
         LangLineTokenizer tokenizer;
     };

@@ -31,6 +31,9 @@ void XDGEnvironment::Reset() {
     Initialize();
 }
 
+const std::filesystem::path &XDGEnvironment::GetUserHomePath() const {
+    return pathHome;
+}
 
 const std::filesystem::path &XDGEnvironment::GetUserDataPath() const {
     return userData.fsPath;

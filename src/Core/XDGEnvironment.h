@@ -18,6 +18,9 @@ namespace gedit {
         static const XDGEnvironment &Instance();
 
         [[nodiscard]]
+        const std::filesystem::path &GetUserHomePath() const;
+
+        [[nodiscard]]
         const std::filesystem::path &GetUserDataPath() const;
         [[nodiscard]]
         const std::filesystem::path &GetUserConfigPath() const;

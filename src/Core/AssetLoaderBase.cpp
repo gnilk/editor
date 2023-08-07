@@ -17,6 +17,8 @@
 using namespace gedit;
 
 void AssetLoaderBase::AddSearchPath(const std::filesystem::path &path) {
+    auto logger = gnilk::Logger::GetLogger("AssetLoader");
+    logger->Debug("Adding path: %s",path.c_str());
     baseSearchPaths.push_back({0, path});
 }
 

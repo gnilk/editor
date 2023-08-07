@@ -14,6 +14,12 @@
 namespace gedit {
     class AssetLoaderBase {
     public:
+        enum class kLocationType {
+            kAny,
+            kSystem,
+            kUser,
+        };
+    public:
         class Asset {
             friend AssetLoaderBase;
         public:
@@ -40,15 +46,17 @@ namespace gedit {
     private:
         struct SearchPath {
             int score = 0;
+            kLocationType locationType;
             std::filesystem::path path;
         };
     public:
-        void AddSearchPath(const std::filesystem::path &path);
+        void AddSearchPath(const std::filesystem::path &path, kLocationType locationType);
 
         // Will load as-is
-        Asset::Ref LoadAsset(const std::string &fileName);
+        Asset::Ref LoadAsset(const std::string &fileName, kLocationType locationType = kLocationType::kAny);
+
         // Will zero terminate
-        Asset::Ref LoadTextAsset(const std::string &fileName);
+        Asset::Ref LoadTextAsset(const std::string &fileName, kLocationType locationType = kLocationType::kAny);
 
 
     protected:

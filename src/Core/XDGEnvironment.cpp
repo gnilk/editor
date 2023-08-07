@@ -137,6 +137,9 @@ std::pair<std::string, bool> XDGEnvironment::GetEnv(const std::string &var, cons
 }
 
 std::filesystem::path XDGEnvironment::PathFromVar(const std::string &var) {
+    if (var.empty()) {
+        return {};
+    }
     if (var.at(0) != '/') {
         return {var};
     }

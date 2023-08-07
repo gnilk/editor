@@ -57,6 +57,9 @@ bool JSONLanguage::Initialize() {
 
     tokenizer.SetStartState("main");
 
+    // Grab configuration (if any)
+    ConfigFromNodeName("json");
+
     return true;
 }
 
@@ -64,13 +67,13 @@ LanguageBase::kInsertAction JSONLanguage::OnPreInsertChar(Cursor &cursor, Line::
     // FIXME: This needs much more logic...
     if (ch == '}') {
         // FIXME: Check if line is 'empty' up-to x-pos
-        cursor.position.x -= EditorConfig::Instance().tabSize;
+        cursor.position.x -= GetTabSize();
         if (cursor.position.x < 0) {
             cursor.position.x = 0;
         }
     } else if (ch == ']') {
         // FIXME: Check if line is 'empty' up-to x-pos
-        cursor.position.x -= EditorConfig::Instance().tabSize;
+        cursor.position.x -= GetTabSize();
         if (cursor.position.x < 0) {
             cursor.position.x = 0;
         }

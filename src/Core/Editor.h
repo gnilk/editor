@@ -143,12 +143,12 @@ namespace gedit {
         const QuickCommandController &GetQuickCommandController() {
             return quickCommandController;
         }
-        void ConfigureLogger();
 
         void TriggerUIRedraw();
     protected:
         bool TryLoadConfig(const char *configFile);
-
+        void ConfigurePreInitLogger();
+        void ConfigureLogger();
         void ConfigureLanguages();
         void ConfigureColorTheme();
         void ConfigureSubSystems();

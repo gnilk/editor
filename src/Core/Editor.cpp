@@ -41,6 +41,7 @@
 #include <sys/stat.h>
 #include <wordexp.h>
 #include <unistd.h>
+#include "Core/XDGEnvironment.h"
 // API stuff
 #include "Core/API/EditorAPI.h"
 
@@ -65,30 +66,24 @@ bool Editor::Initialize(int argc, const char **argv) {
     if (isInitialized) {
         return true;
     }
-    ConfigureLogger();
+    ConfigurePreInitLogger();
 
     // Makes it easier to detect starting in file-appending log-file...
     logger->Debug("*************** EDITOR STARTING ***************");
 
-    auto ptrEnvHome = getenv("HOME");
-    std::string envHome = {};
-    if (ptrEnvHome != nullptr) {
-        envHome = std::string(ptrEnvHome);
-        logger->Debug("$HOME = %s", ptrEnvHome);
-    }
-    std::filesystem::path pathHome = envHome;
-    logger->Debug("Home, path is now: %s",pathHome.c_str());
-
+    auto pathHome = XDGEnvironment::Instance().GetUserHomePath();
     auto &assetLoader = RuntimeConfig::Instance().GetAssetLoader();
+
     // During development, we search in the current directory
     assetLoader.AddSearchPath("goatedit/");
+
+    // On macOS we add the bundle-root/Contents/SharedSupport to the search path..
+#ifdef GEDIT_MACOS
     // Add ".goatedit" in the root folder for the user
     assetLoader.AddSearchPath(pathHome / ".goatedit");
     // Add the Linux (Ubuntu?) .config folder
     assetLoader.AddSearchPath( pathHome / ".config/" / glbApplicationName);
 
-    // On macOS we add the bundle-root/Contents/SharedSupport to the search path..
-#ifdef GEDIT_MACOS
     CFBundleRef bundle = CFBundleGetMainBundle();
     CFURLRef bundleURL = CFBundleCopyBundleURL(bundle);
     char path[PATH_MAX];
@@ -98,11 +93,39 @@ bool Editor::Initialize(int argc, const char **argv) {
     std::filesystem::path pathBundle = path;
     assetLoader.AddSearchPath(pathBundle / "Contents" / "SharedSupport");
     logger->Debug("We are on macOS, bundle path: %s", path);
-#else
+#elifdef GEDIT_LINUX
     // On Linux (and others) Add the usr/share directory - this is our default from the install script...
-    logger->Debug("We are on Linux, adding '/usr/share/goatedit' to search path");
+    logger->Debug("We are on Linux, resolving XDG paths");
+    auto usrLocalPath = XDGEnvironment::Instance().GetFirstSystemDataPathWithPrefix("/usr/local");
+    if (usrLocalPath.has_value()) {
+        assetLoader.AddSearchPath(usrLocalPath.value());
+    } else {
+        auto defaultSysPath = XDGEnvironment::Instance().GetFirstSystemDataPath();
+        assetLoader.AddSearchPath(defaultSysPath);
+    }
+    // Add in the user data...
+    auto userData = XDGEnvironment::Instance().GetUserDataPath();
+    assetLoader.AddSearchPath(userData);
+
+    // Add ".goatedit" in the root folder for the user - if someone is installing on old systems
+    assetLoader.AddSearchPath(pathHome / ".goatedit");
+
+#else
+    logger->Error("Unknown or unsupported/untested OS - assuming unix-based");
     assetLoader.AddSearchPath("/usr/share/goatedit");
+    // Add ".goatedit" in the root folder for the user - if someone is installing on old systems
+    assetLoader.AddSearchPath(pathHome / ".goatedit");
 #endif
+    // should probably rename the config-file to 'goatedit.yml' or something...
+    if (!TryLoadConfig("config.yml")) {
+        logger->Error("Configuration file missing - please reinstall!!");
+        return false;
+    }
+
+    ConfigureLogger();
+    logger->Debug("*********** Config file was loaded, pre-boot completed **************");
+
+    // Verify if this is a good idea...
     auto cwd = std::filesystem::current_path();
     if (!strutil::startsWith(cwd.string(), pathHome.string())) {
         logger->Warning("Working Directory (%s) outside of home directory, changing to home-root (%s)", cwd.c_str(), pathHome.c_str());
@@ -111,14 +134,6 @@ bool Editor::Initialize(int argc, const char **argv) {
     cwd = std::filesystem::current_path();
     logger->Debug("CWD is: %s", cwd.c_str());
 
-
-
-
-    // should probably rename the config-file to 'goatedit.yml' or something...
-    if (!TryLoadConfig("config.yml")) {
-        logger->Error("Configuration file missing - please reinstall!!");
-        return false;
-    }
 
     // here - try merge the current configuration with '.goatedit.yml' from ~/.goatedit
     // or just skip that and let the user change '~/.config/goatedit/goatedit.yml'
@@ -153,10 +168,6 @@ bool Editor::Initialize(int argc, const char **argv) {
     }
 
     ConfigureGlobalAPIObjects();
-
-    // FIXME: Remove this..
-    workspace->OpenFolder("Plugins");
-
 
     // create a model if cmd-line didn't specify any
     // this will cause editor to start with at least one new file...
@@ -298,17 +309,46 @@ bool Editor::CloseModel(EditorModel::Ref model) {
     return workspace->CloseModel(model);
 }
 
+// This is the log-path before config file has been loaded - it will only be the console..
+void Editor::ConfigurePreInitLogger() {
+    gnilk::Logger::Initialize();
+    logger = gnilk::Logger::GetLogger("System");
+}
+
 // Must be called before 'LoadConfig' - as the config loader will output debug info...
 void Editor::ConfigureLogger() {
-    // FIXME: Need better log-path's for real-world deployments
-    static const char *sinkArgv[]={"autoflush","file","/Users/gnilk/logfile.log"};
+//    static const char *sinkArgv[]={"autoflush","file","logfile.log"};
     gnilk::Logger::Initialize();
-    auto fileSink = new gnilk::LogFileSink();
-    gnilk::Logger::AddSink(fileSink, "fileSink", 3, sinkArgv);
-    // Remove the console sink (it is auto-created in debug-mode)
-    gnilk::Logger::RemoveSink("console");
-    logger = gnilk::Logger::GetLogger("System");
 
+    auto cfgLogging = Config::Instance().GetNode("logging");
+    auto logFileName = cfgLogging.GetStr("logfile","goatedit.log");
+    auto sinkName = cfgLogging.GetStr("logsink","filesink");
+
+#ifdef GEDIT_LINUX
+    auto logPath = XDGEnvironment::Instance().GetUserStatePath();
+    if (!std::filesystem::exists(logPath)) {
+        logger->Debug("LogPath root '%s' invalid, trying to create..", logPath.c_str());
+        if (!std::filesystem::create_directories(logPath)) {
+            logger->Error("Logpath '%s' invalid, keeping console logging...", logPath.c_str());
+            return;
+        }
+    }
+#else
+    // TODO: this needs more work
+    auto logPath = XDGEnvironment::Instance().GetUserHomePath();
+#endif
+
+    logPath /= logFileName;
+    if (sinkName == "filesink") {
+        auto fileSink = new gnilk::LogFileSink();
+        const char *sinkArgv[]={"autoflush", "file", logPath.c_str()};
+        gnilk::Logger::AddSink(fileSink, sinkName.c_str(), 3, sinkArgv);
+        // Remove the console sink (it is auto-created in debug-mode)
+        gnilk::Logger::RemoveSink("console");
+    } else {
+        logger->Error("Unknown sink: %s", sinkName.c_str());
+        exit(1);
+    }
 }
 
 // This must be called after 'LoadConfig' - part of initialization process

@@ -121,8 +121,12 @@ bool Editor::Initialize(int argc, const char **argv) {
         logger->Error("Configuration file missing - please reinstall!!");
         return false;
     }
+    logger->Debug("Configuration loaded, proceeding with rest of startup");
 
     ConfigureLogger();
+    ConfigureLogFilter();
+
+    // From this point on we have proper logging to files....
     logger->Debug("*********** Config file was loaded, pre-boot completed **************");
 
     // Verify if this is a good idea...
@@ -133,15 +137,6 @@ bool Editor::Initialize(int argc, const char **argv) {
     }
     cwd = std::filesystem::current_path();
     logger->Debug("CWD is: %s", cwd.c_str());
-
-
-    // here - try merge the current configuration with '.goatedit.yml' from ~/.goatedit
-    // or just skip that and let the user change '~/.config/goatedit/goatedit.yml'
-
-    logger->Debug("Configuration loaded, proceeding with rest of startup");
-
-    // When we have the config we can set up the log-filter...
-    ConfigureLogFilter();
 
     // Language configuration must currently be done before we load editor models
     ConfigureLanguages();
@@ -315,9 +310,8 @@ void Editor::ConfigurePreInitLogger() {
     logger = gnilk::Logger::GetLogger("System");
 }
 
-// Must be called before 'LoadConfig' - as the config loader will output debug info...
+// Called after config has been loaded
 void Editor::ConfigureLogger() {
-//    static const char *sinkArgv[]={"autoflush","file","logfile.log"};
     gnilk::Logger::Initialize();
 
     auto cfgLogging = Config::Instance().GetNode("logging");

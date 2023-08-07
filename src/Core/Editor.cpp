@@ -81,9 +81,9 @@ bool Editor::Initialize(int argc, const char **argv) {
     // On macOS we add the bundle-root/Contents/SharedSupport to the search path..
 #if defined(GEDIT_MACOS)
     // Add ".goatedit" in the root folder for the user
-    assetLoader.AddSearchPath(pathHome / ".goatedit");
+    assetLoader.AddSearchPath(pathHome / ".goatedit", AssetLoaderBase::kLocationType::kUser);
     // Add the Linux (Ubuntu?) .config folder
-    assetLoader.AddSearchPath( pathHome / ".config/" / glbApplicationName);
+    assetLoader.AddSearchPath( pathHome / ".config/" / glbApplicationName, AssetLoaderBase::kLocationType::kUser);
 
     CFBundleRef bundle = CFBundleGetMainBundle();
     CFURLRef bundleURL = CFBundleCopyBundleURL(bundle);
@@ -92,7 +92,7 @@ bool Editor::Initialize(int argc, const char **argv) {
     assert(success);
     CFRelease(bundleURL);
     std::filesystem::path pathBundle = path;
-    assetLoader.AddSearchPath(pathBundle / "Contents" / "SharedSupport");
+    assetLoader.AddSearchPath(pathBundle / "Contents" / "SharedSupport", AssetLoaderBase::kLocationType::kSystem);
     logger->Debug("We are on macOS, bundle path: %s", path);
 #elif defined(GEDIT_LINUX)
     // On Linux (and others) Add the usr/share directory - this is our default from the install script...
@@ -113,9 +113,9 @@ bool Editor::Initialize(int argc, const char **argv) {
 
 #else
     logger->Error("Unknown or unsupported/untested OS - assuming unix-based");
-    assetLoader.AddSearchPath("/usr/share/goatedit");
+    assetLoader.AddSearchPath("/usr/share/goatedit", AssetLoaderBase::kLocationType::kSystem);
     // Add ".goatedit" in the root folder for the user - if someone is installing on old systems
-    assetLoader.AddSearchPath(pathHome / ".goatedit");
+    assetLoader.AddSearchPath(pathHome / ".goatedit", AssetLoaderBase::kLocationType::kUser);
 #endif
     // should probably rename the config-file to 'goatedit.yml' or something...
     if (!TryLoadConfig("config.yml")) {

@@ -55,6 +55,11 @@ namespace strutil {
         }
     }
 
+    void split(std::vector<std::string> &strings, const std::string &strInput, int splitChar) {
+        return split(strings, strInput.c_str(), splitChar);
+    }
+
+
     bool isinteger(const std::string& s) {
         // not empty, and we want the iterator to any non-digit (or end() if all are digits)
         return (!s.empty() && std::find_if(s.begin(),

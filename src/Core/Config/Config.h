@@ -9,6 +9,8 @@
 #include <vector>
 #include <assert.h>
 #include <optional>
+#include <logger.h>
+
 #include "Core/NamedColors.h"
 #include "Core/Theme/Theme.h"
 #include "Core/Config/ConfigNode.h"
@@ -20,7 +22,8 @@ namespace gedit {
         static Config &Instance();
 
         // Load configuration and alos the theme file
-        bool LoadConfig(const std::string &filename) override;
+        bool LoadSystemConfig(const std::string &filename);
+        bool MergeUserConfig(const std::string &filename, bool replace);
 
         const Theme::Ref GetTheme() {
             return theme;
@@ -31,7 +34,7 @@ namespace gedit {
 
     private:
         Config();   // Hide CTOR...
-
+        gnilk::Logger::ILogger *logger = nullptr;
         Theme::Ref theme = nullptr;
         void SetDefaultsIfMissing();
     };

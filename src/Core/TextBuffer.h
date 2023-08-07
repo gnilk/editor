@@ -147,7 +147,7 @@ namespace gedit {
         size_t Flatten(char *outBuffer, size_t maxBytes, size_t idxFromLine, size_t nLines);
 
         bool HaveLanguage() { return language!= nullptr; }
-        LanguageBase &LangParser() { return *language; }
+        LanguageBase &GetLanguage() { return *language; }
 
         bool CanEdit();
         void Reparse();

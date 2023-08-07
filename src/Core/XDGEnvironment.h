@@ -66,10 +66,11 @@ namespace gedit {
             return isInitialized;
         }
         bool ResolvePathAndVar(PathVar &pathVar, const std::string &var, const std::string &defaultValue);
-        bool ResolvePathListFromVar(PathList &pathList, const std::string &var, const std::string &defaultValue);
-        std::pair<std::string, bool> GetEnv(const std::string &var, const std::string &defaultValue);
+        static bool ResolvePathListFromVar(PathList &pathList, const std::string &var, const std::string &defaultValue);
+
+        static std::pair<std::string, bool> GetEnv(const std::string &var, const std::string &defaultValue);
         std::filesystem::path PathFromVar(const std::string &var);
-        bool PathListFromVar(std::vector<std::filesystem::path> &outList, const std::string &varValue);
+        static bool PathListFromVar(std::vector<std::filesystem::path> &outList, const std::string &varValue);
     private:
     private:
         bool isInitialized = false;

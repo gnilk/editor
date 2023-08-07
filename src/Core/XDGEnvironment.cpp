@@ -144,6 +144,9 @@ std::filesystem::path XDGEnvironment::PathFromVar(const std::string &var) {
 bool XDGEnvironment::PathListFromVar(std::vector<std::filesystem::path> &outList, const std::string &varValue) {
     std::vector<std::string> parts;
     strutil::split(parts, varValue, ':');
+    if (parts.empty()) {
+        return false;
+    }
 
     // Clear if we already have something..
     outList.clear();

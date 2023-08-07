@@ -155,6 +155,9 @@ namespace gedit {
         void ConfigureGlobalAPIObjects();
         void ConfigureLogFilter();
 
+        bool CheckCreateDirectory(const std::filesystem::path &path);
+
+
         // TEMP - backend configuration
         void SetupNCurses();
         void SetupSDL();

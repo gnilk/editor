@@ -326,17 +326,13 @@ void Editor::ConfigureLogger() {
 
 #ifdef GEDIT_LINUX
     auto logPath = XDGEnvironment::Instance().GetUserStatePath();
-    if (!std::filesystem::exists(logPath)) {
-        logger->Debug("LogPath root '%s' invalid, trying to create..", logPath.c_str());
-        if (!std::filesystem::create_directories(logPath)) {
-            logger->Error("Logpath '%s' invalid, keeping console logging...", logPath.c_str());
-            return;
-        }
-    }
 #else
-    // TODO: this needs more work
     auto logPath = XDGEnvironment::Instance().GetUserHomePath();
+    logPath /= "Library/Logs/GoatEdit";
 #endif
+    if (!CheckCreateDirectory(logPath)) {
+        return;
+    }
 
     logPath /= logFileName;
     if (sinkName == "filesink") {
@@ -349,6 +345,17 @@ void Editor::ConfigureLogger() {
         logger->Error("Unknown sink: %s", sinkName.c_str());
         exit(1);
     }
+}
+
+bool Editor::CheckCreateDirectory(const std::filesystem::path &path) {
+    if (!std::filesystem::exists(path)) {
+        logger->Debug("LogPath root '%s' invalid, trying to create..", path.c_str());
+        if (!std::filesystem::create_directories(path)) {
+            logger->Error("Logpath '%s' invalid, keeping console logging...", path.c_str());
+            return false;
+        }
+    }
+    return true;
 }
 
 // This must be called after 'LoadConfig' - part of initialization process

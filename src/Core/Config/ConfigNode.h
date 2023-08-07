@@ -12,6 +12,8 @@
 #include <optional>
 #include <assert.h>
 
+#include "Core/AssetLoaderBase.h"
+
 namespace gedit {
     class ConfigNode {
     public:
@@ -106,7 +108,7 @@ namespace gedit {
             return std::map<std::string, std::string>();
         }
 
-        virtual bool LoadConfig(const std::string &filename);
+        bool LoadConfig(const std::string &filename, AssetLoaderBase::kLocationType locationType = AssetLoaderBase::kLocationType::kAny);
 
         static std::optional<ConfigNode> FromString(const std::string yamlData) {
             ConfigNode cfgNode;
@@ -117,9 +119,15 @@ namespace gedit {
             return cfgNode;
         }
 
+        void MergeNode(ConfigNode &other);
+
         // This is more like a last resort kind of thing...
         const YAML::Node &GetDataNode() const {
             return dataNode;
+        }
+
+        void CopyNode(ConfigNode &other) {
+            this->dataNode = other.dataNode;
         }
 
 

@@ -4,12 +4,12 @@
 #include "Core/RuntimeConfig.h"
 
 #include "ConfigNode.h"
-
+#include "YAMLMerge.h"
 using namespace gedit;
 
-bool ConfigNode::LoadConfig(const std::string &filename) {
+bool ConfigNode::LoadConfig(const std::string &filename, AssetLoaderBase::kLocationType locationType) {
     auto &assetLoader = RuntimeConfig::Instance().GetAssetLoader();
-    auto configAsset = assetLoader.LoadTextAsset(filename);
+    auto configAsset = assetLoader.LoadTextAsset(filename, locationType);
     if (configAsset == nullptr) {
         return false;
     }
@@ -20,3 +20,8 @@ bool ConfigNode::LoadConfig(const std::string &filename) {
     }
     return true;
 }
+
+void ConfigNode::MergeNode(ConfigNode &other) {
+    YAMLMerge::MergeNode(dataNode, other.dataNode);
+}
+

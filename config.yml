@@ -16,6 +16,7 @@ main:
 # During initial boot up the console is the logger but once we have the config loaded the logger will reinitalize
 #
 logging:
+  # supported options: filesink, console
   logsink: filesink
   logfile: goatedit.log
   disable_all: yes

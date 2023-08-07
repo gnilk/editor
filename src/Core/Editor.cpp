@@ -66,6 +66,7 @@ bool Editor::Initialize(int argc, const char **argv) {
     if (isInitialized) {
         return true;
     }
+    // Default should be that the logger is completely disabled but if --enable-logging or similar is given we enable it...
     ConfigurePreInitLogger();
 
     // Makes it easier to detect starting in file-appending log-file...

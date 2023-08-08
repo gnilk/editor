@@ -139,6 +139,9 @@ bool Editor::Initialize(int argc, const char **argv) {
     cwd = std::filesystem::current_path();
     logger->Debug("CWD is: %s", cwd.c_str());
 
+    // Load and configure theme related details..
+    ConfigureTheme();
+
     // Language configuration must currently be done before we load editor models
     ConfigureLanguages();
 
@@ -190,7 +193,6 @@ bool Editor::Initialize(int argc, const char **argv) {
 
 bool Editor::OpenScreen() {
     ConfigureSubSystems();
-    ConfigureColorTheme();
     return true;
 }
 
@@ -396,15 +398,23 @@ void Editor::ConfigureLanguages() {
 
 }
 
+
 // FIXME: This is more than a bit ugly - not really sure where to stuff it..
 // Could put in the theme class but than I would depend on LanguageToken stuff - which I quite don't like..
-void Editor::ConfigureColorTheme() {
+void Editor::ConfigureTheme() {
     logger->Debug("Configuring colors and theme");
 
-    auto theme = Config::Instance().GetTheme();
+    auto mainNode = Config::Instance().GetNode("main");
+    auto themeFile = mainNode.GetStr("theme", "default.theme.yml");
+
+    theme = Theme::Create();
     if (theme == nullptr) {
         return;
     }
+    if (!theme->Load(themeFile)) {
+        return;
+    }
+
 
     // This map's the various content colors to tokenizer classes for syntax highlighting
 

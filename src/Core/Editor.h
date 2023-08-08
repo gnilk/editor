@@ -19,6 +19,7 @@
 #include "Core/TypeUtil.h"
 #include "Core/Controllers/QuickCommandController.h"
 #include "Core/KeyMapping.h"
+#include "Core/Theme/Theme.h"
 #include "ClipBoard.h"
 namespace gedit {
 //
@@ -129,6 +130,10 @@ namespace gedit {
             return clipboard;
         }
 
+        const Theme::Ref GetTheme() {
+            return theme;
+        }
+
 
         EditorModel::Ref OpenModelFromWorkspace(Workspace::Node::Ref workspaceNode);
         EditorModel::Ref NewModel(const std::string &name);
@@ -150,10 +155,13 @@ namespace gedit {
         void ConfigurePreInitLogger();
         void ConfigureLogger();
         void ConfigureLanguages();
-        void ConfigureColorTheme();
+        void ConfigureTheme();
         void ConfigureSubSystems();
         void ConfigureGlobalAPIObjects();
         void ConfigureLogFilter();
+
+
+
 
         bool CheckCreateDirectory(const std::filesystem::path &path);
 
@@ -171,6 +179,8 @@ namespace gedit {
 
         // Holds all open models/buffers in the text editor
         std::vector<EditorModel::Ref> openModels = {};
+
+        Theme::Ref theme = nullptr;
 
         ClipBoard clipboard;
         Workspace::Ref workspace = nullptr;

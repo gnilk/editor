@@ -13,6 +13,7 @@
 //#include <map>
 
 #include <SDL2/SDL.h>
+#include <logger.h>
 
 #include "Core/ScreenBase.h"
 #include "Core/WindowBase.h"
@@ -42,6 +43,7 @@ namespace gedit {
     private:
         void ComputeScalingFactors();
         void CreateTextures();
+        void LoadFontFromTheme();
 
     private:
         SDL_Window* sdlWindow = nullptr;
@@ -57,6 +59,8 @@ namespace gedit {
         // In characters (which is what the editor works with)
         int rows = 0;
         int cols = 0;
+
+        gnilk::Logger::ILogger *logger = nullptr;
 
     };
 }

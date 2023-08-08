@@ -50,7 +50,7 @@ ScreenBase::Ref SDLScreen::Create() {
 
 bool SDLScreen::Open() {
 
-    auto logger = gnilk::Logger::GetLogger("SDLScreen");
+    logger = gnilk::Logger::GetLogger("SDLScreen");
 
     logger->Debug("Opening window");
 
@@ -95,15 +95,18 @@ bool SDLScreen::Open() {
 
     logger->Debug("Resolution: %d x %d", widthPixels, heightPixels);
 
-    //
-    // FIXME: The font handling should probably be in a separate function as we want to change this without reopening the window...
-    //
+    LoadFontFromTheme();
+    ComputeScalingFactors();
+    CreateTextures();
+    return true;
+}
 
+void SDLScreen::LoadFontFromTheme() {
     // Resolve font name from theme
     auto currentTheme = Editor::Instance().GetTheme();
     if (currentTheme == nullptr) {
         logger->Error("Theme not loaded!!!!");
-        return -1;
+        return;
     }
     auto fontName = currentTheme->GetStr("font","Andale Mono.ttf");
     logger->Debug("Loading font: '%s'", fontName.c_str());
@@ -113,7 +116,7 @@ bool SDLScreen::Open() {
     auto fontAsset = assetLoader.LoadAsset(fontName);
     if (fontAsset == nullptr) {
         logger->Error("Unable to open font: '%s'\n", fontName.c_str());
-        return -1;
+        return;
     }
     // Create an in-memory loader for this asset and open the font
     auto sdlRWOps = SDL_RWFromConstMem(fontAsset->GetPtrAs<const void *>(), (int)fontAsset->GetSize());
@@ -121,20 +124,16 @@ bool SDLScreen::Open() {
 
     if (font == nullptr) {
         logger->Error("Unable to load font: '%s'\n", fontName.c_str());
-        return -1;
+        return;
     }
 
     // Set the font active..
     SDLFontManager::Instance().SetActiveFont(font);
 
-    ComputeScalingFactors();
-    CreateTextures();
-    return true;
 }
 
 // This is called also from resize...
 void SDLScreen::ComputeScalingFactors() {
-    auto logger = gnilk::Logger::GetLogger("SDLScreen");
 
     auto displayId = SDL_GetWindowDisplayIndex(sdlWindow);
     SDL_DisplayMode displayMode;
@@ -199,7 +198,6 @@ void SDLScreen::CreateTextures() {
 
 
 void SDLScreen::OnSizeChanged() {
-    auto logger = gnilk::Logger::GetLogger("SDLScreen");
     logger->Debug("Size changed!!!");
     logger->Debug("Recomputing scaling factors and recreating tetxures");
     ComputeScalingFactors();

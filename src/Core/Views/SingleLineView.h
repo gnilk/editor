@@ -33,7 +33,7 @@ namespace gedit {
     protected:
         void DrawViewContents() override {
             auto &dc = window->GetContentDC();
-            auto theme = Config::Instance().GetTheme();
+            auto theme = Editor::Instance().GetTheme();
             auto &uiColors = theme->GetUIColors();
 
             if (parentView->IsActive()) {

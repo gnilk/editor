@@ -13,7 +13,6 @@
 #include "Core/Point.h"
 #include "Core/TextAttributes.h"
 #include "Core/ColorRGBA.h"
-#include "Core/Config/Config.h"
 
 namespace gedit {
 
@@ -105,14 +104,7 @@ namespace gedit {
             OnColorUpdate();
         }
 
-        __inline void ResetDrawColors() const {
-            auto theme = Config::Instance().GetTheme();
-
-            auto newBgColor = theme->GetGlobalColors().GetColor("background");
-            auto newFgColor = theme->GetGlobalColors().GetColor("foreground");
-            SetColor(newFgColor, newBgColor);
-
-        }
+        void ResetDrawColors() const;
 
         void AddOverlay(const Overlay &newOverlay) {
             overlays.push_back(newOverlay);

@@ -6,12 +6,13 @@
 #include "logger.h"
 #include "LineRender.h"
 #include "Editor.h"
+#include "Core/Editor.h"
 using namespace gedit;
 
 // This assumes X = 0
 void LineRender::DrawLines(const std::vector<Line::Ref> &lines, int idxTopLine, int idxBottomLine, const Selection &selection) {
     auto &rect = dc.GetRect();
-    auto &theme = Config::Instance().GetTheme();
+    auto &theme = Editor::Instance().GetTheme();
     auto contentColors = theme->GetContentColors();
 
 

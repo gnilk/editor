@@ -7,8 +7,8 @@
 
 #include <memory>
 #include <functional>
-#include "Core/Config/Config.h"
 #include "VisibleView.h"
+#include "Core/Editor.h"
 #include "Core/VerticalNavigationViewModel.h"
 
 namespace gedit {
@@ -153,7 +153,7 @@ namespace gedit {
             auto &dc = window->GetContentDC();
             dc.ResetDrawColors();
 
-            auto theme = Config::Instance().GetTheme();
+            auto theme = Editor::Instance().GetTheme();
             auto &uiColors = theme->GetUIColors();
             dc.SetColor(uiColors["foreground"], uiColors["background"]);
 

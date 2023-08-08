@@ -8,7 +8,7 @@
 #include "GutterView.h"
 #include "logger.h"
 #include "Core/Editor.h"
-
+#include "Core/Editor.h"
 using namespace gedit;
 
 GutterView::GutterView() : ViewBase() {
@@ -56,7 +56,7 @@ void GutterView::DrawViewContents() {
 
     auto &dc = window->GetContentDC();
 
-    auto theme = Config::Instance().GetTheme();
+    auto theme = Editor::Instance().GetTheme();
     auto &uiColors = theme->GetUIColors();
     dc.SetColor(uiColors["gutter_foreground"], uiColors["gutter_background"]);
 

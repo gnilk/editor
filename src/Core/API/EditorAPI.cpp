@@ -16,7 +16,7 @@ TextBufferAPI::Ref EditorAPI::GetActiveTextBuffer() {
     return std::make_shared<TextBufferAPI>(model->GetTextBuffer());
 }
 ThemeAPI::Ref EditorAPI::GetCurrentTheme() {
-    auto theme = Config::Instance().GetTheme();
+    auto theme = Editor::Instance().GetTheme();
     return std::make_shared<ThemeAPI>(theme);
 }
 

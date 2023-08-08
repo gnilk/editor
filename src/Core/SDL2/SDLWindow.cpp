@@ -17,7 +17,7 @@
 #include <SDL2/SDL.h>
 
 #include "ext/stbttf.h"
-
+#include "Core/Editor.h"
 using namespace gedit;
 
 static bool glbDebugSDLWindows = false;
@@ -114,7 +114,7 @@ void SDLWindow::Clear() {
 
     SDL_SetRenderTarget(renderer, windowBackBuffer);
 
-    auto theme = Config::Instance().GetTheme();
+    auto theme = Editor::Instance().GetTheme();
     SDLColor bgColor(theme->GetGlobalColors().GetColor("background"));
     bgColor.Use(renderer);
 
@@ -204,7 +204,7 @@ void SDLWindow::OnDrawCursor(const Cursor &cursor) {
     }
     // SDL_PIXELFORMAT_RGBA8888
     auto dc = static_cast<SDLDrawContext *>(clientContext);
-    auto theme = Config::Instance().GetTheme();
+    auto theme = Editor::Instance().GetTheme();
     // FillRect assumes the render target has been set..
     SDL_SetRenderTarget(renderer, dc->renderTarget);
     dc->SetFGColor(theme->GetGlobalColors().GetColor("caret"));

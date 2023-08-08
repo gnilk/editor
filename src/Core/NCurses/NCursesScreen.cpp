@@ -11,6 +11,8 @@
 
 #include "logger.h"
 
+#include "Core/Editor.h"
+
 #include "NCursesColorRepository.h"
 #include "NCursesWindow.h"
 #include "NCursesScreen.h"
@@ -85,7 +87,7 @@ void NCursesScreen::Clear() {
     //clear();
     // hmm... we can cache this one...
 
-    auto theme = Config::Instance().GetTheme();
+    auto theme = Editor::Instance().GetTheme();
     if (theme == nullptr) {
         return;
     }

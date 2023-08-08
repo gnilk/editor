@@ -23,6 +23,7 @@
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_video.h>
+#include "Core/Editor.h"
 
 #define STB_RECT_PACK_IMPLEMENTATION
 #define STB_TRUETYPE_IMPLEMENTATION
@@ -99,7 +100,7 @@ bool SDLScreen::Open() {
     //
 
     // Resolve font name from theme
-    auto currentTheme = Config::Instance().GetTheme();
+    auto currentTheme = Editor::Instance().GetTheme();
     if (currentTheme == nullptr) {
         logger->Error("Theme not loaded!!!!");
         return -1;
@@ -221,7 +222,7 @@ void SDLScreen::Close() {
 
 void SDLScreen::Clear() {
     SDL_SetRenderTarget(sdlRenderer, nullptr);
-    auto theme = Config::Instance().GetTheme();
+    auto theme = Editor::Instance().GetTheme();
     SDLColor bgColor(theme->GetGlobalColors().GetColor("background"));
     bgColor.Use(sdlRenderer);
     SDL_RenderClear(sdlRenderer);

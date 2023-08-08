@@ -106,6 +106,8 @@ if (APPLE)
     # This copies the 'goatedit' (shared resource folder) in to the application bundle...
     add_custom_command(
             TARGET ${CUR_TARGET}
+            DEPENDS plugins
+            DEPENDS resources
             POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_directory ${EDITOR_ASSET_DIR} $<TARGET_FILE_DIR:${CUR_TARGET}>/../SharedSupport
     )

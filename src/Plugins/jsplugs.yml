@@ -10,6 +10,11 @@ commands:
     description: help
     script: Scripts/help.js
   -
+    name: hello
+    short: hello
+    description: hello
+    script: Scripts/hello.js
+  -
     name: setlanguage
     short: sl
     description: Set the language of the active buffer

@@ -3,6 +3,7 @@
 //
 /*
  * TO-DO List
+ * - Save screen position and size upon resize/move and similar, restore on startup (use XDG state directory)
  * - Searching should be threaded, see if we can use some new CPP features for this..
  * - LanguageToken to ScreenColor mapping is right now done in the editor - not sure where this should be..
  * - Refactor initialization, split app init from data loading (data loading should happen afterwards - when UI is up and running)

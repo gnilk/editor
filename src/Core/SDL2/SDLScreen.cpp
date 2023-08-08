@@ -55,10 +55,10 @@ bool SDLScreen::Open() {
     logger->Debug("Opening window");
 
     int nDrivers = SDL_GetNumVideoDrivers();
-    printf("Available Video Drivers (%d):\n",nDrivers);
+    logger->Debug("Available Video Drivers (%d):\n",nDrivers);
     for(int i=0;i<nDrivers;i++) {
         auto driverName = SDL_GetVideoDriver(i);
-        printf("  %d:%s\n",i,driverName);
+        logger->Debug("  %d:%s\n",i,driverName);
     }
 
     widthPixels = Config::Instance()["sdl"].GetInt("default_width", 1920);
@@ -70,6 +70,8 @@ bool SDLScreen::Open() {
         printf("Error: SDL_Init, %s\n", SDL_GetError());
         exit(1);
     }
+
+    logger->Debug("SDL initialized ok, video driver = %s", SDL_GetCurrentVideoDriver());
 
     int windowFlags = SDL_WINDOW_RESIZABLE;
 

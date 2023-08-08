@@ -303,7 +303,7 @@ list(APPEND editorsrc src/Core/Views/TreeView.h)
 list(APPEND editorsrc src/Core/Views/TreeSelectionModal.cpp src/Core/Views/TreeSelectionModal.h)
 
 # draw helper
-list(APPEND editorsrc src/Core/DrawContext.h)
+list(APPEND editorsrc src/Core/DrawContext.cpp src/Core/DrawContext.h)
 list(APPEND editorsrc src/Core/Point.h)
 list(APPEND editorsrc src/Core/Rect.h)
 list(APPEND editorsrc src/Core/LineRender.cpp src/Core/LineRender.h)

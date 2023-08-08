@@ -441,33 +441,39 @@ add_custom_target(
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 )
 
+##
+## Add configuration files so they get copied when changed...
+##
 #
-# Add configuration files so they get copied when changed...
+#add_custom_target(config ${CMAKE_COMMAND} -E copy_if_different
+#        ${CMAKE_CURRENT_LIST_DIR}/config.yml ${EDITOR_ASSET_DIR})
 #
-
-add_custom_target(config ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_CURRENT_LIST_DIR}/config.yml ${EDITOR_ASSET_DIR})
-
-add_custom_target(colors ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_CURRENT_LIST_DIR}/colors.json ${EDITOR_ASSET_DIR})
-
-add_custom_target(default_theme ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_CURRENT_LIST_DIR}/default.theme.yml ${EDITOR_ASSET_DIR})
-
-add_custom_target(font ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_CURRENT_LIST_DIR}/Andale\ Mono.ttf ${EDITOR_ASSET_DIR})
+#add_custom_target(colors ${CMAKE_COMMAND} -E copy_if_different
+#        ${CMAKE_CURRENT_LIST_DIR}/colors.json ${EDITOR_ASSET_DIR})
+#
+#add_custom_target(default_theme ${CMAKE_COMMAND} -E copy_if_different
+#        ${CMAKE_CURRENT_LIST_DIR}/default.theme.yml ${EDITOR_ASSET_DIR})
+#add_custom_target(font ${CMAKE_COMMAND} -E copy_if_different
+#        ${CMAKE_CURRENT_LIST_DIR}/Andale\ Mono.ttf ${EDITOR_ASSET_DIR})
 
 # copy_directory_if_different available in cmake 3.26 or better...
 if (${CMAKE_VERSION} VERSION_LESS "3.26.0")
+    add_custom_target(resources ${CMAKE_COMMAND} -E copy_directory
+            ${CMAKE_CURRENT_SOURCE_DIR}/Assets/Resources ${EDITOR_ASSET_DIR})
+
     add_custom_target(plugins ${CMAKE_COMMAND} -E copy_directory
             ${CMAKE_CURRENT_SOURCE_DIR}/src/Plugins ${EDITOR_ASSET_DIR}/Plugins)
 else()
+    add_custom_target(resources ${CMAKE_COMMAND} -E copy_directory_if_different
+            ${CMAKE_CURRENT_SOURCE_DIR}/Assets/Resources ${EDITOR_ASSET_DIR})
+
     add_custom_target(plugins ${CMAKE_COMMAND} -E copy_directory_if_different
             ${CMAKE_CURRENT_SOURCE_DIR}/src/Plugins ${EDITOR_ASSET_DIR}/Plugins)
 endif()
 
-add_dependencies(${CUR_TARGET} config colors font plugins default_theme)
-add_dependencies(Unit_Tests config colors font plugins default_theme)
+#add_dependencies(${CUR_TARGET} config colors font plugins default_theme resources)
+add_dependencies(${CUR_TARGET} plugins resources)
+add_dependencies(Unit_Tests plugins resources)
 
 
 set_target_properties(logtest PROPERTIES EXCLUDE_FROM_ALL true)

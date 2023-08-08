@@ -9,7 +9,7 @@ main:
   bootstrap_script_comment: "//"
   cmdlet_prefix: "."
   bootstrap_scripts:
-    - ~/.config/gedit/bootstrap.script
+    - bootstrap.script
     - ~/.gedit
 
 #

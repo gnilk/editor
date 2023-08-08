@@ -11,7 +11,7 @@ set(CMAKE_CXX_STANDARD 17)
 # /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -kill -seed
 
 
-set(EDITOR_ASSET_DIR ${CMAKE_CURRENT_BINARY_DIR}/goatedit)
+set(EDITOR_ASSET_DIR ${CMAKE_CURRENT_BINARY_DIR}/resources)
 
 message(STATUS "Assets directory: ${EDITOR_ASSET_DIR}")
 if (NOT EXISTS ${EDITOR_ASSET_DIR})

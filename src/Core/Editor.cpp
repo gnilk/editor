@@ -240,6 +240,7 @@ void Editor::Close() {
     openModels.clear();
 }
 
+//
 void Editor::RunPostInitalizationScript() {
 
     auto scriptFiles = Config::Instance()["main"].GetSequenceOfStr("bootstrap_scripts");
@@ -248,26 +249,39 @@ void Editor::RunPostInitalizationScript() {
         wordexp(scriptFile.c_str(), &exp_result, 0);
         std::string strScript(exp_result.we_wordv[0]);
         wordfree(&exp_result);
-
         logger->Debug("Trying: %s", strScript.c_str());
+
         // Verify if shell exists...
         struct stat scriptStat = {};
-        if (stat(strScript.c_str(),&scriptStat)) {
-            logger->Error("Can't find bootstrap script '%s' - please verify path\n", strScript.c_str());
-            continue;
+        if (!stat(strScript.c_str(),&scriptStat)) {
+            logger->Debug("Script '%s' is absolute - executing", strScript.c_str());
+            std::ifstream f(strScript);
+            ExecutePostScript(f);
+        } else {
+            auto &assetLoader = RuntimeConfig::Instance().GetAssetLoader();
+            auto scriptAsset = assetLoader.LoadTextAsset(strScript, AssetLoaderBase::kLocationType::kSystem);
+            if (scriptAsset != nullptr) {
+                logger->Debug("System Script '%s' found by asset loader, executing", strScript.c_str());
+                std::stringstream f(scriptAsset->GetPtrAs<const char *>());
+                ExecutePostScript(f);
+            }
+            scriptAsset = assetLoader.LoadTextAsset(strScript, AssetLoaderBase::kLocationType::kUser);
+            if (scriptAsset != nullptr) {
+                logger->Debug("User defined script '%s' found by asset loader, executing", strScript.c_str());
+                std::stringstream f(scriptAsset->GetPtrAs<const char *>());
+                ExecutePostScript(f);
+            }
+
         }
-        logger->Debug("Ok, loading and executing '%s'", strScript.c_str());
-        ExecutePostScript(strScript);
     }
 }
 
-void Editor::ExecutePostScript(const std::string &scriptFile) {
-    std::ifstream f(scriptFile);
+void Editor::ExecutePostScript(std::istream &stream) {
     auto comment = Config::Instance()["main"].GetStr("bootstrap_script_comment", "//");
 
-    while(!f.eof()) {
+    while(!stream.eof()) {
         char buffer[128];
-        f.getline(buffer, 128);
+        stream.getline(buffer, 128);
         std::string strcmd(buffer);
         if (!strcmd.empty()) {
             if (!strutil::startsWith(strcmd, comment)) {

@@ -173,7 +173,7 @@ namespace gedit {
         void SetupNCurses();
         void SetupSDL();
 
-        void ExecutePostScript(const std::string &scriptFile);
+        void ExecutePostScript(std::istream &stream);
     private:
         Editor() = default;
     private:

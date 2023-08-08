@@ -3,7 +3,7 @@
 # Note: I throughly dislike CMake but I find it better than plain makefiles so that's it..
 #
 cmake_minimum_required(VERSION 3.22)
-project(editor VERSION 0.1)
+project(goatedit VERSION 0.1)
 set(CMAKE_CXX_STANDARD 17)
 
 # When changing the Assets/CMake/Info.plist.in - which will rebuild the bundle Info.plist we must
@@ -57,7 +57,7 @@ endif ()
 #endif ()
 
 
-set(CUR_TARGET editor)
+set(CUR_TARGET goatedit)
 
 if (APPLE)
     set(CMAKE_OSX_ARCHITECTURES "x86_64;arm64" CACHE STRING "")
@@ -107,12 +107,12 @@ if (APPLE)
     add_custom_command(
             TARGET ${CUR_TARGET}
             POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_directory ${EDITOR_ASSET_DIR} $<TARGET_FILE_DIR:editor>/../SharedSupport
+            COMMAND ${CMAKE_COMMAND} -E copy_directory ${EDITOR_ASSET_DIR} $<TARGET_FILE_DIR:${CUR_TARGET}>/../SharedSupport
     )
     add_custom_command(
             TARGET ${CUR_TARGET}
             POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/Assets/CMake/GoatEdit.icns $<TARGET_FILE_DIR:editor>/../Resources
+            COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/Assets/CMake/GoatEdit.icns $<TARGET_FILE_DIR:${CUR_TARGET}>/../Resources
     )
 
     target_compile_options(${CUR_TARGET} PUBLIC -Wall -Wextra -Wpedantic -Wshadow)
@@ -205,6 +205,15 @@ elseif(UNIX)
     INCLUDE(CPack)
 
 endif ()
+
+#
+#
+#
+target_compile_definitions(${CUR_TARGET} PUBLIC GEDIT_APP_NAME=GoatEdit)
+target_compile_definitions(${CUR_TARGET} PUBLIC GEDIT_VERSION_MAJOR=0)
+target_compile_definitions(${CUR_TARGET} PUBLIC GEDIT_VERSION_MINOR=1)
+target_compile_definitions(${CUR_TARGET} PUBLIC GEDIT_VERSION_PATCH=0)
+
 
 #
 # Dependencies
@@ -392,10 +401,10 @@ list(APPEND includedirs ${DUKTAPE_EXTRAS}/module-node)
 
 
 
-target_sources(editor PUBLIC ${editorsrc} ${jsapi} ${duktape})
-target_link_directories(editor PUBLIC ${linkdirs})
-target_include_directories(editor PUBLIC ${includedirs})
-target_link_libraries(editor ${extlibs})
+target_sources(${CUR_TARGET} PUBLIC ${editorsrc} ${jsapi} ${duktape})
+target_link_directories(${CUR_TARGET} PUBLIC ${linkdirs})
+target_include_directories(${CUR_TARGET} PUBLIC ${includedirs})
+target_link_libraries(${CUR_TARGET} ${extlibs})
 
 #
 # unit testing
@@ -457,7 +466,7 @@ else()
             ${CMAKE_CURRENT_SOURCE_DIR}/src/Plugins ${EDITOR_ASSET_DIR}/Plugins)
 endif()
 
-add_dependencies(editor config colors font plugins default_theme)
+add_dependencies(${CUR_TARGET} config colors font plugins default_theme)
 add_dependencies(Unit_Tests config colors font plugins default_theme)
 
 

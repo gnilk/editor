@@ -21,6 +21,13 @@ void LineRender::DrawLines(const std::vector<Line::Ref> &lines, int idxTopLine, 
             break;
         }
         auto line = lines[i];
+
+        // I've seen a crash ONCE where there was interference between this and the language parser
+        // But I couldn't determine the crash, std::mutex (down the drain) would throw an exception..
+//        if (line->IsLocked()) {
+//            continue; // This is fishy - we should probably log this
+//        }
+
         line->Lock();
         auto nCharToPrint = line->Length() > static_cast<size_t>(rect.Width()) ? static_cast<size_t>(rect.Width()) : line->Length();
         dc.ClearLine(i - idxTopLine);

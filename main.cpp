@@ -182,84 +182,71 @@
 using namespace gedit;
 
 
-extern char glbFillchar;
+//extern char glbFillchar;      // this is a special case for NCurses when debugging drawing
 
-//static void TestKeyBoardDriver() {
-//    auto screen = RuntimeConfig::Instance().Screen();
-//    auto keyboardDriver = RuntimeConfig::Instance().Keyboard();
-//    auto logger = gnilk::Logger::GetLogger("kbdtest");
+
+#include <stdexcept>
+#include <execinfo.h>
+#include <exception>
+#include <stdexcept>
+#include <cstdlib>
+#include <csignal>
+#include <iostream>
+
+// Testing out termination handling
+// The following two blocks of code was taken from: https://stackoverflow.com/questions/61798770/questions-regarding-the-usage-of-set-terminate
 //
-//    SDL_StartTextInput();
+// If this 'works' I should probably replace some of it with the new CPP features for stack-traces...
 //
-//    bool bQuit = false;
-//    while(!bQuit) {
-//        auto kp = keyboardDriver->GetKeyPress();
-//        if (!kp.IsAnyValid()) {
-//            continue;
-//        }
-//        if ((kp.isSpecialKey) && (kp.specialKey == Keyboard::kKeyCode_Escape)) {
-//            bQuit = true;
-//            continue;
-//        }
-//        if (kp.isSpecialKey) {
-//            auto keyName = Keyboard::KeyCodeName(static_cast<Keyboard::kKeyCode>(kp.specialKey));
-//            logger->Debug("special kp, modifiers=%.2x, specialKey=%.2x (%s)", kp.modifiers, kp.specialKey, keyName.c_str());
-//        } else {
-//            logger->Debug("kp, modifiers=%.2x, scancode=%.2x, key=%.2x (%c), isKey=%s", kp.modifiers, kp.hwEvent.scanCode, kp.key, kp.key, kp.isKeyValid?"yes":"no");
-//        }
-//        if (kp.IsAnyValid()) {
-//
-//            logger->Debug("KeyPress Valid - checking actions");
-//
-//            auto &keyMap = Editor::Instance().GetActiveKeyMap();
-//            auto kpAction = keyMap.ActionFromKeyPress(kp);
-//            if (kpAction.has_value()) {
-//                logger->Debug("Action '%s' found - modifier: 0x%.2x (%s)",
-//                              keyMap.ActionName(kpAction->action).c_str(),
-//                              kpAction->modifierMask,
-//                              keyMap.ModifierName(*kpAction->actionModifier).c_str());
-//            }
-//        }
-//    }
-//    screen->Close();
-//    exit(1);
-//
-//}
-//static void TestViewDrawing() {
-//    TestView testView(Rect(Point(10,10),40,30));
-//    //TestView testView;
-//    auto screen = RuntimeConfig::Instance().Screen();
-//
-//
-//    testView.Initialize();
-//    testView.InvalidateAll();
-//    RuntimeConfig::Instance().SetRootView(&testView);
-//
-//    screen->Clear();
-//    testView.Draw();
-//    screen->Update();
-//
-//    screen->Clear();
-//    testView.Draw();
-//    screen->Update();
-//
-//    Runloop::DefaultLoop();
-//    //Runloop::TestLoop();
-//}
-//
-//
-//
+
+// This function is used for handle segmental fault
+inline void segfaultHandler(int signal __attribute__((unused)))
+{
+    void *stackArray[20];
+    size_t size = backtrace(stackArray, 10);
+    std::cerr << "Segmentation fault! backtrace: ";
+    char** backtrace = backtrace_symbols(stackArray, size);
+    for (size_t i = 0; i < size; i++)
+    {
+        std::cerr << "\t" << backtrace[i];
+    }
+    abort();
+}
+
+// This is terminate handle function
+inline void exceptionHandler()
+{
+    static bool triedThrow = false;
+    try {
+        if(!triedThrow) {
+            triedThrow = true;
+            throw;
+        }
+    }
+    catch( const std::exception &e) {
+        std::cerr << "Caught unhandled exception: " << e.what();
+    }
+    catch(...){}
+    void *stackArray[20];
+    size_t size = backtrace(stackArray, 10);
+    std::cerr << "Segmentation fault! backtrace: ";
+    char** backtrace = backtrace_symbols(stackArray, size);
+    for (size_t i = 0; i < size; i++) {
+        std::cerr << "\t" << backtrace[i];
+    }
+    abort();
+}
+
+
 
 int main(int argc, const char **argv) {
 
+    signal(SIGSEGV, segfaultHandler);
+    std::set_terminate(exceptionHandler);
+
+
     Editor::Instance().Initialize(argc, argv);
     Editor::Instance().OpenScreen();
-
-//    {
-//        auto screen = RuntimeConfig::Instance().Screen();
-//        screen->Close();
-//        return -1;
-//    }
 
 
     // Note: This can be implicit
@@ -285,8 +272,6 @@ int main(int argc, const char **argv) {
     logger->Debug("Creating views");
     logger->Debug("Dimensions (x,y): %d, %d", dimensions.Width(), dimensions.Height());
 
-//    TestViewDrawing();
-//    exit(1);
 
     //
     // The views are configured like this; the number indicates the view depth/hierachy
@@ -397,7 +382,6 @@ int main(int argc, const char **argv) {
     //
 
     Runloop::DefaultLoop();
-
     Editor::Instance().Close();
 
     logger->Debug("Left main loop, closing graphics subsystem");

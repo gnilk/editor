@@ -78,6 +78,7 @@ namespace gedit {
 
         void Lock();
         void Release();
+        __inline bool IsLocked() { return isLocked; }
 
 
         char First() {

@@ -151,6 +151,9 @@ namespace gedit {
 
         void TriggerUIRedraw();
     protected:
+        void PreParseArguments(int argc, const char **argv);
+
+
         bool TryLoadConfig(const char *configFile);
         void ConfigurePreInitLogger();
         void ConfigureLogger();
@@ -176,6 +179,7 @@ namespace gedit {
     private:
         bool isInitialized = false;
         gnilk::ILogger *logger = nullptr;
+        bool keepConsoleLogger = false;
 
         // Holds all open models/buffers in the text editor
         std::vector<EditorModel::Ref> openModels = {};

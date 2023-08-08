@@ -66,6 +66,8 @@ bool Editor::Initialize(int argc, const char **argv) {
     if (isInitialized) {
         return true;
     }
+    PreParseArguments(argc, argv);
+
     // Default should be that the logger is completely disabled but if --enable-logging or similar is given we enable it...
     ConfigurePreInitLogger();
 
@@ -155,9 +157,6 @@ bool Editor::Initialize(int argc, const char **argv) {
             if (cmdSwitch == "backend") {
                 auto strBackend = argv[++i];
                 Config::Instance()["main"].SetStr("backend",strBackend);
-            } else {
-                printf("Error: Unknown command line option: %s\n", argv[i]);
-                exit(1);
             }
         } else {
             if (!LoadModel(argv[i])) {
@@ -190,6 +189,26 @@ bool Editor::Initialize(int argc, const char **argv) {
     isInitialized = true;
     return true;
 }
+
+// Grab stuff which controls initialization
+void Editor::PreParseArguments(int argc, const char **argv) {
+    for (int i = 1; i < argc; i++) {
+        std::string arg(argv[i]);
+        if (strutil::startsWith(arg, "--")) {
+            std::string cmdSwitch = std::string(&argv[i][2]);
+            if (cmdSwitch == "console_logging") {
+                keepConsoleLogger = true;
+            } else if (cmdSwitch == "--help") {
+                printf("No help for the wicked...\n");
+                exit(1);
+            }
+        } else if ((arg == "-h") || (arg == "-H") || (arg == "-?")) {
+            printf("No help for the wicked...\n");
+            exit(1);
+        }
+    }
+}
+
 
 bool Editor::OpenScreen() {
     ConfigureSubSystems();
@@ -311,6 +330,9 @@ bool Editor::CloseModel(EditorModel::Ref model) {
 void Editor::ConfigurePreInitLogger() {
     gnilk::Logger::Initialize();
     logger = gnilk::Logger::GetLogger("System");
+    if (!keepConsoleLogger) {
+        gnilk::Logger::RemoveSink("console");
+    }
 }
 
 // Called after config has been loaded
@@ -337,7 +359,9 @@ void Editor::ConfigureLogger() {
         const char *sinkArgv[]={"autoflush", "file", logPath.c_str()};
         gnilk::Logger::AddSink(fileSink, sinkName.c_str(), 3, sinkArgv);
         // Remove the console sink (it is auto-created in debug-mode)
-        gnilk::Logger::RemoveSink("console");
+        if (!keepConsoleLogger) {
+            gnilk::Logger::RemoveSink("console");
+        }
     } else {
         logger->Error("Unknown sink: %s", sinkName.c_str());
         exit(1);

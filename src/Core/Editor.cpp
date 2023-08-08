@@ -55,7 +55,16 @@
 
 using namespace gedit;
 
-static const std::string glbApplicationName = "goatedit";
+#define xstr(a) str(a)
+#define xstrver(a,b,c) str(a) "." str(b) "." str(c)
+#define str(a) #a
+
+static const std::string glbApplicationName = xstr(GEDIT_APP_NAME);
+static const std::string glbVersionString = xstrver(GEDIT_VERSION_MAJOR, GEDIT_VERSION_MINOR, GEDIT_VERSION_PATCH);
+
+#undef str
+#undef xstrver
+#undef xstr
 
 Editor &Editor::Instance() {
     static Editor glbSystem;
@@ -199,14 +208,22 @@ void Editor::PreParseArguments(int argc, const char **argv) {
             if (cmdSwitch == "console_logging") {
                 keepConsoleLogger = true;
             } else if (cmdSwitch == "--help") {
-                printf("No help for the wicked...\n");
+                PrintHelpToConsole();
                 exit(1);
             }
         } else if ((arg == "-h") || (arg == "-H") || (arg == "-?")) {
-            printf("No help for the wicked...\n");
+            PrintHelpToConsole();
             exit(1);
         }
     }
+}
+
+void Editor::PrintHelpToConsole() {
+    printf("%s - v%s, cmdline startup options\n", glbApplicationName.c_str(), glbVersionString.c_str());
+    printf("use: %s <options> [files...]\n", glbApplicationName.c_str());
+    printf("Options:\n");
+    printf("  --console_logging, enables console logging to console, this is needed to get pre-initalization logging (before config has been loaded)\n");
+    printf("  --backend <sdl | ncurses>, override the configuration file backend\n");
 }
 
 
@@ -713,3 +730,9 @@ void Editor::TriggerUIRedraw() {
     }
 }
 
+const std::string &Editor::GetAppName() {
+    return glbApplicationName;
+}
+const std::string &Editor::GetVersion() {
+    return glbVersionString;
+}

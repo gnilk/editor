@@ -134,6 +134,9 @@ namespace gedit {
             return theme;
         }
 
+        const std::string &GetAppName();
+        const std::string &GetVersion();
+
 
         EditorModel::Ref OpenModelFromWorkspace(Workspace::Node::Ref workspaceNode);
         EditorModel::Ref NewModel(const std::string &name);
@@ -162,12 +165,9 @@ namespace gedit {
         void ConfigureSubSystems();
         void ConfigureGlobalAPIObjects();
         void ConfigureLogFilter();
-
-
-
-
         bool CheckCreateDirectory(const std::filesystem::path &path);
 
+        void PrintHelpToConsole();
 
         // TEMP - backend configuration
         void SetupNCurses();

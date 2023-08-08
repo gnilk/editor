@@ -36,12 +36,6 @@ bool Config::LoadSystemConfig(const std::string &filename) {
         logger->Error("ERR: Configuration has no 'main' section");
         return false;
     }
-    auto themeFile = (*this)["main"].GetStr("theme", "default.theme.yml");
-    if (!LoadTheme(themeFile)) {
-        // output some error here
-        logger->Error("ERR: Missing theme, tried: '%s'",themeFile.c_str());
-        return false;
-    }
 
     return true;
 }
@@ -59,14 +53,6 @@ bool Config::MergeUserConfig(const std::string &filename, bool replace) {
     return true;
 }
 
-
-bool Config::LoadTheme(const std::string &themeFile) {
-    theme = Theme::Create();
-    if (theme == nullptr) {
-        return false;
-    }
-    return theme->Load(themeFile);
-}
 
 extern std::string glbDefaultConfig;
 void Config::SetDefaultsIfMissing() {

@@ -3,6 +3,8 @@
 //
 /*
  * TO-DO List
+ * - Add some tool awareness (like ability to jump to src:line when compiling and so forth)
+ *   Either through some kind of build command which can attach parsers to the console..
  * - Save screen position and size upon resize/move and similar, restore on startup (use XDG state directory)
  * - Searching should be threaded, see if we can use some new CPP features for this..
  * - LanguageToken to ScreenColor mapping is right now done in the editor - not sure where this should be..

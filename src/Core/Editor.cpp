@@ -87,7 +87,7 @@ bool Editor::Initialize(int argc, const char **argv) {
     auto &assetLoader = RuntimeConfig::Instance().GetAssetLoader();
 
     // During development, we search in the current directory
-    assetLoader.AddSearchPath("goatedit/", AssetLoaderBase::kLocationType::kSystem);
+    assetLoader.AddSearchPath("resources/", AssetLoaderBase::kLocationType::kSystem);
 
     // On macOS we add the bundle-root/Contents/SharedSupport to the search path..
 #if defined(GEDIT_MACOS)

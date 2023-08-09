@@ -692,7 +692,31 @@ KeyMapping::Ref Editor::GetKeyMapping(const std::string &name) {
     if (HasKeyMapping(name)) {
         return keymappings[name];
     }
-    auto keymap = KeyMapping::Create(name);
+    logger->Debug("Keymap '%s' not found - creating", name.c_str());
+#if defined(GEDIT_LINUX)
+    auto osRootNode = Config::Instance().GetNode("linux");
+#elif defined(GEDIT_MACOS)
+    auto osRootNode = Config::Instance().GetNode("macos");
+#else
+    logger->Error("This should not happen...");
+    exit(1);
+#endif
+    auto strKeymapFile = osRootNode.GetStr(name, "Default/default_keymap.yml");
+    auto assetLoader = RuntimeConfig::Instance().GetAssetLoader();
+    auto keymapAsset = assetLoader.LoadTextAsset(strKeymapFile);
+    if (keymapAsset == nullptr) {
+        logger->Error("Keymap '%s' not found via '%s'", name.c_str(), strKeymapFile.c_str());
+        return nullptr;
+    }
+    auto keymapConfig = ConfigNode::FromString(keymapAsset->GetPtrAs<const char *>());
+    if (!keymapConfig.has_value()) {
+        logger->Error("Keymap could not be constructed from asset '%s'", strKeymapFile.c_str());
+        return nullptr;
+    }
+
+    //auto cfgNode = Config::Instance().GetNode(name);
+    auto cfgNode = keymapConfig->GetNode("keymap");
+    auto keymap = KeyMapping::Create(cfgNode);
     if (keymap == nullptr) {
         logger->Error("No keymap with name '%s'", name.c_str());
         return nullptr;
@@ -701,6 +725,9 @@ KeyMapping::Ref Editor::GetKeyMapping(const std::string &name) {
         logger->Error("Keymap '%s' failed to initialize");
         return nullptr;
     }
+
+    logger->Debug("Ok, keymap '%s' (from '%s') initialized and cached!", name.c_str(), strKeymapFile.c_str());
+
     // Add to the 'cache'
     keymappings[name] = keymap;
     return keymap;

@@ -304,7 +304,7 @@ list(APPEND editorsrc src/Core/Views/GutterView.cpp src/Core/Views/GutterView.h)
 list(APPEND editorsrc src/Core/Views/CommandView.cpp src/Core/Views/CommandView.h)
 list(APPEND editorsrc src/Core/Views/SingleLineView.h)
 list(APPEND editorsrc src/Core/Views/EditorHeaderView.h)
-list(APPEND editorsrc src/Core/Views/HSplitViewStatus.h)
+list(APPEND editorsrc src/Core/Views/HSplitViewStatus.cpp src/Core/Views/HSplitViewStatus.h)
 list(APPEND editorsrc src/Core/Views/WorkspaceView.cpp src/Core/Views/WorkspaceView.h)
 
 # modals/dialogs/etc..

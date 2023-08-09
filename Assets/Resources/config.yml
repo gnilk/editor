@@ -21,15 +21,24 @@ logging:
   logfile: goatedit.log
   disable_all: yes
   enable_modules:
-    - "Runloop"
     - "System"
-    - "TextBuffer"
-    - "EditModel"
+    - "HSplitViewStatus"
 
+#
+# keymapping varies a bit for native feel, thus - each OS has their own file to map nicely
+# in order to change this you need to copy the file and override it completely
+# note: DO NOT use the same filename as in the default configuration!
+#
 macos:
   allow_kbd_hook: yes
+  default_keymap: macOS/default_keymap.yml
+  quickmode_keymap: macOS/quickmode_keymap.yml
+  workspace_keymap: macOS/workspace_keymap.yml
 
 linux:
+  default_keymap: Linux/default_keymap.yml
+  quickmode_keymap: Linux/quickmode_keymap.yml
+  workspace_keymap: Linux/workspace_keymap.yml
 
 sdl:
   default_width: 1024
@@ -74,95 +83,7 @@ quickmode:
   prompt_cmdlet: "C:"
   keymap: "quickmode_keymap"
 
-quickmode_keymap: {
-  actions: {
-    CycleActiveViewNext: "']'",
-    CycleActiveViewPrev: "'['",
-    CycleBufferNext : "'\\'",
-    CycleBufferPrev : "'\''",
-    LeaveCommandMode : KeyCode_Escape,
-    CommitLine : KeyCode_Return,
-    StartSearch : "'/'",
-    LastSearch : "'?'",
-    NextSearchResult : "'n'",
-    PrevSearchResult : "'p'",
-    GotoLine : "'g'",
-  }
-}
 
-workspace_keymap: {
-  modifiers: {
-    SelectionModifier: KeyCode_Shift,
-    CopyPasteModifier: KeyCode_Cmd,
-    UINavigationModifier : KeyCode_Alt,
-  },
-  actions: {
-    NavigateLineUp : KeyCode_UpArrow + @SelectionModifier,
-    NavigateLineDown : KeyCode_DownArrow + @SelectionModifier,
-    NavigateLeft : KeyCode_LeftArrow + @SelectionModifier,
-    NavigateRight : KeyCode_RightArrow + @SelectionModifier,
-    CycleActiveViewNext : "UINavigationModifier + ']'",
-    CycleActiveViewPrev : "UINavigationModifier + '['",
-    EnterCommandMode : KeyCode_Escape,
-    CommitLine : KeyCode_Return,
-  }
-}
-
-default_keymap: {
-    # Editor will read this and check the modifier mask controlling an action
-    # For instance, the 'SelectionModifier' is used to enable/disable selections
-    modifiers: {
-      SelectionModifier: KeyCode_Shift,
-      CopyPasteModifier: KeyCode_Cmd,
-      UINavigationModifier : KeyCode_Alt,
-    },
-    # We could allow different actions depending on what we have..
-    # for instance when a 'modal' is active we don't really need all of this...
-    # and we want other 'action names' (Esc = CloseModal, etc..)
-    actions: {
-      NavigateLineUp : KeyCode_UpArrow + @SelectionModifier,
-      NavigateLineDown : KeyCode_DownArrow + @SelectionModifier,
-      NavigateLeft : KeyCode_LeftArrow + @SelectionModifier,
-      NavigateRight : KeyCode_RightArrow + @SelectionModifier,
-      NavigatePageUp : [
-        KeyCode_PageUp + @SelectionModifier,
-        KeyCode_UpArrow + KeyCode_Cmd + @SelectionModifier,
-      ],
-      NavigatePageDown : [
-        KeyCode_PageDown + @SelectionModifier,
-        KeyCode_DownArrow + KeyCode_Cmd + @SelectionModifier
-      ],
-      NavigateLineEnd : [
-        KeyCode_End + @SelectionModifier,
-        KeyCode_RightArrow + KeyCode_Cmd + @SelectionModifier
-      ],
-      NavigateLineHome : [
-        KeyCode_Home + @SelectionModifier,
-        KeyCode_LeftArrow + KeyCode_Cmd + @SelectionModifier
-      ],
-      CopyToClipboard : CopyPasteModifier + 'c',
-      PasteFromClipboard : CopyPasteModifier + 'v',
-      EnterCommandMode : KeyCode_Escape,
-      CycleActiveViewNext : "UINavigationModifier + ']'",
-      CycleActiveViewPrev : "UINavigationModifier + '['",
-      CycleBufferNext : "UINavigationModifier + '\\'",
-      CycleBufferPrev : "UINavigationModifier + '\''",
-      CycleActiveEditor : KeyCode_F3,
-      CommitLine : KeyCode_Return,
-      CommentLine: CopyPasteModifier + '/',
-      GotoFirstLine : KeyCode_Command + KeyCode_Home + @SelectionModifier,
-      GotoLastLine : KeyCode_Command + KeyCode_End + @SelectionModifier,
-      GotoTopLine : KeyCode_Command + KeyCode_PageUp,
-      GotoBottomLine : KeyCode_Command + KeyCode_PageDown,
-      Undo: CopyPasteModifier + 'z',
-
-      NextSearchResult : "KeyCode_Command + 'n'",
-      PrevSearchResult : "KeyCode_Command + 'p'",
-
-      # This doesn't work unless we are in modal-mode..
-      # CloseModal : KeyCode_Escape,
-    }
-}
 
 # old keymap
 # This keymap is tested with macbook with external keyboard..

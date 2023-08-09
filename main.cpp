@@ -3,6 +3,7 @@
 //
 /*
  * TO-DO List
+ * - Define proper keymap for Linux (selection, copy/paste, etc..)
  * - Add some tool awareness (like ability to jump to src:line when compiling and so forth)
  *   Either through some kind of build command which can attach parsers to the console..
  * - Save screen position and size upon resize/move and similar, restore on startup (use XDG state directory)

@@ -1,0 +1,20 @@
+#
+# Keymap file for workspace view
+#
+keymap: {
+  modifiers: {
+    SelectionModifier: KeyCode_Shift,
+    CopyPasteModifier: KeyCode_Cmd,
+    UINavigationModifier : KeyCode_Alt,
+  },
+  actions: {
+    NavigateLineUp : KeyCode_UpArrow + @SelectionModifier,
+    NavigateLineDown : KeyCode_DownArrow + @SelectionModifier,
+    NavigateLeft : KeyCode_LeftArrow + @SelectionModifier,
+    NavigateRight : KeyCode_RightArrow + @SelectionModifier,
+    CycleActiveViewNext : "UINavigationModifier + ']'",
+    CycleActiveViewPrev : "UINavigationModifier + '['",
+    EnterCommandMode : KeyCode_Escape,
+    CommitLine : KeyCode_Return,
+  }
+}

@@ -1,0 +1,58 @@
+#
+# default keymap, this is used in the text editor and any other that does not declare their own keymapping file
+#
+keymap: {
+  # Editor will read this and check the modifier mask controlling an action
+  # For instance, the 'SelectionModifier' is used to enable/disable selections
+  modifiers: {
+    SelectionModifier: KeyCode_Shift,
+    CopyPasteModifier: KeyCode_Cmd,
+    UINavigationModifier: KeyCode_Alt,
+  },
+  # We could allow different actions depending on what we have..
+  # for instance when a 'modal' is active we don't really need all of this...
+  # and we want other 'action names' (Esc = CloseModal, etc..)
+  actions: {
+    NavigateLineUp: KeyCode_UpArrow + @SelectionModifier,
+    NavigateLineDown: KeyCode_DownArrow + @SelectionModifier,
+    NavigateLeft: KeyCode_LeftArrow + @SelectionModifier,
+    NavigateRight: KeyCode_RightArrow + @SelectionModifier,
+    NavigatePageUp: [
+      KeyCode_PageUp + @SelectionModifier,
+      KeyCode_UpArrow + KeyCode_Cmd + @SelectionModifier,
+    ],
+    NavigatePageDown: [
+      KeyCode_PageDown + @SelectionModifier,
+      KeyCode_DownArrow + KeyCode_Cmd + @SelectionModifier
+    ],
+    NavigateLineEnd: [
+      KeyCode_End + @SelectionModifier,
+      KeyCode_RightArrow + KeyCode_Cmd + @SelectionModifier
+    ],
+    NavigateLineHome: [
+      KeyCode_Home + @SelectionModifier,
+      KeyCode_LeftArrow + KeyCode_Cmd + @SelectionModifier
+    ],
+    CopyToClipboard: CopyPasteModifier + 'c',
+    PasteFromClipboard: CopyPasteModifier + 'v',
+    EnterCommandMode: KeyCode_Escape,
+    CycleActiveViewNext: "UINavigationModifier + ']'",
+    CycleActiveViewPrev: "UINavigationModifier + '['",
+    CycleBufferNext: "UINavigationModifier + '\\'",
+    CycleBufferPrev: "UINavigationModifier + '\''",
+    CycleActiveEditor: KeyCode_F3,
+    CommitLine: KeyCode_Return,
+    CommentLine: CopyPasteModifier + '/',
+    GotoFirstLine: KeyCode_Command + KeyCode_Home + @SelectionModifier,
+    GotoLastLine: KeyCode_Command + KeyCode_End + @SelectionModifier,
+    GotoTopLine: KeyCode_Command + KeyCode_PageUp,
+    GotoBottomLine: KeyCode_Command + KeyCode_PageDown,
+    Undo: CopyPasteModifier + 'z',
+
+    NextSearchResult: "KeyCode_Command + 'n'",
+    PrevSearchResult: "KeyCode_Command + 'p'",
+
+    # This doesn't work unless we are in modal-mode..
+    # CloseModal : KeyCode_Escape,
+  }
+}

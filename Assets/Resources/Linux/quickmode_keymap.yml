@@ -1,0 +1,18 @@
+#
+# Keymap file for quick-mode (pressing ESC in any other view)
+#
+keymap: {
+  actions: {
+    CycleActiveViewNext: "']'",
+    CycleActiveViewPrev: "'['",
+    CycleBufferNext : "'\\'",
+    CycleBufferPrev : "'\''",
+    LeaveCommandMode : KeyCode_Escape,
+    CommitLine : KeyCode_Return,
+    StartSearch : "'/'",
+    LastSearch : "'?'",
+    NextSearchResult : "'n'",
+    PrevSearchResult : "'p'",
+    GotoLine : "'g'",
+  }
+}

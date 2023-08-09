@@ -91,6 +91,15 @@ KeyMapping::Ref KeyMapping::Create(const std::string &cfgNodeName) {
     return instance;
 }
 
+KeyMapping::Ref KeyMapping::Create(const ConfigNode &cfgNode) {
+    auto instance = std::make_shared<KeyMapping>();
+    if (!instance->Initialize(cfgNode)) {
+        return nullptr;
+    }
+    return instance;
+
+}
+
 
 //
 // This will build the action maps..
@@ -108,6 +117,21 @@ bool KeyMapping::Initialize(const std::string &cfgNodeName) {
     isInitialized = true;
     return true;
 }
+
+bool KeyMapping::Initialize(const ConfigNode &cfgNode) {
+    if (isInitialized) {
+        return true;
+    }
+
+    if (!RebuildActionMapping(cfgNode)) {
+        return false;
+    }
+
+    // Do stuff
+    isInitialized = true;
+    return true;
+}
+
 
 const std::string &KeyMapping::ModifierName(kActionModifier modifier) {
     static std::string noname = "<none>";   // this is just for debugging purposes anyway...

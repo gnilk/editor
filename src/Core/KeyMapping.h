@@ -35,8 +35,10 @@ namespace gedit {
         virtual ~KeyMapping() = default;
 
         static Ref Create(const std::string &cfgNodeName);
+        static Ref Create(const ConfigNode &cfgNode);
 
         bool Initialize(const std::string &cfgNodeName);
+        bool Initialize(const ConfigNode &cfgNode);
 
         const std::string &ActionName(const kAction action);
         kAction ActionFromName(const std::string &strAction);

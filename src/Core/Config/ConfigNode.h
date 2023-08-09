@@ -5,6 +5,7 @@
 #ifndef EDITOR_CONFIGNODE_H
 #define EDITOR_CONFIGNODE_H
 
+#include <memory>
 #include <yaml-cpp/yaml.h>
 #include <string>
 #include <vector>
@@ -16,6 +17,8 @@
 
 namespace gedit {
     class ConfigNode {
+    public:
+        using Ref = std::shared_ptr<ConfigNode>;
     public:
         ConfigNode() = default;
         virtual ~ConfigNode() = default;

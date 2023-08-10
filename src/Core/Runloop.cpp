@@ -41,6 +41,10 @@ void Runloop::DefaultLoop() {
 
         auto keyPress = keyboardDriver->GetKeyPress();
         if (keyPress.IsAnyValid()) {
+
+            // Don't call this one unless we are debugging
+            // keyPress.DumpToLog();
+
             if (hookedActionHandler) {
                 redraw = Runloop::DispatchToHandler(*hookedActionHandler, keyPress);
             } else {

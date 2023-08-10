@@ -154,6 +154,8 @@ namespace gedit {
 
         void TriggerUIRedraw();
     protected:
+        bool OpenModelOrFolder(const std::string &fileOrFolder);
+
         void PreParseArguments(int argc, const char **argv);
 
 

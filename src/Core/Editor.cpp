@@ -159,6 +159,7 @@ bool Editor::Initialize(int argc, const char **argv) {
     // Create workspace
     workspace = Workspace::Create();
 
+    bool createDefaultWorkspace = true;
     // Parse cmd-line
     for(int i=1;i<argc;i++) {
         if (strutil::startsWith(argv[i], "--")) {
@@ -168,8 +169,11 @@ bool Editor::Initialize(int argc, const char **argv) {
                 Config::Instance()["main"].SetStr("backend",strBackend);
             }
         } else {
-            if (!LoadModel(argv[i])) {
-                printf("Error: No such file '%s'\n", argv[i]);
+            // If we open something, disable the auto-creation of the default workspace...
+            if (OpenModelOrFolder(argv[i])) {
+                createDefaultWorkspace = false;
+            } else {
+                logger->Error("Error: No such file '%s'\n", argv[i]);
             }
         }
     }
@@ -178,24 +182,26 @@ bool Editor::Initialize(int argc, const char **argv) {
 
     // create a model if cmd-line didn't specify any
     // this will cause editor to start with at least one new file...
-    if (openModels.size() == 0) {
+    if (createDefaultWorkspace) {
         // Default workspace will be created if not already..
         workspace->GetDefaultWorkspace();
         auto model = workspace->NewEmptyModel();
         openModels.push_back(model);
+        SetActiveModel(openModels[0]);
     }
 
 
-    // Activate the first loaded file (or empty/new model)
-    //RuntimeConfig::Instance().SetActiveEditorModel(openModels[0]);
-    SetActiveModel(openModels[0]);
 
     auto editKeyMap = GetKeyMapForState(Editor::State::ViewState);
     if (editKeyMap == nullptr) {
         return false;
     }
-
     isInitialized = true;
+
+    // This is a problem - we really don't handle a 'no-file' scenario - the EditorView expects a model!!
+    if (openModels.size() == 0) {
+    }
+
     return true;
 }
 
@@ -341,9 +347,41 @@ EditorModel::Ref Editor::NewModel(const std::string &name) {
     return model;
 }
 
+bool Editor::OpenModelOrFolder(const std::string &fileOrFolder) {
+    auto pathName =std::filesystem::path(fileOrFolder);
+    if (!std::filesystem::exists(pathName)) {
+        logger->Error("File or Folder not found: %s", fileOrFolder.c_str());
+        return false;
+    }
+    if (std::filesystem::is_directory(pathName)) {
+        if (!workspace->OpenFolder(pathName)) {
+            logger->Error("Unable to open folder: %s", fileOrFolder.c_str());
+            return false;
+        }
+        return true;
+    }
+
+    auto model = workspace->NewModelWithFileRef(pathName);
+    if (model == nullptr) {
+        logger->Error("Unable to load file: %s", fileOrFolder.c_str());
+        return false;
+    }
+
+    // All good...
+    model->GetTextBuffer()->Load();
+    openModels.push_back(model);
+    return true;
+
+}
+
 EditorModel::Ref Editor::LoadModel(const std::string &filename) {
-    if (!std::filesystem::exists(std::filesystem::path(filename))) {
+    auto pathName =std::filesystem::path(filename);
+    if (!std::filesystem::exists(pathName)) {
         logger->Error("File not found: %s", filename.c_str());
+        return nullptr;
+    }
+    if (std::filesystem::is_directory(pathName)) {
+        logger->Error("DO NOT CALL 'LoadModel' with directories!!!");
         return nullptr;
     }
     auto model = workspace->NewModelWithFileRef(filename);

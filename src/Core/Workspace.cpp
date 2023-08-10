@@ -12,9 +12,6 @@
 using namespace gedit;
 namespace fs = std::filesystem;
 
-static Workspace::Node::Ref GetOrAddNodePath(Workspace::Node::Ref rootNode, const fs::directory_entry &entry, const fs::path &rootPath);
-
-
 Workspace::Workspace() {
     logger = gnilk::Logger::GetLogger("Workspace");
 }
@@ -199,41 +196,3 @@ Workspace::Node::Ref Workspace::GetOrAddNode(const std::string &name) {
 }
 
 
-// Helper, create nodes for the whole path-tree and return the leaf node
-static Workspace::Node::Ref GetOrAddNodePath(Workspace::Node::Ref rootNode, const fs::directory_entry &entry, const fs::path &rootPath) {
-
-    const auto &name = entry.path().filename();
-    return rootNode->GetOrAddChild(name);
-
-
-    auto currentNode = rootNode;
-
-    if (entry.path().parent_path() != rootPath) {
-        auto parentPath = entry.path().parent_path();
-        for (auto const &elem: parentPath) {
-            if (elem == rootPath) continue; // skip root
-            currentNode = currentNode->GetOrAddChild(elem.string());
-        }
-        if (currentNode == nullptr) {
-            return nullptr;
-        }
-    }
-    return currentNode;
-}
-/*
-static Workspace::Node::Ref GetOrAddNodePath(Workspace::Node::Ref rootNode, const fs::directory_entry &entry, const fs::path &rootPath) {
-    auto currentNode = rootNode;
-
-    if (entry.path().parent_path() != rootPath) {
-        auto parentPath = entry.path().parent_path();
-        for (auto const &elem: parentPath) {
-            if (elem == rootPath) continue; // skip root
-            currentNode = currentNode->GetOrAddChild(elem.string());
-        }
-        if (currentNode == nullptr) {
-            return nullptr;
-        }
-    }
-    return currentNode;
-}
-*/

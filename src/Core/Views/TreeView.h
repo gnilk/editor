@@ -60,7 +60,7 @@ namespace gedit {
         virtual ~TreeView() = default;
         void InitView() override {
             VisibleView::InitView();
-            rootNode->isExpanded = true;
+            rootNode->isExpanded = false;
             viewTopLine = 0;
             viewBottomLine = viewRect.Height();
         }
@@ -124,7 +124,7 @@ namespace gedit {
 
         typename TreeNode::Ref AddItem(typename TreeNode::Ref parent, const T &item) {
             auto treeItem = TreeNode::Create(item);
-            parent->isExpanded = true;
+            parent->isExpanded = false;
             parent->children.emplace_back(treeItem);
 
             // Flatten tree!!!
@@ -136,7 +136,6 @@ namespace gedit {
         static Ref Create() {
             return std::make_shared<TreeView<T> >();
         }
-    protected:
         void Collapse() {
             auto &node = flattenNodeList[idxActiveLine];
             node->isExpanded = false;
@@ -147,6 +146,7 @@ namespace gedit {
             node->isExpanded = true;
             Flatten();
         }
+    protected:
 
         // Note: Depends on flattening
         void DrawViewContents() override {

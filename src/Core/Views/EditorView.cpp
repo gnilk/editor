@@ -32,10 +32,12 @@ void EditorView::InitView()  {
 
     auto &rect = window->GetContentDC().GetRect();
 
+    bUseCLionPageNav = Config::Instance()[cfgSectionName].GetBool("pgupdown_content_first", true);
+
     editorModel = Editor::Instance().GetActiveModel();
     if (editorModel == nullptr) {
         logger->Error("EditorModel is null - no active textbuffer");
-        exit(1);
+        return;
     }
 
     // This is the visible area...
@@ -45,9 +47,6 @@ void EditorView::InitView()  {
        auto textBuffer = editorModel->GetEditController()->GetTextBuffer();
        window->SetCaption(textBuffer->GetName());
     });
-
-
-    bUseCLionPageNav = Config::Instance()[cfgSectionName].GetBool("pgupdown_content_first", true);
 }
 
 void EditorView::ReInitView() {
@@ -58,10 +57,12 @@ void EditorView::ReInitView() {
     window = screen->UpdateWindow(window, viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
     auto &rect = window->GetContentDC().GetRect();
 
+    bUseCLionPageNav = Config::Instance()[cfgSectionName].GetBool("pgupdown_content_first", true);
+
     editorModel = Editor::Instance().GetActiveModel();
     if (editorModel == nullptr) {
         logger->Error("EditorModel is null - no active textbuffer");
-        exit(1);
+        return;
     }
 
     logger->Debug("ReInitView, current model: %s", editorModel->GetTextBuffer()->GetName().c_str());
@@ -70,16 +71,22 @@ void EditorView::ReInitView() {
     editorModel->viewTopLine = 0;
     editorModel->viewBottomLine = rect.Height();
 
-    bUseCLionPageNav = Config::Instance()[cfgSectionName].GetBool("pgupdown_content_first", true);
 }
 
 void EditorView::OnResized() {
     // Update the view Bottom line - as this affects how many lines we draw...
-    editorModel->viewBottomLine = GetContentRect().Height();
+    if (editorModel != nullptr) {
+        editorModel->viewBottomLine = GetContentRect().Height();
+    }
     ViewBase::OnResized();
 }
 
 void EditorView::DrawViewContents() {
+    // Nothing to draw we don't have a model...
+    if (editorModel == nullptr) {
+        return;
+    }
+
     auto &dc = window->GetContentDC(); //ViewBase::ContentAreaDrawContext();
     logger->Debug("DrawViewContents, dc Height=%d, topLine=%d, bottomLine=%d", dc.GetRect().Height(), editorModel->viewTopLine, editorModel->viewBottomLine);
 
@@ -145,6 +152,9 @@ void EditorView::OnActivate(bool isActive) {
 }
 
 void EditorView::OnKeyPress(const KeyPress &keyPress) {
+    if (editorModel == nullptr) {
+        return;
+    }
     // Unless we can edit - we do nothing
     if (!editorModel->GetTextBuffer()->CanEdit()) return;
 
@@ -177,6 +187,10 @@ void EditorView::OnKeyPress(const KeyPress &keyPress) {
 // Add actions here - all except human-readable inserting of text
 //
 bool EditorView::OnAction(const KeyPressAction &kpAction) {
+    if (editorModel == nullptr) {
+        return false;
+    }
+
     if (kpAction.actionModifier == kActionModifier::kActionModifierSelection) {
         if (!editorModel->IsSelectionActive()) {
             logger->Debug("Shift pressed, selection inactive - BeginSelection");
@@ -737,7 +751,7 @@ void EditorView::OnNavigateUpCLion(int rows) {
 
 
 void EditorView::SetWindowCursor(const Cursor &cursor) {
-    if (Editor::Instance().GetState() == Editor::ViewState) {
+    if ((Editor::Instance().GetState() == Editor::ViewState) && (editorModel != nullptr)) {
         window->SetCursor(editorModel->cursor);
     } else {
         // The editor view is NOT in 'command' but rather the 'owner' of the quick-cmd input view..

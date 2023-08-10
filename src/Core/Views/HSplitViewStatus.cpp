@@ -31,11 +31,7 @@ void HSplitViewStatus::DrawSplitter(int row) {
     auto logger = gnilk::Logger::GetLogger("HSplitViewStatus");
     logger->Debug("DrawSplitter, row=%d, height=%d", row, dc.GetRect().Height());
 
-    auto model = Editor::Instance().GetActiveModel();
-    if (model == nullptr) {
-        logger->Error("model is nullptr!");
-        exit(1);
-    }
+
     //model->cursor.position.x
     std::string dummy(dc.GetRect().Width(), ' ');
     std::string statusLine = " " + Editor::Instance().GetAppName() + " v" + Editor::Instance().GetVersion() + " | ";
@@ -45,7 +41,6 @@ void HSplitViewStatus::DrawSplitter(int row) {
     } else {
 
         auto &quickController = Editor::Instance().GetQuickCommandController();
-
         quickModeStatusLineCursorOfs = (int)statusLine.length();
 
         statusLine += quickController.GetPrompt();
@@ -54,27 +49,35 @@ void HSplitViewStatus::DrawSplitter(int row) {
         statusLine += " | ";
     }
 
-    if (model->GetTextBuffer()->GetBufferState() == TextBuffer::kBuffer_Changed) {
-        statusLine += "* ";
-    }
+    // If we have a model - draw details...
+    auto model = Editor::Instance().GetActiveModel();
+    if (model != nullptr) {
+        if (model->GetTextBuffer()->GetBufferState() == TextBuffer::kBuffer_Changed) {
+            statusLine += "* ";
+        }
 
-    statusLine += model->GetTextBuffer()->GetName();
-    statusLine += " | ";
-    if (!model->GetTextBuffer()->CanEdit()) {
-        statusLine += "[locked] | ";
+        statusLine += model->GetTextBuffer()->GetName();
+        statusLine += " | ";
+        if (!model->GetTextBuffer()->CanEdit()) {
+            statusLine += "[locked] | ";
+        }
+        statusLine += model->GetTextBuffer()->HaveLanguage() ? model->GetTextBuffer()->GetLanguage().Identifier()
+                                                             : "none";
     }
-    statusLine += model->GetTextBuffer()->HaveLanguage() ? model->GetTextBuffer()->GetLanguage().Identifier() : "none";
 
     dc.FillLine(row, kTextAttributes::kInverted, ' ');
     dc.DrawStringWithAttributesAt(0,row, kTextAttributes::kInverted, statusLine.c_str());
 
-    // TEMP - this shows the computed indentation for the current line..
-    auto activeLine = model->GetTextBuffer()->LineAt(model->idxActiveLine);
+    // Draw right-centered details about cursor and active line...
+    if (model) {
+        auto activeLine = model->GetTextBuffer()->LineAt(model->idxActiveLine);
+        statusLine = "";
+        char tmp[32];
+        snprintf(tmp, 32, "Id: %d, Ln: %d, Col: %d", activeLine->Indent(), model->cursor.position.y,
+                 model->cursor.position.x);
+        statusLine += tmp;
 
-    statusLine = "";
-    char tmp[32];
-    snprintf(tmp,32, "Id: %d, Ln: %d, Col: %d", activeLine->Indent(), model->cursor.position.y, model->cursor.position.x);
-    statusLine += tmp;
-
-    dc.DrawStringWithAttributesAt(dc.GetRect().Width()-statusLine.size()-4,row, kTextAttributes::kInverted, statusLine.c_str());
+        dc.DrawStringWithAttributesAt(dc.GetRect().Width() - statusLine.size() - 4, row, kTextAttributes::kInverted,
+                                      statusLine.c_str());
+    }
 }

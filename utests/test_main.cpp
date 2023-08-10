@@ -25,7 +25,8 @@ void UTestConsole::WriteLine(const std::string &str) {
 
 DLL_EXPORT int test_main(ITesting *t) {
     // We need this..
-    Editor::Instance().Initialize(0, nullptr);
+    static const char *argv[]={"goatedit.app", "--console_logging"};
+    Editor::Instance().Initialize(2, argv);
     RuntimeConfig::Instance().SetOutputConsole(&utestConsole);
     return kTR_Pass;
 }

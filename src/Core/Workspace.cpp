@@ -16,7 +16,7 @@ static Workspace::Node::Ref GetOrAddNodePath(Workspace::Node::Ref rootNode, cons
 
 
 Workspace::Workspace() {
-    logger = gnilk::Logger::GetLogger("Editor");
+    logger = gnilk::Logger::GetLogger("Workspace");
 }
 
 
@@ -146,13 +146,19 @@ bool Workspace::OpenFolder(const std::string &folder) {
     // Disable notifications - otherwise the callback is invoked for each added model...
 
     // If it doesn't exists - just leave..
-    if (!fs::exists(fs::path(folder))) {
+    auto pathName = fs::path(folder);
+    if (!fs::exists(pathName)) {
+        return false;
+    }
+    if (!fs::is_directory(pathName)) {
         return false;
     }
 
+    auto name = pathName.stem();
+
     DisableNotifications();
-    auto rootNode = GetOrAddNode(folder);
-    if (!ReadFolderToNode(rootNode, folder)) {
+    auto rootNode = GetOrAddNode(name);
+    if (!ReadFolderToNode(rootNode, pathName)) {
         // Make sure we enable notification again...
         EnableNotifications();
         return false;
@@ -164,13 +170,19 @@ bool Workspace::OpenFolder(const std::string &folder) {
 }
 
 
-bool Workspace::ReadFolderToNode(Node::Ref rootNode, const std::string &folder) {
-    auto rootPath = fs::path(folder);
-    for(const fs::directory_entry &entry : fs::recursive_directory_iterator(rootPath)) {
-        if (!fs::is_regular_file(entry)) continue;
-        auto currentNode = GetOrAddNodePath(rootNode, entry, rootPath);
-        assert(currentNode != nullptr);
-        auto model = NewModelWithFileRef(currentNode, entry.path());
+bool Workspace::ReadFolderToNode(Node::Ref rootNode, const std::filesystem::path &folder) {
+    logger->Debug("Reading folder: %s", folder.c_str());
+    for(auto const &entry : fs::directory_iterator(folder)) {
+        if (fs::is_directory(entry)) {
+            const auto &name = entry.path().filename();
+            logger->Debug("D: %s", name.c_str());
+            auto dirNode = rootNode->GetOrAddChild(name);
+            ReadFolderToNode(dirNode, entry);
+        } else if (fs::is_regular_file(entry)) {
+            const auto &name = entry.path().filename();
+            logger->Debug("F: %s", name.c_str());
+            auto model = NewModelWithFileRef(rootNode, entry.path());
+        }
     }
     return true;
 }
@@ -186,7 +198,29 @@ Workspace::Node::Ref Workspace::GetOrAddNode(const std::string &name) {
     return rootNode;
 }
 
+
 // Helper, create nodes for the whole path-tree and return the leaf node
+static Workspace::Node::Ref GetOrAddNodePath(Workspace::Node::Ref rootNode, const fs::directory_entry &entry, const fs::path &rootPath) {
+
+    const auto &name = entry.path().filename();
+    return rootNode->GetOrAddChild(name);
+
+
+    auto currentNode = rootNode;
+
+    if (entry.path().parent_path() != rootPath) {
+        auto parentPath = entry.path().parent_path();
+        for (auto const &elem: parentPath) {
+            if (elem == rootPath) continue; // skip root
+            currentNode = currentNode->GetOrAddChild(elem.string());
+        }
+        if (currentNode == nullptr) {
+            return nullptr;
+        }
+    }
+    return currentNode;
+}
+/*
 static Workspace::Node::Ref GetOrAddNodePath(Workspace::Node::Ref rootNode, const fs::directory_entry &entry, const fs::path &rootPath) {
     auto currentNode = rootNode;
 
@@ -202,3 +236,4 @@ static Workspace::Node::Ref GetOrAddNodePath(Workspace::Node::Ref rootNode, cons
     }
     return currentNode;
 }
+*/

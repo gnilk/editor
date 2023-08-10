@@ -183,11 +183,8 @@ namespace gedit {
             Node::Ref parent = nullptr;
             EditorModel::Ref model = nullptr;   // This is only set for leaf nodes..
 
-
-
             std::unordered_map<std::string, Node::Ref> childNodes = {};
             std::vector<Node::Ref> models = {};
-
         };
     public:
         Workspace();
@@ -217,8 +214,10 @@ namespace gedit {
 
         bool CloseModel(EditorModel::Ref model);
 
+        void DumpToLog();
+
     protected:
-        bool ReadFolderToNode(Node::Ref rootNode, const std::string &folder);
+        bool ReadFolderToNode(Node::Ref rootNode, const std::filesystem::path &folder);
         Node::Ref GetOrAddNode(const std::string &name);
         std::optional<Node::Ref> NodeFromModel(EditorModel::Ref model);
         void DisableNotifications() {

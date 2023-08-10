@@ -16,6 +16,7 @@ DLL_EXPORT int test_workspace_newtwice(ITesting *t);
 DLL_EXPORT int test_workspace_fileref(ITesting *t);
 DLL_EXPORT int test_workspace_newmodel(ITesting *t);
 DLL_EXPORT int test_workspace_openfolder(ITesting *t);
+DLL_EXPORT int test_workspace_openabsfolder(ITesting *t);
 DLL_EXPORT int test_workspace_closemodel(ITesting *t);
 DLL_EXPORT int test_workspace_recreate(ITesting *t);
 }
@@ -88,14 +89,22 @@ DLL_EXPORT int test_workspace_fileref(ITesting *t) {
     return kTR_Pass;
 }
 
-
-
 DLL_EXPORT int test_workspace_openfolder(ITesting *t) {
     Workspace workspace;
 //    TR_ASSERT(t, workspace.GetModels().size() == 0);
     workspace.OpenFolder(".");
     return kTR_Pass;
 }
+
+DLL_EXPORT int test_workspace_openabsfolder(ITesting *t) {
+    Workspace workspace;
+#ifdef GEDIT_LINUX
+    workspace.OpenFolder("/home/gnilk/src/test/sdl2test");
+#endif
+    return kTR_Pass;
+
+}
+
 
 DLL_EXPORT int test_workspace_closemodel(ITesting *t) {
     Config::Instance()["main"].SetBool("threaded_syntaxparser", true);

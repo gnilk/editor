@@ -55,10 +55,10 @@ bool SDLScreen::Open() {
     logger->Debug("Opening window");
 
     int nDrivers = SDL_GetNumVideoDrivers();
-    logger->Debug("Available Video Drivers (%d):\n",nDrivers);
+    logger->Debug("Available Video Drivers (%d):",nDrivers);
     for(int i=0;i<nDrivers;i++) {
         auto driverName = SDL_GetVideoDriver(i);
-        logger->Debug("  %d:%s\n",i,driverName);
+        logger->Debug("  %d:%s",i,driverName);
     }
 
     widthPixels = Config::Instance()["sdl"].GetInt("default_width", 1920);

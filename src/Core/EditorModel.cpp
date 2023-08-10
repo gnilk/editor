@@ -128,7 +128,25 @@ bool EditorModel::JumpToSearchHit(size_t idxHit) {
     cursor.position.x = result.cursor_x;
     cursor.wantedColumn = result.cursor_x;
     idxActiveLine = result.idxLine;
+
+    RefocusViewArea();
     return true;
+}
+
+// Call this function to re-center the view area around the active line...
+// the active line (line in focus) is positioned 1/3 (of num-lines) down from top
+void EditorModel::RefocusViewArea() {
+    if ((idxActiveLine >= viewBottomLine) || (idxActiveLine < viewTopLine)) {
+
+        auto height = viewBottomLine - viewTopLine;
+        int margin = height / 3;
+
+        viewTopLine = idxActiveLine - margin;
+        if (viewTopLine < 0) {
+            viewTopLine = 0;
+        }
+        viewBottomLine = viewTopLine + height;
+    }
 }
 
 

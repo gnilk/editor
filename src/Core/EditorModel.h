@@ -149,6 +149,7 @@ namespace gedit {
             currentSelection.endPos = newEnd;
 
         }
+        void RefocusViewArea();
         void CancelSelection() {
             currentSelection.isActive = false;
         }

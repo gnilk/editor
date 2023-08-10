@@ -60,7 +60,7 @@ DLL_EXPORT int test_logger_debug(ITesting *t) {
     return kTR_Pass;
 }
 DLL_EXPORT int test_logger_removesink(ITesting *t) {
-    printf("sinksize: %d\n", (int)gnilk::Logger::sinks.size());
+    //printf("sinksize: %d\n", (int)gnilk::Logger::sinks.size());
     gnilk::Logger::RemoveSink("console");
     gnilk::Logger::RemoveSink("console");
     return kTR_Pass;

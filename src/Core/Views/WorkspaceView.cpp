@@ -77,6 +77,8 @@ void WorkspaceView::PopulateTree() {
         auto item = treeView->AddItem(node);
         FillTreeView(treeView, item, node);
     }
+    // All nodes start collapsed, but we want the root to start expanded...
+    treeView->Expand();
 
 }
 

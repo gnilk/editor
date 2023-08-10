@@ -265,7 +265,7 @@ list(APPEND editorsrc src/Core/NamedColors.cpp src/Core/NamedColors.h)
 list(APPEND editorsrc src/Core/TypeUtil.h)
 
 # Keyboard handling
-list(APPEND editorsrc src/Core/KeyPress.h)
+list(APPEND editorsrc src/Core/KeyPress.cpp src/Core/KeyPress.h)
 list(APPEND editorsrc src/Core/KeyboardDriverBase.cpp src/Core/KeyboardDriverBase.h)
 list(APPEND editorsrc src/Core/Keyboard.cpp src/Core/Keyboard.cpp)
 

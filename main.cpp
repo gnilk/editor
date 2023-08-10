@@ -372,6 +372,12 @@ int main(int argc, const char **argv) {
 
     Editor::Instance().RunPostInitalizationScript();
 
+    // No model was given on startup - so let's focus in the ProjectView...
+    if (Editor::Instance().GetActiveModel() == nullptr) {
+        rootView.SetActiveTopViewByName("ProjectView");
+    }
+
+
     // No clue why I have to do this twice - but otherwise it doesn't work...
     screen->Clear();
     rootView.Draw();

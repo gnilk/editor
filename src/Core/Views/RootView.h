@@ -63,6 +63,20 @@ namespace gedit {
             return viewNames;
         }
 
+        bool SetActiveTopViewByName(const std::string &name) {
+            auto currentView = TopView();
+            for(int i=0;i<topViews.size();i++) {
+                if (topViews[i].name == name) {
+                    idxCurrentTopView = i;
+                    LeaveQuickCommand();
+                    TopView()->SetActive(true);
+                    currentView->SetActive(false);
+                    return true;
+                }
+            }
+            return false;
+        }
+
         ViewBase::Ref GetTopViewByName(const std::string &name) {
             for(auto &t : topViews) {
                 if (t.name == name) {

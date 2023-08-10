@@ -6,26 +6,9 @@
 #define EDITOR_KEYPRESS_H
 
 #include <cstdint>
+#include <logger.h>
 #include "Core/Keyboard.h"
-/*
-struct KeyPress {
-    union {
-        int64_t editorkey;  // this is special | code
-        struct {
-            int32_t special;
-            int32_t code;
-        } data;
-    };
 
-    // This is from the underlying keyboard driver...
-    int64_t rawCode;
-
-    bool IsValid();
-    bool IsShiftPressed();
-    bool IsCtrlPressed();
-    bool IsHumanReadable();
-};
- */
 namespace gedit {
     struct KeyPress {
         bool isKeyValid = false;
@@ -88,6 +71,7 @@ namespace gedit {
             }
             return false;
         }
+        void DumpToLog();
 
     };
 }

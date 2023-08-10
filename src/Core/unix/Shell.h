@@ -14,6 +14,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include <logger.h>
+
 namespace gedit {
     class Shell {
     public:
@@ -32,6 +34,7 @@ namespace gedit {
         bool StartShellProc();
         void SendInitScript();
     private:
+        gnilk::Logger::ILogger *logger = nullptr;
         const int READ_END = 0;
         const int WRITE_END = 1;
 

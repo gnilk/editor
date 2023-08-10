@@ -14,6 +14,9 @@
 #include <thread>
 #include <array>
 #include <sys/stat.h>
+
+#include <logger.h>
+
 #include "Core/StrUtil.h"
 #include "Core/Config/Config.h"
 #include "Shell.h"
@@ -21,6 +24,7 @@
 using namespace gedit;
 
 bool Shell::Begin() {
+    logger = gnilk::Logger::GetLogger("Shell");
     if (!StartShellProc()) {
         return false;
     }
@@ -31,10 +35,12 @@ bool Shell::StartShellProc() {
     auto shell = Config::Instance()["terminal"].GetStr("shell","/bin/bash");
     auto shellInitStr = Config::Instance()["terminal"].GetStr("init", "-ils");
 
+    logger->Debug("Starting shell process: %s %s", shell.c_str(), shellInitStr.c_str());
+
     struct stat shellstat;
     // Verify if shell exists...
     if (stat(shell.c_str(),&shellstat)) {
-        printf("[ERR] can't stat shell '%s' - please verify path\n", shell.c_str());
+        logger->Error("[ERR] can't stat shell '%s' - please verify path", shell.c_str());
         return false;
     }
     // FIXME: We could make sure it is an executeable and so forth...
@@ -42,6 +48,7 @@ bool Shell::StartShellProc() {
     auto rc = ::pipe(infd);
     if(rc < 0) {
         //throw std::runtime_error(std::strerror(errno));
+        logger->Error("Failed to create stdin pipe!");
         return false;
     }
 
@@ -50,12 +57,13 @@ bool Shell::StartShellProc() {
         ::close(infd[READ_END]);
         ::close(infd[WRITE_END]);
         //throw std::runtime_error(std::strerror(errno));
+        logger->Error("Failed to create stdout pipe");
         return false;
     }
 
     rc = ::pipe(errfd);
-    if(rc < 0)
-    {
+    if(rc < 0) {
+        logger->Error("Failed to create stderr pipe");
         ::close(infd[READ_END]);
         ::close(infd[WRITE_END]);
 
@@ -69,15 +77,17 @@ bool Shell::StartShellProc() {
     struct termios tio;
     int err = tcgetattr(STDIN_FILENO, &tio);
     if (err) {
+        logger->Error("failed tcgetattr");
         CleanUp();
         return false;
-        //exit(1);
     }
+
+    logger->Error("forking pty!");
+
     int amaster = 0;
     pid = forkpty(&amaster, NULL, &tio, NULL);
 
 
-//    pid = fork();
     if(pid > 0) {
         // PARENT
         ::close(infd[READ_END]);    // Parent does not read from stdin
@@ -100,6 +110,7 @@ bool Shell::StartShellProc() {
         ::execl(shell.c_str(), shell.c_str(), shellInitStr.c_str(), nullptr);
         ::exit(EXIT_SUCCESS);
     }
+    logger->Debug("Starting pipe threads");
     std::thread(&Shell::ConsumePipes, this).detach();
     return true;
 }
@@ -107,6 +118,7 @@ bool Shell::StartShellProc() {
 void Shell::SendInitScript() {
     // Perhaps move this to CommandController - which allows us to execute internal plugins as well as shell commands...
     auto initScript = Config::Instance()["terminal"].GetSequenceOfStr("bootstrap");
+    logger->Debug("Executing shell bootstrap script");
     for(auto &s : initScript) {
         std::string strCmd(s);
         strCmd += "\n";

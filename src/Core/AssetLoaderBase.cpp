@@ -24,8 +24,18 @@ static unordered_map<AssetLoaderBase::kLocationType, std::string> locTypeToStrin
 
 void AssetLoaderBase::AddSearchPath(const std::filesystem::path &path, kLocationType locationType) {
     auto logger = gnilk::Logger::GetLogger("AssetLoader");
-    logger->Debug("Adding path (%s): %s",locTypeToString[locationType].c_str(), path.c_str());
-    baseSearchPaths.push_back({0, locationType, path});
+    logger->Debug("AddSearchPath (%s): %s",locTypeToString[locationType].c_str(), path.c_str());
+    if (!std::filesystem::is_directory(path)) {
+        logger->Debug("Path '%s' is not directory, skipping!", path.c_str());
+        return;
+    }
+
+    if (path.is_relative()) {
+        logger->Debug("Path '%s' is relative", path.c_str());
+    }
+    auto absPath = std::filesystem::absolute(path);
+    logger->Debug("Adding absolute: '%s'", absPath.c_str());
+    baseSearchPaths.push_back({0, locationType, absPath});
 }
 
 AssetLoaderBase::Asset::Ref AssetLoaderBase::LoadAsset(const std::string &fileName, kLocationType locationType) {
@@ -59,11 +69,11 @@ void AssetLoaderBase::SortSearchPaths() {
     std::sort(baseSearchPaths.begin(), baseSearchPaths.end(),[](const SearchPath &a, const SearchPath &b) -> bool {
         return a.score > b.score;
     });
-    auto logger = gnilk::Logger::GetLogger("AssetLoader");
-    logger->Debug("Resorting paths");
-    for(auto &path : baseSearchPaths) {
-        logger->Debug("  S=%d, P=%s",path.score, path.path.c_str());
-    }
+//    auto logger = gnilk::Logger::GetLogger("AssetLoader");
+//    logger->Debug("Resorting paths");
+//    for(auto &path : baseSearchPaths) {
+//        logger->Debug("  S=%d, P=%s",path.score, path.path.c_str());
+//    }
 }
 
 //
@@ -86,8 +96,8 @@ AssetLoaderBase::Asset::Ref AssetLoaderBase::DoLoadAsset(const SearchPath &searc
     inputStream.read(static_cast<char *>(asset->ptrData), szFile);
     inputStream.close();
 
-    auto logger = gnilk::Logger::GetLogger("AssetLoader");
-    logger->Info("Ok loaded %zu bytes from '%s'",szFile, pathName.c_str());
+//    auto logger = gnilk::Logger::GetLogger("AssetLoader");
+//    logger->Info("Ok loaded %zu bytes from '%s'",szFile, pathName.c_str());
 
 
     return asset;

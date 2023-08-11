@@ -187,6 +187,10 @@ bool Editor::Initialize(int argc, const char **argv) {
         workspace->GetDefaultWorkspace();
         auto model = workspace->NewEmptyModel();
         openModels.push_back(model);
+    }
+    // Did we open any models during the argument parsing?
+    if (openModels.size() != 0) {
+        // Just set the first as the active model..
         SetActiveModel(openModels[0]);
     }
 
@@ -732,14 +736,14 @@ KeyMapping::Ref Editor::GetKeyMapping(const std::string &name) {
     }
     logger->Debug("Keymap '%s' not found - creating", name.c_str());
 #if defined(GEDIT_LINUX)
-    auto osRootNode = Config::Instance().GetNode("linux");
+    auto osCfgRootNode = Config::Instance().GetNode("linux");
 #elif defined(GEDIT_MACOS)
-    auto osRootNode = Config::Instance().GetNode("macos");
+    auto osCfgRootNode = Config::Instance().GetNode("macos");
 #else
     logger->Error("This should not happen...");
     exit(1);
 #endif
-    auto strKeymapFile = osRootNode.GetStr(name, "Default/default_keymap.yml");
+    auto strKeymapFile = osCfgRootNode.GetStr(name, "Default/default_keymap.yml");
     auto assetLoader = RuntimeConfig::Instance().GetAssetLoader();
     auto keymapAsset = assetLoader.LoadTextAsset(strKeymapFile);
     if (keymapAsset == nullptr) {

@@ -3,16 +3,26 @@
 //
 /*
  * TO-DO List
- * - Define proper keymap for Linux (selection, copy/paste, etc..)
+ * - When opening a folder with an absolute path - check cwd is at the head of that path - otherwise change to it..
+ * - Save screen position and size upon resize/move and similar, restore on startup (use XDG state directory)
+ * - Expose config from JS (set,get,list)
+ *   Would be cool to just open the whole config folder as a workspace node..  <- consider this
+ * - Ability to influence logger from JS (log enable xyz, log disable xyz, etc..)
+ * - Notification system needs review, should be able to have multiple subscribers
+ * - File monitoring and reloading (for theme's and other?)
+ * + Define proper keymap for Linux (selection, copy/paste, etc..)
+ * - LanguageToken to ScreenColor mapping is right now done in the editor - not sure where this should be..
+ * + Fix save!
+ * - How to search in node-editor mode (i.e ProjectViews, Terminal - history), also for quickmode?
+ * - Swap out the vertical navigation code in EditorView for the 'VerticalNavigationModel'
+ *
+ * Bigger features:
+ * - Workspace configuration
+ *   When opening a folder it should be possible to 'initialize' a workspace there - this workspace can hold specific
+ *   settings for it - like folders for intellisense and other things (build params, run params, etc...)
  * - Add some tool awareness (like ability to jump to src:line when compiling and so forth)
  *   Either through some kind of build command which can attach parsers to the console..
- * - Save screen position and size upon resize/move and similar, restore on startup (use XDG state directory)
- * - Searching should be threaded, see if we can use some new CPP features for this..
- * - LanguageToken to ScreenColor mapping is right now done in the editor - not sure where this should be..
- * - Refactor initialization, split app init from data loading (data loading should happen afterwards - when UI is up and running)
- * + Fix save!
  * - Use references in view-system (most other code using references or smart pointers)
- * - How to search in node-editor mode (i.e ProjectViews, Terminal - history), also for quickmode?
  * - QuickMode support for Movement (see Helix editor)
  * - Bookmarks
  *   - visual (GutterView support)
@@ -28,9 +38,10 @@
  * - Put some performance timings in the LanguageParser (this will have to be optimized sooner or later)
  * - macOS swaps left/right scancodes between keyboards (laptop has left/right one way my ext.keyboard another)
  *   need to consider a solution for this...
- * - Swap out the vertical navigation code in EditorView for the 'VerticalNavigationModel'
  *
  * Done:
+ * [!] Searching should be threaded, see if we can use some new CPP features for this - not needed(?) it is fast even though stupid
+ * [!] Refactor initialization, split app init from data loading (data loading should happen afterwards - when UI is up and running)
  * ! Verify that Config can be merged with either 'Keep' or 'Override'
  * ! Implement loading strategy for asset loader (~/.config/gedit/.config/, ~/.gedit, Contents/MacOS/... / etc..)
  * ! Highlight of search results seems to be in screen coords (scrolling around when search results are active shows this)

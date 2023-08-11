@@ -70,6 +70,12 @@ namespace gedit {
         ViewBase &GetRootView() {
             return *rootView;
         }
+
+        template<class T>
+        T *GetRootViewAs() {
+           return static_cast<T *>(rootView);
+        }
+
         bool HasRootView() {
             return (rootView != nullptr);
         }

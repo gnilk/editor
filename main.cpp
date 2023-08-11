@@ -3,7 +3,6 @@
 //
 /*
  * TO-DO List
- * - When opening a folder with an absolute path - check cwd is at the head of that path - otherwise change to it..
  * - Save screen position and size upon resize/move and similar, restore on startup (use XDG state directory)
  * - Expose config from JS (set,get,list)
  *   Would be cool to just open the whole config folder as a workspace node..  <- consider this
@@ -40,6 +39,8 @@
  *   need to consider a solution for this...
  *
  * Done:
+ * ! Workspace view should 'hide' folders starting with a dot (like: .git, .idea, .goatedit, etc..)
+ * ! When opening a folder with an absolute path - check cwd is at the head of that path - otherwise change to it..
  * [!] Searching should be threaded, see if we can use some new CPP features for this - not needed(?) it is fast even though stupid
  * [!] Refactor initialization, split app init from data loading (data loading should happen afterwards - when UI is up and running)
  * ! Verify that Config can be merged with either 'Keep' or 'Override'

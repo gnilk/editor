@@ -93,6 +93,13 @@ namespace gedit {
             return topViews[idxCurrentTopView].view;
         }
 
+        std::optional<std::string> GetTopViewName() {
+            if (idxCurrentTopView == -1) {
+                return {};
+            }
+            return {topViews[idxCurrentTopView].name};
+        }
+
         bool OnAction(const KeyPressAction &kpAction) override {
             // The modal takes control over everything...
             if (modal != nullptr) {
@@ -137,6 +144,7 @@ namespace gedit {
             // Note: we don't call 'OnKeyPress' here as it would result in a infinte recursive loop
             TopView()->HandleKeyPress(keyPress);
         }
+
     protected:
         void OnViewInitialized() override {
             ViewBase::OnViewInitialized();

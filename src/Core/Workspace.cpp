@@ -137,13 +137,29 @@ std::optional<Workspace::Node::Ref> Workspace::NodeFromModel(EditorModel::Ref mo
     return {};
 }
 
+// This returns the last valid name of a full path
+// /src/app/myapp  => myapp
+// /src/app/myapp/ => myapp     <- this is the reason we have this function...
+
+static std::string LastNameOfPath(const std::filesystem::path &pathName) {
+    auto it = pathName.end();
+    it--;
+    if (it->string() != "") {
+        return it->string();
+    }
+    if (it == pathName.begin()) {
+        return "";
+    }
+    it--;
+    return it->string();
+}
 
 // Open a folder and create the workspace from the folder name...
 bool Workspace::OpenFolder(const std::string &folder) {
     // Disable notifications - otherwise the callback is invoked for each added model...
 
     // If it doesn't exists - just leave..
-    auto pathName = fs::path(folder);
+    auto pathName = fs::absolute(fs::path(folder));
     if (!fs::exists(pathName)) {
         return false;
     }
@@ -151,7 +167,8 @@ bool Workspace::OpenFolder(const std::string &folder) {
         return false;
     }
 
-    auto name = pathName.stem();
+    //auto name = pathName.filename();
+    auto name = LastNameOfPath(pathName);
 
     DisableNotifications();
     auto rootNode = GetOrAddNode(name);

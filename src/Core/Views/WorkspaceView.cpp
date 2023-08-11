@@ -11,13 +11,26 @@ using namespace gedit;
 static const std::string cfgSectionName = "workspaceview";
 
 
-static void FillTreeView(WorkspaceView::TreeRef tree, WorkspaceView::TreeNodeRef parent, Workspace::Node::Ref node) {
+static bool IsStringExcluded(const std::string &str, const std::vector<std::string> &excludePrefixes) {
+    if (excludePrefixes.empty()) return false;
+    for(auto &prefix : excludePrefixes) {
+        if (strutil::startsWith(str, prefix)) {
+            return true;
+        }
+    }
+    return false;
+}
+static void FillTreeView(WorkspaceView::TreeRef tree, WorkspaceView::TreeNodeRef parent, Workspace::Node::Ref node, const std::vector<std::string> &excludePrefixes) {
     std::vector<Workspace::Node::Ref> children;
     node->FlattenChilds(children);
     if (children.size() > 0) {
         for (auto &child: children) {
+            // This is probably not right
+            if (IsStringExcluded(child->GetDisplayName(), excludePrefixes)) {
+                continue;
+            }
             auto newParent = tree->AddItem(parent, child);
-            FillTreeView(tree, newParent, child);
+            FillTreeView(tree, newParent, child,excludePrefixes);
         }
     }
     // Note: We take a COPY here - not a reference (auto &) - this allows for sorting...
@@ -71,11 +84,17 @@ void WorkspaceView::PopulateTree() {
 
     auto workspace = Editor::Instance().GetWorkspace();
 
+    std::vector<std::string> excludePrefixList;
+    // Perhaps have a list somewhere...
+    if (Config::Instance()[cfgSectionName].GetBool("hide_dot_files", true)) {
+        excludePrefixList.push_back(".");
+    }
+
     // Traverse and add items
     auto nodes = workspace->GetRootNodes();
     for(auto &[key, node] : nodes) {
         auto item = treeView->AddItem(node);
-        FillTreeView(treeView, item, node);
+        FillTreeView(treeView, item, node, excludePrefixList);
     }
     // All nodes start collapsed, but we want the root to start expanded...
     treeView->Expand();

@@ -37,6 +37,12 @@ namespace gedit {
         }
 
         bool OnAction(const KeyPressAction &kpAction) override;
+
+        const std::string &GetStatusBarAbbreviation() override {
+            static std::string defaultAbbr = "WSP";
+            return defaultAbbr;
+        }
+        std::pair<std::string, std::string> GetStatusBarInfo() override;
     protected:
         void PopulateTree();
         void OnActivate(bool isActive) override;

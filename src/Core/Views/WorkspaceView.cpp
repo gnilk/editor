@@ -132,3 +132,12 @@ void WorkspaceView::OnActivate(bool isActive) {
     }
 }
 
+std::pair<std::string, std::string> WorkspaceView::GetStatusBarInfo() {
+    std::string strCenter = "apakaka";
+    std::string strRight = {};
+
+    char tmp[32];
+    snprintf(tmp, 32, "idx: %d",treeView->idxActiveLine);
+    strRight = tmp;
+    return {strCenter, strRight};
+}

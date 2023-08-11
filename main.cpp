@@ -367,9 +367,9 @@ int main(int argc, const char **argv) {
 
     hSplitViewStatus.SetUpper(&hStackViewUpper);
 
-    rootView.AddTopView(&editorView, "EditorView");
-    rootView.AddTopView(&cmdView, "CommandView");
-    rootView.AddTopView(&workspaceExplorer, "ProjectView");
+    rootView.AddTopView(&editorView, glbEditorView);
+    rootView.AddTopView(&cmdView, glbCommandView);
+    rootView.AddTopView(&workspaceExplorer, glbWorkSpaceView);
 
 //    WorkspaceView workspaceView;
 //    ModalView dummy(dimensions, &workspaceView);
@@ -386,7 +386,7 @@ int main(int argc, const char **argv) {
 
     // No model was given on startup - so let's focus in the ProjectView...
     if (Editor::Instance().GetActiveModel() == nullptr) {
-        rootView.SetActiveTopViewByName("ProjectView");
+        rootView.SetActiveTopViewByName(glbWorkSpaceView);
     }
 
 

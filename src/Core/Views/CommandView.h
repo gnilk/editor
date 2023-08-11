@@ -32,6 +32,12 @@ namespace gedit {
         void DrawViewContents() override;
 
         bool OnAction(const KeyPressAction &kpAction) override;
+
+        const std::string &GetStatusBarAbbreviation() override {
+            static std::string defaultAbbr = "CMD";
+            return defaultAbbr;
+        }
+
     public: // IOutputConsole
          void WriteLine(const std::string &str) override;
     protected:

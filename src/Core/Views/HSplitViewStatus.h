@@ -25,6 +25,8 @@ namespace gedit {
         void SetWindowCursor(const Cursor &cursor) override;
 
     protected:
+        std::pair<std::string,std::string> GetStatusLineForTopview();
+
         void DrawSplitter(int row) override;
     private:
         // holds the x offset for the cursor relative the status bar position

@@ -5,6 +5,7 @@
 #include "Core/Editor.h"
 
 #include "HSplitViewStatus.h"
+#include "RootView.h"
 
 using namespace gedit;
 
@@ -31,53 +32,55 @@ void HSplitViewStatus::DrawSplitter(int row) {
     auto logger = gnilk::Logger::GetLogger("HSplitViewStatus");
     logger->Debug("DrawSplitter, row=%d, height=%d", row, dc.GetRect().Height());
 
+    std::string viewStatusCenter = {};
+    std::string viewStatusRight = {};
 
     //model->cursor.position.x
     std::string dummy(dc.GetRect().Width(), ' ');
     std::string statusLine = " " + Editor::Instance().GetAppName() + " v" + Editor::Instance().GetVersion() + " | ";
     // Indicate whatever the editor is in edit or cmd state.
-    if (Editor::Instance().GetState() == Editor::ViewState) {
-        statusLine += "E | ";
-    } else {
-
+    if (Editor::Instance().GetState() == Editor::QuickCommandState) {
         auto &quickController = Editor::Instance().GetQuickCommandController();
-        quickModeStatusLineCursorOfs = (int)statusLine.length();
+        quickModeStatusLineCursorOfs = (int) statusLine.length();
 
         statusLine += quickController.GetPrompt();
         auto currentCmdLine = quickController.GetCmdLine();
         statusLine += currentCmdLine;
         statusLine += " | ";
-    }
-
-    // If we have a model - draw details...
-    auto model = Editor::Instance().GetActiveModel();
-    if (model != nullptr) {
-        if (model->GetTextBuffer()->GetBufferState() == TextBuffer::kBuffer_Changed) {
-            statusLine += "* ";
-        }
-
-        statusLine += model->GetTextBuffer()->GetName();
-        statusLine += " | ";
-        if (!model->GetTextBuffer()->CanEdit()) {
-            statusLine += "[locked] | ";
-        }
-        statusLine += model->GetTextBuffer()->HaveLanguage() ? model->GetTextBuffer()->GetLanguage().Identifier()
-                                                             : "none";
+    }  else {
+        std::tie(viewStatusCenter, viewStatusRight) = GetStatusLineForTopview();
+        statusLine += viewStatusCenter;
     }
 
     dc.FillLine(row, kTextAttributes::kInverted, ' ');
     dc.DrawStringWithAttributesAt(0,row, kTextAttributes::kInverted, statusLine.c_str());
 
-    // Draw right-centered details about cursor and active line...
-    if (model) {
-        auto activeLine = model->GetTextBuffer()->LineAt(model->idxActiveLine);
-        statusLine = "";
-        char tmp[32];
-        snprintf(tmp, 32, "Id: %d, Ln: %d, Col: %d", activeLine->Indent(), model->cursor.position.y,
-                 model->cursor.position.x);
-        statusLine += tmp;
 
-        dc.DrawStringWithAttributesAt(dc.GetRect().Width() - statusLine.size() - 4, row, kTextAttributes::kInverted,
-                                      statusLine.c_str());
+    if (!viewStatusRight.empty()) {
+        dc.DrawStringWithAttributesAt(dc.GetRect().Width() - viewStatusRight.size() - 4, row,
+                                      kTextAttributes::kInverted,
+                                      viewStatusRight.c_str());
     }
+}
+
+std::pair<std::string,std::string> HSplitViewStatus::GetStatusLineForTopview() {
+    std::string mainStatus = "";
+    std::string rightStatus = "";
+
+    // This can be cleaned up - too convoluted...
+    auto rootView = RuntimeConfig::Instance().GetRootViewAs<RootView>();
+    if (rootView != nullptr) {
+        auto view = rootView->TopView();
+        if (view != nullptr) {
+            mainStatus += view->GetStatusBarAbbreviation() + " | ";
+            std::string strCenter;
+            std::tie(strCenter, rightStatus) = view->GetStatusBarInfo();
+            mainStatus += strCenter;
+        } else {
+            mainStatus += "E | ";
+        }
+    } else {
+        mainStatus += "E | ";
+    }
+    return {mainStatus, rightStatus};
 }

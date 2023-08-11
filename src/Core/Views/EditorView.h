@@ -45,6 +45,12 @@ namespace gedit {
         bool OnAction(const KeyPressAction &kpAction) override;
 
 
+        const std::string &GetStatusBarAbbreviation() override {
+            static std::string defaultAbbr = "EDT";
+            return defaultAbbr;
+        }
+        std::pair<std::string, std::string> GetStatusBarInfo() override;
+
     protected:
         void OnKeyPress(const KeyPress &keyPress) override;
         void OnResized() override;

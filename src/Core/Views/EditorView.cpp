@@ -758,3 +758,36 @@ void EditorView::SetWindowCursor(const Cursor &cursor) {
         ViewBase::SetWindowCursor(cursor);
     }
 }
+
+// returns the center and right side information for the status bar
+std::pair<std::string, std::string> EditorView::GetStatusBarInfo() {
+    std::string statusCenter = "";
+    std::string statusRight = "";
+    // If we have a model - draw details...
+    auto model = Editor::Instance().GetActiveModel();
+    if (model == nullptr) {
+        return {statusCenter, statusRight};
+    }
+
+    // Resolve center information
+    if (model->GetTextBuffer()->GetBufferState() == TextBuffer::kBuffer_Changed) {
+        statusCenter += "* ";
+    }
+
+    statusCenter += model->GetTextBuffer()->GetName();
+    statusCenter += " | ";
+    if (!model->GetTextBuffer()->CanEdit()) {
+        statusCenter += "[locked] | ";
+    }
+    statusCenter += model->GetTextBuffer()->HaveLanguage() ? model->GetTextBuffer()->GetLanguage().Identifier()                 : "none";
+
+    // resolve right status
+    auto activeLine = model->GetTextBuffer()->LineAt(model->idxActiveLine);
+    char tmp[32];
+    snprintf(tmp, 32, "Id: %d, Ln: %d, Col: %d", activeLine->Indent(), model->cursor.position.y,
+             model->cursor.position.x);
+    statusRight += tmp;
+
+
+    return {statusCenter, statusRight};
+}

@@ -156,6 +156,8 @@ bool Editor::Initialize(int argc, const char **argv) {
     // Language configuration must currently be done before we load editor models
     ConfigureLanguages();
 
+    logger->Debug("*********** Post-parsing cmd-line arguments ***********");
+
     // Create workspace
     workspace = Workspace::Create();
 
@@ -358,10 +360,16 @@ bool Editor::OpenModelOrFolder(const std::string &fileOrFolder) {
         return false;
     }
     if (std::filesystem::is_directory(pathName)) {
+        logger->Debug("Opening folder: %s", fileOrFolder.c_str());
         if (!workspace->OpenFolder(pathName)) {
             logger->Error("Unable to open folder: %s", fileOrFolder.c_str());
             return false;
         }
+        if (pathName.is_absolute()) {
+            logger->Debug("Changing directory to: %s", pathName.c_str());
+            std::filesystem::current_path(pathName);
+        }
+
         return true;
     }
 

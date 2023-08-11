@@ -53,17 +53,20 @@ void VerticalNavigationViewModel::OnNavigateDownVSCode(Cursor &cursor, size_t ro
 }
 
 void VerticalNavigationViewModel::OnNavigateUpVSCode(Cursor &cursor, size_t rows, const Rect &rect, const size_t nItems) {
-    idxActiveLine -= rows;
-    if (idxActiveLine < 0) {
+    if (idxActiveLine < rows) {
         idxActiveLine = 0;
+    } else {
+        idxActiveLine -= rows;
     }
 
     cursor.position.y -= rows;
     if (cursor.position.y < 0) {
         int delta = 0 - cursor.position.y;
         cursor.position.y = 0;
-        viewTopLine -= delta;
-        viewBottomLine -= delta;
+        if (delta < viewTopLine) {
+            viewTopLine -= delta;
+            viewBottomLine -= delta;
+        }
         if (viewTopLine < 0) {
             viewTopLine = 0;
             viewBottomLine = rect.Height();

@@ -18,6 +18,7 @@ void EditorAPIWrapper::RegisterModule(duk_context *ctx) {
     dukglue_register_method(ctx, &EditorAPIWrapper::NewBuffer, "NewBuffer");
     dukglue_register_method(ctx, &EditorAPIWrapper::LoadBuffer, "LoadBuffer");
     dukglue_register_method(ctx, &EditorAPIWrapper::SetActiveBuffer, "SetActiveBuffer");
+    dukglue_register_method(ctx, &EditorAPIWrapper::CloseActiveBuffer, "CloseActiveBuffer");
     dukglue_register_method(ctx, &EditorAPIWrapper::GetBuffers, "GetBuffers");
     dukglue_register_method(ctx, &EditorAPIWrapper::GetHelp, "GetCommandDescriptions");
     dukglue_register_method(ctx, &EditorAPIWrapper::GetRootViewNames, "GetViewNames");
@@ -102,6 +103,12 @@ std::vector<TextBufferAPIWrapper::Ref> EditorAPIWrapper::GetBuffers() {
     }
     return bufferWrappers;
 }
+
+void EditorAPIWrapper::CloseActiveBuffer() {
+    auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
+    editorApi->CloseActiveBuffer();
+}
+
 
 //
 // Test stuff

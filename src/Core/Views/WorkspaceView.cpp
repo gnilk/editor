@@ -136,8 +136,17 @@ std::pair<std::string, std::string> WorkspaceView::GetStatusBarInfo() {
     std::string strCenter = "apakaka";
     std::string strRight = {};
 
+    auto node = treeView->GetCurrentSelectedItem();
+    auto dispName = node->GetDisplayName();
+    auto model = node->GetModel();
+    if (model != nullptr) {
+        dispName = model->GetTextBuffer()->GetName();
+    }
+
     char tmp[32];
-    snprintf(tmp, 32, "idx: %d",treeView->idxActiveLine);
+    snprintf(tmp, 32, "%s:%s",
+             model==nullptr?"D":"F",
+             dispName.c_str());
     strRight = tmp;
     return {strCenter, strRight};
 }

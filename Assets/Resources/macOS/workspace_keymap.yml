@@ -12,7 +12,10 @@ keymap: {
     NavigateLineDown : KeyCode_DownArrow + @SelectionModifier,
     NavigateLeft : KeyCode_LeftArrow + @SelectionModifier,
     NavigateRight : KeyCode_RightArrow + @SelectionModifier,
-    CycleActiveViewNext : "UINavigationModifier + ']'",
+    CycleActiveViewNext : [
+      "UINavigationModifier + ']'",
+      KeyCode_Tab
+    ],
     CycleActiveViewPrev : "UINavigationModifier + '['",
     EnterCommandMode : KeyCode_Escape,
     CommitLine : KeyCode_Return,

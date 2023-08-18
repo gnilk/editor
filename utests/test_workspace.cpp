@@ -17,7 +17,7 @@ DLL_EXPORT int test_workspace_fileref(ITesting *t);
 DLL_EXPORT int test_workspace_newmodel(ITesting *t);
 DLL_EXPORT int test_workspace_openfolder(ITesting *t);
 DLL_EXPORT int test_workspace_openabsfolder(ITesting *t);
-DLL_EXPORT int test_workspace_closemodel(ITesting *t);
+DLL_EXPORT int test_workspace_removemodel(ITesting *t);
 DLL_EXPORT int test_workspace_recreate(ITesting *t);
 }
 
@@ -111,13 +111,13 @@ DLL_EXPORT int test_workspace_openabsfolder(ITesting *t) {
 }
 
 
-DLL_EXPORT int test_workspace_closemodel(ITesting *t) {
+DLL_EXPORT int test_workspace_removemodel(ITesting *t) {
     Config::Instance()["main"].SetBool("threaded_syntaxparser", true);
 
     Workspace workspace;
     {
         auto model = workspace.NewEmptyModel();
-        workspace.CloseModel(model);
+        workspace.RemoveModel(model);
     } // should lose the shared_ptr for the model when leaving this block...
 
     return kTR_Pass;

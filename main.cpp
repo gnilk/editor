@@ -3,6 +3,7 @@
 //
 /*
  * TO-DO List
+ * - Workspace, refactor so that 'models' have specific nodes (currently they are indirect as the node has an array of models)
  * - Save screen position and size upon resize/move and similar, restore on startup (use XDG state directory)
  * - Expose config from JS (set,get,list)
  *   Would be cool to just open the whole config folder as a workspace node..  <- consider this

@@ -45,6 +45,14 @@ ViewAPI::Ref EditorAPI::GetViewByName(const char *name) {
     return std::make_shared<ViewAPI>(viewRef);
 }
 
+void EditorAPI::CloseActiveBuffer() {
+    auto current = Editor::Instance().GetActiveModel();
+    if (current != nullptr) {
+        Editor::Instance().CloseModel(current);
+    }
+}
+
+
 
 
 TextBufferAPI::Ref EditorAPI::NewBuffer(const char *name) {

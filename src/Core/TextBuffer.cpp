@@ -18,9 +18,10 @@ TextBuffer::TextBuffer() {
 
 TextBuffer::Ref TextBuffer::CreateEmptyBuffer(const std::string &bufferName) {
     auto buffer = std::make_shared<TextBuffer>();
-    buffer->bufferState = kBuffer_Empty;
     buffer->logger = gnilk::Logger::GetLogger("TextBuffer");
     buffer->SetPathName(bufferName);
+    buffer->AddLine("");
+    buffer->bufferState = kBuffer_Empty;
     return buffer;
 }
 

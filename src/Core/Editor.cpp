@@ -404,7 +404,41 @@ EditorModel::Ref Editor::LoadModel(const std::string &filename) {
 }
 
 bool Editor::CloseModel(EditorModel::Ref model) {
-    return workspace->CloseModel(model);
+
+    auto itModel = std::find(openModels.begin(), openModels.end(),model);
+    if (itModel != openModels.end()) {
+        logger->Debug("Ok, removing model '%s' from open models", model->GetTextBuffer()->GetName().c_str());
+
+        // Figure out which one will be the next model...
+        // The model list is a strict list which is visualized exactly as it is stored, thus - right most won't have a next and left-most won't have a left...
+        // Priority to step 'right' from current when closing...
+        // In case there are just 1 open - we set everything to null (this is the default when there are no open models)
+        EditorModel::Ref nextActive = nullptr;
+
+        auto idxCurrent = GetActiveModelIndex();
+        auto idxNext = NextModelIndex(idxCurrent);
+        // Do we even have a 'next'??
+        if (idxNext > idxCurrent) {
+            nextActive = GetModelFromIndex(idxNext);
+        } else if (PreviousModelIndex(idxCurrent) != idxCurrent) {
+            nextActive = GetModelFromIndex(PreviousModelIndex(idxCurrent));
+        }
+
+        openModels.erase(itModel);
+        model->SetActive(false);
+
+        if (nextActive != nullptr) {
+            SetActiveModel(nextActive);
+        }
+
+        if (RuntimeConfig::Instance().HasRootView()) {
+            RuntimeConfig::Instance().GetRootView().Initialize();
+        }
+
+        return true;
+    }
+    logger->Error("Model '%s' not found in open models", model->GetTextBuffer()->GetName().c_str());
+    return false;
 }
 
 // This is the log-path before config file has been loaded - it will only be the console..

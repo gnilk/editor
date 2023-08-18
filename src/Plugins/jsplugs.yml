@@ -63,6 +63,13 @@ commands:
     short: lb
     description: List Buffers
     script: Scripts/listbuffers.js
+
+  -
+    name: closeactive
+    short: cb
+    description: Close Active Buffer
+    script: Scripts/closeactive.js
+
   -
     name: openfile
     short: o

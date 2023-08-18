@@ -69,7 +69,9 @@ EditorModel::Ref Workspace::NewModelWithFileRef(Node::Ref parent, const std::fil
     EditorModel::Ref editorModel = EditorModel::Create();
     editorModel->Initialize(editController, textBuffer);
 
-    parent->AddModel(editorModel);
+    auto node = parent->AddChild(pathFileName.filename());
+    //parent->AddModel(editorModel);
+    node->SetModel(editorModel);
 
     NotifyChangeHandler();  // Note: This can be enabled/disabled - when reading a directory it is disabled and called once reading has completed./..
 
@@ -100,22 +102,24 @@ EditorModel::Ref Workspace::NewEmptyModel(const Node::Ref parent) {
 
     auto textBuffer = TextBuffer::CreateEmptyBuffer(nodePath.filename());
     textBuffer->SetPathName(nodePath);
-    textBuffer->AddLine("");
     textBuffer->SetLanguage(Editor::Instance().GetLanguageForExtension("default"));
 
 
     EditorModel::Ref editorModel = EditorModel::Create();
     editorModel->Initialize(editController, textBuffer);
 
-    auto node = parent->AddModel(editorModel);
-    node->SetParent(parent);
+    auto modelNode = parent->AddChild(filename);
+    modelNode->SetModel(editorModel);
+
+//    auto node = parent->AddModel(editorModel);
+//    node->SetParent(parent);
 
     NotifyChangeHandler();
 
     return editorModel;
 }
 
-bool Workspace::CloseModel(EditorModel::Ref model) {
+bool Workspace::RemoveModel(EditorModel::Ref model) {
     auto node = NodeFromModel(model);
     if (!node.has_value()) {
         return false;
@@ -124,7 +128,9 @@ bool Workspace::CloseModel(EditorModel::Ref model) {
     if (nodePtr->GetParent() == nullptr) {
         return false;
     }
-    return nodePtr->GetParent()->DelModel(nodePtr);
+    nodePtr->GetParent()->DelChild(nodePtr);
+    nodePtr->SetModel(nullptr);
+    return true;
 }
 
 std::optional<Workspace::Node::Ref> Workspace::NodeFromModel(EditorModel::Ref model) {

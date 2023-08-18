@@ -33,6 +33,8 @@ namespace gedit {
         TextBufferAPI::Ref NewBuffer(const char *name);
         TextBufferAPI::Ref LoadBuffer(const char *filename);
 
+        void CloseActiveBuffer();
+
         const std::vector<std::string> GetTopViews();
         ViewAPI::Ref GetViewByName(const char *name);
 

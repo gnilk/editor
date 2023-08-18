@@ -98,21 +98,16 @@ namespace gedit {
                 return true;
             }
 
-            bool DelModel(Node::Ref nodeForModel) {
-                auto itModel = std::find_if(models.begin(), models.end(), [&nodeForModel](const Node::Ref &node){ return nodeForModel->GetModel() == node->GetModel(); });
-                if (itModel == models.end()) {
-                    return false;
-                }
-                models.erase(itModel);
-
-//                // No child is not an error as leaves are just stored in the models array...
-//                auto itNode = std::find_if(childNodes.begin(), childNodes.end(), [&nodeForModel](const ChildNodesValueType &pair) { return nodeForModel == pair.second; });
-//                if (itNode == childNodes.end()) {
-//                    childNodes.erase(itNode);
+//            bool DelModel(Node::Ref nodeForModel) {
+//                auto itModel = std::find_if(models.begin(), models.end(), [&nodeForModel](const Node::Ref &node){ return nodeForModel->GetModel() == node->GetModel(); });
+//                if (itModel == models.end()) {
+//                    return false;
 //                }
-
-                return true;
-            }
+//                models.erase(itModel);
+//
+//
+//                return true;
+//            }
 
             bool HasChild(const std::string &nameToFind) {
                 if(childNodes.find(nameToFind) == childNodes.end()) {
@@ -122,7 +117,11 @@ namespace gedit {
             }
 
             Node::Ref FindModel(const EditorModel::Ref searchModel) {
-                for(auto &node : models) {
+                if (model == searchModel) {
+                    return shared_from_this();
+                }
+
+                for(auto &[name, node] : childNodes) {
                     auto nodeForModel = node->FindModel(searchModel);
                     if (nodeForModel != nullptr) {
                         return nodeForModel;
@@ -151,23 +150,33 @@ namespace gedit {
                 return path;
             }
 
-            const std::vector<Node::Ref> &GetModels() {
-                return models;
+
+            void SetModel(EditorModel::Ref newModel) {
+                model = newModel;
             }
 
-            //////////////////
-            // Functionality related to models of a node
-            Node::Ref AddModel(EditorModel::Ref newModel) {
-                auto node = Create(newModel);
-                models.push_back(node);
-                return node;
-            }
             EditorModel::Ref GetModel() {
                 return model;
             }
 
+            // This will flatten the workspace and return a copy of all model references
+            std::vector<EditorModel::Ref> GetModels() {
+                std::vector<EditorModel::Ref> allModels;
+                RecursiveGetModels(allModels);
+                return allModels;
+            }
+
 
         private:
+            void RecursiveGetModels(std::vector<EditorModel::Ref> &outModels) {
+                if (model != nullptr) {
+                    outModels.push_back(model);
+                    return;
+                }
+                for(auto &[name, node] : childNodes) {
+                    node->RecursiveGetModels(outModels);
+                }
+            }
             void RecursiveGetNodePath(std::filesystem::path &path) {
                 if (parent != nullptr) {
                     RecursiveGetNodePath(path);
@@ -182,9 +191,7 @@ namespace gedit {
             std::string displayName = "";
             Node::Ref parent = nullptr;
             EditorModel::Ref model = nullptr;   // This is only set for leaf nodes..
-
             std::unordered_map<std::string, Node::Ref> childNodes = {};
-            std::vector<Node::Ref> models = {};
         };
     public:
         Workspace();

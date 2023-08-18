@@ -119,7 +119,7 @@ EditorModel::Ref Workspace::NewEmptyModel(const Node::Ref parent) {
     return editorModel;
 }
 
-bool Workspace::CloseModel(EditorModel::Ref model) {
+bool Workspace::RemoveModel(EditorModel::Ref model) {
     auto node = NodeFromModel(model);
     if (!node.has_value()) {
         return false;
@@ -131,7 +131,6 @@ bool Workspace::CloseModel(EditorModel::Ref model) {
     nodePtr->GetParent()->DelChild(nodePtr);
     nodePtr->SetModel(nullptr);
     return true;
-    //return nodePtr->GetParent()->DelModel(nodePtr);
 }
 
 std::optional<Workspace::Node::Ref> Workspace::NodeFromModel(EditorModel::Ref model) {

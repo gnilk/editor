@@ -98,17 +98,6 @@ namespace gedit {
                 return true;
             }
 
-//            bool DelModel(Node::Ref nodeForModel) {
-//                auto itModel = std::find_if(models.begin(), models.end(), [&nodeForModel](const Node::Ref &node){ return nodeForModel->GetModel() == node->GetModel(); });
-//                if (itModel == models.end()) {
-//                    return false;
-//                }
-//                models.erase(itModel);
-//
-//
-//                return true;
-//            }
-
             bool HasChild(const std::string &nameToFind) {
                 if(childNodes.find(nameToFind) == childNodes.end()) {
                     return false;
@@ -148,6 +137,10 @@ namespace gedit {
                 std::filesystem::path path;
                 RecursiveGetNodePath(path);
                 return path;
+            }
+
+            size_t GetNumChildNodes() {
+                return childNodes.size();
             }
 
 
@@ -219,7 +212,7 @@ namespace gedit {
         // Adds a file-reference (i.e doesn't load contents) to a specific (named) workedspace
         EditorModel::Ref NewModelWithFileRef(Node::Ref parent, const std::filesystem::path &pathFileName);
 
-        bool CloseModel(EditorModel::Ref model);
+        bool RemoveModel(EditorModel::Ref model);
 
         void DumpToLog();
 

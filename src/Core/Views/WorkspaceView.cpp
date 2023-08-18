@@ -10,7 +10,6 @@ using namespace gedit;
 
 static const std::string cfgSectionName = "workspaceview";
 
-
 static bool IsStringExcluded(const std::string &str, const std::vector<std::string> &excludePrefixes) {
     if (excludePrefixes.empty()) return false;
     for(auto &prefix : excludePrefixes) {
@@ -20,10 +19,17 @@ static bool IsStringExcluded(const std::string &str, const std::vector<std::stri
     }
     return false;
 }
+
 static void FillTreeView(WorkspaceView::TreeRef tree, WorkspaceView::TreeNodeRef parent, Workspace::Node::Ref node, const std::vector<std::string> &excludePrefixes) {
     std::vector<Workspace::Node::Ref> children;
     node->FlattenChilds(children);
     if (children.size() > 0) {
+
+        // Sort based on child nodes - this makes directories being on top...
+        std::sort(children.begin(), children.end(), [](const Workspace::Node::Ref &a, const Workspace::Node::Ref &b) {
+            return a->GetNumChildNodes() > b->GetNumChildNodes();
+        });
+
         for (auto &child: children) {
             // This is probably not right
             if (IsStringExcluded(child->GetDisplayName(), excludePrefixes)) {
@@ -33,22 +39,6 @@ static void FillTreeView(WorkspaceView::TreeRef tree, WorkspaceView::TreeNodeRef
             FillTreeView(tree, newParent, child,excludePrefixes);
         }
     }
-    // Note: We take a COPY here - not a reference (auto &) - this allows for sorting...
-//    auto models = node->GetModels();
-//    if (models.size() > 0) {
-//        // Sort the models within
-//        std::sort(models.begin(), models.end(), [](Workspace::Node::Ref a, Workspace::Node::Ref b) -> bool {
-//            std::string strA = (a->GetModel() != nullptr) ? std::string(a->GetModel()->GetTextBuffer()->GetName()) : a->GetDisplayName();
-//            std::string strB = (b->GetModel() != nullptr) ? std::string(b->GetModel()->GetTextBuffer()->GetName()) : b->GetDisplayName();
-//
-//            return (strA < strB);
-//        });
-//        // Now print them..
-//        for(auto &nodeModel : models) {
-//            tree->AddItem(parent, nodeModel);
-//        }
-//    }
-
 }
 
 void WorkspaceView::InitView() {

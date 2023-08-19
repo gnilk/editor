@@ -3,8 +3,7 @@
 //
 /*
  * TO-DO List
- * ! Workspace, refactor so that 'models' have specific nodes (currently they are indirect as the node has an array of models)
- * - Workspace, add meta-data to 'references' (Type, filesize, etc..)
+ * - Workspace, add meta-data to Workspace node's (Type, Filesize, etc..) - this can be a simple 'map' (YML map??)
  * - Save screen position and size upon resize/move and similar, restore on startup (use XDG state directory)
  * - Expose config from JS (set,get,list)
  *   Would be cool to just open the whole config folder as a workspace node..  <- consider this
@@ -41,6 +40,7 @@
  *   need to consider a solution for this...
  *
  * Done:
+ * ! Workspace, refactor so that 'models' have specific nodes (currently they are indirect as the node has an array of models)
  * ! Workspace view should 'hide' folders starting with a dot (like: .git, .idea, .goatedit, etc..)
  * ! When opening a folder with an absolute path - check cwd is at the head of that path - otherwise change to it..
  * [!] Searching should be threaded, see if we can use some new CPP features for this - not needed(?) it is fast even though stupid

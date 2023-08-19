@@ -58,6 +58,10 @@ namespace gedit {
             dataNode[key] = newValue;
         }
 
+        void SetInt(const std::string &key, const int newValue) {
+            dataNode[key] = newValue;
+        }
+
         int GetInt(const std::string &key, const int defValue = 0) const {
             if (!HasKey(key)) {
                 return defValue;
@@ -82,6 +86,7 @@ namespace gedit {
             }
             return (dataNode[key].as<std::string>());
         }
+
         char GetChar(const std::string &key, char defValue) const {
             if (!dataNode[key].IsDefined()) {
                 return defValue;
@@ -120,6 +125,12 @@ namespace gedit {
                 return {};
             }
             return cfgNode;
+        }
+
+        std::string ToString() {
+            std::stringstream s;
+            s << dataNode;
+            return s.str();
         }
 
         void MergeNode(ConfigNode &other);

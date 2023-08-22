@@ -72,6 +72,8 @@ EditorModel::Ref Workspace::NewModelWithFileRef(Node::Ref parent, const std::fil
     auto node = parent->AddChild(pathFileName.filename());
     //parent->AddModel(editorModel);
     node->SetModel(editorModel);
+    node->SetMeta<int>(Node::kMetaKey_NodeType, Node::kNodeFileRef);
+    node->SetMeta<size_t>(Node::kMetaKey_FileSize, std::filesystem::file_size(pathFileName));
 
     NotifyChangeHandler();  // Note: This can be enabled/disabled - when reading a directory it is disabled and called once reading has completed./..
 
@@ -178,6 +180,7 @@ bool Workspace::OpenFolder(const std::string &folder) {
 
     DisableNotifications();
     auto rootNode = GetOrAddNode(name);
+    rootNode->SetMeta<int>(Node::kMetaKey_NodeType, Node::kNodeFolder);
     if (!ReadFolderToNode(rootNode, pathName)) {
         // Make sure we enable notification again...
         EnableNotifications();
@@ -197,6 +200,7 @@ bool Workspace::ReadFolderToNode(Node::Ref rootNode, const std::filesystem::path
             const auto &name = entry.path().filename();
             logger->Debug("D: %s", name.c_str());
             auto dirNode = rootNode->GetOrAddChild(name);
+            dirNode->SetMeta<int>(Node::kMetaKey_NodeType,Node::kNodeFolder);
             ReadFolderToNode(dirNode, entry);
         } else if (fs::is_regular_file(entry)) {
             const auto &name = entry.path().filename();

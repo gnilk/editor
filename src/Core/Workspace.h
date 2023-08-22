@@ -15,6 +15,7 @@
 
 #include "logger.h"
 
+#include "Core/Config/ConfigNode.h"
 #include "EditorModel.h"
 
 namespace gedit {
@@ -33,6 +34,16 @@ namespace gedit {
         // This is the actual workspace...
     class Node : public std::enable_shared_from_this<Node> {
         public:
+            inline static const std::string kMetaKey_NodeType = "type";
+            inline static const std::string kMetaKey_FileSize = "filesize";
+
+            enum NodeType : int {
+                kNodeVirtual = 0,   // Virtual nodes are like the 'Default' node - it doesn't exists, used only for grouping
+                kNodeInternal = 1,  // Internal, not used
+                kNodeHidden = 2,    // Hidden, not used
+                kNodeFolder = 3,    // Folder - this node is a directory
+                kNodeFileRef = 4,   // FileRef - this node references a file
+            };
             using Ref = std::shared_ptr<Node>;
             using ChildNodesValueType = std::unordered_map<std::string, Node::Ref>::value_type;
         public:
@@ -159,6 +170,23 @@ namespace gedit {
                 return allModels;
             }
 
+            template<typename T>
+            void SetMeta(const std::string &keyName, const T &data) {
+                metaData.SetValue<T>(keyName, data);
+            }
+
+            bool HasMeta(const std::string &keyName) {
+                if (!metaData.HasKey(keyName)) {
+                    return false;
+                }
+                return true;
+            }
+
+            template<typename T>
+            auto GetMeta(const std::string &keyName, const T &defValue) {
+                return metaData.GetValue(keyName, defValue);
+            }
+
 
         private:
             void RecursiveGetModels(std::vector<EditorModel::Ref> &outModels) {
@@ -180,6 +208,7 @@ namespace gedit {
             }
 
         private:
+            ConfigNode metaData;
             std::string name = "";
             std::string displayName = "";
             Node::Ref parent = nullptr;

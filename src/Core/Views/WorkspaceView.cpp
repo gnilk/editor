@@ -133,10 +133,18 @@ std::pair<std::string, std::string> WorkspaceView::GetStatusBarInfo() {
         dispName = model->GetTextBuffer()->GetName();
     }
 
+    auto nodeType = node->GetMeta<int>(Workspace::Node::kMetaKey_NodeType, Workspace::Node::kNodeFolder);
+    auto fileSize = node->GetMeta<size_t>(Workspace::Node::kMetaKey_FileSize, 0);
+
     char tmp[32];
-    snprintf(tmp, 32, "%s:%s",
-             model==nullptr?"D":"F",
-             dispName.c_str());
+    if (nodeType == Workspace::Node::kNodeFolder) {
+        snprintf(tmp, 32, "%s : <dir>", dispName.c_str());
+    } else if (nodeType == Workspace::Node::kNodeFileRef) {
+        snprintf(tmp, 32, "%s : %zu", dispName.c_str(), fileSize);
+    } else {
+        snprintf(tmp, 32, "---");
+    }
+
     strRight = tmp;
     return {strCenter, strRight};
 }

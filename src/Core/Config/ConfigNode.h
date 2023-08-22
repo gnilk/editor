@@ -50,6 +50,19 @@ namespace gedit {
             return dataNode[key].IsDefined();
         }
 
+        template<typename T>
+        void SetValue(const std::string &key, const T &newValue) {
+            dataNode[key] = newValue;
+        }
+
+        template<typename T>
+        auto GetValue(const std::string &key, const T &defValue) {
+            if (!HasKey(key)) {
+                return defValue;
+            }
+            return dataNode[key].as<T>();
+        }
+
         void SetStr(const std::string &key, const std::string &newValue) {
             dataNode[key] = newValue;
         }

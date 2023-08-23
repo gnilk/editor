@@ -404,7 +404,20 @@ EditorModel::Ref Editor::LoadModel(const std::string &filename) {
         return nullptr;
     }
     auto model = workspace->NewModelWithFileRef(filename);
+    if (model == nullptr) {
+        logger->Error("Failed to create model");
+        return nullptr;
+    }
     model->GetTextBuffer()->Load();
+    // Must be present
+    auto node = workspace->GetNodeFromModel(model).value();
+    bool bIsReadOnly = node->GetMeta<bool>(Workspace::Node::kMetaKey_ReadOnly, false);
+    if (bIsReadOnly) {
+        model->GetTextBuffer()->SetReadOnly(true);
+    }
+
+
+
     openModels.push_back(model);
 
     return model;

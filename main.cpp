@@ -3,7 +3,6 @@
 //
 /*
  * TO-DO List
- * + Handle read/write permissions
  * - deb package does not install resources to correct place (not sure where they end up)
  * - Workspace, add meta-data to Workspace node's (Type, Filesize, etc..) - this can be a simple 'map' (YML map??)
  * - Save screen position and size upon resize/move and similar, restore on startup (use XDG state directory)
@@ -42,6 +41,8 @@
  *   need to consider a solution for this...
  *
  * Done:
+ * ! Remove additional empty line on top when reading files
+ * ! Handle read/write permissions
  * ! If typing is started and selection is active - we should delete the selection and replace with they typing..
  * ! starting editor with a new non-existing file doesn't create it
  * ! Workspace, refactor so that 'models' have specific nodes (currently they are indirect as the node has an array of models)

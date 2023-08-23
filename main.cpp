@@ -3,6 +3,7 @@
 //
 /*
  * TO-DO List
+ * + Handle read/write permissions
  * - deb package does not install resources to correct place (not sure where they end up)
  * - Workspace, add meta-data to Workspace node's (Type, Filesize, etc..) - this can be a simple 'map' (YML map??)
  * - Save screen position and size upon resize/move and similar, restore on startup (use XDG state directory)

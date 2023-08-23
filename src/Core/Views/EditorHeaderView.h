@@ -44,7 +44,11 @@ namespace gedit {
 
                 // Add marker for changed
                 if (m->GetTextBuffer()->GetBufferState() == TextBuffer::kBuffer_Changed) {
-                    dc.DrawStringWithAttributesAt(xp,0,kTextAttributes::kUnderline, "* ");
+                    dc.DrawStringWithAttributesAt(xp,0,kTextAttributes::kNormal, "* ");
+                    xp += 2;
+                }
+                if (m->GetTextBuffer()->IsReadOnly()) {
+                    dc.DrawStringWithAttributesAt(xp,0,kTextAttributes::kNormal, "R ");
                     xp += 2;
                 }
 

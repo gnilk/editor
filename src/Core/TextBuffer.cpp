@@ -142,6 +142,7 @@ bool TextBuffer::CanEdit() {
     // No reparse thread => we can always edit - single threaded mode...
     if (reparseThread == nullptr) return true;
     if (GetParseState() == kState_Idle) return true;
+    if (bIsReadOnly == false) return true;
     return false;
 }
 

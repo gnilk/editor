@@ -149,6 +149,13 @@ namespace gedit {
         bool HaveLanguage() { return language!= nullptr; }
         LanguageBase &GetLanguage() { return *language; }
 
+        void SetReadOnly(bool newIsReadOnly) {
+            bIsReadOnly = newIsReadOnly;
+        }
+        bool IsReadOnly() {
+            return bIsReadOnly;
+        }
+
         bool CanEdit();
         void Reparse();
         void ReparseRegion(size_t idxStartLine, size_t idxEndLine);
@@ -201,7 +208,7 @@ namespace gedit {
         std::mutex parseThreadLock;
         std::deque<ParseJob> parseQueue;
 
-
+        bool bIsReadOnly = false;   // assume they are not
         bool bQuitReparse = false;
 
         gnilk::ILogger *logger = nullptr;

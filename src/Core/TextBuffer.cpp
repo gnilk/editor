@@ -142,6 +142,7 @@ bool TextBuffer::CanEdit() {
     // No reparse thread => we can always edit - single threaded mode...
     if (reparseThread == nullptr) return true;
     if (GetParseState() == kState_Idle) return true;
+    if (bIsReadOnly == false) return true;
     return false;
 }
 
@@ -259,11 +260,36 @@ bool TextBuffer::Save() {
         return true;
     }
 
-    std::ofstream out(pathName, std::ios::binary);
-    for(auto &l : lines) {
-        out << l->Buffer() << "\n";
+    logger->Debug("Saving file: %s", pathName.c_str());
+    auto f = fopen(pathName.c_str(), "w");
+    if (f == nullptr) {
+        logger->Error("Failed to save buffer, err: %d:%s", errno, strerror(errno));
+
+        // Best dump this to the console as well..
+        std::string strError = "Unable to save file, err: ";
+        strError += strerror(errno);
+        RuntimeConfig::Instance().OutputConsole()->WriteLine(strError);
+        return false;
     }
-    out.close();
+
+    // Actual writing of data...
+    for (auto &l: lines) {
+        fprintf(f,"%s\n", l->Buffer().data());
+    }
+    fclose(f);
+
+
+//    std::ofstream out(pathName);
+//    if (!out.good()) {
+//        auto state = out.rdstate();
+//        logger->Error("Failed to save buffer: %s", pathName.c_str());
+//        return false;
+//    }
+//    for (auto &l: lines) {
+//        out << l->Buffer() << "\n";
+//    }
+//    out.close();
+
 
     // Go back to 'clean' - i.e. data is loaded...
     ChangeBufferState(kBuffer_Loaded);
@@ -279,6 +305,9 @@ bool TextBuffer::Load() {
     }
 
     auto filename = pathName.string();
+
+    // Clear out any lines before loading - the CTOR add's an empty line (so we can edit directly)
+    lines.clear();
 
     // Now load
     FILE *f = fopen(filename.c_str(), "r");

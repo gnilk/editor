@@ -159,9 +159,11 @@ void EditorView::OnKeyPress(const KeyPress &keyPress) {
     if (!editorModel->GetTextBuffer()->CanEdit()) return;
 
     if (editorModel->GetEditController()->HandleKeyPress(editorModel->cursor, editorModel->idxActiveLine, keyPress)) {
-        // Cancel selection if we had one...
+        // Delete selection and cancel it out - if we had one...
         if (editorModel->IsSelectionActive()) {
+            editorModel->DeleteSelection();
             editorModel->CancelSelection();
+            editorModel->cursor.position.x +=1;
         }
         InvalidateView();
         return;
@@ -772,6 +774,9 @@ std::pair<std::string, std::string> EditorView::GetStatusBarInfo() {
     // Resolve center information
     if (model->GetTextBuffer()->GetBufferState() == TextBuffer::kBuffer_Changed) {
         statusCenter += "* ";
+    }
+    if (model->GetTextBuffer()->IsReadOnly()) {
+        statusCenter += "R/O ";
     }
 
     statusCenter += model->GetTextBuffer()->GetName();

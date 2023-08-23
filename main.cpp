@@ -41,6 +41,9 @@
  *   need to consider a solution for this...
  *
  * Done:
+ * ! Remove additional empty line on top when reading files
+ * ! Handle read/write permissions
+ * ! If typing is started and selection is active - we should delete the selection and replace with they typing..
  * ! starting editor with a new non-existing file doesn't create it
  * ! Workspace, refactor so that 'models' have specific nodes (currently they are indirect as the node has an array of models)
  * ! Workspace view should 'hide' folders starting with a dot (like: .git, .idea, .goatedit, etc..)

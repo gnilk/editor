@@ -76,6 +76,10 @@ EditorModel::Ref Workspace::NewModelWithFileRef(Node::Ref parent, const std::fil
     if (std::filesystem::exists(pathFileName)) {
         node->SetMeta<size_t>(Node::kMetaKey_FileSize, std::filesystem::file_size(pathFileName));
     }
+    // Deduce read-only flag, in essence, if we as the owner can't write we simply mark as readonly...
+    auto perms = std::filesystem::status(pathFileName).permissions();
+    auto bCanWrite = (std::filesystem::perms::none == (perms & std::filesystem::perms::owner_write))?false:true;
+    node->SetMeta<bool>(Node::kMetaKey_ReadOnly, !bCanWrite);
 
     NotifyChangeHandler();  // Note: This can be enabled/disabled - when reading a directory it is disabled and called once reading has completed./..
 
@@ -124,7 +128,7 @@ EditorModel::Ref Workspace::NewEmptyModel(const Node::Ref parent) {
 }
 
 bool Workspace::RemoveModel(EditorModel::Ref model) {
-    auto node = NodeFromModel(model);
+    auto node = GetNodeFromModel(model);
     if (!node.has_value()) {
         return false;
     }
@@ -137,7 +141,7 @@ bool Workspace::RemoveModel(EditorModel::Ref model) {
     return true;
 }
 
-std::optional<Workspace::Node::Ref> Workspace::NodeFromModel(EditorModel::Ref model) {
+std::optional<Workspace::Node::Ref> Workspace::GetNodeFromModel(EditorModel::Ref model) {
     for(auto &[name, node] : rootNodes) {
         auto modelNode = node->FindModel(model);
         if (modelNode != nullptr) {

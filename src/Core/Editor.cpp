@@ -380,15 +380,21 @@ bool Editor::OpenModelOrFolder(const std::string &fileOrFolder) {
         return true;
     }
 
-    auto model = workspace->NewModelWithFileRef(pathName);
+    auto model = LoadModel(fileOrFolder);
     if (model == nullptr) {
-        logger->Error("Unable to load file: %s", fileOrFolder.c_str());
+        // errors dumped already...
         return false;
     }
 
-    // All good...
-    model->GetTextBuffer()->Load();
-    openModels.push_back(model);
+//    auto model = workspace->NewModelWithFileRef(pathName);
+//    if (model == nullptr) {
+//        logger->Error("Unable to load file: %s", fileOrFolder.c_str());
+//        return false;
+//    }
+//
+//    // All good...
+//    model->GetTextBuffer()->Load();
+//    openModels.push_back(model);
     return true;
 
 }
@@ -409,14 +415,13 @@ EditorModel::Ref Editor::LoadModel(const std::string &filename) {
         return nullptr;
     }
     model->GetTextBuffer()->Load();
+
     // Must be present
     auto node = workspace->GetNodeFromModel(model).value();
     bool bIsReadOnly = node->GetMeta<bool>(Workspace::Node::kMetaKey_ReadOnly, false);
     if (bIsReadOnly) {
         model->GetTextBuffer()->SetReadOnly(true);
     }
-
-
 
     openModels.push_back(model);
 

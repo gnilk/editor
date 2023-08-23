@@ -30,6 +30,10 @@ bool EditController::HandleKeyPress(Cursor &cursor, size_t &idxLine, const KeyPr
         return false;
     }
 
+    if (textBuffer->IsReadOnly()) {
+        return false;
+    }
+
     auto line = textBuffer->LineAt(idxLine);
     auto undoItem = BeginUndoItem();
 

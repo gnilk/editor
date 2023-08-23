@@ -306,6 +306,9 @@ bool TextBuffer::Load() {
 
     auto filename = pathName.string();
 
+    // Clear out any lines before loading - the CTOR add's an empty line (so we can edit directly)
+    lines.clear();
+
     // Now load
     FILE *f = fopen(filename.c_str(), "r");
     if (f == nullptr) {

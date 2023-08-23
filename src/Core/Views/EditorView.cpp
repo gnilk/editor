@@ -773,6 +773,9 @@ std::pair<std::string, std::string> EditorView::GetStatusBarInfo() {
     if (model->GetTextBuffer()->GetBufferState() == TextBuffer::kBuffer_Changed) {
         statusCenter += "* ";
     }
+    if (model->GetTextBuffer()->IsReadOnly()) {
+        statusCenter += "R/O ";
+    }
 
     statusCenter += model->GetTextBuffer()->GetName();
     statusCenter += " | ";

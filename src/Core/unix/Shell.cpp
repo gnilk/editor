@@ -75,17 +75,22 @@ bool Shell::StartShellProc() {
 
     // This is needed for 'zsh' but not for bash (fork is enough)
     struct termios tio;
+    struct termios *ptrTermIO = nullptr;
+
+    // This will fail if we are starting through the UI launcher...
+    // It is however ok to provide a 'nullptr' to forkpty for the termios
     int err = tcgetattr(STDIN_FILENO, &tio);
     if (err) {
-        logger->Error("failed tcgetattr");
-        CleanUp();
-        return false;
+        logger->Error("failed tcgetattr, err: %d:%s", errno, strerror(errno));
+        logger->Debug("This can happen when started as a UI application - not sure how ZSH will respond");
+    } else {
+        ptrTermIO = &tio;
     }
 
     logger->Error("forking pty!");
 
     int amaster = 0;
-    pid = forkpty(&amaster, NULL, &tio, NULL);
+    pid = forkpty(&amaster, NULL, ptrTermIO, NULL);
 
 
     if(pid > 0) {

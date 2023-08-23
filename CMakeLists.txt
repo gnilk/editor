@@ -194,7 +194,7 @@ elseif(UNIX)
     # Note: The binary will currently be named 'editor' <- should fix this at some point...
     #
     install(TARGETS ${CUR_TARGET} COMPONENT goatedit RUNTIME DESTINATION bin)
-    install(DIRECTORY ${EDITOR_ASSET_DIR}/. DESTINATION share)
+    install(DIRECTORY ${EDITOR_ASSET_DIR}/. DESTINATION local/share/goatedit)
 
     SET(CPACK_GENERATOR "DEB")
     SET(CPACK_PACKAGE_NAME "goatedit")

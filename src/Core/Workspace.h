@@ -35,7 +35,8 @@ namespace gedit {
     class Node : public std::enable_shared_from_this<Node> {
         public:
             inline static const std::string kMetaKey_NodeType = "type";
-            inline static const std::string kMetaKey_FileSize = "filesize";
+        inline static const std::string kMetaKey_FileSize = "filesize";
+        inline static const std::string kMetaKey_ReadOnly = "readonly";
 
             enum NodeType : int {
                 kNodeVirtual = 0,   // Virtual nodes are like the 'Default' node - it doesn't exists, used only for grouping
@@ -241,6 +242,8 @@ namespace gedit {
         // Adds a file-reference (i.e doesn't load contents) to a specific (named) workedspace
         EditorModel::Ref NewModelWithFileRef(Node::Ref parent, const std::filesystem::path &pathFileName);
 
+        std::optional<Node::Ref> GetNodeFromModel(EditorModel::Ref model);
+
         bool RemoveModel(EditorModel::Ref model);
 
         void DumpToLog();
@@ -248,7 +251,6 @@ namespace gedit {
     protected:
         bool ReadFolderToNode(Node::Ref rootNode, const std::filesystem::path &folder);
         Node::Ref GetOrAddNode(const std::string &name);
-        std::optional<Node::Ref> NodeFromModel(EditorModel::Ref model);
         void DisableNotifications() {
             isChangeHandlerEnabled = false;
         }

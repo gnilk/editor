@@ -78,7 +78,7 @@ EditorModel::Ref Workspace::NewModelWithFileRef(Node::Ref parent, const std::fil
     }
     // Deduce read-only flag, in essence, if we as the owner can't write we simply mark as readonly...
     auto perms = std::filesystem::status(pathFileName).permissions();
-    auto bCanWrite = (std::filesystem::perms::none == (perms & std::filesystem::perms::owner_read))?true:false;
+    auto bCanWrite = (std::filesystem::perms::none == (perms & std::filesystem::perms::owner_write))?false:true;
     node->SetMeta<bool>(Node::kMetaKey_ReadOnly, !bCanWrite);
 
     NotifyChangeHandler();  // Note: This can be enabled/disabled - when reading a directory it is disabled and called once reading has completed./..

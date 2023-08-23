@@ -420,6 +420,7 @@ EditorModel::Ref Editor::LoadModel(const std::string &filename) {
     auto node = workspace->GetNodeFromModel(model).value();
     bool bIsReadOnly = node->GetMeta<bool>(Workspace::Node::kMetaKey_ReadOnly, false);
     if (bIsReadOnly) {
+        logger->Debug("File '%s' is readonly", filename.c_str());
         model->GetTextBuffer()->SetReadOnly(true);
     }
 

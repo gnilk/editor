@@ -356,8 +356,15 @@ EditorModel::Ref Editor::NewModel(const std::string &name) {
 bool Editor::OpenModelOrFolder(const std::string &fileOrFolder) {
     auto pathName =std::filesystem::path(fileOrFolder);
     if (!std::filesystem::exists(pathName)) {
-        logger->Error("File or Folder not found: %s", fileOrFolder.c_str());
-        return false;
+        // Create file here..
+        logger->Debug("File doesn't exists, creating new");
+        auto newModel = workspace->NewModelWithFileRef(pathName);
+        if (newModel == nullptr) {
+            logger->Error("Failed to create new file!");
+            return false;
+        }
+        openModels.push_back(newModel);
+        return true;
     }
     if (std::filesystem::is_directory(pathName)) {
         logger->Debug("Opening folder: %s", fileOrFolder.c_str());

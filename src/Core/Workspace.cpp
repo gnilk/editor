@@ -73,7 +73,9 @@ EditorModel::Ref Workspace::NewModelWithFileRef(Node::Ref parent, const std::fil
     //parent->AddModel(editorModel);
     node->SetModel(editorModel);
     node->SetMeta<int>(Node::kMetaKey_NodeType, Node::kNodeFileRef);
-    node->SetMeta<size_t>(Node::kMetaKey_FileSize, std::filesystem::file_size(pathFileName));
+    if (std::filesystem::exists(pathFileName)) {
+        node->SetMeta<size_t>(Node::kMetaKey_FileSize, std::filesystem::file_size(pathFileName));
+    }
 
     NotifyChangeHandler();  // Note: This can be enabled/disabled - when reading a directory it is disabled and called once reading has completed./..
 

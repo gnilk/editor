@@ -159,9 +159,11 @@ void EditorView::OnKeyPress(const KeyPress &keyPress) {
     if (!editorModel->GetTextBuffer()->CanEdit()) return;
 
     if (editorModel->GetEditController()->HandleKeyPress(editorModel->cursor, editorModel->idxActiveLine, keyPress)) {
-        // Cancel selection if we had one...
+        // Delete selection and cancel it out - if we had one...
         if (editorModel->IsSelectionActive()) {
+            editorModel->DeleteSelection();
             editorModel->CancelSelection();
+            editorModel->cursor.position.x +=1;
         }
         InvalidateView();
         return;

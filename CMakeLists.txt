@@ -117,6 +117,10 @@ if (APPLE)
             COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/Assets/CMake/GoatEdit.icns $<TARGET_FILE_DIR:${CUR_TARGET}>/../Resources
     )
 
+    # better way to get the Icon file?
+    # set_source_files_properties(${CMAKE_SOURCE_DIR}/Assets/CMake/GoatEdit.icns PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+
+
     target_compile_options(${CUR_TARGET} PUBLIC -Wall -Wextra -Wpedantic -Wshadow)
     target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-parameter)
     target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-variable)

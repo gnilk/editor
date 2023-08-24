@@ -91,10 +91,10 @@ if (APPLE)
     list(APPEND extlibs ncurses)
     list(APPEND extlibs yaml-cpp)
 
+    set(ICON_FILE ${CMAKE_SOURCE_DIR}/Assets/CMake/GoatEdit.icns)
 
-    add_executable(${CUR_TARGET} MACOSX_BUNDLE ${appsrc})
+    add_executable(${CUR_TARGET} MACOSX_BUNDLE ${appsrc} ${ICON_FILE})
     set_target_properties(${CUR_TARGET} PROPERTIES
-            MACOSX_BUNDLE TRUE
             MACOSX_BUNDLE_GUI_IDENTIFIER gnilk.com.${CUR_TARGET}
             MACOSX_BUNDLE_BUNDLE_NAME ${CUR_TARGET}
             MACOSX_BUNDLE_BUNDLE_VERSION "0.1"
@@ -111,14 +111,17 @@ if (APPLE)
             POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_directory ${EDITOR_ASSET_DIR} $<TARGET_FILE_DIR:${CUR_TARGET}>/../SharedSupport
     )
-    add_custom_command(
-            TARGET ${CUR_TARGET}
-            POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/Assets/CMake/GoatEdit.icns $<TARGET_FILE_DIR:${CUR_TARGET}>/../Resources
-    )
+#    add_custom_command(
+#            TARGET ${CUR_TARGET}
+#            POST_BUILD
+#            COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/Assets/CMake/GoatEdit.icns $<TARGET_FILE_DIR:${CUR_TARGET}>/../Resources/
+#    )
 
     # better way to get the Icon file?
-    # set_source_files_properties(${CMAKE_SOURCE_DIR}/Assets/CMake/GoatEdit.icns PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+    set_source_files_properties(${ICON_FILE} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+
+    #    install(TARGETS ${CUR_TARGET} BUNDLE DESTINATION GoatEdit.app/Contents/MacOS COMPONENT GoatEdit)
+    #    install(DIRECTORY ${EDITOR_ASSET_DIR} DESTINATION GoatEdit.app/Contents/Resources COMPONENT GoatEdit)
 
 
     target_compile_options(${CUR_TARGET} PUBLIC -Wall -Wextra -Wpedantic -Wshadow)
@@ -136,8 +139,6 @@ if (APPLE)
     target_compile_options(${CUR_TARGET} PUBLIC -Wno-shadow)
 
 
-#    install(TARGETS ${CUR_TARGET} BUNDLE DESTINATION GoatEdit.app/Contents/MacOS COMPONENT GoatEdit)
-#    install(DIRECTORY ${EDITOR_ASSET_DIR} DESTINATION GoatEdit.app/Contents/Resources COMPONENT GoatEdit)
 #
 #    SET(CPACK_GENERATOR "DragNDrop")
 ##    SET(CPACK_PACKAGE_EXECUTABLES ${CMAKE_CURRENT_BINARY_DIR}/editor.app)

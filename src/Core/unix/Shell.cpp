@@ -14,6 +14,7 @@
 #include <thread>
 #include <array>
 #include <sys/stat.h>
+#include <string.h>
 
 #include <logger.h>
 

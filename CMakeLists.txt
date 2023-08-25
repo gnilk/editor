@@ -91,19 +91,30 @@ if (APPLE)
     list(APPEND extlibs ncurses)
     list(APPEND extlibs yaml-cpp)
 
-    set(ICON_FILE ${CMAKE_SOURCE_DIR}/Assets/CMake/GoatEdit.icns)
 
+    set(ICON_FILE ${CMAKE_SOURCE_DIR}/Assets/CMake/GoatEdit.icns)
+    set(PLIST_FILE_IN ${CMAKE_SOURCE_DIR}/Assets/CMake/Info.plist.in)
+
+    # for MacOS add - mark as 'MACOSX_BUNDLE' and add the ICON as well
     add_executable(${CUR_TARGET} MACOSX_BUNDLE ${appsrc} ${ICON_FILE})
+    # Now, set some properties to tell CMake where it should go..
+    set_source_files_properties(${ICON_FILE} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+
+    # When changing the Assets/CMake/Info.plist.in - which will rebuild the bundle Info.plist we must
+    # reset the cache in macos for this to take effect...
+    # /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -kill -seed
+
     set_target_properties(${CUR_TARGET} PROPERTIES
             MACOSX_BUNDLE_GUI_IDENTIFIER gnilk.com.${CUR_TARGET}
             MACOSX_BUNDLE_BUNDLE_NAME ${CUR_TARGET}
             MACOSX_BUNDLE_BUNDLE_VERSION "0.1"
             MACOSX_BUNDLE_SHORT_VERSION_STRING "0.1"
             MACOSX_BUNDLE_ICON_FILE GoatEdit
-            MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/Assets/CMake/Info.plist.in
+            MACOSX_BUNDLE_INFO_PLIST ${PLIST_FILE_IN}
             )
 
     # This copies the 'goatedit' (shared resource folder) in to the application bundle...
+    # Don't know if this is possible with some other CMake command - perhaps it is - this did work for me...
     add_custom_command(
             TARGET ${CUR_TARGET}
             DEPENDS plugins
@@ -111,14 +122,7 @@ if (APPLE)
             POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_directory ${EDITOR_ASSET_DIR} $<TARGET_FILE_DIR:${CUR_TARGET}>/../SharedSupport
     )
-#    add_custom_command(
-#            TARGET ${CUR_TARGET}
-#            POST_BUILD
-#            COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/Assets/CMake/GoatEdit.icns $<TARGET_FILE_DIR:${CUR_TARGET}>/../Resources/
-#    )
 
-    # better way to get the Icon file?
-    set_source_files_properties(${ICON_FILE} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
 
     #    install(TARGETS ${CUR_TARGET} BUNDLE DESTINATION GoatEdit.app/Contents/MacOS COMPONENT GoatEdit)
     #    install(DIRECTORY ${EDITOR_ASSET_DIR} DESTINATION GoatEdit.app/Contents/Resources COMPONENT GoatEdit)

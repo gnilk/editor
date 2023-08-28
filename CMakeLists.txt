@@ -202,17 +202,22 @@ elseif(UNIX)
     # Create a .deb install package..
     # Note: The binary will currently be named 'editor' <- should fix this at some point...
     #
-    install(TARGETS ${CUR_TARGET} COMPONENT goatedit RUNTIME DESTINATION bin)
-    install(DIRECTORY ${EDITOR_ASSET_DIR}/. DESTINATION local/share/goatedit)
+    include(GNUInstallDirs)
+    install(TARGETS ${CUR_TARGET} RUNTIME DESTINATION bin)
+    install(DIRECTORY ${EDITOR_ASSET_DIR}/. DESTINATION ${CMAKE_INSTALL_DATADIR}/goatedit)
+    install(FILES ${CMAKE_SOURCE_DIR}/Assets/CMake/com.gnilk.goatedit.desktop DESTINATION DESTINATION share/applications)
+    install(FILES ${CMAKE_SOURCE_DIR}/Assets/Graphics/com.gnilk.goatedit.png DESTINATION DESTINATION share/icons/hicolor/scalable/apps)
 
     SET(CPACK_GENERATOR "DEB")
+    SET(CPACK_PACKAGE_EXECUTEABLES goatedit;GoatEdit)
+    SET(CPACK_PACKAGE_ICON ${CMAKE_SOURCE_DIR}/Assets/Graphics/goatedit_icon.png)
     SET(CPACK_PACKAGE_NAME "goatedit")
     SET(CPACK_PACKAGE_VENDOR "gnilk")
     SET(CPACK_PACKAGE_DESCRIPTION "A text editor for my own personal use..")
     SET(CPACK_PACKAGE_DESCRIPTION_SUMMARY "not a very fancy text/code editor..")
     SET(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/gnilk/editor")
     SET(CPACK_DEBIAN_PACKAGE_MAINTAINER "gnilk") #required
-    set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS YES)
+    SET(CPACK_DEBIAN_PACKAGE_SHLIBDEPS YES)
     INCLUDE(CPack)
 
 endif ()

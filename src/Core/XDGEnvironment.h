@@ -42,6 +42,9 @@ namespace gedit {
         std::optional<const std::filesystem::path>GetFirstSystemDataPathWithPrefix(const std::string &prefix) const;
 
         [[nodiscard]]
+        std::optional<const std::filesystem::path> GetFirstSystemDataPathWithSubDir(const std::string &subdir) const;
+
+        [[nodiscard]]
         const std::filesystem::path &GetFirstSystemConfigPath() const;
         [[nodiscard]]
         std::optional<const std::filesystem::path>GetFirstSystemConfigPathWithPrefix(const std::string &prefix) const;

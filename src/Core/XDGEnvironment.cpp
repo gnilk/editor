@@ -77,6 +77,16 @@ std::optional<const std::filesystem::path>XDGEnvironment::GetFirstSystemDataPath
     return GetFirstWithPrefix(sysData.fsPaths, prefix);
 }
 
+std::optional<const std::filesystem::path> XDGEnvironment::GetFirstSystemDataPathWithSubDir(const std::string &subdir) const {
+    for(auto &sysPath : sysData.fsPaths) {
+        auto sysSubPath = sysPath / subdir;
+        if (std::filesystem::is_directory(sysSubPath)) {
+            return sysSubPath;
+        }
+    }
+    return {};
+}
+
 std::optional<const std::filesystem::path>XDGEnvironment::GetFirstSystemConfigPathWithPrefix(const std::string &prefix) const {
     return GetFirstWithPrefix(sysConfig.fsPaths, prefix);
 }

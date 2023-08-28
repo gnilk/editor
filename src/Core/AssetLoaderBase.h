@@ -50,7 +50,7 @@ namespace gedit {
             std::filesystem::path path;
         };
     public:
-        void AddSearchPath(const std::filesystem::path &path, kLocationType locationType);
+        bool AddSearchPath(const std::filesystem::path &path, kLocationType locationType);
 
         // Will load as-is
         Asset::Ref LoadAsset(const std::string &fileName, kLocationType locationType = kLocationType::kAny);

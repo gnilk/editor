@@ -22,13 +22,13 @@ static unordered_map<AssetLoaderBase::kLocationType, std::string> locTypeToStrin
         { AssetLoaderBase::kLocationType::kUser, "user"}
 };
 
-void AssetLoaderBase::AddSearchPath(const std::filesystem::path &path, kLocationType locationType) {
+bool AssetLoaderBase::AddSearchPath(const std::filesystem::path &path, kLocationType locationType) {
     auto logger = gnilk::Logger::GetLogger("AssetLoader");
-    logger->Debug("AddSearchPath (%s): %s",locTypeToString[locationType].c_str(), path.c_str());
     if (!std::filesystem::is_directory(path)) {
         logger->Debug("Path '%s' is not directory, skipping!", path.c_str());
-        return;
+        return false;
     }
+    logger->Debug("AddSearchPath (%s): %s",locTypeToString[locationType].c_str(), path.c_str());
 
     if (path.is_relative()) {
         logger->Debug("Path '%s' is relative", path.c_str());
@@ -36,6 +36,7 @@ void AssetLoaderBase::AddSearchPath(const std::filesystem::path &path, kLocation
     auto absPath = std::filesystem::absolute(path);
     logger->Debug("Adding absolute: '%s'", absPath.c_str());
     baseSearchPaths.push_back({0, locationType, absPath});
+    return true;
 }
 
 AssetLoaderBase::Asset::Ref AssetLoaderBase::LoadAsset(const std::string &fileName, kLocationType locationType) {

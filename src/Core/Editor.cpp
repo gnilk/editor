@@ -108,13 +108,14 @@ bool Editor::Initialize(int argc, const char **argv) {
 #elif defined(GEDIT_LINUX)
     // On Linux (and others) Add the usr/share directory - this is our default from the install script...
     logger->Debug("We are on Linux, resolving XDG paths");
-    auto usrLocalPath = XDGEnvironment::Instance().GetFirstSystemDataPathWithPrefix("/usr/local");
-    if (usrLocalPath.has_value()) {
-        assetLoader.AddSearchPath(usrLocalPath.value() / "goatedit",AssetLoaderBase::kLocationType::kSystem);
-    } else {
-        auto defaultSysPath = XDGEnvironment::Instance().GetFirstSystemDataPath();
-        assetLoader.AddSearchPath(defaultSysPath / "goatedit",AssetLoaderBase::kLocationType::kSystem);
+
+    auto sysConfigPath = XDGEnvironment::Instance().GetFirstSystemDataPathWithSubDir("goatedit");
+    if (!sysConfigPath.has_value()) {
+        logger->Error("No system install path, exit!");
+        exit(1);
     }
+    assetLoader.AddSearchPath(sysConfigPath.value(), AssetLoaderBase::kLocationType::kSystem);
+
     // Add in the user data...
     auto userData = XDGEnvironment::Instance().GetUserDataPath();
     assetLoader.AddSearchPath(userData / "goatedit",AssetLoaderBase::kLocationType::kUser);
@@ -474,6 +475,21 @@ void Editor::ConfigurePreInitLogger() {
     if (!keepConsoleLogger) {
         gnilk::Logger::RemoveSink("console");
     }
+/*
+    // Keep this to hold logging during pre-initalization
+    auto cfgLogging = Config::Instance().GetNode("logging");
+    auto logFileName = "preinitlog.log";
+    auto sinkName = "filesink";
+    auto logPath = XDGEnvironment::Instance().GetUserStatePath();
+    if (!CheckCreateDirectory(logPath)) {
+        return;
+    }
+
+    logPath /= logFileName;
+    auto fileSink = new gnilk::LogFileSink();
+    const char *sinkArgv[]={"autoflush", "file", logPath.c_str()};
+    gnilk::Logger::AddSink(fileSink, sinkName, 3, sinkArgv);
+*/
 }
 
 // Called after config has been loaded

@@ -640,6 +640,9 @@ Workspace::Node::Ref Editor::GetWorkspaceNodeForActiveModel() {
     }
     return workspace->GetNodeFromModel(model);
 }
+Workspace::Node::Ref Editor::GetWorkspaceNodeForModel(EditorModel::Ref model) {
+    return workspace->GetNodeFromModel(model);
+}
 
 bool Editor::IsModelOpen(EditorModel::Ref model) {
     for(size_t i = 0; i < openModels.size(); i++) {

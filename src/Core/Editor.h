@@ -60,6 +60,7 @@ namespace gedit {
         size_t GetActiveModelIndex();
         EditorModel::Ref GetActiveModel();
         Workspace::Node::Ref GetWorkspaceNodeForActiveModel();
+        Workspace::Node::Ref GetWorkspaceNodeForModel(EditorModel::Ref model);
         EditorModel::Ref GetModelFromIndex(size_t idxModel) {
             if (idxModel > (openModels.size() - 1)) {
                 return nullptr;

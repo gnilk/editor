@@ -15,7 +15,7 @@
 #include "Modules/ConsoleAPIWrapper.h"
 #include "Modules/EditorAPIWrapper.h"
 #include "Modules/NamedColorsAPIWrapper.h"
-#include "Modules/TextBufferAPIWrapper.h"
+#include "Modules/DocumentAPIWrapper.h"
 #include "Modules/ThemeAPIWrapper.h"
 #include "Modules/ViewAPIWrapper.h"
 #include "Core/StrUtil.h"
@@ -165,7 +165,7 @@ void JSPluginEngine::RegisterBuiltIns() {
 //    EditorAPIWrapper::RegisterModule(ctx);
     ConsoleAPIWrapper::RegisterModule(ctx);
     EditorAPIWrapper::RegisterModule(ctx);
-    TextBufferAPIWrapper::RegisterModule(ctx);
+    DocumentAPIWrapper::RegisterModule(ctx);
     ThemeAPIWrapper::RegisterModule(ctx);
     ViewAPIWrapper::RegisterModule(ctx);
     NamedColorsAPIWrapper::RegisterModule(ctx);

@@ -86,7 +86,7 @@ commands:
     name: saveas
     short: sa
     description: Save active buffer with a specific filename
-    script: Scripts/savefile.js
+    script: Scripts/savebuffer.js
     arguments:
       - string, filename
   -

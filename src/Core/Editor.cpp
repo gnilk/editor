@@ -41,6 +41,8 @@
 #include <sys/stat.h>
 #include <wordexp.h>
 #include <unistd.h>
+#include "Core/macOS/MacOSFolderMonitor.h"
+
 #include "Core/XDGEnvironment.h"
 // API stuff
 #include "Core/API/EditorAPI.h"
@@ -65,6 +67,8 @@ static const std::string glbVersionString = xstrver(GEDIT_VERSION_MAJOR, GEDIT_V
 #undef str
 #undef xstrver
 #undef xstr
+
+
 
 Editor &Editor::Instance() {
     static Editor glbSystem;
@@ -850,6 +854,14 @@ bool Editor::OpenModelOrFolder(const std::string &fileOrFolder) {
             logger->Debug("Changing directory to: %s", pathName.c_str());
             std::filesystem::current_path(pathName);
         }
+
+        // Monitor everything below the folder we are opening...
+        auto monitorPath = pathName / "*";
+        MacOSFolderMonitor::Instance().AddEventListener(monitorPath,[](const std::string &pathName, FolderMonitorBase::kChangeFlags flags)->void {
+            auto logger = gnilk::Logger::GetLogger("FSEVENT");
+            logger->Debug("0x%x : %s", static_cast<int>(flags), pathName.c_str());
+        });
+        MacOSFolderMonitor::Instance().Start();
 
         return true;
     }

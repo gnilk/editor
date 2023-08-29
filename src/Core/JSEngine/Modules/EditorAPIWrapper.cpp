@@ -13,6 +13,7 @@ void EditorAPIWrapper::RegisterModule(duk_context *ctx) {
     duk_put_global_string(ctx, "Editor");
 
     dukglue_register_method(ctx, &EditorAPIWrapper::GetActiveDocument, "GetActiveDocument");
+    dukglue_register_method(ctx, &EditorAPIWrapper::NewDocument, "NewDocument");
 
     dukglue_register_method(ctx, &EditorAPIWrapper::GetCurrentTheme, "GetCurrentTheme");
     dukglue_register_method(ctx, &EditorAPIWrapper::ExitEditor, "ExitEditor");
@@ -43,6 +44,12 @@ DocumentAPIWrapper::Ref EditorAPIWrapper::GetActiveDocument() {
     auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
     return DocumentAPIWrapper::Create(editorApi->GetActiveDocument());
 }
+
+DocumentAPIWrapper::Ref EditorAPIWrapper::NewDocument(const char *name) {
+    auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
+    return DocumentAPIWrapper::Create(editorApi->NewDocument(name));
+}
+
 
 ThemeAPIWrapper::Ref EditorAPIWrapper::GetCurrentTheme() {
     auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
@@ -92,10 +99,6 @@ ViewAPIWrapper::Ref EditorAPIWrapper::GetViewByName(const char *name) {
 //    return TextBufferAPIWrapper::Create(editorApi->GetActiveTextBuffer());
 //}
 //
-//void EditorAPIWrapper::NewBuffer(const char *name) {
-//    auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
-//    editorApi->NewBuffer(name);
-//}
 //TextBufferAPI::Ref EditorAPIWrapper::LoadBuffer(const char *name) {
 //    auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
 //    return editorApi->LoadBuffer(name);

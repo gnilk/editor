@@ -16,7 +16,9 @@ namespace gedit {
         std::vector<std::string> GetRegisteredLanguages();
         std::vector<std::string> GetHelp();
 
+        DocumentAPIWrapper::Ref NewDocument(const char *name);
         DocumentAPIWrapper::Ref GetActiveDocument();
+
 
         // FIXME: REMOVE THESE
 //        TextBufferAPIWrapper::Ref GetActiveTextBuffer();

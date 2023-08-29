@@ -53,6 +53,7 @@ namespace gedit {
         static TextBuffer::Ref CreateBufferFromFile(const std::filesystem::path &fromPath);
 
         bool Save(const std::filesystem::path &pathName);
+        bool SaveForce(const std::filesystem::path &pathName);
         bool Load(const std::filesystem::path &pathName);
 
         bool IsEmpty() {
@@ -160,6 +161,7 @@ namespace gedit {
     protected:
         void OnLineChanged(const Line &line);
         void ChangeBufferState(BufferState newState);
+        bool DoSave(const std::filesystem::path &pathName, bool skipChangedCheck);
     private:
         enum class ParseJobType {
             kParseFull,

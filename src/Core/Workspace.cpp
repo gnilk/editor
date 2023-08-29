@@ -51,7 +51,7 @@ const Workspace::Node::Ref Workspace::GetNamedWorkspace(const std::string &name)
 }
 
 // Create an empty model in the default workspace
-Workspace::Node::Ref Workspace::NewModel() {
+Workspace::Node::Ref Workspace::NewModel(const std::string &name) {
     auto parent = activeFolderNode;
     if (parent == nullptr) {
         parent = GetDefaultWorkspace();
@@ -60,19 +60,14 @@ Workspace::Node::Ref Workspace::NewModel() {
         logger->Error("Can't find default workspace");
         exit(1);
     }
-    return NewModel(parent);
+    return NewModel(parent, name);
 }
 
 // Create a new empty model under a specific parent
-Workspace::Node::Ref Workspace::NewModel(const Node::Ref parent) {
+Workspace::Node::Ref Workspace::NewModel(const Node::Ref parent, const std::string &name) {
     auto nodePath = parent->GetNodePath();
 
-    // I want to remove file-name handling from there!!!!
-    char filename[32];
-    snprintf(filename,31,"new_%d",newFileCounter);
-    newFileCounter++;
-
-    nodePath.append(filename);
+    nodePath.replace_filename(name);
 
     EditController::Ref editController = std::make_shared<EditController>();
 
@@ -82,7 +77,7 @@ Workspace::Node::Ref Workspace::NewModel(const Node::Ref parent) {
     EditorModel::Ref editorModel = EditorModel::Create();
     editorModel->Initialize(editController, textBuffer);
 
-    auto modelNode = parent->AddChild(filename);
+    auto modelNode = parent->AddChild(name);
     modelNode->SetMeta<int>(Node::kMetaKey_NodeType, Node::kNodeFileRef);
     modelNode->SetModel(editorModel);
     modelNode->SetNodePath(nodePath);
@@ -107,7 +102,7 @@ Workspace::Node::Ref Workspace::NewModelWithFileRef(const std::filesystem::path 
 // Create a new model/buffer
 Workspace::Node::Ref Workspace::NewModelWithFileRef(Node::Ref parent, const std::filesystem::path &pathFileName) {
     EditController::Ref editController = std::make_shared<EditController>();
-    auto node = NewModel(parent);
+    auto node = NewModel(parent, pathFileName.filename());
     node->SetNodePath(pathFileName);
 
     auto ext = pathFileName.extension();
@@ -120,10 +115,6 @@ Workspace::Node::Ref Workspace::NewModelWithFileRef(Node::Ref parent, const std:
 
     return node;
 }
-
-
-
-
 
 void Workspace::UpdateMetaDataForNode(Node::Ref node) {
     auto pathFileName = node->GetNodePath();

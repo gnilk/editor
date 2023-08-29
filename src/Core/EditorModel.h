@@ -179,6 +179,7 @@ namespace gedit {
 
         bool LoadData(const std::filesystem::path &pathName);
         bool SaveData(const std::filesystem::path &pathName);
+        bool SaveDataNoChangeCheck(const std::filesystem::path &pathName);
 
 
     public:

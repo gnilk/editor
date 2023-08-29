@@ -191,3 +191,6 @@ bool EditorModel::LoadData(const std::filesystem::path &pathName) {
 bool EditorModel::SaveData(const std::filesystem::path &pathName) {
     return textBuffer->Save(pathName);
 }
+bool EditorModel::SaveDataNoChangeCheck(const std::filesystem::path &pathName) {
+    return textBuffer->SaveForce(pathName);
+}

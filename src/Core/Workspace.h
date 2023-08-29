@@ -51,7 +51,7 @@ namespace gedit {
             // A node has a name and generally points to a directory - but we can create nodes a bit how we want..
             // Thus we can mimic VStudio with "Source", "Headers", etc.. which are virtual nodes but appear as
             // directories...
-            explicit Node(const std::string &nodeName) : name(nodeName), displayName(nodeName) {
+            explicit Node(const std::string &nodeName) : displayName(nodeName) {
 
             }
             virtual ~Node() {
@@ -93,8 +93,8 @@ namespace gedit {
                 return outNodes.size();
             }
 
-            Node::Ref AddChild(const std::string &newName) {
-                auto child = Node::Create(newName);
+            Node::Ref AddChild(const std::string &displayName) {
+                auto child = Node::Create(displayName);
                 child->parent = shared_from_this();
                 childNodes.push_back(child);
                 // Resolve path??
@@ -136,24 +136,12 @@ namespace gedit {
                 return nullptr;
             }
 
-//            Node::Ref GetOrAddChild(const std::string &childName) {
-//                if (HasChild(childName)) {
-//                    return childNodes[childName];
-//                }
-//                return AddChild(childName);
-//            }
-//            std::optional<Node::Ref> GetChild(const std::string &childName) {
-//                if (!HasChild(childName)) {
-//                    return {};
-//                }
-//                return childNodes[childName];
-//            }
-
             std::filesystem::path GetNodePath() {
                 return pathName;
             }
             void SetNodePath(std::filesystem::path newPath) {
                 pathName = newPath;
+                isPathNameChanged = true;
                 UpdateDisplayNameFromPath();
             }
 
@@ -169,6 +157,12 @@ namespace gedit {
 
             EditorModel::Ref GetModel() {
                 return model;
+            }
+            TextBuffer::Ref GetTextBuffer() {
+                if (model == nullptr) {
+                    return nullptr;
+                }
+                return model->GetTextBuffer();
             }
 
             // This will flatten the workspace and return a copy of all model references
@@ -201,11 +195,20 @@ namespace gedit {
                 }
                 return model->LoadData(pathName);
             }
+
             bool SaveData() {
                 if (model == nullptr) {
                     return false;
                 }
-                return model->SaveData(pathName);
+                bool result = false;
+                if (isPathNameChanged) {
+                    result = model->SaveDataNoChangeCheck(pathName);
+                    isPathNameChanged = false;
+                } else {
+                    result = model->SaveData(pathName);
+                }
+
+                return result;
             }
 
 
@@ -226,7 +229,7 @@ namespace gedit {
 
         private:
             ConfigNode metaData;
-            std::string name = "";
+            bool isPathNameChanged = false;
             std::string displayName = "";
             std::filesystem::path pathName;
             Node::Ref parent = nullptr;
@@ -258,8 +261,8 @@ namespace gedit {
 
         bool OpenFolder(const std::string &folder);
 
-        Node::Ref NewModel();                       // Adds an empty model/file to the default workspace
-        Node::Ref NewModel(const Node::Ref parent); // Adds an empty model/file to a specific workspace
+        Node::Ref NewModel(const std::string &name);                       // Adds an empty model/file to the default workspace
+        Node::Ref NewModel(const Node::Ref parent, const std::string &name); // Adds an empty model/file to a specific workspace
 
         // Adds a file-reference (i.e. doesn't load contents) to the default workspace
         Node::Ref NewModelWithFileRef(const std::filesystem::path &pathFileName);

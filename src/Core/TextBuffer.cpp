@@ -282,13 +282,20 @@ bool TextBuffer::Load(const std::filesystem::path &pathName) {
 }
 
 bool TextBuffer::Save(const std::filesystem::path &pathName) {
+    return DoSave(pathName, false);
+}
+bool TextBuffer::SaveForce(const std::filesystem::path &pathName) {
+    return DoSave(pathName, true);
+}
+
+bool TextBuffer::DoSave(const std::filesystem::path &pathName, bool skipChangeCheck) {
 
     // Check if we even have data!
     if ((bufferState == kBuffer_Empty) || (bufferState == kBuffer_FileRef)) {
         return false;
     }
     // No need to save unless changed
-    if (bufferState != kBuffer_Changed) {
+    if (!skipChangeCheck && (bufferState != kBuffer_Changed)) {
         return true;
     }
 

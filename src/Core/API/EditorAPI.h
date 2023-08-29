@@ -25,12 +25,14 @@ namespace gedit {
         void ExitEditor() {
             Runloop::StopRunLoop();
         }
-        DocumentAPI::Ref GetActiveDocument();
-        DocumentAPI::Ref NewDocument(const char *name);
-
         ThemeAPI::Ref GetCurrentTheme();
         std::vector<std::string> GetRegisteredLanguages();
         std::vector<PluginCommand::Ref> GetRegisteredCommands();
+
+        DocumentAPI::Ref GetActiveDocument();
+        DocumentAPI::Ref NewDocument(const char *name);
+        std::vector<DocumentAPI::Ref> GetDocuments();
+
 /*
 
         TextBufferAPI::Ref LoadBuffer(const char *filename);

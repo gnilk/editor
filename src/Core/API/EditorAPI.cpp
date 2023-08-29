@@ -12,22 +12,6 @@
 using namespace gedit;
 
 
-DocumentAPI::Ref EditorAPI::NewDocument(const char *name) {
-    auto workspace = Editor::Instance().GetWorkspace();
-    if (workspace == nullptr) {
-        return nullptr;
-    }
-    auto node = workspace->NewModel(name);
-    // This will also activate the model...
-    Editor::Instance().OpenModelFromWorkspace(node);
-
-    return DocumentAPI::Create(node);
-}
-
-DocumentAPI::Ref EditorAPI::GetActiveDocument() {
-    auto workspaceNode = Editor::Instance().GetWorkspaceNodeForActiveModel();
-    return DocumentAPI::Create(workspaceNode);
-}
 
 ThemeAPI::Ref EditorAPI::GetCurrentTheme() {
     auto theme = Editor::Instance().GetTheme();
@@ -58,6 +42,38 @@ ViewAPI::Ref EditorAPI::GetViewByName(const char *name) {
     }
     return std::make_shared<ViewAPI>(viewRef);
 }
+
+DocumentAPI::Ref EditorAPI::NewDocument(const char *name) {
+    auto workspace = Editor::Instance().GetWorkspace();
+    if (workspace == nullptr) {
+        return nullptr;
+    }
+    auto node = workspace->NewModel(name);
+    // This will also activate the model...
+    Editor::Instance().OpenModelFromWorkspace(node);
+
+    return DocumentAPI::Create(node);
+}
+
+DocumentAPI::Ref EditorAPI::GetActiveDocument() {
+    auto workspaceNode = Editor::Instance().GetWorkspaceNodeForActiveModel();
+    return DocumentAPI::Create(workspaceNode);
+}
+
+std::vector<DocumentAPI::Ref> EditorAPI::GetDocuments() {
+    std::vector<DocumentAPI::Ref> documents;
+
+    auto &openModels = Editor::Instance().GetModels();
+    documents.reserve(openModels.size());
+    for(auto &model : openModels) {
+        auto node = Editor::Instance().GetWorkspaceNodeForModel(model);
+        documents.emplace_back(DocumentAPI::Create(node));
+    }
+
+    return documents;
+}
+
+
 
 void EditorAPI::CloseActiveBuffer() {
     auto current = Editor::Instance().GetActiveModel();

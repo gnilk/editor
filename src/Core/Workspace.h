@@ -35,8 +35,8 @@ namespace gedit {
     class Node : public std::enable_shared_from_this<Node> {
         public:
             inline static const std::string kMetaKey_NodeType = "type";
-        inline static const std::string kMetaKey_FileSize = "filesize";
-        inline static const std::string kMetaKey_ReadOnly = "readonly";
+            inline static const std::string kMetaKey_FileSize = "filesize";
+            inline static const std::string kMetaKey_ReadOnly = "readonly";
 
             enum NodeType : int {
                 kNodeVirtual = 0,   // Virtual nodes are like the 'Default' node - it doesn't exists, used only for grouping
@@ -46,7 +46,7 @@ namespace gedit {
                 kNodeFileRef = 4,   // FileRef - this node references a file
             };
             using Ref = std::shared_ptr<Node>;
-            using ChildNodesValueType = std::unordered_map<std::string, Node::Ref>::value_type;
+            using ChildNodesValueType = std::vector<Node::Ref>::value_type;
         public:
             // A node has a name and generally points to a directory - but we can create nodes a bit how we want..
             // Thus we can mimic VStudio with "Source", "Headers", etc.. which are virtual nodes but appear as
@@ -87,7 +87,7 @@ namespace gedit {
             }
 
             size_t FlattenChilds(std::vector<Node::Ref> &outNodes) {
-                for(auto &[key, value] : childNodes) {
+                for(auto value : childNodes) {
                     outNodes.push_back(value);
                 }
                 return outNodes.size();
@@ -96,22 +96,26 @@ namespace gedit {
             Node::Ref AddChild(const std::string &newName) {
                 auto child = Node::Create(newName);
                 child->parent = shared_from_this();
-                childNodes[newName] = child;
+                childNodes.push_back(child);
                 // Resolve path??
                 return child;
             }
 
-            bool DelChild(Node::Ref child) {
-                if (!HasChild(name)) {
+            bool DelChild(const Node::Ref child) {
+                if (!HasChild(child)) {
                     return false;
                 }
-                auto it = childNodes.find(name);
-                childNodes.erase(it);
+                auto itErase = std::find(childNodes.begin(), childNodes.end(), child);
+                if (itErase == childNodes.end()) {
+                    return false;
+                }
+                childNodes.erase(itErase);
                 return true;
             }
 
-            bool HasChild(const std::string &nameToFind) {
-                if(childNodes.find(nameToFind) == childNodes.end()) {
+            bool HasChild(const Node::Ref node) {
+                auto itFound = std::find(childNodes.begin(), childNodes.end(), node);
+                if (itFound == childNodes.end()) {
                     return false;
                 }
                 return true;
@@ -122,7 +126,7 @@ namespace gedit {
                     return shared_from_this();
                 }
 
-                for(auto &[name, node] : childNodes) {
+                for(auto &node : childNodes) {
                     auto nodeForModel = node->FindModel(searchModel);
                     if (nodeForModel != nullptr) {
                         return nodeForModel;
@@ -132,18 +136,18 @@ namespace gedit {
                 return nullptr;
             }
 
-            Node::Ref GetOrAddChild(const std::string &childName) {
-                if (HasChild(childName)) {
-                    return childNodes[childName];
-                }
-                return AddChild(childName);
-            }
-            std::optional<Node::Ref> GetChild(const std::string &childName) {
-                if (!HasChild(childName)) {
-                    return {};
-                }
-                return childNodes[childName];
-            }
+//            Node::Ref GetOrAddChild(const std::string &childName) {
+//                if (HasChild(childName)) {
+//                    return childNodes[childName];
+//                }
+//                return AddChild(childName);
+//            }
+//            std::optional<Node::Ref> GetChild(const std::string &childName) {
+//                if (!HasChild(childName)) {
+//                    return {};
+//                }
+//                return childNodes[childName];
+//            }
 
             std::filesystem::path GetNodePath() {
                 return pathName;
@@ -215,7 +219,7 @@ namespace gedit {
                     outModels.push_back(model);
                     return;
                 }
-                for(auto &[name, node] : childNodes) {
+                for(auto &node : childNodes) {
                     node->RecursiveGetModels(outModels);
                 }
             }
@@ -227,7 +231,7 @@ namespace gedit {
             std::filesystem::path pathName;
             Node::Ref parent = nullptr;
             EditorModel::Ref model = nullptr;   // This is only set for leaf nodes..
-            std::unordered_map<std::string, Node::Ref> childNodes = {};
+            std::vector<Node::Ref> childNodes = {};
         };
     public:
         Workspace();

@@ -224,7 +224,7 @@ bool Workspace::ReadFolderToNode(Node::Ref rootNode, const std::filesystem::path
         if (fs::is_directory(entry)) {
             const auto &name = entry.path().filename();
             logger->Debug("D: %s", name.c_str());
-            auto dirNode = rootNode->GetOrAddChild(name);
+            auto dirNode = rootNode->AddChild(name);
             dirNode->SetNodePath(entry.path());
             dirNode->SetMeta<int>(Node::kMetaKey_NodeType,Node::kNodeFolder);
             ReadFolderToNode(dirNode, entry);

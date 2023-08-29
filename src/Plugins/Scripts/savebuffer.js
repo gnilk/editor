@@ -1,16 +1,18 @@
 function main(args) {
-    var textBuffer = Editor.GetActiveTextBuffer();
+
+    var doc = Editor.GetActiveDocument();
     if (args.length == 1) {
         Console.WriteLine("Saving as:",args[0]);
-        textBuffer.SetFileName(args[0]);
-        if (textBuffer.SaveBuffer()) {
-            Console.WriteLine("Buffer saved as:", textBuffer.GetFileName());
-        }
-    } else if (textBuffer.HasFileName()) {
-        if (textBuffer.SaveBuffer()) {
-            Console.WriteLine("Buffer saved");
+        if (doc.SaveAs(args[0])) {
+            Console.WriteLine("Buffer saved as:", doc.GetFileName());
+        } else {
+            Console.WriteLine("ERR: Unable to save buffer as: ", args[0]);
         }
     } else {
-        Console.WriteLine("Can't save - no filename..");
+        if (doc.Save()) {
+            Console.WriteLine("Buffer saved");
+        } else {
+            Console.WriteLine("ERR: Unable to save buffer");
+        }
     }
 }

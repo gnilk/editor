@@ -11,9 +11,9 @@
 #include "Core/Editor.h"
 #include "Core/Runloop.h"
 #include "Core/Plugins/PluginCommand.h"
-#include "TextBufferAPI.h"
 #include "ThemeAPI.h"
 #include "ViewAPI.h"
+#include "DocumentAPI.h"
 
 namespace gedit {
     class EditorAPI {
@@ -25,13 +25,16 @@ namespace gedit {
         void ExitEditor() {
             Runloop::StopRunLoop();
         }
-        TextBufferAPI::Ref GetActiveTextBuffer();
+        DocumentAPI::Ref GetActiveDocument();
         ThemeAPI::Ref GetCurrentTheme();
         std::vector<std::string> GetRegisteredLanguages();
         std::vector<PluginCommand::Ref> GetRegisteredCommands();
-
+/*
         TextBufferAPI::Ref NewBuffer(const char *name);
         TextBufferAPI::Ref LoadBuffer(const char *filename);
+        std::vector<TextBufferAPI::Ref> GetBuffers();
+        void SetActiveBuffer(TextBufferAPI::Ref activeBuffer);
+        */
 
         void CloseActiveBuffer();
 
@@ -39,9 +42,6 @@ namespace gedit {
         ViewAPI::Ref GetViewByName(const char *name);
 
 
-        std::vector<TextBufferAPI::Ref> GetBuffers();
-
-        void SetActiveBuffer(TextBufferAPI::Ref activeBuffer);
     protected:
         APIFunc cbExitEditor = nullptr;
 

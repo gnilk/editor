@@ -10,11 +10,13 @@
 #include "Core/Views/RootView.h"
 
 using namespace gedit;
-TextBufferAPI::Ref EditorAPI::GetActiveTextBuffer() {
-    auto idxActiveModel = Editor::Instance().GetActiveModelIndex();
-    auto model = Editor::Instance().GetModelFromIndex(idxActiveModel);
-    return std::make_shared<TextBufferAPI>(model->GetTextBuffer());
+
+
+DocumentAPI::Ref EditorAPI::GetActiveDocument() {
+    auto workspaceNode = Editor::Instance().GetWorkspaceNodeForActiveModel();
+    return DocumentAPI::Create(workspaceNode);
 }
+
 ThemeAPI::Ref EditorAPI::GetCurrentTheme() {
     auto theme = Editor::Instance().GetTheme();
     return std::make_shared<ThemeAPI>(theme);
@@ -53,7 +55,7 @@ void EditorAPI::CloseActiveBuffer() {
 }
 
 
-
+/*
 
 TextBufferAPI::Ref EditorAPI::NewBuffer(const char *name) {
     auto model = Editor::Instance().NewModel(name);
@@ -91,3 +93,4 @@ std::vector<TextBufferAPI::Ref> EditorAPI::GetBuffers() {
 }
 
 
+*/

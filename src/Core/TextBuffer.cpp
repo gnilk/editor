@@ -281,6 +281,11 @@ bool TextBuffer::Load(const std::filesystem::path &pathName) {
         AddLine(tmp);
     }
     fclose(f);
+    // Ok, I admit - it never quite occured to me that we should open EMPTY files..  but of course we do (so do I)
+    // We opened an empty file - let's add a dummy here
+    if (lines.size() == 0) {
+        AddLine("");
+    }
     // Change state, do this before UpdateLang - since lang checks if loaded before allowing parse to happen
     ChangeBufferState(kBuffer_Loaded);
 //    UpdateLanguageParserFromFilename();

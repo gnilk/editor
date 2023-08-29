@@ -3,8 +3,7 @@
 //
 /*
  * TO-DO List
- * - deb package does not install resources to correct place (not sure where they end up)
- * - Workspace, add meta-data to Workspace node's (Type, Filesize, etc..) - this can be a simple 'map' (YML map??)
+ * - When creating a new model we should switch to it
  * - Save screen position and size upon resize/move and similar, restore on startup (use XDG state directory)
  * - Expose config from JS (set,get,list)
  *   Would be cool to just open the whole config folder as a workspace node..  <- consider this
@@ -41,6 +40,12 @@
  *   need to consider a solution for this...
  *
  * Done:
+ * ! Refactor NewModel in Workspace/Editor handling!
+ * ! TextBuffer should NOT have PathName, let TextBuffer Load/Save work take the PathName as an argument..
+ * ! Workspace view must be able to react to changes in the model and also keep the current treeview status
+ * ! When creating a new model we should ask the work-space for currently selected node!
+ * ! deb package does not install resources to correct place (not sure where they end up)
+ * ! Workspace, add meta-data to Workspace node's (Type, Filesize, etc..) - this can be a simple 'map' (YML map??)
  * ! Remove additional empty line on top when reading files
  * ! Handle read/write permissions
  * ! If typing is started and selection is active - we should delete the selection and replace with they typing..
@@ -284,8 +289,13 @@ int main(int argc, const char **argv) {
     auto dimensions = screen->Dimensions();
 
     auto models = Editor::Instance().GetModels();
+    auto workspace = Editor::Instance().GetWorkspace();
     for(auto m : models) {
-        logger->Debug("File: %s",m->GetTextBuffer()->GetName().c_str());
+        auto node = workspace->GetNodeFromModel(m);
+        if (node == nullptr) {
+            continue;
+        }
+        logger->Debug("File: %s",node->GetDisplayName().c_str());
     }
 
     //

@@ -273,10 +273,11 @@ list(APPEND editorsrc src/Core/Plugins/PluginExecutor.cpp src/Core/Plugins/Plugi
 list(APPEND editorsrc src/Core/KeypressAndActionHandler.h)
 
 # utility stuff
-list(APPEND editorsrc src/Core/StrUtil.cpp src/Core/StrUtil.h)
-list(APPEND editorsrc src/Core/HexDump.cpp src/Core/HexDump.h)
 list(APPEND editorsrc src/Core/ColorRGBA.cpp src/Core/ColorRGBA.h)
+list(APPEND editorsrc src/Core/HexDump.cpp src/Core/HexDump.h)
 list(APPEND editorsrc src/Core/NamedColors.cpp src/Core/NamedColors.h)
+list(APPEND editorsrc src/Core/PathUtil.cpp src/Core/PathUtil.h)
+list(APPEND editorsrc src/Core/StrUtil.cpp src/Core/StrUtil.h)
 list(APPEND editorsrc src/Core/TypeUtil.h)
 
 # Keyboard handling

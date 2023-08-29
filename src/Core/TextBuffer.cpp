@@ -16,25 +16,23 @@ using namespace gedit;
 TextBuffer::TextBuffer() {
 }
 
-TextBuffer::Ref TextBuffer::CreateEmptyBuffer(const std::string &bufferName) {
+TextBuffer::Ref TextBuffer::CreateEmptyBuffer() {
     auto buffer = std::make_shared<TextBuffer>();
     buffer->logger = gnilk::Logger::GetLogger("TextBuffer");
-    buffer->SetPathName(bufferName);
     buffer->AddLine("");
     buffer->bufferState = kBuffer_Empty;
     return buffer;
 }
 
-TextBuffer::Ref TextBuffer::CreateFileReferenceBuffer(const std::filesystem::path &fromPath) {
-    auto buffer = CreateEmptyBuffer(fromPath.filename().string());
-    buffer->SetPathName(fromPath);
+TextBuffer::Ref TextBuffer::CreateFileReferenceBuffer() {
+    auto buffer = CreateEmptyBuffer();
     buffer->bufferState = kBuffer_FileRef;
     return buffer;
 }
 
 TextBuffer::Ref TextBuffer::CreateBufferFromFile(const std::filesystem::path &fromPath) {
-    auto buffer = CreateFileReferenceBuffer(fromPath);
-    if (!buffer->Load()) {
+    auto buffer = CreateFileReferenceBuffer();
+    if (!buffer->Load(fromPath)) {
         return nullptr;
     }
     return buffer;
@@ -247,10 +245,44 @@ void TextBuffer::CopyRegionToString(std::string &outText, const Point &start, co
     }
 }
 
-bool TextBuffer::Save() {
-    if (!HasPathName()) {
+bool TextBuffer::Load(const std::filesystem::path &pathName) {
+    if (!std::filesystem::exists(pathName)) {
+        logger->Error("Can't load, file doesn't exists");
         return false;
     }
+    if (!std::filesystem::is_regular_file(pathName)) {
+        logger->Error("Can't load, not regular file");
+        return false;
+    }
+
+    if (bufferState != kBuffer_FileRef) {
+        return false;
+    }
+
+    auto filename = pathName.string();
+
+    // Clear out any lines before loading - the CTOR add's an empty line (so we can edit directly)
+    lines.clear();
+
+    // Now load
+    FILE *f = fopen(filename.c_str(), "r");
+    if (f == nullptr) {
+        return false;
+    }
+
+    char tmp[GEDIT_MAX_LINE_LENGTH];
+    while(fgets(tmp, GEDIT_MAX_LINE_LENGTH, f)) {
+        AddLine(tmp);
+    }
+    fclose(f);
+    // Change state, do this before UpdateLang - since lang checks if loaded before allowing parse to happen
+    ChangeBufferState(kBuffer_Loaded);
+//    UpdateLanguageParserFromFilename();
+    return true;
+}
+
+bool TextBuffer::Save(const std::filesystem::path &pathName) {
+
     // Check if we even have data!
     if ((bufferState == kBuffer_Empty) || (bufferState == kBuffer_FileRef)) {
         return false;
@@ -278,84 +310,37 @@ bool TextBuffer::Save() {
     }
     fclose(f);
 
-
-//    std::ofstream out(pathName);
-//    if (!out.good()) {
-//        auto state = out.rdstate();
-//        logger->Error("Failed to save buffer: %s", pathName.c_str());
-//        return false;
-//    }
-//    for (auto &l: lines) {
-//        out << l->Buffer() << "\n";
-//    }
-//    out.close();
-
-
     // Go back to 'clean' - i.e. data is loaded...
     ChangeBufferState(kBuffer_Loaded);
     return true;
 }
 
-bool TextBuffer::Load() {
-    if (!HasPathName()) {
-        return false;
-    }
-    if (bufferState != kBuffer_FileRef) {
-        return false;
-    }
-
-    auto filename = pathName.string();
-
-    // Clear out any lines before loading - the CTOR add's an empty line (so we can edit directly)
-    lines.clear();
-
-    // Now load
-    FILE *f = fopen(filename.c_str(), "r");
-    if (f == nullptr) {
-        return false;
-    }
-
-    char tmp[GEDIT_MAX_LINE_LENGTH];
-    while(fgets(tmp, GEDIT_MAX_LINE_LENGTH, f)) {
-        AddLine(tmp);
-    }
-    fclose(f);
-    // Change state, do this before UpdateLang - since lang checks if loaded before allowing parse to happen
-    ChangeBufferState(kBuffer_Loaded);
-    UpdateLanguageParserFromFilename();
-
-
-    return true;
-}
-
-void TextBuffer::SetPathName(const std::filesystem::path &newPathName) {
-    pathName = newPathName;
-    logger->Debug("SetPathName: %s", pathName.c_str());
-    if ((bufferState == kBuffer_Loaded) || (bufferState == kBuffer_Changed)){
-        // FIXME: Save here
-    }
-    UpdateLanguageParserFromFilename();
-}
-
-void TextBuffer::Rename(const std::string &newFileName) {
-    pathName = pathName.parent_path().append(newFileName);
-    logger->Debug("New name: %s", pathName.c_str());
-    // FIXME: should probably save the file here
-    if ((bufferState == kBuffer_Loaded) || (bufferState == kBuffer_Changed)){
-        // FIXME: Save here
-    }
-    UpdateLanguageParserFromFilename();
-}
-
-void TextBuffer::UpdateLanguageParserFromFilename() {
-    auto lang = Editor::Instance().GetLanguageForExtension(pathName.extension());
-    if (lang != nullptr) {
-        language = lang;
-        if ((bufferState == kBuffer_Loaded) || (bufferState == kBuffer_Changed)) {
-            Reparse();
-        }
-    }
-}
+//void TextBuffer::SetPathName(const std::filesystem::path &newPathName) {
+//    pathName = newPathName;
+//    logger->Debug("SetPathName: %s", pathName.c_str());
+//    if ((bufferState == kBuffer_Loaded) || (bufferState == kBuffer_Changed)){
+//        // FIXME: Save here
+//    }
+//    UpdateLanguageParserFromFilename();
+//}
+//void TextBuffer::Rename(const std::string &newFileName) {
+//    pathName = pathName.parent_path().append(newFileName);
+//    logger->Debug("New name: %s", pathName.c_str());
+//    // FIXME: should probably save the file here
+//    if ((bufferState == kBuffer_Loaded) || (bufferState == kBuffer_Changed)){
+//        // FIXME: Save here
+//    }
+//    UpdateLanguageParserFromFilename();
+//}
+//void TextBuffer::UpdateLanguageParserFromFilename() {
+//    auto lang = Editor::Instance().GetLanguageForExtension(pathName.extension());
+//    if (lang != nullptr) {
+//        language = lang;
+//        if ((bufferState == kBuffer_Loaded) || (bufferState == kBuffer_Changed)) {
+//            Reparse();
+//        }
+//    }
+//}
 
 void TextBuffer::ChangeBufferState(BufferState newState) {
     bufferState = newState;

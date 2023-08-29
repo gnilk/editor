@@ -18,6 +18,7 @@ namespace gedit {
 
             dc.ResetDrawColors();
 
+            auto workspace = Editor::Instance().GetWorkspace();
             auto &models = Editor::Instance().GetModels();
             auto theme = Editor::Instance().GetTheme();
             auto uiColors = theme->GetUIColors();
@@ -38,21 +39,25 @@ namespace gedit {
             dc.DrawStringWithAttributesAt(xp,0,kTextAttributes::kNormal, " ");
             xp++;
             for(size_t i=0;i<models.size();i++) {
-                auto m = models[i];
-                auto &name = m->GetTextBuffer()->GetName();
+                auto model = models[i];
+                auto node = workspace->GetNodeFromModel(models[i]);
+                if (node == nullptr) {
+                    continue;
+                }
+                auto &name = node->GetDisplayName();
                 header = name;
 
                 // Add marker for changed
-                if (m->GetTextBuffer()->GetBufferState() == TextBuffer::kBuffer_Changed) {
+                if (model->GetTextBuffer()->GetBufferState() == TextBuffer::kBuffer_Changed) {
                     dc.DrawStringWithAttributesAt(xp,0,kTextAttributes::kNormal, "* ");
                     xp += 2;
                 }
-                if (m->GetTextBuffer()->IsReadOnly()) {
+                if (model->GetTextBuffer()->IsReadOnly()) {
                     dc.DrawStringWithAttributesAt(xp,0,kTextAttributes::kNormal, "R ");
                     xp += 2;
                 }
 
-                if (m->IsActive()) {
+                if (model->IsActive()) {
                     dc.DrawStringWithAttributesAt(xp,0,kTextAttributes::kUnderline, header.c_str());
                 } else {
                     dc.DrawStringWithAttributesAt(xp,0,kTextAttributes::kNormal, header.c_str());

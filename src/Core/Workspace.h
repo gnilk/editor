@@ -146,10 +146,13 @@ namespace gedit {
             }
 
             std::filesystem::path GetNodePath() {
-                std::filesystem::path path;
-                RecursiveGetNodePath(path);
-                return path;
+                return pathName;
             }
+            void SetNodePath(std::filesystem::path newPath) {
+                pathName = newPath;
+                UpdateDisplayNameFromPath();
+            }
+
 
             size_t GetNumChildNodes() {
                 return childNodes.size();
@@ -188,8 +191,25 @@ namespace gedit {
                 return metaData.GetValue(keyName, defValue);
             }
 
+            bool LoadData() {
+                if (model == nullptr) {
+                    return false;
+                }
+                return model->LoadData(pathName);
+            }
+            bool SaveData() {
+                if (model == nullptr) {
+                    return false;
+                }
+                return model->SaveData(pathName);
+            }
+
 
         private:
+            void UpdateDisplayNameFromPath() {
+                displayName = pathName.filename();
+            }
+
             void RecursiveGetModels(std::vector<EditorModel::Ref> &outModels) {
                 if (model != nullptr) {
                     outModels.push_back(model);
@@ -199,19 +219,12 @@ namespace gedit {
                     node->RecursiveGetModels(outModels);
                 }
             }
-            void RecursiveGetNodePath(std::filesystem::path &path) {
-                if (parent != nullptr) {
-                    RecursiveGetNodePath(path);
-                    path += name;
-                } else {
-                    path += name;
-                }
-            }
 
         private:
             ConfigNode metaData;
             std::string name = "";
             std::string displayName = "";
+            std::filesystem::path pathName;
             Node::Ref parent = nullptr;
             EditorModel::Ref model = nullptr;   // This is only set for leaf nodes..
             std::unordered_map<std::string, Node::Ref> childNodes = {};
@@ -232,17 +245,24 @@ namespace gedit {
             return rootNodes;
         }
 
+        Node::Ref GetActiveFolderNode() {
+            return activeFolderNode;
+        }
+        void SetActiveFolderNode(Node::Ref newActiveFolder) {
+            activeFolderNode = newActiveFolder;
+        }
+
         bool OpenFolder(const std::string &folder);
 
-        EditorModel::Ref NewEmptyModel();                       // Adds an empty model/file to the default workspace
-        EditorModel::Ref NewEmptyModel(const Node::Ref parent); // Adds an empty model/file to a specific workspace
+        Node::Ref NewModel();                       // Adds an empty model/file to the default workspace
+        Node::Ref NewModel(const Node::Ref parent); // Adds an empty model/file to a specific workspace
 
         // Adds a file-reference (i.e. doesn't load contents) to the default workspace
-        EditorModel::Ref NewModelWithFileRef(const std::filesystem::path &pathFileName);
+        Node::Ref NewModelWithFileRef(const std::filesystem::path &pathFileName);
         // Adds a file-reference (i.e doesn't load contents) to a specific (named) workedspace
-        EditorModel::Ref NewModelWithFileRef(Node::Ref parent, const std::filesystem::path &pathFileName);
+        Node::Ref NewModelWithFileRef(Node::Ref parent, const std::filesystem::path &pathFileName);
 
-        std::optional<Node::Ref> GetNodeFromModel(EditorModel::Ref model);
+        Node::Ref GetNodeFromModel(EditorModel::Ref model);
 
         bool RemoveModel(EditorModel::Ref model);
 
@@ -250,6 +270,7 @@ namespace gedit {
 
     protected:
         bool ReadFolderToNode(Node::Ref rootNode, const std::filesystem::path &folder);
+        void UpdateMetaDataForNode(Node::Ref node);
         Node::Ref GetOrAddNode(const std::string &name);
         void DisableNotifications() {
             isChangeHandlerEnabled = false;
@@ -270,6 +291,8 @@ namespace gedit {
 
         bool isChangeHandlerEnabled = true;
         ContentsChangedDelegate onChangeHandler = {};
+
+        Node::Ref activeFolderNode = nullptr;
 
         std::unordered_map<std::string, Node::Ref> rootNodes = {};
 

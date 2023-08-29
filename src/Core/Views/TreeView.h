@@ -71,6 +71,12 @@ namespace gedit {
         }
 
         const T &GetCurrentSelectedItem() {
+            if (idxActiveLine > flattenNodeList.size()) {
+                Flatten();
+                if (idxActiveLine > flattenNodeList.size()) {
+                    idxActiveLine = 0;
+                }
+            }
             return flattenNodeList[idxActiveLine]->data;
 
 

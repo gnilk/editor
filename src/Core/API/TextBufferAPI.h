@@ -23,21 +23,6 @@ namespace gedit {
             return textBuffer;
         }
 
-        const std::string GetName() {
-            return textBuffer->GetName();
-        }
-
-        bool HasFileName() {
-            return textBuffer->HasPathName();
-        }
-        void SetFileName(const std::string &name) {
-            return textBuffer->Rename(name);
-        }
-        const std::string GetPathName() {
-            return textBuffer->GetPathName();
-        }
-        bool SaveBuffer();
-
     private:
         TextBuffer::Ref textBuffer = nullptr;
 

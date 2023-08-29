@@ -44,8 +44,13 @@ void EditorView::InitView()  {
     editorModel->viewTopLine = 0;
     editorModel->viewBottomLine = rect.Height();
     editorModel->GetEditController()->SetTextBufferChangedHandler([this]()->void {
-       auto textBuffer = editorModel->GetEditController()->GetTextBuffer();
-       window->SetCaption(textBuffer->GetName());
+        auto node = Editor::Instance().GetWorkspace()->GetNodeFromModel(editorModel);
+        if (node == nullptr) {
+            return;
+        }
+        window->SetCaption(node->GetDisplayName());
+//       auto textBuffer = editorModel->GetEditController()->GetTextBuffer();
+//       window->SetCaption(textBuffer->GetName());
     });
 }
 
@@ -65,7 +70,7 @@ void EditorView::ReInitView() {
         return;
     }
 
-    logger->Debug("ReInitView, current model: %s", editorModel->GetTextBuffer()->GetName().c_str());
+    //logger->Debug("ReInitView, current model: %s", editorModel->GetTextBuffer()->GetName().c_str());
 
     // This is the visible area...
     editorModel->viewTopLine = 0;
@@ -766,8 +771,9 @@ std::pair<std::string, std::string> EditorView::GetStatusBarInfo() {
     std::string statusCenter = "";
     std::string statusRight = "";
     // If we have a model - draw details...
-    auto model = Editor::Instance().GetActiveModel();
-    if (model == nullptr) {
+    auto node = Editor::Instance().GetWorkspaceNodeForActiveModel();
+    auto model = node->GetModel();
+    if ((node == nullptr) || (model == nullptr)) {
         return {statusCenter, statusRight};
     }
 
@@ -779,7 +785,7 @@ std::pair<std::string, std::string> EditorView::GetStatusBarInfo() {
         statusCenter += "R/O ";
     }
 
-    statusCenter += model->GetTextBuffer()->GetName();
+    statusCenter += node->GetDisplayName();
     statusCenter += " | ";
     if (!model->GetTextBuffer()->CanEdit()) {
         statusCenter += "[locked] | ";

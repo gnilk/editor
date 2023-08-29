@@ -176,6 +176,11 @@ namespace gedit {
         void NextSearchResult();
         void PrevSearchResult();
         void ResetSearchHitIndex();
+
+        bool LoadData(const std::filesystem::path &pathName);
+        bool SaveData(const std::filesystem::path &pathName);
+
+
     public:
         Cursor cursor;
         size_t idxActiveLine = 0;

@@ -55,6 +55,15 @@ void WorkspaceView::InitView() {
 
 void WorkspaceView::ReInitView() {
     VisibleView::ReInitView();
+
+    // When active buffer is changed, the re-init view is called
+    // resync IF the user wants the buffers in workspace view to reflect the editor (this is VSCode behaviour)
+    if (Config::Instance()[cfgSectionName].GetBool("sync_on_active_buffer_changed", true)) {
+        if (Editor::Instance().GetActiveModel() != nullptr) {
+            auto activeNode = Editor::Instance().GetWorkspaceNodeForActiveModel();
+            treeView->SetCurrentlySelectedItem(activeNode);
+        }
+    }
 }
 
 void WorkspaceView::PopulateTree() {
@@ -70,7 +79,6 @@ void WorkspaceView::PopulateTree() {
     } else {
         treeView->Clear();
     }
-
 
     auto workspace = Editor::Instance().GetWorkspace();
 
@@ -88,11 +96,14 @@ void WorkspaceView::PopulateTree() {
     }
     // All nodes start collapsed, but we want the root to start expanded...
     treeView->Expand();
+    if (Editor::Instance().GetActiveModel() != nullptr) {
+        auto activeNode = Editor::Instance().GetWorkspaceNodeForActiveModel();
+        treeView->SetCurrentlySelectedItem(activeNode);
+    }
+
     auto currentItem = treeView->GetCurrentSelectedItem();
     workspace->SetActiveFolderNode(currentItem);
-
 }
-
 
 bool WorkspaceView::OnAction(const KeyPressAction &kpAction) {
     auto idxPrevActiveLine = treeView->idxActiveLine;

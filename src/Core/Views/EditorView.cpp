@@ -330,6 +330,9 @@ bool EditorView::OnActionLineHome() {
 
 bool EditorView::OnActionLineEnd() {
     auto currentLine = editorModel->GetEditController()->LineAt(editorModel->idxActiveLine);
+    if (currentLine == nullptr) {
+        return true;
+    }
     auto endpos = currentLine->Length();
     editorModel->cursor.position.x = endpos;
     editorModel->cursor.wantedColumn = endpos;
@@ -432,6 +435,9 @@ bool EditorView::OnActionPageUp() {
 
 bool EditorView::OnActionLineDown(const KeyPressAction &kpAction) {
     auto currentLine = editorModel->GetEditController()->LineAt(editorModel->idxActiveLine);
+    if (currentLine == nullptr) {
+        return true;
+    }
 
     OnNavigateDownVSCode(1);
     currentLine = editorModel->LineAt(editorModel->idxActiveLine);
@@ -443,6 +449,10 @@ bool EditorView::OnActionLineDown(const KeyPressAction &kpAction) {
 }
 bool EditorView::OnActionLineUp() {
     auto currentLine = editorModel->GetEditController()->LineAt(editorModel->idxActiveLine);
+    if (currentLine == nullptr) {
+        return true;
+    }
+
     OnNavigateUpVSCode(1);
     currentLine = editorModel->LineAt(editorModel->idxActiveLine);
     editorModel->cursor.position.x = editorModel->cursor.wantedColumn;
@@ -667,6 +677,9 @@ void EditorView::OnNavigateDownCLion(int rows) {
     bool forceCursorToLastLine = false;
     int nRowsToMove = rows;
     int maxRows = editorModel->Lines().size() - 1;
+    if (maxRows < 0) {
+        return;
+    }
 
     logger->Debug("OnNavDownCLion");
 
@@ -694,6 +707,11 @@ void EditorView::OnNavigateDownCLion(int rows) {
     int activeLineDelta = editorModel->idxActiveLine - editorModel->viewTopLine;
     editorModel->viewTopLine += nRowsToMove;
     editorModel->viewBottomLine += nRowsToMove;
+    // If we moved below zero we just reset to zero...
+    if (editorModel->viewTopLine < 0) {
+        editorModel->viewTopLine = 0;
+        editorModel->viewBottomLine = GetContentRect().Height()-1;
+    }
 
     // In case we would have moved beyond the visible part, let's enforce the cursor position..
     if (forceCursorToLastLine) {
@@ -714,6 +732,9 @@ void EditorView::OnNavigateDownCLion(int rows) {
 void EditorView::OnNavigateUpCLion(int rows) {
     int nRowsToMove = rows;
     int maxRows = editorModel->Lines().size() - 1;
+    if (maxRows < 0) {
+        maxRows = 0;
+    }
     bool forceCursorToFirstLine = false;
 
     if ((editorModel->viewTopLine - nRowsToMove) < 0) {
@@ -798,7 +819,9 @@ std::pair<std::string, std::string> EditorView::GetStatusBarInfo() {
     // resolve right status
     auto activeLine = model->GetTextBuffer()->LineAt(model->idxActiveLine);
     char tmp[32];
-    snprintf(tmp, 32, "Id: %d, Ln: %d, Col: %d", activeLine->Indent(), model->cursor.position.y,
+    snprintf(tmp, 32, "Id: %d, Ln: %d, Col: %d",
+             activeLine==nullptr?0:activeLine->Indent(),        // Line can be nullptr for 0 byte files..
+             model->cursor.position.y,
              model->cursor.position.x);
     statusRight += tmp;
 

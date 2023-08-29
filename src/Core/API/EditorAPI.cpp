@@ -73,9 +73,7 @@ std::vector<DocumentAPI::Ref> EditorAPI::GetDocuments() {
     return documents;
 }
 
-
-
-void EditorAPI::CloseActiveBuffer() {
+void EditorAPI::CloseActiveDocument() {
     auto current = Editor::Instance().GetActiveModel();
     if (current != nullptr) {
         Editor::Instance().CloseModel(current);

@@ -15,6 +15,7 @@ void EditorAPIWrapper::RegisterModule(duk_context *ctx) {
     dukglue_register_method(ctx, &EditorAPIWrapper::GetActiveDocument, "GetActiveDocument");
     dukglue_register_method(ctx, &EditorAPIWrapper::NewDocument, "NewDocument");
     dukglue_register_method(ctx, &EditorAPIWrapper::GetDocuments, "GetDocuments");
+    dukglue_register_method(ctx, &EditorAPIWrapper::CloseActiveDocument, "CloseActiveDocument");
 
     dukglue_register_method(ctx, &EditorAPIWrapper::GetCurrentTheme, "GetCurrentTheme");
     dukglue_register_method(ctx, &EditorAPIWrapper::ExitEditor, "ExitEditor");
@@ -29,7 +30,6 @@ void EditorAPIWrapper::RegisterModule(duk_context *ctx) {
 //    dukglue_register_method(ctx, &EditorAPIWrapper::NewBuffer, "NewBuffer");
 //    dukglue_register_method(ctx, &EditorAPIWrapper::LoadBuffer, "LoadBuffer");
 //    dukglue_register_method(ctx, &EditorAPIWrapper::SetActiveBuffer, "SetActiveBuffer");
-//    dukglue_register_method(ctx, &EditorAPIWrapper::CloseActiveBuffer, "CloseActiveBuffer");
 //    dukglue_register_method(ctx, &EditorAPIWrapper::GetBuffers, "GetBuffers");
 
 
@@ -61,6 +61,12 @@ std::vector<DocumentAPIWrapper::Ref> EditorAPIWrapper::GetDocuments() {
     }
     return docWrappers;
 }
+
+void EditorAPIWrapper::CloseActiveDocument() {
+    auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
+    editorApi->CloseActiveDocument();
+}
+
 
 ThemeAPIWrapper::Ref EditorAPIWrapper::GetCurrentTheme() {
     auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
@@ -128,10 +134,6 @@ ViewAPIWrapper::Ref EditorAPIWrapper::GetViewByName(const char *name) {
 //    return bufferWrappers;
 //}
 //
-//void EditorAPIWrapper::CloseActiveBuffer() {
-//    auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
-//    editorApi->CloseActiveBuffer();
-//}
 
 
 //

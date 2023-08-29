@@ -32,6 +32,7 @@ namespace gedit {
         DocumentAPI::Ref GetActiveDocument();
         DocumentAPI::Ref NewDocument(const char *name);
         std::vector<DocumentAPI::Ref> GetDocuments();
+        void CloseActiveDocument();
 
 /*
 
@@ -40,7 +41,6 @@ namespace gedit {
         void SetActiveBuffer(TextBufferAPI::Ref activeBuffer);
         */
 
-        void CloseActiveBuffer();
 
         const std::vector<std::string> GetTopViews();
         ViewAPI::Ref GetViewByName(const char *name);

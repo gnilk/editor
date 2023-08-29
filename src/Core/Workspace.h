@@ -139,10 +139,23 @@ namespace gedit {
             std::filesystem::path GetNodePath() {
                 return pathName;
             }
+
             void SetNodePath(std::filesystem::path newPath) {
                 pathName = newPath;
                 isPathNameChanged = true;
                 UpdateDisplayNameFromPath();
+            }
+
+            bool IsFolder() {
+                // This is a workspace root folder...
+                if (parent == nullptr) {
+                    return true;
+                }
+                // Note: perhaps change to check meta...
+                if (std::filesystem::is_directory(pathName)) {
+                    return true;
+                }
+                return false;
             }
 
 
@@ -192,6 +205,10 @@ namespace gedit {
             bool LoadData() {
                 if (model == nullptr) {
                     return false;
+                }
+                // Does this file exists - or is it a 'new' file
+                if (!std::filesystem::exists(pathName)) {
+                    return true;
                 }
                 return model->LoadData(pathName);
             }

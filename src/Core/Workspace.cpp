@@ -55,9 +55,12 @@ Workspace::Node::Ref Workspace::NewModel(const std::string &name) {
     auto parent = activeFolderNode;
     if (parent == nullptr) {
         parent = GetDefaultWorkspace();
+    } else if (!parent->IsFolder()) {
+        parent = parent->GetParent();
     }
+
     if (parent == nullptr) {
-        logger->Error("Can't find default workspace");
+        logger->Error("NewModel, parent is NULL or default workspace is gone");
         exit(1);
     }
     return NewModel(parent, name);

@@ -5,5 +5,5 @@ function main(args) {
     } else {
         name = args[0];
     }
-    Editor.NewBuffer(name);
+    Editor.NewDocument(name);
 }

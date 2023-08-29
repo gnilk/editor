@@ -76,6 +76,7 @@ if (APPLE)
     set(YAML_CPP_HOME /opt/homebrew/opt/yaml-cpp)
 
 
+    list(APPEND editorsrc src/Core/macOS/MacOSFolderMonitor.cpp src/Core/macOS/MacOSFolderMonitor.h)
     list(APPEND editorsrc src/Core/macOS/MacOSKeyboardMonitor.cpp src/Core/macOS/MacOSKeyboardMonitor.h)
     list(APPEND editorsrc src/Core/unix/Shell.cpp src/Core/unix/Shell.h)
 
@@ -90,6 +91,7 @@ if (APPLE)
 
     list(APPEND extlibs ncurses)
     list(APPEND extlibs yaml-cpp)
+    list(APPEND extlibs ${CORE_SERVICES})
 
 
     set(ICON_FILE ${CMAKE_SOURCE_DIR}/Assets/CMake/GoatEdit.icns)
@@ -254,6 +256,7 @@ list(APPEND editorsrc src/Core/AssetLoaderBase.cpp src/Core/AssetLoaderBase.h)
 list(APPEND editorsrc src/Core/ClipBoard.cpp src/Core/ClipBoard.h)
 list(APPEND editorsrc src/Core/Editor.cpp src/Core/Editor.h)
 list(APPEND editorsrc src/Core/EditorModel.cpp src/Core/EditorModel.h)
+list(APPEND editorsrc src/Core/FolderMonitorBase.cpp src/Core/FolderMonitorBase.h)
 list(APPEND editorsrc src/Core/Runloop.cpp src/Core/Runloop.h)
 list(APPEND editorsrc src/Core/VerticalNavigationViewModel.cpp src/Core/VerticalNavigationViewModel.h)
 list(APPEND editorsrc src/Core/Workspace.cpp src/Core/Workspace.h)
@@ -275,6 +278,7 @@ list(APPEND editorsrc src/Core/KeypressAndActionHandler.h)
 # utility stuff
 list(APPEND editorsrc src/Core/ColorRGBA.cpp src/Core/ColorRGBA.h)
 list(APPEND editorsrc src/Core/HexDump.cpp src/Core/HexDump.h)
+list(APPEND editorsrc src/Core/Glob.cpp src/Core/Glob.h)
 list(APPEND editorsrc src/Core/NamedColors.cpp src/Core/NamedColors.h)
 list(APPEND editorsrc src/Core/PathUtil.cpp src/Core/PathUtil.h)
 list(APPEND editorsrc src/Core/StrUtil.cpp src/Core/StrUtil.h)

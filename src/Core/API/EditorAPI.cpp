@@ -12,6 +12,18 @@
 using namespace gedit;
 
 
+DocumentAPI::Ref EditorAPI::NewDocument(const char *name) {
+    auto workspace = Editor::Instance().GetWorkspace();
+    if (workspace == nullptr) {
+        return nullptr;
+    }
+    auto node = workspace->NewModel(name);
+    // This will also activate the model...
+    Editor::Instance().OpenModelFromWorkspace(node);
+
+    return DocumentAPI::Create(node);
+}
+
 DocumentAPI::Ref EditorAPI::GetActiveDocument() {
     auto workspaceNode = Editor::Instance().GetWorkspaceNodeForActiveModel();
     return DocumentAPI::Create(workspaceNode);
@@ -57,14 +69,6 @@ void EditorAPI::CloseActiveBuffer() {
 
 /*
 
-TextBufferAPI::Ref EditorAPI::NewBuffer(const char *name) {
-    auto model = Editor::Instance().NewModel(name);
-    if (model == nullptr) {
-        RuntimeConfig::Instance().OutputConsole()->WriteLine("Unable to create new buffer");
-        return nullptr;
-    }
-    return std::make_shared<TextBufferAPI>(model->GetTextBuffer());
-}
 
 TextBufferAPI::Ref EditorAPI::LoadBuffer(const char *filename) {
     auto model =  Editor::Instance().LoadModel(filename);

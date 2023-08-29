@@ -26,11 +26,13 @@ namespace gedit {
             Runloop::StopRunLoop();
         }
         DocumentAPI::Ref GetActiveDocument();
+        DocumentAPI::Ref NewDocument(const char *name);
+
         ThemeAPI::Ref GetCurrentTheme();
         std::vector<std::string> GetRegisteredLanguages();
         std::vector<PluginCommand::Ref> GetRegisteredCommands();
 /*
-        TextBufferAPI::Ref NewBuffer(const char *name);
+
         TextBufferAPI::Ref LoadBuffer(const char *filename);
         std::vector<TextBufferAPI::Ref> GetBuffers();
         void SetActiveBuffer(TextBufferAPI::Ref activeBuffer);

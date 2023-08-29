@@ -188,7 +188,7 @@ bool Editor::Initialize(int argc, const char **argv) {
     if (createDefaultWorkspace) {
         // Default workspace will be created if not already..
         workspace->GetDefaultWorkspace();
-        auto node = workspace->NewModel();
+        auto node = workspace->NewModel("newfile");
         openModels.push_back(node->GetModel());
     }
     // Did we open any models during the argument parsing?

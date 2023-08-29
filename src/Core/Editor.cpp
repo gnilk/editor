@@ -188,7 +188,13 @@ bool Editor::Initialize(int argc, const char **argv) {
     if (createDefaultWorkspace) {
         // Default workspace will be created if not already..
         workspace->GetDefaultWorkspace();
-        auto node = workspace->NewModel("newfile");
+        int counter = 0;
+        char tmpName[32];
+        do {
+            snprintf(tmpName, 32, "newfile_%d", counter);
+            counter++;
+        } while(std::filesystem::exists(tmpName));
+        auto node = workspace->NewModel(tmpName);
         openModels.push_back(node->GetModel());
     }
     // Did we open any models during the argument parsing?
@@ -927,6 +933,7 @@ bool Editor::CloseModel(EditorModel::Ref model) {
 
         openModels.erase(itModel);
         model->SetActive(false);
+        model->Close();
 
         if (nextActive != nullptr) {
             SetActiveModel(nextActive);

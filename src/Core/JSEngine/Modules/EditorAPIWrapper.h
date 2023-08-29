@@ -18,6 +18,7 @@ namespace gedit {
 
         DocumentAPIWrapper::Ref NewDocument(const char *name);
         DocumentAPIWrapper::Ref GetActiveDocument();
+        std::vector<DocumentAPIWrapper::Ref> GetDocuments();
 
 
         // FIXME: REMOVE THESE

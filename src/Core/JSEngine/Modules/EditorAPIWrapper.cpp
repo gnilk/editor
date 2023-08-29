@@ -14,6 +14,7 @@ void EditorAPIWrapper::RegisterModule(duk_context *ctx) {
 
     dukglue_register_method(ctx, &EditorAPIWrapper::GetActiveDocument, "GetActiveDocument");
     dukglue_register_method(ctx, &EditorAPIWrapper::NewDocument, "NewDocument");
+    dukglue_register_method(ctx, &EditorAPIWrapper::GetDocuments, "GetDocuments");
 
     dukglue_register_method(ctx, &EditorAPIWrapper::GetCurrentTheme, "GetCurrentTheme");
     dukglue_register_method(ctx, &EditorAPIWrapper::ExitEditor, "ExitEditor");
@@ -50,6 +51,16 @@ DocumentAPIWrapper::Ref EditorAPIWrapper::NewDocument(const char *name) {
     return DocumentAPIWrapper::Create(editorApi->NewDocument(name));
 }
 
+std::vector<DocumentAPIWrapper::Ref> EditorAPIWrapper::GetDocuments() {
+    auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
+    auto documents = editorApi->GetDocuments();
+    std::vector<DocumentAPIWrapper::Ref> docWrappers;
+    docWrappers.reserve(documents.size());
+    for(auto &doc : documents) {
+        docWrappers.emplace_back(DocumentAPIWrapper::Create(doc));
+    }
+    return docWrappers;
+}
 
 ThemeAPIWrapper::Ref EditorAPIWrapper::GetCurrentTheme() {
     auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();

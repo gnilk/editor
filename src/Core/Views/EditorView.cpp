@@ -772,8 +772,11 @@ std::pair<std::string, std::string> EditorView::GetStatusBarInfo() {
     std::string statusRight = "";
     // If we have a model - draw details...
     auto node = Editor::Instance().GetWorkspaceNodeForActiveModel();
+    if (node == nullptr) {
+        return {statusCenter, statusRight};
+    }
     auto model = node->GetModel();
-    if ((node == nullptr) || (model == nullptr)) {
+    if (model == nullptr) {
         return {statusCenter, statusRight};
     }
 

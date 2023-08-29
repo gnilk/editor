@@ -15,6 +15,7 @@
 
 #include "logger.h"
 
+#include "Core/PathUtil.h"
 #include "Core/Config/ConfigNode.h"
 #include "EditorModel.h"
 
@@ -231,7 +232,7 @@ namespace gedit {
 
         private:
             void UpdateDisplayNameFromPath() {
-                displayName = pathName.filename();
+                displayName = pathutil::LastNameOfPath(pathName);
             }
 
             void RecursiveGetModels(std::vector<EditorModel::Ref> &outModels) {

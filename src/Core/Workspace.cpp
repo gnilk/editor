@@ -8,6 +8,7 @@
 #include "Core/RuntimeConfig.h"
 
 #include "Workspace.h"
+#include "Core/PathUtil.h"
 
 using namespace gedit;
 namespace fs = std::filesystem;
@@ -163,23 +164,6 @@ Workspace::Node::Ref Workspace::GetNodeFromModel(EditorModel::Ref model) {
     return nullptr;
 }
 
-// This returns the last valid name of a full path
-// /src/app/myapp  => myapp
-// /src/app/myapp/ => myapp     <- this is the reason we have this function...
-
-static std::string LastNameOfPath(const std::filesystem::path &pathName) {
-    auto it = pathName.end();
-    it--;
-    if (it->string() != "") {
-        return it->string();
-    }
-    if (it == pathName.begin()) {
-        return "";
-    }
-    it--;
-    return it->string();
-}
-
 // Open a folder and create the workspace from the folder name...
 bool Workspace::OpenFolder(const std::string &folder) {
     // Disable notifications - otherwise the callback is invoked for each added model...
@@ -194,7 +178,7 @@ bool Workspace::OpenFolder(const std::string &folder) {
     }
 
     //auto name = pathName.filename();
-    auto name = LastNameOfPath(pathName);
+    auto name = pathutil::LastNameOfPath(pathName);
 
     DisableNotifications();
     auto rootNode = GetOrAddNode(name);

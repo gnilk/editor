@@ -1,3 +1,3 @@
 function main(args) {
-    Editor.CloseActiveBuffer();
+    Editor.CloseActiveDocument();
 }

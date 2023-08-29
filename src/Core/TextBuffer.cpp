@@ -133,6 +133,11 @@ void TextBuffer::Close() {
         bQuitReparse = true;
         reparseThread->join();
         reparseThread = nullptr;
+
+        // FIXME: Not sure this is a good idea, it works for basic stuff..
+        if ((bufferState == kBuffer_Changed) || (bufferState == kBuffer_Loaded)) {
+            ChangeBufferState(BufferState::kBuffer_FileRef);
+        }
     }
 }
 
@@ -180,6 +185,7 @@ void TextBuffer::StartParseThread() {
     }
 
     // Ensure we are in the 'none' state
+    bQuitReparse = false;
     parseState = kState_None;
     reparseThread = new std::thread([this]() {
         ParseThread();

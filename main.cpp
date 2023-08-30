@@ -3,6 +3,7 @@
 //
 /*
  * TO-DO List
+ * - WorkspaceView should react on changes from the Workspace::Desktop foldermonitor detected changes
  * - When creating a new model we should switch to it
  * - Save screen position and size upon resize/move and similar, restore on startup (use XDG state directory)
  * - Expose config from JS (set,get,list)
@@ -40,6 +41,7 @@
  *   need to consider a solution for this...
  *
  * Done:
+ * ! The key in the workspace root node map should be the full path - and not just the displayname...
  * ! Refactor NewModel in Workspace/Editor handling!
  * ! TextBuffer should NOT have PathName, let TextBuffer Load/Save work take the PathName as an argument..
  * ! Workspace view must be able to react to changes in the model and also keep the current treeview status

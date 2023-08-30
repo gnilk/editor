@@ -36,7 +36,8 @@ const Workspace::Node::Ref Workspace::GetDefaultWorkspace() {
         logger->Debug("Default workspace does not exists, creating...");
         auto rootDefault = std::filesystem::current_path();
 
-        auto desktop = Desktop::Create(rootDefault, nameDefault);
+        // Note: The default desktop does not have a file-monitor and does not require a create callback (at least now)
+        auto desktop = Desktop::Create(nullptr, rootDefault, nameDefault);
         rootNodes[nameDefault] = desktop;
     }
 
@@ -195,10 +196,10 @@ bool Workspace::OpenFolder(const std::string &folder) {
         return false;
     }
 
-    desktop->StartFolderMonitor([this, desktop](const std::string &pathName,FolderMonitor::kChangeFlags flags)->void {
-        auto logger = gnilk::Logger::GetLogger("Workspace");
-        logger->Debug("%s - 0x%x : %s", desktop->GetName().c_str(), static_cast<int>(flags), pathName.c_str());
-    });
+//    desktop->StartFolderMonitor([this, desktop](const std::string &pathName,FolderMonitor::kChangeFlags flags)->void {
+//        auto logger = gnilk::Logger::GetLogger("Workspace");
+//        logger->Debug("%s - 0x%x : %s", desktop->GetName().c_str(), static_cast<int>(flags), pathName.c_str());
+//    });
 
     EnableNotifications();
     NotifyChangeHandler();
@@ -232,7 +233,10 @@ Workspace::Desktop::Ref Workspace::GetOrAddDesktop(const std::filesystem::path &
     if (rootNodes.find(fqDeskName) != rootNodes.end()) {
         return rootNodes[fqDeskName];
     }
-    desktop = Desktop::Create(rootPath, desktopName);
+    auto cbCreateNode = [this](Node::Ref parent, const std::filesystem::path &path) {
+        return NewModelWithFileRef(parent, path);
+    };
+    desktop = Desktop::Create(cbCreateNode, rootPath, desktopName);
     rootNodes[fqDeskName] = desktop;
     return desktop;
 }

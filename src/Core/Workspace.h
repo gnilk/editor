@@ -22,6 +22,8 @@
 #include "EditorModel.h"
 
 namespace gedit {
+
+
     //
     // perhaps refactor this, workspace is everything - 'Desktops' (in lack of a better name) is a view/project or similar => rename to project??? (want to keep that name free for now)
     // This should probably be refactored - it is hairy...
@@ -32,7 +34,6 @@ namespace gedit {
         using ContentsChangedDelegate = std::function<void()>;
         // Node define the structure of a workspace
     public:
-
 
         //
         // A workspace is made up by several root nodes which are the respective work-areas
@@ -138,6 +139,19 @@ namespace gedit {
                         return nodeForModel;
                     }
                     if (node->GetModel() == searchModel) return node;
+                }
+                return nullptr;
+            }
+
+            Node::Ref FindNodeWithPath(const std::filesystem::path path) {
+                if (path == pathName) {
+                    return shared_from_this();
+                }
+                for(auto &child : childNodes) {
+                    auto res = FindNodeWithPath(path);
+                    if (res != nullptr) {
+                        return res;
+                    }
                 }
                 return nullptr;
             }
@@ -263,16 +277,19 @@ namespace gedit {
         class Desktop {
         public:
             using Ref = std::shared_ptr<Desktop>;
+            // Must be set by called
+            using CreateNodeDelgate = std::function<Node::Ref (Node::Ref parent, const std::filesystem::path &path)>;
         public:
-            Desktop(const std::filesystem::path path, const std::string &desktopName) : name(desktopName),rootPath(path) {
+            Desktop(CreateNodeDelgate createNodeHandler, const std::filesystem::path path, const std::string &desktopName) : name(desktopName),rootPath(path), funcCreateNode(createNodeHandler) {
                 rootNode = Node::Create(desktopName);
             }
             virtual ~Desktop() = default;
-            static Ref Create(const std::filesystem::path path, const std::string &desktopName) {
+            static Ref Create(CreateNodeDelgate createNodeHandler, const std::filesystem::path path, const std::string &desktopName) {
                 auto logger = gnilk::Logger::GetLogger("Workspace");
                 logger->Debug("Desktop '%s' created @ cwd: %s", desktopName.c_str(), path.c_str());
 
-                auto ref = std::make_shared<Desktop>(path, desktopName);
+                auto ref = std::make_shared<Desktop>(createNodeHandler, path, desktopName);
+
                 return ref;
             }
             const std::string &GetName() {
@@ -285,7 +302,7 @@ namespace gedit {
                 return rootNode;
             }
 
-            bool StartFolderMonitor(FolderMonitor::EventDelegate changeHandler) {
+            bool StartFolderMonitor() {
                 auto logger = gnilk::Logger::GetLogger("Workspace");
 
                 // Need to stop first..
@@ -299,7 +316,9 @@ namespace gedit {
                     logger->Debug("FolderMonitor is null - creating with root: %s", rootPath.c_str());
 
                     auto &folderMonitor = RuntimeConfig::Instance().GetFolderMonitor();
-                    changeMonitor = folderMonitor.CreateMonitorPoint(rootPath, changeHandler);
+                    changeMonitor = folderMonitor.CreateMonitorPoint(rootPath, [this](const std::filesystem::path &path, FolderMonitor::kChangeFlags flags) -> void {
+                        OnMonitorEvent(path, flags);
+                    });
                 }
 
                 std::filesystem::path gitIgnoreFile = rootPath / ".gitignore";
@@ -310,11 +329,40 @@ namespace gedit {
 
                 return changeMonitor->Start();
             }
+        protected:
+
+            void OnMonitorEvent(const std::filesystem::path &path, FolderMonitor::kChangeFlags flags) {
+                auto logger = gnilk::Logger::GetLogger("Workspace");
+
+                if ((flags & FolderMonitor::kChangeFlags::kCreated) && !(flags & FolderMonitor::kChangeFlags::kRemoved)) {
+                    auto node = AddFromFileEvent(path);
+                }
+            }
+            // This function would benefit from being outside (i.e. in the workspace)
+            Node::Ref AddFromFileEvent(const std::filesystem::path &path) {
+                auto logger = gnilk::Logger::GetLogger("Workspace");
+
+                auto parent = path.parent_path();
+                auto parentNode = rootNode->FindNodeWithPath(parent);
+                if (parentNode == nullptr) {
+                    logger->Error("Unable to find node for path=%s", path.c_str());
+                    return nullptr;
+                }
+                // We are most likely the default and some lousy developer started the folder monitor...
+                if (funcCreateNode == nullptr) {
+                    return nullptr;
+                }
+
+                // The workspace will notify the 'view' on any changes -> cause a rebuild of the tree...
+                return funcCreateNode(parentNode, path);
+            }
         private:
             Desktop() = default;
+
         private:
             std::string name = {};
             std::filesystem::path rootPath = {};
+            CreateNodeDelgate funcCreateNode = nullptr;
             Node::Ref rootNode = {};
             FolderMonitor::MonitorPoint::Ref changeMonitor = {};
         };

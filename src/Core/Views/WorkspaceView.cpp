@@ -66,6 +66,19 @@ void WorkspaceView::ReInitView() {
     }
 }
 
+WorkspaceView::TreeNodeRef WorkspaceView::FindModelNode(TreeNodeRef node, const std::string &pathName) {
+    auto workspaceNode = node->data;
+    if (workspaceNode->GetNodePath() == pathName) {
+        return node;
+    }
+    for (auto &child : node->children) {
+        auto res = FindModelNode(child, pathName);
+        if (res != nullptr) {
+            return res;
+        }
+    }
+    return nullptr;
+}
 void WorkspaceView::PopulateTree() {
     if (treeView == nullptr) {
         treeView = TreeView<Workspace::Node::Ref>::Create();
@@ -93,9 +106,12 @@ void WorkspaceView::PopulateTree() {
     auto desktops = workspace->GetDesktops();
     for(auto &[key, desktop] : desktops) {
         auto rootNode = desktop->GetRootNode();
-        auto item = treeView->AddItem(rootNode);
+        auto treeRoot = treeView->AddItem(rootNode);
+
+        desktop->StartFolderMonitor();
+
         // TODO: We can add to exclude list from the Desktop->FolderMonitor->ExcludeList
-        FillTreeView(treeView, item, rootNode, excludePrefixList);
+        FillTreeView(treeView, treeRoot, rootNode, excludePrefixList);
     }
     // All nodes start collapsed, but we want the root to start expanded...
     treeView->Expand();

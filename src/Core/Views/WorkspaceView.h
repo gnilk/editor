@@ -44,6 +44,7 @@ namespace gedit {
         }
         std::pair<std::string, std::string> GetStatusBarInfo() override;
     protected:
+        TreeNodeRef FindModelNode(TreeNodeRef node, const std::string &pathName);
         void PopulateTree();
         void OnActivate(bool isActive) override;
 

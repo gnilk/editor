@@ -346,7 +346,7 @@ void SDLKeyboardDriver::HookEditorClipBoard() {
 
         char *sdlClipBoardText = (char *)malloc(nBytes + 10); // better safe than sorry?
 
-        auto dstBuffer = TextBuffer::CreateEmptyBuffer("dst");
+        auto dstBuffer = TextBuffer::CreateEmptyBuffer();
         clipBoardItem->PasteToBuffer(dstBuffer, {0,0});
 
         dstBuffer->Flatten(sdlClipBoardText, nBytes, 0, clipBoardItem->GetLineCount());

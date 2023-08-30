@@ -30,29 +30,23 @@ void TextBufferAPIWrapper::SetLanguage(const char *param) {
 }
 
 const std::string TextBufferAPIWrapper::GetFileName() {
-    if (textBuffer == nullptr) {
-        static std::string dummy = "";
-        return dummy.c_str();
-    }
-    return textBuffer->GetPathName();
+    static std::string dummy = "";
+    return dummy.c_str();
 }
 
 const std::string TextBufferAPIWrapper::GetName() {
-    if (textBuffer == nullptr) {
-        static std::string dummy = "";
-        return dummy;
-    }
-    return textBuffer->GetName();
+    static std::string dummy = "";
+    return dummy;
 }
 
 bool TextBufferAPIWrapper::HasFileName() {
-    return textBuffer->HasFileName();
+    return false;
 }
 
 void TextBufferAPIWrapper::SetFileName(const char *newFileName) {
-    textBuffer->SetFileName(newFileName);
+
 }
 
 bool TextBufferAPIWrapper::SaveBuffer() {
-    return textBuffer->SaveBuffer();
+    return false;
 }

@@ -11,6 +11,8 @@
 #include "Core/EditorModel.h"
 #include "Core/AssetLoaderBase.h"
 #include "Core/Plugins/PluginCommand.h"
+#include "Core/FolderMonitorBase.h"
+
 
 #include <map>
 #include <thread>
@@ -53,6 +55,9 @@ namespace gedit {
         KeyboardDriverBase::Ref GetKeyboard() {
             return keyboard;
         }
+
+        FolderMonitorBase &GetFolderMonitor();
+
         ScreenBase::Ref GetScreen() {
             return screen;
         }

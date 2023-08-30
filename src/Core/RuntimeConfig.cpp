@@ -1,14 +1,27 @@
 //
 // Created by gnilk on 14.01.23.
 //
-
 #include "Core/RuntimeConfig.h"
+
+#ifdef GEDIT_MACOS
+#include "Core/macOS/MacOSFolderMonitor.h"
+#endif
 
 using namespace gedit;
 RuntimeConfig &RuntimeConfig::Instance() {
     static RuntimeConfig config;
     return config;
 }
+
+FolderMonitorBase &RuntimeConfig::GetFolderMonitor() {
+#ifdef GEDIT_MACOS
+    return MacOSFolderMonitor::Instance();
+#else
+    static FolderMonitorBase dummy;
+            return dummy;
+#endif
+}
+
 
 void RuntimeConfig::RegisterPluginCommand(const PluginCommand::Ref pluginCommand) {
     // Insert twice - this allows lookup to find it...

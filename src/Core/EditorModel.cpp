@@ -176,3 +176,21 @@ void EditorModel::ResetSearchHitIndex() {
 size_t EditorModel::GetSearchHitIndex() {
     return idxActiveSearchHit;
 }
+
+bool EditorModel::LoadData(const std::filesystem::path &pathName) {
+    if (!textBuffer->Load(pathName)) {
+        return false;
+    }
+    auto lang = Editor::Instance().GetLanguageForExtension(pathName.extension());
+    if (lang != nullptr) {
+        textBuffer->SetLanguage(lang);
+    }
+    return true;
+}
+
+bool EditorModel::SaveData(const std::filesystem::path &pathName) {
+    return textBuffer->Save(pathName);
+}
+bool EditorModel::SaveDataNoChangeCheck(const std::filesystem::path &pathName) {
+    return textBuffer->SaveForce(pathName);
+}

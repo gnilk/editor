@@ -48,29 +48,16 @@ namespace gedit {
         explicit TextBuffer();
         virtual ~TextBuffer();
 
-        static TextBuffer::Ref CreateEmptyBuffer(const std::string &bufferName);
-        static TextBuffer::Ref CreateFileReferenceBuffer(const std::filesystem::path &fromPath);
+        static TextBuffer::Ref CreateEmptyBuffer();
+        static TextBuffer::Ref CreateFileReferenceBuffer();
         static TextBuffer::Ref CreateBufferFromFile(const std::filesystem::path &fromPath);
 
-        bool Save();
-        bool Load();
-
-        bool HasPathName() {
-            return !pathName.empty();
-        }
+        bool Save(const std::filesystem::path &pathName);
+        bool SaveForce(const std::filesystem::path &pathName);
+        bool Load(const std::filesystem::path &pathName);
 
         bool IsEmpty() {
             return ((bufferState == kBuffer_Empty) || (bufferState == kBuffer_FileRef));
-        }
-
-        void SetPathName(const std::filesystem::path &newPathName);
-        void Rename(const std::string &newFileName);
-
-        const std::string GetPathName() {
-            return pathName.string();
-        }
-        const std::string GetName() {
-            return pathName.filename();
         }
 
         void Close();
@@ -172,9 +159,9 @@ namespace gedit {
             return parseState;
         }
     protected:
-        void UpdateLanguageParserFromFilename();
         void OnLineChanged(const Line &line);
         void ChangeBufferState(BufferState newState);
+        bool DoSave(const std::filesystem::path &pathName, bool skipChangedCheck);
     private:
         enum class ParseJobType {
             kParseFull,
@@ -197,8 +184,6 @@ namespace gedit {
         volatile ParseState parseState = kState_None;
 
         BufferState bufferState = kBuffer_Empty;
-        std::filesystem::path pathName = "";     // full path filename
-
 
         std::vector<Line::Ref> lines;
 

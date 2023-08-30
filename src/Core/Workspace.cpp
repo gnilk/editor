@@ -8,6 +8,7 @@
 #include "Core/RuntimeConfig.h"
 
 #include "Workspace.h"
+#include "Core/PathUtil.h"
 
 using namespace gedit;
 namespace fs = std::filesystem;
@@ -50,8 +51,50 @@ const Workspace::Node::Ref Workspace::GetNamedWorkspace(const std::string &name)
     return rootNodes[name];
 }
 
+// Create an empty model in the default workspace
+Workspace::Node::Ref Workspace::NewModel(const std::string &name) {
+    auto parent = activeFolderNode;
+    if (parent == nullptr) {
+        parent = GetDefaultWorkspace();
+    } else if (!parent->IsFolder()) {
+        parent = parent->GetParent();
+    }
+
+    if (parent == nullptr) {
+        logger->Error("NewModel, parent is NULL or default workspace is gone");
+        exit(1);
+    }
+    return NewModel(parent, name);
+}
+
+// Create a new empty model under a specific parent
+Workspace::Node::Ref Workspace::NewModel(const Node::Ref parent, const std::string &name) {
+    auto nodePath = parent->GetNodePath();
+
+    nodePath.replace_filename(name);
+
+    EditController::Ref editController = std::make_shared<EditController>();
+
+    auto textBuffer = TextBuffer::CreateFileReferenceBuffer();
+    textBuffer->SetLanguage(Editor::Instance().GetLanguageForExtension("default"));
+
+    EditorModel::Ref editorModel = EditorModel::Create();
+    editorModel->Initialize(editController, textBuffer);
+
+    auto modelNode = parent->AddChild(name);
+    modelNode->SetMeta<int>(Node::kMetaKey_NodeType, Node::kNodeFileRef);
+    modelNode->SetModel(editorModel);
+    modelNode->SetNodePath(nodePath);
+
+    UpdateMetaDataForNode(modelNode);
+
+    NotifyChangeHandler();
+
+    return modelNode;
+}
+
 // Create a new model with a file-reference but don't load the contents...
-EditorModel::Ref Workspace::NewModelWithFileRef(const std::filesystem::path &pathFileName) {
+Workspace::Node::Ref Workspace::NewModelWithFileRef(const std::filesystem::path &pathFileName) {
     auto parent = GetDefaultWorkspace();
     if (parent == nullptr) {
         logger->Error("Can't find default workspace");
@@ -61,111 +104,64 @@ EditorModel::Ref Workspace::NewModelWithFileRef(const std::filesystem::path &pat
 }
 
 // Create a new model/buffer
-EditorModel::Ref Workspace::NewModelWithFileRef(Node::Ref parent, const std::filesystem::path &pathFileName) {
+Workspace::Node::Ref Workspace::NewModelWithFileRef(Node::Ref parent, const std::filesystem::path &pathFileName) {
     EditController::Ref editController = std::make_shared<EditController>();
+    auto node = NewModel(parent, pathFileName.filename());
+    node->SetNodePath(pathFileName);
 
-    auto textBuffer = TextBuffer::CreateFileReferenceBuffer(pathFileName);
+    auto ext = pathFileName.extension();
+    auto lang = Editor::Instance().GetLanguageForExtension(ext.string());
+    node->GetModel()->GetTextBuffer()->SetLanguage(lang);
 
-    EditorModel::Ref editorModel = EditorModel::Create();
-    editorModel->Initialize(editController, textBuffer);
+    UpdateMetaDataForNode(node);
 
-    auto node = parent->AddChild(pathFileName.filename());
-    //parent->AddModel(editorModel);
-    node->SetModel(editorModel);
-    node->SetMeta<int>(Node::kMetaKey_NodeType, Node::kNodeFileRef);
-    if (std::filesystem::exists(pathFileName)) {
-        node->SetMeta<size_t>(Node::kMetaKey_FileSize, std::filesystem::file_size(pathFileName));
+    NotifyChangeHandler();  // Note: This can be enabled/disabled - when reading a directory it is disabled and called once reading has completed./..
+
+    return node;
+}
+
+void Workspace::UpdateMetaDataForNode(Node::Ref node) {
+    auto pathFileName = node->GetNodePath();
+    if (std::filesystem::is_directory(pathFileName)) {
+        node->SetMeta<int>(Node::kMetaKey_NodeType, Node::kNodeFolder);
+        return;
     }
+
+    node->SetMeta<int>(Node::kMetaKey_NodeType, Node::kNodeFileRef);
+
+    if (!std::filesystem::exists(pathFileName)) {
+        return;
+    }
+
+    node->SetMeta<size_t>(Node::kMetaKey_FileSize, std::filesystem::file_size(pathFileName));
     // Deduce read-only flag, in essence, if we as the owner can't write we simply mark as readonly...
     auto perms = std::filesystem::status(pathFileName).permissions();
     auto bCanWrite = (std::filesystem::perms::none == (perms & std::filesystem::perms::owner_write))?false:true;
     node->SetMeta<bool>(Node::kMetaKey_ReadOnly, !bCanWrite);
-
-    NotifyChangeHandler();  // Note: This can be enabled/disabled - when reading a directory it is disabled and called once reading has completed./..
-
-    return editorModel;
 }
 
-// Create an empty model in the default workspace
-EditorModel::Ref Workspace::NewEmptyModel() {
-    auto parent = GetDefaultWorkspace();
-    if (parent == nullptr) {
-        logger->Error("Can't find default workspace");
-        exit(1);
-    }
-    return NewEmptyModel(parent);
-}
-
-// Create a new empty model under a specific parent
-EditorModel::Ref Workspace::NewEmptyModel(const Node::Ref parent) {
-    auto nodePath = parent->GetNodePath();
-    char filename[32];
-    snprintf(filename,31,"new_%d",newFileCounter);
-    newFileCounter++;
-
-
-    nodePath.append(filename);
-
-    EditController::Ref editController = std::make_shared<EditController>();
-
-    auto textBuffer = TextBuffer::CreateEmptyBuffer(nodePath.filename());
-    textBuffer->SetPathName(nodePath);
-    textBuffer->SetLanguage(Editor::Instance().GetLanguageForExtension("default"));
-
-
-    EditorModel::Ref editorModel = EditorModel::Create();
-    editorModel->Initialize(editController, textBuffer);
-
-    auto modelNode = parent->AddChild(filename);
-    modelNode->SetModel(editorModel);
-
-//    auto node = parent->AddModel(editorModel);
-//    node->SetParent(parent);
-
-    NotifyChangeHandler();
-
-    return editorModel;
-}
 
 bool Workspace::RemoveModel(EditorModel::Ref model) {
     auto node = GetNodeFromModel(model);
-    if (!node.has_value()) {
+    if (node == nullptr) {
         return false;
     }
-    auto nodePtr = node.value();
-    if (nodePtr->GetParent() == nullptr) {
+    if (node->GetParent() == nullptr) {
         return false;
     }
-    nodePtr->GetParent()->DelChild(nodePtr);
-    nodePtr->SetModel(nullptr);
+    node->GetParent()->DelChild(node);
+    node->SetModel(nullptr);
     return true;
 }
 
-std::optional<Workspace::Node::Ref> Workspace::GetNodeFromModel(EditorModel::Ref model) {
+Workspace::Node::Ref Workspace::GetNodeFromModel(EditorModel::Ref model) {
     for(auto &[name, node] : rootNodes) {
         auto modelNode = node->FindModel(model);
         if (modelNode != nullptr) {
             return modelNode;
         }
     }
-    return {};
-}
-
-// This returns the last valid name of a full path
-// /src/app/myapp  => myapp
-// /src/app/myapp/ => myapp     <- this is the reason we have this function...
-
-static std::string LastNameOfPath(const std::filesystem::path &pathName) {
-    auto it = pathName.end();
-    it--;
-    if (it->string() != "") {
-        return it->string();
-    }
-    if (it == pathName.begin()) {
-        return "";
-    }
-    it--;
-    return it->string();
+    return nullptr;
 }
 
 // Open a folder and create the workspace from the folder name...
@@ -182,10 +178,11 @@ bool Workspace::OpenFolder(const std::string &folder) {
     }
 
     //auto name = pathName.filename();
-    auto name = LastNameOfPath(pathName);
+    auto name = pathutil::LastNameOfPath(pathName);
 
     DisableNotifications();
     auto rootNode = GetOrAddNode(name);
+    rootNode->SetNodePath(pathName);
     rootNode->SetMeta<int>(Node::kMetaKey_NodeType, Node::kNodeFolder);
     if (!ReadFolderToNode(rootNode, pathName)) {
         // Make sure we enable notification again...
@@ -205,7 +202,8 @@ bool Workspace::ReadFolderToNode(Node::Ref rootNode, const std::filesystem::path
         if (fs::is_directory(entry)) {
             const auto &name = entry.path().filename();
             logger->Debug("D: %s", name.c_str());
-            auto dirNode = rootNode->GetOrAddChild(name);
+            auto dirNode = rootNode->AddChild(name);
+            dirNode->SetNodePath(entry.path());
             dirNode->SetMeta<int>(Node::kMetaKey_NodeType,Node::kNodeFolder);
             ReadFolderToNode(dirNode, entry);
         } else if (fs::is_regular_file(entry)) {
@@ -229,3 +227,4 @@ Workspace::Node::Ref Workspace::GetOrAddNode(const std::string &name) {
 }
 
 
+///////////////////////

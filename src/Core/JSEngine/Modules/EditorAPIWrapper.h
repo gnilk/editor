@@ -2,25 +2,33 @@
 #define GEDIT_EDITORWRAPPERAPI_H
 
 #include "duktape.h"
-#include "TextBufferAPIWrapper.h"
 #include "ThemeAPIWrapper.h"
 #include "ViewAPIWrapper.h"
+#include "DocumentAPIWrapper.h"
 
 namespace gedit {
     class EditorAPIWrapper {
     public:
-        TextBufferAPIWrapper::Ref GetActiveTextBuffer();
         ThemeAPIWrapper::Ref GetCurrentTheme();
 
 
         void ExitEditor();
         std::vector<std::string> GetRegisteredLanguages();
         std::vector<std::string> GetHelp();
-        void NewBuffer(const char *name);
-        TextBufferAPI::Ref LoadBuffer(const char *name);
-        void SetActiveBuffer(TextBufferAPI::Ref activeBuffer);
-        void CloseActiveBuffer();
-        std::vector<TextBufferAPIWrapper::Ref> GetBuffers();
+
+        DocumentAPIWrapper::Ref NewDocument(const char *name);
+        DocumentAPIWrapper::Ref GetActiveDocument();
+        std::vector<DocumentAPIWrapper::Ref> GetDocuments();
+        void CloseActiveDocument();
+
+
+        // FIXME: REMOVE THESE
+//        TextBufferAPIWrapper::Ref GetActiveTextBuffer();
+//        void NewBuffer(const char *name);
+//        TextBufferAPI::Ref LoadBuffer(const char *name);
+//        void SetActiveBuffer(TextBufferAPI::Ref activeBuffer);
+//
+//        std::vector<TextBufferAPIWrapper::Ref> GetBuffers();
 
         std::vector<std::string> GetRootViewNames();
         ViewAPIWrapper::Ref GetViewByName(const char *name);

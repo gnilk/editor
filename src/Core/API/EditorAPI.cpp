@@ -10,11 +10,9 @@
 #include "Core/Views/RootView.h"
 
 using namespace gedit;
-TextBufferAPI::Ref EditorAPI::GetActiveTextBuffer() {
-    auto idxActiveModel = Editor::Instance().GetActiveModelIndex();
-    auto model = Editor::Instance().GetModelFromIndex(idxActiveModel);
-    return std::make_shared<TextBufferAPI>(model->GetTextBuffer());
-}
+
+
+
 ThemeAPI::Ref EditorAPI::GetCurrentTheme() {
     auto theme = Editor::Instance().GetTheme();
     return std::make_shared<ThemeAPI>(theme);
@@ -45,7 +43,37 @@ ViewAPI::Ref EditorAPI::GetViewByName(const char *name) {
     return std::make_shared<ViewAPI>(viewRef);
 }
 
-void EditorAPI::CloseActiveBuffer() {
+DocumentAPI::Ref EditorAPI::NewDocument(const char *name) {
+    auto workspace = Editor::Instance().GetWorkspace();
+    if (workspace == nullptr) {
+        return nullptr;
+    }
+    auto node = workspace->NewModel(name);
+    // This will also activate the model...
+    Editor::Instance().OpenModelFromWorkspace(node);
+
+    return DocumentAPI::Create(node);
+}
+
+DocumentAPI::Ref EditorAPI::GetActiveDocument() {
+    auto workspaceNode = Editor::Instance().GetWorkspaceNodeForActiveModel();
+    return DocumentAPI::Create(workspaceNode);
+}
+
+std::vector<DocumentAPI::Ref> EditorAPI::GetDocuments() {
+    std::vector<DocumentAPI::Ref> documents;
+
+    auto &openModels = Editor::Instance().GetModels();
+    documents.reserve(openModels.size());
+    for(auto &model : openModels) {
+        auto node = Editor::Instance().GetWorkspaceNodeForModel(model);
+        documents.emplace_back(DocumentAPI::Create(node));
+    }
+
+    return documents;
+}
+
+void EditorAPI::CloseActiveDocument() {
     auto current = Editor::Instance().GetActiveModel();
     if (current != nullptr) {
         Editor::Instance().CloseModel(current);
@@ -53,16 +81,8 @@ void EditorAPI::CloseActiveBuffer() {
 }
 
 
+/*
 
-
-TextBufferAPI::Ref EditorAPI::NewBuffer(const char *name) {
-    auto model = Editor::Instance().NewModel(name);
-    if (model == nullptr) {
-        RuntimeConfig::Instance().OutputConsole()->WriteLine("Unable to create new buffer");
-        return nullptr;
-    }
-    return std::make_shared<TextBufferAPI>(model->GetTextBuffer());
-}
 
 TextBufferAPI::Ref EditorAPI::LoadBuffer(const char *filename) {
     auto model =  Editor::Instance().LoadModel(filename);
@@ -91,3 +111,4 @@ std::vector<TextBufferAPI::Ref> EditorAPI::GetBuffers() {
 }
 
 
+*/

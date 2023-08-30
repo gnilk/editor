@@ -1,6 +1,7 @@
 #include "EditorAPIWrapper.h"
 #include "Core/API/EditorAPI.h"
 #include "dukglue/dukglue.h"
+#include "DocumentAPIWrapper.h"
 
 using namespace gedit;
 
@@ -11,18 +12,25 @@ void EditorAPIWrapper::RegisterModule(duk_context *ctx) {
     dukglue_push(ctx, &editorApiWrapper);
     duk_put_global_string(ctx, "Editor");
 
-    dukglue_register_method(ctx, &EditorAPIWrapper::GetActiveTextBuffer, "GetActiveTextBuffer");
+    dukglue_register_method(ctx, &EditorAPIWrapper::GetActiveDocument, "GetActiveDocument");
+    dukglue_register_method(ctx, &EditorAPIWrapper::NewDocument, "NewDocument");
+    dukglue_register_method(ctx, &EditorAPIWrapper::GetDocuments, "GetDocuments");
+    dukglue_register_method(ctx, &EditorAPIWrapper::CloseActiveDocument, "CloseActiveDocument");
+
     dukglue_register_method(ctx, &EditorAPIWrapper::GetCurrentTheme, "GetCurrentTheme");
     dukglue_register_method(ctx, &EditorAPIWrapper::ExitEditor, "ExitEditor");
     dukglue_register_method(ctx, &EditorAPIWrapper::GetRegisteredLanguages, "GetRegisteredLanguages");
-    dukglue_register_method(ctx, &EditorAPIWrapper::NewBuffer, "NewBuffer");
-    dukglue_register_method(ctx, &EditorAPIWrapper::LoadBuffer, "LoadBuffer");
-    dukglue_register_method(ctx, &EditorAPIWrapper::SetActiveBuffer, "SetActiveBuffer");
-    dukglue_register_method(ctx, &EditorAPIWrapper::CloseActiveBuffer, "CloseActiveBuffer");
-    dukglue_register_method(ctx, &EditorAPIWrapper::GetBuffers, "GetBuffers");
+
     dukglue_register_method(ctx, &EditorAPIWrapper::GetHelp, "GetCommandDescriptions");
     dukglue_register_method(ctx, &EditorAPIWrapper::GetRootViewNames, "GetViewNames");
     dukglue_register_method(ctx, &EditorAPIWrapper::GetViewByName, "GetViewByName");
+
+    // FIXME: Replace with new DocumentAPI and remove these
+//    dukglue_register_method(ctx, &EditorAPIWrapper::GetActiveTextBuffer, "GetActiveTextBuffer");
+//    dukglue_register_method(ctx, &EditorAPIWrapper::NewBuffer, "NewBuffer");
+//    dukglue_register_method(ctx, &EditorAPIWrapper::LoadBuffer, "LoadBuffer");
+//    dukglue_register_method(ctx, &EditorAPIWrapper::SetActiveBuffer, "SetActiveBuffer");
+//    dukglue_register_method(ctx, &EditorAPIWrapper::GetBuffers, "GetBuffers");
 
 
     // Some test stuff...
@@ -33,10 +41,32 @@ void EditorAPIWrapper::RegisterModule(duk_context *ctx) {
 //
 // Impl API
 //
-TextBufferAPIWrapper::Ref EditorAPIWrapper::GetActiveTextBuffer() {
+DocumentAPIWrapper::Ref EditorAPIWrapper::GetActiveDocument() {
     auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
-    return TextBufferAPIWrapper::Create(editorApi->GetActiveTextBuffer());
+    return DocumentAPIWrapper::Create(editorApi->GetActiveDocument());
 }
+
+DocumentAPIWrapper::Ref EditorAPIWrapper::NewDocument(const char *name) {
+    auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
+    return DocumentAPIWrapper::Create(editorApi->NewDocument(name));
+}
+
+std::vector<DocumentAPIWrapper::Ref> EditorAPIWrapper::GetDocuments() {
+    auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
+    auto documents = editorApi->GetDocuments();
+    std::vector<DocumentAPIWrapper::Ref> docWrappers;
+    docWrappers.reserve(documents.size());
+    for(auto &doc : documents) {
+        docWrappers.emplace_back(DocumentAPIWrapper::Create(doc));
+    }
+    return docWrappers;
+}
+
+void EditorAPIWrapper::CloseActiveDocument() {
+    auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
+    editorApi->CloseActiveDocument();
+}
+
 
 ThemeAPIWrapper::Ref EditorAPIWrapper::GetCurrentTheme() {
     auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
@@ -81,33 +111,29 @@ ViewAPIWrapper::Ref EditorAPIWrapper::GetViewByName(const char *name) {
 
 }
 
-
-void EditorAPIWrapper::NewBuffer(const char *name) {
-    auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
-    editorApi->NewBuffer(name);
-}
-TextBufferAPI::Ref EditorAPIWrapper::LoadBuffer(const char *name) {
-    auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
-    return editorApi->LoadBuffer(name);
-}
-void EditorAPIWrapper::SetActiveBuffer(TextBufferAPI::Ref activeBuffer) {
-    auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
-    editorApi->SetActiveBuffer(activeBuffer);
-}
-std::vector<TextBufferAPIWrapper::Ref> EditorAPIWrapper::GetBuffers() {
-    auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
-    auto buffers = editorApi->GetBuffers();
-    std::vector<TextBufferAPIWrapper::Ref> bufferWrappers;
-    for(auto &buf : buffers) {
-        bufferWrappers.push_back(std::make_shared<TextBufferAPIWrapper>(buf));
-    }
-    return bufferWrappers;
-}
-
-void EditorAPIWrapper::CloseActiveBuffer() {
-    auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
-    editorApi->CloseActiveBuffer();
-}
+//TextBufferAPIWrapper::Ref EditorAPIWrapper::GetActiveTextBuffer() {
+//    auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
+//    return TextBufferAPIWrapper::Create(editorApi->GetActiveTextBuffer());
+//}
+//
+//TextBufferAPI::Ref EditorAPIWrapper::LoadBuffer(const char *name) {
+//    auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
+//    return editorApi->LoadBuffer(name);
+//}
+//void EditorAPIWrapper::SetActiveBuffer(TextBufferAPI::Ref activeBuffer) {
+//    auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
+//    editorApi->SetActiveBuffer(activeBuffer);
+//}
+//std::vector<TextBufferAPIWrapper::Ref> EditorAPIWrapper::GetBuffers() {
+//    auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
+//    auto buffers = editorApi->GetBuffers();
+//    std::vector<TextBufferAPIWrapper::Ref> bufferWrappers;
+//    for(auto &buf : buffers) {
+//        bufferWrappers.push_back(std::make_shared<TextBufferAPIWrapper>(buf));
+//    }
+//    return bufferWrappers;
+//}
+//
 
 
 //

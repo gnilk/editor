@@ -71,10 +71,15 @@ namespace gedit {
         }
 
         const T &GetCurrentSelectedItem() {
+            if (idxActiveLine > flattenNodeList.size()) {
+                Flatten();
+                if (idxActiveLine > flattenNodeList.size()) {
+                    idxActiveLine = 0;
+                }
+            }
             return flattenNodeList[idxActiveLine]->data;
-
-
         }
+
         void Clear() {
             if (rootNode != nullptr) {
                 rootNode->Clear();
@@ -126,6 +131,7 @@ namespace gedit {
             auto treeItem = TreeNode::Create(item);
             parent->isExpanded = false;
             parent->children.emplace_back(treeItem);
+            treeItem->parent = parent;
 
             // Flatten tree!!!
             Flatten();
@@ -146,8 +152,52 @@ namespace gedit {
             node->isExpanded = true;
             Flatten();
         }
+
+
+        bool SetCurrentlySelectedItem(const T &item) {
+            // 1) we need to find the item in the tree
+            auto node = FindNodeForItem(rootNode, item);
+            if (node == nullptr) {
+                return false;
+            }
+            // 2) expand all nodes leading up to that item
+            ExpandToNode(node);
+            // 3) flatten
+
+            Flatten();
+            // 4) find index of node in flatten list
+            for(size_t i = 0; i < flattenNodeList.size();i++) {
+                if (flattenNodeList[i]->data == item) {
+                    // 5) update idxActiveLine with index from '4'
+                    idxActiveLine = i;
+                    return true;
+                }
+            }
+            idxActiveLine = 0;
+            return false;
+        }
+
     protected:
 
+        typename TreeNode::Ref FindNodeForItem(typename TreeNode::Ref node, const T &item) {
+            if(node->data == item) {
+                return node;
+            }
+            for(auto &child : node->children) {
+                auto nodeWithItem = FindNodeForItem(child, item);
+                if (nodeWithItem != nullptr) {
+                    return nodeWithItem;
+                }
+            }
+            return nullptr;
+        }
+        // Expand tree up to the node (this is down by expanding downwards)
+        void ExpandToNode(typename TreeNode::Ref node) {
+            node->isExpanded = true;
+            if (node->parent != nullptr) {
+                ExpandToNode(node->parent);
+            }
+        }
         // Note: Depends on flattening
         void DrawViewContents() override {
             auto &dc = window->GetContentDC();

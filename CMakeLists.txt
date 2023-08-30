@@ -76,6 +76,7 @@ if (APPLE)
     set(YAML_CPP_HOME /opt/homebrew/opt/yaml-cpp)
 
 
+    list(APPEND editorsrc src/Core/macOS/MacOSFolderMonitor.cpp src/Core/macOS/MacOSFolderMonitor.h)
     list(APPEND editorsrc src/Core/macOS/MacOSKeyboardMonitor.cpp src/Core/macOS/MacOSKeyboardMonitor.h)
     list(APPEND editorsrc src/Core/unix/Shell.cpp src/Core/unix/Shell.h)
 
@@ -90,6 +91,7 @@ if (APPLE)
 
     list(APPEND extlibs ncurses)
     list(APPEND extlibs yaml-cpp)
+    list(APPEND extlibs ${CORE_SERVICES})
 
 
     set(ICON_FILE ${CMAKE_SOURCE_DIR}/Assets/CMake/GoatEdit.icns)
@@ -254,6 +256,7 @@ list(APPEND editorsrc src/Core/AssetLoaderBase.cpp src/Core/AssetLoaderBase.h)
 list(APPEND editorsrc src/Core/ClipBoard.cpp src/Core/ClipBoard.h)
 list(APPEND editorsrc src/Core/Editor.cpp src/Core/Editor.h)
 list(APPEND editorsrc src/Core/EditorModel.cpp src/Core/EditorModel.h)
+list(APPEND editorsrc src/Core/FolderMonitorBase.cpp src/Core/FolderMonitorBase.h)
 list(APPEND editorsrc src/Core/Runloop.cpp src/Core/Runloop.h)
 list(APPEND editorsrc src/Core/VerticalNavigationViewModel.cpp src/Core/VerticalNavigationViewModel.h)
 list(APPEND editorsrc src/Core/Workspace.cpp src/Core/Workspace.h)
@@ -262,20 +265,23 @@ list(APPEND editorsrc src/Core/Workspace.cpp src/Core/Workspace.h)
 list(APPEND editorsrc src/Core/Action.cpp src/Core/Action.h)
 list(APPEND editorsrc src/Core/ActionHelper.cpp src/Core/ActionHelper.h)
 list(APPEND editorsrc src/Core/KeyMapping.cpp src/Core/KeyMapping.h)
+list(APPEND editorsrc src/Core/API/DocumentAPI.cpp src/Core/API/DocumentAPI.h)
 list(APPEND editorsrc src/Core/API/EditorAPI.cpp src/Core/API/EditorAPI.h)
 list(APPEND editorsrc src/Core/API/NamedColorsAPI.cpp src/Core/API/NamedColorsAPI.h)
 list(APPEND editorsrc src/Core/API/ThemeAPI.cpp src/Core/API/ThemeAPI.cpp)
-list(APPEND editorsrc src/Core/API/TextBufferAPI.cpp src/Core/API/TextBufferAPI.h)
+# list(APPEND editorsrc src/Core/API/TextBufferAPI.cpp src/Core/API/TextBufferAPI.h)
 list(APPEND editorsrc src/Core/API/ViewAPI.cpp src/Core/API/ViewAPI.h)
 list(APPEND editorsrc src/Core/Plugins/PluginCommand.cpp src/Core/Plugins/PluginCommand.h)
 list(APPEND editorsrc src/Core/Plugins/PluginExecutor.cpp src/Core/Plugins/PluginExecutor.h)
 list(APPEND editorsrc src/Core/KeypressAndActionHandler.h)
 
 # utility stuff
-list(APPEND editorsrc src/Core/StrUtil.cpp src/Core/StrUtil.h)
-list(APPEND editorsrc src/Core/HexDump.cpp src/Core/HexDump.h)
 list(APPEND editorsrc src/Core/ColorRGBA.cpp src/Core/ColorRGBA.h)
+list(APPEND editorsrc src/Core/HexDump.cpp src/Core/HexDump.h)
+list(APPEND editorsrc src/Core/Glob.cpp src/Core/Glob.h)
 list(APPEND editorsrc src/Core/NamedColors.cpp src/Core/NamedColors.h)
+list(APPEND editorsrc src/Core/PathUtil.cpp src/Core/PathUtil.h)
+list(APPEND editorsrc src/Core/StrUtil.cpp src/Core/StrUtil.h)
 list(APPEND editorsrc src/Core/TypeUtil.h)
 
 # Keyboard handling
@@ -361,9 +367,10 @@ list(APPEND editorsrc src/Core/Sublime/SublimeConfigColorScript.cpp src/Core/Sub
 list(APPEND jsapi src/Core/JSEngine/JSPluginEngine.cpp src/Core/JSEngine/JSPluginEngine.h)
 list(APPEND jsapi src/Core/JSEngine/JSPluginCommand.cpp src/Core/JSEngine/JSPluginCommand.h)
 list(APPEND jsapi src/Core/JSEngine/Modules/ConsoleAPIWrapper.cpp src/Core/JSEngine/Modules/ConsoleAPIWrapper.h)
+list(APPEND jsapi src/Core/JSEngine/Modules/DocumentAPIWrapper.cpp src/Core/JSEngine/Modules/DocumentAPIWrapper.h)
 list(APPEND jsapi src/Core/JSEngine/Modules/EditorAPIWrapper.cpp src/Core/JSEngine/Modules/EditorAPIWrapper.h)
 list(APPEND jsapi src/Core/JSEngine/Modules/NamedColorsAPIWrapper.cpp src/Core/JSEngine/Modules/NamedColorsAPIWrapper.h)
-list(APPEND jsapi src/Core/JSEngine/Modules/TextBufferAPIWrapper.cpp src/Core/JSEngine/Modules/TextBufferAPIWrapper.h)
+# list(APPEND jsapi src/Core/JSEngine/Modules/TextBufferAPIWrapper.cpp src/Core/JSEngine/Modules/TextBufferAPIWrapper.h)
 list(APPEND jsapi src/Core/JSEngine/Modules/ThemeAPIWrapper.cpp src/Core/JSEngine/Modules/ThemeAPIWrapper.h)
 list(APPEND jsapi src/Core/JSEngine/Modules/ViewAPIWrapper.cpp src/Core/JSEngine/Modules/ViewAPIWrapper.h)
 

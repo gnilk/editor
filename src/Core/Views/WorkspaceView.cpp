@@ -55,6 +55,15 @@ void WorkspaceView::InitView() {
 
 void WorkspaceView::ReInitView() {
     VisibleView::ReInitView();
+
+    // When active buffer is changed, the re-init view is called
+    // resync IF the user wants the buffers in workspace view to reflect the editor (this is VSCode behaviour)
+    if (Config::Instance()[cfgSectionName].GetBool("sync_on_active_buffer_changed", true)) {
+        if (Editor::Instance().GetActiveModel() != nullptr) {
+            auto activeNode = Editor::Instance().GetWorkspaceNodeForActiveModel();
+            treeView->SetCurrentlySelectedItem(activeNode);
+        }
+    }
 }
 
 void WorkspaceView::PopulateTree() {
@@ -63,14 +72,13 @@ void WorkspaceView::PopulateTree() {
 
         treeView->SetToStringDelegate([](Workspace::Node::Ref node) -> std::string {
             if (node->GetModel() != nullptr) {
-                return std::string(node->GetModel()->GetTextBuffer()->GetName());
+                return std::string(node->GetDisplayName());
             }
             return node->GetDisplayName();
         });
     } else {
         treeView->Clear();
     }
-
 
     auto workspace = Editor::Instance().GetWorkspace();
 
@@ -88,12 +96,28 @@ void WorkspaceView::PopulateTree() {
     }
     // All nodes start collapsed, but we want the root to start expanded...
     treeView->Expand();
+    if (Editor::Instance().GetActiveModel() != nullptr) {
+        auto activeNode = Editor::Instance().GetWorkspaceNodeForActiveModel();
+        treeView->SetCurrentlySelectedItem(activeNode);
+    }
 
+    auto currentItem = treeView->GetCurrentSelectedItem();
+    workspace->SetActiveFolderNode(currentItem);
 }
 
-
 bool WorkspaceView::OnAction(const KeyPressAction &kpAction) {
+    auto idxPrevActiveLine = treeView->idxActiveLine;
     if (treeView->OnAction(kpAction)) {
+        if (idxPrevActiveLine != treeView->idxActiveLine) {
+            auto activeNode = treeView->GetCurrentSelectedItem();
+            auto nodeType = activeNode->GetMeta<int>(Workspace::Node::kMetaKey_NodeType, Workspace::Node::kNodeFolder);
+            if (nodeType == Workspace::Node::kNodeFolder) {
+                auto workspace = Editor::Instance().GetWorkspace();
+                workspace->SetActiveFolderNode(activeNode);
+            }
+            // node did change!
+            int breakme = 1;
+        }
         return true;
     }
     if (kpAction.action == kAction::kActionCommitLine) {
@@ -101,7 +125,7 @@ bool WorkspaceView::OnAction(const KeyPressAction &kpAction) {
         auto itemSelected = treeView->GetCurrentSelectedItem();
         if (itemSelected->GetModel() != nullptr) {
             Editor::Instance().OpenModelFromWorkspace(itemSelected);
-            logger->Debug("Selected Item: %s", itemSelected->GetModel()->GetTextBuffer()->GetName().c_str());
+            logger->Debug("Selected Item: %s", itemSelected->GetDisplayName().c_str());
             InvalidateAll();
             return true;
         } else {
@@ -127,11 +151,11 @@ std::pair<std::string, std::string> WorkspaceView::GetStatusBarInfo() {
     std::string strRight = {};
 
     auto node = treeView->GetCurrentSelectedItem();
-    auto dispName = node->GetDisplayName();
-    auto model = node->GetModel();
-    if (model != nullptr) {
-        dispName = model->GetTextBuffer()->GetName();
+    if (node == nullptr) {
+        int breakme = 1;
     }
+    auto &dispName = node->GetDisplayName();
+    auto model = node->GetModel();
 
     auto nodeType = node->GetMeta<int>(Workspace::Node::kMetaKey_NodeType, Workspace::Node::kNodeFolder);
     auto fileSize = node->GetMeta<size_t>(Workspace::Node::kMetaKey_FileSize, 0);

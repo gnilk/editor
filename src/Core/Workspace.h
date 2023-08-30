@@ -15,6 +15,7 @@
 
 #include "logger.h"
 
+#include "Core/PathUtil.h"
 #include "Core/Config/ConfigNode.h"
 #include "EditorModel.h"
 
@@ -35,8 +36,8 @@ namespace gedit {
     class Node : public std::enable_shared_from_this<Node> {
         public:
             inline static const std::string kMetaKey_NodeType = "type";
-        inline static const std::string kMetaKey_FileSize = "filesize";
-        inline static const std::string kMetaKey_ReadOnly = "readonly";
+            inline static const std::string kMetaKey_FileSize = "filesize";
+            inline static const std::string kMetaKey_ReadOnly = "readonly";
 
             enum NodeType : int {
                 kNodeVirtual = 0,   // Virtual nodes are like the 'Default' node - it doesn't exists, used only for grouping
@@ -46,12 +47,12 @@ namespace gedit {
                 kNodeFileRef = 4,   // FileRef - this node references a file
             };
             using Ref = std::shared_ptr<Node>;
-            using ChildNodesValueType = std::unordered_map<std::string, Node::Ref>::value_type;
+            using ChildNodesValueType = std::vector<Node::Ref>::value_type;
         public:
             // A node has a name and generally points to a directory - but we can create nodes a bit how we want..
             // Thus we can mimic VStudio with "Source", "Headers", etc.. which are virtual nodes but appear as
             // directories...
-            explicit Node(const std::string &nodeName) : name(nodeName), displayName(nodeName) {
+            explicit Node(const std::string &nodeName) : displayName(nodeName) {
 
             }
             virtual ~Node() {
@@ -87,31 +88,35 @@ namespace gedit {
             }
 
             size_t FlattenChilds(std::vector<Node::Ref> &outNodes) {
-                for(auto &[key, value] : childNodes) {
+                for(auto value : childNodes) {
                     outNodes.push_back(value);
                 }
                 return outNodes.size();
             }
 
-            Node::Ref AddChild(const std::string &newName) {
-                auto child = Node::Create(newName);
+            Node::Ref AddChild(const std::string &displayName) {
+                auto child = Node::Create(displayName);
                 child->parent = shared_from_this();
-                childNodes[newName] = child;
+                childNodes.push_back(child);
                 // Resolve path??
                 return child;
             }
 
-            bool DelChild(Node::Ref child) {
-                if (!HasChild(name)) {
+            bool DelChild(const Node::Ref child) {
+                if (!HasChild(child)) {
                     return false;
                 }
-                auto it = childNodes.find(name);
-                childNodes.erase(it);
+                auto itErase = std::find(childNodes.begin(), childNodes.end(), child);
+                if (itErase == childNodes.end()) {
+                    return false;
+                }
+                childNodes.erase(itErase);
                 return true;
             }
 
-            bool HasChild(const std::string &nameToFind) {
-                if(childNodes.find(nameToFind) == childNodes.end()) {
+            bool HasChild(const Node::Ref node) {
+                auto itFound = std::find(childNodes.begin(), childNodes.end(), node);
+                if (itFound == childNodes.end()) {
                     return false;
                 }
                 return true;
@@ -122,7 +127,7 @@ namespace gedit {
                     return shared_from_this();
                 }
 
-                for(auto &[name, node] : childNodes) {
+                for(auto &node : childNodes) {
                     auto nodeForModel = node->FindModel(searchModel);
                     if (nodeForModel != nullptr) {
                         return nodeForModel;
@@ -132,24 +137,28 @@ namespace gedit {
                 return nullptr;
             }
 
-            Node::Ref GetOrAddChild(const std::string &childName) {
-                if (HasChild(childName)) {
-                    return childNodes[childName];
-                }
-                return AddChild(childName);
-            }
-            std::optional<Node::Ref> GetChild(const std::string &childName) {
-                if (!HasChild(childName)) {
-                    return {};
-                }
-                return childNodes[childName];
+            std::filesystem::path GetNodePath() {
+                return pathName;
             }
 
-            std::filesystem::path GetNodePath() {
-                std::filesystem::path path;
-                RecursiveGetNodePath(path);
-                return path;
+            void SetNodePath(std::filesystem::path newPath) {
+                pathName = newPath;
+                isPathNameChanged = true;
+                UpdateDisplayNameFromPath();
             }
+
+            bool IsFolder() {
+                // This is a workspace root folder...
+                if (parent == nullptr) {
+                    return true;
+                }
+                // Note: perhaps change to check meta...
+                if (std::filesystem::is_directory(pathName)) {
+                    return true;
+                }
+                return false;
+            }
+
 
             size_t GetNumChildNodes() {
                 return childNodes.size();
@@ -162,6 +171,12 @@ namespace gedit {
 
             EditorModel::Ref GetModel() {
                 return model;
+            }
+            TextBuffer::Ref GetTextBuffer() {
+                if (model == nullptr) {
+                    return nullptr;
+                }
+                return model->GetTextBuffer();
             }
 
             // This will flatten the workspace and return a copy of all model references
@@ -188,33 +203,56 @@ namespace gedit {
                 return metaData.GetValue(keyName, defValue);
             }
 
+            bool LoadData() {
+                if (model == nullptr) {
+                    return false;
+                }
+                // Does this file exists - or is it a 'new' file
+                if (!std::filesystem::exists(pathName)) {
+                    return true;
+                }
+                return model->LoadData(pathName);
+            }
+
+            bool SaveData() {
+                if (model == nullptr) {
+                    return false;
+                }
+                bool result = false;
+                if (isPathNameChanged) {
+                    result = model->SaveDataNoChangeCheck(pathName);
+                    isPathNameChanged = false;
+                } else {
+                    result = model->SaveData(pathName);
+                }
+
+                return result;
+            }
+
 
         private:
+            void UpdateDisplayNameFromPath() {
+                displayName = pathutil::LastNameOfPath(pathName);
+            }
+
             void RecursiveGetModels(std::vector<EditorModel::Ref> &outModels) {
                 if (model != nullptr) {
                     outModels.push_back(model);
                     return;
                 }
-                for(auto &[name, node] : childNodes) {
+                for(auto &node : childNodes) {
                     node->RecursiveGetModels(outModels);
-                }
-            }
-            void RecursiveGetNodePath(std::filesystem::path &path) {
-                if (parent != nullptr) {
-                    RecursiveGetNodePath(path);
-                    path += name;
-                } else {
-                    path += name;
                 }
             }
 
         private:
             ConfigNode metaData;
-            std::string name = "";
+            bool isPathNameChanged = false;
             std::string displayName = "";
+            std::filesystem::path pathName;
             Node::Ref parent = nullptr;
             EditorModel::Ref model = nullptr;   // This is only set for leaf nodes..
-            std::unordered_map<std::string, Node::Ref> childNodes = {};
+            std::vector<Node::Ref> childNodes = {};
         };
     public:
         Workspace();
@@ -232,17 +270,24 @@ namespace gedit {
             return rootNodes;
         }
 
+        Node::Ref GetActiveFolderNode() {
+            return activeFolderNode;
+        }
+        void SetActiveFolderNode(Node::Ref newActiveFolder) {
+            activeFolderNode = newActiveFolder;
+        }
+
         bool OpenFolder(const std::string &folder);
 
-        EditorModel::Ref NewEmptyModel();                       // Adds an empty model/file to the default workspace
-        EditorModel::Ref NewEmptyModel(const Node::Ref parent); // Adds an empty model/file to a specific workspace
+        Node::Ref NewModel(const std::string &name);                       // Adds an empty model/file to the default workspace
+        Node::Ref NewModel(const Node::Ref parent, const std::string &name); // Adds an empty model/file to a specific workspace
 
         // Adds a file-reference (i.e. doesn't load contents) to the default workspace
-        EditorModel::Ref NewModelWithFileRef(const std::filesystem::path &pathFileName);
+        Node::Ref NewModelWithFileRef(const std::filesystem::path &pathFileName);
         // Adds a file-reference (i.e doesn't load contents) to a specific (named) workedspace
-        EditorModel::Ref NewModelWithFileRef(Node::Ref parent, const std::filesystem::path &pathFileName);
+        Node::Ref NewModelWithFileRef(Node::Ref parent, const std::filesystem::path &pathFileName);
 
-        std::optional<Node::Ref> GetNodeFromModel(EditorModel::Ref model);
+        Node::Ref GetNodeFromModel(EditorModel::Ref model);
 
         bool RemoveModel(EditorModel::Ref model);
 
@@ -250,6 +295,7 @@ namespace gedit {
 
     protected:
         bool ReadFolderToNode(Node::Ref rootNode, const std::filesystem::path &folder);
+        void UpdateMetaDataForNode(Node::Ref node);
         Node::Ref GetOrAddNode(const std::string &name);
         void DisableNotifications() {
             isChangeHandlerEnabled = false;
@@ -270,6 +316,8 @@ namespace gedit {
 
         bool isChangeHandlerEnabled = true;
         ContentsChangedDelegate onChangeHandler = {};
+
+        Node::Ref activeFolderNode = nullptr;
 
         std::unordered_map<std::string, Node::Ref> rootNodes = {};
 

@@ -857,12 +857,20 @@ bool Editor::OpenModelOrFolder(const std::string &fileOrFolder) {
         //
         // This is just a test..
         //
-/*
+
         // Monitor everything below the folder we are opening...
-        auto monitorPath = pathName / "*";
         std::vector<std::string> exclusionPaths = {"excluded/"};
+
         auto &folderMonitor = RuntimeConfig::Instance().GetFolderMonitor();
 
+        auto monitorPointA = folderMonitor.CreateMonitorPoint(pathName,
+                                                              [](const std::string &pathName,FolderMonitor::kChangeFlags flags)->void {
+                                                                  auto logger = gnilk::Logger::GetLogger("FSEVENT");
+                                                                  logger->Debug("A - 0x%x : %s", static_cast<int>(flags), pathName.c_str());
+                                                              });
+
+        monitorPointA->Start();
+/*
         folderMonitor.AddEventListener(monitorPath,     // This path we will monitor
                                        exclusionPaths,              // These subpaths we will exclude (relative to the path)
                                        [](const std::string &pathName,FolderMonitorBase::kChangeFlags flags)->void {

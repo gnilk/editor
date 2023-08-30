@@ -854,42 +854,6 @@ bool Editor::OpenModelOrFolder(const std::string &fileOrFolder) {
             std::filesystem::current_path(pathName);
         }
 
-        //
-        // This is just a test..
-        //
-
-        // Monitor everything below the folder we are opening...
-        std::vector<std::string> exclusionPaths = {"excluded/"};
-
-        auto &folderMonitor = RuntimeConfig::Instance().GetFolderMonitor();
-
-        auto monitorPointA = folderMonitor.CreateMonitorPoint(pathName,
-                                                              [](const std::string &pathName,FolderMonitor::kChangeFlags flags)->void {
-                                                                  auto logger = gnilk::Logger::GetLogger("FSEVENT");
-                                                                  logger->Debug("A - 0x%x : %s", static_cast<int>(flags), pathName.c_str());
-                                                              });
-
-        monitorPointA->Start();
-/*
-        folderMonitor.AddEventListener(monitorPath,     // This path we will monitor
-                                       exclusionPaths,              // These subpaths we will exclude (relative to the path)
-                                       [](const std::string &pathName,FolderMonitorBase::kChangeFlags flags)->void {
-            auto logger = gnilk::Logger::GetLogger("FSEVENT");
-            logger->Debug("A - 0x%x : %s", static_cast<int>(flags), pathName.c_str());
-        });
-        folderMonitor.Start();
-
-
-        // This will stop the folder monitor
-        folderMonitor.AddEventListener("/Users/gnilk/src/tests/fsnotify/mondir/*",
-                                       {},
-                                       [](const std::string &pathName, FolderMonitorBase::kChangeFlags flags)->void {
-                auto logger = gnilk::Logger::GetLogger("FSEVENT");
-                logger->Debug("B - 0x%x : %s", static_cast<int>(flags), pathName.c_str());
-        });
-
-        folderMonitor.Start();
-*/
         return true;
     }
 
@@ -899,15 +863,6 @@ bool Editor::OpenModelOrFolder(const std::string &fileOrFolder) {
         return false;
     }
 
-//    auto model = workspace->NewModelWithFileRef(pathName);
-//    if (model == nullptr) {
-//        logger->Error("Unable to load file: %s", fileOrFolder.c_str());
-//        return false;
-//    }
-//
-//    // All good...
-//    model->GetTextBuffer()->Load();
-//    openModels.push_back(model);
     return true;
 
 }

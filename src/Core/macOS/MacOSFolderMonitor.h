@@ -24,13 +24,23 @@ namespace gedit {
         bool Stop() override;
         void OnFSEvent(const std::string &path, kChangeFlags flags);
     protected:
-        bool AddPath(const std::filesystem::path &path) override;
+        bool AddPath(const std::filesystem::path &path, const std::vector<std::string> &exclusions) override;
     private:
         MacOSFolderMonitor() = default;
-        bool isRunning = false;
-        std::vector<std::string> folderList;
+        // Need one event stream per watched path - since exclusion lists are specific per stream
+        struct MonitorItem {
+            std::filesystem::path pathName = {};
+            std::vector<std::string> exclusions = {};
+
+            CFStringRef pathToWatch = {};
+            CFArrayRef pathsToWatch = {};
+
+            CFMutableArrayRef pathsToExclude = {};
+
+            FSEventStreamRef eventStream = {};
+        };
+        std::vector<MonitorItem> folderList;
         std::mutex dataGuard;
-        FSEventStreamRef eventStream;
 
     };
 }

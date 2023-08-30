@@ -1,5 +1,10 @@
 //
 // Created by gnilk on 29.08.23.
+// TODO: Refactor this - we don't really want this API, instead a workspace root-node should be able to create a specific folder-monitor with exclusion paths
+//       Thus, we should:
+//           auto folderMonitor = RuntimeConfig::Instance().GetFolderMonitor();
+//           auto monitoringRef = folderMonitor.CreateMonitoring(<path>, <exclusion>, <callback>);
+//           monitoringRef->Start();
 //
 #include <CoreServices/CoreServices.h>
 #include <mutex>
@@ -64,53 +69,84 @@ bool MacOSFolderMonitor::Start() {
 
     std::lock_guard<std::mutex> guard(dataGuard);
 
-
-    /* Define variables and create a CFArray object containing CFString objects containing paths to watch. */
-    CFStringRef mypath              = CFStringCreateWithCString( nullptr, folderList[0].c_str(), kCFStringEncodingUTF8);
-    CFArrayRef pathsToWatch         = CFArrayCreate( nullptr, ( const void ** ) &mypath, 1, nullptr );
-    CFAbsoluteTime latency          = 3.0; /* Latency in seconds */
-
+    // Setup context so we can jump into the class
     FSEventStreamContext context = {};
     context.info = this;
 
+    CFAbsoluteTime latency          = 3.0; /* Latency in seconds */
 
-    /* Create the stream, passing in a callback */
-    eventStream = FSEventStreamCreate(
+    for(auto &monitorItem : folderList) {
+        // Create the event stream with out trampoline as callback
+        monitorItem.eventStream = FSEventStreamCreate(
+                nullptr,
+                &fsNotifyTrampoline,
+                &context, //NULL, // could put stream-specific data here. FSEventStreamRef stream;*/
+                monitorItem.pathsToWatch,
+                kFSEventStreamEventIdSinceNow, /* Or a previous event ID */
+                latency,
+                kFSEventStreamCreateFlagFileEvents /* Flags explained in reference: https://developer.apple.com/library/mac/documentation/Darwin/Reference/FSEvents_Ref/Reference/reference.html */
+        );
 
-            nullptr,
-            &fsNotifyTrampoline,
-            &context, //NULL, // could put stream-specific data here. FSEventStreamRef stream;*/
-            pathsToWatch,
-            kFSEventStreamEventIdSinceNow, /* Or a previous event ID */
-            latency,
-            kFSEventStreamCreateFlagFileEvents /* Flags explained in reference: https://developer.apple.com/library/mac/documentation/Darwin/Reference/FSEvents_Ref/Reference/reference.html */
 
-    );
+        // Attach to the thread dispatch queue
+        auto dispatchQ = dispatch_get_main_queue();
+        if (monitorItem.exclusions.size() > 0) {
+            FSEventStreamSetExclusionPaths(monitorItem.eventStream, monitorItem.pathsToExclude);
+        }
 
-    // Attach to the thread dispatch queue
-    auto dispatchQ = dispatch_get_main_queue();
+        FSEventStreamSetDispatchQueue(monitorItem.eventStream, dispatchQ);
+        if (!FSEventStreamStart( monitorItem.eventStream )) {
+            auto logger = gnilk::Logger::GetLogger("FolderMonitor");
+            logger->Error("Unable to start monitoring for path: ", monitorItem.pathName.c_str());
+        }
 
-    FSEventStreamSetDispatchQueue(eventStream, dispatchQ);
-    if (!FSEventStreamStart( eventStream )) {
-        auto logger = gnilk::Logger::GetLogger("FolderMonitor");
-        logger->Error("Unable to start!");
-        return false;
     }
-
     isRunning = true;
     return true;
 }
 
 bool MacOSFolderMonitor::Stop() {
+    // Already stopped??
+    if (!isRunning) {
+        return true;
+    }
+    std::lock_guard<std::mutex> guard(dataGuard);
+    // Release and dispose of the event stream...
+    for(auto &item : folderList) {
+        FSEventStreamInvalidate(item.eventStream);
+        FSEventStreamStop(item.eventStream);
+        FSEventStreamRelease(item.eventStream);
+    }
+
+    isRunning = false;
+
     return true;
 }
 
-bool MacOSFolderMonitor::AddPath(const std::filesystem::path &path) {
+bool MacOSFolderMonitor::AddPath(const std::filesystem::path &path, const std::vector<std::string> &exclusions) {
     if (isRunning) {
         Stop();
     }
     std::lock_guard<std::mutex> guard(dataGuard);
-    folderList.push_back(path);
+
+    MonitorItem item;
+
+    item.pathName = path;
+    item.exclusions = exclusions;
+
+    item.pathToWatch = CFStringCreateWithCString(nullptr, path.c_str(), kCFStringEncodingUTF8);
+    //CFArrayRef pathsToWatch         = CFArrayCreate( NULL, ( const void ** ) &mypath, 1, NULL );
+    item.pathsToWatch = CFArrayCreate(nullptr, (const void **) &item.pathToWatch, 1, nullptr);
+
+    item.pathsToExclude = CFArrayCreateMutable(nullptr, exclusions.size(), nullptr);
+
+    for(auto &s : exclusions) {
+        auto exPath = path / s;
+        CFStringRef pathToExclude = CFStringCreateWithCString(nullptr, exPath.c_str(), kCFStringEncodingUTF8);
+        CFArrayAppendValue(item.pathsToExclude, pathToExclude);
+    }
+    item.exclusions = exclusions;
+    folderList.push_back(item);
 
     return true;
 }

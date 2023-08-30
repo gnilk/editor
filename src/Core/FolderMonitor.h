@@ -15,6 +15,15 @@
 
 namespace gedit {
 
+    //
+    // Used to monitors directory tree's
+    // 1) Create a monitor for directory tree root (/some/path/here) with an event listener..
+    // 2) Set exclusion paths
+    //    auto monitor = CreateMonitor("/some/path/here", eventHandler);
+    //    monitor->SetExcludePaths({".git/", "build_cache/"});
+    // 3) Start the monitor
+    //    monitor->Start();
+    //
     class FolderMonitor {
     public:
         enum kChangeFlags : uint8_t {
@@ -55,9 +64,14 @@ namespace gedit {
                 std::lock_guard<std::mutex> guard(dataGuard);
                 handler = newHandler;
             }
-            virtual void SetExcludePaths(const std::vector<std::string> &newPathsToExclude) {
+
+            virtual bool SetExcludePaths(const std::vector<std::string> &newPathsToExclude) {
+                if (isRunning) {
+                    return false;
+                }
                 std::lock_guard<std::mutex> guard(dataGuard);
                 pathsToExclude = newPathsToExclude;
+                return true;
             }
 
         protected:

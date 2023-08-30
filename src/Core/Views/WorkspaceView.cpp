@@ -74,7 +74,8 @@ void WorkspaceView::PopulateTree() {
             if (node->GetModel() != nullptr) {
                 return std::string(node->GetDisplayName());
             }
-            return node->GetDisplayName();
+            // Highlight folders with '/'
+            return (node->GetDisplayName() + "/");
         });
     } else {
         treeView->Clear();
@@ -93,6 +94,7 @@ void WorkspaceView::PopulateTree() {
     for(auto &[key, desktop] : desktops) {
         auto rootNode = desktop->GetRootNode();
         auto item = treeView->AddItem(rootNode);
+        // TODO: We can add to exclude list from the Desktop->FolderMonitor->ExcludeList
         FillTreeView(treeView, item, rootNode, excludePrefixList);
     }
     // All nodes start collapsed, but we want the root to start expanded...

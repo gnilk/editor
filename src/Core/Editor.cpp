@@ -41,7 +41,6 @@
 #include <sys/stat.h>
 #include <wordexp.h>
 #include <unistd.h>
-#include "Core/macOS/MacOSFolderMonitor.h"
 
 #include "Core/XDGEnvironment.h"
 // API stuff
@@ -857,11 +856,12 @@ bool Editor::OpenModelOrFolder(const std::string &fileOrFolder) {
 
         // Monitor everything below the folder we are opening...
         auto monitorPath = pathName / "*";
-        MacOSFolderMonitor::Instance().AddEventListener(monitorPath,[](const std::string &pathName, FolderMonitorBase::kChangeFlags flags)->void {
+        auto &folderMonitor = RuntimeConfig::Instance().GetFolderMonitor();
+        folderMonitor.AddEventListener(monitorPath,[](const std::string &pathName, FolderMonitorBase::kChangeFlags flags)->void {
             auto logger = gnilk::Logger::GetLogger("FSEVENT");
             logger->Debug("0x%x : %s", static_cast<int>(flags), pathName.c_str());
         });
-        MacOSFolderMonitor::Instance().Start();
+        folderMonitor.Start();
 
         return true;
     }

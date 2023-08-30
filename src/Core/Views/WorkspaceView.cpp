@@ -89,10 +89,11 @@ void WorkspaceView::PopulateTree() {
     }
 
     // Traverse and add items
-    auto nodes = workspace->GetRootNodes();
-    for(auto &[key, node] : nodes) {
-        auto item = treeView->AddItem(node);
-        FillTreeView(treeView, item, node, excludePrefixList);
+    auto desktops = workspace->GetDesktops();
+    for(auto &[key, desktop] : desktops) {
+        auto rootNode = desktop->GetRootNode();
+        auto item = treeView->AddItem(rootNode);
+        FillTreeView(treeView, item, rootNode, excludePrefixList);
     }
     // All nodes start collapsed, but we want the root to start expanded...
     treeView->Expand();

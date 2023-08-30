@@ -7,12 +7,14 @@
 
 #include <string>
 #include <vector>
+#include <mutex>
 #include <utility>
 #include <functional>
 #include <cstdint>
 #include <filesystem>
 
 namespace gedit {
+
     class FolderMonitor {
     public:
         enum kChangeFlags : uint8_t {
@@ -28,47 +30,58 @@ namespace gedit {
         public:
             using Ref = std::shared_ptr<MonitorPoint>;
         public:
-            MonitorPoint() = default;
+            explicit MonitorPoint(const std::string &path) : pathToMonitor(path) {
+
+            }
             virtual ~MonitorPoint() = default;
 
-            static Ref Create();
-        private:
+            static Ref Create(const std::string &pathToMonitor) {
+                return std::make_shared<MonitorPoint>(pathToMonitor);
+            }
+
+            virtual bool Start() {
+                return false;
+            }
+            virtual bool Stop() {
+                return false;
+            }
+
+            bool IsRunning() {
+                return isRunning;
+            }
+
+
+            void SetEventHandler(EventDelegate newHandler) {
+                std::lock_guard<std::mutex> guard(dataGuard);
+                handler = newHandler;
+            }
+            virtual void SetExcludePaths(const std::vector<std::string> &newPathsToExclude) {
+                std::lock_guard<std::mutex> guard(dataGuard);
+                pathsToExclude = newPathsToExclude;
+            }
+
+        protected:
+            MonitorPoint() = default;
+            void DispatchEvent(const std::string &name, kChangeFlags eventFlags);
+        protected:
+            bool isRunning = false;
+            std::mutex dataGuard;
+            std::string pathToMonitor = {};
+            std::vector<std::string> pathsToExclude = {};
+            EventDelegate handler = {};
         };
 
     public:
         FolderMonitor() = default;
         virtual ~FolderMonitor() = default;
 
-
-        MonitorPoint::Ref CreateMonitorPoint(const std::filesystem::path &pathToMonitor, EventDelegate handler);
-
-
-
-
-
-        virtual bool Start() {
-            return false;
-        }
-        virtual bool Stop() {
-            return false;
-        }
-        bool AddEventListener(const std::string &pathToMonitor, const std::vector<std::string> &excludePaths, EventDelegate handler);
-        bool IsRunning() {
-            return isRunning;
+        virtual MonitorPoint::Ref CreateMonitorPoint(const std::filesystem::path &pathToMonitor, EventDelegate handler);
+    protected:
+        void AddMonitor(MonitorPoint::Ref monitor) {
+            monitorPoints.push_back(monitor);
         }
     protected:
-        virtual bool AddPath(const std::filesystem::path &path, const std::vector<std::string> &exclusions) {
-            return false;
-        }
-
-        void DispatchEvent(const std::string &name, kChangeFlags eventFlags);
-    protected:
-        struct Listener {
-            std::string pattern;
-            EventDelegate handler;
-        };
-        bool isRunning = false;
-        std::vector<Listener> eventListeners = {};
+        std::vector<MonitorPoint::Ref> monitorPoints = {};
     };
 
     // Define | operator

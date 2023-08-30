@@ -5,6 +5,7 @@
 #ifndef GOATEDIT_MACOSFOLDERMONITOR_H
 #define GOATEDIT_MACOSFOLDERMONITOR_H
 
+#include <memory>
 #include <string>
 #include <filesystem>
 #include <mutex>
@@ -15,33 +16,41 @@
 
 namespace gedit {
 
-    class MacOSFolderMonitor : public FolderMonitor {
+    class MacOSFolderMonitorPoint : public FolderMonitor::MonitorPoint {
     public:
-        virtual ~MacOSFolderMonitor() = default;
-        static MacOSFolderMonitor &Instance();
+        using Ref = std::shared_ptr<MacOSFolderMonitorPoint>;
+    public:
+        explicit MacOSFolderMonitorPoint(const std::string &pathToMonitor) : FolderMonitor::MonitorPoint(pathToMonitor) {
+
+        }
+        virtual ~MacOSFolderMonitorPoint();
+        static Ref Create(const std::string &pathToMonitor) {
+            return std::make_shared<MacOSFolderMonitorPoint>(pathToMonitor);
+        }
 
         bool Start() override;
         bool Stop() override;
-        void OnFSEvent(const std::string &path, kChangeFlags flags);
+
+        void OnFSEvent(const std::string &path, FolderMonitor::kChangeFlags flags);
     protected:
-        bool AddPath(const std::filesystem::path &path, const std::vector<std::string> &exclusions) override;
-    private:
+        MacOSFolderMonitorPoint() = default;
+    protected:
+        FSEventStreamContext fsContext = {};
+        CFStringRef cfPathToWatch = {};
+        CFArrayRef cfPathsToWatch = {};
+
+        CFMutableArrayRef cfPathsToExclude = {};
+        FSEventStreamRef fsEventStream = {};
+
+    };
+
+
+    class MacOSFolderMonitor : public FolderMonitor {
+    public:
         MacOSFolderMonitor() = default;
-        // Need one event stream per watched path - since exclusion lists are specific per stream
-        struct MonitorItem {
-            std::filesystem::path pathName = {};
-            std::vector<std::string> exclusions = {};
+        virtual ~MacOSFolderMonitor() = default;
 
-            CFStringRef pathToWatch = {};
-            CFArrayRef pathsToWatch = {};
-
-            CFMutableArrayRef pathsToExclude = {};
-
-            FSEventStreamRef eventStream = {};
-        };
-        std::vector<MonitorItem> folderList;
-        std::mutex dataGuard;
-
+        MonitorPoint::Ref CreateMonitorPoint(const std::filesystem::path &pathToMonitor, EventDelegate handler) override;
     };
 }
 

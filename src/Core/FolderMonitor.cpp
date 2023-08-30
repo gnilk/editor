@@ -1,7 +1,7 @@
 //
 // Created by gnilk on 29.08.23.
 //
-#include "FolderMonitorBase.h"
+#include "FolderMonitor.h"
 #include "StrUtil.h"
 #include "Glob.h"
 #include "RuntimeConfig.h"
@@ -9,7 +9,13 @@
 
 using namespace gedit;
 
-bool FolderMonitorBase::AddEventListener(const std::string &globPattern, const std::vector<std::string> &excludePaths, EventDelegate handler) {
+FolderMonitor::MonitorPoint::Ref FolderMonitor::CreateMonitorPoint(const std::filesystem::path &pathToMonitor, EventDelegate handler) {
+    return nullptr;
+}
+
+
+
+bool FolderMonitor::AddEventListener(const std::string &globPattern, const std::vector<std::string> &excludePaths, EventDelegate handler) {
 
     std::string pathNoGlob = globPattern;
     auto pos = pathNoGlob.find_first_of("*");
@@ -38,7 +44,7 @@ bool FolderMonitorBase::AddEventListener(const std::string &globPattern, const s
 }
 
 // protoected
-void FolderMonitorBase::DispatchEvent(const std::string &name, kChangeFlags eventFlags) {
+void FolderMonitor::DispatchEvent(const std::string &name, kChangeFlags eventFlags) {
     for(auto &listener : eventListeners) {
         if (Glob::Match(listener.pattern, name) == Glob::kMatch::Match) {
             // Put this on the main thread...

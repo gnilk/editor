@@ -11,11 +11,11 @@
 
 #include <CoreServices/CoreServices.h>
 
-#include "Core/FolderMonitorBase.h"
+#include "Core/FolderMonitor.h"
 
 namespace gedit {
 
-    class MacOSFolderMonitor : public FolderMonitorBase {
+    class MacOSFolderMonitor : public FolderMonitor {
     public:
         virtual ~MacOSFolderMonitor() = default;
         static MacOSFolderMonitor &Instance();

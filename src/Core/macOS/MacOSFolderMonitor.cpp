@@ -36,19 +36,19 @@ static void fsNotifyTrampoline(
         for(auto i=0;i<numEvents;i++) {
             std::string path(paths[i]);
             // FIXME: Translate events here
-            FolderMonitorBase::kChangeFlags flags = {};
+            FolderMonitor::kChangeFlags flags = {};
 
             if (eventFlags[i] & kFSEventStreamEventFlagItemCreated) {
-                flags |= FolderMonitorBase::kChangeFlags::kCreated;
+                flags |= FolderMonitor::kChangeFlags::kCreated;
             }
             if (eventFlags[i] & kFSEventStreamEventFlagItemModified) {
-                flags |= FolderMonitorBase::kChangeFlags::kModified;
+                flags |= FolderMonitor::kChangeFlags::kModified;
             }
             if (eventFlags[i] & kFSEventStreamEventFlagItemRemoved) {
-                flags |= FolderMonitorBase::kChangeFlags::kRemoved;
+                flags |= FolderMonitor::kChangeFlags::kRemoved;
             }
             if (eventFlags[i] & kFSEventStreamEventFlagItemRenamed) {
-                flags |= FolderMonitorBase::kChangeFlags::kRenamed;
+                flags |= FolderMonitor::kChangeFlags::kRenamed;
             }
 
             pThis->OnFSEvent(path, flags);

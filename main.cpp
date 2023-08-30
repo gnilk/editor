@@ -3,7 +3,8 @@
 //
 /*
  * TO-DO List
- * - WorkspaceView should react on changes from the Workspace::Desktop foldermonitor detected changes
+ * - WorkspaceView should preserve node expand/collapse information when rebuilding the tree...
+ * + WorkspaceView should react on changes from the Workspace::Desktop foldermonitor detected changes
  * - When creating a new model we should switch to it
  * - Save screen position and size upon resize/move and similar, restore on startup (use XDG state directory)
  * - Expose config from JS (set,get,list)

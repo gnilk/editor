@@ -288,7 +288,7 @@ WindowBase *SDLScreen::UpdateWindow(WindowBase *window, const gedit::Rect &rect,
     return window;
 }
 
-Rect SDLScreen::Dimensions() {
+gedit::Rect SDLScreen::Dimensions() {
     Rect rect(cols, rows);
     return rect;
 }

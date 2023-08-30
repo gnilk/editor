@@ -13,13 +13,8 @@ RuntimeConfig &RuntimeConfig::Instance() {
     return config;
 }
 
-FolderMonitorBase &RuntimeConfig::GetFolderMonitor() {
-#ifdef GEDIT_MACOS
-    return MacOSFolderMonitor::Instance();
-#else
-    static FolderMonitorBase dummy;
-            return dummy;
-#endif
+FolderMonitor &RuntimeConfig::GetFolderMonitor() {
+    return folderMonitor;
 }
 
 

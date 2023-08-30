@@ -11,7 +11,11 @@
 #include "Core/EditorModel.h"
 #include "Core/AssetLoaderBase.h"
 #include "Core/Plugins/PluginCommand.h"
-#include "Core/FolderMonitorBase.h"
+#include "Core/FolderMonitor.h"
+
+#ifdef GEDIT_MACOS
+#include "Core/macOS/MacOSFolderMonitor.h"
+#endif
 
 
 #include <map>
@@ -56,7 +60,7 @@ namespace gedit {
             return keyboard;
         }
 
-        FolderMonitorBase &GetFolderMonitor();
+        FolderMonitor &GetFolderMonitor();
 
         ScreenBase::Ref GetScreen() {
             return screen;
@@ -108,6 +112,9 @@ namespace gedit {
         RuntimeConfig() = default;
     private:
         // These should all be ref's...
+#ifdef GEDIT_MACOS
+        MacOSFolderMonitor folderMonitor;
+#endif
         KeyboardDriverBase::Ref keyboard = nullptr;
         ScreenBase::Ref screen = nullptr;
         ViewBase *rootView = nullptr;

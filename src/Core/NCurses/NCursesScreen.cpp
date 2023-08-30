@@ -138,7 +138,7 @@ void NCursesScreen::BeginRefreshCycle() {
 void NCursesScreen::EndRefreshCycle() {
 }
 
-Rect NCursesScreen::Dimensions() {
+gedit::Rect NCursesScreen::Dimensions() {
     int row, col;
     getmaxyx(stdscr,row,col);
     return Rect(col, row);

@@ -28,17 +28,19 @@ Workspace::Ref Workspace::Create() {
     return ref;
 }
 
+// The default desktop is handled a bit differently - as the CWD may change while we are running
 const Workspace::Node::Ref Workspace::GetDefaultWorkspace() {
     // Default not created?  - create it...
-    if (rootNodes.find("default") == rootNodes.end()) {
+    auto nameDefault = Config::Instance()["main"].GetStr("default_workspace_name", "default");
+    if (rootNodes.find(nameDefault) == rootNodes.end()) {
         logger->Debug("Default workspace does not exists, creating...");
-        auto nameDefault = Config::Instance()["main"].GetStr("default_workspace_name", "default");
-        auto workspace = Workspace::Node::Create(".");
-        workspace->SetDisplayName(nameDefault);
-        rootNodes["default"] = workspace;
+        auto rootDefault = std::filesystem::current_path();
+
+        auto desktop = Desktop::Create(rootDefault, nameDefault);
+        rootNodes[nameDefault] = desktop;
     }
 
-    return rootNodes["default"];
+    return rootNodes["default"]->GetRootNode();
 }
 
 // Returns a named workspace - currently the workspace is named after the folder name (this is however not needed)
@@ -48,7 +50,7 @@ const Workspace::Node::Ref Workspace::GetNamedWorkspace(const std::string &name)
         logger->Debug("Namespace '%s' does not exists", name.c_str());
         return nullptr;
     }
-    return rootNodes[name];
+    return rootNodes[name]->GetRootNode();
 }
 
 // Create an empty model in the default workspace
@@ -155,8 +157,9 @@ bool Workspace::RemoveModel(EditorModel::Ref model) {
 }
 
 Workspace::Node::Ref Workspace::GetNodeFromModel(EditorModel::Ref model) {
-    for(auto &[name, node] : rootNodes) {
-        auto modelNode = node->FindModel(model);
+    for(auto &[name, desktop] : rootNodes) {
+        auto rootNode = desktop->GetRootNode();
+        auto modelNode = rootNode->FindModel(model);
         if (modelNode != nullptr) {
             return modelNode;
         }
@@ -181,7 +184,9 @@ bool Workspace::OpenFolder(const std::string &folder) {
     auto name = pathutil::LastNameOfPath(pathName);
 
     DisableNotifications();
-    auto rootNode = GetOrAddNode(name);
+    auto desktop = GetOrAddDesktop(pathName, name);
+    auto rootNode = desktop->GetRootNode();
+
     rootNode->SetNodePath(pathName);
     rootNode->SetMeta<int>(Node::kMetaKey_NodeType, Node::kNodeFolder);
     if (!ReadFolderToNode(rootNode, pathName)) {
@@ -189,6 +194,11 @@ bool Workspace::OpenFolder(const std::string &folder) {
         EnableNotifications();
         return false;
     }
+
+    desktop->StartFolderMonitor([this, desktop](const std::string &pathName,FolderMonitor::kChangeFlags flags)->void {
+        auto logger = gnilk::Logger::GetLogger("Workspace");
+        logger->Debug("%s - 0x%x : %s", desktop->GetName().c_str(), static_cast<int>(flags), pathName.c_str());
+    });
 
     EnableNotifications();
     NotifyChangeHandler();
@@ -215,15 +225,16 @@ bool Workspace::ReadFolderToNode(Node::Ref rootNode, const std::filesystem::path
     return true;
 }
 
-// Get/Create node and add it to the map of nodes...
-Workspace::Node::Ref Workspace::GetOrAddNode(const std::string &name) {
-    Node::Ref rootNode = nullptr;
-    if (rootNodes.find(name) != rootNodes.end()) {
-        return rootNodes[name];
+// Root nodes are actual workspace instances...
+Workspace::Desktop::Ref Workspace::GetOrAddDesktop(const std::filesystem::path &rootPath, const std::string &desktopName) {
+    Desktop::Ref desktop = nullptr;
+    auto fqDeskName = rootPath.string();
+    if (rootNodes.find(fqDeskName) != rootNodes.end()) {
+        return rootNodes[fqDeskName];
     }
-    rootNode = Node::Create(name);
-    rootNodes[name] = rootNode;
-    return rootNode;
+    desktop = Desktop::Create(rootPath, desktopName);
+    rootNodes[fqDeskName] = desktop;
+    return desktop;
 }
 
 

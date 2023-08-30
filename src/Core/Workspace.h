@@ -15,14 +15,16 @@
 
 #include "logger.h"
 
+#include "Core/RuntimeConfig.h"
+#include "Core/FolderMonitor.h"
 #include "Core/PathUtil.h"
 #include "Core/Config/ConfigNode.h"
 #include "EditorModel.h"
 
 namespace gedit {
     //
-    // perhaps refactor this, workspace is more or less the container for multiple workspaces
-    // a folder (or root-node in the container) is a specific workspace...
+    // perhaps refactor this, workspace is everything - 'Desktops' (in lack of a better name) is a view/project or similar => rename to project??? (want to keep that name free for now)
+    // This should probably be refactored - it is hairy...
     //
     class Workspace {
     public:
@@ -32,7 +34,10 @@ namespace gedit {
     public:
 
 
-        // This is the actual workspace...
+        //
+        // A workspace is made up by several root nodes which are the respective work-areas
+        // If 'OpenFolder' is used a work-area is created where nodes map directly to directories and files
+        //
     class Node : public std::enable_shared_from_this<Node> {
         public:
             inline static const std::string kMetaKey_NodeType = "type";
@@ -254,6 +259,66 @@ namespace gedit {
             EditorModel::Ref model = nullptr;   // This is only set for leaf nodes..
             std::vector<Node::Ref> childNodes = {};
         };
+
+        class Desktop {
+        public:
+            using Ref = std::shared_ptr<Desktop>;
+        public:
+            Desktop(const std::filesystem::path path, const std::string &desktopName) : name(desktopName),rootPath(path) {
+                rootNode = Node::Create(desktopName);
+            }
+            virtual ~Desktop() = default;
+            static Ref Create(const std::filesystem::path path, const std::string &desktopName) {
+                auto logger = gnilk::Logger::GetLogger("Workspace");
+                logger->Debug("Desktop '%s' created @ cwd: %s", desktopName.c_str(), path.c_str());
+
+                auto ref = std::make_shared<Desktop>(path, desktopName);
+                return ref;
+            }
+            const std::string &GetName() {
+                return name;
+            }
+            const std::filesystem::path &GetRootPath() {
+                return rootPath;
+            }
+            Node::Ref GetRootNode() {
+                return rootNode;
+            }
+
+            bool StartFolderMonitor(FolderMonitor::EventDelegate changeHandler) {
+                auto logger = gnilk::Logger::GetLogger("Workspace");
+
+                // Need to stop first..
+                if ((changeMonitor != nullptr) && (changeMonitor->IsRunning())) {
+                    logger->Debug("FolderMonitor already started");
+                    return true;
+                }
+
+                // Only create if needed
+                if (changeMonitor == nullptr) {
+                    logger->Debug("FolderMonitor is null - creating with root: %s", rootPath.c_str());
+
+                    auto &folderMonitor = RuntimeConfig::Instance().GetFolderMonitor();
+                    changeMonitor = folderMonitor.CreateMonitorPoint(rootPath, changeHandler);
+                }
+
+                std::filesystem::path gitIgnoreFile = rootPath / ".gitignore";
+                if (exists(gitIgnoreFile)) {
+                    auto logger = gnilk::Logger::GetLogger("Workspace");
+                    logger->Debug("GitIgnore file found - we should read and add to exclude list");
+                }
+
+                return changeMonitor->Start();
+            }
+        private:
+            Desktop() = default;
+        private:
+            std::string name = {};
+            std::filesystem::path rootPath = {};
+            Node::Ref rootNode = {};
+            FolderMonitor::MonitorPoint::Ref changeMonitor = {};
+        };
+
     public:
         Workspace();
         virtual ~Workspace();
@@ -266,7 +331,7 @@ namespace gedit {
             onChangeHandler = newChangeHandler;
         }
 
-        const std::unordered_map<std::string, Workspace::Node::Ref> &GetRootNodes() {
+        const std::unordered_map<std::string, Workspace::Desktop::Ref> &GetDesktops() {
             return rootNodes;
         }
 
@@ -296,7 +361,7 @@ namespace gedit {
     protected:
         bool ReadFolderToNode(Node::Ref rootNode, const std::filesystem::path &folder);
         void UpdateMetaDataForNode(Node::Ref node);
-        Node::Ref GetOrAddNode(const std::string &name);
+        Desktop::Ref GetOrAddDesktop(const std::filesystem::path &rootPath, const std::string &desktopName);
         void DisableNotifications() {
             isChangeHandlerEnabled = false;
         }
@@ -319,7 +384,8 @@ namespace gedit {
 
         Node::Ref activeFolderNode = nullptr;
 
-        std::unordered_map<std::string, Node::Ref> rootNodes = {};
+        //std::unordered_map<std::string, Node::Ref> rootNodes = {};
+        std::unordered_map<std::string, Desktop::Ref> rootNodes = {};
 
         std::vector<EditorModel::Ref> models;
 

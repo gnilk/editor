@@ -6,6 +6,7 @@
 #define GOATEDIT_FOLDERMONITORBASE_H
 
 #include <string>
+#include <vector>
 #include <utility>
 #include <functional>
 #include <cstdint>
@@ -32,9 +33,12 @@ namespace gedit {
         virtual bool Stop() {
             return false;
         }
-        bool AddEventListener(const std::string &name, EventDelegate handler);
+        bool AddEventListener(const std::string &pathToMonitor, const std::vector<std::string> &excludePaths, EventDelegate handler);
+        bool IsRunning() {
+            return isRunning;
+        }
     protected:
-        virtual bool AddPath(const std::filesystem::path &path) {
+        virtual bool AddPath(const std::filesystem::path &path, const std::vector<std::string> &exclusions) {
             return false;
         }
 
@@ -44,6 +48,7 @@ namespace gedit {
             std::string pattern;
             EventDelegate handler;
         };
+        bool isRunning = false;
         std::vector<Listener> eventListeners = {};
     };
 

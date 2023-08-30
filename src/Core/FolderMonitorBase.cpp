@@ -9,7 +9,7 @@
 
 using namespace gedit;
 
-bool FolderMonitorBase::AddEventListener(const std::string &globPattern, EventDelegate handler) {
+bool FolderMonitorBase::AddEventListener(const std::string &globPattern, const std::vector<std::string> &excludePaths, EventDelegate handler) {
 
     std::string pathNoGlob = globPattern;
     auto pos = pathNoGlob.find_first_of("*");
@@ -17,8 +17,9 @@ bool FolderMonitorBase::AddEventListener(const std::string &globPattern, EventDe
         pathNoGlob = globPattern.substr(0,pos);
     }
 
-    // FIXME: remove up 'til first pattern...
-    if (!AddPath(pathNoGlob)) {
+    // Track if we were running - so we can automatically restart...
+    bool bWasRunning = IsRunning();
+    if (!AddPath(pathNoGlob, excludePaths)) {
         // ouppsie..
         return false;
     }
@@ -28,6 +29,11 @@ bool FolderMonitorBase::AddEventListener(const std::string &globPattern, EventDe
         .handler = handler,
     };
     eventListeners.push_back(listener);
+
+
+    if (bWasRunning) {
+        return Start();
+    }
     return true;
 }
 

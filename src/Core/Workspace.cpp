@@ -159,6 +159,11 @@ bool Workspace::RemoveNode(Node::Ref node) {
     if (node->GetParent() == nullptr) {
         return false;
     }
+    // If this model is open, let's close it...
+    if (node->GetModel()->IsActive()) {
+        Editor::Instance().CloseModel(node->GetModel());
+    }
+
     node->GetParent()->DelChild(node);
     node->SetModel(nullptr);
 

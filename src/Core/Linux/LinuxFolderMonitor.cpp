@@ -6,6 +6,8 @@
 #include <climits>
 #include <unistd.h>
 #include <stdlib.h>
+#include <poll.h>
+#include <cstring>
 
 #include "LinuxFolderMonitor.h"
 
@@ -34,7 +36,8 @@ bool LinuxFolderMonitorPoint::Start() {
     }
 
     logger = gnilk::Logger::GetLogger("FolderMonitor");
-    iNotifyFd = inotify_init1(IN_CLOEXEC);
+    // Non-blocking...
+    iNotifyFd = inotify_init1(IN_CLOEXEC | IN_NONBLOCK);
     if (iNotifyFd < 0) {
 
         return false;
@@ -63,13 +66,34 @@ bool LinuxFolderMonitorPoint::Stop() {
 
 #define BUF_LEN (10 * (sizeof(struct inotify_event) + NAME_MAX + 1))
 
+// Maximum 100ms per poll
+#ifndef GEDIT_DEFAULT_POLL_TMO_MS
+#define GEDIT_DEFAULT_POLL_TMO_MS 100
+#endif
+
 void LinuxFolderMonitorPoint::ScanThread() {
     ScanForDirectories(std::filesystem::path(pathToMonitor));
     StartWatchers();
 
+    nfds_t nfds;
+    struct pollfd fds[1];
+
+    nfds = 1;
+    fds[0].fd = iNotifyFd;
+    fds[0].events = POLLIN;
+
     char buf[BUF_LEN];
 
     while(!bQuitThread) {
+        auto poll_num = poll(fds, nfds, GEDIT_DEFAULT_POLL_TMO_MS);
+        if (poll_num == -1) {
+            if (errno == EINTR) continue;
+            logger->Error("poll error=%d:%s", errno, strerror(errno));
+            break;
+        }
+        if (poll_num == 0) continue;
+        if (!(fds[0].revents & POLLIN)) continue;
+
         auto numRead = read(iNotifyFd, buf, BUF_LEN);
         if (numRead == 0) {
             continue;

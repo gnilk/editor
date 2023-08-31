@@ -16,13 +16,13 @@ FolderMonitor::MonitorPoint::Ref FolderMonitor::CreateMonitorPoint(const std::fi
 }
 
 // protoected
-void FolderMonitor::MonitorPoint::DispatchEvent(const std::string &name, kChangeFlags eventFlags) {
+void FolderMonitor::MonitorPoint::DispatchEvent(const std::string &fullPathName, kChangeFlags eventFlags) {
 // Note: We can support more/less stuff with exclusion lists here....
 //    if (Glob::Match(listener.pattern, name) == Glob::kMatch::Match) {
 
     // Put this on the main thread...
-    RuntimeConfig::Instance().GetRootView().PostMessage([this, name, eventFlags](){
-        handler(name, eventFlags);
+    RuntimeConfig::Instance().GetRootView().PostMessage([this, fullPathName, eventFlags](){
+        handler(fullPathName, eventFlags);
     });
 }
 

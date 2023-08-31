@@ -148,7 +148,7 @@ namespace gedit {
                     return shared_from_this();
                 }
                 for(auto &child : childNodes) {
-                    auto res = FindNodeWithPath(path);
+                    auto res = child->FindNodeWithPath(path);
                     if (res != nullptr) {
                         return res;
                     }
@@ -279,16 +279,23 @@ namespace gedit {
             using Ref = std::shared_ptr<Desktop>;
             // Must be set by called
             using CreateNodeDelgate = std::function<Node::Ref (Node::Ref parent, const std::filesystem::path &path)>;
+            using DeleteNodeDelgate = std::function<void (Node::Ref parent, const std::filesystem::path &path)>;
         public:
-            Desktop(CreateNodeDelgate createNodeHandler, const std::filesystem::path path, const std::string &desktopName) : name(desktopName),rootPath(path), funcCreateNode(createNodeHandler) {
+            Desktop(CreateNodeDelgate createNodeHandler, DeleteNodeDelgate deleteNodeHandler,
+                    const std::filesystem::path path,
+                    const std::string &desktopName) : name(desktopName),rootPath(path), funcCreateNode(createNodeHandler), funcDeleteNode(deleteNodeHandler){
+
                 rootNode = Node::Create(desktopName);
             }
             virtual ~Desktop() = default;
-            static Ref Create(CreateNodeDelgate createNodeHandler, const std::filesystem::path path, const std::string &desktopName) {
+            static Ref Create(CreateNodeDelgate createNodeHandler,
+                              DeleteNodeDelgate deleteNodeHandler,
+                              const std::filesystem::path path, const std::string &desktopName) {
+
                 auto logger = gnilk::Logger::GetLogger("Workspace");
                 logger->Debug("Desktop '%s' created @ cwd: %s", desktopName.c_str(), path.c_str());
 
-                auto ref = std::make_shared<Desktop>(createNodeHandler, path, desktopName);
+                auto ref = std::make_shared<Desktop>(createNodeHandler, deleteNodeHandler, path, desktopName);
 
                 return ref;
             }
@@ -336,10 +343,17 @@ namespace gedit {
 
                 if ((flags & FolderMonitor::kChangeFlags::kCreated) && !(flags & FolderMonitor::kChangeFlags::kRemoved)) {
                     auto node = AddFromFileEvent(path);
+                } else if (flags & FolderMonitor::kChangeFlags::kRemoved) {
+                    DeleteFromFileEvent(path);
                 }
             }
             // This function would benefit from being outside (i.e. in the workspace)
             Node::Ref AddFromFileEvent(const std::filesystem::path &path) {
+                // We are most likely the default and some lousy developer started the folder monitor...
+                if (funcCreateNode == nullptr) {
+                    return nullptr;
+                }
+
                 auto logger = gnilk::Logger::GetLogger("Workspace");
 
                 auto parent = path.parent_path();
@@ -348,14 +362,19 @@ namespace gedit {
                     logger->Error("Unable to find node for path=%s", path.c_str());
                     return nullptr;
                 }
-                // We are most likely the default and some lousy developer started the folder monitor...
-                if (funcCreateNode == nullptr) {
-                    return nullptr;
-                }
 
                 // The workspace will notify the 'view' on any changes -> cause a rebuild of the tree...
                 return funcCreateNode(parentNode, path);
             }
+
+            void DeleteFromFileEvent(const std::filesystem::path &path) {
+                if (!funcDeleteNode) {
+                    return;
+                }
+                auto node = rootNode->FindNodeWithPath(path);
+                funcDeleteNode(node, path);
+            }
+
         private:
             Desktop() = default;
 
@@ -363,6 +382,7 @@ namespace gedit {
             std::string name = {};
             std::filesystem::path rootPath = {};
             CreateNodeDelgate funcCreateNode = nullptr;
+            DeleteNodeDelgate funcDeleteNode = nullptr;
             Node::Ref rootNode = {};
             FolderMonitor::MonitorPoint::Ref changeMonitor = {};
         };

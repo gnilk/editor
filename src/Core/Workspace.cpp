@@ -37,7 +37,7 @@ const Workspace::Node::Ref Workspace::GetDefaultWorkspace() {
         auto rootDefault = std::filesystem::current_path();
 
         // Note: The default desktop does not have a file-monitor and does not require a create callback (at least now)
-        auto desktop = Desktop::Create(nullptr, rootDefault, nameDefault);
+        auto desktop = Desktop::Create(nullptr, nullptr, rootDefault, nameDefault);
         rootNodes[nameDefault] = desktop;
     }
 
@@ -239,7 +239,12 @@ Workspace::Desktop::Ref Workspace::GetOrAddDesktop(const std::filesystem::path &
     auto cbCreateNode = [this](Node::Ref parent, const std::filesystem::path &path) {
         return NewModelWithFileRef(parent, path);
     };
-    desktop = Desktop::Create(cbCreateNode, rootPath, desktopName);
+
+    auto cbDeleteNode = [this](Node::Ref node, const std::filesystem::path &path) -> void {
+        logger->Debug("I should delete node: %s", node->GetDisplayName().c_str());
+    };
+
+    desktop = Desktop::Create(cbCreateNode, cbDeleteNode, rootPath, desktopName);
     rootNodes[fqDeskName] = desktop;
     return desktop;
 }

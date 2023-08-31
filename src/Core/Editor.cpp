@@ -899,6 +899,7 @@ EditorModel::Ref Editor::LoadModel(const std::string &filename) {
 }
 
 // This will simply close the editing of the text-model
+// NOTE: DO NOT add 'save confirmation' here - this is also called for external removal (such as someone doing rm on a file from the terminal)
 bool Editor::CloseModel(EditorModel::Ref model) {
     auto node = workspace->GetNodeFromModel(model);
     if (node == nullptr) {

@@ -79,47 +79,43 @@ void LinuxFolderMonitorPoint::ScanThread() {
             break;
         }
 
+        // Process the event structures we just got...
         for(auto p = buf; p<buf + numRead;) {
             struct inotify_event *event = (struct inotify_event *)p;
             ProcessEvent(event);
             p += sizeof(struct inotify_event) + event->len;
         }
+
+        // Yield thread
+        // Consider adding a sleep here - relax the load on the inotify system
+        std::this_thread::yield();
     }
+
     bQuitThread = true;
     isRunning = false;
 }
-void LinuxFolderMonitorPoint::ProcessEvent(struct inotify_event *event) {
-    if (event->mask & IN_CREATE) {
-        if (event->len > 0) {
-            auto itWatcher = watchers.find(event->wd);
-            if (itWatcher != watchers.end()) {
-                auto path = itWatcher->second;
-                path = path / event->name;
-                if (AddMonitorItem(path)) {
-                    StartWatchers();
-                }
 
-                OnFSEvent(path.string(), FolderMonitor::kChangeFlags::kCreated);
-            }
-        }
-    } else if (event->mask & IN_DELETE) {
-        if (event->len > 0) {
-            if (event->len > 0) {
-                auto itWatcher = watchers.find(event->wd);
-                if (itWatcher != watchers.end()) {
-                    auto path = itWatcher->second;
-                    path = path / event->name;
-                    OnFSEvent(path.string(), FolderMonitor::kChangeFlags::kRemoved);
-                }
-            }
-        }
-    } else {
-        // We don't really handle any more types
+// Process one event structure at the time from inotify
+void LinuxFolderMonitorPoint::ProcessEvent(struct inotify_event *event) {
+    if (!((event->mask & IN_CREATE) || (event->mask & IN_DELETE)))
+        return;
+   if (event->len <= 0)
+       return;
+
+    auto itWatcher = watchers.find(event->wd);
+    if (itWatcher == watchers.end())
+        return;
+
+    auto path = itWatcher->second;
+    path = path / event->name;
+    if ((event->mask & IN_CREATE) && (AddMonitorItem(path))) {
+        StartWatchers();
     }
+    OnFSEvent(path.string(), (event->mask & IN_CREATE)?FolderMonitor::kCreated : FolderMonitor::kRemoved);
 }
 
-void LinuxFolderMonitorPoint::OnFSEvent(const std::string &path, FolderMonitor::kChangeFlags flags) {
-    DispatchEvent(path, flags);
+void LinuxFolderMonitorPoint::OnFSEvent(const std::string &fullPathName, FolderMonitor::kChangeFlags flags) {
+    DispatchEvent(fullPathName, flags);
 }
 
 
@@ -137,14 +133,14 @@ void LinuxFolderMonitorPoint::ScanForDirectories(std::filesystem::path path) {
     }
 
 }
-bool LinuxFolderMonitorPoint::AddMonitorItem(std::filesystem::path path) {
-    if (!is_directory(path)) {
-        logger->Debug("AddMonitorItem, not a directory: %s\n",path.c_str());
+bool LinuxFolderMonitorPoint::AddMonitorItem(std::filesystem::path pathToFolder) {
+    if (!is_directory(pathToFolder)) {
+        logger->Debug("AddMonitorItem, not a directory: %s\n",pathToFolder.c_str());
         return false;
     }
     LinuxMonitorItem item;
     item.wd = -1;
-    item.path = path;
+    item.path = pathToFolder;
     monitorList.push_back(item);
     return true;
 }

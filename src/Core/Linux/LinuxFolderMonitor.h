@@ -20,6 +20,7 @@
 #include "Core/FolderMonitor.h"
 
 namespace gedit {
+    // Monitoring the folder and all sub-folders (incl. files) below the monitor point
     class LinuxFolderMonitorPoint : public FolderMonitor::MonitorPoint {
     public:
         using Ref = std::shared_ptr<LinuxFolderMonitorPoint>;
@@ -33,18 +34,19 @@ namespace gedit {
             return std::make_shared<LinuxFolderMonitorPoint>(pathToMonitor);
         }
 
+        // Start/Stop monitoring
         bool Start() override;
         bool Stop() override;
 
-        void OnFSEvent(const std::string &path, FolderMonitor::kChangeFlags flags);
     protected:
         LinuxFolderMonitorPoint() = default;
 
         void ScanForDirectories(std::filesystem::path path);
-        bool AddMonitorItem(std::filesystem::path);
+        bool AddMonitorItem(std::filesystem::path pathToFolder);
         void StartWatchers();
         void ScanThread();
         void ProcessEvent(struct inotify_event *event);
+        void OnFSEvent(const std::string &fullPathName, FolderMonitor::kChangeFlags flags);
     protected:
         struct LinuxMonitorItem {
             int wd = -1;

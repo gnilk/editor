@@ -3,8 +3,19 @@
 //
 /*
  * TO-DO List
+ * - Scroll beyond the view-area and then swap between Project/Edit-View resets the file-view
+ *   This happens when leaving the EditorView
+ * - Select and Delete outside the initial viewing area (height of window) makes the cursor disappear
+ * - Is 'Cut' implemented?
+ * - There are segfaults in copy/paste
+ * - Cursor sometimes indicates wrong line but gutter-indicator seems correct!
+ * - Adding an additional ')' when the previous char is '(' should be ignored, typing: '(',')' inserts an extra ')'
+ * - Select/Copy/Paste are wrong - scrolling makes them non-reliable...
+ * - Selecting in workspace view does not change to editor-view
+ * - Terminal must forward stderr!!
  * - File monitoring on Linux
  * - Revisit the 'Workspace::NewModel' and friends - there are too much similarity in these functions
+ * - When creating a new model we should switch to it
  * - Save screen position and size upon resize/move and similar, restore on startup (use XDG state directory)
  * - Expose config from JS (set,get,list)
  *   Would be cool to just open the whole config folder as a workspace node..  <- consider this

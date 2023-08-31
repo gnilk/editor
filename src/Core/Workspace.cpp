@@ -169,9 +169,13 @@ bool Workspace::RemoveNode(Node::Ref node) {
     if (node->GetParent() == nullptr) {
         return false;
     }
-    // If this model is open, let's close it...
-    if (node->GetModel()->IsActive()) {
-        Editor::Instance().CloseModel(node->GetModel());
+    // Note: can't use 'IsFolder' here - since it will check the filesystem::path property
+    //       and if we have externally deleted that path - it will simply crash.
+    auto nodeType = node->GetMeta<int>(Node::kMetaKey_NodeType, Node::kNodeFolder);
+    if ((nodeType != Node::kNodeFolder) && (node->GetModel() != nullptr)) {
+        if (node->GetModel()->IsActive()) {
+            Editor::Instance().CloseModel(node->GetModel());
+        }
     }
 
     node->GetParent()->DelChild(node);
@@ -232,11 +236,11 @@ bool Workspace::ReadFolderToNode(Node::Ref rootNode, const std::filesystem::path
     logger->Debug("Reading folder: %s", folder.c_str());
     for(auto const &entry : fs::directory_iterator(folder)) {
         if (fs::is_directory(entry)) {
-            const auto &name = entry.path().filename();
-            // logger->Debug("D: %s", name.c_str());
-            auto dirNode = rootNode->AddChild(name);
-            dirNode->SetNodePath(entry.path());
-            dirNode->SetMeta<int>(Node::kMetaKey_NodeType,Node::kNodeFolder);
+            auto dirNode = NewFolderNode(rootNode, entry.path());
+            if (dirNode == nullptr) {
+                logger->Error("Failed to create node for folder: %s", entry.path().c_str());
+                continue;
+            }
             ReadFolderToNode(dirNode, entry);
         } else if (fs::is_regular_file(entry)) {
             const auto &name = entry.path().filename();
@@ -247,6 +251,19 @@ bool Workspace::ReadFolderToNode(Node::Ref rootNode, const std::filesystem::path
     return true;
 }
 
+Workspace::Node::Ref Workspace::NewFolderNode(Node::Ref parent, const std::filesystem::path &pathName) {
+    if (!fs::is_directory(pathName)) {
+        return nullptr;
+    }
+    auto name = pathutil::LastNameOfPath(pathName);
+    auto dirNode = parent->AddChild(name);
+    dirNode->SetNodePath(pathName);
+    dirNode->SetMeta<int>(Node::kMetaKey_NodeType,Node::kNodeFolder);
+
+    return dirNode;
+}
+
+
 // Root nodes are actual workspace instances...
 Workspace::Desktop::Ref Workspace::GetOrAddDesktop(const std::filesystem::path &rootPath, const std::string &desktopName) {
     Desktop::Ref desktop = nullptr;
@@ -255,6 +272,11 @@ Workspace::Desktop::Ref Workspace::GetOrAddDesktop(const std::filesystem::path &
         return rootNodes[fqDeskName];
     }
     auto cbCreateNode = [this](Node::Ref parent, const std::filesystem::path &path) {
+        if (fs::is_directory(path)) {
+            auto node = NewFolderNode(parent, path);
+            NotifyChangeHandler();
+            return node;
+        }
         return NewModelWithFileRef(parent, path);
     };
 

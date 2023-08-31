@@ -76,7 +76,7 @@ namespace gedit {
 
         protected:
             MonitorPoint() = default;
-            void DispatchEvent(const std::string &name, kChangeFlags eventFlags);
+            void DispatchEvent(const std::string &fullPathName, kChangeFlags eventFlags);
         protected:
             bool isRunning = false;
             std::mutex dataGuard;

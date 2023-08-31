@@ -18,6 +18,12 @@ namespace gedit {
         static const XDGEnvironment &Instance();
 
         [[nodiscard]]
+        const std::string &GetSessionType() const;
+
+        [[nodiscard]]
+        bool IsTerminalSession() const;
+
+        [[nodiscard]]
         const std::filesystem::path &GetUserHomePath() const;
 
         [[nodiscard]]
@@ -80,6 +86,11 @@ namespace gedit {
     private:
     private:
         bool isInitialized = false;
+#ifdef GEDIT_MACOS
+        std::string sessionType = "macos";
+#elif defined(GEDIT_LINUX)
+        std::string sessionType = "tty";
+#endif
 
         // Raw variables
         std::string userHome = {};

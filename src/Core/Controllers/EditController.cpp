@@ -35,6 +35,10 @@ bool EditController::HandleKeyPress(Cursor &cursor, size_t &idxLine, const KeyPr
     }
 
     auto line = textBuffer->LineAt(idxLine);
+    if (line == nullptr) {
+        logger->Error("Line is null, idxLine=%zu, cursor=(%d,%d)", idxLine, cursor.position.x, cursor.position.y);
+        return false;
+    }
     auto undoItem = BeginUndoItem();
 
     LanguageBase::kInsertAction parserAction = LanguageBase::kInsertAction::kDefault;

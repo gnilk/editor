@@ -455,6 +455,9 @@ namespace gedit {
         void DumpToLog();
 
     protected:
+        Node::Ref NewFolderNode(Node::Ref parent, const std::filesystem::path &pathName);
+
+
         bool RemoveNode(Node::Ref node);
         bool ReadFolderToNode(Node::Ref rootNode, const std::filesystem::path &folder);
         void UpdateMetaDataForNode(Node::Ref node);

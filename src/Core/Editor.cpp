@@ -529,6 +529,7 @@ void Editor::ConfigureSubSystems() {
     // This could probably be generalized to 'GEDIT_STARTED_FROM_UI' and also set through the Desktop file on Linux
     // In case the default config specifies a non-graphical backend (like ncurses) we override it...
     bool enforceSDL = false;
+    bool isTerminal = XDGEnvironment::Instance().IsTerminalSession();
 #ifdef GEDIT_MACOS
     if (std::getenv("GEDIT_MACOS_STARTED_FROM_UI") != nullptr) {
         enforceSDL = true;
@@ -536,12 +537,12 @@ void Editor::ConfigureSubSystems() {
     }
 #endif
 
-    if ((backend == "ncurses") && (!enforceSDL)) {
-        logger->Debug("Starting NCurses backend");
-        SetupNCurses();
-    } else if ((backend == "sdl") || (enforceSDL)) {
+    if (((backend == "sdl") || enforceSDL) && !isTerminal) {
         logger->Debug("Starting SDL backend");
         SetupSDL();
+    } else {
+        logger->Debug("Starting NCurses backend");
+        SetupNCurses();
     }
 }
 

@@ -236,11 +236,11 @@ bool Workspace::ReadFolderToNode(Node::Ref rootNode, const std::filesystem::path
     logger->Debug("Reading folder: %s", folder.c_str());
     for(auto const &entry : fs::directory_iterator(folder)) {
         if (fs::is_directory(entry)) {
-            const auto &name = entry.path().filename();
-            // logger->Debug("D: %s", name.c_str());
-            auto dirNode = rootNode->AddChild(name);
-            dirNode->SetNodePath(entry.path());
-            dirNode->SetMeta<int>(Node::kMetaKey_NodeType,Node::kNodeFolder);
+            auto dirNode = NewFolderNode(rootNode, entry.path());
+            if (dirNode == nullptr) {
+                logger->Error("Failed to create node for folder: %s", entry.path().c_str());
+                continue;
+            }
             ReadFolderToNode(dirNode, entry);
         } else if (fs::is_regular_file(entry)) {
             const auto &name = entry.path().filename();

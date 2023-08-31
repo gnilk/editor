@@ -11,6 +11,9 @@
 #include <mutex>
 #include <thread>
 #include <unordered_map>
+#include <atomic>
+#include <sys/inotify.h>
+
 
 #include "logger.h"
 
@@ -25,6 +28,7 @@ namespace gedit {
 
         }
         virtual ~LinuxFolderMonitorPoint();
+
         static Ref Create(const std::string &pathToMonitor) {
             return std::make_shared<LinuxFolderMonitorPoint>(pathToMonitor);
         }
@@ -37,20 +41,22 @@ namespace gedit {
         LinuxFolderMonitorPoint() = default;
 
         void ScanForDirectories(std::filesystem::path path);
-        void AddMonitorItem(std::filesystem::path);
+        bool AddMonitorItem(std::filesystem::path);
         void StartWatchers();
         void ScanThread();
+        void ProcessEvent(struct inotify_event *event);
     protected:
         struct LinuxMonitorItem {
             int wd = -1;
             std::filesystem::path path;
         };
     protected:
+        gnilk::ILogger *logger = nullptr;
         int iNotifyFd = -1;
-        std::mutex dataLock;
         std::vector<LinuxMonitorItem> monitorList;
         std::unordered_map<int, std::filesystem::path> watchers;
-
+        std::thread scanThread;
+        std::atomic_bool bQuitThread = false;
     };
 
     class LinuxFolderMonitor : public FolderMonitor {

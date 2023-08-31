@@ -15,7 +15,7 @@ static const std::string ENV_XDG_STATE_HOME = "XDG_STATE_HOME";
 static const std::string ENV_XDG_CONFIG_HOME = "XDG_CONFIG_HOME";
 static const std::string ENV_XDG_CACHE_HOME = "XDG_CACHE_HOME";
 static const std::string ENV_XDG_RUNTIME_DIR = "XDG_RUNTIME_DIR";
-
+static const std::string ENV_XDG_SESSION_TYPE = "XDG_SESSION_TYPE";
 static const std::string ENV_XDG_CONFIG_DIRS = "XDG_CONFIG_DIRS";
 static const std::string ENV_XDG_DATA_DIRS = "XDG_DATA_DIRS";
 
@@ -30,6 +30,23 @@ void XDGEnvironment::Reset() {
     isInitialized = false;
     Initialize();
 }
+
+const std::string &XDGEnvironment::GetSessionType() const {
+    return sessionType;
+}
+
+bool XDGEnvironment::IsTerminalSession() const {
+#ifdef GEDIT_MACOS
+    return false;   // Don't support headless on macos
+#elif defined(GEDIT_LINUX)
+    // Should this have a list???
+    if(sessionType == "tty") {
+        return true;
+    }
+    return false;
+#endif
+}
+
 
 const std::filesystem::path &XDGEnvironment::GetUserHomePath() const {
     return pathHome;
@@ -104,6 +121,10 @@ bool XDGEnvironment::Initialize() {
     if (home == nullptr) {
         return false;
     }
+
+    auto [currentSessionType, bIsDefault] = GetEnv(ENV_XDG_SESSION_TYPE,"tty");
+    sessionType = currentSessionType;
+
 
     // Home is treated differently
     userHome = std::string(home);

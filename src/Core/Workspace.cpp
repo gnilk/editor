@@ -70,10 +70,12 @@ Workspace::Node::Ref Workspace::NewModel(const std::string &name) {
     return NewModel(parent, name);
 }
 
+// FIXME: Revisit this one - I am not sure it works...
 // Create a new empty model under a specific parent
 Workspace::Node::Ref Workspace::NewModel(const Node::Ref parent, const std::string &name) {
     auto nodePath = parent->GetNodePath();
 
+    // Not sure this works...
     nodePath.replace_filename(name);
 
     EditController::Ref editController = std::make_shared<EditController>();
@@ -91,7 +93,7 @@ Workspace::Node::Ref Workspace::NewModel(const Node::Ref parent, const std::stri
 
     UpdateMetaDataForNode(modelNode);
 
-    NotifyChangeHandler();
+    // NotifyChangeHandler();   // Removed while debugging change notifications from FolderMonitor
 
     return modelNode;
 }
@@ -109,6 +111,7 @@ Workspace::Node::Ref Workspace::NewModelWithFileRef(const std::filesystem::path 
 // Create a new model/buffer
 Workspace::Node::Ref Workspace::NewModelWithFileRef(Node::Ref parent, const std::filesystem::path &pathFileName) {
     EditController::Ref editController = std::make_shared<EditController>();
+
     auto node = NewModel(parent, pathFileName.filename());
     node->SetNodePath(pathFileName);
 
@@ -212,14 +215,14 @@ bool Workspace::ReadFolderToNode(Node::Ref rootNode, const std::filesystem::path
     for(auto const &entry : fs::directory_iterator(folder)) {
         if (fs::is_directory(entry)) {
             const auto &name = entry.path().filename();
-            logger->Debug("D: %s", name.c_str());
+            // logger->Debug("D: %s", name.c_str());
             auto dirNode = rootNode->AddChild(name);
             dirNode->SetNodePath(entry.path());
             dirNode->SetMeta<int>(Node::kMetaKey_NodeType,Node::kNodeFolder);
             ReadFolderToNode(dirNode, entry);
         } else if (fs::is_regular_file(entry)) {
             const auto &name = entry.path().filename();
-            logger->Debug("F: %s", name.c_str());
+            // logger->Debug("F: %s", name.c_str());
             auto model = NewModelWithFileRef(rootNode, entry.path());
         }
     }

@@ -115,6 +115,7 @@ void LinuxFolderMonitorPoint::ScanThread() {
         std::this_thread::yield();
     }
 
+    close(iNotifyFd);
     bQuitThread = true;
     isRunning = false;
 }

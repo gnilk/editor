@@ -87,6 +87,10 @@ namespace gedit {
             flattenNodeList.clear();
         }
 
+        const auto &GetRootNode() {
+            return rootNode;
+        }
+
         bool OnAction(const KeyPressAction &kpAction) override {
             bool wasHandled = true;
             switch(kpAction.action) {
@@ -129,7 +133,7 @@ namespace gedit {
 
         typename TreeNode::Ref AddItem(typename TreeNode::Ref parent, const T &item) {
             auto treeItem = TreeNode::Create(item);
-            parent->isExpanded = false;
+            //parent->isExpanded = false;
             parent->children.emplace_back(treeItem);
             treeItem->parent = parent;
 

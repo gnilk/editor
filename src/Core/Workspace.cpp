@@ -149,6 +149,10 @@ void Workspace::UpdateMetaDataForNode(Node::Ref node) {
 
 bool Workspace::RemoveModel(EditorModel::Ref model) {
     auto node = GetNodeFromModel(model);
+    return RemoveNode(node);
+}
+
+bool Workspace::RemoveNode(Node::Ref node) {
     if (node == nullptr) {
         return false;
     }
@@ -157,8 +161,13 @@ bool Workspace::RemoveModel(EditorModel::Ref model) {
     }
     node->GetParent()->DelChild(node);
     node->SetModel(nullptr);
+
+    NotifyChangeHandler();
+
     return true;
+
 }
+
 
 Workspace::Node::Ref Workspace::GetNodeFromModel(EditorModel::Ref model) {
     for(auto &[name, desktop] : rootNodes) {
@@ -241,7 +250,8 @@ Workspace::Desktop::Ref Workspace::GetOrAddDesktop(const std::filesystem::path &
     };
 
     auto cbDeleteNode = [this](Node::Ref node, const std::filesystem::path &path) -> void {
-        logger->Debug("I should delete node: %s", node->GetDisplayName().c_str());
+        logger->Debug("Removing node: %s", node->GetDisplayName().c_str());
+        RemoveNode(node);
     };
 
     desktop = Desktop::Create(cbCreateNode, cbDeleteNode, rootPath, desktopName);

@@ -427,6 +427,7 @@ namespace gedit {
         void DumpToLog();
 
     protected:
+        bool RemoveNode(Node::Ref node);
         bool ReadFolderToNode(Node::Ref rootNode, const std::filesystem::path &folder);
         void UpdateMetaDataForNode(Node::Ref node);
         Desktop::Ref GetOrAddDesktop(const std::filesystem::path &rootPath, const std::string &desktopName);

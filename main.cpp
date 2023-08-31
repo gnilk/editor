@@ -3,8 +3,7 @@
 //
 /*
  * TO-DO List
- * - WorkspaceView should preserve node expand/collapse information when rebuilding the tree...
- * + WorkspaceView should react on changes from the Workspace::Desktop foldermonitor detected changes
+ * - Revisit the 'Workspace::NewModel' and friends - there are too much similarity in these functions
  * - When creating a new model we should switch to it
  * - Save screen position and size upon resize/move and similar, restore on startup (use XDG state directory)
  * - Expose config from JS (set,get,list)
@@ -42,6 +41,8 @@
  *   need to consider a solution for this...
  *
  * Done:
+ * ! WorkspaceView should preserve node expand/collapse information when rebuilding the tree...
+ * ! WorkspaceView should react on changes from the Workspace::Desktop foldermonitor detected changes
  * ! The key in the workspace root node map should be the full path - and not just the displayname...
  * ! Refactor NewModel in Workspace/Editor handling!
  * ! TextBuffer should NOT have PathName, let TextBuffer Load/Save work take the PathName as an argument..

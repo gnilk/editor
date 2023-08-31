@@ -15,6 +15,8 @@
 
 #ifdef GEDIT_MACOS
 #include "Core/macOS/MacOSFolderMonitor.h"
+#elif defined(GEDIT_LINUX)
+#include "Core/Linux/LinuxFolderMonitor.h"
 #endif
 
 
@@ -115,7 +117,7 @@ namespace gedit {
 #ifdef GEDIT_MACOS
         MacOSFolderMonitor folderMonitor;
 #elif defined(GEDIT_LINUX)
-        FolderMonitor folderMonitor;
+        LinuxFolderMonitor folderMonitor;
 #endif
         KeyboardDriverBase::Ref keyboard = nullptr;
         ScreenBase::Ref screen = nullptr;

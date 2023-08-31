@@ -175,6 +175,8 @@ elseif(UNIX)
 
     list(APPEND includedirs ext/json/single_include)
     list(APPEND editorsrc src/Core/unix/Shell.cpp src/Core/unix/Shell.h)
+    list(APPEND editorsrc src/Core/Linux/LinuxFolderMonitor.cpp src/Core/Linux/LinuxFolderMonitor.h)
+
 
     add_definitions(-DGEDIT_LINUX)
 

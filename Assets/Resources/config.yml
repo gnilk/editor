@@ -65,8 +65,6 @@ editorview:
 
 workspaceview:
   keymap: "workspace_keymap"
-  sync_on_active_buffer_changed: yes
-  hide_dot_files: yes
 
 #
 # Add ability to include user-name, and other things here (working dir???)

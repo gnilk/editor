@@ -286,6 +286,7 @@ namespace gedit {
                     const std::string &desktopName) : name(desktopName),rootPath(path), funcCreateNode(createNodeHandler), funcDeleteNode(deleteNodeHandler){
 
                 rootNode = Node::Create(desktopName);
+                rootNode->SetNodePath(rootPath);
             }
             virtual ~Desktop() = default;
             static Ref Create(CreateNodeDelgate createNodeHandler,
@@ -432,13 +433,16 @@ namespace gedit {
         void UpdateMetaDataForNode(Node::Ref node);
         Desktop::Ref GetOrAddDesktop(const std::filesystem::path &rootPath, const std::string &desktopName);
         void DisableNotifications() {
-            isChangeHandlerEnabled = false;
+            isChangeHandlerDisabled++;
         }
         void EnableNotifications() {
-            isChangeHandlerEnabled = true;
+            isChangeHandlerDisabled--;
+            if (isChangeHandlerDisabled < 0) {
+                isChangeHandlerDisabled = 0;
+            }
         }
         void NotifyChangeHandler() {
-            if ((onChangeHandler != nullptr) && (isChangeHandlerEnabled)) {
+            if ((onChangeHandler != nullptr) && (isChangeHandlerDisabled == 0)) {
                 onChangeHandler();
             }
         }
@@ -448,7 +452,8 @@ namespace gedit {
         gnilk::ILogger *logger = nullptr;
         int newFileCounter = 0;
 
-        bool isChangeHandlerEnabled = true;
+        int isChangeHandlerDisabled = 0;
+
         ContentsChangedDelegate onChangeHandler = {};
 
         Node::Ref activeFolderNode = nullptr;

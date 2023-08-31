@@ -38,6 +38,9 @@ const Workspace::Node::Ref Workspace::GetDefaultWorkspace() {
 
         // Note: The default desktop does not have a file-monitor and does not require a create callback (at least now)
         auto desktop = Desktop::Create(nullptr, nullptr, rootDefault, nameDefault);
+        // We need to set the display name specifically since it is defaulted to last item of path when starting...
+        desktop->GetRootNode()->SetDisplayName(nameDefault);
+
         rootNodes[nameDefault] = desktop;
     }
 
@@ -70,13 +73,17 @@ Workspace::Node::Ref Workspace::NewModel(const std::string &name) {
     return NewModel(parent, name);
 }
 
-// FIXME: Revisit this one - I am not sure it works...
 // Create a new empty model under a specific parent
 Workspace::Node::Ref Workspace::NewModel(const Node::Ref parent, const std::string &name) {
     auto nodePath = parent->GetNodePath();
 
-    // Not sure this works...
-    nodePath.replace_filename(name);
+    // NodePath MUST be directory
+    if (!is_directory(nodePath)) {
+        logger->Error("Parent nodePath must be directory!!!");
+        return nullptr;
+    }
+    // Now create the full filsystem path to this model/data/file/textbuffer (or what ever you like to call it)
+    nodePath = nodePath / name;
 
     EditController::Ref editController = std::make_shared<EditController>();
 
@@ -93,7 +100,7 @@ Workspace::Node::Ref Workspace::NewModel(const Node::Ref parent, const std::stri
 
     UpdateMetaDataForNode(modelNode);
 
-    // NotifyChangeHandler();   // Removed while debugging change notifications from FolderMonitor
+    NotifyChangeHandler();   // Removed while debugging change notifications from FolderMonitor
 
     return modelNode;
 }
@@ -112,7 +119,10 @@ Workspace::Node::Ref Workspace::NewModelWithFileRef(const std::filesystem::path 
 Workspace::Node::Ref Workspace::NewModelWithFileRef(Node::Ref parent, const std::filesystem::path &pathFileName) {
     EditController::Ref editController = std::make_shared<EditController>();
 
+    DisableNotifications();
     auto node = NewModel(parent, pathFileName.filename());
+    EnableNotifications();
+
     node->SetNodePath(pathFileName);
 
     auto ext = pathFileName.extension();
@@ -198,7 +208,6 @@ bool Workspace::OpenFolder(const std::string &folder) {
         return false;
     }
 
-    //auto name = pathName.filename();
     auto name = pathutil::LastNameOfPath(pathName);
 
     DisableNotifications();
@@ -212,11 +221,6 @@ bool Workspace::OpenFolder(const std::string &folder) {
         EnableNotifications();
         return false;
     }
-
-//    desktop->StartFolderMonitor([this, desktop](const std::string &pathName,FolderMonitor::kChangeFlags flags)->void {
-//        auto logger = gnilk::Logger::GetLogger("Workspace");
-//        logger->Debug("%s - 0x%x : %s", desktop->GetName().c_str(), static_cast<int>(flags), pathName.c_str());
-//    });
 
     EnableNotifications();
     NotifyChangeHandler();

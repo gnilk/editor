@@ -20,15 +20,37 @@ static bool IsStringExcluded(const std::string &str, const std::vector<std::stri
     return false;
 }
 
-static void FillTreeView(WorkspaceView::TreeRef tree, WorkspaceView::TreeNodeRef parent, Workspace::Node::Ref node, const std::vector<std::string> &excludePrefixes) {
+static void FillTreeView(WorkspaceView::TreeRef tree, WorkspaceView::TreeNodeRef parent, Workspace::Node::Ref node, const std::vector<std::string> &excludePrefixes, const std::unordered_map<std::string, bool> &expandCollapseCache) {
     std::vector<Workspace::Node::Ref> children;
+
+    auto itExpandCollapse = expandCollapseCache.find(node->GetNodePath().string());
+    if (itExpandCollapse != expandCollapseCache.end()) {
+        parent->isExpanded = itExpandCollapse->second;
+    }
+
+
     node->FlattenChilds(children);
     if (children.size() > 0) {
 
         // Sort based on child nodes - this makes directories being on top...
-        std::sort(children.begin(), children.end(), [](const Workspace::Node::Ref &a, const Workspace::Node::Ref &b) {
-            return a->GetNumChildNodes() > b->GetNumChildNodes();
+        std::sort(children.begin(), children.end(), [](const Workspace::Node::Ref &a, const Workspace::Node::Ref &b) -> bool {
+            bool aIsFolder = a->IsFolder();
+            bool bIsFolder = b->IsFolder();
+
+            if (aIsFolder && !bIsFolder)
+                return true;
+
+            if (!aIsFolder && bIsFolder)
+                return false;
+
+            // b Must be folder...
+            if (aIsFolder)
+                return (strcasecmp(a->GetDisplayName().c_str(), b->GetDisplayName().c_str()) < 0);
+
+            return (strcasecmp(a->GetDisplayName().c_str(), b->GetDisplayName().c_str()) < 0);
         });
+
+
 
         for (auto &child: children) {
             // This is probably not right
@@ -36,7 +58,7 @@ static void FillTreeView(WorkspaceView::TreeRef tree, WorkspaceView::TreeNodeRef
                 continue;
             }
             auto newParent = tree->AddItem(parent, child);
-            FillTreeView(tree, newParent, child,excludePrefixes);
+            FillTreeView(tree, newParent, child,excludePrefixes, expandCollapseCache);
         }
     }
 }
@@ -79,7 +101,23 @@ WorkspaceView::TreeNodeRef WorkspaceView::FindModelNode(TreeNodeRef node, const 
     }
     return nullptr;
 }
+static void BuildExpandCollapseCacheFromNode(const WorkspaceView::TreeNodeRef &node, std::unordered_map<std::string, bool> &cache) {
+    auto workspaceNode = node->data;
+    if ((workspaceNode != nullptr) && (node->isExpanded)) {
+        auto path = workspaceNode->GetNodePath();
+        cache[path.string()] = node->isExpanded;
+    }
+    for(auto &child : node->children) {
+        BuildExpandCollapseCacheFromNode(child, cache);
+    }
+}
+void WorkspaceView::BuildExpandCollapseCache(std::unordered_map<std::string, bool> &cache) {
+    BuildExpandCollapseCacheFromNode(treeView->GetRootNode(), cache);
+}
 void WorkspaceView::PopulateTree() {
+
+    std::unordered_map<std::string, bool> expandCollapseCache;
+
     if (treeView == nullptr) {
         treeView = TreeView<Workspace::Node::Ref>::Create();
 
@@ -91,6 +129,7 @@ void WorkspaceView::PopulateTree() {
             return (node->GetDisplayName() + "/");
         });
     } else {
+        BuildExpandCollapseCache(expandCollapseCache);
         treeView->Clear();
     }
 
@@ -111,7 +150,7 @@ void WorkspaceView::PopulateTree() {
         desktop->StartFolderMonitor();
 
         // TODO: We can add to exclude list from the Desktop->FolderMonitor->ExcludeList
-        FillTreeView(treeView, treeRoot, rootNode, excludePrefixList);
+        FillTreeView(treeView, treeRoot, rootNode, excludePrefixList, expandCollapseCache);
     }
     // All nodes start collapsed, but we want the root to start expanded...
     treeView->Expand();

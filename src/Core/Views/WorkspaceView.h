@@ -46,6 +46,7 @@ namespace gedit {
     protected:
         TreeNodeRef FindModelNode(TreeNodeRef node, const std::string &pathName);
         void PopulateTree();
+        void BuildExpandCollapseCache(std::unordered_map<std::string, bool> &cache);
         void OnActivate(bool isActive) override;
 
     private:

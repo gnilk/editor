@@ -77,6 +77,9 @@ namespace gedit {
             const std::string &GetDisplayName() {
                 return displayName;
             }
+
+            // Set the display name of an item - this is the name used in the UI
+            // for a file - it's the filename, for a folder it is the last item of the full path...
             void SetDisplayName(const std::string &newDisplayName) {
                 displayName = newDisplayName;
             }
@@ -104,7 +107,6 @@ namespace gedit {
                 auto child = Node::Create(displayName);
                 child->parent = shared_from_this();
                 childNodes.push_back(child);
-                // Resolve path??
                 return child;
             }
 
@@ -128,6 +130,7 @@ namespace gedit {
                 return true;
             }
 
+            // Search recursively for a node with a specific editor-model attached
             Node::Ref FindModel(const EditorModel::Ref searchModel) {
                 if (model == searchModel) {
                     return shared_from_this();
@@ -143,6 +146,7 @@ namespace gedit {
                 return nullptr;
             }
 
+            // Search recursively for a node with a specific path...
             Node::Ref FindNodeWithPath(const std::filesystem::path path) {
                 if (path == pathName) {
                     return shared_from_this();
@@ -156,16 +160,19 @@ namespace gedit {
                 return nullptr;
             }
 
+            // Returns the absolute path for this node
             std::filesystem::path GetNodePath() {
                 return pathName;
             }
 
+            // Set's the node-path AND updates the display name from it...
             void SetNodePath(std::filesystem::path newPath) {
                 pathName = newPath;
                 isPathNameChanged = true;
                 UpdateDisplayNameFromPath();
             }
 
+            // Checks if the node-path is pointing to a folder
             bool IsFolder() {
                 // This is a workspace root folder...
                 if (parent == nullptr) {
@@ -183,7 +190,6 @@ namespace gedit {
                 return childNodes.size();
             }
 
-
             void SetModel(EditorModel::Ref newModel) {
                 model = newModel;
             }
@@ -191,6 +197,8 @@ namespace gedit {
             EditorModel::Ref GetModel() {
                 return model;
             }
+
+            // Convenient function to retrieve the textbuffer of the underlying model (if any)
             TextBuffer::Ref GetTextBuffer() {
                 if (model == nullptr) {
                     return nullptr;
@@ -205,6 +213,8 @@ namespace gedit {
                 return allModels;
             }
 
+            // Meta-Data, each node can have meta data attached - this is just a way to cache certain information
+            // like 'type'/'size' (files)/etc...
             template<typename T>
             void SetMeta(const std::string &keyName, const T &data) {
                 metaData.SetValue<T>(keyName, data);
@@ -222,6 +232,7 @@ namespace gedit {
                 return metaData.GetValue(keyName, defValue);
             }
 
+            // Load data associated with the workspace node, this is here as we OWN the filename
             bool LoadData() {
                 if (model == nullptr) {
                     return false;
@@ -233,6 +244,7 @@ namespace gedit {
                 return model->LoadData(pathName);
             }
 
+            // save data associated with the workspace node, this is here as we OWN the filename
             bool SaveData() {
                 if (model == nullptr) {
                     return false;
@@ -247,7 +259,6 @@ namespace gedit {
 
                 return result;
             }
-
 
         private:
             void UpdateDisplayNameFromPath() {
@@ -274,6 +285,15 @@ namespace gedit {
             std::vector<Node::Ref> childNodes = {};
         };
 
+        //
+        // The desktop class is what you perceive as a root-node in the editor
+        // It holds a few items like 'root-folder' and so forth. A node can't reference an item outside the desktop root folder
+        // The desktop also holds the FolderMonitoring logic and react on changes to folder contents (add/remove stuff).
+        // In essence;
+        //  workspace - > Desktops [1..n] -> Node tree (i.e. folder/file tree)
+        //
+        // In the editor the 'WorkspaceView' is the graphical representation of these classes...
+        //
         class Desktop {
         public:
             using Ref = std::shared_ptr<Desktop>;
@@ -289,6 +309,7 @@ namespace gedit {
                 rootNode->SetNodePath(rootPath);
             }
             virtual ~Desktop() = default;
+
             static Ref Create(CreateNodeDelgate createNodeHandler,
                               DeleteNodeDelgate deleteNodeHandler,
                               const std::filesystem::path path, const std::string &desktopName) {
@@ -300,12 +321,15 @@ namespace gedit {
 
                 return ref;
             }
+
             const std::string &GetName() {
                 return name;
             }
+
             const std::filesystem::path &GetRootPath() {
                 return rootPath;
             }
+
             Node::Ref GetRootNode() {
                 return rootNode;
             }
@@ -337,8 +361,9 @@ namespace gedit {
 
                 return changeMonitor->Start();
             }
-        protected:
 
+        protected:
+            // Any event from the FolderMonitor is passed to this function..
             void OnMonitorEvent(const std::filesystem::path &path, FolderMonitor::kChangeFlags flags) {
                 auto logger = gnilk::Logger::GetLogger("Workspace");
 
@@ -348,7 +373,8 @@ namespace gedit {
                     DeleteFromFileEvent(path);
                 }
             }
-            // This function would benefit from being outside (i.e. in the workspace)
+
+            // called when something is added to the filesystem and we detect it
             Node::Ref AddFromFileEvent(const std::filesystem::path &path) {
                 // We are most likely the default and some lousy developer started the folder monitor...
                 if (funcCreateNode == nullptr) {
@@ -368,6 +394,7 @@ namespace gedit {
                 return funcCreateNode(parentNode, path);
             }
 
+            // Called when something is removed from the file-system and we detect it
             void DeleteFromFileEvent(const std::filesystem::path &path) {
                 if (!funcDeleteNode) {
                     return;

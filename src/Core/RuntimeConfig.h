@@ -114,6 +114,8 @@ namespace gedit {
         // These should all be ref's...
 #ifdef GEDIT_MACOS
         MacOSFolderMonitor folderMonitor;
+#elif defined(GEDIT_LINUX)
+        FolderMonitor folderMonitor;
 #endif
         KeyboardDriverBase::Ref keyboard = nullptr;
         ScreenBase::Ref screen = nullptr;

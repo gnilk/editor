@@ -70,6 +70,7 @@ void BaseController::RemoveCharFromLine(gedit::Cursor &cursor, Line::Ref line) {
     if (cursor.position.x > 0) {
         line->Delete(cursor.position.x-1);
         cursor.position.x--;
+        cursor.wantedColumn = cursor.position.x;
     }
 }
 

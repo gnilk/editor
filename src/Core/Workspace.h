@@ -355,6 +355,10 @@ namespace gedit {
                     changeMonitor = folderMonitor.CreateMonitorPoint(rootPath, [this](const std::filesystem::path &path, FolderMonitor::kChangeFlags flags) -> void {
                         OnMonitorEvent(path, flags);
                     });
+                    // We can't start this
+                    if (changeMonitor == nullptr) {
+                        return false;
+                    }
                 }
 
                 std::filesystem::path gitIgnoreFile = rootPath / ".gitignore";

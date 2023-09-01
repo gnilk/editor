@@ -33,9 +33,9 @@ DLL_EXPORT int test_textbuffer_parsefull(ITesting *t) {
     Config::Instance()["main"].SetBool("threaded_syntaxparser", false);
 
     Workspace workspace;
-    auto model = workspace.NewModelWithFileRef("test_src2.cpp");
-    auto buffer = model->GetTextBuffer();
-    TR_ASSERT(t, buffer->Load());
+    auto workspaceNode = workspace.NewModelWithFileRef("test_src2.cpp");
+    auto buffer = workspaceNode->GetTextBuffer();
+    TR_ASSERT(t, workspaceNode->LoadData());
     size_t totalBefore = buffer->GetParseMetrics().total;
     buffer->Reparse();
     TR_ASSERT(t, buffer->GetParseMetrics().total > totalBefore);
@@ -47,9 +47,9 @@ DLL_EXPORT int test_textbuffer_parseregion(ITesting *t) {
     Config::Instance()["main"].SetBool("threaded_syntaxparser", false);
 
     Workspace workspace;
-    auto model = workspace.NewModelWithFileRef("test_src2.cpp");
-    auto buffer = model->GetTextBuffer();
-    TR_ASSERT(t, buffer->Load());
+    auto workspaceNode = workspace.NewModelWithFileRef("test_src2.cpp");
+    auto buffer = workspaceNode->GetTextBuffer();
+    TR_ASSERT(t, workspaceNode->LoadData());
     size_t totalBefore = buffer->GetParseMetrics().total;
     // Just pick a region here...
     buffer->ReparseRegion(10, 20);
@@ -63,9 +63,9 @@ DLL_EXPORT int test_textbuffer_thparsefull(ITesting *t) {
     Config::Instance()["main"].SetBool("threaded_syntaxparser", true);
 
     Workspace workspace;
-    auto model = workspace.NewModelWithFileRef("test_src2.cpp");
-    auto buffer = model->GetTextBuffer();
-    TR_ASSERT(t, buffer->Load());
+    auto workspaceNode = workspace.NewModelWithFileRef("test_src2.cpp");
+    auto buffer = workspaceNode->GetTextBuffer();
+    TR_ASSERT(t, workspaceNode->LoadData());
 
     // We are parsing once while loading - so let's make sure we are idle before doing anything else
     while (buffer->GetParseState() != TextBuffer::ParseState::kState_Idle) {
@@ -90,9 +90,9 @@ DLL_EXPORT int test_textbuffer_thparseregion(ITesting *t) {
     Config::Instance()["main"].SetBool("threaded_syntaxparser", true);
 
     Workspace workspace;
-    auto model = workspace.NewModelWithFileRef("test_src2.cpp");
-    auto buffer = model->GetTextBuffer();
-    TR_ASSERT(t, buffer->Load());
+    auto workspaceNode = workspace.NewModelWithFileRef("test_src2.cpp");
+    auto buffer = workspaceNode->GetTextBuffer();
+    TR_ASSERT(t, workspaceNode->LoadData());
 
     // We are parsing once while loading - so let's make sure we are idle before doing anything else
     while (buffer->GetParseState() != TextBuffer::ParseState::kState_Idle) {
@@ -121,9 +121,9 @@ DLL_EXPORT int test_textbuffer_parselarge(ITesting *t) {
     Config::Instance()["main"].SetBool("threaded_syntaxparser", false);
 
     Workspace workspace;
-    auto model = workspace.NewModelWithFileRef("sqlite3.c");
-    auto buffer = model->GetTextBuffer();
-    TR_ASSERT(t, buffer->Load());
+    auto workspaceNode = workspace.NewModelWithFileRef("sqlite3.c");
+    auto buffer = workspaceNode->GetTextBuffer();
+    TR_ASSERT(t, workspaceNode->LoadData());
     size_t totalBefore = buffer->GetParseMetrics().total;
     buffer->Reparse();
     TR_ASSERT(t, buffer->GetParseMetrics().total > totalBefore);
@@ -132,7 +132,7 @@ DLL_EXPORT int test_textbuffer_parselarge(ITesting *t) {
 
 }
 DLL_EXPORT int test_textbuffer_flatten(ITesting *t) {
-    auto buffer = TextBuffer::CreateEmptyBuffer("tst");
+    auto buffer = TextBuffer::CreateEmptyBuffer();
     for(int i=0;i<10;i++) {
         char tmp[32];
         snprintf(tmp,32,"line %d",i);

@@ -26,20 +26,20 @@ DLL_EXPORT int test_workspace(ITesting *t) {
 }
 DLL_EXPORT int test_workspace_empty(ITesting *t) {
     Workspace workspace;
-    TR_ASSERT(t, workspace.GetRootNodes().size() == 0);
+    TR_ASSERT(t, workspace.GetDesktops().size() == 0);
     return kTR_Pass;
 }
 DLL_EXPORT int test_workspace_new(ITesting *t) {
     Workspace workspace;
-    TR_ASSERT(t, workspace.GetRootNodes().size() == 0);
-    auto model = workspace.NewEmptyModel();
-    TR_ASSERT(t, workspace.GetRootNodes().size() != 0);
+    TR_ASSERT(t, workspace.GetDesktops().size() == 0);
+    auto model = workspace.NewModel("dummy");
+    TR_ASSERT(t, workspace.GetDesktops().size() != 0);
     TR_ASSERT(t, workspace.GetDefaultWorkspace()->GetModels().size() != 0);
     TR_ASSERT(t, workspace.GetDefaultWorkspace()->GetModels().size() == 1);
     for(auto &m : workspace.GetDefaultWorkspace()->GetModels()) {
-        auto textBuffer = m->GetTextBuffer();
-        TR_ASSERT(t, textBuffer->GetName() == "new_0");
-        TR_ASSERT(t, textBuffer->GetPathName() == "./new_0");
+        auto node = workspace.GetNodeFromModel(m);
+
+        TR_ASSERT(t, node->GetDisplayName() == "dummy");
     }
 
     return kTR_Pass;
@@ -47,10 +47,10 @@ DLL_EXPORT int test_workspace_new(ITesting *t) {
 
 DLL_EXPORT int test_workspace_newtwice(ITesting *t) {
     Workspace workspace;
-    TR_ASSERT(t, workspace.GetRootNodes().size() == 0);
-    workspace.NewEmptyModel();
-    workspace.NewEmptyModel();
-    TR_ASSERT(t, workspace.GetRootNodes().size() != 0);
+    TR_ASSERT(t, workspace.GetDesktops().size() == 0);
+    workspace.NewModel("m1");
+    workspace.NewModel("m2");
+    TR_ASSERT(t, workspace.GetDesktops().size() != 0);
     TR_ASSERT(t, workspace.GetDefaultWorkspace()->GetModels().size() != 0);
     TR_ASSERT(t, workspace.GetDefaultWorkspace()->GetModels().size() == 2);
 
@@ -58,14 +58,10 @@ DLL_EXPORT int test_workspace_newtwice(ITesting *t) {
     int count = 0;
     // We can't really guarantee the return order there
     for(auto &m : workspace.GetDefaultWorkspace()->GetModels()) {
-        auto textBuffer = m->GetTextBuffer();
+        auto node = workspace.GetNodeFromModel(m);
         char buffer[64];
         snprintf(buffer,63,"new_%d", count);
-        printf("Name: %s == %s\n", buffer,textBuffer->GetName().c_str());
-        // can't guarantee order..
-//        TR_ASSERT(t, textBuffer->GetName() == buffer);
-//        snprintf(buffer,63,"./new_%d", count);
-//        TR_ASSERT(t, textBuffer->GetPathName() == buffer);
+        printf("Name: %s == %s\n", buffer,node->GetDisplayName().c_str());
         count++;
     }
     return kTR_Pass;
@@ -73,10 +69,10 @@ DLL_EXPORT int test_workspace_newtwice(ITesting *t) {
 
 DLL_EXPORT int test_workspace_newmodel(ITesting *t) {
     Workspace workspace;
-    auto model = workspace.NewEmptyModel();
+    auto node = workspace.NewModel("wef");
 
     TR_ASSERT(t, workspace.GetDefaultWorkspace()->GetModels().size() != 0);
-    TR_ASSERT(t, model->GetTextBuffer()->GetBufferState() == TextBuffer::BufferState::kBuffer_Empty);
+    TR_ASSERT(t, node->GetTextBuffer()->GetBufferState() == TextBuffer::BufferState::kBuffer_Empty);
 
     return kTR_Pass;
 }
@@ -88,7 +84,7 @@ DLL_EXPORT int test_workspace_fileref(ITesting *t) {
 
     TR_ASSERT(t, workspace.GetDefaultWorkspace()->GetModels().size() != 0);
     TR_ASSERT(t, model->GetTextBuffer()->GetBufferState() == TextBuffer::BufferState::kBuffer_FileRef);
-    TR_ASSERT(t, model->GetTextBuffer()->Load());
+    TR_ASSERT(t, model->LoadData());
     TR_ASSERT(t, model->GetTextBuffer()->GetBufferState() == TextBuffer::BufferState::kBuffer_Loaded);
 
     return kTR_Pass;
@@ -116,8 +112,8 @@ DLL_EXPORT int test_workspace_removemodel(ITesting *t) {
 
     Workspace workspace;
     {
-        auto model = workspace.NewEmptyModel();
-        workspace.RemoveModel(model);
+        auto node = workspace.NewModel("wef");
+        workspace.RemoveModel(node->GetModel());
     } // should lose the shared_ptr for the model when leaving this block...
 
     return kTR_Pass;
@@ -126,9 +122,9 @@ DLL_EXPORT int test_workspace_removemodel(ITesting *t) {
 DLL_EXPORT int test_workspace_recreate(ITesting *t) {
     Workspace::Ref workspace = Workspace::Create();
     // Create a number of models
-    workspace->NewEmptyModel();
-    workspace->NewEmptyModel();
-    workspace->NewEmptyModel();
+    workspace->NewModel("m1");
+    workspace->NewModel("m2");
+    workspace->NewModel("m2");
 
     // Let's see if all DTOR's are invoked
     // note: in order to test this - set breakpoints in DTORs

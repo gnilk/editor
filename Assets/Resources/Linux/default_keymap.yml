@@ -23,25 +23,28 @@ keymap: {
     ],
     NavigateLineEnd: [
       KeyCode_End + @SelectionModifier,
-      KeyCode_RightArrow + KeyCode_Ctrl + @SelectionModifier
+      # KeyCode_RightArrow + KeyCode_Ctrl + @SelectionModifier
     ],
     NavigateLineHome: [
       KeyCode_Home + @SelectionModifier,
-      KeyCode_LeftArrow + KeyCode_Ctrl + @SelectionModifier
+      # KeyCode_LeftArrow + KeyCode_Ctrl + @SelectionModifier
     ],
     CopyToClipboard: CopyPasteModifier + 'c',
+    CutToClipboard: CopyPasteModifier + 'x',
     PasteFromClipboard: CopyPasteModifier + 'v',
     EnterCommandMode: KeyCode_Escape,
     CycleActiveViewNext: "UINavigationModifier + ']'",
     CycleActiveViewPrev: "UINavigationModifier + '['",
     CycleBufferNext: [
       "UINavigationModifier + '\\'",
-      UINavigationModifier + KeyCode_RightArrow,
+       UINavigationModifier + KeyCode_RightArrow,
     ],
     CycleBufferPrev: [
       "UINavigationModifier + '\''",
       UINavigationModifier + KeyCode_LeftArrow,
     ],
+    NavigateWordRight : KeyCode_RightArrow + KeyCode_Ctrl,
+    NavigateWordLeft : KeyCode_LeftArrow + KeyCode_Ctrl,
 
     NavigateLineUp: KeyCode_UpArrow + @SelectionModifier,
     NavigateLineDown: KeyCode_DownArrow + @SelectionModifier,

@@ -11,10 +11,11 @@
 #include "ViewBase.h"
 
 #include "logger.h"
+#include "Core/VerticalNavigationViewModel.h"
 
 namespace gedit {
 
-    class EditorView : public ViewBase {
+    class EditorView : public ViewBase, public VerticalNavigationViewModel {
     public:
         EditorView() = default;
         explicit EditorView(const Rect &viewArea) : ViewBase(viewArea) {
@@ -83,15 +84,7 @@ namespace gedit {
 
     private:
         bool DispatchAction(const KeyPressAction &kpAction);
-
-        bool UpdateNavigation(const KeyPress &keyPress);
-
-        void OnNavigateUpVSCode(int rows);
-        void OnNavigateDownVSCode(int rows);
-
-        void OnNavigateUpCLion(int rows);
-        void OnNavigateDownCLion(int rows);
-
+        void UpdateModelFromNavigation();
     private:
         bool bUseCLionPageNav = true;
         EditorModel::Ref editorModel;

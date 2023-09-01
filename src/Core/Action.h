@@ -62,6 +62,7 @@ namespace gedit {
         kActionEditBackspace,
         // Other
         kActionCopyToClipboard,
+        kActionCutToClipboard,
         kActionPasteFromClipboard,
         kActionInsertLineComment,
         kActionUndo,

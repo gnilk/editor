@@ -22,7 +22,8 @@ logging:
   disable_all: no
   enable_modules:
     - "System"
-    - "AssetLoader"
+    - "VNavModel"
+    - "EditorView"
 
 #
 # keymapping varies a bit for native feel, thus - each OS has their own file to map nicely
@@ -65,6 +66,7 @@ editorview:
 
 workspaceview:
   keymap: "workspace_keymap"
+  switch_to_editor_on_openfile: yes
 
 #
 # Add ability to include user-name, and other things here (working dir???)

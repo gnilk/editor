@@ -29,7 +29,6 @@ LinuxFolderMonitorPoint::~LinuxFolderMonitorPoint() {
     }
 }
 
-
 bool LinuxFolderMonitorPoint::Start() {
     if (IsRunning()) {
         return true;
@@ -42,7 +41,6 @@ bool LinuxFolderMonitorPoint::Start() {
 
         return false;
     }
-
 
     scanThread = std::thread([this](){
         ScanThread();
@@ -60,7 +58,6 @@ bool LinuxFolderMonitorPoint::Stop() {
     isRunning = false;
 
     // FIXME: Clean up watchers..
-
     return true;
 }
 
@@ -143,9 +140,6 @@ void LinuxFolderMonitorPoint::OnFSEvent(const std::string &fullPathName, FolderM
     DispatchEvent(fullPathName, flags);
 }
 
-
-
-
 void LinuxFolderMonitorPoint::ScanForDirectories(std::filesystem::path path) {
     monitorList.clear();
 
@@ -156,8 +150,8 @@ void LinuxFolderMonitorPoint::ScanForDirectories(std::filesystem::path path) {
         printf("%s\n", dirEntry.path().c_str());
         AddMonitorItem(dirEntry.path());
     }
-
 }
+
 bool LinuxFolderMonitorPoint::AddMonitorItem(std::filesystem::path pathToFolder) {
     if (!is_directory(pathToFolder)) {
         logger->Debug("AddMonitorItem, not a directory: %s\n",pathToFolder.c_str());

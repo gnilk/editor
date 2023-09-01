@@ -74,6 +74,7 @@ namespace gedit {
         void AddLineComment(size_t idxLineStart, size_t idxLineEnd, const std::string_view &lineCommentPrefix);
     protected:
         void DeleteLinesNoSyntaxUpdate(size_t idxLineStart, size_t idxLineEnd);
+        bool HandleSpecialKeyPressForEditor(Cursor &cursor, size_t &idxLine, const KeyPress &keyPress);
     private:
         gnilk::ILogger *logger = nullptr;
         TextBuffer::Ref textBuffer = nullptr;

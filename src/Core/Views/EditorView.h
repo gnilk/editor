@@ -58,6 +58,7 @@ namespace gedit {
         void OnActivate(bool isActive) override;
         void DrawViewContents() override;
     protected:
+        void HandleKeyPressWithSelection(const KeyPress &keyPress);
         // Action handlers
         bool OnActionLineDown(const KeyPressAction &kpAction);
         bool OnActionLineUp();
@@ -84,7 +85,7 @@ namespace gedit {
 
     private:
         bool DispatchAction(const KeyPressAction &kpAction);
-        void UpdateModelFromNavigation();
+        void UpdateModelFromNavigation(bool updateCursor);
     private:
         bool bUseCLionPageNav = true;
         EditorModel::Ref editorModel;

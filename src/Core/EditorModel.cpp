@@ -15,44 +15,11 @@ EditorModel::Ref EditorModel::Create() {
     return editorModel;
 }
 
-// We should only handle stuff which might modify selection or similar...
-bool EditorModel::HandleKeyPress(const gedit::KeyPress &keyPress) {
-    bool wasHandled = false;
-    auto line = textBuffer->LineAt(idxActiveLine);
-    switch (keyPress.specialKey) {
-        case Keyboard::kKeyCode_Backspace :
-        case Keyboard::kKeyCode_DeleteForward :
-            if (IsSelectionActive()) {
-                DeleteSelection();
-                CancelSelection();
-                wasHandled = true;
-            }
-            break;
-        case Keyboard::kKeyCode_Tab :
-            // FIXME: Handle selection..
-            break;
-        default:
-            break;
-    }
-
-    // Needed???
-    if (wasHandled) {
-        textBuffer->Reparse();
-    }
-
-    return wasHandled;
-}
-
-
 void EditorModel::DeleteSelection() {
     auto startPos = currentSelection.GetStart();
     auto endPos = currentSelection.GetEnd();
 
     editController->DeleteRange(startPos, endPos);
-
-    idxActiveLine = startPos.y;
-    cursor.position.x = startPos.x;
-    cursor.position.y = startPos.y;
 
 }
 

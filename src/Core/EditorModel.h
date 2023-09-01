@@ -106,8 +106,6 @@ namespace gedit {
 
         static Ref Create();
 
-        bool HandleKeyPress(const KeyPress &keyPress);
-
         void Close() {
             textBuffer->Close();
         }

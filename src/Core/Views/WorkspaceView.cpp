@@ -3,6 +3,7 @@
 //
 
 #include "Core/Editor.h"
+#include "RootView.h"
 #include "WorkspaceView.h"
 
 
@@ -184,6 +185,11 @@ bool WorkspaceView::OnAction(const KeyPressAction &kpAction) {
         if (itemSelected->GetModel() != nullptr) {
             Editor::Instance().OpenModelFromWorkspace(itemSelected);
             logger->Debug("Selected Item: %s", itemSelected->GetDisplayName().c_str());
+
+            if (Config::Instance()[cfgSectionName].GetBool("switch_to_editor_on_openfile", true)) {
+                SwitchToEditorView();
+            }
+
             InvalidateAll();
             return true;
         } else {
@@ -196,6 +202,15 @@ bool WorkspaceView::OnAction(const KeyPressAction &kpAction) {
     }
 
     return false;
+}
+
+void WorkspaceView::SwitchToEditorView() {
+    auto &rvBase = RuntimeConfig::Instance().GetRootView();
+    RootView *rootView = static_cast<RootView *>(&rvBase);
+    if (rootView == nullptr) {
+        return;
+    }
+    rootView->SetActiveTopViewByName(glbEditorView);
 }
 
 void WorkspaceView::OnActivate(bool isActive) {

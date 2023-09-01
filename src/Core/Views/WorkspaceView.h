@@ -48,6 +48,7 @@ namespace gedit {
         void PopulateTree();
         void BuildExpandCollapseCache(std::unordered_map<std::string, bool> &cache);
         void OnActivate(bool isActive) override;
+        void SwitchToEditorView();
 
     private:
         TreeRef treeView;

@@ -336,6 +336,10 @@ namespace gedit {
 
             bool StartFolderMonitor() {
                 auto logger = gnilk::Logger::GetLogger("Workspace");
+                if ((funcCreateNode == nullptr) || (funcDeleteNode == nullptr)) {
+                    logger->Debug("no callbacks defined - if this is default all is fine");
+                    return true;
+                }
 
                 // Need to stop first..
                 if ((changeMonitor != nullptr) && (changeMonitor->IsRunning())) {
@@ -351,6 +355,10 @@ namespace gedit {
                     changeMonitor = folderMonitor.CreateMonitorPoint(rootPath, [this](const std::filesystem::path &path, FolderMonitor::kChangeFlags flags) -> void {
                         OnMonitorEvent(path, flags);
                     });
+                    // We can't start this
+                    if (changeMonitor == nullptr) {
+                        return false;
+                    }
                 }
 
                 std::filesystem::path gitIgnoreFile = rootPath / ".gitignore";

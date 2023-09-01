@@ -3,17 +3,13 @@
 //
 /*
  * TO-DO List
- * - Scroll beyond the view-area and then swap between Project/Edit-View resets the file-view
- *   This happens when leaving the EditorView
- * - Select and Delete outside the initial viewing area (height of window) makes the cursor disappear
- * - Is 'Cut' implemented?
+ * + Exclude/Ignore directories for Monitor is a must
+ *   Introduce a 'FolderMonitor' section in the config, should have 'Enable', 'Exclude'-list (glob-patterns)
+ * - Monitoring a path that changes quickly (like the build directory) will cause seg-faults
+ * - Undo does not properly reparse the area of the re-pasted data
  * - There are segfaults in copy/paste
- * - Cursor sometimes indicates wrong line but gutter-indicator seems correct!
  * - Adding an additional ')' when the previous char is '(' should be ignored, typing: '(',')' inserts an extra ')'
- * - Select/Copy/Paste are wrong - scrolling makes them non-reliable...
- * - Selecting in workspace view does not change to editor-view
  * - Terminal must forward stderr!!
- * - File monitoring on Linux
  * - Revisit the 'Workspace::NewModel' and friends - there are too much similarity in these functions
  * - When creating a new model we should switch to it
  * - Save screen position and size upon resize/move and similar, restore on startup (use XDG state directory)
@@ -52,6 +48,14 @@
  *   need to consider a solution for this...
  *
  * Done:
+ * ! Cursor sometimes indicates wrong line but gutter-indicator seems correct!
+ * ! Select/Copy/Paste are wrong - scrolling makes them non-reliable...
+ * ! File monitoring on Linux
+ * ! Selecting in workspace view does not change to editor-view
+ * ! Scroll beyond the view-area and then swap between Project/Edit-View resets the file-view
+ *   This happens when leaving the EditorView
+ * ! Select and Delete outside the initial viewing area (height of window) makes the cursor disappear
+ * ! Is 'Cut' implemented?
  * ! When creating a new model we should switch to it
  * ! WorkspaceView should preserve node expand/collapse information when rebuilding the tree...
  * ! WorkspaceView should react on changes from the Workspace::Desktop foldermonitor detected changes

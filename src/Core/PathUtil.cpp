@@ -10,7 +10,7 @@
 std::string pathutil::LastNameOfPath(const std::filesystem::path &pathName) {
     auto it = pathName.end();
     it--;
-    if (it->string() != "") {
+    if ((it->string() != "") && (it->string() != ".")) {
         return it->string();
     }
     if (it == pathName.begin()) {

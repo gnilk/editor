@@ -22,7 +22,19 @@ logging:
   disable_all: no
   enable_modules:
     - "System"
-    - "AssetLoader"
+    - "VNavModel"
+    - "EditorView"
+
+
+foldermonitor:
+  enabled: yes
+  use_git_ignore: yes
+  # Note: for macos this can only be maximum 8 folders - or else!
+  exclude:
+    - ".git"
+    - "bld"
+    - "cmake-build-debug"
+    - "cmake-build-release"
 
 #
 # keymapping varies a bit for native feel, thus - each OS has their own file to map nicely
@@ -65,6 +77,7 @@ editorview:
 
 workspaceview:
   keymap: "workspace_keymap"
+  switch_to_editor_on_openfile: yes
 
 #
 # Add ability to include user-name, and other things here (working dir???)

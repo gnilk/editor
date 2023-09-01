@@ -756,7 +756,7 @@ void Editor::SetActiveKeyMapping(const std::string &name) {
 
     // In case of view-state we save the active keymap - not quite sure if this is needed...
     if (state == ViewState) {
-        logger->Debug("ViewState Keymapping Changed: %s -> %s", viewStateKeymapName.c_str(), name.c_str());
+        //logger->Debug("ViewState Keymapping Changed: %s -> %s", viewStateKeymapName.c_str(), name.c_str());
         viewStateKeymapName = name;
     }
 }

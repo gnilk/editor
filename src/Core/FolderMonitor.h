@@ -94,8 +94,16 @@ namespace gedit {
         void AddMonitor(MonitorPoint::Ref monitor) {
             monitorPoints.push_back(monitor);
         }
+
+        bool IsEnabled();
+
     protected:
         std::vector<MonitorPoint::Ref> monitorPoints = {};
+        const std::vector<std::string> &GetExclusionPaths();
+    private:
+
+        std::vector<std::string> exclusionPaths;
+
     };
 
     // Define | operator

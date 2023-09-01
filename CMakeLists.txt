@@ -189,18 +189,26 @@ elseif(UNIX)
 
     target_compile_options(${CUR_TARGET} PUBLIC -fPIC)
     target_compile_options(${CUR_TARGET} PUBLIC -Wall -Wextra -Wpedantic -Wshadow)
-    target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-parameter)
-    target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-variable)
 
-    # DukGlue has quite a few type-defs causing pain - consider putting duglue into it's own compile target..
-    target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-local-typedef)
-    target_compile_options(${CUR_TARGET} PUBLIC -Wno-unneeded-internal-declaration)
-    # this one is irritating..
-    target_compile_options(${CUR_TARGET} PUBLIC -Wno-sign-compare)
-    target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-but-set-variable)
+    if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        message("Compiler is Clang")
+        target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-parameter)
+        target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-variable)
 
-    # YAML header library
-    target_compile_options(${CUR_TARGET} PUBLIC -Wno-shadow)
+        # DukGlue has quite a few type-defs causing pain - consider putting duglue into it's own compile target..
+        target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-local-typedef)
+        target_compile_options(${CUR_TARGET} PUBLIC -Wno-unneeded-internal-declaration)
+        # this one is irritating..
+        target_compile_options(${CUR_TARGET} PUBLIC -Wno-sign-compare)
+        target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-but-set-variable)
+
+        # YAML header library
+        target_compile_options(${CUR_TARGET} PUBLIC -Wno-shadow)
+    else()
+        # Assume...
+        message("Compiler is GCC")
+    endif()
+
 
     #
     # Create a .deb install package..

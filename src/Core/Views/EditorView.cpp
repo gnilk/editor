@@ -40,9 +40,12 @@ void EditorView::InitView()  {
         return;
     }
 
+
     // This is the visible area...
-    editorModel->viewTopLine = 0;
-    editorModel->viewBottomLine = rect.Height();
+    viewTopLine = 0;
+    viewBottomLine = rect.Height();
+    UpdateModelFromNavigation(true);
+
     editorModel->GetEditController()->SetTextBufferChangedHandler([this]()->void {
         auto node = Editor::Instance().GetWorkspace()->GetNodeFromModel(editorModel);
         if (node == nullptr) {
@@ -70,19 +73,15 @@ void EditorView::ReInitView() {
         return;
     }
 
-    //logger->Debug("ReInitView, current model: %s", editorModel->GetTextBuffer()->GetName().c_str());
-
-    // This is the visible area...
-    editorModel->viewTopLine = 0;
-    editorModel->viewBottomLine = rect.Height();
+    HandleResize(editorModel->cursor, viewRect);
+    UpdateModelFromNavigation(true);
 
 }
 
 void EditorView::OnResized() {
     // Update the view Bottom line - as this affects how many lines we draw...
-    if (editorModel != nullptr) {
-        editorModel->viewBottomLine = GetContentRect().Height();
-    }
+    viewBottomLine = GetContentRect().Height();
+    UpdateModelFromNavigation(true);
     ViewBase::OnResized();
 }
 
@@ -163,24 +162,23 @@ void EditorView::OnKeyPress(const KeyPress &keyPress) {
     // Unless we can edit - we do nothing
     if (!editorModel->GetTextBuffer()->CanEdit()) return;
 
-    if (editorModel->GetEditController()->HandleKeyPress(editorModel->cursor, editorModel->idxActiveLine, keyPress)) {
-        // Delete selection and cancel it out - if we had one...
-        if (editorModel->IsSelectionActive()) {
-            editorModel->DeleteSelection();
-            editorModel->CancelSelection();
-            editorModel->cursor.position.x +=1;
-        }
+    // In case we have selection active - we treat the whole thing a bit differently...
+    if (editorModel->IsSelectionActive()) {
+        HandleKeyPressWithSelection(keyPress);
         InvalidateView();
         return;
     }
 
-    if (editorModel->HandleKeyPress(keyPress)) {
+    // Let the controller have a go - this is regular editing and so forth
+    if (editorModel->GetEditController()->HandleKeyPress(editorModel->cursor, idxActiveLine, keyPress)) {
+        UpdateModelFromNavigation(true);
         InvalidateView();
         return;
     }
 
     // This handles regular backspace/delete/home/end (which are default actions for any single-line editing)
-    if (editorModel->GetEditController()->HandleSpecialKeyPress(editorModel->cursor, editorModel->idxActiveLine, keyPress)) {
+    if (editorModel->GetEditController()->HandleSpecialKeyPress(editorModel->cursor, idxActiveLine, keyPress)) {
+        UpdateModelFromNavigation(true);
         InvalidateView();
         return;
     }
@@ -188,6 +186,47 @@ void EditorView::OnKeyPress(const KeyPress &keyPress) {
 
     // It was not to us..
     ViewBase::OnKeyPress(keyPress);
+}
+
+void EditorView::HandleKeyPressWithSelection(const KeyPress &keyPress) {
+
+    auto &selection = editorModel->GetSelection();
+    idxActiveLine = selection.GetStart().y;
+    editorModel->cursor.position = selection.GetStart();
+    editorModel->cursor.position.y -= viewTopLine;   // Translate to screen coords..
+
+    // Save here - because 'UpdateModelFromNavigiation' updates the wanted column - bad/good?
+    auto tmpCursor = editorModel->cursor;
+    UpdateModelFromNavigation(false);
+
+
+    switch (keyPress.specialKey) {
+        case Keyboard::kKeyCode_Backspace :
+        case Keyboard::kKeyCode_DeleteForward :
+            editorModel->DeleteSelection();
+            break;
+        case Keyboard::kKeyCode_Tab :
+            // Handle this - indent!
+            break;
+        default: {
+            // This is a bit ugly (understatement of this project so far...)
+            // But any - valid - keypress should lead to the selection being deleted and the new key inserted...
+            if (editorModel->GetEditController()->HandleKeyPress(editorModel->cursor, idxActiveLine, keyPress)) {
+                // revert the last insert
+                editorModel->GetEditController()->Undo(editorModel->cursor);
+                // delete the selection (buffer is now fine)
+                editorModel->DeleteSelection();
+
+                // Restore the cursor where it should be and repeat the keypress handling again...
+                editorModel->cursor = tmpCursor;
+                editorModel->GetEditController()->HandleKeyPress(editorModel->cursor, idxActiveLine, keyPress);
+            }
+        }
+    }
+
+    // Regardless of the hacky thing above - let's cancel out the selection...
+    editorModel->CancelSelection();
+    UpdateModelFromNavigation(false);
 }
 
 //
@@ -207,20 +246,36 @@ bool EditorView::OnAction(const KeyPressAction &kpAction) {
 
     // This is convoluted - will be dealt with when copy/paste works...
     if (kpAction.action == kAction::kActionCopyToClipboard) {
-        logger->Debug("Set text to clip board");
+        logger->Debug("Set text to clipboard");
         auto selection = editorModel->GetSelection();
 
         auto &clipboard = Editor::Instance().GetClipBoard();
         clipboard.CopyFromBuffer(editorModel->GetTextBuffer(), selection.GetStart(), selection.GetEnd());
 
+    } else if (kpAction.action == kAction::kActionCutToClipboard) {
+        logger->Debug("Cut text to clipboard");
+        auto selection = editorModel->GetSelection();
+        auto &clipboard = Editor::Instance().GetClipBoard();
+        clipboard.CopyFromBuffer(editorModel->GetTextBuffer(), selection.GetStart(), selection.GetEnd());
+
+        idxActiveLine = selection.GetStart().y;
+        editorModel->cursor.position = selection.GetStart();
+        editorModel->cursor.position.y -= viewTopLine;   // Translate to screen coords..
+
+        editorModel->DeleteSelection();
+        editorModel->CancelSelection();
+        UpdateModelFromNavigation(false);
+
     } else if (kpAction.action == kAction::kActionPasteFromClipboard) {
+        logger->Debug("Paste from clipboard");
         auto &clipboard = Editor::Instance().GetClipBoard();
         if (clipboard.Top() != nullptr) {
             auto nLines = clipboard.Top()->GetLineCount();
-            clipboard.PasteToBuffer(editorModel->GetTextBuffer(), editorModel->cursor.position);
-            editorModel->GetTextBuffer()->ReparseRegion(editorModel->idxActiveLine, editorModel->idxActiveLine + nLines);
+            auto ptWhere = editorModel->cursor.position;
+            ptWhere.y += (int)viewTopLine;
+            clipboard.PasteToBuffer(editorModel->GetTextBuffer(), ptWhere);
 
-            // FIXME: move cursor down properly -> should really impl. VerticalNavigation!
+            editorModel->GetTextBuffer()->ReparseRegion(editorModel->idxActiveLine, editorModel->idxActiveLine + nLines);
         }
     } else if (kpAction.action == kAction::kActionInsertLineComment) {
         // Handle this here since we want to keep the selection...
@@ -340,8 +395,12 @@ bool EditorView::OnActionLineEnd() {
 }
 
 bool EditorView::OnActionCommitLine() {
+    logger->Debug("OnActionCommitLine, Before: idxActive=%zu", idxActiveLine);
     editorModel->GetEditController()->NewLine(editorModel->idxActiveLine, editorModel->cursor);
-    OnNavigateDownVSCode(1);
+    OnNavigateDownVSCode(editorModel->cursor, 1, viewRect, editorModel->Lines().size());
+    UpdateModelFromNavigation(true);
+    logger->Debug("OnActionCommitLine, After: idxActive=%zu", idxActiveLine);
+
     InvalidateView();
     return true;
 }
@@ -405,6 +464,26 @@ bool EditorView::OnActionStepRight() {
     editorModel->cursor.wantedColumn = editorModel->cursor.position.x;
     return true;
 }
+
+void EditorView::UpdateModelFromNavigation(bool updateCursor) {
+    if (editorModel == nullptr) {
+        return;
+    }
+    editorModel->idxActiveLine = idxActiveLine;
+    editorModel->viewTopLine = viewTopLine;
+    editorModel->viewBottomLine = viewBottomLine;
+
+    if (!updateCursor) {
+        return;
+    }
+
+    auto currentLine = editorModel->LineAt(editorModel->idxActiveLine);
+    editorModel->cursor.position.x = editorModel->cursor.wantedColumn;
+    if (editorModel->cursor.position.x > (int) currentLine->Length()) {
+        editorModel->cursor.position.x = (int) currentLine->Length();
+    }
+}
+
 /*
  * Page Up/Down navigation works differently depending on your editor
  * CLion/Sublime:
@@ -417,19 +496,21 @@ bool EditorView::OnActionStepRight() {
 
 bool EditorView::OnActionPageDown() {
     if (!bUseCLionPageNav) {
-        OnNavigateDownVSCode(viewRect.Height() - 1);
+        OnNavigateDownVSCode(editorModel->cursor, viewRect.Height() - 1, viewRect, editorModel->Lines().size());
     } else {
-        OnNavigateDownCLion(viewRect.Height() - 1);
+        OnNavigateDownCLion(editorModel->cursor, viewRect.Height() - 1, viewRect, editorModel->Lines().size());
     }
+    UpdateModelFromNavigation(true);
     return true;
 }
 
 bool EditorView::OnActionPageUp() {
     if (!bUseCLionPageNav) {
-        OnNavigateUpVSCode(viewRect.Height() - 1);
+        OnNavigateUpVSCode(editorModel->cursor, viewRect.Height() - 1, viewRect, editorModel->Lines().size());
     } else {
-        OnNavigateUpCLion(viewRect.Height() - 1);
+        OnNavigateUpCLion(editorModel->cursor, viewRect.Height() - 1, viewRect, editorModel->Lines().size());
     }
+    UpdateModelFromNavigation(true);
     return true;
 }
 
@@ -438,13 +519,8 @@ bool EditorView::OnActionLineDown(const KeyPressAction &kpAction) {
     if (currentLine == nullptr) {
         return true;
     }
-
-    OnNavigateDownVSCode(1);
-    currentLine = editorModel->LineAt(editorModel->idxActiveLine);
-    editorModel->cursor.position.x = editorModel->cursor.wantedColumn;
-    if (editorModel->cursor.position.x > (int)currentLine->Length()) {
-        editorModel->cursor.position.x = (int)currentLine->Length();
-    }
+    OnNavigateDownVSCode(editorModel->cursor, 1, viewRect, editorModel->Lines().size());
+    UpdateModelFromNavigation(true);
     return true;
 }
 bool EditorView::OnActionLineUp() {
@@ -452,13 +528,15 @@ bool EditorView::OnActionLineUp() {
     if (currentLine == nullptr) {
         return true;
     }
+//    OnNavigateUpVSCode(1);
+    OnNavigateUpVSCode(editorModel->cursor, 1, viewRect, editorModel->Lines().size());
 
-    OnNavigateUpVSCode(1);
-    currentLine = editorModel->LineAt(editorModel->idxActiveLine);
-    editorModel->cursor.position.x = editorModel->cursor.wantedColumn;
-    if (editorModel->cursor.position.x > (int)currentLine->Length()) {
-        editorModel->cursor.position.x = (int)currentLine->Length();
-    }
+//    currentLine = editorModel->LineAt(editorModel->idxActiveLine);
+//    editorModel->cursor.position.x = editorModel->cursor.wantedColumn;
+//    if (editorModel->cursor.position.x > (int)currentLine->Length()) {
+//        editorModel->cursor.position.x = (int)currentLine->Length();
+//    }
+    UpdateModelFromNavigation(true);
     return true;
 }
 bool EditorView::OnActionGotoTopLine() {
@@ -516,268 +594,6 @@ bool EditorView::OnPrevSearchResult() {
     return true;
 }
 
-
-
-bool EditorView::UpdateNavigation(const KeyPress &keyPress) {
-
-    //auto viewRect = GetContentRect();
-    auto currentLine = editorModel->GetEditController()->LineAt(editorModel->idxActiveLine);
-
-    // Need to consider how to update the current line
-    // the 'OnNavigateDown()' could return it, or we just leave it as is...
-
-    switch (keyPress.specialKey) {
-        case Keyboard::kKeyCode_Home :
-            // CMD+Home = reset view to 0,0
-            if (keyPress.IsCommandPressed()) {
-/*
-                auto logger = gnilk::Logger::GetLogger("EditorView");
-                logger->Debug("CMD+Home, resetting cursor and view data!");
-                editorModel->GetEditController()->LineAt(editorModel->idxActiveLine)->SetActive(false);
-                cursor.position.x = 0;
-                cursor.position.y = 0;
-                editorModel->idxActiveLine = 0;
-                editorModel->viewTopLine = 0;
-                editorModel->viewBottomLine = GetContentRect().Height();
-                editorModel->LineAt(editorModel->idxActiveLine)->SetActive(true);
-                */
-            }
-            break;
-        case Keyboard::kKeyCode_End :
-            if (keyPress.IsCommandPressed()) {
-                /*
-                auto logger = gnilk::Logger::GetLogger("EditorView");
-                logger->Debug("CMD+End, set cursor to last line!");
-
-                editorModel->LineAt(editorModel->idxActiveLine)->SetActive(false);
-
-                cursor.position.x = 0;
-                cursor.position.y = GetContentRect().Height()-1;
-                editorModel->idxActiveLine = editorModel->Lines().size()-1;
-                editorModel->viewBottomLine = editorModel->Lines().size();
-                editorModel->viewTopLine = editorModel->viewBottomLine - GetContentRect().Height();
-
-                editorModel->LineAt(editorModel->idxActiveLine)->SetActive(true);
-*/
-            }
-            break;
-        case Keyboard::kKeyCode_PageUp :
-            /*
-             * Page Up/Down navigation works differently depending on your editor
-             * CLion/Sublime:
-             *      The content/text moves and cursor stays in position
-             *      ALT+Up/Down, the cursor moves within the view area, content/text stays
-             * VSCode:
-             *      The cursor moves to next to last-visible line
-             *      ALT+Up/Down the view area moves but cursor/activeline stays
-             */
-            /*
-            if (keyPress.IsCommandPressed()) {
-                auto logger = gnilk::Logger::GetLogger("EditorView");
-                logger->Debug("PageUp+CMDKey, cursor=(%d:%d)", cursor.position.x, cursor.position.y);
-                cursor.position.y = 0;
-                editorModel->idxActiveLine = editorModel->viewTopLine;
-                logger->Debug("PageUp+CMDKey, cursor=(%d:%d)", cursor.position.x, cursor.position.y);
-            }
-             */
-            break;
-        case Keyboard::kKeyCode_PageDown :
-            /*
-            if (keyPress.IsCommandPressed()) {
-                auto logger = gnilk::Logger::GetLogger("EditorView");
-                logger->Debug("PageDown+CMDKey, cursor=(%d:%d)", cursor.position.x, cursor.position.y);
-                cursor.position.y = GetContentRect().Height()-1;
-                editorModel->idxActiveLine = editorModel->viewBottomLine-1;
-                logger->Debug("PageDown+CMDKey, cursor=(%d:%d)", cursor.position.x, cursor.position.y);
-            }
-             */
-            break;
-            // Return is a bit "stupid"...
-        case Keyboard::kKeyCode_Return :
-            break;
-        default:
-            // Not navigation
-            return false;
-    }
-
-//    // Do selection handling
-//    if (isShiftPressed) {
-//        if (!selection.IsActive()) {
-//            selection.Begin(idxLineBeforeNavigation);
-//        }
-//        selection.Continue(idxActiveLine);
-//    } else if (selection.IsActive()) {
-//        selection.SetActive(false);
-//        ClearSelectedLines();
-//        screen->InvalidateAll();
-//    }
-
-    return true;
-
-}
-//
-// This implements VSCode style of downwards navigation
-// Cursor if moved first then content (i.e if standing on first-line, the cursor is moved to the bottom line on first press)
-void EditorView::OnNavigateDownVSCode(int rows) {
-    auto &lines = editorModel->Lines();
-
-    editorModel->idxActiveLine+=rows;
-    if (editorModel->idxActiveLine >= lines.size()) {
-        editorModel->idxActiveLine = lines.size()-1;
-    }
-
-    if (editorModel->idxActiveLine > static_cast<size_t>(GetContentRect().Height()-1)) {
-        if (!(editorModel->cursor.position.y < GetContentRect().Height()-1)) {
-            if (static_cast<size_t>(editorModel->viewBottomLine + rows) < lines.size()) {
-                logger->Debug("Clipping top/bottom lines");
-                editorModel->viewTopLine += rows;
-                editorModel->viewBottomLine += rows;
-            }
-            InvalidateAll();
-        }
-    }
-    logger->Debug("OnNavDownVScode, rows=%d, new active line=%d", rows, editorModel->idxActiveLine);
-    logger->Debug("                 viewTopLine=%d, viewBottomLine=%d", editorModel->viewTopLine, editorModel->viewBottomLine);
-
-
-    editorModel->cursor.position.y = editorModel->idxActiveLine - editorModel->viewTopLine;
-    if (editorModel->cursor.position.y > GetContentRect().Height()-1) {
-        editorModel->cursor.position.y = GetContentRect().Height()-1;
-    }
-    //logger->Debug("OnNavigateDown, activeLine=%d, rows=%d, ypos=%d, height=%d", viewData.idxActiveLine, rows, cursor.position.y, ContentRect().Height());
-}
-
-void EditorView::OnNavigateUpVSCode(int rows) {
-    // idxActiveLine is unsigned..
-    if (rows < editorModel->idxActiveLine) {
-        editorModel->idxActiveLine -= rows;
-    } else {
-        editorModel->idxActiveLine = 0;
-    }
-
-    // This works, position.y is signed..
-    editorModel->cursor.position.y -= rows;
-    if (editorModel->cursor.position.y < 0) {
-        int delta = 0 - editorModel->cursor.position.y;
-        editorModel->cursor.position.y = 0;
-        editorModel->viewTopLine -= delta;
-        editorModel->viewBottomLine -= delta;
-        if (editorModel->viewTopLine < 0) {
-            editorModel->viewTopLine = 0;
-            editorModel->viewBottomLine = GetContentRect().Height();
-        }
-        // Request full redraw (this caused a scroll)
-        InvalidateAll();
-    }
-}
-
-// CLion/Sublime style of navigation on pageup/down - this first moves the content and then adjust cursor
-// This moves content first and cursor rather stays
-void EditorView::OnNavigateDownCLion(int rows) {
-    bool forceCursorToLastLine = false;
-    int nRowsToMove = rows;
-    int maxRows = editorModel->Lines().size() - 1;
-    if (maxRows < 0) {
-        return;
-    }
-
-    logger->Debug("OnNavDownCLion");
-
-    // Note: We might want to revisit this clipping, if we want a margin to the bottom...
-    // Maybe we should adjust for the visible margin at the end
-    if ((editorModel->viewTopLine+nRowsToMove) > maxRows) {
-        logger->Debug("  Move beyond last line!");
-        nRowsToMove = 0;
-        forceCursorToLastLine = true;
-    }
-    if ((editorModel->viewBottomLine+nRowsToMove) > maxRows) {
-        logger->Debug("  Clip nRowsToMove");
-        nRowsToMove = editorModel->Lines().size() - editorModel->viewBottomLine;
-        // If this results to zero, we are exactly at the bottom...
-        if (!nRowsToMove) {
-            forceCursorToLastLine = true;
-        }
-    }
-    logger->Debug("  nRowsToMove=%d, forceCursor=%s, nLines=%d, maxRows=%d",
-                  nRowsToMove, forceCursorToLastLine?"Y":"N", (int)editorModel->Lines().size(), maxRows);
-    logger->Debug("  Before, topLine=%d, bottomLine=%d, activeLine=%d, cursor.y=%d", editorModel->viewTopLine, editorModel->viewBottomLine, editorModel->idxActiveLine, editorModel->cursor.position.y);
-
-
-    // Reposition the view
-    int activeLineDelta = editorModel->idxActiveLine - editorModel->viewTopLine;
-    editorModel->viewTopLine += nRowsToMove;
-    editorModel->viewBottomLine += nRowsToMove;
-    // If we moved below zero we just reset to zero...
-    if (editorModel->viewTopLine < 0) {
-        editorModel->viewTopLine = 0;
-        editorModel->viewBottomLine = GetContentRect().Height()-1;
-    }
-
-    // In case we would have moved beyond the visible part, let's enforce the cursor position..
-    if (forceCursorToLastLine) {
-        editorModel->cursor.position.y = editorModel->Lines().size() - editorModel->viewTopLine - 1;
-        editorModel->idxActiveLine = editorModel->Lines().size()-1;
-        logger->Debug("       force to last!");
-    } else {
-        editorModel->idxActiveLine = editorModel->viewTopLine + activeLineDelta;
-        editorModel->cursor.position.y = editorModel->idxActiveLine - editorModel->viewTopLine;
-        if (editorModel->cursor.position.y > GetContentRect().Height() - 1) {
-            editorModel->cursor.position.y = GetContentRect().Height() - 1;
-        }
-    }
-    logger->Debug("  After, topLine=%d, bottomLine=%d, activeLine=%d, cursor.y=%d", editorModel->viewTopLine, editorModel->viewBottomLine, editorModel->idxActiveLine, editorModel->cursor.position.y);
-    InvalidateAll();
-}
-
-void EditorView::OnNavigateUpCLion(int rows) {
-    int nRowsToMove = rows;
-    int maxRows = editorModel->Lines().size() - 1;
-    if (maxRows < 0) {
-        maxRows = 0;
-    }
-    bool forceCursorToFirstLine = false;
-
-    if ((editorModel->viewTopLine - nRowsToMove) < 0) {
-        forceCursorToFirstLine = true;
-        nRowsToMove = 0;
-    }
-
-
-    logger->Debug("OnNavUpCLion");
-    logger->Debug("  nRowsToMove=%d, forceCursor=%s, nLines=%d, maxRows=%d",
-                  nRowsToMove, forceCursorToFirstLine?"Y":"N", (int)editorModel->Lines().size(), maxRows);
-    logger->Debug("  Before, topLine=%d, bottomLine=%d, activeLine=%d, cursor.y=%d", editorModel->viewTopLine, editorModel->viewBottomLine, editorModel->idxActiveLine, editorModel->cursor.position.y);
-
-
-    // Reposition the view
-    editorModel->viewTopLine -= nRowsToMove;
-    editorModel->viewBottomLine -= nRowsToMove;
-
-    // In case we would have moved beyond the visible part, let's enforce the cursor position..
-    if (forceCursorToFirstLine) {
-        editorModel->cursor.position.y = 0;
-        editorModel->idxActiveLine = 0;
-        editorModel->viewTopLine = 0;
-        editorModel->viewBottomLine = GetContentRect().Height();
-        logger->Debug("       force to first!");
-    } else {
-        if (nRowsToMove > editorModel->idxActiveLine) {
-            editorModel->idxActiveLine = 0;
-        } else {
-            editorModel->idxActiveLine -= nRowsToMove;
-        }
-        editorModel->cursor.position.y = editorModel->idxActiveLine - editorModel->viewTopLine;
-        if (editorModel->cursor.position.y < 0) {
-            editorModel->cursor.position.y = 0;
-        }
-    }
-    logger->Debug("  After, topLine=%d, bottomLine=%d, activeLine=%d, cursor.y=%d", editorModel->viewTopLine, editorModel->viewBottomLine, editorModel->idxActiveLine, editorModel->cursor.position.y);
-    InvalidateAll();
-
-}
-
-
-
 void EditorView::SetWindowCursor(const Cursor &cursor) {
     if ((Editor::Instance().GetState() == Editor::ViewState) && (editorModel != nullptr)) {
         window->SetCursor(editorModel->cursor);
@@ -819,10 +635,15 @@ std::pair<std::string, std::string> EditorView::GetStatusBarInfo() {
     // resolve right status
     auto activeLine = model->GetTextBuffer()->LineAt(model->idxActiveLine);
     char tmp[32];
-    snprintf(tmp, 32, "Id: %d, Ln: %d, Col: %d",
-             activeLine==nullptr?0:activeLine->Indent(),        // Line can be nullptr for 0 byte files..
-             model->cursor.position.y,
-             model->cursor.position.x);
+
+    snprintf(tmp,32,"l: %zu, c(%d:%d)",
+             idxActiveLine,
+             model->cursor.position.x, model->cursor.position.y);
+
+//    snprintf(tmp, 32, "Id: %d, Ln: %d, Col: %d",
+//             activeLine==nullptr?0:activeLine->Indent(),        // Line can be nullptr for 0 byte files..
+//             model->cursor.position.y,
+//             model->cursor.position.x);
     statusRight += tmp;
 
 

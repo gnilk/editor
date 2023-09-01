@@ -66,50 +66,53 @@ bool EditController::HandleKeyPress(Cursor &cursor, size_t &idxLine, const KeyPr
 
 bool EditController::HandleSpecialKeyPress(Cursor &cursor, size_t &idxLine, const KeyPress &keyPress) {
     auto line = textBuffer->LineAt(idxLine);
-
     auto undoItem = BeginUndoItem();
+    bool wasHandled = true;
 
     if (!DefaultEditSpecial(cursor, line, keyPress)) {
-        bool wasHandled = false;
-        switch (keyPress.specialKey) {
-            case Keyboard::kKeyCode_DeleteForward :
-                // Handle delete at end of line
-                if ((cursor.position.x == (int)line->Length()) && ((idxLine + 1) < textBuffer->NumLines())) {
-                    auto next = textBuffer->LineAt(idxLine + 1);
-                    line->Append(next);
-                    textBuffer->DeleteLineAt(idxLine + 1);
-                    wasHandled = true;
-                }
-                break;
-            case Keyboard::kKeyCode_Backspace :
-                if ((cursor.position.x == 0) && (idxLine > 0)) {
-                    MoveLineUp(cursor, idxLine);
-                    wasHandled = true;
-                }
-                break;
-            case Keyboard::kKeyCode_Tab :
-                if (keyPress.modifiers == 0) {
-                    AddTab(cursor, idxLine);
-                } else if (keyPress.IsShiftPressed()) {
-                    DelTab(cursor, idxLine);
-                }
-                wasHandled = true;
-                break;
-
-
-        }
-        return wasHandled;
+        wasHandled = HandleSpecialKeyPressForEditor(cursor, idxLine, keyPress);
     }
     EndUndoItem(undoItem);
-    //UpdateSyntaxForBuffer();
     UpdateSyntaxForActiveLineRegion(idxLine);
-    return true;
+    return wasHandled;
+}
+
+bool EditController::HandleSpecialKeyPressForEditor(Cursor &cursor, size_t &idxLine, const KeyPress &keyPress) {
+    auto line = textBuffer->LineAt(idxLine);
+    bool wasHandled = false;
+    switch (keyPress.specialKey) {
+        case Keyboard::kKeyCode_DeleteForward :
+            // Handle delete at end of line
+            if ((cursor.position.x == (int)line->Length()) && ((idxLine + 1) < textBuffer->NumLines())) {
+                auto next = textBuffer->LineAt(idxLine + 1);
+                line->Append(next);
+                textBuffer->DeleteLineAt(idxLine + 1);
+                wasHandled = true;
+            }
+            break;
+        case Keyboard::kKeyCode_Backspace :
+            if ((cursor.position.x == 0) && (idxLine > 0)) {
+                MoveLineUp(cursor, idxLine);
+                wasHandled = true;
+            }
+            break;
+        case Keyboard::kKeyCode_Tab :
+            if (keyPress.modifiers == 0) {
+                AddTab(cursor, idxLine);
+            } else if (keyPress.IsShiftPressed()) {
+                DelTab(cursor, idxLine);
+            }
+            wasHandled = true;
+            break;
+    }
+    return wasHandled;
 }
 
 void EditController::MoveLineUp(Cursor &cursor, size_t &idxActiveLine) {
     auto line = textBuffer->LineAt(idxActiveLine);
     auto linePrevious = textBuffer->LineAt((idxActiveLine-1));
-    cursor.position.x = linePrevious->Length();
+
+    cursor.wantedColumn = linePrevious->Length();
     linePrevious->Append(line);
     textBuffer->DeleteLineAt(idxActiveLine);
     idxActiveLine--;

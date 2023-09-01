@@ -1,17 +1,17 @@
 //
 // Created by gnilk on 29.08.23.
-// TODO: Refactor this - we don't really want this API, instead a workspace root-node should be able to create a specific folder-monitor with exclusion paths
-//       Thus, we should:
-//           auto folderMonitor = RuntimeConfig::Instance().GetFolderMonitor();
-//           auto monitoringRef = folderMonitor.CreateMonitoring(<path>, <exclusion>, <callback>);
-//           monitoringRef->Start();
 //
 #include <CoreServices/CoreServices.h>
 #include <mutex>
 #include "logger.h"
+#include "Core/Config/Config.h"
+#include "Core/PathUtil.h"
+#include "Core/StrUtil.h"
+
 #include "MacOSFolderMonitor.h"
 
 using namespace gedit;
+
 
 static void glbFSNotifyTrampoline(
 
@@ -26,8 +26,22 @@ static void glbFSNotifyTrampoline(
 
 
 FolderMonitor::MonitorPoint::Ref MacOSFolderMonitor::CreateMonitorPoint(const std::filesystem::path &pathToMonitor, EventDelegate handler) {
+    if (!IsEnabled()) {
+        return nullptr;
+    }
+
+    auto &excludePaths = GetExclusionPaths();
+
+    auto lastPath = pathutil::LastNameOfPath(pathToMonitor);
+    if (std::find(excludePaths.begin(), excludePaths.end(),lastPath) != excludePaths.end()) {
+        return nullptr;
+    }
+
+
     auto monitor = MacOSFolderMonitorPoint::Create(pathToMonitor);
+    monitor->SetExcludePaths(excludePaths);
     monitor->SetEventHandler(handler);
+    monitor->SetExcludePaths(excludePaths);
 
     AddMonitor(monitor);
 

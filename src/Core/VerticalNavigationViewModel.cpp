@@ -15,9 +15,51 @@
 
 using namespace gedit;
 
+
+void VerticalNavigationViewModel::HandleResize(Cursor &cursor, const Rect &viewRect) {
+    auto logger = gnilk::Logger::GetLogger("VNavModel");
+
+    // Clip source (lines) to view if view is smaller
+    if ((viewBottomLine - viewTopLine) > viewRect.Height()) {
+        logger->Debug("Clip visual view smaller than line-view");
+        logger->Debug("Current visual height: %d", viewRect.Height());
+        logger->Debug("Current Line-View, top=%zu bottom=%zu", viewTopLine, viewBottomLine);
+
+        auto delta = (viewBottomLine - viewTopLine) - viewRect.Height();
+        logger->Debug("Diff: %zu",delta);
+
+        if (delta > viewTopLine) {
+            logger->Debug("Already at top...");
+            viewTopLine = 0;
+            viewBottomLine = viewRect.Height();
+        }  else {
+            viewBottomLine -= delta;
+        }
+        // did the active line go outside the visible spectrum?
+        if (idxActiveLine > viewBottomLine) {
+            logger->Debug("Active Line outside visible scope, readjusting visible scope");
+
+            int activeDelta = (viewBottomLine - viewTopLine) / 2;
+            viewTopLine = idxActiveLine - activeDelta;
+            viewBottomLine = viewTopLine + viewRect.Height();
+            logger->Debug("New Line-View, top=%zu bottom=%zu", viewTopLine, viewBottomLine);
+        }
+    } else if ((viewBottomLine - viewTopLine) < viewRect.Height()) {
+        auto delta = viewRect.Height() - (viewBottomLine - viewTopLine);
+        viewBottomLine += delta;
+    }
+
+    // Now do cursor..
+    if (idxActiveLine < viewTopLine) {
+        logger->Error("idxActiveLine < viewTopLine!!!!!");
+    }
+    cursor.position.y = idxActiveLine - viewTopLine;
+}
+
+
 // This implements VSCode style of downwards navigation
 // Cursor if moved first then content (i.e if standing on first-line, the cursor is moved to the bottom line on first press)
-void VerticalNavigationViewModel::OnNavigateDownVSCode(Cursor &cursor, size_t rows, const Rect &rect, const size_t nItems) {
+void VerticalNavigationViewModel::OnNavigateDownVSCode(Cursor &cursor, size_t rows, const Rect &rect, size_t nItems) {
 
     auto logger = gnilk::Logger::GetLogger("VNavModel");
 
@@ -52,7 +94,7 @@ void VerticalNavigationViewModel::OnNavigateDownVSCode(Cursor &cursor, size_t ro
 //    logger->Debug("OnNavDownVSCode, activeLine=%d, rows=%d, ypos=%d, height=%d", idxActiveLine, rows, cursor.position.y, rect.Height());
 }
 
-void VerticalNavigationViewModel::OnNavigateUpVSCode(Cursor &cursor, size_t rows, const Rect &rect, const size_t nItems) {
+void VerticalNavigationViewModel::OnNavigateUpVSCode(Cursor &cursor, size_t rows, const Rect &rect, size_t nItems) {
     if (idxActiveLine < rows) {
         idxActiveLine = 0;
     } else {
@@ -63,7 +105,7 @@ void VerticalNavigationViewModel::OnNavigateUpVSCode(Cursor &cursor, size_t rows
     if (cursor.position.y < 0) {
         int delta = 0 - cursor.position.y;
         cursor.position.y = 0;
-        if (delta < viewTopLine) {
+        if (delta <= viewTopLine) {
             viewTopLine -= delta;
             viewBottomLine -= delta;
         }
@@ -76,7 +118,7 @@ void VerticalNavigationViewModel::OnNavigateUpVSCode(Cursor &cursor, size_t rows
 
 // CLion/Sublime style of navigation on pageup/down - this first moves the content and then adjust cursor
 // This moves content first and cursor rather stays
-void VerticalNavigationViewModel::OnNavigateDownCLion(Cursor &cursor, size_t rows, const Rect &rect, const size_t nItems) {
+void VerticalNavigationViewModel::OnNavigateDownCLion(Cursor &cursor, size_t rows, const Rect &rect, size_t nItems) {
 
     if (rows == 1) {
         return OnNavigateDownVSCode(cursor, rows, rect, nItems);
@@ -129,7 +171,9 @@ void VerticalNavigationViewModel::OnNavigateDownCLion(Cursor &cursor, size_t row
     logger->Debug("  After, topLine=%d, bottomLine=%d, activeLine=%d, cursor.y=%d", viewTopLine, viewBottomLine, idxActiveLine, cursor.position.y);
 }
 
-void VerticalNavigationViewModel::OnNavigateUpCLion(Cursor &cursor, size_t rows, const Rect &rect, const size_t nItems) {
+void VerticalNavigationViewModel::OnNavigateUpCLion(Cursor &cursor, size_t rows, const Rect &rect, size_t nItems) {
+
+    auto logger = gnilk::Logger::GetLogger("VNavModel");
 
     if (rows == 1) {
         return OnNavigateUpVSCode(cursor, rows, rect, nItems);
@@ -139,17 +183,19 @@ void VerticalNavigationViewModel::OnNavigateUpCLion(Cursor &cursor, size_t rows,
     int nRowsToMove = rows;
     bool forceCursorToFirstLine = false;
 
-    if ((viewTopLine - nRowsToMove) < 0) {
+    if (nRowsToMove > viewTopLine) {
         forceCursorToFirstLine = true;
         nRowsToMove = 0;
     }
 
 
-//    logger->Debug("OnNavUpCLion");
-//    logger->Debug("  nRowsToMove=%d, forceCursor=%s, nLines=%d, maxRows=%d",
-//                  nRowsToMove, forceCursorToFirstLine?"Y":"N", (int)editorModel->Lines().size(), maxRows);
-//    logger->Debug("  Before, topLine=%d, bottomLine=%d, activeLine=%d, cursor.y=%d", editorModel->viewTopLine, editorModel->viewBottomLine, editorModel->idxActiveLine, editorModel->cursor.position.y);
+    logger->Debug("OnNavUpCLion");
+    logger->Debug("  nRowsToMove=%d, forceCursor=%s, nLines=%zu, maxRows=%zu",
+                  nRowsToMove, forceCursorToFirstLine?"Y":"N", nItems, rows);
+    logger->Debug("  Before, topLine=%zu, bottomLine=%zu, activeLine=%zu, cursor.y=%d", viewTopLine, viewBottomLine, idxActiveLine, cursor.position.y);
 
+
+    // Can't move beyond topline...  size_t would mean underflow -> very high numbers
 
     // Reposition the view
     viewTopLine -= nRowsToMove;
@@ -169,5 +215,7 @@ void VerticalNavigationViewModel::OnNavigateUpCLion(Cursor &cursor, size_t rows,
             cursor.position.y = 0;
         }
     }
-    //logger->Debug("  After, topLine=%d, bottomLine=%d, activeLine=%d, cursor.y=%d", editorModel->viewTopLine, editorModel->viewBottomLine, editorModel->idxActiveLine, editorModel->cursor.position.y);
+    logger->Debug("  After, topLine=%zu, bottomLine=%zu, activeLine=%zu, cursor.y=%d", viewTopLine, viewBottomLine, idxActiveLine, cursor.position.y);
 }
+
+

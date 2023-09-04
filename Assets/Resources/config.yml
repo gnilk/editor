@@ -32,6 +32,7 @@ foldermonitor:
   # Note: for macos this can only be maximum 8 folders - or else!
   exclude:
     - ".git"
+    - ".idea"
     - "bld"
     - "cmake-build-debug"
     - "cmake-build-release"
@@ -42,7 +43,7 @@ foldermonitor:
 # note: DO NOT use the same filename as in the default configuration!
 #
 macos:
-  allow_kbd_hook: yes
+  allow_kbd_hook: no
   default_keymap: macOS/default_keymap.yml
   quickmode_keymap: macOS/quickmode_keymap.yml
   workspace_keymap: macOS/workspace_keymap.yml

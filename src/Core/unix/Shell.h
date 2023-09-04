@@ -31,6 +31,7 @@ namespace gedit {
             onStdout = handler;
         }
     private:
+        void ReadAndDispatch(FILE *fd, OutputDelegate onData);
         bool StartShellProc();
         void SendInitScript();
     private:

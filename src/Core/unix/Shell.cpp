@@ -16,6 +16,8 @@
 #include <sys/stat.h>
 #include <string.h>
 
+#include <poll.h>
+
 #include <logger.h>
 
 #include "Core/StrUtil.h"
@@ -147,6 +149,10 @@ int Shell::SendCmd(std::string &cmd) {
     return (write(infd[WRITE_END], cmd.c_str(), cmd.size()));
 }
 
+// Maximum 100ms per poll
+#ifndef GEDIT_DEFAULT_POLL_TMO_MS
+#define GEDIT_DEFAULT_POLL_TMO_MS 100
+#endif
 
 void Shell::ConsumePipes() {
     // PARENT
@@ -155,32 +161,47 @@ void Shell::ConsumePipes() {
         return;
     }
 
-    std::array<char, 256> buffer;
 
-//    StdOut.clear();
-//    StdErr.clear();
-    char *res;
-    auto fd = fdopen(outfd[READ_END],"r");
+    auto fdOut = fdopen(outfd[READ_END], "r");
+    auto fdErr = fdopen(errfd[READ_END], "r");
     ssize_t bytes = 0;
-    // TODO: Fix this - need select here
+
+    nfds_t nfds;
+    struct pollfd fds[2];
+
+    nfds = 2;
+    fds[0].fd = outfd[READ_END];
+    fds[0].events = POLLIN;
+    fds[1].fd = errfd[READ_END];
+    fds[1].events = POLLIN;
+
     while(true) {
-        do {
-            //bytes = ::read(outfd[READ_END], buffer.data(), buffer.size());
-            res = fgets(buffer.data(), buffer.size(), fd);
-            if ((onStdout != nullptr) && (res != NULL)) {
-                //printf("GOT: %s\n", buffer.data());
-                std::string str(buffer.data());
-                // Consider strip ANSI escape stuff...
-                onStdout(str);
-            }
-        } while (res != nullptr);
+        int poll_num = poll(fds, nfds, GEDIT_DEFAULT_POLL_TMO_MS);
+        if (poll_num == -1) {
+            if (errno == EINTR) continue;
+            logger->Error("poll error=%d:%s", errno, strerror(errno));
+            break;
+        }
+        if (poll_num == 0) continue;
+        if ((fds[0].revents & POLLIN) && (onStdout != nullptr)) {
+            ReadAndDispatch(fdOut, onStdout);
+        }
+        // STDERR handling doesn't quite work - no clue why...
+        // OR it seems the combo of stdout/stderr polling is causing problems
+        // needs more debugging...
+//        if ((fds[1].revents & POLLIN) && (onStdout != nullptr)) {
+//            ReadAndDispatch(fdErr, [this](std::string &str) {
+//                logger->Debug("stderr: %s", str.c_str());
+//            });
+//        }
+
     }
 
-    do {
-        bytes = ::read(errfd[READ_END], buffer.data(), buffer.size());
-//        StdErr.append(buffer.data(), bytes);
-    }
-    while(bytes > 0);
+//    do {
+//        bytes = ::read(errfd[READ_END], buffer.data(), buffer.size());
+////        StdErr.append(buffer.data(), bytes);
+//    }
+//    while(bytes > 0);
 
     int status = 0;
     waitpid(pid, &status, 0);
@@ -189,4 +210,17 @@ void Shell::ConsumePipes() {
         exitStatus = WEXITSTATUS(status);
     }
     CleanUp();
+}
+
+void Shell::ReadAndDispatch(FILE *fd, OutputDelegate onData) {
+    std::array<char, 256> buffer;
+    char *res;
+
+    do {
+        res = fgets(buffer.data(), buffer.size(), fd);
+        if ((res != nullptr) && (onStdout != nullptr)) {
+            std::string str(buffer.data());
+            onData(str);
+        }
+    } while(res != nullptr);
 }

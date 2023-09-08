@@ -3,15 +3,17 @@
 //
 /*
  * TO-DO List
+ * - Change loader to convert everything to UTF32 - for fast rendering
+ * - Need a new text renderer -> handling of unicode
  * + Exclude/Ignore directories for Monitor is a must
  *   Introduce a 'FolderMonitor' section in the config, should have 'Enable', 'Exclude'-list (glob-patterns)
  * - Monitoring a path that changes quickly (like the build directory) will cause seg-faults
  * - Undo does not properly reparse the area of the re-pasted data
- * - There are segfaults in copy/paste
+ * + There are segfaults in copy/paste
  * - Adding an additional ')' when the previous char is '(' should be ignored, typing: '(',')' inserts an extra ')'
  * - Terminal must forward stderr!!
- * - Revisit the 'Workspace::NewModel' and friends - there are too much similarity in these functions
- * - When creating a new model we should switch to it
+ * + Revisit the 'Workspace::NewModel' and friends - there are too much similarity in these functions
+ * - When creating a new model we should switch to it, also - it is created in the wrong folder..
  * - Save screen position and size upon resize/move and similar, restore on startup (use XDG state directory)
  * - Expose config from JS (set,get,list)
  *   Would be cool to just open the whole config folder as a workspace node..  <- consider this

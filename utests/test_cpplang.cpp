@@ -24,13 +24,13 @@ DLL_EXPORT int test_cpplang_indent(ITesting *t) {
     auto model = Editor::Instance().NewModel("test.cpp");
     auto buffer = model->GetTextBuffer();
 
-    buffer->AddLine("if (a==b) {");
-    buffer->AddLine("a");
-    buffer->AddLine("b");
-    buffer->AddLine("if (c==d) {");
-    buffer->AddLine("c");
-    buffer->AddLine("}");
-    buffer->AddLine("}");
+    buffer->AddLineUTF8("if (a==b) {");
+    buffer->AddLineUTF8("a");
+    buffer->AddLineUTF8("b");
+    buffer->AddLineUTF8("if (c==d) {");
+    buffer->AddLineUTF8("c");
+    buffer->AddLineUTF8("}");
+    buffer->AddLineUTF8("}");
 
     buffer->Reparse();
 
@@ -50,13 +50,13 @@ DLL_EXPORT int test_cpplang_elseindent(ITesting *t) {
     auto model = Editor::Instance().NewModel("test.cpp");
     auto buffer = model->GetTextBuffer();
 
-    buffer->AddLine("void func() {");
-    buffer->AddLine("    if (a==b) {");
-    buffer->AddLine("        ");
-    buffer->AddLine("    } else {");
-    buffer->AddLine("        ");
-    buffer->AddLine("    }");
-    buffer->AddLine("}");
+    buffer->AddLineUTF8("void func() {");
+    buffer->AddLineUTF8("    if (a==b) {");
+    buffer->AddLineUTF8("        ");
+    buffer->AddLineUTF8("    } else {");
+    buffer->AddLineUTF8("        ");
+    buffer->AddLineUTF8("    }");
+    buffer->AddLineUTF8("}");
 
     buffer->Reparse();
 

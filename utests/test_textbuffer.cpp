@@ -136,7 +136,7 @@ DLL_EXPORT int test_textbuffer_flatten(ITesting *t) {
     for(int i=0;i<10;i++) {
         char tmp[32];
         snprintf(tmp,32,"line %d",i);
-        buffer->AddLine(tmp);
+        buffer->AddLineUTF8(tmp);
     }
 
 

@@ -286,6 +286,7 @@ list(APPEND editorsrc src/Core/Plugins/PluginExecutor.cpp src/Core/Plugins/Plugi
 list(APPEND editorsrc src/Core/KeypressAndActionHandler.h)
 
 # utility stuff
+list(APPEND editorsrc src/Core/ConvertUTF.c src/Core/ConvertUTF.h)
 list(APPEND editorsrc src/Core/ColorRGBA.cpp src/Core/ColorRGBA.h)
 list(APPEND editorsrc src/Core/HexDump.cpp src/Core/HexDump.h)
 list(APPEND editorsrc src/Core/Glob.cpp src/Core/Glob.h)
@@ -293,6 +294,7 @@ list(APPEND editorsrc src/Core/NamedColors.cpp src/Core/NamedColors.h)
 list(APPEND editorsrc src/Core/PathUtil.cpp src/Core/PathUtil.h)
 list(APPEND editorsrc src/Core/StrUtil.cpp src/Core/StrUtil.h)
 list(APPEND editorsrc src/Core/TypeUtil.h)
+list(APPEND editorsrc src/Core/UnicodeHelper.cpp src/Core/UnicodeHelper.h)
 
 # Keyboard handling
 list(APPEND editorsrc src/Core/KeyPress.cpp src/Core/KeyPress.h)
@@ -452,6 +454,7 @@ list(APPEND utestsrc utests/test_editorapi.cpp)
 list(APPEND utestsrc utests/test_jsengine.cpp)
 list(APPEND utestsrc utests/test_keymapping.cpp)
 list(APPEND utestsrc utests/test_logger.cpp)
+list(APPEND utestsrc utests/test_strutil.cpp)
 list(APPEND utestsrc utests/test_textbuffer.cpp)
 list(APPEND utestsrc utests/test_theme.cpp)
 list(APPEND utestsrc utests/test_workspace.cpp)

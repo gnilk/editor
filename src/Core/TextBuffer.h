@@ -70,7 +70,7 @@ namespace gedit {
             ChangeBufferState(kBuffer_Changed);
         }
 
-        void AddLine(const char *textString) {
+        void AddLineUTF8(const char *textString) {
             auto newLine = Line::Create(textString);
             newLine->SetOnChangeDelegate([this](const Line &line){
                 OnLineChanged(line);

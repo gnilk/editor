@@ -16,7 +16,7 @@
 #include "Core/Language/LanguageTokenClass.h"
 
 #ifndef GEDIT_MAX_LINE_LENGTH
-#define GEDIT_MAX_LINE_LENGTH 1024
+#define GEDIT_MAX_LINE_LENGTH 65536
 #endif
 
 namespace gedit {
@@ -100,6 +100,7 @@ namespace gedit {
     private:
         std::mutex lock;
         bool isLocked = false;
+        //std::u32string buffer = U"";
         std::string buffer = "";
         std::vector<LineAttrib> attribs;
         //bool active = false;

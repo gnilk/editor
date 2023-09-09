@@ -19,7 +19,7 @@ TextBuffer::TextBuffer() {
 TextBuffer::Ref TextBuffer::CreateEmptyBuffer() {
     auto buffer = std::make_shared<TextBuffer>();
     buffer->logger = gnilk::Logger::GetLogger("TextBuffer");
-    buffer->AddLine("");
+    buffer->AddLineUTF8("");
     buffer->bufferState = kBuffer_Empty;
     return buffer;
 }
@@ -276,15 +276,29 @@ bool TextBuffer::Load(const std::filesystem::path &pathName) {
         return false;
     }
 
-    char tmp[GEDIT_MAX_LINE_LENGTH];
-    while(fgets(tmp, GEDIT_MAX_LINE_LENGTH, f)) {
-        AddLine(tmp);
+    static uint8_t tmp[GEDIT_MAX_LINE_LENGTH];
+
+    // Read first line and check BOM
+    if (fgets((char *)tmp, GEDIT_MAX_LINE_LENGTH, f)) {
+        // Check BOM on first line
+        if ((tmp[0] == 0xfe) && (tmp[1] == 0xff)) {
+            // remove BOM and proceed..
+            AddLineUTF8((char *) &tmp[2]);
+        } else {
+            AddLineUTF8((char *) tmp);
+        }
+        // Continue reading rest of file...
+        while(fgets((char *)tmp, GEDIT_MAX_LINE_LENGTH, f)) {
+            // BOM detection on first line
+            AddLineUTF8((char *) tmp);
+        }
     }
     fclose(f);
+
     // Ok, I admit - it never quite occured to me that we should open EMPTY files..  but of course we do (so do I)
     // We opened an empty file - let's add a dummy here
     if (lines.size() == 0) {
-        AddLine("");
+        AddLineUTF8("");
     }
     // Change state, do this before UpdateLang - since lang checks if loaded before allowing parse to happen
     ChangeBufferState(kBuffer_Loaded);

@@ -7,6 +7,7 @@
 
 #include "Core/StrUtil.h"
 #include "Core/Line.h"
+#include "Core/UnicodeHelper.h"
 
 using namespace gedit;
 
@@ -15,6 +16,8 @@ Line::Line() {
 }
 
 Line::Line(const char *data) {
+
+//    UnicodeHelper::ConvertUTF8ToUTF32(buffer, data);
     buffer = data;
     strutil::rtrim(buffer);
 }

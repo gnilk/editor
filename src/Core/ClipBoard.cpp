@@ -109,7 +109,7 @@ void ClipBoard::ClipBoardItem::PasteToBuffer(TextBuffer::Ref dstBuffer, const Po
         }
         auto substr = data[0].substr(start.x, dx);
         if (dstBuffer->NumLines() == 0) {
-            dstBuffer->AddLine(substr.data());
+            dstBuffer->AddLineUTF8(substr.data());
         } else if (ptWhere.x > dstBuffer->LineAt(idxLine)->Length()) {
             dstBuffer->LineAt(idxLine)->Append(substr);
         } else {

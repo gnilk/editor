@@ -33,6 +33,23 @@ namespace strutil {
         return ltrim(rtrim(str, chars), chars);
     }
 
+    std::u32string& ltrim(std::u32string  &str, const std::u32string &chars) {
+        str.erase(str.begin(), std::find_if(str.begin(), str.end(), [chars](char32_t ch) {
+            return (chars.find(ch) == std::u32string::npos);
+        }));
+        return str;
+    }
+    std::u32string& rtrim(std::u32string  &str, const std::u32string &chars) {
+        str.erase(std::find_if(str.rbegin(), str.rend(), [chars](char32_t ch) {
+            return (chars.find(ch) == std::u32string::npos);
+        }).base(), str.end());
+        return str;
+    }
+    std::u32string& trim(std::u32string  &str, const std::u32string &chars) {
+        return ltrim(rtrim(str, chars), chars);
+    }
+
+
     void split(std::vector<std::string> &strings, const char *strInput, int splitChar) {
         std::string input(strInput);
         size_t iPos = 0;

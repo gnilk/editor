@@ -5,6 +5,7 @@
 #include "UnicodeHelper.h"
 #include "ConvertUTF.h"
 
+// Check this one out: https://utfcpp.sourceforge.net/
 using namespace gedit;
 
 bool UnicodeHelper::ConvertUTF8ToUTF32String(std::u32string &out, const std::string &src) {
@@ -71,17 +72,18 @@ bool UnicodeHelper::ConvertUTF8ToASCII(std::string &out, const std::string &src)
         return true;
     }
 
-    const UTF8 *srcStart = reinterpret_cast<const UTF8 *>(&src[0]);
-    const UTF8 *srcEnd = &srcStart[src.length()];
-
-    out.reserve(src.length() + 1);
-    while(srcStart != srcEnd) {
-        auto codePoint = *srcStart;
-        if (!(codePoint & 0x80)) {
-            out.push_back((char)(codePoint & 0x7f));
-        }
-        srcStart++;
+    std::u32string stru32;
+    if (!UnicodeHelper::ConvertUTF8ToUTF32String(stru32, src)) {
+        return false;
     }
+    out.reserve(stru32.length() + 1);
+
+    for(auto codePoint : stru32) {
+        if (codePoint < 0x80) {
+            out.push_back(static_cast<char>(codePoint & 0x7f));
+        }
+    }
+
     // zero terminate this..
     out.push_back(0);
     out.pop_back();

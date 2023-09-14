@@ -13,7 +13,9 @@
 #include "EditorView.h"
 #include "Core/Editor.h"
 #include "Core/ActionHelper.h"
-#include <fmt/core.h>
+
+
+#include "fmt/xchar.h"
 
 using namespace gedit;
 
@@ -635,25 +637,14 @@ std::pair<std::u32string, std::u32string> EditorView::GetStatusBarInfo() {
 
     // resolve right status
     auto activeLine = model->GetTextBuffer()->LineAt(model->idxActiveLine);
-    char tmp[32];
 
-    // FIXME: Need a better snprintf for std::<t>string
-    // use: fmt?
+    // Show Line:Row or more 'x/y' -> Configureation!
+    auto strtmp = fmt::format(U"l: {}, c({}:{})",
+                              strutil::itou32(idxActiveLine),
+                              strutil::itou32(model->cursor.position.y),
+                              strutil::itou32(model->cursor.position.x));
 
-    //auto strtmp = fmt::format(U"l: {}, c({}:{})", strutil::itou32(idxActiveLine),strutil::itou32(model->cursor.position.x), strutil::itou32(model->cursor.position.x));
-    auto strtmp = U"l: " + strutil::itou32(idxActiveLine) + U", c(" + strutil::itou32(model->cursor.position.x) + U":" + strutil::itou32(model->cursor.position.x) + U")";
-
-
-//    snprintf(tmp,32,"l: %zu, c(%d:%d)",
-//             idxActiveLine,
-//             model->cursor.position.x, model->cursor.position.y);
-
-//    snprintf(tmp, 32, "Id: %d, Ln: %d, Col: %d",
-//             activeLine==nullptr?0:activeLine->Indent(),        // Line can be nullptr for 0 byte files..
-//             model->cursor.position.y,
-//             model->cursor.position.x);
     statusRight += strtmp;
-
 
     return {statusCenter, statusRight};
 }

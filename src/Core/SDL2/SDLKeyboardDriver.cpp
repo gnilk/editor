@@ -21,6 +21,7 @@
 #include "Core/RuntimeConfig.h"
 #include "Core/Editor.h"
 #include "Core/TextBuffer.h"
+#include "Core/UnicodeHelper.h"
 
 using namespace gedit;
 
@@ -65,7 +66,8 @@ KeyPress SDLKeyboardDriver::GetKeyPress() {
             kp.modifiers = TranslateModifiers(SDL_GetModState());
             // This seems to work, but I assume that we can get buffered input here
             // Need to check if there are some flags in SDL to deal with it
-            kp.key = event.text.text[0];
+            auto u32str = UnicodeHelper::utf8to32(event.text.text);
+            kp.key = u32str[0]; //event.text.text[0];
             logger->Debug("SDL_EVENT_TEXT_INPUT, event.text.text=%s", event.text.text);
             return kp;
         }  else if ((event.type == SDL_EventType::SDL_WINDOWEVENT) && (event.window.event == SDL_WINDOWEVENT_RESIZED)) {

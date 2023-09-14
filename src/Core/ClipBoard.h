@@ -34,7 +34,7 @@ namespace gedit {
             }
             size_t GetByteSize();
 
-            const std::vector<std::string> &GetData() {
+            const std::vector<std::u32string> &GetData() {
                 return data;
             }
             const Point &GetStart() {
@@ -55,7 +55,7 @@ namespace gedit {
             Point start = {};
             Point end = {};
             bool isExternal = false;
-            std::vector<std::string> data;
+            std::vector<std::u32string> data;
         };
     public:
         using OnUpdateDelegate = std::function<void(ClipBoard::ClipBoardItem::Ref item)>;

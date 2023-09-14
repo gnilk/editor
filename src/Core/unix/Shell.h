@@ -19,11 +19,11 @@
 namespace gedit {
     class Shell {
     public:
-        using OutputDelegate = std::function<void(std::string &)>;
+        using OutputDelegate = std::function<void(std::u32string &)>;
     public:
         bool Begin();
         void Close();
-        int SendCmd(std::string &cmd);
+        int SendCmd(std::u32string &cmd);
 
         void ConsumePipes();
         void CleanUp();

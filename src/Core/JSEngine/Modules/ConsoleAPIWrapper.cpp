@@ -54,6 +54,7 @@ duk_ret_t ConsoleAPIWrapper::WriteLine(duk_context *ctx) {
 
 void ConsoleAPIWrapper::SendToConsole(const char *str) {
     auto console = RuntimeConfig::Instance().OutputConsole();
-    console->WriteLine(str);
+    auto str32 = UnicodeHelper::utf8to32(str);
+    console->WriteLine(str32);
 }
 

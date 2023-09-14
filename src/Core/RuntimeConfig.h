@@ -26,7 +26,7 @@
 namespace gedit {
     class IOutputConsole {
     public:
-        virtual void WriteLine(const std::string &str) = 0;
+        virtual void WriteLine(const std::u32string &str) = 0;
     };
     // Should have active buffer
     class RuntimeConfig {
@@ -107,7 +107,9 @@ namespace gedit {
         // Not sure this should be here - perhaps rather in the editor...
         void RegisterPluginCommand(const PluginCommand::Ref pluginCommand);
         bool HasPluginCommand(const std::string &name);
+        bool HasPluginCommand(const std::u32string &name);
         PluginCommand::Ref GetPluginCommand(const std::string &name);
+        PluginCommand::Ref GetPluginCommand(const std::u32string &name);
         std::vector<PluginCommand::Ref> GetPluginCommands();
 
     private:

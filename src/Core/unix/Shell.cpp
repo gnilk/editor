@@ -19,7 +19,7 @@
 #include <poll.h>
 
 #include <logger.h>
-
+#include "Core/UnicodeHelper.h"
 #include "Core/StrUtil.h"
 #include "Core/Config/Config.h"
 #include "Shell.h"
@@ -128,8 +128,11 @@ void Shell::SendInitScript() {
     auto initScript = Config::Instance()["terminal"].GetSequenceOfStr("bootstrap");
     logger->Debug("Executing shell bootstrap script");
     for(auto &s : initScript) {
-        std::string strCmd(s);
-        strCmd += "\n";
+        std::u32string strCmd;
+        if (!UnicodeHelper::ConvertUTF8ToUTF32String(strCmd, s)) {
+            logger->Error("SendInitScript, failed to converts to u32 for '%s'", s.c_str());
+        }
+        strCmd += U"\n";
         SendCmd(strCmd);
     }
 }
@@ -145,8 +148,14 @@ void Shell::CleanUp() {
     ::close(errfd[WRITE_END]);
 }
 
-int Shell::SendCmd(std::string &cmd) {
-    return (write(infd[WRITE_END], cmd.c_str(), cmd.size()));
+int Shell::SendCmd(std::u32string &cmd) {
+
+    std::string strCmdUTF8;
+    if (!UnicodeHelper::ConvertUTF32ToUTF8String(strCmdUTF8, cmd)) {
+        logger->Error("SendCmd, failed to convert to UTF8!");
+        return -1;
+    }
+    return (write(infd[WRITE_END], strCmdUTF8.c_str(), strCmdUTF8.size()));
 }
 
 // Maximum 100ms per poll
@@ -219,7 +228,12 @@ void Shell::ReadAndDispatch(FILE *fd, OutputDelegate onData) {
     do {
         res = fgets(buffer.data(), buffer.size(), fd);
         if ((res != nullptr) && (onStdout != nullptr)) {
-            std::string str(buffer.data());
+
+            std::u32string str;
+            if (!UnicodeHelper::ConvertUTF8ToUTF32String(str, buffer.data())) {
+                logger->Error("ReadAndDispatch, failed to UTF32 conversion for '%s'",buffer.data());
+                continue;
+            }
             onData(str);
         }
     } while(res != nullptr);

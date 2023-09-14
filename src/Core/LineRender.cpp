@@ -72,12 +72,12 @@ void LineRender::DrawLineWithAttributesAt(int x, int y, int nCharToPrint, Line &
             return;
         }
         // Grab the substring for this attribute range
-        std::string strOut = std::string(l.Buffer().data(), itAttrib->idxOrigString, len);
+        auto strOut = std::u32string(l.Buffer().data(), itAttrib->idxOrigString, len);
 
         // Draw string with the correct color...
         auto [fgColor, bgColor] = Editor::Instance().ColorFromLanguageToken(itAttrib->tokenClass);
         dc.SetColor(fgColor, bgColor);
-        dc.DrawStringWithAttributesAt(xp,y, itAttrib->textAttributes, strOut.c_str());
+        dc.DrawStringWithAttributesAt(xp,y, itAttrib->textAttributes, strOut);
 
         xp += len;
         itAttrib = next;

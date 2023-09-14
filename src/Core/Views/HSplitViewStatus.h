@@ -25,7 +25,7 @@ namespace gedit {
         void SetWindowCursor(const Cursor &cursor) override;
 
     protected:
-        std::pair<std::string,std::string> GetStatusLineForTopview();
+        std::pair<std::u32string,std::u32string> GetStatusLineForTopview();
 
         void DrawSplitter(int row) override;
     private:

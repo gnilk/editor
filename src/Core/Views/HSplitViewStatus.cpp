@@ -32,12 +32,12 @@ void HSplitViewStatus::DrawSplitter(int row) {
     auto logger = gnilk::Logger::GetLogger("HSplitViewStatus");
     logger->Debug("DrawSplitter, row=%d, height=%d", row, dc.GetRect().Height());
 
-    std::string viewStatusCenter = {};
-    std::string viewStatusRight = {};
+    std::u32string viewStatusCenter = {};
+    std::u32string viewStatusRight = {};
 
     //model->cursor.position.x
-    std::string dummy(dc.GetRect().Width(), ' ');
-    std::string statusLine = " " + Editor::Instance().GetAppName() + " v" + Editor::Instance().GetVersion() + " | ";
+    std::u32string dummy(dc.GetRect().Width(), U' ');
+    std::u32string statusLine = U" " + Editor::Instance().GetAppName() + U" v" + Editor::Instance().GetVersion() + U" | ";
     // Indicate whatever the editor is in edit or cmd state.
     if (Editor::Instance().GetState() == Editor::QuickCommandState) {
         auto &quickController = Editor::Instance().GetQuickCommandController();
@@ -46,7 +46,7 @@ void HSplitViewStatus::DrawSplitter(int row) {
         statusLine += quickController.GetPrompt();
         auto currentCmdLine = quickController.GetCmdLine();
         statusLine += currentCmdLine;
-        statusLine += " | ";
+        statusLine += U" | ";
     }  else {
         std::tie(viewStatusCenter, viewStatusRight) = GetStatusLineForTopview();
         statusLine += viewStatusCenter;
@@ -63,24 +63,24 @@ void HSplitViewStatus::DrawSplitter(int row) {
     }
 }
 
-std::pair<std::string,std::string> HSplitViewStatus::GetStatusLineForTopview() {
-    std::string mainStatus = "";
-    std::string rightStatus = "";
+std::pair<std::u32string,std::u32string> HSplitViewStatus::GetStatusLineForTopview() {
+    std::u32string mainStatus = U"";
+    std::u32string rightStatus = U"";
 
     // This can be cleaned up - too convoluted...
     auto rootView = RuntimeConfig::Instance().GetRootViewAs<RootView>();
     if (rootView != nullptr) {
         auto view = rootView->TopView();
         if (view != nullptr) {
-            mainStatus += view->GetStatusBarAbbreviation() + " | ";
-            std::string strCenter;
+            mainStatus += view->GetStatusBarAbbreviation() + U" | ";
+            std::u32string strCenter;
             std::tie(strCenter, rightStatus) = view->GetStatusBarInfo();
             mainStatus += strCenter;
         } else {
-            mainStatus += "E | ";
+            mainStatus += U"E | ";
         }
     } else {
-        mainStatus += "E | ";
+        mainStatus += U"E | ";
     }
     return {mainStatus, rightStatus};
 }

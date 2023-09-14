@@ -19,8 +19,8 @@ namespace gedit {
 
 
         bool Initialize() override;
-        const std::string &Identifier() override {
-            static std::string cppIdentifier = "json";
+        const std::u32string &Identifier() override {
+            static std::u32string cppIdentifier = U"json";
             return cppIdentifier;
         }
 

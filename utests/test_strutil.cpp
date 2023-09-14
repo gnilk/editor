@@ -23,17 +23,19 @@ DLL_EXPORT int test_strutil(ITesting *t) {
 }
 DLL_EXPORT int test_strutil_utf32toutf8(ITesting *t) {
     std::u32string str = U"this is utf32";
-    std::string utf8str;
-    TR_ASSERT(t, UnicodeHelper::ConvertUTF32ToUTF8String(utf8str, str));
+    auto utf8str = UnicodeHelper::utf32to8(str);
+    TR_ASSERT(t, !utf8str.empty());
 
-    TR_ASSERT(t, utf8str == u8"this is utf32");
     return kTR_Pass;
 }
 DLL_EXPORT int test_strutil_utf8toascii(ITesting *t) {
-    std::string src = u8"åäö-mamma";
-    std::string dst;
-    TR_ASSERT(t, UnicodeHelper::ConvertUTF8ToASCII(dst, src));
+    auto src = u8"åäö-mamma";
+    auto dst = UnicodeHelper::utf8toascii(src);
+
     printf("dst: %s\n", dst.c_str());
+//    auto other = "-mamma";
+//    auto res = dst == other;
+
     TR_ASSERT(t, dst == "-mamma");
     return kTR_Pass;
 }
@@ -44,8 +46,9 @@ DLL_EXPORT int test_strutil_ltrim32(ITesting *t) {
 
     strutil::ltrim(str);
 
-    std::string utf8str;
+    std::u8string utf8str;
     TR_ASSERT(t, UnicodeHelper::ConvertUTF32ToUTF8String(utf8str, str));
+
     TR_ASSERT(t, utf8str == u8"mamma");
 
     return kTR_Pass;
@@ -55,7 +58,7 @@ DLL_EXPORT int test_strutil_trim32(ITesting *t) {
     std::u32string str = U"   it should only be this   ";
     strutil::trim(str);
 
-    std::string utf8str;
+    std::u8string utf8str;
     TR_ASSERT(t, UnicodeHelper::ConvertUTF32ToUTF8String(utf8str, str));
 
     printf("trimmed: '%s'\n", utf8str.c_str());

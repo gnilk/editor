@@ -9,7 +9,7 @@
 namespace gedit {
     class PluginExecutor {
     public:
-        static bool ParseAndExecuteWithCmdPrefix(const std::string &cmdline);
+        static bool ParseAndExecuteWithCmdPrefix(const std::u32string &cmdline);
     };
 }
 

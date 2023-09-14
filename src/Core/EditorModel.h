@@ -164,7 +164,7 @@ namespace gedit {
         void DeleteSelection();
         void CommentSelectionOrLine();
 
-        size_t SearchFor(const std::string &searchItem);
+        size_t SearchFor(const std::u32string &searchItem);
         void ClearSearchResults();
         bool HaveSearchResults() {
             return !searchResults.empty();

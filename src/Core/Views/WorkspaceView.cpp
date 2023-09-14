@@ -219,9 +219,9 @@ void WorkspaceView::OnActivate(bool isActive) {
     }
 }
 
-std::pair<std::string, std::string> WorkspaceView::GetStatusBarInfo() {
-    std::string strCenter = "apakaka";
-    std::string strRight = {};
+std::pair<std::u32string, std::u32string> WorkspaceView::GetStatusBarInfo() {
+    std::u32string strCenter = U"apakaka";
+    std::u32string strRight = {};
 
     auto node = treeView->GetCurrentSelectedItem();
     if (node == nullptr) {
@@ -242,6 +242,7 @@ std::pair<std::string, std::string> WorkspaceView::GetStatusBarInfo() {
         snprintf(tmp, 32, "---");
     }
 
-    strRight = tmp;
+    UnicodeHelper::ConvertUTF8ToUTF32String(strRight, tmp);
+
     return {strCenter, strRight};
 }

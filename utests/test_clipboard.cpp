@@ -99,7 +99,7 @@ DLL_EXPORT int test_clipboard_paste(ITesting *t) {
     }
 
     TR_ASSERT(t, dstBuffer->NumLines() == 3);
-    TR_ASSERT(t, lines[0]->Buffer() == "line 2");
+    TR_ASSERT(t, lines[0]->Buffer() == U"line 2");
     return kTR_Pass;
 }
 
@@ -129,7 +129,7 @@ DLL_EXPORT int test_clipboard_pastelineregion(ITesting *t) {
     }
 
     TR_ASSERT(t, dstBuffer->NumLines() == 3);
-    TR_ASSERT(t, lines[0]->Buffer() == "ne 2");
+    TR_ASSERT(t, lines[0]->Buffer() == U"ne 2");
     return kTR_Pass;
 }
 
@@ -160,7 +160,7 @@ DLL_EXPORT int test_clipboard_pasteregionover(ITesting *t) {
     }
 
     TR_ASSERT(t, dstBuffer->NumLines() == 11);
-    TR_ASSERT(t, lines[4]->Buffer() == "MAne 2MAMAMAMAMAMAMAMAM 4");
+    TR_ASSERT(t, lines[4]->Buffer() == U"MAne 2MAMAMAMAMAMAMAMAM 4");
     return kTR_Pass;
 }
 DLL_EXPORT int test_clipboard_copypasteexternal(ITesting *t) {

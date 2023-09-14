@@ -58,7 +58,7 @@ namespace gedit {
         protected:
             void Initialize() override;
         private:
-            std::string data = {};
+            std::u32string data = {};
         };
         class UndoItemRange : public UndoItem {
             friend UndoHistory;
@@ -75,7 +75,7 @@ namespace gedit {
         private:
             Point start = {};
             Point end = {};
-            std::vector<std::string> data;
+            std::vector<std::u32string> data;
         };
 
     public:

@@ -109,6 +109,21 @@ void SDLDrawContext::DrawLineOverlay(int y, const Overlay &overlay) const {
 
 }
 
+void SDLDrawContext::SetRenderColor() const {
+    SDLColor fgCol(fgColor);
+    fgCol.Use(renderer);
+}
+
+void SDLDrawContext::SetRenderColor(kTextAttributes attrib) const {
+    SDLColor col(fgColor);
+    if (attrib & kTextAttributes::kInverted) {
+        col = SDLColor(bgColor);
+    }
+    col.Use(renderer);
+
+}
+
+
 //
 // ALL CHARS ARE DRAWN BOTTOM UP
 // YPOS means the LOWER scanline of the text-texture
@@ -160,16 +175,48 @@ void SDLDrawContext::DrawStringWithAttributesAt(int x, int y, kTextAttributes at
     }
 }
 
-void SDLDrawContext::SetRenderColor() const {
-    SDLColor fgCol(fgColor);
-    fgCol.Use(renderer);
+void SDLDrawContext::DrawStringAt(int x, int y, const std::u32string &str) const {
+    auto font = SDLFontManager::Instance().GetActiveFont();
+
+    SDL_SetRenderTarget(renderer, renderTarget);
+    SetRenderColor();
+
+    auto [px, py] = CoordsToScreen(x, y);
+
+    STBTTF_RenderText(renderer, font, px, py + font->baseline, str);
 }
 
-void SDLDrawContext::SetRenderColor(kTextAttributes attrib) const {
-    SDLColor col(fgColor);
+void SDLDrawContext::DrawStringWithAttributesAt(int x, int y, kTextAttributes attrib, const std::u32string &str) const {
+    auto font = SDLFontManager::Instance().GetActiveFont();
+    SDL_SetRenderTarget(renderer, renderTarget);
+
+
+    // If we are inverted, flip the useage of color (Note: I know this can be a oneliner - perhaps in this case it would ease readability)
     if (attrib & kTextAttributes::kInverted) {
-        col = SDLColor(bgColor);
+        SDLColor(fgColor).Use(renderer);
+    } else {
+        SDLColor(bgColor).Use(renderer);
     }
-    col.Use(renderer);
+    // Fill the background, tell the fill-rect colors are already set...
+    FillRect(x, y, str.length(), 1, true);
 
+    // Now set the render colors
+    SetRenderColor(attrib);
+
+    // Translate coordinates and draw text...
+    auto [px, py] = CoordsToScreen(x, y);
+    STBTTF_RenderText(renderer, font, px, py + font->baseline, str);
+
+    // underlined???  draw a line under the text
+    if (attrib & kTextAttributes::kUnderline) {
+        auto margin = Config::Instance()["sdl"].GetInt("text_underline_margin",2);
+        if (margin > Config::Instance()["sdl"].GetInt("line_margin",4)) {
+            margin = Config::Instance()["sdl"].GetInt("line_margin",4) - 1;
+        }
+        DrawLineWithPixelOffset(x, y , x + str.length(), y,0,font->baseline+margin);
+    }
 }
+
+
+
+

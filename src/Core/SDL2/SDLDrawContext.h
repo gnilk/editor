@@ -35,6 +35,10 @@ namespace gedit {
         void DrawStringAt(int x, int y, const char *str) const override;
         void DrawStringWithAttributesAt(int x, int y, kTextAttributes attrib, const char *str) const override;
         void DrawStringWithAttributesAndColAt(int x, int y, kTextAttributes attrib, int idxColor, const char *str) const override;
+
+        void DrawStringAt(int x, int y, const std::u32string &str) const override;
+        void DrawStringWithAttributesAt(int x, int y, kTextAttributes attrib, const std::u32string &str) const override;
+
     protected:
         void SetRenderColor() const;
         void SetRenderColor(kTextAttributes attrib) const;

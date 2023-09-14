@@ -33,13 +33,13 @@ namespace gedit {
 
         bool OnAction(const KeyPressAction &kpAction) override;
 
-        const std::string &GetStatusBarAbbreviation() override {
-            static std::string defaultAbbr = "CMD";
+        const std::u32string &GetStatusBarAbbreviation() override {
+            static std::u32string defaultAbbr = U"CMD";
             return defaultAbbr;
         }
 
     public: // IOutputConsole
-         void WriteLine(const std::string &str) override;
+         void WriteLine(const std::u32string &str) override;
     protected:
         bool OnActionCommitLine();
     protected:

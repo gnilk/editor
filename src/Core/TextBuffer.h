@@ -70,13 +70,14 @@ namespace gedit {
             ChangeBufferState(kBuffer_Changed);
         }
 
+        void AddLine(const std::u32string string) {
+            auto newLine = Line::Create(string);
+            AddLine(newLine);
+        }
+
         void AddLineUTF8(const char *textString) {
             auto newLine = Line::Create(textString);
-            newLine->SetOnChangeDelegate([this](const Line &line){
-                OnLineChanged(line);
-            });
-            lines.push_back(newLine);
-            ChangeBufferState(kBuffer_Changed);
+            AddLine(newLine);
         }
 
         void Insert(size_t idxPos, Line::Ref line) {
@@ -87,10 +88,6 @@ namespace gedit {
             lines.insert(it, line);
             ChangeBufferState(kBuffer_Changed);
         }
-        void Insert(size_t idxPos, const std::string &text) {
-            auto newLine = Line::Create(text);
-            Insert(idxPos, newLine);
-        }
 
         void Insert(std::vector<Line::Ref>::const_iterator it, Line::Ref line) {
             line->SetOnChangeDelegate([this](const Line &line){
@@ -98,6 +95,17 @@ namespace gedit {
             });
             lines.insert(it, line);
             ChangeBufferState(kBuffer_Changed);
+        }
+
+
+        void Insert(size_t idxPos, const std::string &text) {
+            auto newLine = Line::Create(text);
+            Insert(idxPos, newLine);
+        }
+
+        void Insert(size_t idxPos, const std::u32string &text) {
+            auto newLine = Line::Create(text);
+            Insert(idxPos, newLine);
         }
 
         const std::vector<Line::Ref> &Lines() { return lines; }
@@ -121,7 +129,7 @@ namespace gedit {
             ChangeBufferState(kBuffer_Changed);
         }
 
-        void CopyRegionToString(std::string &outText, const Point &start, const Point &end);
+        void CopyRegionToString(std::u32string &outText, const Point &start, const Point &end);
 
         void SetLanguage(LanguageBase::Ref newLanguage) {
             language = newLanguage;

@@ -4,7 +4,7 @@
 #
 cmake_minimum_required(VERSION 3.22)
 project(goatedit VERSION 0.1)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 
 # When changing the Assets/CMake/Info.plist.in - which will rebuild the bundle Info.plist we must
 # reset the cache in macos for this to take effect...
@@ -22,6 +22,7 @@ option(GEDIT_BUILD_SDL3 "Build SDL3" OFF)
 option(GEDIT_BUILD_SDL2 "Build SDL2" ON)
 
 set(SDL_HOME /usr/local)
+
 
 list(APPEND appsrc main.cpp)
 
@@ -48,6 +49,10 @@ if (NOT EXISTS ${CMAKE_SOURCE_DIR}/ext/dukglue)
     execute_process(COMMAND git clone https://github.com/Aloshi/dukglue ${CMAKE_SOURCE_DIR}/ext/dukglue)
 endif ()
 
+if (NOT EXISTS ${CMAKE_SOURCE_DIR}/ext/fmt)
+    message(WARNING "Installing fmt library")
+    execute_process(COMMAND git clone https://github.com/fmtlib/fmt ${CMAKE_SOURCE_DIR}/ext/fmt)
+endif()
 #
 # Note: This won't fly as we need to pre-process this further...
 #
@@ -250,12 +255,17 @@ target_compile_definitions(${CUR_TARGET} PUBLIC GEDIT_VERSION_PATCH=0)
 set(DUKTAPE_HOME ext/duktape-2.7.0/src)
 set(DUKTAPE_EXTRAS ext/duktape-2.7.0/extras)
 set(DUKGLUE_HOME ext/dukglue)
+set(FMT_HOME ext/fmt)
+
 
 list(APPEND duktape ${DUKTAPE_HOME}/duktape.c ${DUKTAPE_HOME}/duk_config.h ${DUKTAPE_HOME}/duktape.h)
 list(APPEND duktape ${DUKTAPE_EXTRAS}/module-node/duk_module_node.c)
 
 add_subdirectory(ext/logger ${CMAKE_BINARY_DIR}/logger)
 list(APPEND extlibs logger)
+
+add_subdirectory(ext/fmt ${CMAKE_BINARY_DIR}/fmt)
+list(APPEND extlibs fmt)
 
 #
 # Editor
@@ -432,6 +442,7 @@ list(APPEND includedirs ${SDL_HOME}/include)
 list(APPEND includedirs ${DUKGLUE_HOME}/include)
 list(APPEND includedirs ${DUKTAPE_HOME})
 list(APPEND includedirs ${DUKTAPE_EXTRAS}/module-node)
+list(APPEND includedirs ${FMT_HOME}/include)
 
 
 

@@ -21,7 +21,7 @@ void CommandController::Begin() {
 
     NewLine();
 
-    terminal.SetStdoutDelegate([this](std::string &output) {
+    terminal.SetStdoutDelegate([this](std::u32string &output) {
         WriteLine(output);
     });
 
@@ -39,7 +39,7 @@ void CommandController::NewLine() {
     }
 }
 
-void CommandController::WriteLine(const std::string &str) {
+void CommandController::WriteLine(const std::u32string &str) {
     // Let's append to current line and commit to history buffer
     currentLine->Append(str);
     historyBuffer.push_back(currentLine);
@@ -61,7 +61,7 @@ void CommandController::CommitLine() {
     // When a line is commited, it is history..
     historyBuffer.push_back(currentLine);
 
-    std::string cmdLine(currentLine->Buffer().data());
+    std::u32string cmdLine(currentLine->Buffer());
     if (cmdLine.size() < 1) {
         NewLine();
         return;
@@ -75,14 +75,14 @@ void CommandController::CommitLine() {
     TryExecuteShellCmd(cmdLine);
 }
 
-void CommandController::TryExecuteShellCmd(std::string &cmdline) {
+void CommandController::TryExecuteShellCmd(std::u32string &cmdline) {
     // Just push this to the shell "process"...
     strutil::trim(cmdline);
     logger->Debug("Trying shell: %s", cmdline.c_str());
 
     // Make sure to append CRLN otherwise the shell won't execute...
     // Should this be configurable??
-    cmdline += "\n";
+    cmdline += U"\n";
     terminal.SendCmd(cmdline);
 
     // We have executed the shell - even though it might require a long time to execute this is needed

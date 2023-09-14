@@ -27,8 +27,8 @@ namespace gedit {
 
         // Implement this and setup the tokenizer
         virtual bool Initialize() { return false; }; // You should really implement this...
-        virtual const std::string &Identifier() {
-            static std::string noIdentifier = "default";
+        virtual const std::u32string &Identifier() {
+            static std::u32string noIdentifier = U"default";
             return noIdentifier;
         }
         LangLineTokenizer &Tokenizer() { return tokenizer; }

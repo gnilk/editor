@@ -144,7 +144,7 @@ void CommandView::DrawViewContents() {
 }
 
 // impl of IOutputConsole
-void CommandView::WriteLine(const std::string &str) {
+void CommandView::WriteLine(const std::u32string &str) {
     commandController.WriteLine(str);
     InvalidateView();
 }

@@ -109,7 +109,7 @@ void UndoHistory::UndoItemRange::InitRange(const gedit::Point &ptStart, const ge
 
     for(int y=start.y; y < end.y; y++) {
         auto line = model->LineAt(y);
-        data.push_back(std::string(line->Buffer()));
+        data.push_back(line->Buffer());
     }
 }
 void UndoHistory::UndoItemRange::Restore(TextBuffer::Ref textBuffer) {

@@ -244,10 +244,10 @@ void TextBuffer::ExecuteRegionParse(size_t idxLineStart, size_t idxLineEnd) {
     parseMetrics.region += 1;
 }
 
-void TextBuffer::CopyRegionToString(std::string &outText, const Point &start, const Point &end) {
+void TextBuffer::CopyRegionToString(std::u32string &outText, const Point &start, const Point &end) {
     for (int idxLine=start.y;idxLine<end.y;idxLine++) {
         outText += lines[idxLine]->Buffer();
-        outText += "\n";
+        outText += U"\n";
     }
 }
 
@@ -330,15 +330,16 @@ bool TextBuffer::DoSave(const std::filesystem::path &pathName, bool skipChangeCh
         logger->Error("Failed to save buffer, err: %d:%s", errno, strerror(errno));
 
         // Best dump this to the console as well..
-        std::string strError = "Unable to save file, err: ";
-        strError += strerror(errno);
+        std::u32string strError = U"Unable to save file, err: ";
+        strError += UnicodeHelper::utf8to32(strerror(errno));
         RuntimeConfig::Instance().OutputConsole()->WriteLine(strError);
         return false;
     }
 
     // Actual writing of data...
     for (auto &l: lines) {
-        fprintf(f,"%s\n", l->Buffer().data());
+        auto utf8 = UnicodeHelper::utf32to8(l->Buffer());
+        fprintf(f,"%s\n", utf8.data());
     }
     fclose(f);
 

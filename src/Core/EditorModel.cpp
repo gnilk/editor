@@ -44,7 +44,7 @@ void EditorModel::CommentSelectionOrLine() {
 }
 
 // This is a little naive and I should probably spin it of to a specific thread
-size_t EditorModel::SearchFor(const std::string &searchItem) {
+size_t EditorModel::SearchFor(const std::u32string &searchItem) {
 
     auto tStart = std::chrono::steady_clock::now();
 

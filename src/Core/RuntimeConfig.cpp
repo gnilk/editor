@@ -2,6 +2,7 @@
 // Created by gnilk on 14.01.23.
 //
 #include "Core/RuntimeConfig.h"
+#include "Core/UnicodeHelper.h"
 
 #ifdef GEDIT_MACOS
 #include "Core/macOS/MacOSFolderMonitor.h"
@@ -31,12 +32,21 @@ bool RuntimeConfig::HasPluginCommand(const std::string &name) {
     }
     return false;
 }
+bool RuntimeConfig::HasPluginCommand(const std::u32string &name) {
+    // We insert the same plugin command twice, once with the short name and one with the full name...
+    auto name8 = UnicodeHelper::utf32to8(name);
+    return HasPluginCommand(name8);
+}
 
 PluginCommand::Ref RuntimeConfig::GetPluginCommand(const std::string &name) {
     if (!HasPluginCommand(name)) {
         return nullptr;
     }
     return pluginCommands[name];
+}
+PluginCommand::Ref RuntimeConfig::GetPluginCommand(const std::u32string &name) {
+    auto name8 = UnicodeHelper::utf32to8(name);
+    return GetPluginCommand(name8);
 }
 
 std::vector<PluginCommand::Ref> RuntimeConfig::GetPluginCommands() {

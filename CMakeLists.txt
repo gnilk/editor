@@ -264,7 +264,7 @@ list(APPEND duktape ${DUKTAPE_EXTRAS}/module-node/duk_module_node.c)
 add_subdirectory(ext/logger ${CMAKE_BINARY_DIR}/logger)
 list(APPEND extlibs logger)
 
-add_subdirectory(ext/fmt ${CMAKE_BINARY_DIR}/fmt)
+add_subdirectory(ext/fmt ${CMAKE_BINARY_DIR}/fmt EXCLUDE_FROM_ALL)
 list(APPEND extlibs fmt)
 
 #

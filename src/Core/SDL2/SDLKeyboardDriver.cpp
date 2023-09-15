@@ -342,20 +342,21 @@ uint8_t SDLKeyboardDriver::TranslateModifiers(const uint16_t sdlModifiers) {
 
 // We hook the clipboard in the keyboard driver as this is the one processing messages
 void SDLKeyboardDriver::HookEditorClipBoard() {
-    Editor::Instance().GetClipBoard().SetOnUpdateCallback([](ClipBoard::ClipBoardItem::Ref clipBoardItem) {
-        auto &srcData = clipBoardItem->GetData();
-        auto nBytes = clipBoardItem->GetByteSize();
 
-        char *sdlClipBoardText = (char *)malloc(nBytes + 10); // better safe than sorry?
+    Editor::Instance().GetClipBoard().SetOnUpdateCallback([](ClipBoard::ClipBoardItem::Ref clipBoardItem) {
+        // We paste this to an empty buffer, then we flatten that buffer and convert to UTF8..
+        // Candidate for optimization - the 'PasteToBuffer' can be avoided and we can directly create the UTF8 buffer
+        // but it feels like a premature optimization at this point...
 
         auto dstBuffer = TextBuffer::CreateEmptyBuffer();
+        std::u32string flattenedText;
+
         clipBoardItem->PasteToBuffer(dstBuffer, {0,0});
+        dstBuffer->Flatten(flattenedText, 0, clipBoardItem->GetLineCount());
 
-        dstBuffer->Flatten(sdlClipBoardText, nBytes, 0, clipBoardItem->GetLineCount());
+        auto utf8str = UnicodeHelper::utf32to8(flattenedText);
 
-        SDL_SetClipboardText(sdlClipBoardText);
-        free(sdlClipBoardText);
-        // dstBuffer freed automatically when it goes out of scope...
+        SDL_SetClipboardText(utf8str.c_str());
     });
 }
 

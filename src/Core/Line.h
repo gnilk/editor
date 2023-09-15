@@ -80,8 +80,10 @@ namespace gedit {
         bool StartsWith(const std::u32string &prefix);
 
         size_t Length() const { return buffer.length(); }
+
         const std::u32string_view BufferView() const { return buffer.c_str(); }
         const std::u32string &Buffer() const { return buffer; }
+        const std::string BufferAsUTF8() const;
 
         void Lock();
         void Release();

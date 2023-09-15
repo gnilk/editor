@@ -139,7 +139,7 @@ namespace gedit {
         // Flatten the buffer to a regular char array with CRLN
         // nLines = 0, process as much data as possible..
         // returns the number of line..
-        size_t Flatten(char *outBuffer, size_t maxBytes, size_t idxFromLine, size_t nLines);
+        size_t Flatten(std::u32string &out, size_t idxFromLine, size_t nLines);
 
         bool HaveLanguage() { return language!= nullptr; }
         LanguageBase &GetLanguage() { return *language; }

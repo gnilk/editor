@@ -246,3 +246,8 @@ bool Line::StartsWith(const std::u32string &prefix) {
     return strutil::startsWith(buffer, prefix);
 }
 
+const std::string Line::BufferAsUTF8() const {
+    return UnicodeHelper::utf32to8(buffer);
+}
+
+

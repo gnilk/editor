@@ -36,7 +36,7 @@ DLL_EXPORT int test_cpplang_indent(ITesting *t) {
 
     for(int i=0;i<buffer->NumLines();i++) {
         auto line = buffer->LineAt(i);
-        printf("%d: indent: %d - data: %s\n", i, line->Indent(), line->Buffer().data());
+        printf("%d: indent: %d - data: %s\n", i, line->Indent(), line->BufferAsUTF8().c_str());
     }
 
     return kTR_Pass;
@@ -63,7 +63,7 @@ DLL_EXPORT int test_cpplang_elseindent(ITesting *t) {
     static int correntIndent[]={0,0,1,2,1,2,1,0};
     for(int i=0;i<buffer->NumLines();i++) {
         auto line = buffer->LineAt(i);
-        printf("%d: indent: %d - data: %s\n", i, line->Indent(), line->Buffer().data());
+        printf("%d: indent: %d - data: %s\n", i, line->Indent(), line->BufferAsUTF8().c_str());
         TR_ASSERT(t, line->Indent() == correntIndent[i]);
     }
 

@@ -9,6 +9,7 @@
 #include <thread>
 #include <filesystem>
 #include <fstream>
+#include <sstream>
 
 
 using namespace gedit;
@@ -383,7 +384,11 @@ void TextBuffer::OnLineChanged(const Line &line) {
     ChangeBufferState(kBuffer_Changed);
 }
 
-size_t TextBuffer::Flatten(char *outBuffer, size_t maxBytes, size_t idxFromLine, size_t nLines) {
+//
+// Flattens a number of lines and adds to 'out' - will insert CRLN at end of each line
+//
+size_t TextBuffer::Flatten(std::u32string &out, size_t idxFromLine, size_t nLines) {
+
     size_t linesCopied = 0;
     if (idxFromLine >= NumLines()) {
         return linesCopied;
@@ -392,6 +397,7 @@ size_t TextBuffer::Flatten(char *outBuffer, size_t maxBytes, size_t idxFromLine,
         nLines = NumLines();
     }
     size_t idxBuffer = 0;
+    out.clear();
 
     for(size_t i=0;i<nLines;i++) {
         auto l = LineAt(i + idxFromLine);
@@ -399,8 +405,12 @@ size_t TextBuffer::Flatten(char *outBuffer, size_t maxBytes, size_t idxFromLine,
         if (l == nullptr) {
             return linesCopied;
         }
-        snprintf(&outBuffer[idxBuffer], maxBytes - idxBuffer, "%s\n", l->Buffer().data());
-        idxBuffer += l->Length() + sizeof('\n');
+        out += l->Buffer();
+        out += U"\n";
+//        auto strutf8 = UnicodeHelper::utf32to8(l->Buffer());
+//
+//        snprintf(&outBuffer[idxBuffer], maxBytes - idxBuffer, "%s\n", l->Buffer().data());
+//        idxBuffer += l->Length() + sizeof('\n');
         linesCopied++;
     }
     return linesCopied;

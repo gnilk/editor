@@ -3,6 +3,7 @@
 //
 #include <testinterface.h>
 #include <string>
+#include <locale>
 
 #include "Core/StrUtil.h"
 #include "Core/UnicodeHelper.h"
@@ -16,6 +17,7 @@ DLL_EXPORT int test_strutil_utf32toutf8(ITesting *t);
 DLL_EXPORT int test_strutil_utf8toascii(ITesting *t);
 DLL_EXPORT int test_strutil_ltrim32(ITesting *t);
 DLL_EXPORT int test_strutil_trim32(ITesting *t);
+DLL_EXPORT int test_strutil_ucode(ITesting *t);
 }
 
 DLL_EXPORT int test_strutil(ITesting *t) {
@@ -64,6 +66,38 @@ DLL_EXPORT int test_strutil_trim32(ITesting *t) {
     printf("trimmed: '%s'\n", utf8str.c_str());
 
     TR_ASSERT(t, utf8str == u8"it should only be this");
+
+    return kTR_Pass;
+}
+
+// This just tests a few unicode things..
+DLL_EXPORT int test_strutil_ucode(ITesting *t) {
+
+
+    std::vector<std::u32string> lines = {
+            U"line a",
+            U"line b",
+            U"line c",
+    };
+    // flatten
+    std::u32string flattened;
+    for(auto &l : lines) {
+        flattened += l;
+        flattened += U"\n";
+    }
+    auto utf8str = UnicodeHelper::utf32to8(flattened);
+    printf("result, %zu bytes:\n'%s'\n", utf8str.length(), utf8str.c_str());
+
+    // Checking the length/size stuff UTF32 vs UTF8
+
+
+    std::u8string u8str = u8"åäö";
+    std::u32string u32str = U"åäö";
+
+    // Both returns the number of code-points (?), and u8 requires 2 code points per char
+    printf("u32 len=%zu, size=%zu\n", u32str.length(), u32str.size());
+    printf("u8  len=%zu, size=%zu\n", u8str.length(), u8str.size());
+
 
     return kTR_Pass;
 }

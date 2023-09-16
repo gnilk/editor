@@ -478,6 +478,12 @@ void EditorView::UpdateModelFromNavigation(bool updateCursor) {
     }
 
     auto currentLine = editorModel->LineAt(editorModel->idxActiveLine);
+    if (currentLine == nullptr) {
+        editorModel->cursor.position.x = 0;
+        editorModel->cursor.position.y = 0;
+        editorModel->cursor.wantedColumn = 0;
+        return;
+    }
     editorModel->cursor.position.x = editorModel->cursor.wantedColumn;
     if (editorModel->cursor.position.x > (int) currentLine->Length()) {
         editorModel->cursor.position.x = (int) currentLine->Length();

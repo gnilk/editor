@@ -353,7 +353,8 @@ namespace gedit {
 
                     auto &folderMonitor = RuntimeConfig::Instance().GetFolderMonitor();
                     changeMonitor = folderMonitor.CreateMonitorPoint(rootPath, [this](const std::filesystem::path &path, FolderMonitor::kChangeFlags flags) -> void {
-                        OnMonitorEvent(path, flags);
+                        // FIXME: This won't work right now - IF we monitor the build folder...
+                        // OnMonitorEvent(path, flags);
                     });
                 }
 

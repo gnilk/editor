@@ -119,6 +119,8 @@ void LinuxFolderMonitorPoint::ScanThread() {
 
 // Process one event structure at the time from inotify
 void LinuxFolderMonitorPoint::ProcessEvent(struct inotify_event *event) {
+    printf("mask: 0x%x\n",event->mask);
+
     if (!((event->mask & IN_CREATE) || (event->mask & IN_DELETE)))
         return;
    if (event->len <= 0)
@@ -170,7 +172,7 @@ void LinuxFolderMonitorPoint::StartWatchers() {
             continue;
         }
         // FIXME: No need to pass in 'IN_ALL_EVENTS'
-        item.wd = inotify_add_watch(iNotifyFd, item.path.c_str(), IN_ALL_EVENTS);
+        item.wd = inotify_add_watch(iNotifyFd, item.path.c_str(), IN_ONESHOT | IN_CREATE | IN_DELETE);
         if (item.wd < 0) {
             logger->Debug("Failed watcher on item: %s\n", item.path.c_str());
         }

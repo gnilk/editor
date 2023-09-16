@@ -265,6 +265,7 @@ add_subdirectory(ext/logger ${CMAKE_BINARY_DIR}/logger)
 list(APPEND extlibs logger)
 
 add_subdirectory(ext/fmt ${CMAKE_BINARY_DIR}/fmt EXCLUDE_FROM_ALL)
+set_property(TARGET fmt PROPERTY POSITION_INDEPENDENT_CODE ON)
 list(APPEND extlibs fmt)
 
 #

@@ -5,6 +5,7 @@
 #include "logger.h"
 #include "Core/Editor.h"
 #include "Core/RuntimeConfig.h"
+#include "Core/UnicodeHelper.h"
 
 using namespace gedit;
 
@@ -14,12 +15,13 @@ extern "C" {
 
 class UTestConsole : public IOutputConsole {
 public:
-    void WriteLine(const std::string &str) override;
+    void WriteLine(const std::u32string &str) override;
 };
 static UTestConsole utestConsole;
 
-void UTestConsole::WriteLine(const std::string &str) {
-    fprintf(stdout, "%s\n", str.c_str());
+void UTestConsole::WriteLine(const std::u32string &str) {
+    auto str8 = UnicodeHelper::utf32toascii(str);
+    fprintf(stdout, "%s\n", str8.c_str());
     fflush(stdout);
 }
 

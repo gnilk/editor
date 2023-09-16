@@ -14,6 +14,9 @@
 #include "Core/Editor.h"
 #include "Core/ActionHelper.h"
 
+
+#include "fmt/xchar.h"
+
 using namespace gedit;
 
 // This is the global section in the config.yml for this view
@@ -610,9 +613,9 @@ void EditorView::SetWindowCursor(const Cursor &cursor) {
 }
 
 // returns the center and right side information for the status bar
-std::pair<std::string, std::string> EditorView::GetStatusBarInfo() {
-    std::string statusCenter = "";
-    std::string statusRight = "";
+std::pair<std::u32string, std::u32string> EditorView::GetStatusBarInfo() {
+    std::u32string statusCenter = U"";
+    std::u32string statusRight = U"";
     // If we have a model - draw details...
     auto node = Editor::Instance().GetWorkspaceNodeForActiveModel();
     if (node == nullptr) {
@@ -625,33 +628,29 @@ std::pair<std::string, std::string> EditorView::GetStatusBarInfo() {
 
     // Resolve center information
     if (model->GetTextBuffer()->GetBufferState() == TextBuffer::kBuffer_Changed) {
-        statusCenter += "* ";
+        statusCenter += U"* ";
     }
     if (model->GetTextBuffer()->IsReadOnly()) {
-        statusCenter += "R/O ";
+        statusCenter += U"R/O ";
     }
 
-    statusCenter += node->GetDisplayName();
-    statusCenter += " | ";
+    statusCenter += node->GetDisplayNameU32();
+    statusCenter += U" | ";
     if (!model->GetTextBuffer()->CanEdit()) {
-        statusCenter += "[locked] | ";
+        statusCenter += U"[locked] | ";
     }
-    statusCenter += model->GetTextBuffer()->HaveLanguage() ? model->GetTextBuffer()->GetLanguage().Identifier()                 : "none";
+    statusCenter += model->GetTextBuffer()->HaveLanguage() ? model->GetTextBuffer()->GetLanguage().Identifier() : U"none";
 
     // resolve right status
     auto activeLine = model->GetTextBuffer()->LineAt(model->idxActiveLine);
-    char tmp[32];
 
-    snprintf(tmp,32,"l: %zu, c(%d:%d)",
-             idxActiveLine,
-             model->cursor.position.x, model->cursor.position.y);
+    // Show Line:Row or more 'x/y' -> Configureation!
+    auto strtmp = fmt::format(U"l: {}, c({}:{})",
+                              strutil::itou32(idxActiveLine),
+                              strutil::itou32(model->cursor.position.y),
+                              strutil::itou32(model->cursor.position.x));
 
-//    snprintf(tmp, 32, "Id: %d, Ln: %d, Col: %d",
-//             activeLine==nullptr?0:activeLine->Indent(),        // Line can be nullptr for 0 byte files..
-//             model->cursor.position.y,
-//             model->cursor.position.x);
-    statusRight += tmp;
-
+    statusRight += strtmp;
 
     return {statusCenter, statusRight};
 }

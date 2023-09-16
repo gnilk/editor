@@ -27,10 +27,10 @@ namespace gedit {
         bool HandleAction(const KeyPressAction &kpAction) override;
         void HandleKeyPress(const KeyPress &keyPress) override;
 
-        const std::string_view GetCmdLine() const {
+        const std::u32string_view GetCmdLine() const {
             return cmdInput->Buffer();
         }
-        const std::string &GetPrompt() const {
+        const std::u32string &GetPrompt() const {
             return prompt;
         }
         const Cursor &GetCursor() const {
@@ -41,7 +41,7 @@ namespace gedit {
         bool HandleActionInSearch(const KeyPressAction &kpAction);
         bool HandleActionInCmdLetState(const KeyPressAction &kpAction);
         void DoLeaveOnSuccess();
-        void SearchInActiveEditorModel(const std::string &searchItem);
+        void SearchInActiveEditorModel(const std::u32string &searchItem);
         void NextSearchResult();
         void PrevSearchResult();
     private:
@@ -51,8 +51,8 @@ namespace gedit {
         BaseController cmdInputBaseController;
         Cursor cursor = {};
         Line::Ref cmdInput = nullptr;
-        std::vector<std::string> searchHistory;
-        std::string prompt = "C";
+        std::vector<std::u32string> searchHistory;
+        std::u32string prompt = U"C";
         State state = QuickCmdState;
     };
 }

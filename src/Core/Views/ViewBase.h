@@ -228,12 +228,12 @@ namespace gedit {
         }
 
         // Override this in any TOPVIEW (i.e. views that can receive input) class to show an short for the active view in the statusbar
-        virtual const std::string &GetStatusBarAbbreviation() {
-            static std::string defaultAbbr = "X";
+        virtual const std::u32string &GetStatusBarAbbreviation() {
+            static std::u32string defaultAbbr = U"X";
             return defaultAbbr;
         }
-        virtual std::pair<std::string, std::string> GetStatusBarInfo() {
-            return {"",""};
+        virtual std::pair<std::u32string, std::u32string> GetStatusBarInfo() {
+            return {U"",U""};
         }
         //
         // Override these to handles, they are called in an event kind of manner on certain actions

@@ -20,8 +20,8 @@ namespace gedit {
 
         bool Initialize() override;
 
-        const std::string &Identifier() override {
-            static std::string identifier = "default";
+        const std::u32string &Identifier() override {
+            static std::u32string identifier = U"default";
             return identifier;
         }
     };

@@ -38,11 +38,12 @@ namespace gedit {
 
 
         // This is from IOutputConsole - which is/was used by the expermintal API
-        void WriteLine(const std::string &str);
+        void WriteLine(const std::u32string &str);
+
 
     protected:
         void NewLine();
-        void TryExecuteShellCmd(std::string &cmdline);
+        void TryExecuteShellCmd(std::u32string &cmdline);
 
 
         void TestShowDialog();

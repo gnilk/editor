@@ -144,8 +144,8 @@ namespace gedit {
             return theme;
         }
 
-        const std::string &GetAppName();
-        const std::string &GetVersion();
+        const std::u32string &GetAppName();
+        const std::u32string &GetVersion();
 
 
         EditorModel::Ref OpenModelFromWorkspace(Workspace::Node::Ref workspaceNode);

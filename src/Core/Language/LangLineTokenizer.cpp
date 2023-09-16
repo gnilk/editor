@@ -113,7 +113,12 @@ void LangLineTokenizer::ParseLine(const Line::Ref l, int &nextIndent) {
     int currentIndentCounter = nextIndent;
 
     l->SetStateStackDepth((int)stateStack.size());
-    ParseLineWithCurrentState(tokens, l->Buffer().data());
+
+    auto asciiLine = UnicodeHelper::utf32toascii(l->Buffer());
+    if (asciiLine.empty()) {
+        return;
+    }
+    ParseLineWithCurrentState(tokens, asciiLine.c_str());
 
     // Indent handling
     if (std::find_if(tokens.begin(), tokens.end(), [](LangToken &tClass)->bool {
@@ -163,7 +168,9 @@ void LangLineTokenizer::ParseLineFromStartState(std::string &lineStartState, Lin
     PushState(lineStartState.c_str());
     std::vector<LangToken> tokens;
 
-    ParseLineWithCurrentState(tokens, line->Buffer().data());
+    auto asciiLine = UnicodeHelper::utf32toascii(line->Buffer());
+
+    ParseLineWithCurrentState(tokens, asciiLine.c_str());
     LangToken::ToLineAttrib(line->Attributes(), tokens);
     PopState();
 }

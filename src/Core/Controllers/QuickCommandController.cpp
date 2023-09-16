@@ -117,7 +117,7 @@ bool QuickCommandController::HandleActionInSearch(const KeyPressAction &kpAction
     }
     // Leave search mode in case of enter
     if (kpAction.action == kAction::kActionCommitLine) {
-        std::string searchItem = std::string(cmdInput->Buffer().substr(1));
+        auto searchItem = std::u32string(cmdInput->Buffer().substr(1));
         SearchInActiveEditorModel(searchItem);
 
         // Add to search history...
@@ -135,7 +135,7 @@ bool QuickCommandController::HandleActionInSearch(const KeyPressAction &kpAction
 bool QuickCommandController::HandleActionInCmdLetState(const KeyPressAction &kpAction) {
     if (kpAction.action == kAction::kActionCommitLine) {
         logger->Debug("Should execute cmdlet!");
-        auto cmdline = std::string(cmdInput->Buffer());
+        auto cmdline = std::u32string(cmdInput->Buffer());
         if (!PluginExecutor::ParseAndExecuteWithCmdPrefix(cmdline)) {
             return false;
         }
@@ -160,7 +160,7 @@ void QuickCommandController::DoLeaveOnSuccess() {
     }
 }
 
-void QuickCommandController::SearchInActiveEditorModel(const std::string &searchItem) {
+void QuickCommandController::SearchInActiveEditorModel(const std::u32string &searchItem) {
     auto model = Editor::Instance().GetActiveModel();
     model->ClearSearchResults();
     if (searchItem.length() < 1) {
@@ -169,8 +169,16 @@ void QuickCommandController::SearchInActiveEditorModel(const std::string &search
     auto numHits = model->SearchFor(searchItem);
     char tmp[32];
     model->JumpToSearchHit(model->GetSearchHitIndex());
-    snprintf(tmp,32,"Search: %s, Found: %zu", searchItem.c_str(), numHits);
-    RuntimeConfig::Instance().OutputConsole()->WriteLine(tmp);
+
+    std::string strascii;
+    if (!UnicodeHelper::ConvertUTF32ToASCII(strascii, searchItem)) {
+        return;
+    }
+
+    auto strTmp = U"Search" + searchItem + U", found: " + strutil::itou32(numHits);
+
+    //snprintf(tmp,32,"Search: %s, Found: %zu", strascii.c_str(), numHits);
+    RuntimeConfig::Instance().OutputConsole()->WriteLine(strTmp);
 }
 
 // Move these to model, this allows the model to operate over the search-results how they were
@@ -189,18 +197,18 @@ void QuickCommandController::ChangeState(QuickCommandController::State newState)
     state = newState;
     switch(state) {
         case QuickCmdState :
-            prompt = config.GetStr("prompt_default", "Q:");
+            prompt = UnicodeHelper::utf8to32(config.GetStr("prompt_default", "Q:"));
             cursor.position.x = 0;
             cmdInput->Clear();
             break;
         case SearchState :
-            prompt = config.GetStr("prompt_search", "S:");
+            prompt = UnicodeHelper::utf8to32(config.GetStr("prompt_search", "S:"));
             break;
         case CmdLetState :
-            prompt = config.GetStr("prompt_cmdlet", "C:");
+            prompt = UnicodeHelper::utf8to32(config.GetStr("prompt_cmdlet", "C:"));
             break;
         default:
-            prompt = config.GetStr("prompt_default", "C:");
+            prompt = UnicodeHelper::utf8to32(config.GetStr("prompt_default", "C:"));
             break;
     }
 }
@@ -209,8 +217,8 @@ void QuickCommandController::HandleKeyPress(const KeyPress &keyPress) {
     cmdInputBaseController.DefaultEditLine(cursor, cmdInput, keyPress, true);
 
     if (state == State::QuickCmdState) {
-        auto cmdline = std::string(cmdInput->Buffer());
-        auto prefix = Config::Instance()["main"].GetStr("cmdlet_prefix");
+        auto cmdline = cmdInput->Buffer();
+        auto prefix = UnicodeHelper::utf8to32(Config::Instance()["main"].GetStr("cmdlet_prefix"));
         if (strutil::startsWith(cmdline, prefix)) {
             // we have a cmdlet prefix, we should disable the Action stuff..
             logger->Debug("CmdLet Prefix detected!");
@@ -226,7 +234,7 @@ void QuickCommandController::HandleKeyPress(const KeyPress &keyPress) {
         }
         if (cmdInput->Buffer().length() > 4) {
             // Use the 'substr' if we keep the 'search' character visible in the cmd-input...
-            std::string searchItem = std::string(cmdInput->Buffer().substr(1));
+            auto searchItem = cmdInput->Buffer().substr(1);
             //std::string searchItem = std::string(cmdInput->Buffer());
 
             // we are searching, so let's update this in realtime

@@ -88,6 +88,9 @@ namespace gedit {
         virtual void DrawStringWithAttributesAt(int x, int y, kTextAttributes attrib, const char *str) const {}
         virtual void DrawStringWithAttributesAndColAt(int x, int y, kTextAttributes attrib, int idxColor, const char *str) const {}
 
+        virtual void DrawStringAt(int x, int y, const std::u32string &str) const {}
+        virtual void DrawStringWithAttributesAt(int x, int y, kTextAttributes attrib, const std::u32string &str) const {}
+
         __inline void SetBGColor(const ColorRGBA &newBackgroundColor) {
             const_cast<DrawContext *>(this)->bgColor = newBackgroundColor;
             OnColorUpdate();

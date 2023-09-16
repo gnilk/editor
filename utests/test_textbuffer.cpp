@@ -136,19 +136,20 @@ DLL_EXPORT int test_textbuffer_flatten(ITesting *t) {
     for(int i=0;i<10;i++) {
         char tmp[32];
         snprintf(tmp,32,"line %d",i);
-        buffer->AddLine(tmp);
+        buffer->AddLineUTF8(tmp);
     }
 
 
-    char flattenBuffer[512];
-    memset(flattenBuffer, 0, 512);
+//    char flattenBuffer[512];
+//    memset(flattenBuffer, 0, 512);
+    std::u32string flattenBuffer;
     // Below cases should stress all exit points of the function...
-    TR_ASSERT(t, 0 == buffer->Flatten(flattenBuffer, 512, 100, 10));
-    TR_ASSERT(t, 0 == buffer->Flatten(flattenBuffer, 512, buffer->NumLines(), 10));
-    TR_ASSERT(t, 5 == buffer->Flatten(flattenBuffer, 512, 5, 10));
-    TR_ASSERT(t, 5 == buffer->Flatten(flattenBuffer, 512, 5, 20));
-    TR_ASSERT(t, 10 == buffer->Flatten(flattenBuffer, 512, 0, 10));
-    TR_ASSERT(t, 10 == buffer->Flatten(flattenBuffer, 512, 0, 0));
+    TR_ASSERT(t, 0 == buffer->Flatten(flattenBuffer, 100, 10));
+    TR_ASSERT(t, 0 == buffer->Flatten(flattenBuffer, buffer->NumLines(), 10));
+    TR_ASSERT(t, 5 == buffer->Flatten(flattenBuffer, 5, 10));
+    TR_ASSERT(t, 5 == buffer->Flatten(flattenBuffer, 5, 20));
+    TR_ASSERT(t, 10 == buffer->Flatten(flattenBuffer, 0, 10));
+    TR_ASSERT(t, 10 == buffer->Flatten(flattenBuffer, 0, 0));
 
 
     return kTR_Pass;

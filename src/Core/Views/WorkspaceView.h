@@ -38,11 +38,11 @@ namespace gedit {
 
         bool OnAction(const KeyPressAction &kpAction) override;
 
-        const std::string &GetStatusBarAbbreviation() override {
-            static std::string defaultAbbr = "WSP";
+        const std::u32string &GetStatusBarAbbreviation() override {
+            static std::u32string defaultAbbr = U"WSP";
             return defaultAbbr;
         }
-        std::pair<std::string, std::string> GetStatusBarInfo() override;
+        std::pair<std::u32string, std::u32string> GetStatusBarInfo() override;
     protected:
         TreeNodeRef FindModelNode(TreeNodeRef node, const std::string &pathName);
         void PopulateTree();

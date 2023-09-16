@@ -29,7 +29,7 @@ DLL_EXPORT int test_clipboard_copylines(ITesting *t) {
     for(int i=0;i<10;i++) {
         char tmp[32];
         snprintf(tmp,32,"line %d", i);
-        textBuffer->AddLine(tmp);
+        textBuffer->AddLineUTF8(tmp);
     }
     TR_ASSERT(t, clipBoard.Top() == nullptr);
     TR_ASSERT(t, clipBoard.CopyFromBuffer(textBuffer, {0,2}, {0,5}));
@@ -45,7 +45,7 @@ DLL_EXPORT int test_clipboard_copylineregion(ITesting *t) {
     for(int i=0;i<10;i++) {
         char tmp[32];
         snprintf(tmp,32,"line %d", i);
-        textBuffer->AddLine(tmp);
+        textBuffer->AddLineUTF8(tmp);
     }
     TR_ASSERT(t, clipBoard.Top() == nullptr);
     TR_ASSERT(t, clipBoard.CopyFromBuffer(textBuffer, {2,2}, {4,2}));
@@ -62,7 +62,7 @@ DLL_EXPORT int test_clipboard_copyclippedstart(ITesting *t) {
     for(int i=0;i<10;i++) {
         char tmp[32];
         snprintf(tmp,32,"line %d", i);
-        textBuffer->AddLine(tmp);
+        textBuffer->AddLineUTF8(tmp);
     }
     TR_ASSERT(t, clipBoard.Top() == nullptr);
     TR_ASSERT(t, clipBoard.CopyFromBuffer(textBuffer, {3,2}, {0,5}));
@@ -81,7 +81,7 @@ DLL_EXPORT int test_clipboard_paste(ITesting *t) {
     for(int i=0;i<10;i++) {
         char tmp[32];
         snprintf(tmp,32,"line %d", i);
-        srcBuffer->AddLine(tmp);
+        srcBuffer->AddLineUTF8(tmp);
     }
     TR_ASSERT(t, clipBoard.Top() == nullptr);
     TR_ASSERT(t, clipBoard.CopyFromBuffer(srcBuffer, {0,2}, {0,5}));
@@ -99,7 +99,7 @@ DLL_EXPORT int test_clipboard_paste(ITesting *t) {
     }
 
     TR_ASSERT(t, dstBuffer->NumLines() == 3);
-    TR_ASSERT(t, lines[0]->Buffer() == "line 2");
+    TR_ASSERT(t, lines[0]->Buffer() == U"line 2");
     return kTR_Pass;
 }
 
@@ -111,7 +111,7 @@ DLL_EXPORT int test_clipboard_pastelineregion(ITesting *t) {
     for(int i=0;i<10;i++) {
         char tmp[32];
         snprintf(tmp,32,"line %d", i);
-        srcBuffer->AddLine(tmp);
+        srcBuffer->AddLineUTF8(tmp);
     }
     TR_ASSERT(t, clipBoard.Top() == nullptr);
     TR_ASSERT(t, clipBoard.CopyFromBuffer(srcBuffer, {2,2}, {4,4}));
@@ -129,7 +129,7 @@ DLL_EXPORT int test_clipboard_pastelineregion(ITesting *t) {
     }
 
     TR_ASSERT(t, dstBuffer->NumLines() == 3);
-    TR_ASSERT(t, lines[0]->Buffer() == "ne 2");
+    TR_ASSERT(t, lines[0]->Buffer() == U"ne 2");
     return kTR_Pass;
 }
 
@@ -141,9 +141,9 @@ DLL_EXPORT int test_clipboard_pasteregionover(ITesting *t) {
     for(int i=0;i<10;i++) {
         char tmp[32];
         snprintf(tmp,32,"line %d", i);
-        srcBuffer->AddLine(tmp);
+        srcBuffer->AddLineUTF8(tmp);
         snprintf(tmp,32,"MAMAMAMAMAMAMAMAMAM %d", i);
-        dstBuffer->AddLine(tmp);
+        dstBuffer->AddLineUTF8(tmp);
     }
 
     TR_ASSERT(t, clipBoard.Top() == nullptr);
@@ -160,7 +160,7 @@ DLL_EXPORT int test_clipboard_pasteregionover(ITesting *t) {
     }
 
     TR_ASSERT(t, dstBuffer->NumLines() == 11);
-    TR_ASSERT(t, lines[4]->Buffer() == "MAne 2MAMAMAMAMAMAMAMAM 4");
+    TR_ASSERT(t, lines[4]->Buffer() == U"MAne 2MAMAMAMAMAMAMAMAM 4");
     return kTR_Pass;
 }
 DLL_EXPORT int test_clipboard_copypasteexternal(ITesting *t) {

@@ -53,6 +53,10 @@ to the terminal.
 
 # Building
 The build is driven by CMake.
+
+Cmake will check if 'ext/' contains the dependencies (which are considered local) and check them out if they don't
+exists. Other dependencies are considered system dependencies and you need to install them.
+
 If it doesn't build out of box, check that stuff is installed properly and that CMakeLists.txt points to the dependencies
 in the proper way. You are looking for a bunch of:
 ```
@@ -61,7 +65,8 @@ in the proper way. You are looking for a bunch of:
     set(SDL_HOME /usr/local)
     set(DUKTAPE_HOME ext/duktape-2.7.0/src)
     set(DUKTAPE_EXTRAS ext/duktape-2.7.0/extras)
-    set(DUKGLUE_HOME ext/dukglue)    
+    set(DUKGLUE_HOME ext/dukglue) 
+    set(FMT_HOME ext/fmt)   
 ```
 
 ## Dependencies
@@ -73,6 +78,7 @@ in the proper way. You are looking for a bunch of:
 - dukglue (just take master), https://github.com/Aloshi/dukglue - clone this to editor/ext/dukglue
 - logger, https://github.com/gnilk/logger - clone this to editor/ext/logger
 - stb, https://github.com/nothings/stb, ttf and rect_pack (already added to my repo)
+- fmtlib, https://github.com/fmtlib/fmt, CPP string formatting with U32/U16/U8 support
 
 
 - libSDL, ncurses, yaml, nlohmann you can download and install the packages. 

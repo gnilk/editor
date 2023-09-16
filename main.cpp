@@ -3,11 +3,11 @@
 //
 /*
  * TO-DO List
- * - Change loader to convert everything to UTF32 - for fast rendering
- * - Need a new text renderer -> handling of unicode
+ * - Language parser should operate on U32
  * + Exclude/Ignore directories for Monitor is a must
  *   Introduce a 'FolderMonitor' section in the config, should have 'Enable', 'Exclude'-list (glob-patterns)
- * - Monitoring a path that changes quickly (like the build directory) will cause seg-faults
+ * - Introduce some delay in the monitoring allowing for add/remove before we refresh the editor
+     Monitoring a path that changes quickly (like the build directory) will cause seg-faults
  * - Undo does not properly reparse the area of the re-pasted data
  * + There are segfaults in copy/paste
  * - Adding an additional ')' when the previous char is '(' should be ignored, typing: '(',')' inserts an extra ')'
@@ -50,6 +50,8 @@
  *   need to consider a solution for this...
  *
  * Done:
+ * ! Change loader to convert everything to UTF32 - for fast rendering
+ * ! Need a new text renderer -> handling of unicode
  * ! Cursor sometimes indicates wrong line but gutter-indicator seems correct!
  * ! Select/Copy/Paste are wrong - scrolling makes them non-reliable...
  * ! File monitoring on Linux

@@ -10,6 +10,7 @@
 #include <cmath>
 #include <cstring>
 #include "Core/StrUtil.h"
+#include "Core/UnicodeHelper.h"
 
 namespace strutil {
     std::string &ltrim(std::string &s, const std::string &chars /* = "\t\n\v\f\r " */) {
@@ -32,6 +33,23 @@ namespace strutil {
     std::string &trim(std::string &str, const std::string &chars /* = "\t\n\v\f\r " */) {
         return ltrim(rtrim(str, chars), chars);
     }
+
+    std::u32string& ltrim(std::u32string  &str, const std::u32string &chars) {
+        str.erase(str.begin(), std::find_if(str.begin(), str.end(), [chars](char32_t ch) {
+            return (chars.find(ch) == std::u32string::npos);
+        }));
+        return str;
+    }
+    std::u32string& rtrim(std::u32string  &str, const std::u32string &chars) {
+        str.erase(std::find_if(str.rbegin(), str.rend(), [chars](char32_t ch) {
+            return (chars.find(ch) == std::u32string::npos);
+        }).base(), str.end());
+        return str;
+    }
+    std::u32string& trim(std::u32string  &str, const std::u32string &chars) {
+        return ltrim(rtrim(str, chars), chars);
+    }
+
 
     void split(std::vector<std::string> &strings, const char *strInput, int splitChar) {
         std::string input(strInput);
@@ -58,6 +76,28 @@ namespace strutil {
     void split(std::vector<std::string> &strings, const std::string &strInput, int splitChar) {
         return split(strings, strInput.c_str(), splitChar);
     }
+
+    void split(std::vector<std::u32string> &strings, const std::u32string &strInput, char32_t splitChar) {
+        size_t iPos = 0;
+        while (iPos != std::string::npos) {
+            size_t iStart = iPos;
+            iPos = strInput.find(splitChar, iPos);
+            if (iPos != std::u32string::npos) {
+                auto str = strInput.substr(iStart, iPos - iStart);
+                trim(str);
+                // 2018-11-29, Gnilk: Push back even if length is 0
+                strings.emplace_back(str);
+                iPos++;
+            } else {
+                auto str = strInput.substr(iStart, strInput.length() - iStart);
+                trim(str);
+                if (str.length() > 0) {
+                    strings.push_back(str);
+                }
+            }
+        }
+    }
+
 
 
     bool isinteger(const std::string& s) {
@@ -172,6 +212,23 @@ namespace strutil {
         return false;
     }
 
+    std::u32string itou32(int num) {
+        char tmp[32];
+        snprintf(tmp, 32, "%d", num);
+        std::u32string str;
+        gedit::UnicodeHelper::ConvertUTF8ToUTF32String(str, tmp);
+        return str;
+    }
+
+    std::u32string itou32(size_t num) {
+        char tmp[32];
+        snprintf(tmp, 32, "%zu", num);
+        std::u32string str;
+        gedit::UnicodeHelper::ConvertUTF8ToUTF32String(str, tmp);
+        return str;
+    }
+
+
     bool startsWith(const std::string &str, const std::string &prefix) {
         if (prefix.length() > str.length()) return false;
         for (size_t i = 0; i < prefix.length(); i++) {
@@ -179,6 +236,14 @@ namespace strutil {
         }
         return true;
     }
+    bool startsWith(const std::u32string &str, const std::u32string &prefix) {
+        if (prefix.length() > str.length()) return false;
+        for (size_t i = 0; i < prefix.length(); i++) {
+            if (prefix[i] != str[i]) return false;
+        }
+        return true;
+    }
+
 
 
 }

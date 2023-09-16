@@ -5,7 +5,7 @@
 #include "ClipBoard.h"
 #include <string>
 #include <sstream>
-
+#include "UnicodeHelper.h"
 using namespace gedit;
 
 bool ClipBoard::CopyFromBuffer(TextBuffer::Ref srcBuffer, const Point &ptStart, const Point &ptEnd) {
@@ -52,8 +52,6 @@ void ClipBoard::Dump() {
     }
 }
 
-
-
 ClipBoard::ClipBoardItem::Ref ClipBoard::ClipBoardItem::Create(TextBuffer::Ref srcBuffer, const Point &ptStart, const Point &ptEnd) {
     auto item = std::make_shared<ClipBoardItem>();
     item->start = ptStart;
@@ -61,6 +59,7 @@ ClipBoard::ClipBoardItem::Ref ClipBoard::ClipBoardItem::Create(TextBuffer::Ref s
     item->CopyFromBuffer(srcBuffer);
     return item;
 }
+
 ClipBoard::ClipBoardItem::Ref ClipBoard::ClipBoardItem::CreateExternal(const char *srcData) {
     auto item = std::make_shared<ClipBoardItem>();
     item->isExternal = true;
@@ -80,7 +79,7 @@ void ClipBoard::ClipBoardItem::CopyFromBuffer(TextBuffer::Ref srcBuffer) {
     // We simply copy the full lines and when we restore it we read with x-offset handling...
     for(int i=start.y;i<yEnd;i++) {
         auto line = srcBuffer->LineAt(i);
-        data.push_back(std::string(line->Buffer()));
+        data.push_back(std::u32string(line->Buffer()));
     }
 }
 
@@ -88,7 +87,10 @@ void ClipBoard::ClipBoardItem::CopyFromExternal(const char *srcData) {
     std::stringstream strStream(srcData);
     std::string line;
     while(std::getline(strStream, line)) {
-        data.push_back(line);
+        std::u32string tmp;
+        if (UnicodeHelper::ConvertUTF8ToUTF32String(tmp, line)) {
+            data.push_back(tmp);
+        }
     }
 }
 
@@ -103,13 +105,13 @@ void ClipBoard::ClipBoardItem::PasteToBuffer(TextBuffer::Ref dstBuffer, const Po
     size_t idxData = 0;
 
     if ((start.x != 0) || (ptWhere.x != 0)) {
-        int dx = data[0].length() - start.x;
+        auto dx = data[0].length() - start.x;
         if (start.y == end.y) {
             dx = end.x - start.x;
         }
         auto substr = data[0].substr(start.x, dx);
         if (dstBuffer->NumLines() == 0) {
-            dstBuffer->AddLine(substr.data());
+            dstBuffer->AddLine(substr);
         } else if (ptWhere.x > dstBuffer->LineAt(idxLine)->Length()) {
             dstBuffer->LineAt(idxLine)->Append(substr);
         } else {

@@ -20,7 +20,7 @@
 #include "Core/PathUtil.h"
 #include "Core/Config/ConfigNode.h"
 #include "EditorModel.h"
-
+#include "Core/UnicodeHelper.h"
 namespace gedit {
 
 
@@ -77,11 +77,20 @@ namespace gedit {
             const std::string &GetDisplayName() {
                 return displayName;
             }
+            // TODO: Settle for one..
+            const std::u32string GetDisplayNameU32() {
+                std::u32string u32name;
+                if (!UnicodeHelper::ConvertUTF8ToUTF32String(u32name, displayName)) {
+                    return U"INVALID UTF8";
+                }
+                return u32name;
+            }
 
             // Set the display name of an item - this is the name used in the UI
             // for a file - it's the filename, for a folder it is the last item of the full path...
             void SetDisplayName(const std::string &newDisplayName) {
                 displayName = newDisplayName;
+
             }
 
             void SetParent(Node::Ref newParent) {

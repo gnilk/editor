@@ -16,7 +16,7 @@
 #include "Core/Language/LanguageTokenClass.h"
 
 #ifndef GEDIT_MAX_LINE_LENGTH
-#define GEDIT_MAX_LINE_LENGTH 1024
+#define GEDIT_MAX_LINE_LENGTH 65536
 #endif
 
 namespace gedit {
@@ -33,9 +33,11 @@ namespace gedit {
     public:
         Line();
         Line(const char *data);
+        Line(const std::u32string &data);
         static Line::Ref Create();
         static Line::Ref Create(const char *data);
         static Line::Ref Create(const std::string &data);
+        static Line::Ref Create(const std::u32string &data);
 
         void SetOnChangeDelegate(OnChangeDelegate newOnChangeDelegate) {
             cbChanged = newOnChangeDelegate;
@@ -46,11 +48,14 @@ namespace gedit {
         void Append(std::string_view &srcdata);
         void Append(std::string &srcdata);
         void Append(const std::string &srcdata);
+        void Append(const std::u32string &srcdata);
+        void Append(const std::u32string_view &srcdata);
         void Append(const char *srcdata);
         void Append(Line::Ref other);
 
         void Insert(int at, int ch);
         void Insert(int at, const std::string_view &srcdata);
+        void Insert(int at, const std::u32string_view &srcdata);
         int Insert(int at, int n, int ch);
 
         void Delete(int at);
@@ -72,9 +77,13 @@ namespace gedit {
 
         bool StartsWith(const std::string &prefix);
         bool StartsWith(const std::string_view &prefix);
+        bool StartsWith(const std::u32string &prefix);
 
-        size_t Length() const { return buffer.size(); }
-        const std::string_view Buffer() const { return buffer.c_str(); }
+        size_t Length() const { return buffer.length(); }
+
+        const std::u32string_view BufferView() const { return buffer.c_str(); }
+        const std::u32string &Buffer() const { return buffer; }
+        const std::string BufferAsUTF8() const;
 
         void Lock();
         void Release();
@@ -100,7 +109,8 @@ namespace gedit {
     private:
         std::mutex lock;
         bool isLocked = false;
-        std::string buffer = "";
+        std::u32string buffer = U"";
+        //std::string buffer = "";
         std::vector<LineAttrib> attribs;
         //bool active = false;
         int indent = 0;

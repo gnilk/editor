@@ -9,6 +9,7 @@
 #include <thread>
 #include <filesystem>
 #include <fstream>
+#include <sstream>
 
 
 using namespace gedit;
@@ -19,7 +20,7 @@ TextBuffer::TextBuffer() {
 TextBuffer::Ref TextBuffer::CreateEmptyBuffer() {
     auto buffer = std::make_shared<TextBuffer>();
     buffer->logger = gnilk::Logger::GetLogger("TextBuffer");
-    buffer->AddLine("");
+    buffer->AddLineUTF8("");
     buffer->bufferState = kBuffer_Empty;
     return buffer;
 }
@@ -244,10 +245,10 @@ void TextBuffer::ExecuteRegionParse(size_t idxLineStart, size_t idxLineEnd) {
     parseMetrics.region += 1;
 }
 
-void TextBuffer::CopyRegionToString(std::string &outText, const Point &start, const Point &end) {
+void TextBuffer::CopyRegionToString(std::u32string &outText, const Point &start, const Point &end) {
     for (int idxLine=start.y;idxLine<end.y;idxLine++) {
         outText += lines[idxLine]->Buffer();
-        outText += "\n";
+        outText += U"\n";
     }
 }
 
@@ -276,15 +277,29 @@ bool TextBuffer::Load(const std::filesystem::path &pathName) {
         return false;
     }
 
-    char tmp[GEDIT_MAX_LINE_LENGTH];
-    while(fgets(tmp, GEDIT_MAX_LINE_LENGTH, f)) {
-        AddLine(tmp);
+    static uint8_t tmp[GEDIT_MAX_LINE_LENGTH];
+
+    // Read first line and check BOM
+    if (fgets((char *)tmp, GEDIT_MAX_LINE_LENGTH, f)) {
+        // Check BOM on first line
+        if ((tmp[0] == 0xfe) && (tmp[1] == 0xff)) {
+            // remove BOM and proceed..
+            AddLineUTF8((char *) &tmp[2]);
+        } else {
+            AddLineUTF8((char *) tmp);
+        }
+        // Continue reading rest of file...
+        while(fgets((char *)tmp, GEDIT_MAX_LINE_LENGTH, f)) {
+            // BOM detection on first line
+            AddLineUTF8((char *) tmp);
+        }
     }
     fclose(f);
+
     // Ok, I admit - it never quite occured to me that we should open EMPTY files..  but of course we do (so do I)
     // We opened an empty file - let's add a dummy here
     if (lines.size() == 0) {
-        AddLine("");
+        AddLineUTF8("");
     }
     // Change state, do this before UpdateLang - since lang checks if loaded before allowing parse to happen
     ChangeBufferState(kBuffer_Loaded);
@@ -316,15 +331,16 @@ bool TextBuffer::DoSave(const std::filesystem::path &pathName, bool skipChangeCh
         logger->Error("Failed to save buffer, err: %d:%s", errno, strerror(errno));
 
         // Best dump this to the console as well..
-        std::string strError = "Unable to save file, err: ";
-        strError += strerror(errno);
+        std::u32string strError = U"Unable to save file, err: ";
+        strError += UnicodeHelper::utf8to32(strerror(errno));
         RuntimeConfig::Instance().OutputConsole()->WriteLine(strError);
         return false;
     }
 
     // Actual writing of data...
     for (auto &l: lines) {
-        fprintf(f,"%s\n", l->Buffer().data());
+        auto utf8 = UnicodeHelper::utf32to8(l->Buffer());
+        fprintf(f,"%s\n", utf8.data());
     }
     fclose(f);
 
@@ -368,7 +384,11 @@ void TextBuffer::OnLineChanged(const Line &line) {
     ChangeBufferState(kBuffer_Changed);
 }
 
-size_t TextBuffer::Flatten(char *outBuffer, size_t maxBytes, size_t idxFromLine, size_t nLines) {
+//
+// Flattens a number of lines and adds to 'out' - will insert CRLN at end of each line
+//
+size_t TextBuffer::Flatten(std::u32string &out, size_t idxFromLine, size_t nLines) {
+
     size_t linesCopied = 0;
     if (idxFromLine >= NumLines()) {
         return linesCopied;
@@ -377,6 +397,7 @@ size_t TextBuffer::Flatten(char *outBuffer, size_t maxBytes, size_t idxFromLine,
         nLines = NumLines();
     }
     size_t idxBuffer = 0;
+    out.clear();
 
     for(size_t i=0;i<nLines;i++) {
         auto l = LineAt(i + idxFromLine);
@@ -384,8 +405,12 @@ size_t TextBuffer::Flatten(char *outBuffer, size_t maxBytes, size_t idxFromLine,
         if (l == nullptr) {
             return linesCopied;
         }
-        snprintf(&outBuffer[idxBuffer], maxBytes - idxBuffer, "%s\n", l->Buffer().data());
-        idxBuffer += l->Length() + sizeof('\n');
+        out += l->Buffer();
+        out += U"\n";
+//        auto strutf8 = UnicodeHelper::utf32to8(l->Buffer());
+//
+//        snprintf(&outBuffer[idxBuffer], maxBytes - idxBuffer, "%s\n", l->Buffer().data());
+//        idxBuffer += l->Length() + sizeof('\n');
         linesCopied++;
     }
     return linesCopied;

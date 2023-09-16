@@ -43,6 +43,7 @@
 #include <unistd.h>
 
 #include "Core/XDGEnvironment.h"
+#include "Core/UnicodeHelper.h"
 // API stuff
 #include "Core/API/EditorAPI.h"
 
@@ -62,6 +63,8 @@ using namespace gedit;
 
 static const std::string glbApplicationName = xstr(GEDIT_APP_NAME);
 static const std::string glbVersionString = xstrver(GEDIT_VERSION_MAJOR, GEDIT_VERSION_MINOR, GEDIT_VERSION_PATCH);
+static std::u32string glbApplicationNameU32 = U"";
+static std::u32string glbVersionStringU32 = U"";
 
 #undef str
 #undef xstrver
@@ -300,13 +303,14 @@ void Editor::RunPostInitalizationScript() {
 
 void Editor::ExecutePostScript(std::istream &stream) {
     auto comment = Config::Instance()["main"].GetStr("bootstrap_script_comment", "//");
+    auto comment32 = UnicodeHelper::utf8to32(comment);
 
     while(!stream.eof()) {
         char buffer[128];
         stream.getline(buffer, 128);
-        std::string strcmd(buffer);
+        auto strcmd = UnicodeHelper::utf8to32(buffer);
         if (!strcmd.empty()) {
-            if (!strutil::startsWith(strcmd, comment)) {
+            if (!strutil::startsWith(strcmd, comment32)) {
                 PluginExecutor::ParseAndExecuteWithCmdPrefix(strcmd);
             }
         }
@@ -776,11 +780,17 @@ void Editor::TriggerUIRedraw() {
     }
 }
 
-const std::string &Editor::GetAppName() {
-    return glbApplicationName;
+const std::u32string &Editor::GetAppName() {
+    if (glbApplicationNameU32.empty()) {
+        UnicodeHelper::ConvertUTF8ToUTF32String(glbApplicationNameU32, glbApplicationName);
+    }
+    return glbApplicationNameU32;
 }
-const std::string &Editor::GetVersion() {
-    return glbVersionString;
+const std::u32string &Editor::GetVersion() {
+    if (glbVersionStringU32.empty()) {
+        UnicodeHelper::ConvertUTF8ToUTF32String(glbVersionStringU32, glbVersionString);
+    }
+    return glbVersionStringU32;
 }
 
 //////////////////////

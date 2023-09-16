@@ -21,22 +21,26 @@ DLL_EXPORT int test_cpplang(ITesting *t) {
     return kTR_Pass;
 }
 DLL_EXPORT int test_cpplang_indent(ITesting *t) {
-    auto model = Editor::Instance().NewModel("test.cpp");
+    auto workspace = Editor::Instance().GetWorkspace();
+    TR_ASSERT(t, workspace != nullptr);
+    auto model = workspace->NewModel("test.cpp");
+    TR_ASSERT(t, model != nullptr);
     auto buffer = model->GetTextBuffer();
+    TR_ASSERT(t, buffer != nullptr);
 
-    buffer->AddLine("if (a==b) {");
-    buffer->AddLine("a");
-    buffer->AddLine("b");
-    buffer->AddLine("if (c==d) {");
-    buffer->AddLine("c");
-    buffer->AddLine("}");
-    buffer->AddLine("}");
+    buffer->AddLineUTF8("if (a==b) {");
+    buffer->AddLineUTF8("a");
+    buffer->AddLineUTF8("b");
+    buffer->AddLineUTF8("if (c==d) {");
+    buffer->AddLineUTF8("c");
+    buffer->AddLineUTF8("}");
+    buffer->AddLineUTF8("}");
 
     buffer->Reparse();
 
     for(int i=0;i<buffer->NumLines();i++) {
         auto line = buffer->LineAt(i);
-        printf("%d: indent: %d - data: %s\n", i, line->Indent(), line->Buffer().data());
+        printf("%d: indent: %d - data: %s\n", i, line->Indent(), line->BufferAsUTF8().c_str());
     }
 
     return kTR_Pass;
@@ -47,25 +51,31 @@ DLL_EXPORT int test_cpplang_elseindent(ITesting *t) {
     // Switch of threading for this...
     Config::Instance()["main"].SetBool("threaded_syntaxparser", false);
 
-    auto model = Editor::Instance().NewModel("test.cpp");
+    auto workspace = Editor::Instance().GetWorkspace();
+    TR_ASSERT(t, workspace != nullptr);
+    auto model = workspace->NewModel("test.cpp");
+    TR_ASSERT(t, model != nullptr);
     auto buffer = model->GetTextBuffer();
+    TR_ASSERT(t, buffer != nullptr);
 
-    buffer->AddLine("void func() {");
-    buffer->AddLine("    if (a==b) {");
-    buffer->AddLine("        ");
-    buffer->AddLine("    } else {");
-    buffer->AddLine("        ");
-    buffer->AddLine("    }");
-    buffer->AddLine("}");
+    buffer->AddLineUTF8("void func() {");
+    buffer->AddLineUTF8("    if (a==b) {");
+    buffer->AddLineUTF8("        ");
+    buffer->AddLineUTF8("    } else {");
+    buffer->AddLineUTF8("        ");
+    buffer->AddLineUTF8("    }");
+    buffer->AddLineUTF8("}");
 
     buffer->Reparse();
 
     static int correntIndent[]={0,0,1,2,1,2,1,0};
     for(int i=0;i<buffer->NumLines();i++) {
         auto line = buffer->LineAt(i);
-        printf("%d: indent: %d - data: %s\n", i, line->Indent(), line->Buffer().data());
+        printf("%d: indent: %d - data: %s\n", i, line->Indent(), line->BufferAsUTF8().c_str());
         TR_ASSERT(t, line->Indent() == correntIndent[i]);
     }
+
+    TR_ASSERT(t, workspace->RemoveModel(model->GetModel()));
 
     return kTR_Pass;
 

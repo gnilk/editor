@@ -16,13 +16,12 @@ namespace gedit {
         bool isSpecialKey = false;
         Keyboard::HWKeyEvent hwEvent;
         uint8_t modifiers;
-        int key;
+        char32_t key;
         int specialKey;
 
-        // Human readables..  NOTE: we don't support unicode..  I'm old-skool...
         bool IsHumanReadable() const {
             if (isKeyValid) {
-                if ((key > 31) && (key < 127)) {
+                if (key >= 32) {
                     return true;
                 }
             }

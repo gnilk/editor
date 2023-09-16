@@ -35,6 +35,7 @@ keymap: {
     ],
     CopyToClipboard: CopyPasteModifier + 'c',
     PasteFromClipboard: CopyPasteModifier + 'v',
+    CutToClipboard: CopyPasteModifier + 'x',
     EnterCommandMode: KeyCode_Escape,
     CycleActiveViewNext: "UINavigationModifier + ']'",
     CycleActiveViewPrev: "UINavigationModifier + '['",

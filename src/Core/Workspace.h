@@ -356,6 +356,10 @@ namespace gedit {
                         // FIXME: This won't work right now - IF we monitor the build folder...
                         // OnMonitorEvent(path, flags);
                     });
+                    // We can't start this
+                    if (changeMonitor == nullptr) {
+                        return false;
+                    }
                 }
 
                 std::filesystem::path gitIgnoreFile = rootPath / ".gitignore";

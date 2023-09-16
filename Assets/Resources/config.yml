@@ -25,13 +25,25 @@ logging:
     - "VNavModel"
     - "EditorView"
 
+
+foldermonitor:
+  enabled: yes
+  use_git_ignore: yes
+  # Note: for macos this can only be maximum 8 folders - or else!
+  exclude:
+    - ".git"
+    - ".idea"
+    - "bld"
+    - "cmake-build-debug"
+    - "cmake-build-release"
+
 #
 # keymapping varies a bit for native feel, thus - each OS has their own file to map nicely
 # in order to change this you need to copy the file and override it completely
 # note: DO NOT use the same filename as in the default configuration!
 #
 macos:
-  allow_kbd_hook: yes
+  allow_kbd_hook: no
   default_keymap: macOS/default_keymap.yml
   quickmode_keymap: macOS/quickmode_keymap.yml
   workspace_keymap: macOS/workspace_keymap.yml

@@ -21,8 +21,12 @@ DLL_EXPORT int test_cpplang(ITesting *t) {
     return kTR_Pass;
 }
 DLL_EXPORT int test_cpplang_indent(ITesting *t) {
-    auto model = Editor::Instance().NewModel("test.cpp");
+    auto workspace = Editor::Instance().GetWorkspace();
+    TR_ASSERT(t, workspace != nullptr);
+    auto model = workspace->NewModel("test.cpp");
+    TR_ASSERT(t, model != nullptr);
     auto buffer = model->GetTextBuffer();
+    TR_ASSERT(t, buffer != nullptr);
 
     buffer->AddLineUTF8("if (a==b) {");
     buffer->AddLineUTF8("a");
@@ -47,8 +51,12 @@ DLL_EXPORT int test_cpplang_elseindent(ITesting *t) {
     // Switch of threading for this...
     Config::Instance()["main"].SetBool("threaded_syntaxparser", false);
 
-    auto model = Editor::Instance().NewModel("test.cpp");
+    auto workspace = Editor::Instance().GetWorkspace();
+    TR_ASSERT(t, workspace != nullptr);
+    auto model = workspace->NewModel("test.cpp");
+    TR_ASSERT(t, model != nullptr);
     auto buffer = model->GetTextBuffer();
+    TR_ASSERT(t, buffer != nullptr);
 
     buffer->AddLineUTF8("void func() {");
     buffer->AddLineUTF8("    if (a==b) {");
@@ -66,6 +74,8 @@ DLL_EXPORT int test_cpplang_elseindent(ITesting *t) {
         printf("%d: indent: %d - data: %s\n", i, line->Indent(), line->BufferAsUTF8().c_str());
         TR_ASSERT(t, line->Indent() == correntIndent[i]);
     }
+
+    TR_ASSERT(t, workspace->RemoveModel(model->GetModel()));
 
     return kTR_Pass;
 

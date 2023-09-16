@@ -115,6 +115,9 @@ void LangLineTokenizer::ParseLine(const Line::Ref l, int &nextIndent) {
     l->SetStateStackDepth((int)stateStack.size());
 
     auto asciiLine = UnicodeHelper::utf32toascii(l->Buffer());
+    if (asciiLine.empty()) {
+        return;
+    }
     ParseLineWithCurrentState(tokens, asciiLine.c_str());
 
     // Indent handling

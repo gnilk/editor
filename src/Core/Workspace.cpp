@@ -70,7 +70,7 @@ Workspace::Node::Ref Workspace::NewModel(const std::string &name) {
         logger->Error("NewModel, parent is NULL or default workspace is gone");
         exit(1);
     }
-    return NewModel(parent, name);
+    return NewModelWithFileRef(parent, name);
 }
 
 // Create a new empty model under a specific parent

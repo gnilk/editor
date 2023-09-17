@@ -54,9 +54,6 @@ namespace gedit {
             return textBuffer->LineAt(idxLine);
         }
 
-        // FIXME: Verify where this is used..
-        void Paste(size_t idxActiveLine, const char *buffer);
-
         UndoHistory::UndoItem::Ref BeginUndoItem();
         void EndUndoItem(UndoHistory::UndoItem::Ref undoItem);
 

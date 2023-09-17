@@ -115,6 +115,7 @@ void LangLineTokenizer::ParseLine(const Line::Ref l, int &nextIndent) {
     l->SetStateStackDepth((int)stateStack.size());
 
     if (l->Buffer().empty()) {
+        l->Release();
         return;
     }
     ParseLineWithCurrentState(tokens, l->Buffer());

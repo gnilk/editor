@@ -32,15 +32,15 @@ namespace gedit {
             return noIdentifier;
         }
         LangLineTokenizer &Tokenizer() { return tokenizer; }
-        virtual const std::string_view &GetLineComment() {
-            static constexpr std::string_view lineCommentPrefix("");
+        virtual const std::u32string &GetLineComment() {
+            static std::u32string lineCommentPrefix = U"";
             return lineCommentPrefix;
         }
 
         // Not too key on adding dependencies on these things
-        virtual kInsertAction OnPreInsertChar(Cursor &cursor, Line::Ref line, int ch) { return kInsertAction::kDefault; }
+        virtual kInsertAction OnPreInsertChar(Cursor &cursor, Line::Ref line, char32_t ch) { return kInsertAction::kDefault; }
         virtual kInsertAction OnPreCreateNewLine(const Line::Ref newLine) { return kInsertAction::kDefault; }
-        virtual void OnPostInsertChar(Cursor &cursor, Line::Ref line, int ch) { }
+        virtual void OnPostInsertChar(Cursor &cursor, Line::Ref line, char32_t ch) { }
 
         // Common Language Settings
         int GetTabSize();

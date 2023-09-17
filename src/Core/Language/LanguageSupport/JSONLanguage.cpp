@@ -62,15 +62,15 @@ bool JSONLanguage::Initialize() {
     return true;
 }
 
-LanguageBase::kInsertAction JSONLanguage::OnPreInsertChar(Cursor &cursor, Line::Ref line, int ch) {
+LanguageBase::kInsertAction JSONLanguage::OnPreInsertChar(Cursor &cursor, Line::Ref line, char32_t ch) {
     // FIXME: This needs much more logic...
-    if (ch == '}') {
+    if (ch == U'}') {
         // FIXME: Check if line is 'empty' up-to x-pos
         cursor.position.x -= GetTabSize();
         if (cursor.position.x < 0) {
             cursor.position.x = 0;
         }
-    } else if (ch == ']') {
+    } else if (ch == U']') {
         // FIXME: Check if line is 'empty' up-to x-pos
         cursor.position.x -= GetTabSize();
         if (cursor.position.x < 0) {
@@ -80,13 +80,13 @@ LanguageBase::kInsertAction JSONLanguage::OnPreInsertChar(Cursor &cursor, Line::
     return kInsertAction::kDefault;
 }
 
-void JSONLanguage::OnPostInsertChar(Cursor &cursor, Line::Ref line, int ch) {
-    if (ch == '{') {
+void JSONLanguage::OnPostInsertChar(Cursor &cursor, Line::Ref line, char32_t ch) {
+    if (ch == U'{') {
         // FIXME: Check if chars to right are whitespace...
-        line->Insert(cursor.position.x, '}');
-    } else if (ch == '[') {
+        line->Insert(cursor.position.x, U'}');
+    } else if (ch == U'[') {
         // FIXME: Check if chars to right are whitespace...
-        line->Insert(cursor.position.x, ']');
+        line->Insert(cursor.position.x, U']');
     }
 }
 

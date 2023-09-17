@@ -27,7 +27,7 @@ static const std::u32string cppCodeBlockEnd = U"}";
 static const std::u32string cppBlockCommentStart = U"/* */";
 static const std::u32string cppBlockCommentStop = U"*/";
 // state: in_string
-static const std::string inStringOperators = R"_(\" \\ ")_";
+static const std::string inStringOperators = R"_(\" \\ ")_"; // not sure how to declare U32 raw strings?
 static const std::u32string inStringPostFixOp = U"\"";
 
 //
@@ -87,15 +87,15 @@ LanguageBase::kInsertAction CPPLanguage::OnPreCreateNewLine(const Line::Ref newL
 
 
 
-LanguageBase::kInsertAction CPPLanguage::OnPreInsertChar(Cursor &cursor, Line::Ref line, int ch) {
+LanguageBase::kInsertAction CPPLanguage::OnPreInsertChar(Cursor &cursor, Line::Ref line, char32_t ch) {
     // FIXME: This needs much more logic...
-    if(ch == '}') {
+    if(ch == U'}') {
         // FIXME: Check if line is 'empty' up-to x-pos
         cursor.position.x -= GetTabSize();
         if (cursor.position.x < 0) {
             cursor.position.x = 0;
         }
-    } else if (ch == ')') {
+    } else if (ch == U')') {
         if ((cursor.position.x == line->Length()-1) && (line->Last() == U')')) {
             // no insert - just skip over ')' and stop the insert
             cursor.position.x++;
@@ -106,15 +106,15 @@ LanguageBase::kInsertAction CPPLanguage::OnPreInsertChar(Cursor &cursor, Line::R
 
 }
 
-void CPPLanguage::OnPostInsertChar(Cursor &cursor, Line::Ref line, int ch) {
-    if (ch == '{') {
+void CPPLanguage::OnPostInsertChar(Cursor &cursor, Line::Ref line, char32_t ch) {
+    if (ch == U'{') {
         // FIXME: Check if chars to right are whitespace...
-        line->Insert(cursor.position.x, '}');
+        line->Insert(cursor.position.x, U'}');
     } else if (ch == '[') {
         // FIXME: Check if chars to right are whitespace...
-        line->Insert(cursor.position.x, ']');
-    } else if (ch == '(') {
+        line->Insert(cursor.position.x, U']');
+    } else if (ch == U'(') {
         // FIXME: Check if chars to right are whitespace...
-        line->Insert(cursor.position.x, ')');
+        line->Insert(cursor.position.x, U')');
     }
 }

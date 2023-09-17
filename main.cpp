@@ -3,7 +3,6 @@
 //
 /*
  * TO-DO List
- * - Language parser should operate on U32
  * + Exclude/Ignore directories for Monitor is a must
  *   Introduce a 'FolderMonitor' section in the config, should have 'Enable', 'Exclude'-list (glob-patterns)
  * - Introduce some delay in the monitoring allowing for add/remove before we refresh the editor
@@ -50,6 +49,7 @@
  *   need to consider a solution for this...
  *
  * Done:
+ * ! Language parser should operate on U32
  * ! Change loader to convert everything to UTF32 - for fast rendering
  * ! Need a new text renderer -> handling of unicode
  * ! Cursor sometimes indicates wrong line but gutter-indicator seems correct!

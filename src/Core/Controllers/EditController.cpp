@@ -165,7 +165,7 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
             if (textBuffer->GetLanguage().OnPreCreateNewLine(newLine) == LanguageBase::kInsertAction::kNewLine) {
                 // Insert an empty line - this will be the new active line...
                 logger->Debug("Creating empty line...");
-                emptyLine = Line::Create("");
+                emptyLine = Line::Create(U"");
                 textBuffer->Insert(++it, emptyLine);
             }
 

@@ -45,15 +45,10 @@ namespace gedit {
         }
 
         void Clear();
-        void Append(int ch);
-        void Append(std::string_view &srcdata);
-        void Append(std::string &srcdata);
-        void Append(const std::string &srcdata);
+        void Append(char32_t ch);
         void Append(const std::u32string &srcdata);
         void Append(const std::u32string_view &srcdata);
-        void Append(const char *srcdata);
         void Append(Line::Ref other);
-
 
         void Insert(int at, char32_t ch);
         void Insert(int at, const std::u32string_view &srcdata);

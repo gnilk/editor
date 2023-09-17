@@ -50,40 +50,12 @@ void Line::Clear() {
     buffer = U"";
 }
 
-void Line::Append(int ch) {
+void Line::Append(char32_t ch) {
     {
         std::lock_guard<std::mutex> guard(lock);
-        buffer += static_cast<char32_t >(ch);
+        buffer += ch;
     }
     NotifyChangeHandler();
-}
-
-void Line::Append(std::string_view &srcdata) {
-    std::u32string tmp;
-    if (!UnicodeHelper::ConvertUTF8ToUTF32String(tmp, srcdata.data())) {
-        return;
-    }
-    Append(tmp);
-}
-
-void Line::Append(std::string &srcdata) {
-    std::u32string tmp;
-    if (!UnicodeHelper::ConvertUTF8ToUTF32String(tmp, srcdata)) {
-        return;
-    }
-    Append(tmp);
-}
-
-void Line::Append(const std::string &srcdata) {
-    Append(srcdata.c_str());
-}
-
-void Line::Append(const char *srcdata) {
-    std::u32string tmp;
-    if (!UnicodeHelper::ConvertUTF8ToUTF32String(tmp, srcdata)) {
-        return;
-    }
-    Append(tmp);
 }
 
 void Line::Append(const std::u32string &srcdata) {

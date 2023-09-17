@@ -104,7 +104,7 @@ STBTTF_Font* STBTTF_OpenFontRW(SDL_Renderer* renderer, SDL_RWops* rw, float size
 
     // fill bitmap atlas with packed characters
     unsigned char* bitmap = NULL;
-    font->texture_size = 32;
+    font->texture_size = 128;
     while(1) {
         bitmap = (unsigned char*)malloc(font->texture_size * font->texture_size);
         stbtt_pack_context pack_context;

@@ -16,6 +16,7 @@
 #include "Core/Language/LanguageBase.h"
 #include "Core/Line.h"
 #include "Core/Point.h"
+#include "Core/UnicodeHelper.h"
 
 namespace gedit {
     class TextBuffer {
@@ -76,8 +77,9 @@ namespace gedit {
         }
 
         void AddLineUTF8(const char *textString) {
-            auto newLine = Line::Create(textString);
-            AddLine(newLine);
+            auto u32str = UnicodeHelper::utf8to32(textString);
+//            auto newLine = Line::Create(textString);
+            AddLine(u32str);
         }
 
         void Insert(size_t idxPos, Line::Ref line) {
@@ -95,12 +97,6 @@ namespace gedit {
             });
             lines.insert(it, line);
             ChangeBufferState(kBuffer_Changed);
-        }
-
-
-        void Insert(size_t idxPos, const std::string &text) {
-            auto newLine = Line::Create(text);
-            Insert(idxPos, newLine);
         }
 
         void Insert(size_t idxPos, const std::u32string &text) {

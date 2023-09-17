@@ -167,6 +167,19 @@ namespace strutil {
         }
         return true;
     }
+    bool skipWhiteSpace(std::u32string::const_iterator &it) {
+        if (*it == U'\0') {
+            return false;
+        }
+        while(std::isspace(*it) && *it != U'\0') {
+            it++;
+        }
+        if (*it == U'\0') {
+            return false;
+        }
+        return true;
+    }
+
 
     char *getNextTokenNoOperator(char *dst, int nMax, char **input) {
         if (!skipWhiteSpace(input)) {
@@ -187,6 +200,17 @@ namespace strutil {
         }
         dst[i] = '\0';
         return dst;
+    }
+
+    bool getNextTokenNoOperator(std::u32string &dst, std::u32string::const_iterator &it) {
+        if (!skipWhiteSpace(it)) {
+            return false;
+        }
+        while(!std::isspace(*it) && (*it != U'\0')) {
+            dst.push_back(*it);
+            it++;
+        }
+        return true;
     }
 
     void splitToStringList(std::vector<std::string> &outList, const char *input) {
@@ -211,6 +235,23 @@ namespace strutil {
         }
         return false;
     }
+
+    void splitToStringList(std::vector<std::u32string> &outList, const std::u32string &input) {
+        if (input.empty()) {
+            return;
+        }
+        std::u32string str;
+        auto it = input.begin();
+        while(getNextTokenNoOperator(str, it)) {
+            outList.emplace_back(str);
+            str = U"";
+        }
+    }
+
+    bool inStringList(std::vector<std::u32string> &strList, const std::u32string &input) {
+        return false;
+    }
+
 
     std::u32string itou32(int num) {
         char tmp[32];

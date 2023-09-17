@@ -9,43 +9,43 @@ using namespace gedit;
 // This is JS (JSON is also obviously supported - but will have a few keywords standing out)
 //
 
-static const std::string jsonOperatorsFull = "=== ++ -- == = < > ; . , : [ ] { } \' ( ) \"";
+static const std::u32string jsonOperatorsFull = U"=== ++ -- == = < > ; . , : [ ] { } \' ( ) \"";
 
 // Well, not quite right - but until we have an 'array' classification we use this...
-static const std::string jsonObjectStart = "{";
-static const std::string jsonObjectEnd = "}";
+static const std::u32string jsonObjectStart = U"{";
+static const std::u32string jsonObjectEnd = U"}";
 
-static const std::string jsonArrayStart = "[";
-static const std::string jsonArrayEnd = "]";
+static const std::u32string jsonArrayStart = U"[";
+static const std::u32string jsonArrayEnd = U"]";
 
-static const std::string inStringOp = "\"";
-static const std::string inStringPostFixOp = "\"";
+static const std::u32string inStringOp = U"\"";
+static const std::u32string inStringPostFixOp = U"\"";
 
-static const std::string jsLineComment = "//";
+static const std::u32string jsLineComment = U"//";
 
-static const std::string jsonKeywords = "true false null function for var let const";
+static const std::u32string jsonKeywords = U"true false null function for var let const";
 
 
 bool JSONLanguage::Initialize() {
 
     auto state = tokenizer.GetOrAddState("main");
-    state->SetIdentifiers(kLanguageTokenClass::kOperator, jsonOperatorsFull.c_str());
-    state->SetIdentifiers(kLanguageTokenClass::kKeyword, jsonKeywords.c_str());
-    state->SetIdentifiers(kLanguageTokenClass::kCodeBlockStart, jsonObjectStart.c_str());
-    state->SetIdentifiers(kLanguageTokenClass::kCodeBlockEnd, jsonObjectEnd.c_str());
-    state->SetIdentifiers(kLanguageTokenClass::kArrayStart, jsonArrayStart.c_str());
-    state->SetIdentifiers(kLanguageTokenClass::kArrayEnd, jsonArrayEnd.c_str());
-    state->SetIdentifiers(kLanguageTokenClass::kLineComment, jsLineComment.c_str());
-    state->SetPostFixIdentifiers(jsonOperatorsFull.c_str());
+    state->SetIdentifiers(kLanguageTokenClass::kOperator, jsonOperatorsFull);
+    state->SetIdentifiers(kLanguageTokenClass::kKeyword, jsonKeywords);
+    state->SetIdentifiers(kLanguageTokenClass::kCodeBlockStart, jsonObjectStart);
+    state->SetIdentifiers(kLanguageTokenClass::kCodeBlockEnd, jsonObjectEnd);
+    state->SetIdentifiers(kLanguageTokenClass::kArrayStart, jsonArrayStart);
+    state->SetIdentifiers(kLanguageTokenClass::kArrayEnd, jsonArrayEnd);
+    state->SetIdentifiers(kLanguageTokenClass::kLineComment, jsLineComment);
+    state->SetPostFixIdentifiers(jsonOperatorsFull);
 
-    state->GetOrAddAction("//",LangLineTokenizer::kAction::kPushState, "in_line_comment");
-    state->GetOrAddAction("\"",LangLineTokenizer::kAction::kPushState, "in_string");
+    state->GetOrAddAction(U"//",LangLineTokenizer::kAction::kPushState, "in_line_comment");
+    state->GetOrAddAction(U"\"",LangLineTokenizer::kAction::kPushState, "in_string");
 
     auto stateStr = tokenizer.GetOrAddState("in_string");
     stateStr->SetRegularTokenClass(kLanguageTokenClass::kString);
-    stateStr->SetIdentifiers(kLanguageTokenClass::kString, inStringOp.c_str());
-    stateStr->SetPostFixIdentifiers(inStringPostFixOp.c_str());
-    stateStr->GetOrAddAction("\"",LangLineTokenizer::kAction::kPopState);
+    stateStr->SetIdentifiers(kLanguageTokenClass::kString, inStringOp);
+    stateStr->SetPostFixIdentifiers(inStringPostFixOp);
+    stateStr->GetOrAddAction(U"\"",LangLineTokenizer::kAction::kPopState);
 
 
     // a line comment run's to new-line...

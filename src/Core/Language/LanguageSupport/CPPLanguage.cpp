@@ -9,26 +9,26 @@
 #include <string>
 
 #include "CPPLanguage.h"
-
+#include "Core/UnicodeHelper.h"
 using namespace gedit;
 
 // state: main (and probably a few others)
-static const std::string cppTypes = "void int char";
-static const std::string cppKeywords = "auto typedef class struct static enum for while if return const";
+static const std::u32string cppTypes = U"void int char";
+static const std::u32string cppKeywords = U"auto typedef class struct static enum for while if return const";
 // Note: Multi char operators must be declared first...
-static const std::string cppOperators = "== ++ -- << >> <= >= != += -= *= /= &= ^= |= -> && || :: ^ & ? : ! . = + - < > ( , * / ) [ ] < > ; ' \"";
+static const std::u32string cppOperators = U"== ++ -- << >> <= >= != += -= *= /= &= ^= |= -> && || :: ^ & ? : ! . = + - < > ( , * / ) [ ] < > ; ' \"";
 // The full operator set is used to identify post-fix operators but not used for classification..
 // missing: % and %=
-static const std::string cppOperatorsFull = "== ++ -- << >> <= >= != += -= *= /= &= ^= |= :: /* */ // -> && || ^ & ? : ! . = + - < > ( , * / ) [ ] < > ; ' { } \" \'";
-static const std::string cppLineComment = "//";
-static const std::string cppCodeBlockStart = "{";
-static const std::string cppCodeBlockEnd = "}";
+static const std::u32string cppOperatorsFull = U"== ++ -- << >> <= >= != += -= *= /= &= ^= |= :: /* */ // -> && || ^ & ? : ! . = + - < > ( , * / ) [ ] < > ; ' { } \" \'";
+static const std::u32string cppLineComment = U"//";
+static const std::u32string cppCodeBlockStart = U"{";
+static const std::u32string cppCodeBlockEnd = U"}";
 // state: main & in_block_comment
-static const std::string cppBlockCommentStart = "/* */";
-static const std::string cppBlockCommentStop = "*/";
+static const std::u32string cppBlockCommentStart = U"/* */";
+static const std::u32string cppBlockCommentStop = U"*/";
 // state: in_string
 static const std::string inStringOperators = R"_(\" \\ ")_";
-static const std::string inStringPostFixOp = "\"";
+static const std::u32string inStringPostFixOp = U"\"";
 
 //
 // Configure the tokenizer for C++
@@ -36,30 +36,32 @@ static const std::string inStringPostFixOp = "\"";
 //
 bool CPPLanguage::Initialize() {
     auto state = tokenizer.GetOrAddState("main");
-    state->SetIdentifiers(kLanguageTokenClass::kOperator, cppOperators.c_str());
-    state->SetIdentifiers(kLanguageTokenClass::kKeyword, cppKeywords.c_str());
-    state->SetIdentifiers(kLanguageTokenClass::kKnownType, cppTypes.c_str());
-    state->SetIdentifiers(kLanguageTokenClass::kLineComment, cppLineComment.c_str());
-    state->SetIdentifiers(kLanguageTokenClass::kBlockComment, cppBlockCommentStart.c_str());
-    state->SetIdentifiers(kLanguageTokenClass::kCodeBlockStart, cppCodeBlockStart.c_str());
-    state->SetIdentifiers(kLanguageTokenClass::kCodeBlockEnd, cppCodeBlockEnd.c_str());
-    state->SetPostFixIdentifiers(cppOperatorsFull.c_str());
+    state->SetIdentifiers(kLanguageTokenClass::kOperator, cppOperators);
+    state->SetIdentifiers(kLanguageTokenClass::kKeyword, cppKeywords);
+    state->SetIdentifiers(kLanguageTokenClass::kKnownType, cppTypes);
+    state->SetIdentifiers(kLanguageTokenClass::kLineComment, cppLineComment);
+    state->SetIdentifiers(kLanguageTokenClass::kBlockComment, cppBlockCommentStart);
+    state->SetIdentifiers(kLanguageTokenClass::kCodeBlockStart, cppCodeBlockStart);
+    state->SetIdentifiers(kLanguageTokenClass::kCodeBlockEnd, cppCodeBlockEnd);
+    state->SetPostFixIdentifiers(cppOperatorsFull);
 
-    state->GetOrAddAction("\"",LangLineTokenizer::kAction::kPushState, "in_string");
-    state->GetOrAddAction("/*",LangLineTokenizer::kAction::kPushState, "in_block_comment");
-    state->GetOrAddAction("//",LangLineTokenizer::kAction::kPushState, "in_line_comment");
+    state->GetOrAddAction(U"\"",LangLineTokenizer::kAction::kPushState, "in_string");
+    state->GetOrAddAction(U"/*",LangLineTokenizer::kAction::kPushState, "in_block_comment");
+    state->GetOrAddAction(U"//",LangLineTokenizer::kAction::kPushState, "in_line_comment");
 
     auto stateStr = tokenizer.GetOrAddState("in_string");
     stateStr->SetRegularTokenClass(kLanguageTokenClass::kString);
-    stateStr->SetIdentifiers(kLanguageTokenClass::kString, inStringOperators.c_str());
-    stateStr->SetPostFixIdentifiers(inStringPostFixOp.c_str());
-    stateStr->GetOrAddAction("\"",LangLineTokenizer::kAction::kPopState);
+    auto u32instrOp = UnicodeHelper::utf8to32(inStringOperators);
+    stateStr->SetIdentifiers(kLanguageTokenClass::kString, u32instrOp);
+
+    stateStr->SetPostFixIdentifiers(inStringPostFixOp);
+    stateStr->GetOrAddAction(U"\"",LangLineTokenizer::kAction::kPopState);
 
     auto stateBlkComment = tokenizer.GetOrAddState("in_block_comment");
     // just testing, kFunky should be reclassified to 'kBlockComment' once this state is popped...
-    stateBlkComment->SetIdentifiers(kLanguageTokenClass::kBlockComment, cppBlockCommentStop.c_str());
-    stateBlkComment->SetPostFixIdentifiers(cppBlockCommentStop.c_str());
-    stateBlkComment->GetOrAddAction("*/",LangLineTokenizer::kAction::kPopState);
+    stateBlkComment->SetIdentifiers(kLanguageTokenClass::kBlockComment, cppBlockCommentStop);
+    stateBlkComment->SetPostFixIdentifiers(cppBlockCommentStop);
+    stateBlkComment->GetOrAddAction(U"*/",LangLineTokenizer::kAction::kPopState);
     stateBlkComment->SetRegularTokenClass(kLanguageTokenClass::kCommentedText);
 
     // a line comment run's to new-line...
@@ -77,7 +79,7 @@ bool CPPLanguage::Initialize() {
 }
 
 LanguageBase::kInsertAction CPPLanguage::OnPreCreateNewLine(const Line::Ref newLine) {
-    if (newLine->Last() != '}') {
+    if (newLine->Last() != U'}') {
         return kInsertAction::kDefault;
     }
     return kInsertAction::kNewLine;
@@ -94,7 +96,7 @@ LanguageBase::kInsertAction CPPLanguage::OnPreInsertChar(Cursor &cursor, Line::R
             cursor.position.x = 0;
         }
     } else if (ch == ')') {
-        if ((cursor.position.x == line->Length()-1) && (line->Last() == ')')) {
+        if ((cursor.position.x == line->Length()-1) && (line->Last() == U')')) {
             // no insert - just skip over ')' and stop the insert
             cursor.position.x++;
             return kInsertAction::kNoInsert;

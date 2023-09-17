@@ -15,11 +15,11 @@ namespace gedit {
 
     class LangToken {
     public:
-        std::string string;     // The token
+        std::u32string string;     // The token
         int idxOrigStr;         // The position/index in original string
         kLanguageTokenClass classification;     // Classification (keyword, user, operator, reserved, comment, etc...)
 
-        const std::string &String() const { return string; }
+        const std::u32string &String() const { return string; }
 
         bool operator == (const kLanguageTokenClass otherClassification) const {
             return classification == otherClassification;

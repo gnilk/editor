@@ -114,11 +114,10 @@ void LangLineTokenizer::ParseLine(const Line::Ref l, int &nextIndent) {
 
     l->SetStateStackDepth((int)stateStack.size());
 
-    auto asciiLine = UnicodeHelper::utf32toascii(l->Buffer());
-    if (asciiLine.empty()) {
+    if (l->Buffer().empty()) {
         return;
     }
-    ParseLineWithCurrentState(tokens, asciiLine.c_str());
+    ParseLineWithCurrentState(tokens, l->Buffer());
 
     // Indent handling
     if (std::find_if(tokens.begin(), tokens.end(), [](LangToken &tClass)->bool {
@@ -168,9 +167,7 @@ void LangLineTokenizer::ParseLineFromStartState(std::string &lineStartState, Lin
     PushState(lineStartState.c_str());
     std::vector<LangToken> tokens;
 
-    auto asciiLine = UnicodeHelper::utf32toascii(line->Buffer());
-
-    ParseLineWithCurrentState(tokens, asciiLine.c_str());
+    ParseLineWithCurrentState(tokens, line->Buffer());
     LangToken::ToLineAttrib(line->Attributes(), tokens);
     PopState();
 }
@@ -181,10 +178,12 @@ void LangLineTokenizer::ParseLineFromStartState(std::string &lineStartState, Lin
 // This is the heavy lifting, part 1
 // Internal, assumes the current state has been properly set-up
 //
-void LangLineTokenizer::ParseLineWithCurrentState(std::vector<LangToken> &tokens, const char *input) {
+void LangLineTokenizer::ParseLineWithCurrentState(std::vector<LangToken> &tokens, const std::u32string &input) {
     // Max token length...
     char rawToken[GEDIT_MAX_LANG_TOKEN_LENGTH];
-    char *parsepoint = (char *) input;
+    std::u32string nextToken;
+    //char *parsepoint = (char *) input;
+    auto it = input.begin();
 
 
     while(true) {
@@ -194,25 +193,25 @@ void LangLineTokenizer::ParseLineWithCurrentState(std::vector<LangToken> &tokens
         }
 
         // Get a token and the classification...
-        auto [ok, classification] = GetNextToken(rawToken, 256, &parsepoint);
+        nextToken.clear();
+        auto [ok, classification] = GetNextToken(nextToken, it, input.end());
         if (!ok) {
             break;
         }
 
         // printf("s: %s, tok: %s\n", currentState->name.c_str(), tmp);
-
-        int len = strlen(rawToken);
-        if (len == 0) {
+        if (nextToken.empty()) {
             return;
         }
-        int pos = (parsepoint - input) - len;
-        classification = CheckExecuteActionForToken(currentState, rawToken, classification);
+
+        int pos = static_cast<int>(it - input.begin());
+        classification = CheckExecuteActionForToken(currentState, nextToken, classification);
         // If this is regular text - reclassify it depending on the state (this allows for comments/string and other
         // encapsulation statements to override... (#include)
         if (classification == kLanguageTokenClass::kRegular) {
             classification = currentState->regularTokenClass;
         }
-        LangToken token { .string = std::string(rawToken), .idxOrigStr = pos, .classification = classification };
+        LangToken token { .string = nextToken, .idxOrigStr = pos, .classification = classification };
         //tokens.push_back(token);
         tokens.emplace_back(token);
     }
@@ -260,7 +259,7 @@ bool LangLineTokenizer::ResetStateStack() {
 //  now - '*/' is consumed and parsed by the 'block_comment' state (which is all good)
 //  but we really want it classified by the outer/parent state.
 //
-kLanguageTokenClass LangLineTokenizer::CheckExecuteActionForToken(State::Ref currentState, const char *token, kLanguageTokenClass tokenClass) {
+kLanguageTokenClass LangLineTokenizer::CheckExecuteActionForToken(State::Ref currentState, const std::u32string &token, kLanguageTokenClass tokenClass) {
     // Check if we have an action for this token
     if (!currentState->HasActionForToken(token)) {
         return tokenClass;
@@ -345,7 +344,7 @@ kLanguageTokenClass LangLineTokenizer::CheckExecuteActionForToken(State::Ref cur
 //
 //
 //
-std::pair<bool, kLanguageTokenClass> LangLineTokenizer::GetNextToken(char *dst, int nMax, char **input) {
+std::pair<bool, kLanguageTokenClass> LangLineTokenizer::GetNextToken(std::u32string &dst, std::u32string::const_iterator &input, std::u32string::const_iterator last) {
 
     auto currentState = stateStack.top();
     assert(currentState != nullptr);
@@ -353,19 +352,20 @@ std::pair<bool, kLanguageTokenClass> LangLineTokenizer::GetNextToken(char *dst, 
     if (!strutil::skipWhiteSpace(input)) {
         return {false, kLanguageTokenClass::kUnknown};
     }
-    int szOperator = 0;
 
+    std::u32string strInput(input.operator->());
+
+    int szOperator = 0;
     // Check if we have an identifier in the current state
     for(auto &kvp : currentState->identifiers) {
-        if (!kvp.second->IsMatch(*input, szOperator)) {
+        if (!kvp.second->IsMatch(strInput, szOperator)) {
             continue;
         }
 
         // we had a match, copy it as the token and return the classification..
-        strncpy(dst, *input, szOperator);
-        (*input) += szOperator;
-        // Not needed - but makes rules easier...
-        dst[szOperator] = '\0';
+        dst = strInput.substr(0, szOperator);
+        input += szOperator;
+
         return {true, kvp.second->classification};
     }
 
@@ -381,37 +381,27 @@ std::pair<bool, kLanguageTokenClass> LangLineTokenizer::GetNextToken(char *dst, 
     // always holds true...
     //
 
-
-    // This is just to avoid clutter in the while-loop below
-    int idxDst=0;
-    auto chkPostFix= [currentState, input, &szOperator](char *dst)->bool {
+    auto chkPostFix= [currentState,&szOperator](const std::u32string::const_iterator it)->bool {
         // Currentstate can't be null here...
         if (currentState->postfixIdentifiers == nullptr) {
             return false;
         }
-        return currentState->postfixIdentifiers->IsMatch(*input, szOperator);
+        std::u32string str(it.operator->());
+        return currentState->postfixIdentifiers->IsMatch(str, szOperator);
     };
 
-    // Get the token...
-    while ((**input != '\0') && !isspace(**input) && !chkPostFix(dst)) {
-        dst[idxDst++] = **input;
-        // This is a developer problem, ergo - safe to exit..
-        if (idxDst >= nMax) {
-            fprintf(stderr, "ERR: GetNextToken, token size larger than buffer (>nMax)\n");
-            exit(1);
-        }
-        (*input)++;
+    dst.clear();
+    while((input != last) && !std::isspace(*input) && !chkPostFix(input)) {
+        dst.push_back(*input);
+        input++;
     }
 
-    // Make sure we terminate, and then we
-    dst[idxDst] = '\0';
     return {true, kLanguageTokenClass::kRegular};
 }
 
 //
 // State handling follows below
 //
-
 void LangLineTokenizer::SetStartState(const std::string &newStartState) {
     startState = newStartState;
 }

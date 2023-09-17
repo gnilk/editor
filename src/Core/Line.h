@@ -53,6 +53,7 @@ namespace gedit {
         void Append(const char *srcdata);
         void Append(Line::Ref other);
 
+        // FIXME: need char32_t - remove all the others...
         void Insert(int at, int ch);
         void Insert(int at, const std::string_view &srcdata);
         void Insert(int at, const std::u32string_view &srcdata);
@@ -93,7 +94,7 @@ namespace gedit {
         char First() {
             return buffer.front();
         }
-        char Last() {
+        char32_t Last() {
             return buffer.back();
         }
 

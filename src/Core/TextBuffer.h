@@ -78,7 +78,6 @@ namespace gedit {
 
         void AddLineUTF8(const char *textString) {
             auto u32str = UnicodeHelper::utf8to32(textString);
-//            auto newLine = Line::Create(textString);
             AddLine(u32str);
         }
 

@@ -379,6 +379,7 @@ list(APPEND editorsrc src/Core/Language/LangToken.cpp src/Core/Language/LangToke
 list(APPEND editorsrc src/Core/Language/LanguageSupport/DefaultLanguage.cpp src/Core/Language/LanguageSupport/DefaultLanguage.h)
 list(APPEND editorsrc src/Core/Language/LanguageSupport/CPPLanguage.cpp src/Core/Language/LanguageSupport/CPPLanguage.h)
 list(APPEND editorsrc src/Core/Language/LanguageSupport/JSONLanguage.cpp src/Core/Language/LanguageSupport/JSONLanguage.cpp)
+list(APPEND editorsrc src/Core/Language/LanguageSupport/MakeBuildLang.cpp src/Core/Language/LanguageSupport/MakeBuildLang.h)
 # sublime config/scripting support
 list(APPEND editorsrc src/Core/Sublime/SublimeConfigScriptEngine.cpp src/Core/Sublime/SublimeConfigScriptEngine.h)
 list(APPEND editorsrc src/Core/Sublime/SublimeConfigColorScript.cpp src/Core/Sublime/SublimeConfigColorScript.h)

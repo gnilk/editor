@@ -193,7 +193,6 @@ void LangLineTokenizer::ParseLineWithCurrentState(std::vector<LangToken> &tokens
             return;
         }
 
-        // Get a token and the classification...
         nextToken.clear();
         auto [ok, classification] = GetNextToken(nextToken, it, input.end());
         if (!ok) {
@@ -205,8 +204,12 @@ void LangLineTokenizer::ParseLineWithCurrentState(std::vector<LangToken> &tokens
             return;
         }
 
+        // Get a token and the classification...
         int pos = static_cast<int>(it - input.begin());
-        classification = CheckExecuteActionForToken(currentState, nextToken, classification);
+        pos -= nextToken.size();
+
+
+       classification = CheckExecuteActionForToken(currentState, nextToken, classification);
         // If this is regular text - reclassify it depending on the state (this allows for comments/string and other
         // encapsulation statements to override... (#include)
         if (classification == kLanguageTokenClass::kRegular) {

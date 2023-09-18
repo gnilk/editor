@@ -3,6 +3,8 @@
 //
 /*
  * TO-DO List
+ * - Figure something to handle 'tab' correctly
+ *   This can either be to convert to spaces OR a display thing - "forward cursor X" when \t occurs (in this case it should be part of the tokenizer)
  * + Exclude/Ignore directories for Monitor is a must
  *   Introduce a 'FolderMonitor' section in the config, should have 'Enable', 'Exclude'-list (glob-patterns)
  * - Introduce some delay in the monitoring allowing for add/remove before we refresh the editor

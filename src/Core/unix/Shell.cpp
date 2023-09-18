@@ -15,6 +15,7 @@
 #include <array>
 #include <sys/stat.h>
 #include <string.h>
+#include <fcntl.h>
 
 #include <poll.h>
 
@@ -173,6 +174,18 @@ void Shell::ConsumePipes() {
 
     auto fdOut = fdopen(outfd[READ_END], "r");
     auto fdErr = fdopen(errfd[READ_END], "r");
+
+    // mark as non-blocking
+    auto flags = fcntl(outfd[READ_END], F_GETFL, 0);
+    flags |= O_NONBLOCK;
+    fcntl(outfd[READ_END], F_SETFL, flags);
+
+    flags = fcntl(errfd[READ_END], F_GETFL, 0);
+    flags |= O_NONBLOCK;
+    fcntl(errfd[READ_END], F_SETFL, flags);
+
+
+
     ssize_t bytes = 0;
 
     nfds_t nfds;
@@ -235,4 +248,5 @@ void Shell::ReadAndDispatch(FILE *fd, OutputDelegate onData) {
             onData(str);
         }
     } while(res != nullptr);
+    res = nullptr;
 }

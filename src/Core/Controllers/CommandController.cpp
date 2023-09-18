@@ -22,6 +22,11 @@ void CommandController::Begin() {
     NewLine();
 
     terminal.SetStdoutDelegate([this](std::u32string &output) {
+        // Should not call 'WriteLine' - because that add's to history buffer
+        WriteLine(output);
+    });
+    terminal.SetStderrDelegate([this](std::u32string &output) -> void {
+        // Should not call 'WriteLine' - because that add's to history buffer
         WriteLine(output);
     });
 
@@ -50,10 +55,6 @@ bool CommandController::HandleKeyPress(Cursor &cursor, size_t &idxLine, const Ke
     if (DefaultEditLine(cursor, currentLine, keyPress)) {
         return true;
     }
-//    if (keyPress.IsSpecialKeyPressed(Keyboard::kKeyCode_Return)) {
-//        CommitLine();
-//        return true;
-//    }
     return false;
 }
 

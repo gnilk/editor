@@ -89,8 +89,11 @@ STBTTF_Font* STBTTF_OpenFontRW(SDL_Renderer* renderer, SDL_RWops* rw, float size
     SDL_RWclose(rw);
 
     STBTTF_Font* font = (STBTTF_Font*)calloc(sizeof(STBTTF_Font), 1);
+    font->minU32CodePoint = 32;
+    font->maxU32CodePoint = 256;
+
     font->info = (stbtt_fontinfo *)malloc(sizeof(stbtt_fontinfo));
-    font->chars = (stbtt_packedchar *)malloc(sizeof(stbtt_packedchar) * 96);
+    font->chars = (stbtt_packedchar *)malloc(sizeof(stbtt_packedchar) * (font->maxU32CodePoint - font->minU32CodePoint));
 
     if(stbtt_InitFont(font->info, buffer, 0) == 0) {
         free(buffer);
@@ -98,8 +101,6 @@ STBTTF_Font* STBTTF_OpenFontRW(SDL_Renderer* renderer, SDL_RWops* rw, float size
         return NULL;
     }
 
-    font->minU32CodePoint = 32;
-    font->maxU32CodePoint = 256;
 
 
     // fill bitmap atlas with packed characters
@@ -108,10 +109,16 @@ STBTTF_Font* STBTTF_OpenFontRW(SDL_Renderer* renderer, SDL_RWops* rw, float size
     while(1) {
         bitmap = (unsigned char*)malloc(font->texture_size * font->texture_size);
         stbtt_pack_context pack_context;
-        stbtt_PackBegin(&pack_context, bitmap, font->texture_size, font->texture_size, 0, 1, 0);
+        stbtt_PackBegin(&pack_context, bitmap, font->texture_size, font->texture_size, 0, 1, nullptr);
         stbtt_PackSetOversampling(&pack_context, 1, 1);
         // FIX: The range defines the number of actually supported unicode glyphemes
-        if(!stbtt_PackFontRange(&pack_context, buffer, 0, size, font->minU32CodePoint, font->maxU32CodePoint, font->chars)) {
+        if(!stbtt_PackFontRange(&pack_context,
+                                buffer,
+                                0,
+                                size,
+                                font->minU32CodePoint,
+                                font->maxU32CodePoint - font->minU32CodePoint,
+                                font->chars)) {
             // too small
             free(bitmap);
             stbtt_PackEnd(&pack_context);

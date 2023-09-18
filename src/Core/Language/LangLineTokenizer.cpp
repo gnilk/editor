@@ -152,11 +152,11 @@ void LangLineTokenizer::ParseLine(const Line::Ref l, int &nextIndent) {
 
 //
 // ParseLine start from a specific state
-// This has flaws, considering parsing a single line when entering a block-comment...
+// This should only be used by specific stuff - like 'makefile' output parsing and so forth...
 //
 // Instead we should have a parse function which start at a specific state and parses until that state is reached..
 //
-void LangLineTokenizer::ParseLineFromStartState(std::string &lineStartState, Line::Ref line) {
+void LangLineTokenizer::ParseLineFromState(const std::string &lineStartState, Line::Ref line) {
     // Reset the state stack, start all over...
     if (!ResetStateStack()) {
         return;
@@ -170,6 +170,7 @@ void LangLineTokenizer::ParseLineFromStartState(std::string &lineStartState, Lin
 
     ParseLineWithCurrentState(tokens, line->Buffer());
     LangToken::ToLineAttrib(line->Attributes(), tokens);
+
     PopState();
 }
 

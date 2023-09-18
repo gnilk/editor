@@ -190,7 +190,7 @@ namespace gedit {
         void ParseLines(std::vector<Line::Ref> &lines);
         void ParseRegion(std::vector<Line::Ref> &lines, size_t idxLineStart, size_t idxLineEnd);
         void ParseLine(const Line::Ref l, int &indentCounter);
-        void ParseLineFromStartState(std::string &listStartState, Line::Ref line);
+        void ParseLineFromState(const std::string &newStartState, Line::Ref line);
 
         // State management - this is available
         void SetStartState(const std::string &newStartState);
@@ -199,12 +199,13 @@ namespace gedit {
         State::Ref GetState(const char *stateName);
 
     protected:
+        bool ResetStateStack();
+
         void ParseLineWithCurrentState(std::vector<LangToken> &tokens, const std::u32string &input);
 
         kLanguageTokenClass CheckExecuteActionForToken(State::Ref currentState, const std::u32string &token, kLanguageTokenClass tokenClass);
         std::pair<bool, kLanguageTokenClass> GetNextToken(std::u32string &dst, std::u32string::const_iterator &it, std::u32string::const_iterator last);
 
-        bool ResetStateStack();
 
         size_t StartParseRegion(std::vector<Line::Ref> &lines, size_t idxRegion);
         size_t EndParseRegion(std::vector<Line::Ref> &lines, size_t idxRegion);

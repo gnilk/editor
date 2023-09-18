@@ -15,6 +15,8 @@
 
 using namespace gedit;
 
+static bool bParseStd = false;
+
 void CommandController::Begin() {
     logger = gnilk::Logger::GetLogger("CommandController");
     logger->Debug("Begin");
@@ -22,12 +24,28 @@ void CommandController::Begin() {
     NewLine();
 
     terminal.SetStdoutDelegate([this](std::u32string &output) {
-        // Should not call 'WriteLine' - because that add's to history buffer
-        WriteLine(output);
+        Line::LineAttrib lineAttrib = {};
+
+        lineAttrib.idxOrigString = 0;
+        lineAttrib.tokenClass = kLanguageTokenClass::kRegular;
+        currentLine->Attributes().push_back(lineAttrib);
+
+        currentLine->Append(output);
+        historyBuffer.push_back(currentLine);
+        NewLine();
     });
     terminal.SetStderrDelegate([this](std::u32string &output) -> void {
-        // Should not call 'WriteLine' - because that add's to history buffer
-        WriteLine(output);
+
+        currentLine->Append(output);
+        // FIXME: This is a test to use the language parser to help parse cmdline output...
+        if (bParseStd && (makeParser != nullptr)) {
+            auto &tokenizer = makeParser->Tokenizer();
+            tokenizer.ParseLineFromState("main", currentLine);
+            makeParser->OnPostProcessParsedLine(currentLine);
+        }
+
+        historyBuffer.push_back(currentLine);
+        NewLine();
     });
 
     if (!terminal.Begin()) {
@@ -73,6 +91,17 @@ void CommandController::CommitLine() {
     if (PluginExecutor::ParseAndExecuteWithCmdPrefix(cmdLine)) {
         return;
     }
+    bParseStd = false;
+    if (cmdLine.starts_with(U"make")) {
+        bParseStd = true;
+        if (makeParser == nullptr) {
+            makeParser = MakeBuildLang::Create();
+            makeParser->Initialize();
+        }
+    }
+
+
+
     TryExecuteShellCmd(cmdLine);
 }
 

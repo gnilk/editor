@@ -12,6 +12,7 @@
 #include "logger.h"
 #include "BaseController.h"
 #include "Core/unix/Shell.h"
+#include "Core/Language/LanguageSupport/MakeBuildLang.h"
 
 namespace gedit {
     class CommandController : public BaseController {
@@ -48,6 +49,8 @@ namespace gedit {
 
         void TestShowDialog();
     private:
+        LanguageBase::Ref makeParser = nullptr;
+
         Shell terminal;
         std::mutex lineLock;
 

@@ -41,6 +41,8 @@ namespace gedit {
         virtual kInsertAction OnPreInsertChar(Cursor &cursor, Line::Ref line, char32_t ch) { return kInsertAction::kDefault; }
         virtual kInsertAction OnPreCreateNewLine(const Line::Ref newLine) { return kInsertAction::kDefault; }
         virtual void OnPostInsertChar(Cursor &cursor, Line::Ref line, char32_t ch) { }
+        // Used by single line parsers (like 'makefile') to enhance the attributes after initial parsing
+        virtual void OnPostProcessParsedLine(Line::Ref line) {}
 
         // Common Language Settings
         int GetTabSize();

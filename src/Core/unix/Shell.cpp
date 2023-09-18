@@ -198,11 +198,9 @@ void Shell::ConsumePipes() {
         // STDERR handling doesn't quite work - no clue why...
         // OR it seems the combo of stdout/stderr polling is causing problems
         // needs more debugging...
-//        if ((fds[1].revents & POLLIN) && (onStdout != nullptr)) {
-//            ReadAndDispatch(fdErr, [this](std::string &str) {
-//                logger->Debug("stderr: %s", str.c_str());
-//            });
-//        }
+        if ((fds[1].revents & POLLIN) && (onStderr != nullptr)) {
+            ReadAndDispatch(fdErr, onStderr);
+        }
 
     }
 

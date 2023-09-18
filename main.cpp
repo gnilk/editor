@@ -12,7 +12,6 @@
  * - Undo does not properly reparse the area of the re-pasted data
  * + There are segfaults in copy/paste
  * - Adding an additional ')' when the previous char is '(' should be ignored, typing: '(',')' inserts an extra ')'
- * - Terminal must forward stderr!!
  * + Revisit the 'Workspace::NewModel' and friends - there are too much similarity in these functions
  * - When creating a new model we should switch to it, also - it is created in the wrong folder..
  * - Save screen position and size upon resize/move and similar, restore on startup (use XDG state directory)
@@ -51,6 +50,7 @@
  *   need to consider a solution for this...
  *
  * Done:
+ * ! Terminal must forward stderr!!
  * ! Language parser should operate on U32
  * ! Change loader to convert everything to UTF32 - for fast rendering
  * ! Need a new text renderer -> handling of unicode

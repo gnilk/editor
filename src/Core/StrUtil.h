@@ -31,9 +31,14 @@ namespace strutil {
 
     // The following has been added from the Tokenizer code
     bool skipWhiteSpace(char **input);
+    bool skipWhiteSpace(std::u32string::const_iterator &it);
     char *getNextTokenNoOperator(char *dst, int nMax, char **input);
+    bool getNextTokenNoOperator(std::u32string &dst, std::u32string::const_iterator &it);
     void splitToStringList(std::vector<std::string> &outList, const char *input);
     bool inStringList(std::vector<std::string> &strList, const char *input, int &outSz);
+
+    void splitToStringList(std::vector<std::u32string> &outList, const std::u32string &input);
+    bool inStringList(std::vector<std::u32string> &strList, const std::u32string &input);
 
     bool startsWith(const std::string &str, const std::string &prefix);
     bool startsWith(const std::u32string &str, const std::u32string &prefix);

@@ -165,7 +165,7 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
             if (textBuffer->GetLanguage().OnPreCreateNewLine(newLine) == LanguageBase::kInsertAction::kNewLine) {
                 // Insert an empty line - this will be the new active line...
                 logger->Debug("Creating empty line...");
-                emptyLine = Line::Create("");
+                emptyLine = Line::Create(U"");
                 textBuffer->Insert(++it, emptyLine);
             }
 
@@ -200,21 +200,6 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
     return idxActiveLine;
 }
 
-// FIX-ME: This needs more info - like the cursor in order to paste the block middle of another block..
-void EditController::Paste(size_t idxActiveLine, const char *buffer) {
-    std::stringstream strStream(buffer);
-    char tmp[GEDIT_MAX_LINE_LENGTH];
-
-    int idxStart = idxActiveLine;
-    while(!strStream.eof()) {
-        strStream.getline(tmp, GEDIT_MAX_LINE_LENGTH);
-        auto line = Line::Create(tmp);
-        textBuffer->Insert(idxActiveLine, line);
-        idxActiveLine++;
-    }
-    UpdateSyntaxForRegion(idxStart, idxActiveLine);
-}
-
 void EditController::UpdateSyntaxForBuffer() {
     logger->Debug("Syntax update for full bufffer");
     textBuffer->Reparse();
@@ -247,7 +232,7 @@ void EditController::EndUndoItem(UndoHistory::UndoItem::Ref undoItem) {
 }
 
 
-void EditController::AddCharToLineNoUndo(Cursor &cursor, Line::Ref line, int ch) {
+void EditController::AddCharToLineNoUndo(Cursor &cursor, Line::Ref line, char32_t ch) {
     line->Insert(cursor.position.x, ch);
     cursor.position.x++;
     cursor.wantedColumn = cursor.position.x;
@@ -285,7 +270,7 @@ void EditController::DelTab(Cursor &cursor, size_t idxActiveLine) {
     EndUndoItem(undoItem);
 }
 
-void EditController::AddLineComment(size_t idxLineStart, size_t idxLineEnd, const std::string_view &lineCommentPrefix) {
+void EditController::AddLineComment(size_t idxLineStart, size_t idxLineEnd, const std::u32string &lineCommentPrefix) {
 
     auto undoItem = historyBuffer.NewUndoFromLineRange(idxLineStart, idxLineEnd);
     undoItem->SetRestoreAction(UndoHistory::kRestoreAction::kClearAndAppend);

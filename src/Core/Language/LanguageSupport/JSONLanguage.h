@@ -24,8 +24,8 @@ namespace gedit {
             return cppIdentifier;
         }
 
-        kInsertAction OnPreInsertChar(Cursor &cursor, Line::Ref line, int ch) override;
-        void  OnPostInsertChar(Cursor &cursor, Line::Ref line, int ch) override;
+        kInsertAction OnPreInsertChar(Cursor &cursor, Line::Ref line, char32_t ch) override;
+        void  OnPostInsertChar(Cursor &cursor, Line::Ref line, char32_t  ch) override;
 
     };
 }

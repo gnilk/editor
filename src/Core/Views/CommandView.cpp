@@ -7,6 +7,7 @@
 #include "Core/Views/HSplitView.h"
 #include "Core/Config/Config.h"
 #include "Core/Editor.h"
+#include "Core/LineRender.h"
 using namespace gedit;
 
 static const std::string cfgSectionName = "commandview";
@@ -121,6 +122,8 @@ void CommandView::DrawViewContents() {
         lOffset = lines.size() - (int)(dc.GetRect().Height()-1);
     }
 
+    LineRender lineRender(dc);
+
     cursor.position.y = 0;
     // Never print on the last line - we reserve that for input..
     for(int i=0;i<(dc.GetRect().Height() - 1);i++) {
@@ -128,7 +131,8 @@ void CommandView::DrawViewContents() {
             break;
         }
         dc.ClearLine(i);
-        dc.DrawStringAt(0,i,lines[i+lOffset]->Buffer().data());
+
+        lineRender.DrawLine(0,i,lines[i+lOffset]);
         cursor.position.y += 1;
     }
     if ((int)lines.size() > dc.GetRect().Height()-1) {

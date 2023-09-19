@@ -21,7 +21,7 @@ void QuickCommandController::Enter() {
         logger = gnilk::Logger::GetLogger("QuickCmdCntr");
     }
     logger->Debug("Enter...");
-    cmdInput = Line::Create("");
+    cmdInput = Line::Create(U"");
     cursor = {};
     ChangeState(State::QuickCmdState);
     Editor::Instance().SetActiveKeyMapping(Config::Instance()[cfgSectionName].GetStr("keymap", "default_keymap"));
@@ -149,7 +149,7 @@ void QuickCommandController::DoLeaveOnSuccess() {
     bool autoLeave = Config::Instance()["quickmode"].GetBool("leave_automatically", false);
 
     // We can (and should) always reset these...
-    cmdInput = Line::Create("");
+    cmdInput = Line::Create(U"");
     cursor = {};
 
     if (autoLeave) {

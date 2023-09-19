@@ -17,7 +17,10 @@ namespace gedit {
 
         }
         void DrawLines(const std::vector<Line::Ref> &lines, int idxTopLine, int idxBottomLine, const Selection &selection);
+        void DrawLine(int x, int y, const Line::Ref line);
+
     protected:
+        void DrawLineWithAttributesAt(int x, int y, const Line::Ref line);
         void DrawLineWithAttributesAt(int x, int y, int nCharToPrint, Line &l, const Selection &selection);
     private:
         const DrawContext &dc;

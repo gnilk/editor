@@ -18,6 +18,7 @@ DLL_EXPORT int test_strutil_utf8toascii(ITesting *t);
 DLL_EXPORT int test_strutil_ltrim32(ITesting *t);
 DLL_EXPORT int test_strutil_trim32(ITesting *t);
 DLL_EXPORT int test_strutil_ucode(ITesting *t);
+DLL_EXPORT int test_strutil_splitu32(ITesting *t);
 }
 
 DLL_EXPORT int test_strutil(ITesting *t) {
@@ -99,5 +100,21 @@ DLL_EXPORT int test_strutil_ucode(ITesting *t) {
     printf("u8  len=%zu, size=%zu\n", u8str.length(), u8str.size());
 
 
+    return kTR_Pass;
+}
+DLL_EXPORT int test_strutil_splitu32(ITesting *t) {
+    std::u32string u32somestr = U"first second third";
+    auto it = u32somestr.begin();
+    it++;
+    it++;
+    auto pos = it - u32somestr.begin();
+    printf("Pos: %d\n", pos);
+
+
+
+    std::u32string u32str = U"first second third";
+    std::vector<std::u32string> list;
+    strutil::splitToStringList(list, u32str);
+    TR_ASSERT(t, list.size() == 3);
     return kTR_Pass;
 }

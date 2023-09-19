@@ -20,6 +20,10 @@
 #endif
 
 namespace gedit {
+    //
+    // The line is the lowest level!
+    // all underlying data is Unicode U32 chars
+    //
     class Line {
     public:
         struct LineAttrib {
@@ -32,11 +36,8 @@ namespace gedit {
         using Ref = std::shared_ptr<Line>;
     public:
         Line();
-        Line(const char *data);
         Line(const std::u32string &data);
         static Line::Ref Create();
-        static Line::Ref Create(const char *data);
-        static Line::Ref Create(const std::string &data);
         static Line::Ref Create(const std::u32string &data);
 
         void SetOnChangeDelegate(OnChangeDelegate newOnChangeDelegate) {
@@ -44,19 +45,14 @@ namespace gedit {
         }
 
         void Clear();
-        void Append(int ch);
-        void Append(std::string_view &srcdata);
-        void Append(std::string &srcdata);
-        void Append(const std::string &srcdata);
+        void Append(char32_t ch);
         void Append(const std::u32string &srcdata);
         void Append(const std::u32string_view &srcdata);
-        void Append(const char *srcdata);
         void Append(Line::Ref other);
 
-        void Insert(int at, int ch);
-        void Insert(int at, const std::string_view &srcdata);
+        void Insert(int at, char32_t ch);
         void Insert(int at, const std::u32string_view &srcdata);
-        int Insert(int at, int n, int ch);
+        int Insert(int at, int n, char32_t ch);
 
         void Delete(int at);
         void Move(Line::Ref dst, int dstOfs, int srcOfs, int nChar = -1);
@@ -75,8 +71,6 @@ namespace gedit {
             return selected;
         }
 
-        bool StartsWith(const std::string &prefix);
-        bool StartsWith(const std::string_view &prefix);
         bool StartsWith(const std::u32string &prefix);
 
         size_t Length() const { return buffer.length(); }
@@ -93,7 +87,7 @@ namespace gedit {
         char First() {
             return buffer.front();
         }
-        char Last() {
+        char32_t Last() {
             return buffer.back();
         }
 

@@ -13,11 +13,37 @@ using namespace gedit;
 
 extern "C" {
 DLL_EXPORT int test_cpplang(ITesting *t);
+DLL_EXPORT int test_cpplang_include(ITesting *t);
 DLL_EXPORT int test_cpplang_indent(ITesting *t);
 DLL_EXPORT int test_cpplang_elseindent(ITesting *t);
+DLL_EXPORT int test_cpplang_indentcode(ITesting *t);
 }
 
 DLL_EXPORT int test_cpplang(ITesting *t) {
+    Config::Instance()["main"].SetBool("threaded_syntaxparser", false);
+
+    return kTR_Pass;
+}
+DLL_EXPORT int test_cpplang_include(ITesting *t) {
+    auto workspace = Editor::Instance().GetWorkspace();
+    TR_ASSERT(t, workspace != nullptr);
+    auto model = workspace->NewModel("test.cpp");
+    TR_ASSERT(t, model != nullptr);
+    auto buffer = model->GetTextBuffer();
+    TR_ASSERT(t, buffer != nullptr);
+    buffer->AddLineUTF8("#include \"test.h\";");
+    buffer->AddLineUTF8("void main(int argc, char **argv) {");
+    buffer->AddLineUTF8("  printf(\"hello world\");");
+    buffer->AddLineUTF8("}");
+    buffer->AddLineUTF8("");
+
+    buffer->Reparse();
+
+    for(int i=0;i<buffer->NumLines();i++) {
+        auto line = buffer->LineAt(i);
+    }
+
+
     return kTR_Pass;
 }
 DLL_EXPORT int test_cpplang_indent(ITesting *t) {
@@ -76,6 +102,25 @@ DLL_EXPORT int test_cpplang_elseindent(ITesting *t) {
     }
 
     TR_ASSERT(t, workspace->RemoveModel(model->GetModel()));
+
+    return kTR_Pass;
+
+}
+
+DLL_EXPORT int test_cpplang_indentcode(ITesting *t) {
+    // Switch of threading for this...
+    Config::Instance()["main"].SetBool("threaded_syntaxparser", false);
+
+    auto model = Editor::Instance().LoadModel("ConvertUTF.c");
+    TR_ASSERT(t, model != nullptr);
+    auto buffer = model->GetTextBuffer();
+    TR_ASSERT(t, buffer != nullptr);
+
+    buffer->Reparse();
+    for(int i=60;i<70;i++) {
+        auto line = buffer->LineAt(i);
+        printf("%d: indent: %d - data: %s\n", i, line->Indent(), line->BufferAsUTF8().c_str());
+    }
 
     return kTR_Pass;
 

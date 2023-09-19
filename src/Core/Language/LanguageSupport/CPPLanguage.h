@@ -17,8 +17,8 @@ namespace gedit {
             return std::make_shared<CPPLanguage>();
         }
 
-        const std::string_view &GetLineComment() override {
-            static constexpr std::string_view lineCommentPrefix("//");
+        const std::u32string &GetLineComment() override {
+            static std::u32string lineCommentPrefix = U"//";
             return lineCommentPrefix;
         }
 
@@ -30,8 +30,8 @@ namespace gedit {
         }
 
         kInsertAction OnPreCreateNewLine(const Line::Ref newLine) override;
-        kInsertAction OnPreInsertChar(Cursor &cursor, Line::Ref line, int ch) override;
-        void OnPostInsertChar(Cursor &cursor, Line::Ref line, int ch) override;
+        kInsertAction OnPreInsertChar(Cursor &cursor, Line::Ref line, char32_t ch) override;
+        void OnPostInsertChar(Cursor &cursor, Line::Ref line, char32_t ch) override;
     private:
 
 // declare in-string operators

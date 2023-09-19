@@ -35,14 +35,14 @@ namespace gedit {
         };
 
         struct Action {
-            kAction action; // push/pop
-            std::string stateName;
+            kAction action;             // push/pop
+            std::string stateName;      // Internal
         };
 
         // Consider: Ability to set user supplied matching function...
         struct IdentifierList {
             using Ref = std::shared_ptr<IdentifierList>;
-            static IdentifierList::Ref Factory(kLanguageTokenClass tokenClass, const char *strTokens) {
+            static IdentifierList::Ref Factory(kLanguageTokenClass tokenClass, const std::u32string &strTokens) {
                 auto instance = std::make_shared<IdentifierList>();
 
                 instance->classification = tokenClass;
@@ -52,12 +52,12 @@ namespace gedit {
             }
 
             kLanguageTokenClass classification;
-            std::vector<std::string> tokens;
+            std::vector<std::u32string> tokens;
 
-            __inline bool IsMatch(const char *input, int &outSzToken) {
+            __inline bool IsMatch(const std::u32string &input, int &outSzToken) {
                 for (auto s: tokens) {
-                    if (!strncmp(s.c_str(), input, s.size())) {
-                        outSzToken = s.size();
+                    if (!input.compare(0,s.size(), s)) {
+                        outSzToken = static_cast<int>(s.size());
                         return true;
                     }
                 }
@@ -99,7 +99,7 @@ namespace gedit {
             IdentifierList::Ref postfixIdentifiers = nullptr;
 
             // Actions that should happen on specific tokens in this state
-            std::unordered_map<std::string, Action> actions;
+            std::unordered_map<std::u32string, Action> actions;
             Action eolAction = {.action = kAction::kNone, .stateName = ""};
 
             void SetRegularTokenClass(kLanguageTokenClass newRegularClass) {
@@ -109,7 +109,7 @@ namespace gedit {
             //
             // Actions are stack related...  currently only push/pop implemented...
             //
-            const Action &GetOrAddAction(const char *token, kAction action, const char *nextState = nullptr) {
+            const Action &GetOrAddAction(const std::u32string &token, kAction action, const char *nextState = nullptr) {
                 if (actions.find(token) == actions.end()) {
                     if ((action == kAction::kPushState) && (nextState == nullptr)) {
                         fprintf(stderr, "ERR: PushState can't push nullptr as state name\n");
@@ -120,14 +120,14 @@ namespace gedit {
                 return actions[token];
             }
 
-            const Action *GetAction(const char *token) {
+            const Action *GetAction(const std::u32string &token) {
                 if (actions.find(token) == actions.end()) {
                     return nullptr;
                 }
                 return &actions[token];
             }
 
-            bool HasActionForToken(const char *token) {
+            bool HasActionForToken(const std::u32string &token) {
                 if (actions.find(token) == actions.end()) {
                     return false;
                 }
@@ -149,7 +149,7 @@ namespace gedit {
             // set something else...
             // Like for CPP you want '*/' as postfix-operator in the block_comment state...
             //
-            void SetPostFixIdentifiers(const char *strTokens) {
+            void SetPostFixIdentifiers(const std::u32string &strTokens) {
                 postfixIdentifiers = IdentifierList::Factory(kLanguageTokenClass::kRegular, strTokens);
             }
 
@@ -161,12 +161,12 @@ namespace gedit {
             //
             // Each identifier list belongs to a classification
             //
-            void SetIdentifiers(kLanguageTokenClass classification, const char *strTokens) {
+            void SetIdentifiers(kLanguageTokenClass classification, const std::u32string &strTokens) {
                 auto identifierList = IdentifierList::Factory(classification, strTokens);
                 identifiers[classification] = identifierList;
             }
 
-            std::pair<bool, kLanguageTokenClass> ClassifyToken(const char *token) {
+            std::pair<bool, kLanguageTokenClass> ClassifyToken(const std::u32string &token) {
                 for (auto &kvp: identifiers) {
                     int dummy;
                     if (kvp.second->IsMatch(token, dummy)) {
@@ -190,7 +190,7 @@ namespace gedit {
         void ParseLines(std::vector<Line::Ref> &lines);
         void ParseRegion(std::vector<Line::Ref> &lines, size_t idxLineStart, size_t idxLineEnd);
         void ParseLine(const Line::Ref l, int &indentCounter);
-        void ParseLineFromStartState(std::string &listStartState, Line::Ref line);
+        void ParseLineFromState(const std::string &newStartState, Line::Ref line);
 
         // State management - this is available
         void SetStartState(const std::string &newStartState);
@@ -199,12 +199,13 @@ namespace gedit {
         State::Ref GetState(const char *stateName);
 
     protected:
-        void ParseLineWithCurrentState(std::vector<LangToken> &tokens, const char *input);
-
-        kLanguageTokenClass CheckExecuteActionForToken(State::Ref currentState, const char *token, kLanguageTokenClass tokenClass);
-        std::pair<bool, kLanguageTokenClass> GetNextToken(char *dst, int nMax, char **input);
-
         bool ResetStateStack();
+
+        void ParseLineWithCurrentState(std::vector<LangToken> &tokens, const std::u32string &input);
+
+        kLanguageTokenClass CheckExecuteActionForToken(State::Ref currentState, const std::u32string &token, kLanguageTokenClass tokenClass);
+        std::pair<bool, kLanguageTokenClass> GetNextToken(std::u32string &dst, std::u32string::const_iterator &it, std::u32string::const_iterator last);
+
 
         size_t StartParseRegion(std::vector<Line::Ref> &lines, size_t idxRegion);
         size_t EndParseRegion(std::vector<Line::Ref> &lines, size_t idxRegion);

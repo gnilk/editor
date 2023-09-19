@@ -15,14 +15,6 @@ Line::Line() {
 
 }
 
-Line::Line(const char *data) {
-
-    UnicodeHelper::ConvertUTF8ToUTF32String(buffer, data);
-    strutil::rtrim(buffer);
-//    buffer = data;
-//    strutil::rtrim(buffer);
-}
-
 Line::Line(const std::u32string &data) {
     buffer = data;
     strutil::rtrim(buffer);
@@ -32,12 +24,7 @@ Line::Line(const std::u32string &data) {
 Line::Ref Line::Create() {
     return std::make_shared<Line>();
 }
-Line::Ref Line::Create(const char *data) {
-    return std::make_shared<Line>(data);
-}
-Line::Ref Line::Create(const std::string &data) {
-    return std::make_shared<Line>(data.c_str());
-}
+
 Line::Ref Line::Create(const std::u32string &data) {
     return std::make_shared<Line>(data);
 }
@@ -63,40 +50,12 @@ void Line::Clear() {
     buffer = U"";
 }
 
-void Line::Append(int ch) {
+void Line::Append(char32_t ch) {
     {
         std::lock_guard<std::mutex> guard(lock);
-        buffer += static_cast<char32_t >(ch);
+        buffer += ch;
     }
     NotifyChangeHandler();
-}
-
-void Line::Append(std::string_view &srcdata) {
-    std::u32string tmp;
-    if (!UnicodeHelper::ConvertUTF8ToUTF32String(tmp, srcdata.data())) {
-        return;
-    }
-    Append(tmp);
-}
-
-void Line::Append(std::string &srcdata) {
-    std::u32string tmp;
-    if (!UnicodeHelper::ConvertUTF8ToUTF32String(tmp, srcdata)) {
-        return;
-    }
-    Append(tmp);
-}
-
-void Line::Append(const std::string &srcdata) {
-    Append(srcdata.c_str());
-}
-
-void Line::Append(const char *srcdata) {
-    std::u32string tmp;
-    if (!UnicodeHelper::ConvertUTF8ToUTF32String(tmp, srcdata)) {
-        return;
-    }
-    Append(tmp);
 }
 
 void Line::Append(const std::u32string &srcdata) {
@@ -122,7 +81,7 @@ void Line::Append(Line::Ref other) {
 }
 
 
-void Line::Insert(int at, int ch) {
+void Line::Insert(int at, char32_t ch) {
     {
         std::lock_guard<std::mutex> guard(lock);
         buffer.insert(at, 1, ch);
@@ -130,19 +89,10 @@ void Line::Insert(int at, int ch) {
     NotifyChangeHandler();
 }
 
-void Line::Insert(int at, const std::string_view &srcdata) {
-
-    std::u32string u32src;
-    if (!UnicodeHelper::ConvertUTF8ToUTF32String(u32src, srcdata.data())) {
-        return;
-    }
-    Insert(at, u32src);
-}
-
-int Line::Insert(int at, int n, int ch) {
+int Line::Insert(int at, int n, char32_t ch) {
     {
         std::lock_guard<std::mutex> guard(lock);
-        buffer.insert(at, n, static_cast<char32_t>(ch));
+        buffer.insert(at, n, ch);
     }
     NotifyChangeHandler();
     return n;
@@ -181,6 +131,7 @@ void Line::Delete(int at) {
     }
     NotifyChangeHandler();
 }
+
 void Line::Delete(int at, int n) {
     {
         std::lock_guard<std::mutex> guard(lock);
@@ -188,6 +139,7 @@ void Line::Delete(int at, int n) {
     }
     NotifyChangeHandler();
 }
+
 int Line::Unindent(size_t tabSize) {
     size_t maxLen = 0;
     {
@@ -217,28 +169,6 @@ Line::LineAttribIterator Line::AttributeAt(int pos) {
     }
     // Not sure...
     return attribs.begin();
-}
-
-
-bool Line::StartsWith(const std::string &prefix) {
-
-    std::u32string u32prefix;
-    if (!UnicodeHelper::ConvertUTF8ToUTF32String(u32prefix, prefix)) {
-        return false;
-    }
-
-    std::lock_guard<std::mutex> guard(lock);
-    return strutil::startsWith(buffer, u32prefix);
-}
-
-bool Line::StartsWith(const std::string_view &prefix) {
-    std::u32string u32prefix;
-    if (!UnicodeHelper::ConvertUTF8ToUTF32String(u32prefix, prefix.data())) {
-        return false;
-    }
-
-    std::lock_guard<std::mutex> guard(lock);
-    return strutil::startsWith(buffer, u32prefix);
 }
 
 bool Line::StartsWith(const std::u32string &prefix) {

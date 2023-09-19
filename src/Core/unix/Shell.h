@@ -30,6 +30,9 @@ namespace gedit {
         void SetStdoutDelegate(OutputDelegate handler) {
             onStdout = handler;
         }
+        void SetStderrDelegate(OutputDelegate handler) {
+            onStderr = handler;
+        }
     private:
         void ReadAndDispatch(FILE *fd, OutputDelegate onData);
         bool StartShellProc();
@@ -42,6 +45,8 @@ namespace gedit {
         int exitStatus = 0;
 
         OutputDelegate onStdout = nullptr;
+        OutputDelegate onStderr = nullptr;
+
         pid_t pid;
         int infd[2] = {0, 0};
         int outfd[2] = {0, 0};

@@ -54,8 +54,6 @@ namespace gedit {
             return textBuffer->LineAt(idxLine);
         }
 
-        void Paste(size_t idxActiveLine, const char *buffer);
-
         UndoHistory::UndoItem::Ref BeginUndoItem();
         void EndUndoItem(UndoHistory::UndoItem::Ref undoItem);
 
@@ -64,14 +62,14 @@ namespace gedit {
         void UpdateSyntaxForActiveLineRegion(size_t idxActiveLine); // Special partial case - activeline +/- 2 lines
         void WaitForSyntaxCompletion();
 
-        void AddCharToLineNoUndo(Cursor &cursor, Line::Ref line, int ch);
+        void AddCharToLineNoUndo(Cursor &cursor, Line::Ref line, char32_t ch);
         void RemoveCharFromLineNoUndo(Cursor &cursor, Line::Ref line);
 
         void AddTab(Cursor &cursor, size_t idxActiveLine);
         void DelTab(Cursor &cursor, size_t idxActiveLine);
 
         void DeleteRange(const Point &startPos, const Point &endPos);
-        void AddLineComment(size_t idxLineStart, size_t idxLineEnd, const std::string_view &lineCommentPrefix);
+        void AddLineComment(size_t idxLineStart, size_t idxLineEnd, const std::u32string &lineCommentPrefix);
     protected:
         void DeleteLinesNoSyntaxUpdate(size_t idxLineStart, size_t idxLineEnd);
         bool HandleSpecialKeyPressForEditor(Cursor &cursor, size_t &idxLine, const KeyPress &keyPress);

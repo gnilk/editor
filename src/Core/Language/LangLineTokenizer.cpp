@@ -41,6 +41,9 @@ void LangLineTokenizer::ParseRegion(std::vector<Line::Ref> &lines, size_t idxLin
     }
 
 }
+
+// Try calculate the start of the parse region given a bunch of lines and the idx to the start for the calculation
+// This seeks backwards in the list of lines until the stack-depth is 0
 size_t LangLineTokenizer::StartParseRegion(std::vector<Line::Ref> &lines, size_t idxRegion) {
     size_t idxStart = 0;
     if (idxRegion < 5) {
@@ -54,6 +57,11 @@ size_t LangLineTokenizer::StartParseRegion(std::vector<Line::Ref> &lines, size_t
     }
     return idxStart;
 }
+
+//
+// Try figure out the end of the parse region by seeking forward and then some
+// Note: THIS DOES NOT WORK for things like enter block-comment at top-of-file
+//
 size_t LangLineTokenizer::EndParseRegion(std::vector<Line::Ref> &lines, size_t idxRegion) {
     if (lines.size() < 5) {
         return lines.size();
@@ -187,7 +195,6 @@ void LangLineTokenizer::ParseLineWithCurrentState(std::vector<LangToken> &tokens
     //char *parsepoint = (char *) input;
     auto it = input.begin();
 
-
     while(true) {
         auto currentState = stateStack.top();
         if (currentState == nullptr) {
@@ -209,8 +216,7 @@ void LangLineTokenizer::ParseLineWithCurrentState(std::vector<LangToken> &tokens
         int pos = static_cast<int>(it - input.begin());
         pos -= nextToken.size();
 
-
-       classification = CheckExecuteActionForToken(currentState, nextToken, classification);
+        classification = CheckExecuteActionForToken(currentState, nextToken, classification);
         // If this is regular text - reclassify it depending on the state (this allows for comments/string and other
         // encapsulation statements to override... (#include)
         if (classification == kLanguageTokenClass::kRegular) {
@@ -228,7 +234,6 @@ void LangLineTokenizer::ParseLineWithCurrentState(std::vector<LangToken> &tokens
         }
         PopState();
     }
-
 }
 
 //
@@ -249,7 +254,6 @@ bool LangLineTokenizer::ResetStateStack() {
 
     return true;
 }
-
 
 //
 // A Pop action will reclassify the token using the popped state as that's where the classification belongs..
@@ -294,8 +298,6 @@ kLanguageTokenClass LangLineTokenizer::CheckExecuteActionForToken(State::Ref cur
 
     return tokenClass;
 }
-
-
 
 //
 //
@@ -420,12 +422,14 @@ LangLineTokenizer::State::Ref LangLineTokenizer::GetOrAddState(const char *state
     }
     return states[stateName];
 }
+
 bool LangLineTokenizer::HasState(const char *stateName) {
     if (states.find(stateName) == states.end()) {
         return false;
     }
     return true;
 }
+
 LangLineTokenizer::State::Ref LangLineTokenizer::GetState(const char *stateName) {
     return states[stateName];
 }
@@ -437,9 +441,11 @@ bool LangLineTokenizer::PushState(const char *stateName) {
     PushState(states[stateName]);
     return true;
 }
+
 void LangLineTokenizer::PushState(State::Ref state) {
     stateStack.push(state);
 }
+
 LangLineTokenizer::State::Ref LangLineTokenizer::PopState() {
     auto top = stateStack.top();
     stateStack.pop();

@@ -8,6 +8,7 @@
 #include "Core/StrUtil.h"
 #include "Core/Line.h"
 #include "Core/UnicodeHelper.h"
+#include "logger.h"
 
 using namespace gedit;
 
@@ -181,3 +182,31 @@ const std::string Line::BufferAsUTF8() const {
 }
 
 
+void Line::IterateWithAttributes(LineIteratorDelegate callback) {
+    auto itAttrib = attribs.begin();
+
+    while (itAttrib != attribs.end()) {
+        auto next = itAttrib + 1;
+        size_t len = std::string::npos;
+        // Not at the end - replace with length of this attribute
+        if (next != attribs.end()) {
+            // Some kind of assert!
+            if (itAttrib->idxOrigString > next->idxOrigString) {
+                auto logger = gnilk::Logger::GetLogger("Line");
+                logger->Error("IterateWithAttributes, attribute index is wrong for line: '%s'", UnicodeHelper::utf32to8(Buffer()).c_str());
+                return;
+            }
+            len = next->idxOrigString - itAttrib->idxOrigString;
+        }
+        // we need reparse!
+        if (static_cast<size_t>(itAttrib->idxOrigString) > Length()) {
+            return;
+        }
+        // Grab the substring for this attribute range
+        auto strOut = std::u32string(Buffer(), itAttrib->idxOrigString, len);
+
+        callback(itAttrib, strOut);
+        itAttrib = next;
+    }
+
+}

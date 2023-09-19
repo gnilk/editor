@@ -26,6 +26,7 @@ namespace gedit {
     //
     class Line {
     public:
+
         struct LineAttrib {
             int idxOrigString;   // index in original string...
             gedit::kTextAttributes textAttributes = gedit::kTextAttributes::kNormal;
@@ -34,6 +35,8 @@ namespace gedit {
         using LineAttribIterator = std::vector<LineAttrib>::iterator;
         using OnChangeDelegate = std::function<void(const Line &)>;
         using Ref = std::shared_ptr<Line>;
+
+        using LineIteratorDelegate = std::function<void(const Line::LineAttribIterator &itAttrib, std::u32string &strOut)>;
     public:
         Line();
         Line(const std::u32string &data);
@@ -97,6 +100,9 @@ namespace gedit {
         void SetStateStackDepth(int newStateDepth) {
             stateDepthAtStart = newStateDepth;
         }
+
+        void IterateWithAttributes(LineIteratorDelegate callback);
+
     private:
         void NotifyChangeHandler();
 

@@ -3,6 +3,8 @@
 //
 /*
  * TO-DO List
+ * - Make something to hold a 'builder' (I need somewhere to store build-errors and present them nicely)
+ *   Later this can go into the project configuration, which is executed through a '.build'-command
  * - Figure something to handle 'tab' correctly
  *   This can either be to convert to spaces OR a display thing - "forward cursor X" when \t occurs (in this case it should be part of the tokenizer)
  * + Exclude/Ignore directories for Monitor is a must

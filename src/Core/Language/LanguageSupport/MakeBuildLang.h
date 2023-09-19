@@ -26,6 +26,11 @@ namespace gedit {
             static std::u32string cppIdentifier = U"make";
             return cppIdentifier;
         }
+    private:
+        struct Part {
+            Line::LineAttrib attrib;
+            std::u32string string;
+        };
 
     };
 }

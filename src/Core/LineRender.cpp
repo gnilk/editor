@@ -52,6 +52,7 @@ void LineRender::DrawLine(int x, int y, const Line::Ref line) {
     line->Release();
 }
 
+
 // This is the more advanced drawing routine...
 void LineRender::DrawLineWithAttributesAt(int x, int y, const Line::Ref line) {
 
@@ -61,48 +62,22 @@ void LineRender::DrawLineWithAttributesAt(int x, int y, const Line::Ref line) {
         dc.DrawStringAt(x, y, line->Buffer().data());
         return;
     }
-
     // We split the line in attribute chunks and draw partial lines...
-    auto itAttrib = attribs.begin();
     int xp = x;
 
-    //
-    // FIXME: Consider breaking this while loop out and put it Line instead with a Lambda expression
-    //       line->IterateAttributes([](LineAttribIterator iterator, std::u32string &str) { });
-    //
-    while (itAttrib != attribs.end()) {
-        auto next = itAttrib + 1;
-        size_t len = std::string::npos;
-        // Not at the end - replace with length of this attribute
-        if (next != attribs.end()) {
-            // Some kind of assert!
-            if (itAttrib->idxOrigString > next->idxOrigString) {
-                auto logger = gnilk::Logger::GetLogger("SDLDrawContext");
-                logger->Error("DrawLineWithAttributesAt, attribute index is wrong for line: '%s'", UnicodeHelper::utf32to8(line->Buffer()).c_str());
-                return;
-            }
-            len = next->idxOrigString - itAttrib->idxOrigString;
-        }
-        // we need reparse!
-        if (static_cast<size_t>(itAttrib->idxOrigString) > line->Length()) {
-            return;
-        }
-        // Grab the substring for this attribute range
-        auto strOut = std::u32string(line->Buffer(), itAttrib->idxOrigString, len);
-
-        // Draw string with the correct color...
+    auto callback = [&xp,y, this](const Line::LineAttribIterator &itAttrib, std::u32string &strOut) {
         auto [fgColor, bgColor] = Editor::Instance().ColorFromLanguageToken(itAttrib->tokenClass);
         dc.SetColor(fgColor, bgColor);
         dc.DrawStringWithAttributesAt(xp,y, itAttrib->textAttributes, strOut);
+        xp += strOut.length();
+    };
 
-        xp += len;
-        itAttrib = next;
-    }
-
+    line->IterateWithAttributes(callback);
 }
 
 
 // This is the more advanced drawing routine...
+// FIXME: Remove this...
 void LineRender::DrawLineWithAttributesAt(int x, int y, int nCharToPrint, Line &l, const Selection &selection) {
 
     // No attributes?  Just dump the string...
@@ -111,6 +86,20 @@ void LineRender::DrawLineWithAttributesAt(int x, int y, int nCharToPrint, Line &
         dc.DrawStringAt(x, y, l.Buffer().data());
         return;
     }
+
+    int xp = x;
+    auto callback = [&xp,y, this](const Line::LineAttribIterator &itAttrib, std::u32string &strOut) {
+        auto [fgColor, bgColor] = Editor::Instance().ColorFromLanguageToken(itAttrib->tokenClass);
+        dc.SetColor(fgColor, bgColor);
+        dc.DrawStringWithAttributesAt(xp,y, itAttrib->textAttributes, strOut);
+        xp += strOut.length();
+    };
+
+    l.IterateWithAttributes(callback);
+
+    return;
+    /*
+
 
     // We split the line in attribute chunks and draw partial lines...
     auto itAttrib = attribs.begin();
@@ -144,6 +133,7 @@ void LineRender::DrawLineWithAttributesAt(int x, int y, int nCharToPrint, Line &
         xp += len;
         itAttrib = next;
     }
+     */
 
 }
 

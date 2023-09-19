@@ -23,6 +23,8 @@ namespace gedit {
         void DrawLineWithAttributesAt(int x, int y, const Line::Ref line);
         void DrawLineWithAttributesAt(int x, int y, int nCharToPrint, Line &l, const Selection &selection);
     private:
+//        using AttributeStringDelegate = std::function<void(const Line::LineAttribIterator &itAttrib, std::u32string &strOut)>;
+//        void Iterate(const Line::Ref line, AttributeStringDelegate callback);
         const DrawContext &dc;
     };
 }

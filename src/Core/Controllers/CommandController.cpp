@@ -36,7 +36,9 @@ void CommandController::Begin() {
     });
     terminal.SetStderrDelegate([this](std::u32string &output) -> void {
 
+        strutil::trim(output);
         currentLine->Append(output);
+
         // FIXME: This is a test to use the language parser to help parse cmdline output...
         if (bParseStd && (makeParser != nullptr)) {
             auto &tokenizer = makeParser->Tokenizer();
@@ -91,6 +93,8 @@ void CommandController::CommitLine() {
     if (PluginExecutor::ParseAndExecuteWithCmdPrefix(cmdLine)) {
         return;
     }
+
+    // TEST TEST TEST, see terminal.SetStdDelegate in Begin!!
     bParseStd = false;
     if (cmdLine.starts_with(U"make")) {
         bParseStd = true;
@@ -99,7 +103,6 @@ void CommandController::CommitLine() {
             makeParser->Initialize();
         }
     }
-
 
 
     TryExecuteShellCmd(cmdLine);

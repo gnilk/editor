@@ -76,6 +76,13 @@ void EditorView::ReInitView() {
         return;
     }
 
+    // FIX THIS - it is a mismatch!!!
+    // Consider refactoring the whole navigation (top/bottom/active/cursor) to a separate own structure!!!
+    idxActiveLine = editorModel->idxActiveLine;
+    viewTopLine = editorModel->viewTopLine;
+    viewBottomLine = editorModel->viewBottomLine;
+
+
     HandleResize(editorModel->cursor, viewRect);
     UpdateModelFromNavigation(true);
 
@@ -285,6 +292,13 @@ bool EditorView::OnAction(const KeyPressAction &kpAction) {
         editorModel->CommentSelectionOrLine();
     }
 
+    // FIX THIS - it is a mismatch!!!
+    // Consider refactoring the whole navigation (top/bottom/active/cursor) to a separate own structure!!!
+    idxActiveLine = editorModel->idxActiveLine;
+    viewTopLine = editorModel->viewTopLine;
+    viewBottomLine = editorModel->viewBottomLine;
+
+
     auto result = DispatchAction(kpAction);
 
     // FIXME: Not sure this is the correct thing to do...
@@ -446,6 +460,8 @@ bool EditorView::OnActionGotoLastLine() {
     editorModel->viewBottomLine = editorModel->Lines().size();
     editorModel->viewTopLine = editorModel->viewBottomLine - GetContentRect().Height();
 
+    logger->Debug("Cursor: %d:%d, idxActiveLine: %d",editorModel->cursor.position.x, editorModel->cursor.position.y, editorModel->idxActiveLine);
+
     return true;
 }
 
@@ -472,6 +488,7 @@ void EditorView::UpdateModelFromNavigation(bool updateCursor) {
     if (editorModel == nullptr) {
         return;
     }
+    // Really???
     editorModel->idxActiveLine = idxActiveLine;
     editorModel->viewTopLine = viewTopLine;
     editorModel->viewBottomLine = viewBottomLine;
@@ -504,6 +521,7 @@ void EditorView::UpdateModelFromNavigation(bool updateCursor) {
  */
 
 bool EditorView::OnActionPageDown() {
+
     if (!bUseCLionPageNav) {
         OnNavigateDownVSCode(editorModel->cursor, viewRect.Height() - 1, viewRect, editorModel->Lines().size());
     } else {
@@ -528,8 +546,13 @@ bool EditorView::OnActionLineDown(const KeyPressAction &kpAction) {
     if (currentLine == nullptr) {
         return true;
     }
+    logger->Debug("NavigateLineDonw");
+    logger->Debug("  Before: Cursor: %d:%d, idxActiveLine: %d",editorModel->cursor.position.x, editorModel->cursor.position.y, editorModel->idxActiveLine);
     OnNavigateDownVSCode(editorModel->cursor, 1, viewRect, editorModel->Lines().size());
+    logger->Debug("  After1: Cursor: %d:%d, idxActiveLine: %d",editorModel->cursor.position.x, editorModel->cursor.position.y, editorModel->idxActiveLine);
     UpdateModelFromNavigation(true);
+    logger->Debug("  After2: Cursor: %d:%d, idxActiveLine: %d",editorModel->cursor.position.x, editorModel->cursor.position.y, editorModel->idxActiveLine);
+
     return true;
 }
 bool EditorView::OnActionLineUp() {

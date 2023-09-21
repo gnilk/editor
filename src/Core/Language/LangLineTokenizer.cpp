@@ -46,7 +46,7 @@ void LangLineTokenizer::ParseRegion(std::vector<Line::Ref> &lines, size_t idxLin
 // This seeks backwards in the list of lines until the stack-depth is 0
 size_t LangLineTokenizer::StartParseRegion(std::vector<Line::Ref> &lines, size_t idxRegion) {
     size_t idxStart = 0;
-    if (idxRegion < 5) {
+    if ((idxRegion < 5) || (idxRegion > lines.size())) {
         return idxStart;
     }
     // search backwards until the state-stack depth == 0
@@ -63,7 +63,7 @@ size_t LangLineTokenizer::StartParseRegion(std::vector<Line::Ref> &lines, size_t
 // Note: THIS DOES NOT WORK for things like enter block-comment at top-of-file
 //
 size_t LangLineTokenizer::EndParseRegion(std::vector<Line::Ref> &lines, size_t idxRegion) {
-    if (lines.size() < 5) {
+    if ((lines.size() < 5) || (idxRegion > lines.size())) {
         return lines.size();
     }
     if (idxRegion > (lines.size()-5)) {

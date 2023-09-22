@@ -3,7 +3,7 @@
 [![Build](https://github.com/gnilk/editor/actions/workflows/cmake.yml/badge.svg)](https://github.com/gnilk/editor/actions/workflows/cmake.yml)
 
 Someone (Peter Norton?) once said that in order to really become a programmer one has to write
-an editor. test
+an editor. 
 
 This is my playground....
 

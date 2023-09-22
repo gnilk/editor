@@ -116,11 +116,11 @@ bool Editor::Initialize(int argc, const char **argv) {
     logger->Debug("We are on Linux, resolving XDG paths");
 
     auto sysConfigPath = XDGEnvironment::Instance().GetFirstSystemDataPathWithSubDir("goatedit");
-    if (!sysConfigPath.has_value()) {
-        logger->Error("No system install path, exit!");
-        exit(1);
+    if (sysConfigPath.has_value()) {
+        assetLoader.AddSearchPath(sysConfigPath.value(), AssetLoaderBase::kLocationType::kSystem);
+    } else {
+        logger->Warning("No system install path, assuming dev-env");
     }
-    assetLoader.AddSearchPath(sysConfigPath.value(), AssetLoaderBase::kLocationType::kSystem);
 
     // Add in the user data...
     auto userData = XDGEnvironment::Instance().GetUserDataPath();

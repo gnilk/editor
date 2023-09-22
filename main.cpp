@@ -211,7 +211,7 @@
  * ! Only views with content should have an NCurses Window structure..
  * ! Rewrote the view/window handling tossed out the old layout thingie
  */
-#include <SDL3/SDL_keyboard.h>
+//#include <SDL3/SDL_keyboard.h>
 #include <vector>
 
 

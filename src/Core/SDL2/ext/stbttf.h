@@ -9,7 +9,7 @@
 #define __STBTTF_H__
 
 #include <string>
-#include <SDL3/SDL.h>
+#include <SDL2/SDL.h>
 
 #include "stb_rect_pack.h"
 #include "stb_truetype.h"

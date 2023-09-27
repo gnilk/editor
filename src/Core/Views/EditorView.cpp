@@ -129,17 +129,8 @@ void EditorView::DrawViewContents() {
         overlay.Set(selection.GetStart(), selection.GetEnd());
         overlay.attributes = 0;     // ??
         overlay.isActive = true;
-        dc.AddOverlay(overlay);
-
-        // ---- start test
-        // Test overlay transform
-
-//        logger->Debug("Transform overlay from:");
-//        logger->Debug("  (%d:%d) - (%d:%d)", overlay.start.x, overlay.start.y, overlay.end.x, overlay.end.y);
-//        logger->Debug("  viewTopLine: %d, bottomLine: %d", editorModel->viewTopLine, editorModel->viewBottomLine);
 
         int dy = selection.GetEnd().y - selection.GetStart().y;
-//        logger->Debug("dy = %d", dy);
         overlay.start.y -= editorModel->viewTopLine;
         overlay.end.y = overlay.start.y + dy;
 

@@ -206,8 +206,9 @@ void LangLineTokenizer::ParseLineWithCurrentState(std::vector<LangToken> &tokens
         if (!ok) {
             break;
         }
+//        auto tmp = UnicodeHelper::utf32toascii(nextToken);
+//        printf("s: %s, nexttok: '%s'\n", currentState->name.c_str(), tmp.c_str());
 
-        // printf("s: %s, tok: %s\n", currentState->name.c_str(), tmp);
         if (nextToken.empty()) {
             return;
         }
@@ -217,6 +218,7 @@ void LangLineTokenizer::ParseLineWithCurrentState(std::vector<LangToken> &tokens
         pos -= nextToken.size();
 
         classification = CheckExecuteActionForToken(currentState, nextToken, classification);
+        //printf("  classification: %d\n", classification);
         // If this is regular text - reclassify it depending on the state (this allows for comments/string and other
         // encapsulation statements to override... (#include)
         if (classification == kLanguageTokenClass::kRegular) {

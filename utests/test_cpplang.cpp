@@ -17,6 +17,7 @@ DLL_EXPORT int test_cpplang_include(ITesting *t);
 DLL_EXPORT int test_cpplang_indent(ITesting *t);
 DLL_EXPORT int test_cpplang_elseindent(ITesting *t);
 DLL_EXPORT int test_cpplang_indentcode(ITesting *t);
+DLL_EXPORT int test_cpplang_chardecl(ITesting *t);
 }
 
 DLL_EXPORT int test_cpplang(ITesting *t) {
@@ -121,6 +122,44 @@ DLL_EXPORT int test_cpplang_indentcode(ITesting *t) {
         auto line = buffer->LineAt(i);
         printf("%d: indent: %d - data: %s\n", i, line->Indent(), line->BufferAsUTF8().c_str());
     }
+
+    return kTR_Pass;
+
+}
+
+
+static void DumpLineData(const Line::Ref line) {
+    auto ascii = UnicodeHelper::utf32toascii(line->Buffer());
+    printf("Line: %s\n", ascii.c_str());
+    for(auto &a : line->Attributes()) {
+        printf("  %d, %d\n",a.idxOrigString, a.tokenClass);
+        printf("  %s\n", ascii.c_str());
+        for(int i=0;i<a.idxOrigString;i++) {
+            printf(" ");
+        }
+        printf("  ^\n");
+    }
+}
+
+DLL_EXPORT int test_cpplang_chardecl(ITesting *t) {
+    // Switch of threading for this...
+    Config::Instance()["main"].SetBool("threaded_syntaxparser", false);
+
+    auto workspace = Editor::Instance().GetWorkspace();
+    TR_ASSERT(t, workspace != nullptr);
+    auto model = workspace->NewModel("test.cpp");
+    TR_ASSERT(t, model != nullptr);
+    auto buffer = model->GetTextBuffer();
+    TR_ASSERT(t, buffer != nullptr);
+
+//    buffer->AddLineUTF8("char *str=\"apa\"; // comment2");
+    buffer->AddLineUTF8("char c='{'; // comment");
+    buffer->Reparse();
+
+    DumpLineData(buffer->LineAt(1));
+    //DumpLineData(buffer->LineAt(2));
+
+    TR_ASSERT(t, workspace->RemoveModel(model->GetModel()));
 
     return kTR_Pass;
 

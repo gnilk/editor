@@ -30,6 +30,10 @@ static const std::u32string cppBlockCommentStop = U"*/";
 static const std::string inStringOperators = R"_(\" \\ ")_"; // not sure how to declare U32 raw strings?
 static const std::u32string inStringPostFixOp = U"\"";
 
+//static const std::string inCharOperators = R"_(\" \\)_"; // not sure how to declare U32 raw strings?
+static const std::u32string inCharOperators = U"\" \\ '";
+static const std::u32string inCharPostFixOp = U"'";
+
 //
 // Configure the tokenizer for C++
 // NOTE: This can probably be driven 100% from a configuration file - it just set's up stuff...
@@ -45,15 +49,24 @@ bool CPPLanguage::Initialize() {
     state->SetIdentifiers(kLanguageTokenClass::kCodeBlockEnd, cppCodeBlockEnd);
     state->SetPostFixIdentifiers(cppOperatorsFull);
 
-    state->GetOrAddAction(U"\"",LangLineTokenizer::kAction::kPushState, "in_string");
-    state->GetOrAddAction(U"/*",LangLineTokenizer::kAction::kPushState, "in_block_comment");
-    state->GetOrAddAction(U"//",LangLineTokenizer::kAction::kPushState, "in_line_comment");
+    state->GetOrAddAction(U"\"", LangLineTokenizer::kAction::kPushState, "in_string");
+    state->GetOrAddAction(U"/*", LangLineTokenizer::kAction::kPushState, "in_block_comment");
+    state->GetOrAddAction(U"//", LangLineTokenizer::kAction::kPushState, "in_line_comment");
+    state->GetOrAddAction(U"\'", LangLineTokenizer::kAction::kPushState, "in_char");
+
+    auto stateChr = tokenizer.GetOrAddState("in_char");
+    stateChr->SetRegularTokenClass(kLanguageTokenClass::kChar);
+//    auto u32charOp = UnicodeHelper::utf8to32(inCharOperators);
+//    stateChr->SetIdentifiers(kLanguageTokenClass::kChar, u32charOp);
+    stateChr->SetIdentifiers(kLanguageTokenClass::kChar, inCharOperators);
+    stateChr->SetPostFixIdentifiers(inCharPostFixOp);
+    stateChr->GetOrAddAction(U"'",LangLineTokenizer::kAction::kPopState);
+
 
     auto stateStr = tokenizer.GetOrAddState("in_string");
     stateStr->SetRegularTokenClass(kLanguageTokenClass::kString);
     auto u32instrOp = UnicodeHelper::utf8to32(inStringOperators);
     stateStr->SetIdentifiers(kLanguageTokenClass::kString, u32instrOp);
-
     stateStr->SetPostFixIdentifiers(inStringPostFixOp);
     stateStr->GetOrAddAction(U"\"",LangLineTokenizer::kAction::kPopState);
 

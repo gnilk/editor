@@ -182,7 +182,7 @@ namespace gedit {
         void StartParseJob(ParseJobType jobType, size_t idxLineStart = 0, size_t idxLineEnd = 0);
         void ExecuteParseJob(const ParseJob &job);
         void ExecuteFullParse();
-        void ExecuteRegionParse(size_t idxLineStart, size_t idxLineEnd);
+        size_t ExecuteRegionParse(size_t idxLineStart, size_t idxLineEnd);
     private:
         volatile ParseState parseState = kState_None;
 

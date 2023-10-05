@@ -13,14 +13,16 @@
 #include "logger.h"
 using namespace gedit;
 
-void LangLineTokenizer::ParseRegion(std::vector<Line::Ref> &lines, size_t idxLineStart, size_t idxLineEnd) {
+size_t LangLineTokenizer::ParseRegion(std::vector<Line::Ref> &lines, size_t idxLineStart, size_t idxLineEnd) {
     size_t idxStart = StartParseRegion(lines, idxLineStart);
     size_t idxEnd = EndParseRegion(lines, idxLineEnd);
     auto logger = gnilk::Logger::GetLogger("LangLineRegion");
 
     if (!ResetStateStack()) {
-        return;
+        return 0;
     }
+
+    size_t nMaxLines = Config::Instance()["languages"].GetInt("regionMaxLines", 1000);
 
     PushState(startState.c_str());
     // Should be zero (that's what StartParseRegion has as exit criteria)
@@ -28,18 +30,29 @@ void LangLineTokenizer::ParseRegion(std::vector<Line::Ref> &lines, size_t idxLin
 
     logger->Debug("ParseRegion mapped, idxStart=%zu => %zu, idxEnd=%zu => %zu", idxLineStart, idxStart, idxStart, idxEnd);
 
-    for(size_t i=idxStart;i<idxEnd;i++) {
-        auto l = lines.at(i);
+    // FIXME: replace with while ((idxEnd > idxStart) && (stateStack.size() > 1)
+
+    while(true) {
+        if (idxStart >= lines.size()) {
+            break;
+        }
+        auto l = lines.at(idxStart);
+
         l->SetIndent(nextIndent);
         ParseLine(l, nextIndent);
+        idxStart++;
+        if ((idxStart > idxEnd) && (stateStack.size() == 1)) break;
+        if (idxStart > nMaxLines) break;
     }
     // Let's pop the  'start'
     auto top = stateStack.top();
     PopState();
+
     if (!stateStack.empty()) {
         // emit warning!
+        logger->Debug("ParseRegion, done but state stack not empty!!");
     }
-
+    return stateStack.size();
 }
 
 // Try calculate the start of the parse region given a bunch of lines and the idx to the start for the calculation

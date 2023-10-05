@@ -238,11 +238,16 @@ void TextBuffer::ExecuteFullParse() {
     parseMetrics.full += 1;
 }
 
-void TextBuffer::ExecuteRegionParse(size_t idxLineStart, size_t idxLineEnd) {
+size_t TextBuffer::ExecuteRegionParse(size_t idxLineStart, size_t idxLineEnd) {
     auto tokenizer = language->Tokenizer();
-    tokenizer.ParseRegion(lines, idxLineStart, idxLineEnd);
+    auto result = tokenizer.ParseRegion(lines, idxLineStart, idxLineEnd);
+    if (result != 0) {
+        logger->Error("ParseRegion, tokenizer didn't reach complete, result=%zu", result);
+        // FIXME: We can issue a full/complete Reparse here..
+    }
     parseMetrics.total += 1;
     parseMetrics.region += 1;
+    return result;
 }
 
 void TextBuffer::CopyRegionToString(std::u32string &outText, const Point &start, const Point &end) {

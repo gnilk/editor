@@ -18,6 +18,7 @@ DLL_EXPORT int test_cpplang_indent(ITesting *t);
 DLL_EXPORT int test_cpplang_elseindent(ITesting *t);
 DLL_EXPORT int test_cpplang_indentcode(ITesting *t);
 DLL_EXPORT int test_cpplang_chardecl(ITesting *t);
+DLL_EXPORT int test_cpplang_reparseregion(ITesting *t);
 }
 
 DLL_EXPORT int test_cpplang(ITesting *t) {
@@ -163,4 +164,33 @@ DLL_EXPORT int test_cpplang_chardecl(ITesting *t) {
 
     return kTR_Pass;
 
+}
+DLL_EXPORT int test_cpplang_reparseregion(ITesting *t) {
+    Config::Instance()["main"].SetBool("threaded_syntaxparser", false);
+
+    auto workspace = Editor::Instance().GetWorkspace();
+    TR_ASSERT(t, workspace != nullptr);
+    auto model = workspace->NewModel("test.cpp");
+    TR_ASSERT(t, model != nullptr);
+    auto buffer = model->GetTextBuffer();
+    TR_ASSERT(t, buffer != nullptr);
+
+//    buffer->AddLineUTF8("char *str=\"apa\"; // comment2");
+    buffer->AddLineUTF8("/*");
+    buffer->AddLineUTF8("this is in a comment");
+    buffer->AddLineUTF8("*/");
+    for(int i=0;i<10;i++) {
+        buffer->AddLineUTF8("line;");
+    }
+    buffer->Reparse();
+    printf("NLines before delete = %zu\n", buffer->NumLines());
+    buffer->DeleteLineAt(3);
+    printf("NLines after delete = %zu\n", buffer->NumLines());
+    for(int i=0;i<4;i++) {
+        auto l = buffer->LineAt(i);
+        printf("%d: %s\n", i, UnicodeHelper::utf32toascii(l->Buffer()).c_str());
+    }
+
+    buffer->ReparseRegion(1,5);
+    return kTR_Pass;
 }

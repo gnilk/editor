@@ -84,13 +84,8 @@ void EditorView::ReInitView() {
 
 void EditorView::OnResized() {
     // Update the view Bottom line - as this affects how many lines we draw...
-    //viewBottomLine = GetContentRect().Height();
     auto &lineCursor = editorModel->GetLineCursor();
     lineCursor.viewBottomLine = GetContentRect().Height();
-    if (!lineCursor.IsInside(lineCursor.idxActiveLine)) {
-        // FIXME: Snap to either first or last...
-    }
-
 
     UpdateModelFromNavigation(true);
     ViewBase::OnResized();
@@ -305,6 +300,7 @@ bool EditorView::OnAction(const KeyPressAction &kpAction) {
     auto result = DispatchAction(kpAction);
 
     // FIXME: Not sure this is the correct thing to do...
+    // We cancel selection here unless you have taken appropriate action..
     if ((kpAction.actionModifier != kActionModifier::kActionModifierSelection) && result && editorModel->IsSelectionActive()) {
         editorModel->CancelSelection();
     }

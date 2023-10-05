@@ -38,7 +38,7 @@ namespace gedit {
             return IsSelected(0, y);
         }
 
-        bool IsActive() {
+        bool IsActive() const {
             return isActive;
         }
         //
@@ -116,8 +116,9 @@ namespace gedit {
         TextBuffer::Ref GetTextBuffer() {
             return textBuffer;
         }
-        const Cursor &GetCursor() {
-            return cursor;
+
+        Cursor &GetCursor() {
+            return lineCursor.cursor;
         }
 
         // proxy
@@ -126,6 +127,12 @@ namespace gedit {
         }
         Line::Ref LineAt(size_t idxLine) {
             return editController->LineAt(idxLine);
+        }
+        Line::Ref ActiveLine() {
+            return editController->LineAt(lineCursor.idxActiveLine);
+        }
+        size_t GetActiveLineIndex() {
+            return lineCursor.idxActiveLine;
         }
 
         bool IsActive() {
@@ -136,14 +143,14 @@ namespace gedit {
         }
         void BeginSelection() {
             currentSelection.isActive = true;
-            currentSelection.startPos.x = cursor.position.x;
-            currentSelection.startPos.y = idxActiveLine;
+            currentSelection.startPos.x = lineCursor.cursor.position.x;
+            currentSelection.startPos.y = lineCursor.idxActiveLine;
 
             currentSelection.endPos = currentSelection.startPos;
         }
         void UpdateSelection() {
             // perhaps check if active...
-            Point newEnd(cursor.position.x, idxActiveLine);
+            Point newEnd(lineCursor.cursor.position.x, lineCursor.idxActiveLine);
             currentSelection.endPos = newEnd;
 
         }
@@ -180,14 +187,28 @@ namespace gedit {
         bool SaveDataNoChangeCheck(const std::filesystem::path &pathName);
 
 
+
     public:
-        Cursor cursor;
-        size_t idxActiveLine = 0;
-        int32_t viewTopLine = 0;
-        int32_t viewBottomLine = 0;
+        LineCursor &GetLineCursor() {
+            return lineCursor;
+        }
+        LineCursor::Ref  GetLineCursorRef() {
+            return &lineCursor;
+        }
+        // Move the following to a separate structure
+        // REMOVE ANY DUPLICATION - search for 'idxActiveLine' (EditorView and such)
+//        Cursor cursor;
+//        size_t idxActiveLine = 0;
+//        int32_t viewTopLine = 0;
+//        int32_t viewBottomLine = 0;
+        //
+
         std::vector<SearchResult> searchResults;
         size_t idxActiveSearchHit = 0;
     private:
+
+        LineCursor lineCursor;
+
         EditController::Ref editController = nullptr;     // Pointer???
         Selection currentSelection = {};
         TextBuffer::Ref textBuffer = nullptr;             // This is 'owned' by BufferManager

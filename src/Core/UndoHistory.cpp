@@ -61,8 +61,8 @@ void UndoHistory::UndoItem::Initialize() {
     if (model == nullptr) {
         return;
     }
-    idxLine = model->idxActiveLine;
-    offset = model->cursor.position.x;
+    idxLine = model->GetActiveLineIndex();
+    offset = model->GetCursor().position.x;
     isValid = true;
 }
 

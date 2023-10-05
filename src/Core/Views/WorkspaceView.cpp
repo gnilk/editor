@@ -165,9 +165,11 @@ void WorkspaceView::PopulateTree() {
 }
 
 bool WorkspaceView::OnAction(const KeyPressAction &kpAction) {
-    auto idxPrevActiveLine = treeView->idxActiveLine;
+    auto &lineCursor = treeView->GetLineCursor();
+    auto idxPrevActiveLine = lineCursor.idxActiveLine;
+
     if (treeView->OnAction(kpAction)) {
-        if (idxPrevActiveLine != treeView->idxActiveLine) {
+        if (idxPrevActiveLine != lineCursor.idxActiveLine) {
             auto activeNode = treeView->GetCurrentSelectedItem();
             auto nodeType = activeNode->GetMeta<int>(Workspace::Node::kMetaKey_NodeType, Workspace::Node::kNodeFolder);
             if (nodeType == Workspace::Node::kNodeFolder) {

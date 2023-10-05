@@ -80,8 +80,6 @@ void EditorView::ReInitView() {
     // Fetch and update the view-model information
     lineCursor = editorModel->GetLineCursorRef();
     HandleResize(viewRect);
-    UpdateModelFromNavigation(true);
-
 }
 
 void EditorView::OnResized() {
@@ -506,7 +504,7 @@ void EditorView::UpdateModelFromNavigation(bool updateCursor) {
         return;
     }
 
-    auto lineCursor = editorModel->GetLineCursor();
+    auto &lineCursor = editorModel->GetLineCursor();
 
     auto currentLine = editorModel->LineAt(lineCursor.idxActiveLine);
     if (currentLine == nullptr) {
@@ -516,7 +514,6 @@ void EditorView::UpdateModelFromNavigation(bool updateCursor) {
         return;
     }
 
-    // ????
     lineCursor.cursor.position.x = lineCursor.cursor.wantedColumn;
     if (lineCursor.cursor.position.x > (int) currentLine->Length()) {
         lineCursor.cursor.position.x = (int) currentLine->Length();

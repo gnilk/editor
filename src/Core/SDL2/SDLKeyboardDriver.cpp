@@ -73,6 +73,9 @@ KeyPress SDLKeyboardDriver::GetKeyPress() {
         }  else if ((event.type == SDL_EventType::SDL_WINDOWEVENT) && (event.window.event == SDL_WINDOWEVENT_RESIZED)) {
             logger->Debug("SDL_EVENT_WINDOW_RESIZED");
             RuntimeConfig::Instance().GetScreen()->OnSizeChanged();
+        } else if ((event.type == SDL_EventType::SDL_WINDOWEVENT) && (event.window.event == SDL_WINDOWEVENT_MOVED)) {
+            logger->Debug("SDL_EVENT_WINDOW_MOVED");
+            RuntimeConfig::Instance().GetScreen()->OnMoved();
         } else if (event.type == SDL_EventType::SDL_CLIPBOARDUPDATE) {
             logger->Debug("SDL_EVENT_CLIPBOARDUPDATE!!!");
             if (SDL_HasClipboardText()) {

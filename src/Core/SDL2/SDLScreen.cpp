@@ -51,7 +51,7 @@ ScreenBase::Ref SDLScreen::Create() {
 
 bool SDLScreen::Open() {
 
-    logger = gnilk::Logger::GetLogger("SDLScreen");
+    logger = gnilk::Logger::GetLogger("SDL2Screen");
 
     logger->Debug("Opening window");
 
@@ -143,6 +143,7 @@ void SDLScreen::LoadFontFromTheme() {
 }
 
 // This is called also from resize...
+// Should perhaps take a look at this: https://discourse.libsdl.org/t/high-dpi-mode/34411
 void SDLScreen::ComputeScalingFactors() {
 
     auto displayId = SDL_GetWindowDisplayIndex(sdlWindow);

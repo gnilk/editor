@@ -97,10 +97,6 @@ bool SDLScreen::Open() {
     int windowYpos = windowLocation.YPos();
     widthPixels = windowLocation.Width();
     heightPixels = windowLocation.Height();
-    // FIXME: Clip here if the x/y - pos is outside the viewing are
-
-
-
 
     // FIXME: Need to determine how HighDPI stuff works...
     sdlWindow = SDL_CreateWindow("gedit", windowXpos, windowYpos, widthPixels, heightPixels,  windowFlags);

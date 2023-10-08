@@ -3,14 +3,12 @@
 //
 /*
  * TO-DO List
- * - Reparsing after delete is not working
  * - Large(?) files issue, after searching for an item and jumping to next a couple of times - scrolling up doesn't properly reposition view (need to scroll down first)
  * - Delete some lines (upper 1/3 of file) and then page-down => segfault
  *   => Seen once??
- * - Make something to hold a 'builder' (I need somewhere to store build-errors and present them nicely)
- *   Later this can go into the project configuration, which is executed through a '.build'-command
  * - Figure something to handle 'tab' correctly
- *   This can either be to convert to spaces OR a display thing - "forward cursor X" when \t occurs (in this case it should be part of the tokenizer)
+ *   should be in rendering - the editor should NOT modify unless the user tells it
+ *   "forward cursor X" when \t occurs (in this case it should be part of the tokenizer)
  * + Exclude/Ignore directories for Monitor is a must
  *   Introduce a 'FolderMonitor' section in the config, should have 'Enable', 'Exclude'-list (glob-patterns)
  * - Introduce some delay in the monitoring allowing for add/remove before we refresh the editor
@@ -19,7 +17,6 @@
  * + There are segfaults in copy/paste
  * - Adding an additional ')' when the previous char is '(' should be ignored, typing: '(',')' inserts an extra ')'
  * + Revisit the 'Workspace::NewModel' and friends - there are too much similarity in these functions
- * - When creating a new model we should switch to it, also - it is created in the wrong folder..
  * - Save screen position and size upon resize/move and similar, restore on startup (use XDG state directory)
  * - Expose config from JS (set,get,list)
  *   Would be cool to just open the whole config folder as a workspace node..  <- consider this
@@ -33,6 +30,8 @@
  * - Swap out the vertical navigation code in EditorView for the 'VerticalNavigationModel'
  *
  * Bigger features:
+ * - Make something to hold a 'builder' (I need somewhere to store build-errors and present them nicely)
+ *   Later this can go into the project configuration, which is executed through a '.build'-command
  * - Workspace configuration
  *   When opening a folder it should be possible to 'initialize' a workspace there - this workspace can hold specific
  *   settings for it - like folders for intellisense and other things (build params, run params, etc...)
@@ -56,6 +55,8 @@
  *   need to consider a solution for this...
  *
  * Done:
+ * ! When creating a new model we should switch to it, also - it is created in the wrong folder..
+ * ! Reparsing after delete is not working
  * ! (macos) CMD-End (nav-end-of-file) moves view but doesn't update internal cursor position (any other keystroke moves back)
  * ! Page-down, start selection (top section) there will be multiple selections
  * ! Switching active model/view doesn't update viewTopLine properly?

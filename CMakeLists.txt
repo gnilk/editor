@@ -313,11 +313,12 @@ list(APPEND editorsrc src/Core/KeyboardDriverBase.cpp src/Core/KeyboardDriverBas
 list(APPEND editorsrc src/Core/Keyboard.cpp src/Core/Keyboard.cpp)
 
 # Config
-list(APPEND editorsrc src/Core/RuntimeConfig.cpp src/Core/RuntimeConfig.cpp)
 list(APPEND editorsrc src/Core/Config/Config.cpp src/Core/Config/Config.h)
 list(APPEND editorsrc src/Core/Config/ConfigNode.cpp src/Core/Config/ConfigNode.h)
 list(APPEND editorsrc src/Core/Config/YAMLMerge.cpp src/Core/Config/YAMLMerge.h)
 list(APPEND editorsrc src/Core/Theme/Theme.cpp src/Core/Theme/Theme.h)
+list(APPEND editorsrc src/Core/RuntimeConfig.cpp src/Core/RuntimeConfig.cpp)
+list(APPEND editorsrc src/Core/WindowLocation.cpp src/Core/WindowLocation.h)
 list(APPEND editorsrc src/Core/XDGEnvironment.cpp src/Core/XDGEnvironment.h)
 
 
@@ -470,6 +471,7 @@ list(APPEND utestsrc utests/test_logger.cpp)
 list(APPEND utestsrc utests/test_strutil.cpp)
 list(APPEND utestsrc utests/test_textbuffer.cpp)
 list(APPEND utestsrc utests/test_theme.cpp)
+list(APPEND utestsrc utests/test_winlocation.cpp)
 list(APPEND utestsrc utests/test_workspace.cpp)
 list(APPEND utestsrc utests/test_xgdenv.cpp)
 

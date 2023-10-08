@@ -53,15 +53,25 @@ const std::filesystem::path &XDGEnvironment::GetUserHomePath() const {
 }
 
 const std::filesystem::path &XDGEnvironment::GetUserDataPath() const {
+    // Not sure if we should auto create here...
     return userData.fsPath;
 }
 const std::filesystem::path &XDGEnvironment::GetUserConfigPath() const {
+    // Do not auto-create this
     return userConfig.fsPath;
 }
 const std::filesystem::path &XDGEnvironment::GetUserCachePath() const {
+    // We fetch this - make sure it exists...
+    if (!exists(userCache.fsPath)) {
+        std::filesystem::create_directories(userCache.fsPath);
+    }
     return userCache.fsPath;
 }
 const std::filesystem::path &XDGEnvironment::GetUserStatePath() const {
+    // We fetch this - make sure it exists...
+    if (!exists(userState.fsPath)) {
+        std::filesystem::create_directories(userState.fsPath);
+    }
     return userState.fsPath;
 }
 const std::filesystem::path &XDGEnvironment::GetUserRuntimePath() const {

@@ -54,8 +54,6 @@ linux:
   workspace_keymap: Linux/workspace_keymap.yml
 
 sdl:
-  default_width: 1024
-  default_height: 768
   # Defines the SDL window rendering backend 'opengl', 'vulkan', 'metal' - empty or unknown means default...
   backend: "opengl"
   # When drawing underlined text this defines how many pixels from the regular baseline of the font to offset the line

@@ -25,12 +25,10 @@ size_t LangLineTokenizer::ParseRegion(std::vector<Line::Ref> &lines, size_t idxL
     size_t nMaxLines = Config::Instance()["languages"].GetInt("regionMaxLines", 1000);
 
     PushState(startState.c_str());
-    // Should be zero (that's what StartParseRegion has as exit criteria)
     int nextIndent = lines[idxStart]->Indent();
 
-    logger->Debug("ParseRegion mapped, idxStart=%zu => %zu, idxEnd=%zu => %zu", idxLineStart, idxStart, idxStart, idxEnd);
-
-    // FIXME: replace with while ((idxEnd > idxStart) && (stateStack.size() > 1)
+    logger->Debug("ParseRegion mapped, idxStart=%zu => %zu, idxEnd=%zu => %zu, stateStack=%zu",
+                  idxLineStart, idxStart, idxStart, idxEnd,stateStack.size());
 
     while(true) {
         if (idxStart >= lines.size()) {
@@ -44,6 +42,7 @@ size_t LangLineTokenizer::ParseRegion(std::vector<Line::Ref> &lines, size_t idxL
         if ((idxStart > idxEnd) && (stateStack.size() == 1)) break;
         if (idxStart > nMaxLines) break;
     }
+
     // Let's pop the  'start'
     auto top = stateStack.top();
     PopState();
@@ -62,8 +61,8 @@ size_t LangLineTokenizer::StartParseRegion(std::vector<Line::Ref> &lines, size_t
     if ((idxRegion < 5) || (idxRegion > lines.size())) {
         return idxStart;
     }
-    // search backwards until the state-stack depth == 0
 
+    // search backwards until the state-stack depth == 0
     idxStart = idxRegion-1;
     while((lines[idxStart]->GetStateStackDepth() > 1) && (idxStart != 0)) {
         idxStart--;

@@ -41,6 +41,7 @@ namespace gedit {
         virtual WindowBase *UpdateWindow(WindowBase *window, const gedit::Rect &rect, WindowBase::kWinFlags flags, WindowBase::kWinDecoration decoFlags) { return nullptr; }
 
         virtual void OnSizeChanged() { }
+        virtual void OnMoved() { }
     protected:
     };
 }

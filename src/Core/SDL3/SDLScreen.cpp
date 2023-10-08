@@ -22,7 +22,7 @@
 #include "Core/Config/Config.h"
 
 #include <SDL3/SDL.h>
-
+#include "Core/Editor.h"
 #define STB_RECT_PACK_IMPLEMENTATION
 #define STB_TRUETYPE_IMPLEMENTATION
 #include "ext/stb_rect_pack.h"
@@ -47,7 +47,7 @@ ScreenBase::Ref SDLScreen::Create() {
 
 bool SDLScreen::Open() {
 
-    auto logger = gnilk::Logger::GetLogger("SDLScreen");
+    logger = gnilk::Logger::GetLogger("SDL3Screen");
 
     logger->Debug("Opening window");
 
@@ -89,22 +89,43 @@ bool SDLScreen::Open() {
     auto displayId = SDL_GetDisplayForWindow(window);
     auto displayMode = SDL_GetDesktopDisplayMode(displayId);
 
-    logger->Debug("Loading font: '%s'", fontName.c_str());
-
-    // FIXME: Font handling should not be here
-    auto font = STBTTF_OpenFont(renderer, fontName.c_str(), 18 * displayMode->display_scale);
-    if (font == nullptr) {
-        logger->Error("Unable to open font: '%s'\n", fontName.c_str());
-        return -1;
-    }
-
-    SDLFontManager::Instance().SetActiveFont(font);
-
+    LoadFontFromTheme();
     ComputeScalingFactors();
     CreateTextures();
 
     return true;
 }
+
+void SDLScreen::LoadFontFromTheme() {
+    // Resolve font name from theme
+    auto currentTheme = Editor::Instance().GetTheme();
+    if (currentTheme == nullptr) {
+        logger->Error("Theme not loaded!!!!");
+        return;
+    }
+    auto fontName = currentTheme->GetStr("font","Andale Mono.ttf");
+    logger->Debug("Loading font: '%s'", fontName.c_str());
+
+    // Load the font through the asset loader
+    auto &assetLoader = RuntimeConfig::Instance().GetAssetLoader();
+    auto fontAsset = assetLoader.LoadAsset(fontName);
+    if (fontAsset == nullptr) {
+        logger->Error("Unable to open font: '%s'\n", fontName.c_str());
+        return;
+    }
+    // Create an in-memory loader for this asset and open the font
+    auto sdlRWOps = SDL_RWFromConstMem(fontAsset->GetPtrAs<const void *>(), (int)fontAsset->GetSize());
+    auto font = STBTTF_OpenFontRW(renderer, sdlRWOps, 18);
+
+    if (font == nullptr) {
+        logger->Error("Unable to load font: '%s'\n", fontName.c_str());
+        return;
+    }
+
+    // Set the font active..
+    SDLFontManager::Instance().SetActiveFont(font);
+}
+
 
 // This is called also from resize...
 void SDLScreen::ComputeScalingFactors() {
@@ -189,7 +210,7 @@ void SDLScreen::Close() {
 void SDLScreen::Clear() {
     SDL_SetRenderTarget(renderer, nullptr);
 
-    auto theme = Config::Instance().GetTheme();
+    auto theme = Editor::Instance().GetTheme();
     SDLColor bgColor(theme->GetGlobalColors().GetColor("background"));
     bgColor.Use(renderer);
 
@@ -257,7 +278,7 @@ WindowBase *SDLScreen::UpdateWindow(WindowBase *window, const gedit::Rect &rect,
     return window;
 }
 
-Rect SDLScreen::Dimensions() {
+gedit::Rect SDLScreen::Dimensions() {
     Rect rect(cols, rows);
     return rect;
 }

@@ -15,7 +15,7 @@
 #include "Core/ScreenBase.h"
 #include "Core/WindowBase.h"
 #include "Core/Rect.h"
-
+#include "logger.h"
 namespace gedit {
     class SDLScreen : public ScreenBase {
     public:
@@ -41,8 +41,10 @@ namespace gedit {
     private:
         void ComputeScalingFactors();
         void CreateTextures();
+        void LoadFontFromTheme();
 
     private:
+        gnilk::ILogger *logger = nullptr;
         SDL_Window* window = nullptr;
         SDL_Renderer* renderer = nullptr;
         SDL_Texture* screenAsTexture = nullptr;

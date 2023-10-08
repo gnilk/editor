@@ -6,7 +6,7 @@
 //
 //
 #include "Core/Config/Config.h"
-
+#include "Core/Editor.h"
 
 #include "SDLWindow.h"
 #include "SDLCursor.h"
@@ -116,8 +116,7 @@ void SDLWindow::Clear() {
 
     SDL_SetRenderTarget(renderer, windowBackBuffer);
 
-    auto theme = Config::Instance().GetTheme();
-
+    auto theme = Editor::Instance().GetTheme();
     SDLColor bgColor(theme->GetGlobalColors().GetColor("background"));
     bgColor.Use(renderer);
 
@@ -137,7 +136,6 @@ void SDLWindow::DrawWindowDecoration() {
     Point pxBottomRight = SDLTranslate::RowColToPixel(windowRect.BottomRight()); //{windowRect.Width(), windowRect.Height()};
     //pxBottomRight = SDLTranslate::RowColToPixel(pxBottomRight);
 
-    // FIXME: Figure out which color is the windowing color (we don't have that themed)
     SDL_SetRenderDrawColor(renderer, 255,255,255,255);
 
     // NOTE: We can have a much more filled border - as the border is always one char...
@@ -204,11 +202,10 @@ void SDLWindow::OnDrawCursor(const Cursor &cursor) {
         return;
     }
     auto dc = static_cast<SDLDrawContext *>(clientContext);
+    auto theme = Editor::Instance().GetTheme();
 
     // FillRect assumes the render target has been set..
     SDL_SetRenderTarget(renderer, dc->renderTarget);
-
-    auto theme = Config::Instance().GetTheme();
     dc->SetFGColor(theme->GetGlobalColors().GetColor("caret"));
 
     //dc->FillRect(cursor.position.x, cursor.position.y,1,1);

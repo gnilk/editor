@@ -8,7 +8,9 @@
 #ifndef __STBTTF_H__
 #define __STBTTF_H__
 
+#include <string>
 #include <SDL3/SDL.h>
+#include <SDL3/SDL_rwops.h>
 
 #include "stb_rect_pack.h"
 #include "stb_truetype.h"
@@ -33,7 +35,12 @@ typedef struct {
     float scale;
     int ascent;
     int baseline;
+
+    int minU32CodePoint;
+    int maxU32CodePoint;
 } STBTTF_Font;
+
+
 
 /* Release the memory and textures associated with a font */
 void STBTTF_CloseFont(STBTTF_Font* font);
@@ -56,10 +63,13 @@ STBTTF_Font* STBTTF_OpenFont(SDL_Renderer* renderer, const char* filename, float
  */
 void STBTTF_RenderText(SDL_Renderer* renderer, STBTTF_Font* font, float x, float y, const char *text);
 
+void STBTTF_RenderText(SDL_Renderer* renderer, STBTTF_Font* font, float x, float y, const std::u32string &text);
+
 /* Return the length in pixels of a text.
  * You can get the height of a line by using font->baseline.
  */
 float STBTTF_MeasureText(STBTTF_Font* font, const char *text);
+float STBTTF_MeasureText(STBTTF_Font* font, const std::u32string &text);
 
 #endif
 
@@ -80,8 +90,11 @@ STBTTF_Font* STBTTF_OpenFontRW(SDL_Renderer* renderer, SDL_RWops* rw, float size
     SDL_RWclose(rw);
 
     STBTTF_Font* font = (STBTTF_Font*)calloc(sizeof(STBTTF_Font), 1);
+    font->minU32CodePoint = 32;
+    font->maxU32CodePoint = 256;
+
     font->info = (stbtt_fontinfo *)malloc(sizeof(stbtt_fontinfo));
-    font->chars = (stbtt_packedchar *)malloc(sizeof(stbtt_packedchar) * 96);
+    font->chars = (stbtt_packedchar *)malloc(sizeof(stbtt_packedchar) * (font->maxU32CodePoint - font->minU32CodePoint));
 
     if(stbtt_InitFont(font->info, buffer, 0) == 0) {
         free(buffer);
@@ -89,15 +102,24 @@ STBTTF_Font* STBTTF_OpenFontRW(SDL_Renderer* renderer, SDL_RWops* rw, float size
         return NULL;
     }
 
+
+
     // fill bitmap atlas with packed characters
     unsigned char* bitmap = NULL;
-    font->texture_size = 32;
+    font->texture_size = 128;
     while(1) {
         bitmap = (unsigned char*)malloc(font->texture_size * font->texture_size);
         stbtt_pack_context pack_context;
-        stbtt_PackBegin(&pack_context, bitmap, font->texture_size, font->texture_size, 0, 1, 0);
+        stbtt_PackBegin(&pack_context, bitmap, font->texture_size, font->texture_size, 0, 1, nullptr);
         stbtt_PackSetOversampling(&pack_context, 1, 1);
-        if(!stbtt_PackFontRange(&pack_context, buffer, 0, size, 32, 95, font->chars)) {
+        // FIX: The range defines the number of actually supported unicode glyphemes
+        if(!stbtt_PackFontRange(&pack_context,
+                                buffer,
+                                0,
+                                size,
+                                font->minU32CodePoint,
+                                font->maxU32CodePoint - font->minU32CodePoint,
+                                font->chars)) {
             // too small
             free(bitmap);
             stbtt_PackEnd(&pack_context);
@@ -113,11 +135,13 @@ STBTTF_Font* STBTTF_OpenFontRW(SDL_Renderer* renderer, SDL_RWops* rw, float size
     SDL_SetTextureBlendMode(font->atlas, SDL_BLENDMODE_BLEND);
     // FIXME: Make it possible to configure this
     // Nearest is good for smaller fonts, but 'best' (or linear) is better for larger texts...
-    SDL_SetTextureScaleMode(font->atlas, SDL_ScaleMode::SDL_SCALEMODE_NEAREST);
+    SDL_SetTextureScaleMode(font->atlas, SDL_SCALEMODE_NEAREST);
 
     Uint32* pixels = (Uint32 *)malloc(font->texture_size * font->texture_size * sizeof(Uint32));
-    static SDL_PixelFormat* format = NULL;
-    if(format == NULL) format = SDL_CreatePixelFormat(SDL_PIXELFORMAT_RGBA32);
+   static SDL_PixelFormat* format = NULL;
+   if(format == NULL) format = SDL_CreatePixelFormat(SDL_PIXELFORMAT_RGBA32);
+
+
     for(int i = 0; i < font->texture_size * font->texture_size; i++) {
         pixels[i] = SDL_MapRGBA(format, 0xff, 0xff, 0xff, bitmap[i]);
     }
@@ -150,7 +174,7 @@ void STBTTF_RenderText(SDL_Renderer* renderer, STBTTF_Font* font, float x, float
     SDL_SetTextureColorMod(font->atlas, r, g, b);
     SDL_SetTextureAlphaMod(font->atlas, a);
     for(int i = 0; text[i]; i++) {
-        if (text[i] >= 32 && text[i] < 128) {
+        if (text[i] >= 32 && ((uint8_t)text[i]) < 128) {
             //if(i > 0) x += stbtt_GetCodepointKernAdvance(font->info, text[i - 1], text[i]) * font->scale;
 
             stbtt_packedchar* info = &font->chars[text[i] - 32];
@@ -163,10 +187,32 @@ void STBTTF_RenderText(SDL_Renderer* renderer, STBTTF_Font* font, float x, float
     }
 }
 
+void STBTTF_RenderText(SDL_Renderer* renderer, STBTTF_Font* font, float x, float y, const std::u32string &textU32) {
+    Uint8 r, g, b, a;
+    const char32_t *text = textU32.c_str();
+
+    SDL_GetRenderDrawColor(renderer, &r, &g, &b, &a);
+    SDL_SetTextureColorMod(font->atlas, r, g, b);
+    SDL_SetTextureAlphaMod(font->atlas, a);
+    for(int i = 0; text[i]; i++) {
+        if (text[i] >= 32 && (text[i] < 256)) {
+
+            stbtt_packedchar* info = &font->chars[text[i] - 32];
+            SDL_FRect src_rect = {(float)info->x0, (float)info->y0, (float)info->x1 - (float)info->x0, (float)info->y1 - info->y0};
+            SDL_FRect dst_rect = {x + info->xoff, y + info->yoff, (float)info->x1 - info->x0, (float)info->y1 - info->y0};
+
+            SDL_RenderTexture(renderer, font->atlas, &src_rect, &dst_rect);
+
+            x += info->xadvance;
+        }
+    }
+}
+
+
 float STBTTF_MeasureText(STBTTF_Font* font, const char *text) {
     float width = 0;
     for(int i = 0; text[i]; i++) {
-        if (text[i] >= 32 && text[i] < 128) {
+        if (text[i] >= 32 && ((uint8_t)text[i]) < 128) {
             //if(i > 0) width += stbtt_GetCodepointKernAdvance(font->info, text[i - 1], text[i]) * font->scale;
 
             stbtt_packedchar* info = &font->chars[text[i] - 32];
@@ -175,6 +221,17 @@ float STBTTF_MeasureText(STBTTF_Font* font, const char *text) {
     }
     return width;
 }
+
+float STBTTF_MeasureText(STBTTF_Font* font, const std::u32string &text) {
+    float width = 0;
+    for(auto ch : text) {
+        if ((ch < font->minU32CodePoint) || (ch > font->maxU32CodePoint)) continue;
+        stbtt_packedchar* info = &font->chars[ch - 32];
+        width += info->xadvance;
+    }
+    return width;
+}
+
 
 /*******************
  * Example program *

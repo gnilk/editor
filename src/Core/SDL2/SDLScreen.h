@@ -40,10 +40,12 @@ namespace gedit {
         WindowBase *UpdateWindow(WindowBase *window, const gedit::Rect &rect, WindowBase::kWinFlags flags, WindowBase::kWinDecoration decoFlags) override;
         Rect Dimensions() override;
         void OnSizeChanged() override;
+        void OnMoved() override;
     private:
         void ComputeScalingFactors();
         void CreateTextures();
         void LoadFontFromTheme();
+        void UpdateWindowLocation();
 
     private:
         SDL_Window* sdlWindow = nullptr;

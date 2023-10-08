@@ -24,6 +24,7 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_video.h>
 #include "Core/Editor.h"
+#include "Core/WindowLocation.h"
 
 #define STB_RECT_PACK_IMPLEMENTATION
 #define STB_TRUETYPE_IMPLEMENTATION
@@ -61,9 +62,6 @@ bool SDLScreen::Open() {
         logger->Debug("  %d:%s",i,driverName);
     }
 
-    widthPixels = Config::Instance()["sdl"].GetInt("default_width", 1920);
-    heightPixels = Config::Instance()["sdl"].GetInt("default_height", 1080);
-
     int err = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_HAPTIC);
     if (err) {
         logger->Error("SDL_Init, %s", SDL_GetError());
@@ -90,8 +88,22 @@ bool SDLScreen::Open() {
         logger->Error("Unknown backend ('%s'), using default", sdlBackend.c_str());
     }
 
+    // Try to fetch this via RuntimeConfig
+    auto &windowLocation = RuntimeConfig::Instance().GetWindowLocation();
+    if (!windowLocation.Load()) {
+        logger->Debug("Previous window location not found - will use defaults!");
+    }
+    int windowXpos = windowLocation.XPos();
+    int windowYpos = windowLocation.YPos();
+    widthPixels = windowLocation.Width();
+    heightPixels = windowLocation.Height();
+    // FIXME: Clip here if the x/y - pos is outside the viewing are
+
+
+
+
     // FIXME: Need to determine how HighDPI stuff works...
-    sdlWindow = SDL_CreateWindow("gedit", 0,0,widthPixels, heightPixels,  windowFlags);
+    sdlWindow = SDL_CreateWindow("gedit", windowXpos, windowYpos, widthPixels, heightPixels,  windowFlags);
     sdlRenderer = SDL_CreateRenderer(sdlWindow, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     SDL_SetRenderDrawBlendMode(sdlRenderer, SDL_BLENDMODE_BLEND);
 
@@ -204,6 +216,7 @@ void SDLScreen::OnSizeChanged() {
     logger->Debug("Recomputing scaling factors and recreating tetxures");
     ComputeScalingFactors();
     CreateTextures();
+    UpdateWindowLocation();
     logger->Debug("ReInitialize UI!");
     RuntimeConfig::Instance().GetRootView().Resize();
     RuntimeConfig::Instance().GetRootView().InvalidateAll();
@@ -213,6 +226,27 @@ void SDLScreen::OnSizeChanged() {
     RuntimeConfig::Instance().GetRootView().PostMessage([](){});
 }
 
+void SDLScreen::OnMoved() {
+    logger->Debug("Window moved, updating WindowLocation State file");
+    UpdateWindowLocation();
+}
+
+void SDLScreen::UpdateWindowLocation() {
+    auto &windowLocation = RuntimeConfig::Instance().GetWindowLocation();
+    // Fetch and update size
+    SDL_GetWindowSize(sdlWindow, &widthPixels, &heightPixels);
+    windowLocation.SetWidth(widthPixels);
+    windowLocation.SetHeight(heightPixels);
+
+    // Fetch and update position
+    int winXpos, winYpos;
+    SDL_GetWindowPosition(sdlWindow, &winXpos, &winYpos);
+    windowLocation.SetXPos(winXpos);
+    windowLocation.SetYPos(winYpos);
+
+    // Save
+    windowLocation.Save();
+}
 
 void SDLScreen::Close() {
     auto font = SDLFontManager::Instance().GetActiveFont();

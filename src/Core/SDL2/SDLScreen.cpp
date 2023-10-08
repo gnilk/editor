@@ -71,7 +71,7 @@ bool SDLScreen::Open() {
 
     logger->Debug("SDL initialized ok, video driver = %s", SDL_GetCurrentVideoDriver());
 
-    int windowFlags = SDL_WINDOW_RESIZABLE;
+    int windowFlags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI;
 
     // Check SDL 'backend' to see if OPENGL/METAL/Other should be used...
     auto sdlBackend = Config::Instance()["sdl"].GetStr("backend", "opengl");
@@ -153,17 +153,16 @@ void SDLScreen::ComputeScalingFactors() {
     float ddpi, vdpi, hdpi;
     SDL_GetDisplayDPI(displayId, &ddpi, &hdpi, &vdpi);
 
-    // FIXME: need the correct value here...
-    float display_scale = 1.0f;
-
+    //
+    // The following is a bit convoluted but...
+    // primary reason is to calculate rows/cols as the rest of the UI is driven by it..
+    //
     logger->Debug("Resolution: %d x %d", widthPixels, heightPixels);
-    logger->Debug("Display, pixels: %d x %d (scale: %f)", displayMode.w, displayMode.h, display_scale);
-    logger->Debug("Display, points: %d x %d\n", displayMode.w, displayMode.h);
+    logger->Debug("Display, pixels: %d x %d", displayMode.w, displayMode.h);
 
     auto font = SDLFontManager::Instance().GetActiveFont();
 
     float line_margin = Config::Instance()["sdl"].GetInt("line_margin", 4);
-    line_margin *= display_scale;
     rows = heightPixels / (font->baseline + line_margin); // baseline = font->ascent * font->scale
 
     // subjective representation of average type of chars you might find in a something
@@ -178,16 +177,32 @@ void SDLScreen::ComputeScalingFactors() {
     logger->Debug("  Width : %d px (based on average widht for '%s')", (int)fontWidthAverage, textToMeasure.c_str());
 
     logger->Debug("Text to Graphics defined as");
-    cols *= display_scale;
-    rows *= display_scale;
     logger->Debug("Rows=%d, Cols=%d", rows, cols);
 
     // Setup translation
-    SDLTranslate::fac_x_to_rc = (float)cols / (float)(widthPixels * display_scale);
-    SDLTranslate::fac_y_to_rc = (float)rows / (float)(heightPixels * display_scale);
+    SDLTranslate::fac_x_to_rc = (float)cols / (float)(widthPixels);
+    SDLTranslate::fac_y_to_rc = (float)rows / (float)(heightPixels);
 
     logger->Debug("Scaling factors = (%f,%f)", SDLTranslate::fac_x_to_rc, SDLTranslate::fac_y_to_rc);
 
+    // This should make it possible to move the window between HDPI screens and regular screens
+    // or if you just use a high-dpi screen...
+    int rw = 0, rh = 0;
+    SDL_GetRendererOutputSize(sdlRenderer, &rw, &rh);
+    if(rw != widthPixels) {
+        logger->Debug("Renderer Output != widthPixels - assuming high DPI display");
+        float widthScale = (float)rw / (float) widthPixels;
+        float heightScale = (float)rh / (float) heightPixels;
+
+        if(widthScale != heightScale) {
+            logger->Debug("WARNING: width scale != height scale");
+        }
+        logger->Debug("Scaling factors: %f, %f", widthScale, heightScale);
+        SDL_RenderSetScale(sdlRenderer, widthScale, heightScale);
+    } else {
+        logger->Debug("Non HDPI display, resetting scaling factors");
+        SDL_RenderSetScale(sdlRenderer, 1,1);
+    }
 }
 
 void SDLScreen::CreateTextures() {

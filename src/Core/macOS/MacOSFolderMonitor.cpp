@@ -77,6 +77,12 @@ bool MacOSFolderMonitorPoint::Start() {
     CFAbsoluteTime latency          = 3.0; /* Latency in seconds */
 
     // Create the event stream with out trampoline as callback
+    // FIXME: consider passing 'kFSEventStreamCreateFlagNone' and check
+    // perhaps test 'kFSEventStreamCreateFlagNoDefer' first
+    // also, see documentation for: kFSEventStreamCreateFlagWatchRoot = 0x00000004
+    // add this: kFSEventStreamCreateFlagIgnoreSelf
+    //
+
     fsEventStream = FSEventStreamCreate(
             nullptr,
             &glbFSNotifyTrampoline,
@@ -91,6 +97,8 @@ bool MacOSFolderMonitorPoint::Start() {
     // Get the main dispatch queue - we will attach to this one..
     auto dispatchQ = dispatch_get_main_queue();
 
+    // FIXME: Split exclusion paths in OS supported and what we need to support..
+    //        MacOS can only handle 8 paths in the exclude list, the rest we need to filter in user-land...
     // Have exclusion paths? - let's incorporate them...
     if (!pathsToExclude.empty()) {
         cfPathsToExclude = CFArrayCreateMutable(nullptr, pathsToExclude.size(), nullptr);
@@ -131,10 +139,18 @@ bool MacOSFolderMonitorPoint::Stop() {
 void MacOSFolderMonitorPoint::OnFSEvent(const std::string &path, FolderMonitor::kChangeFlags flags) {
     std::lock_guard<std::mutex> guard(dataGuard);
 
+    // TODO:
+    //  - Check the SW exclusion paths list here
+    //  - The change flags are very flawed, try 'mv apa.txt -> bpa.txt'
+    //  - We are probably better off to just 'rescan' in a particular folder
+
     auto logger = gnilk::Logger::GetLogger("FolderMonitor");
     logger->Debug("0x%x : %s", static_cast<int>(flags), path.c_str());
     if (flags & FolderMonitor::kChangeFlags::kCreated) {
         logger->Debug("Created!");
+    }
+    if (flags & FolderMonitor::kChangeFlags::kRenamed) {
+        logger->Debug("Renamed");
     }
 
     DispatchEvent(path, flags);

@@ -188,7 +188,7 @@ namespace gedit {
         virtual ~LangLineTokenizer() = default;
 
         void ParseLines(std::vector<Line::Ref> &lines);
-        void ParseRegion(std::vector<Line::Ref> &lines, size_t idxLineStart, size_t idxLineEnd);
+        size_t ParseRegion(std::vector<Line::Ref> &lines, size_t idxLineStart, size_t idxLineEnd);
         void ParseLine(const Line::Ref l, int &indentCounter);
         void ParseLineFromState(const std::string &newStartState, Line::Ref line);
 

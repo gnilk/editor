@@ -17,17 +17,14 @@ namespace gedit {
         VerticalNavigationViewModel() = default;
         virtual ~VerticalNavigationViewModel() = default;
 
-        void HandleResize(Cursor &cursor, const Rect &viewRect);
-
-        void OnNavigateDownVSCode(Cursor &cursor, size_t rowsToMove, const Rect &viewRect, size_t nItems);
-        void OnNavigateUpVSCode(Cursor &cursor, size_t rowsToMove, const Rect &viewRect, size_t nItems);
-        void OnNavigateDownCLion(Cursor &cursor, size_t rowsToMove, const Rect &viewRect, size_t nItems);
-        void OnNavigateUpCLion(Cursor &cursor, size_t rowsToMove, const Rect &viewRect,  size_t nItems);
+        void HandleResize(const Rect &viewRect);
+        void OnNavigateDownVSCode(size_t rowsToMove, const Rect &viewRect, size_t nItems);
+        void OnNavigateUpVSCode(size_t rowsToMove, const Rect &viewRect, size_t nItems);
+        void OnNavigateDownCLion(size_t rowsToMove, const Rect &viewRect, size_t nItems);
+        void OnNavigateUpCLion(size_t rowsToMove, const Rect &viewRect,  size_t nItems);
 
     public:
-        size_t idxActiveLine = 0;       // can't be negative
-        size_t viewTopLine = 0;
-        size_t viewBottomLine = 0;
+        LineCursor::Ref lineCursor = nullptr;
     };
 }
 

@@ -32,6 +32,7 @@ static const std::unordered_map<kLanguageTokenClass, std::string> tokenNames = {
         {kLanguageTokenClass::kCodeBlockEnd,"operator"},
         {kLanguageTokenClass::kArrayStart,"operator"},
         {kLanguageTokenClass::kArrayEnd,"operator"},
+        {kLanguageTokenClass::kChar, "string"},
         {kLanguageTokenClass::kFunky,"funky"},
 };
 
@@ -74,7 +75,7 @@ namespace gedit {
     const std::string &LanguageTokenClassToString(kLanguageTokenClass tokenClass) {
         auto it = tokenNames.find(tokenClass);
         if (it == tokenNames.end()) {
-            printf("UNSUPPORTED TOKEN CLASS (%d), UPDATE THE ARRAY!!!!\n", tokenClass);
+            printf("%s - UNSUPPORTED TOKEN CLASS (%d), UPDATE THE ARRAY!!!!\n", __FILE_NAME__, tokenClass);
             exit(1);
         }
         return it->second;

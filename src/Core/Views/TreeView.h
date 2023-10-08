@@ -61,23 +61,26 @@ namespace gedit {
         void InitView() override {
             VisibleView::InitView();
             rootNode->isExpanded = false;
-            viewTopLine = 0;
-            viewBottomLine = viewRect.Height();
+            lineCursor = &treeLineCursor;
+            treeLineCursor.viewTopLine = 0;
+            treeLineCursor.viewBottomLine = viewRect.Height();
+
         }
         void ReInitView() override {
             VisibleView::ReInitView();
-            viewTopLine = 0;
-            viewBottomLine = viewRect.Height();
+            lineCursor = &treeLineCursor;
+            treeLineCursor.viewTopLine = 0;
+            treeLineCursor.viewBottomLine = viewRect.Height();
         }
 
         const T &GetCurrentSelectedItem() {
-            if (idxActiveLine > flattenNodeList.size()) {
+            if (treeLineCursor.idxActiveLine > flattenNodeList.size()) {
                 Flatten();
-                if (idxActiveLine > flattenNodeList.size()) {
-                    idxActiveLine = 0;
+                if (treeLineCursor.idxActiveLine > flattenNodeList.size()) {
+                    treeLineCursor.idxActiveLine = 0;
                 }
             }
-            return flattenNodeList[idxActiveLine]->data;
+            return flattenNodeList[treeLineCursor.idxActiveLine]->data;
         }
 
         void Clear() {
@@ -101,16 +104,16 @@ namespace gedit {
                     Expand();
                     break;
                 case kAction::kActionLineUp :
-                    OnNavigateUpCLion(cursor, 1, GetContentRect(), flattenNodeList.size());
+                    OnNavigateUpCLion(1, GetContentRect(), flattenNodeList.size());
                     break;
                 case kAction::kActionLineDown :
-                    OnNavigateDownCLion(cursor, 1, GetContentRect(), flattenNodeList.size());
+                    OnNavigateDownCLion(1, GetContentRect(), flattenNodeList.size());
                     break;
                 case kAction::kActionPageUp :
-                    OnNavigateUpCLion(cursor, GetContentRect().Height()-1, GetContentRect(), flattenNodeList.size());
+                    OnNavigateUpCLion(GetContentRect().Height()-1, GetContentRect(), flattenNodeList.size());
                     break;
                 case kAction::kActionPageDown :
-                    OnNavigateDownCLion(cursor, GetContentRect().Height()-1, GetContentRect(), flattenNodeList.size());
+                    OnNavigateDownCLion(GetContentRect().Height()-1, GetContentRect(), flattenNodeList.size());
                     break;
                 default:
                     wasHandled = false;
@@ -147,12 +150,12 @@ namespace gedit {
             return std::make_shared<TreeView<T> >();
         }
         void Collapse() {
-            auto &node = flattenNodeList[idxActiveLine];
+            auto &node = flattenNodeList[treeLineCursor.idxActiveLine];
             node->isExpanded = false;
             Flatten();
         }
         void Expand() {
-            auto &node = flattenNodeList[idxActiveLine];
+            auto &node = flattenNodeList[treeLineCursor.idxActiveLine];
             node->isExpanded = true;
             Flatten();
         }
@@ -173,12 +176,16 @@ namespace gedit {
             for(size_t i = 0; i < flattenNodeList.size();i++) {
                 if (flattenNodeList[i]->data == item) {
                     // 5) update idxActiveLine with index from '4'
-                    idxActiveLine = i;
+                    treeLineCursor.idxActiveLine = i;
                     return true;
                 }
             }
-            idxActiveLine = 0;
+            treeLineCursor.idxActiveLine = 0;
             return false;
+        }
+
+        LineCursor &GetLineCursor() {
+            return treeLineCursor;
         }
 
     protected:
@@ -212,11 +219,11 @@ namespace gedit {
             dc.SetColor(uiColors["foreground"], uiColors["background"]);
 
 
-            for(auto i=viewTopLine;i<viewBottomLine;i++) {
+            for(auto i=treeLineCursor.viewTopLine;i<treeLineCursor.viewBottomLine;i++) {
                 if (i >= flattenNodeList.size()) {
                     break;
                 }
-                int yPos = i - viewTopLine;
+                int yPos = i - treeLineCursor.viewTopLine;
                 auto &node = flattenNodeList[i];
                 auto str = cbToString(node->data);
 
@@ -230,7 +237,7 @@ namespace gedit {
                     str = " " + str;
                 }
                 dc.FillLine(yPos, kTextAttributes::kNormal, ' ');
-                if (i == idxActiveLine) {
+                if (i == treeLineCursor.idxActiveLine) {
                     dc.FillLine(yPos, kTextAttributes::kNormal | kTextAttributes::kInverted, ' ');
                     dc.DrawStringWithAttributesAt(node->indent, yPos, kTextAttributes::kNormal | kTextAttributes::kInverted, str.c_str());
 
@@ -267,6 +274,7 @@ namespace gedit {
         std::vector<typename TreeNode::Ref> flattenNodeList;
         ToStringDelegate cbToString = nullptr;
         typename TreeNode::Ref rootNode;
+        LineCursor treeLineCursor;  // This is not really used - just for storage
 
     };
 

@@ -38,7 +38,7 @@ namespace gedit {
             return listItems;
         }
         int GetSelectedItemIndex() {
-            return idxActiveLine;
+            return listLineCursor.idxActiveLine;
         }
         void SetSelectedItem(int newSelection) {
             if (newSelection < 0) {
@@ -46,14 +46,15 @@ namespace gedit {
             } else if (newSelection > ((int)listItems.size()-1)) {
                 newSelection = listItems.size()-1;
             }
-            idxActiveLine = newSelection;
+            listLineCursor.idxActiveLine = newSelection;
         }
         const std::string &GetSelectedItem() {
-            return listItems[idxActiveLine];
+            return listItems[listLineCursor.idxActiveLine];
         }
     protected:
         void DrawViewContents() override;
     private:
+        LineCursor listLineCursor;
         std::vector<std::string> listItems;
 
     };

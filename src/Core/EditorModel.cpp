@@ -34,7 +34,7 @@ void EditorModel::CommentSelectionOrLine() {
     }
 
     if (!IsSelectionActive()) {
-        editController->AddLineComment(idxActiveLine, idxActiveLine+1, lineCommentPrefix);
+        editController->AddLineComment(lineCursor.idxActiveLine, lineCursor.idxActiveLine+1, lineCommentPrefix);
         return;
     }
 
@@ -91,10 +91,10 @@ bool EditorModel::JumpToSearchHit(size_t idxHit) {
         return false;
     }
     auto &result = searchResults[idxHit];
-    cursor.position.y = result.idxLine;
-    cursor.position.x = result.cursor_x;
-    cursor.wantedColumn = result.cursor_x;
-    idxActiveLine = result.idxLine;
+    GetCursor().position.y = result.idxLine;
+    GetCursor().position.x = result.cursor_x;
+    GetCursor().wantedColumn = result.cursor_x;
+    lineCursor.idxActiveLine = result.idxLine;
 
     RefocusViewArea();
     return true;
@@ -103,16 +103,16 @@ bool EditorModel::JumpToSearchHit(size_t idxHit) {
 // Call this function to re-center the view area around the active line...
 // the active line (line in focus) is positioned 1/3 (of num-lines) down from top
 void EditorModel::RefocusViewArea() {
-    if ((idxActiveLine >= viewBottomLine) || (idxActiveLine < viewTopLine)) {
+    if (lineCursor.IsInside(lineCursor.idxActiveLine)) {
 
-        auto height = viewBottomLine - viewTopLine;
+        auto height = lineCursor.Height();
         int margin = height / 3;
 
-        viewTopLine = idxActiveLine - margin;
-        if (viewTopLine < 0) {
-            viewTopLine = 0;
+        lineCursor.viewTopLine = lineCursor.idxActiveLine - margin;
+        if (lineCursor.viewTopLine < 0) {
+            lineCursor.viewTopLine = 0;
         }
-        viewBottomLine = viewTopLine + height;
+        lineCursor.viewBottomLine = lineCursor.viewTopLine + height;
     }
 }
 

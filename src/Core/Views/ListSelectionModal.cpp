@@ -35,8 +35,9 @@ void ListView::InitView() {
     if (viewRect.IsEmpty()) {
         viewRect = screen->Dimensions();
     }
-    viewTopLine = 0;
-    viewBottomLine = viewRect.Height();
+    lineCursor = &listLineCursor;
+    listLineCursor.viewTopLine = 0;
+    listLineCursor.viewBottomLine = viewRect.Height();
     window = screen->CreateWindow(viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
     window->SetCaption("ListView");
 }
@@ -45,8 +46,8 @@ void ListView::ReInitView() {
     if (viewRect.IsEmpty()) {
         viewRect = screen->Dimensions();
     }
-    viewTopLine = 0;
-    viewBottomLine = viewRect.Height();
+    listLineCursor.viewTopLine = 0;
+    listLineCursor.viewBottomLine = viewRect.Height();
     window = screen->UpdateWindow(window, viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
 }
 
@@ -54,16 +55,16 @@ bool ListView::OnAction(const KeyPressAction &kpAction){
     bool wasHandled = true;
     switch(kpAction.action) {
         case kAction::kActionLineUp :
-            OnNavigateUpCLion(cursor, 1, GetContentRect(), listItems.size());
+            OnNavigateUpCLion(1, GetContentRect(), listItems.size());
             break;
         case kAction::kActionLineDown :
-            OnNavigateDownCLion(cursor, 1, GetContentRect(), listItems.size());
+            OnNavigateDownCLion(1, GetContentRect(), listItems.size());
             break;
         case kAction::kActionPageUp :
-            OnNavigateUpCLion(cursor, GetContentRect().Height()-1, GetContentRect(), listItems.size());
+            OnNavigateUpCLion(GetContentRect().Height()-1, GetContentRect(), listItems.size());
             break;
         case kAction::kActionPageDown :
-            OnNavigateDownCLion(cursor, GetContentRect().Height()-1, GetContentRect(), listItems.size());
+            OnNavigateDownCLion(GetContentRect().Height()-1, GetContentRect(), listItems.size());
             break;
         default:
             wasHandled = false;
@@ -79,14 +80,14 @@ bool ListView::OnAction(const KeyPressAction &kpAction){
 void ListView::DrawViewContents() {
     auto &dc = window->GetContentDC();
     dc.ResetDrawColors();
-    for (auto i = viewTopLine; i < viewBottomLine; i++) {
+    for (auto i = listLineCursor.viewTopLine; i < listLineCursor.viewBottomLine; i++) {
         if (i >= listItems.size()) {
             break;
         }
-        int yPos = i - viewTopLine;
+        int yPos = i - listLineCursor.viewTopLine;
         auto &str = listItems[i];
         dc.FillLine(yPos, kTextAttributes::kNormal, ' ');
-        if (i == idxActiveLine) {
+        if (i == listLineCursor.idxActiveLine) {
             dc.FillLine(yPos, kTextAttributes::kNormal | kTextAttributes::kInverted, ' ');
             dc.DrawStringWithAttributesAt(0,yPos,kTextAttributes::kNormal  | kTextAttributes::kInverted, str.c_str());
         } else {

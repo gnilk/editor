@@ -163,6 +163,8 @@ terminal:
     - export path=%path%
 
 languages:
+  # Defines the maximum number of lines we extend a region for the syntax parser
+  regionMaxLines: 1000
   default:
     indent: 4
     tabsize: 4

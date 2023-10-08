@@ -3,12 +3,10 @@
 //
 /*
  * TO-DO List
- * - Switching active model/view doesn't update viewTopLine properly?
- *   => There is a screwup in who owns the 'idxActiveLine', view-top/bottom and cursor - MUST FIX!!
+ * - Reparsing after delete is not working
  * - Large(?) files issue, after searching for an item and jumping to next a couple of times - scrolling up doesn't properly reposition view (need to scroll down first)
- * ! (macos) CMD-End (nav-end-of-file) moves view but doesn't update internal cursor position (any other keystroke moves back)
- * - Page-down, start selection (top section) there will be multiple selections
  * - Delete some lines (upper 1/3 of file) and then page-down => segfault
+ *   => Seen once??
  * - Make something to hold a 'builder' (I need somewhere to store build-errors and present them nicely)
  *   Later this can go into the project configuration, which is executed through a '.build'-command
  * - Figure something to handle 'tab' correctly
@@ -58,6 +56,10 @@
  *   need to consider a solution for this...
  *
  * Done:
+ * ! (macos) CMD-End (nav-end-of-file) moves view but doesn't update internal cursor position (any other keystroke moves back)
+ * ! Page-down, start selection (top section) there will be multiple selections
+ * ! Switching active model/view doesn't update viewTopLine properly?
+ *   => There is a screwup in who owns the 'idxActiveLine', view-top/bottom and cursor - MUST FIX!!
  * ! Terminal must forward stderr!!
  * ! Language parser should operate on U32
  * ! Change loader to convert everything to UTF32 - for fast rendering

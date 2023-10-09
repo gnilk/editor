@@ -94,6 +94,12 @@ void CommandController::CommitLine() {
         return;
     }
 
+    // Generate segfault
+    if (cmdLine == U"segf") {
+        int *ptr = (int *)0;
+        *ptr = 0xdeadbeef;
+    }
+
     // TEST TEST TEST, see terminal.SetStdDelegate in Begin!!
     bParseStd = false;
     if (cmdLine.starts_with(U"make")) {

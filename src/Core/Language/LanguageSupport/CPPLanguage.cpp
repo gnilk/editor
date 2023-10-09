@@ -14,7 +14,7 @@ using namespace gedit;
 
 // state: main (and probably a few others)
 static const std::u32string cppTypes = U"void int char";
-static const std::u32string cppKeywords = U"auto typedef class struct static enum for while if return const";
+static const std::u32string cppKeywords = U"auto typedef class struct static enum for while if else return const";
 // Note: Multi char operators must be declared first...
 static const std::u32string cppOperators = U"== ++ -- << >> <= >= != += -= *= /= &= ^= |= -> && || :: ^ & ? : ! . = + - < > ( , * / ) [ ] < > ; ' \"";
 // The full operator set is used to identify post-fix operators but not used for classification..

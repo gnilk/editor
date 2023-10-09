@@ -19,6 +19,7 @@ DLL_EXPORT int test_cpplang_elseindent(ITesting *t);
 DLL_EXPORT int test_cpplang_indentcode(ITesting *t);
 DLL_EXPORT int test_cpplang_chardecl(ITesting *t);
 DLL_EXPORT int test_cpplang_reparseregion(ITesting *t);
+DLL_EXPORT int test_cpplang_keywords(ITesting *t);
 }
 
 DLL_EXPORT int test_cpplang(ITesting *t) {
@@ -192,5 +193,40 @@ DLL_EXPORT int test_cpplang_reparseregion(ITesting *t) {
     }
 
     buffer->ReparseRegion(1,5);
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_cpplang_keywords(ITesting *t) {
+    Config::Instance()["main"].SetBool("threaded_syntaxparser", false);
+
+    auto workspace = Editor::Instance().GetWorkspace();
+    TR_ASSERT(t, workspace != nullptr);
+    auto model = workspace->NewModel("test.cpp");
+    TR_ASSERT(t, model != nullptr);
+    auto buffer = model->GetTextBuffer();
+    TR_ASSERT(t, buffer != nullptr);
+
+//    buffer->AddLineUTF8("char *str=\"apa\"; // comment2");
+    buffer->AddLineUTF8("ifelsevoidstatic");
+    buffer->Reparse();
+    auto line = buffer->LineAt(1);
+
+    struct Part {
+        Line::LineAttrib attrib;
+        std::u32string string;
+    };
+
+
+    std::vector<Part> parts;
+    auto callback = [&parts](const Line::LineAttribIterator &itAttrib, std::u32string &strOut) {
+        Part part;
+        part.attrib = *itAttrib;
+        part.string = strOut;
+        parts.push_back(part);
+    };
+    line->IterateWithAttributes(callback);
+
+    printf("ATTRIB: %zu\n", line->Attributes().size());
+
     return kTR_Pass;
 }

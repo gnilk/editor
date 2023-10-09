@@ -378,6 +378,7 @@ std::pair<bool, kLanguageTokenClass> LangLineTokenizer::GetNextToken(std::u32str
 
     int szOperator = 0;
     // Check if we have an identifier in the current state
+    // FIXME: ONLY classify compound identifiers (i.e. stuff allowed to 'sit' on a token - like operators)
     for(auto &kvp : currentState->identifiers) {
         if (!kvp.second->IsMatch(strInput, szOperator)) {
             continue;
@@ -416,6 +417,8 @@ std::pair<bool, kLanguageTokenClass> LangLineTokenizer::GetNextToken(std::u32str
         dst.push_back(*input);
         input++;
     }
+
+    // FIXME: Classify whole-token identifiers here (keywords, known-types)
 
     return {true, kLanguageTokenClass::kRegular};
 }

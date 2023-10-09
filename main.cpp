@@ -257,6 +257,7 @@ using namespace gedit;
 #include <cstdlib>
 #include <csignal>
 #include <iostream>
+#include "Core/backward.hpp"
 
 // Testing out termination handling
 // The following two blocks of code was taken from: https://stackoverflow.com/questions/61798770/questions-regarding-the-usage-of-set-terminate
@@ -264,17 +265,22 @@ using namespace gedit;
 // If this 'works' I should probably replace some of it with the new CPP features for stack-traces...
 //
 
+static void Unwind() {
+    using namespace backward;
+
+    StackTrace st; st.load_here(32);
+    Printer p;
+    p.object = true;
+    p.color_mode = ColorMode::always;
+    p.address = true;
+    p.print(st, stderr);
+}
+
 // This function is used for handle segmental fault
 inline void segfaultHandler(int signal __attribute__((unused)))
 {
-    void *stackArray[20];
-    size_t size = backtrace(stackArray, 10);
-    std::cerr << "Segmentation fault! backtrace: ";
-    char** backtrace = backtrace_symbols(stackArray, size);
-    for (size_t i = 0; i < size; i++)
-    {
-        std::cerr << "\t" << backtrace[i];
-    }
+    std::cerr << "Segmentation fault (sig: " << signal << ")! backtrace: " << "\n";
+    Unwind();
     abort();
 }
 

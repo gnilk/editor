@@ -36,7 +36,6 @@ void CommandController::Begin() {
     });
     terminal.SetStderrDelegate([this](std::u32string &output) -> void {
 
-        strutil::trim(output);
         currentLine->Append(output);
 
         // FIXME: This is a test to use the language parser to help parse cmdline output...

@@ -7,7 +7,7 @@
 
 using namespace gedit;
 
-static const std::u32string makeKeywords = U"error";
+static const std::u32string makeKeywords = U"error warning";
 static const std::u32string makeOperators = U"*** : ^";
 
 
@@ -33,7 +33,7 @@ void MakeBuildLang::OnPostProcessParsedLine(Line::Ref line) {
 
     for(size_t i=0;i<parts.size();i++) {
         auto &part = parts[i];
-        if ((part.attrib.tokenClass == kLanguageTokenClass::kKeyword) && (part.string == U"error")) {
+        if ((part.attrib.tokenClass == kLanguageTokenClass::kKeyword) && ((part.string == U"error") || (part.string == U"warning"))) {
             // have error - what do we do now..   =)
             printf("Build error detected (parts: %zu)\n", parts.size());
             printf("  file: %s\n", UnicodeHelper::utf32to8(parts[0].string).c_str());

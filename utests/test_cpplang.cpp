@@ -208,8 +208,8 @@ DLL_EXPORT int test_cpplang_keywords(ITesting *t) {
 
 //    buffer->AddLineUTF8("char *str=\"apa\"; // comment2");
     buffer->AddLineUTF8("ifelsevoidstatic");
+    buffer->AddLineUTF8("if else void static");
     buffer->Reparse();
-    auto line = buffer->LineAt(1);
 
     struct Part {
         Line::LineAttrib attrib;
@@ -224,6 +224,13 @@ DLL_EXPORT int test_cpplang_keywords(ITesting *t) {
         part.string = strOut;
         parts.push_back(part);
     };
+
+    auto line = buffer->LineAt(1);
+    line->IterateWithAttributes(callback);
+    TR_ASSERT(t, line->Attributes().size() == 1);
+
+    parts.clear();
+    line = buffer->LineAt(2);
     line->IterateWithAttributes(callback);
 
     printf("ATTRIB: %zu\n", line->Attributes().size());

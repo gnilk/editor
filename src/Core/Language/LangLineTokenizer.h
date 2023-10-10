@@ -42,17 +42,26 @@ namespace gedit {
         // Consider: Ability to set user supplied matching function...
         struct IdentifierList {
             using Ref = std::shared_ptr<IdentifierList>;
-            static IdentifierList::Ref Factory(kLanguageTokenClass tokenClass, const std::u32string &strTokens) {
+            static IdentifierList::Ref Create(kLanguageTokenClass tokenClass, const std::u32string &strTokens) {
                 auto instance = std::make_shared<IdentifierList>();
 
+                instance->isWholeWord = false;
                 instance->classification = tokenClass;
                 strutil::splitToStringList(instance->tokens, strTokens);
 
                 return instance;
             }
 
-            kLanguageTokenClass classification;
-            std::vector<std::u32string> tokens;
+            static IdentifierList::Ref Create(kLanguageTokenClass tokenClass, bool wholeWord, const std::u32string &strTokens) {
+                auto instance = std::make_shared<IdentifierList>();
+
+                instance->isWholeWord = wholeWord;
+                instance->classification = tokenClass;
+                strutil::splitToStringList(instance->tokens, strTokens);
+
+                return instance;
+            }
+
 
             __inline bool IsMatch(const std::u32string &input, int &outSzToken) {
                 for (auto s: tokens) {
@@ -63,6 +72,11 @@ namespace gedit {
                 }
                 return false;
             }
+
+            bool isWholeWord = false;
+            kLanguageTokenClass classification;
+            std::vector<std::u32string> tokens;
+
         };
 
         // TO-DO: Quite a large internal class - consider putting it somewhere else??
@@ -150,7 +164,7 @@ namespace gedit {
             // Like for CPP you want '*/' as postfix-operator in the block_comment state...
             //
             void SetPostFixIdentifiers(const std::u32string &strTokens) {
-                postfixIdentifiers = IdentifierList::Factory(kLanguageTokenClass::kRegular, strTokens);
+                postfixIdentifiers = IdentifierList::Create(kLanguageTokenClass::kRegular, strTokens);
             }
 
             //
@@ -162,7 +176,12 @@ namespace gedit {
             // Each identifier list belongs to a classification
             //
             void SetIdentifiers(kLanguageTokenClass classification, const std::u32string &strTokens) {
-                auto identifierList = IdentifierList::Factory(classification, strTokens);
+                auto identifierList = IdentifierList::Create(classification, strTokens);
+                identifiers[classification] = identifierList;
+            }
+
+            void SetIdentifiers(kLanguageTokenClass classification, bool wholeWord, const std::u32string &strTokens) {
+                auto identifierList = IdentifierList::Create(classification, wholeWord, strTokens);
                 identifiers[classification] = identifierList;
             }
 

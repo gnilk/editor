@@ -21,6 +21,7 @@ static const std::unordered_map<kLanguageTokenClass, std::string> tokenNames = {
         {kLanguageTokenClass::kRegular,"regular"},
         {kLanguageTokenClass::kOperator,"operator"},
         {kLanguageTokenClass::kKeyword,"keyword"},
+        {kLanguageTokenClass::kSeparator,"separator"},
         {kLanguageTokenClass::kKnownType,"known_type"},
         // FIXME: Implement this => Require custom matching for identifiers => see note in "identifierlist"
         {kLanguageTokenClass::kNumber,"number"},
@@ -75,7 +76,7 @@ namespace gedit {
     const std::string &LanguageTokenClassToString(kLanguageTokenClass tokenClass) {
         auto it = tokenNames.find(tokenClass);
         if (it == tokenNames.end()) {
-            printf("%s - UNSUPPORTED TOKEN CLASS (%d), UPDATE THE ARRAY!!!!\n", __FILE_NAME__, tokenClass);
+            printf("%s - UNSUPPORTED TOKEN CLASS (%d), UPDATE THE ARRAY!!!!\n", __FILE__, tokenClass);
             exit(1);
         }
         return it->second;

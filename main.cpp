@@ -3,6 +3,8 @@
 //
 /*
  * TO-DO List
+ * - Language tokenizer has problem - keywords are found within other words...
+ *   Keywords, known-types MUST BE classified AFTER a token has been extracted!!! -> Need ability to create whole-token identifiers
  * - Large(?) files issue, after searching for an item and jumping to next a couple of times - scrolling up doesn't properly reposition view (need to scroll down first)
  * - Delete some lines (upper 1/3 of file) and then page-down => segfault
  *   => Seen once??
@@ -298,13 +300,17 @@ inline void exceptionHandler()
         std::cerr << "Caught unhandled exception: " << e.what();
     }
     catch(...){}
-    void *stackArray[20];
-    size_t size = backtrace(stackArray, 10);
-    std::cerr << "Segmentation fault! backtrace: ";
-    char** backtrace = backtrace_symbols(stackArray, size);
-    for (size_t i = 0; i < size; i++) {
-        std::cerr << "\t" << backtrace[i];
-    }
+
+    std::cerr << "backtrace:\n";
+    Unwind();
+
+//    void *stackArray[20];
+//    size_t size = backtrace(stackArray, 10);
+//    std::cerr << "Segmentation fault! backtrace: ";
+//    char** backtrace = backtrace_symbols(stackArray, size);
+//    for (size_t i = 0; i < size; i++) {
+//        std::cerr << "\t" << backtrace[i];
+//    }
     abort();
 }
 

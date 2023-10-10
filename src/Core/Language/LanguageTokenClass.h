@@ -12,19 +12,20 @@ namespace gedit {
         kRegular = 1,
         kOperator = 2,
         kKeyword = 3,
-        kKnownType = 4,
+        kSeparator = 4,
+        kKnownType = 5,
         // FIXME: Implement this => Require custom matching for identifiers => see note in "identifierlist"
-        kNumber = 5,
-        kString = 6,
-        kLineComment = 7,
-        kBlockComment = 8,
-        kCommentedText = 9,
-        kCodeBlockStart = 10,
-        kCodeBlockEnd = 11,
-        kArrayStart = 12,
-        kArrayEnd = 13,
-        kChar = 14,
-        kLastTokenClass = 15,         // this is used as numeric detection of the last token class
+        kNumber = 6,
+        kString = 7,
+        kLineComment = 8,
+        kBlockComment = 9,
+        kCommentedText = 10,
+        kCodeBlockStart = 11,
+        kCodeBlockEnd = 12,
+        kArrayStart = 13,
+        kArrayEnd = 14,
+        kChar = 15,
+        kLastTokenClass = 16,         // this is used as numeric detection of the last token class
         kFunky = 196,       // USED for debugging..
     };
 }

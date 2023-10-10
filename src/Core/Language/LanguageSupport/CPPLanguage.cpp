@@ -13,13 +13,20 @@
 using namespace gedit;
 
 // state: main (and probably a few others)
-static const std::u32string cppTypes = U"void int char";
-static const std::u32string cppKeywords = U"auto typedef class struct static enum for while if return const";
+static const std::u32string cppTypes = U"char char8_t char16_t char32_t double float int long short signed unsigned void wchar_t";
+
+// see: https://en.cppreference.com/w/cpp/keyword
+// Perhaps break this up a bit - like C++20, and so forth..
+static const std::u32string cppKeywords = U"alignas alignof and and_eq asm auto bitand bitor bool break case catch class compl concept const conteval constexpr constinit const_cast continue co_await co_return co_yield decltype default delete do dynamic_cast else enum explicit export extern false final for friend goto if import inline module mutable namespace new noexcept not not_eq nullptr operator or or_eq override private protected public reflexpr register reinterpret_cast requires return sizeof static static_assert static_cast struct switch synchronized template this thread_local throw true try typedef typeid typename union using virtual volatile while xor xor_eq";
+
+// see: https://en.cppreference.com/w/cpp/language/punctuators
 // Note: Multi char operators must be declared first...
-static const std::u32string cppOperators = U"== ++ -- << >> <= >= != += -= *= /= &= ^= |= -> && || :: ^ & ? : ! . = + - < > ( , * / ) [ ] < > ; ' \"";
+static const std::u32string cppOperators = U"... <<= >>= == ++ -- << >> <= >= != += -= *= /= %= &= ^= |= -> && || .* : | % ~ ^ & ? : ! . = + - < > ( , * / ) [ ] < > ; ' \"";
+//static const std::u32string cppSeparators = U"... ## # ( ) { } ; [ ] : ";
 // The full operator set is used to identify post-fix operators but not used for classification..
 // missing: % and %=
-static const std::u32string cppOperatorsFull = U"== ++ -- << >> <= >= != += -= *= /= &= ^= |= :: /* */ // -> && || ^ & ? : ! . = + - < > ( , * / ) [ ] < > ; ' { } \" \'";
+static const std::u32string cppOperatorsFull = U"... <<= >>= == ++ -- << >> <= >= != += -= *= /= %= &= ^= |= -> && || .* : | % ~ ^ & ? : ! . = + - < > ( , * / ) [ ] < > ; ' \"";
+//static const std::u32string cppOperatorsFull = U"== ++ -- << >> <= >= != += -= *= /= &= ^= |= :: /* */ // -> && || ^ & ? : ! . = + - < > ( , * / ) [ ] < > ; ' { } \" '";
 static const std::u32string cppLineComment = U"//";
 static const std::u32string cppCodeBlockStart = U"{";
 static const std::u32string cppCodeBlockEnd = U"}";
@@ -41,8 +48,8 @@ static const std::u32string inCharPostFixOp = U"'";
 bool CPPLanguage::Initialize() {
     auto state = tokenizer.GetOrAddState("main");
     state->SetIdentifiers(kLanguageTokenClass::kOperator, cppOperators);
-    state->SetIdentifiers(kLanguageTokenClass::kKeyword, cppKeywords);
-    state->SetIdentifiers(kLanguageTokenClass::kKnownType, cppTypes);
+    state->SetIdentifiers(kLanguageTokenClass::kKeyword, true, cppKeywords);
+    state->SetIdentifiers(kLanguageTokenClass::kKnownType, true, cppTypes);
     state->SetIdentifiers(kLanguageTokenClass::kLineComment, cppLineComment);
     state->SetIdentifiers(kLanguageTokenClass::kBlockComment, cppBlockCommentStart);
     state->SetIdentifiers(kLanguageTokenClass::kCodeBlockStart, cppCodeBlockStart);

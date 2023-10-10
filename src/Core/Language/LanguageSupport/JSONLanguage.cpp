@@ -30,7 +30,7 @@ bool JSONLanguage::Initialize() {
 
     auto state = tokenizer.GetOrAddState("main");
     state->SetIdentifiers(kLanguageTokenClass::kOperator, jsonOperatorsFull);
-    state->SetIdentifiers(kLanguageTokenClass::kKeyword, jsonKeywords);
+    state->SetIdentifiers(kLanguageTokenClass::kKeyword, true,jsonKeywords);
     state->SetIdentifiers(kLanguageTokenClass::kCodeBlockStart, jsonObjectStart);
     state->SetIdentifiers(kLanguageTokenClass::kCodeBlockEnd, jsonObjectEnd);
     state->SetIdentifiers(kLanguageTokenClass::kArrayStart, jsonArrayStart);

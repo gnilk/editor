@@ -31,6 +31,7 @@
  * - Swap out the vertical navigation code in EditorView for the 'VerticalNavigationModel'
  *
  * Bigger features:
+ * - Allow editor view to be a HexView
  * - Make something to hold a 'builder' (I need somewhere to store build-errors and present them nicely)
  *   Later this can go into the project configuration, which is executed through a '.build'-command
  * - Workspace configuration

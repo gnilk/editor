@@ -103,7 +103,7 @@ bool EditorModel::JumpToSearchHit(size_t idxHit) {
 // Call this function to re-center the view area around the active line...
 // the active line (line in focus) is positioned 1/3 (of num-lines) down from top
 void EditorModel::RefocusViewArea() {
-    if (lineCursor.IsInside(lineCursor.idxActiveLine)) {
+    if (!lineCursor.IsInside(lineCursor.idxActiveLine)) {
 
         auto height = lineCursor.Height();
         int margin = height / 3;

@@ -3,8 +3,7 @@
 //
 /*
  * TO-DO List
- * - Language tokenizer has problem - keywords are found within other words...
- *   Keywords, known-types MUST BE classified AFTER a token has been extracted!!! -> Need ability to create whole-token identifiers
+ * - Auto save, add timer 'on change' and call 'save' when it expired - reset timer on every change..
  * - Large(?) files issue, after searching for an item and jumping to next a couple of times - scrolling up doesn't properly reposition view (need to scroll down first)
  * - Delete some lines (upper 1/3 of file) and then page-down => segfault
  *   => Seen once??
@@ -57,6 +56,9 @@
  *   need to consider a solution for this...
  *
  * Done:
+ * ! Searching, searching for an item occuring only once (like the function name) doesnt jump to hit!
+ * ! Language tokenizer has problem - keywords are found within other words...
+ *   Keywords, known-types MUST BE classified AFTER a token has been extracted!!! -> Need ability to create whole-token identifiers
  * ! When creating a new model we should switch to it, also - it is created in the wrong folder..
  * ! Reparsing after delete is not working
  * ! (macos) CMD-End (nav-end-of-file) moves view but doesn't update internal cursor position (any other keystroke moves back)

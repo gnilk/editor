@@ -193,7 +193,8 @@ elseif(UNIX)
     add_definitions(-DGEDIT_LINUX)
 
     target_compile_options(${CUR_TARGET} PUBLIC -fPIC)
-    target_compile_options(${CUR_TARGET} PUBLIC -Wall -Wextra -Wpedantic -Wshadow)
+    #target_compile_options(${CUR_TARGET} PUBLIC -Wall -Wextra -Wpedantic -Wshadow)
+    target_compile_options(${CUR_TARGET} PUBLIC -Wall -Wextra -Wshadow)
 
     if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         message("Compiler is Clang")
@@ -212,6 +213,28 @@ elseif(UNIX)
     else()
         # Assume...
         message("Compiler is GCC")
+        target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-parameter)
+        target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-variable)
+
+        # DukGlue has quite a few type-defs causing pain - consider putting duglue into it's own compile target..
+        target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-local-typedef)
+        # target_compile_options(${CUR_TARGET} PUBLIC -Wno-unneeded-internal-declaration)
+        target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-but-set-parameter)
+        target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-value)
+
+        target_compile_options(${CUR_TARGET} PUBLIC -Wno-implicit-fallthrough)
+
+        # only for C sources..
+        # fix this...
+        # target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-local-typedefs)
+
+        # this one is irritating..
+        target_compile_options(${CUR_TARGET} PUBLIC -Wno-sign-compare)
+        target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-but-set-variable)
+
+        # YAML header library
+        target_compile_options(${CUR_TARGET} PUBLIC -Wno-shadow)
+
     endif()
 
 

@@ -4,9 +4,9 @@ on:
   push:
     branches: [ "main" ]
   pull_request:
-    branches: [ "main", "gnk_citest" ]
+    branches: [ "main" ]
   workflow_dispatch:
-    branches: [ "main", "gnk_citest" ]
+    branches: [ "main" ]
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
   BUILD_TYPE: Debug

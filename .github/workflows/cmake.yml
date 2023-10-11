@@ -24,6 +24,7 @@ jobs:
         run: chmod +x setup_deps.sh
       - name: Install dependencies on ubuntu
         run: |                  
+          sudo apt-get update
           sudo apt-get install -y ncurses sdl2
           ./setup_deps.sh
       - name: Configure CMake

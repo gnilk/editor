@@ -252,8 +252,8 @@ target_compile_definitions(${CUR_TARGET} PUBLIC GEDIT_VERSION_PATCH=0)
 # Dependencies
 #
 
-set(DUKTAPE_HOME ext/duktape-2.7.0/src)
-set(DUKTAPE_EXTRAS ext/duktape-2.7.0/extras)
+set(DUKTAPE_HOME src/ext/duktape-2.7.0/src)
+set(DUKTAPE_EXTRAS src/ext/duktape-2.7.0/extras)
 set(DUKGLUE_HOME ext/dukglue)
 set(FMT_HOME ext/fmt)
 

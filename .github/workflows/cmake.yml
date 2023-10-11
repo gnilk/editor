@@ -25,7 +25,7 @@ jobs:
       - name: Install dependencies on ubuntu
         run: |                  
           sudo apt-get update
-          sudo apt-get install -y ncurses sdl2
+          sudo apt-get install -y libncurses5-dev libsdl2-dev
           ./setup_deps.sh
       - name: Configure CMake
         # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.

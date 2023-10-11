@@ -149,7 +149,8 @@ void ClipBoard::ClipBoardItem::Dump() {
     printf("PtStart (%d,%d) - PtEnd (%d, %d)\n", start.x, start.y, end.x, end.y);
     int lc = 0;
     for(auto &s : data) {
-        printf("  %d: %s\n", lc, s.c_str());
+        auto asciistr = UnicodeHelper::utf32toascii(s);
+        printf("  %d: %s\n", lc, asciistr.c_str());
         lc++;
     }
 }

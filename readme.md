@@ -57,6 +57,42 @@ The build is driven by CMake.
 Cmake will check if 'ext/' contains the dependencies (which are considered local) and check them out if they don't
 exists. Other dependencies are considered system dependencies and you need to install them.
 
+## Linux/macOS
+
+Assuming you are in the repository root directory, execute the following to install dependencies and build:
+```shell
+          sudo apt-get update
+          sudo apt-get install -y libyaml-cpp-dev libncurses-dev libsdl2-dev
+          ./setup_deps.sh
+```
+
+Om macOS replaced `apt-get` with `brew` and you should be good to go.
+
+Once installed run to build:
+```shell
+        cmake -B ./build -DCMAKE_BUILD_TYPE=DEBUG
+        cmake --build ./build --config DEBUG --target goatedit -j
+```
+
+## Dependencies
+I use the following 3rd party libraries
+
+- yaml-cpp, https://github.com/jbeder/yaml-cpp
+- ncurses, on *nix it is generally available, otherwise: https://invisible-island.net/ncurses/announce.html
+- nlohmann/json, https://github.com/nlohmann/json
+- libSDL, https://github.com/libsdl-org/SDL currently using master branch (SDL3)
+- duktape 2.7.0, https://github.com/svaarala/duktape - clone this to editor/ext/duktape-2.7.0
+- dukglue (just take master), https://github.com/Aloshi/dukglue - clone this to editor/ext/dukglue
+- logger, https://github.com/gnilk/logger - clone this to editor/ext/logger
+- stb, https://github.com/nothings/stb, ttf and rect_pack (already added to my repo)
+- fmtlib, https://github.com/fmtlib/fmt, CPP string formatting with U32/U16/U8 support
+
+Note: Preconfigured duktape 2.7.0 is included in the repo (src/ext/duktape-2.7.0). So you don't have to clone/install it.
+I did this because I was struggling with github actions and duktape configuration. 
+
+
+## Troubleshooting
+
 If it doesn't build out of box, check that stuff is installed properly and that CMakeLists.txt points to the dependencies
 in the proper way. You are looking for a bunch of:
 ```
@@ -69,20 +105,6 @@ in the proper way. You are looking for a bunch of:
     set(FMT_HOME ext/fmt)   
 ```
 
-## Dependencies
-- yaml-cpp, https://github.com/jbeder/yaml-cpp
-- ncurses, on *nix it is generally available, otherwise: https://invisible-island.net/ncurses/announce.html
-- nlohmann/json, https://github.com/nlohmann/json
-- libSDL, https://github.com/libsdl-org/SDL currently using master branch (SDL3)
-- duktape 2.7.0, https://github.com/svaarala/duktape - clone this to editor/ext/duktape-2.7.0
-- dukglue (just take master), https://github.com/Aloshi/dukglue - clone this to editor/ext/dukglue
-- logger, https://github.com/gnilk/logger - clone this to editor/ext/logger
-- stb, https://github.com/nothings/stb, ttf and rect_pack (already added to my repo)
-- fmtlib, https://github.com/fmtlib/fmt, CPP string formatting with U32/U16/U8 support
-
-
-- libSDL, ncurses, yaml, nlohmann you can download and install the packages. 
-- duktape, dukglue, logger you should clone and link - see CMakeLists.txt
 
 # Plugins
 Playing around with embedding a script language to drive command-mode cmd-let's. At the end I settled for JavaScript.

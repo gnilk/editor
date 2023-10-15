@@ -32,6 +32,8 @@ namespace gedit {
         bool IsRunning();
         bool StartController();
         void TimerUpdateThreadLoop();
+        size_t CollectTimersToExecute(std::vector<TimerInstance> &outTimersToExecute);
+        void RemoveAndExecuteTimers(std::vector<TimerInstance> &timersToExecute);
     private:
         TimerController() = default;
     private:

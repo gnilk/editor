@@ -9,17 +9,6 @@
 
 using namespace gedit;
 
-// Not sure if I the timer should be 'self-managed' or if I should put it in the Editor (or RuntimeConfig class)
-// If self-managed - I need to stop it when leaving the editor...
-//TimerController &TimerController::Instance() {
-//    static TimerController glbController;
-//    if (!glbController.IsRunning()) {
-//        glbController.StartController();
-//    }
-//
-//    return glbController;
-//}
-
 TimerController::~TimerController() {
     if (isRunning) {
         Stop();
@@ -125,6 +114,10 @@ void TimerController::RemoveAndExecuteTimers(std::vector<Timer::Ref> &timersToEx
         t->Invoke();
     }
 }
+
+//
+// Internal no-lock versions, these are supposed to be called from within a locked mutext context
+//
 
 bool TimerController::ScheduleTimer_NoLock(Timer::Ref &timer) {
     timer->tStart = std::chrono::high_resolution_clock::now();

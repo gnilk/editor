@@ -38,8 +38,9 @@ namespace gedit {
             virtual void Initialize();
         protected:
             bool isValid = false;
-            int idxLine = {};
-            int offset = {};
+            LineCursor lineCursor;
+//            int idxLine = {};
+//            int offset = {};
             // The action tell's us if we should replace lines or insert lines..
             // This depends if the undo item was created during a delete operation or a modify operation
             kRestoreAction action = kRestoreAction::kInsertAsNew;
@@ -60,6 +61,7 @@ namespace gedit {
         private:
             std::u32string data = {};
         };
+
         class UndoItemRange : public UndoItem {
             friend UndoHistory;
         public:
@@ -92,7 +94,7 @@ namespace gedit {
             historystack.pop_front();
             return top;
         }
-        void RestoreOneItem(Cursor &cursor, TextBuffer::Ref textBuffer);
+        void RestoreOneItem(Cursor &cursor, size_t &idxActiveLine, TextBuffer::Ref textBuffer);
 
         bool HaveHistory() {
             return !historystack.empty();
@@ -101,7 +103,7 @@ namespace gedit {
             auto logger = gnilk::Logger::GetLogger("History");
             int count = 0;
             for(auto &undoItem : historystack) {
-                logger->Debug("%d: line=%d, offset=%d", count, undoItem->idxLine, undoItem->offset);
+                logger->Debug("%d: cursor=(%d:%d), idxActiveLine=%d", count, undoItem->lineCursor.cursor.position.x, undoItem->lineCursor.cursor.position.y, undoItem->lineCursor.idxActiveLine);
                 count ++;
             }
         }

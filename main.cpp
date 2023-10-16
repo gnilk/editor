@@ -3,6 +3,7 @@
 //
 /*
  * TO-DO List
+ * - Undo for new lines doesn't work..
  * - Large(?) files issue, after searching for an item and jumping to next a couple of times - scrolling up doesn't properly reposition view (need to scroll down first)
  * - Delete some lines (upper 1/3 of file) and then page-down => segfault
  *   => Seen once??

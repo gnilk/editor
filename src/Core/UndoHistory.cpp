@@ -42,7 +42,7 @@ UndoHistory::UndoItem::Ref UndoHistory::NewUndoFromLineRange(size_t idxStartLine
 }
 
 
-void UndoHistory::RestoreOneItem(Cursor &cursor, TextBuffer::Ref textBuffer) {
+void UndoHistory::RestoreOneItem(Cursor &cursor, size_t &idxActiveLine, TextBuffer::Ref textBuffer) {
     auto undoItem = PopItem();
     // Unless we have been initialized properly, we won't restore...
     if (!undoItem->IsValid()) {
@@ -50,8 +50,9 @@ void UndoHistory::RestoreOneItem(Cursor &cursor, TextBuffer::Ref textBuffer) {
     }
     undoItem->Restore(textBuffer);
     // Update cursor
-    cursor.position.x = undoItem->offset;
-    cursor.wantedColumn = undoItem->offset;
+    //cursor.position.y = undoItem->;
+    idxActiveLine = undoItem->lineCursor.idxActiveLine;
+    cursor = undoItem->lineCursor.cursor;
 }
 
 //////////////////
@@ -61,8 +62,7 @@ void UndoHistory::UndoItem::Initialize() {
     if (model == nullptr) {
         return;
     }
-    idxLine = model->GetActiveLineIndex();
-    offset = model->GetCursor().position.x;
+    lineCursor = model->GetLineCursor();
     isValid = true;
 }
 
@@ -80,13 +80,13 @@ void UndoHistory::UndoItemSingle::Initialize() {
     if (model == nullptr) {
         return;
     }
-    auto line = model->LineAt(idxLine);
+    auto line = model->LineAt(lineCursor.idxActiveLine);
     data = line->Buffer();    // We are saving the "complete" previous line
 }
 
 
 void UndoHistory::UndoItemSingle::Restore(TextBuffer::Ref textBuffer) {
-    auto line = textBuffer->LineAt(idxLine);
+    auto line = textBuffer->LineAt(lineCursor.idxActiveLine);
     line->Clear();
     line->Append(data);
 }
@@ -114,6 +114,9 @@ void UndoHistory::UndoItemRange::InitRange(const gedit::Point &ptStart, const ge
 }
 void UndoHistory::UndoItemRange::Restore(TextBuffer::Ref textBuffer) {
     int lineCounter = 0;
+    for(int y=start.y; y<end.y+1;y++) {
+        textBuffer->DeleteLineAt(start.y);
+    }
     for(int y=start.y; y<end.y;y++) {
         if (action == kRestoreAction::kInsertAsNew) {
             auto line = Line::Create(data[lineCounter++]);

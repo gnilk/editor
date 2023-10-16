@@ -8,6 +8,7 @@
 #include "EditController.h"
 #include "Core/UndoHistory.h"
 #include <sstream>
+#include "Core/Editor.h"
 
 using namespace gedit;
 
@@ -119,20 +120,24 @@ void EditController::MoveLineUp(Cursor &cursor, size_t &idxActiveLine) {
     cursor.position.y--;
 }
 
-void EditController::Undo(Cursor &cursor) {
+void EditController::Undo(Cursor &cursor, size_t &idxActiveLine) {
     if (!historyBuffer.HaveHistory()) {
         return;
     }
     historyBuffer.Dump();
-    historyBuffer.RestoreOneItem(cursor, textBuffer);
+    logger->Debug("Undo, lines before: %zu", textBuffer->NumLines());
+    historyBuffer.RestoreOneItem(cursor, idxActiveLine, textBuffer);
+    logger->Debug("Undo, lines after: %zu", textBuffer->NumLines());
 
-    //UpdateSyntaxForBuffer();
+   //UpdateSyntaxForBuffer();
     UpdateSyntaxForActiveLineRegion(cursor.position.y);
-
 }
 
-
 size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
+
+    auto undoItem = historyBuffer.NewUndoFromLineRange(idxActiveLine, idxActiveLine+1);
+
+
     auto &lines = Lines();
     auto currentLine = LineAt(idxActiveLine);
     //auto tabSize = EditorConfig::Instance().tabSize;
@@ -194,11 +199,35 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
         }
     }
 
-
     cursor.wantedColumn = cursorXPos;
     cursor.position.x = cursorXPos;
+
+    EndUndoItem(undoItem);
+
     return idxActiveLine;
 }
+
+void EditController::PasteFromClipboard(LineCursor &lineCursor) {
+    logger->Debug("Paste from clipboard");
+    auto &clipboard = Editor::Instance().GetClipBoard();
+    if (clipboard.Top() != nullptr) {
+        auto nLines = clipboard.Top()->GetLineCount();
+        auto ptWhere = lineCursor.cursor.position;
+
+        auto undoItem = historyBuffer.NewUndoFromLineRange(lineCursor.idxActiveLine, lineCursor.idxActiveLine+nLines);
+
+        ptWhere.y += (int)lineCursor.viewTopLine;
+        clipboard.PasteToBuffer(textBuffer, ptWhere);
+
+        EndUndoItem(undoItem);
+
+        textBuffer->ReparseRegion(lineCursor.idxActiveLine, lineCursor.idxActiveLine + nLines);
+
+        lineCursor.idxActiveLine += nLines;
+        lineCursor.cursor.position.y += nLines;
+    }
+}
+
 
 void EditController::UpdateSyntaxForBuffer() {
     logger->Debug("Syntax update for full bufffer");

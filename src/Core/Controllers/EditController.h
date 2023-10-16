@@ -36,7 +36,7 @@ namespace gedit {
         bool HandleSpecialKeyPress(Cursor &cursor, size_t &idxActiveLine, const KeyPress &keyPress);
 
 
-        void Undo(Cursor &cursor);
+        void Undo(Cursor &cursor, size_t &idxActiveLine);
 
         // Returns index to the new active line
         size_t NewLine(size_t idxCurrentLine, Cursor &cursor);
@@ -61,6 +61,8 @@ namespace gedit {
         void UpdateSyntaxForRegion(size_t idxStartLine, size_t idxEndLine); // Partial reparse (between line index)
         void UpdateSyntaxForActiveLineRegion(size_t idxActiveLine); // Special partial case - activeline +/- 2 lines
         void WaitForSyntaxCompletion();
+
+        void PasteFromClipboard(LineCursor &lineCursor);
 
         void AddCharToLineNoUndo(Cursor &cursor, Line::Ref line, char32_t ch);
         void RemoveCharFromLineNoUndo(Cursor &cursor, Line::Ref line);

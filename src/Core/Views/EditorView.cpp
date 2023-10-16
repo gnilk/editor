@@ -225,7 +225,7 @@ void EditorView::HandleKeyPressWithSelection(const KeyPress &keyPress) {
             // But any - valid - keypress should lead to the selection being deleted and the new key inserted...
             if (editorModel->GetEditController()->HandleKeyPress(lineCursor.cursor, lineCursor.idxActiveLine, keyPress)) {
                 // revert the last insert
-                editorModel->GetEditController()->Undo(lineCursor.cursor);
+                editorModel->GetEditController()->Undo(lineCursor.cursor, lineCursor.idxActiveLine);
                 // delete the selection (buffer is now fine)
                 editorModel->DeleteSelection();
 
@@ -281,16 +281,7 @@ bool EditorView::OnAction(const KeyPressAction &kpAction) {
         UpdateModelFromNavigation(false);
 
     } else if (kpAction.action == kAction::kActionPasteFromClipboard) {
-        logger->Debug("Paste from clipboard");
-        auto &clipboard = Editor::Instance().GetClipBoard();
-        if (clipboard.Top() != nullptr) {
-            auto nLines = clipboard.Top()->GetLineCount();
-            auto ptWhere = lineCursor.cursor.position;
-            ptWhere.y += (int)lineCursor.viewTopLine;
-            clipboard.PasteToBuffer(editorModel->GetTextBuffer(), ptWhere);
-
-            editorModel->GetTextBuffer()->ReparseRegion(lineCursor.idxActiveLine, lineCursor.idxActiveLine + nLines);
-        }
+        editorModel->GetEditController()->PasteFromClipboard(editorModel->GetLineCursor());
     } else if (kpAction.action == kAction::kActionInsertLineComment) {
         // Handle this here since we want to keep the selection...
         editorModel->CommentSelectionOrLine();
@@ -388,7 +379,8 @@ bool EditorView::DispatchAction(const KeyPressAction &kpAction) {
 
 bool EditorView::OnActionUndo() {
     //editorModel->GetTextBuffer()->Undo();
-    editorModel->GetEditController()->Undo(editorModel->GetCursor());
+    auto &lineCursor = editorModel->GetLineCursor();
+    editorModel->GetEditController()->Undo(lineCursor.cursor, lineCursor.idxActiveLine);
     return true;
 }
 

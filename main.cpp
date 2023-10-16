@@ -3,7 +3,6 @@
 //
 /*
  * TO-DO List
- * - Auto save, add timer 'on change' and call 'save' when it expired - reset timer on every change..
  * - Large(?) files issue, after searching for an item and jumping to next a couple of times - scrolling up doesn't properly reposition view (need to scroll down first)
  * - Delete some lines (upper 1/3 of file) and then page-down => segfault
  *   => Seen once??
@@ -57,6 +56,7 @@
  *   need to consider a solution for this...
  *
  * Done:
+ * ! Auto save, add timer 'on change' and call 'save' when it expired - reset timer on every change..
  * ! Searching, searching for an item occuring only once (like the function name) doesnt jump to hit!
  * ! Language tokenizer has problem - keywords are found within other words...
  *   Keywords, known-types MUST BE classified AFTER a token has been extracted!!! -> Need ability to create whole-token identifiers

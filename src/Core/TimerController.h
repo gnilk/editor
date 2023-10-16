@@ -8,40 +8,43 @@
 #include <thread>
 #include <vector>
 #include <mutex>
+#include <optional>
 
 #include "Timer.h"
 
 
+
 namespace gedit {
-    // This is the hidden timer management class
+
     class TimerController {
     private:
-        struct TimerInstance {
-            std::chrono::time_point<std::chrono::high_resolution_clock> tStart;
-            Timer::Ref timer;
-        };
     public:
-        virtual ~TimerController() = default;
-        static TimerController &Instance();
+        TimerController() = default;
+        virtual ~TimerController();
+        bool Start();
         void Stop();
-        bool ScheduleTimer(Timer::Ref timer);
-        bool HasExpired(Timer *ptrTimer);
+
+        Timer::Ref CreateAndScheduleTimer(const Timer::DurationMS &durationMS, const Timer::TimerDelegate &onElapsed);
+
+        bool ScheduleTimer(Timer::Ref &timer);
+        bool RestartTimer(Timer::Ref &timer);
 
 
     protected:
         bool IsRunning();
-        bool StartController();
         void TimerUpdateThreadLoop();
-        size_t CollectTimersToExecute(std::vector<TimerInstance> &outTimersToExecute);
-        void RemoveAndExecuteTimers(std::vector<TimerInstance> &timersToExecute);
-    private:
-        TimerController() = default;
+        size_t CollectTimersToExecute(std::vector<Timer::Ref> &outTimersToExecute);
+        void RemoveAndExecuteTimers(std::vector<Timer::Ref> &timersToExecute);
+        bool HaveTimer_NoLock(Timer::Ref &timer);
+    protected:
+        bool ScheduleTimer_NoLock(Timer::Ref &timer);
+
     private:
         bool isRunning = false;
         bool bQuit = false;
         std::thread runner;
         std::mutex timerLock;
-        std::vector<TimerInstance> activeTimers;
+        std::vector<Timer::Ref> activeTimers;
     };
 
 }

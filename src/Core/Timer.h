@@ -10,7 +10,11 @@
 #include <chrono>
 
 namespace gedit {
+    // This is the hidden timer management class
+    class TimerController;
+
     class Timer {
+        friend TimerController;
     public:
         using Ref = std::shared_ptr<Timer>;
         using TimerDelegate = std::function<void()>;
@@ -18,20 +22,28 @@ namespace gedit {
     public:
         Timer() = default;
         virtual ~Timer() = default;
-        static Ref Create(const DurationMS &msToExpire, TimerDelegate onElapsed);
 
+
+        void SetDuration(const DurationMS &newDurationMS) {
+            msDuration = newDurationMS;
+        }
         const DurationMS &GetDuration() {
             return msDuration;
-        };
-        void Invoke();
+        }
+
         bool HasExpired();
+
+
     protected:
-    private:
+        static Ref Create(const DurationMS &msToExpire, TimerDelegate onElapsed);
 
-        DurationMS msDuration;
-        TimerDelegate elapsedHandler;
+        void Invoke();
+    protected:
+        DurationMS msDuration = {};
+        bool isExpired = false;
+        TimerDelegate elapsedHandler = nullptr;
+        std::chrono::time_point<std::chrono::high_resolution_clock> tStart;
     };
-
 
 }
 

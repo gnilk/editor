@@ -11,20 +11,26 @@ using namespace gedit;
 
 // Not sure if I the timer should be 'self-managed' or if I should put it in the Editor (or RuntimeConfig class)
 // If self-managed - I need to stop it when leaving the editor...
-TimerController &TimerController::Instance() {
-    static TimerController glbController;
-    if (!glbController.IsRunning()) {
-        glbController.StartController();
-    }
+//TimerController &TimerController::Instance() {
+//    static TimerController glbController;
+//    if (!glbController.IsRunning()) {
+//        glbController.StartController();
+//    }
+//
+//    return glbController;
+//}
 
-    return glbController;
+TimerController::~TimerController() {
+    if (isRunning) {
+        Stop();
+    }
 }
 
 bool TimerController::IsRunning() {
     return isRunning;
 }
 
-bool TimerController::StartController() {
+bool TimerController::Start() {
     if (isRunning) {
         return true;
     }
@@ -45,26 +51,41 @@ void TimerController::Stop() {
     runner.join();
 }
 
+Timer::Ref TimerController::CreateAndScheduleTimer(const Timer::DurationMS &durationMS, const Timer::TimerDelegate &onElapsed) {
+    std::lock_guard<std::mutex> guard(timerLock);
+    auto timer = Timer::Create(durationMS, onElapsed);
+    if (ScheduleTimer_NoLock(timer)) {
+        return timer;
+    }
+    return nullptr;
+}
+
+bool TimerController::ScheduleTimer(Timer::Ref &timer) {
+    std::lock_guard<std::mutex> guard(timerLock);
+    return ScheduleTimer_NoLock(timer);
+}
+
+bool TimerController::RestartTimer(Timer::Ref &timer) {
+    std::lock_guard<std::mutex> guard(timerLock);
+    return ScheduleTimer_NoLock(timer);
+}
+
+
 void TimerController::TimerUpdateThreadLoop() {
+    std::vector<Timer::Ref> timersToExecute;
+
     while(!bQuit) {
         // Yield!!!
         std::this_thread::yield();
+        timersToExecute.clear();
 
         // Block is needed for the lock_guard (released when goes out of scope)
         {
             std::lock_guard<std::mutex> guard(timerLock);
-
-            std::vector<TimerInstance> timersToExecute;
-
-            // Collect the timers we should execute
-            auto nToExecute = CollectTimersToExecute(timersToExecute);
-
-            if (nToExecute > 0) {
-                // Remove and execute..
-                // We remove first, so that timers can reschedule themselves during execution if they like to
-                RemoveAndExecuteTimers(timersToExecute);
-            }
+            CollectTimersToExecute(timersToExecute);
         }
+        // DO NOT lock during this one - we lock per-execution here - as we remove timers
+        RemoveAndExecuteTimers(timersToExecute);
     }
 }
 
@@ -72,58 +93,55 @@ void TimerController::TimerUpdateThreadLoop() {
 // Go through and check if the time has elapsed for all timers, if they have - push them on the execution queue
 // DO NOT remove them from active timer - currently we don't support recurrency timers but we will...
 //
-size_t TimerController::CollectTimersToExecute(std::vector<TimerInstance> &outTimersToExecute) {
+size_t TimerController::CollectTimersToExecute(std::vector<Timer::Ref> &outTimersToExecute) {
     auto tNow = std::chrono::high_resolution_clock::now();
     // Figure out which timers to execute
     for(auto &t : activeTimers) {
-        auto tDuration = tNow - t.tStart;
-        if (tDuration > t.timer->GetDuration()) {
+        auto tDuration = tNow - t->tStart;
+        if (tDuration > t->GetDuration()) {
             outTimersToExecute.push_back(t);
         }
     }
     return outTimersToExecute.size();
 }
 
-void TimerController::RemoveAndExecuteTimers(std::vector<TimerInstance> &timersToExecute) {
+void TimerController::RemoveAndExecuteTimers(std::vector<Timer::Ref> &timersToExecute) {
     // Remove and Execute - we remove first, so the timers can reschedule themselve upon execution
     while(!timersToExecute.empty()) {
         auto t = timersToExecute.back();
         timersToExecute.pop_back();
         // Remove timer from active timers, this allows rescheduling during invoke...
-        activeTimers.erase(std::remove_if(activeTimers.begin(),
-                                          activeTimers.end(),
-                                          [&](const TimerInstance &other) {
-                                              return (other.timer.get() == t.timer.get());
-                                          })
-        );
+        {
+            std::lock_guard<std::mutex> guard(timerLock);
+            activeTimers.erase(std::remove_if(activeTimers.begin(),
+                                              activeTimers.end(),
+                                              [&](const Timer::Ref &other) {
+                                                  return (other == t);
+                                              })
+            );
+        }
         // Now invoke
         // Note: WE DO NOT push this on the editor main-thread, for now that's up to the creator of the timer
-        t.timer->Invoke();
+        t->Invoke();
     }
 }
 
-//
-// Schedule a timer, put it on the execution queue
-//
-bool TimerController::ScheduleTimer(Timer::Ref timer) {
-    std::lock_guard<std::mutex> guard(timerLock);
-    TimerInstance timerInstance;
-    timerInstance.tStart = std::chrono::high_resolution_clock::now();
-    timerInstance.timer = std::move(timer);
-    activeTimers.push_back(timerInstance);
+bool TimerController::ScheduleTimer_NoLock(Timer::Ref &timer) {
+    timer->tStart = std::chrono::high_resolution_clock::now();
+    // If this timer is not active - let's push it on the active queue...
+    if (!HaveTimer_NoLock(timer)) {
+        timer->isExpired = false;
+        activeTimers.push_back(timer);
+    }
     return true;
 }
 
-//
-// Check if a timer has expired
-// Note: Take a raw pointer, we will be calling this from within the Timer instance with 'this'...
-//
-bool TimerController::HasExpired(Timer *ptrTimer) {
-    std::lock_guard<std::mutex> guard(timerLock);
+bool TimerController::HaveTimer_NoLock(Timer::Ref &timer) {
     for(auto &t : activeTimers) {
-        if (t.timer.get() == ptrTimer) {
-            return false;
+        if (t == timer) {
+            return true;
         }
     }
-    return true;
+    return false;
+
 }

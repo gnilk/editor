@@ -3,7 +3,7 @@
 //
 /*
  * TO-DO List
- * - Undo for new lines doesn't work..
+ * - Delete a selection which start's at X (col) > 0 and ends on another line with col == 0 will remove one line too much
  * - Large(?) files issue, after searching for an item and jumping to next a couple of times - scrolling up doesn't properly reposition view (need to scroll down first)
  * - Delete some lines (upper 1/3 of file) and then page-down => segfault
  *   => Seen once??
@@ -57,6 +57,7 @@
  *   need to consider a solution for this...
  *
  * Done:
+ * ! Undo does almost work
  * ! Auto save, add timer 'on change' and call 'save' when it expired - reset timer on every change..
  * ! Searching, searching for an item occuring only once (like the function name) doesnt jump to hit!
  * ! Language tokenizer has problem - keywords are found within other words...

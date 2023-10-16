@@ -371,6 +371,10 @@ void EditController::DeleteRange(const Point &startPos, const Point &endPos) {
         startLine->Delete(startPos.x, startLine->Length()-startPos.x);
         y++;
     }
+    // FIXME: Special case, when (endPos.x == 0) && (start.x > 0) && (start.y != end.y) -> we should pull the last FULL line upp to start.x
+    // Perhaps easier, if startPos.x > 0 and start.y != end.y we should concat the endpos line
+    // I.e. no need for the if-case below, it can be integrated in to the upper if-case and solved directly (which makes it easier)
+
     // If x > 0, we have a partial marked end-line so let's delete that partial data before we chunk the lines
     if (endPos.x > 0) {
         // end-pos is not 0, so we need to chop off stuff at the last line and merge with the first line...
@@ -380,7 +384,9 @@ void EditController::DeleteRange(const Point &startPos, const Point &endPos) {
     }
 
     logger->Debug("DeleteRange, fromLine=%d, nLines=%d",y,dy);
-    DeleteLinesNoSyntaxUpdate(y, y+dy);
+    if (dy > 0) {
+        DeleteLinesNoSyntaxUpdate(y, y + dy);
+    }
 
     UpdateSyntaxForRegion(startPos.y, endPos.y+1);
 

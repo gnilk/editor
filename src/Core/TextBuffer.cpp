@@ -387,6 +387,29 @@ void TextBuffer::ChangeBufferState(BufferState newState) {
 
 void TextBuffer::OnLineChanged(const Line &line) {
     ChangeBufferState(kBuffer_Changed);
+
+    // auto save
+    auto &tc = RuntimeConfig::Instance().GetTimerController();
+    if (autoSaveTimer == nullptr) {
+        // Timer not created, so let's create the timer with a 2000msec timeout
+        autoSaveTimer = tc.CreateAndScheduleTimer(2000ms, [this](){
+            // Timer kicked in - we are now in the timer-thread context!!!
+            // We should NOT do anything here - instead we post ourselves to the editor message queue (which is tied to the UI)
+            // this queue is emptied first on each run-loop/redraw iteration, this is the way...
+            RuntimeConfig::Instance().GetRootView().PostMessage([this](){
+                // Once here - we can retrieve the workspace node (which knows about the filename) for this TextBuffer
+                // this is a bit convoluted but not done very often...
+                auto model = Editor::Instance().GetModelFromTextBuffer(shared_from_this());
+                auto node = Editor::Instance().GetWorkspaceNodeForModel(model);
+                node->SaveData();
+            });
+        });
+    } else {
+        // On every change, let's restart the timer...
+        tc.RestartTimer(autoSaveTimer);
+    }
+
+
 }
 
 //

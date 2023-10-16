@@ -17,9 +17,10 @@
 #include "Core/Line.h"
 #include "Core/Point.h"
 #include "Core/UnicodeHelper.h"
+#include "Core/TimerController.h"
 
 namespace gedit {
-    class TextBuffer {
+class TextBuffer : public std::enable_shared_from_this<TextBuffer> {
     public:
         using Ref = std::shared_ptr<TextBuffer>;
 
@@ -186,6 +187,7 @@ namespace gedit {
     private:
         volatile ParseState parseState = kState_None;
 
+        Timer::Ref autoSaveTimer = nullptr;
         BufferState bufferState = kBuffer_Empty;
 
         std::vector<Line::Ref> lines;

@@ -5,6 +5,8 @@ main:
   # 'default' is a reserved word - replace with your file name when forking it...
   keymap: "default_keymap"
   threaded_syntaxparser: yes
+  # time in milliseconds before automatically saving a file after changes...
+  autosave_timeout_ms: 2000
   plugin_directory: Plugins
   bootstrap_script_comment: "//"
   cmdlet_prefix: "."

@@ -391,8 +391,11 @@ void TextBuffer::OnLineChanged(const Line &line) {
     // auto save
     auto &tc = RuntimeConfig::Instance().GetTimerController();
     if (autoSaveTimer == nullptr) {
+        auto autoSaveTimeout = Config::Instance()["main"].GetInt("autosave_timeout_ms", 2000);
+        Timer::DurationMS duration(autoSaveTimeout);
+
         // Timer not created, so let's create the timer with a 2000msec timeout
-        autoSaveTimer = tc.CreateAndScheduleTimer(2000ms, [this](){
+        autoSaveTimer = tc.CreateAndScheduleTimer(duration, [this](){
             // Timer kicked in - we are now in the timer-thread context!!!
             // We should NOT do anything here - instead we post ourselves to the editor message queue (which is tied to the UI)
             // this queue is emptied first on each run-loop/redraw iteration, this is the way...

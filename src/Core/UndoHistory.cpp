@@ -24,7 +24,17 @@ UndoHistory::UndoItem::Ref UndoHistory::NewUndoFromSelection() {
     }
     auto selection = model->GetSelection();
 
-    undoItem->InitRange(selection.GetStart(), selection.GetEnd());
+    Point ptStart(0, selection.GetStart().y);
+    Point ptEnd(0, selection.GetEnd().y);
+    // In case we don't do full-lines, include at least the last line
+    // If full-lines, endLine of the selection is one-below..
+    if ((selection.GetStart().x != 0) || (selection.GetEnd().x != 0)) {
+        ptEnd.y += 1;
+    }
+
+    undoItem->InitRange(ptStart, ptEnd);
+
+//    undoItem->InitRange(selection.GetStart(), selection.GetEnd());
     return undoItem;
 }
 
@@ -113,13 +123,51 @@ void UndoHistory::UndoItemRange::InitRange(const gedit::Point &ptStart, const ge
     }
 }
 void UndoHistory::UndoItemRange::Restore(TextBuffer::Ref textBuffer) {
-    int lineCounter = 0;
-    for(int y=start.y; y<end.y+1;y++) {
+
+    //
+    // Clear and append, restore previous line contents without
+    //
+    if (action == kRestoreAction::kClearAndAppend) {
+        auto idxLine = start.y;
+        for(auto &oldLine : data) {
+            auto line = textBuffer->LineAt(idxLine);
+            line->Clear();
+            line->Append(oldLine);
+            idxLine++;
+        }
+        return;
+    }
+
+    auto logger = gnilk::Logger::GetLogger("UndoItemRange");
+    logger->Debug("Restore, start.y = %zu, end.y = %zu, action=%d", start.y, end.y, action);
+
+    // Action used when pasting from clip-board
+    // Basically this is enough - just remove whatever we had
+    if (action == kRestoreAction::kDeleteBeforeInsert) {
+        for (int y = start.y; y < end.y; y++) {
+            textBuffer->DeleteLineAt(start.y);
+        }
+    } else if (action == kRestoreAction::kDeleteFirstBeforeInsert) {
         textBuffer->DeleteLineAt(start.y);
     }
-    for(int y=start.y; y<end.y;y++) {
+
+    // But we also restore the contents - thus I need to remove a line for every-one I insert..
+    // This will literally delete and replace them same content (unless we have 'overwrite' mode - which I don't support anyway)
+    while(!data.empty()) {
+        if (action == kRestoreAction::kDeleteBeforeInsert) {
+            textBuffer->DeleteLineAt(start.y);
+        }
+        auto line = Line::Create(data.back());
+        textBuffer->Insert(start.y, line);
+        data.pop_back();
+    }
+/*
+
+    int lineCounter = 0;
+    for(int y=start.y; y<end.y+1;y++) {
         if (action == kRestoreAction::kInsertAsNew) {
             auto line = Line::Create(data[lineCounter++]);
+            //textBuffer->Insert(start.y, line);
             textBuffer->Insert(start.y, line);
         } else {
             auto line = textBuffer->LineAt(y);
@@ -127,6 +175,7 @@ void UndoHistory::UndoItemRange::Restore(TextBuffer::Ref textBuffer) {
             line->Append(data[lineCounter++]);
         }
     }
+*/
 }
 
 

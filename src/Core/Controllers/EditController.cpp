@@ -70,10 +70,12 @@ bool EditController::HandleSpecialKeyPress(Cursor &cursor, size_t &idxLine, cons
     auto undoItem = BeginUndoItem();
     bool wasHandled = true;
 
-    if (!DefaultEditSpecial(cursor, line, keyPress)) {
+    if (DefaultEditSpecial(cursor, line, keyPress)) {
+        EndUndoItem(undoItem);
+    } else {
+        // Just drop the undo-item, handle special key must declare it's own...
         wasHandled = HandleSpecialKeyPressForEditor(cursor, idxLine, keyPress);
     }
-    EndUndoItem(undoItem);
     UpdateSyntaxForActiveLineRegion(idxLine);
     return wasHandled;
 }
@@ -85,24 +87,37 @@ bool EditController::HandleSpecialKeyPressForEditor(Cursor &cursor, size_t &idxL
         case Keyboard::kKeyCode_DeleteForward :
             // Handle delete at end of line
             if ((cursor.position.x == (int)line->Length()) && ((idxLine + 1) < textBuffer->NumLines())) {
+                auto undoItem = historyBuffer.NewUndoFromLineRange(idxLine, idxLine+2);
+                undoItem->SetRestoreAction(UndoHistory::kRestoreAction::kDeleteFirstBeforeInsert);
+
                 auto next = textBuffer->LineAt(idxLine + 1);
                 line->Append(next);
                 textBuffer->DeleteLineAt(idxLine + 1);
+
+                EndUndoItem(undoItem);
                 wasHandled = true;
             }
             break;
         case Keyboard::kKeyCode_Backspace :
             if ((cursor.position.x == 0) && (idxLine > 0)) {
+                auto undoItem = historyBuffer.NewUndoFromLineRange(idxLine-1, idxLine+1);
+                undoItem->SetRestoreAction(UndoHistory::kRestoreAction::kDeleteFirstBeforeInsert);
                 MoveLineUp(cursor, idxLine);
+                EndUndoItem(undoItem);
                 wasHandled = true;
             }
             break;
         case Keyboard::kKeyCode_Tab :
-            if (keyPress.modifiers == 0) {
-                AddTab(cursor, idxLine);
-            } else if (keyPress.IsShiftPressed()) {
-                DelTab(cursor, idxLine);
+            {
+                auto undoItem = BeginUndoItem();
+                if (keyPress.modifiers == 0) {
+                    AddTab(cursor, idxLine);
+                } else if (keyPress.IsShiftPressed()) {
+                    DelTab(cursor, idxLine);
+                }
+                EndUndoItem(undoItem);
             }
+
             wasHandled = true;
             break;
     }
@@ -136,6 +151,7 @@ void EditController::Undo(Cursor &cursor, size_t &idxActiveLine) {
 size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
 
     auto undoItem = historyBuffer.NewUndoFromLineRange(idxActiveLine, idxActiveLine+1);
+    undoItem->SetRestoreAction(UndoHistory::kRestoreAction::kDeleteBeforeInsert);
 
 
     auto &lines = Lines();
@@ -215,6 +231,7 @@ void EditController::PasteFromClipboard(LineCursor &lineCursor) {
         auto ptWhere = lineCursor.cursor.position;
 
         auto undoItem = historyBuffer.NewUndoFromLineRange(lineCursor.idxActiveLine, lineCursor.idxActiveLine+nLines);
+        undoItem->SetRestoreAction(UndoHistory::kRestoreAction::kDeleteBeforeInsert);
 
         ptWhere.y += (int)lineCursor.viewTopLine;
         clipboard.PasteToBuffer(textBuffer, ptWhere);
@@ -332,7 +349,11 @@ void EditController::DeleteRange(const Point &startPos, const Point &endPos) {
                   endPos.x, endPos.y);
 
     auto undoItem = historyBuffer.NewUndoFromSelection();
-    undoItem->SetRestoreAction(UndoHistory::kRestoreAction::kInsertAsNew);
+    if ((startPos.x == 0) && (endPos.x == 0)) {
+        undoItem->SetRestoreAction(UndoHistory::kRestoreAction::kInsertAsNew);
+    } else {
+        undoItem->SetRestoreAction(UndoHistory::kRestoreAction::kDeleteFirstBeforeInsert);
+    }
     historyBuffer.PushUndoItem(undoItem);
 
 

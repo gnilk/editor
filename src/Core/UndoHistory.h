@@ -17,8 +17,10 @@ namespace gedit {
     class UndoHistory {
     public:
         enum class kRestoreAction {
-            kInsertAsNew,
-            kClearAndAppend,
+            kInsertAsNew,               // When you have delete something...
+            kClearAndAppend,            // Paste of regular editing or mult-line actions (like comment line), we just clear the contents and restore
+            kDeleteBeforeInsert,        // When you undo a NewLine or a Paste action..
+            kDeleteFirstBeforeInsert,   // Paste for when backspace removes one line up or delete-forward takes next line up and merge, we will delete the first line and replace and
         };
         // Base class for any item which can be un-done
         // holds common data
@@ -87,6 +89,10 @@ namespace gedit {
         UndoItem::Ref NewUndoFromSelection();
         UndoItem::Ref NewUndoFromLineRange(size_t idxStartLine, size_t idxEndLine);
         void PushUndoItem(UndoItem::Ref undoItem) {
+            // Nopes, we don't allow this...
+            if (undoItem == nullptr) {
+                return;
+            }
             historystack.push_front(undoItem);
         }
         UndoItem::Ref PopItem() {

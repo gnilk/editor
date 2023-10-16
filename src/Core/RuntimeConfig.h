@@ -23,6 +23,7 @@
 #include <map>
 #include <thread>
 #include "Core/WindowLocation.h"
+#include "Core/TimerController.h"
 
 namespace gedit {
     class IOutputConsole {
@@ -64,6 +65,12 @@ namespace gedit {
 
         KeyboardDriverBase::Ref GetKeyboard() {
             return keyboard;
+        }
+
+        // Start and return the timer controller...
+        TimerController &GetTimerController() {
+            timerController.Start();
+            return timerController;
         }
 
         FolderMonitor &GetFolderMonitor();
@@ -134,6 +141,7 @@ namespace gedit {
         std::thread::id mainThreadId;
         AssetLoaderBase assetLoader;
         WindowLocation windowLocation;
+        TimerController timerController;
 
         std::map<std::string, const PluginCommand::Ref> pluginCommands;
         ViewBase *quickModeView = nullptr;

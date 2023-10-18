@@ -141,11 +141,12 @@ void EditController::Undo(Cursor &cursor, size_t &idxActiveLine) {
     }
     historyBuffer.Dump();
     logger->Debug("Undo, lines before: %zu", textBuffer->NumLines());
-    historyBuffer.RestoreOneItem(cursor, idxActiveLine, textBuffer);
+    auto nLinesRestored = historyBuffer.RestoreOneItem(cursor, idxActiveLine, textBuffer);
     logger->Debug("Undo, lines after: %zu", textBuffer->NumLines());
 
    //UpdateSyntaxForBuffer();
-    UpdateSyntaxForActiveLineRegion(cursor.position.y);
+   // UpdateSyntaxForActiveLineRegion(cursor.position.y);
+    UpdateSyntaxForRegion(cursor.position.y, cursor.position.y + nLinesRestored * 2);
 }
 
 size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {

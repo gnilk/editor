@@ -10,7 +10,7 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
-
+#include "DurationTimer.h"
 
 using namespace gedit;
 
@@ -215,7 +215,11 @@ void TextBuffer::ParseThread() {
         parseQueue.pop_front();
         parseThreadLock.unlock();
 
+        // TO DO: Measure performance here
+        DurationTimer durationTimer;
         ExecuteParseJob(job);
+        auto duration = durationTimer.Sample();
+        logger->Debug("ParseThread, job completed. Duration=%ld ms, Type=%s", duration, (job.jobType == ParseJobType::kParseFull)?"Full":"Region");
         Editor::Instance().TriggerUIRedraw();
 
         ChangeParseState(kState_Idle);

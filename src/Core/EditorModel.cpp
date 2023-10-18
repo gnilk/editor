@@ -145,12 +145,17 @@ size_t EditorModel::GetSearchHitIndex() {
 }
 
 bool EditorModel::LoadData(const std::filesystem::path &pathName) {
+    auto logger = gnilk::Logger::GetLogger("EditorModel");
+    logger->Debug("LoadData, start: %s", pathName.c_str());
     if (!textBuffer->Load(pathName)) {
         return false;
     }
+    logger->Debug("LoadData, ok, file loaded");
     auto lang = Editor::Instance().GetLanguageForExtension(pathName.extension());
     if (lang != nullptr) {
+        logger->Debug("LoadData, setting language: %s", UnicodeHelper::utf32toascii(lang->Identifier()).c_str());
         textBuffer->SetLanguage(lang);
+        logger->Debug("LoadData, done");
     }
     return true;
 }

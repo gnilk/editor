@@ -31,7 +31,7 @@ namespace gedit {
         public:
             UndoItem() = default;
             virtual ~UndoItem() = default;
-            virtual void Restore(TextBuffer::Ref textBuffer) {}
+            virtual int32_t Restore(TextBuffer::Ref textBuffer) { return 0; }
             bool IsValid() { return isValid; }
             void SetRestoreAction(kRestoreAction newRestoreAction) {
                 action = newRestoreAction;
@@ -57,7 +57,7 @@ namespace gedit {
             UndoItemSingle() = default;
             virtual ~UndoItemSingle() = default;
             static UndoItemSingle::Ref Create();
-            void Restore(TextBuffer::Ref buffer) override;
+            int32_t Restore(TextBuffer::Ref buffer) override;
         protected:
             void Initialize() override;
         private:
@@ -73,7 +73,7 @@ namespace gedit {
             virtual ~UndoItemRange() = default;
 
             static UndoItemRange::Ref Create();
-            void Restore(TextBuffer::Ref textBuffer) override;
+            int32_t Restore(TextBuffer::Ref textBuffer) override;
          protected:
             void InitRange(const Point &ptStart, const Point &ptEnd);
         private:
@@ -100,7 +100,8 @@ namespace gedit {
             historystack.pop_front();
             return top;
         }
-        void RestoreOneItem(Cursor &cursor, size_t &idxActiveLine, TextBuffer::Ref textBuffer);
+        // Returns number of lines that was restored
+        int32_t RestoreOneItem(Cursor &cursor, size_t &idxActiveLine, TextBuffer::Ref textBuffer);
 
         bool HaveHistory() {
             return !historystack.empty();

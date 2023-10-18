@@ -52,17 +52,19 @@ UndoHistory::UndoItem::Ref UndoHistory::NewUndoFromLineRange(size_t idxStartLine
 }
 
 
-void UndoHistory::RestoreOneItem(Cursor &cursor, size_t &idxActiveLine, TextBuffer::Ref textBuffer) {
+int32_t UndoHistory::RestoreOneItem(Cursor &cursor, size_t &idxActiveLine, TextBuffer::Ref textBuffer) {
     auto undoItem = PopItem();
     // Unless we have been initialized properly, we won't restore...
     if (!undoItem->IsValid()) {
-        return;
+        return 0;
     }
-    undoItem->Restore(textBuffer);
+    int32_t nItemsRestored = undoItem->Restore(textBuffer);
     // Update cursor
     //cursor.position.y = undoItem->;
     idxActiveLine = undoItem->lineCursor.idxActiveLine;
     cursor = undoItem->lineCursor.cursor;
+
+    return nItemsRestored;
 }
 
 //////////////////
@@ -95,10 +97,11 @@ void UndoHistory::UndoItemSingle::Initialize() {
 }
 
 
-void UndoHistory::UndoItemSingle::Restore(TextBuffer::Ref textBuffer) {
+int32_t UndoHistory::UndoItemSingle::Restore(TextBuffer::Ref textBuffer) {
     auto line = textBuffer->LineAt(lineCursor.idxActiveLine);
     line->Clear();
     line->Append(data);
+    return 1;
 }
 
 // Range based undo item
@@ -122,7 +125,9 @@ void UndoHistory::UndoItemRange::InitRange(const gedit::Point &ptStart, const ge
         data.push_back(line->Buffer());
     }
 }
-void UndoHistory::UndoItemRange::Restore(TextBuffer::Ref textBuffer) {
+int32_t UndoHistory::UndoItemRange::Restore(TextBuffer::Ref textBuffer) {
+
+    int nLinesToRestore = data.size();
 
     //
     // Clear and append, restore previous line contents without
@@ -135,7 +140,7 @@ void UndoHistory::UndoItemRange::Restore(TextBuffer::Ref textBuffer) {
             line->Append(oldLine);
             idxLine++;
         }
-        return;
+        return nLinesToRestore;
     }
 
     auto logger = gnilk::Logger::GetLogger("UndoItemRange");
@@ -151,6 +156,7 @@ void UndoHistory::UndoItemRange::Restore(TextBuffer::Ref textBuffer) {
         textBuffer->DeleteLineAt(start.y);
     }
 
+
     // But we also restore the contents - thus I need to remove a line for every-one I insert..
     // This will literally delete and replace them same content (unless we have 'overwrite' mode - which I don't support anyway)
     while(!data.empty()) {
@@ -161,21 +167,8 @@ void UndoHistory::UndoItemRange::Restore(TextBuffer::Ref textBuffer) {
         textBuffer->Insert(start.y, line);
         data.pop_back();
     }
-/*
 
-    int lineCounter = 0;
-    for(int y=start.y; y<end.y+1;y++) {
-        if (action == kRestoreAction::kInsertAsNew) {
-            auto line = Line::Create(data[lineCounter++]);
-            //textBuffer->Insert(start.y, line);
-            textBuffer->Insert(start.y, line);
-        } else {
-            auto line = textBuffer->LineAt(y);
-            line->Clear();
-            line->Append(data[lineCounter++]);
-        }
-    }
-*/
+    return nLinesToRestore;
 }
 
 

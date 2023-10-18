@@ -11,6 +11,7 @@
 #include "Core/Editor.h"
 #include <assert.h>
 #include "logger.h"
+#include "Core/StrUtil.h"
 using namespace gedit;
 
 size_t LangLineTokenizer::ParseRegion(std::vector<Line::Ref> &lines, size_t idxLineStart, size_t idxLineEnd) {
@@ -106,6 +107,7 @@ void LangLineTokenizer::ParseLines(std::vector<Line::Ref> &lines) {
 
     PushState(startState.c_str());
 
+    size_t lineCounter = 0;
     int nextIndent = 0;
     for(auto &l : lines) {
         if (l == nullptr) {
@@ -115,6 +117,8 @@ void LangLineTokenizer::ParseLines(std::vector<Line::Ref> &lines) {
         }
         l->SetIndent(nextIndent);
         ParseLine(l, nextIndent);
+
+        lineCounter++;
     }
 
     // Let's pop the  'start'
@@ -214,7 +218,7 @@ void LangLineTokenizer::ParseLineWithCurrentState(std::vector<LangToken> &tokens
         }
 
         nextToken.clear();
-        auto [ok, classification] = GetNextToken(nextToken, it, input.end());
+        auto [ok, classification] = GetNextToken(nextToken, input, it, input.end());
         if (!ok) {
             break;
         }
@@ -365,16 +369,19 @@ kLanguageTokenClass LangLineTokenizer::CheckExecuteActionForToken(State::Ref cur
 //
 //
 //
-std::pair<bool, kLanguageTokenClass> LangLineTokenizer::GetNextToken(std::u32string &dst, std::u32string::const_iterator &input, std::u32string::const_iterator last) {
+std::pair<bool, kLanguageTokenClass> LangLineTokenizer::GetNextToken(std::u32string &dst, const std::u32string &currentLine, std::u32string::const_iterator &itInput, const std::u32string::const_iterator &last) {
 
     auto currentState = stateStack.top();
     assert(currentState != nullptr);
 
-    if (!strutil::skipWhiteSpace(input)) {
+    if (!strutil::skipWhiteSpace(itInput)) {
         return {false, kLanguageTokenClass::kUnknown};
     }
 
-    std::u32string strInput(input.operator->());
+
+    // stringview would probably be better/smarter here
+    auto strInput = std::u32string_view(itInput, last);
+
 
     int szOperator = 0;
     // Check if we have an identifier in the current state
@@ -390,7 +397,7 @@ std::pair<bool, kLanguageTokenClass> LangLineTokenizer::GetNextToken(std::u32str
 
         // we had a match, copy it as the token and return the classification..
         dst = strInput.substr(0, szOperator);
-        input += szOperator;
+        itInput += szOperator;
 
         return {true, kvp.second->classification};
     }
@@ -407,19 +414,19 @@ std::pair<bool, kLanguageTokenClass> LangLineTokenizer::GetNextToken(std::u32str
     // always holds true...
     //
 
-    auto chkPostFix= [currentState,&szOperator](const std::u32string::const_iterator it)->bool {
+    auto chkPostFix= [currentState,&szOperator,&last](const std::u32string::const_iterator it)->bool {
         // Currentstate can't be null here...
         if (currentState->postfixIdentifiers == nullptr) {
             return false;
         }
-        std::u32string str(it.operator->());
+        auto str = std::u32string_view(it, last);
         return currentState->postfixIdentifiers->IsMatch(str, szOperator);
     };
 
     dst.clear();
-    while((input != last) && !std::isspace(*input) && !chkPostFix(input)) {
-        dst.push_back(*input);
-        input++;
+    while((itInput != last) && !strutil::isspace(*itInput) && !chkPostFix(itInput)) {
+        dst.push_back(*itInput);
+        itInput++;
     }
 
     // classify whole word tokens

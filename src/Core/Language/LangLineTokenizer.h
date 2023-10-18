@@ -63,7 +63,7 @@ namespace gedit {
             }
 
 
-            __inline bool IsMatch(const std::u32string &input, int &outSzToken) {
+            __inline bool IsMatch(const std::u32string_view &input, int &outSzToken) {
                 for (auto s: tokens) {
                     if (!input.compare(0,s.size(), s)) {
                         outSzToken = static_cast<int>(s.size());
@@ -223,7 +223,7 @@ namespace gedit {
         void ParseLineWithCurrentState(std::vector<LangToken> &tokens, const std::u32string &input);
 
         kLanguageTokenClass CheckExecuteActionForToken(State::Ref currentState, const std::u32string &token, kLanguageTokenClass tokenClass);
-        std::pair<bool, kLanguageTokenClass> GetNextToken(std::u32string &dst, std::u32string::const_iterator &it, std::u32string::const_iterator last);
+        std::pair<bool, kLanguageTokenClass> GetNextToken(std::u32string &dst, const std::u32string &strInput, std::u32string::const_iterator &it, const std::u32string::const_iterator &last);
 
 
         size_t StartParseRegion(std::vector<Line::Ref> &lines, size_t idxRegion);

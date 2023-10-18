@@ -121,8 +121,14 @@ void VerticalNavigationViewModel::OnNavigateUpVSCode(size_t rows, const Rect &re
     }
 }
 
+//
 // CLion/Sublime style of navigation on pageup/down - this first moves the content and then adjust cursor
 // This moves content first and cursor rather stays
+//
+// Note: Clion maintains a margin when moving up/down
+//   for single line navigation, this is one line
+//   for a page this is something like 10 lines (propbably depending on view-area)
+//
 void VerticalNavigationViewModel::OnNavigateDownCLion(size_t rows, const Rect &rect, size_t nItems) {
     assert(lineCursor != nullptr);
 
@@ -132,55 +138,61 @@ void VerticalNavigationViewModel::OnNavigateDownCLion(size_t rows, const Rect &r
 
     bool forceCursorToLastLine = false;
     auto nRowsToMove = rows;
-    auto maxRows = nItems - 1;
+    auto lastLineIdx = nItems - 1;
 
     auto logger = gnilk::Logger::GetLogger("VNavModel");
     logger->Debug("OnNavDownCLion");
 
-    // Note: We might want to revisit this clipping, if we want a margin to the bottom...
-    // Maybe we should adjust for the visible margin at the end
-    if ((lineCursor->viewTopLine+nRowsToMove) > maxRows) {
-        //logger->Debug("  Move beyond last line!");
-        nRowsToMove = 0;
-        forceCursorToLastLine = true;
-    }
-    if ((lineCursor->viewBottomLine+nRowsToMove) > maxRows) {
-        //logger->Debug("  Clip nRowsToMove");
-        nRowsToMove = nItems - lineCursor->viewBottomLine;
-        // If this results to zero, we are exactly at the bottom...
-        if (!nRowsToMove) {
-            forceCursorToLastLine = true;
-        }
-    }
-    logger->Debug("  nRowsToMove=%d, forceCursor=%s, nLines=%d, maxRows=%d",
-                  nRowsToMove, forceCursorToLastLine?"Y":"N", (int)nItems, maxRows);
+    logger->Debug("  nRowsToMove=%d, forceCursor=%s, nLines=%d, lastLineIdx=%d",
+                  nRowsToMove, forceCursorToLastLine?"Y":"N", (int)nItems, lastLineIdx);
     logger->Debug("  Before, topLine=%d, bottomLine=%d, activeLine=%d, cursor.y=%d",
                   lineCursor->viewTopLine, lineCursor->viewBottomLine, lineCursor->idxActiveLine,
                   lineCursor->cursor.position.y);
 
-
-    // Reposition the view
-    int activeLineDelta = lineCursor->idxActiveLine - lineCursor->viewTopLine;
-    lineCursor->viewTopLine += nRowsToMove;
-    lineCursor->viewBottomLine += nRowsToMove;
-
-    // In case we would have moved beyond the visible part, let's enforce the cursor position..
-    if (forceCursorToLastLine) {
-        lineCursor->cursor.position.y = nItems - lineCursor->viewTopLine - 1;
-        lineCursor->idxActiveLine = nItems-1;
-        //logger->Debug("       force to last!");
+    // Are we moving outside?
+    if ((lineCursor->idxActiveLine + nRowsToMove) > lastLineIdx) {
+        //
+        // FIXME: We should move the view a bit more - so we have a bit of margin at the bottom..
+        //
+        lineCursor->idxActiveLine = lastLineIdx;
+        lineCursor->viewBottomLine = (int32_t)nItems;
+        lineCursor->viewTopLine = lineCursor->viewBottomLine - rect.Height();
+        if (lineCursor->viewTopLine < 0) {
+            lineCursor->viewTopLine = 0;
+        }
+        lineCursor->cursor.position.y = rect.Height()-1;
+        if (lineCursor->cursor.position.y > lastLineIdx) {
+            lineCursor->cursor.position.y = (int32_t)lastLineIdx;
+        }
     } else {
-        lineCursor->idxActiveLine = lineCursor->viewTopLine + activeLineDelta;
-        lineCursor->cursor.position.y = lineCursor->idxActiveLine - lineCursor->viewTopLine;
-        if (lineCursor->cursor.position.y > rect.Height() - 1) {
-            lineCursor->cursor.position.y = rect.Height() - 1;
+        // Default - we are moving within the available items..
+        lineCursor->idxActiveLine += nRowsToMove;
+
+        if ((lineCursor->viewBottomLine + nRowsToMove) > lastLineIdx) {
+            lineCursor->viewBottomLine = (int32_t)lastLineIdx;
+            lineCursor->viewTopLine = lineCursor->viewBottomLine - rect.Height();
+        } else {
+            lineCursor->viewTopLine += nRowsToMove;
+            lineCursor->viewBottomLine = lineCursor->viewTopLine + rect.Height();
+        }
+        // NOTE: Clion puts the cursor down ONE step until end of view-area and stays there
+        // FIXME: Must sync with idxActiveLine
+        // lineCursor->cursor.position.y += 1;
+        if (lineCursor->cursor.position.y > rect.Height()-1) {
+            lineCursor->cursor.position.y = rect.Height()-1;
         }
     }
+
     logger->Debug("  After, topLine=%d, bottomLine=%d, activeLine=%d, cursor.y=%d",
                   lineCursor->viewTopLine, lineCursor->viewBottomLine, lineCursor->idxActiveLine,
                   lineCursor->cursor.position.y);
+
+    return;
 }
 
+//
+//
+//
 void VerticalNavigationViewModel::OnNavigateUpCLion(size_t rows, const Rect &rect, size_t nItems) {
     assert(lineCursor != nullptr);
     auto logger = gnilk::Logger::GetLogger("VNavModel");

@@ -19,6 +19,7 @@ DLL_EXPORT int test_textbuffer_thparsefull(ITesting *t);
 DLL_EXPORT int test_textbuffer_thparseregion(ITesting *t);
 DLL_EXPORT int test_textbuffer_parselarge(ITesting *t);
 DLL_EXPORT int test_textbuffer_flatten(ITesting *t);
+DLL_EXPORT int test_textbuffer_insertlast(ITesting *t);
 }
 
 static void PostCaseCallback(ITesting *t) {
@@ -150,6 +151,26 @@ DLL_EXPORT int test_textbuffer_flatten(ITesting *t) {
     TR_ASSERT(t, 5 == buffer->Flatten(flattenBuffer, 5, 20));
     TR_ASSERT(t, 10 == buffer->Flatten(flattenBuffer, 0, 10));
     TR_ASSERT(t, 10 == buffer->Flatten(flattenBuffer, 0, 0));
+
+
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_textbuffer_insertlast(ITesting *t) {
+    size_t idxActiveLine = 1;
+    auto textBuffer = TextBuffer::CreateEmptyBuffer();
+    auto &lines = textBuffer->Lines();
+
+    auto it = lines.begin() + idxActiveLine;
+    auto newLine = Line::Create(U"dynn");
+
+    if (it == lines.end()) {
+        textBuffer->AddLine(newLine);
+    } else {
+        // This should throw an exception...
+        textBuffer->Insert(it + 1, newLine);
+    }
+
 
 
     return kTR_Pass;

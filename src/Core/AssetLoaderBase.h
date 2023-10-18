@@ -28,7 +28,7 @@ namespace gedit {
             Asset() = default;
             virtual ~Asset() {
                 if (ptrData != nullptr) {
-                    delete static_cast<unsigned char *>(ptrData);
+                    delete[] static_cast<unsigned char *>(ptrData);
                 }
             }
             size_t GetSize() {

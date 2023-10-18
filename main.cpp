@@ -3,9 +3,8 @@
 //
 /*
  * TO-DO List
- * - Spotted exception when in an empty file typing a line (CPP) mode ending with {} and pressing enter
- * - Spotted another exception related to timers - but I think that was CPP-mode line bug
- * - Vertical navigation yet-again is acting strange on clipping when at the end of a file
+ * + Spotted another exception related to timers - but I think that was CPP-mode line bug
+ * + Vertical navigation yet-again is acting strange on clipping when at the end of a file
  * - Delete a selection which start's at X (col) > 0 and ends on another line with col == 0 will remove one line too much
  * - Large(?) files issue, after searching for an item and jumping to next a couple of times - scrolling up doesn't properly reposition view (need to scroll down first)
  * - Delete some lines (upper 1/3 of file) and then page-down => segfault
@@ -60,6 +59,8 @@
  *   need to consider a solution for this...
  *
  * Done:
+ * ! Spotted exception when in an empty file typing a line (CPP) mode ending with {} and pressing enter
+ *   [2023-10-18, gnilk] I think this was fixed by removing the use of iterators and instead working with index
  * ! Undo does almost work
  * ! Auto save, add timer 'on change' and call 'save' when it expired - reset timer on every change..
  * ! Searching, searching for an item occuring only once (like the function name) doesnt jump to hit!

@@ -381,6 +381,10 @@ bool EditorView::OnActionUndo() {
     //editorModel->GetTextBuffer()->Undo();
     auto &lineCursor = editorModel->GetLineCursor();
     editorModel->GetEditController()->Undo(lineCursor.cursor, lineCursor.idxActiveLine);
+    auto nLinesAfter = editorModel->GetTextBuffer()->NumLines();
+    //if ((nLinesAfter > lineCursor.viewBottomLine) && (lineCursor.Height() < nLinesAfter)
+    lineCursor.viewBottomLine = lineCursor.viewTopLine + nLinesAfter;
+
     return true;
 }
 

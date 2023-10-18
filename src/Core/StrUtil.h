@@ -29,6 +29,8 @@ namespace strutil {
     std::u32string itou32(int num);
     std::u32string itou32(size_t num);
 
+    bool isspace(const char32_t ch);
+
     // The following has been added from the Tokenizer code
     bool skipWhiteSpace(char **input);
     bool skipWhiteSpace(std::u32string::const_iterator &it);

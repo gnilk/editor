@@ -270,6 +270,13 @@ namespace strutil {
     }
 
 
+    bool isspace(const char32_t ch) {
+        static std::u32string defaultLocaleSpace(U" \f\n\r\t\v");
+        return (defaultLocaleSpace.find(ch) != std::u32string::npos);
+    }
+
+
+
     bool startsWith(const std::string &str, const std::string &prefix) {
         if (prefix.length() > str.length()) return false;
         for (size_t i = 0; i < prefix.length(); i++) {

@@ -68,7 +68,6 @@ void TimerController::TimerUpdateThreadLoop() {
         std::this_thread::yield();
         timersToExecute.clear();
 
-        // Block is needed for the lock_guard (released when goes out of scope)
         {
             std::lock_guard<std::mutex> guard(timerLock);
             CollectTimersToExecute(timersToExecute);

@@ -169,12 +169,12 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
 
     auto it = lines.begin() + idxActiveLine;
     if (lines.size() == 0) {
-        textBuffer->Insert(it, Line::Create());
+        textBuffer->Insert(idxActiveLine, Line::Create());
         UpdateSyntaxForBuffer();
     } else {
         if (cursor.position.x == 0) {
             // Insert empty line...
-            textBuffer->Insert(it, Line::Create());
+            textBuffer->Insert(idxActiveLine, Line::Create());
             UpdateSyntaxForActiveLineRegion(idxActiveLine);
             idxActiveLine++;
         } else {
@@ -187,10 +187,10 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
                 // Insert an empty line - this will be the new active line...
                 logger->Debug("Creating empty line...");
                 emptyLine = Line::Create(U"");
-                textBuffer->Insert(++it, emptyLine);
+                textBuffer->Insert(++idxActiveLine, emptyLine);
             }
 
-            textBuffer->Insert(it+1, newLine);
+            textBuffer->Insert(idxActiveLine+1, newLine);
 
             // This will compute the correct indent, -2/+2 are just arbitary choosen to expand the region
             // clipping is also performed by the syntax parser

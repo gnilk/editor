@@ -455,6 +455,9 @@ bool EditorView::OnActionGotoLastLine() {
     lineCursor.idxActiveLine = editorModel->Lines().size()-1;
     lineCursor.viewBottomLine = editorModel->Lines().size();
     lineCursor.viewTopLine = lineCursor.viewBottomLine - GetContentRect().Height();
+    if (lineCursor.viewTopLine < 0) {
+        lineCursor.viewTopLine = 0;
+    }
 
     logger->Debug("Cursor: %d:%d, idxActiveLine: %d",lineCursor.cursor.position.x, lineCursor.cursor.position.y, lineCursor.idxActiveLine);
 

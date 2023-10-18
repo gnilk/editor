@@ -144,9 +144,21 @@ void VerticalNavigationViewModel::OnNavigateDownCLion(size_t rows, const Rect &r
         nRowsToMove = 0;
         forceCursorToLastLine = true;
     }
-    if ((lineCursor->viewBottomLine+nRowsToMove) > maxRows) {
-        //logger->Debug("  Clip nRowsToMove");
-        nRowsToMove = nItems - lineCursor->viewBottomLine;
+    if (!forceCursorToLastLine && ((lineCursor->viewBottomLine+nRowsToMove) > maxRows)) {
+
+        //
+        // FIXME: This clipping doesn't make sense!!!
+        //
+
+
+        int nTooMuch = (lineCursor->viewBottomLine+nRowsToMove) - maxRows;
+        nRowsToMove = (lineCursor->viewBottomLine+nRowsToMove) - maxRows;
+//        //logger->Debug("  Clip nRowsToMove");
+//        if (nItems > lineCursor->viewBottomLine) {
+//            nRowsToMove = nItems - lineCursor->viewBottomLine;
+//        } else {
+//            nRowsToMove = nItems;
+//        }
         // If this results to zero, we are exactly at the bottom...
         if (!nRowsToMove) {
             forceCursorToLastLine = true;
@@ -167,6 +179,9 @@ void VerticalNavigationViewModel::OnNavigateDownCLion(size_t rows, const Rect &r
     // In case we would have moved beyond the visible part, let's enforce the cursor position..
     if (forceCursorToLastLine) {
         lineCursor->cursor.position.y = nItems - lineCursor->viewTopLine - 1;
+        if (lineCursor->cursor.position.y < 0) {
+            lineCursor->cursor.position.y = 0;
+        }
         lineCursor->idxActiveLine = nItems-1;
         //logger->Debug("       force to last!");
     } else {

@@ -519,7 +519,7 @@ list(APPEND utestsrc src/Core/Tests/test_dcoverlay.cpp)
 
 add_library(utests SHARED ${editorsrc} ${jsapi}  ${duktape} ${utestsrc})
 #target_compile_options(logger PUBLIC -fPIC)
-target_compile_options(gnklog PUBLIC -fPIC)
+target_compile_options(gnklog PUBLIC -fPIC -Wunused-parameter)
 target_compile_options(utests PUBLIC -fPIC)
 target_link_directories(utests PUBLIC ${linkdirs})
 target_include_directories(utests PUBLIC ${includedirs})

@@ -76,7 +76,7 @@ bool Theme::LoadSublimeColorFile(std::string filename) {
     SublimeConfigColorScript scriptEngine;
     scriptEngine.RegisterBuiltIn();
 
-    logger->Debug("Loading Sublime Color file: %s\n", filename.c_str());
+    logger->Debug("Loading Sublime Color file: %s", filename);
 
 
     auto &assetLoader = RuntimeConfig::Instance().GetAssetLoader();
@@ -98,7 +98,7 @@ bool Theme::LoadSublimeColorFile(std::string filename) {
             logger->Error("Section '%s' is not a valid section!");
             continue;
         }
-        logger->Debug("%s", colorSection.key().c_str());
+        logger->Debug("%s", colorSection.key());
         NamedColors::Ref colors = nullptr;
         if (!HasColorsForClass(colorSection.key())) {
             colors = NamedColors::Create();

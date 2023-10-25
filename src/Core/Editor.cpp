@@ -274,7 +274,7 @@ void Editor::RunPostInitalizationScript() {
         wordexp(scriptFile.c_str(), &exp_result, 0);
         std::string strScript(exp_result.we_wordv[0]);
         wordfree(&exp_result);
-        logger->Debug("Trying: %s", strScript.c_str());
+        logger->Debug("Trying: %s", strScript);
 
         // Verify if shell exists...
         struct stat scriptStat = {};
@@ -399,9 +399,9 @@ void Editor::ConfigureLogger() {
 
 bool Editor::CheckCreateDirectory(const std::filesystem::path &path) {
     if (!std::filesystem::exists(path)) {
-        logger->Debug("LogPath root '%s' invalid, trying to create..", path.c_str());
+        logger->Debug("LogPath root '%s' invalid, trying to create..", path.string());
         if (!std::filesystem::create_directories(path)) {
-            logger->Error("Logpath '%s' invalid, keeping console logging...", path.c_str());
+            logger->Error("Logpath '%s' invalid, keeping console logging...", path.string());
             return false;
         }
     }

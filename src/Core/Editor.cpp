@@ -384,17 +384,15 @@ void Editor::ConfigureLogger() {
     logPath /= logFileName;
     if (sinkName == "filesink") {
         auto fileSink = gnilk::LogFileSink::Create();
+        const std::vector<std::string_view> sinkArgv={"autoflush", "file", logPath.c_str()};
 
-        //const char *sinkArgv[]={"autoflush", "file", logPath.c_str()};
-        const std::vector<std::string> sinkArgv{"autoflush", "file", logPath};
-        fileSink->Initialize(sinkArgv);
-        gnilk::Logger::AddSink(fileSink, sinkName);
+        gnilk::Logger::AddSink(fileSink, sinkName, sinkArgv);
         // Remove the console sink (it is auto-created in debug-mode)
         if (!keepConsoleLogger) {
             gnilk::Logger::RemoveSink("console");
         }
     } else {
-        logger->Error("Unknown sink: %s", sinkName.c_str());
+        logger->Error("Unknown sink: %s", sinkName);
         exit(1);
     }
 }

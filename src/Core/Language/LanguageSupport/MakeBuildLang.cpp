@@ -19,6 +19,8 @@ bool MakeBuildLang::Initialize() {
 
     tokenizer.SetStartState("main");
     ConfigFromNodeName("make");
+
+    return true;
 }
 
 void MakeBuildLang::OnPostProcessParsedLine(Line::Ref line) {

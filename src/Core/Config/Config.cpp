@@ -46,7 +46,7 @@ bool Config::MergeUserConfig(const std::string &filename, bool replace) {
         logger->Error("User config '%s' not found", filename.c_str());
         return false;
     }
-    logger->Debug("User config loaded - now merging\n");
+    logger->Debug("User config loaded - now merging");
 
     MergeNode(userConfig);
 

@@ -219,7 +219,7 @@ void TextBuffer::ParseThread() {
         DurationTimer durationTimer;
         ExecuteParseJob(job);
         auto duration = durationTimer.Sample();
-        logger->Debug("ParseThread, job completed. Duration=%ld ms, Type=%s", duration, (job.jobType == ParseJobType::kParseFull)?"Full":"Region");
+        logger->Debug("ParseThread, job completed. Duration=%ld ms, Type=%s", duration.count(), (job.jobType == ParseJobType::kParseFull)?"Full":"Region");
         Editor::Instance().TriggerUIRedraw();
 
         ChangeParseState(kState_Idle);

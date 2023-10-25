@@ -136,7 +136,7 @@ std::optional<KeyPress> SDLKeyboardDriver::HandleKeyPressEvent(const SDL_Event &
 
     logger->Debug("KeyDown event: %d (0x%.x) - sym: %x (%d), scancode: %x (%d)", event.type, event.type,
                   event.key.keysym.sym, event.key.keysym.sym,
-                  event.key.keysym.scancode, event.key.keysym.scancode);
+                  (int)event.key.keysym.scancode, (int)event.key.keysym.scancode);
 
     if (kp.isSpecialKey) {
         auto keyName = Keyboard::KeyCodeName(static_cast<Keyboard::kKeyCode>(kp.specialKey));
@@ -146,13 +146,13 @@ std::optional<KeyPress> SDLKeyboardDriver::HandleKeyPressEvent(const SDL_Event &
         static int shiftModifiers = Keyboard::kModifierKeys::kMod_RightShift | Keyboard::kModifierKeys::kMod_LeftShift;
         kp.key = TranslateScanCode(event.key.keysym.scancode); //  kp.hwEvent.scanCode);
         if ((kp.modifiers & shiftModifiers) && (kp.key != 0)) {
-            logger->Debug("Shift+ASCII  (%c) - skipping, this is handled by EVENT_TEXT_INPUT", kp.key);
+            logger->Debug("Shift+ASCII  (%c) - skipping, this is handled by EVENT_TEXT_INPUT", (int)kp.key);
             return {};
         }
         if (kp.key != 0) {
             kp.isKeyValid = true;
         }
-        logger->Debug("  kp, modifiers=%.2x (%d), scancode=%.2x, key=%.2x (%c), ", kp.modifiers, kp.modifiers, kp.hwEvent.scanCode, kp.key, kp.key);
+        logger->Debug("  kp, modifiers=%.2x (%d), scancode=%.2x, key=%.2x (%c), ", kp.modifiers, kp.modifiers, kp.hwEvent.scanCode, (int)kp.key, (int)kp.key);
         return kp;
     }
 

@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <fstream>
 #include <algorithm>
+#include <unordered_map>
 
 #include "logger.h"
 
@@ -16,7 +17,7 @@
 
 using namespace gedit;
 
-static unordered_map<AssetLoaderBase::kLocationType, std::string> locTypeToString = {
+static std::unordered_map<AssetLoaderBase::kLocationType, std::string> locTypeToString = {
         { AssetLoaderBase::kLocationType::kAny, "any"},
         { AssetLoaderBase::kLocationType::kSystem, "system"},
         { AssetLoaderBase::kLocationType::kUser, "user"}

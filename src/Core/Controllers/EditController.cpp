@@ -163,7 +163,7 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
     int cursorXPos = 0;
 
     if (currentLine != nullptr) {
-        logger->Debug("NewLine, current=%s [indent=%d]", currentLine->Buffer().data(), currentLine->Indent());
+        logger->Debug("NewLine, current=%s [indent=%d]", UnicodeHelper::utf32toascii(currentLine->Buffer().data()).c_str(), currentLine->Indent());
     }
 
     Line::Ref emptyLine = nullptr;

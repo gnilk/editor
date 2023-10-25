@@ -144,7 +144,7 @@ int32_t UndoHistory::UndoItemRange::Restore(TextBuffer::Ref textBuffer) {
     }
 
     auto logger = gnilk::Logger::GetLogger("UndoItemRange");
-    logger->Debug("Restore, start.y = %zu, end.y = %zu, action=%d", start.y, end.y, action);
+    logger->Debug("Restore, start.y = %zu, end.y = %zu, action=%d", start.y, end.y, (int)action);
 
     // Action used when pasting from clip-board
     // Basically this is enough - just remove whatever we had

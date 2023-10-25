@@ -16,6 +16,8 @@ void KeyPress::DumpToLog() {
         keyName = Keyboard::KeyCodeName(static_cast<Keyboard::kKeyCode>(specialKey));
     }
 
+    int nKey = (int)key;
+
     logger->Debug("isKeyValid: %s, isHWEventValid: %s, isSpecialKey: %s",
                   isKeyValid?"yes":"no",
                   isHwEventValid?"yes":"no",
@@ -26,7 +28,7 @@ void KeyPress::DumpToLog() {
                   IsAltPressed()?'A':'-',
                   IsCtrlPressed()?'C':'-',
                   IsCommandPressed()?'M':'-',
-                  key, key, keyName.c_str(), specialKey, specialKey);
+                  nKey, nKey, keyName.c_str(), specialKey, specialKey);
 
 
 }

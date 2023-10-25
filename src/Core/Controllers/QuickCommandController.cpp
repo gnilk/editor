@@ -71,13 +71,13 @@ bool QuickCommandController::HandleActionInQuickCmdState(const KeyPressAction &k
             return true;
         case kAction::kActionStartSearch :
             Editor::Instance().GetActiveModel()->ResetSearchHitIndex();
-            logger->Debug("Entering search, key: %c",kpAction.keyPress.key);
+            logger->Debug("Entering search, key: %c",(int)kpAction.keyPress.key);
             ChangeState(State::SearchState);
             cmdInputBaseController.DefaultEditLine(cursor, cmdInput, kpAction.keyPress, true);
             break;
         case kAction::kActionLastSearch :
             Editor::Instance().GetActiveModel()->ResetSearchHitIndex();
-            logger->Debug("Entering search, key: %c",kpAction.keyPress.key);
+            logger->Debug("Entering search, key: %c",(int)kpAction.keyPress.key);
             cmdInputBaseController.DefaultEditLine(cursor, cmdInput, kpAction.keyPress, true);
             if (!searchHistory.empty()) {
                 auto &lastSearchItem = searchHistory.back();

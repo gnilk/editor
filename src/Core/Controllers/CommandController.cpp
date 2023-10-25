@@ -116,7 +116,7 @@ void CommandController::CommitLine() {
 void CommandController::TryExecuteShellCmd(std::u32string &cmdline) {
     // Just push this to the shell "process"...
     strutil::trim(cmdline);
-    logger->Debug("Trying shell: %s", cmdline.c_str());
+    logger->Debug("Trying shell: %s", UnicodeHelper::utf32toascii(cmdline.c_str()));
 
     // Make sure to append CRLN otherwise the shell won't execute...
     // Should this be configurable??

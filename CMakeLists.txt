@@ -44,6 +44,11 @@ if (NOT EXISTS ${CMAKE_SOURCE_DIR}/ext/logger)
     execute_process(COMMAND git clone https://github.com/gnilk/logger ${CMAKE_SOURCE_DIR}/ext/logger)
 endif ()
 
+if (NOT EXISTS ${CMAKE_SOURCE_DIR}/ext/gnklog)
+    message(WARNING "Installing GnkLog library")
+    execute_process(COMMAND git clone https://github.com/gnilk/gnklog ${CMAKE_SOURCE_DIR}/ext/logger)
+endif ()
+
 if (NOT EXISTS ${CMAKE_SOURCE_DIR}/ext/dukglue)
     message(WARNING "Installing dukglue library")
     execute_process(COMMAND git clone https://github.com/Aloshi/dukglue ${CMAKE_SOURCE_DIR}/ext/dukglue)
@@ -284,8 +289,11 @@ set(FMT_HOME ext/fmt)
 list(APPEND duktape ${DUKTAPE_HOME}/duktape.c ${DUKTAPE_HOME}/duk_config.h ${DUKTAPE_HOME}/duktape.h)
 list(APPEND duktape ${DUKTAPE_EXTRAS}/module-node/duk_module_node.c)
 
-add_subdirectory(ext/logger ${CMAKE_BINARY_DIR}/logger)
-list(APPEND extlibs logger)
+#add_subdirectory(ext/logger ${CMAKE_BINARY_DIR}/logger)
+#list(APPEND extlibs logger)
+
+add_subdirectory(ext/gnklog ${CMAKE_BINARY_DIR}/gnklog)
+list(APPEND extlibs gnklog)
 
 add_subdirectory(ext/fmt ${CMAKE_BINARY_DIR}/fmt EXCLUDE_FROM_ALL)
 set_property(TARGET fmt PROPERTY POSITION_INDEPENDENT_CODE ON)
@@ -466,7 +474,8 @@ endif()
 list(APPEND linkdirs ${NCURSES_HOME}/lib ${YAML_CPP_HOME}/lib)
 list(APPEND linkdirs ${SDL_HOME}/lib)
 
-list(APPEND includedirs ${NCURSES_HOME}/include PUBLIC ${YAML_CPP_HOME}/include ext/logger/src src/)
+#list(APPEND includedirs ${NCURSES_HOME}/include PUBLIC ${YAML_CPP_HOME}/include ext/logger/src src/)
+list(APPEND includedirs ${NCURSES_HOME}/include PUBLIC ${YAML_CPP_HOME}/include ext/gnklog/src src/)
 list(APPEND includedirs ${SDL_HOME}/include)
 
 list(APPEND includedirs ${DUKGLUE_HOME}/include)
@@ -509,7 +518,8 @@ list(APPEND utestsrc src/Core/Tests/test_dcoverlay.cpp)
 
 
 add_library(utests SHARED ${editorsrc} ${jsapi}  ${duktape} ${utestsrc})
-target_compile_options(logger PUBLIC -fPIC)
+#target_compile_options(logger PUBLIC -fPIC)
+target_compile_options(gnklog PUBLIC -fPIC)
 target_compile_options(utests PUBLIC -fPIC)
 target_link_directories(utests PUBLIC ${linkdirs})
 target_include_directories(utests PUBLIC ${includedirs})
@@ -557,5 +567,6 @@ add_dependencies(${CUR_TARGET} plugins resources)
 add_dependencies(Unit_Tests plugins resources)
 
 
-set_target_properties(logtest PROPERTIES EXCLUDE_FROM_ALL true)
+#set_target_properties(logtest PROPERTIES EXCLUDE_FROM_ALL true)
+set_target_properties(gnklog_utest PROPERTIES EXCLUDE_FROM_ALL true)
 set_target_properties(utests PROPERTIES EXCLUDE_FROM_ALL true)

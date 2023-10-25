@@ -6,6 +6,7 @@ main:
   keymap: "default_keymap"
   threaded_syntaxparser: yes
   # time in milliseconds before automatically saving a file after changes...
+  # 0 disables autosave
   autosave_timeout_ms: 2000
   plugin_directory: Plugins
   bootstrap_script_comment: "//"

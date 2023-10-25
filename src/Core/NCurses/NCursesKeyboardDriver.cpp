@@ -161,14 +161,14 @@ KeyPress NCursesKeyboardDriver::GetKeyPress() {
                       keyPress.isKeyValid ? "yes" : "no", keyPress.isHwEventValid ? "yes" : "no",
                       keyPress.isSpecialKey ? "yes" : "no", keyPress.modifiers);
         if (keyPress.isKeyValid) {
-            logger->Debug("  key data, key=%d (%s)", keyPress.key, keyname(keyPress.key));
+            logger->Debug("  key data, key=%d (%s)", (int)keyPress.key, keyname(keyPress.key));
         }
         if (keyPress.isSpecialKey) {
             logger->Debug("  special, key=%d", keyPress.specialKey);
         }
         if (keyPress.isHwEventValid) {
-            logger->Debug("   hw data, keyCode=%d, scanCode=%d, translatedKeyCode=%d", keyPress.hwEvent.keyCode,
-                          keyPress.hwEvent.scanCode, keyPress.hwEvent.translatedScanCode);
+            logger->Debug("   hw data, keyCode=%d, scanCode=%d, translatedKeyCode=%d", (uint8_t)keyPress.hwEvent.keyCode,
+                          keyPress.hwEvent.scanCode, (int)keyPress.hwEvent.translatedScanCode);
         }
     }
 

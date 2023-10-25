@@ -333,7 +333,7 @@ list(APPEND editorsrc src/Core/KeypressAndActionHandler.h)
 
 # utility stuff
 list(APPEND editorsrc src/Core/backward.cpp src/Core/backward.hpp)
-list(APPEND editorsrc src/Core/ConvertUTF.c src/Core/ConvertUTF.h)
+list(APPEND editorsrc src/Core/ConvertUTF.cpp src/Core/ConvertUTF.h)
 list(APPEND editorsrc src/Core/ColorRGBA.cpp src/Core/ColorRGBA.h)
 list(APPEND editorsrc src/Core/DurationTimer.cpp src/Core/DurationTimer.h)
 list(APPEND editorsrc src/Core/HexDump.cpp src/Core/HexDump.h)

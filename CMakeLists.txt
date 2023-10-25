@@ -67,6 +67,33 @@ endif()
 #endif ()
 
 
+#
+# Dependencies
+#
+
+set(DUKTAPE_HOME src/ext/duktape-2.7.0/src)
+set(DUKTAPE_EXTRAS src/ext/duktape-2.7.0/extras)
+set(DUKGLUE_HOME ext/dukglue)
+set(FMT_HOME ext/fmt)
+
+
+list(APPEND duktape ${DUKTAPE_HOME}/duktape.c ${DUKTAPE_HOME}/duk_config.h ${DUKTAPE_HOME}/duktape.h)
+list(APPEND duktape ${DUKTAPE_EXTRAS}/module-node/duk_module_node.c)
+
+#add_subdirectory(ext/logger ${CMAKE_BINARY_DIR}/logger)
+#list(APPEND extlibs logger)
+
+add_subdirectory(ext/gnklog ${CMAKE_BINARY_DIR}/gnklog)
+target_compile_options(gnklog PUBLIC -fPIC -Wno-unused-parameter)
+
+list(APPEND extlibs gnklog)
+
+add_subdirectory(ext/fmt ${CMAKE_BINARY_DIR}/fmt EXCLUDE_FROM_ALL)
+set_property(TARGET fmt PROPERTY POSITION_INDEPENDENT_CODE ON)
+list(APPEND extlibs fmt)
+
+
+
 set(CUR_TARGET goatedit)
 
 if (APPLE)
@@ -275,29 +302,6 @@ target_compile_definitions(${CUR_TARGET} PUBLIC GEDIT_VERSION_MAJOR=0)
 target_compile_definitions(${CUR_TARGET} PUBLIC GEDIT_VERSION_MINOR=1)
 target_compile_definitions(${CUR_TARGET} PUBLIC GEDIT_VERSION_PATCH=0)
 
-
-#
-# Dependencies
-#
-
-set(DUKTAPE_HOME src/ext/duktape-2.7.0/src)
-set(DUKTAPE_EXTRAS src/ext/duktape-2.7.0/extras)
-set(DUKGLUE_HOME ext/dukglue)
-set(FMT_HOME ext/fmt)
-
-
-list(APPEND duktape ${DUKTAPE_HOME}/duktape.c ${DUKTAPE_HOME}/duk_config.h ${DUKTAPE_HOME}/duktape.h)
-list(APPEND duktape ${DUKTAPE_EXTRAS}/module-node/duk_module_node.c)
-
-#add_subdirectory(ext/logger ${CMAKE_BINARY_DIR}/logger)
-#list(APPEND extlibs logger)
-
-add_subdirectory(ext/gnklog ${CMAKE_BINARY_DIR}/gnklog)
-list(APPEND extlibs gnklog)
-
-add_subdirectory(ext/fmt ${CMAKE_BINARY_DIR}/fmt EXCLUDE_FROM_ALL)
-set_property(TARGET fmt PROPERTY POSITION_INDEPENDENT_CODE ON)
-list(APPEND extlibs fmt)
 
 #
 # Editor
@@ -519,7 +523,6 @@ list(APPEND utestsrc src/Core/Tests/test_dcoverlay.cpp)
 
 add_library(utests SHARED ${editorsrc} ${jsapi}  ${duktape} ${utestsrc})
 #target_compile_options(logger PUBLIC -fPIC)
-target_compile_options(gnklog PUBLIC -fPIC -Wunused-parameter)
 target_compile_options(utests PUBLIC -fPIC)
 target_link_directories(utests PUBLIC ${linkdirs})
 target_include_directories(utests PUBLIC ${includedirs})

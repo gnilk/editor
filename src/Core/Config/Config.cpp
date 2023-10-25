@@ -92,3 +92,4 @@ std::string glbDefaultConfig=""\
 "    insert_closing_brace: yes"\
 "    auto_indent: yes"\
 "    continue_comment: yes";
+

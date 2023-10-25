@@ -44,6 +44,12 @@
 #include <stdio.h>
 #endif
 
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
+
+
+
 static const int halfShift  = 10; /* used for shifting by 10 bits */
 
 static const UTF32 halfBase = 0x0010000UL;
@@ -537,3 +543,6 @@ ConversionResult ConvertUTF8toUTF32 (
     similarly unrolled loops.
 
    --------------------------------------------------------------------- */
+
+
+#pragma GCC diagnostic pop

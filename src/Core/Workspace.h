@@ -112,8 +112,8 @@ namespace gedit {
                 return outNodes.size();
             }
 
-            Node::Ref AddChild(const std::string &displayName) {
-                auto child = Node::Create(displayName);
+            Node::Ref AddChild(const std::string &childDisplayName) {
+                auto child = Node::Create(childDisplayName);
                 child->parent = shared_from_this();
                 childNodes.push_back(child);
                 return child;
@@ -373,7 +373,6 @@ namespace gedit {
 
                 std::filesystem::path gitIgnoreFile = rootPath / ".gitignore";
                 if (exists(gitIgnoreFile)) {
-                    auto logger = gnilk::Logger::GetLogger("Workspace");
                     logger->Debug("GitIgnore file found - we should read and add to exclude list");
                 }
 
@@ -383,8 +382,6 @@ namespace gedit {
         protected:
             // Any event from the FolderMonitor is passed to this function..
             void OnMonitorEvent(const std::filesystem::path &path, FolderMonitor::kChangeFlags flags) {
-                auto logger = gnilk::Logger::GetLogger("Workspace");
-
                 if ((flags & FolderMonitor::kChangeFlags::kCreated) && !(flags & FolderMonitor::kChangeFlags::kRemoved)) {
                     auto node = AddFromFileEvent(path);
                 } else if (flags & FolderMonitor::kChangeFlags::kRemoved) {

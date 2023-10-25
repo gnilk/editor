@@ -100,16 +100,16 @@ namespace gedit {
                 if (!view.view->IsVisible()) {
                     continue;
                 }
-                auto viewRect = view.view->GetViewRect();
-                viewRect.MoveTo(xPos,yPos);
+                auto vRect = view.view->GetViewRect();
+                vRect.MoveTo(xPos,yPos);
                 // Set the flex-width, otherwise keep the width (assuming the user has set its width properly)
                 if (view.layout != kFixed) {
-                    viewRect.SetHeight(flexHeight);
+                    vRect.SetHeight(flexHeight);
                 }
                 // Enforce height of stacked views..
-                viewRect.SetWidth(GetContentRect().Width());
-                view.view->SetViewRect(viewRect);
-                yPos += viewRect.Height();
+                vRect.SetWidth(GetContentRect().Width());
+                view.view->SetViewRect(vRect);
+                yPos += vRect.Height();
                 // Need too call initialize, if the view has already been initalized this will call 'reinit' which moves the view
                 view.view->Initialize();
             }

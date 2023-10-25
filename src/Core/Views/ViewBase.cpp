@@ -28,11 +28,11 @@ int ViewBase::ProcessMessageQueue() {
     return nMessages;
 }
 
-void ViewBase::SetWindowCursor(const Cursor &cursor) {
+void ViewBase::SetWindowCursor(const Cursor &newCursor) {
     if (Editor::Instance().GetState() == Editor::QuickCommandState) {
         auto quickView = RuntimeConfig::Instance().GetQuickCmdView();
-        quickView->SetWindowCursor(cursor);
+        quickView->SetWindowCursor(newCursor);
     } else {
-        window->SetCursor(cursor);
+        window->SetCursor(newCursor);
     }
 }

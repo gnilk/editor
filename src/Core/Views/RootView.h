@@ -65,9 +65,9 @@ namespace gedit {
 
         bool SetActiveTopViewByName(const std::string &name) {
             auto currentView = TopView();
-            for(int i=0;i<topViews.size();i++) {
+            for(size_t i=0;i<topViews.size();i++) {
                 if (topViews[i].name == name) {
-                    idxCurrentTopView = i;
+                    idxCurrentTopView = (int)i;
                     LeaveQuickCommand();
                     TopView()->SetActive(true);
                     currentView->SetActive(false);

@@ -173,7 +173,7 @@ namespace gedit {
     private:
         kAction action = kAction::kActionNone;
         int modiferMask = 0;
-        int asciiKeyCode = 0;
+        unsigned int asciiKeyCode = 0;
         std::optional<kActionModifier> actionModifier = {};
         Keyboard::kKeyCode keyCode = Keyboard::kKeyCode_None;
         std::string name;

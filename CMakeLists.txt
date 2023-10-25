@@ -76,6 +76,16 @@ set(DUKTAPE_EXTRAS src/ext/duktape-2.7.0/extras)
 set(DUKGLUE_HOME ext/dukglue)
 set(FMT_HOME ext/fmt)
 
+#
+# Experimenting - not sure this does any good...
+#
+file(GLOB_RECURSE DUKGLUE_FILES "${DUKGLUE_HOME}/include/*.h")
+set_source_files_properties(
+        ${DUKGLUE_FILES}
+        PROPERTIES
+        COMPILE_FLAGS "-Wno-shadow -Wno-unused-but-set-parameter -Wno-sign-compare"
+)
+
 
 list(APPEND duktape ${DUKTAPE_HOME}/duktape.c ${DUKTAPE_HOME}/duk_config.h ${DUKTAPE_HOME}/duktape.h)
 list(APPEND duktape ${DUKTAPE_EXTRAS}/module-node/duk_module_node.c)

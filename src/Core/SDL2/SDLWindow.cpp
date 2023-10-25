@@ -40,8 +40,8 @@ SDLWindow::~SDLWindow() noexcept {
     }
 }
 
-void SDLWindow::Initialize(WindowBase::kWinFlags flags, WindowBase::kWinDecoration newDecoFlags) {
-    WindowBase::Initialize(flags, newDecoFlags);
+void SDLWindow::Initialize(WindowBase::kWinFlags newFlags, WindowBase::kWinDecoration newDecoFlags) {
+    WindowBase::Initialize(newFlags, newDecoFlags);
 
     if (flags & WindowBase::kWin_Visible) {
         CreateSDLBackBuffer();
@@ -197,7 +197,7 @@ void SDLWindow::SetCursor(const Cursor &newCursor) {
     cursor = newCursor;
 }
 
-void SDLWindow::OnDrawCursor(const Cursor &cursor) {
+void SDLWindow::OnDrawCursor(const Cursor &otherCursor) {
     //clientContext.
     if (clientContext == nullptr) {
         return;
@@ -210,6 +210,6 @@ void SDLWindow::OnDrawCursor(const Cursor &cursor) {
     dc->SetFGColor(theme->GetGlobalColors().GetColor("caret"));
 
     //dc->FillRect(cursor.position.x, cursor.position.y,1,1);
-    dc->DrawLine(cursor.position.x, cursor.position.y, cursor.position.x, cursor.position.y + 1);
+    dc->DrawLine(otherCursor.position.x, otherCursor.position.y, otherCursor.position.x, otherCursor.position.y + 1);
 }
 

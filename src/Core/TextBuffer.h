@@ -64,11 +64,11 @@ class TextBuffer : public std::enable_shared_from_this<TextBuffer> {
 
         void Close();
 
-        void AddLine(Line::Ref line) {
-            line->SetOnChangeDelegate([this](const Line &line){
+        void AddLine(Line::Ref newLine) {
+            newLine->SetOnChangeDelegate([this](const Line &line){
                 OnLineChanged(line);
             });
-            lines.push_back(line);
+            lines.push_back(newLine);
             ChangeBufferState(kBuffer_Changed);
         }
 
@@ -82,20 +82,20 @@ class TextBuffer : public std::enable_shared_from_this<TextBuffer> {
             AddLine(u32str);
         }
 
-        void Insert(size_t idxPos, Line::Ref line) {
-            line->SetOnChangeDelegate([this](const Line &line){
+        void Insert(size_t idxPos, Line::Ref newLine) {
+            newLine->SetOnChangeDelegate([this](const Line &line){
                 OnLineChanged(line);
             });
             auto it = lines.begin() + idxPos;
-            lines.insert(it, line);
+            lines.insert(it, newLine);
             ChangeBufferState(kBuffer_Changed);
         }
 
-        void Insert(std::vector<Line::Ref>::const_iterator it, Line::Ref line) {
-            line->SetOnChangeDelegate([this](const Line &line){
+        void Insert(std::vector<Line::Ref>::const_iterator it, Line::Ref newLine) {
+            newLine->SetOnChangeDelegate([this](const Line &line){
                 OnLineChanged(line);
             });
-            lines.insert(it, line);
+            lines.insert(it, newLine);
             ChangeBufferState(kBuffer_Changed);
         }
 

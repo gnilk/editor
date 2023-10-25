@@ -25,7 +25,7 @@ namespace gedit {
     public:
         using Ref = std::shared_ptr<LinuxFolderMonitorPoint>;
 
-        explicit LinuxFolderMonitorPoint(const std::string &pathToMonitor) : FolderMonitor::MonitorPoint(pathToMonitor) {
+        explicit LinuxFolderMonitorPoint(const std::string &monitorPath) : FolderMonitor::MonitorPoint(monitorPath) {
 
         }
         virtual ~LinuxFolderMonitorPoint();

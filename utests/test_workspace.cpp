@@ -2,11 +2,13 @@
 // Created by gnilk on 09.05.23.
 //
 #include <testinterface.h>
+#include <chrono>
 #include "Core/Editor.h"
 #include "Core/Workspace.h"
 #include "Core/RuntimeConfig.h"
 
 using namespace gedit;
+using namespace std::chrono_literals;
 
 extern "C" {
 DLL_EXPORT int test_workspace(ITesting *t);

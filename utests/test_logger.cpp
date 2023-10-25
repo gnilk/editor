@@ -3,7 +3,7 @@
 //
 #include <testinterface.h>
 #include "logger.h"
-
+#include "gnklog.h"
 
 extern "C" {
 DLL_EXPORT int test_logger(ITesting *t);
@@ -16,14 +16,13 @@ public:
     MockSink() = default;
     virtual ~MockSink() = default;
 
-    void Initialize(int argc, const char **argv) override { }
-    int WriteLine(int dbgLevel, char *hdr, char *string) override;
-    int GetCounter() { return counter; }
+    int Write(const gnilk::LogEvent &event) override;
+    __inline int GetCounter() const { return counter; }
     void Close() override { }
 private:
     int counter = 0;
 };
-int MockSink::WriteLine(int dbgLevel, char *hdr, char *string) {
+int MockSink::Write(const gnilk::LogEvent &event) {
     counter++;
     return counter;
 }

@@ -117,11 +117,16 @@ void UndoHistory::UndoItemRange::InitRange(const gedit::Point &ptStart, const ge
         return;
     }
 
+    // Clip against active model..
     start = ptStart;
     end = ptEnd;
 
     for(int y=start.y; y < end.y; y++) {
         auto line = model->LineAt(y);
+        // end of lines?
+        if (line == nullptr) {
+            break;
+        }
         data.push_back(line->Buffer());
     }
 }

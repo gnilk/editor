@@ -70,6 +70,8 @@ namespace gedit {
         // Modals
         kActionCloseModal,
 
+        kActionIndent,
+        kActionUnindent,
     };
 
     class ActionItem {

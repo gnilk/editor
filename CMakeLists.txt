@@ -352,7 +352,6 @@ list(APPEND editorsrc src/Core/NamedColors.cpp src/Core/NamedColors.h)
 list(APPEND editorsrc src/Core/PathUtil.cpp src/Core/PathUtil.h)
 list(APPEND editorsrc src/Core/StrUtil.cpp src/Core/StrUtil.h)
 list(APPEND editorsrc src/Core/Timer.cpp src/Core/Timer.h)
-list(APPEND editorsrc src/Core/TimerController.cpp src/Core/TimerController.h)
 list(APPEND editorsrc src/Core/TypeUtil.h)
 list(APPEND editorsrc src/Core/UnicodeHelper.cpp src/Core/UnicodeHelper.h)
 

@@ -60,6 +60,10 @@ keymap: {
     GotoBottomLine: KeyCode_Command + KeyCode_PageDown,
     Undo: CopyPasteModifier + 'z',
 
+    Indent : KeyCode_Tab,
+    Unindent : KeyCode_Shift + KeyCode_Tab,
+
+
     NextSearchResult: "KeyCode_Ctrl + 'n'",
     PrevSearchResult: "KeyCode_Ctrl + 'p'",
   }

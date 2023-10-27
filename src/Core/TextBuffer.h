@@ -19,7 +19,7 @@
 #include "Core/Line.h"
 #include "Core/Point.h"
 #include "Core/UnicodeHelper.h"
-#include "Core/TimerController.h"
+#include "Core/Timer.h"
 
 namespace gedit {
 class TextBuffer : public std::enable_shared_from_this<TextBuffer> {

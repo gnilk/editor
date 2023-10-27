@@ -380,6 +380,9 @@ bool TextBuffer::DoSave(const std::filesystem::path &pathName, bool skipChangeCh
 
     // Go back to 'clean' - i.e. data is loaded...
     ChangeBufferState(kBuffer_Loaded);
+    // Note: we don't trigger UI redraws from change-state, because that would lead to all hell on earth...
+    // unless we have somethine like 'DisableRedraw' / 'EnableRedraw'
+    Editor::Instance().TriggerUIRedraw();
     return true;
 }
 
@@ -417,33 +420,39 @@ void TextBuffer::ChangeBufferState(BufferState newState) {
 void TextBuffer::OnLineChanged(const Line &line) {
     ChangeBufferState(kBuffer_Changed);
 
-    // auto save
-    auto &tc = RuntimeConfig::Instance().GetTimerController();
-    if (autoSaveTimer == nullptr) {
-        auto autoSaveTimeout = Config::Instance()["main"].GetInt("autosave_timeout_ms", 2000);
-        if (autoSaveTimeout > 0) {
-            Timer::DurationMS duration(autoSaveTimeout);
+    auto autoSaveTimeout = Config::Instance()["main"].GetInt("autosave_timeout_ms", 2000);
+    // Disabled?
+    if (autoSaveTimeout == 0) {
+        return;
+    }
+    Timer::DurationMS duration(autoSaveTimeout);
 
-            // Timer not created, so let's create the timer with a 2000msec timeout
-            autoSaveTimer = tc.CreateAndScheduleTimer(duration, [this]() {
-                // Timer kicked in - we are now in the timer-thread context!!!
-                // We should NOT do anything here - instead we post ourselves to the editor message queue (which is tied to the UI)
-                // this queue is emptied first on each run-loop/redraw iteration, this is the way...
-                RuntimeConfig::Instance().GetRootView().PostMessage([this]() {
-                    // Once here - we can retrieve the workspace node (which knows about the filename) for this TextBuffer
-                    // this is a bit convoluted but not done very often...
-                    auto model = Editor::Instance().GetModelFromTextBuffer(shared_from_this());
-                    auto node = Editor::Instance().GetWorkspaceNodeForModel(model);
-                    node->SaveData();
-                });
-            });
-        }
-    } else {
-        // On every change, let's restart the timer...
-        tc.RestartTimer(autoSaveTimer);
+    // Timer already created?   - just restart it...
+    if (autoSaveTimer != nullptr) {
+        logger->Debug("Restarting autosave timer!");
+        autoSaveTimer->Restart(duration);
+        return;
     }
 
+    logger->Debug("Autosave timer is null - creating!");
 
+    autoSaveTimer = Timer::Create(duration, [this]() {
+        logger->Debug("AutoSave Timer kicked in - posting message for save on main thread!");
+
+        // Timer kicked in - we are now in the timer-thread context!!!
+        // We should NOT do anything here - instead we post ourselves to the editor message queue (which is tied to the UI)
+        // this queue is emptied first on each run-loop/redraw iteration, this is the way...
+        RuntimeConfig::Instance().GetRootView().PostMessage([this]() {
+            // Once here - we can retrieve the workspace node (which knows about the filename) for this TextBuffer
+            // this is a bit convoluted but not done very often...
+            auto model = Editor::Instance().GetModelFromTextBuffer(shared_from_this());
+            auto node = Editor::Instance().GetWorkspaceNodeForModel(model);
+            node->SaveData();
+        });
+        // Trigger main thread...
+        logger->Debug("Triggering UI redraw");
+        Editor::Instance().TriggerUIRedraw();
+    });
 }
 
 //

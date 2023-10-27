@@ -292,6 +292,10 @@ void EditController::RemoveCharFromLineNoUndo(gedit::Cursor &cursor, Line::Ref l
     if (cursor.position.x > 0) {
         line->Delete(cursor.position.x-1);
         cursor.position.x--;
+        if (cursor.position.x < 0) {
+            cursor.position.x = 0;
+        }
+        cursor.wantedColumn = cursor.position.x;
     }
 }
 

@@ -217,9 +217,6 @@ void EditorView::HandleKeyPressWithSelection(const KeyPress &keyPress) {
         case Keyboard::kKeyCode_DeleteForward :
             editorModel->DeleteSelection();
             break;
-        case Keyboard::kKeyCode_Tab :
-            // Handle this - indent!
-            break;
         default: {
             // This is a bit ugly (understatement of this project so far...)
             // But any - valid - keypress should lead to the selection being deleted and the new key inserted...
@@ -358,6 +355,10 @@ bool EditorView::DispatchAction(const KeyPressAction &kpAction) {
             return OnNextSearchResult();
         case kAction::kActionPrevSearchResult :
             return OnPrevSearchResult();
+        case kAction::kActionIndent :
+        case kAction::kActionUnindent :
+            OnKeyPress(kpAction.keyPress);
+            return true;
         default:
             break;
     }

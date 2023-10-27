@@ -10,6 +10,8 @@
 #include <memory>
 #include <optional>
 #include <filesystem>
+#include <semaphore>
+#include <mutex>
 
 #include "logger.h"
 
@@ -180,6 +182,7 @@ class TextBuffer : public std::enable_shared_from_this<TextBuffer> {
         void StartParseThread();
         void ParseThread();
         void ChangeParseState(ParseState newState);
+        void ChangeParseState_NoLock(ParseState newState);
         void StartParseJob(ParseJobType jobType, size_t idxLineStart = 0, size_t idxLineEnd = 0);
         void ExecuteParseJob(const ParseJob &job);
         void ExecuteFullParse();
@@ -196,6 +199,8 @@ class TextBuffer : public std::enable_shared_from_this<TextBuffer> {
         LanguageBase::Ref language = nullptr;
         std::thread *reparseThread = nullptr;
         std::mutex parseThreadLock;
+
+        std::binary_semaphore parseQueueEvent;
         std::deque<ParseJob> parseQueue;
 
         bool bIsReadOnly = false;   // assume they are not

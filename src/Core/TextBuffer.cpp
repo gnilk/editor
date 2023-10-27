@@ -14,7 +14,7 @@
 
 using namespace gedit;
 
-TextBuffer::TextBuffer() {
+TextBuffer::TextBuffer() : parseQueueEvent(0) {
 }
 
 TextBuffer::Ref TextBuffer::CreateEmptyBuffer() {
@@ -132,6 +132,7 @@ void TextBuffer::WaitForParseCompletion() {
 void TextBuffer::Close() {
     if (reparseThread != nullptr) {
         bQuitReparse = true;
+        parseQueueEvent.release();
         reparseThread->join();
         reparseThread = nullptr;
 
@@ -159,6 +160,7 @@ void TextBuffer::StartParseJob(TextBuffer::ParseJobType jobType, size_t idxLineS
     };
     parseQueue.push_front(job);
     parseThreadLock.unlock();
+    parseQueueEvent.release();
     // Note: We don't really care about kicking off the parse-job here
 }
 
@@ -176,6 +178,20 @@ void TextBuffer::ChangeParseState(ParseState newState) {
     parseThreadLock.lock();
     parseState = newState;
     parseThreadLock.unlock();
+}
+
+void TextBuffer::ChangeParseState_NoLock(gedit::TextBuffer::ParseState newState) {
+//    static unordered_map<ParseState, std::string> stateToString = {
+//            {kState_None, "None"},
+//            {kState_Idle, "Idle"},
+//            {kState_Start, "Start"},
+//            {kState_Parsing, "Parsing"}
+//    };
+//    logger->Debug("ChangeParseState %s -> %s",
+//                  stateToString[GetParseState()].c_str(),
+//                  stateToString[newState].c_str());
+
+    parseState = newState;
 }
 
 
@@ -198,31 +214,40 @@ void TextBuffer::StartParseThread() {
 }
 
 void TextBuffer::ParseThread() {
+    // FIXME: Verify this from a threading perspective...
     ChangeParseState(kState_Idle);
     while(!bQuitReparse) {
+        parseQueueEvent.acquire();
         parseThreadLock.lock();
-        if (parseQueue.empty()) {
-            parseThreadLock.unlock();
-            std::this_thread::yield();
-            continue;
+
+        //logger->Debug("ParseThread, queue has %zu items", parseQueue.size());
+        printf("ParseThread, queue has %zu items\n", parseQueue.size());
+
+
+        while(!parseQueue.empty()) {
+            ChangeParseState_NoLock(kState_Parsing);
+            // Fetch job..
+            auto &job = parseQueue.front();
+            parseQueue.pop_front();
+
+            // TO DO: Measure performance here
+            DurationTimer durationTimer;
+            ExecuteParseJob(job);
+            auto duration = durationTimer.Sample();
+//            logger->Debug("ParseThread, job completed. Duration=%ld ms, Type=%s", duration.count(),
+//                          (job.jobType == ParseJobType::kParseFull) ? "Full" : "Region");
+
+            printf("ParseThread, job completed. Duration=%ld ms, Type=%s\n", duration.count(),
+                          (job.jobType == ParseJobType::kParseFull) ? "Full" : "Region");
+
+            Editor::Instance().TriggerUIRedraw();
+
+            ChangeParseState_NoLock(kState_Idle);
         }
         parseThreadLock.unlock();
-
-        ChangeParseState(kState_Parsing);
-        // Fetch job..
-        parseThreadLock.lock();
-        auto &job = parseQueue.front();
-        parseQueue.pop_front();
-        parseThreadLock.unlock();
-
-        // TO DO: Measure performance here
-        DurationTimer durationTimer;
-        ExecuteParseJob(job);
-        auto duration = durationTimer.Sample();
-        logger->Debug("ParseThread, job completed. Duration=%ld ms, Type=%s", duration.count(), (job.jobType == ParseJobType::kParseFull)?"Full":"Region");
-        Editor::Instance().TriggerUIRedraw();
-
-        ChangeParseState(kState_Idle);
+        //parseQueueEvent.release();
+        //logger->Debug("ParseThread, queue now empty...");
+        printf("ParseThread, queue now empty...\n");
     }
     ChangeParseState(kState_None);
 }

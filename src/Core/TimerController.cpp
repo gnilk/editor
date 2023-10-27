@@ -64,7 +64,7 @@ void TimerController::TimerUpdateThreadLoop() {
     std::vector<Timer::Ref> timersToExecute;
 
     while(!bQuit) {
-        // Yield!!!
+        // FIXME: This is not a good way - we need 'events'
         std::this_thread::yield();
         timersToExecute.clear();
 

@@ -47,7 +47,8 @@ KeyPress SDLKeyboardDriver::GetKeyPress() {
     SDL_Event event;
     auto logger = gnilk::Logger::GetLogger("SDLKeyboardDriver");
 
-    while (SDL_PollEvent(&event)) {
+    //while (SDL_PollEvent(&event)) {
+    if (SDL_WaitEvent(&event)) {
         if (event.type == SDL_EventType::SDL_QUIT) {
             SDL_Quit();
             exit(0);
@@ -57,7 +58,7 @@ KeyPress SDLKeyboardDriver::GetKeyPress() {
                 CheckRemoveTextInputEventForKeyPress(kp.value());
                 return *kp;
             }
-            continue;
+            //continue;
         } else if (event.type == SDL_EventType::SDL_TEXTINPUT) {
             // TO-DO: On Linux we get an SDL_TEXTINPUT for the keydown - causing us to act twice for certain key combos..
             KeyPress kp;

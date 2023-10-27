@@ -63,9 +63,10 @@ bool LinuxFolderMonitorPoint::Stop() {
 
 #define BUF_LEN (10 * (sizeof(struct inotify_event) + NAME_MAX + 1))
 
+// FIXME: POLL TMO should be put in a common place!
 // Maximum 100ms per poll
 #ifndef GEDIT_DEFAULT_POLL_TMO_MS
-#define GEDIT_DEFAULT_POLL_TMO_MS 100
+#define GEDIT_DEFAULT_POLL_TMO_MS 1000
 #endif
 
 void LinuxFolderMonitorPoint::ScanThread() {
@@ -82,6 +83,7 @@ void LinuxFolderMonitorPoint::ScanThread() {
     char buf[BUF_LEN];
 
     while(!bQuitThread) {
+        // FIXME: Verify this
         auto poll_num = poll(fds, nfds, GEDIT_DEFAULT_POLL_TMO_MS);
         if (poll_num == -1) {
             if (errno == EINTR) continue;

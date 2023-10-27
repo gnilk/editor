@@ -161,7 +161,8 @@ int Shell::SendCmd(std::u32string &cmd) {
 
 // Maximum 100ms per poll
 #ifndef GEDIT_DEFAULT_POLL_TMO_MS
-#define GEDIT_DEFAULT_POLL_TMO_MS 100
+// FIXME: Poll tmo in a common place - shared with LinuxFolderMonitor.cpp
+#define GEDIT_DEFAULT_POLL_TMO_MS 1000
 #endif
 
 void Shell::ConsumePipes() {
@@ -198,6 +199,7 @@ void Shell::ConsumePipes() {
     fds[1].events = POLLIN;
 
     while(true) {
+        // FIXME: Verify this
         int poll_num = poll(fds, nfds, GEDIT_DEFAULT_POLL_TMO_MS);
         if (poll_num == -1) {
             if (errno == EINTR) continue;
@@ -214,7 +216,7 @@ void Shell::ConsumePipes() {
         if ((fds[1].revents & POLLIN) && (onStderr != nullptr)) {
             ReadAndDispatch(fdErr, onStderr);
         }
-
+        std::this_thread::yield();
     }
 
 //    do {

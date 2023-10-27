@@ -170,6 +170,8 @@ namespace gedit {
         }
         void DeleteSelection();
         void CommentSelectionOrLine();
+        void IndentSelectionOrLine();
+        void UnindentSelectionOrLine();
 
         size_t SearchFor(const std::u32string &searchItem);
         void ClearSearchResults();

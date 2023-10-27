@@ -285,6 +285,10 @@ bool EditorView::OnAction(const KeyPressAction &kpAction) {
     } else if (kpAction.action == kAction::kActionInsertLineComment) {
         // Handle this here since we want to keep the selection...
         editorModel->CommentSelectionOrLine();
+    } else if (kpAction.action == kAction::kActionIndent && editorModel->IsSelectionActive()) {
+        editorModel->IndentSelectionOrLine();
+    } else if (kpAction.action == kAction::kActionUnindent && editorModel->IsSelectionActive()) {
+        editorModel->UnindentSelectionOrLine();
     }
 
 

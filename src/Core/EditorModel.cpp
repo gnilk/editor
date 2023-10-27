@@ -43,6 +43,37 @@ void EditorModel::CommentSelectionOrLine() {
     editController->AddLineComment(start.y, end.y, lineCommentPrefix);
 }
 
+void EditorModel::IndentSelectionOrLine() {
+    if (!textBuffer->HaveLanguage()) {
+        return;
+    }
+
+    if (!IsSelectionActive()) {
+        editController->IndentLines(lineCursor.idxActiveLine, lineCursor.idxActiveLine + 1);
+        return;
+    }
+    auto start = currentSelection.GetStart();
+    auto end = currentSelection.GetEnd();
+    editController->IndentLines(start.y, end.y);
+}
+
+void EditorModel::UnindentSelectionOrLine() {
+    if (!textBuffer->HaveLanguage()) {
+        return;
+    }
+
+    if (!IsSelectionActive()) {
+        editController->UnindentLines(lineCursor.idxActiveLine, lineCursor.idxActiveLine + 1);
+        return;
+    }
+    auto start = currentSelection.GetStart();
+    auto end = currentSelection.GetEnd();
+    editController->UnindentLines(start.y, end.y);
+
+}
+
+
+
 // This is a little naive and I should probably spin it of to a specific thread
 size_t EditorModel::SearchFor(const std::u32string &searchItem) {
 

@@ -778,6 +778,10 @@ void Editor::TriggerUIRedraw() {
     // Trigger redraw by posting an empty message to the root view message queue
     if (Runloop::IsRunning()) {
         RuntimeConfig::Instance().GetRootView().PostMessage([]() {});
+
+        // Since we are an editor - and this is a screwed up project - we need to tell the underlying subsystem to generate an event
+        // this is done through the keyboard driver - since that's the main RunLoop event notification thingie (for now)
+        RuntimeConfig::Instance().GetKeyboard()->TempFuncReleaseKeyPressFunc();
     }
 }
 

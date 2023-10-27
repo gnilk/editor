@@ -1,6 +1,14 @@
 //
 // Created by gnilk on 15.10.23.
 //
+// FIXME: Split this to a Linux/MacOS impl. the MacOS version can (perhaps?) retain the threaded chrono solution done here
+// the linux version should use: epoll and timer_fdcreate
+// see:
+// https://linux.die.net/man/2/timerfd_create
+// https://man7.org/linux/man-pages/man7/epoll.7.html
+// https://blog.zeerd.com/cpp-std-timer/
+//
+//
 
 #include <mutex>
 #include <vector>

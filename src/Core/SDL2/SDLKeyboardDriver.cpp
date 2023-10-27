@@ -38,6 +38,8 @@ KeyboardDriverBase::Ref SDLKeyboardDriver::Create() {
 
 bool SDLKeyboardDriver::Initialize() {
     createTranslationTable();
+
+    sdlDummyEvent = SDL_RegisterEvents(1);
     SDL_StartTextInput();
     HookEditorClipBoard();
     return true;
@@ -85,9 +87,12 @@ KeyPress SDLKeyboardDriver::GetKeyPress() {
                 clipBoard.CopyFromExternal(clipBoardText);
                 SDL_free(clipBoardText);
             }
+        } else if (event.type == sdlDummyEvent) {
+            logger->Debug("UI RedrawEvent");
         } else {
+
             // Note: Enable this to track any other event we might want...
-            // logger->Debug("Unhandled event: %d (0x%.x)", event.type, event.type);
+            //logger->Debug("Unhandled event: %d (0x%.x)", event.type, event.type);
         }
     }
     return {};
@@ -364,4 +369,11 @@ void SDLKeyboardDriver::HookEditorClipBoard() {
     });
 }
 
+void SDLKeyboardDriver::TempFuncReleaseKeyPressFunc() {
+    static SDL_Event dummyEvent = {};
+    dummyEvent.type = sdlDummyEvent;
+    auto logger = gnilk::Logger::GetLogger("SDLKeyboardDriver");
+    logger->Debug("Sending Dummy Event: %d (0x%.x)", dummyEvent.type, dummyEvent.type);
+    SDL_PushEvent(&dummyEvent);
+}
 

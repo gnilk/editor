@@ -54,6 +54,9 @@ bool SDLScreen::Open() {
     logger = gnilk::Logger::GetLogger("SDL2Screen");
 
     logger->Debug("Opening window");
+    SDL_version sdlVersion = {};
+    SDL_GetVersion(&sdlVersion);
+    logger->Debug("SDL Version: %d.%d.%d", sdlVersion.major, sdlVersion.minor, sdlVersion.patch);
 
     int nDrivers = SDL_GetNumVideoDrivers();
     logger->Debug("Available Video Drivers (%d):",nDrivers);
@@ -302,6 +305,18 @@ void SDLScreen::Update() {
     // Not quite sure what this is supposed to do...
     // Most SDL example has a small delay - assume they just want 'yield' in order to avoid 100% CPU usage...
     SDL_Delay(1000/60);
+}
+
+bool SDLScreen::UpdateClipboardData() {
+    auto utfClipboardText = SDL_GetClipboardText();
+    if (utfClipboardText == nullptr) {
+        return false;
+    }
+    // FIXME: Extremely inefficient - should have a 'IsSame()' as the current top-item and only push if not...
+
+    auto &myClipboard = Editor::Instance().GetClipBoard();
+    return myClipboard.CopyFromExternal(utfClipboardText);
+
 }
 
 void SDLScreen::CopyToTexture() {

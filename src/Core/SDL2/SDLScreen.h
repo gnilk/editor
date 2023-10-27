@@ -31,6 +31,8 @@ namespace gedit {
         void Close() override;
         void Clear() override;
         void Update() override;
+        bool UpdateClipboardData() override;
+
         void CopyToTexture() override;
         void ClearWithTexture() override;
 

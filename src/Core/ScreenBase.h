@@ -22,12 +22,14 @@ namespace gedit {
         virtual void Close() {}
         virtual void Clear() {}
         virtual void Update() {}
+        virtual bool UpdateClipboardData() { return false; }
         // Copy current screen to a texture (internally)
         virtual void CopyToTexture() {}
         // Clear screen with the copied texture
         virtual void ClearWithTexture() {}
 
         virtual void RegisterColor(int appIndex, const ColorRGBA &foreground, const ColorRGBA &background) {}
+
 
         // These two are not used..
         virtual void BeginRefreshCycle() {}

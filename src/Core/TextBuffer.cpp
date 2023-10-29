@@ -56,7 +56,7 @@ TextBuffer::~TextBuffer() {
 void TextBuffer::Reparse() {
     // No language, don't do this...
     if (language == nullptr) {
-        return;
+        return ;
     }
     // When a workspace is opened, a lot of text-buffers are created 'passively' and are not loaded until activiated
     if(IsEmpty()) {
@@ -77,26 +77,27 @@ void TextBuffer::Reparse() {
     // Don't queue up full-parse job's unless we are idle
     // On large files this will literally never end and the queue will just fill up...
     if (GetParseState() == kState_Idle) {
-        StartParseJob(ParseJobType::kParseFull);
-        WaitForParseCompletion();
+        auto job = StartParseJob(ParseJobType::kParseFull);
+        job->WaitComplete();
+        Editor::Instance().TriggerUIRedraw();
     }
 }
 
-void TextBuffer::ReparseRegion(size_t idxStartLine, size_t idxEndLine) {
+Job::Ref TextBuffer::ReparseRegion(size_t idxStartLine, size_t idxEndLine) {
     // No language, don't do this...
     if (language == nullptr) {
-        return;
+        return nullptr;
     }
     // When a workspace is opened, a lot of text-buffers are created 'passively' and are not loaded until activated
     if(IsEmpty()) {
-        return;
+        return nullptr;
     }
 
     auto useThreads = Config::Instance()["main"].GetBool("threaded_syntaxparser", false);
 
     if (!useThreads) {
         ExecuteRegionParse(idxStartLine, idxEndLine);
-        return;
+        return nullptr;
     }
     if (reparseThread == nullptr) {
         StartParseThread();
@@ -105,30 +106,8 @@ void TextBuffer::ReparseRegion(size_t idxStartLine, size_t idxEndLine) {
     if (idxEndLine > (lines.size()-1)) {
         idxEndLine = lines.size();
     }
-    StartParseJob(ParseJobType::kParseRegion, idxStartLine, idxEndLine);
-}
-
-void TextBuffer::WaitForParseCompletion() {
-    // No language, don't do this...
-    if (language == nullptr) {
-        return;
-    }
-    // When a workspace is opened, a lot of text-buffers are created 'passively' and are not loaded until activated
-    if (IsEmpty()) {
-        return;
-    }
-
-    auto useThreads = Config::Instance()["main"].GetBool("threaded_syntaxparser", false);
-
-    if (!useThreads) {
-        return;
-    }
-
-    // Start job's wait until the jobs are started - so here we
-    // can assume that if IDLE we are already done, no need to check if the queue has items..
-    while (GetParseState() != kState_Idle) {
-        std::this_thread::yield();
-    }
+    auto job = StartParseJob(ParseJobType::kParseRegion, idxStartLine, idxEndLine);
+    return std::static_pointer_cast<Job>(job);
 }
 
 void TextBuffer::Close() {
@@ -153,13 +132,10 @@ bool TextBuffer::CanEdit() {
     return false;
 }
 
-void TextBuffer::StartParseJob(TextBuffer::ParseJobType jobType, size_t idxLineStart, size_t idxLineEnd) {
-    ParseJob job = {
-            .jobType = jobType,
-            .idxLineStart = idxLineStart,
-            .idxLineEnd = idxLineEnd
-    };
+TextBuffer::ParseJob::Ref TextBuffer::StartParseJob(TextBuffer::ParseJobType jobType, size_t idxLineStart, size_t idxLineEnd) {
+    auto job = ParseJob::Create(jobType, idxLineStart, idxLineEnd);
     parseQueue.push(job);
+    return job;
 }
 
 void TextBuffer::ChangeParseState(ParseState newState) {
@@ -229,25 +205,22 @@ void TextBuffer::ParseThread() {
         DurationTimer durationTimer;
         ExecuteParseJob(job);
         auto duration = durationTimer.Sample();
-//            logger->Debug("ParseThread, job completed. Duration=%ld ms, Type=%s", duration.count(),
-//                          (job.jobType == ParseJobType::kParseFull) ? "Full" : "Region");
-
-        printf("ParseThread, job completed. Duration=%ld ms, Type=%s\n", duration.count(),
-               (job.jobType == ParseJobType::kParseFull) ? "Full" : "Region");
+        logger->Debug("ParseThread, job completed. Duration=%ld ms, Type=%s", duration.count(),
+                      (job->jobType == ParseJobType::kParseFull) ? "Full" : "Region");
 
         Editor::Instance().TriggerUIRedraw();
-
         ChangeParseState(kState_Idle);
     }
     ChangeParseState(kState_None);
 }
 
-void TextBuffer::ExecuteParseJob(const ParseJob &job) {
-    if (job.jobType == ParseJobType::kParseFull) {
+void TextBuffer::ExecuteParseJob(const ParseJob::Ref &job) {
+    if (job->jobType == ParseJobType::kParseFull) {
         ExecuteFullParse();
-    } else if (job.jobType == ParseJobType::kParseRegion) {
-        ExecuteRegionParse(job.idxLineStart, job.idxLineEnd);
+    } else if (job->jobType == ParseJobType::kParseRegion) {
+        ExecuteRegionParse(job->idxLineStart, job->idxLineEnd);
     }
+    job->NotifyComplete();
 }
 
 void TextBuffer::ExecuteFullParse() {

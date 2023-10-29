@@ -14,6 +14,8 @@ template <class T>
 class SafeQueue
 {
 public:
+    using DurationMS = std::chrono::duration<uint64_t, std::ratio<1,1000> >;
+public:
     SafeQueue(void)
             : q()
             , m()
@@ -34,6 +36,14 @@ public:
     bool empty() const {
         std::unique_lock<std::mutex> lock(m);
         return q.empty();
+    }
+
+    bool wait(uint64_t durationMs) {
+        std::unique_lock<std::mutex> lock(m);
+        if (c.wait_for(lock, DurationMS(durationMs)) == std::cv_status::timeout) {
+            return false;
+        }
+        return true;
     }
 
     // Get the "front"-element.

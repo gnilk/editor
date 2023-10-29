@@ -48,6 +48,7 @@ TextBuffer::~TextBuffer() {
         while(GetParseState() != kState_None) {
             std::this_thread::yield();
         }
+        reparseThread->join();
     }
 }
 
@@ -106,6 +107,7 @@ void TextBuffer::ReparseRegion(size_t idxStartLine, size_t idxEndLine) {
     }
     StartParseJob(ParseJobType::kParseRegion, idxStartLine, idxEndLine);
 }
+
 void TextBuffer::WaitForParseCompletion() {
     // No language, don't do this...
     if (language == nullptr) {
@@ -152,16 +154,12 @@ bool TextBuffer::CanEdit() {
 }
 
 void TextBuffer::StartParseJob(TextBuffer::ParseJobType jobType, size_t idxLineStart, size_t idxLineEnd) {
-    parseThreadLock.lock();
     ParseJob job = {
             .jobType = jobType,
             .idxLineStart = idxLineStart,
             .idxLineEnd = idxLineEnd
     };
-    parseQueue.push_front(job);
-    parseThreadLock.unlock();
-    parseQueueEvent.release();
-    // Note: We don't really care about kicking off the parse-job here
+    parseQueue.push(job);
 }
 
 void TextBuffer::ChangeParseState(ParseState newState) {
@@ -207,47 +205,39 @@ void TextBuffer::StartParseThread() {
     reparseThread = new std::thread([this]() {
         ParseThread();
     });
-    // Wait until the thread has become idle, first thing the thread is doing...
+    // Wait until the thread has become idle
     while(GetParseState() != kState_Idle) {
         std::this_thread::yield();
     }
 }
 
+// FIXME: Consolidate this - LinuxFolderMonitor, Shell and here
+#ifndef GEDIT_DEFAULT_POLL_TMO_MS
+#define GEDIT_DEFAULT_POLL_TMO_MS 1000
+#endif
+
+
 void TextBuffer::ParseThread() {
-    // FIXME: Verify this from a threading perspective...
+
     ChangeParseState(kState_Idle);
     while(!bQuitReparse) {
-        parseQueueEvent.acquire();
-        parseThreadLock.lock();
-
-        //logger->Debug("ParseThread, queue has %zu items", parseQueue.size());
-        printf("ParseThread, queue has %zu items\n", parseQueue.size());
-
-
-        while(!parseQueue.empty()) {
-            ChangeParseState_NoLock(kState_Parsing);
-            // Fetch job..
-            auto &job = parseQueue.front();
-            parseQueue.pop_front();
-
-            // TO DO: Measure performance here
-            DurationTimer durationTimer;
-            ExecuteParseJob(job);
-            auto duration = durationTimer.Sample();
+        if (!parseQueue.wait(GEDIT_DEFAULT_POLL_TMO_MS)) {
+            continue;
+        }
+        auto job = parseQueue.pop();
+        ChangeParseState(kState_Parsing);
+        DurationTimer durationTimer;
+        ExecuteParseJob(job);
+        auto duration = durationTimer.Sample();
 //            logger->Debug("ParseThread, job completed. Duration=%ld ms, Type=%s", duration.count(),
 //                          (job.jobType == ParseJobType::kParseFull) ? "Full" : "Region");
 
-            printf("ParseThread, job completed. Duration=%ld ms, Type=%s\n", duration.count(),
-                          (job.jobType == ParseJobType::kParseFull) ? "Full" : "Region");
+        printf("ParseThread, job completed. Duration=%ld ms, Type=%s\n", duration.count(),
+               (job.jobType == ParseJobType::kParseFull) ? "Full" : "Region");
 
-            Editor::Instance().TriggerUIRedraw();
+        Editor::Instance().TriggerUIRedraw();
 
-            ChangeParseState_NoLock(kState_Idle);
-        }
-        parseThreadLock.unlock();
-        //parseQueueEvent.release();
-        //logger->Debug("ParseThread, queue now empty...");
-        printf("ParseThread, queue now empty...\n");
+        ChangeParseState(kState_Idle);
     }
     ChangeParseState(kState_None);
 }

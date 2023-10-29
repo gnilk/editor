@@ -20,6 +20,7 @@
 #include "Core/Point.h"
 #include "Core/UnicodeHelper.h"
 #include "Core/Timer.h"
+#include "SafeQueue.h"
 
 namespace gedit {
 class TextBuffer : public std::enable_shared_from_this<TextBuffer> {
@@ -201,7 +202,7 @@ class TextBuffer : public std::enable_shared_from_this<TextBuffer> {
         std::mutex parseThreadLock;
 
         std::binary_semaphore parseQueueEvent;
-        std::deque<ParseJob> parseQueue;
+        SafeQueue<ParseJob> parseQueue;
 
         bool bIsReadOnly = false;   // assume they are not
         bool bQuitReparse = false;

@@ -198,8 +198,8 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
             size_t idxStartParse = (idxActiveLine>2)?idxActiveLine-2:0;
             size_t idxEndParse = (textBuffer->NumLines() > (idxActiveLine + 2))?idxActiveLine+2:textBuffer->NumLines();
 
-            UpdateSyntaxForRegion(idxStartParse, idxEndParse);
-            WaitForSyntaxCompletion();
+            auto ptrJob = UpdateSyntaxForRegion(idxStartParse, idxEndParse);
+            ptrJob->WaitComplete();
 
             if (emptyLine != nullptr) {
                 logger->Debug("EmptyLine, inserting indent: %d", emptyLine->Indent());
@@ -255,20 +255,16 @@ void EditController::UpdateSyntaxForBuffer() {
     textBuffer->Reparse();
 }
 
-void EditController::UpdateSyntaxForRegion(size_t idxStartLine, size_t idxEndLine) {
+Job::Ref EditController::UpdateSyntaxForRegion(size_t idxStartLine, size_t idxEndLine) {
     logger->Debug("Syntax update for region %zu - %zu", idxStartLine, idxEndLine);
-    textBuffer->ReparseRegion(idxStartLine, idxEndLine);
+    return textBuffer->ReparseRegion(idxStartLine, idxEndLine);
 }
 
-void EditController::UpdateSyntaxForActiveLineRegion(size_t idxActiveLine) {
+Job::Ref EditController::UpdateSyntaxForActiveLineRegion(size_t idxActiveLine) {
     size_t idxStartParse = (idxActiveLine>2)?idxActiveLine-2:0;
     size_t idxEndParse = (textBuffer->NumLines() > (idxActiveLine + 2))?idxActiveLine+2:textBuffer->NumLines();
     logger->Debug("Syntax update for active line region, active line = %zu", idxActiveLine);
-    UpdateSyntaxForRegion(idxStartParse,idxEndParse);
-}
-
-void EditController::WaitForSyntaxCompletion() {
-    textBuffer->WaitForParseCompletion();
+    return UpdateSyntaxForRegion(idxStartParse,idxEndParse);
 }
 
 

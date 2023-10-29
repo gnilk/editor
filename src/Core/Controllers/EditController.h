@@ -58,9 +58,8 @@ namespace gedit {
         void EndUndoItem(UndoHistory::UndoItem::Ref undoItem);
 
         void UpdateSyntaxForBuffer();   // Does a full buffer reparse of the syntax
-        void UpdateSyntaxForRegion(size_t idxStartLine, size_t idxEndLine); // Partial reparse (between line index)
-        void UpdateSyntaxForActiveLineRegion(size_t idxActiveLine); // Special partial case - activeline +/- 2 lines
-        void WaitForSyntaxCompletion();
+        Job::Ref UpdateSyntaxForRegion(size_t idxStartLine, size_t idxEndLine); // Partial reparse (between line index)
+        Job::Ref UpdateSyntaxForActiveLineRegion(size_t idxActiveLine); // Special partial case - activeline +/- 2 lines
 
         void PasteFromClipboard(LineCursor &lineCursor);
 

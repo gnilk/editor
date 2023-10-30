@@ -410,7 +410,7 @@ void EditController::DeleteRange(const Point &startPos, const Point &endPos) {
         startLine->Delete(startPos.x, startLine->Length()-startPos.x);
         y++;
     }
-    // FIXME: Special case, when (endPos.x == 0) && (start.x > 0) && (start.y != end.y) -> we should pull the last FULL line upp to start.x
+    // FIX-ME: Special case, when (endPos.x == 0) && (start.x > 0) && (start.y != end.y) -> we should pull the last FULL line upp to start.x
     // Perhaps easier, if startPos.x > 0 and start.y != end.y we should concat the endpos line
     // I.e. no need for the if-case below, it can be integrated in to the upper if-case and solved directly (which makes it easier)
 

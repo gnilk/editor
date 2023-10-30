@@ -10,6 +10,7 @@
 #include <cstring>
 
 #include "LinuxFolderMonitor.h"
+#include "Core/CompileTimeConfig.h"
 
 using namespace gedit;
 
@@ -63,11 +64,6 @@ bool LinuxFolderMonitorPoint::Stop() {
 
 #define BUF_LEN (10 * (sizeof(struct inotify_event) + NAME_MAX + 1))
 
-// FIXME: POLL TMO should be put in a common place!
-// Maximum 100ms per poll
-#ifndef GEDIT_DEFAULT_POLL_TMO_MS
-#define GEDIT_DEFAULT_POLL_TMO_MS 1000
-#endif
 
 void LinuxFolderMonitorPoint::ScanThread() {
     ScanForDirectories(std::filesystem::path(pathToMonitor));

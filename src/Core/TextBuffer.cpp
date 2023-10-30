@@ -11,6 +11,7 @@
 #include <fstream>
 #include <sstream>
 #include "DurationTimer.h"
+#include "Core/CompileTimeConfig.h"
 
 using namespace gedit;
 
@@ -187,11 +188,6 @@ void TextBuffer::StartParseThread() {
     }
 }
 
-// FIXME: Consolidate this - LinuxFolderMonitor, Shell and here
-#ifndef GEDIT_DEFAULT_POLL_TMO_MS
-#define GEDIT_DEFAULT_POLL_TMO_MS 1000
-#endif
-
 
 void TextBuffer::ParseThread() {
 
@@ -348,33 +344,6 @@ bool TextBuffer::DoSave(const std::filesystem::path &pathName, bool skipChangeCh
     Editor::Instance().TriggerUIRedraw();
     return true;
 }
-
-//void TextBuffer::SetPathName(const std::filesystem::path &newPathName) {
-//    pathName = newPathName;
-//    logger->Debug("SetPathName: %s", pathName.c_str());
-//    if ((bufferState == kBuffer_Loaded) || (bufferState == kBuffer_Changed)){
-//        // FIXME: Save here
-//    }
-//    UpdateLanguageParserFromFilename();
-//}
-//void TextBuffer::Rename(const std::string &newFileName) {
-//    pathName = pathName.parent_path().append(newFileName);
-//    logger->Debug("New name: %s", pathName.c_str());
-//    // FIXME: should probably save the file here
-//    if ((bufferState == kBuffer_Loaded) || (bufferState == kBuffer_Changed)){
-//        // FIXME: Save here
-//    }
-//    UpdateLanguageParserFromFilename();
-//}
-//void TextBuffer::UpdateLanguageParserFromFilename() {
-//    auto lang = Editor::Instance().GetLanguageForExtension(pathName.extension());
-//    if (lang != nullptr) {
-//        language = lang;
-//        if ((bufferState == kBuffer_Loaded) || (bufferState == kBuffer_Changed)) {
-//            Reparse();
-//        }
-//    }
-//}
 
 void TextBuffer::ChangeBufferState(BufferState newState) {
     bufferState = newState;

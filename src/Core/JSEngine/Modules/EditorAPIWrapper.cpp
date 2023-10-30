@@ -25,13 +25,6 @@ void EditorAPIWrapper::RegisterModule(duk_context *ctx) {
     dukglue_register_method(ctx, &EditorAPIWrapper::GetRootViewNames, "GetViewNames");
     dukglue_register_method(ctx, &EditorAPIWrapper::GetViewByName, "GetViewByName");
 
-    // FIXME: Replace with new DocumentAPI and remove these
-//    dukglue_register_method(ctx, &EditorAPIWrapper::GetActiveTextBuffer, "GetActiveTextBuffer");
-//    dukglue_register_method(ctx, &EditorAPIWrapper::NewBuffer, "NewBuffer");
-//    dukglue_register_method(ctx, &EditorAPIWrapper::LoadBuffer, "LoadBuffer");
-//    dukglue_register_method(ctx, &EditorAPIWrapper::SetActiveBuffer, "SetActiveBuffer");
-//    dukglue_register_method(ctx, &EditorAPIWrapper::GetBuffers, "GetBuffers");
-
 
     // Some test stuff...
     dukglue_register_method(ctx, &EditorAPIWrapper::GetTestArray, "GetTestArray");

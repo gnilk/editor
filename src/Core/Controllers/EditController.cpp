@@ -346,7 +346,6 @@ void EditController::IndentLines(size_t idxLineStart, size_t idxLineEnd) {
 
     auto tabSize = GetTextBuffer()->GetLanguage().GetTabSize();
     std::u32string strIndent;
-    // FIXME...
     for(int i=0;i<tabSize;i++) {
         strIndent += U" ";
     }
@@ -367,7 +366,7 @@ void EditController::UnindentLines(size_t idxLineStart, size_t idxLineEnd) {
 
     for (size_t idxLine = idxLineStart; idxLine < idxLineEnd; idxLine += 1) {
         auto line = LineAt(idxLine);
-        line->Unindent(4);  // Fixme - tabsize???
+        line->Unindent(tabSize);
     }
 
     UpdateSyntaxForRegion(idxLineStart, idxLineEnd);

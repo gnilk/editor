@@ -10,6 +10,8 @@
 #include <memory>
 #include <optional>
 #include <filesystem>
+#include <semaphore>
+#include <mutex>
 
 #include "logger.h"
 
@@ -17,10 +19,14 @@
 #include "Core/Line.h"
 #include "Core/Point.h"
 #include "Core/UnicodeHelper.h"
-#include "Core/TimerController.h"
+#include "Core/Timer.h"
+#include "SafeQueue.h"
+#include "Job.h"
 
 namespace gedit {
-class TextBuffer : public std::enable_shared_from_this<TextBuffer> {
+
+
+    class TextBuffer : public std::enable_shared_from_this<TextBuffer> {
     public:
         using Ref = std::shared_ptr<TextBuffer>;
 
@@ -57,15 +63,14 @@ class TextBuffer : public std::enable_shared_from_this<TextBuffer> {
         bool Save(const std::filesystem::path &pathName);
         bool SaveForce(const std::filesystem::path &pathName);
         bool Load(const std::filesystem::path &pathName);
+        void Close();
 
         bool IsEmpty() {
             return ((bufferState == kBuffer_Empty) || (bufferState == kBuffer_FileRef));
         }
 
-        void Close();
-
         void AddLine(Line::Ref newLine) {
-            newLine->SetOnChangeDelegate([this](const Line &line){
+            newLine->SetOnChangeDelegate([this](const Line &line) {
                 OnLineChanged(line);
             });
             lines.push_back(newLine);
@@ -83,7 +88,7 @@ class TextBuffer : public std::enable_shared_from_this<TextBuffer> {
         }
 
         void Insert(size_t idxPos, Line::Ref newLine) {
-            newLine->SetOnChangeDelegate([this](const Line &line){
+            newLine->SetOnChangeDelegate([this](const Line &line) {
                 OnLineChanged(line);
             });
             auto it = lines.begin() + idxPos;
@@ -92,7 +97,7 @@ class TextBuffer : public std::enable_shared_from_this<TextBuffer> {
         }
 
         void Insert(std::vector<Line::Ref>::const_iterator it, Line::Ref newLine) {
-            newLine->SetOnChangeDelegate([this](const Line &line){
+            newLine->SetOnChangeDelegate([this](const Line &line) {
                 OnLineChanged(line);
             });
             lines.insert(it, newLine);
@@ -136,32 +141,34 @@ class TextBuffer : public std::enable_shared_from_this<TextBuffer> {
         // nLines = 0, process as much data as possible..
         // returns the number of line..
         size_t Flatten(std::u32string &out, size_t idxFromLine, size_t nLines);
-
-        bool HaveLanguage() { return language!= nullptr; }
+        bool HaveLanguage() { return language != nullptr; }
         LanguageBase &GetLanguage() { return *language; }
 
         void SetReadOnly(bool newIsReadOnly) {
             bIsReadOnly = newIsReadOnly;
         }
+
         bool IsReadOnly() {
             return bIsReadOnly;
         }
 
         bool CanEdit();
         void Reparse();
-        void ReparseRegion(size_t idxStartLine, size_t idxEndLine);
-        void WaitForParseCompletion();
+        Job::Ref ReparseRegion(size_t idxStartLine, size_t idxEndLine);
         const ParseMetrics &GetParseMetrics() {
             return parseMetrics;
         }
+
     public:
         // For unit testing...
         BufferState GetBufferState() {
             return bufferState;
         }
-        ParseState  GetParseState() {
+
+        ParseState GetParseState() {
             return parseState;
         }
+
     protected:
         void OnLineChanged(const Line &line);
         void ChangeBufferState(BufferState newState);
@@ -171,17 +178,38 @@ class TextBuffer : public std::enable_shared_from_this<TextBuffer> {
             kParseFull,
             kParseRegion,
         };
-        struct ParseJob {
+
+        struct ParseJob : public Job {
+        public:
+            using Ref = std::shared_ptr<ParseJob>;
+
+            static Ref Create(ParseJobType jobType, size_t idxLineStart, size_t idxLineEnd) {
+                auto ptrJob = new TextBuffer::ParseJob(jobType, idxLineStart, idxLineEnd);
+                return std::shared_ptr<TextBuffer::ParseJob>(ptrJob);
+            }
+
+        private:
+            ParseJob(ParseJobType jType, size_t lStart, size_t lEnd) :
+                    Job(),
+                    jobType(jType),
+                    idxLineStart(lStart),
+                    idxLineEnd(lEnd) {
+
+            }
+
+        public:
             ParseJobType jobType = ParseJobType::kParseFull;
             size_t idxLineStart = {};
             size_t idxLineEnd = {};
         };
+
     private:
         void StartParseThread();
         void ParseThread();
         void ChangeParseState(ParseState newState);
-        void StartParseJob(ParseJobType jobType, size_t idxLineStart = 0, size_t idxLineEnd = 0);
-        void ExecuteParseJob(const ParseJob &job);
+        void ChangeParseState_NoLock(ParseState newState);
+        ParseJob::Ref StartParseJob(ParseJobType jobType, size_t idxLineStart = 0, size_t idxLineEnd = 0);
+        void ExecuteParseJob(const ParseJob::Ref &job);
         void ExecuteFullParse();
         size_t ExecuteRegionParse(size_t idxLineStart, size_t idxLineEnd);
     private:
@@ -196,7 +224,9 @@ class TextBuffer : public std::enable_shared_from_this<TextBuffer> {
         LanguageBase::Ref language = nullptr;
         std::thread *reparseThread = nullptr;
         std::mutex parseThreadLock;
-        std::deque<ParseJob> parseQueue;
+
+        std::binary_semaphore parseQueueEvent;
+        SafeQueue<ParseJob::Ref> parseQueue;
 
         bool bIsReadOnly = false;   // assume they are not
         bool bQuitReparse = false;

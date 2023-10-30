@@ -58,9 +58,8 @@ namespace gedit {
         void EndUndoItem(UndoHistory::UndoItem::Ref undoItem);
 
         void UpdateSyntaxForBuffer();   // Does a full buffer reparse of the syntax
-        void UpdateSyntaxForRegion(size_t idxStartLine, size_t idxEndLine); // Partial reparse (between line index)
-        void UpdateSyntaxForActiveLineRegion(size_t idxActiveLine); // Special partial case - activeline +/- 2 lines
-        void WaitForSyntaxCompletion();
+        Job::Ref UpdateSyntaxForRegion(size_t idxStartLine, size_t idxEndLine); // Partial reparse (between line index)
+        Job::Ref UpdateSyntaxForActiveLineRegion(size_t idxActiveLine); // Special partial case - activeline +/- 2 lines
 
         void PasteFromClipboard(LineCursor &lineCursor);
 
@@ -72,6 +71,8 @@ namespace gedit {
 
         void DeleteRange(const Point &startPos, const Point &endPos);
         void AddLineComment(size_t idxLineStart, size_t idxLineEnd, const std::u32string &lineCommentPrefix);
+        void IndentLines(size_t idxLineStart, size_t idxLineEnd);
+        void UnindentLines(size_t idxLineStart, size_t idxLineEnd);
     protected:
         void DeleteLinesNoSyntaxUpdate(size_t idxLineStart, size_t idxLineEnd);
         bool HandleSpecialKeyPressForEditor(Cursor &cursor, size_t &idxLine, const KeyPress &keyPress);

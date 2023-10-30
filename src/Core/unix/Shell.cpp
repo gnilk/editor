@@ -24,6 +24,7 @@
 #include "Core/StrUtil.h"
 #include "Core/Config/Config.h"
 #include "Shell.h"
+#include "Core/CompileTimeConfig.h"
 
 using namespace gedit;
 
@@ -159,10 +160,6 @@ int Shell::SendCmd(std::u32string &cmd) {
     return (write(infd[WRITE_END], strCmdUTF8.c_str(), strCmdUTF8.size()));
 }
 
-// Maximum 100ms per poll
-#ifndef GEDIT_DEFAULT_POLL_TMO_MS
-#define GEDIT_DEFAULT_POLL_TMO_MS 100
-#endif
 
 void Shell::ConsumePipes() {
     // PARENT
@@ -214,7 +211,7 @@ void Shell::ConsumePipes() {
         if ((fds[1].revents & POLLIN) && (onStderr != nullptr)) {
             ReadAndDispatch(fdErr, onStderr);
         }
-
+        std::this_thread::yield();
     }
 
 //    do {

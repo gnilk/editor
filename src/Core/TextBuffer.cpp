@@ -11,10 +11,11 @@
 #include <fstream>
 #include <sstream>
 #include "DurationTimer.h"
+#include "Core/CompileTimeConfig.h"
 
 using namespace gedit;
 
-TextBuffer::TextBuffer() {
+TextBuffer::TextBuffer() : parseQueueEvent(0) {
 }
 
 TextBuffer::Ref TextBuffer::CreateEmptyBuffer() {
@@ -48,6 +49,7 @@ TextBuffer::~TextBuffer() {
         while(GetParseState() != kState_None) {
             std::this_thread::yield();
         }
+        reparseThread->join();
     }
 }
 
@@ -55,7 +57,7 @@ TextBuffer::~TextBuffer() {
 void TextBuffer::Reparse() {
     // No language, don't do this...
     if (language == nullptr) {
-        return;
+        return ;
     }
     // When a workspace is opened, a lot of text-buffers are created 'passively' and are not loaded until activiated
     if(IsEmpty()) {
@@ -76,26 +78,27 @@ void TextBuffer::Reparse() {
     // Don't queue up full-parse job's unless we are idle
     // On large files this will literally never end and the queue will just fill up...
     if (GetParseState() == kState_Idle) {
-        StartParseJob(ParseJobType::kParseFull);
-        WaitForParseCompletion();
+        auto job = StartParseJob(ParseJobType::kParseFull);
+        job->WaitComplete();
+        Editor::Instance().TriggerUIRedraw();
     }
 }
 
-void TextBuffer::ReparseRegion(size_t idxStartLine, size_t idxEndLine) {
+Job::Ref TextBuffer::ReparseRegion(size_t idxStartLine, size_t idxEndLine) {
     // No language, don't do this...
     if (language == nullptr) {
-        return;
+        return nullptr;
     }
     // When a workspace is opened, a lot of text-buffers are created 'passively' and are not loaded until activated
     if(IsEmpty()) {
-        return;
+        return nullptr;
     }
 
     auto useThreads = Config::Instance()["main"].GetBool("threaded_syntaxparser", false);
 
     if (!useThreads) {
         ExecuteRegionParse(idxStartLine, idxEndLine);
-        return;
+        return nullptr;
     }
     if (reparseThread == nullptr) {
         StartParseThread();
@@ -104,34 +107,14 @@ void TextBuffer::ReparseRegion(size_t idxStartLine, size_t idxEndLine) {
     if (idxEndLine > (lines.size()-1)) {
         idxEndLine = lines.size();
     }
-    StartParseJob(ParseJobType::kParseRegion, idxStartLine, idxEndLine);
-}
-void TextBuffer::WaitForParseCompletion() {
-    // No language, don't do this...
-    if (language == nullptr) {
-        return;
-    }
-    // When a workspace is opened, a lot of text-buffers are created 'passively' and are not loaded until activated
-    if (IsEmpty()) {
-        return;
-    }
-
-    auto useThreads = Config::Instance()["main"].GetBool("threaded_syntaxparser", false);
-
-    if (!useThreads) {
-        return;
-    }
-
-    // Start job's wait until the jobs are started - so here we
-    // can assume that if IDLE we are already done, no need to check if the queue has items..
-    while (GetParseState() != kState_Idle) {
-        std::this_thread::yield();
-    }
+    auto job = StartParseJob(ParseJobType::kParseRegion, idxStartLine, idxEndLine);
+    return std::static_pointer_cast<Job>(job);
 }
 
 void TextBuffer::Close() {
     if (reparseThread != nullptr) {
         bQuitReparse = true;
+        parseQueueEvent.release();
         reparseThread->join();
         reparseThread = nullptr;
 
@@ -150,16 +133,10 @@ bool TextBuffer::CanEdit() {
     return false;
 }
 
-void TextBuffer::StartParseJob(TextBuffer::ParseJobType jobType, size_t idxLineStart, size_t idxLineEnd) {
-    parseThreadLock.lock();
-    ParseJob job = {
-            .jobType = jobType,
-            .idxLineStart = idxLineStart,
-            .idxLineEnd = idxLineEnd
-    };
-    parseQueue.push_front(job);
-    parseThreadLock.unlock();
-    // Note: We don't really care about kicking off the parse-job here
+TextBuffer::ParseJob::Ref TextBuffer::StartParseJob(TextBuffer::ParseJobType jobType, size_t idxLineStart, size_t idxLineEnd) {
+    auto job = ParseJob::Create(jobType, idxLineStart, idxLineEnd);
+    parseQueue.push(job);
+    return job;
 }
 
 void TextBuffer::ChangeParseState(ParseState newState) {
@@ -178,6 +155,20 @@ void TextBuffer::ChangeParseState(ParseState newState) {
     parseThreadLock.unlock();
 }
 
+void TextBuffer::ChangeParseState_NoLock(gedit::TextBuffer::ParseState newState) {
+//    static unordered_map<ParseState, std::string> stateToString = {
+//            {kState_None, "None"},
+//            {kState_Idle, "Idle"},
+//            {kState_Start, "Start"},
+//            {kState_Parsing, "Parsing"}
+//    };
+//    logger->Debug("ChangeParseState %s -> %s",
+//                  stateToString[GetParseState()].c_str(),
+//                  stateToString[newState].c_str());
+
+    parseState = newState;
+}
+
 
 void TextBuffer::StartParseThread() {
     // Do not start twice...
@@ -191,48 +182,41 @@ void TextBuffer::StartParseThread() {
     reparseThread = new std::thread([this]() {
         ParseThread();
     });
-    // Wait until the thread has become idle, first thing the thread is doing...
+    // Wait until the thread has become idle
     while(GetParseState() != kState_Idle) {
         std::this_thread::yield();
     }
 }
 
+
 void TextBuffer::ParseThread() {
+
     ChangeParseState(kState_Idle);
     while(!bQuitReparse) {
-        parseThreadLock.lock();
-        if (parseQueue.empty()) {
-            parseThreadLock.unlock();
-            std::this_thread::yield();
+        if (!parseQueue.wait(GEDIT_DEFAULT_POLL_TMO_MS)) {
             continue;
         }
-        parseThreadLock.unlock();
-
+        auto job = parseQueue.pop();
         ChangeParseState(kState_Parsing);
-        // Fetch job..
-        parseThreadLock.lock();
-        auto &job = parseQueue.front();
-        parseQueue.pop_front();
-        parseThreadLock.unlock();
-
-        // TO DO: Measure performance here
         DurationTimer durationTimer;
         ExecuteParseJob(job);
         auto duration = durationTimer.Sample();
-        logger->Debug("ParseThread, job completed. Duration=%ld ms, Type=%s", duration.count(), (job.jobType == ParseJobType::kParseFull)?"Full":"Region");
-        Editor::Instance().TriggerUIRedraw();
+        logger->Debug("ParseThread, job completed. Duration=%ld ms, Type=%s", duration.count(),
+                      (job->jobType == ParseJobType::kParseFull) ? "Full" : "Region");
 
+        Editor::Instance().TriggerUIRedraw();
         ChangeParseState(kState_Idle);
     }
     ChangeParseState(kState_None);
 }
 
-void TextBuffer::ExecuteParseJob(const ParseJob &job) {
-    if (job.jobType == ParseJobType::kParseFull) {
+void TextBuffer::ExecuteParseJob(const ParseJob::Ref &job) {
+    if (job->jobType == ParseJobType::kParseFull) {
         ExecuteFullParse();
-    } else if (job.jobType == ParseJobType::kParseRegion) {
-        ExecuteRegionParse(job.idxLineStart, job.idxLineEnd);
+    } else if (job->jobType == ParseJobType::kParseRegion) {
+        ExecuteRegionParse(job->idxLineStart, job->idxLineEnd);
     }
+    job->NotifyComplete();
 }
 
 void TextBuffer::ExecuteFullParse() {
@@ -355,35 +339,11 @@ bool TextBuffer::DoSave(const std::filesystem::path &pathName, bool skipChangeCh
 
     // Go back to 'clean' - i.e. data is loaded...
     ChangeBufferState(kBuffer_Loaded);
+    // Note: we don't trigger UI redraws from change-state, because that would lead to all hell on earth...
+    // unless we have somethine like 'DisableRedraw' / 'EnableRedraw'
+    Editor::Instance().TriggerUIRedraw();
     return true;
 }
-
-//void TextBuffer::SetPathName(const std::filesystem::path &newPathName) {
-//    pathName = newPathName;
-//    logger->Debug("SetPathName: %s", pathName.c_str());
-//    if ((bufferState == kBuffer_Loaded) || (bufferState == kBuffer_Changed)){
-//        // FIXME: Save here
-//    }
-//    UpdateLanguageParserFromFilename();
-//}
-//void TextBuffer::Rename(const std::string &newFileName) {
-//    pathName = pathName.parent_path().append(newFileName);
-//    logger->Debug("New name: %s", pathName.c_str());
-//    // FIXME: should probably save the file here
-//    if ((bufferState == kBuffer_Loaded) || (bufferState == kBuffer_Changed)){
-//        // FIXME: Save here
-//    }
-//    UpdateLanguageParserFromFilename();
-//}
-//void TextBuffer::UpdateLanguageParserFromFilename() {
-//    auto lang = Editor::Instance().GetLanguageForExtension(pathName.extension());
-//    if (lang != nullptr) {
-//        language = lang;
-//        if ((bufferState == kBuffer_Loaded) || (bufferState == kBuffer_Changed)) {
-//            Reparse();
-//        }
-//    }
-//}
 
 void TextBuffer::ChangeBufferState(BufferState newState) {
     bufferState = newState;
@@ -392,33 +352,39 @@ void TextBuffer::ChangeBufferState(BufferState newState) {
 void TextBuffer::OnLineChanged(const Line &line) {
     ChangeBufferState(kBuffer_Changed);
 
-    // auto save
-    auto &tc = RuntimeConfig::Instance().GetTimerController();
-    if (autoSaveTimer == nullptr) {
-        auto autoSaveTimeout = Config::Instance()["main"].GetInt("autosave_timeout_ms", 2000);
-        if (autoSaveTimeout > 0) {
-            Timer::DurationMS duration(autoSaveTimeout);
+    auto autoSaveTimeout = Config::Instance()["main"].GetInt("autosave_timeout_ms", 2000);
+    // Disabled?
+    if (autoSaveTimeout == 0) {
+        return;
+    }
+    Timer::DurationMS duration(autoSaveTimeout);
 
-            // Timer not created, so let's create the timer with a 2000msec timeout
-            autoSaveTimer = tc.CreateAndScheduleTimer(duration, [this]() {
-                // Timer kicked in - we are now in the timer-thread context!!!
-                // We should NOT do anything here - instead we post ourselves to the editor message queue (which is tied to the UI)
-                // this queue is emptied first on each run-loop/redraw iteration, this is the way...
-                RuntimeConfig::Instance().GetRootView().PostMessage([this]() {
-                    // Once here - we can retrieve the workspace node (which knows about the filename) for this TextBuffer
-                    // this is a bit convoluted but not done very often...
-                    auto model = Editor::Instance().GetModelFromTextBuffer(shared_from_this());
-                    auto node = Editor::Instance().GetWorkspaceNodeForModel(model);
-                    node->SaveData();
-                });
-            });
-        }
-    } else {
-        // On every change, let's restart the timer...
-        tc.RestartTimer(autoSaveTimer);
+    // Timer already created?   - just restart it...
+    if (autoSaveTimer != nullptr) {
+        logger->Debug("Restarting autosave timer!");
+        autoSaveTimer->Restart(duration);
+        return;
     }
 
+    logger->Debug("Autosave timer is null - creating!");
 
+    autoSaveTimer = Timer::Create(duration, [this]() {
+        logger->Debug("AutoSave Timer kicked in - posting message for save on main thread!");
+
+        // Timer kicked in - we are now in the timer-thread context!!!
+        // We should NOT do anything here - instead we post ourselves to the editor message queue (which is tied to the UI)
+        // this queue is emptied first on each run-loop/redraw iteration, this is the way...
+        RuntimeConfig::Instance().GetRootView().PostMessage([this]() {
+            // Once here - we can retrieve the workspace node (which knows about the filename) for this TextBuffer
+            // this is a bit convoluted but not done very often...
+            auto model = Editor::Instance().GetModelFromTextBuffer(shared_from_this());
+            auto node = Editor::Instance().GetWorkspaceNodeForModel(model);
+            node->SaveData();
+        });
+        // Trigger main thread...
+        logger->Debug("Triggering UI redraw");
+        Editor::Instance().TriggerUIRedraw();
+    });
 }
 
 //

@@ -3,6 +3,11 @@
 //
 /*
  * TO-DO List
+ * - Sometimes loose syntax highlight - mostly seen towards end-of-file, need some 'reparse all' functionality
+ *   or simply to use 'reparse-all' for any file < 1000 lines...
+ * - Paste from external only works first time, then it is always the same buffer
+ * - Fan's go bananas and CPU is max on the editor CPU...
+ *   - Rewrite 'TimerController', calculate time-to-next and 'sleep' that interval...
  * + Spotted another exception related to timers - but I think that was CPP-mode line bug
  * + Vertical navigation yet-again is acting strange on clipping when at the end of a file
  * - Delete some lines (upper 1/3 of file) and then page-down => segfault

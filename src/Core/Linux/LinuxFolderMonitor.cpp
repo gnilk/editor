@@ -10,6 +10,7 @@
 #include <cstring>
 
 #include "LinuxFolderMonitor.h"
+#include "Core/CompileTimeConfig.h"
 
 using namespace gedit;
 
@@ -63,10 +64,6 @@ bool LinuxFolderMonitorPoint::Stop() {
 
 #define BUF_LEN (10 * (sizeof(struct inotify_event) + NAME_MAX + 1))
 
-// Maximum 100ms per poll
-#ifndef GEDIT_DEFAULT_POLL_TMO_MS
-#define GEDIT_DEFAULT_POLL_TMO_MS 100
-#endif
 
 void LinuxFolderMonitorPoint::ScanThread() {
     ScanForDirectories(std::filesystem::path(pathToMonitor));
@@ -82,6 +79,7 @@ void LinuxFolderMonitorPoint::ScanThread() {
     char buf[BUF_LEN];
 
     while(!bQuitThread) {
+        // FIXME: Verify this
         auto poll_num = poll(fds, nfds, GEDIT_DEFAULT_POLL_TMO_MS);
         if (poll_num == -1) {
             if (errno == EINTR) continue;

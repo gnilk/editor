@@ -23,6 +23,8 @@ namespace gedit {
         }
         virtual KeyboardBaseMonitor *Monitor() { return nullptr; }
 
+        virtual void TempFuncReleaseKeyPressFunc() {}
+
     protected:
         bool debugMode = false;
     };

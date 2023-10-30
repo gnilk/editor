@@ -142,13 +142,17 @@ void WorkspaceView::PopulateTree() {
         excludePrefixList.push_back(".");
     }
 
+    auto isFolderMonitorEnabled = Config::Instance()["foldermonitor"].GetBool("enabled", true);
+
     // Traverse and add items
     auto desktops = workspace->GetDesktops();
     for(auto &[key, desktop] : desktops) {
         auto rootNode = desktop->GetRootNode();
         auto treeRoot = treeView->AddItem(rootNode);
 
-        desktop->StartFolderMonitor();
+        if (isFolderMonitorEnabled) {
+            desktop->StartFolderMonitor();
+        }
 
         // TODO: We can add to exclude list from the Desktop->FolderMonitor->ExcludeList
         FillTreeView(treeView, treeRoot, rootNode, excludePrefixList, expandCollapseCache);

@@ -217,9 +217,6 @@ void EditorView::HandleKeyPressWithSelection(const KeyPress &keyPress) {
         case Keyboard::kKeyCode_DeleteForward :
             editorModel->DeleteSelection();
             break;
-        case Keyboard::kKeyCode_Tab :
-            // Handle this - indent!
-            break;
         default: {
             // This is a bit ugly (understatement of this project so far...)
             // But any - valid - keypress should lead to the selection being deleted and the new key inserted...
@@ -285,6 +282,10 @@ bool EditorView::OnAction(const KeyPressAction &kpAction) {
     } else if (kpAction.action == kAction::kActionInsertLineComment) {
         // Handle this here since we want to keep the selection...
         editorModel->CommentSelectionOrLine();
+    } else if (kpAction.action == kAction::kActionIndent && editorModel->IsSelectionActive()) {
+        editorModel->IndentSelectionOrLine();
+    } else if (kpAction.action == kAction::kActionUnindent && editorModel->IsSelectionActive()) {
+        editorModel->UnindentSelectionOrLine();
     }
 
 
@@ -354,6 +355,10 @@ bool EditorView::DispatchAction(const KeyPressAction &kpAction) {
             return OnNextSearchResult();
         case kAction::kActionPrevSearchResult :
             return OnPrevSearchResult();
+        case kAction::kActionIndent :
+        case kAction::kActionUnindent :
+            OnKeyPress(kpAction.keyPress);
+            return true;
         default:
             break;
     }

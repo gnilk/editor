@@ -198,8 +198,8 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
             size_t idxStartParse = (idxActiveLine>2)?idxActiveLine-2:0;
             size_t idxEndParse = (textBuffer->NumLines() > (idxActiveLine + 2))?idxActiveLine+2:textBuffer->NumLines();
 
-            UpdateSyntaxForRegion(idxStartParse, idxEndParse);
-            WaitForSyntaxCompletion();
+            auto ptrJob = UpdateSyntaxForRegion(idxStartParse, idxEndParse);
+            ptrJob->WaitComplete();
 
             if (emptyLine != nullptr) {
                 logger->Debug("EmptyLine, inserting indent: %d", emptyLine->Indent());
@@ -226,24 +226,27 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
 
 void EditController::PasteFromClipboard(LineCursor &lineCursor) {
     logger->Debug("Paste from clipboard");
+    RuntimeConfig::Instance().GetScreen()->UpdateClipboardData();
     auto &clipboard = Editor::Instance().GetClipBoard();
-    if (clipboard.Top() != nullptr) {
-        auto nLines = clipboard.Top()->GetLineCount();
-        auto ptWhere = lineCursor.cursor.position;
-
-        auto undoItem = historyBuffer.NewUndoFromLineRange(lineCursor.idxActiveLine, lineCursor.idxActiveLine+nLines);
-        undoItem->SetRestoreAction(UndoHistory::kRestoreAction::kDeleteBeforeInsert);
-
-        ptWhere.y += (int)lineCursor.viewTopLine;
-        clipboard.PasteToBuffer(textBuffer, ptWhere);
-
-        EndUndoItem(undoItem);
-
-        textBuffer->ReparseRegion(lineCursor.idxActiveLine, lineCursor.idxActiveLine + nLines);
-
-        lineCursor.idxActiveLine += nLines;
-        lineCursor.cursor.position.y += nLines;
+    if (clipboard.Top() == nullptr) {
+        logger->Debug("Clipboard empty!");
+        return;
     }
+    auto nLines = clipboard.Top()->GetLineCount();
+    auto ptWhere = lineCursor.cursor.position;
+
+    auto undoItem = historyBuffer.NewUndoFromLineRange(lineCursor.idxActiveLine, lineCursor.idxActiveLine+nLines);
+    undoItem->SetRestoreAction(UndoHistory::kRestoreAction::kDeleteBeforeInsert);
+
+    ptWhere.y += (int)lineCursor.viewTopLine;
+    clipboard.PasteToBuffer(textBuffer, ptWhere);
+
+    EndUndoItem(undoItem);
+
+    textBuffer->ReparseRegion(lineCursor.idxActiveLine, lineCursor.idxActiveLine + nLines);
+
+    lineCursor.idxActiveLine += nLines;
+    lineCursor.cursor.position.y += nLines;
 }
 
 
@@ -252,20 +255,16 @@ void EditController::UpdateSyntaxForBuffer() {
     textBuffer->Reparse();
 }
 
-void EditController::UpdateSyntaxForRegion(size_t idxStartLine, size_t idxEndLine) {
+Job::Ref EditController::UpdateSyntaxForRegion(size_t idxStartLine, size_t idxEndLine) {
     logger->Debug("Syntax update for region %zu - %zu", idxStartLine, idxEndLine);
-    textBuffer->ReparseRegion(idxStartLine, idxEndLine);
+    return textBuffer->ReparseRegion(idxStartLine, idxEndLine);
 }
 
-void EditController::UpdateSyntaxForActiveLineRegion(size_t idxActiveLine) {
+Job::Ref EditController::UpdateSyntaxForActiveLineRegion(size_t idxActiveLine) {
     size_t idxStartParse = (idxActiveLine>2)?idxActiveLine-2:0;
     size_t idxEndParse = (textBuffer->NumLines() > (idxActiveLine + 2))?idxActiveLine+2:textBuffer->NumLines();
     logger->Debug("Syntax update for active line region, active line = %zu", idxActiveLine);
-    UpdateSyntaxForRegion(idxStartParse,idxEndParse);
-}
-
-void EditController::WaitForSyntaxCompletion() {
-    textBuffer->WaitForParseCompletion();
+    return UpdateSyntaxForRegion(idxStartParse,idxEndParse);
 }
 
 
@@ -289,6 +288,10 @@ void EditController::RemoveCharFromLineNoUndo(gedit::Cursor &cursor, Line::Ref l
     if (cursor.position.x > 0) {
         line->Delete(cursor.position.x-1);
         cursor.position.x--;
+        if (cursor.position.x < 0) {
+            cursor.position.x = 0;
+        }
+        cursor.wantedColumn = cursor.position.x;
     }
 }
 
@@ -336,6 +339,41 @@ void EditController::AddLineComment(size_t idxLineStart, size_t idxLineEnd, cons
     UpdateSyntaxForRegion(idxLineStart, idxLineEnd);
 }
 
+void EditController::IndentLines(size_t idxLineStart, size_t idxLineEnd) {
+    auto undoItem = historyBuffer.NewUndoFromLineRange(idxLineStart, idxLineEnd);
+    undoItem->SetRestoreAction(UndoHistory::kRestoreAction::kClearAndAppend);
+    historyBuffer.PushUndoItem(undoItem);
+
+    auto tabSize = GetTextBuffer()->GetLanguage().GetTabSize();
+    std::u32string strIndent;
+    for(int i=0;i<tabSize;i++) {
+        strIndent += U" ";
+    }
+
+    for (size_t idxLine = idxLineStart; idxLine < idxLineEnd; idxLine += 1) {
+        auto line = LineAt(idxLine);
+        line->Insert(0, strIndent);
+    }
+
+    UpdateSyntaxForRegion(idxLineStart, idxLineEnd);
+}
+void EditController::UnindentLines(size_t idxLineStart, size_t idxLineEnd) {
+    auto undoItem = historyBuffer.NewUndoFromLineRange(idxLineStart, idxLineEnd);
+    undoItem->SetRestoreAction(UndoHistory::kRestoreAction::kClearAndAppend);
+    historyBuffer.PushUndoItem(undoItem);
+
+    auto tabSize = GetTextBuffer()->GetLanguage().GetTabSize();
+
+    for (size_t idxLine = idxLineStart; idxLine < idxLineEnd; idxLine += 1) {
+        auto line = LineAt(idxLine);
+        line->Unindent(tabSize);
+    }
+
+    UpdateSyntaxForRegion(idxLineStart, idxLineEnd);
+
+}
+
+
 // Need cursor for undo...
 void EditController::DeleteLinesNoSyntaxUpdate(size_t idxLineStart, size_t idxLineEnd) {
     for(auto lineIndex = idxLineStart;lineIndex < idxLineEnd; lineIndex++) {
@@ -372,7 +410,7 @@ void EditController::DeleteRange(const Point &startPos, const Point &endPos) {
         startLine->Delete(startPos.x, startLine->Length()-startPos.x);
         y++;
     }
-    // FIXME: Special case, when (endPos.x == 0) && (start.x > 0) && (start.y != end.y) -> we should pull the last FULL line upp to start.x
+    // FIX-ME: Special case, when (endPos.x == 0) && (start.x > 0) && (start.y != end.y) -> we should pull the last FULL line upp to start.x
     // Perhaps easier, if startPos.x > 0 and start.y != end.y we should concat the endpos line
     // I.e. no need for the if-case below, it can be integrated in to the upper if-case and solved directly (which makes it easier)
 

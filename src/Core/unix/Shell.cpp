@@ -24,6 +24,7 @@
 #include "Core/StrUtil.h"
 #include "Core/Config/Config.h"
 #include "Shell.h"
+#include "Core/CompileTimeConfig.h"
 
 using namespace gedit;
 
@@ -159,11 +160,6 @@ int Shell::SendCmd(std::u32string &cmd) {
     return (write(infd[WRITE_END], strCmdUTF8.c_str(), strCmdUTF8.size()));
 }
 
-// Maximum 100ms per poll
-#ifndef GEDIT_DEFAULT_POLL_TMO_MS
-// FIXME: Poll tmo in a common place - shared with LinuxFolderMonitor.cpp
-#define GEDIT_DEFAULT_POLL_TMO_MS 1000
-#endif
 
 void Shell::ConsumePipes() {
     // PARENT
@@ -199,7 +195,6 @@ void Shell::ConsumePipes() {
     fds[1].events = POLLIN;
 
     while(true) {
-        // FIXME: Verify this
         int poll_num = poll(fds, nfds, GEDIT_DEFAULT_POLL_TMO_MS);
         if (poll_num == -1) {
             if (errno == EINTR) continue;

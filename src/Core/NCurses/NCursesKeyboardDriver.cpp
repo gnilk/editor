@@ -116,7 +116,11 @@ KeyPress NCursesKeyboardDriver::GetKeyPress() {
         keyPress.isHwEventValid = true;
         // Remove and assign the last to match with the getch
         while (!kbdEvents.empty()) {
-            keyPress.hwEvent = kbdEvents.pop();
+             auto event = kbdEvents.pop();
+             if (!event.has_value()) {
+                 break;
+             }
+            keyPress.hwEvent = *event;
         }
     } else {
         if (ch != ERR) {

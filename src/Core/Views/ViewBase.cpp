@@ -21,7 +21,11 @@ int ViewBase::ProcessMessageQueue() {
     // We should create a copy first and the process the copy...
     int nMessages = 0;
     while(!threadMessages.empty()) {
-        auto handler = threadMessages.pop();
+        auto msgHandler = threadMessages.pop();
+        if (!msgHandler.has_value()) {
+            break;
+        }
+        auto handler = *msgHandler;
         handler();
         nMessages++;
     }

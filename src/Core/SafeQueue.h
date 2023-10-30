@@ -8,6 +8,7 @@
 #include <queue>
 #include <mutex>
 #include <condition_variable>
+#include <optional>
 
 // Thread safe queue
 template <class T>
@@ -48,7 +49,7 @@ public:
 
     // Get the "front"-element.
     // If the queue is empty, wait until an element becomes available
-    T pop(void)
+    std::optional<T> pop(void)
     {
         std::unique_lock<std::mutex> lock(m);
         while(q.empty())
@@ -56,6 +57,11 @@ public:
             // wait - forever...
             c.wait(lock);
         }
+        // Stopped?
+        if (q.empty()) {
+            return {};
+        }
+
         T val = q.front();
         q.pop();
         return val;

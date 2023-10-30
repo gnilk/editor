@@ -196,7 +196,11 @@ void TextBuffer::ParseThread() {
         if (!parseQueue.wait(GEDIT_DEFAULT_POLL_TMO_MS)) {
             continue;
         }
-        auto job = parseQueue.pop();
+        auto jobItem = parseQueue.pop();
+        if (!jobItem.has_value()) {
+            break;
+        }
+        auto job = *jobItem;
         ChangeParseState(kState_Parsing);
         DurationTimer durationTimer;
         ExecuteParseJob(job);

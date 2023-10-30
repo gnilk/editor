@@ -9,21 +9,18 @@
 #include <mutex>
 #include <condition_variable>
 
-// A threadsafe-queue.
+// Thread safe queue
 template <class T>
 class SafeQueue
 {
 public:
     using DurationMS = std::chrono::duration<uint64_t, std::ratio<1,1000> >;
 public:
-    SafeQueue(void)
-            : q()
-            , m()
-            , c()
-    {}
-
-    ~SafeQueue(void)
-    {}
+    SafeQueue() = default;
+    // FIX-ME: should we do 'c.notify_one' in case someone is stuck
+    virtual ~SafeQueue() {
+        c.notify_one();
+    }
 
     // Add an element to the queue.
     void push(T t)
@@ -38,22 +35,25 @@ public:
         return q.empty();
     }
 
+    // Wait for an element - IF the queue is empty
     bool wait(uint64_t durationMs) {
         std::unique_lock<std::mutex> lock(m);
-        if (c.wait_for(lock, DurationMS(durationMs)) == std::cv_status::timeout) {
-            return false;
+        if(q.empty()) {
+            if (c.wait_for(lock, DurationMS(durationMs)) == std::cv_status::timeout) {
+                return false;
+            }
         }
         return true;
     }
 
     // Get the "front"-element.
-    // If the queue is empty, wait till a element is avaiable.
+    // If the queue is empty, wait until an element becomes available
     T pop(void)
     {
         std::unique_lock<std::mutex> lock(m);
         while(q.empty())
         {
-            // release lock as long as the wait and reaquire it afterwards.
+            // wait - forever...
             c.wait(lock);
         }
         T val = q.front();
@@ -62,9 +62,9 @@ public:
     }
 
 private:
-    std::queue<T> q;
-    mutable std::mutex m;
-    std::condition_variable c;
+    std::queue<T> q = {};
+    mutable std::mutex m = {};
+    std::condition_variable c = {};
 };
 
 

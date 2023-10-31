@@ -201,19 +201,17 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
             auto ptrJob = UpdateSyntaxForRegion(idxStartParse, idxEndParse);
             ptrJob->WaitComplete();
 
+            // Syntax update complete - we can now properly indent the line...
+            auto newX = tabSize * newLine->Indent(tabSize);
+
+            // Did we create an empty extra line? - if so, let's indent it properly
             if (emptyLine != nullptr) {
                 logger->Debug("EmptyLine, inserting indent: %d", emptyLine->GetIndent());
-                cursorXPos = emptyLine->Indent(tabSize);
-                //cursorXPos = emptyLine->Insert(0, emptyLine->Indent() * tabSize, ' ');
+                cursorXPos = tabSize * emptyLine->Indent(tabSize);
+            } else {
+                cursorXPos = newX;
             }
 
-            auto newX = tabSize * newLine->Indent(tabSize);
-            //auto newX = newLine->Insert(0, currentLine->Indent() * tabSize, ' ');
-            // Only assign if not yet done...
-            if (cursorXPos == 0) {
-                cursorXPos = newX;
-                logger->Debug("NewLine, indent=%d, cursorX = %d", newLine->GetIndent(), cursorXPos);
-            }
             idxActiveLine++;
         }
     }

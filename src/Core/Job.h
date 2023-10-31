@@ -10,23 +10,35 @@
 #include <condition_variable>
 
 namespace gedit {
+    // DO NOT REUSE!
     class Job {
     public:
         using Ref = std::shared_ptr<Job>;
     public:
         Job() = default;
         virtual ~Job() = default;
-        void WaitComplete() {
-            static std::mutex waitMutex;
-            std::unique_lock lk(waitMutex);
-            completionCond.wait(lk);
+        void Begin() {
+            workMutex.lock();
         }
 
         void NotifyComplete() {
+            workMutex.unlock();
             completionCond.notify_all();
+            isComplete = true;
         }
 
+        void WaitComplete() {
+            std::unique_lock lk(workMutex);
+            while(!isComplete) {
+                completionCond.wait(lk);
+            }
+            isComplete = false;
+        }
+
+
     private:
+        bool isComplete = false;
+        std::mutex workMutex;
         std::condition_variable completionCond;
     };
 

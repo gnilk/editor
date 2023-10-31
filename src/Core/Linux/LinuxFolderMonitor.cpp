@@ -10,7 +10,9 @@
 #include <cstring>
 
 #include "LinuxFolderMonitor.h"
+#include "Core/Config/Config.h"
 #include "Core/CompileTimeConfig.h"
+#include "Core/Editor.h"
 
 using namespace gedit;
 
@@ -145,9 +147,20 @@ void LinuxFolderMonitorPoint::ScanForDirectories(std::filesystem::path path) {
 
     AddMonitorItem(path);
 
+    auto cfgMonitor = Config::Instance().GetNode("foldermonitor");
+    auto foldersToExclude = cfgMonitor.GetSequenceOfStr("exclude");
+
     for(const auto &dirEntry : std::filesystem::recursive_directory_iterator(path)) {
         if (!is_directory(dirEntry.path())) continue;
-        printf("%s\n", dirEntry.path().c_str());
+
+        auto itFound = std::find_if(foldersToExclude.begin(), foldersToExclude.end(), [&dirEntry](const std::string &f){
+            return (dirEntry.path().string().find(f) != std::string::npos);
+
+        });
+        if (itFound != foldersToExclude.end()) {
+            logger->Debug("Excluding: %s", dirEntry.path().c_str());
+            continue;
+        }
         AddMonitorItem(dirEntry.path());
     }
 }
@@ -165,6 +178,8 @@ bool LinuxFolderMonitorPoint::AddMonitorItem(std::filesystem::path pathToFolder)
 }
 
 void LinuxFolderMonitorPoint::StartWatchers() {
+
+
     for(auto &item : monitorList) {
         if (item.wd >= 0) {
             continue;
@@ -172,9 +187,10 @@ void LinuxFolderMonitorPoint::StartWatchers() {
         // FIXME: No need to pass in 'IN_ALL_EVENTS'
         item.wd = inotify_add_watch(iNotifyFd, item.path.c_str(), IN_ONESHOT | IN_CREATE | IN_DELETE);
         if (item.wd < 0) {
-            logger->Debug("Failed watcher on item: %s\n", item.path.c_str());
+            logger->Error("Failed watcher on item: %s\n", item.path.c_str());
+            continue;
         }
-        printf("Ok, monitoring: %s\n", item.path.c_str());
+        logger->Info("Monitoring: %s", item.path.c_str());
         watchers[item.wd] = item.path;
     }
 }

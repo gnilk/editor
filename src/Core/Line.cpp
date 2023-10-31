@@ -162,6 +162,17 @@ int Line::Unindent(size_t tabSize) {
     return maxLen;
 }
 
+int Line::Indent(size_t tabSize) {
+
+    auto nChars = tabSize * indent;
+    for (int i = 0; i < tabSize * indent; i++) {
+        buffer.insert(0, U" ");
+    }
+
+    NotifyChangeHandler();
+    return indent;
+}
+
 Line::LineAttribIterator Line::AttributeAt(int pos) {
     for(size_t i=0;i<attribs.size()-1;i++) {
         if ((pos >= attribs[i].idxOrigString) && (pos < attribs[i+1].idxOrigString)) {

@@ -26,7 +26,7 @@ size_t LangLineTokenizer::ParseRegion(std::vector<Line::Ref> &lines, size_t idxL
     size_t nMaxLines = Config::Instance()["languages"].GetInt("regionMaxLines", 1000);
 
     PushState(startState.c_str());
-    int nextIndent = lines[idxStart]->Indent();
+    int nextIndent = lines[idxStart]->GetIndent();
 
     logger->Debug("ParseRegion mapped, idxStart=%zu => %zu, idxEnd=%zu => %zu, stateStack=%zu",
                   idxLineStart, idxStart, idxStart, idxEnd,stateStack.size());

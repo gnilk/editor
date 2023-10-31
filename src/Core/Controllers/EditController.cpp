@@ -163,7 +163,7 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
     int cursorXPos = 0;
 
     if (currentLine != nullptr) {
-        logger->Debug("NewLine, current=%s [indent=%d]", UnicodeHelper::utf32toascii(currentLine->Buffer().data()).c_str(), currentLine->Indent());
+        logger->Debug("NewLine, current=%s [indent=%d]", UnicodeHelper::utf32toascii(currentLine->Buffer().data()).c_str(), currentLine->GetIndent());
     }
 
     Line::Ref emptyLine = nullptr;
@@ -202,15 +202,17 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
             ptrJob->WaitComplete();
 
             if (emptyLine != nullptr) {
-                logger->Debug("EmptyLine, inserting indent: %d", emptyLine->Indent());
-                cursorXPos = emptyLine->Insert(0, emptyLine->Indent() * tabSize, ' ');
+                logger->Debug("EmptyLine, inserting indent: %d", emptyLine->GetIndent());
+                cursorXPos = emptyLine->Indent(tabSize);
+                //cursorXPos = emptyLine->Insert(0, emptyLine->Indent() * tabSize, ' ');
             }
 
-            auto newX = newLine->Insert(0, currentLine->Indent() * tabSize, ' ');
+            auto newX = tabSize * newLine->Indent(tabSize);
+            //auto newX = newLine->Insert(0, currentLine->Indent() * tabSize, ' ');
             // Only assign if not yet done...
             if (cursorXPos == 0) {
                 cursorXPos = newX;
-                logger->Debug("NewLine, indent=%d, cursorX = %d", newLine->Indent(), cursorXPos);
+                logger->Debug("NewLine, indent=%d, cursorX = %d", newLine->GetIndent(), cursorXPos);
             }
             idxActiveLine++;
         }

@@ -215,6 +215,7 @@ void TextBuffer::ParseThread() {
 }
 
 void TextBuffer::ExecuteParseJob(const ParseJob::Ref &job) {
+    job->Begin();
     if (job->jobType == ParseJobType::kParseFull) {
         ExecuteFullParse();
     } else if (job->jobType == ParseJobType::kParseRegion) {

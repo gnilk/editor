@@ -184,6 +184,7 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
             currentLine->Move(newLine, 0, cursor.position.x);
 
             // Defer to the language parser if we should auto-insert a new line or not..
+            // For instance, if you press enter next to '}' in CPP we insert another line and indent that..
             if (textBuffer->GetLanguage().OnPreCreateNewLine(newLine) == LanguageBase::kInsertAction::kNewLine) {
                 // Insert an empty line - this will be the new active line...
                 logger->Debug("Creating empty line...");
@@ -202,14 +203,13 @@ size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
             ptrJob->WaitComplete();
 
             // Syntax update complete - we can now properly indent the line...
-            auto newX = tabSize * newLine->Indent(tabSize);
+            cursorXPos = tabSize * newLine->Indent(tabSize);
 
-            // Did we create an empty extra line? - if so, let's indent it properly
+            // Did we create an empty extra line? - if so, let's indent it properly.
+            // note: we overwrite the cursor X as we will be positioned ourselves on this line
             if (emptyLine != nullptr) {
                 logger->Debug("EmptyLine, inserting indent: %d", emptyLine->GetIndent());
                 cursorXPos = tabSize * emptyLine->Indent(tabSize);
-            } else {
-                cursorXPos = newX;
             }
 
             idxActiveLine++;

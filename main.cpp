@@ -5,9 +5,6 @@
  * TO-DO List
  * - Sometimes loose syntax highlight - mostly seen towards end-of-file, need some 'reparse all' functionality
  *   or simply to use 'reparse-all' for any file < 1000 lines...
- * - Paste from external only works first time, then it is always the same buffer
- * - Fan's go bananas and CPU is max on the editor CPU...
- *   - Rewrite 'TimerController', calculate time-to-next and 'sleep' that interval...
  * + Spotted another exception related to timers - but I think that was CPP-mode line bug
  * + Vertical navigation yet-again is acting strange on clipping when at the end of a file
  * - Delete some lines (upper 1/3 of file) and then page-down => segfault
@@ -19,7 +16,6 @@
  *   Introduce a 'FolderMonitor' section in the config, should have 'Enable', 'Exclude'-list (glob-patterns)
  * - Introduce some delay in the monitoring allowing for add/remove before we refresh the editor
      Monitoring a path that changes quickly (like the build directory) will cause seg-faults
- * - Undo does not properly reparse the area of the re-pasted data
  * + There are segfaults in copy/paste
  * - Adding an additional ')' when the previous char is '(' should be ignored, typing: '(',')' inserts an extra ')'
  * + Revisit the 'Workspace::NewModel' and friends - there are too much similarity in these functions
@@ -62,6 +58,10 @@
  *   need to consider a solution for this...
  *
  * Done:
+ * ! Undo does not properly reparse the area of the re-pasted data
+ * ! Paste from external only works first time, then it is always the same buffer
+ * ! Fan's go bananas and CPU is max on the editor CPU...
+ *   ! Rewrite 'TimerController', calculate time-to-next and 'sleep' that interval...
  * [!] Not seen anymore: Large(?) files issue, after searching for an item and jumping to next a couple of times - scrolling up doesn't properly reposition view (need to scroll down first)
  * ! Delete a selection which start's at X (col) > 0 and ends on another line with col == 0 will remove one line too much
  * ! Spotted exception when in an empty file typing a line (CPP) mode ending with {} and pressing enter

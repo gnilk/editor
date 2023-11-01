@@ -30,6 +30,9 @@ namespace gedit {
             Ref parent = nullptr;
             bool isExpanded = false;
 
+            // this one is clipped and mutiliated during drawing - should now be relied on for anything
+            std::string drawString = {};    // filled in during 'Flatten'
+
             int indent = 0;
 
             std::vector<Ref> children = {};
@@ -71,6 +74,8 @@ namespace gedit {
             lineCursor = &treeLineCursor;
             treeLineCursor.viewTopLine = 0;
             treeLineCursor.viewBottomLine = viewRect.Height();
+            // This will recompute the draw-strings
+            Flatten();
         }
 
         const T &GetCurrentSelectedItem() {
@@ -188,6 +193,31 @@ namespace gedit {
             return treeLineCursor;
         }
 
+        void ExpandViewToWidestItem() {
+            if (flattenNodeList.empty()) return;
+
+            int widthMax = 0;
+
+            for(auto &node : flattenNodeList) {
+                auto strWidth = node->drawString.length() + node->indent;
+                if (strWidth > widthMax) {
+                    widthMax = strWidth;
+                }
+            }
+
+            // This can only happen when we are rendering
+            auto lhandler = GetLayoutHandler();
+            if (lhandler == nullptr) return;
+            lhandler->SetWidth(widthMax);
+
+            // If this is called during first initialization we don't have the root view yet..
+            if (RuntimeConfig::Instance().HasRootView()) {
+                RuntimeConfig::Instance().GetRootView().Initialize();
+                RuntimeConfig::Instance().GetRootView().InvalidateAll();
+            }
+        }
+
+
     protected:
 
         typename TreeNode::Ref FindNodeForItem(typename TreeNode::Ref node, const T &item) {
@@ -209,15 +239,33 @@ namespace gedit {
                 ExpandToNode(node->parent);
             }
         }
+
+        void AdjustNodeDrawStrings() {
+            auto widthMax = viewRect.Width();
+            for(auto &node : flattenNodeList) {
+                auto strWidth = node->drawString.length() + node->indent;
+
+                if (strWidth < widthMax) continue;
+
+                // erase last three chars and replace with '...'
+                // sanity check for short strings
+                if (strWidth > (node->indent + 6)) {
+                    node->drawString.erase(widthMax - node->indent - 3);
+                    node->drawString += "...";
+                }
+            }
+        }
+
         // Note: Depends on flattening
         void DrawViewContents() override {
             auto &dc = window->GetContentDC();
             dc.ResetDrawColors();
 
+            AdjustNodeDrawStrings();
+
             auto theme = Editor::Instance().GetTheme();
             auto &uiColors = theme->GetUIColors();
             dc.SetColor(uiColors["foreground"], uiColors["background"]);
-
 
             for(auto i=treeLineCursor.viewTopLine;i<treeLineCursor.viewBottomLine;i++) {
                 if (i >= flattenNodeList.size()) {
@@ -225,17 +273,9 @@ namespace gedit {
                 }
                 int yPos = i - treeLineCursor.viewTopLine;
                 auto &node = flattenNodeList[i];
-                auto str = cbToString(node->data);
+                auto &str = node->drawString;
 
-                if (node->children.size() > 0) {
-                    if (node->isExpanded) {
-                        str = "-" + str;
-                    } else {
-                        str = "+" + str;
-                    }
-                } else {
-                    str = " " + str;
-                }
+
                 dc.FillLine(yPos, kTextAttributes::kNormal, ' ');
                 if (i == treeLineCursor.idxActiveLine) {
                     dc.FillLine(yPos, kTextAttributes::kNormal | kTextAttributes::kInverted, ' ');
@@ -260,6 +300,27 @@ namespace gedit {
 
         int FlattenFromNode(int idxLine, typename TreeNode::Ref node, int indent) {
             node->indent = indent;
+
+
+            auto str = cbToString(node->data);
+
+            if (node->children.size() > 0) {
+                if (node->isExpanded) {
+                    str = "-" + str;
+                } else {
+                    str = "+" + str;
+                }
+            } else {
+                str = " " + str;
+            }
+
+            if (str == " file_with_very_long_name_should_be_ui_issue.txt") {
+                int breakme = 1;
+            }
+
+            node->drawString = str;
+
+
             flattenNodeList.emplace_back(node);
             idxLine += 1;
             if (node->isExpanded) {

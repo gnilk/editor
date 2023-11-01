@@ -3,6 +3,7 @@
 //
 /*
  * TO-DO List
+ * - Move as much out from EditorView/CommandView/QuickView/WorkspaceView as possible and put in resp. controller
  * - Sometimes loose syntax highlight - mostly seen towards end-of-file, need some 'reparse all' functionality
  *   or simply to use 'reparse-all' for any file < 1000 lines...
  * + Spotted another exception related to timers - but I think that was CPP-mode line bug
@@ -32,6 +33,7 @@
  * - Swap out the vertical navigation code in EditorView for the 'VerticalNavigationModel'
  *
  * Bigger features:
+ * - Need new UI => Take what we learned and incorporate
  * - Allow editor view to be a HexView
  * - Make something to hold a 'builder' (I need somewhere to store build-errors and present them nicely)
  *   Later this can go into the project configuration, which is executed through a '.build'-command

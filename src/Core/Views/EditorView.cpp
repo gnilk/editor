@@ -163,6 +163,7 @@ void EditorView::OnActivate(bool isActive) {
 }
 
 void EditorView::OnKeyPress(const KeyPress &keyPress) {
+    // This can all be pushed to controller / model
     if (editorModel == nullptr) {
         return;
     }
@@ -197,6 +198,7 @@ void EditorView::OnKeyPress(const KeyPress &keyPress) {
     ViewBase::OnKeyPress(keyPress);
 }
 
+// Move to controller
 void EditorView::HandleKeyPressWithSelection(const KeyPress &keyPress) {
 
     auto &selection = editorModel->GetSelection();
@@ -243,6 +245,7 @@ void EditorView::HandleKeyPressWithSelection(const KeyPress &keyPress) {
 // Add actions here - all except human-readable inserting of text
 //
 bool EditorView::OnAction(const KeyPressAction &kpAction) {
+    // Move to controller
     if (editorModel == nullptr) {
         return false;
     }
@@ -388,6 +391,7 @@ bool EditorView::DispatchAction(const KeyPressAction &kpAction) {
 //    return true;
 //}
 
+// Move all actions to controller/model...
 bool EditorView::OnActionUndo() {
     //editorModel->GetTextBuffer()->Undo();
     auto &lineCursor = editorModel->GetLineCursor();

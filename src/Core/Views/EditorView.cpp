@@ -674,8 +674,15 @@ std::pair<std::u32string, std::u32string> EditorView::GetStatusBarInfo() {
     // resolve right status
     auto &lineCursor = model->GetLineCursor();
 
+    int indent = -1;
+    auto line = model->LineAt(lineCursor.idxActiveLine);
+    if (line != nullptr) {
+        indent = line->GetIndent();
+    }
+
     // Show Line:Row or more 'x/y' -> Configureation!
-    auto strtmp = fmt::format(U"l: {}, c({}:{})",
+    auto strtmp = fmt::format(U"id: {} l: {}, c({}:{})",
+                              indent,
                               strutil::itou32(lineCursor.idxActiveLine),
                               strutil::itou32(lineCursor.cursor.position.y),
                               strutil::itou32(lineCursor.cursor.position.x));

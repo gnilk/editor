@@ -56,7 +56,11 @@ namespace gedit {
 
         std::pair<float, float>CoordsToScreen(float x, float y) const;
 
-    private:
+        // tmp
+        bool ClipX(int &x1, int &width) const;
+
+
+            private:
         SDL_Renderer *renderer;
         SDL_Texture *renderTarget;
     };

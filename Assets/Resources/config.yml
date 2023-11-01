@@ -7,7 +7,7 @@ main:
   threaded_syntaxparser: yes
   # time in milliseconds before automatically saving a file after changes...
   # 0 disables autosave
-  autosave_timeout_ms: 2000
+  autosave_timeout_ms: 1000
   plugin_directory: Plugins
   bootstrap_script_comment: "//"
   cmdlet_prefix: "."
@@ -27,6 +27,7 @@ logging:
     - "System"
     - "VNavModel"
     - "EditorView"
+    - "TextBuffer"
 
 
 foldermonitor:
@@ -80,6 +81,8 @@ editorview:
 workspaceview:
   keymap: "workspace_keymap"
   switch_to_editor_on_openfile: yes
+  auto_expand_view: yes
+  hide_dot_files: no
 
 #
 # Add ability to include user-name, and other things here (working dir???)

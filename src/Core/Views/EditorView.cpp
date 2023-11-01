@@ -82,6 +82,7 @@ void EditorView::ReInitView() {
     HandleResize(viewRect);
 }
 
+// FIXME: This is never used!!!
 void EditorView::OnResized() {
     // Update the view Bottom line - as this affects how many lines we draw...
     auto &lineCursor = editorModel->GetLineCursor();
@@ -303,6 +304,11 @@ bool EditorView::OnAction(const KeyPressAction &kpAction) {
         logger->Debug(" Selection is Active, start=(%d:%d), end=(%d:%d)",
                       editorModel->GetSelection().GetStart().x, editorModel->GetSelection().GetStart().y,
                       editorModel->GetSelection().GetEnd().x, editorModel->GetSelection().GetEnd().y);
+    }
+
+    if (!result) {
+        // not for us
+        result = ViewBase::OnAction(kpAction);
     }
 
     return result;

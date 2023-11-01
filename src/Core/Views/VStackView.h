@@ -43,6 +43,7 @@ namespace gedit {
         void AddSubView(ViewBase *view, kLayout layout) {
             StackableView stackView = {.layout = layout, .view = view};
             viewStack.push_back(stackView);
+            view->SetLayoutHandler(this);
             AddView(view);
             RecomputeLayout();
         }
@@ -113,6 +114,16 @@ namespace gedit {
                 // Need too call initialize, if the view has already been initalized this will call 'reinit' which moves the view
                 view.view->Initialize();
             }
+        }
+    public:// Layout handling
+        bool LayoutChangeWidth(int newWidth) {
+            auto w = GetWidth();
+            SetWidth(w + 1);
+
+            RuntimeConfig::Instance().GetRootView().Initialize();
+            RuntimeConfig::Instance().GetRootView().InvalidateAll();
+
+            return true;
         }
     protected:
         std::vector<StackableView> viewStack;

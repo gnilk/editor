@@ -75,6 +75,9 @@ static std::unordered_map<std::string, kAction> strToActionMap = {
         {"Unindent",            kAction::kActionUnindent},
         {"UIIncreaseViewWidth", kAction::kActionIncreaseViewWidth},
         {"UIDecreaseViewWidth", kAction::kActionDecreaseViewWidth},
+        {"UIIncreaseViewHeight", kAction::kActionIncreaseViewHeight},
+        {"UIDecreaseViewHeight", kAction::kActionDecreaseViewHeight},
+        {"UIMaximizeViewHeight", kAction::kActionMaximizeViewHeight},
 };
 
 

@@ -76,6 +76,9 @@ namespace gedit {
         // UI Actions
         kActionIncreaseViewWidth,
         kActionDecreaseViewWidth,
+        kActionIncreaseViewHeight,
+        kActionDecreaseViewHeight,
+        kActionMaximizeViewHeight,
     };
 
     class ActionItem {

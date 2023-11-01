@@ -18,6 +18,7 @@
 #include "Core/KeypressAndActionHandler.h"
 
 namespace gedit {
+
     // Should never be used on it's own...
     class ViewBase : public KeypressAndActionHandler {
     public:
@@ -54,11 +55,17 @@ namespace gedit {
         }
 
         // this is just a shortcut
-        virtual void SetWidth(int newWidth) final {
+        virtual void SetWidth(int newWidth) {
             viewRect.SetWidth(newWidth);
         }
-        virtual void SetHeight(int newHeight) final {
+        virtual void SetHeight(int newHeight) {
             viewRect.SetHeight(newHeight);
+        }
+        virtual int GetWidth() final {
+            return viewRect.Width();
+        }
+        virtual int GetHeight() final {
+            return viewRect.Height();
         }
         virtual void AdjustHeight(int deltaHeight) {
             // we do nothing, you are supposed to override this
@@ -201,9 +208,7 @@ namespace gedit {
         bool HandleAction(const KeyPressAction &action) override {
             return OnAction(action);
         }
-        void HandleKeyPress(const KeyPress &keyPress) override {
-            OnKeyPress(keyPress);
-        }
+        void HandleKeyPress(const KeyPress &keyPress) override;
 
         virtual void OnKeyPress(const KeyPress &keyPress) {
             if (parentView != nullptr) {
@@ -211,9 +216,7 @@ namespace gedit {
             }
         }
 
-        virtual bool OnAction(const KeyPressAction &action) {
-            return false;
-        }
+        virtual bool OnAction(const KeyPressAction &action);
 
         virtual void PostMessage(MessageCallback callback) final;
         virtual int ProcessMessageQueue() final;
@@ -235,6 +238,22 @@ namespace gedit {
         virtual std::pair<std::u32string, std::u32string> GetStatusBarInfo() {
             return {U"",U""};
         }
+
+        void SetLayoutHandler(ViewBase *newLayoutHandler) {
+            layoutHandler = newLayoutHandler;
+        }
+
+        ViewBase *GetLayoutHandler() {
+            if (layoutHandler == nullptr) {
+                // During startup...
+                if (parentView != nullptr) {
+                    return parentView->GetLayoutHandler();
+                }
+                return nullptr;
+            }
+            return layoutHandler;
+        }
+
         //
         // Override these to handles, they are called in an event kind of manner on certain actions
         //
@@ -291,6 +310,9 @@ namespace gedit {
             OnViewInitialized();
         }
 
+        void OnActionIncreaseWidth();
+        void OnActionDecreaseWidth();
+
     protected:
         bool hasExplicitSize = false;  // Won't be affected by resize
         bool isActive = false;  // If receiving keyboard/mouse input
@@ -298,6 +320,7 @@ namespace gedit {
         Cursor cursor = {};
         std::vector<ViewBase *> subviews = {};
         WindowBase *window = nullptr;       // The underlying graphical window
+        ViewBase *layoutHandler = nullptr;
         ViewBase *parentView = nullptr;
         ViewBase *modal = nullptr;
         Rect viewRect = {};

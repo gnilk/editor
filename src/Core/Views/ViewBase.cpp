@@ -40,3 +40,64 @@ void ViewBase::SetWindowCursor(const Cursor &newCursor) {
         window->SetCursor(newCursor);
     }
 }
+
+
+void ViewBase::HandleKeyPress(const KeyPress &keyPress) {
+    OnKeyPress(keyPress);
+    if (keyPress.isSpecialKey) {
+        //
+//        if (keyPress.specialKey == Keyboard::kKeyCode_F5) {
+//            auto lhandler = GetLayoutHandler();
+//            auto w = lhandler->GetWidth();
+//            if (w > 24) {
+//                lhandler->SetWidth(w + 1);
+//            }
+//            RuntimeConfig::Instance().GetRootView().Initialize();
+//            RuntimeConfig::Instance().GetRootView().InvalidateAll();
+//        } else if (keyPress.specialKey == Keyboard::kKeyCode_F8) {
+//            auto lhandler = GetLayoutHandler();
+//            auto w = lhandler->GetWidth();
+//            lhandler->SetWidth(w + 1);
+//
+//            RuntimeConfig::Instance().GetRootView().Initialize();
+//            RuntimeConfig::Instance().GetRootView().InvalidateAll();
+//        }
+    }
+}
+
+bool ViewBase::OnAction(const KeyPressAction &kpAction) {
+    bool result = true;
+    switch(kpAction.action) {
+        case kAction::kActionIncreaseViewWidth :
+            OnActionIncreaseWidth();
+            break;
+        case kAction::kActionDecreaseViewWidth :
+            OnActionDecreaseWidth();
+            break;
+        default:
+            result = false;
+            break;
+    }
+    return result;
+}
+
+void ViewBase::OnActionIncreaseWidth() {
+    auto lhandler = GetLayoutHandler();
+    auto w = lhandler->GetWidth();
+    lhandler->SetWidth(w + 1);
+    RuntimeConfig::Instance().GetRootView().Initialize();
+    RuntimeConfig::Instance().GetRootView().InvalidateAll();
+}
+
+void ViewBase::OnActionDecreaseWidth() {
+    auto lhandler = GetLayoutHandler();
+    auto w = lhandler->GetWidth();
+
+    // FIXME: minimum width...
+    if (w > 24) {
+        lhandler->SetWidth(w - 1);
+    }
+    RuntimeConfig::Instance().GetRootView().Initialize();
+    RuntimeConfig::Instance().GetRootView().InvalidateAll();
+}
+

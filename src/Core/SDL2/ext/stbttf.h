@@ -61,6 +61,7 @@ STBTTF_Font* STBTTF_OpenFont(SDL_Renderer* renderer, const char* filename, float
  * Only ASCII characters (32 <= c < 128) are supported. Anything outside this range is ignored.
  */
 void STBTTF_RenderText(SDL_Renderer* renderer, STBTTF_Font* font, float x, float y, const char *text);
+void STBTTF_RenderTextN(SDL_Renderer* renderer, STBTTF_Font* font, float x, float y, size_t nMaxChars, const char *text);
 
 void STBTTF_RenderText(SDL_Renderer* renderer, STBTTF_Font* font, float x, float y, const std::u32string &text);
 
@@ -71,7 +72,6 @@ float STBTTF_MeasureText(STBTTF_Font* font, const char *text);
 float STBTTF_MeasureText(STBTTF_Font* font, const std::u32string &text);
 
 #endif
-
 
 #ifdef STBTTF_IMPLEMENTATION
 void STBTTF_CloseFont(STBTTF_Font* font) {
@@ -168,11 +168,15 @@ STBTTF_Font* STBTTF_OpenFont(SDL_Renderer* renderer, const char* filename, float
 }
 
 void STBTTF_RenderText(SDL_Renderer* renderer, STBTTF_Font* font, float x, float y, const char *text) {
+    STBTTF_RenderTextN(renderer, font, x, y, strlen(text), text);
+}
+
+void STBTTF_RenderTextN(SDL_Renderer* renderer, STBTTF_Font* font, float x, float y, size_t nMaxChars, const char *text) {
     Uint8 r, g, b, a;
     SDL_GetRenderDrawColor(renderer, &r, &g, &b, &a);
     SDL_SetTextureColorMod(font->atlas, r, g, b);
     SDL_SetTextureAlphaMod(font->atlas, a);
-    for(int i = 0; text[i]; i++) {
+    for(int i = 0; (i<nMaxChars) && (text[i]!='\0'); i++) {
         if (text[i] >= 32 && ((uint8_t)text[i]) < 128) {
             //if(i > 0) x += stbtt_GetCodepointKernAdvance(font->info, text[i - 1], text[i]) * font->scale;
 
@@ -185,6 +189,7 @@ void STBTTF_RenderText(SDL_Renderer* renderer, STBTTF_Font* font, float x, float
         }
     }
 }
+
 
 void STBTTF_RenderText(SDL_Renderer* renderer, STBTTF_Font* font, float x, float y, const std::u32string &textU32) {
     Uint8 r, g, b, a;

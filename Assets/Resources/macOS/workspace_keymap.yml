@@ -19,5 +19,13 @@ keymap: {
     CycleActiveViewPrev : "UINavigationModifier + '['",
     EnterCommandMode : KeyCode_Escape,
     CommitLine : KeyCode_Return,
+
+    # WASD
+    UIIncreaseViewWidth : "UINavigationModifier + 'd'",
+    UIDecreaseViewWidth : "UINavigationModifier + 'a'",
+    UIIncreaseViewHeight : "UINavigationModifier + 's'",
+    UIDecreaseViewHeight : "UINavigationModifier + 'w'",
+    UIMaximizeViewHeight : "UINavigationModifier + 'm'",
+
   }
 }

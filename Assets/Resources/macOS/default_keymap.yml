@@ -55,5 +55,12 @@ keymap: {
 
     # This doesn't work unless we are in modal-mode..
     # CloseModal : KeyCode_Escape,
+    # WASD
+    UIIncreaseViewWidth : "UINavigationModifier + 'd'",
+    UIDecreaseViewWidth : "UINavigationModifier + 'a'",
+    UIIncreaseViewHeight : "UINavigationModifier + 's'",
+    UIDecreaseViewHeight : "UINavigationModifier + 'w'",
+    UIMaximizeViewHeight : "UINavigationModifier + 'm'",
+
   }
 }

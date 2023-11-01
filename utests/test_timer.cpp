@@ -3,7 +3,6 @@
 //
 #include <testinterface.h>
 #include "Core/Timer.h"
-#include "Core/TimerController.h"
 #include "Core/RuntimeConfig.h"
 #include <chrono>
 #include <thread>
@@ -28,10 +27,8 @@ DLL_EXPORT int test_timer_exit(ITesting *t) {
 }
 
 DLL_EXPORT int test_timer_create(ITesting *t) {
-    TimerController timerController;
-    timerController.Start();
 
-    auto timer = timerController.CreateAndScheduleTimer(1000ms, [](){
+    auto timer = Timer::Create(1000ms, [](){
         static int expCounter = 0;
         printf("Expired: %d\n", expCounter);
         expCounter++;
@@ -44,7 +41,7 @@ DLL_EXPORT int test_timer_create(ITesting *t) {
     std::this_thread::yield();
 
     printf("Restarting\n");
-    timerController.RestartTimer(timer);
+    timer->Restart();
 
     printf("Waiting for expiry again\n");
     while(!timer->HasExpired()) {
@@ -54,10 +51,8 @@ DLL_EXPORT int test_timer_create(ITesting *t) {
 }
 
 DLL_EXPORT int test_timer_inrtc(ITesting *t) {
-    auto &tc = RuntimeConfig::Instance().GetTimerController();
 
-
-    auto timer = tc.CreateAndScheduleTimer(1000ms, [](){
+    auto timer = Timer::Create(1000ms, [](){
         static int expCounter = 0;
         printf("Expired: %d\n", expCounter);
         expCounter++;
@@ -70,7 +65,7 @@ DLL_EXPORT int test_timer_inrtc(ITesting *t) {
     std::this_thread::yield();
 
     printf("Restarting\n");
-    tc.RestartTimer(timer);
+    timer->Restart();
 
     printf("Waiting for expiry again\n");
     while(!timer->HasExpired()) {

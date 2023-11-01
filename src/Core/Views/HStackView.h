@@ -45,7 +45,7 @@ namespace gedit {
         void AddSubView(ViewBase *view, kLayout layout) {
             StackableView stackView = {.layout = layout, .view = view};
             viewStack.push_back(stackView);
-
+            view->SetLayoutHandler(this);
             AddView(view);
             RecomputeLayout();
         }

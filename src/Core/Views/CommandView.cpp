@@ -58,7 +58,8 @@ void CommandView::OnActivate(bool isActive) {
         parentView->RestoreContentHeight();
     } else {
         // Reset content height to 50/50 when we become active..
-        parentView->ResetContentHeight();
+        // parentView->ResetContentHeight();
+        parentView->RestoreContentHeight();
 
         // Set the keymap for this view or default if not found...
         Editor::Instance().SetActiveKeyMapping(Config::Instance()[cfgSectionName].GetStr("keymap", "default_keymap"));
@@ -72,7 +73,7 @@ bool CommandView::OnAction(const KeyPressAction &kpAction) {
         default:
             break;
     }
-    return false;
+    return ViewBase::OnAction(kpAction);
 }
 
 bool CommandView::OnActionCommitLine() {

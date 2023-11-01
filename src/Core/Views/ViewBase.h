@@ -19,8 +19,11 @@
 
 namespace gedit {
 
+    class VStackView;
+
     // Should never be used on it's own...
     class ViewBase : public KeypressAndActionHandler {
+        friend VStackView;
     public:
         using Ref = std::shared_ptr<ViewBase>;
         using MessageCallback = std::function<void(void)>;
@@ -280,6 +283,13 @@ namespace gedit {
         virtual void DrawViewContents() {
 
         }
+
+    protected:
+        virtual void OnActionIncreaseWidth();
+        virtual void OnActionDecreaseWidth();
+        virtual void OnActionIncreaseHeight();
+        virtual void OnActionDecreaseHight();
+
     private:
         void DoResize() {
             // unless the user has set the size explicitly, we clear it...
@@ -310,8 +320,6 @@ namespace gedit {
             OnViewInitialized();
         }
 
-        void OnActionIncreaseWidth();
-        void OnActionDecreaseWidth();
 
     protected:
         bool hasExplicitSize = false;  // Won't be affected by resize

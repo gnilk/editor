@@ -69,10 +69,19 @@ bool ViewBase::OnAction(const KeyPressAction &kpAction) {
     bool result = true;
     switch(kpAction.action) {
         case kAction::kActionIncreaseViewWidth :
-            OnActionIncreaseWidth();
+            GetLayoutHandler()->OnActionIncreaseWidth();
             break;
         case kAction::kActionDecreaseViewWidth :
-            OnActionDecreaseWidth();
+            GetLayoutHandler()->OnActionDecreaseWidth();
+            break;
+        case kAction::kActionIncreaseViewHeight :
+            GetLayoutHandler()->OnActionIncreaseHeight();
+            break;
+        case kAction::kActionDecreaseViewHeight :
+            GetLayoutHandler()->OnActionDecreaseHight();
+            break;
+        case kAction::kActionMaximizeViewHeight :
+            MaximizeContentHeight();
             break;
         default:
             result = false;
@@ -82,22 +91,36 @@ bool ViewBase::OnAction(const KeyPressAction &kpAction) {
 }
 
 void ViewBase::OnActionIncreaseWidth() {
-    auto lhandler = GetLayoutHandler();
-    auto w = lhandler->GetWidth();
-    lhandler->SetWidth(w + 1);
+    auto w = GetWidth();
+    SetWidth(w + 1);
     RuntimeConfig::Instance().GetRootView().Initialize();
     RuntimeConfig::Instance().GetRootView().InvalidateAll();
 }
 
 void ViewBase::OnActionDecreaseWidth() {
-    auto lhandler = GetLayoutHandler();
-    auto w = lhandler->GetWidth();
+    auto w = GetWidth();
 
     // FIXME: minimum width...
     if (w > 24) {
-        lhandler->SetWidth(w - 1);
+        SetWidth(w - 1);
     }
     RuntimeConfig::Instance().GetRootView().Initialize();
     RuntimeConfig::Instance().GetRootView().InvalidateAll();
 }
 
+void ViewBase::OnActionIncreaseHeight() {
+    auto w = GetHeight();
+    SetHeight(w + 1);
+    RuntimeConfig::Instance().GetRootView().Initialize();
+    RuntimeConfig::Instance().GetRootView().InvalidateAll();
+}
+
+void ViewBase::OnActionDecreaseHight() {
+
+    auto w = GetHeight();
+    if (w > 5) {
+        SetHeight(w - 1);
+    }
+    RuntimeConfig::Instance().GetRootView().Initialize();
+    RuntimeConfig::Instance().GetRootView().InvalidateAll();
+}

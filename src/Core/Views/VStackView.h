@@ -115,21 +115,20 @@ namespace gedit {
                 view.view->Initialize();
             }
         }
-    public:// Layout handling
-        bool LayoutChangeWidth(int newWidth) {
-            auto w = GetWidth();
-            SetWidth(w + 1);
 
-            RuntimeConfig::Instance().GetRootView().Initialize();
-            RuntimeConfig::Instance().GetRootView().InvalidateAll();
-
-            return true;
+    protected:
+        // We don't deal with vertical layout - VStack stack's vertical items stuff next to each other -> grows horizontally
+        void OnActionDecreaseHight() override {
+            auto parentLayoutHandler = parentView->GetLayoutHandler();
+            parentLayoutHandler->OnActionDecreaseHight();
         }
+        void OnActionIncreaseHeight() override {
+            auto parentLayoutHandler = parentView->GetLayoutHandler();
+            parentLayoutHandler->OnActionDecreaseHight();
+        }
+
     protected:
         std::vector<StackableView> viewStack;
-
-
-
     };
 }
 

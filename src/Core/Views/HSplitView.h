@@ -141,12 +141,14 @@ namespace gedit {
 
         void SetUpper(ViewBase *newUpper) {
             upperView = newUpper;
+            upperView->SetLayoutHandler(this);
             AddView(upperView);
             UpdateUpperViewRect();
         }
 
         void SetLower(ViewBase *newLower) {
             lowerView = newLower;
+            lowerView->SetLayoutHandler(this);
             AddView(lowerView);
             UpdateLowerViewRect();
 
@@ -225,6 +227,33 @@ namespace gedit {
     protected:
         void OnViewInitialized() override {
             ViewBase::OnViewInitialized();
+        }
+
+        void OnActionIncreaseHeight() override {
+            int delta = 0;
+            if (lowerView->IsActive()) {
+                // lower wants to increase..
+                delta = -1;
+            } else {
+                delta = 1;
+            }
+            auto pos = GetSplitterPos();
+            pos += delta;
+            splitterPosBeforeReset = pos;
+            SetSplitterPos(pos);
+        }
+        void OnActionDecreaseHight() override {
+            int delta = 0;
+            if (lowerView->IsActive()) {
+                // lower wants to increase..
+                delta = 1;
+            } else {
+                delta = -1;
+            }
+            auto pos = GetSplitterPos();
+            pos += delta;
+            splitterPosBeforeReset = pos;
+            SetSplitterPos(pos);
         }
 
     protected:

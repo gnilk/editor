@@ -66,6 +66,9 @@ static void FillTreeView(WorkspaceView::TreeRef tree, WorkspaceView::TreeNodeRef
 
 void WorkspaceView::InitView() {
     VisibleView::InitView();
+    CreateTree();
+    AddView(treeView.get());
+
     PopulateTree();
     auto workspace = Editor::Instance().GetWorkspace();
     // Repopulate the tree on changes...
@@ -73,20 +76,28 @@ void WorkspaceView::InitView() {
        PopulateTree();
     });
 
-    AddView(treeView.get());
 }
 
+// Note: Should add 'reason' (or action) perhaps to why this was called - we called for a number of reasons right now
+// - active buffer changes
+// - window resize
+// - view resize
+// - etc..
+// Actually: 'InvalidateAll' and 'Reinitialize' is the 'goto' redraw mechanism (since I have no clue how the UI work anymore)
 void WorkspaceView::ReInitView() {
     VisibleView::ReInitView();
 
-    // When active buffer is changed, the re-init view is called
+
+    // Re-Init is called by a lot of reasons...
     // resync IF the user wants the buffers in workspace view to reflect the editor (this is VSCode behaviour)
-    if (Config::Instance()[cfgSectionName].GetBool("sync_on_active_buffer_changed", true)) {
-        if (Editor::Instance().GetActiveModel() != nullptr) {
-            auto activeNode = Editor::Instance().GetWorkspaceNodeForActiveModel();
-            treeView->SetCurrentlySelectedItem(activeNode);
-        }
+
+    bool syncOnBufferChange = Config::Instance()[cfgSectionName].GetBool("sync_on_active_buffer_changed", true);
+    if (syncOnBufferChange && Editor::Instance().GetActiveModel() != nullptr) {
+        auto activeNode = Editor::Instance().GetWorkspaceNodeForActiveModel();
+        treeView->SetCurrentlySelectedItem(activeNode);
     }
+
+
 }
 
 WorkspaceView::TreeNodeRef WorkspaceView::FindModelNode(TreeNodeRef node, const std::string &pathName) {
@@ -112,13 +123,12 @@ static void BuildExpandCollapseCacheFromNode(const WorkspaceView::TreeNodeRef &n
         BuildExpandCollapseCacheFromNode(child, cache);
     }
 }
+
 void WorkspaceView::BuildExpandCollapseCache(std::unordered_map<std::string, bool> &cache) {
     BuildExpandCollapseCacheFromNode(treeView->GetRootNode(), cache);
 }
-void WorkspaceView::PopulateTree() {
 
-    std::unordered_map<std::string, bool> expandCollapseCache;
-
+void WorkspaceView::CreateTree() {
     if (treeView == nullptr) {
         treeView = TreeView<Workspace::Node::Ref>::Create();
 
@@ -129,10 +139,16 @@ void WorkspaceView::PopulateTree() {
             // Highlight folders with '/'
             return (node->GetDisplayName() + "/");
         });
-    } else {
-        BuildExpandCollapseCache(expandCollapseCache);
-        treeView->Clear();
     }
+}
+
+// Must call 'CreateTree' before...
+void WorkspaceView::PopulateTree() {
+
+    std::unordered_map<std::string, bool> expandCollapseCache;
+
+    BuildExpandCollapseCache(expandCollapseCache);
+    treeView->Clear();
 
     auto workspace = Editor::Instance().GetWorkspace();
 
@@ -166,6 +182,13 @@ void WorkspaceView::PopulateTree() {
 
     auto currentItem = treeView->GetCurrentSelectedItem();
     workspace->SetActiveFolderNode(currentItem);
+
+
+    if (Config::Instance()[cfgSectionName].GetBool("auto_expand_view", true)) {
+        //auto clipWidth = Config::Instance()[cfgSectionName].GetInt("view_max_width", 0);
+        // 0 - no clip width
+        // treeView->ExpandViewToWidestItem();
+    }
 }
 
 bool WorkspaceView::OnAction(const KeyPressAction &kpAction) {
@@ -181,7 +204,6 @@ bool WorkspaceView::OnAction(const KeyPressAction &kpAction) {
                 workspace->SetActiveFolderNode(activeNode);
             }
             // node did change!
-            int breakme = 1;
         }
         return true;
     }
@@ -205,9 +227,11 @@ bool WorkspaceView::OnAction(const KeyPressAction &kpAction) {
     if (kpAction.action == kAction::kActionStartSearch) {
         auto logger = gnilk::Logger::GetLogger("WorkspaceView");
         logger->Debug("Start Searching!");
+        return true;
     }
 
-    return false;
+    // Not for us - send further down the chain
+    return ViewBase::OnAction(kpAction);
 }
 
 void WorkspaceView::SwitchToEditorView() {

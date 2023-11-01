@@ -45,6 +45,7 @@ namespace gedit {
         std::pair<std::u32string, std::u32string> GetStatusBarInfo() override;
     protected:
         TreeNodeRef FindModelNode(TreeNodeRef node, const std::string &pathName);
+        void CreateTree();
         void PopulateTree();
         void BuildExpandCollapseCache(std::unordered_map<std::string, bool> &cache);
         void OnActivate(bool isActive) override;

@@ -72,6 +72,10 @@ namespace gedit {
 
         kActionIndent,
         kActionUnindent,
+
+        // UI Actions
+        kActionIncreaseViewWidth,
+        kActionDecreaseViewWidth,
     };
 
     class ActionItem {

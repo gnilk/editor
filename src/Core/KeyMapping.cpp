@@ -73,6 +73,8 @@ static std::unordered_map<std::string, kAction> strToActionMap = {
         {"Undo",                kAction::kActionUndo},
         {"Indent",              kAction::kActionIndent},
         {"Unindent",            kAction::kActionUnindent},
+        {"UIIncreaseViewWidth", kAction::kActionIncreaseViewWidth},
+        {"UIDecreaseViewWidth", kAction::kActionDecreaseViewWidth},
 };
 
 

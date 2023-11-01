@@ -20,5 +20,8 @@ keymap: {
     # WASD
     UIIncreaseViewWidth : "UINavigationModifier + 'd'",
     UIDecreaseViewWidth : "UINavigationModifier + 'a'",
+    UIIncreaseViewHeight : "UINavigationModifier + 's'",
+    UIDecreaseViewHeight : "UINavigationModifier + 'w'",
+    UIMaximizeViewHeight : "UINavigationModifier + 'm'",
   }
 }

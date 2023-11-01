@@ -66,5 +66,12 @@ keymap: {
 
     NextSearchResult: "KeyCode_Ctrl + 'n'",
     PrevSearchResult: "KeyCode_Ctrl + 'p'",
+
+    # WASD
+    UIIncreaseViewWidth : "UINavigationModifier + 'd'",
+    UIDecreaseViewWidth : "UINavigationModifier + 'a'",
+    UIIncreaseViewHeight : "UINavigationModifier + 's'",
+    UIDecreaseViewHeight : "UINavigationModifier + 'w'",
+    UIMaximizeViewHeight : "UINavigationModifier + 'm'",
   }
 }

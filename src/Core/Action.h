@@ -129,7 +129,7 @@ namespace gedit {
             //                    this allows ASCII commands like '?' to be detected even if SHIFT needs to be pressed
 
             // If not special key is pressed, we check if the 'key' is valid and match against asciiKeyCode..
-            if (!keyPress.isSpecialKey && keyPress.isKeyValid) {
+            if (!keyPress.isSpecialKey && keyPress.isKeyValid && (keyPress.modifiers == 0)) {
                 return (keyPress.key == asciiKeyCode);
             }
 
@@ -154,6 +154,9 @@ namespace gedit {
                 return false;
             }
 
+            if (!keyPress.isSpecialKey && keyPress.isKeyValid) {
+                return (keyPress.key == asciiKeyCode);
+            }
 
 
             // This doesn't work - will send false positives

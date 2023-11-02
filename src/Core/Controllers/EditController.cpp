@@ -9,8 +9,15 @@
 #include "Core/UndoHistory.h"
 #include <sstream>
 #include "Core/Editor.h"
+#include <memory>
 
 using namespace gedit;
+
+EditController::Ref EditController::Create(EditorModel::Ref newModel) {
+    auto inst = std::make_shared<EditController>(newModel);
+    return inst;
+}
+
 
 void EditController::Begin() {
     if (logger == nullptr) {
@@ -18,18 +25,15 @@ void EditController::Begin() {
     }
 }
 
-void EditController::SetTextBuffer(TextBuffer::Ref newTextBuffer) {
-    textBuffer = newTextBuffer;
-    if (onTextBufferChanged != nullptr) {
-        onTextBufferChanged();
-    }
-}
-
-
 bool EditController::HandleKeyPress(Cursor &cursor, size_t &idxLine, const KeyPress &keyPress) {
-    if (!textBuffer) {
+    if (!model) {
         return false;
     }
+    if (!model->GetTextBuffer()) {
+        return false;
+    }
+
+    auto textBuffer = model->GetTextBuffer();
 
     if (textBuffer->IsReadOnly()) {
         return false;
@@ -66,6 +70,7 @@ bool EditController::HandleKeyPress(Cursor &cursor, size_t &idxLine, const KeyPr
 }
 
 bool EditController::HandleSpecialKeyPress(Cursor &cursor, size_t &idxLine, const KeyPress &keyPress) {
+    auto textBuffer = model->GetTextBuffer();
     auto line = textBuffer->LineAt(idxLine);
     auto undoItem = BeginUndoItem();
     bool wasHandled = true;
@@ -81,6 +86,7 @@ bool EditController::HandleSpecialKeyPress(Cursor &cursor, size_t &idxLine, cons
 }
 
 bool EditController::HandleSpecialKeyPressForEditor(Cursor &cursor, size_t &idxLine, const KeyPress &keyPress) {
+    auto textBuffer = model->GetTextBuffer();
     auto line = textBuffer->LineAt(idxLine);
     bool wasHandled = false;
     switch (keyPress.specialKey) {
@@ -125,6 +131,7 @@ bool EditController::HandleSpecialKeyPressForEditor(Cursor &cursor, size_t &idxL
 }
 
 void EditController::MoveLineUp(Cursor &cursor, size_t &idxActiveLine) {
+    auto textBuffer = model->GetTextBuffer();
     auto line = textBuffer->LineAt(idxActiveLine);
     auto linePrevious = textBuffer->LineAt((idxActiveLine-1));
 
@@ -139,6 +146,7 @@ void EditController::Undo(Cursor &cursor, size_t &idxActiveLine) {
     if (!historyBuffer.HaveHistory()) {
         return;
     }
+    auto textBuffer = model->GetTextBuffer();
     historyBuffer.Dump();
     logger->Debug("Undo, lines before: %zu", textBuffer->NumLines());
     auto nLinesRestored = historyBuffer.RestoreOneItem(cursor, idxActiveLine, textBuffer);
@@ -150,6 +158,7 @@ void EditController::Undo(Cursor &cursor, size_t &idxActiveLine) {
 }
 
 size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
+    auto textBuffer = model->GetTextBuffer();
 
     auto undoItem = historyBuffer.NewUndoFromLineRange(idxActiveLine, idxActiveLine+1);
     undoItem->SetRestoreAction(UndoHistory::kRestoreAction::kDeleteBeforeInsert);
@@ -232,6 +241,7 @@ void EditController::PasteFromClipboard(LineCursor &lineCursor) {
         logger->Debug("Clipboard empty!");
         return;
     }
+    auto textBuffer = model->GetTextBuffer();
     auto nLines = clipboard.Top()->GetLineCount();
     auto ptWhere = lineCursor.cursor.position;
 
@@ -252,15 +262,19 @@ void EditController::PasteFromClipboard(LineCursor &lineCursor) {
 
 void EditController::UpdateSyntaxForBuffer() {
     logger->Debug("Syntax update for full bufffer");
+    auto textBuffer = model->GetTextBuffer();
     textBuffer->Reparse();
 }
 
 Job::Ref EditController::UpdateSyntaxForRegion(size_t idxStartLine, size_t idxEndLine) {
     logger->Debug("Syntax update for region %zu - %zu", idxStartLine, idxEndLine);
+    auto textBuffer = model->GetTextBuffer();
     return textBuffer->ReparseRegion(idxStartLine, idxEndLine);
 }
 
 Job::Ref EditController::UpdateSyntaxForActiveLineRegion(size_t idxActiveLine) {
+    auto textBuffer = model->GetTextBuffer();
+
     size_t idxStartParse = (idxActiveLine>2)?idxActiveLine-2:0;
     size_t idxEndParse = (textBuffer->NumLines() > (idxActiveLine + 2))?idxActiveLine+2:textBuffer->NumLines();
     logger->Debug("Syntax update for active line region, active line = %zu", idxActiveLine);
@@ -296,6 +310,7 @@ void EditController::RemoveCharFromLineNoUndo(gedit::Cursor &cursor, Line::Ref l
 }
 
 void EditController::AddTab(Cursor &cursor, size_t idxActiveLine) {
+    auto textBuffer = model->GetTextBuffer();
     auto line = textBuffer->LineAt(idxActiveLine);
     auto undoItem = BeginUndoItem();
 
@@ -308,6 +323,7 @@ void EditController::AddTab(Cursor &cursor, size_t idxActiveLine) {
 }
 
 void EditController::DelTab(Cursor &cursor, size_t idxActiveLine) {
+    auto textBuffer = model->GetTextBuffer();
     auto line = textBuffer->LineAt(idxActiveLine);
     auto nDel = textBuffer->GetLanguage().GetTabSize();
     if(cursor.position.x < nDel) {
@@ -376,6 +392,7 @@ void EditController::UnindentLines(size_t idxLineStart, size_t idxLineEnd) {
 
 // Need cursor for undo...
 void EditController::DeleteLinesNoSyntaxUpdate(size_t idxLineStart, size_t idxLineEnd) {
+    auto textBuffer = model->GetTextBuffer();
     for(auto lineIndex = idxLineStart;lineIndex < idxLineEnd; lineIndex++) {
         // Delete the same line several times - as we move the lines after up..
         textBuffer->DeleteLineAt(idxLineStart);
@@ -396,6 +413,7 @@ void EditController::DeleteRange(const Point &startPos, const Point &endPos) {
     historyBuffer.PushUndoItem(undoItem);
 
 
+    auto textBuffer = model->GetTextBuffer();
     // Delete range within one line..
     if (startPos.y == endPos.y) {
         auto line = textBuffer->LineAt(startPos.y);
@@ -429,4 +447,77 @@ void EditController::DeleteRange(const Point &startPos, const Point &endPos) {
 
     UpdateSyntaxForRegion(startPos.y, endPos.y+1);
 
+}
+
+
+//
+// this was moved from EditorModel
+//
+
+void EditController::DeleteSelection() {
+    auto &currentSelection = model->GetSelection();
+
+    auto startPos = currentSelection.GetStart();
+    auto endPos = currentSelection.GetEnd();
+
+    DeleteRange(startPos, endPos);
+
+}
+
+void EditController::CommentSelectionOrLine() {
+
+    auto textBuffer = GetTextBuffer();
+
+    if (!textBuffer->HaveLanguage()) {
+        return;
+    }
+    auto lineCommentPrefix = textBuffer->GetLanguage().GetLineComment();
+    if (lineCommentPrefix.empty()) {
+        return;
+    }
+
+    auto &lineCursor = model->GetLineCursor();
+    if (!model->IsSelectionActive()) {
+        AddLineComment(lineCursor.idxActiveLine, lineCursor.idxActiveLine+1, lineCommentPrefix);
+        return;
+    }
+
+    auto &currentSelection = model->GetSelection();
+
+    auto start = currentSelection.GetStart();
+    auto end = currentSelection.GetEnd();
+    AddLineComment(start.y, end.y, lineCommentPrefix);
+}
+
+void EditController::IndentSelectionOrLine() {
+    if (!GetTextBuffer()->HaveLanguage()) {
+        return;
+    }
+
+    auto &lineCursor = model->GetLineCursor();
+    if (!model->IsSelectionActive()) {
+        IndentLines(lineCursor.idxActiveLine, lineCursor.idxActiveLine + 1);
+        return;
+    }
+    auto &currentSelection = model->GetSelection();
+    auto start = currentSelection.GetStart();
+    auto end = currentSelection.GetEnd();
+    IndentLines(start.y, end.y);
+}
+
+void EditController::UnindentSelectionOrLine() {
+
+    if (!GetTextBuffer()->HaveLanguage()) {
+        return;
+    }
+
+    auto &lineCursor = model->GetLineCursor();
+    if (!model->IsSelectionActive()) {
+        UnindentLines(lineCursor.idxActiveLine, lineCursor.idxActiveLine + 1);
+        return;
+    }
+    auto &currentSelection = model->GetSelection();
+    auto start = currentSelection.GetStart();
+    auto end = currentSelection.GetEnd();
+    UnindentLines(start.y, end.y);
 }

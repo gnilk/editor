@@ -7,6 +7,7 @@
 
 #include "Core/TextBuffer.h"
 #include "Core/UndoHistory.h"
+#include "Core/EditorModel.h"
 #include "BaseController.h"
 #include "logger.h"
 #include <memory>
@@ -21,13 +22,17 @@ namespace gedit {
 
     public:
         EditController() = default;
+        EditController(EditorModel::Ref newModel) : model(newModel) {
+
+        }
         virtual ~EditController() = default;
+        static Ref Create(EditorModel::Ref newModel);
 
         void Begin() override;
         void SetTextBuffer(TextBuffer::Ref newTextBuffer);
 
         const TextBuffer::Ref GetTextBuffer() {
-            return textBuffer;
+            return model->GetTextBuffer();
         }
         void SetTextBufferChangedHandler(TextBufferChangedDelegate newOnTextBufferChanged) {
             onTextBufferChanged = newOnTextBufferChanged;
@@ -44,14 +49,14 @@ namespace gedit {
 
         // Proxy for buffer
         const std::vector<Line::Ref> &Lines() {
-            return textBuffer->Lines();
+            return model->Lines();
         }
         // Const accessor...
         const std::vector<Line::Ref> &Lines() const {
-            return textBuffer->Lines();
+            return model->Lines();
         }
         Line::Ref LineAt(size_t idxLine) {
-            return textBuffer->LineAt(idxLine);
+            return model->LineAt(idxLine);
         }
 
         UndoHistory::UndoItem::Ref BeginUndoItem();
@@ -73,13 +78,20 @@ namespace gedit {
         void AddLineComment(size_t idxLineStart, size_t idxLineEnd, const std::u32string &lineCommentPrefix);
         void IndentLines(size_t idxLineStart, size_t idxLineEnd);
         void UnindentLines(size_t idxLineStart, size_t idxLineEnd);
+
+        void DeleteSelection(); // Delete text framed by selection
+        void CommentSelectionOrLine();
+        void IndentSelectionOrLine();
+        void UnindentSelectionOrLine();
+
     protected:
         void DeleteLinesNoSyntaxUpdate(size_t idxLineStart, size_t idxLineEnd);
         bool HandleSpecialKeyPressForEditor(Cursor &cursor, size_t &idxLine, const KeyPress &keyPress);
     private:
         gnilk::ILogger *logger = nullptr;
-        TextBuffer::Ref textBuffer = nullptr;
+        EditorModel::Ref model;
         TextBufferChangedDelegate onTextBufferChanged = nullptr;
+
         UndoHistory historyBuffer;
     };
 }

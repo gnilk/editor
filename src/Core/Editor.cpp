@@ -804,23 +804,6 @@ const std::u32string &Editor::GetVersion() {
 //
 // Create a new model/buffer
 EditorModel::Ref Editor::NewModel(const std::string &name) {
-
-//    auto model = workspace->NewEmptyModel();
-//    auto optNode = workspace->GetNodeFromModel(model);
-//    if (!optNode.has_value()) {
-//        logger->Error("Model created but not found in workspace!");
-//        exit(1);
-//    }
-//    auto node = optNode.value();
-//    auto path = node->GetNodePath();
-//    path.replace_filename(name);
-//    node->SetNodePath(path);
-//    node->SetDisplayName(name);
-//    model->GetTextBuffer()->SetPathName(path);
-//
-//    openModels.push_back(model);
-//    return model;
-
     return nullptr;
 }
 

@@ -10,67 +10,11 @@
 #include "logger.h"
 using namespace gedit;
 
-EditorModel::Ref EditorModel::Create() {
-    EditorModel::Ref editorModel = std::make_shared<EditorModel>();
+EditorModel::Ref EditorModel::Create(TextBuffer::Ref newTextBuffer) {
+    EditorModel::Ref editorModel = std::make_shared<EditorModel>(newTextBuffer);
     return editorModel;
 }
 
-void EditorModel::DeleteSelection() {
-    auto startPos = currentSelection.GetStart();
-    auto endPos = currentSelection.GetEnd();
-
-    editController->DeleteRange(startPos, endPos);
-
-}
-
-void EditorModel::CommentSelectionOrLine() {
-
-    if (!textBuffer->HaveLanguage()) {
-        return;
-    }
-    auto lineCommentPrefix = textBuffer->GetLanguage().GetLineComment();
-    if (lineCommentPrefix.empty()) {
-        return;
-    }
-
-    if (!IsSelectionActive()) {
-        editController->AddLineComment(lineCursor.idxActiveLine, lineCursor.idxActiveLine+1, lineCommentPrefix);
-        return;
-    }
-
-    auto start = currentSelection.GetStart();
-    auto end = currentSelection.GetEnd();
-    editController->AddLineComment(start.y, end.y, lineCommentPrefix);
-}
-
-void EditorModel::IndentSelectionOrLine() {
-    if (!textBuffer->HaveLanguage()) {
-        return;
-    }
-
-    if (!IsSelectionActive()) {
-        editController->IndentLines(lineCursor.idxActiveLine, lineCursor.idxActiveLine + 1);
-        return;
-    }
-    auto start = currentSelection.GetStart();
-    auto end = currentSelection.GetEnd();
-    editController->IndentLines(start.y, end.y);
-}
-
-void EditorModel::UnindentSelectionOrLine() {
-    if (!textBuffer->HaveLanguage()) {
-        return;
-    }
-
-    if (!IsSelectionActive()) {
-        editController->UnindentLines(lineCursor.idxActiveLine, lineCursor.idxActiveLine + 1);
-        return;
-    }
-    auto start = currentSelection.GetStart();
-    auto end = currentSelection.GetEnd();
-    editController->UnindentLines(start.y, end.y);
-
-}
 
 
 

@@ -50,7 +50,8 @@ void EditorView::InitView()  {
 
     UpdateModelFromNavigation(true);
 
-    editorModel->GetEditController()->SetTextBufferChangedHandler([this]()->void {
+
+    editController->SetTextBufferChangedHandler([this]()->void {
         auto node = Editor::Instance().GetWorkspace()->GetNodeFromModel(editorModel);
         if (node == nullptr) {
             return;
@@ -71,11 +72,14 @@ void EditorView::ReInitView() {
 
     bUseCLionPageNav = Config::Instance()[cfgSectionName].GetBool("pgupdown_content_first", true);
 
+    // FIXME: Replace model with controller
     editorModel = Editor::Instance().GetActiveModel();
     if (editorModel == nullptr) {
         logger->Error("EditorModel is null - no active textbuffer");
         return;
     }
+    auto node = Editor::Instance().GetWorkspaceNodeForModel(editorModel);
+    editController = node->GetController();
 
     // Fetch and update the view-model information
     lineCursor = editorModel->GetLineCursorRef();
@@ -147,7 +151,7 @@ void EditorView::DrawViewContents() {
 
     LineRender lineRender(dc);
     // Consider refactoring this function call...
-    lineRender.DrawLines(editorModel->GetEditController()->Lines(),
+    lineRender.DrawLines(editController->Lines(),
                          lineCursor.viewTopLine,
                          lineCursor.viewBottomLine,
                          editorModel->GetSelection());
@@ -180,14 +184,14 @@ void EditorView::OnKeyPress(const KeyPress &keyPress) {
     auto &lineCursor = editorModel->GetLineCursor();
 
     // Let the controller have a go - this is regular editing and so forth
-    if (editorModel->GetEditController()->HandleKeyPress(lineCursor.cursor, lineCursor.idxActiveLine, keyPress)) {
+    if (editController->HandleKeyPress(lineCursor.cursor, lineCursor.idxActiveLine, keyPress)) {
         UpdateModelFromNavigation(true);
         InvalidateView();
         return;
     }
 
     // This handles regular backspace/delete/home/end (which are default actions for any single-line editing)
-    if (editorModel->GetEditController()->HandleSpecialKeyPress(lineCursor.cursor, lineCursor.idxActiveLine, keyPress)) {
+    if (editController->HandleSpecialKeyPress(lineCursor.cursor, lineCursor.idxActiveLine, keyPress)) {
         UpdateModelFromNavigation(true);
         InvalidateView();
         return;
@@ -218,20 +222,20 @@ void EditorView::HandleKeyPressWithSelection(const KeyPress &keyPress) {
     switch (keyPress.specialKey) {
         case Keyboard::kKeyCode_Backspace :
         case Keyboard::kKeyCode_DeleteForward :
-            editorModel->DeleteSelection();
+            editController->DeleteSelection();
             break;
         default: {
             // This is a bit ugly (understatement of this project so far...)
             // But any - valid - keypress should lead to the selection being deleted and the new key inserted...
-            if (editorModel->GetEditController()->HandleKeyPress(lineCursor.cursor, lineCursor.idxActiveLine, keyPress)) {
+            if (editController->HandleKeyPress(lineCursor.cursor, lineCursor.idxActiveLine, keyPress)) {
                 // revert the last insert
-                editorModel->GetEditController()->Undo(lineCursor.cursor, lineCursor.idxActiveLine);
+                editController->Undo(lineCursor.cursor, lineCursor.idxActiveLine);
                 // delete the selection (buffer is now fine)
-                editorModel->DeleteSelection();
+                editController->DeleteSelection();
 
                 // Restore the cursor where it should be and repeat the keypress handling again...
                 lineCursor.cursor = tmpCursor;
-                editorModel->GetEditController()->HandleKeyPress(lineCursor.cursor, lineCursor.idxActiveLine, keyPress);
+                editController->HandleKeyPress(lineCursor.cursor, lineCursor.idxActiveLine, keyPress);
             }
         }
     }
@@ -277,19 +281,19 @@ bool EditorView::OnAction(const KeyPressAction &kpAction) {
         lineCursor.cursor.position = selection.GetStart();
         lineCursor.cursor.position.y -= lineCursor.viewTopLine;   // Translate to screen coords..
 
-        editorModel->DeleteSelection();
+        editController->DeleteSelection();
         editorModel->CancelSelection();
         UpdateModelFromNavigation(false);
 
     } else if (kpAction.action == kAction::kActionPasteFromClipboard) {
-        editorModel->GetEditController()->PasteFromClipboard(editorModel->GetLineCursor());
+        editController->PasteFromClipboard(editorModel->GetLineCursor());
     } else if (kpAction.action == kAction::kActionInsertLineComment) {
         // Handle this here since we want to keep the selection...
-        editorModel->CommentSelectionOrLine();
+        editController->CommentSelectionOrLine();
     } else if (kpAction.action == kAction::kActionIndent && editorModel->IsSelectionActive()) {
-        editorModel->IndentSelectionOrLine();
+        editController->IndentSelectionOrLine();
     } else if (kpAction.action == kAction::kActionUnindent && editorModel->IsSelectionActive()) {
-        editorModel->UnindentSelectionOrLine();
+        editController->UnindentSelectionOrLine();
     }
 
 
@@ -395,7 +399,7 @@ bool EditorView::DispatchAction(const KeyPressAction &kpAction) {
 bool EditorView::OnActionUndo() {
     //editorModel->GetTextBuffer()->Undo();
     auto &lineCursor = editorModel->GetLineCursor();
-    editorModel->GetEditController()->Undo(lineCursor.cursor, lineCursor.idxActiveLine);
+    editController->Undo(lineCursor.cursor, lineCursor.idxActiveLine);
     auto nLinesAfter = editorModel->GetTextBuffer()->NumLines();
     //if ((nLinesAfter > lineCursor.viewBottomLine) && (lineCursor.Height() < nLinesAfter)
     lineCursor.viewBottomLine = lineCursor.viewTopLine + nLinesAfter;
@@ -412,7 +416,7 @@ bool EditorView::OnActionLineHome() {
 
 bool EditorView::OnActionLineEnd() {
     auto &lineCursor = editorModel->GetLineCursor();
-    auto currentLine = editorModel->GetEditController()->LineAt(lineCursor.idxActiveLine);
+    auto currentLine = editController->LineAt(lineCursor.idxActiveLine);
     if (currentLine == nullptr) {
         return true;
     }
@@ -425,7 +429,7 @@ bool EditorView::OnActionLineEnd() {
 bool EditorView::OnActionCommitLine() {
     auto &lineCursor = editorModel->GetLineCursor();
     logger->Debug("OnActionCommitLine, Before: idxActive=%zu", lineCursor.idxActiveLine);
-    editorModel->GetEditController()->NewLine(lineCursor.idxActiveLine, lineCursor.cursor);
+    editController->NewLine(lineCursor.idxActiveLine, lineCursor.cursor);
     OnNavigateDownVSCode(1, viewRect, editorModel->Lines().size());
     UpdateModelFromNavigation(true);
     logger->Debug("OnActionCommitLine, After: idxActive=%zu", lineCursor.idxActiveLine);

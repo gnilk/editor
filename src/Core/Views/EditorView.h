@@ -89,6 +89,7 @@ namespace gedit {
     private:
         bool bUseCLionPageNav = true;
         EditorModel::Ref editorModel;
+        EditController::Ref editController;
         // --
         gnilk::ILogger *logger = nullptr;
     };

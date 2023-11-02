@@ -5,7 +5,6 @@
 #ifndef EDITOR_EDITORMODEL_H
 #define EDITOR_EDITORMODEL_H
 
-#include "Controllers/EditController.h"
 #include "Core/TextBuffer.h"
 #include "Core/Cursor.h"
 #include "Core/KeyPress.h"
@@ -91,28 +90,18 @@ namespace gedit {
 
     public:
         EditorModel() = default;
+        EditorModel(TextBuffer::Ref newTextBuffer) : textBuffer(newTextBuffer) {
+        }
         virtual ~EditorModel() {
             // note: this is just here for debugging purposes..
             // printf("EditorModel::DTOR\n");
         }
-
-        void Initialize(EditController::Ref newController, TextBuffer::Ref newTextBuffer) {
-            editController = newController;
-            editController->Begin();
-
-            textBuffer = newTextBuffer;
-            editController->SetTextBuffer(textBuffer);
-        }
-
-        static Ref Create();
+        static Ref Create(TextBuffer::Ref newTextBuffer);
 
         void Close() {
             textBuffer->Close();
         }
 
-        EditController::Ref GetEditController() {
-            return editController;
-        }
         TextBuffer::Ref GetTextBuffer() {
             return textBuffer;
         }
@@ -123,13 +112,13 @@ namespace gedit {
 
         // proxy
         const std::vector<Line::Ref> &Lines() {
-            return editController->Lines();
+            return textBuffer->Lines();
         }
         Line::Ref LineAt(size_t idxLine) {
-            return editController->LineAt(idxLine);
+            return textBuffer->LineAt(idxLine);
         }
         Line::Ref ActiveLine() {
-            return editController->LineAt(lineCursor.idxActiveLine);
+            return textBuffer->LineAt(lineCursor.idxActiveLine);
         }
         size_t GetActiveLineIndex() {
             return lineCursor.idxActiveLine;
@@ -168,10 +157,6 @@ namespace gedit {
         const Selection &GetSelection() const {
             return currentSelection;
         }
-        void DeleteSelection();
-        void CommentSelectionOrLine();
-        void IndentSelectionOrLine();
-        void UnindentSelectionOrLine();
 
         size_t SearchFor(const std::u32string &searchItem);
         void ClearSearchResults();
@@ -208,10 +193,7 @@ namespace gedit {
         std::vector<SearchResult> searchResults;
         size_t idxActiveSearchHit = 0;
     private:
-
         LineCursor lineCursor;
-
-        EditController::Ref editController = nullptr;     // Pointer???
         Selection currentSelection = {};
         TextBuffer::Ref textBuffer = nullptr;             // This is 'owned' by BufferManager
         bool isActive = false;

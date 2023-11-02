@@ -13,11 +13,11 @@ namespace gedit {
     struct KeyPress {
         bool isKeyValid = false;
         bool isHwEventValid = false;
-        bool isSpecialKey = false;
+        bool isSpecialKey = false;      // This should denote a non-printable char, like: Keyboard::kKeyCode_PageUp
         Keyboard::HWKeyEvent hwEvent;
         uint8_t modifiers;
         char32_t key;
-        int specialKey;
+        int specialKey;                 // if 'isSpecialKey' is true - this contains the kKeyCode from keyboard..
 
         bool IsHumanReadable() const {
             if (isKeyValid) {

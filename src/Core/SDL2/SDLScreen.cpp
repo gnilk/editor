@@ -101,6 +101,11 @@ bool SDLScreen::Open() {
     widthPixels = windowLocation.Width();
     heightPixels = windowLocation.Height();
 
+    // TMP - Running into problems if the windows is created outside the display area
+    //       this can happen when moving from one setup (i.e. docked with multi monitors -> travel/just laptop)
+    windowXpos = 0;
+    windowYpos = 0;
+
     // FIXME: Need to determine how HighDPI stuff works...
     sdlWindow = SDL_CreateWindow("gedit", windowXpos, windowYpos, widthPixels, heightPixels,  windowFlags);
     sdlRenderer = SDL_CreateRenderer(sdlWindow, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);

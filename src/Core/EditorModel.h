@@ -8,6 +8,10 @@
 #include "Core/TextBuffer.h"
 #include "Core/Cursor.h"
 #include "Core/KeyPress.h"
+#include "Core/VerticalNavigationViewModel.h"
+#include "Core/Rect.h"
+#include "Core/UndoHistory.h"
+#include "Core/KeyMapping.h"
 
 #include <memory>
 
@@ -97,9 +101,14 @@ namespace gedit {
             // printf("EditorModel::DTOR\n");
         }
         static Ref Create(TextBuffer::Ref newTextBuffer);
+        void Begin();
+        void OnViewInit(const Rect &rect);
 
         void Close() {
             textBuffer->Close();
+        }
+        void SetViewRect(const Rect &rect) {
+            viewRect = rect;
         }
 
         TextBuffer::Ref GetTextBuffer() {
@@ -158,6 +167,43 @@ namespace gedit {
             return currentSelection;
         }
 
+        void DeleteSelection();
+        void IndentSelectionOrLine();
+        void UnindentSelectionOrLine();
+        void CommentSelectionOrLine();
+
+        void AddLineComment(size_t idxLineStart, size_t idxLineEnd, const std::u32string &lineCommentPrefix);
+        void IndentLines(size_t idxLineStart, size_t idxLineEnd);
+        void UnindentLines(size_t idxLineStart, size_t idxLineEnd);
+
+        void AddTab(Cursor &cursor, size_t idxActiveLine);
+        void DelTab(Cursor &cursor, size_t idxActiveLine);
+
+        void AddCharToLineNoUndo(Cursor &cursor, Line::Ref line, char32_t ch);
+        void RemoveCharFromLineNoUndo(gedit::Cursor &cursor, Line::Ref line);
+
+        void UpdateModelFromNavigation(bool updateCursor);
+
+
+            // FIXME: Cursor and idxActiveLine not needed
+        void Undo(Cursor &cursor, size_t &idxActiveLine);
+
+        UndoHistory::UndoItem::Ref BeginUndoItem();
+        UndoHistory::UndoItem::Ref BeginUndoFromLineRange(size_t idxStart, size_t idxEnd);
+        void EndUndoItem(UndoHistory::UndoItem::Ref undoItem);
+
+        // protected..
+        void UpdateSyntaxForBuffer();
+        Job::Ref UpdateSyntaxForActiveLineRegion();
+        Job::Ref UpdateSyntaxForRegion(size_t idxStartLine, size_t idxEndLine);
+
+
+        size_t NewLine(size_t idxActiveLine, Cursor &cursor);
+
+        void DeleteLinesNoSyntaxUpdate(size_t idxLineStart, size_t idxLineEnd);
+        void DeleteRange(const Point &startPos, const Point &endPos);
+
+
         size_t SearchFor(const std::u32string &searchItem);
         void ClearSearchResults();
         bool HaveSearchResults() {
@@ -173,7 +219,28 @@ namespace gedit {
         bool SaveData(const std::filesystem::path &pathName);
         bool SaveDataNoChangeCheck(const std::filesystem::path &pathName);
 
+        bool DispatchAction(const KeyPressAction &kpAction);
+    protected:
+        bool OnActionLineDown(const KeyPressAction &kpAction);
+        bool OnActionLineUp();
+        bool OnActionPageUp();
+        bool OnActionPageDown();
+        bool OnActionStepLeft();
+        bool OnActionStepRight();
+        bool OnActionCommitLine();
+        bool OnActionGotoFirstLine();   // First line of buffer
+        bool OnActionGotoLastLine();    // Last line of buffer
+        bool OnActionGotoTopLine();     // Top line of screen
+        bool OnActionGotoBottomLine();    // Last visible line on screen
+        bool OnActionWordRight();
+        bool OnActionWordLeft();
+        bool OnActionLineHome();
+        bool OnActionLineEnd();
+        bool OnActionUndo();
+        bool OnNextSearchResult();
+        bool OnPrevSearchResult();
 
+        bool bUseCLionPageNav = true;
 
     public:
         LineCursor &GetLineCursor() {
@@ -193,8 +260,13 @@ namespace gedit {
         std::vector<SearchResult> searchResults;
         size_t idxActiveSearchHit = 0;
     private:
+        gnilk::Log::Ref logger;
         LineCursor lineCursor;
         Selection currentSelection = {};
+        VerticalNavigationViewModel verticalNavigationViewModel;
+        Rect viewRect = {};
+        UndoHistory historyBuffer;
+
         TextBuffer::Ref textBuffer = nullptr;             // This is 'owned' by BufferManager
         bool isActive = false;
 

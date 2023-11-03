@@ -15,7 +15,7 @@
 
 namespace gedit {
 
-    class EditorView : public ViewBase, public VerticalNavigationViewModel {
+    class EditorView : public ViewBase {
     public:
         EditorView() = default;
         explicit EditorView(const Rect &viewArea) : ViewBase(viewArea) {
@@ -58,7 +58,6 @@ namespace gedit {
         void OnActivate(bool isActive) override;
         void DrawViewContents() override;
     protected:
-        void HandleKeyPressWithSelection(const KeyPress &keyPress);
         // Action handlers
         bool OnActionLineDown(const KeyPressAction &kpAction);
         bool OnActionLineUp();

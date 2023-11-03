@@ -8,6 +8,8 @@
 #include "Core/TextBuffer.h"
 #include "Core/UndoHistory.h"
 #include "Core/EditorModel.h"
+#include "Core/KeyMapping.h"
+#include "Core/Rect.h"
 #include "BaseController.h"
 #include "logger.h"
 #include <memory>
@@ -40,9 +42,6 @@ namespace gedit {
         bool HandleKeyPress(Cursor &cursor, size_t &idxActiveLine, const KeyPress &keyPress) override;
         bool HandleSpecialKeyPress(Cursor &cursor, size_t &idxActiveLine, const KeyPress &keyPress);
 
-
-        void Undo(Cursor &cursor, size_t &idxActiveLine);
-
         // Returns index to the new active line
         size_t NewLine(size_t idxCurrentLine, Cursor &cursor);
         void MoveLineUp(Cursor &cursor, size_t &idxActiveLine);
@@ -63,26 +62,18 @@ namespace gedit {
         void EndUndoItem(UndoHistory::UndoItem::Ref undoItem);
 
         void UpdateSyntaxForBuffer();   // Does a full buffer reparse of the syntax
+        Job::Ref UpdateSyntaxForActiveLineRegion(); // Special partial case - activeline +/- 2 lines
         Job::Ref UpdateSyntaxForRegion(size_t idxStartLine, size_t idxEndLine); // Partial reparse (between line index)
-        Job::Ref UpdateSyntaxForActiveLineRegion(size_t idxActiveLine); // Special partial case - activeline +/- 2 lines
 
         void PasteFromClipboard(LineCursor &lineCursor);
 
-        void AddCharToLineNoUndo(Cursor &cursor, Line::Ref line, char32_t ch);
-        void RemoveCharFromLineNoUndo(Cursor &cursor, Line::Ref line);
+        // Newly moved stuff from EditorView
+        void OnViewInit(const Rect &viewRect);
+        bool OnKeyPress(const KeyPress &keyPress);
+        void HandleKeyPressWithSelection(const KeyPress &keyPress);
+        bool OnAction(const KeyPressAction &kpAction);
 
-        void AddTab(Cursor &cursor, size_t idxActiveLine);
-        void DelTab(Cursor &cursor, size_t idxActiveLine);
 
-        void DeleteRange(const Point &startPos, const Point &endPos);
-        void AddLineComment(size_t idxLineStart, size_t idxLineEnd, const std::u32string &lineCommentPrefix);
-        void IndentLines(size_t idxLineStart, size_t idxLineEnd);
-        void UnindentLines(size_t idxLineStart, size_t idxLineEnd);
-
-        void DeleteSelection(); // Delete text framed by selection
-        void CommentSelectionOrLine();
-        void IndentSelectionOrLine();
-        void UnindentSelectionOrLine();
 
     protected:
         void DeleteLinesNoSyntaxUpdate(size_t idxLineStart, size_t idxLineEnd);
@@ -92,7 +83,6 @@ namespace gedit {
         EditorModel::Ref model;
         TextBufferChangedDelegate onTextBufferChanged = nullptr;
 
-        UndoHistory historyBuffer;
     };
 }
 

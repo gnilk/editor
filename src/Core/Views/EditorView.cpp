@@ -181,30 +181,27 @@ bool EditorView::OnAction(const KeyPressAction &kpAction) {
         return true;
     }
 
-    // FIXME:
-    bool result = true;
-
-    // FIXME: Not sure this is the correct thing to do...
-    // We cancel selection here unless you have taken appropriate action..
-    if ((kpAction.actionModifier != kActionModifier::kActionModifierSelection) && result && editorModel->IsSelectionActive()) {
-        editorModel->CancelSelection();
+    if (DispatchAction(kpAction)) {
+        return true;
     }
 
-    // Update with cursor after navigation (if any happened)
-    if (editorModel->IsSelectionActive()) {
-        editorModel->UpdateSelection();
-        logger->Debug(" Selection is Active, start=(%d:%d), end=(%d:%d)",
-                      editorModel->GetSelection().GetStart().x, editorModel->GetSelection().GetStart().y,
-                      editorModel->GetSelection().GetEnd().x, editorModel->GetSelection().GetEnd().y);
-    }
-
-    if (!result) {
-        // not for us
-        result = ViewBase::OnAction(kpAction);
-    }
-
-    return result;
+    return ViewBase::OnAction(kpAction);
 }
+
+bool EditorView::DispatchAction(const KeyPressAction &kpAction) {
+    switch(kpAction.action) {
+        case kAction::kActionCycleActiveBufferNext :
+            OnActionNextBuffer();
+            break;
+        case kAction::kActionCycleActiveBufferPrev :
+            OnActionPreviousBuffer();
+            break;
+        default :
+            return false;
+    }
+    return true;
+}
+
 
 bool EditorView::OnActionNextBuffer() {
     ActionHelper::SwitchToNextBuffer();
@@ -225,9 +222,6 @@ bool EditorView::OnActionCycleActiveBuffer() {
         return true;
     }
     Editor::Instance().SetActiveModelFromIndex(idxNext);
-//    auto nextModel = Editor::Instance().GetModelFromIndex(idxNext);
-//    RuntimeConfig::Instance().SetActiveEditorModel(nextModel);
-//    RuntimeConfig::Instance().GetRootView().Initialize();
     InvalidateAll();
     return true;
 }

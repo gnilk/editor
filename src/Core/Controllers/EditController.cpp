@@ -208,6 +208,8 @@ bool EditController::OnKeyPress(const KeyPress &keyPress) {
         model->UpdateModelFromNavigation(true);
         return true;
     }
+
+    return false;
 }
 
 void EditController::HandleKeyPressWithSelection(const KeyPress &keyPress) {
@@ -258,6 +260,8 @@ bool EditController::OnAction(const KeyPressAction &kpAction) {
         return false;
     }
 
+    bool result = false;
+
     auto &lineCursor = model->GetLineCursor();
 
     if (kpAction.actionModifier == kActionModifier::kActionModifierSelection) {
@@ -297,9 +301,22 @@ bool EditController::OnAction(const KeyPressAction &kpAction) {
     } else if (kpAction.action == kAction::kActionUnindent && model->IsSelectionActive()) {
         model->UnindentSelectionOrLine();
     } else {
-        return false;
+        result = model->DispatchAction(kpAction);
     }
 
-    return model->DispatchAction(kpAction);
 
+    // We cancel selection here unless you have taken appropriate action..
+    if ((kpAction.actionModifier != kActionModifier::kActionModifierSelection) && result && model->IsSelectionActive()) {
+        model->CancelSelection();
+    }
+
+    // Update with cursor after navigation (if any happened)
+    if (model->IsSelectionActive()) {
+        model->UpdateSelection();
+        logger->Debug(" Selection is Active, start=(%d:%d), end=(%d:%d)",
+                      model->GetSelection().GetStart().x, model->GetSelection().GetStart().y,
+                      model->GetSelection().GetEnd().x, model->GetSelection().GetEnd().y);
+    }
+
+    return result;
 }

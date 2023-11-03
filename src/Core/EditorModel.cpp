@@ -23,6 +23,7 @@ EditorModel::Ref EditorModel::Create(TextBuffer::Ref newTextBuffer) {
 void EditorModel::Begin() {
     logger = gnilk::Logger::GetLogRef("EditorModel");
     bUseCLionPageNav = Config::Instance()[cfgSectionName].GetBool("pgupdown_content_first", true);
+    verticalNavigationViewModel.lineCursor = GetLineCursorRef();
 }
 
 void EditorModel::OnViewInit(const Rect &rect) {

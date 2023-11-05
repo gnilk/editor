@@ -215,17 +215,6 @@ bool EditorView::OnActionPreviousBuffer() {
     return true;
 }
 
-bool EditorView::OnActionCycleActiveBuffer() {
-    auto idxCurrent = Editor::Instance().GetActiveModelIndex();
-    auto idxNext = Editor::Instance().NextModelIndex(idxCurrent);
-    if (idxCurrent == idxNext) {
-        return true;
-    }
-    Editor::Instance().SetActiveModelFromIndex(idxNext);
-    InvalidateAll();
-    return true;
-}
-
 void EditorView::SetWindowCursor(const Cursor &cursor) {
     if ((Editor::Instance().GetState() == Editor::ViewState) && (editorModel != nullptr)) {
         window->SetCursor(editorModel->GetCursor());

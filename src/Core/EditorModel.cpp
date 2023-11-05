@@ -166,6 +166,66 @@ bool EditorModel::SaveDataNoChangeCheck(const std::filesystem::path &pathName) {
 }
 
 /////////
+bool EditorModel::OnAction(const KeyPressAction &kpAction) {
+    if (kpAction.actionModifier == kActionModifier::kActionModifierSelection) {
+        if (!IsSelectionActive()) {
+            logger->Debug("Shift pressed, selection inactive - BeginSelection");
+            BeginSelection();
+        }
+    }
+
+    bool result = false;
+
+    // This is convoluted - will be dealt with when copy/paste works...
+    if (kpAction.action == kAction::kActionCopyToClipboard) {
+        logger->Debug("Set text to clipboard");
+        auto selection = GetSelection();
+        auto &clipboard = Editor::Instance().GetClipBoard();
+        clipboard.CopyFromBuffer(GetTextBuffer(), selection.GetStart(), selection.GetEnd());
+
+    } else if (kpAction.action == kAction::kActionCutToClipboard) {
+        logger->Debug("Cut text to clipboard");
+        auto selection = GetSelection();
+        auto &clipboard = Editor::Instance().GetClipBoard();
+        clipboard.CopyFromBuffer(GetTextBuffer(), selection.GetStart(), selection.GetEnd());
+
+        lineCursor.idxActiveLine = selection.GetStart().y;
+        lineCursor.cursor.position = selection.GetStart();
+        lineCursor.cursor.position.y -= lineCursor.viewTopLine;   // Translate to screen coords..
+
+        DeleteSelection();
+        CancelSelection();
+        UpdateModelFromNavigation(false);
+    } else if (kpAction.action == kAction::kActionPasteFromClipboard) {
+        PasteFromClipboard();
+    } else if (kpAction.action == kAction::kActionInsertLineComment) {
+        // Handle this here since we want to keep the selection...
+        CommentSelectionOrLine();
+    } else if (kpAction.action == kAction::kActionIndent && IsSelectionActive()) {
+        IndentSelectionOrLine();
+    } else if (kpAction.action == kAction::kActionUnindent && IsSelectionActive()) {
+        UnindentSelectionOrLine();
+    } else {
+        result = DispatchAction(kpAction);
+    }
+
+
+    // We cancel selection here unless you have taken appropriate action..
+    if ((kpAction.actionModifier != kActionModifier::kActionModifierSelection) && result && IsSelectionActive()) {
+        CancelSelection();
+    }
+
+    // Update with cursor after navigation (if any happened)
+    if (IsSelectionActive()) {
+        UpdateSelection();
+        logger->Debug(" Selection is Active, start=(%d:%d), end=(%d:%d)",
+                      GetSelection().GetStart().x, GetSelection().GetStart().y,
+                      GetSelection().GetEnd().x, GetSelection().GetEnd().y);
+    }
+    return result;
+}
+
+
 bool EditorModel::DispatchAction(const KeyPressAction &kpAction) {
     switch(kpAction.action) {
         case kAction::kActionLineLeft :
@@ -793,4 +853,31 @@ void EditorModel::RemoveCharFromLineNoUndo(gedit::Cursor &cursor, Line::Ref line
         }
         cursor.wantedColumn = cursor.position.x;
     }
+}
+
+void EditorModel::PasteFromClipboard() {
+    logger->Debug("Paste from clipboard");
+    RuntimeConfig::Instance().GetScreen()->UpdateClipboardData();
+    auto &clipboard = Editor::Instance().GetClipBoard();
+    if (clipboard.Top() == nullptr) {
+        logger->Debug("Clipboard empty!");
+        return;
+    }
+    auto textBuffer = GetTextBuffer();
+    auto nLines = clipboard.Top()->GetLineCount();
+    auto ptWhere = lineCursor.cursor.position;
+
+    auto undoItem = BeginUndoFromLineRange(lineCursor.idxActiveLine, lineCursor.idxActiveLine+nLines);
+    undoItem->SetRestoreAction(UndoHistory::kRestoreAction::kDeleteBeforeInsert);
+
+    ptWhere.y += (int)lineCursor.viewTopLine;
+    clipboard.PasteToBuffer(textBuffer, ptWhere);
+
+    EndUndoItem(undoItem);
+
+    textBuffer->ReparseRegion(lineCursor.idxActiveLine, lineCursor.idxActiveLine + nLines);
+
+    lineCursor.idxActiveLine += nLines;
+    lineCursor.cursor.position.y += nLines;
+
 }

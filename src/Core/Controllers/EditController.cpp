@@ -1,8 +1,8 @@
 //
 // Created by gnilk on 15.02.23.
 //
-// The controller is in charge of MODIFYING the underlying textbuffer - any such function present in the Model should
-// be moved here - see comment in EditorModel.cpp
+// Not sure this class makes much sense anymore - moved almost anything doing 'model->XYZ' already to model
+//
 //
 
 #include "EditController.h"
@@ -149,37 +149,6 @@ void EditController::MoveLineUp(Cursor &cursor, size_t &idxActiveLine) {
     cursor.position.y--;
 }
 
-// Move to model...
-size_t EditController::NewLine(size_t idxActiveLine, Cursor &cursor) {
-    return model->NewLine(idxActiveLine, cursor);
-}
-
-void EditController::PasteFromClipboard(LineCursor &lineCursor) {
-    logger->Debug("Paste from clipboard");
-    RuntimeConfig::Instance().GetScreen()->UpdateClipboardData();
-    auto &clipboard = Editor::Instance().GetClipBoard();
-    if (clipboard.Top() == nullptr) {
-        logger->Debug("Clipboard empty!");
-        return;
-    }
-    auto textBuffer = model->GetTextBuffer();
-    auto nLines = clipboard.Top()->GetLineCount();
-    auto ptWhere = lineCursor.cursor.position;
-
-    auto undoItem = model->BeginUndoFromLineRange(lineCursor.idxActiveLine, lineCursor.idxActiveLine+nLines);
-    undoItem->SetRestoreAction(UndoHistory::kRestoreAction::kDeleteBeforeInsert);
-
-    ptWhere.y += (int)lineCursor.viewTopLine;
-    clipboard.PasteToBuffer(textBuffer, ptWhere);
-
-    model->EndUndoItem(undoItem);
-
-    textBuffer->ReparseRegion(lineCursor.idxActiveLine, lineCursor.idxActiveLine + nLines);
-
-    lineCursor.idxActiveLine += nLines;
-    lineCursor.cursor.position.y += nLines;
-}
-
 // Newly moved stuff from EditorView
 bool EditController::OnKeyPress(const KeyPress &keyPress) {
     // This can all be pushed to controller / model
@@ -259,64 +228,6 @@ bool EditController::OnAction(const KeyPressAction &kpAction) {
     if (model == nullptr) {
         return false;
     }
-
-    bool result = false;
-
-    auto &lineCursor = model->GetLineCursor();
-
-    if (kpAction.actionModifier == kActionModifier::kActionModifierSelection) {
-        if (!model->IsSelectionActive()) {
-            logger->Debug("Shift pressed, selection inactive - BeginSelection");
-            model->BeginSelection();
-        }
-    }
-
-    // This is convoluted - will be dealt with when copy/paste works...
-    if (kpAction.action == kAction::kActionCopyToClipboard) {
-        logger->Debug("Set text to clipboard");
-        auto selection = model->GetSelection();
-
-        auto &clipboard = Editor::Instance().GetClipBoard();
-        clipboard.CopyFromBuffer(model->GetTextBuffer(), selection.GetStart(), selection.GetEnd());
-    } else if (kpAction.action == kAction::kActionCutToClipboard) {
-        logger->Debug("Cut text to clipboard");
-        auto selection = model->GetSelection();
-        auto &clipboard = Editor::Instance().GetClipBoard();
-        clipboard.CopyFromBuffer(model->GetTextBuffer(), selection.GetStart(), selection.GetEnd());
-
-        lineCursor.idxActiveLine = selection.GetStart().y;
-        lineCursor.cursor.position = selection.GetStart();
-        lineCursor.cursor.position.y -= lineCursor.viewTopLine;   // Translate to screen coords..
-
-        model->DeleteSelection();
-        model->CancelSelection();
-        model->UpdateModelFromNavigation(false);
-    } else if (kpAction.action == kAction::kActionPasteFromClipboard) {
-        PasteFromClipboard(model->GetLineCursor());
-    } else if (kpAction.action == kAction::kActionInsertLineComment) {
-        // Handle this here since we want to keep the selection...
-        model->CommentSelectionOrLine();
-    } else if (kpAction.action == kAction::kActionIndent && model->IsSelectionActive()) {
-        model->IndentSelectionOrLine();
-    } else if (kpAction.action == kAction::kActionUnindent && model->IsSelectionActive()) {
-        model->UnindentSelectionOrLine();
-    } else {
-        result = model->DispatchAction(kpAction);
-    }
-
-
-    // We cancel selection here unless you have taken appropriate action..
-    if ((kpAction.actionModifier != kActionModifier::kActionModifierSelection) && result && model->IsSelectionActive()) {
-        model->CancelSelection();
-    }
-
-    // Update with cursor after navigation (if any happened)
-    if (model->IsSelectionActive()) {
-        model->UpdateSelection();
-        logger->Debug(" Selection is Active, start=(%d:%d), end=(%d:%d)",
-                      model->GetSelection().GetStart().x, model->GetSelection().GetStart().y,
-                      model->GetSelection().GetEnd().x, model->GetSelection().GetEnd().y);
-    }
-
-    return result;
+    // Dispatch this directly to the model
+    return model->OnAction(kpAction);
 }

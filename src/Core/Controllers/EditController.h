@@ -31,7 +31,6 @@ namespace gedit {
         static Ref Create(EditorModel::Ref newModel);
 
         void Begin() override;
-        void SetTextBuffer(TextBuffer::Ref newTextBuffer);
 
         const TextBuffer::Ref GetTextBuffer() {
             return model->GetTextBuffer();
@@ -42,8 +41,6 @@ namespace gedit {
         bool HandleKeyPress(Cursor &cursor, size_t &idxActiveLine, const KeyPress &keyPress) override;
         bool HandleSpecialKeyPress(Cursor &cursor, size_t &idxActiveLine, const KeyPress &keyPress);
 
-        // Returns index to the new active line
-        size_t NewLine(size_t idxCurrentLine, Cursor &cursor);
         void MoveLineUp(Cursor &cursor, size_t &idxActiveLine);
 
         // Proxy for buffer
@@ -58,15 +55,6 @@ namespace gedit {
             return model->LineAt(idxLine);
         }
 
-        UndoHistory::UndoItem::Ref BeginUndoItem();
-        void EndUndoItem(UndoHistory::UndoItem::Ref undoItem);
-
-        void UpdateSyntaxForBuffer();   // Does a full buffer reparse of the syntax
-        Job::Ref UpdateSyntaxForActiveLineRegion(); // Special partial case - activeline +/- 2 lines
-        Job::Ref UpdateSyntaxForRegion(size_t idxStartLine, size_t idxEndLine); // Partial reparse (between line index)
-
-        void PasteFromClipboard(LineCursor &lineCursor);
-
         // Newly moved stuff from EditorView
         void OnViewInit(const Rect &viewRect);
         bool OnKeyPress(const KeyPress &keyPress);
@@ -76,7 +64,6 @@ namespace gedit {
 
 
     protected:
-        void DeleteLinesNoSyntaxUpdate(size_t idxLineStart, size_t idxLineEnd);
         bool HandleSpecialKeyPressForEditor(Cursor &cursor, size_t &idxLine, const KeyPress &keyPress);
     private:
         gnilk::ILogger *logger = nullptr;

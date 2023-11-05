@@ -61,7 +61,6 @@ namespace gedit {
         // Action handlers
         bool OnActionPreviousBuffer();
         bool OnActionNextBuffer();
-        bool OnActionCycleActiveBuffer();
 
     private:
         bool DispatchAction(const KeyPressAction &kpAction);

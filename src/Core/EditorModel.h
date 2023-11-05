@@ -219,6 +219,10 @@ namespace gedit {
         bool SaveData(const std::filesystem::path &pathName);
         bool SaveDataNoChangeCheck(const std::filesystem::path &pathName);
 
+
+        void PasteFromClipboard();
+
+        bool OnAction(const KeyPressAction &kpAction);
         bool DispatchAction(const KeyPressAction &kpAction);
     protected:
         bool OnActionLineDown(const KeyPressAction &kpAction);
@@ -249,13 +253,6 @@ namespace gedit {
         LineCursor::Ref  GetLineCursorRef() {
             return &lineCursor;
         }
-        // Move the following to a separate structure
-        // REMOVE ANY DUPLICATION - search for 'idxActiveLine' (EditorView and such)
-//        Cursor cursor;
-//        size_t idxActiveLine = 0;
-//        int32_t viewTopLine = 0;
-//        int32_t viewBottomLine = 0;
-        //
 
         std::vector<SearchResult> searchResults;
         size_t idxActiveSearchHit = 0;

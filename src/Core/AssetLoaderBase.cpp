@@ -87,6 +87,9 @@ AssetLoaderBase::Asset::Ref AssetLoaderBase::DoLoadAsset(const SearchPath &searc
     if (!CheckFilePath(pathName)) {
         return {};
     }
+    auto logger = gnilk::Logger::GetLogger("AssetLoader");
+    logger->Debug("Loading Asset: %s", pathName.c_str());
+
 
     Asset::Ref asset = std::make_shared<Asset>();
     auto szFile = std::filesystem::file_size(pathName);

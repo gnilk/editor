@@ -232,9 +232,11 @@ void Editor::PreParseArguments(int argc, const char **argv) {
             std::string cmdSwitch = std::string(&argv[i][2]);
             if (cmdSwitch == "console_logging") {
                 keepConsoleLogger = true;
-            } else if (cmdSwitch == "--help") {
-                PrintHelpToConsole();
-                exit(1);
+            } else if (cmdSwitch == "skip_user_config") {
+                loadUserConfig = false;
+            } else if (cmdSwitch == "help") {
+                    PrintHelpToConsole();
+                    exit(1);
             }
         } else if ((arg == "-h") || (arg == "-H") || (arg == "-?")) {
             PrintHelpToConsole();
@@ -425,7 +427,11 @@ bool Editor::TryLoadConfig(const char *configFile) {
     auto isMainConfOk =  Config::Instance().LoadSystemConfig(configFile);
 
     // Merge with user conf..
-    Config::Instance().MergeUserConfig(configFile, true);
+    if (loadUserConfig) {
+        Config::Instance().MergeUserConfig(configFile, true);
+    } else {
+        logger->Debug("User config loading disabled, skipping!");
+    }
 
     return isMainConfOk;
 }

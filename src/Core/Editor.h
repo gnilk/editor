@@ -192,6 +192,7 @@ namespace gedit {
         bool isInitialized = false;
         gnilk::ILogger *logger = nullptr;
         bool keepConsoleLogger = false;
+        bool loadUserConfig = true;
 
         // Holds all open models/buffers in the text editor
         std::vector<EditorModel::Ref> openModels = {};

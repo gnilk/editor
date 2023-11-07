@@ -101,36 +101,17 @@ namespace gedit {
             // printf("EditorModel::DTOR\n");
         }
         static Ref Create(TextBuffer::Ref newTextBuffer);
-        void Begin();
+
+        // FIXME: Rename this
         void OnViewInit(const Rect &rect);
+        void RefocusViewArea();
 
         void Close() {
             textBuffer->Close();
         }
-        void SetViewRect(const Rect &rect) {
-            viewRect = rect;
-        }
 
         TextBuffer::Ref GetTextBuffer() {
             return textBuffer;
-        }
-
-        Cursor &GetCursor() {
-            return lineCursor.cursor;
-        }
-
-        // proxy
-        const std::vector<Line::Ref> &Lines() {
-            return textBuffer->Lines();
-        }
-        Line::Ref LineAt(size_t idxLine) {
-            return textBuffer->LineAt(idxLine);
-        }
-        Line::Ref ActiveLine() {
-            return textBuffer->LineAt(lineCursor.idxActiveLine);
-        }
-        size_t GetActiveLineIndex() {
-            return lineCursor.idxActiveLine;
         }
 
         bool IsActive() {
@@ -139,6 +120,20 @@ namespace gedit {
         void SetActive(bool newIsActive) {
             isActive = newIsActive;
         }
+
+
+        // proxies
+        __inline const std::vector<Line::Ref> &Lines() {
+            return textBuffer->Lines();
+        }
+        __inline Line::Ref LineAt(size_t idxLine) {
+            return textBuffer->LineAt(idxLine);
+        }
+        __inline Line::Ref ActiveLine() {
+            return textBuffer->LineAt(lineCursor.idxActiveLine);
+        }
+
+        // Selection functions, should be moved to .cpp
         void BeginSelection() {
             currentSelection.isActive = true;
             currentSelection.startPos.x = lineCursor.cursor.position.x;
@@ -152,22 +147,17 @@ namespace gedit {
             currentSelection.endPos = newEnd;
 
         }
-        void RefocusViewArea();
-        void CancelSelection() {
+        __inline void CancelSelection() {
             currentSelection.isActive = false;
         }
-        bool IsSelectionActive() {
+        __inline bool IsSelectionActive() {
             return currentSelection.isActive;
         }
-        const Selection &GetSelection() {
+        __inline const Selection &GetSelection() {
             return currentSelection;
         }
 
-        const Selection &GetSelection() const {
-            return currentSelection;
-        }
-
-        void DeleteSelection();
+        void DeleteSelection();     // Fixme: naming - this looks like a selection-range mgmt function
         void IndentSelectionOrLine();
         void UnindentSelectionOrLine();
         void CommentSelectionOrLine();
@@ -219,12 +209,25 @@ namespace gedit {
         bool SaveData(const std::filesystem::path &pathName);
         bool SaveDataNoChangeCheck(const std::filesystem::path &pathName);
 
+        Cursor &GetCursor() {
+            return lineCursor.cursor;
+        }
+
+        LineCursor &GetLineCursor() {
+            return lineCursor;
+        }
+        LineCursor::Ref  GetLineCursorRef() {
+            return &lineCursor;
+        }
 
         void PasteFromClipboard();
 
         bool OnAction(const KeyPressAction &kpAction);
         bool DispatchAction(const KeyPressAction &kpAction);
     protected:
+        void Begin();
+
+
         bool OnActionLineDown(const KeyPressAction &kpAction);
         bool OnActionLineUp();
         bool OnActionPageUp();
@@ -247,12 +250,6 @@ namespace gedit {
         bool bUseCLionPageNav = true;
 
     public:
-        LineCursor &GetLineCursor() {
-            return lineCursor;
-        }
-        LineCursor::Ref  GetLineCursorRef() {
-            return &lineCursor;
-        }
 
         std::vector<SearchResult> searchResults;
         size_t idxActiveSearchHit = 0;

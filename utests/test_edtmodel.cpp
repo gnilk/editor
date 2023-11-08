@@ -21,7 +21,9 @@ DLL_EXPORT int test_edtmodel_text_selfunc(ITesting *t);
 
 // Define some common actions
 static KeyPressAction actionLineDown = {gedit::kAction::kActionLineDown};
+static KeyPressAction actionPageDown = {gedit::kAction::kActionPageDown};
 static KeyPressAction actionLineUp = {gedit::kAction::kActionLineUp};
+static KeyPressAction actionPageUp = {gedit::kAction::kActionPageUp};
 static KeyPressAction actionShiftLineDown =
         {
                 .action = gedit::kAction::kActionLineDown,
@@ -38,6 +40,8 @@ static KeyPressAction actionShiftLineUp =
 
 DLL_EXPORT int test_edtmodel(ITesting *t) {
     Config::Instance()["main"].SetBool("threaded_syntaxparser", false);
+    // Ensure we test with a known vertical navigation model..
+    Config::Instance()["editorview"].SetBool("pgupdown_content_first", true);
     return kTR_Pass;
 }
 
@@ -120,6 +124,7 @@ DLL_EXPORT int test_edtmodel_text_linefunc(ITesting *t) {
     // The 'view' rect (this is the size of the visible area of the text buffer)
     // it is used to calculate the actual viewing area for the renderer
     // needed for navigation testing since cursor updates will move it around..
+    // this also defines the height of a 'page' when dealing with page-down/up
     gedit::Rect rect(20,20);
     model->OnViewInit(rect);
 
@@ -136,10 +141,64 @@ DLL_EXPORT int test_edtmodel_text_linefunc(ITesting *t) {
     TR_ASSERT(t, model->ActiveLine() != nullptr);
     TR_ASSERT(t, model->GetLineCursorRef()->idxActiveLine == 1);
     TR_ASSERT(t, model->GetLineCursorRef()->cursor.position.y == 1);
+
+    model->OnAction(actionPageDown);
+    TR_ASSERT(t, model->ActiveLine() != nullptr);
+    // We move 'height-1' - keeping at least one line of the previous visual chunk present on the screen
+    TR_ASSERT(t, model->GetLineCursorRef()->idxActiveLine == 20);
+    // THIS depends on the current view model - we lock this to 'content-first' (CLion/Sublime) for this test
+    TR_ASSERT(t, model->GetLineCursorRef()->cursor.position.y == 1);
+
+    // This will move us back to where we were at (one line down)
+    model->OnAction(actionPageUp);
+    TR_ASSERT(t, model->ActiveLine() != nullptr);
+    TR_ASSERT(t, model->GetLineCursorRef()->idxActiveLine == 1);
+    TR_ASSERT(t, model->GetLineCursorRef()->cursor.position.y == 1);
+
+    // We are one line down - moving a whole page up should put us on top - clipping to boundary
+    model->OnAction(actionPageUp);
+    TR_ASSERT(t, model->ActiveLine() != nullptr);
+    TR_ASSERT(t, model->GetLineCursorRef()->idxActiveLine == 0);
+    TR_ASSERT(t, model->GetLineCursorRef()->cursor.position.y == 0);
+
     return kTR_Pass;
 }
 
 DLL_EXPORT int test_edtmodel_text_selfunc(ITesting *t) {
     auto model = CreateEmptyModel(t);
+
+    gedit::Rect rect(20,20);
+    model->OnViewInit(rect);
+
+    // Insert 40 lines with 40 chars
+    FillEmptyModel(model, 40, 40);
+
+
+    // This will start the selection
+    model->OnAction(actionShiftLineDown);   // select one line
+    TR_ASSERT(t, model->ActiveLine() != nullptr);
+    TR_ASSERT(t, model->GetLineCursorRef()->idxActiveLine == 1);
+    TR_ASSERT(t, model->GetLineCursorRef()->cursor.position.y == 1);
+
+    // Selection should now be active
+    TR_ASSERT(t, model->IsSelectionActive());
+    auto &selection = model->GetSelection();
+    TR_ASSERT(t, selection.IsActive());
+    TR_ASSERT(t, selection.GetStart().y == 0);
+    TR_ASSERT(t, selection.GetEnd().y == 1);
+
+    // Continue selection
+    model->OnAction(actionShiftLineDown);   // select one line
+    TR_ASSERT(t, selection.IsActive());
+    TR_ASSERT(t, selection.GetStart().y == 0);
+    TR_ASSERT(t, selection.GetEnd().y == 2);
+
+    // Test if we can copy it
+    auto &clipboard = Editor::Instance().GetClipBoard();
+    clipboard.CopyFromBuffer(model->GetTextBuffer(), selection.GetStart(), selection.GetEnd());
+    auto item = clipboard.Top();
+    TR_ASSERT(t, item->GetLineCount() == 2);
+
+
     return kTR_Pass;
 }

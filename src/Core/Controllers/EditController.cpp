@@ -160,8 +160,17 @@ bool EditController::OnKeyPress(const KeyPress &keyPress) {
 
     // In case we have selection active - we treat the whole thing a bit differently...
     if (model->IsSelectionActive()) {
-        HandleKeyPressWithSelection(keyPress);
-        return true;
+
+        auto &lineCursor = model->GetLineCursor();
+        auto &selection = model->GetSelection();
+        model->DeleteSelection();
+        model->CancelSelection();
+
+        lineCursor.idxActiveLine = selection.GetStart().y;
+        lineCursor.cursor.position = selection.GetStart();
+        if ((keyPress.specialKey == Keyboard::kKeyCode_Backspace) || (keyPress.specialKey == Keyboard::kKeyCode_DeleteForward)) {
+            return true;
+        }
     }
 
     auto &lineCursor = model->GetLineCursor();
@@ -179,48 +188,6 @@ bool EditController::OnKeyPress(const KeyPress &keyPress) {
     }
 
     return false;
-}
-
-void EditController::HandleKeyPressWithSelection(const KeyPress &keyPress) {
-
-    auto &selection = model->GetSelection();
-    auto &lineCursor = model->GetLineCursor();
-
-    lineCursor.idxActiveLine = selection.GetStart().y;
-    lineCursor.cursor.position = selection.GetStart();
-    lineCursor.cursor.position.y -= lineCursor.viewTopLine;   // Translate to screen coords..
-
-    // Save here - because 'UpdateModelFromNavigiation' updates the wanted column - bad/good?
-    auto tmpCursor = lineCursor.cursor;
-
-    // FIXME: This?!?!?!?!?
-    model->UpdateModelFromNavigation(false);
-
-
-    switch (keyPress.specialKey) {
-        case Keyboard::kKeyCode_Backspace :
-        case Keyboard::kKeyCode_DeleteForward :
-            model->DeleteSelection();
-            break;
-        default: {
-            // This is a bit ugly (understatement of this project so far...)
-            // But any - valid - keypress should lead to the selection being deleted and the new key inserted...
-            if (HandleKeyPress(lineCursor.cursor, lineCursor.idxActiveLine, keyPress)) {
-                // revert the last insert
-                model->Undo(lineCursor.cursor, lineCursor.idxActiveLine);
-                // delete the selection (buffer is now fine)
-                model->DeleteSelection();
-
-                // Restore the cursor where it should be and repeat the keypress handling again...
-                lineCursor.cursor = tmpCursor;
-                HandleKeyPress(lineCursor.cursor, lineCursor.idxActiveLine, keyPress);
-            }
-        }
-    }
-
-    // Regardless of the hacky thing above - let's cancel out the selection...
-    model->CancelSelection();
-    model->UpdateModelFromNavigation(false);
 }
 
 bool EditController::OnAction(const KeyPressAction &kpAction) {

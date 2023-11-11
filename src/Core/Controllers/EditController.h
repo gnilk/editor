@@ -58,7 +58,6 @@ namespace gedit {
         // Newly moved stuff from EditorView
         void OnViewInit(const Rect &viewRect);
         bool OnKeyPress(const KeyPress &keyPress);
-        void HandleKeyPressWithSelection(const KeyPress &keyPress);
         bool OnAction(const KeyPressAction &kpAction);
 
 

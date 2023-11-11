@@ -23,6 +23,7 @@ TextBuffer::Ref TextBuffer::CreateEmptyBuffer() {
     buffer->logger = gnilk::Logger::GetLogger("TextBuffer");
     buffer->AddLineUTF8("");
     buffer->bufferState = kBuffer_Empty;
+    buffer->SetLanguage(Editor::Instance().GetDefaultLanguage());
     return buffer;
 }
 

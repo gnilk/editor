@@ -133,39 +133,11 @@ namespace gedit {
             return textBuffer->LineAt(lineCursor.idxActiveLine);
         }
 
-        // Selection functions, should be moved to .cpp
-        void BeginSelection() {
-            currentSelection.isActive = true;
-            currentSelection.startPos.x = lineCursor.cursor.position.x;
-            currentSelection.startPos.y = lineCursor.idxActiveLine;
-
-            currentSelection.endPos = currentSelection.startPos;
-        }
-        void UpdateSelection() {
-            // perhaps check if active...
-            Point newEnd(lineCursor.cursor.position.x, lineCursor.idxActiveLine);
-            currentSelection.endPos = newEnd;
-
-        }
-        __inline void CancelSelection() {
-            currentSelection.isActive = false;
-        }
-        __inline bool IsSelectionActive() {
-            return currentSelection.isActive;
-        }
-        __inline const Selection &GetSelection() {
-            return currentSelection;
-        }
-
-        void DeleteSelection();     // Fixme: naming - this looks like a selection-range mgmt function
-        void IndentSelectionOrLine();
-        void UnindentSelectionOrLine();
-        void CommentSelectionOrLine();
-
         void AddLineComment(size_t idxLineStart, size_t idxLineEnd, const std::u32string &lineCommentPrefix);
         void IndentLines(size_t idxLineStart, size_t idxLineEnd);
         void UnindentLines(size_t idxLineStart, size_t idxLineEnd);
 
+        // Not quite sure - they are conflicting with Indent/Unindent
         void AddTab(Cursor &cursor, size_t idxActiveLine);
         void DelTab(Cursor &cursor, size_t idxActiveLine);
 
@@ -182,7 +154,7 @@ namespace gedit {
         UndoHistory::UndoItem::Ref BeginUndoFromLineRange(size_t idxStart, size_t idxEnd);
         void EndUndoItem(UndoHistory::UndoItem::Ref undoItem);
 
-        // protected..
+        // should be protected?
         void UpdateSyntaxForBuffer();
         Job::Ref UpdateSyntaxForActiveLineRegion();
         Job::Ref UpdateSyntaxForRegion(size_t idxStartLine, size_t idxEndLine);
@@ -224,6 +196,38 @@ namespace gedit {
 
         bool OnAction(const KeyPressAction &kpAction);
         bool DispatchAction(const KeyPressAction &kpAction);
+
+        // Selection functions - not sure these must be exposed - perhaps for API purposes?
+        void BeginSelection() {
+            currentSelection.isActive = true;
+            currentSelection.startPos.x = lineCursor.cursor.position.x;
+            currentSelection.startPos.y = lineCursor.idxActiveLine;
+            currentSelection.endPos = currentSelection.startPos;
+        }
+        __inline bool IsSelectionActive() {
+            return currentSelection.isActive;
+        }
+        __inline const Selection &GetSelection() {
+            return currentSelection;
+        }
+        __inline void CancelSelection() {
+            currentSelection.isActive = false;
+        }
+        void DeleteSelection();     // Fixme: naming - this looks like a selection-range mgmt function
+
+    protected:
+        void UpdateSelection() {
+            // perhaps check if active...
+            Point newEnd(lineCursor.cursor.position.x, lineCursor.idxActiveLine);
+            currentSelection.endPos = newEnd;
+
+        }
+
+        void IndentSelectionOrLine();
+        void UnindentSelectionOrLine();
+        void CommentSelectionOrLine();
+
+
     protected:
         void Begin();
 

@@ -17,9 +17,12 @@ DLL_EXPORT int test_edtmodel_empty_selfunc(ITesting *t);
 // 'text' - is with a bunch of text
 DLL_EXPORT int test_edtmodel_text_linefunc(ITesting *t);
 DLL_EXPORT int test_edtmodel_text_selfunc(ITesting *t);
+
+// 'ins' - insert action in to the model
+DLL_EXPORT int test_edtmodel_ins_keypress(ITesting *t);
 }
 
-// Define some common actions
+// Define some common actions, this will trigger side-effects in the model
 static KeyPressAction actionLineDown = {gedit::kAction::kActionLineDown};
 static KeyPressAction actionPageDown = {gedit::kAction::kActionPageDown};
 static KeyPressAction actionLineUp = {gedit::kAction::kActionLineUp};
@@ -52,6 +55,8 @@ static EditorModel::Ref CreateEmptyModel(ITesting *t) {
     TR_ASSERT(t, model != nullptr);
     return model;
 }
+
+// fill the text buffer in the model with predictable content..
 static void FillEmptyModel(EditorModel::Ref model, size_t nLines, size_t lineLength) {
     // Remove first line - we don't want this to interfere
     model->GetTextBuffer()->DeleteLineAt(0);
@@ -72,6 +77,7 @@ DLL_EXPORT int test_edtmodel_create(ITesting *t) {
     TR_ASSERT(t, model->Lines().size() == 1);
     TR_ASSERT(t, model->GetTextBuffer() == textBuffer);
     TR_ASSERT(t, model->IsActive() == false);   // this model has not been activated by the editor
+    TR_ASSERT(t, model->GetTextBuffer()->HaveLanguage());
 
     return kTR_Pass;
 }
@@ -199,6 +205,41 @@ DLL_EXPORT int test_edtmodel_text_selfunc(ITesting *t) {
     auto item = clipboard.Top();
     TR_ASSERT(t, item->GetLineCount() == 2);
 
+    // This should cancel the selection
+    model->OnAction(actionLineDown);
+    TR_ASSERT(t, model->IsSelectionActive() == false);
+
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_edtmodel_ins_keypress(ITesting *t) {
+    auto model = CreateEmptyModel(t);
+
+    gedit::Rect rect(20,20);
+    model->OnViewInit(rect);
+
+    // Insert 40 lines with 40 chars
+    FillEmptyModel(model, 40, 40);
+
+    auto controller = EditController::Create(model);
+
+    static KeyPress keyPress = {
+            .isKeyValid = true,
+            .isHwEventValid = false,
+            .isSpecialKey = false,
+            .hwEvent = {},
+            .modifiers = 0,
+            .key = U'A',
+            .specialKey = 0
+    };
+
+    auto szLineBefore = model->ActiveLine()->Length();
+//    controller->DefaultEditLine(model->GetCursor(), model->ActiveLine(), keyPress, false);
+    auto &lc = model->GetLineCursor();
+    controller->HandleKeyPress(lc.cursor, lc.idxActiveLine, keyPress);
+    auto szLineAfter = model->ActiveLine()->Length();
+    TR_ASSERT(t, szLineAfter > szLineBefore);
+    TR_ASSERT(t, szLineAfter == (szLineBefore + 1));
 
     return kTR_Pass;
 }

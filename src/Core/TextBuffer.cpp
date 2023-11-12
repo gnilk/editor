@@ -371,9 +371,13 @@ void TextBuffer::OnLineChanged(const Line &line) {
         autoSaveTimer->Restart(duration);
         return;
     }
+    if (!RuntimeConfig::Instance().HasRootView()) {
+        logger->Debug("No rooview (unit testing?) - can't create timer");
+        return;
+
+    }
 
     logger->Debug("Autosave timer is null - creating!");
-
     autoSaveTimer = Timer::Create(duration, [this]() {
         logger->Debug("AutoSave Timer kicked in - posting message for save on main thread!");
 

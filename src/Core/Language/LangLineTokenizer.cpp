@@ -434,7 +434,7 @@ std::pair<bool, kLanguageTokenClass> LangLineTokenizer::GetNextToken(std::u32str
         if (!kvp.second->isWholeWord) {
             continue;
         }
-        if (!kvp.second->IsFullMatch(strInput, szOperator)) {
+        if (!kvp.second->IsFullMatch(dst, szOperator)) {
             continue;
         }
         return {true, kvp.second->classification};

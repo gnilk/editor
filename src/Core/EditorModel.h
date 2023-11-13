@@ -79,6 +79,7 @@ namespace gedit {
     protected:
         // Consider making these private...
         bool isActive = false;
+        size_t idxStartLine;
         Point startPos = {};
         Point endPos = {};
 
@@ -200,8 +201,8 @@ namespace gedit {
         // Selection functions - not sure these must be exposed - perhaps for API purposes?
         void BeginSelection() {
             currentSelection.isActive = true;
-            currentSelection.startPos.x = lineCursor.cursor.position.x;
-            currentSelection.startPos.y = lineCursor.idxActiveLine;
+            currentSelection.idxStartLine = lineCursor.idxActiveLine;
+            currentSelection.startPos = lineCursor.cursor.position;
             currentSelection.endPos = currentSelection.startPos;
         }
         __inline bool IsSelectionActive() {
@@ -212,6 +213,10 @@ namespace gedit {
         }
         __inline void CancelSelection() {
             currentSelection.isActive = false;
+        }
+        __inline void RestoreCursorFromSelection() {
+            lineCursor.idxActiveLine = currentSelection.idxStartLine;
+            lineCursor.cursor.position = currentSelection.startPos;
         }
         void DeleteSelection();     // Fixme: naming - this looks like a selection-range mgmt function
 

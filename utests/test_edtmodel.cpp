@@ -20,6 +20,9 @@ DLL_EXPORT int test_edtmodel_text_selfunc(ITesting *t);
 
 // 'ins' - insert action in to the model
 DLL_EXPORT int test_edtmodel_ins_keypress(ITesting *t);
+
+DLL_EXPORT int test_edtmodel_delete_text(ITesting *t);
+
 }
 
 // Define some common actions, this will trigger side-effects in the model
@@ -240,6 +243,52 @@ DLL_EXPORT int test_edtmodel_ins_keypress(ITesting *t) {
     auto szLineAfter = model->ActiveLine()->Length();
     TR_ASSERT(t, szLineAfter > szLineBefore);
     TR_ASSERT(t, szLineAfter == (szLineBefore + 1));
+
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_edtmodel_delete_text(ITesting *t) {
+    auto model = CreateEmptyModel(t);
+
+    gedit::Rect rect(20,20);
+    model->OnViewInit(rect);
+
+    // Insert 40 lines with 40 chars
+    FillEmptyModel(model, 40, 40);
+
+
+    static KeyPress keyPressDelete = {
+        .isKeyValid = true,
+        .isHwEventValid = false,
+        .isSpecialKey = true,
+        .hwEvent = {},
+        .modifiers = 0,
+        .key = 0,
+        .specialKey = Keyboard::kKeyCode_DeleteForward
+};
+    auto controller = EditController::Create(model);
+
+    controller->OnAction(actionPageDown);
+    controller->OnAction(actionPageDown);
+    controller->OnAction(actionPageDown);
+    controller->OnAction(actionLineUp);
+    controller->OnAction(actionLineUp);
+    controller->OnAction(actionLineUp);   // we should be on line 23 now
+
+    auto lcBefore = model->GetLineCursor();
+
+    // Select two lines
+    controller->OnAction(actionShiftLineDown);
+    controller->OnAction(actionShiftLineDown);
+
+    auto lc = model->GetLineCursor();
+    //controller->HandleKeyPress(lc.cursor, lc.idxActiveLine, keyPressDelete);
+    controller->OnKeyPress(keyPressDelete);
+
+    auto lcAfter = model->GetLineCursor();
+
+    TR_ASSERT(t, lcBefore.cursor.position.y == lcAfter.cursor.position.y);
+    TR_ASSERT(t, lcBefore.idxActiveLine == lcAfter.idxActiveLine);
 
     return kTR_Pass;
 }

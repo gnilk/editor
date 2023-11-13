@@ -531,7 +531,13 @@ void EditorModel::Undo(Cursor &cursor, size_t &idxActiveLine) {
 
     //UpdateSyntaxForBuffer();
     // UpdateSyntaxForActiveLineRegion(cursor.position.y);
-    UpdateSyntaxForRegion(cursor.position.y, cursor.position.y + nLinesRestored * 2);
+    auto regionStartLine = cursor.position.y - nLinesRestored;
+    auto regionEndLine = cursor.position.y + nLinesRestored;
+    if (regionStartLine < 0) {
+        regionStartLine = 0;
+    }
+
+    UpdateSyntaxForRegion(regionStartLine, regionEndLine);
 }
 
 

@@ -166,8 +166,13 @@ bool EditController::OnKeyPress(const KeyPress &keyPress) {
         model->DeleteSelection();
         model->CancelSelection();
 
-        lineCursor.idxActiveLine = selection.GetStart().y;
+        // This might need some extra attention
+        int dy = selection.GetEnd().y - selection.GetStart().y;
+
+        lineCursor.idxActiveLine -= dy;
         lineCursor.cursor.position = selection.GetStart();
+        lineCursor.cursor.position.y -= lineCursor.viewTopLine;
+
         if ((keyPress.specialKey == Keyboard::kKeyCode_Backspace) || (keyPress.specialKey == Keyboard::kKeyCode_DeleteForward)) {
             return true;
         }

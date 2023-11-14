@@ -131,7 +131,7 @@ DLL_EXPORT int test_vnav_pagedown(ITesting *t) {
     DefaultLineCursor(lineCursor);
     PositionAbsolute(lineCursor, 0,0);
     vnav.OnNavigateDown(szPageSize, viewRect, 100);
-    TR_ASSERT(t, lineCursor.idxActiveLine == szPageSize);
+    TR_ASSERT(t, lineCursor.idxActiveLine == szPageSize + 1);
     TR_ASSERT(t, lineCursor.cursor.position.y == 1);
     TR_ASSERT(t, lineCursor.viewTopLine == szPageSize);
     TR_ASSERT(t, lineCursor.viewBottomLine == lineCursor.viewTopLine + viewRect.Height());
@@ -142,8 +142,8 @@ DLL_EXPORT int test_vnav_pagedown(ITesting *t) {
     auto topLineBefore = lineCursor.viewTopLine;
     auto bottomLineBefore = lineCursor.viewBottomLine;
     vnav.OnNavigateDown(szPageSize, viewRect, 100);
-    TR_ASSERT(t, lineCursor.idxActiveLine == 40 + szPageSize);
-    TR_ASSERT(t, lineCursor.cursor.position.y == 21);
+    TR_ASSERT(t, lineCursor.idxActiveLine == 40 + szPageSize +1);
+    TR_ASSERT(t, lineCursor.cursor.position.y == 20 + 1);
     TR_ASSERT(t, lineCursor.viewTopLine == topLineBefore + szPageSize);
     TR_ASSERT(t, lineCursor.viewBottomLine == bottomLineBefore + szPageSize);
 

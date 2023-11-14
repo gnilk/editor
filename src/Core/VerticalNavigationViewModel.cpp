@@ -58,15 +58,15 @@ void VerticalNavigationViewModel::HandleResize(const Rect &viewRect) {
     lineCursor->cursor.position.y = lineCursor->idxActiveLine - lineCursor->viewTopLine;
 }
 
-
-// This implements VSCode style of downwards navigation
-// Cursor if moved first then content (i.e if standing on first-line, the cursor is moved to the bottom line on first press)
-void VerticalNavigationViewModel::OnNavigateDownVSCode(size_t rows, const Rect &rect, size_t nItems) {
+//
+// Base style of navigation - this follows VSCode which reused for single line navigation
+//
+void VerticalNavigationViewModel::OnNavigateDown(size_t rows, const Rect& rect, size_t nItems) {
     assert(lineCursor != nullptr);
 
     auto logger = gnilk::Logger::GetLogger("VNavModel");
 
-    logger->Debug("OnNavDownVSCode,  before, active list = %d", lineCursor->idxActiveLine);
+    logger->Debug("OnNavDown,  before, active list = %d", lineCursor->idxActiveLine);
 
     lineCursor->idxActiveLine+=rows;
     if (lineCursor->idxActiveLine > nItems-1) {
@@ -90,14 +90,15 @@ void VerticalNavigationViewModel::OnNavigateDownVSCode(size_t rows, const Rect &
     if (lineCursor->cursor.position.y > rect.Height()-1) {
         lineCursor->cursor.position.y = rect.Height()-1;
     }
-    logger->Debug("OnNavDownVSCode, rows=%d, new active line=%d", rows, lineCursor->idxActiveLine);
+    logger->Debug("OnNavDown, rows=%d, new active line=%d", rows, lineCursor->idxActiveLine);
     logger->Debug("                 viewTopLine=%d, viewBottomLine=%d", lineCursor->viewTopLine, lineCursor->viewBottomLine);
     logger->Debug("                 cursor.pos.y=%d", lineCursor->cursor.position.y);
 
-//    logger->Debug("OnNavDownVSCode, activeLine=%d, rows=%d, ypos=%d, height=%d", idxActiveLine, rows, cursor.position.y, rect.Height());
+    //    logger->Debug("OnNavDownVSCode, activeLine=%d, rows=%d, ypos=%d, height=%d", idxActiveLine, rows, cursor.position.y, rect.Height());
+
 }
 
-void VerticalNavigationViewModel::OnNavigateUpVSCode(size_t rows, const Rect &rect, size_t nItems) {
+void VerticalNavigationViewModel::OnNavigateUp(size_t rows, const Rect &rect, size_t nItems) {
     assert(lineCursor != nullptr);
 
     if (lineCursor->idxActiveLine < rows) {
@@ -121,6 +122,20 @@ void VerticalNavigationViewModel::OnNavigateUpVSCode(size_t rows, const Rect &re
     }
 }
 
+
+
+
+//
+// VSCode style of navigation
+//
+void VerticalNavigationVSCode::OnNavigateDown(size_t rows, const Rect& rect, size_t nItems) {
+    VerticalNavigationViewModel::OnNavigateDown(rows, rect, nItems);
+}
+
+void VerticalNavigationVSCode::OnNavigateUp(size_t rows, const Rect &rect, size_t nItems) {
+    VerticalNavigationViewModel::OnNavigateUp(rows, rect, nItems);
+}
+
 //
 // CLion/Sublime style of navigation on pageup/down - this first moves the content and then adjust cursor
 // This moves content first and cursor rather stays
@@ -129,11 +144,11 @@ void VerticalNavigationViewModel::OnNavigateUpVSCode(size_t rows, const Rect &re
 //   for single line navigation, this is one line
 //   for a page this is something like 10 lines (propbably depending on view-area)
 //
-void VerticalNavigationViewModel::OnNavigateDownCLion(size_t rows, const Rect &rect, size_t nItems) {
+void VerticalNavigationCLion::OnNavigateDown(size_t rows, const Rect &rect, size_t nItems) {
     assert(lineCursor != nullptr);
 
     if (rows == 1) {
-        return OnNavigateDownVSCode(rows, rect, nItems);
+        return VerticalNavigationViewModel::OnNavigateDown(rows, rect, nItems);
     }
 
     bool forceCursorToLastLine = false;
@@ -193,12 +208,12 @@ void VerticalNavigationViewModel::OnNavigateDownCLion(size_t rows, const Rect &r
 //
 //
 //
-void VerticalNavigationViewModel::OnNavigateUpCLion(size_t rows, const Rect &rect, size_t nItems) {
+void VerticalNavigationCLion::OnNavigateUp(size_t rows, const Rect &rect, size_t nItems) {
     assert(lineCursor != nullptr);
     auto logger = gnilk::Logger::GetLogger("VNavModel");
 
     if (rows == 1) {
-        return OnNavigateUpVSCode(rows, rect, nItems);
+        return VerticalNavigationViewModel::OnNavigateUp(rows, rect, nItems);
     }
 
 

@@ -62,12 +62,12 @@ DLL_EXPORT int test_vnav_linedown(ITesting *t) {
     LineCursor lineCursor;
     DefaultLineCursor(lineCursor);
 
-    VerticalNavigationViewModel vnav;
+    VerticalNavigationCLion vnav;
     vnav.lineCursor = &lineCursor;
 
 
     // Navigate from the top one line down
-    vnav.OnNavigateDownCLion(1, viewRect, 10);
+    vnav.OnNavigateDown(1, viewRect, 10);
     TR_ASSERT(t, lineCursor.idxActiveLine == 1);
     TR_ASSERT(t, lineCursor.viewTopLine == 0);
     TR_ASSERT(t, lineCursor.viewBottomLine == viewRect.Height());
@@ -75,7 +75,7 @@ DLL_EXPORT int test_vnav_linedown(ITesting *t) {
     // Try navigate from last line and one forward, this should stay
     lineCursor.idxActiveLine = 9;
     lineCursor.cursor.position.y = 9;
-    vnav.OnNavigateDownCLion(1, viewRect, 10);
+    vnav.OnNavigateDown(1, viewRect, 10);
     TR_ASSERT(t, lineCursor.idxActiveLine == 9);
     TR_ASSERT(t, lineCursor.viewTopLine == 0);
     TR_ASSERT(t, lineCursor.viewBottomLine == viewRect.Height());
@@ -84,7 +84,7 @@ DLL_EXPORT int test_vnav_linedown(ITesting *t) {
     // This should move the full view, we are on the last line and moving one line down
     lineCursor.idxActiveLine = 39;
     lineCursor.cursor.position.y = 39;
-    vnav.OnNavigateDownCLion(1, viewRect, 100);
+    vnav.OnNavigateDown(1, viewRect, 100);
 
     TR_ASSERT(t, lineCursor.idxActiveLine == 40);
     TR_ASSERT(t, lineCursor.viewTopLine == 1);
@@ -98,7 +98,7 @@ DLL_EXPORT int test_vnav_pagedown(ITesting *t) {
     LineCursor lineCursor;
     DefaultLineCursor(lineCursor);
 
-    VerticalNavigationViewModel vnav;
+    VerticalNavigationCLion vnav;
     vnav.lineCursor = &lineCursor;
 
     // Consistent with movement in editor
@@ -106,7 +106,7 @@ DLL_EXPORT int test_vnav_pagedown(ITesting *t) {
 
     // case 1) Move one page where there are just a few lines
     // Navigate from the top one page down - with only 10 items on the page
-    vnav.OnNavigateDownCLion(szPageSize, viewRect, 10);
+    vnav.OnNavigateDown(szPageSize, viewRect, 10);
     TR_ASSERT(t, lineCursor.idxActiveLine == 9);
     TR_ASSERT(t, lineCursor.cursor.position.y == 9);
     TR_ASSERT(t, lineCursor.viewTopLine == 0);
@@ -118,7 +118,7 @@ DLL_EXPORT int test_vnav_pagedown(ITesting *t) {
     // expect clipping
     DefaultLineCursor(lineCursor);
     PositionAbsolute(lineCursor, 80, 20);
-    vnav.OnNavigateDownCLion(szPageSize, viewRect, 100);
+    vnav.OnNavigateDown(szPageSize, viewRect, 100);
     TR_ASSERT(t, lineCursor.idxActiveLine == 99);
     TR_ASSERT(t, lineCursor.cursor.position.y == viewRect.Height()-1);
     TR_ASSERT(t, lineCursor.viewTopLine == 100 - viewRect.Height());
@@ -130,7 +130,7 @@ DLL_EXPORT int test_vnav_pagedown(ITesting *t) {
     // expect cursor to stay top move one line down and position
     DefaultLineCursor(lineCursor);
     PositionAbsolute(lineCursor, 0,0);
-    vnav.OnNavigateDownCLion(szPageSize, viewRect, 100);
+    vnav.OnNavigateDown(szPageSize, viewRect, 100);
     TR_ASSERT(t, lineCursor.idxActiveLine == szPageSize);
     TR_ASSERT(t, lineCursor.cursor.position.y == 1);
     TR_ASSERT(t, lineCursor.viewTopLine == szPageSize);
@@ -141,7 +141,7 @@ DLL_EXPORT int test_vnav_pagedown(ITesting *t) {
     PositionAbsolute(lineCursor, 40,20);
     auto topLineBefore = lineCursor.viewTopLine;
     auto bottomLineBefore = lineCursor.viewBottomLine;
-    vnav.OnNavigateDownCLion(szPageSize, viewRect, 100);
+    vnav.OnNavigateDown(szPageSize, viewRect, 100);
     TR_ASSERT(t, lineCursor.idxActiveLine == 40 + szPageSize);
     TR_ASSERT(t, lineCursor.cursor.position.y == 21);
     TR_ASSERT(t, lineCursor.viewTopLine == topLineBefore + szPageSize);
@@ -154,12 +154,12 @@ DLL_EXPORT int test_vnav_lineup(ITesting *t) {
     LineCursor lineCursor;
     DefaultLineCursor(lineCursor);
 
-    VerticalNavigationViewModel vnav;
+    VerticalNavigationCLion vnav;
     vnav.lineCursor = &lineCursor;
 
     // case 1) move up from start - shouldn't move at all
     PositionAbsolute(lineCursor, 0, 0);
-    vnav.OnNavigateUpCLion(1, viewRect, 10);
+    vnav.OnNavigateUp(1, viewRect, 10);
     TR_ASSERT(t, lineCursor.idxActiveLine == 0);
     TR_ASSERT(t, lineCursor.cursor.position.y == 0);
     TR_ASSERT(t, lineCursor.viewTopLine == 0);
@@ -167,7 +167,7 @@ DLL_EXPORT int test_vnav_lineup(ITesting *t) {
 
     // case 2) move up from within - should keep view and move one up
     PositionAbsolute(lineCursor, 5, 5);
-    vnav.OnNavigateUpCLion(1, viewRect, 10);
+    vnav.OnNavigateUp(1, viewRect, 10);
     TR_ASSERT(t, lineCursor.idxActiveLine == 4);
     TR_ASSERT(t, lineCursor.cursor.position.y == 4);
     TR_ASSERT(t, lineCursor.viewTopLine == 0);
@@ -175,7 +175,7 @@ DLL_EXPORT int test_vnav_lineup(ITesting *t) {
 
     // case 4) move up from top line and there are more lines above
     PositionAbsolute(lineCursor, 75, 0);
-    vnav.OnNavigateUpCLion(1, viewRect, 100);
+    vnav.OnNavigateUp(1, viewRect, 100);
     TR_ASSERT(t, lineCursor.idxActiveLine == 74);
     TR_ASSERT(t, lineCursor.cursor.position.y == 0);
     TR_ASSERT(t, lineCursor.viewTopLine == 74);
@@ -183,7 +183,7 @@ DLL_EXPORT int test_vnav_lineup(ITesting *t) {
 
     // case 4) move up from top line and there are more lines above
     PositionAbsolute(lineCursor, 75, 10);
-    vnav.OnNavigateUpCLion(1, viewRect, 100);
+    vnav.OnNavigateUp(1, viewRect, 100);
     TR_ASSERT(t, lineCursor.idxActiveLine == 74);
     TR_ASSERT(t, lineCursor.cursor.position.y == 9);
     TR_ASSERT(t, lineCursor.viewTopLine == 65);

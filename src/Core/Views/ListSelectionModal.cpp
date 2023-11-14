@@ -35,7 +35,7 @@ void ListView::InitView() {
     if (viewRect.IsEmpty()) {
         viewRect = screen->Dimensions();
     }
-    lineCursor = &listLineCursor;
+    verticalNavigationModel.lineCursor = &listLineCursor;
     listLineCursor.viewTopLine = 0;
     listLineCursor.viewBottomLine = viewRect.Height();
     window = screen->CreateWindow(viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
@@ -55,16 +55,16 @@ bool ListView::OnAction(const KeyPressAction &kpAction){
     bool wasHandled = true;
     switch(kpAction.action) {
         case kAction::kActionLineUp :
-            OnNavigateUpCLion(1, GetContentRect(), listItems.size());
+            verticalNavigationModel.OnNavigateUp(1, GetContentRect(), listItems.size());
             break;
         case kAction::kActionLineDown :
-            OnNavigateDownCLion(1, GetContentRect(), listItems.size());
+            verticalNavigationModel.OnNavigateDown(1, GetContentRect(), listItems.size());
             break;
         case kAction::kActionPageUp :
-            OnNavigateUpCLion(GetContentRect().Height()-1, GetContentRect(), listItems.size());
+            verticalNavigationModel.OnNavigateUp(GetContentRect().Height()-1, GetContentRect(), listItems.size());
             break;
         case kAction::kActionPageDown :
-            OnNavigateDownCLion(GetContentRect().Height()-1, GetContentRect(), listItems.size());
+            verticalNavigationModel.OnNavigateDown(GetContentRect().Height()-1, GetContentRect(), listItems.size());
             break;
         default:
             wasHandled = false;

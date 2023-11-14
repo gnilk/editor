@@ -16,7 +16,7 @@
 namespace gedit {
 
 
-    class ListView : public ViewBase, public VerticalNavigationViewModel {
+    class ListView : public ViewBase {
     public:
         ListView() = default;
         virtual ~ListView() = default;
@@ -55,6 +55,7 @@ namespace gedit {
         void DrawViewContents() override;
     private:
         LineCursor listLineCursor;
+        VerticalNavigationCLion verticalNavigationModel;
         std::vector<std::string> listItems;
 
     };

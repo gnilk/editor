@@ -499,6 +499,7 @@ bool EditorModel::OnActionLineUp() {
     UpdateModelFromNavigation(true);
     return true;
 }
+
 bool EditorModel::OnActionGotoTopLine() {
     auto &lineCursor = GetLineCursor();
 
@@ -507,6 +508,7 @@ bool EditorModel::OnActionGotoTopLine() {
     //logger->Debug("GotoTopLine, new cursor=(%d:%d)", editorModel->cursor.position.x, editorModel->cursor.position.y);
     return true;
 }
+
 bool EditorModel::OnActionGotoBottomLine() {
     //logger->Debug("GotoBottomLine (def: PageDown+CMDKey), cursor=(%d:%d)", editorModel->cursor.position.x, editorModel->cursor.position.y);
 
@@ -518,24 +520,30 @@ bool EditorModel::OnActionGotoBottomLine() {
     return true;
 }
 
-
 void EditorModel::Undo(Cursor &cursor, size_t &idxActiveLine) {
     if (!historyBuffer.HaveHistory()) {
         return;
     }
+
+    auto regionStartLine = cursor.position.y;
+    auto regionEndLine = cursor.position.y;
+
 
     historyBuffer.Dump();
     logger->Debug("Undo, lines before: %zu", textBuffer->NumLines());
     auto nLinesRestored = historyBuffer.RestoreOneItem(cursor, idxActiveLine, textBuffer);
     logger->Debug("Undo, lines after: %zu", textBuffer->NumLines());
 
-    //UpdateSyntaxForBuffer();
-    // UpdateSyntaxForActiveLineRegion(cursor.position.y);
-    auto regionStartLine = cursor.position.y - nLinesRestored;
-    auto regionEndLine = cursor.position.y + nLinesRestored;
+    regionStartLine -= nLinesRestored;
+    regionStartLine += nLinesRestored;
+
     if (regionStartLine < 0) {
         regionStartLine = 0;
     }
+
+
+    //UpdateSyntaxForBuffer();
+    // UpdateSyntaxForActiveLineRegion(cursor.position.y);
 
     UpdateSyntaxForRegion(regionStartLine, regionEndLine);
 }

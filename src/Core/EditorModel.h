@@ -203,7 +203,9 @@ namespace gedit {
             currentSelection.isActive = true;
             currentSelection.idxStartLine = lineCursor.idxActiveLine;
             currentSelection.startPos = lineCursor.cursor.position;
+            currentSelection.startPos.y = lineCursor.idxActiveLine;
             currentSelection.endPos = currentSelection.startPos;
+            currentSelection.endPos.y = lineCursor.idxActiveLine;
         }
         __inline bool IsSelectionActive() {
             return currentSelection.isActive;
@@ -217,6 +219,8 @@ namespace gedit {
         __inline void RestoreCursorFromSelection() {
             lineCursor.idxActiveLine = currentSelection.idxStartLine;
             lineCursor.cursor.position = currentSelection.startPos;
+                        
+            verticalNavigationViewModel.OnNavigateDownCLion(0, viewRect, Lines().size());
         }
         void DeleteSelection();     // Fixme: naming - this looks like a selection-range mgmt function
 

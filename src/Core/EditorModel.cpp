@@ -23,13 +23,19 @@ EditorModel::Ref EditorModel::Create(TextBuffer::Ref newTextBuffer) {
 void EditorModel::Begin() {
     logger = gnilk::Logger::GetLogRef("EditorModel");
     bUseCLionPageNav = Config::Instance()[cfgSectionName].GetBool("pgupdown_content_first", true);
-    verticalNavigationViewModel.lineCursor = GetLineCursorRef();
+    if (bUseCLionPageNav) {
+        verticalNavigationViewModel = std::make_unique<VerticalNavigationCLion>();
+    } else {
+        verticalNavigationViewModel = std::make_unique<VerticalNavigationVSCode>();
+    }
+    verticalNavigationViewModel->lineCursor = GetLineCursorRef();
+
 }
 
 void EditorModel::OnViewInit(const Rect &rect) {
     viewRect = rect;
 
-    verticalNavigationViewModel.HandleResize(rect);
+    verticalNavigationViewModel->HandleResize(rect);
 
     // Need support in controller to forward this to model...
     lineCursor.viewTopLine = 0;
@@ -331,7 +337,7 @@ bool EditorModel::OnActionCommitLine() {
     NewLine(lineCursor.idxActiveLine, lineCursor.cursor);
 
     // Need viewRect - this is the visible view of the renderer
-    verticalNavigationViewModel.OnNavigateDownVSCode(1, viewRect, Lines().size());
+    verticalNavigationViewModel->OnNavigateDown(1, viewRect, Lines().size());
     UpdateModelFromNavigation(true);
     logger->Debug("OnActionCommitLine, After: idxActive=%zu", lineCursor.idxActiveLine);
 
@@ -458,21 +464,13 @@ void EditorModel::UpdateModelFromNavigation(bool updateCursor) {
  */
 
 bool EditorModel::OnActionPageDown() {
-    if (!bUseCLionPageNav) {
-        verticalNavigationViewModel.OnNavigateDownVSCode(viewRect.Height() - 1, viewRect, Lines().size());
-    } else {
-        verticalNavigationViewModel.OnNavigateDownCLion(viewRect.Height() - 1, viewRect, Lines().size());
-    }
+    verticalNavigationViewModel->OnNavigateDown(viewRect.Height() - 1, viewRect, Lines().size());
     UpdateModelFromNavigation(true);
     return true;
 }
 
 bool EditorModel::OnActionPageUp() {
-    if (!bUseCLionPageNav) {
-        verticalNavigationViewModel.OnNavigateUpVSCode(viewRect.Height() - 1, viewRect, Lines().size());
-    } else {
-        verticalNavigationViewModel.OnNavigateUpCLion(viewRect.Height() - 1, viewRect, Lines().size());
-    }
+    verticalNavigationViewModel->OnNavigateUp(viewRect.Height() - 1, viewRect, Lines().size());
     UpdateModelFromNavigation(true);
     return true;
 }
@@ -484,7 +482,7 @@ bool EditorModel::OnActionLineDown(const KeyPressAction &kpAction) {
     }
     auto &lineCursor = GetLineCursor();
     auto &cursor = GetCursor();
-    verticalNavigationViewModel.OnNavigateDownVSCode(1, viewRect, Lines().size());
+    verticalNavigationViewModel->OnNavigateDown(1, viewRect, Lines().size());
     UpdateModelFromNavigation(true);
 
     return true;
@@ -495,7 +493,7 @@ bool EditorModel::OnActionLineUp() {
         return true;
     }
 
-    verticalNavigationViewModel.OnNavigateUpVSCode(1, viewRect, Lines().size());
+    verticalNavigationViewModel->OnNavigateUp(1, viewRect, Lines().size());
     UpdateModelFromNavigation(true);
     return true;
 }

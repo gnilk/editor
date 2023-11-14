@@ -219,8 +219,8 @@ namespace gedit {
         __inline void RestoreCursorFromSelection() {
             lineCursor.idxActiveLine = currentSelection.idxStartLine;
             lineCursor.cursor.position = currentSelection.startPos;
-                        
-            verticalNavigationViewModel.OnNavigateDownCLion(0, viewRect, Lines().size());
+
+            verticalNavigationViewModel->OnNavigateDown(0, viewRect, Lines().size());
         }
         void DeleteSelection();     // Fixme: naming - this looks like a selection-range mgmt function
 
@@ -270,7 +270,7 @@ namespace gedit {
         gnilk::Log::Ref logger;
         LineCursor lineCursor;
         Selection currentSelection = {};
-        VerticalNavigationViewModel verticalNavigationViewModel;
+        VerticalNavigationViewModel::Ref verticalNavigationViewModel = nullptr;
         Rect viewRect = {};
         UndoHistory historyBuffer;
 

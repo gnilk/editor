@@ -302,9 +302,13 @@ bool EditorModel::OnActionUndo() {
     //editorModel->GetTextBuffer()->Undo();
     auto &lineCursor = GetLineCursor();
     Undo(lineCursor.cursor, lineCursor.idxActiveLine);
-    auto nLinesAfter = GetTextBuffer()->NumLines();
-    //if ((nLinesAfter > lineCursor.viewBottomLine) && (lineCursor.Height() < nLinesAfter)
-    lineCursor.viewBottomLine = lineCursor.viewTopLine + nLinesAfter;
+    // auto nLinesAfter = GetTextBuffer()->NumLines();
+    // //if ((nLinesAfter > lineCursor.viewBottomLine) && (lineCursor.Height() < nLinesAfter)
+    // if (nLinesAfter > viewRect.Height()) {
+    //     nLinesAfter = viewRect.Height();
+    // }
+    // lineCursor.viewBottomLine = lineCursor.viewTopLine + nLinesAfter;
+
 
     return true;
 }
@@ -533,7 +537,7 @@ void EditorModel::Undo(Cursor &cursor, size_t &idxActiveLine) {
     logger->Debug("Undo, lines after: %zu", textBuffer->NumLines());
 
     regionStartLine -= nLinesRestored;
-    regionStartLine += nLinesRestored;
+    regionEndLine += nLinesRestored;
 
     if (regionStartLine < 0) {
         regionStartLine = 0;

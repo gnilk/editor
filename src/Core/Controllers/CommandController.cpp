@@ -38,7 +38,7 @@ void CommandController::Begin() {
 
         currentLine->Append(output);
 
-        // FIXME: This is a test to use the language parser to help parse cmdline output...
+        // NOTE: This is a test to use the language parser to help parse cmdline output...
         if (bParseStd && (makeParser != nullptr)) {
             auto &tokenizer = makeParser->Tokenizer();
             tokenizer.ParseLineFromState("main", currentLine);

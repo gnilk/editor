@@ -166,9 +166,6 @@ void VerticalNavigationCLion::OnNavigateDown(size_t rows, const Rect &rect, size
 
     // Are we moving outside?
     if ((lineCursor->idxActiveLine + nRowsToMove) > lastLineIdx) {
-        //
-        // FIXME: We should move the view a bit more - so we have a bit of margin at the bottom..
-        //
         lineCursor->idxActiveLine = lastLineIdx;
         lineCursor->viewBottomLine = (int32_t)nItems;
         lineCursor->viewTopLine = lineCursor->viewBottomLine - rect.Height();
@@ -195,9 +192,6 @@ void VerticalNavigationCLion::OnNavigateDown(size_t rows, const Rect &rect, size
             lineCursor->cursor.position.y += 1;
             lineCursor->idxActiveLine += 1;
         }
-
-        // NOTE: Clion puts the cursor down ONE step until end of view-area and stays there
-        // FIXME: Must sync with idxActiveLine
 
         if (lineCursor->cursor.position.y > rect.Height()-1) {
             lineCursor->cursor.position.y = rect.Height()-1;

@@ -237,7 +237,7 @@ size_t TextBuffer::ExecuteRegionParse(size_t idxLineStart, size_t idxLineEnd) {
     auto result = tokenizer.ParseRegion(lines, idxLineStart, idxLineEnd);
     if (result != 0) {
         logger->Error("ParseRegion, tokenizer didn't reach complete, result=%zu", result);
-        // FIXME: We can issue a full/complete Reparse here..
+        // perhaps issue a full/complete Reparse here??
     }
     parseMetrics.total += 1;
     parseMetrics.region += 1;

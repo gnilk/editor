@@ -64,7 +64,6 @@ void EditorView::ReInitView() {
 
     bUseCLionPageNav = Config::Instance()[cfgSectionName].GetBool("pgupdown_content_first", true);
 
-    // FIXME: Replace model with controller
     editorModel = Editor::Instance().GetActiveModel();
     if (editorModel == nullptr) {
         logger->Error("EditorModel is null - no active textbuffer");

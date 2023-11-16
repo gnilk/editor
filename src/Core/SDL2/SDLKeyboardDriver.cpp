@@ -51,6 +51,7 @@ bool SDLKeyboardDriver::Initialize() {
                     Runloop::ProcessKeyPress(kp);
                 });
             }
+            std::this_thread::yield();
         }
     });
     return true;
@@ -65,6 +66,8 @@ void SDLKeyboardDriver::Close() {
 KeyPress SDLKeyboardDriver::GetKeyPress() {
     SDL_Event event;
     auto logger = gnilk::Logger::GetLogger("SDLKeyboardDriver");
+
+    SDL_WaitEventTimeout(NULL, 250);
 
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_EventType::SDL_QUIT) {

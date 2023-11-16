@@ -265,6 +265,7 @@ void Editor::Close() {
         model->Close();
     }
     openModels.clear();
+    RuntimeConfig::Instance().GetKeyboard()->Close();
 }
 
 //

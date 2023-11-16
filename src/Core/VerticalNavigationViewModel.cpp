@@ -188,11 +188,13 @@ void VerticalNavigationCLion::OnNavigateDown(size_t rows, const Rect &rect, size
             lineCursor->viewBottomLine = lineCursor->viewTopLine + rect.Height();
         }
 
-        if ((lineCursor->idxActiveLine >= lineCursor->viewTopLine) && (lineCursor->idxActiveLine < (lineCursor->viewBottomLine))) {
+        if ((lineCursor->idxActiveLine >= lineCursor->viewTopLine) && (lineCursor->idxActiveLine < (lineCursor->viewBottomLine)) && (nRowsToMove > 0)) {
             lineCursor->cursor.position.y += 1;
             lineCursor->idxActiveLine += 1;
         }
 
+        lineCursor->cursor.position.y = lineCursor->idxActiveLine - lineCursor->viewTopLine;
+        // Probably not needed...
         if (lineCursor->cursor.position.y > rect.Height()-1) {
             lineCursor->cursor.position.y = rect.Height()-1;
         }

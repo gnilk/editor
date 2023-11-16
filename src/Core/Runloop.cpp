@@ -14,6 +14,7 @@ bool Runloop::bQuit = false;
 bool Runloop::isRunning = false;
 KeypressAndActionHandler *Runloop::hookedActionHandler = nullptr;
 KeyMapping::Ref  Runloop::activeKeyMap = nullptr;
+SafeQueue<std::unique_ptr<Runloop::Message> > Runloop::msgQueue = {};
 
 void Runloop::SetKeypressAndActionHook(KeypressAndActionHandler *newHook) {
     hookedActionHandler = newHook;
@@ -33,12 +34,9 @@ void Runloop::DefaultLoop() {
 
     while(!bQuit) {
         // Process any messages from other threads before we do anything else..
-        bool redraw = false;
+        bool redraw = ProcessMessageQueue();
 
-        if (rootView.ProcessMessageQueue() > 0) {
-            redraw = true;
-        }
-
+        // Put this in own thread and post on the message queue..
         auto keyPress = keyboardDriver->GetKeyPress();
         if (keyPress.IsAnyValid()) {
 
@@ -63,9 +61,31 @@ void Runloop::DefaultLoop() {
             screen->Update();
         }
         // Yield the main-thread..
+
+        // FIXME: this is causing threading problems, since no thread is now blocking us...
         std::this_thread::yield();
+
+        // On linux - yield cause this thread/cpu to go 100% while sleep causes it to actually look normal..
+        // using namespace std::chrono_literals;
+        // std::this_thread::sleep_for(100ms);
     }
 }
+
+bool Runloop::ProcessMessageQueue() {
+    if (!msgQueue.wait(10)) {
+        return false;
+    }
+    while(!msgQueue.is_empty()) {
+        auto msgOpt = msgQueue.pop();
+        if (!msgOpt.has_value()) {
+            continue;
+        }
+        auto &msg = *msgOpt.value();
+        msg.Invoke();
+    }
+    return true;
+}
+
 
 void Runloop::ShowModal(ViewBase *modal) {
     // This is a special case of the main loop...
@@ -90,11 +110,7 @@ void Runloop::ShowModal(ViewBase *modal) {
 
     while((modal->IsActive()) && !bQuit) {
         // Process any messages from other threads before we do anything else..
-        bool redraw = true;
-
-        if (modal->ProcessMessageQueue() > 0) {
-            redraw = true;
-        }
+        bool redraw = ProcessMessageQueue();
 
         auto keyPress = keyboardDriver->GetKeyPress();
         if (keyPress.IsAnyValid()) {
@@ -171,7 +187,8 @@ void Runloop::TestLoop() {
 
     while(!bQuit) {
 
-        rootView.ProcessMessageQueue();
+        // Process any messages from other threads before we do anything else..
+        ProcessMessageQueue();
 
         auto keyPress = keyboardDriver->GetKeyPress();
         if (keyPress.IsAnyValid()) {

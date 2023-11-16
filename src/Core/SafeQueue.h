@@ -31,7 +31,7 @@ public:
         c.notify_one();
     }
 
-    bool empty() const {
+    bool is_empty() const {
         std::unique_lock<std::mutex> lock(m);
         return q.empty();
     }

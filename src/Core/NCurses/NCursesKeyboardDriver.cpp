@@ -89,7 +89,7 @@ KeyPress NCursesKeyboardDriver::GetKeyPress() {
     //auto ch = wgetch(winPtr);
     auto ch = getch();
 
-    if (!kbdEvents.empty()) {
+    if (!kbdEvents.is_empty()) {
         // This will flood the logger in case we are not the focus window
         // logger->Debug("kbdEvent not empty, ch=%d", ch);
         auto t1 = std::chrono::high_resolution_clock::now();
@@ -115,7 +115,7 @@ KeyPress NCursesKeyboardDriver::GetKeyPress() {
         logger->Debug("  ch=%d (%s)", ch, keyname(ch));
         keyPress.isHwEventValid = true;
         // Remove and assign the last to match with the getch
-        while (!kbdEvents.empty()) {
+        while (!kbdEvents.is_empty()) {
              auto event = kbdEvents.pop();
              if (!event.has_value()) {
                  break;

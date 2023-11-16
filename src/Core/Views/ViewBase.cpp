@@ -20,7 +20,7 @@ void ViewBase::PostMessage(gedit::ViewBase::MessageCallback callback) {
 int ViewBase::ProcessMessageQueue() {
     // We should create a copy first and the process the copy...
     int nMessages = 0;
-    while(!threadMessages.empty()) {
+    while(!threadMessages.is_empty()) {
         auto msgHandler = threadMessages.pop();
         if (!msgHandler.has_value()) {
             break;

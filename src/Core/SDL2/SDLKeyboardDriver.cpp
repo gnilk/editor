@@ -49,8 +49,7 @@ KeyPress SDLKeyboardDriver::GetKeyPress() {
     SDL_Event event;
     auto logger = gnilk::Logger::GetLogger("SDLKeyboardDriver");
 
-    //while (SDL_PollEvent(&event)) {
-    if (SDL_WaitEvent(&event)) {
+    while (SDL_PollEvent(&event)) {
         if (event.type == SDL_EventType::SDL_QUIT) {
             SDL_Quit();
             exit(0);
@@ -370,13 +369,5 @@ void SDLKeyboardDriver::HookEditorClipBoard() {
 
         SDL_SetClipboardText(utf8str.c_str());
     });
-}
-
-void SDLKeyboardDriver::TempFuncReleaseKeyPressFunc() {
-    static SDL_Event dummyEvent = {};
-    dummyEvent.type = sdlDummyEvent;
-    auto logger = gnilk::Logger::GetLogger("SDLKeyboardDriver");
-    logger->Debug("Sending Dummy Event: %d (0x%.x)", dummyEvent.type, dummyEvent.type);
-    SDL_PushEvent(&dummyEvent);
 }
 

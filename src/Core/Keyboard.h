@@ -85,6 +85,18 @@ namespace gedit {
         static std::optional<Keyboard::kKeyCode> NameToKeyCode(const std::string &name);
         static bool IsNameKeyCode(const std::string &name);
 
+        static __inline int ShiftMask() {
+            return kMod_LeftShift | kMod_RightShift;
+        }
+        static __inline int CtrlMask() {
+            return kMod_LeftCtrl | kMod_RightCtrl;
+        }
+        static __inline int AltMask() {
+            return kMod_LeftAlt | kMod_RightAlt;
+        }
+        static __inline int CmdMask() {
+            return kMod_LeftCommand | kMod_RightCommand;
+        }
         static int ModifierMaskFromString(const std::string &strModifiers);
 
         static bool IsNameModifierMask(const std::string &modiferName);

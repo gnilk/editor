@@ -127,6 +127,9 @@ namespace gedit {
         void SetDefaultLanguage(LanguageBase::Ref newDefaultLanguage) {
             defaultLanguage = newDefaultLanguage;
         }
+        LanguageBase::Ref GetDefaultLanguage() {
+            return defaultLanguage;
+        }
         void RegisterLanguage(const std::string &extension, LanguageBase::Ref languageBase);
         LanguageBase::Ref GetLanguageForExtension(const std::string &extension);
         std::vector<std::string> GetRegisteredLanguages();
@@ -192,6 +195,7 @@ namespace gedit {
         bool isInitialized = false;
         gnilk::ILogger *logger = nullptr;
         bool keepConsoleLogger = false;
+        bool loadUserConfig = true;
 
         // Holds all open models/buffers in the text editor
         std::vector<EditorModel::Ref> openModels = {};

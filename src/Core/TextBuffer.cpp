@@ -23,6 +23,7 @@ TextBuffer::Ref TextBuffer::CreateEmptyBuffer() {
     buffer->logger = gnilk::Logger::GetLogger("TextBuffer");
     buffer->AddLineUTF8("");
     buffer->bufferState = kBuffer_Empty;
+    buffer->SetLanguage(Editor::Instance().GetDefaultLanguage());
     return buffer;
 }
 
@@ -236,7 +237,7 @@ size_t TextBuffer::ExecuteRegionParse(size_t idxLineStart, size_t idxLineEnd) {
     auto result = tokenizer.ParseRegion(lines, idxLineStart, idxLineEnd);
     if (result != 0) {
         logger->Error("ParseRegion, tokenizer didn't reach complete, result=%zu", result);
-        // FIXME: We can issue a full/complete Reparse here..
+        // perhaps issue a full/complete Reparse here??
     }
     parseMetrics.total += 1;
     parseMetrics.region += 1;
@@ -370,9 +371,13 @@ void TextBuffer::OnLineChanged(const Line &line) {
         autoSaveTimer->Restart(duration);
         return;
     }
+    if (!RuntimeConfig::Instance().HasRootView()) {
+        logger->Debug("No rooview (unit testing?) - can't create timer");
+        return;
+
+    }
 
     logger->Debug("Autosave timer is null - creating!");
-
     autoSaveTimer = Timer::Create(duration, [this]() {
         logger->Debug("AutoSave Timer kicked in - posting message for save on main thread!");
 

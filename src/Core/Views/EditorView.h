@@ -15,7 +15,7 @@
 
 namespace gedit {
 
-    class EditorView : public ViewBase, public VerticalNavigationViewModel {
+    class EditorView : public ViewBase {
     public:
         EditorView() = default;
         explicit EditorView(const Rect &viewArea) : ViewBase(viewArea) {
@@ -58,37 +58,16 @@ namespace gedit {
         void OnActivate(bool isActive) override;
         void DrawViewContents() override;
     protected:
-        void HandleKeyPressWithSelection(const KeyPress &keyPress);
         // Action handlers
-        bool OnActionLineDown(const KeyPressAction &kpAction);
-        bool OnActionLineUp();
-        bool OnActionPageUp();
-        bool OnActionPageDown();
-        bool OnActionStepLeft();
-        bool OnActionStepRight();
-        bool OnActionCommitLine();
-        bool OnActionGotoFirstLine();   // First line of buffer
-        bool OnActionGotoLastLine();    // Last line of buffer
-        bool OnActionGotoTopLine();     // Top line of screen
-        bool OnActionGotoBottomLine();    // Last visible line on screen
-        bool OnActionWordRight();
-        bool OnActionWordLeft();
         bool OnActionPreviousBuffer();
         bool OnActionNextBuffer();
-        bool OnActionCycleActiveBuffer();
-        bool OnActionLineHome();
-        bool OnActionLineEnd();
-        bool OnActionUndo();
-//        bool OnActionBackspace();
-        bool OnNextSearchResult();
-        bool OnPrevSearchResult();
 
     private:
         bool DispatchAction(const KeyPressAction &kpAction);
-        void UpdateModelFromNavigation(bool updateCursor);
     private:
         bool bUseCLionPageNav = true;
         EditorModel::Ref editorModel;
+        EditController::Ref editController;
         // --
         gnilk::ILogger *logger = nullptr;
     };

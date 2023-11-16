@@ -90,7 +90,6 @@ void Runloop::ShowModal(ViewBase *modal) {
 
     while((modal->IsActive()) && !bQuit) {
         // Process any messages from other threads before we do anything else..
-        // FIXME: this can 'redraw' thing can go if we are anyway waiting for something to happen on our queue...
         bool redraw = true;
 
         if (modal->ProcessMessageQueue() > 0) {

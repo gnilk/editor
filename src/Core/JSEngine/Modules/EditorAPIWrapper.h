@@ -21,15 +21,6 @@ namespace gedit {
         std::vector<DocumentAPIWrapper::Ref> GetDocuments();
         void CloseActiveDocument();
 
-
-        // FIXME: REMOVE THESE
-//        TextBufferAPIWrapper::Ref GetActiveTextBuffer();
-//        void NewBuffer(const char *name);
-//        TextBufferAPI::Ref LoadBuffer(const char *name);
-//        void SetActiveBuffer(TextBufferAPI::Ref activeBuffer);
-//
-//        std::vector<TextBufferAPIWrapper::Ref> GetBuffers();
-
         std::vector<std::string> GetRootViewNames();
         ViewAPIWrapper::Ref GetViewByName(const char *name);
 

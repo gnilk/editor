@@ -184,7 +184,7 @@ void LinuxFolderMonitorPoint::StartWatchers() {
         if (item.wd >= 0) {
             continue;
         }
-        // FIXME: No need to pass in 'IN_ALL_EVENTS'
+
         item.wd = inotify_add_watch(iNotifyFd, item.path.c_str(), IN_ONESHOT | IN_CREATE | IN_DELETE);
         if (item.wd < 0) {
             logger->Error("Failed watcher on item: %s\n", item.path.c_str());

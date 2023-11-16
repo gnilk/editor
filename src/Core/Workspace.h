@@ -21,6 +21,8 @@
 #include "Core/Config/ConfigNode.h"
 #include "EditorModel.h"
 #include "Core/UnicodeHelper.h"
+#include "Core/Controllers/EditController.h"
+
 namespace gedit {
 
 
@@ -199,6 +201,13 @@ namespace gedit {
                 return childNodes.size();
             }
 
+            void SetController(EditController::Ref newController) {
+                controller = newController;
+            }
+            EditController::Ref GetController() {
+                return controller;
+            }
+
             void SetModel(EditorModel::Ref newModel) {
                 model = newModel;
             }
@@ -290,6 +299,7 @@ namespace gedit {
             std::string displayName = "";
             std::filesystem::path pathName;
             Node::Ref parent = nullptr;
+            EditController::Ref controller = nullptr;
             EditorModel::Ref model = nullptr;   // This is only set for leaf nodes..
             std::vector<Node::Ref> childNodes = {};
         };

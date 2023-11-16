@@ -19,8 +19,6 @@ namespace gedit {
 
         bool Initialize() override;
         KeyPress GetKeyPress() override;
-
-        void TempFuncReleaseKeyPressFunc() override;
     protected:
         std::optional<KeyPress> HandleKeyPressEvent(const SDL_Event &event);
         void CheckRemoveTextInputEventForKeyPress(const KeyPress &kp);

@@ -207,7 +207,7 @@ DLL_EXPORT int test_cpplang_keywords(ITesting *t) {
     TR_ASSERT(t, buffer != nullptr);
 
 //    buffer->AddLineUTF8("char *str=\"apa\"; // comment2");
-    buffer->AddLineUTF8("ifelsevoidstatic");
+    buffer->AddLineUTF8("  ifelsevoidstatic");
     buffer->AddLineUTF8("if else void static");
     buffer->Reparse();
 
@@ -227,10 +227,17 @@ DLL_EXPORT int test_cpplang_keywords(ITesting *t) {
 
     auto line = buffer->LineAt(1);
     line->IterateWithAttributes(callback);
-    TR_ASSERT(t, line->Attributes().size() == 1);
+    TR_ASSERT(t, line->Attributes().size() == 2);
+    TR_ASSERT(t, line->Attributes()[0].tokenClass == kLanguageTokenClass::kRegular);
+    TR_ASSERT(t, line->Attributes()[1].tokenClass == kLanguageTokenClass::kRegular);
 
     parts.clear();
     line = buffer->LineAt(2);
+    TR_ASSERT(t, line->Attributes().size() == 4);
+    TR_ASSERT(t, line->Attributes()[0].tokenClass == kLanguageTokenClass::kKeyword);    // if
+    TR_ASSERT(t, line->Attributes()[1].tokenClass == kLanguageTokenClass::kKeyword);    // else
+    TR_ASSERT(t, line->Attributes()[2].tokenClass == kLanguageTokenClass::kKnownType);  // void
+    TR_ASSERT(t, line->Attributes()[3].tokenClass == kLanguageTokenClass::kKeyword);    // static
     line->IterateWithAttributes(callback);
 
     printf("ATTRIB: %zu\n", line->Attributes().size());

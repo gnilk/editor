@@ -232,9 +232,11 @@ void Editor::PreParseArguments(int argc, const char **argv) {
             std::string cmdSwitch = std::string(&argv[i][2]);
             if (cmdSwitch == "console_logging") {
                 keepConsoleLogger = true;
-            } else if (cmdSwitch == "--help") {
-                PrintHelpToConsole();
-                exit(1);
+            } else if (cmdSwitch == "skip_user_config") {
+                loadUserConfig = false;
+            } else if (cmdSwitch == "help") {
+                    PrintHelpToConsole();
+                    exit(1);
             }
         } else if ((arg == "-h") || (arg == "-H") || (arg == "-?")) {
             PrintHelpToConsole();
@@ -425,7 +427,11 @@ bool Editor::TryLoadConfig(const char *configFile) {
     auto isMainConfOk =  Config::Instance().LoadSystemConfig(configFile);
 
     // Merge with user conf..
-    Config::Instance().MergeUserConfig(configFile, true);
+    if (loadUserConfig) {
+        Config::Instance().MergeUserConfig(configFile, true);
+    } else {
+        logger->Debug("User config loading disabled, skipping!");
+    }
 
     return isMainConfOk;
 }
@@ -774,14 +780,9 @@ void Editor::RestoreViewStateKeymapping() {
 }
 
 void Editor::TriggerUIRedraw() {
-    // FIXME: Can't trigger this before the UI is up and running...
     // Trigger redraw by posting an empty message to the root view message queue
     if (Runloop::IsRunning()) {
         RuntimeConfig::Instance().GetRootView().PostMessage([]() {});
-
-        // Since we are an editor - and this is a screwed up project - we need to tell the underlying subsystem to generate an event
-        // this is done through the keyboard driver - since that's the main RunLoop event notification thingie (for now)
-        RuntimeConfig::Instance().GetKeyboard()->TempFuncReleaseKeyPressFunc();
     }
 }
 
@@ -804,23 +805,6 @@ const std::u32string &Editor::GetVersion() {
 //
 // Create a new model/buffer
 EditorModel::Ref Editor::NewModel(const std::string &name) {
-
-//    auto model = workspace->NewEmptyModel();
-//    auto optNode = workspace->GetNodeFromModel(model);
-//    if (!optNode.has_value()) {
-//        logger->Error("Model created but not found in workspace!");
-//        exit(1);
-//    }
-//    auto node = optNode.value();
-//    auto path = node->GetNodePath();
-//    path.replace_filename(name);
-//    node->SetNodePath(path);
-//    node->SetDisplayName(name);
-//    model->GetTextBuffer()->SetPathName(path);
-//
-//    openModels.push_back(model);
-//    return model;
-
     return nullptr;
 }
 

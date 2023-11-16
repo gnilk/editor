@@ -5,10 +5,13 @@
 #ifndef EDITOR_EDITORMODEL_H
 #define EDITOR_EDITORMODEL_H
 
-#include "Controllers/EditController.h"
 #include "Core/TextBuffer.h"
 #include "Core/Cursor.h"
 #include "Core/KeyPress.h"
+#include "Core/VerticalNavigationViewModel.h"
+#include "Core/Rect.h"
+#include "Core/UndoHistory.h"
+#include "Core/KeyMapping.h"
 
 #include <memory>
 
@@ -76,6 +79,7 @@ namespace gedit {
     protected:
         // Consider making these private...
         bool isActive = false;
+        size_t idxStartLine;
         Point startPos = {};
         Point endPos = {};
 
@@ -91,48 +95,24 @@ namespace gedit {
 
     public:
         EditorModel() = default;
+        EditorModel(TextBuffer::Ref newTextBuffer) : textBuffer(newTextBuffer) {
+        }
         virtual ~EditorModel() {
             // note: this is just here for debugging purposes..
             // printf("EditorModel::DTOR\n");
         }
+        static Ref Create(TextBuffer::Ref newTextBuffer);
 
-        void Initialize(EditController::Ref newController, TextBuffer::Ref newTextBuffer) {
-            editController = newController;
-            editController->Begin();
-
-            textBuffer = newTextBuffer;
-            editController->SetTextBuffer(textBuffer);
-        }
-
-        static Ref Create();
+        // FIXME: Rename this
+        void OnViewInit(const Rect &rect);
+        void RefocusViewArea();
 
         void Close() {
             textBuffer->Close();
         }
 
-        EditController::Ref GetEditController() {
-            return editController;
-        }
         TextBuffer::Ref GetTextBuffer() {
             return textBuffer;
-        }
-
-        Cursor &GetCursor() {
-            return lineCursor.cursor;
-        }
-
-        // proxy
-        const std::vector<Line::Ref> &Lines() {
-            return editController->Lines();
-        }
-        Line::Ref LineAt(size_t idxLine) {
-            return editController->LineAt(idxLine);
-        }
-        Line::Ref ActiveLine() {
-            return editController->LineAt(lineCursor.idxActiveLine);
-        }
-        size_t GetActiveLineIndex() {
-            return lineCursor.idxActiveLine;
         }
 
         bool IsActive() {
@@ -141,37 +121,51 @@ namespace gedit {
         void SetActive(bool newIsActive) {
             isActive = newIsActive;
         }
-        void BeginSelection() {
-            currentSelection.isActive = true;
-            currentSelection.startPos.x = lineCursor.cursor.position.x;
-            currentSelection.startPos.y = lineCursor.idxActiveLine;
 
-            currentSelection.endPos = currentSelection.startPos;
-        }
-        void UpdateSelection() {
-            // perhaps check if active...
-            Point newEnd(lineCursor.cursor.position.x, lineCursor.idxActiveLine);
-            currentSelection.endPos = newEnd;
 
+        // proxies
+        __inline const std::vector<Line::Ref> &Lines() {
+            return textBuffer->Lines();
         }
-        void RefocusViewArea();
-        void CancelSelection() {
-            currentSelection.isActive = false;
+        __inline Line::Ref LineAt(size_t idxLine) {
+            return textBuffer->LineAt(idxLine);
         }
-        bool IsSelectionActive() {
-            return currentSelection.isActive;
-        }
-        const Selection &GetSelection() {
-            return currentSelection;
+        __inline Line::Ref ActiveLine() {
+            return textBuffer->LineAt(lineCursor.idxActiveLine);
         }
 
-        const Selection &GetSelection() const {
-            return currentSelection;
-        }
-        void DeleteSelection();
-        void CommentSelectionOrLine();
-        void IndentSelectionOrLine();
-        void UnindentSelectionOrLine();
+        void AddLineComment(size_t idxLineStart, size_t idxLineEnd, const std::u32string &lineCommentPrefix);
+        void IndentLines(size_t idxLineStart, size_t idxLineEnd);
+        void UnindentLines(size_t idxLineStart, size_t idxLineEnd);
+
+        // Not quite sure - they are conflicting with Indent/Unindent
+        void AddTab(Cursor &cursor, size_t idxActiveLine);
+        void DelTab(Cursor &cursor, size_t idxActiveLine);
+
+        void AddCharToLineNoUndo(Cursor &cursor, Line::Ref line, char32_t ch);
+        void RemoveCharFromLineNoUndo(gedit::Cursor &cursor, Line::Ref line);
+
+        void UpdateModelFromNavigation(bool updateCursor);
+
+
+            // FIXME: Cursor and idxActiveLine not needed
+        void Undo(Cursor &cursor, size_t &idxActiveLine);
+
+        UndoHistory::UndoItem::Ref BeginUndoItem();
+        UndoHistory::UndoItem::Ref BeginUndoFromLineRange(size_t idxStart, size_t idxEnd);
+        void EndUndoItem(UndoHistory::UndoItem::Ref undoItem);
+
+        // should be protected?
+        void UpdateSyntaxForBuffer();
+        Job::Ref UpdateSyntaxForActiveLineRegion();
+        Job::Ref UpdateSyntaxForRegion(size_t idxStartLine, size_t idxEndLine);
+
+
+        size_t NewLine(size_t idxActiveLine, Cursor &cursor);
+
+        void DeleteLinesNoSyntaxUpdate(size_t idxLineStart, size_t idxLineEnd);
+        void DeleteRange(const Point &startPos, const Point &endPos);
+
 
         size_t SearchFor(const std::u32string &searchItem);
         void ClearSearchResults();
@@ -188,31 +182,98 @@ namespace gedit {
         bool SaveData(const std::filesystem::path &pathName);
         bool SaveDataNoChangeCheck(const std::filesystem::path &pathName);
 
+        Cursor &GetCursor() {
+            return lineCursor.cursor;
+        }
 
-
-    public:
         LineCursor &GetLineCursor() {
             return lineCursor;
         }
         LineCursor::Ref  GetLineCursorRef() {
             return &lineCursor;
         }
-        // Move the following to a separate structure
-        // REMOVE ANY DUPLICATION - search for 'idxActiveLine' (EditorView and such)
-//        Cursor cursor;
-//        size_t idxActiveLine = 0;
-//        int32_t viewTopLine = 0;
-//        int32_t viewBottomLine = 0;
-        //
+
+        void PasteFromClipboard();
+
+        bool OnAction(const KeyPressAction &kpAction);
+        bool DispatchAction(const KeyPressAction &kpAction);
+
+        // Selection functions - not sure these must be exposed - perhaps for API purposes?
+        void BeginSelection() {
+            currentSelection.isActive = true;
+            currentSelection.idxStartLine = lineCursor.idxActiveLine;
+            currentSelection.startPos = lineCursor.cursor.position;
+            currentSelection.startPos.y = lineCursor.idxActiveLine;
+            currentSelection.endPos = currentSelection.startPos;
+            currentSelection.endPos.y = lineCursor.idxActiveLine;
+        }
+        __inline bool IsSelectionActive() {
+            return currentSelection.isActive;
+        }
+        __inline const Selection &GetSelection() {
+            return currentSelection;
+        }
+        __inline void CancelSelection() {
+            currentSelection.isActive = false;
+        }
+        __inline void RestoreCursorFromSelection() {
+            lineCursor.idxActiveLine = currentSelection.idxStartLine;
+            lineCursor.cursor.position = currentSelection.startPos;
+
+            verticalNavigationViewModel->OnNavigateDown(0, viewRect, Lines().size());
+        }
+        void DeleteSelection();     // Fixme: naming - this looks like a selection-range mgmt function
+
+    protected:
+        void UpdateSelection() {
+            // perhaps check if active...
+            Point newEnd(lineCursor.cursor.position.x, lineCursor.idxActiveLine);
+            currentSelection.endPos = newEnd;
+
+        }
+
+        void IndentSelectionOrLine();
+        void UnindentSelectionOrLine();
+        void CommentSelectionOrLine();
+
+
+    protected:
+        void Begin();
+
+
+        bool OnActionLineDown(const KeyPressAction &kpAction);
+        bool OnActionLineUp();
+        bool OnActionPageUp();
+        bool OnActionPageDown();
+        bool OnActionStepLeft();
+        bool OnActionStepRight();
+        bool OnActionCommitLine();
+        bool OnActionGotoFirstLine();   // First line of buffer
+        bool OnActionGotoLastLine();    // Last line of buffer
+        bool OnActionGotoTopLine();     // Top line of screen
+        bool OnActionGotoBottomLine();    // Last visible line on screen
+        bool OnActionWordRight();
+        bool OnActionWordLeft();
+        bool OnActionLineHome();
+        bool OnActionLineEnd();
+        bool OnActionUndo();
+        bool OnNextSearchResult();
+        bool OnPrevSearchResult();
+
+        bool bUseCLionPageNav = true;
+
+    public:
 
         std::vector<SearchResult> searchResults;
         size_t idxActiveSearchHit = 0;
     private:
-
+        gnilk::Log::Ref logger;
         LineCursor lineCursor;
-
-        EditController::Ref editController = nullptr;     // Pointer???
         Selection currentSelection = {};
+        VerticalNavigationViewModel::Ref verticalNavigationViewModel = nullptr;
+        Rect viewRect = {};
+        UndoHistory historyBuffer;
+
         TextBuffer::Ref textBuffer = nullptr;             // This is 'owned' by BufferManager
         bool isActive = false;
 

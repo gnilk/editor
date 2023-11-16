@@ -63,9 +63,18 @@ namespace gedit {
             }
 
 
-            __inline bool IsMatch(const std::u32string_view &input, int &outSzToken) {
+            __inline bool IsPartialMatch(const std::u32string_view &input, int &outSzToken) {
                 for (auto s: tokens) {
                     if (!input.compare(0,s.size(), s)) {
+                        outSzToken = static_cast<int>(s.size());
+                        return true;
+                    }
+                }
+                return false;
+            }
+            __inline bool IsFullMatch(const std::u32string_view &input, int &outSzToken) {
+                for (auto s: tokens) {
+                    if (input  == s) {
                         outSzToken = static_cast<int>(s.size());
                         return true;
                     }
@@ -188,7 +197,7 @@ namespace gedit {
             std::pair<bool, kLanguageTokenClass> ClassifyToken(const std::u32string &token) {
                 for (auto &kvp: identifiers) {
                     int dummy;
-                    if (kvp.second->IsMatch(token, dummy)) {
+                    if (kvp.second->IsPartialMatch(token, dummy)) {
                         return {true, kvp.second->classification};
                     }
                 }

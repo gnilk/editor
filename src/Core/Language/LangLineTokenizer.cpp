@@ -391,7 +391,7 @@ std::pair<bool, kLanguageTokenClass> LangLineTokenizer::GetNextToken(std::u32str
         if (kvp.second->isWholeWord) {
             continue;
         }
-        if (!kvp.second->IsMatch(strInput, szOperator)) {
+        if (!kvp.second->IsPartialMatch(strInput, szOperator)) {
             continue;
         }
 
@@ -420,7 +420,7 @@ std::pair<bool, kLanguageTokenClass> LangLineTokenizer::GetNextToken(std::u32str
             return false;
         }
         auto str = std::u32string_view(it, last);
-        return currentState->postfixIdentifiers->IsMatch(str, szOperator);
+        return currentState->postfixIdentifiers->IsPartialMatch(str, szOperator);
     };
 
     dst.clear();
@@ -434,7 +434,7 @@ std::pair<bool, kLanguageTokenClass> LangLineTokenizer::GetNextToken(std::u32str
         if (!kvp.second->isWholeWord) {
             continue;
         }
-        if (!kvp.second->IsMatch(strInput, szOperator)) {
+        if (!kvp.second->IsFullMatch(dst, szOperator)) {
             continue;
         }
         return {true, kvp.second->classification};

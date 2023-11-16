@@ -85,17 +85,16 @@ Workspace::Node::Ref Workspace::NewModel(const Node::Ref parent, const std::stri
     // Now create the full filsystem path to this model/data/file/textbuffer (or what ever you like to call it)
     nodePath = nodePath / name;
 
-    EditController::Ref editController = std::make_shared<EditController>();
-
     auto textBuffer = TextBuffer::CreateFileReferenceBuffer();
     textBuffer->SetLanguage(Editor::Instance().GetLanguageForExtension("default"));
+    EditorModel::Ref editorModel = EditorModel::Create(textBuffer);
+    EditController::Ref editController = EditController::Create(editorModel);
 
-    EditorModel::Ref editorModel = EditorModel::Create();
-    editorModel->Initialize(editController, textBuffer);
 
     auto modelNode = parent->AddChild(name);
     modelNode->SetMeta<int>(Node::kMetaKey_NodeType, Node::kNodeFileRef);
     modelNode->SetModel(editorModel);
+    modelNode->SetController(editController);
     modelNode->SetNodePath(nodePath);
 
     UpdateMetaDataForNode(modelNode);

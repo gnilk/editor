@@ -22,7 +22,7 @@ namespace gedit {
     //
 
     template<typename T>
-    class TreeView : public VisibleView, public VerticalNavigationViewModel {
+    class TreeView : public VisibleView {
     public:
         struct TreeNode {
             using Ref = std::shared_ptr<TreeNode>;
@@ -64,14 +64,14 @@ namespace gedit {
         void InitView() override {
             VisibleView::InitView();
             rootNode->isExpanded = false;
-            lineCursor = &treeLineCursor;
+            verticalNavigationViewModel.lineCursor = &treeLineCursor;
             treeLineCursor.viewTopLine = 0;
             treeLineCursor.viewBottomLine = viewRect.Height();
 
         }
         void ReInitView() override {
             VisibleView::ReInitView();
-            lineCursor = &treeLineCursor;
+            verticalNavigationViewModel.lineCursor = &treeLineCursor;
             treeLineCursor.viewTopLine = 0;
             treeLineCursor.viewBottomLine = viewRect.Height();
             // This will recompute the draw-strings
@@ -109,16 +109,16 @@ namespace gedit {
                     Expand();
                     break;
                 case kAction::kActionLineUp :
-                    OnNavigateUpCLion(1, GetContentRect(), flattenNodeList.size());
+                    verticalNavigationViewModel.OnNavigateUp(1, GetContentRect(), flattenNodeList.size());
                     break;
                 case kAction::kActionLineDown :
-                    OnNavigateDownCLion(1, GetContentRect(), flattenNodeList.size());
+                    verticalNavigationViewModel.OnNavigateDown(1, GetContentRect(), flattenNodeList.size());
                     break;
                 case kAction::kActionPageUp :
-                    OnNavigateUpCLion(GetContentRect().Height()-1, GetContentRect(), flattenNodeList.size());
+                    verticalNavigationViewModel.OnNavigateUp(GetContentRect().Height()-1, GetContentRect(), flattenNodeList.size());
                     break;
                 case kAction::kActionPageDown :
-                    OnNavigateDownCLion(GetContentRect().Height()-1, GetContentRect(), flattenNodeList.size());
+                    verticalNavigationViewModel.OnNavigateDown(GetContentRect().Height()-1, GetContentRect(), flattenNodeList.size());
                     break;
                 default:
                     wasHandled = false;
@@ -336,6 +336,7 @@ namespace gedit {
         ToStringDelegate cbToString = nullptr;
         typename TreeNode::Ref rootNode;
         LineCursor treeLineCursor;  // This is not really used - just for storage
+        VerticalNavigationCLion verticalNavigationViewModel;
 
     };
 

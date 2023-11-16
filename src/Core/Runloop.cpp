@@ -36,20 +36,6 @@ void Runloop::DefaultLoop() {
         // Process any messages from other threads before we do anything else..
         bool redraw = ProcessMessageQueue();
 
-        // Put this in own thread and post on the message queue..
-        auto keyPress = keyboardDriver->GetKeyPress();
-        if (keyPress.IsAnyValid()) {
-
-            // Don't call this one unless we are debugging
-            // keyPress.DumpToLog();
-
-            if (hookedActionHandler) {
-                redraw = Runloop::DispatchToHandler(*hookedActionHandler, keyPress);
-            } else {
-                redraw = Runloop::DispatchToHandler(kpaHandler, keyPress);
-            }
-        }
-
         if (rootView.IsInvalid()) {
             redraw = true;
         }
@@ -86,6 +72,18 @@ bool Runloop::ProcessMessageQueue() {
     return true;
 }
 
+void Runloop::ProcessKeyPress(KeyPress keyPress) {
+
+    if (keyPress.IsAnyValid()) {
+        if (hookedActionHandler) {
+            Runloop::DispatchToHandler(*hookedActionHandler, keyPress);
+        } else {
+            // FIXME: This is not correct in case of modals showing - can't use 'rootView'
+            auto &rootView = RuntimeConfig::Instance().GetRootView();
+            Runloop::DispatchToHandler(rootView, keyPress);
+        }
+    }
+}
 
 void Runloop::ShowModal(ViewBase *modal) {
     // This is a special case of the main loop...
@@ -104,6 +102,7 @@ void Runloop::ShowModal(ViewBase *modal) {
     modal->InvalidateAll();
     screen->CopyToTexture();
 
+
     KeypressAndActionHandler &kpaHandler {*modal};
 
     isRunning = true;
@@ -113,6 +112,7 @@ void Runloop::ShowModal(ViewBase *modal) {
         bool redraw = ProcessMessageQueue();
 
         auto keyPress = keyboardDriver->GetKeyPress();
+
         if (keyPress.IsAnyValid()) {
             if (hookedActionHandler) {
                 redraw = Runloop::DispatchToHandler(*hookedActionHandler, keyPress);

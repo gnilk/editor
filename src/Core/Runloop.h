@@ -68,6 +68,9 @@ namespace gedit {
         // Call with 'null' to disable
         static void SetKeypressAndActionHook(KeypressAndActionHandler *newHook);
         static void TestLoop();
+
+        // TEMP?
+        static void ProcessKeyPress(KeyPress keyPress);
     private:
         static bool DispatchToHandler(KeypressAndActionHandler &handler, KeyPress keyPress);
         static void InstallKeymapChangeNotification();

@@ -27,7 +27,7 @@ public:
     void push(T t)
     {
         std::lock_guard<std::mutex> lock(m);
-        q.push(t);
+        q.push(std::move(t));
         c.notify_one();
     }
 
@@ -62,9 +62,9 @@ public:
             return {};
         }
 
-        T val = q.front();
+        T val = std::move(q.front());
         q.pop();
-        return val;
+        return val; // optional has move-ctor...
     }
 
 private:

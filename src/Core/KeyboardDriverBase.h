@@ -16,6 +16,7 @@ namespace gedit {
         using Ref = std::shared_ptr<KeyboardDriverBase>;
     public:
         virtual bool Initialize() { return false; };
+        virtual void Close() {}
 
         virtual KeyPress GetKeyPress() { return {}; }
         void SetDebugMode(bool enable) {

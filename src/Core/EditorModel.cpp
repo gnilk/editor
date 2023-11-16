@@ -527,26 +527,21 @@ void EditorModel::Undo(Cursor &cursor, size_t &idxActiveLine) {
         return;
     }
 
-    auto regionStartLine = cursor.position.y;
-    auto regionEndLine = cursor.position.y;
+    auto regionStartLine = idxActiveLine;
+    auto regionEndLine = idxActiveLine;
 
+    logger->Debug("Undo, regionStartLine=%d", (int)regionStartLine);
 
     historyBuffer.Dump();
     logger->Debug("Undo, lines before: %zu", textBuffer->NumLines());
     auto nLinesRestored = historyBuffer.RestoreOneItem(cursor, idxActiveLine, textBuffer);
-    logger->Debug("Undo, lines after: %zu", textBuffer->NumLines());
+    logger->Debug("Undo, lines after: %zu - restored: %d", textBuffer->NumLines(), nLinesRestored);
 
-    regionStartLine -= nLinesRestored;
-    regionEndLine += nLinesRestored;
-
-    if (regionStartLine < 0) {
+    // Subtraction would lead to UB...
+    if (nLinesRestored > regionStartLine) {
         regionStartLine = 0;
     }
-
-
-    //UpdateSyntaxForBuffer();
-    // UpdateSyntaxForActiveLineRegion(cursor.position.y);
-
+    regionEndLine += nLinesRestored;
     UpdateSyntaxForRegion(regionStartLine, regionEndLine);
 }
 

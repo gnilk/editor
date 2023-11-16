@@ -25,7 +25,6 @@ namespace gedit {
     };
     // NOTE: Selection coordinates are in TextBuffer coordinates!!!!!
     struct Selection {
-        friend EditorModel;
         bool IsSelected(int x, int y) {
             if (!isActive) return false;
             if (y < startPos.y) return false;
@@ -44,6 +43,21 @@ namespace gedit {
         bool IsActive() const {
             return isActive;
         }
+        const size_t GetStartLine() const {
+            // Did we select backwards???
+            if (endPos.y > startPos.y) {
+                return startPos.y;
+            }
+            return endPos.y;
+        }
+        const size_t GetStartLine() {
+            // Did we select backwards???
+            if (endPos.y > startPos.y) {
+                return startPos.y;
+            }
+            return endPos.y;
+        }
+
         //
         // This returns the coords sorted!!!
         //
@@ -74,14 +88,34 @@ namespace gedit {
             }
             return endPos;
         }
+        // Setters
+        void SetStart(const Point &pt) {
+            startPos = pt;
+        }
+        void SetStartYPos(const size_t yp) {
+            startPos.y = yp;
+        }
+        void SetEndYPos(const size_t yp) {
+            endPos.y = yp;
+        }
+        void SetEnd(const Point &pt) {
+            endPos = pt;
+        }
+        void SetStartLine(const size_t startLine) {
+            idxStartLine = startLine;
+        }
+        void SetActive(const bool newActive) {
+            isActive = newActive;
+        }
 
 
-    protected:
-        // Consider making these private...
+
+    private:
+
         bool isActive = false;
         size_t idxStartLine;
-        Point startPos = {};
-        Point endPos = {};
+        Point startPos = {};    // buffer coords
+        Point endPos = {};      // buffer coords
 
     };
 
@@ -200,25 +234,26 @@ namespace gedit {
 
         // Selection functions - not sure these must be exposed - perhaps for API purposes?
         void BeginSelection() {
-            currentSelection.isActive = true;
-            currentSelection.idxStartLine = lineCursor.idxActiveLine;
-            currentSelection.startPos = lineCursor.cursor.position;
-            currentSelection.startPos.y = lineCursor.idxActiveLine;
-            currentSelection.endPos = currentSelection.startPos;
-            currentSelection.endPos.y = lineCursor.idxActiveLine;
+            currentSelection.SetActive(true);
+            currentSelection.SetStartLine(lineCursor.idxActiveLine);
+            currentSelection.SetStart(lineCursor.cursor.position);
+            currentSelection.SetEnd(lineCursor.cursor.position);
+
+            currentSelection.SetStartYPos(lineCursor.idxActiveLine);
+            currentSelection.SetEndYPos(lineCursor.idxActiveLine);
         }
         __inline bool IsSelectionActive() {
-            return currentSelection.isActive;
+            return currentSelection.IsActive();
         }
         __inline const Selection &GetSelection() {
             return currentSelection;
         }
         __inline void CancelSelection() {
-            currentSelection.isActive = false;
+            currentSelection.SetActive(false);
         }
         __inline void RestoreCursorFromSelection() {
-            lineCursor.idxActiveLine = currentSelection.idxStartLine;
-            lineCursor.cursor.position = currentSelection.startPos;
+            lineCursor.idxActiveLine = currentSelection.GetStartLine();
+            lineCursor.cursor.position = currentSelection.GetStart();
 
             verticalNavigationViewModel->OnNavigateDown(0, viewRect, Lines().size());
         }
@@ -228,7 +263,7 @@ namespace gedit {
         void UpdateSelection() {
             // perhaps check if active...
             Point newEnd(lineCursor.cursor.position.x, lineCursor.idxActiveLine);
-            currentSelection.endPos = newEnd;
+            currentSelection.SetEnd(newEnd);
 
         }
 

@@ -27,7 +27,7 @@ void Runloop::DefaultLoop() {
 
     // Fetch the currently initialized keymapping
     activeKeyMap = Editor::Instance().GetActiveKeyMap();
-    Runloop::InstallKeymapChangeNotification();
+    InstallKeymapChangeNotification();
 
     KeypressAndActionHandler &kpaHandler {rootView};
     isRunning = true;
@@ -76,11 +76,11 @@ void Runloop::ProcessKeyPress(KeyPress keyPress) {
 
     if (keyPress.IsAnyValid()) {
         if (hookedActionHandler) {
-            Runloop::DispatchToHandler(*hookedActionHandler, keyPress);
+            DispatchToHandler(*hookedActionHandler, keyPress);
         } else {
             // FIXME: This is not correct in case of modals showing - can't use 'rootView'
             auto &rootView = RuntimeConfig::Instance().GetRootView();
-            Runloop::DispatchToHandler(rootView, keyPress);
+            DispatchToHandler(rootView, keyPress);
         }
     }
 }
@@ -94,7 +94,7 @@ void Runloop::ShowModal(ViewBase *modal) {
 
     // Fetch the currently initialized keymapping
     activeKeyMap = Editor::Instance().GetActiveKeyMap();
-    Runloop::InstallKeymapChangeNotification();
+    InstallKeymapChangeNotification();
 
 
     modal->SetActive(true);
@@ -110,16 +110,6 @@ void Runloop::ShowModal(ViewBase *modal) {
     while((modal->IsActive()) && !bQuit) {
         // Process any messages from other threads before we do anything else..
         bool redraw = ProcessMessageQueue();
-
-        auto keyPress = keyboardDriver->GetKeyPress();
-
-        if (keyPress.IsAnyValid()) {
-            if (hookedActionHandler) {
-                redraw = Runloop::DispatchToHandler(*hookedActionHandler, keyPress);
-            } else {
-                redraw = Runloop::DispatchToHandler(kpaHandler, keyPress);
-            }
-        }
 
         if (modal->IsInvalid()) {
             redraw = true;
@@ -193,9 +183,9 @@ void Runloop::TestLoop() {
         auto keyPress = keyboardDriver->GetKeyPress();
         if (keyPress.IsAnyValid()) {
             if (hookedActionHandler) {
-                Runloop::DispatchToHandler(*hookedActionHandler, keyPress);
+                DispatchToHandler(*hookedActionHandler, keyPress);
             } else {
-                Runloop::DispatchToHandler(kpaHandler, keyPress);
+                DispatchToHandler(kpaHandler, keyPress);
             }
         }
 

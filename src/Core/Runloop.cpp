@@ -13,6 +13,7 @@ using namespace gedit;
 bool Runloop::bQuit = false;
 bool Runloop::isRunning = false;
 KeypressAndActionHandler *Runloop::hookedActionHandler = nullptr;
+std::stack<KeypressAndActionHandler *> Runloop::kpaHandlers;
 KeyMapping::Ref  Runloop::activeKeyMap = nullptr;
 SafeQueue<std::unique_ptr<Runloop::Message> > Runloop::msgQueue = {};
 
@@ -29,7 +30,8 @@ void Runloop::DefaultLoop() {
     activeKeyMap = Editor::Instance().GetActiveKeyMap();
     InstallKeymapChangeNotification();
 
-    KeypressAndActionHandler &kpaHandler {rootView};
+    kpaHandlers.push({&rootView});
+
     isRunning = true;
 
     while(!bQuit) {
@@ -73,29 +75,17 @@ bool Runloop::ProcessMessageQueue() {
 }
 
 void Runloop::ProcessKeyPress(KeyPress keyPress) {
-
     if (keyPress.IsAnyValid()) {
-        if (hookedActionHandler) {
-            DispatchToHandler(*hookedActionHandler, keyPress);
-        } else {
-            // FIXME: This is not correct in case of modals showing - can't use 'rootView'
-            auto &rootView = RuntimeConfig::Instance().GetRootView();
-            DispatchToHandler(rootView, keyPress);
-        }
+        DispatchToHandler(keyPress);
     }
 }
 
 void Runloop::ShowModal(ViewBase *modal) {
     // This is a special case of the main loop...
-
     auto screen = RuntimeConfig::Instance().GetScreen();
-    auto keyboardDriver = RuntimeConfig::Instance().GetKeyboard();
-    //auto logger = gnilk::Logger::GetLogger("ShowModal");
 
-    // Fetch the currently initialized keymapping
     activeKeyMap = Editor::Instance().GetActiveKeyMap();
     InstallKeymapChangeNotification();
-
 
     modal->SetActive(true);
     modal->Initialize();
@@ -103,7 +93,7 @@ void Runloop::ShowModal(ViewBase *modal) {
     screen->CopyToTexture();
 
 
-    KeypressAndActionHandler &kpaHandler {*modal};
+    kpaHandlers.push(modal);
 
     isRunning = true;
 
@@ -129,6 +119,7 @@ void Runloop::ShowModal(ViewBase *modal) {
         // Yield the main-thread..
         std::this_thread::yield();
     }
+    kpaHandlers.pop();
 }
 
 
@@ -140,8 +131,18 @@ void Runloop::InstallKeymapChangeNotification() {
     });
 }
 
-bool Runloop::DispatchToHandler(KeypressAndActionHandler &kpaHandler, KeyPress keyPress) {
+bool Runloop::DispatchToHandler(KeyPress keyPress) {
     auto logger = gnilk::Logger::GetLogger("Dispatcher");
+
+    KeypressAndActionHandler *kpaHandler = hookedActionHandler;
+    if (kpaHandler == nullptr) {
+        kpaHandler = kpaHandlers.top();
+    }
+
+    if (kpaHandler == nullptr) {
+        fprintf(stderr, "[FATAL] RunLoop::DispatchToHandler, no kpaHandler (KeyPressAction) - this is fatal!!!\n");
+        exit(1);
+    }
     logger->Debug("KeyPress Valid - passing on...");
 
     auto kpAction = activeKeyMap->ActionFromKeyPress(keyPress);
@@ -149,7 +150,7 @@ bool Runloop::DispatchToHandler(KeypressAndActionHandler &kpaHandler, KeyPress k
     if (kpAction.has_value()) {
         logger->Debug("Action '%s' found - sending to handler", activeKeyMap->ActionName(kpAction->action).c_str());
 
-        if (!kpaHandler.HandleAction(*kpAction)) {
+        if (!kpaHandler->HandleAction(*kpAction)) {
             // Here I introduce yet another dependency in this class
             // While it could be handled through a lambda set on the run loop (perhaps nicer) I choose not
             // in the end we are writing a specific application - this the way I choose to dispatch otherwise unhandled actions...
@@ -157,7 +158,7 @@ bool Runloop::DispatchToHandler(KeypressAndActionHandler &kpaHandler, KeyPress k
         }
     } else {
         logger->Debug("No action for keypress, treating as regular input");
-        kpaHandler.HandleKeyPress(keyPress);
+        kpaHandler->HandleKeyPress(keyPress);
     }
     // Well - this just controls the redraw for now..
     return true;
@@ -169,25 +170,15 @@ bool Runloop::DispatchToHandler(KeypressAndActionHandler &kpaHandler, KeyPress k
 //
 void Runloop::TestLoop() {
     auto screen = RuntimeConfig::Instance().GetScreen();
-    auto keyboardDriver = RuntimeConfig::Instance().GetKeyboard();
     auto &rootView = RuntimeConfig::Instance().GetRootView();
     //auto logger = gnilk::Logger::GetLogger("MainLoop");
-    KeypressAndActionHandler &kpaHandler {rootView};
+    kpaHandlers.push({&rootView});
     isRunning = true;
 
     while(!bQuit) {
 
         // Process any messages from other threads before we do anything else..
         ProcessMessageQueue();
-
-        auto keyPress = keyboardDriver->GetKeyPress();
-        if (keyPress.IsAnyValid()) {
-            if (hookedActionHandler) {
-                DispatchToHandler(*hookedActionHandler, keyPress);
-            } else {
-                DispatchToHandler(kpaHandler, keyPress);
-            }
-        }
 
         screen->Clear();
         rootView.Draw();

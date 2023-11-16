@@ -7,6 +7,7 @@
 
 #include <functional>
 
+#include <stack>
 #include "Core/KeypressAndActionHandler.h"
 #include "Core/KeyMapping.h"
 #include "Core/Views/ViewBase.h"
@@ -72,13 +73,16 @@ namespace gedit {
         // TEMP?
         static void ProcessKeyPress(KeyPress keyPress);
     private:
-        static bool DispatchToHandler(KeypressAndActionHandler &handler, KeyPress keyPress);
+        static bool DispatchToHandler(KeyPress keyPress);
         static void InstallKeymapChangeNotification();
         static bool ProcessMessageQueue();
     private:
         static bool bQuit;
         static bool isRunning;
         static KeypressAndActionHandler *hookedActionHandler;
+
+        static std::stack<KeypressAndActionHandler *> kpaHandlers;
+
         static KeyMapping::Ref activeKeyMap;
         static SafeQueue<std::unique_ptr<Message> > msgQueue;
 

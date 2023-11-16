@@ -12,13 +12,16 @@ using namespace gedit;
 
 bool Runloop::bQuit = false;
 bool Runloop::isRunning = false;
-KeypressAndActionHandler *Runloop::hookedActionHandler = nullptr;
 std::stack<KeypressAndActionHandler *> Runloop::kpaHandlers;
 KeyMapping::Ref  Runloop::activeKeyMap = nullptr;
 SafeQueue<std::unique_ptr<Runloop::Message> > Runloop::msgQueue = {};
 
 void Runloop::SetKeypressAndActionHook(KeypressAndActionHandler *newHook) {
-    hookedActionHandler = newHook;
+    if(newHook != nullptr) {
+        kpaHandlers.push(newHook);
+    } else {
+        kpaHandlers.pop();
+    }
 }
 
 void Runloop::DefaultLoop() {
@@ -134,10 +137,7 @@ void Runloop::InstallKeymapChangeNotification() {
 bool Runloop::DispatchToHandler(KeyPress keyPress) {
     auto logger = gnilk::Logger::GetLogger("Dispatcher");
 
-    KeypressAndActionHandler *kpaHandler = hookedActionHandler;
-    if (kpaHandler == nullptr) {
-        kpaHandler = kpaHandlers.top();
-    }
+    auto kpaHandler = kpaHandlers.top();
 
     if (kpaHandler == nullptr) {
         fprintf(stderr, "[FATAL] RunLoop::DispatchToHandler, no kpaHandler (KeyPressAction) - this is fatal!!!\n");

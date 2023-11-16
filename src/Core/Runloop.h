@@ -79,7 +79,6 @@ namespace gedit {
     private:
         static bool bQuit;
         static bool isRunning;
-        static KeypressAndActionHandler *hookedActionHandler;
 
         static std::stack<KeypressAndActionHandler *> kpaHandlers;
 

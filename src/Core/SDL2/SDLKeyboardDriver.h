@@ -6,6 +6,10 @@
 #define EDITOR_SDLKEYBOARDDRIVER_H
 
 #include <SDL2/SDL.h>
+
+#include <atomic>
+#include <thread>
+
 #include "Core/KeyPress.h"
 #include "Core/KeyboardDriverBase.h"
 
@@ -18,6 +22,7 @@ namespace gedit {
         static KeyboardDriverBase::Ref Create();
 
         bool Initialize() override;
+        void Close() override;
         KeyPress GetKeyPress() override;
     protected:
         std::optional<KeyPress> HandleKeyPressEvent(const SDL_Event &event);
@@ -28,6 +33,8 @@ namespace gedit {
         void HookEditorClipBoard();
     protected:
         uint32_t sdlDummyEvent;
+        std::atomic_bool bQuitThread = false;
+        std::thread kbdthread;
     };
 }
 

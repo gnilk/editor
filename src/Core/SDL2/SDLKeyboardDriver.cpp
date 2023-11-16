@@ -20,6 +20,7 @@
 #include "Core/KeyMapping.h"
 #include "Core/RuntimeConfig.h"
 #include "Core/Editor.h"
+#include "Core/Runloop.h"
 #include "Core/TextBuffer.h"
 #include "Core/UnicodeHelper.h"
 
@@ -42,8 +43,24 @@ bool SDLKeyboardDriver::Initialize() {
     sdlDummyEvent = SDL_RegisterEvents(1);
     SDL_StartTextInput();
     HookEditorClipBoard();
+    kbdthread = std::thread([this]() {
+        while(!bQuitThread) {
+            auto kp = GetKeyPress();
+            if (kp.IsAnyValid()) {
+                Runloop::PostMessage(0,[kp](uint32_t mid) {
+                    Runloop::ProcessKeyPress(kp);
+                });
+            }
+        }
+    });
     return true;
 }
+
+void SDLKeyboardDriver::Close() {
+    bQuitThread = true;
+    kbdthread.join();
+}
+
 
 KeyPress SDLKeyboardDriver::GetKeyPress() {
     SDL_Event event;

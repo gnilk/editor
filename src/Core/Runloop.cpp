@@ -58,7 +58,7 @@ void Runloop::DefaultLoop() {
 }
 
 bool Runloop::ProcessMessageQueue() {
-    if (!msgQueue.wait(10)) {
+    if (!msgQueue.wait(250)) {
         return false;
     }
     while(!msgQueue.is_empty()) {

@@ -6,30 +6,18 @@
 #include "Core/Editor.h"
 // Ok, need .cpp file for implementation details about MainThread
 #include "Core/RuntimeConfig.h"
+#include "Core/Runloop.h"
 
 using namespace gedit;
 
 void ViewBase::PostMessage(gedit::ViewBase::MessageCallback callback) {
     if (RuntimeConfig::Instance().IsRootView(this)) {
-        threadMessages.push(callback);
+        Runloop::PostMessage(0x00,[callback](uint32_t id) {
+            callback();
+        });
     } else {
         RuntimeConfig::Instance().GetRootView().PostMessage(callback);
     }
-}
-
-int ViewBase::ProcessMessageQueue() {
-    // We should create a copy first and the process the copy...
-    int nMessages = 0;
-    while(!threadMessages.is_empty()) {
-        auto msgHandler = threadMessages.pop();
-        if (!msgHandler.has_value()) {
-            break;
-        }
-        auto handler = *msgHandler;
-        handler();
-        nMessages++;
-    }
-    return nMessages;
 }
 
 void ViewBase::SetWindowCursor(const Cursor &newCursor) {

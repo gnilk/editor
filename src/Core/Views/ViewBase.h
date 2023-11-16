@@ -222,7 +222,7 @@ namespace gedit {
         virtual bool OnAction(const KeyPressAction &action);
 
         virtual void PostMessage(MessageCallback callback) final;
-        virtual int ProcessMessageQueue() final;
+        //virtual int ProcessMessageQueue() final;
 
         void CloseModal() {
             SetActive(false);
@@ -335,7 +335,7 @@ namespace gedit {
         bool isInitialized = false;
         bool isInvalid = false;
         void *sharedDataPtr = nullptr;      // Whatever you want - this is to share data between views - liked HSTack or Tab's or similar
-        SafeQueue<MessageCallback> threadMessages;
+        //SafeQueue<MessageCallback> threadMessages;
     };
 
 }

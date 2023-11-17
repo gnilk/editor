@@ -31,6 +31,15 @@ public:
         c.notify_one();
     }
 
+    size_t size() const {
+        std::unique_lock<std::mutex> lock(m);
+        return q.size();
+    }
+    void clear() {
+        std::unique_lock<std::mutex> lock(m);
+        q = {};
+    }
+
     bool is_empty() const {
         std::unique_lock<std::mutex> lock(m);
         return q.empty();

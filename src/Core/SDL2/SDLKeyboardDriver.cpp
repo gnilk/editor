@@ -45,6 +45,15 @@ bool SDLKeyboardDriver::Initialize() {
     HookEditorClipBoard();
     kbdthread = std::thread([this]() {
         while(!bQuitThread) {
+#ifdef    GEDIT_MACOS
+            Runloop::PostMessage(0, [this](uint32_t mid) {
+               auto kp = GetKeyPress();
+                if (kp.IsAnyValid()) {
+                    Runloop::ProcessKeyPress(kp);
+                }
+            });
+#else
+            SDL_WaitEventTimeout(NULL, 250);
             auto kp = GetKeyPress();
             if (kp.IsAnyValid()) {
                 Runloop::PostMessage(0,[kp](uint32_t mid) {
@@ -52,6 +61,7 @@ bool SDLKeyboardDriver::Initialize() {
                 });
             }
             std::this_thread::yield();
+#endif
         }
     });
     return true;
@@ -66,8 +76,6 @@ void SDLKeyboardDriver::Close() {
 KeyPress SDLKeyboardDriver::GetKeyPress() {
     SDL_Event event;
     auto logger = gnilk::Logger::GetLogger("SDLKeyboardDriver");
-
-    SDL_WaitEventTimeout(NULL, 250);
 
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_EventType::SDL_QUIT) {

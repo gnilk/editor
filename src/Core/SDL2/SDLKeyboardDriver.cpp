@@ -5,6 +5,7 @@
 #include <memory>
 #include <unordered_map>
 #include <string>
+#include <chrono>
 
 #include <SDL2/SDL_events.h>
 #include <SDL2/SDL_keyboard.h>
@@ -25,6 +26,7 @@
 #include "Core/UnicodeHelper.h"
 
 using namespace gedit;
+using namespace std::chrono_literals;
 
 static int createTranslationTable();
 
@@ -45,15 +47,13 @@ bool SDLKeyboardDriver::Initialize() {
     HookEditorClipBoard();
     kbdthread = std::thread([this]() {
         while(!bQuitThread) {
-#ifdef    GEDIT_MACOS
-            Runloop::PostMessage(0, [this](uint32_t mid) {
-               auto kp = GetKeyPress();
-                if (kp.IsAnyValid()) {
-                    Runloop::ProcessKeyPress(kp);
-                }
-            });
+#ifdef GEDIT_MACOS
+            // Dummy thread on macOS - the keyboard is handled in the main-thread from the runloop.
+            std::this_thread::sleep_for(250ms);
+            std::this_thread::yield();
 #else
-            SDL_WaitEventTimeout(NULL, 250);
+            // On linux we allow keyboard handling to be in a different thread...
+            // as it works...
             auto kp = GetKeyPress();
             if (kp.IsAnyValid()) {
                 Runloop::PostMessage(0,[kp](uint32_t mid) {
@@ -76,6 +76,8 @@ void SDLKeyboardDriver::Close() {
 KeyPress SDLKeyboardDriver::GetKeyPress() {
     SDL_Event event;
     auto logger = gnilk::Logger::GetLogger("SDLKeyboardDriver");
+
+    SDL_WaitEventTimeout(NULL, 250);
 
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_EventType::SDL_QUIT) {

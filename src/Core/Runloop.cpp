@@ -7,6 +7,7 @@
 #include "RuntimeConfig.h"
 #include "logger.h"
 #include "KeypressAndActionHandler.h"
+#include "fmt/chrono.h"
 
 using namespace gedit;
 
@@ -14,7 +15,14 @@ bool Runloop::bQuit = false;
 bool Runloop::isRunning = false;
 std::stack<KeypressAndActionHandler *> Runloop::kpaHandlers;
 KeyMapping::Ref  Runloop::activeKeyMap = nullptr;
-SafeQueue<std::unique_ptr<Runloop::Message> > Runloop::msgQueue = {};
+//SafeQueue<std::unique_ptr<Runloop::Message> > Runloop::msgQueue = {};
+
+Runloop::MessageQueue Runloop::msgQueueA = {};
+Runloop::MessageQueue Runloop::msgQueueB = {};
+
+Runloop::MessageQueue *Runloop::incomingQueue = &Runloop::msgQueueA;
+Runloop::MessageQueue *Runloop::processingQueue = &Runloop::msgQueueB;
+
 
 void Runloop::SetKeypressAndActionHook(KeypressAndActionHandler *newHook) {
     if(newHook != nullptr) {
@@ -22,6 +30,13 @@ void Runloop::SetKeypressAndActionHook(KeypressAndActionHandler *newHook) {
     } else {
         kpaHandlers.pop();
     }
+}
+
+void Runloop::SwapQueues() {
+    // FIXME: must be atomic or thread-safe
+    auto tmp = processingQueue;
+    processingQueue = incomingQueue;
+    incomingQueue = tmp;
 }
 
 void Runloop::DefaultLoop() {
@@ -34,9 +49,10 @@ void Runloop::DefaultLoop() {
     InstallKeymapChangeNotification();
 
     kpaHandlers.push({&rootView});
-
     isRunning = true;
-
+    auto szNow = incomingQueue->size();
+    processingQueue->clear();
+    incomingQueue->clear();
     while(!bQuit) {
         // Process any messages from other threads before we do anything else..
         bool redraw = ProcessMessageQueue();
@@ -63,24 +79,49 @@ void Runloop::DefaultLoop() {
 }
 
 bool Runloop::ProcessMessageQueue() {
-    if (!msgQueue.wait(250)) {
-        return false;
+    bool result = false;
+
+    // On macOS we can't run the keyboard (nor screen) on a separate thread - thus we do it here...
+#ifdef GEDIT_MACOS
+    auto keyboardDriver = RuntimeConfig::Instance().GetKeyboard();
+    auto kp = keyboardDriver->GetKeyPress();
+    result = ProcessKeyPress(kp);
+#else
+    if (!incomingQueue->wait(250)) {
+        return result;
     }
-    while(!msgQueue.is_empty()) {
-        auto msgOpt = msgQueue.pop();
+#endif
+    auto logger = gnilk::Logger::GetLogger("RunLoop");
+
+    // Swap so incoming becomes processing
+    SwapQueues();
+
+    int msgCount = 0;
+    if (processingQueue->is_empty()) {
+        return result;
+    }
+    result = true;
+
+    logger->Debug("Processing Message Queue, elements: %zu", processingQueue->size());
+    while(!processingQueue->is_empty()) {
+        auto msgOpt = processingQueue->pop();
         if (!msgOpt.has_value()) {
             continue;
         }
         auto &msg = *msgOpt.value();
         msg.Invoke();
+        msgCount++;
     }
-    return true;
+    logger->Debug("Processing Complete: %d messages", msgCount);
+
+    return result;
 }
 
-void Runloop::ProcessKeyPress(KeyPress keyPress) {
-    if (keyPress.IsAnyValid()) {
-        DispatchToHandler(keyPress);
+bool Runloop::ProcessKeyPress(KeyPress keyPress) {
+    if (!keyPress.IsAnyValid()) {
+        return false;
     }
+    return DispatchToHandler(keyPress);
 }
 
 void Runloop::ShowModal(ViewBase *modal) {

@@ -44,6 +44,8 @@ namespace gedit {
             MessageCallback handler = {};
             MessageCallbackNoData handlerNoData = {};
         };
+
+        using MessageQueue = SafeQueue<std::unique_ptr<Message> >;
     public:
         static void DefaultLoop();
         static void ShowModal(ViewBase *modal);
@@ -57,25 +59,25 @@ namespace gedit {
         template<typename T>
         static void PostMessage(uint32_t msgIdentifier, std::unique_ptr<T> msg, const MessageCallback handler) {
             auto msgData = std::make_unique<Message>(msgIdentifier, std::move(msg), handler);
-            msgQueue.push(std::move(msgData));
+            incomingQueue->push(std::move(msgData));
         }
 
         static void PostMessage(uint32_t msgIdentifier, const MessageCallbackNoData handler) {
             auto msgData = std::make_unique<Message>(msgIdentifier, handler);
-            msgQueue.push(std::move(msgData));
+            incomingQueue->push(std::move(msgData));
         }
-
 
         // Call with 'null' to disable
         static void SetKeypressAndActionHook(KeypressAndActionHandler *newHook);
         static void TestLoop();
 
         // TEMP?
-        static void ProcessKeyPress(KeyPress keyPress);
+        static bool ProcessKeyPress(KeyPress keyPress);
     private:
         static bool DispatchToHandler(KeyPress keyPress);
         static void InstallKeymapChangeNotification();
         static bool ProcessMessageQueue();
+        static void SwapQueues();
     private:
         static bool bQuit;
         static bool isRunning;
@@ -83,7 +85,12 @@ namespace gedit {
         static std::stack<KeypressAndActionHandler *> kpaHandlers;
 
         static KeyMapping::Ref activeKeyMap;
-        static SafeQueue<std::unique_ptr<Message> > msgQueue;
+
+        static MessageQueue *processingQueue;
+        static MessageQueue *incomingQueue;
+
+        static MessageQueue msgQueueA;
+        static MessageQueue msgQueueB;
 
     };
 }

@@ -570,20 +570,22 @@ void Editor::SetupNCurses() {
 }
 
 void Editor::SetupSDL() {
+    auto screenDriver = SDLScreen::Create();
+
+    RuntimeConfig::Instance().SetScreen(screenDriver);
+
+    screenDriver->Open();
+    screenDriver->Clear();
+
     auto keyDriver = SDLKeyboardDriver::Create();
     if (keyDriver == nullptr) {
         logger->Error("Failed to initalize SDL Keyboard driver!");
         printf("Failed to initalize SDL Keyboard driver!\n");
         exit(1);
     }
-
-    auto screenDriver = SDLScreen::Create();
-
     RuntimeConfig::Instance().SetKeyboard(keyDriver);
-    RuntimeConfig::Instance().SetScreen(screenDriver);
 
-    screenDriver->Open();
-    screenDriver->Clear();
+
 }
 
 void Editor::RegisterLanguage(const std::string &extension, LanguageBase::Ref languageBase) {

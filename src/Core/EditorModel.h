@@ -43,14 +43,14 @@ namespace gedit {
         bool IsActive() const {
             return isActive;
         }
-        const size_t GetStartLine() const {
+        size_t GetStartLine() const {
             // Did we select backwards???
             if (endPos.y > startPos.y) {
                 return startPos.y;
             }
             return endPos.y;
         }
-        const size_t GetStartLine() {
+        size_t GetStartLine() {
             // Did we select backwards???
             if (endPos.y > startPos.y) {
                 return startPos.y;

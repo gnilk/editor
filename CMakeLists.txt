@@ -51,7 +51,7 @@ endif ()
 
 if (NOT EXISTS ${CMAKE_SOURCE_DIR}/ext/dukglue)
     message(WARNING "Installing dukglue library")
-    execute_process(COMMAND git clone https://github.com/Aloshi/dukglue ${CMAKE_SOURCE_DIR}/ext/dukglue)
+    execute_process(COMMAND git clone https://github.com/gnilk/dukglue ${CMAKE_SOURCE_DIR}/ext/dukglue)
 endif ()
 
 if (NOT EXISTS ${CMAKE_SOURCE_DIR}/ext/fmt)
@@ -83,7 +83,7 @@ file(GLOB_RECURSE DUKGLUE_FILES "${DUKGLUE_HOME}/include/*.h")
 set_source_files_properties(
         ${DUKGLUE_FILES}
         PROPERTIES
-        COMPILE_FLAGS "-Wno-shadow -Wno-unused-but-set-parameter -Wno-sign-compare"
+        COMPILE_FLAGS "-Wno-shadow -Wno-unused-but-set-parameter -Wno-sign-compare -Wno-unused-local-typedefs"
 )
 
 
@@ -259,7 +259,7 @@ elseif(UNIX)
         target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-variable)
 
         # DukGlue has quite a few type-defs causing pain - consider putting duglue into it's own compile target..
-        target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-local-typedef)
+        target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-local-typedefs)
         # target_compile_options(${CUR_TARGET} PUBLIC -Wno-unneeded-internal-declaration)
         target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-but-set-parameter)
         target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-value)

@@ -13,6 +13,7 @@
 #include "EditorView.h"
 #include "Core/Editor.h"
 #include "Core/ActionHelper.h"
+#include "fmt/chrono.h"
 
 
 #include "fmt/xchar.h"
@@ -159,6 +160,10 @@ void EditorView::OnActivate(bool isActive) {
 }
 
 void EditorView::OnKeyPress(const KeyPress &keyPress) {
+    if (editController == nullptr) {
+        return;
+    }
+
     auto res = editController->OnKeyPress(keyPress);
     if (res) {
         InvalidateView();
@@ -176,6 +181,10 @@ void EditorView::OnKeyPress(const KeyPress &keyPress) {
 // Add actions here - all except human-readable inserting of text
 //
 bool EditorView::OnAction(const KeyPressAction &kpAction) {
+    // fully possible - if the editor has no open files..
+    if (!editController) {
+        return false;
+    }
     if (editController->OnAction(kpAction)) {
         return true;
     }

@@ -21,7 +21,7 @@ static const std::u32string cppKeywords = U"alignas alignof and and_eq asm auto 
 
 // see: https://en.cppreference.com/w/cpp/language/punctuators
 // Note: Multi char operators must be declared first...
-static const std::u32string cppOperators = U"... <<= >>= == ++ -- << >> <= >= != += -= *= /= %= &= ^= |= -> && || .* : | % ~ ^ & ? : ! . = + - < > ( , * / ) [ ] < > ; ' \"";
+static const std::u32string cppOperators = U"... <<= >>= == ++ -- << >> <= >= != += -= *= /= %= &= ^= |= -> && || .* : | % ~ ^ & ? : ! . = + - < > { } ( , * / ) [ ] < > ; ' \"";
 //static const std::u32string cppSeparators = U"... ## # ( ) { } ; [ ] : ";
 // The full operator set is used to identify post-fix operators but not used for classification..
 // missing: % and %=

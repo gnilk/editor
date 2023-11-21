@@ -252,6 +252,10 @@ bool EditorModel::DispatchAction(const KeyPressAction &kpAction) {
             return OnActionLineHome();
         case kAction::kActionCommitLine :
             return OnActionCommitLine();
+        case kAction::kActionIndent :
+            return OnActionIndent();
+        case kAction::kActionUnindent :
+            return OnActionUnindent();
         case kAction::kActionBufferStart :
             [[fallthrough]];
         case kAction::kActionGotoFirstLine :
@@ -278,6 +282,20 @@ bool EditorModel::DispatchAction(const KeyPressAction &kpAction) {
             break;
     }
     return false;
+}
+bool EditorModel::OnActionIndent() {
+    auto undoItem = BeginUndoItem();
+    AddTab();
+    EndUndoItem(undoItem);
+    UpdateSyntaxForActiveLineRegion();
+    return true;
+}
+bool EditorModel::OnActionUnindent() {
+    auto undoItem = BeginUndoItem();
+    DelTab();
+    EndUndoItem(undoItem);
+    UpdateSyntaxForActiveLineRegion();
+    return true;
 }
 
 
@@ -682,6 +700,8 @@ void EditorModel::DeleteRange(const Point &startPos, const Point &endPos) {
     if (startPos.y == endPos.y) {
         auto line = textBuffer->LineAt(startPos.y);
         line->Delete(startPos.x, endPos.x - startPos.x);
+        UpdateSyntaxForRegion(startPos.y, endPos.y+1);
+
         return;
     }
 
@@ -824,30 +844,31 @@ void EditorModel::UnindentLines(size_t idxLineStart, size_t idxLineEnd) {
 
 }
 
-void EditorModel::AddTab(Cursor &cursor, size_t idxActiveLine) {
-    auto line = textBuffer->LineAt(idxActiveLine);
+void EditorModel::AddTab() {
+    auto line = textBuffer->LineAt(lineCursor.idxActiveLine);
     auto undoItem = BeginUndoItem();
 
     auto tabSize = textBuffer->GetLanguage().GetTabSize();
 
     for (int i = 0; i < tabSize; i++) {
-        AddCharToLineNoUndo(cursor, line, ' ');
+        AddCharToLineNoUndo(lineCursor.cursor, line, ' ');
     }
     EndUndoItem(undoItem);
 }
 
-void EditorModel::DelTab(Cursor &cursor, size_t idxActiveLine) {
-    auto line = textBuffer->LineAt(idxActiveLine);
+void EditorModel::DelTab() {
+    auto line = textBuffer->LineAt(lineCursor.idxActiveLine);
     auto nDel = textBuffer->GetLanguage().GetTabSize();
-    if(cursor.position.x < nDel) {
-        nDel = cursor.position.x;
+    if(lineCursor.cursor.position.x < nDel) {
+        nDel = lineCursor.cursor.position.x;
     }
     auto undoItem = BeginUndoItem();
     for (int i = 0; i < nDel; i++) {
-        RemoveCharFromLineNoUndo(cursor, line);
+        RemoveCharFromLineNoUndo(lineCursor.cursor, line);
     }
     EndUndoItem(undoItem);
 }
+
 
 void EditorModel::AddCharToLineNoUndo(Cursor &cursor, Line::Ref line, char32_t ch) {
     line->Insert(cursor.position.x, ch);

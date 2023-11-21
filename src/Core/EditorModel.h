@@ -172,9 +172,8 @@ namespace gedit {
         void IndentLines(size_t idxLineStart, size_t idxLineEnd);
         void UnindentLines(size_t idxLineStart, size_t idxLineEnd);
 
-        // Not quite sure - they are conflicting with Indent/Unindent
-        void AddTab(Cursor &cursor, size_t idxActiveLine);
-        void DelTab(Cursor &cursor, size_t idxActiveLine);
+        void AddTab();
+        void DelTab();
 
         void AddCharToLineNoUndo(Cursor &cursor, Line::Ref line, char32_t ch);
         void RemoveCharFromLineNoUndo(gedit::Cursor &cursor, Line::Ref line);
@@ -283,6 +282,8 @@ namespace gedit {
         bool OnActionStepLeft();
         bool OnActionStepRight();
         bool OnActionCommitLine();
+        bool OnActionIndent();
+        bool OnActionUnindent();
         bool OnActionGotoFirstLine();   // First line of buffer
         bool OnActionGotoLastLine();    // Last line of buffer
         bool OnActionGotoTopLine();     // Top line of screen

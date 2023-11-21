@@ -120,19 +120,6 @@ bool EditController::HandleSpecialKeyPressForEditor(Cursor &cursor, size_t &idxL
                 wasHandled = true;
             }
             break;
-        case Keyboard::kKeyCode_Tab :
-            {
-                auto undoItem = model->BeginUndoItem();
-                if (keyPress.modifiers == 0) {
-                    model->AddTab(cursor, idxLine);
-                } else if (keyPress.IsShiftPressed()) {
-                    model->DelTab(cursor, idxLine);
-                }
-                model->EndUndoItem(undoItem);
-            }
-
-            wasHandled = true;
-            break;
     }
     return wasHandled;
 }

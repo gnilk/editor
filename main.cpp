@@ -3,6 +3,7 @@
 //
 /*
  * TO-DO List
+ * - Replace the language parser with the new Lexer from the AST project...
  * - Move as much out from EditorView/CommandView/QuickView/WorkspaceView as possible and put in resp. controller
  * - Sometimes loose syntax highlight - mostly seen towards end-of-file, need some 'reparse all' functionality
  *   or simply to use 'reparse-all' for any file < 1000 lines...

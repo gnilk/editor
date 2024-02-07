@@ -305,11 +305,16 @@ void SDLScreen::Update() {
 
     SDLCursor::Instance().Draw();
     SDL_RenderPresent(sdlRenderer);
-    SDL_RenderReadPixels(sdlRenderer, nullptr, sdlScreenAsSurface->format->format, sdlScreenAsSurface->pixels, sdlScreenAsSurface->pitch);
 
+
+#ifdef GEDIT_LINUX
+    // This is horribly slow on macos - now quite sure why I do it..
+    SDL_RenderReadPixels(sdlRenderer, nullptr, sdlScreenAsSurface->format->format, sdlScreenAsSurface->pixels, sdlScreenAsSurface->pitch);
+#endif
     // Not quite sure what this is supposed to do...
     // Most SDL example has a small delay - assume they just want 'yield' in order to avoid 100% CPU usage...
-    SDL_Delay(1000/60);
+    // Verify if this delay should be preset on Linux...
+    //SDL_Delay(1000/60);
 }
 
 bool SDLScreen::UpdateClipboardData() {

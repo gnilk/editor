@@ -39,7 +39,34 @@ std::string UnicodeHelper::utf8toascii(const std::string &src) {
     return dst;
 }
 
+// FIXME: Can be consolidated with the other
+bool UnicodeHelper::ConvertUTF8ToUTF32String(std::u32string &out, const std::u8string &src) {
+    if (src.empty()) {
+        return true;
+    }
 
+    const UTF8 *srcStart = reinterpret_cast<const UTF8 *>(&src[0]);
+    const UTF8 *srcEnd = &srcStart[src.length()];
+
+    // Should be reserve but doesn't matter since we operate on the raw pointers
+    out.resize(src.length());
+
+    auto dstStart = reinterpret_cast<UTF32 *>(&out[0]);
+    auto dstEnd = &dstStart[out.capacity()];
+
+    auto result = ::ConvertUTF8toUTF32(&srcStart,
+                                       srcEnd,
+                                       &dstStart,
+                                       dstEnd,
+                                       strictConversion);
+
+    if (result != ConversionResult::conversionOK) {
+        return false;
+    }
+    out.resize(reinterpret_cast<char32_t *>(dstStart) - &out[0]);
+
+    return true;
+}
 
 bool UnicodeHelper::ConvertUTF8ToUTF32String(std::u32string &out, const std::string &src) {
     if (src.empty()) {

@@ -20,6 +20,9 @@
 #include <poll.h>
 
 #include <logger.h>
+
+#include "Core/AnsiParser.h"
+#include "Core/HexDump.h"
 #include "Core/UnicodeHelper.h"
 #include "Core/StrUtil.h"
 #include "Core/Config/Config.h"
@@ -45,7 +48,7 @@ bool Shell::StartShellProc() {
     struct stat shellstat;
     // Verify if shell exists...
     if (stat(shell.c_str(),&shellstat)) {
-        logger->Error("[ERR] can't stat shell '%s' - please verify path", shell.c_str());
+        logger->Error("[ERR] can't projectstat shell '%s' - please verify path", shell.c_str());
         return false;
     }
     // FIXME: We could make sure it is an executeable and so forth...
@@ -92,11 +95,10 @@ bool Shell::StartShellProc() {
         ptrTermIO = &tio;
     }
 
-    logger->Error("forking pty!");
+    logger->Debug("forking pty!");
 
     int amaster = 0;
     pid = forkpty(&amaster, NULL, ptrTermIO, NULL);
-
 
     if(pid > 0) {
         // PARENT
@@ -114,6 +116,7 @@ bool Shell::StartShellProc() {
         ::close(outfd[READ_END]);   // Child does not read from stdout
         ::close(errfd[READ_END]);   // Child does not read from stderr
 
+        // FIXME: Try to remove 'echo' from shell fd
 
         // zsh - Can't have -i ??
         //::execl("/bin/zsh", "/bin/zsh", "-is", nullptr);
@@ -230,16 +233,23 @@ void Shell::ConsumePipes() {
 }
 
 void Shell::ReadAndDispatch(FILE *fd, OutputDelegate onData) {
-    std::array<char, 256> buffer;
+#ifndef GEDIT_TERMINAL_LINE_SIZE
+    #define GEDIT_TERMINAL_LINE_SIZE 1024
+#endif
+    static uint8_t buffer[GEDIT_TERMINAL_LINE_SIZE];
     char *res;
 
     do {
-        res = fgets(buffer.data(), buffer.size(), fd);
+        memset(buffer, 0, GEDIT_TERMINAL_LINE_SIZE);
+        res = fgets((char *)buffer, GEDIT_TERMINAL_LINE_SIZE, fd);
         if ((res != nullptr) && (onStdout != nullptr)) {
 
+            AnsiParser ansiParser;
+            auto stripped = ansiParser.Strip(buffer, GEDIT_TERMINAL_LINE_SIZE);
+
             std::u32string str;
-            if (!UnicodeHelper::ConvertUTF8ToUTF32String(str, buffer.data())) {
-                logger->Error("ReadAndDispatch, failed to UTF32 conversion for '%s'",buffer.data());
+            if (!UnicodeHelper::ConvertUTF8ToUTF32String(str, stripped)) {
+                logger->Error("ReadAndDispatch, failed to UTF32 conversion for '%s'",(char *)stripped.c_str());
                 continue;
             }
             onData(str);

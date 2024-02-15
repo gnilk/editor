@@ -342,6 +342,7 @@ list(APPEND editorsrc src/Core/Plugins/PluginExecutor.cpp src/Core/Plugins/Plugi
 list(APPEND editorsrc src/Core/KeypressAndActionHandler.h)
 
 # utility stuff
+list(APPEND editorsrc src/Core/AnsiParser.cpp src/Core/AnsiParser.h)
 list(APPEND editorsrc src/Core/backward.cpp src/Core/backward.hpp)
 list(APPEND editorsrc src/Core/ConvertUTF.cpp src/Core/ConvertUTF.h)
 list(APPEND editorsrc src/Core/ColorRGBA.cpp src/Core/ColorRGBA.h)

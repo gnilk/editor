@@ -13,8 +13,8 @@
 class HexDump {
 public:
     static void Write(std::function<void(const char *str)> printer, const uint8_t *pData, const size_t szData);
-    static void ToLog(gnilk::ILogger *pLogger, const uint8_t *pData, const size_t szData);
-    static void ToConsole(const uint8_t *pData, const size_t szData);
+    static void ToLog(gnilk::ILogger *pLogger, const void *pData, const size_t szData);
+    static void ToConsole(const void *pData, const size_t szData);
 };
 
 

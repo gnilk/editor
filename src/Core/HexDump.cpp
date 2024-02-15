@@ -44,13 +44,13 @@ void HexDump::Write(std::function<void(const char *str)> printer, const uint8_t 
     printer(strFinal);
 }
 
-void HexDump::ToLog(gnilk::ILogger *pLogger, const uint8_t *pData, const size_t szData) {
+void HexDump::ToLog(gnilk::ILogger *pLogger, const void *pData, const size_t szData) {
     auto writer = [pLogger](const char *s){pLogger->Debug("%s",s);};
-    Write(writer, pData, szData);
+    Write(writer, static_cast<const uint8_t *>(pData), szData);
 }
 
 
-void HexDump::ToConsole(const uint8_t *pData, const size_t szData) {
+void HexDump::ToConsole(const void *pData, const size_t szData) {
     auto writer = [](const char *s){printf("%s\n",s);};
-    Write(writer, pData, szData);
+    Write(writer, static_cast<const uint8_t *>(pData), szData);
 }

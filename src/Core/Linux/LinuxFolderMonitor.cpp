@@ -158,7 +158,7 @@ void LinuxFolderMonitorPoint::ScanForDirectories(std::filesystem::path path) {
 
         });
         if (itFound != foldersToExclude.end()) {
-            logger->Debug("Excluding: %s", dirEntry.path().c_str());
+            // logger->Debug("Excluding: %s", dirEntry.path().c_str());
             continue;
         }
         AddMonitorItem(dirEntry.path());

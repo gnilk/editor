@@ -245,7 +245,7 @@ void Shell::ReadAndDispatch(FILE *fd, OutputDelegate onData) {
         if ((res != nullptr) && (onStdout != nullptr)) {
 
             AnsiParser ansiParser;
-            auto stripped = ansiParser.Strip(buffer, GEDIT_TERMINAL_LINE_SIZE);
+            auto stripped = ansiParser.Parse(buffer, GEDIT_TERMINAL_LINE_SIZE);
 
             std::u32string str;
             if (!UnicodeHelper::ConvertUTF8ToUTF32String(str, stripped)) {

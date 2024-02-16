@@ -1,6 +1,28 @@
 //
 // Created by gnilk on 15.02.24.
 //
+// Others:
+//  mintty; https://github.com/mintty/mintty/blob/master/src/termout.c#L1823
+//  kitty; https://github.com/kovidgoyal/kitty/blob/master/kitty/parser.c
+//  iterm2: https://github.com/gnachman/iTerm2/blob/7b26eb979b21863b463c43952baed07fb999ba3c/sources/VT100CSIParser.m#L174
+//
+
+//
+// The purpose of this is to separate the interleaved terminal/ansi control commands from the string.
+// As such the control is saved to a separate command-list and the string is cleaned from any escape codes
+//
+// Also - refactor this to:
+// * stream based
+// * state machine
+//
+// Just a minimal set of stuff is supported right now.
+// Prio 1:
+//  - get colors and basic cursor movements within the same line supported
+// Prio 2:
+//  - get full cursor movement support (ability to launch 'vim')
+//
+//
+
 #include <stdio.h>
 
 #include "HexDump.h"
@@ -26,36 +48,37 @@ static const uint8_t DCS_8BIT=0x90;
 
 static const uint8_t ST=0x9c;   // See: https://xtermjs.org/docs/api/vtfeatures/#c1
 
-std::string AnsiParser::Strip(const uint8_t *ptrBuffer, const size_t szBuffer) {
+std::string AnsiParser::Parse(const uint8_t *ptrBuffer, const size_t szBuffer) {
 
     buffer = ptrBuffer;
     idx = 0;
     max = szBuffer;
+    strParsed = {};
+    cmdBuffer = {};
 
-    return StripInternal();
+    return ParseInternal();
 
 }
 
 
-std::string AnsiParser::StripInternal() {
-    std::string stripped;
+std::string AnsiParser::ParseInternal() {
 
     while(At() && (idx < max)) {
         // There are multiple ways to get to this point...
         // see: https://vt100.net/emu/dec_ansi_parser
         if((At() == ESC_7BIT) || (At() == ESC_8BIT)) {
-            if (!Next()) return stripped;
+            if (!Next()) return strParsed;
             auto clsCode = At();
 
             if ((clsCode>=0x40) && (clsCode<=0x5f)) {
                 switch(clsCode) {
                     case CSI_7BIT :
                     case CSI_8BIT :
-                        StripCSI();
+                        ParseCSI();
                         break;
                     case OSC_7BIT :
                     case OSC_8BIT :
-                        StripOSC();
+                        ParseOSC();
                         // printf("After OSC\n");
                         // HexDump::ToConsole(&buffer[idx],max-idx);
                         break;
@@ -73,11 +96,11 @@ std::string AnsiParser::StripInternal() {
                 }
             }
         } else {
-            stripped += At();
+            strParsed += At();
             Next();
         }
     }
-    return stripped;
+    return strParsed;
 }
 
 
@@ -90,7 +113,7 @@ bool AnsiParser::InRange(const std::pair<int,int> &range) {
     }
     return true;
 }
-void AnsiParser::StripCSI() {
+void AnsiParser::ParseCSI() {
     // see: https://en.wikipedia.org/wiki/ANSI_escape_code#CSIsection
 
     // printf("CSI\n");
@@ -121,7 +144,6 @@ void AnsiParser::StripCSI() {
     // It is not possible to skip a command unless you parse all of the commands...
     //
 
-
     std::string csiParamString;
     std::vector<std::string> params;
 
@@ -135,6 +157,8 @@ void AnsiParser::StripCSI() {
                 params.push_back(csiParamString);
                 csiParamString = "";
                 break;
+                // FIXME: Support for ':' as seen in some (xterm/Konsole)
+                // see: iterm2, VT100CSIParser.m @ 250
             default :
                 csiParamString += At();
         }
@@ -158,34 +182,49 @@ void AnsiParser::StripCSI() {
             for(auto &s : params) {
                 // printf("  %s\n", s.c_str());
                 auto cmd = std::stoi(s);
-                // FIXME: Ok, this needs better handling
-                switch(cmd) {
-                    case 0 :
-                        // printf("  %d - Reset to Normal\n", cmd);
-                        break;
-                    case 1 :
-                        // printf("  %d - Bold or Increased intensity\n", cmd);
-                        break;
-                    case 2 :
-                        // printf("  %d - Faint, decreased intensity\n", cmd);
-                        break;
-                    case 30 :
-                    case 31 :
-                    case 32 :
-                    case 33 :
-                    case 34 :
-                    case 35 :
-                    case 36 :
-                    case 37 :
-                        // printf("  %d - Set foreground color\n", cmd);
-                        break;
-                    case 38 :
-                        // printf("  %d - Set foreground color - with arguments (not supported)\n", cmd);
-                        break;
-                    case 39 :
-                        // printf("  %d - Set default foreground color\n");
-                        break;
-
+                if ((cmd>=30) && (cmd<=37)) {
+                    EmitCmd(kAnsiCmd::kSetForegroundColor, cmd - 30);
+                } else if ((cmd>=40) && (cmd<=47)) {
+                    EmitCmd(kAnsiCmd::kSetBackgroundColor, cmd - 40);
+                } else {
+                    // FIXME: Ok, this needs better handling
+                    switch (cmd) {
+                        case 0 :
+                            // printf("  %d - Reset to Normal\n", cmd);
+                            EmitCmd(kAnsiCmd::kSGRReset);
+                            break;
+                        case 1 : // bold or increased intensity
+                            EmitCmd(kAnsiCmd::kFontBold);
+                            break;
+                        case 2 : // Faint, decreased intensity - not supported
+                            break;
+                        case 3 : // Italic - not supported
+                            EmitCmd(kAnsiCmd::kFontItalic);
+                            break;
+                        case 4 : // Underline
+                            EmitCmd(kAnsiCmd::kFontUnderline);
+                            break;
+                        case 7 : // invert (swap fg/bg)
+                            EmitCmd(kAnsiCmd::kInvertColors);
+                            break;
+                        case 10 : // Normal font
+                            EmitCmd(kAnsiCmd::kFontNormal);
+                            break;
+                        case 38 :
+                            // printf("  %d - Set foreground color - with arguments (not supported)\n", cmd);
+                            break;
+                        case 39 :
+                            // printf("  %d - Set default foreground color\n");
+                            EmitCmd(kAnsiCmd::kSetDefaultForegroundColor);
+                            break;
+                        case 48 :
+                            // printf("  %d - Set background color - with arguments (not supported)\n", cmd);
+                            break;
+                        case 49 :
+                            // printf("  %d - Set default foreground color\n");
+                            EmitCmd(kAnsiCmd::kSetDefaultForegroundColor);
+                            break;
+                    }
                 }
             }
             // do something useful...
@@ -206,6 +245,16 @@ void AnsiParser::StripCSI() {
     if(InRange(CSI_END_RANGE)) {
         Next();
     }
+}
+
+void AnsiParser::EmitCmd(gedit::AnsiParser::kAnsiCmd kCmd) {
+    CMD cmd={strParsed.size(), kCmd, {}};
+    cmdBuffer.push_back(cmd);
+}
+
+void AnsiParser::EmitCmd(gedit::AnsiParser::kAnsiCmd kCmd, int param) {
+    CMD cmd={strParsed.size(), kCmd, {param}};
+    cmdBuffer.push_back(cmd);
 }
 
 static const int C0_BEL = 0x07;
@@ -234,7 +283,7 @@ enum kOscCommands {
 
 // Quite good overview of OSC stuff
 // https://xtermjs.org/docs/api/vtfeatures/
-void AnsiParser::StripOSC() {
+void AnsiParser::ParseOSC() {
     // see: https://en.wikipedia.org/wiki/ANSI_escape_code#OSC
 
     static std::pair<int, int> OSC_ESC_Fs = {0x60,0x7e};

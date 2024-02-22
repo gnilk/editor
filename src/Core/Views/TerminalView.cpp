@@ -33,7 +33,6 @@ void TerminalView::InitView() {
 //    commandController.Begin();
 
     controller.Begin();
-    RuntimeConfig::Instance().SetOutputConsole(this);
 }
 
 void TerminalView::ReInitView() {
@@ -96,7 +95,6 @@ bool TerminalView::OnActionCommitLine() {
     return true;
 }
 
-
 void TerminalView::DrawViewContents() {
     auto &dc = window->GetContentDC();
     dc.ResetDrawColors();
@@ -106,7 +104,7 @@ void TerminalView::DrawViewContents() {
 
     int line_offset = 0;
     if (lines.size() > dc.GetRect().Height()) {
-        line_offset = lines.size() - dc.GetRect().Height()-1;
+        line_offset = lines.size() - (dc.GetRect().Height()-1);
     }
 
     int line_ypos = 0;
@@ -124,19 +122,13 @@ void TerminalView::DrawViewContents() {
     auto currentLine = controller.CurrentLine();
     dc.ClearLine(line_ypos);
 
-    //lineRender.DrawLine(0,line_ypos, currentLine);
-    static auto colRED = ColorRGBA::FromRGB(255,0,0);
+    static auto colRED = ColorRGBA::FromRGB(64,196,64);
     dc.SetFGColor(colRED);
     dc.DrawStringAt(0,line_ypos, currentLine->Buffer());
 
     cursor.position.y = line_ypos;
+
     // FIXME: THIS IS WRONG!
     cursor.position.x = currentLine->Buffer().length();
-
-}
-
-
-// old shell
-void TerminalView::WriteLine(const std::u32string &str) {
 
 }

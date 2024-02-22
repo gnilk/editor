@@ -13,7 +13,7 @@
 #include "logger.h"
 
 namespace gedit {
-    class TerminalView : public ViewBase,  IOutputConsole {
+    class TerminalView : public ViewBase {
     public:
         TerminalView() = default;
         explicit TerminalView(const Rect &viewArea) : ViewBase(viewArea) {
@@ -32,9 +32,6 @@ namespace gedit {
             static std::u32string defaultAbbr = U"TRM";
             return defaultAbbr;
         }
-
-    public: // IOutputConsole
-        void WriteLine(const std::u32string &str) override;
 
     protected:
         void OnActivate(bool isActive) override;

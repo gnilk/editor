@@ -64,12 +64,6 @@ void TerminalView::OnActivate(bool isActive) {
 void TerminalView::OnKeyPress(const KeyPress &keyPress) {
     logger->Debug("OnKeyPress");
 
-    // FIXME: after the CMD+] we sometimes get 'text_event' with ' which is wrong
-    //        must revist the keyboard handler...
-    if (keyPress.key > 0x2000) {
-        return;
-    }
-
     auto strCursor = cursor;
     size_t dummyLineIndex = 0;  // Need this as the HandleKeyPress takes a reference
     if (controller.HandleKeyPress(strCursor, dummyLineIndex, keyPress)) {
@@ -86,6 +80,10 @@ bool TerminalView::OnAction(const KeyPressAction &kpAction) {
             return OnActionCommitLine();
         default:
             break;
+    }
+    if(controller.OnAction(kpAction)) {
+        cursor.position.x = controller.GetCursorXPos();
+        return true;
     }
     return ViewBase::OnAction(kpAction);
 }
@@ -127,8 +125,6 @@ void TerminalView::DrawViewContents() {
     dc.DrawStringAt(0,line_ypos, currentLine->Buffer());
 
     cursor.position.y = line_ypos;
-
-    // FIXME: THIS IS WRONG!
-    cursor.position.x = currentLine->Buffer().length();
+    cursor.position.x = controller.GetCursorXPos();
 
 }

@@ -3,6 +3,8 @@
 //
 /*
  * TO-DO List
+ * - Rewrite 'CommandView' - replace with a 'TerminalView' which operates properly with the new shell component
+ *   Should treat the shell as a stream rather than trying to keep track of cursor stuff and so forth..
  * - Replace the language parser with the new Lexer from the AST project...
  * - Move as much out from EditorView/CommandView/QuickView/WorkspaceView as possible and put in resp. controller
  * - Sometimes loose syntax highlight - mostly seen towards end-of-file, need some 'reparse all' functionality
@@ -252,6 +254,7 @@
 #include "Core/Views/EditorView.h"
 #include "Core/Views/RootView.h"
 #include "Core/Views/CommandView.h"
+#include "Core/Views/TerminalView.h"
 #include "Core/Views/HSplitView.h"
 #include "Core/Views/VSplitView.h"
 #include "Core/Views/HStackView.h"
@@ -396,8 +399,10 @@ int main(int argc, const char **argv) {
     rootView.AddView(&hSplitViewStatus);
 
 
-    auto cmdView = CommandView();
-    hSplitViewStatus.SetLower(&cmdView);
+    auto terminalView = TerminalView();
+    //auto cmdView = CommandView();
+    //hSplitViewStatus.SetLower(&cmdView);
+    hSplitViewStatus.SetLower(&terminalView);
 
     auto vStackViewEditor = VStackView();   // This is where the editor and the 'FileHeader' lives, they are stacked vertically
     auto editorHeaderView = EditorHeaderView();
@@ -451,7 +456,7 @@ int main(int argc, const char **argv) {
     hSplitViewStatus.SetUpper(&hStackViewUpper);
 
     rootView.AddTopView(&editorView, glbEditorView);
-    rootView.AddTopView(&cmdView, glbCommandView);
+    rootView.AddTopView(&terminalView, glbTerminalView);
     rootView.AddTopView(&workspaceExplorer, glbWorkSpaceView);
 
 //    WorkspaceView workspaceView;

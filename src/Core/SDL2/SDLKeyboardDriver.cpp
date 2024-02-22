@@ -91,16 +91,24 @@ KeyPress SDLKeyboardDriver::GetKeyPress() {
             }
             //continue;
         } else if (event.type == SDL_EventType::SDL_TEXTINPUT) {
+            // We don't 'textinput' in case these modifiers are still active
+            static auto mask = (Keyboard::kMod_LeftCtrl | Keyboard::kMod_RightCtrl | Keyboard::kMod_LeftCommand | Keyboard::kMod_RightCommand | Keyboard::kMod_LeftAlt | Keyboard::kMod_RightAlt);
+            auto modifiers = TranslateModifiers(SDL_GetModState());
+            if ((modifiers & mask) != 0) {
+                logger->Debug("SDL_EVENT:TEXTINPUT, modifier mask (0x%.2x) invalid to regular input - skipping", modifiers);
+                continue;
+            }
+
             // TO-DO: On Linux we get an SDL_TEXTINPUT for the keydown - causing us to act twice for certain key combos..
             KeyPress kp;
             kp.isSpecialKey = false;
             kp.isKeyValid = true;
-            kp.modifiers = TranslateModifiers(SDL_GetModState());
+            kp.modifiers = modifiers;
             // This seems to work, but I assume that we can get buffered input here
             // Need to check if there are some flags in SDL to deal with it
             auto u32str = UnicodeHelper::utf8to32(event.text.text);
             kp.key = u32str[0]; //event.text.text[0];
-            logger->Debug("SDL_EVENT_TEXT_INPUT, event.text.text=%s", event.text.text);
+            logger->Debug("SDL_EVENT:TEXTINPUT, modifiers=%x, event.text.text=%s", modifiers, event.text.text);
             return kp;
         }  else if ((event.type == SDL_EventType::SDL_WINDOWEVENT) && (event.window.event == SDL_WINDOWEVENT_RESIZED)) {
             logger->Debug("SDL_EVENT_WINDOW_RESIZED");
@@ -152,7 +160,6 @@ void SDLKeyboardDriver::CheckRemoveTextInputEventForKeyPress(const KeyPress &kp)
                 if (nGet < 0) {
                     logger->Error("SDL_PeepEvents, err=%s", SDL_GetError());
                     return;
-
 //                    fprintf(stderr, "SDL_PeepEvents, err=%s\n",SDL_GetError());
 //                    exit(1);
                 }

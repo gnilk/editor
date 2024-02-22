@@ -24,6 +24,7 @@ namespace gedit {
         bool Begin();
         void Close();
         int SendCmd(std::u32string &cmd);
+        int Write(uint8_t chr);
 
         void ConsumePipes();
         void CleanUp();

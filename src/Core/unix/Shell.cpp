@@ -88,19 +88,52 @@ bool Shell::StartShellProc() {
     // This will fail if we are starting through the UI launcher...
     // It is however ok to provide a 'nullptr' to forkpty for the termios
     int err = tcgetattr(STDIN_FILENO, &tio);
-    if (err) {
+    if (err < 0) {
         logger->Error("failed tcgetattr, err: %d:%s", errno, strerror(errno));
         logger->Debug("This can happen when started as a UI application - not sure how ZSH will respond");
     } else {
         ptrTermIO = &tio;
     }
 
-    logger->Debug("forking pty!");
+    struct termios shellTermios;
+
+/*
+    err = ttySetRaw(STDIN_FILENO, &shellTermios);
+    if (err < 0) {
+        perror("ttySetRaw");
+    }
+*/
+
+    // Create a default termio structure
+    shellTermios.c_iflag = TTYDEF_IFLAG;
+    shellTermios.c_oflag = TTYDEF_OFLAG;
+    shellTermios.c_cflag = TTYDEF_CFLAG;
+    shellTermios.c_lflag = TTYDEF_LFLAG;
+    // Disable echo - I can't get this to work properly...
+    //shellTermios.c_lflag &= ~ECHO;
+#ifndef TTYDEFCHARS
+    cc_t    ttydefchars[NCCS] = {
+            CEOF,   CEOL,   CEOL,   CERASE, CWERASE, CKILL, CREPRINT,
+            _POSIX_VDISABLE, CINTR, CQUIT,  CSUSP,  CDSUSP, CSTART, CSTOP,  CLNEXT,
+            CDISCARD, CMIN, CTIME,  CSTATUS, _POSIX_VDISABLE
+    };
+#endif
+    memcpy(shellTermios.c_cc,ttydefchars, NCCS);
+
+    // For some reason the underlying shell TERMIOS structure doesn't fully do this..
+    // we get some echo from it - or there is a stray printf in my code I haven't found yet
+    // but if we do this - I can see it...
+//    tcsetattr(STDIN_FILENO, TCSANOW, &shellTermios);
+
+    logger->Info("forking pty!");
 
     int amaster = 0;
-    pid = forkpty(&amaster, NULL, ptrTermIO, NULL);
+    //pid = forkpty(&amaster, NULL, ptrTermIO, NULL);
+//    pid = forkpty(&amaster, NULL, &shellTermios, NULL);
+    pid = forkpty(&amaster, NULL, NULL, NULL);
 
     if(pid > 0) {
+
         // PARENT
         ::close(infd[READ_END]);    // Parent does not read from stdin
         ::close(outfd[WRITE_END]);  // Parent does not write to stdout
@@ -108,6 +141,13 @@ bool Shell::StartShellProc() {
     }
     else if(pid == 0) {
         // CHILD
+        // Note to self: DO NOT TOUCH THE TTY here - that's why I use forkpty...
+
+        // To debug fork on GDB
+        //  set follow-fork-mode child
+        //  set detach-on-fork off
+        //
+
         ::dup2(infd[READ_END], STDIN_FILENO);
         ::dup2(outfd[WRITE_END], STDOUT_FILENO);
         ::dup2(errfd[WRITE_END], STDERR_FILENO);
@@ -116,7 +156,6 @@ bool Shell::StartShellProc() {
         ::close(outfd[READ_END]);   // Child does not read from stdout
         ::close(errfd[READ_END]);   // Child does not read from stderr
 
-        // FIXME: Try to remove 'echo' from shell fd
 
         // zsh - Can't have -i ??
         //::execl("/bin/zsh", "/bin/zsh", "-is", nullptr);
@@ -163,6 +202,11 @@ int Shell::SendCmd(std::u32string &cmd) {
     return (write(infd[WRITE_END], strCmdUTF8.c_str(), strCmdUTF8.size()));
 }
 
+int Shell::Write(uint8_t chr) {
+    return write(infd[WRITE_END], &chr, 1);
+}
+
+// FIXME: There should be an 'WriteUTF8()' as well
 
 void Shell::ConsumePipes() {
     // PARENT
@@ -217,11 +261,6 @@ void Shell::ConsumePipes() {
         std::this_thread::yield();
     }
 
-//    do {
-//        bytes = ::read(errfd[READ_END], buffer.data(), buffer.size());
-////        StdErr.append(buffer.data(), bytes);
-//    }
-//    while(bytes > 0);
 
     int status = 0;
     waitpid(pid, &status, 0);
@@ -231,7 +270,7 @@ void Shell::ConsumePipes() {
     }
     CleanUp();
 }
-
+/*
 void Shell::ReadAndDispatch(FILE *fd, OutputDelegate onData) {
 #ifndef GEDIT_TERMINAL_LINE_SIZE
     #define GEDIT_TERMINAL_LINE_SIZE 1024
@@ -257,3 +296,34 @@ void Shell::ReadAndDispatch(FILE *fd, OutputDelegate onData) {
     } while(res != nullptr);
     res = nullptr;
 }
+ */
+void Shell::ReadAndDispatch(FILE *fd, OutputDelegate onData) {
+#define MAX_LINE_SIZE 1024
+    uint8_t buffer[1024];
+    ssize_t res;
+
+    AnsiParser ansiParser;
+
+    int fno = fileno(fd);
+
+    do {
+        memset(buffer,0, MAX_LINE_SIZE);
+        // Note to self, DO NOT READ DATA LIKE THIS!!!!!!!!!!
+        res = read(fno, buffer, MAX_LINE_SIZE);
+        if ((res < 0) && (errno == EAGAIN)) {
+            continue;
+        }
+        if ((res > 0) && (onStdout != nullptr)) {
+            // Not sure this is the right way to do this!
+            auto strStripped = ansiParser.Parse(buffer, MAX_LINE_SIZE);
+            std::u32string str;
+            if (!UnicodeHelper::ConvertUTF8ToUTF32String(str, strStripped)) {
+                logger->Error("ReadAndDispatch, failed to UTF32 conversion for '%s'",strStripped.c_str());
+                continue;
+            }
+            onData(str);
+        }
+    } while(res > 0);
+    //res = nullptr;
+}
+

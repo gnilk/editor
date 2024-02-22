@@ -11,10 +11,11 @@
 
 #include "logger.h"
 #include "BaseController.h"
+#include "Core/RuntimeConfig.h"
 #include "Core/unix/Shell.h"
 
 namespace gedit {
-    class TerminalController : public BaseController {
+    class TerminalController : public BaseController, IOutputConsole {
     public:
         TerminalController() = default;
         virtual ~TerminalController() = default;
@@ -28,6 +29,7 @@ namespace gedit {
         Line::Ref CurrentLine();
         void CommitLine();
 
+        void WriteLine(const std::u32string &str) override;
     protected:
         void NewLine();
         void ParseAndAppend(std::u32string &str);

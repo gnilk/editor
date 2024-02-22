@@ -5,12 +5,16 @@
 #include "TerminalController.h"
 #include "Core/Editor.h"
 #include "Core/HexDump.h"
+#include "Core/Plugins/PluginExecutor.h"
 
 using namespace gedit;
 
 void TerminalController::Begin() {
     logger = gnilk::Logger::GetLogger("TerminalController");
     logger->Debug("Begin");
+
+    RuntimeConfig::Instance().SetOutputConsole(this);
+
 
     inputLine = std::make_shared<Line>();
     inputCursor.position.x = 0;
@@ -79,14 +83,22 @@ void TerminalController::CommitLine() {
     historyBuffer.push_back(current);
 
     std::u32string cmdLine(inputLine->Buffer());
-    cmdLine+=(U"\n");
-    shell.SendCmd(cmdLine);
-
 
     inputLine->Clear();
     inputCursor.position.x = 0;
-
     NewLine();
+
+    // Try execute plugin..
+    if (PluginExecutor::ParseAndExecuteWithCmdPrefix(cmdLine)) {
+        static auto newline = std::u32string(U"\n");
+        shell.SendCmd(newline);
+    } else {
+        // No luck - send to shell...
+        cmdLine+=(U"\n");
+        shell.SendCmd(cmdLine);
+    }
+
+
 
     Editor::Instance().TriggerUIRedraw();
 }
@@ -100,5 +112,21 @@ Line::Ref TerminalController::CurrentLine() {
     return currentLine;
 }
 
+void TerminalController::WriteLine(const std::u32string &str) {
+    // Let's append to current line and commit to history buffer
+//    Line::Ref tmp = nullptr;
+//
+//    if (!lastLine->IsEmpty()) {
+//        tmp = Line::Create(lastLine->Buffer());
+//    }
 
+    lastLine->Append(str);
+    historyBuffer.push_back(lastLine);
+    NewLine();
 
+//    if (tmp != nullptr) {
+//        lastLine->Append(tmp);
+//    }
+
+    Editor::Instance().TriggerUIRedraw();
+}

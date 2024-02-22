@@ -56,15 +56,54 @@ void TerminalController::ParseAndAppend(std::u32string &str) {
         }
     }
 }
+
 bool TerminalController::HandleKeyPress(Cursor &cursor, size_t &idxActiveLine, const KeyPress &keyPress) {
     if (DefaultEditLine(inputCursor, inputLine, keyPress)) {
         logger->Debug("InputLine: %s", inputLine->BufferAsUTF8().c_str());
         // The visible cursor is from the lastLine (from shell) to the current input cursor...
         // input cursor is handled by DefaultEditLine..
-        cursor.position.x = lastLine->Length() + inputCursor.position.x;
+        cursor.position.x = GetCursorXPos();
         return true;
     }
     return false;
+}
+
+bool TerminalController::OnAction(const KeyPressAction &kpAction) {
+
+    switch(kpAction.action) {
+        case kAction::kActionLineHome :
+            inputCursor.position.x = 0;
+            break;
+        case kAction::kActionLineEnd :
+            inputCursor.position.x = inputLine->Length();
+            break;
+        case kAction::kActionLineLeft :
+            inputCursor.position.x -= 1;
+            if (inputCursor.position.x < 0) {
+                inputCursor.position.x = 0;
+            }
+            break;
+        case kAction::kActionLineRight :
+            inputCursor.position.x++;
+            if (inputCursor.position.x > inputLine->Length()) {
+                inputCursor.position.x = inputLine->Length();
+            }
+            break;
+// Implement these..
+//        case kAction::kActionLineWordLeft :
+//        case kAction::kActionLineWordRight :
+
+        default:
+            return false;
+    }
+    //cursor.position.x = lastLine->Length() + inputCursor.position.x;
+
+    Editor::Instance().TriggerUIRedraw();
+    return true;
+}
+
+int TerminalController::GetCursorXPos() {
+    return lastLine->Length() + inputCursor.position.x;
 }
 
 void TerminalController::NewLine() {

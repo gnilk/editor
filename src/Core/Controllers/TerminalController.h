@@ -29,6 +29,9 @@ namespace gedit {
         Line::Ref CurrentLine();
         void CommitLine();
 
+        int GetCursorXPos();
+
+        bool OnAction(const KeyPressAction &kpAction);
         void WriteLine(const std::u32string &str) override;
     protected:
         void NewLine();

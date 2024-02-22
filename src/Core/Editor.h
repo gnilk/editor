@@ -26,7 +26,7 @@ namespace gedit {
     // Global class names for top-views in the view hierarchy...
     //
     static inline const std::string glbWorkSpaceView = "WorkspaceView";
-    static inline const std::string glbCommandView = "CommandView";
+    static inline const std::string glbTerminalView = "TerminalView";
     static inline const std::string glbEditorView = "EditorView";
 
     //

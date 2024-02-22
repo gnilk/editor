@@ -187,7 +187,7 @@ std::optional<KeyPress> SDLKeyboardDriver::HandleKeyPressEvent(const SDL_Event &
         if (kp.key != 0) {
             kp.isKeyValid = true;
         }
-        logger->Debug("  kp, modifiers=%.2x (%d), scancode=%.2x, key=%.2x (%c), ",
+        logger->Debug("  kp, modifiers=%.2x (%d), scancode=%.2x, key=%x (%d), ",
                       kp.modifiers, kp.modifiers,
                       kp.hwEvent.scanCode,
                       (int)kp.key, (int)kp.key);

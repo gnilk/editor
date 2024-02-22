@@ -399,6 +399,7 @@ list(APPEND editorsrc src/Core/Views/CommandView.cpp src/Core/Views/CommandView.
 list(APPEND editorsrc src/Core/Views/SingleLineView.h)
 list(APPEND editorsrc src/Core/Views/EditorHeaderView.h)
 list(APPEND editorsrc src/Core/Views/HSplitViewStatus.cpp src/Core/Views/HSplitViewStatus.h)
+list(APPEND editorsrc src/Core/Views/TerminalView.cpp src/Core/Views/TerminalView.h)
 list(APPEND editorsrc src/Core/Views/WorkspaceView.cpp src/Core/Views/WorkspaceView.h)
 
 # modals/dialogs/etc..
@@ -416,6 +417,7 @@ list(APPEND editorsrc src/Core/LineRender.cpp src/Core/LineRender.h)
 list(APPEND editorsrc src/Core/Controllers/BaseController.cpp src/Core/Controllers/BaseController.h)
 list(APPEND editorsrc src/Core/Controllers/EditController.cpp src/Core/Controllers/EditController.h)
 list(APPEND editorsrc src/Core/Controllers/CommandController.cpp src/Core/Controllers/CommandController.h)
+list(APPEND editorsrc src/Core/Controllers/TerminalController.cpp src/Core/Controllers/TerminalController.h)
 list(APPEND editorsrc src/Core/Controllers/QuickCommandController.cpp src/Core/Controllers/QuickCommandController.h)
 list(APPEND editorsrc src/Core/UndoHistory.cpp src/Core/UndoHistory.h)
 

@@ -3,8 +3,10 @@
 //
 /*
  * TO-DO List
- * - Rewrite 'CommandView' - replace with a 'TerminalView' which operates properly with the new shell component
+ * - WorkspaceView - Home/End/PageUp/PageDown
+ * + Rewrite 'CommandView' - replace with a 'TerminalView' which operates properly with the new shell component
  *   Should treat the shell as a stream rather than trying to keep track of cursor stuff and so forth..
+ *   - Properly trap signals to detect if someone does 'exit' from shell - respawn shell in that case..
  * - Replace the language parser with the new Lexer from the AST project...
  * - Move as much out from EditorView/CommandView/QuickView/WorkspaceView as possible and put in resp. controller
  * - Sometimes loose syntax highlight - mostly seen towards end-of-file, need some 'reparse all' functionality

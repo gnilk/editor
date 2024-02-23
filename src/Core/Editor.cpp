@@ -230,9 +230,9 @@ void Editor::PreParseArguments(int argc, const char **argv) {
         std::string arg(argv[i]);
         if (strutil::startsWith(arg, "--")) {
             std::string cmdSwitch = std::string(&argv[i][2]);
-            if (cmdSwitch == "console_logging") {
+            if (cmdSwitch == "console-logging") {
                 keepConsoleLogger = true;
-            } else if (cmdSwitch == "skip_user_config") {
+            } else if (cmdSwitch == "skip-user-config") {
                 loadUserConfig = false;
             } else if (cmdSwitch == "help") {
                     PrintHelpToConsole();
@@ -249,7 +249,8 @@ void Editor::PrintHelpToConsole() {
     printf("%s - v%s, cmdline startup options\n", glbApplicationName.c_str(), glbVersionString.c_str());
     printf("use: %s <options> [files...]\n", glbApplicationName.c_str());
     printf("Options:\n");
-    printf("  --console_logging, enables console logging to console, this is needed to get pre-initalization logging (before config has been loaded)\n");
+    printf("  --console-logging, enables console logging to console, this is needed to get pre-initalization logging (before config has been loaded)\n");
+    printf("  --skip-user-config, won't load user specific config (starts with defaults)\n");
     printf("  --backend <sdl | ncurses>, override the configuration file backend\n");
 }
 

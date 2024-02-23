@@ -44,6 +44,19 @@ void EditorView::InitView()  {
         return;
     }
 
+    auto workspaceNode = Editor::Instance().GetWorkspaceNodeForModel(editorModel);
+    if (workspaceNode == nullptr) {
+        logger->Error("No workspace node for model!!");
+        return;
+    }
+
+    editController = workspaceNode->GetController();
+    if (editController == nullptr) {
+        logger->Error("No controller for model!");
+        return;
+    }
+
+
     editController->SetTextBufferChangedHandler([this]()->void {
         auto node = Editor::Instance().GetWorkspace()->GetNodeFromModel(editorModel);
         if (node == nullptr) {

@@ -93,6 +93,9 @@ list(APPEND duktape ${DUKTAPE_EXTRAS}/module-node/duk_module_node.c)
 #add_subdirectory(ext/logger ${CMAKE_BINARY_DIR}/logger)
 #list(APPEND extlibs logger)
 
+set(LOG_HAVE_FMT ON)
+set(LOG_FMT_DIR ${CMAKE_SOURCE_DIR}/ext/fmt)
+
 add_subdirectory(ext/gnklog ${CMAKE_BINARY_DIR}/gnklog)
 target_compile_options(gnklog PUBLIC -fPIC -Wno-unused-parameter)
 
@@ -101,8 +104,6 @@ list(APPEND extlibs gnklog)
 add_subdirectory(ext/fmt ${CMAKE_BINARY_DIR}/fmt EXCLUDE_FROM_ALL)
 set_property(TARGET fmt PROPERTY POSITION_INDEPENDENT_CODE ON)
 list(APPEND extlibs fmt)
-
-
 
 set(CUR_TARGET goatedit)
 

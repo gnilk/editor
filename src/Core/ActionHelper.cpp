@@ -4,6 +4,7 @@
 
 #include "ActionHelper.h"
 #include "Core/Editor.h"
+#include "Core/Views/RootView.h"
 
 using namespace gedit;
 
@@ -23,4 +24,11 @@ void ActionHelper::SwitchToPreviousBuffer() {
         return;
     }
     Editor::Instance().SetActiveModelFromIndex(idxNext);
+}
+
+void ActionHelper::SwitchToNamedView(const std::string &viewName) {
+    auto &rvBase = RuntimeConfig::Instance().GetRootView();
+    RootView *rootView = static_cast<RootView *>(&rvBase);
+
+    rootView->SetActiveTopViewByName(viewName);
 }

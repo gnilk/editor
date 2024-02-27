@@ -64,7 +64,14 @@ namespace gedit {
         }
 
         bool SetActiveTopViewByName(const std::string &name) {
+            // check if the current view is our view - apparently we don't like switching to the same view..
+            auto currentName = GetTopViewName();
+            if (currentName.has_value() && name == currentName) {
+                return true;
+            }
+
             auto currentView = TopView();
+
             for(size_t i=0;i<topViews.size();i++) {
                 if (topViews[i].name == name) {
                     idxCurrentTopView = (int)i;

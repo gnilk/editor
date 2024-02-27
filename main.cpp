@@ -3,6 +3,9 @@
 //
 /*
  * TO-DO List
+ * - BUG: When the rootview 'SetActiveTopViewByName' set's same as currently active we loose it (input is gone)
+ *        There is a workaround in root view which doesn't allow this - but still...
+ * - Keymap: Add 'inherit' parameter so we can have a global definition of keymappings (like the UI keymappings)
  * - WorkspaceView - Home/End/PageUp/PageDown
  * + Rewrite 'CommandView' - replace with a 'TerminalView' which operates properly with the new shell component
  *   Should treat the shell as a stream rather than trying to keep track of cursor stuff and so forth..

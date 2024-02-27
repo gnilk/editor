@@ -519,6 +519,7 @@ list(APPEND utestsrc utests/test_assetloader.cpp)
 list(APPEND utestsrc utests/test_clipboard.cpp)
 list(APPEND utestsrc utests/test_cpplang.cpp)
 list(APPEND utestsrc utests/test_config.cpp)
+list(APPEND utestsrc utests/test_dcoverlay.cpp)
 list(APPEND utestsrc utests/test_editorapi.cpp)
 list(APPEND utestsrc utests/test_edtmodel.cpp)
 list(APPEND utestsrc utests/test_jsengine.cpp)
@@ -532,8 +533,6 @@ list(APPEND utestsrc utests/test_vnav.cpp)
 list(APPEND utestsrc utests/test_winlocation.cpp)
 list(APPEND utestsrc utests/test_workspace.cpp)
 list(APPEND utestsrc utests/test_xgdenv.cpp)
-
-list(APPEND utestsrc src/Core/Tests/test_dcoverlay.cpp)
 
 
 

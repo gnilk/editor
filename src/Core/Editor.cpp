@@ -9,19 +9,21 @@
 #include <vector>
 #include <string>
 #include <filesystem>
+#include <fstream>
 
 #include "Editor.h"
 #include "Core/RuntimeConfig.h"
 #include "Core/Config/Config.h"
 #include "Core/KeyMapping.h"
 #include "Core/StrUtil.h"
+#include "Core/ActionHelper.h"
 
 #include "Core/Language/LanguageBase.h"
 #include "Core/Language/LanguageSupport/CPPLanguage.h"
 #include "Core/Language/LanguageSupport/JSONLanguage.h"
 #include "Core/Language/LanguageSupport/DefaultLanguage.h"
 #include "Core/Plugins/PluginExecutor.h"
-#include <fstream>
+
 
 // NCurses backend
 #include "Core/NCurses/NCursesScreen.h"
@@ -321,6 +323,7 @@ void Editor::ExecutePostScript(std::istream &stream) {
     }
 }
 
+
 void Editor::HandleGlobalAction(const KeyPressAction &kpAction) {
     logger->Debug("Handling global actions!!");
     if (state == ViewState) {
@@ -328,6 +331,16 @@ void Editor::HandleGlobalAction(const KeyPressAction &kpAction) {
             logger->Debug("Entering command mode!");
             state = QuickCommandState;
             quickCommandController.Enter();
+       } else if (kpAction.action == kAction::kActionSwitchToTerminal) {
+            logger->Debug("Should switch to terminal view");
+            ActionHelper::SwitchToNamedView(glbTerminalView);
+        } else if (kpAction.action == kAction::kActionSwitchToEditor) {
+            logger->Debug("Should switch to editor view");
+            ActionHelper::SwitchToNamedView(glbEditorView);
+            // maximize?
+        } else if (kpAction.action == kAction::kActionSwitchToProject) {
+            logger->Debug("Should switch to editor view");
+            ActionHelper::SwitchToNamedView(glbWorkSpaceView);
         }
     } else if (state == QuickCommandState) {
         if (kpAction.action == kAction::kActionLeaveCommandMode) {

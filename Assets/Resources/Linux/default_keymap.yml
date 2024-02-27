@@ -54,10 +54,10 @@ keymap: {
     CycleActiveEditor: KeyCode_F3,
     CommitLine: KeyCode_Return,
     CommentLine: CopyPasteModifier + '/',
-    GotoFirstLine: KeyCode_Command + KeyCode_Home + @SelectionModifier,
-    GotoLastLine: KeyCode_Command + KeyCode_End + @SelectionModifier,
-    GotoTopLine: KeyCode_Command + KeyCode_PageUp,
-    GotoBottomLine: KeyCode_Command + KeyCode_PageDown,
+    GotoFirstLine: UINavigationModifier + KeyCode_Home + @SelectionModifier,
+    GotoLastLine: UINavigationModifier + KeyCode_End + @SelectionModifier,
+    GotoTopLine: KeyCode_Ctrl + KeyCode_PageUp,
+    GotoBottomLine: KeyCode_Ctrl + KeyCode_PageDown,
     Undo: CopyPasteModifier + 'z',
 
     Indent : KeyCode_Tab,
@@ -73,5 +73,11 @@ keymap: {
     UIIncreaseViewHeight : "UINavigationModifier + 's'",
     UIDecreaseViewHeight : "UINavigationModifier + 'w'",
     UIMaximizeViewHeight : "UINavigationModifier + 'm'",
+
+    # Switch views
+    UISwitchToTerminal : "UINavigationModifier + 't'",
+    UISwitchToEditor : "UINavigationModifier + 'e'",
+    UISwitchToProject : "UINavigationModifier + 'p'"
+
   }
 }

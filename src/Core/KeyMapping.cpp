@@ -69,15 +69,18 @@ static std::unordered_map<std::string, kAction> strToActionMap = {
         {"NextSearchResult",      kAction::kActionNextSearchResult},
         {"PrevSearchResult",      kAction::kActionPrevSearchResult},
         {"StartSearch",           kAction::kActionStartSearch},
-        {"LastSearch",           kAction::kActionLastSearch},
-        {"Undo",                kAction::kActionUndo},
-        {"Indent",              kAction::kActionIndent},
-        {"Unindent",            kAction::kActionUnindent},
-        {"UIIncreaseViewWidth", kAction::kActionIncreaseViewWidth},
-        {"UIDecreaseViewWidth", kAction::kActionDecreaseViewWidth},
-        {"UIIncreaseViewHeight", kAction::kActionIncreaseViewHeight},
-        {"UIDecreaseViewHeight", kAction::kActionDecreaseViewHeight},
-        {"UIMaximizeViewHeight", kAction::kActionMaximizeViewHeight},
+        {"LastSearch",              kAction::kActionLastSearch},
+        {"Undo",                    kAction::kActionUndo},
+        {"Indent",                  kAction::kActionIndent},
+        {"Unindent",                kAction::kActionUnindent},
+        {"UIIncreaseViewWidth",     kAction::kActionIncreaseViewWidth},
+        {"UIDecreaseViewWidth",     kAction::kActionDecreaseViewWidth},
+        {"UIIncreaseViewHeight",    kAction::kActionIncreaseViewHeight},
+        {"UIDecreaseViewHeight",    kAction::kActionDecreaseViewHeight},
+        {"UIMaximizeViewHeight",    kAction::kActionMaximizeViewHeight},
+        {"UISwitchToTerminal",      kAction::kActionSwitchToTerminal},
+        {"UISwitchToEditor",        kAction::kActionSwitchToEditor},
+        {"UISwitchToProject",       kAction::kActionSwitchToProject}
 };
 
 

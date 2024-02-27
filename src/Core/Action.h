@@ -79,6 +79,9 @@ namespace gedit {
         kActionIncreaseViewHeight,
         kActionDecreaseViewHeight,
         kActionMaximizeViewHeight,
+        kActionSwitchToTerminal,
+        kActionSwitchToEditor,
+        kActionSwitchToProject,
     };
 
     class ActionItem {

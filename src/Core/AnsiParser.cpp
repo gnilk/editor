@@ -3,7 +3,7 @@
 //
 // Others:
 //  mintty; https://github.com/mintty/mintty/blob/master/src/termout.c#L1823
-//  kitty; https://github.com/kovidgoyal/kitty/blob/master/kitty/parser.c
+//  kitty; https://github.com/kovidgoyal/kitty/blob/master/kitty/vt-parser.c
 //  iterm2: https://github.com/gnachman/iTerm2/blob/7b26eb979b21863b463c43952baed07fb999ba3c/sources/VT100CSIParser.m#L174
 //
 
@@ -173,6 +173,11 @@ void AnsiParser::ParseCSI() {
         // Just swallow of these for the time being
         while(Next() && (InRange(CSI_INTERM_RANGE)));
     }
+
+    // NOTE: See kitty (https://github.com/kovidgoyal/kitty)
+    //       vt-parser.c, line 1100 and onwards...
+    //       Basically all parsers I've seen parse the string in to some structure and then dispatches from that structure
+    //       Specifically cursor-movements and similar..
 
     // Now figure out which command we have...
     if (InRange(CSI_CMD_RANGE)) {

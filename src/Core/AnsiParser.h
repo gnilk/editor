@@ -33,6 +33,9 @@ namespace gedit {
         AnsiParser() = default;
         virtual ~AnsiParser() = default;
         std::string Parse(const uint8_t *ptrBuffer, const size_t size);
+        __inline const std::vector<CMD> &LastCmdBuffer() const {
+            return cmdBuffer;
+        }
     protected:
         std::string ParseInternal();
         void ParseCSI();
@@ -42,6 +45,7 @@ namespace gedit {
         std::string OSC_ParseStringToBel();
         void EmitCmd(kAnsiCmd kCmd);
         void EmitCmd(kAnsiCmd kCmd, int param);
+
 
         bool Next();
         uint8_t At();

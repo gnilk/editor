@@ -33,7 +33,10 @@ void TerminalController::Begin() {
 
     shell.SetStdoutDelegate(shellStdHandler);
     shell.SetStderrDelegate(shellStdHandler);
-    shell.Begin();
+    auto shellBinary = Config::Instance()["terminal"].GetStr("shell","/bin/bash");
+    auto shellInitStr = Config::Instance()["terminal"].GetStr("init", "-ils");
+    auto shellInitScript = Config::Instance()["terminal"].GetSequenceOfStr("bootstrap");
+    shell.Begin(shellBinary, shellInitStr, shellInitScript);
 }
 
 void TerminalController::ParseAndAppend(std::u32string &str) {

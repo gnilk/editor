@@ -35,13 +35,14 @@ void HexDump::Write(std::function<void(const char *str)> printer, const uint8_t 
     }
 
     int nPadding = 16 - (szData & 15);
-    for (int i = 0; i < nPadding; i++) {
-        snprintf(ptrHexdump, 4, "   ");
-        ptrHexdump+= 3;
-
+    if (nPadding < 16) {
+        for (int i = 0; i < nPadding; i++) {
+            snprintf(ptrHexdump, 4, "   ");
+            ptrHexdump += 3;
+        }
+        snprintf(strFinal,sizeof(strFinal), "%.4x %s     %s", addr, hexdump, ascii);
+        printer(strFinal);
     }
-    snprintf(strFinal,sizeof(strFinal), "%.4x %s     %s", addr, hexdump, ascii);
-    printer(strFinal);
 }
 
 void HexDump::ToLog(gnilk::ILogger *pLogger, const void *pData, const size_t szData) {
@@ -52,5 +53,10 @@ void HexDump::ToLog(gnilk::ILogger *pLogger, const void *pData, const size_t szD
 
 void HexDump::ToConsole(const void *pData, const size_t szData) {
     auto writer = [](const char *s){printf("%s\n",s);};
+    Write(writer, static_cast<const uint8_t *>(pData), szData);
+}
+
+void HexDump::ToFile(FILE *f, const void *pData, const size_t szData) {
+    auto writer = [f](const char *s) { fprintf(f, "%s\n",s); };
     Write(writer, static_cast<const uint8_t *>(pData), szData);
 }

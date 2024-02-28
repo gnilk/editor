@@ -7,6 +7,7 @@
 
 #include "logger.h"
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <functional>
 
@@ -15,6 +16,7 @@ public:
     static void Write(std::function<void(const char *str)> printer, const uint8_t *pData, const size_t szData);
     static void ToLog(gnilk::ILogger *pLogger, const void *pData, const size_t szData);
     static void ToConsole(const void *pData, const size_t szData);
+    static void ToFile(FILE *f, const void *pData, const size_t szData);
 };
 
 

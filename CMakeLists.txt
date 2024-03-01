@@ -101,8 +101,10 @@ target_compile_options(gnklog PUBLIC -fPIC -Wno-unused-parameter)
 
 list(APPEND extlibs gnklog)
 
+
 add_subdirectory(ext/fmt ${CMAKE_BINARY_DIR}/fmt EXCLUDE_FROM_ALL)
 set_property(TARGET fmt PROPERTY POSITION_INDEPENDENT_CODE ON)
+target_compile_definitions(fmt PUBLIC FMT_EXCEPTIONS=0)
 list(APPEND extlibs fmt)
 
 set(CUR_TARGET goatedit)

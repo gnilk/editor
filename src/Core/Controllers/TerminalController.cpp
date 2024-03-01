@@ -32,6 +32,14 @@ void TerminalController::Begin() {
     auto shellInitStr = Config::Instance()["terminal"].GetStr("init", "-ils");
     auto shellInitScript = Config::Instance()["terminal"].GetSequenceOfStr("bootstrap");
     shell.Begin(shellBinary, shellInitStr, shellInitScript);
+    //shell.Begin("/bin/bash", "-ils", {});
+    while(shell.GetState() != Shell::State::kRunning) {
+        if (shell.GetState() == Shell::State::kTerminated) {
+            logger->Error("Shell got terminated while starting!");
+            return;
+        }
+        std::this_thread::yield();
+    }
 }
 void TerminalController::HandleTerminalData(const uint8_t *buffer, size_t length) {
     VTermParser vtParser;
@@ -46,17 +54,19 @@ void TerminalController::HandleTerminalData(const uint8_t *buffer, size_t length
             // Process all commands at this point
             while(cmdBuffer[idxCmd].idxString == idxStr) {
                 idxCmd++;
-                lastLine->Append(ch);
+                lastLine->Append('*');
                 //printf("*");
                 //logger->Dbg("at: {}, idxCmd={}, cmd={}", idxStr, idxCmd, static_cast<int>(cmdBuffer[idxCmd].cmd));
             }
         }
-
+        // macos get's \r\n
         if (ch == 0x0a) {
             historyBuffer.push_back(lastLine);
             NewLine();
-        } else {
+        } else if ((ch >= 31) && (ch < 127)) {
             lastLine->Append(ch);
+        } else {
+            int breakme = 1;
         }
     }
 

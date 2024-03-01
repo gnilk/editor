@@ -6,6 +6,7 @@
 #include "Core/Editor.h"
 #include "Core/HexDump.h"
 #include "Core/Plugins/PluginExecutor.h"
+#include "Core/VTermParser.h"
 
 using namespace gedit;
 
@@ -19,14 +20,8 @@ void TerminalController::Begin() {
     inputLine = std::make_shared<Line>();
     inputCursor.position.x = 0;
 
-    auto shellStdHandler= [this](std::u32string &str) {
-
-        auto asciStr = UnicodeHelper::utf32toascii(str);
-        logger->Debug("Got Data: %s", asciStr.c_str());
-        HexDump::ToLog(logger, asciStr.data(), asciStr.size());
-
-        ParseAndAppend(str);
-        Editor::Instance().TriggerUIRedraw();
+    auto shellStdHandler= [this](Shell::Stream stream, const uint8_t *buffer, size_t length) {
+        HandleTerminalData(buffer, length);
     };
     // Create the first line, we need one to consume data..
     NewLine();
@@ -38,6 +33,36 @@ void TerminalController::Begin() {
     auto shellInitScript = Config::Instance()["terminal"].GetSequenceOfStr("bootstrap");
     shell.Begin(shellBinary, shellInitStr, shellInitScript);
 }
+void TerminalController::HandleTerminalData(const uint8_t *buffer, size_t length) {
+    VTermParser vtParser;
+    auto stripped = vtParser.Parse(buffer, length);
+    auto &cmdBuffer = vtParser.LastCmdBuffer();
+
+    size_t idxCmd = 0;
+    // This actually works on Linux but not on macOS
+    for(size_t idxStr = 0; idxStr < stripped.length(); idxStr++) {
+        auto ch = stripped.at(idxStr);
+        if (!cmdBuffer.empty()) {
+            // Process all commands at this point
+            while(cmdBuffer[idxCmd].idxString == idxStr) {
+                idxCmd++;
+                lastLine->Append(ch);
+                //printf("*");
+                //logger->Dbg("at: {}, idxCmd={}, cmd={}", idxStr, idxCmd, static_cast<int>(cmdBuffer[idxCmd].cmd));
+            }
+        }
+
+        if (ch == 0x0a) {
+            historyBuffer.push_back(lastLine);
+            NewLine();
+        } else {
+            lastLine->Append(ch);
+        }
+    }
+
+    Editor::Instance().TriggerUIRedraw();
+}
+
 
 void TerminalController::ParseAndAppend(std::u32string &str) {
     auto asciStr = UnicodeHelper::utf32toascii(str);

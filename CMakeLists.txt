@@ -343,7 +343,6 @@ list(APPEND editorsrc src/Core/Plugins/PluginExecutor.cpp src/Core/Plugins/Plugi
 list(APPEND editorsrc src/Core/KeypressAndActionHandler.h)
 
 # utility stuff
-list(APPEND editorsrc src/Core/AnsiParser.cpp src/Core/AnsiParser.h)
 list(APPEND editorsrc src/Core/backward.cpp src/Core/backward.hpp)
 list(APPEND editorsrc src/Core/ConvertUTF.cpp src/Core/ConvertUTF.h)
 list(APPEND editorsrc src/Core/ColorRGBA.cpp src/Core/ColorRGBA.h)
@@ -356,6 +355,7 @@ list(APPEND editorsrc src/Core/PathUtil.cpp src/Core/PathUtil.h)
 list(APPEND editorsrc src/Core/StrUtil.cpp src/Core/StrUtil.h)
 list(APPEND editorsrc src/Core/Timer.cpp src/Core/Timer.h)
 list(APPEND editorsrc src/Core/TypeUtil.h)
+list(APPEND editorsrc src/Core/VTermParser.cpp src/Core/VTermParser.h)
 list(APPEND editorsrc src/Core/UnicodeHelper.cpp src/Core/UnicodeHelper.h)
 
 # Keyboard handling

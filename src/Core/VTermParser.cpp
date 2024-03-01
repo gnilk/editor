@@ -26,8 +26,9 @@
 #include <stdio.h>
 
 #include "HexDump.h"
-#include "AnsiParser.h"
+#include "VTermParser.h"
 #include "StrUtil.h"
+#include "logger.h"
 
 using namespace gedit;
 
@@ -48,7 +49,7 @@ static const uint8_t DCS_8BIT=0x90;
 
 static const uint8_t ST=0x9c;   // See: https://xtermjs.org/docs/api/vtfeatures/#c1
 
-std::string AnsiParser::Parse(const uint8_t *ptrBuffer, const size_t szBuffer) {
+std::string VTermParser::Parse(const uint8_t *ptrBuffer, const size_t szBuffer) {
 
     buffer = ptrBuffer;
     idx = 0;
@@ -61,7 +62,10 @@ std::string AnsiParser::Parse(const uint8_t *ptrBuffer, const size_t szBuffer) {
 }
 
 
-std::string AnsiParser::ParseInternal() {
+std::string VTermParser::ParseInternal() {
+    auto logger = gnilk::Logger::GetLogger("AnsiParser");
+    logger->SetEnabled(false);
+    logger->Dbg("Start");
 
     while(At() && (idx < max)) {
         // There are multiple ways to get to this point...
@@ -74,6 +78,7 @@ std::string AnsiParser::ParseInternal() {
                 switch(clsCode) {
                     case CSI_7BIT :
                     case CSI_8BIT :
+                        logger->Dbg("CSI found");
                         ParseCSI();
                         break;
                     case OSC_7BIT :
@@ -97,14 +102,14 @@ std::string AnsiParser::ParseInternal() {
             }
         } else {
             strParsed += At();
-            Next();
+            if (!Next()) break;
         }
     }
     return strParsed;
 }
 
 
-bool AnsiParser::InRange(const std::pair<int,int> &range) {
+bool VTermParser::InRange(const std::pair<int,int> &range) {
     if (At() < range.first) {
         return false;
     }
@@ -113,7 +118,7 @@ bool AnsiParser::InRange(const std::pair<int,int> &range) {
     }
     return true;
 }
-void AnsiParser::ParseCSI() {
+void VTermParser::ParseCSI() {
     // see: https://en.wikipedia.org/wiki/ANSI_escape_code#CSIsection
 
     // printf("CSI\n");
@@ -151,7 +156,6 @@ void AnsiParser::ParseCSI() {
     while(Next() && (At() != 0) && InRange(CSI_PARAM_RANGE)) {
         // Do nothing..
         switch(At()) {
-                break;
             case ';' :
                 // printf("CSI Cmd: %s\n", csiParamString.c_str());
                 params.push_back(csiParamString);
@@ -159,6 +163,9 @@ void AnsiParser::ParseCSI() {
                 break;
                 // FIXME: Support for ':' as seen in some (xterm/Konsole)
                 // see: iterm2, VT100CSIParser.m @ 250
+            case '?' :
+                // private sequence...
+                break;
             default :
                 csiParamString += At();
         }
@@ -183,6 +190,9 @@ void AnsiParser::ParseCSI() {
     if (InRange(CSI_CMD_RANGE)) {
         // dispatch
         if (At() == 'm') {
+            auto logger = gnilk::Logger::GetLogger("AnsiParser");
+            logger->Dbg("SGR - Select Graphics Rendition");
+
             // printf("SGR - CSI Select Graphics Rendition\n");
             for(auto &s : params) {
                 // printf("  %s\n", s.c_str());
@@ -252,12 +262,12 @@ void AnsiParser::ParseCSI() {
     }
 }
 
-void AnsiParser::EmitCmd(gedit::AnsiParser::kAnsiCmd kCmd) {
+void VTermParser::EmitCmd(gedit::VTermParser::kAnsiCmd kCmd) {
     CMD cmd={strParsed.size(), kCmd, {}};
     cmdBuffer.push_back(cmd);
 }
 
-void AnsiParser::EmitCmd(gedit::AnsiParser::kAnsiCmd kCmd, int param) {
+void VTermParser::EmitCmd(gedit::VTermParser::kAnsiCmd kCmd, int param) {
     CMD cmd={strParsed.size(), kCmd, {param}};
     cmdBuffer.push_back(cmd);
 }
@@ -288,7 +298,7 @@ enum kOscCommands {
 
 // Quite good overview of OSC stuff
 // https://xtermjs.org/docs/api/vtfeatures/
-void AnsiParser::ParseOSC() {
+void VTermParser::ParseOSC() {
     // see: https://en.wikipedia.org/wiki/ANSI_escape_code#OSC
 
     static std::pair<int, int> OSC_ESC_Fs = {0x60,0x7e};
@@ -343,7 +353,7 @@ void AnsiParser::ParseOSC() {
 
 }
 
-std::string AnsiParser::OSC_ParseStringToBel() {
+std::string VTermParser::OSC_ParseStringToBel() {
     std::string strOut;
     while (Next() && At() != C0_BEL) {
         strOut += At();
@@ -355,13 +365,13 @@ std::string AnsiParser::OSC_ParseStringToBel() {
     return strOut;
 }
 
-bool AnsiParser::Next() {
+bool VTermParser::Next() {
     if (idx < (max -1)) {
         idx++;
         return true;
     }
     return false;
 }
-uint8_t AnsiParser::At() {
+uint8_t VTermParser::At() {
     return buffer[idx];
 }

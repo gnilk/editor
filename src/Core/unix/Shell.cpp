@@ -23,13 +23,11 @@
 
 #include <logger.h>
 
-#include "Core/AnsiParser.h"
+#include "Core/VTermParser.h"
 #include "Core/HexDump.h"
 #include "Core/UnicodeHelper.h"
 #include "Core/StrUtil.h"
-//#include "Core/Config/Config.h"
 #include "Shell.h"
-//#include "Core/CompileTimeConfig.h"
 
 #ifndef GEDIT_DEFAULT_POLL_TMO_MS
 #define GEDIT_DEFAULT_POLL_TMO_MS 100
@@ -45,6 +43,7 @@ static void signal_handler(int signal)
     gSignalStatus = signal;
     glbShell->OnSignal(signal);
 }
+
 void Shell::OnSignal(int sig) {
     auto pidSig = getpid();
     logger->Debug("Signal raised, sig=%d, for pid=%d", sig, pidSig);
@@ -106,31 +105,13 @@ bool Shell::StartShellProc(const std::string &shell, const std::string &shellIni
         return false;
     }
 
-
-    // This is currently unused - but I keep it here in case...
-    struct termios shellTermios;
-
-    // Create a default termio structure
-    shellTermios.c_iflag = TTYDEF_IFLAG;
-    shellTermios.c_oflag = TTYDEF_OFLAG;
-    shellTermios.c_cflag = TTYDEF_CFLAG;
-    shellTermios.c_lflag = TTYDEF_LFLAG;
-    // Disable echo - I can't get this to work properly...
-    //shellTermios.c_lflag &= ~ECHO;
-#ifndef TTYDEFCHARS
-    cc_t    ttydefchars[NCCS] = {
-            CEOF,   CEOL,   CEOL,   CERASE, CWERASE, CKILL, CREPRINT,
-            _POSIX_VDISABLE, CINTR, CQUIT,  CSUSP,  CDSUSP, CSTART, CSTOP,  CLNEXT,
-            CDISCARD, CMIN, CTIME,  CSTATUS, _POSIX_VDISABLE
-    };
-#endif
-    memcpy(shellTermios.c_cc,ttydefchars, NCCS);
-
-    // For some reason the underlying shell TERMIOS structure doesn't fully do this..
-    // we get some echo from it - or there is a stray printf in my code I haven't found yet
-    // but if we do this - I can see it...
-//    tcsetattr(STDIN_FILENO, TCSANOW, &shellTermios);
-
+    // this only fills out the structure with the 'default' values.
+    InitializeDefaultTermiosAttr();
+    // Apply (we can also apply in the forkpty call) - actually don'y know what's best..
+    // Or skip - default is skip this...
+    if (bSetTermios) {
+        tcsetattr(STDIN_FILENO, TCSANOW, &shellTermios);
+    }
 
     logger->Debug("Setting up Signal Handling");
     logger->Debug("Main pid=%d", getpid());
@@ -145,7 +126,7 @@ bool Shell::StartShellProc(const std::string &shell, const std::string &shellIni
 
     int amaster = 0;
     //pid = forkpty(&amaster, NULL, ptrTermIO, NULL);
-//    pid = forkpty(&amaster, NULL, &shellTermios, NULL);
+    //pid = forkpty(&amaster, NULL, &shellTermios, NULL);
     pid = forkpty(&amaster, NULL, NULL, NULL);
 
     if(pid > 0) {
@@ -185,6 +166,26 @@ bool Shell::StartShellProc(const std::string &shell, const std::string &shellIni
     logger->Debug("Starting pipe threads");
     std::thread(&Shell::ConsumePipes, this).detach();
     return true;
+}
+
+void Shell::InitializeDefaultTermiosAttr() {
+
+    // Create a default termio structure
+    shellTermios.c_iflag = TTYDEF_IFLAG;
+    shellTermios.c_oflag = TTYDEF_OFLAG;
+    shellTermios.c_cflag = TTYDEF_CFLAG;
+    shellTermios.c_lflag = TTYDEF_LFLAG;
+    // Disable echo - I can't get this to work properly...
+    shellTermios.c_lflag &= ~ECHO;
+#ifndef TTYDEFCHARS
+    cc_t    ttydefchars[NCCS] = {
+            CEOF,   CEOL,   CEOL,   CERASE, CWERASE, CKILL, CREPRINT,
+            _POSIX_VDISABLE, CINTR, CQUIT,  CSUSP,  CDSUSP, CSTART, CSTOP,  CLNEXT,
+            CDISCARD, CMIN, CTIME,  CSTATUS, _POSIX_VDISABLE
+    };
+#endif
+    memcpy(shellTermios.c_cc,ttydefchars, NCCS);
+
 }
 
 void Shell::SendInitScript(const std::vector<std::string> &initScript) {
@@ -273,13 +274,13 @@ void Shell::ConsumePipes() {
             continue;
         }
         if ((fds[0].revents & POLLIN) && (onStdout != nullptr)) {
-            bContinue = ReadAndDispatch(fdOut, onStdout);
+            bContinue = ReadAndDispatch(Stream::kStdOut, fdOut, onStdout);
         }
         // STDERR handling doesn't quite work - no clue why...
         // OR it seems the combo of stdout/stderr polling is causing problems
         // needs more debugging...
         if ((fds[1].revents & POLLIN) && (onStderr != nullptr)) {
-            bContinue = ReadAndDispatch(fdErr, onStderr);
+            bContinue = ReadAndDispatch(Stream::kStdErr, fdErr, onStderr);
         }
         std::this_thread::yield();
     }
@@ -308,7 +309,7 @@ void Shell::ConsumePipes() {
 }
 
 
-bool Shell::ReadAndDispatch(FILE *fd, OutputDelegate onData) {
+bool Shell::ReadAndDispatch(Stream stream, FILE *fd, OutputDelegate onData) {
 #define MAX_LINE_SIZE 1024
     uint8_t buffer[1024];
     //char *res;
@@ -318,7 +319,7 @@ bool Shell::ReadAndDispatch(FILE *fd, OutputDelegate onData) {
         fRawAnsi = fopen("raw_ansi.txt","w+");
     }
 
-    AnsiParser ansiParser;
+    VTermParser ansiParser;
 
     int fno = fileno(fd);
 
@@ -334,18 +335,14 @@ bool Shell::ReadAndDispatch(FILE *fd, OutputDelegate onData) {
         if ((res < 0) && (errno == EAGAIN)) {
             continue;
         }
-        if ((res > 0) && (onStdout != nullptr)) {
+        if ((res > 0) && (onData != nullptr)) {
             if (fRawAnsi != nullptr) {
+                fprintf(fRawAnsi,"=== Begin-Data [%zu bytes, stream=%d] ===\n", res, static_cast<int>(stream));
                 HexDump::ToFile(fRawAnsi, buffer, res);
+                fprintf(fRawAnsi,"\n=== End-Data ===\n");
                 fflush(fRawAnsi);
             }
-            auto strStripped = ansiParser.Parse(buffer, MAX_LINE_SIZE);
-            std::u32string str;
-            if (!UnicodeHelper::ConvertUTF8ToUTF32String(str, strStripped)) {
-                logger->Error("ReadAndDispatch, failed to UTF32 conversion for '%s'",strStripped.c_str());
-                continue;
-            }
-            onData(str);
+            onData(stream, buffer, res);
         } else {
             // error
             if (errno == EPIPE) {

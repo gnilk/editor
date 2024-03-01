@@ -35,6 +35,7 @@ namespace gedit {
         void WriteLine(const std::u32string &str) override;
     protected:
         void NewLine();
+        void HandleTerminalData(const uint8_t *buffer, size_t length);
         void ParseAndAppend(std::u32string &str);
 
     private:

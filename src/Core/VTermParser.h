@@ -2,15 +2,15 @@
 // Created by gnilk on 15.02.24.
 //
 
-#ifndef SHELL_ANSIPARSER_H
-#define SHELL_ANSIPARSER_H
+#ifndef SHELL_VTERMPARSER_H
+#define SHELL_VTERMPARSER_H
 
 #include <stdint.h>
 #include <string>
 #include <vector>
 
 namespace gedit {
-    class AnsiParser {
+    class VTermParser {
     public:
         enum class kAnsiCmd {
             kSGRReset,
@@ -30,8 +30,8 @@ namespace gedit {
             int param[8];  // need list?
         };
     public:
-        AnsiParser() = default;
-        virtual ~AnsiParser() = default;
+        VTermParser() = default;
+        virtual ~VTermParser() = default;
         std::string Parse(const uint8_t *ptrBuffer, const size_t size);
         __inline const std::vector<CMD> &LastCmdBuffer() const {
             return cmdBuffer;
@@ -60,4 +60,4 @@ namespace gedit {
 }
 
 
-#endif //SHELL_ANSIPARSER_H
+#endif //SHELL_VTERMPARSER_H

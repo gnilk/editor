@@ -13,19 +13,25 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <termios.h>
 
 #include <logger.h>
 
 namespace gedit {
     class Shell {
     public:
-        using OutputDelegate = std::function<void(std::u32string &)>;
         enum class State {
             kIdle,
             kRunning,
             kTerminate,
             kTerminated,
         };
+        enum class Stream {
+            kStdOut,
+            kStdErr,
+        };
+        using OutputDelegate = std::function<void(Stream stream, const uint8_t *buffer, size_t length)>;
+
     public:
         bool Begin(const std::string &shell, const std::string &args, const std::vector<std::string> &initScript);
         void Close();
@@ -48,7 +54,8 @@ namespace gedit {
 
     private:
         void ConsumePipes();
-        bool ReadAndDispatch(FILE *fd, OutputDelegate onData);
+        bool ReadAndDispatch(Stream stream, FILE *fd, OutputDelegate onData);
+        void InitializeDefaultTermiosAttr();
         bool StartShellProc(const std::string &shell, const std::string &shellInitStr);
         void SendInitScript(const std::vector<std::string> &initScript);
         void ChangeState(State newState) {
@@ -73,6 +80,11 @@ namespace gedit {
         gnilk::Logger::ILogger *logger = nullptr;
         const int READ_END = 0;
         const int WRITE_END = 1;
+
+        // Need to control this flag...
+        // And perhaps control this a bit better in general (from the application level).
+        bool bSetTermios = false;
+        struct termios shellTermios;
 
         // Unused but assigned..
         int exitStatus = 0;

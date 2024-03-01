@@ -158,7 +158,11 @@ void VTermParser::ParseCSI() {
         switch(At()) {
             case ';' :
                 // printf("CSI Cmd: %s\n", csiParamString.c_str());
-                params.push_back(csiParamString);
+                if (csiParamString.empty()) {
+                    params.push_back("0");
+                } else {
+                    params.push_back(csiParamString);
+                }
                 csiParamString = "";
                 break;
                 // FIXME: Support for ':' as seen in some (xterm/Konsole)

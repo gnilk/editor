@@ -358,6 +358,10 @@ void Editor::LeaveCommandMode() {
 
 // This is the log-path before config file has been loaded - it will only be the console..
 void Editor::ConfigurePreInitLogger() {
+
+    // Need to have pipe here in order for shell-fork to work as expected...
+    gnilk::Logger::UseIPCMechanism(gnilk::IPCMechanism::kPipe);
+
     gnilk::Logger::Initialize();
     logger = gnilk::Logger::GetLogger("System");
     if (!keepConsoleLogger) {

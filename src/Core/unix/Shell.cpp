@@ -116,9 +116,13 @@ bool Shell::StartShellProc(const std::string &shell, const std::string &shellIni
     logger->Debug("Setting up Signal Handling");
     logger->Debug("Main pid=%d", getpid());
     // FIXME: Use sigaction
+
+    // This blows up on macOS - why???
+#if defined(GEDIT_LINUX)
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
     signal(SIGCHLD, signal_handler);
+#endif
 
     logger->Debug("SignalValue=%d", gSignalStatus);
 

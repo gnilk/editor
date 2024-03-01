@@ -395,6 +395,7 @@ void Editor::ConfigureLogger() {
     logPath /= "Library/Logs/GoatEdit";
 #endif
     if (!CheckCreateDirectory(logPath)) {
+        logger->Error("Unable to create log output directory '%s'", logPath.c_str());
         return;
     }
 
@@ -402,6 +403,8 @@ void Editor::ConfigureLogger() {
     if (sinkName == "filesink") {
         auto fileSink = gnilk::LogFileSink::Create();
         const std::vector<std::string_view> sinkArgv={"autoflush", "file", logPath.c_str()};
+
+        logger->Info("Logger filesink with logfile; %s", logPath.c_str());
 
         gnilk::Logger::AddSink(fileSink, sinkName, sinkArgv);
         // Remove the console sink (it is auto-created in debug-mode)

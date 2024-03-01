@@ -39,14 +39,9 @@ if (NOT EXISTS ${CMAKE_SOURCE_DIR}/ext/json)
     execute_process(COMMAND git clone https://github.com/nlohmann/json ${CMAKE_SOURCE_DIR}/ext/json)
 endif ()
 
-if (NOT EXISTS ${CMAKE_SOURCE_DIR}/ext/logger)
-    message(WARNING "Installing Logger library")
-    execute_process(COMMAND git clone https://github.com/gnilk/logger ${CMAKE_SOURCE_DIR}/ext/logger)
-endif ()
-
 if (NOT EXISTS ${CMAKE_SOURCE_DIR}/ext/gnklog)
     message(WARNING "Installing GnkLog library")
-    execute_process(COMMAND git clone https://github.com/gnilk/gnklog ${CMAKE_SOURCE_DIR}/ext/logger)
+    execute_process(COMMAND git clone https://github.com/gnilk/gnklog ${CMAKE_SOURCE_DIR}/ext/gnklog)
 endif ()
 
 if (NOT EXISTS ${CMAKE_SOURCE_DIR}/ext/dukglue)
@@ -90,8 +85,6 @@ set_source_files_properties(
 list(APPEND duktape ${DUKTAPE_HOME}/duktape.c ${DUKTAPE_HOME}/duk_config.h ${DUKTAPE_HOME}/duktape.h)
 list(APPEND duktape ${DUKTAPE_EXTRAS}/module-node/duk_module_node.c)
 
-#add_subdirectory(ext/logger ${CMAKE_BINARY_DIR}/logger)
-#list(APPEND extlibs logger)
 
 set(LOG_HAVE_FMT ON)
 set(LOG_FMT_DIR ${CMAKE_SOURCE_DIR}/ext/fmt)
@@ -494,7 +487,6 @@ endif()
 list(APPEND linkdirs ${NCURSES_HOME}/lib ${YAML_CPP_HOME}/lib)
 list(APPEND linkdirs ${SDL_HOME}/lib)
 
-#list(APPEND includedirs ${NCURSES_HOME}/include PUBLIC ${YAML_CPP_HOME}/include ext/logger/src src/)
 list(APPEND includedirs ${NCURSES_HOME}/include PUBLIC ${YAML_CPP_HOME}/include ext/gnklog/src src/)
 list(APPEND includedirs ${SDL_HOME}/include)
 

@@ -9,10 +9,21 @@
 #include "Core/Line.h"
 #include "Core/UnicodeHelper.h"
 #include "logger.h"
+#include "Core/Editor.h"
+#include "Core/Theme/Theme.h"
 
 using namespace gedit;
 
 Line::Line() {
+
+}
+
+Line::LineAttrib::LineAttrib() {
+    auto theme = Editor::Instance().GetTheme();
+
+    // Set these to default..
+    backgroundColor = theme->GetGlobalColors().GetColor("background");
+    foregroundColor = theme->GetGlobalColors().GetColor("foreground");
 
 }
 

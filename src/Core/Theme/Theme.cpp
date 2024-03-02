@@ -68,6 +68,7 @@ bool Theme::IsValidColorClass(const std::string &name) {
     if (name == clrClassContent) return true;
     if (name == clrClassGlobals) return true;
     if (name == clrClassUI) return true;
+    if (name == clrClassTerminal) return true;
     return false;
 }
 

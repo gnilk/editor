@@ -271,6 +271,7 @@ void VTermParser::EmitCmd(gedit::VTermParser::kAnsiCmd kCmd) {
     cmdBuffer.push_back(cmd);
 }
 
+// FIXME: need to support array here!
 void VTermParser::EmitCmd(gedit::VTermParser::kAnsiCmd kCmd, int param) {
     CMD cmd={strParsed.size(), kCmd, {param}};
     cmdBuffer.push_back(cmd);

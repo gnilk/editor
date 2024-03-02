@@ -27,7 +27,8 @@ namespace gedit {
         struct CMD {
             size_t idxString;
             kAnsiCmd cmd;
-            int param[8];  // need list?
+            std::vector<int> param;
+            //int param[8];  // need list?
         };
     public:
         VTermParser() = default;

@@ -66,8 +66,9 @@ void LineRender::DrawLineWithAttributesAt(int x, int y, const Line::Ref line) {
     int xp = x;
 
     auto callback = [&xp,y, this](const Line::LineAttribIterator &itAttrib, std::u32string &strOut) {
-        auto [fgColor, bgColor] = Editor::Instance().ColorFromLanguageToken(itAttrib->tokenClass);
-        dc.SetColor(fgColor, bgColor);
+        //auto [fgColor, bgColor] = Editor::Instance().ColorFromLanguageToken(itAttrib->tokenClass);
+
+        dc.SetColor(itAttrib->foregroundColor, itAttrib->backgroundColor);
         dc.DrawStringWithAttributesAt(xp,y, itAttrib->textAttributes, strOut);
         xp += strOut.length();
     };

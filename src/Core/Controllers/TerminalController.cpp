@@ -45,6 +45,12 @@ void TerminalController::HandleTerminalData(const uint8_t *buffer, size_t length
     VTermParser vtParser;
     auto stripped = vtParser.Parse(buffer, length);
     auto &cmdBuffer = vtParser.LastCmdBuffer();
+    auto terminalColors = Editor::Instance().GetTheme()->GetTerminalColor();
+
+    logger->Debug("Parsing: %s", stripped.c_str());
+
+    size_t idxStartLine = 0;    // after a new line-start in the 'stripped' string
+    size_t idxLastLineStart = lastLine->Length() + 1;   // this is the offset of continuation
 
     size_t idxCmd = 0;
     // This actually works on Linux but not on macOS
@@ -53,16 +59,65 @@ void TerminalController::HandleTerminalData(const uint8_t *buffer, size_t length
         if (!cmdBuffer.empty()) {
             // Process all commands at this point
             while(cmdBuffer[idxCmd].idxString == idxStr) {
-                idxCmd++;
-                lastLine->Append('*');
+                Line::LineAttrib lAttrib;
+                lAttrib.idxOrigString = idxLastLineStart + (idxStr - idxStartLine - 1);  // FIXME: Verify on Linux
+
+                switch(cmdBuffer[idxCmd].cmd) {
+                    case VTermParser::kAnsiCmd::kSetForegroundColor :
+                        // FIXME: Support proper RGB as well
+                        if (cmdBuffer[idxCmd].param.size() == 1) {
+                            // FIXME: Mapping to RGB - this is color index - we need the 'TerminalTheme'
+                            //        There are at maximum 256 colors - the table is fairly common...
+                            //        Look at kitty as the source (or iTerm2 or similar)
+                            //        Add to theme file..
+                            auto param = cmdBuffer[idxCmd].param[0] & 7;    // & 7 - I just have 8 colors defined...
+//                            if (lastLine->BufferAsUTF8().find("run.sh") != std::string::npos) {
+//                                int breakme = 1;
+//                            }
+                            // TMP TMP - just to avoid having background color
+                            if (param == 0) {
+                                param = 5;
+                            }
+                            logger->Debug("SetFGCol=%d @ idx=%d", param, lAttrib.idxOrigString);
+                            auto idxColor = std::to_string(param);
+                            lAttrib.foregroundColor = terminalColors[idxColor];
+                            lastLine->Attributes().push_back(lAttrib);
+                        }
+
+                    break;
+                    case VTermParser::kAnsiCmd::kSetBackgroundColor :
+                        if (cmdBuffer[idxCmd].param.size() == 1) {
+                            auto param = cmdBuffer[idxCmd].param[0] & 7;    // & 7 - I just have 8 colors defined...
+                            auto idxColor = std::to_string(param);
+                            lAttrib.backgroundColor = terminalColors[idxColor];
+                            lastLine->Attributes().push_back(lAttrib);
+                        }
+                        break;
+
+                    case VTermParser::kAnsiCmd::kSGRReset :
+                        // This is done already - in the CTOR of Line::LineAttrib
+                        //lAttrib.backgroundColor = Editor::Instance().GetTheme()->GetGlobalColors().GetColor("background");
+                        //lAttrib.foregroundColor = Editor::Instance().GetTheme()->GetGlobalColors().GetColor("foreground");
+                        lastLine->Attributes().push_back(lAttrib);
+                        break;
+                    case VTermParser::kAnsiCmd::kSetDefaultForegroundColor :
+                        lAttrib.foregroundColor = Editor::Instance().GetTheme()->GetGlobalColors().GetColor("foreground");
+                        lastLine->Attributes().push_back(lAttrib);
+                        break;
+                }
+                //lastLine->Append('*');
                 //printf("*");
                 //logger->Dbg("at: {}, idxCmd={}, cmd={}", idxStr, idxCmd, static_cast<int>(cmdBuffer[idxCmd].cmd));
+                idxCmd++;
             }
         }
         // macos get's \r\n
         if (ch == 0x0a) {
             historyBuffer.push_back(lastLine);
             NewLine();
+            // We start a new line at this index...
+            idxStartLine = idxStr;
+            idxLastLineStart = 0;
         } else if ((ch >= 31) && (ch < 127)) {
             lastLine->Append(ch);
         } else {

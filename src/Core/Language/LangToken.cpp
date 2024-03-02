@@ -7,6 +7,7 @@
 #include <map>
 #include "LangToken.h"
 #include "LanguageTokenClass.h"
+#include "Core/Editor.h"
 
 using namespace gedit;
 
@@ -50,13 +51,16 @@ void LangToken::ToLineAttrib(std::vector<gedit::Line::LineAttrib> &outAttributes
     if ((tokens.size() == 0) || (tokens[0].idxOrigStr > 0)) {
         gedit::Line::LineAttrib attrib;
         attrib.idxOrigString = 0;
-        attrib.tokenClass = kLanguageTokenClass::kRegular;
+        //attrib.tokenClass = kLanguageTokenClass::kRegular;
         outAttributes.push_back(attrib);
     }
     // Now do the rest...
     for(auto &t : tokens) {
         gedit::Line::LineAttrib attrib;
         attrib.idxOrigString = t.idxOrigStr;
+        auto [fgColor, bgColor] = Editor::Instance().ColorFromLanguageToken(t.classification);
+        attrib.foregroundColor = fgColor;
+        attrib.backgroundColor = bgColor;
         attrib.tokenClass = t.classification;
         outAttributes.push_back(attrib);
     }

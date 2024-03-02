@@ -106,6 +106,7 @@ void TerminalView::DrawViewContents() {
     }
 
     int line_ypos = 0;
+
     if (!lines.empty()) {
         for (int i = 0; i < (dc.GetRect().Height() - 1); i++) {
             if ((i + line_offset) >= lines.size()) {
@@ -120,9 +121,14 @@ void TerminalView::DrawViewContents() {
     auto currentLine = controller.CurrentLine();
     dc.ClearLine(line_ypos);
 
-    static auto colRED = ColorRGBA::FromRGB(64,196,64);
-    dc.SetFGColor(colRED);
-    dc.DrawStringAt(0,line_ypos, currentLine->Buffer());
+//    static auto colRED = ColorRGBA::FromRGB(64,196,64);
+//    dc.SetFGColor(colRED);
+//    dc.DrawStringAt(0,line_ypos, currentLine->Buffer());
+
+    LineRender lr(dc);
+    lineRender.DrawLine(0, line_ypos, currentLine);
+
+
 
     cursor.position.y = line_ypos;
     cursor.position.x = controller.GetCursorXPos();

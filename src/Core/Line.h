@@ -14,6 +14,7 @@
 
 #include "Core/TextAttributes.h"
 #include "Core/Language/LanguageTokenClass.h"
+#include "Core/ColorRGBA.h"
 
 #ifndef GEDIT_MAX_LINE_LENGTH
 #define GEDIT_MAX_LINE_LENGTH 65536
@@ -30,7 +31,13 @@ namespace gedit {
         struct LineAttrib {
             int idxOrigString;   // index in original string...
             gedit::kTextAttributes textAttributes = gedit::kTextAttributes::kNormal;
-            kLanguageTokenClass tokenClass; // this one is for better (more formal) analysis when computing indent and similar
+            ColorRGBA foregroundColor;
+            ColorRGBA backgroundColor;
+
+            // this one is for better (more formal) analysis when computing indent and similar
+            kLanguageTokenClass tokenClass;
+
+            LineAttrib();
         };
         using LineAttribIterator = std::vector<LineAttrib>::iterator;
         using OnChangeDelegate = std::function<void(const Line &)>;

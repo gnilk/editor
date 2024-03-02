@@ -20,6 +20,7 @@ namespace gedit {
         inline static const std::string clrClassGlobals = "globals";
         inline static const std::string clrClassUI = "ui";
         inline static const std::string clrClassContent = "content";
+        inline static const std::string clrClassTerminal = "terminal";
     public:
         Theme() = default;
         virtual ~Theme() = default;
@@ -57,6 +58,9 @@ namespace gedit {
 
         const NamedColors &GetUIColors() {
             return *colorConfig[clrClassUI];
+        }
+        const NamedColors &GetTerminalColor() {
+            return *colorConfig[clrClassTerminal];
         }
 
     public:

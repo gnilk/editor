@@ -71,6 +71,18 @@
       "header_foreground": "var(grey2)",
       "header_active_background": "var(grey)",
       "header_active_foreground": "var(white3)"
+    },
+    "terminal": {
+      "background": "var(blue3)",
+      "foreground": "var(white3)",
+      "0" : "var(blue3)",
+      "1" : "rgb(255,128,128)",
+      "2" : "rgb(0,255,0)",
+      "3" : "rgb(0,0,255)",
+      "4" : "rgb(128,128,255)",
+      "5" : "rgb(0,255,255)",
+      "6" : "rgb(255,255,0)",
+      "7" : "rgb(128,255,128)"
     }
   }
 }

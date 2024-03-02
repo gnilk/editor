@@ -3,6 +3,7 @@
 //
 /*
  * TO-DO List
+ * ! Remove 'kLanguageTokenClass' from 'LineAttrib' - this should better be tied to hint about rendering..
  * - BUG: When the rootview 'SetActiveTopViewByName' set's same as currently active we loose it (input is gone)
  *        There is a workaround in root view which doesn't allow this - but still...
  * - Keymap: Add 'inherit' parameter so we can have a global definition of keymappings (like the UI keymappings)

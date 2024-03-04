@@ -125,10 +125,7 @@ void TerminalView::DrawViewContents() {
 //    dc.SetFGColor(colRED);
 //    dc.DrawStringAt(0,line_ypos, currentLine->Buffer());
 
-    LineRender lr(dc);
     lineRender.DrawLine(0, line_ypos, currentLine);
-
-
 
     cursor.position.y = line_ypos;
     cursor.position.x = controller.GetCursorXPos();

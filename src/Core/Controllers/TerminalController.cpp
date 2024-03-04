@@ -41,6 +41,8 @@ void TerminalController::Begin() {
         std::this_thread::yield();
     }
 }
+
+// FIXME: I am off by one when merging the two strings...
 void TerminalController::HandleTerminalData(const uint8_t *buffer, size_t length) {
     VTermParser vtParser;
     auto stripped = vtParser.Parse(buffer, length);
@@ -60,7 +62,7 @@ void TerminalController::HandleTerminalData(const uint8_t *buffer, size_t length
             // Process all commands at this point
             while(cmdBuffer[idxCmd].idxString == idxStr) {
                 Line::LineAttrib lAttrib;
-                lAttrib.idxOrigString = idxLastLineStart + (idxStr - idxStartLine - 1);  // FIXME: Verify on Linux
+                lAttrib.idxOrigString = idxLastLineStart + (idxStr - idxStartLine);  // FIXME: Verify on Linux
 
                 switch(cmdBuffer[idxCmd].cmd) {
                     case VTermParser::kAnsiCmd::kSetForegroundColor :
@@ -121,7 +123,18 @@ void TerminalController::HandleTerminalData(const uint8_t *buffer, size_t length
         } else if ((ch >= 31) && (ch < 127)) {
             lastLine->Append(ch);
         } else {
-            int breakme = 1;
+            // UTF 8 here..
+            // I can probably always use this way...
+            std::u32string dummy;
+            int nConverted = UnicodeHelper::ConvertUTF8ToUTF32Char(dummy, reinterpret_cast<const uint8_t *>(&stripped[idxStr]), stripped.length() - idxStr);
+            if (nConverted > 0) {
+                lastLine->Append(dummy);
+                idxStr += (nConverted - 1);
+            } else {
+                // We failed to convert - let's just output something...
+                lastLine->Append(U'.');
+            }
+
         }
     }
 
@@ -236,9 +249,11 @@ void TerminalController::CommitLine() {
 }
 
 Line::Ref TerminalController::CurrentLine() {
-    auto currentLine = Line::Create();
+    auto currentLine = Line::Create(lastLine);
 
-    currentLine->Append(lastLine);
+    //currentLine->Append(lastLine);
+    //currentLine->Attributes().insert(currentLine->Attributes().begin(), lastLine->Attributes().begin(), lastLine->Attributes().end());
+
     currentLine->Append(inputLine);
 
     return currentLine;

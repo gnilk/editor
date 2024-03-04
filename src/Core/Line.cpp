@@ -31,6 +31,14 @@ Line::Line(const std::u32string &data) {
     buffer = data;
     strutil::rtrim(buffer);
 }
+Line::Line(const Line::Ref &other) {
+    buffer = other->buffer;
+    attribs = other->attribs;
+    indent = other->indent;
+    selected = other->selected;
+    cbChanged = other->cbChanged;
+    stateDepthAtStart = other->stateDepthAtStart;
+}
 
 
 Line::Ref Line::Create() {
@@ -39,6 +47,9 @@ Line::Ref Line::Create() {
 
 Line::Ref Line::Create(const std::u32string &data) {
     return std::make_shared<Line>(data);
+}
+Line::Ref Line::Create(const Line::Ref &other) {
+    return std::make_shared<Line>(other);
 }
 
 

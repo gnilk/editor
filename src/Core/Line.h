@@ -47,8 +47,11 @@ namespace gedit {
     public:
         Line();
         Line(const std::u32string &data);
+        Line(const Line::Ref &other);
         static Line::Ref Create();
         static Line::Ref Create(const std::u32string &data);
+        static Line::Ref Create(const Line::Ref &other);
+
 
         void SetOnChangeDelegate(OnChangeDelegate newOnChangeDelegate) {
             cbChanged = newOnChangeDelegate;

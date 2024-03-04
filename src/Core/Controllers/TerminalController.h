@@ -37,6 +37,7 @@ namespace gedit {
         void NewLine();
         void HandleTerminalData(const uint8_t *buffer, size_t length);
         void ParseAndAppend(std::u32string &str);
+        void InitializeColorTable();
 
     private:
         Shell shell;

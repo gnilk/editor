@@ -26,6 +26,8 @@ void TerminalController::Begin() {
     // Create the first line, we need one to consume data..
     NewLine();
 
+    InitializeColorTable();
+
     shell.SetStdoutDelegate(shellStdHandler);
     shell.SetStderrDelegate(shellStdHandler);
     auto shellBinary = Config::Instance()["terminal"].GetStr("shell","/bin/bash");
@@ -42,12 +44,95 @@ void TerminalController::Begin() {
     }
 }
 
+// From kitty
+static ColorRGBA FG_BG_256[256]={
+    ColorRGBA::FromRGB(0x00, 0x00, 0x00),   // 0
+    ColorRGBA::FromRGB(0xcd, 0x00, 0x00),   // 1
+    ColorRGBA::FromRGB(0x00, 0xcd, 0x00),   // 2
+    ColorRGBA::FromRGB(0xcd, 0xcd, 0x00),   // 3
+    ColorRGBA::FromRGB(0x00, 0x00, 0xee),   // 4
+    ColorRGBA::FromRGB(0xcd, 0x00, 0xcd),   // 5
+    ColorRGBA::FromRGB(0x00, 0xcd, 0xcd),   // 6
+    ColorRGBA::FromRGB(0xe5, 0xe5, 0xe5),   // 7
+    ColorRGBA::FromRGB(0x7f, 0x7f, 0x7f),   // 8
+    ColorRGBA::FromRGB(0xff, 0x00, 0x00),   // 9
+    ColorRGBA::FromRGB(0x00, 0xff, 0x00),   // 10
+    ColorRGBA::FromRGB(0xff, 0xff, 0x00),   // 11
+    ColorRGBA::FromRGB(0x5c, 0x5c, 0xff),   // 12
+    ColorRGBA::FromRGB(0xff, 0x00, 0xff),   // 13
+    ColorRGBA::FromRGB(0x00, 0xff, 0xff),   // 14
+    ColorRGBA::FromRGB(0xff, 0xff, 0xff),   // 15
+};
+/*
+
+static uint32_t FG_BG_256[256] = {
+    0x000000,  // 0
+    0xcd0000,  // 1
+    0x00cd00,  // 2
+    0xcdcd00,  // 3
+    0x0000ee,  // 4
+    0xcd00cd,  // 5
+    0x00cdcd,  // 6
+    0xe5e5e5,  // 7
+    0x7f7f7f,  // 8
+    0xff0000,  // 9
+    0x00ff00,  // 10
+    0xffff00,  // 11
+    0x5c5cff,  // 12
+    0xff00ff,  // 13
+    0x00ffff,  // 14
+    0xffffff,  // 15
+};
+
+static void
+init_FG_BG_table(void) {
+    if (UNLIKELY(FG_BG_256[255] == 0)) {
+        // colors 16..232: the 6x6x6 color cube
+        const uint8_t valuerange[6] = {0x00, 0x5f, 0x87, 0xaf, 0xd7, 0xff};
+        uint8_t i, j=16;
+        for(i = 0; i < 216; i++, j++) {
+            uint8_t r = valuerange[(i / 36) % 6], g = valuerange[(i / 6) % 6], b = valuerange[i % 6];
+            FG_BG_256[j] = (r << 16) | (g << 8) | b;
+        }
+        // colors 232..255: grayscale
+        for(i = 0; i < 24; i++, j++) {
+            uint8_t v = 8 + i * 10;
+            FG_BG_256[j] = (v << 16) | (v << 8) | v;
+        }
+    }
+}
+
+ */
+
+void TerminalController::InitializeColorTable() {
+
+    // This is from kitty...
+    const uint8_t valuerange[6] = {0x00, 0x5f, 0x87, 0xaf, 0xd7, 0xff};
+    uint8_t i, j=16;
+    for(i = 0; i < 216; i++, j++) {
+        auto r = valuerange[(i / 36) % 6];
+        auto g = valuerange[(i / 6) % 6];
+        auto b = valuerange[i % 6];
+        FG_BG_256[j] = ColorRGBA::FromRGB(r,g,b);
+    }
+    // colors 232..255: grayscale
+    for(i = 0; i < 24; i++, j++) {
+        uint8_t v = 8 + i * 10;
+        FG_BG_256[j] = ColorRGBA::FromRGB(v,v,v);
+    }
+}
+
 // FIXME: I am off by one when merging the two strings...
 void TerminalController::HandleTerminalData(const uint8_t *buffer, size_t length) {
     VTermParser vtParser;
     auto stripped = vtParser.Parse(buffer, length);
     auto &cmdBuffer = vtParser.LastCmdBuffer();
     auto terminalColors = Editor::Instance().GetTheme()->GetTerminalColor();
+
+    if (stripped.starts_with("gnilk")) {
+        int breakme = 1;
+        logger->Debug("COLORS HERE!!!!!!!!");
+    }
 
     logger->Debug("Parsing: %s", stripped.c_str());
 
@@ -62,7 +147,10 @@ void TerminalController::HandleTerminalData(const uint8_t *buffer, size_t length
             // Process all commands at this point
             while(cmdBuffer[idxCmd].idxString == idxStr) {
                 Line::LineAttrib lAttrib;
-                lAttrib.idxOrigString = idxLastLineStart + (idxStr - idxStartLine);  // FIXME: Verify on Linux
+                lAttrib.backgroundColor = terminalColors.GetColor("background");
+                lAttrib.foregroundColor = terminalColors.GetColor("foreground");
+
+                lAttrib.idxOrigString = idxLastLineStart + (idxStr - idxStartLine) - 1;  // FIXME: Verify on Linux
 
                 switch(cmdBuffer[idxCmd].cmd) {
                     case VTermParser::kAnsiCmd::kSetForegroundColor :
@@ -72,26 +160,18 @@ void TerminalController::HandleTerminalData(const uint8_t *buffer, size_t length
                             //        There are at maximum 256 colors - the table is fairly common...
                             //        Look at kitty as the source (or iTerm2 or similar)
                             //        Add to theme file..
-                            auto param = cmdBuffer[idxCmd].param[0] & 7;    // & 7 - I just have 8 colors defined...
-//                            if (lastLine->BufferAsUTF8().find("run.sh") != std::string::npos) {
-//                                int breakme = 1;
-//                            }
-                            // TMP TMP - just to avoid having background color
-                            if (param == 0) {
-                                param = 5;
-                            }
-                            logger->Debug("SetFGCol=%d @ idx=%d", param, lAttrib.idxOrigString);
-                            auto idxColor = std::to_string(param);
-                            lAttrib.foregroundColor = terminalColors[idxColor];
+                            auto idxColor = (cmdBuffer[idxCmd].param[0] & 7) + 8;    // & 7 - I just have 8 colors defined...
+                            logger->Debug("SetFGCol=%d @ idx=%d", idxColor, lAttrib.idxOrigString);
+                            lAttrib.foregroundColor = terminalColors.GetColor(std::to_string(idxColor)); //FG_BG_256[idxColor];
                             lastLine->Attributes().push_back(lAttrib);
                         }
 
                     break;
                     case VTermParser::kAnsiCmd::kSetBackgroundColor :
                         if (cmdBuffer[idxCmd].param.size() == 1) {
-                            auto param = cmdBuffer[idxCmd].param[0] & 7;    // & 7 - I just have 8 colors defined...
-                            auto idxColor = std::to_string(param);
-                            lAttrib.backgroundColor = terminalColors[idxColor];
+                            auto idxColor = cmdBuffer[idxCmd].param[0] & 7;    // & 7 - I just have 8 colors defined...
+                            logger->Debug("SetBGCol=%d @ idx=%d", idxColor, lAttrib.idxOrigString);
+                            lAttrib.backgroundColor = terminalColors.GetColor(std::to_string(idxColor)); //FG_BG_256[idxColor];
                             lastLine->Attributes().push_back(lAttrib);
                         }
                         break;
@@ -100,10 +180,22 @@ void TerminalController::HandleTerminalData(const uint8_t *buffer, size_t length
                         // This is done already - in the CTOR of Line::LineAttrib
                         //lAttrib.backgroundColor = Editor::Instance().GetTheme()->GetGlobalColors().GetColor("background");
                         //lAttrib.foregroundColor = Editor::Instance().GetTheme()->GetGlobalColors().GetColor("foreground");
-                        lastLine->Attributes().push_back(lAttrib);
+                            logger->Debug("SGR Reset");
+                            lAttrib.foregroundColor = terminalColors.GetColor("foreground");
+                            lAttrib.backgroundColor = terminalColors.GetColor("background");
+                       lastLine->Attributes().push_back(lAttrib);
                         break;
                     case VTermParser::kAnsiCmd::kSetDefaultForegroundColor :
-                        lAttrib.foregroundColor = Editor::Instance().GetTheme()->GetGlobalColors().GetColor("foreground");
+                        //lAttrib.foregroundColor = Editor::Instance().GetTheme()->GetGlobalColors().GetColor("foreground");
+                            logger->Debug("SetFGCol=default");
+                            lAttrib.foregroundColor = terminalColors.GetColor("foreground");
+                        lastLine->Attributes().push_back(lAttrib);
+                        break;
+                    case VTermParser::kAnsiCmd::kSetDefaultBackgroundColor :
+                        //lAttrib.foregroundColor = Editor::Instance().GetTheme()->GetGlobalColors().GetColor("background");
+                            logger->Debug("SetBGCol=default");
+                            lAttrib.backgroundColor = terminalColors.GetColor("background");
+
                         lastLine->Attributes().push_back(lAttrib);
                         break;
                 }
@@ -213,13 +305,19 @@ int TerminalController::GetCursorXPos() {
 }
 
 void TerminalController::NewLine() {
+    auto terminalColors = Editor::Instance().GetTheme()->GetTerminalColor();
+
+
     std::lock_guard<std::mutex> guard(lineLock);
     lastLine = std::make_shared<Line>();
 
     // Setup the line attributes
     Line::LineAttrib lineAttrib = {};
     lineAttrib.idxOrigString = 0;
-    lineAttrib.tokenClass = kLanguageTokenClass::kRegular;
+    lineAttrib.backgroundColor = terminalColors.GetColor("background");
+    lineAttrib.foregroundColor = terminalColors.GetColor("foreground");
+    //lineAttrib.tokenClass = kLanguageTokenClass::kRegular;
+
     lastLine->Attributes().push_back(lineAttrib);
 
 }
@@ -243,8 +341,6 @@ void TerminalController::CommitLine() {
         shell.SendCmd(cmdLine);
     }
 
-
-
     Editor::Instance().TriggerUIRedraw();
 }
 
@@ -260,20 +356,10 @@ Line::Ref TerminalController::CurrentLine() {
 }
 
 void TerminalController::WriteLine(const std::u32string &str) {
-    // Let's append to current line and commit to history buffer
-//    Line::Ref tmp = nullptr;
-//
-//    if (!lastLine->IsEmpty()) {
-//        tmp = Line::Create(lastLine->Buffer());
-//    }
 
     lastLine->Append(str);
     historyBuffer.push_back(lastLine);
     NewLine();
-
-//    if (tmp != nullptr) {
-//        lastLine->Append(tmp);
-//    }
 
     Editor::Instance().TriggerUIRedraw();
 }

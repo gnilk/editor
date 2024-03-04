@@ -115,8 +115,8 @@ void EditorView::DrawViewContents() {
     logger->Debug("DrawViewContents, dc Height=%d, topLine=%d, bottomLine=%d",
                   dc.GetRect().Height(), lineCursor.viewTopLine, lineCursor.viewBottomLine);
 
+    dc.ResetDrawColors();
     dc.ClearOverlays();
-
 
     // Add in the result from search if any...
     if (editorModel->searchResults.size() > 0) {

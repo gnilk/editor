@@ -412,7 +412,6 @@ list(APPEND editorsrc src/Core/LineRender.cpp src/Core/LineRender.h)
 # controllers
 list(APPEND editorsrc src/Core/Controllers/BaseController.cpp src/Core/Controllers/BaseController.h)
 list(APPEND editorsrc src/Core/Controllers/EditController.cpp src/Core/Controllers/EditController.h)
-#list(APPEND editorsrc src/Core/Controllers/CommandController.cpp src/Core/Controllers/CommandController.h)
 list(APPEND editorsrc src/Core/Controllers/TerminalController.cpp src/Core/Controllers/TerminalController.h)
 list(APPEND editorsrc src/Core/Controllers/QuickCommandController.cpp src/Core/Controllers/QuickCommandController.h)
 list(APPEND editorsrc src/Core/UndoHistory.cpp src/Core/UndoHistory.h)

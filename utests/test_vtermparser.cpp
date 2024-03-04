@@ -4,16 +4,16 @@
 #include <stdint.h>
 #include <testinterface.h>
 
-#include "Core/AnsiParser.h"
+#include "Core/VTermParser.h"
 #include "Core/HexDump.h"
 using namespace gedit;
 
 extern "C" {
-DLL_EXPORT int test_ansiparser(ITesting *t);
-DLL_EXPORT int test_ansiparser_strip(ITesting *t);
+DLL_EXPORT int test_vtermparser(ITesting *t);
+DLL_EXPORT int test_vtermparser_strip(ITesting *t);
 }
 
-DLL_EXPORT int test_ansiparser(ITesting *t) {
+DLL_EXPORT int test_vtermparser(ITesting *t) {
     return kTR_Pass;
 }
 
@@ -54,8 +54,8 @@ static uint8_t raw_ansi_osc[]= {
 };
 
 
-DLL_EXPORT int test_ansiparser_strip(ITesting *t) {
-    AnsiParser ansiParser;
+DLL_EXPORT int test_vtermparser_strip(ITesting *t) {
+    VTermParser ansiParser;
     fprintf(stdout, "%s\n",raw_ansi_prompt);
     HexDump::ToConsole(raw_ansi_prompt, sizeof(raw_ansi_prompt));
     auto stripped = ansiParser.Parse(raw_ansi_prompt, sizeof (raw_ansi_prompt));

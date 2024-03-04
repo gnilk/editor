@@ -14,14 +14,11 @@
 using namespace gedit;
 
 void SDLDrawContext::Clear() const {
-    // TEST
     auto &rect = GetRect();
     SDL_SetRenderTarget(renderer, renderTarget);
-    //SDLColorRepository::Instance().UseBackgroundColor(renderer, 196);
     SDLColor bgCol(bgColor);
-    bgCol.Use(renderer, 196);
+    bgCol.Use(renderer);
     FillRect(0,0, rect.Width(), rect.Height(), true);
-    // END TEST
 }
 
 void SDLDrawContext::ClearLine(int y) const {
@@ -98,7 +95,7 @@ void SDLDrawContext::DrawLine(float x1, float y1, float x2, float y2) const {
     auto [px2, py2] = CoordsToScreen(x2, y2);
 
     SetRenderColor();
-    SDL_RenderDrawLineF(renderer, px1, py1, px2, py2);
+    SDL_RenderDrawLineF(renderer, px1, py1, px2, py2 - 2);  //???
 }
 
 void SDLDrawContext::DrawLineWithPixelOffset(float x1, float y1, float x2, float y2, float ofsX, float ofsY) const {

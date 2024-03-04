@@ -10,6 +10,8 @@
 namespace gedit {
     class UnicodeHelper {
     public:
+        static int ConvertUTF8ToUTF32Char(std::u32string &out, const uint8_t *ptrData, size_t maxBytes);
+
         static bool ConvertUTF8ToUTF32String(std::u32string &out, const std::string &src);
         static bool ConvertUTF8ToUTF32String(std::u32string &out, const std::u8string &src);
         static bool ConvertUTF8ToASCII(std::string &out, const std::string &src);

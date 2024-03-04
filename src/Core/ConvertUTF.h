@@ -129,6 +129,12 @@ ConversionResult ConvertUTF8toUTF32 (
 		const UTF8** sourceStart, const UTF8* sourceEnd, 
 		UTF32** targetStart, UTF32* targetEnd, ConversionFlags flags);
 
+// Added by gnilk
+ConversionResult ConvertSingleCodePointUTF8toUTF32 (
+			const UTF8** sourceStart, const UTF8* sourceEnd,
+			UTF32* targetStart, ConversionFlags flags);
+
+
 ConversionResult ConvertUTF32toUTF8 (
 		const UTF32** sourceStart, const UTF32* sourceEnd, 
 		UTF8** targetStart, UTF8* targetEnd, ConversionFlags flags);

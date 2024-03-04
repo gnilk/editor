@@ -39,6 +39,31 @@ std::string UnicodeHelper::utf8toascii(const std::string &src) {
     return dst;
 }
 
+// Convert a single UTF8 char to UFT32 and adds it to the u32string.
+// Returns the number of bytes consumed from the UTF8 string
+// -1 on error..
+int UnicodeHelper::ConvertUTF8ToUTF32Char(std::u32string &out, const uint8_t *utf8Data, size_t maxBytes) {
+    if (utf8Data == nullptr) {
+        return -1;
+    }
+    const UTF8 *srcStart = reinterpret_cast<const UTF8 *>(utf8Data);
+    const UTF8 *srcEnd = &srcStart[maxBytes];
+
+    if (out.capacity() < (out.length() + 1)) {
+        out.resize(out.capacity()+1);
+    }
+
+    char32_t dst[2] = {};
+
+    auto result = ::ConvertSingleCodePointUTF8toUTF32(&srcStart, srcEnd, reinterpret_cast<UTF32 *>(&dst[0]), strictConversion);
+    if (result != ConversionResult::conversionOK) {
+        return -1;
+    }
+    out += dst[0];
+    auto diff = srcStart - utf8Data;
+    return static_cast<int>(diff);
+}
+
 // FIXME: Can be consolidated with the other
 bool UnicodeHelper::ConvertUTF8ToUTF32String(std::u32string &out, const std::u8string &src) {
     if (src.empty()) {
@@ -195,4 +220,5 @@ bool UnicodeHelper::ConvertUTF8ToASCII(std::string &out, const std::string &src)
 
     return ConvertUTF32ToASCII(out, stru32);
 }
+
 

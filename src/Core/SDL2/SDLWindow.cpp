@@ -208,8 +208,7 @@ void SDLWindow::OnDrawCursor(const Cursor &otherCursor) {
     // FillRect assumes the render target has been set..
     SDL_SetRenderTarget(renderer, dc->renderTarget);
     dc->SetFGColor(theme->GetGlobalColors().GetColor("caret"));
-
-    //dc->FillRect(cursor.position.x, cursor.position.y,1,1);
     dc->DrawLine(otherCursor.position.x, otherCursor.position.y, otherCursor.position.x, otherCursor.position.y + 1);
+
 }
 

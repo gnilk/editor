@@ -30,12 +30,13 @@ namespace gedit {
 
         struct LineAttrib {
             int idxOrigString;   // index in original string...
-            gedit::kTextAttributes textAttributes = gedit::kTextAttributes::kNormal;
+            kTextAttributes textAttributes = gedit::kTextAttributes::kNormal;
             ColorRGBA foregroundColor;
             ColorRGBA backgroundColor;
 
             // this one is for better (more formal) analysis when computing indent and similar
-            kLanguageTokenClass tokenClass;
+            // FIXME: The only place where this is used is the highly experimental CMake output parser
+            //kLanguageTokenClass tokenClass;
 
             LineAttrib();
         };

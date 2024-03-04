@@ -96,6 +96,9 @@ bool TerminalView::OnActionCommitLine() {
 void TerminalView::DrawViewContents() {
     auto &dc = window->GetContentDC();
     dc.ResetDrawColors();
+    auto terminalColors = Editor::Instance().GetTheme()->GetTerminalColor();
+    dc.SetColor(terminalColors.GetColor("foreground"), terminalColors.GetColor("background"));
+    dc.Clear();
 
     LineRender lineRender(dc);
     auto &lines = controller.Lines();
@@ -120,10 +123,6 @@ void TerminalView::DrawViewContents() {
 
     auto currentLine = controller.CurrentLine();
     dc.ClearLine(line_ypos);
-
-//    static auto colRED = ColorRGBA::FromRGB(64,196,64);
-//    dc.SetFGColor(colRED);
-//    dc.DrawStringAt(0,line_ypos, currentLine->Buffer());
 
     lineRender.DrawLine(0, line_ypos, currentLine);
 

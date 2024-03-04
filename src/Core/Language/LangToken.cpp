@@ -61,7 +61,7 @@ void LangToken::ToLineAttrib(std::vector<gedit::Line::LineAttrib> &outAttributes
         auto [fgColor, bgColor] = Editor::Instance().ColorFromLanguageToken(t.classification);
         attrib.foregroundColor = fgColor;
         attrib.backgroundColor = bgColor;
-        //attrib.tokenClass = t.classification;
+        attrib.tokenClass = t.classification;
         outAttributes.push_back(attrib);
     }
 

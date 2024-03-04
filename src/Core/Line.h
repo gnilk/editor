@@ -36,7 +36,7 @@ namespace gedit {
 
             // this one is for better (more formal) analysis when computing indent and similar
             // FIXME: The only place where this is used is the highly experimental CMake output parser
-            //kLanguageTokenClass tokenClass;
+            kLanguageTokenClass tokenClass;
 
             LineAttrib();
         };

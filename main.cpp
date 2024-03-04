@@ -3,9 +3,7 @@
 //
 /*
  * TO-DO List
- * ! Remove 'kLanguageTokenClass' from 'LineAttrib' - this should better be tied to hint about rendering..
- * - BUG: When the rootview 'SetActiveTopViewByName' set's same as currently active we loose it (input is gone)
- *        There is a workaround in root view which doesn't allow this - but still...
+ * + Remove 'kLanguageTokenClass' from 'LineAttrib' - this should better be tied to hint about rendering..
  * - Keymap: Add 'inherit' parameter so we can have a global definition of keymappings (like the UI keymappings)
  * - WorkspaceView - Home/End/PageUp/PageDown
  * + Rewrite 'CommandView' - replace with a 'TerminalView' which operates properly with the new shell component
@@ -69,6 +67,8 @@
  *   need to consider a solution for this...
  *
  * Done:
+ * ! When the rootview 'SetActiveTopViewByName' set's same as currently active we loose it (input is gone)
+ *        There is a workaround in root view which doesn't allow this - but still...
  * ! Undo does not properly reparse the area of the re-pasted data
  * ! Paste from external only works first time, then it is always the same buffer
  * ! Fan's go bananas and CPU is max on the editor CPU...

@@ -67,7 +67,8 @@ DLL_EXPORT int test_textbuffer_thparsefull(ITesting *t) {
     auto workspaceNode = workspace.NewModelWithFileRef("test_src2.cpp");
     auto buffer = workspaceNode->GetTextBuffer();
     TR_ASSERT(t, workspaceNode->LoadData());
-
+    TR_ASSERT(t, !buffer->IsEmpty());   // Did we load?
+    buffer->Reparse();
     // We are parsing once while loading - so let's make sure we are idle before doing anything else
     while (buffer->GetParseState() != TextBuffer::ParseState::kState_Idle) {
         std::this_thread::yield();
@@ -94,6 +95,7 @@ DLL_EXPORT int test_textbuffer_thparseregion(ITesting *t) {
     auto workspaceNode = workspace.NewModelWithFileRef("test_src2.cpp");
     auto buffer = workspaceNode->GetTextBuffer();
     TR_ASSERT(t, workspaceNode->LoadData());
+    TR_ASSERT(t, !buffer->IsEmpty());   // Did we load?
 
     // We are parsing once while loading - so let's make sure we are idle before doing anything else
     while (buffer->GetParseState() != TextBuffer::ParseState::kState_Idle) {

@@ -196,6 +196,9 @@ int Line::Indent(size_t tabSize) {
 }
 
 Line::LineAttribIterator Line::AttributeAt(int pos) {
+    if (attribs.size() == 0) {
+        return {};
+    }
     for(size_t i=0;i<attribs.size()-1;i++) {
         if ((pos >= attribs[i].idxOrigString) && (pos < attribs[i+1].idxOrigString)) {
             return attribs.begin()+i;

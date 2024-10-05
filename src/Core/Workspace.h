@@ -256,6 +256,7 @@ namespace gedit {
                     return false;
                 }
                 // Does this file exists - or is it a 'new' file
+                // FIXME: Really???
                 if (!std::filesystem::exists(pathName)) {
                     return true;
                 }

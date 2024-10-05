@@ -65,6 +65,7 @@
  *   need to consider a solution for this...
  *
  * Done:
+ * ! Moving Word-left at last token in line we jump back to beginning of line..
  * ! Rewrite 'CommandView' - replace with a 'TerminalView' which operates properly with the new shell component
  *   Should treat the shell as a stream rather than trying to keep track of cursor stuff and so forth..
  * ! When the rootview 'SetActiveTopViewByName' set's same as currently active we loose it (input is gone)

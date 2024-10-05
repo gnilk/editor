@@ -8,6 +8,7 @@
 #include "Editor.h"
 #include "EditorModel.h"
 #include "logger.h"
+
 using namespace gedit;
 
 // This is the global section in the config.yml for this view
@@ -371,20 +372,36 @@ bool EditorModel::OnActionWordRight() {
     auto currentLine = ActiveLine();
     auto &cursor = GetCursor();
     auto attrib = currentLine->AttributeAt(cursor.position.x);
-    attrib++;
-    cursor.position.x = attrib->idxOrigString;
-
+    // End of line? - just navigate down one line and start over
+    if (cursor.position.x == currentLine->Length()) {
+        verticalNavigationViewModel->OnNavigateDown(1, viewRect, Lines().size());
+        cursor.position.x = 0;
+    } else if ((attrib->idxOrigString < cursor.position.x) && (cursor.position.x < currentLine->Length())) {
+        // Last token - position ourselves at the end
+        auto endpos = currentLine->Length();
+        lineCursor.cursor.position.x = endpos;
+    } else {
+        // Skip to beginning of next token...
+        attrib++;
+        cursor.position.x = attrib->idxOrigString;
+    }
     return true;
 }
 
 bool EditorModel::OnActionWordLeft() {
     auto currentLine = ActiveLine(); //editorModel->GetEditController()->LineAt(editorModel->idxActiveLine);
     auto &cursor = GetCursor();
-    auto attrib = currentLine->AttributeAt(cursor.position.x);
-    if (cursor.position.x == attrib->idxOrigString) {
-        attrib--;
+    if (cursor.position.x == 0) {
+        verticalNavigationViewModel->OnNavigateUp(1, viewRect, Lines().size());
+        currentLine = ActiveLine();
+        cursor.position.x = currentLine->Length();
+    } else {
+        auto attrib = currentLine->AttributeAt(cursor.position.x);
+        if (cursor.position.x == attrib->idxOrigString) {
+            attrib--;
+        }
+        cursor.position.x = attrib->idxOrigString;
     }
-    cursor.position.x = attrib->idxOrigString;
     return true;
 }
 

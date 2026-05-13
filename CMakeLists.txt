@@ -21,7 +21,8 @@ endif ()
 option(GEDIT_BUILD_SDL3 "Build SDL3" OFF)
 option(GEDIT_BUILD_SDL2 "Build SDL2" ON)
 
-set(SDL_HOME /usr/local)
+#set(SDL_HOME /usr/local)
+set(SDL_HOME /opt/homebrew)
 
 
 list(APPEND appsrc main.cpp)
@@ -51,7 +52,7 @@ endif ()
 
 if (NOT EXISTS ${CMAKE_SOURCE_DIR}/ext/fmt)
     message(WARNING "Installing fmt library")
-    execute_process(COMMAND git clone --depth 1 --branch 10.1.1 https://github.com/fmtlib/fmt ${CMAKE_SOURCE_DIR}/ext/fmt)
+    execute_process(COMMAND git clone --depth 1 --branch 12.1.0 https://github.com/fmtlib/fmt ${CMAKE_SOURCE_DIR}/ext/fmt)
 endif()
 #
 # Note: This won't fly as we need to pre-process this further...
@@ -162,8 +163,6 @@ if (APPLE)
     # Don't know if this is possible with some other CMake command - perhaps it is - this did work for me...
     add_custom_command(
             TARGET ${CUR_TARGET}
-            DEPENDS plugins
-            DEPENDS resources
             POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_directory ${EDITOR_ASSET_DIR} $<TARGET_FILE_DIR:${CUR_TARGET}>/../SharedSupport
     )
@@ -495,7 +494,7 @@ list(APPEND includedirs ${DUKTAPE_EXTRAS}/module-node)
 list(APPEND includedirs ${FMT_HOME}/include)
 
 
-
+list(REMOVE_ITEM CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES /usr/local/include)
 
 target_sources(${CUR_TARGET} PUBLIC ${editorsrc} ${jsapi} ${duktape})
 target_link_directories(${CUR_TARGET} PUBLIC ${linkdirs})
@@ -538,11 +537,11 @@ target_include_directories(utests PUBLIC ${includedirs})
 target_link_libraries(utests ${extlibs})
 
 
-add_custom_target(
-        Unit_Tests ALL
-        DEPENDS utests
-        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-)
+#add_custom_target(
+#        Unit_Tests ALL
+#        DEPENDS utests
+#        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+#)
 
 ##
 ## Add configuration files so they get copied when changed...
@@ -576,7 +575,7 @@ endif()
 
 #add_dependencies(${CUR_TARGET} config colors font plugins default_theme resources)
 add_dependencies(${CUR_TARGET} plugins resources)
-add_dependencies(Unit_Tests plugins resources)
+add_dependencies(utests plugins resources)
 
 
 #set_target_properties(logtest PROPERTIES EXCLUDE_FROM_ALL true)

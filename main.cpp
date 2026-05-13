@@ -3,6 +3,11 @@
 //
 /*
  * TO-DO List
+ * - Add back SDL3 as it is now stable
+ * - Remove NCurses, perhaps write a new one only supporting ANSI terminals (skip terminfo)
+ * - Clean-up the 'keyboard' event and skip the stupid macOS driver wannabe thingie in order to support SHIFT-ARROW selection
+ * - Try find out why we dead-lock (I think there is a race condition between syntax highlighting and editing)
+ * - Consider rewriting the graphics layer
  * + Remove 'kLanguageTokenClass' from 'LineAttrib' - this should better be tied to hint about rendering..
  * - Keymap: Add 'inherit' parameter so we can have a global definition of keymappings (like the UI keymappings)
  * - WorkspaceView - Home/End/PageUp/PageDown

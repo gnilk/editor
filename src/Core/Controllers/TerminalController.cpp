@@ -206,12 +206,14 @@ void TerminalController::HandleTerminalData(const uint8_t *buffer, size_t length
             }
         }
         // macos get's \r\n
-        if (ch == 0x0a) {
-            historyBuffer.push_back(lastLine);
-            NewLine();
-            // We start a new line at this index...
-            idxStartLine = idxStr;
-            idxLastLineStart = 0;
+        if (ch < 31) {
+            if (ch == 0x0a) {
+                historyBuffer.push_back(lastLine);
+                NewLine();
+                // We start a new line at this index...
+                idxStartLine = idxStr;
+                idxLastLineStart = 0;
+            }
         } else if ((ch >= 31) && (ch < 127)) {
             lastLine->Append(ch);
         } else {
@@ -257,7 +259,8 @@ void TerminalController::ParseAndAppend(std::u32string &str) {
 
 bool TerminalController::HandleKeyPress(Cursor &cursor, size_t &idxActiveLine, const KeyPress &keyPress) {
     if (DefaultEditLine(inputCursor, inputLine, keyPress)) {
-        logger->Debug("InputLine: %s", inputLine->BufferAsUTF8().c_str());
+        //logger->Debug("LastLine=%d:'%s'", lastLine->Length(), lastLine->BufferAsUTF8().c_str());
+        //logger->Debug("InputLine= %d:'%s'", inputLine->Length(), inputLine->BufferAsUTF8().c_str());
         // The visible cursor is from the lastLine (from shell) to the current input cursor...
         // input cursor is handled by DefaultEditLine..
         cursor.position.x = GetCursorXPos();
@@ -346,10 +349,6 @@ void TerminalController::CommitLine() {
 
 Line::Ref TerminalController::CurrentLine() {
     auto currentLine = Line::Create(lastLine);
-
-    //currentLine->Append(lastLine);
-    //currentLine->Attributes().insert(currentLine->Attributes().begin(), lastLine->Attributes().begin(), lastLine->Attributes().end());
-
     currentLine->Append(inputLine);
 
     return currentLine;

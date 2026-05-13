@@ -18,7 +18,7 @@ public:
     using DurationMS = std::chrono::duration<uint64_t, std::ratio<1,1000> >;
 public:
     SafeQueue() = default;
-    // FIX-ME: should we do 'c.notify_one' in case someone is stuck
+
     virtual ~SafeQueue() {
         c.notify_one();
     }
@@ -32,16 +32,16 @@ public:
     }
 
     size_t size() const {
-        std::unique_lock<std::mutex> lock(m);
+        std::lock_guard<std::mutex> lock(m);
         return q.size();
     }
     void clear() {
-        std::unique_lock<std::mutex> lock(m);
+        std::lock_guard<std::mutex> lock(m);
         q = {};
     }
 
     bool is_empty() const {
-        std::unique_lock<std::mutex> lock(m);
+        std::lock_guard<std::mutex> lock(m);
         return q.empty();
     }
 

@@ -12,6 +12,7 @@ function main(args) {
     var colors = theme.GetColorsForClass(args[0]);
     if (colors == null) {
         Console.WriteLine("Unable to fetch colors");
+        return;
     }
     var namedColorVector = colors.ToVector();
     for(var i=0;i<namedColorVector.length;i++) {

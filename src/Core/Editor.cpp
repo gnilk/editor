@@ -450,7 +450,7 @@ bool Editor::TryLoadConfig(const char *configFile) {
 
     // Merge with user conf..
     if (loadUserConfig) {
-        Config::Instance().MergeUserConfig(configFile, true);
+        Config::Instance().TryMergeUserConfig(configFile, true);
     } else {
         logger->Debug("User config loading disabled, skipping!");
     }

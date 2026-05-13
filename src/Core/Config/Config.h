@@ -21,7 +21,7 @@ namespace gedit {
 
         // Load configuration and alos the theme file
         bool LoadSystemConfig(const std::string &filename);
-        bool MergeUserConfig(const std::string &filename, bool replace);
+        void TryMergeUserConfig(const std::string &filename, bool replace);
 
 
 

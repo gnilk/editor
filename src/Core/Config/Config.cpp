@@ -40,17 +40,14 @@ bool Config::LoadSystemConfig(const std::string &filename) {
     return true;
 }
 
-bool Config::MergeUserConfig(const std::string &filename, bool replace) {
+void Config::TryMergeUserConfig(const std::string &filename, bool replace) {
     ConfigNode userConfig;
     if (!userConfig.LoadConfig(filename, AssetLoaderBase::kLocationType::kUser)) {
-        logger->Error("User config '%s' not found", filename.c_str());
-        return false;
+        logger->Warn("No user config found, skipping");
+        return;
     }
     logger->Debug("User config loaded - now merging");
-
     MergeNode(userConfig);
-
-    return true;
 }
 
 

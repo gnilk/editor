@@ -6,6 +6,7 @@
 #define SDLAPP_UNICODEHELPER_H
 
 #include <string>
+#include <stdint.h>
 
 namespace gedit {
     class UnicodeHelper {

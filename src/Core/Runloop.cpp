@@ -55,6 +55,7 @@ void Runloop::DefaultLoop() {
     auto szNow = incomingQueue->size();
     processingQueue->clear();
     incomingQueue->clear();
+    auto logger = gnilk::Logger::GetLogger("RunLoop");
     while(!bQuit) {
         // Process any messages from other threads before we do anything else..
         bool redraw = ProcessMessageQueue();
@@ -63,9 +64,8 @@ void Runloop::DefaultLoop() {
             redraw = true;
         }
         if (redraw == true) {
-            auto logger = gnilk::Logger::GetLogger("DefaultLoop");
             DurationTimer durationTimer;
-            logger->Debug("--- Begin Redraw");
+            logger->Debug("--- Default RL - Begin Redraw");
             durationTimer.Reset();
             screen->Clear();
             auto clearMS = durationTimer.Sample().count();
@@ -73,7 +73,7 @@ void Runloop::DefaultLoop() {
             auto uiRedrawMS = durationTimer.Sample().count();
             screen->Update();
             auto screenUpdateMS = durationTimer.Sample().count();
-            logger->Debug("--- End Redraw complete, Clear: %lld, UI: %lld, Screen: %lld", clearMS, uiRedrawMS, screenUpdateMS);
+            logger->Debug("--- Default RL - End Redraw complete, Clear: %lld, UI: %lld, Screen: %lld", clearMS, uiRedrawMS, screenUpdateMS);
         }
         // Yield the main-thread..
 

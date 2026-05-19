@@ -24,10 +24,10 @@ KeyPress MacOSKBEmulator::GetKeyPress() {
     //  if passed, randomize a new value and return next value from the KeyPress array
     if (idxNext < eventList.size()) {
         // Did 'waitMS' pass?
-        if (timer.Sample().count() < waitMs) {
+        if ((waitMs > 0) && (timer.Sample().count() <= waitMs)) {
             return {};
         }
-        waitMs = 10;
+        waitMs = 0;
         auto result = eventList[idxNext++];
         timer.Reset();
         return result;

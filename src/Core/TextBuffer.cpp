@@ -7,6 +7,7 @@
 #include "Core/Config/Config.h"
 #include "Core/Editor.h"
 #include <thread>
+#include <pthread.h>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -191,7 +192,7 @@ void TextBuffer::StartParseThread() {
 
 
 void TextBuffer::ParseThread() {
-
+    pthread_setname_np("TBufParse");
     ChangeParseState(kState_Idle);
     while(!bQuitReparse) {
         if (!parseQueue.wait(GEDIT_DEFAULT_POLL_TMO_MS)) {

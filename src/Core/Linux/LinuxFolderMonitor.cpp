@@ -46,6 +46,7 @@ bool LinuxFolderMonitorPoint::Start() {
     }
 
     scanThread = std::thread([this](){
+        pthread_setname_np("LnxFldMon");
         ScanThread();
     });
     isRunning = true;

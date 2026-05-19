@@ -239,6 +239,7 @@ void Shell::ConsumePipes() {
     }
 
     ChangeState(State::kRunning);
+    pthread_setname_np("ShlConsume");
 
     auto fdOut = fdopen(outfd[READ_END], "r");
     auto fdErr = fdopen(errfd[READ_END], "r");

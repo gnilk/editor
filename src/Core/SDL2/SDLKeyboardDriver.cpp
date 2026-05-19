@@ -24,13 +24,22 @@
 #include "Core/Runloop.h"
 #include "Core/TextBuffer.h"
 #include "Core/UnicodeHelper.h"
-
+#ifdef GEDIT_MACOS
+#include "Core/macOS/MacOSKBEmulator.h"
+#endif
 using namespace gedit;
 using namespace std::chrono_literals;
 
 static int createTranslationTable();
 
 KeyboardDriverBase::Ref SDLKeyboardDriver::Create() {
+
+#ifdef GEDIT_MACOS
+    auto tmpkb = std::make_shared<MacOSKBEmulator>();
+    tmpkb->Initialize();
+    return tmpkb;
+#endif
+
     auto instance = std::make_shared<SDLKeyboardDriver>();
     if (!instance->Initialize()) {
         return nullptr;
@@ -46,6 +55,7 @@ bool SDLKeyboardDriver::Initialize() {
     SDL_StartTextInput();
     HookEditorClipBoard();
     kbdthread = std::thread([this]() {
+        pthread_setname_np("SDL2Kbd");
         while(!bQuitThread) {
 #ifdef GEDIT_MACOS
             // Dummy thread on macOS - the keyboard is handled in the main-thread from the runloop.

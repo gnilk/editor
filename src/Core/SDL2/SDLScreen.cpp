@@ -283,6 +283,13 @@ void SDLScreen::Clear() {
 }
 
 void SDLScreen::Update() {
+    //FIXME: REMOVE THIS TMP TMP TMP TMP
+    SDL_Event event;
+    SDL_PollEvent(&event);
+    // TMP TMP TMP..
+
+
+
     SDL_SetRenderTarget(sdlRenderer, nullptr);
 
     // MEGA TEST

@@ -4,6 +4,8 @@
 
 #include "Editor.h"
 #include "Runloop.h"
+
+#include "DurationTimer.h"
 #include "RuntimeConfig.h"
 #include "logger.h"
 #include "KeypressAndActionHandler.h"
@@ -61,11 +63,17 @@ void Runloop::DefaultLoop() {
             redraw = true;
         }
         if (redraw == true) {
-            //auto logger = gnilk::Logger::GetLogger("DefaultLoop");
-            //logger->Debug("Redraw was triggered...");
+            auto logger = gnilk::Logger::GetLogger("DefaultLoop");
+            DurationTimer durationTimer;
+            logger->Debug("--- Begin Redraw");
+            durationTimer.Reset();
             screen->Clear();
+            auto clearMS = durationTimer.Sample().count();
             rootView.Draw();
+            auto uiRedrawMS = durationTimer.Sample().count();
             screen->Update();
+            auto screenUpdateMS = durationTimer.Sample().count();
+            logger->Debug("--- End Redraw complete, Clear: %lld, UI: %lld, Screen: %lld", clearMS, uiRedrawMS, screenUpdateMS);
         }
         // Yield the main-thread..
 

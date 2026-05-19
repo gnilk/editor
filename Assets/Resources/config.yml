@@ -22,16 +22,24 @@ logging:
   # supported options: filesink, console
   logsink: filesink
   logfile: goatedit.log
-  disable_all: no
+  disable_all: yes
+  # there are many modules - and no way to list them (grep src/Core for "::GetLogger")
   enable_modules:
+    - "AssetLoader"
     - "System"
-    - "VNavModel"
+    - "RootView"
+    - "EditorModel"
     - "EditorView"
+    - "EditorController"
     - "TextBuffer"
+    - "RunLoop"
+    - "Dispatcher"
+    - "KeyPress"
+    - "KeyMapping"
 
 
 foldermonitor:
-  enabled: yes
+  enabled: no
   use_git_ignore: yes
   # Note: for macos this can only be maximum 8 folders - or else!
   exclude:

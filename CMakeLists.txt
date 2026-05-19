@@ -119,7 +119,7 @@ if (APPLE)
     set(NCURSES_HOME /opt/homebrew/opt/ncurses)
     set(YAML_CPP_HOME /opt/homebrew/opt/yaml-cpp)
 
-
+    list(APPEND editorsrc src/Core/macOS/MacOSKBEmulator.cpp src/Core/macOS/MacOSKBEmulator.h)
     list(APPEND editorsrc src/Core/macOS/MacOSFolderMonitor.cpp src/Core/macOS/MacOSFolderMonitor.h)
     list(APPEND editorsrc src/Core/macOS/MacOSKeyboardMonitor.cpp src/Core/macOS/MacOSKeyboardMonitor.h)
     list(APPEND editorsrc src/Core/unix/Shell.cpp src/Core/unix/Shell.h)

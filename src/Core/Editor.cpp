@@ -434,10 +434,12 @@ bool Editor::CheckCreateDirectory(const std::filesystem::path &path) {
 
 // This must be called after 'LoadConfig' - part of initialization process
 void Editor::ConfigureLogFilter() {
+    // FIXME: This doesn't work with new loggers - it just disables current loggers
     if (Config::Instance()["logging"].GetBool("disable_all", false)) {
         gnilk::Logger::DisableAllLoggers();
     }
 
+    // FIXME: This doesn't work with loggers not yet created - need to redesign this in the logger
     auto loggersEnabled = Config::Instance()["logging"].GetSequenceOfStr("enable_modules");
     for(auto &logName : loggersEnabled) {
         gnilk::Logger::EnableLogger(logName.c_str());

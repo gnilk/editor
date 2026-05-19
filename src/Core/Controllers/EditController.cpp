@@ -66,7 +66,8 @@ bool EditController::HandleKeyPress(Cursor &cursor, size_t &idxLine, const KeyPr
 
     if ((parserAction == LanguageBase::kInsertAction::kDefault) && DefaultEditLine(cursor, line, keyPress, false)) {
         if (keyPress.IsHumanReadable()) {
-            textBuffer->GetLanguage().OnPostInsertChar(cursor, line, keyPress.key);
+            // FIXME: Enable this again - TMP while testing kb emulation
+            //textBuffer->GetLanguage().OnPostInsertChar(cursor, line, keyPress.key);
         }
         model->EndUndoItem(undoItem);
         model->UpdateSyntaxForActiveLineRegion();

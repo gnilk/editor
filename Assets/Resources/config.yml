@@ -85,6 +85,7 @@ editorview:
   # content_first is CLion/Sublime style (no = VSCode style, cursor first)
   pgupdown_content_first: yes
   keymap: "default_keymap"
+  enable_pre_post_insert: no
 
 workspaceview:
   keymap: "workspace_keymap"

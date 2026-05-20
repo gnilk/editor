@@ -51,11 +51,16 @@ bool EditController::HandleKeyPress(Cursor &cursor, size_t &idxLine, const KeyPr
         logger->Error("Line is null, idxLine=%zu, cursor=(%d,%d)", idxLine, cursor.position.x, cursor.position.y);
         return false;
     }
-    auto undoItem = model->BeginUndoItem();
 
+
+    auto undoItem = model->BeginUndoItem();
     LanguageBase::kInsertAction parserAction = LanguageBase::kInsertAction::kDefault;
 
-    if (keyPress.IsHumanReadable()) {
+    // FIXME: rename!!!!
+    bool doPrePostInsert = Config::Instance()["editorview"].GetBool("enable_pre_post_insert", true);
+
+
+    if (keyPress.IsHumanReadable() && doPrePostInsert) {
         parserAction = textBuffer->GetLanguage().OnPreInsertChar(cursor, line, keyPress.key);
     }
     // The pre-insert handler for a language can determine if we should 'stop' the default behavior..
@@ -64,10 +69,10 @@ bool EditController::HandleKeyPress(Cursor &cursor, size_t &idxLine, const KeyPr
         return true;
     }
 
+    // Except for this line - all things belong to the model - more or less...
     if ((parserAction == LanguageBase::kInsertAction::kDefault) && DefaultEditLine(cursor, line, keyPress, false)) {
-        if (keyPress.IsHumanReadable()) {
-            // FIXME: Enable this again - TMP while testing kb emulation
-            //textBuffer->GetLanguage().OnPostInsertChar(cursor, line, keyPress.key);
+        if (keyPress.IsHumanReadable() && doPrePostInsert) {
+            textBuffer->GetLanguage().OnPostInsertChar(cursor, line, keyPress.key);
         }
         model->EndUndoItem(undoItem);
         model->UpdateSyntaxForActiveLineRegion();

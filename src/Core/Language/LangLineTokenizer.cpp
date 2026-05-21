@@ -28,20 +28,21 @@ size_t LangLineTokenizer::ParseRegion(std::vector<Line::Ref> &lines, size_t idxL
     PushState(startState.c_str());
     int nextIndent = lines[idxStart]->GetIndent();
 
-    logger->Debug("ParseRegion mapped, idxStart=%zu => %zu, idxEnd=%zu => %zu, stateStack=%zu",
-                  idxLineStart, idxStart, idxStart, idxEnd,stateStack.size());
+    logger->Debug("ParseRegion mapped, idxStart: %zu => %zu, idxEnd: %zu => %zu, stateStack=%zu",
+                  idxLineStart, idxStart, idxLineEnd, idxEnd,stateStack.size());
 
     while(true) {
         if (idxStart >= lines.size()) {
             break;
         }
-        auto l = lines.at(idxStart);
+        auto l = lines[idxStart];
 
         l->SetIndent(nextIndent);
         ParseLine(l, nextIndent);
         idxStart++;
         if ((idxStart > idxEnd) && (stateStack.size() == 1)) break;
-        if (idxStart > nMaxLines) break;
+        if (nMaxLines == 0) break;
+        nMaxLines--;
     }
 
     // Let's pop the  'start'
@@ -65,6 +66,7 @@ size_t LangLineTokenizer::StartParseRegion(std::vector<Line::Ref> &lines, size_t
 
     // search backwards until the state-stack depth == 0
     idxStart = idxRegion-1;
+    // FIXME: If Stack State Depth == 0 and attributes == 0, something is wrong..
     while((lines[idxStart]->GetStateStackDepth() > 1) && (idxStart != 0)) {
         idxStart--;
     }

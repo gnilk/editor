@@ -8,46 +8,40 @@
 #include <memory>
 #include <mutex>
 #include <condition_variable>
+#include <future>
 
 namespace gedit {
-    // DO NOT REUSE!
+
     class Job {
     public:
         using Ref = std::shared_ptr<Job>;
+
     public:
-        Job() = default;
-        virtual ~Job() = default;
+        Job() {
+            Reset();
+        }
+
         void Begin() {
-            workMutex.lock();
+            Reset();
         }
 
         void NotifyComplete() {
-            // Should unlock happen before notification???
-            workMutex.unlock();
-            completionCond.notify_all();
-            isComplete = true;
+            promise.set_value();
         }
 
         void WaitComplete() {
-            //
-            // FIXME: This doesn't work - sometimes leads to race conditions
-            //        where the job is complete but the condition is raced before we wait for it...
-            //        which I find odd...
-            //
-            //std::unique_lock lk(workMutex);
-            while(!isComplete) {
-                //std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                std::this_thread::yield();
-                //completionCond.wait(lk);
-            }
-            isComplete = false;
+            future.wait();
         }
 
+    private:
+        void Reset() {
+            promise = std::promise<void>{};
+            future = promise.get_future();
+        }
 
     private:
-        bool isComplete = false;
-        std::mutex workMutex;
-        std::condition_variable completionCond;
+        std::promise<void> promise;
+        std::future<void> future;
     };
 
 }

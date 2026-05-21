@@ -57,7 +57,12 @@ bool SDLKeyboardDriver::Initialize() {
     SDL_StartTextInput();
     HookEditorClipBoard();
     kbdthread = std::thread([this]() {
+#ifdef GEDIT_LINUX
+        pthread_setname_np(pthread_self(), "SDL2Kbd");
+#else
         pthread_setname_np("SDL2Kbd");
+#endif
+
         while(!bQuitThread) {
 #ifdef GEDIT_MACOS
             // Dummy thread on macOS - the keyboard is handled in the main-thread from the runloop.

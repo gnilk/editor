@@ -239,7 +239,11 @@ void Shell::ConsumePipes() {
     }
 
     ChangeState(State::kRunning);
+#ifdef GEDIT_LINUX
+    pthread_setname_np(pthread_self(),"ShlConsume");
+#else
     pthread_setname_np("ShlConsume");
+#endif
 
     auto fdOut = fdopen(outfd[READ_END], "r");
     auto fdErr = fdopen(errfd[READ_END], "r");

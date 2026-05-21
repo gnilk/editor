@@ -192,7 +192,12 @@ void TextBuffer::StartParseThread() {
 
 
 void TextBuffer::ParseThread() {
+#ifdef GEDIT_LINUX
+    pthread_setname_np(pthread_self(), "TBufParse");
+#else
     pthread_setname_np("TBufParse");
+#endif
+
     ChangeParseState(kState_Idle);
     while(!bQuitReparse) {
         if (!parseQueue.wait(GEDIT_DEFAULT_POLL_TMO_MS)) {

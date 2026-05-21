@@ -46,7 +46,11 @@ bool LinuxFolderMonitorPoint::Start() {
     }
 
     scanThread = std::thread([this](){
+#ifdef GEDIT_LINUX
+        pthread_setname_np(pthread_self(), "LnxFldMon");
+#else
         pthread_setname_np("LnxFldMon");
+#endif
         ScanThread();
     });
     isRunning = true;

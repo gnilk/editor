@@ -18,6 +18,7 @@ DLL_EXPORT int test_cpplang_indent(ITesting *t);
 DLL_EXPORT int test_cpplang_elseindent(ITesting *t);
 DLL_EXPORT int test_cpplang_indentcode(ITesting *t);
 DLL_EXPORT int test_cpplang_chardecl(ITesting *t);
+DLL_EXPORT int test_cpplang_charop(ITesting *t);
 DLL_EXPORT int test_cpplang_reparseregion(ITesting *t);
 DLL_EXPORT int test_cpplang_keywords(ITesting *t);
 }
@@ -27,6 +28,8 @@ DLL_EXPORT int test_cpplang(ITesting *t) {
 
     return kTR_Pass;
 }
+
+
 DLL_EXPORT int test_cpplang_include(ITesting *t) {
     auto workspace = Editor::Instance().GetWorkspace();
     TR_ASSERT(t, workspace != nullptr);
@@ -164,8 +167,39 @@ DLL_EXPORT int test_cpplang_chardecl(ITesting *t) {
     TR_ASSERT(t, workspace->RemoveModel(model->GetModel()));
 
     return kTR_Pass;
-
 }
+
+DLL_EXPORT int test_cpplang_charop(ITesting *t) {
+    // Switch of threading for this...
+    Config::Instance()["main"].SetBool("threaded_syntaxparser", false);
+
+    auto workspace = Editor::Instance().GetWorkspace();
+    TR_ASSERT(t, workspace != nullptr);
+    auto model = workspace->NewModel("test.cpp");
+    TR_ASSERT(t, model != nullptr);
+    auto buffer = model->GetTextBuffer();
+    TR_ASSERT(t, buffer != nullptr);
+
+
+    // Does this work???
+    //std::string str = R"(char q = ((1==2)?'"':'\'');   /* Quote character */)";
+    std::string str = R"('\'';   /* Quote character */)";
+    //buffer->AddLine(UR"_("char q = ((1==2)?'"':'\'');   /* Quote character */")_");
+    //auto u32instrOp = UnicodeHelper::utf8to32(str);
+    buffer->AddLineUTF8(str.c_str());
+
+    buffer->Reparse();
+
+    auto line = buffer->LineAt(1);
+    TR_ASSERT(t, line->Attributes().size() > 2);
+    auto last = *(line->Attributes().end()-1);
+    TR_ASSERT(t, last.tokenClass == kLanguageTokenClass::kBlockComment);
+
+    printf("STR: %s\n",line->BufferAsUTF8().c_str());
+
+    return kTR_Pass;
+}
+
 DLL_EXPORT int test_cpplang_reparseregion(ITesting *t) {
     Config::Instance()["main"].SetBool("threaded_syntaxparser", false);
 

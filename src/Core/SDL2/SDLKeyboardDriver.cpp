@@ -35,9 +35,11 @@ static int createTranslationTable();
 KeyboardDriverBase::Ref SDLKeyboardDriver::Create() {
 
 #ifdef GEDIT_MACOS
-    auto tmpkb = std::make_shared<MacOSKBEmulator>();
-    tmpkb->Initialize();
-    return tmpkb;
+    // If you enable this - to feed large files - make sure to enable the event handler in the SDLScreen.cpp
+    // Note: The SDL layer should refactored big timely..
+    // auto tmpkb = std::make_shared<MacOSKBEmulator>();
+    // tmpkb->Initialize();
+    // return tmpkb;
 #endif
 
     auto instance = std::make_shared<SDLKeyboardDriver>();

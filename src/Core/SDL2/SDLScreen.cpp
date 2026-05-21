@@ -283,9 +283,9 @@ void SDLScreen::Clear() {
 }
 
 void SDLScreen::Update() {
-    //FIXME: REMOVE THIS TMP TMP TMP TMP
-    SDL_Event event;
-    SDL_PollEvent(&event);
+    // Enable this IF the keyboard emulator is enabled on macos!!!
+    // SDL_Event event;
+    // SDL_PollEvent(&event);
     // TMP TMP TMP..
 
 

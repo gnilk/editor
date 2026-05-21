@@ -179,14 +179,18 @@ namespace gedit {
             kParseRegion,
         };
 
-        struct ParseJob : public Job {
+        class ParseJob : public Job {
         public:
             using Ref = std::shared_ptr<ParseJob>;
+            // Need DTOR!!
+            virtual ~ParseJob() = default;
 
             static Ref Create(ParseJobType jobType, size_t idxLineStart, size_t idxLineEnd) {
+                // Can't use 'make_shared' here - since CTOR is private
                 auto ptrJob = new TextBuffer::ParseJob(jobType, idxLineStart, idxLineEnd);
                 return std::shared_ptr<TextBuffer::ParseJob>(ptrJob);
             }
+
 
         private:
             ParseJob(ParseJobType jType, size_t lStart, size_t lEnd) :

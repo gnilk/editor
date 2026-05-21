@@ -137,6 +137,7 @@ bool TextBuffer::CanEdit() {
 
 TextBuffer::ParseJob::Ref TextBuffer::StartParseJob(TextBuffer::ParseJobType jobType, size_t idxLineStart, size_t idxLineEnd) {
     auto job = ParseJob::Create(jobType, idxLineStart, idxLineEnd);
+    job->Begin();
     parseQueue.push(job);
     return job;
 }
@@ -222,7 +223,6 @@ void TextBuffer::ParseThread() {
 }
 
 void TextBuffer::ExecuteParseJob(const ParseJob::Ref &job) {
-    job->Begin();
     if (job->jobType == ParseJobType::kParseFull) {
         ExecuteFullParse();
     } else if (job->jobType == ParseJobType::kParseRegion) {

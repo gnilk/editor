@@ -6,16 +6,17 @@
  * - Add back SDL3 as it is now stable
  * - Remove NCurses, perhaps write a new one only supporting ANSI terminals (skip terminfo)
  * - Clean-up the 'keyboard' event and skip the stupid macOS driver wannabe thingie in order to support SHIFT-ARROW selection
- * - Try find out why we dead-lock (I think there is a race condition between syntax highlighting and editing)
+ * ! Try find out why we dead-lock (I think there is a race condition between syntax highlighting and editing)
  * - Consider rewriting the graphics layer
  * + Remove 'kLanguageTokenClass' from 'LineAttrib' - this should better be tied to hint about rendering..
  * - Keymap: Add 'inherit' parameter so we can have a global definition of keymappings (like the UI keymappings)
  * - WorkspaceView - Home/End/PageUp/PageDown
  * + Shell should properly trap signals to detect if someone does 'exit' from shell - respawn shell in that case..
- * - Replace the language parser with the new Lexer from the AST project...
+ * x [discarded] Replace the language parser with the new Lexer from the AST project...
  * - Move as much out from EditorView/CommandView/QuickView/WorkspaceView as possible and put in resp. controller
- * - Sometimes loose syntax highlight - mostly seen towards end-of-file, need some 'reparse all' functionality
+ * ! Sometimes loose syntax highlight - mostly seen towards end-of-file, need some 'reparse all' functionality
  *   or simply to use 'reparse-all' for any file < 1000 lines...
+ *   Note: This was due to wrongly defined RAW U32 strings with wrong operator priorities for char/string definitions
  * + Spotted another exception related to timers - but I think that was CPP-mode line bug
  * + Vertical navigation yet-again is acting strange on clipping when at the end of a file
  * - Delete some lines (upper 1/3 of file) and then page-down => segfault

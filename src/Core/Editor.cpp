@@ -25,9 +25,9 @@
 #include "Core/Plugins/PluginExecutor.h"
 
 
-// NCurses backend
-#include "Core/NCurses/NCursesScreen.h"
-#include "Core/NCurses/NCursesKeyboardDriver.h"
+// NCurses backend - Removed
+// #include "Core/NCurses/NCursesScreen.h"
+// #include "Core/NCurses/NCursesKeyboardDriver.h"
 
 // SDL3 backend
 #ifdef GEDIT_USE_SDL3
@@ -253,7 +253,7 @@ void Editor::PrintHelpToConsole() {
     printf("Options:\n");
     printf("  --console-logging, enables console logging to console, this is needed to get pre-initalization logging (before config has been loaded)\n");
     printf("  --skip-user-config, won't load user specific config (starts with defaults)\n");
-    printf("  --backend <sdl | ncurses>, override the configuration file backend\n");
+    printf("  --backend <sdl2 | sdl3>, override the configuration file backend\n");
 }
 
 
@@ -529,7 +529,7 @@ void Editor::ConfigureGlobalAPIObjects() {
 }
 
 static std::vector<std::string> glbSupportedBackends = {
-        {"ncurses"},
+/*        {"ncurses"}, */
         {"sdl"},
 };
 
@@ -575,19 +575,21 @@ void Editor::ConfigureSubSystems() {
         SetupSDL();
     } else {
         logger->Debug("Starting NCurses backend");
-        SetupNCurses();
+        logger->Error("Discontinued, exiting!");
+        exit(1);
+        //SetupNCurses();
     }
 }
 
 void Editor::SetupNCurses() {
 
-    auto screenDriver = NCursesScreen::Create();
-    auto kbDriver = NCursesKeyboardDriver::Create();
-    RuntimeConfig::Instance().SetKeyboard(kbDriver);
-    RuntimeConfig::Instance().SetScreen(screenDriver);
-
-    screenDriver->Open();
-    screenDriver->Clear();
+    // auto screenDriver = NCursesScreen::Create();
+    // auto kbDriver = NCursesKeyboardDriver::Create();
+    // RuntimeConfig::Instance().SetKeyboard(kbDriver);
+    // RuntimeConfig::Instance().SetScreen(screenDriver);
+    //
+    // screenDriver->Open();
+    // screenDriver->Clear();
 }
 
 void Editor::SetupSDL() {

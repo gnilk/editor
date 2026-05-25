@@ -58,7 +58,7 @@ KeyPress SDLKeyboardDriver::GetKeyPress() {
                 return kp;
             } else if (kp.modifiers != 0) {
                 static int shiftModifiers = Keyboard::kModifierKeys::kMod_RightShift | Keyboard::kModifierKeys::kMod_LeftShift;
-                kp.key = TranslateScanCode(event.key.keysym.scancode); //  kp.hwEvent.scanCode);
+                kp.key = TranslateScanCode(event.key.keysym.scancode);
                 if ((kp.modifiers & shiftModifiers) && (kp.key != 0)) {
                     logger->Debug("Shift+ASCII - skipping, this is handled by EVENT_TEXT_INPUT");
                     continue;
@@ -66,7 +66,7 @@ KeyPress SDLKeyboardDriver::GetKeyPress() {
                 if (kp.key != 0) {
                     kp.isKeyValid = true;
                 }
-                logger->Debug("  kp, modifiers=%.2x (%d), scancode=%.2x, key=%.2x (%c), ", kp.modifiers, kp.modifiers, kp.hwEvent.scanCode, kp.key, kp.key);
+                logger->Debug("  kp, modifiers=%.2x (%d), scancode=%.2x, key=%.2x (%c), ", kp.modifiers, kp.modifiers, (int)event.key.keysym.scancode, kp.key, kp.key);
                 return kp;
             }
             continue;
@@ -222,8 +222,6 @@ KeyPress SDLKeyboardDriver::TranslateSDLEvent(const SDL_KeyboardEvent &kbdEvent)
     KeyPress keyPress{};
     keyPress.modifiers = TranslateModifiers(SDL_GetModState());
     if (kbdEvent.keysym.sym) {
-//        keyPress.isHwEventValid = true;
-//        keyPress.hwEvent.scanCode = kbdEvent.keysym.scancode;
         if (sdlToKeyCodes.find(kbdEvent.keysym.sym) != sdlToKeyCodes.end()) {
             keyPress.isSpecialKey = true;
             keyPress.isKeyValid = true;

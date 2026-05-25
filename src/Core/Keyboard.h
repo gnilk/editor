@@ -62,23 +62,6 @@ namespace gedit {
             kKeyCode_MaxCodeNum,       // Don't delete this
         } kKeyCode;
 
-        struct HWKeyEvent {
-            uint8_t modifiers;                  // Any modifier flags
-            kKeyCode keyCode = kKeyCode_None;   // Any special non-printable chars
-
-            // charCode represents the RAW ASCII value, this has NOT gone through any translation what-so-ever
-            // This should NOT be used unless the modifier mask is set!
-            // Reason: The terminal input translates and don't forward all combinations to the application
-            // it is therefore 'impossible' to read out certain combinations on certain OS:es (Linux/MacOS)
-            // this applies if you are a terminal program - not if you are a UI application (Swift/X/etc..)
-            uint32_t scanCode = 0;
-            // This holds a basic translation of the scancode to something human readable
-            // IT IS BEST EFFORT and should only be used IFF the modifiers are used and there is no other way
-            // do deduce the actual combination
-            uint8_t translatedScanCode;
-
-            bool isPressedDown;       // true if this is key is pressed down..
-        };
     public:
         // Make this static
         static const std::string &KeyCodeName(const Keyboard::kKeyCode keyCode);

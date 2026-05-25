@@ -12,26 +12,21 @@
 namespace gedit {
     struct KeyPress {
         bool isKeyValid = false;
-        bool isHwEventValid = false;
-        bool isSpecialKey = false;      // This should denote a non-printable char, like: Keyboard::kKeyCode_PageUp
-        Keyboard::HWKeyEvent hwEvent;
-        uint8_t modifiers;
-        char32_t key;
-        int specialKey;                 // if 'isSpecialKey' is true - this contains the kKeyCode from keyboard..
+        bool isSpecialKey = false;      // Denotes a non-printable key (e.g. Keyboard::kKeyCode_PageUp)
+        uint8_t modifiers = 0;
+        char32_t key = 0;
+        int specialKey = 0;             // Valid when isSpecialKey is true; holds a Keyboard::kKeyCode value
 
         bool IsHumanReadable() const {
-            if (isKeyValid) {
-                if (key >= 32) {
-                    return true;
-                }
-            }
-            return false;
+            return isKeyValid && (key >= 32);
         }
+
         bool IsValid() const {
-            return (isKeyValid && isHwEventValid);
+            return isKeyValid;
         }
+
         bool IsAnyValid() const {
-            return (isKeyValid || isHwEventValid || isSpecialKey);
+            return (isKeyValid || isSpecialKey);
         }
 
         bool IsSpecialKeyPressed(Keyboard::kKeyCode keyCode) const {
@@ -40,38 +35,22 @@ namespace gedit {
         }
 
         bool IsShiftPressed() const {
-//            if (!isHwEventValid) return false;
-            if ((modifiers & Keyboard::kMod_LeftShift) || (modifiers & Keyboard::kMod_RightShift)) {
-                return true;
-            }
-            return false;
+            return (modifiers & Keyboard::kMod_LeftShift) || (modifiers & Keyboard::kMod_RightShift);
         }
 
         bool IsCtrlPressed() const {
-//            if (!isHwEventValid) return false;
-            if ((modifiers & Keyboard::kMod_LeftCtrl) || (modifiers & Keyboard::kMod_RightCtrl)) {
-                return true;
-            }
-            return false;
+            return (modifiers & Keyboard::kMod_LeftCtrl) || (modifiers & Keyboard::kMod_RightCtrl);
         }
 
         bool IsCommandPressed() const {
-//            if (!isHwEventValid) return false;
-            if ((modifiers & Keyboard::kMod_LeftCommand) || (modifiers & Keyboard::kMod_RightCommand)) {
-                return true;
-            }
-            return false;
+            return (modifiers & Keyboard::kMod_LeftCommand) || (modifiers & Keyboard::kMod_RightCommand);
         }
 
         bool IsAltPressed() const {
-//            if (!isHwEventValid) return false;
-            if ((modifiers & Keyboard::kMod_LeftAlt) || (modifiers & Keyboard::kMod_RightAlt)) {
-                return true;
-            }
-            return false;
+            return (modifiers & Keyboard::kMod_LeftAlt) || (modifiers & Keyboard::kMod_RightAlt);
         }
-        void DumpToLog();
 
+        void DumpToLog();
     };
 }
 

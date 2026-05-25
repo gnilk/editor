@@ -52,7 +52,6 @@ void MacOSKBEmulator::ReadAndConvert(const std::string &filename) {
         if (v < 31) {
             kp.isKeyValid = true;
             kp.isSpecialKey = true;
-            kp.isHwEventValid = false;
             kp.modifiers = 0;
             if (v == '\n') {
                 kp.specialKey = Keyboard::kKeyCode_Return;

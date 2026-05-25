@@ -7,7 +7,6 @@
 
 #include <cstdint>
 #include "Core/KeyPress.h"
-#include "KeyboardBaseMonitor.h"
 #include <memory>
 
 namespace gedit {
@@ -22,7 +21,6 @@ namespace gedit {
         void SetDebugMode(bool enable) {
             debugMode = enable;
         }
-        virtual KeyboardBaseMonitor *Monitor() { return nullptr; }
 
         virtual void TempFuncReleaseKeyPressFunc() {}
 

@@ -18,9 +18,8 @@ void KeyPress::DumpToLog() {
 
     int nKey = (int)key;
 
-    logger->Debug("isKeyValid: %s, isHWEventValid: %s, isSpecialKey: %s",
+    logger->Debug("isKeyValid: %s, isSpecialKey: %s",
                   isKeyValid?"yes":"no",
-                  isHwEventValid?"yes":"no",
                   isSpecialKey?"yes":"no");
     logger->Debug("Modifiers: 0x%.2x (%c%c%c%c), key: %d (0x%.2x), specialKey: %s (%d, 0x%.2x)",
                   modifiers,

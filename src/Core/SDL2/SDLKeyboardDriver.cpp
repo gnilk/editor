@@ -141,7 +141,7 @@ std::optional<KeyPress> SDLKeyboardDriver::HandleKeyPressEvent(const SDL_Event &
         }
         logger->Debug("  kp, modifiers=%.2x (%d), scancode=%.2x, key=%x (%d), ",
                       kp.modifiers, kp.modifiers,
-                      kp.hwEvent.scanCode,
+                      (int)event.key.keysym.scancode,
                       (int)kp.key, (int)kp.key);
         return kp;
     }

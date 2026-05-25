@@ -44,6 +44,10 @@ namespace gedit {
 
         virtual void OnSizeChanged() { }
         virtual void OnMoved() { }
+
+        // Pump platform events and dispatch keyboard/window/clipboard events.
+        // Must be called from the main thread. Blocks up to ~250 ms waiting for events.
+        virtual void PollEvents() {}
     protected:
     };
 }

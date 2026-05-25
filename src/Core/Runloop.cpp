@@ -89,16 +89,12 @@ void Runloop::DefaultLoop() {
 bool Runloop::ProcessMessageQueue() {
     bool result = false;
 
-    // On macOS we can't run the keyboard (nor screen) on a separate thread - thus we do it here...
-#ifdef GEDIT_MACOS
-    auto keyboardDriver = RuntimeConfig::Instance().GetKeyboard();
-    auto kp = keyboardDriver->GetKeyPress();
-    result = ProcessKeyPress(kp);
-#else
-    if (!incomingQueue->wait(250)) {
-        return result;
-    }
-#endif
+    // Drive the SDL event pump on the main thread — required on macOS (Cocoa) and consistent on Linux.
+    // PollEvents blocks up to ~250 ms via SDL_WaitEventTimeout, translates keyboard events, and posts
+    // them to incomingQueue.  Window and clipboard events are handled inside PollEvents directly.
+    auto screen = RuntimeConfig::Instance().GetScreen();
+    screen->PollEvents();
+
     auto logger = gnilk::Logger::GetLogger("RunLoop");
 
     // Swap so incoming becomes processing

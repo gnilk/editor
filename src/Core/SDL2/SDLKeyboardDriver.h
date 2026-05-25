@@ -7,9 +7,6 @@
 
 #include <SDL2/SDL.h>
 
-#include <atomic>
-#include <thread>
-
 #include "Core/KeyPress.h"
 #include "Core/KeyboardDriverBase.h"
 
@@ -23,18 +20,20 @@ namespace gedit {
 
         bool Initialize() override;
         void Close() override;
-        KeyPress GetKeyPress() override;
+
+        // Called by SDLScreen::PollEvents() for each SDL event.
+        // Returns a KeyPress for SDL_KEYDOWN and SDL_TEXTINPUT events; empty otherwise.
+        std::optional<KeyPress> ProcessEvent(const SDL_Event &event);
+
     protected:
         std::optional<KeyPress> HandleKeyPressEvent(const SDL_Event &event);
         void CheckRemoveTextInputEventForKeyPress(const KeyPress &kp);
         KeyPress TranslateSDLEvent(const SDL_KeyboardEvent &kbdEvent);
         int TranslateScanCode(int scanCode);
-        uint8_t TranslateModifiers(const uint16_t sdlModifiers);
+        uint8_t TranslateModifiers(uint16_t sdlModifiers);
         void HookEditorClipBoard();
     protected:
-        uint32_t sdlDummyEvent;
-        std::atomic_bool bQuitThread = false;
-        std::thread kbdthread;
+        uint32_t sdlDummyEvent = 0;
     };
 }
 

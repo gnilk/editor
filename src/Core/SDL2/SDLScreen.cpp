@@ -17,9 +17,11 @@
 #include "SDLFontManager.h"
 #include "SDLDrawContext.h"
 #include "SDLCursor.h"
+#include "SDLKeyboardDriver.h"
 
 #include "Core/RuntimeConfig.h"
 #include "Core/Config/Config.h"
+#include "Core/Runloop.h"
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_video.h>
@@ -369,4 +371,59 @@ WindowBase *SDLScreen::UpdateWindow(WindowBase *window, const gedit::Rect &rect,
 gedit::Rect SDLScreen::Dimensions() {
     Rect rect(cols, rows);
     return rect;
+}
+
+// PollEvents is the single SDL event pump for all platforms.
+// It must be called from the main thread (Cocoa/SDL requirement on macOS).
+// Blocks up to ~250 ms waiting for events, then drains the queue.
+// Keyboard events are translated by SDLKeyboardDriver and posted to the Runloop.
+// Window and clipboard events are handled directly here.
+void SDLScreen::PollEvents() {
+    SDL_WaitEventTimeout(nullptr, 250);
+
+    auto keyDriver = std::static_pointer_cast<SDLKeyboardDriver>(
+        RuntimeConfig::Instance().GetKeyboard());
+
+    SDL_Event event;
+    while (SDL_PollEvent(&event)) {
+        switch (event.type) {
+            case SDL_QUIT:
+                SDL_Quit();
+                exit(0);
+
+            case SDL_KEYDOWN:
+            case SDL_TEXTINPUT: {
+                auto kp = keyDriver->ProcessEvent(event);
+                if (kp.has_value() && kp->IsAnyValid()) {
+                    KeyPress captured = *kp;
+                    Runloop::PostMessage(0, [captured](uint32_t) {
+                        Runloop::ProcessKeyPress(captured);
+                    });
+                }
+                break;
+            }
+
+            case SDL_WINDOWEVENT:
+                if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
+                    logger->Debug("SDL_EVENT_WINDOW_RESIZED");
+                    OnSizeChanged();
+                } else if (event.window.event == SDL_WINDOWEVENT_MOVED) {
+                    logger->Debug("SDL_EVENT_WINDOW_MOVED");
+                    OnMoved();
+                }
+                break;
+
+            case SDL_CLIPBOARDUPDATE:
+                logger->Debug("SDL_EVENT_CLIPBOARDUPDATE!!!");
+                if (SDL_HasClipboardText()) {
+                    auto clipBoardText = SDL_GetClipboardText();
+                    Editor::Instance().GetClipBoard().CopyFromExternal(clipBoardText);
+                    SDL_free(clipBoardText);
+                }
+                break;
+
+            default:
+                break;
+        }
+    }
 }

@@ -43,6 +43,7 @@ namespace gedit {
         Rect Dimensions() override;
         void OnSizeChanged() override;
         void OnMoved() override;
+        void PollEvents() override;
     private:
         void ComputeScalingFactors();
         void CreateTextures();

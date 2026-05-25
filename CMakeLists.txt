@@ -18,7 +18,7 @@ if (NOT EXISTS ${EDITOR_ASSET_DIR})
     execute_process(COMMAND mkdir ${EDITOR_ASSET_DIR})
 endif ()
 
-option(GEDIT_BUILD_SDL3 "Build SDL3" OFF)
+option(GEDIT_BUILD_SDL3 "Build SDL3" ON)
 option(GEDIT_BUILD_SDL2 "Build SDL2" ON)
 
 #set(SDL_HOME /usr/local)
@@ -108,12 +108,10 @@ if (APPLE)
     set(CMAKE_OSX_SYSROOT /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk)
 
     # Not sure if this is the right way to change the macOS defaults...
-    set(GEDIT_BUILD_SDL3 OFF)
+    set(GEDIT_BUILD_SDL3 ON)
     set(GEDIT_BUILD_SDL2 ON)
 
     add_definitions(-DGEDIT_MACOS)
-
-    include_directories(AFTER SYSTEM /usr/local/include)
 
     ## THIS IS FOR macOS - homebrew installation...
     set(NCURSES_HOME /opt/homebrew/opt/ncurses)
@@ -133,6 +131,7 @@ if (APPLE)
     find_library(CORE_GRAPHICS CoreGraphics)
     find_library(APPKIT AppKit)
 
+
     list(APPEND extlibs ncurses)
     list(APPEND extlibs yaml-cpp)
     list(APPEND extlibs ${CORE_SERVICES})
@@ -145,6 +144,9 @@ if (APPLE)
     add_executable(${CUR_TARGET} MACOSX_BUNDLE ${appsrc} ${ICON_FILE})
     # Now, set some properties to tell CMake where it should go..
     set_source_files_properties(${ICON_FILE} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+
+    list(APPEND includedirs ext/json/single_include)
+
 
     # When changing the Assets/CMake/Info.plist.in - which will rebuild the bundle Info.plist we must
     # reset the cache in macos for this to take effect...
@@ -312,6 +314,9 @@ target_compile_definitions(${CUR_TARGET} PUBLIC GEDIT_VERSION_PATCH=0)
 # Editor
 #
 
+# Shared third-party single-header implementations (one TU for the whole binary)
+list(APPEND editorsrc src/ext/stb/stb_impl.cpp)
+
 # Editor main stuff
 list(APPEND editorsrc src/Core/AssetLoaderBase.cpp src/Core/AssetLoaderBase.h)
 list(APPEND editorsrc src/Core/ClipBoard.cpp src/Core/ClipBoard.h)
@@ -458,8 +463,22 @@ if (GEDIT_BUILD_SDL3)
     list(APPEND editorsrc src/Core/SDL3/SDLKeyboardDriver.cpp src/Core/SDL3/SDLKeyboardDriver.h)
     list(APPEND editorsrc src/Core/SDL3/SDLColor.h)
     list(APPEND editorsrc src/Core/SDL3/SDLCursor.h)
-    # make this optional
-    list(APPEND extlibs SDL3)
+
+    # Locate SDL3 via its CMake config package so we pick up the right installation.
+    # - macOS/Homebrew: SDL3 is keg-only, not in the default search path
+    # - Linux: manual builds typically install to /usr/local
+    if (APPLE)
+        list(APPEND CMAKE_PREFIX_PATH /opt/homebrew/opt/sdl3)
+    elseif (UNIX)
+        list(APPEND CMAKE_PREFIX_PATH /usr/local)
+    endif()
+    find_package(SDL3 REQUIRED CONFIG)
+    message(STATUS "SDL3 found: ${SDL3_VERSION} (${SDL3_DIR})")
+    # Force the correct SDL3 headers to the front of the search path so they
+    # shadow any stale manual install that may live in /usr/local/include.
+    # include_directories(BEFORE SYSTEM SDL3::include)
+    include_directories(SDL3::include)
+    list(APPEND extlibs SDL3::SDL3)
     add_definitions(-DGEDIT_USE_SDL3)
 endif()
 
@@ -485,7 +504,7 @@ endif()
 list(APPEND linkdirs ${NCURSES_HOME}/lib ${YAML_CPP_HOME}/lib)
 list(APPEND linkdirs ${SDL_HOME}/lib)
 
-list(APPEND includedirs ${NCURSES_HOME}/include PUBLIC ${YAML_CPP_HOME}/include ext/gnklog/src src/)
+list(APPEND includedirs ${NCURSES_HOME}/include PUBLIC ${YAML_CPP_HOME}/include ext/gnklog/src src/ src/ext/stb)
 list(APPEND includedirs ${SDL_HOME}/include)
 
 list(APPEND includedirs ${DUKGLUE_HOME}/include)
@@ -493,8 +512,6 @@ list(APPEND includedirs ${DUKTAPE_HOME})
 list(APPEND includedirs ${DUKTAPE_EXTRAS}/module-node)
 list(APPEND includedirs ${FMT_HOME}/include)
 
-
-list(REMOVE_ITEM CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES /usr/local/include)
 
 target_sources(${CUR_TARGET} PUBLIC ${editorsrc} ${jsapi} ${duktape})
 target_link_directories(${CUR_TARGET} PUBLIC ${linkdirs})

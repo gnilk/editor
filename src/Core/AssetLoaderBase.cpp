@@ -37,6 +37,7 @@ bool AssetLoaderBase::AddSearchPath(const std::filesystem::path &path, kLocation
     auto absPath = std::filesystem::absolute(path);
     logger->Debug("Adding absolute: '%s'", absPath.c_str());
     baseSearchPaths.push_back({0, locationType, absPath});
+    SortSearchPaths();
     return true;
 }
 
@@ -67,9 +68,21 @@ AssetLoaderBase::Asset::Ref AssetLoaderBase::LoadTextAsset(const std::string &fi
     return nullptr;
 }
 
+static int locationPriority(AssetLoaderBase::kLocationType t) {
+    switch (t) {
+        case AssetLoaderBase::kLocationType::kSystem: return 0;
+        case AssetLoaderBase::kLocationType::kUser:   return 1;
+        case AssetLoaderBase::kLocationType::kAny:    return 2;
+    }
+    return 2;
+}
+
 void AssetLoaderBase::SortSearchPaths() {
-    std::sort(baseSearchPaths.begin(), baseSearchPaths.end(),[](const SearchPath &a, const SearchPath &b) -> bool {
-        return a.score > b.score;
+    std::sort(baseSearchPaths.begin(), baseSearchPaths.end(), [](const SearchPath &a, const SearchPath &b) -> bool {
+        int pa = locationPriority(a.locationType);
+        int pb = locationPriority(b.locationType);
+        if (pa != pb) return pa < pb;   // system before user before any
+        return a.score > b.score;       // higher hit-count first within same type
     });
 //    auto logger = gnilk::Logger::GetLogger("AssetLoader");
 //    logger->Debug("Resorting paths");

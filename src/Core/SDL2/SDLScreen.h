@@ -4,8 +4,8 @@
 
 //
 
-#ifndef EDITOR_SDLSCREEN_H
-#define EDITOR_SDLSCREEN_H
+#ifndef EDITOR_SDL2_SDLSCREEN_H
+#define EDITOR_SDL2_SDLSCREEN_H
 
 //#include <vector>
 //#include <utility>
@@ -19,7 +19,7 @@
 #include "Core/WindowBase.h"
 #include "Core/Rect.h"
 
-namespace gedit {
+namespace gedit::SDL2 {
     class SDLScreen : public ScreenBase {
     public:
         SDLScreen() = default;
@@ -71,4 +71,4 @@ namespace gedit {
 }
 
 
-#endif //STBMEETSDL_SDLSCREEN_H
+#endif //EDITOR_SDL2_SDLSCREEN_H

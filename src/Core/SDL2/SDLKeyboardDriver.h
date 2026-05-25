@@ -2,15 +2,15 @@
 // Created by gnilk on 29.03.23.
 //
 
-#ifndef EDITOR_SDLKEYBOARDDRIVER_H
-#define EDITOR_SDLKEYBOARDDRIVER_H
+#ifndef EDITOR_SDL2_SDLKEYBOARDDRIVER_H
+#define EDITOR_SDL2_SDLKEYBOARDDRIVER_H
 
 #include <SDL2/SDL.h>
 
 #include "Core/KeyPress.h"
 #include "Core/KeyboardDriverBase.h"
 
-namespace gedit {
+namespace gedit::SDL2 {
     class SDLKeyboardDriver : public KeyboardDriverBase {
     public:
         SDLKeyboardDriver() = default;
@@ -38,4 +38,4 @@ namespace gedit {
 }
 
 
-#endif //EDITOR_SDLKEYBOARDDRIVER_H
+#endif //EDITOR_SDL2_SDLKEYBOARDDRIVER_H

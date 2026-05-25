@@ -22,6 +22,7 @@
 #include "ext/stbttf.h"
 
 using namespace gedit;
+using namespace gedit::SDL3;
 
 static bool glbDebugSDLWindows = false;
 

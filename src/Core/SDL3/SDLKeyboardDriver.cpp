@@ -1,12 +1,14 @@
 //
 // Created by gnilk on 29.03.23.
 //
+#include <map>
+#include <memory>
+#include <unordered_map>
+#include <string>
+
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_keyboard.h>
 #include <SDL3/SDL_scancode.h>
-#include <map>
-#include <unordered_map>
-#include <string>
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_keycode.h>
 
@@ -17,8 +19,12 @@
 #include "SDLKeyboardDriver.h"
 #include "Core/KeyMapping.h"
 #include "Core/RuntimeConfig.h"
+#include "Core/Editor.h"
+#include "Core/TextBuffer.h"
+#include "Core/UnicodeHelper.h"
 
 using namespace gedit;
+using namespace gedit::SDL3;
 
 static int createTranslationTable();
 
@@ -30,64 +36,117 @@ KeyboardDriverBase::Ref SDLKeyboardDriver::Create() {
     return instance;
 }
 
-
 bool SDLKeyboardDriver::Initialize() {
     createTranslationTable();
-    SDL_StartTextInput();
+    sdlDummyEvent = SDL_RegisterEvents(1);
+    // Note: SDL_StartTextInput(window) is called by SDLScreen::Open() once the
+    // window is available — SDL3 requires a window pointer.
+    HookEditorClipBoard();
     return true;
 }
-KeyPress SDLKeyboardDriver::GetKeyPress() {
-    SDL_Event event;
-    auto logger = gnilk::Logger::GetLogger("SDLKeyboardDriver");
 
-    while (SDL_PollEvent(&event)) {
-        if (event.type == SDL_EventType::SDL_EVENT_QUIT) {
-            SDL_Quit();
-            exit(0);
-        } else if (event.type == SDL_EventType::SDL_EVENT_KEY_DOWN) {
-            auto kp =  TranslateSDLEvent(event.key);
+void SDLKeyboardDriver::Close() {
+    // SDL_StopTextInput(window) is called by SDLScreen::Close() which owns the window.
+}
 
-            logger->Debug("SDL_EVENT_KEY_DOWN");
-            logger->Debug("KeyDown event: %d (0x%.x) - sym: %x (%d), scancode: %x (%d)", event.type, event.type,
-                          event.key.keysym.sym, event.key.keysym.sym,
-                          event.key.keysym.scancode, event.key.keysym.scancode);
+//
+// ProcessEvent is the single entry-point called by SDLScreen::PollEvents() for every SDL event.
+// Only SDL_EVENT_KEY_DOWN and SDL_EVENT_TEXT_INPUT produce a KeyPress; everything else returns empty.
+//
+std::optional<KeyPress> SDLKeyboardDriver::ProcessEvent(const SDL_Event &event) {
+    auto logger = gnilk::Logger::GetLogger("SDL3KeyboardDriver");
 
-            if (kp.isSpecialKey) {
-                auto keyName = Keyboard::KeyCodeName(static_cast<Keyboard::kKeyCode>(kp.specialKey));
-                logger->Debug("  special kp, modifiers=%.2x, specialKey=%.2x (%s)", kp.modifiers, kp.specialKey, keyName.c_str());
-                return kp;
-            } else if (kp.modifiers != 0) {
-                static int shiftModifiers = Keyboard::kModifierKeys::kMod_RightShift | Keyboard::kModifierKeys::kMod_LeftShift;
-                kp.key = TranslateScanCode(event.key.keysym.scancode);
-                if ((kp.modifiers & shiftModifiers) && (kp.key != 0)) {
-                    logger->Debug("Shift+ASCII - skipping, this is handled by EVENT_TEXT_INPUT");
-                    continue;
+    if (event.type == SDL_EVENT_KEY_DOWN) {
+        auto kp = HandleKeyPressEvent(event);
+        if (kp.has_value()) {
+            CheckRemoveTextInputEventForKeyPress(*kp);
+        }
+        return kp;
+    }
+
+    if (event.type == SDL_EVENT_TEXT_INPUT) {
+        // Suppress text-input when a control/command/alt modifier is held — those combos
+        // arrive as SDL_EVENT_KEY_DOWN with modifiers set and are handled there.
+        static const auto mask = static_cast<uint8_t>(
+            Keyboard::kMod_LeftCtrl  | Keyboard::kMod_RightCtrl  |
+            Keyboard::kMod_LeftCommand | Keyboard::kMod_RightCommand |
+            Keyboard::kMod_LeftAlt   | Keyboard::kMod_RightAlt);
+
+        auto modifiers = TranslateModifiers(SDL_GetModState());
+        if (modifiers & mask) {
+            logger->Debug("SDL_EVENT:TEXTINPUT, modifier mask (0x%.2x) invalid to regular input - skipping", modifiers);
+            return {};
+        }
+
+        KeyPress kp;
+        kp.isSpecialKey = false;
+        kp.isKeyValid   = true;
+        kp.modifiers    = modifiers;
+        auto u32str = UnicodeHelper::utf8to32(event.text.text);
+        kp.key = u32str[0];
+        logger->Debug("SDL_EVENT:TEXTINPUT, modifiers=%x, event.text.text=%s", modifiers, event.text.text);
+        return kp;
+    }
+
+    return {};
+}
+
+void SDLKeyboardDriver::CheckRemoveTextInputEventForKeyPress(const KeyPress &kp) {
+    SDL_Event peekEvents[16];
+    auto logger = gnilk::Logger::GetLogger("SDL3KeyboardDriver");
+
+    SDL_PumpEvents();
+    int nEvents = SDL_PeepEvents(peekEvents, 16, SDL_PEEKEVENT, SDL_EVENT_FIRST, SDL_EVENT_LAST);
+    if (nEvents < 0) {
+        logger->Error("SDL_PeepEvents, err=%s", SDL_GetError());
+        return;
+    }
+
+    for (int i = 0; i < nEvents; i++) {
+        if (peekEvents[i].type == SDL_EVENT_TEXT_INPUT) {
+            if (peekEvents[i].text.text[0] == kp.key) {
+                SDL_Event dummy;
+                int nGet = SDL_PeepEvents(&dummy, 1, SDL_GETEVENT, SDL_EVENT_TEXT_INPUT, SDL_EVENT_TEXT_INPUT);
+                if (nGet < 0) {
+                    logger->Error("SDL_PeepEvents, err=%s", SDL_GetError());
                 }
-                if (kp.key != 0) {
-                    kp.isKeyValid = true;
-                }
-                logger->Debug("  kp, modifiers=%.2x (%d), scancode=%.2x, key=%.2x (%c), ", kp.modifiers, kp.modifiers, (int)event.key.keysym.scancode, kp.key, kp.key);
-                return kp;
+                return;
             }
-            continue;
-        } else if (event.type == SDL_EventType::SDL_EVENT_TEXT_INPUT) {
-            KeyPress kp;
-            kp.isSpecialKey = false;
-            kp.isKeyValid = true;
-            kp.modifiers = TranslateModifiers(SDL_GetModState());
-            // This seems to work, but I assume that we can get buffered input here
-            // Need to check if there are some flags in SDL to deal with it
-            kp.key = event.text.text[0];
-            logger->Debug("SDL_EVENT_TEXT_INPUT, event.text.text=%s", event.text.text);
-            return kp;
-        }  else if (event.type == SDL_EventType::SDL_EVENT_WINDOW_RESIZED){
-            logger->Debug("SDL_EVENT_WINDOW_RESIZED");
-            RuntimeConfig::Instance().GetScreen()->OnSizeChanged();
-        } else {
-            // Note: Enable this to track any other event we might want...
-            // logger->Debug("Unhandled event: %d (0x%.x)", event.type, event.type);
         }
     }
+}
+
+std::optional<KeyPress> SDLKeyboardDriver::HandleKeyPressEvent(const SDL_Event &event) {
+    auto logger = gnilk::Logger::GetLogger("SDL3KeyboardDriver");
+
+    auto kp = TranslateSDLEvent(event.key);
+
+    // SDL3: key event fields are event.key.key (keycode) and event.key.scancode
+    logger->Debug("KeyDown event: %d (0x%.x) - sym: %x (%d), scancode: %x (%d)", event.type, event.type,
+                  (int)event.key.key, (int)event.key.key,
+                  (int)event.key.scancode, (int)event.key.scancode);
+
+    if (kp.isSpecialKey) {
+        auto keyName = Keyboard::KeyCodeName(static_cast<Keyboard::kKeyCode>(kp.specialKey));
+        logger->Debug("  special kp, modifiers=%.2x, specialKey=%.2x (%s)", kp.modifiers, kp.specialKey, keyName.c_str());
+        return kp;
+    } else if (kp.modifiers != 0) {
+        static int shiftModifiers = Keyboard::kModifierKeys::kMod_RightShift | Keyboard::kModifierKeys::kMod_LeftShift;
+        kp.key = TranslateScanCode(event.key.scancode);
+        if ((kp.modifiers & shiftModifiers) && (kp.key != 0)) {
+            logger->Debug("Shift+ASCII  (%c) - skipping, this is handled by EVENT_TEXT_INPUT", (int)kp.key);
+            return {};
+        }
+        if (kp.key != 0) {
+            kp.isKeyValid = true;
+        }
+        logger->Debug("  kp, modifiers=%.2x (%d), scancode=%.2x, key=%x (%d), ",
+                      kp.modifiers, kp.modifiers,
+                      (int)event.key.scancode,
+                      (int)kp.key, (int)kp.key);
+        return kp;
+    }
+
     return {};
 }
 
@@ -135,24 +194,17 @@ int SDLKeyboardDriver::TranslateScanCode(int scanCode) {
     return scanCodeToAscii[scanCode];
 }
 
-
-//
-// This is based on inspection...
-// Not exactly sure which 'driver' I used to do this...
-//
 static int createTranslationTable() {
     int scanCode = 0x04;
-    for(int i='a';i<='z';i++) {
+    for (int i = 'a'; i <= 'z'; i++) {
         scanCodeToAscii[scanCode] = i;
         asciiShiftTranslationMap[scanCode] = std::toupper(i);
         scanCode++;
     }
 
-    static std::string numbers="1234567890";
-    static std::string numbersShift="!@#$%^&*()";
-    for(int i=0;i<numbers.size();i++) {
+    static std::string numbers = "1234567890";
+    for (size_t i = 0; i < numbers.size(); i++) {
         scanCodeToAscii[scanCode] = numbers[i];
-  //      asciiShiftTranslationMap[scanCode] = numbersShift[i];
         scanCode++;
     }
 
@@ -160,7 +212,7 @@ static int createTranslationTable() {
     scanCodeToAscii[0x2f] = '[';
     scanCodeToAscii[0x30] = ']';
     scanCodeToAscii[0x31] = '\\';
-    scanCodeToAscii[0x32] = '\\';       // Not sure - can't seem to generate this one now...  might have been a typo..
+    scanCodeToAscii[0x32] = '\\';
     scanCodeToAscii[0x33] = ';';
     scanCodeToAscii[0x34] = '\'';
     scanCodeToAscii[0x35] = 0x60; //'`';
@@ -178,100 +230,53 @@ static int createTranslationTable() {
     scanCodeToAscii[0x60] = '8';
     scanCodeToAscii[0x61] = '9';
     scanCodeToAscii[0x62] = '0';
-    scanCodeToAscii[SDL_SCANCODE_KP_DIVIDE] = '/';
-    scanCodeToAscii[SDL_SCANCODE_KP_PLUS] = '+';
-    scanCodeToAscii[SDL_SCANCODE_KP_MINUS] = '-';
+    scanCodeToAscii[SDL_SCANCODE_KP_DIVIDE]   = '/';
+    scanCodeToAscii[SDL_SCANCODE_KP_PLUS]     = '+';
+    scanCodeToAscii[SDL_SCANCODE_KP_MINUS]    = '-';
     scanCodeToAscii[SDL_SCANCODE_KP_MULTIPLY] = '*';
-    scanCodeToAscii[SDL_SCANCODE_KP_COMMA] = '.';
-/*
-    // SHIFT
-    asciiShiftTranslationMap[0x2f] = '{';
-    asciiShiftTranslationMap[0x30] = '}';
-    asciiShiftTranslationMap[0x32] = '|';
-    asciiShiftTranslationMap[0x33] = ':';
-    asciiShiftTranslationMap[0x34] = '"';
-    asciiShiftTranslationMap[0x35] = '~';
-    asciiShiftTranslationMap[0x36] = '<';
-    asciiShiftTranslationMap[0x37] = '>';
-    asciiShiftTranslationMap[0x38] = '?';
-    // Numpad
-    asciiShiftTranslationMap[0x59] = '1';
-    asciiShiftTranslationMap[0x5a] = '2';
-    asciiShiftTranslationMap[0x5b] = '3';
-    asciiShiftTranslationMap[0x5c] = '4';
-    asciiShiftTranslationMap[0x5d] = '5';
-    asciiShiftTranslationMap[0x5e] = '6';
-    asciiShiftTranslationMap[0x5f] = '7';
-    asciiShiftTranslationMap[0x60] = '8';
-    asciiShiftTranslationMap[0x61] = '9';
-    asciiShiftTranslationMap[0x62] = '0';
-    asciiTranslationMap[SDL_SCANCODE_KP_DIVIDE] = '/';
-    asciiTranslationMap[SDL_SCANCODE_KP_PLUS] = '+';
-    asciiTranslationMap[SDL_SCANCODE_KP_MINUS] = '-';
-    asciiTranslationMap[SDL_SCANCODE_KP_MULTIPLY] = '*';
-    asciiTranslationMap[SDL_SCANCODE_KP_COMMA] = '.';       // This should probably be localized...
-
-*/
+    scanCodeToAscii[SDL_SCANCODE_KP_COMMA]    = '.';
 
     return scanCode;
 }
 
-
-
 KeyPress SDLKeyboardDriver::TranslateSDLEvent(const SDL_KeyboardEvent &kbdEvent) {
     KeyPress keyPress{};
     keyPress.modifiers = TranslateModifiers(SDL_GetModState());
-    if (kbdEvent.keysym.sym) {
-        if (sdlToKeyCodes.find(kbdEvent.keysym.sym) != sdlToKeyCodes.end()) {
+    // SDL3: keycode is kbdEvent.key (not kbdEvent.keysym.sym)
+    if (kbdEvent.key) {
+        if (sdlToKeyCodes.find(kbdEvent.key) != sdlToKeyCodes.end()) {
             keyPress.isSpecialKey = true;
-            keyPress.isKeyValid = true;
-            keyPress.specialKey = sdlToKeyCodes[kbdEvent.keysym.sym];
-        }
-        else {
-
-//            // Note: This is very wrong for any other locale than mine...
-//            // This should NOT use scan-codes!!!
-//            if (kbdEvent.keysym.mod & (SDL_KMOD_SHIFT | SDL_KMOD_CAPS)) {
-//                keyPress.key = asciiShiftTranslationMap[kbdEvent.keysym.scancode];
-//            } else {
-//                keyPress.key = asciiTranslationMap[kbdEvent.keysym.scancode];
-//            }
-//            keyPress.isSpecialKey = false;
-//            keyPress.isKeyValid = true;
-
+            keyPress.isKeyValid   = true;
+            keyPress.specialKey   = sdlToKeyCodes[kbdEvent.key];
         }
     }
     return keyPress;
 }
 
-uint8_t SDLKeyboardDriver::TranslateModifiers(const uint16_t sdlModifiers) {
+// SDL3: SDL_Keymod is Uint32 (was Uint16 in SDL2); constants renamed SDL_KMOD_*
+uint8_t SDLKeyboardDriver::TranslateModifiers(SDL_Keymod sdlModifiers) {
     uint8_t modifiers = 0;
-    if (sdlModifiers & SDL_KMOD_LSHIFT) {
-        modifiers |= Keyboard::kMod_LeftShift;
-    }
-    if (sdlModifiers & SDL_KMOD_RSHIFT) {
-        modifiers |= Keyboard::kMod_RightShift;
-    }
-    if (sdlModifiers & SDL_KMOD_LCTRL) {
-        modifiers |= Keyboard::kMod_LeftCtrl;
-    }
-    if (sdlModifiers & SDL_KMOD_RCTRL) {
-        modifiers |= Keyboard::kMod_RightCtrl;
-    }
-    if (sdlModifiers & SDL_KMOD_LALT) {
-        modifiers |= Keyboard::kMod_LeftAlt;
-    }
-    if (sdlModifiers & SDL_KMOD_RALT) {
-        modifiers |= Keyboard::kMod_RightAlt;
-    }
-    if (sdlModifiers & SDL_KMOD_LGUI) {
-        modifiers |= Keyboard::kMod_LeftCommand;
-    }
-    if (sdlModifiers & SDL_KMOD_RGUI) {
-        modifiers |= Keyboard::kMod_RightCommand;
-    }
+    if (sdlModifiers & SDL_KMOD_LSHIFT) modifiers |= Keyboard::kMod_LeftShift;
+    if (sdlModifiers & SDL_KMOD_RSHIFT) modifiers |= Keyboard::kMod_RightShift;
+    if (sdlModifiers & SDL_KMOD_LCTRL)  modifiers |= Keyboard::kMod_LeftCtrl;
+    if (sdlModifiers & SDL_KMOD_RCTRL)  modifiers |= Keyboard::kMod_RightCtrl;
+    if (sdlModifiers & SDL_KMOD_LALT)   modifiers |= Keyboard::kMod_LeftAlt;
+    if (sdlModifiers & SDL_KMOD_RALT)   modifiers |= Keyboard::kMod_RightAlt;
+    if (sdlModifiers & SDL_KMOD_LGUI)   modifiers |= Keyboard::kMod_LeftCommand;
+    if (sdlModifiers & SDL_KMOD_RGUI)   modifiers |= Keyboard::kMod_RightCommand;
     return modifiers;
 }
 
+// We hook the clipboard in the keyboard driver as this is the one processing messages
+void SDLKeyboardDriver::HookEditorClipBoard() {
+    Editor::Instance().GetClipBoard().SetOnUpdateCallback([](ClipBoard::ClipBoardItem::Ref clipBoardItem) {
+        auto dstBuffer = TextBuffer::CreateEmptyBuffer();
+        std::u32string flattenedText;
 
+        clipBoardItem->PasteToBuffer(dstBuffer, {0,0});
+        dstBuffer->Flatten(flattenedText, 0, clipBoardItem->GetLineCount());
 
+        auto utf8str = UnicodeHelper::utf32to8(flattenedText);
+        SDL_SetClipboardText(utf8str.c_str());
+    });
+}

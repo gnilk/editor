@@ -1,5 +1,5 @@
 main:
-  backend: sdl
+  backend: sdl2
   theme: default.theme.yml
   # select the keymap default for the backend
   # 'default' is a reserved word - replace with your file name when forking it...

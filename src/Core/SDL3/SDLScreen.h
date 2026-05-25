@@ -2,8 +2,8 @@
 // Created by gnilk on 29.03.23.
 //
 
-#ifndef EDITOR_SDLSCREEN_H
-#define EDITOR_SDLSCREEN_H
+#ifndef EDITOR_SDL3_SDLSCREEN_H
+#define EDITOR_SDL3_SDLSCREEN_H
 
 //#include <vector>
 //#include <utility>
@@ -16,7 +16,7 @@
 #include "Core/WindowBase.h"
 #include "Core/Rect.h"
 #include "logger.h"
-namespace gedit {
+namespace gedit::SDL3 {
     class SDLScreen : public ScreenBase {
     public:
         SDLScreen() = default;
@@ -29,6 +29,8 @@ namespace gedit {
         void Close() override;
         void Clear() override;
         void Update() override;
+        bool UpdateClipboardData() override;
+
         void CopyToTexture() override;
         void ClearWithTexture() override;
 
@@ -38,10 +40,13 @@ namespace gedit {
         WindowBase *UpdateWindow(WindowBase *window, const gedit::Rect &rect, WindowBase::kWinFlags flags, WindowBase::kWinDecoration decoFlags) override;
         Rect Dimensions() override;
         void OnSizeChanged() override;
+        void OnMoved() override;
+        void PollEvents() override;
     private:
         void ComputeScalingFactors();
         void CreateTextures();
         void LoadFontFromTheme();
+        void UpdateWindowLocation();
 
     private:
         gnilk::ILogger *logger = nullptr;
@@ -62,4 +67,4 @@ namespace gedit {
 }
 
 
-#endif //STBMEETSDL_SDLSCREEN_H
+#endif //EDITOR_SDL3_SDLSCREEN_H

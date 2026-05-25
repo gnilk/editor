@@ -5,6 +5,7 @@
 #include "SDLFontManager.h"
 
 using namespace gedit;
+using namespace gedit::SDL3;
 
 SDLFontManager &SDLFontManager::Instance() {
     static SDLFontManager glbInstance;

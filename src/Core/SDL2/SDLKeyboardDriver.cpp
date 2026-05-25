@@ -24,6 +24,7 @@
 #include "Core/UnicodeHelper.h"
 
 using namespace gedit;
+using namespace gedit::SDL2;
 
 static int createTranslationTable();
 

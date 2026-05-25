@@ -19,6 +19,7 @@
 #include "ext/stbttf.h"
 #include "Core/Editor.h"
 using namespace gedit;
+using namespace gedit::SDL2;
 
 static bool glbDebugSDLWindows = false;
 

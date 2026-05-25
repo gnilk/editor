@@ -6,6 +6,7 @@
 // see: https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
 
 
+#include <algorithm>
 #include <vector>
 #include <string>
 #include <filesystem>
@@ -529,38 +530,34 @@ void Editor::ConfigureGlobalAPIObjects() {
 }
 
 static std::vector<std::string> glbSupportedBackends = {
-/*        {"ncurses"}, */
-        {"sdl"},
+#ifdef GEDIT_USE_SDL3
+        {"sdl3"},
+#endif
+#ifdef GEDIT_USE_SDL2
+        {"sdl2"},
+#endif
 };
 
 extern "C" char ** environ;
 
 void Editor::ConfigureSubSystems() {
-    auto backend = Config::Instance()["main"].GetStr("backend","ncurses");
+    auto backend = Config::Instance()["main"].GetStr("backend", "sdl3");
+    // Normalise to lowercase so "SDL3" and "sdl3" are treated identically
+    std::transform(backend.begin(), backend.end(), backend.begin(), ::tolower);
 
-    // When debugging the actual Bundle on macOS there is no way to launch the app from within CLion
-    // Instead we start from command-line and use 'attach to process' - use this loop to 'wait' for it..
-
-//    bool bWait = true;
-//    while(bWait) {
-//        std::this_thread::yield();
-//    }
-
-    // See if supported, if not - print supported and die...
-    // This is one of the few places where we exit..
+    // See if supported; if not, print the list and exit.
     if (std::find(glbSupportedBackends.begin(), glbSupportedBackends.end(), backend) == glbSupportedBackends.end()) {
-        logger->Error("Unknown backend: '%s'",backend.c_str());
-        fprintf(stderr, "Unknown backend: '%s'\n",backend.c_str());
-        fprintf(stderr, "Supported: \n");
-        for(auto &be : glbSupportedBackends) {
-            fprintf(stderr,"  %s\n", be.c_str());
+        logger->Error("Unknown backend: '%s'", backend.c_str());
+        fprintf(stderr, "Unknown backend: '%s'\n", backend.c_str());
+        fprintf(stderr, "Supported backends:\n");
+        for (auto &be : glbSupportedBackends) {
+            fprintf(stderr, "  %s\n", be.c_str());
         }
         exit(1);
     }
-    logger->Debug("Initialize Graphics Backend");
+    logger->Debug("Initialize Graphics Backend: %s", backend.c_str());
 
     // This could probably be generalized to 'GEDIT_STARTED_FROM_UI' and also set through the Desktop file on Linux
-    // In case the default config specifies a non-graphical backend (like ncurses) we override it...
     bool enforceSDL = false;
     bool isTerminal = XDGEnvironment::Instance().IsTerminalSession();
 #ifdef GEDIT_MACOS
@@ -570,15 +567,29 @@ void Editor::ConfigureSubSystems() {
     }
 #endif
 
-    if (((backend == "sdl") || enforceSDL) && !isTerminal) {
-        logger->Debug("Starting SDL backend");
-        SetupSDL();
-    } else {
-        logger->Debug("Starting NCurses backend");
-        logger->Error("Discontinued, exiting!");
+    if (isTerminal && !enforceSDL) {
+        logger->Error("Terminal session without enforced SDL — NCurses backend discontinued, exiting!");
         exit(1);
-        //SetupNCurses();
     }
+
+#ifdef GEDIT_USE_SDL3
+    if (backend == "sdl3" || (enforceSDL && backend.empty())) {
+        logger->Debug("Starting SDL3 backend");
+        SetupSDL3();
+        return;
+    }
+#endif
+#ifdef GEDIT_USE_SDL2
+    if (backend == "sdl2") {
+        logger->Debug("Starting SDL2 backend");
+        SetupSDL2();
+        return;
+    }
+#endif
+
+    // Should never reach here — the supported-backend check above catches unknown values.
+    logger->Error("No suitable backend for '%s'", backend.c_str());
+    exit(1);
 }
 
 void Editor::SetupNCurses() {
@@ -592,24 +603,49 @@ void Editor::SetupNCurses() {
     // screenDriver->Clear();
 }
 
-void Editor::SetupSDL() {
-    auto screenDriver = SDLScreen::Create();
-
+#ifdef GEDIT_USE_SDL3
+void Editor::SetupSDL3() {
+    auto screenDriver = SDL3::SDLScreen::Create();
     RuntimeConfig::Instance().SetScreen(screenDriver);
-
     screenDriver->Open();
     screenDriver->Clear();
 
-    auto keyDriver = SDLKeyboardDriver::Create();
+    auto keyDriver = SDL3::SDLKeyboardDriver::Create();
     if (keyDriver == nullptr) {
-        logger->Error("Failed to initalize SDL Keyboard driver!");
-        printf("Failed to initalize SDL Keyboard driver!\n");
+        logger->Error("Failed to initialize SDL3 Keyboard driver!");
+        printf("Failed to initialize SDL3 Keyboard driver!\n");
         exit(1);
     }
     RuntimeConfig::Instance().SetKeyboard(keyDriver);
-
-
 }
+#else
+void Editor::SetupSDL3() {
+    logger->Error("SDL3 backend not compiled in!");
+    exit(1);
+}
+#endif
+
+#ifdef GEDIT_USE_SDL2
+void Editor::SetupSDL2() {
+    auto screenDriver = SDL2::SDLScreen::Create();
+    RuntimeConfig::Instance().SetScreen(screenDriver);
+    screenDriver->Open();
+    screenDriver->Clear();
+
+    auto keyDriver = SDL2::SDLKeyboardDriver::Create();
+    if (keyDriver == nullptr) {
+        logger->Error("Failed to initialize SDL2 Keyboard driver!");
+        printf("Failed to initialize SDL2 Keyboard driver!\n");
+        exit(1);
+    }
+    RuntimeConfig::Instance().SetKeyboard(keyDriver);
+}
+#else
+void Editor::SetupSDL2() {
+    logger->Error("SDL2 backend not compiled in!");
+    exit(1);
+}
+#endif
 
 void Editor::RegisterLanguage(const std::string &extension, LanguageBase::Ref languageBase) {
     std::vector<std::string> extensionList;

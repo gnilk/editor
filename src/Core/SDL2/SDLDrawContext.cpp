@@ -12,6 +12,7 @@
 #include "logger.h"
 
 using namespace gedit;
+using namespace gedit::SDL2;
 
 void SDLDrawContext::Clear() const {
     auto &rect = GetRect();

@@ -2,8 +2,8 @@
 // Created by gnilk on 29.03.23.
 //
 
-#ifndef STBMEETSDL_SDLDRAWCONTEXT_H
-#define STBMEETSDL_SDLDRAWCONTEXT_H
+#ifndef STBMEETSDL_SDL3_SDLDRAWCONTEXT_H
+#define STBMEETSDL_SDL3_SDLDRAWCONTEXT_H
 
 #include <SDL3/SDL.h>
 
@@ -12,7 +12,7 @@
 #include "SDLColor.h"
 #include "SDLWindow.h"
 
-namespace gedit {
+namespace gedit::SDL3 {
     class SDLDrawContext : public DrawContext {
         friend SDLWindow;
     public:
@@ -59,4 +59,4 @@ namespace gedit {
 }
 
 
-#endif //STBMEETSDL_SDLDRAWCONTEXT_H
+#endif //STBMEETSDL_SDL3_SDLDRAWCONTEXT_H

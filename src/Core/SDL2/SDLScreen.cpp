@@ -28,16 +28,14 @@
 #include "Core/Editor.h"
 #include "Core/WindowLocation.h"
 
-#define STB_RECT_PACK_IMPLEMENTATION
-#define STB_TRUETYPE_IMPLEMENTATION
-#include "ext/stb_rect_pack.h"
-#include "ext/stb_truetype.h"
-
+#ifndef STBTTF_IMPLEMENTATION
 #define STBTTF_IMPLEMENTATION
+#endif
 #include "ext/stbttf.h"
 
 
 using namespace gedit;
+using namespace gedit::SDL2;
 
 #define WIDTH 1920
 #define HEIGHT 1080

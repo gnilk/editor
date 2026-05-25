@@ -12,6 +12,7 @@
 #include "logger.h"
 
 using namespace gedit;
+using namespace gedit::SDL3;
 
 //
 // Consider having a special function to clear the area

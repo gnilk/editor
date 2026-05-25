@@ -2,12 +2,12 @@
 // Created by gnilk on 29.03.23.
 //
 
-#ifndef STBMEETSDL_SDLTRANSLATE_H
-#define STBMEETSDL_SDLTRANSLATE_H
+#ifndef STBMEETSDL_SDL3_SDLTRANSLATE_H
+#define STBMEETSDL_SDL3_SDLTRANSLATE_H
 
 #include "SDLScreen.h"
 
-namespace gedit {
+namespace gedit::SDL3 {
     //
     // Translation routines, SDL is using pixel but the editor defines everything in row/col
     // Thus, we translate here..
@@ -73,4 +73,4 @@ namespace gedit {
 }
 
 
-#endif //STBMEETSDL_SDLTRANSLATE_H
+#endif //STBMEETSDL_SDL3_SDLTRANSLATE_H

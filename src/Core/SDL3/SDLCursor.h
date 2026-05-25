@@ -2,12 +2,12 @@
 // Created by gnilk on 31.03.23.
 //
 
-#ifndef EDITOR_SDLCURSOR_H
-#define EDITOR_SDLCURSOR_H
+#ifndef EDITOR_SDL3_SDLCURSOR_H
+#define EDITOR_SDL3_SDLCURSOR_H
 #include "Core/Cursor.h"
 #include <functional>
 
-namespace gedit {
+namespace gedit::SDL3 {
     class SDLCursor {
     public:
         using DrawDelegate = std::function<void(const Cursor &cursor)>;
@@ -38,4 +38,4 @@ namespace gedit {
     };
 }
 
-#endif //EDITOR_SDLCURSOR_H
+#endif //EDITOR_SDL3_SDLCURSOR_H

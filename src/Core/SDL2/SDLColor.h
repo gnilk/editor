@@ -2,13 +2,13 @@
 // Created by gnilk on 30.03.23.
 //
 
-#ifndef EDITOR_SDLCOLOR_H
-#define EDITOR_SDLCOLOR_H
+#ifndef EDITOR_SDL2_SDLCOLOR_H
+#define EDITOR_SDL2_SDLCOLOR_H
 
 #include <SDL2/SDL.h>
 #include "Core/ColorRGBA.h"
 
-namespace gedit {
+namespace gedit::SDL2 {
     class SDLColor {
     public:
         SDLColor() = default;
@@ -33,4 +33,4 @@ namespace gedit {
     };
 }
 
-#endif //EDITOR_SDLCOLOR_H
+#endif //EDITOR_SDL2_SDLCOLOR_H

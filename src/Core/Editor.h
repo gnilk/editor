@@ -186,7 +186,8 @@ namespace gedit {
 
         // TEMP - backend configuration
         void SetupNCurses();
-        void SetupSDL();
+        void SetupSDL2();
+        void SetupSDL3();
 
         void ExecutePostScript(std::istream &stream);
     private:

@@ -10,7 +10,7 @@
 
 #include <string>
 #include <SDL3/SDL.h>
-#include <SDL3/SDL_rwops.h>
+#include <SDL3/SDL_iostream.h>
 
 #include "stb_rect_pack.h"
 #include "stb_truetype.h"
@@ -49,7 +49,7 @@ void STBTTF_CloseFont(STBTTF_Font* font);
  * Returns NULL on failure. The font must be deallocated with STBTTF_CloseFont when not used anymore.
  * This function creates a texture atlas with prerendered ASCII characters (32-128).
  */
-STBTTF_Font* STBTTF_OpenFontRW(SDL_Renderer* renderer, SDL_RWops* rw, float size);
+STBTTF_Font* STBTTF_OpenFontRW(SDL_Renderer* renderer, SDL_IOStream* rw, float size);
 
 /* Open a TTF font given a filename, for a given renderer and a given font size.
  * Convinience function which calls STBTTF_OpenFontRW.
@@ -82,12 +82,12 @@ void STBTTF_CloseFont(STBTTF_Font* font) {
     free(font);
 }
 
-STBTTF_Font* STBTTF_OpenFontRW(SDL_Renderer* renderer, SDL_RWops* rw, float size) {
-    Sint64 file_size = SDL_RWsize(rw);
+STBTTF_Font* STBTTF_OpenFontRW(SDL_Renderer* renderer, SDL_IOStream* rw, float size) {
+    Sint64 file_size = SDL_GetIOSize(rw);
     unsigned char* buffer = (unsigned char*)malloc(file_size);
-    auto readResult = SDL_RWread(rw, buffer, file_size);
-    if(readResult < 0) return NULL;
-    SDL_RWclose(rw);
+    auto readResult = SDL_ReadIO(rw, buffer, file_size);
+    if(readResult == 0) return NULL;
+    SDL_CloseIO(rw);
 
     STBTTF_Font* font = (STBTTF_Font*)calloc(sizeof(STBTTF_Font), 1);
     font->minU32CodePoint = 32;
@@ -138,12 +138,12 @@ STBTTF_Font* STBTTF_OpenFontRW(SDL_Renderer* renderer, SDL_RWops* rw, float size
     SDL_SetTextureScaleMode(font->atlas, SDL_SCALEMODE_NEAREST);
 
     Uint32* pixels = (Uint32 *)malloc(font->texture_size * font->texture_size * sizeof(Uint32));
-   static SDL_PixelFormat* format = NULL;
-   if(format == NULL) format = SDL_CreatePixelFormat(SDL_PIXELFORMAT_RGBA32);
+   static const SDL_PixelFormatDetails* format = NULL;
+   if(format == NULL) format = SDL_GetPixelFormatDetails(SDL_PIXELFORMAT_RGBA32);
 
 
     for(int i = 0; i < font->texture_size * font->texture_size; i++) {
-        pixels[i] = SDL_MapRGBA(format, 0xff, 0xff, 0xff, bitmap[i]);
+        pixels[i] = SDL_MapRGBA(format, NULL, 0xff, 0xff, 0xff, bitmap[i]);
     }
     SDL_UpdateTexture(font->atlas, NULL, pixels, font->texture_size * sizeof(Uint32));
     free(pixels);
@@ -163,7 +163,7 @@ STBTTF_Font* STBTTF_OpenFontRW(SDL_Renderer* renderer, SDL_RWops* rw, float size
 }
 
 STBTTF_Font* STBTTF_OpenFont(SDL_Renderer* renderer, const char* filename, float size) {
-    SDL_RWops *rw = SDL_RWFromFile(filename, "rb");
+    SDL_IOStream *rw = SDL_IOFromFile(filename, "rb");
     if(rw == NULL) return NULL;
     return STBTTF_OpenFontRW(renderer, rw, size);
 }

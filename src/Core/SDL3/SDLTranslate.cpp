@@ -5,6 +5,7 @@
 #include "SDLTranslate.h"
 
 using namespace gedit;
+using namespace gedit::SDL3;
 
 float SDLTranslate::fac_x_to_rc = 1;
 float SDLTranslate::fac_y_to_rc = 1;

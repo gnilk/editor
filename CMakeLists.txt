@@ -19,10 +19,10 @@ if (NOT EXISTS ${EDITOR_ASSET_DIR})
 endif ()
 
 option(GEDIT_BUILD_SDL3 "Build SDL3" ON)
-option(GEDIT_BUILD_SDL2 "Build SDL2" ON)
+option(GEDIT_BUILD_SDL2 "Build SDL2" OFF)
 
 #set(SDL_HOME /usr/local)
-set(SDL_HOME /opt/homebrew)
+#set(SDL_HOME /opt/homebrew)
 
 
 list(APPEND appsrc main.cpp)
@@ -106,10 +106,6 @@ set(CUR_TARGET goatedit)
 if (APPLE)
     set(CMAKE_OSX_ARCHITECTURES "x86_64;arm64" CACHE STRING "")
     set(CMAKE_OSX_SYSROOT /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk)
-
-    # Not sure if this is the right way to change the macOS defaults...
-    set(GEDIT_BUILD_SDL3 ON)
-    set(GEDIT_BUILD_SDL2 ON)
 
     add_definitions(-DGEDIT_MACOS)
 
@@ -492,7 +488,22 @@ if (GEDIT_BUILD_SDL2)
     list(APPEND editorsrc src/Core/SDL2/SDLColor.h)
     list(APPEND editorsrc src/Core/SDL2/SDLCursor.h)
     # make this optional
-    list(APPEND extlibs SDL2)
+    #list(APPEND extlibs SDL2)
+    if (APPLE)
+        list(APPEND CMAKE_PREFIX_PATH /opt/homebrew/opt/sdl2)
+    elseif (UNIX)
+        list(APPEND CMAKE_PREFIX_PATH /usr/local)
+    endif()
+    find_package(SDL2 REQUIRED CONFIG)
+    message(STATUS "SDL2 found: ${SDL2_VERSION} (${SDL2_DIR})")
+    message(STATUS "SDL2 include: (${SDL2_INCLUDE_DIRS})")
+    # Force the correct SDL3 headers to the front of the search path so they
+    # shadow any stale manual install that may live in /usr/local/include.
+    # include_directories(BEFORE SYSTEM SDL3::include)
+    #include_directories(SDL2::include)
+    include_directories(${SDL2_INCLUDE_DIRS})
+    list(APPEND extlibs SDL2::SDL2)
+
     add_definitions(-DGEDIT_USE_SDL2)
 endif()
 
@@ -502,10 +513,10 @@ endif()
 
 # include and link directories for project and dependencies
 list(APPEND linkdirs ${NCURSES_HOME}/lib ${YAML_CPP_HOME}/lib)
-list(APPEND linkdirs ${SDL_HOME}/lib)
+#list(APPEND linkdirs ${SDL_HOME}/lib)
 
 list(APPEND includedirs ${NCURSES_HOME}/include PUBLIC ${YAML_CPP_HOME}/include ext/gnklog/src src/ src/ext/stb)
-list(APPEND includedirs ${SDL_HOME}/include)
+#list(APPEND includedirs ${SDL_HOME}/include)
 
 list(APPEND includedirs ${DUKGLUE_HOME}/include)
 list(APPEND includedirs ${DUKTAPE_HOME})

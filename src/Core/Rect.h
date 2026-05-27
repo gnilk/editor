@@ -6,6 +6,7 @@
 #define EDITOR_RECT_H
 
 #include "Point.h"
+#include "fmt/format.h"
 
 namespace gedit {
     // Requires points to be proper (i.e. sorted)..
@@ -104,6 +105,10 @@ namespace gedit {
             p2.x -= dx;
             p1.y += dy;
             p2.y -= dy;
+        }
+        std::string ToString() const {
+            std::string str;
+            return fmt::format( "Rect({},{},{},{})", p1.x, p1.y, Width(), Height());
         }
         // We don't want users to fiddle with this on their onw...
     private:

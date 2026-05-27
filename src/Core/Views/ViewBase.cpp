@@ -98,9 +98,16 @@ void ViewBase::OnActionDecreaseWidth() {
 
 void ViewBase::OnActionIncreaseHeight() {
     auto w = GetHeight();
+    auto logger = gnilk::Logger::GetLogger("Layout");
+    logger->Info("Before:");
+    RuntimeConfig::Instance().GetRootView().DumpLayout(0);
+
     SetHeight(w + 1);
     RuntimeConfig::Instance().GetRootView().Initialize();
     RuntimeConfig::Instance().GetRootView().InvalidateAll();
+
+    logger->Info("After:");
+    RuntimeConfig::Instance().GetRootView().DumpLayout(0);
 }
 
 void ViewBase::OnActionDecreaseHight() {

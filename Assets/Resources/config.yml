@@ -36,6 +36,7 @@ logging:
     - "Dispatcher"
     - "KeyPress"
     - "KeyMapping"
+    - "Layout"
 
 
 foldermonitor:

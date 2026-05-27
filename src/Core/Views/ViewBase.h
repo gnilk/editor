@@ -283,6 +283,11 @@ namespace gedit {
         virtual void DrawViewContents() {
 
         }
+        virtual void DumpLayout(int indent) {
+            for (auto view : subviews) {
+                view->DumpLayout(indent+2);
+            }
+        }
 
     protected:
         virtual void OnActionIncreaseWidth();

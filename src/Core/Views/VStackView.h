@@ -126,7 +126,15 @@ namespace gedit {
             auto parentLayoutHandler = parentView->GetLayoutHandler();
             parentLayoutHandler->OnActionDecreaseHight();
         }
+        void DumpLayout(int indent) override {
+            auto logger = gnilk::Logger::GetLogger("Layout");
 
+            logger->Info("VStackView:");
+            for(auto &view : viewStack) {
+                logger->Inf("  {}: {}", LayoutToString(view.layout), view.view->GetViewRect().ToString());
+            }
+            ViewBase::DumpLayout(indent);
+        }
     protected:
         std::vector<StackableView> viewStack;
     };

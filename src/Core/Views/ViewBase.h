@@ -7,6 +7,10 @@
 
 #include <functional>
 #include <memory>
+#include <cxxabi.h>
+#include <string>
+#include <typeinfo>
+
 
 #include "Core/Rect.h"
 #include "Core/WindowBase.h"
@@ -18,6 +22,8 @@
 #include "Core/KeypressAndActionHandler.h"
 
 namespace gedit {
+
+
 
     class VStackView;
 
@@ -33,6 +39,10 @@ namespace gedit {
             hasExplicitSize = true;
         }
         virtual ~ViewBase() = default;
+
+        std::string GetClassName() const {
+            return Demangle(typeid(*this).name());
+        }
 
         virtual void Initialize() final {
             if (!isInitialized) {
@@ -284,6 +294,10 @@ namespace gedit {
 
         }
         virtual void DumpLayout(int indent) {
+            auto logger = gnilk::Logger::GetLogger("Layout");
+            std::string indentStr(indent, ' ');
+            logger->Inf(indentStr + "{} - {}", GetClassName(), viewRect.ToString());
+
             for (auto view : subviews) {
                 view->DumpLayout(indent+2);
             }
@@ -325,7 +339,20 @@ namespace gedit {
             OnViewInitialized();
         }
 
+        // Helper for 'GetClassName'
+        // Note: This is only supported on GCC/CLang
+        static std::string Demangle(const char* name) {
+            int status = 0;
 
+            std::unique_ptr<char, void(*)(void*)> res{
+                abi::__cxa_demangle(name, nullptr, nullptr, &status),
+                std::free
+            };
+
+            return (status == 0)
+                ? res.get()
+                : name;
+        }
     protected:
         bool hasExplicitSize = false;  // Won't be affected by resize
         bool isActive = false;  // If receiving keyboard/mouse input

@@ -129,9 +129,10 @@ namespace gedit {
         void DumpLayout(int indent) override {
             auto logger = gnilk::Logger::GetLogger("Layout");
 
-            logger->Info("VStackView:");
+            std::string indentStr(indent, ' ');
+            logger->Inf(indentStr + "VStackView:");
             for(auto &view : viewStack) {
-                logger->Inf("  {}: {}", LayoutToString(view.layout), view.view->GetViewRect().ToString());
+                logger->Inf(indentStr+"  {}: {}", LayoutToString(view.layout), view.view->GetViewRect().ToString());
             }
             ViewBase::DumpLayout(indent);
         }

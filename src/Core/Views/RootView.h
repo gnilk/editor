@@ -8,6 +8,7 @@
 #include "logger.h"
 
 #include "Core/RuntimeConfig.h"
+#include "Core/Editor.h"
 #include "ViewBase.h"
 
 namespace gedit {

@@ -188,6 +188,7 @@ namespace gedit {
         void SetupNCurses();
         void SetupSDL2();
         void SetupSDL3();
+        void SetupHeadless();
 
         void ExecutePostScript(std::istream &stream);
     private:

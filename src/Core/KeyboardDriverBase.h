@@ -14,6 +14,7 @@ namespace gedit {
     public:
         using Ref = std::shared_ptr<KeyboardDriverBase>;
     public:
+        virtual ~KeyboardDriverBase() = default;
         virtual bool Initialize() { return false; };
         virtual void Close() {}
 

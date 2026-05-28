@@ -1,5 +1,5 @@
 main:
-  backend: sdl3
+  backend: headless
   theme: default.theme.yml
   # select the keymap default for the backend
   # 'default' is a reserved word - replace with your file name when forking it...
@@ -20,9 +20,9 @@ main:
 #
 logging:
   # supported options: filesink, console
-  logsink: filesink
+  logsink: console
   logfile: goatedit.log
-  disable_all: yes
+  disable_all: no
   # there are many modules - and no way to list them (grep src/Core for "::GetLogger")
   enable_modules:
     - "AssetLoader"

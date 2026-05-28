@@ -27,7 +27,7 @@ void UTestConsole::WriteLine(const std::u32string &str) {
 
 DLL_EXPORT int test_main(ITesting *t) {
     // We need this..
-    static const char *argv[]={"goatedit.app", "--console_logging", "--skip_user_config"};
+    static const char *argv[]={"goatedit.app", "--console-logging", "--skip_user_config"};
     Editor::Instance().Initialize(3, argv);
     // Disable auto-save in unit-testing
     Config::Instance()["main"].SetInt("autosave_timeout_ms", 0);

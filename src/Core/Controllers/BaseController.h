@@ -6,9 +6,9 @@
 #define EDITOR_BASECONTROLLER_H
 
 #include "Core/Line.h"
-#include "Core/Cursor.h"
+#include "Core/Graphics/Cursor.h"
 #include "Core/KeyPress.h"
-//#include "Core/NCurses/NCursesKeyboardDriver.h"
+//#include "Core/Graphics/NCurses/NCursesKeyboardDriver.h"
 
 namespace gedit {
     class BaseController {

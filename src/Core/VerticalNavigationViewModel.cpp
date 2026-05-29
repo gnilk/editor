@@ -10,7 +10,7 @@
 #include "logger.h"
 
 #include "Rect.h"
-#include "Cursor.h"
+#include "Core/Graphics/Cursor.h"
 #include "VerticalNavigationViewModel.h"
 #include <assert.h>
 using namespace gedit;

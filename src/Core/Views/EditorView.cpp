@@ -5,7 +5,7 @@
 
 #include "Core/Action.h"
 #include "Core/Config/Config.h"
-#include "Core/DrawContext.h"
+#include "Core/Graphics/DrawContext.h"
 #include "Core/EditorModel.h"
 #include "Core/KeyMapping.h"
 #include "Core/RuntimeConfig.h"

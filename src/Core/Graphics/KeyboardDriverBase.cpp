@@ -3,7 +3,7 @@
 //
 
 #include "Core/Keyboard.h"
-#include "Core/KeyboardDriverBase.h"
+#include "Core/Graphics/KeyboardDriverBase.h"
 
 using namespace gedit;
 

@@ -4,7 +4,7 @@
 
 #ifndef EDITOR_SDL3_SDLCURSOR_H
 #define EDITOR_SDL3_SDLCURSOR_H
-#include "Core/Cursor.h"
+#include "Core/Graphics/Cursor.h"
 #include <functional>
 
 namespace gedit::SDL3 {

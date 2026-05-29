@@ -5,7 +5,7 @@
 // Created by gnilk on 15.10.23.
 //
 #include <testinterface.h>
-#include "Core/Cursor.h"
+#include "Core/Graphics/Cursor.h"
 #include "Core/VerticalNavigationViewModel.h"
 #include "Core/RuntimeConfig.h"
 

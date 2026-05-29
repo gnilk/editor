@@ -355,7 +355,7 @@ list(APPEND editorsrc src/Core/UnicodeHelper.cpp src/Core/UnicodeHelper.h)
 
 # Keyboard handling
 list(APPEND editorsrc src/Core/KeyPress.cpp src/Core/KeyPress.h)
-list(APPEND editorsrc src/Core/KeyboardDriverBase.cpp src/Core/KeyboardDriverBase.h)
+list(APPEND editorsrc src/Core/Graphics/KeyboardDriverBase.cpp src/Core/Graphics/KeyboardDriverBase.h)
 list(APPEND editorsrc src/Core/Keyboard.cpp src/Core/Keyboard.cpp)
 
 # Config
@@ -368,17 +368,18 @@ list(APPEND editorsrc src/Core/WindowLocation.cpp src/Core/WindowLocation.h)
 list(APPEND editorsrc src/Core/XDGEnvironment.cpp src/Core/XDGEnvironment.h)
 
 
-# Native/Platform
-list(APPEND editorsrc src/Core/NativeWindow.h)
-list(APPEND editorsrc src/Core/ScreenBase.h)
-list(APPEND editorsrc src/Core/WindowBase.h)
+# Graphics base classes
+list(APPEND editorsrc src/Core/Graphics/NativeWindow.h)
+list(APPEND editorsrc src/Core/Graphics/ScreenBase.h)
+list(APPEND editorsrc src/Core/Graphics/WindowBase.h)
+list(APPEND editorsrc src/Core/Graphics/Cursor.h)
 # NCurses
-#list(APPEND editorsrc src/Core/NCurses/NCursesDrawContext.cpp src/Core/NCurses/NCursesDrawContext.h)
-#list(APPEND editorsrc src/Core/NCurses/NCursesKeyboardDriver.cpp src/Core/NCurses/NCursesKeyboardDriver.h)
-#list(APPEND editorsrc src/Core/NCurses/NCursesScreen.cpp src/Core/NCurses/NCursesScreen.h)
-#list(APPEND editorsrc src/Core/NCurses/NCursesWindow.cpp src/Core/NCurses/NCursesWindow.h)
-#list(APPEND editorsrc src/Core/NCurses/NCursesColorRepository.cpp src/Core/NCurses/NCursesColorRepository.h)
-#list(APPEND editorsrc src/Core/NCurses/NCursesTranslate.cpp src/Core/NCurses/NCursesTranslate.h)
+#list(APPEND editorsrc src/Core/Graphics/NCurses/NCursesDrawContext.cpp src/Core/Graphics/NCurses/NCursesDrawContext.h)
+#list(APPEND editorsrc src/Core/Graphics/NCurses/NCursesKeyboardDriver.cpp src/Core/Graphics/NCurses/NCursesKeyboardDriver.h)
+#list(APPEND editorsrc src/Core/Graphics/NCurses/NCursesScreen.cpp src/Core/Graphics/NCurses/NCursesScreen.h)
+#list(APPEND editorsrc src/Core/Graphics/NCurses/NCursesWindow.cpp src/Core/Graphics/NCurses/NCursesWindow.h)
+#list(APPEND editorsrc src/Core/Graphics/NCurses/NCursesColorRepository.cpp src/Core/Graphics/NCurses/NCursesColorRepository.h)
+#list(APPEND editorsrc src/Core/Graphics/NCurses/NCursesTranslate.cpp src/Core/Graphics/NCurses/NCursesTranslate.h)
 # base views
 list(APPEND editorsrc src/Core/Views/HSplitView.h)
 list(APPEND editorsrc src/Core/Views/HStackView.h)
@@ -405,7 +406,7 @@ list(APPEND editorsrc src/Core/Views/TreeView.h)
 list(APPEND editorsrc src/Core/Views/TreeSelectionModal.cpp src/Core/Views/TreeSelectionModal.h)
 
 # draw helper
-list(APPEND editorsrc src/Core/DrawContext.cpp src/Core/DrawContext.h)
+list(APPEND editorsrc src/Core/Graphics/DrawContext.cpp src/Core/Graphics/DrawContext.h)
 list(APPEND editorsrc src/Core/Point.h)
 list(APPEND editorsrc src/Core/Rect.h)
 list(APPEND editorsrc src/Core/LineRender.cpp src/Core/LineRender.h)
@@ -451,14 +452,14 @@ list(APPEND jsapi src/Core/JSEngine/Modules/ViewAPIWrapper.cpp src/Core/JSEngine
 # SDL3 integration, make this optional!
 # test integration files for editor
 if (GEDIT_BUILD_SDL3)
-    list(APPEND editorsrc src/Core/SDL3/SDLScreen.cpp src/Core/SDL3/SDLScreen.h)
-    list(APPEND editorsrc src/Core/SDL3/SDLDrawContext.cpp src/Core/SDL3/SDLDrawContext.h)
-    list(APPEND editorsrc src/Core/SDL3/SDLWindow.cpp src/Core/SDL3/SDLWindow.h)
-    list(APPEND editorsrc src/Core/SDL3/SDLTranslate.cpp src/Core/SDL3/SDLTranslate.h)
-    list(APPEND editorsrc src/Core/SDL3/SDLFontManager.cpp src/Core/SDL3/SDLFontManager.h)
-    list(APPEND editorsrc src/Core/SDL3/SDLKeyboardDriver.cpp src/Core/SDL3/SDLKeyboardDriver.h)
-    list(APPEND editorsrc src/Core/SDL3/SDLColor.h)
-    list(APPEND editorsrc src/Core/SDL3/SDLCursor.h)
+    list(APPEND editorsrc src/Core/Graphics/SDL3/SDLScreen.cpp src/Core/Graphics/SDL3/SDLScreen.h)
+    list(APPEND editorsrc src/Core/Graphics/SDL3/SDLDrawContext.cpp src/Core/Graphics/SDL3/SDLDrawContext.h)
+    list(APPEND editorsrc src/Core/Graphics/SDL3/SDLWindow.cpp src/Core/Graphics/SDL3/SDLWindow.h)
+    list(APPEND editorsrc src/Core/Graphics/SDL3/SDLTranslate.cpp src/Core/Graphics/SDL3/SDLTranslate.h)
+    list(APPEND editorsrc src/Core/Graphics/SDL3/SDLFontManager.cpp src/Core/Graphics/SDL3/SDLFontManager.h)
+    list(APPEND editorsrc src/Core/Graphics/SDL3/SDLKeyboardDriver.cpp src/Core/Graphics/SDL3/SDLKeyboardDriver.h)
+    list(APPEND editorsrc src/Core/Graphics/SDL3/SDLColor.h)
+    list(APPEND editorsrc src/Core/Graphics/SDL3/SDLCursor.h)
 
     # Locate SDL3 via its CMake config package so we pick up the right installation.
     # - macOS/Homebrew: SDL3 is keg-only, not in the default search path
@@ -479,14 +480,14 @@ if (GEDIT_BUILD_SDL3)
 endif()
 
 if (GEDIT_BUILD_SDL2)
-    list(APPEND editorsrc src/Core/SDL2/SDLScreen.cpp src/Core/SDL2/SDLScreen.h)
-    list(APPEND editorsrc src/Core/SDL2/SDLDrawContext.cpp src/Core/SDL2/SDLDrawContext.h)
-    list(APPEND editorsrc src/Core/SDL2/SDLWindow.cpp src/Core/SDL2/SDLWindow.h)
-    list(APPEND editorsrc src/Core/SDL2/SDLTranslate.cpp src/Core/SDL2/SDLTranslate.h)
-    list(APPEND editorsrc src/Core/SDL2/SDLFontManager.cpp src/Core/SDL2/SDLFontManager.h)
-    list(APPEND editorsrc src/Core/SDL2/SDLKeyboardDriver.cpp src/Core/SDL2/SDLKeyboardDriver.h)
-    list(APPEND editorsrc src/Core/SDL2/SDLColor.h)
-    list(APPEND editorsrc src/Core/SDL2/SDLCursor.h)
+    list(APPEND editorsrc src/Core/Graphics/SDL2/SDLScreen.cpp src/Core/Graphics/SDL2/SDLScreen.h)
+    list(APPEND editorsrc src/Core/Graphics/SDL2/SDLDrawContext.cpp src/Core/Graphics/SDL2/SDLDrawContext.h)
+    list(APPEND editorsrc src/Core/Graphics/SDL2/SDLWindow.cpp src/Core/Graphics/SDL2/SDLWindow.h)
+    list(APPEND editorsrc src/Core/Graphics/SDL2/SDLTranslate.cpp src/Core/Graphics/SDL2/SDLTranslate.h)
+    list(APPEND editorsrc src/Core/Graphics/SDL2/SDLFontManager.cpp src/Core/Graphics/SDL2/SDLFontManager.h)
+    list(APPEND editorsrc src/Core/Graphics/SDL2/SDLKeyboardDriver.cpp src/Core/Graphics/SDL2/SDLKeyboardDriver.h)
+    list(APPEND editorsrc src/Core/Graphics/SDL2/SDLColor.h)
+    list(APPEND editorsrc src/Core/Graphics/SDL2/SDLCursor.h)
     # make this optional
     #list(APPEND extlibs SDL2)
     if (APPLE)

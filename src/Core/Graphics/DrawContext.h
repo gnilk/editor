@@ -7,7 +7,7 @@
 
 #include <vector>
 
-#include "Core/NativeWindow.h"
+#include "Core/Graphics/NativeWindow.h"
 #include "Core/Line.h"
 #include "Core/Rect.h"
 #include "Core/Point.h"

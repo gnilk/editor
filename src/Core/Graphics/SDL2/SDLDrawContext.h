@@ -2,25 +2,26 @@
 // Created by gnilk on 29.03.23.
 //
 
-#ifndef STBMEETSDL_SDL3_SDLDRAWCONTEXT_H
-#define STBMEETSDL_SDL3_SDLDRAWCONTEXT_H
+#ifndef STBMEETSDL_SDL2_SDLDRAWCONTEXT_H
+#define STBMEETSDL_SDL2_SDLDRAWCONTEXT_H
 
-#include <SDL3/SDL.h>
+#include <SDL2/SDL.h>
 
-#include "Core/DrawContext.h"
+#include "Core/Graphics/DrawContext.h"
 #include "Core/ColorRGBA.h"
 #include "SDLColor.h"
 #include "SDLWindow.h"
 
-namespace gedit::SDL3 {
+namespace gedit::SDL2 {
     class SDLDrawContext : public DrawContext {
         friend SDLWindow;
     public:
         SDLDrawContext() = default;
         explicit SDLDrawContext(SDL_Renderer *sdlRenderer, SDL_Texture *sdlRenderTarget, Rect clientRect) :
-        DrawContext((NativeWindow)sdlRenderTarget, clientRect),        // Pass this down as the window - sometimes this pointer is checked for validity
+            DrawContext((NativeWindow)sdlRenderTarget, clientRect),
             renderer(sdlRenderer),
-            renderTarget(sdlRenderTarget) {
+            renderTarget(sdlRenderTarget)
+             {        // Pass this down as the window - sometimes this pointer is checked for validity
         }
         virtual ~SDLDrawContext() = default;
 
@@ -37,11 +38,14 @@ namespace gedit::SDL3 {
 
         void DrawStringAt(int x, int y, const std::u32string &str) const override;
         void DrawStringWithAttributesAt(int x, int y, kTextAttributes attrib, const std::u32string &str) const override;
+
     protected:
         void SetRenderColor() const;
         void SetRenderColor(kTextAttributes attrib) const;
+
     protected:
         void DrawLineOverlay(int y, const Overlay &overlay) const;
+
         // Fill Rect use current color
         void FillRect(float x, float y, float w, float h, bool isColorSet = false) const;
         // DrawLine use current color
@@ -52,11 +56,15 @@ namespace gedit::SDL3 {
 
         std::pair<float, float>CoordsToScreen(float x, float y) const;
 
-    private:
+        // tmp
+        bool ClipX(int &x1, int &width) const;
+
+
+            private:
         SDL_Renderer *renderer;
         SDL_Texture *renderTarget;
     };
 }
 
 
-#endif //STBMEETSDL_SDL3_SDLDRAWCONTEXT_H
+#endif //STBMEETSDL_SDL2_SDLDRAWCONTEXT_H

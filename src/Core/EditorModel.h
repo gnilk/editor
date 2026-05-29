@@ -6,7 +6,7 @@
 #define EDITOR_EDITORMODEL_H
 
 #include "Core/TextBuffer.h"
-#include "Core/Cursor.h"
+#include "Core/Graphics/Cursor.h"
 #include "Core/KeyPress.h"
 #include "Core/VerticalNavigationViewModel.h"
 #include "Core/Rect.h"

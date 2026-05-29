@@ -13,9 +13,9 @@
 
 
 #include "Core/Rect.h"
-#include "Core/WindowBase.h"
+#include "Core/Graphics/WindowBase.h"
 #include "Core/KeyPress.h"
-#include "Core/Cursor.h"
+#include "Core/Graphics/Cursor.h"
 #include "Core/Action.h"
 #include "Core/KeyMapping.h"
 #include "Core/SafeQueue.h"

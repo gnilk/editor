@@ -5,9 +5,9 @@
 #ifndef NCWIN_NCURSESWINDOW_H
 #define NCWIN_NCURSESWINDOW_H
 
-#include "Core/WindowBase.h"
+#include "Core/Graphics/WindowBase.h"
 #include "Core/Rect.h"
-#include "Core/Cursor.h"
+#include "Core/Graphics/Cursor.h"
 namespace gedit {
     class NCursesWindow : public WindowBase {
     public:

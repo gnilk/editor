@@ -2,17 +2,17 @@
 // Created by gnilk on 29.03.23.
 //
 
-#ifndef STBMEETSDL_SDL2_SDLWINDOW_H
-#define STBMEETSDL_SDL2_SDLWINDOW_H
+#ifndef STBMEETSDL_SDL3_SDLWINDOW_H
+#define STBMEETSDL_SDL3_SDLWINDOW_H
 
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 
 #include "SDLScreen.h"
-#include "Core/WindowBase.h"
+#include "Core/Graphics/WindowBase.h"
 #include "Core/Rect.h"
-#include "Core/Cursor.h"
+#include "Core/Graphics/Cursor.h"
 
-namespace gedit::SDL2 {
+namespace gedit::SDL3 {
     class SDLWindow : public WindowBase {
         friend SDLScreen;
     public:
@@ -51,4 +51,4 @@ namespace gedit::SDL2 {
 }
 
 
-#endif //STBMEETSDL_SDL2_SDLWINDOW_H
+#endif //STBMEETSDL_SDL3_SDLWINDOW_H

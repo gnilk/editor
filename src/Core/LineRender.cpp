@@ -2,7 +2,7 @@
 // Created by gnilk on 31.03.23.
 //
 
-#include "DrawContext.h"
+#include "Core/Graphics/DrawContext.h"
 #include "logger.h"
 #include "LineRender.h"
 #include "Editor.h"

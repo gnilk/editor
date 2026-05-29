@@ -27,18 +27,18 @@
 
 
 // NCurses backend - Removed
-// #include "Core/NCurses/NCursesScreen.h"
-// #include "Core/NCurses/NCursesKeyboardDriver.h"
+// #include "Core/Graphics/NCurses/NCursesScreen.h"
+// #include "Core/Graphics/NCurses/NCursesKeyboardDriver.h"
 
 // SDL3 backend
 #ifdef GEDIT_USE_SDL3
-#include "Core/SDL3/SDLScreen.h"
-#include "Core/SDL3/SDLKeyboardDriver.h"
+#include "Core/Graphics/SDL3/SDLScreen.h"
+#include "Core/Graphics/SDL3/SDLKeyboardDriver.h"
 #endif
 
 #ifdef GEDIT_USE_SDL2
-#include "Core/SDL2/SDLScreen.h"
-#include "Core/SDL2/SDLKeyboardDriver.h"
+#include "Core/Graphics/SDL2/SDLScreen.h"
+#include "Core/Graphics/SDL2/SDLKeyboardDriver.h"
 #endif
 
 #include <sys/stat.h>
@@ -49,7 +49,7 @@
 #include "Core/UnicodeHelper.h"
 // API stuff
 #include "Core/API/EditorAPI.h"
-#include "Core/Headless/HLScreen.h"
+#include "Core/Graphics/Headless/HLScreen.h"
 
 #if defined(GEDIT_MACOS)
     #include "CoreFoundation/CoreFoundation.h"
@@ -125,6 +125,8 @@ bool Editor::Initialize(int argc, const char **argv) {
     } else {
         logger->Warning("No system install path, assuming dev-env");
     }
+
+
 
     // Add in the user data...
     auto userData = XDGEnvironment::Instance().GetUserDataPath();

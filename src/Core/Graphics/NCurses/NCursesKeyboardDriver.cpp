@@ -5,7 +5,7 @@
 #include <ncurses.h>
 #include "Core/Config/Config.h"
 #include "Core/Keyboard.h"
-#include "Core/NCurses/NCursesKeyboardDriver.h"
+#include "Core/Graphics/NCurses/NCursesKeyboardDriver.h"
 #include "Core/KeyboardBaseMonitor.h"
 
 #ifdef GEDIT_MACOS

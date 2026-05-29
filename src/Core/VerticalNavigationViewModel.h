@@ -8,7 +8,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#include "Cursor.h"
+#include "Core/Graphics/Cursor.h"
 #include "Rect.h"
 
 #include <memory>

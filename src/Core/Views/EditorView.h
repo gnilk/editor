@@ -6,7 +6,7 @@
 #define EDITOR_EDITORVIEW_H
 
 #include "Core/Controllers/EditController.h"
-#include "Core/Cursor.h"
+#include "Core/Graphics/Cursor.h"
 #include "Core/EditorModel.h"
 #include "ViewBase.h"
 

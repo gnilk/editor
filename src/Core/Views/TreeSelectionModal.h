@@ -10,7 +10,7 @@
 #include <memory>
 
 #include "ModalView.h"
-#include "Core/Cursor.h"
+#include "Core/Graphics/Cursor.h"
 #include "Core/VerticalNavigationViewModel.h"
 #include "Core/Views/VStackView.h"
 

@@ -8,7 +8,7 @@
 #include <utility>
 #include <vector>
 #include "Core/Rect.h"
-#include "Core/WindowBase.h"
+#include "Core/Graphics/WindowBase.h"
 #include "Core/ColorRGBA.h"
 
 namespace gedit {

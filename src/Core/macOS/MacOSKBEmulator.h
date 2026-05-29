@@ -5,7 +5,7 @@
 #ifndef GOATEDIT_MACOSKBEMULATOR_H
 #define GOATEDIT_MACOSKBEMULATOR_H
 
-#include "Core/KeyboardDriverBase.h"
+#include "Core/Graphics/KeyboardDriverBase.h"
 #include "Core/DurationTimer.h"
 #include <vector>
 

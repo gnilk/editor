@@ -6,7 +6,7 @@
 #define EDITOR_LANGUAGEBASE_H
 
 #include "LangLineTokenizer.h"
-#include "Core/Cursor.h"
+#include "Core/Graphics/Cursor.h"
 #include "Core/Line.h"
 #include <memory>
 #include "Core/Config/ConfigNode.h"

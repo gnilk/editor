@@ -5,8 +5,8 @@
 #ifndef EDITOR_RUNTIMECONFIG_H
 #define EDITOR_RUNTIMECONFIG_H
 
-#include "Core/ScreenBase.h"
-#include "Core/KeyboardDriverBase.h"
+#include "Core/Graphics/ScreenBase.h"
+#include "Core/Graphics/KeyboardDriverBase.h"
 #include "Core/Views/ViewBase.h"
 #include "Core/EditorModel.h"
 #include "Core/AssetLoaderBase.h"

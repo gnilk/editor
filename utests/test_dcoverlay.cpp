@@ -3,7 +3,7 @@
 //
 
 #include <testinterface.h>
-#include "Core/DrawContext.h"
+#include "Core/Graphics/DrawContext.h"
 
 using namespace gedit;
 

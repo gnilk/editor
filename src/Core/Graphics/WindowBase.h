@@ -10,8 +10,8 @@
 #include <stdint.h>
 
 #include "Core/Rect.h"
-#include "Core/DrawContext.h"
-#include "Core/Cursor.h"
+#include "Core/Graphics/DrawContext.h"
+#include "Core/Graphics/Cursor.h"
 
 namespace gedit {
     class WindowBase {

@@ -7,7 +7,7 @@
 
 #include <vector>
 #include "Core/Line.h"
-#include "Core/DrawContext.h"
+#include "Core/Graphics/DrawContext.h"
 #include "Core/EditorModel.h"   // Because of selection in drawing routines...
 
 namespace gedit {

@@ -4,10 +4,10 @@
 
 #ifndef NCWIN_NCURSESDRAWCONTEXT_H
 #define NCWIN_NCURSESDRAWCONTEXT_H
-#include "Core/DrawContext.h"
+#include "Core/Graphics/DrawContext.h"
 #include "Core/Line.h"
 #include "NCursesColorRepository.h"
-#include "Core/Cursor.h"
+#include "Core/Graphics/Cursor.h"
 namespace gedit {
     class NCursesDrawContext : public DrawContext {
     public:

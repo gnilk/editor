@@ -117,15 +117,11 @@ namespace gedit {
         }
 
     protected:
-        // We don't deal with vertical layout - VStack stack's vertical items stuff next to each other -> grows horizontally
-        void OnActionDecreaseHight() override {
-            auto parentLayoutHandler = parentView->GetLayoutHandler();
-            parentLayoutHandler->OnActionDecreaseHight();
-        }
-        void OnActionIncreaseHeight() override {
-            auto parentLayoutHandler = parentView->GetLayoutHandler();
-            parentLayoutHandler->OnActionDecreaseHight();
-        }
+        // Delegate height and width actions up — VStackView manages vertical stacking only
+        void OnActionIncreaseHeight() override { GetLayoutHandler()->OnActionIncreaseHeight(); }
+        void OnActionDecreaseHeight()  override { GetLayoutHandler()->OnActionDecreaseHeight(); }
+        void OnActionIncreaseWidth()  override { GetLayoutHandler()->OnActionIncreaseWidth(); }
+        void OnActionDecreaseWidth()  override { GetLayoutHandler()->OnActionDecreaseWidth(); }
         void DumpLayout(int indent) override {
             auto logger = gnilk::Logger::GetLogger("Layout");
 

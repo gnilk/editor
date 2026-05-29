@@ -269,7 +269,7 @@ namespace gedit {
         virtual void DumpLayout(int indent) {
             auto logger = gnilk::Logger::GetLogger("Layout");
             std::string indentStr(indent, ' ');
-            logger->Inf(indentStr + "{} - {}", GetClassName(), viewRect.ToString());
+            logger->Inf(indentStr + "{}@{} - {}", GetClassName(), (void *)this, viewRect.ToString());
 
             for (auto view : subviews) {
                 view->DumpLayout(indent+2);
@@ -304,11 +304,11 @@ namespace gedit {
 
         }
 
-    protected:
+    public:
         virtual void OnActionIncreaseWidth();
         virtual void OnActionDecreaseWidth();
         virtual void OnActionIncreaseHeight();
-        virtual void OnActionDecreaseHight();
+        virtual void OnActionDecreaseHeight();
 
     private:
         void DoResize() {

@@ -59,6 +59,29 @@ namespace gedit {
         void ResetContentHeight() override {
             parentView->ResetContentHeight();
         }
+        // Delegate height up — HStackView manages horizontal sizing only
+        void OnActionIncreaseHeight() override { GetLayoutHandler()->OnActionIncreaseHeight(); }
+        void OnActionDecreaseHeight()  override { GetLayoutHandler()->OnActionDecreaseHeight(); }
+
+        // Handle width directly by adjusting fixed-width subviews
+        void OnActionIncreaseWidth() override {
+            for (auto &sv : viewStack) {
+                if (sv.layout == kFixed) {
+                    sv.view->SetWidth(sv.view->GetWidth() + 1);
+                }
+            }
+            RuntimeConfig::Instance().GetRootView().Initialize();
+            RuntimeConfig::Instance().GetRootView().InvalidateAll();
+        }
+        void OnActionDecreaseWidth() override {
+            for (auto &sv : viewStack) {
+                if (sv.layout == kFixed && sv.view->GetWidth() > 5) {
+                    sv.view->SetWidth(sv.view->GetWidth() - 1);
+                }
+            }
+            RuntimeConfig::Instance().GetRootView().Initialize();
+            RuntimeConfig::Instance().GetRootView().InvalidateAll();
+        }
 
             // Recompute the layout - we stack items horizontally (i.e. along the X-axis)
         // This is VERY simple

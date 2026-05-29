@@ -66,7 +66,7 @@ bool ViewBase::OnAction(const KeyPressAction &kpAction) {
             GetLayoutHandler()->OnActionIncreaseHeight();
             break;
         case kAction::kActionDecreaseViewHeight :
-            GetLayoutHandler()->OnActionDecreaseHight();
+            GetLayoutHandler()->OnActionDecreaseHeight();
             break;
         case kAction::kActionMaximizeViewHeight :
             MaximizeContentHeight();
@@ -99,6 +99,9 @@ void ViewBase::OnActionDecreaseWidth() {
 void ViewBase::OnActionIncreaseHeight() {
     auto h = GetHeight();
     auto logger = gnilk::Logger::GetLogger("Layout");
+
+    logger->Debug("IncreaseHeight for %s@%p %d -> %d", GetClassName().c_str(),(void *)this, h, h+1);
+
     logger->Info("Before:");
     RuntimeConfig::Instance().GetRootView().DumpLayout(0);
 
@@ -110,7 +113,7 @@ void ViewBase::OnActionIncreaseHeight() {
     RuntimeConfig::Instance().GetRootView().DumpLayout(0);
 }
 
-void ViewBase::OnActionDecreaseHight() {
+void ViewBase::OnActionDecreaseHeight() {
 
     auto w = GetHeight();
     if (w > 5) {

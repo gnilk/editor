@@ -3,11 +3,19 @@
 //
 /*
  * TO-DO List
- * - Add back SDL3 as it is now stable
- * - Remove NCurses, perhaps write a new one only supporting ANSI terminals (skip terminfo)
- * - Clean-up the 'keyboard' event and skip the stupid macOS driver wannabe thingie in order to support SHIFT-ARROW selection
- * ! Try find out why we dead-lock (I think there is a race condition between syntax highlighting and editing)
+ * - Resize doesn't work (the EditorView), need to consider how this event is handled
  * - Consider rewriting the graphics layer
+ *   - Refactor the graphics layer
+ *   - Move to new file/directory structure (this makes it easier to separate this subsystem from the rest)
+ *      (could consider putting this under "Core/Subsys/Graphics/..."  <- but not sure if it makes sense..
+ *     - Core/Graphics/SDL2
+ *     - Core/Graphics/SDL3
+ *     - Core/Graphics/NCurses  <- deprecated, but still present
+ *     - Core/Graphics/..   <- Base classes and stuff
+ * ! Add back SDL3 as it is now stable
+ * ! Remove NCurses, perhaps write a new one only supporting ANSI terminals (skip terminfo)
+ * ! Clean-up the 'keyboard' event and skip the stupid macOS driver wannabe thingie in order to support SHIFT-ARROW selection
+ * ! Try find out why we dead-lock (I think there is a race condition between syntax highlighting and editing)
  * + Remove 'kLanguageTokenClass' from 'LineAttrib' - this should better be tied to hint about rendering..
  * - Keymap: Add 'inherit' parameter so we can have a global definition of keymappings (like the UI keymappings)
  * - WorkspaceView - Home/End/PageUp/PageDown

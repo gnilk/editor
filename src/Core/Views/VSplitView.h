@@ -81,6 +81,10 @@ namespace gedit {
             UpdateRightViewRect();
         }
 
+        void SetInitialSplitterPos(int pos) {
+            splitterPos = pos;
+        }
+
         void SetLeft(ViewBase *newLeft) {
             leftView = newLeft;
             leftView->SetLayoutHandler(this);

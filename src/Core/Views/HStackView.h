@@ -63,25 +63,9 @@ namespace gedit {
         void OnActionIncreaseHeight() override { GetLayoutHandler()->OnActionIncreaseHeight(); }
         void OnActionDecreaseHeight()  override { GetLayoutHandler()->OnActionDecreaseHeight(); }
 
-        // Handle width directly by adjusting fixed-width subviews
-        void OnActionIncreaseWidth() override {
-            for (auto &sv : viewStack) {
-                if (sv.layout == kFixed) {
-                    sv.view->SetWidth(sv.view->GetWidth() + 1);
-                }
-            }
-            RuntimeConfig::Instance().GetRootView().Initialize();
-            RuntimeConfig::Instance().GetRootView().InvalidateAll();
-        }
-        void OnActionDecreaseWidth() override {
-            for (auto &sv : viewStack) {
-                if (sv.layout == kFixed && sv.view->GetWidth() > 5) {
-                    sv.view->SetWidth(sv.view->GetWidth() - 1);
-                }
-            }
-            RuntimeConfig::Instance().GetRootView().Initialize();
-            RuntimeConfig::Instance().GetRootView().InvalidateAll();
-        }
+        // Delegate width up — HStackView manages horizontal layout only, VSplitView owns resizing
+        void OnActionIncreaseWidth() override { GetLayoutHandler()->OnActionIncreaseWidth(); }
+        void OnActionDecreaseWidth()  override { GetLayoutHandler()->OnActionDecreaseWidth(); }
 
             // Recompute the layout - we stack items horizontally (i.e. along the X-axis)
         // This is VERY simple

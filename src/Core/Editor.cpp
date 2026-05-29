@@ -49,6 +49,7 @@
 #include "Core/UnicodeHelper.h"
 // API stuff
 #include "Core/API/EditorAPI.h"
+#include "Core/Headless/HLScreen.h"
 
 #if defined(GEDIT_MACOS)
     #include "CoreFoundation/CoreFoundation.h"
@@ -416,6 +417,8 @@ void Editor::ConfigureLogger() {
         if (!keepConsoleLogger) {
             gnilk::Logger::RemoveSink("console");
         }
+    } else if (sinkName == "console") {
+        // Console is already the default sink, no need to add it again
     } else {
         logger->Error("Unknown sink: %s", sinkName);
         exit(1);
@@ -536,6 +539,7 @@ static std::vector<std::string> glbSupportedBackends = {
 #ifdef GEDIT_USE_SDL2
         {"sdl2"},
 #endif
+    {"headless"}
 };
 
 extern "C" char ** environ;
@@ -586,6 +590,14 @@ void Editor::ConfigureSubSystems() {
         return;
     }
 #endif
+
+    // Headless mode - allows to run without a graphical interface
+    // also no keyboard support - must inject!
+    if (backend == "headless") {
+        logger->Debug("Starting Headless backend");
+        SetupHeadless();
+        return;
+    }
 
     // Should never reach here — the supported-backend check above catches unknown values.
     logger->Error("No suitable backend for '%s'", backend.c_str());
@@ -647,6 +659,22 @@ void Editor::SetupSDL2() {
 }
 #endif
 
+void Editor::SetupHeadless() {
+    auto screenDriver = HLScreen::Create();
+    RuntimeConfig::Instance().SetScreen(screenDriver);
+    screenDriver->Open();
+    screenDriver->Clear();
+
+    auto keyDriver = HLKeyboardDriver::Create();
+    if (keyDriver == nullptr) {
+        logger->Error("Failed to initialize SDL3 Keyboard driver!");
+        printf("Failed to initialize SDL3 Keyboard driver!\n");
+        exit(1);
+    }
+    RuntimeConfig::Instance().SetKeyboard(keyDriver);
+}
+
+
 void Editor::RegisterLanguage(const std::string &extension, LanguageBase::Ref languageBase) {
     std::vector<std::string> extensionList;
     strutil::split(extensionList, extension.c_str(), '|');
@@ -654,6 +682,8 @@ void Editor::RegisterLanguage(const std::string &extension, LanguageBase::Ref la
         extToLanguages[ext] = languageBase;
     }
 }
+
+
 
 LanguageBase::Ref Editor::GetLanguageForExtension(const std::string &extension) {
 

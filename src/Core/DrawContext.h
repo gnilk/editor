@@ -73,6 +73,8 @@ namespace gedit {
         };
     public:
         DrawContext() = default;
+        explicit DrawContext(Rect clientRect) : rect(clientRect) {
+        }
         explicit DrawContext(NativeWindow window, Rect clientRect) : rect(clientRect), win(window) {
         }
         virtual ~DrawContext() = default;

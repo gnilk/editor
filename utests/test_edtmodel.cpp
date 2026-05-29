@@ -228,9 +228,7 @@ DLL_EXPORT int test_edtmodel_ins_keypress(ITesting *t) {
 
     static KeyPress keyPress = {
             .isKeyValid = true,
-            .isHwEventValid = false,
             .isSpecialKey = false,
-            .hwEvent = {},
             .modifiers = 0,
             .key = U'A',
             .specialKey = 0
@@ -259,9 +257,7 @@ DLL_EXPORT int test_edtmodel_delete_text(ITesting *t) {
 
     static KeyPress keyPressDelete = {
         .isKeyValid = true,
-        .isHwEventValid = false,
         .isSpecialKey = true,
-        .hwEvent = {},
         .modifiers = 0,
         .key = 0,
         .specialKey = Keyboard::kKeyCode_DeleteForward

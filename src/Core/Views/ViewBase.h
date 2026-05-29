@@ -266,6 +266,16 @@ namespace gedit {
             }
             return layoutHandler;
         }
+        virtual void DumpLayout(int indent) {
+            auto logger = gnilk::Logger::GetLogger("Layout");
+            std::string indentStr(indent, ' ');
+            logger->Inf(indentStr + "{} - {}", GetClassName(), viewRect.ToString());
+
+            for (auto view : subviews) {
+                view->DumpLayout(indent+2);
+            }
+        }
+
 
         //
         // Override these to handles, they are called in an event kind of manner on certain actions
@@ -292,15 +302,6 @@ namespace gedit {
         // You should override these to draw your contents
         virtual void DrawViewContents() {
 
-        }
-        virtual void DumpLayout(int indent) {
-            auto logger = gnilk::Logger::GetLogger("Layout");
-            std::string indentStr(indent, ' ');
-            logger->Inf(indentStr + "{} - {}", GetClassName(), viewRect.ToString());
-
-            for (auto view : subviews) {
-                view->DumpLayout(indent+2);
-            }
         }
 
     protected:

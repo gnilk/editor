@@ -5,6 +5,7 @@
 #include "Core/Views/ViewBase.h"
 #include "Core/Views/RootView.h"
 #include "Core/Views/HSplitView.h"
+#include "logger.h"
 
 using namespace gedit;
 
@@ -21,8 +22,6 @@ extern "C" int test_layout_simple(ITesting *t) {
     //TestKeyBoardDriver();
 
 
-    auto logger = gnilk::Logger::GetLogger("main");
-
     auto screen = RuntimeConfig::Instance().GetScreen();
     auto dimensions = screen->Dimensions();
 
@@ -38,20 +37,21 @@ extern "C" int test_layout_simple(ITesting *t) {
     hSplitView.SetUpper(&upperView);
     hSplitView.SetLower(&lowerView);
 
+    auto logger = gnilk::Logger::GetLogger("Layout");
 
-    printf("---------> Initialize\n");
+    logger->Debug("---------> Initialize");
 
     rootView.Initialize();
 
-    printf("---------> Layout after initialize\n");
+    logger->Debug("---------> Layout after initialize");
     rootView.DumpLayout(0);
 
 
-    printf("---------> Change upper height\n");
+    logger->Debug("---------> Change upper height");
     upperView.SetHeight(20);
-    printf("---------> Reinitialize\n");
+    logger->Debug("---------> Reinitialize");
     rootView.Initialize();
-    printf("---------> Layout after initialize\n");
+    logger->Debug("---------> Layout after initialize");
     rootView.DumpLayout(0);
 
     return kTR_Pass;

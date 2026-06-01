@@ -23,6 +23,7 @@ DLL_EXPORT int test_cpplang_reparseregion_bounds_normal(ITesting *t);
 DLL_EXPORT int test_cpplang_reparseregion_bounds_blockcomment(ITesting *t);
 DLL_EXPORT int test_cpplang_reparseregion_classification(ITesting *t);
 DLL_EXPORT int test_cpplang_keywords(ITesting *t);
+DLL_EXPORT int test_cpplang_types(ITesting *t);
 }
 
 DLL_EXPORT int test_cpplang(ITesting *t) {
@@ -348,5 +349,45 @@ DLL_EXPORT int test_cpplang_keywords(ITesting *t) {
 
     printf("ATTRIB: %zu\n", line->Attributes().size());
 
+    return kTR_Pass;
+}
+
+// Verify a representative sample of the extended cppTypes list is classified as kKnownType
+DLL_EXPORT int test_cpplang_types(ITesting *t) {
+    Config::Instance()["main"].SetBool("threaded_syntaxparser", false);
+
+    auto workspace = Editor::Instance().GetWorkspace();
+    TR_ASSERT(t, workspace != nullptr);
+    auto model = workspace->NewModel("test.cpp");
+    TR_ASSERT(t, model != nullptr);
+    auto buffer = model->GetTextBuffer();
+    TR_ASSERT(t, buffer != nullptr);
+
+    // original types
+    buffer->AddLineUTF8("void char int float double");
+    // bool (was missing)
+    buffer->AddLineUTF8("bool");
+    // fixed-width integers
+    buffer->AddLineUTF8("int8_t int16_t int32_t int64_t uint8_t uint16_t uint32_t uint64_t");
+    // size/pointer types
+    buffer->AddLineUTF8("size_t ssize_t ptrdiff_t intptr_t uintptr_t");
+    // fixed-width floats
+    buffer->AddLineUTF8("float16_t float32_t float64_t float128_t bfloat16_t");
+    buffer->Reparse();
+
+    auto checkAllKnownType = [&](int lineIdx) {
+        auto line = buffer->LineAt(lineIdx);
+        for (auto &a : line->Attributes()) {
+            TR_ASSERT(t, a.tokenClass == kLanguageTokenClass::kKnownType);
+        }
+    };
+
+    checkAllKnownType(1);   // void char int float double
+    checkAllKnownType(2);   // bool
+    checkAllKnownType(3);   // fixed-width integers
+    checkAllKnownType(4);   // size/pointer types
+    checkAllKnownType(5);   // fixed-width floats
+
+    TR_ASSERT(t, workspace->RemoveModel(model->GetModel()));
     return kTR_Pass;
 }

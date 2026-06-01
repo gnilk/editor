@@ -12,8 +12,9 @@
 #include "Core/UnicodeHelper.h"
 using namespace gedit;
 
+//
 // state: main (and probably a few others)
-static const std::u32string cppTypes = U"char char8_t char16_t char32_t double float int long short signed unsigned void wchar_t";
+static const std::u32string cppTypes = U"bool char char8_t char16_t char32_t double float float16_t float32_t float64_t float128_t bfloat16_t int long short signed unsigned void wchar_t int8_t int16_t int32_t int64_t uint8_t uint16_t uint32_t uint64_t size_t ssize_t ptrdiff_t intptr_t uintptr_t intmax_t uintmax_t nullptr_t";
 
 // see: https://en.cppreference.com/w/cpp/keyword
 // Perhaps break this up a bit - like C++20, and so forth..

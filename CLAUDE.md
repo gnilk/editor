@@ -36,6 +36,14 @@ Tests use the **trun** (TestRunner v3) framework. The test target builds `utests
 Always use the '--sequential' parameter when running tests during development cycles. This will remove forking from unit-tests which may cause
 log output to be unsynchronized.
 
+The -m and -t options can both takes lists and wildcards, prefix '!' can be used to discard tests/modules and the special token '-' means everything.
+This can be used to control the order of execution:
+-t case1,case2,-,!case5
+Execute case1 and case2 first then all other cases expect case5..
+or
+-t parse*
+execute all cases starting with 'parse'
+
 ```sh
 # Run all tests
 trun cmake-build-debug/libutests.so

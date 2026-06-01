@@ -16,10 +16,12 @@ DLL_EXPORT int test_cpplang(ITesting *t);
 DLL_EXPORT int test_cpplang_include(ITesting *t);
 DLL_EXPORT int test_cpplang_indent(ITesting *t);
 DLL_EXPORT int test_cpplang_elseindent(ITesting *t);
-DLL_EXPORT int test_cpplang_indentcode(ITesting *t);
 DLL_EXPORT int test_cpplang_chardecl(ITesting *t);
 DLL_EXPORT int test_cpplang_charop(ITesting *t);
 DLL_EXPORT int test_cpplang_reparseregion(ITesting *t);
+DLL_EXPORT int test_cpplang_reparseregion_bounds_normal(ITesting *t);
+DLL_EXPORT int test_cpplang_reparseregion_bounds_blockcomment(ITesting *t);
+DLL_EXPORT int test_cpplang_reparseregion_classification(ITesting *t);
 DLL_EXPORT int test_cpplang_keywords(ITesting *t);
 }
 
@@ -53,6 +55,8 @@ DLL_EXPORT int test_cpplang_include(ITesting *t) {
     return kTR_Pass;
 }
 DLL_EXPORT int test_cpplang_indent(ITesting *t) {
+    Config::Instance()["main"].SetBool("threaded_syntaxparser", false);
+
     auto workspace = Editor::Instance().GetWorkspace();
     TR_ASSERT(t, workspace != nullptr);
     auto model = workspace->NewModel("test.cpp");
@@ -70,10 +74,14 @@ DLL_EXPORT int test_cpplang_indent(ITesting *t) {
 
     buffer->Reparse();
 
+    static const int expectedIndent[] = {0, 0, 1, 1, 1, 2, 1, 0};
     for(int i=0;i<buffer->NumLines();i++) {
         auto line = buffer->LineAt(i);
         printf("%d: indent: %d - data: %s\n", i, line->GetIndent(), line->BufferAsUTF8().c_str());
+        TR_ASSERT(t, line->GetIndent() == expectedIndent[i]);
     }
+
+    TR_ASSERT(t, workspace->RemoveModel(model->GetModel()));
 
     return kTR_Pass;
 }
@@ -113,24 +121,6 @@ DLL_EXPORT int test_cpplang_elseindent(ITesting *t) {
 
 }
 
-DLL_EXPORT int test_cpplang_indentcode(ITesting *t) {
-    // Switch of threading for this...
-    Config::Instance()["main"].SetBool("threaded_syntaxparser", false);
-
-    auto model = Editor::Instance().LoadModel("ConvertUTF.c");
-    TR_ASSERT(t, model != nullptr);
-    auto buffer = model->GetTextBuffer();
-    TR_ASSERT(t, buffer != nullptr);
-
-    buffer->Reparse();
-    for(int i=60;i<70;i++) {
-        auto line = buffer->LineAt(i);
-        printf("%d: indent: %d - data: %s\n", i, line->GetIndent(), line->BufferAsUTF8().c_str());
-    }
-
-    return kTR_Pass;
-
-}
 
 
 static void DumpLineData(const Line::Ref line) {
@@ -202,7 +192,11 @@ DLL_EXPORT int test_cpplang_charop(ITesting *t) {
 
 DLL_EXPORT int test_cpplang_reparseregion(ITesting *t) {
     Config::Instance()["main"].SetBool("threaded_syntaxparser", false);
+    return kTR_Pass;
+}
 
+// Verify ComputeParseRegion doesn't extend bounds for plain code (all lines at depth 1)
+DLL_EXPORT int test_cpplang_reparseregion_bounds_normal(ITesting *t) {
     auto workspace = Editor::Instance().GetWorkspace();
     TR_ASSERT(t, workspace != nullptr);
     auto model = workspace->NewModel("test.cpp");
@@ -210,23 +204,101 @@ DLL_EXPORT int test_cpplang_reparseregion(ITesting *t) {
     auto buffer = model->GetTextBuffer();
     TR_ASSERT(t, buffer != nullptr);
 
-//    buffer->AddLineUTF8("char *str=\"apa\"; // comment2");
-    buffer->AddLineUTF8("/*");
-    buffer->AddLineUTF8("this is in a comment");
-    buffer->AddLineUTF8("*/");
-    for(int i=0;i<10;i++) {
+    for (int i = 0; i < 10; i++) {
         buffer->AddLineUTF8("line;");
     }
     buffer->Reparse();
-    printf("NLines before delete = %zu\n", buffer->NumLines());
-    buffer->DeleteLineAt(3);
-    printf("NLines after delete = %zu\n", buffer->NumLines());
-    for(int i=0;i<4;i++) {
-        auto l = buffer->LineAt(i);
-        printf("%d: %s\n", i, UnicodeHelper::utf32toascii(l->Buffer()).c_str());
+
+    auto &tokenizer = buffer->GetLanguage().Tokenizer();
+    const auto &lines = buffer->Lines();
+
+    // Editing at line 6 — no block constructs, so region is just one line in each direction
+    auto [start, end] = tokenizer.ComputeParseRegion(lines, 6, 6);
+    printf("normal bounds: start=%zu end=%zu\n", start, end);
+    TR_ASSERT(t, start == 5);
+    TR_ASSERT(t, end == 7);
+
+    TR_ASSERT(t, workspace->RemoveModel(model->GetModel()));
+    return kTR_Pass;
+}
+
+// Verify ComputeParseRegion extends back/forward to cover an enclosing block comment
+DLL_EXPORT int test_cpplang_reparseregion_bounds_blockcomment(ITesting *t) {
+    auto workspace = Editor::Instance().GetWorkspace();
+    TR_ASSERT(t, workspace != nullptr);
+    auto model = workspace->NewModel("test.cpp");
+    TR_ASSERT(t, model != nullptr);
+    auto buffer = model->GetTextBuffer();
+    TR_ASSERT(t, buffer != nullptr);
+
+    buffer->AddLineUTF8("line;");       // idx 1
+    buffer->AddLineUTF8("line;");       // idx 2
+    buffer->AddLineUTF8("line;");       // idx 3
+    buffer->AddLineUTF8("/*");          // idx 4 — depth 1 at start, 2 after
+    buffer->AddLineUTF8("comment 1");   // idx 5 — depth 2
+    buffer->AddLineUTF8("comment 2");   // idx 6 — depth 2
+    buffer->AddLineUTF8("*/");          // idx 7 — depth 2 at start, 1 after
+    buffer->AddLineUTF8("line;");       // idx 8
+    buffer->AddLineUTF8("line;");       // idx 9
+    buffer->AddLineUTF8("line;");       // idx 10
+    buffer->Reparse();
+
+    auto &tokenizer = buffer->GetLanguage().Tokenizer();
+    const auto &lines = buffer->Lines();
+
+    // Print state stack depths so we can see the parse state
+    for (int i = 0; i < (int)lines.size(); i++) {
+        printf("  line %d depth=%d  '%s'\n", i, lines[i]->GetStateStackDepth(),
+               UnicodeHelper::utf32toascii(lines[i]->Buffer()).c_str());
     }
 
-    buffer->ReparseRegion(1,5);
+    // Editing line 6 (inside comment): region must extend back to line 4 (/* line)
+    // and forward past line 7 (*/) to line 8
+    auto [start, end] = tokenizer.ComputeParseRegion(lines, 6, 6);
+    printf("blockcomment bounds: start=%zu end=%zu\n", start, end);
+    TR_ASSERT(t, start == 4);
+    TR_ASSERT(t, end == 8);
+
+    TR_ASSERT(t, workspace->RemoveModel(model->GetModel()));
+    return kTR_Pass;
+}
+
+// Verify token classifications after parsing a block comment
+DLL_EXPORT int test_cpplang_reparseregion_classification(ITesting *t) {
+    auto workspace = Editor::Instance().GetWorkspace();
+    TR_ASSERT(t, workspace != nullptr);
+    auto model = workspace->NewModel("test.cpp");
+    TR_ASSERT(t, model != nullptr);
+    auto buffer = model->GetTextBuffer();
+    TR_ASSERT(t, buffer != nullptr);
+
+    buffer->AddLineUTF8("/*");          // idx 1
+    buffer->AddLineUTF8("comment");     // idx 2
+    buffer->AddLineUTF8("*/");          // idx 3
+    buffer->AddLineUTF8("line;");       // idx 4
+    buffer->Reparse();
+
+    for (int i = 1; i <= 4; i++) {
+        DumpLineData(buffer->LineAt(i));
+    }
+
+    auto openLine = buffer->LineAt(1);
+    TR_ASSERT(t, openLine->Attributes().size() > 0);
+    TR_ASSERT(t, openLine->Attributes()[0].tokenClass == kLanguageTokenClass::kBlockComment);
+
+    auto commentLine = buffer->LineAt(2);
+    TR_ASSERT(t, commentLine->Attributes().size() > 0);
+    TR_ASSERT(t, commentLine->Attributes()[0].tokenClass == kLanguageTokenClass::kCommentedText);
+
+    auto closeLine = buffer->LineAt(3);
+    TR_ASSERT(t, closeLine->Attributes().size() > 0);
+    TR_ASSERT(t, closeLine->Attributes()[0].tokenClass == kLanguageTokenClass::kBlockComment);
+
+    auto normalLine = buffer->LineAt(4);
+    TR_ASSERT(t, normalLine->Attributes().size() > 0);
+    TR_ASSERT(t, normalLine->Attributes()[0].tokenClass == kLanguageTokenClass::kRegular);
+
+    TR_ASSERT(t, workspace->RemoveModel(model->GetModel()));
     return kTR_Pass;
 }
 

@@ -220,6 +220,10 @@ namespace gedit {
         void ParseLine(const Line::Ref l, int &indentCounter);
         void ParseLineFromState(const std::string &newStartState, Line::Ref line);
 
+        // Returns the actual start/end indices that would be used for a ParseRegion call,
+        // after extending backward/forward to cover complete language constructs (e.g. block comments).
+        std::pair<size_t, size_t> ComputeParseRegion(const std::vector<Line::Ref> &lines, size_t idxStart, size_t idxEnd);
+
         // State management - this is available
         void SetStartState(const std::string &newStartState);
         State::Ref GetOrAddState(const char *stateName);
@@ -235,8 +239,8 @@ namespace gedit {
         std::pair<bool, kLanguageTokenClass> GetNextToken(std::u32string &dst, const std::u32string &strInput, std::u32string::const_iterator &it, const std::u32string::const_iterator &last);
 
 
-        size_t FindParseRegionStart(std::vector<Line::Ref> &lines, size_t idxRegion);
-        size_t FindParseRegionEnd(std::vector<Line::Ref> &lines, size_t idxRegion);
+        size_t FindParseRegionStart(const std::vector<Line::Ref> &lines, size_t idxRegion);
+        size_t FindParseRegionEnd(const std::vector<Line::Ref> &lines, size_t idxRegion);
 
         // State stack manipulation - internal!
         bool PushState(const char *stateName);

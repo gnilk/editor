@@ -14,6 +14,10 @@
 #include "Core/StrUtil.h"
 using namespace gedit;
 
+std::pair<size_t, size_t> LangLineTokenizer::ComputeParseRegion(const std::vector<Line::Ref> &lines, size_t idxStart, size_t idxEnd) {
+    return { FindParseRegionStart(lines, idxStart), FindParseRegionEnd(lines, idxEnd) };
+}
+
 size_t LangLineTokenizer::ParseRegion(std::vector<Line::Ref> &lines, size_t idxLineStart, size_t idxLineEnd) {
     size_t idxStart = FindParseRegionStart(lines, idxLineStart);
     size_t idxEnd = FindParseRegionEnd(lines, idxLineEnd);
@@ -58,7 +62,7 @@ size_t LangLineTokenizer::ParseRegion(std::vector<Line::Ref> &lines, size_t idxL
 
 // Try calculate the start of the parse region given a bunch of lines and the idx to the start for the calculation
 // Seeks backward to find the start of the re-parse region for the syntax highlighter
-size_t LangLineTokenizer::FindParseRegionStart(std::vector<Line::Ref> &lines, size_t idxRegion) {
+size_t LangLineTokenizer::FindParseRegionStart(const std::vector<Line::Ref> &lines, size_t idxRegion) {
     size_t idxStart = 0;
     if ((idxRegion < 5) || (idxRegion > lines.size())) {
         return idxStart;
@@ -74,7 +78,7 @@ size_t LangLineTokenizer::FindParseRegionStart(std::vector<Line::Ref> &lines, si
 }
 
 // Seeks forward to find the end of the re-parse region for the syntax highlighter
-size_t LangLineTokenizer::FindParseRegionEnd(std::vector<Line::Ref> &lines, size_t idxRegion) {
+size_t LangLineTokenizer::FindParseRegionEnd(const std::vector<Line::Ref> &lines, size_t idxRegion) {
     if ((lines.size() < 5) || (idxRegion > lines.size())) {
         return lines.size();
     }

@@ -14,13 +14,8 @@
 #include "Core/StrUtil.h"
 using namespace gedit;
 
-std::pair<size_t, size_t> LangLineTokenizer::ComputeParseRegion(const std::vector<Line::Ref> &lines, size_t idxStart, size_t idxEnd) {
-    return { FindParseRegionStart(lines, idxStart), FindParseRegionEnd(lines, idxEnd) };
-}
-
 size_t LangLineTokenizer::ParseRegion(std::vector<Line::Ref> &lines, size_t idxLineStart, size_t idxLineEnd) {
-    size_t idxStart = FindParseRegionStart(lines, idxLineStart);
-    size_t idxEnd = FindParseRegionEnd(lines, idxLineEnd);
+    auto [idxStart, idxEnd] = ComputeParseRegion(lines, idxLineStart, idxLineEnd);
     auto logger = gnilk::Logger::GetLogger("LangLineRegion");
 
     if (!ResetStateStack()) {
@@ -58,6 +53,10 @@ size_t LangLineTokenizer::ParseRegion(std::vector<Line::Ref> &lines, size_t idxL
         logger->Debug("ParseRegion, done but state stack not empty!!");
     }
     return stateStack.size();
+}
+
+std::pair<size_t, size_t> LangLineTokenizer::ComputeParseRegion(const std::vector<Line::Ref> &lines, size_t idxStart, size_t idxEnd) {
+    return { FindParseRegionStart(lines, idxStart), FindParseRegionEnd(lines, idxEnd) };
 }
 
 // Try calculate the start of the parse region given a bunch of lines and the idx to the start for the calculation

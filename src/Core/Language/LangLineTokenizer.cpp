@@ -385,23 +385,28 @@ std::pair<bool, kLanguageTokenClass> LangLineTokenizer::GetNextToken(std::u32str
     auto strInput = std::u32string_view(itInput, last);
 
 
-    int szOperator = 0;
-    // Check if we have an identifier in the current state
-
     // Classify identifiers which can be attached, like operators: ++token  <- ++ is an attached
+    // Use longest-match: iterate all non-whole-word identifiers and keep the longest match.
+    // This ensures '/*' (2-char, kBlockComment) beats '/' (1-char, kOperator).
+    int bestSz = 0;
+    kLanguageTokenClass bestClass = kLanguageTokenClass::kUnknown;
     for(auto &kvp : currentState->identifiers) {
         if (kvp.second->isWholeWord) {
             continue;
         }
-        if (!kvp.second->IsPartialMatch(strInput, szOperator)) {
+        int sz = 0;
+        if (!kvp.second->IsPartialMatch(strInput, sz)) {
             continue;
         }
-
-        // we had a match, copy it as the token and return the classification..
-        dst = strInput.substr(0, szOperator);
-        itInput += szOperator;
-
-        return {true, kvp.second->classification};
+        if (sz > bestSz) {
+            bestSz = sz;
+            bestClass = kvp.second->classification;
+        }
+    }
+    if (bestSz > 0) {
+        dst = strInput.substr(0, bestSz);
+        itInput += bestSz;
+        return {true, bestClass};
     }
 
     //
@@ -416,13 +421,14 @@ std::pair<bool, kLanguageTokenClass> LangLineTokenizer::GetNextToken(std::u32str
     // always holds true...
     //
 
-    auto chkPostFix= [currentState,&szOperator,&last](const std::u32string::const_iterator it)->bool {
+    int szPostFix = 0;
+    auto chkPostFix= [currentState,&szPostFix,&last](const std::u32string::const_iterator it)->bool {
         // Currentstate can't be null here...
         if (currentState->postfixIdentifiers == nullptr) {
             return false;
         }
         auto str = std::u32string_view(it, last);
-        return currentState->postfixIdentifiers->IsPartialMatch(str, szOperator);
+        return currentState->postfixIdentifiers->IsPartialMatch(str, szPostFix);
     };
 
     dst.clear();
@@ -432,11 +438,12 @@ std::pair<bool, kLanguageTokenClass> LangLineTokenizer::GetNextToken(std::u32str
     }
 
     // classify whole word tokens
+    int szWhole = 0;
     for(auto &kvp : currentState->identifiers) {
         if (!kvp.second->isWholeWord) {
             continue;
         }
-        if (!kvp.second->IsFullMatch(dst, szOperator)) {
+        if (!kvp.second->IsFullMatch(dst, szWhole)) {
             continue;
         }
         return {true, kvp.second->classification};

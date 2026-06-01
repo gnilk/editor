@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <string>
+#include <map>
 #include <unordered_map>
 #include <map>
 #include <stack>
@@ -115,7 +116,7 @@ namespace gedit {
             kLanguageTokenClass regularTokenClass = kLanguageTokenClass::kRegular;
 
             std::string name;
-            std::unordered_map<kLanguageTokenClass, IdentifierList::Ref> identifiers;
+            std::map<kLanguageTokenClass, IdentifierList::Ref> identifiers;
 
             // This list is a list of all allowed postfix tokens
             // Used to abort regular value, like variable names and such (i.e. not language components)
@@ -195,13 +196,16 @@ namespace gedit {
             }
 
             std::pair<bool, kLanguageTokenClass> ClassifyToken(const std::u32string &token) {
+                int bestSz = 0;
+                kLanguageTokenClass bestClass = kLanguageTokenClass::kUnknown;
                 for (auto &kvp: identifiers) {
-                    int dummy;
-                    if (kvp.second->IsPartialMatch(token, dummy)) {
-                        return {true, kvp.second->classification};
+                    int sz = 0;
+                    if (kvp.second->IsPartialMatch(token, sz) && sz > bestSz) {
+                        bestSz = sz;
+                        bestClass = kvp.second->classification;
                     }
                 }
-                return {false, kLanguageTokenClass::kUnknown};
+                return {bestSz > 0, bestClass};
             }
         };  // State
 

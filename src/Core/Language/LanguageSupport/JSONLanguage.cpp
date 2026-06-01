@@ -9,7 +9,7 @@ using namespace gedit;
 // This is JS (JSON is also obviously supported - but will have a few keywords standing out)
 //
 
-static const std::u32string jsonOperatorsFull = U"=== ++ -- == = < > ; . , : [ ] { } \' ( ) \"";
+static const std::u32string jsonOperatorsFull = U"=== ++ -- == = < > ; . , : \' ( ) \"";
 
 // Well, not quite right - but until we have an 'array' classification we use this...
 static const std::u32string jsonObjectStart = U"{";

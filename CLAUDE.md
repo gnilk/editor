@@ -33,6 +33,9 @@ CMake auto-clones missing `ext/` dependencies on first configure (except duktape
 
 Tests use the **trun** (TestRunner v3) framework. The test target builds `utests` as a shared library; `trun` loads and runs it.
 
+Always use the '--sequential' parameter when running tests during development cycles. This will remove forking from unit-tests which may cause
+log output to be unsynchronized.
+
 ```sh
 # Run all tests
 trun cmake-build-debug/libutests.so

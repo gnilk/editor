@@ -598,17 +598,23 @@ if (${CMAKE_VERSION} VERSION_LESS "3.26.0")
 
     add_custom_target(plugins ${CMAKE_COMMAND} -E copy_directory
             ${CMAKE_CURRENT_SOURCE_DIR}/src/Plugins ${EDITOR_ASSET_DIR}/Plugins)
+
+    add_custom_target(testfiles ${CMAKE_COMMAND} -E copy_directory
+            ${CMAKE_CURRENT_SOURCE_DIR}/Assets/testfiles ${CMAKE_CURRENT_BINARY_DIR}/testfiles)
 else()
     add_custom_target(resources ${CMAKE_COMMAND} -E copy_directory_if_different
             ${CMAKE_CURRENT_SOURCE_DIR}/Assets/Resources ${EDITOR_ASSET_DIR})
 
     add_custom_target(plugins ${CMAKE_COMMAND} -E copy_directory_if_different
             ${CMAKE_CURRENT_SOURCE_DIR}/src/Plugins ${EDITOR_ASSET_DIR}/Plugins)
+
+    add_custom_target(testfiles ${CMAKE_COMMAND} -E copy_directory_if_different
+            ${CMAKE_CURRENT_SOURCE_DIR}/Assets/testfiles ${CMAKE_CURRENT_BINARY_DIR}/testfiles)
 endif()
 
 #add_dependencies(${CUR_TARGET} config colors font plugins default_theme resources)
 add_dependencies(${CUR_TARGET} plugins resources)
-add_dependencies(utests plugins resources)
+add_dependencies(utests plugins resources testfiles)
 
 
 #set_target_properties(logtest PROPERTIES EXCLUDE_FROM_ALL true)

@@ -15,8 +15,8 @@
 using namespace gedit;
 
 size_t LangLineTokenizer::ParseRegion(std::vector<Line::Ref> &lines, size_t idxLineStart, size_t idxLineEnd) {
-    size_t idxStart = StartParseRegion(lines, idxLineStart);
-    size_t idxEnd = EndParseRegion(lines, idxLineEnd);
+    size_t idxStart = FindParseRegionStart(lines, idxLineStart);
+    size_t idxEnd = FindParseRegionEnd(lines, idxLineEnd);
     auto logger = gnilk::Logger::GetLogger("LangLineRegion");
 
     if (!ResetStateStack()) {
@@ -57,8 +57,8 @@ size_t LangLineTokenizer::ParseRegion(std::vector<Line::Ref> &lines, size_t idxL
 }
 
 // Try calculate the start of the parse region given a bunch of lines and the idx to the start for the calculation
-// This seeks backwards in the list of lines until the stack-depth is 0
-size_t LangLineTokenizer::StartParseRegion(std::vector<Line::Ref> &lines, size_t idxRegion) {
+// Seeks backward to find the start of the re-parse region for the syntax highlighter
+size_t LangLineTokenizer::FindParseRegionStart(std::vector<Line::Ref> &lines, size_t idxRegion) {
     size_t idxStart = 0;
     if ((idxRegion < 5) || (idxRegion > lines.size())) {
         return idxStart;
@@ -73,11 +73,8 @@ size_t LangLineTokenizer::StartParseRegion(std::vector<Line::Ref> &lines, size_t
     return idxStart;
 }
 
-//
-// Try figure out the end of the parse region by seeking forward and then some
-// Note: THIS DOES NOT WORK for things like enter block-comment at top-of-file
-//
-size_t LangLineTokenizer::EndParseRegion(std::vector<Line::Ref> &lines, size_t idxRegion) {
+// Seeks forward to find the end of the re-parse region for the syntax highlighter
+size_t LangLineTokenizer::FindParseRegionEnd(std::vector<Line::Ref> &lines, size_t idxRegion) {
     if ((lines.size() < 5) || (idxRegion > lines.size())) {
         return lines.size();
     }

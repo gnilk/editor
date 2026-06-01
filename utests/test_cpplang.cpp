@@ -24,6 +24,7 @@ DLL_EXPORT int test_cpplang_reparseregion_bounds_blockcomment(ITesting *t);
 DLL_EXPORT int test_cpplang_reparseregion_classification(ITesting *t);
 DLL_EXPORT int test_cpplang_keywords(ITesting *t);
 DLL_EXPORT int test_cpplang_types(ITesting *t);
+DLL_EXPORT int test_cpplang_keywords_sample(ITesting *t);
 }
 
 DLL_EXPORT int test_cpplang(ITesting *t) {
@@ -387,6 +388,39 @@ DLL_EXPORT int test_cpplang_types(ITesting *t) {
     checkAllKnownType(3);   // fixed-width integers
     checkAllKnownType(4);   // size/pointer types
     checkAllKnownType(5);   // fixed-width floats
+
+    TR_ASSERT(t, workspace->RemoveModel(model->GetModel()));
+    return kTR_Pass;
+}
+
+// Spot-check a spread of keywords across the list, including C++20 additions
+DLL_EXPORT int test_cpplang_keywords_sample(ITesting *t) {
+    Config::Instance()["main"].SetBool("threaded_syntaxparser", false);
+
+    auto workspace = Editor::Instance().GetWorkspace();
+    TR_ASSERT(t, workspace != nullptr);
+    auto model = workspace->NewModel("test.cpp");
+    TR_ASSERT(t, model != nullptr);
+    auto buffer = model->GetTextBuffer();
+    TR_ASSERT(t, buffer != nullptr);
+
+    // consteval (C++20, recently fixed typo), co_yield (coroutines),
+    // requires (concepts), thread_local, reinterpret_cast
+    buffer->AddLineUTF8("consteval co_yield requires thread_local reinterpret_cast");
+    buffer->Reparse();
+
+    auto line = buffer->LineAt(1);
+    printf("keywords_sample attribs: %zu\n", line->Attributes().size());
+    for (auto &a : line->Attributes()) {
+        printf("  idx=%d class=%d\n", a.idxOrigString, (int)a.tokenClass);
+    }
+
+    TR_ASSERT(t, line->Attributes().size() == 5);
+    TR_ASSERT(t, line->Attributes()[0].tokenClass == kLanguageTokenClass::kKeyword);  // consteval
+    TR_ASSERT(t, line->Attributes()[1].tokenClass == kLanguageTokenClass::kKeyword);  // co_yield
+    TR_ASSERT(t, line->Attributes()[2].tokenClass == kLanguageTokenClass::kKeyword);  // requires
+    TR_ASSERT(t, line->Attributes()[3].tokenClass == kLanguageTokenClass::kKeyword);  // thread_local
+    TR_ASSERT(t, line->Attributes()[4].tokenClass == kLanguageTokenClass::kKeyword);  // reinterpret_cast
 
     TR_ASSERT(t, workspace->RemoveModel(model->GetModel()));
     return kTR_Pass;

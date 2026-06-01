@@ -1,5 +1,5 @@
 main:
-  backend: headless
+  backend: sdl
   theme: default.theme.yml
   # select the keymap default for the backend
   # 'default' is a reserved word - replace with your file name when forking it...
@@ -22,21 +22,22 @@ logging:
   # supported options: filesink, console
   logsink: console
   logfile: goatedit.log
-  disable_all: no
+  disable_all: yes
   # there are many modules - and no way to list them (grep src/Core for "::GetLogger")
   enable_modules:
-    - "AssetLoader"
-    - "System"
-    - "RootView"
-    - "EditorModel"
-    - "EditorView"
-    - "EditorController"
-    - "TextBuffer"
-    - "RunLoop"
-    - "Dispatcher"
-    - "KeyPress"
-    - "KeyMapping"
     - "Layout"
+    - "HSplitView"
+#    - "AssetLoader"
+#    - "System"
+#    - "RootView"
+#    - "EditorModel"
+#    - "EditorView"
+#    - "EditorController"
+#    - "TextBuffer"
+#    - "RunLoop"
+#    - "Dispatcher"
+#    - "KeyPress"
+#    - "KeyMapping"
 
 
 foldermonitor:

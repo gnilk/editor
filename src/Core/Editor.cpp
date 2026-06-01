@@ -253,7 +253,7 @@ void Editor::PrintHelpToConsole() {
     printf("Options:\n");
     printf("  --console-logging, enables console logging to console, this is needed to get pre-initalization logging (before config has been loaded)\n");
     printf("  --skip-user-config, won't load user specific config (starts with defaults)\n");
-    printf("  --backend <sdl2 | sdl3>, override the configuration file backend\n");
+    printf("  --backend <sdl | headless>, override the configuration file backend\n");
 }
 
 
@@ -531,11 +531,8 @@ void Editor::ConfigureGlobalAPIObjects() {
 }
 
 static std::vector<std::string> glbSupportedBackends = {
-#ifdef GEDIT_USE_SDL3
-        {"sdl3"},
-#endif
-#ifdef GEDIT_USE_SDL2
-        {"sdl2"},
+#if defined(GEDIT_USE_SDL3) || defined(GEDIT_USE_SDL2)
+        {"sdl"},
 #endif
     {"headless"}
 };
@@ -544,11 +541,10 @@ extern "C" char ** environ;
 
 void Editor::ConfigureSubSystems() {
     auto backend = argBackend.empty()
-        ? Config::Instance()["main"].GetStr("backend", "sdl3")
+        ? Config::Instance()["main"].GetStr("backend", "sdl")
         : argBackend;
-    // Normalise to lowercase so "SDL3" and "sdl3" are treated identically
+    // Normalise to lowercase
     std::transform(backend.begin(), backend.end(), backend.begin(), ::tolower);
-
     // See if supported; if not, print the list and exit.
     if (std::find(glbSupportedBackends.begin(), glbSupportedBackends.end(), backend) == glbSupportedBackends.end()) {
         logger->Error("Unknown backend: '%s'", backend.c_str());
@@ -576,20 +572,20 @@ void Editor::ConfigureSubSystems() {
         exit(1);
     }
 
+    if (backend == "sdl" || enforceSDL) {
 #ifdef GEDIT_USE_SDL3
-    if (backend == "sdl3" || (enforceSDL && backend.empty())) {
         logger->Debug("Starting SDL3 backend");
         SetupSDL3();
         return;
-    }
-#endif
-#ifdef GEDIT_USE_SDL2
-    if (backend == "sdl2") {
+#elif defined(GEDIT_USE_SDL2)
         logger->Debug("Starting SDL2 backend");
         SetupSDL2();
         return;
-    }
+#else
+        logger->Error("Binary built without any SDL backend");
+        exit(1);
 #endif
+    }
 
     // Headless mode - allows to run without a graphical interface
     // also no keyboard support - must inject!

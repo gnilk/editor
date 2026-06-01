@@ -449,8 +449,11 @@ list(APPEND jsapi src/Core/JSEngine/Modules/ViewAPIWrapper.cpp src/Core/JSEngine
 
 
 
-# SDL3 integration, make this optional!
-# test integration files for editor
+# SDL backends are mutually exclusive — only one can be linked at a time.
+if (GEDIT_BUILD_SDL3 AND GEDIT_BUILD_SDL2)
+    message(WARNING "Both GEDIT_BUILD_SDL3 and GEDIT_BUILD_SDL2 are ON — SDL3 takes priority, SDL2 will be ignored.")
+endif()
+
 if (GEDIT_BUILD_SDL3)
     list(APPEND editorsrc src/Core/Graphics/SDL3/SDLScreen.cpp src/Core/Graphics/SDL3/SDLScreen.h)
     list(APPEND editorsrc src/Core/Graphics/SDL3/SDLDrawContext.cpp src/Core/Graphics/SDL3/SDLDrawContext.h)
@@ -477,9 +480,8 @@ if (GEDIT_BUILD_SDL3)
     include_directories(SDL3::include)
     list(APPEND extlibs SDL3::SDL3)
     add_definitions(-DGEDIT_USE_SDL3)
-endif()
 
-if (GEDIT_BUILD_SDL2)
+elseif (GEDIT_BUILD_SDL2)
     list(APPEND editorsrc src/Core/Graphics/SDL2/SDLScreen.cpp src/Core/Graphics/SDL2/SDLScreen.h)
     list(APPEND editorsrc src/Core/Graphics/SDL2/SDLDrawContext.cpp src/Core/Graphics/SDL2/SDLDrawContext.h)
     list(APPEND editorsrc src/Core/Graphics/SDL2/SDLWindow.cpp src/Core/Graphics/SDL2/SDLWindow.h)

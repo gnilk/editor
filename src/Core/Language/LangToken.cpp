@@ -51,7 +51,6 @@ void LangToken::ToLineAttrib(std::vector<gedit::Line::LineAttrib> &outAttributes
     if ((tokens.size() == 0) || (tokens[0].idxOrigStr > 0)) {
         gedit::Line::LineAttrib attrib;
         attrib.idxOrigString = 0;
-        //attrib.tokenClass = kLanguageTokenClass::kRegular;
         outAttributes.push_back(attrib);
     }
     // Now do the rest...

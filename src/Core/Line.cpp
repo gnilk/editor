@@ -24,7 +24,7 @@ Line::LineAttrib::LineAttrib() {
     // Set these to default..
     backgroundColor = theme->GetGlobalColors().GetColor("background");
     foregroundColor = theme->GetGlobalColors().GetColor("foreground");
-
+    tokenClass = kLanguageTokenClass::kRegular;
 }
 
 Line::Line(const std::u32string &data) {

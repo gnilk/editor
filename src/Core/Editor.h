@@ -169,7 +169,7 @@ namespace gedit {
     protected:
         bool OpenModelOrFolder(const std::string &fileOrFolder);
 
-        void PreParseArguments(int argc, const char **argv);
+        void ParseArguments(int argc, const char **argv);
 
 
         bool TryLoadConfig(const char *configFile);
@@ -198,6 +198,8 @@ namespace gedit {
         gnilk::ILogger *logger = nullptr;
         bool keepConsoleLogger = false;
         bool loadUserConfig = true;
+        std::string argBackend;
+        std::vector<std::string> pendingFiles;
 
         // Holds all open models/buffers in the text editor
         std::vector<EditorModel::Ref> openModels = {};

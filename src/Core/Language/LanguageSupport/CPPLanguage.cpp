@@ -18,7 +18,7 @@ static const std::u32string cppTypes = U"bool char char8_t char16_t char32_t dou
 
 // see: https://en.cppreference.com/w/cpp/keyword
 // Perhaps break this up a bit - like C++20, and so forth..
-static const std::u32string cppKeywords = U"alignas alignof and and_eq asm auto bitand bitor bool break case catch class compl concept const conteval constexpr constinit const_cast continue co_await co_return co_yield decltype default delete do dynamic_cast else enum explicit export extern false final for friend goto if import inline module mutable namespace new noexcept not not_eq nullptr operator or or_eq override private protected public reflexpr register reinterpret_cast requires return sizeof static static_assert static_cast struct switch synchronized template this thread_local throw true try typedef typeid typename union using virtual volatile while xor xor_eq";
+static const std::u32string cppKeywords = U"alignas alignof and and_eq asm auto bitand bitor bool break case catch class compl concept const consteval constexpr constinit const_cast continue co_await co_return co_yield decltype default delete do dynamic_cast else enum explicit export extern false final for friend goto if import inline module mutable namespace new noexcept not not_eq nullptr operator or or_eq override private protected public register reinterpret_cast requires return sizeof static static_assert static_cast struct switch template this thread_local throw true try typedef typeid typename union using virtual volatile while xor xor_eq";
 
 // see: https://en.cppreference.com/w/cpp/language/punctuators
 // Note: Multi char operators must be declared first...

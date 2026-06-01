@@ -28,8 +28,11 @@ namespace gedit {
                 splitterPos = GetContentRect().Height()/2;
             }
 
-            UpdateLowerViewRect();
             UpdateUpperViewRect();
+            UpdateLowerViewRect();
+
+            if (upperView) knownUpperHeight = upperView->GetHeight();
+            if (lowerView) knownLowerHeight = lowerView->GetHeight();
         }
 
         void ReInitView() override {
@@ -42,8 +45,17 @@ namespace gedit {
                 splitterPos = GetContentRect().Height()/2;
             }
 
-            UpdateLowerViewRect();
+            if (upperView && knownUpperHeight > 0 && upperView->GetHeight() != knownUpperHeight) {
+                splitterPos = upperView->GetHeight();
+            } else if (lowerView && knownLowerHeight > 0 && lowerView->GetHeight() != knownLowerHeight) {
+                splitterPos = GetContentRect().Height() - lowerView->GetHeight() - 1;
+            }
+
             UpdateUpperViewRect();
+            UpdateLowerViewRect();
+
+            if (upperView) knownUpperHeight = upperView->GetHeight();
+            if (lowerView) knownLowerHeight = lowerView->GetHeight();
         }
 
         void SetSplitterPos(int newSplitterPos) {
@@ -242,7 +254,7 @@ namespace gedit {
             splitterPosBeforeReset = pos;
             SetSplitterPos(pos);
         }
-        void OnActionDecreaseHight() override {
+        void OnActionDecreaseHeight() override {
             int delta = 0;
             if (lowerView->IsActive()) {
                 // lower wants to increase..
@@ -261,6 +273,9 @@ namespace gedit {
         int splitterPosBeforeReset = -1;
         bool bWasUseFullView = false;
         bool bUseFullView = false;  // This affects the computation of full view semantics
+
+        int knownUpperHeight = 0;
+        int knownLowerHeight = 0;
 
         ViewBase *upperView = nullptr;
         ViewBase *lowerView = nullptr;

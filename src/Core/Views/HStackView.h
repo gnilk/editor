@@ -59,6 +59,13 @@ namespace gedit {
         void ResetContentHeight() override {
             parentView->ResetContentHeight();
         }
+        // Delegate height up — HStackView manages horizontal sizing only
+        void OnActionIncreaseHeight() override { GetLayoutHandler()->OnActionIncreaseHeight(); }
+        void OnActionDecreaseHeight()  override { GetLayoutHandler()->OnActionDecreaseHeight(); }
+
+        // Delegate width up — HStackView manages horizontal layout only, VSplitView owns resizing
+        void OnActionIncreaseWidth() override { GetLayoutHandler()->OnActionIncreaseWidth(); }
+        void OnActionDecreaseWidth()  override { GetLayoutHandler()->OnActionDecreaseWidth(); }
 
             // Recompute the layout - we stack items horizontally (i.e. along the X-axis)
         // This is VERY simple

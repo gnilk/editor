@@ -39,20 +39,20 @@ extern "C" int test_layout_simple(ITesting *t) {
 
     auto logger = gnilk::Logger::GetLogger("Layout");
 
-    logger->Debug("---------> Initialize");
 
     rootView.Initialize();
+    auto h = upperView.GetHeight();
+    TR_ASSERT(t, upperView.GetHeight() == 50);
 
-    logger->Debug("---------> Layout after initialize");
     rootView.DumpLayout(0);
-
-
-    logger->Debug("---------> Change upper height");
-    upperView.SetHeight(20);
-    logger->Debug("---------> Reinitialize");
+    KeyPressAction kpAction;
+    kpAction.action = kAction::kActionIncreaseViewHeight;
+    upperView.OnAction(kpAction);
+    //upperView.SetHeight(20);
     rootView.Initialize();
-    logger->Debug("---------> Layout after initialize");
     rootView.DumpLayout(0);
+
+    TR_ASSERT(t, upperView.GetHeight() == 51);
 
     return kTR_Pass;
 }

@@ -398,12 +398,12 @@ int main(int argc, const char **argv) {
 
     //
     // The views are configured like this; the number indicates the view depth/hierachy
-    // Note: There is another HStackView for Editor+Gutter
+    // Note: VSplitView owns the resizable workspace|editor divide; HStackView groups gutter+editor
     //
-    //        [fixed]                 [fill]
+    //        [left/splitter]          [right/fill]
     //  | 3) VStackView       |  3) VStackView
     //  |   4) Singleline     |    4) HeaderView [tabs]     <- fixed (1 line)
-    //  |    <-------  2) HStackView  ------->
+    //  |    <-------  2) VSplitView  ------->
     //  |    4) TreeView      | <-- 4) HStackView -->           <- fill
     //  |                     | 5) Gutter | 5) Editor
     //  |                     |           |
@@ -431,7 +431,6 @@ int main(int argc, const char **argv) {
 
 
     auto vStackViewWorkspace = VStackView();
-    vStackViewWorkspace.SetWidth(24);
     auto workspaceHeader = SingleLineView();
     workspaceHeader.SetText("Workspace");
     auto workspaceExplorer = WorkspaceView();
@@ -457,7 +456,7 @@ int main(int argc, const char **argv) {
 
 
 
-    auto hStackViewUpper = HStackView();
+    auto vSplitViewUpper = VSplitView();
     auto hStackViewEditor = HStackView();
     auto gutterView = GutterView();
     gutterView.SetWidth(10);
@@ -467,14 +466,15 @@ int main(int argc, const char **argv) {
     hStackViewEditor.AddSubView(&gutterView, kFixed);
     hStackViewEditor.AddSubView(&editorView, kFill);
 
-    hStackViewUpper.AddSubView(&vStackViewWorkspace, kFixed);
-    hStackViewUpper.AddSubView(&vStackViewEditor, kFill);
+    vSplitViewUpper.SetInitialSplitterPos(24);
+    vSplitViewUpper.SetLeft(&vStackViewWorkspace);
+    vSplitViewUpper.SetRight(&vStackViewEditor);
 
     vStackViewEditor.AddSubView(&editorHeaderView, kFixed);
     vStackViewEditor.AddSubView(&hStackViewEditor, kFill);
 
 
-    hSplitViewStatus.SetUpper(&hStackViewUpper);
+    hSplitViewStatus.SetUpper(&vSplitViewUpper);
 
     rootView.AddTopView(&editorView, glbEditorView);
     rootView.AddTopView(&terminalView, glbTerminalView);

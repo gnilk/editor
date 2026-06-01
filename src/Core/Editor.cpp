@@ -85,7 +85,7 @@ bool Editor::Initialize(int argc, const char **argv) {
     if (isInitialized) {
         return true;
     }
-    PreParseArguments(argc, argv);
+    ParseArguments(argc, argv);
 
     // Default should be that the logger is completely disabled but if --enable-logging or similar is given we enable it...
     ConfigurePreInitLogger();
@@ -169,27 +169,15 @@ bool Editor::Initialize(int argc, const char **argv) {
     // Language configuration must currently be done before we load editor models
     ConfigureLanguages();
 
-    logger->Debug("*********** Post-parsing cmd-line arguments ***********");
-
     // Create workspace
     workspace = Workspace::Create();
 
     bool createDefaultWorkspace = true;
-    // Parse cmd-line
-    for(int i=1;i<argc;i++) {
-        if (strutil::startsWith(argv[i], "--")) {
-            std::string cmdSwitch = std::string(&argv[i][2]);
-            if (cmdSwitch == "backend") {
-                auto strBackend = argv[++i];
-                Config::Instance()["main"].SetStr("backend",strBackend);
-            }
+    for (auto &file : pendingFiles) {
+        if (OpenModelOrFolder(file)) {
+            createDefaultWorkspace = false;
         } else {
-            // If we open something, disable the auto-creation of the default workspace...
-            if (OpenModelOrFolder(argv[i])) {
-                createDefaultWorkspace = false;
-            } else {
-                logger->Error("Error: No such file '%s'\n", argv[i]);
-            }
+            logger->Error("Error: No such file '%s'", file.c_str());
         }
     }
 
@@ -231,22 +219,30 @@ bool Editor::Initialize(int argc, const char **argv) {
 }
 
 // Grab stuff which controls initialization
-void Editor::PreParseArguments(int argc, const char **argv) {
+void Editor::ParseArguments(int argc, const char **argv) {
+    pendingFiles.clear();
     for (int i = 1; i < argc; i++) {
         std::string arg(argv[i]);
         if (strutil::startsWith(arg, "--")) {
-            std::string cmdSwitch = std::string(&argv[i][2]);
+            std::string cmdSwitch = arg.substr(2);
             if (cmdSwitch == "console-logging") {
                 keepConsoleLogger = true;
             } else if (cmdSwitch == "skip-user-config") {
                 loadUserConfig = false;
+            } else if (cmdSwitch == "backend") {
+                if (i + 1 < argc) {
+                    argBackend = argv[++i];
+                    std::transform(argBackend.begin(), argBackend.end(), argBackend.begin(), ::tolower);
+                }
             } else if (cmdSwitch == "help") {
-                    PrintHelpToConsole();
-                    exit(1);
+                PrintHelpToConsole();
+                exit(1);
             }
         } else if ((arg == "-h") || (arg == "-H") || (arg == "-?")) {
             PrintHelpToConsole();
             exit(1);
+        } else {
+            pendingFiles.push_back(arg);
         }
     }
 }
@@ -257,7 +253,7 @@ void Editor::PrintHelpToConsole() {
     printf("Options:\n");
     printf("  --console-logging, enables console logging to console, this is needed to get pre-initalization logging (before config has been loaded)\n");
     printf("  --skip-user-config, won't load user specific config (starts with defaults)\n");
-    printf("  --backend <sdl2 | sdl3>, override the configuration file backend\n");
+    printf("  --backend <sdl | headless>, override the configuration file backend\n");
 }
 
 
@@ -535,11 +531,8 @@ void Editor::ConfigureGlobalAPIObjects() {
 }
 
 static std::vector<std::string> glbSupportedBackends = {
-#ifdef GEDIT_USE_SDL3
-        {"sdl3"},
-#endif
-#ifdef GEDIT_USE_SDL2
-        {"sdl2"},
+#if defined(GEDIT_USE_SDL3) || defined(GEDIT_USE_SDL2)
+        {"sdl"},
 #endif
     {"headless"}
 };
@@ -547,10 +540,11 @@ static std::vector<std::string> glbSupportedBackends = {
 extern "C" char ** environ;
 
 void Editor::ConfigureSubSystems() {
-    auto backend = Config::Instance()["main"].GetStr("backend", "sdl3");
-    // Normalise to lowercase so "SDL3" and "sdl3" are treated identically
+    auto backend = argBackend.empty()
+        ? Config::Instance()["main"].GetStr("backend", "sdl")
+        : argBackend;
+    // Normalise to lowercase
     std::transform(backend.begin(), backend.end(), backend.begin(), ::tolower);
-
     // See if supported; if not, print the list and exit.
     if (std::find(glbSupportedBackends.begin(), glbSupportedBackends.end(), backend) == glbSupportedBackends.end()) {
         logger->Error("Unknown backend: '%s'", backend.c_str());
@@ -578,20 +572,20 @@ void Editor::ConfigureSubSystems() {
         exit(1);
     }
 
+    if (backend == "sdl" || enforceSDL) {
 #ifdef GEDIT_USE_SDL3
-    if (backend == "sdl3" || (enforceSDL && backend.empty())) {
         logger->Debug("Starting SDL3 backend");
         SetupSDL3();
         return;
-    }
-#endif
-#ifdef GEDIT_USE_SDL2
-    if (backend == "sdl2") {
+#elif defined(GEDIT_USE_SDL2)
         logger->Debug("Starting SDL2 backend");
         SetupSDL2();
         return;
-    }
+#else
+        logger->Error("Binary built without any SDL backend");
+        exit(1);
 #endif
+    }
 
     // Headless mode - allows to run without a graphical interface
     // also no keyboard support - must inject!

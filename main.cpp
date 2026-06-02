@@ -3,6 +3,8 @@
 //
 /*
  * TO-DO List
+ * - CPP Syntax highlighting (#pragma, #if #ifdef and friends)
+        - Perhaps have a specific state for '#' preprocessor directives
  * ! Resize doesn't work (the EditorView), need to consider how this event is handled
  * - Consider rewriting the graphics layer
  *   - Refactor the graphics layer

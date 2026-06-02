@@ -195,6 +195,41 @@ int Line::Indent(size_t tabSize) {
     return indent;
 }
 
+// Visual column where the character at 'charIdx' begins. Tabs advance to the next
+// multiple of tabSize; every other character is one column wide. Positions at or past
+// end-of-line count as single columns (the cursor can sit one past the last character).
+int Line::CharToVisualColumn(int charIdx, int tabSize) const {
+    if (tabSize < 1) {
+        tabSize = 1;
+    }
+    int col = 0;
+    for (int i = 0; i < charIdx; i++) {
+        if ((i < (int)buffer.size()) && (buffer[i] == U'\t')) {
+            col += tabSize - (col % tabSize);
+        } else {
+            col++;
+        }
+    }
+    return col;
+}
+
+// Inverse of CharToVisualColumn: the character index whose cell contains 'visualCol'.
+// Used for mapping a screen column (e.g. a mouse click) back to a buffer position.
+int Line::VisualToCharIndex(int visualCol, int tabSize) const {
+    if (tabSize < 1) {
+        tabSize = 1;
+    }
+    int col = 0;
+    for (int i = 0; i < (int)buffer.size(); i++) {
+        int next = (buffer[i] == U'\t') ? (col + (tabSize - (col % tabSize))) : (col + 1);
+        if (visualCol < next) {
+            return i;
+        }
+        col = next;
+    }
+    return (int)buffer.size();
+}
+
 Line::LineAttribIterator Line::AttributeAt(int pos) {
     if (attribs.size() == 0) {
         return {};

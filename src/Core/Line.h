@@ -76,6 +76,12 @@ namespace gedit {
         __inline void SetIndent(int newIndent) { indent = newIndent; }
         __inline int GetIndent() { return indent; }
 
+        // Map between buffer character index and on-screen visual column, expanding tabs to tab-stops.
+        // These are equal for tab-free lines; they diverge once a tab (which spans up to tabSize columns)
+        // appears earlier in the line. The buffer is never modified - this is purely a layout calculation.
+        int CharToVisualColumn(int charIdx, int tabSize) const;
+        int VisualToCharIndex(int visualCol, int tabSize) const;
+
         LineAttribIterator AttributeAt(int pos);
         std::vector<LineAttrib> &Attributes() { return attribs; }
 

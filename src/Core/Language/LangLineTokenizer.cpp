@@ -384,6 +384,16 @@ std::pair<bool, kLanguageTokenClass> LangLineTokenizer::GetNextToken(std::u32str
     // stringview would probably be better/smarter here
     auto strInput = std::u32string_view(itInput, last);
 
+    // Pre-classification: numbers can't be expressed as a static identifier list, so a
+    // state-supplied matcher gets first attempt - before operators (so '.5' is a number, not '.' '5').
+    if (currentState->numberMatcher != nullptr) {
+        int szNum = currentState->numberMatcher->Match(strInput);
+        if (szNum > 0) {
+            dst = strInput.substr(0, szNum);
+            itInput += szNum;
+            return {true, kLanguageTokenClass::kNumber};
+        }
+    }
 
     // Classify identifiers which can be attached, like operators: ++token  <- ++ is an attached
     // Use longest-match: iterate all non-whole-word identifiers and keep the longest match.

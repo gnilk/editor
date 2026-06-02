@@ -4,12 +4,12 @@
 #include <string>
 #include <map>
 #include <unordered_map>
-#include <map>
 #include <stack>
 #include <memory>
 #include "Core/StrUtil.h"
 #include "Core/Line.h"
 #include "Core/Language/LangToken.h"
+#include "Core/Language/NumberMatcherBase.h"
 #include <string.h>
 //
 // General purpose stateful stack based language parser/tokenizer.
@@ -122,6 +122,10 @@ namespace gedit {
             // Used to abort regular value, like variable names and such (i.e. not language components)
             IdentifierList::Ref postfixIdentifiers = nullptr;
 
+            // Optional per-state number matcher - consulted in GetNextToken before identifier matching.
+            // null means this state does not classify numbers (e.g. inside strings/comments).
+            NumberMatcherBase::Ref numberMatcher = nullptr;
+
             // Actions that should happen on specific tokens in this state
             std::unordered_map<std::u32string, Action> actions;
             Action eolAction = {.action = kAction::kNone, .stateName = ""};
@@ -175,6 +179,11 @@ namespace gedit {
             //
             void SetPostFixIdentifiers(const std::u32string &strTokens) {
                 postfixIdentifiers = IdentifierList::Create(kLanguageTokenClass::kRegular, strTokens);
+            }
+
+            // Assign a number matcher to this state - enables number classification while parsing in it
+            void SetNumberMatcher(NumberMatcherBase::Ref matcher) {
+                numberMatcher = matcher;
             }
 
             //

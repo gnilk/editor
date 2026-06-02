@@ -9,6 +9,7 @@
 #include <string>
 
 #include "CPPLanguage.h"
+#include "CPPNumberMatcher.h"
 #include "Core/UnicodeHelper.h"
 using namespace gedit;
 
@@ -59,6 +60,7 @@ bool CPPLanguage::Initialize() {
     state->SetIdentifiers(kLanguageTokenClass::kCodeBlockEnd, cppCodeBlockEnd);
     state->SetIdentifiers(kLanguageTokenClass::kImport, true, cppIncludes);
     state->SetPostFixIdentifiers(cppOperatorsFull);
+    state->SetNumberMatcher(CPPNumberMatcher::Create());
 
     state->GetOrAddAction(U"\"", LangLineTokenizer::kAction::kPushState, "in_string");
     state->GetOrAddAction(U"/*", LangLineTokenizer::kAction::kPushState, "in_block_comment");

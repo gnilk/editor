@@ -5,6 +5,7 @@
 //
 #include <testinterface.h>
 #include "Core/Line.h"
+#include "Core/LineRender.h"
 
 using namespace gedit;
 
@@ -15,6 +16,7 @@ DLL_EXPORT int test_linelayout_char2vis_tabs(ITesting *t);
 DLL_EXPORT int test_linelayout_vis2char_tabs(ITesting *t);
 DLL_EXPORT int test_linelayout_roundtrip(ITesting *t);
 DLL_EXPORT int test_linelayout_edge(ITesting *t);
+DLL_EXPORT int test_linelayout_expandtabs(ITesting *t);
 }
 
 // Note: Line's ctor rtrims, so test strings must not end in whitespace.
@@ -87,6 +89,28 @@ DLL_EXPORT int test_linelayout_roundtrip(ITesting *t) {
             TR_ASSERT(t, line.VisualToCharIndex(vis, 4) == i);
         }
     }
+    return kTR_Pass;
+}
+
+// The render-time tab expansion used by LineRender
+DLL_EXPORT int test_linelayout_expandtabs(ITesting *t) {
+    // no tabs -> unchanged
+    TR_ASSERT(t, LineRender::ExpandTabs(U"hello", 0, 4) == U"hello");
+
+    // leading tab at column 0, tabSize 4 -> 4 spaces
+    TR_ASSERT(t, LineRender::ExpandTabs(U"\tx", 0, 4) == U"    x");
+
+    // "a\tb": a then tab from col1 -> 3 spaces to reach col4
+    TR_ASSERT(t, LineRender::ExpandTabs(U"a\tb", 0, 4) == U"a   b");
+
+    // chunk starting mid-line: startCol 2, a leading tab -> 2 spaces to reach col4
+    TR_ASSERT(t, LineRender::ExpandTabs(U"\tb", 2, 4) == U"  b");
+
+    // tabSize 8
+    TR_ASSERT(t, LineRender::ExpandTabs(U"a\tb", 0, 8) == U"a       b");
+
+    // tab already on a stop boundary still expands a full tab width
+    TR_ASSERT(t, LineRender::ExpandTabs(U"abcd\te", 0, 4) == U"abcd    e");
     return kTR_Pass;
 }
 

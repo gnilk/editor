@@ -155,7 +155,7 @@ void EditorView::DrawViewContents() {
 
     }
 
-    LineRender lineRender(dc);
+    LineRender lineRender(dc, editorModel->GetTextBuffer()->GetLanguage().GetTabSize());
     // Consider refactoring this function call...
     lineRender.DrawLines(editController->Lines(),
                          lineCursor.viewTopLine,
@@ -238,7 +238,18 @@ bool EditorView::OnActionPreviousBuffer() {
 
 void EditorView::SetWindowCursor(const Cursor &cursor) {
     if ((Editor::Instance().GetState() == Editor::ViewState) && (editorModel != nullptr)) {
-        window->SetCursor(editorModel->GetCursor());
+        // The model cursor's position.x is a character index. Tabs render wider than one cell, so
+        // translate it to a visual column before drawing the caret - otherwise the caret sits left
+        // of where the character actually renders and inserts appear misplaced. The model cursor is
+        // left untouched (char index stays the source of truth for editing); only the draw copy moves.
+        Cursor screenCursor = editorModel->GetCursor();
+        auto &lineCursor = editorModel->GetLineCursor();
+        auto activeLine = editorModel->LineAt(lineCursor.idxActiveLine);
+        if (activeLine != nullptr) {
+            int tabSize = editorModel->GetTextBuffer()->GetLanguage().GetTabSize();
+            screenCursor.position.x = activeLine->CharToVisualColumn(screenCursor.position.x, tabSize);
+        }
+        window->SetCursor(screenCursor);
     } else {
         // The editor view is NOT in 'command' but rather the 'owner' of the quick-cmd input view..
         ViewBase::SetWindowCursor(cursor);

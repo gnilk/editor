@@ -30,6 +30,9 @@ static const std::u32string cppLineComment = U"//";
 static const std::u32string cppCodeBlockStart = U"{";
 static const std::u32string cppCodeBlockEnd = U"}";
 
+// state: in_include / in_include_angle
+static const std::u32string cppIncludes = U"#include";
+
 // state: main & in_block_comment
 static const std::u32string cppBlockCommentStart = U"/* */";        // why do I have 'end block' here????
 static const std::u32string cppBlockCommentStop = U"*/";
@@ -54,12 +57,14 @@ bool CPPLanguage::Initialize() {
     state->SetIdentifiers(kLanguageTokenClass::kBlockComment, cppBlockCommentStart);
     state->SetIdentifiers(kLanguageTokenClass::kCodeBlockStart, cppCodeBlockStart);
     state->SetIdentifiers(kLanguageTokenClass::kCodeBlockEnd, cppCodeBlockEnd);
+    state->SetIdentifiers(kLanguageTokenClass::kImport, true, cppIncludes);
     state->SetPostFixIdentifiers(cppOperatorsFull);
 
     state->GetOrAddAction(U"\"", LangLineTokenizer::kAction::kPushState, "in_string");
     state->GetOrAddAction(U"/*", LangLineTokenizer::kAction::kPushState, "in_block_comment");
     state->GetOrAddAction(U"//", LangLineTokenizer::kAction::kPushState, "in_line_comment");
     state->GetOrAddAction(U"\'", LangLineTokenizer::kAction::kPushState, "in_char");
+    state->GetOrAddAction(U"#include", LangLineTokenizer::kAction::kPushState, "in_include");
 
     auto stateChr = tokenizer.GetOrAddState("in_char");
     stateChr->SetRegularTokenClass(kLanguageTokenClass::kChar);
@@ -87,6 +92,22 @@ bool CPPLanguage::Initialize() {
     auto stateLineComment = tokenizer.GetOrAddState("in_line_comment");
     stateLineComment->SetRegularTokenClass(kLanguageTokenClass::kCommentedText);
     stateLineComment->SetEOLAction(LangLineTokenizer::kAction::kPopState);
+
+    // in_include: handles the path following #include — delegates to in_string or in_include_angle
+    auto stateInclude = tokenizer.GetOrAddState("in_include");
+    stateInclude->SetRegularTokenClass(kLanguageTokenClass::kImport);
+    stateInclude->SetIdentifiers(kLanguageTokenClass::kOperator, U"< \"");
+    stateInclude->GetOrAddAction(U"\"", LangLineTokenizer::kAction::kPushState, "in_string");
+    stateInclude->GetOrAddAction(U"<", LangLineTokenizer::kAction::kPushState, "in_include_angle");
+    stateInclude->SetEOLAction(LangLineTokenizer::kAction::kPopState);
+
+    // in_include_angle: content between < and > classified as kString
+    auto stateIncludeAngle = tokenizer.GetOrAddState("in_include_angle");
+    stateIncludeAngle->SetRegularTokenClass(kLanguageTokenClass::kString);
+    stateIncludeAngle->SetIdentifiers(kLanguageTokenClass::kOperator, U">");
+    stateIncludeAngle->SetPostFixIdentifiers(U">");
+    stateIncludeAngle->GetOrAddAction(U">", LangLineTokenizer::kAction::kPopState);
+    stateIncludeAngle->SetEOLAction(LangLineTokenizer::kAction::kPopState);
 
 
     tokenizer.SetStartState("main");

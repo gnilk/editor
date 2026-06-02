@@ -41,19 +41,38 @@ DLL_EXPORT int test_cpplang_include(ITesting *t) {
     TR_ASSERT(t, model != nullptr);
     auto buffer = model->GetTextBuffer();
     TR_ASSERT(t, buffer != nullptr);
-    buffer->AddLineUTF8("#include \"test.h\";");
-    buffer->AddLineUTF8("void main(int argc, char **argv) {");
-    buffer->AddLineUTF8("  printf(\"hello world\");");
-    buffer->AddLineUTF8("}");
-    buffer->AddLineUTF8("");
-
+    buffer->AddLineUTF8("#include \"test.h\"");
+    buffer->AddLineUTF8("#include <stdio.h>");
+    buffer->AddLineUTF8("void main() {}");
     buffer->Reparse();
 
     for(int i=0;i<buffer->NumLines();i++) {
         auto line = buffer->LineAt(i);
+        printf("%d: '%s'\n", i, line->BufferAsUTF8().c_str());
+        for (auto &a : line->Attributes()) {
+            printf("  idx=%d class=%d\n", a.idxOrigString, (int)a.tokenClass);
+        }
     }
 
+    // quoted form: #include is kImport, path content is kString
+    auto quotedLine = buffer->LineAt(1);
+    TR_ASSERT(t, quotedLine->Attributes()[0].tokenClass == kLanguageTokenClass::kImport);
+    bool hasQuotedString = false;
+    for (auto &a : quotedLine->Attributes()) {
+        if (a.tokenClass == kLanguageTokenClass::kString) { hasQuotedString = true; }
+    }
+    TR_ASSERT(t, hasQuotedString);
 
+    // angle-bracket form: #include is kImport, path content is kString
+    auto angleLine = buffer->LineAt(2);
+    TR_ASSERT(t, angleLine->Attributes()[0].tokenClass == kLanguageTokenClass::kImport);
+    bool hasAngleString = false;
+    for (auto &a : angleLine->Attributes()) {
+        if (a.tokenClass == kLanguageTokenClass::kString) { hasAngleString = true; }
+    }
+    TR_ASSERT(t, hasAngleString);
+
+    TR_ASSERT(t, workspace->RemoveModel(model->GetModel()));
     return kTR_Pass;
 }
 DLL_EXPORT int test_cpplang_indent(ITesting *t) {

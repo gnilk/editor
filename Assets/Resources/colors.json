@@ -42,6 +42,7 @@
       "line_comment": "var(blue6)",
       "block_comment": "var(blue6)",
       "commented_text": "var(blue6)",
+      "import": "var(blue5)",
       "selection": "var(blue2)",
       "funky": "var(white3)"
     },
@@ -59,6 +60,7 @@
       "line_comment": "var(blue6)",
       "block_comment": "var(blue6)",
       "commented_text": "var(blue6)",
+      "import": "var(blue5)",
       "selection": "color(var(orange),var(selection_alpha))",
       "funky": "var(white3)"
     },

@@ -25,7 +25,8 @@ namespace gedit {
         kArrayStart = 13,
         kArrayEnd = 14,
         kChar = 15,
-        kLastTokenClass = 16,         // this is used as numeric detection of the last token class
+        kImport = 16,
+        kLastTokenClass = 17,         // this is used as numeric detection of the last token class
         kFunky = 196,       // USED for debugging..
     };
 }

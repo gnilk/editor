@@ -213,3 +213,102 @@ Work on syntax highlighting for C++ preprocessor directives via the stack-based
 - Test cleanup wanted: the slow sqlite3-parse and thread/timer tests should be gated so
   the full suite is runnable in debug (the user has local stubs in `test_textbuffer.cpp`
   and `test_timer.cpp`, uncommitted).
+
+## Session Notes — Build/Backend cleanup, Language parser, Tab rendering (2026-06-02)
+
+Three areas this session: startup/argument plumbing, the language tokenizer, and a full
+tab-rendering implementation. All merged to `main` and pushed (`git@github.com:gnilk/editor.git`,
+remote switched to SSH this session).
+
+### 1. Build / backend / argument parsing
+- **Headless tests**: `test_main` now passes `--backend headless` (argv) so the layout/editor
+  tests run without a display. The `--backend` flag overrides the config value.
+- **Argument parsing consolidated**: `PreParseArguments` → `ParseArguments` (single pass).
+  Added members `argBackend` and `pendingFiles` (alongside `keepConsoleLogger`/`loadUserConfig`).
+  `Initialize` iterates `pendingFiles` for file opens; `ConfigureSubSystems` prefers `argBackend`
+  over config instead of mutating `Config`.
+- **SDL backends are mutually exclusive** (SDL2 and SDL3 share `SDL_*` C symbols → link collision).
+  Config + `--backend` now use a single `sdl` identifier; the binary picks whichever SDL it was
+  built with (`GEDIT_USE_SDL3` preferred, else `GEDIT_USE_SDL2`). `CMakeLists.txt` uses
+  `if (GEDIT_BUILD_SDL3) ... elseif (GEDIT_BUILD_SDL2)` so only one compiles, with a warning if both
+  flags are set. `Assets/Resources/config.yml` default is `backend: sdl`.
+
+### 2. Language tokenizer (`src/Core/Language/`)
+- **`LangLineTokenizer`**: renamed `StartParseRegion`/`EndParseRegion` →
+  `FindParseRegionStart`/`FindParseRegionEnd` (made `const`); added public
+  `ComputeParseRegion(lines, start, end)` returning the mapped `{start,end}` (used by `ParseRegion`
+  and by tests to verify region extension without exposing internals). Removed a stale "doesn't work
+  at top-of-file" comment (the `idxStart != 0` guard handles it).
+- **`State::identifiers` was `std::unordered_map` → now `std::map`.** The unordered map made
+  prefix-match order hash-dependent and non-deterministic. Switching to `std::map` (ordered by
+  `kLanguageTokenClass` enum value) exposed that matching relied on hash luck. **Fix: longest-match**
+  in both `GetNextToken` (prefix loop) and `State::ClassifyToken` — the longest matching token wins,
+  so `/*` (2-char `kBlockComment`) beats `/` (1-char `kOperator`) regardless of enum order. This is
+  the key tokenizer invariant now: **declare nothing twice; rely on longest-match, not ordering.**
+- **Operator-list conflicts fixed**: removed `{ }` from `cppOperators` and `{ } [ ]` from
+  `jsonOperatorsFull` (they shadowed `kCodeBlockStart/End` / `kArrayStart/End`, breaking indentation
+  non-deterministically). Removed `bool` from `cppKeywords` (it lived in both keywords and
+  `cppTypes`; keywords won under `std::map`). `cppOperators` reordered strictly 3-char → 2-char →
+  1-char; added `<=>`, `->*`, `::`; removed duplicate `:` `<` `>`. `cppOperators` and
+  `cppOperatorsFull` are now identical — open question whether to merge them.
+- **`LineAttrib` default `tokenClass`**: was uninitialized → `kUnknown` (0). Now the `Line.cpp`
+  ctor defaults it to `kRegular`. `kUnknown` should mean "something went wrong", never a default.
+- **Content additions**: expanded `cppTypes` (bool, `int8_t..uint64_t`, `size_t`/`ptrdiff_t`/
+  `intptr_t`/etc., C++23 `float16_t..float128_t`, `bfloat16_t`); fixed `cppKeywords`
+  (`conteval`→`consteval`, removed `reflexpr`/`synchronized` which never made the standard).
+- **`kImport` token class** (language-agnostic include/import; distinct from a future macro class —
+  note the sibling separately added `kPreProcessor`/`kMacroIdentifier`). `#include` classifies as
+  `kImport`; `in_include`/`in_include_angle` states colour both `"path"` and `<path>` as `kString`.
+- **Number support — the reusable pattern**: numbers can't live in a static identifier list (the
+  grammar must be executed). Added `NumberMatcherBase` (interface, `int Match(view)` → chars consumed,
+  0 = not a number). A `State` may hold a `numberMatcher`; `GetNextToken` consults it *before* the
+  identifier loop (so `.5` is a number, not `.`+`5`). null = state doesn't classify numbers (so
+  strings/comments are unaffected). `CPPNumberMatcher` does C/C++ decimal/hex/binary/float/exponent/
+  suffixes/`'` separators; assigned to the `main` state only. Each language ships its own matcher.
+
+### 3. Tab rendering (non-destructive — tabs stay tabs on disk)
+Core insight: **two coordinate spaces, equal today only because every char was one cell** —
+character index (buffer/editing/tokenizer/undo/selection truth) vs visual column (on-screen grid).
+A tab is one char index but spans up to `tabSize` columns. Fix the mapping only at the render
+boundary and in the vertical-nav anchor; never mutate the buffer.
+- **Phase 0** — `Line::CharToVisualColumn(charIdx, tabSize)` and `Line::VisualToCharIndex(visualCol,
+  tabSize)` (pure, lock-free const; callers in the render path already hold the line lock).
+  `test_linelayout.cpp` covers both + round-trip + edges.
+- **Phase 1** — `LineRender::ExpandTabs(in, startCol, tabSize)` (static, render-only) expands tabs to
+  stops in all four draw paths; `tabSize` threaded via the `LineRender` ctor. `EditorView` passes
+  `editorModel->GetTextBuffer()->GetLanguage().GetTabSize()`; terminal/command use the default 4.
+- **Phase 2a** — `EditorView::SetWindowCursor` translates the caret's char index → visual column on
+  a *copy* before `window->SetCursor`. Model cursor stays char-index; `AddCharToLine` unchanged.
+  This is what fixed "inserts land in the wrong place" (the caret was being drawn left of the glyph).
+- **Phase 2b** — `wantedColumn` redefined from char index to **visual column** so up/down preserves
+  the on-screen column. Centralized into `EditorModel::CaptureWantedColumn` (char→visual) and
+  `ApplyWantedColumn` (visual→char, clamped); the single consumer (`UpdateModelFromNavigation`) and
+  all in-model writers route through them. `BaseController` (shared with tab-agnostic terminal/command
+  input) got an `editTabSize` member defaulting to **1** (visual == char, a no-op); `EditController`
+  sets it from the language each keypress. Status-bar `c(...)` readout now shows the visual column
+  (kept 0-based — a 1-based line+column sweep is deferred).
+
+### Test infrastructure / conventions
+- **Test fixtures**: new `Assets/testfiles/` (contains `ConvertUTF.cpp` — mixed tabs+spaces, good
+  tab-render fixture). Copied to `cmake-build-debug/testfiles/` (NOT `EDITOR_ASSET_DIR` — these are
+  dev-only, not redistributable). `utests` depends on the `testfiles` copy target.
+- **Running tests**: `trun -m <modules> --sequential cmake-build-debug/libutests.so`. `--sequential`
+  disables forking for synchronized log output during dev. `-t` takes a list, supports wildcards,
+  `!name` to exclude, and `-` meaning "all the rest" (e.g. `-t case1,case2,-` runs those first then
+  the rest). Verified-green set this session:
+  `trun -m cpplang,jsonlang,cppnumbers,linelayout --sequential ...`.
+- **Do NOT run the full debug suite** — 7 pre-existing failures (`test_edtmodel_delete_text`,
+  `test_edtmodel_text_linefunc`, `test_textbuffer_{flatten,parsefull,parseregion,thparsefull,
+  thparseregion}`) confirmed present at baseline *before* this session's changes (the "faulty tests"
+  with uncommitted local stubs); plus the sqlite3-parse and thread/timer tests hang. Gating these is
+  outstanding.
+
+### Remaining / deferred
+- **Tab Phase 3**: mouse hit-testing (`VisualToCharIndex` is written + tested but unused until
+  click-to-position exists); horizontal-scroll clip (`nCharToPrint` clips by char count, slightly off
+  on tabbed lines); selection-rectangle tab-awareness.
+- **1-based line/column visualization sweep** (lines are currently 0-based too — do them together).
+- **Gate the 7 failing + slow tests** so the full suite is runnable in debug.
+- **Merge `cppOperators`/`cppOperatorsFull`?** — now identical.
+- Language (from the sibling's list): `#define` multi-line (`\` continuation), `#if`/`#elif`
+  expressions, `#line`.

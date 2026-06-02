@@ -242,7 +242,7 @@ static void DumpLineData(const Line::Ref line) {
     auto ascii = UnicodeHelper::utf32toascii(line->Buffer());
     printf("Line: %s\n", ascii.c_str());
     for(auto &a : line->Attributes()) {
-        printf("  %d, %d\n",a.idxOrigString, a.tokenClass);
+        printf("  %d, %d (%s)\n",a.idxOrigString, a.tokenClass, LanguageTokenClassToString(a.tokenClass).c_str());
         printf("  %s\n", ascii.c_str());
         for(int i=0;i<a.idxOrigString;i++) {
             printf(" ");

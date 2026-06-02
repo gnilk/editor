@@ -98,8 +98,8 @@ bool EditorModel::JumpToSearchHit(size_t idxHit) {
     auto &result = searchResults[idxHit];
     GetCursor().position.y = result.idxLine;
     GetCursor().position.x = result.cursor_x;
-    GetCursor().wantedColumn = result.cursor_x;
     lineCursor.idxActiveLine = result.idxLine;
+    CaptureWantedColumn(GetCursor(), LineAt(result.idxLine));
 
     RefocusViewArea();
     return true;
@@ -347,7 +347,7 @@ bool EditorModel::OnActionLineEnd() {
     }
     auto endpos = currentLine->Length();
     lineCursor.cursor.position.x = endpos;
-    lineCursor.cursor.wantedColumn = endpos;
+    CaptureWantedColumn(lineCursor.cursor, currentLine);
     return true;
 }
 
@@ -441,7 +441,7 @@ bool EditorModel::OnActionStepLeft() {
     if (cursor.position.x < 0) {
         cursor.position.x = 0;
     }
-    cursor.wantedColumn = cursor.position.x;
+    CaptureWantedColumn(cursor, ActiveLine());
     return true;
 }
 bool EditorModel::OnActionStepRight() {
@@ -451,7 +451,7 @@ bool EditorModel::OnActionStepRight() {
     if (cursor.position.x > (int)currentLine->Length()) {
         cursor.position.x = (int)currentLine->Length();
     }
-    cursor.wantedColumn = cursor.position.x;
+    CaptureWantedColumn(cursor, currentLine);
     return true;
 }
 
@@ -486,9 +486,32 @@ void EditorModel::UpdateModelFromNavigation(bool updateCursor) {
         return;
     }
 
-    lineCursor.cursor.position.x = lineCursor.cursor.wantedColumn;
-    if (lineCursor.cursor.position.x > (int) currentLine->Length()) {
-        lineCursor.cursor.position.x = (int) currentLine->Length();
+    ApplyWantedColumn(lineCursor.cursor, currentLine);
+}
+
+int EditorModel::GetTabSize() {
+    if (!textBuffer->HaveLanguage()) {
+        return 4;
+    }
+    return textBuffer->GetLanguage().GetTabSize();
+}
+
+void EditorModel::CaptureWantedColumn(Cursor &cursor, const Line::Ref &line) {
+    if (line == nullptr) {
+        cursor.wantedColumn = cursor.position.x;
+        return;
+    }
+    cursor.wantedColumn = line->CharToVisualColumn(cursor.position.x, GetTabSize());
+}
+
+void EditorModel::ApplyWantedColumn(Cursor &cursor, const Line::Ref &line) {
+    if (line == nullptr) {
+        cursor.position.x = 0;
+        return;
+    }
+    cursor.position.x = line->VisualToCharIndex(cursor.wantedColumn, GetTabSize());
+    if (cursor.position.x > (int) line->Length()) {
+        cursor.position.x = (int) line->Length();
     }
 }
 
@@ -648,8 +671,8 @@ size_t EditorModel::NewLine(size_t idxActiveLine, Cursor &cursor) {
         }
     }
 
-    cursor.wantedColumn = cursorXPos;
     cursor.position.x = cursorXPos;
+    CaptureWantedColumn(cursor, LineAt(idxActiveLine));
 
     EndUndoItem(undoItem);
 
@@ -890,7 +913,7 @@ void EditorModel::DelTab() {
 void EditorModel::AddCharToLineNoUndo(Cursor &cursor, Line::Ref line, char32_t ch) {
     line->Insert(cursor.position.x, ch);
     cursor.position.x++;
-    cursor.wantedColumn = cursor.position.x;
+    CaptureWantedColumn(cursor, line);
 }
 
 void EditorModel::RemoveCharFromLineNoUndo(gedit::Cursor &cursor, Line::Ref line) {
@@ -900,7 +923,7 @@ void EditorModel::RemoveCharFromLineNoUndo(gedit::Cursor &cursor, Line::Ref line
         if (cursor.position.x < 0) {
             cursor.position.x = 0;
         }
-        cursor.wantedColumn = cursor.position.x;
+        CaptureWantedColumn(cursor, line);
     }
 }
 

@@ -42,6 +42,10 @@ bool EditController::HandleKeyPress(Cursor &cursor, size_t &idxLine, const KeyPr
 
     auto textBuffer = model->GetTextBuffer();
 
+    // Keep the inherited single-line edit helpers (AddCharToLine etc.) capturing a *visual*
+    // wanted-column using the active language's tab width.
+    SetEditTabSize(model->GetTabSize());
+
     if (textBuffer->IsReadOnly()) {
         return false;
     }
@@ -135,7 +139,7 @@ void EditController::MoveLineUp(Cursor &cursor, size_t &idxActiveLine) {
     auto line = textBuffer->LineAt(idxActiveLine);
     auto linePrevious = textBuffer->LineAt((idxActiveLine-1));
 
-    cursor.wantedColumn = linePrevious->Length();
+    cursor.wantedColumn = linePrevious->CharToVisualColumn(linePrevious->Length(), model->GetTabSize());
     linePrevious->Append(line);
     textBuffer->DeleteLineAt(idxActiveLine);
     idxActiveLine--;

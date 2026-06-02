@@ -29,6 +29,13 @@ namespace gedit {
 
         virtual void AddCharToLine(Cursor &cursor, Line::Ref line, int ch);
         virtual void RemoveCharFromLine(Cursor &cursor, Line::Ref line);
+
+        // Visual tab width used when capturing the wanted (visual) column. Defaults to 1, which makes
+        // visual column == character index (a no-op) for tab-agnostic input views (terminal/command).
+        // The editor sets this from the active language so vertical navigation tracks the visual column.
+        void SetEditTabSize(int newTabSize) { editTabSize = newTabSize; }
+    protected:
+        int editTabSize = 1;
     private:
 
     };

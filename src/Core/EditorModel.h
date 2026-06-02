@@ -180,6 +180,15 @@ namespace gedit {
 
         void UpdateModelFromNavigation(bool updateCursor);
 
+        // Visual tab width for the active language (falls back to 4 if no language is set)
+        int GetTabSize();
+        // wantedColumn is a *visual* column (tab-expanded), so vertical navigation preserves the
+        // on-screen column across lines with differing tab/space layouts. Capture stores the visual
+        // column of the cursor; Apply maps a stored visual column back to a character index.
+        void CaptureWantedColumn(Cursor &cursor, const Line::Ref &line);
+        void CaptureWantedColumn() { CaptureWantedColumn(lineCursor.cursor, ActiveLine()); }
+        void ApplyWantedColumn(Cursor &cursor, const Line::Ref &line);
+
 
             // FIXME: Cursor and idxActiveLine not needed
         void Undo(Cursor &cursor, size_t &idxActiveLine);

@@ -37,7 +37,7 @@ bool BaseController::DefaultEditSpecial(Cursor &cursor, Line::Ref line, const Ke
                 break;
             case Keyboard::kKeyCode_End :
                 cursor.position.x = line->Length();
-                cursor.wantedColumn = cursor.position.x;
+                cursor.wantedColumn = line->CharToVisualColumn(cursor.position.x, editTabSize);
                 wasHandled = true;
                 break;
             case Keyboard::kKeyCode_DeleteForward :
@@ -63,14 +63,14 @@ bool BaseController::DefaultEditSpecial(Cursor &cursor, Line::Ref line, const Ke
 void BaseController::AddCharToLine(Cursor &cursor, Line::Ref line, int ch) {
     line->Insert(cursor.position.x, ch);
     cursor.position.x++;
-    cursor.wantedColumn = cursor.position.x;
+    cursor.wantedColumn = line->CharToVisualColumn(cursor.position.x, editTabSize);
 }
 
 void BaseController::RemoveCharFromLine(gedit::Cursor &cursor, Line::Ref line) {
     if (cursor.position.x > 0) {
         line->Delete(cursor.position.x-1);
         cursor.position.x--;
-        cursor.wantedColumn = cursor.position.x;
+        cursor.wantedColumn = line->CharToVisualColumn(cursor.position.x, editTabSize);
     }
 }
 

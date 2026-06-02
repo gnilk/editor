@@ -296,11 +296,15 @@ std::pair<std::u32string, std::u32string> EditorView::GetStatusBarInfo() {
     }
 
     // Show Line:Row or more 'x/y' -> Configureation!
+    // Column is the visual (tab-expanded) column, matching what the caret shows.
+    int visualCol = (line != nullptr)
+        ? line->CharToVisualColumn(lineCursor.cursor.position.x, model->GetTabSize())
+        : lineCursor.cursor.position.x;
     auto strtmp = fmt::format(U"id: {} l: {}, c({}:{})",
                               indent,
                               strutil::itou32(lineCursor.idxActiveLine),
                               strutil::itou32(lineCursor.cursor.position.y),
-                              strutil::itou32(lineCursor.cursor.position.x));
+                              strutil::itou32(visualCol));
 
     statusRight += strtmp;
 

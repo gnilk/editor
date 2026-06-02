@@ -25,8 +25,9 @@ logging:
   disable_all: yes
   # there are many modules - and no way to list them (grep src/Core for "::GetLogger")
   enable_modules:
-    - "Layout"
-    - "HSplitView"
+#    - "TextBuffer"
+#    - "Layout"
+#    - "HSplitView"
 #    - "AssetLoader"
 #    - "System"
 #    - "RootView"

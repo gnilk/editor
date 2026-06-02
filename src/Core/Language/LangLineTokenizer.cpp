@@ -239,7 +239,7 @@ void LangLineTokenizer::ParseLineWithCurrentState(std::vector<LangToken> &tokens
         pos -= nextToken.size();
 
         classification = CheckExecuteActionForToken(currentState, nextToken, classification);
-        //printf("  classification: %d\n", classification);
+
         // If this is regular text - reclassify it depending on the state (this allows for comments/string and other
         // encapsulation statements to override... (#include)
         if (classification == kLanguageTokenClass::kRegular) {
@@ -386,8 +386,6 @@ std::pair<bool, kLanguageTokenClass> LangLineTokenizer::GetNextToken(std::u32str
         return {false, kLanguageTokenClass::kUnknown};
     }
 
-
-    // stringview would probably be better/smarter here
     auto strInput = std::u32string_view(itInput, last);
 
     // Pre-classification: numbers can't be expressed as a static identifier list, so a

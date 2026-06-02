@@ -43,6 +43,8 @@
       "block_comment": "var(blue6)",
       "commented_text": "var(blue6)",
       "import": "var(blue5)",
+      "preprocessor": "var(pink)",
+      "macro_identifier": "var(orange3)",
       "selection": "var(blue2)",
       "funky": "var(white3)"
     },
@@ -61,6 +63,8 @@
       "block_comment": "var(blue6)",
       "commented_text": "var(blue6)",
       "import": "var(blue5)",
+      "preprocessor": "var(pink)",
+      "macro_identifier": "var(orange3)",
       "selection": "color(var(orange),var(selection_alpha))",
       "funky": "var(white3)"
     },

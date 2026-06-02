@@ -36,6 +36,8 @@ static const std::unordered_map<kLanguageTokenClass, std::string> tokenNames = {
         {kLanguageTokenClass::kArrayEnd,"operator"},
         {kLanguageTokenClass::kChar, "string"},
         {kLanguageTokenClass::kImport, "import"},
+        {kLanguageTokenClass::kPreProcessor, "preprocessor"},
+        {kLanguageTokenClass::kMacroIdentifier, "macro_identifier"},
         {kLanguageTokenClass::kFunky,"funky"},
 };
 

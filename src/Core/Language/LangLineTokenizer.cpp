@@ -247,10 +247,13 @@ void LangLineTokenizer::ParseLineWithCurrentState(std::vector<LangToken> &tokens
         tokens.emplace_back(token);
     }
 
-    if (!stateStack.empty()) {
+    // Flush any EOL-terminated states. Nested line-terminal states (e.g. preprocessor -> include)
+    // must all unwind at end-of-line, so keep popping while the top state defines an EOL action.
+    // States without an EOL action (main, block comments) deliberately survive across lines.
+    while (!stateStack.empty()) {
         auto currentState = stateStack.top();
         if (currentState->eolAction.action == kAction::kNone) {
-            return;
+            break;
         }
         PopState();
     }

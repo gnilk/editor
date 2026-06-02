@@ -14,6 +14,7 @@ using namespace gedit;
 extern "C" {
 DLL_EXPORT int test_cpplang(ITesting *t);
 DLL_EXPORT int test_cpplang_include(ITesting *t);
+DLL_EXPORT int test_cpplang_ppmacro(ITesting *t);
 DLL_EXPORT int test_cpplang_indent(ITesting *t);
 DLL_EXPORT int test_cpplang_elseindent(ITesting *t);
 DLL_EXPORT int test_cpplang_chardecl(ITesting *t);
@@ -54,18 +55,20 @@ DLL_EXPORT int test_cpplang_include(ITesting *t) {
         }
     }
 
-    // quoted form: #include is kImport, path content is kString
+    // quoted form: '#' and 'include' are kPreProcessor, path content is kString
     auto quotedLine = buffer->LineAt(1);
-    TR_ASSERT(t, quotedLine->Attributes()[0].tokenClass == kLanguageTokenClass::kImport);
+    TR_ASSERT(t, quotedLine->Attributes()[0].tokenClass == kLanguageTokenClass::kPreProcessor);
+    TR_ASSERT(t, quotedLine->Attributes()[1].tokenClass == kLanguageTokenClass::kPreProcessor);
     bool hasQuotedString = false;
     for (auto &a : quotedLine->Attributes()) {
         if (a.tokenClass == kLanguageTokenClass::kString) { hasQuotedString = true; }
     }
     TR_ASSERT(t, hasQuotedString);
 
-    // angle-bracket form: #include is kImport, path content is kString
+    // angle-bracket form: '#' and 'include' are kPreProcessor, path content is kString
     auto angleLine = buffer->LineAt(2);
-    TR_ASSERT(t, angleLine->Attributes()[0].tokenClass == kLanguageTokenClass::kImport);
+    TR_ASSERT(t, angleLine->Attributes()[0].tokenClass == kLanguageTokenClass::kPreProcessor);
+    TR_ASSERT(t, angleLine->Attributes()[1].tokenClass == kLanguageTokenClass::kPreProcessor);
     bool hasAngleString = false;
     for (auto &a : angleLine->Attributes()) {
         if (a.tokenClass == kLanguageTokenClass::kString) { hasAngleString = true; }
@@ -75,6 +78,56 @@ DLL_EXPORT int test_cpplang_include(ITesting *t) {
     TR_ASSERT(t, workspace->RemoveModel(model->GetModel()));
     return kTR_Pass;
 }
+
+// Helper: does the line contain a token of the given class?
+static bool lineHasClass(const Line::Ref &line, kLanguageTokenClass cls) {
+    for (auto &a : line->Attributes()) {
+        if (a.tokenClass == cls) { return true; }
+    }
+    return false;
+}
+
+DLL_EXPORT int test_cpplang_ppmacro(ITesting *t) {
+    Config::Instance()["main"].SetBool("threaded_syntaxparser", false);
+
+    auto workspace = Editor::Instance().GetWorkspace();
+    TR_ASSERT(t, workspace != nullptr);
+    auto model = workspace->NewModel("test.cpp");
+    TR_ASSERT(t, model != nullptr);
+    auto buffer = model->GetTextBuffer();
+    TR_ASSERT(t, buffer != nullptr);
+    buffer->AddLineUTF8("#ifdef FOO");
+    buffer->AddLineUTF8("#ifndef BAR_H");
+    buffer->AddLineUTF8("#undef BAZ");
+    buffer->AddLineUTF8("int x = 0;");
+    buffer->Reparse();
+
+    for(int i=0;i<buffer->NumLines();i++) {
+        auto line = buffer->LineAt(i);
+        printf("%d: '%s'\n", i, line->BufferAsUTF8().c_str());
+        for (auto &a : line->Attributes()) {
+            printf("  idx=%d class=%d\n", a.idxOrigString, (int)a.tokenClass);
+        }
+    }
+
+    // Each conditional: '#' and the directive keyword are kPreProcessor, the macro name is kMacroIdentifier
+    for (int i = 1; i <= 3; i++) {
+        auto line = buffer->LineAt(i);
+        TR_ASSERT(t, line->Attributes()[0].tokenClass == kLanguageTokenClass::kPreProcessor);
+        TR_ASSERT(t, line->Attributes()[1].tokenClass == kLanguageTokenClass::kPreProcessor);
+        TR_ASSERT(t, lineHasClass(line, kLanguageTokenClass::kMacroIdentifier));
+    }
+
+    // The plain code line that follows must tokenize normally - confirms the directive states
+    // (in_preprocessor + in_pp_macro) fully unwound at EOL and didn't leak.
+    auto codeLine = buffer->LineAt(4);
+    TR_ASSERT(t, !lineHasClass(codeLine, kLanguageTokenClass::kPreProcessor));
+    TR_ASSERT(t, !lineHasClass(codeLine, kLanguageTokenClass::kMacroIdentifier));
+
+    TR_ASSERT(t, workspace->RemoveModel(model->GetModel()));
+    return kTR_Pass;
+}
+
 DLL_EXPORT int test_cpplang_indent(ITesting *t) {
     Config::Instance()["main"].SetBool("threaded_syntaxparser", false);
 

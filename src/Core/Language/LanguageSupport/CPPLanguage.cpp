@@ -31,8 +31,10 @@ static const std::u32string cppLineComment = U"//";
 static const std::u32string cppCodeBlockStart = U"{";
 static const std::u32string cppCodeBlockEnd = U"}";
 
-// state: in_include / in_include_angle
-static const std::u32string cppIncludes = U"#include";
+// state: main -> '#' enters in_preprocessor
+static const std::u32string cppPreProcStart = U"#";
+// state: in_preprocessor - directive keywords following the '#'
+static const std::u32string cppPreProcDirectives = U"include define undef ifdef ifndef if elif else endif pragma error warning line";
 
 // state: main & in_block_comment
 static const std::u32string cppBlockCommentStart = U"/* */";        // why do I have 'end block' here????
@@ -58,7 +60,7 @@ bool CPPLanguage::Initialize() {
     state->SetIdentifiers(kLanguageTokenClass::kBlockComment, cppBlockCommentStart);
     state->SetIdentifiers(kLanguageTokenClass::kCodeBlockStart, cppCodeBlockStart);
     state->SetIdentifiers(kLanguageTokenClass::kCodeBlockEnd, cppCodeBlockEnd);
-    state->SetIdentifiers(kLanguageTokenClass::kImport, true, cppIncludes);
+    state->SetIdentifiers(kLanguageTokenClass::kPreProcessor, cppPreProcStart);
     state->SetPostFixIdentifiers(cppOperatorsFull);
     state->SetNumberMatcher(CPPNumberMatcher::Create());
 
@@ -66,7 +68,7 @@ bool CPPLanguage::Initialize() {
     state->GetOrAddAction(U"/*", LangLineTokenizer::kAction::kPushState, "in_block_comment");
     state->GetOrAddAction(U"//", LangLineTokenizer::kAction::kPushState, "in_line_comment");
     state->GetOrAddAction(U"\'", LangLineTokenizer::kAction::kPushState, "in_char");
-    state->GetOrAddAction(U"#include", LangLineTokenizer::kAction::kPushState, "in_include");
+    state->GetOrAddAction(U"#", LangLineTokenizer::kAction::kPushState, "in_preprocessor");
 
     auto stateChr = tokenizer.GetOrAddState("in_char");
     stateChr->SetRegularTokenClass(kLanguageTokenClass::kChar);
@@ -95,7 +97,26 @@ bool CPPLanguage::Initialize() {
     stateLineComment->SetRegularTokenClass(kLanguageTokenClass::kCommentedText);
     stateLineComment->SetEOLAction(LangLineTokenizer::kAction::kPopState);
 
-    // in_include: handles the path following #include — delegates to in_string or in_include_angle
+    // in_preprocessor: entered on '#'. Classifies the directive keyword and delegates #include to
+    // the in_include sub-state. Operands (macro names/values) fall through as regular text.
+    auto statePreProc = tokenizer.GetOrAddState("in_preprocessor");
+    statePreProc->SetRegularTokenClass(kLanguageTokenClass::kRegular);
+    statePreProc->SetIdentifiers(kLanguageTokenClass::kPreProcessor, true, cppPreProcDirectives);
+    statePreProc->SetPostFixIdentifiers(cppOperatorsFull);
+    statePreProc->GetOrAddAction(U"include", LangLineTokenizer::kAction::kPushState, "in_include");
+    statePreProc->GetOrAddAction(U"ifdef", LangLineTokenizer::kAction::kPushState, "in_pp_macro");
+    statePreProc->GetOrAddAction(U"ifndef", LangLineTokenizer::kAction::kPushState, "in_pp_macro");
+    statePreProc->GetOrAddAction(U"undef", LangLineTokenizer::kAction::kPushState, "in_pp_macro");
+    statePreProc->SetEOLAction(LangLineTokenizer::kAction::kPopState);
+
+    // in_pp_macro: sub-state of in_preprocessor for #ifdef/#ifndef/#undef - the operand is a single
+    // macro name. No postfix identifiers: the name is collected greedily to whitespace so a bare
+    // operator can't yield an empty token (which would skip the EOL flush and leak the state).
+    auto statePPMacro = tokenizer.GetOrAddState("in_pp_macro");
+    statePPMacro->SetRegularTokenClass(kLanguageTokenClass::kMacroIdentifier);
+    statePPMacro->SetEOLAction(LangLineTokenizer::kAction::kPopState);
+
+    // in_include: sub-state of in_preprocessor, handles the path following #include — delegates to in_string or in_include_angle
     auto stateInclude = tokenizer.GetOrAddState("in_include");
     stateInclude->SetRegularTokenClass(kLanguageTokenClass::kImport);
     stateInclude->SetIdentifiers(kLanguageTokenClass::kOperator, U"< \"");

@@ -15,6 +15,7 @@ extern "C" {
 DLL_EXPORT int test_cpplang(ITesting *t);
 DLL_EXPORT int test_cpplang_include(ITesting *t);
 DLL_EXPORT int test_cpplang_ppmacro(ITesting *t);
+DLL_EXPORT int test_cpplang_ppnoleak(ITesting *t);
 DLL_EXPORT int test_cpplang_indent(ITesting *t);
 DLL_EXPORT int test_cpplang_elseindent(ITesting *t);
 DLL_EXPORT int test_cpplang_chardecl(ITesting *t);
@@ -123,6 +124,46 @@ DLL_EXPORT int test_cpplang_ppmacro(ITesting *t) {
     auto codeLine = buffer->LineAt(4);
     TR_ASSERT(t, !lineHasClass(codeLine, kLanguageTokenClass::kPreProcessor));
     TR_ASSERT(t, !lineHasClass(codeLine, kLanguageTokenClass::kMacroIdentifier));
+
+    TR_ASSERT(t, workspace->RemoveModel(model->GetModel()));
+    return kTR_Pass;
+}
+
+// Regression: a directive that stays in in_preprocessor and contains an operator/quote
+// (e.g. #pragma ... "string") must not leak the preprocessor state onto following lines.
+DLL_EXPORT int test_cpplang_ppnoleak(ITesting *t) {
+    Config::Instance()["main"].SetBool("threaded_syntaxparser", false);
+
+    auto workspace = Editor::Instance().GetWorkspace();
+    TR_ASSERT(t, workspace != nullptr);
+    auto model = workspace->NewModel("test.cpp");
+    TR_ASSERT(t, model != nullptr);
+    auto buffer = model->GetTextBuffer();
+    TR_ASSERT(t, buffer != nullptr);
+    buffer->AddLineUTF8("#pragma GCC diagnostic push");
+    buffer->AddLineUTF8("#pragma GCC diagnostic ignored \"-Wimplicit-fallthrough\"");
+    buffer->AddLineUTF8("#define UNI_SUR_HIGH_START  (UTF32)0xD800");
+    buffer->AddLineUTF8("int x = 0;");
+    buffer->Reparse();
+
+    for(int i=0;i<buffer->NumLines();i++) {
+        auto line = buffer->LineAt(i);
+        printf("%d: '%s'\n", i, line->BufferAsUTF8().c_str());
+        for (auto &a : line->Attributes()) {
+            printf("  idx=%d class=%d\n", a.idxOrigString, (int)a.tokenClass);
+        }
+    }
+
+    // The lines after the quoted #pragma must tokenize on their own merits, not inherit the
+    // preprocessor state. The plain code line is the clearest tell of a leak.
+    auto codeLine = buffer->LineAt(4);
+    TR_ASSERT(t, codeLine->Attributes()[0].tokenClass == kLanguageTokenClass::kKnownType); // 'int'
+    TR_ASSERT(t, !lineHasClass(codeLine, kLanguageTokenClass::kPreProcessor));
+    TR_ASSERT(t, !lineHasClass(codeLine, kLanguageTokenClass::kMacroIdentifier));
+
+    // And #define on line 3 must still start as a fresh preprocessor directive
+    auto defineLine = buffer->LineAt(3);
+    TR_ASSERT(t, defineLine->Attributes()[0].tokenClass == kLanguageTokenClass::kPreProcessor); // '#'
 
     TR_ASSERT(t, workspace->RemoveModel(model->GetModel()));
     return kTR_Pass;

@@ -102,7 +102,10 @@ bool CPPLanguage::Initialize() {
     auto statePreProc = tokenizer.GetOrAddState("in_preprocessor");
     statePreProc->SetRegularTokenClass(kLanguageTokenClass::kRegular);
     statePreProc->SetIdentifiers(kLanguageTokenClass::kPreProcessor, true, cppPreProcDirectives);
-    statePreProc->SetPostFixIdentifiers(cppOperatorsFull);
+    // No postfix identifiers: operands (pragma args, define bodies) are collected greedily to
+    // whitespace. A postfix set including '"' or '(' here would yield empty tokens on directives
+    // like #pragma GCC diagnostic ignored "..." and stop tokenization mid-line. The directive
+    // keyword still breaks on whitespace, so spaced '#include <...>' still delegates to in_include.
     statePreProc->GetOrAddAction(U"include", LangLineTokenizer::kAction::kPushState, "in_include");
     statePreProc->GetOrAddAction(U"ifdef", LangLineTokenizer::kAction::kPushState, "in_pp_macro");
     statePreProc->GetOrAddAction(U"ifndef", LangLineTokenizer::kAction::kPushState, "in_pp_macro");

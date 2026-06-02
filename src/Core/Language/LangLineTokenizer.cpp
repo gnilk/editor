@@ -228,7 +228,10 @@ void LangLineTokenizer::ParseLineWithCurrentState(std::vector<LangToken> &tokens
 //        printf("s: %s, nexttok: '%s'\n", currentState->name.c_str(), tmp.c_str());
 
         if (nextToken.empty()) {
-            return;
+            // Stuck token (iterator didn't advance, e.g. a postfix char with no matching
+            // identifier/action). Stop scanning this line but break out so the EOL flush below
+            // still unwinds any line-terminal states - 'return' here would leak them to the next line.
+            break;
         }
 
         // Get a token and the classification...

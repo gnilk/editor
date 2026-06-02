@@ -110,13 +110,19 @@ namespace gedit {
         template<typename T>
         auto GetSequence(const std::string &key) const {
             if (!HasKey(key)) {
-                return T();
+                return std::vector<T>();
+            }
+            if (dataNode[key].size() == 0) {
+                return std::vector<T>();
             }
             return dataNode[key].as<std::vector<T>>();
         }
         // I get a warning here about const but without it I get an error... lovely...
         auto GetSequenceOfStr(const std::string &key) const {
             if (!HasKey(key)) {
+                return std::vector<std::string>();
+            }
+            if (dataNode[key].size() == 0) {
                 return std::vector<std::string>();
             }
             return dataNode[key].as<std::vector<std::string>>();

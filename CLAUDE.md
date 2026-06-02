@@ -145,3 +145,71 @@ YAML-based config loaded by `Config` singleton. `ConfigNode` provides typed acce
 - Use `auto` sparingly, only when type is obvious from context
 - Mark all single-argument constructors `explicit`
 - Prefer range-based for loops
+
+## Session Notes — C++ Preprocessor Tokenization (2026-06)
+
+Work on syntax highlighting for C++ preprocessor directives via the stack-based
+`LangLineTokenizer`. Three commits on `main`: `fa21303` (ConfigNode cleanup),
+`4873dd0` (preprocessor tokenization), `bb3803a` (state-leak fix).
+
+### What was done
+- **ConfigNode cleanup** (`src/Core/Config/ConfigNode.h`): merged the two early-return
+  guards in `GetSequence` into one `||` condition; `GetSequenceOfStr` now delegates to
+  `GetSequence<std::string>`.
+- **Preprocessor states** (`src/Core/Language/LanguageSupport/CPPLanguage.cpp`): replaced
+  the old whole-word `#include` match with a `#`-triggered `in_preprocessor` state.
+  `#include` delegates to the existing `in_include`/`in_include_angle` sub-states;
+  `#ifdef`/`#ifndef`/`#undef` delegate to a shared `in_pp_macro` sub-state.
+- **New token classes** (`src/Core/Language/LanguageTokenClass.h`): `kPreProcessor` (the
+  `#` and directive keyword) and `kMacroIdentifier` (the operand of ifdef/ifndef/undef).
+  Both must be added to the `tokenNames` map in `LangToken.cpp` (an unmapped class calls
+  `exit(1)` at startup) and to `Assets/Resources/colors.json` under both `globals` and
+  `content` (themed `pink` and `orange3`). Token-class enum values must stay contiguous
+  0..`kLastTokenClass`-1 (the color-config loop in `Editor.cpp` iterates them).
+- **Tokenizer fixes** (`src/Core/Language/LangLineTokenizer.cpp`): (1) EOL flush now pops
+  *all* nested line-terminal states in a `while` loop, not a single pop — required for
+  nested directive states and also fixes a latent leak on unterminated `#include <foo`.
+  (2) An empty/stuck token now `break`s (was `return`) so the EOL flush still runs.
+- Tests in `utests/test_cpplang.cpp`: `test_cpplang_include` (updated), `test_cpplang_ppmacro`,
+  `test_cpplang_ppnoleak`.
+
+### Tokenizer mechanics (learned this session)
+- Each `State` has identifier lists (per token class), optional actions (push/pop on a
+  matched token), an `eolAction`, a `regularTokenClass` (fallback for unrecognized text),
+  and optional `postfixIdentifiers` (tokens that break greedy text collection).
+- `GetNextToken` order: number matcher → partial (non-whole-word) identifier longest-match
+  → greedy text collection (stops at whitespace or a postfix identifier) → whole-word
+  identifier match. Actions fire afterwards in `CheckExecuteActionForToken`.
+- **Postfix footgun**: a `postfixIdentifiers` set containing a char that is NOT also an
+  identifier/action in that state yields an empty token (collection breaks immediately,
+  iterator doesn't advance). That's why `in_preprocessor` has NO postfix — operands collect
+  greedily to whitespace. Don't add a postfix set to a state unless those chars are also
+  matched as identifiers/actions (as `main`/`in_string`/`in_include_angle` do).
+
+### Decisions / patterns established
+- `#` and the directive keyword → `kPreProcessor`; the macro operand → `kMacroIdentifier`
+  (a distinct new class, chosen over reusing `kImport`, aligning with a future
+  "known/user identifiers" class). Include path content stays `kString` via `in_include`.
+- Single-line directives use the pattern: `regularTokenClass` + `SetEOLAction(kPopState)`,
+  no postfix. The EOL action is the guaranteed unwind; rely on it rather than trying to
+  match every operator inside the directive.
+- Run tests with a **targeted module selection** from `cmake-build-debug/` (resources path
+  is cwd-relative), always `--sequential`, lib is `libutests.dylib`. Do NOT run the full
+  suite in debug — the sqlite3-amalgamation parse test and thread/timer dev tests make it
+  hang. Verified set: `trun -m cpplang,jsonlang,cppnumbers --sequential libutests.dylib`.
+
+### Remaining / deferred
+- **EOL handling is naive** (binary pop/none, no line continuation). Blocks proper
+  `#define` multi-line bodies (trailing `\`). Fix: a conditional EOL action / per-state
+  continuation token that suppresses the pop when the line ends with `\`; can reuse the
+  existing "state survives EOL → stack-depth >1 → reparse region extends" path that block
+  comments use (`FindParseRegionStart`/`FindParseRegionEnd`).
+- **Not yet implemented**: `#define` (object/function-like, params, body, continuation —
+  hard tier), `#if`/`#elif` expressions (`defined`, operators, numbers — moderate),
+  `#line` (number + filename), `#error`/`#warning` (trivial message-to-EOL sub-state,
+  deliberately skipped as low value).
+- `#include<vector>` (no space) no longer enters the angle sub-state (the postfix that
+  enabled it was removed); spaced form works. Considered an acceptable trade.
+- Test cleanup wanted: the slow sqlite3-parse and thread/timer tests should be gated so
+  the full suite is runnable in debug (the user has local stubs in `test_textbuffer.cpp`
+  and `test_timer.cpp`, uncommitted).

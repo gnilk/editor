@@ -118,6 +118,12 @@ void EditorView::DrawViewContents() {
     dc.ResetDrawColors();
     dc.ClearOverlays();
 
+    // Overlays are drawn in screen space, where the text renders with tabs expanded. The model stores
+    // columns as character indices, so every overlay x must be translated to a VISUAL column (against
+    // its own line - tabs differ per line) or the highlight drifts left of the glyphs whenever a tab
+    // precedes it. This mirrors the caret handling in SetWindowCursor / GetStatusBarInfo.
+    int tabSize = editorModel->GetTextBuffer()->GetLanguage().GetTabSize();
+
     // Add in the result from search if any...
     if (editorModel->searchResults.size() > 0) {
         logger->Debug("Overlays from search results");
@@ -129,8 +135,14 @@ void EditorView::DrawViewContents() {
             if (lineCursor.IsInside(result.idxLine)) {
                 DrawContext::Overlay overlay;
                 auto yPos = result.idxLine - lineCursor.viewTopLine;
-                overlay.Set(Point(result.cursor_x, yPos),
-                            Point(result.cursor_x + result.length, yPos));
+                int startVisualX = result.cursor_x;
+                int endVisualX = result.cursor_x + result.length;
+                if (auto line = editorModel->LineAt(result.idxLine)) {
+                    startVisualX = line->CharToVisualColumn(result.cursor_x, tabSize);
+                    endVisualX = line->CharToVisualColumn(result.cursor_x + result.length, tabSize);
+                }
+                overlay.Set(Point(startVisualX, yPos),
+                            Point(endVisualX, yPos));
                 overlay.isActive = true;
                 dc.AddOverlay(overlay);
             }
@@ -138,12 +150,25 @@ void EditorView::DrawViewContents() {
     }
 
     if (selection.IsActive()) {
+        auto selStart = selection.GetStart();    // buffer (char-index) coords, sorted
+        auto selEnd = selection.GetEnd();
+
+        // Expand each endpoint to a visual column against the line it sits on.
+        int startVisualX = selStart.x;
+        if (auto lineStart = editorModel->LineAt(selStart.y)) {
+            startVisualX = lineStart->CharToVisualColumn(selStart.x, tabSize);
+        }
+        int endVisualX = selEnd.x;
+        if (auto lineEnd = editorModel->LineAt(selEnd.y)) {
+            endVisualX = lineEnd->CharToVisualColumn(selEnd.x, tabSize);
+        }
+
         DrawContext::Overlay overlay;
-        overlay.Set(selection.GetStart(), selection.GetEnd());
+        overlay.Set(Point(startVisualX, selStart.y), Point(endVisualX, selEnd.y));
         overlay.attributes = 0;     // ??
         overlay.isActive = true;
 
-        int dy = selection.GetEnd().y - selection.GetStart().y;
+        int dy = selEnd.y - selStart.y;
         overlay.start.y -= lineCursor.viewTopLine;
         overlay.end.y = overlay.start.y + dy;
 

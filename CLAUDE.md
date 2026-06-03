@@ -312,3 +312,43 @@ boundary and in the vertical-nav anchor; never mutate the buffer.
 - **Merge `cppOperators`/`cppOperatorsFull`?** — now identical.
 - Language (from the sibling's list): `#define` multi-line (`\` continuation), `#if`/`#elif`
   expressions, `#line`.
+
+## Session Notes — Test-suite cleanup (Timer, parse tests) (2026-06-03)
+
+Goal: a debug suite that runs green without hanging. Three commits on `main`:
+`d80e8e6` (Timer fix), `ca2f4ee` (parse-test hygiene), `6fe3b16` (flatten off-by-one).
+
+### What was done
+- **Timer concurrency fix** (`src/Core/Timer.{h,cpp}`) — `Timer` is production code (`TextBuffer`
+  uses it for the async syntax parser). It used predicate-less `condition_variable` waits and mutated
+  `wakeupReason`/`hasExpired` without the mutex, so a `Stop()`/`Restart()` notify that raced ahead of
+  the wait was **lost** → worker blocked forever → `HasExpired()` never flipped and `~Timer()`'s
+  `join()` hung. That's why the timer tests were commented out. Fix: all shared state under `mymutex`;
+  added `commandPending` as the wait predicate (kills lost wakeups); `hasExpired` is now
+  `std::atomic<bool>` (lock-free `HasExpired()`); the handler runs with the lock released so it can
+  call back into the timer.
+- **Timer tests re-enabled** (`utests/test_timer.cpp`) with a bounded `WaitForExpiry(timer, budget)`
+  helper instead of infinite spin — a regressed timer now *fails* the test instead of hanging the
+  suite. Covers expiry, `Restart()`, `Restart(dur)`, `Stop()`.
+- **sqlite3 parse test gated to release** — `test_textbuffer_parselarge` wrapped in `#ifdef NDEBUG`
+  (it's ~6s and needs an untracked 8.4MB `sqlite3.c`). Compiles/runs only in release builds.
+- **Parse tests use a tracked fixture** — `parsefull`/`parseregion`/`thparsefull`/`thparseregion`
+  now load `testfiles/ConvertUTF.cpp` (tracked, copied to the build dir by the `testfiles` target)
+  instead of the untracked `test_src2.cpp`, so they pass on a clean checkout.
+- **thparseregion async race fixed** — `ReparseRegion` is asynchronous and *returns a `Job`*; polling
+  `GetParseState()` is racy (worker may still report `kState_Idle` before it dequeues). The test now
+  waits on `job->WaitComplete()`. NOTE: `Reparse()` (full) is internally synchronous (it calls
+  `WaitComplete()` itself), but `ReparseRegion` is not — callers must wait on the returned job.
+- **flatten off-by-one** — `CreateEmptyBuffer()` seeds one empty line, so the buffer has 11 lines, not
+  10. `test_textbuffer_flatten` now expresses expectations against `NumLines()`.
+
+### Test-running gotchas (confirmed this session)
+- Run from `cmake-build-debug/` (resources + `testfiles/` paths are cwd-relative), always
+  `--sequential`, lib is `libutests.dylib`. No `timeout` on macOS — if you fear a hang, run the
+  module as a background task rather than relying on `timeout`.
+- Verified-green set (44 tests, 0 fail):
+  `trun -m cpplang,jsonlang,cppnumbers,linelayout,timer,textbuffer --sequential libutests.dylib`.
+
+### Remaining / deferred
+- **Two baseline failures still red** (deliberately left this pass): `test_edtmodel_delete_text`,
+  `test_edtmodel_text_linefunc` — real EditorModel logic, not test plumbing. Need a closer look.

@@ -3,9 +3,14 @@
 //
 /*
  * TO-DO List
- * - CPP Syntax highlighting (#pragma, #if #ifdef and friends)
-        - Perhaps have a specific state for '#' preprocessor directives
+ * + CPP Syntax highlighting (#pragma, #if #ifdef and friends)
+        + Perhaps have a specific state for '#' preprocessor directives
  * ! Resize doesn't work (the EditorView), need to consider how this event is handled
+ * - Fix the failing unit-tests, some have now been disabled with pointers to CLAUDE where we need to take a look
+ *   - Do this first, then clear the context and start over
+ *   - Where we have missing implementations (like JSEngine), leave this
+ *   - Where we have off-by-one errors, fix them (incl. underlying issues)
+ *
  * - Consider rewriting the graphics layer
  *   - Refactor the graphics layer
  *   ! Move to new file/directory structure (this makes it easier to separate this subsystem from the rest)

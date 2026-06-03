@@ -95,55 +95,80 @@ void ClipBoard::ClipBoardItem::CopyFromExternal(const char *srcData) {
 }
 
 void ClipBoard::ClipBoardItem::PasteToBuffer(TextBuffer::Ref dstBuffer, const Point &ptWhere) {
-
-    size_t idxLine = ptWhere.y;
-
-    // Can't paste outside
-    if (idxLine > dstBuffer->NumLines()) {
-        idxLine = dstBuffer->NumLines();
-    }
-    size_t idxData = 0;
-
-    if ((start.x != 0) || (ptWhere.x != 0)) {
-        auto dx = data[0].length() - start.x;
-        if (start.y == end.y) {
-            dx = end.x - start.x;
-        }
-        auto substr = data[0].substr(start.x, dx);
-        if (dstBuffer->NumLines() == 0) {
-            dstBuffer->AddLine(substr);
-        } else if (ptWhere.x > dstBuffer->LineAt(idxLine)->Length()) {
-            dstBuffer->LineAt(idxLine)->Append(substr);
-        } else {
-            dstBuffer->LineAt(idxLine)->Insert(ptWhere.x, substr);
-        }
-        // First line dealt with...
-        idxLine++;
-        idxData = 1;
+    if (data.empty()) {
+        return;
     }
 
-    while (idxData < (data.size() - 1)) {
-        // Last line??
-        dstBuffer->Insert(idxLine, data[idxData]);
-        idxData++;
-        idxLine++;
-    }
-    // Last line - in case we have a 'broken' region...
-    if (end.x != 0) {
-        auto strToAdd = data[idxData].substr(0, end.x);
-        // Are we pasting in the middle of the buffer - then we must insert the data to an existing line
-        if (dstBuffer->NumLines() > idxLine) {
-            auto lastLine = dstBuffer->LineAt(idxLine);
-            lastLine->Insert(0, strToAdd);
-        } else {
-            // We are extending the buffer - just put the data there...
-            dstBuffer->Insert(idxLine, strToAdd);
-        }
+    // Resolve the stored whole-lines + selection columns into the exact text segments to splice in,
+    // one per line. Pasting is then a plain text-splice: the target line is split once at the paste
+    // column into head|tail, the first segment joins the head, the last segment carries the tail, and
+    // any middle segments become their own lines. A trailing empty segment represents a selection that
+    // ended on a line break (so the paste leaves a fresh empty line behind).
+    std::vector<std::u32string> segs;
+    if (isExternal) {
+        segs = data;    // external data is already literal, per-line text
+    } else if ((data.size() == 1) && (end.x != 0)) {
+        // Selection contained within a single line: [start.x, end.x)
+        segs.push_back(data[0].substr(start.x, end.x - start.x));
     } else {
-        // last line was a 'clean line' - just insert it...
-        dstBuffer->Insert(idxLine, data[idxData]);
+        // First line: from start.x to its end
+        segs.push_back(data[0].substr(start.x));
+        // Whole middle lines
+        for (size_t i = 1; (i + 1) < data.size(); i++) {
+            segs.push_back(data[i]);
+        }
+        if (data.size() >= 2) {
+            if (end.x != 0) {
+                segs.push_back(data.back().substr(0, end.x));   // last line clipped to end.x
+            } else {
+                segs.push_back(data.back());                    // last line whole...
+                segs.push_back(std::u32string());               // ...plus the trailing line break
+            }
+        } else {
+            // Single whole line that ended on a line break (end.x == 0)
+            segs.push_back(std::u32string());
+        }
     }
 
+    // A destination buffer always keeps at least one line to splice into.
+    if (dstBuffer->NumLines() == 0) {
+        dstBuffer->AddLine(std::u32string());
+    }
+
+    // Clamp the paste line into range and the paste column into the target line.
+    size_t idxLine = ptWhere.y;
+    if (idxLine >= dstBuffer->NumLines()) {
+        idxLine = dstBuffer->NumLines() - 1;
+    }
+    auto targetLine = dstBuffer->LineAt(idxLine);
+    size_t px = ptWhere.x;
+    if (px > targetLine->Length()) {
+        px = targetLine->Length();
+    }
+
+    // Split the target line into head|tail around the paste column.
+    const std::u32string original = targetLine->Buffer();
+    const std::u32string head = original.substr(0, px);
+    const std::u32string tail = original.substr(px);
+
+    if (segs.size() == 1) {
+        // No line break in the pasted text - splice it inline: head + seg + tail.
+        targetLine->Clear();
+        targetLine->Append(head + segs[0] + tail);
+        return;
+    }
+
+    // Multi-line paste: first segment joins the head, the rest become their own lines, and the last
+    // segment carries the original tail.
+    targetLine->Clear();
+    targetLine->Append(head + segs.front());
+
+    size_t insertAt = idxLine + 1;
+    for (size_t i = 1; (i + 1) < segs.size(); i++) {
+        dstBuffer->Insert(insertAt, segs[i]);
+        insertAt++;
+    }
+    dstBuffer->Insert(insertAt, segs.back() + tail);
 }
 void ClipBoard::ClipBoardItem::Dump() {
     printf("PtStart (%d,%d) - PtEnd (%d, %d)\n", start.x, start.y, end.x, end.y);

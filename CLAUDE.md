@@ -153,13 +153,53 @@ YAML-based config loaded by `Config` singleton. `ConfigNode` provides typed acce
 - **Running tests**: `trun -m <modules> --sequential cmake-build-debug/libutests.so`. `--sequential`
   disables forking for synchronized log output during dev. `-t` takes a list, supports wildcards,
   `!name` to exclude, and `-` meaning "all the rest" (e.g. `-t case1,case2,-` runs those first then
-  the rest). Verified-green set this session:
-  `trun -m clipboard,edtmodel,vnav,cpplang,jsonlang,cppnumbers,linelayout --sequential ...` (67 cases).
+  the rest). Verified-green set:
+  `trun -m clipboard,edtmodel,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout --sequential ...`.
   Note: trun forks per-test by DEFAULT (omit `--sequential`) — useful when a case may crash/segfault,
   so one bad case is isolated and the rest still report instead of aborting the run.
 - **Do NOT run the full debug suite** — pre-existing failures in `test_textbuffer_{flatten,parsefull,
   parseregion,thparsefull,thparseregion}` confirmed present at baseline; plus the sqlite3-parse and
   thread/timer tests hang. Gating these is outstanding.
+
+### Session 2026-06-04 — resume point (read this first)
+Worked through the deferred list + two newly-reported nav/render bugs. All work is **local commits on
+`main`, NOT pushed**. Build is clean (`goatedit` + `utests`); verified-green set above all passes.
+
+**Commits this session (oldest→newest):**
+- `b5190db` FIX: PasteFromClipboard cursor advance & undo range for partial pastes
+- `2fa4107` FIX: dc-overlay alignment with tabs + lock in IsInside boundary
+- `f6ebc1e` DOC: carry-forward update
+- `5432ca3` FIX: bound split-view resize so the status bar can't be pushed off-screen
+
+**Files modified:** `src/Core/ClipBoard.{h,cpp}`, `src/Core/EditorModel.cpp` (PasteFromClipboard),
+`src/Core/Views/EditorView.cpp` (overlay visual-column expansion), `src/Core/Views/HSplitView.h` +
+`src/Core/Views/VSplitView.h` (resize delegation + clamp), tests `utests/test_clipboard.cpp`,
+`utests/test_dcoverlay.cpp`, `utests/test_layout.cpp`, and this file. Each change is detailed under
+"Recently completed" below.
+
+**Patterns / decisions established (reuse these):**
+- **Model stays logical, the VIEW translates at draw.** Cursor columns are CHAR INDICES everywhere in
+  the model/`Selection` (copy/delete depend on it); anything drawn in screen space (caret, overlays,
+  status col) converts via `Line::CharToVisualColumn(x, tabSize)` at render time. Don't push visual
+  columns into the model. (This is why the overlay fix lives in `EditorView`, not `UpdateSelection`.)
+- **Clamp/guard at the single chokepoint.** `*SplitView::SetSplitterPos` is the one place all resize
+  paths funnel through → clamp there once rather than at each caller. Same spirit: `ClipBoardItem`
+  resolves segments once in `ResolveSegments()` shared by both paste and line-count queries.
+- **Split-view action routing:** stack views (`H/VStackView`) delegate all four resize actions up;
+  each splitter handles ONE axis and must delegate the OTHER axis up its layout-handler chain
+  (guarded → top-level is a no-op). A resize action's effect lives at the nearest enclosing splitter
+  of the matching axis, not at the view that received the keystroke.
+- **GUI verification recipe (SDL2 build, real `:0` display):** launch from `cmake-build-debug`, find
+  the window by matching `xdotool getwindowpid` to the launched PID (WM title shows "gedit"), drive
+  with `xdotool key --clearmodifiers <keys>`, capture with `xwd -id <wid> -out f.xwd` then
+  `ffmpeg -i f.xwd f.png`, crop/upscale with ffmpeg `crop=...,scale=iw*N:ih*N:flags=neighbor`. Kill
+  ONLY your launched PID afterwards; the user often has other goatedit/CLion windows open. Key actions:
+  `Alt+s`/`Alt+w` height, `Alt+d`/`Alt+a` width, `Alt+e` focus editor (`Assets/Resources/Linux/
+  default_keymap.yml`, `UINavigationModifier == Alt`).
+- **Tests assert the SAFETY PROPERTY, not magic numbers** where possible (e.g. "splitter stays in
+  `(0, contentExtent)` and both views keep positive extent"), and the nested layout tests assert the
+  action actually *reached* the far splitter (`sp > initialSp`) so they catch the delegation bug, not
+  just the clamp.
 
 ### Recently completed (carry-forward state)
 - **Vertical page-nav (CLion/content-first)** — `VerticalNavigationCLion::OnNavigateDown` used to add a
@@ -225,17 +265,15 @@ YAML-based config loaded by `Config` singleton. `ConfigNode` provides typed acce
   in the GUI (Alt+s/Alt+w ×140 each): status bar stays on-screen at max, editor clamps to a few rows
   at min, no invert. Headless screen 100 => clamps to 5/95.
 
-### Remaining / deferred (carried + new)
-- **jsengine loadbuffer/listbuffers** — reinstate `Editor.LoadBuffer`: add a `LoadDocument(filename)`
-  to `EditorAPIWrapper` mirroring `NewDocument` (`editorApi->LoadModel(...)` wrapped in
-  `DocumentAPIWrapper`, registered via `dukglue_register_method`), update `loadbuffer.js` to the
-  Document API, then un-stub both tests. `Editor::LoadModel(const std::string&)` still exists.
-- **clipboard PasteFromClipboard cursor advance** — `EditorModel::PasteFromClipboard`
-  (`src/Core/EditorModel.cpp:930`) advances the cursor by `clipboard.Top()->GetLineCount()` (the count
-  of stored WHOLE lines) and uses the same count for the undo range. After the `PasteToBuffer` rewrite
-  the number of lines actually added depends on the selection shape (a single-line partial paste adds
-  0 new lines; a full-line/region paste adds N or N+1). So for partial-region pastes the cursor can
-  land on the wrong line and the undo range can be off. The correct advance is "number of lines the
-  splice added" + "final segment length" for the column — `PasteToBuffer` should report what it did
-  (e.g. return the end Point) instead of the caller guessing from `GetLineCount()`. Untested; not yet
-  addressed.
+### Remaining / deferred
+- **jsengine loadbuffer/listbuffers** (only item left — explicitly deferred this session) — reinstate
+  `Editor.LoadBuffer`: add a `LoadDocument(filename)` to `EditorAPIWrapper` mirroring `NewDocument`
+  (`editorApi->LoadModel(...)` wrapped in `DocumentAPIWrapper`, registered via
+  `dukglue_register_method`), update `src/Plugins/Scripts/loadbuffer.js` (currently calls the
+  removed `Editor.LoadBuffer`) to the Document API, then un-stub `test_jsengine_loadbuffer` /
+  `test_jsengine_listbuffers` (both currently early-`return kTR_Pass`). `Editor::LoadModel(const
+  std::string&)` still exists. Real app hierarchy + APIs were mapped this session: see `main.cpp:408+`
+  and `src/Core/JSEngine/Modules/EditorAPIWrapper.cpp` (`NewDocument`/`GetDocuments` are the templates).
+
+### Untracked (intentionally never committed)
+`.idea/`, `cmake-build-release/`, `syntax_problem.cpp` — left alone every commit this session.

@@ -192,13 +192,11 @@ void VerticalNavigationCLion::OnNavigateDown(size_t rows, const Rect &rect, size
             lineCursor->viewBottomLine = lineCursor->viewTopLine + rect.Height();
         }
 
-        if ((lineCursor->idxActiveLine >= lineCursor->viewTopLine) && (lineCursor->idxActiveLine < (lineCursor->viewBottomLine)) && (nRowsToMove > 0)) {
-            lineCursor->cursor.position.y += 1;
-            lineCursor->idxActiveLine += 1;
-        }
-
-
-
+        // Content-first navigation (real CLion/Sublime): the view scrolls by 'nRowsToMove' and the
+        // caret keeps its on-screen row, so its buffer line advances by exactly the same amount.
+        // PageDown followed by PageUp is therefore a no-op (away from the buffer edges). An earlier
+        // version added an extra +1 line here to 'mimic CLion', but real CLion does not overshoot -
+        // doing so broke the down/up symmetry (caret drifted +1 every cycle).
         lineCursor->cursor.position.y = lineCursor->idxActiveLine - lineCursor->viewTopLine;
         // Probably not needed...
         if (lineCursor->cursor.position.y > rect.Height()-1) {

@@ -154,22 +154,18 @@ DLL_EXPORT int test_edtmodel_text_linefunc(ITesting *t) {
     model->OnAction(actionPageDown);
     TR_ASSERT(t, model->ActiveLine() != nullptr);
 
-    // FIXME: Verify these two asserts, the should be '20' and '1'
-    //        but actual values are '21' and '2' - this can depend on the vertical navigation model
-    //        which decides how this is handled
+    // Content-first (CLion/Sublime) navigation: a page is 'height-1' rows - one line of overlap is
+    // kept from the previous visual chunk. The view scrolls by that amount while the caret keeps its
+    // on-screen row, so the active line advances by exactly 'height-1'. We were one line down
+    // (active line 1, screen row 1) -> active line 1+19 = 20, screen row unchanged at 1.
+    TR_ASSERT(t, model->GetLineCursorRef()->idxActiveLine == 20);
+    TR_ASSERT(t, model->GetLineCursorRef()->cursor.position.y == 1);
 
-    // We move 'height-1' - keeping at least one line of the previous visual chunk present on the screen
-    // TR_ASSERT(t, model->GetLineCursorRef()->idxActiveLine == 20);
-    // THIS depends on the current view model - we lock this to 'content-first' (CLion/Sublime) for this test
-    // TR_ASSERT(t, model->GetLineCursorRef()->cursor.position.y == 1);
-
-    // This will move us back to where we were at (one line down)
+    // PageUp is the exact inverse of PageDown, so this returns us to where we were (one line down)
     model->OnAction(actionPageUp);
     TR_ASSERT(t, model->ActiveLine() != nullptr);
-
-    // FIXME: These asserts are also wrong/right - not sure
-    // TR_ASSERT(t, model->GetLineCursorRef()->idxActiveLine == 1);
-    // TR_ASSERT(t, model->GetLineCursorRef()->cursor.position.y == 1);
+    TR_ASSERT(t, model->GetLineCursorRef()->idxActiveLine == 1);
+    TR_ASSERT(t, model->GetLineCursorRef()->cursor.position.y == 1);
 
     // We are one line down - moving a whole page up should put us on top - clipping to boundary
     model->OnAction(actionPageUp);
@@ -290,9 +286,15 @@ DLL_EXPORT int test_edtmodel_delete_text(ITesting *t) {
 
     auto lcAfter = model->GetLineCursor();
 
-    // FIXME: Not sure what we should expect here
-    //TR_ASSERT(t, lcBefore.cursor.position.y == lcAfter.cursor.position.y);
+    // Deleting a forward selection leaves the caret on the selection's start line, so the *active
+    // line* (buffer coordinate) is preserved.
     TR_ASSERT(t, lcBefore.idxActiveLine == lcAfter.idxActiveLine);
+
+    // The *screen row* (cursor.position.y) is NOT necessarily preserved: here we delete near EOF, so
+    // the viewport re-anchors (it cannot render past the new last line) and the caret's on-screen row
+    // shifts. The real invariant is that the caret stays visible on its active line, i.e. the screen
+    // row equals the active line minus the top of the view.
+    TR_ASSERT(t, lcAfter.cursor.position.y == (int)(lcAfter.idxActiveLine) - lcAfter.viewTopLine);
 
     return kTR_Pass;
 }

@@ -126,24 +126,26 @@ DLL_EXPORT int test_vnav_pagedown(ITesting *t) {
 
 
     // case 3) Move from the top one page down in a buffer with many items
-    // Navigate from the top one page down - with 100 items in the buffer
-    // expect cursor to stay top move one line down and position
+    // Content-first navigation: the view scrolls by exactly szPageSize and the caret keeps its
+    // on-screen row (0), so the active line advances by szPageSize - making PageDown/PageUp
+    // symmetric (a following PageUp returns cleanly to line 0).
     DefaultLineCursor(lineCursor);
     PositionAbsolute(lineCursor, 0,0);
     vnav.OnNavigateDown(szPageSize, viewRect, 100);
-    TR_ASSERT(t, lineCursor.idxActiveLine == szPageSize + 1);
-    TR_ASSERT(t, lineCursor.cursor.position.y == 1);
+    TR_ASSERT(t, lineCursor.idxActiveLine == szPageSize);
+    TR_ASSERT(t, lineCursor.cursor.position.y == 0);
     TR_ASSERT(t, lineCursor.viewTopLine == szPageSize);
     TR_ASSERT(t, lineCursor.viewBottomLine == lineCursor.viewTopLine + viewRect.Height());
 
     // case 4) Move one page from within the buffer and stay within the buffer
+    // Same contract: active line and view both advance by szPageSize, caret keeps its screen row.
     DefaultLineCursor(lineCursor);
     PositionAbsolute(lineCursor, 40,20);
     auto topLineBefore = lineCursor.viewTopLine;
     auto bottomLineBefore = lineCursor.viewBottomLine;
     vnav.OnNavigateDown(szPageSize, viewRect, 100);
-    TR_ASSERT(t, lineCursor.idxActiveLine == 40 + szPageSize +1);
-    TR_ASSERT(t, lineCursor.cursor.position.y == 20 + 1);
+    TR_ASSERT(t, lineCursor.idxActiveLine == 40 + szPageSize);
+    TR_ASSERT(t, lineCursor.cursor.position.y == 20);
     TR_ASSERT(t, lineCursor.viewTopLine == topLineBefore + szPageSize);
     TR_ASSERT(t, lineCursor.viewBottomLine == bottomLineBefore + szPageSize);
 

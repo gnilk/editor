@@ -154,10 +154,28 @@ YAML-based config loaded by `Config` singleton. `ConfigNode` provides typed acce
   disables forking for synchronized log output during dev. `-t` takes a list, supports wildcards,
   `!name` to exclude, and `-` meaning "all the rest" (e.g. `-t case1,case2,-` runs those first then
   the rest). Verified-green set this session:
-  `trun -m cpplang,jsonlang,cppnumbers,linelayout --sequential ...`.
+  `trun -m clipboard,edtmodel,vnav,cpplang,jsonlang,cppnumbers,linelayout --sequential ...` (67 cases).
+  Note: trun forks per-test by DEFAULT (omit `--sequential`) — useful when a case may crash/segfault,
+  so one bad case is isolated and the rest still report instead of aborting the run.
 - **Do NOT run the full debug suite** — pre-existing failures in `test_textbuffer_{flatten,parsefull,
   parseregion,thparsefull,thparseregion}` confirmed present at baseline; plus the sqlite3-parse and
   thread/timer tests hang. Gating these is outstanding.
+
+### Recently completed (carry-forward state)
+- **Vertical page-nav (CLion/content-first)** — `VerticalNavigationCLion::OnNavigateDown` used to add a
+  spurious +1 line on PageDown, breaking PageDown/PageUp symmetry (caret drifted +1 per cycle). Removed;
+  PageDown now moves the view by `height-1` and keeps the caret's screen row (real CLion behaviour, which
+  IS symmetric). Re-enabled the previously-stubbed `test_edtmodel_text_linefunc` /
+  `test_edtmodel_delete_text` asserts and fixed `test_vnav_pagedown` cases 3 & 4 to the no-+1 values.
+  Commit `52529d9`.
+- **ClipBoard paste** — rewrote `ClipBoard::ClipBoardItem::PasteToBuffer` as a clean text-splice (split
+  the target line once at the paste column into head|tail; first segment joins head, middle segments are
+  their own lines, last segment carries tail). Fixes mid-line/region paste (no target-line split before),
+  an OOB read on single-line partial clips, and trailing-line inconsistency. `utests/test_clipboard.cpp`
+  is now a fine-grained matrix: copy shapes {fullline,partial,multifull,partial-start,partial-end,
+  partial-both} × paste destinations {empty, col0, mid-overlap, end-append}, all asserting the correct
+  splice result; 21/21 green. `MakeNumberedBuffer` drops the seeded `line[0]` so coords are 1:1.
+  Full-line-at-col-0 paste is byte-identical to before (the editor's verified path). Commit `00e9eee`.
 
 ### Remaining / deferred (carried + new)
 - **dcoverlay** `IsInside` boundary — confirm whether the right/bottom edge is inclusive; fix code or
@@ -166,5 +184,12 @@ YAML-based config loaded by `Config` singleton. `ConfigNode` provides typed acce
   to `EditorAPIWrapper` mirroring `NewDocument` (`editorApi->LoadModel(...)` wrapped in
   `DocumentAPIWrapper`, registered via `dukglue_register_method`), update `loadbuffer.js` to the
   Document API, then un-stub both tests. `Editor::LoadModel(const std::string&)` still exists.
-- **clipboard** — header `FIXME` flags the whole module as rewrite-worthy; the pastes pass now but the
-  semantics (esp. region paste) were never deeply verified.
+- **clipboard PasteFromClipboard cursor advance** — `EditorModel::PasteFromClipboard`
+  (`src/Core/EditorModel.cpp:930`) advances the cursor by `clipboard.Top()->GetLineCount()` (the count
+  of stored WHOLE lines) and uses the same count for the undo range. After the `PasteToBuffer` rewrite
+  the number of lines actually added depends on the selection shape (a single-line partial paste adds
+  0 new lines; a full-line/region paste adds N or N+1). So for partial-region pastes the cursor can
+  land on the wrong line and the undo range can be off. The correct advance is "number of lines the
+  splice added" + "final segment length" for the column — `PasteToBuffer` should report what it did
+  (e.g. return the end Point) instead of the caller guessing from `GetLineCount()`. Untested; not yet
+  addressed.

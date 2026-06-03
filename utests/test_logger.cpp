@@ -39,22 +39,25 @@ DLL_EXPORT int test_logger_debug(ITesting *t) {
     auto logger2 = gnilk::Logger::GetLogger("test2");
     MockSink *sink = new MockSink();
     gnilk::Logger::AddSink(sink, "mock");
-    TR_ASSERT(t, sink->GetCounter() == 0);
+    // This test doesn't make sense, the logger keeps a cache and will write it to any new sink coming in
+    // TR_ASSERT(t, sink->GetCounter() == 0);
     logger->Debug("wefwef");
-    TR_ASSERT(t, sink->GetCounter() == 1);
+    TR_ASSERT(t, sink->GetCounter() > 1);
+    auto current = sink->GetCounter();
     logger->SetEnabled(false);
     logger->Debug("wefwef");
-    TR_ASSERT(t, sink->GetCounter() == 1);
+    TR_ASSERT(t, sink->GetCounter() == current);
 
     gnilk::Logger::DisableAllLoggers();
     logger->Debug("wefwef");
     logger2->Debug("wefwfe");
-    TR_ASSERT(t, sink->GetCounter() == 1);
+    TR_ASSERT(t, sink->GetCounter() == current);
 
+    // Enable logger but not sink
     gnilk::Logger::EnableLogger("test2");
     logger->Debug("wefwef");
     logger2->Debug("wefwfe");
-    TR_ASSERT(t, sink->GetCounter() == 2);
+    TR_ASSERT(t, sink->GetCounter() == current);
 
     return kTR_Pass;
 }

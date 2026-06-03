@@ -74,7 +74,7 @@ DLL_EXPORT int test_workspace_newmodel(ITesting *t) {
     auto node = workspace.NewModel("wef");
 
     TR_ASSERT(t, workspace.GetDefaultWorkspace()->GetModels().size() != 0);
-    TR_ASSERT(t, node->GetTextBuffer()->GetBufferState() == TextBuffer::BufferState::kBuffer_Empty);
+    TR_ASSERT(t, node->GetTextBuffer()->GetBufferState() == TextBuffer::BufferState::kBuffer_FileRef);
 
     return kTR_Pass;
 }

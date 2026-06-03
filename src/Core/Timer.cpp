@@ -8,7 +8,9 @@ using namespace gedit;
 
 Timer::~Timer() {
     Stop();
-    timerThread.join();
+    if (timerThread.joinable()) {
+        timerThread.join();
+    }
 }
 
 Timer::Ref Timer::Create(const DurationMS &msToExpire, Timer::TimerDelegate onElapsed) {
@@ -23,66 +25,83 @@ Timer::Ref Timer::Create(const DurationMS &msToExpire, Timer::TimerDelegate onEl
 
 
 void Timer::Stop() {
-    wakeupReason = kReason::kStop;
+    {
+        std::lock_guard<std::mutex> lock(mymutex);
+        wakeupReason = kReason::kStop;
+        commandPending = true;
+    }
     mycond.notify_one();
 }
 
 void Timer::Restart() {
-    hasExpired = false;
-    wakeupReason = kReason::kRestart;
+    {
+        std::lock_guard<std::mutex> lock(mymutex);
+        hasExpired = false;
+        wakeupReason = kReason::kRestart;
+        commandPending = true;
+    }
     mycond.notify_one();
 }
 
 void Timer::Restart(const DurationMS &newDurationMS) {
-    hasExpired = false;
-    msDuration = newDurationMS;
-    wakeupReason = kReason::kRestart;
+    {
+        std::lock_guard<std::mutex> lock(mymutex);
+        hasExpired = false;
+        msDuration = newDurationMS;
+        wakeupReason = kReason::kRestart;
+        commandPending = true;
+    }
     mycond.notify_one();
 }
 
 void Timer::Start() {
     // FIXME: Detect double start...
     auto mThread = std::thread([this]() {
-        wakeupReason = kReason::kElapsed;
         Wait();
     });
     timerThread = std::move(mThread);
 }
 
+//
+// Clears the pending command and returns its reason. MUST be called while holding 'mymutex'.
+//
+Timer::kReason Timer::ConsumeCommand() {
+    auto reason = wakeupReason;
+    commandPending = false;
+    wakeupReason = kReason::kElapsed;    // assume 'let it elapse' for the next round
+    return reason;
+}
 
 //
-// IF creating threads would have been faster we could simply allow the thread to die and restart if needed...
-// As it turns out - that's a really bad idea - so instead we have this slightly funky goto mess...
+// The timer thread lives for the lifetime of the Timer (recreating threads per cycle is too slow).
+// All shared state is guarded by 'mymutex', and every wait uses 'commandPending' as its predicate so
+// a Stop()/Restart() that notifies just before we enter the wait is not lost.
 //
 void Timer::Wait() {
-    while(true) {
-        std::unique_lock<std::mutex> lock(mymutex);
-        restart:
-        mycond.wait_for(lock, msDuration);
-        // We can be notified for the following reasons...
-        switch (wakeupReason) {
-            case kReason::kRestart :
-                wakeupReason = kReason::kElapsed;   // Assume this for the next round...
-                goto restart;
-            case kReason::kStop :
-                goto leave;
-            case kReason::kElapsed :
+    std::unique_lock<std::mutex> lock(mymutex);
+    while (true) {
+        // Phase 1: count down 'msDuration', waking early if a command arrives.
+        bool commanded = mycond.wait_for(lock, msDuration, [this]{ return commandPending; });
+        if (commanded) {
+            if (ConsumeCommand() == kReason::kStop) {
                 break;
+            }
+            continue;   // kRestart: restart the countdown (with the possibly-updated msDuration)
         }
-        Invoke();
 
-        // Let's NOT kill the thread...
-        mycond.wait(lock);
-        switch(wakeupReason) {
-            case kReason::kRestart :
-                wakeupReason = kReason::kElapsed;   // Assume this for the next round...
-                goto restart;
-            case kReason::kStop :
-                goto leave;
+        // Phase 1 timed out with no command -> elapsed. Fire the handler WITHOUT the lock so it may
+        // safely call back into Restart()/Stop() on this timer.
+        lock.unlock();
+        Invoke();
+        lock.lock();
+
+        // Phase 2: stay alive and idle until a command tells us to restart or stop.
+        mycond.wait(lock, [this]{ return commandPending; });
+        if (ConsumeCommand() == kReason::kStop) {
+            break;
         }
+        // kRestart: fall through and loop back into Phase 1
     }
-    leave:
-    hasExpired = true;
 }
 
 bool Timer::HasExpired() const {

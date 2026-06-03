@@ -11,6 +11,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <thread>
+#include <atomic>
 
 namespace gedit {
     // This is the hidden timer management class
@@ -50,12 +51,16 @@ namespace gedit {
         void Start();
         void Wait();    // Internal - waits for the condition to become available..
         void Invoke();
+        kReason ConsumeCommand();   // Internal - call under 'mymutex'; clears the pending command and returns it.
     protected:
         std::mutex mymutex;
         std::condition_variable mycond;
+        // wakeupReason/commandPending are guarded by 'mymutex'. commandPending is the wait predicate
+        // that makes Stop()/Restart() immune to lost wakeups (a notify that races ahead of the wait).
         kReason wakeupReason = kReason::kElapsed;
+        bool commandPending = false;
         DurationMS msDuration = {};
-        bool hasExpired = false;
+        std::atomic<bool> hasExpired = false;   // atomic so HasExpired() can be read lock-free from any thread
         TimerDelegate elapsedHandler = nullptr;
         std::thread timerThread;
         std::chrono::time_point<std::chrono::high_resolution_clock> tStart;

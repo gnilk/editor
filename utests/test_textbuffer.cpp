@@ -17,7 +17,9 @@ DLL_EXPORT int test_textbuffer_parsefull(ITesting *t);
 DLL_EXPORT int test_textbuffer_parseregion(ITesting *t);
 DLL_EXPORT int test_textbuffer_thparsefull(ITesting *t);
 DLL_EXPORT int test_textbuffer_thparseregion(ITesting *t);
+#ifdef NDEBUG
 DLL_EXPORT int test_textbuffer_parselarge(ITesting *t);
+#endif
 DLL_EXPORT int test_textbuffer_flatten(ITesting *t);
 DLL_EXPORT int test_textbuffer_insertlast(ITesting *t);
 }
@@ -34,7 +36,7 @@ DLL_EXPORT int test_textbuffer_parsefull(ITesting *t) {
     Config::Instance()["main"].SetBool("threaded_syntaxparser", false);
 
     Workspace workspace;
-    auto workspaceNode = workspace.NewModelWithFileRef("test_src2.cpp");
+    auto workspaceNode = workspace.NewModelWithFileRef("testfiles/ConvertUTF.cpp");
     auto buffer = workspaceNode->GetTextBuffer();
     TR_ASSERT(t, workspaceNode->LoadData());
     size_t totalBefore = buffer->GetParseMetrics().total;
@@ -48,7 +50,7 @@ DLL_EXPORT int test_textbuffer_parseregion(ITesting *t) {
     Config::Instance()["main"].SetBool("threaded_syntaxparser", false);
 
     Workspace workspace;
-    auto workspaceNode = workspace.NewModelWithFileRef("test_src2.cpp");
+    auto workspaceNode = workspace.NewModelWithFileRef("testfiles/ConvertUTF.cpp");
     auto buffer = workspaceNode->GetTextBuffer();
     TR_ASSERT(t, workspaceNode->LoadData());
     size_t totalBefore = buffer->GetParseMetrics().total;
@@ -64,7 +66,7 @@ DLL_EXPORT int test_textbuffer_thparsefull(ITesting *t) {
     Config::Instance()["main"].SetBool("threaded_syntaxparser", true);
 
     Workspace workspace;
-    auto workspaceNode = workspace.NewModelWithFileRef("test_src2.cpp");
+    auto workspaceNode = workspace.NewModelWithFileRef("testfiles/ConvertUTF.cpp");
     auto buffer = workspaceNode->GetTextBuffer();
     TR_ASSERT(t, workspaceNode->LoadData());
     TR_ASSERT(t, !buffer->IsEmpty());   // Did we load?
@@ -92,7 +94,7 @@ DLL_EXPORT int test_textbuffer_thparseregion(ITesting *t) {
     Config::Instance()["main"].SetBool("threaded_syntaxparser", true);
 
     Workspace workspace;
-    auto workspaceNode = workspace.NewModelWithFileRef("test_src2.cpp");
+    auto workspaceNode = workspace.NewModelWithFileRef("testfiles/ConvertUTF.cpp");
     auto buffer = workspaceNode->GetTextBuffer();
     TR_ASSERT(t, workspaceNode->LoadData());
     TR_ASSERT(t, !buffer->IsEmpty());   // Did we load?
@@ -105,11 +107,11 @@ DLL_EXPORT int test_textbuffer_thparseregion(ITesting *t) {
     size_t totalBefore = buffer->GetParseMetrics().total;
     size_t regionBefore = buffer->GetParseMetrics().region;
     // Just pick a region here...
-    buffer->ReparseRegion(10, 20);
-    // Wait until we have settled down
-    while (buffer->GetParseState() != TextBuffer::ParseState::kState_Idle) {
-        std::this_thread::yield();
-    }
+    // ReparseRegion is asynchronous - it returns the job. Polling GetParseState() is racy (the
+    // worker may still report kState_Idle before it dequeues), so wait on the job's completion.
+    auto job = buffer->ReparseRegion(10, 20);
+    TR_ASSERT(t, job != nullptr);
+    job->WaitComplete();
 
     TR_ASSERT(t, buffer->GetParseMetrics().total > totalBefore);
     TR_ASSERT(t, buffer->GetParseMetrics().region > regionBefore);
@@ -117,11 +119,11 @@ DLL_EXPORT int test_textbuffer_thparseregion(ITesting *t) {
     return kTR_Pass;
 }
 
-// This takes around 6 seconds on my MacBook Pro M1
-// sqlite3.c is 8.4MB with 238'189 lines of C code
+// Release-only: parses the full sqlite3 amalgamation (~6s on an M1, 8.4MB / 238'189 lines).
+// Far too slow for the debug dev cycle, and depends on an untracked sqlite3.c in the cwd, so it
+// is compiled only in release builds (NDEBUG). Run with a release build of utests to exercise it.
+#ifdef NDEBUG
 DLL_EXPORT int test_textbuffer_parselarge(ITesting *t) {
-
-    return kTR_Pass;
     // Disable threading...
     Config::Instance()["main"].SetBool("threaded_syntaxparser", false);
 
@@ -134,8 +136,8 @@ DLL_EXPORT int test_textbuffer_parselarge(ITesting *t) {
     TR_ASSERT(t, buffer->GetParseMetrics().total > totalBefore);
 
     return kTR_Pass;
-
 }
+#endif
 DLL_EXPORT int test_textbuffer_flatten(ITesting *t) {
     auto buffer = TextBuffer::CreateEmptyBuffer();
     for(int i=0;i<10;i++) {

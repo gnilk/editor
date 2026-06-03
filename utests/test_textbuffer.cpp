@@ -150,13 +150,16 @@ DLL_EXPORT int test_textbuffer_flatten(ITesting *t) {
 //    char flattenBuffer[512];
 //    memset(flattenBuffer, 0, 512);
     std::u32string flattenBuffer;
+    // CreateEmptyBuffer() seeds an empty line, so NumLines() here is 11 (1 + 10 added). Express the
+    // expectations against NumLines() rather than baking in that off-by-one.
+    const size_t n = buffer->NumLines();
     // Below cases should stress all exit points of the function...
-    TR_ASSERT(t, 0 == buffer->Flatten(flattenBuffer, 100, 10));
-    TR_ASSERT(t, 0 == buffer->Flatten(flattenBuffer, buffer->NumLines(), 10));
-    TR_ASSERT(t, 5 == buffer->Flatten(flattenBuffer, 5, 10));
-    TR_ASSERT(t, 5 == buffer->Flatten(flattenBuffer, 5, 20));
-    TR_ASSERT(t, 10 == buffer->Flatten(flattenBuffer, 0, 10));
-    TR_ASSERT(t, 10 == buffer->Flatten(flattenBuffer, 0, 0));
+    TR_ASSERT(t, 0 == buffer->Flatten(flattenBuffer, n + 1, 10));    // start past end -> nothing
+    TR_ASSERT(t, 0 == buffer->Flatten(flattenBuffer, n, 10));        // start == NumLines -> nothing
+    TR_ASSERT(t, (n - 5) == buffer->Flatten(flattenBuffer, 5, 10));  // nLines exceeds remaining -> clamp
+    TR_ASSERT(t, (n - 5) == buffer->Flatten(flattenBuffer, 5, 20));  // nLines exceeds remaining -> clamp
+    TR_ASSERT(t, 10 == buffer->Flatten(flattenBuffer, 0, 10));       // nLines < remaining -> exactly nLines
+    TR_ASSERT(t, n == buffer->Flatten(flattenBuffer, 0, 0));         // nLines == 0 -> all
 
 
     return kTR_Pass;

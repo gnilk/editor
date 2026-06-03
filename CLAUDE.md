@@ -204,6 +204,27 @@ YAML-based config loaded by `Config` singleton. `ConfigNode` provides typed acce
   The `Selection` stays in buffer/char coords (copy/delete depend on that). Primitive is well-tested
   (`test_linelayout` char2vis/vis2char/roundtrip); the view-render path itself isn't unit-tested.
 
+- **Split-view resize bounds (status bar off-screen / negative view extent)** — TWO bugs. Real app
+  layout (main.cpp): `RootView > HSplitViewStatus[ upper = VSplitView[ workspace | VStack>HStack>editor ],
+  lower = terminal ]`. The status line is drawn ON the HSplit splitter row (`HSplitViewStatus::DrawSplitter`
+  at `GetSplitRow() == splitterPos`). `kActionIncreaseViewHeight` from the editor bubbles up the
+  layout-handler chain (HStack/VStack delegate all four actions up).
+  (1) **Delegation gap** — the splitters are the chain terminators: `HSplitView` overrides only the
+  *height* actions, `VSplitView` only the *width* actions. So a height action arriving at the
+  `VSplitView` fell through to `ViewBase::OnActionIncreaseHeight` → `SetHeight(h+1)` on the VSplit
+  *itself* (unbounded) and NEVER reached the HSplit that owns the divide — the real cause of the status
+  bar escaping. Fixed: `VSplitView` now delegates height actions UP to its layout handler, `HSplitView`
+  delegates width actions UP (both guarded for a null top-level handler => no-op).
+  (2) **No clamp** — once it reaches the right splitter, `SetSplitterPos` (the single chokepoint for
+  every resize path) now clamps via `ClampSplitterPos` to `[kMinViewExtent(5), extent-5]` (degenerate
+  fallback `[0, extent-1]`). `HSplitView::AdjustHeight` delegates to it; increase/decrease handlers
+  record `splitterPosBeforeReset` from the *clamped* `GetSplitterPos()` so `RestoreContentHeight` can't
+  reintroduce an out-of-range value. Tests: `test_layout_{height,width}_{max,min}` (direct splitter
+  clamp) + `test_layout_nested_{height,width}` (fire the action from a view DEEP inside the *other*
+  splitter and assert it bubbles up and clamps — pre-fix the divide stayed at its init pos). Verified
+  in the GUI (Alt+s/Alt+w ×140 each): status bar stays on-screen at max, editor clamps to a few rows
+  at min, no invert. Headless screen 100 => clamps to 5/95.
+
 ### Remaining / deferred (carried + new)
 - **jsengine loadbuffer/listbuffers** — reinstate `Editor.LoadBuffer`: add a `LoadDocument(filename)`
   to `EditorAPIWrapper` mirroring `NewDocument` (`editorApi->LoadModel(...)` wrapped in

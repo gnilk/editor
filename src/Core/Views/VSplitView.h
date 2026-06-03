@@ -56,7 +56,10 @@ namespace gedit {
         }
 
         void SetSplitterPos(int newSplitterPos) {
-            splitterPos = newSplitterPos;
+            // Clamp at the single chokepoint every resize path uses (increase/decrease-width actions,
+            // relative positioning). Without it the divider can be dragged off either edge, giving the
+            // left or right panel a negative width.
+            splitterPos = ClampSplitterPos(newSplitterPos);
             UpdateLeftViewRect();
             UpdateRightViewRect();
             Initialize();
@@ -102,15 +105,27 @@ namespace gedit {
     protected:
         void OnActionIncreaseWidth() override {
             int delta = (rightView != nullptr && rightView->IsActive()) ? -1 : 1;
-            int pos = GetSplitterPos() + delta;
-            splitterPosBeforeReset = pos;
-            SetSplitterPos(pos);
+            SetSplitterPos(GetSplitterPos() + delta);
+            splitterPosBeforeReset = GetSplitterPos();      // record the clamped value
         }
         void OnActionDecreaseWidth() override {
             int delta = (rightView != nullptr && rightView->IsActive()) ? 1 : -1;
-            int pos = GetSplitterPos() + delta;
-            splitterPosBeforeReset = pos;
-            SetSplitterPos(pos);
+            SetSplitterPos(GetSplitterPos() + delta);
+            splitterPosBeforeReset = GetSplitterPos();
+        }
+
+        // A vertical splitter only manages WIDTH. Height changes belong to an enclosing layout
+        // (e.g. an HSplitView), so pass them up the layout-handler chain until something that owns
+        // height applies (and clamps) them. Without this the action falls through to
+        // ViewBase::SetHeight on the splitter itself - unbounded, and it never reaches the HSplitView
+        // that actually moves the divide, so the status bar could be driven off-screen.
+        void OnActionIncreaseHeight() override {
+            auto handler = GetLayoutHandler();
+            if (handler != nullptr && handler != this) { handler->OnActionIncreaseHeight(); }
+        }
+        void OnActionDecreaseHeight() override {
+            auto handler = GetLayoutHandler();
+            if (handler != nullptr && handler != this) { handler->OnActionDecreaseHeight(); }
         }
 
         void UpdateRightViewRect() {
@@ -125,6 +140,25 @@ namespace gedit {
             Rect leftRect = viewRect;
             leftRect.SetWidth(splitterPos);
             leftView->SetViewRect(leftRect);
+        }
+
+        // Keep at least this many columns for each of the left/right panels (and the divider) when the
+        // view is wide enough to allow it.
+        static constexpr int kMinViewExtent = 5;
+
+        // Clamp a candidate divider column into the visible width, leaving room for both panels.
+        // Falls back to a strict on-screen clamp when the view is too narrow for the normal margin.
+        int ClampSplitterPos(int pos) {
+            int w = viewRect.Width();
+            int lo = kMinViewExtent;
+            int hi = w - kMinViewExtent;
+            if (hi < lo) {
+                lo = 0;
+                hi = (w > 0) ? (w - 1) : 0;
+            }
+            if (pos < lo) { return lo; }
+            if (pos > hi) { return hi; }
+            return pos;
         }
 
     protected:

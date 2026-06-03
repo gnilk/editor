@@ -60,6 +60,13 @@ namespace gedit {
 
         void SetSplitterPos(int newSplitterPos) {
             auto logger = gnilk::Logger::GetLogger("HSplitView");
+
+            // Clamp here - this is the single chokepoint every resize path goes through (the
+            // increase/decrease actions, relative positioning, AdjustHeight). Without it the splitter
+            // (which carries the status line, see HSplitViewStatus::DrawSplitter) can be pushed past
+            // the bottom of the content area or above the top, leaving the status bar off-screen or
+            // a view with negative height.
+            newSplitterPos = ClampSplitterPos(newSplitterPos);
             logger->Debug("SetSplitterPos, newPos=%d, height=%d", newSplitterPos, GetViewRect().Height());
 
             splitterPos = newSplitterPos;
@@ -81,14 +88,8 @@ namespace gedit {
         }
 
         void AdjustHeight(int deltaHeight) override {
-            auto current = GetSplitterPos();
-            current += deltaHeight;
-            if (current < 5) {
-                current = 5;
-            } else if (current > (GetContentRect().Height()-5)) {
-                current = GetContentRect().Height()-5;
-            }
-            SetSplitterPos(current);
+            // SetSplitterPos clamps for us (see ClampSplitterPos).
+            SetSplitterPos(GetSplitterPos() + deltaHeight);
         }
 
         // If we toggle this - we need a way to untoggle it as well...
@@ -249,10 +250,10 @@ namespace gedit {
             } else {
                 delta = 1;
             }
-            auto pos = GetSplitterPos();
-            pos += delta;
-            splitterPosBeforeReset = pos;
-            SetSplitterPos(pos);
+            SetSplitterPos(GetSplitterPos() + delta);
+            // Record the actually-applied (clamped) position so RestoreContentHeight can't reintroduce
+            // an out-of-range splitter.
+            splitterPosBeforeReset = GetSplitterPos();
         }
         void OnActionDecreaseHeight() override {
             int delta = 0;
@@ -262,10 +263,39 @@ namespace gedit {
             } else {
                 delta = -1;
             }
-            auto pos = GetSplitterPos();
-            pos += delta;
-            splitterPosBeforeReset = pos;
-            SetSplitterPos(pos);
+            SetSplitterPos(GetSplitterPos() + delta);
+            splitterPosBeforeReset = GetSplitterPos();
+        }
+
+        // A horizontal splitter only manages HEIGHT. Width changes belong to an enclosing layout
+        // (e.g. a VSplitView), so pass them up the layout-handler chain rather than letting them fall
+        // through to ViewBase::SetWidth on the splitter itself (unbounded). Top-level => no-op.
+        void OnActionIncreaseWidth() override {
+            auto handler = GetLayoutHandler();
+            if (handler != nullptr && handler != this) { handler->OnActionIncreaseWidth(); }
+        }
+        void OnActionDecreaseWidth() override {
+            auto handler = GetLayoutHandler();
+            if (handler != nullptr && handler != this) { handler->OnActionDecreaseWidth(); }
+        }
+
+        // Keep at least this many rows for each of the upper/lower views (and thus the splitter row
+        // itself on-screen) whenever the content area is large enough to allow it.
+        static constexpr int kMinViewExtent = 5;
+
+        // Clamp a candidate splitter row into the visible content area, leaving room for both views.
+        // Falls back to a strict on-screen clamp when the content is too small for the normal margin.
+        int ClampSplitterPos(int pos) {
+            int h = GetContentRect().Height();
+            int lo = kMinViewExtent;
+            int hi = h - kMinViewExtent;
+            if (hi < lo) {
+                lo = 0;
+                hi = (h > 0) ? (h - 1) : 0;
+            }
+            if (pos < lo) { return lo; }
+            if (pos > hi) { return hi; }
+            return pos;
         }
 
     protected:

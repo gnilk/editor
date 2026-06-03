@@ -936,20 +936,38 @@ void EditorModel::PasteFromClipboard() {
         return;
     }
     auto textBuffer = GetTextBuffer();
-    auto nLines = clipboard.Top()->GetLineCount();
+
+    // The paste occupies 'lineCount' lines on the target; 'linesAdded' is how many NEW lines it
+    // introduces (0 for a splice contained within a single line). The exact number depends on the
+    // selection shape, so ask the clipboard item rather than guessing from its raw line count.
+    auto lineCount = clipboard.Top()->GetPasteLineCount();
+    size_t linesAdded = (lineCount > 0) ? (lineCount - 1) : 0;
+
     auto ptWhere = lineCursor.cursor.position;
-
-    auto undoItem = BeginUndoFromLineRange(lineCursor.idxActiveLine, lineCursor.idxActiveLine+nLines);
-    undoItem->SetRestoreAction(UndoHistory::kRestoreAction::kDeleteBeforeInsert);
-
     ptWhere.y += (int)lineCursor.viewTopLine;
-    clipboard.PasteToBuffer(textBuffer, ptWhere);
+
+    UndoHistory::UndoItem::Ref undoItem;
+    if (linesAdded == 0) {
+        // In-place splice on a single line: snapshot and restore just that one line.
+        undoItem = BeginUndoFromLineRange(lineCursor.idxActiveLine, lineCursor.idxActiveLine + 1);
+        undoItem->SetRestoreAction(UndoHistory::kRestoreAction::kClearAndAppend);
+    } else {
+        // Multi-line splice: the paste inserts 'linesAdded' new lines; undo deletes them and
+        // restores the original target line.
+        undoItem = BeginUndoFromLineRange(lineCursor.idxActiveLine, lineCursor.idxActiveLine + linesAdded);
+        undoItem->SetRestoreAction(UndoHistory::kRestoreAction::kDeleteBeforeInsert);
+    }
+
+    auto ptEnd = clipboard.PasteToBuffer(textBuffer, ptWhere);
 
     EndUndoItem(undoItem);
 
-    textBuffer->ReparseRegion(lineCursor.idxActiveLine, lineCursor.idxActiveLine + nLines);
+    // Reparse every line the splice touched (target line through the last inserted line).
+    textBuffer->ReparseRegion(lineCursor.idxActiveLine, lineCursor.idxActiveLine + linesAdded + 1);
 
-    lineCursor.idxActiveLine += nLines;
-    lineCursor.cursor.position.y += nLines;
-
+    // Land the caret at the end of the pasted text (PasteToBuffer reports where that is).
+    lineCursor.idxActiveLine += linesAdded;
+    lineCursor.cursor.position.y += (int)linesAdded;
+    lineCursor.cursor.position.x = ptEnd.x;
+    CaptureWantedColumn(lineCursor.cursor, ActiveLine());
 }

@@ -44,9 +44,17 @@ namespace gedit {
                 return end;
             }
 
-            void PasteToBuffer(TextBuffer::Ref dstBuffer, const Point &ptWhere);
+            // Splice the stored data into dstBuffer at ptWhere. Returns the buffer-coordinate Point
+            // where the caret should land (end of the pasted text).
+            Point PasteToBuffer(TextBuffer::Ref dstBuffer, const Point &ptWhere);
+
+            // Number of lines the paste will OCCUPY (one per resolved segment). The number of NEW
+            // lines added to the buffer is this minus one. Independent of the paste destination, so
+            // it can be queried before pasting (e.g. to size an undo range).
+            size_t GetPasteLineCount();
 
         protected:
+            std::vector<std::u32string> ResolveSegments();
             void CopyFromExternal(const char *srcData);
             void CopyFromBuffer(TextBuffer::Ref srcBuffer);
             void Dump();
@@ -67,7 +75,9 @@ namespace gedit {
         bool CopyFromExternal(const char *srcBuffer);
         // This is the app-internal routines
         bool CopyFromBuffer(TextBuffer::Ref srcBuffer, const Point &ptStart, const Point &ptEnd);
-        void PasteToBuffer(TextBuffer::Ref dstBuffer, const Point &ptWhere);
+        // Splice the top clipboard item into dstBuffer at ptWhere; returns the caret end Point
+        // (or ptWhere unchanged if the clipboard is empty).
+        Point PasteToBuffer(TextBuffer::Ref dstBuffer, const Point &ptWhere);
 
         // This should be set by the OS layer to forward internal clipboard data back to the OS
         // allowing copy/paste between the editor and other applications

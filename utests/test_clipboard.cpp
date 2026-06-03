@@ -93,6 +93,7 @@ struct PasteCase {
     int dstCount;
     Point where;
     std::vector<std::u32string> expected;
+    Point expectedEnd = {-1,-1};    // caret end Point returned by PasteToBuffer; {-1,-1} => don't check
 };
 
 static int RunPasteCase(ITesting *t, const PasteCase &c) {
@@ -101,23 +102,36 @@ static int RunPasteCase(ITesting *t, const PasteCase &c) {
     TR_ASSERT(t, clipBoard.CopyFromBuffer(src, c.copyStart, c.copyEnd));
     TR_ASSERT(t, clipBoard.Top() != nullptr);
 
+    // The resolved paste line count must match the actual number of lines the splice produces.
+    auto pasteLineCount = clipBoard.Top()->GetPasteLineCount();
+
     TextBuffer::Ref dst;
     if (c.dstPrefix == nullptr) {
         dst = TextBuffer::CreateEmptyBuffer();  // one seeded empty line
     } else {
         dst = MakeNumberedBuffer(c.dstPrefix, c.dstCount);
     }
+    auto linesBefore = dst->NumLines();
 
-    clipBoard.PasteToBuffer(dst, c.where);
+    auto ptEnd = clipBoard.PasteToBuffer(dst, c.where);
 
     // Dump actual result (stderr so it shows on failure) to make iterating on asserts easy.
     for (size_t i = 0; i < dst->NumLines(); i++) {
         fprintf(stderr, "  actual[%zu] = '%s'\n", i, dst->LineAt(i)->BufferAsUTF8().c_str());
     }
+    fprintf(stderr, "  ptEnd = (%d,%d)\n", ptEnd.x, ptEnd.y);
 
     TR_ASSERT(t, dst->NumLines() == c.expected.size());
     for (size_t i = 0; i < c.expected.size(); i++) {
         TR_ASSERT(t, dst->LineAt(i)->Buffer() == c.expected[i]);
+    }
+
+    // The number of NEW lines added equals the resolved line count minus one.
+    TR_ASSERT(t, (dst->NumLines() - linesBefore) == (pasteLineCount - 1));
+
+    if ((c.expectedEnd.x >= 0) && (c.expectedEnd.y >= 0)) {
+        TR_ASSERT(t, ptEnd.x == c.expectedEnd.x);
+        TR_ASSERT(t, ptEnd.y == c.expectedEnd.y);
     }
     return kTR_Pass;
 }
@@ -165,27 +179,27 @@ DLL_EXPORT int test_clipboard_copyclippedstart(ITesting *t) {
 
 DLL_EXPORT int test_clipboard_paste_empty_fullline(ITesting *t) {
     return RunPasteCase(t, { {0,1}, {0,2}, nullptr, 0, {0,0},
-                             { U"line 1", U"" } });
+                             { U"line 1", U"" }, {0,1} });
 }
 DLL_EXPORT int test_clipboard_paste_empty_partial(ITesting *t) {
     return RunPasteCase(t, { {2,1}, {4,1}, nullptr, 0, {0,0},
-                             { U"ne" } });
+                             { U"ne" }, {2,0} });
 }
 DLL_EXPORT int test_clipboard_paste_empty_multifull(ITesting *t) {
     return RunPasteCase(t, { {0,1}, {0,4}, nullptr, 0, {0,0},
-                             { U"line 1", U"line 2", U"line 3", U"" } });
+                             { U"line 1", U"line 2", U"line 3", U"" }, {0,3} });
 }
 DLL_EXPORT int test_clipboard_paste_empty_pstart(ITesting *t) {
     return RunPasteCase(t, { {2,1}, {0,3}, nullptr, 0, {0,0},
-                             { U"ne 1", U"line 2", U"" } });
+                             { U"ne 1", U"line 2", U"" }, {0,2} });
 }
 DLL_EXPORT int test_clipboard_paste_empty_pend(ITesting *t) {
     return RunPasteCase(t, { {0,1}, {3,3}, nullptr, 0, {0,0},
-                             { U"line 1", U"line 2", U"lin" } });
+                             { U"line 1", U"line 2", U"lin" }, {3,2} });
 }
 DLL_EXPORT int test_clipboard_paste_empty_pboth(ITesting *t) {
     return RunPasteCase(t, { {2,1}, {3,3}, nullptr, 0, {0,0},
-                             { U"ne 1", U"line 2", U"lin" } });
+                             { U"ne 1", U"line 2", U"lin" }, {3,2} });
 }
 
 // ---------------------------------------------------------------------------------------------------
@@ -194,7 +208,7 @@ DLL_EXPORT int test_clipboard_paste_empty_pboth(ITesting *t) {
 
 DLL_EXPORT int test_clipboard_paste_col0_fullline(ITesting *t) {
     return RunPasteCase(t, { {0,1}, {0,2}, "DST", 5, {0,2},
-                             { U"DST 0", U"DST 1", U"line 1", U"DST 2", U"DST 3", U"DST 4" } });
+                             { U"DST 0", U"DST 1", U"line 1", U"DST 2", U"DST 3", U"DST 4" }, {0,3} });
 }
 DLL_EXPORT int test_clipboard_paste_col0_multifull(ITesting *t) {
     return RunPasteCase(t, { {0,1}, {0,4}, "DST", 5, {0,2},
@@ -217,15 +231,15 @@ DLL_EXPORT int test_clipboard_paste_col0_pboth(ITesting *t) {
 
 DLL_EXPORT int test_clipboard_paste_mid_partial(ITesting *t) {
     return RunPasteCase(t, { {2,1}, {4,1}, "DST", 5, {2,2},
-                             { U"DST 0", U"DST 1", U"DSneT 2", U"DST 3", U"DST 4" } });
+                             { U"DST 0", U"DST 1", U"DSneT 2", U"DST 3", U"DST 4" }, {4,2} });
 }
 DLL_EXPORT int test_clipboard_paste_mid_fullline(ITesting *t) {
     return RunPasteCase(t, { {0,1}, {0,2}, "DST", 5, {2,2},
-                             { U"DST 0", U"DST 1", U"DSline 1", U"T 2", U"DST 3", U"DST 4" } });
+                             { U"DST 0", U"DST 1", U"DSline 1", U"T 2", U"DST 3", U"DST 4" }, {0,3} });
 }
 DLL_EXPORT int test_clipboard_paste_mid_pboth(ITesting *t) {
     return RunPasteCase(t, { {2,1}, {3,3}, "DST", 5, {2,2},
-                             { U"DST 0", U"DST 1", U"DSne 1", U"line 2", U"linT 2", U"DST 3", U"DST 4" } });
+                             { U"DST 0", U"DST 1", U"DSne 1", U"line 2", U"linT 2", U"DST 3", U"DST 4" }, {3,4} });
 }
 
 // ---------------------------------------------------------------------------------------------------
@@ -235,11 +249,11 @@ DLL_EXPORT int test_clipboard_paste_mid_pboth(ITesting *t) {
 
 DLL_EXPORT int test_clipboard_paste_end_partial(ITesting *t) {
     return RunPasteCase(t, { {2,1}, {4,1}, "DST", 5, {5,2},
-                             { U"DST 0", U"DST 1", U"DST 2ne", U"DST 3", U"DST 4" } });
+                             { U"DST 0", U"DST 1", U"DST 2ne", U"DST 3", U"DST 4" }, {7,2} });
 }
 DLL_EXPORT int test_clipboard_paste_end_pboth(ITesting *t) {
     return RunPasteCase(t, { {2,1}, {3,3}, "DST", 5, {5,2},
-                             { U"DST 0", U"DST 1", U"DST 2ne 1", U"line 2", U"lin", U"DST 3", U"DST 4" } });
+                             { U"DST 0", U"DST 1", U"DST 2ne 1", U"line 2", U"lin", U"DST 3", U"DST 4" }, {3,4} });
 }
 
 // ---------------------------------------------------------------------------------------------------

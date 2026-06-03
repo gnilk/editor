@@ -30,13 +30,13 @@ void ClipBoard::NotifyChangeHandler(ClipBoardItem::Ref item) {
 }
 
 
-void ClipBoard::PasteToBuffer(TextBuffer::Ref dstBuffer, const Point &ptWhere) {
+Point ClipBoard::PasteToBuffer(TextBuffer::Ref dstBuffer, const Point &ptWhere) {
     // Nothing to paste???
     if (history.empty()) {
-        return;
+        return ptWhere;
     }
 
-    Top()->PasteToBuffer(dstBuffer, ptWhere);
+    return Top()->PasteToBuffer(dstBuffer, ptWhere);
 }
 
 ClipBoard::ClipBoardItem::Ref ClipBoard::Top() {
@@ -94,17 +94,18 @@ void ClipBoard::ClipBoardItem::CopyFromExternal(const char *srcData) {
     }
 }
 
-void ClipBoard::ClipBoardItem::PasteToBuffer(TextBuffer::Ref dstBuffer, const Point &ptWhere) {
+// Resolve the stored whole-lines + selection columns into the exact text segments to splice in,
+// one per line. Pasting is then a plain text-splice: the target line is split once at the paste
+// column into head|tail, the first segment joins the head, the last segment carries the tail, and
+// any middle segments become their own lines. A trailing empty segment represents a selection that
+// ended on a line break (so the paste leaves a fresh empty line behind). The resolution depends only
+// on the clipboard contents, not on the paste destination.
+std::vector<std::u32string> ClipBoard::ClipBoardItem::ResolveSegments() {
+    std::vector<std::u32string> segs;
     if (data.empty()) {
-        return;
+        return segs;
     }
 
-    // Resolve the stored whole-lines + selection columns into the exact text segments to splice in,
-    // one per line. Pasting is then a plain text-splice: the target line is split once at the paste
-    // column into head|tail, the first segment joins the head, the last segment carries the tail, and
-    // any middle segments become their own lines. A trailing empty segment represents a selection that
-    // ended on a line break (so the paste leaves a fresh empty line behind).
-    std::vector<std::u32string> segs;
     if (isExternal) {
         segs = data;    // external data is already literal, per-line text
     } else if ((data.size() == 1) && (end.x != 0)) {
@@ -128,6 +129,18 @@ void ClipBoard::ClipBoardItem::PasteToBuffer(TextBuffer::Ref dstBuffer, const Po
             // Single whole line that ended on a line break (end.x == 0)
             segs.push_back(std::u32string());
         }
+    }
+    return segs;
+}
+
+size_t ClipBoard::ClipBoardItem::GetPasteLineCount() {
+    return ResolveSegments().size();
+}
+
+Point ClipBoard::ClipBoardItem::PasteToBuffer(TextBuffer::Ref dstBuffer, const Point &ptWhere) {
+    auto segs = ResolveSegments();
+    if (segs.empty()) {
+        return ptWhere;
     }
 
     // A destination buffer always keeps at least one line to splice into.
@@ -155,7 +168,8 @@ void ClipBoard::ClipBoardItem::PasteToBuffer(TextBuffer::Ref dstBuffer, const Po
         // No line break in the pasted text - splice it inline: head + seg + tail.
         targetLine->Clear();
         targetLine->Append(head + segs[0] + tail);
-        return;
+        // Caret lands after the spliced-in text, on the same line.
+        return Point((int)(px + segs[0].length()), (int)idxLine);
     }
 
     // Multi-line paste: first segment joins the head, the rest become their own lines, and the last
@@ -169,6 +183,9 @@ void ClipBoard::ClipBoardItem::PasteToBuffer(TextBuffer::Ref dstBuffer, const Po
         insertAt++;
     }
     dstBuffer->Insert(insertAt, segs.back() + tail);
+
+    // Caret lands at the join between the last segment and the original tail, on the last line touched.
+    return Point((int)segs.back().length(), (int)insertAt);
 }
 void ClipBoard::ClipBoardItem::Dump() {
     printf("PtStart (%d,%d) - PtEnd (%d, %d)\n", start.x, start.y, end.x, end.y);

@@ -177,9 +177,34 @@ YAML-based config loaded by `Config` singleton. `ConfigNode` provides typed acce
   splice result; 21/21 green. `MakeNumberedBuffer` drops the seeded `line[0]` so coords are 1:1.
   Full-line-at-col-0 paste is byte-identical to before (the editor's verified path). Commit `00e9eee`.
 
+- **PasteFromClipboard cursor advance** — `ClipBoardItem::PasteToBuffer` now RETURNS the caret end
+  `Point` (end of pasted text) instead of `void`, and a new `ClipBoardItem::GetPasteLineCount()`
+  exposes the resolved segment count (independent of destination, so it can be queried before pasting).
+  Both factored through a shared `ResolveSegments()`. `EditorModel::PasteFromClipboard` now derives
+  `linesAdded = GetPasteLineCount() - 1` and uses it for the cursor advance, the reparse region, AND
+  the undo range — picking `kClearAndAppend` (1 line) for an in-place single-line splice (`linesAdded
+  == 0`) and `kDeleteBeforeInsert` (range = `linesAdded`) otherwise. Caret x is set from the returned
+  end point + `CaptureWantedColumn`. Full-line-at-col-0 paste is unchanged (range == old `nLines`).
+  `test_clipboard.cpp` now also asserts the returned end `Point` per case and the invariant
+  `(linesAfter - linesBefore) == GetPasteLineCount() - 1`; 21/21 clipboard + 8/8 edtmodel green.
+
+- **dcoverlay `IsInside` boundary** — RESOLVED (test-only). The end COLUMN is exclusive by design and
+  is correct: overlays are built from a selection (`end` == cursor) and from search results (`start =
+  cursor_x`, `end = cursor_x + length`), so exactly `length`/selection-width cells must light up. The
+  end ROW (`end.y`) is inclusive (multi-line ranges cover their last row up to `end.x`). Replaced the
+  FIXME/commented assertion in `test_dcoverlay.cpp` with explicit boundary asserts locking the
+  convention in (start-col inclusive, end-col exclusive, start/end-row handling).
+- **dc-overlay tab expansion (selection/search highlight)** — overlays render in SCREEN space (tabs
+  expanded) but the model stores columns as CHARACTER INDICES; `EditorView::DrawViewContents` built
+  the selection/search overlays straight from those char-index x's, so any tab before the marked text
+  pushed the highlight left of the glyphs. Fixed by expanding each overlay endpoint to a VISUAL column
+  via `Line::CharToVisualColumn(x, tabSize)` against the line it sits on (start.x vs line[start.y],
+  end.x vs line[end.y]; search `cursor_x` and `cursor_x+length` vs line[idxLine]). This mirrors the
+  caret's existing handling in `SetWindowCursor` (model stays logical, the VIEW translates at draw).
+  The `Selection` stays in buffer/char coords (copy/delete depend on that). Primitive is well-tested
+  (`test_linelayout` char2vis/vis2char/roundtrip); the view-render path itself isn't unit-tested.
+
 ### Remaining / deferred (carried + new)
-- **dcoverlay** `IsInside` boundary — confirm whether the right/bottom edge is inclusive; fix code or
-  test accordingly.
 - **jsengine loadbuffer/listbuffers** — reinstate `Editor.LoadBuffer`: add a `LoadDocument(filename)`
   to `EditorAPIWrapper` mirroring `NewDocument` (`editorApi->LoadModel(...)` wrapped in
   `DocumentAPIWrapper`, registered via `dukglue_register_method`), update `loadbuffer.js` to the

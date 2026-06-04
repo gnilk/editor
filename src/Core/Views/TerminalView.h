@@ -9,6 +9,8 @@
 
 #include "Core/Controllers/TerminalController.h"
 #include "Core/RuntimeConfig.h"
+#include "Core/TerminalScreen.h"
+#include "Core/Graphics/DrawContext.h"
 #include "ViewBase.h"
 #include "logger.h"
 
@@ -17,7 +19,6 @@ namespace gedit {
     public:
         TerminalView() = default;
         explicit TerminalView(const Rect &viewArea) : ViewBase(viewArea) {
-
         }
         virtual ~TerminalView() = default;
 
@@ -36,11 +37,14 @@ namespace gedit {
     protected:
         void OnActivate(bool isActive) override;
         bool OnActionCommitLine();
+
+    private:
+        void DrawScreenRow(DrawContext &dc, const TerminalScreen::Row &row, int y);
+
     private:
         TerminalController controller;
         gnilk::ILogger *logger = nullptr;
     };
 }
-
 
 #endif //GOATEDIT_TERMINALVIEW_H

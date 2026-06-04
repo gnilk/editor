@@ -270,7 +270,10 @@ bool SDLScreen::UpdateClipboardData() {
         return false;
     }
     auto &myClipboard = Editor::Instance().GetClipBoard();
-    return myClipboard.CopyFromExternal(utfClipboardText);
+    auto result = myClipboard.CopyFromExternal(utfClipboardText);
+    // We must free - was leaking memory here...
+    SDL_free(utfClipboardText);
+    return result;;
 }
 
 void SDLScreen::CopyToTexture() {

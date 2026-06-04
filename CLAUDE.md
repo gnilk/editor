@@ -44,18 +44,20 @@ or
 -t parse*
 execute all cases starting with 'parse'
 
+**Always run trun from the `cmake-build-debug/` directory** — the AssetLoader resolves paths relative to the working directory, so running from the project root picks up the system-installed assets (`/usr/share/goatedit/`) instead of the local build tree.
+
 ```sh
 # Run all tests
-trun cmake-build-debug/libutests.so
+cd cmake-build-debug && trun --sequential ./libutests.so
 
 # Run a specific module
-trun -m textbuffer cmake-build-debug/libutests.so
+cd cmake-build-debug && trun -m textbuffer --sequential ./libutests.so
 
 # Run a specific test case
-trun -m textbuffer -t insert cmake-build-debug/libutests.so
+cd cmake-build-debug && trun -m textbuffer -t insert --sequential ./libutests.so
 
 # List available tests
-trun -l cmake-build-debug/libutests.so
+cd cmake-build-debug && trun -l ./libutests.so
 ```
 
 Test source files live in `utests/`. Each `test_<module>.cpp` corresponds to one module; `test_main.cpp` initializes the editor singleton for all tests.

@@ -55,6 +55,22 @@ DocumentAPI::Ref EditorAPI::NewDocument(const char *name) {
     return DocumentAPI::Create(node);
 }
 
+DocumentAPI::Ref EditorAPI::LoadDocument(const char *filename) {
+    auto workspace = Editor::Instance().GetWorkspace();
+    if (workspace == nullptr) {
+        return nullptr;
+    }
+    auto node = workspace->NewModelWithFileRef(filename);
+    if (node == nullptr) {
+        return nullptr;
+    }
+    // This will load data and activate the model...
+    if (Editor::Instance().OpenModelFromWorkspace(node) == nullptr) {
+        return nullptr;
+    }
+    return DocumentAPI::Create(node);
+}
+
 DocumentAPI::Ref EditorAPI::GetActiveDocument() {
     auto workspaceNode = Editor::Instance().GetWorkspaceNodeForActiveModel();
     return DocumentAPI::Create(workspaceNode);

@@ -31,15 +31,9 @@ namespace gedit {
 
         DocumentAPI::Ref GetActiveDocument();
         DocumentAPI::Ref NewDocument(const char *name);
+        DocumentAPI::Ref LoadDocument(const char *filename);
         std::vector<DocumentAPI::Ref> GetDocuments();
         void CloseActiveDocument();
-
-/*
-
-        TextBufferAPI::Ref LoadBuffer(const char *filename);
-        std::vector<TextBufferAPI::Ref> GetBuffers();
-        void SetActiveBuffer(TextBufferAPI::Ref activeBuffer);
-        */
 
 
         const std::vector<std::string> GetTopViews();

@@ -16,8 +16,9 @@ namespace gedit {
         std::vector<std::string> GetRegisteredLanguages();
         std::vector<std::string> GetHelp();
 
-        DocumentAPIWrapper::Ref NewDocument(const char *name);
         DocumentAPIWrapper::Ref GetActiveDocument();
+        DocumentAPIWrapper::Ref NewDocument(const char *name);
+        DocumentAPIWrapper::Ref LoadDocument(const char *filename);
         std::vector<DocumentAPIWrapper::Ref> GetDocuments();
         void CloseActiveDocument();
 

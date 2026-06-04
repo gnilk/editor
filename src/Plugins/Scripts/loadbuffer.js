@@ -3,10 +3,9 @@ function main(args) {
         Console.WriteLine("You must supply a filename!");
         return;
     }
-    var textBuffer = Editor.LoadBuffer(args[0]);
-    if (textBuffer == null) {
+    var doc = Editor.LoadDocument(args[0]);
+    if (doc == null) {
         Console.WriteLine("Unable to load file");
         return;
     }
-    Editor.SetActiveBuffer(textBuffer);
 }

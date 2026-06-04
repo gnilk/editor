@@ -329,10 +329,13 @@ bool SDLScreen::UpdateClipboardData() {
     if (utfClipboardText == nullptr) {
         return false;
     }
-    // FIXME: Extremely inefficient - should have a 'IsSame()' as the current top-item and only push if not...
 
     auto &myClipboard = Editor::Instance().GetClipBoard();
-    return myClipboard.CopyFromExternal(utfClipboardText);
+    auto result = myClipboard.CopyFromExternal(utfClipboardText);
+
+    // We need to free the clip board data
+    SDL_free(utfClipboardText);
+    return result;
 
 }
 

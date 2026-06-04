@@ -77,6 +77,9 @@ void TerminalController::Begin() {
 }
 
 void TerminalController::Resize(int cols, int rows) {
+    if (cols == screen.Cols() && rows == screen.Rows()) {
+        return;
+    }
     auto termColors = Editor::Instance().GetTheme()->GetTerminalColor();
     std::lock_guard<std::mutex> guard(screenLock);
     // SetDefaultColors first so blank cells created by Resize get the right colors
@@ -134,7 +137,12 @@ void TerminalController::HandleTerminalData(const uint8_t *buffer, size_t length
 
 void TerminalController::ApplyCommand(const VTermParser::CMD &cmd) {
     auto termColors = Editor::Instance().GetTheme()->GetTerminalColor();
+    auto P = [&](int i, int def = 1) -> int {
+        return (i < (int)cmd.param.size()) ? cmd.param[i] : def;
+    };
+
     switch (cmd.cmd) {
+        // --- SGR ---
         case VTermParser::kAnsiCmd::kSGRReset :
             screen.ResetAttributes();
             break;
@@ -170,6 +178,54 @@ void TerminalController::ApplyCommand(const VTermParser::CMD &cmd) {
             break;
         case VTermParser::kAnsiCmd::kSetDefaultBackgroundColor :
             screen.SetBackground(termColors.GetColor("background"));
+            break;
+
+        // --- Cursor movement ---
+        case VTermParser::kAnsiCmd::kCursorUp :
+            screen.MoveCursor(0, -P(0));
+            break;
+        case VTermParser::kAnsiCmd::kCursorDown :
+            screen.MoveCursor(0, P(0));
+            break;
+        case VTermParser::kAnsiCmd::kCursorForward :
+            screen.MoveCursor(P(0), 0);
+            break;
+        case VTermParser::kAnsiCmd::kCursorBack :
+            screen.MoveCursor(-P(0), 0);
+            break;
+        case VTermParser::kAnsiCmd::kCursorPos :
+            // ANSI is 1-indexed; convert to 0-indexed
+            screen.SetCursorPos(P(1, 1) - 1, P(0, 1) - 1);
+            break;
+
+        // --- Erase ---
+        case VTermParser::kAnsiCmd::kEraseInLine :
+            screen.EraseInLine(P(0, 0));
+            break;
+        case VTermParser::kAnsiCmd::kEraseInDisplay :
+            screen.EraseInDisplay(P(0, 0));
+            break;
+
+        // --- Cursor save/restore ---
+        case VTermParser::kAnsiCmd::kSaveCursor :
+            screen.SaveCursorPos();
+            break;
+        case VTermParser::kAnsiCmd::kRestoreCursor :
+            screen.RestoreCursorPos();
+            break;
+
+        // --- Scroll region (1-indexed in the sequence, 0-indexed in TerminalScreen) ---
+        case VTermParser::kAnsiCmd::kSetScrollRegion :
+            screen.SetScrollRegion(P(0, 1) - 1, P(1, screen.Rows()) - 1);
+            break;
+
+        // --- Alternate screen (Step 3) ---
+        case VTermParser::kAnsiCmd::kEnterAltScreen :
+            screen.SaveScreen();
+            screen.EraseInDisplay(2);
+            break;
+        case VTermParser::kAnsiCmd::kLeaveAltScreen :
+            screen.RestoreScreen();
             break;
     }
 }

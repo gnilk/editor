@@ -15,6 +15,9 @@ DLL_EXPORT int test_terminalscreen_cr(ITesting *t);
 DLL_EXPORT int test_terminalscreen_colors(ITesting *t);
 DLL_EXPORT int test_terminalscreen_cursor(ITesting *t);
 DLL_EXPORT int test_terminalscreen_erase(ITesting *t);
+DLL_EXPORT int test_terminalscreen_erase_in_line(ITesting *t);
+DLL_EXPORT int test_terminalscreen_erase_in_display(ITesting *t);
+DLL_EXPORT int test_terminalscreen_scroll_region(ITesting *t);
 DLL_EXPORT int test_terminalscreen_savestate(ITesting *t);
 DLL_EXPORT int test_terminalscreen_writeline(ITesting *t);
 }
@@ -204,6 +207,118 @@ DLL_EXPORT int test_terminalscreen_erase(ITesting *t) {
     }
     TR_ASSERT(t, s.GetCursorPos().x == 0);
     TR_ASSERT(t, s.GetCursorPos().y == 0);
+
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_terminalscreen_erase_in_line(ITesting *t) {
+    auto s = MakeScreen(10, 5);
+
+    // Fill row 0 with 'X'
+    for (int i = 0; i < s.Cols(); i++) { s.PutChar(U'X'); }
+    s.CarriageReturn();
+
+    // mode 0: erase from cursor.x to end of line
+    s.SetCursorPos(3, 0);
+    s.EraseInLine(0);
+    TR_ASSERT(t, s.GetRow(0)[2].ch == U'X');  // before cursor — untouched
+    TR_ASSERT(t, s.GetRow(0)[3].ch == U' ');  // erased
+    TR_ASSERT(t, s.GetRow(0)[9].ch == U' ');  // erased
+
+    // Re-fill row 0
+    s.SetCursorPos(0, 0);
+    for (int i = 0; i < s.Cols(); i++) { s.PutChar(U'X'); }
+
+    // mode 1: erase from start of line to cursor (inclusive)
+    s.SetCursorPos(4, 0);
+    s.EraseInLine(1);
+    TR_ASSERT(t, s.GetRow(0)[0].ch == U' ');  // erased
+    TR_ASSERT(t, s.GetRow(0)[4].ch == U' ');  // erased (inclusive)
+    TR_ASSERT(t, s.GetRow(0)[5].ch == U'X');  // after cursor — untouched
+
+    // mode 2: erase entire line
+    s.SetCursorPos(5, 0);
+    s.EraseInLine(2);
+    for (int x = 0; x < s.Cols(); x++) {
+        TR_ASSERT(t, s.GetRow(0)[x].ch == U' ');
+    }
+
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_terminalscreen_erase_in_display(ITesting *t) {
+    auto s = MakeScreen(5, 5);
+
+    // Fill entire grid with 'X'
+    for (int y = 0; y < s.Rows(); y++) {
+        s.SetCursorPos(0, y);
+        for (int x = 0; x < s.Cols(); x++) { s.PutChar(U'X'); }
+    }
+
+    // mode 2: clear entire screen, cursor stays
+    s.SetCursorPos(2, 2);
+    s.EraseInDisplay(2);
+    for (int y = 0; y < s.Rows(); y++) {
+        for (int x = 0; x < s.Cols(); x++) {
+            TR_ASSERT(t, s.GetRow(y)[x].ch == U' ');
+        }
+    }
+    TR_ASSERT(t, s.GetCursorPos().x == 2);  // cursor unchanged
+    TR_ASSERT(t, s.GetCursorPos().y == 2);
+
+    // Refill
+    for (int y = 0; y < s.Rows(); y++) {
+        s.SetCursorPos(0, y);
+        for (int x = 0; x < s.Cols(); x++) { s.PutChar(U'X'); }
+    }
+
+    // mode 0: erase from cursor to end of screen
+    s.SetCursorPos(2, 2);
+    s.EraseInDisplay(0);
+    TR_ASSERT(t, s.GetRow(1)[4].ch == U'X');  // row above cursor — untouched
+    TR_ASSERT(t, s.GetRow(2)[1].ch == U'X');  // before cursor on same row — untouched
+    TR_ASSERT(t, s.GetRow(2)[2].ch == U' ');  // cursor pos — erased
+    TR_ASSERT(t, s.GetRow(3)[0].ch == U' ');  // row below — erased
+    TR_ASSERT(t, s.GetRow(4)[4].ch == U' ');  // last row — erased
+
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_terminalscreen_scroll_region(ITesting *t) {
+    auto s = MakeScreen(10, 5);
+
+    // Set scroll region to rows 1..3 (0-indexed), leaving rows 0 and 4 outside
+    s.SetScrollRegion(1, 3);
+    TR_ASSERT(t, s.ScrollRegionTop()    == 1);
+    TR_ASSERT(t, s.ScrollRegionBottom() == 3);
+    // SetScrollRegion homes the cursor
+    TR_ASSERT(t, s.GetCursorPos().x == 0);
+    TR_ASSERT(t, s.GetCursorPos().y == 0);
+
+    // Write one char to each row inside the region
+    s.SetCursorPos(0, 1); s.PutChar(U'A');
+    s.SetCursorPos(0, 2); s.PutChar(U'B');
+    s.SetCursorPos(0, 3); s.PutChar(U'C');
+    // Write to rows outside the region
+    s.SetCursorPos(0, 0); s.PutChar(U'T');
+    s.SetCursorPos(0, 4); s.PutChar(U'B');
+
+    // Force a scroll by triggering NewLine at the bottom of the region
+    s.SetCursorPos(0, 3);
+    s.NewLine();  // cursor is at scrollRegionBottom → ScrollRegionUp
+
+    // Rows 0 and 4 (outside region) are preserved
+    TR_ASSERT(t, s.GetRow(0)[0].ch == U'T');
+    TR_ASSERT(t, s.GetRow(4)[0].ch == U'B');
+
+    // Inside region: A scrolled off (gone, scroll region top != 0 → no scrollback),
+    // B moved to row 1, C moved to row 2, row 3 blanked
+    TR_ASSERT(t, s.GetRow(1)[0].ch == U'B');
+    TR_ASSERT(t, s.GetRow(2)[0].ch == U'C');
+    TR_ASSERT(t, s.GetRow(3)[0].ch == U' ');
+
+    // A was scrolled off but scrollRegionTop != 0 so it doesn't go to scrollback
+    TR_ASSERT(t, s.GetScrollback().size() == 0);
 
     return kTR_Pass;
 }

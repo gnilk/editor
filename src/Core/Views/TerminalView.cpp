@@ -119,18 +119,24 @@ void TerminalView::DrawViewContents() {
             }
         }
     }
-    auto inputLine = controller.GetInputLine();
-    auto currentLine = Line::Create();
-    auto &cursorRow = screen.GetRow(cursorGridRow);
-    for (int x = 0; x < promptLen && x < (int)cursorRow.size(); x++) {
-        currentLine->Append(cursorRow[x].ch);
-    }
-    currentLine->Append(inputLine);
-
+    // Bottom row: render the prompt portion using DrawScreenRow so per-cell
+    // colors are preserved, then draw the user's inputLine text after it.
     int inputViewRow = viewHeight - 1;
     dc.ClearLine(inputViewRow);
-    LineRender lineRender(dc);
-    lineRender.DrawLine(0, inputViewRow, currentLine);
+
+    auto &cursorRow = screen.GetRow(cursorGridRow);
+    if (promptLen > 0) {
+        TerminalScreen::Row promptPart(cursorRow.begin(),
+                                      cursorRow.begin() + std::min(promptLen, (int)cursorRow.size()));
+        DrawScreenRow(dc, promptPart, inputViewRow);
+    }
+
+    // Draw input text in the terminal default color after the prompt
+    dc.SetColor(termColors.GetColor("foreground"), termColors.GetColor("background"));
+    auto inputLine = controller.GetInputLine();
+    if (inputLine->Length() > 0) {
+        dc.DrawStringAt(promptLen, inputViewRow, inputLine->Buffer());
+    }
 
     cursor.position.y = inputViewRow;
     cursor.position.x = controller.GetCursorXPos();

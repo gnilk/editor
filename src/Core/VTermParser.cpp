@@ -74,7 +74,14 @@ std::string VTermParser::ParseInternal() {
             if (!Next()) return strParsed;
             auto clsCode = At();
 
-            if ((clsCode>=0x40) && (clsCode<=0x5f)) {
+            if ((clsCode >= 0x30) && (clsCode <= 0x3f)) {
+                // ESC Fp — private two-character sequences (DECSC/DECRC etc.)
+                switch (clsCode) {
+                    case '7': EmitCmd(kAnsiCmd::kSaveCursor);    break;
+                    case '8': EmitCmd(kAnsiCmd::kRestoreCursor); break;
+                }
+                Next();
+            } else if ((clsCode>=0x40) && (clsCode<=0x5f)) {
                 switch(clsCode) {
                     case CSI_7BIT :
                     case CSI_8BIT :
@@ -84,19 +91,16 @@ std::string VTermParser::ParseInternal() {
                     case OSC_7BIT :
                     case OSC_8BIT :
                         ParseOSC();
-                        // printf("After OSC\n");
-                        // HexDump::ToConsole(&buffer[idx],max-idx);
                         break;
                     case DCS_8BIT :
-                    case PM_7BIT :  // Privacy sequence (?) - takes one string argument
-                    case APC_7BIT : // APC Sequence (?) - takes one string argument
+                    case PM_7BIT :  // Privacy sequence
+                    case APC_7BIT : // APC Sequence
                     case DCS_7BIT :
-                        // this is a sequence - we need to get rid of it
                         while(Next() && At()!=ST);
                         Next();
                         break;
                     default:
-                        Next(); // just swallow the class code
+                        Next();
                         break;
                 }
             }
@@ -119,151 +123,117 @@ bool VTermParser::InRange(const std::pair<int,int> &range) {
     return true;
 }
 void VTermParser::ParseCSI() {
-    // see: https://en.wikipedia.org/wiki/ANSI_escape_code#CSIsection
-
-    // printf("CSI\n");
-
-    static std::pair<int, int> CSI_PARAM_RANGE = {0x30,0x3f};
-    static std::pair<int, int> CSI_INTERM_RANGE = {0x20,0x2f};
-    static std::pair<int, int> CSI_CMD_RANGE = {0x40,0x7e};
-
-    static std::pair<int, int> CSI_END_RANGE = {0x40,0x7e};
-
-    // If this would be a state machine;
-
-    // FIXME: I need a parser here!
-    //
-    // This  is how it works (I think).
-    // <cmd>;<value>;...
-    //
-    // The cmd controls the rest
-    // Example:
-    //   ESC[01;32m
-    // Dissected:
-    //   ESC    - 0x1b (or any other)
-    //   [      - 0x5b, CSI escape (Control Sequence Indicator)
-    //   <value>;<value>  <- as long as the string is within 'CSI_PARAM_RANGE' (all numerical value plus ';' and a few others
-    //   <cmd>  - Must be outside 'CSI_PARAM_RANGE' but within CSI_END_RANGE
-    //
-    // If a command has a value is determined by the command...
-    // It is not possible to skip a command unless you parse all of the commands...
-    //
+    // see: https://en.wikipedia.org/wiki/ANSI_escape_code#CSI_sequences
+    static std::pair<int, int> CSI_PARAM_RANGE = {0x30, 0x3f};
+    static std::pair<int, int> CSI_INTERM_RANGE = {0x20, 0x2f};
+    static std::pair<int, int> CSI_CMD_RANGE = {0x40, 0x7e};
 
     std::string csiParamString;
     std::vector<std::string> params;
+    bool isPrivate = false;
 
-    // Get Parameters; this is a ';' list of numbers
-    while(Next() && (At() != 0) && InRange(CSI_PARAM_RANGE)) {
-        // Do nothing..
-        switch(At()) {
+    // Collect parameters: semicolon-separated integers; '?' marks a private sequence
+    while (Next() && (At() != 0) && InRange(CSI_PARAM_RANGE)) {
+        switch (At()) {
             case ';' :
-                // printf("CSI Cmd: %s\n", csiParamString.c_str());
-                if (csiParamString.empty()) {
-                    params.push_back("0");
-                } else {
-                    params.push_back(csiParamString);
-                }
+                params.push_back(csiParamString.empty() ? "0" : csiParamString);
                 csiParamString = "";
                 break;
-                // FIXME: Support for ':' as seen in some (xterm/Konsole)
-                // see: iterm2, VT100CSIParser.m @ 250
             case '?' :
-                // private sequence...
+                isPrivate = true;
                 break;
             default :
                 csiParamString += At();
         }
     }
     if (!csiParamString.empty()) {
-        // 0x40-0x7e => dispatch
-        // printf("Last CSI Cmd: %s\n", csiParamString.c_str());
         params.push_back(csiParamString);
     }
-    // This should be possible - but I haven't seend it
-    if (InRange(CSI_INTERM_RANGE)) {
-        // Just swallow of these for the time being
-        while(Next() && (InRange(CSI_INTERM_RANGE)));
+
+    // Swallow intermediate bytes (rare)
+    while (InRange(CSI_INTERM_RANGE)) {
+        Next();
     }
 
-    // NOTE: See kitty (https://github.com/kovidgoyal/kitty)
-    //       vt-parser.c, line 1100 and onwards...
-    //       Basically all parsers I've seen parse the string in to some structure and then dispatches from that structure
-    //       Specifically cursor-movements and similar..
-
-    // Now figure out which command we have...
-    if (InRange(CSI_CMD_RANGE)) {
-        // dispatch
-        if (At() == 'm') {
-            auto logger = gnilk::Logger::GetLogger("AnsiParser");
-            logger->Dbg("SGR - Select Graphics Rendition");
-
-            // printf("SGR - CSI Select Graphics Rendition\n");
-            for(auto &s : params) {
-                // printf("  %s\n", s.c_str());
-                auto cmd = std::stoi(s);
-                if ((cmd>=30) && (cmd<=37)) {
-                    EmitCmd(kAnsiCmd::kSetForegroundColor, cmd - 30);
-                } else if ((cmd>=40) && (cmd<=47)) {
-                    EmitCmd(kAnsiCmd::kSetBackgroundColor, cmd - 40);
-                } else {
-                    // FIXME: Ok, this needs better handling
-                    switch (cmd) {
-                        case 0 :
-                            // printf("  %d - Reset to Normal\n", cmd);
-                            EmitCmd(kAnsiCmd::kSGRReset);
-                            break;
-                        case 1 : // bold or increased intensity
-                            EmitCmd(kAnsiCmd::kFontBold);
-                            break;
-                        case 2 : // Faint, decreased intensity - not supported
-                            break;
-                        case 3 : // Italic - not supported
-                            EmitCmd(kAnsiCmd::kFontItalic);
-                            break;
-                        case 4 : // Underline
-                            EmitCmd(kAnsiCmd::kFontUnderline);
-                            break;
-                        case 7 : // invert (swap fg/bg)
-                            EmitCmd(kAnsiCmd::kInvertColors);
-                            break;
-                        case 10 : // Normal font
-                            EmitCmd(kAnsiCmd::kFontNormal);
-                            break;
-                        case 38 :
-                            // printf("  %d - Set foreground color - with arguments (not supported)\n", cmd);
-                            break;
-                        case 39 :
-                            // printf("  %d - Set default foreground color\n");
-                            EmitCmd(kAnsiCmd::kSetDefaultForegroundColor);
-                            break;
-                        case 48 :
-                            // printf("  %d - Set background color - with arguments (not supported)\n", cmd);
-                            break;
-                        case 49 :
-                            // printf("  %d - Set default foreground color\n");
-                            EmitCmd(kAnsiCmd::kSetDefaultForegroundColor);
-                            break;
-                    }
-                }
-            }
-            // do something useful...
-        }
-        Next();
+    if (!InRange(CSI_CMD_RANGE)) {
         return;
     }
 
-    // 0x20-0x2f => collect
-    // Get Intermediate, if any...
-    if ((At() >= 0x20) && (At()<=0x2f)) {
-        while ((At() != 0) && InRange(CSI_INTERM_RANGE)) {
-            // Do nothing..
-            Next();
+    // Helper: extract param by index with a default
+    auto P = [&](int i, int def = 1) -> int {
+        if (i >= (int)params.size() || params[i].empty()) {
+            return def;
         }
+        return std::stoi(params[i]);
+    };
+
+    switch (At()) {
+        // --- Cursor movement ---
+        case 'A': EmitCmd(kAnsiCmd::kCursorUp,      P(0)); break;
+        case 'B': EmitCmd(kAnsiCmd::kCursorDown,    P(0)); break;
+        case 'C': EmitCmd(kAnsiCmd::kCursorForward, P(0)); break;
+        case 'D': EmitCmd(kAnsiCmd::kCursorBack,    P(0)); break;
+
+        case 'H':  // CUP — cursor position (ESC[row;colH, default 1;1)
+        case 'f':  // HVP — same semantics
+            EmitCmd(kAnsiCmd::kCursorPos, P(0, 1), P(1, 1));
+            break;
+
+        // --- Erase ---
+        case 'J': EmitCmd(kAnsiCmd::kEraseInDisplay, P(0, 0)); break;
+        case 'K': EmitCmd(kAnsiCmd::kEraseInLine,    P(0, 0)); break;
+
+        // --- Scroll region ---
+        case 'r': EmitCmd(kAnsiCmd::kSetScrollRegion, P(0, 1), P(1, 0)); break;
+
+        // --- Cursor save / restore ---
+        case 's': EmitCmd(kAnsiCmd::kSaveCursor);    break;
+        case 'u': EmitCmd(kAnsiCmd::kRestoreCursor); break;
+
+        // --- Private mode set/reset ---
+        case 'h':
+            if (isPrivate && P(0, 0) == 1049) {
+                EmitCmd(kAnsiCmd::kEnterAltScreen);
+            }
+            break;
+        case 'l':
+            if (isPrivate && P(0, 0) == 1049) {
+                EmitCmd(kAnsiCmd::kLeaveAltScreen);
+            }
+            break;
+
+        // --- SGR — Select Graphic Rendition ---
+        case 'm': {
+            // Default params to {0} (reset) when empty
+            if (params.empty()) {
+                params.push_back("0");
+            }
+            for (auto &s : params) {
+                int cmd = std::stoi(s);
+                if ((cmd >= 30) && (cmd <= 37)) {
+                    EmitCmd(kAnsiCmd::kSetForegroundColor, cmd - 30);
+                } else if ((cmd >= 40) && (cmd <= 47)) {
+                    EmitCmd(kAnsiCmd::kSetBackgroundColor, cmd - 40);
+                } else {
+                    switch (cmd) {
+                        case 0:  EmitCmd(kAnsiCmd::kSGRReset);        break;
+                        case 1:  EmitCmd(kAnsiCmd::kFontBold);        break;
+                        case 3:  EmitCmd(kAnsiCmd::kFontItalic);      break;
+                        case 4:  EmitCmd(kAnsiCmd::kFontUnderline);   break;
+                        case 7:  EmitCmd(kAnsiCmd::kInvertColors);    break;
+                        case 10: EmitCmd(kAnsiCmd::kFontNormal);      break;
+                        case 39: EmitCmd(kAnsiCmd::kSetDefaultForegroundColor); break;
+                        case 49: EmitCmd(kAnsiCmd::kSetDefaultBackgroundColor); break;
+                    }
+                }
+            }
+            break;
+        }
+        default:
+            break;
     }
-    // Now one final byte in range 0x40-0x7e
-    if(InRange(CSI_END_RANGE)) {
-        Next();
-    }
+
+    Next();
 }
 
 void VTermParser::EmitCmd(gedit::VTermParser::kAnsiCmd kCmd) {
@@ -271,9 +241,13 @@ void VTermParser::EmitCmd(gedit::VTermParser::kAnsiCmd kCmd) {
     cmdBuffer.push_back(cmd);
 }
 
-// FIXME: need to support array here!
 void VTermParser::EmitCmd(gedit::VTermParser::kAnsiCmd kCmd, int param) {
-    CMD cmd={strParsed.size(), kCmd, {param}};
+    CMD cmd = {strParsed.size(), kCmd, {param}};
+    cmdBuffer.push_back(cmd);
+}
+
+void VTermParser::EmitCmd(gedit::VTermParser::kAnsiCmd kCmd, int p1, int p2) {
+    CMD cmd = {strParsed.size(), kCmd, {p1, p2}};
     cmdBuffer.push_back(cmd);
 }
 

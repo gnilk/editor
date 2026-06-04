@@ -55,9 +55,20 @@ namespace gedit {
         // Step 2 — cursor movement and erase (full-screen apps)
         void SetCursorPos(int x, int y);
         void MoveCursor(int dx, int dy);
-        void EraseToEndOfLine();
-        void EraseScreen();
+        void EraseToEndOfLine();   // convenience — same as EraseInLine(0)
+        void EraseScreen();        // convenience — clears grid AND resets cursor to (0,0)
+        void EraseInLine(int mode);     // 0=to end, 1=from start, 2=entire line
+        void EraseInDisplay(int mode);  // 0=to end, 1=from start, 2=entire (cursor stays)
         void SetAttributes(uint8_t attrs);
+
+        // Cursor save/restore (position only, not full grid)
+        void SaveCursorPos();
+        void RestoreCursorPos();
+
+        // Scroll region (0-indexed; defaults to full grid on Resize)
+        void SetScrollRegion(int top, int bottom);
+        int ScrollRegionTop()    const { return scrollRegionTop;    }
+        int ScrollRegionBottom() const { return scrollRegionBottom; }
 
         // Step 3 — alternate screen buffer
         void SaveScreen();
@@ -66,7 +77,7 @@ namespace gedit {
     private:
         Cell MakeBlankCell() const;
         Row  MakeBlankRow() const;
-        void ScrollUp();
+        void ScrollRegionUp();
 
     private:
         int cols = 0;
@@ -82,6 +93,12 @@ namespace gedit {
 
         ColorRGBA defaultFg  = {};
         ColorRGBA defaultBg  = {};
+
+        int scrollRegionTop    = 0;
+        int scrollRegionBottom = 0;
+
+        // Saved cursor position (SaveCursorPos/RestoreCursorPos)
+        Point savedCursorPos = {};
 
         // Saved state for alternate screen (Step 3)
         std::vector<Row> savedGrid;

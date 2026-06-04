@@ -12,6 +12,8 @@ void TerminalScreen::Resize(int newCols, int newRows) {
     rows = newRows;
     grid.assign(rows, MakeBlankRow());
     cursor = {};
+    scrollRegionTop    = 0;
+    scrollRegionBottom = rows - 1;
 }
 
 void TerminalScreen::SetDefaultColors(ColorRGBA fg, ColorRGBA bg) {
@@ -34,10 +36,13 @@ void TerminalScreen::PutChar(char32_t ch) {
 }
 
 void TerminalScreen::NewLine() {
-    cursor.y++;
-    if (cursor.y >= rows) {
-        ScrollUp();
-        cursor.y = rows - 1;
+    if (cursor.y == scrollRegionBottom) {
+        ScrollRegionUp();
+    } else {
+        cursor.y++;
+        if (cursor.y >= rows) {
+            cursor.y = rows - 1;
+        }
     }
 }
 
@@ -93,14 +98,70 @@ void TerminalScreen::MoveCursor(int dx, int dy) {
 }
 
 void TerminalScreen::EraseToEndOfLine() {
-    auto blank = MakeBlankCell();
-    for (int x = cursor.x; x < cols; x++) {
-        grid[cursor.y][x] = blank;
-    }
+    EraseInLine(0);
 }
 
 void TerminalScreen::EraseScreen() {
     grid.assign(rows, MakeBlankRow());
+    cursor = {};
+}
+
+void TerminalScreen::EraseInLine(int mode) {
+    auto blank = MakeBlankCell();
+    switch (mode) {
+        case 0: // cursor to end of line
+            for (int x = cursor.x; x < cols; x++) {
+                grid[cursor.y][x] = blank;
+            }
+            break;
+        case 1: // start of line to cursor (inclusive)
+            for (int x = 0; x <= cursor.x; x++) {
+                grid[cursor.y][x] = blank;
+            }
+            break;
+        case 2: // entire line
+            grid[cursor.y] = MakeBlankRow();
+            break;
+    }
+}
+
+void TerminalScreen::EraseInDisplay(int mode) {
+    switch (mode) {
+        case 0: // cursor to end of screen
+            EraseInLine(0);
+            for (int y = cursor.y + 1; y < rows; y++) {
+                grid[y] = MakeBlankRow();
+            }
+            break;
+        case 1: // start of screen to cursor
+            for (int y = 0; y < cursor.y; y++) {
+                grid[y] = MakeBlankRow();
+            }
+            EraseInLine(1);
+            break;
+        case 2: // entire screen — cursor stays (ANSI-correct; use EraseScreen() to also home cursor)
+            grid.assign(rows, MakeBlankRow());
+            break;
+    }
+}
+
+void TerminalScreen::SaveCursorPos() {
+    savedCursorPos = cursor;
+}
+
+void TerminalScreen::RestoreCursorPos() {
+    cursor = savedCursorPos;
+}
+
+void TerminalScreen::SetScrollRegion(int top, int bottom) {
+    scrollRegionTop    = std::clamp(top,    0, rows - 1);
+    scrollRegionBottom = std::clamp(bottom, 0, rows - 1);
+    if (scrollRegionTop >= scrollRegionBottom) {
+        // Invalid region — reset to full screen
+        scrollRegionTop    = 0;
+        scrollRegionBottom = rows - 1;
+    }
+    // Setting the scroll region homes the cursor (standard terminal behaviour)
     cursor = {};
 }
 
@@ -136,8 +197,13 @@ TerminalScreen::Row TerminalScreen::MakeBlankRow() const {
     return Row(cols, MakeBlankCell());
 }
 
-void TerminalScreen::ScrollUp() {
-    scrollback.push_back(std::move(grid[0]));
-    grid.erase(grid.begin());
-    grid.push_back(MakeBlankRow());
+void TerminalScreen::ScrollRegionUp() {
+    // Only push to scrollback when the scroll region covers the top of the grid
+    if (scrollRegionTop == 0) {
+        scrollback.push_back(std::move(grid[scrollRegionTop]));
+    }
+    for (int y = scrollRegionTop; y < scrollRegionBottom; y++) {
+        grid[y] = std::move(grid[y + 1]);
+    }
+    grid[scrollRegionBottom] = MakeBlankRow();
 }

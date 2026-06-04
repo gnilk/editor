@@ -156,32 +156,32 @@ YAML-based config loaded by `Config` singleton. `ConfigNode` provides typed acce
 - **Test fixtures**: new `Assets/testfiles/` (contains `ConvertUTF.cpp` — mixed tabs+spaces, good
   tab-render fixture). Copied to `cmake-build-debug/testfiles/` (NOT `EDITOR_ASSET_DIR` — these are
   dev-only, not redistributable). `utests` depends on the `testfiles` copy target.
-- **Running tests**: `trun -m <modules> --sequential cmake-build-debug/libutests.so`. `--sequential`
-  disables forking for synchronized log output during dev. `-t` takes a list, supports wildcards,
-  `!name` to exclude, and `-` meaning "all the rest" (e.g. `-t case1,case2,-` runs those first then
-  the rest). Verified-green set:
-  `trun -m clipboard,edtmodel,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout --sequential ...`.
+- **Running tests**: always run from `cmake-build-debug/` (the AssetLoader resolves paths relative to
+  the working directory — running from the project root silently picks up the system-installed assets
+  in `/usr/share/goatedit/` instead of the local build tree). Use `--sequential` to disable forking
+  for synchronized log output during dev. `-t` takes a list, supports wildcards, `!name` to exclude,
+  and `-` meaning "all the rest" (e.g. `-t case1,case2,-` runs those first then the rest).
+  Verified-green set (run from `cmake-build-debug/`):
+  `trun -m clipboard,edtmodel,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine --sequential ./libutests.so`.
   Note: trun forks per-test by DEFAULT (omit `--sequential`) — useful when a case may crash/segfault,
   so one bad case is isolated and the rest still report instead of aborting the run.
 - **Do NOT run the full debug suite** — pre-existing failures in `test_textbuffer_{flatten,parsefull,
   parseregion,thparsefull,thparseregion}` confirmed present at baseline; plus the sqlite3-parse and
   thread/timer tests hang. Gating these is outstanding.
 
-### Session 2026-06-04 — resume point (read this first)
-Worked through the deferred list + two newly-reported nav/render bugs. All work is **local commits on
-`main`, NOT pushed**. Build is clean (`goatedit` + `utests`); verified-green set above all passes.
+### Session 2026-06-04 (cont.) — resume point (read this first)
+Completed the last deferred item (jsengine loadbuffer/listbuffers) and did two housekeeping
+refactors. All work is **local commits on `main`, NOT pushed**. Build is clean (`goatedit` + `utests`);
+verified-green set above all passes (now includes `jsengine`).
 
 **Commits this session (oldest→newest):**
-- `b5190db` FIX: PasteFromClipboard cursor advance & undo range for partial pastes
-- `2fa4107` FIX: dc-overlay alignment with tabs + lock in IsInside boundary
-- `f6ebc1e` DOC: carry-forward update
-- `5432ca3` FIX: bound split-view resize so the status bar can't be pushed off-screen
+- `75609d3` REFACTOR: Split DrawViewContents into focused helpers
+- `ff45ff7` FIX: Reinstate EditorAPI::LoadDocument (was LoadBuffer/TextBufferAPI)
 
-**Files modified:** `src/Core/ClipBoard.{h,cpp}`, `src/Core/EditorModel.cpp` (PasteFromClipboard),
-`src/Core/Views/EditorView.cpp` (overlay visual-column expansion), `src/Core/Views/HSplitView.h` +
-`src/Core/Views/VSplitView.h` (resize delegation + clamp), tests `utests/test_clipboard.cpp`,
-`utests/test_dcoverlay.cpp`, `utests/test_layout.cpp`, and this file. Each change is detailed under
-"Recently completed" below.
+**Files modified:** `src/Core/Views/EditorView.{h,cpp}` (DrawViewContents split),
+`src/Core/API/EditorAPI.{h,cpp}` (LoadDocument), `src/Core/JSEngine/Modules/EditorAPIWrapper.{h,cpp}`
+(LoadDocument wrapper + registration), `src/Plugins/Scripts/loadbuffer.js` (use LoadDocument),
+`utests/test_jsengine.cpp` (un-stub loadbuffer/listbuffers), and this file.
 
 **Patterns / decisions established (reuse these):**
 - **Model stays logical, the VIEW translates at draw.** Cursor columns are CHAR INDICES everywhere in
@@ -195,6 +195,12 @@ Worked through the deferred list + two newly-reported nav/render bugs. All work 
   each splitter handles ONE axis and must delegate the OTHER axis up its layout-handler chain
   (guarded → top-level is a no-op). A resize action's effect lives at the nearest enclosing splitter
   of the matching axis, not at the view that received the keystroke.
+- **JS API layer pattern:** to expose a new C++ capability to JS scripts, add the method to `EditorAPI`
+  (or the relevant `*API` class), mirror it in the corresponding `*APIWrapper` (same signature but
+  wrapping in the `Wrapper::Ref` type), register it in `RegisterModule` via `dukglue_register_method`,
+  and update the `.js` script. `NewDocument` / `LoadDocument` are the canonical templates.
+- **trun working directory:** always run from `cmake-build-debug/` — AssetLoader resolves paths
+  relative to CWD; running from project root picks up system assets, not the local build tree.
 - **GUI verification recipe (SDL2 build, real `:0` display):** launch from `cmake-build-debug`, find
   the window by matching `xdotool getwindowpid` to the launched PID (WM title shows "gedit"), drive
   with `xdotool key --clearmodifiers <keys>`, capture with `xwd -id <wid> -out f.xwd` then
@@ -271,15 +277,21 @@ Worked through the deferred list + two newly-reported nav/render bugs. All work 
   in the GUI (Alt+s/Alt+w ×140 each): status bar stays on-screen at max, editor clamps to a few rows
   at min, no invert. Headless screen 100 => clamps to 5/95.
 
+- **DrawViewContents refactor** — split into three functions in `src/Core/Views/EditorView.cpp`:
+  `DrawViewContents` (top-level driver), `DrawSearchResultOverlays`, `DrawSelectionOverlay`. Functions
+  ordered caller-before-callee so the file reads top-to-bottom. Declarations added to `EditorView.h`
+  private section. Commit `75609d3`.
+
+- **jsengine LoadDocument** — `EditorAPI::LoadBuffer` (old `TextBufferAPI`-based) was commented out;
+  reinstated as `LoadDocument(filename) -> DocumentAPI::Ref` following the `NewDocument` pattern
+  (`workspace->NewModelWithFileRef` + `OpenModelFromWorkspace` to load from disk and activate).
+  Mirrored in `EditorAPIWrapper::LoadDocument` and registered in `RegisterModule`. Updated
+  `loadbuffer.js` to call `Editor.LoadDocument` (single call replaces old `LoadBuffer`+`SetActiveBuffer`
+  two-step). Un-stubbed `test_jsengine_loadbuffer` and `test_jsengine_listbuffers`; both green.
+  Commit `ff45ff7`.
+
 ### Remaining / deferred
-- **jsengine loadbuffer/listbuffers** (only item left — explicitly deferred this session) — reinstate
-  `Editor.LoadBuffer`: add a `LoadDocument(filename)` to `EditorAPIWrapper` mirroring `NewDocument`
-  (`editorApi->LoadModel(...)` wrapped in `DocumentAPIWrapper`, registered via
-  `dukglue_register_method`), update `src/Plugins/Scripts/loadbuffer.js` (currently calls the
-  removed `Editor.LoadBuffer`) to the Document API, then un-stub `test_jsengine_loadbuffer` /
-  `test_jsengine_listbuffers` (both currently early-`return kTR_Pass`). `Editor::LoadModel(const
-  std::string&)` still exists. Real app hierarchy + APIs were mapped this session: see `main.cpp:408+`
-  and `src/Core/JSEngine/Modules/EditorAPIWrapper.cpp` (`NewDocument`/`GetDocuments` are the templates).
+Nothing — deferred list is empty.
 
 ### Untracked (intentionally never committed)
 `.idea/`, `cmake-build-release/`, `syntax_problem.cpp` — left alone every commit this session.

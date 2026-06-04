@@ -64,6 +64,8 @@ namespace gedit {
 
     private:
         bool DispatchAction(const KeyPressAction &kpAction);
+        void DrawSearchResultOverlays(DrawContext &dc, int tabSize);
+        void DrawSelectionOverlay(DrawContext &dc, int tabSize);
     private:
         bool bUseCLionPageNav = true;
         EditorModel::Ref editorModel;

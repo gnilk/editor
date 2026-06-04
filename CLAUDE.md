@@ -126,6 +126,10 @@ YAML-based config loaded by `Config` singleton. `ConfigNode` provides typed acce
 - Always use curly braces for all control flow, even single-line bodies
 - C++17 standard throughout
 - RAII everywhere, no raw owning pointers
+- Code should be written top - to - bottom, function A calling function B should have A before B in the source
+- Declarations should almost always be ordered like: public -> protected -> private
+- Types first, Functions second, variables at the end - don't mix functions and variables in same declaration scope
+- Types declared should have their own public/protected/private block
 
 ### Formatting
 - 4-space indentation, no tabs

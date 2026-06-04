@@ -81,7 +81,7 @@ DLL_EXPORT int test_workspace_newmodel(ITesting *t) {
 
 DLL_EXPORT int test_workspace_fileref(ITesting *t) {
     Workspace workspace;
-    std::filesystem::path filename("./test_src2.cpp");
+    std::filesystem::path filename("testfiles/ConvertUTF.cpp");
     auto model = workspace.NewModelWithFileRef(filename);
 
     TR_ASSERT(t, workspace.GetDefaultWorkspace()->GetModels().size() != 0);

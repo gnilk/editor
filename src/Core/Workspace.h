@@ -256,7 +256,9 @@ namespace gedit {
                     return false;
                 }
                 // Does this file exists - or is it a 'new' file
-                // FIXME: Really???
+                // In case this is a new file (buffer has state 'kBuffer_FileRef') the LoadData shouldn't fail if the file
+                // doesn't exists - this is explicit...  one could argue a return enum would be better, but the upper layer
+                // has little need of that information...
                 if (!std::filesystem::exists(pathName)) {
                     return true;
                 }

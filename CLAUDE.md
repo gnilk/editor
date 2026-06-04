@@ -162,26 +162,27 @@ YAML-based config loaded by `Config` singleton. `ConfigNode` provides typed acce
   for synchronized log output during dev. `-t` takes a list, supports wildcards, `!name` to exclude,
   and `-` meaning "all the rest" (e.g. `-t case1,case2,-` runs those first then the rest).
   Verified-green set (run from `cmake-build-debug/`):
-  `trun -m clipboard,edtmodel,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine --sequential ./libutests.so`.
+  `trun -m clipboard,edtmodel,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace --sequential ./libutests.so`.
   Note: trun forks per-test by DEFAULT (omit `--sequential`) — useful when a case may crash/segfault,
   so one bad case is isolated and the rest still report instead of aborting the run.
-- **Do NOT run the full debug suite** — pre-existing failures in `test_textbuffer_{flatten,parsefull,
-  parseregion,thparsefull,thparseregion}` confirmed present at baseline; plus the sqlite3-parse and
-  thread/timer tests hang. Gating these is outstanding.
+- **Do NOT run the full debug suite** — the sqlite3-parse test is intentionally excluded: ~1s in
+  release but 13-15s in debug (syntax highlighter over a large file, no optimizations). Thread/timer
+  tests are also excluded. All `test_textbuffer_*` cases pass.
 
-### Session 2026-06-04 (cont.) — resume point (read this first)
-Completed the last deferred item (jsengine loadbuffer/listbuffers) and did two housekeeping
-refactors. All work is **local commits on `main`, NOT pushed**. Build is clean (`goatedit` + `utests`);
-verified-green set above all passes (now includes `jsengine`).
+### Session 2026-06-04 (cont. 2) — resume point (read this first)
+Test suite audit and housekeeping. All commits pushed to `main`. Build is clean; verified-green set
+above all passes (now includes `workspace`).
 
 **Commits this session (oldest→newest):**
 - `75609d3` REFACTOR: Split DrawViewContents into focused helpers
 - `ff45ff7` FIX: Reinstate EditorAPI::LoadDocument (was LoadBuffer/TextBufferAPI)
+- `f1a828f` DOC: Session summary
+- `fa52c94` FIX: test_workspace_fileref used non-existent file + clarify LoadData intent
+- `3763816` FIX: Implement test_vnav_pageup + fix test_workspace_openfolder
 
-**Files modified:** `src/Core/Views/EditorView.{h,cpp}` (DrawViewContents split),
-`src/Core/API/EditorAPI.{h,cpp}` (LoadDocument), `src/Core/JSEngine/Modules/EditorAPIWrapper.{h,cpp}`
-(LoadDocument wrapper + registration), `src/Plugins/Scripts/loadbuffer.js` (use LoadDocument),
-`utests/test_jsengine.cpp` (un-stub loadbuffer/listbuffers), and this file.
+**Files modified:** `src/Core/Views/EditorView.{h,cpp}`, `src/Core/API/EditorAPI.{h,cpp}`,
+`src/Core/JSEngine/Modules/EditorAPIWrapper.{h,cpp}`, `src/Plugins/Scripts/loadbuffer.js`,
+`utests/test_jsengine.cpp`, `utests/test_vnav.cpp`, `utests/test_workspace.cpp`, `src/Core/Workspace.h`.
 
 **Patterns / decisions established (reuse these):**
 - **Model stays logical, the VIEW translates at draw.** Cursor columns are CHAR INDICES everywhere in
@@ -289,6 +290,19 @@ verified-green set above all passes (now includes `jsengine`).
   `loadbuffer.js` to call `Editor.LoadDocument` (single call replaces old `LoadBuffer`+`SetActiveBuffer`
   two-step). Un-stubbed `test_jsengine_loadbuffer` and `test_jsengine_listbuffers`; both green.
   Commit `ff45ff7`.
+
+- **Test suite audit** — all `test_textbuffer_*` pass (stale failure note removed). sqlite3-parse is
+  intentionally excluded (~1s release, 13-15s debug). `test_timer`/`test_timer_exit` are pre/post
+  module hooks, intentionally empty. Logger tests are obsolete (external library has its own suite).
+  `test_workspace_fileref` was pointing at a deleted file (`test_src2.cpp`) — switched to
+  `testfiles/ConvertUTF.cpp`. `test_workspace_openfolder` had a commented-out assertion replaced with
+  real checks. `Workspace::Node::LoadData` FIXME clarified: returning `true` for non-existent paths is
+  intentional — new documents have `kBuffer_FileRef` state (name assigned, not on disk yet) and
+  `LoadData` must not fail for them. Commit `fa52c94`.
+
+- **test_vnav_pageup** — was a stub. Implemented 4 cases symmetric with `test_vnav_pagedown`:
+  already-at-top (no-op), near-top clips to first line, exactly-one-page-in returns to top
+  (content-first), mid-buffer keeps caret screen row. Commit `3763816`.
 
 ### Remaining / deferred
 Nothing — deferred list is empty.

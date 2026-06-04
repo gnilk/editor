@@ -194,5 +194,49 @@ DLL_EXPORT int test_vnav_lineup(ITesting *t) {
     return kTR_Pass;
 }
 DLL_EXPORT int test_vnav_pageup(ITesting *t) {
+    LineCursor lineCursor;
+    DefaultLineCursor(lineCursor);
+
+    VerticalNavigationCLion vnav;
+    vnav.lineCursor = &lineCursor;
+
+    size_t szPageSize = viewRect.Height()-1;
+
+    // case 1) Already at the top — nothing moves
+    PositionAbsolute(lineCursor, 0, 0);
+    vnav.OnNavigateUp(szPageSize, viewRect, 100);
+    TR_ASSERT(t, lineCursor.idxActiveLine == 0);
+    TR_ASSERT(t, lineCursor.cursor.position.y == 0);
+    TR_ASSERT(t, lineCursor.viewTopLine == 0);
+    TR_ASSERT(t, lineCursor.viewBottomLine == viewRect.Height());
+
+    // case 2) Close to top — not enough room for a full page, force to first line
+    // nRowsToMove(szPageSize=39) > viewTopLine(10) => forceCursorToFirstLine
+    PositionAbsolute(lineCursor, 20, 10);
+    vnav.OnNavigateUp(szPageSize, viewRect, 100);
+    TR_ASSERT(t, lineCursor.idxActiveLine == 0);
+    TR_ASSERT(t, lineCursor.cursor.position.y == 0);
+    TR_ASSERT(t, lineCursor.viewTopLine == 0);
+    TR_ASSERT(t, lineCursor.viewBottomLine == viewRect.Height());
+
+    // case 3) Symmetric with pagedown case 3: start exactly one page in, page up returns to top.
+    // View scrolls back by szPageSize, caret keeps its screen row (0).
+    PositionAbsolute(lineCursor, szPageSize, 0);
+    vnav.OnNavigateUp(szPageSize, viewRect, 100);
+    TR_ASSERT(t, lineCursor.idxActiveLine == 0);
+    TR_ASSERT(t, lineCursor.cursor.position.y == 0);
+    TR_ASSERT(t, lineCursor.viewTopLine == 0);
+    TR_ASSERT(t, lineCursor.viewBottomLine == viewRect.Height());
+
+    // case 4) Symmetric with pagedown case 4: mid-buffer, caret keeps its screen row.
+    PositionAbsolute(lineCursor, 40 + szPageSize, 20);
+    auto topLineBefore = lineCursor.viewTopLine;
+    auto bottomLineBefore = lineCursor.viewBottomLine;
+    vnav.OnNavigateUp(szPageSize, viewRect, 100);
+    TR_ASSERT(t, lineCursor.idxActiveLine == 40);
+    TR_ASSERT(t, lineCursor.cursor.position.y == 20);
+    TR_ASSERT(t, lineCursor.viewTopLine == topLineBefore - (int)szPageSize);
+    TR_ASSERT(t, lineCursor.viewBottomLine == bottomLineBefore - (int)szPageSize);
+
     return kTR_Pass;
 }

@@ -94,8 +94,12 @@ DLL_EXPORT int test_workspace_fileref(ITesting *t) {
 
 DLL_EXPORT int test_workspace_openfolder(ITesting *t) {
     Workspace workspace;
-//    TR_ASSERT(t, workspace.GetModels().size() == 0);
-    workspace.OpenFolder(".");
+    TR_ASSERT(t, workspace.OpenFolder("."));
+    auto desktops = workspace.GetDesktops();
+    TR_ASSERT(t, desktops.size() == 1);
+    auto desktop = desktops.begin()->second;
+    auto models = desktop->GetRootNode()->GetModels();
+    TR_ASSERT(t, models.size() > 0);
     return kTR_Pass;
 }
 

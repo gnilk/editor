@@ -2,7 +2,7 @@
 This file is my session backup - not sure I'll ever use it.
 
 At the end of each session type this:
-Summarize everything we did this session — files modified, decisions made, patterns established, what's remaining — and write it to CLAUDE.md so I can continue tomorrow from another machine
+Summarize everything we did this session — files modified, decisions made, patterns established, what's remaining — and write it to CLAUDE.md so we can continue later from another machine or with a clear context
 
 ## Session Notes — C++ Preprocessor Tokenization (2026-06)
 

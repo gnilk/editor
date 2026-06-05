@@ -3,16 +3,20 @@
 //
 /*
  * TO-DO List
+ * - Add 'remove_actions' section to keymapping - for inheritance
+ * - Continue improving the C++ syntax highlighter - took a big step forward this week, but still needs work
+ * - Book marks?
+ * - HexView?
  * + CPP Syntax highlighting (#pragma, #if #ifdef and friends)
         + Perhaps have a specific state for '#' preprocessor directives
  * ! Resize doesn't work (the EditorView), need to consider how this event is handled
- * + Fix the failing unit-tests, some have now been disabled with pointers to CLAUDE where we need to take a look
- *   + Do this first, then clear the context and start over
- *   - Where we have missing implementations (like JSEngine), leave this
+ * ! Fix the failing unit-tests, some have now been disabled with pointers to CLAUDE where we need to take a look
+ *   ! Do this first, then clear the context and start over
+ *   ! Where we have missing implementations (like JSEngine), leave this
  *   ! Where we have off-by-one errors, fix them (incl. underlying issues)
  *
- * - Consider rewriting the graphics layer
- *   - Refactor the graphics layer
+ * + Consider rewriting the graphics layer
+ *   + Refactor the graphics layer
  *   ! Move to new file/directory structure (this makes it easier to separate this subsystem from the rest)
  *      (could consider putting this under "Core/Subsys/Graphics/..."  <- but not sure if it makes sense..
  *     ! Core/Graphics/SDL2
@@ -24,7 +28,7 @@
  * ! Clean-up the 'keyboard' event and skip the stupid macOS driver wannabe thingie in order to support SHIFT-ARROW selection
  * ! Try find out why we dead-lock (I think there is a race condition between syntax highlighting and editing)
  * + Remove 'kLanguageTokenClass' from 'LineAttrib' - this should better be tied to hint about rendering..
- * - Keymap: Add 'inherit' parameter so we can have a global definition of keymappings (like the UI keymappings)
+ * ! Keymap: Add 'inherit' parameter so we can have a global definition of keymappings (like the UI keymappings)
  * - WorkspaceView - Home/End/PageUp/PageDown
  * + Shell should properly trap signals to detect if someone does 'exit' from shell - respawn shell in that case..
  * x [discarded] Replace the language parser with the new Lexer from the AST project...
@@ -32,27 +36,27 @@
  * ! Sometimes loose syntax highlight - mostly seen towards end-of-file, need some 'reparse all' functionality
  *   or simply to use 'reparse-all' for any file < 1000 lines...
  *   Note: This was due to wrongly defined RAW U32 strings with wrong operator priorities for char/string definitions
- * + Spotted another exception related to timers - but I think that was CPP-mode line bug
+ * ! Spotted another exception related to timers - but I think that was CPP-mode line bug
  * + Vertical navigation yet-again is acting strange on clipping when at the end of a file
  * - Delete some lines (upper 1/3 of file) and then page-down => segfault
  *   => Seen once??
- * - Figure something to handle 'tab' correctly
+ * ! Figure something to handle 'tab' correctly
  *   should be in rendering - the editor should NOT modify unless the user tells it
  *   "forward cursor X" when \t occurs (in this case it should be part of the tokenizer)
  * + Exclude/Ignore directories for Monitor is a must
  *   Introduce a 'FolderMonitor' section in the config, should have 'Enable', 'Exclude'-list (glob-patterns)
  * - Introduce some delay in the monitoring allowing for add/remove before we refresh the editor
      Monitoring a path that changes quickly (like the build directory) will cause seg-faults
- * + There are segfaults in copy/paste
+ * ! There are segfaults in copy/paste [related to syntax highlight problem]
  * - Adding an additional ')' when the previous char is '(' should be ignored, typing: '(',')' inserts an extra ')'
  * + Revisit the 'Workspace::NewModel' and friends - there are too much similarity in these functions
- * - Save screen position and size upon resize/move and similar, restore on startup (use XDG state directory)
+ * ! Save screen position and size upon resize/move and similar, restore on startup (use XDG state directory)
  * - Expose config from JS (set,get,list)
  *   Would be cool to just open the whole config folder as a workspace node..  <- consider this
  * - Ability to influence logger from JS (log enable xyz, log disable xyz, etc..)
  * - Notification system needs review, should be able to have multiple subscribers
  * - File monitoring and reloading (for theme's and other?)
- * + Define proper keymap for Linux (selection, copy/paste, etc..)
+ * ! Define proper keymap for Linux (selection, copy/paste, etc..)
  * - LanguageToken to ScreenColor mapping is right now done in the editor - not sure where this should be..
  * + Fix save!
  * - How to search in node-editor mode (i.e ProjectViews, Terminal - history), also for quickmode?
@@ -81,7 +85,7 @@
  *    - Be 'smart' depending on language search for type belonging to related files (C/CPP - header files)
  *    - Make sure the prefix-tree can be quickly update when changing stuff on a line
  *    - Make the Intellisense run in a background thread that locks the whole textbuffer (but does so when it sits Idle)
- * - Put some performance timings in the LanguageParser (this will have to be optimized sooner or later)
+ * ! Put some performance timings in the LanguageParser (this will have to be optimized sooner or later)
  * - macOS swaps left/right scancodes between keyboards (laptop has left/right one way my ext.keyboard another)
  *   need to consider a solution for this...
  *

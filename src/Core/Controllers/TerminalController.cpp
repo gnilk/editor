@@ -102,7 +102,12 @@ void TerminalController::HandleTerminalData(const uint8_t *buffer, size_t length
         }
 
         auto ch = static_cast<uint8_t>(stripped[i]);
-        if (ch == 0x0a) {
+        if (ch == 0x08) {
+            // Backspace is non-destructive: it only moves the cursor left. readline
+            // erases by sending "\b \b" (left, space-over, left), so the actual blanking
+            // is done by the space; we just must not drop the \b or the cursor desyncs.
+            screen.MoveCursor(-1, 0);
+        } else if (ch == 0x0a) {
             screen.NewLine();
         } else if (ch == 0x0d) {
             screen.CarriageReturn();
@@ -127,7 +132,43 @@ void TerminalController::HandleTerminalData(const uint8_t *buffer, size_t length
         ApplyCommand(cmdBuffer[idxCmd++]);
     }
 
+    // While the shell owns the line (completion in progress), mirror what readline
+    // has echoed back into our local inputLine so the model stays truthful.
+    if (termMode == TermMode::kShellOwned) {
+        SyncInputLineFromGrid();
+    }
+
     Editor::Instance().TriggerUIRedraw();
+}
+
+void TerminalController::SyncInputLineFromGrid() {
+    // readline owns the line and echoes its edits into the grid. Read the prompt row
+    // back from promptAnchor.x (the prompt end) up to the trailing content and mirror
+    // it into inputLine. Caret column is the grid cursor relative to the prompt end.
+    auto cursorPos = screen.GetCursorPos();
+    if (cursorPos.y != promptAnchor.y) {
+        // The prompt moved (output scrolled, or a candidate list redrew it lower).
+        // Re-anchoring is the ambiguous-completion case — deferred. Leave the mirror
+        // as-is for now.
+        return;
+    }
+
+    const auto &row = screen.GetRow(cursorPos.y);
+    int start = std::clamp(promptAnchor.x, 0, (int)row.size());
+    int end   = (int)row.size();
+    // Trim trailing blanks so we don't carry the rest of the (padded) grid row.
+    while (end > start && row[end - 1].ch == U' ') {
+        end--;
+    }
+
+    std::u32string lineText;
+    for (int x = start; x < end; x++) {
+        lineText += row[x].ch;
+    }
+
+    inputLine->Clear();
+    inputLine->Append(lineText);
+    inputCursor.position.x = std::clamp(cursorPos.x - promptAnchor.x, 0, (int)inputLine->Length());
 }
 
 void TerminalController::ApplyCommand(const VTermParser::CMD &cmd) {
@@ -282,6 +323,16 @@ bool TerminalController::HandleKeyPress(Cursor &cursor, size_t &idxActiveLine, c
     if (screen.IsAltScreen()) {
         return HandleKeyPressAltScreen(keyPress);
     }
+    if (termMode == TermMode::kShellOwned) {
+        // readline owns the line — keys pass straight through to the pty (same raw
+        // encoding the alt-screen path uses). Ctrl+C aborts readline's line, so drop
+        // back to local editing or we'd be stuck in passthrough with a stale anchor.
+        bool handled = HandleKeyPressAltScreen(keyPress);
+        if (keyPress.IsCtrlPressed() && (keyPress.key == 'c' || keyPress.key == 'C')) {
+            ExitShellOwned();
+        }
+        return handled;
+    }
     if (DefaultEditLine(inputCursor, inputLine, keyPress)) {
         cursor.position.x = GetCursorXPos();
         return true;
@@ -346,7 +397,15 @@ bool TerminalController::HandleKeyPressAltScreen(const KeyPress &keyPress) {
 bool TerminalController::ForwardActionToShell(const KeyPressAction &kpAction) {
     const char *seq = nullptr;
     switch (kpAction.action) {
-        case kAction::kActionCommitLine:  shell.Write(0x0d); return true;
+        case kAction::kActionCommitLine:
+            shell.Write(0x0d);
+            // In shell-owned mode the line lives in readline; committing hands control
+            // back and the shell will print its output + a fresh prompt.
+            if (termMode == TermMode::kShellOwned) {
+                ExitShellOwned();
+            }
+            return true;
+        case kAction::kActionShellCompletion: shell.Write(0x09); return true;
         case kAction::kActionLineLeft:    seq = cursorKeyAppMode ? "\x1bOD" : "\x1b[D"; break;
         case kAction::kActionLineRight:   seq = cursorKeyAppMode ? "\x1bOC" : "\x1b[C"; break;
         case kAction::kActionLineUp:      seq = cursorKeyAppMode ? "\x1bOA" : "\x1b[A"; break;
@@ -378,14 +437,16 @@ bool TerminalController::OnAction(const KeyPressAction &kpAction) {
             inputCursor.position.x = std::min((int)inputLine->Length(), inputCursor.position.x + 1);
             break;
         case kAction::kActionShellCompletion : {
-            // Shell's readline has an empty buffer while we do local line editing.
-            // Flush what's been typed so readline can see it, then send Tab.
-            // inputLine is cleared — the shell now owns the line via readline.
+            // First Tab in local-edit mode: hand the line over to readline so it can
+            // complete. The real grid cursor has stayed parked at the prompt end the
+            // whole time we edited locally (local edits never touch the grid), so
+            // capture it now as the prompt anchor for reading the line back. From here
+            // readline owns the line until the command is committed or aborted.
+            promptAnchor = screen.GetCursorPos();
+            termMode = TermMode::kShellOwned;
             auto cmdLine = std::u32string(inputLine->Buffer());
             if (!cmdLine.empty()) {
                 shell.SendCmd(cmdLine);
-                inputLine->Clear();
-                inputCursor.position.x = 0;
             }
             shell.Write(0x09);
             return true;
@@ -395,6 +456,14 @@ bool TerminalController::OnAction(const KeyPressAction &kpAction) {
     }
     Editor::Instance().TriggerUIRedraw();
     return true;
+}
+
+void TerminalController::ExitShellOwned() {
+    // Return to local line editing. The committed/aborted line lives in the shell's
+    // output now; our local buffer starts fresh at the next prompt.
+    termMode = TermMode::kLocalEdit;
+    inputLine->Clear();
+    inputCursor.position.x = 0;
 }
 
 int TerminalController::GetCursorXPos() {

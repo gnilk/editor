@@ -66,7 +66,9 @@ void TerminalView::OnKeyPress(const KeyPress &keyPress) {
 }
 
 bool TerminalView::OnAction(const KeyPressAction &kpAction) {
-    if (controller.GetScreen().IsAltScreen()) {
+    // Full-screen apps (alt-screen) and an in-progress shell completion both let
+    // readline/the app own the line, so actions are forwarded straight to the pty.
+    if (controller.GetScreen().IsAltScreen() || controller.IsShellOwned()) {
         return controller.ForwardActionToShell(kpAction);
     }
     switch (kpAction.action) {
@@ -146,6 +148,17 @@ void TerminalView::DrawViewContents() {
     dc.ClearLine(inputViewRow);
 
     auto &cursorRow = screen.GetRow(cursorGridRow);
+
+    if (controller.IsShellOwned()) {
+        // Shell completion in progress: readline owns the line and has echoed the whole
+        // prompt+input into the grid row, so render it directly and place the caret at
+        // the grid cursor (no inputLine composite — that would double the text).
+        DrawScreenRow(dc, cursorRow, inputViewRow);
+        cursor.position.y = inputViewRow;
+        cursor.position.x = screen.GetCursorPos().x;
+        return;
+    }
+
     if (promptLen > 0) {
         TerminalScreen::Row promptPart(cursorRow.begin(),
                                       cursorRow.begin() + std::min(promptLen, (int)cursorRow.size()));

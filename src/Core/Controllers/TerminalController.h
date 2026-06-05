@@ -19,6 +19,19 @@
 namespace gedit {
     class TerminalController : public BaseController, IOutputConsole {
     public:
+        // Shell-mode line ownership:
+        //  kLocalEdit  - we edit the line locally (inputLine); nothing reaches the
+        //                shell until the line is committed. This is the default.
+        //  kShellOwned - entered on the first Tab/ShellCompletion: the line is handed
+        //                to the shell's readline so it can complete. Keys pass through
+        //                to the pty and the grid is mirrored back into inputLine until
+        //                the line is committed (or aborted), which returns to kLocalEdit.
+        enum class TermMode {
+            kLocalEdit,
+            kShellOwned,
+        };
+
+    public:
         TerminalController() = default;
         virtual ~TerminalController() = default;
 
@@ -33,6 +46,8 @@ namespace gedit {
         void CommitLine();
         int GetCursorXPos();
 
+        bool IsShellOwned() const { return termMode == TermMode::kShellOwned; }
+
         bool OnAction(const KeyPressAction &kpAction);
         bool ForwardActionToShell(const KeyPressAction &kpAction);
         void WriteLine(const std::u32string &str) override;
@@ -40,6 +55,8 @@ namespace gedit {
     protected:
         void HandleTerminalData(const uint8_t *buffer, size_t length);
         void ApplyCommand(const VTermParser::CMD &cmd);
+        void SyncInputLineFromGrid();
+        void ExitShellOwned();
         void InitializeColorTable();
 
         bool HandleKeyPressAltScreen(const KeyPress &keyPress);
@@ -55,6 +72,13 @@ namespace gedit {
         std::mutex screenLock;
 
         bool cursorKeyAppMode = false;
+
+        // Shell-mode line ownership state (see TermMode above).
+        TermMode termMode = TermMode::kLocalEdit;
+        // Grid cell where the prompt ends, captured on the kLocalEdit->kShellOwned
+        // transition (the real grid cursor stays parked there while editing locally,
+        // since local edits never touch the grid). Used to read the line back.
+        Point promptAnchor = {};
     };
 }
 

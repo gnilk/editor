@@ -15,6 +15,7 @@ DLL_EXPORT int test_vtermparser_strip(ITesting *t);
 DLL_EXPORT int test_vtermparser_cursor_movement(ITesting *t);
 DLL_EXPORT int test_vtermparser_cursor_pos(ITesting *t);
 DLL_EXPORT int test_vtermparser_erase(ITesting *t);
+DLL_EXPORT int test_vtermparser_terminator_at_boundary(ITesting *t);
 DLL_EXPORT int test_vtermparser_scroll_region(ITesting *t);
 DLL_EXPORT int test_vtermparser_private(ITesting *t);
 DLL_EXPORT int test_vtermparser_decsc(ITesting *t);
@@ -125,6 +126,34 @@ DLL_EXPORT int test_vtermparser_erase(ITesting *t) {
     // ESC[J   — erase to end of display (mode 0 default)
     TR_ASSERT(t, FindCmd({0x1b, 0x5b, 0x4a}, VTermParser::kAnsiCmd::kEraseInDisplay, &cmd));
     TR_ASSERT(t, cmd.param[0] == 0);
+
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_vtermparser_terminator_at_boundary(ITesting *t) {
+    // A CSI sequence whose terminator byte is the LAST byte of the buffer must not
+    // leak that terminator into the stripped text. Regression: the cursor stopped at
+    // max-1, leaving the terminator on the cursor for the outer loop to re-emit.
+    VTermParser p;
+
+    // ESC[K at end of buffer — strips to nothing, emits EraseInLine.
+    std::vector<uint8_t> eraseOnly = {0x1b, 0x5b, 0x4b};
+    auto strippedErase = p.Parse(eraseOnly.data(), eraseOnly.size());
+    TR_ASSERT(t, strippedErase.empty());
+
+    // zsh ZLE backspace echo verbatim: BS ESC[K — strips to just the backspace (0x08),
+    // emits EraseInLine, and crucially does NOT contain a stray 'K'.
+    std::vector<uint8_t> bsErase = {0x08, 0x1b, 0x5b, 0x4b};
+    auto strippedBs = p.Parse(bsErase.data(), bsErase.size());
+    TR_ASSERT(t, strippedBs.size() == 1);
+    TR_ASSERT(t, (uint8_t)strippedBs[0] == 0x08);
+    TR_ASSERT(t, strippedBs.find('K') == std::string::npos);
+
+    bool foundErase = false;
+    for (auto &c : p.LastCmdBuffer()) {
+        if (c.cmd == VTermParser::kAnsiCmd::kEraseInLine) { foundErase = true; }
+    }
+    TR_ASSERT(t, foundErase);
 
     return kTR_Pass;
 }

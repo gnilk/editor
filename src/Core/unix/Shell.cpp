@@ -172,8 +172,25 @@ void Shell::ConsumePty() {
 
         ssize_t n = read(amaster, buffer, sizeof(buffer));
         if (n > 0) {
+            // Coalesce: drain whatever else is already waiting (non-blocking poll) into
+            // the same batch so a burst — e.g. a tab-completion list followed by the
+            // prompt+line redraw — becomes a single onOutput/redraw. Delivering one read
+            // at a time renders the intermediate cursor positions and flickers. Capped at
+            // one buffer fill so a continuously-streaming child can't starve the redraw.
+            size_t total = (size_t)n;
+            while (total < sizeof(buffer)) {
+                struct pollfd more = { amaster, POLLIN, 0 };
+                if (poll(&more, 1, 0) <= 0 || !(more.revents & POLLIN)) {
+                    break;
+                }
+                ssize_t m = read(amaster, buffer + total, sizeof(buffer) - total);
+                if (m <= 0) {
+                    break;
+                }
+                total += (size_t)m;
+            }
             if (onOutput) {
-                onOutput(buffer, (size_t)n);
+                onOutput(buffer, total);
             }
         } else {
             if (errno == EAGAIN) { continue; }

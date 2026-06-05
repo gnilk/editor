@@ -423,12 +423,18 @@ std::string VTermParser::OSC_ParseStringToBel() {
 }
 
 bool VTermParser::Next() {
-    if (idx < (max -1)) {
+    // Advance up to one-past-the-end so a sequence whose terminator is the final byte
+    // can be stepped past. Returns whether a valid byte remains at the new position;
+    // if not, At() yields 0 and the parse loops terminate cleanly. (Stopping at max-1
+    // left the terminator on the cursor, leaking it into the stripped text.)
+    if (idx < max) {
         idx++;
-        return true;
     }
-    return false;
+    return idx < max;
 }
 uint8_t VTermParser::At() {
+    if (idx >= max) {
+        return 0;
+    }
     return buffer[idx];
 }

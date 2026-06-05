@@ -192,6 +192,51 @@ All commits pushed to `main`. Build is clean; verified-green set above all passe
 `src/Plugins/Scripts/loadbuffer.js`, `utests/test_jsengine.cpp`, `utests/test_vnav.cpp`,
 `utests/test_workspace.cpp`, `src/Core/Workspace.h`.
 
+#### UNCOMMITTED work-in-progress (alt-screen / vi enablement) — on top of `be5532d`
+Goal: get `vi`/`less` running inside the TerminalView (the "ultimate test" of the parser). Build is
+clean, `terminalscreen` + `vtermparser` tests green, but **none of this is committed** and **vi does
+NOT fully work yet**. Touches `src/Core/unix/Shell.cpp`, `src/Core/VTermParser.{h,cpp}`,
+`src/Core/TerminalScreen.{h,cpp}`, `src/Core/Controllers/TerminalController.cpp`,
+`src/Core/Views/TerminalView.cpp`.
+
+What was done this WIP block:
+1. **`TERM=xterm-256color`** — child sets it via `setenv` before `execl` in `Shell::StartShellProc`.
+   Fixes `less` "terminal is not fully functional" warning; lets ncurses programs find terminfo.
+2. **VTermParser crash fix (the important one)** — `ESC[>4;2m` crashed at `std::stoi(">4")`. CSI
+   parameter MODIFIER bytes `<` `=` `>` (0x3c–0x3e) live inside the param range (0x30–0x3f) but are
+   NOT numeric content — they were being concatenated into the param string. Now skipped in the param
+   collection loop alongside `?` (which sets `isPrivate`). See ECMA-48 §5.4: 0x3c–0x3f are private
+   parameter bytes. Reference doc: invisible-island.net/xterm/ctlseqs/ctlseqs.html.
+3. **Benign sequences silenced** — `ESC =` (DECKPAM), `ESC >` (DECKPNM), `CSI t` (XTWINOPS window
+   title stack). Explicit no-op cases so they don't hit the unhandled-log path.
+4. **TerminalScreen 0×0 guards** — vi emits positioning sequences before the first `Resize`, so
+   `cols/rows == 0` and `std::clamp(x,0,cols-1)` was UB. Added early-returns to `SetCursorPos`,
+   `SetScrollRegion`, `EraseInLine`, `EraseInDisplay`.
+5. **Alt-screen save/restore completeness** — `SaveScreen`/`RestoreScreen` now also save/restore the
+   scrollback AND the scroll region, set an `isAltScreen` flag, and `SaveScreen` enters a CLEAN alt
+   screen (blank grid, cleared scrollback, reset region, cursor home). Removed the now-redundant
+   `EraseInDisplay(2)` after `SaveScreen` in `ApplyCommand`. Added `IsAltScreen()` accessor. This
+   fixes the "leftovers when switching" bug.
+6. **TerminalView dual render mode** — `DrawViewContents` branches on `screen.IsAltScreen()`: alt-screen
+   renders the FULL grid directly (every row, cursor straight from the grid, no inputLine overlay);
+   shell mode keeps the scrollback+history+prompt+inputLine path. This is what makes full-screen app
+   content visible at all.
+7. **Debug logging** — re-enabled the force-disabled `AnsiParser` logger; added a `RAW[N]:` readable
+   byte dump at the top of `VTermParser::Parse` (printable as-is, `ESC` for 0x1b, `^xx` for control);
+   the `default` cases in `ParseCSI` / ESC-Fp now log the unhandled byte + params + private flag.
+   NOTE: `Assets/Resources/config.yml` is locally switched to `filesink` + `enable_modules: AnsiParser`
+   (user's debug change) — revert before a clean commit. The RAW dump is the workflow for finding the
+   next missing sequence: run vi, read `goatedit.log`, see what's unhandled.
+
+Still missing for vi to work properly (next steps): cursor visibility `ESC[?25h/l`, reverse index
+`ESC M`, insert/delete line `CSI L`/`CSI M`, insert/delete char `CSI @`/`CSI P`, possibly origin mode
+`ESC[?6h/l`. Bracketed-paste `?2004`, focus `?1004`, cursor-key `?1` modes are currently consumed but
+not acted on. `test_terminalscreen_savestate` still passes but now under-tests `SaveScreen` (it
+EraseScreen's anyway) — strengthen to assert the clean-alt-screen behaviour when revisited.
+
+**Housekeeping:** `claude.sessions.md` is the user's private scratch file — add it to `.gitignore`
+(currently tracked, intentionally not to be committed with content changes).
+
 **Patterns / decisions established (reuse these):**
 - **Model stays logical, the VIEW translates at draw.** Cursor columns are CHAR INDICES everywhere in
   the model/`Selection` (copy/delete depend on it); anything drawn in screen space (caret, overlays,
@@ -221,6 +266,15 @@ All commits pushed to `main`. Build is clean; verified-green set above all passe
   `(0, contentExtent)` and both views keep positive extent"), and the nested layout tests assert the
   action actually *reached* the far splitter (`sp > initialSp`) so they catch the delegation bug, not
   just the clamp.
+- **ANSI/VT parsing gotchas:** CSI parameter MODIFIER bytes `< = > ?` (0x3c–0x3f) sit inside the
+  parameter byte range (0x30–0x3f) but are NOT numeric — never feed them to `stoi`; skip during param
+  collection (`?` additionally flags a private sequence). Guard every grid mutation against a 0×0
+  screen (sequences arrive before the first `Resize`). When debugging escape streams, dump the RAW
+  bytes in readable form BEFORE parsing — pasting terminal data into chat mangles the escapes, so the
+  log is the source of truth.
+- **One model flag, view picks the render path:** `TerminalScreen` carries a single `isAltScreen` flag;
+  `TerminalView::DrawViewContents` branches on `IsAltScreen()` (full-grid vs shell history+input). The
+  model never grows two code paths — same spirit as "model stays logical, the view translates at draw."
 
 ### Recently completed (carry-forward state)
 - **Vertical page-nav (CLion/content-first)** — `VerticalNavigationCLion::OnNavigateDown` used to add a
@@ -340,9 +394,14 @@ All commits pushed to `main`. Build is clean; verified-green set above all passe
   work. Commit `7e96e93`.
 
 ### Remaining / deferred
-- **TerminalScreen Step 3** — `kEnterAltScreen`/`kLeaveAltScreen` are parsed and connected to
-  `SaveScreen`/`RestoreScreen`. The remaining gap is testing with vi/less (scroll region edge
-  cases, reverse index ESC M, cursor visibility ESC[?25h/l). Deferred pending real-world testing.
+- **TerminalScreen Step 3 — full-screen apps (vi/less)** — IN PROGRESS, uncommitted. `less` works.
+  vi launches without crashing and the alt-screen render path is in place, but vi is not yet fully
+  functional. See the "UNCOMMITTED work-in-progress" block under the 2026-06-05 session above for
+  exactly what was done and the prioritized list of still-missing sequences (cursor visibility, reverse
+  index, insert/delete line+char, origin mode). FIRST ACTION next session: decide whether to commit the
+  current WIP (revert the `config.yml` debug-logging change first) or keep iterating, then continue from
+  the RAW-log workflow.
+- **`.gitignore`** — add `claude.sessions.md` (user's private scratch file, currently tracked).
 
 ### Untracked (intentionally never committed)
 `.idea/`, `cmake-build-release/`, `syntax_problem.cpp` — left alone every commit this session.

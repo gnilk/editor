@@ -68,6 +68,18 @@ AssetLoaderBase::Asset::Ref AssetLoaderBase::LoadTextAsset(const std::string &fi
     return nullptr;
 }
 
+std::filesystem::path AssetLoaderBase::ResolveWritePath(const std::string &fileName, kLocationType locationType) const {
+    // NOTE: baseSearchPaths is score-sorted, so "first matching" is the highest-priority
+    // path of this location type. A designated primary-write path per location would be a
+    // more stable long-term target (see kProject work).
+    for (auto &searchPath : baseSearchPaths) {
+        if (searchPath.locationType == locationType) {
+            return searchPath.path / fileName;
+        }
+    }
+    return {};
+}
+
 static int locationPriority(AssetLoaderBase::kLocationType t) {
     switch (t) {
         case AssetLoaderBase::kLocationType::kSystem: return 0;
@@ -104,7 +116,7 @@ AssetLoaderBase::Asset::Ref AssetLoaderBase::DoLoadAsset(const SearchPath &searc
     logger->Debug("Loading Asset: %s", pathName.c_str());
 
 
-    Asset::Ref asset = std::make_shared<Asset>();
+    Asset::Ref asset = Asset::Create(pathName);
     auto szFile = std::filesystem::file_size(pathName);
     asset->size = szFile;
     asset->ptrData = new unsigned char [szFile + nBytesToAdd];

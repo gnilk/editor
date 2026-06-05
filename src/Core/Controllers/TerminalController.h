@@ -8,6 +8,7 @@
 #include <vector>
 #include <string>
 #include <mutex>
+#include <filesystem>
 
 #include "logger.h"
 #include "BaseController.h"
@@ -65,6 +66,7 @@ namespace gedit {
     private:
         Shell shell;
         TerminalHistory history;
+        std::filesystem::path historyPath;
         gnilk::ILogger *logger = nullptr;
 
         Line::Ref inputLine = nullptr;

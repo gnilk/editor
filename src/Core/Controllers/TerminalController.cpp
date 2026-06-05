@@ -4,7 +4,6 @@
 
 #include "TerminalController.h"
 #include "Core/Editor.h"
-#include "Core/XDGEnvironment.h"
 #include "Core/HexDump.h"
 #include "Core/Plugins/PluginExecutor.h"
 #include "Core/UnicodeHelper.h"
@@ -77,6 +76,11 @@ void TerminalController::Begin() {
     auto &assetLoader = RuntimeConfig::Instance().GetAssetLoader();
     auto histAsset = assetLoader.LoadTextAsset("terminal_history", AssetLoaderBase::kLocationType::kUser);
     history.Load(histAsset);
+
+    // Save back to wherever it loaded from; on first run (no asset) resolve a write path.
+    historyPath = (histAsset != nullptr)
+                    ? histAsset->GetOriginPath()
+                    : assetLoader.ResolveWritePath("terminal_history", AssetLoaderBase::kLocationType::kUser);
 }
 
 void TerminalController::Resize(int cols, int rows) {
@@ -498,8 +502,9 @@ void TerminalController::CommitLine() {
 
     if (!cmdLine.empty()) {
         history.Push(cmdLine);
-        auto savePath = XDGEnvironment::Instance().GetUserHomePath() / ".goatedit" / "terminal_history";
-        history.Save(savePath);
+        if (!historyPath.empty()) {
+            history.Save(historyPath);
+        }
     }
     history.ResetNavigation();
 

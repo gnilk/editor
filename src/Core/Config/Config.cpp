@@ -10,6 +10,12 @@
 
 #include "Config.h"
 
+//
+// The config is using YAML - because I wanted to test it - and because it feels like the right tool for this kind of
+// thing...
+// Have to say YAML feels like a marriage between JSON and INI-files, with just enough rope to hand yourself with
+// the indentation craze..  by hey - I just love invisible control structures...  hello Python...
+//
 using namespace gedit;
 
 Config::Config() : ConfigNode() {

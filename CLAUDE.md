@@ -169,73 +169,57 @@ YAML-based config loaded by `Config` singleton. `ConfigNode` provides typed acce
   release but 13-15s in debug (syntax highlighter over a large file, no optimizations). Thread/timer
   tests are also excluded. All `test_textbuffer_*` cases pass.
 
-### Session 2026-06-05 — resume point (read this first)
-Terminal cell-grid model (Steps 1 + 2), Shell PTY simplification, test suite housekeeping.
+### Session 2026-06-05 (cont.) — resume point (read this first)
+TerminalScreen Step 3 (vi/full-screen app support) + shell mode rendering fixes.
 All commits pushed to `main`. Build is clean; verified-green set above all passes.
 
 **Commits this session (oldest→newest):**
-- `75609d3` REFACTOR: Split DrawViewContents into focused helpers
-- `ff45ff7` FIX: Reinstate EditorAPI::LoadDocument (was LoadBuffer/TextBufferAPI)
-- `f1a828f` DOC: Session summary
-- `fa52c94` FIX: test_workspace_fileref used non-existent file + clarify LoadData intent
-- `3763816` FIX: Implement test_vnav_pageup + fix test_workspace_openfolder
-- `6edd374` DOC: Session summary cont. 2
-- `5d15c9d` FEAT: Replace TerminalController line-buffer with TerminalScreen cell grid (Step 1)
-- `ab01f5d` FEAT: TerminalScreen Step 2 — cursor movement, erase, scroll region
-- `7e96e93` REFACTOR: Simplify Shell to use pty master for all I/O
+- `f1fb2fa` NEW: Added SetInitialSplitterPos to HSplitView (user commit)
+- `aca54fe` FEAT: TerminalScreen Step 3 — vi/full-screen app support
+- `ffaa881` FIX: Shell mode rendering — bottom-anchor, WriteLine alignment, 256-colour
 
-**Files modified:** `src/Core/TerminalScreen.{h,cpp}` (new), `src/Core/VTermParser.{h,cpp}`,
-`src/Core/Controllers/TerminalController.{h,cpp}`, `src/Core/Views/TerminalView.{h,cpp}`,
-`src/Core/unix/Shell.{h,cpp}`, `utests/test_terminalscreen.cpp` (new),
-`utests/test_vtermparser.cpp`, `CMakeLists.txt`, `src/Core/Views/EditorView.{h,cpp}`,
-`src/Core/API/EditorAPI.{h,cpp}`, `src/Core/JSEngine/Modules/EditorAPIWrapper.{h,cpp}`,
-`src/Plugins/Scripts/loadbuffer.js`, `utests/test_jsengine.cpp`, `utests/test_vnav.cpp`,
-`utests/test_workspace.cpp`, `src/Core/Workspace.h`.
-
-#### UNCOMMITTED work-in-progress (alt-screen / vi enablement) — on top of `be5532d`
-Goal: get `vi`/`less` running inside the TerminalView (the "ultimate test" of the parser). Build is
-clean, `terminalscreen` + `vtermparser` tests green, but **none of this is committed** and **vi does
-NOT fully work yet**. Touches `src/Core/unix/Shell.cpp`, `src/Core/VTermParser.{h,cpp}`,
-`src/Core/TerminalScreen.{h,cpp}`, `src/Core/Controllers/TerminalController.cpp`,
+**Files modified this session:**
+`src/Core/unix/Shell.{h,cpp}`, `src/Core/VTermParser.{h,cpp}`,
+`src/Core/TerminalScreen.{h,cpp}`, `src/Core/Controllers/TerminalController.{h,cpp}`,
 `src/Core/Views/TerminalView.cpp`.
 
-What was done this WIP block:
-1. **`TERM=xterm-256color`** — child sets it via `setenv` before `execl` in `Shell::StartShellProc`.
-   Fixes `less` "terminal is not fully functional" warning; lets ncurses programs find terminfo.
-2. **VTermParser crash fix (the important one)** — `ESC[>4;2m` crashed at `std::stoi(">4")`. CSI
-   parameter MODIFIER bytes `<` `=` `>` (0x3c–0x3e) live inside the param range (0x30–0x3f) but are
-   NOT numeric content — they were being concatenated into the param string. Now skipped in the param
-   collection loop alongside `?` (which sets `isPrivate`). See ECMA-48 §5.4: 0x3c–0x3f are private
-   parameter bytes. Reference doc: invisible-island.net/xterm/ctlseqs/ctlseqs.html.
-3. **Benign sequences silenced** — `ESC =` (DECKPAM), `ESC >` (DECKPNM), `CSI t` (XTWINOPS window
-   title stack). Explicit no-op cases so they don't hit the unhandled-log path.
-4. **TerminalScreen 0×0 guards** — vi emits positioning sequences before the first `Resize`, so
-   `cols/rows == 0` and `std::clamp(x,0,cols-1)` was UB. Added early-returns to `SetCursorPos`,
-   `SetScrollRegion`, `EraseInLine`, `EraseInDisplay`.
-5. **Alt-screen save/restore completeness** — `SaveScreen`/`RestoreScreen` now also save/restore the
-   scrollback AND the scroll region, set an `isAltScreen` flag, and `SaveScreen` enters a CLEAN alt
-   screen (blank grid, cleared scrollback, reset region, cursor home). Removed the now-redundant
-   `EraseInDisplay(2)` after `SaveScreen` in `ApplyCommand`. Added `IsAltScreen()` accessor. This
-   fixes the "leftovers when switching" bug.
-6. **TerminalView dual render mode** — `DrawViewContents` branches on `screen.IsAltScreen()`: alt-screen
-   renders the FULL grid directly (every row, cursor straight from the grid, no inputLine overlay);
-   shell mode keeps the scrollback+history+prompt+inputLine path. This is what makes full-screen app
-   content visible at all.
-7. **Debug logging** — re-enabled the force-disabled `AnsiParser` logger; added a `RAW[N]:` readable
-   byte dump at the top of `VTermParser::Parse` (printable as-is, `ESC` for 0x1b, `^xx` for control);
-   the `default` cases in `ParseCSI` / ESC-Fp now log the unhandled byte + params + private flag.
-   NOTE: `Assets/Resources/config.yml` is locally switched to `filesink` + `enable_modules: AnsiParser`
-   (user's debug change) — revert before a clean commit. The RAW dump is the workflow for finding the
-   next missing sequence: run vi, read `goatedit.log`, see what's unhandled.
+#### What Step 3 delivered (commit `aca54fe`)
+1. **Key passthrough in alt-screen** — `HandleKeyPressAltScreen` sends all printable chars (incl.
+   Ctrl+key combos) and special keys directly to the pty as escape sequences. `ForwardActionToShell`
+   covers actions that slip through the key handler path (Return → `\r`; navigation actions →
+   sequences; all other actions swallowed so editor-level behaviour never fires inside vi).
+   `TerminalView::OnAction` routes directly to `ForwardActionToShell` when `IsAltScreen()` — the
+   old `CommitLine` path is bypassed entirely.
+2. **Cursor key app mode** (`ESC[?1h/l`) — `cursorKeyAppMode` flag in `TerminalController`; arrows
+   send `ESC OA/B/C/D` in app mode, `ESC[A/B/C/D` in normal mode.
+3. **Terminal responses** — `CSI 6n` (DSR) replies `ESC[row;colR`; `CSI c` (Primary DA) replies
+   `ESC[?1;2c`. Vi blocks waiting for these during init; `Shell::WriteBytes(const std::string&)`
+   added to send raw byte strings to the pty master.
+4. **New VT sequences** — `ESC M` (reverse index: scroll region down or move cursor up), `CSI L/M`
+   (insert/delete line with scroll-region awareness), `CSI @/P` (insert/delete char), `CSI ?25h/l`
+   (cursor show/hide consumed silently instead of hitting the unhandled log).
+5. **`kCursorShow`/`kCursorHide`/`kCursorKeyModeApp`/`kCursorKeyModeNormal`/`kDeviceStatusReport`/
+   `kPrimaryDA`/`kReverseIndex`/`kInsertLine`/`kDeleteLine`/`kInsertChar`/`kDeleteChar`** added to
+   `VTermParser::kAnsiCmd` and wired through `ApplyCommand`.
 
-Still missing for vi to work properly (next steps): cursor visibility `ESC[?25h/l`, reverse index
-`ESC M`, insert/delete line `CSI L`/`CSI M`, insert/delete char `CSI @`/`CSI P`, possibly origin mode
-`ESC[?6h/l`. Bracketed-paste `?2004`, focus `?1004`, cursor-key `?1` modes are currently consumed but
-not acted on. `test_terminalscreen_savestate` still passes but now under-tests `SaveScreen` (it
-EraseScreen's anyway) — strengthen to assert the clean-alt-screen behaviour when revisited.
+#### What the shell rendering fix delivered (commit `ffaa881`)
+1. **Bottom-anchor** (`TerminalView::DrawViewContents`) — `blankRows = max(0, (viewHeight-1) -
+   totalHistory)` added before the history loop. When content is shorter than the view, blank rows
+   appear at the TOP and content is anchored to the bottom above the prompt. Previously the JS
+   bootstrap goat art appeared at row 0 with blank space below it.
+2. **`WriteLine` alignment** — if `cursor.x > 0` when `Console.WriteLine` is called (shell prompt
+   may have raced in before the JS bootstrap), a `CR+LF` is emitted first so output always starts at
+   column 0 on a fresh line.
+3. **256-colour SGR** — `ESC[38;5;Nm` / `ESC[48;5;Nm` emit new `kSetForeground256` / `kSetBackground256`
+   commands resolved against `FG_BG_256[]`. Bright-colour codes `ESC[90-97m` / `ESC[100-107m` routed
+   through the same path (palette indices 8–15) instead of being silently dropped. SGR loop is now
+   index-based (was range-for) to support multi-param look-ahead for `38;5;N`.
 
-**Housekeeping:** `claude.sessions.md` is the user's private scratch file — add it to `.gitignore`
-(currently tracked, intentionally not to be committed with content changes).
+#### Debug logging state
+`Assets/Resources/config.yml` is locally set to `logsink: filesink` + `enable_modules: AnsiParser`.
+This is intentional for ongoing terminal debugging — do NOT revert unless doing a release build.
+Log is at `~/.local/state/goatedit.log`. The `RAW[N]:` dump in `VTermParser::Parse` is the primary
+workflow for finding unhandled sequences: run a terminal app, read the log, look for "unhandled".
 
 **Patterns / decisions established (reuse these):**
 - **Model stays logical, the VIEW translates at draw.** Cursor columns are CHAR INDICES everywhere in
@@ -277,6 +261,17 @@ EraseScreen's anyway) — strengthen to assert the clean-alt-screen behaviour wh
   model never grows two code paths — same spirit as "model stays logical, the view translates at draw."
 
 ### Recently completed (carry-forward state)
+- **TerminalScreen Step 3 — vi/full-screen app support** — key passthrough in alt-screen
+  (`HandleKeyPressAltScreen` + `ForwardActionToShell`), cursor key app mode (`?1h/l`), terminal
+  query responses (DSR `6n`, Primary DA `c`), new VT ops (`ESC M`, `CSI L/M/@/P`, `?25h/l`).
+  vi renders and is usable. `Shell::WriteBytes` added. `cursorKeyAppMode` flag in
+  `TerminalController`. Commit `aca54fe`.
+
+- **Shell mode rendering fixes** — bottom-anchor (`blankRows` offset so content sits above the
+  prompt rather than at row 0), `WriteLine` CR+LF guard when mid-line, 256-colour SGR (`38;5;N`,
+  `48;5;N`, `90-97`, `100-107`) via `kSetForeground256`/`kSetBackground256` + `FG_BG_256[]`.
+  Commit `ffaa881`.
+
 - **Vertical page-nav (CLion/content-first)** — `VerticalNavigationCLion::OnNavigateDown` used to add a
   spurious +1 line on PageDown, breaking PageDown/PageUp symmetry (caret drifted +1 per cycle). Removed;
   PageDown now moves the view by `height-1` and keeps the caret's screen row (real CLion behaviour, which
@@ -394,14 +389,18 @@ EraseScreen's anyway) — strengthen to assert the clean-alt-screen behaviour wh
   work. Commit `7e96e93`.
 
 ### Remaining / deferred
-- **TerminalScreen Step 3 — full-screen apps (vi/less)** — IN PROGRESS, uncommitted. `less` works.
-  vi launches without crashing and the alt-screen render path is in place, but vi is not yet fully
-  functional. See the "UNCOMMITTED work-in-progress" block under the 2026-06-05 session above for
-  exactly what was done and the prioritized list of still-missing sequences (cursor visibility, reverse
-  index, insert/delete line+char, origin mode). FIRST ACTION next session: decide whether to commit the
-  current WIP (revert the `config.yml` debug-logging change first) or keep iterating, then continue from
-  the RAW-log workflow.
-- **`.gitignore`** — add `claude.sessions.md` (user's private scratch file, currently tracked).
+- **vi polish** — vi renders and is usable for a showcase. Still missing for full correctness:
+  origin mode `ESC[?6h/l`, `test_terminalscreen_savestate` under-tests `SaveScreen` (should assert
+  clean-alt-screen behaviour: blank grid, cleared scrollback, cursor home, reset scroll region).
+  Bracketed-paste `?2004`, focus `?1004` modes are consumed but not acted on (low priority).
+- **Shell mode rendering** — the `promptLen = cursor.x` heuristic works when the cursor sits at the
+  end of the prompt, but breaks during active command output. Good enough for now; a proper fix would
+  track prompt boundaries explicitly (non-trivial).
+- **Standard-color SGR mapping** — `kSetForegroundColor` still uses `(idx & 7) + 8` to map 30-37 to
+  bright palette entries. This is intentional (bold=bright xterm convention) but might want a theme
+  toggle later.
+- **`.gitignore`** — add `claude.sessions.md` (user's private scratch file, currently tracked but
+  never committed with content).
 
 ### Untracked (intentionally never committed)
 `.idea/`, `cmake-build-release/`, `syntax_problem.cpp` — left alone every commit this session.

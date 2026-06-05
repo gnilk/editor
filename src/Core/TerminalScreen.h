@@ -61,6 +61,13 @@ namespace gedit {
         void EraseInDisplay(int mode);  // 0=to end, 1=from start, 2=entire (cursor stays)
         void SetAttributes(uint8_t attrs);
 
+        // Step 3 — full-screen app line/char operations
+        void ReverseIndex();           // ESC M: scroll down or move cursor up
+        void InsertLine(int count);    // CSI L: insert blank lines at cursor row
+        void DeleteLine(int count);    // CSI M: delete lines at cursor row
+        void InsertChar(int count);    // CSI @: insert blank chars at cursor col
+        void DeleteChar(int count);    // CSI P: delete chars at cursor col
+
         // Cursor save/restore (position only, not full grid)
         void SaveCursorPos();
         void RestoreCursorPos();
@@ -70,9 +77,10 @@ namespace gedit {
         int ScrollRegionTop()    const { return scrollRegionTop;    }
         int ScrollRegionBottom() const { return scrollRegionBottom; }
 
-        // Step 3 — alternate screen buffer
+        // Alternate screen buffer
         void SaveScreen();
         void RestoreScreen();
+        bool IsAltScreen() const { return isAltScreen; }
 
     private:
         Cell MakeBlankCell() const;
@@ -100,12 +108,17 @@ namespace gedit {
         // Saved cursor position (SaveCursorPos/RestoreCursorPos)
         Point savedCursorPos = {};
 
-        // Saved state for alternate screen (Step 3)
-        std::vector<Row> savedGrid;
-        Point     savedCursor   = {};
-        ColorRGBA savedPenFg    = {};
-        ColorRGBA savedPenBg    = {};
-        uint8_t   savedPenAttrs = 0;
+        bool isAltScreen = false;
+
+        // Saved state for alternate screen
+        std::vector<Row>     savedGrid;
+        std::vector<Row>     savedScrollback;
+        Point                savedCursor   = {};
+        ColorRGBA            savedPenFg    = {};
+        ColorRGBA            savedPenBg    = {};
+        uint8_t              savedPenAttrs = 0;
+        int                  savedScrollRegionTop    = 0;
+        int                  savedScrollRegionBottom = 0;
     };
 }
 

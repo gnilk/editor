@@ -34,12 +34,15 @@ namespace gedit {
         int GetCursorXPos();
 
         bool OnAction(const KeyPressAction &kpAction);
+        bool ForwardActionToShell(const KeyPressAction &kpAction);
         void WriteLine(const std::u32string &str) override;
 
     protected:
         void HandleTerminalData(const uint8_t *buffer, size_t length);
         void ApplyCommand(const VTermParser::CMD &cmd);
         void InitializeColorTable();
+
+        bool HandleKeyPressAltScreen(const KeyPress &keyPress);
 
     private:
         Shell shell;
@@ -50,6 +53,8 @@ namespace gedit {
 
         TerminalScreen screen;
         std::mutex screenLock;
+
+        bool cursorKeyAppMode = false;
     };
 }
 

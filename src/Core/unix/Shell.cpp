@@ -82,7 +82,10 @@ bool Shell::StartShellProc(const std::string &shell, const std::string &shellIni
         logger->Debug("Started child with pid=%d", pid);
         std::thread(&Shell::ConsumePty, this).detach();
     } else if (pid == 0) {
-        // Child — pty slave is already stdin/stdout/stderr; just exec
+        // Child — pty slave is already stdin/stdout/stderr; just exec.
+        // Set TERM so ncurses-based programs (less, vi, ...) find their
+        // terminfo entry and know the terminal is capable.
+        ::setenv("TERM", "xterm-256color", 1);
         ::execl(shell.c_str(), shell.c_str(), shellInitStr.c_str(), nullptr);
         exit(EXIT_SUCCESS);
     } else {
@@ -125,6 +128,10 @@ int Shell::SendCmd(std::u32string &cmd) {
 
 int Shell::Write(uint8_t chr) {
     return write(amaster, &chr, 1);
+}
+
+int Shell::WriteBytes(const std::string &data) {
+    return write(amaster, data.c_str(), data.size());
 }
 
 void Shell::Close() {

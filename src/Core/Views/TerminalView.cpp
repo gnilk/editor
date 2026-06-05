@@ -66,6 +66,9 @@ void TerminalView::OnKeyPress(const KeyPress &keyPress) {
 }
 
 bool TerminalView::OnAction(const KeyPressAction &kpAction) {
+    if (controller.GetScreen().IsAltScreen()) {
+        return controller.ForwardActionToShell(kpAction);
+    }
     switch (kpAction.action) {
         case kAction::kActionCommitLine :
             return OnActionCommitLine();
@@ -93,14 +96,25 @@ void TerminalView::DrawViewContents() {
 
     std::lock_guard<std::mutex> guard(controller.GetScreenLock());
     auto &screen = controller.GetScreen();
-    auto &scrollback = screen.GetScrollback();
-
     int viewHeight = dc.GetRect().Height();
 
-    // The cursor row holds the current shell output (prompt). Everything above
-    // it is history. The cursor row itself is composed with the user's inputLine
-    // and shown at the bottom — this keeps the prompt and user input on the same
-    // visual line, matching the original lastLine+inputLine behaviour.
+    if (screen.IsAltScreen()) {
+        // Full-screen mode (vi, less, ...): render the entire grid directly.
+        // No inputLine overlay — keystrokes go straight to the pty.
+        for (int y = 0; y < viewHeight; y++) {
+            dc.ClearLine(y);
+            if (y < screen.Rows()) {
+                DrawScreenRow(dc, screen.GetRow(y), y);
+            }
+        }
+        cursor.position.x = screen.GetCursorPos().x;
+        cursor.position.y = screen.GetCursorPos().y;
+        return;
+    }
+
+    // Shell mode: scrollback + grid history above, cursor row composed with the
+    // user's inputLine at the bottom (keeps prompt and input on the same line).
+    auto &scrollback = screen.GetScrollback();
     int cursorGridRow = screen.GetCursorPos().y;
     int promptLen     = screen.GetCursorPos().x;
 
@@ -119,6 +133,7 @@ void TerminalView::DrawViewContents() {
             }
         }
     }
+
     // Bottom row: render the prompt portion using DrawScreenRow so per-cell
     // colors are preserved, then draw the user's inputLine text after it.
     int inputViewRow = viewHeight - 1;
@@ -131,7 +146,6 @@ void TerminalView::DrawViewContents() {
         DrawScreenRow(dc, promptPart, inputViewRow);
     }
 
-    // Draw input text in the terminal default color after the prompt
     dc.SetColor(termColors.GetColor("foreground"), termColors.GetColor("background"));
     auto inputLine = controller.GetInputLine();
     if (inputLine->Length() > 0) {

@@ -40,6 +40,7 @@ namespace gedit {
 
         int  SendCmd(std::u32string &cmd);
         int  Write(uint8_t chr);
+        int  WriteBytes(const std::string &data);
 
         void Close();
         void CleanUp();

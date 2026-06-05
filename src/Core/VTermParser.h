@@ -46,6 +46,25 @@ namespace gedit {
             // Alternate screen buffer (Step 3)
             kEnterAltScreen,               // ESC[?1049h
             kLeaveAltScreen,               // ESC[?1049l
+
+            // Terminal responses (we send these back to the pty)
+            kDeviceStatusReport,           // CSI 6 n — report cursor position
+            kPrimaryDA,                    // CSI c   — primary device attributes
+
+            // Full-screen app operations
+            kReverseIndex,                 // ESC M   — scroll down / cursor up
+            kInsertLine,                   // CSI L   — insert blank lines
+            kDeleteLine,                   // CSI M   — delete lines
+            kInsertChar,                   // CSI @   — insert blank chars
+            kDeleteChar,                   // CSI P   — delete chars
+
+            // Cursor key mode
+            kCursorKeyModeApp,             // ESC[?1h — application cursor keys
+            kCursorKeyModeNormal,          // ESC[?1l — normal cursor keys
+
+            // Cursor visibility
+            kCursorShow,                   // ESC[?25h
+            kCursorHide,                   // ESC[?25l
         };
 
         struct CMD {

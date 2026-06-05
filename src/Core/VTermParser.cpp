@@ -50,6 +50,23 @@ static const uint8_t DCS_8BIT=0x90;
 static const uint8_t ST=0x9c;   // See: https://xtermjs.org/docs/api/vtfeatures/#c1
 
 std::string VTermParser::Parse(const uint8_t *ptrBuffer, const size_t szBuffer) {
+    auto logger = gnilk::Logger::GetLogger("AnsiParser");
+
+    // Log raw bytes before any parsing so we can see exactly what arrives
+    std::string hex;
+    for (size_t i = 0; i < szBuffer && ptrBuffer[i] != 0; i++) {
+        char tmp[8];
+        uint8_t b = ptrBuffer[i];
+        if (b == 0x1b) {
+            snprintf(tmp, sizeof(tmp), " ESC");
+        } else if (b < 0x20 || b == 0x7f) {
+            snprintf(tmp, sizeof(tmp), " ^%02x", b);
+        } else {
+            snprintf(tmp, sizeof(tmp), " %c", (char)b);
+        }
+        hex += tmp;
+    }
+    logger->Debug("RAW[%zu]:%s", szBuffer, hex.c_str());
 
     buffer = ptrBuffer;
     idx = 0;
@@ -58,13 +75,11 @@ std::string VTermParser::Parse(const uint8_t *ptrBuffer, const size_t szBuffer) 
     cmdBuffer = {};
 
     return ParseInternal();
-
 }
 
 
 std::string VTermParser::ParseInternal() {
     auto logger = gnilk::Logger::GetLogger("AnsiParser");
-    logger->SetEnabled(false);
     logger->Dbg("Start");
 
     while(At() && (idx < max)) {
@@ -75,10 +90,18 @@ std::string VTermParser::ParseInternal() {
             auto clsCode = At();
 
             if ((clsCode >= 0x30) && (clsCode <= 0x3f)) {
-                // ESC Fp — private two-character sequences (DECSC/DECRC etc.)
+                // ESC Fp — private two-character sequences
                 switch (clsCode) {
                     case '7': EmitCmd(kAnsiCmd::kSaveCursor);    break;
                     case '8': EmitCmd(kAnsiCmd::kRestoreCursor); break;
+                    case '=': break;  // DECKPAM — application keypad mode (ignore)
+                    case '>': break;  // DECKPNM — normal keypad mode (ignore)
+                    default: {
+                        auto logger = gnilk::Logger::GetLogger("AnsiParser");
+                        logger->Debug("ESC Fp unhandled: 0x%02x ('%c')",
+                                      (unsigned)clsCode, isprint(clsCode) ? clsCode : '?');
+                        break;
+                    }
                 }
                 Next();
             } else if ((clsCode>=0x40) && (clsCode<=0x5f)) {
@@ -97,6 +120,10 @@ std::string VTermParser::ParseInternal() {
                     case APC_7BIT : // APC Sequence
                     case DCS_7BIT :
                         while(Next() && At()!=ST);
+                        Next();
+                        break;
+                    case 'M':  // Reverse Index — scroll down or move cursor up
+                        EmitCmd(kAnsiCmd::kReverseIndex);
                         Next();
                         break;
                     default:
@@ -132,16 +159,19 @@ void VTermParser::ParseCSI() {
     std::vector<std::string> params;
     bool isPrivate = false;
 
-    // Collect parameters: semicolon-separated integers; '?' marks a private sequence
+    // Collect parameters: semicolon-separated integers.
+    // 0x3c-0x3f are parameter modifier/private bytes (<=>?): skip them as
+    // numeric content but track '?' for the private-mode dispatch.
     while (Next() && (At() != 0) && InRange(CSI_PARAM_RANGE)) {
         switch (At()) {
             case ';' :
                 params.push_back(csiParamString.empty() ? "0" : csiParamString);
                 csiParamString = "";
                 break;
-            case '?' :
-                isPrivate = true;
-                break;
+            case '?' : isPrivate = true; break;
+            case '<' : break;  // parameter modifier — skip
+            case '=' : break;  // parameter modifier — skip
+            case '>' : break;  // parameter modifier — skip
             default :
                 csiParamString += At();
         }
@@ -190,15 +220,41 @@ void VTermParser::ParseCSI() {
         case 's': EmitCmd(kAnsiCmd::kSaveCursor);    break;
         case 'u': EmitCmd(kAnsiCmd::kRestoreCursor); break;
 
+        // --- Insert / delete ---
+        case 'L': EmitCmd(kAnsiCmd::kInsertLine, P(0, 1)); break;
+        case 'M': EmitCmd(kAnsiCmd::kDeleteLine, P(0, 1)); break;
+        case '@': EmitCmd(kAnsiCmd::kInsertChar, P(0, 1)); break;
+        case 'P': EmitCmd(kAnsiCmd::kDeleteChar, P(0, 1)); break;
+
+        // --- Terminal queries ---
+        case 'n':
+            if (!isPrivate && P(0, 0) == 6) {
+                EmitCmd(kAnsiCmd::kDeviceStatusReport);
+            }
+            break;
+        case 'c':
+            if (!isPrivate) {
+                EmitCmd(kAnsiCmd::kPrimaryDA);
+            }
+            break;
+
         // --- Private mode set/reset ---
         case 'h':
-            if (isPrivate && P(0, 0) == 1049) {
-                EmitCmd(kAnsiCmd::kEnterAltScreen);
+            if (isPrivate) {
+                switch (P(0, 0)) {
+                    case 1:    EmitCmd(kAnsiCmd::kCursorKeyModeApp); break;
+                    case 25:   EmitCmd(kAnsiCmd::kCursorShow);       break;
+                    case 1049: EmitCmd(kAnsiCmd::kEnterAltScreen);   break;
+                }
             }
             break;
         case 'l':
-            if (isPrivate && P(0, 0) == 1049) {
-                EmitCmd(kAnsiCmd::kLeaveAltScreen);
+            if (isPrivate) {
+                switch (P(0, 0)) {
+                    case 1:    EmitCmd(kAnsiCmd::kCursorKeyModeNormal); break;
+                    case 25:   EmitCmd(kAnsiCmd::kCursorHide);          break;
+                    case 1049: EmitCmd(kAnsiCmd::kLeaveAltScreen);      break;
+                }
             }
             break;
 
@@ -229,8 +285,18 @@ void VTermParser::ParseCSI() {
             }
             break;
         }
-        default:
+        case 't': break;  // XTWINOPS — window title save/restore stack (ignore)
+
+        default: {
+            auto logger = gnilk::Logger::GetLogger("AnsiParser");
+            std::string pstr;
+            for (auto &p : params) { pstr += p + ";"; }
+            logger->Debug("CSI unhandled: cmd=0x%02x ('%c') private=%s params=[%s]",
+                          (unsigned)At(), isprint(At()) ? At() : '?',
+                          isPrivate ? "yes" : "no",
+                          pstr.c_str());
             break;
+        }
     }
 
     Next();

@@ -4,8 +4,9 @@
 /*
  * TO-DO List
  * - Add 'remove_actions' section to keymapping - for inheritance
+ * - Key up/down in the terminal window, with history
  * - Continue improving the C++ syntax highlighter - took a big step forward this week, but still needs work
- * - Book marks?
+ * - Bookmarks?
  * - HexView?
  * + CPP Syntax highlighting (#pragma, #if #ifdef and friends)
         + Perhaps have a specific state for '#' preprocessor directives

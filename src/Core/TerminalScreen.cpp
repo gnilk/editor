@@ -8,12 +8,47 @@
 using namespace gedit;
 
 void TerminalScreen::Resize(int newCols, int newRows) {
+    int gridRows = (int)grid.size();
     cols = newCols;
     rows = newRows;
-    grid.assign(rows, MakeBlankRow());
-    cursor = {};
+
+    if (newCols <= 0 || newRows <= 0) {
+        grid.clear();
+        cursor = {};
+        scrollRegionTop    = 0;
+        scrollRegionBottom = (newRows > 0) ? newRows - 1 : 0;
+        return;
+    }
+
+    std::vector<Row> newGrid(newRows, MakeBlankRow());
+
+    // Preserve existing content across the resize rather than blanking it (the visible
+    // output - shell history, the startup banner - lives in the grid until it scrolls
+    // into scrollback). Growing keeps every old row at the top with new blanks below;
+    // shrinking keeps the most-recent (bottom) rows and pushes the overflow top rows
+    // into scrollback so nothing is lost.
+    int srcStart = (gridRows > newRows) ? (gridRows - newRows) : 0;
+    for (int i = 0; i < srcStart; i++) {
+        scrollback.push_back(std::move(grid[i]));
+    }
+    int count = std::min(gridRows, newRows);
+    for (int i = 0; i < count; i++) {
+        const Row &src = grid[srcStart + i];
+        int n = std::min((int)src.size(), newCols);
+        for (int x = 0; x < n; x++) {
+            newGrid[i][x] = src[x];
+        }
+    }
+    grid = std::move(newGrid);
+
+    if (gridRows > 0) {
+        cursor.y = std::clamp(cursor.y - srcStart, 0, newRows - 1);
+        cursor.x = std::clamp(cursor.x, 0, newCols - 1);
+    } else {
+        cursor = {};
+    }
     scrollRegionTop    = 0;
-    scrollRegionBottom = rows - 1;
+    scrollRegionBottom = newRows - 1;
 }
 
 void TerminalScreen::SetDefaultColors(ColorRGBA fg, ColorRGBA bg) {

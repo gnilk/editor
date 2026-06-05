@@ -20,6 +20,7 @@ DLL_EXPORT int test_terminalscreen_erase_in_display(ITesting *t);
 DLL_EXPORT int test_terminalscreen_scroll_region(ITesting *t);
 DLL_EXPORT int test_terminalscreen_savestate(ITesting *t);
 DLL_EXPORT int test_terminalscreen_writeline(ITesting *t);
+DLL_EXPORT int test_terminalscreen_resize(ITesting *t);
 }
 
 static const ColorRGBA WHITE = ColorRGBA::FromRGB(1.0f, 1.0f, 1.0f);
@@ -80,6 +81,48 @@ DLL_EXPORT int test_terminalscreen_newline(ITesting *t) {
         s.NewLine();
     }
     TR_ASSERT(t, s.GetCursorPos().y == s.Rows() - 1);
+
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_terminalscreen_resize(ITesting *t) {
+    // Put a recognisable char at the start of each of the 5 rows
+    auto s = MakeScreen(10, 5);
+    for (int y = 0; y < 5; y++) {
+        s.PutChar(U'A' + y);            // row y, col 0 == 'A'+y
+        s.CarriageReturn();
+        if (y < 4) { s.NewLine(); }
+    }
+    TR_ASSERT(t, s.GetCursorPos().y == 4);
+
+    // Grow height: existing rows stay at the top, content is NOT blanked
+    s.Resize(10, 8);
+    TR_ASSERT(t, s.Rows() == 8);
+    for (int y = 0; y < 5; y++) {
+        TR_ASSERT(t, s.GetRow(y)[0].ch == (char32_t)(U'A' + y));
+    }
+    TR_ASSERT(t, s.GetCursorPos().y == 4);   // cursor row unchanged on grow
+
+    // Grow width: rows widen, original cells preserved
+    s.Resize(20, 8);
+    TR_ASSERT(t, s.Cols() == 20);
+    TR_ASSERT(t, (int)s.GetRow(0).size() == 20);
+    TR_ASSERT(t, s.GetRow(2)[0].ch == U'C');
+
+    // Shrink height below content: bottom rows kept, overflow top rows go to scrollback
+    auto s2 = MakeScreen(10, 5);
+    for (int y = 0; y < 5; y++) {
+        s2.PutChar(U'A' + y);
+        s2.CarriageReturn();
+        if (y < 4) { s2.NewLine(); }
+    }
+    size_t sbBefore = s2.GetScrollback().size();
+    s2.Resize(10, 3);                        // drop 2 rows from the top
+    TR_ASSERT(t, s2.Rows() == 3);
+    TR_ASSERT(t, s2.GetScrollback().size() == sbBefore + 2);
+    TR_ASSERT(t, s2.GetRow(0)[0].ch == U'C'); // rows C,D,E remain (A,B scrolled off)
+    TR_ASSERT(t, s2.GetRow(2)[0].ch == U'E');
+    TR_ASSERT(t, s2.GetCursorPos().y == 2);   // cursor followed the content down
 
     return kTR_Pass;
 }

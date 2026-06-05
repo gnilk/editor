@@ -56,11 +56,9 @@ void TerminalController::Begin() {
 
     InitializeColorTable();
 
-    auto shellStdHandler = [this](Shell::Stream stream, const uint8_t *buffer, size_t length) {
+    shell.SetOutputDelegate([this](const uint8_t *buffer, size_t length) {
         HandleTerminalData(buffer, length);
-    };
-    shell.SetStdoutDelegate(shellStdHandler);
-    shell.SetStderrDelegate(shellStdHandler);
+    });
 
     auto shellBinary    = Config::Instance()["terminal"].GetStr("shell", "/bin/bash");
     auto shellInitStr   = Config::Instance()["terminal"].GetStr("init", "-ils");
@@ -85,6 +83,7 @@ void TerminalController::Resize(int cols, int rows) {
     // SetDefaultColors first so blank cells created by Resize get the right colors
     screen.SetDefaultColors(termColors.GetColor("foreground"), termColors.GetColor("background"));
     screen.Resize(cols, rows);
+    shell.SetWindowSize(cols, rows);
 }
 
 void TerminalController::HandleTerminalData(const uint8_t *buffer, size_t length) {
@@ -104,10 +103,6 @@ void TerminalController::HandleTerminalData(const uint8_t *buffer, size_t length
 
         auto ch = static_cast<uint8_t>(stripped[i]);
         if (ch == 0x0a) {
-            // Shell output comes through regular pipes (not the pty slave), so the
-            // pty's ONLCR translation never runs. Simulate it here: \n implies \r\n.
-            // \r\n sequences are harmless — the redundant CR is a no-op.
-            screen.CarriageReturn();
             screen.NewLine();
         } else if (ch == 0x0d) {
             screen.CarriageReturn();

@@ -377,6 +377,19 @@ bool TerminalController::OnAction(const KeyPressAction &kpAction) {
         case kAction::kActionLineRight :
             inputCursor.position.x = std::min((int)inputLine->Length(), inputCursor.position.x + 1);
             break;
+        case kAction::kActionShellCompletion : {
+            // Shell's readline has an empty buffer while we do local line editing.
+            // Flush what's been typed so readline can see it, then send Tab.
+            // inputLine is cleared — the shell now owns the line via readline.
+            auto cmdLine = std::u32string(inputLine->Buffer());
+            if (!cmdLine.empty()) {
+                shell.SendCmd(cmdLine);
+                inputLine->Clear();
+                inputCursor.position.x = 0;
+            }
+            shell.Write(0x09);
+            return true;
+        }
         default:
             return false;
     }

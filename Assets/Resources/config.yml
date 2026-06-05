@@ -20,11 +20,14 @@ main:
 #
 logging:
   # supported options: filesink, console
-  logsink: console
+  logsink: filesink
   logfile: goatedit.log
   disable_all: yes
   # there are many modules - and no way to list them (grep src/Core for "::GetLogger")
   enable_modules:
+    - "KeyMapping"
+
+#    - "AnsiParser"
 #    - "TextBuffer"
 #    - "Layout"
 #    - "HSplitView"
@@ -38,7 +41,6 @@ logging:
 #    - "RunLoop"
 #    - "Dispatcher"
 #    - "KeyPress"
-#    - "KeyMapping"
 
 
 foldermonitor:
@@ -67,6 +69,7 @@ linux:
   default_keymap: Linux/default_keymap.yml
   quickmode_keymap: Linux/quickmode_keymap.yml
   workspace_keymap: Linux/workspace_keymap.yml
+  terminal_keymap: Linux/terminal_keymap.yml
 
 sdl:
   # Defines the SDL window rendering backend 'opengl', 'vulkan', 'metal' - empty or unknown means default...
@@ -101,6 +104,7 @@ workspaceview:
 #
 commandview:
   prompt: "ed>"
+  keymap: terminal_keymap
 
 
 quickmode:

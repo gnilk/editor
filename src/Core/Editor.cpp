@@ -830,6 +830,19 @@ KeyMapping::Ref Editor::GetKeyMapping(const std::string &name) {
         return nullptr;
     }
 
+    // If the keymap declares 'inherit: <parent>', load the parent and append its bindings.
+    // The child's own bindings were parsed first so they win on first-match lookup.
+    if (cfgNode.HasKey("inherit")) {
+        auto parentName = cfgNode.GetStr("inherit", "");
+        if (!parentName.empty()) {
+            auto parentKeymap = GetKeyMapping(parentName);
+            if (parentKeymap != nullptr) {
+                keymap->Inherit(parentKeymap);
+                logger->Debug("Keymap '%s' inheriting from '%s'", name.c_str(), parentName.c_str());
+            }
+        }
+    }
+
     logger->Debug("Ok, keymap '%s' (from '%s') initialized and cached!", name.c_str(), strKeymapFile.c_str());
 
     // Add to the 'cache'

@@ -45,6 +45,7 @@ namespace gedit {
         std::optional<KeyPressAction> ActionFromKeyPress(const KeyPress &keyPress);
         bool RebuildActionMapping(const std::string &cfgNodeName);
         bool RebuildActionMapping(const ConfigNode &cfgNode);
+        void Inherit(Ref parent);
 
         bool IsInitialized() {
             return isInitialized;

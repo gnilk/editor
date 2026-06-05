@@ -73,6 +73,9 @@ namespace gedit {
         kActionIndent,
         kActionUnindent,
 
+        // Terminal actions
+        kActionShellCompletion,
+
         // UI Actions
         kActionIncreaseViewWidth,
         kActionDecreaseViewWidth,

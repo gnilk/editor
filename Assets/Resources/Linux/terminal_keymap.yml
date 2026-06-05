@@ -1,0 +1,10 @@
+#
+# Terminal/shell view keymap.
+# Inherits all bindings from default_keymap and overrides Tab to send a raw completion byte to the pty.
+#
+keymap: {
+  inherit: default_keymap,
+  actions: {
+    ShellCompletion: KeyCode_Tab,
+  }
+}

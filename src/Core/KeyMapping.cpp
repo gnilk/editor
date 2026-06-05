@@ -73,6 +73,7 @@ static std::unordered_map<std::string, kAction> strToActionMap = {
         {"Undo",                    kAction::kActionUndo},
         {"Indent",                  kAction::kActionIndent},
         {"Unindent",                kAction::kActionUnindent},
+        {"ShellCompletion",         kAction::kActionShellCompletion},
         {"UIIncreaseViewWidth",     kAction::kActionIncreaseViewWidth},
         {"UIDecreaseViewWidth",     kAction::kActionDecreaseViewWidth},
         {"UIIncreaseViewHeight",    kAction::kActionIncreaseViewHeight},
@@ -176,7 +177,7 @@ std::optional<KeyPressAction> KeyMapping::ActionFromKeyPress(const KeyPress &key
     auto logger = gnilk::Logger::GetLogger("KeyMapping");
     for (auto &actionItem: actionItems) {
         if (actionItem->MatchKeyPress(keyPress)) {
-            logger->Debug("ActionItem found!!!");
+            logger->Debug("ActionItem found - %s", actionItem->Name().c_str());
             KeyPressAction kpAction;
             kpAction.action = actionItem->GetAction();
             kpAction.modifierMask = keyPress.modifiers; // redundant..
@@ -480,4 +481,11 @@ bool KeyMapping::ParseKeyPressCombinationString(kAction action, const std::strin
     }
 
     return true;
+}
+
+// Append parent's action bindings after our own so child overrides take priority on first-match lookup.
+void KeyMapping::Inherit(Ref parent) {
+    for (auto &item : parent->actionItems) {
+        actionItems.push_back(item);
+    }
 }

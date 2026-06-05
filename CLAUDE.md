@@ -169,9 +169,9 @@ YAML-based config loaded by `Config` singleton. `ConfigNode` provides typed acce
   release but 13-15s in debug (syntax highlighter over a large file, no optimizations). Thread/timer
   tests are also excluded. All `test_textbuffer_*` cases pass.
 
-### Session 2026-06-04 (cont. 3) — resume point (read this first)
-Terminal cell-grid model (Steps 1 + 2) + test suite housekeeping. All commits pushed to `main`.
-Build is clean; verified-green set above all passes (now includes `terminalscreen`, `vtermparser`).
+### Session 2026-06-05 — resume point (read this first)
+Terminal cell-grid model (Steps 1 + 2), Shell PTY simplification, test suite housekeeping.
+All commits pushed to `main`. Build is clean; verified-green set above all passes.
 
 **Commits this session (oldest→newest):**
 - `75609d3` REFACTOR: Split DrawViewContents into focused helpers
@@ -182,13 +182,15 @@ Build is clean; verified-green set above all passes (now includes `terminalscree
 - `6edd374` DOC: Session summary cont. 2
 - `5d15c9d` FEAT: Replace TerminalController line-buffer with TerminalScreen cell grid (Step 1)
 - `ab01f5d` FEAT: TerminalScreen Step 2 — cursor movement, erase, scroll region
+- `7e96e93` REFACTOR: Simplify Shell to use pty master for all I/O
 
 **Files modified:** `src/Core/TerminalScreen.{h,cpp}` (new), `src/Core/VTermParser.{h,cpp}`,
 `src/Core/Controllers/TerminalController.{h,cpp}`, `src/Core/Views/TerminalView.{h,cpp}`,
-`utests/test_terminalscreen.cpp` (new), `utests/test_vtermparser.cpp`, `CMakeLists.txt`,
-`src/Core/Views/EditorView.{h,cpp}`, `src/Core/API/EditorAPI.{h,cpp}`,
-`src/Core/JSEngine/Modules/EditorAPIWrapper.{h,cpp}`, `src/Plugins/Scripts/loadbuffer.js`,
-`utests/test_jsengine.cpp`, `utests/test_vnav.cpp`, `utests/test_workspace.cpp`, `src/Core/Workspace.h`.
+`src/Core/unix/Shell.{h,cpp}`, `utests/test_terminalscreen.cpp` (new),
+`utests/test_vtermparser.cpp`, `CMakeLists.txt`, `src/Core/Views/EditorView.{h,cpp}`,
+`src/Core/API/EditorAPI.{h,cpp}`, `src/Core/JSEngine/Modules/EditorAPIWrapper.{h,cpp}`,
+`src/Plugins/Scripts/loadbuffer.js`, `utests/test_jsengine.cpp`, `utests/test_vnav.cpp`,
+`utests/test_workspace.cpp`, `src/Core/Workspace.h`.
 
 **Patterns / decisions established (reuse these):**
 - **Model stays logical, the VIEW translates at draw.** Cursor columns are CHAR INDICES everywhere in
@@ -313,12 +315,10 @@ Build is clean; verified-green set above all passes (now includes `terminalscree
 - **TerminalScreen Step 1** — replaced `TerminalController` `historyBuffer + lastLine` model with a
   `TerminalScreen` cell grid (`cols × rows`, per-cell fg/bg/attrs, scrollback, pen state). Wired
   `HandleTerminalData` to write directly to the grid — eliminates idxString position-tracking.
-  `WriteLine` now uses CR+NL so each line starts at col 0. `HandleTerminalData` simulates ONLCR
-  (`\n` → CR+NL) because the shell's stdout goes through regular pipes not the pty master, so the
-  pty line discipline never runs. `TerminalView::DrawViewContents` renders scrollback+grid history
-  via `DrawScreenRow` (run-length color batching), cursor row composed with inputLine at bottom.
-  `Resize` is idempotent when dimensions match so view activation doesn't wipe content. 11 tests
-  in `test_terminalscreen.cpp`. Commit `5d15c9d`.
+  `WriteLine` uses CR+NL so each line starts at col 0. `TerminalView::DrawViewContents` renders
+  scrollback+grid history via `DrawScreenRow` (run-length color batching), cursor row composed with
+  inputLine at bottom. `Resize` is idempotent when dimensions match so view activation doesn't wipe
+  content. 11 tests in `test_terminalscreen.cpp`. Commit `5d15c9d`.
 
 - **TerminalScreen Step 2** — `VTermParser` extended with full CSI dispatch: cursor movement
   (A/B/C/D/H), erase (J/K all modes), scroll region (r), cursor save/restore (s/u + ESC 7/8),
@@ -329,16 +329,20 @@ Build is clean; verified-green set above all passes (now includes `terminalscree
   preserved (was using `LineRender` which dropped per-cell color). 6 new vtermparser tests,
   3 new terminalscreen tests. Commit `ab01f5d`.
 
+- **Shell PTY simplification** — the original `Shell.cpp` called `forkpty` then immediately
+  `dup2`'d the child's stdin/stdout/stderr to regular pipes, leaving `amaster` completely unused.
+  Consequences: `isatty()` false for all child processes (no auto-colors), ONLCR not applied
+  (required simulation hack), 3 pipe pairs + polling 2 fds, separate stderr callback, leaked debug
+  FILE*. New design: child does no `dup2` — pty slave IS its stdio. Parent reads/writes via
+  `amaster` only (poll 1 fd). `Stream` enum removed, `SetStderrDelegate` removed. `SetWindowSize`
+  added; called from `TerminalController::Resize` so vi/less see correct dimensions. ONLCR
+  simulation removed from `HandleTerminalData`. Result: 306 lines deleted, 110 added, auto-colors
+  work. Commit `7e96e93`.
+
 ### Remaining / deferred
-- **PTY I/O routing** — `Shell.cpp` uses `forkpty` to give the child a proper controlling terminal
-  but immediately `dup2`s stdout/stderr to regular pipes. The pty master (`amaster`) is never read.
-  Consequence: `isatty(STDOUT_FILENO)` returns false for all child processes of bash (cmake, make,
-  ls --color=auto, etc.) so automatic color detection doesn't work. Fix: route shell output through
-  the pty master instead of pipes. This would also eliminate the ONLCR simulation in
-  `HandleTerminalData`. Not a regression — was always this way. Deferred to a future session.
 - **TerminalScreen Step 3** — `kEnterAltScreen`/`kLeaveAltScreen` are parsed and connected to
-  `SaveScreen`/`RestoreScreen`. The remaining gap is testing with vi/less (scroll region edge cases,
-  reverse index ESC M, cursor visibility ESC[?25h/l). Deferred pending real-world testing.
+  `SaveScreen`/`RestoreScreen`. The remaining gap is testing with vi/less (scroll region edge
+  cases, reverse index ESC M, cursor visibility ESC[?25h/l). Deferred pending real-world testing.
 
 ### Untracked (intentionally never committed)
 `.idea/`, `cmake-build-release/`, `syntax_problem.cpp` — left alone every commit this session.

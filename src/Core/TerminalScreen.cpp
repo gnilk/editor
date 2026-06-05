@@ -36,6 +36,9 @@ void TerminalScreen::PutChar(char32_t ch) {
 }
 
 void TerminalScreen::NewLine() {
+    if (rows == 0) {
+        return;
+    }
     if (cursor.y == scrollRegionBottom) {
         ScrollRegionUp();
     } else {
@@ -103,6 +106,9 @@ void TerminalScreen::EraseToEndOfLine() {
 }
 
 void TerminalScreen::EraseScreen() {
+    if (cols == 0 || rows == 0) {
+        return;
+    }
     grid.assign(rows, MakeBlankRow());
     cursor = {};
 }
@@ -279,6 +285,9 @@ TerminalScreen::Row TerminalScreen::MakeBlankRow() const {
 }
 
 void TerminalScreen::ScrollRegionUp() {
+    if (cols == 0 || rows == 0) {
+        return;
+    }
     // Only push to scrollback when the scroll region covers the top of the grid
     if (scrollRegionTop == 0) {
         scrollback.push_back(std::move(grid[scrollRegionTop]));

@@ -352,6 +352,7 @@ list(APPEND editorsrc src/Core/Timer.cpp src/Core/Timer.h)
 list(APPEND editorsrc src/Core/TypeUtil.h)
 list(APPEND editorsrc src/Core/VTermParser.cpp src/Core/VTermParser.h)
 list(APPEND editorsrc src/Core/TerminalScreen.cpp src/Core/TerminalScreen.h)
+list(APPEND editorsrc src/Core/TerminalHistory.cpp src/Core/TerminalHistory.h)
 list(APPEND editorsrc src/Core/UnicodeHelper.cpp src/Core/UnicodeHelper.h)
 
 # Keyboard handling

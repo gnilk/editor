@@ -14,6 +14,7 @@
 #include "Core/RuntimeConfig.h"
 #include "Core/unix/Shell.h"
 #include "Core/TerminalScreen.h"
+#include "Core/TerminalHistory.h"
 #include "Core/VTermParser.h"
 
 namespace gedit {
@@ -63,6 +64,7 @@ namespace gedit {
 
     private:
         Shell shell;
+        TerminalHistory history;
         gnilk::ILogger *logger = nullptr;
 
         Line::Ref inputLine = nullptr;

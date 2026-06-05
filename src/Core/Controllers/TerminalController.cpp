@@ -4,6 +4,7 @@
 
 #include "TerminalController.h"
 #include "Core/Editor.h"
+#include "Core/XDGEnvironment.h"
 #include "Core/HexDump.h"
 #include "Core/Plugins/PluginExecutor.h"
 #include "Core/UnicodeHelper.h"
@@ -72,6 +73,10 @@ void TerminalController::Begin() {
         }
         std::this_thread::yield();
     }
+
+    auto &assetLoader = RuntimeConfig::Instance().GetAssetLoader();
+    auto histAsset = assetLoader.LoadTextAsset("terminal_history", AssetLoaderBase::kLocationType::kUser);
+    history.Load(histAsset);
 }
 
 void TerminalController::Resize(int cols, int rows) {
@@ -436,6 +441,24 @@ bool TerminalController::OnAction(const KeyPressAction &kpAction) {
         case kAction::kActionLineRight :
             inputCursor.position.x = std::min((int)inputLine->Length(), inputCursor.position.x + 1);
             break;
+        case kAction::kActionLineUp : {
+            auto entry = history.NavigateUp();
+            if (entry.has_value()) {
+                inputLine->Clear();
+                inputLine->Append(entry.value());
+                inputCursor.position.x = (int)inputLine->Length();
+            }
+            break;
+        }
+        case kAction::kActionLineDown : {
+            auto entry = history.NavigateDown();
+            inputLine->Clear();
+            if (entry.has_value()) {
+                inputLine->Append(entry.value());
+            }
+            inputCursor.position.x = (int)inputLine->Length();
+            break;
+        }
         case kAction::kActionShellCompletion : {
             // First Tab in local-edit mode: hand the line over to readline so it can
             // complete. The real grid cursor has stayed parked at the prompt end the
@@ -472,6 +495,14 @@ int TerminalController::GetCursorXPos() {
 
 void TerminalController::CommitLine() {
     std::u32string cmdLine(inputLine->Buffer());
+
+    if (!cmdLine.empty()) {
+        history.Push(cmdLine);
+        auto savePath = XDGEnvironment::Instance().GetUserHomePath() / ".goatedit" / "terminal_history";
+        history.Save(savePath);
+    }
+    history.ResetNavigation();
+
     inputLine->Clear();
     inputCursor.position.x = 0;
 

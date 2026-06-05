@@ -216,10 +216,8 @@ All commits pushed to `main`. Build is clean; verified-green set above all passe
    index-based (was range-for) to support multi-param look-ahead for `38;5;N`.
 
 #### Debug logging state
-`Assets/Resources/config.yml` is locally set to `logsink: filesink` + `enable_modules: AnsiParser`.
-This is intentional for ongoing terminal debugging — do NOT revert unless doing a release build.
-Log is at `~/.local/state/goatedit.log`. The `RAW[N]:` dump in `VTermParser::Parse` is the primary
-workflow for finding unhandled sequences: run a terminal app, read the log, look for "unhandled".
+`Assets/Resources/config.yml` controls the logger `logsink: filesink`.
+Log is at `~/.local/state/goatedit.log`. 
 
 **Patterns / decisions established (reuse these):**
 - **Model stays logical, the VIEW translates at draw.** Cursor columns are CHAR INDICES everywhere in
@@ -261,6 +259,17 @@ workflow for finding unhandled sequences: run a terminal app, read the log, look
   model never grows two code paths — same spirit as "model stays logical, the view translates at draw."
 
 ### Recently completed (carry-forward state)
+- **README rewrite (contributor-focused)** — replaced the old dev-diary `readme.md` with a pitch
+  aimed at attracting contributors: hero shot + "why you might like it" selling points, a quick tour
+  using the three new 2026-06-05 screenshots (`GoatEdit_2026-06-05.png` hero, `GoatEdit_term_*` build,
+  `GoatEdit_Search_*` quick-command), modern CMake build (SDL3 default / SDL2 fallback flags), a
+  dependency table (system vs auto-`ext/` vs vendored), a project-layout map, and a "Want to hack on
+  it?" section with sized entry points. **NCurses fully removed** from the README (user removed it from
+  the build) — the stated direction is a purpose-built modern-terminal backend with no NCurses legacy,
+  explicitly tied to the bucket-list goal of running the editor over SSH (deferred, later session).
+  Three new screenshots staged with the README (untracked before). `vi`-in-terminal bucket-list item
+  is done; remote/SSH is the next big one.
+
 - **TerminalScreen Step 3 — vi/full-screen app support** — key passthrough in alt-screen
   (`HandleKeyPressAltScreen` + `ForwardActionToShell`), cursor key app mode (`?1h/l`), terminal
   query responses (DSR `6n`, Primary DA `c`), new VT ops (`ESC M`, `CSI L/M/@/P`, `?25h/l`).

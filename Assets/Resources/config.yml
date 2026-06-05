@@ -25,9 +25,8 @@ logging:
   disable_all: yes
   # there are many modules - and no way to list them (grep src/Core for "::GetLogger")
   enable_modules:
-    - "KeyMapping"
-
 #    - "AnsiParser"
+#    - "KeyMapping"
 #    - "TextBuffer"
 #    - "Layout"
 #    - "HSplitView"

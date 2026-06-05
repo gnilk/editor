@@ -482,6 +482,8 @@ int main(int argc, const char **argv) {
 
 
     hSplitViewStatus.SetUpper(&vSplitViewUpper);
+    hSplitViewStatus.SetInitialSplitterPos(20);
+
 
     rootView.AddTopView(&editorView, glbEditorView);
     rootView.AddTopView(&terminalView, glbTerminalView);

@@ -82,11 +82,15 @@ std::filesystem::path AssetLoaderBase::ResolveWritePath(const std::string &fileN
 
 static int locationPriority(AssetLoaderBase::kLocationType t) {
     switch (t) {
-        case AssetLoaderBase::kLocationType::kSystem: return 0;
-        case AssetLoaderBase::kLocationType::kUser:   return 1;
-        case AssetLoaderBase::kLocationType::kAny:    return 2;
+        case AssetLoaderBase::kLocationType::kSystem:  return 0;
+        case AssetLoaderBase::kLocationType::kUser:    return 1;
+        case AssetLoaderBase::kLocationType::kAny:     return 2;
+        // Conservative default: project paths are searched LAST in a kAny load, so a
+        // project-local copy is only a fallback and never overrides user/system assets.
+        // Flip this below kUser/kSystem if project-local OVERRIDE semantics are wanted.
+        case AssetLoaderBase::kLocationType::kProject: return 3;
     }
-    return 2;
+    return 3;
 }
 
 void AssetLoaderBase::SortSearchPaths() {

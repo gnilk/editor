@@ -81,6 +81,30 @@ Editor &Editor::Instance() {
     return glbSystem;
 }
 
+// True if 'path' lies within the 'base' subtree (base itself counts as within).
+// Uses relative() so it can't be fooled by a shared string prefix (/home/gnilkfoo
+// is NOT under /home/gnilk).
+static bool IsWithinTree(const std::filesystem::path &path, const std::filesystem::path &base) {
+    std::error_code ec;
+    auto rel = std::filesystem::relative(path, base, ec);
+    if (ec || rel.empty()) {
+        return false;
+    }
+    return *rel.begin() != "..";
+}
+
+// True if 'path' is strictly BELOW 'base' - excludes base itself ("." ) and anything
+// outside it (".."). This is the "is this a real project directory" test.
+static bool IsStrictSubdir(const std::filesystem::path &path, const std::filesystem::path &base) {
+    std::error_code ec;
+    auto rel = std::filesystem::relative(path, base, ec);
+    if (ec || rel.empty()) {
+        return false;
+    }
+    const auto &first = *rel.begin();
+    return first != "." && first != "..";
+}
+
 bool Editor::Initialize(int argc, const char **argv) {
     if (isInitialized) {
         return true;
@@ -154,14 +178,26 @@ bool Editor::Initialize(int argc, const char **argv) {
     // From this point on we have proper logging to files....
     logger->Debug("*********** Config file was loaded, pre-boot completed **************");
 
-    // Verify if this is a good idea...
+    // When started from the UI (someone clicking the icon) there is no meaningful CWD
+    // pointing at a project - notably macOS Finder launches start at filesystem root.
+    // Relative-path operations (open/save, default workspace) would then resolve under
+    // '/' where nothing useful lives, so relocate to $HOME when CWD is outside the home tree.
     auto cwd = std::filesystem::current_path();
-    if (!strutil::startsWith(cwd.string(), pathHome.string())) {
+    if (!IsWithinTree(cwd, pathHome)) {
         logger->Warning("Working Directory (%s) outside of home directory, changing to home-root (%s)", cwd.c_str(), pathHome.c_str());
         std::filesystem::current_path(pathHome);
+        cwd = std::filesystem::current_path();
     }
-    cwd = std::filesystem::current_path();
     logger->Debug("CWD is: %s", cwd.c_str());
+
+    // A '.goatedit' directory in the project (mirroring '~/.goatedit') is the opt-in
+    // marker for project-local assets/history. Register it as the kProject search path
+    // only when it exists, and only for a real sub-directory of home - so '/', '$HOME'
+    // itself and anything outside home (e.g. /var/log) can never become a project.
+    auto projectDir = cwd / ".goatedit";
+    if (IsStrictSubdir(cwd, pathHome) && std::filesystem::is_directory(projectDir)) {
+        assetLoader.AddSearchPath(projectDir, AssetLoaderBase::kLocationType::kProject);
+    }
 
     // Load and configure theme related details..
     ConfigureTheme();

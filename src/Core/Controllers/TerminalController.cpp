@@ -73,14 +73,20 @@ void TerminalController::Begin() {
         std::this_thread::yield();
     }
 
+    // A '.goatedit' marker directory in the project registers a kProject search path; its
+    // presence opts the project into project-local history. Otherwise history is per-user.
     auto &assetLoader = RuntimeConfig::Instance().GetAssetLoader();
-    auto histAsset = assetLoader.LoadTextAsset("terminal_history", AssetLoaderBase::kLocationType::kUser);
+    auto projectPath = assetLoader.ResolveWritePath("terminal_history", AssetLoaderBase::kLocationType::kProject);
+    auto histLocation = projectPath.empty() ? AssetLoaderBase::kLocationType::kUser
+                                            : AssetLoaderBase::kLocationType::kProject;
+
+    auto histAsset = assetLoader.LoadTextAsset("terminal_history", histLocation);
     history.Load(histAsset);
 
     // Save back to wherever it loaded from; on first run (no asset) resolve a write path.
     historyPath = (histAsset != nullptr)
                     ? histAsset->GetOriginPath()
-                    : assetLoader.ResolveWritePath("terminal_history", AssetLoaderBase::kLocationType::kUser);
+                    : assetLoader.ResolveWritePath("terminal_history", histLocation);
 }
 
 void TerminalController::Resize(int cols, int rows) {

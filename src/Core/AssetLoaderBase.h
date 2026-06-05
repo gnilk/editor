@@ -18,6 +18,7 @@ namespace gedit {
             kAny,
             kSystem,
             kUser,
+            kProject,   // current project/working directory; see AddSearchPath registration
         };
     public:
         class Asset {

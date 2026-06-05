@@ -58,6 +58,10 @@ namespace gedit {
             if (lowerView) knownLowerHeight = lowerView->GetHeight();
         }
 
+        void SetInitialSplitterPos(int pos) {
+            splitterPos = pos;
+        }
+
         void SetSplitterPos(int newSplitterPos) {
             auto logger = gnilk::Logger::GetLogger("HSplitView");
 

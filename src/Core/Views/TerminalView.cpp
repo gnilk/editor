@@ -119,11 +119,17 @@ void TerminalView::DrawViewContents() {
     int promptLen     = screen.GetCursorPos().x;
 
     int totalHistory = (int)scrollback.size() + cursorGridRow;
-    int startIdx = std::max(0, totalHistory - (viewHeight - 1));
+    // When content is shorter than the view, anchor it to the bottom with blank
+    // space at the top (standard terminal behaviour — content flows up from prompt).
+    int startIdx  = std::max(0, totalHistory - (viewHeight - 1));
+    int blankRows = std::max(0, (viewHeight - 1) - totalHistory);
 
     for (int viewY = 0; viewY < viewHeight - 1; viewY++) {
-        int idx = startIdx + viewY;
         dc.ClearLine(viewY);
+        if (viewY < blankRows) {
+            continue;
+        }
+        int idx = startIdx + (viewY - blankRows);
         if (idx < (int)scrollback.size()) {
             DrawScreenRow(dc, scrollback[idx], viewY);
         } else {

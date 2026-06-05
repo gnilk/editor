@@ -260,24 +260,36 @@ void VTermParser::ParseCSI() {
 
         // --- SGR — Select Graphic Rendition ---
         case 'm': {
-            // Default params to {0} (reset) when empty
             if (params.empty()) {
                 params.push_back("0");
             }
-            for (auto &s : params) {
-                int cmd = std::stoi(s);
-                if ((cmd >= 30) && (cmd <= 37)) {
+            for (int i = 0; i < (int)params.size(); i++) {
+                int cmd = std::stoi(params[i]);
+                // 256-colour: ESC[38;5;Nm (FG) or ESC[48;5;Nm (BG)
+                if (cmd == 38 && i + 2 < (int)params.size() && std::stoi(params[i+1]) == 5) {
+                    EmitCmd(kAnsiCmd::kSetForeground256, std::stoi(params[i+2]));
+                    i += 2;
+                } else if (cmd == 48 && i + 2 < (int)params.size() && std::stoi(params[i+1]) == 5) {
+                    EmitCmd(kAnsiCmd::kSetBackground256, std::stoi(params[i+2]));
+                    i += 2;
+                } else if (cmd >= 30 && cmd <= 37) {
                     EmitCmd(kAnsiCmd::kSetForegroundColor, cmd - 30);
-                } else if ((cmd >= 40) && (cmd <= 47)) {
+                } else if (cmd >= 40 && cmd <= 47) {
                     EmitCmd(kAnsiCmd::kSetBackgroundColor, cmd - 40);
+                } else if (cmd >= 90 && cmd <= 97) {
+                    // Bright foreground — indices 8..15 in the 256-colour table
+                    EmitCmd(kAnsiCmd::kSetForeground256, cmd - 90 + 8);
+                } else if (cmd >= 100 && cmd <= 107) {
+                    // Bright background — indices 8..15
+                    EmitCmd(kAnsiCmd::kSetBackground256, cmd - 100 + 8);
                 } else {
                     switch (cmd) {
-                        case 0:  EmitCmd(kAnsiCmd::kSGRReset);        break;
-                        case 1:  EmitCmd(kAnsiCmd::kFontBold);        break;
-                        case 3:  EmitCmd(kAnsiCmd::kFontItalic);      break;
-                        case 4:  EmitCmd(kAnsiCmd::kFontUnderline);   break;
-                        case 7:  EmitCmd(kAnsiCmd::kInvertColors);    break;
-                        case 10: EmitCmd(kAnsiCmd::kFontNormal);      break;
+                        case 0:  EmitCmd(kAnsiCmd::kSGRReset);                  break;
+                        case 1:  EmitCmd(kAnsiCmd::kFontBold);                  break;
+                        case 3:  EmitCmd(kAnsiCmd::kFontItalic);                break;
+                        case 4:  EmitCmd(kAnsiCmd::kFontUnderline);             break;
+                        case 7:  EmitCmd(kAnsiCmd::kInvertColors);              break;
+                        case 10: EmitCmd(kAnsiCmd::kFontNormal);                break;
                         case 39: EmitCmd(kAnsiCmd::kSetDefaultForegroundColor); break;
                         case 49: EmitCmd(kAnsiCmd::kSetDefaultBackgroundColor); break;
                     }

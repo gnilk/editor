@@ -20,8 +20,10 @@ namespace gedit {
             kFontUnderline,
             kFontNormal,
             kInvertColors,
-            kSetForegroundColor,           // param[0]: 0..7 index
-            kSetBackgroundColor,           // param[0]: 0..7 index
+            kSetForegroundColor,           // param[0]: 0..7 index (SGR 30-37)
+            kSetBackgroundColor,           // param[0]: 0..7 index (SGR 40-47)
+            kSetForeground256,             // param[0]: 0..255 (SGR 38;5;N or 90-97)
+            kSetBackground256,             // param[0]: 0..255 (SGR 48;5;N or 100-107)
             kSetDefaultForegroundColor,
             kSetDefaultBackgroundColor,
 

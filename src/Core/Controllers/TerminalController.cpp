@@ -168,6 +168,18 @@ void TerminalController::ApplyCommand(const VTermParser::CMD &cmd) {
                 screen.SetBackground(termColors.GetColor(std::to_string(idx)));
             }
             break;
+        case VTermParser::kAnsiCmd::kSetForeground256 :
+            if (!cmd.param.empty()) {
+                int idx = std::clamp(cmd.param[0], 0, 255);
+                screen.SetForeground(FG_BG_256[idx]);
+            }
+            break;
+        case VTermParser::kAnsiCmd::kSetBackground256 :
+            if (!cmd.param.empty()) {
+                int idx = std::clamp(cmd.param[0], 0, 255);
+                screen.SetBackground(FG_BG_256[idx]);
+            }
+            break;
         case VTermParser::kAnsiCmd::kSetDefaultForegroundColor :
             screen.SetForeground(termColors.GetColor("foreground"));
             break;
@@ -394,6 +406,11 @@ void TerminalController::CommitLine() {
 
 void TerminalController::WriteLine(const std::u32string &str) {
     std::lock_guard<std::mutex> guard(screenLock);
+    // If mid-line (shell prompt may have already arrived), move to a fresh line first.
+    if (screen.GetCursorPos().x > 0) {
+        screen.CarriageReturn();
+        screen.NewLine();
+    }
     for (auto ch : str) {
         screen.PutChar(ch);
     }

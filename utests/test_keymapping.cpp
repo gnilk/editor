@@ -13,6 +13,7 @@ DLL_EXPORT int test_keymapping(ITesting *t);
 DLL_EXPORT int test_keymapping_parse(ITesting *t);
 DLL_EXPORT int test_keymapping_kpaction(ITesting *t);
 DLL_EXPORT int test_keymapping_load(ITesting *t);
+DLL_EXPORT int test_keymapping_inherit(ITesting *t);
 }
 
 DLL_EXPORT int test_keymapping(ITesting *t) {
@@ -67,5 +68,45 @@ DLL_EXPORT int test_keymapping_kpaction(ITesting *t) {
 DLL_EXPORT int test_keymapping_load(ITesting *t) {
     auto keymap = Editor::Instance().GetKeyMapping("default_keymap");
     TR_ASSERT(t, keymap != nullptr);
+    return kTR_Pass;
+}
+
+//
+// Inheritance test - relies on the distribution assets.
+// 'terminal_keymap' declares 'inherit: default_keymap' and binds Tab to ShellCompletion. We assert:
+//  1) the inherited bindings are present (DownArrow -> LineDown is defined ONLY in default_keymap)
+//  2) the child overrides the parent on a conflict (default_keymap binds Tab to Indent, the child
+//     re-binds Tab to ShellCompletion - and since the child is parsed first, first-match must win)
+//
+// NOTE: terminal_keymap currently only exists on Linux (config.yml maps it under the 'linux'
+// section). This test is deliberately NOT guarded by GEDIT_LINUX - it should FAIL when porting to a
+// new platform so the missing keymap asset is caught early rather than silently skipped.
+//
+DLL_EXPORT int test_keymapping_inherit(ITesting *t) {
+    auto keymap = Editor::Instance().GetKeyMapping("terminal_keymap");
+    TR_ASSERT(t, keymap != nullptr);
+
+    // Inherited from default_keymap (not declared in terminal_keymap)
+    KeyPress down = {};
+    down.key = Keyboard::kKeyCode_DownArrow;
+    down.specialKey = Keyboard::kKeyCode_DownArrow;
+    down.isKeyValid = true;
+    down.isSpecialKey = true;
+
+    auto inherited = keymap->ActionFromKeyPress(down);
+    TR_ASSERT(t, inherited.has_value());
+    TR_ASSERT(t, inherited->action == kAction::kActionLineDown);
+
+    // Child overrides parent: Tab is Indent in default_keymap but ShellCompletion in terminal_keymap
+    KeyPress tab = {};
+    tab.key = Keyboard::kKeyCode_Tab;
+    tab.specialKey = Keyboard::kKeyCode_Tab;
+    tab.isKeyValid = true;
+    tab.isSpecialKey = true;
+
+    auto overridden = keymap->ActionFromKeyPress(tab);
+    TR_ASSERT(t, overridden.has_value());
+    TR_ASSERT(t, overridden->action == kAction::kActionShellCompletion);
+
     return kTR_Pass;
 }

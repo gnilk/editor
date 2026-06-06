@@ -833,53 +833,25 @@ KeyMapping::Ref Editor::GetKeyMapping(const std::string &name) {
         return keymappings[name];
     }
     logger->Debug("Keymap '%s' not found - creating", name.c_str());
-#if defined(GEDIT_LINUX)
-    auto osCfgRootNode = Config::Instance().GetNode("linux");
-#elif defined(GEDIT_MACOS)
-    auto osCfgRootNode = Config::Instance().GetNode("macos");
-#else
-    logger->Error("This should not happen...");
-    exit(1);
-#endif
-    auto strKeymapFile = osCfgRootNode.GetStr(name, "Default/default_keymap.yml");
-    auto assetLoader = RuntimeConfig::Instance().GetAssetLoader();
-    auto keymapAsset = assetLoader.LoadTextAsset(strKeymapFile);
-    if (keymapAsset == nullptr) {
-        logger->Error("Keymap '%s' not found via '%s'", name.c_str(), strKeymapFile.c_str());
-        return nullptr;
-    }
-    auto keymapConfig = ConfigNode::FromString(keymapAsset->GetPtrAs<const char *>());
-    if (!keymapConfig.has_value()) {
-        logger->Error("Keymap could not be constructed from asset '%s'", strKeymapFile.c_str());
-        return nullptr;
-    }
 
-    //auto cfgNode = Config::Instance().GetNode(name);
-    auto cfgNode = keymapConfig->GetNode("keymap");
-    auto keymap = KeyMapping::Create(cfgNode);
+    // Load the keymap config and build it. Inheritance (the 'inherit' key) is resolved inside
+    // KeyMapping::Initialize, so multi-level chains are handled there - not here.
+    auto cfgNode = KeyMapping::LoadKeymapConfig(name);
+    if (!cfgNode.has_value()) {
+        logger->Error("Keymap '%s' could not be loaded", name.c_str());
+        return nullptr;
+    }
+    auto keymap = KeyMapping::Create(cfgNode.value());
     if (keymap == nullptr) {
         logger->Error("No keymap with name '%s'", name.c_str());
         return nullptr;
     }
     if (!keymap->IsInitialized()) {
-        logger->Error("Keymap '%s' failed to initialize");
+        logger->Error("Keymap '%s' failed to initialize", name.c_str());
         return nullptr;
     }
 
-    // If the keymap declares 'inherit: <parent>', load the parent and append its bindings.
-    // The child's own bindings were parsed first so they win on first-match lookup.
-    if (cfgNode.HasKey("inherit")) {
-        auto parentName = cfgNode.GetStr("inherit", "");
-        if (!parentName.empty()) {
-            auto parentKeymap = GetKeyMapping(parentName);
-            if (parentKeymap != nullptr) {
-                keymap->Inherit(parentKeymap);
-                logger->Debug("Keymap '%s' inheriting from '%s'", name.c_str(), parentName.c_str());
-            }
-        }
-    }
-
-    logger->Debug("Ok, keymap '%s' (from '%s') initialized and cached!", name.c_str(), strKeymapFile.c_str());
+    logger->Debug("Ok, keymap '%s' initialized and cached!", name.c_str());
 
     // Add to the 'cache'
     keymappings[name] = keymap;

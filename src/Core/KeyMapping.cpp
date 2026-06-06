@@ -15,6 +15,7 @@
 #include "logger.h"
 #include <cctype>
 #include <unordered_map>
+#include <unordered_set>
 #include <string>
 
 using namespace gedit;
@@ -112,6 +113,37 @@ KeyMapping::Ref KeyMapping::Create(const ConfigNode &cfgNode) {
 
 }
 
+//
+// Load the 'keymap' config node for a named keymap from the assets.
+// The actual file is resolved through the OS-specific config section (linux/macos), falling
+// back to the default keymap. This is the single place keymap assets are loaded from - used
+// both for top-level keymaps and for resolving 'inherit' parents.
+//
+std::optional<ConfigNode> KeyMapping::LoadKeymapConfig(const std::string &name) {
+    auto logger = gnilk::Logger::GetLogger("KeyMapping");
+#if defined(GEDIT_LINUX)
+    auto osCfgRootNode = Config::Instance().GetNode("linux");
+#elif defined(GEDIT_MACOS)
+    auto osCfgRootNode = Config::Instance().GetNode("macos");
+#else
+    logger->Error("No OS config section - can't resolve keymap '%s'", name.c_str());
+    return {};
+#endif
+    auto strKeymapFile = osCfgRootNode.GetStr(name, "Default/default_keymap.yml");
+    auto assetLoader = RuntimeConfig::Instance().GetAssetLoader();
+    auto keymapAsset = assetLoader.LoadTextAsset(strKeymapFile);
+    if (keymapAsset == nullptr) {
+        logger->Error("Keymap '%s' not found via '%s'", name.c_str(), strKeymapFile.c_str());
+        return {};
+    }
+    auto keymapConfig = ConfigNode::FromString(keymapAsset->GetPtrAs<const char *>());
+    if (!keymapConfig.has_value()) {
+        logger->Error("Keymap could not be constructed from asset '%s'", strKeymapFile.c_str());
+        return {};
+    }
+    return keymapConfig->GetNode("keymap");
+}
+
 
 //
 // This will build the action maps..
@@ -121,13 +153,10 @@ bool KeyMapping::Initialize(const std::string &cfgNodeName) {
         return true;
     }
 
-    if (!RebuildActionMapping(cfgNodeName)) {
+    if (!Config::Instance().HasKey(cfgNodeName)) {
         return false;
     }
-
-    // Do stuff
-    isInitialized = true;
-    return true;
+    return Initialize(Config::Instance()[cfgNodeName]);
 }
 
 bool KeyMapping::Initialize(const ConfigNode &cfgNode) {
@@ -135,11 +164,14 @@ bool KeyMapping::Initialize(const ConfigNode &cfgNode) {
         return true;
     }
 
+    // Parse our own bindings first so they win on first-match lookup, then append any inherited ones.
     if (!RebuildActionMapping(cfgNode)) {
         return false;
     }
+    if (!ResolveInheritance(cfgNode)) {
+        return false;
+    }
 
-    // Do stuff
     isInitialized = true;
     return true;
 }
@@ -483,9 +515,43 @@ bool KeyMapping::ParseKeyPressCombinationString(kAction action, const std::strin
     return true;
 }
 
-// Append parent's action bindings after our own so child overrides take priority on first-match lookup.
-void KeyMapping::Inherit(Ref parent) {
-    for (auto &item : parent->actionItems) {
-        actionItems.push_back(item);
+//
+// Resolve the 'inherit' chain for a keymap. Each keymap may declare 'inherit: <parent>'; we walk
+// up the chain and append every ancestor's bindings to our own. Because our own bindings were parsed
+// first - and ActionFromKeyPress uses first-match - the child always overrides its parents, and a
+// nearer ancestor overrides a more distant one.
+//
+// The walk is iterative (not via recursive Create) so we can keep a 'visited' set and break cleanly
+// on a cyclic inheritance declaration instead of recursing forever.
+//
+bool KeyMapping::ResolveInheritance(const ConfigNode &cfgNode) {
+    auto logger = gnilk::Logger::GetLogger("KeyMapping");
+
+    std::unordered_set<std::string> visited;
+    ConfigNode node = cfgNode;
+    while (node.HasKey("inherit")) {
+        auto parentName = node.GetStr("inherit", "");
+        if (parentName.empty()) {
+            break;
+        }
+        if (!visited.insert(parentName).second) {
+            logger->Error("Cyclic keymap inheritance detected at '%s' - stopping", parentName.c_str());
+            break;
+        }
+
+        auto parentNode = LoadKeymapConfig(parentName);
+        if (!parentNode.has_value()) {
+            logger->Error("Keymap inherit failed - parent '%s' could not be loaded", parentName.c_str());
+            return false;
+        }
+
+        logger->Debug("Keymap inheriting bindings from '%s'", parentName.c_str());
+        if (!RebuildActionMapping(parentNode.value())) {
+            return false;
+        }
+
+        // Continue up the chain - the parent may itself inherit from a grandparent.
+        node = parentNode.value();
     }
+    return true;
 }

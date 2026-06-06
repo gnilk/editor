@@ -37,6 +37,9 @@ namespace gedit {
         static Ref Create(const std::string &cfgNodeName);
         static Ref Create(const ConfigNode &cfgNode);
 
+        // Loads the 'keymap' config node for a named keymap from the assets (OS-specific lookup).
+        static std::optional<ConfigNode> LoadKeymapConfig(const std::string &name);
+
         bool Initialize(const std::string &cfgNodeName);
         bool Initialize(const ConfigNode &cfgNode);
 
@@ -45,7 +48,6 @@ namespace gedit {
         std::optional<KeyPressAction> ActionFromKeyPress(const KeyPress &keyPress);
         bool RebuildActionMapping(const std::string &cfgNodeName);
         bool RebuildActionMapping(const ConfigNode &cfgNode);
-        void Inherit(Ref parent);
 
         bool IsInitialized() {
             return isInitialized;
@@ -54,6 +56,7 @@ namespace gedit {
         const std::string &ModifierName(kActionModifier modifier);
 
     protected:
+        bool ResolveInheritance(const ConfigNode &cfgNode);
         bool ParseKeyPressCombinationString(kAction action, const std::string &keyPressCombo, const std::map<std::string, std::string> &keymapModifiers);
         bool ParseModifiers(const std::map<std::string, std::string> &keymapModifiers);
 

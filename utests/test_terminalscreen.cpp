@@ -21,6 +21,7 @@ DLL_EXPORT int test_terminalscreen_scroll_region(ITesting *t);
 DLL_EXPORT int test_terminalscreen_savestate(ITesting *t);
 DLL_EXPORT int test_terminalscreen_writeline(ITesting *t);
 DLL_EXPORT int test_terminalscreen_resize(ITesting *t);
+DLL_EXPORT int test_terminalscreen_resize_degenerate(ITesting *t);
 }
 
 static const ColorRGBA WHITE = ColorRGBA::FromRGB(1.0f, 1.0f, 1.0f);
@@ -123,6 +124,54 @@ DLL_EXPORT int test_terminalscreen_resize(ITesting *t) {
     TR_ASSERT(t, s2.GetRow(0)[0].ch == U'C'); // rows C,D,E remain (A,B scrolled off)
     TR_ASSERT(t, s2.GetRow(2)[0].ch == U'E');
     TR_ASSERT(t, s2.GetCursorPos().y == 2);   // cursor followed the content down
+
+    return kTR_Pass;
+}
+
+//
+// Regression: resizing the terminal pane to a degenerate (zero/negative) size empties the grid.
+// The pty-reader thread keeps feeding ANSI sequences that mutate the grid; if cols/rows didn't
+// track the (now-empty) grid those mutators would write past it -> heap use-after-free (the crash
+// seen when shrinking the window so the terminal pane is squeezed to nothing). After a degenerate
+// resize cols/rows must be 0 so every mutator no-ops instead of touching freed memory.
+//
+DLL_EXPORT int test_terminalscreen_resize_degenerate(ITesting *t) {
+    auto s = MakeScreen(20, 8);
+    for (int y = 0; y < 8; y++) {
+        s.PutChar(U'X');
+        if (y < 7) { s.NewLine(); }
+    }
+
+    // Squeeze to nothing - both the zero and negative paths must leave a consistent empty state.
+    for (int rows : {0, -3}) {
+        s.Resize(0, rows);
+        TR_ASSERT(t, s.Cols() == 0);
+        TR_ASSERT(t, s.Rows() == 0);
+
+        // Every grid mutator the pty thread can reach must be a safe no-op now (no crash, no UAF).
+        s.PutChar(U'Z');
+        s.NewLine();
+        s.CarriageReturn();
+        s.MoveCursor(3, 3);
+        s.SetCursorPos(5, 5);
+        s.EraseInLine(0);
+        s.EraseInLine(1);
+        s.EraseInLine(2);
+        s.EraseInDisplay(0);
+        s.EraseInDisplay(2);
+        s.InsertLine(2);
+        s.DeleteLine(2);
+        s.ReverseIndex();
+        s.SetScrollRegion(1, 4);
+    }
+
+    // Growing back to a real size must restore a usable, correctly-sized grid.
+    s.Resize(10, 4);
+    TR_ASSERT(t, s.Cols() == 10);
+    TR_ASSERT(t, s.Rows() == 4);
+    TR_ASSERT(t, (int)s.GetRow(0).size() == 10);
+    s.PutChar(U'Q');
+    TR_ASSERT(t, s.GetRow(0)[0].ch == U'Q');
 
     return kTR_Pass;
 }

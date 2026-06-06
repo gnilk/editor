@@ -9,16 +9,24 @@ using namespace gedit;
 
 void TerminalScreen::Resize(int newCols, int newRows) {
     int gridRows = (int)grid.size();
-    cols = newCols;
-    rows = newRows;
 
+    // A degenerate (zero/negative) size empties the grid - this happens when the terminal pane is
+    // squeezed to nothing during a window resize. cols/rows MUST track the grid: if they were left
+    // non-zero (or negative) here, a subsequent grid mutator coming from the pty-reader thread (e.g.
+    // EraseInLine) would pass its `cols == 0 || rows == 0` guard and write into the freed/empty grid
+    // - a heap use-after-free. Forcing them to 0 makes every such guard no-op until we have a real
+    // grid again.
     if (newCols <= 0 || newRows <= 0) {
+        cols = 0;
+        rows = 0;
         grid.clear();
         cursor = {};
         scrollRegionTop    = 0;
-        scrollRegionBottom = (newRows > 0) ? newRows - 1 : 0;
+        scrollRegionBottom = 0;
         return;
     }
+    cols = newCols;
+    rows = newRows;
 
     std::vector<Row> newGrid(newRows, MakeBlankRow());
 

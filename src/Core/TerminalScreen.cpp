@@ -30,16 +30,23 @@ void TerminalScreen::Resize(int newCols, int newRows) {
 
     std::vector<Row> newGrid(newRows, MakeBlankRow());
 
-    // Preserve existing content across the resize rather than blanking it (the visible
-    // output - shell history, the startup banner - lives in the grid until it scrolls
-    // into scrollback). Growing keeps every old row at the top with new blanks below;
-    // shrinking keeps the most-recent (bottom) rows and pushes the overflow top rows
-    // into scrollback so nothing is lost.
-    int srcStart = (gridRows > newRows) ? (gridRows - newRows) : 0;
+    // Preserve existing content across the resize rather than blanking it (the visible output - shell
+    // history, the startup banner - lives in the grid until it scrolls into scrollback).
+    //
+    // In shell mode the live content occupies rows [0 .. cursor.y]; the rows BELOW the cursor are
+    // blank padding the view never shows. So preservation is anchored to the cursor: keep the content
+    // rows, and only when they overflow the new height push the topmost ones into scrollback. (The old
+    // code kept the bottom `newRows` rows of the whole grid regardless of the cursor - so a short
+    // prompt with blank padding below it would, on shrink, scroll the REAL content into scrollback and
+    // keep the blanks, injecting blank lines that accumulated as the window was resized back and
+    // forth.) In alt-screen the whole grid is content (the app repaints on resize), so treat every row
+    // as content there - which reproduces the previous bottom-anchored behaviour exactly.
+    int contentRows = isAltScreen ? gridRows : std::min(gridRows, cursor.y + 1);
+    int srcStart = std::max(0, contentRows - newRows);
     for (int i = 0; i < srcStart; i++) {
         scrollback.push_back(std::move(grid[i]));
     }
-    int count = std::min(gridRows, newRows);
+    int count = std::min(contentRows, newRows);
     for (int i = 0; i < count; i++) {
         const Row &src = grid[srcStart + i];
         int n = std::min((int)src.size(), newCols);

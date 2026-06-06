@@ -22,6 +22,7 @@ DLL_EXPORT int test_terminalscreen_savestate(ITesting *t);
 DLL_EXPORT int test_terminalscreen_writeline(ITesting *t);
 DLL_EXPORT int test_terminalscreen_resize(ITesting *t);
 DLL_EXPORT int test_terminalscreen_resize_degenerate(ITesting *t);
+DLL_EXPORT int test_terminalscreen_resize_keeps_content(ITesting *t);
 }
 
 static const ColorRGBA WHITE = ColorRGBA::FromRGB(1.0f, 1.0f, 1.0f);
@@ -124,6 +125,51 @@ DLL_EXPORT int test_terminalscreen_resize(ITesting *t) {
     TR_ASSERT(t, s2.GetRow(0)[0].ch == U'C'); // rows C,D,E remain (A,B scrolled off)
     TR_ASSERT(t, s2.GetRow(2)[0].ch == U'E');
     TR_ASSERT(t, s2.GetCursorPos().y == 2);   // cursor followed the content down
+
+    return kTR_Pass;
+}
+
+//
+// Regression: resizing back and forth injected blank lines / drifted the content. In shell mode the
+// content occupies rows [0..cursor.y] and the rows BELOW the cursor are blank padding the view never
+// shows. The old resize kept the bottom `newRows` grid rows regardless of the cursor, so when there
+// was blank padding below a short prompt a shrink scrolled the REAL content into scrollback and kept
+// blanks. Here: 10 lines of content with the cursor on line 9 and lots of blank rows below; a shrink
+// that still has room for the content must NOT touch scrollback and must keep the content + cursor.
+//
+DLL_EXPORT int test_terminalscreen_resize_keeps_content(ITesting *t) {
+    auto s = MakeScreen(20, 40);
+    // 10 content lines 'A'..'J', cursor ends on row 9; rows 10..39 are blank padding.
+    for (int y = 0; y < 10; y++) {
+        s.PutChar((char32_t)(U'A' + y));
+        if (y < 9) { s.NewLine(); s.CarriageReturn(); }
+    }
+    TR_ASSERT(t, s.GetCursorPos().y == 9);
+    TR_ASSERT(t, s.GetScrollback().empty());
+
+    // Shrink to 20 rows - the 10 content rows still fit, so nothing should scroll off.
+    s.Resize(20, 20);
+    TR_ASSERT(t, s.GetScrollback().empty());          // (old code scrolled 20 rows here)
+    TR_ASSERT(t, s.GetCursorPos().y == 9);            // cursor/content stays put
+    for (int y = 0; y < 10; y++) {
+        TR_ASSERT(t, s.GetRow(y)[0].ch == (char32_t)(U'A' + y));
+    }
+
+    // Grow back - still no scrollback, content unchanged.
+    s.Resize(20, 40);
+    TR_ASSERT(t, s.GetScrollback().empty());
+    TR_ASSERT(t, s.GetCursorPos().y == 9);
+    for (int y = 0; y < 10; y++) {
+        TR_ASSERT(t, s.GetRow(y)[0].ch == (char32_t)(U'A' + y));
+    }
+
+    // Shrink BELOW the content height: only then may the top rows spill into scrollback, and the
+    // cursor must ride the bottom of the visible content.
+    s.Resize(20, 6);
+    TR_ASSERT(t, s.Rows() == 6);
+    TR_ASSERT(t, s.GetScrollback().size() == 4);      // 10 content rows - 6 = 4 spilled
+    TR_ASSERT(t, s.GetCursorPos().y == 5);
+    TR_ASSERT(t, s.GetRow(5)[0].ch == U'J');          // newest content line on the last row
 
     return kTR_Pass;
 }

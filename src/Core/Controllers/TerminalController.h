@@ -21,19 +21,6 @@
 namespace gedit {
     class TerminalController : public BaseController, IOutputConsole {
     public:
-        // Shell-mode line ownership:
-        //  kLocalEdit  - we edit the line locally (inputLine); nothing reaches the
-        //                shell until the line is committed. This is the default.
-        //  kShellOwned - entered on the first Tab/ShellCompletion: the line is handed
-        //                to the shell's readline so it can complete. Keys pass through
-        //                to the pty and the grid is mirrored back into inputLine until
-        //                the line is committed (or aborted), which returns to kLocalEdit.
-        enum class TermMode {
-            kLocalEdit,
-            kShellOwned,
-        };
-
-    public:
         TerminalController() = default;
         virtual ~TerminalController() = default;
 
@@ -48,7 +35,7 @@ namespace gedit {
         void CommitLine();
         int GetCursorXPos();
 
-        bool IsShellOwned() const { return termMode == TermMode::kShellOwned; }
+        bool DoesShellOwnLineEditing() const { return doesShellOwnLineEditing; }
 
         bool OnAction(const KeyPressAction &kpAction);
         bool ForwardActionToShell(const KeyPressAction &kpAction);
@@ -56,12 +43,14 @@ namespace gedit {
 
     protected:
         void HandleTerminalData(const uint8_t *buffer, size_t length);
-        void ApplyCommand(const VTermParser::CMD &cmd);
+        void HandleAnsiCmd(const VTermParser::CMD &cmd);
         void SyncInputLineFromGrid();
         void ExitShellOwned();
         void InitializeColorTable();
 
-        bool HandleKeyPressAltScreen(const KeyPress &keyPress);
+        // Encode a keypress as raw pty bytes and forward it to the shell. Used by BOTH passthrough
+        // paths in HandleKeyPress: a full-screen app (alt-screen) and readline (shell-owned line).
+        bool ForwardKeyPressToShell(const KeyPress &keyPress);
 
     private:
         Shell shell;
@@ -77,11 +66,20 @@ namespace gedit {
 
         bool cursorKeyAppMode = false;
 
-        // Shell-mode line ownership state (see TermMode above).
-        TermMode termMode = TermMode::kLocalEdit;
-        // Grid cell where the prompt ends, captured on the kLocalEdit->kShellOwned
-        // transition (the real grid cursor stays parked there while editing locally,
-        // since local edits never touch the grid). Used to read the line back.
+        // Line-ownership flag - ONE of two independent dimensions that decide how a keypress is
+        // handled; the other is screen.IsAltScreen() (a flag on the TerminalScreen model, flipped by
+        // ANSI alt-screen escapes - independent of this, NOT a sub-state of it). See HandleKeyPress
+        // for how the two combine.
+        //  false (default) - we edit the line locally (inputLine); nothing reaches the shell until
+        //                    the line is committed.
+        //  true            - entered on the first Tab/ShellCompletion: the line is handed to the
+        //                    shell's readline so it can complete. Keys pass through to the pty and
+        //                    the grid is mirrored back into inputLine until the line is committed
+        //                    (or aborted), which returns to local editing.
+        bool doesShellOwnLineEditing = false;
+        // Grid cell where the prompt ends, captured on the local->shell-owned transition (the real
+        // grid cursor stays parked there while editing locally, since local edits never touch the
+        // grid). Used to read the line back.
         Point promptAnchor = {};
     };
 }

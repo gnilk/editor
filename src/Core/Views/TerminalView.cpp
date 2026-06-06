@@ -68,7 +68,7 @@ void TerminalView::OnKeyPress(const KeyPress &keyPress) {
 bool TerminalView::OnAction(const KeyPressAction &kpAction) {
     // Full-screen apps (alt-screen) and an in-progress shell completion both let
     // readline/the app own the line, so actions are forwarded straight to the pty.
-    if (controller.GetScreen().IsAltScreen() || controller.IsShellOwned()) {
+    if (controller.GetScreen().IsAltScreen() || controller.DoesShellOwnLineEditing()) {
         return controller.ForwardActionToShell(kpAction);
     }
     switch (kpAction.action) {
@@ -149,7 +149,7 @@ void TerminalView::DrawViewContents() {
 
     auto &cursorRow = screen.GetRow(cursorGridRow);
 
-    if (controller.IsShellOwned()) {
+    if (controller.DoesShellOwnLineEditing()) {
         // Shell completion in progress: readline owns the line and has echoed the whole
         // prompt+input into the grid row, so render it directly and place the caret at
         // the grid cursor (no inputLine composite — that would double the text).

@@ -112,7 +112,7 @@ void TerminalController::HandleTerminalData(const uint8_t *buffer, size_t length
     for (size_t i = 0; i < stripped.size(); i++) {
         // Apply all commands whose position falls at this character
         while (idxCmd < cmdBuffer.size() && cmdBuffer[idxCmd].idxString == i) {
-            ApplyCommand(cmdBuffer[idxCmd]);
+            HandleAnsiCmd(cmdBuffer[idxCmd]);
             idxCmd++;
         }
 
@@ -144,12 +144,12 @@ void TerminalController::HandleTerminalData(const uint8_t *buffer, size_t length
     }
     // Drain any trailing commands
     while (idxCmd < cmdBuffer.size()) {
-        ApplyCommand(cmdBuffer[idxCmd++]);
+        HandleAnsiCmd(cmdBuffer[idxCmd++]);
     }
 
     // While the shell owns the line (completion in progress), mirror what readline
     // has echoed back into our local inputLine so the model stays truthful.
-    if (termMode == TermMode::kShellOwned) {
+    if (doesShellOwnLineEditing) {
         SyncInputLineFromGrid();
     }
 
@@ -186,7 +186,7 @@ void TerminalController::SyncInputLineFromGrid() {
     inputCursor.position.x = std::clamp(cursorPos.x - promptAnchor.x, 0, (int)inputLine->Length());
 }
 
-void TerminalController::ApplyCommand(const VTermParser::CMD &cmd) {
+void TerminalController::HandleAnsiCmd(const VTermParser::CMD &cmd) {
     auto termColors = Editor::Instance().GetTheme()->GetTerminalColor();
     auto P = [&](int i, int def = 1) -> int {
         return (i < (int)cmd.param.size()) ? cmd.param[i] : def;
@@ -335,19 +335,30 @@ void TerminalController::ApplyCommand(const VTermParser::CMD &cmd) {
 }
 
 bool TerminalController::HandleKeyPress(Cursor &cursor, size_t &idxActiveLine, const KeyPress &keyPress) {
+    // Three handling paths, checked in priority order. The first two both FORWARD the key to the
+    // pty (via ForwardKeyPressToShell) but for different, independent reasons; the third edits
+    // locally. See the doesShellOwnLineEditing comment in the header for why these are two separate
+    // dimensions.
+
+    // (1) Full-screen app owns the grid (vi/less requested the alt-screen via ANSI). This wins
+    //     over everything else - while a full-screen app is up, every key is its input.
     if (screen.IsAltScreen()) {
-        return HandleKeyPressAltScreen(keyPress);
+        return ForwardKeyPressToShell(keyPress);
     }
-    if (termMode == TermMode::kShellOwned) {
-        // readline owns the line — keys pass straight through to the pty (same raw
-        // encoding the alt-screen path uses). Ctrl+C aborts readline's line, so drop
-        // back to local editing or we'd be stuck in passthrough with a stale anchor.
-        bool handled = HandleKeyPressAltScreen(keyPress);
+
+    // (2) readline owns the line (entered on Tab/ShellCompletion). Keys pass through to the pty so
+    //     readline can drive completion. Ctrl+C aborts readline's line, so we must drop back to
+    //     local editing here or we'd be stuck in passthrough with a stale prompt anchor.
+    if (doesShellOwnLineEditing) {
+        bool handled = ForwardKeyPressToShell(keyPress);
         if (keyPress.IsCtrlPressed() && (keyPress.key == 'c' || keyPress.key == 'C')) {
             ExitShellOwned();
         }
         return handled;
     }
+
+    // (3) Default (local editing): we own the line. Edit inputLine locally; nothing reaches the shell
+    //     until the line is committed.
     if (DefaultEditLine(inputCursor, inputLine, keyPress)) {
         cursor.position.x = GetCursorXPos();
         return true;
@@ -355,7 +366,7 @@ bool TerminalController::HandleKeyPress(Cursor &cursor, size_t &idxActiveLine, c
     return false;
 }
 
-bool TerminalController::HandleKeyPressAltScreen(const KeyPress &keyPress) {
+bool TerminalController::ForwardKeyPressToShell(const KeyPress &keyPress) {
     if (keyPress.IsHumanReadable()) {
         uint8_t ch = (uint8_t)keyPress.key;
         if (keyPress.IsCtrlPressed()) {
@@ -414,9 +425,9 @@ bool TerminalController::ForwardActionToShell(const KeyPressAction &kpAction) {
     switch (kpAction.action) {
         case kAction::kActionCommitLine:
             shell.Write(0x0d);
-            // In shell-owned mode the line lives in readline; committing hands control
-            // back and the shell will print its output + a fresh prompt.
-            if (termMode == TermMode::kShellOwned) {
+            // When the shell owns line editing the line lives in readline; committing hands
+            // control back and the shell will print its output + a fresh prompt.
+            if (doesShellOwnLineEditing) {
                 ExitShellOwned();
             }
             return true;
@@ -476,7 +487,7 @@ bool TerminalController::OnAction(const KeyPressAction &kpAction) {
             // capture it now as the prompt anchor for reading the line back. From here
             // readline owns the line until the command is committed or aborted.
             promptAnchor = screen.GetCursorPos();
-            termMode = TermMode::kShellOwned;
+            doesShellOwnLineEditing = true;
             auto cmdLine = std::u32string(inputLine->Buffer());
             if (!cmdLine.empty()) {
                 shell.SendCmd(cmdLine);
@@ -494,7 +505,7 @@ bool TerminalController::OnAction(const KeyPressAction &kpAction) {
 void TerminalController::ExitShellOwned() {
     // Return to local line editing. The committed/aborted line lives in the shell's
     // output now; our local buffer starts fresh at the next prompt.
-    termMode = TermMode::kLocalEdit;
+    doesShellOwnLineEditing = false;
     inputLine->Clear();
     inputCursor.position.x = 0;
 }

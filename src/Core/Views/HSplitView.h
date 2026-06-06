@@ -30,9 +30,6 @@ namespace gedit {
 
             UpdateUpperViewRect();
             UpdateLowerViewRect();
-
-            if (upperView) knownUpperHeight = upperView->GetHeight();
-            if (lowerView) knownLowerHeight = lowerView->GetHeight();
         }
 
         void ReInitView() override {
@@ -41,21 +38,26 @@ namespace gedit {
             auto logger = gnilk::Logger::GetLogger("HSplitView");
             logger->Debug("ReInitView, Height=%d", viewRect.Height());
 
-            if (splitterPos == 0) {
-                splitterPos = GetContentRect().Height()/2;
-            }
-
-            if (upperView && knownUpperHeight > 0 && upperView->GetHeight() != knownUpperHeight) {
-                splitterPos = upperView->GetHeight();
-            } else if (lowerView && knownLowerHeight > 0 && lowerView->GetHeight() != knownLowerHeight) {
-                splitterPos = GetContentRect().Height() - lowerView->GetHeight() - 1;
+            int contentHeight = GetContentRect().Height();
+            // During the resize traversal the rect can be momentarily unestablished (height 0).
+            // Don't touch splitterPos then - just (re)derive the child rects from the current value.
+            if (contentHeight > 0) {
+                if (splitterPos == 0) {
+                    // First layout - default to a centred split.
+                    splitterPos = contentHeight / 2;
+                } else {
+                    // Keep the user's chosen split across window resizes, clamped into the new content
+                    // area. splitterPos is the AUTHORITY here; the child view heights are DERIVED from
+                    // it - never the reverse. (The old code adopted a child's live height as the new
+                    // splitterPos, which misread a resize-driven relayout of the upper view as a
+                    // deliberate splitter move and ratcheted the splitter to the bottom: editor fills
+                    // the screen, terminal collapses to a negative height.)
+                    splitterPos = ClampSplitterPos(splitterPos);
+                }
             }
 
             UpdateUpperViewRect();
             UpdateLowerViewRect();
-
-            if (upperView) knownUpperHeight = upperView->GetHeight();
-            if (lowerView) knownLowerHeight = lowerView->GetHeight();
         }
 
         void SetInitialSplitterPos(int pos) {
@@ -307,9 +309,6 @@ namespace gedit {
         int splitterPosBeforeReset = -1;
         bool bWasUseFullView = false;
         bool bUseFullView = false;  // This affects the computation of full view semantics
-
-        int knownUpperHeight = 0;
-        int knownLowerHeight = 0;
 
         ViewBase *upperView = nullptr;
         ViewBase *lowerView = nullptr;

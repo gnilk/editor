@@ -27,8 +27,6 @@ namespace gedit {
             window = screen->CreateWindow(viewRect, WindowBase::kWin_Invisible, WindowBase::kWinDeco_None);
             UpdateLeftViewRect();
             UpdateRightViewRect();
-            if (leftView != nullptr) { knownLeftWidth = leftView->GetWidth(); }
-            if (rightView != nullptr) { knownRightWidth = rightView->GetWidth(); }
         }
 
         void ReInitView() override {
@@ -38,21 +36,22 @@ namespace gedit {
             }
             window = screen->UpdateWindow(window, viewRect, WindowBase::kWin_Invisible, WindowBase::kWinDeco_None);
 
-            if (splitterPos == 0) {
-                splitterPos = viewRect.Width() / 2;
-            }
-
-            if (leftView != nullptr && knownLeftWidth > 0 && leftView->GetWidth() != knownLeftWidth) {
-                splitterPos = leftView->GetWidth();
-            } else if (rightView != nullptr && knownRightWidth > 0 && rightView->GetWidth() != knownRightWidth) {
-                splitterPos = viewRect.Width() - rightView->GetWidth();
+            int contentWidth = viewRect.Width();
+            // splitterPos is the AUTHORITY; the child view widths are DERIVED from it - never the
+            // reverse. (See HSplitView::ReInitView: adopting a child's live width here misreads a
+            // resize-driven relayout as a deliberate splitter move and ratchets the divider into an
+            // edge, collapsing a panel.) Keep the user's split across resizes, clamped into the new
+            // width; skip while the rect is momentarily unestablished (width 0) during the traversal.
+            if (contentWidth > 0) {
+                if (splitterPos == 0) {
+                    splitterPos = contentWidth / 2;
+                } else {
+                    splitterPos = ClampSplitterPos(splitterPos);
+                }
             }
 
             UpdateLeftViewRect();
             UpdateRightViewRect();
-
-            if (leftView != nullptr) { knownLeftWidth = leftView->GetWidth(); }
-            if (rightView != nullptr) { knownRightWidth = rightView->GetWidth(); }
         }
 
         void SetSplitterPos(int newSplitterPos) {
@@ -164,8 +163,6 @@ namespace gedit {
     protected:
         int splitterPos = 0;
         int splitterPosBeforeReset = -1;
-        int knownLeftWidth = 0;
-        int knownRightWidth = 0;
         ViewBase *leftView = nullptr;
         ViewBase *rightView = nullptr;
     };

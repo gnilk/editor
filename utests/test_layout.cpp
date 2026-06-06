@@ -106,6 +106,76 @@ extern "C" int test_layout_height_max(ITesting *t) {
     return kTR_Pass;
 }
 
+// Regression: a window resize (corner-drag) ratcheted the HSplit splitter to the bottom, so the
+// editor filled the screen and the terminal collapsed. Cause: ReInitView adopted the upper view's
+// live height as the new splitterPos, misreading a resize-driven relayout of the upper view as a
+// deliberate splitter move. Here we reproduce that exact trigger - force the upper child to fill the
+// content height, then re-initialize - and assert the splitter does NOT follow it (splitterPos is the
+// authority; child heights are derived from it). We run several cycles to catch any ratchet/drift.
+extern "C" int test_layout_hsplit_resize_stability(ITesting *t) {
+    RootView rootView;
+    HSplitView hSplitView;
+    rootView.AddView(&hSplitView);
+    ViewBase upperView;
+    ViewBase lowerView;
+    hSplitView.SetUpper(&upperView);
+    hSplitView.SetLower(&lowerView);
+    rootView.Initialize();
+
+    int contentH = hSplitView.GetContentRect().Height();
+    TR_ASSERT(t, contentH > 0);
+    int spInitial = hSplitView.GetSplitterPos();
+
+    for (int cycle = 0; cycle < 5; cycle++) {
+        // Mimic the resize traversal independently relaying the upper view out to fill the content.
+        upperView.SetHeight(contentH);
+        rootView.Initialize();
+
+        int sp = hSplitView.GetSplitterPos();
+        fprintf(stderr, "  resize_stability cycle %d: contentH=%d splitterPos=%d upper=%d lower=%d\n",
+                cycle, contentH, sp, upperView.GetHeight(), lowerView.GetHeight());
+
+        // The splitter must stay where the user left it - never adopt the upper view's fill height.
+        TR_ASSERT(t, sp == spInitial);
+        // Both views keep a positive extent; the splitter (status line) stays on-screen.
+        TR_ASSERT(t, sp > 0);
+        TR_ASSERT(t, sp < contentH);
+        TR_ASSERT(t, lowerView.GetHeight() > 0);
+    }
+
+    return kTR_Pass;
+}
+
+// Same regression as above, on the VSplit (workspace | editor) width axis: a corner-drag must not let
+// the vertical divider adopt a child's resize-driven width and ratchet into an edge.
+extern "C" int test_layout_vsplit_resize_stability(ITesting *t) {
+    RootView rootView;
+    VSplitView vSplitView;
+    rootView.AddView(&vSplitView);
+    ViewBase leftView;
+    ViewBase rightView;
+    vSplitView.SetLeft(&leftView);
+    vSplitView.SetRight(&rightView);
+    rootView.Initialize();
+
+    int contentW = vSplitView.GetViewRect().Width();
+    TR_ASSERT(t, contentW > 0);
+    int spInitial = vSplitView.GetSplitterPos();
+
+    for (int cycle = 0; cycle < 5; cycle++) {
+        leftView.SetWidth(contentW);            // mimic the resize traversal relaying the left view to fill
+        rootView.Initialize();
+
+        int sp = vSplitView.GetSplitterPos();
+        TR_ASSERT(t, sp == spInitial);
+        TR_ASSERT(t, sp > 0);
+        TR_ASSERT(t, sp < contentW);
+        TR_ASSERT(t, rightView.GetWidth() > 0);
+    }
+
+    return kTR_Pass;
+}
+
 // Decreasing height must never drive the splitter to/below zero.
 extern "C" int test_layout_height_min(ITesting *t) {
     RootView rootView;

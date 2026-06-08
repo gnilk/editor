@@ -15,6 +15,7 @@ DLL_EXPORT int test_keymapping_kpaction(ITesting *t);
 DLL_EXPORT int test_keymapping_load(ITesting *t);
 DLL_EXPORT int test_keymapping_inherit(ITesting *t);
 DLL_EXPORT int test_keymapping_inherit_empty_actions(ITesting *t);
+DLL_EXPORT int test_keymapping_workspace_inherit(ITesting *t);
 }
 
 DLL_EXPORT int test_keymapping(ITesting *t) {
@@ -137,6 +138,31 @@ DLL_EXPORT int test_keymapping_inherit_empty_actions(ITesting *t) {
     down.isSpecialKey = true;
 
     auto inherited = keyMapping.ActionFromKeyPress(down);
+    TR_ASSERT(t, inherited.has_value());
+    TR_ASSERT(t, inherited->action == kAction::kActionLineDown);
+
+    return kTR_Pass;
+}
+
+//
+// Loads the REAL workspace_keymap asset (OS-resolved). It is a (mostly) pure-inheritance keymap:
+// on Linux it declares no bindings of its own and inherits default_keymap wholesale; on macOS it
+// adds a single CycleActiveViewNext override. Either way it must load and resolve inherited
+// bindings. Like test_keymapping_inherit this is deliberately NOT platform-guarded - it should fail
+// loudly if the workspace keymap is missing/broken on the build platform.
+//
+DLL_EXPORT int test_keymapping_workspace_inherit(ITesting *t) {
+    auto keymap = Editor::Instance().GetKeyMapping("workspace_keymap");
+    TR_ASSERT(t, keymap != nullptr);
+
+    // Inherited from default_keymap (the workspace map declares no nav bindings of its own)
+    KeyPress down = {};
+    down.key = Keyboard::kKeyCode_DownArrow;
+    down.specialKey = Keyboard::kKeyCode_DownArrow;
+    down.isKeyValid = true;
+    down.isSpecialKey = true;
+
+    auto inherited = keymap->ActionFromKeyPress(down);
     TR_ASSERT(t, inherited.has_value());
     TR_ASSERT(t, inherited->action == kAction::kActionLineDown);
 

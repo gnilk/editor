@@ -1,32 +1,11 @@
 #
-# Keymap file for workspace view
+# Keymap file for the workspace view.
+#
+# Every binding the workspace view needs is identical to default_keymap, so this
+# is a pure-inheritance keymap: it declares no bindings of its own and re-uses
+# default_keymap wholesale. (An empty/absent 'actions' section is valid for a
+# keymap that only inherits.)
 #
 keymap: {
-  modifiers: {
-    SelectionModifier: KeyCode_Shift,
-    CopyPasteModifier: KeyCode_Cmd,
-    UINavigationModifier : KeyCode_Alt,
-  },
-  actions: {
-    NavigateLineUp : KeyCode_UpArrow + @SelectionModifier,
-    NavigateLineDown : KeyCode_DownArrow + @SelectionModifier,
-    NavigateLeft : KeyCode_LeftArrow + @SelectionModifier,
-    NavigateRight : KeyCode_RightArrow + @SelectionModifier,
-    CycleActiveViewNext : "UINavigationModifier + ']'",
-    CycleActiveViewPrev : "UINavigationModifier + '['",
-    EnterCommandMode : KeyCode_Escape,
-    CommitLine : KeyCode_Return,
-
-    # WASD
-    UIIncreaseViewWidth : "UINavigationModifier + 'd'",
-    UIDecreaseViewWidth : "UINavigationModifier + 'a'",
-    UIIncreaseViewHeight : "UINavigationModifier + 's'",
-    UIDecreaseViewHeight : "UINavigationModifier + 'w'",
-    UIMaximizeViewHeight : "UINavigationModifier + 'm'",
-
-    # Switch views
-    UISwitchToTerminal : "UINavigationModifier + 't'",
-    UISwitchToEditor : "UINavigationModifier + 'e'",
-    UISwitchToProject : "UINavigationModifier + 'p'"
-  }
+  inherit: default_keymap
 }

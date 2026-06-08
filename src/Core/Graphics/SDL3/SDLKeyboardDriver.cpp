@@ -56,11 +56,40 @@ void SDLKeyboardDriver::Close() {
 std::optional<KeyPress> SDLKeyboardDriver::ProcessEvent(const SDL_Event &event) {
     auto logger = gnilk::Logger::GetLogger("SDL3KeyboardDriver");
 
+    // --- Keyboard-trace instrumentation (kept, commented) -----------------------------
+    // Dumps every raw SDL key/text event plus the KeyPress we synthesize. Re-enable when
+    // chasing macOS/layout keyboard issues — e.g. it's how we found that Cocoa dead-key
+    // composition swallows the KEY_DOWN for composing Option+<letter> combos (fixed via
+    // SDL_HINT_MAC_OPTION_AS_ALT in SDLScreen). Also handy for external-keyboard quirks.
+    // if (event.type == SDL_EVENT_KEY_DOWN || event.type == SDL_EVENT_KEY_UP || event.type == SDL_EVENT_TEXT_INPUT) {
+    //     if (event.type == SDL_EVENT_TEXT_INPUT) {
+    //         fprintf(stderr, "[KBD] TEXTINPUT mods=0x%.4x text='%s'\n",
+    //                 (unsigned)SDL_GetModState(), event.text.text);
+    //     } else {
+    //         const char *scName = SDL_GetScancodeName(event.key.scancode);
+    //         fprintf(stderr, "[KBD] %s key=0x%x(%d) scancode=0x%x(%d '%s') mods=0x%.4x\n",
+    //                 event.type == SDL_EVENT_KEY_DOWN ? "KEYDOWN " : "KEYUP   ",
+    //                 (unsigned)event.key.key, (int)event.key.key,
+    //                 (int)event.key.scancode, (int)event.key.scancode,
+    //                 (scName && scName[0]) ? scName : "?",
+    //                 (unsigned)event.key.mod);
+    //     }
+    // }
+    // ----------------------------------------------------------------------------------
+
     if (event.type == SDL_EVENT_KEY_DOWN) {
         auto kp = HandleKeyPressEvent(event);
         if (kp.has_value()) {
             CheckRemoveTextInputEventForKeyPress(*kp);
         }
+        // if (kp.has_value()) {
+        //     fprintf(stderr, "[KBD]   -> KeyPress: special=%d specialKey=0x%x key=0x%x('%c') mods=0x%.2x valid=%d\n",
+        //             kp->isSpecialKey, kp->specialKey, kp->key,
+        //             (kp->key >= 32 && kp->key < 127) ? (char)kp->key : '?',
+        //             kp->modifiers, kp->isKeyValid);
+        // } else {
+        //     fprintf(stderr, "[KBD]   -> (no KeyPress produced)\n");
+        // }
         return kp;
     }
 

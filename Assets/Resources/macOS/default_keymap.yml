@@ -65,5 +65,9 @@ keymap: {
     UIDecreaseViewHeight : "UINavigationModifier + 'w'",
     UIMaximizeViewHeight : "UINavigationModifier + 'm'",
 
+    # Switch views
+    UISwitchToTerminal : "UINavigationModifier + 't'",
+    UISwitchToEditor : "UINavigationModifier + 'e'",
+    UISwitchToProject : "UINavigationModifier + 'p'"
   }
 }

@@ -192,6 +192,17 @@ bool Runloop::DispatchToHandler(KeyPress keyPress) {
 
     auto kpAction = activeKeyMap->ActionFromKeyPress(keyPress);
 
+    // --- Keyboard-trace instrumentation (kept, commented) -----------------------------
+    // Shows the final key/modifiers -> action resolution. Pair with the [KBD] trace in
+    // SDLKeyboardDriver when chasing keyboard/keymap problems (layout-specific shortcuts,
+    // external keyboards). Re-enable to see whether a keypress matched an action or fell
+    // through to (none).
+    // fprintf(stderr, "[DISP] key=0x%x('%c') mods=0x%.2x special=%d -> action=%s\n",
+    //         keyPress.key, (keyPress.key >= 32 && keyPress.key < 127) ? (char)keyPress.key : '?',
+    //         keyPress.modifiers, keyPress.isSpecialKey,
+    //         kpAction.has_value() ? activeKeyMap->ActionName(kpAction->action).c_str() : "(none)");
+    // ----------------------------------------------------------------------------------
+
     if (kpAction.has_value()) {
         logger->Debug("Action '%s' found - sending to handler", activeKeyMap->ActionName(kpAction->action).c_str());
 

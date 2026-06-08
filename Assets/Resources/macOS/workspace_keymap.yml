@@ -1,31 +1,23 @@
 #
-# Keymap file for workspace view
+# Keymap file for the workspace view.
+#
+# Inherits all shared bindings from default_keymap; only workspace-specific
+# overrides live here. NOTE: modifier aliases are resolved per-file (they are
+# NOT inherited), so the 'modifiers' block must still define every alias that a
+# binding below references.
 #
 keymap: {
+  inherit: default_keymap,
   modifiers: {
-    SelectionModifier: KeyCode_Shift,
-    CopyPasteModifier: KeyCode_Cmd,
     UINavigationModifier : KeyCode_Alt,
   },
   actions: {
-    NavigateLineUp : KeyCode_UpArrow + @SelectionModifier,
-    NavigateLineDown : KeyCode_DownArrow + @SelectionModifier,
-    NavigateLeft : KeyCode_LeftArrow + @SelectionModifier,
-    NavigateRight : KeyCode_RightArrow + @SelectionModifier,
+    # Workspace-only override: Tab also cycles to the next view (in addition to
+    # the Alt+] it would inherit). Child is parsed first and first-match wins, so
+    # this replaces the parent's CycleActiveViewNext.
     CycleActiveViewNext : [
       "UINavigationModifier + ']'",
       KeyCode_Tab
     ],
-    CycleActiveViewPrev : "UINavigationModifier + '['",
-    EnterCommandMode : KeyCode_Escape,
-    CommitLine : KeyCode_Return,
-
-    # WASD
-    UIIncreaseViewWidth : "UINavigationModifier + 'd'",
-    UIDecreaseViewWidth : "UINavigationModifier + 'a'",
-    UIIncreaseViewHeight : "UINavigationModifier + 's'",
-    UIDecreaseViewHeight : "UINavigationModifier + 'w'",
-    UIMaximizeViewHeight : "UINavigationModifier + 'm'",
-
   }
 }

@@ -54,6 +54,16 @@ bool SDLScreen::Open() {
         logger->Debug("  %d:%s", i, SDL_GetVideoDriver(i));
     }
 
+#if defined(GEDIT_MACOS)
+    // Map the LEFT Option key to Alt so UI-navigation shortcuts (UINavigationModifier
+    // is Alt = Option) deliver a real SDL_EVENT_KEY_DOWN. Without this, Cocoa dead-key
+    // composition eats the keydown for composing Option+<letter> combos (e.g. Option+E
+    // '´', Option+G '©' on some layouts) and only emits SDL_EVENT_TEXT_INPUT, so those
+    // shortcuts silently never fire. RIGHT Option is left untouched so AltGr-style
+    // composition ([ ] { } and accents) still works. Must be set before SDL_Init().
+    SDL_SetHint(SDL_HINT_MAC_OPTION_AS_ALT, "only_left");
+#endif
+
     // SDL3: SDL_INIT_HAPTIC was removed; SDL_INIT_EVENTS is implied by SDL_INIT_VIDEO
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
         logger->Error("SDL_Init, %s", SDL_GetError());

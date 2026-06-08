@@ -256,11 +256,13 @@ bool KeyMapping::RebuildActionMapping(const ConfigNode &keymap) {
 
     auto logger = gnilk::Logger::GetLogger("KeyMapping");
 
-    // Verify we have 'actions' (this is the most important)
-    if (!keymap.HasKey("actions")) {
-        logger->Error("Keymap must at least have an action section!");
+    // A keymap must contribute *something*: either its own 'actions', or an 'inherit'
+    // that pulls a parent's bindings in. An absent/empty 'actions' is valid for a
+    // pure-inheritance child (e.g. a view keymap that only re-uses default_keymap).
+    bool hasActions = keymap.HasKey("actions");
+    if (!hasActions && !keymap.HasKey("inherit")) {
+        logger->Error("Keymap must have an 'actions' section or 'inherit' a parent!");
         return false;
-
     }
 
     // Build up the modifier table
@@ -305,6 +307,8 @@ bool KeyMapping::RebuildActionMapping(const ConfigNode &keymap) {
     // An action can be an array of values and a single value.
     // IF we allow our configuration to support this - we can update this..
     // NOTE: I am using 'auto' deliberately in order to explicitly depend on YAML-CPP
+    // A pure-inheritance keymap has no 'actions' of its own; skip the parse loop for it.
+    if (hasActions) {
     auto mixedNode = keymap.GetNode("actions");
     auto rawNode = mixedNode.GetDataNode();     // Fetch the raw YAML node
     for(auto it = rawNode.begin(); it != rawNode.end(); ++it) {
@@ -346,6 +350,7 @@ bool KeyMapping::RebuildActionMapping(const ConfigNode &keymap) {
             }
         }
     }
+    } // hasActions
 
     logger->Debug("**** PARSE OK ****");
     return true;

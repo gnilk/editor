@@ -14,6 +14,7 @@ DLL_EXPORT int test_keymapping_parse(ITesting *t);
 DLL_EXPORT int test_keymapping_kpaction(ITesting *t);
 DLL_EXPORT int test_keymapping_load(ITesting *t);
 DLL_EXPORT int test_keymapping_inherit(ITesting *t);
+DLL_EXPORT int test_keymapping_inherit_empty_actions(ITesting *t);
 }
 
 DLL_EXPORT int test_keymapping(ITesting *t) {
@@ -107,6 +108,37 @@ DLL_EXPORT int test_keymapping_inherit(ITesting *t) {
     auto overridden = keymap->ActionFromKeyPress(tab);
     TR_ASSERT(t, overridden.has_value());
     TR_ASSERT(t, overridden->action == kAction::kActionShellCompletion);
+
+    return kTR_Pass;
+}
+
+//
+// A pure-inheritance keymap has NO 'actions' of its own - it only re-uses its parent's bindings.
+// This used to be rejected outright ("Keymap must at least have an action section"); after the
+// empty-actions relaxation it must initialize cleanly and resolve to exactly the parent's bindings.
+// This is what lets a view keymap collapse to just `inherit: default_keymap`.
+//
+static const std::string strEmptyInherit = "{\n"
+                                            "  inherit: default_keymap\n"
+                                            "}";
+DLL_EXPORT int test_keymapping_inherit_empty_actions(ITesting *t) {
+    KeyMapping keyMapping;
+    auto cfgNode = ConfigNode::FromString(strEmptyInherit);
+    TR_ASSERT(t, cfgNode.has_value());
+
+    // No 'actions' section, but 'inherit' is present -> must initialize without error.
+    TR_ASSERT(t, keyMapping.Initialize(cfgNode.value()));
+
+    // Every binding resolves through the inherited parent (default_keymap binds DownArrow -> LineDown)
+    KeyPress down = {};
+    down.key = Keyboard::kKeyCode_DownArrow;
+    down.specialKey = Keyboard::kKeyCode_DownArrow;
+    down.isKeyValid = true;
+    down.isSpecialKey = true;
+
+    auto inherited = keyMapping.ActionFromKeyPress(down);
+    TR_ASSERT(t, inherited.has_value());
+    TR_ASSERT(t, inherited->action == kAction::kActionLineDown);
 
     return kTR_Pass;
 }

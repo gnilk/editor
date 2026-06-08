@@ -63,6 +63,7 @@ macos:
   default_keymap: macOS/default_keymap.yml
   quickmode_keymap: macOS/quickmode_keymap.yml
   workspace_keymap: macOS/workspace_keymap.yml
+  terminal_keymap: macOS/terminal_keymap.yml
 
 linux:
   default_keymap: Linux/default_keymap.yml

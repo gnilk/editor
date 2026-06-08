@@ -15,6 +15,7 @@ DLL_EXPORT int test_keymapping_kpaction(ITesting *t);
 DLL_EXPORT int test_keymapping_load(ITesting *t);
 DLL_EXPORT int test_keymapping_inherit(ITesting *t);
 DLL_EXPORT int test_keymapping_inherit_empty_actions(ITesting *t);
+DLL_EXPORT int test_keymapping_inherit_multilevel(ITesting *t);
 DLL_EXPORT int test_keymapping_workspace_inherit(ITesting *t);
 }
 
@@ -140,6 +141,64 @@ DLL_EXPORT int test_keymapping_inherit_empty_actions(ITesting *t) {
     auto inherited = keyMapping.ActionFromKeyPress(down);
     TR_ASSERT(t, inherited.has_value());
     TR_ASSERT(t, inherited->action == kAction::kActionLineDown);
+
+    return kTR_Pass;
+}
+
+//
+// Multi-level inheritance: child -> terminal_keymap -> default_keymap (a 3-level chain, so the
+// ResolveInheritance walk runs twice). The child is loaded from MEMORY (ConfigNode::FromString) and
+// inherits the real terminal_keymap asset, which itself inherits default_keymap. We assert across
+// all three levels:
+//   L3 (default, deepest): DownArrow -> LineDown   (only default_keymap defines it -> walk reached bottom)
+//   L2 (terminal beats default): Tab -> ShellCompletion (terminal overrides default's Indent across a hop)
+//   L1 (child beats all): Escape -> CommitLine      (child overrides the ancestors' EnterCommandMode)
+//
+// NOTE: only the CHILD can come from memory - inherited parents are resolved by name via the asset
+// loader (LoadKeymapConfig), so the ancestors must be real loadable keymaps.
+//
+static const std::string strMultiLevelChild = "{\n"
+                                              "  inherit: terminal_keymap,\n"
+                                              "  actions: {\n"
+                                              "    CommitLine: KeyCode_Escape,\n"
+                                              "  }\n"
+                                              "}";
+DLL_EXPORT int test_keymapping_inherit_multilevel(ITesting *t) {
+    KeyMapping keyMapping;
+    auto cfgNode = ConfigNode::FromString(strMultiLevelChild);
+    TR_ASSERT(t, cfgNode.has_value());
+    TR_ASSERT(t, keyMapping.Initialize(cfgNode.value()));
+
+    // L3 - reaches the deepest ancestor (default_keymap): DownArrow -> LineDown
+    KeyPress down = {};
+    down.key = Keyboard::kKeyCode_DownArrow;
+    down.specialKey = Keyboard::kKeyCode_DownArrow;
+    down.isKeyValid = true;
+    down.isSpecialKey = true;
+    auto lineDown = keyMapping.ActionFromKeyPress(down);
+    TR_ASSERT(t, lineDown.has_value());
+    TR_ASSERT(t, lineDown->action == kAction::kActionLineDown);
+
+    // L2 - nearer ancestor wins over a more distant one: terminal_keymap's Tab -> ShellCompletion
+    // overrides default_keymap's Tab -> Indent (the child does not bind Tab).
+    KeyPress tab = {};
+    tab.key = Keyboard::kKeyCode_Tab;
+    tab.specialKey = Keyboard::kKeyCode_Tab;
+    tab.isKeyValid = true;
+    tab.isSpecialKey = true;
+    auto tabAction = keyMapping.ActionFromKeyPress(tab);
+    TR_ASSERT(t, tabAction.has_value());
+    TR_ASSERT(t, tabAction->action == kAction::kActionShellCompletion);
+
+    // L1 - the child overrides every ancestor: Escape -> CommitLine (ancestors bind EnterCommandMode)
+    KeyPress esc = {};
+    esc.key = Keyboard::kKeyCode_Escape;
+    esc.specialKey = Keyboard::kKeyCode_Escape;
+    esc.isKeyValid = true;
+    esc.isSpecialKey = true;
+    auto escAction = keyMapping.ActionFromKeyPress(esc);
+    TR_ASSERT(t, escAction.has_value());
+    TR_ASSERT(t, escAction->action == kAction::kActionCommitLine);
 
     return kTR_Pass;
 }

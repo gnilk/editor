@@ -832,7 +832,7 @@ KeyMapping::Ref Editor::GetKeyMapping(const std::string &name) {
     if (HasKeyMapping(name)) {
         return keymappings[name];
     }
-    logger->Debug("Keymap '%s' not found - creating", name.c_str());
+    logger->Debug("Keymap '%s' not found - trying to load", name.c_str());
 
     // Load the keymap config and build it. Inheritance (the 'inherit' key) is resolved inside
     // KeyMapping::Initialize, so multi-level chains are handled there - not here.

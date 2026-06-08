@@ -21,7 +21,17 @@ DLL_EXPORT int test_keymapping_workspace_inherit(ITesting *t);
 DLL_EXPORT int test_keymapping_cache(ITesting *t);
 }
 
+//
+// Pre-case hook for this module: KeyMappingCache is a process-wide singleton, so wipe it before each
+// case to keep cases isolated (no built keymap leaks across tests). Already-held KeyMapping::Refs stay
+// valid - Clear() only drops the cache's own map. Registered via the v1 ITesting per-module callback.
+//
+static void ClearKeyMapCachePreCase(ITesting *) {
+    KeyMappingCache::Instance().Clear();
+}
+
 DLL_EXPORT int test_keymapping(ITesting *t) {
+    t->SetPreCaseCallback(ClearKeyMapCachePreCase);
     return kTR_Pass;
 }
 

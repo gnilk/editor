@@ -105,12 +105,15 @@ KeyMapping::Ref KeyMapping::Create(const std::string &cfgNodeName) {
 }
 
 KeyMapping::Ref KeyMapping::Create(const ConfigNode &cfgNode) {
+    return Create(cfgNode, nullptr);
+}
+
+KeyMapping::Ref KeyMapping::Create(const ConfigNode &cfgNode, const ParentResolver &resolveParent) {
     auto instance = std::make_shared<KeyMapping>();
-    if (!instance->Initialize(cfgNode)) {
+    if (!instance->Initialize(cfgNode, resolveParent)) {
         return nullptr;
     }
     return instance;
-
 }
 
 //
@@ -160,6 +163,10 @@ bool KeyMapping::Initialize(const std::string &cfgNodeName) {
 }
 
 bool KeyMapping::Initialize(const ConfigNode &cfgNode) {
+    return Initialize(cfgNode, nullptr);
+}
+
+bool KeyMapping::Initialize(const ConfigNode &cfgNode, const ParentResolver &resolveParent) {
     if (isInitialized) {
         return true;
     }
@@ -168,7 +175,7 @@ bool KeyMapping::Initialize(const ConfigNode &cfgNode) {
     if (!RebuildActionMapping(cfgNode)) {
         return false;
     }
-    if (!ResolveInheritance(cfgNode)) {
+    if (!ResolveInheritance(cfgNode, resolveParent)) {
         return false;
     }
 
@@ -521,17 +528,46 @@ bool KeyMapping::ParseKeyPressCombinationString(kAction action, const std::strin
 }
 
 //
-// Resolve the 'inherit' chain for a keymap. Each keymap may declare 'inherit: <parent>'; we walk
-// up the chain and append every ancestor's bindings to our own. Because our own bindings were parsed
-// first - and ActionFromKeyPress uses first-match - the child always overrides its parents, and a
-// nearer ancestor overrides a more distant one.
+// Resolve the 'inherit' chain for a keymap. A keymap may declare 'inherit: <parent>'; we append the
+// parent's bindings AFTER our own. Because our own bindings were parsed first - and ActionFromKeyPress
+// uses first-match - the child always overrides its parents, and a nearer ancestor overrides a more
+// distant one.
 //
-// The walk is iterative (not via recursive Create) so we can keep a 'visited' set and break cleanly
-// on a cyclic inheritance declaration instead of recursing forever.
+// Two paths:
+//  - With a resolver (the normal path, via KeyMappingCache): the resolver returns a FULLY-RESOLVED
+//    parent (its own inherit-chain already folded in and built exactly once). We just append the
+//    parent's actionItems - no chain walk and no re-parse. The parent's grandparents are already in
+//    the right order inside it, so precedence is preserved. Cycle detection lives in the cache.
+//  - Without a resolver (no cache - e.g. a memory-built keymap): fall back to walking the chain
+//    directly, re-loading and re-parsing each ancestor. Kept so standalone Initialize(cfgNode) stays
+//    hermetic and does not touch global cache state.
 //
-bool KeyMapping::ResolveInheritance(const ConfigNode &cfgNode) {
+bool KeyMapping::ResolveInheritance(const ConfigNode &cfgNode, const ParentResolver &resolveParent) {
     auto logger = gnilk::Logger::GetLogger("KeyMapping");
 
+    if (!cfgNode.HasKey("inherit")) {
+        return true;
+    }
+
+    if (resolveParent) {
+        auto parentName = cfgNode.GetStr("inherit", "");
+        if (parentName.empty()) {
+            return true;
+        }
+        auto parent = resolveParent(parentName);
+        if (parent == nullptr) {
+            logger->Error("Keymap inherit failed - parent '%s' could not be resolved", parentName.c_str());
+            return false;
+        }
+        logger->Debug("Keymap inheriting bindings from '%s' (resolved)", parentName.c_str());
+        // ActionItem is immutable after build, so sharing the Ref across keymaps is safe.
+        for (auto &actionItem : parent->actionItems) {
+            actionItems.push_back(actionItem);
+        }
+        return true;
+    }
+
+    // --- Legacy direct-load walk (no cache) ---
     std::unordered_set<std::string> visited;
     ConfigNode node = cfgNode;
     while (node.HasKey("inherit")) {

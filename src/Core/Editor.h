@@ -218,7 +218,6 @@ namespace gedit {
 
         State state = ViewState;
         std::string viewStateKeymapName = "default_keymap";  // This is the default key-map for any 'view' related activity
-        std::unordered_map<std::string, KeyMapping::Ref> keymappings;
         KeymapUpdateDelegate cbKeymapUpdate = nullptr;
 
 //        KeyMapping::Ref mappingsForEditState = nullptr;

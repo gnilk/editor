@@ -16,6 +16,7 @@
 #include "Core/RuntimeConfig.h"
 #include "Core/Config/Config.h"
 #include "Core/KeyMapping.h"
+#include "Core/KeyMappingCache.h"
 #include "Core/StrUtil.h"
 #include "Core/ActionHelper.h"
 
@@ -826,41 +827,16 @@ KeyMapping::Ref Editor::GetKeyMapForState(State paramState) {
     return GetKeyMapping("quickmode_keymap");
 }
 
-// Return a keymapping based on name
+// Return a keymapping based on name. The keymap cache (KeyMappingCache) owns loading, building and
+// caching - including resolving the 'inherit' chain - so Editor is just a consumer here. Each named
+// keymap is loaded exactly once and shared between Editor and inheritance resolution.
 KeyMapping::Ref Editor::GetKeyMapping(const std::string &name) {
-    // If we have it - just return it...
-    if (HasKeyMapping(name)) {
-        return keymappings[name];
-    }
-    logger->Debug("Keymap '%s' not found - trying to load", name.c_str());
-
-    // Load the keymap config and build it. Inheritance (the 'inherit' key) is resolved inside
-    // KeyMapping::Initialize, so multi-level chains are handled there - not here.
-    auto cfgNode = KeyMapping::LoadKeymapConfig(name);
-    if (!cfgNode.has_value()) {
-        logger->Error("Keymap '%s' could not be loaded", name.c_str());
-        return nullptr;
-    }
-    auto keymap = KeyMapping::Create(cfgNode.value());
-    if (keymap == nullptr) {
-        logger->Error("No keymap with name '%s'", name.c_str());
-        return nullptr;
-    }
-    if (!keymap->IsInitialized()) {
-        logger->Error("Keymap '%s' failed to initialize", name.c_str());
-        return nullptr;
-    }
-
-    logger->Debug("Ok, keymap '%s' initialized and cached!", name.c_str());
-
-    // Add to the 'cache'
-    keymappings[name] = keymap;
-    return keymap;
+    return KeyMappingCache::Instance().GetOrLoad(name);
 }
 
-// This checks if a keymapping is loaded - not if it has been configured!!
+// This checks if a keymapping is already loaded/cached - not if it can be loaded!
 bool Editor::HasKeyMapping(const std::string &name) {
-    return (keymappings.find(name) != keymappings.end());
+    return KeyMappingCache::Instance().Has(name);
 }
 
 void Editor::SetActiveKeyMapping(const std::string &name) {

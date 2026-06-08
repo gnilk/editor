@@ -5,6 +5,7 @@
 #include "Core/Editor.h"
 #include "Core/API/EditorAPI.h"
 #include "Core/KeyMapping.h"
+#include "Core/KeyMappingCache.h"
 
 using namespace gedit;
 
@@ -17,6 +18,7 @@ DLL_EXPORT int test_keymapping_inherit(ITesting *t);
 DLL_EXPORT int test_keymapping_inherit_empty_actions(ITesting *t);
 DLL_EXPORT int test_keymapping_inherit_multilevel(ITesting *t);
 DLL_EXPORT int test_keymapping_workspace_inherit(ITesting *t);
+DLL_EXPORT int test_keymapping_cache(ITesting *t);
 }
 
 DLL_EXPORT int test_keymapping(ITesting *t) {
@@ -224,6 +226,51 @@ DLL_EXPORT int test_keymapping_workspace_inherit(ITesting *t) {
     auto inherited = keymap->ActionFromKeyPress(down);
     TR_ASSERT(t, inherited.has_value());
     TR_ASSERT(t, inherited->action == kAction::kActionLineDown);
+
+    return kTR_Pass;
+}
+
+//
+// KeyMappingCache: the single source of truth for keymap loading. Asserts (1) a name resolves to the
+// SAME instance on repeated calls (built once, cached), (2) inheritance is resolved THROUGH the cache
+// so a child shares the very same parent instance, and (3) the resolved-parent path produces the same
+// bindings as before (terminal overrides default's Tab; default's DownArrow is inherited).
+//
+DLL_EXPORT int test_keymapping_cache(ITesting *t) {
+    auto &cache = KeyMappingCache::Instance();
+
+    // (1) built once - same instance returned
+    auto a = cache.GetOrLoad("default_keymap");
+    auto b = cache.GetOrLoad("default_keymap");
+    TR_ASSERT(t, a != nullptr);
+    TR_ASSERT(t, a.get() == b.get());
+    TR_ASSERT(t, cache.Has("default_keymap"));
+
+    // (2) the parent a child inherits is the very same cached default_keymap instance
+    auto term = cache.GetOrLoad("terminal_keymap");
+    TR_ASSERT(t, term != nullptr);
+    TR_ASSERT(t, term.get() != a.get());
+    TR_ASSERT(t, cache.GetOrLoad("default_keymap").get() == a.get());
+
+    // (3) bindings resolve correctly through the cache: child overrides parent...
+    KeyPress tab = {};
+    tab.key = Keyboard::kKeyCode_Tab;
+    tab.specialKey = Keyboard::kKeyCode_Tab;
+    tab.isKeyValid = true;
+    tab.isSpecialKey = true;
+    auto tabAction = term->ActionFromKeyPress(tab);
+    TR_ASSERT(t, tabAction.has_value());
+    TR_ASSERT(t, tabAction->action == kAction::kActionShellCompletion);
+
+    // ...and the inherited binding is present
+    KeyPress down = {};
+    down.key = Keyboard::kKeyCode_DownArrow;
+    down.specialKey = Keyboard::kKeyCode_DownArrow;
+    down.isKeyValid = true;
+    down.isSpecialKey = true;
+    auto lineDown = term->ActionFromKeyPress(down);
+    TR_ASSERT(t, lineDown.has_value());
+    TR_ASSERT(t, lineDown->action == kAction::kActionLineDown);
 
     return kTR_Pass;
 }

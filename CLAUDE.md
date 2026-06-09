@@ -155,6 +155,12 @@ YAML-based config loaded by `Config` singleton. `ConfigNode` provides typed acce
 - PascalCase for classes/structs and methods: `GraphicsDevice`, `InitDevice()`
 - UPPER_SNAKE_CASE for constants: `MAX_BUFFER_SIZE`
 - camelCase for variables; never an `m_` member prefix; convey intent (`bool isSomething`)
+- **Renaming a type renames its references too.** When a type is renamed (e.g. `EditorModel` →
+  `Document`), sweep the variables/members/params that hold it so the *name* tracks the type:
+  `Document::Ref document; document->XYZ()` — never leave `Document::Ref model; model->XYZ()`. A
+  stale variable name reading against its new type is a code smell and looks odd at every use site.
+  (This is exactly the `model`→`document` cleanup left half-done by the Phase-1 sweep; finish such
+  renames in the same pass, don't defer the variable names.)
 
 ### C++ Specifics
 - Prefer `nullptr` over `NULL`; `auto` only when the type is obvious; mark single-arg ctors `explicit`; prefer range-based for

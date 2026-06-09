@@ -854,7 +854,12 @@ EditorModel::Ref Editor::NewModel(const std::string &name) {
 
 
 EditorModel::Ref Editor::OpenModelFromWorkspace(Workspace::Node::Ref workspaceNode) {
-    auto model = workspaceNode->GetModel();
+    // Lazily build the model if this is a path-only (folder-scanned) node.
+    auto model = workspace->EnsureModelForNode(workspaceNode);
+    if (model == nullptr) {
+        logger->Error("OpenModelFromWorkspace, node has no model (folder?): %s", workspaceNode->GetDisplayName().c_str());
+        return nullptr;
+    }
     if (IsModelOpen(model)) {
         SetActiveModel(model);
         return model;

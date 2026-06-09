@@ -18,6 +18,7 @@ DLL_EXPORT int test_workspace_newtwice(ITesting *t);
 DLL_EXPORT int test_workspace_fileref(ITesting *t);
 DLL_EXPORT int test_workspace_newmodel(ITesting *t);
 DLL_EXPORT int test_workspace_openfolder(ITesting *t);
+DLL_EXPORT int test_workspace_openfolder_lazy(ITesting *t);
 DLL_EXPORT int test_workspace_openabsfolder(ITesting *t);
 DLL_EXPORT int test_workspace_removemodel(ITesting *t);
 DLL_EXPORT int test_workspace_recreate(ITesting *t);
@@ -98,8 +99,43 @@ DLL_EXPORT int test_workspace_openfolder(ITesting *t) {
     auto desktops = workspace.GetDesktops();
     TR_ASSERT(t, desktops.size() == 1);
     auto desktop = desktops.begin()->second;
-    auto models = desktop->GetRootNode()->GetModels();
-    TR_ASSERT(t, models.size() > 0);
+    auto rootNode = desktop->GetRootNode();
+    // Lazy tree: scanning a folder builds path-only nodes - NO models exist until a node is opened.
+    TR_ASSERT(t, rootNode->GetNumChildNodes() > 0);
+    TR_ASSERT(t, rootNode->GetModels().size() == 0);
+    return kTR_Pass;
+}
+
+// Opening a scanned (path-only) file node lazily creates exactly one model, and re-opening reuses it.
+DLL_EXPORT int test_workspace_openfolder_lazy(ITesting *t) {
+    Workspace workspace;
+    TR_ASSERT(t, workspace.OpenFolder("."));
+    auto desktop = workspace.GetDesktops().begin()->second;
+    auto rootNode = desktop->GetRootNode();
+
+    // Find a file node among the root's immediate children
+    std::vector<Workspace::Node::Ref> children;
+    rootNode->FlattenChilds(children);
+    Workspace::Node::Ref fileNode = nullptr;
+    for (auto &child : children) {
+        if (child->GetMeta<int>(Workspace::Node::kMetaKey_NodeType, Workspace::Node::kNodeFolder) == Workspace::Node::kNodeFileRef) {
+            fileNode = child;
+            break;
+        }
+    }
+    TR_ASSERT(t, fileNode != nullptr);
+
+    // Path-only until opened
+    TR_ASSERT(t, fileNode->GetModel() == nullptr);
+
+    auto model = workspace.EnsureModelForNode(fileNode);
+    TR_ASSERT(t, model != nullptr);
+    TR_ASSERT(t, fileNode->GetModel() == model);
+    // The model adopts the node's path as its identity
+    TR_ASSERT(t, model->GetPath() == fileNode->GetNodePath());
+    // Re-ensuring reuses the same model (does not rebuild)
+    TR_ASSERT(t, workspace.EnsureModelForNode(fileNode) == model);
+
     return kTR_Pass;
 }
 

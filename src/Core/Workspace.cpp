@@ -151,35 +151,19 @@ Workspace::Node::Ref Workspace::NewModel(const std::string &name) {
     return NewModelWithFileRef(parent, name);
 }
 
-// Create a new empty model under a specific parent
+// Create a new empty model under a specific parent. A brand-new file is meant to be edited
+// immediately, so its model is created eagerly (unlike folder-scanned nodes, which stay path-only).
 Workspace::Node::Ref Workspace::NewModel(const Node::Ref parent, const std::string &name) {
-    auto nodePath = parent->GetNodePath();
-
-    // NodePath MUST be directory
-    if (!is_directory(nodePath)) {
+    auto parentPath = parent->GetNodePath();
+    // Parent MUST be a directory
+    if (!is_directory(parentPath)) {
         logger->Error("Parent nodePath must be directory!!!");
         return nullptr;
     }
-    // Now create the full filsystem path to this model/data/file/textbuffer (or what ever you like to call it)
-    nodePath = nodePath / name;
-
-    auto textBuffer = TextBuffer::CreateFileReferenceBuffer();
-    textBuffer->SetLanguage(Editor::Instance().GetLanguageForExtension("default"));
-    EditorModel::Ref editorModel = EditorModel::Create(textBuffer);
-    EditController::Ref editController = EditController::Create(editorModel);
-
-
-    auto modelNode = parent->AddChild(name);
-    modelNode->SetMeta<int>(Node::kMetaKey_NodeType, Node::kNodeFileRef);
-    modelNode->SetModel(editorModel);
-    modelNode->SetController(editController);
-    modelNode->SetNodePath(nodePath);
-
-    UpdateMetaDataForNode(modelNode);
-
+    auto node = AddFileNode(parent, parentPath / name);
+    EnsureModelForNode(node);
     NotifyChangeHandler();   // Removed while debugging change notifications from FolderMonitor
-
-    return modelNode;
+    return node;
 }
 
 // Create a new model with a file-reference but don't load the contents...
@@ -192,25 +176,53 @@ Workspace::Node::Ref Workspace::NewModelWithFileRef(const std::filesystem::path 
     return NewModelWithFileRef(parent, pathFileName);
 }
 
-// Create a new model/buffer
+// Add a file-ref node AND eagerly create its model (the caller is explicitly opening this file).
+// Contrast with the folder scan, which adds path-only nodes via AddFileNode.
 Workspace::Node::Ref Workspace::NewModelWithFileRef(Node::Ref parent, const std::filesystem::path &pathFileName) {
-    EditController::Ref editController = std::make_shared<EditController>();
-
     DisableNotifications();
-    auto node = NewModel(parent, pathFileName.filename());
+    auto node = AddFileNode(parent, pathFileName);
+    EnsureModelForNode(node);
     EnableNotifications();
-
-    node->SetNodePath(pathFileName);
-
-    auto ext = pathFileName.extension();
-    auto lang = Editor::Instance().GetLanguageForExtension(ext.string());
-    node->GetModel()->GetTextBuffer()->SetLanguage(lang);
-
-    UpdateMetaDataForNode(node);
 
     NotifyChangeHandler();  // Note: This can be enabled/disabled - when reading a directory it is disabled and called once reading has completed./..
 
     return node;
+}
+
+// Add a path-only file node (no model). The model is created lazily when the node is opened.
+Workspace::Node::Ref Workspace::AddFileNode(Node::Ref parent, const std::filesystem::path &pathName) {
+    auto node = parent->AddChild(pathName.filename().string());
+    node->SetNodePath(pathName);    // also sets displayName from the path
+    node->SetMeta<int>(Node::kMetaKey_NodeType, Node::kNodeFileRef);
+    UpdateMetaDataForNode(node);
+    return node;
+}
+
+// Lazily build the model/controller/buffer for a file node. Returns the existing model if present,
+// or null for folder nodes. The language is derived from the node-path extension.
+EditorModel::Ref Workspace::EnsureModelForNode(Node::Ref node) {
+    if (node == nullptr) {
+        return nullptr;
+    }
+    if (node->GetModel() != nullptr) {
+        return node->GetModel();
+    }
+    auto nodeType = node->GetMeta<int>(Node::kMetaKey_NodeType, Node::kNodeFolder);
+    if (nodeType == Node::kNodeFolder) {
+        return nullptr;
+    }
+
+    auto textBuffer = TextBuffer::CreateFileReferenceBuffer();
+    auto ext = node->GetNodePath().extension();
+    textBuffer->SetLanguage(Editor::Instance().GetLanguageForExtension(ext.string()));
+
+    EditorModel::Ref editorModel = EditorModel::Create(textBuffer);
+    EditController::Ref editController = EditController::Create(editorModel);
+
+    node->SetModel(editorModel);        // also syncs the model's path from the node
+    node->SetController(editController);
+
+    return editorModel;
 }
 
 void Workspace::UpdateMetaDataForNode(Node::Ref node) {
@@ -320,9 +332,8 @@ bool Workspace::ReadFolderToNode(Node::Ref rootNode, const std::filesystem::path
             }
             ReadFolderToNode(dirNode, entry);
         } else if (fs::is_regular_file(entry)) {
-            const auto &name = entry.path().filename();
-            // logger->Debug("F: %s", name.c_str());
-            auto model = NewModelWithFileRef(rootNode, entry.path());
+            // Path-only node - the model is built lazily the first time the file is opened.
+            AddFileNode(rootNode, entry.path());
         }
     }
     return true;

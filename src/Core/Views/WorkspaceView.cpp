@@ -210,7 +210,10 @@ bool WorkspaceView::OnAction(const KeyPressAction &kpAction) {
     if (kpAction.action == kAction::kActionCommitLine) {
         auto logger = gnilk::Logger::GetLogger("WorkspaceView");
         auto itemSelected = treeView->GetCurrentSelectedItem();
-        if (itemSelected->GetModel() != nullptr) {
+        // File nodes are opened (model created lazily); folder nodes are not. Check the node type
+        // rather than presence of a model - scanned file nodes are path-only until opened.
+        auto nodeType = itemSelected->GetMeta<int>(Workspace::Node::kMetaKey_NodeType, Workspace::Node::kNodeFolder);
+        if (nodeType != Workspace::Node::kNodeFolder) {
             Editor::Instance().OpenModelFromWorkspace(itemSelected);
             logger->Debug("Selected Item: %s", itemSelected->GetDisplayName().c_str());
 

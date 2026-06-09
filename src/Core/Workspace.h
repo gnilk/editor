@@ -214,6 +214,11 @@ namespace gedit {
 
             void SetModel(EditorModel::Ref newModel) {
                 model = newModel;
+                // A model attached to a node adopts the node's path as its file identity. The node
+                // path is generally set first (lazy nodes exist before their model), so sync here too.
+                if (model != nullptr) {
+                    model->SetPath(pathName);
+                }
             }
 
             EditorModel::Ref GetModel() {
@@ -482,6 +487,11 @@ namespace gedit {
 
         Node::Ref GetNodeFromModel(EditorModel::Ref model);
 
+        // Lazily create (if needed) and return the model for a file node. Folder nodes return null.
+        // The browse tree stores path-only file nodes; the model is built the first time a node is
+        // opened. Returns the existing model if the node already has one.
+        EditorModel::Ref EnsureModelForNode(Node::Ref node);
+
         bool RemoveModel(EditorModel::Ref model);
 
         //
@@ -510,6 +520,8 @@ namespace gedit {
 
     protected:
         Node::Ref NewFolderNode(Node::Ref parent, const std::filesystem::path &pathName);
+        // Adds a path-only file node (no model) under parent. The model is created lazily on open.
+        Node::Ref AddFileNode(Node::Ref parent, const std::filesystem::path &pathName);
 
 
         bool RemoveNode(Node::Ref node);

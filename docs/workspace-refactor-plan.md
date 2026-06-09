@@ -199,8 +199,147 @@ The class is `Document` and the `Model`-named API has been swept to `Document` n
 Deferred follow-ups: chdir-per-root resolution, DocumentAPI->Document re-wrapping, and the
 (separately-decided) EditController dissolution.
 
-## Out of scope
+Next: **Phase 2 — the buffer/window split** (below). Planned, not yet started.
+
+---
+
+# Phase 2 — the buffer/window split (ViewState extraction + controller-to-view)
+
+Branch: continue on `dev_workspace`.
+
+## Why — the one asymmetry behind all the confusion
+
+Every other controller/view in the app is a clean **1 : 1 : 1** relationship that owns its
+parts: `TerminalController` is a value member of `TerminalView` (`TerminalView.h:45`),
+`QuickCommandController` is a value member of `Editor` (`Editor.h:221`). The editor is the
+odd one out, and the reason is a cardinality the others don't have:
+
+> **One `EditorView` : N `Document`s.** There is exactly one `EditorView` for the program's
+> life (a stack value in `main.cpp:476`, wired into the layout by pointer, never recreated —
+> `ReInitView` runs on the same object). That single view *re-points* at whichever document is
+> active (`EditorView.cpp:41,81`).
+
+Because the single view roves over N documents, **per-document editing state (cursor, scroll,
+selection) has to persist per document** while the view moves between them. `Document` was the
+only per-document home available, so the cursor/selection/scroll landed there
+(`Document.h:320-323`: `lineCursor`, `currentSelection`, `verticalNavigationViewModel`,
+`viewRect`). **For a single-view editor this is correct** — switch from doc A to B and back and
+A's cursor is exactly where you left it, for free.
+
+It also explains the Phase 1 leftovers: the `EditController` is hollow (its `OnAction` is a pure
+passthrough `return model->OnAction(...)`, `EditController.cpp:187-194`) and is *stored in
+`Workspace::Node`* (`Workspace.h:315-316`), fetched back out by the view via
+`node->GetController()` (`EditorView.cpp:53,87`). The controller sits in the node only because
+the node is the per-document home — same pressure that put the cursor in the Document.
+
+## Where it breaks — the future case inverts the cardinality
+
+The wanted feature is **M views : 1 buffer** (two views onto the same file, independent
+scrolling). That needs per-**view** state — but the cursor is stored per-**document**. Two views
+of one buffer would fight over one cursor. Today's "make a whole new Document for independent
+scroll" workaround is the *one-object-too-many* that flagged this as wrong. The contradiction is
+real: per-document persistence and per-view independence are two different cardinalities that one
+storage location cannot serve.
+
+## Target — pull two state-bundles out of `Document` into their own classes
+
+`Document` today is a fat object that fuses three different things. Phase 2 separates the two
+state-bundles into their own classes and — **for now** — has `Document` hold a *reference* to
+each. Where they ultimately live (and how multi-view shares them) is deliberately left open; the
+near-term move is only "separate classes, referenced from `Document`".
+
+| Concept | Contains | Cardinality (eventual / likely) | For now |
+|---|---|---|---|
+| **`TextBuffer`** | the text itself | 1 per file | have it |
+| **`Document`** | path/identity, language, dirty/readonly; **references** a `ViewState` + an `EditState` | 1 per open file | Workspace open-list; owns the two refs |
+| **`ViewState`** *(new class)* | `lineCursor` (cursor), `currentSelection` | per **view** | one instance, referenced by `Document` |
+| **`EditState`** *(new class)* | `UndoHistory` (the history buffer) — that is all it is today | per **document / buffer** (shared by all views of it) | one instance, referenced by `Document` |
+
+**Why two classes and not one:** their cardinalities differ, and that difference *is* the reason
+to split them. Two views onto one buffer should share **one** undo history (`EditState`) but keep
+**independent** cursors/selections (`ViewState`). Fusing them into `Document` (or into each other)
+is exactly what makes the multi-view case feel impossible. Separated and referenced, the eventual
+move is just "where does each ref point" — not a redesign.
+
+> Note: the other view-ish members still in `Document` — `verticalNavigationViewModel`, `viewRect`,
+> `wantedColumn`, the search-highlight index — are *candidates* to migrate into `ViewState` later.
+> Per the scope of this phase, only cursor + selection move now; the rest is classified when the
+> multi-view work is actually tackled.
+
+### How this dissolves both scenarios
+
+- **Multi-view, same buffer:** each view gets its own `ViewState` (independent cursor/selection)
+  while all views share the *one* `EditState` (undo) and the one `TextBuffer` on the same
+  `Document`. The extra per-view object is the small `ViewState`, not a whole Document — the "one
+  too many" disappears.
+- **Reopen restores cursor *and* undo (a wanted feature):** because `ViewState` and `EditState` are
+  their own classes rather than buried in `Document`, both are serializable units. Reopening a
+  folder/project can restore each document's cursor + selection (`ViewState`) **and** its undo
+  history (`EditState`) — not just the cursor. The separation is what makes "restore where I was
+  *and* my undo stack" a clean feature instead of a Document-internals dump. (Persisting to a
+  session/workspace file is a later task; the classes are the prerequisite.)
+
+### Attach/Detach is smart — and already happening unnamed
+
+The single view *already* attaches/detaches documents: `document = GetActiveDocument()` on every
+switch **is** attach/detach, just unnamed and not carrying state cleanly. Phase 2 makes it
+explicit. On **attach**, the view/controller binds to a `Document` (shared `TextBuffer` +
+`EditState`) and a `ViewState` (this view's cursor/selection). Exactly who hands out the
+`ViewState` on attach — the Document's own, or one the view keeps per document — is the part left
+to mull over; for now the Document references a single `ViewState`, so attach just uses that.
+
+### This is the proven shape
+
+It is the **buffer/window split** every serious editor lands on: Emacs `buffer` vs `window`
+(buffer also keeps a `point` = the snapshot); VSCode `TextModel` vs per-editor serializable
+`viewState`; Vim `buffer` vs `window` plus the `'"` mark persisted for reopen.
+
+## Ordered steps — each compiles, keeps the verified-green set green
+
+- **Step P2.0 — Pin the contract.** Add `utests` cases asserting what must survive: switch away
+  from a document and back -> cursor/selection **and** undo history preserved (the single-view
+  behavior we must *not* regress).
+- **Step P2.1 — Extract `ViewState`.** Pull `lineCursor` (cursor) and `currentSelection` out of
+  `Document` into a `ViewState` class; `Document` holds a `ViewState::Ref` (referenced, not fused).
+  The editing ops in `Document` operate through the ref (`viewState->lineCursor`). Behavior
+  unchanged — purely drawing the class boundary. Green.
+- **Step P2.2 — Extract `EditState`.** Pull `UndoHistory historyBuffer` out of `Document` into an
+  `EditState` class (today it *is* just the history buffer); `Document` holds an `EditState::Ref`.
+  `BeginUndoItem`/`EndUndoItem`/`Undo` route through the ref. Behavior unchanged. Green.
+- **Step P2.3 — Controller becomes a view member.** Make `EditController` a value/`unique_ptr`
+  member of `EditorView` (like `TerminalController` in `TerminalView`), holding a **non-owning**
+  (borrowed) document handle. Add `EditController::Attach(Document::Ref)` / `Detach()`. Delete
+  `Node::controller` / `SetController` / `GetController` (`Workspace.h:209-214,315`) and stop
+  creating the controller in `EnsureDocumentForNode` (`Workspace.cpp:212-216`). `EditorView`
+  re-points its controller on document switch instead of `node->GetController()`. Green.
+
+After P2.1–P2.3 the seam is in place: two cleanly-separated state classes referenced by `Document`,
+and the controller owned by the view. Where the refs eventually point for multi-view is then a
+localized change, not a redesign.
+
+## Deferred — to mull over (explicitly NOT decided here)
+
+- **Where `ViewState` / `EditState` ultimately live and how multi-view shares them.** Likely shape:
+  `ViewState` becomes per-view (each view keyed by document), `EditState` stays per-document (shared
+  by all views of that buffer). But the ownership/keying (view-owns-`map<Document*,ViewState>` vs
+  Document-hands-out vs a separate session object) is left open by design. P2.1–P2.3 only draw the
+  class boundaries; they do not force this.
+- **Restore-on-reopen feature (wanted).** Persist each document's `ViewState` (cursor + selection)
+  **and** `EditState` (undo history) to a session/workspace file and restore them when the
+  folder/project is reopened. The class extraction in P2.1/P2.2 is the prerequisite; the
+  serialization + reopen wiring is its own later task.
+
+## Phase 2 — out of scope
+
+- Multi-view *implementation* (actual split-of-one-buffer UI). Only the seam (P2.1–P2.3) is built.
+- Cross-session persistence (restore-on-reopen above): the classes land in-memory on `Document`;
+  serializing them to disk and restoring on folder-reopen is a separate later task.
+- `EditController` dissolution (still the separately-decided later task; P2.3 only *relocates* the
+  controller, it does not fold it into the Document).
+
+## Out of scope (Phase 1)
 
 - Folder-monitor *implementation* (only the seam is built).
-- The `EditController` / `EditorModel` editing-logic boundary (kept as-is; this refactor is
-  about ownership and tree-coupling, not the edit pipeline).
+- The `EditController` / `EditorModel` editing-logic boundary (kept as-is; Phase 1 is about
+  ownership and tree-coupling, not the edit pipeline). Phase 2 relocates the controller but still
+  leaves the edit-pipeline split for the dissolution task.

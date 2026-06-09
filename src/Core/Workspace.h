@@ -531,8 +531,6 @@ namespace gedit {
         size_t NextModelIndex(size_t idxCurrent);
         size_t PreviousModelIndex(size_t idxCurrent);
 
-        void DumpToLog();
-
     protected:
         Node::Ref NewFolderNode(Node::Ref parent, const std::filesystem::path &pathName);
         // Adds a path-only file node (no model) under parent. The model is created lazily on open.
@@ -565,7 +563,6 @@ namespace gedit {
 
     private:
         gnilk::ILogger *logger = nullptr;
-        int newFileCounter = 0;
 
         int isChangeHandlerDisabled = 0;
 

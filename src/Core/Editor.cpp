@@ -846,12 +846,6 @@ const std::u32string &Editor::GetVersion() {
 //
 //
 //
-// Create a new model/buffer
-EditorModel::Ref Editor::NewModel(const std::string &name) {
-    return nullptr;
-}
-
-
 
 EditorModel::Ref Editor::OpenModelFromWorkspace(Workspace::Node::Ref workspaceNode) {
     // Lazily build the model if this is a path-only (folder-scanned) node.

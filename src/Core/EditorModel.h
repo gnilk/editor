@@ -120,9 +120,9 @@ namespace gedit {
     };
 
 
-    // This is the composite object linking TextBuffer/EditController together
-    // It also holds data to reconstruct the view of the text (topLine/bottomLine)
-    // Note: the cursor is owned by the view (for now) - but needs to move here, as it must follow..
+    // The open document: owns its TextBuffer and file identity (path), plus the editing state that
+    // sits between the text data and the view (cursor, selection, undo, search). The EditController
+    // references this model (it does not live here). Workspace owns the lifetime of open models.
     class EditorModel {
     public:
         using Ref = std::shared_ptr<EditorModel>;

@@ -39,8 +39,8 @@ void Document::OnViewInit(const Rect &rect) {
     verticalNavigationViewModel->HandleResize(rect);
 
     // Need support in controller to forward this to document...
-    lineCursor.viewTopLine = 0;
-    lineCursor.viewBottomLine = rect.Height();
+    viewState->lineCursor.viewTopLine = 0;
+    viewState->lineCursor.viewBottomLine = rect.Height();
 
     UpdateDocumentFromNavigation(true);
 
@@ -98,7 +98,7 @@ bool Document::JumpToSearchHit(size_t idxHit) {
     auto &result = searchResults[idxHit];
     GetCursor().position.y = result.idxLine;
     GetCursor().position.x = result.cursor_x;
-    lineCursor.idxActiveLine = result.idxLine;
+    viewState->lineCursor.idxActiveLine = result.idxLine;
     CaptureWantedColumn(GetCursor(), LineAt(result.idxLine));
 
     RefocusViewArea();
@@ -108,16 +108,16 @@ bool Document::JumpToSearchHit(size_t idxHit) {
 // Call this function to re-center the view area around the active line...
 // the active line (line in focus) is positioned 1/3 (of num-lines) down from top
 void Document::RefocusViewArea() {
-    if (!lineCursor.IsInside(lineCursor.idxActiveLine)) {
+    if (!viewState->lineCursor.IsInside(viewState->lineCursor.idxActiveLine)) {
 
-        auto height = lineCursor.Height();
+        auto height = viewState->lineCursor.Height();
         int margin = height / 3;
 
-        lineCursor.viewTopLine = lineCursor.idxActiveLine - margin;
-        if (lineCursor.viewTopLine < 0) {
-            lineCursor.viewTopLine = 0;
+        viewState->lineCursor.viewTopLine = viewState->lineCursor.idxActiveLine - margin;
+        if (viewState->lineCursor.viewTopLine < 0) {
+            viewState->lineCursor.viewTopLine = 0;
         }
-        lineCursor.viewBottomLine = lineCursor.viewTopLine + height;
+        viewState->lineCursor.viewBottomLine = viewState->lineCursor.viewTopLine + height;
     }
 }
 
@@ -207,9 +207,9 @@ bool Document::OnAction(const KeyPressAction &kpAction) {
         auto &clipboard = Editor::Instance().GetClipBoard();
         clipboard.CopyFromBuffer(GetTextBuffer(), selection.GetStart(), selection.GetEnd());
 
-        lineCursor.idxActiveLine = selection.GetStart().y;
-        lineCursor.cursor.position = selection.GetStart();
-        lineCursor.cursor.position.y -= lineCursor.viewTopLine;   // Translate to screen coords..
+        viewState->lineCursor.idxActiveLine = selection.GetStart().y;
+        viewState->lineCursor.cursor.position = selection.GetStart();
+        viewState->lineCursor.cursor.position.y -= viewState->lineCursor.viewTopLine;   // Translate to screen coords..
 
         DeleteSelection();
         CancelSelection();
@@ -330,50 +330,46 @@ bool Document::OnActionUnindent() {
 // Move all actions to controller/document...
 bool Document::OnActionUndo() {
     //document->GetTextBuffer()->Undo();
-    auto &lineCursor = GetLineCursor();
-    Undo(lineCursor.cursor, lineCursor.idxActiveLine);
+    Undo(viewState->lineCursor.cursor, viewState->lineCursor.idxActiveLine);
     // auto nLinesAfter = GetTextBuffer()->NumLines();
-    // //if ((nLinesAfter > lineCursor.viewBottomLine) && (lineCursor.Height() < nLinesAfter)
+    // //if ((nLinesAfter > viewState->lineCursor.viewBottomLine) && (viewState->lineCursor.Height() < nLinesAfter)
     // if (nLinesAfter > viewRect.Height()) {
     //     nLinesAfter = viewRect.Height();
     // }
-    // lineCursor.viewBottomLine = lineCursor.viewTopLine + nLinesAfter;
+    // viewState->lineCursor.viewBottomLine = viewState->lineCursor.viewTopLine + nLinesAfter;
 
 
     return true;
 }
 
 bool Document::OnActionLineHome() {
-    auto &lineCursor = GetLineCursor();
-    lineCursor.cursor.position.x = 0;
-    lineCursor.cursor.wantedColumn = 0;
+    viewState->lineCursor.cursor.position.x = 0;
+    viewState->lineCursor.cursor.wantedColumn = 0;
     return true;
 }
 
 bool Document::OnActionLineEnd() {
-    auto &lineCursor = GetLineCursor();
-    auto currentLine = LineAt(lineCursor.idxActiveLine);
+    auto currentLine = LineAt(viewState->lineCursor.idxActiveLine);
     if (currentLine == nullptr) {
         return true;
     }
     auto endpos = currentLine->Length();
-    lineCursor.cursor.position.x = endpos;
-    CaptureWantedColumn(lineCursor.cursor, currentLine);
+    viewState->lineCursor.cursor.position.x = endpos;
+    CaptureWantedColumn(viewState->lineCursor.cursor, currentLine);
     return true;
 }
 
 
 bool Document::OnActionCommitLine() {
-    auto &lineCursor = GetLineCursor();
 
     // Should newline be here
-    logger->Debug("OnActionCommitLine, Before: idxActive=%zu", lineCursor.idxActiveLine);
-    NewLine(lineCursor.idxActiveLine, lineCursor.cursor);
+    logger->Debug("OnActionCommitLine, Before: idxActive=%zu", viewState->lineCursor.idxActiveLine);
+    NewLine(viewState->lineCursor.idxActiveLine, viewState->lineCursor.cursor);
 
     // Need viewRect - this is the visible view of the renderer
     verticalNavigationViewModel->OnNavigateDown(1, viewRect, Lines().size());
     UpdateDocumentFromNavigation(true);
-    logger->Debug("OnActionCommitLine, After: idxActive=%zu", lineCursor.idxActiveLine);
+    logger->Debug("OnActionCommitLine, After: idxActive=%zu", viewState->lineCursor.idxActiveLine);
 
     //InvalidateView();
     return true;
@@ -390,7 +386,7 @@ bool Document::OnActionWordRight() {
     } else if ((attrib->idxOrigString < cursor.position.x) && (cursor.position.x < currentLine->Length())) {
         // Last token - position ourselves at the end
         auto endpos = currentLine->Length();
-        lineCursor.cursor.position.x = endpos;
+        viewState->lineCursor.cursor.position.x = endpos;
     } else {
         // Skip to beginning of next token...
         attrib++;
@@ -418,29 +414,27 @@ bool Document::OnActionWordLeft() {
 
 bool Document::OnActionGotoFirstLine() {
     logger->Debug("GotoFirstLine (def: CMD+Home), resetting cursor and view data!");
-    auto &lineCursor = GetLineCursor();
-    lineCursor.cursor.position.x = 0;
-    lineCursor.cursor.position.y = 0;
-    lineCursor.idxActiveLine = 0;
-    lineCursor.viewTopLine = 0;
+    viewState->lineCursor.cursor.position.x = 0;
+    viewState->lineCursor.cursor.position.y = 0;
+    viewState->lineCursor.idxActiveLine = 0;
+    viewState->lineCursor.viewTopLine = 0;
     // Need viewRect
-    lineCursor.viewBottomLine = viewRect.Height();
+    viewState->lineCursor.viewBottomLine = viewRect.Height();
 
     return true;
 }
 bool Document::OnActionGotoLastLine() {
     logger->Debug("GotoLastLine (def: CMD+End), set cursor to last line!");
-    auto &lineCursor = GetLineCursor();
-    lineCursor.cursor.position.x = 0;
-    lineCursor.cursor.position.y = viewRect.Height()-1;
-    lineCursor.idxActiveLine = Lines().size()-1;
-    lineCursor.viewBottomLine = Lines().size();
-    lineCursor.viewTopLine = lineCursor.viewBottomLine - viewRect.Height();
-    if (lineCursor.viewTopLine < 0) {
-        lineCursor.viewTopLine = 0;
+    viewState->lineCursor.cursor.position.x = 0;
+    viewState->lineCursor.cursor.position.y = viewRect.Height()-1;
+    viewState->lineCursor.idxActiveLine = Lines().size()-1;
+    viewState->lineCursor.viewBottomLine = Lines().size();
+    viewState->lineCursor.viewTopLine = viewState->lineCursor.viewBottomLine - viewRect.Height();
+    if (viewState->lineCursor.viewTopLine < 0) {
+        viewState->lineCursor.viewTopLine = 0;
     }
 
-    logger->Debug("Cursor: %d:%d, idxActiveLine: %d",lineCursor.cursor.position.x, lineCursor.cursor.position.y, lineCursor.idxActiveLine);
+    logger->Debug("Cursor: %d:%d, idxActiveLine: %d",viewState->lineCursor.cursor.position.x, viewState->lineCursor.cursor.position.y, viewState->lineCursor.idxActiveLine);
 
     return true;
 }
@@ -489,15 +483,15 @@ void Document::UpdateDocumentFromNavigation(bool updateCursor) {
         return;
     }
 
-    auto currentLine = LineAt(lineCursor.idxActiveLine);
+    auto currentLine = LineAt(viewState->lineCursor.idxActiveLine);
     if (currentLine == nullptr) {
-        lineCursor.cursor.position.x = 0;
-        lineCursor.cursor.position.y = 0;
-        lineCursor.cursor.wantedColumn = 0;
+        viewState->lineCursor.cursor.position.x = 0;
+        viewState->lineCursor.cursor.position.y = 0;
+        viewState->lineCursor.cursor.wantedColumn = 0;
         return;
     }
 
-    ApplyWantedColumn(lineCursor.cursor, currentLine);
+    ApplyWantedColumn(viewState->lineCursor.cursor, currentLine);
 }
 
 int Document::GetTabSize() {
@@ -553,7 +547,6 @@ bool Document::OnActionLineDown(const KeyPressAction &kpAction) {
     if (currentLine == nullptr) {
         return true;
     }
-    auto &lineCursor = GetLineCursor();
     auto &cursor = GetCursor();
     verticalNavigationViewModel->OnNavigateDown(1, viewRect, Lines().size());
     UpdateDocumentFromNavigation(true);
@@ -572,10 +565,9 @@ bool Document::OnActionLineUp() {
 }
 
 bool Document::OnActionGotoTopLine() {
-    auto &lineCursor = GetLineCursor();
 
-    lineCursor.cursor.position.y = 0;
-    lineCursor.idxActiveLine = lineCursor.viewTopLine;
+    viewState->lineCursor.cursor.position.y = 0;
+    viewState->lineCursor.idxActiveLine = viewState->lineCursor.viewTopLine;
     //logger->Debug("GotoTopLine, new cursor=(%d:%d)", document->cursor.position.x, document->cursor.position.y);
     return true;
 }
@@ -583,9 +575,8 @@ bool Document::OnActionGotoTopLine() {
 bool Document::OnActionGotoBottomLine() {
     //logger->Debug("GotoBottomLine (def: PageDown+CMDKey), cursor=(%d:%d)", document->cursor.position.x, document->cursor.position.y);
 
-    auto &lineCursor = GetLineCursor();
-    lineCursor.cursor.position.y = viewRect.Height()-1;
-    lineCursor.idxActiveLine = lineCursor.viewBottomLine-1;
+    viewState->lineCursor.cursor.position.y = viewRect.Height()-1;
+    viewState->lineCursor.idxActiveLine = viewState->lineCursor.viewBottomLine-1;
 
     //logger->Debug("GotoBottomLine, new  cursor=(%d:%d)", document->cursor.position.x, document->cursor.position.y);
     return true;
@@ -703,7 +694,7 @@ Job::Ref Document::UpdateSyntaxForRegion(size_t idxStartLine, size_t idxEndLine)
 
 Job::Ref Document::UpdateSyntaxForActiveLineRegion() {
 
-    auto idxActiveLine = lineCursor.idxActiveLine;
+    auto idxActiveLine = viewState->lineCursor.idxActiveLine;
     size_t idxStartParse = (idxActiveLine>2)?idxActiveLine-2:0;
     size_t idxEndParse = (textBuffer->NumLines() > (idxActiveLine + 2))?idxActiveLine+2:textBuffer->NumLines();
     logger->Debug("Syntax update for active line region, active line = %zu", idxActiveLine);
@@ -785,8 +776,8 @@ void Document::DeleteRange(const Point &startPos, const Point &endPos) {
 
 
 void Document::DeleteSelection() {
-    auto startPos = currentSelection.GetStart();
-    auto endPos = currentSelection.GetEnd();
+    auto startPos = viewState->currentSelection.GetStart();
+    auto endPos = viewState->currentSelection.GetEnd();
 
     DeleteRange(startPos, endPos);
 }
@@ -803,12 +794,12 @@ void Document::CommentSelectionOrLine() {
     }
 
     if (!IsSelectionActive()) {
-        AddLineComment(lineCursor.idxActiveLine, lineCursor.idxActiveLine+1, lineCommentPrefix);
+        AddLineComment(viewState->lineCursor.idxActiveLine, viewState->lineCursor.idxActiveLine+1, lineCommentPrefix);
         return;
     }
 
-    auto start = currentSelection.GetStart();
-    auto end = currentSelection.GetEnd();
+    auto start = viewState->currentSelection.GetStart();
+    auto end = viewState->currentSelection.GetEnd();
     AddLineComment(start.y, end.y, lineCommentPrefix);
 }
 
@@ -818,11 +809,11 @@ void Document::IndentSelectionOrLine() {
     }
 
     if (!IsSelectionActive()) {
-        IndentLines(lineCursor.idxActiveLine, lineCursor.idxActiveLine + 1);
+        IndentLines(viewState->lineCursor.idxActiveLine, viewState->lineCursor.idxActiveLine + 1);
         return;
     }
-    auto start = currentSelection.GetStart();
-    auto end = currentSelection.GetEnd();
+    auto start = viewState->currentSelection.GetStart();
+    auto end = viewState->currentSelection.GetEnd();
     IndentLines(start.y, end.y);
 }
 
@@ -833,11 +824,11 @@ void Document::UnindentSelectionOrLine() {
     }
 
     if (!IsSelectionActive()) {
-        UnindentLines(lineCursor.idxActiveLine, lineCursor.idxActiveLine + 1);
+        UnindentLines(viewState->lineCursor.idxActiveLine, viewState->lineCursor.idxActiveLine + 1);
         return;
     }
-    auto start = currentSelection.GetStart();
-    auto end = currentSelection.GetEnd();
+    auto start = viewState->currentSelection.GetStart();
+    auto end = viewState->currentSelection.GetEnd();
     UnindentLines(start.y, end.y);
 }
 
@@ -896,26 +887,26 @@ void Document::UnindentLines(size_t idxLineStart, size_t idxLineEnd) {
 }
 
 void Document::AddTab() {
-    auto line = textBuffer->LineAt(lineCursor.idxActiveLine);
+    auto line = textBuffer->LineAt(viewState->lineCursor.idxActiveLine);
     auto undoItem = BeginUndoItem();
 
     auto tabSize = textBuffer->GetLanguage().GetTabSize();
 
     for (int i = 0; i < tabSize; i++) {
-        AddCharToLineNoUndo(lineCursor.cursor, line, ' ');
+        AddCharToLineNoUndo(viewState->lineCursor.cursor, line, ' ');
     }
     EndUndoItem(undoItem);
 }
 
 void Document::DelTab() {
-    auto line = textBuffer->LineAt(lineCursor.idxActiveLine);
+    auto line = textBuffer->LineAt(viewState->lineCursor.idxActiveLine);
     auto nDel = textBuffer->GetLanguage().GetTabSize();
-    if(lineCursor.cursor.position.x < nDel) {
-        nDel = lineCursor.cursor.position.x;
+    if(viewState->lineCursor.cursor.position.x < nDel) {
+        nDel = viewState->lineCursor.cursor.position.x;
     }
     auto undoItem = BeginUndoItem();
     for (int i = 0; i < nDel; i++) {
-        RemoveCharFromLineNoUndo(lineCursor.cursor, line);
+        RemoveCharFromLineNoUndo(viewState->lineCursor.cursor, line);
     }
     EndUndoItem(undoItem);
 }
@@ -954,18 +945,18 @@ void Document::PasteFromClipboard() {
     auto lineCount = clipboard.Top()->GetPasteLineCount();
     size_t linesAdded = (lineCount > 0) ? (lineCount - 1) : 0;
 
-    auto ptWhere = lineCursor.cursor.position;
-    ptWhere.y += (int)lineCursor.viewTopLine;
+    auto ptWhere = viewState->lineCursor.cursor.position;
+    ptWhere.y += (int)viewState->lineCursor.viewTopLine;
 
     UndoHistory::UndoItem::Ref undoItem;
     if (linesAdded == 0) {
         // In-place splice on a single line: snapshot and restore just that one line.
-        undoItem = BeginUndoFromLineRange(lineCursor.idxActiveLine, lineCursor.idxActiveLine + 1);
+        undoItem = BeginUndoFromLineRange(viewState->lineCursor.idxActiveLine, viewState->lineCursor.idxActiveLine + 1);
         undoItem->SetRestoreAction(UndoHistory::kRestoreAction::kClearAndAppend);
     } else {
         // Multi-line splice: the paste inserts 'linesAdded' new lines; undo deletes them and
         // restores the original target line.
-        undoItem = BeginUndoFromLineRange(lineCursor.idxActiveLine, lineCursor.idxActiveLine + linesAdded);
+        undoItem = BeginUndoFromLineRange(viewState->lineCursor.idxActiveLine, viewState->lineCursor.idxActiveLine + linesAdded);
         undoItem->SetRestoreAction(UndoHistory::kRestoreAction::kDeleteBeforeInsert);
     }
 
@@ -974,11 +965,11 @@ void Document::PasteFromClipboard() {
     EndUndoItem(undoItem);
 
     // Reparse every line the splice touched (target line through the last inserted line).
-    textBuffer->ReparseRegion(lineCursor.idxActiveLine, lineCursor.idxActiveLine + linesAdded + 1);
+    textBuffer->ReparseRegion(viewState->lineCursor.idxActiveLine, viewState->lineCursor.idxActiveLine + linesAdded + 1);
 
     // Land the caret at the end of the pasted text (PasteToBuffer reports where that is).
-    lineCursor.idxActiveLine += linesAdded;
-    lineCursor.cursor.position.y += (int)linesAdded;
-    lineCursor.cursor.position.x = ptEnd.x;
-    CaptureWantedColumn(lineCursor.cursor, ActiveLine());
+    viewState->lineCursor.idxActiveLine += linesAdded;
+    viewState->lineCursor.cursor.position.y += (int)linesAdded;
+    viewState->lineCursor.cursor.position.x = ptEnd.x;
+    CaptureWantedColumn(viewState->lineCursor.cursor, ActiveLine());
 }

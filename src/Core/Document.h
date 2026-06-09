@@ -12,6 +12,7 @@
 #include "Core/Rect.h"
 #include "Core/UndoHistory.h"
 #include "Core/KeyMapping.h"
+#include "Core/ViewState.h"
 
 #include <memory>
 
@@ -23,102 +24,7 @@ namespace gedit {
         size_t cursor_x;
         size_t length;
     };
-    // NOTE: Selection coordinates are in TextBuffer coordinates!!!!!
-    struct Selection {
-        bool IsSelected(int x, int y) {
-            if (!isActive) return false;
-            if (y < startPos.y) return false;
-            if (y > endPos.y) return false;
-
-            if ((y == startPos.y) && (x < startPos.x)) return false;
-            if ((y == endPos.y) && (x > endPos.x)) return false;
-
-            return true;
-        }
-
-        bool IsLineSelected(int y) {
-            return IsSelected(0, y);
-        }
-
-        bool IsActive() const {
-            return isActive;
-        }
-        size_t GetStartLine() const {
-            // Did we select backwards???
-            if (endPos.y > startPos.y) {
-                return startPos.y;
-            }
-            return endPos.y;
-        }
-        size_t GetStartLine() {
-            // Did we select backwards???
-            if (endPos.y > startPos.y) {
-                return startPos.y;
-            }
-            return endPos.y;
-        }
-
-        //
-        // This returns the coords sorted!!!
-        //
-        const Point &GetStart() {
-            if (endPos > startPos) {
-                return startPos;
-            }
-            return endPos;
-        }
-
-        const Point &GetStart() const {
-            if (endPos > startPos) {
-                return startPos;
-            }
-            return endPos;
-        }
-
-        const Point &GetEnd() {
-            if (endPos < startPos) {
-                return startPos;
-            }
-            return endPos;
-        }
-
-        const Point &GetEnd() const {
-            if (endPos < startPos) {
-                return startPos;
-            }
-            return endPos;
-        }
-        // Setters
-        void SetStart(const Point &pt) {
-            startPos = pt;
-        }
-        void SetStartYPos(const size_t yp) {
-            startPos.y = yp;
-        }
-        void SetEndYPos(const size_t yp) {
-            endPos.y = yp;
-        }
-        void SetEnd(const Point &pt) {
-            endPos = pt;
-        }
-        void SetStartLine(const size_t startLine) {
-            idxStartLine = startLine;
-        }
-        void SetActive(const bool newActive) {
-            isActive = newActive;
-        }
-
-
-
-    private:
-
-        bool isActive = false;
-        size_t idxStartLine;
-        Point startPos = {};    // buffer coords
-        Point endPos = {};      // buffer coords
-
-    };
-
+    // NOTE: 'Selection' moved to ViewState.h (Phase 2 - it is per-view state, not document data).
 
     // The open document: owns its TextBuffer and file identity (path), plus the editing state that
     // sits between the text data and the view (cursor, selection, undo, search). The EditController
@@ -157,7 +63,7 @@ namespace gedit {
             return textBuffer->LineAt(idxLine);
         }
         __inline Line::Ref ActiveLine() {
-            return textBuffer->LineAt(lineCursor.idxActiveLine);
+            return textBuffer->LineAt(viewState->lineCursor.idxActiveLine);
         }
 
         void AddLineComment(size_t idxLineStart, size_t idxLineEnd, const std::u32string &lineCommentPrefix);
@@ -178,7 +84,7 @@ namespace gedit {
         // on-screen column across lines with differing tab/space layouts. Capture stores the visual
         // column of the cursor; Apply maps a stored visual column back to a character index.
         void CaptureWantedColumn(Cursor &cursor, const Line::Ref &line);
-        void CaptureWantedColumn() { CaptureWantedColumn(lineCursor.cursor, ActiveLine()); }
+        void CaptureWantedColumn() { CaptureWantedColumn(viewState->lineCursor.cursor, ActiveLine()); }
         void ApplyWantedColumn(Cursor &cursor, const Line::Ref &line);
 
 
@@ -229,14 +135,14 @@ namespace gedit {
         bool SaveForce();
 
         Cursor &GetCursor() {
-            return lineCursor.cursor;
+            return viewState->lineCursor.cursor;
         }
 
         LineCursor &GetLineCursor() {
-            return lineCursor;
+            return viewState->lineCursor;
         }
         LineCursor::Ref  GetLineCursorRef() {
-            return &lineCursor;
+            return &viewState->lineCursor;
         }
 
         void PasteFromClipboard();
@@ -246,26 +152,26 @@ namespace gedit {
 
         // Selection functions - not sure these must be exposed - perhaps for API purposes?
         void BeginSelection() {
-            currentSelection.SetActive(true);
-            currentSelection.SetStartLine(lineCursor.idxActiveLine);
-            currentSelection.SetStart(lineCursor.cursor.position);
-            currentSelection.SetEnd(lineCursor.cursor.position);
+            viewState->currentSelection.SetActive(true);
+            viewState->currentSelection.SetStartLine(viewState->lineCursor.idxActiveLine);
+            viewState->currentSelection.SetStart(viewState->lineCursor.cursor.position);
+            viewState->currentSelection.SetEnd(viewState->lineCursor.cursor.position);
 
-            currentSelection.SetStartYPos(lineCursor.idxActiveLine);
-            currentSelection.SetEndYPos(lineCursor.idxActiveLine);
+            viewState->currentSelection.SetStartYPos(viewState->lineCursor.idxActiveLine);
+            viewState->currentSelection.SetEndYPos(viewState->lineCursor.idxActiveLine);
         }
         __inline bool IsSelectionActive() {
-            return currentSelection.IsActive();
+            return viewState->currentSelection.IsActive();
         }
         __inline const Selection &GetSelection() {
-            return currentSelection;
+            return viewState->currentSelection;
         }
         __inline void CancelSelection() {
-            currentSelection.SetActive(false);
+            viewState->currentSelection.SetActive(false);
         }
         __inline void RestoreCursorFromSelection() {
-            lineCursor.idxActiveLine = currentSelection.GetStartLine();
-            lineCursor.cursor.position = currentSelection.GetStart();
+            viewState->lineCursor.idxActiveLine = viewState->currentSelection.GetStartLine();
+            viewState->lineCursor.cursor.position = viewState->currentSelection.GetStart();
 
             verticalNavigationViewModel->OnNavigateDown(0, viewRect, Lines().size());
         }
@@ -274,8 +180,8 @@ namespace gedit {
     protected:
         void UpdateSelection() {
             // perhaps check if active...
-            Point newEnd(lineCursor.cursor.position.x, lineCursor.idxActiveLine);
-            currentSelection.SetEnd(newEnd);
+            Point newEnd(viewState->lineCursor.cursor.position.x, viewState->lineCursor.idxActiveLine);
+            viewState->currentSelection.SetEnd(newEnd);
 
         }
 
@@ -317,8 +223,10 @@ namespace gedit {
         size_t idxActiveSearchHit = 0;
     private:
         gnilk::Log::Ref logger;
-        LineCursor lineCursor;
-        Selection currentSelection = {};
+        // Per-view state (cursor + selection), referenced not fused. See ViewState.h. Today a
+        // document references exactly one; a split/side-by-side view will later give each view-item
+        // its own and leave the document holding a saved snapshot.
+        ViewState::Ref viewState = ViewState::Create();
         VerticalNavigationViewModel::Ref verticalNavigationViewModel = nullptr;
         Rect viewRect = {};
         UndoHistory historyBuffer;

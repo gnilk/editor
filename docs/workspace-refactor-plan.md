@@ -397,10 +397,29 @@ It is the **buffer/window split** every serious editor lands on: Emacs `buffer` 
   creating the controller in `EnsureDocumentForNode` (`Workspace.cpp:212-216`). `EditorView`
   re-points (attaches) its controller on document switch instead of `node->GetController()`. Green.
 
-After P2.1–P2.4 the seam is in place: two cleanly-separated state classes referenced by `Document`, a
-container wrapping the single editing item, and a slim controller owned by that item (raw KeyPress
-only; Actions go straight to the Document). Where `ViewState` eventually points and when the container
-grows to N items are then localized, additive changes — not a redesign.
+- **Step P2.5 — Rename `KeyPressAction → EditorAction` and move it to its own header.** Mechanical,
+  codebase-wide rename of the *struct* (`KeyMapping.h:25`) — the resolved-action bundle that the
+  keymap hands to the UI. The `kAction` enum keeps its name (already un-prefixed). `EditorAction` is
+  chosen over `DocumentAction` (too narrow — `kAction` spans view-resize/-cycle, terminal, search,
+  modals, `Action.h:80-87`, not just documents) and over `SemanticAction` (accurate but abstract).
+  This makes the P2.4 rule self-evident: `Document::OnAction(EditorAction)` is plainly semantic-action
+  handling, not keypress awareness. The struct still carries its originating `keyPress` (fine — by
+  dispatch time the action is already resolved).
+  **Move the definition out of `KeyMapping.h`** — it does not belong to the keymap, every action
+  consumer (Document, views, controllers) needs it but most do not need `KeyMapping`. Put it in a
+  dedicated **`EditorAction.h`** (alongside `Action.h`), which only needs to include `Action.h`
+  (`kAction`/`kActionModifier`) + `KeyPress.h` — both of which `KeyMapping.h` already pulls in, so no
+  new cycle is introduced; `KeyMapping.h` then includes `EditorAction.h`. (Prefer the dedicated header
+  over `Editor.h`: `Editor.h` is the heavy app-singleton header and would drag a cycle into low-level
+  action consumers.) Isolated last commit so the rename + move diff stays separate from the structural
+  changes. Green.
+
+After P2.1–P2.5 the seam is in place: two cleanly-separated state classes referenced by `Document`, a
+container wrapping the single editing item, a slim controller owned by that item (raw KeyPress only;
+Actions go straight to the Document), and an `EditorAction` type — in its own header — that says what
+it is. Where
+`ViewState` eventually points and when the container grows to N items are then localized, additive
+changes — not a redesign.
 
 ## Deferred — to mull over (explicitly NOT decided here)
 
@@ -424,9 +443,7 @@ grows to N items are then localized, additive changes — not a redesign.
   is the keypress-aware part we deliberately keep out of `Document`, and it carries the shared
   BaseController helpers). Whether to later extract those helpers into a free utility and drop the
   class entirely stays a separate decision.
-- **`KeyPressAction → EditorAction` enum rename.** Noted as the thing that would make
-  "Actions live in the Document" self-evident; a mechanical, codebase-wide rename left for its own
-  commit, not part of Phase 2.
+  (The `KeyPressAction → EditorAction` rename is now **Step P2.5**, an isolated last commit.)
 
 ## Out of scope (Phase 1)
 

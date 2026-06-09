@@ -151,6 +151,22 @@ behind one mutator**:
   point `DocumentAPI` at `Document` (currently wraps a `Node`). Isolated commit so the
   conceptual diff in 1–6 stays readable.
 
+## Decisions / deviations
+
+- **Controller ownership (resolved 2026-06-09).** A first cut of Step 2 made `EditorModel`
+  *own* its `EditController` (with a non-owning back-pointer). That created a Model<->Controller
+  cycle, which is a no-go. Decision: keep the dependency **one-way, `EditController -> EditorModel`**
+  — the controller owns the model, because the model is local to that controller chain. This
+  matches how MVC actually fits here: it made sense for the editor, but never for the other
+  controllers (they have no model — which is also why `WorkspaceView` never got a controller).
+  Step 2 was reverted; the model does **not** own the controller.
+- **`EditController` is half-dead** (mostly delegates to the model) and is a candidate for
+  dissolution **later** — explicitly not now. When revisited, the key finding: `BaseController`
+  is not used polymorphically anywhere; it is a *single-line-edit helper bag*
+  (`DefaultEditLine/DefaultEditSpecial/AddCharToLine/RemoveCharFromLine`) that controllers inherit
+  — and `QuickCommandController` just *composes* one. The clean path is to extract those helpers
+  into a model-agnostic utility and fold `EditController`'s remaining pipeline into the model.
+
 ## Out of scope
 
 - Folder-monitor *implementation* (only the seam is built).

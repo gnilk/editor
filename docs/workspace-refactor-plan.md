@@ -178,12 +178,24 @@ behind one mutator**:
   `EditorModel -> Document` (files, includes, guard, CMake, logger category). The JS-facing
   `DocumentAPI` still wraps a `Workspace::Node`, not the `Document`. Re-pointing it is a behavioral
   change (e.g. SaveAs/rename must keep the tree node's path in sync, which the Node currently owns),
-  so it is its own task rather than part of the mechanical rename. Local variable names (`editorModel`)
-  and unrelated identifiers (`SetEditorModel`, `LoadEditorModelFromFile`) were intentionally left.
+  so it is its own task rather than part of the mechanical rename.
+
+- **Step 7b - Model-named identifier sweep (2026-06-09).** After the class rename, the
+  `Model`-named functions/members read wrong, so they were renamed to `Document` across the
+  codebase (all backends under `src/Core`, `main.cpp`, tests): e.g. `NewModel->NewDocument`,
+  `AddOpenModel->AddOpenDocument`, `GetActiveModel->GetActiveDocument`, `IsModelOpen->
+  IsDocumentOpen`, `GetNodeFromModel->GetNodeFromDocument`, `EnsureModelForNode->
+  EnsureDocumentForNode`, `Node::Get/SetModel->Get/SetDocument`, `FindModel->FindDocument`,
+  members `openModels->openDocuments` / `activeModel->activeDocument` / `editorModel->document`,
+  logger `"EditModel"->"Document"`. Intentionally left: the navigation view-model
+  (`VerticalNavigationViewModel`/`VNavModel`); the bare `model` param/member token (pervasive,
+  also in third-party code); node-typed locals (`nodeModel`/`nodeForModel`); and historical TODO
+  comments in `main.cpp`. JS API surface (`DocumentAPI`/`EditorAPI` names) unchanged.
 
 ## Status
 
-Steps 1-7 complete and on `dev_workspace` (each its own commit, verified-green set passing).
+Steps 1-7 (+7b) complete and on `dev_workspace` (each its own commit, verified-green set passing).
+The class is `Document` and the `Model`-named API has been swept to `Document` naming.
 Deferred follow-ups: chdir-per-root resolution, DocumentAPI->Document re-wrapping, and the
 (separately-decided) EditController dissolution.
 

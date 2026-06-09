@@ -46,13 +46,13 @@ void GutterView::DrawViewContents() {
     if (GetParentView() == nullptr) {
         return;
     }
-    auto editorModel = Editor::Instance().GetActiveModel();
-    if (editorModel == nullptr) {
+    auto document = Editor::Instance().GetActiveDocument();
+    if (document == nullptr) {
         return;
     }
 
 //    auto logger = gnilk::Logger::GetLogger("GutterView");
-//    logger->Debug("Active Line: %d", editorModel->idxActiveLine);
+//    logger->Debug("Active Line: %d", document->idxActiveLine);
 
     auto &dc = window->GetContentDC();
 
@@ -63,15 +63,15 @@ void GutterView::DrawViewContents() {
     dc.Clear();
 
     char str[64];
-    auto &lineCursor = editorModel->GetLineCursor();
+    auto &lineCursor = document->GetLineCursor();
     for(int i=0;i<dc.GetRect().Height();i++) {
         size_t idxLine = i + lineCursor.viewTopLine;
 
-        if (idxLine >= editorModel->Lines().size()) {
+        if (idxLine >= document->Lines().size()) {
             break;
         }
 
-        auto line = editorModel->LineAt(idxLine);
+        auto line = document->LineAt(idxLine);
         snprintf(str, 64, "%6zu", idxLine);
         if (idxLine == lineCursor.idxActiveLine) {
             snprintf(str, 64, "%6zu  *",  idxLine);

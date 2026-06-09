@@ -39,7 +39,7 @@ DLL_EXPORT int test_cpplang(ITesting *t) {
 DLL_EXPORT int test_cpplang_include(ITesting *t) {
     auto workspace = Editor::Instance().GetWorkspace();
     TR_ASSERT(t, workspace != nullptr);
-    auto model = workspace->NewModel("test.cpp");
+    auto model = workspace->NewDocument("test.cpp");
     TR_ASSERT(t, model != nullptr);
     auto buffer = model->GetTextBuffer();
     TR_ASSERT(t, buffer != nullptr);
@@ -76,7 +76,7 @@ DLL_EXPORT int test_cpplang_include(ITesting *t) {
     }
     TR_ASSERT(t, hasAngleString);
 
-    TR_ASSERT(t, workspace->RemoveModel(model->GetModel()));
+    TR_ASSERT(t, workspace->RemoveDocument(model->GetDocument()));
     return kTR_Pass;
 }
 
@@ -93,7 +93,7 @@ DLL_EXPORT int test_cpplang_ppmacro(ITesting *t) {
 
     auto workspace = Editor::Instance().GetWorkspace();
     TR_ASSERT(t, workspace != nullptr);
-    auto model = workspace->NewModel("test.cpp");
+    auto model = workspace->NewDocument("test.cpp");
     TR_ASSERT(t, model != nullptr);
     auto buffer = model->GetTextBuffer();
     TR_ASSERT(t, buffer != nullptr);
@@ -125,7 +125,7 @@ DLL_EXPORT int test_cpplang_ppmacro(ITesting *t) {
     TR_ASSERT(t, !lineHasClass(codeLine, kLanguageTokenClass::kPreProcessor));
     TR_ASSERT(t, !lineHasClass(codeLine, kLanguageTokenClass::kMacroIdentifier));
 
-    TR_ASSERT(t, workspace->RemoveModel(model->GetModel()));
+    TR_ASSERT(t, workspace->RemoveDocument(model->GetDocument()));
     return kTR_Pass;
 }
 
@@ -136,7 +136,7 @@ DLL_EXPORT int test_cpplang_ppnoleak(ITesting *t) {
 
     auto workspace = Editor::Instance().GetWorkspace();
     TR_ASSERT(t, workspace != nullptr);
-    auto model = workspace->NewModel("test.cpp");
+    auto model = workspace->NewDocument("test.cpp");
     TR_ASSERT(t, model != nullptr);
     auto buffer = model->GetTextBuffer();
     TR_ASSERT(t, buffer != nullptr);
@@ -165,7 +165,7 @@ DLL_EXPORT int test_cpplang_ppnoleak(ITesting *t) {
     auto defineLine = buffer->LineAt(3);
     TR_ASSERT(t, defineLine->Attributes()[0].tokenClass == kLanguageTokenClass::kPreProcessor); // '#'
 
-    TR_ASSERT(t, workspace->RemoveModel(model->GetModel()));
+    TR_ASSERT(t, workspace->RemoveDocument(model->GetDocument()));
     return kTR_Pass;
 }
 
@@ -174,7 +174,7 @@ DLL_EXPORT int test_cpplang_indent(ITesting *t) {
 
     auto workspace = Editor::Instance().GetWorkspace();
     TR_ASSERT(t, workspace != nullptr);
-    auto model = workspace->NewModel("test.cpp");
+    auto model = workspace->NewDocument("test.cpp");
     TR_ASSERT(t, model != nullptr);
     auto buffer = model->GetTextBuffer();
     TR_ASSERT(t, buffer != nullptr);
@@ -196,7 +196,7 @@ DLL_EXPORT int test_cpplang_indent(ITesting *t) {
         TR_ASSERT(t, line->GetIndent() == expectedIndent[i]);
     }
 
-    TR_ASSERT(t, workspace->RemoveModel(model->GetModel()));
+    TR_ASSERT(t, workspace->RemoveDocument(model->GetDocument()));
 
     return kTR_Pass;
 }
@@ -208,7 +208,7 @@ DLL_EXPORT int test_cpplang_elseindent(ITesting *t) {
 
     auto workspace = Editor::Instance().GetWorkspace();
     TR_ASSERT(t, workspace != nullptr);
-    auto model = workspace->NewModel("test.cpp");
+    auto model = workspace->NewDocument("test.cpp");
     TR_ASSERT(t, model != nullptr);
     auto buffer = model->GetTextBuffer();
     TR_ASSERT(t, buffer != nullptr);
@@ -230,7 +230,7 @@ DLL_EXPORT int test_cpplang_elseindent(ITesting *t) {
         TR_ASSERT(t, line->GetIndent() == correntIndent[i]);
     }
 
-    TR_ASSERT(t, workspace->RemoveModel(model->GetModel()));
+    TR_ASSERT(t, workspace->RemoveDocument(model->GetDocument()));
 
     return kTR_Pass;
 
@@ -257,7 +257,7 @@ DLL_EXPORT int test_cpplang_chardecl(ITesting *t) {
 
     auto workspace = Editor::Instance().GetWorkspace();
     TR_ASSERT(t, workspace != nullptr);
-    auto model = workspace->NewModel("test.cpp");
+    auto model = workspace->NewDocument("test.cpp");
     TR_ASSERT(t, model != nullptr);
     auto buffer = model->GetTextBuffer();
     TR_ASSERT(t, buffer != nullptr);
@@ -269,7 +269,7 @@ DLL_EXPORT int test_cpplang_chardecl(ITesting *t) {
     DumpLineData(buffer->LineAt(1));
     //DumpLineData(buffer->LineAt(2));
 
-    TR_ASSERT(t, workspace->RemoveModel(model->GetModel()));
+    TR_ASSERT(t, workspace->RemoveDocument(model->GetDocument()));
 
     return kTR_Pass;
 }
@@ -280,7 +280,7 @@ DLL_EXPORT int test_cpplang_charop(ITesting *t) {
 
     auto workspace = Editor::Instance().GetWorkspace();
     TR_ASSERT(t, workspace != nullptr);
-    auto model = workspace->NewModel("test.cpp");
+    auto model = workspace->NewDocument("test.cpp");
     TR_ASSERT(t, model != nullptr);
     auto buffer = model->GetTextBuffer();
     TR_ASSERT(t, buffer != nullptr);
@@ -314,7 +314,7 @@ DLL_EXPORT int test_cpplang_reparseregion(ITesting *t) {
 DLL_EXPORT int test_cpplang_reparseregion_bounds_normal(ITesting *t) {
     auto workspace = Editor::Instance().GetWorkspace();
     TR_ASSERT(t, workspace != nullptr);
-    auto model = workspace->NewModel("test.cpp");
+    auto model = workspace->NewDocument("test.cpp");
     TR_ASSERT(t, model != nullptr);
     auto buffer = model->GetTextBuffer();
     TR_ASSERT(t, buffer != nullptr);
@@ -333,7 +333,7 @@ DLL_EXPORT int test_cpplang_reparseregion_bounds_normal(ITesting *t) {
     TR_ASSERT(t, start == 5);
     TR_ASSERT(t, end == 7);
 
-    TR_ASSERT(t, workspace->RemoveModel(model->GetModel()));
+    TR_ASSERT(t, workspace->RemoveDocument(model->GetDocument()));
     return kTR_Pass;
 }
 
@@ -341,7 +341,7 @@ DLL_EXPORT int test_cpplang_reparseregion_bounds_normal(ITesting *t) {
 DLL_EXPORT int test_cpplang_reparseregion_bounds_blockcomment(ITesting *t) {
     auto workspace = Editor::Instance().GetWorkspace();
     TR_ASSERT(t, workspace != nullptr);
-    auto model = workspace->NewModel("test.cpp");
+    auto model = workspace->NewDocument("test.cpp");
     TR_ASSERT(t, model != nullptr);
     auto buffer = model->GetTextBuffer();
     TR_ASSERT(t, buffer != nullptr);
@@ -374,7 +374,7 @@ DLL_EXPORT int test_cpplang_reparseregion_bounds_blockcomment(ITesting *t) {
     TR_ASSERT(t, start == 4);
     TR_ASSERT(t, end == 8);
 
-    TR_ASSERT(t, workspace->RemoveModel(model->GetModel()));
+    TR_ASSERT(t, workspace->RemoveDocument(model->GetDocument()));
     return kTR_Pass;
 }
 
@@ -382,7 +382,7 @@ DLL_EXPORT int test_cpplang_reparseregion_bounds_blockcomment(ITesting *t) {
 DLL_EXPORT int test_cpplang_reparseregion_classification(ITesting *t) {
     auto workspace = Editor::Instance().GetWorkspace();
     TR_ASSERT(t, workspace != nullptr);
-    auto model = workspace->NewModel("test.cpp");
+    auto model = workspace->NewDocument("test.cpp");
     TR_ASSERT(t, model != nullptr);
     auto buffer = model->GetTextBuffer();
     TR_ASSERT(t, buffer != nullptr);
@@ -413,7 +413,7 @@ DLL_EXPORT int test_cpplang_reparseregion_classification(ITesting *t) {
     TR_ASSERT(t, normalLine->Attributes().size() > 0);
     TR_ASSERT(t, normalLine->Attributes()[0].tokenClass == kLanguageTokenClass::kRegular);
 
-    TR_ASSERT(t, workspace->RemoveModel(model->GetModel()));
+    TR_ASSERT(t, workspace->RemoveDocument(model->GetDocument()));
     return kTR_Pass;
 }
 
@@ -422,7 +422,7 @@ DLL_EXPORT int test_cpplang_keywords(ITesting *t) {
 
     auto workspace = Editor::Instance().GetWorkspace();
     TR_ASSERT(t, workspace != nullptr);
-    auto model = workspace->NewModel("test.cpp");
+    auto model = workspace->NewDocument("test.cpp");
     TR_ASSERT(t, model != nullptr);
     auto buffer = model->GetTextBuffer();
     TR_ASSERT(t, buffer != nullptr);
@@ -472,7 +472,7 @@ DLL_EXPORT int test_cpplang_types(ITesting *t) {
 
     auto workspace = Editor::Instance().GetWorkspace();
     TR_ASSERT(t, workspace != nullptr);
-    auto model = workspace->NewModel("test.cpp");
+    auto model = workspace->NewDocument("test.cpp");
     TR_ASSERT(t, model != nullptr);
     auto buffer = model->GetTextBuffer();
     TR_ASSERT(t, buffer != nullptr);
@@ -502,7 +502,7 @@ DLL_EXPORT int test_cpplang_types(ITesting *t) {
     checkAllKnownType(4);   // size/pointer types
     checkAllKnownType(5);   // fixed-width floats
 
-    TR_ASSERT(t, workspace->RemoveModel(model->GetModel()));
+    TR_ASSERT(t, workspace->RemoveDocument(model->GetDocument()));
     return kTR_Pass;
 }
 
@@ -512,7 +512,7 @@ DLL_EXPORT int test_cpplang_keywords_sample(ITesting *t) {
 
     auto workspace = Editor::Instance().GetWorkspace();
     TR_ASSERT(t, workspace != nullptr);
-    auto model = workspace->NewModel("test.cpp");
+    auto model = workspace->NewDocument("test.cpp");
     TR_ASSERT(t, model != nullptr);
     auto buffer = model->GetTextBuffer();
     TR_ASSERT(t, buffer != nullptr);
@@ -535,6 +535,6 @@ DLL_EXPORT int test_cpplang_keywords_sample(ITesting *t) {
     TR_ASSERT(t, line->Attributes()[3].tokenClass == kLanguageTokenClass::kKeyword);  // thread_local
     TR_ASSERT(t, line->Attributes()[4].tokenClass == kLanguageTokenClass::kKeyword);  // reinterpret_cast
 
-    TR_ASSERT(t, workspace->RemoveModel(model->GetModel()));
+    TR_ASSERT(t, workspace->RemoveDocument(model->GetDocument()));
     return kTR_Pass;
 }

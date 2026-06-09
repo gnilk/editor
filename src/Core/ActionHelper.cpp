@@ -9,21 +9,21 @@
 using namespace gedit;
 
 void ActionHelper::SwitchToNextBuffer() {
-    auto idxCurrent = Editor::Instance().GetActiveModelIndex();
-    auto idxNext = Editor::Instance().NextModelIndex(idxCurrent);
+    auto idxCurrent = Editor::Instance().GetActiveDocumentIndex();
+    auto idxNext = Editor::Instance().NextDocumentIndex(idxCurrent);
     if (idxCurrent == idxNext) {
         return;
     }
-    Editor::Instance().SetActiveModelFromIndex(idxNext);
+    Editor::Instance().SetActiveDocumentFromIndex(idxNext);
 }
 
 void ActionHelper::SwitchToPreviousBuffer() {
-    auto idxCurrent = Editor::Instance().GetActiveModelIndex();
-    auto idxNext = Editor::Instance().PreviousModelIndex(idxCurrent);
+    auto idxCurrent = Editor::Instance().GetActiveDocumentIndex();
+    auto idxNext = Editor::Instance().PreviousDocumentIndex(idxCurrent);
     if (idxCurrent == idxNext) {
         return;
     }
-    Editor::Instance().SetActiveModelFromIndex(idxNext);
+    Editor::Instance().SetActiveDocumentFromIndex(idxNext);
 }
 
 void ActionHelper::SwitchToNamedView(const std::string &viewName) {

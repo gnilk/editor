@@ -35,12 +35,12 @@ DLL_EXPORT int test_workspace_empty(ITesting *t) {
 DLL_EXPORT int test_workspace_new(ITesting *t) {
     Workspace workspace;
     TR_ASSERT(t, workspace.GetProjectRoots().size() == 0);
-    auto model = workspace.NewModel("dummy");
+    auto model = workspace.NewDocument("dummy");
     TR_ASSERT(t, workspace.GetProjectRoots().size() != 0);
-    TR_ASSERT(t, workspace.GetDefaultWorkspace()->GetModels().size() != 0);
-    TR_ASSERT(t, workspace.GetDefaultWorkspace()->GetModels().size() == 1);
-    for(auto &m : workspace.GetDefaultWorkspace()->GetModels()) {
-        auto node = workspace.GetNodeFromModel(m);
+    TR_ASSERT(t, workspace.GetDefaultWorkspace()->GetDocuments().size() != 0);
+    TR_ASSERT(t, workspace.GetDefaultWorkspace()->GetDocuments().size() == 1);
+    for(auto &m : workspace.GetDefaultWorkspace()->GetDocuments()) {
+        auto node = workspace.GetNodeFromDocument(m);
 
         TR_ASSERT(t, node->GetDisplayName() == "dummy");
     }
@@ -51,17 +51,17 @@ DLL_EXPORT int test_workspace_new(ITesting *t) {
 DLL_EXPORT int test_workspace_newtwice(ITesting *t) {
     Workspace workspace;
     TR_ASSERT(t, workspace.GetProjectRoots().size() == 0);
-    workspace.NewModel("m1");
-    workspace.NewModel("m2");
+    workspace.NewDocument("m1");
+    workspace.NewDocument("m2");
     TR_ASSERT(t, workspace.GetProjectRoots().size() != 0);
-    TR_ASSERT(t, workspace.GetDefaultWorkspace()->GetModels().size() != 0);
-    TR_ASSERT(t, workspace.GetDefaultWorkspace()->GetModels().size() == 2);
+    TR_ASSERT(t, workspace.GetDefaultWorkspace()->GetDocuments().size() != 0);
+    TR_ASSERT(t, workspace.GetDefaultWorkspace()->GetDocuments().size() == 2);
 
-    auto models = workspace.GetDefaultWorkspace()->GetModels();
+    auto models = workspace.GetDefaultWorkspace()->GetDocuments();
     int count = 0;
     // We can't really guarantee the return order there
-    for(auto &m : workspace.GetDefaultWorkspace()->GetModels()) {
-        auto node = workspace.GetNodeFromModel(m);
+    for(auto &m : workspace.GetDefaultWorkspace()->GetDocuments()) {
+        auto node = workspace.GetNodeFromDocument(m);
         char buffer[64];
         snprintf(buffer,63,"new_%d", count);
         printf("Name: %s == %s\n", buffer,node->GetDisplayName().c_str());
@@ -72,9 +72,9 @@ DLL_EXPORT int test_workspace_newtwice(ITesting *t) {
 
 DLL_EXPORT int test_workspace_newmodel(ITesting *t) {
     Workspace workspace;
-    auto node = workspace.NewModel("wef");
+    auto node = workspace.NewDocument("wef");
 
-    TR_ASSERT(t, workspace.GetDefaultWorkspace()->GetModels().size() != 0);
+    TR_ASSERT(t, workspace.GetDefaultWorkspace()->GetDocuments().size() != 0);
     TR_ASSERT(t, node->GetTextBuffer()->GetBufferState() == TextBuffer::BufferState::kBuffer_FileRef);
 
     return kTR_Pass;
@@ -83,9 +83,9 @@ DLL_EXPORT int test_workspace_newmodel(ITesting *t) {
 DLL_EXPORT int test_workspace_fileref(ITesting *t) {
     Workspace workspace;
     std::filesystem::path filename("testfiles/ConvertUTF.cpp");
-    auto model = workspace.NewModelWithFileRef(filename);
+    auto model = workspace.NewDocumentWithFileRef(filename);
 
-    TR_ASSERT(t, workspace.GetDefaultWorkspace()->GetModels().size() != 0);
+    TR_ASSERT(t, workspace.GetDefaultWorkspace()->GetDocuments().size() != 0);
     TR_ASSERT(t, model->GetTextBuffer()->GetBufferState() == TextBuffer::BufferState::kBuffer_FileRef);
     TR_ASSERT(t, model->LoadData());
     TR_ASSERT(t, model->GetTextBuffer()->GetBufferState() == TextBuffer::BufferState::kBuffer_Loaded);
@@ -102,7 +102,7 @@ DLL_EXPORT int test_workspace_openfolder(ITesting *t) {
     auto rootNode = desktop->GetRootNode();
     // Lazy tree: scanning a folder builds path-only nodes - NO models exist until a node is opened.
     TR_ASSERT(t, rootNode->GetNumChildNodes() > 0);
-    TR_ASSERT(t, rootNode->GetModels().size() == 0);
+    TR_ASSERT(t, rootNode->GetDocuments().size() == 0);
     return kTR_Pass;
 }
 
@@ -126,15 +126,15 @@ DLL_EXPORT int test_workspace_openfolder_lazy(ITesting *t) {
     TR_ASSERT(t, fileNode != nullptr);
 
     // Path-only until opened
-    TR_ASSERT(t, fileNode->GetModel() == nullptr);
+    TR_ASSERT(t, fileNode->GetDocument() == nullptr);
 
-    auto model = workspace.EnsureModelForNode(fileNode);
+    auto model = workspace.EnsureDocumentForNode(fileNode);
     TR_ASSERT(t, model != nullptr);
-    TR_ASSERT(t, fileNode->GetModel() == model);
+    TR_ASSERT(t, fileNode->GetDocument() == model);
     // The model adopts the node's path as its identity
     TR_ASSERT(t, model->GetPath() == fileNode->GetNodePath());
     // Re-ensuring reuses the same model (does not rebuild)
-    TR_ASSERT(t, workspace.EnsureModelForNode(fileNode) == model);
+    TR_ASSERT(t, workspace.EnsureDocumentForNode(fileNode) == model);
 
     return kTR_Pass;
 }
@@ -154,8 +154,8 @@ DLL_EXPORT int test_workspace_removemodel(ITesting *t) {
 
     Workspace workspace;
     {
-        auto node = workspace.NewModel("wef");
-        workspace.RemoveModel(node->GetModel());
+        auto node = workspace.NewDocument("wef");
+        workspace.RemoveDocument(node->GetDocument());
     } // should lose the shared_ptr for the model when leaving this block...
 
     return kTR_Pass;
@@ -164,9 +164,9 @@ DLL_EXPORT int test_workspace_removemodel(ITesting *t) {
 DLL_EXPORT int test_workspace_recreate(ITesting *t) {
     Workspace::Ref workspace = Workspace::Create();
     // Create a number of models
-    workspace->NewModel("m1");
-    workspace->NewModel("m2");
-    workspace->NewModel("m2");
+    workspace->NewDocument("m1");
+    workspace->NewDocument("m2");
+    workspace->NewDocument("m2");
 
     // Let's see if all DTOR's are invoked
     // note: in order to test this - set breakpoints in DTORs

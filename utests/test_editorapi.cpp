@@ -29,9 +29,9 @@ DLL_EXPORT int test_editorapi_listlang(ITesting *t) {
 
 DLL_EXPORT int test_editorapi_newbuffer(ITesting *t) {
     auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
-    auto numBefore = Editor::Instance().GetModels().size();
+    auto numBefore = Editor::Instance().GetDocuments().size();
     editorApi->NewDocument("mamma");
-    auto numAfter = Editor::Instance().GetModels().size();
+    auto numAfter = Editor::Instance().GetDocuments().size();
     TR_ASSERT(t, numAfter > numBefore);
 
     return kTR_Pass;
@@ -39,9 +39,9 @@ DLL_EXPORT int test_editorapi_newbuffer(ITesting *t) {
 
 DLL_EXPORT int test_editorapi_loadbuffer(ITesting *t) {
     auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
-    auto numBefore = Editor::Instance().GetModels().size();
+    auto numBefore = Editor::Instance().GetDocuments().size();
     editorApi->NewDocument("example.json");
-    auto numAfter = Editor::Instance().GetModels().size();
+    auto numAfter = Editor::Instance().GetDocuments().size();
     TR_ASSERT(t, numAfter > numBefore);
     return kTR_Pass;
 }

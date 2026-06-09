@@ -78,9 +78,9 @@ DLL_EXPORT int test_jsengine_newbuffer(ITesting *t) {
     TR_ASSERT(t, RuntimeConfig::Instance().HasPluginCommand("newbuffer"));
     auto cmd = RuntimeConfig::Instance().GetPluginCommand("newbuffer");
     TR_ASSERT(t, cmd != nullptr);
-    auto numBefore = Editor::Instance().GetModels().size();
+    auto numBefore = Editor::Instance().GetDocuments().size();
     cmd->Execute({"mamma"});
-    auto numAfter = Editor::Instance().GetModels().size();
+    auto numAfter = Editor::Instance().GetDocuments().size();
     TR_ASSERT(t, numAfter > numBefore);
     return kTR_Pass;
 }
@@ -89,9 +89,9 @@ DLL_EXPORT int test_jsengine_loadbuffer(ITesting *t) {
     TR_ASSERT(t, RuntimeConfig::Instance().HasPluginCommand("openfile"));
     auto cmd = RuntimeConfig::Instance().GetPluginCommand("openfile");
     TR_ASSERT(t, cmd != nullptr);
-    auto numBefore = Editor::Instance().GetModels().size();
+    auto numBefore = Editor::Instance().GetDocuments().size();
     auto res = cmd->Execute({"testfiles/ConvertUTF.cpp"});
-    auto numAfter = Editor::Instance().GetModels().size();
+    auto numAfter = Editor::Instance().GetDocuments().size();
     TR_ASSERT(t, numAfter > numBefore);
     return kTR_Pass;
 }

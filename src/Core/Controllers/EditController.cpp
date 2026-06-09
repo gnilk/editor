@@ -14,8 +14,8 @@
 
 using namespace gedit;
 
-EditController::Ref EditController::Create(Document::Ref newModel) {
-    auto inst = std::make_shared<EditController>(newModel);
+EditController::Ref EditController::Create(Document::Ref newDocument) {
+    auto inst = std::make_shared<EditController>(newDocument);
     inst->Begin();
     return inst;
 }
@@ -171,13 +171,13 @@ bool EditController::OnKeyPress(const KeyPress &keyPress) {
 
     // Let the controller have a go - this is regular editing and so forth
     if (HandleKeyPress(lineCursor.cursor, lineCursor.idxActiveLine, keyPress)) {
-        model->UpdateModelFromNavigation(true);
+        model->UpdateDocumentFromNavigation(true);
         return true;
     }
 
     // This handles regular backspace/delete/home/end (which are default actions for any single-line editing)
     if (HandleSpecialKeyPress(lineCursor.cursor, lineCursor.idxActiveLine, keyPress)) {
-        model->UpdateModelFromNavigation(true);
+        model->UpdateDocumentFromNavigation(true);
         return true;
     }
 

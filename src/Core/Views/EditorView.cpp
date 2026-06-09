@@ -38,13 +38,13 @@ void EditorView::InitView()  {
 
     bUseCLionPageNav = Config::Instance()[cfgSectionName].GetBool("pgupdown_content_first", true);
 
-    editorModel = Editor::Instance().GetActiveModel();
-    if (editorModel == nullptr) {
+    document = Editor::Instance().GetActiveDocument();
+    if (document == nullptr) {
         logger->Error("Document is null - no active textbuffer");
         return;
     }
 
-    auto workspaceNode = Editor::Instance().GetWorkspaceNodeForModel(editorModel);
+    auto workspaceNode = Editor::Instance().GetWorkspaceNodeForDocument(document);
     if (workspaceNode == nullptr) {
         logger->Error("No workspace node for model!!");
         return;
@@ -58,7 +58,7 @@ void EditorView::InitView()  {
 
 
     editController->SetTextBufferChangedHandler([this]()->void {
-        auto node = Editor::Instance().GetWorkspace()->GetNodeFromModel(editorModel);
+        auto node = Editor::Instance().GetWorkspace()->GetNodeFromDocument(document);
         if (node == nullptr) {
             return;
         }
@@ -78,16 +78,16 @@ void EditorView::ReInitView() {
 
     bUseCLionPageNav = Config::Instance()[cfgSectionName].GetBool("pgupdown_content_first", true);
 
-    editorModel = Editor::Instance().GetActiveModel();
-    if (editorModel == nullptr) {
+    document = Editor::Instance().GetActiveDocument();
+    if (document == nullptr) {
         logger->Error("Document is null - no active textbuffer");
         return;
     }
-    auto node = Editor::Instance().GetWorkspaceNodeForModel(editorModel);
+    auto node = Editor::Instance().GetWorkspaceNodeForDocument(document);
     editController = node->GetController();
 
     // Fetch and update the view-model information
-//    lineCursor = editorModel->GetLineCursorRef();
+//    lineCursor = document->GetLineCursorRef();
 
     editController->OnViewInit(viewRect);
 }
@@ -95,7 +95,7 @@ void EditorView::ReInitView() {
 // FIXME: This is never used!!!
 void EditorView::OnResized() {
     // Update the view Bottom line - as this affects how many lines we draw...
-    auto &lineCursor = editorModel->GetLineCursor();
+    auto &lineCursor = document->GetLineCursor();
     lineCursor.viewBottomLine = GetContentRect().Height();
 
     editController->OnViewInit(GetContentRect());
@@ -103,12 +103,12 @@ void EditorView::OnResized() {
 }
 
 void EditorView::DrawViewContents() {
-    if (editorModel == nullptr) {
+    if (document == nullptr) {
         return;
     }
 
     auto &dc = window->GetContentDC();
-    auto &lineCursor = editorModel->GetLineCursor();
+    auto &lineCursor = document->GetLineCursor();
 
     logger->Debug("DrawViewContents, dc Height=%d, topLine=%d, bottomLine=%d",
                   dc.GetRect().Height(), lineCursor.viewTopLine, lineCursor.viewBottomLine);
@@ -116,7 +116,7 @@ void EditorView::DrawViewContents() {
     dc.ResetDrawColors();
     dc.ClearOverlays();
 
-    int tabSize = editorModel->GetTextBuffer()->GetLanguage().GetTabSize();
+    int tabSize = document->GetTextBuffer()->GetLanguage().GetTabSize();
     DrawSearchResultOverlays(dc, tabSize);
     DrawSelectionOverlay(dc, tabSize);
 
@@ -124,22 +124,22 @@ void EditorView::DrawViewContents() {
     lineRender.DrawLines(editController->Lines(),
                          lineCursor.viewTopLine,
                          lineCursor.viewBottomLine,
-                         editorModel->GetSelection());
+                         document->GetSelection());
 }
 
 void EditorView::DrawSearchResultOverlays(DrawContext &dc, int tabSize) {
-    if (editorModel->searchResults.empty()) {
+    if (document->searchResults.empty()) {
         return;
     }
-    auto &lineCursor = editorModel->GetLineCursor();
-    logger->Debug("DrawSearchResultOverlays, count=%zu", editorModel->searchResults.size());
-    for (auto &result : editorModel->searchResults) {
+    auto &lineCursor = document->GetLineCursor();
+    logger->Debug("DrawSearchResultOverlays, count=%zu", document->searchResults.size());
+    for (auto &result : document->searchResults) {
         if (!lineCursor.IsInside(result.idxLine)) {
             continue;
         }
         int startVisualX = result.cursor_x;
         int endVisualX = result.cursor_x + result.length;
-        if (auto line = editorModel->LineAt(result.idxLine)) {
+        if (auto line = document->LineAt(result.idxLine)) {
             startVisualX = line->CharToVisualColumn(result.cursor_x, tabSize);
             endVisualX = line->CharToVisualColumn(result.cursor_x + result.length, tabSize);
         }
@@ -152,20 +152,20 @@ void EditorView::DrawSearchResultOverlays(DrawContext &dc, int tabSize) {
 }
 
 void EditorView::DrawSelectionOverlay(DrawContext &dc, int tabSize) {
-    auto &selection = editorModel->GetSelection();
+    auto &selection = document->GetSelection();
     if (!selection.IsActive()) {
         return;
     }
-    auto &lineCursor = editorModel->GetLineCursor();
+    auto &lineCursor = document->GetLineCursor();
     auto selStart = selection.GetStart();
     auto selEnd = selection.GetEnd();
 
     int startVisualX = selStart.x;
-    if (auto line = editorModel->LineAt(selStart.y)) {
+    if (auto line = document->LineAt(selStart.y)) {
         startVisualX = line->CharToVisualColumn(selStart.x, tabSize);
     }
     int endVisualX = selEnd.x;
-    if (auto line = editorModel->LineAt(selEnd.y)) {
+    if (auto line = document->LineAt(selEnd.y)) {
         endVisualX = line->CharToVisualColumn(selEnd.x, tabSize);
     }
 
@@ -253,16 +253,16 @@ bool EditorView::OnActionPreviousBuffer() {
 }
 
 void EditorView::SetWindowCursor(const Cursor &cursor) {
-    if ((Editor::Instance().GetState() == Editor::ViewState) && (editorModel != nullptr)) {
+    if ((Editor::Instance().GetState() == Editor::ViewState) && (document != nullptr)) {
         // The model cursor's position.x is a character index. Tabs render wider than one cell, so
         // translate it to a visual column before drawing the caret - otherwise the caret sits left
         // of where the character actually renders and inserts appear misplaced. The model cursor is
         // left untouched (char index stays the source of truth for editing); only the draw copy moves.
-        Cursor screenCursor = editorModel->GetCursor();
-        auto &lineCursor = editorModel->GetLineCursor();
-        auto activeLine = editorModel->LineAt(lineCursor.idxActiveLine);
+        Cursor screenCursor = document->GetCursor();
+        auto &lineCursor = document->GetLineCursor();
+        auto activeLine = document->LineAt(lineCursor.idxActiveLine);
         if (activeLine != nullptr) {
-            int tabSize = editorModel->GetTextBuffer()->GetLanguage().GetTabSize();
+            int tabSize = document->GetTextBuffer()->GetLanguage().GetTabSize();
             screenCursor.position.x = activeLine->CharToVisualColumn(screenCursor.position.x, tabSize);
         }
         window->SetCursor(screenCursor);
@@ -277,12 +277,12 @@ std::pair<std::u32string, std::u32string> EditorView::GetStatusBarInfo() {
     std::u32string statusCenter = U"";
     std::u32string statusRight = U"";
     // If we have a model - draw details...
-    auto node = Editor::Instance().GetWorkspaceNodeForActiveModel();
+    auto node = Editor::Instance().GetWorkspaceNodeForActiveDocument();
     if (node == nullptr) {
         return {statusCenter, statusRight};
     }
-    // Hmm - why can't I use the editorModel-> here????
-    auto model = node->GetModel();
+    // Hmm - why can't I use the document-> here????
+    auto model = node->GetDocument();
     if (model == nullptr) {
         return {statusCenter, statusRight};
     }

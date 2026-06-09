@@ -19,8 +19,8 @@ namespace gedit {
             dc.ResetDrawColors();
 
             auto workspace = Editor::Instance().GetWorkspace();
-            auto &models = Editor::Instance().GetModels();
-            auto activeModel = Editor::Instance().GetActiveModel();
+            auto &models = Editor::Instance().GetDocuments();
+            auto activeDocument = Editor::Instance().GetActiveDocument();
             auto theme = Editor::Instance().GetTheme();
             auto uiColors = theme->GetUIColors();
             if (parentView->IsActive()) {
@@ -41,7 +41,7 @@ namespace gedit {
             xp++;
             for(size_t i=0;i<models.size();i++) {
                 auto model = models[i];
-                auto node = workspace->GetNodeFromModel(models[i]);
+                auto node = workspace->GetNodeFromDocument(models[i]);
                 if (node == nullptr) {
                     continue;
                 }
@@ -58,7 +58,7 @@ namespace gedit {
                     xp += 2;
                 }
 
-                if (model == activeModel) {
+                if (model == activeDocument) {
                     dc.DrawStringWithAttributesAt(xp,0,kTextAttributes::kUnderline, header.c_str());
                 } else {
                     dc.DrawStringWithAttributesAt(xp,0,kTextAttributes::kNormal, header.c_str());

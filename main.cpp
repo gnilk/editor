@@ -50,7 +50,7 @@
      Monitoring a path that changes quickly (like the build directory) will cause seg-faults
  * ! There are segfaults in copy/paste [related to syntax highlight problem]
  * - Adding an additional ')' when the previous char is '(' should be ignored, typing: '(',')' inserts an extra ')'
- * + Revisit the 'Workspace::NewModel' and friends - there are too much similarity in these functions
+ * + Revisit the 'Workspace::NewDocument' and friends - there are too much similarity in these functions
  * ! Save screen position and size upon resize/move and similar, restore on startup (use XDG state directory)
  * - Expose config from JS (set,get,list)
  *   Would be cool to just open the whole config folder as a workspace node..  <- consider this
@@ -131,7 +131,7 @@
  * ! WorkspaceView should preserve node expand/collapse information when rebuilding the tree...
  * ! WorkspaceView should react on changes from the Workspace::Desktop foldermonitor detected changes
  * ! The key in the workspace root node map should be the full path - and not just the displayname...
- * ! Refactor NewModel in Workspace/Editor handling!
+ * ! Refactor NewDocument in Workspace/Editor handling!
  * ! TextBuffer should NOT have PathName, let TextBuffer Load/Save work take the PathName as an argument..
  * ! Workspace view must be able to react to changes in the model and also keep the current treeview status
  * ! When creating a new model we should ask the work-space for currently selected node!
@@ -390,10 +390,10 @@ int main(int argc, const char **argv) {
     auto screen = RuntimeConfig::Instance().GetScreen();
     auto dimensions = screen->Dimensions();
 
-    auto models = Editor::Instance().GetModels();
+    auto models = Editor::Instance().GetDocuments();
     auto workspace = Editor::Instance().GetWorkspace();
     for(auto m : models) {
-        auto node = workspace->GetNodeFromModel(m);
+        auto node = workspace->GetNodeFromDocument(m);
         if (node == nullptr) {
             continue;
         }
@@ -508,7 +508,7 @@ int main(int argc, const char **argv) {
     Editor::Instance().RunPostInitalizationScript();
 
     // No model was given on startup - so let's focus in the ProjectView...
-    if (Editor::Instance().GetActiveModel() == nullptr) {
+    if (Editor::Instance().GetActiveDocument() == nullptr) {
         rootView.SetActiveTopViewByName(glbWorkSpaceView);
     }
 

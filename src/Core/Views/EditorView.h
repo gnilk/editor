@@ -37,8 +37,8 @@ namespace gedit {
             parentView->ResetContentHeight();
         }
 
-        void SetEditorModel(Document::Ref newEditorModel) {
-            editorModel = newEditorModel;
+        void SetDocument(Document::Ref newDocument) {
+            document = newDocument;
         }
 
         void SetWindowCursor(const Cursor &cursor) override;
@@ -68,7 +68,7 @@ namespace gedit {
         void DrawSelectionOverlay(DrawContext &dc, int tabSize);
     private:
         bool bUseCLionPageNav = true;
-        Document::Ref editorModel;
+        Document::Ref document;
         EditController::Ref editController;
         // --
         gnilk::ILogger *logger = nullptr;

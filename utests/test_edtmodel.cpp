@@ -51,7 +51,7 @@ DLL_EXPORT int test_edtmodel(ITesting *t) {
     return kTR_Pass;
 }
 
-static Document::Ref CreateEmptyModel(ITesting *t) {
+static Document::Ref CreateEmptyDocument(ITesting *t) {
     auto textBuffer = TextBuffer::CreateEmptyBuffer();
     TR_ASSERT(t, textBuffer != nullptr);
     auto model = Document::Create(textBuffer);
@@ -60,7 +60,7 @@ static Document::Ref CreateEmptyModel(ITesting *t) {
 }
 
 // fill the text buffer in the model with predictable content..
-static void FillEmptyModel(Document::Ref model, size_t nLines, size_t lineLength) {
+static void FillEmptyDocument(Document::Ref model, size_t nLines, size_t lineLength) {
     // Remove first line - we don't want this to interfere
     model->GetTextBuffer()->DeleteLineAt(0);
 
@@ -71,7 +71,7 @@ static void FillEmptyModel(Document::Ref model, size_t nLines, size_t lineLength
 }
 
 DLL_EXPORT int test_edtmodel_create(ITesting *t) {
-    // Don't use 'CreateEmptyModel' - this one does a bit more agressive testing of model and the textbuffer
+    // Don't use 'CreateEmptyDocument' - this one does a bit more agressive testing of model and the textbuffer
     auto textBuffer = TextBuffer::CreateEmptyBuffer();
     TR_ASSERT(t, textBuffer != nullptr);
     auto model = Document::Create(textBuffer);
@@ -85,7 +85,7 @@ DLL_EXPORT int test_edtmodel_create(ITesting *t) {
 }
 
 DLL_EXPORT int test_edtmodel_empty_linefunc(ITesting *t) {
-    auto model = CreateEmptyModel(t);
+    auto model = CreateEmptyDocument(t);
     // The first line should always be available
     TR_ASSERT(t, model->Lines().size() == 1);
     TR_ASSERT(t, model->LineAt(2) == nullptr);
@@ -98,7 +98,7 @@ DLL_EXPORT int test_edtmodel_empty_linefunc(ITesting *t) {
 }
 
 DLL_EXPORT int test_edtmodel_empty_selfunc(ITesting *t) {
-    auto model = CreateEmptyModel(t);
+    auto model = CreateEmptyDocument(t);
     // The first line should always be available
     TR_ASSERT(t, model->IsSelectionActive() == false);
 
@@ -128,7 +128,7 @@ DLL_EXPORT int test_edtmodel_empty_selfunc(ITesting *t) {
 }
 
 DLL_EXPORT int test_edtmodel_text_linefunc(ITesting *t) {
-    auto model = CreateEmptyModel(t);
+    auto model = CreateEmptyDocument(t);
     // The 'view' rect (this is the size of the visible area of the text buffer)
     // it is used to calculate the actual viewing area for the renderer
     // needed for navigation testing since cursor updates will move it around..
@@ -137,7 +137,7 @@ DLL_EXPORT int test_edtmodel_text_linefunc(ITesting *t) {
     model->OnViewInit(rect);
 
     // Insert 40 lines with 40 chars
-    FillEmptyModel(model, 40, 40);
+    FillEmptyDocument(model, 40, 40);
     // The first line should always be available
     TR_ASSERT(t, model->Lines().size() == 40);  // Initial line is still there..
     TR_ASSERT(t, model->ActiveLine() != nullptr);
@@ -176,13 +176,13 @@ DLL_EXPORT int test_edtmodel_text_linefunc(ITesting *t) {
 }
 
 DLL_EXPORT int test_edtmodel_text_selfunc(ITesting *t) {
-    auto model = CreateEmptyModel(t);
+    auto model = CreateEmptyDocument(t);
 
     gedit::Rect rect(20,20);
     model->OnViewInit(rect);
 
     // Insert 40 lines with 40 chars
-    FillEmptyModel(model, 40, 40);
+    FillEmptyDocument(model, 40, 40);
 
 
     // This will start the selection
@@ -218,13 +218,13 @@ DLL_EXPORT int test_edtmodel_text_selfunc(ITesting *t) {
 }
 
 DLL_EXPORT int test_edtmodel_ins_keypress(ITesting *t) {
-    auto model = CreateEmptyModel(t);
+    auto model = CreateEmptyDocument(t);
 
     gedit::Rect rect(20,20);
     model->OnViewInit(rect);
 
     // Insert 40 lines with 40 chars
-    FillEmptyModel(model, 40, 40);
+    FillEmptyDocument(model, 40, 40);
 
     auto controller = EditController::Create(model);
 
@@ -248,13 +248,13 @@ DLL_EXPORT int test_edtmodel_ins_keypress(ITesting *t) {
 }
 
 DLL_EXPORT int test_edtmodel_delete_text(ITesting *t) {
-    auto model = CreateEmptyModel(t);
+    auto model = CreateEmptyDocument(t);
 
     gedit::Rect rect(20,20);
     model->OnViewInit(rect);
 
     // Insert 40 lines with 40 chars
-    FillEmptyModel(model, 40, 40);
+    FillEmptyDocument(model, 40, 40);
 
 
     static KeyPress keyPressDelete = {

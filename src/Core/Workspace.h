@@ -71,9 +71,9 @@ namespace gedit {
             static Ref Create(const std::string &nodeName) {
                 return std::make_shared<Node>(nodeName);
             }
-            static Ref Create(Document::Ref editorModel) {
+            static Ref Create(Document::Ref document) {
                 auto node = std::make_shared<Node>("");
-                node->model = editorModel;
+                node->model = document;
                 return node;
             }
 
@@ -143,17 +143,17 @@ namespace gedit {
             }
 
             // Search recursively for a node with a specific editor-model attached
-            Node::Ref FindModel(const Document::Ref searchModel) {
-                if (model == searchModel) {
+            Node::Ref FindDocument(const Document::Ref searchDocument) {
+                if (model == searchDocument) {
                     return shared_from_this();
                 }
 
                 for(auto &node : childNodes) {
-                    auto nodeForModel = node->FindModel(searchModel);
+                    auto nodeForModel = node->FindDocument(searchDocument);
                     if (nodeForModel != nullptr) {
                         return nodeForModel;
                     }
-                    if (node->GetModel() == searchModel) return node;
+                    if (node->GetDocument() == searchDocument) return node;
                 }
                 return nullptr;
             }
@@ -213,8 +213,8 @@ namespace gedit {
                 return controller;
             }
 
-            void SetModel(Document::Ref newModel) {
-                model = newModel;
+            void SetDocument(Document::Ref newDocument) {
+                model = newDocument;
                 // A model attached to a node adopts the node's path as its file identity. The node
                 // path is generally set first (lazy nodes exist before their model), so sync here too.
                 if (model != nullptr) {
@@ -222,7 +222,7 @@ namespace gedit {
                 }
             }
 
-            Document::Ref GetModel() {
+            Document::Ref GetDocument() {
                 return model;
             }
 
@@ -235,10 +235,10 @@ namespace gedit {
             }
 
             // This will flatten the workspace and return a copy of all model references
-            std::vector<Document::Ref> GetModels() {
-                std::vector<Document::Ref> allModels;
-                RecursiveGetModels(allModels);
-                return allModels;
+            std::vector<Document::Ref> GetDocuments() {
+                std::vector<Document::Ref> allDocuments;
+                RecursiveGetDocuments(allDocuments);
+                return allDocuments;
             }
 
             // Meta-Data, each node can have meta data attached - this is just a way to cache certain information
@@ -296,13 +296,13 @@ namespace gedit {
                 displayName = pathutil::LastNameOfPath(pathName);
             }
 
-            void RecursiveGetModels(std::vector<Document::Ref> &outModels) {
+            void RecursiveGetDocuments(std::vector<Document::Ref> &outDocuments) {
                 if (model != nullptr) {
-                    outModels.push_back(model);
+                    outDocuments.push_back(model);
                     return;
                 }
                 for(auto &node : childNodes) {
-                    node->RecursiveGetModels(outModels);
+                    node->RecursiveGetDocuments(outDocuments);
                 }
             }
 
@@ -492,44 +492,44 @@ namespace gedit {
 
         bool OpenFolder(const std::string &folder);
 
-        Node::Ref NewModel(const std::string &name);                       // Adds an empty model/file to the default workspace
-        Node::Ref NewModel(const Node::Ref parent, const std::string &name); // Adds an empty model/file to a specific workspace
+        Node::Ref NewDocument(const std::string &name);                       // Adds an empty model/file to the default workspace
+        Node::Ref NewDocument(const Node::Ref parent, const std::string &name); // Adds an empty model/file to a specific workspace
 
         // Adds a file-reference (i.e. doesn't load contents) to the default workspace
-        Node::Ref NewModelWithFileRef(const std::filesystem::path &pathFileName);
+        Node::Ref NewDocumentWithFileRef(const std::filesystem::path &pathFileName);
         // Adds a file-reference (i.e doesn't load contents) to a specific (named) workedspace
-        Node::Ref NewModelWithFileRef(Node::Ref parent, const std::filesystem::path &pathFileName);
+        Node::Ref NewDocumentWithFileRef(Node::Ref parent, const std::filesystem::path &pathFileName);
 
-        Node::Ref GetNodeFromModel(Document::Ref model);
+        Node::Ref GetNodeFromDocument(Document::Ref model);
 
         // Lazily create (if needed) and return the model for a file node. Folder nodes return null.
         // The browse tree stores path-only file nodes; the model is built the first time a node is
         // opened. Returns the existing model if the node already has one.
-        Document::Ref EnsureModelForNode(Node::Ref node);
+        Document::Ref EnsureDocumentForNode(Node::Ref node);
 
-        bool RemoveModel(Document::Ref model);
+        bool RemoveDocument(Document::Ref model);
 
         //
         // Open documents - the open "tabs". The Workspace is the single owner of the open-model
         // list and the active model; Editor and the views query through here. These are pure data
         // operations (no UI side effects); Editor layers the redraw/relayout on top.
         //
-        const std::vector<Document::Ref> &GetOpenModels() {
-            return openModels;
+        const std::vector<Document::Ref> &GetOpenDocuments() {
+            return openDocuments;
         }
-        void AddOpenModel(Document::Ref model);
-        bool RemoveOpenModel(Document::Ref model);
-        bool IsModelOpen(Document::Ref model);
+        void AddOpenDocument(Document::Ref model);
+        bool RemoveOpenDocument(Document::Ref model);
+        bool IsDocumentOpen(Document::Ref model);
 
-        Document::Ref GetActiveModel() {
-            return activeModel;
+        Document::Ref GetActiveDocument() {
+            return activeDocument;
         }
-        void SetActiveModel(Document::Ref model);   // ignored if the model isn't open
-        size_t GetActiveModelIndex();
-        Document::Ref GetModelFromIndex(size_t idxModel);
-        Document::Ref GetModelFromTextBuffer(TextBuffer::Ref textBuffer);
-        size_t NextModelIndex(size_t idxCurrent);
-        size_t PreviousModelIndex(size_t idxCurrent);
+        void SetActiveDocument(Document::Ref model);   // ignored if the model isn't open
+        size_t GetActiveDocumentIndex();
+        Document::Ref GetDocumentFromIndex(size_t idxDocument);
+        Document::Ref GetDocumentFromTextBuffer(TextBuffer::Ref textBuffer);
+        size_t NextDocumentIndex(size_t idxCurrent);
+        size_t PreviousDocumentIndex(size_t idxCurrent);
 
     protected:
         Node::Ref NewFolderNode(Node::Ref parent, const std::filesystem::path &pathName);
@@ -576,8 +576,8 @@ namespace gedit {
         ProjectRoot::Ref defaultRoot = nullptr;
 
         // The open documents (tabs) and the currently active one. Single source of truth.
-        std::vector<Document::Ref> openModels = {};
-        Document::Ref activeModel = nullptr;
+        std::vector<Document::Ref> openDocuments = {};
+        Document::Ref activeDocument = nullptr;
 
     };
 }

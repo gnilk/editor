@@ -70,13 +70,13 @@ bool QuickCommandController::HandleActionInQuickCmdState(const KeyPressAction &k
             ActionHelper::SwitchToPreviousBuffer();
             return true;
         case kAction::kActionStartSearch :
-            Editor::Instance().GetActiveModel()->ResetSearchHitIndex();
+            Editor::Instance().GetActiveDocument()->ResetSearchHitIndex();
             logger->Debug("Entering search, key: %c",(int)kpAction.keyPress.key);
             ChangeState(State::SearchState);
             cmdInputBaseController.DefaultEditLine(cursor, cmdInput, kpAction.keyPress, true);
             break;
         case kAction::kActionLastSearch :
-            Editor::Instance().GetActiveModel()->ResetSearchHitIndex();
+            Editor::Instance().GetActiveDocument()->ResetSearchHitIndex();
             logger->Debug("Entering search, key: %c",(int)kpAction.keyPress.key);
             cmdInputBaseController.DefaultEditLine(cursor, cmdInput, kpAction.keyPress, true);
             if (!searchHistory.empty()) {
@@ -109,7 +109,7 @@ bool QuickCommandController::HandleActionInSearch(const KeyPressAction &kpAction
     if (kpAction.action == kAction::kActionLeaveCommandMode) {
         logger->Debug("LeaveCommandMode, in Search - leaving");
 
-        auto model = Editor::Instance().GetActiveModel();
+        auto model = Editor::Instance().GetActiveDocument();
         model->ResetSearchHitIndex();
         model->ClearSearchResults();
         ChangeState(State::QuickCmdState);
@@ -118,7 +118,7 @@ bool QuickCommandController::HandleActionInSearch(const KeyPressAction &kpAction
     // Leave search mode in case of enter
     if (kpAction.action == kAction::kActionCommitLine) {
         auto searchItem = std::u32string(cmdInput->Buffer().substr(1));
-        SearchInActiveEditorModel(searchItem);
+        SearchInActiveDocument(searchItem);
 
         // Add to search history...
         searchHistory.push_back(searchItem);
@@ -160,8 +160,8 @@ void QuickCommandController::DoLeaveOnSuccess() {
     }
 }
 
-void QuickCommandController::SearchInActiveEditorModel(const std::u32string &searchItem) {
-    auto model = Editor::Instance().GetActiveModel();
+void QuickCommandController::SearchInActiveDocument(const std::u32string &searchItem) {
+    auto model = Editor::Instance().GetActiveDocument();
     model->ClearSearchResults();
     if (searchItem.length() < 1) {
         return;
@@ -184,11 +184,11 @@ void QuickCommandController::SearchInActiveEditorModel(const std::u32string &sea
 // Move these to model, this allows the model to operate over the search-results how they were
 // obtained...
 void QuickCommandController::NextSearchResult() {
-    auto model = Editor::Instance().GetActiveModel();
+    auto model = Editor::Instance().GetActiveDocument();
     model->NextSearchResult();
 }
 void QuickCommandController::PrevSearchResult() {
-    auto model = Editor::Instance().GetActiveModel();
+    auto model = Editor::Instance().GetActiveDocument();
     model->PrevSearchResult();
 }
 
@@ -229,7 +229,7 @@ void QuickCommandController::HandleKeyPress(const KeyPress &keyPress) {
     if (state == State::SearchState) {
         if (cmdInput->Buffer().length() == 0) {
             ChangeState(State::QuickCmdState);
-            auto model = Editor::Instance().GetActiveModel();
+            auto model = Editor::Instance().GetActiveDocument();
             model->ClearSearchResults();
         }
         if (cmdInput->Buffer().length() > 4) {
@@ -238,9 +238,9 @@ void QuickCommandController::HandleKeyPress(const KeyPress &keyPress) {
             //std::string searchItem = std::string(cmdInput->Buffer());
 
             // we are searching, so let's update this in realtime
-            SearchInActiveEditorModel(searchItem);
+            SearchInActiveDocument(searchItem);
         } else {
-            auto model = Editor::Instance().GetActiveModel();
+            auto model = Editor::Instance().GetActiveDocument();
             if (model->HaveSearchResults()) {
                 model->ClearSearchResults();
             }

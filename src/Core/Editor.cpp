@@ -211,7 +211,7 @@ bool Editor::Initialize(int argc, const char **argv) {
 
     bool createDefaultWorkspace = true;
     for (auto &file : pendingFiles) {
-        if (OpenModelOrFolder(file)) {
+        if (OpenDocumentOrFolder(file)) {
             createDefaultWorkspace = false;
         } else {
             logger->Error("Error: No such file '%s'", file.c_str());
@@ -231,14 +231,14 @@ bool Editor::Initialize(int argc, const char **argv) {
             snprintf(tmpName, 32, "newfile_%d", counter);
             counter++;
         } while(std::filesystem::exists(tmpName));
-        auto node = workspace->NewModel(tmpName);
-        workspace->AddOpenModel(node->GetModel());
+        auto node = workspace->NewDocument(tmpName);
+        workspace->AddOpenDocument(node->GetDocument());
     }
     // Did we open any models during the argument parsing?
-    auto &openModels = workspace->GetOpenModels();
-    if (openModels.size() != 0) {
+    auto &openDocuments = workspace->GetOpenDocuments();
+    if (openDocuments.size() != 0) {
         // Just set the first as the active model..
-        SetActiveModel(openModels[0]);
+        SetActiveDocument(openDocuments[0]);
     }
 
 
@@ -250,7 +250,7 @@ bool Editor::Initialize(int argc, const char **argv) {
     isInitialized = true;
 
     // This is a problem - we really don't handle a 'no-file' scenario - the EditorView expects a model!!
-    if (openModels.size() == 0) {
+    if (openDocuments.size() == 0) {
     }
 
     return true;
@@ -302,7 +302,7 @@ bool Editor::OpenScreen() {
 
 void Editor::Close() {
     logger->Debug("Closing editor");
-    for(auto &model : workspace->GetOpenModels()) {
+    for(auto &model : workspace->GetOpenDocuments()) {
         model->Close();
     }
     RuntimeConfig::Instance().GetKeyboard()->Close();
@@ -736,9 +736,9 @@ std::vector<std::string> Editor::GetRegisteredLanguages() {
 
 // Sets the active model in the workspace, then relays out the UI to reflect it. The state lives
 // in the Workspace; the UI side-effect (relayout) belongs here in the application layer.
-void Editor::SetActiveModel(Document::Ref model) {
-    workspace->SetActiveModel(model);
-    if (workspace->GetActiveModel() != model) {
+void Editor::SetActiveDocument(Document::Ref model) {
+    workspace->SetActiveDocument(model);
+    if (workspace->GetActiveDocument() != model) {
         // Model wasn't open - nothing changed.
         return;
     }
@@ -747,23 +747,23 @@ void Editor::SetActiveModel(Document::Ref model) {
     }
 }
 
-void Editor::SetActiveModelFromIndex(size_t idxModel) {
-    auto model = GetModelFromIndex(idxModel);
+void Editor::SetActiveDocumentFromIndex(size_t idxDocument) {
+    auto model = GetDocumentFromIndex(idxDocument);
     if (model == nullptr) {
         return;
     }
-    SetActiveModel(model);
+    SetActiveDocument(model);
 }
 
-Workspace::Node::Ref Editor::GetWorkspaceNodeForActiveModel() {
-    auto model = GetActiveModel();
+Workspace::Node::Ref Editor::GetWorkspaceNodeForActiveDocument() {
+    auto model = GetActiveDocument();
     if (model == nullptr) {
         return nullptr;
     }
-    return workspace->GetNodeFromModel(model);
+    return workspace->GetNodeFromDocument(model);
 }
-Workspace::Node::Ref Editor::GetWorkspaceNodeForModel(Document::Ref model) {
-    return workspace->GetNodeFromModel(model);
+Workspace::Node::Ref Editor::GetWorkspaceNodeForDocument(Document::Ref model) {
+    return workspace->GetNodeFromDocument(model);
 }
 
 KeyMapping::Ref Editor::GetActiveKeyMap() {
@@ -847,42 +847,42 @@ const std::u32string &Editor::GetVersion() {
 //
 //
 
-Document::Ref Editor::OpenModelFromWorkspace(Workspace::Node::Ref workspaceNode) {
+Document::Ref Editor::OpenDocumentFromWorkspace(Workspace::Node::Ref workspaceNode) {
     // Lazily build the model if this is a path-only (folder-scanned) node.
-    auto model = workspace->EnsureModelForNode(workspaceNode);
+    auto model = workspace->EnsureDocumentForNode(workspaceNode);
     if (model == nullptr) {
-        logger->Error("OpenModelFromWorkspace, node has no model (folder?): %s", workspaceNode->GetDisplayName().c_str());
+        logger->Error("OpenDocumentFromWorkspace, node has no model (folder?): %s", workspaceNode->GetDisplayName().c_str());
         return nullptr;
     }
-    if (IsModelOpen(model)) {
-        SetActiveModel(model);
+    if (IsDocumentOpen(model)) {
+        SetActiveDocument(model);
         return model;
     }
 
     // Make sure we load it if not yet done...
     if (!workspaceNode->LoadData()) {
-        logger->Error("OpenModelFromWorkspace, failed to load: %s", workspaceNode->GetDisplayName().c_str());
+        logger->Error("OpenDocumentFromWorkspace, failed to load: %s", workspaceNode->GetDisplayName().c_str());
         return nullptr;
     }
-    logger->Error("OpenModelFromWorkspace, loaded model: %s", workspaceNode->GetDisplayName().c_str());
-    workspace->AddOpenModel(model);
+    logger->Error("OpenDocumentFromWorkspace, loaded model: %s", workspaceNode->GetDisplayName().c_str());
+    workspace->AddOpenDocument(model);
     logger->Debug("Activating new model");
-    SetActiveModel(model);
+    SetActiveDocument(model);
 
     return model;;
 }
 
-bool Editor::OpenModelOrFolder(const std::string &fileOrFolder) {
+bool Editor::OpenDocumentOrFolder(const std::string &fileOrFolder) {
     auto pathName =std::filesystem::path(fileOrFolder);
     if (!std::filesystem::exists(pathName)) {
         // Create file here..
         logger->Debug("File doesn't exists, creating new");
-        auto nodeModel = workspace->NewModelWithFileRef(pathName);
+        auto nodeModel = workspace->NewDocumentWithFileRef(pathName);
         if (nodeModel == nullptr) {
             logger->Error("Failed to create new file!");
             return false;
         }
-        workspace->AddOpenModel(nodeModel->GetModel());
+        workspace->AddOpenDocument(nodeModel->GetDocument());
         return true;
     }
     if (std::filesystem::is_directory(pathName)) {
@@ -899,7 +899,7 @@ bool Editor::OpenModelOrFolder(const std::string &fileOrFolder) {
         return true;
     }
 
-    auto model = LoadModel(fileOrFolder);
+    auto model = LoadDocument(fileOrFolder);
     if (model == nullptr) {
         // errors dumped already...
         return false;
@@ -909,17 +909,17 @@ bool Editor::OpenModelOrFolder(const std::string &fileOrFolder) {
 
 }
 
-Document::Ref Editor::LoadModel(const std::string &filename) {
+Document::Ref Editor::LoadDocument(const std::string &filename) {
     auto pathName =std::filesystem::path(filename);
     if (!std::filesystem::exists(pathName)) {
         logger->Error("File not found: %s", filename.c_str());
         return nullptr;
     }
     if (std::filesystem::is_directory(pathName)) {
-        logger->Error("DO NOT CALL 'LoadModel' with directories!!!");
+        logger->Error("DO NOT CALL 'LoadDocument' with directories!!!");
         return nullptr;
     }
-    auto node = workspace->NewModelWithFileRef(filename);
+    auto node = workspace->NewDocumentWithFileRef(filename);
     if (node == nullptr) {
         logger->Error("Failed to create model");
         return nullptr;
@@ -932,24 +932,24 @@ Document::Ref Editor::LoadModel(const std::string &filename) {
     bool bIsReadOnly = node->GetMeta<bool>(Workspace::Node::kMetaKey_ReadOnly, false);
     if (bIsReadOnly) {
         logger->Debug("File '%s' is readonly", filename.c_str());
-        node->GetModel()->GetTextBuffer()->SetReadOnly(true);
+        node->GetDocument()->GetTextBuffer()->SetReadOnly(true);
     }
 
-    workspace->AddOpenModel(node->GetModel());
+    workspace->AddOpenDocument(node->GetDocument());
 
-    return node->GetModel();
+    return node->GetDocument();
 }
 
 // This will simply close the editing of the text-model
 // NOTE: DO NOT add 'save confirmation' here - this is also called for external removal (such as someone doing rm on a file from the terminal)
-bool Editor::CloseModel(Document::Ref model) {
-    auto node = workspace->GetNodeFromModel(model);
+bool Editor::CloseDocument(Document::Ref model) {
+    auto node = workspace->GetNodeFromDocument(model);
     if (node == nullptr) {
         logger->Error("Model not part of workspace!!!!!");
         return false;
     }
 
-    if (!IsModelOpen(model)) {
+    if (!IsDocumentOpen(model)) {
         logger->Error("Model '%s' not found in open models", node->GetDisplayName().c_str());
         return false;
     }
@@ -961,20 +961,20 @@ bool Editor::CloseModel(Document::Ref model) {
     // In case there are just 1 open - we set everything to null (this is the default when there are no open models)
     Document::Ref nextActive = nullptr;
 
-    auto idxCurrent = GetActiveModelIndex();
-    auto idxNext = NextModelIndex(idxCurrent);
+    auto idxCurrent = GetActiveDocumentIndex();
+    auto idxNext = NextDocumentIndex(idxCurrent);
     // Do we even have a 'next'??
     if (idxNext > idxCurrent) {
-        nextActive = GetModelFromIndex(idxNext);
-    } else if (PreviousModelIndex(idxCurrent) != idxCurrent) {
-        nextActive = GetModelFromIndex(PreviousModelIndex(idxCurrent));
+        nextActive = GetDocumentFromIndex(idxNext);
+    } else if (PreviousDocumentIndex(idxCurrent) != idxCurrent) {
+        nextActive = GetDocumentFromIndex(PreviousDocumentIndex(idxCurrent));
     }
 
-    workspace->RemoveOpenModel(model);
+    workspace->RemoveOpenDocument(model);
     model->Close();
 
     if (nextActive != nullptr) {
-        SetActiveModel(nextActive);
+        SetActiveDocument(nextActive);
     }
 
     if (RuntimeConfig::Instance().HasRootView()) {

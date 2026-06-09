@@ -36,7 +36,7 @@ DLL_EXPORT int test_textbuffer_parsefull(ITesting *t) {
     Config::Instance()["main"].SetBool("threaded_syntaxparser", false);
 
     Workspace workspace;
-    auto workspaceNode = workspace.NewModelWithFileRef("testfiles/ConvertUTF.cpp");
+    auto workspaceNode = workspace.NewDocumentWithFileRef("testfiles/ConvertUTF.cpp");
     auto buffer = workspaceNode->GetTextBuffer();
     TR_ASSERT(t, workspaceNode->LoadData());
     size_t totalBefore = buffer->GetParseMetrics().total;
@@ -50,7 +50,7 @@ DLL_EXPORT int test_textbuffer_parseregion(ITesting *t) {
     Config::Instance()["main"].SetBool("threaded_syntaxparser", false);
 
     Workspace workspace;
-    auto workspaceNode = workspace.NewModelWithFileRef("testfiles/ConvertUTF.cpp");
+    auto workspaceNode = workspace.NewDocumentWithFileRef("testfiles/ConvertUTF.cpp");
     auto buffer = workspaceNode->GetTextBuffer();
     TR_ASSERT(t, workspaceNode->LoadData());
     size_t totalBefore = buffer->GetParseMetrics().total;
@@ -66,7 +66,7 @@ DLL_EXPORT int test_textbuffer_thparsefull(ITesting *t) {
     Config::Instance()["main"].SetBool("threaded_syntaxparser", true);
 
     Workspace workspace;
-    auto workspaceNode = workspace.NewModelWithFileRef("testfiles/ConvertUTF.cpp");
+    auto workspaceNode = workspace.NewDocumentWithFileRef("testfiles/ConvertUTF.cpp");
     auto buffer = workspaceNode->GetTextBuffer();
     TR_ASSERT(t, workspaceNode->LoadData());
     TR_ASSERT(t, !buffer->IsEmpty());   // Did we load?
@@ -94,7 +94,7 @@ DLL_EXPORT int test_textbuffer_thparseregion(ITesting *t) {
     Config::Instance()["main"].SetBool("threaded_syntaxparser", true);
 
     Workspace workspace;
-    auto workspaceNode = workspace.NewModelWithFileRef("testfiles/ConvertUTF.cpp");
+    auto workspaceNode = workspace.NewDocumentWithFileRef("testfiles/ConvertUTF.cpp");
     auto buffer = workspaceNode->GetTextBuffer();
     TR_ASSERT(t, workspaceNode->LoadData());
     TR_ASSERT(t, !buffer->IsEmpty());   // Did we load?
@@ -128,7 +128,7 @@ DLL_EXPORT int test_textbuffer_parselarge(ITesting *t) {
     Config::Instance()["main"].SetBool("threaded_syntaxparser", false);
 
     Workspace workspace;
-    auto workspaceNode = workspace.NewModelWithFileRef("sqlite3.c");
+    auto workspaceNode = workspace.NewDocumentWithFileRef("sqlite3.c");
     auto buffer = workspaceNode->GetTextBuffer();
     TR_ASSERT(t, workspaceNode->LoadData());
     size_t totalBefore = buffer->GetParseMetrics().total;

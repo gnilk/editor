@@ -51,37 +51,37 @@ namespace gedit {
         void HandleGlobalAction(const KeyPressAction &kpAction);
 
         // Open-model accessors. The Workspace owns the open list + active model; these delegate.
-        const std::vector<Document::Ref> &GetModels() {
-            return workspace->GetOpenModels();
+        const std::vector<Document::Ref> &GetDocuments() {
+            return workspace->GetOpenDocuments();
         }
 
-        void SetActiveModel(Document::Ref model);
-        void SetActiveModelFromIndex(size_t idxModel);
-        size_t GetActiveModelIndex() {
-            return workspace->GetActiveModelIndex();
+        void SetActiveDocument(Document::Ref model);
+        void SetActiveDocumentFromIndex(size_t idxDocument);
+        size_t GetActiveDocumentIndex() {
+            return workspace->GetActiveDocumentIndex();
         }
-        Document::Ref GetActiveModel() {
-            return workspace->GetActiveModel();
+        Document::Ref GetActiveDocument() {
+            return workspace->GetActiveDocument();
         }
-        Workspace::Node::Ref GetWorkspaceNodeForActiveModel();
-        Workspace::Node::Ref GetWorkspaceNodeForModel(Document::Ref model);
-        Document::Ref GetModelFromIndex(size_t idxModel) {
-            return workspace->GetModelFromIndex(idxModel);
-        }
-
-        bool IsModelOpen(Document::Ref model) {
-            return workspace->IsModelOpen(model);
-        }
-        Document::Ref GetModelFromTextBuffer(TextBuffer::Ref textBuffer) {
-            return workspace->GetModelFromTextBuffer(textBuffer);
+        Workspace::Node::Ref GetWorkspaceNodeForActiveDocument();
+        Workspace::Node::Ref GetWorkspaceNodeForDocument(Document::Ref model);
+        Document::Ref GetDocumentFromIndex(size_t idxDocument) {
+            return workspace->GetDocumentFromIndex(idxDocument);
         }
 
-        size_t NextModelIndex(size_t idxCurrent) {
-            return workspace->NextModelIndex(idxCurrent);
+        bool IsDocumentOpen(Document::Ref model) {
+            return workspace->IsDocumentOpen(model);
+        }
+        Document::Ref GetDocumentFromTextBuffer(TextBuffer::Ref textBuffer) {
+            return workspace->GetDocumentFromTextBuffer(textBuffer);
         }
 
-        size_t PreviousModelIndex(size_t idxCurrent) {
-            return workspace->PreviousModelIndex(idxCurrent);
+        size_t NextDocumentIndex(size_t idxCurrent) {
+            return workspace->NextDocumentIndex(idxCurrent);
+        }
+
+        size_t PreviousDocumentIndex(size_t idxCurrent) {
+            return workspace->PreviousDocumentIndex(idxCurrent);
         }
 
         // FIXME: should return a PluginCommand instead
@@ -151,10 +151,10 @@ namespace gedit {
         const std::u32string &GetVersion();
 
 
-        Document::Ref OpenModelFromWorkspace(Workspace::Node::Ref workspaceNode);
-        Document::Ref LoadModel(const std::string &filename);
+        Document::Ref OpenDocumentFromWorkspace(Workspace::Node::Ref workspaceNode);
+        Document::Ref LoadDocument(const std::string &filename);
 
-        bool CloseModel(Document::Ref model);
+        bool CloseDocument(Document::Ref model);
 
         State GetState() {
             return state;
@@ -166,7 +166,7 @@ namespace gedit {
 
         void TriggerUIRedraw();
     protected:
-        bool OpenModelOrFolder(const std::string &fileOrFolder);
+        bool OpenDocumentOrFolder(const std::string &fileOrFolder);
 
         void ParseArguments(int argc, const char **argv);
 

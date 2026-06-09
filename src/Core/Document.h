@@ -170,7 +170,7 @@ namespace gedit {
         void AddCharToLineNoUndo(Cursor &cursor, Line::Ref line, char32_t ch);
         void RemoveCharFromLineNoUndo(gedit::Cursor &cursor, Line::Ref line);
 
-        void UpdateModelFromNavigation(bool updateCursor);
+        void UpdateDocumentFromNavigation(bool updateCursor);
 
         // Visual tab width for the active language (falls back to 4 if no language is set)
         int GetTabSize();

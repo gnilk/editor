@@ -85,9 +85,9 @@ size_t LangLineTokenizer::FindParseRegionEnd(const std::vector<Line::Ref> &lines
         return lines.size();
     }
 
-    auto currentModel = Editor::Instance().GetActiveModel();
-    if (currentModel->IsSelectionActive()) {
-        auto selection = currentModel->GetSelection();
+    auto currentDocument = Editor::Instance().GetActiveDocument();
+    if (currentDocument->IsSelectionActive()) {
+        auto selection = currentDocument->GetSelection();
         idxRegion = selection.GetEnd().y;
     }
 

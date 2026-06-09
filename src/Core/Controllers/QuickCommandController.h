@@ -41,7 +41,7 @@ namespace gedit {
         bool HandleActionInSearch(const KeyPressAction &kpAction);
         bool HandleActionInCmdLetState(const KeyPressAction &kpAction);
         void DoLeaveOnSuccess();
-        void SearchInActiveEditorModel(const std::u32string &searchItem);
+        void SearchInActiveDocument(const std::u32string &searchItem);
         void NextSearchResult();
         void PrevSearchResult();
     private:

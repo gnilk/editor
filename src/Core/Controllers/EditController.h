@@ -24,11 +24,11 @@ namespace gedit {
 
     public:
         EditController() = default;
-        EditController(Document::Ref newModel) : model(newModel) {
+        EditController(Document::Ref newDocument) : model(newDocument) {
 
         }
         virtual ~EditController() = default;
-        static Ref Create(Document::Ref newModel);
+        static Ref Create(Document::Ref newDocument);
 
         void Begin() override;
 

@@ -26,7 +26,7 @@ DLL_EXPORT int test_jsonlang(ITesting *t) {
 DLL_EXPORT int test_jsonlang_string(ITesting *t) {
     auto workspace = Editor::Instance().GetWorkspace();
     TR_ASSERT(t, workspace != nullptr);
-    auto model = workspace->NewModel("test.json");
+    auto model = workspace->NewDocument("test.json");
     TR_ASSERT(t, model != nullptr);
     auto buffer = model->GetTextBuffer();
     TR_ASSERT(t, buffer != nullptr);
@@ -49,7 +49,7 @@ DLL_EXPORT int test_jsonlang_string(ITesting *t) {
     }
     TR_ASSERT(t, hasString);
 
-    TR_ASSERT(t, workspace->RemoveModel(model->GetModel()));
+    TR_ASSERT(t, workspace->RemoveDocument(model->GetDocument()));
     return kTR_Pass;
 }
 
@@ -57,7 +57,7 @@ DLL_EXPORT int test_jsonlang_string(ITesting *t) {
 DLL_EXPORT int test_jsonlang_keywords(ITesting *t) {
     auto workspace = Editor::Instance().GetWorkspace();
     TR_ASSERT(t, workspace != nullptr);
-    auto model = workspace->NewModel("test.json");
+    auto model = workspace->NewDocument("test.json");
     TR_ASSERT(t, model != nullptr);
     auto buffer = model->GetTextBuffer();
     TR_ASSERT(t, buffer != nullptr);
@@ -76,7 +76,7 @@ DLL_EXPORT int test_jsonlang_keywords(ITesting *t) {
     TR_ASSERT(t, line->Attributes()[1].tokenClass == kLanguageTokenClass::kKeyword);  // false
     TR_ASSERT(t, line->Attributes()[2].tokenClass == kLanguageTokenClass::kKeyword);  // null
 
-    TR_ASSERT(t, workspace->RemoveModel(model->GetModel()));
+    TR_ASSERT(t, workspace->RemoveDocument(model->GetDocument()));
     return kTR_Pass;
 }
 
@@ -84,7 +84,7 @@ DLL_EXPORT int test_jsonlang_keywords(ITesting *t) {
 DLL_EXPORT int test_jsonlang_indent(ITesting *t) {
     auto workspace = Editor::Instance().GetWorkspace();
     TR_ASSERT(t, workspace != nullptr);
-    auto model = workspace->NewModel("test.json");
+    auto model = workspace->NewDocument("test.json");
     TR_ASSERT(t, model != nullptr);
     auto buffer = model->GetTextBuffer();
     TR_ASSERT(t, buffer != nullptr);
@@ -106,6 +106,6 @@ DLL_EXPORT int test_jsonlang_indent(ITesting *t) {
         TR_ASSERT(t, buffer->LineAt(i)->GetIndent() == expectedIndent[i]);
     }
 
-    TR_ASSERT(t, workspace->RemoveModel(model->GetModel()));
+    TR_ASSERT(t, workspace->RemoveDocument(model->GetDocument()));
     return kTR_Pass;
 }

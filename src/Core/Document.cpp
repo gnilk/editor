@@ -16,9 +16,9 @@ static const std::string cfgSectionName = "editorview";
 
 
 Document::Ref Document::Create(TextBuffer::Ref newTextBuffer) {
-    Document::Ref editorModel = std::make_shared<Document>(newTextBuffer);
-    editorModel->Begin();
-    return editorModel;
+    Document::Ref document = std::make_shared<Document>(newTextBuffer);
+    document->Begin();
+    return document;
 }
 
 void Document::Begin() {
@@ -42,7 +42,7 @@ void Document::OnViewInit(const Rect &rect) {
     lineCursor.viewTopLine = 0;
     lineCursor.viewBottomLine = rect.Height();
 
-    UpdateModelFromNavigation(true);
+    UpdateDocumentFromNavigation(true);
 
 }
 
@@ -62,7 +62,7 @@ size_t Document::SearchFor(const std::u32string &searchItem) {
         auto tDuration = std::chrono::steady_clock::now() - tStart;
         auto msDuration = std::chrono::duration_cast<std::chrono::milliseconds>(tDuration).count();
         if (msDuration > 1000) {
-            auto logger = gnilk::Logger::GetLogger("EditModel");
+            auto logger = gnilk::Logger::GetLogger("Document");
             logger->Debug("Search aborted at line: %zu, exceeding run-time!", idxLine);
             break;
         }
@@ -84,7 +84,7 @@ size_t Document::SearchFor(const std::u32string &searchItem) {
 
     auto tDuration = std::chrono::steady_clock::now() - tStart;
     auto msDuration = std::chrono::duration_cast<std::chrono::milliseconds>(tDuration).count();
-    auto logger = gnilk::Logger::GetLogger("EditModel");
+    auto logger = gnilk::Logger::GetLogger("Document");
     logger->Debug("Search took %zu milliseconds", msDuration);
 
     // Number of hits..
@@ -213,7 +213,7 @@ bool Document::OnAction(const KeyPressAction &kpAction) {
 
         DeleteSelection();
         CancelSelection();
-        UpdateModelFromNavigation(false);
+        UpdateDocumentFromNavigation(false);
     } else if (kpAction.action == kAction::kActionPasteFromClipboard) {
         PasteFromClipboard();
     } else if (kpAction.action == kAction::kActionInsertLineComment) {
@@ -312,24 +312,24 @@ bool Document::OnActionUnindent() {
 
 
 //bool EditorView::OnActionBackspace() {
-//    auto currentLine = editorModel->GetEditController()->LineAt(editorModel->idxActiveLine);
-//    if (editorModel->cursor.position.x > 0) {
+//    auto currentLine = document->GetEditController()->LineAt(document->idxActiveLine);
+//    if (document->cursor.position.x > 0) {
 //        logger->Debug("OnActionBackspace");
-//        std::string strMarker(editorModel->cursor.position.x-1,' ');
+//        std::string strMarker(document->cursor.position.x-1,' ');
 //        logger->Debug("  LineBefore: '%s'", currentLine->Buffer().data());
 //        logger->Debug("               %s*", strMarker.c_str());
-//        logger->Debug("  Delete at: %d", editorModel->cursor.position.x-1);
-//        currentLine->Delete(editorModel->cursor.position.x-1);
+//        logger->Debug("  Delete at: %d", document->cursor.position.x-1);
+//        currentLine->Delete(document->cursor.position.x-1);
 //        logger->Debug("  LineAfter: '%s'", currentLine->Buffer().data());
-//        editorModel->cursor.position.x--;
-//        editorModel->GetEditController()->UpdateSyntaxForBuffer();
+//        document->cursor.position.x--;
+//        document->GetEditController()->UpdateSyntaxForBuffer();
 //    }
 //    return true;
 //}
 
 // Move all actions to controller/model...
 bool Document::OnActionUndo() {
-    //editorModel->GetTextBuffer()->Undo();
+    //document->GetTextBuffer()->Undo();
     auto &lineCursor = GetLineCursor();
     Undo(lineCursor.cursor, lineCursor.idxActiveLine);
     // auto nLinesAfter = GetTextBuffer()->NumLines();
@@ -372,7 +372,7 @@ bool Document::OnActionCommitLine() {
 
     // Need viewRect - this is the visible view of the renderer
     verticalNavigationViewModel->OnNavigateDown(1, viewRect, Lines().size());
-    UpdateModelFromNavigation(true);
+    UpdateDocumentFromNavigation(true);
     logger->Debug("OnActionCommitLine, After: idxActive=%zu", lineCursor.idxActiveLine);
 
     //InvalidateView();
@@ -400,7 +400,7 @@ bool Document::OnActionWordRight() {
 }
 
 bool Document::OnActionWordLeft() {
-    auto currentLine = ActiveLine(); //editorModel->GetEditController()->LineAt(editorModel->idxActiveLine);
+    auto currentLine = ActiveLine(); //document->GetEditController()->LineAt(document->idxActiveLine);
     auto &cursor = GetCursor();
     if (cursor.position.x == 0) {
         verticalNavigationViewModel->OnNavigateUp(1, viewRect, Lines().size());
@@ -483,7 +483,7 @@ bool Document::OnPrevSearchResult() {
 
 
 // Not sure this should be here
-void Document::UpdateModelFromNavigation(bool updateCursor) {
+void Document::UpdateDocumentFromNavigation(bool updateCursor) {
 
     if (!updateCursor) {
         return;
@@ -538,13 +538,13 @@ void Document::ApplyWantedColumn(Cursor &cursor, const Line::Ref &line) {
 
 bool Document::OnActionPageDown() {
     verticalNavigationViewModel->OnNavigateDown(viewRect.Height() - 1, viewRect, Lines().size());
-    UpdateModelFromNavigation(true);
+    UpdateDocumentFromNavigation(true);
     return true;
 }
 
 bool Document::OnActionPageUp() {
     verticalNavigationViewModel->OnNavigateUp(viewRect.Height() - 1, viewRect, Lines().size());
-    UpdateModelFromNavigation(true);
+    UpdateDocumentFromNavigation(true);
     return true;
 }
 
@@ -556,7 +556,7 @@ bool Document::OnActionLineDown(const KeyPressAction &kpAction) {
     auto &lineCursor = GetLineCursor();
     auto &cursor = GetCursor();
     verticalNavigationViewModel->OnNavigateDown(1, viewRect, Lines().size());
-    UpdateModelFromNavigation(true);
+    UpdateDocumentFromNavigation(true);
 
     return true;
 }
@@ -567,7 +567,7 @@ bool Document::OnActionLineUp() {
     }
 
     verticalNavigationViewModel->OnNavigateUp(1, viewRect, Lines().size());
-    UpdateModelFromNavigation(true);
+    UpdateDocumentFromNavigation(true);
     return true;
 }
 
@@ -576,18 +576,18 @@ bool Document::OnActionGotoTopLine() {
 
     lineCursor.cursor.position.y = 0;
     lineCursor.idxActiveLine = lineCursor.viewTopLine;
-    //logger->Debug("GotoTopLine, new cursor=(%d:%d)", editorModel->cursor.position.x, editorModel->cursor.position.y);
+    //logger->Debug("GotoTopLine, new cursor=(%d:%d)", document->cursor.position.x, document->cursor.position.y);
     return true;
 }
 
 bool Document::OnActionGotoBottomLine() {
-    //logger->Debug("GotoBottomLine (def: PageDown+CMDKey), cursor=(%d:%d)", editorModel->cursor.position.x, editorModel->cursor.position.y);
+    //logger->Debug("GotoBottomLine (def: PageDown+CMDKey), cursor=(%d:%d)", document->cursor.position.x, document->cursor.position.y);
 
     auto &lineCursor = GetLineCursor();
     lineCursor.cursor.position.y = viewRect.Height()-1;
     lineCursor.idxActiveLine = lineCursor.viewBottomLine-1;
 
-    //logger->Debug("GotoBottomLine, new  cursor=(%d:%d)", editorModel->cursor.position.x, editorModel->cursor.position.y);
+    //logger->Debug("GotoBottomLine, new  cursor=(%d:%d)", document->cursor.position.x, document->cursor.position.y);
     return true;
 }
 

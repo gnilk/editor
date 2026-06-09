@@ -15,7 +15,7 @@ UndoHistory::UndoItem::Ref UndoHistory::NewUndoItem() {
 
 UndoHistory::UndoItem::Ref UndoHistory::NewUndoFromSelection() {
     auto undoItem = UndoItemRange::Create();
-    auto model = Editor::Instance().GetActiveModel();
+    auto model = Editor::Instance().GetActiveDocument();
     if (model == nullptr) {
         return undoItem;
     }
@@ -40,7 +40,7 @@ UndoHistory::UndoItem::Ref UndoHistory::NewUndoFromSelection() {
 
 UndoHistory::UndoItem::Ref UndoHistory::NewUndoFromLineRange(size_t idxStartLine, size_t idxEndLine) {
     auto undoItem = UndoItemRange::Create();
-    auto model = Editor::Instance().GetActiveModel();
+    auto model = Editor::Instance().GetActiveDocument();
     if (model == nullptr) {
         return undoItem;
     }
@@ -70,7 +70,7 @@ int32_t UndoHistory::RestoreOneItem(Cursor &cursor, size_t &idxActiveLine, TextB
 //////////////////
 // Baseclass
 void UndoHistory::UndoItem::Initialize() {
-    auto model = Editor::Instance().GetActiveModel();
+    auto model = Editor::Instance().GetActiveDocument();
     if (model == nullptr) {
         return;
     }
@@ -88,7 +88,7 @@ void UndoHistory::UndoItemSingle::Initialize() {
 
     UndoHistory::UndoItem::Initialize();
 
-    auto model = Editor::Instance().GetActiveModel();
+    auto model = Editor::Instance().GetActiveDocument();
     if (model == nullptr) {
         return;
     }
@@ -112,7 +112,7 @@ UndoHistory::UndoItemRange::Ref UndoHistory::UndoItemRange::Create() {
 void UndoHistory::UndoItemRange::InitRange(const gedit::Point &ptStart, const gedit::Point &ptEnd) {
     UndoHistory::UndoItem::Initialize();
 
-    auto model = Editor::Instance().GetActiveModel();
+    auto model = Editor::Instance().GetActiveDocument();
     if (model == nullptr) {
         return;
     }

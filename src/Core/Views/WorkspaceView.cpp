@@ -92,21 +92,21 @@ void WorkspaceView::ReInitView() {
     // resync IF the user wants the buffers in workspace view to reflect the editor (this is VSCode behaviour)
 
     bool syncOnBufferChange = Config::Instance()[cfgSectionName].GetBool("sync_on_active_buffer_changed", true);
-    if (syncOnBufferChange && Editor::Instance().GetActiveModel() != nullptr) {
-        auto activeNode = Editor::Instance().GetWorkspaceNodeForActiveModel();
+    if (syncOnBufferChange && Editor::Instance().GetActiveDocument() != nullptr) {
+        auto activeNode = Editor::Instance().GetWorkspaceNodeForActiveDocument();
         treeView->SetCurrentlySelectedItem(activeNode);
     }
 
 
 }
 
-WorkspaceView::TreeNodeRef WorkspaceView::FindModelNode(TreeNodeRef node, const std::string &pathName) {
+WorkspaceView::TreeNodeRef WorkspaceView::FindDocumentNode(TreeNodeRef node, const std::string &pathName) {
     auto workspaceNode = node->data;
     if (workspaceNode->GetNodePath() == pathName) {
         return node;
     }
     for (auto &child : node->children) {
-        auto res = FindModelNode(child, pathName);
+        auto res = FindDocumentNode(child, pathName);
         if (res != nullptr) {
             return res;
         }
@@ -133,7 +133,7 @@ void WorkspaceView::CreateTree() {
         treeView = TreeView<Workspace::Node::Ref>::Create();
 
         treeView->SetToStringDelegate([](Workspace::Node::Ref node) -> std::string {
-            if (node->GetModel() != nullptr) {
+            if (node->GetDocument() != nullptr) {
                 return std::string(node->GetDisplayName());
             }
             // Highlight folders with '/'
@@ -175,8 +175,8 @@ void WorkspaceView::PopulateTree() {
     }
     // All nodes start collapsed, but we want the root to start expanded...
     treeView->Expand();
-    if (Editor::Instance().GetActiveModel() != nullptr) {
-        auto activeNode = Editor::Instance().GetWorkspaceNodeForActiveModel();
+    if (Editor::Instance().GetActiveDocument() != nullptr) {
+        auto activeNode = Editor::Instance().GetWorkspaceNodeForActiveDocument();
         treeView->SetCurrentlySelectedItem(activeNode);
     }
 
@@ -214,7 +214,7 @@ bool WorkspaceView::OnAction(const KeyPressAction &kpAction) {
         // rather than presence of a model - scanned file nodes are path-only until opened.
         auto nodeType = itemSelected->GetMeta<int>(Workspace::Node::kMetaKey_NodeType, Workspace::Node::kNodeFolder);
         if (nodeType != Workspace::Node::kNodeFolder) {
-            Editor::Instance().OpenModelFromWorkspace(itemSelected);
+            Editor::Instance().OpenDocumentFromWorkspace(itemSelected);
             logger->Debug("Selected Item: %s", itemSelected->GetDisplayName().c_str());
 
             if (Config::Instance()[cfgSectionName].GetBool("switch_to_editor_on_openfile", true)) {
@@ -261,7 +261,7 @@ std::pair<std::u32string, std::u32string> WorkspaceView::GetStatusBarInfo() {
         int breakme = 1;
     }
     auto &dispName = node->GetDisplayName();
-    auto model = node->GetModel();
+    auto model = node->GetDocument();
 
     auto nodeType = node->GetMeta<int>(Workspace::Node::kMetaKey_NodeType, Workspace::Node::kNodeFolder);
     auto fileSize = node->GetMeta<size_t>(Workspace::Node::kMetaKey_FileSize, 0);

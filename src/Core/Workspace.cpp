@@ -21,50 +21,50 @@ Workspace::Workspace() {
 Workspace::~Workspace() {
     projectRoots.clear();
     defaultRoot = nullptr;
-    activeModel = nullptr;
-    openModels.clear();
+    activeDocument = nullptr;
+    openDocuments.clear();
 }
 
 //
 // Open-document management. The Workspace owns the open-model list and the active-model pointer;
-// these are pure data operations - Editor adds the UI redraw/relayout around SetActiveModel/close.
+// these are pure data operations - Editor adds the UI redraw/relayout around SetActiveDocument/close.
 //
-void Workspace::AddOpenModel(Document::Ref model) {
+void Workspace::AddOpenDocument(Document::Ref model) {
     if (model == nullptr) {
         return;
     }
-    if (IsModelOpen(model)) {
+    if (IsDocumentOpen(model)) {
         return;
     }
-    openModels.push_back(model);
+    openDocuments.push_back(model);
 }
 
-bool Workspace::RemoveOpenModel(Document::Ref model) {
-    auto it = std::find(openModels.begin(), openModels.end(), model);
-    if (it == openModels.end()) {
+bool Workspace::RemoveOpenDocument(Document::Ref model) {
+    auto it = std::find(openDocuments.begin(), openDocuments.end(), model);
+    if (it == openDocuments.end()) {
         return false;
     }
-    openModels.erase(it);
-    if (activeModel == model) {
-        activeModel = nullptr;
+    openDocuments.erase(it);
+    if (activeDocument == model) {
+        activeDocument = nullptr;
     }
     return true;
 }
 
-bool Workspace::IsModelOpen(Document::Ref model) {
-    return std::find(openModels.begin(), openModels.end(), model) != openModels.end();
+bool Workspace::IsDocumentOpen(Document::Ref model) {
+    return std::find(openDocuments.begin(), openDocuments.end(), model) != openDocuments.end();
 }
 
-void Workspace::SetActiveModel(Document::Ref model) {
-    if (!IsModelOpen(model)) {
+void Workspace::SetActiveDocument(Document::Ref model) {
+    if (!IsDocumentOpen(model)) {
         return;
     }
-    activeModel = model;
+    activeDocument = model;
 }
 
-size_t Workspace::GetActiveModelIndex() {
-    for (size_t i = 0; i < openModels.size(); i++) {
-        if (openModels[i] == activeModel) {
+size_t Workspace::GetActiveDocumentIndex() {
+    for (size_t i = 0; i < openDocuments.size(); i++) {
+        if (openDocuments[i] == activeDocument) {
             return i;
         }
     }
@@ -72,15 +72,15 @@ size_t Workspace::GetActiveModelIndex() {
     return 0;
 }
 
-Document::Ref Workspace::GetModelFromIndex(size_t idxModel) {
-    if (idxModel >= openModels.size()) {
+Document::Ref Workspace::GetDocumentFromIndex(size_t idxDocument) {
+    if (idxDocument >= openDocuments.size()) {
         return nullptr;
     }
-    return openModels[idxModel];
+    return openDocuments[idxDocument];
 }
 
-Document::Ref Workspace::GetModelFromTextBuffer(TextBuffer::Ref textBuffer) {
-    for (auto &model : openModels) {
+Document::Ref Workspace::GetDocumentFromTextBuffer(TextBuffer::Ref textBuffer) {
+    for (auto &model : openDocuments) {
         if (model->GetTextBuffer() == textBuffer) {
             return model;
         }
@@ -88,18 +88,18 @@ Document::Ref Workspace::GetModelFromTextBuffer(TextBuffer::Ref textBuffer) {
     return nullptr;
 }
 
-size_t Workspace::NextModelIndex(size_t idxCurrent) {
-    if (openModels.empty()) {
+size_t Workspace::NextDocumentIndex(size_t idxCurrent) {
+    if (openDocuments.empty()) {
         return 0;
     }
-    return (idxCurrent + 1) % openModels.size();
+    return (idxCurrent + 1) % openDocuments.size();
 }
 
-size_t Workspace::PreviousModelIndex(size_t idxCurrent) {
-    if (openModels.empty()) {
+size_t Workspace::PreviousDocumentIndex(size_t idxCurrent) {
+    if (openDocuments.empty()) {
         return 0;
     }
-    return (openModels.size() + (idxCurrent - 1)) % openModels.size();
+    return (openDocuments.size() + (idxCurrent - 1)) % openDocuments.size();
 }
 
 Workspace::Ref Workspace::Create() {
@@ -129,7 +129,7 @@ const Workspace::Node::Ref Workspace::GetDefaultWorkspace() {
 }
 
 // Create an empty model in the default workspace
-Workspace::Node::Ref Workspace::NewModel(const std::string &name) {
+Workspace::Node::Ref Workspace::NewDocument(const std::string &name) {
     auto parent = activeFolderNode;
     if (parent == nullptr) {
         parent = GetDefaultWorkspace();
@@ -138,15 +138,15 @@ Workspace::Node::Ref Workspace::NewModel(const std::string &name) {
     }
 
     if (parent == nullptr) {
-        logger->Error("NewModel, parent is NULL or default workspace is gone");
+        logger->Error("NewDocument, parent is NULL or default workspace is gone");
         exit(1);
     }
-    return NewModelWithFileRef(parent, name);
+    return NewDocumentWithFileRef(parent, name);
 }
 
 // Create a new empty model under a specific parent. A brand-new file is meant to be edited
 // immediately, so its model is created eagerly (unlike folder-scanned nodes, which stay path-only).
-Workspace::Node::Ref Workspace::NewModel(const Node::Ref parent, const std::string &name) {
+Workspace::Node::Ref Workspace::NewDocument(const Node::Ref parent, const std::string &name) {
     auto parentPath = parent->GetNodePath();
     // Parent MUST be a directory
     if (!is_directory(parentPath)) {
@@ -154,27 +154,27 @@ Workspace::Node::Ref Workspace::NewModel(const Node::Ref parent, const std::stri
         return nullptr;
     }
     auto node = AddFileNode(parent, parentPath / name);
-    EnsureModelForNode(node);
+    EnsureDocumentForNode(node);
     NotifyChangeHandler();   // Removed while debugging change notifications from FolderMonitor
     return node;
 }
 
 // Create a new model with a file-reference but don't load the contents...
-Workspace::Node::Ref Workspace::NewModelWithFileRef(const std::filesystem::path &pathFileName) {
+Workspace::Node::Ref Workspace::NewDocumentWithFileRef(const std::filesystem::path &pathFileName) {
     auto parent = GetDefaultWorkspace();
     if (parent == nullptr) {
         logger->Error("Can't find default workspace");
         exit(1);
     }
-    return NewModelWithFileRef(parent, pathFileName);
+    return NewDocumentWithFileRef(parent, pathFileName);
 }
 
 // Add a file-ref node AND eagerly create its model (the caller is explicitly opening this file).
 // Contrast with the folder scan, which adds path-only nodes via AddFileNode.
-Workspace::Node::Ref Workspace::NewModelWithFileRef(Node::Ref parent, const std::filesystem::path &pathFileName) {
+Workspace::Node::Ref Workspace::NewDocumentWithFileRef(Node::Ref parent, const std::filesystem::path &pathFileName) {
     DisableNotifications();
     auto node = AddFileNode(parent, pathFileName);
-    EnsureModelForNode(node);
+    EnsureDocumentForNode(node);
     EnableNotifications();
 
     NotifyChangeHandler();  // Note: This can be enabled/disabled - when reading a directory it is disabled and called once reading has completed./..
@@ -193,12 +193,12 @@ Workspace::Node::Ref Workspace::AddFileNode(Node::Ref parent, const std::filesys
 
 // Lazily build the model/controller/buffer for a file node. Returns the existing model if present,
 // or null for folder nodes. The language is derived from the node-path extension.
-Document::Ref Workspace::EnsureModelForNode(Node::Ref node) {
+Document::Ref Workspace::EnsureDocumentForNode(Node::Ref node) {
     if (node == nullptr) {
         return nullptr;
     }
-    if (node->GetModel() != nullptr) {
-        return node->GetModel();
+    if (node->GetDocument() != nullptr) {
+        return node->GetDocument();
     }
     auto nodeType = node->GetMeta<int>(Node::kMetaKey_NodeType, Node::kNodeFolder);
     if (nodeType == Node::kNodeFolder) {
@@ -209,13 +209,13 @@ Document::Ref Workspace::EnsureModelForNode(Node::Ref node) {
     auto ext = node->GetNodePath().extension();
     textBuffer->SetLanguage(Editor::Instance().GetLanguageForExtension(ext.string()));
 
-    Document::Ref editorModel = Document::Create(textBuffer);
-    EditController::Ref editController = EditController::Create(editorModel);
+    Document::Ref document = Document::Create(textBuffer);
+    EditController::Ref editController = EditController::Create(document);
 
-    node->SetModel(editorModel);        // also syncs the model's path from the node
+    node->SetDocument(document);        // also syncs the model's path from the node
     node->SetController(editController);
 
-    return editorModel;
+    return document;
 }
 
 void Workspace::UpdateMetaDataForNode(Node::Ref node) {
@@ -239,8 +239,8 @@ void Workspace::UpdateMetaDataForNode(Node::Ref node) {
 }
 
 
-bool Workspace::RemoveModel(Document::Ref model) {
-    auto node = GetNodeFromModel(model);
+bool Workspace::RemoveDocument(Document::Ref model) {
+    auto node = GetNodeFromDocument(model);
     return RemoveNode(node);
 }
 
@@ -254,14 +254,14 @@ bool Workspace::RemoveNode(Node::Ref node) {
     // Note: can't use 'IsFolder' here - since it will check the filesystem::path property
     //       and if we have externally deleted that path - it will simply crash.
     auto nodeType = node->GetMeta<int>(Node::kMetaKey_NodeType, Node::kNodeFolder);
-    if ((nodeType != Node::kNodeFolder) && (node->GetModel() != nullptr)) {
-        if (node->GetModel() == activeModel) {
-            Editor::Instance().CloseModel(node->GetModel());
+    if ((nodeType != Node::kNodeFolder) && (node->GetDocument() != nullptr)) {
+        if (node->GetDocument() == activeDocument) {
+            Editor::Instance().CloseDocument(node->GetDocument());
         }
     }
 
     node->GetParent()->DelChild(node);
-    node->SetModel(nullptr);
+    node->SetDocument(nullptr);
 
     NotifyChangeHandler();
 
@@ -270,9 +270,9 @@ bool Workspace::RemoveNode(Node::Ref node) {
 }
 
 
-Workspace::Node::Ref Workspace::GetNodeFromModel(Document::Ref model) {
+Workspace::Node::Ref Workspace::GetNodeFromDocument(Document::Ref model) {
     for(auto &projectRoot : projectRoots) {
-        auto modelNode = projectRoot->GetRootNode()->FindModel(model);
+        auto modelNode = projectRoot->GetRootNode()->FindDocument(model);
         if (modelNode != nullptr) {
             return modelNode;
         }

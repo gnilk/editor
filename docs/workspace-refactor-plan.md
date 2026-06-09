@@ -174,6 +174,19 @@ behind one mutator**:
   map keying) is done; the chdir change is its own future task. With absolute paths stored in
   nodes, opening a second root does not corrupt the first - the only effect is the ambient CWD.
 
+- **DocumentAPI re-wrapping deferred (2026-06-09, during Step 7).** Step 7 renamed the class
+  `EditorModel -> Document` (files, includes, guard, CMake, logger category). The JS-facing
+  `DocumentAPI` still wraps a `Workspace::Node`, not the `Document`. Re-pointing it is a behavioral
+  change (e.g. SaveAs/rename must keep the tree node's path in sync, which the Node currently owns),
+  so it is its own task rather than part of the mechanical rename. Local variable names (`editorModel`)
+  and unrelated identifiers (`SetEditorModel`, `LoadEditorModelFromFile`) were intentionally left.
+
+## Status
+
+Steps 1-7 complete and on `dev_workspace` (each its own commit, verified-green set passing).
+Deferred follow-ups: chdir-per-root resolution, DocumentAPI->Document re-wrapping, and the
+(separately-decided) EditController dissolution.
+
 ## Out of scope
 
 - Folder-monitor *implementation* (only the seam is built).

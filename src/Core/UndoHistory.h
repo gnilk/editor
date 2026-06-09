@@ -12,6 +12,7 @@
 
 #include "logger.h"
 #include "TextBuffer.h"
+#include "ViewState.h"     // LineCursor (via Cursor.h) + Selection - the per-view state undo snapshots
 namespace gedit {
     // Extremely simplistic undo buffer - works for regular edits but wastes an extreme amount of memory..
     class UndoHistory {
@@ -37,7 +38,9 @@ namespace gedit {
                 action = newRestoreAction;
             }
         protected:
-            virtual void Initialize();
+            // Snapshot the cursor for restore positioning. Decoupled from Document/Editor: the
+            // owning view's cursor is passed in, not fetched from the ambient active document.
+            void Initialize(const LineCursor &fromCursor);
         protected:
             bool isValid = false;
             LineCursor lineCursor;
@@ -59,7 +62,7 @@ namespace gedit {
             static UndoItemSingle::Ref Create();
             int32_t Restore(TextBuffer::Ref buffer) override;
         protected:
-            void Initialize() override;
+            void Initialize(const LineCursor &fromCursor, TextBuffer::Ref fromBuffer);
         private:
             std::u32string data = {};
         };
@@ -75,7 +78,7 @@ namespace gedit {
             static UndoItemRange::Ref Create();
             int32_t Restore(TextBuffer::Ref textBuffer) override;
          protected:
-            void InitRange(const Point &ptStart, const Point &ptEnd);
+            void InitRange(const Point &ptStart, const Point &ptEnd, const LineCursor &fromCursor, TextBuffer::Ref fromBuffer);
         private:
             Point start = {};
             Point end = {};
@@ -85,9 +88,11 @@ namespace gedit {
     public:
         UndoHistory() = default;
         virtual ~UndoHistory() = default;
-        UndoItem::Ref NewUndoItem();
-        UndoItem::Ref NewUndoFromSelection();
-        UndoItem::Ref NewUndoFromLineRange(size_t idxStartLine, size_t idxEndLine);
+        // The owning view's cursor (+ selection, for the selection variant) and text buffer are
+        // passed in - UndoHistory no longer reaches the active document via the Editor singleton.
+        UndoItem::Ref NewUndoItem(const LineCursor &fromCursor, TextBuffer::Ref fromBuffer);
+        UndoItem::Ref NewUndoFromSelection(const LineCursor &fromCursor, const Selection &fromSelection, TextBuffer::Ref fromBuffer);
+        UndoItem::Ref NewUndoFromLineRange(size_t idxStartLine, size_t idxEndLine, const LineCursor &fromCursor, TextBuffer::Ref fromBuffer);
         void PushUndoItem(UndoItem::Ref undoItem) {
             // Nopes, we don't allow this...
             if (undoItem == nullptr) {

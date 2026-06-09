@@ -2,53 +2,40 @@
 // Created by gnilk on 14.07.23.
 //
 
-#include "Editor.h"
 #include "UndoHistory.h"
 
 using namespace gedit;
 
-UndoHistory::UndoItem::Ref UndoHistory::NewUndoItem() {
+UndoHistory::UndoItem::Ref UndoHistory::NewUndoItem(const LineCursor &fromCursor, TextBuffer::Ref fromBuffer) {
     auto undoItem = UndoItemSingle::Create();
-    undoItem->Initialize();
+    undoItem->Initialize(fromCursor, fromBuffer);
     return undoItem;
 }
 
-UndoHistory::UndoItem::Ref UndoHistory::NewUndoFromSelection() {
+UndoHistory::UndoItem::Ref UndoHistory::NewUndoFromSelection(const LineCursor &fromCursor, const Selection &fromSelection, TextBuffer::Ref fromBuffer) {
     auto undoItem = UndoItemRange::Create();
-    auto document = Editor::Instance().GetActiveDocument();
-    if (document == nullptr) {
+    if (!fromSelection.IsActive()) {
         return undoItem;
     }
-    if (!document->IsSelectionActive()) {
-        return undoItem;
-    }
-    auto selection = document->GetSelection();
 
-    Point ptStart(0, selection.GetStart().y);
-    Point ptEnd(0, selection.GetEnd().y);
+    Point ptStart(0, fromSelection.GetStart().y);
+    Point ptEnd(0, fromSelection.GetEnd().y);
     // In case we don't do full-lines, include at least the last line
     // If full-lines, endLine of the selection is one-below..
-    if ((selection.GetStart().x != 0) || (selection.GetEnd().x != 0)) {
+    if ((fromSelection.GetStart().x != 0) || (fromSelection.GetEnd().x != 0)) {
         ptEnd.y += 1;
     }
 
-    undoItem->InitRange(ptStart, ptEnd);
-
-//    undoItem->InitRange(selection.GetStart(), selection.GetEnd());
+    undoItem->InitRange(ptStart, ptEnd, fromCursor, fromBuffer);
     return undoItem;
 }
 
-UndoHistory::UndoItem::Ref UndoHistory::NewUndoFromLineRange(size_t idxStartLine, size_t idxEndLine) {
+UndoHistory::UndoItem::Ref UndoHistory::NewUndoFromLineRange(size_t idxStartLine, size_t idxEndLine, const LineCursor &fromCursor, TextBuffer::Ref fromBuffer) {
     auto undoItem = UndoItemRange::Create();
-    auto document = Editor::Instance().GetActiveDocument();
-    if (document == nullptr) {
-        return undoItem;
-    }
     Point ptStart(0, idxStartLine);
     Point ptEnd(0, idxEndLine);
-    undoItem->InitRange(ptStart, ptEnd);
+    undoItem->InitRange(ptStart, ptEnd, fromCursor, fromBuffer);
     return undoItem;
-
 }
 
 
@@ -69,12 +56,8 @@ int32_t UndoHistory::RestoreOneItem(Cursor &cursor, size_t &idxActiveLine, TextB
 
 //////////////////
 // Baseclass
-void UndoHistory::UndoItem::Initialize() {
-    auto document = Editor::Instance().GetActiveDocument();
-    if (document == nullptr) {
-        return;
-    }
-    lineCursor = document->GetLineCursor();
+void UndoHistory::UndoItem::Initialize(const LineCursor &fromCursor) {
+    lineCursor = fromCursor;
     isValid = true;
 }
 
@@ -84,15 +67,14 @@ UndoHistory::UndoItemSingle::Ref UndoHistory::UndoItemSingle::Create() {
     return undoItem;
 }
 
-void UndoHistory::UndoItemSingle::Initialize() {
+void UndoHistory::UndoItemSingle::Initialize(const LineCursor &fromCursor, TextBuffer::Ref fromBuffer) {
 
-    UndoHistory::UndoItem::Initialize();
+    UndoHistory::UndoItem::Initialize(fromCursor);
 
-    auto document = Editor::Instance().GetActiveDocument();
-    if (document == nullptr) {
+    if (fromBuffer == nullptr) {
         return;
     }
-    auto line = document->LineAt(lineCursor.idxActiveLine);
+    auto line = fromBuffer->LineAt(lineCursor.idxActiveLine);
     data = line->Buffer();    // We are saving the "complete" previous line
 }
 
@@ -109,20 +91,19 @@ UndoHistory::UndoItemRange::Ref UndoHistory::UndoItemRange::Create() {
     auto undoItem = std::make_shared<UndoHistory::UndoItemRange>();
     return undoItem;
 }
-void UndoHistory::UndoItemRange::InitRange(const gedit::Point &ptStart, const gedit::Point &ptEnd) {
-    UndoHistory::UndoItem::Initialize();
+void UndoHistory::UndoItemRange::InitRange(const gedit::Point &ptStart, const gedit::Point &ptEnd, const LineCursor &fromCursor, TextBuffer::Ref fromBuffer) {
+    UndoHistory::UndoItem::Initialize(fromCursor);
 
-    auto document = Editor::Instance().GetActiveDocument();
-    if (document == nullptr) {
+    if (fromBuffer == nullptr) {
         return;
     }
 
-    // Clip against active document..
+    // Clip against the supplied buffer..
     start = ptStart;
     end = ptEnd;
 
     for(int y=start.y; y < end.y; y++) {
-        auto line = document->LineAt(y);
+        auto line = fromBuffer->LineAt(y);
         // end of lines?
         if (line == nullptr) {
             break;

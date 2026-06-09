@@ -27,6 +27,8 @@ DLL_EXPORT int test_document_delete_text(ITesting *t);
 DLL_EXPORT int test_document_switch_preserves_cursor(ITesting *t);
 DLL_EXPORT int test_document_switch_preserves_selection(ITesting *t);
 DLL_EXPORT int test_document_switch_preserves_undo(ITesting *t);
+// undo must act on the EDITED document, not whichever document happens to be active
+DLL_EXPORT int test_document_undo_independent_of_active(ITesting *t);
 
 }
 
@@ -374,12 +376,12 @@ DLL_EXPORT int test_document_switch_preserves_selection(ITesting *t) {
     return kTR_Pass;
 }
 
-// NOTE (Phase 2 finding): undo capture is coupled to the *Editor's active document*, not to the
-// document the controller is bound to - UndoItemSingle::Initialize snapshots the line via
-// Editor::Instance().GetActiveDocument() (UndoHistory.cpp). So this contract must drive the REAL
-// switch (Editor::SetActiveDocument), which is what the running app does. That global coupling is a
-// smell P2.2 (EditState extraction) should resolve: the history is per-document and should capture
-// from `this` document, not the ambient active one.
+// Switching the active document away and back preserves each document's own undo history. This
+// drives the real Editor::SetActiveDocument switch (what the running app does). NOTE: undo capture
+// used to be coupled to the Editor's *active* document (UndoHistory reached GetActiveDocument);
+// that coupling has since been removed - undo now captures from the owning document's view-state +
+// buffer (see test_document_undo_independent_of_active). The active-switch here still exercises the
+// genuine switch path.
 DLL_EXPORT int test_document_switch_preserves_undo(ITesting *t) {
     auto &workspace = *Editor::Instance().GetWorkspace();
     auto prevActive = Editor::Instance().GetActiveDocument();
@@ -427,6 +429,47 @@ DLL_EXPORT int test_document_switch_preserves_undo(ITesting *t) {
     // Restore the singleton's workspace state so we don't pollute later cases.
     workspace.RemoveOpenDocument(docA);
     workspace.RemoveOpenDocument(docB);
+    Editor::Instance().SetActiveDocument(prevActive);
+
+    return kTR_Pass;
+}
+
+// Undo must operate on the document being edited, regardless of which document is currently the
+// Editor's active one. (Discriminating test for the undo-decoupling fix: on the pre-fix code the
+// undo SNAPSHOT was captured via Editor::GetActiveDocument(), so editing a non-active document and
+// undoing restores the WRONG document's line content into it.)
+DLL_EXPORT int test_document_undo_independent_of_active(ITesting *t) {
+    auto &workspace = *Editor::Instance().GetWorkspace();
+    auto prevActive = Editor::Instance().GetActiveDocument();
+
+    auto docEdited = CreateEmptyDocument(t);   // the one we actually edit
+    auto docActive = CreateEmptyDocument(t);   // a DIFFERENT, active decoy with a different shape
+    gedit::Rect rect(20,20);
+    docEdited->OnViewInit(rect);
+    docActive->OnViewInit(rect);
+    FillEmptyDocument(docEdited, 40, 40);      // active line length 40
+    FillEmptyDocument(docActive, 10, 5);       // active line length 5 - distinct, exposes cross-capture
+
+    workspace.AddOpenDocument(docEdited);
+    workspace.AddOpenDocument(docActive);
+    Editor::Instance().SetActiveDocument(docActive);   // the decoy is active, not the edited doc
+
+    auto ctrl = EditController::Create(docEdited);
+    static KeyPress keyX = {
+            .isKeyValid = true, .isSpecialKey = false, .modifiers = 0, .key = U'X', .specialKey = 0 };
+
+    auto lenBefore = docEdited->ActiveLine()->Length();
+    auto &lc = docEdited->GetLineCursor();
+    ctrl->HandleKeyPress(lc.cursor, lc.idxActiveLine, keyX);
+    TR_ASSERT(t, docEdited->ActiveLine()->Length() == lenBefore + 1);
+
+    // Undo the edited document while a different document is active - it must revert docEdited's line
+    // to its own previous content (length 40), not the active decoy's (length 5).
+    docEdited->OnAction(actionUndo);
+    TR_ASSERT(t, docEdited->ActiveLine()->Length() == lenBefore);
+
+    workspace.RemoveOpenDocument(docEdited);
+    workspace.RemoveOpenDocument(docActive);
     Editor::Instance().SetActiveDocument(prevActive);
 
     return kTR_Pass;

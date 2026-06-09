@@ -608,7 +608,7 @@ void Document::Undo(Cursor &cursor, size_t &idxActiveLine) {
 
 size_t Document::NewLine(size_t idxActiveLine, Cursor &cursor) {
 
-    auto undoItem = editState->historyBuffer.NewUndoFromLineRange(idxActiveLine, idxActiveLine+1);
+    auto undoItem = editState->historyBuffer.NewUndoFromLineRange(idxActiveLine, idxActiveLine+1, GetLineCursor(), textBuffer);
     undoItem->SetRestoreAction(UndoHistory::kRestoreAction::kDeleteBeforeInsert);
 
 
@@ -703,11 +703,11 @@ Job::Ref Document::UpdateSyntaxForActiveLineRegion() {
 
 
 UndoHistory::UndoItem::Ref Document::BeginUndoItem() {
-    auto undoItem = editState->historyBuffer.NewUndoItem();
+    auto undoItem = editState->historyBuffer.NewUndoItem(GetLineCursor(), textBuffer);
     return undoItem;
 }
 UndoHistory::UndoItem::Ref Document::BeginUndoFromLineRange(size_t idxStartLine, size_t idxEndLine) {
-    auto undoItem = editState->historyBuffer.NewUndoFromLineRange(idxStartLine, idxEndLine);
+    auto undoItem = editState->historyBuffer.NewUndoFromLineRange(idxStartLine, idxEndLine, GetLineCursor(), textBuffer);
     return undoItem;
 }
 
@@ -729,7 +729,7 @@ void Document::DeleteRange(const Point &startPos, const Point &endPos) {
                   startPos.x, startPos.y,
                   endPos.x, endPos.y);
 
-    auto undoItem = editState->historyBuffer.NewUndoFromSelection();
+    auto undoItem = editState->historyBuffer.NewUndoFromSelection(GetLineCursor(), GetSelection(), textBuffer);
     if ((startPos.x == 0) && (endPos.x == 0)) {
         undoItem->SetRestoreAction(UndoHistory::kRestoreAction::kInsertAsNew);
     } else {

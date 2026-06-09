@@ -12,6 +12,7 @@ using namespace gedit;
 extern "C" {
 DLL_EXPORT int test_keymapping(ITesting *t);
 DLL_EXPORT int test_keymapping_parse(ITesting *t);
+DLL_EXPORT int test_keymapping_badmodifiers(ITesting *t);
 DLL_EXPORT int test_keymapping_kpaction(ITesting *t);
 DLL_EXPORT int test_keymapping_load(ITesting *t);
 DLL_EXPORT int test_keymapping_inherit(ITesting *t);
@@ -51,6 +52,41 @@ DLL_EXPORT int test_keymapping_parse(ITesting *t) {
     TR_ASSERT(t, cfgNode.has_value());
     TR_ASSERT(t, keyMapping.RebuildActionMapping(cfgNode.value()));
 
+    return kTR_Pass;
+}
+
+// A malformed 'modifiers' section must be rejected by ValidateModifiers (called from
+// RebuildActionMapping). Covers the two failure modes: an unknown modifier NAME, and a
+// modifier mapped to something that isn't a valid keycode/modifier MASK.
+static const std::string strBadModifierName="{\n"
+                                   "  modifiers: {\n"
+                                   "    NotAModifier: KeyCode_Shift,\n"
+                                   "  },\n"
+                                   "  actions: {\n"
+                                   "    GotoFirstLine : KeyCode_Home,\n"
+                                   "  }\n"
+                                   "}";
+static const std::string strBadModifierMask="{\n"
+                                   "  modifiers: {\n"
+                                   "    SelectionModifier: NotAKeyCode,\n"
+                                   "  },\n"
+                                   "  actions: {\n"
+                                   "    GotoFirstLine : KeyCode_Home,\n"
+                                   "  }\n"
+                                   "}";
+DLL_EXPORT int test_keymapping_badmodifiers(ITesting *t) {
+    {
+        KeyMapping keyMapping;
+        auto cfgNode = ConfigNode::FromString(strBadModifierName);
+        TR_ASSERT(t, cfgNode.has_value());
+        TR_ASSERT(t, !keyMapping.RebuildActionMapping(cfgNode.value()));
+    }
+    {
+        KeyMapping keyMapping;
+        auto cfgNode = ConfigNode::FromString(strBadModifierMask);
+        TR_ASSERT(t, cfgNode.has_value());
+        TR_ASSERT(t, !keyMapping.RebuildActionMapping(cfgNode.value()));
+    }
     return kTR_Pass;
 }
 

@@ -272,10 +272,10 @@ bool KeyMapping::RebuildActionMapping(const ConfigNode &keymap) {
         return false;
     }
 
-    // Build up the modifier table
+    // Validate the modifier table
     if (keymap.HasKey("modifiers")) {
         auto keymapModifiers = keymap.GetMap("modifiers");
-        if (!ParseModifiers(keymapModifiers)) {
+        if (!ValidateModifiers(keymapModifiers)) {
             return false;
         }
     }
@@ -364,9 +364,9 @@ bool KeyMapping::RebuildActionMapping(const ConfigNode &keymap) {
 }
 
 //
-// Parse and build the modifier table
+// Validate the modifier table
 //
-bool KeyMapping::ParseModifiers(const std::map<std::string, std::string> &keymapModifiers) {
+bool KeyMapping::ValidateModifiers(const std::map<std::string, std::string> &keymapModifiers) {
     auto logger = gnilk::Logger::GetLogger("KeyMapping");
     logger->Debug("modifer section found");
     for(auto &[name, strModifierMask] : keymapModifiers) {
@@ -379,12 +379,9 @@ bool KeyMapping::ParseModifiers(const std::map<std::string, std::string> &keymap
             return false;
         }
         logger->Debug("  '%s' = '%s'", name.c_str(), strModifierMask.c_str());
-        auto modifier = strToModifierMap.at(name);
-        modifiers[modifier] = Keyboard::ModifierMaskFromString(strModifierMask);
     }
     return true;
 }
-
 
 //
 // This parse an key press combination string on the form

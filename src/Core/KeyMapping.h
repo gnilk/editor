@@ -67,14 +67,10 @@ namespace gedit {
     protected:
         bool ResolveInheritance(const ConfigNode &cfgNode, const ParentResolver &resolveParent);
         bool ParseKeyPressCombinationString(kAction action, const std::string &keyPressCombo, const std::map<std::string, std::string> &keymapModifiers);
-        bool ParseModifiers(const std::map<std::string, std::string> &keymapModifiers);
-
-    private:
-
+        bool ValidateModifiers(const std::map<std::string, std::string> &keymapModifiers);
     private:
         bool isInitialized = false;
         std::vector<ActionItem::Ref> actionItems = {};
-        std::map<kActionModifier, int> modifiers = {};
 
     };
 }

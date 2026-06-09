@@ -484,6 +484,28 @@ namespace gedit {
 
         bool RemoveModel(EditorModel::Ref model);
 
+        //
+        // Open documents - the open "tabs". The Workspace is the single owner of the open-model
+        // list and the active model; Editor and the views query through here. These are pure data
+        // operations (no UI side effects); Editor layers the redraw/relayout on top.
+        //
+        const std::vector<EditorModel::Ref> &GetOpenModels() {
+            return openModels;
+        }
+        void AddOpenModel(EditorModel::Ref model);
+        bool RemoveOpenModel(EditorModel::Ref model);
+        bool IsModelOpen(EditorModel::Ref model);
+
+        EditorModel::Ref GetActiveModel() {
+            return activeModel;
+        }
+        void SetActiveModel(EditorModel::Ref model);   // ignored if the model isn't open
+        size_t GetActiveModelIndex();
+        EditorModel::Ref GetModelFromIndex(size_t idxModel);
+        EditorModel::Ref GetModelFromTextBuffer(TextBuffer::Ref textBuffer);
+        size_t NextModelIndex(size_t idxCurrent);
+        size_t PreviousModelIndex(size_t idxCurrent);
+
         void DumpToLog();
 
     protected:
@@ -523,7 +545,9 @@ namespace gedit {
         //std::unordered_map<std::string, Node::Ref> rootNodes = {};
         std::unordered_map<std::string, Desktop::Ref> rootNodes = {};
 
-        std::vector<EditorModel::Ref> models;
+        // The open documents (tabs) and the currently active one. Single source of truth.
+        std::vector<EditorModel::Ref> openModels = {};
+        EditorModel::Ref activeModel = nullptr;
 
     };
 }

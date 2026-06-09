@@ -79,7 +79,6 @@ DLL_EXPORT int test_edtmodel_create(ITesting *t) {
     // The first line should always be available
     TR_ASSERT(t, model->Lines().size() == 1);
     TR_ASSERT(t, model->GetTextBuffer() == textBuffer);
-    TR_ASSERT(t, model->IsActive() == false);   // this model has not been activated by the editor
     TR_ASSERT(t, model->GetTextBuffer()->HaveLanguage());
 
     return kTR_Pass;

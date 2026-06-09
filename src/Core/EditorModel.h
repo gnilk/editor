@@ -149,14 +149,6 @@ namespace gedit {
             return textBuffer;
         }
 
-        bool IsActive() {
-            return isActive;
-        }
-        void SetActive(bool newIsActive) {
-            isActive = newIsActive;
-        }
-
-
         // proxies
         __inline const std::vector<Line::Ref> &Lines() {
             return textBuffer->Lines();
@@ -333,7 +325,6 @@ namespace gedit {
 
         TextBuffer::Ref textBuffer = nullptr;             // The model owns its buffer
         std::filesystem::path path;                       // File identity (load/save target)
-        bool isActive = false;
 
     };
 }

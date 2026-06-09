@@ -20,7 +20,85 @@ Workspace::Workspace() {
 
 Workspace::~Workspace() {
     rootNodes.clear();
-    models.clear();
+    activeModel = nullptr;
+    openModels.clear();
+}
+
+//
+// Open-document management. The Workspace owns the open-model list and the active-model pointer;
+// these are pure data operations - Editor adds the UI redraw/relayout around SetActiveModel/close.
+//
+void Workspace::AddOpenModel(EditorModel::Ref model) {
+    if (model == nullptr) {
+        return;
+    }
+    if (IsModelOpen(model)) {
+        return;
+    }
+    openModels.push_back(model);
+}
+
+bool Workspace::RemoveOpenModel(EditorModel::Ref model) {
+    auto it = std::find(openModels.begin(), openModels.end(), model);
+    if (it == openModels.end()) {
+        return false;
+    }
+    openModels.erase(it);
+    if (activeModel == model) {
+        activeModel = nullptr;
+    }
+    return true;
+}
+
+bool Workspace::IsModelOpen(EditorModel::Ref model) {
+    return std::find(openModels.begin(), openModels.end(), model) != openModels.end();
+}
+
+void Workspace::SetActiveModel(EditorModel::Ref model) {
+    if (!IsModelOpen(model)) {
+        return;
+    }
+    activeModel = model;
+}
+
+size_t Workspace::GetActiveModelIndex() {
+    for (size_t i = 0; i < openModels.size(); i++) {
+        if (openModels[i] == activeModel) {
+            return i;
+        }
+    }
+    // No active model yet (e.g. startup) - index 0 is the conventional fallback.
+    return 0;
+}
+
+EditorModel::Ref Workspace::GetModelFromIndex(size_t idxModel) {
+    if (idxModel >= openModels.size()) {
+        return nullptr;
+    }
+    return openModels[idxModel];
+}
+
+EditorModel::Ref Workspace::GetModelFromTextBuffer(TextBuffer::Ref textBuffer) {
+    for (auto &model : openModels) {
+        if (model->GetTextBuffer() == textBuffer) {
+            return model;
+        }
+    }
+    return nullptr;
+}
+
+size_t Workspace::NextModelIndex(size_t idxCurrent) {
+    if (openModels.empty()) {
+        return 0;
+    }
+    return (idxCurrent + 1) % openModels.size();
+}
+
+size_t Workspace::PreviousModelIndex(size_t idxCurrent) {
+    if (openModels.empty()) {
+        return 0;
+    }
+    return (openModels.size() + (idxCurrent - 1)) % openModels.size();
 }
 
 Workspace::Ref Workspace::Create() {
@@ -172,7 +250,7 @@ bool Workspace::RemoveNode(Node::Ref node) {
     //       and if we have externally deleted that path - it will simply crash.
     auto nodeType = node->GetMeta<int>(Node::kMetaKey_NodeType, Node::kNodeFolder);
     if ((nodeType != Node::kNodeFolder) && (node->GetModel() != nullptr)) {
-        if (node->GetModel()->IsActive()) {
+        if (node->GetModel() == activeModel) {
             Editor::Instance().CloseModel(node->GetModel());
         }
     }

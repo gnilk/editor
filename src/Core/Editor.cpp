@@ -232,9 +232,10 @@ bool Editor::Initialize(int argc, const char **argv) {
             counter++;
         } while(std::filesystem::exists(tmpName));
         auto node = workspace->NewModel(tmpName);
-        openModels.push_back(node->GetModel());
+        workspace->AddOpenModel(node->GetModel());
     }
     // Did we open any models during the argument parsing?
+    auto &openModels = workspace->GetOpenModels();
     if (openModels.size() != 0) {
         // Just set the first as the active model..
         SetActiveModel(openModels[0]);
@@ -301,10 +302,9 @@ bool Editor::OpenScreen() {
 
 void Editor::Close() {
     logger->Debug("Closing editor");
-    for(auto &model : openModels) {
+    for(auto &model : workspace->GetOpenModels()) {
         model->Close();
     }
-    openModels.clear();
     RuntimeConfig::Instance().GetKeyboard()->Close();
 }
 
@@ -734,20 +734,16 @@ std::vector<std::string> Editor::GetRegisteredLanguages() {
     return keys;
 }
 
+// Sets the active model in the workspace, then relays out the UI to reflect it. The state lives
+// in the Workspace; the UI side-effect (relayout) belongs here in the application layer.
 void Editor::SetActiveModel(EditorModel::Ref model) {
-    auto currentModel = GetActiveModel();
-    for(size_t i = 0; i < openModels.size(); i++) {
-        if (openModels[i] == model) {
-            if (currentModel != nullptr) {
-                currentModel->SetActive(false);
-            }
-            openModels[i]->SetActive(true);
-
-            if (RuntimeConfig::Instance().HasRootView()) {
-                RuntimeConfig::Instance().GetRootView().Initialize();
-            }
-            return;
-        }
+    workspace->SetActiveModel(model);
+    if (workspace->GetActiveModel() != model) {
+        // Model wasn't open - nothing changed.
+        return;
+    }
+    if (RuntimeConfig::Instance().HasRootView()) {
+        RuntimeConfig::Instance().GetRootView().Initialize();
     }
 }
 
@@ -759,26 +755,6 @@ void Editor::SetActiveModelFromIndex(size_t idxModel) {
     SetActiveModel(model);
 }
 
-size_t Editor::GetActiveModelIndex() {
-    for(size_t i=0; i < openModels.size(); i++) {
-        if (openModels[i]->IsActive()) {
-            return i;
-        }
-    }
-    // This will happen the first time...
-    return 0;
-}
-
-EditorModel::Ref Editor::GetActiveModel() {
-    for(size_t i=0; i < openModels.size(); i++) {
-        if (openModels[i]->IsActive()) {
-            return openModels[i];
-        }
-    }
-    // This can happen if there is no model yet assigned (like startup)
-    return nullptr;
-}
-
 Workspace::Node::Ref Editor::GetWorkspaceNodeForActiveModel() {
     auto model = GetActiveModel();
     if (model == nullptr) {
@@ -788,24 +764,6 @@ Workspace::Node::Ref Editor::GetWorkspaceNodeForActiveModel() {
 }
 Workspace::Node::Ref Editor::GetWorkspaceNodeForModel(EditorModel::Ref model) {
     return workspace->GetNodeFromModel(model);
-}
-
-bool Editor::IsModelOpen(EditorModel::Ref model) {
-    for(size_t i = 0; i < openModels.size(); i++) {
-        if (openModels[i] == model) {
-            return true;
-        }
-    }
-    return false;
-}
-
-EditorModel::Ref Editor::GetModelFromTextBuffer(TextBuffer::Ref textBuffer) {
-    for(size_t i = 0; i < openModels.size(); i++) {
-        if (openModels[i]->GetTextBuffer() == textBuffer) {
-            return openModels[i];
-        }
-    }
-    return nullptr;
 }
 
 KeyMapping::Ref Editor::GetActiveKeyMap() {
@@ -908,7 +866,7 @@ EditorModel::Ref Editor::OpenModelFromWorkspace(Workspace::Node::Ref workspaceNo
         return nullptr;
     }
     logger->Error("OpenModelFromWorkspace, loaded model: %s", workspaceNode->GetDisplayName().c_str());
-    openModels.push_back(model);
+    workspace->AddOpenModel(model);
     logger->Debug("Activating new model");
     SetActiveModel(model);
 
@@ -925,7 +883,7 @@ bool Editor::OpenModelOrFolder(const std::string &fileOrFolder) {
             logger->Error("Failed to create new file!");
             return false;
         }
-        openModels.push_back(nodeModel->GetModel());
+        workspace->AddOpenModel(nodeModel->GetModel());
         return true;
     }
     if (std::filesystem::is_directory(pathName)) {
@@ -978,7 +936,7 @@ EditorModel::Ref Editor::LoadModel(const std::string &filename) {
         node->GetModel()->GetTextBuffer()->SetReadOnly(true);
     }
 
-    openModels.push_back(node->GetModel());
+    workspace->AddOpenModel(node->GetModel());
 
     return node->GetModel();
 }
@@ -992,41 +950,39 @@ bool Editor::CloseModel(EditorModel::Ref model) {
         return false;
     }
 
-    auto itModel = std::find(openModels.begin(), openModels.end(),model);
-    if (itModel != openModels.end()) {
-        logger->Debug("Ok, removing model '%s' from open models", node->GetDisplayName().c_str());
-
-        // Figure out which one will be the next model...
-        // The model list is a strict list which is visualized exactly as it is stored, thus - right most won't have a next and left-most won't have a left...
-        // Priority to step 'right' from current when closing...
-        // In case there are just 1 open - we set everything to null (this is the default when there are no open models)
-        EditorModel::Ref nextActive = nullptr;
-
-        auto idxCurrent = GetActiveModelIndex();
-        auto idxNext = NextModelIndex(idxCurrent);
-        // Do we even have a 'next'??
-        if (idxNext > idxCurrent) {
-            nextActive = GetModelFromIndex(idxNext);
-        } else if (PreviousModelIndex(idxCurrent) != idxCurrent) {
-            nextActive = GetModelFromIndex(PreviousModelIndex(idxCurrent));
-        }
-
-        openModels.erase(itModel);
-        model->SetActive(false);
-        model->Close();
-
-        if (nextActive != nullptr) {
-            SetActiveModel(nextActive);
-        }
-
-        if (RuntimeConfig::Instance().HasRootView()) {
-            RuntimeConfig::Instance().GetRootView().Initialize();
-        }
-
-        return true;
+    if (!IsModelOpen(model)) {
+        logger->Error("Model '%s' not found in open models", node->GetDisplayName().c_str());
+        return false;
     }
-    logger->Error("Model '%s' not found in open models", node->GetDisplayName().c_str());
-    return false;
+    logger->Debug("Ok, removing model '%s' from open models", node->GetDisplayName().c_str());
+
+    // Figure out which one will be the next model... (computed against the pre-removal list)
+    // The model list is a strict list which is visualized exactly as it is stored, thus - right most won't have a next and left-most won't have a left...
+    // Priority to step 'right' from current when closing...
+    // In case there are just 1 open - we set everything to null (this is the default when there are no open models)
+    EditorModel::Ref nextActive = nullptr;
+
+    auto idxCurrent = GetActiveModelIndex();
+    auto idxNext = NextModelIndex(idxCurrent);
+    // Do we even have a 'next'??
+    if (idxNext > idxCurrent) {
+        nextActive = GetModelFromIndex(idxNext);
+    } else if (PreviousModelIndex(idxCurrent) != idxCurrent) {
+        nextActive = GetModelFromIndex(PreviousModelIndex(idxCurrent));
+    }
+
+    workspace->RemoveOpenModel(model);
+    model->Close();
+
+    if (nextActive != nullptr) {
+        SetActiveModel(nextActive);
+    }
+
+    if (RuntimeConfig::Instance().HasRootView()) {
+        RuntimeConfig::Instance().GetRootView().Initialize();
+    }
+
+    return true;
 }
 
 

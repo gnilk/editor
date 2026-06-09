@@ -50,39 +50,39 @@ namespace gedit {
 
         void HandleGlobalAction(const KeyPressAction &kpAction);
 
-        // Move to 'workspace'
-        std::vector<EditorModel::Ref> &GetModels() {
-            return openModels;
+        // Open-model accessors. The Workspace owns the open list + active model; these delegate.
+        const std::vector<EditorModel::Ref> &GetModels() {
+            return workspace->GetOpenModels();
         }
 
         void SetActiveModel(EditorModel::Ref model);
         void SetActiveModelFromIndex(size_t idxModel);
-        size_t GetActiveModelIndex();
-        EditorModel::Ref GetActiveModel();
+        size_t GetActiveModelIndex() {
+            return workspace->GetActiveModelIndex();
+        }
+        EditorModel::Ref GetActiveModel() {
+            return workspace->GetActiveModel();
+        }
         Workspace::Node::Ref GetWorkspaceNodeForActiveModel();
         Workspace::Node::Ref GetWorkspaceNodeForModel(EditorModel::Ref model);
         EditorModel::Ref GetModelFromIndex(size_t idxModel) {
-            if (idxModel > (openModels.size() - 1)) {
-                return nullptr;
-            }
-            return openModels[idxModel];
+            return workspace->GetModelFromIndex(idxModel);
         }
 
-        bool IsModelOpen(EditorModel::Ref model);
-        EditorModel::Ref GetModelFromTextBuffer(TextBuffer::Ref textBuffer);
+        bool IsModelOpen(EditorModel::Ref model) {
+            return workspace->IsModelOpen(model);
+        }
+        EditorModel::Ref GetModelFromTextBuffer(TextBuffer::Ref textBuffer) {
+            return workspace->GetModelFromTextBuffer(textBuffer);
+        }
 
         size_t NextModelIndex(size_t idxCurrent) {
-            auto next = (idxCurrent + 1) % openModels.size();
-            return next;
+            return workspace->NextModelIndex(idxCurrent);
         }
 
         size_t PreviousModelIndex(size_t idxCurrent) {
-            auto next = (openModels.size() + (idxCurrent - 1)) % openModels.size();
-            return next;
+            return workspace->PreviousModelIndex(idxCurrent);
         }
-
-
-        // -- End move to workspace
 
         // FIXME: should return a PluginCommand instead
         JSPluginEngine &GetJSEngine() {
@@ -200,9 +200,6 @@ namespace gedit {
         bool loadUserConfig = true;
         std::string argBackend;
         std::vector<std::string> pendingFiles;
-
-        // Holds all open models/buffers in the text editor
-        std::vector<EditorModel::Ref> openModels = {};
 
         Theme::Ref theme = nullptr;
 

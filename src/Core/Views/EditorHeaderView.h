@@ -20,6 +20,7 @@ namespace gedit {
 
             auto workspace = Editor::Instance().GetWorkspace();
             auto &models = Editor::Instance().GetModels();
+            auto activeModel = Editor::Instance().GetActiveModel();
             auto theme = Editor::Instance().GetTheme();
             auto uiColors = theme->GetUIColors();
             if (parentView->IsActive()) {
@@ -57,7 +58,7 @@ namespace gedit {
                     xp += 2;
                 }
 
-                if (model->IsActive()) {
+                if (model == activeModel) {
                     dc.DrawStringWithAttributesAt(xp,0,kTextAttributes::kUnderline, header.c_str());
                 } else {
                     dc.DrawStringWithAttributesAt(xp,0,kTextAttributes::kNormal, header.c_str());

@@ -13,6 +13,7 @@
 #include "Core/UndoHistory.h"
 #include "Core/KeyMapping.h"
 #include "Core/ViewState.h"
+#include "Core/EditState.h"
 
 #include <memory>
 
@@ -229,7 +230,9 @@ namespace gedit {
         ViewState::Ref viewState = ViewState::Create();
         VerticalNavigationViewModel::Ref verticalNavigationViewModel = nullptr;
         Rect viewRect = {};
-        UndoHistory historyBuffer;
+        // Per-document edit history (undo), referenced not fused. See EditState.h. All views of one
+        // buffer will share this single EditState while keeping independent ViewState cursors.
+        EditState::Ref editState = EditState::Create();
 
         TextBuffer::Ref textBuffer = nullptr;             // The document owns its buffer
         std::filesystem::path path;                       // File identity (load/save target)

@@ -23,6 +23,11 @@ DLL_EXPORT int test_document_ins_keypress(ITesting *t);
 
 DLL_EXPORT int test_document_delete_text(ITesting *t);
 
+// 'switch' - per-document state survives roving the single view across N documents (Phase 2 contract)
+DLL_EXPORT int test_document_switch_preserves_cursor(ITesting *t);
+DLL_EXPORT int test_document_switch_preserves_selection(ITesting *t);
+DLL_EXPORT int test_document_switch_preserves_undo(ITesting *t);
+
 }
 
 // Define some common actions, this will trigger side-effects in the document
@@ -42,6 +47,7 @@ static KeyPressAction actionShiftLineUp =
                 .actionModifier = kActionModifier::kActionModifierSelection,
                 .modifierMask = Keyboard::ShiftMask()
         };
+static KeyPressAction actionUndo = {gedit::kAction::kActionUndo};
 
 
 DLL_EXPORT int test_document(ITesting *t) {
@@ -294,6 +300,134 @@ DLL_EXPORT int test_document_delete_text(ITesting *t) {
     // shifts. The real invariant is that the caret stays visible on its active line, i.e. the screen
     // row equals the active line minus the top of the view.
     TR_ASSERT(t, lcAfter.cursor.position.y == (int)(lcAfter.idxActiveLine) - lcAfter.viewTopLine);
+
+    return kTR_Pass;
+}
+
+// --- Phase 2 contract ---------------------------------------------------------------------------
+// The single EditorView roves over N open documents, re-pointing at whichever is active. So
+// per-document editing state (cursor, selection, undo) must persist per document while the view
+// moves between them. These cases pin that behavior: operate on one document, "switch" by operating
+// on a second, switch back -> the first document's state is exactly as left, independent of the
+// second. P2.1/P2.2 move that state into ViewState/EditState referenced by Document; these tests
+// must stay green across that move. (Two separate Document objects stand in for the two open docs;
+// there is no document-switch API yet - the view's `document = GetActiveDocument()` re-point IS the
+// switch, see docs/workspace-refactor-plan.md.)
+
+DLL_EXPORT int test_document_switch_preserves_cursor(ITesting *t) {
+    auto docA = CreateEmptyDocument(t);
+    auto docB = CreateEmptyDocument(t);
+    gedit::Rect rect(20,20);
+    docA->OnViewInit(rect);
+    docB->OnViewInit(rect);
+    FillEmptyDocument(docA, 40, 40);
+    FillEmptyDocument(docB, 40, 40);
+
+    // Position the caret in A (the active document)
+    docA->OnAction(actionLineDown);
+    docA->OnAction(actionLineDown);
+    docA->OnAction(actionLineDown);
+    auto savedA = docA->GetLineCursor();    // snapshot copy
+    TR_ASSERT(t, savedA.idxActiveLine == 3);
+
+    // 'Switch' to B and move it somewhere different - proves the two carets are independent
+    docB->OnAction(actionPageDown);
+    TR_ASSERT(t, docB->GetLineCursor().idxActiveLine != savedA.idxActiveLine);
+
+    // 'Switch' back to A - its caret is exactly where we left it
+    auto nowA = docA->GetLineCursor();
+    TR_ASSERT(t, nowA.idxActiveLine == savedA.idxActiveLine);
+    TR_ASSERT(t, nowA.cursor.position.x == savedA.cursor.position.x);
+    TR_ASSERT(t, nowA.cursor.position.y == savedA.cursor.position.y);
+
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_document_switch_preserves_selection(ITesting *t) {
+    auto docA = CreateEmptyDocument(t);
+    auto docB = CreateEmptyDocument(t);
+    gedit::Rect rect(20,20);
+    docA->OnViewInit(rect);
+    docB->OnViewInit(rect);
+    FillEmptyDocument(docA, 40, 40);
+    FillEmptyDocument(docB, 40, 40);
+
+    // Make a selection in A
+    docA->OnAction(actionShiftLineDown);
+    docA->OnAction(actionShiftLineDown);
+    TR_ASSERT(t, docA->IsSelectionActive());
+    auto savedStart = docA->GetSelection().GetStart();  // Point copies
+    auto savedEnd = docA->GetSelection().GetEnd();
+
+    // B has its own (empty) selection state - operating on B must not touch A's selection
+    TR_ASSERT(t, docB->IsSelectionActive() == false);
+    docB->OnAction(actionLineDown);
+    TR_ASSERT(t, docB->IsSelectionActive() == false);
+
+    // 'Switch' back to A - the selection is intact
+    TR_ASSERT(t, docA->IsSelectionActive());
+    TR_ASSERT(t, docA->GetSelection().GetStart().x == savedStart.x);
+    TR_ASSERT(t, docA->GetSelection().GetStart().y == savedStart.y);
+    TR_ASSERT(t, docA->GetSelection().GetEnd().x == savedEnd.x);
+    TR_ASSERT(t, docA->GetSelection().GetEnd().y == savedEnd.y);
+
+    return kTR_Pass;
+}
+
+// NOTE (Phase 2 finding): undo capture is coupled to the *Editor's active document*, not to the
+// document the controller is bound to - UndoItemSingle::Initialize snapshots the line via
+// Editor::Instance().GetActiveDocument() (UndoHistory.cpp). So this contract must drive the REAL
+// switch (Editor::SetActiveDocument), which is what the running app does. That global coupling is a
+// smell P2.2 (EditState extraction) should resolve: the history is per-document and should capture
+// from `this` document, not the ambient active one.
+DLL_EXPORT int test_document_switch_preserves_undo(ITesting *t) {
+    auto &workspace = *Editor::Instance().GetWorkspace();
+    auto prevActive = Editor::Instance().GetActiveDocument();
+
+    auto docA = CreateEmptyDocument(t);
+    auto docB = CreateEmptyDocument(t);
+    gedit::Rect rect(20,20);
+    docA->OnViewInit(rect);
+    docB->OnViewInit(rect);
+    FillEmptyDocument(docA, 40, 40);
+    FillEmptyDocument(docB, 40, 40);
+
+    // Register both as open so the active-document switch (below) takes effect.
+    workspace.AddOpenDocument(docA);
+    workspace.AddOpenDocument(docB);
+
+    auto ctrlA = EditController::Create(docA);
+    auto ctrlB = EditController::Create(docB);
+
+    static KeyPress keyA = {
+            .isKeyValid = true, .isSpecialKey = false, .modifiers = 0, .key = U'A', .specialKey = 0 };
+    static KeyPress keyB = {
+            .isKeyValid = true, .isSpecialKey = false, .modifiers = 0, .key = U'B', .specialKey = 0 };
+
+    // Make A the active document, then edit it (registers one undo item in A's history)
+    Editor::Instance().SetActiveDocument(docA);
+    auto lenABefore = docA->ActiveLine()->Length();
+    auto &lcA = docA->GetLineCursor();
+    ctrlA->HandleKeyPress(lcA.cursor, lcA.idxActiveLine, keyA);
+    TR_ASSERT(t, docA->ActiveLine()->Length() == lenABefore + 1);
+
+    // Switch to B (the single view re-points) and edit it - B has its own separate undo history
+    Editor::Instance().SetActiveDocument(docB);
+    auto lenBBefore = docB->ActiveLine()->Length();
+    auto &lcB = docB->GetLineCursor();
+    ctrlB->HandleKeyPress(lcB.cursor, lcB.idxActiveLine, keyB);
+    TR_ASSERT(t, docB->ActiveLine()->Length() == lenBBefore + 1);
+
+    // Switch back to A and undo - A's edit reverts; B is untouched (per-document undo history)
+    Editor::Instance().SetActiveDocument(docA);
+    docA->OnAction(actionUndo);
+    TR_ASSERT(t, docA->ActiveLine()->Length() == lenABefore);
+    TR_ASSERT(t, docB->ActiveLine()->Length() == lenBBefore + 1);
+
+    // Restore the singleton's workspace state so we don't pollute later cases.
+    workspace.RemoveOpenDocument(docA);
+    workspace.RemoveOpenDocument(docB);
+    Editor::Instance().SetActiveDocument(prevActive);
 
     return kTR_Pass;
 }

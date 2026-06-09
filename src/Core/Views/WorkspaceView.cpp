@@ -161,16 +161,16 @@ void WorkspaceView::PopulateTree() {
     auto isFolderMonitorEnabled = Config::Instance()["foldermonitor"].GetBool("enabled", true);
 
     // Traverse and add items
-    auto desktops = workspace->GetDesktops();
-    for(auto &[key, desktop] : desktops) {
-        auto rootNode = desktop->GetRootNode();
+    auto projectRoots = workspace->GetProjectRoots();
+    for(auto &projectRoot : projectRoots) {
+        auto rootNode = projectRoot->GetRootNode();
         auto treeRoot = treeView->AddItem(rootNode);
 
         if (isFolderMonitorEnabled) {
-            desktop->StartFolderMonitor();
+            projectRoot->StartFolderMonitor();
         }
 
-        // TODO: We can add to exclude list from the Desktop->FolderMonitor->ExcludeList
+        // TODO: We can add to exclude list from the ProjectRoot->FolderMonitor->ExcludeList
         FillTreeView(treeView, treeRoot, rootNode, excludePrefixList, expandCollapseCache);
     }
     // All nodes start collapsed, but we want the root to start expanded...

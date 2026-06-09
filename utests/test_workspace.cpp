@@ -29,14 +29,14 @@ DLL_EXPORT int test_workspace(ITesting *t) {
 }
 DLL_EXPORT int test_workspace_empty(ITesting *t) {
     Workspace workspace;
-    TR_ASSERT(t, workspace.GetDesktops().size() == 0);
+    TR_ASSERT(t, workspace.GetProjectRoots().size() == 0);
     return kTR_Pass;
 }
 DLL_EXPORT int test_workspace_new(ITesting *t) {
     Workspace workspace;
-    TR_ASSERT(t, workspace.GetDesktops().size() == 0);
+    TR_ASSERT(t, workspace.GetProjectRoots().size() == 0);
     auto model = workspace.NewModel("dummy");
-    TR_ASSERT(t, workspace.GetDesktops().size() != 0);
+    TR_ASSERT(t, workspace.GetProjectRoots().size() != 0);
     TR_ASSERT(t, workspace.GetDefaultWorkspace()->GetModels().size() != 0);
     TR_ASSERT(t, workspace.GetDefaultWorkspace()->GetModels().size() == 1);
     for(auto &m : workspace.GetDefaultWorkspace()->GetModels()) {
@@ -50,10 +50,10 @@ DLL_EXPORT int test_workspace_new(ITesting *t) {
 
 DLL_EXPORT int test_workspace_newtwice(ITesting *t) {
     Workspace workspace;
-    TR_ASSERT(t, workspace.GetDesktops().size() == 0);
+    TR_ASSERT(t, workspace.GetProjectRoots().size() == 0);
     workspace.NewModel("m1");
     workspace.NewModel("m2");
-    TR_ASSERT(t, workspace.GetDesktops().size() != 0);
+    TR_ASSERT(t, workspace.GetProjectRoots().size() != 0);
     TR_ASSERT(t, workspace.GetDefaultWorkspace()->GetModels().size() != 0);
     TR_ASSERT(t, workspace.GetDefaultWorkspace()->GetModels().size() == 2);
 
@@ -96,9 +96,9 @@ DLL_EXPORT int test_workspace_fileref(ITesting *t) {
 DLL_EXPORT int test_workspace_openfolder(ITesting *t) {
     Workspace workspace;
     TR_ASSERT(t, workspace.OpenFolder("."));
-    auto desktops = workspace.GetDesktops();
+    auto desktops = workspace.GetProjectRoots();
     TR_ASSERT(t, desktops.size() == 1);
-    auto desktop = desktops.begin()->second;
+    auto desktop = desktops[0];
     auto rootNode = desktop->GetRootNode();
     // Lazy tree: scanning a folder builds path-only nodes - NO models exist until a node is opened.
     TR_ASSERT(t, rootNode->GetNumChildNodes() > 0);
@@ -110,7 +110,7 @@ DLL_EXPORT int test_workspace_openfolder(ITesting *t) {
 DLL_EXPORT int test_workspace_openfolder_lazy(ITesting *t) {
     Workspace workspace;
     TR_ASSERT(t, workspace.OpenFolder("."));
-    auto desktop = workspace.GetDesktops().begin()->second;
+    auto desktop = workspace.GetProjectRoots()[0];
     auto rootNode = desktop->GetRootNode();
 
     // Find a file node among the root's immediate children

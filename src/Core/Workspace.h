@@ -27,8 +27,9 @@ namespace gedit {
 
 
     //
-    // perhaps refactor this, workspace is everything - 'Desktops' (in lack of a better name) is a view/project or similar => rename to project??? (want to keep that name free for now)
-    // This should probably be refactored - it is hairy...
+    // The Workspace is the single owner of two things: the open documents (the "tabs") and the
+    // browseable ProjectRoots (top-level folders). A ProjectRoot owns a Node tree; nodes are
+    // path-only until opened, when a Document (EditorModel) is built lazily for them.
     //
     class Workspace {
     public:
@@ -317,38 +318,43 @@ namespace gedit {
         };
 
         //
-        // The desktop class is what you perceive as a root-node in the editor
-        // It holds a few items like 'root-folder' and so forth. A node can't reference an item outside the desktop root folder
-        // The desktop also holds the FolderMonitoring logic and react on changes to folder contents (add/remove stuff).
-        // In essence;
-        //  workspace - > Desktops [1..n] -> Node tree (i.e. folder/file tree)
+        // A ProjectRoot is one top-level browseable folder in the workspace - what you perceive as a
+        // top-level entry in the file browser. It owns the Node tree for that folder and (later) the
+        // folder monitor that keeps the tree in sync with the filesystem. A node can't reference an
+        // item outside its ProjectRoot folder. In essence:
+        //   Workspace -> ProjectRoot [1..n] -> Node tree (folder/file tree)
         //
-        // In the editor the 'WorkspaceView' is the graphical representation of these classes...
+        // In the editor the 'WorkspaceView' is the graphical representation of these classes.
         //
-        class Desktop {
+        // NOTE: the folder monitor is currently broken/disabled (gated behind 'foldermonitor.enabled').
+        // The seam is kept here for later: OnFsCreated/OnFsRemoved/OnFsChanged are the single entry
+        // points the monitor calls, and they route node creation/removal back through the Workspace's
+        // delegates (the same path the initial scan uses). Wiring it up later is config, not redesign.
+        //
+        class ProjectRoot {
         public:
-            using Ref = std::shared_ptr<Desktop>;
-            // Must be set by called
+            using Ref = std::shared_ptr<ProjectRoot>;
+            // Node create/delete are delegated back to the Workspace (which owns node creation).
             using CreateNodeDelgate = std::function<Node::Ref (Node::Ref parent, const std::filesystem::path &path)>;
             using DeleteNodeDelgate = std::function<void (Node::Ref parent, const std::filesystem::path &path)>;
         public:
-            Desktop(CreateNodeDelgate createNodeHandler, DeleteNodeDelgate deleteNodeHandler,
+            ProjectRoot(CreateNodeDelgate createNodeHandler, DeleteNodeDelgate deleteNodeHandler,
                     const std::filesystem::path path,
-                    const std::string &desktopName) : name(desktopName),rootPath(path), funcCreateNode(createNodeHandler), funcDeleteNode(deleteNodeHandler){
+                    const std::string &rootName) : name(rootName),rootPath(path), funcCreateNode(createNodeHandler), funcDeleteNode(deleteNodeHandler){
 
-                rootNode = Node::Create(desktopName);
+                rootNode = Node::Create(rootName);
                 rootNode->SetNodePath(rootPath);
             }
-            virtual ~Desktop() = default;
+            virtual ~ProjectRoot() = default;
 
             static Ref Create(CreateNodeDelgate createNodeHandler,
                               DeleteNodeDelgate deleteNodeHandler,
-                              const std::filesystem::path path, const std::string &desktopName) {
+                              const std::filesystem::path path, const std::string &rootName) {
 
                 auto logger = gnilk::Logger::GetLogger("Workspace");
-                logger->Debug("Desktop '%s' created @ cwd: %s", desktopName.c_str(), path.c_str());
+                logger->Debug("ProjectRoot '%s' created @ cwd: %s", rootName.c_str(), path.c_str());
 
-                auto ref = std::make_shared<Desktop>(createNodeHandler, deleteNodeHandler, path, desktopName);
+                auto ref = std::make_shared<ProjectRoot>(createNodeHandler, deleteNodeHandler, path, rootName);
 
                 return ref;
             }
@@ -373,22 +379,22 @@ namespace gedit {
                 }
 
                 // Need to stop first..
-                if ((changeMonitor != nullptr) && (changeMonitor->IsRunning())) {
+                if ((monitor != nullptr) && (monitor->IsRunning())) {
                     logger->Debug("FolderMonitor already started");
                     return true;
                 }
 
                 // Only create if needed
-                if (changeMonitor == nullptr) {
+                if (monitor == nullptr) {
                     logger->Debug("FolderMonitor is null - creating with root: %s", rootPath.c_str());
 
                     auto &folderMonitor = RuntimeConfig::Instance().GetFolderMonitor();
-                    changeMonitor = folderMonitor.CreateMonitorPoint(rootPath, [this](const std::filesystem::path &path, FolderMonitor::kChangeFlags flags) -> void {
+                    monitor = folderMonitor.CreateMonitorPoint(rootPath, [this](const std::filesystem::path &path, FolderMonitor::kChangeFlags flags) -> void {
                         // FIXME: This won't work right now - IF we monitor the build folder...
                         OnMonitorEvent(path, flags);
                     });
                     // We can't start this
-                    if (changeMonitor == nullptr) {
+                    if (monitor == nullptr) {
                         return false;
                     }
                 }
@@ -398,22 +404,25 @@ namespace gedit {
                     logger->Debug("GitIgnore file found - we should read and add to exclude list");
                 }
 
-                return changeMonitor->Start();
+                return monitor->Start();
             }
 
         protected:
-            // Any event from the FolderMonitor is passed to this function..
+            // Any event from the FolderMonitor is decoded here and dispatched to the OnFs* seam.
             void OnMonitorEvent(const std::filesystem::path &path, FolderMonitor::kChangeFlags flags) {
                 if ((flags & FolderMonitor::kChangeFlags::kCreated) && !(flags & FolderMonitor::kChangeFlags::kRemoved)) {
-                    auto node = AddFromFileEvent(path);
+                    OnFsCreated(path);
                 } else if (flags & FolderMonitor::kChangeFlags::kRemoved) {
-                    DeleteFromFileEvent(path);
+                    OnFsRemoved(path);
+                } else {
+                    OnFsChanged(path);
                 }
             }
 
-            // called when something is added to the filesystem and we detect it
-            Node::Ref AddFromFileEvent(const std::filesystem::path &path) {
-                // We are most likely the default and some lousy developer started the folder monitor...
+            // --- Filesystem -> tree seam (single set of entry points for the monitor) ---
+
+            // A filesystem entry appeared: add a node for it under its parent.
+            Node::Ref OnFsCreated(const std::filesystem::path &path) {
                 if (funcCreateNode == nullptr) {
                     return nullptr;
                 }
@@ -431,8 +440,8 @@ namespace gedit {
                 return funcCreateNode(parentNode, path);
             }
 
-            // Called when something is removed from the file-system and we detect it
-            void DeleteFromFileEvent(const std::filesystem::path &path) {
+            // A filesystem entry was removed: drop its node.
+            void OnFsRemoved(const std::filesystem::path &path) {
                 if (!funcDeleteNode) {
                     return;
                 }
@@ -440,8 +449,14 @@ namespace gedit {
                 funcDeleteNode(node, path);
             }
 
+            // A filesystem entry changed on disk. Placeholder for the (future) "reload/dirty on disk"
+            // signal to an open Document; the tree structure itself doesn't change. No-op for now.
+            void OnFsChanged(const std::filesystem::path &path) {
+                (void)path;
+            }
+
         private:
-            Desktop() = default;
+            ProjectRoot() = default;
 
         private:
             std::string name = {};
@@ -449,7 +464,7 @@ namespace gedit {
             CreateNodeDelgate funcCreateNode = nullptr;
             DeleteNodeDelgate funcDeleteNode = nullptr;
             Node::Ref rootNode = {};
-            FolderMonitor::MonitorPoint::Ref changeMonitor = {};
+            FolderMonitor::MonitorPoint::Ref monitor = {};
         };
 
     public:
@@ -457,15 +472,15 @@ namespace gedit {
         virtual ~Workspace();
 
         static Ref Create();
+        // The default ProjectRoot is the CWD-based root used for new/loose files. Returns its root node.
         const Workspace::Node::Ref GetDefaultWorkspace();
-        const Workspace::Node::Ref GetNamedWorkspace(const std::string &name);
 
         void SetChangeDelegate(ContentsChangedDelegate newChangeHandler) {
             onChangeHandler = newChangeHandler;
         }
 
-        const std::unordered_map<std::string, Workspace::Desktop::Ref> &GetDesktops() {
-            return rootNodes;
+        const std::vector<Workspace::ProjectRoot::Ref> &GetProjectRoots() {
+            return projectRoots;
         }
 
         Node::Ref GetActiveFolderNode() {
@@ -522,12 +537,16 @@ namespace gedit {
         Node::Ref NewFolderNode(Node::Ref parent, const std::filesystem::path &pathName);
         // Adds a path-only file node (no model) under parent. The model is created lazily on open.
         Node::Ref AddFileNode(Node::Ref parent, const std::filesystem::path &pathName);
+        // THE single filesystem->tree mutator: maps one fs entry (file or dir) to a node under parent.
+        // Shared by the initial folder Scan (ReadFolderToNode) and (later) the live folder monitor.
+        Node::Ref ApplyFsEntry(Node::Ref parent, const std::filesystem::path &path);
 
+        ProjectRoot::Ref GetDefaultRoot();   // creates the CWD-based default root if needed
 
         bool RemoveNode(Node::Ref node);
         bool ReadFolderToNode(Node::Ref rootNode, const std::filesystem::path &folder);
         void UpdateMetaDataForNode(Node::Ref node);
-        Desktop::Ref GetOrAddDesktop(const std::filesystem::path &rootPath, const std::string &desktopName);
+        ProjectRoot::Ref GetOrAddProjectRoot(const std::filesystem::path &rootPath, const std::string &rootName);
         void DisableNotifications() {
             isChangeHandlerDisabled++;
         }
@@ -554,8 +573,10 @@ namespace gedit {
 
         Node::Ref activeFolderNode = nullptr;
 
-        //std::unordered_map<std::string, Node::Ref> rootNodes = {};
-        std::unordered_map<std::string, Desktop::Ref> rootNodes = {};
+        // The browseable top-level folders. defaultRoot (the CWD-based root for new/loose files) is
+        // also a member of this list.
+        std::vector<ProjectRoot::Ref> projectRoots = {};
+        ProjectRoot::Ref defaultRoot = nullptr;
 
         // The open documents (tabs) and the currently active one. Single source of truth.
         std::vector<EditorModel::Ref> openModels = {};

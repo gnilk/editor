@@ -167,6 +167,13 @@ behind one mutator**:
   — and `QuickCommandController` just *composes* one. The clean path is to extract those helpers
   into a model-agnostic utility and fold `EditController`'s remaining pipeline into the model.
 
+- **chdir-per-root deferred (2026-06-09, during Step 5).** The `current_path()` chdir in
+  `Editor::OpenModelOrFolder` was left as-is. Switching to resolve relative paths against a
+  ProjectRoot is entangled with the CWD-based default root and asset loading; a partial fix is
+  riskier than its value. Step 5's structural goal (coherent multi-root list, no inconsistent
+  map keying) is done; the chdir change is its own future task. With absolute paths stored in
+  nodes, opening a second root does not corrupt the first - the only effect is the ambient CWD.
+
 ## Out of scope
 
 - Folder-monitor *implementation* (only the seam is built).

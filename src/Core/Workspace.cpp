@@ -19,7 +19,8 @@ Workspace::Workspace() {
 
 
 Workspace::~Workspace() {
-    rootNodes.clear();
+    projectRoots.clear();
+    defaultRoot = nullptr;
     activeModel = nullptr;
     openModels.clear();
 }
@@ -106,33 +107,25 @@ Workspace::Ref Workspace::Create() {
     return ref;
 }
 
-// The default desktop is handled a bit differently - as the CWD may change while we are running
-const Workspace::Node::Ref Workspace::GetDefaultWorkspace() {
-    // Default not created?  - create it...
-    auto nameDefault = Config::Instance()["main"].GetStr("default_workspace_name", "default");
-    if (rootNodes.find(nameDefault) == rootNodes.end()) {
-        logger->Debug("Default workspace does not exists, creating...");
+// The default ProjectRoot is the CWD-based root for new/loose files; created lazily on first use.
+Workspace::ProjectRoot::Ref Workspace::GetDefaultRoot() {
+    if (defaultRoot == nullptr) {
+        logger->Debug("Default root does not exist, creating...");
+        auto nameDefault = Config::Instance()["main"].GetStr("default_workspace_name", "default");
         auto rootDefault = std::filesystem::current_path();
 
-        // Note: The default desktop does not have a file-monitor and does not require a create callback (at least now)
-        auto desktop = Desktop::Create(nullptr, nullptr, rootDefault, nameDefault);
-        // We need to set the display name specifically since it is defaulted to last item of path when starting...
-        desktop->GetRootNode()->SetDisplayName(nameDefault);
+        // The default root has no file-monitor and no create/delete callbacks (at least for now).
+        defaultRoot = ProjectRoot::Create(nullptr, nullptr, rootDefault, nameDefault);
+        // Display name defaults to the last path component; force it to the configured name.
+        defaultRoot->GetRootNode()->SetDisplayName(nameDefault);
 
-        rootNodes[nameDefault] = desktop;
+        projectRoots.push_back(defaultRoot);
     }
-
-    return rootNodes["default"]->GetRootNode();
+    return defaultRoot;
 }
 
-// Returns a named workspace - currently the workspace is named after the folder name (this is however not needed)
-const Workspace::Node::Ref Workspace::GetNamedWorkspace(const std::string &name) {
-    // Default not created?  - create it...
-    if (rootNodes.find("name") == rootNodes.end()) {
-        logger->Debug("Namespace '%s' does not exists", name.c_str());
-        return nullptr;
-    }
-    return rootNodes[name]->GetRootNode();
+const Workspace::Node::Ref Workspace::GetDefaultWorkspace() {
+    return GetDefaultRoot()->GetRootNode();
 }
 
 // Create an empty model in the default workspace
@@ -278,9 +271,8 @@ bool Workspace::RemoveNode(Node::Ref node) {
 
 
 Workspace::Node::Ref Workspace::GetNodeFromModel(EditorModel::Ref model) {
-    for(auto &[name, desktop] : rootNodes) {
-        auto rootNode = desktop->GetRootNode();
-        auto modelNode = rootNode->FindModel(model);
+    for(auto &projectRoot : projectRoots) {
+        auto modelNode = projectRoot->GetRootNode()->FindModel(model);
         if (modelNode != nullptr) {
             return modelNode;
         }
@@ -304,8 +296,8 @@ bool Workspace::OpenFolder(const std::string &folder) {
     auto name = pathutil::LastNameOfPath(pathName);
 
     DisableNotifications();
-    auto desktop = GetOrAddDesktop(pathName, name);
-    auto rootNode = desktop->GetRootNode();
+    auto projectRoot = GetOrAddProjectRoot(pathName, name);
+    auto rootNode = projectRoot->GetRootNode();
 
     rootNode->SetNodePath(pathName);
     rootNode->SetMeta<int>(Node::kMetaKey_NodeType, Node::kNodeFolder);
@@ -324,19 +316,30 @@ bool Workspace::OpenFolder(const std::string &folder) {
 bool Workspace::ReadFolderToNode(Node::Ref rootNode, const std::filesystem::path &folder) {
     logger->Debug("Reading folder: %s", folder.c_str());
     for(auto const &entry : fs::directory_iterator(folder)) {
+        auto node = ApplyFsEntry(rootNode, entry.path());
+        if (node == nullptr) {
+            continue;
+        }
+        // Recurse into directories.
         if (fs::is_directory(entry)) {
-            auto dirNode = NewFolderNode(rootNode, entry.path());
-            if (dirNode == nullptr) {
-                logger->Error("Failed to create node for folder: %s", entry.path().c_str());
-                continue;
-            }
-            ReadFolderToNode(dirNode, entry);
-        } else if (fs::is_regular_file(entry)) {
-            // Path-only node - the model is built lazily the first time the file is opened.
-            AddFileNode(rootNode, entry.path());
+            ReadFolderToNode(node, entry);
         }
     }
     return true;
+}
+
+// THE single filesystem->tree mutator. Maps one filesystem entry to a node under parent:
+// directories become folder nodes, regular files become path-only file nodes (model built lazily).
+// Both the initial scan (ReadFolderToNode) and the folder monitor's create-callback go through here,
+// so scan and live updates can never drift apart.
+Workspace::Node::Ref Workspace::ApplyFsEntry(Node::Ref parent, const std::filesystem::path &path) {
+    if (fs::is_directory(path)) {
+        return NewFolderNode(parent, path);
+    }
+    if (fs::is_regular_file(path)) {
+        return AddFileNode(parent, path);
+    }
+    return nullptr;
 }
 
 Workspace::Node::Ref Workspace::NewFolderNode(Node::Ref parent, const std::filesystem::path &pathName) {
@@ -352,20 +355,19 @@ Workspace::Node::Ref Workspace::NewFolderNode(Node::Ref parent, const std::files
 }
 
 
-// Root nodes are actual workspace instances...
-Workspace::Desktop::Ref Workspace::GetOrAddDesktop(const std::filesystem::path &rootPath, const std::string &desktopName) {
-    Desktop::Ref desktop = nullptr;
-    auto fqDeskName = rootPath.string();
-    if (rootNodes.find(fqDeskName) != rootNodes.end()) {
-        return rootNodes[fqDeskName];
-    }
-    auto cbCreateNode = [this](Node::Ref parent, const std::filesystem::path &path) {
-        if (fs::is_directory(path)) {
-            auto node = NewFolderNode(parent, path);
-            NotifyChangeHandler();
-            return node;
+// Return the existing ProjectRoot for rootPath, or create and register a new one.
+Workspace::ProjectRoot::Ref Workspace::GetOrAddProjectRoot(const std::filesystem::path &rootPath, const std::string &rootName) {
+    for (auto &projectRoot : projectRoots) {
+        if (projectRoot->GetRootPath() == rootPath) {
+            return projectRoot;
         }
-        return NewModelWithFileRef(parent, path);
+    }
+
+    // The monitor's create-callback routes through the SAME mutator as the initial scan.
+    auto cbCreateNode = [this](Node::Ref parent, const std::filesystem::path &path) {
+        auto node = ApplyFsEntry(parent, path);
+        NotifyChangeHandler();
+        return node;
     };
 
     auto cbDeleteNode = [this](Node::Ref node, const std::filesystem::path &path) -> void {
@@ -373,9 +375,9 @@ Workspace::Desktop::Ref Workspace::GetOrAddDesktop(const std::filesystem::path &
         RemoveNode(node);
     };
 
-    desktop = Desktop::Create(cbCreateNode, cbDeleteNode, rootPath, desktopName);
-    rootNodes[fqDeskName] = desktop;
-    return desktop;
+    auto projectRoot = ProjectRoot::Create(cbCreateNode, cbDeleteNode, rootPath, rootName);
+    projectRoots.push_back(projectRoot);
+    return projectRoot;
 }
 
 

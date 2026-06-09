@@ -241,6 +241,28 @@ scroll" workaround is the *one-object-too-many* that flagged this as wrong. The 
 real: per-document persistence and per-view independence are two different cardinalities that one
 storage location cannot serve.
 
+## The UI lock-in — and the container/item split that resolves it
+
+There is a second constraint that was the real source of the confusion: **the UI has exactly one
+editing slot.** `EditorView` is not just *a* view, it is *the* editing surface in the layout
+(`main.cpp:476`), and the UI offers no way to show two of them. So "multiple views" was being
+asked of an object the UI deliberately keeps singular — which is why the cursor kept gravitating
+back into the Document.
+
+The resolution is to **not refactor the UI yet**, and instead split `EditorView`'s two jobs:
+
+- A new **`EditorViewContainer`** (a `ViewBase`) takes the single layout slot. It is the splittable
+  pane — for now it holds exactly **one** child; later it can split (via the existing `VSplitView`)
+  into multiple containers/children.
+- The existing **`EditorView`** stays roughly as-is but becomes the **container *item*** — one
+  instance per document shown, the thing that actually binds a `Document` to a viewport. *It* is
+  where the live per-view state belongs.
+
+So the cardinality the UI forbids on `EditorView`-the-slot is allowed on `EditorView`-the-item: the
+container owns 1..N items, each item binds one Document + its own `ViewState`. "M views : 1 buffer"
+becomes "M items in a container, all borrowing one Document" — a purely *additive* future change
+(container grows from 1 item to N), not a UI rewrite.
+
 ## Target — pull two state-bundles out of `Document` into their own classes
 
 `Document` today is a fat object that fuses three different things. Phase 2 separates the two
@@ -251,9 +273,12 @@ near-term move is only "separate classes, referenced from `Document`".
 | Concept | Contains | Cardinality (eventual / likely) | For now |
 |---|---|---|---|
 | **`TextBuffer`** | the text itself | 1 per file | have it |
-| **`Document`** | path/identity, language, dirty/readonly; **references** a `ViewState` + an `EditState` | 1 per open file | Workspace open-list; owns the two refs |
-| **`ViewState`** *(new class)* | `lineCursor` (cursor), `currentSelection` | per **view** | one instance, referenced by `Document` |
+| **`Document`** | path/identity, language, dirty/readonly; the **Action API** (`OnAction` + the `OnActionXXX` family); **references** an `EditState` | 1 per open file | Workspace open-list; owns the buffer + EditState ref |
 | **`EditState`** *(new class)* | `UndoHistory` (the history buffer) — that is all it is today | per **document / buffer** (shared by all views of it) | one instance, referenced by `Document` |
+| **`EditorViewContainer`** *(new `ViewBase`)* | the layout slot; child item(s), active-item pointer, splitter (later) | 1 in the UI | holds exactly one item |
+| **`EditorView`** *(≈ existing — the container *item*)* | a viewport binding one `Document`; owns its **`ViewState`** + its **`EditController`** | per **item** (1 today, N when split) | container's single child; borrows a `Document` |
+| **`ViewState`** *(new class)* | `lineCursor` (cursor), `currentSelection` | per **view/item** | lives on the item; on attach, seeded from a saved snapshot (see below) |
+| **`EditController`** | raw `KeyPress`→edit translation only (insertion, line-join, selection-aware delete) + BaseController single-line helpers | per **item**, 1:1 | value/`unique_ptr` member of the item; borrows the `Document` |
 
 **Why two classes and not one:** their cardinalities differ, and that difference *is* the reason
 to split them. Two views onto one buffer should share **one** undo history (`EditState`) but keep
@@ -265,6 +290,41 @@ move is just "where does each ref point" — not a redesign.
 > `wantedColumn`, the search-highlight index — are *candidates* to migrate into `ViewState` later.
 > Per the scope of this phase, only cursor + selection move now; the rest is classified when the
 > multi-view work is actually tackled.
+
+## Where `EditController` fits — Actions to the Document, raw KeyPress to the controller
+
+`EditController` looks half-dead because it fuses two unrelated things (`EditController.cpp`):
+
+- **Pure passthrough** that can simply *go away*: `OnAction` → `model->OnAction` (`:187`),
+  `OnViewInit` → `model->OnViewInit` (`:30`), and the `GetTextBuffer`/`Lines`/`LineAt` proxies.
+- **Irreducible logic that lives nowhere else:** `HandleKeyPress` (char insert + undo bracketing +
+  language `OnPreInsertChar`/`OnPostInsertChar`), `HandleSpecialKeyPress`/`MoveLineUp` (line-join on
+  backspace/delete at a boundary, with undo), and `OnKeyPress` (selection-aware delete-on-type). This
+  group is the *only* part with raw `KeyPress` awareness, and it is the part that leans on
+  `BaseController::DefaultEditLine`/`DefaultEditSpecial`/`SetEditTabSize` — the single-line-edit
+  helpers also shared by Terminal/QuickCommand/Command. **That shared-helper role is the class's only
+  real justification.**
+
+The key realization (and the reason this stopped feeling tangled): **`KeyPressAction` is misnamed.**
+By the time something is a `KeyPressAction`, the keymap has already resolved the keystroke into a
+*semantic action* — there is no keypress left in it. So:
+
+> **Resolved Actions → `Document`. Raw `KeyPress` → the controller.**
+
+`Document::OnAction(KeyPressAction)` (and the whole `OnActionXXX` family) is therefore **not** KeyPress
+awareness leaking into the Document — it is semantic-action handling, and it stays in `Document`
+where it already correctly lives. (Renaming the enum `KeyPressAction → EditorAction` later would make
+this self-evident; tracked, not done here.) The genuinely keypress-aware code is *only* the
+`HandleKeyPress` group, and that is what the controller keeps.
+
+**Why the controller is per-item, not shared:** `OnKeyPress` edits through the cursor
+(`model->GetLineCursor()`, `EditController.cpp:170`). Once the live cursor is in `ViewState` on the
+item, the controller must operate on *that item's* `ViewState` — so it is intrinsically one per item,
+binding (shared `Document` buffer + this item's `ViewState`). That is exactly why "multiple
+EditControllers" is correct: one per item, each driving its own cursor even when the Document is
+shared. It also gives the controller a *single* home — a value/`unique_ptr` member of the item, 1:1,
+matching `TerminalController` in `TerminalView` and `QuickCommandController` in `Editor` — instead of
+being stashed in `Workspace::Node`.
 
 ### How this dissolves both scenarios
 
@@ -278,6 +338,23 @@ move is just "where does each ref point" — not a redesign.
   history (`EditState`) — not just the cursor. The separation is what makes "restore where I was
   *and* my undo stack" a clean feature instead of a Document-internals dump. (Persisting to a
   session/workspace file is a later task; the classes are the prerequisite.)
+
+### Live vs. saved `ViewState` — the distinction that dissolves "where does the cursor live"
+
+The restore wish made it *feel* like `Document` must own the cursor. It does not — these are two
+different things:
+
+- **Live `ViewState`** — lives on the **item** (`EditorView`). Exists only while the document is
+  displayed; this is the cursor the controller mutates.
+- **Saved `ViewState`** — a serializable *snapshot* keyed by document path, used to **seed** a fresh
+  item on attach and written back on detach/close. Belongs to the `Document` (or a Workspace session
+  store).
+
+In the single-item UI of today the two are always in sync, which is *precisely* why it looked like
+the Document owned the cursor: the Document owns the **snapshot**, never the **live** one. This is the
+same trick as Vim's `'"` mark and Emacs' buffer-point-vs-window-point. For now, with one item, the
+Document can simply hold the one `ViewState` and attach uses it directly; the live/saved split only
+becomes load-bearing when a second item appears.
 
 ### Attach/Detach is smart — and already happening unnamed
 
@@ -306,16 +383,24 @@ It is the **buffer/window split** every serious editor lands on: Emacs `buffer` 
 - **Step P2.2 — Extract `EditState`.** Pull `UndoHistory historyBuffer` out of `Document` into an
   `EditState` class (today it *is* just the history buffer); `Document` holds an `EditState::Ref`.
   `BeginUndoItem`/`EndUndoItem`/`Undo` route through the ref. Behavior unchanged. Green.
-- **Step P2.3 — Controller becomes a view member.** Make `EditController` a value/`unique_ptr`
-  member of `EditorView` (like `TerminalController` in `TerminalView`), holding a **non-owning**
-  (borrowed) document handle. Add `EditController::Attach(Document::Ref)` / `Detach()`. Delete
-  `Node::controller` / `SetController` / `GetController` (`Workspace.h:209-214,315`) and stop
+- **Step P2.3 — Introduce `EditorViewContainer`.** Add a new `ViewBase` that takes the editing
+  layout slot in `main.cpp:476`, holding the existing `EditorView` as its single child and forwarding
+  layout/resize/activation to it. Pure interposition — one container, one item, behavior unchanged.
+  This is the seam the future split hangs off (container grows 1→N items later). Green.
+- **Step P2.4 — Controller becomes an item member; drop the passthrough.** Make `EditController` a
+  value/`unique_ptr` member of `EditorView` (the item), like `TerminalController` in `TerminalView`,
+  holding a **non-owning** (borrowed) document handle. Add `EditController::Attach(Document::Ref)` /
+  `Detach()`. **Delete the passthrough** — `OnAction`, `OnViewInit`, and the `GetTextBuffer`/`Lines`/
+  `LineAt` proxies (the view calls `Document::OnAction` / `OnViewInit` directly); the controller keeps
+  only the raw-`KeyPress` group (`HandleKeyPress`/`HandleSpecialKeyPress`/`MoveLineUp`/`OnKeyPress`).
+  Delete `Node::controller` / `SetController` / `GetController` (`Workspace.h:209-214,315`) and stop
   creating the controller in `EnsureDocumentForNode` (`Workspace.cpp:212-216`). `EditorView`
-  re-points its controller on document switch instead of `node->GetController()`. Green.
+  re-points (attaches) its controller on document switch instead of `node->GetController()`. Green.
 
-After P2.1–P2.3 the seam is in place: two cleanly-separated state classes referenced by `Document`,
-and the controller owned by the view. Where the refs eventually point for multi-view is then a
-localized change, not a redesign.
+After P2.1–P2.4 the seam is in place: two cleanly-separated state classes referenced by `Document`, a
+container wrapping the single editing item, and a slim controller owned by that item (raw KeyPress
+only; Actions go straight to the Document). Where `ViewState` eventually points and when the container
+grows to N items are then localized, additive changes — not a redesign.
 
 ## Deferred — to mull over (explicitly NOT decided here)
 
@@ -334,8 +419,14 @@ localized change, not a redesign.
 - Multi-view *implementation* (actual split-of-one-buffer UI). Only the seam (P2.1–P2.3) is built.
 - Cross-session persistence (restore-on-reopen above): the classes land in-memory on `Document`;
   serializing them to disk and restoring on folder-reopen is a separate later task.
-- `EditController` dissolution (still the separately-decided later task; P2.3 only *relocates* the
-  controller, it does not fold it into the Document).
+- **Full** `EditController` dissolution. P2.4 *slims* it — relocates it onto the item and deletes the
+  passthrough — but does **not** fold the residual raw-`KeyPress` group into the Document (that group
+  is the keypress-aware part we deliberately keep out of `Document`, and it carries the shared
+  BaseController helpers). Whether to later extract those helpers into a free utility and drop the
+  class entirely stays a separate decision.
+- **`KeyPressAction → EditorAction` enum rename.** Noted as the thing that would make
+  "Actions live in the Document" self-evident; a mechanical, codebase-wide rename left for its own
+  commit, not part of Phase 2.
 
 ## Out of scope (Phase 1)
 

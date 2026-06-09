@@ -393,14 +393,21 @@ It is the **buffer/window split** every serious editor lands on: Emacs `buffer` 
   `VerticalNavigationViewModel` / `verticalNavigationViewModel` / `VNavModel` /
   `verticalNavigationModel` — and any third-party `ext/` code.
 
-  **Separate sub-decision (do NOT fold in blindly):** the **`edtmodel` test-module name** and its
-  `test_edtmodel_*` case names (~109 tokens). Renaming the module changes the verified-green set string,
-  the CLAUDE.md test commands, and every `-m edtmodel`/`-t` selector — higher friction than the variable
-  sweep and worth its own decision/commit (candidate: `edtmodel → document`). Left out of the mechanical
-  pass.
+  **Test-module rename `edtmodel → document` (confirmed in scope, 2026-06-09; its OWN commit).** The
+  `edtmodel` module tests what is now `Document`, so the name follows the class. This touches more than
+  variables, so it lands as an isolated commit (keep it out of the mechanical variable sweep above):
+  - File `utests/test_edtmodel.cpp` → `utests/test_document.cpp`, and its entry in `CMakeLists.txt`
+    (the `utests` target's source list).
+  - The module entry fn `test_edtmodel` → `test_document`, and every `test_edtmodel_*` case fn →
+    `test_document_*` (~109 tokens: `_create`, `_text_selfunc`, `_text_linefunc`, `_ins_keypress`,
+    `_empty_selfunc`, `_empty_linefunc`, `_delete_text`, … + any forward declarations). Cases are
+    discovered by exported symbol, so the names *are* the selectors.
+  - **CLAUDE.md** must move in lockstep: the **verified-green set** line (`…,edtmodel,…` → `…,document,…`)
+    and any `-m edtmodel` example commands. Selecting the module is then `-m document`.
+  - No name collision: `test_document` is new (the class is `Document`, the JS layer is `DocumentAPI`).
 
   Mechanical and per-file; split into reviewable commits if large; keep the verified-green set green
-  after each.
+  after each (run it under the renamed `-m document` once that commit lands).
 - **Step P2.0 — Pin the contract.** Add `utests` cases asserting what must survive: switch away
   from a document and back -> cursor/selection **and** undo history preserved (the single-view
   behavior we must *not* regress).

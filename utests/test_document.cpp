@@ -9,19 +9,19 @@
 using namespace gedit;
 
 extern "C" {
-DLL_EXPORT int test_edtmodel(ITesting *t);
-DLL_EXPORT int test_edtmodel_create(ITesting *t);
+DLL_EXPORT int test_document(ITesting *t);
+DLL_EXPORT int test_document_create(ITesting *t);
 // 'empty' - are all on an empty textbuffer
-DLL_EXPORT int test_edtmodel_empty_linefunc(ITesting *t);
-DLL_EXPORT int test_edtmodel_empty_selfunc(ITesting *t);
+DLL_EXPORT int test_document_empty_linefunc(ITesting *t);
+DLL_EXPORT int test_document_empty_selfunc(ITesting *t);
 // 'text' - is with a bunch of text
-DLL_EXPORT int test_edtmodel_text_linefunc(ITesting *t);
-DLL_EXPORT int test_edtmodel_text_selfunc(ITesting *t);
+DLL_EXPORT int test_document_text_linefunc(ITesting *t);
+DLL_EXPORT int test_document_text_selfunc(ITesting *t);
 
 // 'ins' - insert action in to the document
-DLL_EXPORT int test_edtmodel_ins_keypress(ITesting *t);
+DLL_EXPORT int test_document_ins_keypress(ITesting *t);
 
-DLL_EXPORT int test_edtmodel_delete_text(ITesting *t);
+DLL_EXPORT int test_document_delete_text(ITesting *t);
 
 }
 
@@ -44,7 +44,7 @@ static KeyPressAction actionShiftLineUp =
         };
 
 
-DLL_EXPORT int test_edtmodel(ITesting *t) {
+DLL_EXPORT int test_document(ITesting *t) {
     Config::Instance()["main"].SetBool("threaded_syntaxparser", false);
     // Ensure we test with a known vertical navigation document..
     Config::Instance()["editorview"].SetBool("pgupdown_content_first", true);
@@ -70,7 +70,7 @@ static void FillEmptyDocument(Document::Ref document, size_t nLines, size_t line
     }
 }
 
-DLL_EXPORT int test_edtmodel_create(ITesting *t) {
+DLL_EXPORT int test_document_create(ITesting *t) {
     // Don't use 'CreateEmptyDocument' - this one does a bit more agressive testing of document and the textbuffer
     auto textBuffer = TextBuffer::CreateEmptyBuffer();
     TR_ASSERT(t, textBuffer != nullptr);
@@ -84,7 +84,7 @@ DLL_EXPORT int test_edtmodel_create(ITesting *t) {
     return kTR_Pass;
 }
 
-DLL_EXPORT int test_edtmodel_empty_linefunc(ITesting *t) {
+DLL_EXPORT int test_document_empty_linefunc(ITesting *t) {
     auto document = CreateEmptyDocument(t);
     // The first line should always be available
     TR_ASSERT(t, document->Lines().size() == 1);
@@ -97,7 +97,7 @@ DLL_EXPORT int test_edtmodel_empty_linefunc(ITesting *t) {
 
 }
 
-DLL_EXPORT int test_edtmodel_empty_selfunc(ITesting *t) {
+DLL_EXPORT int test_document_empty_selfunc(ITesting *t) {
     auto document = CreateEmptyDocument(t);
     // The first line should always be available
     TR_ASSERT(t, document->IsSelectionActive() == false);
@@ -127,7 +127,7 @@ DLL_EXPORT int test_edtmodel_empty_selfunc(ITesting *t) {
     return kTR_Pass;
 }
 
-DLL_EXPORT int test_edtmodel_text_linefunc(ITesting *t) {
+DLL_EXPORT int test_document_text_linefunc(ITesting *t) {
     auto document = CreateEmptyDocument(t);
     // The 'view' rect (this is the size of the visible area of the text buffer)
     // it is used to calculate the actual viewing area for the renderer
@@ -175,7 +175,7 @@ DLL_EXPORT int test_edtmodel_text_linefunc(ITesting *t) {
     return kTR_Pass;
 }
 
-DLL_EXPORT int test_edtmodel_text_selfunc(ITesting *t) {
+DLL_EXPORT int test_document_text_selfunc(ITesting *t) {
     auto document = CreateEmptyDocument(t);
 
     gedit::Rect rect(20,20);
@@ -217,7 +217,7 @@ DLL_EXPORT int test_edtmodel_text_selfunc(ITesting *t) {
     return kTR_Pass;
 }
 
-DLL_EXPORT int test_edtmodel_ins_keypress(ITesting *t) {
+DLL_EXPORT int test_document_ins_keypress(ITesting *t) {
     auto document = CreateEmptyDocument(t);
 
     gedit::Rect rect(20,20);
@@ -247,7 +247,7 @@ DLL_EXPORT int test_edtmodel_ins_keypress(ITesting *t) {
     return kTR_Pass;
 }
 
-DLL_EXPORT int test_edtmodel_delete_text(ITesting *t) {
+DLL_EXPORT int test_document_delete_text(ITesting *t) {
     auto document = CreateEmptyDocument(t);
 
     gedit::Rect rect(20,20);

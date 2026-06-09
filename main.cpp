@@ -285,6 +285,7 @@
 #include "Core/Views/ViewBase.h"
 #include "Core/Views/GutterView.h"
 #include "Core/Views/EditorView.h"
+#include "Core/Views/EditorViewContainer.h"
 #include "Core/Views/RootView.h"
 #include "Core/Views/CommandView.h"
 #include "Core/Views/TerminalView.h"
@@ -474,9 +475,13 @@ int main(int argc, const char **argv) {
     gutterView.SetWidth(10);
 
     auto editorView = EditorView();
+    auto editorViewContainer = EditorViewContainer();
 
     hStackViewEditor.AddSubView(&gutterView, kFixed);
-    hStackViewEditor.AddSubView(&editorView, kFill);
+    // The editor lives inside a container that takes the single editing slot. For now the container
+    // holds exactly one item (the EditorView); it is the seam the future split/side-by-side hangs off.
+    hStackViewEditor.AddSubView(&editorViewContainer, kFill);
+    editorViewContainer.SetContentView(&editorView);
 
     vSplitViewUpper.SetInitialSplitterPos(24);
     vSplitViewUpper.SetLeft(&vStackViewWorkspace);

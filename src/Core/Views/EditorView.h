@@ -7,7 +7,7 @@
 
 #include "Core/Controllers/EditController.h"
 #include "Core/Graphics/Cursor.h"
-#include "Core/EditorModel.h"
+#include "Core/Document.h"
 #include "ViewBase.h"
 
 #include "logger.h"
@@ -37,7 +37,7 @@ namespace gedit {
             parentView->ResetContentHeight();
         }
 
-        void SetEditorModel(EditorModel::Ref newEditorModel) {
+        void SetEditorModel(Document::Ref newEditorModel) {
             editorModel = newEditorModel;
         }
 
@@ -68,7 +68,7 @@ namespace gedit {
         void DrawSelectionOverlay(DrawContext &dc, int tabSize);
     private:
         bool bUseCLionPageNav = true;
-        EditorModel::Ref editorModel;
+        Document::Ref editorModel;
         EditController::Ref editController;
         // --
         gnilk::ILogger *logger = nullptr;

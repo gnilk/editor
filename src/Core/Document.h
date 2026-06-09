@@ -2,8 +2,8 @@
 // Created by gnilk on 17.03.23.
 //
 
-#ifndef EDITOR_EDITORMODEL_H
-#define EDITOR_EDITORMODEL_H
+#ifndef EDITOR_DOCUMENT_H
+#define EDITOR_DOCUMENT_H
 
 #include "Core/TextBuffer.h"
 #include "Core/Graphics/Cursor.h"
@@ -17,7 +17,7 @@
 
 namespace gedit {
 
-    class EditorModel;
+    class Document;
     struct SearchResult {
         size_t idxLine;
         size_t cursor_x;
@@ -123,17 +123,17 @@ namespace gedit {
     // The open document: owns its TextBuffer and file identity (path), plus the editing state that
     // sits between the text data and the view (cursor, selection, undo, search). The EditController
     // references this model (it does not live here). Workspace owns the lifetime of open models.
-    class EditorModel {
+    class Document {
     public:
-        using Ref = std::shared_ptr<EditorModel>;
+        using Ref = std::shared_ptr<Document>;
 
     public:
-        EditorModel() = default;
-        EditorModel(TextBuffer::Ref newTextBuffer) : textBuffer(newTextBuffer) {
+        Document() = default;
+        Document(TextBuffer::Ref newTextBuffer) : textBuffer(newTextBuffer) {
         }
-        virtual ~EditorModel() {
+        virtual ~Document() {
             // note: this is just here for debugging purposes..
-            // printf("EditorModel::DTOR\n");
+            // printf("Document::DTOR\n");
         }
         static Ref Create(TextBuffer::Ref newTextBuffer);
 
@@ -329,4 +329,4 @@ namespace gedit {
     };
 }
 
-#endif //EDITOR_EDITORMODEL_H
+#endif //EDITOR_DOCUMENT_H

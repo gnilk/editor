@@ -14,7 +14,7 @@
 #include "Core/RuntimeConfig.h"
 #include "Core/Graphics/KeyboardDriverBase.h"
 #include "Core/Workspace.h"
-#include "Core/EditorModel.h"
+#include "Core/Document.h"
 #include "Core/Workspace.h"
 #include "Core/TypeUtil.h"
 #include "Core/Controllers/QuickCommandController.h"
@@ -51,28 +51,28 @@ namespace gedit {
         void HandleGlobalAction(const KeyPressAction &kpAction);
 
         // Open-model accessors. The Workspace owns the open list + active model; these delegate.
-        const std::vector<EditorModel::Ref> &GetModels() {
+        const std::vector<Document::Ref> &GetModels() {
             return workspace->GetOpenModels();
         }
 
-        void SetActiveModel(EditorModel::Ref model);
+        void SetActiveModel(Document::Ref model);
         void SetActiveModelFromIndex(size_t idxModel);
         size_t GetActiveModelIndex() {
             return workspace->GetActiveModelIndex();
         }
-        EditorModel::Ref GetActiveModel() {
+        Document::Ref GetActiveModel() {
             return workspace->GetActiveModel();
         }
         Workspace::Node::Ref GetWorkspaceNodeForActiveModel();
-        Workspace::Node::Ref GetWorkspaceNodeForModel(EditorModel::Ref model);
-        EditorModel::Ref GetModelFromIndex(size_t idxModel) {
+        Workspace::Node::Ref GetWorkspaceNodeForModel(Document::Ref model);
+        Document::Ref GetModelFromIndex(size_t idxModel) {
             return workspace->GetModelFromIndex(idxModel);
         }
 
-        bool IsModelOpen(EditorModel::Ref model) {
+        bool IsModelOpen(Document::Ref model) {
             return workspace->IsModelOpen(model);
         }
-        EditorModel::Ref GetModelFromTextBuffer(TextBuffer::Ref textBuffer) {
+        Document::Ref GetModelFromTextBuffer(TextBuffer::Ref textBuffer) {
             return workspace->GetModelFromTextBuffer(textBuffer);
         }
 
@@ -151,10 +151,10 @@ namespace gedit {
         const std::u32string &GetVersion();
 
 
-        EditorModel::Ref OpenModelFromWorkspace(Workspace::Node::Ref workspaceNode);
-        EditorModel::Ref LoadModel(const std::string &filename);
+        Document::Ref OpenModelFromWorkspace(Workspace::Node::Ref workspaceNode);
+        Document::Ref LoadModel(const std::string &filename);
 
-        bool CloseModel(EditorModel::Ref model);
+        bool CloseModel(Document::Ref model);
 
         State GetState() {
             return state;

@@ -6,7 +6,7 @@
 #include "Core/Action.h"
 #include "Core/Config/Config.h"
 #include "Core/Graphics/DrawContext.h"
-#include "Core/EditorModel.h"
+#include "Core/Document.h"
 #include "Core/KeyMapping.h"
 #include "Core/RuntimeConfig.h"
 #include "Core/LineRender.h"
@@ -40,7 +40,7 @@ void EditorView::InitView()  {
 
     editorModel = Editor::Instance().GetActiveModel();
     if (editorModel == nullptr) {
-        logger->Error("EditorModel is null - no active textbuffer");
+        logger->Error("Document is null - no active textbuffer");
         return;
     }
 
@@ -80,7 +80,7 @@ void EditorView::ReInitView() {
 
     editorModel = Editor::Instance().GetActiveModel();
     if (editorModel == nullptr) {
-        logger->Error("EditorModel is null - no active textbuffer");
+        logger->Error("Document is null - no active textbuffer");
         return;
     }
     auto node = Editor::Instance().GetWorkspaceNodeForModel(editorModel);

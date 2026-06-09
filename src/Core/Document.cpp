@@ -6,7 +6,7 @@
 //
 #include <chrono>
 #include "Editor.h"
-#include "EditorModel.h"
+#include "Document.h"
 #include "logger.h"
 
 using namespace gedit;
@@ -15,14 +15,14 @@ using namespace gedit;
 static const std::string cfgSectionName = "editorview";
 
 
-EditorModel::Ref EditorModel::Create(TextBuffer::Ref newTextBuffer) {
-    EditorModel::Ref editorModel = std::make_shared<EditorModel>(newTextBuffer);
+Document::Ref Document::Create(TextBuffer::Ref newTextBuffer) {
+    Document::Ref editorModel = std::make_shared<Document>(newTextBuffer);
     editorModel->Begin();
     return editorModel;
 }
 
-void EditorModel::Begin() {
-    logger = gnilk::Logger::GetLogRef("EditorModel");
+void Document::Begin() {
+    logger = gnilk::Logger::GetLogRef("Document");
     bUseCLionPageNav = Config::Instance()[cfgSectionName].GetBool("pgupdown_content_first", true);
     if (bUseCLionPageNav) {
         verticalNavigationViewModel = std::make_unique<VerticalNavigationCLion>();
@@ -33,7 +33,7 @@ void EditorModel::Begin() {
 
 }
 
-void EditorModel::OnViewInit(const Rect &rect) {
+void Document::OnViewInit(const Rect &rect) {
     viewRect = rect;
 
     verticalNavigationViewModel->HandleResize(rect);
@@ -49,7 +49,7 @@ void EditorModel::OnViewInit(const Rect &rect) {
 
 
 // This is a little naive and I should probably spin it of to a specific thread
-size_t EditorModel::SearchFor(const std::u32string &searchItem) {
+size_t Document::SearchFor(const std::u32string &searchItem) {
 
     auto tStart = std::chrono::steady_clock::now();
 
@@ -91,7 +91,7 @@ size_t EditorModel::SearchFor(const std::u32string &searchItem) {
     return searchResults.size();
 }
 
-bool EditorModel::JumpToSearchHit(size_t idxHit) {
+bool Document::JumpToSearchHit(size_t idxHit) {
     if (idxHit >= searchResults.size()) {
         return false;
     }
@@ -107,7 +107,7 @@ bool EditorModel::JumpToSearchHit(size_t idxHit) {
 
 // Call this function to re-center the view area around the active line...
 // the active line (line in focus) is positioned 1/3 (of num-lines) down from top
-void EditorModel::RefocusViewArea() {
+void Document::RefocusViewArea() {
     if (!lineCursor.IsInside(lineCursor.idxActiveLine)) {
 
         auto height = lineCursor.Height();
@@ -122,18 +122,18 @@ void EditorModel::RefocusViewArea() {
 }
 
 
-void EditorModel::ClearSearchResults() {
+void Document::ClearSearchResults() {
     searchResults.clear();
 }
 
-void EditorModel::NextSearchResult() {
+void Document::NextSearchResult() {
     idxActiveSearchHit++;
     if (!JumpToSearchHit(idxActiveSearchHit) && (idxActiveSearchHit > 0)) {
         idxActiveSearchHit -=1;
     }
 
 }
-void EditorModel::PrevSearchResult() {
+void Document::PrevSearchResult() {
     if (idxActiveSearchHit > 0) {
         idxActiveSearchHit -= 1;
     }
@@ -141,16 +141,16 @@ void EditorModel::PrevSearchResult() {
 
 }
 
-void EditorModel::ResetSearchHitIndex() {
+void Document::ResetSearchHitIndex() {
     idxActiveSearchHit = 0;
 }
 
-size_t EditorModel::GetSearchHitIndex() {
+size_t Document::GetSearchHitIndex() {
     return idxActiveSearchHit;
 }
 
-bool EditorModel::LoadData(const std::filesystem::path &pathName) {
-    auto logger = gnilk::Logger::GetLogger("EditorModel");
+bool Document::LoadData(const std::filesystem::path &pathName) {
+    auto logger = gnilk::Logger::GetLogger("Document");
     logger->Debug("LoadData, start: %s", pathName.c_str());
     if (!textBuffer->Load(pathName)) {
         return false;
@@ -165,26 +165,26 @@ bool EditorModel::LoadData(const std::filesystem::path &pathName) {
     return true;
 }
 
-bool EditorModel::SaveData(const std::filesystem::path &pathName) {
+bool Document::SaveData(const std::filesystem::path &pathName) {
     return textBuffer->Save(pathName);
 }
-bool EditorModel::SaveDataNoChangeCheck(const std::filesystem::path &pathName) {
+bool Document::SaveDataNoChangeCheck(const std::filesystem::path &pathName) {
     return textBuffer->SaveForce(pathName);
 }
 
 // No-arg variants operate on the model's own path (its file identity).
-bool EditorModel::Load() {
+bool Document::Load() {
     return LoadData(path);
 }
-bool EditorModel::Save() {
+bool Document::Save() {
     return SaveData(path);
 }
-bool EditorModel::SaveForce() {
+bool Document::SaveForce() {
     return SaveDataNoChangeCheck(path);
 }
 
 /////////
-bool EditorModel::OnAction(const KeyPressAction &kpAction) {
+bool Document::OnAction(const KeyPressAction &kpAction) {
     if (kpAction.actionModifier == kActionModifier::kActionModifierSelection) {
         if (!IsSelectionActive()) {
             logger->Debug("Shift pressed, selection inactive - BeginSelection");
@@ -244,7 +244,7 @@ bool EditorModel::OnAction(const KeyPressAction &kpAction) {
 }
 
 
-bool EditorModel::DispatchAction(const KeyPressAction &kpAction) {
+bool Document::DispatchAction(const KeyPressAction &kpAction) {
     switch(kpAction.action) {
         case kAction::kActionLineLeft :
             return OnActionStepLeft();
@@ -295,14 +295,14 @@ bool EditorModel::DispatchAction(const KeyPressAction &kpAction) {
     }
     return false;
 }
-bool EditorModel::OnActionIndent() {
+bool Document::OnActionIndent() {
     auto undoItem = BeginUndoItem();
     AddTab();
     EndUndoItem(undoItem);
     UpdateSyntaxForActiveLineRegion();
     return true;
 }
-bool EditorModel::OnActionUnindent() {
+bool Document::OnActionUnindent() {
     auto undoItem = BeginUndoItem();
     DelTab();
     EndUndoItem(undoItem);
@@ -328,7 +328,7 @@ bool EditorModel::OnActionUnindent() {
 //}
 
 // Move all actions to controller/model...
-bool EditorModel::OnActionUndo() {
+bool Document::OnActionUndo() {
     //editorModel->GetTextBuffer()->Undo();
     auto &lineCursor = GetLineCursor();
     Undo(lineCursor.cursor, lineCursor.idxActiveLine);
@@ -343,14 +343,14 @@ bool EditorModel::OnActionUndo() {
     return true;
 }
 
-bool EditorModel::OnActionLineHome() {
+bool Document::OnActionLineHome() {
     auto &lineCursor = GetLineCursor();
     lineCursor.cursor.position.x = 0;
     lineCursor.cursor.wantedColumn = 0;
     return true;
 }
 
-bool EditorModel::OnActionLineEnd() {
+bool Document::OnActionLineEnd() {
     auto &lineCursor = GetLineCursor();
     auto currentLine = LineAt(lineCursor.idxActiveLine);
     if (currentLine == nullptr) {
@@ -363,7 +363,7 @@ bool EditorModel::OnActionLineEnd() {
 }
 
 
-bool EditorModel::OnActionCommitLine() {
+bool Document::OnActionCommitLine() {
     auto &lineCursor = GetLineCursor();
 
     // Should newline be here
@@ -379,7 +379,7 @@ bool EditorModel::OnActionCommitLine() {
     return true;
 }
 
-bool EditorModel::OnActionWordRight() {
+bool Document::OnActionWordRight() {
     auto currentLine = ActiveLine();
     auto &cursor = GetCursor();
     auto attrib = currentLine->AttributeAt(cursor.position.x);
@@ -399,7 +399,7 @@ bool EditorModel::OnActionWordRight() {
     return true;
 }
 
-bool EditorModel::OnActionWordLeft() {
+bool Document::OnActionWordLeft() {
     auto currentLine = ActiveLine(); //editorModel->GetEditController()->LineAt(editorModel->idxActiveLine);
     auto &cursor = GetCursor();
     if (cursor.position.x == 0) {
@@ -416,7 +416,7 @@ bool EditorModel::OnActionWordLeft() {
     return true;
 }
 
-bool EditorModel::OnActionGotoFirstLine() {
+bool Document::OnActionGotoFirstLine() {
     logger->Debug("GotoFirstLine (def: CMD+Home), resetting cursor and view data!");
     auto &lineCursor = GetLineCursor();
     lineCursor.cursor.position.x = 0;
@@ -428,7 +428,7 @@ bool EditorModel::OnActionGotoFirstLine() {
 
     return true;
 }
-bool EditorModel::OnActionGotoLastLine() {
+bool Document::OnActionGotoLastLine() {
     logger->Debug("GotoLastLine (def: CMD+End), set cursor to last line!");
     auto &lineCursor = GetLineCursor();
     lineCursor.cursor.position.x = 0;
@@ -446,7 +446,7 @@ bool EditorModel::OnActionGotoLastLine() {
 }
 
 
-bool EditorModel::OnActionStepLeft() {
+bool Document::OnActionStepLeft() {
     auto &cursor = GetCursor();
     cursor.position.x--;
     if (cursor.position.x < 0) {
@@ -455,7 +455,7 @@ bool EditorModel::OnActionStepLeft() {
     CaptureWantedColumn(cursor, ActiveLine());
     return true;
 }
-bool EditorModel::OnActionStepRight() {
+bool Document::OnActionStepRight() {
     auto currentLine = ActiveLine();
     auto &cursor = GetCursor();
     cursor.position.x++;
@@ -466,14 +466,14 @@ bool EditorModel::OnActionStepRight() {
     return true;
 }
 
-bool EditorModel::OnNextSearchResult() {
+bool Document::OnNextSearchResult() {
     if (!HaveSearchResults()) {
         return false;
     }
     NextSearchResult();
     return true;
 }
-bool EditorModel::OnPrevSearchResult() {
+bool Document::OnPrevSearchResult() {
     if (!HaveSearchResults()) {
         return false;
     }
@@ -483,7 +483,7 @@ bool EditorModel::OnPrevSearchResult() {
 
 
 // Not sure this should be here
-void EditorModel::UpdateModelFromNavigation(bool updateCursor) {
+void Document::UpdateModelFromNavigation(bool updateCursor) {
 
     if (!updateCursor) {
         return;
@@ -500,14 +500,14 @@ void EditorModel::UpdateModelFromNavigation(bool updateCursor) {
     ApplyWantedColumn(lineCursor.cursor, currentLine);
 }
 
-int EditorModel::GetTabSize() {
+int Document::GetTabSize() {
     if (!textBuffer->HaveLanguage()) {
         return 4;
     }
     return textBuffer->GetLanguage().GetTabSize();
 }
 
-void EditorModel::CaptureWantedColumn(Cursor &cursor, const Line::Ref &line) {
+void Document::CaptureWantedColumn(Cursor &cursor, const Line::Ref &line) {
     if (line == nullptr) {
         cursor.wantedColumn = cursor.position.x;
         return;
@@ -515,7 +515,7 @@ void EditorModel::CaptureWantedColumn(Cursor &cursor, const Line::Ref &line) {
     cursor.wantedColumn = line->CharToVisualColumn(cursor.position.x, GetTabSize());
 }
 
-void EditorModel::ApplyWantedColumn(Cursor &cursor, const Line::Ref &line) {
+void Document::ApplyWantedColumn(Cursor &cursor, const Line::Ref &line) {
     if (line == nullptr) {
         cursor.position.x = 0;
         return;
@@ -536,19 +536,19 @@ void EditorModel::ApplyWantedColumn(Cursor &cursor, const Line::Ref &line) {
  *      ALT+Up/Down the view area moves but cursor/activeline stays
  */
 
-bool EditorModel::OnActionPageDown() {
+bool Document::OnActionPageDown() {
     verticalNavigationViewModel->OnNavigateDown(viewRect.Height() - 1, viewRect, Lines().size());
     UpdateModelFromNavigation(true);
     return true;
 }
 
-bool EditorModel::OnActionPageUp() {
+bool Document::OnActionPageUp() {
     verticalNavigationViewModel->OnNavigateUp(viewRect.Height() - 1, viewRect, Lines().size());
     UpdateModelFromNavigation(true);
     return true;
 }
 
-bool EditorModel::OnActionLineDown(const KeyPressAction &kpAction) {
+bool Document::OnActionLineDown(const KeyPressAction &kpAction) {
     auto currentLine = ActiveLine();
     if (currentLine == nullptr) {
         return true;
@@ -560,7 +560,7 @@ bool EditorModel::OnActionLineDown(const KeyPressAction &kpAction) {
 
     return true;
 }
-bool EditorModel::OnActionLineUp() {
+bool Document::OnActionLineUp() {
     auto currentLine = ActiveLine();
     if (currentLine == nullptr) {
         return true;
@@ -571,7 +571,7 @@ bool EditorModel::OnActionLineUp() {
     return true;
 }
 
-bool EditorModel::OnActionGotoTopLine() {
+bool Document::OnActionGotoTopLine() {
     auto &lineCursor = GetLineCursor();
 
     lineCursor.cursor.position.y = 0;
@@ -580,7 +580,7 @@ bool EditorModel::OnActionGotoTopLine() {
     return true;
 }
 
-bool EditorModel::OnActionGotoBottomLine() {
+bool Document::OnActionGotoBottomLine() {
     //logger->Debug("GotoBottomLine (def: PageDown+CMDKey), cursor=(%d:%d)", editorModel->cursor.position.x, editorModel->cursor.position.y);
 
     auto &lineCursor = GetLineCursor();
@@ -591,7 +591,7 @@ bool EditorModel::OnActionGotoBottomLine() {
     return true;
 }
 
-void EditorModel::Undo(Cursor &cursor, size_t &idxActiveLine) {
+void Document::Undo(Cursor &cursor, size_t &idxActiveLine) {
     if (!historyBuffer.HaveHistory()) {
         return;
     }
@@ -615,7 +615,7 @@ void EditorModel::Undo(Cursor &cursor, size_t &idxActiveLine) {
 }
 
 
-size_t EditorModel::NewLine(size_t idxActiveLine, Cursor &cursor) {
+size_t Document::NewLine(size_t idxActiveLine, Cursor &cursor) {
 
     auto undoItem = historyBuffer.NewUndoFromLineRange(idxActiveLine, idxActiveLine+1);
     undoItem->SetRestoreAction(UndoHistory::kRestoreAction::kDeleteBeforeInsert);
@@ -691,17 +691,17 @@ size_t EditorModel::NewLine(size_t idxActiveLine, Cursor &cursor) {
 }
 
 
-void EditorModel::UpdateSyntaxForBuffer() {
+void Document::UpdateSyntaxForBuffer() {
     logger->Debug("Syntax update for full bufffer");
     textBuffer->Reparse();
 }
 
-Job::Ref EditorModel::UpdateSyntaxForRegion(size_t idxStartLine, size_t idxEndLine) {
+Job::Ref Document::UpdateSyntaxForRegion(size_t idxStartLine, size_t idxEndLine) {
     logger->Debug("Syntax update for region %zu - %zu", idxStartLine, idxEndLine);
     return textBuffer->ReparseRegion(idxStartLine, idxEndLine);
 }
 
-Job::Ref EditorModel::UpdateSyntaxForActiveLineRegion() {
+Job::Ref Document::UpdateSyntaxForActiveLineRegion() {
 
     auto idxActiveLine = lineCursor.idxActiveLine;
     size_t idxStartParse = (idxActiveLine>2)?idxActiveLine-2:0;
@@ -711,29 +711,29 @@ Job::Ref EditorModel::UpdateSyntaxForActiveLineRegion() {
 }
 
 
-UndoHistory::UndoItem::Ref EditorModel::BeginUndoItem() {
+UndoHistory::UndoItem::Ref Document::BeginUndoItem() {
     auto undoItem = historyBuffer.NewUndoItem();
     return undoItem;
 }
-UndoHistory::UndoItem::Ref EditorModel::BeginUndoFromLineRange(size_t idxStartLine, size_t idxEndLine) {
+UndoHistory::UndoItem::Ref Document::BeginUndoFromLineRange(size_t idxStartLine, size_t idxEndLine) {
     auto undoItem = historyBuffer.NewUndoFromLineRange(idxStartLine, idxEndLine);
     return undoItem;
 }
 
 
-void EditorModel::EndUndoItem(UndoHistory::UndoItem::Ref undoItem) {
+void Document::EndUndoItem(UndoHistory::UndoItem::Ref undoItem) {
     historyBuffer.PushUndoItem(undoItem);
 }
 
 
-void EditorModel::DeleteLinesNoSyntaxUpdate(size_t idxLineStart, size_t idxLineEnd) {
+void Document::DeleteLinesNoSyntaxUpdate(size_t idxLineStart, size_t idxLineEnd) {
     for(auto lineIndex = idxLineStart;lineIndex < idxLineEnd; lineIndex++) {
         // Delete the same line several times - as we move the lines after up..
         textBuffer->DeleteLineAt(idxLineStart);
     }
 }
 
-void EditorModel::DeleteRange(const Point &startPos, const Point &endPos) {
+void Document::DeleteRange(const Point &startPos, const Point &endPos) {
     logger->Debug("DeleteRange, startPos (x=%d, y=%d), endPos (x=%d, y=%d)",
                   startPos.x, startPos.y,
                   endPos.x, endPos.y);
@@ -784,14 +784,14 @@ void EditorModel::DeleteRange(const Point &startPos, const Point &endPos) {
 }
 
 
-void EditorModel::DeleteSelection() {
+void Document::DeleteSelection() {
     auto startPos = currentSelection.GetStart();
     auto endPos = currentSelection.GetEnd();
 
     DeleteRange(startPos, endPos);
 }
 
-void EditorModel::CommentSelectionOrLine() {
+void Document::CommentSelectionOrLine() {
 
 
     if (!textBuffer->HaveLanguage()) {
@@ -812,7 +812,7 @@ void EditorModel::CommentSelectionOrLine() {
     AddLineComment(start.y, end.y, lineCommentPrefix);
 }
 
-void EditorModel::IndentSelectionOrLine() {
+void Document::IndentSelectionOrLine() {
     if (!GetTextBuffer()->HaveLanguage()) {
         return;
     }
@@ -826,7 +826,7 @@ void EditorModel::IndentSelectionOrLine() {
     IndentLines(start.y, end.y);
 }
 
-void EditorModel::UnindentSelectionOrLine() {
+void Document::UnindentSelectionOrLine() {
 
     if (!GetTextBuffer()->HaveLanguage()) {
         return;
@@ -841,7 +841,7 @@ void EditorModel::UnindentSelectionOrLine() {
     UnindentLines(start.y, end.y);
 }
 
-void EditorModel::AddLineComment(size_t idxLineStart, size_t idxLineEnd, const std::u32string &lineCommentPrefix) {
+void Document::AddLineComment(size_t idxLineStart, size_t idxLineEnd, const std::u32string &lineCommentPrefix) {
 
     auto undoItem = BeginUndoFromLineRange(idxLineStart, idxLineEnd);
     undoItem->SetRestoreAction(UndoHistory::kRestoreAction::kClearAndAppend);
@@ -860,7 +860,7 @@ void EditorModel::AddLineComment(size_t idxLineStart, size_t idxLineEnd, const s
     UpdateSyntaxForRegion(idxLineStart, idxLineEnd);
 }
 
-void EditorModel::IndentLines(size_t idxLineStart, size_t idxLineEnd) {
+void Document::IndentLines(size_t idxLineStart, size_t idxLineEnd) {
     auto undoItem = BeginUndoFromLineRange(idxLineStart, idxLineEnd);
     undoItem->SetRestoreAction(UndoHistory::kRestoreAction::kClearAndAppend);
     EndUndoItem(undoItem);
@@ -879,7 +879,7 @@ void EditorModel::IndentLines(size_t idxLineStart, size_t idxLineEnd) {
     UpdateSyntaxForRegion(idxLineStart, idxLineEnd);
 }
 
-void EditorModel::UnindentLines(size_t idxLineStart, size_t idxLineEnd) {
+void Document::UnindentLines(size_t idxLineStart, size_t idxLineEnd) {
     auto undoItem = BeginUndoFromLineRange(idxLineStart, idxLineEnd);
     undoItem->SetRestoreAction(UndoHistory::kRestoreAction::kClearAndAppend);
     EndUndoItem(undoItem);
@@ -895,7 +895,7 @@ void EditorModel::UnindentLines(size_t idxLineStart, size_t idxLineEnd) {
 
 }
 
-void EditorModel::AddTab() {
+void Document::AddTab() {
     auto line = textBuffer->LineAt(lineCursor.idxActiveLine);
     auto undoItem = BeginUndoItem();
 
@@ -907,7 +907,7 @@ void EditorModel::AddTab() {
     EndUndoItem(undoItem);
 }
 
-void EditorModel::DelTab() {
+void Document::DelTab() {
     auto line = textBuffer->LineAt(lineCursor.idxActiveLine);
     auto nDel = textBuffer->GetLanguage().GetTabSize();
     if(lineCursor.cursor.position.x < nDel) {
@@ -921,13 +921,13 @@ void EditorModel::DelTab() {
 }
 
 
-void EditorModel::AddCharToLineNoUndo(Cursor &cursor, Line::Ref line, char32_t ch) {
+void Document::AddCharToLineNoUndo(Cursor &cursor, Line::Ref line, char32_t ch) {
     line->Insert(cursor.position.x, ch);
     cursor.position.x++;
     CaptureWantedColumn(cursor, line);
 }
 
-void EditorModel::RemoveCharFromLineNoUndo(gedit::Cursor &cursor, Line::Ref line) {
+void Document::RemoveCharFromLineNoUndo(gedit::Cursor &cursor, Line::Ref line) {
     if (cursor.position.x > 0) {
         line->Delete(cursor.position.x-1);
         cursor.position.x--;
@@ -938,7 +938,7 @@ void EditorModel::RemoveCharFromLineNoUndo(gedit::Cursor &cursor, Line::Ref line
     }
 }
 
-void EditorModel::PasteFromClipboard() {
+void Document::PasteFromClipboard() {
     logger->Debug("Paste from clipboard");
     RuntimeConfig::Instance().GetScreen()->UpdateClipboardData();
     auto &clipboard = Editor::Instance().GetClipBoard();

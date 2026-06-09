@@ -134,7 +134,7 @@ namespace gedit {
             isInvalid = false;
         }
 
-        // We override this in the editor view as we have a cursor in the EditorModel that is shared
+        // We override this in the editor view as we have a cursor in the Document that is shared
         virtual void SetWindowCursor(const Cursor &cursor);
 
         virtual void AddView(ViewBase *view) final {

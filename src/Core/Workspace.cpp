@@ -29,7 +29,7 @@ Workspace::~Workspace() {
 // Open-document management. The Workspace owns the open-model list and the active-model pointer;
 // these are pure data operations - Editor adds the UI redraw/relayout around SetActiveModel/close.
 //
-void Workspace::AddOpenModel(EditorModel::Ref model) {
+void Workspace::AddOpenModel(Document::Ref model) {
     if (model == nullptr) {
         return;
     }
@@ -39,7 +39,7 @@ void Workspace::AddOpenModel(EditorModel::Ref model) {
     openModels.push_back(model);
 }
 
-bool Workspace::RemoveOpenModel(EditorModel::Ref model) {
+bool Workspace::RemoveOpenModel(Document::Ref model) {
     auto it = std::find(openModels.begin(), openModels.end(), model);
     if (it == openModels.end()) {
         return false;
@@ -51,11 +51,11 @@ bool Workspace::RemoveOpenModel(EditorModel::Ref model) {
     return true;
 }
 
-bool Workspace::IsModelOpen(EditorModel::Ref model) {
+bool Workspace::IsModelOpen(Document::Ref model) {
     return std::find(openModels.begin(), openModels.end(), model) != openModels.end();
 }
 
-void Workspace::SetActiveModel(EditorModel::Ref model) {
+void Workspace::SetActiveModel(Document::Ref model) {
     if (!IsModelOpen(model)) {
         return;
     }
@@ -72,14 +72,14 @@ size_t Workspace::GetActiveModelIndex() {
     return 0;
 }
 
-EditorModel::Ref Workspace::GetModelFromIndex(size_t idxModel) {
+Document::Ref Workspace::GetModelFromIndex(size_t idxModel) {
     if (idxModel >= openModels.size()) {
         return nullptr;
     }
     return openModels[idxModel];
 }
 
-EditorModel::Ref Workspace::GetModelFromTextBuffer(TextBuffer::Ref textBuffer) {
+Document::Ref Workspace::GetModelFromTextBuffer(TextBuffer::Ref textBuffer) {
     for (auto &model : openModels) {
         if (model->GetTextBuffer() == textBuffer) {
             return model;
@@ -193,7 +193,7 @@ Workspace::Node::Ref Workspace::AddFileNode(Node::Ref parent, const std::filesys
 
 // Lazily build the model/controller/buffer for a file node. Returns the existing model if present,
 // or null for folder nodes. The language is derived from the node-path extension.
-EditorModel::Ref Workspace::EnsureModelForNode(Node::Ref node) {
+Document::Ref Workspace::EnsureModelForNode(Node::Ref node) {
     if (node == nullptr) {
         return nullptr;
     }
@@ -209,7 +209,7 @@ EditorModel::Ref Workspace::EnsureModelForNode(Node::Ref node) {
     auto ext = node->GetNodePath().extension();
     textBuffer->SetLanguage(Editor::Instance().GetLanguageForExtension(ext.string()));
 
-    EditorModel::Ref editorModel = EditorModel::Create(textBuffer);
+    Document::Ref editorModel = Document::Create(textBuffer);
     EditController::Ref editController = EditController::Create(editorModel);
 
     node->SetModel(editorModel);        // also syncs the model's path from the node
@@ -239,7 +239,7 @@ void Workspace::UpdateMetaDataForNode(Node::Ref node) {
 }
 
 
-bool Workspace::RemoveModel(EditorModel::Ref model) {
+bool Workspace::RemoveModel(Document::Ref model) {
     auto node = GetNodeFromModel(model);
     return RemoveNode(node);
 }
@@ -270,7 +270,7 @@ bool Workspace::RemoveNode(Node::Ref node) {
 }
 
 
-Workspace::Node::Ref Workspace::GetNodeFromModel(EditorModel::Ref model) {
+Workspace::Node::Ref Workspace::GetNodeFromModel(Document::Ref model) {
     for(auto &projectRoot : projectRoots) {
         auto modelNode = projectRoot->GetRootNode()->FindModel(model);
         if (modelNode != nullptr) {

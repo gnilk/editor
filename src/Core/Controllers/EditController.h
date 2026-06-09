@@ -7,7 +7,7 @@
 
 #include "Core/TextBuffer.h"
 #include "Core/UndoHistory.h"
-#include "Core/EditorModel.h"
+#include "Core/Document.h"
 #include "Core/KeyMapping.h"
 #include "Core/Rect.h"
 #include "BaseController.h"
@@ -24,11 +24,11 @@ namespace gedit {
 
     public:
         EditController() = default;
-        EditController(EditorModel::Ref newModel) : model(newModel) {
+        EditController(Document::Ref newModel) : model(newModel) {
 
         }
         virtual ~EditController() = default;
-        static Ref Create(EditorModel::Ref newModel);
+        static Ref Create(Document::Ref newModel);
 
         void Begin() override;
 
@@ -66,7 +66,7 @@ namespace gedit {
         bool HandleSpecialKeyPressForEditor(Cursor &cursor, size_t &idxLine, const KeyPress &keyPress);
     private:
         gnilk::ILogger *logger = nullptr;
-        EditorModel::Ref model;
+        Document::Ref model;
         TextBufferChangedDelegate onTextBufferChanged = nullptr;
 
     };

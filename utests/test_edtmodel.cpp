@@ -51,16 +51,16 @@ DLL_EXPORT int test_edtmodel(ITesting *t) {
     return kTR_Pass;
 }
 
-static EditorModel::Ref CreateEmptyModel(ITesting *t) {
+static Document::Ref CreateEmptyModel(ITesting *t) {
     auto textBuffer = TextBuffer::CreateEmptyBuffer();
     TR_ASSERT(t, textBuffer != nullptr);
-    auto model = EditorModel::Create(textBuffer);
+    auto model = Document::Create(textBuffer);
     TR_ASSERT(t, model != nullptr);
     return model;
 }
 
 // fill the text buffer in the model with predictable content..
-static void FillEmptyModel(EditorModel::Ref model, size_t nLines, size_t lineLength) {
+static void FillEmptyModel(Document::Ref model, size_t nLines, size_t lineLength) {
     // Remove first line - we don't want this to interfere
     model->GetTextBuffer()->DeleteLineAt(0);
 
@@ -74,7 +74,7 @@ DLL_EXPORT int test_edtmodel_create(ITesting *t) {
     // Don't use 'CreateEmptyModel' - this one does a bit more agressive testing of model and the textbuffer
     auto textBuffer = TextBuffer::CreateEmptyBuffer();
     TR_ASSERT(t, textBuffer != nullptr);
-    auto model = EditorModel::Create(textBuffer);
+    auto model = Document::Create(textBuffer);
     TR_ASSERT(t, model != nullptr);
     // The first line should always be available
     TR_ASSERT(t, model->Lines().size() == 1);

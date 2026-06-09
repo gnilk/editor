@@ -14,7 +14,7 @@
 
 using namespace gedit;
 
-EditController::Ref EditController::Create(EditorModel::Ref newModel) {
+EditController::Ref EditController::Create(Document::Ref newModel) {
     auto inst = std::make_shared<EditController>(newModel);
     inst->Begin();
     return inst;

@@ -8,7 +8,7 @@
 #include <vector>
 #include "Core/Line.h"
 #include "Core/Graphics/DrawContext.h"
-#include "Core/EditorModel.h"   // Because of selection in drawing routines...
+#include "Core/Document.h"   // Because of selection in drawing routines...
 
 namespace gedit {
     class LineRender {

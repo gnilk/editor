@@ -3,7 +3,7 @@
 //
 #include <testinterface.h>
 #include "Core/Editor.h"
-#include "Core/EditorModel.h"
+#include "Core/Document.h"
 #include "Core/Language/LanguageBase.h"
 #include "Core/Language/LangLineTokenizer.h"
 #include "Core/TextBuffer.h"

@@ -33,7 +33,7 @@ logging:
 #    - "AssetLoader"
 #    - "System"
 #    - "RootView"
-#    - "EditorModel"
+#    - "Document"
 #    - "EditorView"
 #    - "EditorController"
 #    - "TextBuffer"

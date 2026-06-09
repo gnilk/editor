@@ -8,7 +8,7 @@
 #include "Core/Graphics/ScreenBase.h"
 #include "Core/Graphics/KeyboardDriverBase.h"
 #include "Core/Views/ViewBase.h"
-#include "Core/EditorModel.h"
+#include "Core/Document.h"
 #include "Core/AssetLoaderBase.h"
 #include "Core/Plugins/PluginCommand.h"
 #include "Core/FolderMonitor.h"

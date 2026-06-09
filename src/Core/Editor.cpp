@@ -736,7 +736,7 @@ std::vector<std::string> Editor::GetRegisteredLanguages() {
 
 // Sets the active model in the workspace, then relays out the UI to reflect it. The state lives
 // in the Workspace; the UI side-effect (relayout) belongs here in the application layer.
-void Editor::SetActiveModel(EditorModel::Ref model) {
+void Editor::SetActiveModel(Document::Ref model) {
     workspace->SetActiveModel(model);
     if (workspace->GetActiveModel() != model) {
         // Model wasn't open - nothing changed.
@@ -762,7 +762,7 @@ Workspace::Node::Ref Editor::GetWorkspaceNodeForActiveModel() {
     }
     return workspace->GetNodeFromModel(model);
 }
-Workspace::Node::Ref Editor::GetWorkspaceNodeForModel(EditorModel::Ref model) {
+Workspace::Node::Ref Editor::GetWorkspaceNodeForModel(Document::Ref model) {
     return workspace->GetNodeFromModel(model);
 }
 
@@ -847,7 +847,7 @@ const std::u32string &Editor::GetVersion() {
 //
 //
 
-EditorModel::Ref Editor::OpenModelFromWorkspace(Workspace::Node::Ref workspaceNode) {
+Document::Ref Editor::OpenModelFromWorkspace(Workspace::Node::Ref workspaceNode) {
     // Lazily build the model if this is a path-only (folder-scanned) node.
     auto model = workspace->EnsureModelForNode(workspaceNode);
     if (model == nullptr) {
@@ -909,7 +909,7 @@ bool Editor::OpenModelOrFolder(const std::string &fileOrFolder) {
 
 }
 
-EditorModel::Ref Editor::LoadModel(const std::string &filename) {
+Document::Ref Editor::LoadModel(const std::string &filename) {
     auto pathName =std::filesystem::path(filename);
     if (!std::filesystem::exists(pathName)) {
         logger->Error("File not found: %s", filename.c_str());
@@ -942,7 +942,7 @@ EditorModel::Ref Editor::LoadModel(const std::string &filename) {
 
 // This will simply close the editing of the text-model
 // NOTE: DO NOT add 'save confirmation' here - this is also called for external removal (such as someone doing rm on a file from the terminal)
-bool Editor::CloseModel(EditorModel::Ref model) {
+bool Editor::CloseModel(Document::Ref model) {
     auto node = workspace->GetNodeFromModel(model);
     if (node == nullptr) {
         logger->Error("Model not part of workspace!!!!!");
@@ -959,7 +959,7 @@ bool Editor::CloseModel(EditorModel::Ref model) {
     // The model list is a strict list which is visualized exactly as it is stored, thus - right most won't have a next and left-most won't have a left...
     // Priority to step 'right' from current when closing...
     // In case there are just 1 open - we set everything to null (this is the default when there are no open models)
-    EditorModel::Ref nextActive = nullptr;
+    Document::Ref nextActive = nullptr;
 
     auto idxCurrent = GetActiveModelIndex();
     auto idxNext = NextModelIndex(idxCurrent);

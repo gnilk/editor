@@ -4,7 +4,7 @@
 
 #include "Core/Controllers/EditController.h"
 #include "Core/RuntimeConfig.h"
-#include "Core/EditorModel.h"
+#include "Core/Document.h"
 #include "GutterView.h"
 #include "logger.h"
 #include "Core/Editor.h"

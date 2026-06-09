@@ -29,37 +29,37 @@ Workspace::~Workspace() {
 // Open-document management. The Workspace owns the open-model list and the active-model pointer;
 // these are pure data operations - Editor adds the UI redraw/relayout around SetActiveDocument/close.
 //
-void Workspace::AddOpenDocument(Document::Ref model) {
-    if (model == nullptr) {
+void Workspace::AddOpenDocument(Document::Ref document) {
+    if (document == nullptr) {
         return;
     }
-    if (IsDocumentOpen(model)) {
+    if (IsDocumentOpen(document)) {
         return;
     }
-    openDocuments.push_back(model);
+    openDocuments.push_back(document);
 }
 
-bool Workspace::RemoveOpenDocument(Document::Ref model) {
-    auto it = std::find(openDocuments.begin(), openDocuments.end(), model);
+bool Workspace::RemoveOpenDocument(Document::Ref document) {
+    auto it = std::find(openDocuments.begin(), openDocuments.end(), document);
     if (it == openDocuments.end()) {
         return false;
     }
     openDocuments.erase(it);
-    if (activeDocument == model) {
+    if (activeDocument == document) {
         activeDocument = nullptr;
     }
     return true;
 }
 
-bool Workspace::IsDocumentOpen(Document::Ref model) {
-    return std::find(openDocuments.begin(), openDocuments.end(), model) != openDocuments.end();
+bool Workspace::IsDocumentOpen(Document::Ref document) {
+    return std::find(openDocuments.begin(), openDocuments.end(), document) != openDocuments.end();
 }
 
-void Workspace::SetActiveDocument(Document::Ref model) {
-    if (!IsDocumentOpen(model)) {
+void Workspace::SetActiveDocument(Document::Ref document) {
+    if (!IsDocumentOpen(document)) {
         return;
     }
-    activeDocument = model;
+    activeDocument = document;
 }
 
 size_t Workspace::GetActiveDocumentIndex() {
@@ -128,7 +128,7 @@ const Workspace::Node::Ref Workspace::GetDefaultWorkspace() {
     return GetDefaultRoot()->GetRootNode();
 }
 
-// Create an empty model in the default workspace
+// Create an empty Document in the workspace
 Workspace::Node::Ref Workspace::NewDocument(const std::string &name) {
     auto parent = activeFolderNode;
     if (parent == nullptr) {
@@ -144,7 +144,7 @@ Workspace::Node::Ref Workspace::NewDocument(const std::string &name) {
     return NewDocumentWithFileRef(parent, name);
 }
 
-// Create a new empty model under a specific parent. A brand-new file is meant to be edited
+// Create a new empty Document under a specific parent. A brand-new file is meant to be edited
 // immediately, so its model is created eagerly (unlike folder-scanned nodes, which stay path-only).
 Workspace::Node::Ref Workspace::NewDocument(const Node::Ref parent, const std::string &name) {
     auto parentPath = parent->GetNodePath();
@@ -159,7 +159,7 @@ Workspace::Node::Ref Workspace::NewDocument(const Node::Ref parent, const std::s
     return node;
 }
 
-// Create a new model with a file-reference but don't load the contents...
+// Create a new Document with a file-reference but don't load the contents...
 Workspace::Node::Ref Workspace::NewDocumentWithFileRef(const std::filesystem::path &pathFileName) {
     auto parent = GetDefaultWorkspace();
     if (parent == nullptr) {
@@ -169,7 +169,7 @@ Workspace::Node::Ref Workspace::NewDocumentWithFileRef(const std::filesystem::pa
     return NewDocumentWithFileRef(parent, pathFileName);
 }
 
-// Add a file-ref node AND eagerly create its model (the caller is explicitly opening this file).
+// Add a file-ref node AND eagerly create its Document (the caller is explicitly opening this file).
 // Contrast with the folder scan, which adds path-only nodes via AddFileNode.
 Workspace::Node::Ref Workspace::NewDocumentWithFileRef(Node::Ref parent, const std::filesystem::path &pathFileName) {
     DisableNotifications();
@@ -182,7 +182,7 @@ Workspace::Node::Ref Workspace::NewDocumentWithFileRef(Node::Ref parent, const s
     return node;
 }
 
-// Add a path-only file node (no model). The model is created lazily when the node is opened.
+// Add a path-only file node (no Document). The document is created lazily when the node is opened.
 Workspace::Node::Ref Workspace::AddFileNode(Node::Ref parent, const std::filesystem::path &pathName) {
     auto node = parent->AddChild(pathName.filename().string());
     node->SetNodePath(pathName);    // also sets displayName from the path
@@ -191,7 +191,7 @@ Workspace::Node::Ref Workspace::AddFileNode(Node::Ref parent, const std::filesys
     return node;
 }
 
-// Lazily build the model/controller/buffer for a file node. Returns the existing model if present,
+// Lazily build the document/controller/buffer for a file node. Returns the existing model if present,
 // or null for folder nodes. The language is derived from the node-path extension.
 Document::Ref Workspace::EnsureDocumentForNode(Node::Ref node) {
     if (node == nullptr) {
@@ -239,8 +239,8 @@ void Workspace::UpdateMetaDataForNode(Node::Ref node) {
 }
 
 
-bool Workspace::RemoveDocument(Document::Ref model) {
-    auto node = GetNodeFromDocument(model);
+bool Workspace::RemoveDocument(Document::Ref document) {
+    auto node = GetNodeFromDocument(document);
     return RemoveNode(node);
 }
 
@@ -270,11 +270,11 @@ bool Workspace::RemoveNode(Node::Ref node) {
 }
 
 
-Workspace::Node::Ref Workspace::GetNodeFromDocument(Document::Ref model) {
+Workspace::Node::Ref Workspace::GetNodeFromDocument(Document::Ref document) {
     for(auto &projectRoot : projectRoots) {
-        auto modelNode = projectRoot->GetRootNode()->FindDocument(model);
-        if (modelNode != nullptr) {
-            return modelNode;
+        auto node = projectRoot->GetRootNode()->FindDocument(document);
+        if (node != nullptr) {
+            return node;
         }
     }
     return nullptr;

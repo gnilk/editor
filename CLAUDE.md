@@ -5,10 +5,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project
 
 **GoatEdit** — a personal text/code editor written in C++20. Runs on Linux and macOS. Renders through
-an SDL backend (SDL2 and SDL3 sources both exist; **the locally-built backend is SDL2** — see Build).
-NCurses sources still exist in-tree but are **out of the build** (the stated direction is a
-purpose-built modern-terminal backend, eventually able to run over SSH). Embeds a JavaScript plugin
-engine (Duktape) for scripting. The primary executable target is `goatedit`.
+an SDL backend (SDL2 and SDL3 sources both exist). **Backend is platform-dependent: the Linux dev box
+builds/runs SDL2 (`gedit::SDL2::*`); the macOS dev box builds/runs SDL3 (`gedit::SDL3::*`).** Keep both
+backends in sync when touching one (e.g. keyboard handling differs between them — see the macOS
+Option-key note below). NCurses sources still exist in-tree but are **out of the build** (the stated
+direction is a purpose-built modern-terminal backend, eventually able to run over SSH). Embeds a
+JavaScript plugin engine (Duktape) for scripting. The primary executable target is `goatedit`.
 
 ## Build
 
@@ -19,10 +21,12 @@ CMake 3.22+ is required. Build is configured per-platform with optional SDL2/SDL
 sudo apt-get install -y libyaml-cpp-dev libncurses-dev libsdl2-dev
 ./setup_deps.sh       # clones ext/ source deps (json, gnklog, dukglue, fmt)
 
-# Configure. NOTE: the CMake default flag is SDL3-on, but the actual local build dirs on this
-# machine (cmake-build-debug AND cmake-build-release) are configured SDL2 ON / SDL3 OFF, and the
-# running binary is the SDL2 backend (gedit::SDL2::*). Keep using the SDL2 flags below to match.
-cmake -B ./cmake-build-debug -DCMAKE_BUILD_TYPE=Debug -DGEDIT_BUILD_SDL3=OFF -DGEDIT_BUILD_SDL2=ON
+# Configure. NOTE: backend is per-machine (same 'cmake-build-debug' dir name, different config):
+#   - Linux dev box: SDL2 ON / SDL3 OFF, running binary gedit::SDL2::* (flags below).
+#   - macOS dev box:  SDL3 ON / SDL2 OFF, running binary gedit::SDL3::* (swap the flags).
+# Match whatever the local build dir is already configured with.
+cmake -B ./cmake-build-debug -DCMAKE_BUILD_TYPE=Debug -DGEDIT_BUILD_SDL3=OFF -DGEDIT_BUILD_SDL2=ON    # Linux
+# cmake -B ./cmake-build-debug -DCMAKE_BUILD_TYPE=Debug -DGEDIT_BUILD_SDL3=ON -DGEDIT_BUILD_SDL2=OFF   # macOS
 
 # Build the main binary
 cmake --build ./cmake-build-debug --config Debug --target goatedit -j
@@ -35,7 +39,13 @@ CMake auto-clones missing `ext/` dependencies on first configure (except duktape
 
 ## Running Tests
 
-Tests use the **trun** (TestRunner v3) framework. The test target builds `utests` as a shared library; `trun` loads and runs it.
+Tests use the **trun** (TestRunner v3) framework. The test target builds `utests` as a shared library;
+`trun` loads and runs it. **On macOS the library is `libutests.dylib`; on Linux it's `libutests.so`** —
+substitute accordingly in the commands below. The editor compiles its test cases against the **v1**
+test interface (`TRUN_USE_V1` → `testinterface_v1.h`); that interface exposes per-module
+`SetPreCaseCallback` / `SetPostCaseCallback` (signature `void(*)(ITesting *)`), registered from the
+module entry fn (e.g. `test_keymapping`) — used to reset global singletons between cases (see
+`test_keymapping` clearing `KeyMappingCache`).
 
 Always use the `--sequential` parameter when running tests during development cycles. This removes
 forking from unit-tests, which may otherwise cause log output to be unsynchronized. (Without
@@ -203,10 +213,24 @@ YAML-based config loaded by `Config` singleton. `ConfigNode` provides typed acce
   relevant `*API`), mirror it in the `*APIWrapper` (wrapping in the `Wrapper::Ref` type), register it in
   `RegisterModule` via `dukglue_register_method`, and update the `.js` script. `NewDocument` /
   `LoadDocument` are the canonical templates.
-- **Keymap inheritance:** resolved inside `KeyMapping`, not the caller. `KeyMapping::Initialize` parses
-  the keymap's own bindings first, then `ResolveInheritance` walks the `inherit` chain iteratively
-  (cycle-safe via a visited set), appending each ancestor's bindings. First-match wins, so the child
-  overrides its parents. `KeyMapping::LoadKeymapConfig(name)` is the single place keymap assets load.
+- **Keymap loading has ONE owner: `KeyMappingCache` (singleton).** Both `Editor::GetKeyMapping` (a thin
+  delegate now — Editor no longer owns a keymap map) and inheritance resolution go through it, so each
+  named keymap is built **exactly once** and shared by `Ref`. `GetOrLoad(name)` loads
+  (`KeyMapping::LoadKeymapConfig`, the single asset-load point, OS-specific `linux`/`macos` lookup),
+  builds, resolves the `inherit` chain *through itself*, caches, returns. Cycle-guarded by an
+  `inProgress` set. `Clear()` exists for reload / test isolation. KeyMapping has **no** dependency on
+  Editor (the cache depends only on KeyMapping + the asset loader).
+- **Keymap inheritance: append the resolved parent, don't re-walk.** `KeyMapping::Initialize` parses the
+  keymap's own bindings first (so first-match ⇒ child overrides parent), then `ResolveInheritance` takes
+  a `ParentResolver` (injected by the cache). With it, the parent is already FULLY resolved (its own
+  chain folded in, built once), so we just append the parent's `actionItems` — no chain walk, no
+  re-parse. `ActionItem` is immutable post-build, so sharing the `Ref`s across keymaps is safe. The old
+  iterative `LoadKeymapConfig`-per-ancestor walk is kept as the **no-resolver fallback** so memory-built
+  keymaps (`Initialize(cfgNode)` with no cache — the `FromString` tests) stay hermetic. A keymap is
+  valid with **no `actions` of its own** as long as it has `inherit:` (pure-inheritance child, e.g.
+  `Linux/workspace_keymap.yml` is just `{ inherit: default_keymap }`). NOTE: `KeyMapping`'s `modifiers`
+  member map is currently **write-only** (set at parse, never read — match-time masks are baked into
+  `actionItems`); flagged for inspection, not yet removed.
 
 ## Debugging / verification recipes
 
@@ -229,90 +253,80 @@ YAML-based config loaded by `Config` singleton. `ConfigNode` provides typed acce
 - **Instrument-to-confirm:** before fixing a non-obvious bug, add a temporary `fprintf(stderr, ...)`
   diagnostic, do an incremental build, reproduce, read the trajectory, then REMOVE it. Used this session
   to disprove a wrong hypothesis (SDL `RenderReadPixels` overflow) and to capture the splitter ratchet.
+- **macOS keyboard / dead-key shortcuts (SDL3):** on macOS+SDL3 with text input active, *composing*
+  `Option+<letter>` combos (which combos compose is **keyboard-layout dependent**) are eaten by Cocoa
+  dead-key composition and arrive **only** as `SDL_EVENT_TEXT_INPUT` — **no `SDL_EVENT_KEY_DOWN`** — so
+  any UI shortcut bound to them (Alt == `UINavigationModifier`) silently never fires. Fix is
+  `SDL_SetHint(SDL_HINT_MAC_OPTION_AS_ALT, "only_left")` before `SDL_Init` (`SDL3/SDLScreen.cpp`): left
+  Option → clean Alt (shortcuts work, no composition), right Option untouched (AltGr `[ ] { }`/accents
+  still type). The hint is **SDL3-only** — SDL2 has no equivalent, but SDL2 delivers the KEY_DOWN anyway
+  so shortcuts work there (minor stray accent char). To diagnose: re-enable the commented `[KBD]` trace
+  in `SDL3/SDLKeyboardDriver::ProcessEvent` (raw event → synthesized `KeyPress`) and the `[DISP]` trace
+  in `Runloop::DispatchToHandler` (key/mods → action), run `./goatedit 2>trace.txt`, press the keys, and
+  compare a working combo (KEY_DOWN present) vs a failing one (only TEXT_INPUT).
 
 ---
 
-## Session 2026-06-06 — resume point (read this first)
+## Session 2026-06-08 — resume point (read this first)
 
-Five commits, all pushed to `main`. Build clean; verified-green set passes. Theme: a refactor pass on
-KeyMapping + TerminalController, then a hunt through **window-resize bugs** (three found & fixed, each
-with a regression test and live GUI verification). User mentioned there may be "a few more resize bugs"
-beyond these three.
+Six commits, all pushed to `main`. Build clean (utests + goatedit); verified-green set passes (132).
+Worked on the **macOS dev box (SDL3 backend)**. Theme: a macOS keyboard-shortcut bug, then a keymap
+loading/inheritance cleanup that fell out of it.
 
 **Commits this session (oldest→newest):**
-- `ba4ab93` REFACTOR: Move keymap inheritance resolution into KeyMapping
-- `9155ae5` REFACTOR: Clarify TerminalController keypress-handling state
-- `f80844a` FIX: Heap use-after-free when terminal pane resized to zero
-- `24fc535` FIX: Splitter collapse on window (corner) resize
-- `a2c8c17` FIX: Terminal content drift when resizing back and forth
+- `e40b204` FIX: macOS Option-key UI shortcuts swallowed by dead-key composition
+- `98b9874` FEAT: Allow keymaps with no own 'actions' (pure inheritance)
+- `6171c4a` TEST: Multi-level keymap inheritance (3-level chain)
+- `a5e8a7d` REFACTOR: Collapse Linux workspace_keymap to pure inheritance
+- `e1140d9` REFACTOR: Move keymap cache out of Editor into KeyMappingCache singleton
+- `b06c0bb` TEST: Clear KeyMappingCache before each keymapping case
+- (`6eed30b` FIX: log-output wording — user's own small commit, interleaved)
 
-**Files modified this session:**
-`src/Core/KeyMapping.{h,cpp}`, `src/Core/Editor.cpp`, `src/Core/Controllers/TerminalController.{h,cpp}`,
-`src/Core/Views/TerminalView.cpp`, `src/Core/TerminalScreen.cpp`, `src/Core/Views/HSplitView.h`,
-`src/Core/Views/VSplitView.h`, `utests/test_keymapping.cpp`, `utests/test_terminalscreen.cpp`,
-`utests/test_layout.cpp`.
+**Files modified:** `src/Core/Graphics/SDL3/SDLScreen.cpp`, `SDL3/SDLKeyboardDriver.cpp`,
+`src/Core/Runloop.cpp`, `src/Core/KeyMapping.{h,cpp}`, `src/Core/KeyMappingCache.{h,cpp}` (NEW),
+`src/Core/Editor.{h,cpp}`, `Assets/Resources/macOS/{default_keymap,workspace_keymap}.yml`,
+`Assets/Resources/Linux/workspace_keymap.yml`, `utests/test_keymapping.cpp`, `CMakeLists.txt`.
 
-### 1. KeyMapping inheritance refactor (`ba4ab93`)
-Inheritance was handled in `Editor::GetKeyMapping` and only resolved ONE level. Moved into `KeyMapping`:
-- `KeyMapping::LoadKeymapConfig(name)` — static; the single place keymap assets are loaded from
-  (OS-specific lookup via the `linux`/`macos` config section). Used by `Editor::GetKeyMapping` AND by
-  parent resolution.
-- `Initialize` parses own bindings first, then `ResolveInheritance` walks the `inherit` chain
-  **iteratively** with a `visited` set (cycle-safe), appending each ancestor's bindings. Child parsed
-  first + first-match lookup ⇒ child overrides parent, nearer ancestor over more distant.
-- Removed the public `Inherit(Ref)`; `Editor::GetKeyMapping` slimmed to `LoadKeymapConfig → Create →
-  cache`.
-- `test_keymapping_inherit` uses real distribution assets (`terminal_keymap` inherits `default_keymap`;
-  asserts both inheritance and child-override of `Tab`). **Deliberately NOT guarded by `GEDIT_LINUX`** —
-  it should FAIL loudly when porting to a platform where `terminal_keymap` doesn't exist, rather than
-  silently skip. (Only `Linux/terminal_keymap.yml` uses `inherit:` today.)
+### 1. macOS Option-key shortcuts dead — dead-key composition (`e40b204`)
+`UISwitchToEditor` (Option+E) etc. silently did nothing on macOS while Option+T/Option+P worked.
+Root cause (confirmed with the `[KBD]`/`[DISP]` stderr trace — now kept commented in the SDL3 driver +
+Runloop): on macOS+SDL3 with text input active, *composing* `Option+<letter>` combos are eaten by Cocoa
+dead-key composition and arrive only as `SDL_EVENT_TEXT_INPUT` — no `SDL_EVENT_KEY_DOWN` — so the action
+never resolves. **Which combos compose is keyboard-layout dependent** (US: e/i/u/n/`` ` ``; the user's
+layout also ate `g`), which is why it looked key-specific. **Fix:** `SDL_HINT_MAC_OPTION_AS_ALT=
+"only_left"` before `SDL_Init` — left Option = clean Alt (shortcuts), right Option still composes (AltGr).
+SDL2 has **no** such hint (SDL3-only) but delivers the KEY_DOWN anyway, so SDL2-on-mac works (minor stray
+accent). Also added the missing `UISwitchTo{Terminal,Editor,Project}` bindings to macOS `default_keymap`.
+See the macOS-keyboard recipe under Debugging.
 
-### 2. TerminalController readability refactor (`9155ae5`) — no behaviour change
-- `ApplyCommand` → `HandleAnsiCmd` (it dispatches parsed ANSI/VT commands).
-- `HandleKeyPressAltScreen` → `ForwardKeyPressToShell` — it encodes a key as raw pty bytes and is used
-  by BOTH passthrough paths (alt-screen and shell-owned), so the alt-screen-specific name was
-  misleading. Pairs with `ForwardActionToShell`.
-- `HandleKeyPress` restructured with a numbered 3-path comment block (alt-screen / shell-owned /
-  local-edit) making the precedence and the two orthogonal dimensions explicit.
-- Binary `enum TermMode` → `bool doesShellOwnLineEditing` (accessor `DoesShellOwnLineEditing()`).
-  Line-scoped name, no raw/bypass confusion; documented that it's independent of — not a sub-state of —
-  `screen.IsAltScreen()`.
+### 2. Keymap inheritance cleanup (`98b9874`, `a5e8a7d`, `6171c4a`)
+- **Empty-actions allowed:** `RebuildActionMapping` now requires `actions` **or** `inherit` (was: actions
+  mandatory), so a pure-inheritance child is legal. `test_keymapping_inherit_empty_actions`.
+- **Workspace keymaps de-duplicated:** both now `inherit: default_keymap` — macOS keeps only its genuine
+  `CycleActiveViewNext` (+Tab) override; `Linux/workspace_keymap.yml` is just `{ inherit: default_keymap }`.
+- **Multi-level proven:** `test_keymapping_inherit_multilevel` — in-memory child → `terminal_keymap` →
+  `default_keymap` (3 levels; the resolver loop runs twice). The child loads from memory via
+  `ConfigNode::FromString`; **only the child can be in-memory** — inherited parents resolve by name
+  through the asset loader.
 
-### 3. Terminal pane resize → heap use-after-free (`f80844a`) — was the crash AND garbage-render
-Root-caused with **AddressSanitizer**. Shrinking the window so the terminal pane is squeezed to zero
-(or negative) rows/cols hit `TerminalScreen::Resize`'s `grid.clear()` branch — but `cols`/`rows` were
-assigned the raw (0/negative) values *before* the guard, so they outlived the freed grid. The
-pty-reader thread's `EraseInLine` (guard `cols==0||rows==0`) slipped a *negative* value past and wrote
-into the freed/empty grid ⇒ heap corruption, surfacing two ways (garbage glyphs, malloc abort).
-**Fix:** in the degenerate branch force `cols = rows = 0`; only assign real dimensions on the valid
-path, so every guard fires. `test_terminalscreen_resize_degenerate` resizes to 0 and -3, fires every
-pty-reachable mutator (safe no-op), then regrows.
-
-### 4. Splitter collapse on window (corner) resize (`24fc535`)
-Grabbing the corner collapsed the HSplit divider to the bottom — editor filled the screen, terminal
-went negative, status bar (drawn on the splitter row) vanished. `HSplitView::ReInitView` (and
-identically `VSplitView`) **adopted a child view's live height/width as the new `splitterPos`**; during
-the resize traversal the upper/left child gets relaid-out to fill, so the splitter ratcheted to the
-edge and stayed there (each frame re-adopted the near-full extent). The assignment also bypassed
-`ClampSplitterPos`. **Fix:** `splitterPos` is the authority — `ReInitView` keeps it, clamped, and skips
-the transient size-0 pass; removed the `knownUpper/LowerHeight` + `knownLeft/RightWidth` tracking and
-the adoption block. **Applied to both axes** (VSplitView had the same latent bug). Tests:
-`test_layout_hsplit_resize_stability`, `test_layout_vsplit_resize_stability` (force a child to fill,
-re-init ×5, assert the splitter never adopts it).
-
-### 5. Terminal content drift on back-and-forth resize (`a2c8c17`)
-Resizing up/down repeatedly injected blank lines / drifted the terminal content. `TerminalScreen::Resize`
-kept the bottom `newRows` grid rows regardless of the cursor — but content lives in rows `[0..cursor.y]`
-and rows below are blank padding, so a short prompt with padding below it would, on shrink, scroll the
-REAL content into scrollback and keep the blanks. **Fix:** anchor preservation to the cursor —
-`contentRows = isAltScreen ? gridRows : min(gridRows, cursor.y + 1)` — so content spills to scrollback
-only when it actually overflows. Gated on `isAltScreen` so full-screen apps (which repaint on resize)
-keep the previous behaviour exactly. `test_terminalscreen_resize_keeps_content` **failed on the old
-code** (proving it), passes after.
+### 3. KeyMappingCache singleton — keymap-loading single source of truth (`e1140d9`, `b06c0bb`)
+`Editor` owned the keymap cache yet inheritance bypassed it (re-parsing each parent per child). Moved the
+cache into a new `KeyMappingCache` singleton; `Editor::GetKeyMapping/HasKeyMapping` are now thin
+delegates and the `keymappings` member is gone. `ResolveInheritance` gained a `ParentResolver` (injected
+by the cache) → appends the already-resolved parent's `actionItems`, so each keymap builds once; legacy
+walk kept as the no-resolver fallback. `test_keymapping_cache` asserts same-name→same-instance and
+shared-parent-instance; per-case `SetPreCaseCallback` clears the singleton between cases. (See the two
+keymap patterns under "Established patterns".)
 
 ---
 
 ## Earlier work (completed, in git — kept as a one-line index)
+
+- **Session 2026-06-06** (5 commits): keymap-inheritance moved into `KeyMapping` (`ba4ab93`, since
+  superseded by the `KeyMappingCache` refactor above); `TerminalController` keypress-state readability
+  refactor (`9155ae5`); and three window-resize bug fixes each with a regression test + live GUI repro —
+  terminal-pane-to-zero heap UAF found via ASan (`f80844a`), corner-resize splitter collapse (`24fc535`),
+  back-and-forth resize content drift (`a2c8c17`). User noted "a few more resize bugs" may remain.
 
 - README rewrite (contributor-focused pitch; NCurses removed). 2026-06-05 screenshots staged.
 - TerminalScreen Steps 1–3 + shell rendering: cell-grid model replacing the old historyBuffer
@@ -328,9 +342,12 @@ code** (proving it), passes after.
   jsengine `LoadDocument` (`ff45ff7`); test-suite audit (`fa52c94`); `test_vnav_pageup` (`3763816`).
 
 ## Remaining / deferred
-- **More resize bugs may remain** — user said "a few more" beyond the three fixed this session. The
+- **`KeyMapping::modifiers` member is write-only** — set during parse, never read (match-time masks are
+  baked into `actionItems`; `ModifierName` uses the static `strToModifierMap`). Candidate for removal;
+  **user wants to inspect it first before dropping** (do not remove unprompted).
+- **More resize bugs may remain** — user said "a few more" beyond the three fixed 2026-06-06. The
   ASan build + GUI recipe are the tools; drive width-axis squeeze, workspace-panel drag, maximize/
-  restore, and active-output-during-resize.
+  restore, and active-output-during-resize. (These were a Linux/SDL2 hunt — re-check on macOS/SDL3 too.)
 - **vi polish** — origin mode `ESC[?6h/l`; `test_terminalscreen_savestate` under-tests `SaveScreen`
   (should assert clean alt-screen: blank grid, cleared scrollback, cursor home, reset scroll region);
   bracketed-paste `?2004` / focus `?1004` consumed but not acted on (low priority).

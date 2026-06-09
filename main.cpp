@@ -109,11 +109,11 @@
  * ! Searching, searching for an item occuring only once (like the function name) doesnt jump to hit!
  * ! Language tokenizer has problem - keywords are found within other words...
  *   Keywords, known-types MUST BE classified AFTER a token has been extracted!!! -> Need ability to create whole-token identifiers
- * ! When creating a new model we should switch to it, also - it is created in the wrong folder..
+ * ! When creating a new document we should switch to it, also - it is created in the wrong folder..
  * ! Reparsing after delete is not working
  * ! (macos) CMD-End (nav-end-of-file) moves view but doesn't update internal cursor position (any other keystroke moves back)
  * ! Page-down, start selection (top section) there will be multiple selections
- * ! Switching active model/view doesn't update viewTopLine properly?
+ * ! Switching active document/view doesn't update viewTopLine properly?
  *   => There is a screwup in who owns the 'idxActiveLine', view-top/bottom and cursor - MUST FIX!!
  * ! Terminal must forward stderr!!
  * ! Language parser should operate on U32
@@ -127,14 +127,14 @@
  *   This happens when leaving the EditorView
  * ! Select and Delete outside the initial viewing area (height of window) makes the cursor disappear
  * ! Is 'Cut' implemented?
- * ! When creating a new model we should switch to it
+ * ! When creating a new document we should switch to it
  * ! WorkspaceView should preserve node expand/collapse information when rebuilding the tree...
  * ! WorkspaceView should react on changes from the Workspace::Desktop foldermonitor detected changes
  * ! The key in the workspace root node map should be the full path - and not just the displayname...
  * ! Refactor NewDocument in Workspace/Editor handling!
  * ! TextBuffer should NOT have PathName, let TextBuffer Load/Save work take the PathName as an argument..
- * ! Workspace view must be able to react to changes in the model and also keep the current treeview status
- * ! When creating a new model we should ask the work-space for currently selected node!
+ * ! Workspace view must be able to react to changes in the document and also keep the current treeview status
+ * ! When creating a new document we should ask the work-space for currently selected node!
  * ! deb package does not install resources to correct place (not sure where they end up)
  * ! Workspace, add meta-data to Workspace node's (Type, Filesize, etc..) - this can be a simple 'map' (YML map??)
  * ! Remove additional empty line on top when reading files
@@ -150,7 +150,7 @@
  * ! Implement loading strategy for asset loader (~/.config/gedit/.config/, ~/.gedit, Contents/MacOS/... / etc..)
  * ! Highlight of search results seems to be in screen coords (scrolling around when search results are active shows this)
  * ! Theme handling needed, currently the 'Config' class holds all theme related settings (which basically is just colors)
- * ! Workspace, pressing return/enter on selection should load (if needed) and set the model active in the editor
+ * ! Workspace, pressing return/enter on selection should load (if needed) and set the document active in the editor
  * ! QuickCommandMode
  *   ! Allow cursor to be positioned at the 'C' input
  *   ! Ability to navigate through search results (next/previous) - should reposition the cursor
@@ -168,7 +168,7 @@
  * ! Remove the buffer manager class - not needed
  * ! Unsaved file should have '*' marking in the top..
  * ! Start work on history/undo
- * ! Cleanup/Refactor EditController/EditModel/TextBuffer - either remove one (controller) or have a clear distinction that changes must go through controller and other stuff (like search) through model
+ * ! Cleanup/Refactor EditController/Document/TextBuffer - either remove one (controller) or have a clear distinction that changes must go through controller and other stuff (like search) through document
  * ! Action and Keymaps should store the modifier explicitly and not try to derive it from the masks in KeyMapping::ActionModifierFromMask
  * ! Something is causing sigsev, I strongly suspect that it is related to threading in Syntax Coloring / Language code
  *   [note: this was due to lines becoming invalid on certain operations while the parser was running]
@@ -184,7 +184,7 @@
  * ! Might need to rewrite NCurses like SDL - not using the underlying 'windowing' mechanism but rather reposition everything myself
  * ! SDL2 on par with SDL3
  * ! [deprecated] BufferManager should store 'fullPathName' and 'name'
- * ! Move EditorController functionality to EditorModel
+ * ! Move EditController functionality to Document
  * ! Make API register commands in the runtime configuration
  *   ! Move 'PluginCommand' class from JSEngine/JSPluginCommand to Core/Plugin/
  *   ! Create a 'PluginExecutor' and associate with each PluginCommand
@@ -238,11 +238,11 @@
  *   These events should be executed _BEFORE_ any keyhandling is done..
  *   Note: This would make it nicer with an event based UI.....
  *
- * ! New CompositionObject between View/Controller/Data => EditorModel
+ * ! New CompositionObject between View/Controller/Data => Document
  *      ! Should hold an EditController, TextBuffer and ViewData
  *      ! Change the way EditView works, instead of owning the controller - the controller is set
- *      ! RuntimeConfiguration should have a function to retrieve the active EditorModel
- *      ! Move Cursor to EditorModel instance!!
+ *      ! RuntimeConfiguration should have a function to retrieve the active Document
+ *      ! Move Cursor to Document instance!!
  * ! In BufferManager - make it possible to iterate through all buffers currently open..
  * ! headerView -> Specialize SingleLineView to 'HeaderView' make the draw function
  * ! new single view for status line / splitter -> make this a specific "HSplitView"
@@ -507,7 +507,7 @@ int main(int argc, const char **argv) {
 
     Editor::Instance().RunPostInitalizationScript();
 
-    // No model was given on startup - so let's focus in the ProjectView...
+    // No document was given on startup - so let's focus in the ProjectView...
     if (Editor::Instance().GetActiveDocument() == nullptr) {
         rootView.SetActiveTopViewByName(glbWorkSpaceView);
     }

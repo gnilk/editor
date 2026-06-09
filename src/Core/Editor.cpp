@@ -877,12 +877,12 @@ bool Editor::OpenDocumentOrFolder(const std::string &fileOrFolder) {
     if (!std::filesystem::exists(pathName)) {
         // Create file here..
         logger->Debug("File doesn't exists, creating new");
-        auto nodeModel = workspace->NewDocumentWithFileRef(pathName);
-        if (nodeModel == nullptr) {
+        auto node = workspace->NewDocumentWithFileRef(pathName);
+        if (node == nullptr) {
             logger->Error("Failed to create new file!");
             return false;
         }
-        workspace->AddOpenDocument(nodeModel->GetDocument());
+        workspace->AddOpenDocument(node->GetDocument());
         return true;
     }
     if (std::filesystem::is_directory(pathName)) {

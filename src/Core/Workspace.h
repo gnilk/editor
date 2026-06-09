@@ -559,7 +559,6 @@ namespace gedit {
                 onChangeHandler();
             }
         }
-        //Document::Ref LoadEditorModelFromFile(const char *filename);
 
     private:
         gnilk::ILogger *logger = nullptr;

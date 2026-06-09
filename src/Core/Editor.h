@@ -50,12 +50,12 @@ namespace gedit {
 
         void HandleGlobalAction(const KeyPressAction &kpAction);
 
-        // Open-model accessors. The Workspace owns the open list + active model; these delegate.
+        // Open-document accessors. The Workspace owns the open list + active document; these delegate.
         const std::vector<Document::Ref> &GetDocuments() {
             return workspace->GetOpenDocuments();
         }
 
-        void SetActiveDocument(Document::Ref model);
+        void SetActiveDocument(Document::Ref document);
         void SetActiveDocumentFromIndex(size_t idxDocument);
         size_t GetActiveDocumentIndex() {
             return workspace->GetActiveDocumentIndex();
@@ -64,13 +64,13 @@ namespace gedit {
             return workspace->GetActiveDocument();
         }
         Workspace::Node::Ref GetWorkspaceNodeForActiveDocument();
-        Workspace::Node::Ref GetWorkspaceNodeForDocument(Document::Ref model);
+        Workspace::Node::Ref GetWorkspaceNodeForDocument(Document::Ref document);
         Document::Ref GetDocumentFromIndex(size_t idxDocument) {
             return workspace->GetDocumentFromIndex(idxDocument);
         }
 
-        bool IsDocumentOpen(Document::Ref model) {
-            return workspace->IsDocumentOpen(model);
+        bool IsDocumentOpen(Document::Ref document) {
+            return workspace->IsDocumentOpen(document);
         }
         Document::Ref GetDocumentFromTextBuffer(TextBuffer::Ref textBuffer) {
             return workspace->GetDocumentFromTextBuffer(textBuffer);
@@ -154,7 +154,7 @@ namespace gedit {
         Document::Ref OpenDocumentFromWorkspace(Workspace::Node::Ref workspaceNode);
         Document::Ref LoadDocument(const std::string &filename);
 
-        bool CloseDocument(Document::Ref model);
+        bool CloseDocument(Document::Ref document);
 
         State GetState() {
             return state;

@@ -142,7 +142,7 @@ namespace gedit {
                 return true;
             }
 
-            // Search recursively for a node with a specific editor-model attached
+            // Search recursively for a node with a specific editor-document attached
             Node::Ref FindDocument(const Document::Ref searchDocument) {
                 if (document == searchDocument) {
                     return shared_from_this();
@@ -234,7 +234,7 @@ namespace gedit {
                 return document->GetTextBuffer();
             }
 
-            // This will flatten the workspace and return a copy of all model references
+            // This will flatten the workspace and return a copy of all document references
             std::vector<Document::Ref> GetDocuments() {
                 std::vector<Document::Ref> allDocuments;
                 RecursiveGetDocuments(allDocuments);
@@ -492,8 +492,8 @@ namespace gedit {
 
         bool OpenFolder(const std::string &folder);
 
-        Node::Ref NewDocument(const std::string &name);                       // Adds an empty model/file to the default workspace
-        Node::Ref NewDocument(const Node::Ref parent, const std::string &name); // Adds an empty model/file to a specific workspace
+        Node::Ref NewDocument(const std::string &name);                       // Adds an empty document/file to the default workspace
+        Node::Ref NewDocument(const Node::Ref parent, const std::string &name); // Adds an empty document/file to a specific workspace
 
         // Adds a file-reference (i.e. doesn't load contents) to the default workspace
         Node::Ref NewDocumentWithFileRef(const std::filesystem::path &pathFileName);
@@ -502,16 +502,16 @@ namespace gedit {
 
         Node::Ref GetNodeFromDocument(Document::Ref document);
 
-        // Lazily create (if needed) and return the model for a file node. Folder nodes return null.
-        // The browse tree stores path-only file nodes; the model is built the first time a node is
-        // opened. Returns the existing model if the node already has one.
+        // Lazily create (if needed) and return the document for a file node. Folder nodes return null.
+        // The browse tree stores path-only file nodes; the document is built the first time a node is
+        // opened. Returns the existing document if the node already has one.
         Document::Ref EnsureDocumentForNode(Node::Ref node);
 
         bool RemoveDocument(Document::Ref document);
 
         //
-        // Open documents - the open "tabs". The Workspace is the single owner of the open-model
-        // list and the active model; Editor and the views query through here. These are pure data
+        // Open documents - the open "tabs". The Workspace is the single owner of the open-document
+        // list and the active document; Editor and the views query through here. These are pure data
         // operations (no UI side effects); Editor layers the redraw/relayout on top.
         //
         const std::vector<Document::Ref> &GetOpenDocuments() {
@@ -533,7 +533,7 @@ namespace gedit {
 
     protected:
         Node::Ref NewFolderNode(Node::Ref parent, const std::filesystem::path &pathName);
-        // Adds a path-only file node (no model) under parent. The model is created lazily on open.
+        // Adds a path-only file node (no document) under parent. The document is created lazily on open.
         Node::Ref AddFileNode(Node::Ref parent, const std::filesystem::path &pathName);
         // THE single filesystem->tree mutator: maps one fs entry (file or dir) to a node under parent.
         // Shared by the initial folder Scan (ReadFolderToNode) and (later) the live folder monitor.

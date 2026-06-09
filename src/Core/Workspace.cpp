@@ -26,7 +26,7 @@ Workspace::~Workspace() {
 }
 
 //
-// Open-document management. The Workspace owns the open-model list and the active-model pointer;
+// Open-document management. The Workspace owns the open-document list and the active-document pointer;
 // these are pure data operations - Editor adds the UI redraw/relayout around SetActiveDocument/close.
 //
 void Workspace::AddOpenDocument(Document::Ref document) {
@@ -68,7 +68,7 @@ size_t Workspace::GetActiveDocumentIndex() {
             return i;
         }
     }
-    // No active model yet (e.g. startup) - index 0 is the conventional fallback.
+    // No active document yet (e.g. startup) - index 0 is the conventional fallback.
     return 0;
 }
 
@@ -80,9 +80,9 @@ Document::Ref Workspace::GetDocumentFromIndex(size_t idxDocument) {
 }
 
 Document::Ref Workspace::GetDocumentFromTextBuffer(TextBuffer::Ref textBuffer) {
-    for (auto &model : openDocuments) {
-        if (model->GetTextBuffer() == textBuffer) {
-            return model;
+    for (auto &document : openDocuments) {
+        if (document->GetTextBuffer() == textBuffer) {
+            return document;
         }
     }
     return nullptr;
@@ -145,7 +145,7 @@ Workspace::Node::Ref Workspace::NewDocument(const std::string &name) {
 }
 
 // Create a new empty Document under a specific parent. A brand-new file is meant to be edited
-// immediately, so its model is created eagerly (unlike folder-scanned nodes, which stay path-only).
+// immediately, so its document is created eagerly (unlike folder-scanned nodes, which stay path-only).
 Workspace::Node::Ref Workspace::NewDocument(const Node::Ref parent, const std::string &name) {
     auto parentPath = parent->GetNodePath();
     // Parent MUST be a directory
@@ -191,7 +191,7 @@ Workspace::Node::Ref Workspace::AddFileNode(Node::Ref parent, const std::filesys
     return node;
 }
 
-// Lazily build the document/controller/buffer for a file node. Returns the existing model if present,
+// Lazily build the document/controller/buffer for a file node. Returns the existing document if present,
 // or null for folder nodes. The language is derived from the node-path extension.
 Document::Ref Workspace::EnsureDocumentForNode(Node::Ref node) {
     if (node == nullptr) {
@@ -212,7 +212,7 @@ Document::Ref Workspace::EnsureDocumentForNode(Node::Ref node) {
     Document::Ref document = Document::Create(textBuffer);
     EditController::Ref editController = EditController::Create(document);
 
-    node->SetDocument(document);        // also syncs the model's path from the node
+    node->SetDocument(document);        // also syncs the document's path from the node
     node->SetController(editController);
 
     return document;
@@ -282,7 +282,7 @@ Workspace::Node::Ref Workspace::GetNodeFromDocument(Document::Ref document) {
 
 // Open a folder and create the workspace from the folder name...
 bool Workspace::OpenFolder(const std::string &folder) {
-    // Disable notifications - otherwise the callback is invoked for each added model...
+    // Disable notifications - otherwise the callback is invoked for each added document...
 
     // If it doesn't exists - just leave..
     auto pathName = fs::absolute(fs::path(folder));
@@ -329,7 +329,7 @@ bool Workspace::ReadFolderToNode(Node::Ref rootNode, const std::filesystem::path
 }
 
 // THE single filesystem->tree mutator. Maps one filesystem entry to a node under parent:
-// directories become folder nodes, regular files become path-only file nodes (model built lazily).
+// directories become folder nodes, regular files become path-only file nodes (document built lazily).
 // Both the initial scan (ReadFolderToNode) and the folder monitor's create-callback go through here,
 // so scan and live updates can never drift apart.
 Workspace::Node::Ref Workspace::ApplyFsEntry(Node::Ref parent, const std::filesystem::path &path) {

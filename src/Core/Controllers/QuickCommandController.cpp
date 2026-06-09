@@ -109,9 +109,9 @@ bool QuickCommandController::HandleActionInSearch(const KeyPressAction &kpAction
     if (kpAction.action == kAction::kActionLeaveCommandMode) {
         logger->Debug("LeaveCommandMode, in Search - leaving");
 
-        auto model = Editor::Instance().GetActiveDocument();
-        model->ResetSearchHitIndex();
-        model->ClearSearchResults();
+        auto document = Editor::Instance().GetActiveDocument();
+        document->ResetSearchHitIndex();
+        document->ClearSearchResults();
         ChangeState(State::QuickCmdState);
         return true;
     }
@@ -161,14 +161,14 @@ void QuickCommandController::DoLeaveOnSuccess() {
 }
 
 void QuickCommandController::SearchInActiveDocument(const std::u32string &searchItem) {
-    auto model = Editor::Instance().GetActiveDocument();
-    model->ClearSearchResults();
+    auto document = Editor::Instance().GetActiveDocument();
+    document->ClearSearchResults();
     if (searchItem.length() < 1) {
         return;
     }
-    auto numHits = model->SearchFor(searchItem);
+    auto numHits = document->SearchFor(searchItem);
     char tmp[32];
-    model->JumpToSearchHit(model->GetSearchHitIndex());
+    document->JumpToSearchHit(document->GetSearchHitIndex());
 
     std::string strascii;
     if (!UnicodeHelper::ConvertUTF32ToASCII(strascii, searchItem)) {
@@ -181,15 +181,15 @@ void QuickCommandController::SearchInActiveDocument(const std::u32string &search
     RuntimeConfig::Instance().OutputConsole()->WriteLine(strTmp);
 }
 
-// Move these to model, this allows the model to operate over the search-results how they were
+// Move these to document, this allows the document to operate over the search-results how they were
 // obtained...
 void QuickCommandController::NextSearchResult() {
-    auto model = Editor::Instance().GetActiveDocument();
-    model->NextSearchResult();
+    auto document = Editor::Instance().GetActiveDocument();
+    document->NextSearchResult();
 }
 void QuickCommandController::PrevSearchResult() {
-    auto model = Editor::Instance().GetActiveDocument();
-    model->PrevSearchResult();
+    auto document = Editor::Instance().GetActiveDocument();
+    document->PrevSearchResult();
 }
 
 void QuickCommandController::ChangeState(QuickCommandController::State newState) {
@@ -229,8 +229,8 @@ void QuickCommandController::HandleKeyPress(const KeyPress &keyPress) {
     if (state == State::SearchState) {
         if (cmdInput->Buffer().length() == 0) {
             ChangeState(State::QuickCmdState);
-            auto model = Editor::Instance().GetActiveDocument();
-            model->ClearSearchResults();
+            auto document = Editor::Instance().GetActiveDocument();
+            document->ClearSearchResults();
         }
         if (cmdInput->Buffer().length() > 4) {
             // Use the 'substr' if we keep the 'search' character visible in the cmd-input...
@@ -240,9 +240,9 @@ void QuickCommandController::HandleKeyPress(const KeyPress &keyPress) {
             // we are searching, so let's update this in realtime
             SearchInActiveDocument(searchItem);
         } else {
-            auto model = Editor::Instance().GetActiveDocument();
-            if (model->HaveSearchResults()) {
-                model->ClearSearchResults();
+            auto document = Editor::Instance().GetActiveDocument();
+            if (document->HaveSearchResults()) {
+                document->ClearSearchResults();
             }
         }
     }

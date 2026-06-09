@@ -49,7 +49,7 @@ DocumentAPI::Ref EditorAPI::NewDocument(const char *name) {
         return nullptr;
     }
     auto node = workspace->NewDocument(name);
-    // This will also activate the model...
+    // This will also activate the document...
     Editor::Instance().OpenDocumentFromWorkspace(node);
 
     return DocumentAPI::Create(node);
@@ -64,7 +64,7 @@ DocumentAPI::Ref EditorAPI::LoadDocument(const char *filename) {
     if (node == nullptr) {
         return nullptr;
     }
-    // This will load data and activate the model...
+    // This will load data and activate the document...
     if (Editor::Instance().OpenDocumentFromWorkspace(node) == nullptr) {
         return nullptr;
     }
@@ -81,8 +81,8 @@ std::vector<DocumentAPI::Ref> EditorAPI::GetDocuments() {
 
     auto &openDocuments = Editor::Instance().GetDocuments();
     documents.reserve(openDocuments.size());
-    for(auto &model : openDocuments) {
-        auto node = Editor::Instance().GetWorkspaceNodeForDocument(model);
+    for(auto &document : openDocuments) {
+        auto node = Editor::Instance().GetWorkspaceNodeForDocument(document);
         documents.emplace_back(DocumentAPI::Create(node));
     }
 
@@ -101,26 +101,26 @@ void EditorAPI::CloseActiveDocument() {
 
 
 TextBufferAPI::Ref EditorAPI::LoadBuffer(const char *filename) {
-    auto model =  Editor::Instance().LoadDocument(filename);
-    if (model == nullptr) {
+    auto document =  Editor::Instance().LoadDocument(filename);
+    if (document == nullptr) {
         return nullptr;
     }
-    return std::make_shared<TextBufferAPI>(model->GetTextBuffer());
+    return std::make_shared<TextBufferAPI>(document->GetTextBuffer());
 }
 
 void EditorAPI::SetActiveBuffer(TextBufferAPI::Ref activeBuffer) {
-    auto model = Editor::Instance().GetDocumentFromTextBuffer(activeBuffer->GetTextBuffer());
-    if (model == nullptr) {
+    auto document = Editor::Instance().GetDocumentFromTextBuffer(activeBuffer->GetTextBuffer());
+    if (document == nullptr) {
         return;
     }
-    Editor::Instance().SetActiveDocument(model);
+    Editor::Instance().SetActiveDocument(document);
 }
 
 std::vector<TextBufferAPI::Ref> EditorAPI::GetBuffers() {
-    auto models = Editor::Instance().GetDocuments();
+    auto documents = Editor::Instance().GetDocuments();
     std::vector<TextBufferAPI::Ref> buffers;
-    for(auto &model : models) {
-        auto bufferApi = std::make_shared<TextBufferAPI>(model->GetTextBuffer());
+    for(auto &document : documents) {
+        auto bufferApi = std::make_shared<TextBufferAPI>(document->GetTextBuffer());
         buffers.push_back(bufferApi);
     }
     return buffers;

@@ -46,13 +46,13 @@ void EditorView::InitView()  {
 
     auto workspaceNode = Editor::Instance().GetWorkspaceNodeForDocument(document);
     if (workspaceNode == nullptr) {
-        logger->Error("No workspace node for model!!");
+        logger->Error("No workspace node for document!!");
         return;
     }
 
     editController = workspaceNode->GetController();
     if (editController == nullptr) {
-        logger->Error("No controller for model!");
+        logger->Error("No controller for document!");
         return;
     }
 
@@ -86,7 +86,7 @@ void EditorView::ReInitView() {
     auto node = Editor::Instance().GetWorkspaceNodeForDocument(document);
     editController = node->GetController();
 
-    // Fetch and update the view-model information
+    // Fetch and update the view-document information
 //    lineCursor = document->GetLineCursorRef();
 
     editController->OnViewInit(viewRect);
@@ -254,9 +254,9 @@ bool EditorView::OnActionPreviousBuffer() {
 
 void EditorView::SetWindowCursor(const Cursor &cursor) {
     if ((Editor::Instance().GetState() == Editor::ViewState) && (document != nullptr)) {
-        // The model cursor's position.x is a character index. Tabs render wider than one cell, so
+        // The document cursor's position.x is a character index. Tabs render wider than one cell, so
         // translate it to a visual column before drawing the caret - otherwise the caret sits left
-        // of where the character actually renders and inserts appear misplaced. The model cursor is
+        // of where the character actually renders and inserts appear misplaced. The document cursor is
         // left untouched (char index stays the source of truth for editing); only the draw copy moves.
         Cursor screenCursor = document->GetCursor();
         auto &lineCursor = document->GetLineCursor();
@@ -276,37 +276,37 @@ void EditorView::SetWindowCursor(const Cursor &cursor) {
 std::pair<std::u32string, std::u32string> EditorView::GetStatusBarInfo() {
     std::u32string statusCenter = U"";
     std::u32string statusRight = U"";
-    // If we have a model - draw details...
+    // If we have a document - draw details...
     auto node = Editor::Instance().GetWorkspaceNodeForActiveDocument();
     if (node == nullptr) {
         return {statusCenter, statusRight};
     }
     // Hmm - why can't I use the document-> here????
-    auto model = node->GetDocument();
-    if (model == nullptr) {
+    auto document = node->GetDocument();
+    if (document == nullptr) {
         return {statusCenter, statusRight};
     }
 
     // Resolve center information
-    if (model->GetTextBuffer()->GetBufferState() == TextBuffer::kBuffer_Changed) {
+    if (document->GetTextBuffer()->GetBufferState() == TextBuffer::kBuffer_Changed) {
         statusCenter += U"* ";
     }
-    if (model->GetTextBuffer()->IsReadOnly()) {
+    if (document->GetTextBuffer()->IsReadOnly()) {
         statusCenter += U"R/O ";
     }
 
     statusCenter += node->GetDisplayNameU32();
     statusCenter += U" | ";
-    if (!model->GetTextBuffer()->CanEdit()) {
+    if (!document->GetTextBuffer()->CanEdit()) {
         statusCenter += U"[locked] | ";
     }
-    statusCenter += model->GetTextBuffer()->HaveLanguage() ? model->GetTextBuffer()->GetLanguage().Identifier() : U"none";
+    statusCenter += document->GetTextBuffer()->HaveLanguage() ? document->GetTextBuffer()->GetLanguage().Identifier() : U"none";
 
     // resolve right status
-    auto &lineCursor = model->GetLineCursor();
+    auto &lineCursor = document->GetLineCursor();
 
     int indent = -1;
-    auto line = model->LineAt(lineCursor.idxActiveLine);
+    auto line = document->LineAt(lineCursor.idxActiveLine);
     if (line != nullptr) {
         indent = line->GetIndent();
     }
@@ -314,7 +314,7 @@ std::pair<std::u32string, std::u32string> EditorView::GetStatusBarInfo() {
     // Show Line:Row or more 'x/y' -> Configureation!
     // Column is the visual (tab-expanded) column, matching what the caret shows.
     int visualCol = (line != nullptr)
-        ? line->CharToVisualColumn(lineCursor.cursor.position.x, model->GetTabSize())
+        ? line->CharToVisualColumn(lineCursor.cursor.position.x, document->GetTabSize())
         : lineCursor.cursor.position.x;
     auto strtmp = fmt::format(U"id: {} l: {}, c({}:{})",
                               indent,

@@ -1,7 +1,7 @@
 //
 // Created by gnilk on 15.02.23.
 //
-// Not sure this class makes much sense anymore - moved almost anything doing 'model->XYZ' already to model
+// Not sure this class makes much sense anymore - moved almost anything doing 'document->XYZ' already to document
 //
 //
 
@@ -28,23 +28,23 @@ void EditController::Begin() {
 }
 
 void EditController::OnViewInit(const Rect &viewRect) {
-    model->OnViewInit(viewRect);
+    document->OnViewInit(viewRect);
 }
 
 
 bool EditController::HandleKeyPress(Cursor &cursor, size_t &idxLine, const KeyPress &keyPress) {
-    if (!model) {
+    if (!document) {
         return false;
     }
-    if (!model->GetTextBuffer()) {
+    if (!document->GetTextBuffer()) {
         return false;
     }
 
-    auto textBuffer = model->GetTextBuffer();
+    auto textBuffer = document->GetTextBuffer();
 
     // Keep the inherited single-line edit helpers (AddCharToLine etc.) capturing a *visual*
     // wanted-column using the active language's tab width.
-    SetEditTabSize(model->GetTabSize());
+    SetEditTabSize(document->GetTabSize());
 
     if (textBuffer->IsReadOnly()) {
         return false;
@@ -57,7 +57,7 @@ bool EditController::HandleKeyPress(Cursor &cursor, size_t &idxLine, const KeyPr
     }
 
 
-    auto undoItem = model->BeginUndoItem();
+    auto undoItem = document->BeginUndoItem();
     LanguageBase::kInsertAction parserAction = LanguageBase::kInsertAction::kDefault;
 
     // FIXME: rename!!!!
@@ -69,17 +69,17 @@ bool EditController::HandleKeyPress(Cursor &cursor, size_t &idxLine, const KeyPr
     }
     // The pre-insert handler for a language can determine if we should 'stop' the default behavior..
     if (parserAction == LanguageBase::kInsertAction::kNoInsert) {
-        model->EndUndoItem(undoItem);
+        document->EndUndoItem(undoItem);
         return true;
     }
 
-    // Except for this line - all things belong to the model - more or less...
+    // Except for this line - all things belong to the document - more or less...
     if ((parserAction == LanguageBase::kInsertAction::kDefault) && DefaultEditLine(cursor, line, keyPress, false)) {
         if (keyPress.IsHumanReadable() && doPrePostInsert) {
             textBuffer->GetLanguage().OnPostInsertChar(cursor, line, keyPress.key);
         }
-        model->EndUndoItem(undoItem);
-        model->UpdateSyntaxForActiveLineRegion();
+        document->EndUndoItem(undoItem);
+        document->UpdateSyntaxForActiveLineRegion();
         return true;
     }
 
@@ -87,46 +87,46 @@ bool EditController::HandleKeyPress(Cursor &cursor, size_t &idxLine, const KeyPr
 }
 
 bool EditController::HandleSpecialKeyPress(Cursor &cursor, size_t &idxLine, const KeyPress &keyPress) {
-    auto textBuffer = model->GetTextBuffer();
+    auto textBuffer = document->GetTextBuffer();
     auto line = textBuffer->LineAt(idxLine);
-    auto undoItem = model->BeginUndoItem();
+    auto undoItem = document->BeginUndoItem();
     bool wasHandled = true;
 
     if (DefaultEditSpecial(cursor, line, keyPress)) {
-        model->EndUndoItem(undoItem);
+        document->EndUndoItem(undoItem);
     } else {
         // Just drop the undo-item, handle special key must declare it's own...
         wasHandled = HandleSpecialKeyPressForEditor(cursor, idxLine, keyPress);
     }
-    model->UpdateSyntaxForActiveLineRegion();
+    document->UpdateSyntaxForActiveLineRegion();
     return wasHandled;
 }
 
 bool EditController::HandleSpecialKeyPressForEditor(Cursor &cursor, size_t &idxLine, const KeyPress &keyPress) {
-    auto textBuffer = model->GetTextBuffer();
+    auto textBuffer = document->GetTextBuffer();
     auto line = textBuffer->LineAt(idxLine);
     bool wasHandled = false;
     switch (keyPress.specialKey) {
         case Keyboard::kKeyCode_DeleteForward :
             // Handle delete at end of line
             if ((cursor.position.x == (int)line->Length()) && ((idxLine + 1) < textBuffer->NumLines())) {
-                auto undoItem = model->BeginUndoFromLineRange(idxLine, idxLine+2);
+                auto undoItem = document->BeginUndoFromLineRange(idxLine, idxLine+2);
                 undoItem->SetRestoreAction(UndoHistory::kRestoreAction::kDeleteFirstBeforeInsert);
 
                 auto next = textBuffer->LineAt(idxLine + 1);
                 line->Append(next);
                 textBuffer->DeleteLineAt(idxLine + 1);
 
-                model->EndUndoItem(undoItem);
+                document->EndUndoItem(undoItem);
                 wasHandled = true;
             }
             break;
         case Keyboard::kKeyCode_Backspace :
             if ((cursor.position.x == 0) && (idxLine > 0)) {
-                auto undoItem = model->BeginUndoFromLineRange(idxLine-1, idxLine+1);
+                auto undoItem = document->BeginUndoFromLineRange(idxLine-1, idxLine+1);
                 undoItem->SetRestoreAction(UndoHistory::kRestoreAction::kDeleteFirstBeforeInsert);
                 MoveLineUp(cursor, idxLine);
-                model->EndUndoItem(undoItem);
+                document->EndUndoItem(undoItem);
                 wasHandled = true;
             }
             break;
@@ -135,11 +135,11 @@ bool EditController::HandleSpecialKeyPressForEditor(Cursor &cursor, size_t &idxL
 }
 
 void EditController::MoveLineUp(Cursor &cursor, size_t &idxActiveLine) {
-    auto textBuffer = model->GetTextBuffer();
+    auto textBuffer = document->GetTextBuffer();
     auto line = textBuffer->LineAt(idxActiveLine);
     auto linePrevious = textBuffer->LineAt((idxActiveLine-1));
 
-    cursor.wantedColumn = linePrevious->CharToVisualColumn(linePrevious->Length(), model->GetTabSize());
+    cursor.wantedColumn = linePrevious->CharToVisualColumn(linePrevious->Length(), document->GetTabSize());
     linePrevious->Append(line);
     textBuffer->DeleteLineAt(idxActiveLine);
     idxActiveLine--;
@@ -148,36 +148,36 @@ void EditController::MoveLineUp(Cursor &cursor, size_t &idxActiveLine) {
 
 // Newly moved stuff from EditorView
 bool EditController::OnKeyPress(const KeyPress &keyPress) {
-    // This can all be pushed to controller / model
-    if (model == nullptr) {
+    // This can all be pushed to controller / document
+    if (document == nullptr) {
         return false;
     }
     // Unless we can edit - we do nothing
-    if (!model->GetTextBuffer()->CanEdit()) return false;
+    if (!document->GetTextBuffer()->CanEdit()) return false;
 
     // In case we have selection active - we treat the whole thing a bit differently...
-    if (model->IsSelectionActive()) {
+    if (document->IsSelectionActive()) {
 
-        model->DeleteSelection();
-        model->RestoreCursorFromSelection();
-        model->CancelSelection();
+        document->DeleteSelection();
+        document->RestoreCursorFromSelection();
+        document->CancelSelection();
 
         if ((keyPress.specialKey == Keyboard::kKeyCode_Backspace) || (keyPress.specialKey == Keyboard::kKeyCode_DeleteForward)) {
             return true;
         }
     }
 
-    auto &lineCursor = model->GetLineCursor();
+    auto &lineCursor = document->GetLineCursor();
 
     // Let the controller have a go - this is regular editing and so forth
     if (HandleKeyPress(lineCursor.cursor, lineCursor.idxActiveLine, keyPress)) {
-        model->UpdateDocumentFromNavigation(true);
+        document->UpdateDocumentFromNavigation(true);
         return true;
     }
 
     // This handles regular backspace/delete/home/end (which are default actions for any single-line editing)
     if (HandleSpecialKeyPress(lineCursor.cursor, lineCursor.idxActiveLine, keyPress)) {
-        model->UpdateDocumentFromNavigation(true);
+        document->UpdateDocumentFromNavigation(true);
         return true;
     }
 
@@ -186,9 +186,9 @@ bool EditController::OnKeyPress(const KeyPress &keyPress) {
 
 bool EditController::OnAction(const KeyPressAction &kpAction) {
     // Move to controller
-    if (model == nullptr) {
+    if (document == nullptr) {
         return false;
     }
-    // Dispatch this directly to the model
-    return model->OnAction(kpAction);
+    // Dispatch this directly to the document
+    return document->OnAction(kpAction);
 }

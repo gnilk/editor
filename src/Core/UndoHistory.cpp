@@ -15,14 +15,14 @@ UndoHistory::UndoItem::Ref UndoHistory::NewUndoItem() {
 
 UndoHistory::UndoItem::Ref UndoHistory::NewUndoFromSelection() {
     auto undoItem = UndoItemRange::Create();
-    auto model = Editor::Instance().GetActiveDocument();
-    if (model == nullptr) {
+    auto document = Editor::Instance().GetActiveDocument();
+    if (document == nullptr) {
         return undoItem;
     }
-    if (!model->IsSelectionActive()) {
+    if (!document->IsSelectionActive()) {
         return undoItem;
     }
-    auto selection = model->GetSelection();
+    auto selection = document->GetSelection();
 
     Point ptStart(0, selection.GetStart().y);
     Point ptEnd(0, selection.GetEnd().y);
@@ -40,8 +40,8 @@ UndoHistory::UndoItem::Ref UndoHistory::NewUndoFromSelection() {
 
 UndoHistory::UndoItem::Ref UndoHistory::NewUndoFromLineRange(size_t idxStartLine, size_t idxEndLine) {
     auto undoItem = UndoItemRange::Create();
-    auto model = Editor::Instance().GetActiveDocument();
-    if (model == nullptr) {
+    auto document = Editor::Instance().GetActiveDocument();
+    if (document == nullptr) {
         return undoItem;
     }
     Point ptStart(0, idxStartLine);
@@ -70,11 +70,11 @@ int32_t UndoHistory::RestoreOneItem(Cursor &cursor, size_t &idxActiveLine, TextB
 //////////////////
 // Baseclass
 void UndoHistory::UndoItem::Initialize() {
-    auto model = Editor::Instance().GetActiveDocument();
-    if (model == nullptr) {
+    auto document = Editor::Instance().GetActiveDocument();
+    if (document == nullptr) {
         return;
     }
-    lineCursor = model->GetLineCursor();
+    lineCursor = document->GetLineCursor();
     isValid = true;
 }
 
@@ -88,11 +88,11 @@ void UndoHistory::UndoItemSingle::Initialize() {
 
     UndoHistory::UndoItem::Initialize();
 
-    auto model = Editor::Instance().GetActiveDocument();
-    if (model == nullptr) {
+    auto document = Editor::Instance().GetActiveDocument();
+    if (document == nullptr) {
         return;
     }
-    auto line = model->LineAt(lineCursor.idxActiveLine);
+    auto line = document->LineAt(lineCursor.idxActiveLine);
     data = line->Buffer();    // We are saving the "complete" previous line
 }
 
@@ -112,17 +112,17 @@ UndoHistory::UndoItemRange::Ref UndoHistory::UndoItemRange::Create() {
 void UndoHistory::UndoItemRange::InitRange(const gedit::Point &ptStart, const gedit::Point &ptEnd) {
     UndoHistory::UndoItem::Initialize();
 
-    auto model = Editor::Instance().GetActiveDocument();
-    if (model == nullptr) {
+    auto document = Editor::Instance().GetActiveDocument();
+    if (document == nullptr) {
         return;
     }
 
-    // Clip against active model..
+    // Clip against active document..
     start = ptStart;
     end = ptEnd;
 
     for(int y=start.y; y < end.y; y++) {
-        auto line = model->LineAt(y);
+        auto line = document->LineAt(y);
         // end of lines?
         if (line == nullptr) {
             break;

@@ -393,8 +393,8 @@ void TextBuffer::OnLineChanged(const Line &line) {
         RuntimeConfig::Instance().GetRootView().PostMessage([this]() {
             // Once here - we can retrieve the workspace node (which knows about the filename) for this TextBuffer
             // this is a bit convoluted but not done very often...
-            auto model = Editor::Instance().GetDocumentFromTextBuffer(shared_from_this());
-            auto node = Editor::Instance().GetWorkspaceNodeForDocument(model);
+            auto document = Editor::Instance().GetDocumentFromTextBuffer(shared_from_this());
+            auto node = Editor::Instance().GetWorkspaceNodeForDocument(document);
             node->SaveData();
         });
         // Trigger main thread...

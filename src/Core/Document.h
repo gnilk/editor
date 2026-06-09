@@ -122,7 +122,7 @@ namespace gedit {
 
     // The open document: owns its TextBuffer and file identity (path), plus the editing state that
     // sits between the text data and the view (cursor, selection, undo, search). The EditController
-    // references this model (it does not live here). Workspace owns the lifetime of open models.
+    // references this document (it does not live here). Workspace owns the lifetime of open documents.
     class Document {
     public:
         using Ref = std::shared_ptr<Document>;
@@ -216,7 +216,7 @@ namespace gedit {
         bool SaveData(const std::filesystem::path &pathName);
         bool SaveDataNoChangeCheck(const std::filesystem::path &pathName);
 
-        // File identity. A model knows the path it loads from / saves to; this is the model's own
+        // File identity. A document knows the path it loads from / saves to; this is the document's own
         // identity, not something the browse-tree node lends it. The no-arg Load/Save use it.
         const std::filesystem::path &GetPath() const {
             return path;
@@ -323,7 +323,7 @@ namespace gedit {
         Rect viewRect = {};
         UndoHistory historyBuffer;
 
-        TextBuffer::Ref textBuffer = nullptr;             // The model owns its buffer
+        TextBuffer::Ref textBuffer = nullptr;             // The document owns its buffer
         std::filesystem::path path;                       // File identity (load/save target)
 
     };

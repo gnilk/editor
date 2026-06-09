@@ -210,8 +210,8 @@ bool WorkspaceView::OnAction(const KeyPressAction &kpAction) {
     if (kpAction.action == kAction::kActionCommitLine) {
         auto logger = gnilk::Logger::GetLogger("WorkspaceView");
         auto itemSelected = treeView->GetCurrentSelectedItem();
-        // File nodes are opened (model created lazily); folder nodes are not. Check the node type
-        // rather than presence of a model - scanned file nodes are path-only until opened.
+        // File nodes are opened (document created lazily); folder nodes are not. Check the node type
+        // rather than presence of a document - scanned file nodes are path-only until opened.
         auto nodeType = itemSelected->GetMeta<int>(Workspace::Node::kMetaKey_NodeType, Workspace::Node::kNodeFolder);
         if (nodeType != Workspace::Node::kNodeFolder) {
             Editor::Instance().OpenDocumentFromWorkspace(itemSelected);
@@ -261,7 +261,7 @@ std::pair<std::u32string, std::u32string> WorkspaceView::GetStatusBarInfo() {
         int breakme = 1;
     }
     auto &dispName = node->GetDisplayName();
-    auto model = node->GetDocument();
+    auto document = node->GetDocument();
 
     auto nodeType = node->GetMeta<int>(Workspace::Node::kMetaKey_NodeType, Workspace::Node::kNodeFolder);
     auto fileSize = node->GetMeta<size_t>(Workspace::Node::kMetaKey_FileSize, 0);

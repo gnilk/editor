@@ -19,7 +19,7 @@ namespace gedit {
             dc.ResetDrawColors();
 
             auto workspace = Editor::Instance().GetWorkspace();
-            auto &models = Editor::Instance().GetDocuments();
+            auto &documents = Editor::Instance().GetDocuments();
             auto activeDocument = Editor::Instance().GetActiveDocument();
             auto theme = Editor::Instance().GetTheme();
             auto uiColors = theme->GetUIColors();
@@ -39,9 +39,9 @@ namespace gedit {
             xp += header.length();
             dc.DrawStringWithAttributesAt(xp,0,kTextAttributes::kNormal, " ");
             xp++;
-            for(size_t i=0;i<models.size();i++) {
-                auto model = models[i];
-                auto node = workspace->GetNodeFromDocument(models[i]);
+            for(size_t i=0;i<documents.size();i++) {
+                auto document = documents[i];
+                auto node = workspace->GetNodeFromDocument(documents[i]);
                 if (node == nullptr) {
                     continue;
                 }
@@ -49,22 +49,22 @@ namespace gedit {
                 header = name;
 
                 // Add marker for changed
-                if (model->GetTextBuffer()->GetBufferState() == TextBuffer::kBuffer_Changed) {
+                if (document->GetTextBuffer()->GetBufferState() == TextBuffer::kBuffer_Changed) {
                     dc.DrawStringWithAttributesAt(xp,0,kTextAttributes::kNormal, "* ");
                     xp += 2;
                 }
-                if (model->GetTextBuffer()->IsReadOnly()) {
+                if (document->GetTextBuffer()->IsReadOnly()) {
                     dc.DrawStringWithAttributesAt(xp,0,kTextAttributes::kNormal, "R ");
                     xp += 2;
                 }
 
-                if (model == activeDocument) {
+                if (document == activeDocument) {
                     dc.DrawStringWithAttributesAt(xp,0,kTextAttributes::kUnderline, header.c_str());
                 } else {
                     dc.DrawStringWithAttributesAt(xp,0,kTextAttributes::kNormal, header.c_str());
                 }
                 xp += header.length();
-                if (i < (models.size()-1)) {
+                if (i < (documents.size()-1)) {
                     header = " | ";
                     dc.DrawStringWithAttributesAt(xp, 0, kTextAttributes::kNormal, header.c_str());
                     xp += header.length();

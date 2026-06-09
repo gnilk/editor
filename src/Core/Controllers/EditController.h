@@ -24,7 +24,7 @@ namespace gedit {
 
     public:
         EditController() = default;
-        EditController(Document::Ref newDocument) : model(newDocument) {
+        EditController(Document::Ref newDocument) : document(newDocument) {
 
         }
         virtual ~EditController() = default;
@@ -33,7 +33,7 @@ namespace gedit {
         void Begin() override;
 
         const TextBuffer::Ref GetTextBuffer() {
-            return model->GetTextBuffer();
+            return document->GetTextBuffer();
         }
         void SetTextBufferChangedHandler(TextBufferChangedDelegate newOnTextBufferChanged) {
             onTextBufferChanged = newOnTextBufferChanged;
@@ -45,14 +45,14 @@ namespace gedit {
 
         // Proxy for buffer
         const std::vector<Line::Ref> &Lines() {
-            return model->Lines();
+            return document->Lines();
         }
         // Const accessor...
         const std::vector<Line::Ref> &Lines() const {
-            return model->Lines();
+            return document->Lines();
         }
         Line::Ref LineAt(size_t idxLine) {
-            return model->LineAt(idxLine);
+            return document->LineAt(idxLine);
         }
 
         // Newly moved stuff from EditorView
@@ -66,7 +66,7 @@ namespace gedit {
         bool HandleSpecialKeyPressForEditor(Cursor &cursor, size_t &idxLine, const KeyPress &keyPress);
     private:
         gnilk::ILogger *logger = nullptr;
-        Document::Ref model;
+        Document::Ref document;
         TextBufferChangedDelegate onTextBufferChanged = nullptr;
 
     };

@@ -1,8 +1,8 @@
 //
 // Refactor this - controller should be the one modifying the textBuffer
-// The model should only hold data which sits between the actual text-data and the viewer, like selection and search stuff
-// We need a good way to define how the model and the controller interoperate as the controller either needs access to data in the model
-// OR the model needs to talk to a modifier API in the controller
+// The document should only hold data which sits between the actual text-data and the viewer, like selection and search stuff
+// We need a good way to define how the document and the controller interoperate as the controller either needs access to data in the document
+// OR the document needs to talk to a modifier API in the controller
 //
 #include <chrono>
 #include "Editor.h"
@@ -38,7 +38,7 @@ void Document::OnViewInit(const Rect &rect) {
 
     verticalNavigationViewModel->HandleResize(rect);
 
-    // Need support in controller to forward this to model...
+    // Need support in controller to forward this to document...
     lineCursor.viewTopLine = 0;
     lineCursor.viewBottomLine = rect.Height();
 
@@ -172,7 +172,7 @@ bool Document::SaveDataNoChangeCheck(const std::filesystem::path &pathName) {
     return textBuffer->SaveForce(pathName);
 }
 
-// No-arg variants operate on the model's own path (its file identity).
+// No-arg variants operate on the document's own path (its file identity).
 bool Document::Load() {
     return LoadData(path);
 }
@@ -327,7 +327,7 @@ bool Document::OnActionUnindent() {
 //    return true;
 //}
 
-// Move all actions to controller/model...
+// Move all actions to controller/document...
 bool Document::OnActionUndo() {
     //document->GetTextBuffer()->Undo();
     auto &lineCursor = GetLineCursor();

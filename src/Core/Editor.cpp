@@ -203,7 +203,7 @@ bool Editor::Initialize(int argc, const char **argv) {
     // Load and configure theme related details..
     ConfigureTheme();
 
-    // Language configuration must currently be done before we load editor models
+    // Language configuration must currently be done before we load editor documents
     ConfigureLanguages();
 
     // Create workspace
@@ -220,7 +220,7 @@ bool Editor::Initialize(int argc, const char **argv) {
 
     ConfigureGlobalAPIObjects();
 
-    // create a model if cmd-line didn't specify any
+    // create a document if cmd-line didn't specify any
     // this will cause editor to start with at least one new file...
     if (createDefaultWorkspace) {
         // Default workspace will be created if not already..
@@ -234,10 +234,10 @@ bool Editor::Initialize(int argc, const char **argv) {
         auto node = workspace->NewDocument(tmpName);
         workspace->AddOpenDocument(node->GetDocument());
     }
-    // Did we open any models during the argument parsing?
+    // Did we open any documents during the argument parsing?
     auto &openDocuments = workspace->GetOpenDocuments();
     if (openDocuments.size() != 0) {
-        // Just set the first as the active model..
+        // Just set the first as the active document..
         SetActiveDocument(openDocuments[0]);
     }
 
@@ -249,7 +249,7 @@ bool Editor::Initialize(int argc, const char **argv) {
     }
     isInitialized = true;
 
-    // This is a problem - we really don't handle a 'no-file' scenario - the EditorView expects a model!!
+    // This is a problem - we really don't handle a 'no-file' scenario - the EditorView expects a document!!
     if (openDocuments.size() == 0) {
     }
 
@@ -302,8 +302,8 @@ bool Editor::OpenScreen() {
 
 void Editor::Close() {
     logger->Debug("Closing editor");
-    for(auto &model : workspace->GetOpenDocuments()) {
-        model->Close();
+    for(auto &document : workspace->GetOpenDocuments()) {
+        document->Close();
     }
     RuntimeConfig::Instance().GetKeyboard()->Close();
 }
@@ -734,12 +734,12 @@ std::vector<std::string> Editor::GetRegisteredLanguages() {
     return keys;
 }
 
-// Sets the active model in the workspace, then relays out the UI to reflect it. The state lives
+// Sets the active document in the workspace, then relays out the UI to reflect it. The state lives
 // in the Workspace; the UI side-effect (relayout) belongs here in the application layer.
-void Editor::SetActiveDocument(Document::Ref model) {
-    workspace->SetActiveDocument(model);
-    if (workspace->GetActiveDocument() != model) {
-        // Model wasn't open - nothing changed.
+void Editor::SetActiveDocument(Document::Ref document) {
+    workspace->SetActiveDocument(document);
+    if (workspace->GetActiveDocument() != document) {
+        // Document wasn't open - nothing changed.
         return;
     }
     if (RuntimeConfig::Instance().HasRootView()) {
@@ -748,22 +748,22 @@ void Editor::SetActiveDocument(Document::Ref model) {
 }
 
 void Editor::SetActiveDocumentFromIndex(size_t idxDocument) {
-    auto model = GetDocumentFromIndex(idxDocument);
-    if (model == nullptr) {
+    auto document = GetDocumentFromIndex(idxDocument);
+    if (document == nullptr) {
         return;
     }
-    SetActiveDocument(model);
+    SetActiveDocument(document);
 }
 
 Workspace::Node::Ref Editor::GetWorkspaceNodeForActiveDocument() {
-    auto model = GetActiveDocument();
-    if (model == nullptr) {
+    auto document = GetActiveDocument();
+    if (document == nullptr) {
         return nullptr;
     }
-    return workspace->GetNodeFromDocument(model);
+    return workspace->GetNodeFromDocument(document);
 }
-Workspace::Node::Ref Editor::GetWorkspaceNodeForDocument(Document::Ref model) {
-    return workspace->GetNodeFromDocument(model);
+Workspace::Node::Ref Editor::GetWorkspaceNodeForDocument(Document::Ref document) {
+    return workspace->GetNodeFromDocument(document);
 }
 
 KeyMapping::Ref Editor::GetActiveKeyMap() {
@@ -848,15 +848,15 @@ const std::u32string &Editor::GetVersion() {
 //
 
 Document::Ref Editor::OpenDocumentFromWorkspace(Workspace::Node::Ref workspaceNode) {
-    // Lazily build the model if this is a path-only (folder-scanned) node.
-    auto model = workspace->EnsureDocumentForNode(workspaceNode);
-    if (model == nullptr) {
-        logger->Error("OpenDocumentFromWorkspace, node has no model (folder?): %s", workspaceNode->GetDisplayName().c_str());
+    // Lazily build the document if this is a path-only (folder-scanned) node.
+    auto document = workspace->EnsureDocumentForNode(workspaceNode);
+    if (document == nullptr) {
+        logger->Error("OpenDocumentFromWorkspace, node has no document (folder?): %s", workspaceNode->GetDisplayName().c_str());
         return nullptr;
     }
-    if (IsDocumentOpen(model)) {
-        SetActiveDocument(model);
-        return model;
+    if (IsDocumentOpen(document)) {
+        SetActiveDocument(document);
+        return document;
     }
 
     // Make sure we load it if not yet done...
@@ -864,12 +864,12 @@ Document::Ref Editor::OpenDocumentFromWorkspace(Workspace::Node::Ref workspaceNo
         logger->Error("OpenDocumentFromWorkspace, failed to load: %s", workspaceNode->GetDisplayName().c_str());
         return nullptr;
     }
-    logger->Error("OpenDocumentFromWorkspace, loaded model: %s", workspaceNode->GetDisplayName().c_str());
-    workspace->AddOpenDocument(model);
-    logger->Debug("Activating new model");
-    SetActiveDocument(model);
+    logger->Error("OpenDocumentFromWorkspace, loaded document: %s", workspaceNode->GetDisplayName().c_str());
+    workspace->AddOpenDocument(document);
+    logger->Debug("Activating new document");
+    SetActiveDocument(document);
 
-    return model;;
+    return document;;
 }
 
 bool Editor::OpenDocumentOrFolder(const std::string &fileOrFolder) {
@@ -899,8 +899,8 @@ bool Editor::OpenDocumentOrFolder(const std::string &fileOrFolder) {
         return true;
     }
 
-    auto model = LoadDocument(fileOrFolder);
-    if (model == nullptr) {
+    auto document = LoadDocument(fileOrFolder);
+    if (document == nullptr) {
         // errors dumped already...
         return false;
     }
@@ -921,7 +921,7 @@ Document::Ref Editor::LoadDocument(const std::string &filename) {
     }
     auto node = workspace->NewDocumentWithFileRef(filename);
     if (node == nullptr) {
-        logger->Error("Failed to create model");
+        logger->Error("Failed to create document");
         return nullptr;
     }
 
@@ -940,25 +940,25 @@ Document::Ref Editor::LoadDocument(const std::string &filename) {
     return node->GetDocument();
 }
 
-// This will simply close the editing of the text-model
+// This will simply close the editing of the text-document
 // NOTE: DO NOT add 'save confirmation' here - this is also called for external removal (such as someone doing rm on a file from the terminal)
-bool Editor::CloseDocument(Document::Ref model) {
-    auto node = workspace->GetNodeFromDocument(model);
+bool Editor::CloseDocument(Document::Ref document) {
+    auto node = workspace->GetNodeFromDocument(document);
     if (node == nullptr) {
-        logger->Error("Model not part of workspace!!!!!");
+        logger->Error("Document not part of workspace!!!!!");
         return false;
     }
 
-    if (!IsDocumentOpen(model)) {
-        logger->Error("Model '%s' not found in open models", node->GetDisplayName().c_str());
+    if (!IsDocumentOpen(document)) {
+        logger->Error("Document '%s' not found in open documents", node->GetDisplayName().c_str());
         return false;
     }
-    logger->Debug("Ok, removing model '%s' from open models", node->GetDisplayName().c_str());
+    logger->Debug("Ok, removing document '%s' from open documents", node->GetDisplayName().c_str());
 
-    // Figure out which one will be the next model... (computed against the pre-removal list)
-    // The model list is a strict list which is visualized exactly as it is stored, thus - right most won't have a next and left-most won't have a left...
+    // Figure out which one will be the next document... (computed against the pre-removal list)
+    // The document list is a strict list which is visualized exactly as it is stored, thus - right most won't have a next and left-most won't have a left...
     // Priority to step 'right' from current when closing...
-    // In case there are just 1 open - we set everything to null (this is the default when there are no open models)
+    // In case there are just 1 open - we set everything to null (this is the default when there are no open documents)
     Document::Ref nextActive = nullptr;
 
     auto idxCurrent = GetActiveDocumentIndex();
@@ -970,8 +970,8 @@ bool Editor::CloseDocument(Document::Ref model) {
         nextActive = GetDocumentFromIndex(PreviousDocumentIndex(idxCurrent));
     }
 
-    workspace->RemoveOpenDocument(model);
-    model->Close();
+    workspace->RemoveOpenDocument(document);
+    document->Close();
 
     if (nextActive != nullptr) {
         SetActiveDocument(nextActive);

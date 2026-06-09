@@ -181,6 +181,10 @@ namespace gedit {
                 pathName = newPath;
                 isPathNameChanged = true;
                 UpdateDisplayNameFromPath();
+                // Keep the attached model's file identity in sync with the node path.
+                if (model != nullptr) {
+                    model->SetPath(newPath);
+                }
             }
 
             // Checks if the node-path is pointing to a folder

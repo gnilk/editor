@@ -224,6 +224,18 @@ namespace gedit {
         bool SaveData(const std::filesystem::path &pathName);
         bool SaveDataNoChangeCheck(const std::filesystem::path &pathName);
 
+        // File identity. A model knows the path it loads from / saves to; this is the model's own
+        // identity, not something the browse-tree node lends it. The no-arg Load/Save use it.
+        const std::filesystem::path &GetPath() const {
+            return path;
+        }
+        void SetPath(const std::filesystem::path &newPath) {
+            path = newPath;
+        }
+        bool Load();
+        bool Save();
+        bool SaveForce();
+
         Cursor &GetCursor() {
             return lineCursor.cursor;
         }
@@ -319,7 +331,8 @@ namespace gedit {
         Rect viewRect = {};
         UndoHistory historyBuffer;
 
-        TextBuffer::Ref textBuffer = nullptr;             // This is 'owned' by BufferManager
+        TextBuffer::Ref textBuffer = nullptr;             // The model owns its buffer
+        std::filesystem::path path;                       // File identity (load/save target)
         bool isActive = false;
 
     };

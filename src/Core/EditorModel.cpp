@@ -172,6 +172,17 @@ bool EditorModel::SaveDataNoChangeCheck(const std::filesystem::path &pathName) {
     return textBuffer->SaveForce(pathName);
 }
 
+// No-arg variants operate on the model's own path (its file identity).
+bool EditorModel::Load() {
+    return LoadData(path);
+}
+bool EditorModel::Save() {
+    return SaveData(path);
+}
+bool EditorModel::SaveForce() {
+    return SaveDataNoChangeCheck(path);
+}
+
 /////////
 bool EditorModel::OnAction(const KeyPressAction &kpAction) {
     if (kpAction.actionModifier == kActionModifier::kActionModifierSelection) {

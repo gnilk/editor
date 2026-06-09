@@ -191,6 +191,8 @@ behind one mutator**:
   (`VerticalNavigationViewModel`/`VNavModel`); the bare `model` param/member token (pervasive,
   also in third-party code); node-typed locals (`nodeModel`/`nodeForModel`); and historical TODO
   comments in `main.cpp`. JS API surface (`DocumentAPI`/`EditorAPI` names) unchanged.
+  (The deferred bare-`model`/`nodeModel`/stale-comment sweep is now picked up by **Pre-step P2.pre**
+  under Phase 2; the view-model family stays intentionally "Model".)
 
 ## Status
 
@@ -373,6 +375,32 @@ It is the **buffer/window split** every serious editor lands on: Emacs `buffer` 
 
 ## Ordered steps — each compiles, keeps the verified-green set green
 
+- **Pre-step P2.pre — `model`-token cleanup (clean slate).** Finish the `model → document` variable
+  sweep the Phase-1 7b note deliberately deferred, so Phase 2 starts on a clean slate (and to honor the
+  CLAUDE.md "renaming a type renames its references too" rule). Survey (2026-06-09): **~371** bare
+  `model` identifiers remain across `src/Core` + `main.cpp` + `utests`. In scope:
+  - Variables/params/members holding a `Document`(`::Ref`) named `model`/`models`/`m` → `document` /
+    `documents` (or `doc` on a shadow). Hot spots: `EditController.{h,cpp}`, `Editor.{h,cpp}` (incl.
+    log strings like *"Model not found in open models"*), `EditorView.cpp`, `QuickCommandController.cpp`,
+    `EditorAPI.cpp:120-122`, `EditorHeaderView.h:22,42-44`, `Workspace.{h,cpp}`, `Document.{h,cpp}`,
+    `main.cpp:393-395`.
+  - `nodeModel` node-typed locals (3) → a `node`-based name (they reference a `Node`, not a `Document`).
+  - Residual `EditorModel`/`EditModel`/`LoadEditorModelFromFile` identifiers — all currently in
+    `main.cpp` TODO comments (`:171,187,241,244,245`) + one commented-out decl (`Workspace.h:562`):
+    sweep or delete the stale comments.
+
+  **Explicitly NOT in scope (legitimately "Model"):** the navigation view-model family —
+  `VerticalNavigationViewModel` / `verticalNavigationViewModel` / `VNavModel` /
+  `verticalNavigationModel` — and any third-party `ext/` code.
+
+  **Separate sub-decision (do NOT fold in blindly):** the **`edtmodel` test-module name** and its
+  `test_edtmodel_*` case names (~109 tokens). Renaming the module changes the verified-green set string,
+  the CLAUDE.md test commands, and every `-m edtmodel`/`-t` selector — higher friction than the variable
+  sweep and worth its own decision/commit (candidate: `edtmodel → document`). Left out of the mechanical
+  pass.
+
+  Mechanical and per-file; split into reviewable commits if large; keep the verified-green set green
+  after each.
 - **Step P2.0 — Pin the contract.** Add `utests` cases asserting what must survive: switch away
   from a document and back -> cursor/selection **and** undo history preserved (the single-view
   behavior we must *not* regress).

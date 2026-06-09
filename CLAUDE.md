@@ -273,7 +273,40 @@ YAML-based config loaded by `Config` singleton. `ConfigNode` provides typed acce
 
 ---
 
-## Session 2026-06-08 — resume point (read this first)
+## Session 2026-06-09 — resume point (read this first)
+
+Work happened on the **macOS dev box (SDL3 backend)**, branch **`dev_workspace`** (NOT `main`).
+Everything is committed and pushed; working tree clean (only the usual intentional untracked files).
+Two themes: (1) finished planning **Phase 2 — the buffer/window split** in
+`docs/workspace-refactor-plan.md`, and (2) executed **Pre-step P2.pre** (the `model`-token clean-slate
+sweep). Verified-green set passes **134** — note the module list changed: it's now **`-m document`**,
+NOT `edtmodel` (renamed this session).
+
+**Commits this session (oldest→newest), all on `dev_workspace`:**
+- Plan docs: Phase 2 buffer/window split write-up + refinements (container/item split, EditController
+  fit, ViewState/EditState, P2.5 `KeyPressAction→EditorAction` + own header, P2.pre scope).
+- `1cfc1a4` P2.pre: sweep `model`→`document` variables in `src/Core` (15 files).
+- `2a0cdcf` P2.pre: sweep `model` in `utests` to its **real type** — `node` where it was a
+  `Workspace::Node` (lang tests' `NewDocument` returns a Node!), `document` where it was a `Document`.
+- `322d841` P2.pre: `nodeModel`→`node`, drop dead `LoadEditorModelFromFile` decl, sweep `main.cpp` TODOs.
+- `a4905d7` P2.pre: rename test module **`edtmodel`→`document`** (file + all case symbols + CMakeLists +
+  this file's verified-green line, in lockstep).
+
+**Next: Phase 2 proper, starting at Step P2.0** (pin the contract) in `docs/workspace-refactor-plan.md`.
+Read that doc's Phase 2 section first — the target is `EditorViewContainer` (new, takes the single UI
+slot) wrapping `EditorView`-as-item (holds `ViewState` + its `EditController`); `Document` keeps the
+Action API + references an `EditState` (undo). The rule: **resolved Actions → Document, raw KeyPress →
+controller.** Remaining lowercase `model` tokens are intentional (the `VerticalNavigationViewModel`
+family + two TerminalScreen-model comments + one dead comment) — leave them.
+
+> **If switching workstation:** `git checkout dev_workspace && git pull`; reconfigure `cmake-build-debug/`
+> for that box's backend (Linux = SDL2 ON/SDL3 OFF — inverse of macOS); build `utests` (`libutests.**so**`
+> on Linux) and run the verified-green set (`-m document,…`) for a clean baseline before P2.0. Phase-2
+> view work touches `EditorView`, so keep SDL2/SDL3 in sync.
+
+---
+
+## Session 2026-06-08 — resume point
 
 Six commits, all pushed to `main`. Build clean (utests + goatedit); verified-green set passes (132).
 Worked on the **macOS dev box (SDL3 backend)**. Theme: a macOS keyboard-shortcut bug, then a keymap

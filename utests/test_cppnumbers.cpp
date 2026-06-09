@@ -75,9 +75,9 @@ DLL_EXPORT int test_cppnumbers_integration(ITesting *t) {
 
     auto workspace = Editor::Instance().GetWorkspace();
     TR_ASSERT(t, workspace != nullptr);
-    auto model = workspace->NewDocument("test.cpp");
-    TR_ASSERT(t, model != nullptr);
-    auto buffer = model->GetTextBuffer();
+    auto node = workspace->NewDocument("test.cpp");
+    TR_ASSERT(t, node != nullptr);
+    auto buffer = node->GetTextBuffer();
     TR_ASSERT(t, buffer != nullptr);
 
     buffer->AddLineUTF8("int x = 42;");
@@ -102,6 +102,6 @@ DLL_EXPORT int test_cppnumbers_integration(ITesting *t) {
     TR_ASSERT(t, hasNumber(buffer->LineAt(1)));   // 42
     TR_ASSERT(t, hasNumber(buffer->LineAt(2)));   // 3.14f
 
-    TR_ASSERT(t, workspace->RemoveDocument(model->GetDocument()));
+    TR_ASSERT(t, workspace->RemoveDocument(node->GetDocument()));
     return kTR_Pass;
 }

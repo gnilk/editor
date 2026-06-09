@@ -16,11 +16,11 @@ DLL_EXPORT int test_workspace_empty(ITesting *t);
 DLL_EXPORT int test_workspace_new(ITesting *t);
 DLL_EXPORT int test_workspace_newtwice(ITesting *t);
 DLL_EXPORT int test_workspace_fileref(ITesting *t);
-DLL_EXPORT int test_workspace_newmodel(ITesting *t);
+DLL_EXPORT int test_workspace_newdocument(ITesting *t);
 DLL_EXPORT int test_workspace_openfolder(ITesting *t);
 DLL_EXPORT int test_workspace_openfolder_lazy(ITesting *t);
 DLL_EXPORT int test_workspace_openabsfolder(ITesting *t);
-DLL_EXPORT int test_workspace_removemodel(ITesting *t);
+DLL_EXPORT int test_workspace_removedocument(ITesting *t);
 DLL_EXPORT int test_workspace_recreate(ITesting *t);
 }
 
@@ -35,7 +35,7 @@ DLL_EXPORT int test_workspace_empty(ITesting *t) {
 DLL_EXPORT int test_workspace_new(ITesting *t) {
     Workspace workspace;
     TR_ASSERT(t, workspace.GetProjectRoots().size() == 0);
-    auto model = workspace.NewDocument("dummy");
+    auto node = workspace.NewDocument("dummy");
     TR_ASSERT(t, workspace.GetProjectRoots().size() != 0);
     TR_ASSERT(t, workspace.GetDefaultWorkspace()->GetDocuments().size() != 0);
     TR_ASSERT(t, workspace.GetDefaultWorkspace()->GetDocuments().size() == 1);
@@ -57,7 +57,7 @@ DLL_EXPORT int test_workspace_newtwice(ITesting *t) {
     TR_ASSERT(t, workspace.GetDefaultWorkspace()->GetDocuments().size() != 0);
     TR_ASSERT(t, workspace.GetDefaultWorkspace()->GetDocuments().size() == 2);
 
-    auto models = workspace.GetDefaultWorkspace()->GetDocuments();
+    auto documents = workspace.GetDefaultWorkspace()->GetDocuments();
     int count = 0;
     // We can't really guarantee the return order there
     for(auto &m : workspace.GetDefaultWorkspace()->GetDocuments()) {
@@ -70,7 +70,7 @@ DLL_EXPORT int test_workspace_newtwice(ITesting *t) {
     return kTR_Pass;
 }
 
-DLL_EXPORT int test_workspace_newmodel(ITesting *t) {
+DLL_EXPORT int test_workspace_newdocument(ITesting *t) {
     Workspace workspace;
     auto node = workspace.NewDocument("wef");
 
@@ -83,12 +83,12 @@ DLL_EXPORT int test_workspace_newmodel(ITesting *t) {
 DLL_EXPORT int test_workspace_fileref(ITesting *t) {
     Workspace workspace;
     std::filesystem::path filename("testfiles/ConvertUTF.cpp");
-    auto model = workspace.NewDocumentWithFileRef(filename);
+    auto node = workspace.NewDocumentWithFileRef(filename);
 
     TR_ASSERT(t, workspace.GetDefaultWorkspace()->GetDocuments().size() != 0);
-    TR_ASSERT(t, model->GetTextBuffer()->GetBufferState() == TextBuffer::BufferState::kBuffer_FileRef);
-    TR_ASSERT(t, model->LoadData());
-    TR_ASSERT(t, model->GetTextBuffer()->GetBufferState() == TextBuffer::BufferState::kBuffer_Loaded);
+    TR_ASSERT(t, node->GetTextBuffer()->GetBufferState() == TextBuffer::BufferState::kBuffer_FileRef);
+    TR_ASSERT(t, node->LoadData());
+    TR_ASSERT(t, node->GetTextBuffer()->GetBufferState() == TextBuffer::BufferState::kBuffer_Loaded);
 
     return kTR_Pass;
 }
@@ -100,13 +100,13 @@ DLL_EXPORT int test_workspace_openfolder(ITesting *t) {
     TR_ASSERT(t, desktops.size() == 1);
     auto desktop = desktops[0];
     auto rootNode = desktop->GetRootNode();
-    // Lazy tree: scanning a folder builds path-only nodes - NO models exist until a node is opened.
+    // Lazy tree: scanning a folder builds path-only nodes - NO documents exist until a node is opened.
     TR_ASSERT(t, rootNode->GetNumChildNodes() > 0);
     TR_ASSERT(t, rootNode->GetDocuments().size() == 0);
     return kTR_Pass;
 }
 
-// Opening a scanned (path-only) file node lazily creates exactly one model, and re-opening reuses it.
+// Opening a scanned (path-only) file node lazily creates exactly one document, and re-opening reuses it.
 DLL_EXPORT int test_workspace_openfolder_lazy(ITesting *t) {
     Workspace workspace;
     TR_ASSERT(t, workspace.OpenFolder("."));
@@ -128,13 +128,13 @@ DLL_EXPORT int test_workspace_openfolder_lazy(ITesting *t) {
     // Path-only until opened
     TR_ASSERT(t, fileNode->GetDocument() == nullptr);
 
-    auto model = workspace.EnsureDocumentForNode(fileNode);
-    TR_ASSERT(t, model != nullptr);
-    TR_ASSERT(t, fileNode->GetDocument() == model);
-    // The model adopts the node's path as its identity
-    TR_ASSERT(t, model->GetPath() == fileNode->GetNodePath());
-    // Re-ensuring reuses the same model (does not rebuild)
-    TR_ASSERT(t, workspace.EnsureDocumentForNode(fileNode) == model);
+    auto document = workspace.EnsureDocumentForNode(fileNode);
+    TR_ASSERT(t, document != nullptr);
+    TR_ASSERT(t, fileNode->GetDocument() == document);
+    // The document adopts the node's path as its identity
+    TR_ASSERT(t, document->GetPath() == fileNode->GetNodePath());
+    // Re-ensuring reuses the same document (does not rebuild)
+    TR_ASSERT(t, workspace.EnsureDocumentForNode(fileNode) == document);
 
     return kTR_Pass;
 }
@@ -149,21 +149,21 @@ DLL_EXPORT int test_workspace_openabsfolder(ITesting *t) {
 }
 
 
-DLL_EXPORT int test_workspace_removemodel(ITesting *t) {
+DLL_EXPORT int test_workspace_removedocument(ITesting *t) {
     Config::Instance()["main"].SetBool("threaded_syntaxparser", true);
 
     Workspace workspace;
     {
         auto node = workspace.NewDocument("wef");
         workspace.RemoveDocument(node->GetDocument());
-    } // should lose the shared_ptr for the model when leaving this block...
+    } // should lose the shared_ptr for the document when leaving this block...
 
     return kTR_Pass;
 }
 
 DLL_EXPORT int test_workspace_recreate(ITesting *t) {
     Workspace::Ref workspace = Workspace::Create();
-    // Create a number of models
+    // Create a number of documents
     workspace->NewDocument("m1");
     workspace->NewDocument("m2");
     workspace->NewDocument("m2");

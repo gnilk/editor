@@ -277,202 +277,56 @@ YAML-based config loaded by `Config` singleton. `ConfigNode` provides typed acce
 
 ---
 
-## Session 2026-06-10 (cont.) — HexView spike COMPLETE (read this first)
+## Current state — resume point (read this first)
 
-Work on the **macOS dev box (SDL3 backend)**, branch **`dev_hexview`** (NOT `main`, NOT `dev_workspace`).
-Ran the **pre-Phase-3 HexView spike H.1 → H.4** end to end (`docs/workspace-refactor-plan.md`, the
-"Pre-Phase-3 spike" section — each step has a **DONE** note). Verified-green set is **157**
-(`-m …,hexprojection,bytestream,hexview`). **Local only — not pushed.**
+Branch **`dev_hexview`** (off `dev_workspace`, NOT `main`), **pushed** to origin. Working tree clean
+except the intentional local `CMakeLists.txt` SDL3 flip (per-machine backend — see Build). Verified-green
+set **157**: `-m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,vtermparser,keymapping,hexprojection,bytestream,hexview`.
 
-**Commits this session (oldest→newest), all on `dev_hexview`:**
-- `8432aa4` **H.1** — `BinBuffer` + `ByteStreamReader` (the one UTF-32→UTF-8 place) + pure `HexProjection`
-  coord math (text Point ↔ byte offset). `test_hexprojection` + `test_bytestream`.
-- `0edbf24` **H.2** — `DocumentViewState::ViewMode {Text,Hex}` + explicit switch actions
-  `kActionViewModeText/Hex` (Alt+R / Alt+H, both OS keymaps). **Also renamed `ViewState` →
-  `DocumentViewState`** (it collided with the `Editor::State::ViewState` enum). `test_document_viewmode`.
-- `58e470f` **H.3** — `HexView : ViewBase` (read-only `offset|hex|ASCII`). `ComputeNavTarget` pure/static
-  over a `BinBuffer` (horizontal = whole-char steps so multibyte never traps; vertical/page = 16-byte
-  rows then snap). `HexProjection::NextCharStart` made public; new `Document::SetCursorPosition` (write-
-  back; `JumpToSearchHit` refactored onto it); `hexview_keymap.yml` (pure-inherit). `test_hexview`.
-- **H.4** (this commit) — `EditorViewContainer` is now the **registered top view** for the editing slot:
-  holds `EditorView` (primary) + `HexView` (alternate), forwards input/status/focus to the active item,
-  and owns the swap (`OnAction` intercepts the view-mode actions → `SwitchToViewMode`). View-mode
-  handling removed from `EditorView`. `main.cpp` registers the container (not the editor view).
-  **Live-verified on SDL3** (guided manual run — GUI automation is TCC-blocked here): toggles, caret on
-  the right byte, steps, toggles back advanced.
+**Done — Phase 2 (buffer/window split) + the pre-Phase-3 HexView spike** (`docs/workspace-refactor-plan.md`
+carries the per-step DONE notes; commits `caa97ff`…`88611d8` for Phase 2, `8432aa4`…`b9dbbb9` for the
+spike). The seam now in place:
+- `Document` references a **`DocumentViewState`** (cursor + selection + `viewMode {Text,Hex}`) and an
+  **`EditState`** (undo) — both per-view-extractable. Rule: **resolved Actions → Document, raw KeyPress
+  → controller.** `EditController` is a value member of `EditorView`; `EditorAction` is its own header.
+- **`EditorViewContainer`** is the single editing slot **and the registered top view**: it holds the text
+  `EditorView` (primary) + read-only `HexView` (alternate), forwards input/status/focus to the active
+  item, and owns the text↔hex swap (`OnAction` intercepts `kActionViewModeText/Hex` — Alt+R / Alt+H).
+- **`HexView` is a bidirectional projection of the canonical caret:** `DocumentViewState.lineCursor` stays
+  in text coords; `HexProjection` maps it ↔ byte offset over a `ByteStreamReader` (the one
+  UTF-32→UTF-8 place). Horizontal nav steps whole chars (multibyte never traps); vertical/page = 16-byte
+  rows then snap. Write-back via `Document::SetCursorPosition`.
 
-**Known limitation (deferred):** per-document mode-restore across a **document switch** isn't wired (the
-container doesn't re-sync `activeItem` to a newly-activated doc's `viewMode`). Easy follow-up.
+**Next steps:**
+1. **Follow-up (easy):** per-document view-mode restore across a **document switch** — the container
+   doesn't re-sync `activeItem` to a newly-activated doc's `viewMode` (observe the doc switch).
+2. **Phase 3** — the narrowed unknown: **two *mutable* views** of one buffer + where per-view
+   `DocumentViewState` is keyed/owned (the plan's "Deferred — to mull over"). The container-swap seam and
+   the "view = projection of canonical state" model are now proven.
 
-**Next: Phase 3** — the narrowed unknown is **two *mutable* views** + where per-view `DocumentViewState`
-is keyed/owned. The container-swap seam + "view = projection of canonical state" model are now proven.
-
-> **If switching workstation:** `git push` (this branch's commits are local-only), then on the other box
-> `git checkout dev_hexview && git pull`; reconfigure `cmake-build-debug/` for that box's backend
-> (Linux = SDL2 ON/SDL3 OFF — inverse of macOS) and run the verified-green set (now ends `…,hexview`).
-> H.3/H.4 touch views (`HexView`, `EditorViewContainer`, `EditorView`) — keep SDL2/SDL3 in sync.
-
----
-
-## Session 2026-06-10 — resume point
-
-Work happened on the **Linux dev box (SDL2 backend)**, branch **`dev_workspace`** (NOT `main`).
-Executed **Phase 2 steps P2.0 → P2.4** of the buffer/window split (`docs/workspace-refactor-plan.md`,
-see its "Phase 2 — status" section). Each step is its own commit and the verified-green set passes
-**138** (`-m document` now has 13 cases). **Not pushed yet — push on the next machine.**
-
-**Commits this session (oldest→newest), all on `dev_workspace`:**
-- `caa97ff` **P2.0** — pin the contract: `test_document` cases asserting cursor/selection/undo survive
-  a document switch. (Finding recorded then: undo capture was coupled to the Editor *active* document.)
-- `af98a17` **P2.1** — extract **`ViewState`** (`lineCursor` + `currentSelection`) → new
-  `src/Core/ViewState.h` (the `Selection` struct moved there); `Document` holds a `ViewState::Ref`,
-  referenced not fused.
-- `2bdff75` **P2.2** — extract **`EditState`** (`UndoHistory historyBuffer`) → new
-  `src/Core/EditState.h`; `Document` holds an `EditState::Ref`.
-- `8b30a25` **P2.2-followup** — decouple `UndoHistory` from the Editor active-document. Capture API
-  now takes `(const LineCursor&, [const Selection&,] TextBuffer::Ref)`; `UndoHistory.cpp` dropped
-  `#include "Editor.h"`. Behavioral fix (undo on a non-active document) + regression test
-  `test_document_undo_independent_of_active` (failed before, passes after).
-- `d7c8143` **P2.3** — introduce **`EditorViewContainer`** (`src/Core/Views/EditorViewContainer.h`):
-  the single editing slot in `main.cpp`, holding `EditorView` as its one child. Pure interposition;
-  live-verified on SDL2 (`:0`) — render + window resize clean.
-- `130e4e9` **P2.4** — `EditController` is now a value member of `EditorView`, borrowing a non-owning
-  `Document*` (Attach/Detach on switch). Deleted the passthrough (`OnAction`/`OnViewInit`/`GetTextBuffer`/
-  `Lines`/`LineAt` proxies + dead `onTextBufferChanged`); view calls `Document::OnAction`/`OnViewInit`/
-  `Lines` directly. Removed `Node::controller`/`Set/GetController` and the controller creation in
-  `EnsureDocumentForNode`; dropped the `EditController` include from `Workspace.h`.
-
-**Continuation 2026-06-10 (macOS/SDL3) — Phase 2 COMPLETE.** Pulled yesterday's P2.0–P2.4 (already on
-origin), ran the P2.4 live verification (see the ✅ block below — found + fixed the scroll-anchor bug),
-then executed **P2.5**, the last step. Two new commits, **local only — push next**:
-- `927900e` **FIX** — buffer-switch scroll-anchor reset (the P2.4-verification find). +regression test
-  `test_document_switch_preserves_scroll`. (Details in the ✅ block below.)
-- `88611d8` **P2.5** — mechanical rename `KeyPressAction → EditorAction` (58 sites) + moved the struct
-  out of `KeyMapping.h` into a new dedicated `src/Core/EditorAction.h` (includes only `Action.h` +
-  `KeyPress.h`, no new cycle; `KeyMapping.h` now includes it). `kAction` enum keeps its name.
-
-**Verified-green set now 139** (`-m document` has 14 cases). The Phase-2 seam is in place: `ViewState`
-+ `EditState` referenced by `Document`, `EditorViewContainer` wrapping the single `EditorView` item,
-`EditController` owned by that item (raw KeyPress only; Actions → Document), and an `EditorAction` type
-in its own header. **Next: Phase 3** (see `docs/workspace-refactor-plan.md` — N-item container / where
-`ViewState` ultimately lives is in the "Deferred — to mull over" section, explicitly not yet decided).
-
-> **✅ P2.4 live GUI verification DONE (2026-06-10, macOS/SDL3 continuation).** Confirmed in a running
-> build: typing inserts, navigation moves the caret, undo reverts, and buffer-switch keeps per-document
-> cursor. **It found a real bug:** on a document switch the logical caret survived but the view's
-> vertical **scroll anchor** (`viewTopLine`) reset to line 0, drawing the caret off-screen for any
-> document scrolled past the first page. Root cause: `Document::OnViewInit` unconditionally set
-> `viewTopLine=0`, and the switch path runs `OnViewInit` on every re-point
-> (`SetActiveDocument → RootView.Initialize() → EditorView::ReInitView → document->OnViewInit`), wiping
-> the saved per-document `viewTopLine`. Fixed in `927900e` (keep `viewTopLine`, derive `viewBottomLine`
-> from it + height, `RefocusViewArea()` only if the active line fell out of view) + regression test
-> `test_document_switch_preserves_scroll` (replicates the real switch by re-calling `OnViewInit`;
-> failed before, passes after). **Verified-green set now 139.**
->
-> **macOS GUI-automation note:** on this box the process Claude runs commands under lacks both
-> **Accessibility** and **Screen Recording** TCC permissions, so `osascript` keystroke injection and
-> `screencapture` are blocked (System Events can *activate* a process by PID but can't read window
-> state or send keys). The Linux `xdotool`/`xwd` recipe has no working macOS equivalent here — the
-> live check was done as a **guided manual run** (Claude scripts the keystrokes from the real keymap,
-> user performs them and reports). macOS `Alt` shortcuts = **left Option** (the SDL3 `only_left` hint).
-
-> **If switching workstation:** `git push` first (this session's commits are local-only), then on the
-> other box `git checkout dev_workspace && git pull`; reconfigure `cmake-build-debug/` for that box's
-> backend (Linux = SDL2 ON/SDL3 OFF; macOS = the inverse — `CMakeLists.txt` default is committed as
-> SDL2-ON for the Linux box, so the macOS box must pass `-DGEDIT_BUILD_SDL3=ON -DGEDIT_BUILD_SDL2=OFF`);
-> build `utests` (`libutests.**so**` on Linux, `.dylib` on macOS) and run the verified-green set
-> (`-m document,…`) for a clean 138 baseline. Phase-2 view work touches `EditorView` — keep SDL2/SDL3
-> in sync.
-
----
-
-## Session 2026-06-09 — resume point
-
-Work happened on the **macOS dev box (SDL3 backend)**, branch **`dev_workspace`** (NOT `main`).
-Everything is committed and pushed; working tree clean (only the usual intentional untracked files).
-Two themes: (1) finished planning **Phase 2 — the buffer/window split** in
-`docs/workspace-refactor-plan.md`, and (2) executed **Pre-step P2.pre** (the `model`-token clean-slate
-sweep). Verified-green set passes **134** — note the module list changed: it's now **`-m document`**,
-NOT `edtmodel` (renamed this session).
-
-**Commits this session (oldest→newest), all on `dev_workspace`:**
-- Plan docs: Phase 2 buffer/window split write-up + refinements (container/item split, EditController
-  fit, ViewState/EditState, P2.5 `KeyPressAction→EditorAction` + own header, P2.pre scope).
-- `1cfc1a4` P2.pre: sweep `model`→`document` variables in `src/Core` (15 files).
-- `2a0cdcf` P2.pre: sweep `model` in `utests` to its **real type** — `node` where it was a
-  `Workspace::Node` (lang tests' `NewDocument` returns a Node!), `document` where it was a `Document`.
-- `322d841` P2.pre: `nodeModel`→`node`, drop dead `LoadEditorModelFromFile` decl, sweep `main.cpp` TODOs.
-- `a4905d7` P2.pre: rename test module **`edtmodel`→`document`** (file + all case symbols + CMakeLists +
-  this file's verified-green line, in lockstep).
-
-**Next: Phase 2 proper, starting at Step P2.0** (pin the contract) in `docs/workspace-refactor-plan.md`.
-Read that doc's Phase 2 section first — the target is `EditorViewContainer` (new, takes the single UI
-slot) wrapping `EditorView`-as-item (holds `ViewState` + its `EditController`); `Document` keeps the
-Action API + references an `EditState` (undo). The rule: **resolved Actions → Document, raw KeyPress →
-controller.** Remaining lowercase `model` tokens are intentional (the `VerticalNavigationViewModel`
-family + two TerminalScreen-model comments + one dead comment) — leave them.
-
-> **If switching workstation:** `git checkout dev_workspace && git pull`; reconfigure `cmake-build-debug/`
-> for that box's backend (Linux = SDL2 ON/SDL3 OFF — inverse of macOS); build `utests` (`libutests.**so**`
-> on Linux) and run the verified-green set (`-m document,…`) for a clean baseline before P2.0. Phase-2
-> view work touches `EditorView`, so keep SDL2/SDL3 in sync.
-
----
-
-## Session 2026-06-08 — resume point
-
-Six commits, all pushed to `main`. Build clean (utests + goatedit); verified-green set passes (132).
-Worked on the **macOS dev box (SDL3 backend)**. Theme: a macOS keyboard-shortcut bug, then a keymap
-loading/inheritance cleanup that fell out of it.
-
-**Commits this session (oldest→newest):**
-- `e40b204` FIX: macOS Option-key UI shortcuts swallowed by dead-key composition
-- `98b9874` FEAT: Allow keymaps with no own 'actions' (pure inheritance)
-- `6171c4a` TEST: Multi-level keymap inheritance (3-level chain)
-- `a5e8a7d` REFACTOR: Collapse Linux workspace_keymap to pure inheritance
-- `e1140d9` REFACTOR: Move keymap cache out of Editor into KeyMappingCache singleton
-- `b06c0bb` TEST: Clear KeyMappingCache before each keymapping case
-- (`6eed30b` FIX: log-output wording — user's own small commit, interleaved)
-
-**Files modified:** `src/Core/Graphics/SDL3/SDLScreen.cpp`, `SDL3/SDLKeyboardDriver.cpp`,
-`src/Core/Runloop.cpp`, `src/Core/KeyMapping.{h,cpp}`, `src/Core/KeyMappingCache.{h,cpp}` (NEW),
-`src/Core/Editor.{h,cpp}`, `Assets/Resources/macOS/{default_keymap,workspace_keymap}.yml`,
-`Assets/Resources/Linux/workspace_keymap.yml`, `utests/test_keymapping.cpp`, `CMakeLists.txt`.
-
-### 1. macOS Option-key shortcuts dead — dead-key composition (`e40b204`)
-`UISwitchToEditor` (Option+E) etc. silently did nothing on macOS while Option+T/Option+P worked.
-Root cause (confirmed with the `[KBD]`/`[DISP]` stderr trace — now kept commented in the SDL3 driver +
-Runloop): on macOS+SDL3 with text input active, *composing* `Option+<letter>` combos are eaten by Cocoa
-dead-key composition and arrive only as `SDL_EVENT_TEXT_INPUT` — no `SDL_EVENT_KEY_DOWN` — so the action
-never resolves. **Which combos compose is keyboard-layout dependent** (US: e/i/u/n/`` ` ``; the user's
-layout also ate `g`), which is why it looked key-specific. **Fix:** `SDL_HINT_MAC_OPTION_AS_ALT=
-"only_left"` before `SDL_Init` — left Option = clean Alt (shortcuts), right Option still composes (AltGr).
-SDL2 has **no** such hint (SDL3-only) but delivers the KEY_DOWN anyway, so SDL2-on-mac works (minor stray
-accent). Also added the missing `UISwitchTo{Terminal,Editor,Project}` bindings to macOS `default_keymap`.
-See the macOS-keyboard recipe under Debugging.
-
-### 2. Keymap inheritance cleanup (`98b9874`, `a5e8a7d`, `6171c4a`)
-- **Empty-actions allowed:** `RebuildActionMapping` now requires `actions` **or** `inherit` (was: actions
-  mandatory), so a pure-inheritance child is legal. `test_keymapping_inherit_empty_actions`.
-- **Workspace keymaps de-duplicated:** both now `inherit: default_keymap` — macOS keeps only its genuine
-  `CycleActiveViewNext` (+Tab) override; `Linux/workspace_keymap.yml` is just `{ inherit: default_keymap }`.
-- **Multi-level proven:** `test_keymapping_inherit_multilevel` — in-memory child → `terminal_keymap` →
-  `default_keymap` (3 levels; the resolver loop runs twice). The child loads from memory via
-  `ConfigNode::FromString`; **only the child can be in-memory** — inherited parents resolve by name
-  through the asset loader.
-
-### 3. KeyMappingCache singleton — keymap-loading single source of truth (`e1140d9`, `b06c0bb`)
-`Editor` owned the keymap cache yet inheritance bypassed it (re-parsing each parent per child). Moved the
-cache into a new `KeyMappingCache` singleton; `Editor::GetKeyMapping/HasKeyMapping` are now thin
-delegates and the `keymappings` member is gone. `ResolveInheritance` gained a `ParentResolver` (injected
-by the cache) → appends the already-resolved parent's `actionItems`, so each keymap builds once; legacy
-walk kept as the no-resolver fallback. `test_keymapping_cache` asserts same-name→same-instance and
-shared-parent-instance; per-case `SetPreCaseCallback` clears the singleton between cases. (See the two
-keymap patterns under "Established patterns".)
+**Operational notes:** per-machine backend (Linux SDL2 / macOS SDL3 — match the local `cmake-build-debug`;
+the committed `CMakeLists.txt` default is SDL2-ON, so the macOS box configures with
+`-DGEDIT_BUILD_SDL3=ON -DGEDIT_BUILD_SDL2=OFF`). On macOS, GUI verification is a **guided manual run**
+(`osascript` keystrokes + `screencapture` are TCC-blocked for Claude's shell here); `Alt` shortcuts =
+**left Option** (SDL3 `only_left` hint). Push before switching workstations, then reconfigure the backend
+and rebuild `utests` (`libutests.so` Linux / `.dylib` macOS) on the other box.
 
 ---
 
 ## Earlier work (completed, in git — kept as a one-line index)
+
+- **Phase 2 — buffer/window split + P2.pre** (`dev_workspace`, folded into `dev_hexview`): `model`→
+  `document` token sweep + test module `edtmodel`→`document` (`1cfc1a4`,`2a0cdcf`,`322d841`,`a4905d7`);
+  P2.0 document-switch contract tests; P2.1 extract `ViewState` (renamed `DocumentViewState` in the spike);
+  P2.2 extract `EditState` + decouple `UndoHistory` from the Editor active-document (`af98a17`,`2bdff75`,
+  `8b30a25`); P2.3 `EditorViewContainer` (`d7c8143`); P2.4 `EditController`→value member of `EditorView`
+  (`130e4e9`) + buffer-switch scroll-anchor fix (`927900e`); P2.5 `KeyPressAction`→`EditorAction` in its
+  own header (`88611d8`).
+- **2026-06-08 keymap session** (pushed to `main`): macOS Option dead-key fix —
+  `SDL_HINT_MAC_OPTION_AS_ALT=only_left` (`e40b204`); keymaps may pure-inherit + multi-level inheritance
+  (`98b9874`,`a5e8a7d`,`6171c4a`); `KeyMappingCache` singleton as the single keymap-loading owner
+  (`e1140d9`,`b06c0bb`). Mechanics live in "Established patterns" (keymap) + the macOS-keyboard Debugging
+  recipe.
 
 - **Session 2026-06-06** (5 commits): keymap-inheritance moved into `KeyMapping` (`ba4ab93`, since
   superseded by the `KeyMappingCache` refactor above); `TerminalController` keypress-state readability
@@ -494,6 +348,9 @@ keymap patterns under "Established patterns".)
   jsengine `LoadDocument` (`ff45ff7`); test-suite audit (`fa52c94`); `test_vnav_pageup` (`3763816`).
 
 ## Remaining / deferred
+- **HexView: per-document view-mode restore across a document switch** — `EditorViewContainer` doesn't
+  re-sync `activeItem` to a newly-activated document's `viewMode` (the swap is driven only by the
+  view-mode actions). Easy follow-up: observe the document switch and call `SwitchToViewMode` to match.
 - **`KeyMapping::modifiers` member is write-only** — set during parse, never read (match-time masks are
   baked into `actionItems`; `ModifierName` uses the static `strToModifierMap`). Candidate for removal;
   **user wants to inspect it first before dropping** (do not remove unprompted).

@@ -205,15 +205,22 @@ void HexView::DrawViewContents() {
         dc.DrawStringAt(0, r, buf);
     }
 
-    // The caret: an inverted hex pair, plus the hardware cursor parked on the same cell.
+    // The caret: an inverted hex pair in the hex column plus the matching inverted glyph in the ASCII
+    // column, and the hardware cursor parked on the hex cell.
     int caretRow = (int)(caret / (size_t)kBytesPerRow) - viewTopRow;
     int idxInRow = (int)(caret % (size_t)kBytesPerRow);
     int caretCol = 10 + idxInRow * 3 + ((idxInRow >= 8) ? 1 : 0);
+    // ASCII column start = offset field (10) + hex field (kBytesPerRow*3, +1 for the mid-row gap) + " |".
+    int asciiCol = 10 + kBytesPerRow * 3 + 1 + 2 + idxInRow;
     cursor.position = {caretCol, caretRow};
     if (caret < total) {
+        uint8_t b = bytes.At(caret);
         char hx[3];
-        snprintf(hx, sizeof(hx), "%02X", bytes.At(caret));
+        snprintf(hx, sizeof(hx), "%02X", b);
         dc.DrawStringWithAttributesAt(caretCol, caretRow, kTextAttributes::kInverted, hx);
+
+        char ascii[2] = { ((b >= 0x20) && (b <= 0x7E)) ? (char)b : '.', '\0' };
+        dc.DrawStringWithAttributesAt(asciiCol, caretRow, kTextAttributes::kInverted, ascii);
     }
 }
 

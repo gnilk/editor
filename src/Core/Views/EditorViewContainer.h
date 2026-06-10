@@ -16,6 +16,7 @@
 #include "Core/Editor.h"
 #include "Core/RuntimeConfig.h"
 #include "ViewBase.h"
+#include "Core/ActionHelper.h"
 
 namespace gedit {
 
@@ -84,6 +85,16 @@ namespace gedit {
             }
             if (kpAction.action == kAction::kActionViewModeHex) {
                 SwitchToViewMode(ViewMode::Hex);
+                return true;
+            }
+            if (kpAction.action == kAction::kActionCycleActiveBufferNext) {
+                ActionHelper::SwitchToNextBuffer();
+                InvalidateAll();
+                return true;
+            }
+            if (kpAction.action == kAction::kActionCycleActiveBufferPrev) {
+                ActionHelper::SwitchToPreviousBuffer();
+                InvalidateAll();
                 return true;
             }
             if ((activeItem != nullptr) && activeItem->OnAction(kpAction)) {

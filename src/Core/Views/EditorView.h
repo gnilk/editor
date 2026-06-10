@@ -57,13 +57,7 @@ namespace gedit {
         void OnResized() override;
         void OnActivate(bool isActive) override;
         void DrawViewContents() override;
-    protected:
-        // Action handlers
-        bool OnActionPreviousBuffer();
-        bool OnActionNextBuffer();
-
     private:
-        bool DispatchAction(const EditorAction &kpAction);
         void DrawSearchResultOverlays(DrawContext &dc, int tabSize);
         void DrawSelectionOverlay(DrawContext &dc, int tabSize);
     private:

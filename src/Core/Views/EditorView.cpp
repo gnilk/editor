@@ -188,39 +188,9 @@ bool EditorView::OnAction(const EditorAction &kpAction) {
         return true;
     }
 
-    if (DispatchAction(kpAction)) {
-        return true;
-    }
-
     return ViewBase::OnAction(kpAction);
 }
 
-bool EditorView::DispatchAction(const EditorAction &kpAction) {
-    switch(kpAction.action) {
-        case kAction::kActionCycleActiveBufferNext :
-            OnActionNextBuffer();
-            break;
-        case kAction::kActionCycleActiveBufferPrev :
-            OnActionPreviousBuffer();
-            break;
-        default :
-            return false;
-    }
-    return true;
-}
-
-
-bool EditorView::OnActionNextBuffer() {
-    ActionHelper::SwitchToNextBuffer();
-    InvalidateAll();
-    return true;
-}
-
-bool EditorView::OnActionPreviousBuffer() {
-    ActionHelper::SwitchToPreviousBuffer();
-    InvalidateAll();
-    return true;
-}
 
 void EditorView::SetWindowCursor(const Cursor &cursor) {
     if ((Editor::Instance().GetState() == Editor::ViewState) && (document != nullptr)) {

@@ -305,18 +305,39 @@ see its "Phase 2 — status" section). Each step is its own commit and the verif
   `Lines` directly. Removed `Node::controller`/`Set/GetController` and the controller creation in
   `EnsureDocumentForNode`; dropped the `EditController` include from `Workspace.h`.
 
-**Next: Step P2.5** (the last Phase-2 step) — mechanical rename `KeyPressAction → EditorAction` into a
-new dedicated `EditorAction.h` (alongside `Action.h`). See the plan's P2.5 bullet for the exact header
-rationale (it includes only `Action.h` + `KeyPress.h`, no new cycle; `KeyMapping.h` then includes it).
-Isolated last commit.
+**Continuation 2026-06-10 (macOS/SDL3) — Phase 2 COMPLETE.** Pulled yesterday's P2.0–P2.4 (already on
+origin), ran the P2.4 live verification (see the ✅ block below — found + fixed the scroll-anchor bug),
+then executed **P2.5**, the last step. Two new commits, **local only — push next**:
+- `927900e` **FIX** — buffer-switch scroll-anchor reset (the P2.4-verification find). +regression test
+  `test_document_switch_preserves_scroll`. (Details in the ✅ block below.)
+- `88611d8` **P2.5** — mechanical rename `KeyPressAction → EditorAction` (58 sites) + moved the struct
+  out of `KeyMapping.h` into a new dedicated `src/Core/EditorAction.h` (includes only `Action.h` +
+  `KeyPress.h`, no new cycle; `KeyMapping.h` now includes it). `kAction` enum keeps its name.
 
-> **⚠ P2.4 live GUI verification is still OUTSTANDING.** The headless set is green (138), but the
-> editor's live keypress/action wiring (`editController.OnKeyPress`, `document->OnAction`, Attach on
-> switch) was NOT confirmed in a running build — the smoke-test attempt accidentally drove the user's
-> *other* X window (CLion) and was discarded. Redo it next session: launch `./goatedit .`, then
-> **verify `xprop -id <WID> _NET_WM_PID` matches the launched PID BEFORE sending any `xdotool`
-> input** (the window from `xdotool search --pid` was wrong). Confirm: type inserts text, navigation
-> actions move the caret, undo reverts, and buffer-switch keeps per-document cursor.
+**Verified-green set now 139** (`-m document` has 14 cases). The Phase-2 seam is in place: `ViewState`
++ `EditState` referenced by `Document`, `EditorViewContainer` wrapping the single `EditorView` item,
+`EditController` owned by that item (raw KeyPress only; Actions → Document), and an `EditorAction` type
+in its own header. **Next: Phase 3** (see `docs/workspace-refactor-plan.md` — N-item container / where
+`ViewState` ultimately lives is in the "Deferred — to mull over" section, explicitly not yet decided).
+
+> **✅ P2.4 live GUI verification DONE (2026-06-10, macOS/SDL3 continuation).** Confirmed in a running
+> build: typing inserts, navigation moves the caret, undo reverts, and buffer-switch keeps per-document
+> cursor. **It found a real bug:** on a document switch the logical caret survived but the view's
+> vertical **scroll anchor** (`viewTopLine`) reset to line 0, drawing the caret off-screen for any
+> document scrolled past the first page. Root cause: `Document::OnViewInit` unconditionally set
+> `viewTopLine=0`, and the switch path runs `OnViewInit` on every re-point
+> (`SetActiveDocument → RootView.Initialize() → EditorView::ReInitView → document->OnViewInit`), wiping
+> the saved per-document `viewTopLine`. Fixed in `927900e` (keep `viewTopLine`, derive `viewBottomLine`
+> from it + height, `RefocusViewArea()` only if the active line fell out of view) + regression test
+> `test_document_switch_preserves_scroll` (replicates the real switch by re-calling `OnViewInit`;
+> failed before, passes after). **Verified-green set now 139.**
+>
+> **macOS GUI-automation note:** on this box the process Claude runs commands under lacks both
+> **Accessibility** and **Screen Recording** TCC permissions, so `osascript` keystroke injection and
+> `screencapture` are blocked (System Events can *activate* a process by PID but can't read window
+> state or send keys). The Linux `xdotool`/`xwd` recipe has no working macOS equivalent here — the
+> live check was done as a **guided manual run** (Claude scripts the keystrokes from the real keymap,
+> user performs them and reports). macOS `Alt` shortcuts = **left Option** (the SDL3 `only_left` hint).
 
 > **If switching workstation:** `git push` first (this session's commits are local-only), then on the
 > other box `git checkout dev_workspace && git pull`; reconfigure `cmake-build-debug/` for that box's

@@ -475,11 +475,18 @@ Done and on `dev_workspace` (each its own commit, verified-green set passing 138
   SDL2 (render + resize).
 - **P2.4** `130e4e9` — `EditController` is now a value member of `EditorView` borrowing a non-owning
   `Document*` (Attach/Detach on switch); deleted the passthrough (`OnAction`/`OnViewInit`/proxies) and
-  `Node::controller`. **Live GUI verification still pending** (the smoke-test attempt drove the wrong
-  X window and was discarded).
+  `Node::controller`. **Live GUI verified 2026-06-10 (macOS/SDL3):** typing/navigation/undo/buffer-
+  switch all confirmed. The verification found a buffer-switch scroll-anchor bug (`OnViewInit` reset
+  `viewTopLine=0` on every switch) — fixed in `927900e` + regression test
+  `test_document_switch_preserves_scroll`.
+- **P2.5** `88611d8` — renamed `KeyPressAction → EditorAction` (58 sites) and moved the struct out of
+  `KeyMapping.h` into a new dedicated `src/Core/EditorAction.h` (includes only `Action.h` +
+  `KeyPress.h`, no new cycle; `KeyMapping.h` now includes it). `kAction` keeps its name.
 
-**Remaining: P2.5** — rename `KeyPressAction → EditorAction` into its own `EditorAction.h` (mechanical,
-isolated last commit). After that the Phase-2 seam is complete.
+**Phase 2 complete** (verified-green set 139). The seam is in place — `ViewState`/`EditState`
+referenced by `Document`, `EditorViewContainer` wrapping the single `EditorView` item, a slim
+`EditController` owned by that item, and an `EditorAction` type in its own header. Where the container
+grows to N items / where `ViewState` ultimately lives are the localized follow-ups in "Deferred" below.
 
 ## Deferred — to mull over (explicitly NOT decided here)
 

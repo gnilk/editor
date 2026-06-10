@@ -1,3 +1,6 @@
 ext/
 cmake-build-debug/
+cmake-build-asan/
+cmake-build-release/
 bld/
+.idea/

@@ -234,9 +234,9 @@ YAML-based config loaded by `Config` singleton. `ConfigNode` provides typed acce
   iterative `LoadKeymapConfig`-per-ancestor walk is kept as the **no-resolver fallback** so memory-built
   keymaps (`Initialize(cfgNode)` with no cache — the `FromString` tests) stay hermetic. A keymap is
   valid with **no `actions` of its own** as long as it has `inherit:` (pure-inheritance child, e.g.
-  `Linux/workspace_keymap.yml` is just `{ inherit: default_keymap }`). NOTE: `KeyMapping`'s `modifiers`
-  member map is currently **write-only** (set at parse, never read — match-time masks are baked into
-  `actionItems`); flagged for inspection, not yet removed.
+  `Linux/workspace_keymap.yml` is just `{ inherit: default_keymap }`). The members are now just
+  `isInitialized` + `actionItems` — the old write-only `modifiers` map was dropped (`204c89b`); match-time
+  modifier masks live baked into `actionItems`.
 
 ## Debugging / verification recipes
 
@@ -364,9 +364,8 @@ and rebuild `utests` (`libutests.so` Linux / `.dylib` macOS) on the other box.
   resume-point Next-steps #1): `EditorViewContainer::ReInitView` → `SyncToActiveDocument` → shared
   `ApplyViewMode` mechanics (focus transferred only if the outgoing item held it). Compile + green; GUI
   confirm still pending.
-- **`KeyMapping::modifiers` member is write-only** — set during parse, never read (match-time masks are
-  baked into `actionItems`; `ModifierName` uses the static `strToModifierMap`). Candidate for removal;
-  **user wants to inspect it first before dropping** (do not remove unprompted).
+- ~~`KeyMapping::modifiers` member is write-only.~~ **DONE** — dropped in `204c89b`; `KeyMapping`'s only
+  members are now `isInitialized` + `actionItems` (match-time modifier masks are baked into `actionItems`).
 - **More resize bugs may remain** — user said "a few more" beyond the three fixed 2026-06-06. The
   ASan build + GUI recipe are the tools; drive width-axis squeeze, workspace-panel drag, maximize/
   restore, and active-output-during-resize. (These were a Linux/SDL2 hunt — re-check on macOS/SDL3 too.)
@@ -377,8 +376,10 @@ and rebuild `utests` (`libutests.so` Linux / `.dylib` macOS) on the other box.
   during active command output. A proper fix tracks prompt boundaries explicitly (non-trivial).
 - **Standard-color SGR mapping** — `kSetForegroundColor` maps 30–37 via `(idx & 7) + 8` (bold=bright
   xterm convention); maybe a theme toggle later.
-- **`.gitignore`** — add `claude.sessions.md` (user's private scratch file, tracked but never committed
-  with content). Also consider ignoring `cmake-build-asan/`.
+- **`.gitignore`** — now ignores `cmake-build-asan/`, `cmake-build-release/`, `.idea/` (the build/IDE
+  clutter). NOTE: `claude.sessions.md` is **deliberately committed** as a session backup
+  (`6ce81e6`/`faf5e39`), so it is intentionally NOT ignored — the old note ("never committed with content")
+  was stale.
 - **Remote/SSH backend** — the big bucket-list item (purpose-built modern-terminal backend, no NCurses).
 
 ## Untracked (intentionally never committed)

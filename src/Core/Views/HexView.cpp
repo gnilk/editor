@@ -154,8 +154,14 @@ void HexView::DrawViewContents() {
     // Read-only view: re-encode so the dump reflects the current buffer (cheap at spike sizes).
     reader->Rebuild();
 
+    auto &theme = Editor::Instance().GetTheme();
+    auto contentColors = theme->GetContentColors();
+
+
     auto &dc = window->GetContentDC();
     dc.ResetDrawColors();
+    // Fetch the correct color from the theme
+    dc.SetFGColor(contentColors["hexview"]);
     dc.Clear();
 
     const BinBuffer &bytes = Bytes();

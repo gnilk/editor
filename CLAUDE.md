@@ -298,11 +298,23 @@ spike). The seam now in place:
   rows then snap. Write-back via `Document::SetCursorPosition`.
 
 **Next steps:**
-1. **Follow-up (easy):** per-document view-mode restore across a **document switch** — the container
-   doesn't re-sync `activeItem` to a newly-activated doc's `viewMode` (observe the doc switch).
+1. ~~Follow-up (easy): per-document view-mode restore across a document switch.~~ **DONE (2026-06-10,
+   not yet committed/GUI-verified).** `EditorViewContainer::ReInitView` now calls `SyncToActiveDocument`
+   (a doc switch goes through `Editor::SetActiveDocument` → `RootView::Initialize` → the container's
+   `ReInitView`). `SwitchToViewMode` (user-intent toggle, writes the mode onto the doc) and
+   `SyncToActiveDocument` (restore, reads the doc's mode) now share one mechanics helper, `ApplyViewMode`,
+   which transfers focus **only if the outgoing item held it** (the sync runs during the tree re-init
+   regardless of which view is focused, so it must not steal focus). Verified-green set still **157**
+   (compile + no regression); runtime mode-restore-on-switch still wants a GUI confirm (SDL2 xdotool
+   recipe / macOS guided run).
 2. **Phase 3** — the narrowed unknown: **two *mutable* views** of one buffer + where per-view
    `DocumentViewState` is keyed/owned (the plan's "Deferred — to mull over"). The container-swap seam and
-   the "view = projection of canonical state" model are now proven.
+   the "view = projection of canonical state" model are now proven. **Pondered 2026-06-10:** the
+   container's text↔hex swap is a *representation* swap sharing one `ViewState`; Phase 3 adds *views* each
+   needing their own — a recursive shape where today's container becomes the per-view unit and a new outer
+   split holds N of them (each owns its live `ViewState`, all share the `Document`'s `TextBuffer`+`EditState`;
+   `Document` keeps only the saved snapshot). First load-bearing move = lift live `ViewState` off `Document`
+   onto the view-unit.
 
 **Operational notes:** per-machine backend (Linux SDL2 / macOS SDL3 — match the local `cmake-build-debug`;
 the committed `CMakeLists.txt` default is SDL2-ON, so the macOS box configures with
@@ -348,9 +360,10 @@ and rebuild `utests` (`libutests.so` Linux / `.dylib` macOS) on the other box.
   jsengine `LoadDocument` (`ff45ff7`); test-suite audit (`fa52c94`); `test_vnav_pageup` (`3763816`).
 
 ## Remaining / deferred
-- **HexView: per-document view-mode restore across a document switch** — `EditorViewContainer` doesn't
-  re-sync `activeItem` to a newly-activated document's `viewMode` (the swap is driven only by the
-  view-mode actions). Easy follow-up: observe the document switch and call `SwitchToViewMode` to match.
+- ~~HexView: per-document view-mode restore across a document switch.~~ **DONE 2026-06-10** (see
+  resume-point Next-steps #1): `EditorViewContainer::ReInitView` → `SyncToActiveDocument` → shared
+  `ApplyViewMode` mechanics (focus transferred only if the outgoing item held it). Compile + green; GUI
+  confirm still pending.
 - **`KeyMapping::modifiers` member is write-only** — set during parse, never read (match-time masks are
   baked into `actionItems`; `ModifierName` uses the static `strToModifierMap`). Candidate for removal;
   **user wants to inspect it first before dropping** (do not remove unprompted).

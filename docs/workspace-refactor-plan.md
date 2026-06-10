@@ -567,6 +567,13 @@ reproduce-before-fix discipline). Byte-stream definition to lock in the test:
     *Known limitation (deferred):* per-document mode-restore across a **document switch** isn't wired —
     the container doesn't re-sync `activeItem` to a newly-activated document's `viewMode`. Out of scope
     for the toggle acceptance; an easy follow-up (observe the document switch).
+  - **Follow-up DONE (2026-06-10, not yet committed/GUI-verified).** Mode now restores across a document
+    switch. A switch goes `Editor::SetActiveDocument` → `RootView::Initialize` → the container's
+    `ReInitView`, which now calls `SyncToActiveDocument()` (reads the active doc's `viewMode` and applies
+    it). `SwitchToViewMode` (toggle: writes intent onto the doc) and `SyncToActiveDocument` (restore: reads
+    it) share one mechanics helper `ApplyViewMode`, which transfers focus **only if the outgoing item held
+    it** — the sync runs during the tree re-init regardless of focus, so it must not steal focus from e.g.
+    the workspace panel. Verified-green set still 157; runtime restore-on-switch wants a GUI confirm.
 
 After the spike: Phase 3's remaining unknown is narrowed to the genuinely-hard part — **two
 *mutable* views** and where per-view `ViewState` is keyed/owned — with the container-swap seam and the

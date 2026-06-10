@@ -44,6 +44,10 @@ namespace gedit {
             }
             window = screen->UpdateWindow(window, viewRect, WindowBase::kWin_Invisible, WindowBase::kWinDeco_None);
             LayoutContentView();
+            // A document switch re-initializes the whole view tree (Editor::SetActiveDocument ->
+            // RootView::Initialize). Reconcile the visible item to the now-active document's stored
+            // view-mode, so the mode restores per-document across a switch.
+            SyncToActiveDocument();
         }
 
         // The primary (text) editing item, and the initial active item. Modelled on HStackView::AddSubView:
@@ -140,18 +144,36 @@ namespace gedit {
             // no-op: the active item draws its own cursor in its DoDraw.
         }
 
-        // The one place the text<->hex swap happens. Records the mode on the document (so it restores
-        // per-document), flips active+visible, re-inits the now-active item (re-point at the active
-        // document + geometry; HexView rebuilds its byte stream) and installs its keymap.
+        // User intent (the toggle action): record the mode on the document so it restores per-document,
+        // then apply the swap.
         void SwitchToViewMode(ViewMode mode) {
             auto document = Editor::Instance().GetActiveDocument();
             if (document != nullptr) {
                 document->SetViewMode(mode);
             }
+            ApplyViewMode(mode);
+        }
+
+        // Restore path (a document switch): read the now-active document's stored mode and apply it,
+        // without writing intent back. No-ops when the mode already matches the visible item.
+        void SyncToActiveDocument() {
+            auto document = Editor::Instance().GetActiveDocument();
+            if (document == nullptr) {
+                return;
+            }
+            ApplyViewMode(document->GetViewMode());
+        }
+
+        // The one place the text<->hex swap happens. Flips active+visible, re-inits the now-active item
+        // (re-point at the active document + geometry; HexView rebuilds its byte stream) and installs its
+        // keymap. Focus is transferred only if the outgoing item held it — a document-switch sync runs
+        // during the view-tree re-init regardless of which view is focused, and must not steal focus.
+        void ApplyViewMode(ViewMode mode) {
             ViewBase *next = (mode == ViewMode::Hex) ? alternateItem : primaryItem;
             if ((next == nullptr) || (next == activeItem)) {
                 return;
             }
+            bool wasActive = activeItem->IsActive();
             activeItem->SetActive(false);
             activeItem->SetVisible(false);
 
@@ -160,7 +182,9 @@ namespace gedit {
             activeItem->SetVisible(true);
             LayoutContentView();
             activeItem->Initialize();
-            activeItem->SetActive(true);
+            if (wasActive) {
+                activeItem->SetActive(true);
+            }
             InvalidateAll();
         }
 

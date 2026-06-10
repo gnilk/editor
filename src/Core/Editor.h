@@ -48,7 +48,7 @@ namespace gedit {
 
         void RunPostInitalizationScript();
 
-        void HandleGlobalAction(const KeyPressAction &kpAction);
+        void HandleGlobalAction(const EditorAction &kpAction);
 
         // Open-document accessors. The Workspace owns the open list + active document; these delegate.
         const std::vector<Document::Ref> &GetDocuments() {

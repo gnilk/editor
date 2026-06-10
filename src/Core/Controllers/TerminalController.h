@@ -37,8 +37,8 @@ namespace gedit {
 
         bool DoesShellOwnLineEditing() const { return doesShellOwnLineEditing; }
 
-        bool OnAction(const KeyPressAction &kpAction);
-        bool ForwardActionToShell(const KeyPressAction &kpAction);
+        bool OnAction(const EditorAction &kpAction);
+        bool ForwardActionToShell(const EditorAction &kpAction);
         void WriteLine(const std::u32string &str) override;
 
     protected:

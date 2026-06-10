@@ -99,7 +99,7 @@ namespace gedit {
             return rootNode;
         }
 
-        bool OnAction(const KeyPressAction &kpAction) override {
+        bool OnAction(const EditorAction &kpAction) override {
             bool wasHandled = true;
             switch(kpAction.action) {
                 case kAction::kActionLineLeft :

@@ -24,7 +24,7 @@ namespace gedit {
         void Enter();
         void Leave();
 
-        bool HandleAction(const KeyPressAction &kpAction) override;
+        bool HandleAction(const EditorAction &kpAction) override;
         void HandleKeyPress(const KeyPress &keyPress) override;
 
         const std::u32string_view GetCmdLine() const {
@@ -37,9 +37,9 @@ namespace gedit {
             return cursor;
         }
     protected:
-        bool HandleActionInQuickCmdState(const KeyPressAction &kpAction);
-        bool HandleActionInSearch(const KeyPressAction &kpAction);
-        bool HandleActionInCmdLetState(const KeyPressAction &kpAction);
+        bool HandleActionInQuickCmdState(const EditorAction &kpAction);
+        bool HandleActionInSearch(const EditorAction &kpAction);
+        bool HandleActionInCmdLetState(const EditorAction &kpAction);
         void DoLeaveOnSuccess();
         void SearchInActiveDocument(const std::u32string &searchItem);
         void NextSearchResult();

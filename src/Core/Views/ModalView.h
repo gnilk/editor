@@ -26,7 +26,7 @@ namespace gedit {
             dispatchView = newDispatchView;
         }
 
-        bool OnAction(const KeyPressAction &kpAction) override;
+        bool OnAction(const EditorAction &kpAction) override;
     protected:
         void OnKeyPress(const KeyPress &keyPress) override;
         void DrawViewContents() override;

@@ -35,23 +35,23 @@ DLL_EXPORT int test_document_undo_independent_of_active(ITesting *t);
 }
 
 // Define some common actions, this will trigger side-effects in the document
-static KeyPressAction actionLineDown = {gedit::kAction::kActionLineDown};
-static KeyPressAction actionPageDown = {gedit::kAction::kActionPageDown};
-static KeyPressAction actionLineUp = {gedit::kAction::kActionLineUp};
-static KeyPressAction actionPageUp = {gedit::kAction::kActionPageUp};
-static KeyPressAction actionShiftLineDown =
+static EditorAction actionLineDown = {gedit::kAction::kActionLineDown};
+static EditorAction actionPageDown = {gedit::kAction::kActionPageDown};
+static EditorAction actionLineUp = {gedit::kAction::kActionLineUp};
+static EditorAction actionPageUp = {gedit::kAction::kActionPageUp};
+static EditorAction actionShiftLineDown =
         {
                 .action = gedit::kAction::kActionLineDown,
                 .actionModifier = kActionModifier::kActionModifierSelection,
                 .modifierMask = Keyboard::ShiftMask()
         };
-static KeyPressAction actionShiftLineUp =
+static EditorAction actionShiftLineUp =
         {
                 .action = gedit::kAction::kActionLineUp,
                 .actionModifier = kActionModifier::kActionModifierSelection,
                 .modifierMask = Keyboard::ShiftMask()
         };
-static KeyPressAction actionUndo = {gedit::kAction::kActionUndo};
+static EditorAction actionUndo = {gedit::kAction::kActionUndo};
 
 
 DLL_EXPORT int test_document(ITesting *t) {

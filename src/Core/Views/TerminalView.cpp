@@ -65,7 +65,7 @@ void TerminalView::OnKeyPress(const KeyPress &keyPress) {
     ViewBase::OnKeyPress(keyPress);
 }
 
-bool TerminalView::OnAction(const KeyPressAction &kpAction) {
+bool TerminalView::OnAction(const EditorAction &kpAction) {
     // Full-screen apps (alt-screen) and an in-progress shell completion both let
     // readline/the app own the line, so actions are forwarded straight to the pty.
     if (controller.GetScreen().IsAltScreen() || controller.DoesShellOwnLineEditing()) {

@@ -108,7 +108,7 @@ namespace gedit {
             return {topViews[idxCurrentTopView].name};
         }
 
-        bool OnAction(const KeyPressAction &kpAction) override {
+        bool OnAction(const EditorAction &kpAction) override {
             // The modal takes control over everything...
             if (modal != nullptr) {
                 return modal->OnAction(kpAction);

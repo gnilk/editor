@@ -212,12 +212,12 @@ kAction KeyMapping::ActionFromName(const std::string &strAction) {
 
 
 // Translate from KeyPress to Action..
-std::optional<KeyPressAction> KeyMapping::ActionFromKeyPress(const KeyPress &keyPress) {
+std::optional<EditorAction> KeyMapping::ActionFromKeyPress(const KeyPress &keyPress) {
     auto logger = gnilk::Logger::GetLogger("KeyMapping");
     for (auto &actionItem: actionItems) {
         if (actionItem->MatchKeyPress(keyPress)) {
             logger->Debug("ActionItem found - %s", actionItem->Name().c_str());
-            KeyPressAction kpAction;
+            EditorAction kpAction;
             kpAction.action = actionItem->GetAction();
             kpAction.modifierMask = keyPress.modifiers; // redundant..
             kpAction.actionModifier = actionItem->GetActionModifier();

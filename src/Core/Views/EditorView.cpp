@@ -179,7 +179,7 @@ void EditorView::OnKeyPress(const KeyPress &keyPress) {
 //
 // Add actions here - all except human-readable inserting of text
 //
-bool EditorView::OnAction(const KeyPressAction &kpAction) {
+bool EditorView::OnAction(const EditorAction &kpAction) {
     // Resolved actions go straight to the document (fully possible to have none, if no file is open).
     if (document == nullptr) {
         return false;
@@ -195,7 +195,7 @@ bool EditorView::OnAction(const KeyPressAction &kpAction) {
     return ViewBase::OnAction(kpAction);
 }
 
-bool EditorView::DispatchAction(const KeyPressAction &kpAction) {
+bool EditorView::DispatchAction(const EditorAction &kpAction) {
     switch(kpAction.action) {
         case kAction::kActionCycleActiveBufferNext :
             OnActionNextBuffer();

@@ -420,7 +420,7 @@ bool TerminalController::ForwardKeyPressToShell(const KeyPress &keyPress) {
     return true;
 }
 
-bool TerminalController::ForwardActionToShell(const KeyPressAction &kpAction) {
+bool TerminalController::ForwardActionToShell(const EditorAction &kpAction) {
     const char *seq = nullptr;
     switch (kpAction.action) {
         case kAction::kActionCommitLine:
@@ -448,7 +448,7 @@ bool TerminalController::ForwardActionToShell(const KeyPressAction &kpAction) {
     return true;
 }
 
-bool TerminalController::OnAction(const KeyPressAction &kpAction) {
+bool TerminalController::OnAction(const EditorAction &kpAction) {
     switch (kpAction.action) {
         case kAction::kActionLineHome :
             inputCursor.position.x = 0;

@@ -11,7 +11,7 @@
 namespace gedit {
     class KeypressAndActionHandler {
     public:
-        virtual bool HandleAction(const KeyPressAction &kpAction) {
+        virtual bool HandleAction(const EditorAction &kpAction) {
             return false;
         }
 

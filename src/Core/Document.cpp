@@ -191,7 +191,7 @@ bool Document::SaveForce() {
 }
 
 /////////
-bool Document::OnAction(const KeyPressAction &kpAction) {
+bool Document::OnAction(const EditorAction &kpAction) {
     if (kpAction.actionModifier == kActionModifier::kActionModifierSelection) {
         if (!IsSelectionActive()) {
             logger->Debug("Shift pressed, selection inactive - BeginSelection");
@@ -251,7 +251,7 @@ bool Document::OnAction(const KeyPressAction &kpAction) {
 }
 
 
-bool Document::DispatchAction(const KeyPressAction &kpAction) {
+bool Document::DispatchAction(const EditorAction &kpAction) {
     switch(kpAction.action) {
         case kAction::kActionLineLeft :
             return OnActionStepLeft();
@@ -549,7 +549,7 @@ bool Document::OnActionPageUp() {
     return true;
 }
 
-bool Document::OnActionLineDown(const KeyPressAction &kpAction) {
+bool Document::OnActionLineDown(const EditorAction &kpAction) {
     auto currentLine = ActiveLine();
     if (currentLine == nullptr) {
         return true;

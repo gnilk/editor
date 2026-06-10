@@ -148,8 +148,8 @@ namespace gedit {
 
         void PasteFromClipboard();
 
-        bool OnAction(const KeyPressAction &kpAction);
-        bool DispatchAction(const KeyPressAction &kpAction);
+        bool OnAction(const EditorAction &kpAction);
+        bool DispatchAction(const EditorAction &kpAction);
 
         // Selection functions - not sure these must be exposed - perhaps for API purposes?
         void BeginSelection() {
@@ -195,7 +195,7 @@ namespace gedit {
         void Begin();
 
 
-        bool OnActionLineDown(const KeyPressAction &kpAction);
+        bool OnActionLineDown(const EditorAction &kpAction);
         bool OnActionLineUp();
         bool OnActionPageUp();
         bool OnActionPageDown();

@@ -46,7 +46,7 @@ void ModalView::ReInitView() {
 //    auto &rect = window->GetContentDC().GetRect();
 }
 
-bool ModalView::OnAction(const KeyPressAction &kpAction) {
+bool ModalView::OnAction(const EditorAction &kpAction) {
     // Hmm - action alias???
     if (kpAction.action == kAction::kActionCycleActiveView) {
         CloseModal();

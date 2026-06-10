@@ -361,7 +361,7 @@ void Editor::ExecutePostScript(std::istream &stream) {
 }
 
 
-void Editor::HandleGlobalAction(const KeyPressAction &kpAction) {
+void Editor::HandleGlobalAction(const EditorAction &kpAction) {
     logger->Debug("Handling global actions!!");
     if (state == ViewState) {
         if (kpAction.action == kAction::kActionEnterCommandMode) {

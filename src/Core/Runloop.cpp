@@ -185,7 +185,7 @@ bool Runloop::DispatchToHandler(KeyPress keyPress) {
     auto kpaHandler = kpaHandlers.top();
 
     if (kpaHandler == nullptr) {
-        fprintf(stderr, "[FATAL] RunLoop::DispatchToHandler, no kpaHandler (KeyPressAction) - this is fatal!!!\n");
+        fprintf(stderr, "[FATAL] RunLoop::DispatchToHandler, no kpaHandler (EditorAction) - this is fatal!!!\n");
         exit(1);
     }
     logger->Debug("KeyPress Valid - passing on...");

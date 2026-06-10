@@ -15,19 +15,9 @@
 #include "Core/Config/Config.h"
 #include "Keyboard.h"
 #include "Action.h"
+#include "EditorAction.h"
 
 namespace gedit {
-
-
-    //
-    // When a keypress is given this is given to the UI from the ActionFromKeyPress
-    //
-    struct KeyPressAction {
-        kAction action = kAction::kActionNone;     // Key press was mapped to this action
-        std::optional <kActionModifier> actionModifier = {};
-        int modifierMask = {};
-        KeyPress keyPress = {};  // Underlying keypress
-    };
 
 
     class KeyMapping {
@@ -54,7 +44,7 @@ namespace gedit {
 
         const std::string &ActionName(const kAction action);
         kAction ActionFromName(const std::string &strAction);
-        std::optional<KeyPressAction> ActionFromKeyPress(const KeyPress &keyPress);
+        std::optional<EditorAction> ActionFromKeyPress(const KeyPress &keyPress);
         bool RebuildActionMapping(const std::string &cfgNodeName);
         bool RebuildActionMapping(const ConfigNode &cfgNode);
 

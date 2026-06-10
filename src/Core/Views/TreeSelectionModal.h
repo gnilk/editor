@@ -33,7 +33,7 @@ namespace gedit {
             window->SetCaption("Tree");
             AddView(treeView.get());
         }
-        bool OnAction(const KeyPressAction &kpAction) override {
+        bool OnAction(const EditorAction &kpAction) override {
             if (treeView->OnAction(kpAction)) {
                 return true;
             }

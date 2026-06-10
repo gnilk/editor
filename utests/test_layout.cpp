@@ -46,7 +46,7 @@ extern "C" int test_layout_simple(ITesting *t) {
     TR_ASSERT(t, upperView.GetHeight() == 50);
 
     rootView.DumpLayout(0);
-    KeyPressAction kpAction;
+    EditorAction kpAction;
     kpAction.action = kAction::kActionIncreaseViewHeight;
     upperView.OnAction(kpAction);
     //upperView.SetHeight(20);
@@ -65,8 +65,8 @@ extern "C" int test_layout_simple(ITesting *t) {
 // views keeping a positive extent.
 // ---------------------------------------------------------------------------------------------------
 
-static KeyPressAction MakeAction(kAction a) {
-    KeyPressAction kp;
+static EditorAction MakeAction(kAction a) {
+    EditorAction kp;
     kp.action = a;
     return kp;
 }

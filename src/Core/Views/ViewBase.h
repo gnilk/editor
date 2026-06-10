@@ -218,7 +218,7 @@ namespace gedit {
             return (sharedDataPtr != nullptr);
         }
 
-        bool HandleAction(const KeyPressAction &action) override {
+        bool HandleAction(const EditorAction &action) override {
             return OnAction(action);
         }
         void HandleKeyPress(const KeyPress &keyPress) override;
@@ -229,7 +229,7 @@ namespace gedit {
             }
         }
 
-        virtual bool OnAction(const KeyPressAction &action);
+        virtual bool OnAction(const EditorAction &action);
 
         virtual void PostMessage(MessageCallback callback) final;
         //virtual int ProcessMessageQueue() final;

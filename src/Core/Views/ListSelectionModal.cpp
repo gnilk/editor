@@ -51,7 +51,7 @@ void ListView::ReInitView() {
     window = screen->UpdateWindow(window, viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
 }
 
-bool ListView::OnAction(const KeyPressAction &kpAction){
+bool ListView::OnAction(const EditorAction &kpAction){
     bool wasHandled = true;
     switch(kpAction.action) {
         case kAction::kActionLineUp :
@@ -113,7 +113,7 @@ void ListSelectionModal::InitView() {
     layoutView->AddSubView(listView, kFill);
 }
 
-bool ListSelectionModal::OnAction(const KeyPressAction &kpAction) {
+bool ListSelectionModal::OnAction(const EditorAction &kpAction) {
     if (listView->OnAction(kpAction)) {
         return true;
     }

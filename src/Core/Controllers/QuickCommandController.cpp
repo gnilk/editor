@@ -36,7 +36,7 @@ void QuickCommandController::Leave() {
     Editor::Instance().RestoreViewStateKeymapping();
 }
 
-bool QuickCommandController::HandleAction(const KeyPressAction &kpAction) {
+bool QuickCommandController::HandleAction(const EditorAction &kpAction) {
     if (state == State::QuickCmdState) {
         return HandleActionInQuickCmdState(kpAction);
     }
@@ -61,7 +61,7 @@ bool QuickCommandController::HandleAction(const KeyPressAction &kpAction) {
     }
     return false;
 }
-bool QuickCommandController::HandleActionInQuickCmdState(const KeyPressAction &kpAction) {
+bool QuickCommandController::HandleActionInQuickCmdState(const EditorAction &kpAction) {
     switch(kpAction.action) {
         case kAction::kActionCycleActiveBufferNext :
             ActionHelper::SwitchToNextBuffer();
@@ -105,7 +105,7 @@ bool QuickCommandController::HandleActionInQuickCmdState(const KeyPressAction &k
 }
 
 // Handling of translated actions while search is active..
-bool QuickCommandController::HandleActionInSearch(const KeyPressAction &kpAction) {
+bool QuickCommandController::HandleActionInSearch(const EditorAction &kpAction) {
     if (kpAction.action == kAction::kActionLeaveCommandMode) {
         logger->Debug("LeaveCommandMode, in Search - leaving");
 
@@ -132,7 +132,7 @@ bool QuickCommandController::HandleActionInSearch(const KeyPressAction &kpAction
     return false;
 }
 
-bool QuickCommandController::HandleActionInCmdLetState(const KeyPressAction &kpAction) {
+bool QuickCommandController::HandleActionInCmdLetState(const EditorAction &kpAction) {
     if (kpAction.action == kAction::kActionCommitLine) {
         logger->Debug("Should execute cmdlet!");
         auto cmdline = std::u32string(cmdInput->Buffer());

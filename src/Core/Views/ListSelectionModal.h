@@ -24,7 +24,7 @@ namespace gedit {
         // As they are duplicated quite a lot...
         void InitView() override;
         void ReInitView() override;
-        bool OnAction(const KeyPressAction &kpAction) override;
+        bool OnAction(const EditorAction &kpAction) override;
 
 
         void SetListItems(const std::vector<std::string> &newItems) {
@@ -72,7 +72,7 @@ namespace gedit {
 
         void InitView() override;
 
-        bool OnAction(const KeyPressAction &kpAction) override;
+        bool OnAction(const EditorAction &kpAction) override;
 
         std::optional<int> GetSelectedItemIndex();
         const std::string &GetSelectedItem();

@@ -191,7 +191,7 @@ void WorkspaceView::PopulateTree() {
     }
 }
 
-bool WorkspaceView::OnAction(const KeyPressAction &kpAction) {
+bool WorkspaceView::OnAction(const EditorAction &kpAction) {
     auto &lineCursor = treeView->GetLineCursor();
     auto idxPrevActiveLine = lineCursor.idxActiveLine;
 

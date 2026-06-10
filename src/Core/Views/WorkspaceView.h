@@ -36,7 +36,7 @@ namespace gedit {
             return parentView->IsVisible();
         }
 
-        bool OnAction(const KeyPressAction &kpAction) override;
+        bool OnAction(const EditorAction &kpAction) override;
 
         const std::u32string &GetStatusBarAbbreviation() override {
             static std::u32string defaultAbbr = U"WSP";

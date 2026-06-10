@@ -53,7 +53,7 @@ void ViewBase::HandleKeyPress(const KeyPress &keyPress) {
     }
 }
 
-bool ViewBase::OnAction(const KeyPressAction &kpAction) {
+bool ViewBase::OnAction(const EditorAction &kpAction) {
     bool result = true;
     switch(kpAction.action) {
         case kAction::kActionIncreaseViewWidth :

@@ -43,7 +43,7 @@ namespace gedit {
 
         void SetWindowCursor(const Cursor &cursor) override;
 
-        bool OnAction(const KeyPressAction &kpAction) override;
+        bool OnAction(const EditorAction &kpAction) override;
 
 
         const std::u32string &GetStatusBarAbbreviation() override {
@@ -63,7 +63,7 @@ namespace gedit {
         bool OnActionNextBuffer();
 
     private:
-        bool DispatchAction(const KeyPressAction &kpAction);
+        bool DispatchAction(const EditorAction &kpAction);
         void DrawSearchResultOverlays(DrawContext &dc, int tabSize);
         void DrawSelectionOverlay(DrawContext &dc, int tabSize);
     private:

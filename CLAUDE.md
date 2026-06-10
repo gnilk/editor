@@ -279,42 +279,44 @@ YAML-based config loaded by `Config` singleton. `ConfigNode` provides typed acce
 
 ## Current state — resume point (read this first)
 
-Branch **`dev_hexview`** (off `dev_workspace`, NOT `main`), **pushed** to origin. Working tree clean
-except the intentional local `CMakeLists.txt` SDL3 flip (per-machine backend — see Build). Verified-green
-set **157**: `-m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,vtermparser,keymapping,hexprojection,bytestream,hexview`.
+On **`main`** at **`53f0193`** — the `--no-ff` merge of the HexView spike (Phase 2 + H.1–H.4 + polish).
+`dev_hexview` is merged and **deleted** (local + remote); the `dev_workspace` branch still exists but is
+fully contained in `main`. Working tree clean (untracked: `syntax_problem.cpp`, `terminal_rendering_bug.png`,
+the `cmake-build-*` dirs). **Start the next feature on a fresh branch off `main`.** Verified-green set
+**157** (run from `cmake-build-debug/`):
+`-m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,vtermparser,keymapping,hexprojection,bytestream,hexview`.
 
-**Done — Phase 2 (buffer/window split) + the pre-Phase-3 HexView spike** (`docs/workspace-refactor-plan.md`
-carries the per-step DONE notes; commits `caa97ff`…`88611d8` for Phase 2, `8432aa4`…`b9dbbb9` for the
-spike). The seam now in place:
+**Done & on `main` — Phase 2 (buffer/window split) + the pre-Phase-3 HexView spike**
+(`docs/workspace-refactor-plan.md` carries the per-step DONE notes). The seam now in place:
 - `Document` references a **`DocumentViewState`** (cursor + selection + `DocumentViewMode {kText,kHex}`) and an
   **`EditState`** (undo) — both per-view-extractable. Rule: **resolved Actions → Document, raw KeyPress
   → controller.** `EditController` is a value member of `EditorView`; `EditorAction` is its own header.
 - **`EditorViewContainer`** is the single editing slot **and the registered top view**: it holds the text
   `EditorView` (primary) + read-only `HexView` (alternate), forwards input/status/focus to the active
-  item, and owns the text↔hex swap (`OnAction` intercepts `kActionViewModeText/Hex` — Alt+R / Alt+H).
+  item, owns the text↔hex swap (`OnAction` intercepts `kActionViewModeText/Hex` — Alt+R / Alt+H) **and**
+  buffer cycling (`kActionCycleActiveBuffer{Next,Prev}` → `ActionHelper`). View-mode restores per-document
+  across a switch: `ReInitView → SyncToActiveDocument → ApplyViewMode` (shared mechanics; `SwitchToViewMode`
+  writes intent, the sync only reads it; focus transfers only if the outgoing item held it).
 - **`HexView` is a bidirectional projection of the canonical caret:** `DocumentViewState.lineCursor` stays
   in text coords; `HexProjection` maps it ↔ byte offset over a `ByteStreamReader` (the one
   UTF-32→UTF-8 place). Horizontal nav steps whole chars (multibyte never traps); vertical/page = 16-byte
-  rows then snap. Write-back via `Document::SetCursorPosition`.
+  rows then snap. Write-back via `Document::SetCursorPosition`. Read-only; caret drawn inverted in both the
+  hex and ASCII columns; theme color via `contentColors["hexview"]`. The text-line **gutter stands down in
+  hex mode** (`GutterView` early-returns when `GetViewMode()==kHex` — hex rows ≠ text lines).
 
-**Next steps:**
-1. ~~Follow-up (easy): per-document view-mode restore across a document switch.~~ **DONE (2026-06-10,
-   not yet committed/GUI-verified).** `EditorViewContainer::ReInitView` now calls `SyncToActiveDocument`
-   (a doc switch goes through `Editor::SetActiveDocument` → `RootView::Initialize` → the container's
-   `ReInitView`). `SwitchToViewMode` (user-intent toggle, writes the mode onto the doc) and
-   `SyncToActiveDocument` (restore, reads the doc's mode) now share one mechanics helper, `ApplyViewMode`,
-   which transfers focus **only if the outgoing item held it** (the sync runs during the tree re-init
-   regardless of which view is focused, so it must not steal focus). Verified-green set still **157**
-   (compile + no regression); runtime mode-restore-on-switch still wants a GUI confirm (SDL2 xdotool
-   recipe / macOS guided run).
-2. **Phase 3** — the narrowed unknown: **two *mutable* views** of one buffer + where per-view
-   `DocumentViewState` is keyed/owned (the plan's "Deferred — to mull over"). The container-swap seam and
-   the "view = projection of canonical state" model are now proven. **Pondered 2026-06-10:** the
-   container's text↔hex swap is a *representation* swap sharing one `ViewState`; Phase 3 adds *views* each
-   needing their own — a recursive shape where today's container becomes the per-view unit and a new outer
-   split holds N of them (each owns its live `ViewState`, all share the `Document`'s `TextBuffer`+`EditState`;
-   `Document` keeps only the saved snapshot). First load-bearing move = lift live `ViewState` off `Document`
-   onto the view-unit.
+**Next step — Phase 3 (the north-star feature: multi-view).** The narrowed unknown: **two *mutable*
+views** of one buffer + where per-view `DocumentViewState` is keyed/owned (the plan's "Deferred — to mull
+over"). The container-swap seam and the "view = projection of canonical state" model are proven by the
+spike. **Pondered 2026-06-10 (the framing to start from):** the container's text↔hex swap is a
+*representation* swap sharing **one** `DocumentViewState`; Phase 3 adds *views*, each needing **its own**.
+The clean shape is **recursive** — today's `EditorViewContainer` becomes the per-view unit, and a new outer
+split (reusing `VSplitView`) holds N of them; each unit owns its live `DocumentViewState`, all share the
+`Document`'s `TextBuffer` + `EditState`, and `Document` keeps only the *saved snapshot* (for restore/reopen).
+**First load-bearing move = lift the live `DocumentViewState` off `Document` onto the view-unit** (snapshot
+stays on `Document`); preserve the spike's text↔hex caret-sharing — the share-point moves from "Document's
+one ref" to "the unit's one ref", with the HexView round-trip test as the guard. Alternative lower-risk
+direction if you want a visible win first: **restore-on-reopen** (serialize `DocumentViewState` + `EditState`
+per document, restore on folder reopen — banks the Phase-2 extraction, no cursor-concurrency hazard).
 
 **Operational notes:** per-machine backend (Linux SDL2 / macOS SDL3 — match the local `cmake-build-debug`;
 the committed `CMakeLists.txt` default is SDL2-ON, so the macOS box configures with
@@ -327,7 +329,14 @@ and rebuild `utests` (`libutests.so` Linux / `.dylib` macOS) on the other box.
 
 ## Earlier work (completed, in git — kept as a one-line index)
 
-- **Phase 2 — buffer/window split + P2.pre** (`dev_workspace`, folded into `dev_hexview`): `model`→
+- **HexView spike — H.1–H.4 + polish** (merged to `main` `53f0193`): `HexProjection` coord translation +
+  `ByteStreamReader`/`BinBuffer` (`8432aa4`); `DocumentViewMode {kText,kHex}` + view-mode switch action
+  (`0edbf24`, enum renamed from `ViewMode` in `9cabfa2`); read-only `HexView` (`58e470f`);
+  `EditorViewContainer` owns the text↔hex swap (`b9dbbb9`); per-document view-mode restore on switch
+  (`a652e6e`); buffer-cycling→container (`01579e8`); ASCII-column caret (`2c876bb`); gutter stands down in
+  hex mode (`bdc35d9`); theme hex color (`56b877c`,`e4c6178`); hygiene/.gitignore (`cbf919c`). Design notes
+  in `docs/workspace-refactor-plan.md` ("Pre-Phase-3 spike").
+- **Phase 2 — buffer/window split + P2.pre** (`dev_workspace`, now on `main`): `model`→
   `document` token sweep + test module `edtmodel`→`document` (`1cfc1a4`,`2a0cdcf`,`322d841`,`a4905d7`);
   P2.0 document-switch contract tests; P2.1 extract `ViewState` (renamed `DocumentViewState` in the spike);
   P2.2 extract `EditState` + decouple `UndoHistory` from the Editor active-document (`af98a17`,`2bdff75`,

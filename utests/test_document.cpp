@@ -27,6 +27,7 @@ DLL_EXPORT int test_document_delete_text(ITesting *t);
 // 'switch' - per-document state survives roving the single view across N documents (Phase 2 contract)
 DLL_EXPORT int test_document_switch_preserves_cursor(ITesting *t);
 DLL_EXPORT int test_document_switch_preserves_selection(ITesting *t);
+DLL_EXPORT int test_document_switch_preserves_scroll(ITesting *t);
 DLL_EXPORT int test_document_switch_preserves_undo(ITesting *t);
 // undo must act on the EDITED document, not whichever document happens to be active
 DLL_EXPORT int test_document_undo_independent_of_active(ITesting *t);
@@ -343,6 +344,43 @@ DLL_EXPORT int test_document_switch_preserves_cursor(ITesting *t) {
     TR_ASSERT(t, nowA.idxActiveLine == savedA.idxActiveLine);
     TR_ASSERT(t, nowA.cursor.position.x == savedA.cursor.position.x);
     TR_ASSERT(t, nowA.cursor.position.y == savedA.cursor.position.y);
+
+    return kTR_Pass;
+}
+
+// A document switch in the running app re-seeds the view geometry: the single EditorView re-points
+// at the now-active document and calls document->OnViewInit (EditorView::ReInitView). That re-seed
+// must NOT discard the document's saved scroll position - a caret scrolled deep into the buffer has
+// to stay visible after the switch. Unlike the cursor/selection cases above (which model a "switch"
+// as merely operating on the other Document object), this case replicates the REAL switch by
+// re-calling OnViewInit, which is where the bug lives. Pre-fix, OnViewInit forced viewTopLine=0, so
+// the active line fell outside the viewport and the caret drew off the top of the view.
+DLL_EXPORT int test_document_switch_preserves_scroll(ITesting *t) {
+    auto document = CreateEmptyDocument(t);
+    gedit::Rect rect(20,20);   // width,height - height 20 => a viewport of 20 lines
+    document->OnViewInit(rect);
+    FillEmptyDocument(document, 200, 40);
+
+    // Scroll deep into the buffer: drive the active line well past one screen height so the viewport
+    // has to scroll (viewTopLine > 0) to keep the caret visible.
+    for (int i = 0; i < 60; ++i) {
+        document->OnAction(actionLineDown);
+    }
+    auto &lc = document->GetLineCursor();
+    TR_ASSERT(t, lc.idxActiveLine == 60);
+    TR_ASSERT(t, lc.IsInside(lc.idxActiveLine));   // sanity: caret is visible before the switch
+    auto savedTop = lc.viewTopLine;
+    TR_ASSERT(t, savedTop > 0);                     // we genuinely scrolled
+
+    // Replicate the real document-switch re-point: the view re-seeds geometry on the now-active doc.
+    document->OnViewInit(rect);
+
+    // The saved scroll anchor must survive the re-seed, and the active line must STILL be visible
+    // (the caret cannot draw off the viewport).
+    auto &lc2 = document->GetLineCursor();
+    TR_ASSERT(t, lc2.idxActiveLine == 60);
+    TR_ASSERT(t, lc2.viewTopLine == savedTop);
+    TR_ASSERT(t, lc2.IsInside(lc2.idxActiveLine));
 
     return kTR_Pass;
 }

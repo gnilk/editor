@@ -38,9 +38,16 @@ void Document::OnViewInit(const Rect &rect) {
 
     verticalNavigationViewModel->HandleResize(rect);
 
-    // Need support in controller to forward this to document...
-    viewState->lineCursor.viewTopLine = 0;
-    viewState->lineCursor.viewBottomLine = rect.Height();
+    // Re-seed the viewport against the (possibly new) view height WITHOUT discarding the saved scroll
+    // anchor. OnViewInit runs on every view (re-)init - including the document-switch re-point, where
+    // the EditorView re-points at the now-active document (EditorView::ReInitView). Forcing
+    // viewTopLine=0 here would throw away each document's scroll position on every switch, drawing the
+    // caret off-screen even though its logical position survived. Keep viewTopLine; derive the bottom
+    // from it + the height; then RefocusViewArea re-centres only if the active line fell out of view
+    // (e.g. the height shrank). A freshly created document has viewTopLine==0, so first init is
+    // unchanged.
+    viewState->lineCursor.viewBottomLine = viewState->lineCursor.viewTopLine + rect.Height();
+    RefocusViewArea();
 
     UpdateDocumentFromNavigation(true);
 

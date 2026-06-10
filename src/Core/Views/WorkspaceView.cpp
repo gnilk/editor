@@ -133,11 +133,11 @@ void WorkspaceView::CreateTree() {
         treeView = TreeView<Workspace::Node::Ref>::Create();
 
         treeView->SetToStringDelegate([](Workspace::Node::Ref node) -> std::string {
-            if (node->GetDocument() != nullptr) {
-                return std::string(node->GetDisplayName());
-            }
             // Highlight folders with '/'
-            return (node->GetDisplayName() + "/");
+            if (node->IsFolder()) {
+                return (node->GetDisplayName() + "/");
+            }
+            return node->GetDisplayName();
         });
     }
 }

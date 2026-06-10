@@ -285,6 +285,7 @@
 #include "Core/Views/ViewBase.h"
 #include "Core/Views/GutterView.h"
 #include "Core/Views/EditorView.h"
+#include "Core/Views/HexView.h"
 #include "Core/Views/EditorViewContainer.h"
 #include "Core/Views/RootView.h"
 #include "Core/Views/CommandView.h"
@@ -475,13 +476,17 @@ int main(int argc, const char **argv) {
     gutterView.SetWidth(10);
 
     auto editorView = EditorView();
+    auto hexView = HexView();
     auto editorViewContainer = EditorViewContainer();
 
     hStackViewEditor.AddSubView(&gutterView, kFixed);
-    // The editor lives inside a container that takes the single editing slot. For now the container
-    // holds exactly one item (the EditorView); it is the seam the future split/side-by-side hangs off.
+    // The editor lives inside a container that takes the single editing slot. The container holds two
+    // representations of the active document — the text EditorView (primary) and the read-only HexView
+    // (alternate) — and swaps between them on a view-mode action. It is also the seam the future
+    // split/side-by-side hangs off.
     hStackViewEditor.AddSubView(&editorViewContainer, kFill);
     editorViewContainer.SetContentView(&editorView);
+    editorViewContainer.SetAlternateView(&hexView);
 
     vSplitViewUpper.SetInitialSplitterPos(24);
     vSplitViewUpper.SetLeft(&vStackViewWorkspace);
@@ -495,7 +500,9 @@ int main(int argc, const char **argv) {
     hSplitViewStatus.SetInitialSplitterPos(20);
 
 
-    rootView.AddTopView(&editorView, glbEditorView);
+    // The CONTAINER is the top view for the editing slot — it forwards input/status/focus to whichever
+    // item (text or hex) is active, so the rest of the app talks to one stable top view across a swap.
+    rootView.AddTopView(&editorViewContainer, glbEditorView);
     rootView.AddTopView(&terminalView, glbTerminalView);
     rootView.AddTopView(&workspaceExplorer, glbWorkSpaceView);
 

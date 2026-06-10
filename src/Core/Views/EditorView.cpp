@@ -203,27 +203,9 @@ bool EditorView::DispatchAction(const EditorAction &kpAction) {
         case kAction::kActionCycleActiveBufferPrev :
             OnActionPreviousBuffer();
             break;
-        case kAction::kActionViewModeText :
-            OnActionSetViewMode(ViewMode::Text);
-            break;
-        case kAction::kActionViewModeHex :
-            OnActionSetViewMode(ViewMode::Hex);
-            break;
         default :
             return false;
     }
-    return true;
-}
-
-// View-mode switch (H.2 of the HexView spike). For now this only records the mode on the active
-// document's DocumentViewState; the HexView render path lands in H.3, so the view keeps drawing text either
-// way. Per-view state, so it stays with the document/view rather than going global.
-bool EditorView::OnActionSetViewMode(ViewMode newViewMode) {
-    if (document == nullptr) {
-        return false;
-    }
-    document->SetViewMode(newViewMode);
-    InvalidateAll();
     return true;
 }
 

@@ -554,6 +554,19 @@ reproduce-before-fix discipline). Byte-stream definition to lock in the test:
   "the container's active item"). Live-verify on SDL3: text caret → toggle to hex → caret on the right
   byte → step one byte → toggle back → text caret advanced by exactly that step; scroll restored
   (the P2.4 scroll-anchor fix lives right here). Green.
+  - **DONE (2026-06-10, macOS/SDL3).** `EditorViewContainer` is now the *registered top view* for the
+    editing slot (not `EditorView`): it holds the `EditorView` (primary) + `HexView` (alternate) over the
+    active `Document`, and forwards input/status/focus to the active item (`HandleKeyPress`,
+    `GetStatusBar*`, `OnActivate`→item `SetActive` installs the item's keymap). It *owns the swap*:
+    `OnAction` intercepts `kActionViewModeText/Hex` → `SwitchToViewMode` (set doc mode, flip
+    active+visible, re-init the now-active item — HexView rebuilds its byte stream, EditorView keeps
+    scroll — install keymap). View-mode handling was removed from `EditorView`. `main.cpp` wires
+    `SetAlternateView(&hexView)` + `AddTopView(&editorViewContainer, glbEditorView)`. **Live-verified on
+    SDL3** (guided manual run — GUI automation is TCC-blocked on this box): hex toggles, caret lands on
+    the right byte, steps, and toggles back advanced. Verified-green set **157**; startup clean.
+    *Known limitation (deferred):* per-document mode-restore across a **document switch** isn't wired —
+    the container doesn't re-sync `activeItem` to a newly-activated document's `viewMode`. Out of scope
+    for the toggle acceptance; an easy follow-up (observe the document switch).
 
 After the spike: Phase 3's remaining unknown is narrowed to the genuinely-hard part — **two
 *mutable* views** and where per-view `ViewState` is keyed/owned — with the container-swap seam and the

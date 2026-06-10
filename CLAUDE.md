@@ -277,7 +277,44 @@ YAML-based config loaded by `Config` singleton. `ConfigNode` provides typed acce
 
 ---
 
-## Session 2026-06-10 — resume point (read this first)
+## Session 2026-06-10 (cont.) — HexView spike COMPLETE (read this first)
+
+Work on the **macOS dev box (SDL3 backend)**, branch **`dev_hexview`** (NOT `main`, NOT `dev_workspace`).
+Ran the **pre-Phase-3 HexView spike H.1 → H.4** end to end (`docs/workspace-refactor-plan.md`, the
+"Pre-Phase-3 spike" section — each step has a **DONE** note). Verified-green set is **157**
+(`-m …,hexprojection,bytestream,hexview`). **Local only — not pushed.**
+
+**Commits this session (oldest→newest), all on `dev_hexview`:**
+- `8432aa4` **H.1** — `BinBuffer` + `ByteStreamReader` (the one UTF-32→UTF-8 place) + pure `HexProjection`
+  coord math (text Point ↔ byte offset). `test_hexprojection` + `test_bytestream`.
+- `0edbf24` **H.2** — `DocumentViewState::ViewMode {Text,Hex}` + explicit switch actions
+  `kActionViewModeText/Hex` (Alt+R / Alt+H, both OS keymaps). **Also renamed `ViewState` →
+  `DocumentViewState`** (it collided with the `Editor::State::ViewState` enum). `test_document_viewmode`.
+- `58e470f` **H.3** — `HexView : ViewBase` (read-only `offset|hex|ASCII`). `ComputeNavTarget` pure/static
+  over a `BinBuffer` (horizontal = whole-char steps so multibyte never traps; vertical/page = 16-byte
+  rows then snap). `HexProjection::NextCharStart` made public; new `Document::SetCursorPosition` (write-
+  back; `JumpToSearchHit` refactored onto it); `hexview_keymap.yml` (pure-inherit). `test_hexview`.
+- **H.4** (this commit) — `EditorViewContainer` is now the **registered top view** for the editing slot:
+  holds `EditorView` (primary) + `HexView` (alternate), forwards input/status/focus to the active item,
+  and owns the swap (`OnAction` intercepts the view-mode actions → `SwitchToViewMode`). View-mode
+  handling removed from `EditorView`. `main.cpp` registers the container (not the editor view).
+  **Live-verified on SDL3** (guided manual run — GUI automation is TCC-blocked here): toggles, caret on
+  the right byte, steps, toggles back advanced.
+
+**Known limitation (deferred):** per-document mode-restore across a **document switch** isn't wired (the
+container doesn't re-sync `activeItem` to a newly-activated doc's `viewMode`). Easy follow-up.
+
+**Next: Phase 3** — the narrowed unknown is **two *mutable* views** + where per-view `DocumentViewState`
+is keyed/owned. The container-swap seam + "view = projection of canonical state" model are now proven.
+
+> **If switching workstation:** `git push` (this branch's commits are local-only), then on the other box
+> `git checkout dev_hexview && git pull`; reconfigure `cmake-build-debug/` for that box's backend
+> (Linux = SDL2 ON/SDL3 OFF — inverse of macOS) and run the verified-green set (now ends `…,hexview`).
+> H.3/H.4 touch views (`HexView`, `EditorViewContainer`, `EditorView`) — keep SDL2/SDL3 in sync.
+
+---
+
+## Session 2026-06-10 — resume point
 
 Work happened on the **Linux dev box (SDL2 backend)**, branch **`dev_workspace`** (NOT `main`).
 Executed **Phase 2 steps P2.0 → P2.4** of the buffer/window split (`docs/workspace-refactor-plan.md`,

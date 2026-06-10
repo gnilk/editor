@@ -97,7 +97,7 @@ workspaceview:
   keymap: "workspace_keymap"
   switch_to_editor_on_openfile: yes
   auto_expand_view: yes
-  hide_dot_files: no
+  hide_dot_files: yes
 
 #
 # Add ability to include user-name, and other things here (working dir???)

@@ -12,7 +12,7 @@
 #include "Core/Rect.h"
 #include "Core/UndoHistory.h"
 #include "Core/KeyMapping.h"
-#include "Core/ViewState.h"
+#include "Core/DocumentViewState.h"
 #include "Core/EditState.h"
 
 #include <memory>
@@ -25,7 +25,7 @@ namespace gedit {
         size_t cursor_x;
         size_t length;
     };
-    // NOTE: 'Selection' moved to ViewState.h (Phase 2 - it is per-view state, not document data).
+    // NOTE: 'Selection' moved to DocumentViewState.h (Phase 2 - it is per-view state, not document data).
 
     // The open document: owns its TextBuffer and file identity (path), plus the editing state that
     // sits between the text data and the view (cursor, selection, undo, search). The EditController
@@ -64,7 +64,7 @@ namespace gedit {
             return textBuffer->LineAt(idxLine);
         }
         __inline Line::Ref ActiveLine() {
-            return textBuffer->LineAt(viewState->lineCursor.idxActiveLine);
+            return textBuffer->LineAt(documentViewState->lineCursor.idxActiveLine);
         }
 
         void AddLineComment(size_t idxLineStart, size_t idxLineEnd, const std::u32string &lineCommentPrefix);
@@ -85,7 +85,7 @@ namespace gedit {
         // on-screen column across lines with differing tab/space layouts. Capture stores the visual
         // column of the cursor; Apply maps a stored visual column back to a character index.
         void CaptureWantedColumn(Cursor &cursor, const Line::Ref &line);
-        void CaptureWantedColumn() { CaptureWantedColumn(viewState->lineCursor.cursor, ActiveLine()); }
+        void CaptureWantedColumn() { CaptureWantedColumn(documentViewState->lineCursor.cursor, ActiveLine()); }
         void ApplyWantedColumn(Cursor &cursor, const Line::Ref &line);
 
 
@@ -136,14 +136,21 @@ namespace gedit {
         bool SaveForce();
 
         Cursor &GetCursor() {
-            return viewState->lineCursor.cursor;
+            return documentViewState->lineCursor.cursor;
         }
 
         LineCursor &GetLineCursor() {
-            return viewState->lineCursor;
+            return documentViewState->lineCursor;
         }
         LineCursor::Ref  GetLineCursorRef() {
-            return &viewState->lineCursor;
+            return &documentViewState->lineCursor;
+        }
+
+        ViewMode GetViewMode() const {
+            return documentViewState->viewMode;
+        }
+        void SetViewMode(ViewMode newViewMode) {
+            documentViewState->viewMode = newViewMode;
         }
 
         void PasteFromClipboard();
@@ -153,26 +160,26 @@ namespace gedit {
 
         // Selection functions - not sure these must be exposed - perhaps for API purposes?
         void BeginSelection() {
-            viewState->currentSelection.SetActive(true);
-            viewState->currentSelection.SetStartLine(viewState->lineCursor.idxActiveLine);
-            viewState->currentSelection.SetStart(viewState->lineCursor.cursor.position);
-            viewState->currentSelection.SetEnd(viewState->lineCursor.cursor.position);
+            documentViewState->currentSelection.SetActive(true);
+            documentViewState->currentSelection.SetStartLine(documentViewState->lineCursor.idxActiveLine);
+            documentViewState->currentSelection.SetStart(documentViewState->lineCursor.cursor.position);
+            documentViewState->currentSelection.SetEnd(documentViewState->lineCursor.cursor.position);
 
-            viewState->currentSelection.SetStartYPos(viewState->lineCursor.idxActiveLine);
-            viewState->currentSelection.SetEndYPos(viewState->lineCursor.idxActiveLine);
+            documentViewState->currentSelection.SetStartYPos(documentViewState->lineCursor.idxActiveLine);
+            documentViewState->currentSelection.SetEndYPos(documentViewState->lineCursor.idxActiveLine);
         }
         __inline bool IsSelectionActive() {
-            return viewState->currentSelection.IsActive();
+            return documentViewState->currentSelection.IsActive();
         }
         __inline const Selection &GetSelection() {
-            return viewState->currentSelection;
+            return documentViewState->currentSelection;
         }
         __inline void CancelSelection() {
-            viewState->currentSelection.SetActive(false);
+            documentViewState->currentSelection.SetActive(false);
         }
         __inline void RestoreCursorFromSelection() {
-            viewState->lineCursor.idxActiveLine = viewState->currentSelection.GetStartLine();
-            viewState->lineCursor.cursor.position = viewState->currentSelection.GetStart();
+            documentViewState->lineCursor.idxActiveLine = documentViewState->currentSelection.GetStartLine();
+            documentViewState->lineCursor.cursor.position = documentViewState->currentSelection.GetStart();
 
             verticalNavigationViewModel->OnNavigateDown(0, viewRect, Lines().size());
         }
@@ -181,8 +188,8 @@ namespace gedit {
     protected:
         void UpdateSelection() {
             // perhaps check if active...
-            Point newEnd(viewState->lineCursor.cursor.position.x, viewState->lineCursor.idxActiveLine);
-            viewState->currentSelection.SetEnd(newEnd);
+            Point newEnd(documentViewState->lineCursor.cursor.position.x, documentViewState->lineCursor.idxActiveLine);
+            documentViewState->currentSelection.SetEnd(newEnd);
 
         }
 
@@ -224,14 +231,14 @@ namespace gedit {
         size_t idxActiveSearchHit = 0;
     private:
         gnilk::Log::Ref logger;
-        // Per-view state (cursor + selection), referenced not fused. See ViewState.h. Today a
+        // Per-view state (cursor + selection), referenced not fused. See DocumentViewState.h. Today a
         // document references exactly one; a split/side-by-side view will later give each view-item
         // its own and leave the document holding a saved snapshot.
-        ViewState::Ref viewState = ViewState::Create();
+        DocumentViewState::Ref documentViewState = DocumentViewState::Create();
         VerticalNavigationViewModel::Ref verticalNavigationViewModel = nullptr;
         Rect viewRect = {};
         // Per-document edit history (undo), referenced not fused. See EditState.h. All views of one
-        // buffer will share this single EditState while keeping independent ViewState cursors.
+        // buffer will share this single EditState while keeping independent DocumentViewState cursors.
         EditState::Ref editState = EditState::Create();
 
         TextBuffer::Ref textBuffer = nullptr;             // The document owns its buffer

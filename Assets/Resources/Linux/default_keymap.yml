@@ -76,7 +76,11 @@ keymap: {
     # Switch views
     UISwitchToTerminal : "UINavigationModifier + 't'",
     UISwitchToEditor : "UINavigationModifier + 'e'",
-    UISwitchToProject : "UINavigationModifier + 'p'"
+    UISwitchToProject : "UINavigationModifier + 'p'",
+
+    # View mode (text / hex projection)
+    UIViewModeText : "UINavigationModifier + 'r'",
+    UIViewModeHex : "UINavigationModifier + 'h'"
 
   }
 }

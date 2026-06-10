@@ -31,6 +31,7 @@ DLL_EXPORT int test_document_switch_preserves_scroll(ITesting *t);
 DLL_EXPORT int test_document_switch_preserves_undo(ITesting *t);
 // undo must act on the EDITED document, not whichever document happens to be active
 DLL_EXPORT int test_document_undo_independent_of_active(ITesting *t);
+DLL_EXPORT int test_document_viewmode(ITesting *t);
 
 }
 
@@ -314,7 +315,7 @@ DLL_EXPORT int test_document_delete_text(ITesting *t) {
 // per-document editing state (cursor, selection, undo) must persist per document while the view
 // moves between them. These cases pin that behavior: operate on one document, "switch" by operating
 // on a second, switch back -> the first document's state is exactly as left, independent of the
-// second. P2.1/P2.2 move that state into ViewState/EditState referenced by Document; these tests
+// second. P2.1/P2.2 move that state into DocumentViewState/EditState referenced by Document; these tests
 // must stay green across that move. (Two separate Document objects stand in for the two open docs;
 // there is no document-switch API yet - the view's `document = GetActiveDocument()` re-point IS the
 // switch, see docs/workspace-refactor-plan.md.)
@@ -512,5 +513,21 @@ DLL_EXPORT int test_document_undo_independent_of_active(ITesting *t) {
     workspace.RemoveOpenDocument(docActive);
     Editor::Instance().SetActiveDocument(prevActive);
 
+    return kTR_Pass;
+}
+
+// H.2 of the HexView spike: view mode (Text/Hex) is per-view state on the ViewState, switched by the
+// explicit kActionViewModeText / kActionViewModeHex actions. The render path is H.3; here we pin that
+// the state defaults to Text and flips cleanly. (The action->view dispatch lives in EditorView.)
+DLL_EXPORT int test_document_viewmode(ITesting *t) {
+    auto document = CreateEmptyDocument(t);
+    // Default presentation is text.
+    TR_ASSERT(t, document->GetViewMode() == ViewMode::Text);
+
+    document->SetViewMode(ViewMode::Hex);
+    TR_ASSERT(t, document->GetViewMode() == ViewMode::Hex);
+
+    document->SetViewMode(ViewMode::Text);
+    TR_ASSERT(t, document->GetViewMode() == ViewMode::Text);
     return kTR_Pass;
 }

@@ -85,6 +85,8 @@ namespace gedit {
         kActionSwitchToTerminal,
         kActionSwitchToEditor,
         kActionSwitchToProject,
+        kActionViewModeText,            // default: Alt+R  - present the active document as text
+        kActionViewModeHex,             // default: Alt+H  - present the active document as a hex projection
     };
 
     class ActionItem {

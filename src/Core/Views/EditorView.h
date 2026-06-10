@@ -61,6 +61,7 @@ namespace gedit {
         // Action handlers
         bool OnActionPreviousBuffer();
         bool OnActionNextBuffer();
+        bool OnActionSetViewMode(ViewMode newViewMode);
 
     private:
         bool DispatchAction(const EditorAction &kpAction);

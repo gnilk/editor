@@ -153,6 +153,11 @@ namespace gedit {
             documentViewState->viewMode = newViewMode;
         }
 
+        // Move the caret to an absolute (line, charIdx) text position and refocus the text view around
+        // it. The single canonical way to set the cursor from outside navigation - used by search jumps
+        // and by the HexView write-back (a hex-space move translated back into text coords).
+        void SetCursorPosition(size_t idxLine, size_t idxChar);
+
         void PasteFromClipboard();
 
         bool OnAction(const EditorAction &kpAction);

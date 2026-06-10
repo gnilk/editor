@@ -36,8 +36,9 @@ namespace gedit {
         // before it.
         static Point ByteOffsetToText(size_t byteOffset, const BinBuffer &utf8);
 
-    protected:
-        // First byte index of the char that starts at or after 'pos' (skips UTF-8 continuation bytes).
+        // First byte index of the char that starts after 'pos' (skips UTF-8 continuation bytes). Public
+        // because hex navigation needs to step the caret to the next char boundary (a one-byte step
+        // right that lands mid-multibyte char would otherwise snap back to the same char).
         static size_t NextCharStart(const BinBuffer &utf8, size_t pos);
     };
 }

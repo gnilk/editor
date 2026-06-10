@@ -1,0 +1,11 @@
+#
+# Keymap file for the (read-only) hex view.
+#
+# The hex view only consumes navigation actions (arrows/page/home/end) plus the
+# view-mode switch back to text; it ignores every editing action by virtue of not
+# handling it (read-only). So it re-uses default_keymap wholesale as a pure-
+# inheritance keymap rather than re-declaring the nav bindings.
+#
+keymap: {
+  inherit: default_keymap
+}

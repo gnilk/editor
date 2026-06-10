@@ -538,6 +538,16 @@ reproduce-before-fix discipline). Byte-stream definition to lock in the test:
   caret byte (`RefocusViewArea`-style). Own `"HEX"` status abbreviation + `GetStatusBarInfo` (offset).
   Minimal read-only keymap (nav-only; can `inherit:` a base). Green (the view's nav/translation under
   test).
+  - **DONE (2026-06-10, macOS/SDL3).** `src/Core/Views/HexView.{h,cpp}` + `{Linux,macOS}/hexview_keymap.yml`
+    (pure `inherit: default_keymap`; read-only by *behavior* — only nav actions handled). `ComputeNavTarget`
+    is pure/static over a `BinBuffer` (so it is unit-tested with no live view): horizontal = whole-char
+    steps (a one-byte step into a multibyte char would snap back and trap the caret → right=`NextCharStart`,
+    left=prev char), vertical/page/home/end = 16-byte rows then snap. `HexProjection::NextCharStart` made
+    public for it. Write-back uses new `Document::SetCursorPosition(line,char)` (the canonical absolute set;
+    `JumpToSearchHit` refactored onto it). Own scroll (`viewTopRow`/`RefocusHexView`). `test_hexview` (4
+    cases: row/clamp arithmetic, multibyte traversal both ways, write-back). **Not wired into the layout
+    yet — that's H.4**, so the *render* path is unexercised at runtime (nav math is fully covered).
+    Verified-green set **157**.
 - **H.4 — Container swap + live-verify.** `EditorViewContainer` owns both an `EditorView` and a
   `HexView` over the same active `Document`; toggles `contentView` on `viewMode`; makes the
   focus/keymap registration container-aware (the `main.cpp` `AddTopView(&editorView, …)` wiring becomes

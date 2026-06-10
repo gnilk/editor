@@ -98,17 +98,21 @@ size_t Document::SearchFor(const std::u32string &searchItem) {
     return searchResults.size();
 }
 
+void Document::SetCursorPosition(size_t idxLine, size_t idxChar) {
+    GetCursor().position.y = idxLine;
+    GetCursor().position.x = idxChar;
+    documentViewState->lineCursor.idxActiveLine = idxLine;
+    CaptureWantedColumn(GetCursor(), LineAt(idxLine));
+
+    RefocusViewArea();
+}
+
 bool Document::JumpToSearchHit(size_t idxHit) {
     if (idxHit >= searchResults.size()) {
         return false;
     }
     auto &result = searchResults[idxHit];
-    GetCursor().position.y = result.idxLine;
-    GetCursor().position.x = result.cursor_x;
-    documentViewState->lineCursor.idxActiveLine = result.idxLine;
-    CaptureWantedColumn(GetCursor(), LineAt(result.idxLine));
-
-    RefocusViewArea();
+    SetCursorPosition(result.idxLine, result.cursor_x);
     return true;
 }
 

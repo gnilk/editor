@@ -4,6 +4,7 @@
 #include <testinterface.h>
 #include "Core/Editor.h"
 #include "Core/TextBuffer.h"
+#include "Core/Controllers/EditController.h"
 
 
 using namespace gedit;
@@ -274,18 +275,19 @@ DLL_EXPORT int test_document_delete_text(ITesting *t) {
 };
     auto controller = EditController::Create(document);
 
-    controller->OnAction(actionPageDown);
-    controller->OnAction(actionPageDown);
-    controller->OnAction(actionPageDown);
-    controller->OnAction(actionLineUp);
-    controller->OnAction(actionLineUp);
-    controller->OnAction(actionLineUp);   // we should be on line 23 now
+    // Resolved actions now go straight to the document (the controller no longer proxies OnAction).
+    document->OnAction(actionPageDown);
+    document->OnAction(actionPageDown);
+    document->OnAction(actionPageDown);
+    document->OnAction(actionLineUp);
+    document->OnAction(actionLineUp);
+    document->OnAction(actionLineUp);   // we should be on line 23 now
 
     auto lcBefore = document->GetLineCursor();
 
     // Select two lines
-    controller->OnAction(actionShiftLineDown);
-    controller->OnAction(actionShiftLineDown);
+    document->OnAction(actionShiftLineDown);
+    document->OnAction(actionShiftLineDown);
 
     auto lc = document->GetLineCursor();
     //controller->HandleKeyPress(lc.cursor, lc.idxActiveLine, keyPressDelete);

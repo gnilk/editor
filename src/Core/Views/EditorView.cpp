@@ -44,28 +44,9 @@ void EditorView::InitView()  {
         return;
     }
 
-    auto workspaceNode = Editor::Instance().GetWorkspaceNodeForDocument(document);
-    if (workspaceNode == nullptr) {
-        logger->Error("No workspace node for document!!");
-        return;
-    }
-
-    editController = workspaceNode->GetController();
-    if (editController == nullptr) {
-        logger->Error("No controller for document!");
-        return;
-    }
-
-
-    editController->SetTextBufferChangedHandler([this]()->void {
-        auto node = Editor::Instance().GetWorkspace()->GetNodeFromDocument(document);
-        if (node == nullptr) {
-            return;
-        }
-        window->SetCaption(node->GetDisplayName());
-    });
-
-    editController->OnViewInit(rect);
+    // Bind our controller to the active document and seed the view geometry from the document.
+    editController.Attach(document);
+    document->OnViewInit(rect);
 }
 
 void EditorView::ReInitView() {
@@ -83,13 +64,9 @@ void EditorView::ReInitView() {
         logger->Error("Document is null - no active textbuffer");
         return;
     }
-    auto node = Editor::Instance().GetWorkspaceNodeForDocument(document);
-    editController = node->GetController();
-
-    // Fetch and update the view-document information
-//    lineCursor = document->GetLineCursorRef();
-
-    editController->OnViewInit(viewRect);
+    // Re-point the controller at whatever document is now active (the document switch / attach).
+    editController.Attach(document);
+    document->OnViewInit(viewRect);
 }
 
 // FIXME: This is never used!!!
@@ -98,7 +75,7 @@ void EditorView::OnResized() {
     auto &lineCursor = document->GetLineCursor();
     lineCursor.viewBottomLine = GetContentRect().Height();
 
-    editController->OnViewInit(GetContentRect());
+    document->OnViewInit(GetContentRect());
     ViewBase::OnResized();
 }
 
@@ -121,7 +98,7 @@ void EditorView::DrawViewContents() {
     DrawSelectionOverlay(dc, tabSize);
 
     LineRender lineRender(dc, tabSize);
-    lineRender.DrawLines(editController->Lines(),
+    lineRender.DrawLines(document->Lines(),
                          lineCursor.viewTopLine,
                          lineCursor.viewBottomLine,
                          document->GetSelection());
@@ -189,17 +166,10 @@ void EditorView::OnActivate(bool isActive) {
 }
 
 void EditorView::OnKeyPress(const KeyPress &keyPress) {
-    if (editController == nullptr) {
-        return;
-    }
-
-    auto res = editController->OnKeyPress(keyPress);
-    if (res) {
+    if (editController.OnKeyPress(keyPress)) {
         InvalidateView();
         return;
     }
-
-
 
     // It was not to us..
     ViewBase::OnKeyPress(keyPress);
@@ -210,11 +180,11 @@ void EditorView::OnKeyPress(const KeyPress &keyPress) {
 // Add actions here - all except human-readable inserting of text
 //
 bool EditorView::OnAction(const KeyPressAction &kpAction) {
-    // fully possible - if the editor has no open files..
-    if (!editController) {
+    // Resolved actions go straight to the document (fully possible to have none, if no file is open).
+    if (document == nullptr) {
         return false;
     }
-    if (editController->OnAction(kpAction)) {
+    if (document->OnAction(kpAction)) {
         return true;
     }
 

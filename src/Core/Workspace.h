@@ -21,7 +21,6 @@
 #include "Core/Config/ConfigNode.h"
 #include "Document.h"
 #include "Core/UnicodeHelper.h"
-#include "Core/Controllers/EditController.h"
 
 namespace gedit {
 
@@ -206,13 +205,6 @@ namespace gedit {
                 return childNodes.size();
             }
 
-            void SetController(EditController::Ref newController) {
-                controller = newController;
-            }
-            EditController::Ref GetController() {
-                return controller;
-            }
-
             void SetDocument(Document::Ref newDocument) {
                 document = newDocument;
                 // A document attached to a node adopts the node's path as its file identity. The node
@@ -312,7 +304,6 @@ namespace gedit {
             std::string displayName = "";
             std::filesystem::path pathName;
             Node::Ref parent = nullptr;
-            EditController::Ref controller = nullptr;
             Document::Ref document = nullptr;   // This is only set for leaf nodes..
             std::vector<Node::Ref> childNodes = {};
         };

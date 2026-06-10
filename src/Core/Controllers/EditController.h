@@ -17,57 +17,44 @@
 
 namespace gedit {
 
+    // EditController holds the raw-KeyPress editing logic (char insert + undo bracketing, line-join
+    // on backspace/delete at a boundary, selection-aware delete-on-type). Resolved Actions go
+    // straight to the Document (Document::OnAction) - the controller no longer proxies them. It is a
+    // per-item member of EditorView and borrows (does NOT own) the document it is attached to; the
+    // Workspace owns document lifetime. Attach/Detach re-point it as the view switches documents.
     class EditController : public BaseController {
     public:
         using Ref = std::shared_ptr<EditController>;
-        using TextBufferChangedDelegate = std::function<void()>;
 
     public:
         EditController() = default;
-        EditController(Document::Ref newDocument) : document(newDocument) {
-
-        }
         virtual ~EditController() = default;
-        static Ref Create(Document::Ref newDocument);
+        static Ref Create(const Document::Ref &newDocument);
+
+        // Borrow / release the document this controller edits. Non-owning: the handle must outlive
+        // the attachment (the Workspace owns it; the view detaches before it goes away).
+        void Attach(const Document::Ref &newDocument) {
+            document = newDocument.get();
+            Begin();
+        }
+        void Detach() {
+            document = nullptr;
+        }
 
         void Begin() override;
 
-        const TextBuffer::Ref GetTextBuffer() {
-            return document->GetTextBuffer();
-        }
-        void SetTextBufferChangedHandler(TextBufferChangedDelegate newOnTextBufferChanged) {
-            onTextBufferChanged = newOnTextBufferChanged;
-        }
         bool HandleKeyPress(Cursor &cursor, size_t &idxActiveLine, const KeyPress &keyPress) override;
         bool HandleSpecialKeyPress(Cursor &cursor, size_t &idxActiveLine, const KeyPress &keyPress);
 
         void MoveLineUp(Cursor &cursor, size_t &idxActiveLine);
 
-        // Proxy for buffer
-        const std::vector<Line::Ref> &Lines() {
-            return document->Lines();
-        }
-        // Const accessor...
-        const std::vector<Line::Ref> &Lines() const {
-            return document->Lines();
-        }
-        Line::Ref LineAt(size_t idxLine) {
-            return document->LineAt(idxLine);
-        }
-
-        // Newly moved stuff from EditorView
-        void OnViewInit(const Rect &viewRect);
         bool OnKeyPress(const KeyPress &keyPress);
-        bool OnAction(const KeyPressAction &kpAction);
-
-
 
     protected:
         bool HandleSpecialKeyPressForEditor(Cursor &cursor, size_t &idxLine, const KeyPress &keyPress);
     private:
         gnilk::ILogger *logger = nullptr;
-        Document::Ref document;
-        TextBufferChangedDelegate onTextBufferChanged = nullptr;
+        Document *document = nullptr;       // borrowed - lifetime owned by the Workspace
 
     };
 }

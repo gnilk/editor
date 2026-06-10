@@ -69,7 +69,9 @@ namespace gedit {
     private:
         bool bUseCLionPageNav = true;
         Document::Ref document;
-        EditController::Ref editController;
+        // The edit controller is a per-item member (1:1 with this view), like TerminalController in
+        // TerminalView. It borrows the active document; we Attach/Detach it on document switch.
+        EditController editController;
         // --
         gnilk::ILogger *logger = nullptr;
     };

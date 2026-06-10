@@ -210,10 +210,7 @@ Document::Ref Workspace::EnsureDocumentForNode(Node::Ref node) {
     textBuffer->SetLanguage(Editor::Instance().GetLanguageForExtension(ext.string()));
 
     Document::Ref document = Document::Create(textBuffer);
-    EditController::Ref editController = EditController::Create(document);
-
     node->SetDocument(document);        // also syncs the document's path from the node
-    node->SetController(editController);
 
     return document;
 }

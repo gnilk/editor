@@ -14,9 +14,9 @@
 
 using namespace gedit;
 
-EditController::Ref EditController::Create(Document::Ref newDocument) {
-    auto inst = std::make_shared<EditController>(newDocument);
-    inst->Begin();
+EditController::Ref EditController::Create(const Document::Ref &newDocument) {
+    auto inst = std::make_shared<EditController>();
+    inst->Attach(newDocument);
     return inst;
 }
 
@@ -25,10 +25,6 @@ void EditController::Begin() {
     if (logger == nullptr) {
         logger = gnilk::Logger::GetLogger("EditController");
     }
-}
-
-void EditController::OnViewInit(const Rect &viewRect) {
-    document->OnViewInit(viewRect);
 }
 
 
@@ -182,13 +178,4 @@ bool EditController::OnKeyPress(const KeyPress &keyPress) {
     }
 
     return false;
-}
-
-bool EditController::OnAction(const KeyPressAction &kpAction) {
-    // Move to controller
-    if (document == nullptr) {
-        return false;
-    }
-    // Dispatch this directly to the document
-    return document->OnAction(kpAction);
 }

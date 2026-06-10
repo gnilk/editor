@@ -488,7 +488,76 @@ referenced by `Document`, `EditorViewContainer` wrapping the single `EditorView`
 `EditController` owned by that item, and an `EditorAction` type in its own header. Where the container
 grows to N items / where `ViewState` ultimately lives are the localized follow-ups in "Deferred" below.
 
+## Pre-Phase-3 spike — HexView + in-container view switch (2026-06-10)
+
+**Why this before Phase 3.** Phase 3 ("two-of-the-same": multiple editor views of one buffer) bundles
+two hard problems: (1) the container holding a **swappable** item and routing a switch action — pure
+plumbing; and (2) two views sharing **mutable** editing state. A read-only **HexView** lets us build
+and prove (1) in isolation, and take a *first, bounded* bite of (2): the caret (`ViewState`) becomes
+**shared across two different representations of the same buffer**, exercising exactly the
+"`ViewState` is the source of truth, a view is a projection of it" model Phase 3 needs — without the
+full two-mutable-editors hazard. It is also a feature we want. It is an **in-container switch by
+design**, to stress-test that `EditorViewContainer` (and the surrounding focus/keymap wiring) actually
+works as the single swappable slot.
+
+**Decisions (locked):**
+- **Byte source = on-the-fly UTF-32 → UTF-8 re-encode** of the live buffer (via `UnicodeHelper`). No
+  new `TextBuffer` storage. For ASCII/UTF-8 files this *is* the on-disk content. Divergence for
+  non-UTF-8/binary inputs is accepted (the text buffer is already lossy for those) — see Deferred.
+- **`ViewState` is the single source of truth; HexView is a bidirectional projection.** `lineCursor`
+  stays canonical in **text coords** (line + char-index, exactly as today). HexView maps
+  `lineCursor → byteOffset` to draw, and maps `byteOffset → lineCursor` (writing it back) on hex
+  navigation. Switching back to text "just works" — the caret is already canonical; undo / selection /
+  `EditState` keep operating in the one coordinate system. A hex byte landing mid-multibyte-char
+  snaps to the nearest char boundary on the way back (acceptable, read-only v1).
+- **`ViewState` gains a `viewMode` enum `{ Text, Hex }`** (default `Text`) so the mode restores
+  per-document across a switch (and later, across reopen).
+- **Round-trip fidelity is the acceptance bar:** a one-byte step right in HexView must show up as the
+  correct caret position back in EditorView, and vice versa, for *every* movement — not just on open.
+
+**The one genuinely tricky bit — the coordinate translation — is pinned first, test-first** (repo's
+reproduce-before-fix discipline). Byte-stream definition to lock in the test:
+> `byteStream` = for each line, `UTF-8(line content)` followed by a single `0x0A` line separator.
+> `byteOffset(line L, charIdx c)` = Σ over lines `< L` of `(utf8_len(line) + 1)` + `utf8_len(L[0..c))`.
+> The reverse walks the same accumulation. No synthetic trailing `\n` beyond the buffer's own lines —
+> the last line contributes only its own bytes. (Trailing-newline / empty-last-line is *the* edge case
+> the test pins.)
+
+**Steps (each its own commit; keep the verified-green set passing):**
+- **H.1 — Coord translation helper.** A standalone `lineCursor ↔ byteOffset` mapper over the UTF-8
+  projection (free function or small `HexProjection` helper; reads a `TextBuffer`, no UI). Discriminating
+  unit test: multi-byte chars, line boundaries, first/last line, clamps, round-trip identity. No view
+  yet. Green.
+- **H.2 — `ViewState::viewMode` + switch action.** Add the `{ Text, Hex }` enum to `ViewState`
+  (default `Text`). New `kAction` (`kActionToggleViewMode`) + keybind (both OS keymaps in sync). The
+  active view handles the action by asking the container to swap; no HexView wired yet (toggle is a
+  no-op stub returning to text). Green.
+- **H.3 — `HexView : ViewBase`.** Read-only `offset | hex | ASCII` render of the projection. Caret
+  highlight at `byteOffset(lineCursor)`; hex navigation (arrows/page/home/end) moves the byte offset
+  and writes the reverse translation back into `lineCursor`; HexView derives its own scroll from the
+  caret byte (`RefocusViewArea`-style). Own `"HEX"` status abbreviation + `GetStatusBarInfo` (offset).
+  Minimal read-only keymap (nav-only; can `inherit:` a base). Green (the view's nav/translation under
+  test).
+- **H.4 — Container swap + live-verify.** `EditorViewContainer` owns both an `EditorView` and a
+  `HexView` over the same active `Document`; toggles `contentView` on `viewMode`; makes the
+  focus/keymap registration container-aware (the `main.cpp` `AddTopView(&editorView, …)` wiring becomes
+  "the container's active item"). Live-verify on SDL3: text caret → toggle to hex → caret on the right
+  byte → step one byte → toggle back → text caret advanced by exactly that step; scroll restored
+  (the P2.4 scroll-anchor fix lives right here). Green.
+
+After the spike: Phase 3's remaining unknown is narrowed to the genuinely-hard part — **two
+*mutable* views** and where per-view `ViewState` is keyed/owned — with the container-swap seam and the
+"view = projection of canonical `ViewState`" model already proven.
+
 ## Deferred — to mull over (explicitly NOT decided here)
+
+- **Binary-vs-text file tagging / a `BinBuffer` backend / multi-datatype views.** A faithful hex view
+  of *non-UTF-8* on-disk bytes (and the broader idea of opening a file as something other than editable
+  text — e.g. a PNG shown as an image, not garbled bytes) would need the editor to hold typed buffers
+  (`TextBuffer` vs a raw `BinBuffer`) and pick a view by content type. **Explicitly out of scope and
+  philosophically undecided** — possibly not this project's purpose. Recorded here only so the HexView
+  spike's "re-encode the text buffer" choice is understood as a deliberate v1 limitation, not an
+  oversight.
 
 - **Where `ViewState` / `EditState` ultimately live and how multi-view shares them.** Likely shape:
   `ViewState` becomes per-view (each view keyed by document), `EditState` stays per-document (shared

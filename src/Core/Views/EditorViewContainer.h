@@ -84,11 +84,11 @@ namespace gedit {
         bool OnAction(const EditorAction &kpAction) override {
             // The container owns the swap (it holds both items); the active item never sees these.
             if (kpAction.action == kAction::kActionViewModeText) {
-                SwitchToViewMode(ViewMode::Text);
+                SwitchToViewMode(DocumentViewMode::kText);
                 return true;
             }
             if (kpAction.action == kAction::kActionViewModeHex) {
-                SwitchToViewMode(ViewMode::Hex);
+                SwitchToViewMode(DocumentViewMode::kHex);
                 return true;
             }
             if (kpAction.action == kAction::kActionCycleActiveBufferNext) {
@@ -146,7 +146,7 @@ namespace gedit {
 
         // User intent (the toggle action): record the mode on the document so it restores per-document,
         // then apply the swap.
-        void SwitchToViewMode(ViewMode mode) {
+        void SwitchToViewMode(DocumentViewMode mode) {
             auto document = Editor::Instance().GetActiveDocument();
             if (document != nullptr) {
                 document->SetViewMode(mode);
@@ -168,8 +168,8 @@ namespace gedit {
         // (re-point at the active document + geometry; HexView rebuilds its byte stream) and installs its
         // keymap. Focus is transferred only if the outgoing item held it — a document-switch sync runs
         // during the view-tree re-init regardless of which view is focused, and must not steal focus.
-        void ApplyViewMode(ViewMode mode) {
-            ViewBase *next = (mode == ViewMode::Hex) ? alternateItem : primaryItem;
+        void ApplyViewMode(DocumentViewMode mode) {
+            ViewBase *next = (mode == DocumentViewMode::kHex) ? alternateItem : primaryItem;
             if ((next == nullptr) || (next == activeItem)) {
                 return;
             }

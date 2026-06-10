@@ -118,9 +118,9 @@ namespace gedit {
     // How the active document is presented in the view. The caret (lineCursor) stays in canonical
     // text coordinates regardless; Hex mode renders the same buffer as an offset|hex|ASCII projection
     // (see HexProjection / ByteStreamReader). Per-view, so two views of one document can differ.
-    enum class ViewMode {
-        Text,
-        Hex,
+    enum class DocumentViewMode {
+        kText,
+        kHex,
     };
 
     // Per-view editing state. Held by Document as a Ref (referenced, not fused) so it can later be
@@ -134,7 +134,7 @@ namespace gedit {
     public:
         LineCursor lineCursor;
         Selection currentSelection = {};
-        ViewMode viewMode = ViewMode::Text;
+        DocumentViewMode viewMode = DocumentViewMode::kText;
     };
 }
 

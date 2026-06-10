@@ -522,12 +522,12 @@ DLL_EXPORT int test_document_undo_independent_of_active(ITesting *t) {
 DLL_EXPORT int test_document_viewmode(ITesting *t) {
     auto document = CreateEmptyDocument(t);
     // Default presentation is text.
-    TR_ASSERT(t, document->GetViewMode() == ViewMode::Text);
+    TR_ASSERT(t, document->GetViewMode() == DocumentViewMode::kText);
 
-    document->SetViewMode(ViewMode::Hex);
-    TR_ASSERT(t, document->GetViewMode() == ViewMode::Hex);
+    document->SetViewMode(DocumentViewMode::kHex);
+    TR_ASSERT(t, document->GetViewMode() == DocumentViewMode::kHex);
 
-    document->SetViewMode(ViewMode::Text);
-    TR_ASSERT(t, document->GetViewMode() == ViewMode::Text);
+    document->SetViewMode(DocumentViewMode::kText);
+    TR_ASSERT(t, document->GetViewMode() == DocumentViewMode::kText);
     return kTR_Pass;
 }

@@ -146,10 +146,10 @@ namespace gedit {
             return &documentViewState->lineCursor;
         }
 
-        ViewMode GetViewMode() const {
+        DocumentViewMode GetViewMode() const {
             return documentViewState->viewMode;
         }
-        void SetViewMode(ViewMode newViewMode) {
+        void SetViewMode(DocumentViewMode newViewMode) {
             documentViewState->viewMode = newViewMode;
         }
 

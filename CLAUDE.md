@@ -286,7 +286,7 @@ set **157**: `-m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,
 **Done — Phase 2 (buffer/window split) + the pre-Phase-3 HexView spike** (`docs/workspace-refactor-plan.md`
 carries the per-step DONE notes; commits `caa97ff`…`88611d8` for Phase 2, `8432aa4`…`b9dbbb9` for the
 spike). The seam now in place:
-- `Document` references a **`DocumentViewState`** (cursor + selection + `viewMode {Text,Hex}`) and an
+- `Document` references a **`DocumentViewState`** (cursor + selection + `DocumentViewMode {kText,kHex}`) and an
   **`EditState`** (undo) — both per-view-extractable. Rule: **resolved Actions → Document, raw KeyPress
   → controller.** `EditController` is a value member of `EditorView`; `EditorAction` is its own header.
 - **`EditorViewContainer`** is the single editing slot **and the registered top view**: it holds the text

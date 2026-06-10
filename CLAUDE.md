@@ -241,7 +241,11 @@ YAML-based config loaded by `Config` singleton. `ConfigNode` provides typed acce
 ## Debugging / verification recipes
 
 - **GUI verification (SDL2 build, real `:0` display):** launch `goatedit` from `cmake-build-debug` with
-  `DISPLAY=:0`, record the PID, find the window with `xdotool search --pid <PID>`. Drive with
+  `DISPLAY=:0`, record the PID, find the window with `xdotool search --pid <PID>`. **VERIFY THE WINDOW
+  IS YOURS BEFORE SENDING ANY INPUT** — `xdotool search --pid` is unreliable and HAS returned another
+  app's window (a 2026-06-10 session typed into the user's CLion this way). Confirm with
+  `xprop -id <WID> _NET_WM_PID` (must equal your launched PID) and `xdotool getwindowname <WID>` (should
+  be `gedit`) before any `key`/`type`. Drive with
   `xdotool windowsize <WID> W H` (resize) or `xdotool key --clearmodifiers <keys>`. Capture with
   `xwd -id <WID> -out f.xwd` then `ffmpeg -i f.xwd f.png`. **Kill ONLY your launched PID** — the user
   often has other goatedit/CLion windows open. Key actions: `Alt+s`/`Alt+w` height, `Alt+d`/`Alt+a`
@@ -273,7 +277,58 @@ YAML-based config loaded by `Config` singleton. `ConfigNode` provides typed acce
 
 ---
 
-## Session 2026-06-09 — resume point (read this first)
+## Session 2026-06-10 — resume point (read this first)
+
+Work happened on the **Linux dev box (SDL2 backend)**, branch **`dev_workspace`** (NOT `main`).
+Executed **Phase 2 steps P2.0 → P2.4** of the buffer/window split (`docs/workspace-refactor-plan.md`,
+see its "Phase 2 — status" section). Each step is its own commit and the verified-green set passes
+**138** (`-m document` now has 13 cases). **Not pushed yet — push on the next machine.**
+
+**Commits this session (oldest→newest), all on `dev_workspace`:**
+- `caa97ff` **P2.0** — pin the contract: `test_document` cases asserting cursor/selection/undo survive
+  a document switch. (Finding recorded then: undo capture was coupled to the Editor *active* document.)
+- `af98a17` **P2.1** — extract **`ViewState`** (`lineCursor` + `currentSelection`) → new
+  `src/Core/ViewState.h` (the `Selection` struct moved there); `Document` holds a `ViewState::Ref`,
+  referenced not fused.
+- `2bdff75` **P2.2** — extract **`EditState`** (`UndoHistory historyBuffer`) → new
+  `src/Core/EditState.h`; `Document` holds an `EditState::Ref`.
+- `8b30a25` **P2.2-followup** — decouple `UndoHistory` from the Editor active-document. Capture API
+  now takes `(const LineCursor&, [const Selection&,] TextBuffer::Ref)`; `UndoHistory.cpp` dropped
+  `#include "Editor.h"`. Behavioral fix (undo on a non-active document) + regression test
+  `test_document_undo_independent_of_active` (failed before, passes after).
+- `d7c8143` **P2.3** — introduce **`EditorViewContainer`** (`src/Core/Views/EditorViewContainer.h`):
+  the single editing slot in `main.cpp`, holding `EditorView` as its one child. Pure interposition;
+  live-verified on SDL2 (`:0`) — render + window resize clean.
+- `130e4e9` **P2.4** — `EditController` is now a value member of `EditorView`, borrowing a non-owning
+  `Document*` (Attach/Detach on switch). Deleted the passthrough (`OnAction`/`OnViewInit`/`GetTextBuffer`/
+  `Lines`/`LineAt` proxies + dead `onTextBufferChanged`); view calls `Document::OnAction`/`OnViewInit`/
+  `Lines` directly. Removed `Node::controller`/`Set/GetController` and the controller creation in
+  `EnsureDocumentForNode`; dropped the `EditController` include from `Workspace.h`.
+
+**Next: Step P2.5** (the last Phase-2 step) — mechanical rename `KeyPressAction → EditorAction` into a
+new dedicated `EditorAction.h` (alongside `Action.h`). See the plan's P2.5 bullet for the exact header
+rationale (it includes only `Action.h` + `KeyPress.h`, no new cycle; `KeyMapping.h` then includes it).
+Isolated last commit.
+
+> **⚠ P2.4 live GUI verification is still OUTSTANDING.** The headless set is green (138), but the
+> editor's live keypress/action wiring (`editController.OnKeyPress`, `document->OnAction`, Attach on
+> switch) was NOT confirmed in a running build — the smoke-test attempt accidentally drove the user's
+> *other* X window (CLion) and was discarded. Redo it next session: launch `./goatedit .`, then
+> **verify `xprop -id <WID> _NET_WM_PID` matches the launched PID BEFORE sending any `xdotool`
+> input** (the window from `xdotool search --pid` was wrong). Confirm: type inserts text, navigation
+> actions move the caret, undo reverts, and buffer-switch keeps per-document cursor.
+
+> **If switching workstation:** `git push` first (this session's commits are local-only), then on the
+> other box `git checkout dev_workspace && git pull`; reconfigure `cmake-build-debug/` for that box's
+> backend (Linux = SDL2 ON/SDL3 OFF; macOS = the inverse — `CMakeLists.txt` default is committed as
+> SDL2-ON for the Linux box, so the macOS box must pass `-DGEDIT_BUILD_SDL3=ON -DGEDIT_BUILD_SDL2=OFF`);
+> build `utests` (`libutests.**so**` on Linux, `.dylib` on macOS) and run the verified-green set
+> (`-m document,…`) for a clean 138 baseline. Phase-2 view work touches `EditorView` — keep SDL2/SDL3
+> in sync.
+
+---
+
+## Session 2026-06-09 — resume point
 
 Work happened on the **macOS dev box (SDL3 backend)**, branch **`dev_workspace`** (NOT `main`).
 Everything is committed and pushed; working tree clean (only the usual intentional untracked files).

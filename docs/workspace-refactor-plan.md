@@ -456,6 +456,31 @@ it is. Where
 `ViewState` eventually points and when the container grows to N items are then localized, additive
 changes — not a redesign.
 
+## Phase 2 — status (2026-06-10)
+
+Done and on `dev_workspace` (each its own commit, verified-green set passing 138):
+
+- **P2.0** `caa97ff` — pinned the contract (`test_document` cases: cursor/selection/undo survive a
+  document switch).
+- **P2.1** `af98a17` — extracted **`ViewState`** (`lineCursor` + `currentSelection`) into
+  `src/Core/ViewState.h`; `Document` holds a `ViewState::Ref`.
+- **P2.2** `2bdff75` — extracted **`EditState`** (`UndoHistory historyBuffer`) into
+  `src/Core/EditState.h`; `Document` holds an `EditState::Ref`.
+- **P2.2-followup** `8b30a25` — decoupled `UndoHistory` from the Editor active-document. The capture
+  API now takes `(const LineCursor&, [const Selection&,] TextBuffer::Ref)` and `UndoHistory.cpp` no
+  longer includes `Editor.h`. Fixes undo on a non-active document (regression test
+  `test_document_undo_independent_of_active`). This is the behavioral win P2.0 flagged.
+- **P2.3** `d7c8143` — introduced **`EditorViewContainer`** (`src/Core/Views/EditorViewContainer.h`),
+  the single editing slot holding `EditorView` as its one child. Pure interposition; live-verified on
+  SDL2 (render + resize).
+- **P2.4** `130e4e9` — `EditController` is now a value member of `EditorView` borrowing a non-owning
+  `Document*` (Attach/Detach on switch); deleted the passthrough (`OnAction`/`OnViewInit`/proxies) and
+  `Node::controller`. **Live GUI verification still pending** (the smoke-test attempt drove the wrong
+  X window and was discarded).
+
+**Remaining: P2.5** — rename `KeyPressAction → EditorAction` into its own `EditorAction.h` (mechanical,
+isolated last commit). After that the Phase-2 seam is complete.
+
 ## Deferred — to mull over (explicitly NOT decided here)
 
 - **Where `ViewState` / `EditState` ultimately live and how multi-view shares them.** Likely shape:

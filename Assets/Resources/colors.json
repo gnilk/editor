@@ -66,6 +66,7 @@
       "preprocessor": "var(pink)",
       "macro_identifier": "var(orange3)",
       "selection": "color(var(orange),var(selection_alpha))",
+      "hexview": "var(grey3)",
       "funky": "var(white3)"
     },
     "ui": {

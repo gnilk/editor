@@ -12,7 +12,7 @@
 
 #include "logger.h"
 #include "TextBuffer.h"
-#include "ViewState.h"     // LineCursor (via Cursor.h) + Selection - the per-view state undo snapshots
+#include "DocumentViewState.h"     // LineCursor (via Cursor.h) + Selection - the per-view state undo snapshots
 namespace gedit {
     // Extremely simplistic undo buffer - works for regular edits but wastes an extreme amount of memory..
     class UndoHistory {

@@ -538,12 +538,42 @@ reproduce-before-fix discipline). Byte-stream definition to lock in the test:
   caret byte (`RefocusViewArea`-style). Own `"HEX"` status abbreviation + `GetStatusBarInfo` (offset).
   Minimal read-only keymap (nav-only; can `inherit:` a base). Green (the view's nav/translation under
   test).
+  - **DONE (2026-06-10, macOS/SDL3).** `src/Core/Views/HexView.{h,cpp}` + `{Linux,macOS}/hexview_keymap.yml`
+    (pure `inherit: default_keymap`; read-only by *behavior* — only nav actions handled). `ComputeNavTarget`
+    is pure/static over a `BinBuffer` (so it is unit-tested with no live view): horizontal = whole-char
+    steps (a one-byte step into a multibyte char would snap back and trap the caret → right=`NextCharStart`,
+    left=prev char), vertical/page/home/end = 16-byte rows then snap. `HexProjection::NextCharStart` made
+    public for it. Write-back uses new `Document::SetCursorPosition(line,char)` (the canonical absolute set;
+    `JumpToSearchHit` refactored onto it). Own scroll (`viewTopRow`/`RefocusHexView`). `test_hexview` (4
+    cases: row/clamp arithmetic, multibyte traversal both ways, write-back). **Not wired into the layout
+    yet — that's H.4**, so the *render* path is unexercised at runtime (nav math is fully covered).
+    Verified-green set **157**.
 - **H.4 — Container swap + live-verify.** `EditorViewContainer` owns both an `EditorView` and a
   `HexView` over the same active `Document`; toggles `contentView` on `viewMode`; makes the
   focus/keymap registration container-aware (the `main.cpp` `AddTopView(&editorView, …)` wiring becomes
   "the container's active item"). Live-verify on SDL3: text caret → toggle to hex → caret on the right
   byte → step one byte → toggle back → text caret advanced by exactly that step; scroll restored
   (the P2.4 scroll-anchor fix lives right here). Green.
+  - **DONE (2026-06-10, macOS/SDL3).** `EditorViewContainer` is now the *registered top view* for the
+    editing slot (not `EditorView`): it holds the `EditorView` (primary) + `HexView` (alternate) over the
+    active `Document`, and forwards input/status/focus to the active item (`HandleKeyPress`,
+    `GetStatusBar*`, `OnActivate`→item `SetActive` installs the item's keymap). It *owns the swap*:
+    `OnAction` intercepts `kActionViewModeText/Hex` → `SwitchToViewMode` (set doc mode, flip
+    active+visible, re-init the now-active item — HexView rebuilds its byte stream, EditorView keeps
+    scroll — install keymap). View-mode handling was removed from `EditorView`. `main.cpp` wires
+    `SetAlternateView(&hexView)` + `AddTopView(&editorViewContainer, glbEditorView)`. **Live-verified on
+    SDL3** (guided manual run — GUI automation is TCC-blocked on this box): hex toggles, caret lands on
+    the right byte, steps, and toggles back advanced. Verified-green set **157**; startup clean.
+    *Known limitation (deferred):* per-document mode-restore across a **document switch** isn't wired —
+    the container doesn't re-sync `activeItem` to a newly-activated document's `viewMode`. Out of scope
+    for the toggle acceptance; an easy follow-up (observe the document switch).
+  - **Follow-up DONE (2026-06-10, not yet committed/GUI-verified).** Mode now restores across a document
+    switch. A switch goes `Editor::SetActiveDocument` → `RootView::Initialize` → the container's
+    `ReInitView`, which now calls `SyncToActiveDocument()` (reads the active doc's `viewMode` and applies
+    it). `SwitchToViewMode` (toggle: writes intent onto the doc) and `SyncToActiveDocument` (restore: reads
+    it) share one mechanics helper `ApplyViewMode`, which transfers focus **only if the outgoing item held
+    it** — the sync runs during the tree re-init regardless of focus, so it must not steal focus from e.g.
+    the workspace panel. Verified-green set still 157; runtime restore-on-switch wants a GUI confirm.
 
 After the spike: Phase 3's remaining unknown is narrowed to the genuinely-hard part — **two
 *mutable* views** and where per-view `ViewState` is keyed/owned — with the container-swap seam and the

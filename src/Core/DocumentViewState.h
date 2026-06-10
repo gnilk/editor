@@ -1,16 +1,16 @@
 //
 // Created by gnilk on 09.06.26.
 //
-// ViewState — the per-view editing state for a document: the live cursor and the active
+// DocumentViewState — the per-view editing state for a document: the live cursor and the active
 // selection. Pulled out of Document (Phase 2, the buffer/window split) so that multiple views
 // of the same buffer can each keep their own cursor/selection. Today a Document references
-// exactly one ViewState; when the editor gains split/side-by-side views each view-item will own
+// exactly one DocumentViewState; when the editor gains split/side-by-side views each view-item will own
 // its own, and the Document will keep only a saved snapshot. Drawing the class boundary now keeps
 // that future move a re-point, not a rewrite.
 //
 
-#ifndef EDITOR_VIEWSTATE_H
-#define EDITOR_VIEWSTATE_H
+#ifndef EDITOR_DOCUMENTVIEWSTATE_H
+#define EDITOR_DOCUMENTVIEWSTATE_H
 
 #include <memory>
 #include <cstddef>
@@ -115,18 +115,27 @@ namespace gedit {
 
     };
 
+    // How the active document is presented in the view. The caret (lineCursor) stays in canonical
+    // text coordinates regardless; Hex mode renders the same buffer as an offset|hex|ASCII projection
+    // (see HexProjection / ByteStreamReader). Per-view, so two views of one document can differ.
+    enum class DocumentViewMode {
+        kText,
+        kHex,
+    };
+
     // Per-view editing state. Held by Document as a Ref (referenced, not fused) so it can later be
     // owned by a view-item instead, with the Document keeping a saved snapshot.
-    class ViewState {
+    class DocumentViewState {
     public:
-        using Ref = std::shared_ptr<ViewState>;
+        using Ref = std::shared_ptr<DocumentViewState>;
         static Ref Create() {
-            return std::make_shared<ViewState>();
+            return std::make_shared<DocumentViewState>();
         }
     public:
         LineCursor lineCursor;
         Selection currentSelection = {};
+        DocumentViewMode viewMode = DocumentViewMode::kText;
     };
 }
 
-#endif //EDITOR_VIEWSTATE_H
+#endif //EDITOR_DOCUMENTVIEWSTATE_H

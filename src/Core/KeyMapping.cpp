@@ -82,7 +82,9 @@ static std::unordered_map<std::string, kAction> strToActionMap = {
         {"UIMaximizeViewHeight",    kAction::kActionMaximizeViewHeight},
         {"UISwitchToTerminal",      kAction::kActionSwitchToTerminal},
         {"UISwitchToEditor",        kAction::kActionSwitchToEditor},
-        {"UISwitchToProject",       kAction::kActionSwitchToProject}
+        {"UISwitchToProject",       kAction::kActionSwitchToProject},
+        {"UIViewModeText",          kAction::kActionViewModeText},
+        {"UIViewModeHex",           kAction::kActionViewModeHex}
 };
 
 

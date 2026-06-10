@@ -3,7 +3,7 @@
 //
 // EditState — the per-document edit history (undo). Pulled out of Document (Phase 2, the
 // buffer/window split) and held by Ref so that multiple views of the same buffer share ONE undo
-// history while each keeps its own cursor/selection (see ViewState.h). Today it is just the
+// history while each keeps its own cursor/selection (see DocumentViewState.h). Today it is just the
 // UndoHistory; the class boundary is what lets the eventual multi-view sharing be a re-point rather
 // than a redesign, and makes the undo stack a serializable unit for restore-on-reopen later.
 //

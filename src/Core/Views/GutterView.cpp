@@ -62,6 +62,14 @@ void GutterView::DrawViewContents() {
 
     dc.Clear();
 
+    // The gutter is text-editor chrome: line numbers + the active-line '*', paged by lineCursor.viewTopLine.
+    // In hex mode the rows are 16-byte rows (the hexdump carries its own offset column) and the caret moves
+    // in byte space, so a text-line gutter can neither align with the hex caret row nor track its scroll —
+    // leave it blank rather than drawing a stray, mis-placed '*'.
+    if (document->GetViewMode() == DocumentViewMode::kHex) {
+        return;
+    }
+
     char str[64];
     auto &lineCursor = document->GetLineCursor();
     for(int i=0;i<dc.GetRect().Height();i++) {

@@ -279,14 +279,13 @@ YAML-based config loaded by `Config` singleton. `ConfigNode` provides typed acce
 
 ## Current state — resume point (read this first)
 
-On **`main`** at **`53f0193`** — the `--no-ff` merge of the HexView spike (Phase 2 + H.1–H.4 + polish).
-`dev_hexview` is merged and **deleted** (local + remote); the `dev_workspace` branch still exists but is
-fully contained in `main`. Working tree clean (untracked: `syntax_problem.cpp`, `terminal_rendering_bug.png`,
-the `cmake-build-*` dirs). **Start the next feature on a fresh branch off `main`.** Verified-green set
-**157** (run from `cmake-build-debug/`):
+Repo is **consolidated**: all prior feature work is merged into a single line of history (no stray
+branches). Working tree clean (untracked-by-design: `syntax_problem.cpp`, `terminal_rendering_bug.png`, the
+`cmake-build-*` dirs). The Phase 2 + HexView-spike work (below) is the current baseline; **start the next
+feature on a fresh branch.** Verified-green set **157** (run from `cmake-build-debug/`):
 `-m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,vtermparser,keymapping,hexprojection,bytestream,hexview`.
 
-**Done & on `main` — Phase 2 (buffer/window split) + the pre-Phase-3 HexView spike**
+**Done — Phase 2 (buffer/window split) + the pre-Phase-3 HexView spike**
 (`docs/workspace-refactor-plan.md` carries the per-step DONE notes). The seam now in place:
 - `Document` references a **`DocumentViewState`** (cursor + selection + `DocumentViewMode {kText,kHex}`) and an
   **`EditState`** (undo) — both per-view-extractable. Rule: **resolved Actions → Document, raw KeyPress
@@ -329,21 +328,21 @@ and rebuild `utests` (`libutests.so` Linux / `.dylib` macOS) on the other box.
 
 ## Earlier work (completed, in git — kept as a one-line index)
 
-- **HexView spike — H.1–H.4 + polish** (merged to `main` `53f0193`): `HexProjection` coord translation +
+- **HexView spike — H.1–H.4 + polish** (merge commit `53f0193`): `HexProjection` coord translation +
   `ByteStreamReader`/`BinBuffer` (`8432aa4`); `DocumentViewMode {kText,kHex}` + view-mode switch action
   (`0edbf24`, enum renamed from `ViewMode` in `9cabfa2`); read-only `HexView` (`58e470f`);
   `EditorViewContainer` owns the text↔hex swap (`b9dbbb9`); per-document view-mode restore on switch
   (`a652e6e`); buffer-cycling→container (`01579e8`); ASCII-column caret (`2c876bb`); gutter stands down in
   hex mode (`bdc35d9`); theme hex color (`56b877c`,`e4c6178`); hygiene/.gitignore (`cbf919c`). Design notes
   in `docs/workspace-refactor-plan.md` ("Pre-Phase-3 spike").
-- **Phase 2 — buffer/window split + P2.pre** (`dev_workspace`, now on `main`): `model`→
+- **Phase 2 — buffer/window split + P2.pre**: `model`→
   `document` token sweep + test module `edtmodel`→`document` (`1cfc1a4`,`2a0cdcf`,`322d841`,`a4905d7`);
   P2.0 document-switch contract tests; P2.1 extract `ViewState` (renamed `DocumentViewState` in the spike);
   P2.2 extract `EditState` + decouple `UndoHistory` from the Editor active-document (`af98a17`,`2bdff75`,
   `8b30a25`); P2.3 `EditorViewContainer` (`d7c8143`); P2.4 `EditController`→value member of `EditorView`
   (`130e4e9`) + buffer-switch scroll-anchor fix (`927900e`); P2.5 `KeyPressAction`→`EditorAction` in its
   own header (`88611d8`).
-- **2026-06-08 keymap session** (pushed to `main`): macOS Option dead-key fix —
+- **2026-06-08 keymap session**: macOS Option dead-key fix —
   `SDL_HINT_MAC_OPTION_AS_ALT=only_left` (`e40b204`); keymaps may pure-inherit + multi-level inheritance
   (`98b9874`,`a5e8a7d`,`6171c4a`); `KeyMappingCache` singleton as the single keymap-loading owner
   (`e1140d9`,`b06c0bb`). Mechanics live in "Established patterns" (keymap) + the macOS-keyboard Debugging

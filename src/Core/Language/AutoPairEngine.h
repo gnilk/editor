@@ -30,7 +30,17 @@ namespace gedit {
             char32_t open = 0;
             char32_t close = 0;
         };
-        // Everything the decision needs - kept primitive so tests build it without a live editor.
+        // Everything the decision needs - kept deliberately primitive (a u32string_view + the SINGLE token
+        // class AT the cursor, NOT a Line::Ref or the line's full token spans) so the engine stays pure and
+        // unit-testable with no UI / Line / tokenizer dependency.
+        //
+        // The trade-off is limited semantic disambiguation. The motivating case is C++ angle brackets: '<'
+        // is a template / #include bracket OR a less-than / shift operator, and telling them apart needs the
+        // SURROUNDING token semantics (e.g. is the token to the left a known type?). With only the class at
+        // the cursor we can't do that, so '<>' is intentionally NOT an auto-pair for now (see
+        // Assets/Resources/autopairs.yml, cpp section). If we ever want it, ENRICH this Context (e.g. add a
+        // "token class to the left" or a small peek callback) rather than handing the engine a whole Line -
+        // keep the purity.
         struct Context {
             const AutoPairTable *table = nullptr;
             std::u32string_view lineText;        // current line content (no trailing newline)

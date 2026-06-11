@@ -414,6 +414,9 @@ bool Document::OnActionWordLeft() {
         currentLine = ActiveLine();
         cursor.position.x = currentLine->Length();
     } else {
+        // Main case, trying to be smart here - but I am not sure I am...
+        // a basic 'search backwards' is probably smarter..
+        // also - this does not work for any view - we should probably not fiddle around in the cursor structure directly..
         auto attrib = currentLine->AttributeAt(cursor.position.x);
         if (cursor.position.x == attrib->idxOrigString) {
             attrib--;

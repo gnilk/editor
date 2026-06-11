@@ -12,6 +12,7 @@
 
 #include <string>
 
+#include "Core/Language/IndentCache.h"
 #include "Core/Language/IndentEngine.h"
 #include "Core/Language/IndentTable.h"
 #include "Core/Language/LanguageTokenClass.h"
@@ -27,6 +28,9 @@ DLL_EXPORT int test_indent_newline_expand(ITesting *t);
 DLL_EXPORT int test_indent_electric(ITesting *t);
 DLL_EXPORT int test_indent_electric_suppress(ITesting *t);
 DLL_EXPORT int test_indent_emptytable(ITesting *t);
+DLL_EXPORT int test_indent_config(ITesting *t);
+DLL_EXPORT int test_indent_config_unknown(ITesting *t);
+DLL_EXPORT int test_indent_config_asset(ITesting *t);
 }
 
 using kIA = IndentEngine::kIndentAction;
@@ -173,5 +177,74 @@ DLL_EXPORT int test_indent_emptytable(ITesting *t) {
 
     // Never electric.
     TR_ASSERT(t, Ins(empty, U"    ", 4, U'}').type == kIA::kNone);
+    return kTR_Pass;
+}
+
+// The YAML loader: a child folds in its inherited parent (generic) then overrides. Hermetic via
+// LoadFromString - no asset loader.
+DLL_EXPORT int test_indent_config(ITesting *t) {
+    auto &cache = IndentCache::Instance();
+    const std::string yaml =
+        "indent:\n"
+        "  generic:\n"
+        "    suppress_in:  [string, comment]\n"
+        "    indent_after: [\"{\", \"[\", \"(\"]\n"
+        "    dedent_on:    [\"}\", \"]\", \")\"]\n"
+        "  cpp:\n"
+        "    inherit: generic\n"
+        "  python:\n"
+        "    inherit: generic\n"
+        "    indent_after: [\":\"]\n";          // overrides the inherited set
+    TR_ASSERT(t, cache.LoadFromString(yaml));
+
+    auto cpp = cache.GetTableForLanguage("cpp");
+    TR_ASSERT(t, cpp != nullptr);
+    TR_ASSERT(t, cpp->IsIndentAfter(U'{'));
+    TR_ASSERT(t, cpp->IsIndentAfter(U'('));
+    TR_ASSERT(t, cpp->IsDedentOn(U'}'));
+    TR_ASSERT(t, cpp->IsSuppressed(kTC::kString));
+    TR_ASSERT(t, cpp->IsSuppressed(kTC::kLineComment));
+
+    // python REPLACES indent_after (only ':'), keeps inherited dedent_on + suppress_in.
+    auto py = cache.GetTableForLanguage("python");
+    TR_ASSERT(t, py->IsIndentAfter(U':'));
+    TR_ASSERT(t, !py->IsIndentAfter(U'{'));
+    TR_ASSERT(t, py->IsDedentOn(U'}'));
+
+    cache.Clear();
+    return kTR_Pass;
+}
+
+// A language with no section (e.g. plaintext "default") resolves to an empty table => copy-previous-indent.
+DLL_EXPORT int test_indent_config_unknown(ITesting *t) {
+    auto &cache = IndentCache::Instance();
+    TR_ASSERT(t, cache.LoadFromString(
+        "indent:\n  generic:\n    indent_after: [\"{\"]\n    dedent_on: [\"}\"]\n"));
+    auto def = cache.GetTableForLanguage("default");
+    TR_ASSERT(t, (def != nullptr) && def->IsEmpty());
+    cache.Clear();
+    return kTR_Pass;
+}
+
+// Loads the actual shipped indent.yml via the asset loader (the EnsureLoaded path). Validates the file
+// parses and the cpp section resolves (generic openers/closers), while plaintext 'default' stays empty.
+DLL_EXPORT int test_indent_config_asset(ITesting *t) {
+    auto &cache = IndentCache::Instance();
+    cache.Clear();   // force EnsureLoaded to read resources/indent.yml
+
+    auto cpp = cache.GetTableForLanguage("cpp");
+    TR_ASSERT(t, cpp != nullptr);
+    TR_ASSERT(t, cpp->IsIndentAfter(U'{'));
+    TR_ASSERT(t, cpp->IsIndentAfter(U'['));
+    TR_ASSERT(t, cpp->IsIndentAfter(U'('));
+    TR_ASSERT(t, cpp->IsDedentOn(U'}'));
+    TR_ASSERT(t, cpp->IsDedentOn(U')'));
+    TR_ASSERT(t, cpp->IsSuppressed(kTC::kString));
+    TR_ASSERT(t, cpp->IsSuppressed(kTC::kBlockComment));
+
+    // No 'default' section -> plaintext gets no language indent rules.
+    TR_ASSERT(t, cache.GetTableForLanguage("default")->IsEmpty());
+
+    cache.Clear();
     return kTR_Pass;
 }

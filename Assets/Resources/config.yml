@@ -3,6 +3,8 @@ main:
   theme: default.theme.yml
   # auto-pairing rules (brackets/quotes) - see docs/autopair-plan.md
   autopairs: autopairs.yml
+  # auto-indent rules (newline indent + dedent-on-type) - see docs/indent-plan.md
+  indent: indent.yml
   # select the keymap default for the backend
   # 'default' is a reserved word - replace with your file name when forking it...
   keymap: "default_keymap"

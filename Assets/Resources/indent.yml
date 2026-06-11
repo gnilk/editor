@@ -1,0 +1,25 @@
+# Auto-indent rules - see docs/indent-plan.md.
+#
+# One self-contained file: a 'generic' base that languages inherit and override. Sections are keyed by the
+# language's config name (the same short name as the 'languages:' section in config.yml: cpp, json, make,
+# default, ...). A language with NO section here gets NO language indent rules - the new line just copies
+# the previous line's leading whitespace and nothing dedents on type (so plain text behaves like a dumb
+# editor). The indent model is RELATIVE: indent derives from the reference line's leading whitespace plus
+# the trigger deltas below, not an absolute brace-depth.
+#
+#   suppress_in   - token classes at the cursor where the electric (on-type) dedent is OFF (no snapping
+#                   inside a string/comment). Names: string, comment.
+#   indent_after  - a line ENDING with one of these chars indents the next line one level.
+#   dedent_on     - a line STARTING with one of these chars dedents that line one level; typing one as the
+#                   first non-blank char of a line snaps the line back one level (electric dedent).
+indent:
+  generic:
+    suppress_in:  [string, comment]
+    indent_after: ["{", "[", "("]
+    dedent_on:    ["}", "]", ")"]
+
+  cpp:
+    inherit: generic
+
+  json:
+    inherit: generic

@@ -168,7 +168,7 @@ previous indent). Then the SDL on-screen feel-check.
 Per repo discipline: contract tests precede the code; the engine is fully covered before it is wired into
 the live edit path.
 
-**STATUS (2026-06-11): Steps 0/1/2 + 3a DONE; 3b (electric dedent) next.**
+**STATUS (2026-06-11): Steps 0/1/2 + 3a + 3b DONE. Indent v1 feature-complete; GUI feel-check pending.**
 - `IndentEngine` + `IndentTable` (pure, `test_indent` 9 cases) — `IND.0/1`.
 - `indent.yml` + `IndentCache` (clone of `AutoPairCache`, `test_indent` 12 cases) — `IND.2`.
 - **3a — newline indent wired.** `Document::NewLine` now consults `IndentEngine::OnNewLine` (file-local
@@ -180,8 +180,16 @@ the live edit path.
   `NewLine` before). 3 integration tests in `test_document` (newline / dedent / `{|}` expand) assert the
   buffer + cursor through `Document::NewLine`. Verified-green set **187**. **GUI feel-check still
   pending** (Enter after `{`, the `{|}` block, plaintext copy-indent).
-- **3b — electric dedent-on-type — TODO.** Consult `IndentEngine::OnInsertChar` in
-  `EditController::HandleKeyPress` (mind ordering with the auto-pair skip-over).
+- **3b — electric dedent-on-type wired.** `EditController::HandleKeyPress` consults
+  `IndentEngine::OnInsertChar` (via `BuildIndentContext`) AFTER the auto-pair block (so a skip-over /
+  insert-pair has already returned) and BEFORE the default insert: on `kSetIndent` it replaces the line's
+  leading-whitespace run with the new level and reparks the cursor, then the typed closer is inserted
+  (`ApplyElectricDedent`). 2 integration tests in `test_document` (electric dedent on a blank-prefix line;
+  no dedent mid-line). Verified-green set **189**.
+
+**Indent v1 is feature-complete** (newline auto-indent, `{|}` expansion, electric dedent-on-type, the
+experiment deleted). Remaining: the GUI feel-check (Enter after `{`, the `{|}` block, `}`-dedent, no
+electric inside a comment / in `readme.txt`).
 
 ## Decisions — locked (confirmed before planning, 2026-06-11)
 

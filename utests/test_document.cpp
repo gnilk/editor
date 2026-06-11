@@ -46,6 +46,8 @@ DLL_EXPORT int test_document_autopair_wrap(ITesting *t);
 DLL_EXPORT int test_document_indent_newline(ITesting *t);
 DLL_EXPORT int test_document_indent_dedent(ITesting *t);
 DLL_EXPORT int test_document_indent_expand(ITesting *t);
+DLL_EXPORT int test_document_indent_electric(ITesting *t);
+DLL_EXPORT int test_document_indent_electric_midline(ITesting *t);
 
 }
 
@@ -743,6 +745,42 @@ DLL_EXPORT int test_document_indent_expand(ITesting *t) {
     TR_ASSERT(t, document->ActiveLine()->Buffer() == U"    "); // middle empty line, indented
     TR_ASSERT(t, lc.cursor.position.x == 4);
     TR_ASSERT(t, document->LineAt(idxOpen + 2)->Buffer() == U"}");
+    IndentCache::Instance().Clear();
+    return kTR_Pass;
+}
+
+// Typing a closer as the first non-blank char of a line snaps its indent back a level, then inserts it.
+DLL_EXPORT int test_document_indent_electric(ITesting *t) {
+    auto document = CreateIndentDoc(t);
+    auto controller = EditController::Create(document);
+    auto &lc = document->GetLineCursor();
+
+    document->ActiveLine()->Append(std::u32string(U"        "));   // 8 spaces == level 2
+    lc.cursor.position.x = 8;
+
+    auto kp = KP(U'}');
+    controller->HandleKeyPress(lc.cursor, lc.idxActiveLine, kp);
+
+    TR_ASSERT(t, document->ActiveLine()->Buffer() == U"    }");    // dedented to level 1, then '}'
+    TR_ASSERT(t, lc.cursor.position.x == 5);
+    IndentCache::Instance().Clear();
+    return kTR_Pass;
+}
+
+// A closer typed mid-line (not the first non-blank char) does NOT dedent - just inserts normally.
+DLL_EXPORT int test_document_indent_electric_midline(ITesting *t) {
+    auto document = CreateIndentDoc(t);
+    auto controller = EditController::Create(document);
+    auto &lc = document->GetLineCursor();
+
+    document->ActiveLine()->Append(std::u32string(U"    x"));
+    lc.cursor.position.x = 5;
+
+    auto kp = KP(U'}');
+    controller->HandleKeyPress(lc.cursor, lc.idxActiveLine, kp);
+
+    TR_ASSERT(t, document->ActiveLine()->Buffer() == U"    x}");   // unchanged indent
+    TR_ASSERT(t, lc.cursor.position.x == 6);
     IndentCache::Instance().Clear();
     return kTR_Pass;
 }

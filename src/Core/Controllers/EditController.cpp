@@ -10,6 +10,7 @@
 #include "Core/Editor.h"
 #include "Core/Rect.h"
 #include "Core/Language/AutoPairCache.h"
+#include "Core/Language/IndentCache.h"
 #include <sstream>
 #include <memory>
 
@@ -91,6 +92,10 @@ bool EditController::HandleKeyPress(Cursor &cursor, size_t &idxLine, const KeyPr
                 return true;
             }
         }
+
+        // Electric dedent: typing a closer as the first non-blank char snaps the line's leading whitespace
+        // back a level before the char is inserted below. (Skip-over/insert-pair already returned above.)
+        ApplyElectricDedent(cursor, line, keyPress.key);
     }
 
     // Default: just insert the typed char.
@@ -236,6 +241,42 @@ AutoPairEngine::Context EditController::BuildAutoPairContext(const Line::Ref &li
     ctx.selectionActive = selectionActive;
     ctx.tokenClassAtCursor = TokenClassAt(line, cursor.position.x);
     return ctx;
+}
+
+IndentEngine::Context EditController::BuildIndentContext(const Line::Ref &line, const Cursor &cursor) {
+    IndentEngine::Context ctx;
+    auto &language = document->GetTextBuffer()->GetLanguage();
+    ctx.table = IndentCache::Instance().GetTableForLanguage(language.GetConfigNodeName()).get();
+    ctx.lineText = line->Buffer();
+    ctx.cursorX = cursor.position.x;
+    ctx.tabSize = document->GetTabSize();
+    ctx.tokenClassAtCursor = TokenClassAt(line, cursor.position.x);
+    return ctx;
+}
+
+void EditController::ApplyElectricDedent(Cursor &cursor, const Line::Ref &line, char32_t typed) {
+    auto action = IndentEngine::OnInsertChar(BuildIndentContext(line, cursor), typed);
+    if (action.type != IndentEngine::kIndentAction::kSetIndent) {
+        return;
+    }
+    int tabSize = document->GetTabSize();
+    int newLeading = action.indentLevel * tabSize;
+
+    // Replace the line's leading whitespace run with exactly newLeading spaces, then park the cursor there.
+    auto &buf = line->Buffer();
+    int runLen = 0;
+    while ((runLen < (int)buf.size()) && ((buf[runLen] == U' ') || (buf[runLen] == U'\t'))) {
+        runLen++;
+    }
+    if (runLen <= newLeading) {
+        return;   // a closer never grows the indent; nothing to dedent
+    }
+    line->Delete(0, runLen);
+    if (newLeading > 0) {
+        line->Insert(0, std::u32string(newLeading, U' '));
+    }
+    cursor.position.x = newLeading;
+    cursor.wantedColumn = line->CharToVisualColumn(cursor.position.x, tabSize);
 }
 
 bool EditController::TryWrapSelection(char32_t typed) {

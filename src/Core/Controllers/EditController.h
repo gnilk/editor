@@ -11,6 +11,7 @@
 #include "Core/KeyMapping.h"
 #include "Core/Rect.h"
 #include "Core/Language/AutoPairEngine.h"
+#include "Core/Language/IndentEngine.h"
 #include "BaseController.h"
 #include "logger.h"
 #include <memory>
@@ -60,6 +61,11 @@ namespace gedit {
         // Surround the active selection with a pair when an opener/quote is typed over it. Returns false
         // (caller falls back to the default delete-and-insert) when the engine does not want a wrap.
         bool TryWrapSelection(char32_t typed);
+        // Indent glue (mirrors BuildAutoPairContext): table by language, token-class at the cursor.
+        IndentEngine::Context BuildIndentContext(const Line::Ref &line, const Cursor &cursor);
+        // Electric dedent: typing a closer as the first non-blank char of the line snaps its leading
+        // whitespace back one level (adjusting the cursor) BEFORE the char is inserted. No-op otherwise.
+        void ApplyElectricDedent(Cursor &cursor, const Line::Ref &line, char32_t typed);
     private:
         gnilk::ILogger *logger = nullptr;
         Document *document = nullptr;       // borrowed - lifetime owned by the Workspace

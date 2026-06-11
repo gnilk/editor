@@ -14,12 +14,6 @@
 namespace gedit {
     class LanguageBase : public ConfigNode {
     public:
-        enum class kInsertAction {
-            kDefault,
-            kNoInsert,
-            kNewLine,
-        };
-    public:
         using Ref = std::shared_ptr<LanguageBase>;
     public:
         LanguageBase() = default;
@@ -37,10 +31,6 @@ namespace gedit {
             return lineCommentPrefix;
         }
 
-        // Newline behaviour hook (indent / auto-newline next to '}') - used by Document::NewLine. The old
-        // per-char insert hooks (OnPreInsertChar/OnPostInsertChar) were removed in favour of the
-        // data-driven AutoPairEngine; this one stays until the indent engine subsumes it.
-        virtual kInsertAction OnPreCreateNewLine(const Line::Ref newLine) { return kInsertAction::kDefault; }
         // Used by single line parsers (like 'makefile') to enhance the attributes after initial parsing
         virtual void OnPostProcessParsedLine(Line::Ref line) {}
 

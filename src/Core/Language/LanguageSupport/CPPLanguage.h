@@ -28,8 +28,6 @@ namespace gedit {
             static std::u32string cppIdentifier = U"c/c++";
             return cppIdentifier;
         }
-
-        kInsertAction OnPreCreateNewLine(const Line::Ref newLine) override;
     private:
 
 // declare in-string operators

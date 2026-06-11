@@ -143,10 +143,3 @@ bool CPPLanguage::Initialize() {
     ConfigFromNodeName("cpp");
     return true;
 }
-
-LanguageBase::kInsertAction CPPLanguage::OnPreCreateNewLine(const Line::Ref newLine) {
-    if (newLine->Last() != U'}') {
-        return kInsertAction::kDefault;
-    }
-    return kInsertAction::kNewLine;
-}

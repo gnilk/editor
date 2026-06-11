@@ -168,6 +168,21 @@ previous indent). Then the SDL on-screen feel-check.
 Per repo discipline: contract tests precede the code; the engine is fully covered before it is wired into
 the live edit path.
 
+**STATUS (2026-06-11): Steps 0/1/2 + 3a DONE; 3b (electric dedent) next.**
+- `IndentEngine` + `IndentTable` (pure, `test_indent` 9 cases) — `IND.0/1`.
+- `indent.yml` + `IndentCache` (clone of `AutoPairCache`, `test_indent` 12 cases) — `IND.2`.
+- **3a — newline indent wired.** `Document::NewLine` now consults `IndentEngine::OnNewLine` (file-local
+  `ComputeNewLineIndent` + `ApplyLeadingIndent`) for the new line's indent and the `{|}` expansion,
+  replacing `newLine->Indent(tabSize)` + `OnPreCreateNewLine`. The experiment is deleted:
+  `CPPLanguage::OnPreCreateNewLine` (+ decl), the `LanguageBase::OnPreCreateNewLine` virtual, and the
+  now-unused `LanguageBase::kInsertAction` enum. Also guarded the null reparse-job (threaded-off path
+  parses synchronously and returns null — the old `->WaitComplete()` would have crashed; no test hit
+  `NewLine` before). 3 integration tests in `test_document` (newline / dedent / `{|}` expand) assert the
+  buffer + cursor through `Document::NewLine`. Verified-green set **187**. **GUI feel-check still
+  pending** (Enter after `{`, the `{|}` block, plaintext copy-indent).
+- **3b — electric dedent-on-type — TODO.** Consult `IndentEngine::OnInsertChar` in
+  `EditController::HandleKeyPress` (mind ordering with the auto-pair skip-over).
+
 ## Decisions — locked (confirmed before planning, 2026-06-11)
 
 1. **v1 scope = newline auto-indent + dedent-on-type**, both as engine decisions (the full

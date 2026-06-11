@@ -6,6 +6,7 @@
 #include "Core/TextBuffer.h"
 #include "Core/Controllers/EditController.h"
 #include "Core/Language/AutoPairCache.h"
+#include "Core/Language/IndentCache.h"
 
 
 using namespace gedit;
@@ -40,6 +41,11 @@ DLL_EXPORT int test_document_autopair_skipover(ITesting *t);
 DLL_EXPORT int test_document_autopair_nopair_midword(ITesting *t);
 DLL_EXPORT int test_document_autopair_backspace(ITesting *t);
 DLL_EXPORT int test_document_autopair_wrap(ITesting *t);
+
+// 'indent' - the IndentEngine wired through Document::NewLine (newline auto-indent + '{|}' expansion)
+DLL_EXPORT int test_document_indent_newline(ITesting *t);
+DLL_EXPORT int test_document_indent_dedent(ITesting *t);
+DLL_EXPORT int test_document_indent_expand(ITesting *t);
 
 }
 
@@ -670,5 +676,73 @@ DLL_EXPORT int test_document_autopair_wrap(ITesting *t) {
     TR_ASSERT(t, !document->IsSelectionActive());
     TR_ASSERT(t, lc.cursor.position.x == 4);        // just after the ')'
     AutoPairCache::Instance().Clear();
+    return kTR_Pass;
+}
+
+// --- Auto-indent wired through Document::NewLine -------------------------------------------------------
+// Drives the real newline path with a hermetic indent table keyed by the document's language config name.
+// The decision logic is covered by test_indent; these pin the *application* of an Action to buffer + cursor.
+
+static Document::Ref CreateIndentDoc(ITesting *t) {
+    auto document = CreateEmptyDocument(t);
+    gedit::Rect rect(40, 40);
+    document->OnViewInit(rect);
+
+    auto langName = document->GetTextBuffer()->GetLanguage().GetConfigNodeName();
+    TR_ASSERT(t, !langName.empty());
+    std::string yaml =
+        "indent:\n  " + langName + ":\n"
+        "    indent_after: [\"{\", \"[\", \"(\"]\n"
+        "    dedent_on:    [\"}\", \"]\", \")\"]\n";
+    TR_ASSERT(t, IndentCache::Instance().LoadFromString(yaml));
+    return document;
+}
+
+// Enter at the end of a line that opens a block indents the new line one level (4 spaces).
+DLL_EXPORT int test_document_indent_newline(ITesting *t) {
+    auto document = CreateIndentDoc(t);
+    auto &lc = document->GetLineCursor();
+
+    document->ActiveLine()->Append(std::u32string(U"if (x) {"));
+    lc.cursor.position.x = 8;                                  // end of line
+    lc.idxActiveLine = document->NewLine(lc.idxActiveLine, lc.cursor);
+
+    TR_ASSERT(t, document->ActiveLine()->Buffer() == U"    "); // new line indented one level
+    TR_ASSERT(t, lc.cursor.position.x == 4);
+    IndentCache::Instance().Clear();
+    return kTR_Pass;
+}
+
+// Enter just before a closer (the closer moves down to the new line) dedents that line.
+DLL_EXPORT int test_document_indent_dedent(ITesting *t) {
+    auto document = CreateIndentDoc(t);
+    auto &lc = document->GetLineCursor();
+
+    document->ActiveLine()->Append(std::u32string(U"    }"));
+    lc.cursor.position.x = 4;                                  // before the '}'
+    lc.idxActiveLine = document->NewLine(lc.idxActiveLine, lc.cursor);
+
+    TR_ASSERT(t, document->ActiveLine()->Buffer() == U"}");    // closer dropped to level 0
+    TR_ASSERT(t, lc.cursor.position.x == 0);
+    IndentCache::Instance().Clear();
+    return kTR_Pass;
+}
+
+// Enter between an opener and its closer expands into three lines, cursor on the indented middle line.
+DLL_EXPORT int test_document_indent_expand(ITesting *t) {
+    auto document = CreateIndentDoc(t);
+    auto &lc = document->GetLineCursor();
+
+    document->ActiveLine()->Append(std::u32string(U"{}"));
+    auto idxOpen = lc.idxActiveLine;
+    lc.cursor.position.x = 1;                                  // between '{' and '}'
+    lc.idxActiveLine = document->NewLine(lc.idxActiveLine, lc.cursor);
+
+    TR_ASSERT(t, document->LineAt(idxOpen)->Buffer() == U"{");
+    TR_ASSERT(t, lc.idxActiveLine == idxOpen + 1);             // cursor on the middle line
+    TR_ASSERT(t, document->ActiveLine()->Buffer() == U"    "); // middle empty line, indented
+    TR_ASSERT(t, lc.cursor.position.x == 4);
+    TR_ASSERT(t, document->LineAt(idxOpen + 2)->Buffer() == U"}");
+    IndentCache::Instance().Clear();
     return kTR_Pass;
 }

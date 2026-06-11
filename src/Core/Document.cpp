@@ -7,9 +7,18 @@
 #include <chrono>
 #include "Editor.h"
 #include "Document.h"
+#include "Core/Language/IndentCache.h"
+#include "Core/Language/IndentEngine.h"
 #include "logger.h"
 
 using namespace gedit;
+
+// Look up the language's indent table and ask the engine for the new line's indent (and the '{|}'
+// three-line expansion). The reference text is the line being split, splitX the cursor column on it.
+static IndentEngine::Action ComputeNewLineIndent(LanguageBase &language, const std::u32string &referenceText,
+                                                 int splitX, int tabSize);
+// Prepend nSpaces leading spaces to a line; returns the resulting cursor column (== nSpaces).
+static int ApplyLeadingIndent(const Line::Ref &line, int nSpaces);
 
 // This is the global section in the config.yml for this view
 static const std::string cfgSectionName = "editorview";
@@ -639,7 +648,6 @@ size_t Document::NewLine(size_t idxActiveLine, Cursor &cursor) {
 
     Line::Ref emptyLine = nullptr;
 
-    auto it = lines.begin() + idxActiveLine;
     if (lines.size() == 0) {
         textBuffer->Insert(idxActiveLine, Line::Create());
         UpdateSyntaxForBuffer();
@@ -650,37 +658,43 @@ size_t Document::NewLine(size_t idxActiveLine, Cursor &cursor) {
             UpdateSyntaxForActiveLineRegion();
             idxActiveLine++;
         } else {
-            // Split, move some chars from current to new...
-            auto newLine = Line::Create();
-            currentLine->Move(newLine, 0, cursor.position.x);
+            // Split: the part AFTER the cursor moves down to a new line; the part before stays as the
+            // reference line whose leading whitespace the indent engine measures.
+            auto referenceText = currentLine->Buffer();
+            int splitX = cursor.position.x;
 
-            // Defer to the language parser if we should auto-insert a new line or not..
-            // For instance, if you press enter next to '}' in CPP we insert another line and indent that..
-            if (textBuffer->GetLanguage().OnPreCreateNewLine(newLine) == LanguageBase::kInsertAction::kNewLine) {
-                // Insert an empty line - this will be the new active line...
-                logger->Debug("Creating empty line...");
+            auto newLine = Line::Create();
+            currentLine->Move(newLine, 0, splitX);
+
+            // Ask the indent engine for the new line's indent + whether to expand '{|}' into three lines.
+            auto indent = ComputeNewLineIndent(textBuffer->GetLanguage(), referenceText, splitX, tabSize);
+
+            if (indent.insertBlankLine) {
+                // '{|}' expansion: an indented empty line (where the cursor lands) above the closer line.
                 emptyLine = Line::Create(U"");
-                textBuffer->Insert(++idxActiveLine, emptyLine);
+                textBuffer->Insert(idxActiveLine + 1, emptyLine);
+                textBuffer->Insert(idxActiveLine + 2, newLine);
+            } else {
+                textBuffer->Insert(idxActiveLine + 1, newLine);
             }
 
-            textBuffer->Insert(idxActiveLine+1, newLine);
-
-            // This will compute the correct indent, -2/+2 are just arbitary choosen to expand the region
-            // clipping is also performed by the syntax parser
+            // Reparse the region for tokenisation / drawing (-2/+2 expands it; the parser also clips). The
+            // indent VALUE now comes from the engine above, not this reparse.
             size_t idxStartParse = (idxActiveLine>2)?idxActiveLine-2:0;
             size_t idxEndParse = (textBuffer->NumLines() > (idxActiveLine + 2))?idxActiveLine+2:textBuffer->NumLines();
 
+            // With threaded parsing off the region is parsed synchronously and the job is null.
             auto ptrJob = UpdateSyntaxForRegion(idxStartParse, idxEndParse);
-            ptrJob->WaitComplete();
+            if (ptrJob != nullptr) {
+                ptrJob->WaitComplete();
+            }
 
-            // Syntax update complete - we can now properly indent the line...
-            cursorXPos = tabSize * newLine->Indent(tabSize);
-
-            // Did we create an empty extra line? - if so, let's indent it properly.
-            // note: we overwrite the cursor X as we will be positioned ourselves on this line
-            if (emptyLine != nullptr) {
-                logger->Debug("EmptyLine, inserting indent: %d", emptyLine->GetIndent());
-                cursorXPos = tabSize * emptyLine->Indent(tabSize);
+            // Apply the engine indent. In the expansion case the cursor lands on the middle empty line.
+            if (indent.insertBlankLine) {
+                ApplyLeadingIndent(newLine, indent.indentLevel * tabSize);
+                cursorXPos = ApplyLeadingIndent(emptyLine, indent.blankLineLevel * tabSize);
+            } else {
+                cursorXPos = ApplyLeadingIndent(newLine, indent.indentLevel * tabSize);
             }
 
             idxActiveLine++;
@@ -693,6 +707,23 @@ size_t Document::NewLine(size_t idxActiveLine, Cursor &cursor) {
     EndUndoItem(undoItem);
 
     return idxActiveLine;
+}
+
+static IndentEngine::Action ComputeNewLineIndent(LanguageBase &language, const std::u32string &referenceText,
+                                                 int splitX, int tabSize) {
+    IndentEngine::Context ctx;
+    ctx.table = IndentCache::Instance().GetTableForLanguage(language.GetConfigNodeName()).get();
+    ctx.lineText = referenceText;
+    ctx.cursorX = splitX;
+    ctx.tabSize = tabSize;
+    return IndentEngine::OnNewLine(ctx);
+}
+
+static int ApplyLeadingIndent(const Line::Ref &line, int nSpaces) {
+    if (nSpaces > 0) {
+        line->Insert(0, std::u32string(nSpaces, U' '));
+    }
+    return nSpaces;
 }
 
 

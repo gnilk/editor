@@ -130,18 +130,53 @@ automatic on every wrap (see Decisions).
 Per repo discipline: contract tests precede the code; `ReindentRange` is fully covered before it is wired
 into the live edit path.
 
-## Decisions — to confirm before Step 1
+## STATUS (2026-06-11, pause point — resume here)
 
-1. **No-selection scope:** reformat **just the current line** (simple, predictable) vs. the **whole
-   enclosing block** (find the brace pair around the cursor — more work, needs a block-finder). *Suggested:
-   current line for v1; enclosing-block later.*
-2. **Wrap integration (Step 3):** auto-reindent on a `{ }`-wrap (fixes H.18b, but mutates more than the
-   user typed) vs. **leave wrap faithful** and require the explicit reformat command afterwards.
-   *Suggested: do it for block pairs only — it is the natural fix for H.18b and matches the user's framing.*
-3. **Default key-binding** for `kActionReformatSelection` (per-platform). *Needs a pick.*
-4. **Lines inside a multi-line string / block comment** within the range: v1 **reindents them like code**
-   (the engine does not yet consult per-line token class). Acceptable for v1, or gate now? *Suggested:
-   accept for v1, note as a refinement (most reformat targets are code blocks).*
+**Done:**
+- **RF.0/1** (`3d1793e`) — `IndentEngine::ReindentRange` + `RangeContext` (Tier 1, the pure stepped walk):
+  one absolute indent level per line, seeded by `anchorLevel`, ignores each line's own (broken) whitespace.
+  Empty table ⇒ each line keeps its existing indent. 4 contract tests in `test_indent` (nested mis-indent
+  fix / anchor≠0 / blank holds / empty-table). Pure — no `Line` dependency.
+- **RF.refactor** (`de9f231`) — extracted `SyntaxRegion::SeekClean{Backward,Forward}` (header-only,
+  `src/Core/Language/SyntaxRegion.h`): the clean-line depth-walk (seek to nearest line at lexer-state
+  baseline, i.e. not inside a multi-line comment/string). `LangLineTokenizer::FindParseRegion{Start,End}`
+  now delegate to it; the highlighter's edge margins + `Editor` selection override stay as policy in the
+  tokenizer wrappers. Behavior-preserving (guarded by `cpplang reparseregion_bounds_*`). Verified set **194**.
+
+**Next — RF.2 (Tier 2 + the explicit commands):**
+1. **Region search in the indent engine** using `SyntaxRegion` over the document lines:
+   - **backward** → trusted anchor (seed only: read its leading whitespace as `anchorLevel`; do NOT rewrite
+     lines above the selection).
+   - **forward** → extend the rewrite range so a selection ending mid-construct is completed.
+   - Bonus: the seek skips depth>1 lines ⇒ reformat never starts/stops inside a multi-line string/comment
+     (de-risks most of Q4).
+2. **`Document::ReindentLineRange(startY, endY)`** — the shared apply-point (sits next to
+   `ComputeNewLineIndent`/`ApplyLeadingIndent`): build `RangeContext`, call `ReindentRange`, apply each level
+   via `ApplyLeadingIndent` under ONE undo item; reparse the touched region; keep cursor sane. Both the
+   commands and the wrap path call this.
+3. **Two actions** (see settled decisions): `kActionReformatLine` (current line) + `kActionReformatBlock`
+   (selection if active, else enclosing block — needs a brace-pair **block-finder**, newly in scope).
+   Add to `Action.h`, the `KeyMapping.cpp` name→action map, both `default_keymap.yml`, and an `EditController`
+   handler. Integration tests in `test_document` through the action.
+4. **RF.3 — wrap integration (H.18b):** `TryWrapSelection` calls `ReindentLineRange` for block pairs only;
+   update `docs/check-autopair.md` H.18b → RESOLVED.
+
+## Decisions — settled (2026-06-11)
+
+1. **No-selection scope → SUPERSEDED by a two-command split.** Instead of one command with a fallback:
+   **`ReformatLine`** always reformats the current line; **`ReformatBlock`** reformats the selection if
+   active, else the **enclosing block**. (So the enclosing-block finder IS in scope, for `ReformatBlock`.)
+2. **Wrap integration → YES, block pairs only** (`{ }`). Non-block wraps (`( [ "`) stay faithful. This is
+   the H.18b fix (RF.3).
+3. **Naming + key-binding → `ReformatLine` / `ReformatBlock`** (NOT `Indent*` — there is already an
+   `Indent`/`Unindent` family on Tab/Shift+Tab that *shifts* by one level; reformat *re-derives*). Keys:
+   **`CopyPasteModifier + 'l'`** (line) and **`CopyPasteModifier + 'i'`** (block) — Cmd on macOS, Ctrl on
+   Linux; consistent with the other editing actions (cut/copy/paste/comment all use `CopyPasteModifier`).
+   Both `'l'` and `'i'` confirmed free in both keymaps.
+4. **Multi-line string/comment lines inside the range → PARKED, largely de-risked.** The `SyntaxRegion`
+   region-search guarantees the range never *starts/stops* inside a multi-line construct. Lines wholly
+   inside one that fall within the range are still reindented like code in v1 (no per-line token-class
+   consult yet); `RangeContext` reserves the hook. Revisit if it bites in the feel-check.
 
 ## Out of scope / deferred
 

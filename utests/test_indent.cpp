@@ -28,6 +28,10 @@ DLL_EXPORT int test_indent_newline_expand(ITesting *t);
 DLL_EXPORT int test_indent_electric(ITesting *t);
 DLL_EXPORT int test_indent_electric_suppress(ITesting *t);
 DLL_EXPORT int test_indent_emptytable(ITesting *t);
+DLL_EXPORT int test_indent_reindent_nested(ITesting *t);
+DLL_EXPORT int test_indent_reindent_anchor(ITesting *t);
+DLL_EXPORT int test_indent_reindent_blank(ITesting *t);
+DLL_EXPORT int test_indent_reindent_emptytable(ITesting *t);
 DLL_EXPORT int test_indent_config(ITesting *t);
 DLL_EXPORT int test_indent_config_unknown(ITesting *t);
 DLL_EXPORT int test_indent_config_asset(ITesting *t);
@@ -39,7 +43,7 @@ using kTC = gedit::kLanguageTokenClass;
 static const int kTab = 4;
 
 // A C-like table: indent after the openers, dedent on the closers, electric off in strings/comments.
-static IndentTable CTable() {
+static IndentTable  CTable() {
     IndentTable tbl;
     tbl.indentAfter = {U'{', U'[', U'('};
     tbl.dedentOn = {U'}', U']', U')'};
@@ -67,7 +71,68 @@ static IndentEngine::Action Ins(const IndentTable &tbl, const std::u32string &li
     return IndentEngine::OnInsertChar(c, typed);
 }
 
+// Reformat helper: build a RangeContext over the given lines (views stay valid for the call) and return the
+// per-line indent levels. The u32strings must outlive the call, so they are passed by const-ref.
+static std::vector<int> RR(const IndentTable &tbl, const std::vector<std::u32string> &lines, int anchor) {
+    IndentEngine::RangeContext c;
+    c.table = &tbl;
+    c.tabSize = kTab;
+    c.anchorLevel = anchor;
+    for (const auto &l : lines) {
+        c.lines.emplace_back(l);
+    }
+    return IndentEngine::ReindentRange(c);
+}
+
 DLL_EXPORT int test_indent(ITesting *t) {
+    return kTR_Pass;
+}
+
+// Reindent a flat-anchored block: the walk re-derives levels from the trigger chars, ignoring the lines'
+// own (here deliberately wrong) leading whitespace - the mis-indented middle line is fixed.
+DLL_EXPORT int test_indent_reindent_nested(ITesting *t) {
+    auto tbl = CTable();
+    // anchor 0; middle line is garbage-indented but must come out at level 1, closer back at 0.
+    auto r = RR(tbl, {U"if (x) {", U"            mess();", U"}"}, 0);
+    TR_ASSERT(t, r.size() == 3);
+    TR_ASSERT(t, r[0] == 0);
+    TR_ASSERT(t, r[1] == 1);
+    TR_ASSERT(t, r[2] == 0);
+    return kTR_Pass;
+}
+
+// Anchor != 0: a block already nested one level in seeds the walk at the anchor; nesting is relative to it.
+DLL_EXPORT int test_indent_reindent_anchor(ITesting *t) {
+    auto tbl = CTable();
+    auto r = RR(tbl, {U"foo() {", U"bar();", U"baz();", U"}"}, 1);
+    TR_ASSERT(t, r.size() == 4);
+    TR_ASSERT(t, r[0] == 1);    // opener line sits at the anchor level
+    TR_ASSERT(t, r[1] == 2);    // body one level past
+    TR_ASSERT(t, r[2] == 2);
+    TR_ASSERT(t, r[3] == 1);    // closer back to the anchor level
+    return kTR_Pass;
+}
+
+// A blank line holds the prevailing level and does not move the running depth.
+DLL_EXPORT int test_indent_reindent_blank(ITesting *t) {
+    auto tbl = CTable();
+    auto r = RR(tbl, {U"{", U"", U"x"}, 0);
+    TR_ASSERT(t, r.size() == 3);
+    TR_ASSERT(t, r[0] == 0);
+    TR_ASSERT(t, r[1] == 1);    // blank inside the block holds level 1
+    TR_ASSERT(t, r[2] == 1);
+    return kTR_Pass;
+}
+
+// Empty table => every line keeps its existing leading-indent level (plaintext is never reflowed).
+DLL_EXPORT int test_indent_reindent_emptytable(ITesting *t) {
+    IndentTable empty;
+    // leading ws -> levels: "  x"=0 (2 spaces), "y"=0, "        z"=2 (8 spaces).
+    auto r = RR(empty, {U"  x", U"y", U"        z"}, 5);
+    TR_ASSERT(t, r.size() == 3);
+    TR_ASSERT(t, r[0] == 0);
+    TR_ASSERT(t, r[1] == 0);
+    TR_ASSERT(t, r[2] == 2);    // unchanged, and the anchor is ignored for an empty table
     return kTR_Pass;
 }
 

@@ -71,6 +71,40 @@ IndentEngine::Action IndentEngine::OnInsertChar(const Context &ctx, char32_t typ
     return action;
 }
 
+// Reformat a range of lines: re-derive each line's indent from scratch via a stepped walk, seeded by the
+// trusted anchor level (the line above the range). Unlike OnNewLine this is stateful across lines - it does
+// NOT trust any line's own current whitespace (that is the thing being fixed); the running depth carries the
+// nesting forward. With no language rules every line keeps its existing indent (plaintext is left alone).
+std::vector<int> IndentEngine::ReindentRange(const RangeContext &ctx) {
+    int tabSize = (ctx.tabSize > 0) ? ctx.tabSize : 4;
+    std::vector<int> levels;
+    levels.reserve(ctx.lines.size());
+
+    if ((ctx.table == nullptr) || ctx.table->IsEmpty()) {
+        for (const auto &line : ctx.lines) {
+            levels.push_back(LeadingIndentLevel(line, tabSize));
+        }
+        return levels;
+    }
+
+    int depth = (ctx.anchorLevel < 0) ? 0 : ctx.anchorLevel;
+    for (const auto &line : ctx.lines) {
+        // A blank line holds the prevailing level and does not move the running depth.
+        if (IsAllWhitespace(line)) {
+            levels.push_back(depth);
+            continue;
+        }
+        // A line whose first non-blank is a closer sits one level out from the running depth.
+        bool closesHere = ctx.table->IsDedentOn(FirstNonSpace(line));
+        int lineLevel = closesHere ? std::max(0, depth - 1) : depth;
+        levels.push_back(lineLevel);
+        // A line ending with an opener pushes the next line in one level.
+        bool opensNext = ctx.table->IsIndentAfter(LastNonSpace(line));
+        depth = lineLevel + (opensNext ? 1 : 0);
+    }
+    return levels;
+}
+
 // Leading whitespace measured in tab units: a space advances one column, a tab to the next tab stop; the
 // column count divided by tabSize is the indent level.
 int IndentEngine::LeadingIndentLevel(std::u32string_view text, int tabSize) {

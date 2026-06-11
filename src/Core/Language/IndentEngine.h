@@ -13,6 +13,7 @@
 #define EDITOR_INDENTENGINE_H
 
 #include <string_view>
+#include <vector>
 
 #include "Core/Language/IndentTable.h"
 #include "Core/Language/LanguageTokenClass.h"
@@ -44,8 +45,21 @@ namespace gedit {
             kLanguageTokenClass tokenClassAtCursor = kLanguageTokenClass::kRegular;
         };
 
+        // Reformat (reindent-a-range): the range-shaped sibling of Context. The decision is inherently
+        // cross-line, so it carries N lines and an anchor (the trusted indent level of the line ABOVE the
+        // range, 0 at file top) rather than one line + cursor. Pure: views + table, no Line dependency.
+        struct RangeContext {
+            const IndentTable *table = nullptr;
+            std::vector<std::u32string_view> lines;     // the lines to reformat, in order
+            int anchorLevel = 0;                        // indent level (tab units) of the line above the range
+            int tabSize = 4;
+        };
+
         static Action OnNewLine(const Context &ctx);
         static Action OnInsertChar(const Context &ctx, char32_t typed);
+        // Returns one absolute indent level (tab units) per input line - a stepped walk seeded by anchorLevel.
+        // Empty table => each line's existing leading-indent level, unchanged (plaintext no-op).
+        static std::vector<int> ReindentRange(const RangeContext &ctx);
 
     private:
         static int LeadingIndentLevel(std::u32string_view text, int tabSize);

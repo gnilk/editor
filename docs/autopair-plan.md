@@ -109,17 +109,51 @@ Skip-over uses the simple "next char == closer" heuristic in v1; tracking *which
 
 ## Wiring into `EditController` — one decision point
 
-Collapse the pre/post split into a single consult:
+Collapse the pre/post split into a single consult. Concrete seams (traced 2026-06-11, the spec for the
+GUI-verified pass):
 
-- In the insert path (`EditController::HandleKeyPress`, currently `:56-83`): build the context (table via
-  `textBuffer->GetLanguage().Identifier()`, `tokenClassAtCursor` via `line->AttributeAt(cursor.position.x)`),
-  call `engine.Decide(...)`. If the Action is non-`None`, apply it under one undo item and skip the default
-  insert; else fall through to `DefaultEditLine`.
-- In the in-line backspace path: consult the engine for `DeletePair` before the default single-char delete.
-- **Delete** `CPPLanguage`/`JSONLanguage` `OnPreInsertChar`/`OnPostInsertChar` overrides, the
-  `LanguageBase` hook declarations for those two, and the `enable_pre_post_insert` flag (repurpose to
-  `enable_autopair` if a kill-switch is wanted). **Keep `OnPreCreateNewLine`** — that is the *indent*
-  engine's concern, untouched here.
+**Prereq — `LanguageBase::GetConfigNodeName()`.** `ConfigFromNodeName(nodeName)` (`LanguageBase.cpp:20`)
+copies `languages.<name>` into the language but drops the *name*. Add `std::string configNodeName;` + a
+getter; set it at the top of `ConfigFromNodeName`. The engine table is fetched with
+`AutoPairCache::Instance().GetTableForLanguage(lang.GetConfigNodeName())`. (Confirm `JSONLanguage`/
+`DefaultLanguage::Initialize` call `ConfigFromNodeName`; CPP does, `CPPLanguage.cpp:143`. A language that
+never calls it ⇒ empty name ⇒ no section ⇒ no pairing, which is a safe default.)
+
+**InsertPair + SkipOver — in `HandleKeyPress` (`EditController.cpp:56-83`), the one function:**
+- Build context: `table` (above), `lineText = line->Buffer()`, `cursorX = cursor.position.x`,
+  `selectionActive = false` (selection is already resolved upstream — see Wrap), `tokenClassAtCursor` from
+  `line->AttributeAt(cursor.position.x)->tokenClass` (guard empty `Attributes()` / past-EOL → `kRegular`).
+- `kInsertPair`: `DefaultEditLine(...)` inserts the opener and advances the cursor + sets `wantedColumn`
+  (via `AddCharToLine`, `BaseController.cpp:63-66`); then `line->Insert(cursor.position.x, action.close)`
+  drops the closer *without* moving the cursor → `(|)`.
+- `kSkipOver`: insert nothing; `cursor.position.x++` and recompute
+  `cursor.wantedColumn = line->CharToVisualColumn(cursor.position.x, document->GetTabSize())` (don't leave
+  it stale — that drives vertical nav). One undo item still brackets the no-op for symmetry.
+- `kNone`: fall through to the existing `DefaultEditLine`.
+
+**WrapSelection — in `OnKeyPress` (`EditController.cpp:154-164`), BEFORE the selection-delete block:** the
+existing code deletes the selection then inserts, so wrap must intercept first (it needs the selection
+content). If printable + selection active + engine says `kWrapSelection`, surround the selection with
+`open`/`close` and return; else keep the current delete-then-insert.
+
+**DeletePair — the in-line backspace path:** `HandleSpecialKeyPress` → `DefaultEditSpecial` does the
+single-char delete; intercept the backspace key there (engine `OnBackspace`) and delete both halves of an
+adjacent empty pair before the default.
+
+**Delete the experiment:** `CPPLanguage`/`JSONLanguage` `OnPreInsertChar`/`OnPostInsertChar` overrides, the
+`LanguageBase` hook decls for those two, and the `enable_pre_post_insert` flag (`config.yml:94` +
+`EditController.cpp:60`; repurpose to `enable_autopair` if a kill-switch is wanted). **Keep
+`OnPreCreateNewLine`** — indent engine's concern. (This also drops the `}`-dedent-on-type, per the decided
+option a.)
+
+**Verification:** drive `HandleKeyPress`/`OnKeyPress` from a unit test (the seam exists —
+`test_document_ins_keypress`, `EditController::Create(document)`) to assert buffer + `cursor.position.x`
+for insert-pair / skip-over / no-pair-mid-word / suppress-in-comment / backspace-pair. Then the SDL
+on-screen confirm (cursor feel, undo grouping, no pairing in `readme.txt`).
+
+**Suggested sub-split for the GUI-verified pass:** 3a = `GetConfigNodeName` + `HandleKeyPress`
+InsertPair/SkipOver + delete experiment + unit tests (one function, lowest risk, the headline feature);
+3b = DeletePair (backspace) + WrapSelection (the two cross-path cases).
 
 ## Ordered steps — each compiles, keeps the verified-green set green
 

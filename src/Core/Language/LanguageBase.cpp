@@ -18,6 +18,7 @@ int LanguageBase::GetTabSize() {
 }
 
 void LanguageBase::ConfigFromNodeName(const std::string nodeName) {
+    configNodeName = nodeName;
     if (!Config::Instance().HasKey("languages")) return;
 
     auto langNode = Config::Instance().GetNode("languages");

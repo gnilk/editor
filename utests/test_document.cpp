@@ -5,6 +5,7 @@
 #include "Core/Editor.h"
 #include "Core/TextBuffer.h"
 #include "Core/Controllers/EditController.h"
+#include "Core/Language/AutoPairCache.h"
 
 
 using namespace gedit;
@@ -32,6 +33,12 @@ DLL_EXPORT int test_document_switch_preserves_undo(ITesting *t);
 // undo must act on the EDITED document, not whichever document happens to be active
 DLL_EXPORT int test_document_undo_independent_of_active(ITesting *t);
 DLL_EXPORT int test_document_viewmode(ITesting *t);
+
+// 'autopair' - the AutoPairEngine wired through EditController (insert-pair / skip-over / backspace-pair)
+DLL_EXPORT int test_document_autopair_insertpair(ITesting *t);
+DLL_EXPORT int test_document_autopair_skipover(ITesting *t);
+DLL_EXPORT int test_document_autopair_nopair_midword(ITesting *t);
+DLL_EXPORT int test_document_autopair_backspace(ITesting *t);
 
 }
 
@@ -529,5 +536,108 @@ DLL_EXPORT int test_document_viewmode(ITesting *t) {
 
     document->SetViewMode(DocumentViewMode::kText);
     TR_ASSERT(t, document->GetViewMode() == DocumentViewMode::kText);
+    return kTR_Pass;
+}
+
+// --- Auto-pairing wired through EditController ---------------------------------------------------------
+// Drives the real edit path (controller->HandleKeyPress / OnKeyPress) with a hermetic pair table keyed by
+// the document's own language config name. The decision logic itself is covered by test_autopair; these
+// pin the *application* of an Action to the buffer + cursor.
+
+static KeyPress KP(char32_t ch) {
+    KeyPress kp = {};
+    kp.isKeyValid = true;
+    kp.isSpecialKey = false;
+    kp.key = ch;
+    return kp;
+}
+
+// An empty document whose language has a loaded pair table for "(" / "{".
+static Document::Ref CreateAutoPairDoc(ITesting *t) {
+    auto document = CreateEmptyDocument(t);
+    gedit::Rect rect(40, 40);
+    document->OnViewInit(rect);
+
+    auto langName = document->GetTextBuffer()->GetLanguage().GetConfigNodeName();
+    TR_ASSERT(t, !langName.empty());
+    std::string yaml =
+        "autopairs:\n  " + langName + ":\n"
+        "    auto_close_before: [eol, whitespace, \")\"]\n"
+        "    suppress_in: [comment]\n"
+        "    pairs:\n"
+        "      - { open: \"(\", close: \")\" }\n"
+        "      - { open: \"{\", close: \"}\" }\n";
+    TR_ASSERT(t, AutoPairCache::Instance().LoadFromString(yaml));
+    return document;
+}
+
+// Type '(' at end-of-line -> "()" with the cursor between.
+DLL_EXPORT int test_document_autopair_insertpair(ITesting *t) {
+    auto document = CreateAutoPairDoc(t);
+    auto controller = EditController::Create(document);
+    auto &lc = document->GetLineCursor();
+
+    auto kp = KP(U'(');
+    controller->HandleKeyPress(lc.cursor, lc.idxActiveLine, kp);
+
+    TR_ASSERT(t, document->ActiveLine()->Buffer() == U"()");
+    TR_ASSERT(t, lc.cursor.position.x == 1);   // between the pair
+    AutoPairCache::Instance().Clear();
+    return kTR_Pass;
+}
+
+// Typing the closer when it already sits to the right steps over it (no insert).
+DLL_EXPORT int test_document_autopair_skipover(ITesting *t) {
+    auto document = CreateAutoPairDoc(t);
+    auto controller = EditController::Create(document);
+    auto &lc = document->GetLineCursor();
+
+    auto open = KP(U'(');
+    controller->HandleKeyPress(lc.cursor, lc.idxActiveLine, open);  // "()", cursor at 1
+    auto close = KP(U')');
+    controller->HandleKeyPress(lc.cursor, lc.idxActiveLine, close); // step over
+
+    TR_ASSERT(t, document->ActiveLine()->Buffer() == U"()");        // unchanged
+    TR_ASSERT(t, lc.cursor.position.x == 2);                        // moved past the closer
+    AutoPairCache::Instance().Clear();
+    return kTR_Pass;
+}
+
+// No auto-close in the middle of a word (next char is not an invited close-before char).
+DLL_EXPORT int test_document_autopair_nopair_midword(ITesting *t) {
+    auto document = CreateAutoPairDoc(t);
+    auto controller = EditController::Create(document);
+    auto &lc = document->GetLineCursor();
+
+    document->ActiveLine()->Append(std::u32string(U"ab"));
+    lc.cursor.position.x = 0;                                       // before 'a'
+
+    auto open = KP(U'(');
+    controller->HandleKeyPress(lc.cursor, lc.idxActiveLine, open);
+
+    TR_ASSERT(t, document->ActiveLine()->Buffer() == U"(ab");      // just the '(' inserted
+    TR_ASSERT(t, lc.cursor.position.x == 1);
+    AutoPairCache::Instance().Clear();
+    return kTR_Pass;
+}
+
+// Backspace between an empty pair deletes both halves.
+DLL_EXPORT int test_document_autopair_backspace(ITesting *t) {
+    auto document = CreateAutoPairDoc(t);
+    auto controller = EditController::Create(document);
+    auto &lc = document->GetLineCursor();
+
+    auto open = KP(U'(');
+    controller->HandleKeyPress(lc.cursor, lc.idxActiveLine, open);  // "()", cursor at 1
+
+    KeyPress bsp = {};
+    bsp.isKeyValid = true;
+    bsp.isSpecialKey = true;
+    bsp.specialKey = Keyboard::kKeyCode_Backspace;
+    controller->OnKeyPress(bsp);
+
+    TR_ASSERT(t, document->ActiveLine()->Buffer() == U"");          // both gone
+    TR_ASSERT(t, lc.cursor.position.x == 0);
+    AutoPairCache::Instance().Clear();
     return kTR_Pass;
 }

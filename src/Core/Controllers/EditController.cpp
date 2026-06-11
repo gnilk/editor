@@ -9,10 +9,25 @@
 #include "Core/UndoHistory.h"
 #include "Core/Editor.h"
 #include "Core/Rect.h"
+#include "Core/Language/AutoPairCache.h"
 #include <sstream>
 #include <memory>
 
 using namespace gedit;
+
+// Token class covering a cursor column - drives auto-pair suppression in strings/comments and quote
+// open-vs-skip. Falls back to kRegular for an unparsed/empty line or a cursor past the last span.
+static kLanguageTokenClass TokenClassAt(const Line::Ref &line, int x) {
+    auto &attribs = line->Attributes();
+    if (attribs.empty()) {
+        return kLanguageTokenClass::kRegular;
+    }
+    auto it = line->AttributeAt(x);
+    if (it == attribs.end()) {
+        return kLanguageTokenClass::kRegular;
+    }
+    return it->tokenClass;
+}
 
 EditController::Ref EditController::Create(const Document::Ref &newDocument) {
     auto inst = std::make_shared<EditController>();
@@ -54,26 +69,32 @@ bool EditController::HandleKeyPress(Cursor &cursor, size_t &idxLine, const KeyPr
 
 
     auto undoItem = document->BeginUndoItem();
-    LanguageBase::kInsertAction parserAction = LanguageBase::kInsertAction::kDefault;
 
-    // FIXME: rename!!!!
-    bool doPrePostInsert = Config::Instance()["editorview"].GetBool("enable_pre_post_insert", true);
-
-
-    if (keyPress.IsHumanReadable() && doPrePostInsert) {
-        parserAction = textBuffer->GetLanguage().OnPreInsertChar(cursor, line, keyPress.key);
-    }
-    // The pre-insert handler for a language can determine if we should 'stop' the default behavior..
-    if (parserAction == LanguageBase::kInsertAction::kNoInsert) {
-        document->EndUndoItem(undoItem);
-        return true;
-    }
-
-    // Except for this line - all things belong to the document - more or less...
-    if ((parserAction == LanguageBase::kInsertAction::kDefault) && DefaultEditLine(cursor, line, keyPress, false)) {
-        if (keyPress.IsHumanReadable() && doPrePostInsert) {
-            textBuffer->GetLanguage().OnPostInsertChar(cursor, line, keyPress.key);
+    // Auto-pairing: for a printable char the engine decides whether to insert a pair, step over an
+    // existing closer, or do nothing. (Selection-wrap is decided upstream in OnKeyPress; not wired yet.)
+    if (keyPress.IsHumanReadable()) {
+        auto action = AutoPairEngine::OnInsertChar(BuildAutoPairContext(line, cursor, false), keyPress.key);
+        if (action.type == AutoPairEngine::kPairAction::kSkipOver) {
+            // Type-through: insert nothing, just step the cursor over the closer already to the right.
+            cursor.position.x++;
+            cursor.wantedColumn = line->CharToVisualColumn(cursor.position.x, document->GetTabSize());
+            document->EndUndoItem(undoItem);
+            return true;
         }
+        if (action.type == AutoPairEngine::kPairAction::kInsertPair) {
+            // Insert the opener (DefaultEditLine advances cursor + wantedColumn), then drop the closer
+            // after the cursor so it lands between the pair.
+            if (DefaultEditLine(cursor, line, keyPress, false)) {
+                line->Insert(cursor.position.x, action.close);
+                document->EndUndoItem(undoItem);
+                document->UpdateSyntaxForActiveLineRegion();
+                return true;
+            }
+        }
+    }
+
+    // Default: just insert the typed char.
+    if (DefaultEditLine(cursor, line, keyPress, false)) {
         document->EndUndoItem(undoItem);
         document->UpdateSyntaxForActiveLineRegion();
         return true;
@@ -87,6 +108,20 @@ bool EditController::HandleSpecialKeyPress(Cursor &cursor, size_t &idxLine, cons
     auto line = textBuffer->LineAt(idxLine);
     auto undoItem = document->BeginUndoItem();
     bool wasHandled = true;
+
+    // Auto-pairing: backspace with the cursor between an empty pair "()" deletes both halves.
+    if ((keyPress.specialKey == Keyboard::kKeyCode_Backspace) && (line != nullptr)) {
+        auto action = AutoPairEngine::OnBackspace(BuildAutoPairContext(line, cursor, false));
+        if (action.type == AutoPairEngine::kPairAction::kDeletePair) {
+            line->Delete(cursor.position.x);        // the closer at the cursor
+            cursor.position.x--;
+            line->Delete(cursor.position.x);        // the opener before the cursor
+            cursor.wantedColumn = line->CharToVisualColumn(cursor.position.x, document->GetTabSize());
+            document->EndUndoItem(undoItem);
+            document->UpdateSyntaxForActiveLineRegion();
+            return true;
+        }
+    }
 
     if (DefaultEditSpecial(cursor, line, keyPress)) {
         document->EndUndoItem(undoItem);
@@ -178,4 +213,18 @@ bool EditController::OnKeyPress(const KeyPress &keyPress) {
     }
 
     return false;
+}
+
+// The single place that turns editor state into an AutoPairEngine::Context: the table is selected by the
+// language's config name (the autopairs.yml key; empty/unknown => empty table => no pairing), the line text
+// + cursor come from the active edit, and the token class at the cursor gates string/comment suppression.
+AutoPairEngine::Context EditController::BuildAutoPairContext(const Line::Ref &line, const Cursor &cursor, bool selectionActive) {
+    AutoPairEngine::Context ctx;
+    auto &language = document->GetTextBuffer()->GetLanguage();
+    ctx.table = AutoPairCache::Instance().GetTableForLanguage(language.GetConfigNodeName()).get();
+    ctx.lineText = line->Buffer();
+    ctx.cursorX = cursor.position.x;
+    ctx.selectionActive = selectionActive;
+    ctx.tokenClassAtCursor = TokenClassAt(line, cursor.position.x);
+    return ctx;
 }

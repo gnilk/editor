@@ -155,6 +155,21 @@ on-screen confirm (cursor feel, undo grouping, no pairing in `readme.txt`).
 InsertPair/SkipOver + delete experiment + unit tests (one function, lowest risk, the headline feature);
 3b = DeletePair (backspace) + WrapSelection (the two cross-path cases).
 
+**STATUS (2026-06-11): 3a + DeletePair DONE; WrapSelection deferred to 3b.**
+- `LanguageBase::GetConfigNodeName()` added (set in `ConfigFromNodeName`); `configNodeName` member.
+- `EditController::BuildAutoPairContext` is the single glue point (table by `GetConfigNodeName()`,
+  `tokenClassAt` via `Line::AttributeAt`). `HandleKeyPress` does InsertPair (DefaultEditLine + `line->Insert`
+  the closer) and SkipOver (`cursor.x++` + recompute `wantedColumn`); `HandleSpecialKeyPress` does DeletePair
+  on backspace between an empty pair. The `CPP`/`JSON` `OnPre/OnPostInsertChar` experiment + the
+  `enable_pre_post_insert` flag are deleted (the `}`-dedent dropped, per option a).
+- Verified: 4 integration tests in `test_document` (insert-pair / skip-over / no-pair-mid-word /
+  backspace-pair) assert the buffer + cursor through `EditController`; engine logic covered by `test_autopair`.
+  Verified-green set **172**. **GUI on-screen confirm still pending** (cursor feel, undo grouping, no pairing
+  in `readme.txt` / inside a comment).
+- **Remaining 3b: WrapSelection** — intercept in `OnKeyPress` before the selection-delete block
+  (`EditController.cpp:189-199`), surround the active selection with open/close (single-line first;
+  multi-line is the careful case).
+
 ## Ordered steps — each compiles, keeps the verified-green set green
 
 - **Step 0 — Pin the contract (test-first).** New `utests/test_autopair.cpp` (`test_autopair` module +

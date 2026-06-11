@@ -150,37 +150,3 @@ LanguageBase::kInsertAction CPPLanguage::OnPreCreateNewLine(const Line::Ref newL
     }
     return kInsertAction::kNewLine;
 }
-
-
-
-LanguageBase::kInsertAction CPPLanguage::OnPreInsertChar(Cursor &cursor, Line::Ref line, char32_t ch) {
-    // FIXME: This needs much more logic...
-    if(ch == U'}') {
-        // FIXME: Check if line is 'empty' up-to x-pos
-        cursor.position.x -= GetTabSize();
-        if (cursor.position.x < 0) {
-            cursor.position.x = 0;
-        }
-    } else if (ch == U')') {
-        if ((cursor.position.x == line->Length()-1) && (line->Last() == U')')) {
-            // no insert - just skip over ')' and stop the insert
-            cursor.position.x++;
-            return kInsertAction::kNoInsert;
-        }
-    }
-    return kInsertAction::kDefault;
-
-}
-
-void CPPLanguage::OnPostInsertChar(Cursor &cursor, Line::Ref line, char32_t ch) {
-    if (ch == U'{') {
-        // FIXME: Check if chars to right are whitespace...
-        line->Insert(cursor.position.x, U'}');
-    } else if (ch == '[') {
-        // FIXME: Check if chars to right are whitespace...
-        line->Insert(cursor.position.x, U']');
-    } else if (ch == U'(') {
-        // FIXME: Check if chars to right are whitespace...
-        line->Insert(cursor.position.x, U')');
-    }
-}

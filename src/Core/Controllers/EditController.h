@@ -10,6 +10,7 @@
 #include "Core/Document.h"
 #include "Core/KeyMapping.h"
 #include "Core/Rect.h"
+#include "Core/Language/AutoPairEngine.h"
 #include "BaseController.h"
 #include "logger.h"
 #include <memory>
@@ -52,6 +53,11 @@ namespace gedit {
 
     protected:
         bool HandleSpecialKeyPressForEditor(Cursor &cursor, size_t &idxLine, const KeyPress &keyPress);
+
+        // Auto-pairing glue: the ONE place that knows how to wire AutoPairEngine (table by language,
+        // token-class at the cursor). Callers just consult the returned Action. (Selection-wrap is not
+        // wired yet - see docs/autopair-plan.md "3b".)
+        AutoPairEngine::Context BuildAutoPairContext(const Line::Ref &line, const Cursor &cursor, bool selectionActive);
     private:
         gnilk::ILogger *logger = nullptr;
         Document *document = nullptr;       // borrowed - lifetime owned by the Workspace

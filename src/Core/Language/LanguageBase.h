@@ -37,12 +37,16 @@ namespace gedit {
             return lineCommentPrefix;
         }
 
-        // Not too key on adding dependencies on these things
-        virtual kInsertAction OnPreInsertChar(Cursor &cursor, Line::Ref line, char32_t ch) { return kInsertAction::kDefault; }
+        // Newline behaviour hook (indent / auto-newline next to '}') - used by Document::NewLine. The old
+        // per-char insert hooks (OnPreInsertChar/OnPostInsertChar) were removed in favour of the
+        // data-driven AutoPairEngine; this one stays until the indent engine subsumes it.
         virtual kInsertAction OnPreCreateNewLine(const Line::Ref newLine) { return kInsertAction::kDefault; }
-        virtual void OnPostInsertChar(Cursor &cursor, Line::Ref line, char32_t ch) { }
         // Used by single line parsers (like 'makefile') to enhance the attributes after initial parsing
         virtual void OnPostProcessParsedLine(Line::Ref line) {}
+
+        // The config name this language was configured from (the 'languages:' key, e.g. "cpp") - also the
+        // key into autopairs.yml. Empty if the language never called ConfigFromNodeName.
+        const std::string &GetConfigNodeName() const { return configNodeName; }
 
         // Common Language Settings
         int GetTabSize();
@@ -51,6 +55,7 @@ namespace gedit {
 
     protected:
         LangLineTokenizer tokenizer;
+        std::string configNodeName;
     };
 }
 

@@ -30,8 +30,6 @@ namespace gedit {
         }
 
         kInsertAction OnPreCreateNewLine(const Line::Ref newLine) override;
-        kInsertAction OnPreInsertChar(Cursor &cursor, Line::Ref line, char32_t ch) override;
-        void OnPostInsertChar(Cursor &cursor, Line::Ref line, char32_t ch) override;
     private:
 
 // declare in-string operators

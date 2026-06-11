@@ -434,6 +434,7 @@ list(APPEND editorsrc src/Core/Language/LanguageBase.cpp src/Core/Language/Langu
 list(APPEND editorsrc src/Core/Language/LangToken.cpp src/Core/Language/LangToken.h)
 list(APPEND editorsrc src/Core/Language/AutoPairEngine.cpp src/Core/Language/AutoPairEngine.h)
 list(APPEND editorsrc src/Core/Language/AutoPairTable.h)
+list(APPEND editorsrc src/Core/Language/AutoPairCache.cpp src/Core/Language/AutoPairCache.h)
 list(APPEND editorsrc src/Core/Language/LanguageSupport/DefaultLanguage.cpp src/Core/Language/LanguageSupport/DefaultLanguage.h)
 list(APPEND editorsrc src/Core/Language/LanguageSupport/CPPLanguage.cpp src/Core/Language/LanguageSupport/CPPLanguage.h)
 list(APPEND editorsrc src/Core/Language/LanguageSupport/CPPNumberMatcher.cpp src/Core/Language/LanguageSupport/CPPNumberMatcher.h)

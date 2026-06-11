@@ -45,30 +45,36 @@ token span during normal parsing (`LangToken::ToLineAttrib`, `LangToken.cpp:66`)
 
 ## The YAML config
 
-A standalone file (`Assets/Resources/autopairs.yml`) referenced from `config.yml`, self-contained so it is
-independently unit-testable (like the keymap files). A `generic` base section; languages `inherit` it and
-override/append; **intra-file** inheritance (resolved within this one file, by section name).
+A standalone file (`Assets/Resources/autopairs.yml`) referenced from `config.yml` `main.autopairs:`
+(mirroring `main.theme:`), self-contained so it is independently unit-testable (like the keymap files). A
+`generic` base section; languages `inherit` it and override/append; **intra-file** inheritance (resolved
+within this one file, by section name). Keys follow the project's config convention (lowercase sections,
+**snake_case** fields), and sections are keyed by the language's **config name** — the same short name as
+`config.yml`'s `languages:` section (`cpp`, `json`, `make`, `default`), *not* `Identifier()` (which is
+`c/c++`).
 
 ```yaml
 autopairs:
   generic:
-    suppressIn: [string, comment]               # token-class at cursor where auto-close is OFF
-    autoCloseBefore: [")", "]", "}", ",", ";", whitespace, eol]
+    suppress_in: [string, comment]              # token-class at cursor where auto-close is OFF
+    auto_close_before: [")", "]", "}", ",", ";", whitespace, eol]
     pairs:
       - { open: "(",  close: ")" }
       - { open: "[",  close: "]" }
       - { open: "{",  close: "}" }
-      - { open: "\"", close: "\"", quote: true }
-      - { open: "'",  close: "'",  quote: true }
+      - { open: "\"", close: "\"", quote: yes }
+      - { open: "'",  close: "'",  quote: yes }
   cpp:
     inherit: generic
-    pairs: [ { open: "<", close: ">" } ]         # appended / overrides
+    pairs: [ { open: "<", close: ">" } ]         # appended (replaces an inherited pair with the same open)
   json:
-    inherit: generic                             # e.g. drop the ' pair
+    inherit: generic
 ```
 
-**Selection rule:** look up the section by `language.Identifier()`. **No section ⇒ no pairing** — plaintext
-(`readme.txt`, the `default` language) gets nothing. `generic` is a base to *inherit*, never auto-applied.
+**Selection rule:** look up the section by the language's config name. **No section ⇒ no pairing** —
+plaintext (`readme.txt`, the `default` language) gets nothing. `generic` is a base to *inherit*, never
+auto-applied. Bridging the runtime language → its config name needs `LanguageBase::GetConfigNodeName()`
+(`ConfigFromNodeName` copies the node but doesn't currently retain the name) — added in Step 3.
 
 **Loading/inheritance owner:** one cache (mirroring `KeyMappingCache`): build each table once, resolve the
 intra-file `inherit` chain through itself, cache by identifier. The resolver appends the parent's resolved

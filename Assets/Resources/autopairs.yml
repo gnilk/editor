@@ -1,0 +1,31 @@
+# Auto-pairing rules - see docs/autopair-plan.md.
+#
+# One self-contained file: a 'generic' base that languages inherit and override/append. Sections are keyed
+# by the language's config name (the same short name as the 'languages:' section in config.yml: cpp, json,
+# make, default, ...). A language with NO section here gets NO auto-pairing - so plain text (the "default"
+# language, e.g. readme.txt) is intentionally absent.
+#
+#   suppress_in        - token classes at the cursor where auto-close is OFF (no pairing inside a
+#                        string/comment). Names: string, comment.
+#   auto_close_before  - the opener auto-closes only when the next char is one of these, or one of the
+#                        special tokens 'whitespace' / 'eol' (end of line). Never auto-closes mid-word.
+#   pairs              - open/close chars; quote: yes means the same key opens and closes (the engine
+#                        disambiguates open-vs-skip).
+autopairs:
+  generic:
+    suppress_in: [string, comment]
+    auto_close_before: [")", "]", "}", ",", ";", whitespace, eol]
+    pairs:
+      - { open: "(",  close: ")" }
+      - { open: "[",  close: "]" }
+      - { open: "{",  close: "}" }
+      - { open: "\"", close: "\"", quote: yes }
+      - { open: "'",  close: "'",  quote: yes }
+
+  cpp:
+    inherit: generic
+    pairs:
+      - { open: "<", close: ">" }
+
+  json:
+    inherit: generic

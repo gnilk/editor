@@ -1,6 +1,8 @@
 main:
   backend: sdl
   theme: default.theme.yml
+  # auto-pairing rules (brackets/quotes) - see docs/autopair-plan.md
+  autopairs: autopairs.yml
   # select the keymap default for the backend
   # 'default' is a reserved word - replace with your file name when forking it...
   keymap: "default_keymap"

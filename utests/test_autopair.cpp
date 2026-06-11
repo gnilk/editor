@@ -11,6 +11,7 @@
 
 #include <string>
 
+#include "Core/Language/AutoPairCache.h"
 #include "Core/Language/AutoPairEngine.h"
 #include "Core/Language/AutoPairTable.h"
 #include "Core/Language/LanguageTokenClass.h"
@@ -26,6 +27,9 @@ DLL_EXPORT int test_autopair_quotes(ITesting *t);
 DLL_EXPORT int test_autopair_wrap(ITesting *t);
 DLL_EXPORT int test_autopair_backspace(ITesting *t);
 DLL_EXPORT int test_autopair_emptytable(ITesting *t);
+DLL_EXPORT int test_autopair_config(ITesting *t);
+DLL_EXPORT int test_autopair_config_unknown(ITesting *t);
+DLL_EXPORT int test_autopair_config_asset(ITesting *t);
 }
 
 using kPA = AutoPairEngine::kPairAction;
@@ -169,5 +173,83 @@ DLL_EXPORT int test_autopair_emptytable(ITesting *t) {
     TR_ASSERT(t, Ins(empty, U"foo", 3, U'(').type == kPA::kNone);
     TR_ASSERT(t, Ins(empty, U"()", 1, U')').type == kPA::kNone);
     TR_ASSERT(t, Bsp(empty, U"()", 1).type == kPA::kNone);
+    return kTR_Pass;
+}
+
+// The YAML loader: a child folds in its inherited parent (generic) then appends/overrides. Hermetic via
+// LoadFromString - no asset loader.
+DLL_EXPORT int test_autopair_config(ITesting *t) {
+    auto &cache = AutoPairCache::Instance();
+    const std::string yaml =
+        "autopairs:\n"
+        "  generic:\n"
+        "    suppress_in: [string, comment]\n"
+        "    auto_close_before: [\")\", whitespace, eol]\n"
+        "    pairs:\n"
+        "      - { open: \"(\", close: \")\" }\n"
+        "      - { open: \"\\\"\", close: \"\\\"\", quote: yes }\n"
+        "  cpp:\n"
+        "    inherit: generic\n"
+        "    pairs:\n"
+        "      - { open: \"<\", close: \">\" }\n";
+    TR_ASSERT(t, cache.LoadFromString(yaml));
+
+    auto cpp = cache.GetTableForLanguage("cpp");
+    TR_ASSERT(t, cpp != nullptr);
+    // Inherited the generic pairs + its own <>.
+    TR_ASSERT(t, cpp->FindByOpen(U'(') != nullptr);
+    TR_ASSERT(t, cpp->FindByOpen(U'<') != nullptr);
+    TR_ASSERT(t, cpp->FindByClose(U'>') != nullptr);
+    auto q = cpp->FindByOpen(U'"');
+    TR_ASSERT(t, (q != nullptr) && q->isQuote);
+    // Inherited suppress_in + auto_close_before.
+    TR_ASSERT(t, cpp->IsSuppressed(kTC::kString));
+    TR_ASSERT(t, cpp->IsSuppressed(kTC::kLineComment));
+    TR_ASSERT(t, cpp->AutoCloseBefore(0));        // eol
+    TR_ASSERT(t, cpp->AutoCloseBefore(U' '));     // whitespace
+    TR_ASSERT(t, cpp->AutoCloseBefore(U')'));
+    TR_ASSERT(t, !cpp->AutoCloseBefore(U'x'));
+
+    // The generic base itself does not have the cpp-only <>.
+    auto gen = cache.GetTableForLanguage("generic");
+    TR_ASSERT(t, gen->FindByOpen(U'(') != nullptr);
+    TR_ASSERT(t, gen->FindByOpen(U'<') == nullptr);
+
+    cache.Clear();
+    return kTR_Pass;
+}
+
+// A language with no section (e.g. plaintext "default") resolves to an empty table => no pairing.
+DLL_EXPORT int test_autopair_config_unknown(ITesting *t) {
+    auto &cache = AutoPairCache::Instance();
+    TR_ASSERT(t, cache.LoadFromString(
+        "autopairs:\n  generic:\n    pairs:\n      - { open: \"(\", close: \")\" }\n"));
+    auto def = cache.GetTableForLanguage("default");
+    TR_ASSERT(t, (def != nullptr) && def->IsEmpty());
+    cache.Clear();
+    return kTR_Pass;
+}
+
+// Loads the actual shipped autopairs.yml via the asset loader (the EnsureLoaded path). Validates the file
+// parses and the cpp section resolves (generic brackets + cpp <>), while plaintext 'default' stays empty.
+DLL_EXPORT int test_autopair_config_asset(ITesting *t) {
+    auto &cache = AutoPairCache::Instance();
+    cache.Clear();   // force EnsureLoaded to read resources/autopairs.yml
+
+    auto cpp = cache.GetTableForLanguage("cpp");
+    TR_ASSERT(t, cpp != nullptr);
+    TR_ASSERT(t, cpp->FindByOpen(U'(') != nullptr);
+    TR_ASSERT(t, cpp->FindByOpen(U'[') != nullptr);
+    TR_ASSERT(t, cpp->FindByOpen(U'{') != nullptr);
+    TR_ASSERT(t, cpp->FindByOpen(U'<') != nullptr);     // cpp-only, via inherit+append
+    auto dq = cpp->FindByOpen(U'"');
+    TR_ASSERT(t, (dq != nullptr) && dq->isQuote);
+    TR_ASSERT(t, cpp->IsSuppressed(kTC::kString));
+    TR_ASSERT(t, cpp->IsSuppressed(kTC::kBlockComment));
+
+    // No 'default' section -> plaintext gets no pairing.
+    TR_ASSERT(t, cache.GetTableForLanguage("default")->IsEmpty());
+
+    cache.Clear();
     return kTR_Pass;
 }

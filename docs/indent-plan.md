@@ -188,8 +188,16 @@ the live edit path.
   no dedent mid-line). Verified-green set **189**.
 
 **Indent v1 is feature-complete** (newline auto-indent, `{|}` expansion, electric dedent-on-type, the
-experiment deleted). Remaining: the GUI feel-check (Enter after `{`, the `{|}` block, `}`-dedent, no
-electric inside a comment / in `readme.txt`).
+experiment deleted).
+
+**GUI feel-check DONE (2026-06-11).** Live SDL2 run: `{|}` block expansion and nested-block indent
+both correct (cursor lands at the right level, closers pushed down). The check surfaced a **crash**:
+typing a closer (`}`) on an *empty* line whose cursor sits past end-of-line (reachable via auto-indented
+blank lines) hit `BaseController::AddCharToLine` → `line->Insert(cursor.x)` with `cursor.x` past the
+zero-length buffer → `std::out_of_range` → terminate. Fixed by clamping the insert index to the line
+end (insert-past-end == append) at that single chokepoint, so it protects *every* insert path, not just
+electric dedent. Regression test `test_document_indent_electric_emptyline` reproduces the exact crash
+(reproduce-before-fix); full verified-green set still green (168).
 
 ## Decisions — locked (confirmed before planning, 2026-06-11)
 

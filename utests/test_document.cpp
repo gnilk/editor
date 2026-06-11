@@ -48,6 +48,7 @@ DLL_EXPORT int test_document_indent_dedent(ITesting *t);
 DLL_EXPORT int test_document_indent_expand(ITesting *t);
 DLL_EXPORT int test_document_indent_electric(ITesting *t);
 DLL_EXPORT int test_document_indent_electric_midline(ITesting *t);
+DLL_EXPORT int test_document_indent_electric_emptyline(ITesting *t);
 
 }
 
@@ -781,6 +782,28 @@ DLL_EXPORT int test_document_indent_electric_midline(ITesting *t) {
 
     TR_ASSERT(t, document->ActiveLine()->Buffer() == U"    x}");   // unchanged indent
     TR_ASSERT(t, lc.cursor.position.x == 6);
+    IndentCache::Instance().Clear();
+    return kTR_Pass;
+}
+
+// Regression (GUI feel-check 2026-06-11): typing a closer on an EMPTY line with the cursor parked
+// past its end must not crash. Electric dedent early-returns (no leading run to shrink), so the closer
+// falls through to the default insert - which used to call line->Insert(cursor.x) with cursor.x past
+// the (zero-length) buffer => std::out_of_range => terminate. The insert chokepoint now clamps to the
+// line end (append), so the closer lands and the cursor follows.
+DLL_EXPORT int test_document_indent_electric_emptyline(ITesting *t) {
+    auto document = CreateIndentDoc(t);
+    auto controller = EditController::Create(document);
+    auto &lc = document->GetLineCursor();
+
+    // ActiveLine is empty; cursor sits at col 8 (reachable in the live app via auto-indented blank lines).
+    lc.cursor.position.x = 8;
+
+    auto kp = KP(U'}');
+    controller->HandleKeyPress(lc.cursor, lc.idxActiveLine, kp);   // must not throw
+
+    TR_ASSERT(t, document->ActiveLine()->Buffer() == U"}");        // closer appended, no crash
+    TR_ASSERT(t, lc.cursor.position.x == 1);
     IndentCache::Instance().Clear();
     return kTR_Pass;
 }

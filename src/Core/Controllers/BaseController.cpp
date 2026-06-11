@@ -2,8 +2,9 @@
 // Created by gnilk on 15.02.23.
 //
 
-#include "logger.h"
+#include <algorithm>
 
+#include "logger.h"
 #include "BaseController.h"
 
 using namespace gedit;
@@ -61,8 +62,12 @@ bool BaseController::DefaultEditSpecial(Cursor &cursor, Line::Ref line, const Ke
 }
 
 void BaseController::AddCharToLine(Cursor &cursor, Line::Ref line, int ch) {
-    line->Insert(cursor.position.x, ch);
-    cursor.position.x++;
+    // Clamp at the single insertion chokepoint: the cursor can legitimately sit past a (short/empty)
+    // line's end - e.g. on an auto-indented blank line whose whitespace isn't materialised - and
+    // inserting past end-of-string throws std::out_of_range. Insert there means append.
+    int at = std::min(cursor.position.x, (int)line->Length());
+    line->Insert(at, ch);
+    cursor.position.x = at + 1;
     cursor.wantedColumn = line->CharToVisualColumn(cursor.position.x, editTabSize);
 }
 

@@ -186,6 +186,15 @@ bool EditController::OnKeyPress(const KeyPress &keyPress) {
     // Unless we can edit - we do nothing
     if (!document->GetTextBuffer()->CanEdit()) return false;
 
+    // Auto-pairing: typing an opener/quote OVER a selection surrounds it instead of replacing it. Must run
+    // before the delete-and-insert below, since that would discard the selection content.
+    if (document->IsSelectionActive() && keyPress.IsHumanReadable()) {
+        if (TryWrapSelection(keyPress.key)) {
+            document->UpdateDocumentFromNavigation(true);
+            return true;
+        }
+    }
+
     // In case we have selection active - we treat the whole thing a bit differently...
     if (document->IsSelectionActive()) {
 
@@ -227,4 +236,49 @@ AutoPairEngine::Context EditController::BuildAutoPairContext(const Line::Ref &li
     ctx.selectionActive = selectionActive;
     ctx.tokenClassAtCursor = TokenClassAt(line, cursor.position.x);
     return ctx;
+}
+
+bool EditController::TryWrapSelection(char32_t typed) {
+    auto &selection = document->GetSelection();
+    if (!selection.IsActive()) {
+        return false;
+    }
+    auto start = selection.GetStart();      // sorted top-left (buffer coords: x=char, y=line)
+    auto end = selection.GetEnd();          // sorted bottom-right
+
+    auto textBuffer = document->GetTextBuffer();
+    auto startLine = textBuffer->LineAt(start.y);
+    auto endLine = textBuffer->LineAt(end.y);
+    if ((startLine == nullptr) || (endLine == nullptr)) {
+        return false;
+    }
+
+    // Ask the engine (selectionActive=true) - only an opener/quote yields a wrap; anything else falls back.
+    Cursor at;
+    at.position = start;
+    auto action = AutoPairEngine::OnInsertChar(BuildAutoPairContext(startLine, at, true), typed);
+    if (action.type != AutoPairEngine::kPairAction::kWrapSelection) {
+        return false;
+    }
+
+    auto undoItem = document->BeginUndoFromLineRange(start.y, end.y + 1);
+
+    // Insert the closer first (at the selection end), then the opener at the start - in this order the
+    // opener insert doesn't shift the closer's position mid-operation.
+    endLine->Insert(end.x, action.close);
+    startLine->Insert(start.x, action.open);
+
+    document->EndUndoItem(undoItem);
+
+    // Final closer index: on a single-line selection the opener shifted it right by one; across lines it
+    // is untouched. Park the cursor just after it and drop the selection.
+    int closeIndex = (end.y == start.y) ? end.x + 1 : end.x;
+    document->CancelSelection();
+    auto &lineCursor = document->GetLineCursor();
+    lineCursor.idxActiveLine = end.y;
+    lineCursor.cursor.position = { closeIndex + 1, end.y };
+    lineCursor.cursor.wantedColumn = endLine->CharToVisualColumn(closeIndex + 1, document->GetTabSize());
+
+    document->UpdateSyntaxForRegion(start.y, end.y + 1);
+    return true;
 }

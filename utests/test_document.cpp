@@ -39,6 +39,7 @@ DLL_EXPORT int test_document_autopair_insertpair(ITesting *t);
 DLL_EXPORT int test_document_autopair_skipover(ITesting *t);
 DLL_EXPORT int test_document_autopair_nopair_midword(ITesting *t);
 DLL_EXPORT int test_document_autopair_backspace(ITesting *t);
+DLL_EXPORT int test_document_autopair_wrap(ITesting *t);
 
 }
 
@@ -60,6 +61,12 @@ static EditorAction actionShiftLineUp =
                 .modifierMask = Keyboard::ShiftMask()
         };
 static EditorAction actionUndo = {gedit::kAction::kActionUndo};
+static EditorAction actionShiftLineRight =
+        {
+                .action = gedit::kAction::kActionLineRight,
+                .actionModifier = kActionModifier::kActionModifierSelection,
+                .modifierMask = Keyboard::ShiftMask()
+        };
 
 
 DLL_EXPORT int test_document(ITesting *t) {
@@ -638,6 +645,30 @@ DLL_EXPORT int test_document_autopair_backspace(ITesting *t) {
 
     TR_ASSERT(t, document->ActiveLine()->Buffer() == U"");          // both gone
     TR_ASSERT(t, lc.cursor.position.x == 0);
+    AutoPairCache::Instance().Clear();
+    return kTR_Pass;
+}
+
+// Typing an opener over a selection surrounds it: "ab" -> "(ab)", cursor after the closer.
+DLL_EXPORT int test_document_autopair_wrap(ITesting *t) {
+    auto document = CreateAutoPairDoc(t);
+    auto controller = EditController::Create(document);
+    auto &lc = document->GetLineCursor();
+
+    document->ActiveLine()->Append(std::u32string(U"ab"));
+    lc.cursor.position.x = 0;
+
+    // Select "ab" via two shift-rights (the realistic selection path).
+    document->OnAction(actionShiftLineRight);
+    document->OnAction(actionShiftLineRight);
+    TR_ASSERT(t, document->IsSelectionActive());
+
+    auto open = KP(U'(');
+    controller->OnKeyPress(open);
+
+    TR_ASSERT(t, document->ActiveLine()->Buffer() == U"(ab)");
+    TR_ASSERT(t, !document->IsSelectionActive());
+    TR_ASSERT(t, lc.cursor.position.x == 4);        // just after the ')'
     AutoPairCache::Instance().Clear();
     return kTR_Pass;
 }

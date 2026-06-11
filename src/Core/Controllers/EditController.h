@@ -55,9 +55,11 @@ namespace gedit {
         bool HandleSpecialKeyPressForEditor(Cursor &cursor, size_t &idxLine, const KeyPress &keyPress);
 
         // Auto-pairing glue: the ONE place that knows how to wire AutoPairEngine (table by language,
-        // token-class at the cursor). Callers just consult the returned Action. (Selection-wrap is not
-        // wired yet - see docs/autopair-plan.md "3b".)
+        // token-class at the cursor). Callers just consult the returned Action.
         AutoPairEngine::Context BuildAutoPairContext(const Line::Ref &line, const Cursor &cursor, bool selectionActive);
+        // Surround the active selection with a pair when an opener/quote is typed over it. Returns false
+        // (caller falls back to the default delete-and-insert) when the engine does not want a wrap.
+        bool TryWrapSelection(char32_t typed);
     private:
         gnilk::ILogger *logger = nullptr;
         Document *document = nullptr;       // borrowed - lifetime owned by the Workspace

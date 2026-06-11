@@ -166,9 +166,16 @@ InsertPair/SkipOver + delete experiment + unit tests (one function, lowest risk,
   backspace-pair) assert the buffer + cursor through `EditController`; engine logic covered by `test_autopair`.
   Verified-green set **172**. **GUI on-screen confirm still pending** (cursor feel, undo grouping, no pairing
   in `readme.txt` / inside a comment).
-- **Remaining 3b: WrapSelection** — intercept in `OnKeyPress` before the selection-delete block
-  (`EditController.cpp:189-199`), surround the active selection with open/close (single-line first;
-  multi-line is the careful case).
+- **3b: WrapSelection — DONE.** `EditController::TryWrapSelection` runs in `OnKeyPress` before the
+  selection-delete block: it asks the engine (selectionActive=true) and, on a wrap, inserts the closer at
+  `Selection::GetEnd()` then the opener at `GetStart()` (closer-first so the opener doesn't shift it),
+  parks the cursor after the closer, and cancels the selection. Works single- and multi-line. v1 cancels
+  the selection rather than re-selecting the wrapped text (a possible later nicety). Covered by
+  `test_document_autopair_wrap`. Verified-green set **173**.
+
+**Auto-pairing v1 is feature-complete** (insert-pair, type-through, backspace-pair, suppress-in-string/
+comment, quotes, selection-wrap; `<>` intentionally excluded). Remaining: GUI feel-check of wrap + the
+eventual indent engine.
 
 ## Ordered steps — each compiles, keeps the verified-green set green
 

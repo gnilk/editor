@@ -12,6 +12,7 @@
 #include <assert.h>
 #include "logger.h"
 #include "Core/StrUtil.h"
+#include "Core/Language/SyntaxRegion.h"
 using namespace gedit;
 
 size_t LangLineTokenizer::ParseRegion(std::vector<Line::Ref> &lines, size_t idxLineStart, size_t idxLineEnd) {
@@ -60,23 +61,17 @@ std::pair<size_t, size_t> LangLineTokenizer::ComputeParseRegion(const std::vecto
 }
 
 // Try calculate the start of the parse region given a bunch of lines and the idx to the start for the calculation
-// Seeks backward to find the start of the re-parse region for the syntax highlighter
+// Seeks backward to find the start of the re-parse region for the syntax highlighter. The clean-line seek is
+// shared with the indent engine (SyntaxRegion); the near-top margin is highlighter policy and stays here.
 size_t LangLineTokenizer::FindParseRegionStart(const std::vector<Line::Ref> &lines, size_t idxRegion) {
-    size_t idxStart = 0;
     if ((idxRegion < 5) || (idxRegion > lines.size())) {
-        return idxStart;
+        return 0;
     }
-
-    // search backwards until the state-stack depth == 0
-    idxStart = idxRegion-1;
-    // FIXME: If Stack State Depth == 0 and attributes == 0, something is wrong..
-    while((lines[idxStart]->GetStateStackDepth() > 1) && (idxStart != 0)) {
-        idxStart--;
-    }
-    return idxStart;
+    return SyntaxRegion::SeekCleanBackward(lines, idxRegion);
 }
 
-// Seeks forward to find the end of the re-parse region for the syntax highlighter
+// Seeks forward to find the end of the re-parse region for the syntax highlighter. The near-bottom margin
+// and the active-selection extension are highlighter policy; the clean-line seek is shared (SyntaxRegion).
 size_t LangLineTokenizer::FindParseRegionEnd(const std::vector<Line::Ref> &lines, size_t idxRegion) {
     if ((lines.size() < 5) || (idxRegion > lines.size())) {
         return lines.size();
@@ -91,12 +86,7 @@ size_t LangLineTokenizer::FindParseRegionEnd(const std::vector<Line::Ref> &lines
         idxRegion = selection.GetEnd().y;
     }
 
-    idxRegion += 1;
-    while(lines[idxRegion]->GetStateStackDepth() > 1) {
-        idxRegion++;
-        if (idxRegion >= lines.size()) break;
-    }
-    return idxRegion;
+    return SyntaxRegion::SeekCleanForward(lines, idxRegion);
 }
 
 //

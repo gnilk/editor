@@ -23,9 +23,10 @@ autopairs:
       - { open: "'",  close: "'",  quote: yes }
 
   cpp:
+    # No <> auto-pair on purpose: '<' is ambiguous - less-than / shift operator vs template / #include -
+    # and auto-closing it turns 'i < x' into 'i <>x'. Disambiguating needs semantic context (deferred);
+    # editors generally only insert <> via template/include completion. Inherit the generic set only.
     inherit: generic
-    pairs:
-      - { open: "<", close: ">" }
 
   json:
     inherit: generic

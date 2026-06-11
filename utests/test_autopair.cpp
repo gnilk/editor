@@ -241,7 +241,7 @@ DLL_EXPORT int test_autopair_config_asset(ITesting *t) {
     TR_ASSERT(t, cpp->FindByOpen(U'(') != nullptr);
     TR_ASSERT(t, cpp->FindByOpen(U'[') != nullptr);
     TR_ASSERT(t, cpp->FindByOpen(U'{') != nullptr);
-    TR_ASSERT(t, cpp->FindByOpen(U'<') != nullptr);     // cpp-only, via inherit+append
+    TR_ASSERT(t, cpp->FindByOpen(U'<') == nullptr);     // '<' is intentionally NOT auto-paired (ambiguous)
     auto dq = cpp->FindByOpen(U'"');
     TR_ASSERT(t, (dq != nullptr) && dq->isQuote);
     TR_ASSERT(t, cpp->IsSuppressed(kTC::kString));

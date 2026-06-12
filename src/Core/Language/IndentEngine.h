@@ -73,6 +73,17 @@ namespace gedit {
                                    const IndentTable *table, int tabSize);
         static size_t FindRangeEnd(const std::vector<Line::Ref> &lines, size_t endY);
 
+        // The brace pair enclosing the cursor (for ReformatBlock with no selection). found=false if the
+        // cursor is not inside a '{ }' block. Braces inside a string/comment (token class in suppressIn) do
+        // not nest, so a parsed buffer is matched correctly.
+        struct BlockRange {
+            bool found = false;
+            size_t openY = 0;
+            size_t closeY = 0;
+        };
+        static BlockRange FindEnclosingBlock(const std::vector<Line::Ref> &lines, size_t cursorY, int cursorX,
+                                             const IndentTable *table);
+
     private:
         static int LeadingIndentLevel(std::u32string_view text, int tabSize);
         static char32_t LastNonSpace(std::u32string_view text);

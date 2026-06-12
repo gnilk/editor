@@ -108,6 +108,109 @@ std::vector<int> IndentEngine::ReindentRange(const RangeContext &ctx) {
     return levels;
 }
 
+// Token class of the char at (line, x); kRegular when the line is unparsed or x is past end - so an
+// unparsed brace still counts (degrades to naive matching rather than ignoring everything).
+static kLanguageTokenClass TokenClassAtChar(const Line::Ref &line, int x) {
+    auto &attribs = line->Attributes();
+    if (attribs.empty()) {
+        return kLanguageTokenClass::kRegular;
+    }
+    auto it = line->AttributeAt(x);
+    if (it == attribs.end()) {
+        return kLanguageTokenClass::kRegular;
+    }
+    return it->tokenClass;
+}
+
+// The '{ }' pair enclosing the cursor: scan backward for the nearest unmatched '{' and forward for its
+// matching '}', counting brace depth and skipping braces inside strings/comments (suppressIn token classes).
+IndentEngine::BlockRange IndentEngine::FindEnclosingBlock(const std::vector<Line::Ref> &lines, size_t cursorY,
+                                                         int cursorX, const IndentTable *table) {
+    BlockRange result;
+    if (lines.empty() || (cursorY >= lines.size())) {
+        return result;
+    }
+    auto isCountingBrace = [&](size_t y, int x, char32_t want) -> bool {
+        const auto &buf = lines[y]->Buffer();
+        if ((x < 0) || (x >= (int)buf.size()) || (buf[x] != want)) {
+            return false;
+        }
+        return (table == nullptr) || !table->IsSuppressed(TokenClassAtChar(lines[y], x));
+    };
+
+    // Backward: the nearest enclosing '{' - any '}' seen first must be matched by its own '{' before it.
+    bool foundOpen = false;
+    size_t openY = 0;
+    {
+        int depth = 0;
+        size_t y = cursorY;
+        int x = cursorX - 1;
+        while (true) {
+            int lineLen = (int)lines[y]->Buffer().size();
+            if (x > lineLen - 1) {
+                x = lineLen - 1;
+            }
+            for (; x >= 0; x--) {
+                if (isCountingBrace(y, x, U'}')) {
+                    depth++;
+                } else if (isCountingBrace(y, x, U'{')) {
+                    if (depth == 0) {
+                        foundOpen = true;
+                        openY = y;
+                        break;
+                    }
+                    depth--;
+                }
+            }
+            if (foundOpen || (y == 0)) {
+                break;
+            }
+            y--;
+            x = (int)lines[y]->Buffer().size() - 1;
+        }
+    }
+    if (!foundOpen) {
+        return result;
+    }
+
+    // Forward: the matching '}' - any '{' seen first must be closed by its own '}' before it.
+    bool foundClose = false;
+    size_t closeY = 0;
+    {
+        int depth = 0;
+        size_t y = cursorY;
+        int x = cursorX;
+        while (y < lines.size()) {
+            int lineLen = (int)lines[y]->Buffer().size();
+            for (; x < lineLen; x++) {
+                if (isCountingBrace(y, x, U'{')) {
+                    depth++;
+                } else if (isCountingBrace(y, x, U'}')) {
+                    if (depth == 0) {
+                        foundClose = true;
+                        closeY = y;
+                        break;
+                    }
+                    depth--;
+                }
+            }
+            if (foundClose) {
+                break;
+            }
+            y++;
+            x = 0;
+        }
+    }
+    if (!foundClose) {
+        return result;
+    }
+
+    result.found = true;
+    result.openY = openY;
+    result.closeY = closeY;
+    return result;
+}
+
 // The trusted seed level for reformatting a range that starts at startY: walk back to the nearest clean line
 // (lexer state baseline, i.e. not inside a multi-line comment/string) and take its leading indent, plus one
 // level if that line opens a block. This is read only - the anchor line is never rewritten.

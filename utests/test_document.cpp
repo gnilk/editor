@@ -57,6 +57,8 @@ DLL_EXPORT int test_document_reformat_undo(ITesting *t);
 // block-surround (RF.3 / H.18b)
 DLL_EXPORT int test_document_reformat_surround(ITesting *t);
 DLL_EXPORT int test_document_reformat_surround_undo(ITesting *t);
+// enclosing-block finder (RF.2b)
+DLL_EXPORT int test_document_reformat_block_enclosing(ITesting *t);
 
 }
 
@@ -795,6 +797,26 @@ DLL_EXPORT int test_document_reformat_surround_undo(ITesting *t) {
     TR_ASSERT(t, document->LineAt(0)->Buffer() == U"void f() {");
     TR_ASSERT(t, document->LineAt(1)->Buffer() == U"a();");
     TR_ASSERT(t, document->LineAt(2)->Buffer() == U"b();");
+    IndentCache::Instance().Clear();
+    return kTR_Pass;
+}
+
+// ReformatBlock with no selection finds the enclosing '{ }' and reformats the whole block. Cursor sits on a
+// body line of the outer block; the nested inner block is reindented relative to it.
+DLL_EXPORT int test_document_reformat_block_enclosing(ITesting *t) {
+    auto document = CreateReformatDoc(t, {"void f() {", "a();", "if (y) {", "b();", "}", "}"});
+    auto &lc = document->GetLineCursor();
+    lc.idxActiveLine = 1;               // a body line of the outer block, no selection
+    lc.cursor.position.x = 0;
+
+    document->OnAction({gedit::kAction::kActionReformatBlock});
+
+    TR_ASSERT(t, document->LineAt(0)->Buffer() == U"void f() {");
+    TR_ASSERT(t, document->LineAt(1)->Buffer() == U"    a();");
+    TR_ASSERT(t, document->LineAt(2)->Buffer() == U"    if (y) {");
+    TR_ASSERT(t, document->LineAt(3)->Buffer() == U"        b();");
+    TR_ASSERT(t, document->LineAt(4)->Buffer() == U"    }");
+    TR_ASSERT(t, document->LineAt(5)->Buffer() == U"}");
     IndentCache::Instance().Clear();
     return kTR_Pass;
 }

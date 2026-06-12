@@ -349,9 +349,16 @@ bool Document::OnActionReformatBlock() {
         }
         ReindentLineRange(start.y, endY);
     } else {
-        // RF.2b TODO: locate the enclosing brace block; until then reformat the current line.
-        auto idxLine = documentViewState->lineCursor.idxActiveLine;
-        ReindentLineRange(idxLine, idxLine);
+        // No selection: reformat the enclosing '{ }' block (or just the current line if not inside one).
+        auto &lc = documentViewState->lineCursor;
+        auto table = IndentCache::Instance().GetTableForLanguage(textBuffer->GetLanguage().GetConfigNodeName()).get();
+        auto block = IndentEngine::FindEnclosingBlock(textBuffer->Lines(), lc.idxActiveLine,
+                                                      lc.cursor.position.x, table);
+        if (block.found) {
+            ReindentLineRange(block.openY, block.closeY);
+        } else {
+            ReindentLineRange(lc.idxActiveLine, lc.idxActiveLine);
+        }
     }
     return true;
 }

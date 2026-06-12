@@ -10,11 +10,15 @@ Commands under test:
 - **Block-surround** — type `{` over a *multi-line* selection — braces on their own lines + body nested.
 
 ## A. ReformatLine (Cmd/Ctrl+L)
-- [ ] 1. Over-indent a body line by hand (`            foo();` inside a function), cursor on it, press
+- [x] 1. Over-indent a body line by hand (`            foo();` inside a function), cursor on it, press
   `Cmd+L` → snaps to the correct one level (`    foo();`).
-- [ ] 2. Under-indent a line (flush left inside a block), `Cmd+L` → indents to the right level.
-- [ ] 3. An already-correct line + `Cmd+L` → unchanged (idempotent; press twice, nothing moves).
-- [ ] 4. Anchor respected: the line above is the reference — a line right after `if (x) {` lands one level
+      Comment: Cursor, positioning after correction - feels odd, not sure what to do about it though..
+      FIXED: caret now rides its character across the reindent (shifts by the indent delta). Guard: test_document_reformat_cursor.
+- [x] 2. Under-indent a line (flush left inside a block), `Cmd+L` → indents to the right level.
+      Comment: Cursor, under-indent until text is left most, indent, cursor stays at 0, not at 'start of text after indent'
+      FIXED: a caret in the (old) indentation now snaps to the new start of text. Guard: test_document_reformat_cursor.
+- [x] 3. An already-correct line + `Cmd+L` → unchanged (idempotent; press twice, nothing moves).
+- [x] 4. Anchor respected: the line above is the reference — a line right after `if (x) {` lands one level
   past it; a neutral line keeps the previous line's level.
 
 ## B. ReformatBlock with a selection (Cmd/Ctrl+I)

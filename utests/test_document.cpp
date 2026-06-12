@@ -52,6 +52,7 @@ DLL_EXPORT int test_document_indent_electric_emptyline(ITesting *t);
 
 // 'reformat' - ReindentLineRange + the ReformatLine/ReformatBlock actions (RF.2)
 DLL_EXPORT int test_document_reformat_line(ITesting *t);
+DLL_EXPORT int test_document_reformat_cursor(ITesting *t);
 DLL_EXPORT int test_document_reformat_range(ITesting *t);
 DLL_EXPORT int test_document_reformat_undo(ITesting *t);
 // block-surround (RF.3 / H.18b)
@@ -737,6 +738,34 @@ DLL_EXPORT int test_document_reformat_line(ITesting *t) {
     TR_ASSERT(t, document->LineAt(0)->Buffer() == U"if (x) {");
     TR_ASSERT(t, document->LineAt(2)->Buffer() == U"}");
     IndentCache::Instance().Clear();
+    return kTR_Pass;
+}
+
+// After a reformat the caret follows its content: a caret that sat in the indentation rides to the new start
+// of text (under-indent case), and one within the text keeps the same character (over-indent case).
+DLL_EXPORT int test_document_reformat_cursor(ITesting *t) {
+    // Under-indent: caret at col 0 in front of flush-left text -> lands at the new start of text (col 4).
+    {
+        auto document = CreateReformatDoc(t, {"if (x) {", "mess();", "}"});
+        auto &lc = document->GetLineCursor();
+        lc.idxActiveLine = 1;
+        lc.cursor.position.x = 0;
+        document->OnAction({gedit::kAction::kActionReformatLine});
+        TR_ASSERT(t, document->LineAt(1)->Buffer() == U"    mess();");
+        TR_ASSERT(t, document->GetLineCursor().cursor.position.x == 4);
+        IndentCache::Instance().Clear();
+    }
+    // Over-indent: caret on the 's' of "mess" (col 14 over 12 leading) rides to the same 's' (col 6).
+    {
+        auto document = CreateReformatDoc(t, {"if (x) {", "            mess();", "}"});
+        auto &lc = document->GetLineCursor();
+        lc.idxActiveLine = 1;
+        lc.cursor.position.x = 14;
+        document->OnAction({gedit::kAction::kActionReformatLine});
+        TR_ASSERT(t, document->LineAt(1)->Buffer() == U"    mess();");
+        TR_ASSERT(t, document->GetLineCursor().cursor.position.x == 6);
+        IndentCache::Instance().Clear();
+    }
     return kTR_Pass;
 }
 

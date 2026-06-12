@@ -777,6 +777,15 @@ static void SetLineLeadingIndent(const Line::Ref &line, int nSpaces) {
     }
 }
 
+// Count of leading whitespace characters (spaces/tabs) on a line buffer.
+static int LeadingWhitespaceCharCount(const std::u32string &buf) {
+    int n = 0;
+    while ((n < (int)buf.size()) && ((buf[n] == U' ') || (buf[n] == U'\t'))) {
+        n++;
+    }
+    return n;
+}
+
 // String form of SetLineLeadingIndent - used when building replacement line content before it is committed.
 static void SetStringLeadingIndent(std::u32string &str, int nSpaces) {
     size_t runLen = 0;
@@ -1033,20 +1042,37 @@ void Document::ReindentLineRange(size_t startY, size_t endY) {
     undoItem->SetRestoreAction(UndoHistory::kRestoreAction::kClearAndAppend);
     EndUndoItem(undoItem);
 
+    // Capture the active line's pre-edit geometry so the caret can follow its content across the reindent.
+    auto &lineCursor = documentViewState->lineCursor;
+    size_t activeIdx = lineCursor.idxActiveLine;
+    bool activeInRange = (activeIdx >= startY) && (activeIdx <= endExtended);
+    int oldCursorX = lineCursor.cursor.position.x;
+    int oldLeadingChars = activeInRange ? LeadingWhitespaceCharCount(lines[activeIdx]->Buffer()) : 0;
+
     for (size_t i = 0; i < levels.size(); i++) {
         SetLineLeadingIndent(lines[startY + i], levels[i] * tabSize);
     }
 
     UpdateSyntaxForRegion(startY, endExtended + 1);
 
-    // The active line's content changed - clamp the cursor column and re-derive its wanted column.
-    auto &lineCursor = documentViewState->lineCursor;
-    auto activeLine = LineAt(lineCursor.idxActiveLine);
+    // Reposition the caret. A caret that sat in (or at the start of) the old indentation rides to the new
+    // start of text; one already within the text keeps its character by shifting with the indent delta.
+    auto activeLine = LineAt(activeIdx);
     if (activeLine != nullptr) {
-        if (lineCursor.cursor.position.x > (int)activeLine->Length()) {
-            lineCursor.cursor.position.x = (int)activeLine->Length();
+        int newCursorX = oldCursorX;
+        if (activeInRange) {
+            int newLeadingChars = LeadingWhitespaceCharCount(activeLine->Buffer());
+            newCursorX = (oldCursorX <= oldLeadingChars) ? newLeadingChars
+                                                         : (oldCursorX + (newLeadingChars - oldLeadingChars));
         }
-        lineCursor.cursor.wantedColumn = activeLine->CharToVisualColumn(lineCursor.cursor.position.x, tabSize);
+        if (newCursorX < 0) {
+            newCursorX = 0;
+        }
+        if (newCursorX > (int)activeLine->Length()) {
+            newCursorX = (int)activeLine->Length();
+        }
+        lineCursor.cursor.position.x = newCursorX;
+        lineCursor.cursor.wantedColumn = activeLine->CharToVisualColumn(newCursorX, tabSize);
     }
 }
 

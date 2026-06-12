@@ -373,8 +373,12 @@ and rebuild `utests` (`libutests.so` Linux / `.dylib` macOS) on the other box.
   a line's LAST token span (so a trailing comment reads as code) — left alone because
   `Document::OnActionWordRight` leans on that buggy fallback; reformat/indent use their own correct
   `TokenClassAtChar` scans instead. (2) `Document::SetCursorPosition` writes an ABSOLUTE line index into
-  the screen-relative `cursor.position.y` (caret mis-draws on a scrolled view, e.g. search-jump). Read that
-  file before touching `AttributeAt`, word-nav, or any caret/goto-line code.
+  the screen-relative `cursor.position.y` (caret mis-draws on a scrolled view, e.g. search-jump). (3) the
+  syntax highlighter mis-tags an identifier that directly abuts `{` (e.g. `{foo`) as an operator until a
+  space is typed. (4) whole-line cut/paste drops the trailing newline when the selection ends at EOL of the
+  last line (the next line joins the last pasted line) — fix is Option A (a real linewise-selection flag).
+  Read that file before touching `AttributeAt`, word-nav, any caret/goto-line code, the tokenizer, or the
+  selection/clipboard.
 - ~~HexView: per-document view-mode restore across a document switch.~~ **DONE 2026-06-10** (see
   resume-point Next-steps #1): `EditorViewContainer::ReInitView` → `SyncToActiveDocument` → shared
   `ApplyViewMode` mechanics (focus transferred only if the outgoing item held it). Compile + green; GUI

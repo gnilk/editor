@@ -44,25 +44,51 @@ Commands under test:
   fallback, no wild range).
 
 ## D. Block-surround — multi-line `{`-wrap (the H.18b payoff)
-- [ ] 12. Select two+ body lines, type `{` → braces land on their **own lines**, body indented one level:
+- [X] 12. Select two+ body lines, type `{` → braces land on their **own lines**, body indented one level:
   ```
   {
       foo();
       bar();
   }
   ```
-- [ ] 13. The block nests relative to its surroundings (inside an already-indented scope it lands at that
+  Comment: This works but the cursor dissapears. Typed foo(); and bar(); - selected them (using full-lines)
+           pressed '{', braces on their own lines, cursor gone! 
+  Comment: What should this produce:
+  static void func() {
+  {    foo();
+  bar(); }
+  }
+    IF 'CMD+i' is pressed between '{  | foo();' < caret is at '|'  ?
+    IF I select the two lines and do CMD+i?
+- [x] 13. The block nests relative to its surroundings (inside an already-indented scope it lands at that
   scope's level + 1, not column 0).
-- [ ] 14. Single-line selection + `{` → still the **faithful inline** `{selected}` (NOT block-surround).
-- [ ] 15. Non-block pair over a multi-line selection (`(`, `[`, `"`) → faithful inline wrap, **no**
+- [X] 14. Single-line selection + `{` → still the **faithful inline** `{selected}` (NOT block-surround).
+- [x] 15. Non-block pair over a multi-line selection (`(`, `[`, `"`) → faithful inline wrap, **no**
   brace-on-own-line restructure.
-- [ ] 16. Cursor lands sensibly after the surround (at/after the closing brace), no stray selection left.
+- [x] 16. Cursor lands sensibly after the surround (at/after the closing brace), no stray selection left.
 
 ## E. Undo (single press)
-- [ ] 17. After a block-surround (D.12), **one** undo restores the original lines exactly — the two brace
+- [x] 17. After a block-surround (D.12), **one** undo restores the original lines exactly — the two brace
   lines gone, body whitespace back to original. Not two presses, no stray `{`/`}` left.
-- [ ] 18. After a ReformatLine / ReformatBlock, one undo restores the original indentation of the whole
+- [-] 18. After a ReformatLine / ReformatBlock, one undo restores the original indentation of the whole
   affected range in a single step.
+  Comment: Cut/Paste the block (incl. the '{' '}' lines) works, but on paste the final (outer) brace is placed on the same line as the inner-brace of the pasted block. seems like NL is not preserved on pasting - if pasting whole-lines this should be the case.
+  Block:
+static void func() {
+    {           <- start whole line selection
+        static char[]="wefweffe";
+        foo();
+        bar();
+    }       <- end whole line selection
+}
+ cut, and then paste -> goes to:
+static void func() {
+    {     
+        static char[]="wefweffe";
+        foo();
+        bar();
+    }|}     <- caret in between the braces
+
 - [ ] 19. Redo after the undo re-applies cleanly.
 
 ## F. Plaintext / no-op

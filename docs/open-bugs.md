@@ -74,3 +74,71 @@ every caller: `JumpToSearchHit` (search nav), plus any "goto line"/jump callers.
 **Reference pattern (already fixed this way):** `Document::SurroundLineRangeWithBlock` and
 `EditController::TryWrapSelection` both now write `position.y = absoluteLine - viewTopLine` (+ refocus where
 the line count changed) — copy that.
+
+---
+
+## 3. Syntax highlighter mis-tags an identifier that directly abuts `{` (no separating whitespace)
+
+**Where:** the tokenizer — `src/Core/Language/LangLineTokenizer.cpp` and/or the CPP config in
+`CPPLanguage.cpp` (token boundary handling when an identifier abuts an opener). NOT yet root-caused.
+
+**Symptom (observed, not yet traced):** with the caret at `{|foo()` — i.e. `{` immediately followed by an
+identifier with NO space between — the highlighter tags `foo` with a non-identifier class (looks like an
+operator: it renders the SAME color as the brace). Typing a single space after the `{` (then it
+re-tokenizes) fixes the coloring.
+
+**Repro:**
+```cpp
+static void func() {foo();
+}
+```
+Place the caret between `{` and `foo` and observe `foo`'s color; insert a space → correct.
+
+**Hypothesis (unverified):** the tokenizer doesn't break a token at the `{`/identifier boundary when they
+abut, so `{foo` (or `foo` right after `{`) is matched against the operator/brace rule instead of starting a
+fresh identifier token. The space forces a token boundary.
+
+**Discovered:** 2026-06-12 (feel-check). Deferred to a later bug sweep — do NOT fix piecemeal.
+
+**When fixing:** add a `test_cpplang` case asserting the token class of an identifier immediately following
+an opener (`{foo`, and likely `(foo`, `[foo`) is `kRegular`/identifier, not operator/brace. Check the
+tokenizer's longest-match / boundary logic at operator↔identifier transitions.
+
+---
+
+## 4. Whole-line cut/paste drops the trailing newline when the selection ends at EOL of the last line
+
+**Where:** the selection model + clipboard — `Document::UpdateSelection` (`Document.h`),
+`ClipBoard::ClipBoardItem::ResolveSegments` / `PasteToBuffer` (`src/Core/ClipBoard.cpp`).
+
+**What's wrong:** a selection's END is just the live caret — `UpdateSelection` sets
+`end = (cursor.x, idxActiveLine)`. The clipboard's only "selection ended on a line break" signal is
+`end.x == 0`; `ResolveSegments` appends the trailing-newline marker (an empty final segment) ONLY then.
+So a "whole-line" selection whose caret finished at the END of the last line (`end.x == lastLine.length`,
+not column 0 of the next line) is stored WITHOUT a trailing newline. On paste the multi-line splice does
+`Insert(insertAt, segs.back() + tail)`, joining the destination's following line onto the last pasted line.
+
+**Symptom (feel-check E.18):** cut a whole-line block including its braces, paste it back, and the line
+after the paste point is pulled up onto the last pasted line:
+```
+    }|}     <- caret between the inner '}' (pasted) and the outer '}' (destination tail, joined on)
+```
+Trace matches exactly: `segs.back() = "    }"`, `tail = "}"` → `"    }}"`, caret returned at
+`segs.back().length()` (col 5, between the braces).
+
+**Not a corruption — a charwise-vs-linewise gap.** Selecting to the last *character* of a line is
+charwise-correct (the newline isn't included), but a whole-line selection should paste linewise (each line
+on its own, trailing newline preserved). There is no explicit linewise-selection concept today; `end.x == 0`
+is the only proxy and the EOL-of-last-line case slips past it.
+
+**Decided fix — Option A (capture a real linewise flag):** mark a selection/cut as *linewise* at the point
+it is made (e.g. full-line selection / line-cut), carry that onto the `ClipBoardItem`, and have
+`ResolveSegments` preserve the trailing newline for a linewise item regardless of `end.x`. Touches the
+selection model + clipboard but is the semantically correct fix (rejected Option B: a clipboard heuristic
+treating `end.x == lastLine.length` as a line-end — it conflates "selected to EOL charwise" with
+"whole-line").
+
+**When fixing:** reproduce-first with a clipboard-level unit test — copy a multi-line selection ending at
+`(lastLine.length, lastY)` with the linewise flag set, paste before an existing line, assert the following
+line stays on its own line (trailing newline preserved). Then a charwise selection ending at the same column
+must still join (no newline). Check both cut and copy.

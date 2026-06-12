@@ -62,6 +62,8 @@ keymap: {
 
     Indent : KeyCode_Tab,
     Unindent : KeyCode_Shift + KeyCode_Tab,
+    ReformatLine: "CopyPasteModifier + 'l'",
+    ReformatBlock: "CopyPasteModifier + 'i'",
 
     NextSearchResult: "KeyCode_Ctrl + 'n'",
     PrevSearchResult: "KeyCode_Ctrl + 'p'",

@@ -72,6 +72,8 @@ namespace gedit {
 
         kActionIndent,
         kActionUnindent,
+        kActionReformatLine,            // default: Cmd/Ctrl+L - re-derive indentation of the current line
+        kActionReformatBlock,           // default: Cmd/Ctrl+I - re-derive indentation of the selection/block
 
         // Terminal actions
         kActionShellCompletion,

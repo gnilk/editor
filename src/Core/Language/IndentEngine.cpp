@@ -5,6 +5,9 @@
 
 #include <algorithm>
 
+#include "Core/Line.h"
+#include "Core/Language/SyntaxRegion.h"
+
 using namespace gedit;
 
 // On Enter, compute the indent level of the new (split-off) line, relative to the line being left. The new
@@ -103,6 +106,41 @@ std::vector<int> IndentEngine::ReindentRange(const RangeContext &ctx) {
         depth = lineLevel + (opensNext ? 1 : 0);
     }
     return levels;
+}
+
+// The trusted seed level for reformatting a range that starts at startY: walk back to the nearest clean line
+// (lexer state baseline, i.e. not inside a multi-line comment/string) and take its leading indent, plus one
+// level if that line opens a block. This is read only - the anchor line is never rewritten.
+int IndentEngine::FindAnchorLevel(const std::vector<std::shared_ptr<Line>> &lines, size_t startY,
+                                  const IndentTable *table, int tabSize) {
+    if ((startY == 0) || lines.empty()) {
+        return 0;
+    }
+    size_t idxAnchor = SyntaxRegion::SeekCleanBackward(lines, startY);
+    const auto &anchorText = lines[idxAnchor]->Buffer();
+    int level = LeadingIndentLevel(anchorText, tabSize);
+    if ((table != nullptr) && !table->IsEmpty() && table->IsIndentAfter(LastNonSpace(anchorText))) {
+        level += 1;
+    }
+    return level;
+}
+
+// Forward-extend the reformat range so a selection ending inside a multi-line construct is completed: the
+// clean-line seek lands on the first line PAST the construct, so the last line still inside it is one before.
+// When endY is not mid-construct this is a no-op (returns endY).
+size_t IndentEngine::FindRangeEnd(const std::vector<std::shared_ptr<Line>> &lines, size_t endY) {
+    if (lines.empty()) {
+        return endY;
+    }
+    size_t cleanAfter = SyntaxRegion::SeekCleanForward(lines, endY);
+    size_t extended = (cleanAfter > 0) ? (cleanAfter - 1) : endY;
+    if (extended < endY) {
+        extended = endY;
+    }
+    if (extended >= lines.size()) {
+        extended = lines.size() - 1;
+    }
+    return extended;
 }
 
 // Leading whitespace measured in tab units: a space advances one column, a tab to the next tab stop; the

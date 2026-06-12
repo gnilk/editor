@@ -70,6 +70,9 @@ namespace gedit {
         void AddLineComment(size_t idxLineStart, size_t idxLineEnd, const std::u32string &lineCommentPrefix);
         void IndentLines(size_t idxLineStart, size_t idxLineEnd);
         void UnindentLines(size_t idxLineStart, size_t idxLineEnd);
+        // Reformat: re-derive the indentation of lines [startY..endY] (inclusive) via the indent engine,
+        // seeded from the trusted line above and forward-extended through any construct it ends inside.
+        void ReindentLineRange(size_t startY, size_t endY);
 
         void AddTab();
         void DelTab();
@@ -216,6 +219,8 @@ namespace gedit {
         bool OnActionCommitLine();
         bool OnActionIndent();
         bool OnActionUnindent();
+        bool OnActionReformatLine();
+        bool OnActionReformatBlock();
         bool OnActionGotoFirstLine();   // First line of buffer
         bool OnActionGotoLastLine();    // Last line of buffer
         bool OnActionGotoTopLine();     // Top line of screen

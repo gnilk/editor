@@ -50,6 +50,11 @@ DLL_EXPORT int test_document_indent_electric(ITesting *t);
 DLL_EXPORT int test_document_indent_electric_midline(ITesting *t);
 DLL_EXPORT int test_document_indent_electric_emptyline(ITesting *t);
 
+// 'reformat' - ReindentLineRange + the ReformatLine/ReformatBlock actions (RF.2)
+DLL_EXPORT int test_document_reformat_line(ITesting *t);
+DLL_EXPORT int test_document_reformat_range(ITesting *t);
+DLL_EXPORT int test_document_reformat_undo(ITesting *t);
+
 }
 
 // Define some common actions, this will trigger side-effects in the document
@@ -699,6 +704,62 @@ static Document::Ref CreateIndentDoc(ITesting *t) {
         "    dedent_on:    [\"}\", \"]\", \")\"]\n";
     TR_ASSERT(t, IndentCache::Instance().LoadFromString(yaml));
     return document;
+}
+
+// Build an indent-configured document seeded with the given (UTF-8) lines and parsed once.
+static Document::Ref CreateReformatDoc(ITesting *t, std::initializer_list<const char *> lines) {
+    auto document = CreateIndentDoc(t);
+    auto tb = document->GetTextBuffer();
+    tb->DeleteLineAt(0);    // drop the initial empty line
+    for (auto l : lines) {
+        tb->AddLineUTF8(l);
+    }
+    tb->Reparse();
+    return document;
+}
+
+// ReformatLine re-derives the current line's indent: a mis-indented body line under an opener snaps to one
+// level; the anchor line above and the closer below are untouched.
+DLL_EXPORT int test_document_reformat_line(ITesting *t) {
+    auto document = CreateReformatDoc(t, {"if (x) {", "            mess();", "}"});
+    auto &lc = document->GetLineCursor();
+    lc.idxActiveLine = 1;
+    lc.cursor.position.x = 0;
+
+    document->OnAction({gedit::kAction::kActionReformatLine});
+
+    TR_ASSERT(t, document->LineAt(1)->Buffer() == U"    mess();");
+    TR_ASSERT(t, document->LineAt(0)->Buffer() == U"if (x) {");
+    TR_ASSERT(t, document->LineAt(2)->Buffer() == U"}");
+    IndentCache::Instance().Clear();
+    return kTR_Pass;
+}
+
+// ReindentLineRange re-derives a whole mis-indented block: body lines to one level, the closer back to zero.
+DLL_EXPORT int test_document_reformat_range(ITesting *t) {
+    auto document = CreateReformatDoc(t, {"void f() {", "  a();", "      b();", "}"});
+
+    document->ReindentLineRange(1, 3);
+
+    TR_ASSERT(t, document->LineAt(0)->Buffer() == U"void f() {");
+    TR_ASSERT(t, document->LineAt(1)->Buffer() == U"    a();");
+    TR_ASSERT(t, document->LineAt(2)->Buffer() == U"    b();");
+    TR_ASSERT(t, document->LineAt(3)->Buffer() == U"}");
+    IndentCache::Instance().Clear();
+    return kTR_Pass;
+}
+
+// One reformat is one undo item: undo restores the original (mis-indented) line verbatim.
+DLL_EXPORT int test_document_reformat_undo(ITesting *t) {
+    auto document = CreateReformatDoc(t, {"void f() {", "      a();", "}"});
+
+    document->ReindentLineRange(1, 1);
+    TR_ASSERT(t, document->LineAt(1)->Buffer() == U"    a();");
+
+    document->OnAction({gedit::kAction::kActionUndo});
+    TR_ASSERT(t, document->LineAt(1)->Buffer() == U"      a();");
+    IndentCache::Instance().Clear();
+    return kTR_Pass;
 }
 
 // Enter at the end of a line that opens a block indents the new line one level (4 spaces).

@@ -288,6 +288,10 @@ bool Document::DispatchAction(const EditorAction &kpAction) {
             return OnActionIndent();
         case kAction::kActionUnindent :
             return OnActionUnindent();
+        case kAction::kActionReformatLine :
+            return OnActionReformatLine();
+        case kAction::kActionReformatBlock :
+            return OnActionReformatBlock();
         case kAction::kActionBufferStart :
             [[fallthrough]];
         case kAction::kActionGotoFirstLine :
@@ -327,6 +331,28 @@ bool Document::OnActionUnindent() {
     DelTab();
     EndUndoItem(undoItem);
     UpdateSyntaxForActiveLineRegion();
+    return true;
+}
+bool Document::OnActionReformatLine() {
+    auto idxLine = documentViewState->lineCursor.idxActiveLine;
+    ReindentLineRange(idxLine, idxLine);
+    return true;
+}
+bool Document::OnActionReformatBlock() {
+    if (IsSelectionActive()) {
+        auto start = documentViewState->currentSelection.GetStart();
+        auto end = documentViewState->currentSelection.GetEnd();
+        size_t endY = end.y;
+        // A selection ending at the very start of end.y doesn't actually include that line.
+        if ((end.x == 0) && (end.y > start.y)) {
+            endY = end.y - 1;
+        }
+        ReindentLineRange(start.y, endY);
+    } else {
+        // RF.2b TODO: locate the enclosing brace block; until then reformat the current line.
+        auto idxLine = documentViewState->lineCursor.idxActiveLine;
+        ReindentLineRange(idxLine, idxLine);
+    }
     return true;
 }
 
@@ -726,6 +752,24 @@ static int ApplyLeadingIndent(const Line::Ref &line, int nSpaces) {
     return nSpaces;
 }
 
+// Replace a line's existing leading-whitespace run with exactly nSpaces spaces (reformat both grows and
+// shrinks, unlike the newline path which only inserts). A wholly-blank line is left empty - reformat does
+// not leave trailing whitespace on blank lines.
+static void SetLineLeadingIndent(const Line::Ref &line, int nSpaces) {
+    const auto &buf = line->Buffer();
+    int runLen = 0;
+    while ((runLen < (int)buf.size()) && ((buf[runLen] == U' ') || (buf[runLen] == U'\t'))) {
+        runLen++;
+    }
+    bool allWhitespace = (runLen == (int)buf.size());
+    if (runLen > 0) {
+        line->Delete(0, runLen);
+    }
+    if (!allWhitespace && (nSpaces > 0)) {
+        line->Insert(0, std::u32string(nSpaces, U' '));
+    }
+}
+
 
 void Document::UpdateSyntaxForBuffer() {
     logger->Debug("Syntax update for full bufffer");
@@ -929,6 +973,61 @@ void Document::UnindentLines(size_t idxLineStart, size_t idxLineEnd) {
 
     UpdateSyntaxForRegion(idxLineStart, idxLineEnd);
 
+}
+
+void Document::ReindentLineRange(size_t startY, size_t endY) {
+    if (!GetTextBuffer()->HaveLanguage()) {
+        return;
+    }
+    const auto &lines = textBuffer->Lines();
+    size_t numLines = textBuffer->NumLines();
+    if (lines.empty() || (startY >= numLines)) {
+        return;
+    }
+    if (endY >= numLines) {
+        endY = numLines - 1;
+    }
+    if (endY < startY) {
+        endY = startY;
+    }
+
+    int tabSize = GetTabSize();
+    auto table = IndentCache::Instance().GetTableForLanguage(textBuffer->GetLanguage().GetConfigNodeName()).get();
+
+    // Forward-extend through any construct the range ends inside; seed from the trusted clean line above.
+    size_t endExtended = IndentEngine::FindRangeEnd(lines, endY);
+    int anchorLevel = IndentEngine::FindAnchorLevel(lines, startY, table, tabSize);
+
+    // Compute the new levels BEFORE mutating - the RangeContext views point into the live line buffers.
+    IndentEngine::RangeContext ctx;
+    ctx.table = table;
+    ctx.tabSize = tabSize;
+    ctx.anchorLevel = anchorLevel;
+    for (size_t y = startY; y <= endExtended; y++) {
+        ctx.lines.emplace_back(lines[y]->Buffer());
+    }
+    auto levels = IndentEngine::ReindentRange(ctx);
+
+    // Snapshot the rewritten range for undo, then set each line's leading whitespace to its computed level.
+    auto undoItem = BeginUndoFromLineRange(startY, endExtended + 1);
+    undoItem->SetRestoreAction(UndoHistory::kRestoreAction::kClearAndAppend);
+    EndUndoItem(undoItem);
+
+    for (size_t i = 0; i < levels.size(); i++) {
+        SetLineLeadingIndent(lines[startY + i], levels[i] * tabSize);
+    }
+
+    UpdateSyntaxForRegion(startY, endExtended + 1);
+
+    // The active line's content changed - clamp the cursor column and re-derive its wanted column.
+    auto &lineCursor = documentViewState->lineCursor;
+    auto activeLine = LineAt(lineCursor.idxActiveLine);
+    if (activeLine != nullptr) {
+        if (lineCursor.cursor.position.x > (int)activeLine->Length()) {
+            lineCursor.cursor.position.x = (int)activeLine->Length();
+        }
+        lineCursor.cursor.wantedColumn = activeLine->CharToVisualColumn(lineCursor.cursor.position.x, tabSize);
+    }
 }
 
 void Document::AddTab() {

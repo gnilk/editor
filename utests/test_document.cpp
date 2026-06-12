@@ -59,6 +59,7 @@ DLL_EXPORT int test_document_reformat_range(ITesting *t);
 DLL_EXPORT int test_document_reformat_undo(ITesting *t);
 // block-surround (RF.3 / H.18b)
 DLL_EXPORT int test_document_reformat_surround(ITesting *t);
+DLL_EXPORT int test_document_reformat_surround_cursor(ITesting *t);
 DLL_EXPORT int test_document_reformat_surround_undo(ITesting *t);
 // enclosing-block finder (RF.2b)
 DLL_EXPORT int test_document_reformat_block_enclosing(ITesting *t);
@@ -904,6 +905,38 @@ DLL_EXPORT int test_document_reformat_surround(ITesting *t) {
     TR_ASSERT(t, document->LineAt(2)->Buffer() == U"        a();");
     TR_ASSERT(t, document->LineAt(3)->Buffer() == U"        b();");
     TR_ASSERT(t, document->LineAt(4)->Buffer() == U"    }");
+    IndentCache::Instance().Clear();
+    return kTR_Pass;
+}
+
+// After a block-surround the caret must stay valid and ON-SCREEN: position.y is screen-relative
+// (idxActiveLine - viewTopLine), so on a SCROLLED view a surround that parks it with an absolute y leaves
+// the caret off-screen ("cursor gone"). Build a tall doc + short scrolled view so the two coords diverge.
+DLL_EXPORT int test_document_reformat_surround_cursor(ITesting *t) {
+    auto document = CreateIndentDoc(t);
+    auto tb = document->GetTextBuffer();
+    tb->DeleteLineAt(0);
+    tb->AddLineUTF8("void f() {");
+    for (int i = 0; i < 28; i++) {
+        tb->AddLineUTF8("x();");
+    }
+    tb->AddLineUTF8("}");
+    tb->Reparse();
+
+    document->OnViewInit(gedit::Rect(40, 10));      // a 10-row view...
+    auto &lc = document->GetLineCursor();
+    lc.viewTopLine = 20;                            // ...scrolled down so viewTopLine != 0
+    lc.viewBottomLine = 30;
+    lc.idxActiveLine = 22;
+    lc.cursor.position = { 0, 22 - 20 };
+
+    document->SurroundLineRangeWithBlock(22, 23, U'{', U'}');
+
+    auto &after = document->GetLineCursor();
+    TR_ASSERT(t, after.idxActiveLine >= (size_t)after.viewTopLine);
+    TR_ASSERT(t, after.idxActiveLine <= (size_t)after.viewBottomLine);
+    // The invariant the renderer relies on: position.y is the SCREEN row, not the absolute line index.
+    TR_ASSERT(t, after.cursor.position.y == (int)after.idxActiveLine - (int)after.viewTopLine);
     IndentCache::Instance().Clear();
     return kTR_Pass;
 }

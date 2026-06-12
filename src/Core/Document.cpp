@@ -1229,12 +1229,16 @@ void Document::SurroundLineRangeWithBlock(size_t startY, size_t endY, char32_t o
 
     ReplaceLineRange(startY, endY, block);
 
-    // Park the cursor at the end of the closer line (the last line of the new block).
+    // Park the cursor at the end of the closer line (the last line of the new block). The block grew the
+    // line count, so scroll the new active line back into view (RefocusViewArea) and write position.y in
+    // SCREEN coords (idxActiveLine - viewTopLine) - it is the screen row the caret is drawn at, NOT the
+    // absolute line index, so an absolute y would put the caret off-screen on a scrolled view.
     auto &lineCursor = documentViewState->lineCursor;
     lineCursor.idxActiveLine = startY + block.size() - 1;
     auto closeLine = LineAt(lineCursor.idxActiveLine);
     int x = (closeLine != nullptr) ? (int)closeLine->Length() : 0;
-    lineCursor.cursor.position = { x, (int)lineCursor.idxActiveLine };
+    RefocusViewArea();
+    lineCursor.cursor.position = { x, (int)lineCursor.idxActiveLine - (int)lineCursor.viewTopLine };
     lineCursor.cursor.wantedColumn = (closeLine != nullptr) ? closeLine->CharToVisualColumn(x, tabSize) : 0;
 }
 

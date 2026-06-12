@@ -368,6 +368,11 @@ and rebuild `utests` (`libutests.so` Linux / `.dylib` macOS) on the other box.
   jsengine `LoadDocument` (`ff45ff7`); test-suite audit (`fa52c94`); `test_vnav_pageup` (`3763816`).
 
 ## Remaining / deferred
+- **Open bugs tracker → `docs/open-bugs.md`.** Known-wrong code we chose NOT to fix in-place yet, with
+  cold-start context. Currently: (1) `Line::AttributeAt` returns the FIRST span (kRegular) for any pos in
+  a line's LAST token span (so a trailing comment reads as code) — left alone because
+  `Document::OnActionWordRight` leans on that buggy fallback; reformat/indent use their own correct
+  `TokenClassAtChar` scans instead. Read that file before touching `AttributeAt` or word-nav.
 - ~~HexView: per-document view-mode restore across a document switch.~~ **DONE 2026-06-10** (see
   resume-point Next-steps #1): `EditorViewContainer::ReInitView` → `SyncToActiveDocument` → shared
   `ApplyViewMode` mechanics (focus transferred only if the outgoing item held it). Compile + green; GUI

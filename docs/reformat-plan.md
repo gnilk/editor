@@ -162,13 +162,14 @@ into the live edit path.
   `Document::ReplaceLineRange` ⇒ the whole surround is ONE undo. `check-autopair.md` H.18b → RESOLVED.
 - 2 tests (surround / surround_undo). Verified set **199**.
 
-**Next — RF.2b (enclosing-block finder):**
-1. **RF.2b — enclosing-block finder** for `ReformatBlock` with no selection. Needs a brace-pair matcher
-   (scan out from the cursor line to the surrounding `{ }`), then `ReindentLineRange(openLine, closeLine)`.
-   Watch braces in strings/comments — skip via the per-line token class, or (cheaper) reuse `SyntaxRegion`
-   to stay out of multi-line constructs. The `OnActionReformatBlock` no-selection branch has the TODO marker.
-   This is the only remaining RF piece; once done, **a GUI feel-check** of the whole reformat feature
-   (ReformatLine/Block + the block-surround wrap) is the close-out.
+**Done — RF.2b** (`cf6cb77`): `IndentEngine::FindEnclosingBlock` — scans backward for the nearest unmatched
+`{` and forward for its matching `}`, counting depth and skipping braces inside strings/comments (the
+`suppressIn` token classes). `OnActionReformatBlock` with no selection reformats that enclosing block (or
+just the current line if not inside one). Integration test; verified set **200**.
+
+**All RF code is done.** Remaining: a **GUI feel-check** of the whole reformat feature on the live editor —
+ReformatLine (Cmd/Ctrl+L), ReformatBlock (Cmd/Ctrl+I, selection + enclosing-block), and the multi-line
+`{`-wrap block-surround (incl. its single-press undo). Then close out (merge to main when happy).
 
 ## Decisions — settled (2026-06-11)
 

@@ -54,6 +54,7 @@ DLL_EXPORT int test_document_indent_electric_emptyline(ITesting *t);
 DLL_EXPORT int test_document_reformat_line(ITesting *t);
 DLL_EXPORT int test_document_reformat_cursor(ITesting *t);
 DLL_EXPORT int test_document_reformat_commentbraces(ITesting *t);
+DLL_EXPORT int test_document_reformat_commentshift(ITesting *t);
 DLL_EXPORT int test_document_reformat_range(ITesting *t);
 DLL_EXPORT int test_document_reformat_undo(ITesting *t);
 // block-surround (RF.3 / H.18b)
@@ -808,6 +809,54 @@ DLL_EXPORT int test_document_reformat_commentbraces(ITesting *t) {
     TR_ASSERT(t, document->LineAt(3)->Buffer() == U"    b();");   // trailing '{' did not open
     TR_ASSERT(t, document->LineAt(5)->Buffer() == U"    this {"); // frozen: bytes untouched
     TR_ASSERT(t, document->LineAt(7)->Buffer() == U"    c();");   // block-comment '{' did not open
+    TR_ASSERT(t, document->LineAt(8)->Buffer() == U"}");
+
+    TR_ASSERT(t, workspace->RemoveDocument(node->GetDocument()));
+    IndentCache::Instance().Clear();
+    return kTR_Pass;
+}
+
+// A block comment inside a reformatted range is shifted as a rigid unit to follow its code: the '/*' opener
+// lands at code level and the interior + '*/' closer move by the SAME delta (so internal art is preserved).
+DLL_EXPORT int test_document_reformat_commentshift(ITesting *t) {
+    Config::Instance()["main"].SetBool("threaded_syntaxparser", false);
+    auto workspace = Editor::Instance().GetWorkspace();
+    TR_ASSERT(t, workspace != nullptr);
+    auto node = workspace->NewDocument("reformat_commentshift.cpp");
+    TR_ASSERT(t, node != nullptr);
+    auto document = node->GetDocument();
+    auto buffer = document->GetTextBuffer();
+
+    auto langName = buffer->GetLanguage().GetConfigNodeName();
+    std::string yaml =
+        "indent:\n  " + langName + ":\n"
+        "    suppress_in:  [string, comment]\n"
+        "    indent_after: [\"{\", \"[\", \"(\"]\n"
+        "    dedent_on:    [\"}\", \"]\", \")\"]\n";
+    TR_ASSERT(t, IndentCache::Instance().LoadFromString(yaml));
+
+    buffer->DeleteLineAt(0);    // drop the initial empty line, then add the (flush-left) source verbatim
+    buffer->AddLineUTF8("static void func() {");  // 0
+    buffer->AddLineUTF8("printf(\"Hello\\n\");");  // 1
+    buffer->AddLineUTF8("if (i > x) {");          // 2
+    buffer->AddLineUTF8("/*");                     // 3
+    buffer->AddLineUTF8("hello {");                // 4 block-comment interior
+    buffer->AddLineUTF8("*/");                     // 5 block-comment closer
+    buffer->AddLineUTF8("printf(\"dummy\\n\");");  // 6
+    buffer->AddLineUTF8("}");                       // 7
+    buffer->AddLineUTF8("}");                       // 8
+    buffer->Reparse();
+
+    document->ReindentLineRange(0, 8);
+
+    TR_ASSERT(t, document->LineAt(0)->Buffer() == U"static void func() {");
+    TR_ASSERT(t, document->LineAt(1)->Buffer() == U"    printf(\"Hello\\n\");");
+    TR_ASSERT(t, document->LineAt(2)->Buffer() == U"    if (i > x) {");
+    TR_ASSERT(t, document->LineAt(3)->Buffer() == U"        /*");
+    TR_ASSERT(t, document->LineAt(4)->Buffer() == U"        hello {");   // shifted with the opener (+8)
+    TR_ASSERT(t, document->LineAt(5)->Buffer() == U"        */");        // closer shifted too
+    TR_ASSERT(t, document->LineAt(6)->Buffer() == U"        printf(\"dummy\\n\");");
+    TR_ASSERT(t, document->LineAt(7)->Buffer() == U"    }");
     TR_ASSERT(t, document->LineAt(8)->Buffer() == U"}");
 
     TR_ASSERT(t, workspace->RemoveDocument(node->GetDocument()));

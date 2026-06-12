@@ -805,6 +805,23 @@ static kLanguageTokenClass TokenClassAtChar(const Line::Ref &line, int x) {
     return cls;
 }
 
+// True when a frozen line's content is a COMMENT (vs a string). A block-comment interior may be shifted as a
+// rigid unit to follow its code; a multi-line/raw string must stay byte-faithful. Classifies by the first
+// content char's token class (a frozen line sits entirely within one construct, so one char is decisive).
+static bool IsCommentInterior(const Line::Ref &line) {
+    const auto &buf = line->Buffer();
+    for (int x = 0; x < (int)buf.size(); x++) {
+        char32_t ch = buf[x];
+        if ((ch == U' ') || (ch == U'\t')) {
+            continue;
+        }
+        kLanguageTokenClass cls = TokenClassAtChar(line, x);
+        return (cls == kLanguageTokenClass::kLineComment) || (cls == kLanguageTokenClass::kBlockComment) ||
+               (cls == kLanguageTokenClass::kCommentedText);
+    }
+    return false;   // a blank line inside a construct - nothing to shift, leave it
+}
+
 // Resolve a line's structural triggers for the reindent walk: the first/last non-space char that is NOT
 // inside a string/comment, plus whether the line STARTS inside a multi-line construct (then it is frozen -
 // left byte-faithful, contributing no structure). Needs the parsed tokens + lexer state, so it lives here at
@@ -1096,11 +1113,22 @@ void Document::ReindentLineRange(size_t startY, size_t endY) {
     int oldCursorX = lineCursor.cursor.position.x;
     int oldLeadingChars = activeInRange ? LeadingWhitespaceCharCount(lines[activeIdx]->Buffer()) : 0;
 
+    // Apply the computed indents. A frozen line (-1) is the interior of a multi-line construct: a COMMENT is
+    // shifted as a rigid unit by the delta its opener moved (preserving its internal art), while a STRING is
+    // left byte-faithful (shifting it would change the string's value). constructDelta carries the opener's
+    // shift forward to the frozen run that immediately follows it.
+    int constructDelta = 0;
     for (size_t i = 0; i < levels.size(); i++) {
-        if (levels[i] < 0) {
-            continue;   // frozen line (multi-line construct interior): leave its bytes untouched
+        const auto &ln = lines[startY + i];
+        int oldLead = LeadingWhitespaceCharCount(ln->Buffer());
+        if (levels[i] >= 0) {
+            SetLineLeadingIndent(ln, levels[i] * tabSize);
+            constructDelta = (levels[i] * tabSize) - oldLead;
+        } else if (IsCommentInterior(ln)) {
+            int newLead = oldLead + constructDelta;
+            SetLineLeadingIndent(ln, (newLead < 0) ? 0 : newLead);
         }
-        SetLineLeadingIndent(lines[startY + i], levels[i] * tabSize);
+        // else: string interior - leave its bytes untouched.
     }
 
     UpdateSyntaxForRegion(startY, endExtended + 1);

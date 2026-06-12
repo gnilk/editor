@@ -34,10 +34,12 @@ Commands under test:
 - [x] 9. Cursor inside a *nested* block → only the nearest enclosing `{ }` reformats (not the outer one).
 - [x] 10. Braces in strings/comments don't fool it: a `// }` or `"{"` on a line inside the block does not
   break the match (the block boundaries are still the real braces)
-      FIXED: the reindent walk is now token-aware (braces in comments/strings are masked; block-comment /
-      multi-line-string interiors are frozen byte-faithful). Also fixed a latent Line::AttributeAt bug that
-      misread a trailing comment (always the last token span) as code. Guards: test_indent_reindent_commentbraces,
-      test_document_reformat_commentbraces.
+      FIXED: the reindent walk is now token-aware (braces in comments/strings are masked, so they no longer
+      open/close blocks). Block comments SHIFT as a rigid unit to follow their code (opener to code level,
+      interior + closer by the same delta, internal art preserved); multi-line/raw STRINGS stay byte-faithful
+      (shifting would change the string's value). Also fixed a latent Line::AttributeAt bug that misread a
+      trailing comment (always the last token span) as code. Guards: test_indent_reindent_commentbraces,
+      test_document_reformat_commentbraces, test_document_reformat_commentshift.
 - [x] 11. Cursor NOT inside any block (top level) + `Cmd+I` → just the current line reformats (graceful
   fallback, no wild range).
 

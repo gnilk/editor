@@ -41,6 +41,7 @@ DLL_EXPORT int test_document_autopair_skipover(ITesting *t);
 DLL_EXPORT int test_document_autopair_nopair_midword(ITesting *t);
 DLL_EXPORT int test_document_autopair_backspace(ITesting *t);
 DLL_EXPORT int test_document_autopair_wrap(ITesting *t);
+DLL_EXPORT int test_document_autopair_wrap_cursor(ITesting *t);
 
 // 'indent' - the IndentEngine wired through Document::NewLine (newline auto-indent + '{|}' expansion)
 DLL_EXPORT int test_document_indent_newline(ITesting *t);
@@ -692,6 +693,35 @@ DLL_EXPORT int test_document_autopair_wrap(ITesting *t) {
     TR_ASSERT(t, document->ActiveLine()->Buffer() == U"(ab)");
     TR_ASSERT(t, !document->IsSelectionActive());
     TR_ASSERT(t, lc.cursor.position.x == 4);        // just after the ')'
+    AutoPairCache::Instance().Clear();
+    return kTR_Pass;
+}
+
+// Inline-wrap (single-line selection) must leave the caret on-screen too: position.y is the SCREEN row, so
+// on a scrolled view parking it at the absolute line index puts it off-screen. Same defect class as the
+// block-surround cursor fix, in EditController::TryWrapSelection's inline branch.
+DLL_EXPORT int test_document_autopair_wrap_cursor(ITesting *t) {
+    auto document = CreateAutoPairDoc(t);
+    FillEmptyDocument(document, 40, 40);
+    auto controller = EditController::Create(document);
+
+    document->OnViewInit(gedit::Rect(40, 10));     // short view...
+    auto &lc = document->GetLineCursor();
+    lc.viewTopLine = 20;                           // ...scrolled down
+    lc.viewBottomLine = 30;
+    lc.idxActiveLine = 25;
+    lc.cursor.position = { 0, 25 - 20 };
+
+    // Select two chars on the single active line, then wrap with '(' -> inline branch (end.y == start.y).
+    document->OnAction(actionShiftLineRight);
+    document->OnAction(actionShiftLineRight);
+    TR_ASSERT(t, document->IsSelectionActive());
+
+    auto open = KP(U'(');
+    controller->OnKeyPress(open);
+
+    TR_ASSERT(t, !document->IsSelectionActive());
+    TR_ASSERT(t, lc.cursor.position.y == (int)lc.idxActiveLine - (int)lc.viewTopLine);
     AutoPairCache::Instance().Clear();
     return kTR_Pass;
 }

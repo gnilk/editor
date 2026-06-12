@@ -329,7 +329,9 @@ bool EditController::TryWrapSelection(char32_t typed) {
     document->CancelSelection();
     auto &lineCursor = document->GetLineCursor();
     lineCursor.idxActiveLine = end.y;
-    lineCursor.cursor.position = { closeIndex + 1, end.y };
+    // position.y is the SCREEN row the caret is drawn at (idxActiveLine - viewTopLine), not the absolute
+    // line index - an absolute y leaves the caret off-screen on a scrolled view.
+    lineCursor.cursor.position = { closeIndex + 1, (int)end.y - (int)lineCursor.viewTopLine };
     lineCursor.cursor.wantedColumn = endLine->CharToVisualColumn(closeIndex + 1, document->GetTabSize());
 
     document->UpdateSyntaxForRegion(start.y, end.y + 1);

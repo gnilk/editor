@@ -44,3 +44,33 @@ the cursor sits exactly at the last token's start. So the method cannot be fixed
 **Other callers to re-check when fixing:** `Document::OnActionWordLeft` (uses `AttributeAt` too),
 `EditController.cpp` `TokenClassAt` (already guards `== attribs.end()`, which `AttributeAt` never returns
 today — revisit once it can).
+
+---
+
+## 2. `Document::SetCursorPosition` writes an ABSOLUTE line index into the screen-relative `cursor.position.y`
+
+**Where:** `src/Core/Document.cpp`, `Document::SetCursorPosition(idxLine, idxChar)` — `GetCursor().position.y = idxLine;`.
+
+**What's wrong:** `cursor.position.y` is the SCREEN row the caret is drawn at — `EditorView::SetWindowCursor`
+hands `position.y` straight to the native caret with no `viewTopLine` subtraction, and the vertical-nav model
+maintains it as `position.y = idxActiveLine - viewTopLine` (see `VerticalNavigationViewModel.cpp`).
+`SetCursorPosition` instead assigns the ABSOLUTE `idxLine`. It then calls `RefocusViewArea()`, which adjusts
+`viewTopLine`/`viewBottomLine` but does NOT recompute `position.y`. So whenever the target ends up on a
+scrolled view (`viewTopLine != 0`) the caret is drawn at the wrong row / off-screen.
+
+**Symptom path:** `JumpToSearchHit` → `SetCursorPosition` — jumping to a search hit deep in the file scrolls
+the view (so `viewTopLine` becomes large) yet leaves `position.y` at the absolute hit line, so the caret is
+mis-placed. Any other "go to line N" caller is affected the same way.
+
+**Discovered:** 2026-06-12, while fixing the block-surround / inline-wrap "cursor gone" bugs (RF.2f), which
+were the same defect class in the reformat paths. Those were fixed locally (write screen-relative y +
+`RefocusViewArea`); `SetCursorPosition` itself was left alone as it's a wider-blast-radius shared method.
+
+**Proper fix:** after `RefocusViewArea()`, set `position.y = idxLine - viewTopLine` (clamped >= 0). Re-verify
+every caller: `JumpToSearchHit` (search nav), plus any "goto line"/jump callers. Add a unit test:
+`SetCursorPosition` to a line below the fold on a short, scrolled view → assert
+`position.y == idxActiveLine - viewTopLine` and the line is inside `[viewTopLine, viewBottomLine]`.
+
+**Reference pattern (already fixed this way):** `Document::SurroundLineRangeWithBlock` and
+`EditController::TryWrapSelection` both now write `position.y = absoluteLine - viewTopLine` (+ refocus where
+the line count changed) — copy that.

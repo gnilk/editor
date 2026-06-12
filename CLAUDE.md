@@ -279,6 +279,39 @@ YAML-based config loaded by `Config` singleton. `ConfigNode` provides typed acce
 
 ## Current state — resume point (read this first)
 
+### ACTIVE BRANCH `dev_reformat` (autopair + indent + reformat) — pick up here (2026-06-12)
+
+Pushed and synced at `40c032a`; working tree clean except the local `CMakeLists.txt` SDL3 toggle (never
+commit it). **Reconfigure the backend + rebuild `utests` on the other box** (this box is macOS/SDL3 →
+`libutests.dylib`; the other may be Linux/SDL2 → `libutests.so`). Verified-green set **195** (add `indent`
+to the standard list), run from `cmake-build-debug/`:
+`-m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,vtermparser,keymapping,hexprojection,bytestream,hexview,indent`.
+
+**What this branch is:** autopair (shipped) + a data-driven `IndentEngine` (electric indent/dedent, `indent.yml`)
++ a **reformat** feature — `ReformatLine` (`Cmd/Ctrl+L`) / `ReformatBlock` (`Cmd/Ctrl+I`, selection→range or
+no-selection→enclosing `{}`) + block-surround (type `{` over a multi-line selection → braces on own lines,
+body nested). Plans: `docs/reformat-plan.md`; design logic in `IndentEngine` (pure) + `Document` (wiring).
+
+**Done this session (all on `dev_reformat`, committed):** RF.2c caret follows content across reformat
+(snap-to-text / ride-the-char); RF.2d token-aware reindent walk so braces in comments/strings don't fool it
+(C.10) + fixed a latent `Line::AttributeAt` mis-read via local `TokenClassAtChar` scans; RF.2e block comments
+shift as a rigid unit (strings stay byte-faithful); RF.2f fix "cursor gone" after block-surround
+(screen-relative caret + refocus); RF.2g same fix for the inline-wrap path.
+
+**Resume at the GUI feel-check `docs/check-reformat.md`:** A–D pass, E in progress (E.17 ✓, E.18 filed as a
+sweep bug, **E.19 redo untested**), **F (plaintext) + G (edge cases) untested**. macOS GUI verify is a guided
+manual run (TCC-blocked shell). When the feel-check passes, **merge `dev_reformat` → main** (stash the
+`CMakeLists.txt` toggle for the FF, pop after — see the merge recipe used for `dev_autopair`).
+
+**Deferred bug sweep → `docs/open-bugs.md` (4 entries, do as one pass, NOT piecemeal):** (1) `Line::AttributeAt`
+returns the first span for any pos in a line's last token span; (2) `Document::SetCursorPosition` writes an
+absolute index into the screen-relative `position.y` (search-jump mis-draws on a scrolled view); (3) tokenizer
+mis-tags an identifier abutting `{` (`{foo`) as an operator until a space is typed; (4) whole-line cut/paste
+drops the trailing newline when the selection ends at EOL of the last line — decided fix is **Option A** (a real
+linewise-selection flag). Each entry carries a trace, the chosen fix, and the test to add.
+
+### Phase 2/3 baseline (the longer-term arc — below the active branch)
+
 Repo is **consolidated**: all prior feature work is merged into a single line of history (no stray
 branches). Working tree clean (untracked-by-design: `syntax_problem.cpp`, `terminal_rendering_bug.png`, the
 `cmake-build-*` dirs). The Phase 2 + HexView-spike work (below) is the current baseline; **start the next

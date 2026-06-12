@@ -13,17 +13,14 @@
 #define EDITOR_INDENTENGINE_H
 
 #include <cstddef>
-#include <memory>
 #include <string_view>
 #include <vector>
 
+#include "Core/Line.h"
 #include "Core/Language/IndentTable.h"
 #include "Core/Language/LanguageTokenClass.h"
 
 namespace gedit {
-
-    class Line;     // fwd-decl: the region-search helpers take live lines (Line::Ref = shared_ptr<Line>) to
-                    // read the stamped lexer state-stack depth - the only part of the engine that is not pure.
 
     class IndentEngine {
     public:
@@ -66,14 +63,15 @@ namespace gedit {
         // Empty table => each line's existing leading-indent level, unchanged (plaintext no-op).
         static std::vector<int> ReindentRange(const RangeContext &ctx);
 
-        // Region search for reformat (uses the shared SyntaxRegion clean-line seek over live lines).
+        // Region search for reformat (uses the shared SyntaxRegion clean-line seek over live lines - the only
+        // part of the engine that is not pure; the live lines carry the stamped lexer state-stack depth).
         // FindAnchorLevel: the trusted seed level for reformatting [startY..] - the clean line above the range,
         // its leading indent +1 if it opens a block. 0 at file top. Read-only: never rewrites the anchor.
         // FindRangeEnd: forward-extend endY through any multi-line construct it ends inside (so a selection
         // ending mid-comment/string is completed, not half-reformatted). Returns >= endY, < lines.size().
-        static int FindAnchorLevel(const std::vector<std::shared_ptr<Line>> &lines, size_t startY,
+        static int FindAnchorLevel(const std::vector<Line::Ref> &lines, size_t startY,
                                    const IndentTable *table, int tabSize);
-        static size_t FindRangeEnd(const std::vector<std::shared_ptr<Line>> &lines, size_t endY);
+        static size_t FindRangeEnd(const std::vector<Line::Ref> &lines, size_t endY);
 
     private:
         static int LeadingIndentLevel(std::u32string_view text, int tabSize);

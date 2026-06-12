@@ -54,6 +54,9 @@ DLL_EXPORT int test_document_indent_electric_emptyline(ITesting *t);
 DLL_EXPORT int test_document_reformat_line(ITesting *t);
 DLL_EXPORT int test_document_reformat_range(ITesting *t);
 DLL_EXPORT int test_document_reformat_undo(ITesting *t);
+// block-surround (RF.3 / H.18b)
+DLL_EXPORT int test_document_reformat_surround(ITesting *t);
+DLL_EXPORT int test_document_reformat_surround_undo(ITesting *t);
 
 }
 
@@ -758,6 +761,40 @@ DLL_EXPORT int test_document_reformat_undo(ITesting *t) {
 
     document->OnAction({gedit::kAction::kActionUndo});
     TR_ASSERT(t, document->LineAt(1)->Buffer() == U"      a();");
+    IndentCache::Instance().Clear();
+    return kTR_Pass;
+}
+
+// Block-surround (H.18b): wrapping a multi-line body with '{' puts the braces on their OWN lines and nests
+// the body one level - the result the inline faithful wrap could not produce.
+DLL_EXPORT int test_document_reformat_surround(ITesting *t) {
+    auto document = CreateReformatDoc(t, {"void f() {", "a();", "b();"});
+
+    document->SurroundLineRangeWithBlock(1, 2, U'{', U'}');
+
+    TR_ASSERT(t, document->GetTextBuffer()->NumLines() == 5);
+    TR_ASSERT(t, document->LineAt(0)->Buffer() == U"void f() {");
+    TR_ASSERT(t, document->LineAt(1)->Buffer() == U"    {");
+    TR_ASSERT(t, document->LineAt(2)->Buffer() == U"        a();");
+    TR_ASSERT(t, document->LineAt(3)->Buffer() == U"        b();");
+    TR_ASSERT(t, document->LineAt(4)->Buffer() == U"    }");
+    IndentCache::Instance().Clear();
+    return kTR_Pass;
+}
+
+// The whole block-surround is ONE undo item (kReplaceRange): undo removes the 2 added brace lines and
+// restores the original body verbatim, in a single step.
+DLL_EXPORT int test_document_reformat_surround_undo(ITesting *t) {
+    auto document = CreateReformatDoc(t, {"void f() {", "a();", "b();"});
+
+    document->SurroundLineRangeWithBlock(1, 2, U'{', U'}');
+    TR_ASSERT(t, document->GetTextBuffer()->NumLines() == 5);
+
+    document->OnAction({gedit::kAction::kActionUndo});
+    TR_ASSERT(t, document->GetTextBuffer()->NumLines() == 3);
+    TR_ASSERT(t, document->LineAt(0)->Buffer() == U"void f() {");
+    TR_ASSERT(t, document->LineAt(1)->Buffer() == U"a();");
+    TR_ASSERT(t, document->LineAt(2)->Buffer() == U"b();");
     IndentCache::Instance().Clear();
     return kTR_Pass;
 }

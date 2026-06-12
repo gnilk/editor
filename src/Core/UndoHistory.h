@@ -22,6 +22,7 @@ namespace gedit {
             kClearAndAppend,            // Paste of regular editing or mult-line actions (like comment line), we just clear the contents and restore
             kDeleteBeforeInsert,        // When you undo a NewLine or a Paste action..
             kDeleteFirstBeforeInsert,   // Paste for when backspace removes one line up or delete-forward takes next line up and merge, we will delete the first line and replace and
+            kReplaceRange,              // General range replace: delete 'replaceCount' current lines, restore the saved originals (count may differ - e.g. a block-surround that added lines)
         };
         // Base class for any item which can be un-done
         // holds common data
@@ -37,6 +38,11 @@ namespace gedit {
             void SetRestoreAction(kRestoreAction newRestoreAction) {
                 action = newRestoreAction;
             }
+            // For kReplaceRange: how many current lines the edit left in place (to delete on undo before
+            // restoring the saved originals). Lets one undo item cover an edit that changed the line count.
+            void SetReplaceCount(int32_t nLines) {
+                replaceCount = nLines;
+            }
         protected:
             // Snapshot the cursor for restore positioning. Decoupled from Document/Editor: the
             // owning view's cursor is passed in, not fetched from the ambient active document.
@@ -49,6 +55,8 @@ namespace gedit {
             // The action tell's us if we should replace lines or insert lines..
             // This depends if the undo item was created during a delete operation or a modify operation
             kRestoreAction action = kRestoreAction::kInsertAsNew;
+            // kReplaceRange only: number of current lines to delete before restoring the saved originals.
+            int32_t replaceCount = 0;
         };
 
         // Specialization for a single item (line) which can be un-done, this one holds the actual data

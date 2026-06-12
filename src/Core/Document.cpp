@@ -770,6 +770,19 @@ static void SetLineLeadingIndent(const Line::Ref &line, int nSpaces) {
     }
 }
 
+// String form of SetLineLeadingIndent - used when building replacement line content before it is committed.
+static void SetStringLeadingIndent(std::u32string &str, int nSpaces) {
+    size_t runLen = 0;
+    while ((runLen < str.size()) && ((str[runLen] == U' ') || (str[runLen] == U'\t'))) {
+        runLen++;
+    }
+    bool allWhitespace = (runLen == str.size());
+    str.erase(0, runLen);
+    if (!allWhitespace && (nSpaces > 0)) {
+        str.insert(0, std::u32string(nSpaces, U' '));
+    }
+}
+
 
 void Document::UpdateSyntaxForBuffer() {
     logger->Debug("Syntax update for full bufffer");
@@ -1028,6 +1041,90 @@ void Document::ReindentLineRange(size_t startY, size_t endY) {
         }
         lineCursor.cursor.wantedColumn = activeLine->CharToVisualColumn(lineCursor.cursor.position.x, tabSize);
     }
+}
+
+void Document::ReplaceLineRange(size_t startY, size_t endY, const std::vector<std::u32string> &newLines) {
+    size_t numLines = textBuffer->NumLines();
+    if (startY >= numLines) {
+        return;
+    }
+    if (endY >= numLines) {
+        endY = numLines - 1;
+    }
+    if (endY < startY) {
+        endY = startY;
+    }
+
+    // Snapshot the originals; on undo, delete the newLines.size() replacement lines and restore them.
+    auto undoItem = editState->historyBuffer.NewUndoFromLineRange(startY, endY + 1, GetLineCursor(), textBuffer);
+    undoItem->SetRestoreAction(UndoHistory::kRestoreAction::kReplaceRange);
+    undoItem->SetReplaceCount((int32_t)newLines.size());
+    editState->historyBuffer.PushUndoItem(undoItem);
+
+    size_t nOld = (endY - startY) + 1;
+    for (size_t i = 0; i < nOld; i++) {
+        textBuffer->DeleteLineAt(startY);
+    }
+    for (size_t i = 0; i < newLines.size(); i++) {
+        textBuffer->Insert(startY + i, Line::Create(newLines[i]));
+    }
+
+    UpdateSyntaxForRegion(startY, startY + newLines.size());
+}
+
+void Document::SurroundLineRangeWithBlock(size_t startY, size_t endY, char32_t open, char32_t close) {
+    if (!GetTextBuffer()->HaveLanguage()) {
+        return;
+    }
+    size_t numLines = textBuffer->NumLines();
+    if (startY >= numLines) {
+        return;
+    }
+    if (endY >= numLines) {
+        endY = numLines - 1;
+    }
+    if (endY < startY) {
+        endY = startY;
+    }
+
+    const auto &lines = textBuffer->Lines();
+    int tabSize = GetTabSize();
+    auto table = IndentCache::Instance().GetTableForLanguage(textBuffer->GetLanguage().GetConfigNodeName()).get();
+
+    // Build the block: opener line, the body lines verbatim, closer line - braces on their own lines so the
+    // reindent walk nests them (a line ending in the opener pushes the body in; a line starting with the
+    // closer dedents it).
+    std::vector<std::u32string> block;
+    block.reserve((endY - startY) + 3);
+    block.emplace_back(1, open);
+    for (size_t y = startY; y <= endY; y++) {
+        block.push_back(lines[y]->Buffer());
+    }
+    block.emplace_back(1, close);
+
+    // Reindent the whole block relative to the trusted line above the range, then apply to the strings.
+    int anchorLevel = IndentEngine::FindAnchorLevel(lines, startY, table, tabSize);
+    IndentEngine::RangeContext ctx;
+    ctx.table = table;
+    ctx.tabSize = tabSize;
+    ctx.anchorLevel = anchorLevel;
+    for (const auto &l : block) {
+        ctx.lines.emplace_back(l);
+    }
+    auto levels = IndentEngine::ReindentRange(ctx);
+    for (size_t i = 0; i < block.size(); i++) {
+        SetStringLeadingIndent(block[i], levels[i] * tabSize);
+    }
+
+    ReplaceLineRange(startY, endY, block);
+
+    // Park the cursor at the end of the closer line (the last line of the new block).
+    auto &lineCursor = documentViewState->lineCursor;
+    lineCursor.idxActiveLine = startY + block.size() - 1;
+    auto closeLine = LineAt(lineCursor.idxActiveLine);
+    int x = (closeLine != nullptr) ? (int)closeLine->Length() : 0;
+    lineCursor.cursor.position = { x, (int)lineCursor.idxActiveLine };
+    lineCursor.cursor.wantedColumn = (closeLine != nullptr) ? closeLine->CharToVisualColumn(x, tabSize) : 0;
 }
 
 void Document::AddTab() {

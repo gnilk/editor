@@ -129,6 +129,18 @@ int32_t UndoHistory::UndoItemRange::Restore(TextBuffer::Ref textBuffer) {
         return nLinesToRestore;
     }
 
+    // General range replace: the edit left 'replaceCount' lines where 'data' originally sat (the counts may
+    // differ - e.g. a block-surround turned N body lines into N+2). Delete those, restore the saved originals.
+    if (action == kRestoreAction::kReplaceRange) {
+        for (int32_t i = 0; i < replaceCount; i++) {
+            textBuffer->DeleteLineAt(start.y);
+        }
+        for (size_t i = 0; i < data.size(); i++) {
+            textBuffer->Insert(start.y + i, Line::Create(data[i]));
+        }
+        return nLinesToRestore;
+    }
+
     auto logger = gnilk::Logger::GetLogger("UndoItemRange");
     logger->Debug("Restore, start.y = %zu, end.y = %zu, action=%d", start.y, end.y, (int)action);
 

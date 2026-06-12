@@ -73,6 +73,10 @@ namespace gedit {
         // Reformat: re-derive the indentation of lines [startY..endY] (inclusive) via the indent engine,
         // seeded from the trusted line above and forward-extended through any construct it ends inside.
         void ReindentLineRange(size_t startY, size_t endY);
+        // Replace lines [startY..endY] (inclusive) with newLines as ONE undo item (count may differ).
+        void ReplaceLineRange(size_t startY, size_t endY, const std::vector<std::u32string> &newLines);
+        // Wrap lines [startY..endY] in an open/close block on their own lines, reindented - one undo item.
+        void SurroundLineRangeWithBlock(size_t startY, size_t endY, char32_t open, char32_t close);
 
         void AddTab();
         void DelTab();

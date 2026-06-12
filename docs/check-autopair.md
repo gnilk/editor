@@ -34,7 +34,7 @@ create three scratch files to cover language selection: a `.cpp`, a `.json`, and
 - [x] 14. Type `(` → `(|)`, Backspace → both gone.
 - [x] 15. Negative: in `(x|)`, Backspace deletes only `x` → `(|)`. *(only adjacent **empty** pair deletes both.)*
 
-## H. Selection-wrap — PASS (H.18a resolved, H.18b deferred)
+## H. Selection-wrap — PASS (H.18a resolved, H.18b resolved in RF.3)
 - [x] 16. Select `word`, type `(` → `(word)`, cursor after closer, selection cancels.
 - [x] 17. Select `word`, type `"` → `"word"`.
 - [x] 18. Multi-line: select two lines, type `{` → opener before selection start, closer after selection end.
@@ -42,8 +42,11 @@ create three scratch files to cover language selection: a `.cpp`, a `.json`, and
   (`endLine->Insert(end.x, …)`). When the selection includes the trailing newline (end at col 0 of the
   line past the block), the closer lands on a new line — this is the faithful reproduction of the
   selected range (matches VS Code), not a bug. Decision: keep it. No code change.
-  **H.18b — DEFERRED:** wrapping a selection inside a block with `{` does **not** re-indent the new block.
-  Indent-engine territory (separate task), not auto-pairing.
+  **H.18b — RESOLVED (RF.3):** wrapping a **multi-line** selection with `{` is now a *block-surround* —
+  the braces land on their **own lines** and the body is reindented one level (single-line / non-block
+  pairs keep the faithful inline wrap). Built on `Document::SurroundLineRangeWithBlock` +
+  `IndentEngine::ReindentRange`, committed as one undo item via the new `kReplaceRange` undo primitive.
+  Covered by `test_document_reformat_surround{,_undo}`. **GUI feel-check still pending.**
 
 ## I. Per-language (json vs cpp) — PASS
 - [x] 19. In a `.json` file: `(`/`[`/`{`/`"` pair, but `<` does **not** (`<|`). *(json inherits generic, no `<>`.)*

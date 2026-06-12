@@ -302,6 +302,18 @@ bool EditController::TryWrapSelection(char32_t typed) {
         return false;
     }
 
+    // Multi-line wrap with a block opener (e.g. '{') = block-surround: braces on their own lines + the body
+    // reindented one level (the H.18b fix). Single-line / non-block pairs keep the faithful inline wrap below.
+    auto indentTable = IndentCache::Instance().GetTableForLanguage(textBuffer->GetLanguage().GetConfigNodeName());
+    bool isBlockPair = (indentTable != nullptr) && !indentTable->IsEmpty() && indentTable->IsIndentAfter(action.open);
+    if ((end.y > start.y) && isBlockPair) {
+        // A selection ending at the very start of end.y doesn't actually include that line.
+        size_t effectiveEndY = ((end.x == 0) && (end.y > start.y)) ? (size_t)(end.y - 1) : (size_t)end.y;
+        document->CancelSelection();
+        document->SurroundLineRangeWithBlock(start.y, effectiveEndY, action.open, action.close);
+        return true;
+    }
+
     auto undoItem = document->BeginUndoFromLineRange(start.y, end.y + 1);
 
     // Insert the closer first (at the selection end), then the opener at the start - in this order the

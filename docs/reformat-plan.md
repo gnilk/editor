@@ -143,23 +143,26 @@ into the live edit path.
   now delegate to it; the highlighter's edge margins + `Editor` selection override stay as policy in the
   tokenizer wrappers. Behavior-preserving (guarded by `cpplang reparseregion_bounds_*`). Verified set **194**.
 
-**Next — RF.2 (Tier 2 + the explicit commands):**
-1. **Region search in the indent engine** using `SyntaxRegion` over the document lines:
-   - **backward** → trusted anchor (seed only: read its leading whitespace as `anchorLevel`; do NOT rewrite
-     lines above the selection).
-   - **forward** → extend the rewrite range so a selection ending mid-construct is completed.
-   - Bonus: the seek skips depth>1 lines ⇒ reformat never starts/stops inside a multi-line string/comment
-     (de-risks most of Q4).
-2. **`Document::ReindentLineRange(startY, endY)`** — the shared apply-point (sits next to
-   `ComputeNewLineIndent`/`ApplyLeadingIndent`): build `RangeContext`, call `ReindentRange`, apply each level
-   via `ApplyLeadingIndent` under ONE undo item; reparse the touched region; keep cursor sane. Both the
-   commands and the wrap path call this.
-3. **Two actions** (see settled decisions): `kActionReformatLine` (current line) + `kActionReformatBlock`
-   (selection if active, else enclosing block — needs a brace-pair **block-finder**, newly in scope).
-   Add to `Action.h`, the `KeyMapping.cpp` name→action map, both `default_keymap.yml`, and an `EditController`
-   handler. Integration tests in `test_document` through the action.
-4. **RF.3 — wrap integration (H.18b):** `TryWrapSelection` calls `ReindentLineRange` for block pairs only;
-   update `docs/check-autopair.md` H.18b → RESOLVED.
+**Done — RF.2a** (`0ababea`): Tier 2 region search + the apply-point + both actions wired.
+- `IndentEngine::FindAnchorLevel` / `FindRangeEnd` — region search via the shared `SyntaxRegion` seek
+  (trusted seed level from the clean line above, its indent +1 if it opens a block; forward-extend through a
+  construct the range ends inside). Read-only on the anchor.
+- `Document::ReindentLineRange(startY, endY)` — compute levels before mutating, one undo item, replace each
+  line's leading whitespace (`SetLineLeadingIndent`: grows/shrinks; blank lines left empty), reparse,
+  re-clamp cursor.
+- `kActionReformatLine` (Cmd/Ctrl+L) / `kActionReformatBlock` (Cmd/Ctrl+I): enum, name map, both keymaps,
+  `DispatchAction` + handlers. **ReformatBlock no-selection enclosing-block finder = RF.2b (TODO; falls back
+  to current line for now).** 3 integration tests in `test_document`. Verified set **197**.
+
+**Next — RF.2b (enclosing-block finder) + RF.3 (wrap / H.18b):**
+1. **RF.2b — enclosing-block finder** for `ReformatBlock` with no selection. Needs a brace-pair matcher
+   (scan out from the cursor line to the surrounding `{ }`), then `ReindentLineRange(openLine, closeLine)`.
+   Watch braces in strings/comments — skip via the per-line token class, or (cheaper) reuse `SyntaxRegion`
+   to stay out of multi-line constructs. The `OnActionReformatBlock` no-selection branch has the TODO marker.
+2. **RF.3 — wrap integration (H.18b):** `EditController::TryWrapSelection` calls `Document::ReindentLineRange`
+   for block pairs only (the wrapped pair's `open` ∈ `indent_after`, i.e. `{`), after inserting the
+   opener/closer. Integration test (wrap a two-line body with `{` → nested + closer placement). Update
+   `docs/check-autopair.md` H.18b → RESOLVED.
 
 ## Decisions — settled (2026-06-11)
 

@@ -53,6 +53,13 @@ namespace gedit {
             // it can be queried before pasting (e.g. to size an undo range).
             size_t GetPasteLineCount();
 
+            // The item flattened to text for the OS clipboard: the resolved segments joined by '\n'.
+            // A whole-line (linewise) copy carries a trailing empty segment, so its text ends in '\n'
+            // (the trailing newline survives a round-trip back through CopyFromExternal); a charwise
+            // copy has none. No extra trailing newline is appended. The single serialization point used
+            // by every backend's clipboard OnUpdate hook.
+            std::u32string AsText();
+
         protected:
             std::vector<std::u32string> ResolveSegments();
             void CopyFromExternal(const char *srcData);

@@ -6,6 +6,7 @@
 #include <string>
 #include "Core/ClipBoard.h"
 #include "Core/TextBuffer.h"
+#include "Core/UnicodeHelper.h"
 
 
 // Fine-grained characterization of clipboard copy/paste.
@@ -62,6 +63,10 @@ DLL_EXPORT int test_clipboard_paste_end_partial(ITesting *t);
 DLL_EXPORT int test_clipboard_paste_end_pboth(ITesting *t);
 // external (OS) clipboard
 DLL_EXPORT int test_clipboard_copypasteexternal(ITesting *t);
+// OS-clipboard round-trip (AsText -> CopyFromExternal) preserves the linewise trailing newline (E.18)
+DLL_EXPORT int test_clipboard_external_roundtrip_linewise(ITesting *t);
+DLL_EXPORT int test_clipboard_external_roundtrip_charwise(ITesting *t);
+DLL_EXPORT int test_clipboard_external_trailing_newline(ITesting *t);
 }
 
 DLL_EXPORT int test_clipboard(ITesting *t) {
@@ -271,5 +276,70 @@ DLL_EXPORT int test_clipboard_copypasteexternal(ITesting *t) {
     TR_ASSERT(t, dstBuffer->NumLines() == 4);
     TR_ASSERT(t, dstBuffer->LineAt(0)->Buffer() == U"hello");
     TR_ASSERT(t, dstBuffer->LineAt(3)->Buffer() == U"copy");
+    return kTR_Pass;
+}
+
+// ---------------------------------------------------------------------------------------------------
+// OS-clipboard round-trip (the actual GUI paste path, feel-check E.18).
+// The GUI does NOT paste the internal item: on cut it serializes the item to the OS clipboard via
+// AsText() (the OnUpdate hook), and on paste it re-reads the OS text as an EXTERNAL item
+// (UpdateClipboardData -> CopyFromExternal). These tests drive that exact round-trip and assert the
+// whole-line (linewise) trailing newline survives, so paste does not join the destination's next line.
+// ---------------------------------------------------------------------------------------------------
+
+// THE GUI FIX: whole lines 1,2 (selection ends at col 0 of line 3 => linewise). After the
+// AsText -> CopyFromExternal round-trip, "line 2" stays on its own line; "DST 2" is NOT joined onto it.
+DLL_EXPORT int test_clipboard_external_roundtrip_linewise(ITesting *t) {
+    auto src = MakeNumberedBuffer("line", 10);
+    ClipBoard internalCb;
+    TR_ASSERT(t, internalCb.CopyFromBuffer(src, {0,1}, {0,3}));     // whole lines 1,2 (end.x==0)
+    auto osText = UnicodeHelper::utf32to8(internalCb.Top()->AsText());
+
+    ClipBoard externalCb;
+    externalCb.CopyFromExternal(osText.c_str());                   // what UpdateClipboardData does
+
+    auto dst = MakeNumberedBuffer("DST", 5);
+    externalCb.PasteToBuffer(dst, {0,2});
+
+    TR_ASSERT(t, dst->NumLines() == 7);
+    TR_ASSERT(t, dst->LineAt(2)->Buffer() == U"line 1");
+    TR_ASSERT(t, dst->LineAt(3)->Buffer() == U"line 2");
+    TR_ASSERT(t, dst->LineAt(4)->Buffer() == U"DST 2");            // NOT "line 2DST 2"
+    return kTR_Pass;
+}
+
+// CONTROL: a partial (charwise) selection has NO trailing newline in its AsText, so the round-trip
+// still joins - selecting to mid-line is charwise-correct. Guards against a blanket trailing newline.
+DLL_EXPORT int test_clipboard_external_roundtrip_charwise(ITesting *t) {
+    auto src = MakeNumberedBuffer("line", 10);
+    ClipBoard internalCb;
+    TR_ASSERT(t, internalCb.CopyFromBuffer(src, {2,1}, {4,2}));     // "ne 1" ... "line" (charwise)
+    auto osText = UnicodeHelper::utf32to8(internalCb.Top()->AsText());
+
+    ClipBoard externalCb;
+    externalCb.CopyFromExternal(osText.c_str());
+
+    auto dst = MakeNumberedBuffer("DST", 5);
+    externalCb.PasteToBuffer(dst, {0,2});
+
+    TR_ASSERT(t, dst->NumLines() == 6);
+    TR_ASSERT(t, dst->LineAt(2)->Buffer() == U"ne 1");
+    TR_ASSERT(t, dst->LineAt(3)->Buffer() == U"lineDST 2");        // joined (charwise, correct)
+    return kTR_Pass;
+}
+
+// External text with an explicit trailing newline is linewise (e.g. copied whole lines from any app).
+DLL_EXPORT int test_clipboard_external_trailing_newline(ITesting *t) {
+    ClipBoard clipBoard;
+    clipBoard.CopyFromExternal("foo\nbar\n");                      // trailing '\n' => whole lines
+    TR_ASSERT(t, clipBoard.Top()->GetLineCount() == 3);           // foo, bar, "" (trailing break kept)
+
+    auto dst = MakeNumberedBuffer("DST", 3);                      // DST 0, DST 1, DST 2
+    clipBoard.PasteToBuffer(dst, {0,1});
+
+    TR_ASSERT(t, dst->NumLines() == 5);
+    TR_ASSERT(t, dst->LineAt(1)->Buffer() == U"foo");
+    TR_ASSERT(t, dst->LineAt(2)->Buffer() == U"bar");
+    TR_ASSERT(t, dst->LineAt(3)->Buffer() == U"DST 1");           // preserved on its own line
     return kTR_Pass;
 }

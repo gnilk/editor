@@ -298,17 +298,26 @@ body nested). Plans: `docs/reformat-plan.md`; design logic in `IndentEngine` (pu
 shift as a rigid unit (strings stay byte-faithful); RF.2f fix "cursor gone" after block-surround
 (screen-relative caret + refocus); RF.2g same fix for the inline-wrap path.
 
-**Resume at the GUI feel-check `docs/check-reformat.md`:** A–D pass, E in progress (E.17 ✓, E.18 filed as a
-sweep bug, **E.19 redo untested**), **F (plaintext) + G (edge cases) untested**. macOS GUI verify is a guided
-manual run (TCC-blocked shell). When the feel-check passes, **merge `dev_reformat` → main** (stash the
-`CMakeLists.txt` toggle for the FF, pop after — see the merge recipe used for `dev_autopair`).
+**Feel-check `docs/check-reformat.md` is COMPLETE** — A–G all pass (E.18 was the last open item, now FIXED, see
+below). macOS GUI verify is a guided manual run (TCC-blocked shell). Next: **merge `dev_reformat` → main** (stash
+the `CMakeLists.txt` toggle for the FF, pop after — see the merge recipe used for `dev_autopair`).
 
-**Deferred bug sweep → `docs/open-bugs.md` (4 entries, do as one pass, NOT piecemeal):** (1) `Line::AttributeAt`
+**E.18 (whole-line cut/paste drops trailing newline) — FIXED 2026-06-12, TWO mechanisms.** (A) selection-end
+normalization (`Document::SelectionEndForCopy`) for the internal path. (B) **the actual GUI bug:** paste goes
+through the OS clipboard (`PasteFromClipboard → UpdateClipboardData → CopyFromExternal`), and the cut→OS
+serialization + `std::getline` parse dropped the trailing newline. Fixed via `ClipBoard::AsText()` (one
+serialization point, used by BOTH SDL2/SDL3 `OnUpdate` hooks) + `CopyFromExternal` preserving the trailing-empty
+segment. KEY LESSON: GUI copy/paste does NOT use the internal clipboard item — it round-trips through the OS
+pasteboard as an external item; unit-test that round-trip (`test_clipboard_external_roundtrip_*`), not just
+`PasteToBuffer`. Guards: `test_document_cut_paste_linewise`/`_undo`/`_charwise` +
+`test_clipboard_external_roundtrip_linewise`/`_charwise`/`_trailing_newline`. Verified-green set now **202**.
+open-bugs.md #4 marked resolved.
+
+**Deferred bug sweep → `docs/open-bugs.md` (3 OPEN entries, do as one pass, NOT piecemeal):** (1) `Line::AttributeAt`
 returns the first span for any pos in a line's last token span; (2) `Document::SetCursorPosition` writes an
 absolute index into the screen-relative `position.y` (search-jump mis-draws on a scrolled view); (3) tokenizer
-mis-tags an identifier abutting `{` (`{foo`) as an operator until a space is typed; (4) whole-line cut/paste
-drops the trailing newline when the selection ends at EOL of the last line — decided fix is **Option A** (a real
-linewise-selection flag). Each entry carries a trace, the chosen fix, and the test to add.
+mis-tags an identifier abutting `{` (`{foo`) as an operator until a space is typed. (#4 whole-line cut/paste is
+FIXED.) Each entry carries a trace, the chosen fix, and the test to add.
 
 ### Phase 2/3 baseline (the longer-term arc — below the active branch)
 
@@ -408,10 +417,9 @@ and rebuild `utests` (`libutests.so` Linux / `.dylib` macOS) on the other box.
   `TokenClassAtChar` scans instead. (2) `Document::SetCursorPosition` writes an ABSOLUTE line index into
   the screen-relative `cursor.position.y` (caret mis-draws on a scrolled view, e.g. search-jump). (3) the
   syntax highlighter mis-tags an identifier that directly abuts `{` (e.g. `{foo`) as an operator until a
-  space is typed. (4) whole-line cut/paste drops the trailing newline when the selection ends at EOL of the
-  last line (the next line joins the last pasted line) — fix is Option A (a real linewise-selection flag).
-  Read that file before touching `AttributeAt`, word-nav, any caret/goto-line code, the tokenizer, or the
-  selection/clipboard.
+  space is typed. (#4 whole-line cut/paste drops the trailing newline — **FIXED 2026-06-12** via
+  `Document::SelectionEndForCopy` selection-end normalization; see open-bugs.md #4.)
+  Read that file before touching `AttributeAt`, word-nav, any caret/goto-line code, or the tokenizer.
 - ~~HexView: per-document view-mode restore across a document switch.~~ **DONE 2026-06-10** (see
   resume-point Next-steps #1): `EditorViewContainer::ReInitView` → `SyncToActiveDocument` → shared
   `ApplyViewMode` mechanics (focus transferred only if the outgoing item held it). Compile + green; GUI

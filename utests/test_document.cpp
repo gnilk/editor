@@ -65,6 +65,12 @@ DLL_EXPORT int test_document_reformat_surround_undo(ITesting *t);
 // enclosing-block finder (RF.2b)
 DLL_EXPORT int test_document_reformat_block_enclosing(ITesting *t);
 
+// 'cut' - whole-line cut/paste preserves the trailing newline (open-bugs.md #4 / feel-check E.18)
+DLL_EXPORT int test_document_cut_paste_linewise(ITesting *t);
+DLL_EXPORT int test_document_cut_paste_linewise_undo(ITesting *t);
+DLL_EXPORT int test_document_cut_paste_charwise(ITesting *t);
+DLL_EXPORT int test_document_cut_paste_funcbody(ITesting *t);
+
 }
 
 // Define some common actions, this will trigger side-effects in the document
@@ -88,6 +94,14 @@ static EditorAction actionUndo = {gedit::kAction::kActionUndo};
 static EditorAction actionShiftLineRight =
         {
                 .action = gedit::kAction::kActionLineRight,
+                .actionModifier = kActionModifier::kActionModifierSelection,
+                .modifierMask = Keyboard::ShiftMask()
+        };
+static EditorAction actionCut = {gedit::kAction::kActionCutToClipboard};
+static EditorAction actionPaste = {gedit::kAction::kActionPasteFromClipboard};
+static EditorAction actionShiftLineEnd =
+        {
+                .action = gedit::kAction::kActionLineEnd,
                 .actionModifier = kActionModifier::kActionModifierSelection,
                 .modifierMask = Keyboard::ShiftMask()
         };
@@ -1112,5 +1126,159 @@ DLL_EXPORT int test_document_indent_electric_emptyline(ITesting *t) {
     TR_ASSERT(t, document->ActiveLine()->Buffer() == U"}");        // closer appended, no crash
     TR_ASSERT(t, lc.cursor.position.x == 1);
     IndentCache::Instance().Clear();
+    return kTR_Pass;
+}
+
+// ---------------------------------------------------------------------------------------------------
+// Whole-line cut/paste preserves the trailing newline (open-bugs.md #4 / feel-check E.18).
+// A selection that starts at column 0 and ends at the END of its last line is a WHOLE-LINE selection;
+// the cut/copy normalizes its end to column 0 of the next line (Document::SelectionEndForCopy), so the
+// cut removes whole lines and a paste-back restores them exactly - no extra blank line, no join.
+// FillEmptyDocument makes lines "00000".."55555" (each 5 chars).
+// ---------------------------------------------------------------------------------------------------
+
+// NOTE: paste is driven through ClipBoard::PasteToBuffer directly (as the clipboard tests do) - the
+// Document::PasteFromClipboard action path derefs the live screen (UpdateClipboardData), which the
+// headless test harness has no instance of. The CUT - where the whole-line normalization lives - still
+// runs through the real Document::OnAction path.
+DLL_EXPORT int test_document_cut_paste_linewise(ITesting *t) {
+    auto document = CreateEmptyDocument(t);
+    gedit::Rect rect(20, 20);
+    document->OnViewInit(rect);
+    FillEmptyDocument(document, 6, 5);
+
+    // Select whole lines 0..3, ending at the END of line 3 ("33333" -> col 5).
+    document->OnAction(actionShiftLineDown);    // -> line 1
+    document->OnAction(actionShiftLineDown);    // -> line 2
+    document->OnAction(actionShiftLineDown);    // -> line 3
+    document->OnAction(actionShiftLineEnd);     // extend to EOL of line 3
+
+    auto &sel = document->GetSelection();
+    TR_ASSERT(t, sel.GetStart().x == 0);
+    TR_ASSERT(t, sel.GetStart().y == 0);
+    TR_ASSERT(t, sel.GetEnd().x == 5);          // EOL of "33333", NOT col 0 of the next line
+    TR_ASSERT(t, sel.GetEnd().y == 3);
+
+    document->OnAction(actionCut);
+    // Whole lines removed - line 4 pulled up, no blank remnant.
+    TR_ASSERT(t, document->Lines().size() == 2);
+    TR_ASSERT(t, document->LineAt(0)->Buffer() == U"44444");
+    TR_ASSERT(t, document->LineAt(1)->Buffer() == U"55555");
+
+    // Paste back at the caret (where the cut left it, col 0 of line 0).
+    auto &clipboard = Editor::Instance().GetClipBoard();
+    clipboard.PasteToBuffer(document->GetTextBuffer(), {0, 0});
+
+    // Restored exactly - the outer line ("44444") did NOT join the last pasted line.
+    TR_ASSERT(t, document->Lines().size() == 6);
+    TR_ASSERT(t, document->LineAt(0)->Buffer() == U"00000");
+    TR_ASSERT(t, document->LineAt(1)->Buffer() == U"11111");
+    TR_ASSERT(t, document->LineAt(2)->Buffer() == U"22222");
+    TR_ASSERT(t, document->LineAt(3)->Buffer() == U"33333");
+    TR_ASSERT(t, document->LineAt(4)->Buffer() == U"44444");
+    TR_ASSERT(t, document->LineAt(5)->Buffer() == U"55555");
+    return kTR_Pass;
+}
+
+// One undo after a whole-line cut restores the original lines in a single step.
+DLL_EXPORT int test_document_cut_paste_linewise_undo(ITesting *t) {
+    auto document = CreateEmptyDocument(t);
+    gedit::Rect rect(20, 20);
+    document->OnViewInit(rect);
+    FillEmptyDocument(document, 6, 5);
+
+    document->OnAction(actionShiftLineDown);    // -> line 1
+    document->OnAction(actionShiftLineDown);    // -> line 2
+    document->OnAction(actionShiftLineDown);    // -> line 3
+    document->OnAction(actionShiftLineEnd);     // extend to EOL of line 3
+
+    document->OnAction(actionCut);
+    TR_ASSERT(t, document->Lines().size() == 2);
+
+    document->OnAction(actionUndo);
+    TR_ASSERT(t, document->Lines().size() == 6);
+    TR_ASSERT(t, document->LineAt(0)->Buffer() == U"00000");
+    TR_ASSERT(t, document->LineAt(3)->Buffer() == U"33333");
+    TR_ASSERT(t, document->LineAt(4)->Buffer() == U"44444");
+    TR_ASSERT(t, document->LineAt(5)->Buffer() == U"55555");
+    return kTR_Pass;
+}
+
+// EOF boundary: a whole-line-looking selection ending at the buffer's LAST line is NOT normalized
+// (there is no trailing newline at EOF), so it stays charwise - and still round-trips exactly.
+DLL_EXPORT int test_document_cut_paste_charwise(ITesting *t) {
+    auto document = CreateEmptyDocument(t);
+    gedit::Rect rect(20, 20);
+    document->OnViewInit(rect);
+    FillEmptyDocument(document, 6, 5);
+
+    // Move (no selection) to line 3, then select whole lines 3..5 ending at EOL of the last line.
+    document->OnAction(actionLineDown);
+    document->OnAction(actionLineDown);
+    document->OnAction(actionLineDown);
+    document->OnAction(actionShiftLineDown);    // -> line 4
+    document->OnAction(actionShiftLineDown);    // -> line 5
+    document->OnAction(actionShiftLineEnd);     // extend to EOL of line 5 (last line)
+
+    auto &sel = document->GetSelection();
+    TR_ASSERT(t, sel.GetStart().y == 3);
+    TR_ASSERT(t, sel.GetEnd().x == 5);
+    TR_ASSERT(t, sel.GetEnd().y == 5);
+
+    document->OnAction(actionCut);
+    auto &clipboard = Editor::Instance().GetClipBoard();
+    clipboard.PasteToBuffer(document->GetTextBuffer(), {0, 3});  // caret left at col 0 of line 3
+    // Round-trips exactly via the charwise path (no normalization at EOF, no double blank line).
+    TR_ASSERT(t, document->Lines().size() == 6);
+    TR_ASSERT(t, document->LineAt(2)->Buffer() == U"22222");
+    TR_ASSERT(t, document->LineAt(3)->Buffer() == U"33333");
+    TR_ASSERT(t, document->LineAt(4)->Buffer() == U"44444");
+    TR_ASSERT(t, document->LineAt(5)->Buffer() == U"55555");
+    return kTR_Pass;
+}
+
+// The exact feel-check E.18 shape: a function body whose two statements are whole-line selected, cut,
+// and pasted back. The selection is made the natural GUI way - cursor on the first body line, two
+// Shift+Down - so it ends at COLUMN 0 of the closing-brace line (end.x == 0). Regression guard: the
+// closing '}' must stay on its own line, not get joined as 'bar();}'.
+DLL_EXPORT int test_document_cut_paste_funcbody(ITesting *t) {
+    auto document = CreateEmptyDocument(t);
+    gedit::Rect rect(40, 40);
+    document->OnViewInit(rect);
+
+    auto buffer = document->GetTextBuffer();
+    buffer->DeleteLineAt(0);                        // drop the seeded empty line
+    buffer->AddLineUTF8("static void func() {");    // 0
+    buffer->AddLineUTF8("    foo();");              // 1
+    buffer->AddLineUTF8("    bar();");              // 2
+    buffer->AddLineUTF8("}");                       // 3
+
+    // Cursor onto the foo line, then Shift+Down twice to whole-line select foo + bar. The caret lands
+    // at column 0 of the '}' line, so the selection ends at (0, 3).
+    document->OnAction(actionLineDown);             // -> line 1 (foo)
+    document->OnAction(actionShiftLineDown);        // select foo  -> caret line 2
+    document->OnAction(actionShiftLineDown);        // select foo+bar -> caret line 3 (col 0)
+
+    auto &sel = document->GetSelection();
+    TR_ASSERT(t, sel.GetStart().x == 0);
+    TR_ASSERT(t, sel.GetStart().y == 1);
+    TR_ASSERT(t, sel.GetEnd().x == 0);              // ends at col 0 of the '}' line
+    TR_ASSERT(t, sel.GetEnd().y == 3);
+
+    document->OnAction(actionCut);
+    // foo + bar removed, '}' pulled up directly under the signature.
+    TR_ASSERT(t, document->Lines().size() == 2);
+    TR_ASSERT(t, document->LineAt(0)->Buffer() == U"static void func() {");
+    TR_ASSERT(t, document->LineAt(1)->Buffer() == U"}");
+
+    // Paste back where the cut left the caret (col 0 of line 1).
+    auto &clipboard = Editor::Instance().GetClipBoard();
+    clipboard.PasteToBuffer(document->GetTextBuffer(), {0, 1});
+
+    TR_ASSERT(t, document->Lines().size() == 4);
+    TR_ASSERT(t, document->LineAt(0)->Buffer() == U"static void func() {");
+    TR_ASSERT(t, document->LineAt(1)->Buffer() == U"    foo();");
+    TR_ASSERT(t, document->LineAt(2)->Buffer() == U"    bar();");
+    TR_ASSERT(t, document->LineAt(3)->Buffer() == U"}");      // NOT joined as "    bar();}"
     return kTR_Pass;
 }

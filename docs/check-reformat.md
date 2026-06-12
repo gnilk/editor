@@ -70,9 +70,16 @@ Commands under test:
 ## E. Undo (single press)
 - [x] 17. After a block-surround (D.12), **one** undo restores the original lines exactly — the two brace
   lines gone, body whitespace back to original. Not two presses, no stray `{`/`}` left.
-- [-] 18. After a ReformatLine / ReformatBlock, one undo restores the original indentation of the whole
+- [x] 18. After a ReformatLine / ReformatBlock, one undo restores the original indentation of the whole
   affected range in a single step.
-  Comment: Cut/Paste the block (incl. the '{' '}' lines) works, but on paste the final (outer) brace is placed on the same line as the inner-brace of the pasted block. seems like NL is not preserved on pasting - if pasting whole-lines this should be the case.
+  FIXED (two parts): (A) selection-end normalization - a whole-line selection (col 0 -> EOL of last line) has
+  its end normalized to col 0 of the next line (Document::SelectionEndForCopy), reusing the tested end.x==0
+  paths. (B) the ACTUAL GUI bug: paste goes through the OS clipboard (PasteFromClipboard -> UpdateClipboardData
+  -> CopyFromExternal), and the cut->OS serialization + std::getline parse were dropping the trailing newline.
+  Fixed via ClipBoard::AsText() (one serialization point for both SDL backends) + CopyFromExternal preserving
+  the trailing-empty segment. Guards: test_document_cut_paste_linewise/_undo/_charwise and
+  test_clipboard_external_roundtrip_linewise/_charwise/_trailing_newline.
+  Comment (original): Cut/Paste the block (incl. the '{' '}' lines) works, but on paste the final (outer) brace is placed on the same line as the inner-brace of the pasted block. seems like NL is not preserved on pasting - if pasting whole-lines this should be the case.
   Block:
 static void func() {
     {           <- start whole line selection
@@ -89,19 +96,19 @@ static void func() {
         bar();
     }|}     <- caret in between the braces
 
-- [ ] 19. Redo after the undo re-applies cleanly.
+- [x] 19. Redo after the undo re-applies cleanly.
 
 ## F. Plaintext / no-op
-- [ ] 20. In a `.txt` file (no indent table), `Cmd+L` / `Cmd+I` → nothing changes (no reflow, no crash).
-- [ ] 21. Block-surround path: multi-line selection + `{` in `.txt` → no pairing/surround at all (autopair
+- [x] 20. In a `.txt` file (no indent table), `Cmd+L` / `Cmd+I` → nothing changes (no reflow, no crash).
+- [x] 21. Block-surround path: multi-line selection + `{` in `.txt` → no pairing/surround at all (autopair
   is already off for plaintext).
 
 ## G. Feel / edge cases
-- [ ] 22. Blank lines inside a reformatted range come out **empty** (no trailing-whitespace indentation).
-- [ ] 23. Reformat near the top of the file (range starting at line 0) behaves (anchor = level 0).
-- [ ] 24. Reformat a range/block ending mid-construct (selection stops inside a block comment) → the
+- [x] 22. Blank lines inside a reformatted range come out **empty** (no trailing-whitespace indentation).
+- [x] 23. Reformat near the top of the file (range starting at line 0) behaves (anchor = level 0).
+- [x] 24. Reformat a range/block ending mid-construct (selection stops inside a block comment) → the
   forward-extend completes the construct rather than leaving it half-reformatted.
-- [ ] 25. Cursor column after any reformat stays valid (line shrank/grew) — vertical nav afterwards lands
+- [x] 25. Cursor column after any reformat stays valid (line shrank/grew) — vertical nav afterwards lands
   where expected.
 
 ---

@@ -299,13 +299,9 @@ uint8_t SDLKeyboardDriver::TranslateModifiers(SDL_Keymod sdlModifiers) {
 // We hook the clipboard in the keyboard driver as this is the one processing messages
 void SDLKeyboardDriver::HookEditorClipBoard() {
     Editor::Instance().GetClipBoard().SetOnUpdateCallback([](ClipBoard::ClipBoardItem::Ref clipBoardItem) {
-        auto dstBuffer = TextBuffer::CreateEmptyBuffer();
-        std::u32string flattenedText;
-
-        clipBoardItem->PasteToBuffer(dstBuffer, {0,0});
-        dstBuffer->Flatten(flattenedText, 0, clipBoardItem->GetLineCount());
-
-        auto utf8str = UnicodeHelper::utf32to8(flattenedText);
+        // AsText() joins the resolved segments with '\n' (no phantom trailing newline), so a whole-line
+        // copy's trailing line break survives the round-trip back through CopyFromExternal (E.18).
+        auto utf8str = UnicodeHelper::utf32to8(clipBoardItem->AsText());
         SDL_SetClipboardText(utf8str.c_str());
     });
 }

@@ -106,7 +106,32 @@ tokenizer's longest-match / boundary logic at operator↔identifier transitions.
 
 ---
 
-## 4. Whole-line cut/paste drops the trailing newline when the selection ends at EOL of the last line
+## 4. Whole-line cut/paste drops the trailing newline when the selection ends at EOL of the last line — FIXED 2026-06-12
+
+**FIXED 2026-06-12 — TWO mechanisms (the GUI bug was the second one).**
+
+**(A) Selection-end normalization (internal path).** A whole-line selection (starts at column 0, ends at the
+END of its last line) has its end normalized to **column 0 of the following line** at the copy/cut site
+(`Document::SelectionEndForCopy`, used by both `kActionCopyToClipboard` and `kActionCutToClipboard`; the cut
+now calls `DeleteRange(start, normEnd)` instead of `DeleteSelection()`). That reuses the already-tested
+`end.x==0` copy/delete paths. EOF selections stay charwise. Guards: `test_document_cut_paste_linewise`,
+`_linewise_undo`, `_charwise`.
+
+**(B) OS-clipboard round-trip (THE actual GUI manifestation).** The GUI paste does NOT use the internal item:
+`Document::PasteFromClipboard` first calls `UpdateClipboardData()`, which re-reads the OS pasteboard as an
+**external** item (`ClipBoard::CopyFromExternal`). The cut serializes to the OS clipboard via the backend's
+`OnUpdate` hook. Two bugs there dropped the trailing newline: (1) the hook flattened `GetLineCount()` lines with
+`TextBuffer::Flatten` (which truncated the resolved trailing-empty segment), and (2) `CopyFromExternal` used
+`std::getline`, which **discards the final empty segment after a trailing `\n`**. So a whole-line copy round-tripped
+as `"foo\nbar\n"` → `{"foo","bar"}` → paste joined the destination's next line (`bar();}`). Fix: a single
+serialization point `ClipBoard::ClipBoardItem::AsText()` (resolved segments joined by `\n`, no phantom trailing
+newline) used by **both** SDL2/SDL3 `OnUpdate` hooks, and `CopyFromExternal` now splits manually to **preserve the
+trailing empty segment**. Guards: `test_clipboard_external_roundtrip_linewise` (the GUI path), `_charwise`
+(control), `test_clipboard_external_trailing_newline`.
+
+`NewUndoFromSelection` already snapshots `ptEnd.y+1` for the EOL case, so a single undo restores cleanly
+(restore action becomes `kInsertAsNew`). The `ClipBoard` internal-paste layer (`ResolveSegments`/`PasteToBuffer`)
+is unchanged. Original write-up kept below.
 
 **Where:** the selection model + clipboard — `Document::UpdateSelection` (`Document.h`),
 `ClipBoard::ClipBoardItem::ResolveSegments` / `PasteToBuffer` (`src/Core/ClipBoard.cpp`).

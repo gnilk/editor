@@ -197,6 +197,14 @@ namespace gedit {
         }
         void DeleteSelection();     // Fixme: naming - this looks like a selection-range mgmt function
 
+        // The end Point to use for a copy/cut of `selection`. A whole-line selection (starts at column 0
+        // and ends at the very end of its last line) is normalized to column 0 of the FOLLOWING line, so
+        // copy preserves the trailing newline and a cut removes whole lines - both via the already-tested
+        // end.x==0 paths (open-bugs.md #4 / feel-check E.18). Selections that start mid-line, end mid-line,
+        // already end on a line break, or end at the LAST line of the buffer (no trailing newline) are
+        // returned unchanged (charwise).
+        Point SelectionEndForCopy(const Selection &selection);
+
     protected:
         void UpdateSelection() {
             // perhaps check if active...

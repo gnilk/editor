@@ -84,13 +84,22 @@ void ClipBoard::ClipBoardItem::CopyFromBuffer(TextBuffer::Ref srcBuffer) {
 }
 
 void ClipBoard::ClipBoardItem::CopyFromExternal(const char *srcData) {
-    std::stringstream strStream(srcData);
-    std::string line;
-    while(std::getline(strStream, line)) {
+    // Split on '\n', PRESERVING a trailing empty segment. std::getline drops the final empty after a
+    // trailing newline, which loses the "ends on a line break" (linewise) signal - so a whole-line
+    // copy round-tripped through the OS clipboard would join the destination's next line on paste
+    // (open-bugs.md #4 / feel-check E.18). A manual split keeps it: "foo\nbar\n" -> {"foo","bar",""}.
+    std::string src(srcData);
+    size_t pos = 0;
+    while (true) {
+        size_t nl = src.find('\n', pos);
+        std::string lineUtf8 = (nl == std::string::npos) ? src.substr(pos) : src.substr(pos, nl - pos);
         std::u32string tmp;
-        if (UnicodeHelper::ConvertUTF8ToUTF32String(tmp, line)) {
-            data.push_back(tmp);
+        UnicodeHelper::ConvertUTF8ToUTF32String(tmp, lineUtf8);
+        data.push_back(tmp);    // keep empty segments too (preserves a trailing line break)
+        if (nl == std::string::npos) {
+            break;
         }
+        pos = nl + 1;
     }
 }
 
@@ -135,6 +144,18 @@ std::vector<std::u32string> ClipBoard::ClipBoardItem::ResolveSegments() {
 
 size_t ClipBoard::ClipBoardItem::GetPasteLineCount() {
     return ResolveSegments().size();
+}
+
+std::u32string ClipBoard::ClipBoardItem::AsText() {
+    auto segs = ResolveSegments();
+    std::u32string out;
+    for (size_t i = 0; i < segs.size(); i++) {
+        if (i > 0) {
+            out += U"\n";
+        }
+        out += segs[i];
+    }
+    return out;
 }
 
 Point ClipBoard::ClipBoardItem::PasteToBuffer(TextBuffer::Ref dstBuffer, const Point &ptWhere) {

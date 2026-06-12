@@ -219,19 +219,21 @@ bool Document::OnAction(const EditorAction &kpAction) {
         logger->Debug("Set text to clipboard");
         auto selection = GetSelection();
         auto &clipboard = Editor::Instance().GetClipBoard();
-        clipboard.CopyFromBuffer(GetTextBuffer(), selection.GetStart(), selection.GetEnd());
+        clipboard.CopyFromBuffer(GetTextBuffer(), selection.GetStart(), SelectionEndForCopy(selection));
 
     } else if (kpAction.action == kAction::kActionCutToClipboard) {
         logger->Debug("Cut text to clipboard");
         auto selection = GetSelection();
+        auto startPos = selection.GetStart();
+        auto endPos = SelectionEndForCopy(selection);   // whole-line cuts consume the trailing newline
         auto &clipboard = Editor::Instance().GetClipBoard();
-        clipboard.CopyFromBuffer(GetTextBuffer(), selection.GetStart(), selection.GetEnd());
+        clipboard.CopyFromBuffer(GetTextBuffer(), startPos, endPos);
 
-        documentViewState->lineCursor.idxActiveLine = selection.GetStart().y;
-        documentViewState->lineCursor.cursor.position = selection.GetStart();
+        documentViewState->lineCursor.idxActiveLine = startPos.y;
+        documentViewState->lineCursor.cursor.position = startPos;
         documentViewState->lineCursor.cursor.position.y -= documentViewState->lineCursor.viewTopLine;   // Translate to screen coords..
 
-        DeleteSelection();
+        DeleteRange(startPos, endPos);
         CancelSelection();
         UpdateDocumentFromNavigation(false);
     } else if (kpAction.action == kAction::kActionPasteFromClipboard) {
@@ -961,6 +963,23 @@ void Document::DeleteSelection() {
     auto endPos = documentViewState->currentSelection.GetEnd();
 
     DeleteRange(startPos, endPos);
+}
+
+gedit::Point Document::SelectionEndForCopy(const Selection &selection) {
+    auto startPos = selection.GetStart();
+    auto endPos = selection.GetEnd();
+    if ((startPos.x != 0) || (endPos.x == 0)) {
+        return endPos;      // not a whole-line selection, or already at a line break
+    }
+    auto lastLine = GetTextBuffer()->LineAt(endPos.y);
+    bool endsAtEol = (lastLine != nullptr) && (endPos.x == (int)lastLine->Length());
+    bool hasFollowingLine = ((size_t)(endPos.y + 1) < GetTextBuffer()->NumLines());
+    if (endsAtEol && hasFollowingLine) {
+        // Whole lines selected to EOL: the canonical end is column 0 of the next line. There the
+        // existing copy/delete paths preserve / remove the trailing newline symmetrically.
+        return gedit::Point(0, endPos.y + 1);
+    }
+    return endPos;          // stops mid-line, or at the buffer's last line (no trailing newline)
 }
 
 void Document::CommentSelectionOrLine() {

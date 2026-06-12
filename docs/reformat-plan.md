@@ -154,15 +154,21 @@ into the live edit path.
   `DispatchAction` + handlers. **ReformatBlock no-selection enclosing-block finder = RF.2b (TODO; falls back
   to current line for now).** 3 integration tests in `test_document`. Verified set **197**.
 
-**Next — RF.2b (enclosing-block finder) + RF.3 (wrap / H.18b):**
+**Done — RF.3** (`0999b33`): block-surround for multi-line `{`-wrap — the **H.18b** payoff.
+- Multi-line selection + block opener ⇒ braces on their **own lines** + body reindented (single-line /
+  non-block pairs keep faithful inline). `Document::SurroundLineRangeWithBlock` builds opener/body/closer
+  and reindents the whole block via `ReindentRange` (braces alone on their lines ⇒ the walk nests cleanly).
+- **New `kReplaceRange` undo primitive** (the missing "delete N current lines, restore M saved" action) +
+  `Document::ReplaceLineRange` ⇒ the whole surround is ONE undo. `check-autopair.md` H.18b → RESOLVED.
+- 2 tests (surround / surround_undo). Verified set **199**.
+
+**Next — RF.2b (enclosing-block finder):**
 1. **RF.2b — enclosing-block finder** for `ReformatBlock` with no selection. Needs a brace-pair matcher
    (scan out from the cursor line to the surrounding `{ }`), then `ReindentLineRange(openLine, closeLine)`.
    Watch braces in strings/comments — skip via the per-line token class, or (cheaper) reuse `SyntaxRegion`
    to stay out of multi-line constructs. The `OnActionReformatBlock` no-selection branch has the TODO marker.
-2. **RF.3 — wrap integration (H.18b):** `EditController::TryWrapSelection` calls `Document::ReindentLineRange`
-   for block pairs only (the wrapped pair's `open` ∈ `indent_after`, i.e. `{`), after inserting the
-   opener/closer. Integration test (wrap a two-line body with `{` → nested + closer placement). Update
-   `docs/check-autopair.md` H.18b → RESOLVED.
+   This is the only remaining RF piece; once done, **a GUI feel-check** of the whole reformat feature
+   (ReformatLine/Block + the block-surround wrap) is the close-out.
 
 ## Decisions — settled (2026-06-11)
 

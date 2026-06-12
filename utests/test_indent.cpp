@@ -32,6 +32,7 @@ DLL_EXPORT int test_indent_reindent_nested(ITesting *t);
 DLL_EXPORT int test_indent_reindent_anchor(ITesting *t);
 DLL_EXPORT int test_indent_reindent_blank(ITesting *t);
 DLL_EXPORT int test_indent_reindent_emptytable(ITesting *t);
+DLL_EXPORT int test_indent_reindent_commentbraces(ITesting *t);
 DLL_EXPORT int test_indent_config(ITesting *t);
 DLL_EXPORT int test_indent_config_unknown(ITesting *t);
 DLL_EXPORT int test_indent_config_asset(ITesting *t);
@@ -121,6 +122,36 @@ DLL_EXPORT int test_indent_reindent_blank(ITesting *t) {
     TR_ASSERT(t, r[0] == 0);
     TR_ASSERT(t, r[1] == 1);    // blank inside the block holds level 1
     TR_ASSERT(t, r[2] == 1);
+    return kTR_Pass;
+}
+
+// Token-resolved triggers: a frozen line (multi-line construct interior) and a masked trailing brace must not
+// move the running depth, so code after a comment/string brace keeps its true level instead of being pushed
+// one deeper. The frozen line yields -1 ("leave its bytes untouched").
+DLL_EXPORT int test_indent_reindent_commentbraces(ITesting *t) {
+    auto tbl = CTable();
+    IndentEngine::RangeContext c;
+    c.table = &tbl;
+    c.tabSize = kTab;
+    c.anchorLevel = 1;                  // inside an already-open block
+    std::vector<std::u32string> lines = {U"a();", U"d(); // x {", U"this {", U"c();"};
+    for (const auto &l : lines) {
+        c.lines.emplace_back(l);
+    }
+    // Parallel syntax: line 1's trailing '{' is masked (lastStructural is ';'); line 2 is a block-comment
+    // interior (frozen); the others are plain code.
+    c.syntax = {
+        {U'a', U';', false},
+        {U'd', U';', false},
+        {0, 0, true},
+        {U'c', U';', false},
+    };
+    auto r = IndentEngine::ReindentRange(c);
+    TR_ASSERT(t, r.size() == 4);
+    TR_ASSERT(t, r[0] == 1);
+    TR_ASSERT(t, r[1] == 1);
+    TR_ASSERT(t, r[2] == -1);           // frozen -> untouched
+    TR_ASSERT(t, r[3] == 1);            // NOT bumped to 2 by the comment/frozen braces
     return kTR_Pass;
 }
 

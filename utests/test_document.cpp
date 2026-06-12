@@ -53,6 +53,7 @@ DLL_EXPORT int test_document_indent_electric_emptyline(ITesting *t);
 // 'reformat' - ReindentLineRange + the ReformatLine/ReformatBlock actions (RF.2)
 DLL_EXPORT int test_document_reformat_line(ITesting *t);
 DLL_EXPORT int test_document_reformat_cursor(ITesting *t);
+DLL_EXPORT int test_document_reformat_commentbraces(ITesting *t);
 DLL_EXPORT int test_document_reformat_range(ITesting *t);
 DLL_EXPORT int test_document_reformat_undo(ITesting *t);
 // block-surround (RF.3 / H.18b)
@@ -766,6 +767,51 @@ DLL_EXPORT int test_document_reformat_cursor(ITesting *t) {
         TR_ASSERT(t, document->GetLineCursor().cursor.position.x == 6);
         IndentCache::Instance().Clear();
     }
+    return kTR_Pass;
+}
+
+// C.10: braces inside comments/strings must not throw off the reindent walk. Needs a real CPP buffer so the
+// tokenizer stamps comment classes + block-comment state depth - a trailing-comment '{' is masked, and a
+// block-comment interior line is frozen (byte-faithful), so the code after the comment keeps its true level.
+DLL_EXPORT int test_document_reformat_commentbraces(ITesting *t) {
+    Config::Instance()["main"].SetBool("threaded_syntaxparser", false);
+    auto workspace = Editor::Instance().GetWorkspace();
+    TR_ASSERT(t, workspace != nullptr);
+    auto node = workspace->NewDocument("reformat_comments.cpp");
+    TR_ASSERT(t, node != nullptr);
+    auto document = node->GetDocument();
+    auto buffer = document->GetTextBuffer();
+
+    auto langName = buffer->GetLanguage().GetConfigNodeName();
+    std::string yaml =
+        "indent:\n  " + langName + ":\n"
+        "    suppress_in:  [string, comment]\n"
+        "    indent_after: [\"{\", \"[\", \"(\"]\n"
+        "    dedent_on:    [\"}\", \"]\", \")\"]\n";
+    TR_ASSERT(t, IndentCache::Instance().LoadFromString(yaml));
+
+    buffer->DeleteLineAt(0);    // drop the initial empty line
+    buffer->AddLineUTF8("void f() {");      // 0
+    buffer->AddLineUTF8("    a();");        // 1
+    buffer->AddLineUTF8("    d(); // x {"); // 2  trailing-comment brace - must NOT open
+    buffer->AddLineUTF8("    b();");        // 3
+    buffer->AddLineUTF8("    /*");          // 4
+    buffer->AddLineUTF8("    this {");      // 5  block-comment interior - frozen, '{' must NOT open
+    buffer->AddLineUTF8("    */");          // 6  frozen
+    buffer->AddLineUTF8("    c();");        // 7
+    buffer->AddLineUTF8("}");               // 8
+    buffer->Reparse();
+
+    document->ReindentLineRange(1, 8);
+
+    TR_ASSERT(t, document->LineAt(1)->Buffer() == U"    a();");
+    TR_ASSERT(t, document->LineAt(3)->Buffer() == U"    b();");   // trailing '{' did not open
+    TR_ASSERT(t, document->LineAt(5)->Buffer() == U"    this {"); // frozen: bytes untouched
+    TR_ASSERT(t, document->LineAt(7)->Buffer() == U"    c();");   // block-comment '{' did not open
+    TR_ASSERT(t, document->LineAt(8)->Buffer() == U"}");
+
+    TR_ASSERT(t, workspace->RemoveDocument(node->GetDocument()));
+    IndentCache::Instance().Clear();
     return kTR_Pass;
 }
 

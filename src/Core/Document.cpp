@@ -786,6 +786,52 @@ static int LeadingWhitespaceCharCount(const std::u32string &buf) {
     return n;
 }
 
+// Token class of the char at position x: the span whose start is the greatest idxOrigString <= x (attribs are
+// ascending). kRegular when the line is unparsed (so an unparsed brace still counts - degrades to naive
+// matching). NB: does NOT use Line::AttributeAt - that returns the FIRST span for any x in the last span,
+// which would misread a trailing comment (always the last span) as code.
+static kLanguageTokenClass TokenClassAtChar(const Line::Ref &line, int x) {
+    auto &attribs = line->Attributes();
+    if (attribs.empty()) {
+        return kLanguageTokenClass::kRegular;
+    }
+    kLanguageTokenClass cls = kLanguageTokenClass::kRegular;
+    for (const auto &a : attribs) {
+        if (a.idxOrigString > x) {
+            break;
+        }
+        cls = a.tokenClass;
+    }
+    return cls;
+}
+
+// Resolve a line's structural triggers for the reindent walk: the first/last non-space char that is NOT
+// inside a string/comment, plus whether the line STARTS inside a multi-line construct (then it is frozen -
+// left byte-faithful, contributing no structure). Needs the parsed tokens + lexer state, so it lives here at
+// the Document layer rather than in the pure engine.
+static IndentEngine::RangeLineSyntax ComputeLineSyntax(const Line::Ref &line, const IndentTable *table) {
+    IndentEngine::RangeLineSyntax syn;
+    syn.isFrozen = (line->GetStateStackDepth() > 1);
+    if (syn.isFrozen) {
+        return syn;
+    }
+    const auto &buf = line->Buffer();
+    for (int x = 0; x < (int)buf.size(); x++) {
+        char32_t ch = buf[x];
+        if ((ch == U' ') || (ch == U'\t')) {
+            continue;
+        }
+        if ((table != nullptr) && table->IsSuppressed(TokenClassAtChar(line, x))) {
+            continue;   // inside a string/comment span - not a structural trigger
+        }
+        if (syn.firstStructural == 0) {
+            syn.firstStructural = ch;
+        }
+        syn.lastStructural = ch;
+    }
+    return syn;
+}
+
 // String form of SetLineLeadingIndent - used when building replacement line content before it is committed.
 static void SetStringLeadingIndent(std::u32string &str, int nSpaces) {
     size_t runLen = 0;
@@ -1034,6 +1080,7 @@ void Document::ReindentLineRange(size_t startY, size_t endY) {
     ctx.anchorLevel = anchorLevel;
     for (size_t y = startY; y <= endExtended; y++) {
         ctx.lines.emplace_back(lines[y]->Buffer());
+        ctx.syntax.emplace_back(ComputeLineSyntax(lines[y], table));
     }
     auto levels = IndentEngine::ReindentRange(ctx);
 
@@ -1050,6 +1097,9 @@ void Document::ReindentLineRange(size_t startY, size_t endY) {
     int oldLeadingChars = activeInRange ? LeadingWhitespaceCharCount(lines[activeIdx]->Buffer()) : 0;
 
     for (size_t i = 0; i < levels.size(); i++) {
+        if (levels[i] < 0) {
+            continue;   // frozen line (multi-line construct interior): leave its bytes untouched
+        }
         SetLineLeadingIndent(lines[startY + i], levels[i] * tabSize);
     }
 

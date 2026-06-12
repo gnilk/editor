@@ -47,6 +47,15 @@ namespace gedit {
             kLanguageTokenClass tokenClassAtCursor = kLanguageTokenClass::kRegular;
         };
 
+        // Token-resolved triggers for ONE line, supplied by the caller (which has the parsed tokens). Optional:
+        // when the syntax vector is empty the walk falls back to the raw first/last non-space char of the text.
+        // With it, braces inside a string/comment are skipped, so they do not move the running depth.
+        struct RangeLineSyntax {
+            char32_t firstStructural = 0;   // first non-space char NOT in a string/comment (0 = none on the line)
+            char32_t lastStructural = 0;    // last non-space char NOT in a string/comment  (0 = none)
+            bool isFrozen = false;          // line starts inside a multi-line construct: leave its bytes alone
+        };
+
         // Reformat (reindent-a-range): the range-shaped sibling of Context. The decision is inherently
         // cross-line, so it carries N lines and an anchor (the trusted indent level of the line ABOVE the
         // range, 0 at file top) rather than one line + cursor. Pure: views + table, no Line dependency.
@@ -55,12 +64,14 @@ namespace gedit {
             std::vector<std::u32string_view> lines;     // the lines to reformat, in order
             int anchorLevel = 0;                        // indent level (tab units) of the line above the range
             int tabSize = 4;
+            std::vector<RangeLineSyntax> syntax;        // OPTIONAL, parallel to lines; empty => text fallback
         };
 
         static Action OnNewLine(const Context &ctx);
         static Action OnInsertChar(const Context &ctx, char32_t typed);
         // Returns one absolute indent level (tab units) per input line - a stepped walk seeded by anchorLevel.
-        // Empty table => each line's existing leading-indent level, unchanged (plaintext no-op).
+        // Empty table => each line's existing leading-indent level, unchanged (plaintext no-op). A line marked
+        // frozen (multi-line construct interior) yields -1: "leave this line's bytes untouched".
         static std::vector<int> ReindentRange(const RangeContext &ctx);
 
         // Region search for reformat (uses the shared SyntaxRegion clean-line seek over live lines - the only

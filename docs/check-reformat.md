@@ -22,19 +22,23 @@ Commands under test:
   past it; a neutral line keeps the previous line's level.
 
 ## B. ReformatBlock with a selection (Cmd/Ctrl+I)
-- [ ] 5. Select a mis-indented multi-line body, `Cmd+I` → every selected line re-derived (body to one level,
+- [x] 5. Select a mis-indented multi-line body, `Cmd+I` → every selected line re-derived (body to one level,
   a closing `}` line back out).
-- [ ] 6. Selection spanning a nested block → inner block indents one level deeper than its `{`.
-- [ ] 7. Linewise selection ending at column 0 of the line *past* the block → that trailing line is NOT
+- [x] 6. Selection spanning a nested block → inner block indents one level deeper than its `{`.
+- [x] 7. Linewise selection ending at column 0 of the line *past* the block → that trailing line is NOT
   reformatted (only the lines actually selected).
 
 ## C. ReformatBlock with NO selection — enclosing block (Cmd/Ctrl+I)
-- [ ] 8. Cursor on a body line inside `{ … }`, no selection, `Cmd+I` → the whole enclosing block reformats
+- [x] 8. Cursor on a body line inside `{ … }`, no selection, `Cmd+I` → the whole enclosing block reformats
   (open line, body, close line).
-- [ ] 9. Cursor inside a *nested* block → only the nearest enclosing `{ }` reformats (not the outer one).
-- [ ] 10. Braces in strings/comments don't fool it: a `// }` or `"{"` on a line inside the block does not
-  break the match (the block boundaries are still the real braces).
-- [ ] 11. Cursor NOT inside any block (top level) + `Cmd+I` → just the current line reformats (graceful
+- [x] 9. Cursor inside a *nested* block → only the nearest enclosing `{ }` reformats (not the outer one).
+- [x] 10. Braces in strings/comments don't fool it: a `// }` or `"{"` on a line inside the block does not
+  break the match (the block boundaries are still the real braces)
+      FIXED: the reindent walk is now token-aware (braces in comments/strings are masked; block-comment /
+      multi-line-string interiors are frozen byte-faithful). Also fixed a latent Line::AttributeAt bug that
+      misread a trailing comment (always the last token span) as code. Guards: test_indent_reindent_commentbraces,
+      test_document_reformat_commentbraces.
+- [x] 11. Cursor NOT inside any block (top level) + `Cmd+I` → just the current line reformats (graceful
   fallback, no wild range).
 
 ## D. Block-surround — multi-line `{`-wrap (the H.18b payoff)

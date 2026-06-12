@@ -91,35 +91,52 @@ std::vector<int> IndentEngine::ReindentRange(const RangeContext &ctx) {
     }
 
     int depth = (ctx.anchorLevel < 0) ? 0 : ctx.anchorLevel;
-    for (const auto &line : ctx.lines) {
+    for (size_t i = 0; i < ctx.lines.size(); i++) {
+        const auto &line = ctx.lines[i];
+        bool haveSyn = (i < ctx.syntax.size());
+        // A line inside a multi-line construct (block comment / multi-line string) is left byte-faithful and
+        // contributes no structure - rewriting its indent would corrupt a raw string and its braces are text.
+        if (haveSyn && ctx.syntax[i].isFrozen) {
+            levels.push_back(-1);
+            continue;
+        }
         // A blank line holds the prevailing level and does not move the running depth.
         if (IsAllWhitespace(line)) {
             levels.push_back(depth);
             continue;
         }
-        // A line whose first non-blank is a closer sits one level out from the running depth.
-        bool closesHere = ctx.table->IsDedentOn(FirstNonSpace(line));
+        // Trigger chars: token-resolved when supplied (braces in strings/comments are masked to 0), else the
+        // raw first/last non-space char of the text. A 0 trigger (e.g. a comment-only line) is neutral.
+        char32_t firstCh = haveSyn ? ctx.syntax[i].firstStructural : FirstNonSpace(line);
+        char32_t lastCh = haveSyn ? ctx.syntax[i].lastStructural : LastNonSpace(line);
+        // A line whose first structural char is a closer sits one level out from the running depth.
+        bool closesHere = (firstCh != 0) && ctx.table->IsDedentOn(firstCh);
         int lineLevel = closesHere ? std::max(0, depth - 1) : depth;
         levels.push_back(lineLevel);
-        // A line ending with an opener pushes the next line in one level.
-        bool opensNext = ctx.table->IsIndentAfter(LastNonSpace(line));
+        // A line ending with a structural opener pushes the next line in one level.
+        bool opensNext = (lastCh != 0) && ctx.table->IsIndentAfter(lastCh);
         depth = lineLevel + (opensNext ? 1 : 0);
     }
     return levels;
 }
 
-// Token class of the char at (line, x); kRegular when the line is unparsed or x is past end - so an
-// unparsed brace still counts (degrades to naive matching rather than ignoring everything).
+// Token class of the char at (line, x): the span whose start is the greatest idxOrigString <= x (attribs are
+// ascending). kRegular when the line is unparsed - so an unparsed brace still counts (degrades to naive
+// matching). NB: does NOT use Line::AttributeAt - that returns the FIRST span for any x in the last span,
+// which would misread a brace in a trailing comment (always the last span) as code.
 static kLanguageTokenClass TokenClassAtChar(const Line::Ref &line, int x) {
     auto &attribs = line->Attributes();
     if (attribs.empty()) {
         return kLanguageTokenClass::kRegular;
     }
-    auto it = line->AttributeAt(x);
-    if (it == attribs.end()) {
-        return kLanguageTokenClass::kRegular;
+    kLanguageTokenClass cls = kLanguageTokenClass::kRegular;
+    for (const auto &a : attribs) {
+        if (a.idxOrigString > x) {
+            break;
+        }
+        cls = a.tokenClass;
     }
-    return it->tokenClass;
+    return cls;
 }
 
 // The '{ }' pair enclosing the cursor: scan backward for the nearest unmatched '{' and forward for its

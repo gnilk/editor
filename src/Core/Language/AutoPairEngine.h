@@ -3,7 +3,7 @@
 //
 // The LOGIC half of auto-pairing: a single pure decision per keystroke. No UI, no tokenizer, no Line -
 // everything it needs is in Context, so it is unit-tested directly (like HexView::ComputeNavTarget). The
-// controller applies exactly one returned Action. See docs/autopair-plan.md.
+// controller applies exactly one returned Action.
 //
 
 #ifndef EDITOR_AUTOPAIRENGINE_H

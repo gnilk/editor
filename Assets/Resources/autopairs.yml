@@ -1,4 +1,4 @@
-# Auto-pairing rules - see docs/autopair-plan.md.
+# Auto-pairing rules.
 #
 # One self-contained file: a 'generic' base that languages inherit and override/append. Sections are keyed
 # by the language's config name (the same short name as the 'languages:' section in config.yml: cpp, json,

@@ -6,7 +6,7 @@
 // snaps the current line back a level). Everything it needs is in Context (a u32string_view + cursor +
 // tabSize + the token class at the cursor), so it is unit-tested directly with a hand-built IndentTable -
 // no UI / Line / tokenizer dependency. The model is RELATIVE: indent derives from the reference line's
-// leading whitespace plus the trigger deltas, not an absolute brace-depth. See docs/indent-plan.md.
+// leading whitespace plus the trigger deltas, not an absolute brace-depth.
 //
 
 #ifndef EDITOR_INDENTENGINE_H

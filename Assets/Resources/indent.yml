@@ -1,4 +1,4 @@
-# Auto-indent rules - see docs/indent-plan.md.
+# Auto-indent rules.
 #
 # One self-contained file: a 'generic' base that languages inherit and override. Sections are keyed by the
 # language's config name (the same short name as the 'languages:' section in config.yml: cpp, json, make,

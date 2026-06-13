@@ -4,7 +4,7 @@
 // The DATA half of auto-indentation: the trigger char sets + the electric-suppress classes, per language
 // config name. Built from the indent.yml config (generic + inherit) or by hand in tests. Pure data +
 // lookups - the decisions live in IndentEngine. An EMPTY table means "no language indent rules": the engine
-// falls back to copying the previous line's indent and never dedents on type. See docs/indent-plan.md.
+// falls back to copying the previous line's indent and never dedents on type.
 //
 
 #ifndef EDITOR_INDENTTABLE_H

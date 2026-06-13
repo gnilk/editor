@@ -1,7 +1,7 @@
 //
 // Created by gnilk on 10.06.26.
 //
-// H.1 of the HexView spike (docs/workspace-refactor-plan.md): the coordinate translation between text
+// H.1 of the HexView spike: the coordinate translation between text
 // space (line + char-index) and the flat UTF-8 byte stream. HexProjection is PURE - it takes a
 // BinBuffer of bytes and does index math, no TextBuffer and no conversion. These cases therefore feed
 // hand-built byte buffers directly (which also proves the decoupling): multibyte chars, line

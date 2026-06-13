@@ -370,7 +370,7 @@ DLL_EXPORT int test_document_delete_text(ITesting *t) {
 // second. P2.1/P2.2 move that state into DocumentViewState/EditState referenced by Document; these tests
 // must stay green across that move. (Two separate Document objects stand in for the two open docs;
 // there is no document-switch API yet - the view's `document = GetActiveDocument()` re-point IS the
-// switch, see docs/workspace-refactor-plan.md.)
+// switch.)
 
 DLL_EXPORT int test_document_switch_preserves_cursor(ITesting *t) {
     auto docA = CreateEmptyDocument(t);

@@ -2,7 +2,7 @@
 // Created by gnilk on 10.06.26.
 //
 // HexView — a read-only `offset | hex | ASCII` view of the active Document, the second representation
-// in the HexView spike (docs/workspace-refactor-plan.md, H.3). It is a *projection* of the canonical
+// in the HexView spike (H.3). It is a *projection* of the canonical
 // ViewState: the caret stays in text coords (line + char-index) on the Document; HexView maps that to
 // a byte offset to draw the highlight, and maps a hex-space navigation back into text coords (written
 // through Document::SetCursorPosition) so switching back to text "just works". The byte stream comes

@@ -4,7 +4,7 @@
 // Loads indent.yml once and builds a resolved IndentTable per language config-name, with intra-file
 // 'inherit' (a 'generic' base). Clone of AutoPairCache: build-once, cache, cycle-guarded. An unknown name
 // (or no config at all) yields an EMPTY table (= the engine copies the previous indent, never dedents on
-// type). LoadFromString keeps it hermetically testable without the asset loader. See docs/indent-plan.md.
+// type). LoadFromString keeps it hermetically testable without the asset loader.
 //
 
 #ifndef EDITOR_INDENTCACHE_H

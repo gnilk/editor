@@ -4,7 +4,7 @@
 // Loads autopairs.yml once and builds a resolved AutoPairTable per language config-name, with intra-file
 // 'inherit' (a 'generic' base). Mirrors KeyMappingCache: build-once, cache, cycle-guarded. An unknown name
 // (or no config at all) yields an EMPTY table (= no pairing). LoadFromString keeps it hermetically testable
-// without the asset loader. See docs/autopair-plan.md.
+// without the asset loader.
 //
 
 #ifndef EDITOR_AUTOPAIRCACHE_H

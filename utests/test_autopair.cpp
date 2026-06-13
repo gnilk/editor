@@ -1,7 +1,7 @@
 //
 // Created by gnilk on 11.06.26.
 //
-// Step 0/1 of the auto-pairing engine (docs/autopair-plan.md): the pure decision logic. AutoPairEngine
+// Step 0/1 of the auto-pairing engine: the pure decision logic. AutoPairEngine
 // takes a primitive Context (table + line text + cursor + token-class + selection) and returns one Action,
 // so it is tested directly with a hand-built AutoPairTable - no live editor, no tokenizer, no YAML yet.
 // These cases ARE the v1 rule contract: guarded auto-close, type-through, selection-wrap, backspace-pair,

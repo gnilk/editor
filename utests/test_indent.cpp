@@ -1,7 +1,7 @@
 //
 // Created by gnilk on 11.06.26.
 //
-// Step 0/1 of the indent engine (docs/indent-plan.md): the pure decision logic. IndentEngine takes a
+// Step 0/1 of the indent engine: the pure decision logic. IndentEngine takes a
 // primitive Context (table + line text + cursor + tabSize + token-class) and returns one Action, so it is
 // tested directly with a hand-built IndentTable - no live editor, no tokenizer, no YAML yet. These cases
 // ARE the v1 rule contract: newline indent after an opener, copy-on-neutral, dedent when the moved content

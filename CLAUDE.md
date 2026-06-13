@@ -69,8 +69,8 @@ cd cmake-build-debug && trun -l ./libutests.so                     # list
 
 Test source files live in `utests/`. Each `test_<module>.cpp` corresponds to one module; `test_main.cpp` initializes the editor singleton for all tests. Test functions are `extern "C"` (or `DLL_EXPORT`) and discovered by exported symbol name — adding a new case is just a new function (+ a forward declaration where the file uses one).
 
-**Verified-green set** (run from `cmake-build-debug/`):
-`trun -m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,vtermparser,keymapping,hexprojection,bytestream,hexview --sequential ./libutests.so`
+**Verified-green set** (202 tests, run from `cmake-build-debug/`):
+`trun -m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,vtermparser,keymapping,hexprojection,bytestream,hexview,indent --sequential ./libutests.so`
 
 **Do NOT run the full debug suite** — the sqlite3-parse test is intentionally excluded (~1s release, 13–15s debug: syntax highlighter over a large file, no optimizations). `test_timer`/`test_timer_exit` are pre/post module hooks (intentionally empty); logger tests are obsolete (external lib has its own suite).
 
@@ -279,56 +279,44 @@ YAML-based config loaded by `Config` singleton. `ConfigNode` provides typed acce
 
 ## Current state — resume point (read this first)
 
-### ACTIVE BRANCH `dev_reformat` (autopair + indent + reformat) — pick up here (2026-06-12)
+### Baseline: everything is on `main` (2026-06-12)
 
-Pushed and synced at `40c032a`; working tree clean except the local `CMakeLists.txt` SDL3 toggle (never
-commit it). **Reconfigure the backend + rebuild `utests` on the other box** (this box is macOS/SDL3 →
-`libutests.dylib`; the other may be Linux/SDL2 → `libutests.so`). Verified-green set **195** (add `indent`
-to the standard list), run from `cmake-build-debug/`:
-`-m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,vtermparser,keymapping,hexprojection,bytestream,hexview,indent`.
+Repo is **fully consolidated** — a single line of history, **only `main` exists** (all feature/spike branches
+merged and pruned, local + remote). `main == origin/main`. Working tree is clean except the local
+`CMakeLists.txt` SDL3 toggle (per-machine, **never commit it**) plus the untracked-by-design files. **Start the
+next feature on a fresh branch.**
 
-**What this branch is:** autopair (shipped) + a data-driven `IndentEngine` (electric indent/dedent, `indent.yml`)
-+ a **reformat** feature — `ReformatLine` (`Cmd/Ctrl+L`) / `ReformatBlock` (`Cmd/Ctrl+I`, selection→range or
-no-selection→enclosing `{}`) + block-surround (type `{` over a multi-line selection → braces on own lines,
-body nested). Plans: `docs/reformat-plan.md`; design logic in `IndentEngine` (pure) + `Document` (wiring).
+Verified-green set **202** (run from `cmake-build-debug/`; macOS lib `libutests.dylib`, Linux `libutests.so`):
+`-m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,vtermparser,keymapping,hexprojection,bytestream,hexview,indent`
+**Do NOT run the full debug suite** — the sqlite3-parse case is intentionally excluded (13–15s in debug).
 
-**Done this session (all on `dev_reformat`, committed):** RF.2c caret follows content across reformat
-(snap-to-text / ride-the-char); RF.2d token-aware reindent walk so braces in comments/strings don't fool it
-(C.10) + fixed a latent `Line::AttributeAt` mis-read via local `TokenClassAtChar` scans; RF.2e block comments
-shift as a rigid unit (strings stay byte-faithful); RF.2f fix "cursor gone" after block-surround
-(screen-relative caret + refocus); RF.2g same fix for the inline-wrap path.
+**Recently shipped (on `main`):** autopair + a data-driven `IndentEngine` (electric indent/dedent, `indent.yml`)
++ the **reformat** feature — `ReformatLine` (`Cmd/Ctrl+L`), `ReformatBlock` (`Cmd/Ctrl+I`, selection→range or
+no-selection→enclosing `{}`), block-surround (type `{` over a multi-line selection → braces on own lines, body
+nested). Feel-check complete A–G. Design: `IndentEngine` (pure) + `Document` (wiring), token-aware reindent
+(braces in comments/strings masked). Plus the E.18 whole-line cut/paste fix (see lesson below + open-bugs.md #4).
 
-**Feel-check `docs/check-reformat.md` is COMPLETE** — A–G all pass (E.18 was the last open item, now FIXED, see
-below). macOS GUI verify is a guided manual run (TCC-blocked shell). Next: **merge `dev_reformat` → main** (stash
-the `CMakeLists.txt` toggle for the FF, pop after — see the merge recipe used for `dev_autopair`).
-
-**E.18 (whole-line cut/paste drops trailing newline) — FIXED 2026-06-12, TWO mechanisms.** (A) selection-end
-normalization (`Document::SelectionEndForCopy`) for the internal path. (B) **the actual GUI bug:** paste goes
-through the OS clipboard (`PasteFromClipboard → UpdateClipboardData → CopyFromExternal`), and the cut→OS
-serialization + `std::getline` parse dropped the trailing newline. Fixed via `ClipBoard::AsText()` (one
-serialization point, used by BOTH SDL2/SDL3 `OnUpdate` hooks) + `CopyFromExternal` preserving the trailing-empty
-segment. KEY LESSON: GUI copy/paste does NOT use the internal clipboard item — it round-trips through the OS
-pasteboard as an external item; unit-test that round-trip (`test_clipboard_external_roundtrip_*`), not just
-`PasteToBuffer`. Guards: `test_document_cut_paste_linewise`/`_undo`/`_charwise` +
-`test_clipboard_external_roundtrip_linewise`/`_charwise`/`_trailing_newline`. Verified-green set now **202**.
-open-bugs.md #4 marked resolved.
+**E.18 KEY LESSON (keep — it bit us once):** GUI copy/paste does NOT use the internal clipboard item. It
+round-trips through the **OS pasteboard as an external item** (`PasteFromClipboard → UpdateClipboardData →
+CopyFromExternal`). So any clipboard fix must be unit-tested over THAT round-trip
+(`test_clipboard_external_roundtrip_*`), not just `PasteToBuffer` — a fix that only touches the internal item
+passes its tests while the GUI still misbehaves. Serialization has one home now:
+`ClipBoard::ClipBoardItem::AsText()`, used by both SDL2/SDL3 `OnUpdate` hooks.
 
 **Deferred bug sweep → `docs/open-bugs.md` (3 OPEN entries, do as one pass, NOT piecemeal):** (1) `Line::AttributeAt`
 returns the first span for any pos in a line's last token span; (2) `Document::SetCursorPosition` writes an
 absolute index into the screen-relative `position.y` (search-jump mis-draws on a scrolled view); (3) tokenizer
-mis-tags an identifier abutting `{` (`{foo`) as an operator until a space is typed. (#4 whole-line cut/paste is
-FIXED.) Each entry carries a trace, the chosen fix, and the test to add.
+mis-tags an identifier abutting `{` (`{foo`) as an operator until a space is typed. Each entry carries a trace,
+the chosen fix, and the test to add.
 
-### Phase 2/3 baseline (the longer-term arc — below the active branch)
+### Phase 2/3 baseline + the north-star (multi-view)
 
-Repo is **consolidated**: all prior feature work is merged into a single line of history (no stray
-branches). Working tree clean (untracked-by-design: `syntax_problem.cpp`, `terminal_rendering_bug.png`, the
-`cmake-build-*` dirs). The Phase 2 + HexView-spike work (below) is the current baseline; **start the next
-feature on a fresh branch.** Verified-green set **157** (run from `cmake-build-debug/`):
-`-m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,vtermparser,keymapping,hexprojection,bytestream,hexview`.
+The Phase 2 (buffer/window split) + HexView-spike work below is the durable architecture under the shipped
+features; **Phase 3 (multi-view) is the next north-star.** Untracked-by-design: `syntax_problem.cpp`,
+`terminal_rendering_bug.png`, the `cmake-build-*` dirs.
 
-**Done — Phase 2 (buffer/window split) + the pre-Phase-3 HexView spike**
-(`docs/workspace-refactor-plan.md` carries the per-step DONE notes). The seam now in place:
+**Done — Phase 2 (buffer/window split) + the pre-Phase-3 HexView spike** (shipped on `main`). The seam now
+in place:
 - `Document` references a **`DocumentViewState`** (cursor + selection + `DocumentViewMode {kText,kHex}`) and an
   **`EditState`** (undo) — both per-view-extractable. Rule: **resolved Actions → Document, raw KeyPress
   → controller.** `EditController` is a value member of `EditorView`; `EditorAction` is its own header.
@@ -346,8 +334,9 @@ feature on a fresh branch.** Verified-green set **157** (run from `cmake-build-d
   hex mode** (`GutterView` early-returns when `GetViewMode()==kHex` — hex rows ≠ text lines).
 
 **Next step — Phase 3 (the north-star feature: multi-view).** The narrowed unknown: **two *mutable*
-views** of one buffer + where per-view `DocumentViewState` is keyed/owned (the plan's "Deferred — to mull
-over"). The container-swap seam and the "view = projection of canonical state" model are proven by the
+views** of one buffer + where per-view `DocumentViewState` is keyed/owned (view-owns-`map<Document*,state>`
+vs Document-hands-out vs a session object — left open by design; `EditState`/undo stays per-document, shared
+by all views). The container-swap seam and the "view = projection of canonical state" model are proven by the
 spike. **Pondered 2026-06-10 (the framing to start from):** the container's text↔hex swap is a
 *representation* swap sharing **one** `DocumentViewState`; Phase 3 adds *views*, each needing **its own**.
 The clean shape is **recursive** — today's `EditorViewContainer` becomes the per-view unit, and a new outer
@@ -358,6 +347,12 @@ stays on `Document`); preserve the spike's text↔hex caret-sharing — the shar
 one ref" to "the unit's one ref", with the HexView round-trip test as the guard. Alternative lower-risk
 direction if you want a visible win first: **restore-on-reopen** (serialize `DocumentViewState` + `EditState`
 per document, restore on folder reopen — banks the Phase-2 extraction, no cursor-concurrency hazard).
+
+**Deferred design (open, undecided):** typed buffers — `TextBuffer` vs a raw `BinBuffer` backend — so a
+file can open as something other than editable text (a faithful hex view of *non-UTF-8* bytes, or e.g. a PNG
+shown as an image). The HexView spike deliberately **re-encodes the text buffer** (lossy for non-UTF-8) as a
+v1 limitation, NOT an oversight; whether the editor should hold multi-datatype views at all is philosophically
+undecided (possibly out of this project's purpose).
 
 **Operational notes:** per-machine backend (Linux SDL2 / macOS SDL3 — match the local `cmake-build-debug`;
 the committed `CMakeLists.txt` default is SDL2-ON, so the macOS box configures with
@@ -370,13 +365,18 @@ and rebuild `utests` (`libutests.so` Linux / `.dylib` macOS) on the other box.
 
 ## Earlier work (completed, in git — kept as a one-line index)
 
+- **Autopair + IndentEngine + reformat + E.18** (`9b48245`, merged to `main` 2026-06-12): data-driven
+  `IndentEngine` (electric indent/dedent, token-aware reindent) + `ReformatLine`/`ReformatBlock`/block-surround;
+  E.18 whole-line cut/paste trailing-newline fix (selection-end normalization + OS-pasteboard round-trip via
+  `ClipBoard::AsText()` / `CopyFromExternal`). Feel-check complete A–G. (See the E.18 KEY LESSON in the
+  resume-point above.)
 - **HexView spike — H.1–H.4 + polish** (merge commit `53f0193`): `HexProjection` coord translation +
   `ByteStreamReader`/`BinBuffer` (`8432aa4`); `DocumentViewMode {kText,kHex}` + view-mode switch action
   (`0edbf24`, enum renamed from `ViewMode` in `9cabfa2`); read-only `HexView` (`58e470f`);
   `EditorViewContainer` owns the text↔hex swap (`b9dbbb9`); per-document view-mode restore on switch
   (`a652e6e`); buffer-cycling→container (`01579e8`); ASCII-column caret (`2c876bb`); gutter stands down in
   hex mode (`bdc35d9`); theme hex color (`56b877c`,`e4c6178`); hygiene/.gitignore (`cbf919c`). Design notes
-  in `docs/workspace-refactor-plan.md` ("Pre-Phase-3 spike").
+  see the Phase 2/3 section in the resume-point above.
 - **Phase 2 — buffer/window split + P2.pre**: `model`→
   `document` token sweep + test module `edtmodel`→`document` (`1cfc1a4`,`2a0cdcf`,`322d841`,`a4905d7`);
   P2.0 document-switch contract tests; P2.1 extract `ViewState` (renamed `DocumentViewState` in the spike);
@@ -417,8 +417,7 @@ and rebuild `utests` (`libutests.so` Linux / `.dylib` macOS) on the other box.
   `TokenClassAtChar` scans instead. (2) `Document::SetCursorPosition` writes an ABSOLUTE line index into
   the screen-relative `cursor.position.y` (caret mis-draws on a scrolled view, e.g. search-jump). (3) the
   syntax highlighter mis-tags an identifier that directly abuts `{` (e.g. `{foo`) as an operator until a
-  space is typed. (#4 whole-line cut/paste drops the trailing newline — **FIXED 2026-06-12** via
-  `Document::SelectionEndForCopy` selection-end normalization; see open-bugs.md #4.)
+  space is typed.
   Read that file before touching `AttributeAt`, word-nav, any caret/goto-line code, or the tokenizer.
 - ~~HexView: per-document view-mode restore across a document switch.~~ **DONE 2026-06-10** (see
   resume-point Next-steps #1): `EditorViewContainer::ReInitView` → `SyncToActiveDocument` → shared

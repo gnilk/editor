@@ -1,7 +1,15 @@
 # Session Cache — architecture & design proposal
 
-Status: **proposal / not yet implemented** (2026-06-13). This document analyses the problem,
-proposes an architecture, and lays out a phased implementation. No code has been written yet.
+Status: **proposal / not yet implemented** (2026-06-13; decisions folded in 2026-06-14). This document
+analyses the problem, proposes an architecture, and lays out a phased implementation. No code has been
+written yet.
+
+**Decisions locked 2026-06-14** (see §3.1–§3.3, §4, §4.2): the existing *global* window-geometry file
+(`WindowLocation` / `gedit_lastwinloc.yml`) is **removed** — geometry becomes per-root session state and
+no rendering backend does file I/O; a session is a property of an open **folder**, never a single file;
+`SessionManager` is a singleton that is the sole owner of session disk I/O; the only surviving *global*
+file is the live session **registry** (§3.5). Still open: multi-root-in-one-instance, whether declining
+restore clears the registry, and the exact cold-start default geometry.
 
 ## 1. Goal
 
@@ -32,7 +40,7 @@ index** ("find anything" / fuzzy search) without being redesigned for it.
 | Splitter positions | `VSplitView::splitterPos`, `HSplitViewStatus::splitterPos` | Views are **anonymous stack locals** in `main.cpp` — no IDs to address them by. |
 | Tree expand/collapse | `WorkspaceView` `expandCollapseCache` (`map<pathString,bool>`) | In-memory only, rebuilt on tree rebuild. **Consolidation candidate.** |
 | Node meta (size/type) | `Workspace::Node::metaData` (`ConfigNode`) | Per-scan cache, not session. Leave as-is. |
-| Window geometry | nowhere (TODO in `main.cpp:54`: *"Save screen position and size … use XDG state directory"*) | Needs a backend hook (SDL2 **and** SDL3). |
+| Window geometry | **Already implemented** — `WindowLocation` (a `ConfigNode`) persists x/y/w/h to a *global* `~/.local/state/.../gedit_lastwinloc.yml`; both SDL2 & SDL3 `SDLScreen` read it at window-create and `UpdateWindowLocation()` saves on move/resize. (The `main.cpp:54` TODO was already done this way.) **Decision (2026-06-14): remove this global file** — geometry becomes per-root session state (§3.1, §4.2); the SDL get/set hooks are kept but re-pointed at `SessionManager` (in memory), and the backend stops doing file I/O. |
 
 Path/format infrastructure already present and reusable:
 
@@ -64,9 +72,11 @@ Three locations, each with a clear job:
 - **`$XDG_CACHE_HOME/goatedit/`** (`~/.cache/goatedit/`) — *regenerable* data: the search/token index.
   Safe to delete; rebuilt on demand.
 
-(My first instinct — a single XDG file holding one window's geometry — doesn't survive contact with
-your workflow of N simultaneous projects: geometry is **per-project**, so it belongs in each project's
-`.goatedit/`, not in one global file. The XDG dir steps back to just the registry.)
+(Geometry is **per-project**, so it belongs in each project's `.goatedit/`, not in one global file.
+Note this is a *correction of existing behaviour*, not a hypothetical: a global geometry file
+(`gedit_lastwinloc.yml`) exists today and is being **deleted** (§4.2). The one thing that legitimately
+stays global is the live session **registry** (§3.5) — but that holds *which instances are open*, not
+geometry; the two were never the same concern. After this change the XDG dir holds only the registry.)
 
 **The session detail lives WITH the project, in `<root>/.goatedit/`** — *everything* for that session,
 window geometry included. The XDG dir holds only a small **live session registry** (§3.5), never the
@@ -121,6 +131,13 @@ This reuses the existing `IsStrictSubdir(cwd, home)` logic verbatim — no new p
 the project, mirroring how `.goatedit/` already anchors project-local assets. (`.goatedit/` should be
 git-ignored by the user; the session file is machine-local state.)
 
+**Decision (2026-06-14): a session is a property of an open FOLDER, not a file.** `.goatedit/` is
+created (and a session loaded/saved) *only* when a **folder** is opened — the `is_directory` branch of
+`Editor::OpenDocumentOrFolder` (`Editor.cpp:875`, which already `chdir`s the cwd to that folder).
+**Opening a single file creates no `.goatedit/` and has no session** — cursor/scroll for a loose file
+are not persisted. This makes the rule a clean one-liner — *session ⇔ open folder* — and the decision
+table above only ever applies on the folder path.
+
 ### 3.4 Data format
 
 Tiered by data characteristics:
@@ -144,7 +161,8 @@ This is the layer built **on top of** working per-root persistence — a deliber
 Step 1 (Model 1) makes each project restore perfectly *when opened*. Step 2 makes "what was open"
 come back automatically, without any multi-window or multi-process orchestration inside the editor.
 
-**Registry** — a directory of tiny entries in the XDG state dir, one per *running* instance:
+**Registry** — now the editor's *only* global persisted state (window geometry became per-root, §3.1).
+A directory of tiny entries in the XDG state dir, one per *running* instance:
 
 ```
 ~/.local/state/goatedit/sessions/
@@ -177,6 +195,17 @@ No throwaway "launcher window," no process to kill afterwards: the restore modul
 that exits when done; each spawned `goatedit` is a normal full instance. Single-instance-per-root is
 enforced by the pid liveness check (and a `.goatedit/session.lock` owning-pid file as backstop).
 
+**Refinement (2026-06-14): restore can be an in-app cold-start modal, not only an external spawner.**
+A cold-started instance (launched with no folder) reads the registry itself and, if it is non-empty,
+offers a *"restore previous session?"* modal (the modal infra already exists — `ListSelectionModal`).
+On **yes** it does the chdir+spawn per dead entry; on **no** it drops to the empty workspace. A clean
+exit de-registers the instance regardless. This keeps restore inside the editor — no separate restore
+binary or login/autostart integration is required, though the `goatedit --restore` CLI remains an
+option for headless/login-hook setups. **Open:** whether declining restore should *clear* the registry
+is undecided. **Caveat:** the pid-liveness check must be disambiguated against pid *recycling* across a
+reboot (compare `started_at` / a boot id) — otherwise an unrelated live process that inherited a
+recycled pid would mask a dead entry that should have been restored.
+
 **Why this ordering matters:** Step 2 needs *nothing* from inside the editor except "write/remove my
 registry entry on start/exit" — a dozen lines. All the heavy lifting (restoring a project's state) is
 Step 1, which is independently valuable and testable. If Step 1 feels right, Step 2 is a thin, low-risk
@@ -188,6 +217,16 @@ A new **`SessionManager`** singleton under `src/Core/Session/` — orchestrator,
 owns *placement policy*, *load/save/atomic-write*, and *triggering*; the actual state is serialised
 by each subsystem through small `ToSession`/`FromSession` hooks. This matches the codebase grain
 ("model stays logical; owners serialise themselves") and the Phase-2 seams.
+
+**Two invariants (locked 2026-06-14):**
+1. **`SessionManager` is the sole owner of session disk I/O.** No subsystem and no rendering backend
+   reads or writes a session file directly — they exchange in-memory DTOs with it. (This is why
+   `SDLScreen::Open()` must stop calling `WindowLocation::Load()` and instead read in-memory geometry.)
+2. **Reachability is the singleton `SessionManager::Instance()`** (mirrors `Config` / `KeyMappingCache`
+   / `XDGEnvironment`; add a `Clear()` for test isolation). It is loaded during `Editor::Initialize`,
+   so it is fully populated *before* `OpenScreen()` creates the window. It is **not** registered in
+   `RuntimeConfig` — that hub is for instances swapped per run (the screen backend, the root view); a
+   global session service isn't one, and a second handle would just be redundant.
 
 ```
 src/Core/Session/
@@ -214,7 +253,8 @@ Serialisation responsibilities pushed to owners:
 - `WorkspaceView` — its existing `expandCollapseCache` becomes the session's tree state
   (**consolidation**: persist on save, seed on build instead of starting empty).
 - View tree splitters — see §4.1.
-- `ScreenBase` (+ SDL2/SDL3) — `GetWindowGeometry()/SetWindowGeometry()` (§4.2).
+- `ScreenBase` (+ SDL2/SDL3) — *report* live geometry to `SessionManager` and *apply* restored
+  geometry; the SDL get/set hooks already exist (§4.2). The backend never touches a file.
 
 ### 4.1 Addressing the splitters
 
@@ -231,10 +271,25 @@ register it so `SessionManager` can pull/push `GetSplitterPos()` generically:
 
 ### 4.2 Window geometry
 
-A small backend hook on `ScreenBase`: get/set pixel `(x, y, w, h)`. Implement in **both** SDL2 and
-SDL3 (`SDL_GetWindowPosition/Size` / `SDL_SetWindowPosition/Size`) — per CLAUDE.md, keep the backends
-in sync. Stored **per-root** in that project's `.goatedit/session.yml` (one geometry per project, not a
-global). On restore, clamp to the current display bounds (monitor may have changed / disconnected).
+**This already exists and is being re-pointed, not built.** `WindowLocation` (a `ConfigNode`) persists
+x/y/w/h to a *global* `~/.local/state/.../gedit_lastwinloc.yml`; both SDL2 and SDL3 `SDLScreen` already
+call `SDL_Get/SetWindowSize` + `SDL_Get/SetWindowPosition` (in `Open()` and `UpdateWindowLocation()`,
+fired on move/resize). The work is to **delete the global file and route geometry through the per-root
+session instead:**
+
+- **Delete** `WindowLocation`, `RuntimeConfig::GetWindowLocation()`, and `gedit_lastwinloc.yml`. Cold
+  start (no project) no longer restores a window — it uses a **sensible default** (center at a fraction
+  of the current display; *not* the current hard-coded `1920×1080 @ (0,0)`, which clips on small monitors).
+- **Read:** `SDLScreen::Open()` asks `SessionManager::Instance().GetGeometry()` — purely in memory; the
+  session was loaded during `Editor::Initialize`, which runs *before* `OpenScreen()`. The backend reads
+  **no file**.
+- **Change:** the move/resize handler reports `(x, y, w, h)` to `SessionManager` (in-memory + mark dirty
+  → debounced disk write, owned by `SessionManager`). The backend writes **no file** either.
+- **Per-root, three timings:** (a) `goatedit <folder>` — cwd is the root and the session is loaded
+  before the window is created, so it opens at the restored geometry with no create-then-jump flicker;
+  (b) desktop/icon launch (no folder) — the window opens at the default, and a later folder-open applies
+  that root's geometry to the live window (move/resize); (c) runtime folder-switch — same as (b).
+- On restore, **clamp to the current display bounds** (a monitor may have changed or disconnected).
 
 ### 4.3 When do we save / restore?
 
@@ -349,7 +404,8 @@ MVP must not depend on it or on SQLite.**
 session:
   enabled: yes                  # master switch (Step 1: per-root persistence)
   persist_external: no          # generate sessions for roots OUTSIDE $HOME (central only)
-  auto_create_project_dir: yes  # create <root>/.goatedit/ for in-home roots that lack it (default on)
+  auto_create_project_dir: yes  # create <root>/.goatedit/ on FOLDER open for in-home roots (default on);
+                                # opening a single FILE never creates it — loose files are sessionless
   persist_undo: yes             # serialise undo stacks (gated by undo_cap + mtime/hash guard)
   undo_cap: 2000                # max undo items per document
   restore_window_geometry: yes
@@ -370,7 +426,8 @@ session:
 | `Workspace` | enumerate roots/open-docs/active; `ReopenRoot`/`ReopenDocument` (skip-missing). |
 | `Document` / `DocumentViewState` / `EditState` | `ToSession`/`FromSession`; undo blob (gated). |
 | `WorkspaceView` | persist+seed expand/collapse cache (consolidates the in-memory cache). |
-| `ScreenBase` + SDL2 + SDL3 | window get/set geometry hook (both backends). |
+| `ScreenBase` + SDL2 + SDL3 | **Re-route** the existing geometry get/set (already in `Open()` / `UpdateWindowLocation()`, both backends) to read/write `SessionManager` *in memory* — backend does **no file I/O**. |
+| `WindowLocation` / `RuntimeConfig` | **Delete** `WindowLocation`, `RuntimeConfig::GetWindowLocation()` + its member, and `gedit_lastwinloc.yml`. Geometry moves into per-root `session.yml`. |
 | `ViewBase` + `VSplitView`/`HSplitViewStatus` | session id + splitter `ToSession/FromSession`. |
 | `Config` | new `session:` section + defaults. |
 | `AssetLoaderBase` | **Phase 1 primary write API** via `kProject` (§4.4): harden `ResolveWritePath`. Step 2 may add `kState`/`kCache` location types for the registry + index. |
@@ -435,6 +492,9 @@ roughly top-to-bottom; each group is mergeable on its own.
       through the folder-open path, which `chdir`s (`Editor.cpp:896`) then creates `.goatedit/` +
       registers `kProject` for that cwd. Desktop-launch (no startup folder) is the main case here, not an
       edge — see the `OnFolderOpened` hook in §11.4.
+- [ ] **Gate on folder vs file** (§3.3): create `.goatedit/` + load/save a session ONLY on the
+      `is_directory` branch of `Editor::OpenDocumentOrFolder` (`Editor.cpp:875`). A single-file open must
+      create nothing and start no session (loose files are sessionless).
 - [ ] *(Deferred to Step 2)* FNV-1a root-key, central outside-home fallback, `persist_external` — none
       are needed while the default is in-project only.
 
@@ -460,12 +520,19 @@ roughly top-to-bottom; each group is mergeable on its own.
       (default no-op); implement on `VSplitView` (`split.workspace`) and `HSplitViewStatus`
       (`split.terminal`). Store **both** absolute and relative (`GetSplitterPosRelative()`); restore
       relative, clamp via the existing `ClampSplitterPos` chokepoint.
-- [ ] `ScreenBase` window geometry: `GetWindowGeometry()/SetWindowGeometry()` — implement in **SDL2 and
-      SDL3** (`SDL_Get/SetWindowPosition`, `SDL_Get/SetWindowSize`). Clamp to display bounds on restore.
+- [ ] Window geometry: **re-route, don't build.** The SDL get/set hooks already exist (`Open()`,
+      `UpdateWindowLocation()`, both backends). Make `SDLScreen::Open()` read geometry from
+      `SessionManager::Instance()` (in memory, **no file**) and the move/resize handler report it back
+      (in memory → debounced save). **Delete `WindowLocation`**, `RuntimeConfig::GetWindowLocation()`, and
+      `gedit_lastwinloc.yml`. Cold-start default = centered fraction of the display (not `1920×1080 @ 0,0`).
+      Clamp to display bounds on restore.
 
 ### 11.4 Wiring & triggers
-- [ ] `SessionManager` singleton (mirrors `Config`): `Save(root)`, `Load(root)`, holds the resolved path,
-      owns the debounce timer.
+- [ ] `SessionManager` singleton (`SessionManager::Instance()`, mirrors `Config`; add `Clear()` for test
+      isolation): `Save(root)`, `Load(root)`, holds the resolved path, owns the debounce timer, and is the
+      **sole owner of session disk I/O** (no subsystem/backend reads or writes a session file). Loaded
+      during `Editor::Initialize` so it is populated before `OpenScreen()`. **Not** registered in
+      `RuntimeConfig`.
 - [ ] **The trigger is folder-open, not init-time cwd** (§4.5). Add a `SessionManager::OnFolderOpened(root)`
       hook called from the single folder-open path (`Workspace::OpenFolder` / `Editor::OpenDocumentOrFolder`,
       `Editor.cpp:890-896`). It: `chdir` (already done) → create `.goatedit/` + (re)register `kProject` →

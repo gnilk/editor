@@ -24,6 +24,7 @@
 #include "Core/Language/LanguageBase.h"
 #include "Core/Language/LanguageSupport/CPPLanguage.h"
 #include "Core/Language/LanguageSupport/JSONLanguage.h"
+#include "Core/Language/LanguageSupport/MarkdownLanguage.h"
 #include "Core/Language/LanguageSupport/DefaultLanguage.h"
 #include "Core/Plugins/PluginExecutor.h"
 #include "Core/Views/RootView.h"
@@ -626,6 +627,12 @@ void Editor::ConfigureLanguages() {
         auto language = JSONLanguage::Create();
         language->Initialize();
         RegisterLanguage(".json|.js", language);
+    }
+
+    {
+        auto language = MarkdownLanguage::Create();
+        language->Initialize();
+        RegisterLanguage(".md|.markdown", language);
     }
 
     {

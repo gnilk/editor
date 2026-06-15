@@ -454,6 +454,7 @@ list(APPEND editorsrc src/Core/Language/LanguageSupport/CPPNumberMatcher.cpp src
 list(APPEND editorsrc src/Core/Language/NumberMatcherBase.h)
 list(APPEND editorsrc src/Core/Language/LanguageSupport/JSONLanguage.cpp src/Core/Language/LanguageSupport/JSONLanguage.cpp)
 list(APPEND editorsrc src/Core/Language/LanguageSupport/MakeBuildLang.cpp src/Core/Language/LanguageSupport/MakeBuildLang.h)
+list(APPEND editorsrc src/Core/Language/LanguageSupport/MarkdownLanguage.cpp src/Core/Language/LanguageSupport/MarkdownLanguage.h)
 # sublime config/scripting support
 list(APPEND editorsrc src/Core/Sublime/SublimeConfigScriptEngine.cpp src/Core/Sublime/SublimeConfigScriptEngine.h)
 list(APPEND editorsrc src/Core/Sublime/SublimeConfigColorScript.cpp src/Core/Sublime/SublimeConfigColorScript.h)

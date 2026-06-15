@@ -168,6 +168,14 @@ namespace gedit {
     protected:
         bool OpenDocumentOrFolder(const std::string &fileOrFolder);
 
+        // Session cache (docs/session-cache.md). EstablishProjectDir auto-creates <cwd>/.goatedit and
+        // registers it as the kProject write-path (in-home folders only); called when a FOLDER is opened.
+        // RestoreSession loads the per-root session and re-applies it (open files, ...); SaveSession
+        // captures the live state and persists it. All gated on the `session:` config.
+        bool EstablishProjectDir();
+        void RestoreSession();
+        void SaveSession();
+
         void ParseArguments(int argc, const char **argv);
 
 

@@ -50,6 +50,7 @@ DLL_EXPORT int test_session_yaml_roundtrip(ITesting *t);
 DLL_EXPORT int test_session_yaml_bad_version(ITesting *t);
 DLL_EXPORT int test_session_yaml_corrupt(ITesting *t);
 DLL_EXPORT int test_session_save_load_roundtrip(ITesting *t);
+DLL_EXPORT int test_session_assetloader_replace_kproject(ITesting *t);
 }
 
 DLL_EXPORT int test_session(ITesting *t) {
@@ -448,5 +449,26 @@ DLL_EXPORT int test_session_save_load_roundtrip(ITesting *t) {
 
     mgr.Clear();
     std::filesystem::remove_all(testRoot, ec);
+    return kTR_Pass;
+}
+
+// ReplaceSearchPath gives a single, current kProject write-path (re-pointing a project root must not
+// stack duplicate paths that make ResolveWritePath ambiguous).
+DLL_EXPORT int test_session_assetloader_replace_kproject(ITesting *t) {
+    AssetLoaderBase loader;
+    auto a = std::filesystem::temp_directory_path() / "goat_rp_a";
+    auto b = std::filesystem::temp_directory_path() / "goat_rp_b";
+    std::error_code ec;
+    std::filesystem::create_directories(a);
+    std::filesystem::create_directories(b);
+
+    loader.AddSearchPath(a, AssetLoaderBase::kLocationType::kProject);
+    TR_ASSERT(t, loader.ResolveWritePath("session.yml", AssetLoaderBase::kLocationType::kProject) == (a / "session.yml"));
+
+    loader.ReplaceSearchPath(b, AssetLoaderBase::kLocationType::kProject);
+    TR_ASSERT(t, loader.ResolveWritePath("session.yml", AssetLoaderBase::kLocationType::kProject) == (b / "session.yml"));
+
+    std::filesystem::remove_all(a, ec);
+    std::filesystem::remove_all(b, ec);
     return kTR_Pass;
 }

@@ -62,6 +62,12 @@ namespace gedit {
     public:
         bool AddSearchPath(const std::filesystem::path &path, kLocationType locationType);
 
+        // Make 'path' the single search path for 'locationType' (drops any previously registered paths of
+        // that type, then adds this one). The stable "primary write path per location" the session cache
+        // needs for kProject: opening / switching a project root re-points kProject without stacking
+        // duplicates that would make ResolveWritePath ambiguous.
+        bool ReplaceSearchPath(const std::filesystem::path &path, kLocationType locationType);
+
         // Will load as-is
         Asset::Ref LoadAsset(const std::string &fileName, kLocationType locationType = kLocationType::kAny);
 

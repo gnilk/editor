@@ -41,6 +41,15 @@ bool AssetLoaderBase::AddSearchPath(const std::filesystem::path &path, kLocation
     return true;
 }
 
+bool AssetLoaderBase::ReplaceSearchPath(const std::filesystem::path &path, kLocationType locationType) {
+    // Drop any previously registered paths of this location type, then add the new one (re-sorts).
+    baseSearchPaths.erase(
+        std::remove_if(baseSearchPaths.begin(), baseSearchPaths.end(),
+                       [locationType](const SearchPath &sp) { return sp.locationType == locationType; }),
+        baseSearchPaths.end());
+    return AddSearchPath(path, locationType);
+}
+
 AssetLoaderBase::Asset::Ref AssetLoaderBase::LoadAsset(const std::string &fileName, kLocationType locationType) {
     for(auto &searchPath : baseSearchPaths) {
         if ((searchPath.locationType == locationType) || (locationType == kLocationType::kAny)) {

@@ -196,3 +196,13 @@ languages:
     insert_closing_brace: yes
     auto_indent: yes
     continue_comment: yes
+
+# Session cache — restore a project as you left it (docs/session-cache.md). Phase 1: per-root
+# <root>/.goatedit/session.yml with open files + cursors (+ layout/geometry as those land).
+session:
+  enabled: yes                  # master switch for session persistence
+  auto_create_project_dir: yes  # create <root>/.goatedit/ on FOLDER open (in-home roots); never for a single file
+  persist_external: no          # sessions for roots OUTSIDE $HOME (Step 2; central only)
+  restore_open_files: yes       # reopen the documents (tabs) + cursors on launch
+  restore_layout: yes           # splitters / terminal pane
+  restore_window_geometry: yes  # window size/position

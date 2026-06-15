@@ -15,6 +15,7 @@
 #include "Editor.h"
 #include "Core/RuntimeConfig.h"
 #include "Core/Config/Config.h"
+#include "Core/Session/SessionManager.h"
 #include "Core/KeyMapping.h"
 #include "Core/KeyMappingCache.h"
 #include "Core/StrUtil.h"
@@ -218,6 +219,10 @@ bool Editor::Initialize(int argc, const char **argv) {
         }
     }
 
+    // Restore the per-root session (open files + cursors) if a folder/project was opened above. A no-op
+    // when there is no project or no saved session - leaves createDefaultWorkspace to handle the rest.
+    RestoreSession();
+
     ConfigureGlobalAPIObjects();
 
     // create a document if cmd-line didn't specify any
@@ -236,8 +241,8 @@ bool Editor::Initialize(int argc, const char **argv) {
     }
     // Did we open any documents during the argument parsing?
     auto &openDocuments = workspace->GetOpenDocuments();
-    if (openDocuments.size() != 0) {
-        // Just set the first as the active document..
+    if ((GetActiveDocument() == nullptr) && (openDocuments.size() != 0)) {
+        // Just set the first as the active document.. (a restored session may already have set one)
         SetActiveDocument(openDocuments[0]);
     }
 
@@ -302,10 +307,64 @@ bool Editor::OpenScreen() {
 
 void Editor::Close() {
     logger->Debug("Closing editor");
+    // Capture + persist the session while the documents are still open (clean-exit save).
+    SaveSession();
     for(auto &document : workspace->GetOpenDocuments()) {
         document->Close();
     }
     RuntimeConfig::Instance().GetKeyboard()->Close();
+}
+
+// --- Session cache (docs/session-cache.md) ---------------------------------------------------------
+
+bool Editor::EstablishProjectDir() {
+    if (!Config::Instance()["session"].GetBool("enabled", true)) {
+        return false;
+    }
+    auto pathHome = XDGEnvironment::Instance().GetUserHomePath();
+    auto cwd = std::filesystem::current_path();
+    // Same guard as init-time kProject registration: only a strict subdir of $HOME can host a project.
+    if (!IsStrictSubdir(cwd, pathHome)) {
+        return false;
+    }
+    auto projectDir = cwd / ".goatedit";
+    if (!std::filesystem::is_directory(projectDir)) {
+        if (!Config::Instance()["session"].GetBool("auto_create_project_dir", true)) {
+            return false;
+        }
+        std::error_code ec;
+        std::filesystem::create_directories(projectDir, ec);
+        if (ec) {
+            logger->Error("Failed to create project dir '%s': %s", projectDir.string().c_str(), ec.message().c_str());
+            return false;
+        }
+        logger->Debug("Created project dir '%s'", projectDir.string().c_str());
+    }
+    // Make this the single kProject write-path (replace, don't stack) - <cwd>/.goatedit/session.yml.
+    RuntimeConfig::Instance().GetAssetLoader().ReplaceSearchPath(projectDir, AssetLoaderBase::kLocationType::kProject);
+    return true;
+}
+
+void Editor::RestoreSession() {
+    auto sessionCfg = Config::Instance()["session"];
+    if (!sessionCfg.GetBool("enabled", true) || !sessionCfg.GetBool("restore_open_files", true)) {
+        return;
+    }
+    if (!SessionManager::Instance().Load()) {
+        return;     // no session file, or unparseable/newer - start clean
+    }
+    workspace->FromSession(SessionManager::Instance().CurrentSession());
+    logger->Debug("Restored session: %zu document(s)", workspace->GetOpenDocuments().size());
+}
+
+void Editor::SaveSession() {
+    if (!Config::Instance()["session"].GetBool("enabled", true)) {
+        return;
+    }
+    // Capture the live workspace into the session DTO, then persist. Layout/geometry/tree-state are
+    // folded in by their owners in a follow-up.
+    workspace->ToSession(SessionManager::Instance().CurrentSession());
+    SessionManager::Instance().Save();
 }
 
 //
@@ -895,6 +954,10 @@ bool Editor::OpenDocumentOrFolder(const std::string &fileOrFolder) {
             logger->Debug("Changing directory to: %s", pathName.c_str());
             std::filesystem::current_path(pathName);
         }
+
+        // Opening a FOLDER establishes the project root: create <cwd>/.goatedit (in-home) and point
+        // kProject at it, so the per-root session can be loaded/saved. Single-file opens never reach here.
+        EstablishProjectDir();
 
         return true;
     }

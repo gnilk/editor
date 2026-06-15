@@ -10,10 +10,15 @@ setext headings, and reference-link resolution are explicit non-goals — see §
 
 ## 0. Resume point / status
 
-**Status: NOT STARTED — design only.** Nothing written yet.
+**Status: skeleton + §3 DONE.** `.md`/`.markdown` detection routes to `MarkdownLanguage` (empty no-op
+parser). §3 token classes + theme are in: 8 generic document/markup classes (`kHeading`, `kStrong`,
+`kEmphasis`, `kCode`, `kListMarker`, `kBlockQuote`, `kLink`, `kRule`) added to the enum + `tokenNames`
+map + theme colors (globals & content in `colors.json`). Builds clean.
 
-Recommended first move: §3 (token classes + theme) then §2.A (state config), build, eyeball a test
-file; then §2.B (the post-process pass) which is where the real value is. §4 is the test harness.
+**Next move: §2.A** (state config — fences/inline code/emphasis push-pop states in
+`MarkdownLanguage::Initialize`), then **§2.B** (the post-process pass — where the real value is). §4 is
+the test harness. The generic classes from §3 are what these populate; don't add markdown-specific class
+names.
 
 Suggested scope for a first sitting: **§2 + §3 + register the language** (≈ one focused session,
 comparable effort to writing `CPPLanguage`). §4 tests and §5 niceties can follow.

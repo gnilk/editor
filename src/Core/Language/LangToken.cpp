@@ -38,6 +38,15 @@ static const std::unordered_map<kLanguageTokenClass, std::string> tokenNames = {
         {kLanguageTokenClass::kImport, "import"},
         {kLanguageTokenClass::kPreProcessor, "preprocessor"},
         {kLanguageTokenClass::kMacroIdentifier, "macro_identifier"},
+        // Document / markup classes
+        {kLanguageTokenClass::kHeading, "heading"},
+        {kLanguageTokenClass::kStrong, "strong"},
+        {kLanguageTokenClass::kEmphasis, "emphasis"},
+        {kLanguageTokenClass::kCode, "code"},
+        {kLanguageTokenClass::kListMarker, "list_marker"},
+        {kLanguageTokenClass::kBlockQuote, "block_quote"},
+        {kLanguageTokenClass::kLink, "link"},
+        {kLanguageTokenClass::kRule, "rule"},
         {kLanguageTokenClass::kFunky,"funky"},
 };
 

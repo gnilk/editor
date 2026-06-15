@@ -24,6 +24,10 @@ namespace gedit {
             static std::u32string markdownIdentifier = U"markdown";
             return markdownIdentifier;
         }
+
+        // §2.B: line-anchored block syntax (headings, blockquotes, list markers, thematic breaks). The
+        // tokenizer (§2.A) has no line-start awareness, so this runs as a post-pass over each parsed line.
+        void OnPostProcessParsedLine(Line::Ref line) override;
     };
 }
 

@@ -243,6 +243,13 @@ namespace gedit {
         bool HasState(const char *stateName);
         State::Ref GetState(const char *stateName);
 
+        // Optional per-line post-process hook, invoked at the end of ParseLine (while the line is still
+        // locked) for every line ParseLines/ParseRegion touches. Injected by LanguageBase to bridge to
+        // LanguageBase::OnPostProcessParsedLine without the tokenizer depending on the language type -
+        // plain callback, data flows out. Used for line-anchored markup (e.g. markdown headings/lists).
+        using PostLineCallback = std::function<void(const Line::Ref &)>;
+        void SetPostLineCallback(PostLineCallback newCallback) { postLineCallback = std::move(newCallback); }
+
     protected:
         bool ResetStateStack();
 
@@ -263,5 +270,6 @@ namespace gedit {
 
     protected:
         std::string startState = "main";
+        PostLineCallback postLineCallback = nullptr;
     };
 }

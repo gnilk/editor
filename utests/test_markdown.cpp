@@ -19,6 +19,12 @@ DLL_EXPORT int test_markdown_inlinecode(ITesting *t);
 DLL_EXPORT int test_markdown_strong(ITesting *t);
 DLL_EXPORT int test_markdown_emphasis(ITesting *t);
 DLL_EXPORT int test_markdown_fence_spans_lines(ITesting *t);
+DLL_EXPORT int test_markdown_heading(ITesting *t);
+DLL_EXPORT int test_markdown_heading_not_midline(ITesting *t);
+DLL_EXPORT int test_markdown_blockquote(ITesting *t);
+DLL_EXPORT int test_markdown_listmarker(ITesting *t);
+DLL_EXPORT int test_markdown_rule(ITesting *t);
+DLL_EXPORT int test_markdown_heading_in_fence_is_code(ITesting *t);
 }
 
 // Does any attribute on the line carry the given class?
@@ -106,6 +112,115 @@ DLL_EXPORT int test_markdown_fence_spans_lines(ITesting *t) {
     TR_ASSERT(t, lineHasClass(inside, kLanguageTokenClass::kCode));
     // '*' inside the fence is verbatim code, not emphasis
     TR_ASSERT(t, !lineHasClass(inside, kLanguageTokenClass::kEmphasis));
+
+    TR_ASSERT(t, workspace->RemoveDocument(node->GetDocument()));
+    return kTR_Pass;
+}
+
+// ATX heading: '# Title' -> the line carries kHeading (§2.B post-process)
+DLL_EXPORT int test_markdown_heading(ITesting *t) {
+    auto workspace = Editor::Instance().GetWorkspace();
+    auto node = workspace->NewDocument("test.md");
+    auto buffer = node->GetTextBuffer();
+    TR_ASSERT(t, buffer != nullptr);
+
+    buffer->AddLineUTF8("## A heading");
+    buffer->Reparse();
+
+    auto line = buffer->LineAt(1);
+    TR_ASSERT(t, lineHasClass(line, kLanguageTokenClass::kHeading));
+
+    TR_ASSERT(t, workspace->RemoveDocument(node->GetDocument()));
+    return kTR_Pass;
+}
+
+// A '#' mid-sentence is NOT a heading (line-anchored only)
+DLL_EXPORT int test_markdown_heading_not_midline(ITesting *t) {
+    auto workspace = Editor::Instance().GetWorkspace();
+    auto node = workspace->NewDocument("test.md");
+    auto buffer = node->GetTextBuffer();
+    TR_ASSERT(t, buffer != nullptr);
+
+    buffer->AddLineUTF8("issue #42 is open");
+    buffer->Reparse();
+
+    auto line = buffer->LineAt(1);
+    TR_ASSERT(t, !lineHasClass(line, kLanguageTokenClass::kHeading));
+
+    TR_ASSERT(t, workspace->RemoveDocument(node->GetDocument()));
+    return kTR_Pass;
+}
+
+// Blockquote: '>' at line start -> kBlockQuote
+DLL_EXPORT int test_markdown_blockquote(ITesting *t) {
+    auto workspace = Editor::Instance().GetWorkspace();
+    auto node = workspace->NewDocument("test.md");
+    auto buffer = node->GetTextBuffer();
+    TR_ASSERT(t, buffer != nullptr);
+
+    buffer->AddLineUTF8("> quoted text");
+    buffer->Reparse();
+
+    auto line = buffer->LineAt(1);
+    TR_ASSERT(t, lineHasClass(line, kLanguageTokenClass::kBlockQuote));
+
+    TR_ASSERT(t, workspace->RemoveDocument(node->GetDocument()));
+    return kTR_Pass;
+}
+
+// Unordered list marker '- ' -> the marker is kListMarker; item text is NOT swallowed as the marker
+// class (the dash marker only colors one char).
+DLL_EXPORT int test_markdown_listmarker(ITesting *t) {
+    auto workspace = Editor::Instance().GetWorkspace();
+    auto node = workspace->NewDocument("test.md");
+    auto buffer = node->GetTextBuffer();
+    TR_ASSERT(t, buffer != nullptr);
+
+    buffer->AddLineUTF8("- an item");
+    buffer->Reparse();
+
+    auto line = buffer->LineAt(1);
+    TR_ASSERT(t, lineHasClass(line, kLanguageTokenClass::kListMarker));
+    // marker should be a single char span: a regular span follows it
+    TR_ASSERT(t, lineHasClass(line, kLanguageTokenClass::kRegular));
+
+    TR_ASSERT(t, workspace->RemoveDocument(node->GetDocument()));
+    return kTR_Pass;
+}
+
+// Thematic break '---' -> kRule (and not a list marker)
+DLL_EXPORT int test_markdown_rule(ITesting *t) {
+    auto workspace = Editor::Instance().GetWorkspace();
+    auto node = workspace->NewDocument("test.md");
+    auto buffer = node->GetTextBuffer();
+    TR_ASSERT(t, buffer != nullptr);
+
+    buffer->AddLineUTF8("---");
+    buffer->Reparse();
+
+    auto line = buffer->LineAt(1);
+    TR_ASSERT(t, lineHasClass(line, kLanguageTokenClass::kRule));
+    TR_ASSERT(t, !lineHasClass(line, kLanguageTokenClass::kListMarker));
+
+    TR_ASSERT(t, workspace->RemoveDocument(node->GetDocument()));
+    return kTR_Pass;
+}
+
+// A '# heading-looking' line INSIDE a fence must stay code, not become a heading (the fence guard).
+DLL_EXPORT int test_markdown_heading_in_fence_is_code(ITesting *t) {
+    auto workspace = Editor::Instance().GetWorkspace();
+    auto node = workspace->NewDocument("test.md");
+    auto buffer = node->GetTextBuffer();
+    TR_ASSERT(t, buffer != nullptr);
+
+    buffer->AddLineUTF8("```");
+    buffer->AddLineUTF8("# not a heading");
+    buffer->AddLineUTF8("```");
+    buffer->Reparse();
+
+    auto inside = buffer->LineAt(2);
+    TR_ASSERT(t, !lineHasClass(inside, kLanguageTokenClass::kHeading));
+    TR_ASSERT(t, lineHasClass(inside, kLanguageTokenClass::kCode));
 
     TR_ASSERT(t, workspace->RemoveDocument(node->GetDocument()));
     return kTR_Pass;

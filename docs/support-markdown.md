@@ -10,21 +10,31 @@ setext headings, and reference-link resolution are explicit non-goals — see §
 
 ## 0. Resume point / status
 
-**Status: skeleton + §3 + §2.A DONE.** `.md`/`.markdown` routes to `MarkdownLanguage`. §3 added 8
-generic document/markup classes (`kHeading`, `kStrong`, `kEmphasis`, `kCode`, `kListMarker`,
-`kBlockQuote`, `kLink`, `kRule`) + `tokenNames` + theme colors. §2.A implemented the push/pop states:
-`in_fence` (fenced code, persists across lines — the key win), `in_code_span` (inline `` ` ``),
-`in_strong` (`**`), `in_em` (`*`), `in_link` (`[text]`). Test module `markdown` (5 cases) green; broader
-language/theme regression green. `_`/`__` emphasis intentionally left out (snake_case false-positives).
+**Status: skeleton + §3 + §2.A + §2.B DONE.** `.md`/`.markdown` routes to `MarkdownLanguage`. §3 added 8
+generic document/markup classes + `tokenNames` + theme colors. §2.A push/pop states: `in_fence`
+(persists across lines), `in_code_span`, `in_strong` (`**`), `in_em` (`*`), `in_link` (`[text]`).
+§2.B line-anchored block syntax via `OnPostProcessParsedLine`: ATX headings `#`..`######`, blockquote
+`>`, unordered (`-`/`*`/`+`) + ordered (`1.`/`1)`) list markers, thematic breaks (`---`/`***`/`___`),
+all fence-guarded (a line starting inside ``` is left as code). Test module `markdown` = 11 cases green;
+broad language/theme/indent regression green (126/0).
 
-**Next move: §2.B** — the `OnPostProcessParsedLine` pass for line-anchored block syntax (headings `#`,
-blockquotes `>`, list markers `-`/`*`/`+`/`1.`, indented code). This is where the bulk of the visible
-value is. Guard it against reinterpreting lines inside `in_fence` (check the line's start state /
-state-stack depth). Then GUI eyeball with `Assets/testfiles/support-markdown.md`, retune colors. Add
-`markdown` to the verified-green `-m …` set in CLAUDE.md.
+**Plumbing added for §2.B (note for future markup langs):** the tokenizer gained an injected
+`PostLineCallback` (`LangLineTokenizer::SetPostLineCallback`), invoked at the end of `ParseLine` (while
+the line is locked) for every line `ParseLines`/`ParseRegion` touches. `LanguageBase`'s ctor binds it to
+the virtual `OnPostProcessParsedLine` (base = no-op). The make/command parser is unaffected — it uses
+`ParseLineFromState` (not `ParseLine`) and still calls `OnPostProcessParsedLine` explicitly. The callback
+must NOT re-lock the line or re-enter the tokenizer (state stack is live mid-parse).
 
-INTERIM NOTE: until §2.B lands, a leading `*`/`-` bullet or a `#` heading is NOT specially classified
-(a `* item` bullet currently shows its text as emphasis — harmless, §2.B reclassifies it).
+**Known limitations (acceptable v1, candidates for later):**
+- A `*` bullet's item text is reset to regular (the leading `*` mis-tokenizes as emphasis with no
+  line-start awareness); inline code/emphasis *inside* a `*`-bulleted item won't highlight. `-`/`+`
+  bullets keep full inline highlighting. (Prefer `-` bullets, or do the §6 lexer extension.)
+- `[text](url)` colours only `[text]` (the `(url)` trailer stays regular).
+- See §5 for the hard non-goals (setext, reference links, CommonMark-exact emphasis).
+
+**Next move:** GUI eyeball with `Assets/testfiles/support-markdown.md`, retune the placeholder colors in
+`colors.json`, add `markdown` to the verified-green `-m …` set in CLAUDE.md. Optionally §6 (lexer
+line-start awareness) to fix the `*`-bullet limitation properly.
 
 Suggested scope for a first sitting: **§2 + §3 + register the language** (≈ one focused session,
 comparable effort to writing `CPPLanguage`). §4 tests and §5 niceties can follow.

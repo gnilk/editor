@@ -16,7 +16,14 @@ namespace gedit {
     public:
         using Ref = std::shared_ptr<LanguageBase>;
     public:
-        LanguageBase() = default;
+        LanguageBase() {
+            // Bridge the tokenizer's per-line hook to the virtual post-process. Resolves to the most-
+            // derived override at parse time (base is a no-op), so only languages that need line-anchored
+            // markup (e.g. markdown) do any work here.
+            tokenizer.SetPostLineCallback([this](const Line::Ref &line) {
+                OnPostProcessParsedLine(line);
+            });
+        }
         virtual ~LanguageBase() = default;
 
         // Implement this and setup the tokenizer

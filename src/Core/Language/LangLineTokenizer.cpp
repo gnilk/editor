@@ -162,6 +162,12 @@ void LangLineTokenizer::ParseLine(const Line::Ref l, int &nextIndent) {
     // Done, convert to line-attributes..
     LangToken::ToLineAttrib(l->Attributes(), tokens);
 
+    // Per-line post-process (line-anchored markup, e.g. markdown headings/lists). Runs while the line
+    // is still locked; the callback must NOT re-lock or re-enter the tokenizer (the state stack is live).
+    if (postLineCallback != nullptr) {
+        postLineCallback(l);
+    }
+
     // End shared.
     l->Release();
 }

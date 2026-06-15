@@ -294,6 +294,27 @@ YAML-based config loaded by `Config` singleton. `ConfigNode` provides typed acce
 
 ## Current state — resume point (read this first)
 
+### IN PROGRESS (2026-06-15): branch `feature/markdown-support` (off `main`)
+
+Markdown (`.md`) syntax support — **§3 + §2.A + §2.B done, 4 commits ahead of origin (pushed).**
+**`docs/support-markdown.md` is the authoritative tracker — read its §0 first.** Summary:
+- `.md`/`.markdown` → new `MarkdownLanguage` (`src/Core/Language/LanguageSupport/`).
+- §3: 8 **generic** document/markup token classes (`kHeading`/`kStrong`/`kEmphasis`/`kCode`/`kListMarker`/
+  `kBlockQuote`/`kLink`/`kRule`) in `LanguageTokenClass.h` + `LangToken.cpp` `tokenNames` + theme colors
+  in `Assets/Resources/colors.json` (globals & content). Kept generic on purpose — NOT `kMarkdown*`.
+- §2.A: push/pop states for fenced code (`in_fence`, persists across lines), inline code, `**`/`*`
+  emphasis, `[text]` links. `_`/`__` emphasis deliberately omitted (snake_case false-positives).
+- §2.B: line-anchored blocks (headings/blockquote/lists/thematic breaks) via
+  `OnPostProcessParsedLine`, fence-guarded by the line's state-stack depth. **New plumbing:**
+  `LangLineTokenizer::SetPostLineCallback` (injected, fired per line at end of `ParseLine`); `LanguageBase`
+  ctor binds it to the virtual. Make parser unaffected (uses `ParseLineFromState`).
+- Tests: `utests/test_markdown.cpp`, module `markdown` (11 cases) green; regression 126/0.
+- **Next:** GUI-eyeball with `Assets/testfiles/support-markdown.md`, retune placeholder colors, add
+  `markdown` to the verified-green `-m …` set. Optional §6 = lexer line-start awareness (fixes the
+  `*`-bullet item-text limitation). Known v1 limits live in `docs/support-markdown.md` §0.
+- **On the macOS box:** reconfigure SDL3 (`-DGEDIT_BUILD_SDL3=ON -DGEDIT_BUILD_SDL2=OFF`) and rebuild
+  `utests` (`libutests.dylib`) before running the suite.
+
 ### Baseline (2026-06-15): active branch `feature/session-cache-phase1`
 
 `main` is the consolidated baseline (2026-06-12); the **session-cache work lives on

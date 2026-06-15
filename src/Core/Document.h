@@ -142,6 +142,13 @@ namespace gedit {
         bool Save();
         bool SaveForce();
 
+        // Session serialisation (docs/session-cache.md §11.3). Aggregates the document's file identity
+        // (path) with its DocumentViewState (cursor/scroll/selection/view-mode) into one DocumentSession.
+        // FromSession restores the view-state only — the buffer is (re)loaded by the Workspace reopen path,
+        // which owns finding/opening the file; a missing file is skipped there, never here.
+        DocumentSession ToSession() const;
+        void FromSession(const DocumentSession &session);
+
         Cursor &GetCursor() {
             return documentViewState->lineCursor.cursor;
         }

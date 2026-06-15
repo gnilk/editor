@@ -5,6 +5,7 @@
 // restore-with-missing-file) land as the implementation does — these guard the DTO + singleton seams.
 //
 #include <testinterface.h>
+#include "Core/Document.h"
 #include "Core/DocumentViewState.h"
 #include "Core/Session/SessionState.h"
 #include "Core/Session/SessionManager.h"
@@ -17,6 +18,7 @@ DLL_EXPORT int test_session_dto_defaults(ITesting *t);
 DLL_EXPORT int test_session_singleton_clear(ITesting *t);
 DLL_EXPORT int test_session_documentviewstate_roundtrip(ITesting *t);
 DLL_EXPORT int test_session_selection_direction_preserved(ITesting *t);
+DLL_EXPORT int test_session_document_roundtrip(ITesting *t);
 }
 
 DLL_EXPORT int test_session(ITesting *t) {
@@ -111,5 +113,36 @@ DLL_EXPORT int test_session_selection_direction_preserved(ITesting *t) {
     TR_ASSERT(t, restored.currentSelection.GetRawStart().y == 44);
     TR_ASSERT(t, restored.currentSelection.GetRawEnd().x == 3);
     TR_ASSERT(t, restored.currentSelection.GetRawEnd().y == 40);
+    return kTR_Pass;
+}
+
+// Document aggregates file identity (path) + its DocumentViewState into one DocumentSession, and
+// FromSession restores the view-state. (No TextBuffer needed — these touch only path + view state.)
+DLL_EXPORT int test_session_document_roundtrip(ITesting *t) {
+    Document doc;
+    doc.SetPath("src/Core/Editor.cpp");
+    doc.GetLineCursor().cursor.position = Point(4, 17);
+    doc.GetLineCursor().cursor.wantedColumn = 4;
+    doc.GetLineCursor().idxActiveLine = 17;
+    doc.GetLineCursor().viewTopLine = 10;
+    doc.GetLineCursor().viewBottomLine = 40;
+    doc.SetViewMode(DocumentViewMode::kHex);
+
+    auto dto = doc.ToSession();
+    TR_ASSERT(t, dto.path == "src/Core/Editor.cpp");
+    TR_ASSERT(t, dto.cursorX == 4);
+    TR_ASSERT(t, dto.cursorY == 17);
+    TR_ASSERT(t, dto.idxActiveLine == 17);
+    TR_ASSERT(t, dto.viewMode == DocumentViewMode::kHex);
+
+    Document restored;
+    restored.FromSession(dto);
+    TR_ASSERT(t, restored.GetLineCursor().cursor.position.x == 4);
+    TR_ASSERT(t, restored.GetLineCursor().cursor.position.y == 17);
+    TR_ASSERT(t, restored.GetLineCursor().cursor.wantedColumn == 4);
+    TR_ASSERT(t, restored.GetLineCursor().idxActiveLine == 17);
+    TR_ASSERT(t, restored.GetLineCursor().viewTopLine == 10);
+    TR_ASSERT(t, restored.GetLineCursor().viewBottomLine == 40);
+    TR_ASSERT(t, restored.GetViewMode() == DocumentViewMode::kHex);
     return kTR_Pass;
 }

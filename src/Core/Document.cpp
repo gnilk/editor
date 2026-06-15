@@ -7,6 +7,7 @@
 #include <chrono>
 #include "Editor.h"
 #include "Document.h"
+#include "Core/Session/SessionState.h"
 #include "Core/Language/IndentCache.h"
 #include "Core/Language/IndentEngine.h"
 #include "logger.h"
@@ -201,6 +202,17 @@ bool Document::Save() {
 }
 bool Document::SaveForce() {
     return SaveDataNoChangeCheck(path);
+}
+
+DocumentSession Document::ToSession() const {
+    DocumentSession session = documentViewState->ToSession();
+    session.path = path.string();
+    return session;
+}
+
+void Document::FromSession(const DocumentSession &session) {
+    // Path/buffer identity is owned by the reopen path; here we only restore the per-view editing state.
+    documentViewState->FromSession(session);
 }
 
 /////////

@@ -19,6 +19,7 @@
 #include "Core/Views/WorkspaceView.h"
 #include "Core/Session/SessionState.h"
 #include "Core/Session/SessionManager.h"
+#include "Core/Session/SessionSerializer.h"
 
 using namespace gedit;
 
@@ -44,6 +45,9 @@ DLL_EXPORT int test_session_workspace_reopen_skips_missing(ITesting *t);
 DLL_EXPORT int test_session_splitter_roundtrip(ITesting *t);
 DLL_EXPORT int test_session_splitter_untagged_noop(ITesting *t);
 DLL_EXPORT int test_session_workspaceview_expandcollapse(ITesting *t);
+DLL_EXPORT int test_session_yaml_roundtrip(ITesting *t);
+DLL_EXPORT int test_session_yaml_bad_version(ITesting *t);
+DLL_EXPORT int test_session_yaml_corrupt(ITesting *t);
 }
 
 DLL_EXPORT int test_session(ITesting *t) {
@@ -310,5 +314,95 @@ DLL_EXPORT int test_session_workspaceview_expandcollapse(ITesting *t) {
 
     TR_ASSERT(t, !saved.empty());          // the auto-expanded root is recorded
     TR_ASSERT(t, restored == saved);       // one-shot seed re-applied -> identical expanded set
+    return kTR_Pass;
+}
+
+// Full RootSession survives a YAML emit -> parse round-trip (selection + view-mode + geometry + splitters
+// + tree state). The float splitter ratio is compared with tolerance (text encoding is lossy).
+DLL_EXPORT int test_session_yaml_roundtrip(ITesting *t) {
+    RootSession s;
+    s.primaryRoot = "/home/u/proj";
+    s.extraRoots = {"/home/u/lib"};
+    s.activeDocumentIndex = 1;
+
+    DocumentSession d0;
+    d0.path = "a.cpp";
+    d0.cursorX = 3; d0.cursorY = 9; d0.wantedColumn = 5;
+    d0.idxActiveLine = 9; d0.viewTopLine = 4; d0.viewBottomLine = 30;
+    d0.viewMode = DocumentViewMode::kText;
+    d0.selection.isActive = true;
+    d0.selection.startX = 1; d0.selection.startY = 2; d0.selection.endX = 7; d0.selection.endY = 8;
+
+    DocumentSession d1;
+    d1.path = "b.bin";
+    d1.cursorX = 0; d1.cursorY = 100;
+    d1.viewMode = DocumentViewMode::kHex;
+
+    s.documents = {d0, d1};
+    s.expandCollapse["/home/u/proj/src"] = true;
+
+    s.layout.window = {120, 40, 1280, 800};
+    s.layout.focusedTopView = "editor";
+    s.layout.splitters.push_back(SplitterSession{"split.workspace", 30, 0.3f});
+    s.layout.splitters.push_back(SplitterSession{"split.terminal", 18, 0.75f});
+
+    std::string yaml = SessionSerializer::ToYaml(s);
+    TR_ASSERT(t, !yaml.empty());
+
+    RootSession r;
+    TR_ASSERT(t, SessionSerializer::FromYaml(yaml, r));
+
+    TR_ASSERT(t, r.version == RootSession::kVersion);
+    TR_ASSERT(t, r.primaryRoot == s.primaryRoot);
+    TR_ASSERT(t, r.extraRoots.size() == 1);
+    TR_ASSERT(t, r.extraRoots[0] == "/home/u/lib");
+    TR_ASSERT(t, r.activeDocumentIndex == 1);
+
+    TR_ASSERT(t, r.documents.size() == 2);
+    TR_ASSERT(t, r.documents[0].path == "a.cpp");
+    TR_ASSERT(t, r.documents[0].cursorX == 3);
+    TR_ASSERT(t, r.documents[0].cursorY == 9);
+    TR_ASSERT(t, r.documents[0].wantedColumn == 5);
+    TR_ASSERT(t, r.documents[0].idxActiveLine == 9);
+    TR_ASSERT(t, r.documents[0].viewTopLine == 4);
+    TR_ASSERT(t, r.documents[0].viewBottomLine == 30);
+    TR_ASSERT(t, r.documents[0].viewMode == DocumentViewMode::kText);
+    TR_ASSERT(t, r.documents[0].selection.isActive);
+    TR_ASSERT(t, r.documents[0].selection.startX == 1);
+    TR_ASSERT(t, r.documents[0].selection.endY == 8);
+    TR_ASSERT(t, r.documents[1].path == "b.bin");
+    TR_ASSERT(t, r.documents[1].cursorY == 100);
+    TR_ASSERT(t, r.documents[1].viewMode == DocumentViewMode::kHex);
+
+    TR_ASSERT(t, r.expandCollapse.size() == 1);
+    TR_ASSERT(t, r.expandCollapse.count("/home/u/proj/src") == 1);
+
+    TR_ASSERT(t, r.layout.window.x == 120);
+    TR_ASSERT(t, r.layout.window.width == 1280);
+    TR_ASSERT(t, r.layout.window.height == 800);
+    TR_ASSERT(t, r.layout.focusedTopView == "editor");
+    TR_ASSERT(t, r.layout.splitters.size() == 2);
+    TR_ASSERT(t, r.layout.splitters[0].id == "split.workspace");
+    TR_ASSERT(t, r.layout.splitters[0].absolute == 30);
+    TR_ASSERT(t, (r.layout.splitters[1].relative > 0.74f) && (r.layout.splitters[1].relative < 0.76f));
+    return kTR_Pass;
+}
+
+// A newer/unknown version is ignored (caller starts clean) rather than mis-parsed.
+DLL_EXPORT int test_session_yaml_bad_version(ITesting *t) {
+    RootSession s;
+    s.version = RootSession::kVersion + 99;
+    std::string yaml = SessionSerializer::ToYaml(s);
+
+    RootSession r;
+    TR_ASSERT(t, !SessionSerializer::FromYaml(yaml, r));
+    return kTR_Pass;
+}
+
+// Malformed YAML never throws; it returns false so startup can proceed clean.
+DLL_EXPORT int test_session_yaml_corrupt(ITesting *t) {
+    RootSession r;
+    TR_ASSERT(t, !SessionSerializer::FromYaml("{ this: is: not: valid", r));
+    TR_ASSERT(t, !SessionSerializer::FromYaml("", r));
     return kTR_Pass;
 }

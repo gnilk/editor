@@ -378,6 +378,7 @@ list(APPEND editorsrc src/Core/XDGEnvironment.cpp src/Core/XDGEnvironment.h)
 # Session cache (per-root persistence — docs/session-cache.md)
 list(APPEND editorsrc src/Core/Session/SessionManager.cpp src/Core/Session/SessionManager.h)
 list(APPEND editorsrc src/Core/Session/SessionState.h)
+list(APPEND editorsrc src/Core/Session/SessionSerializer.cpp src/Core/Session/SessionSerializer.h)
 
 
 # Graphics base classes

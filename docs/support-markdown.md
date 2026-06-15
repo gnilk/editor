@@ -10,15 +10,21 @@ setext headings, and reference-link resolution are explicit non-goals — see §
 
 ## 0. Resume point / status
 
-**Status: skeleton + §3 DONE.** `.md`/`.markdown` detection routes to `MarkdownLanguage` (empty no-op
-parser). §3 token classes + theme are in: 8 generic document/markup classes (`kHeading`, `kStrong`,
-`kEmphasis`, `kCode`, `kListMarker`, `kBlockQuote`, `kLink`, `kRule`) added to the enum + `tokenNames`
-map + theme colors (globals & content in `colors.json`). Builds clean.
+**Status: skeleton + §3 + §2.A DONE.** `.md`/`.markdown` routes to `MarkdownLanguage`. §3 added 8
+generic document/markup classes (`kHeading`, `kStrong`, `kEmphasis`, `kCode`, `kListMarker`,
+`kBlockQuote`, `kLink`, `kRule`) + `tokenNames` + theme colors. §2.A implemented the push/pop states:
+`in_fence` (fenced code, persists across lines — the key win), `in_code_span` (inline `` ` ``),
+`in_strong` (`**`), `in_em` (`*`), `in_link` (`[text]`). Test module `markdown` (5 cases) green; broader
+language/theme regression green. `_`/`__` emphasis intentionally left out (snake_case false-positives).
 
-**Next move: §2.A** (state config — fences/inline code/emphasis push-pop states in
-`MarkdownLanguage::Initialize`), then **§2.B** (the post-process pass — where the real value is). §4 is
-the test harness. The generic classes from §3 are what these populate; don't add markdown-specific class
-names.
+**Next move: §2.B** — the `OnPostProcessParsedLine` pass for line-anchored block syntax (headings `#`,
+blockquotes `>`, list markers `-`/`*`/`+`/`1.`, indented code). This is where the bulk of the visible
+value is. Guard it against reinterpreting lines inside `in_fence` (check the line's start state /
+state-stack depth). Then GUI eyeball with `Assets/testfiles/support-markdown.md`, retune colors. Add
+`markdown` to the verified-green `-m …` set in CLAUDE.md.
+
+INTERIM NOTE: until §2.B lands, a leading `*`/`-` bullet or a `#` heading is NOT specially classified
+(a `* item` bullet currently shows its text as emphasis — harmless, §2.B reclassifies it).
 
 Suggested scope for a first sitting: **§2 + §3 + register the language** (≈ one focused session,
 comparable effort to writing `CPPLanguage`). §4 tests and §5 niceties can follow.

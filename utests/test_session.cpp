@@ -6,17 +6,31 @@
 //
 #include <testinterface.h>
 #include <memory>
+#include <filesystem>
+#include <unordered_map>
 #include "Core/Editor.h"
 #include "Core/RuntimeConfig.h"
+#include "Core/Config/Config.h"
 #include "Core/Document.h"
 #include "Core/DocumentViewState.h"
 #include "Core/Workspace.h"
 #include "Core/Views/VSplitView.h"
 #include "Core/Views/HSplitView.h"
+#include "Core/Views/WorkspaceView.h"
 #include "Core/Session/SessionState.h"
 #include "Core/Session/SessionManager.h"
 
 using namespace gedit;
+
+namespace {
+    // Exposes the protected tree-build path so the expand/collapse round-trip can be driven directly.
+    struct SessionTestWorkspaceView : public WorkspaceView {
+        void BuildTree() {
+            CreateTree();
+            PopulateTree();
+        }
+    };
+}
 
 extern "C" {
 DLL_EXPORT int test_session(ITesting *t);
@@ -29,6 +43,7 @@ DLL_EXPORT int test_session_workspace_enumerate(ITesting *t);
 DLL_EXPORT int test_session_workspace_reopen_skips_missing(ITesting *t);
 DLL_EXPORT int test_session_splitter_roundtrip(ITesting *t);
 DLL_EXPORT int test_session_splitter_untagged_noop(ITesting *t);
+DLL_EXPORT int test_session_workspaceview_expandcollapse(ITesting *t);
 }
 
 DLL_EXPORT int test_session(ITesting *t) {
@@ -266,5 +281,34 @@ DLL_EXPORT int test_session_splitter_untagged_noop(ITesting *t) {
 
     vsplit.FromSession(layout);        // no id, no matching entry -> no-op, no crash
     TR_ASSERT(t, layout.splitters.empty());
+    return kTR_Pass;
+}
+
+// WorkspaceView snapshots the tree expand/collapse state and re-applies a restored seed on rebuild.
+DLL_EXPORT int test_session_workspaceview_expandcollapse(ITesting *t) {
+    // Build a real tree over the 'testfiles' fixture with the folder monitor off (no side effects).
+    bool prevMonitor = Config::Instance()["foldermonitor"].GetBool("enabled", true);
+    Config::Instance()["foldermonitor"].SetBool("enabled", false);
+
+    auto testPath = std::filesystem::current_path() / "testfiles";
+    Editor::Instance().GetWorkspace()->OpenFolder(testPath.string());
+
+    SessionTestWorkspaceView wv;
+    wv.BuildTree();
+    std::unordered_map<std::string, bool> saved;
+    wv.SaveExpandCollapseState(saved);
+
+    // Fresh view: seed the saved state BEFORE building, then build -> the one-shot seed is applied.
+    SessionTestWorkspaceView wv2;
+    wv2.RestoreExpandCollapseState(saved);   // no tree yet -> just stores the seed
+    wv2.BuildTree();
+    std::unordered_map<std::string, bool> restored;
+    wv2.SaveExpandCollapseState(restored);
+
+    // Restore config BEFORE asserting, so an assert-abort can't leak the disabled monitor to other tests.
+    Config::Instance()["foldermonitor"].SetBool("enabled", prevMonitor);
+
+    TR_ASSERT(t, !saved.empty());          // the auto-expanded root is recorded
+    TR_ASSERT(t, restored == saved);       // one-shot seed re-applied -> identical expanded set
     return kTR_Pass;
 }

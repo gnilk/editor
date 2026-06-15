@@ -128,6 +128,23 @@ void WorkspaceView::BuildExpandCollapseCache(std::unordered_map<std::string, boo
     BuildExpandCollapseCacheFromNode(treeView->GetRootNode(), cache);
 }
 
+void WorkspaceView::SaveExpandCollapseState(std::unordered_map<std::string, bool> &out) {
+    if (treeView == nullptr) {
+        return;
+    }
+    BuildExpandCollapseCache(out);
+}
+
+void WorkspaceView::RestoreExpandCollapseState(const std::unordered_map<std::string, bool> &state) {
+    pendingExpandCollapseSeed = state;
+    hasPendingExpandCollapseSeed = true;
+    // If the tree already exists (folder already open), re-apply now; otherwise the seed waits for the
+    // first PopulateTree.
+    if (treeView != nullptr) {
+        PopulateTree();
+    }
+}
+
 void WorkspaceView::CreateTree() {
     if (treeView == nullptr) {
         treeView = TreeView<Workspace::Node::Ref>::Create();
@@ -148,6 +165,15 @@ void WorkspaceView::PopulateTree() {
     std::unordered_map<std::string, bool> expandCollapseCache;
 
     BuildExpandCollapseCache(expandCollapseCache);
+    // Merge a one-shot session seed (restored expand/collapse) over the live-tree snapshot, then clear it
+    // so subsequent user collapse/expand is preserved on later rebuilds.
+    if (hasPendingExpandCollapseSeed) {
+        for (const auto &entry : pendingExpandCollapseSeed) {
+            expandCollapseCache[entry.first] = entry.second;
+        }
+        hasPendingExpandCollapseSeed = false;
+        pendingExpandCollapseSeed.clear();
+    }
     treeView->Clear();
 
     auto workspace = Editor::Instance().GetWorkspace();

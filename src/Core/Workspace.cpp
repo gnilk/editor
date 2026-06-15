@@ -102,6 +102,58 @@ size_t Workspace::PreviousDocumentIndex(size_t idxCurrent) {
     return (openDocuments.size() + (idxCurrent - 1)) % openDocuments.size();
 }
 
+void Workspace::ToSession(RootSession &session) {
+    session.documents.clear();
+    for (auto &document : openDocuments) {
+        session.documents.push_back(document->ToSession());
+    }
+    session.activeDocumentIndex = openDocuments.empty() ? -1 : static_cast<int>(GetActiveDocumentIndex());
+    // NOTE: multiple project roots (§3.2) are deferred; primaryRoot is filled by SessionManager (it owns
+    // the cwd/root being saved), not here.
+}
+
+Document::Ref Workspace::ReopenDocument(const DocumentSession &docSession) {
+    std::filesystem::path pathName(docSession.path);
+    // Skip a stale entry (file moved/deleted, or it is now a directory) - never abort the whole restore.
+    if (!std::filesystem::exists(pathName) || std::filesystem::is_directory(pathName)) {
+        logger->Warning("ReopenDocument: skipping missing/invalid '%s'", docSession.path.c_str());
+        return nullptr;
+    }
+
+    // Same pure-data open path as Editor::LoadDocument (file-ref node -> load -> readonly meta -> add).
+    // FIXME(consolidation): Editor::LoadDocument duplicates this sequence; it should delegate here.
+    auto node = NewDocumentWithFileRef(pathName);
+    if (node == nullptr) {
+        logger->Error("ReopenDocument: failed to create document for '%s'", docSession.path.c_str());
+        return nullptr;
+    }
+    node->LoadData();
+
+    auto document = node->GetDocument();
+    if (document == nullptr) {
+        return nullptr;
+    }
+    if (node->GetMeta<bool>(Workspace::Node::kMetaKey_ReadOnly, false)) {
+        document->GetTextBuffer()->SetReadOnly(true);
+    }
+    document->FromSession(docSession);   // restore cursor/scroll/selection/view-mode
+    AddOpenDocument(document);
+    return document;
+}
+
+void Workspace::FromSession(const RootSession &session) {
+    Document::Ref activeToSet = nullptr;
+    for (size_t i = 0; i < session.documents.size(); i++) {
+        auto document = ReopenDocument(session.documents[i]);
+        if ((document != nullptr) && (static_cast<int>(i) == session.activeDocumentIndex)) {
+            activeToSet = document;
+        }
+    }
+    if (activeToSet != nullptr) {
+        SetActiveDocument(activeToSet);
+    }
+}
+
 Workspace::Ref Workspace::Create() {
     auto ref = std::make_shared<Workspace>();
     return ref;

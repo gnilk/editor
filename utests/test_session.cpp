@@ -5,8 +5,10 @@
 // restore-with-missing-file) land as the implementation does — these guard the DTO + singleton seams.
 //
 #include <testinterface.h>
+#include <memory>
 #include "Core/Document.h"
 #include "Core/DocumentViewState.h"
+#include "Core/Workspace.h"
 #include "Core/Session/SessionState.h"
 #include "Core/Session/SessionManager.h"
 
@@ -19,6 +21,8 @@ DLL_EXPORT int test_session_singleton_clear(ITesting *t);
 DLL_EXPORT int test_session_documentviewstate_roundtrip(ITesting *t);
 DLL_EXPORT int test_session_selection_direction_preserved(ITesting *t);
 DLL_EXPORT int test_session_document_roundtrip(ITesting *t);
+DLL_EXPORT int test_session_workspace_enumerate(ITesting *t);
+DLL_EXPORT int test_session_workspace_reopen_skips_missing(ITesting *t);
 }
 
 DLL_EXPORT int test_session(ITesting *t) {
@@ -70,14 +74,14 @@ DLL_EXPORT int test_session_singleton_clear(ITesting *t) {
 // for cursor, scroll window, selection and view-mode.
 DLL_EXPORT int test_session_documentviewstate_roundtrip(ITesting *t) {
     DocumentViewState vs;
-    vs.lineCursor.cursor.position = Point(7, 42);
+    vs.lineCursor.cursor.position = gedit::Point(7, 42);
     vs.lineCursor.cursor.wantedColumn = 9;
     vs.lineCursor.idxActiveLine = 42;
     vs.lineCursor.viewTopLine = 30;
     vs.lineCursor.viewBottomLine = 60;
     vs.currentSelection.SetActive(true);
-    vs.currentSelection.SetStart(Point(3, 40));
-    vs.currentSelection.SetEnd(Point(11, 44));
+    vs.currentSelection.SetStart(gedit::Point(3, 40));
+    vs.currentSelection.SetEnd(gedit::Point(11, 44));
     vs.viewMode = DocumentViewMode::kHex;
 
     DocumentViewState restored;
@@ -103,8 +107,8 @@ DLL_EXPORT int test_session_documentviewstate_roundtrip(ITesting *t) {
 DLL_EXPORT int test_session_selection_direction_preserved(ITesting *t) {
     DocumentViewState vs;
     vs.currentSelection.SetActive(true);
-    vs.currentSelection.SetStart(Point(11, 44));   // start is after end
-    vs.currentSelection.SetEnd(Point(3, 40));
+    vs.currentSelection.SetStart(gedit::Point(11, 44));   // start is after end
+    vs.currentSelection.SetEnd(gedit::Point(3, 40));
 
     DocumentViewState restored;
     restored.FromSession(vs.ToSession());
@@ -121,7 +125,7 @@ DLL_EXPORT int test_session_selection_direction_preserved(ITesting *t) {
 DLL_EXPORT int test_session_document_roundtrip(ITesting *t) {
     Document doc;
     doc.SetPath("src/Core/Editor.cpp");
-    doc.GetLineCursor().cursor.position = Point(4, 17);
+    doc.GetLineCursor().cursor.position = gedit::Point(4, 17);
     doc.GetLineCursor().cursor.wantedColumn = 4;
     doc.GetLineCursor().idxActiveLine = 17;
     doc.GetLineCursor().viewTopLine = 10;
@@ -144,5 +148,58 @@ DLL_EXPORT int test_session_document_roundtrip(ITesting *t) {
     TR_ASSERT(t, restored.GetLineCursor().viewTopLine == 10);
     TR_ASSERT(t, restored.GetLineCursor().viewBottomLine == 40);
     TR_ASSERT(t, restored.GetViewMode() == DocumentViewMode::kHex);
+    return kTR_Pass;
+}
+
+// Workspace enumerates its open documents + the active index into a RootSession.
+DLL_EXPORT int test_session_workspace_enumerate(ITesting *t) {
+    Workspace workspace;
+
+    auto docA = std::make_shared<Document>();
+    docA->SetPath("a.cpp");
+    docA->GetLineCursor().cursor.position = gedit::Point(1, 2);
+
+    auto docB = std::make_shared<Document>();
+    docB->SetPath("b.cpp");
+    docB->GetLineCursor().cursor.position = gedit::Point(3, 4);
+
+    workspace.AddOpenDocument(docA);
+    workspace.AddOpenDocument(docB);
+    workspace.SetActiveDocument(docB);
+
+    RootSession session;
+    workspace.ToSession(session);
+
+    TR_ASSERT(t, session.documents.size() == 2);
+    TR_ASSERT(t, session.documents[0].path == "a.cpp");
+    TR_ASSERT(t, session.documents[0].cursorX == 1);
+    TR_ASSERT(t, session.documents[1].path == "b.cpp");
+    TR_ASSERT(t, session.documents[1].cursorY == 4);
+    TR_ASSERT(t, session.activeDocumentIndex == 1);
+
+    // An empty workspace reports no active document.
+    Workspace empty;
+    RootSession emptySession;
+    empty.ToSession(emptySession);
+    TR_ASSERT(t, emptySession.documents.empty());
+    TR_ASSERT(t, emptySession.activeDocumentIndex == -1);
+    return kTR_Pass;
+}
+
+// A saved document whose file is gone on disk is skipped, and the rest of the restore continues.
+DLL_EXPORT int test_session_workspace_reopen_skips_missing(ITesting *t) {
+    Workspace workspace;
+
+    DocumentSession gone;
+    gone.path = "this/path/does/not/exist-xyz.cpp";
+    TR_ASSERT(t, workspace.ReopenDocument(gone) == nullptr);
+    TR_ASSERT(t, workspace.GetOpenDocuments().empty());
+
+    // FromSession over a list of only-missing docs must not throw or abort - it just opens nothing.
+    RootSession session;
+    session.documents.push_back(gone);
+    session.activeDocumentIndex = 0;
+    workspace.FromSession(session);
+    TR_ASSERT(t, workspace.GetOpenDocuments().empty());
     return kTR_Pass;
 }

@@ -20,6 +20,7 @@
 #include "Core/PathUtil.h"
 #include "Core/Config/ConfigNode.h"
 #include "Document.h"
+#include "Core/Session/SessionState.h"
 #include "Core/UnicodeHelper.h"
 
 namespace gedit {
@@ -521,6 +522,15 @@ namespace gedit {
         Document::Ref GetDocumentFromTextBuffer(TextBuffer::Ref textBuffer);
         size_t NextDocumentIndex(size_t idxCurrent);
         size_t PreviousDocumentIndex(size_t idxCurrent);
+
+        // Session serialisation (docs/session-cache.md §11.3). Workspace owns the open-document list and
+        // the active doc, so it enumerates those; layout/geometry/tree-state are filled by their owners.
+        void ToSession(RootSession &session);
+        // Reopen each saved document (skipping any whose file is gone) and restore the active one by index.
+        void FromSession(const RootSession &session);
+        // Reopen one saved document: load its file into the workspace and restore its view-state. Returns
+        // nullptr (entry skipped) if the file is missing/stale - never aborts the whole restore.
+        Document::Ref ReopenDocument(const DocumentSession &docSession);
 
     protected:
         Node::Ref NewFolderNode(Node::Ref parent, const std::filesystem::path &pathName);

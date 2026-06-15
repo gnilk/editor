@@ -19,7 +19,7 @@
 #include <unordered_map>
 #include <filesystem>
 
-#include "Core/DocumentViewState.h"   // DocumentViewMode
+#include "Core/DocumentViewMode.h"   // DocumentViewMode (leaf header — no cycle back to DocumentViewState)
 
 namespace gedit {
 

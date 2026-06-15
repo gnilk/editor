@@ -16,6 +16,8 @@
 #include <cstddef>
 #include "Core/Point.h"
 #include "Core/Graphics/Cursor.h"
+#include "Core/DocumentViewMode.h"
+#include "Core/Session/SessionState.h"   // DocumentSession (the serialised form)
 
 namespace gedit {
 
@@ -84,6 +86,14 @@ namespace gedit {
             }
             return endPos;
         }
+        // Raw (un-sorted) anchor/caret ends — unlike GetStart/GetEnd these do NOT normalise order, so a
+        // backward selection round-trips faithfully (session save/restore depends on this).
+        const Point &GetRawStart() const {
+            return startPos;
+        }
+        const Point &GetRawEnd() const {
+            return endPos;
+        }
         // Setters
         void SetStart(const Point &pt) {
             startPos = pt;
@@ -115,14 +125,6 @@ namespace gedit {
 
     };
 
-    // How the active document is presented in the view. The caret (lineCursor) stays in canonical
-    // text coordinates regardless; Hex mode renders the same buffer as an offset|hex|ASCII projection
-    // (see HexProjection / ByteStreamReader). Per-view, so two views of one document can differ.
-    enum class DocumentViewMode {
-        kText,
-        kHex,
-    };
-
     // Per-view editing state. Held by Document as a Ref (referenced, not fused) so it can later be
     // owned by a view-item instead, with the Document keeping a saved snapshot.
     class DocumentViewState {
@@ -131,6 +133,11 @@ namespace gedit {
         static Ref Create() {
             return std::make_shared<DocumentViewState>();
         }
+
+        // Session serialisation (owner serialises itself — docs/session-cache.md §11.3). Covers the
+        // cursor, scroll window, selection and view-mode; the file path is owned by Document, not here.
+        DocumentSession ToSession() const;
+        void FromSession(const DocumentSession &session);
     public:
         LineCursor lineCursor;
         Selection currentSelection = {};

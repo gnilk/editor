@@ -18,10 +18,14 @@ if (NOT EXISTS ${EDITOR_ASSET_DIR})
     execute_process(COMMAND mkdir ${EDITOR_ASSET_DIR})
 endif ()
 
-option(GEDIT_BUILD_SDL3 "Build SDL3" OFF)
-option(GEDIT_BUILD_SDL2 "Build SDL2" ON)
-
-#set(SDL_HOME /usr/local)
+if (APPLE)
+    option(GEDIT_BUILD_SDL3 "Build SDL3" ON)
+    option(GEDIT_BUILD_SDL2 "Build SDL2" OFF)
+else()
+    option(GEDIT_BUILD_SDL3 "Build SDL3" OFF)
+    option(GEDIT_BUILD_SDL2 "Build SDL2" ON)
+endif()
+    #set(SDL_HOME /usr/local)
 #set(SDL_HOME /opt/homebrew)
 
 

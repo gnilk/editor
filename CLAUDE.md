@@ -435,6 +435,16 @@ and rebuild `utests` (`libutests.so` Linux / `.dylib` macOS) on the other box.
   jsengine `LoadDocument` (`ff45ff7`); test-suite audit (`fa52c94`); `test_vnav_pageup` (`3763816`).
 
 ## Remaining / deferred
+- **Graphics layer refactor — PLANNED, next major effort (note added 2026-06-15).** The user has a plan
+  outlined (not yet shared) and wants a dedicated **reasoning session with a clean token-space** before any
+  code moves — *do not start refactoring graphics ad-hoc; wait for that session.* Direction (from
+  `project_graphics_refactor` memory): all rendering lives under `src/Core/Graphics/`; simplify the
+  abstractions down to the smallest primitives, weighing the perf trade-off. **Hard invariant to preserve
+  through the whole refactor (this is the one that already bit us once — see the "lower layer never depends
+  on a higher-level app service" pattern up top):** nothing under `src/Core/Graphics/*` may depend on an
+  app-level service (`Core/Session/*`, `Editor.h`, etc.) — data flows IN via plain setters and OUT via
+  callbacks, bridged by glue in the init layer (`Editor::WireScreenGeometry` is the template). **Cheap CI
+  smell test:** `grep -rl "Core/Session\|Editor.h" src/Core/Graphics/` must stay empty.
 - **Open bugs tracker → `docs/open-bugs.md`.** Known-wrong code we chose NOT to fix in-place yet, with
   cold-start context. Currently: (1) `Line::AttributeAt` returns the FIRST span (kRegular) for any pos in
   a line's LAST token span (so a trailing comment reads as code) — left alone because

@@ -180,6 +180,21 @@ YAML-based config loaded by `Config` singleton. `ConfigNode` provides typed acce
 
 ## Established patterns (reuse these)
 
+- **A lower layer NEVER depends on a higher-level app service — invert via glue + plain data/callbacks.**
+  (Mishap caught 2026-06-15, window-geometry session work — *don't repeat it*.) The Graphics backend
+  (`ScreenBase` / `SDL2`+`SDL3` `SDLScreen`) sits **below** app-level singletons like `SessionManager`,
+  `Editor`, `Config`. The first cut had `ScreenBase` call `SessionManager::Instance()` directly to read/write
+  window geometry — backwards: it made the rendering layer depend on a high-level app construct. **The fix
+  is the shape to reuse:** the low layer exposes *plain-data* hooks (`SetRequestedWindowGeometry(x,y,w,h)`, a
+  `WindowGeometryChangedHandler` callback of plain ints, `GetPrimaryDisplayBounds()` — a genuine graphics
+  concern), and a **glue function in the layer that owns initialisation** (`Editor::WireScreenGeometry`,
+  called in `SetupSDL2`/`SetupSDL3` before `Open()`) bridges the two — it reads the session, feeds data in,
+  and registers the write-back callback. Data flows OUT of the low layer through the callback; nothing
+  app-level flows in. Logic that *legitimately* needs a low-layer resource (geometry default + clamp need
+  the display bounds) stays in the low layer — that's not an app dependency. Same rule let the autosave
+  debounce live in `SessionManager` with an **injected** `autoSaveHandler` (set by `Editor`) instead of a
+  `SessionManager → Editor` dependency. **Smell test: if a `Core/Graphics/*` file `#include`s
+  `Core/Session/*` (or `Editor.h`), you've inverted a layer.**
 - **Model stays logical, the VIEW translates at draw.** Cursor columns are CHAR INDICES everywhere in
   the model/`Selection` (copy/delete depend on it); anything drawn in screen space (caret, overlays,
   status col) converts via `Line::CharToVisualColumn(x, tabSize)` at render time. Don't push visual
@@ -279,15 +294,25 @@ YAML-based config loaded by `Config` singleton. `ConfigNode` provides typed acce
 
 ## Current state — resume point (read this first)
 
-### Baseline: everything is on `main` (2026-06-12)
+### Baseline (2026-06-15): active branch `feature/session-cache-phase1`
 
-Repo is **fully consolidated** — a single line of history, **only `main` exists** (all feature/spike branches
-merged and pruned, local + remote). `main == origin/main`. Working tree is clean except the local
-`CMakeLists.txt` SDL3 toggle (per-machine, **never commit it**) plus the untracked-by-design files. **Start the
-next feature on a fresh branch.**
+`main` is the consolidated baseline (2026-06-12); the **session-cache work lives on
+`feature/session-cache-phase1`** (off `main`, not yet merged). Per-machine SDL backend is now
+**auto-selected** (`if(APPLE)` in `CMakeLists.txt`, `28c413b`) — the old "never commit the CMakeLists SDL
+toggle" caveat is **obsolete**; there is no toggle to leave dirty anymore. Working tree is clean except the
+untracked-by-design files. **`docs/session-cache.md` is the authoritative tracker for this feature** (read its
+§0 resume-point first).
 
-Verified-green set **202** (run from `cmake-build-debug/`; macOS lib `libutests.dylib`, Linux `libutests.so`):
-`-m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,vtermparser,keymapping,hexprojection,bytestream,hexview,indent`
+**Session cache — Phase 1 COMPLETE on the branch (GUI-verified):** per-root `.goatedit/session.yml`
+restores open files + cursors/scroll/selection/view-mode, layout (splitters + focused view + tree
+expand/collapse), and **window geometry**; plus **debounced autosave**. Step 2 (live registry +
+restore-on-reboot) is the next phase. See `docs/session-cache.md`. **Key layering rule that came out of
+this — see the "Lower layer never depends on a higher-level app service" pattern below.**
+
+Verified-green set **221** on the branch (run from `cmake-build-debug/`; macOS lib `libutests.dylib`, Linux
+`libutests.so`):
+`-m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,vtermparser,keymapping,hexprojection,bytestream,hexview,indent,session`
+(was 202 on `main`; the `session` module adds the delta, and the obsolete `winlocation` module was removed.)
 **Do NOT run the full debug suite** — the sqlite3-parse case is intentionally excluded (13–15s in debug).
 
 **Recently shipped (on `main`):** autopair + a data-driven `IndentEngine` (electric indent/dedent, `indent.yml`)

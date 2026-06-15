@@ -10,6 +10,7 @@
 #include <unordered_map>
 #include "Core/Editor.h"
 #include "Core/RuntimeConfig.h"
+#include "Core/AssetLoaderBase.h"
 #include "Core/Config/Config.h"
 #include "Core/Document.h"
 #include "Core/DocumentViewState.h"
@@ -48,6 +49,7 @@ DLL_EXPORT int test_session_workspaceview_expandcollapse(ITesting *t);
 DLL_EXPORT int test_session_yaml_roundtrip(ITesting *t);
 DLL_EXPORT int test_session_yaml_bad_version(ITesting *t);
 DLL_EXPORT int test_session_yaml_corrupt(ITesting *t);
+DLL_EXPORT int test_session_save_load_roundtrip(ITesting *t);
 }
 
 DLL_EXPORT int test_session(ITesting *t) {
@@ -404,5 +406,47 @@ DLL_EXPORT int test_session_yaml_corrupt(ITesting *t) {
     RootSession r;
     TR_ASSERT(t, !SessionSerializer::FromYaml("{ this: is: not: valid", r));
     TR_ASSERT(t, !SessionSerializer::FromYaml("", r));
+    return kTR_Pass;
+}
+
+// SessionManager Save -> Load round-trips through a real session.yml resolved via AssetLoader kProject,
+// written atomically (no leftover .tmp).
+DLL_EXPORT int test_session_save_load_roundtrip(ITesting *t) {
+    auto &assetLoader = RuntimeConfig::Instance().GetAssetLoader();
+
+    auto testRoot = std::filesystem::temp_directory_path() / "goatedit_sess_test";
+    auto projDir = testRoot / ".goatedit";
+    std::error_code ec;
+    std::filesystem::remove_all(testRoot, ec);
+    std::filesystem::create_directories(projDir);
+    assetLoader.AddSearchPath(projDir, AssetLoaderBase::kLocationType::kProject);
+
+    auto writePath = assetLoader.ResolveWritePath("session.yml", AssetLoaderBase::kLocationType::kProject);
+    TR_ASSERT(t, writePath == (projDir / "session.yml"));
+
+    auto &mgr = SessionManager::Instance();
+    mgr.Clear();
+    mgr.CurrentSession().activeDocumentIndex = 2;
+    DocumentSession d;
+    d.path = "x.cpp";
+    d.cursorY = 42;
+    d.viewMode = DocumentViewMode::kHex;
+    mgr.CurrentSession().documents.push_back(d);
+
+    TR_ASSERT(t, mgr.Save());
+    TR_ASSERT(t, std::filesystem::exists(writePath));
+    TR_ASSERT(t, !std::filesystem::exists(writePath.string() + ".tmp"));   // atomic: no leftover temp
+
+    mgr.Clear();
+    TR_ASSERT(t, mgr.CurrentSession().documents.empty());
+    TR_ASSERT(t, mgr.Load());
+    TR_ASSERT(t, mgr.CurrentSession().activeDocumentIndex == 2);
+    TR_ASSERT(t, mgr.CurrentSession().documents.size() == 1);
+    TR_ASSERT(t, mgr.CurrentSession().documents[0].path == "x.cpp");
+    TR_ASSERT(t, mgr.CurrentSession().documents[0].cursorY == 42);
+    TR_ASSERT(t, mgr.CurrentSession().documents[0].viewMode == DocumentViewMode::kHex);
+
+    mgr.Clear();
+    std::filesystem::remove_all(testRoot, ec);
     return kTR_Pass;
 }

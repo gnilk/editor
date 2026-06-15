@@ -31,10 +31,12 @@ namespace gedit {
         // Reset in-memory state — test isolation (mirrors KeyMappingCache::Clear).
         void Clear();
 
-        // Per-root persistence (Phase 1). Both go through AssetLoader kProject; atomic write on Save.
-        // Stubs for now.
-        bool Load(const std::filesystem::path &root);
-        bool Save(const std::filesystem::path &root);
+        // Per-root persistence (Phase 1). Both resolve the file through AssetLoader kProject
+        // (<cwd>/.goatedit/session.yml); Save writes atomically (tmp -> fsync -> rename). SessionManager
+        // stays path-policy-agnostic - placement/auto-create live at the kProject registration (§4.4).
+        // Load returns false (caller starts clean) when there is no session file or it can't be parsed.
+        bool Load();
+        bool Save();
 
         // Trigger: called from the folder-open path (the is_directory branch ONLY — a single-file open
         // is sessionless, §3.3). Creates .goatedit/ when allowed, loads the session, applies restore.

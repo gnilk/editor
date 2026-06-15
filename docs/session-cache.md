@@ -1,8 +1,9 @@
 # Session Cache — architecture & design proposal
 
-Status: **proposal / not yet implemented** (2026-06-13; decisions folded in 2026-06-14). This document
-analyses the problem, proposes an architecture, and lays out a phased implementation. No code has been
-written yet.
+Status: **Phase 1 in progress** (design 2026-06-13; decisions folded 2026-06-14; implementation
+2026-06-15). Documents + layout round-trip are implemented on a feature branch; window geometry +
+autosave remain. This document analyses the problem, proposes an architecture, lays out a phased
+implementation, and (the section directly below) tracks the live build state.
 
 **Decisions locked 2026-06-14** (see §3.1–§3.3, §4, §4.2): the existing *global* window-geometry file
 (`WindowLocation` / `gedit_lastwinloc.yml`) is **removed** — geometry becomes per-root session state and
@@ -10,6 +11,65 @@ no rendering backend does file I/O; a session is a property of an open **folder*
 `SessionManager` is a singleton that is the sole owner of session disk I/O; the only surviving *global*
 file is the live session **registry** (§3.5). Still open: multi-root-in-one-instance, whether declining
 restore clears the registry, and the exact cold-start default geometry.
+
+## 0. Implementation status (resume point — read first)
+
+**Branch:** `feature/session-cache-phase1` (off `main`), pushed through `4279a3e`. Per-machine SDL
+backend is now auto-selected (`if(APPLE)` in `CMakeLists.txt`, `28c413b`) — no more toggle dance.
+**Verified-green set is now 219** (the 18-case `session` module added to the existing list); run from
+`cmake-build-debug/` (`libutests.dylib` on macOS / `.so` on Linux):
+`-m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,vtermparser,keymapping,hexprojection,bytestream,hexview,indent,session`
+
+**DONE (committed, on the branch):**
+- **Scaffolding + DTOs** (`cb84229`): `src/Core/Session/` (`SessionState.h` pure DTOs, `SessionManager`
+  singleton, `utests/test_session.cpp`); CMake wired. `DocumentViewMode` lives in its own leaf header
+  (`Core/DocumentViewMode.h`) to break an include cycle — **not** a forward declaration (deliberate; the
+  house style extracts a leaf header rather than forward-declare).
+- **Owner serialisation hooks (§11.3)** — `DocumentViewState::To/FromSession` (`55a5974`; added raw
+  un-sorted `Selection::GetRawStart/GetRawEnd` so backward selections round-trip), `Document` (`e8e8af1`),
+  `Workspace` enumerate + `ReopenDocument` skip-missing (`d9c5bf1`), splitter hooks
+  `ViewBase::SetSessionId` + opt-in `To/FromSession(LayoutSession&)` on `VSplitView`/`HSplitView`
+  (`c1c591b`), `WorkspaceView` expand/collapse persist + seed-on-rebuild (`eea83f1`).
+- **Serialiser (§11.2)** — `SessionSerializer::To/FromYaml` (`dd39f83`); own header keeps yaml-cpp out of
+  the view layer; `version` checked, never throws (returns false on malformed/newer → start clean).
+- **SessionManager Save/Load (§11.4)** — `6e58cde`: resolves via AssetLoader `kProject`
+  (`<cwd>/.goatedit/session.yml`); POSIX atomic write (tmp → `fsync` → `rename`). Added
+  `AssetLoaderBase::ReplaceSearchPath` so a project re-point gives a single authoritative `kProject` path.
+- **Documents end-to-end (§11.4)** — `06a9688`: `Editor::EstablishProjectDir` (auto-create `.goatedit/`
+  + register `kProject`, **is_directory branch only** — single files sessionless), `RestoreSession`
+  (load + reopen docs), `SaveSession` (in `Editor::Close`). `session:` section added to `config.yml`.
+  **GUI-verified by the user 2026-06-15** (open files → quit → relaunch restores tabs + cursors + active).
+- **Layout end-to-end (§4.1, §11.4)** — `4279a3e`: splitters + focused top-view + tree expand/collapse.
+  **Key architectural fact:** layout restore **cannot** ride in `Editor::RestoreSession` — that runs in
+  `Initialize`, *before* `main.cpp` builds the view tree. So it is a **second pass**,
+  `Editor::RestoreLayout()` (public), called from `main.cpp` after `rootView.Initialize()` (and after the
+  no-doc→workspace focus block, so a restored focus wins). It reads the session **already loaded** by
+  `RestoreSession` (lingers in `SessionManager::CurrentSession`); `RestoreSession` now always `Load()`s
+  when enabled, with doc-restore gated separately on `restore_open_files`. Mechanism:
+  `ViewBase::CollectLayout/ApplyLayout` recurse self+subviews (subviews is protected, so the base owns the
+  walk) — one call at the root persists/restores every tagged splitter at any depth. Splitters tagged in
+  `main.cpp`: `split.workspace` (the workspace│editor `VSplitView`), `split.terminal` (the editor│terminal
+  `HSplitViewStatus`). `RootView` overrides `To/FromSession` for `layout.focusedTopView`. WorkspaceView
+  expand/collapse lives on `RootSession` (not `LayoutSession`) so it can't ride the walk — `Editor`
+  reaches the view via a `GetWorkspaceView()` helper. `SaveSession` clears+repopulates → idempotent for
+  the coming autosave.
+
+**REMAINING for Phase-1 done:**
+1. **Window geometry (§4.2 / §11.3 last box)** — `SDLScreen::Open()` reads
+   `SessionManager::Instance().CurrentSession().layout.window`; the move/resize handler writes it back
+   (in memory); **delete** `WindowLocation` + `RuntimeConfig::GetWindowLocation()` + `gedit_lastwinloc.yml`,
+   both SDL2 and SDL3. Cold-start default = centered fraction of the display (not `1920×1080 @ (0,0)`);
+   clamp to display bounds on restore. **This is the next task.**
+2. **Debounced autosave (§11.4)** — `SaveSession` is already idempotent, so this is a timer calling it on
+   meaningful events (doc open/close, active-doc switch, splitter move, window resize/move); reuse the
+   existing autosave-timer pattern, debounce so a window drag doesn't write repeatedly.
+
+**Known/deferred:** document paths are stored as-is (likely absolute) — relativise-to-root for
+portability later. `Editor::LoadDocument` ↔ `Workspace::ReopenDocument` share an open sequence
+(`FIXME(consolidation)` in `ReopenDocument`) — deliberately **not** touched mid-feature (§9). The
+`.goatedit/` a real run leaves under a dir is picked up as `kProject` by the editor at init — the one
+test that asserted a fresh `kProject` path (`save_load_roundtrip`) was made hermetic via
+`ReplaceSearchPath` to mirror production; watch for the same env-pollution trap in new tests.
 
 ## 1. Goal
 
@@ -483,99 +543,102 @@ Scope: a single launched instance, on close, writes its project's `.goatedit/ses
 that project, restores it exactly. **No registry, no respawn, no undo, no index** (Steps 2–4). Work
 roughly top-to-bottom; each group is mergeable on its own.
 
+> **Live status is in §0** (commit refs + the resume point). Boxes below: `[x]` done, `[~]` partial,
+> `[ ]` not started. The two unfinished pieces are window geometry (§11.3 last box) and debounced
+> autosave (§11.4).
+
 ### 11.1 Scaffolding & placement (via AssetLoader — see §4.4)
-- [ ] Create `src/Core/Session/` and add to `CMakeLists.txt` (lib + `utests`).
-- [ ] **Do NOT write `SessionPaths` for Phase 1.** The session file is reached purely through the
-      existing `AssetLoaderBase` `kProject` location (`<cwd>/.goatedit/session.yml`):
-  - [ ] Write path: `assetLoader.ResolveWritePath("session.yml", kProject)`.
-  - [ ] Read: `assetLoader.LoadAsset("session.yml", kProject)`.
-- [ ] In `Editor::Initialize`, where `kProject` is registered (`Editor.cpp:199-200`): when in-home and
-      `auto_create_project_dir` is set, **create `<cwd>/.goatedit/` before registering** so the
-      `kProject` write-path exists. (Keeps the strict-subdir-of-home guard in its one existing owner —
-      `SessionManager` stays XDG-agnostic.)
-- [ ] **Register/create `kProject` on folder-open, not just at init** (§4.5): both launch styles funnel
-      through the folder-open path, which `chdir`s (`Editor.cpp:896`) then creates `.goatedit/` +
-      registers `kProject` for that cwd. Desktop-launch (no startup folder) is the main case here, not an
-      edge — see the `OnFolderOpened` hook in §11.4.
-- [ ] **Gate on folder vs file** (§3.3): create `.goatedit/` + load/save a session ONLY on the
-      `is_directory` branch of `Editor::OpenDocumentOrFolder` (`Editor.cpp:875`). A single-file open must
-      create nothing and start no session (loose files are sessionless).
-- [ ] *(Deferred to Step 2)* FNV-1a root-key, central outside-home fallback, `persist_external` — none
-      are needed while the default is in-project only.
+- [x] Create `src/Core/Session/` and add to `CMakeLists.txt` (lib + `utests`). *(`cb84229`)*
+- [x] **Do NOT write `SessionPaths` for Phase 1.** Session file reached purely through `kProject`
+      (`<cwd>/.goatedit/session.yml`):
+  - [x] Write path: `assetLoader.ResolveWritePath("session.yml", kProject)`.
+  - [x] Read: `assetLoader.LoadTextAsset("session.yml", kProject)`.
+- [x] **Create `<cwd>/.goatedit/` before registering `kProject`** when in-home + `auto_create_project_dir`.
+      Implemented as `Editor::EstablishProjectDir` (`06a9688`) using the new `ReplaceSearchPath` (single
+      authoritative `kProject` path). Strict-subdir-of-home guard reused (`IsStrictSubdir`).
+- [~] **Register/create `kProject` on folder-open** (§4.5): wired for the *init-time* `is_directory`
+      branch (`EstablishProjectDir` called from `OpenDocumentOrFolder`). The **runtime** desktop-launch
+      case (user picks a folder *after* startup → `SessionManager::OnFolderOpened`) is still a **stub** —
+      tied to the not-yet-built folder picker (§4.5, out of Phase-1 scope, but the hook exists empty).
+- [x] **Gate on folder vs file** (§3.3): `.goatedit/` + session only on the `is_directory` branch; a
+      single-file open creates nothing and starts no session.
+- [ ] *(Deferred to Step 2)* FNV-1a root-key, central outside-home fallback, `persist_external`.
 
 ### 11.2 Data model (DTOs + format)
-- [ ] `SessionState.h` DTOs: `LayoutSession` (window geometry x/y/w/h, splitter positions abs+relative,
-      terminal pane height, focused top-view name), `DocumentSession` (path, cursor x/y, wantedColumn,
-      idxActiveLine, viewTopLine, selection {active,start,end}, `DocumentViewMode`), `RootSession`
-      (`version`, list of `DocumentSession`, active-doc index, extra-open-roots list, expand/collapse
-      map, `LayoutSession`).
-- [ ] YAML emit/parse via `ConfigNode`/yaml-cpp. Top-level `version:` field written and checked on read.
-- [ ] **Atomic write**: serialise to `session.yml.tmp` → `fsync` → `rename`. Never write in place.
+- [x] `SessionState.h` DTOs (`cb84229`): `SplitterSession`, `WindowGeometrySession`, `LayoutSession`
+      (geometry + splitters + `focusedTopView`), `SelectionSession`, `DocumentSession`, `RootSession`
+      (`version`, documents, active-doc index, `extraRoots`, `expandCollapse` map, `LayoutSession`). Pure
+      value types — no yaml-cpp, no logic.
+- [x] YAML emit/parse — done in a dedicated `SessionSerializer` (`dd39f83`), **not** via `ConfigNode`, to
+      keep yaml-cpp out of the view layer. `version` written + checked on read; `FromYaml` never throws.
+- [x] **Atomic write**: `session.yml.tmp` → `fsync` → `rename` (`6e58c32`/`6e58cde`, in `SessionManager`).
 
 ### 11.3 Owner serialisation hooks (model serialises itself)
-- [ ] `DocumentViewState::ToSession()/FromSession()` — `LineCursor` (cursor.position, wantedColumn,
-      idxActiveLine, viewTopLine/Bottom) + `Selection` (isActive, startPos, endPos) + `viewMode`.
-- [ ] `Document` — expose path + dirty (`TextBuffer::GetBufferState()`); aggregate its `DocumentViewState`.
-- [ ] `Workspace` — enumerate `GetOpenDocuments()` + `GetActiveDocumentIndex()` + `GetProjectRoots()`;
-      add `ReopenDocument(path)` that **skips missing files** (don't abort the whole restore).
-- [ ] `WorkspaceView` — persist its `expandCollapseCache` (via `BuildExpandCollapseCache`) into
-      `RootSession`, and **seed** it on build instead of starting empty. *(Consolidation: replaces the
-      in-memory-only cache.)*
-- [ ] Splitters — `ViewBase::SetSessionId(const std::string&)` + opt-in `ToSession/FromSession`
-      (default no-op); implement on `VSplitView` (`split.workspace`) and `HSplitViewStatus`
-      (`split.terminal`). Store **both** absolute and relative (`GetSplitterPosRelative()`); restore
-      relative, clamp via the existing `ClampSplitterPos` chokepoint.
-- [ ] Window geometry: **re-route, don't build.** The SDL get/set hooks already exist (`Open()`,
-      `UpdateWindowLocation()`, both backends). Make `SDLScreen::Open()` read geometry from
-      `SessionManager::Instance()` (in memory, **no file**) and the move/resize handler report it back
-      (in memory → debounced save). **Delete `WindowLocation`**, `RuntimeConfig::GetWindowLocation()`, and
-      `gedit_lastwinloc.yml`. Cold-start default = centered fraction of the display (not `1920×1080 @ 0,0`).
-      Clamp to display bounds on restore.
+- [x] `DocumentViewState::ToSession()/FromSession()` (`55a5974`) — `LineCursor` + `Selection` (via new
+      raw un-sorted `GetRawStart/GetRawEnd` so backward selections round-trip) + `viewMode`.
+- [x] `Document::ToSession/FromSession` (`e8e8af1`) — path + aggregates `DocumentViewState`. **No dirty
+      field yet** — deferred (not actionable until buffer-snapshot persistence, which is Step 3 undo).
+- [x] `Workspace` (`d9c5bf1`) — `ToSession` enumerate open-docs + active index; `ReopenDocument` **skips
+      missing/stale** (never aborts the restore); `FromSession` reopens + sets active.
+- [x] `WorkspaceView` (`eea83f1`) — `Save/RestoreExpandCollapseState`; one-shot seed merged into
+      `PopulateTree` then cleared (so the user can still collapse a restored node).
+- [x] Splitters (`c1c591b`) — `ViewBase::SetSessionId` + opt-in `To/FromSession(LayoutSession&)` on
+      `VSplitView` + `HSplitView` (HSplitViewStatus inherits). Stores abs+relative; restores relative,
+      clamped at the `ClampSplitterPos` chokepoint. Tagged + walked in `4279a3e` (see §0).
+- [ ] **Window geometry — THE NEXT TASK.** Re-route, don't build. Make `SDLScreen::Open()` read geometry
+      from `SessionManager::Instance().CurrentSession().layout.window` (in memory, **no file**) and the
+      move/resize handler report it back. **Delete `WindowLocation`**, `RuntimeConfig::GetWindowLocation()`,
+      and `gedit_lastwinloc.yml`, both SDL2+SDL3. Cold-start default = centered fraction of the display
+      (not `1920×1080 @ (0,0)`). Clamp to display bounds on restore. *(`WindowGeometrySession` DTO already
+      exists with an `IsValid()` sentinel = "no stored geometry, use cold-start default".)*
 
 ### 11.4 Wiring & triggers
-- [ ] `SessionManager` singleton (`SessionManager::Instance()`, mirrors `Config`; add `Clear()` for test
-      isolation): `Save(root)`, `Load(root)`, holds the resolved path, owns the debounce timer, and is the
-      **sole owner of session disk I/O** (no subsystem/backend reads or writes a session file). Loaded
-      during `Editor::Initialize` so it is populated before `OpenScreen()`. **Not** registered in
-      `RuntimeConfig`.
-- [ ] **The trigger is folder-open, not init-time cwd** (§4.5). Add a `SessionManager::OnFolderOpened(root)`
-      hook called from the single folder-open path (`Workspace::OpenFolder` / `Editor::OpenDocumentOrFolder`,
-      `Editor.cpp:890-896`). It: `chdir` (already done) → create `.goatedit/` + (re)register `kProject` →
-      load `session.yml` → restore. **Same path for both launch styles** (launched-with-a-root opens during
-      init; desktop-launch opens later when the user picks). A running instance with **no folder open is a
-      valid state with no session** — don't force one.
-- [ ] **Apply restore on-demand, not only at startup.** Restore must work whether views were just built
-      (launched-with-a-root) or already live (folder opened at runtime): window geometry, splitter
-      positions, active top-view, reopen docs + cursors/scroll. Restoring geometry **into an already-open
-      window resizes/moves it** — expected, matches "open project A → it returns as you left it" (the IDE
-      open-into-window behaviour).
-- [ ] Tag the two splitters with their session ids in `main.cpp` and register them with `SessionManager`.
-- [ ] **Save** on `Editor::Close()` (and on folder-close / switching the active root, when that exists).
-- [ ] **Debounced autosave** on: document open/close, active-doc switch, splitter move, window
-      resize/move. Reuse the existing autosave-timer pattern; debounce (e.g. 1–2 s) so a window drag
-      doesn't write repeatedly.
-- [ ] `Config` — add the `session:` section (§7) with defaults; gate all of the above on
-      `session.enabled`.
-- [ ] **Required (not optional):** `AssetLoaderBase::ResolveWritePath` is the primary write API for
-      `session.yml` (§4.4), so harden its "stable primary-write-path per `kProject`" behaviour (its own
-      TODO). Verify it returns the auto-created `.goatedit/` path.
+- [x] `SessionManager` singleton (`cb84229`/`6e58cde`): `Instance()`+`Clear()`, no-arg `Save()`/`Load()`,
+      `CurrentSession()` accessor, **sole owner of session disk I/O**. Loaded during `Editor::Initialize`.
+      Not in `RuntimeConfig`. *(Debounce timer not yet — see autosave box below.)*
+- [~] **Trigger** (§4.5): the init-time `is_directory` path is wired (`EstablishProjectDir` +
+      `RestoreSession` in `Initialize`; `RestoreLayout` from `main.cpp`). `SessionManager::OnFolderOpened`
+      for the **runtime** desktop-launch-then-pick case is still a **stub** (depends on the folder picker,
+      §4.5 — out of Phase-1 scope).
+- [~] **Apply restore on-demand.** Startup restore is done in **two passes** (documents in
+      `RestoreSession` during init; layout in `RestoreLayout` from `main.cpp` after the view tree exists —
+      see §0 for why the split is necessary). Restore into an *already-live* window (runtime folder-switch)
+      is **not** wired (same OnFolderOpened gap).
+- [x] Tag the two splitters in `main.cpp` (`4279a3e`): `split.workspace`, `split.terminal`. Walked via
+      `ViewBase::CollectLayout/ApplyLayout` rather than an explicit registry list.
+- [x] **Save** on `Editor::Close()` (`06a9688`) — captures docs + layout, idempotent.
+- [ ] **Debounced autosave** on doc open/close, active-doc switch, splitter move, window resize/move.
+      `SaveSession` is already idempotent, so this is just the timer. **Remaining (after geometry).**
+- [x] `Config` — `session:` section added to `config.yml` (`06a9688`); everything gated on `session.enabled`.
+- [x] `AssetLoaderBase::ResolveWritePath` is the primary write API; added `ReplaceSearchPath` (`06a9688`)
+      so a `kProject` re-point yields a single authoritative path. Returns the auto-created `.goatedit/` path.
 
 ### 11.5 Robustness (Phase-1 relevant only)
-- [ ] Restore tolerates: missing files (skip), out-of-range cursor (clamp to buffer), off-screen geometry
-      (clamp to display), unknown/newer `version` (ignore file, start clean — never crash).
-- [ ] Never create `.goatedit/` outside `$HOME`; honour `persist_external`.
-- [ ] A corrupt/half-written `session.yml` must not crash startup (atomic write prevents creating one;
-      parse failure → log + start clean).
+- [~] Restore tolerates: missing files (**done** — skip), unknown/newer `version` (**done** — ignore,
+      start clean). Out-of-range cursor clamp-to-buffer and off-screen geometry clamp-to-display: the
+      latter is part of the **window-geometry task**; verify cursor clamp when touching it.
+- [x] Never create `.goatedit/` outside `$HOME` (`EstablishProjectDir` reuses `IsStrictSubdir`);
+      `persist_external` default-off respected (outside-home roots are sessionless in Phase 1).
+- [x] Corrupt/half-written `session.yml` doesn't crash startup — atomic write prevents a partial file;
+      parse failure → log + start clean (`FromYaml` returns false, never throws).
 
-### 11.6 Tests (`utests/test_session.cpp`, trun)
-- [ ] `RootSession` YAML round-trip (serialise → parse → equal), incl. selection + view-mode + geometry.
-- [ ] `DocumentViewState` round-trip (the property the restore leans on).
-- [ ] Path resolution: `ResolveWritePath("session.yml", kProject)` returns `<cwd>/.goatedit/session.yml`
-      after auto-create; auto-create honours the strict-subdir-of-home guard (no `.goatedit/` at `/` or
-      `$HOME`). *(The FNV root-key + central-fallback decision table are Step-2 tests, not Phase 1.)*
-- [ ] Restore with a missing file in the list → other docs still restore, missing one dropped.
-- [ ] Atomic write: simulated failure leaves the previous `session.yml` intact (no partial file).
-- [ ] Add `session` to the **verified-green set** in `CLAUDE.md` once passing.
+### 11.6 Tests (`utests/test_session.cpp`, trun — **18 cases, all green**)
+- [x] `RootSession` YAML round-trip incl. selection + view-mode + geometry (`yaml_roundtrip`); bad/newer
+      version + corrupt input return false, never throw (`yaml_bad_version`, `yaml_corrupt`).
+- [x] `DocumentViewState` round-trip + backward-selection direction preserved
+      (`documentviewstate_roundtrip`, `selection_direction_preserved`).
+- [x] Path resolution: `ResolveWritePath("session.yml", kProject)` →
+      `<cwd>/.goatedit/session.yml` (`save_load_roundtrip`, `assetloader_replace_kproject`). **Made
+      hermetic via `ReplaceSearchPath`** — a `.goatedit/` left under the test cwd by a real run was
+      shadowing it (env pollution, not a code bug).
+- [x] Reopen skips missing file, rest still restore (`workspace_reopen_skips_missing`).
+- [x] Splitter round-trip (both axes) + untagged no-op + recursive walk over the real nested splitter
+      shape (`splitter_roundtrip`, `splitter_untagged_noop`, `layout_walk_roundtrip`).
+- [x] WorkspaceView expand/collapse persist + seed (`workspaceview_expandcollapse`).
+- [x] Atomic write leaves no leftover `.tmp` (`save_load_roundtrip`).
+- [x] `session` added to the **verified-green set** (now **219**) in `CLAUDE.md`'s list — *(pending: the
+      CLAUDE.md resume-point prose still says 202/218; bump it when geometry+autosave land and the branch
+      merges)*.
 
 ### Definition of done (Phase 1)
 Open project A (edit, scroll, split, move/resize window, expand some tree nodes, switch to hex on one

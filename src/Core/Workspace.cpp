@@ -9,6 +9,7 @@
 
 #include "Workspace.h"
 #include "Core/PathUtil.h"
+#include "Core/Session/SessionManager.h"
 
 using namespace gedit;
 namespace fs = std::filesystem;
@@ -37,6 +38,7 @@ void Workspace::AddOpenDocument(Document::Ref document) {
         return;
     }
     openDocuments.push_back(document);
+    SessionManager::Instance().NotifyChanged();
 }
 
 bool Workspace::RemoveOpenDocument(Document::Ref document) {
@@ -48,6 +50,7 @@ bool Workspace::RemoveOpenDocument(Document::Ref document) {
     if (activeDocument == document) {
         activeDocument = nullptr;
     }
+    SessionManager::Instance().NotifyChanged();
     return true;
 }
 
@@ -59,7 +62,11 @@ void Workspace::SetActiveDocument(Document::Ref document) {
     if (!IsDocumentOpen(document)) {
         return;
     }
+    if (activeDocument == document) {
+        return;     // no change - don't schedule a redundant autosave
+    }
     activeDocument = document;
+    SessionManager::Instance().NotifyChanged();
 }
 
 size_t Workspace::GetActiveDocumentIndex() {

@@ -80,6 +80,7 @@ namespace gedit {
             UpdateLowerViewRect();
             Initialize();
             InvalidateAll();
+            NotifySessionChanged();
         }
 
         int GetSplitterPos() {

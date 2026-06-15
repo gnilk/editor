@@ -19,7 +19,6 @@
 #include "Core/Config/Config.h"
 #include "Core/Runloop.h"
 #include "Core/Editor.h"
-#include "Core/WindowLocation.h"
 
 #include <SDL3/SDL.h>
 
@@ -89,13 +88,10 @@ bool SDLScreen::Open() {
         logger->Error("Unknown backend ('%s'), using default", sdlBackend.c_str());
     }
 
-    // Restore previous window location/size
-    auto &windowLocation = RuntimeConfig::Instance().GetWindowLocation();
-    if (!windowLocation.Load()) {
-        logger->Debug("Previous window location not found - will use defaults!");
-    }
-    widthPixels = windowLocation.Width();
-    heightPixels = windowLocation.Height();
+    // Resolve startup geometry: the glue layer fed the requested (session) geometry in before Open();
+    // the base class turns it into a sane on-screen rect (default + clamp using the display).
+    int geoX = 0, geoY = 0;
+    ResolveStartupGeometry(geoX, geoY, widthPixels, heightPixels);
 
     // SDL3: SDL_CreateWindow no longer takes x/y position
     window = SDL_CreateWindow("goatedit", widthPixels, heightPixels, windowFlags);
@@ -103,6 +99,7 @@ bool SDLScreen::Open() {
         logger->Error("SDL_CreateWindow failed: %s", SDL_GetError());
         exit(1);
     }
+    SDL_SetWindowPosition(window, geoX, geoY);
 
     // SDL3: SDL_RENDERER_ACCELERATED removed (default); SDL_RENDERER_PRESENTVSYNC kept
     renderer = SDL_CreateRenderer(window, nullptr);
@@ -112,6 +109,10 @@ bool SDLScreen::Open() {
     }
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
     SDL_SetRenderVSync(renderer, 1);
+
+    // Report the geometry actually realised, so a window that is never moved/resized still persists its
+    // position/size.
+    ReportWindowGeometry();
 
     logger->Debug("Resolution: %d x %d", widthPixels, heightPixels);
 
@@ -224,7 +225,7 @@ void SDLScreen::OnSizeChanged() {
     logger->Debug("Size changed — recomputing scaling factors and recreating textures");
     ComputeScalingFactors();
     CreateTextures();
-    UpdateWindowLocation();
+    ReportWindowGeometry();
     logger->Debug("ReInitialize UI!");
     RuntimeConfig::Instance().GetRootView().Resize();
     RuntimeConfig::Instance().GetRootView().InvalidateAll();
@@ -232,22 +233,31 @@ void SDLScreen::OnSizeChanged() {
 }
 
 void SDLScreen::OnMoved() {
-    logger->Debug("Window moved, updating WindowLocation state file");
-    UpdateWindowLocation();
+    logger->Debug("Window moved, reporting geometry to session");
+    ReportWindowGeometry();
 }
 
-void SDLScreen::UpdateWindowLocation() {
-    auto &windowLocation = RuntimeConfig::Instance().GetWindowLocation();
+void SDLScreen::ReportWindowGeometry() {
     SDL_GetWindowSize(window, &widthPixels, &heightPixels);
-    windowLocation.SetWidth(widthPixels);
-    windowLocation.SetHeight(heightPixels);
-
     int winXpos, winYpos;
     SDL_GetWindowPosition(window, &winXpos, &winYpos);
-    windowLocation.SetXPos(winXpos);
-    windowLocation.SetYPos(winYpos);
+    NotifyWindowGeometryChanged(winXpos, winYpos, widthPixels, heightPixels);
+}
 
-    windowLocation.Save();
+bool SDLScreen::GetPrimaryDisplayBounds(int &x, int &y, int &width, int &height) {
+    SDL_DisplayID display = SDL_GetPrimaryDisplay();
+    if (display == 0) {
+        return false;
+    }
+    SDL_Rect rect;
+    if (!SDL_GetDisplayUsableBounds(display, &rect)) {
+        return false;
+    }
+    x = rect.x;
+    y = rect.y;
+    width = rect.w;
+    height = rect.h;
+    return true;
 }
 
 void SDLScreen::Close() {

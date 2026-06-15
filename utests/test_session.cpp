@@ -19,6 +19,7 @@
 #include "Core/Views/VSplitView.h"
 #include "Core/Views/HSplitView.h"
 #include "Core/Views/WorkspaceView.h"
+#include "Core/Graphics/ScreenBase.h"
 #include "Core/Session/SessionState.h"
 #include "Core/Session/SessionManager.h"
 #include "Core/Session/SessionSerializer.h"
@@ -33,6 +34,32 @@ namespace {
             PopulateTree();
         }
     };
+
+    // Drives the protected ScreenBase geometry helpers with a stubbed display so the default + clamp
+    // logic (and the change callback) can be tested without a real backend / monitor / session.
+    struct GeometryTestScreen : public ScreenBase {
+        int bx = 0, by = 0, bw = 0, bh = 0;
+        bool hasBounds = true;
+
+        bool GetPrimaryDisplayBounds(int &x, int &y, int &width, int &height) override {
+            if (!hasBounds) {
+                return false;
+            }
+            x = bx; y = by; width = bw; height = bh;
+            return true;
+        }
+        void Resolve(int &x, int &y, int &width, int &height) {
+            ResolveStartupGeometry(x, y, width, height);
+        }
+        void EmitGeometry(int x, int y, int width, int height) {
+            NotifyWindowGeometryChanged(x, y, width, height);
+        }
+    };
+
+    // Is the rect [gx,gx+gw) x [gy,gy+gh) fully inside the display bounds [x,x+w) x [y,y+h)?
+    static bool IsInsideBounds(int gx, int gy, int gw, int gh, int x, int y, int w, int h) {
+        return (gx >= x) && (gy >= y) && ((gx + gw) <= (x + w)) && ((gy + gh) <= (y + h));
+    }
 }
 
 extern "C" {
@@ -53,6 +80,8 @@ DLL_EXPORT int test_session_yaml_bad_version(ITesting *t);
 DLL_EXPORT int test_session_yaml_corrupt(ITesting *t);
 DLL_EXPORT int test_session_save_load_roundtrip(ITesting *t);
 DLL_EXPORT int test_session_assetloader_replace_kproject(ITesting *t);
+DLL_EXPORT int test_session_geometry_resolve(ITesting *t);
+DLL_EXPORT int test_session_geometry_callback(ITesting *t);
 }
 
 DLL_EXPORT int test_session(ITesting *t) {
@@ -513,5 +542,60 @@ DLL_EXPORT int test_session_assetloader_replace_kproject(ITesting *t) {
 
     std::filesystem::remove_all(a, ec);
     std::filesystem::remove_all(b, ec);
+    return kTR_Pass;
+}
+
+// ScreenBase::ResolveStartupGeometry (docs/session-cache.md §4.2): with no request it centres a fraction
+// of the display; a requested geometry that fits is preserved; an off-display/oversize request is clamped
+// fully inside the display bounds. Pure graphics math — no session. Asserts the SAFETY PROPERTY
+// (inside-bounds), not magic numbers.
+DLL_EXPORT int test_session_geometry_resolve(ITesting *t) {
+    GeometryTestScreen screen;
+    screen.bx = 100; screen.by = 50; screen.bw = 1600; screen.bh = 900;
+    int x = 0, y = 0, w = 0, h = 0;
+
+    // (a) No request: centred, sized to a fraction, fully inside the display.
+    screen.Resolve(x, y, w, h);
+    TR_ASSERT(t, (w > 0) && (h > 0));
+    TR_ASSERT(t, w < screen.bw);
+    TR_ASSERT(t, h < screen.bh);
+    TR_ASSERT(t, IsInsideBounds(x, y, w, h, screen.bx, screen.by, screen.bw, screen.bh));
+
+    // (b) Requested geometry that already fits is returned untouched.
+    screen.SetRequestedWindowGeometry(300, 200, 800, 600);
+    screen.Resolve(x, y, w, h);
+    TR_ASSERT(t, (x == 300) && (y == 200) && (w == 800) && (h == 600));
+
+    // (c) Off-display / oversize request is clamped fully inside the bounds (monitor changed).
+    screen.SetRequestedWindowGeometry(5000, 5000, 4000, 3000);
+    screen.Resolve(x, y, w, h);
+    TR_ASSERT(t, IsInsideBounds(x, y, w, h, screen.bx, screen.by, screen.bw, screen.bh));
+
+    // (d) No display bounds + no request -> still a valid (fallback) size, never zero.
+    screen.SetRequestedWindowGeometry(0, 0, 0, 0);   // clears the request
+    screen.hasBounds = false;
+    screen.Resolve(x, y, w, h);
+    TR_ASSERT(t, (w > 0) && (h > 0));
+    return kTR_Pass;
+}
+
+// NotifyWindowGeometryChanged forwards live geometry to the registered handler (the glue layer's hook
+// that persists it); with no handler set it must be a safe no-op.
+DLL_EXPORT int test_session_geometry_callback(ITesting *t) {
+    int gx = 0, gy = 0, gw = 0, gh = 0;
+    bool called = false;
+
+    GeometryTestScreen screen;
+    screen.SetWindowGeometryChangedHandler([&](int x, int y, int width, int height) {
+        called = true;
+        gx = x; gy = y; gw = width; gh = height;
+    });
+    screen.EmitGeometry(12, 34, 1024, 768);
+    TR_ASSERT(t, called);
+    TR_ASSERT(t, (gx == 12) && (gy == 34) && (gw == 1024) && (gh == 768));
+
+    // No handler -> no crash.
+    GeometryTestScreen unwired;
+    unwired.EmitGeometry(1, 2, 3, 4);
     return kTR_Pass;
 }

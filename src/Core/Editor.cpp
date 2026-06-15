@@ -225,6 +225,13 @@ bool Editor::Initialize(int argc, const char **argv) {
     // when there is no project or no saved session - leaves createDefaultWorkspace to handle the rest.
     RestoreSession();
 
+    // Wire the debounced autosave: meaningful events call SessionManager::NotifyChanged(), which (once
+    // a project is open and the view tree exists) posts this handler to the main thread. SaveSession is
+    // idempotent + guarded, so an early/spurious schedule is harmless.
+    SessionManager::Instance().SetAutoSaveHandler([]() {
+        Editor::Instance().SaveSession();
+    });
+
     ConfigureGlobalAPIObjects();
 
     // create a document if cmd-line didn't specify any
@@ -760,10 +767,32 @@ void Editor::SetupNCurses() {
     // screenDriver->Clear();
 }
 
+// Glue between the session (app) and the graphics backend: the backend never references SessionManager,
+// it only receives plain geometry + a write-back callback. The restore_window_geometry gate lives here.
+void Editor::WireScreenGeometry(const ScreenBase::Ref &screen) {
+    auto sessionCfg = Config::Instance()["session"];
+    if (sessionCfg.GetBool("enabled", true) && sessionCfg.GetBool("restore_window_geometry", true)) {
+        const auto &window = SessionManager::Instance().CurrentSession().layout.window;
+        if (window.IsValid()) {
+            screen->SetRequestedWindowGeometry(window.x, window.y, window.width, window.height);
+        }
+    }
+    // Live geometry flows back here on create/move/resize → in-memory session + debounced autosave.
+    screen->SetWindowGeometryChangedHandler([](int x, int y, int width, int height) {
+        auto &window = SessionManager::Instance().CurrentSession().layout.window;
+        window.x = x;
+        window.y = y;
+        window.width = width;
+        window.height = height;
+        SessionManager::Instance().NotifyChanged();
+    });
+}
+
 #ifdef GEDIT_USE_SDL3
 void Editor::SetupSDL3() {
     auto screenDriver = SDL3::SDLScreen::Create();
     RuntimeConfig::Instance().SetScreen(screenDriver);
+    WireScreenGeometry(screenDriver);
     screenDriver->Open();
     screenDriver->Clear();
 
@@ -786,6 +815,7 @@ void Editor::SetupSDL3() {
 void Editor::SetupSDL2() {
     auto screenDriver = SDL2::SDLScreen::Create();
     RuntimeConfig::Instance().SetScreen(screenDriver);
+    WireScreenGeometry(screenDriver);
     screenDriver->Open();
     screenDriver->Clear();
 

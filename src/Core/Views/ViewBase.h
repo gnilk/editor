@@ -71,6 +71,9 @@ namespace gedit {
                 view->ApplyLayout(layout);
             }
         }
+        // Schedule a debounced session autosave (e.g. after a splitter move). Defined in the .cpp so the
+        // SessionManager dependency stays out of this widely-included header.
+        void NotifySessionChanged();
 
         std::string GetClassName() const {
             return Demangle(typeid(*this).name());

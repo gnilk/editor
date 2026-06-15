@@ -11,6 +11,8 @@
 #include "Core/Session/SessionSerializer.h"
 #include "Core/RuntimeConfig.h"
 #include "Core/AssetLoaderBase.h"
+#include "Core/Config/Config.h"
+#include "Core/Views/ViewBase.h"
 
 using namespace gedit;
 
@@ -62,8 +64,46 @@ SessionManager::SessionManager() {
 }
 
 void SessionManager::Clear() {
+    if (autoSaveTimer != nullptr) {
+        autoSaveTimer->Stop();
+        autoSaveTimer = nullptr;
+    }
     currentSession = {};
     isLoaded = false;
+}
+
+void SessionManager::SetAutoSaveHandler(std::function<void()> handler) {
+    autoSaveHandler = std::move(handler);
+}
+
+// Debounce mirror of TextBuffer's autosave: (re)start a timer; on elapse (timer-thread context) post the
+// save to the main thread, where it can safely walk the live view tree. No explicit UI-redraw kick is
+// needed - the runloop drains its message queue within one PollEvents tick (<=250 ms), ample for a
+// background save.
+void SessionManager::NotifyChanged() {
+    if (autoSaveHandler == nullptr) {
+        return;     // not wired (unit tests / headless) - nothing to schedule
+    }
+    auto timeout = Config::Instance()["session"].GetInt("autosave_timeout_ms", 1500);
+    if (timeout == 0) {
+        return;     // autosave disabled via config
+    }
+    Timer::DurationMS duration(timeout);
+
+    if (autoSaveTimer != nullptr) {
+        autoSaveTimer->Restart(duration);
+        return;
+    }
+    if (!RuntimeConfig::Instance().HasRootView()) {
+        return;     // no UI yet (e.g. the startup geometry seed) - nothing to post to / persist
+    }
+    autoSaveTimer = Timer::Create(duration, [this]() {
+        RuntimeConfig::Instance().GetRootView().PostMessage([this]() {
+            if (autoSaveHandler != nullptr) {
+                autoSaveHandler();
+            }
+        });
+    });
 }
 
 bool SessionManager::Load() {

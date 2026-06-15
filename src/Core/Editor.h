@@ -199,6 +199,10 @@ namespace gedit {
         void SetupSDL2();
         void SetupSDL3();
         void SetupHeadless();
+        // Glue: feed the screen its startup geometry from the session and register the write-back/autosave
+        // callback. Keeps the graphics backend free of any SessionManager dependency (data flows through
+        // plain setters/callbacks). Called before the backend's Open().
+        void WireScreenGeometry(const ScreenBase::Ref &screen);
 
         void ExecutePostScript(std::istream &stream);
     private:

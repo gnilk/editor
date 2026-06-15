@@ -22,7 +22,6 @@
 
 #include <map>
 #include <thread>
-#include "Core/WindowLocation.h"
 
 namespace gedit {
     class IOutputConsole {
@@ -52,9 +51,6 @@ namespace gedit {
         }
         void SetWindow(WindowBase *newWindow) {
             window = newWindow;
-        }
-        WindowLocation &GetWindowLocation() {
-            return windowLocation;
         }
 
         // Compile time..
@@ -133,7 +129,6 @@ namespace gedit {
         IOutputConsole *outputConsole = nullptr;
         std::thread::id mainThreadId;
         AssetLoaderBase assetLoader;
-        WindowLocation windowLocation;
 
         std::map<std::string, const PluginCommand::Ref> pluginCommands;
         ViewBase *quickModeView = nullptr;

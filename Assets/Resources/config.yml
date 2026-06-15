@@ -206,3 +206,4 @@ session:
   restore_open_files: yes       # reopen the documents (tabs) + cursors on launch
   restore_layout: yes           # splitters / terminal pane
   restore_window_geometry: yes  # window size/position
+  autosave_timeout_ms: 1500     # debounce delay before a meaningful change is flushed to disk (0 = off)

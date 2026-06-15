@@ -42,11 +42,14 @@ namespace gedit::SDL3 {
         void OnSizeChanged() override;
         void OnMoved() override;
         void PollEvents() override;
+    protected:
+        bool GetPrimaryDisplayBounds(int &x, int &y, int &width, int &height) override;
     private:
         void ComputeScalingFactors();
         void CreateTextures();
         void LoadFontFromTheme();
-        void UpdateWindowLocation();
+        // Read the live SDL window geometry and report it into the session (in memory).
+        void ReportWindowGeometry();
 
     private:
         gnilk::ILogger *logger = nullptr;

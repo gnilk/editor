@@ -18,9 +18,11 @@
 #define EDITOR_SESSIONMANAGER_H
 
 #include <filesystem>
+#include <functional>
 #include <logger.h>
 
 #include "Core/Session/SessionState.h"
+#include "Core/Timer.h"
 
 namespace gedit {
 
@@ -42,6 +44,15 @@ namespace gedit {
         // is sessionless, §3.3). Creates .goatedit/ when allowed, loads the session, applies restore.
         void OnFolderOpened(const std::filesystem::path &root);
 
+        // Debounced autosave (§4.3). NotifyChanged() is called from meaningful events (doc open/close,
+        // active-doc switch, splitter move, window resize/move); it (re)starts a debounce timer so a
+        // burst of events coalesces into a single save. On elapse the injected handler is posted to the
+        // main-thread runloop (Save walks the live view tree, so it must run there). The handler is set
+        // by Editor (SetAutoSaveHandler) to keep SessionManager free of an Editor dependency; without a
+        // handler (tests / headless) NotifyChanged is a no-op.
+        void SetAutoSaveHandler(std::function<void()> handler);
+        void NotifyChanged();
+
         // In-memory view of the current root's session. Callers (e.g. the backend reading geometry, or
         // a subsystem reporting its state) mutate this; SessionManager owns persisting it.
         RootSession &CurrentSession() {
@@ -57,6 +68,10 @@ namespace gedit {
         gnilk::Logger::ILogger *logger = nullptr;
         RootSession currentSession = {};
         bool isLoaded = false;
+
+        // Debounced autosave: handler injected by Editor + the debounce timer (created lazily).
+        std::function<void()> autoSaveHandler = nullptr;
+        Timer::Ref autoSaveTimer = nullptr;
     };
 
 }

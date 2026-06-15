@@ -1,9 +1,10 @@
 # Session Cache — architecture & design proposal
 
-Status: **Phase 1 in progress** (design 2026-06-13; decisions folded 2026-06-14; implementation
-2026-06-15). Documents + layout round-trip are implemented on a feature branch; window geometry +
-autosave remain. This document analyses the problem, proposes an architecture, lays out a phased
-implementation, and (the section directly below) tracks the live build state.
+Status: **Phase 1 COMPLETE** (design 2026-06-13; decisions folded 2026-06-14; implementation
+2026-06-15). Documents, layout, window geometry, and debounced autosave all round-trip on the feature
+branch and are GUI-verified. Step 2 (registry + restore) is the next phase. This document analyses the
+problem, proposes an architecture, lays out a phased implementation, and (the section directly below)
+tracks the live build state.
 
 **Decisions locked 2026-06-14** (see §3.1–§3.3, §4, §4.2): the existing *global* window-geometry file
 (`WindowLocation` / `gedit_lastwinloc.yml`) is **removed** — geometry becomes per-root session state and
@@ -14,9 +15,11 @@ restore clears the registry, and the exact cold-start default geometry.
 
 ## 0. Implementation status (resume point — read first)
 
-**Branch:** `feature/session-cache-phase1` (off `main`), pushed through `4279a3e`. Per-machine SDL
-backend is now auto-selected (`if(APPLE)` in `CMakeLists.txt`, `28c413b`) — no more toggle dance.
-**Verified-green set is now 219** (the 18-case `session` module added to the existing list); run from
+**Branch:** `feature/session-cache-phase1` (off `main`). Per-machine SDL backend is auto-selected
+(`if(APPLE)` in `CMakeLists.txt`, `28c413b`) — no more toggle dance. **Phase 1 is feature-complete**:
+window geometry + debounced autosave landed on top of the documents/layout work.
+**Verified-green set is now 221** (the `session` module grew to 20 cases — added geometry resolve +
+callback; the obsolete `winlocation` module was removed with `WindowLocation`); run from
 `cmake-build-debug/` (`libutests.dylib` on macOS / `.so` on Linux):
 `-m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,vtermparser,keymapping,hexprojection,bytestream,hexview,indent,session`
 
@@ -54,15 +57,32 @@ backend is now auto-selected (`if(APPLE)` in `CMakeLists.txt`, `28c413b`) — no
   reaches the view via a `GetWorkspaceView()` helper. `SaveSession` clears+repopulates → idempotent for
   the coming autosave.
 
-**REMAINING for Phase-1 done:**
-1. **Window geometry (§4.2 / §11.3 last box)** — `SDLScreen::Open()` reads
-   `SessionManager::Instance().CurrentSession().layout.window`; the move/resize handler writes it back
-   (in memory); **delete** `WindowLocation` + `RuntimeConfig::GetWindowLocation()` + `gedit_lastwinloc.yml`,
-   both SDL2 and SDL3. Cold-start default = centered fraction of the display (not `1920×1080 @ (0,0)`);
-   clamp to display bounds on restore. **This is the next task.**
-2. **Debounced autosave (§11.4)** — `SaveSession` is already idempotent, so this is a timer calling it on
-   meaningful events (doc open/close, active-doc switch, splitter move, window resize/move); reuse the
-   existing autosave-timer pattern, debounce so a window drag doesn't write repeatedly.
+**DONE — the final two Phase-1 pieces (2026-06-15, GUI-verified):**
+1. **Window geometry (§4.2 / §11.3)** — re-routed through the session, with an explicit **layering
+   inversion** (the load-bearing design decision here): the **graphics backend must NOT depend on
+   `SessionManager`** (a high-level app construct). Geometry flows through plain data + a callback:
+   - `ScreenBase` exposes `SetRequestedWindowGeometry(x,y,w,h)`, a `WindowGeometryChangedHandler`
+     callback (plain ints), and `GetPrimaryDisplayBounds()` (a genuine graphics concern). The
+     default-centering + clamp-to-display math (`ResolveStartupGeometry`, out-params) stays in graphics
+     because it needs the display bounds — but it touches **no** session/config.
+   - **`Editor::WireScreenGeometry(screen)`** is the glue (called in `SetupSDL2`/`SetupSDL3` *before*
+     `Open()`): reads `SessionManager` geometry → feeds it in via the setter; registers the callback that
+     writes live geometry back into the session + triggers autosave; owns the `restore_window_geometry`
+     config gate. Geometry only ever flows **out** of graphics through the callback.
+   - **Deleted** `WindowLocation.{h,cpp}`, `RuntimeConfig::GetWindowLocation()` + member, the obsolete
+     `utests/test_winlocation.cpp` (+ its CMake entry), and the `gedit_lastwinloc.yml` mechanism, both
+     backends. Cold-start default = centered 80% of the display (was hard-coded `1920×1080 @ (0,0)`).
+     Restore clamps to display bounds (monitor may have changed). `ScreenBase` got a new `ScreenBase.cpp`.
+2. **Debounced autosave (§11.4)** — `SessionManager` owns the debounce `Timer` + `NotifyChanged()`, with
+   an **injected** `autoSaveHandler` (set by `Editor` to `SaveSession()`) so `SessionManager` keeps **no**
+   `Editor` dependency (mirrors the keymap-delegate pattern). On elapse it posts the save to the
+   main-thread runloop via `RootView::PostMessage` (no `TriggerUIRedraw` kick — the loop drains within one
+   `PollEvents` tick, ≤250 ms, ample for a background save). `Clear()` stops the timer (test isolation).
+   Triggered from **app-level** chokepoints only (all legitimately above `SessionManager`):
+   `Workspace::AddOpenDocument`/`RemoveOpenDocument`/`SetActiveDocument`, splitter `SetSplitterPos` (via a
+   new `ViewBase::NotifySessionChanged()` so the widely-included view header stays free of the session
+   include), and the geometry write-back callback in the glue. Debounce coalesces a resize/relayout storm
+   into one save. Config: `session.autosave_timeout_ms: 1500` (0 = off). Mirrors `TextBuffer`'s autosave.
 
 **Known/deferred:** document paths are stored as-is (likely absolute) — relativise-to-root for
 portability later. `Editor::LoadDocument` ↔ `Workspace::ReopenDocument` share an open sequence
@@ -585,12 +605,15 @@ roughly top-to-bottom; each group is mergeable on its own.
 - [x] Splitters (`c1c591b`) — `ViewBase::SetSessionId` + opt-in `To/FromSession(LayoutSession&)` on
       `VSplitView` + `HSplitView` (HSplitViewStatus inherits). Stores abs+relative; restores relative,
       clamped at the `ClampSplitterPos` chokepoint. Tagged + walked in `4279a3e` (see §0).
-- [ ] **Window geometry — THE NEXT TASK.** Re-route, don't build. Make `SDLScreen::Open()` read geometry
-      from `SessionManager::Instance().CurrentSession().layout.window` (in memory, **no file**) and the
-      move/resize handler report it back. **Delete `WindowLocation`**, `RuntimeConfig::GetWindowLocation()`,
-      and `gedit_lastwinloc.yml`, both SDL2+SDL3. Cold-start default = centered fraction of the display
-      (not `1920×1080 @ (0,0)`). Clamp to display bounds on restore. *(`WindowGeometrySession` DTO already
-      exists with an `IsValid()` sentinel = "no stored geometry, use cold-start default".)*
+- [x] **Window geometry — DONE (2026-06-15), with a layering inversion.** The graphics backend does
+      **not** depend on `SessionManager`. `ScreenBase` exposes plain-data hooks (`SetRequestedWindowGeometry`,
+      a `WindowGeometryChangedHandler` callback, `GetPrimaryDisplayBounds`) + `ResolveStartupGeometry`
+      (default + clamp, out-params, no session/config). The glue `Editor::WireScreenGeometry` (in
+      `SetupSDL2`/`SetupSDL3`, before `Open()`) reads the session geometry, feeds it in, and registers the
+      write-back/autosave callback. **Deleted** `WindowLocation`, `RuntimeConfig::GetWindowLocation()`, the
+      `winlocation` test module, and `gedit_lastwinloc.yml` (both backends). Cold-start = centered 80% of
+      the display; restore clamps to display bounds. New `ScreenBase.cpp`. *(`WindowGeometrySession` DTO
+      `IsValid()` sentinel still means "no stored geometry → cold-start default".)*
 
 ### 11.4 Wiring & triggers
 - [x] `SessionManager` singleton (`cb84229`/`6e58cde`): `Instance()`+`Clear()`, no-arg `Save()`/`Load()`,
@@ -607,16 +630,20 @@ roughly top-to-bottom; each group is mergeable on its own.
 - [x] Tag the two splitters in `main.cpp` (`4279a3e`): `split.workspace`, `split.terminal`. Walked via
       `ViewBase::CollectLayout/ApplyLayout` rather than an explicit registry list.
 - [x] **Save** on `Editor::Close()` (`06a9688`) — captures docs + layout, idempotent.
-- [ ] **Debounced autosave** on doc open/close, active-doc switch, splitter move, window resize/move.
-      `SaveSession` is already idempotent, so this is just the timer. **Remaining (after geometry).**
+- [x] **Debounced autosave — DONE (2026-06-15).** `SessionManager` owns the debounce `Timer` +
+      `NotifyChanged()` with an injected `autoSaveHandler` (set by `Editor` → `SaveSession`, so
+      `SessionManager` keeps no `Editor` dep); on elapse it posts the save to the main-thread runloop.
+      Triggered from app-level chokepoints: `Workspace` doc add/remove/set-active, splitter `SetSplitterPos`
+      (via `ViewBase::NotifySessionChanged`), and the geometry write-back callback. `session.autosave_timeout_ms`
+      (default 1500, 0 = off). Mirrors `TextBuffer`'s autosave timer.
 - [x] `Config` — `session:` section added to `config.yml` (`06a9688`); everything gated on `session.enabled`.
 - [x] `AssetLoaderBase::ResolveWritePath` is the primary write API; added `ReplaceSearchPath` (`06a9688`)
       so a `kProject` re-point yields a single authoritative path. Returns the auto-created `.goatedit/` path.
 
 ### 11.5 Robustness (Phase-1 relevant only)
-- [~] Restore tolerates: missing files (**done** — skip), unknown/newer `version` (**done** — ignore,
-      start clean). Out-of-range cursor clamp-to-buffer and off-screen geometry clamp-to-display: the
-      latter is part of the **window-geometry task**; verify cursor clamp when touching it.
+- [x] Restore tolerates: missing files (skip), unknown/newer `version` (ignore, start clean), and
+      off-screen geometry (**done** — `ScreenBase::ResolveStartupGeometry` clamps to display bounds, tested
+      in `session_geometry_resolve`). Out-of-range cursor clamp-to-buffer remains a watch-item.
 - [x] Never create `.goatedit/` outside `$HOME` (`EstablishProjectDir` reuses `IsStrictSubdir`);
       `persist_external` default-off respected (outside-home roots are sessionless in Phase 1).
 - [x] Corrupt/half-written `session.yml` doesn't crash startup — atomic write prevents a partial file;
@@ -636,9 +663,11 @@ roughly top-to-bottom; each group is mergeable on its own.
       shape (`splitter_roundtrip`, `splitter_untagged_noop`, `layout_walk_roundtrip`).
 - [x] WorkspaceView expand/collapse persist + seed (`workspaceview_expandcollapse`).
 - [x] Atomic write leaves no leftover `.tmp` (`save_load_roundtrip`).
-- [x] `session` added to the **verified-green set** (now **219**) in `CLAUDE.md`'s list — *(pending: the
-      CLAUDE.md resume-point prose still says 202/218; bump it when geometry+autosave land and the branch
-      merges)*.
+- [x] Window-geometry policy: `ScreenBase::ResolveStartupGeometry` default/preserve/clamp + no-bounds
+      fallback (`session_geometry_resolve`); `NotifyWindowGeometryChanged` forwards to the handler / safe
+      no-op without one (`session_geometry_callback`). Pure graphics math — no session in the test.
+- [x] `session` added to the **verified-green set** (now **221**) in `CLAUDE.md`'s list — *(pending: the
+      CLAUDE.md resume-point prose still says 202/218; bump it when the branch merges to `main`)*.
 
 ### Definition of done (Phase 1)
 Open project A (edit, scroll, split, move/resize window, expand some tree nodes, switch to hex on one

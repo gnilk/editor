@@ -7,8 +7,13 @@
 // Ok, need .cpp file for implementation details about MainThread
 #include "Core/RuntimeConfig.h"
 #include "Core/Runloop.h"
+#include "Core/Session/SessionManager.h"
 
 using namespace gedit;
+
+void ViewBase::NotifySessionChanged() {
+    SessionManager::Instance().NotifyChanged();
+}
 
 void ViewBase::PostMessage(gedit::ViewBase::MessageCallback callback) {
     if (RuntimeConfig::Instance().IsRootView(this)) {

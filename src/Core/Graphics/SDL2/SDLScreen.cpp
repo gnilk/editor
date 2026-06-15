@@ -26,7 +26,6 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_video.h>
 #include "Core/Editor.h"
-#include "Core/WindowLocation.h"
 
 #ifndef STBTTF_IMPLEMENTATION
 #define STBTTF_IMPLEMENTATION
@@ -91,25 +90,19 @@ bool SDLScreen::Open() {
         logger->Error("Unknown backend ('%s'), using default", sdlBackend.c_str());
     }
 
-    // Try to fetch this via RuntimeConfig
-    auto &windowLocation = RuntimeConfig::Instance().GetWindowLocation();
-    if (!windowLocation.Load()) {
-        logger->Debug("Previous window location not found - will use defaults!");
-    }
-    int windowXpos = windowLocation.XPos();
-    int windowYpos = windowLocation.YPos();
-    widthPixels = windowLocation.Width();
-    heightPixels = windowLocation.Height();
-
-    // TMP - Running into problems if the windows is created outside the display area
-    //       this can happen when moving from one setup (i.e. docked with multi monitors -> travel/just laptop)
-    windowXpos = 0;
-    windowYpos = 0;
+    // Resolve startup geometry: the glue layer fed the requested (session) geometry in before Open();
+    // the base class turns it into a sane on-screen rect (default + clamp using the display).
+    int geoX = 0, geoY = 0;
+    ResolveStartupGeometry(geoX, geoY, widthPixels, heightPixels);
 
     // FIXME: Need to determine how HighDPI stuff works...
-    sdlWindow = SDL_CreateWindow("gedit", windowXpos, windowYpos, widthPixels, heightPixels,  windowFlags);
+    sdlWindow = SDL_CreateWindow("gedit", geoX, geoY, widthPixels, heightPixels,  windowFlags);
     sdlRenderer = SDL_CreateRenderer(sdlWindow, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     SDL_SetRenderDrawBlendMode(sdlRenderer, SDL_BLENDMODE_BLEND);
+
+    // Report the geometry actually realised, so a window that is never moved/resized still persists its
+    // position/size.
+    ReportWindowGeometry();
 
     logger->Debug("Resolution: %d x %d", widthPixels, heightPixels);
 
@@ -236,7 +229,7 @@ void SDLScreen::OnSizeChanged() {
     logger->Debug("Recomputing scaling factors and recreating tetxures");
     ComputeScalingFactors();
     CreateTextures();
-    UpdateWindowLocation();
+    ReportWindowGeometry();
     logger->Debug("ReInitialize UI!");
     RuntimeConfig::Instance().GetRootView().Resize();
     RuntimeConfig::Instance().GetRootView().InvalidateAll();
@@ -247,25 +240,27 @@ void SDLScreen::OnSizeChanged() {
 }
 
 void SDLScreen::OnMoved() {
-    logger->Debug("Window moved, updating WindowLocation State file");
-    UpdateWindowLocation();
+    logger->Debug("Window moved, reporting geometry to session");
+    ReportWindowGeometry();
 }
 
-void SDLScreen::UpdateWindowLocation() {
-    auto &windowLocation = RuntimeConfig::Instance().GetWindowLocation();
-    // Fetch and update size
+void SDLScreen::ReportWindowGeometry() {
     SDL_GetWindowSize(sdlWindow, &widthPixels, &heightPixels);
-    windowLocation.SetWidth(widthPixels);
-    windowLocation.SetHeight(heightPixels);
-
-    // Fetch and update position
     int winXpos, winYpos;
     SDL_GetWindowPosition(sdlWindow, &winXpos, &winYpos);
-    windowLocation.SetXPos(winXpos);
-    windowLocation.SetYPos(winYpos);
+    NotifyWindowGeometryChanged(winXpos, winYpos, widthPixels, heightPixels);
+}
 
-    // Save
-    windowLocation.Save();
+bool SDLScreen::GetPrimaryDisplayBounds(int &x, int &y, int &width, int &height) {
+    SDL_Rect rect;
+    if (SDL_GetDisplayUsableBounds(0, &rect) != 0) {
+        return false;
+    }
+    x = rect.x;
+    y = rect.y;
+    width = rect.w;
+    height = rect.h;
+    return true;
 }
 
 void SDLScreen::Close() {

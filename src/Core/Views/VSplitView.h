@@ -63,6 +63,7 @@ namespace gedit {
             UpdateRightViewRect();
             Initialize();
             InvalidateAll();
+            NotifySessionChanged();
         }
         int GetSplitterPos() {
             return splitterPos;

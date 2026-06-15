@@ -376,7 +376,6 @@ list(APPEND editorsrc src/Core/Config/ConfigNode.cpp src/Core/Config/ConfigNode.
 list(APPEND editorsrc src/Core/Config/YAMLMerge.cpp src/Core/Config/YAMLMerge.h)
 list(APPEND editorsrc src/Core/Theme/Theme.cpp src/Core/Theme/Theme.h)
 list(APPEND editorsrc src/Core/RuntimeConfig.cpp src/Core/RuntimeConfig.cpp)
-list(APPEND editorsrc src/Core/WindowLocation.cpp src/Core/WindowLocation.h)
 list(APPEND editorsrc src/Core/XDGEnvironment.cpp src/Core/XDGEnvironment.h)
 
 # Session cache (per-root persistence — docs/session-cache.md)
@@ -387,7 +386,7 @@ list(APPEND editorsrc src/Core/Session/SessionSerializer.cpp src/Core/Session/Se
 
 # Graphics base classes
 list(APPEND editorsrc src/Core/Graphics/NativeWindow.h)
-list(APPEND editorsrc src/Core/Graphics/ScreenBase.h)
+list(APPEND editorsrc src/Core/Graphics/ScreenBase.cpp src/Core/Graphics/ScreenBase.h)
 list(APPEND editorsrc src/Core/Graphics/WindowBase.h)
 list(APPEND editorsrc src/Core/Graphics/Cursor.h)
 # NCurses
@@ -590,7 +589,6 @@ list(APPEND utestsrc utests/test_unicode.cpp)
 list(APPEND utestsrc utests/test_vnav.cpp)
 list(APPEND utestsrc utests/test_terminalscreen.cpp)
 list(APPEND utestsrc utests/test_vtermparser.cpp)
-list(APPEND utestsrc utests/test_winlocation.cpp)
 list(APPEND utestsrc utests/test_workspace.cpp)
 list(APPEND utestsrc utests/test_session.cpp)
 list(APPEND utestsrc utests/test_xgdenv.cpp)

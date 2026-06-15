@@ -40,6 +40,20 @@ namespace gedit {
             logger->Debug("==== End Draw Cycle ====");
         }
 
+        // Layout session (docs/session-cache.md §4.1) — the focused top-view is a RootView concept, so
+        // RootView owns persisting it. Walked in by ViewBase::CollectLayout / ApplyLayout.
+        void ToSession(LayoutSession &layout) override {
+            auto name = GetTopViewName();
+            if (name.has_value()) {
+                layout.focusedTopView = *name;
+            }
+        }
+        void FromSession(const LayoutSession &layout) override {
+            if (!layout.focusedTopView.empty()) {
+                SetActiveTopViewByName(layout.focusedTopView);
+            }
+        }
+
         void AddTopView(ViewBase *view, const std::string &name) {
 
             // Let's do it like this for now...

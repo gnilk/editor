@@ -26,6 +26,8 @@
 #include "Core/Language/LanguageSupport/JSONLanguage.h"
 #include "Core/Language/LanguageSupport/DefaultLanguage.h"
 #include "Core/Plugins/PluginExecutor.h"
+#include "Core/Views/RootView.h"
+#include "Core/Views/WorkspaceView.h"
 
 
 // NCurses backend - Removed
@@ -345,25 +347,76 @@ bool Editor::EstablishProjectDir() {
     return true;
 }
 
+// Helper: the WorkspaceView top-view, or nullptr (not yet built / no root view). The expand/collapse
+// state is owned by that view but persisted on RootSession, so the orchestrator reaches it here.
+static WorkspaceView *GetWorkspaceView() {
+    if (!RuntimeConfig::Instance().HasRootView()) {
+        return nullptr;
+    }
+    auto *rootView = RuntimeConfig::Instance().GetRootViewAs<RootView>();
+    if (rootView == nullptr) {
+        return nullptr;
+    }
+    auto ref = rootView->GetTopViewByName(glbWorkSpaceView);
+    return dynamic_cast<WorkspaceView *>(ref.get());
+}
+
+// Load the session once (data model only — documents). Layout is applied later by RestoreLayout, once
+// the view tree exists. The loaded session lingers in SessionManager::CurrentSession for that second pass.
 void Editor::RestoreSession() {
     auto sessionCfg = Config::Instance()["session"];
-    if (!sessionCfg.GetBool("enabled", true) || !sessionCfg.GetBool("restore_open_files", true)) {
+    if (!sessionCfg.GetBool("enabled", true)) {
         return;
     }
     if (!SessionManager::Instance().Load()) {
         return;     // no session file, or unparseable/newer - start clean
     }
-    workspace->FromSession(SessionManager::Instance().CurrentSession());
-    logger->Debug("Restored session: %zu document(s)", workspace->GetOpenDocuments().size());
+    if (sessionCfg.GetBool("restore_open_files", true)) {
+        workspace->FromSession(SessionManager::Instance().CurrentSession());
+        logger->Debug("Restored session: %zu document(s)", workspace->GetOpenDocuments().size());
+    }
+}
+
+// Second restore pass — runs from main.cpp AFTER the view tree is built+initialized (the splitters /
+// focused top-view / tree expand-collapse need live views). Reads the session already loaded by
+// RestoreSession; a no-op (empty layout) when there was none.
+void Editor::RestoreLayout() {
+    auto sessionCfg = Config::Instance()["session"];
+    if (!sessionCfg.GetBool("enabled", true) || !sessionCfg.GetBool("restore_layout", true)) {
+        return;
+    }
+    if (!RuntimeConfig::Instance().HasRootView()) {
+        return;
+    }
+    const auto &session = SessionManager::Instance().CurrentSession();
+    // Walk the tree: each persistable view pulls its own state out of the layout by session id.
+    RuntimeConfig::Instance().GetRootView().ApplyLayout(session.layout);
+    // Tree expand/collapse is on RootSession (not LayoutSession), so seed it directly.
+    auto *workspaceView = GetWorkspaceView();
+    if (workspaceView != nullptr) {
+        workspaceView->RestoreExpandCollapseState(session.expandCollapse);
+    }
 }
 
 void Editor::SaveSession() {
     if (!Config::Instance()["session"].GetBool("enabled", true)) {
         return;
     }
-    // Capture the live workspace into the session DTO, then persist. Layout/geometry/tree-state are
-    // folded in by their owners in a follow-up.
-    workspace->ToSession(SessionManager::Instance().CurrentSession());
+    auto &session = SessionManager::Instance().CurrentSession();
+    // Documents (tabs + cursors) — ToSession clears+repopulates, so this is idempotent for autosave.
+    workspace->ToSession(session);
+    // Layout: walk the live view tree so each persistable view (splitters + focused top-view) writes
+    // itself; plus the workspace tree expand/collapse (kept on RootSession). Clear first so a repeated
+    // save doesn't accumulate. Guarded — at Close the views are still alive, but a headless path is not.
+    if (RuntimeConfig::Instance().HasRootView()) {
+        session.layout.splitters.clear();
+        RuntimeConfig::Instance().GetRootView().CollectLayout(session.layout);
+        auto *workspaceView = GetWorkspaceView();
+        if (workspaceView != nullptr) {
+            session.expandCollapse.clear();
+            workspaceView->SaveExpandCollapseState(session.expandCollapse);
+        }
+    }
     SessionManager::Instance().Save();
 }
 

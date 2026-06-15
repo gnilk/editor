@@ -489,6 +489,8 @@ int main(int argc, const char **argv) {
     editorViewContainer.SetAlternateView(&hexView);
 
     vSplitViewUpper.SetInitialSplitterPos(24);
+    // Stable session id so the workspace|editor divide round-trips through the session cache (§4.1).
+    vSplitViewUpper.SetSessionId("split.workspace");
     vSplitViewUpper.SetLeft(&vStackViewWorkspace);
     vSplitViewUpper.SetRight(&vStackViewEditor);
 
@@ -498,6 +500,8 @@ int main(int argc, const char **argv) {
 
     hSplitViewStatus.SetUpper(&vSplitViewUpper);
     hSplitViewStatus.SetInitialSplitterPos(20);
+    // Stable session id so the editor|terminal divide round-trips through the session cache (§4.1).
+    hSplitViewStatus.SetSessionId("split.terminal");
 
 
     // The CONTAINER is the top view for the editing slot — it forwards input/status/focus to whichever
@@ -523,6 +527,11 @@ int main(int argc, const char **argv) {
     if (Editor::Instance().GetActiveDocument() == nullptr) {
         rootView.SetActiveTopViewByName(glbWorkSpaceView);
     }
+
+    // The view tree now exists and is initialized, so the layout state (splitters / focused view /
+    // tree expand-collapse) restored from the session can finally be applied (documents were restored
+    // earlier, during Editor::Initialize). A no-op when there is no session for this root.
+    Editor::Instance().RestoreLayout();
 
 
     // No clue why I have to do this twice - but otherwise it doesn't work...

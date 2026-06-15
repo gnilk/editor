@@ -6,6 +6,7 @@
 //
 #include <testinterface.h>
 #include <memory>
+#include <cstdlib>
 #include <filesystem>
 #include <unordered_map>
 #include "Core/Editor.h"
@@ -45,6 +46,7 @@ DLL_EXPORT int test_session_workspace_enumerate(ITesting *t);
 DLL_EXPORT int test_session_workspace_reopen_skips_missing(ITesting *t);
 DLL_EXPORT int test_session_splitter_roundtrip(ITesting *t);
 DLL_EXPORT int test_session_splitter_untagged_noop(ITesting *t);
+DLL_EXPORT int test_session_layout_walk_roundtrip(ITesting *t);
 DLL_EXPORT int test_session_workspaceview_expandcollapse(ITesting *t);
 DLL_EXPORT int test_session_yaml_roundtrip(ITesting *t);
 DLL_EXPORT int test_session_yaml_bad_version(ITesting *t);
@@ -291,6 +293,44 @@ DLL_EXPORT int test_session_splitter_untagged_noop(ITesting *t) {
     return kTR_Pass;
 }
 
+// CollectLayout/ApplyLayout recurse the whole view subtree, so one call at the root persists every
+// tagged splitter regardless of depth. Mirrors the real shape: outer HSplitView (terminal) holds the
+// inner VSplitView (workspace) as its upper panel.
+DLL_EXPORT int test_session_layout_walk_roundtrip(ITesting *t) {
+    HSplitView outer;
+    outer.SetWidth(120);
+    outer.SetHeight(60);
+    outer.SetSessionId("split.terminal");
+
+    VSplitView inner;
+    inner.SetSessionId("split.workspace");
+    outer.SetUpper(&inner);            // nests inner; AddView initialises it within outer's rect
+    inner.SetSplitterPos(40);
+    outer.SetSplitterPos(45);
+
+    // One CollectLayout at the outer view must pull BOTH splitters out of the subtree.
+    LayoutSession layout;
+    outer.CollectLayout(layout);
+    TR_ASSERT(t, layout.splitters.size() == 2);
+    bool sawTerminal = false;
+    bool sawWorkspace = false;
+    for (const auto &s : layout.splitters) {
+        if (s.id == "split.terminal") { sawTerminal = true; }
+        if (s.id == "split.workspace") { sawWorkspace = true; }
+    }
+    TR_ASSERT(t, sawTerminal && sawWorkspace);
+
+    // Move both, then ApplyLayout at the root restores each by id (within the ratio tolerance).
+    int outerBefore = outer.GetSplitterPos();
+    int innerBefore = inner.GetSplitterPos();
+    outer.SetSplitterPos(20);
+    inner.SetSplitterPos(15);
+    outer.ApplyLayout(layout);
+    TR_ASSERT(t, std::abs(outer.GetSplitterPos() - outerBefore) <= 1);
+    TR_ASSERT(t, std::abs(inner.GetSplitterPos() - innerBefore) <= 1);
+    return kTR_Pass;
+}
+
 // WorkspaceView snapshots the tree expand/collapse state and re-applies a restored seed on rebuild.
 DLL_EXPORT int test_session_workspaceview_expandcollapse(ITesting *t) {
     // Build a real tree over the 'testfiles' fixture with the folder monitor off (no side effects).
@@ -420,7 +460,10 @@ DLL_EXPORT int test_session_save_load_roundtrip(ITesting *t) {
     std::error_code ec;
     std::filesystem::remove_all(testRoot, ec);
     std::filesystem::create_directories(projDir);
-    assetLoader.AddSearchPath(projDir, AssetLoaderBase::kLocationType::kProject);
+    // ReplaceSearchPath (as production EstablishProjectDir does) so this is the SOLE kProject path —
+    // hermetic regardless of any kProject path the editor registered at init (e.g. a .goatedit under
+    // the test's cwd left by a real run).
+    assetLoader.ReplaceSearchPath(projDir, AssetLoaderBase::kLocationType::kProject);
 
     auto writePath = assetLoader.ResolveWritePath("session.yml", AssetLoaderBase::kLocationType::kProject);
     TR_ASSERT(t, writePath == (projDir / "session.yml"));

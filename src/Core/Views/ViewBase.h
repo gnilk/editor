@@ -55,6 +55,23 @@ namespace gedit {
         virtual void FromSession(const LayoutSession &layout) {
         }
 
+        // Recursively pull/push layout state over the whole subtree. ToSession/FromSession touch only
+        // self; these walk self + all subviews so SessionManager can persist the layout from one call at
+        // the root without knowing the tree shape. Non-persistable views (the default no-op) contribute
+        // nothing on the way through.
+        void CollectLayout(LayoutSession &layout) {
+            ToSession(layout);
+            for (auto view : subviews) {
+                view->CollectLayout(layout);
+            }
+        }
+        void ApplyLayout(const LayoutSession &layout) {
+            FromSession(layout);
+            for (auto view : subviews) {
+                view->ApplyLayout(layout);
+            }
+        }
+
         std::string GetClassName() const {
             return Demangle(typeid(*this).name());
         }

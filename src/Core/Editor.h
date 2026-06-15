@@ -44,6 +44,9 @@ namespace gedit {
         static Editor &Instance();
         bool Initialize(int argc, const char **argv);
         bool OpenScreen();
+        // Second session-restore pass: re-apply the saved layout (splitters / focused view / tree
+        // expand-collapse) once the view tree exists. Called from main.cpp after rootView.Initialize().
+        void RestoreLayout();
         void Close();
 
         void RunPostInitalizationScript();

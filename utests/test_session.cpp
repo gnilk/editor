@@ -6,9 +6,13 @@
 //
 #include <testinterface.h>
 #include <memory>
+#include "Core/Editor.h"
+#include "Core/RuntimeConfig.h"
 #include "Core/Document.h"
 #include "Core/DocumentViewState.h"
 #include "Core/Workspace.h"
+#include "Core/Views/VSplitView.h"
+#include "Core/Views/HSplitView.h"
 #include "Core/Session/SessionState.h"
 #include "Core/Session/SessionManager.h"
 
@@ -23,9 +27,16 @@ DLL_EXPORT int test_session_selection_direction_preserved(ITesting *t);
 DLL_EXPORT int test_session_document_roundtrip(ITesting *t);
 DLL_EXPORT int test_session_workspace_enumerate(ITesting *t);
 DLL_EXPORT int test_session_workspace_reopen_skips_missing(ITesting *t);
+DLL_EXPORT int test_session_splitter_roundtrip(ITesting *t);
+DLL_EXPORT int test_session_splitter_untagged_noop(ITesting *t);
 }
 
 DLL_EXPORT int test_session(ITesting *t) {
+    // The splitter round-trip tests build real VSplitView/HSplitView, whose SetSplitterPos initialises
+    // the view (which needs an open screen). Open one here so this module is hermetic when run in
+    // isolation, not only as part of the verified-green set (mirrors test_layout).
+    Editor::Instance().OpenScreen();
+    RuntimeConfig::Instance().SetMainThreadID();
     return kTR_Pass;
 }
 
@@ -201,5 +212,59 @@ DLL_EXPORT int test_session_workspace_reopen_skips_missing(ITesting *t) {
     session.activeDocumentIndex = 0;
     workspace.FromSession(session);
     TR_ASSERT(t, workspace.GetOpenDocuments().empty());
+    return kTR_Pass;
+}
+
+// Tagged splitters serialise their position into LayoutSession and restore it (by ratio). Covers both
+// axes: VSplitView (width) and HSplitView (height; HSplitViewStatus inherits this).
+DLL_EXPORT int test_session_splitter_roundtrip(ITesting *t) {
+    LayoutSession layout;
+
+    VSplitView vsplit;
+    vsplit.SetWidth(100);
+    vsplit.SetHeight(40);
+    vsplit.SetSessionId("split.workspace");
+    vsplit.SetSplitterPos(30);
+    vsplit.ToSession(layout);
+    TR_ASSERT(t, layout.splitters.size() == 1);
+    TR_ASSERT(t, layout.splitters[0].id == "split.workspace");
+    TR_ASSERT(t, layout.splitters[0].absolute == 30);
+
+    HSplitView hsplit;
+    hsplit.SetWidth(80);
+    hsplit.SetHeight(100);
+    hsplit.SetSessionId("split.terminal");
+    hsplit.SetSplitterPos(60);
+    hsplit.ToSession(layout);          // appends under its own id
+    TR_ASSERT(t, layout.splitters.size() == 2);
+
+    VSplitView vrestored;
+    vrestored.SetWidth(100);
+    vrestored.SetHeight(40);
+    vrestored.SetSessionId("split.workspace");
+    vrestored.FromSession(layout);
+    TR_ASSERT(t, (vrestored.GetSplitterPos() >= 29) && (vrestored.GetSplitterPos() <= 31));
+
+    HSplitView hrestored;
+    hrestored.SetWidth(80);
+    hrestored.SetHeight(100);
+    hrestored.SetSessionId("split.terminal");
+    hrestored.FromSession(layout);
+    TR_ASSERT(t, (hrestored.GetSplitterPos() >= 59) && (hrestored.GetSplitterPos() <= 61));
+    return kTR_Pass;
+}
+
+// An untagged splitter (no session id) is invisible to the session: writes nothing, restores nothing.
+DLL_EXPORT int test_session_splitter_untagged_noop(ITesting *t) {
+    VSplitView vsplit;
+    vsplit.SetWidth(100);
+    vsplit.SetSplitterPos(30);
+
+    LayoutSession layout;
+    vsplit.ToSession(layout);
+    TR_ASSERT(t, layout.splitters.empty());
+
+    vsplit.FromSession(layout);        // no id, no matching entry -> no-op, no crash
+    TR_ASSERT(t, layout.splitters.empty());
     return kTR_Pass;
 }

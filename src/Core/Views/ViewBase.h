@@ -20,6 +20,7 @@
 #include "Core/KeyMapping.h"
 #include "Core/SafeQueue.h"
 #include "Core/KeypressAndActionHandler.h"
+#include "Core/Session/SessionState.h"
 
 namespace gedit {
 
@@ -39,6 +40,20 @@ namespace gedit {
             hasExplicitSize = true;
         }
         virtual ~ViewBase() = default;
+
+        // Session/layout addressing (docs/session-cache.md §4.1). A persistable view (a splitter) is
+        // tagged with a stable id in main.cpp; the layout hooks below let SessionManager pull/push its
+        // splitter position generically. ToSession/FromSession default to no-ops; splitter views override.
+        void SetSessionId(const std::string &newSessionId) {
+            sessionId = newSessionId;
+        }
+        const std::string &GetSessionId() const {
+            return sessionId;
+        }
+        virtual void ToSession(LayoutSession &layout) {
+        }
+        virtual void FromSession(const LayoutSession &layout) {
+        }
 
         std::string GetClassName() const {
             return Demangle(typeid(*this).name());
@@ -365,6 +380,7 @@ namespace gedit {
         ViewBase *parentView = nullptr;
         ViewBase *modal = nullptr;
         Rect viewRect = {};
+        std::string sessionId = {};         // stable id for layout/session persistence (empty = not persisted)
         bool isInitialized = false;
         bool isInvalid = false;
         void *sharedDataPtr = nullptr;      // Whatever you want - this is to share data between views - liked HSTack or Tab's or similar

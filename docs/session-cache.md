@@ -443,6 +443,11 @@ session:
   already wishes for; the session manager is its first real consumer.
 - **Node meta cache** (filesize/type) → leave for now, but note the future search-index DB is the
   natural long-term home for "what files exist under this root".
+- **`Editor::LoadDocument` ↔ `Workspace::ReopenDocument`** → both run the same open sequence (file-ref
+  node → `LoadData` → readonly-meta → `AddOpenDocument`). Extract one shared `Workspace` open primitive
+  and have both call it — `FIXME(consolidation)` is in `Workspace::ReopenDocument`. **Deferred
+  deliberately:** `Editor::LoadDocument` is a known leftover API and the live open path; consolidate it
+  as its own separately-verified change, not mid-feature.
 
 ## 10. Phasing
 

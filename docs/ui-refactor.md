@@ -8,14 +8,16 @@
 
 ## §0 — Status / read this first
 
-**Phase: IN PROGRESS — branch `refactor-ui`, AI-0 ✅ + AI-1 ✅ + AI-2 ✅ + AI-5 ✅ + AI-3 ✅ DONE
-(committed `97ce381`, `7dce4e1`, `35dd33a`, `8a22d0e`, AI-3 pending commit).** Analysis done (§3–§7);
+**Phase: IN PROGRESS — branch `refactor-ui`, AI-0 ✅ + AI-1 ✅ + AI-2 ✅ + AI-5 ✅ + AI-3 ✅ + AI-4 ✅ DONE
+(committed `97ce381`, `7dce4e1`, `35dd33a`, `8a22d0e`, `98297bc`, `1558cd7`).** Analysis done (§3–§7);
 sequenced action-item plan in **§8**. User direction (2026-06-16): wants the **clean separation**
 regardless of whether a physical library is ever cut — **start with the folder split (AI-1)**, treat
-the **`kAction` split (AI-4)** as its own work item, and harden the new **`SessionManager`/`ViewBase`
-seam via `ILayoutSink` (AI-5)** — the user flagged that one as a dependency that crept in recently and
-was overlooked. Also captured: the **`UIHost`** seam (AI-3, now done). The library itself (AI-7) is
-optional ("I might not do it").
+the **`kAction` split (AI-4, now done)** as its own work item, and harden the new
+**`SessionManager`/`ViewBase` seam via `ILayoutSink` (AI-5)** — the user flagged that one as a
+dependency that crept in recently and was overlooked. Also captured: the **`UIHost`** seam (AI-3, now
+done). The library itself (AI-7) is optional ("I might not do it"). **Remaining: AI-6 (theme/color
+injection — finishes the AI-2 gate fully green) is the only open action item besides the optional
+AI-7.**
 
 **AI-0 done (2026-06-16, on `refactor-ui`):** removed the dead `#include "Core/Line.h"` from
 `src/Core/Graphics/DrawContext.h`; swept the other contract headers (`ScreenBase.h`, `WindowBase.h`,
@@ -95,7 +97,8 @@ dropped **17 → 8**: zero `RuntimeConfig.h` hits remain anywhere under `src/Cor
 done-when, met exactly); the 8 left are all `Editor.h` (7, theme/state reads) or `Core/Config/*` (1,
 `ListSelectionModal.cpp` — already counted under `Editor.h` for `TestView.cpp` too) — squarely AI-6's
 leaf-cleanup territory. AI-4 (`kAction` split) is now also ✅ DONE (see its own section below).
-**Next: AI-6 (theme/color injection, finishes the gate) or AI-5 follow-on, per user priority.**
+**Next: AI-6 (theme/color injection) is the only open action item left to fully green the AI-2 gate;
+AI-7 (physical library) remains optional.**
 
 **Verdict in brief (see §7 for the argument):**
 - The layout engine + the rendering contract + the selection/tree widgets **are** genuinely generic

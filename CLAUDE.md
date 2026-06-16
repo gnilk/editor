@@ -89,24 +89,39 @@ The application singleton. Owns the `Workspace`, active `EditorModel`, `JSPlugin
 - **`EditorModel`** (`src/Core/EditorModel.h`) — pairs a `TextBuffer` with cursor position, undo history, and language.
 - **`Workspace`** (`src/Core/Workspace.h`) — collection of open `EditorModel`s.
 
-### View Hierarchy (`src/Core/Views/`)
-Views form a tree rooted at `RootView`. Layout containers: `VStackView`, `HStackView`, `VSplitView`, `HSplitView`. All inherit from `ViewBase` which handles keypresses via `KeypressAndActionHandler`. Key concrete views:
+### View Hierarchy (`src/Core/UI/Views/` generic + `src/Core/Editor/Views/` editor-specific)
+**Split into a generic UI toolkit and editor-specific code by the in-progress `refactor-ui` branch**
+(see the resume-point UI-refactor entry below + `docs/ui-refactor.md`) — `src/Core/Views/` and
+`src/Core/Controllers/` no longer exist. Views form a tree rooted at `RootView`
+(`src/Core/UI/Views/`). Generic layout containers: `VStackView`, `HStackView`, `VSplitView`,
+`HSplitView` (`src/Core/UI/Views/`). All inherit from `ViewBase` (`src/Core/UI/Views/`) which handles
+keypresses via `KeypressAndActionHandler`. Editor-specific concrete views (`src/Core/Editor/Views/`):
 - `EditorView` — renders text buffer contents
 - `GutterView` — line numbers
 - `TerminalView` — embedded shell terminal (uses `forkpty`)
 - `WorkspaceView` — file browser panel
-- Modal views (`ListSelectionModal`, `TreeSelectionModal`) overlay the main layout
+- `HexView` — read-only hex projection of a document
+- Modal views (`ListSelectionModal`, `TreeSelectionModal`, generic, `src/Core/UI/Views/`) overlay the main layout
 
 Real app layout (`main.cpp`): `RootView > HSplitViewStatus[ upper = VSplitView[ workspace | VStack>HStack>editor ], lower = terminal ]`. The status line is drawn ON the HSplit splitter row (`HSplitViewStatus::DrawSplitter` at `GetSplitRow() == splitterPos`).
 
-### Controllers (`src/Core/Controllers/`)
+### Controllers (`src/Core/UI/Controllers/` generic + `src/Core/Editor/Controllers/` editor-specific)
 Controllers hold input-handling logic decoupled from views:
-- `EditController` — text editing actions
-- `TerminalController` — terminal/command mode
-- `QuickCommandController` — vi-like quick command overlay
+- `EditController` — text editing actions (`src/Core/Editor/Controllers/`)
+- `TerminalController` — terminal/command mode (`src/Core/Editor/Controllers/`)
+- `QuickCommandController` — vi-like quick command overlay (`src/Core/Editor/Controllers/`)
+- `BaseController` — generic base (`src/Core/UI/Controllers/`)
 
 ### Actions & Key Mapping
-`kAction` enum (`src/Core/Action.h`) defines all editor actions. `KeyMapping` (`src/Core/KeyMapping.h`) maps key presses → actions, loaded from config YAML. `KeypressAndActionHandler` is a mixin that views/controllers inherit to declare which actions they handle. Keymaps support `inherit: <parent>` (resolved inside `KeyMapping`, multi-level, see below).
+`kAction` enum (`src/Core/Action.h`) defines editor-owned actions; the shared nav/view-management
+subset (`PageUp/Down`, line motion, buffer start/end, view resize/cycle, etc.) was carved out into a
+separate toolkit-owned `kUIAction` enum (`src/Core/UI/Input/UIAction.h`) by `refactor-ui`'s AI-4 — see
+the resume-point UI-refactor entry below. `EditorAction`/`ActionItem` carry **both** a `kAction action`
+and a `kUIAction uiAction` field side by side; a resolved binding sets exactly one, the other stays at
+its default `kActionNone`. `KeyMapping` (`src/Core/KeyMapping.h`) maps key presses → actions (resolving
+the action name against whichever enum's table it belongs to), loaded from config YAML.
+`KeypressAndActionHandler` is a mixin that views/controllers inherit to declare which actions they
+handle. Keymaps support `inherit: <parent>` (resolved inside `KeyMapping`, multi-level, see below).
 
 ### Rendering Backends (`src/Core/Graphics/SDL2/`, `src/Core/Graphics/SDL3/`)
 Each backend implements `ScreenBase`, `NativeWindow`, and `DrawContext` interfaces. **SDL2 is the backend actually built and run locally** (the CLAUDE.md previously claimed SDL3-primary — that's stale). SDL3 sources are kept in parallel. NCurses sources exist but are out of the build. `SDLFontManager` uses stb_truetype (`ext/stbttf.h`) for TTF rendering. The editor renders into a character grid: `SDLScreen::ComputeScalingFactors` derives `rows`/`cols` from pixel size and font metrics; views lay out in character cells.
@@ -291,6 +306,20 @@ YAML-based config loaded by `Config` singleton. `ConfigNode` provides typed acce
 ---
 
 ## Current state — resume point (read this first)
+
+### Active branch: `refactor-ui` (UI toolkit / editor split, NOT yet merged to `main`)
+
+Splitting `src/Core/Views`+`Controllers` into a generic, reusable UI toolkit (`src/Core/UI/`) and
+editor-specific code (`src/Core/Editor/`). **`docs/ui-refactor.md` is the authoritative tracker —
+read its §0 first.** Sequenced action items AI-0 through AI-7; **AI-0, AI-1, AI-2, AI-3, AI-4, AI-5 are
+✅ DONE** (commits `97ce381`, `7dce4e1`, `35dd33a`, `98297bc`, `8a22d0e`, `1558cd7`, all on
+`refactor-ui`, pushed to `origin/refactor-ui`). **Open: AI-6** (inject theme/color into the remaining
+generic-widget leaf reads — `TreeView.h`, `SingleLineView.h`, `ListSelectionModal.cpp`, `RootView.h`,
+`TestView`; finishes `scripts/check-ui-boundary.sh` fully green). **AI-7** (physical `goatui` library)
+is optional, only if a real second consumer appears. Full rebuild + the verified-green 235-test suite
+pass after every action item; do the same after AI-6. The "lower layer never depends on a higher-level
+app service" pattern (below) and the `kAction`/`kUIAction` split (Actions & Key Mapping, above) both
+came out of this effort.
 
 ### Baseline (2026-06-16): everything is on `main`
 

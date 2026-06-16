@@ -69,8 +69,8 @@ cd cmake-build-debug && trun -l ./libutests.so                     # list
 
 Test source files live in `utests/`. Each `test_<module>.cpp` corresponds to one module; `test_main.cpp` initializes the editor singleton for all tests. Test functions are `extern "C"` (or `DLL_EXPORT`) and discovered by exported symbol name — adding a new case is just a new function (+ a forward declaration where the file uses one).
 
-**Verified-green set** (202 tests, run from `cmake-build-debug/`):
-`trun -m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,vtermparser,keymapping,hexprojection,bytestream,hexview,indent --sequential ./libutests.so`
+**Verified-green set** (216 tests, run from `cmake-build-debug/`):
+`trun -m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,vtermparser,keymapping,hexprojection,bytestream,hexview,indent,markdown --sequential ./libutests.so`
 
 **Do NOT run the full debug suite** — the sqlite3-parse test is intentionally excluded (~1s release, 13–15s debug: syntax highlighter over a large file, no optimizations). `test_timer`/`test_timer_exit` are pre/post module hooks (intentionally empty); logger tests are obsolete (external lib has its own suite).
 
@@ -294,10 +294,12 @@ YAML-based config loaded by `Config` singleton. `ConfigNode` provides typed acce
 
 ## Current state — resume point (read this first)
 
-### IN PROGRESS (2026-06-15): branch `feature/markdown-support` (off `main`)
+### IN PROGRESS (2026-06-16): branch `feature/markdown-support` (off `main`)
 
-Markdown (`.md`) syntax support — **§3 + §2.A + §2.B done, 4 commits ahead of origin (pushed).**
-**`docs/support-markdown.md` is the authoritative tracker — read its §0 first.** Summary:
+Markdown (`.md`) syntax support — **v1 CLOSED OUT: §3 + §2.A + §2.B done + tests strengthened + added to
+the verified-green set.** Only the GUI color-eyeball/retune (user-side on macOS) and the optional §6 lexer
+work remain before/after merge. **`docs/support-markdown.md` is the authoritative tracker — read its §0
+first.** Summary:
 - `.md`/`.markdown` → new `MarkdownLanguage` (`src/Core/Language/LanguageSupport/`).
 - §3: 8 **generic** document/markup token classes (`kHeading`/`kStrong`/`kEmphasis`/`kCode`/`kListMarker`/
   `kBlockQuote`/`kLink`/`kRule`) in `LanguageTokenClass.h` + `LangToken.cpp` `tokenNames` + theme colors
@@ -308,10 +310,13 @@ Markdown (`.md`) syntax support — **§3 + §2.A + §2.B done, 4 commits ahead 
   `OnPostProcessParsedLine`, fence-guarded by the line's state-stack depth. **New plumbing:**
   `LangLineTokenizer::SetPostLineCallback` (injected, fired per line at end of `ParseLine`); `LanguageBase`
   ctor binds it to the virtual. Make parser unaffected (uses `ParseLineFromState`).
-- Tests: `utests/test_markdown.cpp`, module `markdown` (11 cases) green; regression 126/0.
-- **Next:** GUI-eyeball with `Assets/testfiles/support-markdown.md`, retune placeholder colors, add
-  `markdown` to the verified-green `-m …` set. Optional §6 = lexer line-start awareness (fixes the
-  `*`-bullet item-text limitation). Known v1 limits live in `docs/support-markdown.md` §0.
+- Tests: `utests/test_markdown.cpp`, module `markdown` (14 cases) green — strengthened at close-out with
+  ordered-list marker, fence-CLOSE (pop side of the cross-line state), and `**strong**`-not-`*emphasis*`
+  distinction. **`markdown` is now in the verified-green set (216).** Regression green.
+- **Next (post-merge / user-side):** GUI-eyeball with `Assets/testfiles/support-markdown.md` and retune
+  the placeholder colors in `Assets/Resources/colors.json` (color retune is the only gate before this
+  *looks* finished; the highlighting logic is done). Optional §6 = lexer line-start awareness (fixes the
+  `*`-bullet item-text limitation properly). Known v1 limits live in `docs/support-markdown.md` §0.
 - **On the macOS box:** reconfigure SDL3 (`-DGEDIT_BUILD_SDL3=ON -DGEDIT_BUILD_SDL2=OFF`) and rebuild
   `utests` (`libutests.dylib`) before running the suite.
 

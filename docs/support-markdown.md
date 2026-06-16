@@ -10,13 +10,21 @@ setext headings, and reference-link resolution are explicit non-goals — see §
 
 ## 0. Resume point / status
 
-**Status: skeleton + §3 + §2.A + §2.B DONE.** `.md`/`.markdown` routes to `MarkdownLanguage`. §3 added 8
-generic document/markup classes + `tokenNames` + theme colors. §2.A push/pop states: `in_fence`
-(persists across lines), `in_code_span`, `in_strong` (`**`), `in_em` (`*`), `in_link` (`[text]`).
-§2.B line-anchored block syntax via `OnPostProcessParsedLine`: ATX headings `#`..`######`, blockquote
-`>`, unordered (`-`/`*`/`+`) + ordered (`1.`/`1)`) list markers, thematic breaks (`---`/`***`/`___`),
-all fence-guarded (a line starting inside ``` is left as code). Test module `markdown` = 11 cases green;
-broad language/theme/indent regression green (126/0).
+**Status: v1 CLOSED OUT — skeleton + §3 + §2.A + §2.B done, tests strengthened, in the verified-green
+set.** `.md`/`.markdown` routes to `MarkdownLanguage`. §3 added 8 generic document/markup classes +
+`tokenNames` + theme colors. §2.A push/pop states: `in_fence` (persists across lines), `in_code_span`,
+`in_strong` (`**`), `in_em` (`*`), `in_link` (`[text]`). §2.B line-anchored block syntax via
+`OnPostProcessParsedLine`: ATX headings `#`..`######`, blockquote `>`, unordered (`-`/`*`/`+`) + ordered
+(`1.`/`1)`) list markers, thematic breaks (`---`/`***`/`___`), all fence-guarded (a line starting inside
+``` is left as code). Test module `markdown` = **14 cases green** (close-out added: ordered-list marker,
+fence-CLOSE / pop side of the cross-line state, `**strong**`-not-`*emphasis*` distinction); **`markdown`
+added to the verified-green `-m …` set in CLAUDE.md (216)**; broad language/theme/indent regression green.
+
+**Only remaining before this *looks* finished: the GUI color pass** — eyeball
+`Assets/testfiles/support-markdown.md` and retune the placeholder `md_*` colors in
+`Assets/Resources/colors.json`. The highlighting *logic* is complete; this is purely aesthetic and is a
+user-side step on macOS (TCC blocks the assistant's GUI capture). The optional §6 lexer work (below) is
+the only code follow-up, and it is genuinely optional.
 
 **Plumbing added for §2.B (note for future markup langs):** the tokenizer gained an injected
 `PostLineCallback` (`LangLineTokenizer::SetPostLineCallback`), invoked at the end of `ParseLine` (while
@@ -32,12 +40,10 @@ must NOT re-lock the line or re-enter the tokenizer (state stack is live mid-par
 - `[text](url)` colours only `[text]` (the `(url)` trailer stays regular).
 - See §5 for the hard non-goals (setext, reference links, CommonMark-exact emphasis).
 
-**Next move:** GUI eyeball with `Assets/testfiles/support-markdown.md`, retune the placeholder colors in
-`colors.json`, add `markdown` to the verified-green `-m …` set in CLAUDE.md. Optionally §6 (lexer
-line-start awareness) to fix the `*`-bullet limitation properly.
-
-Suggested scope for a first sitting: **§2 + §3 + register the language** (≈ one focused session,
-comparable effort to writing `CPPLanguage`). §4 tests and §5 niceties can follow.
+**Next move (post-merge / user-side):** GUI eyeball with `Assets/testfiles/support-markdown.md` and
+retune the placeholder `md_*` colors in `colors.json`. (Adding `markdown` to the verified-green set is
+**done**.) Optionally §6 (lexer line-start awareness) to fix the `*`-bullet limitation properly — the
+only remaining code follow-up, and genuinely optional.
 
 ---
 

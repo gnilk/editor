@@ -23,8 +23,11 @@ DLL_EXPORT int test_markdown_heading(ITesting *t);
 DLL_EXPORT int test_markdown_heading_not_midline(ITesting *t);
 DLL_EXPORT int test_markdown_blockquote(ITesting *t);
 DLL_EXPORT int test_markdown_listmarker(ITesting *t);
+DLL_EXPORT int test_markdown_listmarker_ordered(ITesting *t);
 DLL_EXPORT int test_markdown_rule(ITesting *t);
 DLL_EXPORT int test_markdown_heading_in_fence_is_code(ITesting *t);
+DLL_EXPORT int test_markdown_fence_closes(ITesting *t);
+DLL_EXPORT int test_markdown_strong_not_emphasis(ITesting *t);
 }
 
 // Does any attribute on the line carry the given class?
@@ -188,6 +191,25 @@ DLL_EXPORT int test_markdown_listmarker(ITesting *t) {
     return kTR_Pass;
 }
 
+// Ordered list marker '1. ' -> kListMarker (the digit-run + '.'/'.)' path in §2.B)
+DLL_EXPORT int test_markdown_listmarker_ordered(ITesting *t) {
+    auto workspace = Editor::Instance().GetWorkspace();
+    auto node = workspace->NewDocument("test.md");
+    auto buffer = node->GetTextBuffer();
+    TR_ASSERT(t, buffer != nullptr);
+
+    buffer->AddLineUTF8("1. first item");
+    buffer->Reparse();
+
+    auto line = buffer->LineAt(1);
+    TR_ASSERT(t, lineHasClass(line, kLanguageTokenClass::kListMarker));
+    // item text after the marker is not swallowed as the marker class
+    TR_ASSERT(t, lineHasClass(line, kLanguageTokenClass::kRegular));
+
+    TR_ASSERT(t, workspace->RemoveDocument(node->GetDocument()));
+    return kTR_Pass;
+}
+
 // Thematic break '---' -> kRule (and not a list marker)
 DLL_EXPORT int test_markdown_rule(ITesting *t) {
     auto workspace = Editor::Instance().GetWorkspace();
@@ -221,6 +243,47 @@ DLL_EXPORT int test_markdown_heading_in_fence_is_code(ITesting *t) {
     auto inside = buffer->LineAt(2);
     TR_ASSERT(t, !lineHasClass(inside, kLanguageTokenClass::kHeading));
     TR_ASSERT(t, lineHasClass(inside, kLanguageTokenClass::kCode));
+
+    TR_ASSERT(t, workspace->RemoveDocument(node->GetDocument()));
+    return kTR_Pass;
+}
+
+// The fence must CLOSE, not just persist: prose after the closing ``` returns to normal interpretation
+// (a '# Heading' below the fence is a heading again, not code). Locks the pop side of the cross-line state.
+DLL_EXPORT int test_markdown_fence_closes(ITesting *t) {
+    auto workspace = Editor::Instance().GetWorkspace();
+    auto node = workspace->NewDocument("test.md");
+    auto buffer = node->GetTextBuffer();
+    TR_ASSERT(t, buffer != nullptr);
+
+    buffer->AddLineUTF8("```");
+    buffer->AddLineUTF8("code here");
+    buffer->AddLineUTF8("```");
+    buffer->AddLineUTF8("# After fence");
+    buffer->Reparse();
+
+    auto after = buffer->LineAt(4);
+    TR_ASSERT(t, lineHasClass(after, kLanguageTokenClass::kHeading));
+    TR_ASSERT(t, !lineHasClass(after, kLanguageTokenClass::kCode));
+
+    TR_ASSERT(t, workspace->RemoveDocument(node->GetDocument()));
+    return kTR_Pass;
+}
+
+// Distinction property: '**bold**' is kStrong and NOT also kEmphasis (longest-match-first makes the
+// 2-char '**' delimiter win over the 1-char '*').
+DLL_EXPORT int test_markdown_strong_not_emphasis(ITesting *t) {
+    auto workspace = Editor::Instance().GetWorkspace();
+    auto node = workspace->NewDocument("test.md");
+    auto buffer = node->GetTextBuffer();
+    TR_ASSERT(t, buffer != nullptr);
+
+    buffer->AddLineUTF8("a **bold** b");
+    buffer->Reparse();
+
+    auto line = buffer->LineAt(1);
+    TR_ASSERT(t, lineHasClass(line, kLanguageTokenClass::kStrong));
+    TR_ASSERT(t, !lineHasClass(line, kLanguageTokenClass::kEmphasis));
 
     TR_ASSERT(t, workspace->RemoveDocument(node->GetDocument()));
     return kTR_Pass;

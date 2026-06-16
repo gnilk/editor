@@ -52,9 +52,36 @@ One `CMakeLists.txt`, no `cmake/` module dir, no `CMakePresets.json`. CI
 2. **Inline `execute_process(COMMAND git clone …)`** at configure time (CMakeLists L37–67) for `json`,
    `gnklog`, `dukglue`, `fmt` (fmt pinned to `12.1.0`; the rest unpinned → float on upstream `HEAD`).
 
-`ext/` is gitignored. Vendored-in-tree (correctly, not fetched): `src/ext/duktape-2.7.0` (the comment at
-L64 notes it needs pre-processing, so it can't be a plain clone) and `src/ext/stb`. Stale leftovers in
-`ext/`: `fmt-10.1.0`, `logger` (superseded by `gnklog`). This whole area is what FetchContent replaces.
+`ext/` is gitignored. Vendored-in-tree (correctly, not fetched): `src/ext/duktape-2.7.0` and
+`src/ext/stb`. Stale leftovers in `ext/`: `fmt-10.1.0`, `logger` (superseded by `gnklog`) — removable
+(CM-0). This whole area is what FetchContent replaces.
+
+#### Known-working dependency versions — the pins for CM-1
+Captured 2026-06-16 from the current (working) `ext/` clones; **all worktrees clean** (no local
+uncommitted edits). FetchContent must pin to *these exact commits* so we reproduce the known-good build,
+not float on upstream `HEAD`.
+
+| Dep | Source repo | Commit (pin) | Tag / note |
+|---|---|---|---|
+| `json` (nlohmann) | `github.com/nlohmann/json` | `0457de21cffb298c22b629e538036bfeb96130b7` | v3.11.3 **+6 commits** — pin the SHA, not the tag |
+| `gnklog` | `github.com/gnilk/gnklog` | `10f002a182c46cd0c95f715f3c83bd100fe7d1cc` | **no tag** (own lib, 2026-05-19) — SHA-pin mandatory |
+| `dukglue` | `github.com/gnilk/dukglue` ⚠️ **FORK** | `452d043bba2f480866204d2319d34eda6a408a77` | no tag (2023-11-19, "fix: return types and gcc warnings") |
+| `fmt` (fmtlib) | `github.com/fmtlib/fmt` | `407c905e45ad75fc29bf0f9bb7c5c2fd3475976f` | = tag **`12.1.0`** (can pin by tag) |
+| `duktape` | vendored `src/ext/duktape-2.7.0` | — (not a repo) | **2.7.0**, **pre-processed** (see below) — stays vendored |
+| `stb` | vendored `src/ext/stb` | — (not a repo) | `stb_truetype` + `stb_rect_pack` single-headers — stays vendored |
+
+**Two gotchas that break a naïve FetchContent:**
+- ⚠️ **`dukglue` is a personal fork (`gnilk/dukglue`), not upstream.** It carries source fixes over the
+  original (return types + gcc warnings). FetchContent **must** point at the fork at the pinned SHA —
+  pulling upstream `Aloshi/dukglue` would *not* reproduce the working build. (It's plain header-only C++;
+  the fork *is* the customization — there is no separate "pre-processing" step for it. The worktree is
+  clean, so the fork commit is the whole story.)
+- **The genuinely *pre-processed* dependency is `duktape`, not dukglue.** Upstream Duktape ships a Python
+  amalgamation/configure tool that *generates* `duktape.c`/`duktape.h`/`duk_config.h`; the generated 2.7.0
+  output is vendored in `src/ext/duktape-2.7.0` (that's the CMakeLists L62 "this won't fly… need to
+  pre-process this further" comment). **Keep it vendored** under FetchContent too — do not try to fetch
+  + build raw upstream. *(The pre-processing was done once, long ago, by the user; provenance otherwise
+  unknown — treat the vendored tree as the source of truth.)*
 
 ### `editorsrc` — one flat list (~150 `list(APPEND …)` lines, L318–464)
 Mixes every layer: Core foundation, the generic UI toolkit (`src/Core/UI/`), editor-specific UI
@@ -194,8 +221,9 @@ the module split unlocks the sub-CMake split + the utests build-time win; packag
 ### CM-1 — FetchContent for source deps
 - **Goal:** delete `setup_deps.sh` + the inline `git clone` blocks; CMake fetches pinned deps itself.
 - **Scope:** `json`, `gnklog`, `dukglue`, `fmt` → `FetchContent_Declare`/`MakeAvailable`, each pinned to
-  a **tag or commit** (esp. the `gnilk/*` forks — pin to a SHA for reproducibility; fmt already wants
-  `12.1.0`). `duktape` + `stb` stay vendored (`src/ext/`). Keep `ext/` gitignored.
+  the **exact commit in the §2 pin table** (json/gnklog/dukglue have no usable tag → SHA-pin; fmt = tag
+  `12.1.0`). **`dukglue` points at the `gnilk/dukglue` fork**, not upstream (it carries fixes — §2).
+  `duktape` (pre-processed, §2) + `stb` stay vendored (`src/ext/`). Keep `ext/` gitignored.
 - **Approach:** put declarations in `cmake/Dependencies.cmake`. Document `FETCHCONTENT_SOURCE_DIR_<dep>`
   so existing local `ext/` clones can be reused offline (and for dev against a fork). Drop the CI
   `chmod +x setup_deps.sh` step. **Also fold in the testrunner (`trun`) include** (today the raw
@@ -278,8 +306,9 @@ the module split unlocks the sub-CMake split + the utests build-time win; packag
   nod** (AppImage chosen on the "download-and-run, bundles SDL" merit; revisit if Flathub presence is
   wanted).
 - **macOS signing:** personal-use unsigned `.dmg` now, codesign/notarise later? (Assumed yes.)
-- **dukglue sourcing:** FetchContent vs keep vendored (it's header-only; either works). Leaning
-  FetchContent for consistency with the other forks.
+- **dukglue sourcing:** RESOLVED — FetchContent the **`gnilk/dukglue` fork** at the pinned SHA (§2). It's
+  header-only and the worktree is clean, so the fork commit is the whole story; no separate
+  pre-processing. (The pre-processed dep is `duktape`, which stays vendored.)
 - **AI-7 relationship:** these module libs are **internal** (no install/export, no public API) — they do
   **not** reopen the dropped AI-7 (a shipped `goatui` lib). Recorded so a future reader doesn't conflate
   them.
@@ -294,3 +323,7 @@ the module split unlocks the sub-CMake split + the utests build-time win; packag
 - **2026-06-16** — Corrected the `utests -I/usr/local/include` entry: it's an **intentional**
   workaround for finding the testrunner headers after a macOS SDK upgrade (user clarification), not a
   bug. Removed from CM-0; folded the proper fix (locate `trun` includes via `find_path`) into CM-1.
+- **2026-06-16** — Captured the **known-working dependency pins** (§2 table, SHAs from the current clean
+  `ext/` clones) as the CM-1 targets. Clarified two FetchContent gotchas: `dukglue` is the **`gnilk`
+  fork** (not upstream — must pin the fork SHA), and the genuinely **pre-processed** dep is `duktape`
+  (stays vendored), not dukglue. Resolved the §7 dukglue-sourcing question.

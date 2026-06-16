@@ -21,12 +21,10 @@ CMake 3.22+ is required. Build is configured per-platform with optional SDL2/SDL
 sudo apt-get install -y libyaml-cpp-dev libncurses-dev libsdl2-dev
 ./setup_deps.sh       # clones ext/ source deps (json, gnklog, dukglue, fmt)
 
-# Configure. NOTE: backend is per-machine (same 'cmake-build-debug' dir name, different config):
-#   - Linux dev box: SDL2 ON / SDL3 OFF, running binary gedit::SDL2::* (flags below).
-#   - macOS dev box:  SDL3 ON / SDL2 OFF, running binary gedit::SDL3::* (swap the flags).
-# Match whatever the local build dir is already configured with.
-cmake -B ./cmake-build-debug -DCMAKE_BUILD_TYPE=Debug -DGEDIT_BUILD_SDL3=OFF -DGEDIT_BUILD_SDL2=ON    # Linux
-# cmake -B ./cmake-build-debug -DCMAKE_BUILD_TYPE=Debug -DGEDIT_BUILD_SDL3=ON -DGEDIT_BUILD_SDL2=OFF   # macOS
+# Configure. The backend is now auto-selected by platform in CMakeLists.txt (`if(APPLE)` → SDL3 ON /
+# SDL2 OFF, running gedit::SDL3::*; else → SDL2 ON, gedit::SDL2::*). So a plain configure is enough:
+cmake -B ./cmake-build-debug -DCMAKE_BUILD_TYPE=Debug
+# The GEDIT_BUILD_SDL2/SDL3 options still exist as explicit overrides if you ever need to force a backend.
 
 # Build the main binary
 cmake --build ./cmake-build-debug --config Debug --target goatedit -j
@@ -69,8 +67,8 @@ cd cmake-build-debug && trun -l ./libutests.so                     # list
 
 Test source files live in `utests/`. Each `test_<module>.cpp` corresponds to one module; `test_main.cpp` initializes the editor singleton for all tests. Test functions are `extern "C"` (or `DLL_EXPORT`) and discovered by exported symbol name — adding a new case is just a new function (+ a forward declaration where the file uses one).
 
-**Verified-green set** (216 tests, run from `cmake-build-debug/`):
-`trun -m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,vtermparser,keymapping,hexprojection,bytestream,hexview,indent,markdown --sequential ./libutests.so`
+**Verified-green set** (235 tests, run from `cmake-build-debug/`):
+`trun -m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,vtermparser,keymapping,hexprojection,bytestream,hexview,indent,session,markdown --sequential ./libutests.so`
 
 **Do NOT run the full debug suite** — the sqlite3-parse test is intentionally excluded (~1s release, 13–15s debug: syntax highlighter over a large file, no optimizations). `test_timer`/`test_timer_exit` are pre/post module hooks (intentionally empty); logger tests are obsolete (external lib has its own suite).
 
@@ -294,52 +292,44 @@ YAML-based config loaded by `Config` singleton. `ConfigNode` provides typed acce
 
 ## Current state — resume point (read this first)
 
-### IN PROGRESS (2026-06-16): branch `feature/markdown-support` (off `main`)
+### Baseline (2026-06-16): everything is on `main`
 
-Markdown (`.md`) syntax support — **v1 CLOSED OUT: §3 + §2.A + §2.B done + tests strengthened + added to
-the verified-green set.** Only the GUI color-eyeball/retune (user-side on macOS) and the optional §6 lexer
-work remain before/after merge. **`docs/support-markdown.md` is the authoritative tracker — read its §0
-first.** Summary:
-- `.md`/`.markdown` → new `MarkdownLanguage` (`src/Core/Language/LanguageSupport/`).
-- §3: 8 **generic** document/markup token classes (`kHeading`/`kStrong`/`kEmphasis`/`kCode`/`kListMarker`/
-  `kBlockQuote`/`kLink`/`kRule`) in `LanguageTokenClass.h` + `LangToken.cpp` `tokenNames` + theme colors
-  in `Assets/Resources/colors.json` (globals & content). Kept generic on purpose — NOT `kMarkdown*`.
-- §2.A: push/pop states for fenced code (`in_fence`, persists across lines), inline code, `**`/`*`
-  emphasis, `[text]` links. `_`/`__` emphasis deliberately omitted (snake_case false-positives).
-- §2.B: line-anchored blocks (headings/blockquote/lists/thematic breaks) via
-  `OnPostProcessParsedLine`, fence-guarded by the line's state-stack depth. **New plumbing:**
-  `LangLineTokenizer::SetPostLineCallback` (injected, fired per line at end of `ParseLine`); `LanguageBase`
-  ctor binds it to the virtual. Make parser unaffected (uses `ParseLineFromState`).
-- Tests: `utests/test_markdown.cpp`, module `markdown` (14 cases) green — strengthened at close-out with
-  ordered-list marker, fence-CLOSE (pop side of the cross-line state), and `**strong**`-not-`*emphasis*`
-  distinction. **`markdown` is now in the verified-green set (216).** Regression green.
-- **Next (post-merge / user-side):** GUI-eyeball with `Assets/testfiles/support-markdown.md` and retune
-  the placeholder colors in `Assets/Resources/colors.json` (color retune is the only gate before this
-  *looks* finished; the highlighting logic is done). Optional §6 = lexer line-start awareness (fixes the
-  `*`-bullet item-text limitation properly). Known v1 limits live in `docs/support-markdown.md` §0.
-- **On the macOS box:** reconfigure SDL3 (`-DGEDIT_BUILD_SDL3=ON -DGEDIT_BUILD_SDL2=OFF`) and rebuild
-  `utests` (`libutests.dylib`) before running the suite.
-
-### Baseline (2026-06-15): active branch `feature/session-cache-phase1`
-
-`main` is the consolidated baseline (2026-06-12); the **session-cache work lives on
-`feature/session-cache-phase1`** (off `main`, not yet merged). Per-machine SDL backend is now
+`main` is the consolidated baseline. **Two features shipped on it and are GUI-verified: session-cache
+Phase 1 and markdown v1.** Both feature branches (`feature/session-cache-phase1`,
+`feature/markdown-support`) are merged to `main` and kept (not pruned). Per-machine SDL backend is
 **auto-selected** (`if(APPLE)` in `CMakeLists.txt`, `28c413b`) — the old "never commit the CMakeLists SDL
 toggle" caveat is **obsolete**; there is no toggle to leave dirty anymore. Working tree is clean except the
-untracked-by-design files. **`docs/session-cache.md` is the authoritative tracker for this feature** (read its
-§0 resume-point first).
+untracked-by-design files. **Start the next feature on a fresh branch off `main`.**
 
-**Session cache — Phase 1 COMPLETE on the branch (GUI-verified):** per-root `.goatedit/session.yml`
-restores open files + cursors/scroll/selection/view-mode, layout (splitters + focused view + tree
-expand/collapse), and **window geometry**; plus **debounced autosave**. Step 2 (live registry +
-restore-on-reboot) is the next phase. See `docs/session-cache.md`. **Key layering rule that came out of
-this — see the "Lower layer never depends on a higher-level app service" pattern below.**
-
-Verified-green set **221** on the branch (run from `cmake-build-debug/`; macOS lib `libutests.dylib`, Linux
-`libutests.so`):
-`-m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,vtermparser,keymapping,hexprojection,bytestream,hexview,indent,session`
-(was 202 on `main`; the `session` module adds the delta, and the obsolete `winlocation` module was removed.)
+Verified-green set **235** (run from `cmake-build-debug/`; macOS lib `libutests.dylib`, Linux `libutests.so`):
+`-m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,vtermparser,keymapping,hexprojection,bytestream,hexview,indent,session,markdown`
 **Do NOT run the full debug suite** — the sqlite3-parse case is intentionally excluded (13–15s in debug).
+**On the macOS box:** configure SDL3 (`-DGEDIT_BUILD_SDL3=ON -DGEDIT_BUILD_SDL2=OFF`) and rebuild `utests`
+(`libutests.dylib`) before running the suite.
+
+**Session cache — Phase 1 COMPLETE (GUI-verified).** Per-root `.goatedit/session.yml` restores open files
++ cursors/scroll/selection/view-mode, layout (splitters + focused view + tree expand/collapse), and
+**window geometry**; plus **debounced autosave**. **`docs/session-cache.md` is the authoritative tracker**
+(read its §0). **Open next: Step 2** — live registry + restore-on-reboot. **Key layering rule that came out
+of this — see the "Lower layer never depends on a higher-level app service" pattern below.**
+
+**Markdown v1 — CLOSED OUT (highlighting logic done; color retune pending).** `.md`/`.markdown` →
+`MarkdownLanguage` (`src/Core/Language/LanguageSupport/`). **`docs/support-markdown.md` is the
+authoritative tracker** (read its §0). Summary:
+- §3: 8 **generic** document/markup token classes (`kHeading`/`kStrong`/`kEmphasis`/`kCode`/`kListMarker`/
+  `kBlockQuote`/`kLink`/`kRule`) in `LanguageTokenClass.h` + `LangToken.cpp` `tokenNames` + theme colors in
+  `Assets/Resources/colors.json`. Kept generic on purpose — NOT `kMarkdown*`.
+- §2.A: push/pop states for fenced code (`in_fence`, persists across lines), inline code, `**`/`*`
+  emphasis, `[text]` links. `_`/`__` emphasis deliberately omitted (snake_case false-positives).
+- §2.B: line-anchored blocks (headings/blockquote/lists/thematic breaks) via `OnPostProcessParsedLine`,
+  fence-guarded by the line's state-stack depth. **New plumbing:** `LangLineTokenizer::SetPostLineCallback`
+  (injected, fired per line at end of `ParseLine`); `LanguageBase` ctor binds it to the virtual. Make
+  parser unaffected (uses `ParseLineFromState`).
+- Tests: `utests/test_markdown.cpp`, module `markdown` (14 cases) green.
+- **Open next (user-side / optional):** GUI-eyeball `Assets/testfiles/support-markdown.md` and retune the
+  placeholder `md_*` colors in `Assets/Resources/colors.json` (the only gate before it *looks* finished;
+  the logic is done). Optional §6 = lexer line-start awareness (fixes the `*`-bullet item-text limitation).
+  Known v1 limits live in `docs/support-markdown.md` §0.
 
 **Recently shipped (on `main`):** autopair + a data-driven `IndentEngine` (electric indent/dedent, `indent.yml`)
 + the **reformat** feature — `ReformatLine` (`Cmd/Ctrl+L`), `ReformatBlock` (`Cmd/Ctrl+I`, selection→range or
@@ -405,12 +395,12 @@ shown as an image). The HexView spike deliberately **re-encodes the text buffer*
 v1 limitation, NOT an oversight; whether the editor should hold multi-datatype views at all is philosophically
 undecided (possibly out of this project's purpose).
 
-**Operational notes:** per-machine backend (Linux SDL2 / macOS SDL3 — match the local `cmake-build-debug`;
-the committed `CMakeLists.txt` default is SDL2-ON, so the macOS box configures with
-`-DGEDIT_BUILD_SDL3=ON -DGEDIT_BUILD_SDL2=OFF`). On macOS, GUI verification is a **guided manual run**
-(`osascript` keystrokes + `screencapture` are TCC-blocked for Claude's shell here); `Alt` shortcuts =
-**left Option** (SDL3 `only_left` hint). Push before switching workstations, then reconfigure the backend
-and rebuild `utests` (`libutests.so` Linux / `.dylib` macOS) on the other box.
+**Operational notes:** per-machine backend (Linux SDL2 / macOS SDL3) is **auto-selected by platform**
+(`if(APPLE)` in `CMakeLists.txt`) — a plain `cmake -B ./cmake-build-debug` picks the right one; no manual
+SDL flags needed. On macOS, GUI verification is a **guided manual run** (`osascript` keystrokes +
+`screencapture` are TCC-blocked for Claude's shell here); `Alt` shortcuts = **left Option** (SDL3
+`only_left` hint). Push before switching workstations, then rebuild `utests` (`libutests.so` Linux /
+`.dylib` macOS) on the other box.
 
 ---
 

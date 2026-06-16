@@ -50,13 +50,15 @@ work is optional. Detail: [`support-markdown.md`](support-markdown.md).
 
 ---
 
-## Session cache — Phase 1 ✅
+## Session cache — Phase 1 ✅ (merged; Step 2 deferred)
 
-Per-root session persistence: open documents, layout (splitters + focused top-view), window geometry,
-and debounced autosave all round-trip (GUI-verified). The old *global* window-geometry file
-(`WindowLocation`/`gedit_lastwinloc.yml`) was removed — geometry is now per-root session state and **no
-rendering backend does file I/O**. `SessionManager` (singleton) is the sole owner of session disk I/O; a
-session belongs to an open **folder**, never a single file.
+Per-root session persistence: open documents, layout (splitters + focused top-view + tree
+expand/collapse), window geometry, and debounced autosave all round-trip (GUI-verified). The old
+*global* window-geometry file (`WindowLocation`/`gedit_lastwinloc.yml`) was removed — geometry is now
+per-root session state and **no rendering backend does file I/O**. `SessionManager` (singleton) is the
+sole owner of session disk I/O; a session belongs to an open **folder**, never a single file.
 
-See the doc for the phased plan and what remains in later phases (registry + restore): see
-[`session-cache.md`](session-cache.md).
+**Step 2 — live registry + cold-start restore of multiple instances (§3.5) — is DEFERRED** (decided
+2026-06-16): registry/restore/paths files don't exist yet; revisit when the cold-start work is picked
+up. Other deferred items: doc paths stored absolute (→ relativise), `LoadDocument`↔`ReopenDocument`
+consolidation, gated undo persistence. Detail + phasing: [`session-cache.md`](session-cache.md).

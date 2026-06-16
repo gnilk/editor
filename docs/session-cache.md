@@ -1,10 +1,23 @@
 # Session Cache — architecture & design proposal
 
-Status: **Phase 1 COMPLETE** (design 2026-06-13; decisions folded 2026-06-14; implementation
-2026-06-15). Documents, layout, window geometry, and debounced autosave all round-trip on the feature
-branch and are GUI-verified. Step 2 (registry + restore) is the next phase. This document analyses the
-problem, proposes an architecture, lays out a phased implementation, and (the section directly below)
-tracks the live build state.
+Status: **Phase 1 COMPLETE and merged to `main`** (design 2026-06-13; decisions folded 2026-06-14;
+implementation 2026-06-15; merged 2026-06-16). Documents, layout, window geometry, and debounced
+autosave all round-trip and are GUI-verified. **Step 2 (live registry + cold-start restore of multiple
+instances) is DEFERRED** — a deliberate decision (2026-06-16) to tackle other items first; it remains
+the planned next phase (§3.5, §10), not abandoned. This document analyses the problem, proposes an
+architecture, lays out a phased implementation, and (the section directly below) tracks the build state.
+
+> **Reconcile note (2026-06-16) — parts of the as-built prose below predate the UI refactor**
+> (`refactor-ui`, merged `d1622a7`). Since then: `ViewBase` and the split/stack views live under
+> **`src/Core/UI/Views/`** (not `src/Core/Views/`); editor-specific views (`WorkspaceView`,
+> `HSplitViewStatus`) under `src/Core/Editor/Views/`. The session seam in `ViewBase` is now the
+> toolkit-owned **`ILayoutSink`** interface, not `LayoutSession&` directly —
+> `CollectLayout(ILayoutSink&)`/`ApplyLayout(const ILayoutSink&)` plus an injected
+> `ViewBase::SetLayoutChangedHandler` replaced the old `To/FromSession(LayoutSession&)` hooks and the
+> direct `SessionManager::Instance()`/`NotifyChanged()` calls. The app-side adapter wrapping
+> `LayoutSession` is `Core/Session/LayoutSessionSink.h`. The historical commit log below is left as-is
+> (accurate for its time); read splitter/layout API references through this note.
+> See [`ui-refactor.md`](ui-refactor.md) (AI-5) and [`work-log.md`](work-log.md).
 
 **Decisions locked 2026-06-14** (see §3.1–§3.3, §4, §4.2): the existing *global* window-geometry file
 (`WindowLocation` / `gedit_lastwinloc.yml`) is **removed** — geometry becomes per-root session state and
@@ -15,13 +28,12 @@ restore clears the registry, and the exact cold-start default geometry.
 
 ## 0. Implementation status (resume point — read first)
 
-**Branch:** `feature/session-cache-phase1` (off `main`). Per-machine SDL backend is auto-selected
-(`if(APPLE)` in `CMakeLists.txt`, `28c413b`) — no more toggle dance. **Phase 1 is feature-complete**:
-window geometry + debounced autosave landed on top of the documents/layout work.
-**Verified-green set is now 221** (the `session` module grew to 20 cases — added geometry resolve +
-callback; the obsolete `winlocation` module was removed with `WindowLocation`); run from
-`cmake-build-debug/` (`libutests.dylib` on macOS / `.so` on Linux):
-`-m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,vtermparser,keymapping,hexprojection,bytestream,hexview,indent,session`
+**MERGED to `main`** (was branch `feature/session-cache-phase1`). Per-machine SDL backend is
+auto-selected (`if(APPLE)` in `CMakeLists.txt`, `28c413b`) — no more toggle dance. **Phase 1 is
+complete and GUI-verified**: window geometry + debounced autosave landed on top of the documents/layout
+work. **Step 2 (registry + restore) is deferred** — see the header reconcile note. The `session` module
+(19 cases) is part of CLAUDE.md's verified-green set; that list (not a number duplicated here, which
+drifts as other modules land) is the live source of truth for the green set.
 
 **DONE (committed, on the branch):**
 - **Scaffolding + DTOs** (`cb84229`): `src/Core/Session/` (`SessionState.h` pure DTOs, `SessionManager`
@@ -564,8 +576,9 @@ that project, restores it exactly. **No registry, no respawn, no undo, no index*
 roughly top-to-bottom; each group is mergeable on its own.
 
 > **Live status is in §0** (commit refs + the resume point). Boxes below: `[x]` done, `[~]` partial,
-> `[ ]` not started. The two unfinished pieces are window geometry (§11.3 last box) and debounced
-> autosave (§11.4).
+> `[ ]` not started. **All Phase-1 boxes are now `[x]`** — window geometry (§11.3) and debounced
+> autosave (§11.4), the last two open pieces, both landed 2026-06-15. The remaining `[~]`/`[ ]` items
+> are explicitly Step-2 scope (deferred).
 
 ### 11.1 Scaffolding & placement (via AssetLoader — see §4.4)
 - [x] Create `src/Core/Session/` and add to `CMakeLists.txt` (lib + `utests`). *(`cb84229`)*
@@ -649,7 +662,7 @@ roughly top-to-bottom; each group is mergeable on its own.
 - [x] Corrupt/half-written `session.yml` doesn't crash startup — atomic write prevents a partial file;
       parse failure → log + start clean (`FromYaml` returns false, never throws).
 
-### 11.6 Tests (`utests/test_session.cpp`, trun — **18 cases, all green**)
+### 11.6 Tests (`utests/test_session.cpp`, trun — **19 cases, all green**)
 - [x] `RootSession` YAML round-trip incl. selection + view-mode + geometry (`yaml_roundtrip`); bad/newer
       version + corrupt input return false, never throw (`yaml_bad_version`, `yaml_corrupt`).
 - [x] `DocumentViewState` round-trip + backward-selection direction preserved
@@ -659,6 +672,9 @@ roughly top-to-bottom; each group is mergeable on its own.
       hermetic via `ReplaceSearchPath`** — a `.goatedit/` left under the test cwd by a real run was
       shadowing it (env pollution, not a code bug).
 - [x] Reopen skips missing file, rest still restore (`workspace_reopen_skips_missing`).
+- [x] Reopening a file already scanned/open reuses its node instead of duplicating it
+      (`workspace_reopen_reuses_scanned_node`) — guards the restored-session duplicate-tab bug
+      (open-bugs #4, fixed `716a185`).
 - [x] Splitter round-trip (both axes) + untagged no-op + recursive walk over the real nested splitter
       shape (`splitter_roundtrip`, `splitter_untagged_noop`, `layout_walk_roundtrip`).
 - [x] WorkspaceView expand/collapse persist + seed (`workspaceview_expandcollapse`).
@@ -666,8 +682,9 @@ roughly top-to-bottom; each group is mergeable on its own.
 - [x] Window-geometry policy: `ScreenBase::ResolveStartupGeometry` default/preserve/clamp + no-bounds
       fallback (`session_geometry_resolve`); `NotifyWindowGeometryChanged` forwards to the handler / safe
       no-op without one (`session_geometry_callback`). Pure graphics math — no session in the test.
-- [x] `session` added to the **verified-green set** (now **221**) in `CLAUDE.md`'s list — *(pending: the
-      CLAUDE.md resume-point prose still says 202/218; bump it when the branch merges to `main`)*.
+- [x] `session` added to the **verified-green set** in `CLAUDE.md`'s list. *(Merged to `main`
+      2026-06-16; CLAUDE.md no longer carries a stale resume-point count — see its list for the
+      current set.)*
 
 ### Definition of done (Phase 1)
 Open project A (edit, scroll, split, move/resize window, expand some tree nodes, switch to hex on one

@@ -190,9 +190,9 @@ YAML-based config loaded by `Config` singleton. `ConfigNode` provides typed acce
 Docs live under `docs/`. Two are *active references* — check them before touching related code:
 - **`open-bugs.md`** — known-wrong code intentionally left unfixed, with cold-start context (read it
   before touching `AttributeAt`, word-nav, caret/goto-line code, or the tokenizer).
-- **`work-log.md`** — short index of completed efforts (UI refactor, markdown, session cache) with the
-  load-bearing decisions; each entry links to its deep-dive doc (`ui-refactor.md`, `support-markdown.md`,
-  `session-cache.md`) for full history.
+- **`work-log.md`** — short index of completed + planned efforts (UI refactor, markdown, session cache;
+  planned: CMake cleanup) with the load-bearing decisions; each entry links to its deep-dive doc
+  (`ui-refactor.md`, `support-markdown.md`, `session-cache.md`, `cmake-cleanup.md`) for full detail.
 
 ---
 

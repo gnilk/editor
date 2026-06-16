@@ -1,9 +1,9 @@
 # Work log
 
 Short, reverse-chronological index of completed feature efforts. Each entry summarises *what shipped*
-and *the load-bearing decisions*; the linked detail doc carries the full cold-start history. For
-known-wrong code deliberately left unfixed, see [`open-bugs.md`](open-bugs.md) (the active tracker, not
-logged here).
+and *the load-bearing decisions*; the linked detail doc carries the full cold-start history. Planned /
+not-yet-started efforts are listed at the bottom. For known-wrong code deliberately left unfixed, see
+[`open-bugs.md`](open-bugs.md) (the active tracker, not logged here).
 
 ---
 
@@ -62,3 +62,11 @@ sole owner of session disk I/O; a session belongs to an open **folder**, never a
 2026-06-16): registry/restore/paths files don't exist yet; revisit when the cold-start work is picked
 up. Other deferred items: doc paths stored absolute (→ relativise), `LoadDocument`↔`ReopenDocument`
 consolidation, gated undo persistence. Detail + phasing: [`session-cache.md`](session-cache.md).
+
+---
+
+## Planned / not started
+
+- **CMake cleanup** — FetchContent for deps, split `editorsrc` into module libs (Core/UI/Editor/
+  Graphics/jsengine), per-compiler flags, real macOS/Linux installers, optional sub-CMake split. Plan +
+  grounded inventory (incl. a broken `.deb` install rule found): [`cmake-cleanup.md`](cmake-cleanup.md).

@@ -137,11 +137,20 @@ realistic options, with the trade-offs that matter here:
 | **Flatpak** | Sandboxed app + shared runtime | `flatpak install`, via Flathub or a local repo | Yes (runtime/SDK) | Wide distribution via a store; sandboxing | **Med–High** (manifest, runtime, permissions) |
 | **Snap** | Canonical's sandboxed format | `snap install`, via Snap Store | Yes | Ubuntu-centric store distribution | **Med–High** (snapcraft.yaml; store account) |
 
-**Recommendation for a personal GUI editor:** ship **AppImage as the primary** "works everywhere,
-zero-install" artifact, and keep the **`.deb`** (fix it — CM-6) for your own apt machines. Flatpak/Snap
-are store-distribution formats with sandbox ceremony (the SDL window, clipboard, pty/`forkpty`, and
-arbitrary file access all need portal/permission wiring) — defer unless you actually want Flathub
-presence. AppImage's bundling sidesteps the "is SDL3 installed?" problem that bites this project most.
+**DECIDED (2026-06-16): `.deb` + AppImage, both CI-built and published to GitHub Releases. No app-store
+presence (Flatpak/Snap explicitly out).** The intent is "if someone wants to try it, they download an
+easy binary off GitHub" — same model the user already runs happily for another tool's auto-generated
+`.deb`s. So: AppImage = the portable "download one file, runs on any distro" artifact (bundles SDL,
+sidesteps the "is SDL3 installed?" problem that bites this project most); `.deb` = the apt-native package
+(fix it — CM-6).
+
+**Why Flatpak/Snap are out — not just "no store wanted", there's a hard technical reason:** GoatEdit's
+**embedded terminal uses `forkpty`**, and a sandboxed package runs that shell *inside the sandbox*, not
+on the host — wrong for a coding editor (you want host `$PATH`/toolchain). Un-sandboxing it needs
+`flatpak-spawn --host` + portal/filesystem permission plumbing, which is ongoing manifest ceremony that
+largely defeats the sandbox you took on the complexity for. AppImage (no sandbox) makes the embedded
+terminal Just Work against the host. Combined with "no store presence wanted", Flatpak/Snap buy nothing
+here.
 
 ---
 
@@ -273,13 +282,22 @@ the module split unlocks the sub-CMake split + the utests build-time win; packag
   works on both dev boxes; README/CLAUDE.md updated; CI can use `--preset`. **Depends-on:** — (nicer
   after CM-1/CM-2 so presets reference real options).
 
-### CM-6 — Linux packaging (fix `.deb`, add AppImage)
-- **Goal:** a working `.deb` + a portable AppImage (§3).
-- **Scope:** fix install rules (CM-0), set `CPACK_DEBIAN_PACKAGE_DEPENDS` (SDL, ncurses, yaml-cpp);
-  add an AppImage step (linuxdeploy/appimagetool, bundling SDL). Flatpak/Snap explicitly deferred.
-- **Effort/Risk:** medium / low. **Done-when:** `cpack -G DEB` installs + launches on a clean
-  Ubuntu; the AppImage runs on a second distro without installing SDL. **Depends-on:** CM-0 (install
-  rules); pairs with CM-3 (clean targets help, not required).
+### CM-6 — Linux packaging: `.deb` + AppImage, CI → GitHub Releases  *(DECIDED — §3)*
+- **Goal:** two downloadable binaries on the GitHub Releases page — an apt-native `.deb` and a portable
+  AppImage — **built in CI**, not by hand. Mirrors the user's existing happy setup for another tool.
+  Flatpak/Snap are **out** (no store presence wanted; `forkpty`/sandbox conflict — §3).
+- **Scope:**
+  - **`.deb`:** fix the broken install rules (CM-0); set `CPACK_DEBIAN_PACKAGE_DEPENDS` (SDL, ncurses,
+    yaml-cpp) so apt resolves runtime deps; correct `.desktop` + icon placement.
+  - **AppImage:** bundle the app + SDL (and other non-glibc libs) via `linuxdeploy` + `appimagetool`.
+    **Build on an older base image** (e.g. an LTS Ubuntu a couple of releases back) so the bundled glibc
+    is old enough to run on most distros — the classic AppImage portability rule.
+  - **CI/release:** a workflow (tag-triggered) that runs `cpack -G DEB`, builds the AppImage, and
+    **uploads both as GitHub Release assets**. Keep PR/CI builds producing them as artifacts too.
+- **Effort/Risk:** medium / low. **Done-when:** pushing a version tag produces a Release carrying a
+  `.deb` (installs + launches on a clean Ubuntu, apt-resolves deps) and an AppImage (runs on a *different*
+  distro with no SDL installed). **Depends-on:** CM-0 (install rules); pairs with CM-3/CM-5 (clean
+  targets + presets help the CI invocation; not strictly required).
 
 ### CM-7 — macOS packaging (`.dmg`)
 - **Goal:** a distributable `.dmg` wrapping the `.app` (§4).
@@ -302,9 +320,8 @@ the module split unlocks the sub-CMake split + the utests build-time win; packag
   **Leaning (a) first, (b) opportunistically.** Confirm before CM-3.
 - **Core-root triage:** do we move `Editor`/`RuntimeConfig`/`Runloop` into an explicit app layer (needed
   for a truly acyclic DAG), or accept the coarse split? Tied to the above.
-- **Linux format priority (§3):** AppImage-primary + fix `.deb`, defer Flatpak/Snap — **needs the user's
-  nod** (AppImage chosen on the "download-and-run, bundles SDL" merit; revisit if Flathub presence is
-  wanted).
+- **Linux format (§3):** RESOLVED (2026-06-16) — **`.deb` + AppImage, CI-built → GitHub Releases; no
+  store presence.** Flatpak/Snap out (no store wanted + `forkpty`/sandbox conflict). See CM-6.
 - **macOS signing:** personal-use unsigned `.dmg` now, codesign/notarise later? (Assumed yes.)
 - **dukglue sourcing:** RESOLVED — FetchContent the **`gnilk/dukglue` fork** at the pinned SHA (§2). It's
   header-only and the worktree is clean, so the fork commit is the whole story; no separate
@@ -327,3 +344,7 @@ the module split unlocks the sub-CMake split + the utests build-time win; packag
   `ext/` clones) as the CM-1 targets. Clarified two FetchContent gotchas: `dukglue` is the **`gnilk`
   fork** (not upstream — must pin the fork SHA), and the genuinely **pre-processed** dep is `duktape`
   (stays vendored), not dukglue. Resolved the §7 dukglue-sourcing question.
+- **2026-06-16** — **Linux packaging DECIDED:** `.deb` + AppImage, CI-built and published to GitHub
+  Releases; no app-store presence. Flatpak/Snap ruled out (no store wanted + the `forkpty` embedded
+  terminal conflicts with a sandbox). Rewrote CM-6 to be concrete (CPack DEB + linuxdeploy AppImage on an
+  old base + a tag-triggered release workflow); resolved the §7 Linux-format question.

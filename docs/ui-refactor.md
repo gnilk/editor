@@ -9,7 +9,7 @@
 ## §0 — Status / read this first
 
 **Phase: AI-0 through AI-6 ✅ ALL DONE — branch `refactor-ui`** (committed `97ce381`, `7dce4e1`,
-`35dd33a`, `8a22d0e`, `98297bc`, `1558cd7`, plus AI-6's commit). **The AI-2 include-discipline gate is
+`35dd33a`, `8a22d0e`, `98297bc`, `1558cd7`, `94aac9c`). **The AI-2 include-discipline gate is
 fully green** (`./scripts/check-ui-boundary.sh` reports clean; the CI step is now blocking, no longer
 informational). **Only AI-7 (the optional physical `goatui` library) remains, and it's explicitly
 optional** ("I might not do it") — there is no other open action item. Analysis in §3–§7; the

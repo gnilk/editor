@@ -11,17 +11,19 @@
 
 **Phase: PLANNING — nothing implemented yet.** This is the analysis + plan only; no CMake changed.
 
-Drivers (user-stated): (1) replace the home-grown dependency pre-fetch with **FetchContent**; (2) split
-the monolithic `editorsrc` into per-module groups/libs (UI, Graphics, Core, Editor, …); (3) **proper
-installers** for macOS + Linux; (4) **per-compiler** flag handling (Clang vs GCC); (5) (open) split the
-single `CMakeLists.txt` into sub-CMake files.
+Drivers (user-stated): (1) replace the home-grown dependency pre-fetch with **FetchContent**; (2) group
+the monolithic `editorsrc` into **named source-list variables** (UI, Graphics, Core, Editor, …) — *not*
+separate libraries; (3) **proper installers** for macOS + Linux; (4) **per-compiler** flag handling
+(Clang vs GCC); (5) move the rarely-changed **noise** (deps, flags, packaging) into `cmake/*.cmake`
+includes — keeping **one** main `CMakeLists.txt`, not splitting the source tree across per-folder
+`CMakeLists.txt`.
 
 **Relationship to other docs:** the ui-refactor deferred a CMake `ui_src`/`appui_src` grouping
-([`ui-refactor.md`](ui-refactor.md) §9, "cosmetic, deferred") and explicitly **dropped AI-7** (a
-*shipped, exported* `goatui` library with a stable public API). The module split here is **internal
-build hygiene** — object/static libs with no install/export and no stable API — which is a *different*
-thing and does **not** reopen AI-7. It does, however, turn the ui-refactor's include-discipline gate
-(`scripts/check-ui-boundary.sh`) into a **link-time** boundary as a bonus.
+([`ui-refactor.md`](ui-refactor.md) §9, "cosmetic, deferred") — that's exactly this (CM-3). It also
+**dropped AI-7** (a *shipped, exported* `goatui` library with a stable public API). This cleanup is
+**source-list grouping + noise extraction only** — no new libraries/targets — so it does **not** reopen
+AI-7. The UI boundary stays enforced at the source level by the include gate
+(`scripts/check-ui-boundary.sh`).
 
 ---
 
@@ -30,11 +32,11 @@ thing and does **not** reopen AI-7. It does, however, turn the ui-refactor's inc
 A maintainable, reproducible, portable build:
 - **Reproducible deps** — pinned versions fetched by CMake itself; no manual `setup_deps.sh` step, no
   configure-time `git clone` side-effects.
-- **Legible structure** — the source list reflects the module boundaries the code already has
-  (`src/Core/UI/` vs `src/Core/Editor/` vs the rest), ideally as real CMake targets with a one-way
-  dependency DAG.
+- **Legible structure** — the source lists reflect the areas the code already has (`src/Core/UI/` vs
+  `src/Core/Editor/` vs the rest) as **named `list()` groups feeding one target** (no separate libs); and
+  the noise (deps/flags/packaging) lives in `cmake/*.cmake` so the main file is mostly source + targets.
 - **Per-compiler correctness** — warning flags chosen by compiler/version, third-party noise scoped to
-  third-party targets (not blanket-suppressed across our own code), and build-type-aware optimisation.
+  third-party *sources* (not blanket-suppressed across our own code), and build-type-aware optimisation.
 - **Real installers** — a `.dmg` (or signed app) on macOS; a sensible package on Linux.
 
 Non-goal: rewriting working behaviour. The current build *works*; this is hygiene + packaging.
@@ -167,55 +169,45 @@ here.
 
 ---
 
-## §5 — Proposed module split (the dependency DAG)
+## §5 — Source-list grouping (NOT separate targets)
 
-The code already has the boundaries; the build should mirror them. Target DAG (arrows = "depends on"):
+**Scope clarification (2026-06-16, user):** the goal is **not** separate CMake libraries/targets with a
+dependency DAG, and **not** splitting the source tree across multiple `CMakeLists.txt`. It's simply
+**grouping the one flat `editorsrc` list into several named source-list variables** that all still feed
+the single `goatedit` (and `utests`) target — exactly today's `editorsrc` / `jsapi` / `duktape` pattern,
+just more of them. One main `CMakeLists.txt` stays the home for the source lists + targets; the *noise*
+(deps, flags, packaging) moves to `cmake/*.cmake` includes (CM-4).
 
-```
-        fmt, gnklog, yaml-cpp, json ─┐
-                                      ▼
-   duktape, stb, dukglue ──►   goatcore  ──►  goatui  ──►  goatui-sdl2 | goatui-sdl3   (backend)
-                                   │             ▲                       ▲
-                                   │             └──── goateditor ───────┘
-                                   ▼                       ▲
-                                 (used by all)         jsengine
-                                                           ▲
-                              main.cpp  ──►  goatedit (exe) ┘     utests (links the libs, not re-compiles)
-```
+Proposed source-list variables (names illustrative), combined at the end via
+`target_sources(goatedit PUBLIC ${coresrc} ${uisrc} ${editorsrc} ${graphics_sdlN} ${jsapi} ${duktape})`:
 
-- **`goatcore`** — `src/Core/` foundation: data model (`Document`, `TextBuffer`, `Line`, `Workspace`),
-  config/theme/session, language/syntax, util, and the shared primitives (`Rect`/`Point`/`ColorRGBA`/
-  `NamedColors`/`VerticalNavigationViewModel`/`KeyPress`/`Keyboard`/`Cursor`). Deps: fmt, gnklog,
-  yaml-cpp, json.
-- **`goatui`** — the generic toolkit (`src/Core/UI/`): `ViewBase`, views, `BaseController`, the graphics
-  **contract** (`ScreenBase`/`DrawContext`/…), `UIHost`, `ILayoutSink`, `kUIAction`. Deps: goatcore.
-- **`goatui-sdl2` / `goatui-sdl3`** — concrete backends (`src/Core/Graphics/SDLn/`), one selected. Deps:
-  goatui + SDL + stb (font rendering).
-- **`goateditor`** — editor-specific UI (`src/Core/Editor/`): `EditorView`, controllers, `LineRender`,
-  etc. Deps: goatcore + goatui.
-- **`jsengine`** — `src/Core/JSEngine/` (today's `jsapi` list). Deps: goatcore + goateditor + duktape +
-  dukglue.
-- **`goatedit`** (exe) — `main.cpp` + a backend; links goateditor + jsengine + goatui-sdlN.
+| List var | Holds |
+|---|---|
+| `coresrc` | `src/Core/` foundation: data model (`Document`/`TextBuffer`/`Line`/`Workspace`), config/theme/session, language/syntax, util, primitives (`Rect`/`Point`/`ColorRGBA`/`NamedColors`/…), app glue (`Editor`/`RuntimeConfig`/`Runloop`) |
+| `uisrc` | generic toolkit `src/Core/UI/`: `ViewBase`, views, `BaseController`, graphics **contract**, `UIHost`, `ILayoutSink`, `kUIAction` |
+| `editorsrc` | editor-specific UI `src/Core/Editor/`: `EditorView`, controllers, `LineRender`, … |
+| `graphics_sdl2` / `graphics_sdl3` | the per-backend `src/Core/Graphics/SDLn/` sources (already conditionally appended — just give them their own named lists) |
+| `jsapi` | `src/Core/JSEngine/` (exists already) |
+| `duktape` | vendored duktape TUs (exists already) |
+| `platformsrc` | the `if(APPLE)`/`elseif(UNIX)` platform files (`macOS/*`, `Linux/*`, `unix/Shell`) |
 
-**The hard part (open question, §7):** `src/Core/` root is **not** homogeneous — it mixes true
-foundation (`Document`, `Config`) with **app-orchestration** (`Editor`, `RuntimeConfig`, `Runloop`). A
-strictly acyclic DAG wants those app types *above* goatcore (an `app`/`goateditor` layer), or goatcore
-ends up depending on app concepts. Two granularities:
-- **(a) Coarse / low-risk:** CMake **OBJECT libraries** grouped by folder, accepting that Core-root
-  mixing isn't resolved. Buys legibility + the utests link-not-recompile win immediately; doesn't fully
-  enforce the DAG.
-- **(b) Fine / higher-value:** real **STATIC libs** with enforced acyclic deps — requires triaging a
-  handful of Core-root files (`Editor`/`RuntimeConfig`/`Runloop`) into the app layer first.
+This is **purely organisational** — same single binary, same compile, just legible groups instead of one
+~150-line wall. No DAG, no link-time boundary, no `utests` recompile change (utests keeps compiling the
+same sources; that was a *library*-split benefit and libraries are explicitly out of scope here).
 
-Recommend **(a) first**, evolve to **(b)** opportunistically. (b) makes `check-ui-boundary.sh`
-redundant — the linker enforces it.
+*(For the record: a real library split — `goatcore`/`goatui`/backend/`goateditor` with an enforced
+acyclic DAG — was considered and is **not wanted**. It's a much bigger change for a benefit the user
+doesn't need, and it would resurrect the dropped AI-7 shape. The include-discipline gate
+`scripts/check-ui-boundary.sh` already guards the UI boundary at the source level; it stays the
+enforcement mechanism.)*
 
 ---
 
 ## §6 — Sequenced work items
 
 Ordering principle: safe quick fixes first; FetchContent and warnings are independent and high-value;
-the module split unlocks the sub-CMake split + the utests build-time win; packaging is independent.
+source-list grouping (CM-3) + extracting the noise into `cmake/*.cmake` (CM-4) are mostly cosmetic and
+can land any time; packaging is independent.
 
 ### CM-0 — Quick fixes / correctness (safe, mostly no behaviour change)
 - **Goal:** kill the outright bugs + sloppiness with zero structural risk.
@@ -233,7 +225,7 @@ the module split unlocks the sub-CMake split + the utests build-time win; packag
   the **exact commit in the §2 pin table** (json/gnklog/dukglue have no usable tag → SHA-pin; fmt = tag
   `12.1.0`). **`dukglue` points at the `gnilk/dukglue` fork**, not upstream (it carries fixes — §2).
   `duktape` (pre-processed, §2) + `stb` stay vendored (`src/ext/`). Keep `ext/` gitignored.
-- **Approach:** put declarations in `cmake/Dependencies.cmake`. Document `FETCHCONTENT_SOURCE_DIR_<dep>`
+- **Approach:** put declarations in `cmake/CMakeDeps.cmake` (CM-4). Document `FETCHCONTENT_SOURCE_DIR_<dep>`
   so existing local `ext/` clones can be reused offline (and for dev against a fork). Drop the CI
   `chmod +x setup_deps.sh` step. **Also fold in the testrunner (`trun`) include** (today the raw
   `-I/usr/local/include` workaround on `utests`, §2): locate it properly via `find_path`/an imported
@@ -244,35 +236,43 @@ the module split unlocks the sub-CMake split + the utests build-time win; packag
 
 ### CM-2 — Per-compiler flags + scoped third-party suppressions
 - **Goal:** one source of truth for warnings, chosen by compiler; stop blanket-suppressing our own code.
-- **Scope:** collapse the three `-Wno-*` copies into a `cmake/CompilerWarnings.cmake` helper keyed on
-  `CMAKE_CXX_COMPILER_ID`. **Scope** dukglue/yaml-cpp/duktape suppressions to *those* targets
-  (interface lib / `set_source_files_properties`), not the editor. Add build-type flags (Debug `-O0 -g`,
-  Release `-O2 -DNDEBUG`, RelWithDebInfo). Add a `GEDIT_SANITIZE=address|undefined` option to formalise
-  the ad-hoc `cmake-build-asan/`.
+- **Scope:** collapse the three `-Wno-*` copies into `cmake/CMakeBuildFlags.cmake` (CM-4), keyed on
+  `CMAKE_CXX_COMPILER_ID`. **Scope** the dukglue/yaml-cpp/duktape suppressions to *those sources*
+  (`set_source_files_properties` per file/dir, since there are no separate targets), not the whole
+  editor. Add build-type flags (Debug `-O0 -g`, Release `-O2 -DNDEBUG`, RelWithDebInfo). Add a
+  `GEDIT_SANITIZE=address|undefined` option to formalise the ad-hoc `cmake-build-asan/`.
 - **Effort/Risk:** medium / medium (re-enabling warnings on our code may surface real ones — fix or
   re-suppress deliberately). **Done-when:** our code compiles under `-Wall -Wextra -Wshadow` with only
-  *intentional*, documented suppressions; third-party noise stays off. **Depends-on:** nicely paired
-  with CM-3 (per-target scoping is easier once targets exist).
+  *intentional*, documented suppressions; third-party noise stays off. **Depends-on:** — (note: with no
+  per-target split, third-party suppressions are scoped via `set_source_files_properties`, not target
+  options).
 
-### CM-3 — Split `editorsrc` into module libraries (§5)
-- **Goal:** real CMake targets mirroring the folder modules; utests links libs instead of recompiling.
-- **Scope:** `goatcore`, `goatui`, `goatui-sdlN`, `goateditor`, `jsengine` per §5. Start **coarse**
-  (OBJECT libs, granularity (a)). `goatedit` + `utests` link them.
-- **Approach:** OBJECT libs first (smallest diff, immediate legibility + double-compile fix). Wire
-  `target_link_libraries` to express the DAG. Leave Core-root app/foundation triage (granularity (b))
-  as a follow-up.
-- **Effort/Risk:** high (broad) / medium. **Done-when:** `goatedit` + `utests` build green from the new
-  targets; verified-green 236-test set passes; build time drops (utests no longer recompiles the world).
-  **Depends-on:** CM-0.
+### CM-3 — Group the flat `editorsrc` into named source-list variables (§5)
+- **Goal:** legible source lists — one main `CMakeLists.txt`, but grouped `LIST(APPEND <group> …)`
+  variables instead of one ~150-line `editorsrc` wall. **No separate targets/libraries**, no DAG.
+- **Scope:** carve `editorsrc` into `coresrc`/`uisrc`/`editorsrc`/`graphics_sdl2`/`graphics_sdl3`/
+  `platformsrc` (+ keep existing `jsapi`/`duktape`) per the §5 table; combine them in one
+  `target_sources(goatedit PUBLIC …)` (and the `utests` library). Names are the user's call.
+- **Approach:** pure move of `list(APPEND …)` lines between named lists; zero behaviour change. Same
+  files compiled, same single binary.
+- **Effort/Risk:** low / very low (mechanical re-grouping). **Done-when:** `goatedit` + `utests` build
+  identically; verified-green 236-test set passes; the source lists read as labelled groups.
+  **Depends-on:** CM-0 (nice-to-have).
 
-### CM-4 — Split `CMakeLists.txt` into per-module sub-CMake files
-- **Goal:** each module owns its `CMakeLists.txt` under its folder, via `add_subdirectory`.
-- **Scope:** `src/Core/CMakeLists.txt` (goatcore), `src/Core/UI/CMakeLists.txt` (goatui),
-  `src/Core/Editor/CMakeLists.txt`, `src/Core/Graphics/CMakeLists.txt`, `src/Core/JSEngine/`,
-  `utests/CMakeLists.txt`. Root keeps project setup, deps, packaging.
-- **Effort/Risk:** medium / low (mechanical once CM-3 defines the targets). **Done-when:** root
-  `CMakeLists.txt` is short (project + deps + add_subdirectory + packaging); each module file is
-  self-contained. **Depends-on:** CM-3.
+### CM-4 — Move the rarely-changed *noise* into `cmake/*.cmake` includes
+- **Goal:** keep **one** main `CMakeLists.txt` focused on the source-list groups + targets; hoist the
+  stuff the user seldom touches into separate include files `include()`d from the top. **Not**
+  `add_subdirectory` per source folder — the source tree stays in one CMake file.
+- **Scope:**
+  - `cmake/CMakeDeps.cmake` — the FetchContent declarations + vendored-dep setup (CM-1 lands here).
+  - `cmake/CMakeBuildFlags.cmake` — the per-compiler warning/flag logic + build-type/sanitiser options
+    (CM-2 lands here).
+  - `cmake/CMakePackaging.cmake` — install rules + CPack `.deb`/`.dmg` config (CM-6/CM-7 land here).
+  - Main `CMakeLists.txt` keeps: `project()`, the §5 source-list groups, the target(s), and three
+    `include(cmake/…)` lines.
+- **Effort/Risk:** low / low. **Done-when:** the top-level file is mostly source lists + targets;
+  deps/flags/packaging live in `cmake/`. **Depends-on:** naturally absorbs CM-1/CM-2 (and CM-6/CM-7's
+  packaging) — i.e. those work items *write into* these files rather than the root.
 
 ### CM-5 — `CMakePresets.json`
 - **Goal:** standard, discoverable configure/build/test invocations; encode the SDL backend choice,
@@ -316,19 +316,19 @@ the module split unlocks the sub-CMake split + the utests build-time win; packag
 
 ## §7 — Open questions / decisions log
 
-- **Module granularity (§5):** coarse OBJECT libs (a) vs fine STATIC libs with Core-root triage (b).
-  **Leaning (a) first, (b) opportunistically.** Confirm before CM-3.
-- **Core-root triage:** do we move `Editor`/`RuntimeConfig`/`Runloop` into an explicit app layer (needed
-  for a truly acyclic DAG), or accept the coarse split? Tied to the above.
+- **Source organisation (§5):** RESOLVED (2026-06-16) — **named source-list groups in one
+  `CMakeLists.txt`** (CM-3), with deps/flags/packaging hoisted to `cmake/*.cmake` (CM-4). **Separate
+  libraries / a dependency DAG / per-folder sub-`CMakeLists.txt` are explicitly NOT wanted** — too big a
+  change for no needed benefit, and it would resurrect the dropped AI-7. The list-variable names are the
+  user's call.
 - **Linux format (§3):** RESOLVED (2026-06-16) — **`.deb` + AppImage, CI-built → GitHub Releases; no
   store presence.** Flatpak/Snap out (no store wanted + `forkpty`/sandbox conflict). See CM-6.
 - **macOS signing:** personal-use unsigned `.dmg` now, codesign/notarise later? (Assumed yes.)
 - **dukglue sourcing:** RESOLVED — FetchContent the **`gnilk/dukglue` fork** at the pinned SHA (§2). It's
   header-only and the worktree is clean, so the fork commit is the whole story; no separate
   pre-processing. (The pre-processed dep is `duktape`, which stays vendored.)
-- **AI-7 relationship:** these module libs are **internal** (no install/export, no public API) — they do
-  **not** reopen the dropped AI-7 (a shipped `goatui` lib). Recorded so a future reader doesn't conflate
-  them.
+- **UI boundary enforcement:** stays with the source-level include gate `scripts/check-ui-boundary.sh`
+  (there are no separate libs to enforce it at link time, by choice).
 
 ---
 
@@ -348,3 +348,8 @@ the module split unlocks the sub-CMake split + the utests build-time win; packag
   Releases; no app-store presence. Flatpak/Snap ruled out (no store wanted + the `forkpty` embedded
   terminal conflicts with a sandbox). Rewrote CM-6 to be concrete (CPack DEB + linuxdeploy AppImage on an
   old base + a tag-triggered release workflow); resolved the §7 Linux-format question.
+- **2026-06-16** — **Scope correction (user):** CM-3 is **source-list grouping** (named `list()` vars
+  feeding one target), **not** separate libraries/targets or a dependency DAG; CM-4 is **hoisting the
+  noise into `cmake/*.cmake` includes** (`CMakeDeps`/`CMakeBuildFlags`/`CMakePackaging`), **not**
+  per-folder sub-`CMakeLists.txt` — one main CMake file stays. Rewrote §5, CM-3, CM-4; aligned CM-1/CM-2
+  filenames; resolved the §7 source-organisation question (libraries explicitly out).

@@ -67,6 +67,7 @@ consolidation, gated undo persistence. Detail + phasing: [`session-cache.md`](se
 
 ## Planned / not started
 
-- **CMake cleanup** — FetchContent for deps, split `editorsrc` into module libs (Core/UI/Editor/
-  Graphics/jsengine), per-compiler flags, real macOS/Linux installers, optional sub-CMake split. Plan +
-  grounded inventory (incl. a broken `.deb` install rule found): [`cmake-cleanup.md`](cmake-cleanup.md).
+- **CMake cleanup** — FetchContent for deps (known-working SHAs pinned), group the flat `editorsrc` into
+  named source-list variables (one target, *not* separate libs), per-compiler flags, hoist deps/flags/
+  packaging into `cmake/*.cmake`, and `.deb` + AppImage via CI → GitHub Releases. Plan + grounded
+  inventory (incl. a broken `.deb` install rule found): [`cmake-cleanup.md`](cmake-cleanup.md).

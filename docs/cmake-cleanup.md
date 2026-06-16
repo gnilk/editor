@@ -87,8 +87,11 @@ build is an untracked side `cmake-build-asan/` (per CLAUDE.md), not a formalised
   A raw `-I` is used deliberately to pull in the **testrunner (`trun`) headers** installed under
   `/usr/local/include`: after a macOS system-SDK upgrade, the normal include mechanism stopped picking
   `/usr/local/include` up (the SDK assumes it / CMake drops it), and the raw compile-flag `-I` forces it
-  verbatim where `target_include_directories` did not. Leave as-is; the clean long-term fix is to
-  *locate the testrunner include properly* (a `find_path`/dependency target), not to convert the flag.
+  verbatim where `target_include_directories` did not. Leave as-is **for now** — but note it was the
+  *easy path*: the flag was enforced to make the problem go away, not after finding the idiomatic fix, so
+  a cleaner solution very likely exists. The proper fix is to *locate the testrunner include properly*
+  (a `find_path`/dependency target) — actually investigate it in CM-1 rather than assuming the workaround
+  is the only option; don't just convert the flag.
 - macOS pins `CMAKE_OSX_SYSROOT` to a hard Xcode path (L112) — fragile across Xcode updates.
 - `utests` recompiles **every** source (it's `add_library(utests SHARED ${editorsrc} ${jsapi} …)`), so
   the whole tree builds twice. Module libs (CM-3) would let utests *link* instead of recompile.

@@ -8,7 +8,6 @@
 #include <vector>
 
 #include "Core/Graphics/NativeWindow.h"
-#include "Core/Line.h"
 #include "Core/Rect.h"
 #include "Core/Point.h"
 #include "Core/TextAttributes.h"

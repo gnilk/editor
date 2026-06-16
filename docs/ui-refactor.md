@@ -8,7 +8,8 @@
 
 ## §0 — Status / read this first
 
-**Phase: IN PROGRESS — branch `refactor-ui`, AI-0 + AI-1 DONE.** Analysis done (§3–§7); sequenced
+**Phase: IN PROGRESS — branch `refactor-ui`, AI-0 ✅ + AI-1 ✅ DONE (committed `97ce381`, `7dce4e1`).**
+Analysis done (§3–§7); sequenced
 action-item plan in **§8**. User direction (2026-06-16): wants the **clean separation** regardless of
 whether a physical library is ever cut — **start with the folder split (AI-1)**, treat the **`kAction`
 split (AI-4)** as its own work item, and harden the new **`SessionManager`/`ViewBase` seam via
@@ -347,7 +348,7 @@ Each item: **Goal · Scope · Approach · Effort/Risk · Done-when · Depends-on
 
 ---
 
-### AI-0 — Quick wins (safe, no behavior change)
+### AI-0 — Quick wins (safe, no behavior change)  ✅ DONE (2026-06-16)
 - **Goal:** remove dead coupling that costs nothing to drop.
 - **Scope:** `src/Core/Graphics/DrawContext.h`.
 - **Approach:** delete the unused `#include "Core/Line.h"` (§11 — confirmed no `gedit::Line` use in

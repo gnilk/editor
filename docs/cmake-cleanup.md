@@ -83,8 +83,12 @@ build is an untracked side `cmake-build-asan/` (per CLAUDE.md), not a formalised
   no `.h` (L343); `Keyboard.cpp` twice (L371); `RuntimeConfig.cpp` twice (L378); `JSONLanguage.cpp`
   twice (L459).
 - `execute_process(COMMAND mkdir …)` (L18, L39) — non-portable; use `file(MAKE_DIRECTORY …)`.
-- `target_compile_options(utests PUBLIC -I/usr/local/include)` (L609) — an include path passed as a
-  compile *option*; should be `target_include_directories`.
+- `target_compile_options(utests PUBLIC -I/usr/local/include)` (L609) — **intentional, do not "fix".**
+  A raw `-I` is used deliberately to pull in the **testrunner (`trun`) headers** installed under
+  `/usr/local/include`: after a macOS system-SDK upgrade, the normal include mechanism stopped picking
+  `/usr/local/include` up (the SDK assumes it / CMake drops it), and the raw compile-flag `-I` forces it
+  verbatim where `target_include_directories` did not. Leave as-is; the clean long-term fix is to
+  *locate the testrunner include properly* (a `find_path`/dependency target), not to convert the flag.
 - macOS pins `CMAKE_OSX_SYSROOT` to a hard Xcode path (L112) — fragile across Xcode updates.
 - `utests` recompiles **every** source (it's `add_library(utests SHARED ${editorsrc} ${jsapi} …)`), so
   the whole tree builds twice. Module libs (CM-3) would let utests *link* instead of recompile.
@@ -177,8 +181,9 @@ the module split unlocks the sub-CMake split + the utests build-time win; packag
 ### CM-0 — Quick fixes / correctness (safe, mostly no behaviour change)
 - **Goal:** kill the outright bugs + sloppiness with zero structural risk.
 - **Scope:** the `DESTINATION DESTINATION` install rules (L287–288); duplicate source entries
-  (L343/371/378/459); `execute_process(mkdir)` → `file(MAKE_DIRECTORY)` (L18/39); the `utests`
-  `-I/usr/local/include` misuse (L609); delete stale `ext/fmt-10.1.0` + `ext/logger`.
+  (L343/371/378/459); `execute_process(mkdir)` → `file(MAKE_DIRECTORY)` (L18/39); delete stale
+  `ext/fmt-10.1.0` + `ext/logger`. **Leave** the `utests` `-I/usr/local/include` flag alone (it's an
+  intentional testrunner-include workaround — see §2; addressed properly in CM-1).
 - **Effort/Risk:** trivial / none (the install-rule fix is a *behaviour fix* — those rules are currently
   broken). **Done-when:** `cpack -G DEB` produces a package with the `.desktop` + icon correctly placed.
   **Depends-on:** —
@@ -190,7 +195,10 @@ the module split unlocks the sub-CMake split + the utests build-time win; packag
   `12.1.0`). `duktape` + `stb` stay vendored (`src/ext/`). Keep `ext/` gitignored.
 - **Approach:** put declarations in `cmake/Dependencies.cmake`. Document `FETCHCONTENT_SOURCE_DIR_<dep>`
   so existing local `ext/` clones can be reused offline (and for dev against a fork). Drop the CI
-  `chmod +x setup_deps.sh` step.
+  `chmod +x setup_deps.sh` step. **Also fold in the testrunner (`trun`) include** (today the raw
+  `-I/usr/local/include` workaround on `utests`, §2): locate it properly via `find_path`/an imported
+  target so the `utests` build stops depending on a hand-passed flag — the clean home for the macOS
+  SDK-upgrade workaround.
 - **Effort/Risk:** medium / low. **Done-when:** a clean checkout configures + builds with **no**
   `setup_deps.sh` and no network `git clone` from inside `CMakeLists.txt`; CI green. **Depends-on:** —
 
@@ -277,6 +285,9 @@ the module split unlocks the sub-CMake split + the utests build-time win; packag
 
 ## Changelog
 - **2026-06-16** — Initial analysis + plan (CM-0…CM-8). Grounded inventory of the current 663-line
-  `CMakeLists.txt` (incl. the `DESTINATION DESTINATION` install bug, duplicate source entries, the
-  utests `-I` misuse, stale `ext/` leftovers), Linux/macOS packaging primers, the module DAG (§5), and
-  the sequenced work items. No CMake changed.
+  `CMakeLists.txt` (incl. the `DESTINATION DESTINATION` install bug, duplicate source entries, stale
+  `ext/` leftovers), Linux/macOS packaging primers, the module DAG (§5), and the sequenced work items.
+  No CMake changed.
+- **2026-06-16** — Corrected the `utests -I/usr/local/include` entry: it's an **intentional**
+  workaround for finding the testrunner headers after a macOS SDK upgrade (user clarification), not a
+  bug. Removed from CM-0; folded the proper fix (locate `trun` includes via `find_path`) into CM-1.

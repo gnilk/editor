@@ -311,15 +311,14 @@ YAML-based config loaded by `Config` singleton. `ConfigNode` provides typed acce
 
 Splitting `src/Core/Views`+`Controllers` into a generic, reusable UI toolkit (`src/Core/UI/`) and
 editor-specific code (`src/Core/Editor/`). **`docs/ui-refactor.md` is the authoritative tracker —
-read its §0 first.** Sequenced action items AI-0 through AI-7; **AI-0, AI-1, AI-2, AI-3, AI-4, AI-5 are
-✅ DONE** (commits `97ce381`, `7dce4e1`, `35dd33a`, `98297bc`, `8a22d0e`, `1558cd7`, all on
-`refactor-ui`, pushed to `origin/refactor-ui`). **Open: AI-6** (inject theme/color into the remaining
-generic-widget leaf reads — `TreeView.h`, `SingleLineView.h`, `ListSelectionModal.cpp`, `RootView.h`,
-`TestView`; finishes `scripts/check-ui-boundary.sh` fully green). **AI-7** (physical `goatui` library)
-is optional, only if a real second consumer appears. Full rebuild + the verified-green 235-test suite
-pass after every action item; do the same after AI-6. The "lower layer never depends on a higher-level
-app service" pattern (below) and the `kAction`/`kUIAction` split (Actions & Key Mapping, above) both
-came out of this effort.
+read its §0 first.** Sequenced action items AI-0 through AI-7; **AI-0 through AI-6 are ✅ DONE**
+(commits `97ce381`, `7dce4e1`, `35dd33a`, `98297bc`, `8a22d0e`, `1558cd7`, plus AI-6's commit, all on
+`refactor-ui`, pushed to `origin/refactor-ui`). **`scripts/check-ui-boundary.sh` is fully green and its
+CI step is now blocking** (no more app-level includes under `src/Core/UI/`). **Open: only AI-7**
+(physical `goatui` library), and it's explicitly optional — only worth doing if a real second consumer
+appears. Full rebuild + the verified-green 235-test suite pass after every action item. The "lower
+layer never depends on a higher-level app service" pattern (below) and the `kAction`/`kUIAction` split
+(Actions & Key Mapping, above) both came out of this effort.
 
 ### Baseline (2026-06-16): everything is on `main`
 

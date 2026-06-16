@@ -8,16 +8,12 @@
 
 ## §0 — Status / read this first
 
-**Phase: IN PROGRESS — branch `refactor-ui`, AI-0 ✅ + AI-1 ✅ + AI-2 ✅ + AI-5 ✅ + AI-3 ✅ + AI-4 ✅ DONE
-(committed `97ce381`, `7dce4e1`, `35dd33a`, `8a22d0e`, `98297bc`, `1558cd7`).** Analysis done (§3–§7);
-sequenced action-item plan in **§8**. User direction (2026-06-16): wants the **clean separation**
-regardless of whether a physical library is ever cut — **start with the folder split (AI-1)**, treat
-the **`kAction` split (AI-4, now done)** as its own work item, and harden the new
-**`SessionManager`/`ViewBase` seam via `ILayoutSink` (AI-5)** — the user flagged that one as a
-dependency that crept in recently and was overlooked. Also captured: the **`UIHost`** seam (AI-3, now
-done). The library itself (AI-7) is optional ("I might not do it"). **Remaining: AI-6 (theme/color
-injection — finishes the AI-2 gate fully green) is the only open action item besides the optional
-AI-7.**
+**Phase: AI-0 through AI-6 ✅ ALL DONE — branch `refactor-ui`** (committed `97ce381`, `7dce4e1`,
+`35dd33a`, `8a22d0e`, `98297bc`, `1558cd7`, plus AI-6's commit). **The AI-2 include-discipline gate is
+fully green** (`./scripts/check-ui-boundary.sh` reports clean; the CI step is now blocking, no longer
+informational). **Only AI-7 (the optional physical `goatui` library) remains, and it's explicitly
+optional** ("I might not do it") — there is no other open action item. Analysis in §3–§7; the
+sequenced action-item plan is §8; each item's "Built"/"Done" note there has the as-built specifics.
 
 **AI-0 done (2026-06-16, on `refactor-ui`):** removed the dead `#include "Core/Line.h"` from
 `src/Core/Graphics/DrawContext.h`; swept the other contract headers (`ScreenBase.h`, `WindowBase.h`,
@@ -654,7 +650,7 @@ Each item: **Goal · Scope · Approach · Effort/Risk · Done-when · Depends-on
 
 ---
 
-### AI-6 — Inject theme/color into the widgets (leaf cleanup)
+### AI-6 — Inject theme/color into the widgets (leaf cleanup)  ✅ DONE (2026-06-16)
 - **Goal:** drop the last `Editor::Instance().GetTheme()` / `Config::` reads from inside generic
   widgets.
 - **Scope:** `TreeView.h`, `SingleLineView.h`, `ListSelectionModal.cpp`, `RootView.h`, `TestView`.
@@ -663,6 +659,46 @@ Each item: **Goal · Scope · Approach · Effort/Risk · Done-when · Depends-on
   than reading global `Config` from `RootView`.
 - **Effort/Risk:** small / low. **Done-when:** AI-2 gate is **green** for `src/Core/UI`.
   **Depends-on:** AI-3 (provider can ride on `UIHost`).
+- **Built:** the 8 remaining leaks split into two genuinely different fixes, not one — checked actual
+  call sites first rather than trusting the doc's "all theme/color" framing:
+  - **Colors (4 sites — `DrawContext.cpp`, `SingleLineView.h`, `TreeView.h`, `TestView.cpp`):**
+    `UIHost` gained two **value** members (`NamedColors uiColors, globalColors`) with plain
+    `Set/GetUIColors`/`Set/GetGlobalColors` — same shape as the existing `screen`/`rootView` members,
+    *not* a `Theme::Ref`. Rejected `Theme::Ref` even though it was the smaller diff: `Theme` extends
+    `ConfigNode` (an app/config concept), so storing it on `UIHost` would have smuggled a config
+    coupling past the gate's literal per-line grep without fixing the actual smell; it's also unsafe —
+    `Theme::Reload()` does `colorConfig.clear()` then rebuilds, so a long-held `const NamedColors&`
+    would dangle across a reload. `NamedColors` is just `unordered_map<string,ColorRGBA>` (no
+    shared_ptrs), so copying in fresh values is cheap and reload-safe. Glue pushes copies at
+    `Editor::ConfigureTheme()` (initial load) and `ThemeAPI::Reload()` (the JS-triggerable runtime
+    reload) — both now call `UIHost::Instance().SetUIColors/SetGlobalColors(theme->Get...())` right
+    after a successful (re)load.
+  - **Quick-command state (2 sites — `ViewBase.cpp:36`, `RootView.h`'s `LeaveQuickCommand`):** turned
+    out to be policy/state, not color. Split into two pieces: (a) a plain `bool quickCommandActive` on
+    `UIHost` (it already held `quickCmdView`, same subsystem) with `Set/IsQuickCommandActive`, pushed
+    at the two real `Editor::state` transitions (`Editor.cpp` — entering `QuickCommandState`, and
+    inside `LeaveCommandMode()`); `ViewBase::SetWindowCursor` now queries it instead of
+    `Editor::Instance().GetState()`. (b) `RootView::LeaveQuickCommand()`'s body (the
+    `quickmode.leave_when_switching_view` config check + the actual `LeaveCommandMode()` call) is app
+    policy, not UI state, so it moved into an injected `std::function<void()>` —
+    `UIHost::SetOnLeaveQuickCommand`/`NotifyLeaveQuickCommand` — wired once in `Editor::Initialize`
+    right next to AI-5's `ViewBase::SetLayoutChangedHandler` (identical shape, reused on purpose).
+    `RootView::LeaveQuickCommand()` shrank to a one-line call into the hook.
+  - **Two dead includes (free win):** `ListSelectionModal.cpp` and `TestView.cpp` both
+    `#include "Core/Config/Config.h"` but neither called `Config::Instance()` anywhere (grep
+    confirmed) — same shape as the two unused `RuntimeConfig.h` includes AI-3 found. Deleted outright,
+    no provider needed. `TestView.cpp` also had a dead `theme`/`uiColors` pair (only read by
+    already-commented-out lines) — deleted along with the `Editor.h` include.
+  - **One transitive-include casualty (caught at build time, same pattern as AI-3's
+    `ListSelectionModal.cpp` miss):** `utests/test_layout.cpp` used `Editor::Instance()` /
+    `RuntimeConfig::Instance()` without including either directly — it compiled only because
+    `RootView.h` used to drag in `Core/Editor.h` (which drags in `Core/RuntimeConfig.h`). Fixed by
+    adding an explicit `#include "Core/Editor.h"` to the test file itself.
+  - `.github/workflows/cmake.yml`'s `check-ui-boundary.sh` step flipped from informational
+    (`continue-on-error: true`) to **blocking** — the stated flip condition ("once the leak count hits
+    0") is now met. `./scripts/check-ui-boundary.sh` reports clean. Full rebuild (`goatedit` + `utests`)
+    clean; verified-green 235-test set: 0 failures.
+  - **AI-2 gate is now fully green** — this was the last open item besides optional AI-7.
 
 ---
 
@@ -812,3 +848,20 @@ src/Core/                     # shared layer (NOT moved — see §9 "RESOLVED" +
   reads untouched — AI-3's done-when is "no `RuntimeConfig.h`", not "no `Editor.h`"; that's AI-6's
   broader bar. Full rebuild clean; verified-green 235-test set: 0 failures. AI-2 gate leak count: 17 →
   8 (zero `RuntimeConfig.h` hits remain under `src/Core/UI/`). §0/§8 updated.
+- **2026-06-16** — **AI-6 (theme/color injection) DONE**, on branch `refactor-ui` — **AI-2 gate is now
+  fully green.** The 8 remaining leaks turned out to split into two different fixes: (1) 4 color-read
+  sites (`DrawContext.cpp`, `SingleLineView.h`, `TreeView.h`, `TestView.cpp`) → `UIHost` gained value
+  members (`NamedColors uiColors, globalColors`, plain setters/getters — not a `Theme::Ref`, since
+  `Theme` extends `ConfigNode` and `Theme::Reload()` invalidates any held reference); glue pushes fresh
+  copies in `Editor::ConfigureTheme()` and after a successful `ThemeAPI::Reload()`. (2) 2
+  quick-command sites (`ViewBase::SetWindowCursor`, `RootView::LeaveQuickCommand`) turned out to be
+  state/policy, not color → a plain `bool quickCommandActive` on `UIHost` (pushed at the two
+  `Editor::state` transitions) for the state query, and an injected `std::function<void()>` hook
+  (`UIHost::SetOnLeaveQuickCommand`, wired in `Editor::Initialize` next to AI-5's
+  `SetLayoutChangedHandler`) for the policy action. Plus two dead `Core/Config/Config.h` includes
+  deleted outright (`ListSelectionModal.cpp`, `TestView.cpp` — neither called `Config::Instance()`).
+  One transitive-include casualty fixed: `utests/test_layout.cpp` relied on `RootView.h`'s old
+  `Editor.h` include for `Editor`/`RuntimeConfig` symbols; given its own explicit include. Flipped
+  `.github/workflows/cmake.yml`'s boundary-check step from informational to blocking. Full rebuild
+  (`goatedit` + `utests`) clean; verified-green 235-test set: 0 failures. §0/§8 updated. Only AI-7
+  (optional) remains.

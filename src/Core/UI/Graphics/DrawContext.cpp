@@ -1,15 +1,15 @@
 //
 // Created by gnilk on 08.08.23.
 //
-#include "Core/Editor.h"
+#include "Core/UI/UIHost.h"
 #include "DrawContext.h"
 
 using namespace gedit;
 
 void DrawContext::ResetDrawColors() const {
-    auto theme = Editor::Instance().GetTheme();
+    auto &globalColors = UIHost::Instance().GetGlobalColors();
 
-    auto newBgColor = theme->GetGlobalColors().GetColor("background");
-    auto newFgColor = theme->GetGlobalColors().GetColor("foreground");
+    auto newBgColor = globalColors.GetColor("background");
+    auto newFgColor = globalColors.GetColor("foreground");
     SetColor(newFgColor, newBgColor);
 }

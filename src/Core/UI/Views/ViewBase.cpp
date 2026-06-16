@@ -3,7 +3,6 @@
 //
 
 #include "ViewBase.h"
-#include "Core/Editor.h"
 #include "Core/UI/UIHost.h"
 // Ok, need .cpp file for implementation details about MainThread
 #include "Core/Runloop.h"
@@ -33,7 +32,7 @@ void ViewBase::PostMessage(gedit::ViewBase::MessageCallback callback) {
 }
 
 void ViewBase::SetWindowCursor(const Cursor &newCursor) {
-    if (Editor::Instance().GetState() == Editor::QuickCommandState) {
+    if (UIHost::Instance().IsQuickCommandActive()) {
         auto quickView = UIHost::Instance().GetQuickCmdView();
         quickView->SetWindowCursor(newCursor);
     } else {

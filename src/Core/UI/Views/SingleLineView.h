@@ -5,7 +5,7 @@
 #ifndef EDITOR_SINGLELINEVIEW_H
 #define EDITOR_SINGLELINEVIEW_H
 
-#include "Core/Editor.h"
+#include "Core/UI/UIHost.h"
 #include "VisibleView.h"
 
 
@@ -32,8 +32,7 @@ namespace gedit {
     protected:
         void DrawViewContents() override {
             auto &dc = window->GetContentDC();
-            auto theme = Editor::Instance().GetTheme();
-            auto &uiColors = theme->GetUIColors();
+            auto &uiColors = UIHost::Instance().GetUIColors();
 
             if (parentView->IsActive()) {
                 dc.SetColor(uiColors["header_active_foreground"], uiColors["header_active_background"]);

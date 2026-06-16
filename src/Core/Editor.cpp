@@ -235,6 +235,16 @@ bool Editor::Initialize(int argc, const char **argv) {
         SessionManager::Instance().NotifyChanged();
     });
 
+    // Glue for AI-6's quick-command leave policy: RootView::LeaveQuickCommand() (a UI event - cycling
+    // the active top view) just invokes this hook; the actual policy (the quickmode config flag +
+    // Editor::LeaveCommandMode()) stays app-side.
+    UIHost::Instance().SetOnLeaveQuickCommand([]() {
+        auto bAutoLeave = Config::Instance()["quickmode"].GetBool("leave_when_switching_view", true);
+        if ((Editor::Instance().GetState() == Editor::State::QuickCommandState) && bAutoLeave) {
+            Editor::Instance().LeaveCommandMode();
+        }
+    });
+
     // Wire the debounced autosave: meaningful events call SessionManager::NotifyChanged(), which (once
     // a project is open and the view tree exists) posts this handler to the main thread. SaveSession is
     // idempotent + guarded, so an early/spurious schedule is harmless.
@@ -499,6 +509,7 @@ void Editor::HandleGlobalAction(const EditorAction &kpAction) {
         if (kpAction.action == kAction::kActionEnterCommandMode) {
             logger->Debug("Entering command mode!");
             state = QuickCommandState;
+            UIHost::Instance().SetQuickCommandActive(true);
             quickCommandController.Enter();
        } else if (kpAction.action == kAction::kActionSwitchToTerminal) {
             logger->Debug("Should switch to terminal view");
@@ -523,6 +534,7 @@ void Editor::LeaveCommandMode() {
     logger->Debug("Leaving command mode!");
     quickCommandController.Leave();
     state = ViewState;
+    UIHost::Instance().SetQuickCommandActive(false);
 }
 
 // This is the log-path before config file has been loaded - it will only be the console..
@@ -673,6 +685,11 @@ void Editor::ConfigureTheme() {
         return;
     }
 
+    // AI-6 (docs/ui-refactor.md §8): push copies of the theme's color tables into the UI toolkit's
+    // UIHost - the toolkit reads colors through UIHost, never Editor/Theme directly. Re-pushed after
+    // a runtime reload too (see ThemeAPI::Reload).
+    UIHost::Instance().SetUIColors(theme->GetUIColors());
+    UIHost::Instance().SetGlobalColors(theme->GetGlobalColors());
 
     // This map's the various content colors to tokenizer classes for syntax highlighting
 

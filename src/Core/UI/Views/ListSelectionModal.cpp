@@ -6,7 +6,6 @@
 #include "ListSelectionModal.h"
 #include "VStackView.h"
 #include "SingleLineView.h"
-#include "Core/Config/Config.h"
 #include "Core/NamedColors.h"
 #include "Core/UI/UIHost.h"
 

@@ -8,7 +8,6 @@
 #include "logger.h"
 
 #include "Core/UI/UIHost.h"
-#include "Core/Editor.h"
 #include "ViewBase.h"
 
 namespace gedit {
@@ -205,10 +204,7 @@ namespace gedit {
 
     protected:
         void LeaveQuickCommand() {
-            auto bAutoLeave = Config::Instance()["quickmode"].GetBool("leave_when_switching_view", true);
-            if ((Editor::Instance().GetState() == Editor::State::QuickCommandState) && bAutoLeave) {
-                Editor::Instance().LeaveCommandMode();
-            }
+            UIHost::Instance().NotifyLeaveQuickCommand();
         }
     protected:
         int idxCurrentTopView = -1;

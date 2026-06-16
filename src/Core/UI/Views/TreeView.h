@@ -8,7 +8,6 @@
 #include <memory>
 #include <functional>
 #include "VisibleView.h"
-#include "Core/Editor.h"
 #include "Core/UI/UIHost.h"
 #include "Core/VerticalNavigationViewModel.h"
 
@@ -264,8 +263,7 @@ namespace gedit {
 
             AdjustNodeDrawStrings();
 
-            auto theme = Editor::Instance().GetTheme();
-            auto &uiColors = theme->GetUIColors();
+            auto &uiColors = UIHost::Instance().GetUIColors();
             dc.SetColor(uiColors["foreground"], uiColors["background"]);
 
             for(auto i=treeLineCursor.viewTopLine;i<treeLineCursor.viewBottomLine;i++) {

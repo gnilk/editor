@@ -2,6 +2,7 @@
 // Created by gnilk on 28.05.2026.
 //
 #include <testinterface.h>
+#include "Core/Editor.h"
 #include "Core/UI/Views/ViewBase.h"
 #include "Core/UI/Views/RootView.h"
 #include "Core/UI/Views/HSplitView.h"

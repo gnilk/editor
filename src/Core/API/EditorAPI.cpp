@@ -7,7 +7,7 @@
 #include "Core/Config/Config.h"
 #include "EditorAPI.h"
 #include "Core/RuntimeConfig.h"
-#include "Core/Views/RootView.h"
+#include "Core/UI/Views/RootView.h"
 
 using namespace gedit;
 

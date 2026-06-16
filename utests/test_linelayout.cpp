@@ -5,7 +5,7 @@
 //
 #include <testinterface.h>
 #include "Core/Line.h"
-#include "Core/LineRender.h"
+#include "Core/Editor/LineRender.h"
 
 using namespace gedit;
 

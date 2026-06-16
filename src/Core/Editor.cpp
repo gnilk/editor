@@ -27,8 +27,8 @@
 #include "Core/Language/LanguageSupport/MarkdownLanguage.h"
 #include "Core/Language/LanguageSupport/DefaultLanguage.h"
 #include "Core/Plugins/PluginExecutor.h"
-#include "Core/Views/RootView.h"
-#include "Core/Views/WorkspaceView.h"
+#include "Core/UI/Views/RootView.h"
+#include "Core/Editor/Views/WorkspaceView.h"
 
 
 // NCurses backend - Removed

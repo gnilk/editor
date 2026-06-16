@@ -1,14 +1,14 @@
 //
 // Created by gnilk on 17.02.23.
 //
-#include "Core/Views/ViewBase.h"
+#include "Core/UI/Views/ViewBase.h"
 #include "Core/Views/ViewLayout.h"
-#include "Core/Views/HSplitView.h"
-#include "Core/Views/VSplitView.h"
-#include "Core/Views/GutterView.h"
-#include "Core/Views/CommandView.h"
-#include "Core/Views/EditorView.h"
-#include "Core/Views/RootView.h"
+#include "Core/UI/Views/HSplitView.h"
+#include "Core/UI/Views/VSplitView.h"
+#include "Core/Editor/Views/GutterView.h"
+#include "Core/Editor/Views/CommandView.h"
+#include "Core/Editor/Views/EditorView.h"
+#include "Core/UI/Views/RootView.h"
 
 using namespace gedit;
 int main(int argc, char **argv) {

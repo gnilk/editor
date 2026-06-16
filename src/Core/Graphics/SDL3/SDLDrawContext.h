@@ -7,7 +7,7 @@
 
 #include <SDL3/SDL.h>
 
-#include "Core/Graphics/DrawContext.h"
+#include "Core/UI/Graphics/DrawContext.h"
 #include "Core/ColorRGBA.h"
 #include "SDLColor.h"
 #include "SDLWindow.h"

@@ -8,7 +8,7 @@
 #include <SDL2/SDL.h>
 
 #include "Core/KeyPress.h"
-#include "Core/Graphics/KeyboardDriverBase.h"
+#include "Core/UI/Graphics/KeyboardDriverBase.h"
 
 namespace gedit::SDL2 {
     class SDLKeyboardDriver : public KeyboardDriverBase {

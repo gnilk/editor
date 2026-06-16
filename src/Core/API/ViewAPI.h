@@ -6,7 +6,7 @@
 #define EDITOR_VIEWAPI_H
 
 #include <memory>
-#include "Core/Views/ViewBase.h"
+#include "Core/UI/Views/ViewBase.h"
 
 namespace gedit {
     class ViewAPI {

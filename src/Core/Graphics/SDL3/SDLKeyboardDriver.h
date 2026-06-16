@@ -8,7 +8,7 @@
 #include <optional>
 #include <SDL3/SDL.h>
 #include "Core/KeyPress.h"
-#include "Core/Graphics/KeyboardDriverBase.h"
+#include "Core/UI/Graphics/KeyboardDriverBase.h"
 
 namespace gedit::SDL3 {
     class SDLKeyboardDriver : public KeyboardDriverBase {

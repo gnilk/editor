@@ -2,10 +2,10 @@
 // Created by gnilk on 28.05.2026.
 //
 #include <testinterface.h>
-#include "Core/Views/ViewBase.h"
-#include "Core/Views/RootView.h"
-#include "Core/Views/HSplitView.h"
-#include "Core/Views/VSplitView.h"
+#include "Core/UI/Views/ViewBase.h"
+#include "Core/UI/Views/RootView.h"
+#include "Core/UI/Views/HSplitView.h"
+#include "Core/UI/Views/VSplitView.h"
 #include "logger.h"
 
 using namespace gedit;

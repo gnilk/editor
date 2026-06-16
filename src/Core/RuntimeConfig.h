@@ -5,9 +5,9 @@
 #ifndef EDITOR_RUNTIMECONFIG_H
 #define EDITOR_RUNTIMECONFIG_H
 
-#include "Core/Graphics/ScreenBase.h"
-#include "Core/Graphics/KeyboardDriverBase.h"
-#include "Core/Views/ViewBase.h"
+#include "Core/UI/Graphics/ScreenBase.h"
+#include "Core/UI/Graphics/KeyboardDriverBase.h"
+#include "Core/UI/Views/ViewBase.h"
 #include "Core/Document.h"
 #include "Core/AssetLoaderBase.h"
 #include "Core/Plugins/PluginCommand.h"

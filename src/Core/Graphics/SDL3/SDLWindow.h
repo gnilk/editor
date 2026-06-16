@@ -8,7 +8,7 @@
 #include <SDL3/SDL.h>
 
 #include "SDLScreen.h"
-#include "Core/Graphics/WindowBase.h"
+#include "Core/UI/Graphics/WindowBase.h"
 #include "Core/Rect.h"
 #include "Core/Graphics/Cursor.h"
 

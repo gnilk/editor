@@ -81,17 +81,17 @@
 #include "Core/Editor.h"
 
 // Bring in the view handling
-#include "Core/Views/ViewBase.h"
-#include "Core/Views/GutterView.h"
-#include "Core/Views/EditorView.h"
-#include "Core/Views/RootView.h"
-#include "Core/Views/CommandView.h"
-#include "Core/Views/HSplitView.h"
-#include "Core/Views/VSplitView.h"
-#include "Core/Views/HStackView.h"
-#include "Core/Views/VStackView.h"
-#include "Core/Views/EditorHeaderView.h"
-#include "Core/Views/HSplitViewStatus.h"
+#include "Core/UI/Views/ViewBase.h"
+#include "Core/Editor/Views/GutterView.h"
+#include "Core/Editor/Views/EditorView.h"
+#include "Core/UI/Views/RootView.h"
+#include "Core/Editor/Views/CommandView.h"
+#include "Core/UI/Views/HSplitView.h"
+#include "Core/UI/Views/VSplitView.h"
+#include "Core/UI/Views/HStackView.h"
+#include "Core/UI/Views/VStackView.h"
+#include "Core/Editor/Views/EditorHeaderView.h"
+#include "Core/Editor/Views/HSplitViewStatus.h"
 
 
 #include "logger.h"

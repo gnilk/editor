@@ -4,7 +4,7 @@
 #include <testinterface.h>
 #include "Core/Editor.h"
 #include "Core/TextBuffer.h"
-#include "Core/Controllers/EditController.h"
+#include "Core/Editor/Controllers/EditController.h"
 #include "Core/Language/AutoPairCache.h"
 #include "Core/Language/IndentCache.h"
 

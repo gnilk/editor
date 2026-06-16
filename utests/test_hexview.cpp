@@ -17,7 +17,7 @@
 #include "Core/Document.h"
 #include "Core/HexProjection.h"
 #include "Core/TextBuffer.h"
-#include "Core/Views/HexView.h"
+#include "Core/Editor/Views/HexView.h"
 
 using namespace gedit;
 

@@ -12,7 +12,7 @@
 #include "Core/RuntimeConfig.h"
 #include "Core/AssetLoaderBase.h"
 #include "Core/Config/Config.h"
-#include "Core/Views/ViewBase.h"
+#include "Core/UI/Views/ViewBase.h"
 
 using namespace gedit;
 

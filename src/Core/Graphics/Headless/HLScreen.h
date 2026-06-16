@@ -5,10 +5,10 @@
 #ifndef GOATEDIT_HLSCREEN_H
 #define GOATEDIT_HLSCREEN_H
 
-#include "Core/Graphics/ScreenBase.h"
-#include "Core/Graphics/WindowBase.h"
-#include "Core/Graphics/DrawContext.h"
-#include "Core/Graphics/KeyboardDriverBase.h"
+#include "Core/UI/Graphics/ScreenBase.h"
+#include "Core/UI/Graphics/WindowBase.h"
+#include "Core/UI/Graphics/DrawContext.h"
+#include "Core/UI/Graphics/KeyboardDriverBase.h"
 
 namespace gedit {
     class HLWindow : public WindowBase {

@@ -8,18 +8,35 @@
 
 ## §0 — Status / read this first
 
-**Phase: IN PROGRESS — branch `refactor-ui`, AI-0 DONE.** Analysis done (§3–§7); sequenced action-item
-plan in **§8**. User direction (2026-06-16): wants the **clean separation** regardless of whether a
-physical library is ever cut — **start with the folder split (AI-1)**, treat the **`kAction` split
-(AI-4)** as its own work item, and harden the new **`SessionManager`/`ViewBase` seam via `ILayoutSink`
-(AI-5)** — the user flagged that one as a dependency that crept in recently and was overlooked. Also
-captured: the **`UIHost`** seam (AI-3). The library itself (AI-7) is optional ("I might not do it").
+**Phase: IN PROGRESS — branch `refactor-ui`, AI-0 + AI-1 DONE.** Analysis done (§3–§7); sequenced
+action-item plan in **§8**. User direction (2026-06-16): wants the **clean separation** regardless of
+whether a physical library is ever cut — **start with the folder split (AI-1)**, treat the **`kAction`
+split (AI-4)** as its own work item, and harden the new **`SessionManager`/`ViewBase` seam via
+`ILayoutSink` (AI-5)** — the user flagged that one as a dependency that crept in recently and was
+overlooked. Also captured: the **`UIHost`** seam (AI-3). The library itself (AI-7) is optional ("I
+might not do it").
 
 **AI-0 done (2026-06-16, on `refactor-ui`):** removed the dead `#include "Core/Line.h"` from
 `src/Core/Graphics/DrawContext.h`; swept the other contract headers (`ScreenBase.h`, `WindowBase.h`,
 `NativeWindow.h`, `Cursor.h`, `KeyboardDriverBase.h`) — no other editor-model leaks found, only
 primitives (`Rect`/`Point`/`ColorRGBA`/`TextAttributes`) and intra-Graphics includes. `goatedit` +
-`utests` both rebuilt clean. **Next: AI-1 (folder split).**
+`utests` both rebuilt clean.
+
+**AI-1 done (2026-06-16, on `refactor-ui`):** the **full split** (user chose: move editor views out of
+`Views/` too, not just the generic set) into `src/Core/UI/{Graphics,Views,Controllers}` (generic) and
+`src/Core/Editor/{Views,Controllers}` + `src/Core/Editor/LineRender.{h,cpp}` (editor-specific); old
+`src/Core/Views/` and `src/Core/Controllers/` no longer exist. **Correction to the original §10
+sketch:** `Rect`, `Point`, `ColorRGBA`, `TextAttributes`, `NamedColors`, `VerticalNavigationViewModel`,
+`KeyPress`, `Keyboard`, `Cursor` did **NOT** move into a `UI/Primitives/`(`/Input/`) folder as §10
+guessed — grepping their use sites showed they're genuinely **shared** with the core document/text
+model (`Document.h`, `Line.h`, `TextBuffer.h`, `DocumentViewState.h`, `ClipBoard.h`, `HexProjection.h`,
+`TerminalScreen.h`, `LanguageBase.h`, `Theme.h` all include one or more of these). They stay in
+`src/Core/` root as a de facto shared/common layer; no `UI/Primitives/` or `UI/Input/` folder was
+created. `CMakeLists.txt` updated in place (no separate `ui_src`/`appui_src` CMake groups yet — still
+one `editorsrc` list, just with the new paths; that grouping is deferred, not needed for AI-1's
+goal of a physical, visible split). Full rebuild (`goatedit` + `utests`) clean; verified-green 235-test
+set passes 0 failures. **Next: AI-2 (include-discipline smell-test) or pick one of AI-3/4/5 per user
+priority.**
 
 **Verdict in brief (see §7 for the argument):**
 - The layout engine + the rendering contract + the selection/tree widgets **are** genuinely generic
@@ -340,7 +357,7 @@ Each item: **Goal · Scope · Approach · Effort/Risk · Done-when · Depends-on
 
 ---
 
-### AI-1 — Folder split: UI toolkit vs editor views  ◀ START HERE
+### AI-1 — Folder split: UI toolkit vs editor views  ✅ DONE (2026-06-16)
 - **Goal:** make the boundary physical and visible. *No dependency-breaking yet* — just move files
   and fix include paths.
 - **Scope:** all of `src/Core/Views` + `BaseController` + the graphics **contract** headers + the
@@ -505,46 +522,60 @@ doing *even if AI-7 never happens*.
 - **DECIDED (2026-06-16):** harden the `SessionManager`→`ViewBase` seam via **`ILayoutSink` (AI-5)** —
   user confirmed this is a recently-crept-in dependency to catch now.
 - **DECIDED (2026-06-16):** physical library (AI-7) is **optional** — value is the clean boundary.
+- **DECIDED (2026-06-16):** **full split** — editor views/controllers moved out of `Views/`/
+  `Controllers/` too, not left in place. (AskUserQuestion; rejected "smallest diff, keep them in
+  `Views/`".)
+- **DECIDED (2026-06-16):** editor-specific UI folder name is **`src/Core/Editor/`**
+  (`Editor/Views/`, `Editor/Controllers/`). Rejected `AppUI/`, `EditorUI/`, and "keep as `Views/`".
+- **RESOLVED (2026-06-16, was open):** `Rect`/`Point`/`ColorRGBA`/`TextAttributes`/`NamedColors`/
+  `VerticalNavigationViewModel`/`KeyPress`/`Keyboard`/`Cursor` stay in `src/Core/` root — confirmed
+  shared with the document/text model, not UI-exclusive. No `UI/Primitives/` or `UI/Input/` folder.
+  See the AI-1 §0 note for the use-site evidence.
 - **Open — `kAction` shared-nav set:** put the navigation actions in `kUIAction` (both editor + list
   widgets consume) vs duplicate a nav subset. Leaning shared-in-toolkit (AI-4 sub-decision).
 - **Open — `UIHost` shape:** UI-local singleton (smallest diff) vs injected `UIHost&`. Leaning
   singleton for pass 1 (AI-3).
-- **Open — folder name for editor-specific UI.** User dislikes `AppUI/`. Candidates in §10.
 - **Open — `Line` in the UI:** §6 (a)/(b)/(c). Leaning (c)-now → (a)-only-if-AI-7.
 - **Open — does `KeyMapping` ship with the UI** or stay app-side feeding resolved actions in? Leaning
   app-side (it's YAML/config-driven).
 - **Open — sequence vs the graphics refactor.** AI-3+ share the `DrawContext` primitive work — likely
   the *same* effort. Confirm with the user before AI-3+.
+- **Open — `ui_src`/`appui_src` CMake grouping.** AI-1 only moved files/fixed includes; the
+  `editorsrc` list in `CMakeLists.txt` is still one flat list (now with the new paths). Splitting it
+  into named groups is cosmetic and deferred — revisit alongside AI-7 if the library is ever cut.
 
 ---
 
-## §10 — Proposed target layout + naming options
+## §10 — Target layout (AS BUILT, AI-1)
 
 ```
-src/Core/UI/                 # the generic library ("GoatUI"?)
+src/Core/UI/                 # the generic toolkit
   Graphics/                  #   the rendering CONTRACT (abstract only)
-    ScreenBase, WindowBase, DrawContext, NativeWindow, Cursor, KeyboardDriverBase
+    ScreenBase, WindowBase, DrawContext, NativeWindow, KeyboardDriverBase
+                             #   (Cursor.h stayed in src/Core/ root — shared, see below)
   Views/                     #   ViewBase, VisibleView, StackableView,
                              #   V/HStackView, V/HSplitView, RootView, ModalView,
                              #   ListSelectionModal, TreeView, TreeSelectionModal,
                              #   SingleLineView, TestView
-  Input/                     #   KeyPress, Keyboard, kUIAction, KeypressAndActionHandler
   Controllers/               #   BaseController
-  Primitives/                #   Rect, Point, ColorRGBA, TextAttributes, NamedColors,
-                             #   VerticalNavigationViewModel
-  UIHost                     #   the injected screen/root/post-message/invalidate context
 
 src/Core/Graphics/SDL2|SDL3|NCurses|Headless   # BACKENDS (depend on UI/Graphics contract)
 
-src/Core/<app-ui>/           # editor-specific views (name TBD — see below)
-  EditorView, EditorViewContainer, EditorHeaderView, HexView, GutterView,
-  TerminalView, WorkspaceView, CommandView, HSplitViewStatus, LineRender,
-  EditController, TerminalController, CommandController, QuickCommandController
+src/Core/Editor/              # editor-specific UI (DECIDED name, §9)
+  Views/                      #   EditorView, EditorViewContainer, EditorHeaderView, HexView,
+                              #   GutterView, TerminalView, WorkspaceView, CommandView,
+                              #   HSplitViewStatus
+  Controllers/                #   EditController, TerminalController, CommandController,
+                              #   QuickCommandController
+  LineRender.{h,cpp}
+
+src/Core/                     # shared layer (NOT moved — see §9 "RESOLVED" + AI-1 §0 note):
+  Rect.h, Point.h, ColorRGBA.h, TextAttributes.h, NamedColors.h,
+  VerticalNavigationViewModel.h, KeyPress.h, Keyboard.h, Graphics/Cursor.h
 ```
 
-Naming options for the editor-specific UI folder (instead of `AppUI/`):
-`Editor/Views/` · `EditorUI/` · `App/Views/` · `Shell/` · keep them in `Views/` and move only the
-generic ones to `UI/` (smallest diff). **Undecided.**
+`UIHost` (AI-3) and the `kUIAction` split (AI-4) are not built yet — still open work items, sketched
+in §8.
 
 ---
 
@@ -567,5 +598,17 @@ generic ones to `UI/` (smallest diff). **Undecided.**
   folder split first (AI-1), `kAction` split as its own item (AI-4) with design sketch, `UIHost`
   (AI-3) + `ILayoutSink` (AI-5) seam sketches, include-discipline CI gate (AI-2), library extraction
   made optional (AI-7). Updated §0 status + §9 decisions.
+- **2026-06-16** — **AI-1 (folder split) DONE**, on branch `refactor-ui`. User chose (AskUserQuestion)
+  the **full split** + **`src/Core/Editor/`** as the editor-UI folder name. Moved: graphics contract →
+  `UI/Graphics/`, generic views → `UI/Views/`, `BaseController` → `UI/Controllers/`, editor views →
+  `Editor/Views/`, editor controllers → `Editor/Controllers/`, `LineRender` → `Editor/`. Fixed every
+  `#include` path across `src/`, `utests/`, and the root-level `main.cpp` (the dead, unbuilt
+  `tests/testlayout.cpp` `ViewLayout.h` include was left as pre-existing breakage, unrelated to this
+  move). Updated `CMakeLists.txt`. **Correction to §10's original sketch:** the shared primitives
+  (`Rect`/`Point`/`ColorRGBA`/`TextAttributes`/`NamedColors`/`VerticalNavigationViewModel`/`KeyPress`/
+  `Keyboard`/`Cursor`) stayed in `src/Core/` root — confirmed via grep that the document/text model
+  depends on them too, so a `UI/Primitives/`+`UI/Input/` folder would have been a false generic/app
+  boundary. Full rebuild (`goatedit` + `utests`) clean; verified-green 235-test set: 0 failures.
+  §9/§10 updated to match the as-built state. **Next: AI-2, or AI-3/4/5 per user priority.**
 </content>
 </invoke>

@@ -7,7 +7,7 @@
 
 #include <ncurses.h>
 
-#include "Core/Graphics/KeyboardDriverBase.h"
+#include "Core/UI/Graphics/KeyboardDriverBase.h"
 #include "Core/macOS/MacOSKeyboardMonitor.h"
 #include "Core/SafeQueue.h"
 

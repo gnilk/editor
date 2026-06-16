@@ -10,7 +10,7 @@
 #include <stack>
 #include "Core/KeypressAndActionHandler.h"
 #include "Core/KeyMapping.h"
-#include "Core/Views/ViewBase.h"
+#include "Core/UI/Views/ViewBase.h"
 #include "Core/SafeQueue.h"
 
 namespace gedit {

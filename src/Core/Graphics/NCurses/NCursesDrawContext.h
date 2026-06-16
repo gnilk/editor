@@ -4,7 +4,7 @@
 
 #ifndef NCWIN_NCURSESDRAWCONTEXT_H
 #define NCWIN_NCURSESDRAWCONTEXT_H
-#include "Core/Graphics/DrawContext.h"
+#include "Core/UI/Graphics/DrawContext.h"
 #include "Core/Line.h"
 #include "NCursesColorRepository.h"
 #include "Core/Graphics/Cursor.h"

@@ -4,7 +4,7 @@
 
 #include "ActionHelper.h"
 #include "Core/Editor.h"
-#include "Core/Views/RootView.h"
+#include "Core/UI/Views/RootView.h"
 
 using namespace gedit;
 

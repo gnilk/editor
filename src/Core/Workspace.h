@@ -158,9 +158,11 @@ namespace gedit {
                 return nullptr;
             }
 
-            // Search recursively for a node with a specific path...
+            // Search recursively for a node with a specific path. Compares lexically-normalized form so
+            // a query path picks up redundant "." segments (e.g. an `OpenFolder(".")` root carries them
+            // in every scanned child's path; an absolute query path built elsewhere normally doesn't).
             Node::Ref FindNodeWithPath(const std::filesystem::path path) {
-                if (path == pathName) {
+                if (path.lexically_normal() == pathName.lexically_normal()) {
                     return shared_from_this();
                 }
                 for(auto &child : childNodes) {
@@ -539,6 +541,10 @@ namespace gedit {
         // THE single filesystem->tree mutator: maps one fs entry (file or dir) to a node under parent.
         // Shared by the initial folder Scan (ReadFolderToNode) and (later) the live folder monitor.
         Node::Ref ApplyFsEntry(Node::Ref parent, const std::filesystem::path &path);
+        // Search every ProjectRoot's tree for a node already covering this path (e.g. one scanned by
+        // OpenFolder, or already open under a different root). Path is resolved to absolute before the
+        // search since callers may pass either form.
+        Node::Ref FindNodeForPath(const std::filesystem::path &path);
 
         ProjectRoot::Ref GetDefaultRoot();   // creates the CWD-based default root if needed
 

@@ -1110,6 +1110,13 @@ Document::Ref Editor::LoadDocument(const std::string &filename) {
         return nullptr;
     }
 
+    // Already open (NewDocumentWithFileRef found the existing node) - just activate it, don't reload
+    // over the top of a possibly-edited buffer.
+    if (IsDocumentOpen(node->GetDocument())) {
+        SetActiveDocument(node->GetDocument());
+        return node->GetDocument();
+    }
+
     node->LoadData();
 
     // Must be present

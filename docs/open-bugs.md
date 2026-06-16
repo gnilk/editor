@@ -105,10 +105,37 @@ an opener (`{foo`, and likely `(foo`, `[foo`) is `kRegular`/identifier, not oper
 tokenizer's longest-match / boundary logic at operator↔identifier transitions.
 
 
-## 4. Open a non-active file from the project/workspace view in a restored session (where the file has been previously opened) will open a new tab with same file
+## 4. FIXED — Open a non-active file from the project/workspace view in a restored session (where the file has been previously opened) will open a new tab with same file
 
-** Symptom:** open a non-active file from the project/workspace view in a restored session (where the file has been previously opened) will open a new tab with same file name
-resulting in a new tab with same file name
+**Symptom:** open a non-active file from the project/workspace view in a restored session (where the file has been previously opened) will open a new tab with same file name
+resulting in a new tab with same file name.
 
 Closing and opening the session again will now have two files with same name. The session file will also contain
 two references to the same file.
+
+**Root cause:** `Editor::OpenDocumentOrFolder` calls `Workspace::OpenFolder` (scans the folder into
+path-only nodes) BEFORE `Editor::RestoreSession` runs. `Workspace::FromSession` → `ReopenDocument` →
+the single-arg `NewDocumentWithFileRef(path)` always parented the new node under `GetDefaultWorkspace()`
+— a separate, lazily-created "default" `ProjectRoot`, distinct from the `ProjectRoot` `OpenFolder` just
+scanned for the same on-disk directory. So each restored document landed on a brand-new node under that
+disconnected "default" tree, while the *displayed* (scanned) node for the same path stayed doc-less.
+Selecting that displayed node in `WorkspaceView` → `Editor::OpenDocumentFromWorkspace` →
+`EnsureDocumentForNode` then built a **second** `Document` for the same file (the doc-less node had
+never been told one already existed) and opened it as a new tab — the duplicate session entries on
+save followed from there.
+
+**Fix:** added `Workspace::FindNodeForPath` (searches every `ProjectRoot`'s tree, via
+`Node::FindNodeWithPath`, for a node already covering the absolute path) and call it first in the
+single-arg `NewDocumentWithFileRef`; if a node already exists (scanned, or already open elsewhere) it's
+reused — `EnsureDocumentForNode` attaches/returns its `Document` — instead of creating a duplicate.
+`Node::FindNodeWithPath` itself was made to compare `lexically_normal()` forms, since an `OpenFolder(".")`
+root (and everything scanned under it) carries a literal `/./` that a freshly-`absolute()`'d query path
+doesn't. Also guarded `Editor::LoadDocument` to activate-not-reload when `NewDocumentWithFileRef` returns
+an already-open document (mirrors the existing early-return in `OpenDocumentFromWorkspace`), so the
+direct "open file" path can't clobber an open buffer's unsaved edits via the same mechanism.
+
+**Regression test:** `test_session_workspace_reopen_reuses_scanned_node` (`utests/test_session.cpp`) —
+`OpenFolder(".")`, then `ReopenDocument` a session entry for a file already scanned into the tree;
+asserts no second `ProjectRoot` is created and the scanned node ends up holding the restored `Document`.
+Verified failing on pre-fix code (extra root committed) before the fix, per the repo's
+reproduce-before-fix discipline.

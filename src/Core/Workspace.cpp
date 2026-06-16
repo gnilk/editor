@@ -220,12 +220,31 @@ Workspace::Node::Ref Workspace::NewDocument(const Node::Ref parent, const std::s
 
 // Create a new Document with a file-reference but don't load the contents...
 Workspace::Node::Ref Workspace::NewDocumentWithFileRef(const std::filesystem::path &pathFileName) {
+    // Reuse a node already covering this path (scanned by OpenFolder, or already open under another
+    // root) rather than creating a duplicate node+Document for the same file - see open-bugs.md #4.
+    auto existing = FindNodeForPath(pathFileName);
+    if (existing != nullptr) {
+        EnsureDocumentForNode(existing);
+        return existing;
+    }
+
     auto parent = GetDefaultWorkspace();
     if (parent == nullptr) {
         logger->Error("Can't find default workspace");
         exit(1);
     }
     return NewDocumentWithFileRef(parent, pathFileName);
+}
+
+Workspace::Node::Ref Workspace::FindNodeForPath(const std::filesystem::path &path) {
+    auto absPath = fs::absolute(path);
+    for (auto &projectRoot : projectRoots) {
+        auto node = projectRoot->GetRootNode()->FindNodeWithPath(absPath);
+        if (node != nullptr) {
+            return node;
+        }
+    }
+    return nullptr;
 }
 
 // Add a file-ref node AND eagerly create its Document (the caller is explicitly opening this file).

@@ -72,6 +72,7 @@ DLL_EXPORT int test_session_selection_direction_preserved(ITesting *t);
 DLL_EXPORT int test_session_document_roundtrip(ITesting *t);
 DLL_EXPORT int test_session_workspace_enumerate(ITesting *t);
 DLL_EXPORT int test_session_workspace_reopen_skips_missing(ITesting *t);
+DLL_EXPORT int test_session_workspace_reopen_reuses_scanned_node(ITesting *t);
 DLL_EXPORT int test_session_splitter_roundtrip(ITesting *t);
 DLL_EXPORT int test_session_splitter_untagged_noop(ITesting *t);
 DLL_EXPORT int test_session_layout_walk_roundtrip(ITesting *t);
@@ -266,6 +267,50 @@ DLL_EXPORT int test_session_workspace_reopen_skips_missing(ITesting *t) {
     session.activeDocumentIndex = 0;
     workspace.FromSession(session);
     TR_ASSERT(t, workspace.GetOpenDocuments().empty());
+    return kTR_Pass;
+}
+
+// Reproduces open-bugs.md #4: restoring a session after OpenFolder must reuse the node OpenFolder
+// already scanned for that path, not create a second one. Before the fix, ReopenDocument ->
+// NewDocumentWithFileRef always parented under the (separate) default workspace root, so the restored
+// document ended up on a brand-new node/root disconnected from the one the WorkspaceView displays -
+// selecting that displayed (still doc-less) node from the UI would then open a second Document for the
+// same file.
+DLL_EXPORT int test_session_workspace_reopen_reuses_scanned_node(ITesting *t) {
+    Workspace workspace;
+    TR_ASSERT(t, workspace.OpenFolder("."));
+    TR_ASSERT(t, workspace.GetProjectRoots().size() == 1);
+
+    // Find the scanned (path-only, no document yet) node for a known fixture file.
+    std::function<Workspace::Node::Ref(Workspace::Node::Ref)> findConvertUTF = [&](Workspace::Node::Ref node) -> Workspace::Node::Ref {
+        if (node->GetNodePath().filename() == "ConvertUTF.cpp") {
+            return node;
+        }
+        std::vector<Workspace::Node::Ref> children;
+        node->FlattenChilds(children);
+        for (auto &child : children) {
+            if (auto found = findConvertUTF(child); found != nullptr) {
+                return found;
+            }
+        }
+        return nullptr;
+    };
+    auto scannedNode = findConvertUTF(workspace.GetProjectRoots()[0]->GetRootNode());
+    TR_ASSERT(t, scannedNode != nullptr);
+    TR_ASSERT(t, scannedNode->GetDocument() == nullptr);
+
+    // Restore a session that references that same file by its (relative) path, as ReopenDocument does.
+    DocumentSession docSession;
+    docSession.path = "testfiles/ConvertUTF.cpp";
+    auto document = workspace.ReopenDocument(docSession);
+    TR_ASSERT(t, document != nullptr);
+
+    // No duplicate root/node was created - the restored document landed on the SAME node OpenFolder
+    // scanned, and there's exactly one open document for this file.
+    TR_ASSERT(t, workspace.GetProjectRoots().size() == 1);
+    TR_ASSERT(t, scannedNode->GetDocument() == document);
+    TR_ASSERT(t, workspace.GetOpenDocuments().size() == 1);
+
     return kTR_Pass;
 }
 

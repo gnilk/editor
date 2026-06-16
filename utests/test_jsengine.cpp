@@ -89,10 +89,19 @@ DLL_EXPORT int test_jsengine_loadbuffer(ITesting *t) {
     TR_ASSERT(t, RuntimeConfig::Instance().HasPluginCommand("openfile"));
     auto cmd = RuntimeConfig::Instance().GetPluginCommand("openfile");
     TR_ASSERT(t, cmd != nullptr);
-    auto numBefore = Editor::Instance().GetDocuments().size();
+    // Don't assert on a raw count delta - some other test (or an earlier call to this same case, see
+    // test_jsengine_listbuffers) may have already opened this fixture in the shared Editor singleton,
+    // in which case re-opening it correctly reuses the existing Document (open-bugs.md #4) and the
+    // count doesn't change. Assert the real invariant instead: the file ends up open.
     auto res = cmd->Execute({"testfiles/ConvertUTF.cpp"});
-    auto numAfter = Editor::Instance().GetDocuments().size();
-    TR_ASSERT(t, numAfter > numBefore);
+    auto isOpen = false;
+    for (auto &document : Editor::Instance().GetDocuments()) {
+        if (document->GetPath().filename() == "ConvertUTF.cpp") {
+            isOpen = true;
+            break;
+        }
+    }
+    TR_ASSERT(t, isOpen);
     return kTR_Pass;
 }
 

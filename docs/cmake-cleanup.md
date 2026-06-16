@@ -38,6 +38,9 @@ A maintainable, reproducible, portable build:
 - **Per-compiler correctness** — warning flags chosen by compiler/version, third-party noise scoped to
   third-party *sources* (not blanket-suppressed across our own code), and build-type-aware optimisation.
 - **Real installers** — a `.dmg` (or signed app) on macOS; a sensible package on Linux.
+- **Single-source version** — one place defines `major.minor.patch` (SemVer — there's a public API);
+  `project()`, the compile-time `GEDIT_VERSION_*` macros, the macOS bundle version, and the package
+  version all derive from it.
 
 Non-goal: rewriting working behaviour. The current build *works*; this is hygiene + packaging.
 
@@ -112,6 +115,11 @@ build is an untracked side `cmake-build-asan/` (per CLAUDE.md), not a formalised
   no `.h` (L343); `Keyboard.cpp` twice (L371); `RuntimeConfig.cpp` twice (L378); `JSONLanguage.cpp`
   twice (L459).
 - `execute_process(COMMAND mkdir …)` (L18, L39) — non-portable; use `file(MAKE_DIRECTORY …)`.
+- **Version scattered across ~4 places, inconsistent:** `project(goatedit VERSION 0.1)` (L6), macOS
+  bundle `"0.1"` ×2 (L158–159), and `GEDIT_VERSION_MAJOR/MINOR/PATCH = 0/1/0` (L308–310) — format
+  mismatch (`0.1` vs `0.1.0`), no single source, no dev/release suffix. CPack has no explicit
+  `CPACK_PACKAGE_VERSION` (defaults to `0.1`). The app already composes the string from the macros
+  (`xstrver(...)` in `Editor.cpp`) — the macro pattern exists, it just needs one upstream source (CM-9).
 - `target_compile_options(utests PUBLIC -I/usr/local/include)` (L609) — **intentional, do not "fix".**
   A raw `-I` is used deliberately to pull in the **testrunner (`trun`) headers** installed under
   `/usr/local/include`: after a macOS system-SDK upgrade, the normal include mechanism stopped picking
@@ -312,6 +320,37 @@ can land any time; packaging is independent.
   build artifacts (CM-6/7).
 - **Depends-on:** CM-1, CM-5 (+ CM-6/7 for artifacts).
 
+### CM-9 — Single-source SemVer (one place sets `major.minor.patch`)
+- **Goal:** define the version **once**; everything (project, compile macros, bundle, package) derives
+  from it. SemVer because GoatEdit exposes an API. Same shape the user already runs for `trun`.
+- **Scope:** a `cmake/CMakeVersion.cmake` (included **before** `project()`, fits CM-4) that sets the
+  three numbers and the composed string; remove the hardcoded `0.1` / `0/1/0` from L6/L158–159/L308–310.
+- **Approach** (adapting the trun pattern, `GEDIT_` prefix):
+  ```cmake
+  set(GEDIT_VERSION_MAJOR 0)
+  set(GEDIT_VERSION_MINOR 1)
+  set(GEDIT_VERSION_PATCH 0)
+  # …then: project(goatedit VERSION ${GEDIT_VERSION_MAJOR}.${GEDIT_VERSION_MINOR}.${GEDIT_VERSION_PATCH})
+  if(DEFINED ENV{GITHUB_REF} AND "$ENV{GITHUB_REF}" MATCHES "refs/tags/")
+      set(GEDIT_VERSION_SUFFIX "")        # tag build → release
+  else()
+      set(GEDIT_VERSION_SUFFIX "-dev")    # everything else → -dev
+  endif()
+  set(GEDIT_VERSION_STR "${PROJECT_VERSION}${GEDIT_VERSION_SUFFIX}")
+  ```
+  Then derive: the `GEDIT_VERSION_MAJOR/MINOR/PATCH` compile defs from these vars (not literals); pass a
+  full `GEDIT_VERSION_STR` define so the app/CLI shows e.g. `0.1.0-dev` (lets `Editor.cpp` use it
+  directly instead of re-composing via `xstrver`, keeping the *format* — suffix included — in one place);
+  `CPACK_PACKAGE_VERSION = ${PROJECT_VERSION}`.
+- **Two nuances:** (1) the macOS bundle keys (`CFBundleShortVersionString`) and the `.deb` package
+  version must use the **clean** `${PROJECT_VERSION}` (no `-dev` — Apple rejects non-numeric short
+  versions); the `-dev` suffix is for the **displayed** in-app/CLI string only. (2) Manual `set()` is
+  chosen over a `git describe`-derived version — matches the trun habit and keeps tagless dev builds
+  predictable.
+- **Effort/Risk:** low / low. **Done-when:** bumping the three numbers in one file changes the version
+  everywhere (window title/about, `--version` if any, `.deb`/`.dmg`, bundle); a tag build drops `-dev`.
+  **Depends-on:** lands in CM-4's `cmake/`; feeds CM-6/CM-7 package versions.
+
 ---
 
 ## §7 — Open questions / decisions log
@@ -353,3 +392,7 @@ can land any time; packaging is independent.
   noise into `cmake/*.cmake` includes** (`CMakeDeps`/`CMakeBuildFlags`/`CMakePackaging`), **not**
   per-folder sub-`CMakeLists.txt` — one main CMake file stays. Rewrote §5, CM-3, CM-4; aligned CM-1/CM-2
   filenames; resolved the §7 source-organisation question (libraries explicitly out).
+- **2026-06-16** — Added **CM-9 (single-source SemVer)**: version defined once in
+  `cmake/CMakeVersion.cmake`, everything (project / `GEDIT_VERSION_*` macros / bundle / package) derives
+  from it; `-dev` vs release via `GITHUB_REF` (trun pattern). Noted current version scatter in §2 and the
+  goal in §1. Nuance recorded: bundle/package use the clean `${PROJECT_VERSION}`, `-dev` is display-only.

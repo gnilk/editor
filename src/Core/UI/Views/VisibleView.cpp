@@ -2,13 +2,13 @@
 // Created by gnilk on 16.04.23.
 //
 
-#include "Core/RuntimeConfig.h"
+#include "Core/UI/UIHost.h"
 #include "VisibleView.h"
 
 using namespace gedit;
 
 void VisibleView::InitView() {
-    auto screen = RuntimeConfig::Instance().GetScreen();
+    auto screen = UIHost::Instance().GetScreen();
     if (viewRect.IsEmpty()) {
         viewRect = screen->Dimensions();
     }
@@ -17,7 +17,7 @@ void VisibleView::InitView() {
 }
 
 void VisibleView::ReInitView() {
-    auto screen = RuntimeConfig::Instance().GetScreen();
+    auto screen = UIHost::Instance().GetScreen();
     if (viewRect.IsEmpty()) {
         viewRect = screen->Dimensions();
     }

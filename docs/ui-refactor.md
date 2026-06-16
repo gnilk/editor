@@ -8,14 +8,14 @@
 
 ## §0 — Status / read this first
 
-**Phase: IN PROGRESS — branch `refactor-ui`, AI-0 ✅ + AI-1 ✅ + AI-2 ✅ + AI-5 ✅ DONE (committed
-`97ce381`, `7dce4e1`, `35dd33a`, AI-5 pending commit).** Analysis done (§3–§7); sequenced
-action-item plan in **§8**. User direction (2026-06-16): wants the **clean separation** regardless of
-whether a physical library is ever cut — **start with the folder split (AI-1)**, treat the **`kAction`
-split (AI-4)** as its own work item, and harden the new **`SessionManager`/`ViewBase` seam via
-`ILayoutSink` (AI-5)** — the user flagged that one as a dependency that crept in recently and was
-overlooked. Also captured: the **`UIHost`** seam (AI-3). The library itself (AI-7) is optional ("I
-might not do it").
+**Phase: IN PROGRESS — branch `refactor-ui`, AI-0 ✅ + AI-1 ✅ + AI-2 ✅ + AI-5 ✅ + AI-3 ✅ DONE
+(committed `97ce381`, `7dce4e1`, `35dd33a`, `8a22d0e`, AI-3 pending commit).** Analysis done (§3–§7);
+sequenced action-item plan in **§8**. User direction (2026-06-16): wants the **clean separation**
+regardless of whether a physical library is ever cut — **start with the folder split (AI-1)**, treat
+the **`kAction` split (AI-4)** as its own work item, and harden the new **`SessionManager`/`ViewBase`
+seam via `ILayoutSink` (AI-5)** — the user flagged that one as a dependency that crept in recently and
+was overlooked. Also captured: the **`UIHost`** seam (AI-3, now done). The library itself (AI-7) is
+optional ("I might not do it").
 
 **AI-0 done (2026-06-16, on `refactor-ui`):** removed the dead `#include "Core/Line.h"` from
 `src/Core/Graphics/DrawContext.h`; swept the other contract headers (`ScreenBase.h`, `WindowBase.h`,
@@ -61,8 +61,41 @@ construct a `LayoutSessionSink` over `session.layout` and pass that to `ApplyLay
 `layout.splitters[...]` unchanged — they still read the same `LayoutSession` underneath the sink). Full
 rebuild (`goatedit` + `utests`) clean; verified-green 235-test set passes 0 failures. AI-2 gate leak
 count dropped **19 → 17** (the 2 `Core/Session/*` hits in `ViewBase.h`/`.cpp` are gone; remaining 17 are
-all AI-3/AI-6, see the AI-5 §8 entry). **Next: pick one of AI-3/`UIHost` or AI-4/`kAction` split per
-user priority.**
+all AI-3/AI-6, see the AI-5 §8 entry).
+
+**AI-3 done (2026-06-16, on `refactor-ui`):** added `src/Core/UI/UIHost.{h,cpp}` (UI-owned singleton
+carrying `screen`/`rootView`/`quickCmdView` — the slim subset of `RuntimeConfig` the toolkit actually
+needs). Migrated every `RuntimeConfig::Instance()` call under `src/Core/UI/` to `UIHost::Instance()`:
+`ModalView.cpp`, `ViewBase.cpp` (`PostMessage`/`IsRootView`/`GetRootView`/`GetQuickCmdView` +
+`OnAction{Increase,Decrease}{Width,Height}`), `RootView.h`, `VSplitView.h`, `TreeView.h`,
+`VisibleView.cpp`, `VStackView.h`, `HStackView.h`, and `ListSelectionModal.cpp` (in scope per the §8
+sketch but missed by the initial file-by-file grep — it has no direct `RuntimeConfig.h` include of its
+own and was compiling only via a transitive include through `VStackView.h`, which broke the moment
+`VStackView.h` switched to `UIHost.h`; caught at build time). Deleted two **entirely unused**
+`#include "Core/RuntimeConfig.h"` lines (`HSplitView.h`, `SingleLineView.h` — neither file calls
+`RuntimeConfig::Instance()` at all). Wired `UIHost::Instance().SetRootView/SetQuickCmdView` in
+`main.cpp` (next to the existing `RuntimeConfig` calls) and `UIHost::Instance().SetScreen` in
+`Editor::SetupSDL2`/`SetupSDL3`/`SetupHeadless` (next to the existing `RuntimeConfig::SetScreen` calls)
+— same glue-in-the-init-layer shape as `Editor::WireScreenGeometry`/AI-5's `SetLayoutChangedHandler`.
+**Two deviations from the §8 sketch:** (1) `GetRootView()` returns `ViewBase&` (reference), not
+`ViewBase*` — matches `RuntimeConfig::GetRootView()`'s existing shape so none of the ~9 call sites
+(`UIHost::Instance().GetRootView().Initialize()` etc.) needed restructuring; (2) `PostMessage`/
+`SetPostMessage` from the sketch were **not built** — `Runloop::PostMessage` isn't on the AI-2
+forbidden-header list (`Core/Runloop.h` is a free-standing header, not gated), so wrapping it would add
+an abstraction the gate doesn't require; `ViewBase.cpp` still calls `Runloop::PostMessage` directly.
+`CMakeLists.txt` needed an explicit `list(APPEND editorsrc src/Core/UI/UIHost.cpp src/Core/UI/UIHost.h)`
+(the build has no GLOB — every `.cpp` is hand-listed). **Deliberately out of scope** (left for AI-6,
+per its own done-when of "AI-2 gate fully green"): the `Editor::Instance().GetTheme()` reads
+(`DrawContext.cpp`, `SingleLineView.h`, `TestView.cpp`, `TreeView.h`), the `Editor::State`/
+`LeaveCommandMode()` + `Config::Instance()["quickmode"]` reads in `ViewBase::SetWindowCursor` and
+`RootView::LeaveQuickCommand`, and the `Core/Config/Config.h` includes in `ListSelectionModal.cpp`/
+`TestView.cpp` — none of these touch `RuntimeConfig.h`, which is AI-3's literal done-when. Full rebuild
+(`goatedit` + `utests`) clean; verified-green 235-test set passes 0 failures. AI-2 gate leak count
+dropped **17 → 8**: zero `RuntimeConfig.h` hits remain anywhere under `src/Core/UI/` (AI-3's own
+done-when, met exactly); the 8 left are all `Editor.h` (7, theme/state reads) or `Core/Config/*` (1,
+`ListSelectionModal.cpp` — already counted under `Editor.h` for `TestView.cpp` too) — squarely AI-6's
+leaf-cleanup territory. **Next: AI-4 (`kAction` split) or AI-6 (theme/color injection, finishes the
+gate) per user priority.**
 
 **Verdict in brief (see §7 for the argument):**
 - The layout engine + the rendering contract + the selection/tree widgets **are** genuinely generic
@@ -441,12 +474,15 @@ Each item: **Goal · Scope · Approach · Effort/Risk · Done-when · Depends-on
   - **Zero hits** for `Document.h`/`TextBuffer.h`/`Workspace.h`/`Core/Plugins/*` — confirms §4's
     read that those never leaked into the toolkit in the first place.
   - Re-run `./scripts/check-ui-boundary.sh` any time to refresh this list — it's the live source of
-    truth; the bullets above are a snapshot. **Snapshot is now stale post-AI-5** (the 2 `Core/Session/*`
-    hits are gone — count is 19 → 17); see the AI-5 entry below for the current breakdown.
+    truth; the bullets above are a snapshot. **Snapshot is now stale post-AI-5/AI-3** (the 2
+    `Core/Session/*` hits are gone, and of the 16 hits tagged "AI-3" above, the 10 `RuntimeConfig.h`
+    ones are gone — AI-3's own done-when, "no `RuntimeConfig.h` under `src/Core/UI/`", is met exactly;
+    the 6 `Editor.h` ones remain, deliberately, as AI-6's territory. Count is 19 → 8, all 8 remaining
+    are `Editor.h`/`Core/Config/*`); see the AI-5 and AI-3 entries below for the current breakdown.
 
 ---
 
-### AI-3 — `UIHost`: sever the `RuntimeConfig` service-locator  *(chokepoint #1 — "a note about the UIHost")*
+### AI-3 — `UIHost`: sever the `RuntimeConfig` service-locator  *(chokepoint #1 — "a note about the UIHost")*  ✅ DONE (2026-06-16)
 - **Goal:** the toolkit reaches the screen / root / message-pump through a **slim UI-owned context**
   carrying *only* UI concerns — not the app god-object that drags in `Document`/`Plugins`/`FolderMonitor`.
 - **Scope:** new `UI/UIHost.h`; call sites in `VisibleView`, `V/HStackView`, `V/HSplitView`,
@@ -477,6 +513,41 @@ Each item: **Goal · Scope · Approach · Effort/Risk · Done-when · Depends-on
   `UIHost&` through ctors (cleaner, broader). Lean singleton for pass 1.
 - **Effort/Risk:** medium (broad, but each edit is a 1-line swap) / low. **Done-when:** no `src/Core/UI`
   file includes `RuntimeConfig.h`; suite green. **Depends-on:** AI-1, AI-2.
+- **Built:** `src/Core/UI/UIHost.{h,cpp}` — UI-owned singleton (decision: singleton, not injected ref,
+  per the sketch's lean) holding `screen`/`rootView`/`quickCmdView`. Migrated every
+  `RuntimeConfig::Instance()` call under `src/Core/UI/` to `UIHost::Instance()`: `ModalView.cpp`,
+  `ViewBase.cpp`, `RootView.h`, `VSplitView.h`, `TreeView.h`, `VisibleView.cpp`, `VStackView.h`,
+  `HStackView.h`, and `ListSelectionModal.cpp` (in the scope list above but missed during the initial
+  per-file grep audit — it has no `RuntimeConfig.h` include of its own, compiled only via a transitive
+  include through `VStackView.h`; the swap there broke it, caught at build time, fixed with its own
+  explicit `UIHost.h` include). Deleted two **entirely unused** `#include "Core/RuntimeConfig.h"` lines
+  found along the way (`HSplitView.h`, `SingleLineView.h` — neither actually calls
+  `RuntimeConfig::Instance()`). Glue wired at the two existing `RuntimeConfig` setter call sites:
+  `main.cpp` (`UIHost::Instance().SetRootView`/`SetQuickCmdView`, next to
+  `RuntimeConfig::Instance().SetRootView`/`SetQuickCmdView`) and `Editor::SetupSDL2`/`SetupSDL3`/
+  `SetupHeadless` (`UIHost::Instance().SetScreen`, next to `RuntimeConfig::Instance().SetScreen`) — same
+  glue-in-the-init-layer shape as `Editor::WireScreenGeometry`/AI-5's `SetLayoutChangedHandler`. Needed
+  one `CMakeLists.txt` line (`list(APPEND editorsrc src/Core/UI/UIHost.cpp src/Core/UI/UIHost.h)`) since
+  the build has no GLOB for `src/Core/UI/` — every `.cpp` is hand-listed.
+  **Two deviations from the sketch:** (1) `GetRootView()` returns `ViewBase&` (a reference), not
+  `ViewBase*` — matches `RuntimeConfig::GetRootView()`'s existing shape, so none of the ~9 call sites
+  (`UIHost::Instance().GetRootView().Initialize()` / `.InvalidateAll()` / `.DumpLayout(0)`) needed
+  restructuring; (2) `PostMessage`/`SetPostMessage` were **not built** — `Runloop::PostMessage` (used by
+  `ViewBase::PostMessage`) isn't on the AI-2 gate's forbidden-header list (`Core/Runloop.h` is
+  ungated), so wrapping it would add an abstraction the gate doesn't actually require;
+  `ViewBase.cpp` still calls `Runloop::PostMessage` directly and still includes `Core/Runloop.h`.
+  **Deliberately left out of scope** (reserved for AI-6, whose own done-when is "AI-2 gate fully
+  green" — a strictly broader bar than AI-3's "no `RuntimeConfig.h`"): the
+  `Editor::Instance().GetTheme()` reads in `DrawContext.cpp`/`SingleLineView.h`/`TestView.cpp`/
+  `TreeView.h`; the `Editor::Instance().GetState()`/`LeaveCommandMode()` +
+  `Config::Instance()["quickmode"]` reads in `ViewBase::SetWindowCursor` and
+  `RootView::LeaveQuickCommand`; the `Core/Config/Config.h` includes in `ListSelectionModal.cpp`/
+  `TestView.cpp`. None of these touch `RuntimeConfig.h`. Full rebuild (`goatedit` + `utests`) clean;
+  verified-green 235-test set passes 0 failures. AI-2 gate leak count: **17 → 8** (zero
+  `RuntimeConfig.h` hits remain anywhere under `src/Core/UI/` — AI-3's done-when met exactly; the 8
+  left are 6× `Editor.h` (`DrawContext.cpp`, `ViewBase.cpp`, `RootView.h`, `SingleLineView.h`,
+  `TestView.cpp`, `TreeView.h`) + 2× `Core/Config/Config.h` (`ListSelectionModal.cpp`, `TestView.cpp`)
+  — squarely AI-6's leaf-cleanup territory).
 
 ---
 
@@ -689,3 +760,19 @@ in §8.
   existing restore-by-ratio behavior and its tests). Updated `utests/test_session.cpp`'s splitter/
   layout-walk tests to go through `LayoutSessionSink`. Full rebuild clean; verified-green 235-test set:
   0 failures. AI-2 gate leak count: 19 → 17 (zero `Core/Session/*` hits remain). §0/§8 updated.
+- **2026-06-16** — **AI-3 (`UIHost`) DONE**, on branch `refactor-ui`. Added `src/Core/UI/UIHost.{h,cpp}`
+  (UI-owned singleton: `screen`/`rootView`/`quickCmdView`); migrated every `RuntimeConfig::Instance()`
+  call under `src/Core/UI/` to `UIHost::Instance()` across `ModalView.cpp`, `ViewBase.cpp`,
+  `RootView.h`, `VSplitView.h`, `TreeView.h`, `VisibleView.cpp`, `VStackView.h`, `HStackView.h`, and
+  `ListSelectionModal.cpp` (missed in the initial audit — only compiled before via a transitive
+  `RuntimeConfig.h` include through `VStackView.h`, caught at build time); deleted two unused
+  `#include "Core/RuntimeConfig.h"` lines (`HSplitView.h`, `SingleLineView.h`); wired
+  `UIHost::Instance().SetRootView/SetQuickCmdView/SetScreen` in `main.cpp` and `Editor::SetupSDL2/
+  SetupSDL3/SetupHeadless` alongside the existing `RuntimeConfig` setter calls; added one
+  `CMakeLists.txt` line (no GLOB for `src/Core/UI/`, every `.cpp` is hand-listed). Deviated from the §8
+  sketch: `GetRootView()` returns a reference (matches `RuntimeConfig`'s shape, avoids touching ~9 call
+  sites); `PostMessage`/`SetPostMessage` not built (`Runloop.h` isn't gated by AI-2, so wrapping it
+  would add an ungated abstraction). Left `Editor::Instance().GetTheme()`/`Editor::State`/`Config::`
+  reads untouched — AI-3's done-when is "no `RuntimeConfig.h`", not "no `Editor.h`"; that's AI-6's
+  broader bar. Full rebuild clean; verified-green 235-test set: 0 failures. AI-2 gate leak count: 17 →
+  8 (zero `RuntimeConfig.h` hits remain under `src/Core/UI/`). §0/§8 updated.

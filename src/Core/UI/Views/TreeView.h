@@ -9,6 +9,7 @@
 #include <functional>
 #include "VisibleView.h"
 #include "Core/Editor.h"
+#include "Core/UI/UIHost.h"
 #include "Core/VerticalNavigationViewModel.h"
 
 namespace gedit {
@@ -211,9 +212,9 @@ namespace gedit {
             lhandler->SetWidth(widthMax);
 
             // If this is called during first initialization we don't have the root view yet..
-            if (RuntimeConfig::Instance().HasRootView()) {
-                RuntimeConfig::Instance().GetRootView().Initialize();
-                RuntimeConfig::Instance().GetRootView().InvalidateAll();
+            if (UIHost::Instance().HasRootView()) {
+                UIHost::Instance().GetRootView().Initialize();
+                UIHost::Instance().GetRootView().InvalidateAll();
             }
         }
 

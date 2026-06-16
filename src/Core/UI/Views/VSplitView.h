@@ -6,7 +6,7 @@
 #define NCWIN_VSPLITVIEW_H
 
 #include "ViewBase.h"
-#include "Core/RuntimeConfig.h"
+#include "Core/UI/UIHost.h"
 
 namespace gedit {
     // Vertical splitter — left | right panels separated by a vertical divider
@@ -17,7 +17,7 @@ namespace gedit {
         virtual ~VSplitView() = default;
 
         void InitView() override {
-            auto screen = RuntimeConfig::Instance().GetScreen();
+            auto screen = UIHost::Instance().GetScreen();
             if (viewRect.IsEmpty()) {
                 viewRect = screen->Dimensions();
             }
@@ -30,7 +30,7 @@ namespace gedit {
         }
 
         void ReInitView() override {
-            auto screen = RuntimeConfig::Instance().GetScreen();
+            auto screen = UIHost::Instance().GetScreen();
             if (viewRect.IsEmpty()) {
                 viewRect = screen->Dimensions();
             }

@@ -8,6 +8,7 @@
 #include "SingleLineView.h"
 #include "Core/Config/Config.h"
 #include "Core/NamedColors.h"
+#include "Core/UI/UIHost.h"
 
 
 using namespace gedit;
@@ -31,7 +32,7 @@ protected:
 // These two functions should be in a 'VisibleView' or 'DrawableView'
 // As they are duplicated quite a lot...
 void ListView::InitView() {
-    auto screen = RuntimeConfig::Instance().GetScreen();
+    auto screen = UIHost::Instance().GetScreen();
     if (viewRect.IsEmpty()) {
         viewRect = screen->Dimensions();
     }
@@ -42,7 +43,7 @@ void ListView::InitView() {
     window->SetCaption("ListView");
 }
 void ListView::ReInitView() {
-    auto screen = RuntimeConfig::Instance().GetScreen();
+    auto screen = UIHost::Instance().GetScreen();
     if (viewRect.IsEmpty()) {
         viewRect = screen->Dimensions();
     }

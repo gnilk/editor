@@ -14,6 +14,7 @@
 
 #include "Editor.h"
 #include "Core/RuntimeConfig.h"
+#include "Core/UI/UIHost.h"
 #include "Core/Config/Config.h"
 #include "Core/Session/SessionManager.h"
 #include "Core/Session/LayoutSessionSink.h"
@@ -810,6 +811,7 @@ void Editor::WireScreenGeometry(const ScreenBase::Ref &screen) {
 void Editor::SetupSDL3() {
     auto screenDriver = SDL3::SDLScreen::Create();
     RuntimeConfig::Instance().SetScreen(screenDriver);
+    UIHost::Instance().SetScreen(screenDriver);
     WireScreenGeometry(screenDriver);
     screenDriver->Open();
     screenDriver->Clear();
@@ -833,6 +835,7 @@ void Editor::SetupSDL3() {
 void Editor::SetupSDL2() {
     auto screenDriver = SDL2::SDLScreen::Create();
     RuntimeConfig::Instance().SetScreen(screenDriver);
+    UIHost::Instance().SetScreen(screenDriver);
     WireScreenGeometry(screenDriver);
     screenDriver->Open();
     screenDriver->Clear();
@@ -855,6 +858,7 @@ void Editor::SetupSDL2() {
 void Editor::SetupHeadless() {
     auto screenDriver = HLScreen::Create();
     RuntimeConfig::Instance().SetScreen(screenDriver);
+    UIHost::Instance().SetScreen(screenDriver);
     screenDriver->Open();
     screenDriver->Clear();
 

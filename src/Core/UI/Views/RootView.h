@@ -7,7 +7,7 @@
 
 #include "logger.h"
 
-#include "Core/RuntimeConfig.h"
+#include "Core/UI/UIHost.h"
 #include "Core/Editor.h"
 #include "ViewBase.h"
 
@@ -23,12 +23,12 @@ namespace gedit {
         RootView() {
         }
         void InitView() override {
-            auto screen = RuntimeConfig::Instance().GetScreen();
+            auto screen = UIHost::Instance().GetScreen();
             viewRect = screen->Dimensions();
             window = screen->CreateWindow(viewRect, WindowBase::kWin_Invisible, WindowBase::kWinDeco_None);
         }
         void ReInitView() override {
-            auto screen = RuntimeConfig::Instance().GetScreen();
+            auto screen = UIHost::Instance().GetScreen();
             viewRect = screen->Dimensions();
             window = screen->UpdateWindow(window, viewRect, WindowBase::kWin_Invisible, WindowBase::kWinDeco_None);
         }

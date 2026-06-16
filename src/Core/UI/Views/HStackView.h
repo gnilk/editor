@@ -7,7 +7,7 @@
 
 #include <vector>
 
-#include "Core/RuntimeConfig.h"
+#include "Core/UI/UIHost.h"
 #include "ViewBase.h"
 #include "StackableView.h"
 
@@ -23,7 +23,7 @@ namespace gedit {
         }
         virtual ~HStackView() = default;
         void InitView() override {
-            auto screen = RuntimeConfig::Instance().GetScreen();
+            auto screen = UIHost::Instance().GetScreen();
             if (viewRect.IsEmpty()) {
                 viewRect = screen->Dimensions();
             }
@@ -34,7 +34,7 @@ namespace gedit {
         }
 
         void ReInitView() override {
-            auto screen = RuntimeConfig::Instance().GetScreen();
+            auto screen = UIHost::Instance().GetScreen();
             if (viewRect.IsEmpty()) {
                 viewRect = screen->Dimensions();
             }

@@ -280,6 +280,7 @@
 #include "logger.h"
 
 #include "Core/RuntimeConfig.h"
+#include "Core/UI/UIHost.h"
 
 // Bring in the view handling
 #include "Core/UI/Views/ViewBase.h"
@@ -517,6 +518,8 @@ int main(int argc, const char **argv) {
 
     RuntimeConfig::Instance().SetRootView(&rootView);
     RuntimeConfig::Instance().SetQuickCmdView(&hSplitViewStatus);
+    UIHost::Instance().SetRootView(&rootView);
+    UIHost::Instance().SetQuickCmdView(&hSplitViewStatus);
 
     rootView.Initialize();
     rootView.InvalidateAll();

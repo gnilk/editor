@@ -4,8 +4,8 @@
 
 #include "ViewBase.h"
 #include "Core/Editor.h"
+#include "Core/UI/UIHost.h"
 // Ok, need .cpp file for implementation details about MainThread
-#include "Core/RuntimeConfig.h"
 #include "Core/Runloop.h"
 
 using namespace gedit;
@@ -23,18 +23,18 @@ void ViewBase::SetLayoutChangedHandler(std::function<void()> handler) {
 }
 
 void ViewBase::PostMessage(gedit::ViewBase::MessageCallback callback) {
-    if (RuntimeConfig::Instance().IsRootView(this)) {
+    if (UIHost::Instance().IsRootView(this)) {
         Runloop::PostMessage(0x00,[callback](uint32_t id) {
             callback();
         });
     } else {
-        RuntimeConfig::Instance().GetRootView().PostMessage(callback);
+        UIHost::Instance().GetRootView().PostMessage(callback);
     }
 }
 
 void ViewBase::SetWindowCursor(const Cursor &newCursor) {
     if (Editor::Instance().GetState() == Editor::QuickCommandState) {
-        auto quickView = RuntimeConfig::Instance().GetQuickCmdView();
+        auto quickView = UIHost::Instance().GetQuickCmdView();
         quickView->SetWindowCursor(newCursor);
     } else {
         window->SetCursor(newCursor);
@@ -93,8 +93,8 @@ bool ViewBase::OnAction(const EditorAction &kpAction) {
 void ViewBase::OnActionIncreaseWidth() {
     auto w = GetWidth();
     SetWidth(w + 1);
-    RuntimeConfig::Instance().GetRootView().Initialize();
-    RuntimeConfig::Instance().GetRootView().InvalidateAll();
+    UIHost::Instance().GetRootView().Initialize();
+    UIHost::Instance().GetRootView().InvalidateAll();
 }
 
 void ViewBase::OnActionDecreaseWidth() {
@@ -104,8 +104,8 @@ void ViewBase::OnActionDecreaseWidth() {
     if (w > 24) {
         SetWidth(w - 1);
     }
-    RuntimeConfig::Instance().GetRootView().Initialize();
-    RuntimeConfig::Instance().GetRootView().InvalidateAll();
+    UIHost::Instance().GetRootView().Initialize();
+    UIHost::Instance().GetRootView().InvalidateAll();
 }
 
 void ViewBase::OnActionIncreaseHeight() {
@@ -115,14 +115,14 @@ void ViewBase::OnActionIncreaseHeight() {
     logger->Debug("IncreaseHeight for %s@%p %d -> %d", GetClassName().c_str(),(void *)this, h, h+1);
 
     logger->Info("Before:");
-    RuntimeConfig::Instance().GetRootView().DumpLayout(0);
+    UIHost::Instance().GetRootView().DumpLayout(0);
 
     SetHeight(h + 1);
-    RuntimeConfig::Instance().GetRootView().Initialize();
-    RuntimeConfig::Instance().GetRootView().InvalidateAll();
+    UIHost::Instance().GetRootView().Initialize();
+    UIHost::Instance().GetRootView().InvalidateAll();
 
     logger->Info("After:");
-    RuntimeConfig::Instance().GetRootView().DumpLayout(0);
+    UIHost::Instance().GetRootView().DumpLayout(0);
 }
 
 void ViewBase::OnActionDecreaseHeight() {
@@ -131,6 +131,6 @@ void ViewBase::OnActionDecreaseHeight() {
     if (w > 5) {
         SetHeight(w - 1);
     }
-    RuntimeConfig::Instance().GetRootView().Initialize();
-    RuntimeConfig::Instance().GetRootView().InvalidateAll();
+    UIHost::Instance().GetRootView().Initialize();
+    UIHost::Instance().GetRootView().InvalidateAll();
 }

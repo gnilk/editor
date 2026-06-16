@@ -5,7 +5,7 @@
 #ifndef EDITOR_VSTACKVIEW_H
 #define EDITOR_VSTACKVIEW_H
 
-#include "Core/RuntimeConfig.h"
+#include "Core/UI/UIHost.h"
 #include "ViewBase.h"
 #include "StackableView.h"
 #include <vector>
@@ -22,7 +22,7 @@ namespace gedit {
 
         }
         void InitView() override {
-            auto screen = RuntimeConfig::Instance().GetScreen();
+            auto screen = UIHost::Instance().GetScreen();
             if (viewRect.IsEmpty()) {
                 viewRect = screen->Dimensions();
             }
@@ -32,7 +32,7 @@ namespace gedit {
         }
 
         void ReInitView() override {
-            auto screen = RuntimeConfig::Instance().GetScreen();
+            auto screen = UIHost::Instance().GetScreen();
             if (viewRect.IsEmpty()) {
                 viewRect = screen->Dimensions();
             }

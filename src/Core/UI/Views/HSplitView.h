@@ -7,7 +7,6 @@
 
 #include "logger.h"
 #include "ViewBase.h"
-#include "Core/RuntimeConfig.h"
 #include "VisibleView.h"
 
 namespace gedit {

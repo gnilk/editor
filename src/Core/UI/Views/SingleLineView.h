@@ -6,7 +6,6 @@
 #define EDITOR_SINGLELINEVIEW_H
 
 #include "Core/Editor.h"
-#include "Core/RuntimeConfig.h"
 #include "VisibleView.h"
 
 

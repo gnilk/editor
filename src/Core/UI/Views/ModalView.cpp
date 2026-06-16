@@ -3,7 +3,7 @@
 //
 
 #include "ModalView.h"
-#include "Core/RuntimeConfig.h"
+#include "Core/UI/UIHost.h"
 
 using namespace gedit;
 
@@ -15,7 +15,7 @@ void ModalView::InitView() {
     logger = gnilk::Logger::GetLogger("ModalView");
     logger->Debug("InitView!");
 
-    auto screen = RuntimeConfig::Instance().GetScreen();
+    auto screen = UIHost::Instance().GetScreen();
     if (viewRect.IsEmpty()) {
         auto dim = screen->Dimensions();
         // Position ourselves in the middle...
@@ -37,7 +37,7 @@ void ModalView::InitView() {
 
 }
 void ModalView::ReInitView() {
-    auto screen = RuntimeConfig::Instance().GetScreen();
+    auto screen = UIHost::Instance().GetScreen();
     if (viewRect.IsEmpty()) {
         viewRect = screen->Dimensions();
     }

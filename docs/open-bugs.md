@@ -103,3 +103,12 @@ fresh identifier token. The space forces a token boundary.
 **When fixing:** add a `test_cpplang` case asserting the token class of an identifier immediately following
 an opener (`{foo`, and likely `(foo`, `[foo`) is `kRegular`/identifier, not operator/brace. Check the
 tokenizer's longest-match / boundary logic at operator↔identifier transitions.
+
+
+## 4. Open a non-active file from the project/workspace view in a restored session (where the file has been previously opened) will open a new tab with same file
+
+** Symptom:** open a non-active file from the project/workspace view in a restored session (where the file has been previously opened) will open a new tab with same file name
+resulting in a new tab with same file name
+
+Closing and opening the session again will now have two files with same name. The session file will also contain
+two references to the same file.

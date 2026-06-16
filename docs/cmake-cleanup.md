@@ -38,9 +38,8 @@ A maintainable, reproducible, portable build:
 - **Per-compiler correctness** — warning flags chosen by compiler/version, third-party noise scoped to
   third-party *sources* (not blanket-suppressed across our own code), and build-type-aware optimisation.
 - **Real installers** — a `.dmg` (or signed app) on macOS; a sensible package on Linux.
-- **Single-source version** — one place defines `major.minor.patch` (SemVer — there's a public API);
-  `project()`, the compile-time `GEDIT_VERSION_*` macros, the macOS bundle version, and the package
-  version all derive from it.
+- **Single-source version** — `project(VERSION …)` is the one place (SemVer — there's a public API); a
+  generated `Version.h`, the macOS bundle version, and the package version all derive from it.
 
 Non-goal: rewriting working behaviour. The current build *works*; this is hygiene + packaging.
 
@@ -118,8 +117,9 @@ build is an untracked side `cmake-build-asan/` (per CLAUDE.md), not a formalised
 - **Version scattered across ~4 places, inconsistent:** `project(goatedit VERSION 0.1)` (L6), macOS
   bundle `"0.1"` ×2 (L158–159), and `GEDIT_VERSION_MAJOR/MINOR/PATCH = 0/1/0` (L308–310) — format
   mismatch (`0.1` vs `0.1.0`), no single source, no dev/release suffix. CPack has no explicit
-  `CPACK_PACKAGE_VERSION` (defaults to `0.1`). The app already composes the string from the macros
-  (`xstrver(...)` in `Editor.cpp`) — the macro pattern exists, it just needs one upstream source (CM-9).
+  `CPACK_PACKAGE_VERSION` (defaults to `0.1`). The app composes the string from the macros
+  (`xstrver(...)` in `Editor.cpp`) — CM-9 replaces all of this with a generated `Version.h` derived from a
+  single `project(VERSION)` (and deletes the stringify macros).
 - `target_compile_options(utests PUBLIC -I/usr/local/include)` (L609) — **intentional, do not "fix".**
   A raw `-I` is used deliberately to pull in the **testrunner (`trun`) headers** installed under
   `/usr/local/include`: after a macOS system-SDK upgrade, the normal include mechanism stopped picking
@@ -320,36 +320,52 @@ can land any time; packaging is independent.
   build artifacts (CM-6/7).
 - **Depends-on:** CM-1, CM-5 (+ CM-6/7 for artifacts).
 
-### CM-9 — Single-source SemVer (one place sets `major.minor.patch`)
-- **Goal:** define the version **once**; everything (project, compile macros, bundle, package) derives
-  from it. SemVer because GoatEdit exposes an API. Same shape the user already runs for `trun`.
-- **Scope:** a `cmake/CMakeVersion.cmake` (included **before** `project()`, fits CM-4) that sets the
-  three numbers and the composed string; remove the hardcoded `0.1` / `0/1/0` from L6/L158–159/L308–310.
-- **Approach** (adapting the trun pattern, `GEDIT_` prefix):
+### CM-9 — Single-source SemVer via `project(VERSION)` + a generated `Version.h`
+- **Goal:** define the version **once**; everything (compile-time access, bundle, package) derives from
+  it. SemVer because GoatEdit exposes an API. *(For now it's visual/user-info only — not driving ABI,
+  SONAME, or package-dep resolution.)*
+- **Decision (2026-06-16):** use the **CMake-idiomatic** form, not the raw trun `-D`/macro pattern:
+  - **`project()` is the single source** — `project(goatedit VERSION 0.1.0)`. CMake auto-populates
+    `PROJECT_VERSION` + `PROJECT_VERSION_MAJOR/MINOR/PATCH`; everything reads those. No parallel
+    `set(..._MAJOR)` vars (that's the duplication the trun pattern carries).
+  - **`configure_file` → a generated `Version.h`**, replacing the `-D GEDIT_VERSION_*` defines **and** the
+    `xstr`/`xstrver` stringify macros in `Editor.cpp` (delete those — you get real string literals).
+- **Approach:**
   ```cmake
-  set(GEDIT_VERSION_MAJOR 0)
-  set(GEDIT_VERSION_MINOR 1)
-  set(GEDIT_VERSION_PATCH 0)
-  # …then: project(goatedit VERSION ${GEDIT_VERSION_MAJOR}.${GEDIT_VERSION_MINOR}.${GEDIT_VERSION_PATCH})
+  project(goatedit VERSION 0.1.0)                  # ← the one place to bump
   if(DEFINED ENV{GITHUB_REF} AND "$ENV{GITHUB_REF}" MATCHES "refs/tags/")
-      set(GEDIT_VERSION_SUFFIX "")        # tag build → release
+      set(GEDIT_VERSION_SUFFIX "")                 # tag build → release
   else()
-      set(GEDIT_VERSION_SUFFIX "-dev")    # everything else → -dev
+      set(GEDIT_VERSION_SUFFIX "-dev")            # else → -dev (optionally + short git SHA, below)
   endif()
-  set(GEDIT_VERSION_STR "${PROJECT_VERSION}${GEDIT_VERSION_SUFFIX}")
+  configure_file(${CMAKE_SOURCE_DIR}/cmake/Version.h.in
+                 ${CMAKE_BINARY_DIR}/generated/Version.h @ONLY)
+  target_include_directories(${CUR_TARGET} PUBLIC ${CMAKE_BINARY_DIR}/generated)   # ← THE GOTCHA
   ```
-  Then derive: the `GEDIT_VERSION_MAJOR/MINOR/PATCH` compile defs from these vars (not literals); pass a
-  full `GEDIT_VERSION_STR` define so the app/CLI shows e.g. `0.1.0-dev` (lets `Editor.cpp` use it
-  directly instead of re-composing via `xstrver`, keeping the *format* — suffix included — in one place);
-  `CPACK_PACKAGE_VERSION = ${PROJECT_VERSION}`.
+  ```cpp
+  // cmake/Version.h.in   (@VAR@ placeholders; @ONLY so C++ ${...} isn't touched)
+  #pragma once
+  #define GEDIT_VERSION_MAJOR  @PROJECT_VERSION_MAJOR@
+  #define GEDIT_VERSION_MINOR  @PROJECT_VERSION_MINOR@
+  #define GEDIT_VERSION_PATCH  @PROJECT_VERSION_PATCH@
+  #define GEDIT_VERSION_STR    "@PROJECT_VERSION@@GEDIT_VERSION_SUFFIX@"   // e.g. "0.1.0-dev"
+  ```
+- **Why your earlier `Version.h.in` "didn't generate":** almost always **the missing include-dir step** —
+  `configure_file` writes the header into the *build* tree (`${CMAKE_BINARY_DIR}/generated/`), so unless
+  that dir is on the target's include path the `#include "Version.h"` fails and it looks like nothing was
+  produced. (Secondary traps: vars must be `set()` *before* the `configure_file` call; output to the
+  build dir, never the source tree; use `@ONLY` so the C++ in the template isn't mangled.)
 - **Two nuances:** (1) the macOS bundle keys (`CFBundleShortVersionString`) and the `.deb` package
   version must use the **clean** `${PROJECT_VERSION}` (no `-dev` — Apple rejects non-numeric short
-  versions); the `-dev` suffix is for the **displayed** in-app/CLI string only. (2) Manual `set()` is
-  chosen over a `git describe`-derived version — matches the trun habit and keeps tagless dev builds
-  predictable.
-- **Effort/Risk:** low / low. **Done-when:** bumping the three numbers in one file changes the version
-  everywhere (window title/about, `--version` if any, `.deb`/`.dmg`, bundle); a tag build drops `-dev`.
-  **Depends-on:** lands in CM-4's `cmake/`; feeds CM-6/CM-7 package versions.
+  versions); `CPACK_PACKAGE_VERSION = ${PROJECT_VERSION}`. The `-dev` suffix is **display-only**
+  (`Version.h`'s `GEDIT_VERSION_STR`). (2) Manual bump chosen over `git describe` — matches the trun
+  habit, predictable for tagless builds.
+- **Optional (recommended for "user info"):** append the **short git SHA** to the `-dev` string
+  (`execute_process(COMMAND git rev-parse --short HEAD …)`, degrade gracefully outside a checkout) so a
+  bug report's version pins the exact commit. ~2 lines; the one git-derived bit genuinely worth it.
+- **Effort/Risk:** low / low. **Done-when:** bumping the single `project(VERSION)` changes the version
+  everywhere (about/title, `.deb`/`.dmg`, bundle); a tag build drops `-dev`; the `xstr*` macros are gone.
+  **Depends-on:** the suffix/SHA logic lands in CM-4's `cmake/`; feeds CM-6/CM-7 package versions.
 
 ---
 
@@ -392,7 +408,10 @@ can land any time; packaging is independent.
   noise into `cmake/*.cmake` includes** (`CMakeDeps`/`CMakeBuildFlags`/`CMakePackaging`), **not**
   per-folder sub-`CMakeLists.txt` — one main CMake file stays. Rewrote §5, CM-3, CM-4; aligned CM-1/CM-2
   filenames; resolved the §7 source-organisation question (libraries explicitly out).
-- **2026-06-16** — Added **CM-9 (single-source SemVer)**: version defined once in
-  `cmake/CMakeVersion.cmake`, everything (project / `GEDIT_VERSION_*` macros / bundle / package) derives
-  from it; `-dev` vs release via `GITHUB_REF` (trun pattern). Noted current version scatter in §2 and the
-  goal in §1. Nuance recorded: bundle/package use the clean `${PROJECT_VERSION}`, `-dev` is display-only.
+- **2026-06-16** — Added **CM-9 (single-source SemVer)**; then revised it to the **CMake-idiomatic** form
+  (user asked "is there a more conventional way", fine to change): `project(VERSION)` as the single source
+  + a `configure_file`-generated `Version.h` (replacing the `-D` defines and the `xstr`/`xstrver` macros),
+  rather than the raw trun `set()`/`-D` pattern. Recorded the gotcha that broke the user's earlier
+  `Version.h.in` attempt (the generated header lands in the build tree → its dir must be on the include
+  path). Kept the `-dev`-via-`GITHUB_REF` suffix; added optional short-git-SHA-on-`-dev` for bug-report
+  traceability. Bundle/package still use clean `${PROJECT_VERSION}`; `-dev` display-only.

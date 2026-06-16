@@ -51,7 +51,7 @@ namespace gedit {
         // a char boundary on the way back. Static + pure over the BinBuffer so it is unit-tested without
         // a live view.
         static Point ComputeNavTarget(const BinBuffer &utf8, const Point &cursorPos,
-                                      kAction action, int bytesPerRow, int rowsPerPage);
+                                      kUIAction action, int bytesPerRow, int rowsPerPage);
 
     protected:
         void OnActivate(bool isActive) override;

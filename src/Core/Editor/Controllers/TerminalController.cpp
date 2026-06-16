@@ -422,8 +422,12 @@ bool TerminalController::ForwardKeyPressToShell(const KeyPress &keyPress) {
 
 bool TerminalController::ForwardActionToShell(const EditorAction &kpAction) {
     const char *seq = nullptr;
-    switch (kpAction.action) {
-        case kAction::kActionCommitLine:
+    if (kpAction.action == kAction::kActionShellCompletion) {
+        shell.Write(0x09);
+        return true;
+    }
+    switch (kpAction.uiAction) {
+        case kUIAction::kActionCommitLine:
             shell.Write(0x0d);
             // When the shell owns line editing the line lives in readline; committing hands
             // control back and the shell will print its output + a fresh prompt.
@@ -431,15 +435,14 @@ bool TerminalController::ForwardActionToShell(const EditorAction &kpAction) {
                 ExitShellOwned();
             }
             return true;
-        case kAction::kActionShellCompletion: shell.Write(0x09); return true;
-        case kAction::kActionLineLeft:    seq = cursorKeyAppMode ? "\x1bOD" : "\x1b[D"; break;
-        case kAction::kActionLineRight:   seq = cursorKeyAppMode ? "\x1bOC" : "\x1b[C"; break;
-        case kAction::kActionLineUp:      seq = cursorKeyAppMode ? "\x1bOA" : "\x1b[A"; break;
-        case kAction::kActionLineDown:    seq = cursorKeyAppMode ? "\x1bOB" : "\x1b[B"; break;
-        case kAction::kActionLineHome:    seq = "\x1b[H";  break;
-        case kAction::kActionLineEnd:     seq = "\x1b[F";  break;
-        case kAction::kActionPageUp:      seq = "\x1b[5~"; break;
-        case kAction::kActionPageDown:    seq = "\x1b[6~"; break;
+        case kUIAction::kActionLineLeft:    seq = cursorKeyAppMode ? "\x1bOD" : "\x1b[D"; break;
+        case kUIAction::kActionLineRight:   seq = cursorKeyAppMode ? "\x1bOC" : "\x1b[C"; break;
+        case kUIAction::kActionLineUp:      seq = cursorKeyAppMode ? "\x1bOA" : "\x1b[A"; break;
+        case kUIAction::kActionLineDown:    seq = cursorKeyAppMode ? "\x1bOB" : "\x1b[B"; break;
+        case kUIAction::kActionLineHome:    seq = "\x1b[H";  break;
+        case kUIAction::kActionLineEnd:     seq = "\x1b[F";  break;
+        case kUIAction::kActionPageUp:      seq = "\x1b[5~"; break;
+        case kUIAction::kActionPageDown:    seq = "\x1b[6~"; break;
         default: return true;  // swallow — don't let editor-level actions fire
     }
     if (seq != nullptr) {
@@ -449,20 +452,36 @@ bool TerminalController::ForwardActionToShell(const EditorAction &kpAction) {
 }
 
 bool TerminalController::OnAction(const EditorAction &kpAction) {
-    switch (kpAction.action) {
-        case kAction::kActionLineHome :
+    if (kpAction.action == kAction::kActionShellCompletion) {
+        // First Tab in local-edit mode: hand the line over to readline so it can
+        // complete. The real grid cursor has stayed parked at the prompt end the
+        // whole time we edited locally (local edits never touch the grid), so
+        // capture it now as the prompt anchor for reading the line back. From here
+        // readline owns the line until the command is committed or aborted.
+        promptAnchor = screen.GetCursorPos();
+        doesShellOwnLineEditing = true;
+        auto cmdLine = std::u32string(inputLine->Buffer());
+        if (!cmdLine.empty()) {
+            shell.SendCmd(cmdLine);
+        }
+        shell.Write(0x09);
+        return true;
+    }
+
+    switch (kpAction.uiAction) {
+        case kUIAction::kActionLineHome :
             inputCursor.position.x = 0;
             break;
-        case kAction::kActionLineEnd :
+        case kUIAction::kActionLineEnd :
             inputCursor.position.x = inputLine->Length();
             break;
-        case kAction::kActionLineLeft :
+        case kUIAction::kActionLineLeft :
             inputCursor.position.x = std::max(0, inputCursor.position.x - 1);
             break;
-        case kAction::kActionLineRight :
+        case kUIAction::kActionLineRight :
             inputCursor.position.x = std::min((int)inputLine->Length(), inputCursor.position.x + 1);
             break;
-        case kAction::kActionLineUp : {
+        case kUIAction::kActionLineUp : {
             auto entry = history.NavigateUp();
             if (entry.has_value()) {
                 inputLine->Clear();
@@ -471,7 +490,7 @@ bool TerminalController::OnAction(const EditorAction &kpAction) {
             }
             break;
         }
-        case kAction::kActionLineDown : {
+        case kUIAction::kActionLineDown : {
             auto entry = history.NavigateDown();
             inputLine->Clear();
             if (entry.has_value()) {
@@ -479,21 +498,6 @@ bool TerminalController::OnAction(const EditorAction &kpAction) {
             }
             inputCursor.position.x = (int)inputLine->Length();
             break;
-        }
-        case kAction::kActionShellCompletion : {
-            // First Tab in local-edit mode: hand the line over to readline so it can
-            // complete. The real grid cursor has stayed parked at the prompt end the
-            // whole time we edited locally (local edits never touch the grid), so
-            // capture it now as the prompt anchor for reading the line back. From here
-            // readline owns the line until the command is committed or aborted.
-            promptAnchor = screen.GetCursorPos();
-            doesShellOwnLineEditing = true;
-            auto cmdLine = std::u32string(inputLine->Buffer());
-            if (!cmdLine.empty()) {
-                shell.SendCmd(cmdLine);
-            }
-            shell.Write(0x09);
-            return true;
         }
         default:
             return false;

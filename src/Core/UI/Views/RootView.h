@@ -131,30 +131,29 @@ namespace gedit {
 
 
 
-            bool wasHandled = true;
             // Dispatch to top-view...
             if ((TopView() != nullptr) && TopView()->OnAction(kpAction)) {
                 return true;
             }
 
-            switch(kpAction.action) {
-                case kAction::kActionEnterCommandMode :
-                    OnEnterCommandMode();
-                    wasHandled = false;
-                    break;
-                case kAction::kActionCycleActiveView :
+            switch(kpAction.uiAction) {
+                case kUIAction::kActionCycleActiveView :
                     OnCycleActiveView();
-                    break;
-                case kAction::kActionCycleActiveViewNext :
+                    return true;
+                case kUIAction::kActionCycleActiveViewNext :
                     OnCycleActiveViewNext();
-                    break;
-                case kAction::kActionCycleActiveViewPrev :
+                    return true;
+                case kUIAction::kActionCycleActiveViewPrev :
                     OnCycleActiveViewPrev();
-                    break;
+                    return true;
                 default:
-                    wasHandled = false;
+                    break;
             }
-            return wasHandled;
+
+            if (kpAction.action == kAction::kActionEnterCommandMode) {
+                OnEnterCommandMode();
+            }
+            return false;
         }
 
         void HandleKeyPress(const KeyPress &keyPress) override {

@@ -35,27 +35,9 @@ static std::unordered_map<std::string, kActionModifier> strToModifierMap = {
 // TO-DO consider renaming the actions
 //
 static std::unordered_map<std::string, kAction> strToActionMap = {
-        {"NavigateLineDown",      kAction::kActionLineDown},
-        {"NavigateLineUp",        kAction::kActionLineUp},
-        {"NavigatePageDown",      kAction::kActionPageDown},
-        {"NavigatePageUp",        kAction::kActionPageUp},
-        {"NavigateLineEnd",       kAction::kActionLineEnd},
-        {"NavigateLineHome",      kAction::kActionLineHome},
-        {"NavigateHome",          kAction::kActionBufferStart},
-        {"NavigateEnd",           kAction::kActionBufferEnd},
-        {"NavigateLeft",          kAction::kActionLineLeft},
-        {"NavigateRight",         kAction::kActionLineRight},
-        {"NavigateWordLeft",      kAction::kActionLineWordLeft},
-        {"NavigateWordRight",     kAction::kActionLineWordRight},
-        {"CommitLine",            kAction::kActionCommitLine},
         {"GotoFirstLine",         kAction::kActionGotoFirstLine},
         {"GotoLastLine",          kAction::kActionGotoLastLine},
-        {"GotoBottomLine",        kAction::kActionGotoBottomLine},
-        {"GotoTopLine",           kAction::kActionGotoTopLine},
         {"GotoLine",              kAction::kActionGotoLine},
-        {"CycleActiveView",       kAction::kActionCycleActiveView},
-        {"CycleActiveViewNext",       kAction::kActionCycleActiveViewNext},
-        {"CycleActiveViewPrev",       kAction::kActionCycleActiveViewPrev},
         {"CycleActiveEditor",     kAction::kActionCycleActiveEditor},
         {"CycleBufferNext",      kAction::kActionCycleActiveBufferNext},
         {"CycleBufferPrev",      kAction::kActionCycleActiveBufferPrev},
@@ -63,7 +45,6 @@ static std::unordered_map<std::string, kAction> strToActionMap = {
         {"CopyToClipboard",       kAction::kActionCopyToClipboard},
         {"CutToClipboard",        kAction::kActionCutToClipboard},
         {"PasteFromClipboard",    kAction::kActionPasteFromClipboard},
-        {"CloseModal",            kAction::kActionCloseModal},
         {"CommentLine",           kAction::kActionInsertLineComment},
         {"EnterCommandMode",      kAction::kActionEnterCommandMode},
         {"LeaveCommandMode",      kAction::kActionLeaveCommandMode},
@@ -77,16 +58,40 @@ static std::unordered_map<std::string, kAction> strToActionMap = {
         {"ReformatLine",            kAction::kActionReformatLine},
         {"ReformatBlock",           kAction::kActionReformatBlock},
         {"ShellCompletion",         kAction::kActionShellCompletion},
-        {"UIIncreaseViewWidth",     kAction::kActionIncreaseViewWidth},
-        {"UIDecreaseViewWidth",     kAction::kActionDecreaseViewWidth},
-        {"UIIncreaseViewHeight",    kAction::kActionIncreaseViewHeight},
-        {"UIDecreaseViewHeight",    kAction::kActionDecreaseViewHeight},
-        {"UIMaximizeViewHeight",    kAction::kActionMaximizeViewHeight},
         {"UISwitchToTerminal",      kAction::kActionSwitchToTerminal},
         {"UISwitchToEditor",        kAction::kActionSwitchToEditor},
         {"UISwitchToProject",       kAction::kActionSwitchToProject},
         {"UIViewModeText",          kAction::kActionViewModeText},
         {"UIViewModeHex",           kAction::kActionViewModeHex}
+};
+
+// Toolkit-owned actions (kUIAction, AI-4) - the shared navigation set + view management,
+// matched directly by src/Core/UI/* widgets without any app-level translation.
+static std::unordered_map<std::string, kUIAction> strToUIActionMap = {
+        {"NavigateLineDown",      kUIAction::kActionLineDown},
+        {"NavigateLineUp",        kUIAction::kActionLineUp},
+        {"NavigatePageDown",      kUIAction::kActionPageDown},
+        {"NavigatePageUp",        kUIAction::kActionPageUp},
+        {"NavigateLineEnd",       kUIAction::kActionLineEnd},
+        {"NavigateLineHome",      kUIAction::kActionLineHome},
+        {"NavigateHome",          kUIAction::kActionBufferStart},
+        {"NavigateEnd",           kUIAction::kActionBufferEnd},
+        {"NavigateLeft",          kUIAction::kActionLineLeft},
+        {"NavigateRight",         kUIAction::kActionLineRight},
+        {"NavigateWordLeft",      kUIAction::kActionLineWordLeft},
+        {"NavigateWordRight",     kUIAction::kActionLineWordRight},
+        {"CommitLine",            kUIAction::kActionCommitLine},
+        {"GotoBottomLine",        kUIAction::kActionGotoBottomLine},
+        {"GotoTopLine",           kUIAction::kActionGotoTopLine},
+        {"CycleActiveView",       kUIAction::kActionCycleActiveView},
+        {"CycleActiveViewNext",       kUIAction::kActionCycleActiveViewNext},
+        {"CycleActiveViewPrev",       kUIAction::kActionCycleActiveViewPrev},
+        {"CloseModal",            kUIAction::kActionCloseModal},
+        {"UIIncreaseViewWidth",     kUIAction::kActionIncreaseViewWidth},
+        {"UIDecreaseViewWidth",     kUIAction::kActionDecreaseViewWidth},
+        {"UIIncreaseViewHeight",    kUIAction::kActionIncreaseViewHeight},
+        {"UIDecreaseViewHeight",    kUIAction::kActionDecreaseViewHeight},
+        {"UIMaximizeViewHeight",    kUIAction::kActionMaximizeViewHeight},
 };
 
 
@@ -223,6 +228,7 @@ std::optional<EditorAction> KeyMapping::ActionFromKeyPress(const KeyPress &keyPr
             logger->Debug("ActionItem found - %s", actionItem->Name().c_str());
             EditorAction kpAction;
             kpAction.action = actionItem->GetAction();
+            kpAction.uiAction = actionItem->GetUIAction();
             kpAction.modifierMask = keyPress.modifiers; // redundant..
             kpAction.actionModifier = actionItem->GetActionModifier();
             kpAction.keyPress = keyPress;
@@ -330,19 +336,18 @@ bool KeyMapping::RebuildActionMapping(const ConfigNode &keymap) {
             return false;
         }
         auto actionName = key.Scalar();
-        if (strToActionMap.find(actionName) == strToActionMap.end()) {
+        if ((strToActionMap.find(actionName) == strToActionMap.end()) &&
+            (strToUIActionMap.find(actionName) == strToUIActionMap.end())) {
             logger->Error("Invalid Action '%s'; not found");
             return false;
         }
-
-        auto action = strToActionMap.at(actionName);
 
         if (value.IsScalar()) {
             // Action is mapped to a single key-combo
             auto keyPressCombo = value.Scalar();
             logger->Debug("Parsing: '%s' = '%s'", actionName.c_str(), keyPressCombo.c_str());
 
-            if (!ParseKeyPressCombinationString(action, keyPressCombo, keymapModifiers)) {
+            if (!ParseKeyPressCombinationString(actionName, keyPressCombo, keymapModifiers)) {
                 logger->Error("KeyMap parse error for '%s : %s'", actionName.c_str(), keyPressCombo.c_str());
                 return false;
             }
@@ -354,7 +359,7 @@ bool KeyMapping::RebuildActionMapping(const ConfigNode &keymap) {
             for(auto &keyPressCombo : sequence) {
                 logger->Debug("Parsing: '%s' = '%s'", actionName.c_str(), keyPressCombo.c_str());
 
-                if (!ParseKeyPressCombinationString(action, keyPressCombo, keymapModifiers)) {
+                if (!ParseKeyPressCombinationString(actionName, keyPressCombo, keymapModifiers)) {
                     logger->Error("KeyMap parse error for '%s : %s'", actionName.c_str(), keyPressCombo.c_str());
                     return false;
                 }
@@ -397,8 +402,22 @@ bool KeyMapping::ValidateModifiers(const std::map<std::string, std::string> &key
 // Thus, if you have multiple modifiers we need to permutate all possible options (which is 2^numOptionals) for the
 // whole string. Therefore we first parse the list to a temporary structure, then we permutate and create the actions..
 //
-bool KeyMapping::ParseKeyPressCombinationString(kAction action, const std::string &keyPressCombo, const std::map<std::string, std::string> &keymapModifiers) {
+bool KeyMapping::ParseKeyPressCombinationString(const std::string &actionName, const std::string &keyPressCombo, const std::map<std::string, std::string> &keymapModifiers) {
     auto logger = gnilk::Logger::GetLogger("KeyMapping");
+
+    // A keypress resolves into exactly one of the two action spaces - never both.
+    bool isUIAction = false;
+    kAction action = kAction::kActionNone;
+    kUIAction uiAction = kUIAction::kActionNone;
+    if (strToActionMap.find(actionName) != strToActionMap.end()) {
+        action = strToActionMap.at(actionName);
+    } else if (strToUIActionMap.find(actionName) != strToUIActionMap.end()) {
+        isUIAction = true;
+        uiAction = strToUIActionMap.at(actionName);
+    } else {
+        logger->Error("Invalid Action '%s'; not found", actionName.c_str());
+        return false;
+    }
 
     bool isKeyCodeASCII = false;
     int  asciiKeyCode = 0;
@@ -515,9 +534,11 @@ bool KeyMapping::ParseKeyPressCombinationString(kAction action, const std::strin
 
         ActionItem::Ref actionItem = {};
         if (isKeyCodeASCII) {
-            actionItem =ActionItem::Create(action, modifierMask, asciiKeyCode, ActionName(action));
+            actionItem = isUIAction ? ActionItem::Create(uiAction, modifierMask, asciiKeyCode, actionName)
+                                     : ActionItem::Create(action, modifierMask, asciiKeyCode, actionName);
         } else {
-            actionItem = ActionItem::Create(action, modifierMask, primaryKeycode, ActionName(action));
+            actionItem = isUIAction ? ActionItem::Create(uiAction, modifierMask, primaryKeycode, actionName)
+                                     : ActionItem::Create(action, modifierMask, primaryKeycode, actionName);
             if (actionModifier.has_value()) {
                 actionItem->SetActionModifier(actionModifier.value());
             }

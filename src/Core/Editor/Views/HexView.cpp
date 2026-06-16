@@ -66,26 +66,34 @@ bool HexView::OnAction(const EditorAction &kpAction) {
 // Navigation only (read-only view): translate the caret to byte space, move, translate back, and write
 // the result into the canonical text cursor. Anything that isn't a nav action falls through.
 bool HexView::DispatchNavAction(const EditorAction &kpAction) {
-    switch (kpAction.action) {
-        case kAction::kActionLineLeft:
-        case kAction::kActionLineRight:
-        case kAction::kActionLineUp:
-        case kAction::kActionLineDown:
-        case kAction::kActionLineHome:
-        case kAction::kActionLineEnd:
-        case kAction::kActionPageUp:
-        case kAction::kActionPageDown:
-        case kAction::kActionBufferStart:
-        case kAction::kActionBufferEnd:
-        case kAction::kActionGotoFirstLine:
-        case kAction::kActionGotoLastLine:
+    // Normalize: the kept app-side Goto{First,Last}Line values fold onto the equivalent
+    // kUIAction Buffer{Start,End} - both must reach the same handler, but they now live in
+    // two different enums and can't share a case label in one switch.
+    kUIAction navAction = kpAction.uiAction;
+    if (kpAction.action == kAction::kActionGotoFirstLine) {
+        navAction = kUIAction::kActionBufferStart;
+    } else if (kpAction.action == kAction::kActionGotoLastLine) {
+        navAction = kUIAction::kActionBufferEnd;
+    }
+
+    switch (navAction) {
+        case kUIAction::kActionLineLeft:
+        case kUIAction::kActionLineRight:
+        case kUIAction::kActionLineUp:
+        case kUIAction::kActionLineDown:
+        case kUIAction::kActionLineHome:
+        case kUIAction::kActionLineEnd:
+        case kUIAction::kActionPageUp:
+        case kUIAction::kActionPageDown:
+        case kUIAction::kActionBufferStart:
+        case kUIAction::kActionBufferEnd:
             break;
         default:
             return false;
     }
 
     gedit::Point cursorPos(document->GetCursor().position.x, (int)document->GetLineCursor().idxActiveLine);
-    gedit::Point target = ComputeNavTarget(Bytes(), cursorPos, kpAction.action, kBytesPerRow, RowsPerPage());
+    gedit::Point target = ComputeNavTarget(Bytes(), cursorPos, navAction, kBytesPerRow, RowsPerPage());
     document->SetCursorPosition(target.y, target.x);
     RefocusHexView(HexProjection::TextToByteOffset(target, Bytes()));
     InvalidateView();
@@ -93,45 +101,43 @@ bool HexView::DispatchNavAction(const EditorAction &kpAction) {
 }
 
 gedit::Point HexView::ComputeNavTarget(const BinBuffer &utf8, const gedit::Point &cursorPos,
-                                kAction action, int bytesPerRow, int rowsPerPage) {
+                                kUIAction action, int bytesPerRow, int rowsPerPage) {
     size_t size = utf8.Size();
     size_t cur = HexProjection::TextToByteOffset(cursorPos, utf8);
     long long target = (long long)cur;
     long long row = (long long)(cur % (size_t)bytesPerRow);
 
     switch (action) {
-        case kAction::kActionLineRight:
+        case kUIAction::kActionLineRight:
             // Step a whole char: a one-byte step into a multibyte char would snap straight back.
             target = (long long)HexProjection::NextCharStart(utf8, cur);
             break;
-        case kAction::kActionLineLeft:
+        case kUIAction::kActionLineLeft:
             // One byte back snaps to the previous char's start on the way through ByteOffsetToText.
             target = (cur > 0) ? (long long)cur - 1 : 0;
             break;
-        case kAction::kActionLineDown:
+        case kUIAction::kActionLineDown:
             target = (long long)cur + bytesPerRow;
             break;
-        case kAction::kActionLineUp:
+        case kUIAction::kActionLineUp:
             target = (long long)cur - bytesPerRow;
             break;
-        case kAction::kActionLineHome:
+        case kUIAction::kActionLineHome:
             target = (long long)cur - row;
             break;
-        case kAction::kActionLineEnd:
+        case kUIAction::kActionLineEnd:
             target = (long long)cur - row + bytesPerRow - 1;
             break;
-        case kAction::kActionPageDown:
+        case kUIAction::kActionPageDown:
             target = (long long)cur + (long long)bytesPerRow * rowsPerPage;
             break;
-        case kAction::kActionPageUp:
+        case kUIAction::kActionPageUp:
             target = (long long)cur - (long long)bytesPerRow * rowsPerPage;
             break;
-        case kAction::kActionBufferStart:
-        case kAction::kActionGotoFirstLine:
+        case kUIAction::kActionBufferStart:
             target = 0;
             break;
-        case kAction::kActionBufferEnd:
-        case kAction::kActionGotoLastLine:
+        case kUIAction::kActionBufferEnd:
             target = (long long)size;
             break;
         default:

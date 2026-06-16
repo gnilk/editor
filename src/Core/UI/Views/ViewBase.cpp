@@ -67,20 +67,20 @@ void ViewBase::HandleKeyPress(const KeyPress &keyPress) {
 
 bool ViewBase::OnAction(const EditorAction &kpAction) {
     bool result = true;
-    switch(kpAction.action) {
-        case kAction::kActionIncreaseViewWidth :
+    switch(kpAction.uiAction) {
+        case kUIAction::kActionIncreaseViewWidth :
             GetLayoutHandler()->OnActionIncreaseWidth();
             break;
-        case kAction::kActionDecreaseViewWidth :
+        case kUIAction::kActionDecreaseViewWidth :
             GetLayoutHandler()->OnActionDecreaseWidth();
             break;
-        case kAction::kActionIncreaseViewHeight :
+        case kUIAction::kActionIncreaseViewHeight :
             GetLayoutHandler()->OnActionIncreaseHeight();
             break;
-        case kAction::kActionDecreaseViewHeight :
+        case kUIAction::kActionDecreaseViewHeight :
             GetLayoutHandler()->OnActionDecreaseHeight();
             break;
-        case kAction::kActionMaximizeViewHeight :
+        case kUIAction::kActionMaximizeViewHeight :
             MaximizeContentHeight();
             break;
         default:

@@ -67,11 +67,8 @@ void CommandView::OnActivate(bool isActive) {
 }
 
 bool CommandView::OnAction(const EditorAction &kpAction) {
-    switch(kpAction.action) {
-        case kAction::kActionCommitLine :
-            return OnActionCommitLine();
-        default:
-            break;
+    if (kpAction.uiAction == kUIAction::kActionCommitLine) {
+        return OnActionCommitLine();
     }
     return ViewBase::OnAction(kpAction);
 }

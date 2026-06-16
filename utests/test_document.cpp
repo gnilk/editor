@@ -74,26 +74,26 @@ DLL_EXPORT int test_document_cut_paste_funcbody(ITesting *t);
 }
 
 // Define some common actions, this will trigger side-effects in the document
-static EditorAction actionLineDown = {gedit::kAction::kActionLineDown};
-static EditorAction actionPageDown = {gedit::kAction::kActionPageDown};
-static EditorAction actionLineUp = {gedit::kAction::kActionLineUp};
-static EditorAction actionPageUp = {gedit::kAction::kActionPageUp};
+static EditorAction actionLineDown = {.uiAction = gedit::kUIAction::kActionLineDown};
+static EditorAction actionPageDown = {.uiAction = gedit::kUIAction::kActionPageDown};
+static EditorAction actionLineUp = {.uiAction = gedit::kUIAction::kActionLineUp};
+static EditorAction actionPageUp = {.uiAction = gedit::kUIAction::kActionPageUp};
 static EditorAction actionShiftLineDown =
         {
-                .action = gedit::kAction::kActionLineDown,
+                .uiAction = gedit::kUIAction::kActionLineDown,
                 .actionModifier = kActionModifier::kActionModifierSelection,
                 .modifierMask = Keyboard::ShiftMask()
         };
 static EditorAction actionShiftLineUp =
         {
-                .action = gedit::kAction::kActionLineUp,
+                .uiAction = gedit::kUIAction::kActionLineUp,
                 .actionModifier = kActionModifier::kActionModifierSelection,
                 .modifierMask = Keyboard::ShiftMask()
         };
 static EditorAction actionUndo = {gedit::kAction::kActionUndo};
 static EditorAction actionShiftLineRight =
         {
-                .action = gedit::kAction::kActionLineRight,
+                .uiAction = gedit::kUIAction::kActionLineRight,
                 .actionModifier = kActionModifier::kActionModifierSelection,
                 .modifierMask = Keyboard::ShiftMask()
         };
@@ -101,7 +101,7 @@ static EditorAction actionCut = {gedit::kAction::kActionCutToClipboard};
 static EditorAction actionPaste = {gedit::kAction::kActionPasteFromClipboard};
 static EditorAction actionShiftLineEnd =
         {
-                .action = gedit::kAction::kActionLineEnd,
+                .uiAction = gedit::kUIAction::kActionLineEnd,
                 .actionModifier = kActionModifier::kActionModifierSelection,
                 .modifierMask = Keyboard::ShiftMask()
         };

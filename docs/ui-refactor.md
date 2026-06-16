@@ -94,8 +94,8 @@ per its own done-when of "AI-2 gate fully green"): the `Editor::Instance().GetTh
 dropped **17 → 8**: zero `RuntimeConfig.h` hits remain anywhere under `src/Core/UI/` (AI-3's own
 done-when, met exactly); the 8 left are all `Editor.h` (7, theme/state reads) or `Core/Config/*` (1,
 `ListSelectionModal.cpp` — already counted under `Editor.h` for `TestView.cpp` too) — squarely AI-6's
-leaf-cleanup territory. **Next: AI-4 (`kAction` split) or AI-6 (theme/color injection, finishes the
-gate) per user priority.**
+leaf-cleanup territory. AI-4 (`kAction` split) is now also ✅ DONE (see its own section below).
+**Next: AI-6 (theme/color injection, finishes the gate) or AI-5 follow-on, per user priority.**
 
 **Verdict in brief (see §7 for the argument):**
 - The layout engine + the rendering contract + the selection/tree widgets **are** genuinely generic
@@ -551,7 +551,7 @@ Each item: **Goal · Scope · Approach · Effort/Risk · Done-when · Depends-on
 
 ---
 
-### AI-4 — Split `kAction` → `kUIAction` (toolkit) + editor actions  *(chokepoint #2 — its own item, per user)*
+### AI-4 — Split `kAction` → `kUIAction` (toolkit) + editor actions  *(chokepoint #2 — its own item, per user)*  ✅ DONE (2026-06-16)
 - **Goal:** `ViewBase::OnAction` / `RootView::OnAction` switch on a **UI-owned** action set; editor
   actions stay app-owned. The toolkit no longer references the monolithic editor enum.
 - **Scope:** `Action.h` → split into `UI/Input/UIAction.h` (`kUIAction`) + the editor remainder;
@@ -573,6 +573,38 @@ Each item: **Goal · Scope · Approach · Effort/Risk · Done-when · Depends-on
   behind the green suite; the keymapping module tests guard it.
 - **Done-when:** `src/Core/UI` references only `kUIAction`; keymapping + layout + workspace tests
   green. **Depends-on:** AI-1 (can run parallel to AI-3).
+- **Built (2026-06-16):** new `src/Core/UI/Input/UIAction.h` — `enum class kUIAction` carrying the
+  shared nav set (`PageUp/Down`, `Line{Up,Down,Home,End,Left,Right}`, `LineWord{Left,Right}`,
+  `Buffer{Start,End}`, `GotoTop/BottomLine`, `CommitLine`) + the view-management set
+  (`CycleActiveView{,Next,Prev}`, `CloseModal`, `Increase/DecreaseViewWidth`,
+  `Increase/DecreaseViewHeight`, `MaximizeViewHeight`) — sub-decision (a) from above, shared-in-toolkit.
+  `kAction` (`Core/Action.h`) keeps everything else. `EditorAction`/`ActionItem` both carry **two**
+  fields now (`kAction action` + `kUIAction uiAction`, each defaulting to its own `kActionNone`) rather
+  than one — whichever space a binding resolves into, the other stays at default; this avoided a forced
+  choice between two enums sharing one storage slot. `ActionItem` gained matching `kUIAction`-typed
+  ctors/`Create()` overloads + `GetUIAction()`. `KeyMapping::ParseKeyPressCombinationString` now takes
+  the action **name** (`const std::string&`) instead of a pre-resolved `kAction`, and resolves it against
+  one of two parallel string→enum tables (`strToActionMap`/`strToUIActionMap`) internally, dispatching to
+  the matching `ActionItem::Create` overload — `RebuildActionMapping`'s pre-validation checks both maps.
+  **Full-move scope** (per the user's explicit AskUserQuestion choice over duplicating a nav subset):
+  every consumer of the carved values switched from `kpAction.action`/`kAction::` to
+  `kpAction.uiAction`/`kUIAction::`, not just the toolkit — `Document.cpp` (`DispatchAction` split into
+  two sequential switches, one per enum, eliminating an old `[[fallthrough]]` that spanned both spaces),
+  `TerminalController.cpp` (`ForwardActionToShell`/`OnAction`), `QuickCommandController.cpp` (three
+  handlers), `HexView.{h,cpp}` (`ComputeNavTarget`'s parameter retyped to `kUIAction`;
+  `DispatchNavAction` normalizes the two legacy-kAction goto-first/last-line values onto their carved
+  `kUIAction` equivalents via an `if/else if` before a single switch, since those two values stayed in
+  `kAction` but shared a handler with carved values), `WorkspaceView.cpp`, `CommandView.cpp`,
+  `TerminalView.cpp` — plus the five UI-toolkit files (`ModalView.cpp`, `ListSelectionModal.cpp`,
+  `RootView.h`, `TreeView.h`, `ViewBase.cpp`). 17 files total. Test fixtures updated to match
+  (`test_hexview.cpp`'s `Nav` helper + 16 call sites; `test_document.cpp`'s designated-init `EditorAction`
+  fixtures; `test_keymapping.cpp`'s 5 `->action`→`->uiAction` comparisons; `test_layout.cpp`'s
+  `MakeAction` helper + its 6 call sites). A repo-wide grep for every carved enumerator name confirmed
+  zero remaining `kAction::kAction<carved-name>` references anywhere in `src/` or `utests/` after the
+  sweep. Full rebuild (`goatedit` + `utests`) clean; verified-green 235-test set passes 0 failures.
+  `check-ui-boundary.sh` leak count unchanged at **8** (identical list before/after, all attributed to
+  AI-3/AI-6 — confirmed via `git stash` diff — AI-4 touched action *values*, not `#include` lines, so it
+  was never going to move that gate).
 
 ---
 
@@ -664,8 +696,10 @@ doing *even if AI-7 never happens*.
   `VerticalNavigationViewModel`/`KeyPress`/`Keyboard`/`Cursor` stay in `src/Core/` root — confirmed
   shared with the document/text model, not UI-exclusive. No `UI/Primitives/` or `UI/Input/` folder.
   See the AI-1 §0 note for the use-site evidence.
-- **Open — `kAction` shared-nav set:** put the navigation actions in `kUIAction` (both editor + list
-  widgets consume) vs duplicate a nav subset. Leaning shared-in-toolkit (AI-4 sub-decision).
+- **RESOLVED (2026-06-16):** `kAction` shared-nav set — went with shared-in-toolkit, **full move**
+  (option (a): the user's explicit AskUserQuestion choice over duplicating a nav subset). All 17
+  consuming files (toolkit + editor) now switch on `kpAction.uiAction`/`kUIAction::` for the carved
+  values. See AI-4's "Built" entry above.
 - **Open — `UIHost` shape:** UI-local singleton (smallest diff) vs injected `UIHost&`. Leaning
   singleton for pass 1 (AI-3).
 - **Open — `Line` in the UI:** §6 (a)/(b)/(c). Leaning (c)-now → (a)-only-if-AI-7.
@@ -707,8 +741,7 @@ src/Core/                     # shared layer (NOT moved — see §9 "RESOLVED" +
   VerticalNavigationViewModel.h, KeyPress.h, Keyboard.h, Graphics/Cursor.h
 ```
 
-`UIHost` (AI-3) and the `kUIAction` split (AI-4) are not built yet — still open work items, sketched
-in §8.
+`UIHost` (AI-3) and the `kUIAction` split (AI-4) are both ✅ DONE — see their "Built" entries in §8.
 
 ---
 

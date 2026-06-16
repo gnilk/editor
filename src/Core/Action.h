@@ -12,6 +12,7 @@
 
 #include "KeyPress.h"
 #include "Keyboard.h"
+#include "Core/UI/Input/UIAction.h"
 
 namespace gedit {
     //
@@ -28,27 +29,9 @@ namespace gedit {
 
     enum class kAction {
         kActionNone,
-        kActionPageUp,              // default: PageUp
-        kActionPageDown,            // default: PageDown
-        kActionLineUp,
-        kActionLineDown,
-        kActionLineHome,
-        kActionLineEnd,
-        kActionLineLeft,  // default: left arrow
-        kActionLineRight, // default: right arrow
-        kActionLineWordLeft,
-        kActionLineWordRight,
-        kActionCommitLine,          // default: return
-        kActionBufferStart,
-        kActionBufferEnd,
         kActionGotoFirstLine,           // default: CMD+Home
         kActionGotoLastLine,           // default: CMD+Home
-        kActionGotoTopLine,             // Default: cmd + pageUp
-        kActionGotoBottomLine,          // Default: cmd + pageDown
         kActionGotoLine,          // Quick cntrl command
-        kActionCycleActiveView,         // Default: esc
-        kActionCycleActiveViewNext,     // Default: Left_CMD + ]
-        kActionCycleActiveViewPrev,     // Default: Left_CMD + [
         kActionCycleActiveEditor,       // TEST-TEST Default: F3
         kActionCycleActiveBufferNext,
         kActionCycleActiveBufferPrev,
@@ -67,8 +50,6 @@ namespace gedit {
         kActionInsertLineComment,
         kActionUndo,
         kActionRedo,
-        // Modals
-        kActionCloseModal,
 
         kActionIndent,
         kActionUnindent,
@@ -78,12 +59,6 @@ namespace gedit {
         // Terminal actions
         kActionShellCompletion,
 
-        // UI Actions
-        kActionIncreaseViewWidth,
-        kActionDecreaseViewWidth,
-        kActionIncreaseViewHeight,
-        kActionDecreaseViewHeight,
-        kActionMaximizeViewHeight,
         kActionSwitchToTerminal,
         kActionSwitchToEditor,
         kActionSwitchToProject,
@@ -102,6 +77,12 @@ namespace gedit {
         ActionItem(kAction mAction, int mModiferMask, int asciiValue, const std::string &actionName)
                 : action(mAction), modiferMask(mModiferMask), asciiKeyCode(asciiValue), name(actionName) {
         }
+        ActionItem(kUIAction mUIAction, int mModiferMask, Keyboard::kKeyCode mKeycode, const std::string &actionName)
+                : uiAction(mUIAction), modiferMask(mModiferMask), keyCode(mKeycode), name(actionName) {
+        }
+        ActionItem(kUIAction mUIAction, int mModiferMask, int asciiValue, const std::string &actionName)
+                : uiAction(mUIAction), modiferMask(mModiferMask), asciiKeyCode(asciiValue), name(actionName) {
+        }
 
         static ActionItem::Ref Create(kAction mAction, int mModiferMask, Keyboard::kKeyCode mKeycode, const std::string &actionName) {
             return std::make_shared<ActionItem>(mAction, mModiferMask, mKeycode, actionName);
@@ -109,6 +90,12 @@ namespace gedit {
 
         static ActionItem::Ref Create(kAction mAction, int mModiferMask, int asciiValue, const std::string &actionName) {
             return std::make_shared<ActionItem>(mAction, mModiferMask, asciiValue, actionName);
+        }
+        static ActionItem::Ref Create(kUIAction mUIAction, int mModiferMask, Keyboard::kKeyCode mKeycode, const std::string &actionName) {
+            return std::make_shared<ActionItem>(mUIAction, mModiferMask, mKeycode, actionName);
+        }
+        static ActionItem::Ref Create(kUIAction mUIAction, int mModiferMask, int asciiValue, const std::string &actionName) {
+            return std::make_shared<ActionItem>(mUIAction, mModiferMask, asciiValue, actionName);
         }
         virtual ~ActionItem() = default;
 
@@ -185,6 +172,9 @@ namespace gedit {
         kAction GetAction() {
             return action;
         }
+        kUIAction GetUIAction() {
+            return uiAction;
+        }
 
         const std::string &Name() {
             return name;
@@ -194,6 +184,7 @@ namespace gedit {
         }
     private:
         kAction action = kAction::kActionNone;
+        kUIAction uiAction = kUIAction::kActionNone;
         int modiferMask = 0;
         unsigned int asciiKeyCode = 0;
         std::optional<kActionModifier> actionModifier = {};

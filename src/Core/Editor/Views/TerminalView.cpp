@@ -71,11 +71,8 @@ bool TerminalView::OnAction(const EditorAction &kpAction) {
     if (controller.GetScreen().IsAltScreen() || controller.DoesShellOwnLineEditing()) {
         return controller.ForwardActionToShell(kpAction);
     }
-    switch (kpAction.action) {
-        case kAction::kActionCommitLine :
-            return OnActionCommitLine();
-        default:
-            break;
+    if (kpAction.uiAction == kUIAction::kActionCommitLine) {
+        return OnActionCommitLine();
     }
     if (controller.OnAction(kpAction)) {
         cursor.position.x = controller.GetCursorXPos();

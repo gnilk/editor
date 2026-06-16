@@ -279,25 +279,42 @@ bool Document::OnAction(const EditorAction &kpAction) {
 
 
 bool Document::DispatchAction(const EditorAction &kpAction) {
-    switch(kpAction.action) {
-        case kAction::kActionLineLeft :
+    switch(kpAction.uiAction) {
+        case kUIAction::kActionLineLeft :
             return OnActionStepLeft();
-        case kAction::kActionLineRight :
+        case kUIAction::kActionLineRight :
             return OnActionStepRight();
-        case kAction::kActionPageUp :
+        case kUIAction::kActionPageUp :
             return OnActionPageUp();
-        case kAction::kActionPageDown :
+        case kUIAction::kActionPageDown :
             return OnActionPageDown();
-        case kAction::kActionLineDown :
+        case kUIAction::kActionLineDown :
             return OnActionLineDown(kpAction);
-        case kAction::kActionLineUp :
+        case kUIAction::kActionLineUp :
             return OnActionLineUp();
-        case kAction::kActionLineEnd :
+        case kUIAction::kActionLineEnd :
             return OnActionLineEnd();
-        case kAction::kActionLineHome :
+        case kUIAction::kActionLineHome :
             return OnActionLineHome();
-        case kAction::kActionCommitLine :
+        case kUIAction::kActionCommitLine :
             return OnActionCommitLine();
+        case kUIAction::kActionBufferStart :
+            return OnActionGotoFirstLine();
+        case kUIAction::kActionBufferEnd :
+            return OnActionGotoLastLine();
+        case kUIAction::kActionGotoTopLine :
+            return OnActionGotoTopLine();
+        case kUIAction::kActionGotoBottomLine :
+            return OnActionGotoBottomLine();
+        case kUIAction::kActionLineWordLeft :
+            return OnActionWordLeft();
+        case kUIAction::kActionLineWordRight :
+            return OnActionWordRight();
+        default:
+            break;
+    }
+
+    switch(kpAction.action) {
         case kAction::kActionIndent :
             return OnActionIndent();
         case kAction::kActionUnindent :
@@ -306,22 +323,10 @@ bool Document::DispatchAction(const EditorAction &kpAction) {
             return OnActionReformatLine();
         case kAction::kActionReformatBlock :
             return OnActionReformatBlock();
-        case kAction::kActionBufferStart :
-            [[fallthrough]];
         case kAction::kActionGotoFirstLine :
             return OnActionGotoFirstLine();
-        case kAction::kActionBufferEnd :
-            [[fallthrough]];
         case kAction::kActionGotoLastLine :
             return OnActionGotoLastLine();
-        case kAction::kActionGotoTopLine :
-            return OnActionGotoTopLine();
-        case kAction::kActionGotoBottomLine :
-            return OnActionGotoBottomLine();
-        case kAction::kActionLineWordLeft :
-            return OnActionWordLeft();
-        case kAction::kActionLineWordRight :
-            return OnActionWordRight();
         case kAction::kActionUndo :
             return OnActionUndo();
         case kAction::kActionNextSearchResult :

@@ -102,23 +102,23 @@ namespace gedit {
 
         bool OnAction(const EditorAction &kpAction) override {
             bool wasHandled = true;
-            switch(kpAction.action) {
-                case kAction::kActionLineLeft :
+            switch(kpAction.uiAction) {
+                case kUIAction::kActionLineLeft :
                     Collapse();
                     break;
-                case kAction::kActionLineRight :
+                case kUIAction::kActionLineRight :
                     Expand();
                     break;
-                case kAction::kActionLineUp :
+                case kUIAction::kActionLineUp :
                     verticalNavigationViewModel.OnNavigateUp(1, GetContentRect(), flattenNodeList.size());
                     break;
-                case kAction::kActionLineDown :
+                case kUIAction::kActionLineDown :
                     verticalNavigationViewModel.OnNavigateDown(1, GetContentRect(), flattenNodeList.size());
                     break;
-                case kAction::kActionPageUp :
+                case kUIAction::kActionPageUp :
                     verticalNavigationViewModel.OnNavigateUp(GetContentRect().Height()-1, GetContentRect(), flattenNodeList.size());
                     break;
-                case kAction::kActionPageDown :
+                case kUIAction::kActionPageDown :
                     verticalNavigationViewModel.OnNavigateDown(GetContentRect().Height()-1, GetContentRect(), flattenNodeList.size());
                     break;
                 default:

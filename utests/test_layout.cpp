@@ -48,7 +48,7 @@ extern "C" int test_layout_simple(ITesting *t) {
 
     rootView.DumpLayout(0);
     EditorAction kpAction;
-    kpAction.uiAction = kUIAction::kActionIncreaseViewHeight;
+    kpAction.uiAction = kUIAction::kUIActionIncreaseViewHeight;
     upperView.OnAction(kpAction);
     //upperView.SetHeight(20);
     rootView.Initialize();
@@ -87,7 +87,7 @@ extern "C" int test_layout_height_max(ITesting *t) {
     TR_ASSERT(t, contentH > 0);
 
     // Hammer the increase action well past the screen height.
-    auto kp = MakeAction(kUIAction::kActionIncreaseViewHeight);
+    auto kp = MakeAction(kUIAction::kUIActionIncreaseViewHeight);
     for (int i = 0; i < contentH + 50; i++) {
         upperView.OnAction(kp);
     }
@@ -190,7 +190,7 @@ extern "C" int test_layout_height_min(ITesting *t) {
 
     int contentH = hSplitView.GetContentRect().Height();
 
-    auto kp = MakeAction(kUIAction::kActionDecreaseViewHeight);
+    auto kp = MakeAction(kUIAction::kUIActionDecreaseViewHeight);
     for (int i = 0; i < contentH + 50; i++) {
         upperView.OnAction(kp);
     }
@@ -221,7 +221,7 @@ extern "C" int test_layout_width_max(ITesting *t) {
     int contentW = vSplitView.GetViewRect().Width();
     TR_ASSERT(t, contentW > 0);
 
-    auto kp = MakeAction(kUIAction::kActionIncreaseViewWidth);
+    auto kp = MakeAction(kUIAction::kUIActionIncreaseViewWidth);
     for (int i = 0; i < contentW + 50; i++) {
         leftView.OnAction(kp);
     }
@@ -252,7 +252,7 @@ extern "C" int test_layout_width_min(ITesting *t) {
 
     int contentW = vSplitView.GetViewRect().Width();
 
-    auto kp = MakeAction(kUIAction::kActionDecreaseViewWidth);
+    auto kp = MakeAction(kUIAction::kUIActionDecreaseViewWidth);
     for (int i = 0; i < contentW + 50; i++) {
         leftView.OnAction(kp);
     }
@@ -298,7 +298,7 @@ extern "C" int test_layout_nested_height(ITesting *t) {
     TR_ASSERT(t, contentH > 0);
 
     // Fire the height action from the deeply-nested right pane.
-    auto kp = MakeAction(kUIAction::kActionIncreaseViewHeight);
+    auto kp = MakeAction(kUIAction::kUIActionIncreaseViewHeight);
     for (int i = 0; i < contentH + 50; i++) {
         rightView.OnAction(kp);
     }
@@ -339,7 +339,7 @@ extern "C" int test_layout_nested_width(ITesting *t) {
     int initialSp = vSplitView.GetSplitterPos();
     TR_ASSERT(t, contentW > 0);
 
-    auto kp = MakeAction(kUIAction::kActionIncreaseViewWidth);
+    auto kp = MakeAction(kUIAction::kUIActionIncreaseViewWidth);
     for (int i = 0; i < contentW + 50; i++) {
         upperView.OnAction(kp);
     }

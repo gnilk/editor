@@ -48,26 +48,26 @@ DLL_EXPORT int test_hexview_navtarget_rows(ITesting *t) {
     const int rpp = 4;
 
     // Horizontal: one char each way (== one byte here, all ASCII).
-    TR_ASSERT(t, Nav(*bin, {0, 0}, kUIAction::kActionLineRight, rpp).x == 1);
-    TR_ASSERT(t, Nav(*bin, {0, 0}, kUIAction::kActionLineLeft, rpp).x == 0);   // clamp at start
+    TR_ASSERT(t, Nav(*bin, {0, 0}, kUIAction::kUIActionLineRight, rpp).x == 1);
+    TR_ASSERT(t, Nav(*bin, {0, 0}, kUIAction::kUIActionLineLeft, rpp).x == 0);   // clamp at start
 
     // Vertical: +/- one 16-byte row.
-    TR_ASSERT(t, Nav(*bin, {0, 0}, kUIAction::kActionLineDown, rpp).x == 16);
-    TR_ASSERT(t, Nav(*bin, {16, 0}, kUIAction::kActionLineUp, rpp).x == 0);
-    TR_ASSERT(t, Nav(*bin, {0, 0}, kUIAction::kActionLineUp, rpp).x == 0);     // clamp at top
+    TR_ASSERT(t, Nav(*bin, {0, 0}, kUIAction::kUIActionLineDown, rpp).x == 16);
+    TR_ASSERT(t, Nav(*bin, {16, 0}, kUIAction::kUIActionLineUp, rpp).x == 0);
+    TR_ASSERT(t, Nav(*bin, {0, 0}, kUIAction::kUIActionLineUp, rpp).x == 0);     // clamp at top
 
     // Home/End snap to the byte row boundaries.
-    TR_ASSERT(t, Nav(*bin, {20, 0}, kUIAction::kActionLineHome, rpp).x == 16);
-    TR_ASSERT(t, Nav(*bin, {20, 0}, kUIAction::kActionLineEnd, rpp).x == 31);  // 16..31
-    TR_ASSERT(t, Nav(*bin, {33, 0}, kUIAction::kActionLineEnd, rpp).x == 40);  // 32..47 clamps to size
+    TR_ASSERT(t, Nav(*bin, {20, 0}, kUIAction::kUIActionLineHome, rpp).x == 16);
+    TR_ASSERT(t, Nav(*bin, {20, 0}, kUIAction::kUIActionLineEnd, rpp).x == 31);  // 16..31
+    TR_ASSERT(t, Nav(*bin, {33, 0}, kUIAction::kUIActionLineEnd, rpp).x == 40);  // 32..47 clamps to size
 
     // Page = rowsPerPage rows; clamps to [0, size].
-    TR_ASSERT(t, Nav(*bin, {0, 0}, kUIAction::kActionPageDown, rpp).x == 40);  // 0 + 16*4 clamps to 40
-    TR_ASSERT(t, Nav(*bin, {40, 0}, kUIAction::kActionPageUp, rpp).x == 0);
+    TR_ASSERT(t, Nav(*bin, {0, 0}, kUIAction::kUIActionPageDown, rpp).x == 40);  // 0 + 16*4 clamps to 40
+    TR_ASSERT(t, Nav(*bin, {40, 0}, kUIAction::kUIActionPageUp, rpp).x == 0);
 
     // Buffer start/end.
-    TR_ASSERT(t, Nav(*bin, {20, 0}, kUIAction::kActionBufferStart, rpp).x == 0);
-    TR_ASSERT(t, Nav(*bin, {0, 0}, kUIAction::kActionBufferEnd, rpp).x == 40);
+    TR_ASSERT(t, Nav(*bin, {20, 0}, kUIAction::kUIActionBufferStart, rpp).x == 0);
+    TR_ASSERT(t, Nav(*bin, {0, 0}, kUIAction::kUIActionBufferEnd, rpp).x == 40);
     return kTR_Pass;
 }
 
@@ -78,13 +78,13 @@ DLL_EXPORT int test_hexview_navtarget_multibyte(ITesting *t) {
     const int rpp = 4;
 
     // Right steps WHOLE chars - the one-byte-into-multibyte snap-back never traps the caret.
-    TR_ASSERT(t, Nav(*bin, {0, 0}, kUIAction::kActionLineRight, rpp).x == 1);   // 'a' -> euro
-    TR_ASSERT(t, Nav(*bin, {1, 0}, kUIAction::kActionLineRight, rpp).x == 2);   // euro -> 'b' (skips 2 cont. bytes)
-    TR_ASSERT(t, Nav(*bin, {2, 0}, kUIAction::kActionLineRight, rpp).x == 3);   // 'b' -> EOL
+    TR_ASSERT(t, Nav(*bin, {0, 0}, kUIAction::kUIActionLineRight, rpp).x == 1);   // 'a' -> euro
+    TR_ASSERT(t, Nav(*bin, {1, 0}, kUIAction::kUIActionLineRight, rpp).x == 2);   // euro -> 'b' (skips 2 cont. bytes)
+    TR_ASSERT(t, Nav(*bin, {2, 0}, kUIAction::kUIActionLineRight, rpp).x == 3);   // 'b' -> EOL
 
     // Left snaps to the previous char's start (a byte landing mid-euro resolves to the euro).
-    TR_ASSERT(t, Nav(*bin, {1, 0}, kUIAction::kActionLineLeft, rpp).x == 0);    // euro -> 'a'
-    TR_ASSERT(t, Nav(*bin, {2, 0}, kUIAction::kActionLineLeft, rpp).x == 1);    // 'b' -> euro
+    TR_ASSERT(t, Nav(*bin, {1, 0}, kUIAction::kUIActionLineLeft, rpp).x == 0);    // euro -> 'a'
+    TR_ASSERT(t, Nav(*bin, {2, 0}, kUIAction::kUIActionLineLeft, rpp).x == 1);    // 'b' -> euro
     return kTR_Pass;
 }
 

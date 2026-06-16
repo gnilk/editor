@@ -27,7 +27,7 @@ namespace gedit {
     //
     struct EditorAction {
         kAction action = kAction::kActionNone;     // Key press was mapped to this action
-        kUIAction uiAction = kUIAction::kActionNone;     // ...or this one, if it resolved into the toolkit's action space
+        kUIAction uiAction = kUIAction::kUIActionNone;     // ...or this one, if it resolved into the toolkit's action space
         std::optional <kActionModifier> actionModifier = {};
         int modifierMask = {};
         KeyPress keyPress = {};  // Underlying keypress (the action is already resolved by dispatch time)

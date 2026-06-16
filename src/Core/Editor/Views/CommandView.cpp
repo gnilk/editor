@@ -67,7 +67,7 @@ void CommandView::OnActivate(bool isActive) {
 }
 
 bool CommandView::OnAction(const EditorAction &kpAction) {
-    if (kpAction.uiAction == kUIAction::kActionCommitLine) {
+    if (kpAction.uiAction == kUIAction::kUIActionCommitLine) {
         return OnActionCommitLine();
     }
     return ViewBase::OnAction(kpAction);

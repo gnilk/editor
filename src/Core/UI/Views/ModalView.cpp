@@ -48,7 +48,7 @@ void ModalView::ReInitView() {
 
 bool ModalView::OnAction(const EditorAction &kpAction) {
     // Hmm - action alias???
-    if (kpAction.uiAction == kUIAction::kActionCycleActiveView) {
+    if (kpAction.uiAction == kUIAction::kUIActionCycleActiveView) {
         CloseModal();
         return true;
     }

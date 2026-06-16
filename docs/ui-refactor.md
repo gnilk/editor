@@ -8,12 +8,15 @@
 
 ## §0 — Status / read this first
 
-**Phase: AI-0 through AI-6 ✅ ALL DONE — branch `refactor-ui`** (committed `97ce381`, `7dce4e1`,
-`35dd33a`, `8a22d0e`, `98297bc`, `1558cd7`, `94aac9c`). **The AI-2 include-discipline gate is
+**Phase: AI-0 through AI-6 ✅ ALL DONE, AI-7 DROPPED — branch `refactor-ui`** (committed `97ce381`,
+`7dce4e1`, `35dd33a`, `8a22d0e`, `98297bc`, `1558cd7`, `94aac9c`). **The AI-2 include-discipline gate is
 fully green** (`./scripts/check-ui-boundary.sh` reports clean; the CI step is now blocking, no longer
-informational). **Only AI-7 (the optional physical `goatui` library) remains, and it's explicitly
-optional** ("I might not do it") — there is no other open action item. Analysis in §3–§7; the
-sequenced action-item plan is §8; each item's "Built"/"Done" note there has the as-built specifics.
+informational). **AI-7 (the optional physical `goatui` library) was decided against** — the in-tree
+boundary already serves both drivers (§1), and a shipped library isn't worth its carrying cost without
+a real second consumer. **The ui-refactor effort is closed — no open action items remain.** The CMake
+`ui_src`/`appui_src` grouping (§9) stays deferred indefinitely (cosmetic, unrelated to AI-7 now).
+Analysis in §3–§7; the sequenced action-item plan is §8; each item's "Built"/"Done" note there has the
+as-built specifics.
 
 **AI-0 done (2026-06-16, on `refactor-ui`):** removed the dead `#include "Core/Line.h"` from
 `src/Core/Graphics/DrawContext.h`; swept the other contract headers (`ScreenBase.h`, `WindowBase.h`,
@@ -865,3 +868,19 @@ src/Core/                     # shared layer (NOT moved — see §9 "RESOLVED" +
   `.github/workflows/cmake.yml`'s boundary-check step from informational to blocking. Full rebuild
   (`goatedit` + `utests`) clean; verified-green 235-test set: 0 failures. §0/§8 updated. Only AI-7
   (optional) remains.
+- **2026-06-16** — **AI-7 dropped** (user decision — the in-tree boundary achieves both drivers;
+  physical-library carrying cost isn't worth it without a real second consumer). CMake `ui_src`/
+  `appui_src` grouping stays deferred indefinitely, no longer tied to "alongside AI-7." **AI-4
+  follow-up:** renamed `kUIAction`'s enumerators from the `kAction<Value>` prefix (inherited verbatim
+  from `kAction` when AI-4 carved the enum out) to `kUIAction<Value>` — matches the codebase
+  convention that an enum's members repeat the enum's *own* type name
+  (`kActionModifier::kActionModifierSelection`, `kAction::kActionGotoFirstLine`), and makes
+  `kUIAction::kUIActionPageUp` textually distinct from `kAction::kActionPageUp` instead of relying on
+  the `kUIAction::`/`kAction::` qualifier alone to disambiguate. Pure rename — every reference was
+  already fully qualified (confirmed by grep before the sweep, including `case` labels), so it was a
+  mechanical `kUIAction::kAction` → `kUIAction::kUIAction` string swap across `UIAction.h` + 18
+  consuming files. Full rebuild (`goatedit` + `utests`) clean; test suite: 236/236 pass;
+  `check-ui-boundary.sh` still clean. User noted other enums in the codebase follow the same
+  `k<Type>Value` pattern inconsistently (a pre-fully-qualified-enum leftover) — **not** swept here,
+  left for a possible future pass if/when reconsidered. **This closes out the ui-refactor effort** —
+  AI-0 through AI-6 done, AI-7 dropped, no open action items remain.

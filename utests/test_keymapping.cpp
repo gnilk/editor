@@ -146,7 +146,7 @@ DLL_EXPORT int test_keymapping_inherit(ITesting *t) {
 
     auto inherited = keymap->ActionFromKeyPress(down);
     TR_ASSERT(t, inherited.has_value());
-    TR_ASSERT(t, inherited->uiAction == kUIAction::kActionLineDown);
+    TR_ASSERT(t, inherited->uiAction == kUIAction::kUIActionLineDown);
 
     // Child overrides parent: Tab is Indent in default_keymap but ShellCompletion in terminal_keymap
     KeyPress tab = {};
@@ -188,7 +188,7 @@ DLL_EXPORT int test_keymapping_inherit_empty_actions(ITesting *t) {
 
     auto inherited = keyMapping.ActionFromKeyPress(down);
     TR_ASSERT(t, inherited.has_value());
-    TR_ASSERT(t, inherited->uiAction == kUIAction::kActionLineDown);
+    TR_ASSERT(t, inherited->uiAction == kUIAction::kUIActionLineDown);
 
     return kTR_Pass;
 }
@@ -225,7 +225,7 @@ DLL_EXPORT int test_keymapping_inherit_multilevel(ITesting *t) {
     down.isSpecialKey = true;
     auto lineDown = keyMapping.ActionFromKeyPress(down);
     TR_ASSERT(t, lineDown.has_value());
-    TR_ASSERT(t, lineDown->uiAction == kUIAction::kActionLineDown);
+    TR_ASSERT(t, lineDown->uiAction == kUIAction::kUIActionLineDown);
 
     // L2 - nearer ancestor wins over a more distant one: terminal_keymap's Tab -> ShellCompletion
     // overrides default_keymap's Tab -> Indent (the child does not bind Tab).
@@ -246,7 +246,7 @@ DLL_EXPORT int test_keymapping_inherit_multilevel(ITesting *t) {
     esc.isSpecialKey = true;
     auto escAction = keyMapping.ActionFromKeyPress(esc);
     TR_ASSERT(t, escAction.has_value());
-    TR_ASSERT(t, escAction->uiAction == kUIAction::kActionCommitLine);
+    TR_ASSERT(t, escAction->uiAction == kUIAction::kUIActionCommitLine);
 
     return kTR_Pass;
 }
@@ -271,7 +271,7 @@ DLL_EXPORT int test_keymapping_workspace_inherit(ITesting *t) {
 
     auto inherited = keymap->ActionFromKeyPress(down);
     TR_ASSERT(t, inherited.has_value());
-    TR_ASSERT(t, inherited->uiAction == kUIAction::kActionLineDown);
+    TR_ASSERT(t, inherited->uiAction == kUIAction::kUIActionLineDown);
 
     return kTR_Pass;
 }
@@ -316,7 +316,7 @@ DLL_EXPORT int test_keymapping_cache(ITesting *t) {
     down.isSpecialKey = true;
     auto lineDown = term->ActionFromKeyPress(down);
     TR_ASSERT(t, lineDown.has_value());
-    TR_ASSERT(t, lineDown->uiAction == kUIAction::kActionLineDown);
+    TR_ASSERT(t, lineDown->uiAction == kUIAction::kUIActionLineDown);
 
     return kTR_Pass;
 }

@@ -280,35 +280,35 @@ bool Document::OnAction(const EditorAction &kpAction) {
 
 bool Document::DispatchAction(const EditorAction &kpAction) {
     switch(kpAction.uiAction) {
-        case kUIAction::kActionLineLeft :
+        case kUIAction::kUIActionLineLeft :
             return OnActionStepLeft();
-        case kUIAction::kActionLineRight :
+        case kUIAction::kUIActionLineRight :
             return OnActionStepRight();
-        case kUIAction::kActionPageUp :
+        case kUIAction::kUIActionPageUp :
             return OnActionPageUp();
-        case kUIAction::kActionPageDown :
+        case kUIAction::kUIActionPageDown :
             return OnActionPageDown();
-        case kUIAction::kActionLineDown :
+        case kUIAction::kUIActionLineDown :
             return OnActionLineDown(kpAction);
-        case kUIAction::kActionLineUp :
+        case kUIAction::kUIActionLineUp :
             return OnActionLineUp();
-        case kUIAction::kActionLineEnd :
+        case kUIAction::kUIActionLineEnd :
             return OnActionLineEnd();
-        case kUIAction::kActionLineHome :
+        case kUIAction::kUIActionLineHome :
             return OnActionLineHome();
-        case kUIAction::kActionCommitLine :
+        case kUIAction::kUIActionCommitLine :
             return OnActionCommitLine();
-        case kUIAction::kActionBufferStart :
+        case kUIAction::kUIActionBufferStart :
             return OnActionGotoFirstLine();
-        case kUIAction::kActionBufferEnd :
+        case kUIAction::kUIActionBufferEnd :
             return OnActionGotoLastLine();
-        case kUIAction::kActionGotoTopLine :
+        case kUIAction::kUIActionGotoTopLine :
             return OnActionGotoTopLine();
-        case kUIAction::kActionGotoBottomLine :
+        case kUIAction::kUIActionGotoBottomLine :
             return OnActionGotoBottomLine();
-        case kUIAction::kActionLineWordLeft :
+        case kUIAction::kUIActionLineWordLeft :
             return OnActionWordLeft();
-        case kUIAction::kActionLineWordRight :
+        case kUIAction::kUIActionLineWordRight :
             return OnActionWordRight();
         default:
             break;

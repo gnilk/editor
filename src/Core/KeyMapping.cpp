@@ -68,30 +68,30 @@ static std::unordered_map<std::string, kAction> strToActionMap = {
 // Toolkit-owned actions (kUIAction, AI-4) - the shared navigation set + view management,
 // matched directly by src/Core/UI/* widgets without any app-level translation.
 static std::unordered_map<std::string, kUIAction> strToUIActionMap = {
-        {"NavigateLineDown",      kUIAction::kActionLineDown},
-        {"NavigateLineUp",        kUIAction::kActionLineUp},
-        {"NavigatePageDown",      kUIAction::kActionPageDown},
-        {"NavigatePageUp",        kUIAction::kActionPageUp},
-        {"NavigateLineEnd",       kUIAction::kActionLineEnd},
-        {"NavigateLineHome",      kUIAction::kActionLineHome},
-        {"NavigateHome",          kUIAction::kActionBufferStart},
-        {"NavigateEnd",           kUIAction::kActionBufferEnd},
-        {"NavigateLeft",          kUIAction::kActionLineLeft},
-        {"NavigateRight",         kUIAction::kActionLineRight},
-        {"NavigateWordLeft",      kUIAction::kActionLineWordLeft},
-        {"NavigateWordRight",     kUIAction::kActionLineWordRight},
-        {"CommitLine",            kUIAction::kActionCommitLine},
-        {"GotoBottomLine",        kUIAction::kActionGotoBottomLine},
-        {"GotoTopLine",           kUIAction::kActionGotoTopLine},
-        {"CycleActiveView",       kUIAction::kActionCycleActiveView},
-        {"CycleActiveViewNext",       kUIAction::kActionCycleActiveViewNext},
-        {"CycleActiveViewPrev",       kUIAction::kActionCycleActiveViewPrev},
-        {"CloseModal",            kUIAction::kActionCloseModal},
-        {"UIIncreaseViewWidth",     kUIAction::kActionIncreaseViewWidth},
-        {"UIDecreaseViewWidth",     kUIAction::kActionDecreaseViewWidth},
-        {"UIIncreaseViewHeight",    kUIAction::kActionIncreaseViewHeight},
-        {"UIDecreaseViewHeight",    kUIAction::kActionDecreaseViewHeight},
-        {"UIMaximizeViewHeight",    kUIAction::kActionMaximizeViewHeight},
+        {"NavigateLineDown",      kUIAction::kUIActionLineDown},
+        {"NavigateLineUp",        kUIAction::kUIActionLineUp},
+        {"NavigatePageDown",      kUIAction::kUIActionPageDown},
+        {"NavigatePageUp",        kUIAction::kUIActionPageUp},
+        {"NavigateLineEnd",       kUIAction::kUIActionLineEnd},
+        {"NavigateLineHome",      kUIAction::kUIActionLineHome},
+        {"NavigateHome",          kUIAction::kUIActionBufferStart},
+        {"NavigateEnd",           kUIAction::kUIActionBufferEnd},
+        {"NavigateLeft",          kUIAction::kUIActionLineLeft},
+        {"NavigateRight",         kUIAction::kUIActionLineRight},
+        {"NavigateWordLeft",      kUIAction::kUIActionLineWordLeft},
+        {"NavigateWordRight",     kUIAction::kUIActionLineWordRight},
+        {"CommitLine",            kUIAction::kUIActionCommitLine},
+        {"GotoBottomLine",        kUIAction::kUIActionGotoBottomLine},
+        {"GotoTopLine",           kUIAction::kUIActionGotoTopLine},
+        {"CycleActiveView",       kUIAction::kUIActionCycleActiveView},
+        {"CycleActiveViewNext",       kUIAction::kUIActionCycleActiveViewNext},
+        {"CycleActiveViewPrev",       kUIAction::kUIActionCycleActiveViewPrev},
+        {"CloseModal",            kUIAction::kUIActionCloseModal},
+        {"UIIncreaseViewWidth",     kUIAction::kUIActionIncreaseViewWidth},
+        {"UIDecreaseViewWidth",     kUIAction::kUIActionDecreaseViewWidth},
+        {"UIIncreaseViewHeight",    kUIAction::kUIActionIncreaseViewHeight},
+        {"UIDecreaseViewHeight",    kUIAction::kUIActionDecreaseViewHeight},
+        {"UIMaximizeViewHeight",    kUIAction::kUIActionMaximizeViewHeight},
 };
 
 
@@ -408,7 +408,7 @@ bool KeyMapping::ParseKeyPressCombinationString(const std::string &actionName, c
     // A keypress resolves into exactly one of the two action spaces - never both.
     bool isUIAction = false;
     kAction action = kAction::kActionNone;
-    kUIAction uiAction = kUIAction::kActionNone;
+    kUIAction uiAction = kUIAction::kUIActionNone;
     if (strToActionMap.find(actionName) != strToActionMap.end()) {
         action = strToActionMap.at(actionName);
     } else if (strToUIActionMap.find(actionName) != strToUIActionMap.end()) {

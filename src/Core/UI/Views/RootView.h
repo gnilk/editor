@@ -136,13 +136,13 @@ namespace gedit {
             }
 
             switch(kpAction.uiAction) {
-                case kUIAction::kActionCycleActiveView :
+                case kUIAction::kUIActionCycleActiveView :
                     OnCycleActiveView();
                     return true;
-                case kUIAction::kActionCycleActiveViewNext :
+                case kUIAction::kUIActionCycleActiveViewNext :
                     OnCycleActiveViewNext();
                     return true;
-                case kUIAction::kActionCycleActiveViewPrev :
+                case kUIAction::kUIActionCycleActiveViewPrev :
                     OnCycleActiveViewPrev();
                     return true;
                 default:

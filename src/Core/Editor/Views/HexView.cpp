@@ -71,22 +71,22 @@ bool HexView::DispatchNavAction(const EditorAction &kpAction) {
     // two different enums and can't share a case label in one switch.
     kUIAction navAction = kpAction.uiAction;
     if (kpAction.action == kAction::kActionGotoFirstLine) {
-        navAction = kUIAction::kActionBufferStart;
+        navAction = kUIAction::kUIActionBufferStart;
     } else if (kpAction.action == kAction::kActionGotoLastLine) {
-        navAction = kUIAction::kActionBufferEnd;
+        navAction = kUIAction::kUIActionBufferEnd;
     }
 
     switch (navAction) {
-        case kUIAction::kActionLineLeft:
-        case kUIAction::kActionLineRight:
-        case kUIAction::kActionLineUp:
-        case kUIAction::kActionLineDown:
-        case kUIAction::kActionLineHome:
-        case kUIAction::kActionLineEnd:
-        case kUIAction::kActionPageUp:
-        case kUIAction::kActionPageDown:
-        case kUIAction::kActionBufferStart:
-        case kUIAction::kActionBufferEnd:
+        case kUIAction::kUIActionLineLeft:
+        case kUIAction::kUIActionLineRight:
+        case kUIAction::kUIActionLineUp:
+        case kUIAction::kUIActionLineDown:
+        case kUIAction::kUIActionLineHome:
+        case kUIAction::kUIActionLineEnd:
+        case kUIAction::kUIActionPageUp:
+        case kUIAction::kUIActionPageDown:
+        case kUIAction::kUIActionBufferStart:
+        case kUIAction::kUIActionBufferEnd:
             break;
         default:
             return false;
@@ -108,36 +108,36 @@ gedit::Point HexView::ComputeNavTarget(const BinBuffer &utf8, const gedit::Point
     long long row = (long long)(cur % (size_t)bytesPerRow);
 
     switch (action) {
-        case kUIAction::kActionLineRight:
+        case kUIAction::kUIActionLineRight:
             // Step a whole char: a one-byte step into a multibyte char would snap straight back.
             target = (long long)HexProjection::NextCharStart(utf8, cur);
             break;
-        case kUIAction::kActionLineLeft:
+        case kUIAction::kUIActionLineLeft:
             // One byte back snaps to the previous char's start on the way through ByteOffsetToText.
             target = (cur > 0) ? (long long)cur - 1 : 0;
             break;
-        case kUIAction::kActionLineDown:
+        case kUIAction::kUIActionLineDown:
             target = (long long)cur + bytesPerRow;
             break;
-        case kUIAction::kActionLineUp:
+        case kUIAction::kUIActionLineUp:
             target = (long long)cur - bytesPerRow;
             break;
-        case kUIAction::kActionLineHome:
+        case kUIAction::kUIActionLineHome:
             target = (long long)cur - row;
             break;
-        case kUIAction::kActionLineEnd:
+        case kUIAction::kUIActionLineEnd:
             target = (long long)cur - row + bytesPerRow - 1;
             break;
-        case kUIAction::kActionPageDown:
+        case kUIAction::kUIActionPageDown:
             target = (long long)cur + (long long)bytesPerRow * rowsPerPage;
             break;
-        case kUIAction::kActionPageUp:
+        case kUIAction::kUIActionPageUp:
             target = (long long)cur - (long long)bytesPerRow * rowsPerPage;
             break;
-        case kUIAction::kActionBufferStart:
+        case kUIAction::kUIActionBufferStart:
             target = 0;
             break;
-        case kUIAction::kActionBufferEnd:
+        case kUIAction::kUIActionBufferEnd:
             target = (long long)size;
             break;
         default:

@@ -54,16 +54,16 @@ void ListView::ReInitView() {
 bool ListView::OnAction(const EditorAction &kpAction){
     bool wasHandled = true;
     switch(kpAction.uiAction) {
-        case kUIAction::kActionLineUp :
+        case kUIAction::kUIActionLineUp :
             verticalNavigationModel.OnNavigateUp(1, GetContentRect(), listItems.size());
             break;
-        case kUIAction::kActionLineDown :
+        case kUIAction::kUIActionLineDown :
             verticalNavigationModel.OnNavigateDown(1, GetContentRect(), listItems.size());
             break;
-        case kUIAction::kActionPageUp :
+        case kUIAction::kUIActionPageUp :
             verticalNavigationModel.OnNavigateUp(GetContentRect().Height()-1, GetContentRect(), listItems.size());
             break;
-        case kUIAction::kActionPageDown :
+        case kUIAction::kUIActionPageDown :
             verticalNavigationModel.OnNavigateDown(GetContentRect().Height()-1, GetContentRect(), listItems.size());
             break;
         default:
@@ -118,11 +118,11 @@ bool ListSelectionModal::OnAction(const EditorAction &kpAction) {
         return true;
     }
 
-    if (kpAction.uiAction == kUIAction::kActionCommitLine) {
+    if (kpAction.uiAction == kUIAction::kUIActionCommitLine) {
         listView->GetSelectedItemIndex();
         CloseModal();
     }
-    if (kpAction.uiAction == kUIAction::kActionLineRight) {
+    if (kpAction.uiAction == kUIAction::kUIActionLineRight) {
         if (listHeader->IsVisible()) {
             listHeader->SetVisible(false);
         } else {

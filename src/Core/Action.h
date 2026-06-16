@@ -184,7 +184,7 @@ namespace gedit {
         }
     private:
         kAction action = kAction::kActionNone;
-        kUIAction uiAction = kUIAction::kActionNone;
+        kUIAction uiAction = kUIAction::kUIActionNone;
         int modiferMask = 0;
         unsigned int asciiKeyCode = 0;
         std::optional<kActionModifier> actionModifier = {};

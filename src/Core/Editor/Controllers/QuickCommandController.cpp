@@ -62,7 +62,7 @@ bool QuickCommandController::HandleAction(const EditorAction &kpAction) {
     return false;
 }
 bool QuickCommandController::HandleActionInQuickCmdState(const EditorAction &kpAction) {
-    if (kpAction.uiAction == kUIAction::kActionCommitLine) {
+    if (kpAction.uiAction == kUIAction::kUIActionCommitLine) {
         return true;
     }
     switch(kpAction.action) {
@@ -117,7 +117,7 @@ bool QuickCommandController::HandleActionInSearch(const EditorAction &kpAction) 
         return true;
     }
     // Leave search mode in case of enter
-    if (kpAction.uiAction == kUIAction::kActionCommitLine) {
+    if (kpAction.uiAction == kUIAction::kUIActionCommitLine) {
         auto searchItem = std::u32string(cmdInput->Buffer().substr(1));
         SearchInActiveDocument(searchItem);
 
@@ -134,7 +134,7 @@ bool QuickCommandController::HandleActionInSearch(const EditorAction &kpAction) 
 }
 
 bool QuickCommandController::HandleActionInCmdLetState(const EditorAction &kpAction) {
-    if (kpAction.uiAction == kUIAction::kActionCommitLine) {
+    if (kpAction.uiAction == kUIAction::kUIActionCommitLine) {
         logger->Debug("Should execute cmdlet!");
         auto cmdline = std::u32string(cmdInput->Buffer());
         if (!PluginExecutor::ParseAndExecuteWithCmdPrefix(cmdline)) {

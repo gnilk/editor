@@ -8,36 +8,36 @@
 
 namespace gedit {
     enum class kUIAction {
-        kActionNone,
+        kUIActionNone,
 
         // Shared navigation set - consumed by both editor cursor movement and
         // the list/tree selection widgets.
-        kActionPageUp,
-        kActionPageDown,
-        kActionLineUp,
-        kActionLineDown,
-        kActionLineHome,
-        kActionLineEnd,
-        kActionLineLeft,
-        kActionLineRight,
-        kActionLineWordLeft,
-        kActionLineWordRight,
-        kActionBufferStart,
-        kActionBufferEnd,
-        kActionGotoTopLine,
-        kActionGotoBottomLine,
-        kActionCommitLine,
+        kUIActionPageUp,
+        kUIActionPageDown,
+        kUIActionLineUp,
+        kUIActionLineDown,
+        kUIActionLineHome,
+        kUIActionLineEnd,
+        kUIActionLineLeft,
+        kUIActionLineRight,
+        kUIActionLineWordLeft,
+        kUIActionLineWordRight,
+        kUIActionBufferStart,
+        kUIActionBufferEnd,
+        kUIActionGotoTopLine,
+        kUIActionGotoBottomLine,
+        kUIActionCommitLine,
 
         // View management - handled by the toolkit itself.
-        kActionCycleActiveView,
-        kActionCycleActiveViewNext,
-        kActionCycleActiveViewPrev,
-        kActionCloseModal,
-        kActionIncreaseViewWidth,
-        kActionDecreaseViewWidth,
-        kActionIncreaseViewHeight,
-        kActionDecreaseViewHeight,
-        kActionMaximizeViewHeight,
+        kUIActionCycleActiveView,
+        kUIActionCycleActiveViewNext,
+        kUIActionCycleActiveViewPrev,
+        kUIActionCloseModal,
+        kUIActionIncreaseViewWidth,
+        kUIActionDecreaseViewWidth,
+        kUIActionIncreaseViewHeight,
+        kUIActionDecreaseViewHeight,
+        kUIActionMaximizeViewHeight,
     };
 }
 

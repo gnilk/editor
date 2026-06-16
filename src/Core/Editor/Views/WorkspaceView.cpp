@@ -233,7 +233,7 @@ bool WorkspaceView::OnAction(const EditorAction &kpAction) {
         }
         return true;
     }
-    if (kpAction.uiAction == kUIAction::kActionCommitLine) {
+    if (kpAction.uiAction == kUIAction::kUIActionCommitLine) {
         auto logger = gnilk::Logger::GetLogger("WorkspaceView");
         auto itemSelected = treeView->GetCurrentSelectedItem();
         // File nodes are opened (document created lazily); folder nodes are not. Check the node type

@@ -71,7 +71,7 @@ bool TerminalView::OnAction(const EditorAction &kpAction) {
     if (controller.GetScreen().IsAltScreen() || controller.DoesShellOwnLineEditing()) {
         return controller.ForwardActionToShell(kpAction);
     }
-    if (kpAction.uiAction == kUIAction::kActionCommitLine) {
+    if (kpAction.uiAction == kUIAction::kUIActionCommitLine) {
         return OnActionCommitLine();
     }
     if (controller.OnAction(kpAction)) {

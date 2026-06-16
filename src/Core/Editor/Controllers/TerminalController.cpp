@@ -427,7 +427,7 @@ bool TerminalController::ForwardActionToShell(const EditorAction &kpAction) {
         return true;
     }
     switch (kpAction.uiAction) {
-        case kUIAction::kActionCommitLine:
+        case kUIAction::kUIActionCommitLine:
             shell.Write(0x0d);
             // When the shell owns line editing the line lives in readline; committing hands
             // control back and the shell will print its output + a fresh prompt.
@@ -435,14 +435,14 @@ bool TerminalController::ForwardActionToShell(const EditorAction &kpAction) {
                 ExitShellOwned();
             }
             return true;
-        case kUIAction::kActionLineLeft:    seq = cursorKeyAppMode ? "\x1bOD" : "\x1b[D"; break;
-        case kUIAction::kActionLineRight:   seq = cursorKeyAppMode ? "\x1bOC" : "\x1b[C"; break;
-        case kUIAction::kActionLineUp:      seq = cursorKeyAppMode ? "\x1bOA" : "\x1b[A"; break;
-        case kUIAction::kActionLineDown:    seq = cursorKeyAppMode ? "\x1bOB" : "\x1b[B"; break;
-        case kUIAction::kActionLineHome:    seq = "\x1b[H";  break;
-        case kUIAction::kActionLineEnd:     seq = "\x1b[F";  break;
-        case kUIAction::kActionPageUp:      seq = "\x1b[5~"; break;
-        case kUIAction::kActionPageDown:    seq = "\x1b[6~"; break;
+        case kUIAction::kUIActionLineLeft:    seq = cursorKeyAppMode ? "\x1bOD" : "\x1b[D"; break;
+        case kUIAction::kUIActionLineRight:   seq = cursorKeyAppMode ? "\x1bOC" : "\x1b[C"; break;
+        case kUIAction::kUIActionLineUp:      seq = cursorKeyAppMode ? "\x1bOA" : "\x1b[A"; break;
+        case kUIAction::kUIActionLineDown:    seq = cursorKeyAppMode ? "\x1bOB" : "\x1b[B"; break;
+        case kUIAction::kUIActionLineHome:    seq = "\x1b[H";  break;
+        case kUIAction::kUIActionLineEnd:     seq = "\x1b[F";  break;
+        case kUIAction::kUIActionPageUp:      seq = "\x1b[5~"; break;
+        case kUIAction::kUIActionPageDown:    seq = "\x1b[6~"; break;
         default: return true;  // swallow — don't let editor-level actions fire
     }
     if (seq != nullptr) {
@@ -469,19 +469,19 @@ bool TerminalController::OnAction(const EditorAction &kpAction) {
     }
 
     switch (kpAction.uiAction) {
-        case kUIAction::kActionLineHome :
+        case kUIAction::kUIActionLineHome :
             inputCursor.position.x = 0;
             break;
-        case kUIAction::kActionLineEnd :
+        case kUIAction::kUIActionLineEnd :
             inputCursor.position.x = inputLine->Length();
             break;
-        case kUIAction::kActionLineLeft :
+        case kUIAction::kUIActionLineLeft :
             inputCursor.position.x = std::max(0, inputCursor.position.x - 1);
             break;
-        case kUIAction::kActionLineRight :
+        case kUIAction::kUIActionLineRight :
             inputCursor.position.x = std::min((int)inputLine->Length(), inputCursor.position.x + 1);
             break;
-        case kUIAction::kActionLineUp : {
+        case kUIAction::kUIActionLineUp : {
             auto entry = history.NavigateUp();
             if (entry.has_value()) {
                 inputLine->Clear();
@@ -490,7 +490,7 @@ bool TerminalController::OnAction(const EditorAction &kpAction) {
             }
             break;
         }
-        case kUIAction::kActionLineDown : {
+        case kUIAction::kUIActionLineDown : {
             auto entry = history.NavigateDown();
             inputLine->Clear();
             if (entry.has_value()) {

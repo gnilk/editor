@@ -8,8 +8,8 @@
 
 ## §0 — Status / read this first
 
-**Phase: IN PROGRESS — branch `refactor-ui`, AI-0 ✅ + AI-1 ✅ DONE (committed `97ce381`, `7dce4e1`).**
-Analysis done (§3–§7); sequenced
+**Phase: IN PROGRESS — branch `refactor-ui`, AI-0 ✅ + AI-1 ✅ + AI-2 ✅ DONE (committed `97ce381`,
+`7dce4e1`, AI-2 pending commit).** Analysis done (§3–§7); sequenced
 action-item plan in **§8**. User direction (2026-06-16): wants the **clean separation** regardless of
 whether a physical library is ever cut — **start with the folder split (AI-1)**, treat the **`kAction`
 split (AI-4)** as its own work item, and harden the new **`SessionManager`/`ViewBase` seam via
@@ -36,8 +36,14 @@ model (`Document.h`, `Line.h`, `TextBuffer.h`, `DocumentViewState.h`, `ClipBoard
 created. `CMakeLists.txt` updated in place (no separate `ui_src`/`appui_src` CMake groups yet — still
 one `editorsrc` list, just with the new paths; that grouping is deferred, not needed for AI-1's
 goal of a physical, visible split). Full rebuild (`goatedit` + `utests`) clean; verified-green 235-test
-set passes 0 failures. **Next: AI-2 (include-discipline smell-test) or pick one of AI-3/4/5 per user
-priority.**
+set passes 0 failures.
+
+**AI-2 done (2026-06-16, on `refactor-ui`):** `scripts/check-ui-boundary.sh` + a non-blocking CI step
+in `.github/workflows/cmake.yml`. Current leak set: **19 includes / 14 files**, all matching the §4
+chokepoints exactly (16× `RuntimeConfig.h`/`Editor.h` → AI-3, 2× `Core/Session/*` → AI-5, 2×
+`Core/Config/*` → AI-6; zero `Document.h`/`TextBuffer.h`/`Workspace.h`/`Plugins` hits). Full list in
+the AI-2 §8 entry. **Next: pick one of AI-3/`UIHost`, AI-4/`kAction` split, or AI-5/`ILayoutSink` per
+user priority.**
 
 **Verdict in brief (see §7 for the argument):**
 - The layout engine + the rendering contract + the selection/tree widgets **are** genuinely generic
@@ -386,7 +392,7 @@ Each item: **Goal · Scope · Approach · Effort/Risk · Done-when · Depends-on
 
 ---
 
-### AI-2 — Include-discipline smell-test (the work queue)
+### AI-2 — Include-discipline smell-test (the work queue)  ✅ DONE (2026-06-16)
 - **Goal:** a cheap CI gate that *names* every remaining app→toolkit leak, mirroring the existing
   `grep -rl "Core/Session\|Editor.h" src/Core/Graphics/` invariant.
 - **Scope:** a script (`scripts/check-ui-boundary.sh` or a CMake/CTest step).
@@ -395,6 +401,28 @@ Each item: **Goal · Scope · Approach · Effort/Risk · Done-when · Depends-on
   fail at first** — the failure list is the precise queue for AI-3/4/5/6.
 - **Effort/Risk:** small / none. **Done-when:** the gate runs and reports the current leak set.
   **Depends-on:** AI-1.
+- **Built:** `scripts/check-ui-boundary.sh` (executable) — walks every `.h`/`.cpp` under
+  `src/Core/UI/`, flags `#include "..."` of the forbidden set, and annotates each hit with the
+  action item that resolves it. Wired into `.github/workflows/cmake.yml` as an **informational**
+  step (`continue-on-error: true`) right after the `goatedit` build — non-blocking on purpose since
+  it's expected to fail until AI-3/4/5/6 land; flip `continue-on-error` to `false` once the leak
+  count hits 0 (that's also AI-6's done-when).
+- **Current leak set (19 includes across 14 files, captured 2026-06-16 — the precise AI-3/5/6
+  queue):**
+  - **AI-3 (`RuntimeConfig.h`/`Editor.h` → `UIHost`), 16 hits:** `Graphics/DrawContext.cpp`
+    (`Editor.h`), `Views/ModalView.cpp` (`RuntimeConfig.h`), `Views/ViewBase.cpp` (`Editor.h` +
+    `RuntimeConfig.h`), `Views/RootView.h` (`Editor.h` + `RuntimeConfig.h`),
+    `Views/SingleLineView.h` (`Editor.h` + `RuntimeConfig.h`), `Views/TestView.cpp` (`Editor.h`),
+    `Views/TreeView.h` (`Editor.h`), `Views/VisibleView.cpp`, `Views/HSplitView.h`,
+    `Views/VSplitView.h`, `Views/VStackView.h`, `Views/HStackView.h` (all `RuntimeConfig.h`).
+  - **AI-5 (`Core/Session/*` → `ILayoutSink`), 2 hits:** `Views/ViewBase.cpp`
+    (`Core/Session/SessionManager.h`), `Views/ViewBase.h` (`Core/Session/SessionState.h`).
+  - **AI-6 (`Core/Config/*` → injected theme/colors), 2 hits:** `Views/ListSelectionModal.cpp`,
+    `Views/TestView.cpp` (both `Core/Config/Config.h`).
+  - **Zero hits** for `Document.h`/`TextBuffer.h`/`Workspace.h`/`Core/Plugins/*` — confirms §4's
+    read that those never leaked into the toolkit in the first place.
+  - Re-run `./scripts/check-ui-boundary.sh` any time to refresh this list — it's the live source of
+    truth; the bullets above are a snapshot.
 
 ---
 
@@ -610,6 +638,10 @@ in §8.
   `Keyboard`/`Cursor`) stayed in `src/Core/` root — confirmed via grep that the document/text model
   depends on them too, so a `UI/Primitives/`+`UI/Input/` folder would have been a false generic/app
   boundary. Full rebuild (`goatedit` + `utests`) clean; verified-green 235-test set: 0 failures.
-  §9/§10 updated to match the as-built state. **Next: AI-2, or AI-3/4/5 per user priority.**
-</content>
-</invoke>
+  §9/§10 updated to match the as-built state.
+- **2026-06-16** — **AI-2 (include-discipline smell-test) DONE**, on branch `refactor-ui`. Added
+  `scripts/check-ui-boundary.sh` (asserts `src/Core/UI/` carries no `Editor.h`/`RuntimeConfig.h`/
+  `Document.h`/`TextBuffer.h`/`Workspace.h`/`Core/Session/*`/`Core/Plugins/*`/`Core/Config/*`
+  include) and a non-blocking `continue-on-error` step in `.github/workflows/cmake.yml`. Captured
+  the current leak set as the precise AI-3/5/6 work queue: 19 includes / 14 files (16× → AI-3, 2× →
+  AI-5, 2× → AI-6, zero editor-model hits). Full breakdown in the AI-2 §8 entry.

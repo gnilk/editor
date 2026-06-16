@@ -36,3 +36,10 @@ jobs:
       - name: Build
         # Build your program with the given configuration
         run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --target goatedit
+
+      - name: UI boundary smell-test (informational)
+        # docs/ui-refactor.md AI-2: src/Core/UI/ must not include app-level headers. Expected to FAIL
+        # until AI-3/4/5/6 land (see the doc) — non-blocking for now so it doesn't fail unrelated PRs.
+        # Flip continue-on-error to false once the leak count hits 0.
+        continue-on-error: true
+        run: ./scripts/check-ui-boundary.sh

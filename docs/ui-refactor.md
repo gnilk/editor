@@ -8,8 +8,8 @@
 
 ## §0 — Status / read this first
 
-**Phase: IN PROGRESS — branch `refactor-ui`, AI-0 ✅ + AI-1 ✅ + AI-2 ✅ DONE (committed `97ce381`,
-`7dce4e1`, AI-2 pending commit).** Analysis done (§3–§7); sequenced
+**Phase: IN PROGRESS — branch `refactor-ui`, AI-0 ✅ + AI-1 ✅ + AI-2 ✅ + AI-5 ✅ DONE (committed
+`97ce381`, `7dce4e1`, `35dd33a`, AI-5 pending commit).** Analysis done (§3–§7); sequenced
 action-item plan in **§8**. User direction (2026-06-16): wants the **clean separation** regardless of
 whether a physical library is ever cut — **start with the folder split (AI-1)**, treat the **`kAction`
 split (AI-4)** as its own work item, and harden the new **`SessionManager`/`ViewBase` seam via
@@ -42,7 +42,26 @@ set passes 0 failures.
 in `.github/workflows/cmake.yml`. Current leak set: **19 includes / 14 files**, all matching the §4
 chokepoints exactly (16× `RuntimeConfig.h`/`Editor.h` → AI-3, 2× `Core/Session/*` → AI-5, 2×
 `Core/Config/*` → AI-6; zero `Document.h`/`TextBuffer.h`/`Workspace.h`/`Plugins` hits). Full list in
-the AI-2 §8 entry. **Next: pick one of AI-3/`UIHost`, AI-4/`kAction` split, or AI-5/`ILayoutSink` per
+the AI-2 §8 entry.
+
+**AI-5 done (2026-06-16, on `refactor-ui`):** added `src/Core/UI/ILayoutSink.h` (toolkit-side interface:
+`PutSplitter`/`GetSplitter` by stable id, carrying both absolute and ratio — deviates slightly from the
+§8 sketch's `int`-only signature so the existing absolute+relative restore-by-ratio behavior and its
+test assertions stay intact; `PutFocusedTopView`/`GetFocusedTopView`) and `src/Core/Session/
+LayoutSessionSink.h` (app-side adapter wrapping `LayoutSession&`). `ViewBase::ToSession/FromSession/
+CollectLayout/ApplyLayout` retyped from `LayoutSession&` to `ILayoutSink&`; `HSplitView`/`VSplitView`/
+`RootView` overrides updated to call the sink instead of touching `LayoutSession`/`SplitterSession`
+fields directly. `ViewBase::NotifySessionChanged()` no longer calls `SessionManager::Instance()`
+directly — it invokes a static `std::function<void()> layoutChangedHandler`, set via the new
+`ViewBase::SetLayoutChangedHandler`; `Editor::Initialize` wires it (`ViewBase::SetLayoutChangedHandler
+([]{ SessionManager::Instance().NotifyChanged(); })`, alongside the existing autosave-handler wiring) —
+same glue-in-the-init-layer shape as `Editor::WireScreenGeometry`. `Editor::RestoreLayout`/`SaveSession`
+construct a `LayoutSessionSink` over `session.layout` and pass that to `ApplyLayout`/`CollectLayout`.
+`utests/test_session.cpp`'s splitter/layout-walk tests updated to route through the sink (assertions on
+`layout.splitters[...]` unchanged — they still read the same `LayoutSession` underneath the sink). Full
+rebuild (`goatedit` + `utests`) clean; verified-green 235-test set passes 0 failures. AI-2 gate leak
+count dropped **19 → 17** (the 2 `Core/Session/*` hits in `ViewBase.h`/`.cpp` are gone; remaining 17 are
+all AI-3/AI-6, see the AI-5 §8 entry). **Next: pick one of AI-3/`UIHost` or AI-4/`kAction` split per
 user priority.**
 
 **Verdict in brief (see §7 for the argument):**
@@ -422,7 +441,8 @@ Each item: **Goal · Scope · Approach · Effort/Risk · Done-when · Depends-on
   - **Zero hits** for `Document.h`/`TextBuffer.h`/`Workspace.h`/`Core/Plugins/*` — confirms §4's
     read that those never leaked into the toolkit in the first place.
   - Re-run `./scripts/check-ui-boundary.sh` any time to refresh this list — it's the live source of
-    truth; the bullets above are a snapshot.
+    truth; the bullets above are a snapshot. **Snapshot is now stale post-AI-5** (the 2 `Core/Session/*`
+    hits are gone — count is 19 → 17); see the AI-5 entry below for the current breakdown.
 
 ---
 
@@ -485,7 +505,7 @@ Each item: **Goal · Scope · Approach · Effort/Risk · Done-when · Depends-on
 
 ---
 
-### AI-5 — `ILayoutSink`: sever `SessionManager`/`Session` from `ViewBase`  *(chokepoint #3 — "a note about the ILayoutSink")*
+### AI-5 — `ILayoutSink`: sever `SessionManager`/`Session` from `ViewBase`  *(chokepoint #3 — "a note about the ILayoutSink")*  ✅ DONE (2026-06-16)
 - **Goal:** the base view persists layout through a **UI-owned interface**, not the app's session
   schema. (This is the seam the user flagged — `SessionManager` is the newest dependency to creep
   into `ViewBase`; catch it before more views lean on `LayoutSession` directly.)
@@ -512,6 +532,19 @@ Each item: **Goal · Scope · Approach · Effort/Risk · Done-when · Depends-on
 - **Effort/Risk:** small–medium / low (the surface is just the few session hooks). The session +
   layout tests guard the round-trip. **Done-when:** no `src/Core/UI` file includes `Core/Session/*`;
   session/layout tests green. **Depends-on:** AI-1; pairs with AI-3 (uses the `UIHost` callback slot).
+- **Built:** `src/Core/UI/ILayoutSink.h` (pure interface, no app dependency) +
+  `src/Core/Session/LayoutSessionSink.h` (app-side adapter wrapping a `LayoutSession&`). One deviation
+  from the sketch: `PutSplitter`/`GetSplitter` carry **both** `absolutePos` and `relativePos` (not just
+  `int pos`) — the existing restore-by-ratio behavior (and `test_session_splitter_roundtrip`'s
+  `.absolute`/ratio-tolerance assertions) depend on both, and the splitter itself computes the ratio
+  from its own rect, so dropping it would either break that behavior or push rect-awareness into the
+  sink. `ViewBase::ToSession/FromSession/CollectLayout/ApplyLayout` retyped to `ILayoutSink&`;
+  `HSplitView`/`VSplitView`/`RootView` overrides updated to call the sink. `NotifySessionChanged()` now
+  calls an injected static `std::function<void()>` (`SetLayoutChangedHandler`) instead of
+  `SessionManager::Instance()` directly — wired from `Editor::Initialize` next to the existing autosave
+  wiring, same glue-in-the-init-layer shape as `Editor::WireScreenGeometry`. `Editor::RestoreLayout`/
+  `SaveSession` build a `LayoutSessionSink` over `session.layout` and pass that in. AI-2 gate leak count:
+  **19 → 17** (zero `Core/Session/*` hits remain under `src/Core/UI/`).
 
 ---
 
@@ -645,3 +678,14 @@ in §8.
   include) and a non-blocking `continue-on-error` step in `.github/workflows/cmake.yml`. Captured
   the current leak set as the precise AI-3/5/6 work queue: 19 includes / 14 files (16× → AI-3, 2× →
   AI-5, 2× → AI-6, zero editor-model hits). Full breakdown in the AI-2 §8 entry.
+- **2026-06-16** — **AI-5 (`ILayoutSink`) DONE**, on branch `refactor-ui`. Added
+  `src/Core/UI/ILayoutSink.h` (toolkit interface) + `src/Core/Session/LayoutSessionSink.h` (app-side
+  adapter over `LayoutSession&`); retyped `ViewBase::ToSession/FromSession/CollectLayout/ApplyLayout`
+  from `LayoutSession&` to `ILayoutSink&`; updated the `HSplitView`/`VSplitView`/`RootView` overrides
+  and `Editor::RestoreLayout`/`SaveSession` call sites accordingly; replaced
+  `ViewBase::NotifySessionChanged()`'s direct `SessionManager::Instance()` call with an injected static
+  handler wired from `Editor::Initialize` (mirrors the `WireScreenGeometry` glue pattern). Deviated
+  from the §8 sketch by keeping both absolute+relative in `PutSplitter`/`GetSplitter` (needed for the
+  existing restore-by-ratio behavior and its tests). Updated `utests/test_session.cpp`'s splitter/
+  layout-walk tests to go through `LayoutSessionSink`. Full rebuild clean; verified-green 235-test set:
+  0 failures. AI-2 gate leak count: 19 → 17 (zero `Core/Session/*` hits remain). §0/§8 updated.

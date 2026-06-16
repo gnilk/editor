@@ -20,7 +20,7 @@
 #include "Core/KeyMapping.h"
 #include "Core/SafeQueue.h"
 #include "Core/KeypressAndActionHandler.h"
-#include "Core/Session/SessionState.h"
+#include "Core/UI/ILayoutSink.h"
 
 namespace gedit {
 
@@ -41,39 +41,43 @@ namespace gedit {
         }
         virtual ~ViewBase() = default;
 
-        // Session/layout addressing (docs/session-cache.md §4.1). A persistable view (a splitter) is
-        // tagged with a stable id in main.cpp; the layout hooks below let SessionManager pull/push its
-        // splitter position generically. ToSession/FromSession default to no-ops; splitter views override.
+        // Layout addressing (docs/session-cache.md §4.1, docs/ui-refactor.md AI-5). A persistable view
+        // (a splitter) is tagged with a stable id in main.cpp; the layout hooks below let the app pull/
+        // push its splitter position generically through ILayoutSink - the toolkit never sees the app's
+        // LayoutSession DTO. ToSession/FromSession default to no-ops; splitter views override.
         void SetSessionId(const std::string &newSessionId) {
             sessionId = newSessionId;
         }
         const std::string &GetSessionId() const {
             return sessionId;
         }
-        virtual void ToSession(LayoutSession &layout) {
+        virtual void ToSession(ILayoutSink &sink) {
         }
-        virtual void FromSession(const LayoutSession &layout) {
+        virtual void FromSession(const ILayoutSink &sink) {
         }
 
         // Recursively pull/push layout state over the whole subtree. ToSession/FromSession touch only
-        // self; these walk self + all subviews so SessionManager can persist the layout from one call at
-        // the root without knowing the tree shape. Non-persistable views (the default no-op) contribute
+        // self; these walk self + all subviews so the app can persist the layout from one call at the
+        // root without knowing the tree shape. Non-persistable views (the default no-op) contribute
         // nothing on the way through.
-        void CollectLayout(LayoutSession &layout) {
-            ToSession(layout);
+        void CollectLayout(ILayoutSink &sink) {
+            ToSession(sink);
             for (auto view : subviews) {
-                view->CollectLayout(layout);
+                view->CollectLayout(sink);
             }
         }
-        void ApplyLayout(const LayoutSession &layout) {
-            FromSession(layout);
+        void ApplyLayout(const ILayoutSink &sink) {
+            FromSession(sink);
             for (auto view : subviews) {
-                view->ApplyLayout(layout);
+                view->ApplyLayout(sink);
             }
         }
-        // Schedule a debounced session autosave (e.g. after a splitter move). Defined in the .cpp so the
-        // SessionManager dependency stays out of this widely-included header.
+        // Schedule a debounced session autosave (e.g. after a splitter move), via a handler the app
+        // injects with SetLayoutChangedHandler - the toolkit never calls SessionManager directly.
+        // Defined in the .cpp so <functional>'s std::function plumbing stays out of this widely-included
+        // header's hot path.
         void NotifySessionChanged();
+        static void SetLayoutChangedHandler(std::function<void()> handler);
 
         std::string GetClassName() const {
             return Demangle(typeid(*this).name());
@@ -405,6 +409,9 @@ namespace gedit {
         bool isInvalid = false;
         void *sharedDataPtr = nullptr;      // Whatever you want - this is to share data between views - liked HSTack or Tab's or similar
         //SafeQueue<MessageCallback> threadMessages;
+
+        // App-injected layout-changed notification (AI-5); see NotifySessionChanged/SetLayoutChangedHandler.
+        static std::function<void()> layoutChangedHandler;
     };
 
 }

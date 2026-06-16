@@ -16,6 +16,7 @@
 #include "Core/RuntimeConfig.h"
 #include "Core/Config/Config.h"
 #include "Core/Session/SessionManager.h"
+#include "Core/Session/LayoutSessionSink.h"
 #include "Core/KeyMapping.h"
 #include "Core/KeyMappingCache.h"
 #include "Core/StrUtil.h"
@@ -226,6 +227,13 @@ bool Editor::Initialize(int argc, const char **argv) {
     // when there is no project or no saved session - leaves createDefaultWorkspace to handle the rest.
     RestoreSession();
 
+    // Glue for the ILayoutSink seam (docs/ui-refactor.md AI-5): the toolkit's ViewBase calls
+    // NotifySessionChanged() (e.g. after a splitter move) through this injected handler rather than
+    // including Core/Session/SessionManager.h itself.
+    ViewBase::SetLayoutChangedHandler([]() {
+        SessionManager::Instance().NotifyChanged();
+    });
+
     // Wire the debounced autosave: meaningful events call SessionManager::NotifyChanged(), which (once
     // a project is open and the view tree exists) posts this handler to the main thread. SaveSession is
     // idempotent + guarded, so an early/spurious schedule is harmless.
@@ -396,9 +404,11 @@ void Editor::RestoreLayout() {
     if (!RuntimeConfig::Instance().HasRootView()) {
         return;
     }
-    const auto &session = SessionManager::Instance().CurrentSession();
-    // Walk the tree: each persistable view pulls its own state out of the layout by session id.
-    RuntimeConfig::Instance().GetRootView().ApplyLayout(session.layout);
+    auto &session = SessionManager::Instance().CurrentSession();
+    // Walk the tree: each persistable view pulls its own state out of the layout by session id, via
+    // the ILayoutSink seam (docs/ui-refactor.md AI-5) - the view tree never sees LayoutSession directly.
+    LayoutSessionSink sink(session.layout);
+    RuntimeConfig::Instance().GetRootView().ApplyLayout(sink);
     // Tree expand/collapse is on RootSession (not LayoutSession), so seed it directly.
     auto *workspaceView = GetWorkspaceView();
     if (workspaceView != nullptr) {
@@ -418,7 +428,8 @@ void Editor::SaveSession() {
     // save doesn't accumulate. Guarded — at Close the views are still alive, but a headless path is not.
     if (RuntimeConfig::Instance().HasRootView()) {
         session.layout.splitters.clear();
-        RuntimeConfig::Instance().GetRootView().CollectLayout(session.layout);
+        LayoutSessionSink sink(session.layout);
+        RuntimeConfig::Instance().GetRootView().CollectLayout(sink);
         auto *workspaceView = GetWorkspaceView();
         if (workspaceView != nullptr) {
             session.expandCollapse.clear();

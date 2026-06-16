@@ -75,26 +75,21 @@ namespace gedit {
             return splitterPos / (float)viewRect.Width();
         }
         // Layout session (docs/session-cache.md §4.1) — persist this splitter under its session id.
-        void ToSession(LayoutSession &layout) override {
+        void ToSession(ILayoutSink &sink) override {
             if (GetSessionId().empty()) {
                 return;
             }
-            SplitterSession s;
-            s.id = GetSessionId();
-            s.absolute = GetSplitterPos();
-            s.relative = GetSplitterPosRelative();
-            layout.splitters.push_back(s);
+            sink.PutSplitter(GetSessionId(), GetSplitterPos(), GetSplitterPosRelative());
         }
-        void FromSession(const LayoutSession &layout) override {
+        void FromSession(const ILayoutSink &sink) override {
             if (GetSessionId().empty()) {
                 return;
             }
-            for (const auto &s : layout.splitters) {
-                if (s.id == GetSessionId()) {
-                    // Restore by ratio so a different window size lands sensibly; SetSplitterPos clamps.
-                    SetSplitterPosRelative(s.relative);
-                    return;
-                }
+            int absolutePos = 0;
+            float relativePos = 0.0f;
+            if (sink.GetSplitter(GetSessionId(), absolutePos, relativePos)) {
+                // Restore by ratio so a different window size lands sensibly; SetSplitterPos clamps.
+                SetSplitterPosRelative(relativePos);
             }
         }
 

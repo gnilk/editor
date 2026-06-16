@@ -23,6 +23,7 @@
 #include "Core/Session/SessionState.h"
 #include "Core/Session/SessionManager.h"
 #include "Core/Session/SessionSerializer.h"
+#include "Core/Session/LayoutSessionSink.h"
 
 using namespace gedit;
 
@@ -273,12 +274,14 @@ DLL_EXPORT int test_session_workspace_reopen_skips_missing(ITesting *t) {
 DLL_EXPORT int test_session_splitter_roundtrip(ITesting *t) {
     LayoutSession layout;
 
+    LayoutSessionSink sink(layout);
+
     VSplitView vsplit;
     vsplit.SetWidth(100);
     vsplit.SetHeight(40);
     vsplit.SetSessionId("split.workspace");
     vsplit.SetSplitterPos(30);
-    vsplit.ToSession(layout);
+    vsplit.ToSession(sink);
     TR_ASSERT(t, layout.splitters.size() == 1);
     TR_ASSERT(t, layout.splitters[0].id == "split.workspace");
     TR_ASSERT(t, layout.splitters[0].absolute == 30);
@@ -288,21 +291,21 @@ DLL_EXPORT int test_session_splitter_roundtrip(ITesting *t) {
     hsplit.SetHeight(100);
     hsplit.SetSessionId("split.terminal");
     hsplit.SetSplitterPos(60);
-    hsplit.ToSession(layout);          // appends under its own id
+    hsplit.ToSession(sink);          // appends under its own id
     TR_ASSERT(t, layout.splitters.size() == 2);
 
     VSplitView vrestored;
     vrestored.SetWidth(100);
     vrestored.SetHeight(40);
     vrestored.SetSessionId("split.workspace");
-    vrestored.FromSession(layout);
+    vrestored.FromSession(sink);
     TR_ASSERT(t, (vrestored.GetSplitterPos() >= 29) && (vrestored.GetSplitterPos() <= 31));
 
     HSplitView hrestored;
     hrestored.SetWidth(80);
     hrestored.SetHeight(100);
     hrestored.SetSessionId("split.terminal");
-    hrestored.FromSession(layout);
+    hrestored.FromSession(sink);
     TR_ASSERT(t, (hrestored.GetSplitterPos() >= 59) && (hrestored.GetSplitterPos() <= 61));
     return kTR_Pass;
 }
@@ -314,10 +317,11 @@ DLL_EXPORT int test_session_splitter_untagged_noop(ITesting *t) {
     vsplit.SetSplitterPos(30);
 
     LayoutSession layout;
-    vsplit.ToSession(layout);
+    LayoutSessionSink sink(layout);
+    vsplit.ToSession(sink);
     TR_ASSERT(t, layout.splitters.empty());
 
-    vsplit.FromSession(layout);        // no id, no matching entry -> no-op, no crash
+    vsplit.FromSession(sink);        // no id, no matching entry -> no-op, no crash
     TR_ASSERT(t, layout.splitters.empty());
     return kTR_Pass;
 }
@@ -339,7 +343,8 @@ DLL_EXPORT int test_session_layout_walk_roundtrip(ITesting *t) {
 
     // One CollectLayout at the outer view must pull BOTH splitters out of the subtree.
     LayoutSession layout;
-    outer.CollectLayout(layout);
+    LayoutSessionSink sink(layout);
+    outer.CollectLayout(sink);
     TR_ASSERT(t, layout.splitters.size() == 2);
     bool sawTerminal = false;
     bool sawWorkspace = false;
@@ -354,7 +359,7 @@ DLL_EXPORT int test_session_layout_walk_roundtrip(ITesting *t) {
     int innerBefore = inner.GetSplitterPos();
     outer.SetSplitterPos(20);
     inner.SetSplitterPos(15);
-    outer.ApplyLayout(layout);
+    outer.ApplyLayout(sink);
     TR_ASSERT(t, std::abs(outer.GetSplitterPos() - outerBefore) <= 1);
     TR_ASSERT(t, std::abs(inner.GetSplitterPos() - innerBefore) <= 1);
     return kTR_Pass;

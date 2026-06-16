@@ -7,12 +7,19 @@
 // Ok, need .cpp file for implementation details about MainThread
 #include "Core/RuntimeConfig.h"
 #include "Core/Runloop.h"
-#include "Core/Session/SessionManager.h"
 
 using namespace gedit;
 
+std::function<void()> ViewBase::layoutChangedHandler = nullptr;
+
 void ViewBase::NotifySessionChanged() {
-    SessionManager::Instance().NotifyChanged();
+    if (layoutChangedHandler) {
+        layoutChangedHandler();
+    }
+}
+
+void ViewBase::SetLayoutChangedHandler(std::function<void()> handler) {
+    layoutChangedHandler = std::move(handler);
 }
 
 void ViewBase::PostMessage(gedit::ViewBase::MessageCallback callback) {

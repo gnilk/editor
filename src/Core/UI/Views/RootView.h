@@ -42,15 +42,16 @@ namespace gedit {
 
         // Layout session (docs/session-cache.md §4.1) — the focused top-view is a RootView concept, so
         // RootView owns persisting it. Walked in by ViewBase::CollectLayout / ApplyLayout.
-        void ToSession(LayoutSession &layout) override {
+        void ToSession(ILayoutSink &sink) override {
             auto name = GetTopViewName();
             if (name.has_value()) {
-                layout.focusedTopView = *name;
+                sink.PutFocusedTopView(*name);
             }
         }
-        void FromSession(const LayoutSession &layout) override {
-            if (!layout.focusedTopView.empty()) {
-                SetActiveTopViewByName(layout.focusedTopView);
+        void FromSession(const ILayoutSink &sink) override {
+            std::string name;
+            if (sink.GetFocusedTopView(name)) {
+                SetActiveTopViewByName(name);
             }
         }
 

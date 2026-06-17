@@ -56,6 +56,10 @@ foldermonitor:
 # is a VIEW-time filter (dotfiles stay scanned, just hidden).
 workspace:
   use_git_ignore: yes
+  # Backstop against pathological recursion depth only (symlink cycles are handled separately by the
+  # scanner's no-follow default). Generous so legitimate deep source trees are never truncated — this is
+  # NOT the build-dir filter; that is `exclude` below.
+  maxScanDepth: 64
   exclude:
     - ".git"
     - ".idea"

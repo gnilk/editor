@@ -21,7 +21,7 @@
 |------|--------|--------|
 | FS-1 — extract pure `FolderScanner` (traversal → plain-data events) | ✅ done (W1; compiles standalone, event-stream test green) | — |
 | FS-2 — shared exclude/glob matcher; relocate exclude list off `foldermonitor` | ✅ done (W4: `FsFilter` on `Glob.h`; exclude moved `foldermonitor`→`workspace`; prune tests green) | — |
-| FS-3 — rewire `Workspace::OpenFolder` onto the scanner; delete in-Workspace recursion | 🔲 planned (W5) | — |
+| FS-3 — rewire `Workspace::OpenFolder` onto the scanner; delete in-Workspace recursion | ✅ done (W5: `ReadFolderToNode` now drives the scanner + parent stack; recursion deleted; `test_workspace` regression green) | — |
 | FS-4 — `maxDepth` + symlink-cycle guard as scanner `Options` | ✅ done (W1 `maxDepth` + W3 symlink no-follow; depth/cycle/follow tests green) | — |
 | FS-5 — monitor reuse: scan rooted at a newly-created directory | 🔲 deferred (monitor disabled) | — |
 | FS-6 — lazy expansion: shallow scan + `onEnterDir` veto + `Node::isRead` + on-expand callback | 🔲 deferred (own effort) | — |
@@ -54,7 +54,7 @@ producer (FS-5, §7); the rewired `OpenFolder` scan stays **synchronous/main-thr
 | W2 ✅ | Add `test_folderscanner` (registered in verified-green set at W6): records events via lambdas over a temp tree; asserts structure (counts/depth/child-between-enter-leave/veto), not sibling order. No `Workspace`/singleton. | FS-7, §3/§4 |
 | W3 ✅ | Symlink no-follow guard (`maxDepth` already in W1): a symlinked dir is emitted via `onEnterDir` but only descended when `followSymlinks`. Tests: maxDepth bound, symlink-cycle terminates (count==2 vs 9 if followed), follow=true reaches the file twice. → crash half of #4. | FS-4, §5; #4 |
 | W4 ✅ | `FsFilter` on `Glob.h` (filename glob match) threaded through the scan; `Options.exclude` pruned before any event/descent. Exclude list moved `foldermonitor.exclude`→`workspace.exclude` (+ `use_git_ignore`); monitor's `GetExclusionPaths` reads the new key. Tests: build-dir subtree → zero events, `cmake-build-*` glob prune. → build-dir half of #4. | FS-2, §5/§6; #4 |
-| W5 | Rewire `Workspace::OpenFolder` onto the scanner: enter/file push/pop a parent-`Node` stack → existing `ApplyFsEntry`; delete `ReadFolderToNode` recursion. **Keep scan synchronous/main-thread** (#6 boundary). Regression: `test_workspace`. | FS-3, §2/§3; #6 |
+| W5 ✅ | `ReadFolderToNode` reimplemented as a scanner adapter: a parent-`Node` stack (push/pop balanced on enter/leave) feeds `ApplyFsEntry` (still THE single mutator); recursion deleted. `Options.exclude` from `workspace.exclude`; operational `maxDepth` from `workspace.maxScanDepth` (default 64 — generous so legit deep trees aren't truncated; symlink cycles handled by no-follow). **Synchronous/main-thread** (#6 stays out). Regression `test_workspace_openfolder_excludes_builddir` green. | FS-3, §2/§3; #6 |
 | W6 | Close out: re-read #4 → close/trim residual (§11); add `folderscanner` to the verified-green set (CLAUDE.md); flip §0 statuses to ✅; update `work-log.md`. | §11, FS-7 |
 
 ---

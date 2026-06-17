@@ -2,7 +2,12 @@
 // Created by gnilk on 09.05.23.
 //
 #include <testinterface.h>
+#include <algorithm>
 #include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <string>
+#include <vector>
 #include "Core/Editor.h"
 #include "Core/Workspace.h"
 #include "Core/RuntimeConfig.h"
@@ -20,6 +25,7 @@ DLL_EXPORT int test_workspace_newdocument(ITesting *t);
 DLL_EXPORT int test_workspace_openfolder(ITesting *t);
 DLL_EXPORT int test_workspace_openfolder_lazy(ITesting *t);
 DLL_EXPORT int test_workspace_openabsfolder(ITesting *t);
+DLL_EXPORT int test_workspace_openfolder_excludes_builddir(ITesting *t);
 DLL_EXPORT int test_workspace_removedocument(ITesting *t);
 DLL_EXPORT int test_workspace_recreate(ITesting *t);
 }
@@ -148,6 +154,55 @@ DLL_EXPORT int test_workspace_openabsfolder(ITesting *t) {
 
 }
 
+
+// Collect display names of every node in the subtree (FlattenChilds is shallow, so recurse).
+static void CollectNodeNames(const Workspace::Node::Ref &node, std::vector<std::string> &out) {
+    std::vector<Workspace::Node::Ref> kids;
+    node->FlattenChilds(kids);
+    for (auto &kid : kids) {
+        out.push_back(kid->GetDisplayName());
+        CollectNodeNames(kid, out);
+    }
+}
+
+static bool Contains(const std::vector<std::string> &names, const std::string &name) {
+    return std::find(names.begin(), names.end(), name) != names.end();
+}
+
+// FS-3 / open-bugs #4: OpenFolder now drives the FolderScanner, which prunes the configured exclude
+// names (workspace.exclude includes cmake-build-debug) at scan time. Opening a project root that
+// contains a build-dir subtree must keep the source tree and leave the build dir (and everything under
+// it) entirely out of the node tree. Discriminating: pre-fix OpenFolder ingested the build dir.
+DLL_EXPORT int test_workspace_openfolder_excludes_builddir(ITesting *t) {
+    namespace fs = std::filesystem;
+    static int counter = 0;
+    auto root = fs::temp_directory_path() / ("goat_ws_exclude_" + std::to_string(counter++));
+    std::error_code ec;
+    fs::remove_all(root, ec);
+    fs::create_directories(root / "src");
+    fs::create_directories(root / "cmake-build-debug" / "_deps");
+    { std::ofstream(root / "src" / "main.cpp") << "x"; }
+    { std::ofstream(root / "cmake-build-debug" / "build.ninja") << "x"; }
+    { std::ofstream(root / "cmake-build-debug" / "_deps" / "dep.c") << "x"; }
+
+    Workspace workspace;
+    TR_ASSERT(t, workspace.OpenFolder(root.string()));
+
+    std::vector<std::string> names;
+    CollectNodeNames(workspace.GetProjectRoots()[0]->GetRootNode(), names);
+
+    // Build dir and everything beneath it pruned at scan time.
+    TR_ASSERT(t, !Contains(names, "cmake-build-debug"));
+    TR_ASSERT(t, !Contains(names, "_deps"));
+    TR_ASSERT(t, !Contains(names, "build.ninja"));
+    TR_ASSERT(t, !Contains(names, "dep.c"));
+    // The real source tree (including the nested file) survives.
+    TR_ASSERT(t, Contains(names, "src"));
+    TR_ASSERT(t, Contains(names, "main.cpp"));
+
+    fs::remove_all(root, ec);
+    return kTR_Pass;
+}
 
 DLL_EXPORT int test_workspace_removedocument(ITesting *t) {
     Config::Instance()["main"].SetBool("threaded_syntaxparser", true);

@@ -79,16 +79,24 @@ cmake --build ./cmake-build-debug --config Debug --target goatedit -j
 Same flow, swap `apt-get` for `brew`.
 
 ### Dependencies
-| Library | Kind | Notes |
-| --- | --- | --- |
-| [yaml-cpp](https://github.com/jbeder/yaml-cpp) | system | config / themes |
-| [SDL](https://github.com/libsdl-org/SDL) | system | SDL2 or SDL3 backend |
-| [nlohmann/json](https://github.com/nlohmann/json) | `ext/` (auto) | |
-| [fmtlib](https://github.com/fmtlib/fmt) | `ext/` (auto) | u8/u16/u32 string formatting |
-| [dukglue](https://github.com/Aloshi/dukglue) | `ext/` (auto) | C++↔JS binding |
-| [gnklog](https://github.com/gnilk/logger) | `ext/` (auto) | logging |
-| [stb](https://github.com/nothings/stb) | vendored | TrueType + rect_pack |
-| [duktape 2.7.0](https://github.com/svaarala/duktape) | vendored | JS engine (pre-configured in `src/ext/`) |
+The following must be installed on the system
+* libsdl2-dev or libsdl3-dev
+* libyaml-dev
+* testrunner (from https://github.com/gnilk/testrunner) - for unit testing
+
+```shell
+sudo apt install libsdl2-dev libsdl3-dev libyaml-dev
+```
+
+The following are installed during build
+* nlohmann/json
+* fmtlib
+* dukglue
+* gnklog
+
+The following are bundled directly with the source
+* stb (various parts)
+* duktape 2.7.0
 
 > Duktape ships pre-configured in the repo (`src/ext/duktape-2.7.0`) so you don't have to fight its
 > build — a scar from an old GitHub Actions battle.
@@ -142,6 +150,40 @@ conventions are documented in [`CLAUDE.md`](CLAUDE.md); the short version is C++
 4-space K&R, and code ordered caller-before-callee so files read top-to-bottom.
 
 ---
+
+## Building for Distribution
+
+**1) Build** (release recommended for distribution):
+
+```shell
+cmake --preset release
+cmake --build --preset release --target goatedit
+```
+
+**2a) `.deb`** — the CPack `package` target (uses the `DEB` generator on Linux); the package lands
+in the build dir:
+
+```shell
+cmake --build ./cmake-build-release --target package
+# -> cmake-build-release/goatedit-<ver>-linux-<arch>.deb
+```
+
+**2b) AppImage** — built separately; writes `goatedit-<arch>.AppImage` to the repo root by default:
+
+```shell
+./scripts/build-appimage.sh
+```
+
+Notes on the AppImage script:
+- `./scripts/build-appimage.sh [BUILD_DIR]` — first arg (or `$BUILD_DIR`) overrides the build dir
+  (default `cmake-build-release`); `$OUTPUT_DIR` overrides where the `.AppImage` lands; `$VERSION`,
+  if set, is folded into the filename (`goatedit-<VERSION>-<arch>.AppImage`).
+- Needs `curl` (fetches `linuxdeploy` once, cached in `<BUILD_DIR>/appimage-tools/`) and FUSE — the
+  script sets `APPIMAGE_EXTRACT_AND_RUN=1` as a fallback if FUSE isn't available.
+- It runs `cmake --install <BUILD_DIR> --prefix <AppDir>/usr` (reusing the project's install rules),
+  bundling the binary, SDL + yaml-cpp, the assets, the desktop file, and the icon, then sets the
+  custom `AppRun`.
+
 
 ## License
 

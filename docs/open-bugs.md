@@ -110,35 +110,19 @@ tokenizer's longest-match / boundary logic at operator↔identifier transitions.
 **Where:** `src/Core/Workspace.cpp`, `Workspace::ReadFolderToNode` (L391) and `Workspace::Node` (header
 `src/Core/Workspace.h` L542).
 
-**What's wrong:** the recursive scan has no depth limit and no skip flag per node. Opening the project
+> **Depends on / mostly superseded by the FolderScanner extraction** —
+> [`folder-scanner.md`](folder-scanner.md). The fix below (scan-time exclude + depth bound) is intended
+> to land *as part of* that extraction (FS-2/FS-4), not as a bolt-on in `Workspace`. The proposed
+> `Node::isRead` is premature here — it belongs to the deferred lazy-expansion item (FS-6).
+> **When the scanner lands, re-read this entry and close it or trim it to whatever residual the scanner
+> didn't cover** (expected: none of the original symptom). The analysis below is retained as the
+> cold-start framing for that work.
+
+**What's wrong:** the recursive scan has no depth limit and no per-directory skip. Opening the project
 root (`.`) with a `cmake-build-debug/` (or `_deps/`) subtree present causes the scan to descend into
 thousands of generated build artefacts, FetchContent downloads, and compiler cache files. On startup
 this makes the editor hang or crash before the first frame renders — there is no point caching the
 complete build directory into the node tree.
-
-**Two independent guards needed:**
-
-1. **Max-depth guard.** `ReadFolderToNode` must accept (or carry via a counter) a `maxDepth` parameter
-   and bail out of recursion once it is exceeded. A sensible default is around 8–10 levels.
-   ```cpp
-   bool ReadFolderToNode(Node::Ref rootNode,
-                         const std::filesystem::path &folder,
-                         int depth = 0,
-                         int maxDepth = 8);
-   // Inside: if (depth >= maxDepth) return true;
-   // Recursive call: ReadFolderToNode(node, entry, depth + 1, maxDepth);
-   ```
-
-2. **Per-node "already read" flag.** `Node` (folder nodes) should carry a `bool isRead` (default
-   `false`). `ReadFolderToNode` sets it `true` on entry and skips the iteration if already true. This
-   prevents redundant re-scans when the folder monitor fires a create-callback for a directory whose
-   subtree was already walked, and provides a hook for lazy / on-demand expansion later.
-   ```cpp
-   struct Node {
-       // …existing fields…
-       bool isRead = false;   // true once ReadFolderToNode has walked this dir
-   };
-   ```
 
 **Discovered:** 2026-06-17 — after CMake's `FetchContent` started writing deps under `_deps/` inside
 the project tree (`cmake-build-debug/_deps/`). The build directory is now a multi-thousand-file
@@ -147,15 +131,73 @@ subtree that the startup scan tries to ingest in full.
 **Workaround (today):** open a specific subdirectory instead of `.` to avoid descending into build
 dirs. Not suitable as a permanent state.
 
-**When fixing:**
-- Add `maxDepth` param (signature change — check all callers, currently only one: `OpenFolder` at
-  `Workspace.cpp:379`).
-- Add `Node::isRead` — initialize `false`, set `true` at the top of `ReadFolderToNode` before the
-  `directory_iterator` loop.
-- Consider making `maxDepth` a config value (`workspace.maxScanDepth`) so users with deep source
-  trees can raise it.
-- Add a `test_workspace` case: scan a synthetic deep tree (stub FS or temp dir) beyond `maxDepth` and
-  assert the node count is bounded.
+### How the model actually works (read before "fixing" with depth/flags)
+
+Two phases, both **eager** — the cost is paid up front, before the first frame (matching the symptom):
+
+1. **Scan** — `OpenFolder` → `ReadFolderToNode` recurses the *entire* subtree into the `Node` tree
+   unconditionally. `ApplyFsEntry` (`Workspace.cpp:410`) is the single fs→tree mutator and is documented
+   as the shared seam for both the scan and the (future) folder monitor.
+2. **View build** — `WorkspaceView::PopulateTree` → `FillTreeView` walks the *whole* already-built
+   `Node` tree and materialises a `TreeView` node for every entry. The `hide_dot_files` `"."` filter
+   (`excludePrefixList`) is applied **here, at view-build time** — dotfiles are still scanned into the
+   `Node` tree, just not displayed.
+
+**Expansion in the WorkspaceView is purely visual.** `isExpanded` on a `TreeNodeRef` toggles visibility
+of children that *already exist*; there is **no callback from expand back into the Workspace to scan on
+demand**. So lazy expansion is NOT a property of the current model.
+
+### Assessment of the originally-proposed guards
+
+- **`maxDepth` — necessary but not sufficient.** The build-dir problem is *breadth*, not depth:
+  `cmake-build-debug/_deps/<dep>-src/...` and `CMakeFiles/` hold thousands of files well within 8
+  levels, so a depth cap still ingests most of a build tree. Its real value is as a hard safety bound
+  against **symlink-cycle infinite recursion** — `ReadFolderToNode` recurses on `fs::is_directory(entry)`,
+  which *follows symlinks*, so a cyclic link gives unbounded recursion → stack overflow (the "crash").
+  Keep it for that, not as the fix.
+- **`isRead` — premature; doesn't fit the current model.** As originally specified (set true on entry,
+  skip if true) it only prevents redundant *full* re-scans. The "hook for lazy expansion later" is
+  overstated: lazy expansion needs a *shallow* (one-level) scan mode in `ReadFolderToNode` (today it
+  always recurses fully) **and** an on-expand callback from `WorkspaceView` into `Workspace` (today
+  expand never calls back). `isRead` is a fine *seed* for that future but is inert until both exist —
+  do NOT add it now as a no-op.
+
+### Proper fix: exclude at scan time (fits the model; half-built already)
+
+The offenders are build/generated directories. Exclude them **at scan time**, in/around `ApplyFsEntry`
+— the infrastructure already exists:
+
+- `config.yml` already lists the exact offenders under `foldermonitor.exclude:`
+  (`.git, .idea, bld, cmake-build-debug, cmake-build-release`) + `use_git_ignore`.
+- `ApplyFsEntry` is THE single fs→tree mutator shared by scan and the future monitor — an exclusion
+  check there fixes both at once (the established "single chokepoint" pattern).
+- `ReadFolderToNode` already does `if (node == nullptr) continue;` *before* the `is_directory`
+  recursion check. So if `ApplyFsEntry` returns `nullptr` for an excluded dir, both ingestion AND
+  descent are skipped for free — no new branch in the recursion.
+
+**Wrinkle — the FolderMonitor is currently disabled and being reworked.** The scan must NOT depend on
+that subsystem. The exclude *list* lives under the `foldermonitor` config section and is read via
+`FolderMonitor::GetExclusionPaths()` (`FolderMonitor.cpp:40`). Share the **data, not the monitor**:
+lift the exclude list to a scan-owned key (e.g. `workspaceview.exclude` / `workspace.exclude`) or read
+the raw config sequence directly from the scan; the monitor reads the same key later.
+
+**Scan-time vs view-time exclusion (deliberate choice):** scan-time exclusion means excluded dirs are
+*never in memory* (correct for build dirs — never wanted). View-time exclusion (today's dotfile filter)
+keeps them in memory but hidden, so a future "show hidden files" toggle works by view-rebuild without a
+rescan. Recommendation: exclude build/heavy dirs at scan time; keep the dotfile hide at view time.
+
+**When fixing (this bug):**
+- Add the exclusion check in `ApplyFsEntry` (return `nullptr` for an excluded dir → ingestion + descent
+  both skipped). Read the exclude list from a scan-owned config key, not from the disabled monitor.
+- Add `maxDepth` (signature change on `ReadFolderToNode`; only caller is `OpenFolder` at
+  `Workspace.cpp:379`) purely as a symlink-cycle / stack safety bound; default 8–10. Optionally also
+  skip symlinked dirs outright. Consider a config value (`workspace.maxScanDepth`) for deep trees.
+- `test_workspace`: synthetic temp tree containing a `cmake-build-debug/`-like subtree → assert those
+  nodes are absent and node count is bounded; plus a depth-bound test.
+
+**Deferred as its own effort (NOT this bug):** true lazy expansion for genuinely huge *legitimate*
+trees (monorepo) — `Node::isRead` + a shallow-scan mode + an on-expand callback from `WorkspaceView`,
+designed as one piece. Build output is handled by exclusion, not by lazy expansion.
 
 ---
 

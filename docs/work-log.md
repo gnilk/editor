@@ -67,6 +67,12 @@ consolidation, gated undo persistence. Detail + phasing: [`session-cache.md`](se
 
 ## Planned / not started
 
+- **Folder scanner** — extract the filesystem walk out of `Workspace` (`ReadFolderToNode`, welded to
+  `Node`) into a self-contained, testable `FolderScanner` that emits plain-data discovery events
+  (`kDirectory`/`kFile` + depth) via callbacks — NOT templated on the node type (testability). Static
+  exclude + depth bound become scanner `Options` (fixes [`open-bugs.md`](open-bugs.md) #4); reusable by
+  the folder monitor (shares the matcher + the node-building handler, never the disabled subsystem);
+  lazy expansion deferred to its own item. Plan + work items (FS-n): [`folder-scanner.md`](folder-scanner.md).
 - **CMake cleanup** — FetchContent for deps (known-working SHAs pinned), group the flat `editorsrc` into
   named source-list variables (one target, *not* separate libs), per-compiler flags, hoist deps/flags/
   packaging into `cmake/*.cmake`, and `.deb` + AppImage via CI → GitHub Releases. Plan + grounded

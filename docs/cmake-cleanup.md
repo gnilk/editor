@@ -312,13 +312,77 @@ can land any time; packaging is independent.
 - **Scope:** revive + fix the CPack `DragNDrop` block; ensure `SharedSupport` resources land inside the
   bundle for an installed copy (the POST_BUILD copy is dev-tree only). Note codesign/notarise as a
   documented optional follow-up.
+- **Version propagation (important):** the `.dmg` filename, `CPACK_PACKAGE_VERSION`, the bundle's
+  `CFBundleShortVersionString`, and `CFBundleVersion` must all be derived from `${PROJECT_VERSION}`
+  (set once in `project(VERSION …)` — CM-9), **not** hard-coded. Currently the macOS bundle keys are
+  set to the string literal `"0.1"` in two places (L158–159); those must be replaced with
+  `@PROJECT_VERSION@` / CMake variables so a version bump in `project()` propagates everywhere
+  automatically. `CPACK_PACKAGE_VERSION = ${PROJECT_VERSION}` (no `-dev` suffix — Apple rejects
+  non-numeric short versions; the `-dev`/git-SHA suffix is display-only in `Version.h`).
 - **Effort/Risk:** medium / low. **Done-when:** `cpack -G DragNDrop` yields a `.dmg` that mounts,
-  drags to Applications, and launches (resources resolve from the bundle). **Depends-on:** —
+  drags to Applications, and launches (resources resolve from the bundle); bumping `project(VERSION)`
+  changes the `.dmg` filename and the bundle version with no other edits. **Depends-on:** CM-9
+  (version propagation — do CM-9 first so there's a real `${PROJECT_VERSION}` to reference).
 
 ### CM-8 — (optional) CI alignment
 - **Goal:** CI uses presets (CM-5), drops `setup_deps.sh` (CM-1), optionally publishes packages as
   build artifacts (CM-6/7).
 - **Depends-on:** CM-1, CM-5 (+ CM-6/7 for artifacts).
+
+### CM-10 — Dead-code / deprecated-dep cleanup
+- **Goal:** remove everything that was disabled, commented out, or superseded but left in place — so
+  the CMakeLists.txt only describes what actually builds, without accumulating noise from past
+  transitions.
+- **Scope (grounded inventory of what to remove):**
+
+  **NCurses — fully deprecated (direction is a purpose-built terminal backend, eventually SSH-able):**
+  - `set(NCURSES_HOME …)` on macOS (L52) and Linux (L134) — feeds nothing real.
+  - `list(APPEND extlibs ncurses)` on both platforms (L70, L145) — linked but no source file calls any
+    ncurses symbol; the source entries have been commented out since the SDL transition.
+  - `${NCURSES_HOME}/lib` and `${NCURSES_HOME}/include` entries in `linkdirs` / `includedirs` (L420,
+    L423).
+  - The commented-out NCurses source block in `uisrc` (`src/Core/Graphics/NCurses/…`, 6 lines) —
+    delete the comment block entirely; the sources live in-tree for reference, the CMakeLists.txt
+    doesn't need to know about them.
+  - On Linux, the `apt-get install libyaml-cpp-dev libncurses-dev …` step in CI (`.github/workflows/`)
+    can drop `libncurses-dev` once this lands.
+
+  **Dead macOS `find_library` calls — found but never appended to `extlibs`:**
+  - `Carbon` (L60), `Cocoa` (L61), `GameController` (L63), `CoreGraphics` (L66), `AppKit` (L67) —
+    all five are stale leftovers from an earlier link attempt; delete the `find_library` lines and the
+    variables that refer to them.
+  - `CORE_FOUNDATION` and `IOKIT_FRAMEWORK` **are** linked (L130). **Verify before removing:**
+    SDL3::SDL3 almost certainly pulls both in transitively (SDL3's own CMake target links CoreFoundation
+    and IOKit on macOS); if `cmake --build … -- VERBOSE=1` shows them coming from SDL3, drop our
+    explicit `find_library` + link for those two too. `CoreServices` (L72) is likely used for
+    `MacOSFolderMonitor` or launch-services calls — check that one in source before dropping.
+
+  **`SDL_HOME` on Linux (L135):** `set(SDL_HOME /usr/local)` — set but never read post-CM-1; delete.
+
+  **Hard-coded `CMAKE_OSX_SYSROOT` (L47):** `set(CMAKE_OSX_SYSROOT /Applications/Xcode.app/…)` —
+  fragile across Xcode version updates (already flagged in §2). Drop it entirely; CMake selects the
+  active SDK automatically, and `xcrun --show-sdk-path` / `xcode-select` handle SDK selection at the
+  system level.
+
+  **Dead `VERSION_LESS 3.26.0` branch (L509–527):** `cmake_minimum_required(VERSION 3.28)` means the
+  `copy_directory_if_different` branch is always taken; the `copy_directory` fallback is unreachable.
+  Delete the `if/else` and keep only the `copy_directory_if_different` targets.
+
+  **Dead commented blocks:**
+  - The commented-out CPack DragNDrop block (L110–125) — replace when CM-7 is implemented properly;
+    until then delete the comment noise (it's in git history if needed).
+  - The commented-out custom-target stubs (L487–505): `Unit_Tests ALL`, `config`, `colors`,
+    `default_theme`, `font` — all superseded; delete.
+
+  **`CPACK_PACKAGE_EXECUTEABLES` typo (L160):** s/EXECUTEABLES/EXECUTABLES/ — trivial but wrong.
+
+- **Non-goal:** don't touch `src/Core/NCurses/` source files on disk — leave them in-tree as
+  reference material for the future terminal backend; just remove CMake's knowledge of them.
+- **Effort/Risk:** low / low (mostly delete lines + one `VERBOSE=1` build check for framework
+  transitive deps). **Done-when:** `cmake -B … && cmake --build … --target goatedit` produces no
+  reference to ncurses; 236-test suite green; no `find_library` call for a framework that isn't in
+  `extlibs`; no unreachable `if` branch. **Depends-on:** CM-3 (source lists already split, makes
+  NCurses removal trivial to locate).
 
 ### CM-9 — Single-source SemVer via `project(VERSION)` + a generated `Version.h`
 - **Goal:** define the version **once**; everything (compile-time access, bundle, package) derives from
@@ -415,3 +479,19 @@ can land any time; packaging is independent.
   `Version.h.in` attempt (the generated header lands in the build tree → its dir must be on the include
   path). Kept the `-dev`-via-`GITHUB_REF` suffix; added optional short-git-SHA-on-`-dev` for bug-report
   traceability. Bundle/package still use clean `${PROJECT_VERSION}`; `-dev` display-only.
+- **2026-06-17** — CM-7: added version-propagation note — `.dmg` filename, `CPACK_PACKAGE_VERSION`, and
+  the bundle keys (`CFBundleShortVersionString`/`CFBundleVersion`) must derive from `${PROJECT_VERSION}`,
+  not the hard-coded `"0.1"` literals currently in the macOS block. Added **Depends-on: CM-9** so CM-9
+  lands first and there's a real `${PROJECT_VERSION}` to reference.
+- **2026-06-17** — **CM-5 done:** `CMakePresets.json` added — `debug`/`release`/`asan` configure
+  presets + matching build presets (`debug`, `release`, `asan`, `utests`). SDL backend still
+  auto-selected by platform in `CMakeLists.txt`; presets only set `CMAKE_BUILD_TYPE` /
+  `GEDIT_SANITIZE`. `CMAKE_EXPORT_COMPILE_COMMANDS=ON` on debug for clangd. `CLAUDE.md` Build section
+  updated to show preset-form as preferred.
+- **2026-06-17** — Added **CM-10 (dead-code / deprecated-dep cleanup)**. Grounded inventory: NCurses
+  linked on both platforms but fully commented out since the SDL transition; 5 `find_library` calls for
+  macOS frameworks that are found but never linked (Carbon, Cocoa, GameController, CoreGraphics, AppKit);
+  `SDL_HOME` set-but-unused on Linux post-CM-1; hard-coded `CMAKE_OSX_SYSROOT` (fragile, drop it);
+  unreachable `VERSION_LESS 3.26.0` fallback (we require 3.28); commented-out CPack DragNDrop block +
+  dead custom-target stubs; `CPACK_PACKAGE_EXECUTEABLES` typo. IOKit/CoreFoundation/CoreServices
+  flagged as "verify before removing" (SDL3 may pull them in transitively).

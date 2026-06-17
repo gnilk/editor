@@ -14,26 +14,28 @@ JavaScript plugin engine (Duktape) for scripting. The primary executable target 
 
 ## Build
 
-CMake 3.22+ is required. Build is configured per-platform with optional SDL2/SDL3 flags.
+CMake 3.28+ is required. Source deps are fetched automatically by CMake (FetchContent) on first configure — no `setup_deps.sh` needed. The SDL backend is auto-selected by platform (`if(APPLE)` → SDL3; else → SDL2).
 
 ```sh
-# Install system deps (Linux)
-sudo apt-get install -y libyaml-cpp-dev libncurses-dev libsdl2-dev
-./setup_deps.sh       # clones ext/ source deps (json, gnklog, dukglue, fmt)
+# Install system deps (Linux only)
+sudo apt-get install -y libyaml-cpp-dev libsdl2-dev
 
-# Configure. The backend is auto-selected by platform in CMakeLists.txt (`if(APPLE)` → SDL3 ON /
-# SDL2 OFF, running gedit::SDL3::*; else → SDL2 ON, gedit::SDL2::*). So a plain configure is enough:
+# Configure + build — preset form (preferred):
+cmake --preset debug                          # configure into cmake-build-debug/
+cmake --build --preset debug                  # build goatedit
+cmake --build --preset utests                 # build the test library
+
+# Other presets: release, asan (AddressSanitizer)
+cmake --preset release && cmake --build --preset release
+cmake --preset asan    && cmake --build --preset asan
+
+# Legacy form (still works, same result as --preset debug):
 cmake -B ./cmake-build-debug -DCMAKE_BUILD_TYPE=Debug
-# The GEDIT_BUILD_SDL2/SDL3 options still exist as explicit overrides if you ever need to force a backend.
-
-# Build the main binary
 cmake --build ./cmake-build-debug --config Debug --target goatedit -j
-
-# Build the unit test shared library
 cmake --build ./cmake-build-debug --config Debug --target utests -j
 ```
 
-CMake auto-clones missing `ext/` dependencies on first configure (except duktape, which is pre-included in `src/ext/duktape-2.7.0`).
+`GEDIT_BUILD_SDL2/SDL3` cache variables exist as explicit overrides if you ever need to force a backend. Duktape is pre-processed and vendored in `src/ext/duktape-2.7.0` — it is not fetched.
 
 ## Running Tests
 

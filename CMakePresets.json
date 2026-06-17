@@ -1,0 +1,68 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 3, "minor": 25, "patch": 0 },
+
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "binaryDir": "${sourceDir}/cmake-build-${presetName}"
+    },
+    {
+      "name": "debug",
+      "displayName": "Debug",
+      "description": "Debug build — no optimisation, assertions on. SDL backend auto-selected by platform.",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "release",
+      "displayName": "Release",
+      "description": "Optimised release build.",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "asan",
+      "displayName": "AddressSanitizer",
+      "description": "Debug build with AddressSanitizer. Formalises the ad-hoc cmake-build-asan/ directory.",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "GEDIT_SANITIZE": "address"
+      }
+    }
+  ],
+
+  "buildPresets": [
+    {
+      "name": "debug",
+      "displayName": "Build goatedit (Debug)",
+      "configurePreset": "debug",
+      "targets": ["goatedit"]
+    },
+    {
+      "name": "release",
+      "displayName": "Build goatedit (Release)",
+      "configurePreset": "release",
+      "targets": ["goatedit"]
+    },
+    {
+      "name": "asan",
+      "displayName": "Build goatedit (ASan)",
+      "configurePreset": "asan",
+      "targets": ["goatedit"]
+    },
+    {
+      "name": "utests",
+      "displayName": "Build utests (Debug)",
+      "configurePreset": "debug",
+      "targets": ["utests"]
+    }
+  ]
+}

@@ -9,7 +9,7 @@
 >
 > **Directly subsumes most of [`open-bugs.md`](open-bugs.md) #4** (`ReadFolderToNode` ingests build
 > dirs) — exclude + depth-bound land here as scanner concerns rather than bolt-ons in `Workspace`. See
-> §9.
+> §10.
 
 ---
 
@@ -35,7 +35,7 @@ marking (without folding that concern *into* the scanner).
 
 **Relationship to other docs:**
 - **`open-bugs.md` #4** — the build-dir hang/crash. Exclude-at-scan + the depth bound are implemented
-  here (FS-2/FS-4), so #4 is mostly *superseded*; re-evaluate the residual once the scanner lands (§9).
+  here (FS-2/FS-4), so #4 is mostly *superseded*; re-evaluate the residual once the scanner lands (§11).
 - The folder monitor is currently **disabled** (`foldermonitor.enabled: no`) and being reworked. This
   doc does NOT depend on the monitor working; it shares *data and a matcher* with it, never the
   subsystem (§6).
@@ -166,6 +166,10 @@ both features a clean home.
 
 ## §6 — Reuse by the folder monitor (shares data + matcher, never the subsystem)
 
+> The folder monitor is its own work area with its own platform analysis —
+> [`folder-monitor.md`](folder-monitor.md) (macOS FSEvents vs Linux inotify). This section is only the
+> scanner side of the shared seam.
+
 The monitor does NOT share the *traversal* in the obvious way — it gets single-path change events from
 the OS, it has no walk of its own. What it genuinely shares:
 
@@ -186,7 +190,47 @@ the monitor.
 
 ---
 
-## §7 — What stays OUT of the scanner
+## §7 — Threading model (producer on a thread; the tree mutated only on the main thread)
+
+The monitor is a continuous **background producer**, and the scanner may also run on a background thread
+(e.g. driven by the monitor, FS-5). The workspace `Node` tree was never designed for concurrent access
+— and it **must not be locked** to make this safe. Reuse the message-pump hand-off the codebase already
+has:
+
+- **`SafeQueue` is genuinely thread-safe** (`src/Core/SafeQueue.h`, mutex + condvar); `push()` is locked,
+  so any thread may post.
+- The monitor already routes through it: `FolderMonitor::DispatchEvent` (`FolderMonitor.cpp:22`)
+  `PostMessage`s, and the callback is invoked in `Runloop::ProcessMessageQueue` **on the main thread**
+  (`msg.Invoke()` → `ApplyFsEntry`). So **tree mutation is already marshalled to the main thread.**
+
+Rules for the scanner/monitor:
+
+- **Background thread = pure producer.** Touches only the filesystem; emits **plain-data** `FsEvent`s;
+  reads NO singletons (`Config`/`Editor`/`Workspace`) — everything it needs is passed as `Options`. (The
+  current Linux monitor reading `Config` on its poll thread is the anti-pattern; don't carry it forward.)
+- **Main thread = sole mutator.** All `Node`/`Document`/tree writes happen in the pump callback.
+- **Batch, don't stream.** A background scan buffers its events into a local `vector<FsEvent>` and posts
+  **one** batch callback — not a message per file. The main thread applies the whole batch in a single
+  pump cycle (tree touched once, coherently). For a normal source tree that's a handful of entries per
+  change; the queue is never "smashed" unless you're (wrongly) monitoring a live build dir — which
+  exclusion already prevents.
+
+This is the coarse-grained simplicity we want **without a tree lock**, and it avoids reintroducing the #4
+hang from the other side (a lock held across a full scan would stall every main-thread reader — each
+redraw / `WorkspaceView::PopulateTree`). Contrast `TerminalScreen`/`screenLock`: that model mutates the
+grid *directly* on the pty thread because it has hard latency needs; the scanner/monitor has none, so it
+marshals instead of locking.
+
+**Hard prerequisite — `Runloop::SwapQueues` is not thread-safe.** The double-buffered pump swaps the
+`incoming`/`processing` queue pointers non-atomically (`Runloop.cpp:37`, flagged `// FIXME: must be
+atomic or thread-safe`) while a producer may be dereferencing `incomingQueue` to push. Latent today (the
+async tokenizer in `TextBuffer` is the only frequent cross-thread producer); it becomes a **live data
+race** the moment a continuously-producing monitor/scanner thread runs. Filed as
+[`open-bugs.md`](open-bugs.md) #6 — **must be fixed before enabling any continuous background producer.**
+
+---
+
+## §8 — What stays OUT of the scanner
 
 - **Dirty / change-hooks.** That's *tree* state, not a scan concern. A `Node::dirty` flag + change
   notification already has a home (`Workspace::NotifyChangeHandler` / `SetChangeDelegate`,
@@ -199,7 +243,7 @@ the monitor.
 
 ---
 
-## §8 — Placement
+## §9 — Placement
 
 - `src/Core/FileSystem/FolderScanner.{h,cpp}` — sibling to `FolderMonitor` (one walks once, one watches).
 - Shared `FsFilter` (glob/name matcher) alongside, built on the existing `Glob.h`.
@@ -208,7 +252,7 @@ the monitor.
 
 ---
 
-## §9 — Sequenced work items
+## §10 — Sequenced work items
 
 Each: **Goal / Scope / Approach / Effort·Risk / Done-when / Depends-on.**
 
@@ -251,7 +295,7 @@ Each: **Goal / Scope / Approach / Effort·Risk / Done-when / Depends-on.**
 - **Scope:** `cbCreateNode` runs `FolderScanner` rooted at the new dir for `kDirectory` events.
 - **Effort·Risk:** S · low — but blocked on the monitor rework.
 - **Done-when:** (when monitor re-enabled) creating a dir tree under a root populates it.
-- **Depends-on:** FS-1..FS-4 + monitor re-enable.
+- **Depends-on:** FS-1..FS-4 + monitor re-enable + `open-bugs.md` #6 (SwapQueues race) — see §7.
 
 ### FS-6 — Lazy expansion *(deferred — its own effort)*
 - **Goal:** on-demand subtree scan for genuinely huge *legitimate* trees (monorepo), not build output.
@@ -273,7 +317,7 @@ Each: **Goal / Scope / Approach / Effort·Risk / Done-when / Depends-on.**
 
 ---
 
-## §10 — What this means for `open-bugs.md` #4
+## §11 — What this means for `open-bugs.md` #4
 
 Once FS-2 + FS-4 land, the substance of #4 is **resolved at the scanner layer**, not in `Workspace`:
 

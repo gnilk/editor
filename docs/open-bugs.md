@@ -235,3 +235,39 @@ direct "open file" path can't clobber an open buffer's unsaved edits via the sam
 asserts no second `ProjectRoot` is created and the scanned node ends up holding the restored `Document`.
 Verified failing on pre-fix code (extra root committed) before the fix, per the repo's
 reproduce-before-fix discipline.
+
+---
+
+## 6. `Runloop::SwapQueues` swaps the message-queue pointers non-atomically (data race vs cross-thread `PostMessage`)
+
+**Where:** `src/Core/Runloop.cpp`, `Runloop::SwapQueues` (L37) — already carries
+`// FIXME: must be atomic or thread-safe`. The `incomingQueue`/`processingQueue` pointers live at
+`Runloop.h:89`; the underlying `SafeQueue` (`src/Core/SafeQueue.h`) is itself thread-safe.
+
+**What's wrong:** the message pump double-buffers two `SafeQueue`s and, once per frame, swaps the
+`incomingQueue`/`processingQueue` **raw pointers** with three plain (non-atomic) assignments on the main
+thread. A background producer calls `Runloop::PostMessage` → `incomingQueue->push(...)`, dereferencing
+`incomingQueue` concurrently. The queue *contents* are mutex-protected, but *which* queue a producer
+pushes into is read without synchronisation against the swap — a torn/stale pointer read can push into
+the queue the main thread is simultaneously draining (or the just-swapped one): undefined behaviour and
+lost/misrouted messages.
+
+**Why it (mostly) hasn't bitten yet:** the only frequent cross-thread producer today is the async
+tokenizer/parser in `TextBuffer` (it `PostMessage`s parse results); its posts are sparse relative to the
+per-frame swap, so the window is rarely hit. The main-thread SDL pump posts from the same thread that
+swaps, so it never races.
+
+**When it WILL bite:** the folder-monitor / folder-scanner threading model
+([`folder-scanner.md`](folder-scanner.md) §7) makes a background thread a *continuous* producer — turning
+a rare window into a live data race. **This is a hard prerequisite for enabling any continuous background
+producer (the live folder monitor); it must be fixed first.**
+
+**Discovered:** 2026-06-17, while analysing the folder-monitor/scanner threading model — the message-pump
+hand-off is the intended cross-thread mechanism, and `SwapQueues` is the one un-synchronised link in it.
+
+**Proper fix (its own small branch):** make the swap mutually exclusive with `push` — a dedicated pump
+mutex held during both `SwapQueues` and the pointer read in `PostMessage`; OR collapse to a single
+`SafeQueue` drained "pop-until-empty snapshot" per frame (bounds the drain to what was queued at frame
+start); OR make the two pointers `std::atomic` with acquire/release. Add a stress test: N producer
+threads hammering `PostMessage` while the pump swaps/drains, assert no message is lost and no UB under
+TSan/ASan.

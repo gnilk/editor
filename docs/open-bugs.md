@@ -105,18 +105,27 @@ an opener (`{foo`, and likely `(foo`, `[foo`) is `kRegular`/identifier, not oper
 tokenizer's longest-match / boundary logic at operator↔identifier transitions.
 
 
-## 4. `Workspace::ReadFolderToNode` recursively scans ALL subdirectories — hangs / crashes on build dirs
+## 4. FIXED — `Workspace::ReadFolderToNode` recursively scanned ALL subdirectories — hung / crashed on build dirs
 
-**Where:** `src/Core/Workspace.cpp`, `Workspace::ReadFolderToNode` (L391) and `Workspace::Node` (header
-`src/Core/Workspace.h` L542).
+**Where:** `src/Core/Workspace.cpp`, `Workspace::ReadFolderToNode` and `Workspace::Node` (header
+`src/Core/Workspace.h`).
 
-> **Depends on / mostly superseded by the FolderScanner extraction** —
-> [`folder-scanner.md`](folder-scanner.md). The fix below (scan-time exclude + depth bound) is intended
-> to land *as part of* that extraction (FS-2/FS-4), not as a bolt-on in `Workspace`. The proposed
-> `Node::isRead` is premature here — it belongs to the deferred lazy-expansion item (FS-6).
-> **When the scanner lands, re-read this entry and close it or trim it to whatever residual the scanner
-> didn't cover** (expected: none of the original symptom). The analysis below is retained as the
-> cold-start framing for that work.
+> **FIXED (2026-06-17, branch `fix/folder-scanner`).** Resolved by the FolderScanner extraction
+> ([`folder-scanner.md`](folder-scanner.md)), exactly as planned — not a bolt-on in `Workspace`:
+> - *Build dirs ingested* → **FS-2** scan-time exclude (`FsFilter` on `Glob.h`; the list relocated off
+>   the disabled monitor to the scan-owned `workspace.exclude`). Opening a project root now prunes
+>   `cmake-build-debug` etc. before they enter the node tree.
+> - *No depth limit / symlink-cycle crash* → **FS-4** `Options.maxDepth` (operational
+>   `workspace.maxScanDepth`, default 64) + `followSymlinks=false` — a cyclic link is emitted once and
+>   never descended, so the ENAMETOOLONG → `std::terminate` abort can't recur.
+> - `ReadFolderToNode` is now a thin adapter that drives the scanner via a parent-`Node` stack (**FS-3**);
+>   the unbounded recursion is deleted. `ApplyFsEntry` stays the single fs→tree mutator.
+>
+> Regression: `test_workspace_openfolder_excludes_builddir` + the `test_folderscanner` module
+> (exclude-prune / maxdepth / symlink-cycle). Commits `276a966`, `9603bcb`, `6410daa`.
+> **No residual of the original symptom.** The originally-proposed `Node::isRead` was premature; lazy
+> expansion for genuinely huge *legitimate* trees is tracked as the deferred **FS-6** (its own effort),
+> NOT part of this bug. The analysis below is retained as historical cold-start context.
 
 **What's wrong:** the recursive scan has no depth limit and no per-directory skip. Opening the project
 root (`.`) with a `cmake-build-debug/` (or `_deps/`) subtree present causes the scan to descend into

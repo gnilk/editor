@@ -15,7 +15,8 @@
 
 ## §0 — Status / read this first
 
-**Phase: IN PROGRESS on `fix/folder-scanner`** (W1+W2 landed; see §0.1). Dedicated branch.
+**Phase: COMPLETE on `fix/folder-scanner`** (W1–W6 landed; FS-5/FS-6 remain deferred — see §0.1).
+The in-scope scanner extraction shipped and resolved [`open-bugs.md`](open-bugs.md) #4 end to end.
 
 | Item | Status | Commit |
 |------|--------|--------|
@@ -25,7 +26,7 @@
 | FS-4 — `maxDepth` + symlink-cycle guard as scanner `Options` | ✅ done (W1 `maxDepth` + W3 symlink no-follow; depth/cycle/follow tests green) | — |
 | FS-5 — monitor reuse: scan rooted at a newly-created directory | 🔲 deferred (monitor disabled) | — |
 | FS-6 — lazy expansion: shallow scan + `onEnterDir` veto + `Node::isRead` + on-expand callback | 🔲 deferred (own effort) | — |
-| FS-7 — scanner unit tests (event stream / exclude prune / depth bound / cycle) | 🟡 partial (all case classes green via W2/W3/W4; verified-green-set registration = W6) | — |
+| FS-7 — scanner unit tests (event stream / exclude prune / depth bound / cycle) | ✅ done (`test_folderscanner` 10 cases green; added to the verified-green set, 247 tests) | — |
 
 **Drivers (user-stated):** (1) the walk originated in `Workspace` but doesn't *belong* there as
 complexity grows; (2) make it a **self-contained, testable** unit; (3) make it **reusable by the folder
@@ -55,7 +56,7 @@ producer (FS-5, §7); the rewired `OpenFolder` scan stays **synchronous/main-thr
 | W3 ✅ | Symlink no-follow guard (`maxDepth` already in W1): a symlinked dir is emitted via `onEnterDir` but only descended when `followSymlinks`. Tests: maxDepth bound, symlink-cycle terminates (count==2 vs 9 if followed), follow=true reaches the file twice. → crash half of #4. | FS-4, §5; #4 |
 | W4 ✅ | `FsFilter` on `Glob.h` (filename glob match) threaded through the scan; `Options.exclude` pruned before any event/descent. Exclude list moved `foldermonitor.exclude`→`workspace.exclude` (+ `use_git_ignore`); monitor's `GetExclusionPaths` reads the new key. Tests: build-dir subtree → zero events, `cmake-build-*` glob prune. → build-dir half of #4. | FS-2, §5/§6; #4 |
 | W5 ✅ | `ReadFolderToNode` reimplemented as a scanner adapter: a parent-`Node` stack (push/pop balanced on enter/leave) feeds `ApplyFsEntry` (still THE single mutator); recursion deleted. `Options.exclude` from `workspace.exclude`; operational `maxDepth` from `workspace.maxScanDepth` (default 64 — generous so legit deep trees aren't truncated; symlink cycles handled by no-follow). **Synchronous/main-thread** (#6 stays out). Regression `test_workspace_openfolder_excludes_builddir` green. | FS-3, §2/§3; #6 |
-| W6 | Close out: re-read #4 → close/trim residual (§11); add `folderscanner` to the verified-green set (CLAUDE.md); flip §0 statuses to ✅; update `work-log.md`. | §11, FS-7 |
+| W6 ✅ | Closed out: #4 marked FIXED (no residual; FS-6 noted as separate deferred); `folderscanner` added to the verified-green set (CLAUDE.md, 247 tests); §0 statuses flipped; `work-log.md` updated. | §11, FS-7 |
 
 ---
 
@@ -174,7 +175,9 @@ Two distinct exclusion mechanisms, kept separate on purpose:
 - **Dynamic veto = `onEnterDir` return value.** Policy the scanner can't know — *"this node is
   collapsed, don't walk deeper yet"* — lives in the consumer and is expressed by returning `false`.
   This is the hook for **future lazy expansion** (FS-6): the scanner stays dumb, the policy stays in
-  `Workspace`/`WorkspaceView`.
+  `Workspace`/`WorkspaceView`. **NB:** a vetoed *and* a depth-bounded directory are both "emitted but not
+  descended" and must be marked unscanned so they can be expanded later — that marker is the crux of
+  FS-6, analysed in **§12**.
 
 Mapping each driver onto the right mechanism keeps the scanner free of editor policy while still giving
 both features a clean home.
@@ -314,12 +317,13 @@ Each: **Goal / Scope / Approach / Effort·Risk / Done-when / Depends-on.**
 - **Done-when:** (when monitor re-enabled) creating a dir tree under a root populates it.
 - **Depends-on:** FS-1..FS-4 + monitor re-enable + `open-bugs.md` #6 (SwapQueues race) — see §7.
 
-### FS-6 — Lazy expansion *(deferred — its own effort)*
+### FS-6 — Lazy expansion *(deferred — its own effort; design notes in §12)*
 - **Goal:** on-demand subtree scan for genuinely huge *legitimate* trees (monorepo), not build output.
-- **Scope:** shallow (one-level) scan mode; `onEnterDir` veto for collapsed nodes; `Node::isRead`;
-  on-expand callback from `WorkspaceView` into `Workspace`.
-- **Approach:** designed as one piece — `isRead` is inert until the shallow-scan + on-expand callback
-  exist, so do NOT add it before then.
+- **Scope:** `Node::isScanned` marker; a scanner "emitted-but-not-descended" signal
+  (`onLeaveDir(path, depth, bool fullyScanned)`); on-expand callback from `WorkspaceView` into
+  `Workspace`. The "shallow scan mode" is **not** new code — it's `Scan(dir, {maxDepth = 1})` (§12).
+- **Approach:** designed as one piece — `isScanned` is inert until the scanner signal + on-expand
+  callback exist, so do NOT add it before then. Full analysis + the silent-truncation gap it closes: §12.
 - **Effort·Risk:** L · medium — UI + model + scanner all involved.
 - **Done-when:** expanding a collapsed folder triggers exactly one shallow scan; revisits are no-ops.
 - **Depends-on:** FS-1..FS-3.
@@ -344,4 +348,97 @@ Once FS-2 + FS-4 land, the substance of #4 is **resolved at the scanner layer**,
   bug fix. **Re-scoped, deferred.**
 
 **Action:** when the scanner lands, re-read #4 and either close it or trim it to whatever residual the
-scanner did NOT cover (expected: none of the original symptom).
+scanner did NOT cover (expected: none of the original symptom). **Done 2026-06-17 — #4 marked FIXED.**
+
+---
+
+## §12 — Lazy expansion: the "not-scanned" node marker (FS-6 design notes)
+
+> Added 2026-06-17 from a review note while landing FS-3. Lowering the scan depth is the natural way to
+> make expansion lazy — but the current model can't tell a depth-bounded directory from an empty one, so
+> it would *truncate* rather than *defer*. Captured before it's built; FS-6 stays deferred.
+
+**The gap.** Three things make the scanner emit a directory but **not descend** into it: the depth bound
+(`depth+1 >= maxDepth`), the `onEnterDir` veto, and `followSymlinks=false`. In every case the dir node is
+created with no children — and **today nothing distinguishes that node from a genuinely empty directory.**
+So setting `workspace.maxScanDepth` low *silently truncates* the tree instead of producing a lazily-
+expandable one. At the W5 default of 64 this is latent (no real tree hits 64, so nothing is mis-marked);
+it bites the instant depth is lowered for laziness.
+
+**Why `FlattenChilds` is shallow (it's not a bug).** It primarily drives the `WorkspaceView`/`TreeView`
+file-tree, which materialises **one level at a time**. That per-level shape is exactly what lazy
+expansion wants: one level scanned ⇒ one level shown. Keep it shallow.
+
+**Insight: the depth bound IS the shallow-scan mechanism.** FS-6 originally posited a separate
+"shallow (one-level) scan mode." Not needed — `Scan(dir, {maxDepth = 1})` already emits exactly one
+level. Lazy expansion is then: initial scan at a small depth, and **each expand re-runs `Scan` rooted at
+the expanded directory** (again shallow). So `maxScanDepth = 1` must mean "walk one level, mark the rest
+expandable," NOT "truncate."
+
+**What must be added — one coherent piece; do NOT add any part before the others exist:**
+
+1. **A per-dir-node `isScanned` flag** (default `false`). This is the FS-6 / old-#4 `isRead`, reframed
+   with a real home. Set `true` for a directory **only when the scan actually walked its contents** —
+   including the *walked-and-found-empty* case, so expanding a known-empty dir is a no-op, not a re-scan.
+2. **A scanner signal for "emitted but not descended."** The consumer can't infer it — it doesn't know
+   the scanner's depth/symlink decision. Recommend reporting *effective descent on leave*:
+   `onLeaveDir(path, depth, bool fullyScanned)`, where `fullyScanned = descend && mayFollow &&
+   (depth+1 < maxDepth)` computed at the recurse **call-site** (not the top-of-`ScanDir` guard). The
+   adapter then does `node->isScanned = fullyScanned`. One bool unifies all three non-descent reasons
+   AND the empty-dir = scanned case. (Alternative: a `canDescend` hint arg on `onEnterDir` — weaker, it
+   misses the empty-dir distinction.) **This is an additive change to the callback contract** I shipped
+   in FS-1; flag it as such when FS-6 is built.
+3. **Trigger the scan by trapping the expand ACTION in `WorkspaceView::OnAction` — do NOT add a callback
+   out of `TreeView`** (decided in review — the better option). There are TWO trees: the model
+   (`Workspace::Node`, built by the scanner) and the VIEW tree (`TreeView<Workspace::Node::Ref>::TreeNode`,
+   mirrored by `WorkspaceView::FillTreeView`). `TreeView::Expand()` (bound to `kUIActionLineRight`) only
+   flips `isExpanded` + re-`Flatten()`s, and `TreeView` is **generic over `T`** — it can't scan.
+   `WorkspaceView::OnAction` already dispatches to `treeView->OnAction(kpAction)` (`WorkspaceView.cpp:224`),
+   so **intercept `kUIActionLineRight` *before* delegating**: the row about to expand is
+   `treeView->GetCurrentSelectedItem()` (the model `Node::Ref`); if it's an unscanned folder, run
+   `Workspace::ScanNode(node)` (model gains children + `isScanned = true`) and mirror the new level, THEN
+   delegate to `treeView->OnAction` — `Expand()`'s `Flatten()` reveals it because the view nodes now
+   exist. **`TreeView` stays generic and untouched** (editor scan policy lives in the editor view —
+   correct layering), and there is **no dangling-ref-in-`Expand()` gotcha** since the populate happens
+   outside `Expand`.
+
+**Wiring detail (the part that was unclear) — `TreeView` ↔ `WorkspaceView`:**
+
+- **`FillTreeView` already self-limits to the scanned frontier** (recurses on `node->FlattenChilds`), so
+  the *initial* mirror is already lazy — an unscanned model node stops the mirror. Expansion only mirrors
+  the one new level.
+- **Mirroring the new level — two ways:**
+  - *(A) targeted:* mirror just the expanded node's children. Needs the VIEW `TreeNode` (not only its
+    `data`) to attach under — add a small generic `TreeView::GetCurrentSelectedNode()` (symmetric with
+    `GetCurrentSelectedItem`), or reuse `WorkspaceView::FindDocumentNode(root, path)` to locate it, then
+    `FillTreeView` that node (empty → adds exactly one level, no dedupe).
+  - *(B) reuse the change path:* `ScanNode` → `Workspace::NotifyChangeHandler()` → the EXISTING
+    `SetChangeDelegate` (`WorkspaceView.cpp:75`) → full `PopulateTree()`, which re-applies expand state
+    from `expandCollapseCache` (keyed by path). This is the "flatten redone / whole logic retried" worry —
+    and it **already works**; heavier (full re-mirror) but bounded to the scanned frontier, needs no new
+    accessor, and is async-ready. **Start with (B)**, drop to (A) only if the re-mirror proves costly.
+- **Cursor stays stable** (children insert *below* the active line; `idxActiveLine` unchanged across the
+  re-`Flatten()`), so `WorkspaceView::OnAction`'s "active line changed" check stays false — no spurious
+  `SetActiveFolderNode`.
+- **Caveat — the trap only catches actions routed through `WorkspaceView::OnAction`** (user keyboard
+  expand). PROGRAMMATIC expansions bypass it: `PopulateTree`'s root `treeView->Expand()` and
+  `SetCurrentlySelectedItem` → `ExpandToNode` (ancestor expand when syncing to the active document). Those
+  target already-present (already-scanned) nodes today, so it's fine — but if a future path expands an
+  unscanned node programmatically, route it through a shared "ensure-scanned" helper. (A `cbOnExpand`
+  inside `Expand()` would catch those automatically, at the cost of an app-shaped hook on the generic
+  widget + the dangling-ref care above — the tradeoff to weigh only if programmatic lazy-expand is needed.)
+- **Async:** if `ScanNode` runs on a background thread (§7, gated on `open-bugs.md` #6) the trap kicks it
+  off and the synchronous `Expand` shows nothing yet; the children appear when the batch lands via the
+  change-delegate (option B). A synchronous scan shows immediately. Contract either way: "expand triggers
+  exactly one scan; revisits are no-ops."
+- **Perf:** `AddItem` `Flatten()`s per child — add a batch "insert many, flatten once" path to avoid N
+  redundant flattens during a populate.
+
+**Bonus — this de-risks the W5 `maxScanDepth` knob.** With the marker a depth-bounded dir is no longer
+*lost*, only *deferred*: the bound becomes a performance/laziness dial, not a correctness hazard. The
+generous default (64) can stay; a future lazy mode lowers it without data loss. (Until the marker exists,
+treat `workspace.maxScanDepth` as "must be deep enough to cover the whole real tree.")
+
+**Edge case — symlinked dirs.** A non-followed symlinked dir is also "not scanned." Auto-rescanning it on
+expand re-opens cycle risk (bounded per-scan by no-follow, but each expand steps one level). Mark it
+distinctly (`kSymlink`) and decide policy (expand-once with no-follow, or treat as a leaf) when FS-6 lands.

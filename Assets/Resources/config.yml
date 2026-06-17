@@ -59,6 +59,8 @@ workspace:
   # Backstop against pathological recursion depth only (symlink cycles are handled separately by the
   # scanner's no-follow default). Generous so legitimate deep source trees are never truncated — this is
   # NOT the build-dir filter; that is `exclude` below.
+  # CAVEAT: lowering this SILENTLY TRUNCATES the tree until lazy expansion (FolderScanner FS-6, the
+  # "not-scanned" node marker — docs/folder-scanner.md §12) exists. Keep it deeper than your real tree.
   maxScanDepth: 64
   exclude:
     - ".git"

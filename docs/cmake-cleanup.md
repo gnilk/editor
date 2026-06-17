@@ -24,6 +24,8 @@
 | CM-8 — CI alignment (optional) | 🔲 pending | — |
 | CM-9 — single-source SemVer | ✅ done | `257cb8d` |
 | CM-10 — dead-code / deprecated-dep cleanup | ✅ done | `619d4a4` |
+| (post) — remove hardcoded Homebrew paths; `find_package` + imported targets | ✅ done | `dfcfb05` |
+| (post) — fix SDL keg-prefix / `YAML_CPP_INCLUDE_DIR` / preset generator | ✅ done | `071ab3b` |
 
 **Next:** CM-6 on the Linux dev box — fix `.deb` deps (`CPACK_DEBIAN_PACKAGE_DEPENDS`), build AppImage
 via linuxdeploy + appimagetool on an older Ubuntu base, wire the tag-triggered GitHub release workflow.
@@ -527,3 +529,19 @@ can land any time; packaging is independent.
   mounted DMG shows `goatedit.app/Contents/SharedSupport/` populated with fonts, themes, plugins, and
   config. Codesigning/notarisation noted as optional follow-up (needs Apple Developer ID +
   `CPACK_BUNDLE_APPLE_CERT_APP` + `notarytool`).
+- **2026-06-17** — **(post CM-10) Remove hardcoded Homebrew paths** (`dfcfb05`): deleted all
+  `/opt/homebrew/…` literals. macOS block now detects the Homebrew prefix via
+  `find_program(BREW brew)` + `execute_process(COMMAND ${BREW} --prefix)` and prepends it to
+  `CMAKE_PREFIX_PATH`. `find_package(yaml-cpp REQUIRED)` replaces the manual `YAML_CPP_HOME`
+  variable; both platform extlibs lists use the imported target `yaml-cpp::yaml-cpp` (carries include
+  dirs + link dirs transitively, no `target_link_directories` needed). `target_link_directories` calls
+  removed. `SDL2::SDL2` / `SDL3::SDL3` imported targets used throughout.
+- **2026-06-17** — **(post) Fix SDL3 keg-prefix + cmake/CMakeBuildFlags.cmake** (`071ab3b`): using
+  the global Homebrew prefix for `CMAKE_PREFIX_PATH` caused SDL3's cmake config (resolved via
+  symlink) to set `INTERFACE_INCLUDE_DIRECTORIES = /opt/homebrew/include`, which lost the search-order
+  race against a stale SDL3 install at `/usr/local/include/SDL3/` (missing `SDL_DECLSPEC`). Fix: use
+  `execute_process(COMMAND ${BREW} --prefix sdl3)` for the keg-specific prefix and prepend it before
+  the `find_package(SDL3)` call; same pattern for SDL2. Also fixed `cmake/CMakeBuildFlags.cmake`:
+  `${YAML_CPP_HOME}/include` (now undefined) → `${YAML_CPP_INCLUDE_DIR}` (set by
+  `find_package(yaml-cpp)`). Added `"generator": "Ninja"` to the `base` preset in
+  `CMakePresets.json` to prevent generator drift on reconfigure.

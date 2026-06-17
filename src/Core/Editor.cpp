@@ -313,7 +313,13 @@ void Editor::ParseArguments(int argc, const char **argv) {
             PrintHelpToConsole();
             exit(1);
         } else {
-            pendingFiles.push_back(arg);
+            // Resolve positional file/folder args to absolute paths NOW, against the launch cwd.
+            // Initialize() may relocate cwd to $HOME later (for UI/Finder launches with no useful
+            // cwd); capturing the argument first means `goatedit .` opens the directory it was
+            // launched from, not whatever cwd becomes afterwards.
+            std::error_code ec;
+            auto absPath = std::filesystem::absolute(std::filesystem::path(arg), ec).lexically_normal();
+            pendingFiles.push_back(ec ? arg : absPath.string());
         }
     }
 }

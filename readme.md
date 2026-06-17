@@ -55,15 +55,15 @@ Results are written straight to the terminal pane — here, a search across the 
 
 ## Building
 
-The build is driven by **CMake 3.22+**. CMake auto-clones the *local* dependencies under `ext/` on
-first configure; *system* dependencies you install yourself.
+The build is driven by **CMake 3.28+**. Source dependencies (json, gnklog, dukglue, fmt) are fetched
+by CMake itself via FetchContent on first configure — no manual step; *system* dependencies you
+install yourself.
 
 ### Linux
 
 ```sh
 sudo apt-get update
 sudo apt-get install -y libyaml-cpp-dev libsdl2-dev
-./setup_deps.sh        # clones ext/ deps (json, gnklog, dukglue, fmt)
 
 # Configure (SDL3 is on by default)
 cmake -B ./cmake-build-debug -DCMAKE_BUILD_TYPE=Debug

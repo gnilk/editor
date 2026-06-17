@@ -378,7 +378,14 @@ int main(int argc, const char **argv) {
     std::set_terminate(exceptionHandler);
 
 
-    Editor::Instance().Initialize(argc, argv);
+    // A failed Initialize (e.g. config.yml/theme not found because the assets aren't
+    // installed/discoverable) leaves the theme null; building the view tree below would then
+    // segfault in the first TerminalController::Resize. Fail loud and clean instead.
+    if (!Editor::Instance().Initialize(argc, argv)) {
+        fprintf(stderr, "FATAL: editor initialization failed - assets (config.yml/theme) "
+                        "not found. Please reinstall.\n");
+        return 1;
+    }
     Editor::Instance().OpenScreen();
 
 

@@ -79,14 +79,16 @@ set(DUKGLUE_HOME ${dukglue_SOURCE_DIR})
 # trun (testrunner) headers — used only by the utests target.
 # After a macOS SDK upgrade, /usr/local/include can fall off the compiler's
 # default search path; find_path with NO_DEFAULT_PATH forces an explicit probe.
+# The Linux trun package installs to /usr/include; macOS installs to
+# /usr/local/include — probe both explicitly.
 # ---------------------------------------------------------------------------
 find_path(TRUN_INCLUDE_DIR
     NAMES testinterface.h
-    PATHS /usr/local/include
+    PATHS /usr/local/include /usr/include
     NO_DEFAULT_PATH
 )
 if (NOT TRUN_INCLUDE_DIR)
     message(WARNING
-        "trun headers not found in /usr/local/include — utests will not build correctly. "
-        "Install the trun testrunner package to /usr/local.")
+        "trun headers not found in /usr/local/include or /usr/include — utests will not "
+        "build correctly. Install the trun testrunner package.")
 endif()

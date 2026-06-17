@@ -271,3 +271,27 @@ mutex held during both `SwapQueues` and the pointer read in `PostMessage`; OR co
 start); OR make the two pointers `std::atomic` with acquire/release. Add a stress test: N producer
 threads hammering `PostMessage` while the pump swaps/drains, assert no message is lost and no UB under
 TSan/ASan.
+
+## 7. 'CWD to HOME when starting outside'
+
+**WHERE:** `Editor::Initialize` (`src/Core/Editor.cpp`) — the `if (!IsWithinTree(cwd, pathHome))
+{ current_path(pathHome); }` block, which runs *before* the positional file/folder args are opened
+(`OpenDocumentOrFolder` further down).
+
+**What's wrong:** It screws up quite a lot of things - we shouldn't do this - instead we should just adhere
+to the rules of 'don't write session/cache data unless strictly a subfolder of users home directory'.
+Concretely it broke `goatedit .` launched from outside `$HOME`: the relative `.` resolved against the
+*relocated* cwd (`$HOME`), so the editor opened the whole home tree instead of the launch dir — and then
+the workspace scan recursed into a symlink loop there (see bug #4) and aborted.
+
+**Partial fix (2026-06-17):** `ParseArguments` now resolves positional args to **absolute paths at
+parse time** (against the launch cwd, before any relocation), so `goatedit .` opens the directory it
+was launched from regardless of the later `current_path` change. Verified: launching from `/tmp/...`
+with `.` now opens that folder (not `$HOME`) and no longer hits the symlink-loop abort.
+
+**Still open (decision):** whether to drop the cwd→`$HOME` relocation entirely (user's preference —
+"we shouldn't do this"). The relocation still runs for no-arg/Finder launches; removing it needs a
+look at every remaining relative-path operation (default workspace, save) + a macOS Finder test, so
+it's deferred rather than done here.
+
+**Why it (mostly) hasn't bitten yet:** We don't really test it...

@@ -1,0 +1,70 @@
+name: Release
+
+# Tag-triggered Linux packaging (CM-6, docs/cmake-cleanup.md §3): build a .deb (apt-native)
+# and an AppImage (portable, bundles SDL) and publish both as GitHub Release assets.
+# A tag build also drops the "-dev" suffix from the version (Version.h reads GITHUB_REF).
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write   # needed to create/update the GitHub Release
+
+jobs:
+  linux-packages:
+    # Build on an OLDER base so the bundled glibc is old enough to run on most distros —
+    # the classic AppImage portability rule.
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Install build + packaging dependencies
+        # FUSE is needed for the AppImage tools (or APPIMAGE_EXTRACT_AND_RUN=1, which the
+        # build script sets as a fallback). file/desktop-file-utils help linuxdeploy.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ninja-build libyaml-cpp-dev libsdl2-dev \
+            file desktop-file-utils fuse libfuse2
+
+      - name: Install a recent CMake + Ninja
+        # ubuntu-22.04 ships CMake 3.22; the project requires 3.28+.
+        uses: lukka/get-cmake@latest
+
+      - name: Configure + build (release)
+        run: |
+          cmake --preset release
+          cmake --build --preset release --target goatedit
+
+      - name: Build .deb
+        working-directory: cmake-build-release
+        run: cpack -G DEB
+
+      - name: Build AppImage
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+          VERSION: ${{ github.ref_name }}
+        run: ./scripts/build-appimage.sh cmake-build-release
+
+      - name: Collect artifacts
+        run: |
+          mkdir -p dist
+          cp cmake-build-release/*.deb dist/
+          cp goatedit*.AppImage dist/
+          ls -la dist
+
+      - name: Upload build artifacts (always, not just on tags)
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages
+          path: dist/*
+
+      - name: Publish to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*

@@ -50,6 +50,10 @@ namespace gedit::SDL2 {
         void ComputeScalingFactors();
         void CreateTextures();
         void LoadFontFromTheme();
+        // Load the app icon (appicon.png) via the asset loader and set it as the window/taskbar
+        // icon. Without this the WM has no icon to show (ALT+TAB) unless a matching .desktop is
+        // installed system-wide — which is not the case for an AppImage or a dev build.
+        void SetWindowIcon();
         // Read the live SDL window geometry and report it into the session (in memory).
         void ReportWindowGeometry();
 

@@ -7,3 +7,8 @@
 
 #define STB_TRUETYPE_IMPLEMENTATION
 #include "stb_truetype.h"
+
+// PNG decoding only — used to load the window/taskbar icon (SDLScreen::SetWindowIcon).
+#define STB_IMAGE_IMPLEMENTATION
+#define STBI_ONLY_PNG
+#include "stb_image.h"

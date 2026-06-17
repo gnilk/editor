@@ -1,6 +1,13 @@
-ext/
+# Top-level FetchContent/clone dir only — NOT src/ext/ (vendored single-header libs live there)
+/ext/
 cmake-build-debug/
 cmake-build-asan/
 cmake-build-release/
 bld/
 .idea/
+
+# Packaging artifacts (CM-6): AppImage output + linuxdeploy staging
+*.AppImage
+*.deb
+AppDir/
+dist/

@@ -47,8 +47,8 @@ if (APPLE)
     option(GEDIT_BUILD_SDL3 "Build SDL3" ON)
     option(GEDIT_BUILD_SDL2 "Build SDL2" OFF)
 else()
-    option(GEDIT_BUILD_SDL3 "Build SDL3" OFF)
-    option(GEDIT_BUILD_SDL2 "Build SDL2" ON)
+    option(GEDIT_BUILD_SDL3 "Build SDL3" ON)
+    option(GEDIT_BUILD_SDL2 "Build SDL2" OFF)
 endif()
     #set(SDL_HOME /usr/local)
 #set(SDL_HOME /opt/homebrew)
@@ -157,24 +157,33 @@ elseif(UNIX)
     add_executable(${CUR_TARGET} ${appsrc})
 
     #
-    # Create a .deb install package..
-    # Note: The binary will currently be named 'editor' <- should fix this at some point...
+    # Linux packaging — .deb via CPack (AppImage is built separately, see scripts/build-appimage.sh).
     #
     include(GNUInstallDirs)
     install(TARGETS ${CUR_TARGET} RUNTIME DESTINATION bin)
     install(DIRECTORY ${EDITOR_ASSET_DIR}/. DESTINATION ${CMAKE_INSTALL_DATADIR}/goatedit)
-    install(FILES ${CMAKE_SOURCE_DIR}/Assets/CMake/com.gnilk.goatedit.desktop DESTINATION share/applications)
-    install(FILES ${CMAKE_SOURCE_DIR}/Assets/Graphics/com.gnilk.goatedit.png DESTINATION share/icons/hicolor/scalable/apps)
+    install(FILES ${CMAKE_SOURCE_DIR}/Assets/CMake/com.gnilk.goatedit.desktop
+            DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
+    # Scalable SVG is the primary icon; the 512x512 PNG is the raster fallback (scalable/ is
+    # for SVG only, so the PNG goes in the matching size dir).
+    install(FILES ${CMAKE_SOURCE_DIR}/Assets/Graphics/com.gnilk.goatedit.svg
+            DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps)
+    install(FILES ${CMAKE_SOURCE_DIR}/Assets/Graphics/com.gnilk.goatedit.png
+            DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/512x512/apps)
 
     SET(CPACK_GENERATOR "DEB")
-    SET(CPACK_PACKAGE_EXECUTABLES goatedit;GoatEdit)
-    SET(CPACK_PACKAGE_ICON ${CMAKE_SOURCE_DIR}/Assets/Graphics/goatedit_icon.png)
     SET(CPACK_PACKAGE_NAME "goatedit")
     SET(CPACK_PACKAGE_VENDOR "gnilk")
+    SET(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+    SET(CPACK_PACKAGE_FILE_NAME "goatedit-${PROJECT_VERSION}-linux-${CMAKE_SYSTEM_PROCESSOR}")
+    SET(CPACK_PACKAGE_EXECUTABLES goatedit;GoatEdit)
     SET(CPACK_PACKAGE_DESCRIPTION "A text editor for my own personal use..")
     SET(CPACK_PACKAGE_DESCRIPTION_SUMMARY "not a very fancy text/code editor..")
     SET(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/gnilk/editor")
     SET(CPACK_DEBIAN_PACKAGE_MAINTAINER "gnilk") #required
+    SET(CPACK_DEBIAN_PACKAGE_SECTION "editors")
+    # SHLIBDEPS auto-resolves runtime deps from the linked .so set (libsdl2, libyaml-cpp,
+    # libstdc++, libc6, ...) via dpkg-shlibdeps — more robust than a hand-maintained list.
     SET(CPACK_DEBIAN_PACKAGE_SHLIBDEPS YES)
     INCLUDE(CPack)
 

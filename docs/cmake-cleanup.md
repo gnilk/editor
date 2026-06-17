@@ -9,7 +9,7 @@
 
 ## §0 — Status / read this first
 
-**Phase: IN PROGRESS — macOS cleanup complete; Linux packaging (CM-6) pending.**
+**Phase: IN PROGRESS — Linux packaging (CM-6) done; CI alignment (CM-8) folded in.**
 
 | Item | Status | Commit |
 |------|--------|--------|
@@ -19,16 +19,17 @@
 | CM-3 — named source-list groups | ✅ done | `53e13a1` |
 | CM-4 — move noise to `cmake/*.cmake` | ✅ done | `f2de58d` |
 | CM-5 — `CMakePresets.json` | ✅ done | `9c977f4` |
-| CM-6 — Linux packaging (`.deb` + AppImage) | 🔲 pending — Linux box | — |
+| CM-6 — Linux packaging (`.deb` + AppImage) | ✅ done | _this branch_ |
 | CM-7 — macOS packaging (`.dmg`) | ✅ done | `9e74f88` |
-| CM-8 — CI alignment (optional) | 🔲 pending | — |
+| CM-8 — CI alignment (optional) | ✅ done (release + build workflows) | _this branch_ |
 | CM-9 — single-source SemVer | ✅ done | `257cb8d` |
 | CM-10 — dead-code / deprecated-dep cleanup | ✅ done | `619d4a4` |
 | (post) — remove hardcoded Homebrew paths; `find_package` + imported targets | ✅ done | `dfcfb05` |
 | (post) — fix SDL keg-prefix / `YAML_CPP_INCLUDE_DIR` / preset generator | ✅ done | `071ab3b` |
+| (post) — trun headers in `/usr/include`; AppImage XDG crash; init guard | ✅ done | _this branch_ |
 
-**Next:** CM-6 on the Linux dev box — fix `.deb` deps (`CPACK_DEBIAN_PACKAGE_DEPENDS`), build AppImage
-via linuxdeploy + appimagetool on an older Ubuntu base, wire the tag-triggered GitHub release workflow.
+**Next:** nothing blocking. Verify the release workflow end-to-end by pushing a `v*` tag once the
+branch lands.
 
 Drivers (user-stated): (1) replace the home-grown dependency pre-fetch with **FetchContent**; (2) group
 the monolithic `editorsrc` into **named source-list variables** (UI, Graphics, Core, Editor, …) — *not*
@@ -545,3 +546,48 @@ can land any time; packaging is independent.
   `${YAML_CPP_HOME}/include` (now undefined) → `${YAML_CPP_INCLUDE_DIR}` (set by
   `find_package(yaml-cpp)`). Added `"generator": "Ninja"` to the `base` preset in
   `CMakePresets.json` to prevent generator drift on reconfigure.
+- **2026-06-17** — **Build fix (Linux box):** the trun testrunner package now installs its headers to
+  `/usr/include` (was `/usr/local/include`); the `find_path(TRUN_INCLUDE_DIR …)` in
+  `cmake/CMakeDeps.cmake` used `PATHS /usr/local/include NO_DEFAULT_PATH`, so configure couldn't find
+  `testinterface.h` and `utests` failed. Fix: probe both `/usr/local/include` (macOS) and
+  `/usr/include` (Linux). Build + 236-test green set restored.
+- **2026-06-17** — **CM-6 done (Linux packaging).** `.deb`: SHLIBDEPS already resolves runtime deps
+  correctly (`libsdl2-2.0-0`, `libyaml-cpp0.8`, …) even with SDL2 in `/usr/local` — kept it as the
+  mechanism (more robust than a hand-maintained `CPACK_DEBIAN_PACKAGE_DEPENDS`). Fixed: removed the
+  broken `CPACK_PACKAGE_ICON` (pointed at a non-existent `goatedit_icon.png`); moved the 512×512 PNG
+  out of `hicolor/scalable/apps` (scalable = SVG) into `hicolor/512x512/apps`; set
+  `CPACK_PACKAGE_VERSION=${PROJECT_VERSION}` + a descriptive `CPACK_PACKAGE_FILE_NAME`
+  (`goatedit-<ver>-linux-<arch>`) + `CPACK_DEBIAN_PACKAGE_SECTION editors`; desktop file
+  `Terminal=true→false` and dropped the forced `--console_logging`.
+  **AppImage:** new `scripts/build-appimage.sh` (install→AppDir via the project install rules, then
+  linuxdeploy bundles SDL2/yaml-cpp + builds the `.AppImage`; FUSE-less via
+  `APPIMAGE_EXTRACT_AND_RUN`). **Crucial gotcha:** linuxdeploy's default `AppRun` is a *bare symlink*
+  to the binary and exports nothing, so the bundled `$APPDIR/usr/share/goatedit` was never on
+  `XDG_DATA_DIRS` → the editor found no theme → `TerminalController::Resize` dereferenced a null
+  `GetTheme()` and **SIGSEGV**. Fix: a custom `AppRun` (`scripts/appimage-AppRun.sh`, wired via
+  `--custom-apprun`) that prepends `$APPDIR/usr/share` to `XDG_DATA_DIRS`. Verified the install tree,
+  the bundled libs, and that the same `XDG_DATA_DIRS` value makes the binary run from a clean cwd.
+  **Robustness:** `main.cpp` now checks `Editor::Initialize()`'s return — a failed init (assets not
+  found) exits 1 with a clear message instead of segfaulting later in the view tree.
+- **2026-06-17** — **CM-8 done (CI alignment).** `.github/workflows/cmake.yml`: dropped the
+  `setup_deps.sh` step (CM-1 FetchContent) and `libncurses-dev` (CM-10), switched to
+  `cmake --preset release` (+ `ninja-build`), `actions/checkout@v4`. New
+  `.github/workflows/release.yml`: tag-triggered (`v*`), builds on `ubuntu-22.04` (older glibc for
+  AppImage portability) with a recent CMake via `lukka/get-cmake`, runs `cpack -G DEB` +
+  `build-appimage.sh`, uploads both as workflow artifacts and (on a tag) as GitHub Release assets. A
+  tag build also drops the `-dev` version suffix (Version.h reads `GITHUB_REF`).
+- **2026-06-17** — **Window/taskbar icon.** Previously the ALT+TAB icon came only from a system
+  `.desktop` (the old `.deb` install); an AppImage or dev build had none. Added a programmatic
+  `SDLScreen::SetWindowIcon()` (SDL2) that decodes `appicon.png` (now shipped as a regular asset in
+  `Assets/Resources/`, found via the normal search paths) with vendored `stb_image.h` (PNG-only impl
+  in `stb_impl.cpp`) and calls `SDL_SetWindowIcon`. `.deb` packaging also installs the SVG into
+  `hicolor/scalable/apps`. **SDL3 parity done** — same `SetWindowIcon()` mirrored into
+  `SDL3/SDLScreen.cpp` (SDL3 API diffs: `SDL_CreateSurfaceFrom(w,h,fmt,pixels,pitch)` +
+  `SDL_DestroySurface`). Both backends build + run on Linux (SDL3 3.2.4 verified: window + terminal
+  + icon).
+- **2026-06-17** — **Note (separate pre-existing bug surfaced during AppImage verification).** Launching
+  from a dir OUTSIDE `$HOME` relocates cwd to `$HOME` (Editor::Initialize), and the workspace folder
+  scan then recurses **infinitely through a symlink loop** (e.g. `~/ncs/.../connectedhomeip/config/...`)
+  until `std::filesystem::is_directory` throws ENAMETOOLONG → uncaught → abort. This is open-bug #4
+  (`Workspace::ReadFolderToNode` needs maxDepth + cycle guard), not a packaging issue — flagged here
+  because the AppImage makes "launch from anywhere" common.

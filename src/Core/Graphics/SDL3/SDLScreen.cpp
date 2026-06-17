@@ -27,6 +27,9 @@
 #endif
 #include "ext/stbttf.h"
 
+// Implementation lives in src/ext/stb/stb_impl.cpp — header only here.
+#include "stb_image.h"
+
 
 using namespace gedit;
 using namespace gedit::SDL3;
@@ -100,6 +103,7 @@ bool SDLScreen::Open() {
         exit(1);
     }
     SDL_SetWindowPosition(window, geoX, geoY);
+    SetWindowIcon();
 
     // SDL3: SDL_RENDERER_ACCELERATED removed (default); SDL_RENDERER_PRESENTVSYNC kept
     renderer = SDL_CreateRenderer(window, nullptr);
@@ -123,6 +127,42 @@ bool SDLScreen::Open() {
     ComputeScalingFactors();
     CreateTextures();
     return true;
+}
+
+void SDLScreen::SetWindowIcon() {
+    if (window == nullptr) {
+        return;
+    }
+    // The icon ships as a regular asset (appicon.png) so it is found through the normal search
+    // paths (dev resources/, installed share/goatedit, or the AppImage bundle).
+    auto &assetLoader = RuntimeConfig::Instance().GetAssetLoader();
+    auto iconAsset = assetLoader.LoadAsset("appicon.png");
+    if (iconAsset == nullptr) {
+        logger->Warning("App icon 'appicon.png' not found - window will have no icon");
+        return;
+    }
+
+    int width = 0, height = 0, channels = 0;
+    unsigned char *pixels = stbi_load_from_memory(
+        iconAsset->GetPtrAs<const stbi_uc *>(), static_cast<int>(iconAsset->GetSize()),
+        &width, &height, &channels, 4);   // force RGBA
+    if (pixels == nullptr) {
+        logger->Error("Failed to decode app icon: %s", stbi_failure_reason());
+        return;
+    }
+
+    // stb returns tightly-packed R,G,B,A bytes; SDL_PIXELFORMAT_RGBA32 matches that byte order
+    // on both endiannesses. SDL copies the pixels into the WM, so we free them right after.
+    // SDL3: SDL_CreateSurfaceFrom(w, h, format, pixels, pitch); free with SDL_DestroySurface.
+    SDL_Surface *iconSurface = SDL_CreateSurfaceFrom(
+        width, height, SDL_PIXELFORMAT_RGBA32, pixels, 4 * width);
+    if (iconSurface != nullptr) {
+        SDL_SetWindowIcon(window, iconSurface);
+        SDL_DestroySurface(iconSurface);
+    } else {
+        logger->Error("SDL_CreateSurfaceFrom failed: %s", SDL_GetError());
+    }
+    stbi_image_free(pixels);
 }
 
 void SDLScreen::LoadFontFromTheme() {

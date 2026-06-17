@@ -105,7 +105,61 @@ an opener (`{foo`, and likely `(foo`, `[foo`) is `kRegular`/identifier, not oper
 tokenizer's longest-match / boundary logic at operator↔identifier transitions.
 
 
-## 4. FIXED — Open a non-active file from the project/workspace view in a restored session (where the file has been previously opened) will open a new tab with same file
+## 4. `Workspace::ReadFolderToNode` recursively scans ALL subdirectories — hangs / crashes on build dirs
+
+**Where:** `src/Core/Workspace.cpp`, `Workspace::ReadFolderToNode` (L391) and `Workspace::Node` (header
+`src/Core/Workspace.h` L542).
+
+**What's wrong:** the recursive scan has no depth limit and no skip flag per node. Opening the project
+root (`.`) with a `cmake-build-debug/` (or `_deps/`) subtree present causes the scan to descend into
+thousands of generated build artefacts, FetchContent downloads, and compiler cache files. On startup
+this makes the editor hang or crash before the first frame renders — there is no point caching the
+complete build directory into the node tree.
+
+**Two independent guards needed:**
+
+1. **Max-depth guard.** `ReadFolderToNode` must accept (or carry via a counter) a `maxDepth` parameter
+   and bail out of recursion once it is exceeded. A sensible default is around 8–10 levels.
+   ```cpp
+   bool ReadFolderToNode(Node::Ref rootNode,
+                         const std::filesystem::path &folder,
+                         int depth = 0,
+                         int maxDepth = 8);
+   // Inside: if (depth >= maxDepth) return true;
+   // Recursive call: ReadFolderToNode(node, entry, depth + 1, maxDepth);
+   ```
+
+2. **Per-node "already read" flag.** `Node` (folder nodes) should carry a `bool isRead` (default
+   `false`). `ReadFolderToNode` sets it `true` on entry and skips the iteration if already true. This
+   prevents redundant re-scans when the folder monitor fires a create-callback for a directory whose
+   subtree was already walked, and provides a hook for lazy / on-demand expansion later.
+   ```cpp
+   struct Node {
+       // …existing fields…
+       bool isRead = false;   // true once ReadFolderToNode has walked this dir
+   };
+   ```
+
+**Discovered:** 2026-06-17 — after CMake's `FetchContent` started writing deps under `_deps/` inside
+the project tree (`cmake-build-debug/_deps/`). The build directory is now a multi-thousand-file
+subtree that the startup scan tries to ingest in full.
+
+**Workaround (today):** open a specific subdirectory instead of `.` to avoid descending into build
+dirs. Not suitable as a permanent state.
+
+**When fixing:**
+- Add `maxDepth` param (signature change — check all callers, currently only one: `OpenFolder` at
+  `Workspace.cpp:379`).
+- Add `Node::isRead` — initialize `false`, set `true` at the top of `ReadFolderToNode` before the
+  `directory_iterator` loop.
+- Consider making `maxDepth` a config value (`workspace.maxScanDepth`) so users with deep source
+  trees can raise it.
+- Add a `test_workspace` case: scan a synthetic deep tree (stub FS or temp dir) beyond `maxDepth` and
+  assert the node count is bounded.
+
+---
+
+## 5. FIXED — Open a non-active file from the project/workspace view in a restored session (where the file has been previously opened) will open a new tab with same file
 
 **Symptom:** open a non-active file from the project/workspace view in a restored session (where the file has been previously opened) will open a new tab with same file name
 resulting in a new tab with same file name.

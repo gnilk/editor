@@ -48,8 +48,14 @@ logging:
 
 foldermonitor:
   enabled: no
-  use_git_ignore: yes
   # Note: for macos this can only be maximum 8 folders - or else!
+
+# Scan-time filtering, owned by the Workspace folder scan (FolderScanner) and shared with the folder
+# monitor when it is re-enabled. Excluded names/globs are pruned AT SCAN TIME -> the matching dirs never
+# enter the node tree (build dirs / generated trees). Distinct from workspaceview.hide_dot_files, which
+# is a VIEW-time filter (dotfiles stay scanned, just hidden).
+workspace:
+  use_git_ignore: yes
   exclude:
     - ".git"
     - ".idea"

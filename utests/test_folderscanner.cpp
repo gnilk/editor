@@ -30,6 +30,8 @@ DLL_EXPORT int test_folderscanner_veto(ITesting *t);
 DLL_EXPORT int test_folderscanner_maxdepth(ITesting *t);
 DLL_EXPORT int test_folderscanner_symlink_no_follow(ITesting *t);
 DLL_EXPORT int test_folderscanner_symlink_follow(ITesting *t);
+DLL_EXPORT int test_folderscanner_exclude(ITesting *t);
+DLL_EXPORT int test_folderscanner_exclude_glob(ITesting *t);
 }
 
 namespace {
@@ -249,5 +251,51 @@ DLL_EXPORT int test_folderscanner_symlink_follow(ITesting *t) {
     opts.followSymlinks = true;
     auto follow = Walk(tree.root, opts);
     TR_ASSERT(t, Count(follow, FsEvent::Kind::File) == 2);     // real/x.txt + link/x.txt
+    return kTR_Pass;
+}
+
+// Excluded directories are pruned at scan time: neither the dir nor anything beneath it is emitted, so a
+// build tree (cmake-build-debug/_deps/..., .git/...) never enters memory. This is the build-dir side of
+// open-bugs #4 — the offenders that made the eager startup scan hang.
+DLL_EXPORT int test_folderscanner_exclude(ITesting *t) {
+    TempTree tree("exclude");
+    tree.File("README.md");
+    tree.File("src/main.cpp");
+    tree.File("cmake-build-debug/_deps/dep-src/x.cpp");
+    tree.File("cmake-build-debug/CMakeFiles/y.o");
+    tree.File(".git/config");
+
+    FolderScanner::Options opts;
+    opts.exclude = {".git", "cmake-build-debug"};
+    auto events = Walk(tree.root, opts);
+
+    // The excluded dirs and everything under them are gone.
+    TR_ASSERT(t, IndexOf(events, FsEvent::Kind::EnterDir, "cmake-build-debug") == -1);
+    TR_ASSERT(t, IndexOf(events, FsEvent::Kind::EnterDir, ".git") == -1);
+    TR_ASSERT(t, IndexOf(events, FsEvent::Kind::File, "x.cpp") == -1);
+    TR_ASSERT(t, IndexOf(events, FsEvent::Kind::File, "y.o") == -1);
+    TR_ASSERT(t, IndexOf(events, FsEvent::Kind::File, "config") == -1);
+    // The real source tree survives.
+    TR_ASSERT(t, IndexOf(events, FsEvent::Kind::EnterDir, "src") >= 0);
+    TR_ASSERT(t, IndexOf(events, FsEvent::Kind::File, "main.cpp") >= 0);
+    TR_ASSERT(t, IndexOf(events, FsEvent::Kind::File, "README.md") >= 0);
+    return kTR_Pass;
+}
+
+// Exclude patterns are globs (via Core/Glob), not just literal names: "cmake-build-*" prunes both
+// cmake-build-debug and cmake-build-release.
+DLL_EXPORT int test_folderscanner_exclude_glob(ITesting *t) {
+    TempTree tree("exclude_glob");
+    tree.File("cmake-build-debug/a.o");
+    tree.File("cmake-build-release/b.o");
+    tree.File("keep.txt");
+
+    FolderScanner::Options opts;
+    opts.exclude = {"cmake-build-*"};
+    auto events = Walk(tree.root, opts);
+
+    TR_ASSERT(t, Count(events, FsEvent::Kind::EnterDir) == 0);
+    TR_ASSERT(t, Count(events, FsEvent::Kind::File) == 1);
+    TR_ASSERT(t, IndexOf(events, FsEvent::Kind::File, "keep.txt") >= 0);
     return kTR_Pass;
 }

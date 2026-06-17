@@ -38,8 +38,10 @@ bool FolderMonitor::IsEnabled() {
 }
 
 const std::vector<std::string> &FolderMonitor::GetExclusionPaths() {
-    exclusionPaths = Config::Instance()[cfgSectionName].GetSequenceOfStr("exclude");
-    if (!Config::Instance()[cfgSectionName].GetBool("use_git_ignore", true)) {
+    // The exclude list is scan-owned (config "workspace") so the scan does not depend on this disabled
+    // subsystem; the monitor reads the SAME key. See docs/folder-scanner.md §6.
+    exclusionPaths = Config::Instance()["workspace"].GetSequenceOfStr("exclude");
+    if (!Config::Instance()["workspace"].GetBool("use_git_ignore", true)) {
         // TODO: Parse .gitignore here
     }
 

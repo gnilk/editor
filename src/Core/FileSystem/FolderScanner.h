@@ -16,6 +16,8 @@
 #include <string>
 #include <vector>
 
+#include "FsFilter.h"
+
 namespace gedit {
 
     // Plain-data vocabulary for a discovered entry. The eager-scan callbacks below intentionally do NOT
@@ -50,7 +52,7 @@ namespace gedit {
         std::function<void(const std::filesystem::path &path, int depth)> onLeaveDir;
 
     private:
-        void ScanDir(const std::filesystem::path &dir, int depth, const Options &opts);
+        void ScanDir(const std::filesystem::path &dir, int depth, const Options &opts, const FsFilter &filter);
     };
 }
 

@@ -10,10 +10,12 @@ namespace fs = std::filesystem;
 // Workspace::ReadFolderToNode contract, which iterated a root's children into an existing root
 // node). Entries directly under root arrive at depth 0; each level of descent increments depth.
 void FolderScanner::Scan(const fs::path &root, const Options &opts) {
-    ScanDir(root, 0, opts);
+    // Build the exclude matcher once and thread it through the recursion (not rebuilt per directory).
+    FsFilter filter(opts.exclude);
+    ScanDir(root, 0, opts, filter);
 }
 
-void FolderScanner::ScanDir(const fs::path &dir, int depth, const Options &opts) {
+void FolderScanner::ScanDir(const fs::path &dir, int depth, const Options &opts, const FsFilter &filter) {
     // Hard depth bound: bounds path growth so a symlink cycle can't recurse until is_directory
     // throws ENAMETOOLONG. FS-4 adds the symlink-aware no-follow guard on top of this.
     if (depth >= opts.maxDepth) {
@@ -25,6 +27,12 @@ void FolderScanner::ScanDir(const fs::path &dir, int depth, const Options &opts)
     std::error_code ec;
     for (const auto &entry : fs::directory_iterator(dir, ec)) {
         const auto &path = entry.path();
+        // Static exclude (FS-2): a matching entry is pruned entirely — no event, no descent. This is
+        // where build dirs (cmake-build-debug, _deps, .git, ...) are kept out of memory, the build-dir
+        // side of open-bugs #4.
+        if (filter.IsExcluded(path)) {
+            continue;
+        }
         // is_symlink uses symlink_status (does NOT follow); is_directory DOES follow, so a symlink that
         // points at a directory reports as a directory here. Such an entry is still emitted via
         // onEnterDir, but it is only DESCENDED when followSymlinks is set — otherwise a cyclic link
@@ -37,7 +45,7 @@ void FolderScanner::ScanDir(const fs::path &dir, int depth, const Options &opts)
             }
             const bool mayFollow = opts.followSymlinks || !isSymlink;
             if (descend && mayFollow) {
-                ScanDir(path, depth + 1, opts);
+                ScanDir(path, depth + 1, opts, filter);
             }
             if (onLeaveDir) {
                 onLeaveDir(path, depth);

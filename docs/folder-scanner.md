@@ -15,17 +15,17 @@
 
 ## §0 — Status / read this first
 
-**Phase: PLANNED — not started.** Dedicated branch intended.
+**Phase: IN PROGRESS on `fix/folder-scanner`** (W1+W2 landed; see §0.1). Dedicated branch.
 
 | Item | Status | Commit |
 |------|--------|--------|
-| FS-1 — extract pure `FolderScanner` (traversal → plain-data events) | 🔲 planned | — |
-| FS-2 — shared exclude/glob matcher; relocate exclude list off `foldermonitor` | 🔲 planned | — |
-| FS-3 — rewire `Workspace::OpenFolder` onto the scanner; delete in-Workspace recursion | 🔲 planned | — |
-| FS-4 — `maxDepth` + symlink-cycle guard as scanner `Options` | 🔲 planned | — |
+| FS-1 — extract pure `FolderScanner` (traversal → plain-data events) | ✅ done (W1; compiles standalone, event-stream test green) | — |
+| FS-2 — shared exclude/glob matcher; relocate exclude list off `foldermonitor` | 🔲 planned (W4) | — |
+| FS-3 — rewire `Workspace::OpenFolder` onto the scanner; delete in-Workspace recursion | 🔲 planned (W5) | — |
+| FS-4 — `maxDepth` + symlink-cycle guard as scanner `Options` | ✅ done (W1 `maxDepth` + W3 symlink no-follow; depth/cycle/follow tests green) | — |
 | FS-5 — monitor reuse: scan rooted at a newly-created directory | 🔲 deferred (monitor disabled) | — |
 | FS-6 — lazy expansion: shallow scan + `onEnterDir` veto + `Node::isRead` + on-expand callback | 🔲 deferred (own effort) | — |
-| FS-7 — scanner unit tests (event stream / exclude prune / depth bound / cycle) | 🔲 planned | — |
+| FS-7 — scanner unit tests (event stream / exclude prune / depth bound / cycle) | 🟡 partial (W2: emit/depth/ordering/veto green; depth+cycle=W3, exclude=W4) | — |
 
 **Drivers (user-stated):** (1) the walk originated in `Workspace` but doesn't *belong* there as
 complexity grows; (2) make it a **self-contained, testable** unit; (3) make it **reusable by the folder
@@ -39,6 +39,23 @@ marking (without folding that concern *into* the scanner).
 - The folder monitor is currently **disabled** (`foldermonitor.enabled: no`) and being reworked. This
   doc does NOT depend on the monitor working; it shares *data and a matcher* with it, never the
   subsystem (§6).
+
+### §0.1 — Branch work-log (`fix/folder-scanner`)
+
+Sequenced commit plan for this branch. In scope: FS-1/2/3/4/7. Deferred (NOT this branch): FS-5
+(monitor disabled), FS-6 (own effort). Order is dependency-driven: FS-1 → FS-4 → FS-2 → FS-3 → close.
+`open-bugs.md` #4 is not a separate task — its two halves land in FS-4 (crash/symlink) + FS-2
+(build-dir) and the branch closes it (§11). #6 (`SwapQueues` race) gates only the *continuous*
+producer (FS-5, §7); the rewired `OpenFolder` scan stays **synchronous/main-thread** so #6 stays out.
+
+| # | One-liner | Refs |
+|---|-----------|------|
+| W1 ✅ | Add `src/Core/FileSystem/FolderScanner.{h,cpp}`: `FsEntryKind` + `Options` + enter/file/leave+depth hooks; recurse internally, emit plain-data events. Source-list add, no new target. Uses non-throwing `std::error_code` fs overloads; honours `Options.maxDepth` from the start (neuters #4's ENAMETOOLONG by bounding path growth). | FS-1, §3/§9 |
+| W2 ✅ | Add `test_folderscanner` (registered in verified-green set at W6): records events via lambdas over a temp tree; asserts structure (counts/depth/child-between-enter-leave/veto), not sibling order. No `Workspace`/singleton. | FS-7, §3/§4 |
+| W3 ✅ | Symlink no-follow guard (`maxDepth` already in W1): a symlinked dir is emitted via `onEnterDir` but only descended when `followSymlinks`. Tests: maxDepth bound, symlink-cycle terminates (count==2 vs 9 if followed), follow=true reaches the file twice. → crash half of #4. | FS-4, §5; #4 |
+| W4 | Shared `FsFilter` on `Glob.h` + relocate exclude list off `foldermonitor.exclude` to a scan-owned key (`workspace.exclude`); wire `Options.exclude`; test: `cmake-build-debug/`-like subtree → zero events. → build-dir half of #4. | FS-2, §5/§6; #4 |
+| W5 | Rewire `Workspace::OpenFolder` onto the scanner: enter/file push/pop a parent-`Node` stack → existing `ApplyFsEntry`; delete `ReadFolderToNode` recursion. **Keep scan synchronous/main-thread** (#6 boundary). Regression: `test_workspace`. | FS-3, §2/§3; #6 |
+| W6 | Close out: re-read #4 → close/trim residual (§11); add `folderscanner` to the verified-green set (CLAUDE.md); flip §0 statuses to ✅; update `work-log.md`. | §11, FS-7 |
 
 ---
 

@@ -9,7 +9,24 @@
 
 ## §0 — Status / read this first
 
-**Phase: PLANNING — nothing implemented yet.** This is the analysis + plan only; no CMake changed.
+**Phase: IN PROGRESS — macOS cleanup complete; Linux packaging (CM-6) pending.**
+
+| Item | Status | Commit |
+|------|--------|--------|
+| CM-0 — quick fixes (install rules, dupes, mkdir) | ✅ done | `93faf26` |
+| CM-1 — FetchContent for source deps | ✅ done | `f2de58d` |
+| CM-2 — per-compiler flags + scoped suppressions | ✅ done | `f2de58d` |
+| CM-3 — named source-list groups | ✅ done | `53e13a1` |
+| CM-4 — move noise to `cmake/*.cmake` | ✅ done | `f2de58d` |
+| CM-5 — `CMakePresets.json` | ✅ done | `9c977f4` |
+| CM-6 — Linux packaging (`.deb` + AppImage) | 🔲 pending — Linux box | — |
+| CM-7 — macOS packaging (`.dmg`) | ✅ done | `9e74f88` |
+| CM-8 — CI alignment (optional) | 🔲 pending | — |
+| CM-9 — single-source SemVer | ✅ done | `257cb8d` |
+| CM-10 — dead-code / deprecated-dep cleanup | ✅ done | `619d4a4` |
+
+**Next:** CM-6 on the Linux dev box — fix `.deb` deps (`CPACK_DEBIAN_PACKAGE_DEPENDS`), build AppImage
+via linuxdeploy + appimagetool on an older Ubuntu base, wire the tag-triggered GitHub release workflow.
 
 Drivers (user-stated): (1) replace the home-grown dependency pre-fetch with **FetchContent**; (2) group
 the monolithic `editorsrc` into **named source-list variables** (UI, Graphics, Core, Editor, …) — *not*

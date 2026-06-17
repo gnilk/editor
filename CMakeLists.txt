@@ -2,7 +2,7 @@
 # GoatEdit - CMakeLists.txt for Linux and macOS
 # Note: I throughly dislike CMake but I find it better than plain makefiles so that's it..
 #
-cmake_minimum_required(VERSION 3.22)
+cmake_minimum_required(VERSION 3.28)
 project(goatedit VERSION 0.1)
 set(CMAKE_CXX_STANDARD 20)
 
@@ -31,79 +31,14 @@ endif()
 
 list(APPEND appsrc main.cpp)
 
-#
-# Installing dependencies - source dependencies...
-#
-if (NOT EXISTS ${CMAKE_SOURCE_DIR}/ext)
-    message(STATUS "ext directory (for dependencies) missing, creating...")
-    file(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/ext)
-endif()
-
-if (NOT EXISTS ${CMAKE_SOURCE_DIR}/ext/json)
-    message(WARNING "Installing JSON library")
-    execute_process(COMMAND git clone https://github.com/nlohmann/json ${CMAKE_SOURCE_DIR}/ext/json)
-endif ()
-
-if (NOT EXISTS ${CMAKE_SOURCE_DIR}/ext/gnklog)
-    message(WARNING "Installing GnkLog library")
-    execute_process(COMMAND git clone https://github.com/gnilk/gnklog ${CMAKE_SOURCE_DIR}/ext/gnklog)
-endif ()
-
-if (NOT EXISTS ${CMAKE_SOURCE_DIR}/ext/dukglue)
-    message(WARNING "Installing dukglue library")
-    execute_process(COMMAND git clone https://github.com/gnilk/dukglue ${CMAKE_SOURCE_DIR}/ext/dukglue)
-endif ()
-
-if (NOT EXISTS ${CMAKE_SOURCE_DIR}/ext/fmt)
-    message(WARNING "Installing fmt library")
-    execute_process(COMMAND git clone --depth 1 --branch 12.1.0 https://github.com/fmtlib/fmt ${CMAKE_SOURCE_DIR}/ext/fmt)
-endif()
-#
-# Note: This won't fly as we need to pre-process this further...
-#
-#if (NOT EXISTS ${CMAKE_SOURCE_DIR}/ext/duktape-2.7.0)
-#    message(WARNING "Installing DukTape 2.7.0 library")
-#    execute_process(COMMAND git clone --depth 1 --branch v2.7.0 https://github.com/svaarala/duktape ${CMAKE_SOURCE_DIR}/ext/duktape-2.7.0)
-#endif ()
-
-
-#
-# Dependencies
-#
-
+# Vendored: duktape (pre-processed from upstream v2.7.0; stays vendored — see docs/cmake-cleanup.md §2)
 set(DUKTAPE_HOME src/ext/duktape-2.7.0/src)
 set(DUKTAPE_EXTRAS src/ext/duktape-2.7.0/extras)
-set(DUKGLUE_HOME ext/dukglue)
-set(FMT_HOME ext/fmt)
-
-#
-# Experimenting - not sure this does any good...
-#
-file(GLOB_RECURSE DUKGLUE_FILES "${DUKGLUE_HOME}/include/*.h")
-set_source_files_properties(
-        ${DUKGLUE_FILES}
-        PROPERTIES
-        COMPILE_FLAGS "-Wno-shadow -Wno-unused-but-set-parameter -Wno-sign-compare -Wno-unused-local-typedefs"
-)
-
-
 list(APPEND duktape ${DUKTAPE_HOME}/duktape.c ${DUKTAPE_HOME}/duk_config.h ${DUKTAPE_HOME}/duktape.h)
 list(APPEND duktape ${DUKTAPE_EXTRAS}/module-node/duk_module_node.c)
 
-
-set(LOG_HAVE_FMT ON)
-set(LOG_FMT_DIR ${CMAKE_SOURCE_DIR}/ext/fmt)
-
-add_subdirectory(ext/gnklog ${CMAKE_BINARY_DIR}/gnklog)
-target_compile_options(gnklog PUBLIC -fPIC -Wno-unused-parameter)
-
-list(APPEND extlibs gnklog)
-
-
-add_subdirectory(ext/fmt ${CMAKE_BINARY_DIR}/fmt EXCLUDE_FROM_ALL)
-set_property(TARGET fmt PROPERTY POSITION_INDEPENDENT_CODE ON)
-target_compile_definitions(fmt PUBLIC FMT_EXCEPTIONS=0)
-list(APPEND extlibs fmt)
+# Fetch / configure source dependencies and locate trun testrunner headers
+include(cmake/CMakeDeps.cmake)
 
 set(CUR_TARGET goatedit)
 
@@ -145,9 +80,6 @@ if (APPLE)
     # Now, set some properties to tell CMake where it should go..
     set_source_files_properties(${ICON_FILE} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
 
-    list(APPEND includedirs ext/json/single_include)
-
-
     # When changing the Assets/CMake/Info.plist.in - which will rebuild the bundle Info.plist we must
     # reset the cache in macos for this to take effect...
     # /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -kill -seed
@@ -173,20 +105,6 @@ if (APPLE)
     #    install(TARGETS ${CUR_TARGET} BUNDLE DESTINATION GoatEdit.app/Contents/MacOS COMPONENT GoatEdit)
     #    install(DIRECTORY ${EDITOR_ASSET_DIR} DESTINATION GoatEdit.app/Contents/Resources COMPONENT GoatEdit)
 
-
-    target_compile_options(${CUR_TARGET} PUBLIC -Wall -Wextra -Wpedantic -Wshadow)
-    target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-parameter)
-    target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-variable)
-
-    # DukGlue has quite a few type-defs causing pain - consider putting duglue into it's own compile target..
-    target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-local-typedef)
-    target_compile_options(${CUR_TARGET} PUBLIC -Wno-unneeded-internal-declaration)
-    # this one is irritating..
-    target_compile_options(${CUR_TARGET} PUBLIC -Wno-sign-compare)
-    target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-but-set-variable)
-
-    # YAML header library
-    target_compile_options(${CUR_TARGET} PUBLIC -Wno-shadow)
 
 
 #
@@ -217,7 +135,6 @@ elseif(UNIX)
     set(SDL_HOME /usr/local)
 
 
-    list(APPEND includedirs ext/json/single_include)
     list(APPEND editorsrc src/Core/unix/Shell.cpp src/Core/unix/Shell.h)
     list(APPEND editorsrc src/Core/Linux/LinuxFolderMonitor.cpp src/Core/Linux/LinuxFolderMonitor.h)
 
@@ -228,54 +145,6 @@ elseif(UNIX)
     list(APPEND extlibs ncurses)
     list(APPEND extlibs yaml-cpp)
     add_executable(${CUR_TARGET} ${appsrc})
-
-    add_definitions(-DGEDIT_LINUX)
-
-    target_compile_options(${CUR_TARGET} PUBLIC -fPIC)
-    #target_compile_options(${CUR_TARGET} PUBLIC -Wall -Wextra -Wpedantic -Wshadow)
-    target_compile_options(${CUR_TARGET} PUBLIC -Wall -Wextra -Wshadow)
-
-    if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-        message("Compiler is Clang")
-        target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-parameter)
-        target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-variable)
-
-        # DukGlue has quite a few type-defs causing pain - consider putting duglue into it's own compile target..
-        target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-local-typedef)
-        target_compile_options(${CUR_TARGET} PUBLIC -Wno-unneeded-internal-declaration)
-        # this one is irritating..
-        target_compile_options(${CUR_TARGET} PUBLIC -Wno-sign-compare)
-        target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-but-set-variable)
-
-        # YAML header library
-        target_compile_options(${CUR_TARGET} PUBLIC -Wno-shadow)
-    else()
-        # Assume...
-        message("Compiler is GCC")
-        target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-parameter)
-        target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-variable)
-
-        # DukGlue has quite a few type-defs causing pain - consider putting duglue into it's own compile target..
-        target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-local-typedefs)
-        # target_compile_options(${CUR_TARGET} PUBLIC -Wno-unneeded-internal-declaration)
-        target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-but-set-parameter)
-        target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-value)
-
-        target_compile_options(${CUR_TARGET} PUBLIC -Wno-implicit-fallthrough)
-
-        # only for C sources..
-        # fix this...
-        # target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-local-typedefs)
-
-        # this one is irritating..
-        target_compile_options(${CUR_TARGET} PUBLIC -Wno-sign-compare)
-        target_compile_options(${CUR_TARGET} PUBLIC -Wno-unused-but-set-variable)
-
-        # YAML header library
-        target_compile_options(${CUR_TARGET} PUBLIC -Wno-shadow)
-
-    endif()
-
 
     #
     # Create a .deb install package..
@@ -300,6 +169,9 @@ elseif(UNIX)
     INCLUDE(CPack)
 
 endif ()
+
+# Per-compiler warning flags, build-type optimisation, and sanitiser option
+include(cmake/CMakeBuildFlags.cmake)
 
 #
 #
@@ -546,15 +418,12 @@ endif()
 
 # include and link directories for project and dependencies
 list(APPEND linkdirs ${NCURSES_HOME}/lib ${YAML_CPP_HOME}/lib)
-#list(APPEND linkdirs ${SDL_HOME}/lib)
 
-list(APPEND includedirs ${NCURSES_HOME}/include PUBLIC ${YAML_CPP_HOME}/include ext/gnklog/src src/ src/ext/stb)
-#list(APPEND includedirs ${SDL_HOME}/include)
-
-list(APPEND includedirs ${DUKGLUE_HOME}/include)
+# yaml-cpp and ncurses are system libs; dukglue/fmt/json are via targets (see CMakeDeps.cmake + CMakeBuildFlags.cmake)
+list(APPEND includedirs ${NCURSES_HOME}/include src/ src/ext/stb)
+list(APPEND includedirs ${gnklog_SOURCE_DIR}/src)
 list(APPEND includedirs ${DUKTAPE_HOME})
 list(APPEND includedirs ${DUKTAPE_EXTRAS}/module-node)
-list(APPEND includedirs ${FMT_HOME}/include)
 
 
 target_sources(${CUR_TARGET} PUBLIC ${editorsrc} ${jsapi} ${duktape})
@@ -602,11 +471,16 @@ list(APPEND utestsrc utests/test_xgdenv.cpp)
 
 
 add_library(utests SHARED ${editorsrc} ${jsapi}  ${duktape} ${utestsrc})
-#target_compile_options(logger PUBLIC -fPIC)
 target_compile_options(utests PUBLIC -fPIC -D TRUN_USE_V1)
 target_link_directories(utests PUBLIC ${linkdirs})
 target_include_directories(utests PUBLIC ${includedirs})
-target_compile_options(utests PUBLIC -I/usr/local/include)
+target_include_directories(utests SYSTEM PUBLIC ${DUKGLUE_HOME}/include ${YAML_CPP_HOME}/include)
+# CMake strips /usr/local/include from target_include_directories on macOS (treats it as an
+# implicit system path). The raw -I flag bypasses that deduplication and is the only reliable
+# way to force it through after the macOS SDK upgrade that dropped it from the default path.
+if (TRUN_INCLUDE_DIR)
+    target_compile_options(utests PUBLIC -I${TRUN_INCLUDE_DIR})
+endif()
 target_link_libraries(utests ${extlibs})
 
 

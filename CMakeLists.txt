@@ -118,12 +118,20 @@ if (APPLE)
     )
 
 
-    #    install(TARGETS ${CUR_TARGET} BUNDLE DESTINATION GoatEdit.app/Contents/MacOS COMPONENT GoatEdit)
-    #    install(DIRECTORY ${EDITOR_ASSET_DIR} DESTINATION GoatEdit.app/Contents/Resources COMPONENT GoatEdit)
+    install(TARGETS ${CUR_TARGET} BUNDLE DESTINATION .)
+    install(DIRECTORY ${EDITOR_ASSET_DIR}/
+            DESTINATION ${CUR_TARGET}.app/Contents/SharedSupport)
 
-
-
-    # CPack DragNDrop (.dmg) — wired in CM-7 (version-aware, depends on CM-9)
+    set(CPACK_GENERATOR "DragNDrop")
+    set(CPACK_PACKAGE_NAME "GoatEdit")
+    set(CPACK_PACKAGE_VENDOR "gnilk")
+    set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+    set(CPACK_PACKAGE_FILE_NAME "GoatEdit-${PROJECT_VERSION}-macOS")
+    set(CPACK_DMG_VOLUME_NAME "GoatEdit ${PROJECT_VERSION}")
+    set(CPACK_PACKAGE_EXECUTABLES "${CUR_TARGET};GoatEdit")
+    # Codesigning/notarisation: optional follow-up for distribution outside personal use.
+    # Requires an Apple Developer ID certificate; see CPACK_BUNDLE_APPLE_CERT_APP + notarytool.
+    include(CPack)
 elseif(UNIX)
     message(STATUS "Linux build")
     set(YAML_CPP_HOME /usr)

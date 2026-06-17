@@ -501,3 +501,12 @@ can land any time; packaging is independent.
   unreachable `VERSION_LESS 3.26.0` fallback (we require 3.28); commented-out CPack DragNDrop block +
   dead custom-target stubs; `CPACK_PACKAGE_EXECUTEABLES` typo. IOKit/CoreFoundation/CoreServices
   flagged as "verify before removing" (SDL3 may pull them in transitively).
+- **2026-06-17** — **CM-7 done:** CPack `DragNDrop` block wired. `install(TARGETS … BUNDLE DESTINATION
+  .)` places `goatedit.app` at the DMG root (with `Applications` symlink for drag-to-install);
+  `install(DIRECTORY resources/ DESTINATION goatedit.app/Contents/SharedSupport)` copies runtime
+  resources into the bundle. `CPACK_PACKAGE_VERSION "${PROJECT_VERSION}"` (clean numeric, no `-dev`);
+  `CPACK_PACKAGE_FILE_NAME "GoatEdit-${PROJECT_VERSION}-macOS"` drives the filename. Volume named
+  `"GoatEdit ${PROJECT_VERSION}"`. Verified: `cpack -G DragNDrop` produces `GoatEdit-0.1.0-macOS.dmg`;
+  mounted DMG shows `goatedit.app/Contents/SharedSupport/` populated with fonts, themes, plugins, and
+  config. Codesigning/notarisation noted as optional follow-up (needs Apple Developer ID +
+  `CPACK_BUNDLE_APPLE_CERT_APP` + `notarytool`).

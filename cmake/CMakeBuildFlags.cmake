@@ -68,9 +68,10 @@ endif()
 
 # dukglue and yaml-cpp: SYSTEM includes suppress warnings from their headers.
 # (dukglue's own header dir is kept out of the general includedirs list.)
+# YAML_CPP_INCLUDE_DIR is set by find_package(yaml-cpp) in the parent CMakeLists.txt.
 target_include_directories(${CUR_TARGET} SYSTEM PRIVATE
     ${DUKGLUE_HOME}/include
-    ${YAML_CPP_HOME}/include
+    ${YAML_CPP_INCLUDE_DIR}
 )
 
 # duktape: vendored C sources — suppress warnings on those TUs directly.

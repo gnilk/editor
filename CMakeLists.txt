@@ -379,9 +379,18 @@ if (GEDIT_BUILD_SDL3)
     list(APPEND graphics_sdlsrc src/Core/Graphics/SDL3/SDLColor.h)
     list(APPEND graphics_sdlsrc src/Core/Graphics/SDL3/SDLCursor.h)
 
+    # Use the keg-specific prefix so find_package resolves SDL3's own include dir
+    # (not the global /opt/homebrew/include symlink tree, which loses to any stale
+    # SDL3 install under /usr/local/include in the compiler's default search order).
+    if (APPLE AND BREW)
+        execute_process(COMMAND ${BREW} --prefix sdl3
+            OUTPUT_VARIABLE _sdl3_prefix OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+        if (_sdl3_prefix)
+            list(PREPEND CMAKE_PREFIX_PATH "${_sdl3_prefix}")
+        endif()
+    endif()
     find_package(SDL3 REQUIRED CONFIG)
     message(STATUS "SDL3 found: ${SDL3_VERSION} (${SDL3_DIR})")
-    include_directories(SDL3::include)
     list(APPEND extlibs SDL3::SDL3)
     add_definitions(-DGEDIT_USE_SDL3)
 
@@ -395,9 +404,15 @@ elseif (GEDIT_BUILD_SDL2)
     list(APPEND graphics_sdlsrc src/Core/Graphics/SDL2/SDLColor.h)
     list(APPEND graphics_sdlsrc src/Core/Graphics/SDL2/SDLCursor.h)
 
+    if (APPLE AND BREW)
+        execute_process(COMMAND ${BREW} --prefix sdl2
+            OUTPUT_VARIABLE _sdl2_prefix OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+        if (_sdl2_prefix)
+            list(PREPEND CMAKE_PREFIX_PATH "${_sdl2_prefix}")
+        endif()
+    endif()
     find_package(SDL2 REQUIRED CONFIG)
     message(STATUS "SDL2 found: ${SDL2_VERSION} (${SDL2_DIR})")
-    include_directories(${SDL2_INCLUDE_DIRS})
     list(APPEND extlibs SDL2::SDL2)
     add_definitions(-DGEDIT_USE_SDL2)
 endif()

@@ -6,6 +6,7 @@
     {
       "name": "base",
       "hidden": true,
+      "generator": "Ninja",
       "binaryDir": "${sourceDir}/cmake-build-${presetName}"
     },
     {

@@ -124,6 +124,12 @@ thousands of generated build artefacts, FetchContent downloads, and compiler cac
 this makes the editor hang or crash before the first frame renders — there is no point caching the
 complete build directory into the node tree.
 
+A second, harder failure of the same missing guard: a **symlink cycle** in the scanned tree (e.g.
+`~/ncs/.../connectedhomeip/config/beken/third_party/connectedhomeip/...` repeating) makes the recursion
+build an ever-longer path until `std::filesystem::is_directory` throws `ENAMETOOLONG` — uncaught →
+`std::terminate` → abort. So the fix needs **cycle detection** (e.g. `std::filesystem::canonical` +
+visited-set, or `directory_options::follow_directory_symlink` left OFF), not only a depth bound.
+
 **Discovered:** 2026-06-17 — after CMake's `FetchContent` started writing deps under `_deps/` inside
 the project tree (`cmake-build-debug/_deps/`). The build directory is now a multi-thousand-file
 subtree that the startup scan tries to ingest in full.

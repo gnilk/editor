@@ -9,7 +9,8 @@
 
 ## §0 — Status / read this first
 
-**Phase: IN PROGRESS — Linux packaging (CM-6) done; CI alignment (CM-8) folded in.**
+**Phase: COMPLETE — all work items (CM-0…CM-10) done. Remaining follow-ups are non-blocking: verify
+the release workflow by pushing a `v*` tag, and the deferred open-bug #7 full fix (drop cwd→$HOME).**
 
 | Item | Status | Commit |
 |------|--------|--------|
@@ -19,14 +20,14 @@
 | CM-3 — named source-list groups | ✅ done | `53e13a1` |
 | CM-4 — move noise to `cmake/*.cmake` | ✅ done | `f2de58d` |
 | CM-5 — `CMakePresets.json` | ✅ done | `9c977f4` |
-| CM-6 — Linux packaging (`.deb` + AppImage) | ✅ done | _this branch_ |
+| CM-6 — Linux packaging (`.deb` + AppImage) | ✅ done | `29b832b` |
 | CM-7 — macOS packaging (`.dmg`) | ✅ done | `9e74f88` |
-| CM-8 — CI alignment (optional) | ✅ done (release + build workflows) | _this branch_ |
+| CM-8 — CI alignment (optional) | ✅ done (release + build workflows) | `29b832b` |
 | CM-9 — single-source SemVer | ✅ done | `257cb8d` |
 | CM-10 — dead-code / deprecated-dep cleanup | ✅ done | `619d4a4` |
 | (post) — remove hardcoded Homebrew paths; `find_package` + imported targets | ✅ done | `dfcfb05` |
 | (post) — fix SDL keg-prefix / `YAML_CPP_INCLUDE_DIR` / preset generator | ✅ done | `071ab3b` |
-| (post) — trun headers in `/usr/include`; AppImage XDG crash; init guard | ✅ done | _this branch_ |
+| (post) — trun headers in `/usr/include`; AppImage XDG crash; init guard | ✅ done | `29b832b` |
 
 **Next:** nothing blocking. Verify the release workflow end-to-end by pushing a `v*` tag once the
 branch lands.

@@ -3,13 +3,38 @@
 # Note: I throughly dislike CMake but I find it better than plain makefiles so that's it..
 #
 cmake_minimum_required(VERSION 3.28)
-project(goatedit VERSION 0.1)
+project(goatedit VERSION 0.1.0)
 set(CMAKE_CXX_STANDARD 20)
+
+# ---------------------------------------------------------------------------
+# Version — single source of truth is project(VERSION) above.
+# GEDIT_VERSION_SUFFIX: empty on tag builds, "-dev[+sha]" otherwise.
+# Bundle/package use clean ${PROJECT_VERSION}; GEDIT_VERSION_STR is display-only.
+# ---------------------------------------------------------------------------
+if (DEFINED ENV{GITHUB_REF} AND "$ENV{GITHUB_REF}" MATCHES "refs/tags/")
+    set(GEDIT_VERSION_SUFFIX "")
+else()
+    set(GEDIT_VERSION_SUFFIX "-dev")
+    execute_process(
+        COMMAND git rev-parse --short HEAD
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        OUTPUT_VARIABLE GEDIT_GIT_SHA
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+    if (GEDIT_GIT_SHA)
+        string(APPEND GEDIT_VERSION_SUFFIX "+${GEDIT_GIT_SHA}")
+    endif()
+endif()
+configure_file(
+    ${CMAKE_SOURCE_DIR}/cmake/Version.h.in
+    ${CMAKE_BINARY_DIR}/generated/Version.h
+    @ONLY
+)
 
 # When changing the Assets/CMake/Info.plist.in - which will rebuild the bundle Info.plist we must
 # reset the cache in macos for this to take effect...
 # /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -kill -seed
-
 
 set(EDITOR_ASSET_DIR ${CMAKE_CURRENT_BINARY_DIR}/resources)
 
@@ -78,8 +103,8 @@ if (APPLE)
     set_target_properties(${CUR_TARGET} PROPERTIES
             MACOSX_BUNDLE_GUI_IDENTIFIER gnilk.com.${CUR_TARGET}
             MACOSX_BUNDLE_BUNDLE_NAME ${CUR_TARGET}
-            MACOSX_BUNDLE_BUNDLE_VERSION "0.1"
-            MACOSX_BUNDLE_SHORT_VERSION_STRING "0.1"
+            MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
+            MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
             MACOSX_BUNDLE_ICON_FILE GoatEdit
             MACOSX_BUNDLE_INFO_PLIST ${PLIST_FILE_IN}
             )
@@ -139,13 +164,8 @@ endif ()
 # Per-compiler warning flags, build-type optimisation, and sanitiser option
 include(cmake/CMakeBuildFlags.cmake)
 
-#
-#
-#
 target_compile_definitions(${CUR_TARGET} PUBLIC GEDIT_APP_NAME=GoatEdit)
-target_compile_definitions(${CUR_TARGET} PUBLIC GEDIT_VERSION_MAJOR=0)
-target_compile_definitions(${CUR_TARGET} PUBLIC GEDIT_VERSION_MINOR=1)
-target_compile_definitions(${CUR_TARGET} PUBLIC GEDIT_VERSION_PATCH=0)
+target_include_directories(${CUR_TARGET} PUBLIC ${CMAKE_BINARY_DIR}/generated)
 
 
 #
@@ -431,7 +451,7 @@ list(APPEND utestsrc utests/test_xgdenv.cpp)
 add_library(utests SHARED ${coresrc} ${uisrc} ${editorsrc} ${platformsrc} ${graphics_sdlsrc} ${jsapi} ${duktape} ${utestsrc})
 target_compile_options(utests PUBLIC -fPIC -D TRUN_USE_V1)
 target_link_directories(utests PUBLIC ${linkdirs})
-target_include_directories(utests PUBLIC ${includedirs})
+target_include_directories(utests PUBLIC ${includedirs} ${CMAKE_BINARY_DIR}/generated)
 target_include_directories(utests SYSTEM PUBLIC ${DUKGLUE_HOME}/include ${YAML_CPP_HOME}/include)
 # CMake strips /usr/local/include from target_include_directories on macOS (treats it as an
 # implicit system path). The raw -I flag bypasses that deduplication and is the only reliable

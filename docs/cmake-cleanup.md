@@ -479,6 +479,12 @@ can land any time; packaging is independent.
   `Version.h.in` attempt (the generated header lands in the build tree → its dir must be on the include
   path). Kept the `-dev`-via-`GITHUB_REF` suffix; added optional short-git-SHA-on-`-dev` for bug-report
   traceability. Bundle/package still use clean `${PROJECT_VERSION}`; `-dev` display-only.
+- **2026-06-17** — **CM-9 done:** `project(VERSION 0.1.0)` is now the single source; `configure_file`
+  generates `cmake-build-debug/generated/Version.h` from `cmake/Version.h.in`. `GEDIT_VERSION_STR`
+  carries the display string (`"0.1.0-dev+<sha>"` on untagged builds, `"0.1.0"` on tag builds).
+  Bundle keys (`MACOSX_BUNDLE_BUNDLE_VERSION`, `MACOSX_BUNDLE_SHORT_VERSION_STRING`) now reference
+  `${PROJECT_VERSION}`. The `GEDIT_VERSION_MAJOR/MINOR/PATCH` compile definitions and `xstrver` macro
+  in `Editor.cpp` are gone; `Editor.cpp` includes `Version.h` directly.
 - **2026-06-17** — CM-7: added version-propagation note — `.dmg` filename, `CPACK_PACKAGE_VERSION`, and
   the bundle keys (`CFBundleShortVersionString`/`CFBundleVersion`) must derive from `${PROJECT_VERSION}`,
   not the hard-coded `"0.1"` literals currently in the macOS block. Added **Depends-on: CM-9** so CM-9

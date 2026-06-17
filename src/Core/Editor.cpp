@@ -68,18 +68,17 @@
 
 using namespace gedit;
 
-#define xstr(a) str(a)
-#define xstrver(a,b,c) str(a) "." str(b) "." str(c)
-#define str(a) #a
+#include "Version.h"
 
+#define xstr(a) str(a)
+#define str(a) #a
 static const std::string glbApplicationName = xstr(GEDIT_APP_NAME);
-static const std::string glbVersionString = xstrver(GEDIT_VERSION_MAJOR, GEDIT_VERSION_MINOR, GEDIT_VERSION_PATCH);
+#undef str
+#undef xstr
+
+static const std::string glbVersionString = GEDIT_VERSION_STR;
 static std::u32string glbApplicationNameU32 = U"";
 static std::u32string glbVersionStringU32 = U"";
-
-#undef str
-#undef xstrver
-#undef xstr
 
 
 

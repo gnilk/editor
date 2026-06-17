@@ -44,12 +44,9 @@ set(CUR_TARGET goatedit)
 
 if (APPLE)
     set(CMAKE_OSX_ARCHITECTURES "x86_64;arm64" CACHE STRING "")
-    set(CMAKE_OSX_SYSROOT /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk)
 
     add_definitions(-DGEDIT_MACOS)
 
-    ## THIS IS FOR macOS - homebrew installation...
-    set(NCURSES_HOME /opt/homebrew/opt/ncurses)
     set(YAML_CPP_HOME /opt/homebrew/opt/yaml-cpp)
 
     list(APPEND platformsrc src/Core/macOS/MacOSKBEmulator.cpp src/Core/macOS/MacOSKBEmulator.h)
@@ -57,19 +54,13 @@ if (APPLE)
     # list(APPEND platformsrc src/Core/macOS/MacOSKeyboardMonitor.cpp src/Core/macOS/MacOSKeyboardMonitor.h)
     list(APPEND platformsrc src/Core/unix/Shell.cpp src/Core/unix/Shell.h)
 
-    find_library(CARBON_FRAMEWORK Carbon)
-    find_library(COCOA_FRAMEWORK Cocoa)
-    find_library(IOKIT_FRAMEWORK IOKit)
-    find_library(GAMECONTROLLER_FRAMEWORK GameController)
-    find_library(CORE_FOUNDATION CoreFoundation)
-    find_library(CORE_SERVICES CoreServices)
-    find_library(CORE_GRAPHICS CoreGraphics)
-    find_library(APPKIT AppKit)
+    # CoreServices — MacOSFolderMonitor calls FSEventStream* directly
+    # CoreFoundation — Editor.cpp calls CF* directly
+    # IOKit / Cocoa / Carbon — not directly called by our code; SDL3 brings them in transitively
+    find_library(CORE_SERVICES CoreServices REQUIRED)
+    find_library(CORE_FOUNDATION CoreFoundation REQUIRED)
 
-
-    list(APPEND extlibs ncurses)
-    list(APPEND extlibs yaml-cpp)
-    list(APPEND extlibs ${CORE_SERVICES})
+    list(APPEND extlibs yaml-cpp ${CORE_SERVICES} ${CORE_FOUNDATION})
 
 
     set(ICON_FILE ${CMAKE_SOURCE_DIR}/Assets/CMake/GoatEdit.icns)
@@ -107,42 +98,17 @@ if (APPLE)
 
 
 
-#
-#    SET(CPACK_GENERATOR "DragNDrop")
-##    SET(CPACK_PACKAGE_EXECUTABLES ${CMAKE_CURRENT_BINARY_DIR}/editor.app)
-#    SET(CPACK_BUNDLE_NAME "GoatEdit")
-#    SET(CPACK_BUNDLE_STARTUP_COMMAND "editor")
-#    SET(CPACK_BUNDLE_ICON ${CMAKE_SOURCE_DIR}/Assets/CMake/GoatEdit.icns)
-#    SET(CPACK_BUNDLE_PLIST ${CMAKE_SOURCE_DIR}/Assets/CMake/GoatEdit.plist)
-#    SET(CPACK_PACKAGE_DESCRIPTION "A text editor for my own personal use..")
-#    SET(CPACK_PACKAGE_DESCRIPTION_SUMMARY "not a very fancy text/code editor..")
-#    SET(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/gnilk/editor")
-#    #configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Assets/CMake/Info.plist.in ${CMAKE_CURRENT_BINARY_DIR}/GoatEdit2.plist @ONLY)
-#    #SET(CPACK_BUNDLE_PLIST ${CMAKE_CURRENT_BINARY_DIR}/GoatEdit2.plist)
-##    SET(CPACK_DEBIAN_PACKAGE_MAINTAINER "gnilk") #required
-##    set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS YES)
-#    INCLUDE(CPack)
-
-
-
-
-    # list(APPEND extlibs ${COCOA_FRAMEWORK} ${IOKIT_FRAMEWORK} ${GAMECONTROLLER_FRAMEWORK} ${CORE_FOUNDATION})
-    list(APPEND extlibs ${IOKIT_FRAMEWORK} ${CORE_FOUNDATION})
+    # CPack DragNDrop (.dmg) — wired in CM-7 (version-aware, depends on CM-9)
 elseif(UNIX)
     message(STATUS "Linux build")
     set(YAML_CPP_HOME /usr)
-    set(NCURSES_HOME /usr)
-    set(SDL_HOME /usr/local)
-
 
     list(APPEND platformsrc src/Core/unix/Shell.cpp src/Core/unix/Shell.h)
     list(APPEND platformsrc src/Core/Linux/LinuxFolderMonitor.cpp src/Core/Linux/LinuxFolderMonitor.h)
 
-
     add_definitions(-DGEDIT_LINUX)
 
     list(APPEND extlibs util)   ## see: man forkpty
-    list(APPEND extlibs ncurses)
     list(APPEND extlibs yaml-cpp)
     add_executable(${CUR_TARGET} ${appsrc})
 
@@ -157,7 +123,7 @@ elseif(UNIX)
     install(FILES ${CMAKE_SOURCE_DIR}/Assets/Graphics/com.gnilk.goatedit.png DESTINATION share/icons/hicolor/scalable/apps)
 
     SET(CPACK_GENERATOR "DEB")
-    SET(CPACK_PACKAGE_EXECUTEABLES goatedit;GoatEdit)
+    SET(CPACK_PACKAGE_EXECUTABLES goatedit;GoatEdit)
     SET(CPACK_PACKAGE_ICON ${CMAKE_SOURCE_DIR}/Assets/Graphics/goatedit_icon.png)
     SET(CPACK_PACKAGE_NAME "goatedit")
     SET(CPACK_PACKAGE_VENDOR "gnilk")
@@ -296,14 +262,6 @@ list(APPEND uisrc src/Core/UI/Graphics/WindowBase.h)
 list(APPEND uisrc src/Core/UI/Graphics/KeyboardDriverBase.cpp src/Core/UI/Graphics/KeyboardDriverBase.h)
 list(APPEND uisrc src/Core/UI/Graphics/DrawContext.cpp src/Core/UI/Graphics/DrawContext.h)
 list(APPEND uisrc src/Core/Graphics/Cursor.h)
-# NCurses (out of build — sources kept for reference)
-#list(APPEND uisrc src/Core/Graphics/NCurses/NCursesDrawContext.cpp src/Core/Graphics/NCurses/NCursesDrawContext.h)
-#list(APPEND uisrc src/Core/Graphics/NCurses/NCursesKeyboardDriver.cpp src/Core/Graphics/NCurses/NCursesKeyboardDriver.h)
-#list(APPEND uisrc src/Core/Graphics/NCurses/NCursesScreen.cpp src/Core/Graphics/NCurses/NCursesScreen.h)
-#list(APPEND uisrc src/Core/Graphics/NCurses/NCursesWindow.cpp src/Core/Graphics/NCurses/NCursesWindow.h)
-#list(APPEND uisrc src/Core/Graphics/NCurses/NCursesColorRepository.cpp src/Core/Graphics/NCurses/NCursesColorRepository.h)
-#list(APPEND uisrc src/Core/Graphics/NCurses/NCursesTranslate.cpp src/Core/Graphics/NCurses/NCursesTranslate.h)
-
 list(APPEND uisrc src/Core/UI/UIHost.cpp src/Core/UI/UIHost.h)
 list(APPEND uisrc src/Core/UI/ILayoutSink.h)
 
@@ -417,10 +375,10 @@ endif()
 
 
 # include and link directories for project and dependencies
-list(APPEND linkdirs ${NCURSES_HOME}/lib ${YAML_CPP_HOME}/lib)
+list(APPEND linkdirs ${YAML_CPP_HOME}/lib)
 
-# yaml-cpp and ncurses are system libs; dukglue/fmt/json are via targets (see CMakeDeps.cmake + CMakeBuildFlags.cmake)
-list(APPEND includedirs ${NCURSES_HOME}/include src/ src/ext/stb)
+# yaml-cpp is a system lib; dukglue/fmt/json are via targets (see CMakeDeps.cmake + CMakeBuildFlags.cmake)
+list(APPEND includedirs src/ src/ext/stb)
 list(APPEND includedirs ${gnklog_SOURCE_DIR}/src)
 list(APPEND includedirs ${DUKTAPE_HOME})
 list(APPEND includedirs ${DUKTAPE_EXTRAS}/module-node)
@@ -484,47 +442,14 @@ endif()
 target_link_libraries(utests ${extlibs})
 
 
-#add_custom_target(
-#        Unit_Tests ALL
-#        DEPENDS utests
-#        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-#)
+add_custom_target(resources ${CMAKE_COMMAND} -E copy_directory_if_different
+        ${CMAKE_CURRENT_SOURCE_DIR}/Assets/Resources ${EDITOR_ASSET_DIR})
 
-##
-## Add configuration files so they get copied when changed...
-##
-#
-#add_custom_target(config ${CMAKE_COMMAND} -E copy_if_different
-#        ${CMAKE_CURRENT_LIST_DIR}/config.yml ${EDITOR_ASSET_DIR})
-#
-#add_custom_target(colors ${CMAKE_COMMAND} -E copy_if_different
-#        ${CMAKE_CURRENT_LIST_DIR}/colors.json ${EDITOR_ASSET_DIR})
-#
-#add_custom_target(default_theme ${CMAKE_COMMAND} -E copy_if_different
-#        ${CMAKE_CURRENT_LIST_DIR}/default.theme.yml ${EDITOR_ASSET_DIR})
-#add_custom_target(font ${CMAKE_COMMAND} -E copy_if_different
-#        ${CMAKE_CURRENT_LIST_DIR}/Andale\ Mono.ttf ${EDITOR_ASSET_DIR})
+add_custom_target(plugins ${CMAKE_COMMAND} -E copy_directory_if_different
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Plugins ${EDITOR_ASSET_DIR}/Plugins)
 
-# copy_directory_if_different available in cmake 3.26 or better...
-if (${CMAKE_VERSION} VERSION_LESS "3.26.0")
-    add_custom_target(resources ${CMAKE_COMMAND} -E copy_directory
-            ${CMAKE_CURRENT_SOURCE_DIR}/Assets/Resources ${EDITOR_ASSET_DIR})
-
-    add_custom_target(plugins ${CMAKE_COMMAND} -E copy_directory
-            ${CMAKE_CURRENT_SOURCE_DIR}/src/Plugins ${EDITOR_ASSET_DIR}/Plugins)
-
-    add_custom_target(testfiles ${CMAKE_COMMAND} -E copy_directory
-            ${CMAKE_CURRENT_SOURCE_DIR}/Assets/testfiles ${CMAKE_CURRENT_BINARY_DIR}/testfiles)
-else()
-    add_custom_target(resources ${CMAKE_COMMAND} -E copy_directory_if_different
-            ${CMAKE_CURRENT_SOURCE_DIR}/Assets/Resources ${EDITOR_ASSET_DIR})
-
-    add_custom_target(plugins ${CMAKE_COMMAND} -E copy_directory_if_different
-            ${CMAKE_CURRENT_SOURCE_DIR}/src/Plugins ${EDITOR_ASSET_DIR}/Plugins)
-
-    add_custom_target(testfiles ${CMAKE_COMMAND} -E copy_directory_if_different
-            ${CMAKE_CURRENT_SOURCE_DIR}/Assets/testfiles ${CMAKE_CURRENT_BINARY_DIR}/testfiles)
-endif()
+add_custom_target(testfiles ${CMAKE_COMMAND} -E copy_directory_if_different
+        ${CMAKE_CURRENT_SOURCE_DIR}/Assets/testfiles ${CMAKE_CURRENT_BINARY_DIR}/testfiles)
 
 #add_dependencies(${CUR_TARGET} config colors font plugins default_theme resources)
 add_dependencies(${CUR_TARGET} plugins resources)

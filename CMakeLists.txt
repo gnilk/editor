@@ -72,7 +72,19 @@ if (APPLE)
 
     add_definitions(-DGEDIT_MACOS)
 
-    set(YAML_CPP_HOME /opt/homebrew/opt/yaml-cpp)
+    # Detect Homebrew prefix — works for both Apple Silicon (/opt/homebrew) and Intel (/usr/local).
+    # Setting CMAKE_PREFIX_PATH here means find_package(yaml-cpp), find_package(SDL3/SDL2), etc.
+    # all resolve without per-package path hints, regardless of where brew is installed.
+    find_program(BREW brew)
+    if (BREW)
+        execute_process(COMMAND ${BREW} --prefix
+            OUTPUT_VARIABLE HOMEBREW_PREFIX
+            OUTPUT_STRIP_TRAILING_WHITESPACE)
+        list(PREPEND CMAKE_PREFIX_PATH "${HOMEBREW_PREFIX}")
+        message(STATUS "Homebrew prefix: ${HOMEBREW_PREFIX}")
+    else()
+        message(WARNING "brew not found — set CMAKE_PREFIX_PATH to your package manager prefix if deps are missing")
+    endif()
 
     list(APPEND platformsrc src/Core/macOS/MacOSKBEmulator.cpp src/Core/macOS/MacOSKBEmulator.h)
     list(APPEND platformsrc src/Core/macOS/MacOSFolderMonitor.cpp src/Core/macOS/MacOSFolderMonitor.h)
@@ -85,7 +97,7 @@ if (APPLE)
     find_library(CORE_SERVICES CoreServices REQUIRED)
     find_library(CORE_FOUNDATION CoreFoundation REQUIRED)
 
-    list(APPEND extlibs yaml-cpp ${CORE_SERVICES} ${CORE_FOUNDATION})
+    list(APPEND extlibs yaml-cpp::yaml-cpp ${CORE_SERVICES} ${CORE_FOUNDATION})
 
 
     set(ICON_FILE ${CMAKE_SOURCE_DIR}/Assets/CMake/GoatEdit.icns)
@@ -134,7 +146,6 @@ if (APPLE)
     include(CPack)
 elseif(UNIX)
     message(STATUS "Linux build")
-    set(YAML_CPP_HOME /usr)
 
     list(APPEND platformsrc src/Core/unix/Shell.cpp src/Core/unix/Shell.h)
     list(APPEND platformsrc src/Core/Linux/LinuxFolderMonitor.cpp src/Core/Linux/LinuxFolderMonitor.h)
@@ -142,7 +153,7 @@ elseif(UNIX)
     add_definitions(-DGEDIT_LINUX)
 
     list(APPEND extlibs util)   ## see: man forkpty
-    list(APPEND extlibs yaml-cpp)
+    list(APPEND extlibs yaml-cpp::yaml-cpp)
     add_executable(${CUR_TARGET} ${appsrc})
 
     #
@@ -168,6 +179,9 @@ elseif(UNIX)
     INCLUDE(CPack)
 
 endif ()
+
+# yaml-cpp — found via CMAKE_PREFIX_PATH (set from brew --prefix on macOS; standard paths on Linux)
+find_package(yaml-cpp REQUIRED)
 
 # Per-compiler warning flags, build-type optimisation, and sanitiser option
 include(cmake/CMakeBuildFlags.cmake)
@@ -365,11 +379,6 @@ if (GEDIT_BUILD_SDL3)
     list(APPEND graphics_sdlsrc src/Core/Graphics/SDL3/SDLColor.h)
     list(APPEND graphics_sdlsrc src/Core/Graphics/SDL3/SDLCursor.h)
 
-    if (APPLE)
-        list(APPEND CMAKE_PREFIX_PATH /opt/homebrew/opt/sdl3)
-    elseif (UNIX)
-        list(APPEND CMAKE_PREFIX_PATH /usr/local)
-    endif()
     find_package(SDL3 REQUIRED CONFIG)
     message(STATUS "SDL3 found: ${SDL3_VERSION} (${SDL3_DIR})")
     include_directories(SDL3::include)
@@ -386,11 +395,6 @@ elseif (GEDIT_BUILD_SDL2)
     list(APPEND graphics_sdlsrc src/Core/Graphics/SDL2/SDLColor.h)
     list(APPEND graphics_sdlsrc src/Core/Graphics/SDL2/SDLCursor.h)
 
-    if (APPLE)
-        list(APPEND CMAKE_PREFIX_PATH /opt/homebrew/opt/sdl2)
-    elseif (UNIX)
-        list(APPEND CMAKE_PREFIX_PATH /usr/local)
-    endif()
     find_package(SDL2 REQUIRED CONFIG)
     message(STATUS "SDL2 found: ${SDL2_VERSION} (${SDL2_DIR})")
     include_directories(${SDL2_INCLUDE_DIRS})
@@ -403,9 +407,8 @@ endif()
 
 
 # include and link directories for project and dependencies
-list(APPEND linkdirs ${YAML_CPP_HOME}/lib)
-
-# yaml-cpp is a system lib; dukglue/fmt/json are via targets (see CMakeDeps.cmake + CMakeBuildFlags.cmake)
+# all deps are imported targets (yaml-cpp::yaml-cpp, SDL3::SDL3, fmt, nlohmann_json, gnklog);
+# include dirs are carried transitively — only our own src paths need explicit listing here.
 list(APPEND includedirs src/ src/ext/stb)
 list(APPEND includedirs ${gnklog_SOURCE_DIR}/src)
 list(APPEND includedirs ${DUKTAPE_HOME})
@@ -413,7 +416,6 @@ list(APPEND includedirs ${DUKTAPE_EXTRAS}/module-node)
 
 
 target_sources(${CUR_TARGET} PUBLIC ${coresrc} ${uisrc} ${editorsrc} ${platformsrc} ${graphics_sdlsrc} ${jsapi} ${duktape})
-target_link_directories(${CUR_TARGET} PUBLIC ${linkdirs})
 target_include_directories(${CUR_TARGET} PUBLIC ${includedirs})
 target_link_libraries(${CUR_TARGET} ${extlibs})
 
@@ -458,9 +460,8 @@ list(APPEND utestsrc utests/test_xgdenv.cpp)
 
 add_library(utests SHARED ${coresrc} ${uisrc} ${editorsrc} ${platformsrc} ${graphics_sdlsrc} ${jsapi} ${duktape} ${utestsrc})
 target_compile_options(utests PUBLIC -fPIC -D TRUN_USE_V1)
-target_link_directories(utests PUBLIC ${linkdirs})
 target_include_directories(utests PUBLIC ${includedirs} ${CMAKE_BINARY_DIR}/generated)
-target_include_directories(utests SYSTEM PUBLIC ${DUKGLUE_HOME}/include ${YAML_CPP_HOME}/include)
+target_include_directories(utests SYSTEM PUBLIC ${DUKGLUE_HOME}/include)
 # CMake strips /usr/local/include from target_include_directories on macOS (treats it as an
 # implicit system path). The raw -I flag bypasses that deduplication and is the only reliable
 # way to force it through after the macOS SDK upgrade that dropped it from the default path.

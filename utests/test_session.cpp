@@ -281,6 +281,14 @@ DLL_EXPORT int test_session_workspace_reopen_reuses_scanned_node(ITesting *t) {
     TR_ASSERT(t, workspace.OpenFolder("."));
     TR_ASSERT(t, workspace.GetProjectRoots().size() == 1);
 
+    // With maxScanDepth=1 (FS-6 W6 default), "testfiles/" is a frontier dir after OpenFolder.
+    // ScanNode it first so ConvertUTF.cpp is in the model tree — this exercises the lazy-expansion
+    // path that a real user would trigger by expanding the folder in the UI.
+    auto rootNode = workspace.GetProjectRoots()[0]->GetRootNode();
+    auto testfilesNode = rootNode->FindNodeWithPath(std::filesystem::current_path() / "testfiles");
+    TR_ASSERT(t, testfilesNode != nullptr);
+    workspace.ScanNode(testfilesNode);
+
     // Find the scanned (path-only, no document yet) node for a known fixture file.
     std::function<Workspace::Node::Ref(Workspace::Node::Ref)> findConvertUTF = [&](Workspace::Node::Ref node) -> Workspace::Node::Ref {
         if (node->GetNodePath().filename() == "ConvertUTF.cpp") {
@@ -295,7 +303,7 @@ DLL_EXPORT int test_session_workspace_reopen_reuses_scanned_node(ITesting *t) {
         }
         return nullptr;
     };
-    auto scannedNode = findConvertUTF(workspace.GetProjectRoots()[0]->GetRootNode());
+    auto scannedNode = findConvertUTF(rootNode);
     TR_ASSERT(t, scannedNode != nullptr);
     TR_ASSERT(t, scannedNode->GetDocument() == nullptr);
 

@@ -175,6 +175,7 @@ static bool Contains(const std::vector<std::string> &names, const std::string &n
 // names (workspace.exclude includes cmake-build-debug) at scan time. Opening a project root that
 // contains a build-dir subtree must keep the source tree and leave the build dir (and everything under
 // it) entirely out of the node tree. Discriminating: pre-fix OpenFolder ingested the build dir.
+// Depth is set explicitly (4): this test is about exclude behaviour, not depth-limiting.
 DLL_EXPORT int test_workspace_openfolder_excludes_builddir(ITesting *t) {
     namespace fs = std::filesystem;
     static int counter = 0;
@@ -187,8 +188,13 @@ DLL_EXPORT int test_workspace_openfolder_excludes_builddir(ITesting *t) {
     { std::ofstream(root / "cmake-build-debug" / "build.ninja") << "x"; }
     { std::ofstream(root / "cmake-build-debug" / "_deps" / "dep.c") << "x"; }
 
+    auto oldDepth = Config::Instance()["workspace"].GetInt("maxScanDepth", 1);
+    Config::Instance()["workspace"].SetInt("maxScanDepth", 4);
+
     Workspace workspace;
     TR_ASSERT(t, workspace.OpenFolder(root.string()));
+
+    Config::Instance()["workspace"].SetInt("maxScanDepth", oldDepth);
 
     std::vector<std::string> names;
     CollectNodeNames(workspace.GetProjectRoots()[0]->GetRootNode(), names);

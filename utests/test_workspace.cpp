@@ -26,6 +26,7 @@ DLL_EXPORT int test_workspace_openfolder(ITesting *t);
 DLL_EXPORT int test_workspace_openfolder_lazy(ITesting *t);
 DLL_EXPORT int test_workspace_openabsfolder(ITesting *t);
 DLL_EXPORT int test_workspace_openfolder_excludes_builddir(ITesting *t);
+DLL_EXPORT int test_workspace_isscanned(ITesting *t);
 DLL_EXPORT int test_workspace_removedocument(ITesting *t);
 DLL_EXPORT int test_workspace_recreate(ITesting *t);
 }
@@ -199,6 +200,47 @@ DLL_EXPORT int test_workspace_openfolder_excludes_builddir(ITesting *t) {
     // The real source tree (including the nested file) survives.
     TR_ASSERT(t, Contains(names, "src"));
     TR_ASSERT(t, Contains(names, "main.cpp"));
+
+    fs::remove_all(root, ec);
+    return kTR_Pass;
+}
+
+// FS-6 W2: Node::isScanned is written by the onLeaveDir adapter. With a low maxScanDepth,
+// frontier folder nodes (emitted but not descended) carry isScanned==false; a descended-and-empty
+// folder stays isScanned==true (the walked-empty case — expanding it is a known no-op, not a retry).
+DLL_EXPORT int test_workspace_isscanned(ITesting *t) {
+    namespace fs = std::filesystem;
+    static int counter = 0;
+    auto root = fs::temp_directory_path() / ("goat_ws_isscanned_" + std::to_string(counter++));
+    std::error_code ec;
+    fs::remove_all(root, ec);
+    // a/b/deep.txt: "a" at depth 0 gets descended (isScanned=true), "b" at depth 1 hits the bound
+    // (depth+1=2 >= maxDepth=2 → isScanned=false). "empty" at depth 0 is descended and empty → true.
+    fs::create_directories(root / "a" / "b");
+    fs::create_directories(root / "empty");
+    { std::ofstream(root / "a" / "b" / "deep.txt") << "x"; }
+
+    auto oldDepth = Config::Instance()["workspace"].GetInt("maxScanDepth", 64);
+    Config::Instance()["workspace"].SetInt("maxScanDepth", 2);
+
+    Workspace workspace;
+    TR_ASSERT(t, workspace.OpenFolder(root.string()));
+
+    Config::Instance()["workspace"].SetInt("maxScanDepth", oldDepth);
+
+    auto rootNode = workspace.GetProjectRoots()[0]->GetRootNode();
+
+    auto nodeA     = rootNode->FindNodeWithPath(root / "a");
+    auto nodeB     = rootNode->FindNodeWithPath(root / "a" / "b");
+    auto nodeEmpty = rootNode->FindNodeWithPath(root / "empty");
+
+    TR_ASSERT(t, nodeA     != nullptr);
+    TR_ASSERT(t, nodeB     != nullptr);
+    TR_ASSERT(t, nodeEmpty != nullptr);
+
+    TR_ASSERT(t,  nodeA->IsScanned());       // descended (depth 0, depth+1=1 < maxDepth=2)
+    TR_ASSERT(t, !nodeB->IsScanned());       // frontier: depth+1=2 >= maxDepth=2
+    TR_ASSERT(t,  nodeEmpty->IsScanned());   // descended, walked-and-empty → still fully scanned
 
     fs::remove_all(root, ec);
     return kTR_Pass;

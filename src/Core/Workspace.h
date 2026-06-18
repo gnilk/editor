@@ -301,9 +301,18 @@ namespace gedit {
                 }
             }
 
+        public:
+            // FS-6: true = the scanner descended into this folder (or it was never scanned, in
+            // which case the default keeps it as a non-expandable leaf). false = the scanner emitted
+            // it but did not descend (depth bound / non-followed symlink / consumer veto) — the
+            // view will offer a '+' and trigger ScanNode on expand. Record only; never a gate.
+            bool IsScanned() const { return isScanned; }
+            void SetIsScanned(bool value) { isScanned = value; }
+
         private:
             ConfigNode metaData;
             bool isPathNameChanged = false;
+            bool isScanned = true;   // FS-6: set by onLeaveDir adapter (W2); read by FillTreeView (W5)
             std::string displayName = "";
             std::filesystem::path pathName;
             Node::Ref parent = nullptr;

@@ -2,9 +2,12 @@
 // Created by gnilk on 09.05.23.
 //
 
+#include <filesystem>
 #include "Core/Editor.h"
 #include "Core/UI/Views/RootView.h"
 #include "WorkspaceView.h"
+
+namespace fs = std::filesystem;
 
 
 using namespace gedit;
@@ -59,7 +62,12 @@ static void FillTreeView(WorkspaceView::TreeRef tree, WorkspaceView::TreeNodeRef
                 continue;
             }
             auto newParent = tree->AddItem(parent, child);
-            FillTreeView(tree, newParent, child,excludePrefixes, expandCollapseCache);
+            // FS-6 W5: the ONLY place where Workspace::Node::isScanned is translated into the
+            // view flag. !is_symlink keeps non-followed symlink dirs as leaves (consistent with
+            // scan behaviour — a symlink dir is emitted but not descended).
+            newParent->hasUnfetchedChildren = child->IsFolder() && !child->IsScanned()
+                                              && !fs::is_symlink(child->GetNodePath());
+            FillTreeView(tree, newParent, child, excludePrefixes, expandCollapseCache);
         }
     }
 }
@@ -156,6 +164,21 @@ void WorkspaceView::CreateTree() {
             }
             return node->GetDisplayName();
         });
+
+        // FS-6 W5: on expand of a node with hasUnfetchedChildren, run a shallow ScanNode
+        // to populate the model, then mirror the new level into the view tree node.
+        // No full PopulateTree — the cursor stays put and only this branch is updated.
+        treeView->cbFetchChildrenForNode = [this](TreeNodeRef viewNode) {
+            auto workspace = Editor::Instance().GetWorkspace();
+            workspace->ScanNode(viewNode->data);
+
+            std::vector<std::string> excludePrefixes;
+            if (Config::Instance()[cfgSectionName].GetBool("hide_dot_files", true)) {
+                excludePrefixes.push_back(".");
+            }
+            // Empty expand/collapse cache: freshly-scanned nodes have no saved state.
+            FillTreeView(treeView, viewNode, viewNode->data, excludePrefixes, {});
+        };
     }
 }
 

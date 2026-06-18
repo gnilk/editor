@@ -126,7 +126,9 @@ tokenizer's longest-match / boundary logic at operator↔identifier transitions.
 > **No residual of the original symptom.** The originally-proposed `Node::isRead` was premature; lazy
 > expansion for genuinely huge *legitimate* trees is tracked as the deferred **FS-6** (its own effort),
 > NOT part of this bug. The analysis below is retained as historical cold-start context.
-
+> 
+> real-app verified — goatedit cmake-build-debug no longer crashes
+> 
 **What's wrong:** the recursive scan has no depth limit and no per-directory skip. Opening the project
 root (`.`) with a `cmake-build-debug/` (or `_deps/`) subtree present causes the scan to descend into
 thousands of generated build artefacts, FetchContent downloads, and compiler cache files. On startup

@@ -35,6 +35,11 @@ namespace gedit {
 
             int indent = 0;
 
+            // FS-6: true = model has children below this node that haven't been mirrored into
+            // the view tree yet. Set by FillTreeView when Node::isScanned==false. Cleared by
+            // Expand() before firing cbFetchChildrenForNode. Drives the '+' glyph predicate.
+            bool hasUnfetchedChildren = false;
+
             std::vector<Ref> children = {};
 
             void Clear() {
@@ -56,6 +61,13 @@ namespace gedit {
     public:
         using Ref = std::shared_ptr<TreeView>;
         using ToStringDelegate = std::function<std::string(const T &data)>;
+        // FS-6: fired from Expand()/ExpandToNode() when a node carries hasUnfetchedChildren.
+        // The node is passed BY VALUE (shared_ptr copy) — the callback may call AddItem or
+        // AddItemNoFlatten, which can trigger Flatten() and rebuild flattenNodeList; holding
+        // the node by reference into that list would dangle. The widget clears the flag before
+        // firing so the callback sees hasUnfetchedChildren==false. Wire to Workspace::ScanNode
+        // in WorkspaceView (W5).
+        std::function<void(typename TreeNode::Ref)> cbFetchChildrenForNode;
     public:
         TreeView() {
             rootNode = TreeNode::Create({});
@@ -155,14 +167,30 @@ namespace gedit {
             return std::make_shared<TreeView<T> >();
         }
         void Collapse() {
-            auto &node = flattenNodeList[treeLineCursor.idxActiveLine];
+            auto node = flattenNodeList[treeLineCursor.idxActiveLine];   // value copy (see Expand)
             node->isExpanded = false;
             Flatten();
         }
         void Expand() {
-            auto &node = flattenNodeList[treeLineCursor.idxActiveLine];
+            // Hold by value: the callback may call AddItem → Flatten(), which rebuilds
+            // flattenNodeList. A by-reference node into that list would dangle.
+            auto node = flattenNodeList[treeLineCursor.idxActiveLine];
+            if (cbFetchChildrenForNode && node->hasUnfetchedChildren) {
+                node->hasUnfetchedChildren = false;   // clear before calling (callback sees false)
+                cbFetchChildrenForNode(node);
+            }
             node->isExpanded = true;
             Flatten();
+        }
+
+        // Batch variant: add an item without triggering Flatten. Use this inside
+        // cbFetchChildrenForNode to populate many children in one pass; Expand() calls
+        // Flatten() once at the end so the tree is coherent after the callback returns.
+        typename TreeNode::Ref AddItemNoFlatten(typename TreeNode::Ref parent, const T &item) {
+            auto treeItem = TreeNode::Create(item);
+            parent->children.emplace_back(treeItem);
+            treeItem->parent = parent;
+            return treeItem;
         }
 
 
@@ -232,8 +260,14 @@ namespace gedit {
             }
             return nullptr;
         }
-        // Expand tree up to the node (this is down by expanding downwards)
+        // Expand tree up to the node (this is done by expanding downwards from the root).
+        // Fires cbFetchChildrenForNode if the node carries hasUnfetchedChildren — node is
+        // already a shared_ptr by value here so re-entrancy from AddItem is safe.
         void ExpandToNode(typename TreeNode::Ref node) {
+            if (cbFetchChildrenForNode && node->hasUnfetchedChildren) {
+                node->hasUnfetchedChildren = false;
+                cbFetchChildrenForNode(node);
+            }
             node->isExpanded = true;
             if (node->parent != nullptr) {
                 ExpandToNode(node->parent);
@@ -303,7 +337,9 @@ namespace gedit {
 
             auto str = cbToString(node->data);
 
-            if (node->children.size() > 0) {
+            // Show +/- when the node has children OR has unfetched children waiting to be
+            // populated. `> 0` not `!= 0` — using `== 0` would put a '+' on every file.
+            if (node->children.size() > 0 || node->hasUnfetchedChildren) {
                 if (node->isExpanded) {
                     str = "-" + str;
                 } else {

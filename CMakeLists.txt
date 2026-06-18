@@ -480,6 +480,7 @@ list(APPEND utestsrc utests/test_terminalscreen.cpp)
 list(APPEND utestsrc utests/test_vtermparser.cpp)
 list(APPEND utestsrc utests/test_workspace.cpp)
 list(APPEND utestsrc utests/test_folderscanner.cpp)
+list(APPEND utestsrc utests/test_treeview.cpp)
 list(APPEND utestsrc utests/test_session.cpp)
 list(APPEND utestsrc utests/test_xgdenv.cpp)
 

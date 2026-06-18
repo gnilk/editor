@@ -421,7 +421,8 @@ bool Workspace::ReadFolderToNode(Node::Ref rootNode, const std::filesystem::path
             ApplyFsEntry(parent, path);
         }
     };
-    scanner.onLeaveDir = [&parents](const std::filesystem::path &, int) {
+    scanner.onLeaveDir = [&parents](const std::filesystem::path &, int, bool /*fullyScanned*/) {
+        // W2 (FS-6) will write fullyScanned → parents.back()->isScanned before this pop.
         parents.pop_back();
     };
 

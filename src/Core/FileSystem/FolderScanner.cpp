@@ -44,11 +44,16 @@ void FolderScanner::ScanDir(const fs::path &dir, int depth, const Options &opts,
                 descend = onEnterDir(path, depth);
             }
             const bool mayFollow = opts.followSymlinks || !isSymlink;
+            // fullyScanned is computed here (the call-site), not inside ScanDir: it captures
+            // whether THIS directory was actually descended rather than whether the recursive
+            // call itself encountered any guard (the depth guard fires at the TOP of ScanDir,
+            // which would be invisible to the caller).
+            const bool fullyScanned = descend && mayFollow && (depth + 1 < opts.maxDepth);
             if (descend && mayFollow) {
                 ScanDir(path, depth + 1, opts, filter);
             }
             if (onLeaveDir) {
-                onLeaveDir(path, depth);
+                onLeaveDir(path, depth, fullyScanned);
             }
         } else if (fs::is_regular_file(path, ec)) {
             if (onFile) {

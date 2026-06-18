@@ -49,7 +49,10 @@ namespace gedit {
         // collapsed node / future lazy expansion). Returning true (or leaving it unset) descends.
         std::function<bool(const std::filesystem::path &path, int depth)> onEnterDir;
         std::function<void(const std::filesystem::path &path, int depth)> onFile;
-        std::function<void(const std::filesystem::path &path, int depth)> onLeaveDir;
+        // fullyScanned is true when the scanner actually descended (consumer didn't veto,
+        // not a non-followed symlink, and the depth bound wasn't hit). FS-6 uses this to
+        // set Node::isScanned — false means the dir was emitted but not walked.
+        std::function<void(const std::filesystem::path &path, int depth, bool fullyScanned)> onLeaveDir;
 
     private:
         void ScanDir(const std::filesystem::path &dir, int depth, const Options &opts, const FsFilter &filter);

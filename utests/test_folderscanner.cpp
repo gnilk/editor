@@ -32,14 +32,16 @@ DLL_EXPORT int test_folderscanner_symlink_no_follow(ITesting *t);
 DLL_EXPORT int test_folderscanner_symlink_follow(ITesting *t);
 DLL_EXPORT int test_folderscanner_exclude(ITesting *t);
 DLL_EXPORT int test_folderscanner_exclude_glob(ITesting *t);
+DLL_EXPORT int test_folderscanner_fully_scanned(ITesting *t);
 }
 
 namespace {
     struct FsEvent {
         enum class Kind { EnterDir, File, LeaveDir };
         Kind kind;
-        std::string name;   // filename only — stable regardless of the temp root
+        std::string name;       // filename only — stable regardless of the temp root
         int depth;
+        bool fullyScanned = false;  // only meaningful for LeaveDir (FS-6 / W1)
     };
 
     // RAII throwaway directory under the system temp dir. Built fresh (remove_all first) so a stale
@@ -89,8 +91,8 @@ namespace {
         scanner.onFile = [&](const fs::path &p, int depth) {
             events.push_back({FsEvent::Kind::File, p.filename().string(), depth});
         };
-        scanner.onLeaveDir = [&](const fs::path &p, int depth) {
-            events.push_back({FsEvent::Kind::LeaveDir, p.filename().string(), depth});
+        scanner.onLeaveDir = [&](const fs::path &p, int depth, bool fullyScanned) {
+            events.push_back({FsEvent::Kind::LeaveDir, p.filename().string(), depth, fullyScanned});
         };
         scanner.Scan(root, opts);
         return events;
@@ -297,5 +299,74 @@ DLL_EXPORT int test_folderscanner_exclude_glob(ITesting *t) {
     TR_ASSERT(t, Count(events, FsEvent::Kind::EnterDir) == 0);
     TR_ASSERT(t, Count(events, FsEvent::Kind::File) == 1);
     TR_ASSERT(t, IndexOf(events, FsEvent::Kind::File, "keep.txt") >= 0);
+    return kTR_Pass;
+}
+
+// onLeaveDir now carries fullyScanned — true when the scanner actually descended, false when it
+// was blocked by the depth bound, a non-followed symlink, or a consumer veto. This is the FS-6
+// signal that Node::isScanned will be written from (W2). Four discriminating cases:
+//   1. depth-bounded dir      → fullyScanned == false
+//   2. non-followed symlink   → fullyScanned == false
+//   3. fully-walked dir       → fullyScanned == true
+//   4. walked-and-empty dir   → fullyScanned == true (we did descend; it was just empty)
+DLL_EXPORT int test_folderscanner_fully_scanned(ITesting *t) {
+    // 1. Depth-bounded: "a" is at depth 0; depth+1 = 1 >= maxDepth 1 → not descended.
+    {
+        TempTree tree("fs_depth");
+        tree.Dir("a/b");
+        tree.File("a/b/x.txt");
+
+        FolderScanner::Options opts;
+        opts.maxDepth = 1;
+        auto events = Walk(tree.root, opts);
+
+        int idx = IndexOf(events, FsEvent::Kind::LeaveDir, "a");
+        TR_ASSERT(t, idx >= 0);
+        TR_ASSERT(t, !events[idx].fullyScanned);
+    }
+
+    // 2. Non-followed symlink: "link" is a symlink dir; followSymlinks=false → not descended.
+    //    "real" is a plain dir and IS descended → fullyScanned == true.
+    {
+        TempTree tree("fs_symlink");
+        tree.Dir("real");
+        tree.File("real/x.txt");
+        if (tree.Symlink("real", "link")) {
+            auto events = Walk(tree.root);   // default followSymlinks=false
+
+            int linkIdx = IndexOf(events, FsEvent::Kind::LeaveDir, "link");
+            TR_ASSERT(t, linkIdx >= 0);
+            TR_ASSERT(t, !events[linkIdx].fullyScanned);
+
+            int realIdx = IndexOf(events, FsEvent::Kind::LeaveDir, "real");
+            TR_ASSERT(t, realIdx >= 0);
+            TR_ASSERT(t, events[realIdx].fullyScanned);
+        }
+    }
+
+    // 3. Fully-walked dir with children: descended all the way → fullyScanned == true.
+    {
+        TempTree tree("fs_full");
+        tree.File("sub/x.txt");
+
+        auto events = Walk(tree.root);
+
+        int idx = IndexOf(events, FsEvent::Kind::LeaveDir, "sub");
+        TR_ASSERT(t, idx >= 0);
+        TR_ASSERT(t, events[idx].fullyScanned);
+    }
+
+    // 4. Walked-and-empty: we descended into it, found nothing — still fully scanned.
+    {
+        TempTree tree("fs_empty_sub");
+        tree.Dir("empty_sub");
+
+        auto events = Walk(tree.root);
+
+        int idx = IndexOf(events, FsEvent::Kind::LeaveDir, "empty_sub");
+        TR_ASSERT(t, idx >= 0);
+        TR_ASSERT(t, events[idx].fullyScanned);
+    }
+
     return kTR_Pass;
 }

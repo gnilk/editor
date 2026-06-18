@@ -65,17 +65,38 @@ consolidation, gated undo persistence. Detail + phasing: [`session-cache.md`](se
 
 ---
 
+## Folder scanner — extract the filesystem walk out of Workspace ✅ (on `fix/folder-scanner`)
+
+Lifted the recursive FS walk out of `Workspace` into a self-contained, testable `FolderScanner`
+(`src/Core/FileSystem/`) that emits plain-data discovery events through callbacks (`onEnterDir` veto /
+`onFile` / `onLeaveDir(fullyScanned)` + depth) — no `Node`/`Document`/`Workspace`/singleton knowledge,
+so it unit-tests over a temp dir (callbacks, NOT templated on the node type). Resolved
+[`open-bugs.md`](open-bugs.md) #4 end to end. FS-6 lazy expansion also shipped.
+
+- **FS-1 / FS-4**: pure scanner leaf + `maxDepth` bound + `followSymlinks=false` (the crash side of #4 —
+  a symlink cycle is emitted once and never descended, so the ENAMETOOLONG → `terminate` abort is gone).
+- **FS-2**: shared `FsFilter` (glob/name) on `Glob.h`; the exclude list relocated off the disabled
+  `foldermonitor` config to the scan-owned `workspace.exclude` (share the data, not the subsystem) — the
+  build-dir side of #4. Scan-time exclude stays distinct from the view-time dotfile hide.
+- **FS-3**: `Workspace::ReadFolderToNode` reimplemented as a scanner adapter (parent-`Node` stack →
+  `ApplyFsEntry`, still the single mutator); recursion deleted. Scan stays **synchronous/main-thread** —
+  the background-producer model is gated on the un-synchronised `Runloop::SwapQueues`
+  ([`open-bugs.md`](open-bugs.md) #6) and deliberately unused here.
+- **FS-6 (lazy expansion)**: three-tier mirror — `onLeaveDir` carries `fullyScanned`; `Node::isScanned`
+  records it; `FillTreeView` translates `isScanned → hasUnfetchedChildren` (the single model↔view point);
+  `TreeView` generic hook `cbFetchChildrenForNode` fires on expand; `WorkspaceView` wires it to
+  `Workspace::ScanNode` (maxDepth=1 shallow re-scan + targeted mirror). Config `max_scan_depth: 1` so
+  only the top level is scanned eagerly; `Node::ClearChildren` + `ScanNode` are idempotent.
+- **FS-7**: `test_folderscanner` (11 cases) + `test_workspace` (5 FS-6 cases) + `test_treeview` (5 cases);
+  all in the verified-green set (256 tests).
+
+**Deferred (NOT this branch):** FS-5 (monitor reuse — scan a newly-created dir; blocked on the disabled
+monitor + #6). Plan + work items: [`folder-scanner.md`](folder-scanner.md).
+
+---
+
 ## Planned / not started
 
-- **Folder scanner** — extract the filesystem walk out of `Workspace` (`ReadFolderToNode`, welded to
-  `Node`) into a self-contained, testable `FolderScanner` that emits plain-data discovery events
-  (`kDirectory`/`kFile` + depth) via callbacks — NOT templated on the node type (testability). Static
-  exclude + depth bound become scanner `Options` (fixes [`open-bugs.md`](open-bugs.md) #4); reusable by
-  the folder monitor (shares the matcher + the node-building handler, never the disabled subsystem);
-  lazy expansion deferred to its own item. Threading: a background producer **batch-posts** plain-data
-  events through the existing thread-safe message pump and the `Node` tree is mutated **only on the main
-  thread** (no tree lock) — gated on first fixing the un-synchronised `Runloop::SwapQueues`
-  (`open-bugs.md` #6). Plan + work items (FS-n): [`folder-scanner.md`](folder-scanner.md).
 - **Folder monitor** — *disabled* live FS watcher (`foldermonitor.enabled: no`). Platform analysis of
   the two backends (macOS FSEvents = OS-recursive subtree watch; Linux inotify = per-dir, non-recursive,
   watch-capped, crippled by a leftover `IN_ONESHOT`), the fundamental asymmetry that blocked a clean

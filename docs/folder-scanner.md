@@ -15,17 +15,18 @@
 
 ## §0 — Status / read this first
 
-**Phase: PLANNED — not started.** Dedicated branch intended.
+**Phase: COMPLETE on `fix/folder-scanner`** (FS-1–FS-4/FS-6/FS-7 shipped; FS-5 remains deferred — see §0.1).
+The in-scope scanner extraction shipped and resolved [`open-bugs.md`](open-bugs.md) #4 end to end. FS-6 lazy expansion fully wired (W1–W7 done 2026-06-18).
 
 | Item | Status | Commit |
 |------|--------|--------|
-| FS-1 — extract pure `FolderScanner` (traversal → plain-data events) | 🔲 planned | — |
-| FS-2 — shared exclude/glob matcher; relocate exclude list off `foldermonitor` | 🔲 planned | — |
-| FS-3 — rewire `Workspace::OpenFolder` onto the scanner; delete in-Workspace recursion | 🔲 planned | — |
-| FS-4 — `maxDepth` + symlink-cycle guard as scanner `Options` | 🔲 planned | — |
+| FS-1 — extract pure `FolderScanner` (traversal → plain-data events) | ✅ done (W1; compiles standalone, event-stream test green) | — |
+| FS-2 — shared exclude/glob matcher; relocate exclude list off `foldermonitor` | ✅ done (W4: `FsFilter` on `Glob.h`; exclude moved `foldermonitor`→`workspace`; prune tests green) | — |
+| FS-3 — rewire `Workspace::OpenFolder` onto the scanner; delete in-Workspace recursion | ✅ done (W5: `ReadFolderToNode` now drives the scanner + parent stack; recursion deleted; `test_workspace` regression green) | — |
+| FS-4 — `maxDepth` + symlink-cycle guard as scanner `Options` | ✅ done (W1 `maxDepth` + W3 symlink no-follow; depth/cycle/follow tests green) | — |
 | FS-5 — monitor reuse: scan rooted at a newly-created directory | 🔲 deferred (monitor disabled) | — |
-| FS-6 — lazy expansion: shallow scan + `onEnterDir` veto + `Node::isRead` + on-expand callback | 🔲 deferred (own effort) | — |
-| FS-7 — scanner unit tests (event stream / exclude prune / depth bound / cycle) | 🔲 planned | — |
+| FS-6 — lazy expansion: `Node::isScanned` (scanner-set) + `TreeView::hasUnfetchedChildren` + `cbFetchChildrenForNode` hook + `ScanNode(maxDepth=1)` | ✅ done (W1–W7 2026-06-18; `max_scan_depth: 1` in config; 256 tests green — see §12) | — |
+| FS-7 — scanner unit tests (event stream / exclude prune / depth bound / cycle) | ✅ done (`test_folderscanner` 10 cases + `test_treeview` 5 cases; verified-green set 256 tests) | — |
 
 **Drivers (user-stated):** (1) the walk originated in `Workspace` but doesn't *belong* there as
 complexity grows; (2) make it a **self-contained, testable** unit; (3) make it **reusable by the folder
@@ -39,6 +40,19 @@ marking (without folding that concern *into* the scanner).
 - The folder monitor is currently **disabled** (`foldermonitor.enabled: no`) and being reworked. This
   doc does NOT depend on the monitor working; it shares *data and a matcher* with it, never the
   subsystem (§6).
+
+### §0.1 — Branch work-log (`fix/folder-scanner`)
+
+Sequenced commit plan for this branch. In scope: FS-1/2/3/4/7 (original); FS-6 added as own effort (W1–W7 done 2026-06-18). Deferred (NOT this branch): FS-5 (monitor disabled). Order is dependency-driven: FS-1 → FS-4 → FS-2 → FS-3 → close; FS-6 then W1→W2→W3→W4→W5→W6→W7. `open-bugs.md` #4 is not a separate task — its two halves land in FS-4 (crash/symlink) + FS-2 (build-dir) and the branch closes it (§11). #6 (`SwapQueues` race) gates only the *continuous* producer (FS-5, §7); the rewired `OpenFolder` scan stays **synchronous/main-thread** so #6 stays out.
+
+| # | One-liner | Refs |
+|---|-----------|------|
+| W1 ✅ | Add `src/Core/FileSystem/FolderScanner.{h,cpp}`: `FsEntryKind` + `Options` + enter/file/leave+depth hooks; recurse internally, emit plain-data events. Source-list add, no new target. Uses non-throwing `std::error_code` fs overloads; honours `Options.maxDepth` from the start (neuters #4's ENAMETOOLONG by bounding path growth). | FS-1, §3/§9 |
+| W2 ✅ | Add `test_folderscanner` (registered in verified-green set at W7): records events via lambdas over a temp tree; asserts structure (counts/depth/child-between-enter-leave/veto), not sibling order. No `Workspace`/singleton. | FS-7, §3/§4 |
+| W3 ✅ | Symlink no-follow guard (`maxDepth` already in W1): a symlinked dir is emitted via `onEnterDir` but only descended when `followSymlinks`. Tests: maxDepth bound, symlink-cycle terminates (count==2 vs 9 if followed), follow=true reaches the file twice. → crash half of #4. | FS-4, §5; #4 |
+| W4 ✅ | `FsFilter` on `Glob.h` (filename glob match) threaded through the scan; `Options.exclude` pruned before any event/descent. Exclude list moved `foldermonitor.exclude`→`workspace.exclude` (+ `use_git_ignore`); monitor's `GetExclusionPaths` reads the new key. Tests: build-dir subtree → zero events, `cmake-build-*` glob prune. → build-dir half of #4. | FS-2, §5/§6; #4 |
+| W5 ✅ | `ReadFolderToNode` reimplemented as a scanner adapter: a parent-`Node` stack (push/pop balanced on enter/leave) feeds `ApplyFsEntry` (still THE single mutator); recursion deleted. `Options.exclude` from `workspace.exclude`; operational `maxDepth` from `workspace.max_scan_depth` (default 6 in-code, 1 in config). **Synchronous/main-thread** (#6 stays out). Regression `test_workspace_openfolder_excludes_builddir` green. | FS-3, §2/§3; #6 |
+| W6 ✅ | Closed out original branch: #4 marked FIXED (no residual; FS-6 noted as separate deferred); `folderscanner` added to the verified-green set (CLAUDE.md); §0 statuses flipped; `work-log.md` updated. | §11, FS-7 |
 
 ---
 
@@ -157,7 +171,9 @@ Two distinct exclusion mechanisms, kept separate on purpose:
 - **Dynamic veto = `onEnterDir` return value.** Policy the scanner can't know — *"this node is
   collapsed, don't walk deeper yet"* — lives in the consumer and is expressed by returning `false`.
   This is the hook for **future lazy expansion** (FS-6): the scanner stays dumb, the policy stays in
-  `Workspace`/`WorkspaceView`.
+  `Workspace`/`WorkspaceView`. **NB:** a vetoed *and* a depth-bounded directory are both "emitted but not
+  descended" and must be marked unscanned so they can be expanded later — that marker is the crux of
+  FS-6, analysed in **§12**.
 
 Mapping each driver onto the right mechanism keeps the scanner free of editor policy while still giving
 both features a clean home.
@@ -284,7 +300,7 @@ Each: **Goal / Scope / Approach / Effort·Risk / Done-when / Depends-on.**
 
 ### FS-4 — Depth bound + symlink-cycle guard
 - **Goal:** hard safety bound against cycles / pathological depth (the "crash").
-- **Scope:** `Options.maxDepth` (default 8–10), `followSymlinks=false`; optional `workspace.maxScanDepth`.
+- **Scope:** `Options.maxDepth` (default 8–10), `followSymlinks=false`; optional `workspace.max_scan_depth`.
 - **Approach:** bail recursion at `depth >= maxDepth`; skip symlinked dirs unless `followSymlinks`.
 - **Effort·Risk:** S · low.
 - **Done-when:** depth-bound + symlink-cycle tests green (no overflow, node count bounded).
@@ -297,12 +313,16 @@ Each: **Goal / Scope / Approach / Effort·Risk / Done-when / Depends-on.**
 - **Done-when:** (when monitor re-enabled) creating a dir tree under a root populates it.
 - **Depends-on:** FS-1..FS-4 + monitor re-enable + `open-bugs.md` #6 (SwapQueues race) — see §7.
 
-### FS-6 — Lazy expansion *(deferred — its own effort)*
+### FS-6 — Lazy expansion *(deferred — its own effort; design notes in §12)*
 - **Goal:** on-demand subtree scan for genuinely huge *legitimate* trees (monorepo), not build output.
-- **Scope:** shallow (one-level) scan mode; `onEnterDir` veto for collapsed nodes; `Node::isRead`;
-  on-expand callback from `WorkspaceView` into `Workspace`.
-- **Approach:** designed as one piece — `isRead` is inert until the shallow-scan + on-expand callback
-  exist, so do NOT add it before then.
+- **Scope:** `Node::isScanned` (default `true` in the folder ctor; scanner-set via the additive
+  `onLeaveDir(path, depth, bool fullyScanned)` signal); `TreeView::TreeNode::hasUnfetchedChildren` + a
+  generic `cbFetchChildrenForNode` hook fired on expand + the `+`-glyph predicate; `FillTreeView`
+  translates `isScanned`→`hasUnfetchedChildren` (the one meeting point); `Workspace::ScanNode =
+  Scan(dir, {maxDepth = 1})`; `max_scan_depth` default → 6.
+- **Approach:** `TreeView` owns the laziness decision (its flag drives the glyph + the fetch); `Workspace`
+  scans on order and never reads `isScanned` to gate. Synchronous/main-thread (no #6 dependency). Designed
+  as one piece — do NOT add any part before the others exist. Full analysis: §12.
 - **Effort·Risk:** L · medium — UI + model + scanner all involved.
 - **Done-when:** expanding a collapsed folder triggers exactly one shallow scan; revisits are no-ops.
 - **Depends-on:** FS-1..FS-3.
@@ -327,4 +347,132 @@ Once FS-2 + FS-4 land, the substance of #4 is **resolved at the scanner layer**,
   bug fix. **Re-scoped, deferred.**
 
 **Action:** when the scanner lands, re-read #4 and either close it or trim it to whatever residual the
-scanner did NOT cover (expected: none of the original symptom).
+scanner did NOT cover (expected: none of the original symptom). **Done 2026-06-17 — #4 marked FIXED.**
+
+---
+
+## §12 — Lazy expansion: the "not-scanned" node marker (FS-6 design notes)
+
+> Added 2026-06-17 from a review note while landing FS-3. Lowering the scan depth is the natural way to
+> make expansion lazy — but the current model can't tell a depth-bounded directory from an empty one, so
+> it would *truncate* rather than *defer*. Captured before it's built; FS-6 stays deferred.
+>
+> **Revised 2026-06-18** after a design pass: the trigger now lives on a *generic `TreeView` populate-hook*
+> driven by a single `Workspace::Node::isScanned` record, not an action-trap in `WorkspaceView::OnAction`.
+> The original "trap the action / no `TreeView` callback" decision and the option-A-vs-B mirroring section
+> are **superseded** by "The settled contract" below; the gap analysis above and the two notes that follow
+> still stand.
+
+**The gap.** Three things make the scanner emit a directory but **not descend** into it: the depth bound
+(`depth+1 >= maxDepth`), the `onEnterDir` veto, and `followSymlinks=false`. In every case the dir node is
+created with no children — and **today nothing distinguishes that node from a genuinely empty directory.**
+So setting `workspace.max_scan_depth` low *silently truncates* the tree instead of producing a lazily-
+expandable one. At the W5 default of 64 this is latent (no real tree hits 64, so nothing is mis-marked);
+it bites the instant depth is lowered for laziness.
+
+**Why `FlattenChilds` is shallow (it's not a bug).** It primarily drives the `WorkspaceView`/`TreeView`
+file-tree, which materialises **one level at a time**. That per-level shape is exactly what lazy
+expansion wants: one level scanned ⇒ one level shown. Keep it shallow.
+
+**Insight: the depth bound IS the shallow-scan mechanism.** FS-6 originally posited a separate
+"shallow (one-level) scan mode." Not needed — `Scan(dir, {maxDepth = 1})` already emits exactly one
+level. Lazy expansion is then: initial scan at a small depth, and **each expand re-runs `Scan` rooted at
+the expanded directory** (again shallow). So `max_scan_depth = 1` must mean "walk one level, mark the rest
+expandable," NOT "truncate."
+
+**The settled contract — one coherent piece; do NOT add any part before the others exist.**
+A three-tier mirror, each layer ignorant of the one above: *scanner reports descent → model records
+`isScanned` → view mirrors it to `hasUnfetchedChildren` → a generic hook fetches on expand.*
+
+1. **`Workspace::Node::isScanned` — a `bool`, default `true` in the folder-node ctor (or wherever folder
+   nodes are created).** It is a *record set by the scan, never a gate.* A folder the scan descended into
+   keeps the default `true` (this covers the *walked-and-found-empty* case → expanding a known-empty dir
+   is a no-op); a folder the scan emitted but did **not** descend (depth bound / symlink no-follow / veto)
+   is flipped to `false`. Default-`true` also means any node created OUTSIDE a scan (monitor single-create,
+   virtual grouping nodes) is treated as a leaf and never sprouts a spurious `+`.
+2. **The scanner reports descent; the adapter writes the flag.** `FolderScanner` stays Node-agnostic, so
+   it can't touch `isScanned` directly — it reports *effective descent on leave*:
+   `onLeaveDir(path, depth, bool fullyScanned)`, `fullyScanned = descend && mayFollow && (depth+1 < maxDepth)`
+   computed at the recurse **call-site** (not the top-of-`ScanDir` guard). `ReadFolderToNode`'s `onLeaveDir`
+   lambda does `parents.back()->isScanned = fullyScanned` before popping. **This is an additive change to
+   the FS-1 callback contract** — one bool param; two callers (the Workspace adapter + `test_folderscanner`).
+   `Workspace::ScanNode(node)` (the lazy per-expand scan) is just `Scan(node.path, {maxDepth = 1, exclude…})`
+   with `node->isScanned = true` set on the target directly (clear children first so it's idempotent /
+   monitor-reusable); the child dirs it discovers arrive `isScanned = false` — the next frontier, so
+   expansion chains. **`ScanNode` scans on order and never reads `isScanned`** (that would be the
+   conflicting cache-gate we explicitly reject — the flag is an output of scanning, not an input to it).
+3. **`isScanned` → `hasUnfetchedChildren` is translated in exactly ONE place: `FillTreeView`
+   (`WorkspaceView.cpp`)** — the sole point where a `Workspace::Node` and a `TreeView::TreeNode` meet:
+   `viewNode->hasUnfetchedChildren = node->IsFolder() && !node->isScanned && !fs::is_symlink(node->GetNodePath())`.
+   The `!is_symlink` guard is decision-(1) policy (keep current behaviour — a non-followed symlink dir
+   renders as a leaf, never offers expansion) living where it's a one-liner and where a future real symlink
+   marker would slot in. `FillTreeView` already self-limits to the scanned frontier (it recurses on
+   `node->FlattenChilds`, empty for an unscanned node), so the *initial* mirror is already lazy for free.
+4. **`TreeView` gains one field + one hook, both generic over `T` (it never learns what "scan" means):**
+   - `TreeNode::hasUnfetchedChildren` (`bool`, default `false`) — set by the consumer at mirror time (3).
+   - `std::function<void(typename TreeNode::Ref)> cbFetchChildrenForNode` — fired from `Expand()` /
+     `ExpandToNode` *before* `Flatten()` when the node carries `hasUnfetchedChildren`; the widget clears
+     the flag after the call. **Hold the node by VALUE** (copy the `shared_ptr`): the callback mutates the
+     view tree (`AddItem → Flatten()` rebuilds `flattenNodeList`), so a by-reference `node` dangles —
+     re-entrancy, not threading. Add a batch insert-many-then-flatten-once path so a populate doesn't
+     N×`Flatten`.
+   - **Glyph:** `FlattenFromNode` draws `+`/`-` when `node->children.size() > 0 || node->hasUnfetchedChildren`
+     (`> 0`, **not** `== 0` — `== 0` would put a `+` on every file).
+   Putting the hook on the widget's expand path catches PROGRAMMATIC expansion (`PopulateTree`'s root
+   expand, `SetCurrentlySelectedItem → ExpandToNode`) for free — the caveat the old action-trap had to wave
+   away dissolves.
+5. **`WorkspaceView` wires `cbFetchChildrenForNode → Workspace::ScanNode(modelNode)`, then mirrors the new
+   level** into the view `TreeNode` it was handed — a targeted `FillTreeView` on that node. No full
+   `PopulateTree`, so the cursor never moves and the old option-A-vs-B question is moot.
+
+**Why the cache isn't lost without a separate "fetched" gate.** `ScanNode` mutates the *model* (adds child
+nodes), and those persist. So on any later `PopulateTree`, `FillTreeView` mirrors a once-scanned folder as
+*having children* → `hasUnfetchedChildren` stays false → no refetch. "Has children" IS the cache; the only
+thing that ever re-fires a scan is a folder with no model children. `isScanned` exists purely to keep the
+empty-vs-unscanned distinction *durable* — without it, a genuinely-empty folder would re-flag and re-fire
+a no-op scan on every `PopulateTree`; with it, the empty folder settles to a leaf permanently.
+
+**Threading — why "different contexts" doesn't bite (FS-6 as scoped).** The lazy fetch is triggered by a
+key action (`kUIActionLineRight`), which the runloop dispatches on the **main thread**; `ScanNode` runs
+synchronously in that same call stack (`OnAction → Expand → cbFetchChildrenForNode → ScanNode → mutate
+Node → mirror → Flatten`). Nothing else mutates the `Workspace::Node` / `TreeView` trees: the async
+tokenizer thread touches only `Document`/`TextBuffer`, the pty thread only `TerminalScreen`, and the folder
+monitor is disabled. So model and view are written by one thread in one synchronous chain — no split
+context, no race. Threading only enters if `ScanNode` is later moved to a background thread (huge-dir
+responsiveness) or driven by the monitor (FS-5); §7's pattern keeps even that safe — the producer thread
+emits plain-data events and **never holds a `Node`/`TreeNode`**, batching through `SafeQueue` so the tree
+mutation is marshalled back to the main thread. That path is gated on `open-bugs.md` #6 (`SwapQueues`) and
+stays out of FS-6.
+
+**Boundary — deep PROGRAMMATIC navigation to a not-yet-scanned path.** `SetCurrentlySelectedItem →
+ExpandToNode` to a document below the scanned frontier won't find a node that was never mirrored — it fails
+gracefully (returns false). Latent for this project (the default depth covers the whole editor `src` tree);
+if it ever bites, the fix is a shared "ensure-scanned" helper, out of scope now.
+
+**Bonus — de-risks the `max_scan_depth` knob.** With the flag a depth-bounded dir is *deferred*, not *lost*:
+the bound becomes a performance/cache dial, not a correctness hazard. **Default lands at 6** (covers the
+whole editor `src` tree as a cache; lazy below it). `max_scan_depth = 1` is the "dumb ReadDir-per-step" mode;
+higher = more eager caching.
+
+**Edge case — symlinked dirs:** unchanged from today (skipped while scanning unless `followSymlinks`); the
+mirror's `!is_symlink` guard keeps them as leaves so the new affordance never offers to expand them. A
+distinct marker / expand-once policy can be added later if the need arises — the only real risk is a symlink
+pointing back to a parent *within* the scan depth, bounded per-scan by no-follow.
+
+### §12.1 — FS-6 implementation work-log (step-by-step)
+
+Sequenced, commit-sized items to tick off when FS-6 is built. **Order is dependency-driven and the config
+flip (W6) MUST be last** — lowering `max_scan_depth` before the view affordance exists (W5) would *truncate*
+the tree (frontier folders with no `+`), the exact regression the marker is there to prevent. W1–W4 are
+behaviour-neutral to the running app (each is wiring + tests only); the lazy UX first appears at W5+W6.
+Verify each at its own layer per the house "test the property, not the run" discipline.
+
+| # | One-liner | Refs |
+|---|-----------|------|
+| W1 ✅ | **Scanner signal.** `FolderScanner::onLeaveDir` gains `bool fullyScanned` = `descend && mayFollow && (depth+1 < maxDepth)`, computed at the recurse **call-site**. Mechanically update the two callers (the `ReadFolderToNode` adapter lambda — ignore the bool for now; `test_folderscanner`). New `test_folderscanner_fully_scanned` asserts the four cases; existing scanner cases stay green. No app behaviour change. | §12 (2) |
+| W2 ✅ | **Model record.** `Workspace::Node::isScanned` (`bool`, default **`true`**). Adapter's `onLeaveDir` sets `parents.back()->isScanned = fullyScanned` before popping (null-guarded). New `test_workspace_isscanned` discriminates frontier / walked / walked-empty. | §12 (1)(2) |
+| W3 ✅ | **`Workspace::ScanNode(node)`** = clear children → `Scan(node.path, {maxDepth=1, exclude…})` → set `node->isScanned=true`. Never reads `isScanned`. New `test_workspace_scannode` verifies one-level populate + idempotency. Also adds `Node::ClearChildren()`. | §12 (2) |
+| W4 ✅ | **Generic `TreeView` contract.** `TreeNode::hasUnfetchedChildren` (default `false`) + `cbFetchChildrenForNode` hook fired in `Expand()`/`ExpandToNode` before `Flatten()` (node by value; flag cleared before call). Glyph → `children.size() > 0 || hasUnfetchedChildren`. `AddItemNoFlatten` for batch insert. New `test_treeview` (5 cases) added to verified-green set. | §12 (4) |
+| W5 ✅ | **`WorkspaceView` wiring.** `FillTreeView` sets `hasUnfetchedChildren = IsFolder() && !IsScanned() && !is_symlink(path)`. `cbFetchChildrenForNode` wired in `CreateTree()` → `ScanNode` + targeted `FillTreeView`. No full `PopulateTree`; cursor stays put. | §12 (3)(5) |
+| W6 ✅ | **Activate.** `config.yml` `max_scan_depth: 1` (live app immediately lazy; obvious for UI regression testing). In-code fallback → 6. Two regressed tests updated: `openfolder_excludes_builddir` uses explicit depth=4; `session_reopen_reuses_scanned_node` calls `ScanNode` on the frontier dir first. 256 tests green. | §12 bonus |
+| W7 ✅ | **Close out.** Verified-green set updated (256, `treeview` added); §0 + §12 statuses flipped; `work-log.md` updated. | §0, FS-7 |

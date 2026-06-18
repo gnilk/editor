@@ -48,8 +48,20 @@ logging:
 
 foldermonitor:
   enabled: no
-  use_git_ignore: yes
   # Note: for macos this can only be maximum 8 folders - or else!
+
+# Scan-time filtering, owned by the Workspace folder scan (FolderScanner) and shared with the folder
+# monitor when it is re-enabled. Excluded names/globs are pruned AT SCAN TIME -> the matching dirs never
+# enter the node tree (build dirs / generated trees). Distinct from workspaceview.hide_dot_files, which
+# is a VIEW-time filter (dotfiles stay scanned, just hidden).
+workspace:
+  use_git_ignore: yes
+  # Backstop against pathological recursion depth only (symlink cycles are handled separately by the
+  # scanner's no-follow default). Set to 1 so only the top level of each folder is scanned
+  # eagerly; deeper directories are frontier nodes (isScanned=false) expanded on demand via
+  # the lazy-expansion hook (FolderScanner FS-6 — docs/folder-scanner.md §12). The lazy UX
+  # is fully wired (W1–W5 done), so lowering this defers rather than truncates.
+  max_scan_depth: 1
   exclude:
     - ".git"
     - ".idea"

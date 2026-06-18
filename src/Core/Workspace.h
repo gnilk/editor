@@ -142,6 +142,14 @@ namespace gedit {
                 return true;
             }
 
+            // Remove all children (used by ScanNode to clear before re-scanning). Does NOT
+            // reset the children's parent pointer — callers ensure the cleared nodes are
+            // unreachable (ScanNode only calls this on unscanned frontier folders whose
+            // children have never been opened / referenced from outside the tree).
+            void ClearChildren() {
+                childNodes.clear();
+            }
+
             // Search recursively for a node with a specific editor-document attached
             Node::Ref FindDocument(const Document::Ref searchDocument) {
                 if (document == searchDocument) {
@@ -301,9 +309,18 @@ namespace gedit {
                 }
             }
 
+        public:
+            // FS-6: true = the scanner descended into this folder (or it was never scanned, in
+            // which case the default keeps it as a non-expandable leaf). false = the scanner emitted
+            // it but did not descend (depth bound / non-followed symlink / consumer veto) — the
+            // view will offer a '+' and trigger ScanNode on expand. Record only; never a gate.
+            bool IsScanned() const { return isScanned; }
+            void SetIsScanned(bool value) { isScanned = value; }
+
         private:
             ConfigNode metaData;
             bool isPathNameChanged = false;
+            bool isScanned = true;   // FS-6: set by onLeaveDir adapter (W2); read by FillTreeView (W5)
             std::string displayName = "";
             std::filesystem::path pathName;
             Node::Ref parent = nullptr;
@@ -485,6 +502,11 @@ namespace gedit {
         }
 
         bool OpenFolder(const std::string &folder);
+
+        // FS-6: on-demand shallow scan for a frontier folder (isScanned==false). Clears existing
+        // children, runs a maxDepth=1 scan rooted at node's path, then sets node->isScanned=true.
+        // Idempotent (clear+rescan). Never reads isScanned — the flag is an output, not a gate.
+        void ScanNode(Node::Ref node);
 
         Node::Ref NewDocument(const std::string &name);                       // Adds an empty document/file to the default workspace
         Node::Ref NewDocument(const Node::Ref parent, const std::string &name); // Adds an empty document/file to a specific workspace

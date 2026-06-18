@@ -8,6 +8,7 @@
 #include "Core/RuntimeConfig.h"
 
 #include "Workspace.h"
+#include "Core/FileSystem/FolderScanner.h"
 #include "Core/PathUtil.h"
 #include "Core/Session/SessionManager.h"
 
@@ -388,19 +389,89 @@ bool Workspace::OpenFolder(const std::string &folder) {
 }
 
 
+// Drive the pure FolderScanner over `folder`, building the Node subtree under rootNode. The adapter
+// only supplies the parent for each discovered entry; ApplyFsEntry stays THE single fs->tree mutator and
+// the exclude/depth bounds now live in the scanner (not this recursion). This is the eager scan, so
+// onEnterDir always descends. It runs SYNCHRONOUSLY on the calling (main) thread — the background-
+// producer model in docs/folder-scanner.md §7 is gated on open-bugs #6 (Runloop::SwapQueues) and is
+// deliberately NOT used here.
 bool Workspace::ReadFolderToNode(Node::Ref rootNode, const std::filesystem::path &folder) {
-    logger->Debug("Reading folder: %s", folder.c_str());
-    for(auto const &entry : fs::directory_iterator(folder)) {
-        auto node = ApplyFsEntry(rootNode, entry.path());
-        if (node == nullptr) {
-            continue;
+    FolderScanner scanner;
+    FolderScanner::Options opts;
+    // Static prune (build dirs / .git): the scan-owned config key, NOT the disabled monitor's section.
+    opts.exclude = Config::Instance()["workspace"].GetSequenceOfStr("exclude");
+    // Operational depth backstop only (symlink cycles are handled by the scanner's no-follow default);
+    // generous so a legitimate deep tree is never truncated. NOT the build-dir filter (that's exclude).
+    opts.maxDepth = Config::Instance()["workspace"].GetInt("max_scan_depth", 6);
+
+    // The adapter's parent stack, kept in lock-step with onEnterDir/onLeaveDir (the scanner pairs them
+    // for every directory, even a vetoed one), so push/pop balance regardless of descent.
+    std::vector<Node::Ref> parents;
+    parents.push_back(rootNode);
+
+    scanner.onEnterDir = [this, &parents](const std::filesystem::path &path, int) -> bool {
+        auto parent = parents.back();
+        Node::Ref node = (parent != nullptr) ? ApplyFsEntry(parent, path) : nullptr;
+        parents.push_back(node);          // push even on failure to stay balanced with onLeaveDir
+        return node != nullptr;           // couldn't create the node => don't descend
+    };
+    scanner.onFile = [this, &parents](const std::filesystem::path &path, int) {
+        auto parent = parents.back();
+        if (parent != nullptr) {
+            ApplyFsEntry(parent, path);
         }
-        // Recurse into directories.
-        if (fs::is_directory(entry)) {
-            ReadFolderToNode(node, entry);
+    };
+    scanner.onLeaveDir = [&parents](const std::filesystem::path &, int, bool fullyScanned) {
+        if (parents.back() != nullptr) {
+            parents.back()->SetIsScanned(fullyScanned);
         }
-    }
+        parents.pop_back();
+    };
+
+    scanner.Scan(folder, opts);
     return true;
+}
+
+// FS-6: shallow on-demand scan for a frontier folder. Clears existing children (makes it
+// idempotent and monitor-reusable), runs a depth-1 scan rooted at the node's path, then marks
+// the node itself as fully scanned. Discovered child directories arrive isScanned=false (they are
+// the next frontier). Never reads isScanned — it is an output of scanning, not an input to it.
+void Workspace::ScanNode(Node::Ref node) {
+    if (node == nullptr || !fs::is_directory(node->GetNodePath())) {
+        return;
+    }
+
+    node->ClearChildren();
+
+    FolderScanner scanner;
+    FolderScanner::Options opts;
+    opts.exclude = Config::Instance()["workspace"].GetSequenceOfStr("exclude");
+    opts.maxDepth = 1;
+
+    std::vector<Node::Ref> parents;
+    parents.push_back(node);
+
+    scanner.onEnterDir = [this, &parents](const fs::path &path, int) -> bool {
+        auto parent = parents.back();
+        Node::Ref child = (parent != nullptr) ? ApplyFsEntry(parent, path) : nullptr;
+        parents.push_back(child);
+        return child != nullptr;
+    };
+    scanner.onFile = [this, &parents](const fs::path &path, int) {
+        auto parent = parents.back();
+        if (parent != nullptr) {
+            ApplyFsEntry(parent, path);
+        }
+    };
+    scanner.onLeaveDir = [&parents](const fs::path &, int, bool fullyScanned) {
+        if (parents.back() != nullptr) {
+            parents.back()->SetIsScanned(fullyScanned);
+        }
+        parents.pop_back();
+    };
+
+    scanner.Scan(node->GetNodePath(), opts);
+    node->SetIsScanned(true);
 }
 
 // THE single filesystem->tree mutator. Maps one filesystem entry to a node under parent:

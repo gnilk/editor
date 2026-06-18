@@ -432,6 +432,48 @@ bool Workspace::ReadFolderToNode(Node::Ref rootNode, const std::filesystem::path
     return true;
 }
 
+// FS-6: shallow on-demand scan for a frontier folder. Clears existing children (makes it
+// idempotent and monitor-reusable), runs a depth-1 scan rooted at the node's path, then marks
+// the node itself as fully scanned. Discovered child directories arrive isScanned=false (they are
+// the next frontier). Never reads isScanned — it is an output of scanning, not an input to it.
+void Workspace::ScanNode(Node::Ref node) {
+    if (node == nullptr || !fs::is_directory(node->GetNodePath())) {
+        return;
+    }
+
+    node->ClearChildren();
+
+    FolderScanner scanner;
+    FolderScanner::Options opts;
+    opts.exclude = Config::Instance()["workspace"].GetSequenceOfStr("exclude");
+    opts.maxDepth = 1;
+
+    std::vector<Node::Ref> parents;
+    parents.push_back(node);
+
+    scanner.onEnterDir = [this, &parents](const fs::path &path, int) -> bool {
+        auto parent = parents.back();
+        Node::Ref child = (parent != nullptr) ? ApplyFsEntry(parent, path) : nullptr;
+        parents.push_back(child);
+        return child != nullptr;
+    };
+    scanner.onFile = [this, &parents](const fs::path &path, int) {
+        auto parent = parents.back();
+        if (parent != nullptr) {
+            ApplyFsEntry(parent, path);
+        }
+    };
+    scanner.onLeaveDir = [&parents](const fs::path &, int, bool fullyScanned) {
+        if (parents.back() != nullptr) {
+            parents.back()->SetIsScanned(fullyScanned);
+        }
+        parents.pop_back();
+    };
+
+    scanner.Scan(node->GetNodePath(), opts);
+    node->SetIsScanned(true);
+}
+
 // THE single filesystem->tree mutator. Maps one filesystem entry to a node under parent:
 // directories become folder nodes, regular files become path-only file nodes (document built lazily).
 // Both the initial scan (ReadFolderToNode) and the folder monitor's create-callback go through here,

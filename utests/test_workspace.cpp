@@ -27,6 +27,7 @@ DLL_EXPORT int test_workspace_openfolder_lazy(ITesting *t);
 DLL_EXPORT int test_workspace_openabsfolder(ITesting *t);
 DLL_EXPORT int test_workspace_openfolder_excludes_builddir(ITesting *t);
 DLL_EXPORT int test_workspace_isscanned(ITesting *t);
+DLL_EXPORT int test_workspace_scannode(ITesting *t);
 DLL_EXPORT int test_workspace_removedocument(ITesting *t);
 DLL_EXPORT int test_workspace_recreate(ITesting *t);
 }
@@ -241,6 +242,61 @@ DLL_EXPORT int test_workspace_isscanned(ITesting *t) {
     TR_ASSERT(t,  nodeA->IsScanned());       // descended (depth 0, depth+1=1 < maxDepth=2)
     TR_ASSERT(t, !nodeB->IsScanned());       // frontier: depth+1=2 >= maxDepth=2
     TR_ASSERT(t,  nodeEmpty->IsScanned());   // descended, walked-and-empty → still fully scanned
+
+    fs::remove_all(root, ec);
+    return kTR_Pass;
+}
+
+// FS-6 W3: ScanNode does a maxDepth=1 scan rooted at the given folder node.
+//   - Before: frontier folder has isScanned==false, no children.
+//   - After: node->isScanned==true; immediate children exist; child dirs have isScanned==false
+//     (they are the next frontier); files are present.
+//   - Idempotent: a second ScanNode call clears and rescans — same result.
+DLL_EXPORT int test_workspace_scannode(ITesting *t) {
+    namespace fs = std::filesystem;
+    static int counter = 0;
+    auto root = fs::temp_directory_path() / ("goat_ws_scannode_" + std::to_string(counter++));
+    std::error_code ec;
+    fs::remove_all(root, ec);
+    // a/b/deep.txt — with maxScanDepth=1 the initial scan sees "a" (isScanned=false) but not "b".
+    // ScanNode("a") should populate "b" and "leaf.txt" under "a", with "b" arriving isScanned=false.
+    fs::create_directories(root / "a" / "b");
+    { std::ofstream(root / "a" / "leaf.txt") << "x"; }
+    { std::ofstream(root / "a" / "b" / "deep.txt") << "x"; }
+
+    auto oldDepth = Config::Instance()["workspace"].GetInt("maxScanDepth", 64);
+    Config::Instance()["workspace"].SetInt("maxScanDepth", 1);
+
+    Workspace workspace;
+    TR_ASSERT(t, workspace.OpenFolder(root.string()));
+
+    Config::Instance()["workspace"].SetInt("maxScanDepth", oldDepth);
+
+    auto rootNode = workspace.GetProjectRoots()[0]->GetRootNode();
+    auto nodeA = rootNode->FindNodeWithPath(root / "a");
+    TR_ASSERT(t, nodeA != nullptr);
+    TR_ASSERT(t, !nodeA->IsScanned());         // frontier: depth-bounded by initial scan
+    TR_ASSERT(t, nodeA->GetNumChildNodes() == 0);
+
+    workspace.ScanNode(nodeA);
+
+    TR_ASSERT(t,  nodeA->IsScanned());         // ScanNode marks the target as fully scanned
+    TR_ASSERT(t, nodeA->GetNumChildNodes() == 2);  // "b" (dir) + "leaf.txt" (file)
+
+    auto nodeB = rootNode->FindNodeWithPath(root / "a" / "b");
+    TR_ASSERT(t, nodeB != nullptr);
+    TR_ASSERT(t, !nodeB->IsScanned());         // "b" is the new frontier (depth+1=1 >= maxDepth=1)
+
+    auto leaf = rootNode->FindNodeWithPath(root / "a" / "leaf.txt");
+    TR_ASSERT(t, leaf != nullptr);
+
+    // Idempotent: second ScanNode produces the same result.
+    workspace.ScanNode(nodeA);
+    TR_ASSERT(t,  nodeA->IsScanned());
+    TR_ASSERT(t, nodeA->GetNumChildNodes() == 2);
+    auto nodeB2 = rootNode->FindNodeWithPath(root / "a" / "b");
+    TR_ASSERT(t, nodeB2 != nullptr);
+    TR_ASSERT(t, !nodeB2->IsScanned());
 
     fs::remove_all(root, ec);
     return kTR_Pass;

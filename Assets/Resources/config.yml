@@ -61,7 +61,7 @@ workspace:
   # eagerly; deeper directories are frontier nodes (isScanned=false) expanded on demand via
   # the lazy-expansion hook (FolderScanner FS-6 — docs/folder-scanner.md §12). The lazy UX
   # is fully wired (W1–W5 done), so lowering this defers rather than truncates.
-  max_scan_depth: 1
+  max_scan_depth: 6
   exclude:
     - ".git"
     - ".idea"

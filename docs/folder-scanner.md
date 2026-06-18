@@ -55,7 +55,7 @@ producer (FS-5, §7); the rewired `OpenFolder` scan stays **synchronous/main-thr
 | W2 ✅ | Add `test_folderscanner` (registered in verified-green set at W6): records events via lambdas over a temp tree; asserts structure (counts/depth/child-between-enter-leave/veto), not sibling order. No `Workspace`/singleton. | FS-7, §3/§4 |
 | W3 ✅ | Symlink no-follow guard (`maxDepth` already in W1): a symlinked dir is emitted via `onEnterDir` but only descended when `followSymlinks`. Tests: maxDepth bound, symlink-cycle terminates (count==2 vs 9 if followed), follow=true reaches the file twice. → crash half of #4. | FS-4, §5; #4 |
 | W4 ✅ | `FsFilter` on `Glob.h` (filename glob match) threaded through the scan; `Options.exclude` pruned before any event/descent. Exclude list moved `foldermonitor.exclude`→`workspace.exclude` (+ `use_git_ignore`); monitor's `GetExclusionPaths` reads the new key. Tests: build-dir subtree → zero events, `cmake-build-*` glob prune. → build-dir half of #4. | FS-2, §5/§6; #4 |
-| W5 ✅ | `ReadFolderToNode` reimplemented as a scanner adapter: a parent-`Node` stack (push/pop balanced on enter/leave) feeds `ApplyFsEntry` (still THE single mutator); recursion deleted. `Options.exclude` from `workspace.exclude`; operational `maxDepth` from `workspace.maxScanDepth` (default 64 — generous so legit deep trees aren't truncated; symlink cycles handled by no-follow). **Synchronous/main-thread** (#6 stays out). Regression `test_workspace_openfolder_excludes_builddir` green. | FS-3, §2/§3; #6 |
+| W5 ✅ | `ReadFolderToNode` reimplemented as a scanner adapter: a parent-`Node` stack (push/pop balanced on enter/leave) feeds `ApplyFsEntry` (still THE single mutator); recursion deleted. `Options.exclude` from `workspace.exclude`; operational `maxDepth` from `workspace.max_scan_depth` (default 64 — generous so legit deep trees aren't truncated; symlink cycles handled by no-follow). **Synchronous/main-thread** (#6 stays out). Regression `test_workspace_openfolder_excludes_builddir` green. | FS-3, §2/§3; #6 |
 | W6 ✅ | Closed out: #4 marked FIXED (no residual; FS-6 noted as separate deferred); `folderscanner` added to the verified-green set (CLAUDE.md, 247 tests); §0 statuses flipped; `work-log.md` updated. | §11, FS-7 |
 
 ---
@@ -304,7 +304,7 @@ Each: **Goal / Scope / Approach / Effort·Risk / Done-when / Depends-on.**
 
 ### FS-4 — Depth bound + symlink-cycle guard
 - **Goal:** hard safety bound against cycles / pathological depth (the "crash").
-- **Scope:** `Options.maxDepth` (default 8–10), `followSymlinks=false`; optional `workspace.maxScanDepth`.
+- **Scope:** `Options.maxDepth` (default 8–10), `followSymlinks=false`; optional `workspace.max_scan_depth`.
 - **Approach:** bail recursion at `depth >= maxDepth`; skip symlinked dirs unless `followSymlinks`.
 - **Effort·Risk:** S · low.
 - **Done-when:** depth-bound + symlink-cycle tests green (no overflow, node count bounded).
@@ -323,7 +323,7 @@ Each: **Goal / Scope / Approach / Effort·Risk / Done-when / Depends-on.**
   `onLeaveDir(path, depth, bool fullyScanned)` signal); `TreeView::TreeNode::hasUnfetchedChildren` + a
   generic `cbFetchChildrenForNode` hook fired on expand + the `+`-glyph predicate; `FillTreeView`
   translates `isScanned`→`hasUnfetchedChildren` (the one meeting point); `Workspace::ScanNode =
-  Scan(dir, {maxDepth = 1})`; `maxScanDepth` default → 6.
+  Scan(dir, {maxDepth = 1})`; `max_scan_depth` default → 6.
 - **Approach:** `TreeView` owns the laziness decision (its flag drives the glyph + the fetch); `Workspace`
   scans on order and never reads `isScanned` to gate. Synchronous/main-thread (no #6 dependency). Designed
   as one piece — do NOT add any part before the others exist. Full analysis: §12.
@@ -370,7 +370,7 @@ scanner did NOT cover (expected: none of the original symptom). **Done 2026-06-1
 **The gap.** Three things make the scanner emit a directory but **not descend** into it: the depth bound
 (`depth+1 >= maxDepth`), the `onEnterDir` veto, and `followSymlinks=false`. In every case the dir node is
 created with no children — and **today nothing distinguishes that node from a genuinely empty directory.**
-So setting `workspace.maxScanDepth` low *silently truncates* the tree instead of producing a lazily-
+So setting `workspace.max_scan_depth` low *silently truncates* the tree instead of producing a lazily-
 expandable one. At the W5 default of 64 this is latent (no real tree hits 64, so nothing is mis-marked);
 it bites the instant depth is lowered for laziness.
 
@@ -381,7 +381,7 @@ expansion wants: one level scanned ⇒ one level shown. Keep it shallow.
 **Insight: the depth bound IS the shallow-scan mechanism.** FS-6 originally posited a separate
 "shallow (one-level) scan mode." Not needed — `Scan(dir, {maxDepth = 1})` already emits exactly one
 level. Lazy expansion is then: initial scan at a small depth, and **each expand re-runs `Scan` rooted at
-the expanded directory** (again shallow). So `maxScanDepth = 1` must mean "walk one level, mark the rest
+the expanded directory** (again shallow). So `max_scan_depth = 1` must mean "walk one level, mark the rest
 expandable," NOT "truncate."
 
 **The settled contract — one coherent piece; do NOT add any part before the others exist.**
@@ -453,9 +453,9 @@ ExpandToNode` to a document below the scanned frontier won't find a node that wa
 gracefully (returns false). Latent for this project (the default depth covers the whole editor `src` tree);
 if it ever bites, the fix is a shared "ensure-scanned" helper, out of scope now.
 
-**Bonus — de-risks the `maxScanDepth` knob.** With the flag a depth-bounded dir is *deferred*, not *lost*:
+**Bonus — de-risks the `max_scan_depth` knob.** With the flag a depth-bounded dir is *deferred*, not *lost*:
 the bound becomes a performance/cache dial, not a correctness hazard. **Default lands at 6** (covers the
-whole editor `src` tree as a cache; lazy below it). `maxScanDepth = 1` is the "dumb ReadDir-per-step" mode;
+whole editor `src` tree as a cache; lazy below it). `max_scan_depth = 1` is the "dumb ReadDir-per-step" mode;
 higher = more eager caching.
 
 **Edge case — symlinked dirs:** unchanged from today (skipped while scanning unless `followSymlinks`); the
@@ -466,7 +466,7 @@ pointing back to a parent *within* the scan depth, bounded per-scan by no-follow
 ### §12.1 — FS-6 implementation work-log (step-by-step)
 
 Sequenced, commit-sized items to tick off when FS-6 is built. **Order is dependency-driven and the config
-flip (W6) MUST be last** — lowering `maxScanDepth` before the view affordance exists (W5) would *truncate*
+flip (W6) MUST be last** — lowering `max_scan_depth` before the view affordance exists (W5) would *truncate*
 the tree (frontier folders with no `+`), the exact regression the marker is there to prevent. W1–W4 are
 behaviour-neutral to the running app (each is wiring + tests only); the lazy UX first appears at W5+W6.
 Verify each at its own layer per the house "test the property, not the run" discipline.
@@ -477,6 +477,6 @@ Verify each at its own layer per the house "test the property, not the run" disc
 | W2 🔲 | **Model record.** Add `Workspace::Node::isScanned` (`bool`, default **`true`** at folder creation). Adapter's `onLeaveDir` sets `parents.back()->isScanned = fullyScanned` before popping. **Done-when:** `test_workspace` case — scan a deep temp tree at a low `maxDepth`, assert frontier folder nodes have `isScanned==false`, a walked-empty folder `isScanned==true`. Still no visible change (nothing reads the flag yet). | §12 (1)(2) |
 | W3 🔲 | **`Workspace::ScanNode(node)`** = clear children → `Scan(node.path, {maxDepth=1, exclude…})` → set `node->isScanned=true`; never reads `isScanned`. **Done-when:** `test_workspace` case — on a depth-1 frontier folder, `ScanNode` adds exactly one level (child dirs arrive `isScanned==false`); calling it again is idempotent (clear+rescan, still one level). | §12 (2) |
 | W4 🔲 | **Generic `TreeView` contract.** Add `TreeNode::hasUnfetchedChildren` (default `false`) + `cbFetchChildrenForNode` hook fired in `Expand()`/`ExpandToNode` *before* `Flatten()` when the flag is set (node held **by value**; flag cleared after). Glyph predicate → `children.size() > 0 || hasUnfetchedChildren`. Add a batch insert-many-then-flatten-once path. **Done-when:** unit test over a trivial `T` — a flagged node renders `+`, expand fires the hook exactly once, a hook that calls `AddItem` doesn't crash (by-value safety), re-expand no-ops. | §12 (4) |
-| W5 🔲 | **`WorkspaceView` wiring.** `FillTreeView` sets `hasUnfetchedChildren = IsFolder() && !isScanned && !is_symlink(path)`. Wire `cbFetchChildrenForNode → ScanNode(modelNode)` then targeted `FillTreeView` of the handed view node (no full `PopulateTree`). **Done-when:** with a low `maxScanDepth`, unscanned folders show `+`, expanding populates exactly one level, cursor stays put; manual GUI verify + a `test_workspace`/view case if feasible. | §12 (3)(5) |
-| W6 🔲 | **Activate.** Flip `maxScanDepth` default → **6** (config.yml + the `GetInt(...,64)` fallback in `ReadFolderToNode`). Adjust any regression test that assumed depth-64 eager behaviour. **Done-when:** opening the editor folder shows the whole `src` tree; a deeper tree lazily expands below depth 6. | §12 bonus |
+| W5 🔲 | **`WorkspaceView` wiring.** `FillTreeView` sets `hasUnfetchedChildren = IsFolder() && !isScanned && !is_symlink(path)`. Wire `cbFetchChildrenForNode → ScanNode(modelNode)` then targeted `FillTreeView` of the handed view node (no full `PopulateTree`). **Done-when:** with a low `max_scan_depth`, unscanned folders show `+`, expanding populates exactly one level, cursor stays put; manual GUI verify + a `test_workspace`/view case if feasible. | §12 (3)(5) |
+| W6 🔲 | **Activate.** Flip `max_scan_depth` default → **6** (config.yml + the `GetInt(...,64)` fallback in `ReadFolderToNode`). Adjust any regression test that assumed depth-64 eager behaviour. **Done-when:** opening the editor folder shows the whole `src` tree; a deeper tree lazily expands below depth 6. | §12 bonus |
 | W7 🔲 | **Close out.** Run the targeted suite; add new cases to the verified-green set (CLAUDE.md); flip §0 + §12 statuses; update `work-log.md`. **Done-when:** verified-green set updated and passing; doc statuses reflect FS-6 shipped. | §0, FS-7 |

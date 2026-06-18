@@ -81,7 +81,7 @@ end to end.
 - **FS-3**: `Workspace::ReadFolderToNode` reimplemented as a scanner adapter (parent-`Node` stack →
   `ApplyFsEntry`, still the single mutator); recursion deleted. Scan stays **synchronous/main-thread** —
   the background-producer model is gated on the un-synchronised `Runloop::SwapQueues`
-  ([`open-bugs.md`](open-bugs.md) #6) and deliberately unused here. Operational `workspace.maxScanDepth`
+  ([`open-bugs.md`](open-bugs.md) #6) and deliberately unused here. Operational `workspace.max_scan_depth`
   (default 64) keeps legitimate deep trees from being truncated.
 - **FS-7**: `test_folderscanner` (event-stream / exclude-prune / depth / symlink-cycle) + a
   `test_workspace` build-dir regression; both in the verified-green set (247 tests).

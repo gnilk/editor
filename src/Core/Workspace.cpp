@@ -402,7 +402,7 @@ bool Workspace::ReadFolderToNode(Node::Ref rootNode, const std::filesystem::path
     opts.exclude = Config::Instance()["workspace"].GetSequenceOfStr("exclude");
     // Operational depth backstop only (symlink cycles are handled by the scanner's no-follow default);
     // generous so a legitimate deep tree is never truncated. NOT the build-dir filter (that's exclude).
-    opts.maxDepth = Config::Instance()["workspace"].GetInt("maxScanDepth", 6);
+    opts.maxDepth = Config::Instance()["workspace"].GetInt("max_scan_depth", 6);
 
     // The adapter's parent stack, kept in lock-step with onEnterDir/onLeaveDir (the scanner pairs them
     // for every directory, even a vetoed one), so push/pop balance regardless of descent.

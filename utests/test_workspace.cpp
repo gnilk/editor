@@ -188,13 +188,13 @@ DLL_EXPORT int test_workspace_openfolder_excludes_builddir(ITesting *t) {
     { std::ofstream(root / "cmake-build-debug" / "build.ninja") << "x"; }
     { std::ofstream(root / "cmake-build-debug" / "_deps" / "dep.c") << "x"; }
 
-    auto oldDepth = Config::Instance()["workspace"].GetInt("maxScanDepth", 1);
-    Config::Instance()["workspace"].SetInt("maxScanDepth", 4);
+    auto oldDepth = Config::Instance()["workspace"].GetInt("max_scan_depth", 1);
+    Config::Instance()["workspace"].SetInt("max_scan_depth", 4);
 
     Workspace workspace;
     TR_ASSERT(t, workspace.OpenFolder(root.string()));
 
-    Config::Instance()["workspace"].SetInt("maxScanDepth", oldDepth);
+    Config::Instance()["workspace"].SetInt("max_scan_depth", oldDepth);
 
     std::vector<std::string> names;
     CollectNodeNames(workspace.GetProjectRoots()[0]->GetRootNode(), names);
@@ -212,7 +212,7 @@ DLL_EXPORT int test_workspace_openfolder_excludes_builddir(ITesting *t) {
     return kTR_Pass;
 }
 
-// FS-6 W2: Node::isScanned is written by the onLeaveDir adapter. With a low maxScanDepth,
+// FS-6 W2: Node::isScanned is written by the onLeaveDir adapter. With a low max_scan_depth,
 // frontier folder nodes (emitted but not descended) carry isScanned==false; a descended-and-empty
 // folder stays isScanned==true (the walked-empty case — expanding it is a known no-op, not a retry).
 DLL_EXPORT int test_workspace_isscanned(ITesting *t) {
@@ -227,13 +227,13 @@ DLL_EXPORT int test_workspace_isscanned(ITesting *t) {
     fs::create_directories(root / "empty");
     { std::ofstream(root / "a" / "b" / "deep.txt") << "x"; }
 
-    auto oldDepth = Config::Instance()["workspace"].GetInt("maxScanDepth", 64);
-    Config::Instance()["workspace"].SetInt("maxScanDepth", 2);
+    auto oldDepth = Config::Instance()["workspace"].GetInt("max_scan_depth", 64);
+    Config::Instance()["workspace"].SetInt("max_scan_depth", 2);
 
     Workspace workspace;
     TR_ASSERT(t, workspace.OpenFolder(root.string()));
 
-    Config::Instance()["workspace"].SetInt("maxScanDepth", oldDepth);
+    Config::Instance()["workspace"].SetInt("max_scan_depth", oldDepth);
 
     auto rootNode = workspace.GetProjectRoots()[0]->GetRootNode();
 
@@ -264,19 +264,19 @@ DLL_EXPORT int test_workspace_scannode(ITesting *t) {
     auto root = fs::temp_directory_path() / ("goat_ws_scannode_" + std::to_string(counter++));
     std::error_code ec;
     fs::remove_all(root, ec);
-    // a/b/deep.txt — with maxScanDepth=1 the initial scan sees "a" (isScanned=false) but not "b".
+    // a/b/deep.txt — with max_scan_depth=1 the initial scan sees "a" (isScanned=false) but not "b".
     // ScanNode("a") should populate "b" and "leaf.txt" under "a", with "b" arriving isScanned=false.
     fs::create_directories(root / "a" / "b");
     { std::ofstream(root / "a" / "leaf.txt") << "x"; }
     { std::ofstream(root / "a" / "b" / "deep.txt") << "x"; }
 
-    auto oldDepth = Config::Instance()["workspace"].GetInt("maxScanDepth", 64);
-    Config::Instance()["workspace"].SetInt("maxScanDepth", 1);
+    auto oldDepth = Config::Instance()["workspace"].GetInt("max_scan_depth", 64);
+    Config::Instance()["workspace"].SetInt("max_scan_depth", 1);
 
     Workspace workspace;
     TR_ASSERT(t, workspace.OpenFolder(root.string()));
 
-    Config::Instance()["workspace"].SetInt("maxScanDepth", oldDepth);
+    Config::Instance()["workspace"].SetInt("max_scan_depth", oldDepth);
 
     auto rootNode = workspace.GetProjectRoots()[0]->GetRootNode();
     auto nodeA = rootNode->FindNodeWithPath(root / "a");

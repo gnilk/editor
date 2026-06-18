@@ -281,7 +281,7 @@ DLL_EXPORT int test_session_workspace_reopen_reuses_scanned_node(ITesting *t) {
     TR_ASSERT(t, workspace.OpenFolder("."));
     TR_ASSERT(t, workspace.GetProjectRoots().size() == 1);
 
-    // With maxScanDepth=1 (FS-6 W6 default), "testfiles/" is a frontier dir after OpenFolder.
+    // With max_scan_depth=1 (FS-6 W6 default), "testfiles/" is a frontier dir after OpenFolder.
     // ScanNode it first so ConvertUTF.cpp is in the model tree — this exercises the lazy-expansion
     // path that a real user would trigger by expanding the folder in the UI.
     auto rootNode = workspace.GetProjectRoots()[0]->GetRootNode();

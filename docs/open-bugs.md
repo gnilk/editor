@@ -116,7 +116,7 @@ tokenizer's longest-match / boundary logic at operator↔identifier transitions.
 >   the disabled monitor to the scan-owned `workspace.exclude`). Opening a project root now prunes
 >   `cmake-build-debug` etc. before they enter the node tree.
 > - *No depth limit / symlink-cycle crash* → **FS-4** `Options.maxDepth` (operational
->   `workspace.maxScanDepth`, default 64) + `followSymlinks=false` — a cyclic link is emitted once and
+>   `workspace.max_scan_depth`, default 64) + `followSymlinks=false` — a cyclic link is emitted once and
 >   never descended, so the ENAMETOOLONG → `std::terminate` abort can't recur.
 > - `ReadFolderToNode` is now a thin adapter that drives the scanner via a parent-`Node` stack (**FS-3**);
 >   the unbounded recursion is deleted. `ApplyFsEntry` stays the single fs→tree mutator.
@@ -208,7 +208,7 @@ rescan. Recommendation: exclude build/heavy dirs at scan time; keep the dotfile 
   both skipped). Read the exclude list from a scan-owned config key, not from the disabled monitor.
 - Add `maxDepth` (signature change on `ReadFolderToNode`; only caller is `OpenFolder` at
   `Workspace.cpp:379`) purely as a symlink-cycle / stack safety bound; default 8–10. Optionally also
-  skip symlinked dirs outright. Consider a config value (`workspace.maxScanDepth`) for deep trees.
+  skip symlinked dirs outright. Consider a config value (`workspace.max_scan_depth`) for deep trees.
 - `test_workspace`: synthetic temp tree containing a `cmake-build-debug/`-like subtree → assert those
   nodes are absent and node count is bounded; plus a depth-bound test.
 

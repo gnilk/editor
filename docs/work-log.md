@@ -69,9 +69,9 @@ consolidation, gated undo persistence. Detail + phasing: [`session-cache.md`](se
 
 Lifted the recursive FS walk out of `Workspace` into a self-contained, testable `FolderScanner`
 (`src/Core/FileSystem/`) that emits plain-data discovery events through callbacks (`onEnterDir` veto /
-`onFile` / `onLeaveDir` + depth) — no `Node`/`Document`/`Workspace`/singleton knowledge, so it unit-tests
-over a temp dir (callbacks, NOT templated on the node type). Resolved [`open-bugs.md`](open-bugs.md) #4
-end to end.
+`onFile` / `onLeaveDir(fullyScanned)` + depth) — no `Node`/`Document`/`Workspace`/singleton knowledge,
+so it unit-tests over a temp dir (callbacks, NOT templated on the node type). Resolved
+[`open-bugs.md`](open-bugs.md) #4 end to end. FS-6 lazy expansion also shipped.
 
 - **FS-1 / FS-4**: pure scanner leaf + `maxDepth` bound + `followSymlinks=false` (the crash side of #4 —
   a symlink cycle is emitted once and never descended, so the ENAMETOOLONG → `terminate` abort is gone).
@@ -81,14 +81,17 @@ end to end.
 - **FS-3**: `Workspace::ReadFolderToNode` reimplemented as a scanner adapter (parent-`Node` stack →
   `ApplyFsEntry`, still the single mutator); recursion deleted. Scan stays **synchronous/main-thread** —
   the background-producer model is gated on the un-synchronised `Runloop::SwapQueues`
-  ([`open-bugs.md`](open-bugs.md) #6) and deliberately unused here. Operational `workspace.max_scan_depth`
-  (default 64) keeps legitimate deep trees from being truncated.
-- **FS-7**: `test_folderscanner` (event-stream / exclude-prune / depth / symlink-cycle) + a
-  `test_workspace` build-dir regression; both in the verified-green set (247 tests).
+  ([`open-bugs.md`](open-bugs.md) #6) and deliberately unused here.
+- **FS-6 (lazy expansion)**: three-tier mirror — `onLeaveDir` carries `fullyScanned`; `Node::isScanned`
+  records it; `FillTreeView` translates `isScanned → hasUnfetchedChildren` (the single model↔view point);
+  `TreeView` generic hook `cbFetchChildrenForNode` fires on expand; `WorkspaceView` wires it to
+  `Workspace::ScanNode` (maxDepth=1 shallow re-scan + targeted mirror). Config `max_scan_depth: 1` so
+  only the top level is scanned eagerly; `Node::ClearChildren` + `ScanNode` are idempotent.
+- **FS-7**: `test_folderscanner` (11 cases) + `test_workspace` (5 FS-6 cases) + `test_treeview` (5 cases);
+  all in the verified-green set (256 tests).
 
 **Deferred (NOT this branch):** FS-5 (monitor reuse — scan a newly-created dir; blocked on the disabled
-monitor + #6) and FS-6 (lazy expansion — shallow scan + `onEnterDir` veto + `Node::isRead` + on-expand
-callback, its own effort). Plan + work items: [`folder-scanner.md`](folder-scanner.md).
+monitor + #6). Plan + work items: [`folder-scanner.md`](folder-scanner.md).
 
 ---
 

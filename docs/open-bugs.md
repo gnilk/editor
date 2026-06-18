@@ -312,3 +312,12 @@ look at every remaining relative-path operation (default workspace, save) + a ma
 it's deferred rather than done here.
 
 **Why it (mostly) hasn't bitten yet:** We don't really test it...
+
+## 8. 'Ropening a session which has open files above the max_scan_depth threshold'
+**Where:** Session manager and the folder scanner... 
+**What's Wrong:** When reopning a session with a file above the 'max_scan_depth' threshold
+the folder is (in the WorkspaceView) has '-' indicated but since the folder is not scanned it can't
+be mapped and ends up under the 'default' at the bottom..
+**Reproduce:** Clear out any session, set 'max_scan_depth=1', start './goatedit .' then open a file in any
+subfolder. Quit the editor. Restart the editor.
+

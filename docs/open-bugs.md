@@ -326,3 +326,9 @@ subfolder. Quit the editor. Restart the editor.
 **What's Wrong:** When running certain apps (in this case `npm update` on a project) the color output is missing
 **Reproduce:** Initiate a project with npm (use older versions of some library) then do an update
 There are possibly other applications also not working but this is one I found
+
+## 10. 'Missing scrollback feature in terminal UI'
+**Where:** Terminal emulator/window
+**What's Wrong:** No scrolling through history buffer
+**Reproduce:** just list a directory with many files - this is missing functionality - but it is a bit 
+of a bummer - because you want this

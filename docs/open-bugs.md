@@ -321,3 +321,8 @@ be mapped and ends up under the 'default' at the bottom..
 **Reproduce:** Clear out any session, set 'max_scan_depth=1', start './goatedit .' then open a file in any
 subfolder. Quit the editor. Restart the editor.
 
+## 9. 'Running NPM update in the terminal does not produce the expected output'
+**Where:** Terminal emulator/window
+**What's Wrong:** When running certain apps (in this case `npm update` on a project) the color output is missing
+**Reproduce:** Initiate a project with npm (use older versions of some library) then do an update
+There are possibly other applications also not working but this is one I found

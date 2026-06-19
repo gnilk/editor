@@ -105,6 +105,12 @@ bool SDLScreen::Open() {
     SDL_SetWindowPosition(window, geoX, geoY);
     SetWindowIcon();
 
+    // Enable the screensaver - SDL blocks it by default - but in this case it makes sense..
+    if (!SDL_ScreenSaverEnabled()) {
+        logger->Warning("Screenserver disable, enabling again");
+        SDL_EnableScreenSaver();
+    }
+
     // SDL3: SDL_RENDERER_ACCELERATED removed (default); SDL_RENDERER_PRESENTVSYNC kept
     renderer = SDL_CreateRenderer(window, nullptr);
     if (!renderer) {
@@ -126,6 +132,13 @@ bool SDLScreen::Open() {
     LoadFontFromTheme();
     ComputeScalingFactors();
     CreateTextures();
+
+    // Sanity check..
+    if (!SDL_ScreenSaverEnabled()) {
+        logger->Error("Sanity check, end of SDL3 Initialization - screenserver still disabled, enabling again");
+        SDL_EnableScreenSaver();
+    }
+
     return true;
 }
 

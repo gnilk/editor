@@ -229,6 +229,15 @@ Workspace::Node::Ref Workspace::NewDocumentWithFileRef(const std::filesystem::pa
         return existing;
     }
 
+    // A file below the initial max_scan_depth frontier (e.g. a restored session file deep in a subtree)
+    // isn't in any tree yet. If it lives under a real ProjectRoot, scan just the path to it in and reuse
+    // that node, so it maps to its true location instead of landing under 'default' - open-bugs.md #8.
+    auto scanned = EnsurePathInTree(pathFileName);
+    if (scanned != nullptr) {
+        EnsureDocumentForNode(scanned);
+        return scanned;
+    }
+
     auto parent = GetDefaultWorkspace();
     if (parent == nullptr) {
         logger->Error("Can't find default workspace");
@@ -246,6 +255,117 @@ Workspace::Node::Ref Workspace::FindNodeForPath(const std::filesystem::path &pat
         }
     }
     return nullptr;
+}
+
+// True if `dir` is an ancestor of (or equal to) `path` - i.e. `path` is within dir's subtree.
+// lexically_relative yields a leading ".." for anything NOT below dir, which rejects siblings/cousins.
+static bool IsAncestorPath(const std::filesystem::path &dir, const std::filesystem::path &path) {
+    auto rel = path.lexically_relative(dir);
+    if (rel.empty()) {
+        return false;
+    }
+    return *rel.begin() != "..";
+}
+
+// open-bugs.md #8. A file below the initial max_scan_depth frontier isn't in any tree. If it lives
+// under a real ProjectRoot, walk the already-cached ancestors down to the current frontier folder, then
+// scan ONLY the path from there toward the file (full listing per level, sibling subtrees left as
+// frontier). Returns the file's node, or nullptr if the path isn't under a real root.
+Workspace::Node::Ref Workspace::EnsurePathInTree(const std::filesystem::path &pathFileName) {
+    auto absFile = fs::absolute(pathFileName).lexically_normal();
+
+    // Find the project root that owns this path. The default root is a CWD bucket for loose files, not a
+    // real on-disk subtree to scan into - skip it.
+    ProjectRoot::Ref owningRoot = nullptr;
+    for (auto &projectRoot : projectRoots) {
+        if (projectRoot == defaultRoot) {
+            continue;
+        }
+        if (IsAncestorPath(projectRoot->GetRootPath().lexically_normal(), absFile)) {
+            owningRoot = projectRoot;
+            break;
+        }
+    }
+    if (owningRoot == nullptr) {
+        return nullptr;
+    }
+
+    // Descend through already-scanned ancestors to the deepest node on the path that hasn't been
+    // descended yet (the frontier). We scan ONLY from there, so cached levels are never re-listed (and
+    // their scanned siblings never demoted).
+    auto node = owningRoot->GetRootNode();
+    while (true) {
+        Node::Ref next = nullptr;
+        std::vector<Node::Ref> children;
+        node->FlattenChilds(children);
+        for (auto &child : children) {
+            auto childPath = child->GetNodePath().lexically_normal();
+            if (childPath == absFile) {
+                return child;       // already present (e.g. brought in by a prior EnsurePathInTree)
+            }
+            if (IsAncestorPath(childPath, absFile)) {
+                next = child;
+                break;
+            }
+        }
+        if (next == nullptr) {
+            // No child on the path under `node`. If `node` was fully scanned, the next segment is
+            // genuinely absent (excluded / gone) - don't re-list a scanned dir. Otherwise `node` is the
+            // frontier to scan from.
+            if (node->IsScanned()) {
+                return nullptr;
+            }
+            break;
+        }
+        if (!next->IsScanned()) {
+            node = next;            // frontier folder - scan from here
+            break;
+        }
+        node = next;                // cached, fully-scanned dir - keep descending
+    }
+
+    ScanPathToReference(node, absFile);
+    return node->FindNodeWithPath(absFile);
+}
+
+// Reference-guided shallow scan from a frontier folder toward refPath, reusing the same ApplyFsEntry
+// seam + parent-stack adapter as ReadFolderToNode / ScanNode. The scanned region is fresh (below the
+// frontier), so onLeaveDir's fullyScanned maps cleanly onto Node::isScanned with no demotion.
+void Workspace::ScanPathToReference(Node::Ref startNode, const std::filesystem::path &refPath) {
+    if (startNode == nullptr || !fs::is_directory(startNode->GetNodePath())) {
+        return;
+    }
+
+    FolderScanner scanner;
+    FolderScanner::Options opts;
+    opts.exclude = Config::Instance()["workspace"].GetSequenceOfStr("exclude");
+    // No maxDepth: ScanToReference is bounded by the reference path, not the depth backstop.
+
+    std::vector<Node::Ref> parents;
+    parents.push_back(startNode);
+
+    scanner.onEnterDir = [this, &parents](const fs::path &path, int) -> bool {
+        auto parent = parents.back();
+        Node::Ref node = (parent != nullptr) ? ApplyFsEntry(parent, path) : nullptr;
+        parents.push_back(node);          // push even on failure to stay balanced with onLeaveDir
+        return true;                      // descent is reference-driven inside ScanToReference
+    };
+    scanner.onFile = [this, &parents](const fs::path &path, int) {
+        auto parent = parents.back();
+        if (parent != nullptr) {
+            ApplyFsEntry(parent, path);
+        }
+    };
+    scanner.onLeaveDir = [&parents](const fs::path &, int, bool fullyScanned) {
+        if (parents.back() != nullptr) {
+            parents.back()->SetIsScanned(fullyScanned);
+        }
+        parents.pop_back();
+    };
+
+    scanner.ScanToReference(startNode->GetNodePath(), refPath, opts);
+    // The scan root is never emitted, so mark it scanned here - we DID descend it toward refPath.
+    startNode->SetIsScanned(true);
 }
 
 // Add a file-ref node AND eagerly create its Document (the caller is explicitly opening this file).

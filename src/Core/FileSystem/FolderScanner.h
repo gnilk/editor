@@ -44,6 +44,14 @@ namespace gedit {
         // Walk the entries of root (root itself is NOT emitted) and recurse into directories.
         void Scan(const std::filesystem::path &root, const Options &opts);
 
+        // Reference-guided walk: list every directory in FULL (all entries emitted, like Scan) but
+        // descend ONLY into directories that are an ancestor of refPath - i.e. follow the single path
+        // toward refPath, leaving every sibling as an un-descended frontier (onLeaveDir fullyScanned ==
+        // false). opts.maxDepth is intentionally IGNORED here: the reference path length naturally bounds
+        // recursion, and the whole point is reaching a file deeper than max_scan_depth (open-bugs.md #8).
+        // exclude still applies. onEnterDir's return value is ignored (descent is reference-driven).
+        void ScanToReference(const std::filesystem::path &root, const std::filesystem::path &refPath, const Options &opts);
+
     public:
         // Return false => do NOT descend into this directory (the consumer's dynamic veto:
         // collapsed node / future lazy expansion). Returning true (or leaving it unset) descends.
@@ -56,6 +64,7 @@ namespace gedit {
 
     private:
         void ScanDir(const std::filesystem::path &dir, int depth, const Options &opts, const FsFilter &filter);
+        void ScanDirToReference(const std::filesystem::path &dir, const std::filesystem::path &refPath, int depth, const Options &opts, const FsFilter &filter);
     };
 }
 

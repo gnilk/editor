@@ -15,6 +15,52 @@ void FolderScanner::Scan(const fs::path &root, const Options &opts) {
     ScanDir(root, 0, opts, filter);
 }
 
+// True if `dir` is an ancestor of (or equal to) `refPath` — the reference lies within dir's subtree, so
+// a reference-guided walk must descend here. lexically_relative gives a leading ".." for anything that
+// is NOT below dir (siblings/cousins), which is how those are rejected.
+static bool IsAncestorOf(const fs::path &dir, const fs::path &refPath) {
+    auto rel = refPath.lexically_relative(dir);
+    if (rel.empty()) {
+        return false;
+    }
+    return *rel.begin() != "..";
+}
+
+void FolderScanner::ScanToReference(const fs::path &root, const fs::path &refPath, const Options &opts) {
+    FsFilter filter(opts.exclude);
+    ScanDirToReference(root, refPath.lexically_normal(), 0, opts, filter);
+}
+
+void FolderScanner::ScanDirToReference(const fs::path &dir, const fs::path &refPath, int depth, const Options &opts, const FsFilter &filter) {
+    // No depth bound (unlike ScanDir): descent is constrained to the single chain of ancestors of
+    // refPath, which is finite and acyclic, so it can't run away even past opts.maxDepth.
+    std::error_code ec;
+    for (const auto &entry : fs::directory_iterator(dir, ec)) {
+        const auto &path = entry.path();
+        if (filter.IsExcluded(path)) {
+            continue;
+        }
+        if (fs::is_directory(path, ec)) {
+            // Every directory is emitted (so siblings become frontier nodes), but only the one on the
+            // path toward refPath is descended. onEnterDir's return is ignored here.
+            const bool descend = IsAncestorOf(path.lexically_normal(), refPath);
+            if (onEnterDir) {
+                onEnterDir(path, depth);
+            }
+            if (descend) {
+                ScanDirToReference(path, refPath, depth + 1, opts, filter);
+            }
+            if (onLeaveDir) {
+                onLeaveDir(path, depth, descend);
+            }
+        } else if (fs::is_regular_file(path, ec)) {
+            if (onFile) {
+                onFile(path, depth);
+            }
+        }
+    }
+}
+
 void FolderScanner::ScanDir(const fs::path &dir, int depth, const Options &opts, const FsFilter &filter) {
     // Hard depth bound: bounds path growth so a symlink cycle can't recurse until is_directory
     // throws ENAMETOOLONG. FS-4 adds the symlink-aware no-follow guard on top of this.

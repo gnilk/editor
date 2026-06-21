@@ -33,6 +33,7 @@ DLL_EXPORT int test_folderscanner_symlink_follow(ITesting *t);
 DLL_EXPORT int test_folderscanner_exclude(ITesting *t);
 DLL_EXPORT int test_folderscanner_exclude_glob(ITesting *t);
 DLL_EXPORT int test_folderscanner_fully_scanned(ITesting *t);
+DLL_EXPORT int test_folderscanner_reference(ITesting *t);
 }
 
 namespace {
@@ -96,6 +97,35 @@ namespace {
         };
         scanner.Scan(root, opts);
         return events;
+    }
+
+    // Drive the reference-guided walk over root toward refPath, recording every event.
+    std::vector<FsEvent> WalkToReference(const fs::path &root, const fs::path &refPath,
+                                         const FolderScanner::Options &opts = {}) {
+        std::vector<FsEvent> events;
+        FolderScanner scanner;
+        scanner.onEnterDir = [&](const fs::path &p, int depth) {
+            events.push_back({FsEvent::Kind::EnterDir, p.filename().string(), depth});
+            return true;
+        };
+        scanner.onFile = [&](const fs::path &p, int depth) {
+            events.push_back({FsEvent::Kind::File, p.filename().string(), depth});
+        };
+        scanner.onLeaveDir = [&](const fs::path &p, int depth, bool fullyScanned) {
+            events.push_back({FsEvent::Kind::LeaveDir, p.filename().string(), depth, fullyScanned});
+        };
+        scanner.ScanToReference(root, refPath, opts);
+        return events;
+    }
+
+    // Was dir `name` entered and reported fullyScanned == want on leave?
+    bool LeftFullyScanned(const std::vector<FsEvent> &events, const std::string &name, bool want) {
+        for (const auto &e : events) {
+            if (e.kind == FsEvent::Kind::LeaveDir && e.name == name) {
+                return e.fullyScanned == want;
+            }
+        }
+        return false;
     }
 
     int Count(const std::vector<FsEvent> &events, FsEvent::Kind kind) {
@@ -368,5 +398,41 @@ DLL_EXPORT int test_folderscanner_fully_scanned(ITesting *t) {
         TR_ASSERT(t, events[idx].fullyScanned);
     }
 
+    return kTR_Pass;
+}
+
+// ScanToReference (open-bugs.md #8): full listing per level, but descend ONLY toward refPath. The
+// reference file sits 9 levels deep — past the default maxDepth of 8 — proving the depth bound does NOT
+// apply to a reference walk. Siblings at each level are emitted but left as un-descended frontier.
+DLL_EXPORT int test_folderscanner_reference(ITesting *t) {
+    TempTree tree("reference");
+    // The path to follow: a/b/c/d/e/f/g/h/i/deep.txt (deep.txt at depth 9).
+    tree.File("a/b/c/d/e/f/g/h/i/deep.txt");
+    // Siblings that must be SEEN but NOT descended.
+    tree.File("a/sibA/buried.txt");     // sibling dir under the first level
+    tree.File("a/b/sibB/buried.txt");   // sibling dir two levels in
+    tree.File("a/note.txt");            // a plain file alongside the path
+
+    auto refPath = tree.root / "a/b/c/d/e/f/g/h/i/deep.txt";
+    auto events = WalkToReference(tree.root, refPath);   // default opts (maxDepth 8) — ignored here
+
+    // The whole chain is entered and FULLY scanned (descended) right down to the deep file.
+    for (const std::string &dir : {"a", "b", "c", "d", "e", "f", "g", "h", "i"}) {
+        TR_ASSERT(t, IndexOf(events, FsEvent::Kind::EnterDir, dir) >= 0);
+        TR_ASSERT(t, LeftFullyScanned(events, dir, true));
+    }
+    // The deep file is reached even though it is past the default depth bound.
+    TR_ASSERT(t, IndexOf(events, FsEvent::Kind::File, "deep.txt") >= 0);
+    // A plain file alongside the path is still emitted (like the regular scan).
+    TR_ASSERT(t, IndexOf(events, FsEvent::Kind::File, "note.txt") >= 0);
+
+    // Sibling dirs are emitted but NOT descended — their contents never appear, and they leave as
+    // frontier (fullyScanned == false) so the view offers a '+' / lazy expand later.
+    TR_ASSERT(t, IndexOf(events, FsEvent::Kind::EnterDir, "sibA") >= 0);
+    TR_ASSERT(t, LeftFullyScanned(events, "sibA", false));
+    TR_ASSERT(t, IndexOf(events, FsEvent::Kind::EnterDir, "sibB") >= 0);
+    TR_ASSERT(t, LeftFullyScanned(events, "sibB", false));
+    // 'buried.txt' lives only inside the un-descended siblings, so it must never be emitted.
+    TR_ASSERT(t, IndexOf(events, FsEvent::Kind::File, "buried.txt") == -1);
     return kTR_Pass;
 }

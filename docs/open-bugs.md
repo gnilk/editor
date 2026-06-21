@@ -313,13 +313,35 @@ it's deferred rather than done here.
 
 **Why it (mostly) hasn't bitten yet:** We don't really test it...
 
-## 8. 'Ropening a session which has open files above the max_scan_depth threshold'
+## 8. FIXED — 'Reopening a session which has open files above the max_scan_depth threshold'
 **Where:** Session manager and the folder scanner... 
 **What's Wrong:** When reopning a session with a file above the 'max_scan_depth' threshold
 the folder is (in the WorkspaceView) has '-' indicated but since the folder is not scanned it can't
 be mapped and ends up under the 'default' at the bottom..
 **Reproduce:** Clear out any session, set 'max_scan_depth=1', start './goatedit .' then open a file in any
 subfolder. Quit the editor. Restart the editor.
+
+> **FIXED (2026-06-21).** Root cause: `OpenFolder` scans only to `max_scan_depth`, so a restored
+> session file below that frontier is absent from the `Node` tree; `ReopenDocument` →
+> `NewDocumentWithFileRef` → `FindNodeForPath` then misses and the file was parented under the separate
+> `default` root.
+>
+> Fix — scan ONLY the path to the file into its owning root, respecting the user's `max_scan_depth`
+> intent (we do NOT bring in the whole subtree):
+> - New `FolderScanner::ScanToReference(root, refPath, opts)` — lists every directory in full (siblings
+>   become un-descended frontier nodes) but descends ONLY into ancestors of `refPath`; `maxDepth` is
+>   ignored (the reference path bounds recursion). The followed folders end up legitimately
+>   `isScanned=true`, so the WorkspaceView treats them as cached and `ScanNode`/`ClearChildren` never
+>   re-fires on them — **no change to existing scan code, no clobber of the restored subtree.**
+> - New `Workspace::EnsurePathInTree` walks the already-cached ancestors down to the current frontier
+>   folder, then drives `ScanToReference` from there via the existing `ApplyFsEntry` parent-stack
+>   adapter (so cached levels are never re-listed or demoted). Hooked into the single-arg
+>   `NewDocumentWithFileRef` between the `FindNodeForPath` reuse-check and the default-root fallback, so
+>   it fixes both session restore AND a direct deep-file open.
+>
+> Regression: `test_session_workspace_reopen_scans_deep_file` (deep file lands under the real root, not
+> `default`) + `test_folderscanner_reference` (full-listing/selective-descent/maxDepth-ignored).
+> Verified failing on pre-fix code before the fix, per reproduce-before-fix discipline.
 
 ## 9. 'Running NPM update in the terminal does not produce the expected output'
 **Where:** Terminal emulator/window

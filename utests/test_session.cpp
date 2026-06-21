@@ -73,6 +73,7 @@ DLL_EXPORT int test_session_document_roundtrip(ITesting *t);
 DLL_EXPORT int test_session_workspace_enumerate(ITesting *t);
 DLL_EXPORT int test_session_workspace_reopen_skips_missing(ITesting *t);
 DLL_EXPORT int test_session_workspace_reopen_reuses_scanned_node(ITesting *t);
+DLL_EXPORT int test_session_workspace_reopen_scans_deep_file(ITesting *t);
 DLL_EXPORT int test_session_splitter_roundtrip(ITesting *t);
 DLL_EXPORT int test_session_splitter_untagged_noop(ITesting *t);
 DLL_EXPORT int test_session_layout_walk_roundtrip(ITesting *t);
@@ -319,6 +320,50 @@ DLL_EXPORT int test_session_workspace_reopen_reuses_scanned_node(ITesting *t) {
     TR_ASSERT(t, scannedNode->GetDocument() == document);
     TR_ASSERT(t, workspace.GetOpenDocuments().size() == 1);
 
+    return kTR_Pass;
+}
+
+// Reproduces open-bugs.md #8: restoring a session that references a file BELOW the initial
+// max_scan_depth frontier. OpenFolder scans only to the depth bound, so the deep file is absent from
+// the model tree; ReopenDocument -> NewDocumentWithFileRef -> FindNodeForPath then misses, and (before
+// the fix) the file is parented under a separate 'default' root instead of its real location. The fix
+// scans just the path-to-the-file into its owning project root, so the restored document lands on a
+// node reachable from the real root at its true path.
+DLL_EXPORT int test_session_workspace_reopen_scans_deep_file(ITesting *t) {
+    // Force the shallow frontier: testfiles/ is entered at depth 0 but NOT descended (depth+1 == 1 ==
+    // maxDepth), so testfiles/ConvertUTF.cpp is below the frontier and not in the tree after OpenFolder.
+    int prevDepth = Config::Instance()["workspace"].GetInt("max_scan_depth", 6);
+    Config::Instance()["workspace"].SetInt("max_scan_depth", 1);
+
+    Workspace workspace;
+    bool opened = workspace.OpenFolder(".");
+
+    auto rootNode = workspace.GetProjectRoots().empty() ? nullptr
+                                                        : workspace.GetProjectRoots()[0]->GetRootNode();
+    auto absFile = std::filesystem::current_path() / "testfiles" / "ConvertUTF.cpp";
+    // Precondition: the frontier was NOT descended, so the deep file really is absent right now.
+    bool absentBefore = (rootNode != nullptr) && (rootNode->FindNodeWithPath(absFile) == nullptr);
+
+    // Restore a session entry for that deep file (relative path, exactly as a saved session carries it).
+    DocumentSession docSession;
+    docSession.path = "testfiles/ConvertUTF.cpp";
+    auto document = workspace.ReopenDocument(docSession);
+
+    // The restored document must be reachable from the REAL project root at its true path - not dumped
+    // under a separate 'default' root.
+    auto placedNode = (rootNode != nullptr) ? rootNode->FindNodeWithPath(absFile) : nullptr;
+    size_t rootCount = workspace.GetProjectRoots().size();
+
+    // Restore config BEFORE asserting so an assert-abort can't leak the setting to other tests.
+    Config::Instance()["workspace"].SetInt("max_scan_depth", prevDepth);
+
+    TR_ASSERT(t, opened);
+    TR_ASSERT(t, rootNode != nullptr);
+    TR_ASSERT(t, absentBefore);                       // deep file genuinely below the frontier
+    TR_ASSERT(t, document != nullptr);
+    TR_ASSERT(t, placedNode != nullptr);              // FAILS pre-fix: file lands under 'default' root
+    TR_ASSERT(t, placedNode->GetDocument() == document);
+    TR_ASSERT(t, rootCount == 1);                     // no separate 'default' root was spun up
     return kTR_Pass;
 }
 

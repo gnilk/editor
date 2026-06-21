@@ -567,6 +567,14 @@ namespace gedit {
         // OpenFolder, or already open under a different root). Path is resolved to absolute before the
         // search since callers may pass either form.
         Node::Ref FindNodeForPath(const std::filesystem::path &path);
+        // open-bugs.md #8: a file BELOW the initial max_scan_depth frontier (e.g. a restored session
+        // file) isn't in any tree. If it lies under a real ProjectRoot, scan ONLY the path to it into
+        // that root (full listing per level, descend toward the file) and return its node; nullptr if
+        // the path isn't under any real root (caller then falls back to the default root).
+        Node::Ref EnsurePathInTree(const std::filesystem::path &pathFileName);
+        // Reference-guided shallow scan from `startNode` (a frontier folder) toward refPath, via the
+        // same ApplyFsEntry seam / parent-stack adapter as ReadFolderToNode and ScanNode.
+        void ScanPathToReference(Node::Ref startNode, const std::filesystem::path &refPath);
 
         ProjectRoot::Ref GetDefaultRoot();   // creates the CWD-based default root if needed
 

@@ -74,6 +74,7 @@ static void FillTreeView(WorkspaceView::TreeRef tree, WorkspaceView::TreeNodeRef
 
 void WorkspaceView::InitView() {
     VisibleView::InitView();
+    linesPerScrollWheelNotch = Config::Instance()[cfgSectionName].GetInt("lines_per_scroll_wheel_notch", 3);
     CreateTree();
     AddView(treeView.get());
 
@@ -94,6 +95,7 @@ void WorkspaceView::InitView() {
 // Actually: 'InvalidateAll' and 'Reinitialize' is the 'goto' redraw mechanism (since I have no clue how the UI work anymore)
 void WorkspaceView::ReInitView() {
     VisibleView::ReInitView();
+    linesPerScrollWheelNotch = Config::Instance()[cfgSectionName].GetInt("lines_per_scroll_wheel_notch", 3);
 
 
     // Re-Init is called by a lot of reasons...
@@ -286,12 +288,6 @@ bool WorkspaceView::OnAction(const EditorAction &kpAction) {
     return ViewBase::OnAction(kpAction);
 }
 
-namespace {
-    // Lines moved per wheel notch - mirrors EditorView's hardcoded "SIMPLE" first cut
-    // (docs/mouse-support.md "Open questions": not yet keymap-configurable).
-    constexpr int kWheelLinesPerNotch = 3;
-}
-
 // Active-line change side-effect shared by keyboard nav (OnAction) and mouse nav: if the newly
 // selected node is a folder, it becomes the workspace's active folder node.
 static void NotifyActiveFolderNodeIfChanged(WorkspaceView::TreeRef treeView) {
@@ -312,7 +308,7 @@ bool WorkspaceView::OnMouseEvent(const MouseEvent &mouseEvent) {
         case MouseEvent::kMouseEventKind_Press:
             return OnMousePressedEvent(mouseEvent);
         case MouseEvent::kMouseEventKind_Wheel:
-            treeView->MoveSelectionByRows(-mouseEvent.wheelDelta * kWheelLinesPerNotch);
+            treeView->MoveSelectionByRows(-mouseEvent.wheelDelta * linesPerScrollWheelNotch);
             NotifyActiveFolderNodeIfChanged(treeView);
             InvalidateAll();
             return true;

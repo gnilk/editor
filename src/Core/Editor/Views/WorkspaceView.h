@@ -62,6 +62,8 @@ namespace gedit {
 
     private:
         TreeRef treeView;
+        // Cached from config ("workspaceview.lines_per_scroll_wheel_notch") in InitView/ReInitView.
+        int linesPerScrollWheelNotch = 3;
         // One-shot expand/collapse seed from a restored session: merged into the next PopulateTree then
         // cleared. Kept separate from the per-rebuild live-tree snapshot so it never overrides a later
         // user collapse/expand.

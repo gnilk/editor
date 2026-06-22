@@ -115,6 +115,8 @@ workspaceview:
   switch_to_editor_on_openfile: yes
   auto_expand_view: yes
   hide_dot_files: yes
+  # Number of rows to scroll per mouse-wheel notch
+  lines_per_scroll_wheel_notch: 1
 
 #
 # Add ability to include user-name, and other things here (working dir???)

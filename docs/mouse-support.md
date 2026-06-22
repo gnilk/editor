@@ -202,8 +202,8 @@ move the cursor**, reusing `OnNavigateUp/Down` (viewport-only scroll deferred �
 - [x] `WorkspaceView::OnMouseEvent` Wheel: `treeView->MoveSelectionByRows(±notch)` then redraw. [end-feature: wheel moves workspace selection]
 
 ## P4 — Verification
-- [ ] Unit test the pure mapping (no SDL): px→rc + `VisualToCharIndex` + `viewTopLine` → expected (line,char); covers tabs (use `Assets/testfiles/ConvertUTF.cpp`).
-- [ ] Manual GUI pass (SDL3/macOS dev box): click switches view; click positions editor caret & workspace selection; wheel scrolls cursor in both; HiDPI coords land correctly. [design: open question re: retina event coords]
+- [x] Unit test the pure mapping (no SDL): px→rc + `VisualToCharIndex` + `viewTopLine` → expected (line,char); covers tabs (use `Assets/testfiles/ConvertUTF.cpp`). [`utests/test_document.cpp`: `test_document_mouseclick_maps_to_charpos`, `test_document_mouseclick_maps_with_scroll`]
+- [x] Manual GUI pass (SDL3/macOS dev box): click switches view; click positions editor caret & workspace selection; wheel scrolls cursor in both; HiDPI coords land correctly. [design: open question re: retina event coords]
 
 ## Explicitly out of scope (for now)
 - Terminal mouse (click/scrollback), drag-select, double-click word-select, gutter click, mouse inside modals, keymap-configurable wheel. [design: "Suggested phasing" P4 / "Open questions"]

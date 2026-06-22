@@ -71,6 +71,11 @@ DLL_EXPORT int test_document_cut_paste_linewise_undo(ITesting *t);
 DLL_EXPORT int test_document_cut_paste_charwise(ITesting *t);
 DLL_EXPORT int test_document_cut_paste_funcbody(ITesting *t);
 
+// 'mouseclick' - the pure (row,col)+viewTopLine -> (line,char) mapping mouse click-to-position uses
+// (docs/mouse-support.md P4), against a real file with tabs.
+DLL_EXPORT int test_document_mouseclick_maps_to_charpos(ITesting *t);
+DLL_EXPORT int test_document_mouseclick_maps_with_scroll(ITesting *t);
+
 }
 
 // Define some common actions, this will trigger side-effects in the document
@@ -1280,5 +1285,90 @@ DLL_EXPORT int test_document_cut_paste_funcbody(ITesting *t) {
     TR_ASSERT(t, document->LineAt(1)->Buffer() == U"    foo();");
     TR_ASSERT(t, document->LineAt(2)->Buffer() == U"    bar();");
     TR_ASSERT(t, document->LineAt(3)->Buffer() == U"}");      // NOT joined as "    bar();}"
+    return kTR_Pass;
+}
+
+// ---------------------------------------------------------------------------------------------------
+// Mouse click-to-position (docs/mouse-support.md P4): pin the pure mapping chain
+// EditorView::OnMousePressedEvent relies on - viewTopLine + local row -> idxLine, then
+// Line::VisualToCharIndex(localCol, tabSize) -> idxChar - against a real file with a hard tab, so the
+// tab-cell-width behaviour (already unit-tested in isolation in test_linelayout) is also exercised
+// through this layer. No SDL/screen involved - row/col stand in for the already-translated px->rc.
+// ---------------------------------------------------------------------------------------------------
+
+// Load ConvertUTF.cpp via a hermetic local workspace (mirrors test_textbuffer_parsefull) and return
+// its document, parked at the given view height.
+static Document::Ref LoadConvertUTFDocument(ITesting *t, int viewHeight) {
+    Config::Instance()["main"].SetBool("threaded_syntaxparser", false);
+    Workspace workspace;
+    auto node = workspace.NewDocumentWithFileRef("testfiles/ConvertUTF.cpp");
+    TR_ASSERT(t, node != nullptr);
+    TR_ASSERT(t, node->LoadData());
+    auto document = node->GetDocument();
+    TR_ASSERT(t, document != nullptr);
+    document->OnViewInit(gedit::Rect(80, viewHeight));
+    return document;
+}
+
+// Line 63 (1-based) of ConvertUTF.cpp is `#define false<TAB>   0` - a hard tab right after "false".
+// At the default tabsize (4), char index 13 is the tab: chars 0..12 sit at visual columns 0..12
+// (1:1, no tabs yet), so the tab cell spans visual columns 13..15 and the next char (the first of the
+// three trailing spaces, char index 14) starts at visual column 16.
+DLL_EXPORT int test_document_mouseclick_maps_to_charpos(ITesting *t) {
+    auto document = LoadConvertUTFDocument(t, 20);
+    auto &lineCursor = document->GetLineCursor();
+    TR_ASSERT(t, lineCursor.viewTopLine == 0);   // no scroll yet - row == idxLine directly
+
+    const size_t idxTabLine = 62;   // 0-based -> line 63
+    auto line = document->LineAt(idxTabLine);
+    TR_ASSERT(t, line != nullptr);
+    TR_ASSERT(t, line->Buffer() == U"#define false\t   0");
+
+    int tabSize = document->GetTextBuffer()->GetLanguage().GetTabSize();
+    TR_ASSERT(t, tabSize == 4);   // pin the default this test's expectations are built on
+
+    // Click row == idxTabLine (no scroll) at the start of the line - lands on '#'.
+    size_t idxLine = lineCursor.viewTopLine + idxTabLine;
+    TR_ASSERT(t, idxLine == idxTabLine);
+    TR_ASSERT(t, document->LineAt(idxLine)->VisualToCharIndex(0, tabSize) == 0);
+
+    // Click anywhere inside the tab's visual cell (columns 13..15) -> lands on the tab character (13).
+    TR_ASSERT(t, line->VisualToCharIndex(13, tabSize) == 13);
+    TR_ASSERT(t, line->VisualToCharIndex(14, tabSize) == 13);
+    TR_ASSERT(t, line->VisualToCharIndex(15, tabSize) == 13);
+
+    // Click just past the tab cell (column 16) -> lands on the first trailing space (char index 14).
+    TR_ASSERT(t, line->VisualToCharIndex(16, tabSize) == 14);
+
+    // Click on the '0' (3 spaces after the tab, char index 17, visual column 19).
+    TR_ASSERT(t, line->VisualToCharIndex(19, tabSize) == 17);
+
+    return kTR_Pass;
+}
+
+// Same mapping, but through a SCROLLED view (viewTopLine != 0) - the realistic case, since a click can
+// only land on an on-screen row. localRow is relative to the viewport, so idxLine must add viewTopLine
+// back in, exactly like EditorView::OnMousePressedEvent does.
+DLL_EXPORT int test_document_mouseclick_maps_with_scroll(ITesting *t) {
+    auto document = LoadConvertUTFDocument(t, 20);
+    auto &lineCursor = document->GetLineCursor();
+
+    const size_t idxTabLine = 62;
+    lineCursor.viewTopLine = 60;
+    lineCursor.viewBottomLine = 80;
+    TR_ASSERT(t, lineCursor.IsInside(idxTabLine));   // sanity: the target line is on-screen
+
+    const int localRow = 2;   // idxTabLine - viewTopLine
+    size_t idxLine = lineCursor.viewTopLine + localRow;
+    TR_ASSERT(t, idxLine == idxTabLine);
+
+    auto line = document->LineAt(idxLine);
+    TR_ASSERT(t, line != nullptr);
+    TR_ASSERT(t, line->Buffer() == U"#define false\t   0");
+
+    int tabSize = document->GetTextBuffer()->GetLanguage().GetTabSize();
+    TR_ASSERT(t, line->VisualToCharIndex(14, tabSize) == 13);   // inside the tab cell
+    TR_ASSERT(t, line->VisualToCharIndex(19, tabSize) == 17);   // the '0'
+
     return kTR_Pass;
 }

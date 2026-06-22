@@ -25,12 +25,15 @@ namespace gedit::SDL2 {
         // Returns a KeyPress for SDL_KEYDOWN and SDL_TEXTINPUT events; empty otherwise.
         std::optional<KeyPress> ProcessEvent(const SDL_Event &event);
 
+        // Public so SDLScreen::PollEvents() can reuse it for mouse events as well
+        // (keeps modifier translation in one place).
+        uint8_t TranslateModifiers(uint16_t sdlModifiers);
+
     protected:
         std::optional<KeyPress> HandleKeyPressEvent(const SDL_Event &event);
         void CheckRemoveTextInputEventForKeyPress(const KeyPress &kp);
         KeyPress TranslateSDLEvent(const SDL_KeyboardEvent &kbdEvent);
         int TranslateScanCode(int scanCode);
-        uint8_t TranslateModifiers(uint16_t sdlModifiers);
         void HookEditorClipBoard();
     protected:
         uint32_t sdlDummyEvent = 0;

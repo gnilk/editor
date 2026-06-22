@@ -172,6 +172,11 @@ namespace gedit {
         // and by the HexView write-back (a hex-space move translated back into text coords).
         void SetCursorPosition(size_t idxLine, size_t idxChar);
 
+        // Move the active line by 'delta' rows (negative = up, positive = down) and re-apply the
+        // wanted column - the same primitive OnActionLineUp/Down use for a single row, exposed for
+        // callers (mouse wheel) that need an arbitrary row count without going through kUIAction.
+        void MoveCursorByLines(int delta);
+
         void PasteFromClipboard();
 
         bool OnAction(const EditorAction &kpAction);

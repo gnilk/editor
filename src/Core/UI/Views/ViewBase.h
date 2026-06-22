@@ -15,6 +15,7 @@
 #include "Core/Rect.h"
 #include "Core/UI/Graphics/WindowBase.h"
 #include "Core/KeyPress.h"
+#include "Core/MouseEvent.h"
 #include "Core/Graphics/Cursor.h"
 #include "Core/Action.h"
 #include "Core/KeyMapping.h"
@@ -269,6 +270,29 @@ namespace gedit {
         }
 
         virtual bool OnAction(const EditorAction &action);
+
+        // Mouse is spatially-routed (RootView::DispatchMouse hit-tests, then calls this on the hit
+        // view, bubbling to parentView while it returns false) - unlike keyboard, which is focus-routed.
+        // Override in a concrete view to handle press/release/wheel; return false to bubble.
+        virtual bool OnMouseEvent(const MouseEvent &mouseEvent) {
+            return false;
+        }
+
+        // Deepest visible view whose absolute viewRect contains (x,y) - row/col, same space as
+        // viewRect (Core/Rect.h). Rects are absolute screen coordinates (splitters Move() children off
+        // the parent's origin), so this generic walk works unchanged for stacks/splitters. Returns
+        // nullptr if the point is outside this view (and thus outside the whole subtree).
+        virtual ViewBase *HitTest(int x, int y) {
+            if (!IsVisible() || !viewRect.PointInRect(x, y)) {
+                return nullptr;
+            }
+            for (auto it = subviews.rbegin(); it != subviews.rend(); ++it) {
+                if (auto hit = (*it)->HitTest(x, y); hit != nullptr) {
+                    return hit;
+                }
+            }
+            return this;
+        }
 
         virtual void PostMessage(MessageCallback callback) final;
         //virtual int ProcessMessageQueue() final;

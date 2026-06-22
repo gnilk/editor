@@ -22,6 +22,7 @@
 #include "Core/RuntimeConfig.h"
 #include "Core/Config/Config.h"
 #include "Core/Runloop.h"
+#include "Core/MouseEvent.h"
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_video.h>
@@ -435,6 +436,35 @@ void SDLScreen::PollEvents() {
                         Runloop::ProcessKeyPress(captured);
                     });
                 }
+                break;
+            }
+
+            case SDL_MOUSEBUTTONDOWN:
+            case SDL_MOUSEBUTTONUP: {
+                Point rc = SDLTranslate::PixelToRowCol(Point(event.button.x, event.button.y));
+                MouseEvent me;
+                me.kind = (event.type == SDL_MOUSEBUTTONDOWN) ? MouseEvent::kMouseEventKind_Press : MouseEvent::kMouseEventKind_Release;
+                me.x = rc.x;
+                me.y = rc.y;
+                me.button = event.button.button;
+                me.modifiers = keyDriver->TranslateModifiers(SDL_GetModState());
+                Runloop::PostMessage(0, [me](uint32_t) {
+                    Runloop::ProcessMouseEvent(me);
+                });
+                break;
+            }
+
+            case SDL_MOUSEWHEEL: {
+                Point rc = SDLTranslate::PixelToRowCol(Point(event.wheel.mouseX, event.wheel.mouseY));
+                MouseEvent me;
+                me.kind = MouseEvent::kMouseEventKind_Wheel;
+                me.x = rc.x;
+                me.y = rc.y;
+                me.wheelDelta = event.wheel.y;
+                me.modifiers = keyDriver->TranslateModifiers(SDL_GetModState());
+                Runloop::PostMessage(0, [me](uint32_t) {
+                    Runloop::ProcessMouseEvent(me);
+                });
                 break;
             }
 

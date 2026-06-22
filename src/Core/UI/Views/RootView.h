@@ -8,6 +8,7 @@
 #include "logger.h"
 
 #include "Core/UI/UIHost.h"
+#include "Core/MouseEvent.h"
 #include "ViewBase.h"
 
 namespace gedit {
@@ -166,6 +167,38 @@ namespace gedit {
             TopView()->HandleKeyPress(keyPress);
         }
 
+        // Mouse is spatially-routed (see ViewBase::OnMouseEvent), so it gets its own dispatch path
+        // separate from HandleKeyPress: (1) a modal restricts the hit-test to its own subtree (and
+        // swallows the event if the click misses it), (2) hit-test the real subview tree (the same
+        // tree Draw() walks - topViews are a parallel name->ViewBase* registry over the same
+        // instances, see AddTopView), (3) activate the enclosing top view (focus-follows-click), (4)
+        // call OnMouseEvent on the hit view, bubbling to parentView while it returns false.
+        bool DispatchMouse(const MouseEvent &mouseEvent) {
+            ViewBase *hit = nullptr;
+            if (modal != nullptr) {
+                hit = modal->HitTest(mouseEvent.x, mouseEvent.y);
+                if (hit == nullptr) {
+                    return true; // swallow - modal owns all input while active
+                }
+            } else {
+                hit = HitTest(mouseEvent.x, mouseEvent.y);
+                if (hit == nullptr) {
+                    return false;
+                }
+                auto topViewName = FindEnclosingTopViewName(hit);
+                if (topViewName.has_value()) {
+                    SetActiveTopViewByName(*topViewName);
+                }
+            }
+
+            for (auto view = hit; view != nullptr; view = view->GetParentView()) {
+                if (view->OnMouseEvent(mouseEvent)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
     protected:
         void OnViewInitialized() override {
             ViewBase::OnViewInitialized();
@@ -205,6 +238,21 @@ namespace gedit {
     protected:
         void LeaveQuickCommand() {
             UIHost::Instance().NotifyLeaveQuickCommand();
+        }
+
+        // Walk from the hit view up through parentView until we recognize one as a registered top
+        // view (pointer identity against topViews) - "focus the view I clicked" must resolve to the
+        // enclosing TOP VIEW, not the leaf (e.g. a click lands in EditorView, but the registered top
+        // view is the enclosing EditorViewContainer).
+        std::optional<std::string> FindEnclosingTopViewName(ViewBase *view) {
+            for (auto v = view; v != nullptr; v = v->GetParentView()) {
+                for (auto &t : topViews) {
+                    if (t.view.get() == v) {
+                        return {t.name};
+                    }
+                }
+            }
+            return {};
         }
     protected:
         int idxCurrentTopView = -1;

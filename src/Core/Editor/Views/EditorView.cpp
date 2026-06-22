@@ -192,6 +192,47 @@ bool EditorView::OnAction(const EditorAction &kpAction) {
 }
 
 
+namespace {
+    // Lines moved per wheel notch - hardcoded for the "SIMPLE" first cut (docs/mouse-support.md
+    // "Open questions": not yet keymap-configurable).
+    constexpr int kWheelLinesPerNotch = 3;
+}
+
+bool EditorView::OnMouseEvent(const MouseEvent &mouseEvent) {
+    if (document == nullptr) {
+        return false;
+    }
+
+    switch (mouseEvent.kind) {
+        case MouseEvent::kMouseEventKind_Press:
+            return OnMousePressedEvent(mouseEvent);
+        case MouseEvent::kMouseEventKind_Wheel:
+            document->MoveCursorByLines(-mouseEvent.wheelDelta * kWheelLinesPerNotch);
+            InvalidateView();
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool EditorView::OnMousePressedEvent(const MouseEvent &mouseEvent) {
+    auto contentOrigin = GetContentRect().TopLeft();
+    int row = mouseEvent.y - contentOrigin.y;
+    int col = mouseEvent.x - contentOrigin.x;
+
+    auto &lineCursor = document->GetLineCursor();
+    size_t idxLine = lineCursor.viewTopLine + row;
+    auto line = document->LineAt(idxLine);
+    if (line == nullptr) {
+        return true;
+    }
+    int tabSize = document->GetTextBuffer()->GetLanguage().GetTabSize();
+    size_t idxChar = line->VisualToCharIndex(col, tabSize);
+    document->SetCursorPosition(idxLine, idxChar);
+    InvalidateView();
+    return true;
+}
+
 void EditorView::SetWindowCursor(const Cursor &cursor) {
     if ((Editor::Instance().GetState() == Editor::ViewState) && (document != nullptr)) {
         // The document cursor's position.x is a character index. Tabs render wider than one cell, so

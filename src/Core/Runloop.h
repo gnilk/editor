@@ -11,6 +11,7 @@
 #include <stack>
 #include "Core/KeypressAndActionHandler.h"
 #include "Core/KeyMapping.h"
+#include "Core/MouseEvent.h"
 #include "Core/UI/Views/ViewBase.h"
 #include "Core/SafeQueue.h"
 
@@ -74,6 +75,7 @@ namespace gedit {
 
         // TEMP?
         static bool ProcessKeyPress(KeyPress keyPress);
+        static bool ProcessMouseEvent(MouseEvent mouseEvent);
     private:
         static bool DispatchToHandler(KeyPress keyPress);
         static void InstallKeymapChangeNotification();

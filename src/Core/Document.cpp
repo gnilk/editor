@@ -109,12 +109,30 @@ size_t Document::SearchFor(const std::u32string &searchItem) {
 }
 
 void Document::SetCursorPosition(size_t idxLine, size_t idxChar) {
-    GetCursor().position.y = idxLine;
     GetCursor().position.x = idxChar;
     documentViewState->lineCursor.idxActiveLine = idxLine;
     CaptureWantedColumn(GetCursor(), LineAt(idxLine));
 
     RefocusViewArea();
+
+    // cursor.position.y is the caret's SCREEN row (relative to viewTopLine) everywhere else
+    // (VerticalNavigationViewModel::OnNavigateUp/Down) - derive it the same way here, after
+    // RefocusViewArea has settled viewTopLine, instead of leaving the absolute idxLine in place.
+    GetCursor().position.y = (int)idxLine - documentViewState->lineCursor.viewTopLine;
+}
+
+void Document::MoveCursorByLines(int delta) {
+    // One row at a time, like a repeated arrow-key press - VerticalNavigationCLion only fast-paths
+    // rows==1 as a simple line-step; rows>1 takes its page-jump branch (viewTopLine and idxActiveLine
+    // shift together, so the caret's screen row deliberately stays put) which is wrong for a wheel
+    // nudge - it should move the caret, not page the content.
+    for (int i = 0; i < -delta; i++) {
+        verticalNavigationViewModel->OnNavigateUp(1, viewRect, Lines().size());
+    }
+    for (int i = 0; i < delta; i++) {
+        verticalNavigationViewModel->OnNavigateDown(1, viewRect, Lines().size());
+    }
+    UpdateDocumentFromNavigation(true);
 }
 
 bool Document::JumpToSearchHit(size_t idxHit) {

@@ -44,6 +44,7 @@ namespace gedit {
         void SetWindowCursor(const Cursor &cursor) override;
 
         bool OnAction(const EditorAction &kpAction) override;
+        bool OnMouseEvent(const MouseEvent &mouseEvent) override;
 
 
         const std::u32string &GetStatusBarAbbreviation() override {
@@ -57,6 +58,7 @@ namespace gedit {
         void OnResized() override;
         void OnActivate(bool isActive) override;
         void DrawViewContents() override;
+        bool OnMousePressedEvent(const MouseEvent &mouseEvent);
     private:
         void DrawSearchResultOverlays(DrawContext &dc, int tabSize);
         void DrawSelectionOverlay(DrawContext &dc, int tabSize);

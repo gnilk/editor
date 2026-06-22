@@ -64,6 +64,8 @@ namespace gedit {
         void DrawSelectionOverlay(DrawContext &dc, int tabSize);
     private:
         bool bUseCLionPageNav = true;
+        // Cached from config ("editorview.lines_per_scroll_wheel_notch") in InitView/ReInitView.
+        int linesPerScrollWheelNotch = 5;
         Document::Ref document;
         // The edit controller is a per-item member (1:1 with this view), like TerminalController in
         // TerminalView. It borrows the active document; we Attach/Detach it on document switch.

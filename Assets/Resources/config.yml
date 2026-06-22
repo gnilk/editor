@@ -106,6 +106,8 @@ ncurses:
 editorview:
   # content_first is CLion/Sublime style (no = VSCode style, cursor first)
   pgupdown_content_first: yes
+  # Number of lines to scroll per mouse-wheel notch
+  lines_per_scroll_wheel_notch: 5
   keymap: "default_keymap"
 
 workspaceview:

@@ -37,6 +37,7 @@ void EditorView::InitView()  {
     auto &rect = window->GetContentDC().GetRect();
 
     bUseCLionPageNav = Config::Instance()[cfgSectionName].GetBool("pgupdown_content_first", true);
+    linesPerScrollWheelNotch = Config::Instance()[cfgSectionName].GetInt("lines_per_scroll_wheel_notch", 5);
 
     document = Editor::Instance().GetActiveDocument();
     if (document == nullptr) {
@@ -58,6 +59,7 @@ void EditorView::ReInitView() {
     auto &rect = window->GetContentDC().GetRect();
 
     bUseCLionPageNav = Config::Instance()[cfgSectionName].GetBool("pgupdown_content_first", true);
+    linesPerScrollWheelNotch = Config::Instance()[cfgSectionName].GetInt("lines_per_scroll_wheel_notch", 5);
 
     document = Editor::Instance().GetActiveDocument();
     if (document == nullptr) {
@@ -192,12 +194,6 @@ bool EditorView::OnAction(const EditorAction &kpAction) {
 }
 
 
-namespace {
-    // Lines moved per wheel notch - hardcoded for the "SIMPLE" first cut (docs/mouse-support.md
-    // "Open questions": not yet keymap-configurable).
-    constexpr int kWheelLinesPerNotch = 3;
-}
-
 bool EditorView::OnMouseEvent(const MouseEvent &mouseEvent) {
     if (document == nullptr) {
         return false;
@@ -207,7 +203,7 @@ bool EditorView::OnMouseEvent(const MouseEvent &mouseEvent) {
         case MouseEvent::kMouseEventKind_Press:
             return OnMousePressedEvent(mouseEvent);
         case MouseEvent::kMouseEventKind_Wheel:
-            document->MoveCursorByLines(-mouseEvent.wheelDelta * kWheelLinesPerNotch);
+            document->MoveCursorByLines(-mouseEvent.wheelDelta * linesPerScrollWheelNotch);
             InvalidateView();
             return true;
         default:

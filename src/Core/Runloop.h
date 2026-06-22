@@ -6,6 +6,7 @@
 #define EDITOR_RUNLOOP_H
 
 #include <functional>
+#include <atomic>
 
 #include <stack>
 #include "Core/KeypressAndActionHandler.h"
@@ -59,12 +60,12 @@ namespace gedit {
         template<typename T>
         static void PostMessage(uint32_t msgIdentifier, std::unique_ptr<T> msg, const MessageCallback handler) {
             auto msgData = std::make_unique<Message>(msgIdentifier, std::move(msg), handler);
-            incomingQueue->push(std::move(msgData));
+            incomingQueue.load()->push(std::move(msgData));
         }
 
         static void PostMessage(uint32_t msgIdentifier, const MessageCallbackNoData handler) {
             auto msgData = std::make_unique<Message>(msgIdentifier, handler);
-            incomingQueue->push(std::move(msgData));
+            incomingQueue.load()->push(std::move(msgData));
         }
 
         // Call with 'null' to disable
@@ -86,8 +87,8 @@ namespace gedit {
 
         static KeyMapping::Ref activeKeyMap;
 
-        static MessageQueue *processingQueue;
-        static MessageQueue *incomingQueue;
+        static std::atomic<MessageQueue *> processingQueue;
+        static std::atomic<MessageQueue *> incomingQueue;
 
         static MessageQueue msgQueueA;
         static MessageQueue msgQueueB;

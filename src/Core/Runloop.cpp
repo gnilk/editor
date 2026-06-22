@@ -22,8 +22,8 @@ KeyMapping::Ref  Runloop::activeKeyMap = nullptr;
 Runloop::MessageQueue Runloop::msgQueueA = {};
 Runloop::MessageQueue Runloop::msgQueueB = {};
 
-Runloop::MessageQueue *Runloop::incomingQueue = &Runloop::msgQueueA;
-Runloop::MessageQueue *Runloop::processingQueue = &Runloop::msgQueueB;
+std::atomic<Runloop::MessageQueue *> Runloop::incomingQueue = &Runloop::msgQueueA;
+std::atomic<Runloop::MessageQueue *> Runloop::processingQueue = &Runloop::msgQueueB;
 
 
 void Runloop::SetKeypressAndActionHook(KeypressAndActionHandler *newHook) {
@@ -35,10 +35,11 @@ void Runloop::SetKeypressAndActionHook(KeypressAndActionHandler *newHook) {
 }
 
 void Runloop::SwapQueues() {
-    // FIXME: must be atomic or thread-safe
-    auto tmp = processingQueue;
-    processingQueue = incomingQueue;
-    incomingQueue = tmp;
+    // incomingQueue/processingQueue are std::atomic<MessageQueue *> so a concurrent
+    // PostMessage on another thread always sees a fully-formed pointer, never a torn one.
+    auto tmp = processingQueue.load();
+    processingQueue.store(incomingQueue.load());
+    incomingQueue.store(tmp);
 }
 
 void Runloop::DefaultLoop() {
@@ -52,9 +53,9 @@ void Runloop::DefaultLoop() {
 
     kpaHandlers.push({&rootView});
     isRunning = true;
-    auto szNow = incomingQueue->size();
-    processingQueue->clear();
-    incomingQueue->clear();
+    auto szNow = incomingQueue.load()->size();
+    processingQueue.load()->clear();
+    incomingQueue.load()->clear();
     auto logger = gnilk::Logger::GetLogger("RunLoop");
     while(!bQuit) {
         // Process any messages from other threads before we do anything else..
@@ -101,14 +102,14 @@ bool Runloop::ProcessMessageQueue() {
     SwapQueues();
 
     int msgCount = 0;
-    if (processingQueue->is_empty()) {
+    if (processingQueue.load()->is_empty()) {
         return result;
     }
     result = true;
 
-    logger->Debug("Processing Message Queue, elements: %zu", processingQueue->size());
-    while(!processingQueue->is_empty()) {
-        auto msgOpt = processingQueue->pop();
+    logger->Debug("Processing Message Queue, elements: %zu", processingQueue.load()->size());
+    while(!processingQueue.load()->is_empty()) {
+        auto msgOpt = processingQueue.load()->pop();
         if (!msgOpt.has_value()) {
             continue;
         }

@@ -221,6 +221,32 @@ namespace gedit {
             return treeLineCursor;
         }
 
+        // Set the active row directly to a flattened index - used by a mouse click. Unlike keyboard
+        // nav, the clicked row is always already on-screen, so this needs no RefocusViewArea step.
+        void SetSelectionAtRow(int flattenedRow) {
+            if (flattenNodeList.empty()) {
+                return;
+            }
+            if (flattenedRow < 0) {
+                flattenedRow = 0;
+            }
+            if (flattenedRow >= (int)flattenNodeList.size()) {
+                flattenedRow = (int)flattenNodeList.size() - 1;
+            }
+            treeLineCursor.idxActiveLine = flattenedRow;
+        }
+
+        // Move the active row by 'delta' rows (negative = up, positive = down), one row at a time -
+        // like a repeated arrow-key press (mirrors Document::MoveCursorByLines for the mouse wheel).
+        void MoveSelectionByRows(int delta) {
+            for (int i = 0; i < -delta; i++) {
+                verticalNavigationViewModel.OnNavigateUp(1, GetContentRect(), flattenNodeList.size());
+            }
+            for (int i = 0; i < delta; i++) {
+                verticalNavigationViewModel.OnNavigateDown(1, GetContentRect(), flattenNodeList.size());
+            }
+        }
+
         void ExpandViewToWidestItem() {
             if (flattenNodeList.empty()) return;
 

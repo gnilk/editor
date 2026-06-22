@@ -37,6 +37,7 @@ namespace gedit {
         }
 
         bool OnAction(const EditorAction &kpAction) override;
+        bool OnMouseEvent(const MouseEvent &mouseEvent) override;
 
         const std::u32string &GetStatusBarAbbreviation() override {
             static std::u32string defaultAbbr = U"WSP";
@@ -57,6 +58,7 @@ namespace gedit {
         void BuildExpandCollapseCache(std::unordered_map<std::string, bool> &cache);
         void OnActivate(bool isActive) override;
         void SwitchToEditorView();
+        bool OnMousePressedEvent(const MouseEvent &mouseEvent);
 
     private:
         TreeRef treeView;

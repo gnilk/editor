@@ -197,9 +197,9 @@ move the cursor**, reusing `OnNavigateUp/Down` (viewport-only scroll deferred �
 - [x] `EditorView::OnMouseEvent` Wheel: call `document->MoveCursorByLines(±notch)` then `InvalidateView()`. [end-feature: wheel moves editor cursor]
 
 ## P3 — WorkspaceView: click-to-select/open + wheel-moves-cursor
-- [ ] Add `TreeView` support fns (none exist for spatial use): `SetSelectionAtRow(int flattenedRow)` and `MoveSelectionByRows(int delta)` reusing `verticalNavigationViewModel.OnNavigateUp/Down` + `treeLineCursor` (`Core/UI/Views/TreeView.h`).
-- [ ] `WorkspaceView::OnMouseEvent` Press: `treeView->SetSelectionAtRow(viewTopLine+localRow)`; (open on second click / Enter still uses existing `OpenDocumentFromWorkspace`→`SwitchToEditorView`, `WorkspaceView.cpp:266`).
-- [ ] `WorkspaceView::OnMouseEvent` Wheel: `treeView->MoveSelectionByRows(±notch)` then redraw. [end-feature: wheel moves workspace selection]
+- [x] Add `TreeView` support fns (none exist for spatial use): `SetSelectionAtRow(int flattenedRow)` and `MoveSelectionByRows(int delta)` reusing `verticalNavigationViewModel.OnNavigateUp/Down` + `treeLineCursor` (`Core/UI/Views/TreeView.h`).
+- [x] `WorkspaceView::OnMouseEvent` Press: `treeView->SetSelectionAtRow(viewTopLine+localRow)`; (open on second click / Enter still uses existing `OpenDocumentFromWorkspace`→`SwitchToEditorView`, `WorkspaceView.cpp:266`).
+- [x] `WorkspaceView::OnMouseEvent` Wheel: `treeView->MoveSelectionByRows(±notch)` then redraw. [end-feature: wheel moves workspace selection]
 
 ## P4 — Verification
 - [ ] Unit test the pure mapping (no SDL): px→rc + `VisualToCharIndex` + `viewTopLine` → expected (line,char); covers tabs (use `Assets/testfiles/ConvertUTF.cpp`).

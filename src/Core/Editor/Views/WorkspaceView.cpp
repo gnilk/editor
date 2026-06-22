@@ -286,6 +286,54 @@ bool WorkspaceView::OnAction(const EditorAction &kpAction) {
     return ViewBase::OnAction(kpAction);
 }
 
+namespace {
+    // Lines moved per wheel notch - mirrors EditorView's hardcoded "SIMPLE" first cut
+    // (docs/mouse-support.md "Open questions": not yet keymap-configurable).
+    constexpr int kWheelLinesPerNotch = 3;
+}
+
+// Active-line change side-effect shared by keyboard nav (OnAction) and mouse nav: if the newly
+// selected node is a folder, it becomes the workspace's active folder node.
+static void NotifyActiveFolderNodeIfChanged(WorkspaceView::TreeRef treeView) {
+    auto activeNode = treeView->GetCurrentSelectedItem();
+    auto nodeType = activeNode->GetMeta<int>(Workspace::Node::kMetaKey_NodeType, Workspace::Node::kNodeFolder);
+    if (nodeType == Workspace::Node::kNodeFolder) {
+        auto workspace = Editor::Instance().GetWorkspace();
+        workspace->SetActiveFolderNode(activeNode);
+    }
+}
+
+bool WorkspaceView::OnMouseEvent(const MouseEvent &mouseEvent) {
+    if (treeView == nullptr) {
+        return false;
+    }
+
+    switch (mouseEvent.kind) {
+        case MouseEvent::kMouseEventKind_Press:
+            return OnMousePressedEvent(mouseEvent);
+        case MouseEvent::kMouseEventKind_Wheel:
+            treeView->MoveSelectionByRows(-mouseEvent.wheelDelta * kWheelLinesPerNotch);
+            NotifyActiveFolderNodeIfChanged(treeView);
+            InvalidateAll();
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool WorkspaceView::OnMousePressedEvent(const MouseEvent &mouseEvent) {
+    // Rows are drawn through treeView's own window (TreeView::DrawViewContents), not this
+    // wrapper's - so the click must be measured against treeView's content origin, not ours.
+    auto contentOrigin = treeView->GetContentRect().TopLeft();
+    int row = mouseEvent.y - contentOrigin.y;
+
+    auto &lineCursor = treeView->GetLineCursor();
+    treeView->SetSelectionAtRow(lineCursor.viewTopLine + row);
+    NotifyActiveFolderNodeIfChanged(treeView);
+    InvalidateAll();
+    return true;
+}
+
 void WorkspaceView::SwitchToEditorView() {
     auto &rvBase = RuntimeConfig::Instance().GetRootView();
     RootView *rootView = static_cast<RootView *>(&rvBase);

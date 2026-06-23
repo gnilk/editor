@@ -1,8 +1,9 @@
 # Terminal scrollback + command blocks — design / spec
 
 Status: **Phase 0 (scroll viewport) and Phase 1 (command blocks) DONE ✅ — TS-0a..TS-0f, TS-1a..TS-1c all
-shipped, GUI-verified, in the verified-green test suite.** Phases 2-5 (downstream consumers, OSC 133,
-per-block highlighting, persistence) remain — see §11 for what's left. Resolves
+shipped, GUI-verified, in the verified-green test suite.** Phase 1.5 (block visual affordances — §5.5)
+is the next planned item; Phases 2-5 (downstream consumers, OSC 133, per-block highlighting,
+persistence) remain — see §11 for what's left. Resolves
 [`open-bugs.md`](open-bugs.md) #10 ("Missing scrollback feature in terminal UI") for the viewing/scrolling
 half; the *grouping* infrastructure (jump-per-command, parse-build-output, open-output-as-document) the
 user wants on top of it is built (blocks exist + nav works) but not yet consumed downstream. Written
@@ -409,6 +410,68 @@ to the current top-visible abs row and sets `anchorAbsRow = block.startAbsRow` (
 `followBottom = false`). This is the iTerm2 ⌘↑/⌘↓ "jump to previous/next command" behaviour. Because
 blocks are an index over the same abs-id space the viewport already uses, this is a couple of lines.
 
+### 5.5 Block visual affordances (Phase 1.5)
+
+Once blocks exist and nav works (Phase 1, done), make them *visible*. Three escalating decorations,
+gated by `terminal.show_block_markers` (yes/no, default **no** for v1). This phase reuses rendering
+primitives the backend already has — it adds no new graphics machinery.
+
+**The primitives already exist (grounded in source).** `SDLDrawContext` (both SDL2 and SDL3) carries
+`DrawLine` / `DrawLineWithPixelOffset` (`SDL_RenderLine` + the cell→pixel `CoordsToScreen` transform),
+today `protected` and used to render the **underline** text attribute —
+`DrawStringWithAttributesAt` draws a sub-cell rule via
+`DrawLineWithPixelOffset(x, y, x+len, y, 0, baseline+margin)`. A block separator is *the same call* with
+a top-of-cell offset. The highlight is the existing `DrawContext::Overlay` (buffer-coord span +
+`isActive`, painted per row by `DrawLineOverlays(y)`) — exactly what `EditorView::DrawSearchResultOverlays`
+builds for search hits. So Phase 1.5 exposes one primitive and reuses the overlay; nothing net-new in the
+graphics layer.
+
+**5.5.1 Separator rule at block boundaries (permanent, sub-cell, no row cost).**
+In the render loop (`TerminalView::DrawViewContents`'s `drawAbsRow`) the abs id of each drawn row is
+already known; a boundary is "this abs row == some block's `endAbsRow`" (lookup against `screen.Blocks()`,
+O(blocks)/frame). Draw a thin rule *between* this row and the next. Purely additive — **no change to the
+§5 viewport math** (anchor/page/snap), because a sub-cell rule consumes no view row.
+
+Expose it as an **intention-revealing** primitive on the `DrawContext` base — `DrawHRule(int y)`
+("separator below row y"), **not** a raw "draw pixel line". Reason — and this is the load-bearing design
+decision: the planned modern-terminal (cell-grid, SSH-capable) backend **cannot draw a sub-cell line**; an
+intention-named seam lets *it* fall back to a box-drawing-char row (`U+2500 ─` via the existing
+`FillLine`) or a gutter marker — its choice — without `TerminalView` knowing or caring. Implement in
+**both SDL2 and SDL3** (CLAUDE.md keep-backends-in-sync); no-op/fallback elsewhere (NCurses out of build).
+Backend-specific caveat, recorded honestly: in a *pixel* backend the rule is sub-cell and free; in a
+*cell* backend a full-width rule must occupy a row (or degrade to a gutter glyph) — that backend's
+implementer picks the trade-off **then**; it does not block v1.
+
+**5.5.2 Selected-block highlight (on jump-back).**
+No new state in the common case: §5.4 nav sets `anchorAbsRow = block.startAbsRow`, so the selected block
+is "the block at/containing `anchorAbsRow`" (add an explicit `selectedBlockId` only if free-scroll
+selection is wanted later). Highlight it by building one `DrawContext::Overlay` spanning the block's
+visible rows (viewY space) — mirroring search-result highlighting. **Caveat:** the grid-row path
+(`TerminalView::DrawScreenRow` + `DrawStringAt`) does **not** call `DrawLineOverlays(y)` today (only the
+`LineRender` scrollback path does), so the grid tail of a block won't pick up the overlay until that path
+honors overlays (or the highlight fill is drawn before the rows). One-line fix, flagged so it isn't a
+surprise.
+
+**5.5.3 Contextual action bar on the selected block (HUD, no row cost).**
+*Only the selected block* gets a status/action line — this is the answer to "does every marker take a
+permanent row?": **no**; the row-consuming decoration is transient and single. Draw it as a HUD strip over
+the block's last (footer) row — line count + action hotkeys — so it costs zero view rows even when shown.
+Mock binding set: `S - Save | P - Promote | D - Delete`. Real semantics tie to the consumers:
+- **Promote** = open the block's output as an editable `Document` — this is **TS-2b** ("open last command
+  output as a Document"); depends on `GetBlockOutputText` (TS-2a).
+- **Save** = write the block's output to a file — also over `GetBlockOutputText` (TS-2a).
+- **Delete** = drop this block (manual block eviction) — local to the model (§7 eviction, invoked by hand;
+  honour "never evict the open block").
+
+So the *bar mechanism* lands in Phase 1.5; individual buttons activate as their backing features arrive
+(Save/Promote with Phase 2, Delete standalone). The bar is decoration + dispatch, not new block ops.
+
+**Decision (settled, supersedes §12.4):** permanent decoration is the **sub-cell separator only** (no row
+cost, no viewport-math change); the **status/action line is shown only for the selected block** as a HUD,
+never as a permanent inter-block row. This keeps the §5 viewport model (1 abs row = 1 viewY) intact in the
+pixel backend and avoids interleaving synthetic rows into the scroll/page accounting. The cell-grid
+backend falls back via the intention-named `DrawHRule` seam (above).
+
 ---
 
 ## 6. Threading / locking (the landmine)
@@ -635,6 +698,18 @@ Sized so each phase ships independently and is separately testable.
   whole blocks (a retained block is always complete); alt-screen rows never create blocks; nav lands on
   block starts. All in `test_terminalscreen`/`test_terminalcontroller`, verified-green.
 
+**Phase 1.5 — block visual affordances (§5.5). Depends on Phase 1.**
+- `TS-1.5a` `terminal.show_block_markers` config + `DrawContext::DrawHRule` (intention-revealing separator
+  primitive — SDL2 + SDL3, fallback/no-op elsewhere) + draw a sub-cell separator at each block's
+  `endAbsRow` boundary in `DrawViewContents`. *(Resolves §12.4.)*
+- `TS-1.5b` selected-block highlight via `DrawContext::Overlay` (selected = block at `anchorAbsRow`);
+  make the grid-row path (`DrawScreenRow`) honour overlays so the live tail highlights too.
+- `TS-1.5c` contextual action bar (HUD on the selected block's footer row): line count + `S/P/D` hotkeys;
+  Save/Promote dispatch to Phase 2 (TS-2a/b), Delete to manual eviction.
+- Tests (assert **properties**, not pixels): the boundary set requested for rules == `{endAbsRow}` over
+  visible blocks; the selected-block overlay covers exactly the block's visible row span; the action bar
+  appears only for the selected block and only in nav/scroll mode (never while `followBottom`).
+
 **Phase 2 — downstream consumers.**
 - `TS-2a` `GetBlockOutputText(id)` (resolve scrollback + live grid tail).
 - `TS-2b` "Open last command output as a Document" action.
@@ -682,8 +757,11 @@ Sized so each phase ships independently and is separately testable.
    (`0` = unlimited). Separate, smaller `terminal.persist_scrollback_lines` (on-disk, §8) — 2000 proposed.
 3. **OSC 133 on by default?** Recommend **off by default** in Phase 3 (opt-in via config), since it
    modifies the user's prompt; the `CommitLine` baseline already delivers blocks without it.
-4. **Block visual affordance.** Do we draw a separator/gutter mark at block boundaries in scroll mode, or
-   keep it invisible (nav-only) for v1? (Recommend: invisible for v1; add a subtle separator later.)
+4. **Block visual affordance — settled (§5.5, Phase 1.5).** Permanent: a sub-cell separator rule at block
+   boundaries (`terminal.show_block_markers`), no row cost, no viewport-math change. Selected block (on
+   jump-back): an `Overlay` highlight + a HUD action bar (`S/P/D`) on its footer row — never a permanent
+   inter-block row, so the §5 viewport model (1 abs row = 1 viewY) stays intact. The future cell-grid/SSH
+   backend falls back to a box-drawing-char rule via the intention-named `DrawHRule` seam.
 5. **Color fidelity across restart — settled (§8.1, user's call).** Preserve the actual colors: persist
    the per-span attributes in a binary `.bin` via new `TextBuffer::SaveWithAttributes()`/`LoadWithAttributes()`,
    so restored scrollback comes back with its real ANSI colors — *not* re-derived from syntax (we won't

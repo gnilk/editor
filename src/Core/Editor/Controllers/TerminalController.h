@@ -9,6 +9,7 @@
 #include <string>
 #include <mutex>
 #include <filesystem>
+#include <optional>
 
 #include "logger.h"
 #include "Core/UI/Controllers/BaseController.h"
@@ -63,6 +64,12 @@ namespace gedit {
         // block - never walks past either end of screen.Blocks() (which is never empty, TS-1a).
         void JumpToPrevPrompt();
         void JumpToNextPrompt();
+
+        // Index into screen.Blocks() of the block "selected" by the viewport (§5.5.2) - the block
+        // containing the top-visible anchor row while scrolled. nullopt when following the bottom (at
+        // the live prompt) or when the anchor falls in no block. Drives the block highlight + action
+        // bar. Assumes screenLock is held (the view holds it; single-threaded tests need none).
+        std::optional<size_t> SelectedBlockIndex() const;
 
         bool OnAction(const EditorAction &kpAction);
         bool ForwardActionToShell(const EditorAction &kpAction);

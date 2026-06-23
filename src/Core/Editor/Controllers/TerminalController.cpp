@@ -611,6 +611,25 @@ void TerminalController::JumpToNextPrompt() {
     followBottom = false;
 }
 
+// §5.5.2: the block "selected" by the viewport - the one containing the top-visible anchor row while
+// scrolled. nullopt when following the bottom (at the live prompt, nothing selected) or when the anchor
+// falls in no block. Assumes screenLock is held (reads Blocks()/AbsRowCount()); the view holds it,
+// single-threaded tests need none - same contract as CurrentTopVisibleAbsRow.
+std::optional<size_t> TerminalController::SelectedBlockIndex() const {
+    if (followBottom) {
+        return std::nullopt;
+    }
+    const auto &blocks = screen.Blocks();
+    for (size_t i = 0; i < blocks.size(); i++) {
+        const auto &block = blocks[i];
+        uint64_t end = block.endAbsRow.value_or(screen.AbsRowCount());   // open block runs to the live row
+        if (anchorAbsRow >= block.startAbsRow && anchorAbsRow < end) {
+            return i;
+        }
+    }
+    return std::nullopt;
+}
+
 void TerminalController::ExitShellOwned() {
     // Return to local line editing. The committed/aborted line lives in the shell's
     // output now; our local buffer starts fresh at the next prompt.

@@ -21,6 +21,7 @@ DLL_EXPORT int test_terminalcontroller_commitline_closes_prior_block(ITesting *t
 DLL_EXPORT int test_terminalcontroller_jump_prev_next_prompt(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_jump_prev_prompt_clamps_at_oldest(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_jump_next_prompt_clamps_at_newest(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_selected_block_index(ITesting *t);
 }
 
 // Push 'n' lines through the grid into scrollback WITHOUT starting a real shell - WriteLine (the
@@ -323,6 +324,52 @@ DLL_EXPORT int test_terminalcontroller_jump_next_prompt_clamps_at_newest(ITestin
 
     TR_ASSERT(t, c.OnAction(nextPrompt));   // already at the newest - must clamp, not crash
     TR_ASSERT(t, c.GetAnchorAbsRow() == afterFirstNext);
+
+    return kTR_Pass;
+}
+
+// TS-1.5b (§5.5.2): SelectedBlockIndex resolves the block containing the top-visible anchor while
+// scrolled, and is empty while following the bottom (you're at the live prompt - nothing selected).
+// A JumpToPrevPrompt parks the anchor on a block's startAbsRow, so the selected block is exactly the
+// one whose half-open [startAbsRow, endAbsRow) range contains it (the contiguous half-open ranges make
+// the block boundary unambiguous - the anchor belongs to the block it STARTS, not the prior one's end).
+DLL_EXPORT int test_terminalcontroller_selected_block_index(ITesting *t) {
+    TerminalController c;
+    c.Resize(20, 5);
+
+    auto commit = [&](const std::u32string &cmd) {
+        c.GetInputLine()->Append(cmd);
+        c.CommitLine();
+    };
+
+    WriteLines(c, 2);              // loose-block output before any command
+    commit(U"cmd1");
+    WriteLines(c, 5);
+    commit(U"cmd2");
+    WriteLines(c, 5);
+
+    // Following the bottom: nothing is selected.
+    TR_ASSERT(t, c.IsFollowingBottom());
+    TR_ASSERT(t, !c.SelectedBlockIndex().has_value());
+
+    // Jump back one prompt -> scrolled, anchor on a block start -> that block is selected and its
+    // range really does contain the anchor.
+    c.JumpToPrevPrompt();
+    TR_ASSERT(t, !c.IsFollowingBottom());
+    auto sel = c.SelectedBlockIndex();
+    TR_ASSERT(t, sel.has_value());
+
+    const auto &blocks = c.GetScreen().Blocks();
+    const auto &block = blocks[*sel];
+    uint64_t end = block.endAbsRow.value_or(c.GetScreen().AbsRowCount());
+    TR_ASSERT(t, c.GetAnchorAbsRow() >= block.startAbsRow);
+    TR_ASSERT(t, c.GetAnchorAbsRow() < end);
+    TR_ASSERT(t, block.startAbsRow == c.GetAnchorAbsRow());   // landed exactly on the block start
+
+    // Snapping back to the live bottom clears the selection again.
+    c.ScrollToBottom();
+    TR_ASSERT(t, c.IsFollowingBottom());
+    TR_ASSERT(t, !c.SelectedBlockIndex().has_value());
 
     return kTR_Pass;
 }

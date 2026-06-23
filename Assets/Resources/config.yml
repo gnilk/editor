@@ -126,6 +126,8 @@ commandview:
   keymap: terminal_keymap
   # Number of backlog rows to scroll per mouse-wheel notch (§5.3 docs/terminal-scrollback.md)
   lines_per_scroll_wheel_notch: 3
+  # Draw a thin separator rule at the end of each completed command block (§5.5). Off by default.
+  show_block_markers: true
 
 
 quickmode:

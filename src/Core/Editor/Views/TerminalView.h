@@ -47,6 +47,9 @@ namespace gedit {
         gnilk::ILogger *logger = nullptr;
         // Cached from config ("commandview.lines_per_scroll_wheel_notch") in InitView/ReInitView.
         int linesPerScrollWheelNotch = 3;
+        // Cached from config ("commandview.show_block_markers"): draw a separator rule at the end of
+        // each closed command block (§5.5 of docs/partially_done/terminal-scrollback.md). Off by default.
+        bool showBlockMarkers = false;
     };
 }
 

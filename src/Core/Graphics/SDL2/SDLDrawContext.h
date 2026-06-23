@@ -31,6 +31,7 @@ namespace gedit::SDL2 {
         void ClearLine(int y) const override;
         void FillLine(int y, kTextAttributes attrib, char c) const override;
         void DrawLineOverlays(int y) const override;
+        void DrawHRule(int y) const override;
 
         void DrawStringAt(int x, int y, const char *str) const override;
         void DrawStringWithAttributesAt(int x, int y, kTextAttributes attrib, const char *str) const override;

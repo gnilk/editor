@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <mutex>
+#include <unordered_set>
 
 #include "TerminalView.h"
 #include "Core/Editor.h"
@@ -28,6 +29,7 @@ void TerminalView::InitView() {
     controller.Begin();
 
     linesPerScrollWheelNotch = Config::Instance()[cfgSectionName].GetInt("lines_per_scroll_wheel_notch", 3);
+    showBlockMarkers = Config::Instance()[cfgSectionName].GetBool("show_block_markers", false);
 
     // Size the terminal screen to the full content area.
     // The grid's last row is the cursor row (prompt); it is rendered as the input
@@ -45,6 +47,7 @@ void TerminalView::ReInitView() {
     window = screen->UpdateWindow(window, viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
 
     linesPerScrollWheelNotch = Config::Instance()[cfgSectionName].GetInt("lines_per_scroll_wheel_notch", 3);
+    showBlockMarkers = Config::Instance()[cfgSectionName].GetBool("show_block_markers", false);
 
     auto &dc = window->GetContentDC();
     controller.Resize(dc.GetRect().Width(), dc.GetRect().Height());
@@ -136,6 +139,34 @@ void TerminalView::DrawViewContents() {
     uint64_t historyTop    = screen.ScrollbackBase();
     uint64_t historyBottom = screen.AbsRowCount();   // exclusive — the live/cursor row is NOT in H
 
+    // Block-end boundaries for the separator rule (§5.5): the abs id one past each CLOSED block's
+    // last row. A rule is drawn under the row at abs when (abs+1) is a boundary. The open (running)
+    // block has no endAbsRow → no rule at the live tail. Built once per frame, O(blocks).
+    std::unordered_set<uint64_t> blockEnds;
+    if (showBlockMarkers) {
+        for (auto &block : screen.Blocks()) {
+            if (block.endAbsRow.has_value()) {
+                blockEnds.insert(*block.endAbsRow);
+            }
+        }
+    }
+    ColorRGBA markerColor = termColors.GetColor("foreground") * 0.5f;   // muted text color
+    markerColor.SetAlpha(1.0f);
+
+    // Selected-block highlight (§5.5.2): a translucent overlay over the block the viewport has
+    // selected (only ever set while scrolled). drawHighlight is flipped on in the scrolled branch
+    // once the overlay rectangle is known; the overlay is drawn ON TOP of the row text (after it),
+    // mirroring how EditorView paints search/selection highlights. Stale overlays from the prior
+    // frame are dropped here.
+    dc.ClearOverlays();
+    ColorRGBA highlightColor = termColors.HasColor("selection")
+                                 ? termColors.GetColor("selection")
+                                 : termColors.GetColor("foreground");
+    if (!termColors.HasColor("selection")) {
+        highlightColor.SetAlpha(0.25f);   // keep the row text readable under the tint
+    }
+    bool drawHighlight = false;
+
     auto drawAbsRow = [&](uint64_t abs, int viewY) {
         auto resolved = screen.RowAtAbs(abs);
         if (std::holds_alternative<Line::Ref>(resolved)) {
@@ -144,12 +175,43 @@ void TerminalView::DrawViewContents() {
             DrawScreenRow(dc, *std::get<const TerminalScreen::Row *>(resolved), viewY);
         }
         // monostate (evicted/out of range) — line was already cleared, leave it blank.
+        if (showBlockMarkers && blockEnds.count(abs + 1)) {
+            dc.SetFGColor(markerColor);
+            dc.DrawHRule(viewY);
+        }
+        if (drawHighlight) {
+            dc.SetFGColor(highlightColor);
+            dc.DrawLineOverlays(viewY);
+        }
     };
 
     if (!controller.IsFollowingBottom()) {
         // Scrolled: the top-visible row is pinned to anchorAbsRow (stays stationary as new
         // output appends below) — no input composite, you're not at the prompt.
         uint64_t windowTop = std::clamp(controller.GetAnchorAbsRow(), historyTop, historyBottom);
+
+        // Highlight the selected block (§5.5.2) — only while scrolled, only with markers enabled.
+        // Map the block's [startAbsRow, endAbsRow) to viewY and add one full-width overlay; the
+        // per-row DrawLineOverlays in drawAbsRow paints it over the text.
+        if (showBlockMarkers) {
+            auto selIdx = controller.SelectedBlockIndex();
+            if (selIdx.has_value()) {
+                const auto &block = screen.Blocks()[*selIdx];
+                uint64_t selEnd = block.endAbsRow.value_or(historyBottom);   // exclusive
+                int64_t firstViewY = (int64_t)block.startAbsRow - (int64_t)windowTop;
+                int64_t lastViewY  = (int64_t)selEnd - 1 - (int64_t)windowTop;
+                firstViewY = std::max<int64_t>(firstViewY, 0);
+                lastViewY  = std::min<int64_t>(lastViewY, viewHeight - 2);   // history rows: [0, viewHeight-1)
+                if (lastViewY >= firstViewY) {
+                    DrawContext::Overlay overlay;
+                    overlay.Set(Point(0, (int)firstViewY), Point(dc.GetRect().Width(), (int)lastViewY));
+                    overlay.isActive = true;
+                    dc.AddOverlay(overlay);
+                    drawHighlight = true;
+                }
+            }
+        }
+
         for (int viewY = 0; viewY < viewHeight - 1; viewY++) {
             dc.ClearLine(viewY);
             uint64_t abs = windowTop + (uint64_t)viewY;

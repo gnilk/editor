@@ -413,7 +413,7 @@ blocks are an index over the same abs-id space the viewport already uses, this i
 ### 5.5 Block visual affordances (Phase 1.5)
 
 Once blocks exist and nav works (Phase 1, done), make them *visible*. Three escalating decorations,
-gated by `terminal.show_block_markers` (yes/no, default **no** for v1). This phase reuses rendering
+gated by `commandview.show_block_markers` (yes/no, default **no** for v1). This phase reuses rendering
 primitives the backend already has — it adds no new graphics machinery.
 
 **The primitives already exist (grounded in source).** `SDLDrawContext` (both SDL2 and SDL3) carries
@@ -698,17 +698,24 @@ Sized so each phase ships independently and is separately testable.
   whole blocks (a retained block is always complete); alt-screen rows never create blocks; nav lands on
   block starts. All in `test_terminalscreen`/`test_terminalcontroller`, verified-green.
 
-**Phase 1.5 — block visual affordances (§5.5). Depends on Phase 1.**
-- `TS-1.5a` `terminal.show_block_markers` config + `DrawContext::DrawHRule` (intention-revealing separator
-  primitive — SDL2 + SDL3, fallback/no-op elsewhere) + draw a sub-cell separator at each block's
-  `endAbsRow` boundary in `DrawViewContents`. *(Resolves §12.4.)*
-- `TS-1.5b` selected-block highlight via `DrawContext::Overlay` (selected = block at `anchorAbsRow`);
-  make the grid-row path (`DrawScreenRow`) honour overlays so the live tail highlights too.
+**Phase 1.5 — block visual affordances (§5.5). Depends on Phase 1. TS-1.5a/b DONE ✅, TS-1.5c TODO.**
+- `TS-1.5a` ✅ `commandview.show_block_markers` config (default false; read by `TerminalView`, which owns
+  the `commandview` section — not `terminal` as first specced) + `DrawContext::DrawHRule(y)` primitive
+  (base no-op; SDL2 + SDL3 draw it via `DrawLineWithPixelOffset` at the row boundary, same machinery as
+  the underline attribute) + a sub-cell separator drawn under each CLOSED block's last row in
+  `DrawViewContents` (boundary = `(abs+1) ∈ {endAbsRow}`, built once/frame). *(Resolves §12.4.)*
+- `TS-1.5b` ✅ Selected-block highlight via `DrawContext::Overlay` — `TerminalController::SelectedBlockIndex()`
+  (block containing the anchor; nullopt while `followBottom`, so the highlight only shows when scrolled);
+  the overlay is added in the scrolled render branch and painted per-row by `DrawLineOverlays` (now called
+  from BOTH the scrollback and the grid-row paths in `drawAbsRow`, so the live tail highlights too).
+  Highlight color: new `terminal.selection` theme key (`term_selection`, translucent), with a code
+  fallback. Tested via `test_terminalcontroller_selected_block_index` (selected-on-jump, empty on
+  follow-bottom, range contains the anchor).
 - `TS-1.5c` contextual action bar (HUD on the selected block's footer row): line count + `S/P/D` hotkeys;
   Save/Promote dispatch to Phase 2 (TS-2a/b), Delete to manual eviction.
-- Tests (assert **properties**, not pixels): the boundary set requested for rules == `{endAbsRow}` over
-  visible blocks; the selected-block overlay covers exactly the block's visible row span; the action bar
-  appears only for the selected block and only in nav/scroll mode (never while `followBottom`).
+- Tests (assert **properties**, not pixels): ✅ selected-block resolution (above). Remaining for 1.5c: the
+  action bar appears only for the selected block and only in nav/scroll mode (never while `followBottom`).
+  Separator/overlay *pixels* are GUI-verified, not unit-tested (SDL-bound render).
 
 **Phase 2 — downstream consumers.**
 - `TS-2a` `GetBlockOutputText(id)` (resolve scrollback + live grid tail).
@@ -758,7 +765,7 @@ Sized so each phase ships independently and is separately testable.
 3. **OSC 133 on by default?** Recommend **off by default** in Phase 3 (opt-in via config), since it
    modifies the user's prompt; the `CommitLine` baseline already delivers blocks without it.
 4. **Block visual affordance — settled (§5.5, Phase 1.5).** Permanent: a sub-cell separator rule at block
-   boundaries (`terminal.show_block_markers`), no row cost, no viewport-math change. Selected block (on
+   boundaries (`commandview.show_block_markers`), no row cost, no viewport-math change. Selected block (on
    jump-back): an `Overlay` highlight + a HUD action bar (`S/P/D`) on its footer row — never a permanent
    inter-block row, so the §5 viewport model (1 abs row = 1 viewY) stays intact. The future cell-grid/SSH
    backend falls back to a box-drawing-char rule via the intention-named `DrawHRule` seam.

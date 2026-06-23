@@ -412,9 +412,11 @@ blocks are an index over the same abs-id space the viewport already uses, this i
 
 ### 5.5 Block visual affordances (Phase 1.5)
 
-Once blocks exist and nav works (Phase 1, done), make them *visible*. Three escalating decorations,
-gated by `commandview.show_block_markers` (yes/no, default **no** for v1). This phase reuses rendering
-primitives the backend already has — it adds no new graphics machinery.
+Once blocks exist and nav works (Phase 1, done), make them *visible* and *actionable*. Two visual
+decorations (5.5.1 separator, 5.5.2 highlight) gated by `commandview.show_block_markers` (yes/no, default
+**no** for v1), plus 5.5.3 — **acting** on the selected block, which after TS-1.5b testing moved off a
+bespoke HUD onto quick-command-mode + the JS surface (folds into Phase 2). The two decorations reuse
+rendering primitives the backend already has — no new graphics machinery.
 
 **The primitives already exist (grounded in source).** `SDLDrawContext` (both SDL2 and SDL3) carries
 `DrawLine` / `DrawLineWithPixelOffset` (`SDL_RenderLine` + the cell→pixel `CoordsToScreen` transform),
@@ -452,25 +454,51 @@ visible rows (viewY space) — mirroring search-result highlighting. **Caveat:**
 honors overlays (or the highlight fill is drawn before the rows). One-line fix, flagged so it isn't a
 surprise.
 
-**5.5.3 Contextual action bar on the selected block (HUD, no row cost).**
-*Only the selected block* gets a status/action line — this is the answer to "does every marker take a
-permanent row?": **no**; the row-consuming decoration is transient and single. Draw it as a HUD strip over
-the block's last (footer) row — line count + action hotkeys — so it costs zero view rows even when shown.
-Mock binding set: `S - Save | P - Promote | D - Delete`. Real semantics tie to the consumers:
-- **Promote** = open the block's output as an editable `Document` — this is **TS-2b** ("open last command
-  output as a Document"); depends on `GetBlockOutputText` (TS-2a).
-- **Save** = write the block's output to a file — also over `GetBlockOutputText` (TS-2a).
-- **Delete** = drop this block (manual block eviction) — local to the model (§7 eviction, invoked by hand;
-  honour "never evict the open block").
+**5.5.3 Acting on the selected block — quick-command + JS, NOT a bespoke HUD (revised after TS-1.5b
+GUI testing).**
 
-So the *bar mechanism* lands in Phase 1.5; individual buttons activate as their backing features arrive
-(Save/Promote with Phase 2, Delete standalone). The bar is decoration + dispatch, not new block ops.
+The original plan here was an in-terminal HUD action bar with hardcoded `S/P/D` hotkeys. Testing TS-1.5b
+surfaced a better seam, so **the HUD is demoted to optional** and the action surface moves to the engine
+the editor already has:
+
+- **Observation (the enabling behavior):** the block highlight **persists when you press `ESC` to enter
+  quick-command-mode** (the global shortcut that parks the caret in the status bar for command entry). It
+  persists because nothing in that path snaps the terminal back to the bottom (`SelectedBlockIndex()` is
+  non-empty only while scrolled, and entering quick-command-mode neither commits a line nor types into the
+  terminal `inputLine`, so `followBottom` stays `false`). That is not a bug to fix — it is *exactly* the
+  hook: the selected block stays the **active target** while you type a command at the status bar. The
+  highlight is the affordance; **quick-command-mode is the action surface.** No new in-terminal input mode,
+  no contextual key-capture, no hardcoded buttons.
+  - To make this reliable we must *intentionally preserve* the terminal's selected-block state across the
+    focus switch into quick-command-mode (today it survives incidentally) — i.e. don't clear
+    `anchorAbsRow`/`followBottom` just because focus left the terminal view.
+
+- **Direction: expose the selected block to JS, reuse existing wiring.** There is already a `Console` JS
+  global (`ConsoleAPIWrapper`) that routes to the terminal via `RuntimeConfig::OutputConsole()` (the same
+  `IOutputConsole` the terminal registers as). Extend it:
+  - `Console.GetSelectedBlock()` → the selected block's output text (over `SelectedBlockIndex()` +
+    `GetBlockOutputText`, **TS-2a**). Optionally `Console.GetSelectedBlockInfo()` for command/exit/lineCount.
+  - Then a user/plugin cmdlet does the rest with primitives that *mostly* exist:
+    `Editor.NewDocument(name)` already creates a buffer (DocumentAPI); **populating it from a string is the
+    one small gap** — add e.g. `Editor.NewDocumentFromText(name, text)` or a `Document.AppendText`. "Put it
+    on the paste buffer" likewise needs a thin clipboard JS method (no clipboard is exposed to JS today).
+  - Canonical first cmdlet: `var t = Console.GetSelectedBlock(); Editor.NewDocumentFromText("output", t);`
+    — i.e. the user's "copy-active-block-to-a-buffer", scripted, no bespoke action code. This *is* the
+    Phase 2 / §9 JS surface (TS-2c) applied to "the selected block" instead of "the last block".
+
+- **If a HUD is ever drawn, it goes ABOVE the block, not on the footer.** The block's focus/anchor is its
+  **first** line (jump-nav lands on `startAbsRow`, the top row), so a status strip belongs above the first
+  row, not over the last. (The earlier "footer row" placement was wrong for this reason.) But the leading
+  direction is **no persistent in-terminal HUD** — a one-line hint in the **status bar** (the same surface
+  quick-command-mode types into) is more consistent with the editor and costs no terminal rows. Treat a
+  drawn HUD as a later, optional nicety.
 
 **Decision (settled, supersedes §12.4):** permanent decoration is the **sub-cell separator only** (no row
-cost, no viewport-math change); the **status/action line is shown only for the selected block** as a HUD,
-never as a permanent inter-block row. This keeps the §5 viewport model (1 abs row = 1 viewY) intact in the
-pixel backend and avoids interleaving synthetic rows into the scroll/page accounting. The cell-grid
-backend falls back via the intention-named `DrawHRule` seam (above).
+cost, no viewport-math change). The selected block gets a **highlight** (TS-1.5b, done); acting on it goes
+through **quick-command-mode + the JS `Console`/`Editor` surface** (Phase 2), not a hardcoded HUD. Any
+future HUD renders **above** the block's first row. This keeps the §5 viewport model (1 abs row = 1 viewY)
+intact and the action set open-ended/scriptable rather than three fixed buttons. The cell-grid backend
+falls back via the intention-named `DrawHRule` seam (above).
 
 ---
 
@@ -711,11 +739,16 @@ Sized so each phase ships independently and is separately testable.
   Highlight color: new `terminal.selection` theme key (`term_selection`, translucent), with a code
   fallback. Tested via `test_terminalcontroller_selected_block_index` (selected-on-jump, empty on
   follow-bottom, range contains the anchor).
-- `TS-1.5c` contextual action bar (HUD on the selected block's footer row): line count + `S/P/D` hotkeys;
-  Save/Promote dispatch to Phase 2 (TS-2a/b), Delete to manual eviction.
-- Tests (assert **properties**, not pixels): ✅ selected-block resolution (above). Remaining for 1.5c: the
-  action bar appears only for the selected block and only in nav/scroll mode (never while `followBottom`).
-  Separator/overlay *pixels* are GUI-verified, not unit-tested (SDL-bound render).
+- `TS-1.5c` ~~contextual HUD action bar~~ **superseded (§5.5.3, revised after TS-1.5b testing): act on the
+  selected block via quick-command-mode + JS, not a bespoke HUD.** Folds into Phase 2's JS surface (TS-2c):
+  `Console.GetSelectedBlock()` (over `SelectedBlockIndex()` + `GetBlockOutputText`/TS-2a) feeds a cmdlet
+  like `Editor.NewDocumentFromText(name, text)` (small gap: populate-doc-from-string + a clipboard JS
+  method are not there yet). Also: preserve the terminal's selected-block state across the focus switch
+  into quick-command-mode (today incidental); any future HUD renders ABOVE the block's first row. Held
+  until Phase 2.
+- Tests (assert **properties**, not pixels): ✅ selected-block resolution (`SelectedBlockIndex`). Separator/
+  overlay *pixels* are GUI-verified, not unit-tested (SDL-bound render). 1.5c tests land with the Phase 2
+  JS surface (block text round-trips into a new document).
 
 **Phase 2 — downstream consumers.**
 - `TS-2a` `GetBlockOutputText(id)` (resolve scrollback + live grid tail).
@@ -766,9 +799,11 @@ Sized so each phase ships independently and is separately testable.
    modifies the user's prompt; the `CommitLine` baseline already delivers blocks without it.
 4. **Block visual affordance — settled (§5.5, Phase 1.5).** Permanent: a sub-cell separator rule at block
    boundaries (`commandview.show_block_markers`), no row cost, no viewport-math change. Selected block (on
-   jump-back): an `Overlay` highlight + a HUD action bar (`S/P/D`) on its footer row — never a permanent
-   inter-block row, so the §5 viewport model (1 abs row = 1 viewY) stays intact. The future cell-grid/SSH
-   backend falls back to a box-drawing-char rule via the intention-named `DrawHRule` seam.
+   jump-back): an `Overlay` highlight (TS-1.5b, done) — never a permanent inter-block row, so the §5
+   viewport model (1 abs row = 1 viewY) stays intact. **Acting** on the block is via quick-command-mode +
+   the JS `Console`/`Editor` surface, NOT a hardcoded HUD (§5.5.3, revised after testing); any future HUD
+   renders **above** the block's first row. The future cell-grid/SSH backend falls back to a box-drawing-char
+   rule via the intention-named `DrawHRule` seam.
 5. **Color fidelity across restart — settled (§8.1, user's call).** Preserve the actual colors: persist
    the per-span attributes in a binary `.bin` via new `TextBuffer::SaveWithAttributes()`/`LoadWithAttributes()`,
    so restored scrollback comes back with its real ANSI colors — *not* re-derived from syntax (we won't

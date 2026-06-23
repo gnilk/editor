@@ -1,13 +1,33 @@
 # Terminal scrollback + command blocks — design / spec
 
-Status: **Phase 0 (scroll viewport) and Phase 1 (command blocks) DONE ✅ — TS-0a..TS-0f, TS-1a..TS-1c all
-shipped, GUI-verified, in the verified-green test suite.** Phase 1.5 (block visual affordances — §5.5)
-is the next planned item; Phases 2-5 (downstream consumers, OSC 133, per-block highlighting,
-persistence) remain — see §11 for what's left. Resolves
+Status: **Phase 0 (scroll viewport), Phase 1 (command blocks), and Phase 1.5a/b (block separator rule +
+selected-block highlight) DONE ✅ — TS-0a..TS-0f, TS-1a..TS-1c, TS-1.5a/b all shipped, GUI-verified, in
+the verified-green test suite.** TS-1.5c (acting on a block) was redirected onto quick-command + JS and
+folded into Phase 2 (§5.5.3). Phases 2-5 (downstream consumers, OSC 133, per-block highlighting,
+persistence) remain — see §11. Resolves
 [`open-bugs.md`](open-bugs.md) #10 ("Missing scrollback feature in terminal UI") for the viewing/scrolling
 half; the *grouping* infrastructure (jump-per-command, parse-build-output, open-output-as-document) the
 user wants on top of it is built (blocks exist + nav works) but not yet consumed downstream. Written
 cold-start so remaining phases can be picked up later without re-deriving the terminal model.
+
+> **▶ NEXT SESSION — pick up here (Phase 2, §9 + §5.5.3).** Start the JS/consumer slice in this order:
+> 1. **TS-2a** — `TerminalScreen`/`TerminalController::GetBlockOutputText(blockId)`: resolve a block's
+>    `[startAbsRow, endAbsRow)` to text via `RowAtAbs` (scrollback `Line`s + live grid tail). Pure model
+>    read under `screenLock`; unit-test round-trip for a closed block AND the open block.
+> 2. **`Console.GetSelectedBlock()`** — extend `ConsoleAPIWrapper` (already a JS global routing to the
+>    terminal via `RuntimeConfig::OutputConsole()`): return `SelectedBlockIndex()` (done, TS-1.5b) →
+>    `GetBlockOutputText`. Returns null/empty when nothing selected (following bottom).
+> 3. **Populate-doc-from-text** — `Editor.NewDocument` exists but DocumentAPI can't be filled from a
+>    string yet; add `Editor.NewDocumentFromText(name, text)` (or `Document.AppendText`). Canonical cmdlet:
+>    `var t = Console.GetSelectedBlock(); Editor.NewDocumentFromText("output", t);`. (A clipboard JS
+>    method is also absent if "copy to paste buffer" is wanted — independent small add.)
+> 4. **Preserve the selection across focus loss** — make the terminal's `anchorAbsRow`/`followBottom`
+>    survive entering quick-command-mode intentionally (today it's incidental) so step 2 is reliable.
+>
+> Already in place to build on: `TerminalController::SelectedBlockIndex()`, the block index
+> (`TerminalScreen::Blocks()`, `RowAtAbs`, abs-id spine), and the `Console`/`Editor`/`Document` JS wrappers.
+> The local `commandview.show_block_markers` is currently flipped to `true` for testing (config is in flux;
+> not a committed default decision).
 
 Sources this spec is grounded in (read these first when implementing):
 - `src/Core/TerminalScreen.{h,cpp}` — the `cols × rows` grid + flat `scrollback` + alt-screen save/restore.

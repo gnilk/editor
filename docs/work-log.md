@@ -98,6 +98,22 @@ monitor + #6). Plan + work items: [`folder-scanner.md`](done/folder-scanner.md).
 
 ## Planned / not started
 
+- **Terminal scrollback + command blocks** — resolves [`open-bugs.md`](open-bugs.md) #10. The scrollback
+  buffer already exists; the bug is that the view always pins to the bottom. Spec covers the scroll
+  viewport (abs-row anchor so a streaming build doesn't shift what you're reading, wheel + page keys, cap/
+  trim) **plus** the grouping the user asked for: `command + output` blocks as a **meta-index alongside
+  the flat row buffer** (decided over list-of-groups — the live tail lives in the mutable grid, rendering
+  wants a flat indexable sequence, bad boundaries degrade gracefully), driven by `CommitLine` as the
+  zero-cooperation baseline and upgraded by optional OSC 133 for exact boundaries + exit codes. Blocks
+  feed jump-per-command nav and the downstream seams (open a block's output as a Document; parse a build
+  block into diagnostics; `TerminalAPI` JS surface). The **scrollback store is a `TextBuffer`** (live grid
+  stays `Cell`-based): `Row→Line` is lossless because `Line::LineAttrib` already carries per-span
+  `ColorRGBA`, so we keep ANSI color *and* get syntax highlighting (per-block language, e.g. CMake) and
+  save-to-file for free. Eviction is **whole-block** (a retained block is always complete). Persists the
+  scrollback *text to its own `.goatedit` file* (only the block index goes in `session.yml`). Plugin/
+  built-in output (search via `IOutputConsole::WriteLine`) is retained and groupable, not dismissed. Alt-
+  screen content stays out of the backlog. `TerminalHistory`→`TerminalCmdHistory` rename clears the name
+  collision. Phased TS-0..TS-5. Detail: [`terminal-scrollback.md`](terminal-scrollback.md).
 - **Folder monitor** — *disabled* live FS watcher (`foldermonitor.enabled: no`). Platform analysis of
   the two backends (macOS FSEvents = OS-recursive subtree watch; Linux inotify = per-dir, non-recursive,
   watch-capped, crippled by a leftover `IN_ONESHOT`), the fundamental asymmetry that blocked a clean

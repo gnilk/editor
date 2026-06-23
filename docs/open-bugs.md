@@ -116,3 +116,9 @@ There are possibly other applications also not working but this is one I found
 **What's Wrong:** No scrolling through history buffer
 **Reproduce:** just list a directory with many files - this is missing functionality - but it is a bit 
 of a bummer - because you want this
+
+**Spec written (not started):** this is a feature, not a one-line fix — the scrollback *buffer* already
+exists (`TerminalScreen::scrollback`); the defect is purely that `TerminalView::DrawViewContents` always
+pins to the bottom. Full design (scroll viewport + command-block grouping + open-output-as-document /
+parse-build seams + OSC 133 upgrade), with the list-of-groups vs marks-alongside decision settled, is in
+[`terminal-scrollback.md`](terminal-scrollback.md). Phase 0 there closes this bug on its own.

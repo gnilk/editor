@@ -1,9 +1,12 @@
 # Terminal scrollback + command blocks — design / spec
 
-Status: **planned, not started.** Resolves [`open-bugs.md`](open-bugs.md) #10 ("Missing scrollback
-feature in terminal UI") and sets up the *grouping* infrastructure the user wants on top of it
-(jump-per-command, parse-build-output, open-output-as-document). Written cold-start so it can be picked
-up later without re-deriving the terminal model.
+Status: **Phase 0 (scroll viewport) and Phase 1 (command blocks) DONE ✅ — TS-0a..TS-0f, TS-1a..TS-1c all
+shipped, GUI-verified, in the verified-green test suite.** Phases 2-5 (downstream consumers, OSC 133,
+per-block highlighting, persistence) remain — see §11 for what's left. Resolves
+[`open-bugs.md`](open-bugs.md) #10 ("Missing scrollback feature in terminal UI") for the viewing/scrolling
+half; the *grouping* infrastructure (jump-per-command, parse-build-output, open-output-as-document) the
+user wants on top of it is built (blocks exist + nav works) but not yet consumed downstream. Written
+cold-start so remaining phases can be picked up later without re-deriving the terminal model.
 
 Sources this spec is grounded in (read these first when implementing):
 - `src/Core/TerminalScreen.{h,cpp}` — the `cols × rows` grid + flat `scrollback` + alt-screen save/restore.
@@ -597,33 +600,40 @@ Test asserts this as a property: rows printed while `isAltScreen` never appear i
 
 Sized so each phase ships independently and is separately testable.
 
-**Phase 0 — scrollback storage + viewing (closes #10 on its own).**
-- `TS-0a` Rename `TerminalHistory` → `TerminalCmdHistory` (§1) — separate, do first so "history" is
+**Phase 0 — scrollback storage + viewing (closes #10 on its own). ✅ DONE**
+- `TS-0a` ✅ Rename `TerminalHistory` → `TerminalCmdHistory` (§1) — separate, do first so "history" is
   unambiguous.
-- `TS-0b` Scrollback → a `TextBuffer`: lossless `Row→Line` conversion at the scroll-off point (§3.0);
+- `TS-0b` ✅ Scrollback → a `TextBuffer`: lossless `Row→Line` conversion at the scroll-off point (§3.0);
   `SetReadOnly(true)`; no language attached (attribs = ANSI runs). Abs-line spine (`scrollbackBase`,
   `AbsRowCount`, `RowAtAbs`).
-- `TS-0c` Cap + **block-granular eviction** (§7) — needs the loose-block from TS-1a to be total, so the
+- `TS-0c` ✅ Cap + **block-granular eviction** (§7) — needs the loose-block from TS-1a to be total, so the
   cap can land here line-granularly first and upgrade to block-granular once blocks exist (or sequence
-  TS-1a before the cap).
-- `TS-0d` Viewport state on the controller (`followBottom`, `anchorAbsRow`) + snap-to-bottom triggers.
-- `TS-0e` Render: scrolled path in `DrawViewContents` (history via `LineRender`, grid via `DrawScreenRow`)
-  + "scrolled" affordance.
-- `TS-0f` Gestures: `TerminalView::OnMouseEvent` wheel (mirror `WorkspaceView`); reuse `kUIActionPageUp/
-  Down` + Home/End in the shell-prompt path; bind in `terminal_keymap.yml`.
+  TS-1a before the cap). Shipped line-granular in TS-0c, upgraded to block-granular in TS-1a.
+- `TS-0d` ✅ Viewport state on the controller (`followBottom`, `anchorAbsRow`) + snap-to-bottom triggers.
+- `TS-0e` ✅ Render: scrolled path in `DrawViewContents` (history via `LineRender`, grid via
+  `DrawScreenRow`) + "scrolled" affordance.
+- `TS-0f` ✅ Gestures: `TerminalView::OnMouseEvent` wheel (mirrors `WorkspaceView`); reuses
+  `kUIActionPageUp/Down` + `NavigateHome`/`NavigateEnd` (Ctrl+Home/End) in the shell-prompt path; bound in
+  `terminal_keymap.yml`.
 - Tests: Row→Line color round-trips; anchor stays stationary as output appends; snap-to-bottom on commit/
-  input; cap holds and abs ids stay valid.
+  input; cap holds and abs ids stay valid. All in `test_terminalscreen`/`test_terminalcontroller`,
+  verified-green.
+- Found-along-the-way: [`open-bugs.md`](open-bugs.md) #11 (raw TAB byte from the pty silently dropped,
+  garbling multi-column shell output) — pre-existing, unrelated to this feature, documented not fixed.
 
-**Phase 1 — command blocks via `CommitLine` (the grouping).**
-- `TS-1a` `CommandBlock` (line-range ref into the scrollback buffer) + `blocks` deque + Begin/End API;
+**Phase 1 — command blocks via `CommitLine` (the grouping). ✅ DONE**
+- `TS-1a` ✅ `CommandBlock` (line-range ref into the scrollback buffer) + `blocks` deque + Begin/End API;
   loose-block for un-commanded output; block-granular eviction in lockstep (§7).
-- `TS-1b` Open/close from `CommitLine` (+ `screenLock` there); alt-screen guard. Plugin/built-in commands
-  open a (coarser) block too — their output arrives via the `IOutputConsole::WriteLine` path (§4.3), not
-  the pty; v1 closes them on the next commit, producer-side bracketing deferred.
-- `TS-1c` Jump-per-block actions (`kUIActionPrevPrompt`/`NextPrompt`) → set anchor to block start.
+- `TS-1b` ✅ Open/close from `CommitLine` (+ `screenLock` there) and from the tab-completion / shell-owned-
+  line commit path (`ForwardActionToShell`'s `kUIActionCommitLine` case — the §4.1 edge case); alt-screen
+  guard (no-op inside `BeginCommandBlock`/`EndOpenBlock`, §10). Plugin/built-in commands open a (coarser)
+  block too — their output arrives via the `IOutputConsole::WriteLine` path (§4.3), not the pty; v1 closes
+  them on the next commit, producer-side bracketing deferred.
+- `TS-1c` ✅ `kUIActionPrevPrompt`/`NextPrompt` (Alt+Up/Down in `terminal_keymap.yml`) jump the anchor to
+  the previous/next block's `startAbsRow`, clamped at the oldest/newest block.
 - Tests: a committed command opens exactly one block; the next command closes the prior; eviction drops
   whole blocks (a retained block is always complete); alt-screen rows never create blocks; nav lands on
-  block starts.
+  block starts. All in `test_terminalscreen`/`test_terminalcontroller`, verified-green.
 
 **Phase 2 — downstream consumers.**
 - `TS-2a` `GetBlockOutputText(id)` (resolve scrollback + live grid tail).

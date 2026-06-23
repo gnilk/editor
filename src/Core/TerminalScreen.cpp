@@ -4,8 +4,138 @@
 
 #include <algorithm>
 #include "TerminalScreen.h"
+#include "Core/Config/Config.h"
 
 using namespace gedit;
+
+TextBuffer::Ref TerminalScreen::MakeScrollbackBuffer() {
+    // Plain line store: no language attached (no async tokenizer running over scrollback - it is
+    // mutated only from RowToLine under screenLock), read-only (it is a history, not an editable
+    // buffer).
+    auto buffer = std::make_shared<TextBuffer>();
+    buffer->SetReadOnly(true);
+    return buffer;
+}
+
+TerminalScreen::TerminalScreen() {
+    scrollback = MakeScrollbackBuffer();
+    // Every scrollback line must belong to some block (§7) so eviction can always "drop the oldest
+    // whole block" - open the implicit loose block up front to cover whatever lands before the first
+    // real BeginCommandBlock (startup banner, output with no committed command).
+    CommandBlock loose;
+    loose.id          = nextBlockId++;
+    loose.startAbsRow = AbsRowCount();
+    loose.source      = CommandBlock::Source::kHeuristic;
+    blocks.push_back(std::move(loose));
+}
+
+void TerminalScreen::BeginCommandBlock(const std::u32string &command, CommandBlock::Source src) {
+    if (isAltScreen) {
+        return;   // §10: no block opens/closes while an alt-screen app owns the grid.
+    }
+    uint64_t pos = AbsRowCount();
+    // Closes the previous open block (it is always the tail - at most one open block at a time).
+    if (!blocks.empty() && !blocks.back().endAbsRow.has_value()) {
+        blocks.back().endAbsRow = pos;
+    }
+    CommandBlock block;
+    block.id          = nextBlockId++;
+    block.command     = command;
+    block.startAbsRow = pos;
+    block.source      = src;
+    blocks.push_back(std::move(block));
+}
+
+void TerminalScreen::EndOpenBlock(std::optional<int> exitCode) {
+    if (isAltScreen) {
+        return;   // §10
+    }
+    if (blocks.empty() || blocks.back().endAbsRow.has_value()) {
+        return;
+    }
+    blocks.back().endAbsRow = AbsRowCount();
+    blocks.back().exitCode  = exitCode;
+}
+
+void TerminalScreen::SetOpenBlockExit(int code) {
+    if (!isAltScreen && !blocks.empty() && !blocks.back().endAbsRow.has_value()) {
+        blocks.back().exitCode = code;
+    }
+}
+
+void TerminalScreen::SetOpenBlockCwd(const std::filesystem::path &cwd) {
+    if (!isAltScreen && !blocks.empty() && !blocks.back().endAbsRow.has_value()) {
+        blocks.back().cwd = cwd;
+    }
+}
+
+void TerminalScreen::TrimScrollbackIfNeeded() {
+    int cap = Config::Instance()["terminal"].GetInt("scrollback_lines", 10000);
+    if (cap <= 0) {
+        return;   // 0 = unlimited
+    }
+    if (isAltScreen) {
+        // The alt-screen scrollback is ephemeral (discarded whole on RestoreScreen, §10) and is not
+        // indexed by `blocks` (that deque tracks the persistent history only, never swapped out on
+        // SaveScreen) - a plain line-granular trim here, no block bookkeeping.
+        while ((int)scrollback->NumLines() > cap) {
+            scrollback->DeleteLineAt(0);
+            scrollbackBase++;
+        }
+        return;
+    }
+    // Block-granular (§7): drop the oldest WHOLE block so a retained block is always complete. Never
+    // evict the open (tail) block - `blocks.size() > 1` guarantees `front()` isn't it.
+    while ((int)scrollback->NumLines() > cap && blocks.size() > 1) {
+        auto &front = blocks.front();
+        uint64_t blockLines = front.endAbsRow.value() - front.startAbsRow;
+        for (uint64_t i = 0; i < blockLines; i++) {
+            scrollback->DeleteLineAt(0);
+        }
+        scrollbackBase += blockLines;
+        blocks.pop_front();
+    }
+}
+
+Line::Ref TerminalScreen::RowToLine(const Row &row) const {
+    std::u32string text;
+    text.reserve(row.size());
+    for (const auto &cell : row) {
+        text.push_back(cell.ch);
+    }
+
+    // Line's ctor rtrims trailing whitespace - matches every other Line in the editor and drops the
+    // blank padding cells (MakeBlankRow fills the full row width) without losing any visible content.
+    auto line = Line::Create(text);
+    auto trimmedLen = (int)line->Length();
+
+    // Run-length encode maximal same fg/bg/attrs spans into LineAttrib spans - the same batching
+    // DrawScreenRow does for live rendering, so the converted Line reproduces the original ANSI colors.
+    int x = 0;
+    while (x < trimmedLen) {
+        const Cell &runCell = row[x];
+        Line::LineAttrib attrib;
+        attrib.idxOrigString   = x;
+        attrib.foregroundColor = runCell.fg;
+        attrib.backgroundColor = runCell.bg;
+        attrib.textAttributes  = kTextAttributes::kNormal;
+        if (runCell.attrs & kAttrBold)      { attrib.textAttributes = attrib.textAttributes | kTextAttributes::kBold; }
+        if (runCell.attrs & kAttrItalic)    { attrib.textAttributes = attrib.textAttributes | kTextAttributes::kItalic; }
+        if (runCell.attrs & kAttrUnderline) { attrib.textAttributes = attrib.textAttributes | kTextAttributes::kUnderline; }
+        if (runCell.attrs & kAttrInvert)    { attrib.textAttributes = attrib.textAttributes | kTextAttributes::kInverted; }
+        line->Attributes().push_back(attrib);
+
+        int y = x + 1;
+        while (y < trimmedLen
+               && row[y].fg == runCell.fg
+               && row[y].bg == runCell.bg
+               && row[y].attrs == runCell.attrs) {
+            y++;
+        }
+        x = y;
+    }
+    return line;
+}
 
 void TerminalScreen::Resize(int newCols, int newRows) {
     int gridRows = (int)grid.size();
@@ -44,7 +174,10 @@ void TerminalScreen::Resize(int newCols, int newRows) {
     int contentRows = isAltScreen ? gridRows : std::min(gridRows, cursor.y + 1);
     int srcStart = std::max(0, contentRows - newRows);
     for (int i = 0; i < srcStart; i++) {
-        scrollback.push_back(std::move(grid[i]));
+        scrollback->AddLine(RowToLine(grid[i]));
+    }
+    if (srcStart > 0) {
+        TrimScrollbackIfNeeded();
     }
     int count = std::min(contentRows, newRows);
     for (int i = 0; i < count; i++) {
@@ -125,8 +258,28 @@ const TerminalScreen::Row &TerminalScreen::GetRow(int y) const {
     return grid[y];
 }
 
-const std::vector<TerminalScreen::Row> &TerminalScreen::GetScrollback() const {
+TextBuffer::Ref TerminalScreen::GetScrollback() const {
     return scrollback;
+}
+
+uint64_t TerminalScreen::AbsRowCount() const {
+    return scrollbackBase + scrollback->NumLines() + cursor.y;
+}
+
+TerminalScreen::AbsRow TerminalScreen::RowAtAbs(uint64_t abs) const {
+    if (abs < scrollbackBase) {
+        return std::monostate{};   // evicted
+    }
+    uint64_t rel = abs - scrollbackBase;
+    uint64_t scrollbackLines = scrollback->NumLines();
+    if (rel < scrollbackLines) {
+        return scrollback->LineAt((size_t)rel);
+    }
+    int gridRow = (int)(rel - scrollbackLines);
+    if (gridRow < cursor.y && gridRow < (int)grid.size()) {
+        return &grid[gridRow];
+    }
+    return std::monostate{};
 }
 
 Point TerminalScreen::GetCursorPos() const {
@@ -227,16 +380,19 @@ void TerminalScreen::SetScrollRegion(int top, int bottom) {
 
 void TerminalScreen::SaveScreen() {
     savedGrid              = grid;
-    savedScrollback        = scrollback;
+    savedScrollback        = scrollback;       // alias the real history - not mutated below
+    savedScrollbackBase     = scrollbackBase;
     savedCursor            = cursor;
     savedPenFg             = penFg;
     savedPenBg             = penBg;
     savedPenAttrs          = penAttrs;
     savedScrollRegionTop    = scrollRegionTop;
     savedScrollRegionBottom = scrollRegionBottom;
-    // Enter a clean alternate screen
+    // Enter a clean alternate screen - a fresh scrollback so alt-screen output never reaches the
+    // persistent (real) history; it is discarded wholesale on RestoreScreen.
     grid.assign(rows, MakeBlankRow());
-    scrollback.clear();
+    scrollback = MakeScrollbackBuffer();
+    scrollbackBase = 0;
     cursor            = {};
     scrollRegionTop    = 0;
     scrollRegionBottom = rows - 1;
@@ -249,6 +405,7 @@ void TerminalScreen::RestoreScreen() {
     }
     grid               = savedGrid;
     scrollback         = savedScrollback;
+    scrollbackBase      = savedScrollbackBase;
     cursor             = savedCursor;
     penFg              = savedPenFg;
     penBg              = savedPenBg;
@@ -256,7 +413,7 @@ void TerminalScreen::RestoreScreen() {
     scrollRegionTop    = savedScrollRegionTop;
     scrollRegionBottom = savedScrollRegionBottom;
     savedGrid.clear();
-    savedScrollback.clear();
+    savedScrollback = nullptr;
     isAltScreen = false;
 }
 
@@ -340,7 +497,8 @@ void TerminalScreen::ScrollRegionUp() {
     }
     // Only push to scrollback when the scroll region covers the top of the grid
     if (scrollRegionTop == 0) {
-        scrollback.push_back(std::move(grid[scrollRegionTop]));
+        scrollback->AddLine(RowToLine(grid[scrollRegionTop]));
+        TrimScrollbackIfNeeded();
     }
     for (int y = scrollRegionTop; y < scrollRegionBottom; y++) {
         grid[y] = std::move(grid[y + 1]);

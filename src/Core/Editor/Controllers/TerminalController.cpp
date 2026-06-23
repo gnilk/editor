@@ -2,6 +2,8 @@
 // Created by gnilk on 22.02.2024.
 //
 
+#include <algorithm>
+
 #include "TerminalController.h"
 #include "Core/Editor.h"
 #include "Core/HexDump.h"
@@ -81,10 +83,10 @@ void TerminalController::Begin() {
                                             : AssetLoaderBase::kLocationType::kProject;
 
     auto histAsset = assetLoader.LoadTextAsset("terminal_history", histLocation);
-    history.Load(histAsset);
+    cmdHistory.Load(histAsset);
 
     // Save back to wherever it loaded from; on first run (no asset) resolve a write path.
-    historyPath = (histAsset != nullptr)
+    cmdHistoryPath = (histAsset != nullptr)
                     ? histAsset->GetOriginPath()
                     : assetLoader.ResolveWritePath("terminal_history", histLocation);
 }
@@ -361,6 +363,7 @@ bool TerminalController::HandleKeyPress(Cursor &cursor, size_t &idxActiveLine, c
     //     until the line is committed.
     if (DefaultEditLine(inputCursor, inputLine, keyPress)) {
         cursor.position.x = GetCursorXPos();
+        ScrollToBottom();   // §5.3: any local text input snaps the viewport back to the bottom
         return true;
     }
     return false;
@@ -432,6 +435,15 @@ bool TerminalController::ForwardActionToShell(const EditorAction &kpAction) {
             // When the shell owns line editing the line lives in readline; committing hands
             // control back and the shell will print its output + a fresh prompt.
             if (doesShellOwnLineEditing) {
+                // §4.1 tab-completion edge case: this commit never goes through CommitLine(), so the
+                // block boundary has to open here instead. SyncInputLineFromGrid has been mirroring
+                // readline's edits into inputLine, so it holds the best-effort command text - read it
+                // before ExitShellOwned() clears it.
+                std::u32string cmdLine(inputLine->Buffer());
+                if (!cmdLine.empty()) {
+                    std::lock_guard<std::mutex> guard(screenLock);
+                    screen.BeginCommandBlock(cmdLine, TerminalScreen::CommandBlock::Source::kCommitLine);
+                }
                 ExitShellOwned();
             }
             return true;
@@ -482,7 +494,7 @@ bool TerminalController::OnAction(const EditorAction &kpAction) {
             inputCursor.position.x = std::min((int)inputLine->Length(), inputCursor.position.x + 1);
             break;
         case kUIAction::kUIActionLineUp : {
-            auto entry = history.NavigateUp();
+            auto entry = cmdHistory.NavigateUp();
             if (entry.has_value()) {
                 inputLine->Clear();
                 inputLine->Append(entry.value());
@@ -491,7 +503,7 @@ bool TerminalController::OnAction(const EditorAction &kpAction) {
             break;
         }
         case kUIAction::kUIActionLineDown : {
-            auto entry = history.NavigateDown();
+            auto entry = cmdHistory.NavigateDown();
             inputLine->Clear();
             if (entry.has_value()) {
                 inputLine->Append(entry.value());
@@ -499,11 +511,104 @@ bool TerminalController::OnAction(const EditorAction &kpAction) {
             inputCursor.position.x = (int)inputLine->Length();
             break;
         }
+        // §5.3: at the prompt (local edit), Page/BufferStart/End page the BACKLOG, not the cursor —
+        // the prompt is a single line, so there's nothing else for these to mean here.
+        case kUIAction::kUIActionPageUp :
+            ScrollViewport(-(int64_t)std::max(1, screen.Rows() - 1));
+            break;
+        case kUIAction::kUIActionPageDown :
+            ScrollViewport((int64_t)std::max(1, screen.Rows() - 1));
+            break;
+        case kUIAction::kUIActionBufferStart :
+            ScrollToTop();
+            break;
+        case kUIAction::kUIActionBufferEnd :
+            ScrollToBottom();
+            break;
+        // §5.4: jump to the previous/next command block's start - same "pages the backlog" scope.
+        case kUIAction::kUIActionPrevPrompt :
+            JumpToPrevPrompt();
+            break;
+        case kUIAction::kUIActionNextPrompt :
+            JumpToNextPrompt();
+            break;
         default:
             return false;
     }
     Editor::Instance().TriggerUIRedraw();
     return true;
+}
+
+void TerminalController::ScrollToBottom() {
+    std::lock_guard<std::mutex> guard(screenLock);
+    followBottom = true;
+    anchorAbsRow = screen.AbsRowCount();
+}
+
+void TerminalController::ScrollToTop() {
+    std::lock_guard<std::mutex> guard(screenLock);
+    followBottom = false;
+    anchorAbsRow = screen.ScrollbackBase();
+}
+
+uint64_t TerminalController::CurrentTopVisibleAbsRow() const {
+    if (!followBottom) {
+        return anchorAbsRow;
+    }
+    // Must mirror TerminalView::DrawViewContents' followBottom windowTop exactly: that branch
+    // already shows rows [bottom-visibleRows, bottom), so anything measuring "from where we are"
+    // has to start from THAT window's top, not from 'bottom' itself - using 'bottom' directly is one
+    // page short (see the TS-0f first-PageUp flicker this fixed).
+    uint64_t bottom = screen.AbsRowCount();
+    uint64_t top    = screen.ScrollbackBase();
+    int64_t historyRows = (int64_t)(bottom - top);
+    int64_t visibleRows = std::max(0, screen.Rows() - 1);
+    return bottom - (uint64_t)std::min(historyRows, visibleRows);
+}
+
+void TerminalController::ScrollViewport(int64_t deltaRows) {
+    std::lock_guard<std::mutex> guard(screenLock);
+    uint64_t bottom = screen.AbsRowCount();
+    uint64_t top    = screen.ScrollbackBase();
+    uint64_t current = CurrentTopVisibleAbsRow();
+
+    int64_t next = (int64_t)current + deltaRows;
+    next = std::clamp(next, (int64_t)top, (int64_t)bottom);
+
+    anchorAbsRow = (uint64_t)next;
+    followBottom = (anchorAbsRow >= bottom);
+}
+
+void TerminalController::JumpToPrevPrompt() {
+    std::lock_guard<std::mutex> guard(screenLock);
+    uint64_t topVisible = CurrentTopVisibleAbsRow();
+    const auto &blocks = screen.Blocks();
+
+    uint64_t target = blocks.front().startAbsRow;   // clamp: nothing earlier than the oldest block
+    for (auto it = blocks.rbegin(); it != blocks.rend(); ++it) {
+        if (it->startAbsRow < topVisible) {
+            target = it->startAbsRow;
+            break;
+        }
+    }
+    anchorAbsRow = target;
+    followBottom = false;
+}
+
+void TerminalController::JumpToNextPrompt() {
+    std::lock_guard<std::mutex> guard(screenLock);
+    uint64_t topVisible = CurrentTopVisibleAbsRow();
+    const auto &blocks = screen.Blocks();
+
+    uint64_t target = blocks.back().startAbsRow;   // clamp: nothing later than the newest (open) block
+    for (const auto &block : blocks) {
+        if (block.startAbsRow > topVisible) {
+            target = block.startAbsRow;
+            break;
+        }
+    }
+    anchorAbsRow = target;
+    followBottom = false;
 }
 
 void TerminalController::ExitShellOwned() {
@@ -522,12 +627,20 @@ void TerminalController::CommitLine() {
     std::u32string cmdLine(inputLine->Buffer());
 
     if (!cmdLine.empty()) {
-        history.Push(cmdLine);
-        if (!historyPath.empty()) {
-            history.Save(historyPath);
+        cmdHistory.Push(cmdLine);
+        if (!cmdHistoryPath.empty()) {
+            cmdHistory.Save(cmdHistoryPath);
         }
+        // §4.1: every non-empty commit opens a block - plugin/built-in commands included (their
+        // output still lands in scrollback via WriteLine, §4.3; v1 leaves them coarser, closed by
+        // whatever commits next rather than a dedicated end event - producer-side bracketing is
+        // deferred, §4.3). BeginCommandBlock closes whatever block was previously open and no-ops in
+        // alt-screen (§10); mirrors WriteLine's short locked section rather than locking the whole
+        // function (shell.SendCmd below must not run under screenLock).
+        std::lock_guard<std::mutex> guard(screenLock);
+        screen.BeginCommandBlock(cmdLine, TerminalScreen::CommandBlock::Source::kCommitLine);
     }
-    history.ResetNavigation();
+    cmdHistory.ResetNavigation();
 
     inputLine->Clear();
     inputCursor.position.x = 0;
@@ -540,6 +653,7 @@ void TerminalController::CommitLine() {
         shell.SendCmd(cmdLine);
     }
 
+    ScrollToBottom();   // §5.3: committing a line snaps the viewport back to the bottom
     Editor::Instance().TriggerUIRedraw();
 }
 

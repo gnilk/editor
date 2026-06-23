@@ -117,8 +117,44 @@ There are possibly other applications also not working but this is one I found
 **Reproduce:** just list a directory with many files - this is missing functionality - but it is a bit 
 of a bummer - because you want this
 
-**Spec written (not started):** this is a feature, not a one-line fix — the scrollback *buffer* already
-exists (`TerminalScreen::scrollback`); the defect is purely that `TerminalView::DrawViewContents` always
-pins to the bottom. Full design (scroll viewport + command-block grouping + open-output-as-document /
-parse-build seams + OSC 133 upgrade), with the list-of-groups vs marks-alongside decision settled, is in
-[`terminal-scrollback.md`](terminal-scrollback.md). Phase 0 there closes this bug on its own.
+**RESOLVED (Phase 0, ✅ done):** the scrollback *buffer* already existed (`TerminalScreen::scrollback`);
+the defect was purely that `TerminalView::DrawViewContents` always pinned to the bottom. Phase 0
+(TS-0a..TS-0f) shipped the scroll viewport (wheel + PageUp/Down + Home/End, abs-row anchored so a
+streaming build doesn't yank you back to the bottom) — this bug is closed. Phase 1 (command blocks +
+jump-per-prompt nav) also shipped on top of it. Remaining phases (downstream consumers, OSC 133,
+per-block highlighting, persistence) are enhancements, not part of this bug. Full design + phase status:
+[`terminal-scrollback.md`](partially_done/terminal-scrollback.md).
+
+---
+
+## 11. Raw TAB byte (`0x09`) from the pty is silently dropped — garbles multi-column shell output
+
+**Where:** `src/Core/Editor/Controllers/TerminalController.cpp`, `TerminalController::HandleTerminalData`
+— the byte-dispatch `if/else if` chain after stripping ANSI commands only handles backspace (`0x08`),
+newline (`0x0a`), carriage return (`0x0d`), printable `0x20-0x7e`, and `>=0x80` (UTF-8 continuation). A
+raw `0x09` (tab) matches none of these branches, so it is silently consumed and discarded: no cursor
+advance, no cell written.
+
+**Symptom:** macOS BSD `ls`'s default multi-column listing (no `-la`) pads BETWEEN columns with tab
+characters (its long-format `-la` output is one-entry-per-line and never hits this path, which is why
+that one always rendered correctly). With the tab eaten, consecutive column entries land back-to-back
+with zero separation — e.g. `CMakeCache.txt`, `_CPack_Packages`, `generated`, `resources` (4 separate
+column entries) render as one fused string `CMakeCache.txt_CPack_Packagesgeneratedresources`.
+
+**Likely related symptom:** the stray inverse-video `%` zsh sometimes prints before a prompt (including
+after just pressing Enter on an empty line) is zsh's own `PROMPT_EOL_MARK` — "the previous line didn't
+end at column 0". Because the eaten tab leaves our `cursor.x` short of where the real shell output left
+it, our terminal's cursor column can desync from what zsh thinks it wrote, tripping that marker on the
+next redraw even though nothing is actually wrong with that next command.
+
+**Discovered:** 2026-06-23, manually verifying TS-0e/TS-0f (terminal-scrollback) — a plain `ls` in
+the scrollback view showed the fused filenames above. Pre-existing in the live grid (not introduced by
+the scrollback work); scrollback just faithfully preserves whatever was already in the grid, including
+this.
+
+**Proper fix:** add a `0x09` case to `HandleTerminalData` that advances `cursor.x` to the next tab stop
+(traditionally a multiple of 8) — most simply by calling `screen.PutChar(U' ')` (or an equivalent
+"advance without drawing a visible char if you want true passthrough") in a loop until the next stop,
+mirroring how `NewLine()`/`PutChar()` already wrap at `cols`. Add a `test_terminalscreen` or
+`test_terminalcontroller` case asserting a `0x09` byte mid-row advances the cursor to the next multiple-
+of-8 column and fills the skipped cells with blanks (current pen colors), rather than being dropped.

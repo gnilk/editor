@@ -2,14 +2,14 @@
 // Created by gnilk on 05.06.2026.
 //
 
-#include "TerminalHistory.h"
+#include "TerminalCmdHistory.h"
 #include "UnicodeHelper.h"
 #include <cstring>
 #include <fstream>
 
 using namespace gedit;
 
-void TerminalHistory::Push(const std::u32string &line) {
+void TerminalCmdHistory::Push(const std::u32string &line) {
     if (line.empty()) {
         return;
     }
@@ -23,7 +23,7 @@ void TerminalHistory::Push(const std::u32string &line) {
     navIndex = -1;
 }
 
-std::optional<std::u32string> TerminalHistory::NavigateUp() {
+std::optional<std::u32string> TerminalCmdHistory::NavigateUp() {
     if (entries.empty()) {
         return std::nullopt;
     }
@@ -35,7 +35,7 @@ std::optional<std::u32string> TerminalHistory::NavigateUp() {
     return entries[navIndex];
 }
 
-std::optional<std::u32string> TerminalHistory::NavigateDown() {
+std::optional<std::u32string> TerminalCmdHistory::NavigateDown() {
     if (navIndex == -1) {
         return std::nullopt;
     }
@@ -47,11 +47,11 @@ std::optional<std::u32string> TerminalHistory::NavigateDown() {
     return entries[navIndex];
 }
 
-void TerminalHistory::ResetNavigation() {
+void TerminalCmdHistory::ResetNavigation() {
     navIndex = -1;
 }
 
-bool TerminalHistory::Load(AssetLoaderBase::Asset::Ref asset) {
+bool TerminalCmdHistory::Load(AssetLoaderBase::Asset::Ref asset) {
     if (asset == nullptr) {
         return false;
     }
@@ -72,7 +72,7 @@ bool TerminalHistory::Load(AssetLoaderBase::Asset::Ref asset) {
     return true;
 }
 
-bool TerminalHistory::Save(const std::filesystem::path &path) const {
+bool TerminalCmdHistory::Save(const std::filesystem::path &path) const {
     std::filesystem::create_directories(path.parent_path());
     std::ofstream file(path);
     if (!file.is_open()) {

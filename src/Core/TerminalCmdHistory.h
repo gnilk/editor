@@ -2,8 +2,8 @@
 // Created by gnilk on 05.06.2026.
 //
 
-#ifndef GOATEDIT_TERMINALHISTORY_H
-#define GOATEDIT_TERMINALHISTORY_H
+#ifndef GOATEDIT_TERMINALCMDHISTORY_H
+#define GOATEDIT_TERMINALCMDHISTORY_H
 
 #include <vector>
 #include <string>
@@ -12,7 +12,7 @@
 #include "AssetLoaderBase.h"
 
 namespace gedit {
-    class TerminalHistory {
+    class TerminalCmdHistory {
     public:
         static constexpr size_t MAX_ENTRIES = 1000;
 
@@ -36,4 +36,4 @@ namespace gedit {
     };
 }
 
-#endif //GOATEDIT_TERMINALHISTORY_H
+#endif //GOATEDIT_TERMINALCMDHISTORY_H

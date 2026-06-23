@@ -15,7 +15,7 @@
 #include "Core/RuntimeConfig.h"
 #include "Core/unix/Shell.h"
 #include "Core/TerminalScreen.h"
-#include "Core/TerminalHistory.h"
+#include "Core/TerminalCmdHistory.h"
 #include "Core/VTermParser.h"
 
 namespace gedit {
@@ -37,6 +37,33 @@ namespace gedit {
 
         bool DoesShellOwnLineEditing() const { return doesShellOwnLineEditing; }
 
+        // Viewport (§5.1 of docs/partially_done/terminal-scrollback.md): scroll position is a UI/viewport concern,
+        // not model state - it lives here, not on TerminalScreen.
+        bool IsFollowingBottom() const { return followBottom; }
+        uint64_t GetAnchorAbsRow() const { return anchorAbsRow; }
+
+        // Move the visible window by 'deltaRows' (positive = toward the live bottom/newer content,
+        // negative = toward older history), clamped into [screen.ScrollbackBase(), screen.AbsRowCount()].
+        // Landing exactly on the bottom snaps back to followBottom. A plain, independently-testable
+        // mutator - TS-0f wires wheel/PageUp-Down gestures to it, nothing calls it yet.
+        void ScrollViewport(int64_t deltaRows);
+
+        // Explicit snap back to the live bottom. Wired to the two triggers in §5.3: committing a line
+        // (CommitLine) and any local text input into inputLine (HandleKeyPress's local-edit path).
+        // New output streaming in does NOT snap - so you can keep reading while output scrolls by.
+        void ScrollToBottom();
+
+        // Jump to the oldest retained row. Wired to kUIActionBufferStart (Ctrl+Home) in the
+        // shell-prompt path - the backlog equivalent of "go to top".
+        void ScrollToTop();
+
+        // Jump-per-block (§5.4): set the anchor to the previous/next command block's startAbsRow,
+        // relative to whatever's currently top-visible (the followBottom window-top, or anchorAbsRow
+        // when already scrolled). Always leaves followBottom == false; clamped to the oldest/newest
+        // block - never walks past either end of screen.Blocks() (which is never empty, TS-1a).
+        void JumpToPrevPrompt();
+        void JumpToNextPrompt();
+
         bool OnAction(const EditorAction &kpAction);
         bool ForwardActionToShell(const EditorAction &kpAction);
         void WriteLine(const std::u32string &str) override;
@@ -52,13 +79,22 @@ namespace gedit {
         // paths in HandleKeyPress: a full-screen app (alt-screen) and readline (shell-owned line).
         bool ForwardKeyPressToShell(const KeyPress &keyPress);
 
+        // The abs id of the row currently at the top of the visible window - the followBottom
+        // window-top when pinned to the bottom, or anchorAbsRow itself when already scrolled. Shared
+        // by ScrollViewport and the jump-per-block handlers so they agree on "where we are". Assumes
+        // screenLock is already held.
+        uint64_t CurrentTopVisibleAbsRow() const;
+
     private:
         Shell shell;
-        TerminalHistory history;
-        std::filesystem::path historyPath;
+        TerminalCmdHistory cmdHistory;
+        std::filesystem::path cmdHistoryPath;
         gnilk::ILogger *logger = nullptr;
 
-        Line::Ref inputLine = nullptr;
+        // Default-constructed (not nullptr) so the controller is usable in unit tests that never call
+        // Begin() (no real shell, the established pattern - see WriteLine's doc comment). Begin()
+        // re-creates it anyway for an explicit reset on a real session start.
+        Line::Ref inputLine = std::make_shared<Line>();
         Cursor inputCursor;
 
         TerminalScreen screen;
@@ -81,6 +117,11 @@ namespace gedit {
         // grid cursor stays parked there while editing locally, since local edits never touch the
         // grid). Used to read the line back.
         Point promptAnchor = {};
+
+        // Viewport state (§5.1) - read/written on the UI thread only (key/mouse handlers); reads of
+        // screen.AbsRowCount()/ScrollbackBase() go through screenLock since the pty thread mutates them.
+        bool     followBottom = true;
+        uint64_t anchorAbsRow = 0;
     };
 }
 

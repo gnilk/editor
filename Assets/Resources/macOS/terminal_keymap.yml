@@ -1,10 +1,22 @@
 #
 # Terminal/shell view keymap.
 # Inherits all bindings from default_keymap and overrides Tab to send a raw completion byte to the pty.
+# PageUp/PageDown already inherit as NavigatePageUp/Down -> kUIActionPageUp/Down, which page the
+# backlog at the prompt (docs/terminal-scrollback.md §5.3). Ctrl+Home/End jump to backlog top/bottom
+# (Cmd+Home/End and Ctrl+PageUp/Down are already taken by GotoFirstLine/LastLine/TopLine/BottomLine).
+# Alt+Up/Down jump to the previous/next command block (§5.4) - the iTerm2 Cmd+Up/Down "jump to
+# previous/next command" convention is unavailable here: Cmd+Up/Down (with or without Shift) is
+# already NavigatePageUp/Down's alt-form. Uses the literal KeyCode_Alt rather than the
+# UINavigationModifier alias: alias substitution only consults THIS keymap's own 'modifiers:' table
+# (RebuildActionMapping runs before 'inherit' is resolved), and this file doesn't have one.
 #
 keymap: {
   inherit: default_keymap,
   actions: {
     ShellCompletion: KeyCode_Tab,
+    NavigateHome: KeyCode_Ctrl + KeyCode_Home,
+    NavigateEnd: KeyCode_Ctrl + KeyCode_End,
+    NavigatePrevPrompt: KeyCode_Alt + KeyCode_UpArrow,
+    NavigateNextPrompt: KeyCode_Alt + KeyCode_DownArrow,
   }
 }

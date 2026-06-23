@@ -7,7 +7,7 @@
 > [`cmake-cleanup.md`](cmake-cleanup.md) / [`session-cache.md`](session-cache.md): §0 status, analysis,
 > then sequenced work items (FS-n) with Goal/Scope/Approach/Effort-Risk/Done-when/Depends-on.
 >
-> **Directly subsumes most of [`open-bugs.md`](open-bugs.md) #4** (`ReadFolderToNode` ingests build
+> **Directly subsumes most of [`open-bugs.md`](../open-bugs.md) #4** (`ReadFolderToNode` ingests build
 > dirs) — exclude + depth-bound land here as scanner concerns rather than bolt-ons in `Workspace`. See
 > §10.
 
@@ -16,7 +16,7 @@
 ## §0 — Status / read this first
 
 **Phase: COMPLETE on `fix/folder-scanner`** (FS-1–FS-4/FS-6/FS-7 shipped; FS-5 remains deferred — see §0.1).
-The in-scope scanner extraction shipped and resolved [`open-bugs.md`](open-bugs.md) #4 end to end. FS-6 lazy expansion fully wired (W1–W7 done 2026-06-18).
+The in-scope scanner extraction shipped and resolved [`open-bugs.md`](../open-bugs.md) #4 end to end. FS-6 lazy expansion fully wired (W1–W7 done 2026-06-18).
 
 | Item | Status | Commit |
 |------|--------|--------|
@@ -183,7 +183,7 @@ both features a clean home.
 ## §6 — Reuse by the folder monitor (shares data + matcher, never the subsystem)
 
 > The folder monitor is its own work area with its own platform analysis —
-> [`folder-monitor.md`](folder-monitor.md) (macOS FSEvents vs Linux inotify). This section is only the
+> [`folder-monitor.md`](../partially_done/folder-monitor.md) (macOS FSEvents vs Linux inotify). This section is only the
 > scanner side of the shared seam.
 
 The monitor does NOT share the *traversal* in the obvious way — it gets single-path change events from
@@ -242,7 +242,7 @@ marshals instead of locking.
 atomic or thread-safe`) while a producer may be dereferencing `incomingQueue` to push. Latent today (the
 async tokenizer in `TextBuffer` is the only frequent cross-thread producer); it becomes a **live data
 race** the moment a continuously-producing monitor/scanner thread runs. Filed as
-[`open-bugs.md`](open-bugs.md) #6 — **must be fixed before enabling any continuous background producer.**
+[`open-bugs.md`](../open-bugs.md) #6 — **must be fixed before enabling any continuous background producer.**
 
 ---
 

@@ -3,7 +3,8 @@
 Short, reverse-chronological index of completed feature efforts. Each entry summarises *what shipped*
 and *the load-bearing decisions*; the linked detail doc carries the full cold-start history. Planned /
 not-yet-started efforts are listed at the bottom. For known-wrong code deliberately left unfixed, see
-[`open-bugs.md`](open-bugs.md) (the active tracker, not logged here).
+[`open-bugs.md`](open-bugs.md) (the active tracker, not logged here). For work explicitly deferred /
+left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
@@ -33,7 +34,7 @@ unblock the planned graphics-backend refactor.
   library isn't worth its carrying cost without a real second consumer. CMake `ui_src`/`appui_src`
   grouping deferred indefinitely (cosmetic).
 
-Detail + decision log: [`ui-refactor.md`](ui-refactor.md).
+Detail + decision log: [`ui-refactor.md`](done/ui-refactor.md).
 
 ---
 
@@ -46,7 +47,7 @@ ordered/unordered list markers, thematic breaks) via a new injected `LangLineTok
 (spec-exact emphasis / setext / reference links are explicit non-goals). Module `markdown` green.
 
 Remaining (optional/aesthetic): a GUI color pass to retune the `md_*` placeholder colors; the §6 lexer
-work is optional. Detail: [`support-markdown.md`](support-markdown.md).
+work is optional. Detail: [`support-markdown.md`](done/support-markdown.md).
 
 ---
 
@@ -61,7 +62,7 @@ sole owner of session disk I/O; a session belongs to an open **folder**, never a
 **Step 2 — live registry + cold-start restore of multiple instances (§3.5) — is DEFERRED** (decided
 2026-06-16): registry/restore/paths files don't exist yet; revisit when the cold-start work is picked
 up. Other deferred items: doc paths stored absolute (→ relativise), `LoadDocument`↔`ReopenDocument`
-consolidation, gated undo persistence. Detail + phasing: [`session-cache.md`](session-cache.md).
+consolidation, gated undo persistence. Detail + phasing: [`session-cache.md`](done/session-cache.md).
 
 ---
 
@@ -91,7 +92,7 @@ so it unit-tests over a temp dir (callbacks, NOT templated on the node type). Re
   all in the verified-green set (256 tests).
 
 **Deferred (NOT this branch):** FS-5 (monitor reuse — scan a newly-created dir; blocked on the disabled
-monitor + #6). Plan + work items: [`folder-scanner.md`](folder-scanner.md).
+monitor + #6). Plan + work items: [`folder-scanner.md`](done/folder-scanner.md).
 
 ---
 
@@ -102,8 +103,8 @@ monitor + #6). Plan + work items: [`folder-scanner.md`](folder-scanner.md).
   watch-capped, crippled by a leftover `IN_ONESHOT`), the fundamental asymmetry that blocked a clean
   abstraction, a defect checklist, and a re-enable plan (FM-n) that converges on "rescan the affected
   subtree via the FolderScanner" instead of trusting fragile event flags. Distinct work area from the
-  scanner. Detail: [`folder-monitor.md`](folder-monitor.md).
+  scanner. Detail: [`folder-monitor.md`](partially_done/folder-monitor.md).
 - **CMake cleanup** — FetchContent for deps (known-working SHAs pinned), group the flat `editorsrc` into
   named source-list variables (one target, *not* separate libs), per-compiler flags, hoist deps/flags/
   packaging into `cmake/*.cmake`, and `.deb` + AppImage via CI → GitHub Releases. Plan + grounded
-  inventory (incl. a broken `.deb` install rule found): [`cmake-cleanup.md`](cmake-cleanup.md).
+  inventory (incl. a broken `.deb` install rule found): [`cmake-cleanup.md`](done/cmake-cleanup.md).

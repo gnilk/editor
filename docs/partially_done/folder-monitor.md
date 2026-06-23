@@ -4,7 +4,7 @@
 > (`foldermonitor.enabled: no`) and has been for a long time because it never worked reliably across
 > both platforms. This captures, from a cold read of the current code, *what each platform backend
 > actually does*, *how they fundamentally differ*, *why it's flaky*, and a sequenced plan for re-enabling
-> it. Kept separate from [`folder-scanner.md`](folder-scanner.md) on purpose — scanning (one-shot walk)
+> it. Kept separate from [`folder-scanner.md`](../done/folder-scanner.md) on purpose — scanning (one-shot walk)
 > and monitoring (live watch) are distinct work areas that happen to share a matcher and a node-builder.
 >
 > **Files analysed:** `src/Core/FolderMonitor.{h,cpp}` (base), `src/Core/macOS/MacOSFolderMonitor.{h,cpp}`,
@@ -36,10 +36,10 @@ enumerate, arm, and re-arm yourself.
 | Renames/moves | partial (`kRenamed` flag, ambiguous) | **unhandled** (only `IN_CREATE`/`IN_DELETE`) |
 
 **Relationship to other docs:**
-- [`folder-scanner.md`](folder-scanner.md) — the Linux backend's `ScanForDirectories` is itself an
+- [`folder-scanner.md`](../done/folder-scanner.md) — the Linux backend's `ScanForDirectories` is itself an
   unbounded recursive walk; it must reuse the same `FsFilter` (exclude) + bound as the node scan. And
   *both* backends need the scanner to populate a subtree when a directory appears (FS-5). See §6.
-- [`open-bugs.md`](open-bugs.md) #4 — the Linux watch-enumeration shares the build-dir hang hazard.
+- [`open-bugs.md`](../open-bugs.md) #4 — the Linux watch-enumeration shares the build-dir hang hazard.
 
 ---
 
@@ -182,7 +182,7 @@ flawed-flags and missed-move problems on both platforms).
 
 ## §6 — Relationship to the FolderScanner
 
-The monitor and the scanner ([`folder-scanner.md`](folder-scanner.md)) are distinct (live watch vs
+The monitor and the scanner ([`folder-scanner.md`](../done/folder-scanner.md)) are distinct (live watch vs
 one-shot walk) but should **share two things, never the subsystem**:
 
 1. **The exclude matcher (`FsFilter`).** The Linux watch enumeration (FM-d4) and the node scan have the
@@ -211,10 +211,10 @@ monitor re-enable on; listed so the analysis isn't lost.
 - **Effort·Risk:** S · — (investigation). **Done-when:** the threading/delivery model is chosen and
   written here. **Depends-on:** —
 
-> **Threading model is already decided** — see [`folder-scanner.md`](folder-scanner.md) §7: background
+> **Threading model is already decided** — see [`folder-scanner.md`](../done/folder-scanner.md) §7: background
 > thread is a pure producer that **batch-posts plain-data events** through the existing thread-safe
 > message pump; the `Node` tree is mutated only on the main thread (no tree lock). **Hard prerequisite:**
-> the un-synchronised `Runloop::SwapQueues` ([`open-bugs.md`](open-bugs.md) #6) must be fixed before this
+> the un-synchronised `Runloop::SwapQueues` ([`open-bugs.md`](../open-bugs.md) #6) must be fixed before this
 > continuous background producer is enabled.
 
 ### FM-2 — Linux: fix the watch lifecycle

@@ -17,7 +17,7 @@ architecture, lays out a phased implementation, and (the section directly below)
 > direct `SessionManager::Instance()`/`NotifyChanged()` calls. The app-side adapter wrapping
 > `LayoutSession` is `Core/Session/LayoutSessionSink.h`. The historical commit log below is left as-is
 > (accurate for its time); read splitter/layout API references through this note.
-> See [`ui-refactor.md`](ui-refactor.md) (AI-5) and [`work-log.md`](work-log.md).
+> See [`ui-refactor.md`](ui-refactor.md) (AI-5) and [`work-log.md`](../work-log.md).
 
 **Decisions locked 2026-06-14** (see §3.1–§3.3, §4, §4.2): the existing *global* window-geometry file
 (`WindowLocation` / `gedit_lastwinloc.yml`) is **removed** — geometry becomes per-root session state and

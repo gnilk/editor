@@ -4,7 +4,7 @@
 `src/Core/Workspace.h`).
 
 > **FIXED (2026-06-17, branch `fix/folder-scanner`).** Resolved by the FolderScanner extraction
-> ([`folder-scanner.md`](folder-scanner.md)), exactly as planned — not a bolt-on in `Workspace`:
+> ([`folder-scanner.md`](done/folder-scanner.md)), exactly as planned — not a bolt-on in `Workspace`:
 > - *Build dirs ingested* → **FS-2** scan-time exclude (`FsFilter` on `Glob.h`; the list relocated off
     >   the disabled monitor to the scan-owned `workspace.exclude`). Opening a project root now prunes
     >   `cmake-build-debug` etc. before they enter the node tree.

@@ -20,25 +20,7 @@ void ConsoleAPIWrapper::RegisterModule(duk_context *ctx) {
 
     dukglue_register_method_varargs(ctx,&ConsoleAPIWrapper::WriteLine, "WriteLine");
     dukglue_register_method_varargs(ctx,&ConsoleAPIWrapper::WriteLine, "log");
-    dukglue_register_method_varargs(ctx,&ConsoleAPIWrapper::GetSelectedBlock, "GetSelectedBlock");
 }
-
-duk_ret_t ConsoleAPIWrapper::GetSelectedBlock(duk_context *ctx) {
-    auto console = RuntimeConfig::Instance().OutputConsole();
-    if (console == nullptr) {
-        duk_push_null(ctx);
-        return 1;
-    }
-    auto text = console->GetSelectedBlockText();
-    if (!text.has_value()) {
-        duk_push_null(ctx);
-        return 1;
-    }
-    auto utf8 = UnicodeHelper::utf32to8(text.value());
-    duk_push_string(ctx, utf8.c_str());
-    return 1;
-}
-
 
 // Do variadic argument printing - this is pretty much lifted directly from duktape/extras/console
 // I do understand (to some extent) what it is doing, but I wouldn't have been able to write it myself...

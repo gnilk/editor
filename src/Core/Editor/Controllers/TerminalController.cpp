@@ -51,7 +51,7 @@ void TerminalController::Begin() {
     logger = gnilk::Logger::GetLogger("TerminalController");
     logger->Debug("Begin");
 
-    RuntimeConfig::Instance().SetOutputConsole(this);
+    RegisterAsOutputConsole();
 
     inputLine = std::make_shared<Line>();
     inputCursor.position.x = 0;
@@ -630,15 +630,20 @@ std::optional<size_t> TerminalController::SelectedBlockIndex() const {
     return std::nullopt;
 }
 
-std::optional<std::u32string> TerminalController::GetSelectedBlockText() {
-    std::lock_guard<std::mutex> guard(screenLock);
-    auto sel = SelectedBlockIndex();   // safe: we hold screenLock (its documented precondition)
-    if (!sel.has_value()) {
+// Join a block's per-row output (GetBlockOutputText, TS-2a) into one '\n'-separated string, or nullopt
+// when the id matches no block. Assumes screenLock is held by the caller.
+static std::optional<std::u32string> JoinBlockOutput(const TerminalScreen &screen, uint64_t blockId) {
+    bool found = false;
+    for (const auto &block : screen.Blocks()) {
+        if (block.id == blockId) {
+            found = true;
+            break;
+        }
+    }
+    if (!found) {
         return std::nullopt;
     }
-    const auto &blocks = screen.Blocks();
-    auto lines = screen.GetBlockOutputText(blocks[*sel].id);
-
+    auto lines = screen.GetBlockOutputText(blockId);
     std::u32string text;
     for (size_t i = 0; i < lines.size(); i++) {
         if (i > 0) {
@@ -647,6 +652,53 @@ std::optional<std::u32string> TerminalController::GetSelectedBlockText() {
         text += lines[i];
     }
     return text;
+}
+
+// Project a model CommandBlock onto the engine-agnostic OutputBlockInfo (TS-2c). Assumes screenLock
+// is held (reads AbsRowCount for the open block's end).
+static IOutputConsole::OutputBlockInfo ToBlockInfo(const TerminalScreen &screen,
+                                                   const TerminalScreen::CommandBlock &block) {
+    IOutputConsole::OutputBlockInfo info;
+    info.id = block.id;
+    info.command = block.command;
+    info.exitCode = block.exitCode;
+    uint64_t end = block.endAbsRow.value_or(screen.AbsRowCount());   // open block runs to the live row
+    info.lineCount = (end > block.startAbsRow) ? (end - block.startAbsRow) : 0;
+    return info;
+}
+
+std::optional<std::u32string> TerminalController::GetSelectedBlockText() {
+    std::lock_guard<std::mutex> guard(screenLock);
+    auto sel = SelectedBlockIndex();   // safe: we hold screenLock (its documented precondition)
+    if (!sel.has_value()) {
+        return std::nullopt;
+    }
+    return JoinBlockOutput(screen, screen.Blocks()[*sel].id);
+}
+
+std::vector<IOutputConsole::OutputBlockInfo> TerminalController::GetBlocks() {
+    std::lock_guard<std::mutex> guard(screenLock);
+    std::vector<OutputBlockInfo> out;
+    const auto &blocks = screen.Blocks();
+    out.reserve(blocks.size());
+    for (const auto &block : blocks) {
+        out.push_back(ToBlockInfo(screen, block));
+    }
+    return out;
+}
+
+std::optional<std::u32string> TerminalController::GetBlockOutputText(uint64_t blockId) {
+    std::lock_guard<std::mutex> guard(screenLock);
+    return JoinBlockOutput(screen, blockId);
+}
+
+std::optional<IOutputConsole::OutputBlockInfo> TerminalController::GetLastBlock() {
+    std::lock_guard<std::mutex> guard(screenLock);
+    const auto &blocks = screen.Blocks();
+    if (blocks.empty()) {   // never happens (the ctor opens the loose block), but stay total
+        return std::nullopt;
+    }
+    return ToBlockInfo(screen, blocks.back());
 }
 
 void TerminalController::ExitShellOwned() {

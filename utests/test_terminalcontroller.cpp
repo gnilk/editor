@@ -24,7 +24,10 @@ DLL_EXPORT int test_terminalcontroller_jump_next_prompt_clamps_at_newest(ITestin
 DLL_EXPORT int test_terminalcontroller_selected_block_index(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_selected_block_text(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_selection_survives_output(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_block_index_surface(ITesting *t);
 }
+
+#include <cstdint>   // UINT64_MAX
 
 // Push 'n' lines through the grid into scrollback WITHOUT starting a real shell - WriteLine (the
 // IOutputConsole path search-results output already uses today) writes straight into the grid under
@@ -468,6 +471,63 @@ DLL_EXPORT int test_terminalcontroller_selection_survives_output(ITesting *t) {
     TR_ASSERT(t, selAfter.has_value());
     TR_ASSERT(t, c.GetScreen().Blocks()[*selAfter].id == selectedId);   // SAME block selected
     TR_ASSERT(t, c.GetSelectedBlockText() == textBefore);              // SAME text
+
+    return kTR_Pass;
+}
+
+// TS-2c: the by-id IOutputConsole surface (GetBlocks / GetBlockOutputText / GetLastBlock) that the
+// engine-agnostic TerminalAPI reads. These do NOT depend on the viewport (unlike GetSelectedBlockText)
+// - they address blocks by id. Assert the seam mirrors the model exactly: same blocks/order/ids, last
+// == the tail, by-id text == the model's joined text, and an unknown id resolves to nullopt.
+DLL_EXPORT int test_terminalcontroller_block_index_surface(ITesting *t) {
+    TerminalController c;
+    c.Resize(20, 5);
+
+    auto commit = [&](const std::u32string &cmd) {
+        c.GetInputLine()->Append(cmd);
+        c.CommitLine();
+    };
+
+    WriteLines(c, 2);              // loose-block output before any command
+    commit(U"cmd1");
+    c.WriteLine(U"out-a");
+    c.WriteLine(U"out-b");
+    commit(U"cmd2");               // closes cmd1's block; cmd2's block is now the open tail
+    c.WriteLine(U"out-c");
+
+    const auto &modelBlocks = c.GetScreen().Blocks();
+    auto blocks = c.GetBlocks();
+
+    // Enumeration matches the model: same count, same order, same ids + commands.
+    TR_ASSERT(t, blocks.size() == modelBlocks.size());
+    TR_ASSERT(t, blocks.size() >= 3);   // loose + cmd1 + cmd2
+    for (size_t i = 0; i < blocks.size(); i++) {
+        TR_ASSERT(t, blocks[i].id == modelBlocks[i].id);
+        TR_ASSERT(t, blocks[i].command == modelBlocks[i].command);
+    }
+
+    // The last block is the tail (cmd2, still open).
+    auto last = c.GetLastBlock();
+    TR_ASSERT(t, last.has_value());
+    TR_ASSERT(t, last->id == modelBlocks.back().id);
+    TR_ASSERT(t, last->command == U"cmd2");
+
+    // cmd1's block (index 1) is CLOSED - its line count + by-id text are fixed.
+    TR_ASSERT(t, modelBlocks[1].endAbsRow.has_value());
+    TR_ASSERT(t, blocks[1].lineCount == modelBlocks[1].endAbsRow.value() - modelBlocks[1].startAbsRow);
+
+    auto byId = c.GetBlockOutputText(modelBlocks[1].id);
+    TR_ASSERT(t, byId.has_value());
+    auto modelLines = c.GetScreen().GetBlockOutputText(modelBlocks[1].id);
+    std::u32string expected;
+    for (size_t i = 0; i < modelLines.size(); i++) {
+        if (i > 0) { expected += U"\n"; }
+        expected += modelLines[i];
+    }
+    TR_ASSERT(t, byId.value() == expected);
+
+    // An id that matches no block resolves to nullopt (ids are monotonic from small values).
+    TR_ASSERT(t, !c.GetBlockOutputText(UINT64_MAX).has_value());
 
     return kTR_Pass;
 }

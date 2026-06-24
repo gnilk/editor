@@ -75,11 +75,25 @@ namespace gedit {
         bool ForwardActionToShell(const EditorAction &kpAction);
         void WriteLine(const std::u32string &str) override;
 
+        // Register this controller as the process-wide output console (RuntimeConfig::OutputConsole()) -
+        // the IOutputConsole the JS Console/Terminal surfaces route to. IOutputConsole is a PRIVATE base
+        // (external code reaches it only through RuntimeConfig, never via TerminalController*), so the
+        // upcast must happen in here. Called from Begin(); exposed so a test can wire a controller up
+        // without starting a real shell.
+        void RegisterAsOutputConsole() { RuntimeConfig::Instance().SetOutputConsole(this); }
+
         // IOutputConsole (§5.5.3): the viewport-selected block's output joined into one string, or
         // nullopt when nothing is selected (following the live bottom). Takes screenLock, so it is safe
-        // to call from the JS/main thread while the pty thread mutates the grid. The Console JS surface
+        // to call from the JS/main thread while the pty thread mutates the grid. The Terminal JS surface
         // routes here via RuntimeConfig::OutputConsole().
         std::optional<std::u32string> GetSelectedBlockText() override;
+
+        // IOutputConsole block-by-id surface (TS-2c): enumerate blocks, resolve one block's output by
+        // id, and the newest block. Each takes screenLock (the pty thread mutates the grid/index). The
+        // JS `Terminal` surface routes here via RuntimeConfig::OutputConsole().
+        std::vector<OutputBlockInfo> GetBlocks() override;
+        std::optional<std::u32string> GetBlockOutputText(uint64_t blockId) override;
+        std::optional<OutputBlockInfo> GetLastBlock() override;
 
     protected:
         void HandleTerminalData(const uint8_t *buffer, size_t length);

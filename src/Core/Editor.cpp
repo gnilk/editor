@@ -56,6 +56,7 @@
 #include "Core/UnicodeHelper.h"
 // API stuff
 #include "Core/API/EditorAPI.h"
+#include "Core/API/TerminalAPI.h"
 #include "Core/Graphics/Headless/HLScreen.h"
 
 #if defined(GEDIT_MACOS)
@@ -719,8 +720,10 @@ void Editor::ConfigureTheme() {
 // Configure global/static API objects..
 void Editor::ConfigureGlobalAPIObjects() {
     static EditorAPI editorApi;
+    static TerminalAPI terminalApi;
 
     RegisterGlobalAPIObject<EditorAPI>(&editorApi);
+    RegisterGlobalAPIObject<TerminalAPI>(&terminalApi);
 
     // Initialize the Javascript wrapper engine...
     logger->Debug("Initialize JSEngine and Preload Plugins");

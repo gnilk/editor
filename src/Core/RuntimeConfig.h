@@ -24,17 +24,38 @@
 #include <thread>
 #include <optional>
 #include <string>
+#include <vector>
+#include <cstdint>
 
 namespace gedit {
     class IOutputConsole {
     public:
+        // Plain-data view of one command block, crossing the seam between the terminal model and the
+        // engine-agnostic TerminalAPI (terminal-scrollback §9 / TS-2c). Mirrors the relevant fields of
+        // TerminalScreen::CommandBlock without exposing the model type, so neither the API nor the JS
+        // glue layer depends on TerminalScreen.
+        struct OutputBlockInfo {
+            uint64_t                id = 0;        // monotonic block id (never reused)
+            std::u32string          command;       // empty for the implicit loose block
+            std::optional<int>      exitCode;       // set when known (OSC 133;D / future probe)
+            size_t                  lineCount = 0;  // resolved [startAbsRow, endAbsRow) row count
+        };
+
         virtual void WriteLine(const std::u32string &str) = 0;
 
         // The output console's currently "selected" command block, as joined text (terminal scrollback
         // §5.5.3 / TS-2a). Returns nullopt when nothing is selected - either there is no block concept
-        // (the default) or the terminal is following the live bottom. Exposed so the JS `Console`
+        // (the default) or the terminal is following the live bottom. Exposed so the JS `Terminal`
         // surface can act on the selected block without depending on TerminalController directly.
         virtual std::optional<std::u32string> GetSelectedBlockText() { return std::nullopt; }
+
+        // The block index, scriptable by id (TS-2c). GetBlocks lists every block oldest->newest (incl.
+        // the open/loose tail block); GetBlockOutputText resolves one block's output to joined text, or
+        // nullopt for an unknown id; GetLastBlock returns the newest block (the tail). Defaults are
+        // empty/nullopt so non-terminal consoles (CommandView, tests) need not implement them.
+        virtual std::vector<OutputBlockInfo> GetBlocks() { return {}; }
+        virtual std::optional<std::u32string> GetBlockOutputText(uint64_t blockId) { return std::nullopt; }
+        virtual std::optional<OutputBlockInfo> GetLastBlock() { return std::nullopt; }
     };
     // Should have active buffer
     class RuntimeConfig {

@@ -28,6 +28,8 @@ namespace gedit {
         duk_ret_t GetSelectedBlock(duk_context *ctx);
         // Terminal.OpenBlockAsDocument(id) -> bool (true when a document was opened).
         duk_ret_t OpenBlockAsDocument(duk_context *ctx);
+        // Terminal.CopyBlockToClipboard(id) -> bool (true when the block was copied to the paste buffer).
+        duk_ret_t CopyBlockToClipboard(duk_context *ctx);
     };
 }
 

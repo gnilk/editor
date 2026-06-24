@@ -6,9 +6,9 @@ selected-block highlight), and Phase 2 DONE ✅ — TS-0a..TS-0f, TS-1a..TS-1c, 
 `Terminal.GetBlocks/GetBlockOutput/GetLastBlock/GetSelectedBlock/OpenBlockAsDocument`), and the
 `Editor.NewDocumentFromText()` seam + the `blocktobuffer` (`b2b`) cmdlet all shipped, in the
 verified-green test suite.** TS-1.5c (acting on a block) was redirected onto quick-command + JS and is
-now delivered through that JS surface (§5.5.3). Remaining: a clipboard JS method ("copy block to paste
-buffer", small independent add), and Phases 3-5 (OSC 133, per-block highlighting, persistence) — see §11.
-Resolves
+now delivered through that JS surface (§5.5.3). The clipboard JS seam ("copy block to paste buffer") is
+also shipped (`Editor.CopyToClipboard` + `Terminal.CopyBlockToClipboard` + the `b2c` cmdlet). Remaining:
+Phases 3-5 (OSC 133, per-block highlighting, persistence) — see §11. Resolves
 [`open-bugs.md`](open-bugs.md) #10 ("Missing scrollback feature in terminal UI") for the viewing/scrolling
 half; the *grouping* infrastructure (jump-per-command, parse-build-output, open-output-as-document) the
 user wants on top of it is built (blocks exist + nav works) but not yet consumed downstream. Written
@@ -47,9 +47,14 @@ cold-start so remaining phases can be picked up later without re-deriving the te
 >   nullopt) + `test_jsengine_terminalapi` (real controller as the console → JS enumerates blocks by id →
 >   `OpenBlockAsDocument` → new doc content). 290 verified-green.
 >
+> **▶ ALSO DONE this session (clipboard JS seam):** `ClipBoard::CopyText(u32)` — the literal-text →
+> paste-buffer primitive that (unlike `CopyFromExternal`) fires the OnUpdate hook so it reaches the OS
+> pasteboard (E.18). Exposed as `Editor.CopyToClipboard(text)` (general primitive, EditorAPI) +
+> `Terminal.CopyBlockToClipboard(id)` (composite, TerminalAPI) + the `blocktoclipboard`/`b2c` cmdlet
+> (selected-block path, parallel to `b2b`). Tests: `test_clipboard_copytext_notifies` (the OnUpdate
+> requirement), `test_jsengine_copytoclipboard` (both JS surfaces → paste-buffer top item).
+>
 > **▶ NEXT SESSION — pick up here.** Remaining beyond Phase 2:
-> - A clipboard JS method for "copy block to paste buffer" — no clipboard is exposed to JS today; small
->   independent add (mirror the `Terminal`/`Editor` wrapper pattern over `RuntimeConfig::GetClipBoard()`).
 > - **Phase 3** (OSC 133), **Phase 4** (per-block language), **Phase 5** (persistence) — see §11.
 >
 > Already in place to build on: the `Terminal` JS surface (`TerminalAPI`/`TerminalAPIWrapper`),
@@ -817,8 +822,9 @@ Sized so each phase ships independently and is separately testable.
   `GetBlocks()`/`GetBlockOutput(id)`/`GetLastBlock()`/`GetSelectedBlock()`/`OpenBlockAsDocument(id)`. The
   API consumes the terminal only through the `IOutputConsole` seam (extended with a plain-data
   `OutputBlockInfo` + `GetBlocks`/`GetBlockOutputText`/`GetLastBlock`, virtual defaults). The interim
-  `Console.GetSelectedBlock` glue was removed in favour of `Terminal.GetSelectedBlock`. (A clipboard JS
-  method for "copy to paste buffer" is still absent — small independent add.)
+  `Console.GetSelectedBlock` glue was removed in favour of `Terminal.GetSelectedBlock`. The clipboard
+  seam is also shipped: `ClipBoard::CopyText` + `Editor.CopyToClipboard(text)` +
+  `Terminal.CopyBlockToClipboard(id)` + the `b2c` cmdlet.
 - Tests: ✅ `test_terminalscreen_block_output_text` (closed + open, both stores),
   `test_terminalcontroller_selected_block_text`, `test_terminalcontroller_selection_survives_output`,
   `test_terminalcontroller_block_index_surface` (by-id seam mirrors the model; unknown id → nullopt),

@@ -43,6 +43,11 @@ namespace gedit {
         // in the engine-agnostic layer - not in the JS glue.
         DocumentAPI::Ref OpenBlockAsDocument(uint64_t blockId);
 
+        // Composite: resolve a block's output and put it on the system clipboard / paste buffer (so it
+        // can be pasted here or in another app). Returns false when the id resolves to no output.
+        // Parallel to OpenBlockAsDocument.
+        bool CopyBlockToClipboard(uint64_t blockId);
+
     private:
         // The terminal seam, or nullptr when no output console is registered (headless / non-terminal).
         IOutputConsole *Console();

@@ -22,6 +22,15 @@ bool ClipBoard::CopyFromExternal(const char *srcBuffer) {
     return true;
 }
 
+bool ClipBoard::CopyText(const std::u32string &text) {
+    auto utf8 = UnicodeHelper::utf32to8(text);
+    auto item = ClipBoardItem::CreateExternal(utf8.c_str());
+    history.push_front(item);
+    // Data going TO the OS (cf. CopyFromExternal) -> push it to the pasteboard so it pastes everywhere.
+    NotifyChangeHandler(item);
+    return true;
+}
+
 void ClipBoard::NotifyChangeHandler(ClipBoardItem::Ref item) {
     if (cbOnUpdate == nullptr) {
         return;

@@ -7,6 +7,7 @@
 #include "Core/Editor.h"
 #include "Core/RuntimeConfig.h"
 #include "Core/UnicodeHelper.h"
+#include "Core/ClipBoard.h"
 
 using namespace gedit;
 
@@ -60,4 +61,13 @@ DocumentAPI::Ref TerminalAPI::OpenBlockAsDocument(uint64_t blockId) {
     std::string name = "block-" + std::to_string(blockId);
     auto utf8 = UnicodeHelper::utf32to8(text.value());
     return editorApi->NewDocumentFromText(name.c_str(), utf8.c_str());
+}
+
+bool TerminalAPI::CopyBlockToClipboard(uint64_t blockId) {
+    auto text = GetBlockOutput(blockId);
+    if (!text.has_value()) {
+        return false;
+    }
+    Editor::Instance().GetClipBoard().CopyText(text.value());
+    return true;
 }

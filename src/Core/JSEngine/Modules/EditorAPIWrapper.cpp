@@ -18,6 +18,7 @@ void EditorAPIWrapper::RegisterModule(duk_context *ctx) {
     dukglue_register_method(ctx, &EditorAPIWrapper::LoadDocument, "LoadDocument");
     dukglue_register_method(ctx, &EditorAPIWrapper::GetDocuments, "GetDocuments");
     dukglue_register_method(ctx, &EditorAPIWrapper::CloseActiveDocument, "CloseActiveDocument");
+    dukglue_register_method(ctx, &EditorAPIWrapper::CopyToClipboard, "CopyToClipboard");
 
     dukglue_register_method(ctx, &EditorAPIWrapper::GetCurrentTheme, "GetCurrentTheme");
     dukglue_register_method(ctx, &EditorAPIWrapper::ExitEditor, "ExitEditor");
@@ -70,6 +71,11 @@ std::vector<DocumentAPIWrapper::Ref> EditorAPIWrapper::GetDocuments() {
 void EditorAPIWrapper::CloseActiveDocument() {
     auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
     editorApi->CloseActiveDocument();
+}
+
+void EditorAPIWrapper::CopyToClipboard(const char *text) {
+    auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
+    editorApi->CopyToClipboard(text);
 }
 
 

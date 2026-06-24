@@ -67,6 +67,8 @@ DLL_EXPORT int test_clipboard_copypasteexternal(ITesting *t);
 DLL_EXPORT int test_clipboard_external_roundtrip_linewise(ITesting *t);
 DLL_EXPORT int test_clipboard_external_roundtrip_charwise(ITesting *t);
 DLL_EXPORT int test_clipboard_external_trailing_newline(ITesting *t);
+// CopyText (literal text -> paste buffer) must fire the OnUpdate hook so it reaches the OS pasteboard.
+DLL_EXPORT int test_clipboard_copytext_notifies(ITesting *t);
 }
 
 DLL_EXPORT int test_clipboard(ITesting *t) {
@@ -341,5 +343,30 @@ DLL_EXPORT int test_clipboard_external_trailing_newline(ITesting *t) {
     TR_ASSERT(t, dst->LineAt(1)->Buffer() == U"foo");
     TR_ASSERT(t, dst->LineAt(2)->Buffer() == U"bar");
     TR_ASSERT(t, dst->LineAt(3)->Buffer() == U"DST 1");           // preserved on its own line
+    return kTR_Pass;
+}
+
+// CopyText is the "copy arbitrary text to the paste buffer" primitive (e.g. a terminal block's output).
+// The load-bearing property (E.18): unlike CopyFromExternal, it MUST fire the OnUpdate hook so the text
+// reaches the OS pasteboard and is pasteable in the GUI / other apps. Also lands as the internal top
+// item, with AsText round-tripping the exact text.
+DLL_EXPORT int test_clipboard_copytext_notifies(ITesting *t) {
+    ClipBoard clipBoard;
+    bool notified = false;
+    std::u32string captured;
+    clipBoard.SetOnUpdateCallback([&](ClipBoard::ClipBoardItem::Ref item) {
+        notified = true;
+        captured = item->AsText();
+    });
+
+    TR_ASSERT(t, clipBoard.CopyText(U"alpha\nbeta"));
+
+    // Pushed to the OS pasteboard (the GUI paste requirement) - CopyFromExternal would NOT have.
+    TR_ASSERT(t, notified);
+    TR_ASSERT(t, captured == std::u32string(U"alpha\nbeta"));
+
+    // And available as the internal top item.
+    TR_ASSERT(t, clipBoard.Top() != nullptr);
+    TR_ASSERT(t, clipBoard.Top()->AsText() == std::u32string(U"alpha\nbeta"));
     return kTR_Pass;
 }

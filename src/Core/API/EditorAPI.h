@@ -39,6 +39,12 @@ namespace gedit {
         std::vector<DocumentAPI::Ref> GetDocuments();
         void CloseActiveDocument();
 
+        // Put literal text onto the system clipboard / paste buffer (forwarded to the OS pasteboard so
+        // it pastes in other apps too). The string->clipboard seam, parallel to NewDocumentFromText -
+        // lets a plugin drop e.g. a terminal block's output (Terminal.GetSelectedBlock()) onto the
+        // paste buffer.
+        void CopyToClipboard(const char *text);
+
 
         const std::vector<std::string> GetTopViews();
         ViewAPI::Ref GetViewByName(const char *name);

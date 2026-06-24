@@ -45,6 +45,7 @@ void TerminalAPIWrapper::RegisterModule(duk_context *ctx) {
     dukglue_register_method_varargs(ctx, &TerminalAPIWrapper::GetLastBlock, "GetLastBlock");
     dukglue_register_method_varargs(ctx, &TerminalAPIWrapper::GetSelectedBlock, "GetSelectedBlock");
     dukglue_register_method_varargs(ctx, &TerminalAPIWrapper::OpenBlockAsDocument, "OpenBlockAsDocument");
+    dukglue_register_method_varargs(ctx, &TerminalAPIWrapper::CopyBlockToClipboard, "CopyBlockToClipboard");
 }
 
 duk_ret_t TerminalAPIWrapper::GetBlocks(duk_context *ctx) {
@@ -120,5 +121,16 @@ duk_ret_t TerminalAPIWrapper::OpenBlockAsDocument(duk_context *ctx) {
     auto blockId = static_cast<uint64_t>(duk_get_number(ctx, 0));
     auto document = terminalApi->OpenBlockAsDocument(blockId);
     duk_push_boolean(ctx, document != nullptr);
+    return 1;
+}
+
+duk_ret_t TerminalAPIWrapper::CopyBlockToClipboard(duk_context *ctx) {
+    auto terminalApi = Editor::Instance().GetGlobalAPIObject<TerminalAPI>();
+    if (terminalApi == nullptr) {
+        duk_push_boolean(ctx, false);
+        return 1;
+    }
+    auto blockId = static_cast<uint64_t>(duk_get_number(ctx, 0));
+    duk_push_boolean(ctx, terminalApi->CopyBlockToClipboard(blockId));
     return 1;
 }

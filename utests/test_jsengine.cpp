@@ -19,6 +19,7 @@ extern "C" {
     DLL_EXPORT int test_jsengine_newbuffer(ITesting *t);
     DLL_EXPORT int test_jsengine_newdocumentfromtext(ITesting *t);
     DLL_EXPORT int test_jsengine_terminalapi(ITesting *t);
+    DLL_EXPORT int test_jsengine_copytoclipboard(ITesting *t);
     DLL_EXPORT int test_jsengine_loadbuffer(ITesting *t);
     DLL_EXPORT int test_jsengine_listbuffers(ITesting *t);
 }
@@ -160,6 +161,61 @@ DLL_EXPORT int test_jsengine_terminalapi(ITesting *t) {
     TR_ASSERT(t, buffer->NumLines() == 2);
     TR_ASSERT(t, buffer->LineAt(0)->Buffer() == std::u32string(U"alpha"));
     TR_ASSERT(t, buffer->LineAt(1)->Buffer() == std::u32string(U"beta"));
+
+    return kTR_Pass;
+}
+
+// The clipboard JS seam: Editor.CopyToClipboard(text) (the general primitive) and
+// Terminal.CopyBlockToClipboard(id) (the block composite). Both land literal text on the paste buffer
+// (RuntimeConfig clipboard top item, AsText round-tripping the text). The OnUpdate->OS-pasteboard
+// wiring is covered at the clipboard level by test_clipboard_copytext_notifies.
+DLL_EXPORT int test_jsengine_copytoclipboard(ITesting *t) {
+    // Editor.CopyToClipboard primitive: arbitrary text lands on the paste buffer.
+    {
+        JSPluginEngine jsEngine;
+        jsEngine.Initialize();
+        std::string script = "function main(args) {"\
+        "Editor.CopyToClipboard(\"hello\\nworld\");"\
+        "}";
+        jsEngine.RunScriptOnce(script, {});
+
+        auto top = Editor::Instance().GetClipBoard().Top();
+        TR_ASSERT(t, top != nullptr);
+        TR_ASSERT(t, top->AsText() == std::u32string(U"hello\nworld"));
+    }
+
+    // Terminal.CopyBlockToClipboard composite: resolve a block by id -> paste buffer. Same controller-
+    // as-console setup as test_jsengine_terminalapi; cmd1's block is closed (-> [alpha, beta]).
+    {
+        TerminalController controller;
+        controller.Resize(20, 5);
+        auto commit = [&](const std::u32string &cmd) {
+            controller.GetInputLine()->Append(cmd);
+            controller.CommitLine();
+        };
+        commit(U"cmd1");
+        controller.WriteLine(U"alpha");
+        controller.WriteLine(U"beta");
+        commit(U"cmd2");   // closes cmd1's block -> [alpha, beta] is fixed
+
+        auto *prevConsole = RuntimeConfig::Instance().OutputConsole();
+        controller.RegisterAsOutputConsole();
+
+        JSPluginEngine jsEngine;
+        jsEngine.Initialize();
+        std::string script = "function main(args) {"\
+        "var blocks = Terminal.GetBlocks();"\
+        "if (blocks.length < 2) { return; }"\
+        "Terminal.CopyBlockToClipboard(blocks[1].id);"\
+        "}";
+        jsEngine.RunScriptOnce(script, {});
+
+        RuntimeConfig::Instance().SetOutputConsole(prevConsole);
+
+        auto top = Editor::Instance().GetClipBoard().Top();
+        TR_ASSERT(t, top != nullptr);
+        TR_ASSERT(t, top->AsText() == std::u32string(U"alpha\nbeta"));
+    }
 
     return kTR_Pass;
 }

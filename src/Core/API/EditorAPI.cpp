@@ -9,6 +9,7 @@
 #include "Core/RuntimeConfig.h"
 #include "Core/UI/Views/RootView.h"
 #include "Core/UnicodeHelper.h"
+#include "Core/ClipBoard.h"
 
 using namespace gedit;
 
@@ -137,6 +138,14 @@ void EditorAPI::CloseActiveDocument() {
     if (current != nullptr) {
         Editor::Instance().CloseDocument(current);
     }
+}
+
+void EditorAPI::CopyToClipboard(const char *text) {
+    if (text == nullptr) {
+        return;
+    }
+    auto u32 = UnicodeHelper::utf8to32(text);
+    Editor::Instance().GetClipBoard().CopyText(u32);
 }
 
 

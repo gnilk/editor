@@ -7,8 +7,10 @@ selected-block highlight), and Phase 2 DONE ✅ — TS-0a..TS-0f, TS-1a..TS-1c, 
 `Editor.NewDocumentFromText()` seam + the `blocktobuffer` (`b2b`) cmdlet all shipped, in the
 verified-green test suite.** TS-1.5c (acting on a block) was redirected onto quick-command + JS and is
 now delivered through that JS surface (§5.5.3). The clipboard JS seam ("copy block to paste buffer") is
-also shipped (`Editor.CopyToClipboard` + `Terminal.CopyBlockToClipboard` + the `b2c` cmdlet). Remaining:
-Phases 3-5 (OSC 133, per-block highlighting, persistence) — see §11. Resolves
+also shipped (`Editor.CopyToClipboard` + `Terminal.CopyBlockToClipboard` + the `b2c` cmdlet). **Phase 3
+(OSC 133 shell integration) DONE ✅ — TS-3a/3b/3c (parser markers + controller→block mapping with the
+`useOsc133Boundaries` supersession + opt-in `terminal.shell_integration` bootstrap), in the verified-green
+suite.** Remaining: Phases 4-5 (per-block highlighting, persistence) — see §11. Resolves
 [`open-bugs.md`](open-bugs.md) #10 ("Missing scrollback feature in terminal UI") for the viewing/scrolling
 half; the *grouping* infrastructure (jump-per-command, parse-build-output, open-output-as-document) the
 user wants on top of it is built (blocks exist + nav works) but not yet consumed downstream. Written
@@ -54,8 +56,20 @@ cold-start so remaining phases can be picked up later without re-deriving the te
 > (selected-block path, parallel to `b2b`). Tests: `test_clipboard_copytext_notifies` (the OnUpdate
 > requirement), `test_jsengine_copytoclipboard` (both JS surfaces → paste-buffer top item).
 >
-> **▶ NEXT SESSION — pick up here.** Remaining beyond Phase 2:
-> - **Phase 3** (OSC 133), **Phase 4** (per-block language), **Phase 5** (persistence) — see §11.
+> **▶ DONE this session (Phase 3, OSC 133 shell integration, §4.2 + §11):** `VTermParser` now recognises
+> OSC 133 (`A/B/C/D` → `kPromptStart`/`kCommandStart`/`kOutputStart`/`kCommandEnd` with the exit param)
+> and OSC 7 (`kSetCwd`, path in the new `CMD::strParam`), via a no-leading-skip payload reader that
+> honours BEL **and** ST. `TerminalController::HandleAnsiCmd` maps them onto the block API — `;C` opens a
+> `kOsc133` block whose command text is read from the `;B..;C` grid span (`ReadGridText`), `;D` closes it
+> with the exit code, OSC 7 sets the open block's cwd. A `useOsc133Boundaries` flag stands the
+> `CommitLine`/tab-completion heuristic down once any marker is seen, so the two never double-open. Opt-in
+> via `terminal.shell_integration` (default `no`), which appends shell-aware (bash/zsh) prompt-hook
+> bootstrap. `HandleTerminalData` made public so tests can script a byte stream without a live shell.
+> Tests: `test_vtermparser_osc133`/`_osc7_cwd`, `test_terminalcontroller_osc133_block`/`_osc7_cwd`/
+> `_osc133_no_double_open`.
+>
+> **▶ NEXT SESSION — pick up here.** Remaining beyond Phase 3:
+> - **Phase 4** (per-block language / hard-region highlighting, §3.4), **Phase 5** (persistence, §8) — see §11.
 >
 > Already in place to build on: the `Terminal` JS surface (`TerminalAPI`/`TerminalAPIWrapper`),
 > `TerminalController::SelectedBlockIndex()` / `GetSelectedBlockText()`, the block index
@@ -831,12 +845,25 @@ Sized so each phase ships independently and is separately testable.
   `test_jsengine_newdocumentfromtext`, `test_jsengine_terminalapi` (JS `Terminal.*` round-trip:
   controller-as-console → enumerate by id → `OpenBlockAsDocument` → new doc content).
 
-**Phase 3 — OSC 133 shell integration (optional, opt-in fidelity upgrade).**
-- `TS-3a` VTermParser OSC 133 / OSC 7 → new `kAnsiCmd`s.
-- `TS-3b` Controller maps them to Begin/End/exit/cwd; `Source::kOsc133` supersedes the heuristic.
-- `TS-3c` bash/zsh bootstrap snippets emitting the markers (`terminal.bootstrap`), behind a config flag.
-- Tests: a scripted OSC 133 A/B/C/D stream produces a block with the right command text + exit code; cwd
-  via OSC 7; no double-open when both sources fire.
+**Phase 3 — OSC 133 shell integration (optional, opt-in fidelity upgrade). ✅ DONE**
+- `TS-3a` ✅ VTermParser OSC 133 / OSC 7 → new `kAnsiCmd`s (`kPromptStart`/`kCommandStart`/`kOutputStart`/
+  `kCommandEnd`/`kSetCwd`). `CMD` gained a `std::string strParam` (carries the OSC 7 path; everything else
+  leaves it empty). New `OSC_ReadPayloadToTerminator()` reads the payload with no leading-char skip and
+  honours BEL **and** ST (8-bit `0x9c` or two-byte `ESC \`); `ParseOSC133()` splits A/B/C/D and parses
+  `D;<exit>` (`-1` when the shell omits it). OSC 7 strips `file://host` → path.
+- `TS-3b` ✅ `TerminalController::HandleAnsiCmd` maps `kOutputStart` → `BeginCommandBlock(cmdText, kOsc133)`
+  with `cmdText` recovered from the `;B..;C` grid span (`ReadGridText`), `kCommandEnd` → `EndOpenBlock(exit)`,
+  `kSetCwd` → `SetOpenBlockCwd`. A `useOsc133Boundaries` flag (set on the first marker, read under
+  `screenLock`) makes the `CommitLine`/tab-completion heuristic **stand down** so OSC 133 and the heuristic
+  never double-open. `HandleTerminalData` is now public (the pty-output sink — lets a test feed a scripted
+  byte stream without a live shell, same role `RegisterAsOutputConsole` plays for output).
+- `TS-3c` ✅ `terminal.shell_integration` config flag (**default `no`**, §12.3); when on, `Begin()` appends
+  shell-aware OSC 133 prompt hooks (`BuildShellIntegrationBootstrap` — zsh `preexec`/`precmd` + PS1 A/B,
+  bash DEBUG-trap guarded to fire `;C` once per cycle + PROMPT_COMMAND `;D` + PS1 A/B) to the bootstrap.
+- Tests: ✅ `test_vtermparser_osc133` (A/B/C/D, `D;0`/`D;130`/bare `D`→-1, BEL **and** ST terminators, no
+  leak into stripped text), `test_vtermparser_osc7_cwd` (empty + named host); `test_terminalcontroller_osc133_block`
+  (command text from `;B..;C` + exit code, `kOsc133` source, closed at `;D`), `_osc7_cwd` (cwd on the open
+  block), `_osc133_no_double_open` (prompt `;A/;B` → CommitLine suppressed → one block). All verified-green.
 
 **Phase 4 — per-block language / highlighting (§3.4).** *(optional, later; depends on Phase 1.)*
 - `TS-4a` command→language map (argv0 → `LanguageBase`); set `block.language` on open.
@@ -869,8 +896,11 @@ Sized so each phase ships independently and is separately testable.
    shell-prompt path. Left here only as a record of the resolved choice.
 2. **Default scrollback cap.** `terminal.scrollback_lines` (in-memory) default — 10000 proposed
    (`0` = unlimited). Separate, smaller `terminal.persist_scrollback_lines` (on-disk, §8) — 2000 proposed.
-3. **OSC 133 on by default?** Recommend **off by default** in Phase 3 (opt-in via config), since it
-   modifies the user's prompt; the `CommitLine` baseline already delivers blocks without it.
+3. **OSC 133 on by default? — settled (Phase 3 shipped).** **Off by default**, opt-in via
+   `terminal.shell_integration` (default `no`), since it rewrites the user's PS1; the `CommitLine`
+   baseline already delivers blocks without it. When on, the `BuildShellIntegrationBootstrap` snippet is
+   appended to the shell bootstrap and `useOsc133Boundaries` makes the heuristic stand down so the two
+   never double-open.
 4. **Block visual affordance — settled (§5.5, Phase 1.5).** Permanent: a sub-cell separator rule at block
    boundaries (`commandview.show_block_markers`), no row cost, no viewport-math change. Selected block (on
    jump-back): an `Overlay` highlight (TS-1.5b, done) — never a permanent inter-block row, so the §5

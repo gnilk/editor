@@ -67,12 +67,21 @@ namespace gedit {
             // Cursor visibility
             kCursorShow,                   // ESC[?25h
             kCursorHide,                   // ESC[?25l
+
+            // Shell integration — OSC 133 semantic prompts (FinalTerm/iTerm2) + OSC 7 cwd.
+            // These carry no grid effect; the controller maps them onto the command-block index.
+            kPromptStart,                  // OSC 133;A  — prompt start
+            kCommandStart,                 // OSC 133;B  — command start (end of prompt)
+            kOutputStart,                  // OSC 133;C  — command output start
+            kCommandEnd,                   // OSC 133;D[;<exit>] — command end; param[0]=exit (-1=unknown)
+            kSetCwd,                       // OSC 7      — working dir; strParam = the file:// path
         };
 
         struct CMD {
             size_t idxString;
             kAnsiCmd cmd;
             std::vector<int> param;
+            std::string strParam;          // string payload (OSC 7 path); empty for everything else
         };
 
     public:
@@ -92,9 +101,12 @@ namespace gedit {
         bool InRange(const std::pair<int,int> &range);
 
         std::string OSC_ParseStringToBel();
+        std::string OSC_ReadPayloadToTerminator();
+        void ParseOSC133();
         void EmitCmd(kAnsiCmd kCmd);
         void EmitCmd(kAnsiCmd kCmd, int param);
         void EmitCmd(kAnsiCmd kCmd, int p1, int p2);
+        void EmitCmd(kAnsiCmd kCmd, const std::string &strParam);
 
         bool Next();
         uint8_t At();

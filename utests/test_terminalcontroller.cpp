@@ -25,9 +25,18 @@ DLL_EXPORT int test_terminalcontroller_selected_block_index(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_selected_block_text(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_selection_survives_output(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_block_index_surface(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_osc133_block(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_osc7_cwd(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_osc133_no_double_open(ITesting *t);
 }
 
 #include <cstdint>   // UINT64_MAX
+
+// Feed a scripted byte stream into the controller as if it came off the pty (HandleTerminalData is
+// the Shell output-delegate target). Lets a test drive OSC 133 markers without a live shell.
+static void FeedPty(TerminalController &c, const std::string &bytes) {
+    c.HandleTerminalData(reinterpret_cast<const uint8_t *>(bytes.data()), bytes.size());
+}
 
 // Push 'n' lines through the grid into scrollback WITHOUT starting a real shell - WriteLine (the
 // IOutputConsole path search-results output already uses today) writes straight into the grid under
@@ -528,6 +537,77 @@ DLL_EXPORT int test_terminalcontroller_block_index_surface(ITesting *t) {
 
     // An id that matches no block resolves to nullopt (ids are monotonic from small values).
     TR_ASSERT(t, !c.GetBlockOutputText(UINT64_MAX).has_value());
+
+    return kTR_Pass;
+}
+
+// TS-3b (§4.2): a scripted OSC 133 A/B/C/D stream opens exactly one block whose command text is
+// recovered from the ;B..;C grid span, sourced kOsc133, closed at ;D with the reported exit code.
+DLL_EXPORT int test_terminalcontroller_osc133_block(ITesting *t) {
+    TerminalController c;
+    c.Resize(40, 10);
+    auto blocksBefore = c.GetScreen().Blocks().size();   // just the initial loose block
+
+    // Prompt-start, the prompt text, command-start, the echoed command, output-start, output, end.
+    FeedPty(c,
+        "\x1b]133;A\x07" "$ "
+        "\x1b]133;B\x07" "ls -la"
+        "\x1b]133;C\x07" "\n" "total 0\n"
+        "\x1b]133;D;0\x07");
+
+    const auto &blocks = c.GetScreen().Blocks();
+    TR_ASSERT(t, blocks.size() == blocksBefore + 1);
+    const auto &block = blocks.back();
+    TR_ASSERT(t, block.command == std::u32string(U"ls -la"));   // recovered from the B..C span, prompt skipped
+    TR_ASSERT(t, block.source == TerminalScreen::CommandBlock::Source::kOsc133);
+    TR_ASSERT(t, block.endAbsRow.has_value());                  // ;D closed it
+    TR_ASSERT(t, block.exitCode.has_value() && block.exitCode.value() == 0);
+
+    return kTR_Pass;
+}
+
+// TS-3b (§4.2): OSC 7 sets the open block's cwd (best-effort).
+DLL_EXPORT int test_terminalcontroller_osc7_cwd(ITesting *t) {
+    TerminalController c;
+    c.Resize(40, 10);
+
+    // Open a block, then report the cwd while it is still open.
+    FeedPty(c,
+        "\x1b]133;A\x07" "$ " "\x1b]133;B\x07" "pwd" "\x1b]133;C\x07"
+        "\x1b]7;file:///home/gnilk/src\x07");
+
+    const auto &block = c.GetScreen().Blocks().back();
+    TR_ASSERT(t, !block.endAbsRow.has_value());   // still open - cwd lands on it
+    TR_ASSERT(t, block.cwd == std::filesystem::path("/home/gnilk/src"));
+
+    return kTR_Pass;
+}
+
+// TS-3b (§4.2): when OSC 133 integration is active the CommitLine heuristic stands down, so a
+// committed command followed by the shell's own ;C marker yields ONE block, not two. Mirrors the
+// real ordering: the shell draws its prompt (;A/;B) before the user commits.
+DLL_EXPORT int test_terminalcontroller_osc133_no_double_open(ITesting *t) {
+    TerminalController c;
+    c.Resize(40, 10);
+    auto blocksBefore = c.GetScreen().Blocks().size();   // loose block
+
+    // Shell's prompt arrives with the OSC 133 markers -> integration becomes active.
+    FeedPty(c, "\x1b]133;A\x07" "$ " "\x1b]133;B\x07");
+
+    // User types + commits locally; CommitLine must NOT open a block now (OSC 133 owns boundaries).
+    c.GetInputLine()->Append(std::u32string(U"echo hi"));
+    c.CommitLine();
+    TR_ASSERT(t, c.GetScreen().Blocks().size() == blocksBefore);   // no heuristic block opened
+
+    // The shell echoes the command and brackets it with ;C / ;D - THAT opens the one real block.
+    FeedPty(c, "echo hi" "\x1b]133;C\x07" "hi\n" "\x1b]133;D;0\x07");
+
+    const auto &blocks = c.GetScreen().Blocks();
+    TR_ASSERT(t, blocks.size() == blocksBefore + 1);   // exactly one, no double-open
+    const auto &block = blocks.back();
+    TR_ASSERT(t, block.command == std::u32string(U"echo hi"));
+    TR_ASSERT(t, block.source == TerminalScreen::CommandBlock::Source::kOsc133);
+    TR_ASSERT(t, block.exitCode.has_value() && block.exitCode.value() == 0);
 
     return kTR_Pass;
 }

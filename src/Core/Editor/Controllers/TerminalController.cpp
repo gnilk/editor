@@ -32,6 +32,36 @@ static ColorRGBA FG_BG_256[256] = {
     ColorRGBA::FromRGB(0xff, 0xff, 0xff),   // 15
 };
 
+// OSC 133 shell-integration prompt hooks (TS-3c, §4.2), injected into the shell bootstrap when
+// terminal.shell_integration is on. Emits ;A (prompt start) / ;B (command start) around the prompt,
+// ;C (output start) before each command runs, and ;D;<exit> (command end) at the next prompt - the
+// markers TerminalController::HandleAnsiCmd turns into precise command blocks with exit codes. The
+// shell is detected from the binary path; bash uses the DEBUG trap (guarded to fire ;C once per
+// prompt), zsh uses preexec/precmd hooks. Off by default (it touches the user's PS1).
+static std::vector<std::string> BuildShellIntegrationBootstrap(const std::string &shellBinary) {
+    bool isZsh = shellBinary.find("zsh") != std::string::npos;
+    if (isZsh) {
+        return {
+            "__goat_osc133_preexec() { printf '\\033]133;C\\007'; }",
+            "__goat_osc133_precmd() { printf '\\033]133;D;%d\\007' \"$?\"; }",
+            "autoload -Uz add-zsh-hook 2>/dev/null; "
+                "add-zsh-hook preexec __goat_osc133_preexec; "
+                "add-zsh-hook precmd __goat_osc133_precmd",
+            "PS1=$'%{\\033]133;A\\007%}'$PS1$'%{\\033]133;B\\007%}'",
+        };
+    }
+    // bash (and bourne-ish fallbacks): DEBUG trap for ;C, guarded so it fires once per command cycle.
+    return {
+        "__goat_osc133_done=",
+        "__goat_osc133_precmd() { printf '\\033]133;D;%d\\007' \"$?\"; __goat_osc133_done=; }",
+        "__goat_osc133_preexec() { [ -n \"$__goat_osc133_done\" ] && return; "
+            "__goat_osc133_done=1; printf '\\033]133;C\\007'; }",
+        "PROMPT_COMMAND=\"__goat_osc133_precmd${PROMPT_COMMAND:+; $PROMPT_COMMAND}\"",
+        "trap '__goat_osc133_preexec' DEBUG",
+        "PS1='\\[\\033]133;A\\007\\]'\"$PS1\"'\\[\\033]133;B\\007\\]'",
+    };
+}
+
 void TerminalController::InitializeColorTable() {
     const uint8_t valuerange[6] = {0x00, 0x5f, 0x87, 0xaf, 0xd7, 0xff};
     uint8_t j = 16;
@@ -65,6 +95,12 @@ void TerminalController::Begin() {
     auto shellBinary    = Config::Instance()["terminal"].GetStr("shell", "/bin/bash");
     auto shellInitStr   = Config::Instance()["terminal"].GetStr("init", "-ils");
     auto shellInitScript = Config::Instance()["terminal"].GetSequenceOfStr("bootstrap");
+    // §4.2 (TS-3c): opt-in OSC 133 shell integration - appends prompt hooks that emit semantic-prompt
+    // markers, giving exact command boundaries + exit codes. Off by default (it rewrites PS1).
+    if (Config::Instance()["terminal"].GetBool("shell_integration", false)) {
+        auto osc133 = BuildShellIntegrationBootstrap(shellBinary);
+        shellInitScript.insert(shellInitScript.end(), osc133.begin(), osc133.end());
+    }
     shell.Begin(shellBinary, shellInitStr, shellInitScript);
 
     while (shell.GetState() != Shell::State::kRunning) {
@@ -333,7 +369,64 @@ void TerminalController::HandleAnsiCmd(const VTermParser::CMD &cmd) {
         case VTermParser::kAnsiCmd::kCursorShow :
         case VTermParser::kAnsiCmd::kCursorHide :
             break;
+
+        // --- OSC 133 shell integration (§4.2) ---
+        // Seeing ANY marker means the shell brackets its own commands, so the CommitLine heuristic
+        // stands down (useOsc133Boundaries) and OSC 133 drives the block boundaries from here.
+        case VTermParser::kAnsiCmd::kPromptStart :
+            useOsc133Boundaries = true;
+            break;
+        case VTermParser::kAnsiCmd::kCommandStart :
+            // End of prompt: the typed command starts at the cursor; record it for ;C to read back.
+            useOsc133Boundaries = true;
+            osc133CommandStart = screen.GetCursorPos();
+            break;
+        case VTermParser::kAnsiCmd::kOutputStart :
+            // Output start: open the block, command text = the grid span [;B .. here].
+            useOsc133Boundaries = true;
+            screen.BeginCommandBlock(ReadGridText(osc133CommandStart, screen.GetCursorPos()),
+                                     TerminalScreen::CommandBlock::Source::kOsc133);
+            break;
+        case VTermParser::kAnsiCmd::kCommandEnd : {
+            // Command finished: close the open block with the reported exit code (-1 == unknown).
+            useOsc133Boundaries = true;
+            std::optional<int> exitCode;
+            if (!cmd.param.empty() && cmd.param[0] >= 0) {
+                exitCode = cmd.param[0];
+            }
+            screen.EndOpenBlock(exitCode);
+            break;
+        }
+        case VTermParser::kAnsiCmd::kSetCwd :
+            // OSC 7: best-effort cwd for the open block.
+            if (!cmd.strParam.empty()) {
+                screen.SetOpenBlockCwd(std::filesystem::path(cmd.strParam));
+            }
+            break;
     }
+}
+
+// Recover text from the grid span [from, to] - the typed command between OSC 133;B and ;C. Joins
+// wrapped rows and trims trailing blanks. screenLock is held by the caller (HandleAnsiCmd).
+std::u32string TerminalController::ReadGridText(const Point &from, const Point &to) const {
+    std::u32string text;
+    for (int y = from.y; y <= to.y; y++) {
+        if (y < 0 || y >= screen.Rows()) {
+            continue;
+        }
+        const auto &row = screen.GetRow(y);
+        int startX = (y == from.y) ? from.x : 0;
+        int endX   = (y == to.y)   ? to.x   : (int)row.size();
+        startX = std::clamp(startX, 0, (int)row.size());
+        endX   = std::clamp(endX,   0, (int)row.size());
+        for (int x = startX; x < endX; x++) {
+            text += row[x].ch;
+        }
+    }
+    while (!text.empty() && text.back() == U' ') {
+        text.pop_back();
+    }
+    return text;
 }
 
 bool TerminalController::HandleKeyPress(Cursor &cursor, size_t &idxActiveLine, const KeyPress &keyPress) {
@@ -442,7 +535,9 @@ bool TerminalController::ForwardActionToShell(const EditorAction &kpAction) {
                 std::u32string cmdLine(inputLine->Buffer());
                 if (!cmdLine.empty()) {
                     std::lock_guard<std::mutex> guard(screenLock);
-                    screen.BeginCommandBlock(cmdLine, TerminalScreen::CommandBlock::Source::kCommitLine);
+                    if (!useOsc133Boundaries) {   // §4.2: OSC 133;C opens the block when integration is active
+                        screen.BeginCommandBlock(cmdLine, TerminalScreen::CommandBlock::Source::kCommitLine);
+                    }
                 }
                 ExitShellOwned();
             }
@@ -728,7 +823,11 @@ void TerminalController::CommitLine() {
         // alt-screen (§10); mirrors WriteLine's short locked section rather than locking the whole
         // function (shell.SendCmd below must not run under screenLock).
         std::lock_guard<std::mutex> guard(screenLock);
-        screen.BeginCommandBlock(cmdLine, TerminalScreen::CommandBlock::Source::kCommitLine);
+        // §4.2: once OSC 133 shell integration is active the shell opens the block itself at ;C, so the
+        // heuristic stands down to avoid a double-open (flag read under screenLock, set on the pty thread).
+        if (!useOsc133Boundaries) {
+            screen.BeginCommandBlock(cmdLine, TerminalScreen::CommandBlock::Source::kCommitLine);
+        }
     }
     cmdHistory.ResetNavigation();
 

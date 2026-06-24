@@ -29,6 +29,12 @@ namespace gedit {
         void Resize(int cols, int rows);
         bool HandleKeyPress(Cursor &cursor, size_t &idxActiveLine, const KeyPress &keyPress) override;
 
+        // The shell's pty-output sink: feed raw bytes here (Begin() wires it as Shell's output
+        // delegate, called on the pty-reader thread). Parses ANSI/OSC and mutates the grid under
+        // screenLock. Public so a test can drive a scripted byte stream (e.g. OSC 133 markers) into
+        // the controller without a live shell - the same role RegisterAsOutputConsole plays for output.
+        void HandleTerminalData(const uint8_t *buffer, size_t length);
+
         const TerminalScreen &GetScreen() const { return screen; }
         std::mutex &GetScreenLock() { return screenLock; }
 
@@ -96,11 +102,15 @@ namespace gedit {
         std::optional<OutputBlockInfo> GetLastBlock() override;
 
     protected:
-        void HandleTerminalData(const uint8_t *buffer, size_t length);
         void HandleAnsiCmd(const VTermParser::CMD &cmd);
         void SyncInputLineFromGrid();
         void ExitShellOwned();
         void InitializeColorTable();
+
+        // Read the grid text spanning [from, to) cell positions, joining wrapped rows and trimming
+        // trailing blanks. Used to recover the typed command from the grid span between OSC 133;B
+        // (command start) and ;C (output start). Assumes screenLock is held.
+        std::u32string ReadGridText(const Point &from, const Point &to) const;
 
         // Encode a keypress as raw pty bytes and forward it to the shell. Used by BOTH passthrough
         // paths in HandleKeyPress: a full-screen app (alt-screen) and readline (shell-owned line).
@@ -144,6 +154,14 @@ namespace gedit {
         // grid cursor stays parked there while editing locally, since local edits never touch the
         // grid). Used to read the line back.
         Point promptAnchor = {};
+
+        // OSC 133 shell-integration state (§4.2). Set once the first OSC 133 marker arrives: from then
+        // on the shell brackets its own commands, so the CommitLine heuristic stands down (it would
+        // otherwise double-open against ;C). Read under screenLock in the commit paths. Touched only on
+        // the pty thread inside HandleAnsiCmd (already under screenLock).
+        bool useOsc133Boundaries = false;
+        // Grid cell recorded at OSC 133;B (command start); ;C reads the typed command from [here..cursor].
+        Point osc133CommandStart = {};
 
         // Viewport state (§5.1) - read/written on the UI thread only (key/mouse handlers); reads of
         // screen.AbsRowCount()/ScrollbackBase() go through screenLock since the pty thread mutates them.

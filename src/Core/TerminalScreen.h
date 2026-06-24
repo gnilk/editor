@@ -127,6 +127,14 @@ namespace gedit {
         void SetOpenBlockCwd(const std::filesystem::path &cwd);
         const std::deque<CommandBlock> &Blocks() const { return blocks; }
 
+        // Resolve a block's output to text, one string per row (TS-2a, §9). Walks [startAbsRow,
+        // endAbsRow) via RowAtAbs - scrollback Lines plus the live grid tail; the OPEN block resolves
+        // up to the live cursor row (endAbsRow defaults to AbsRowCount()). Rows that have been evicted
+        // resolve empty and are skipped (eviction is whole-block per §7, so a retained block is always
+        // complete - this only bites a block caught mid-eviction). Returns empty if no block has the
+        // given id. Pure read; the caller holds screenLock.
+        std::vector<std::u32string> GetBlockOutputText(uint64_t blockId) const;
+
     private:
         Cell MakeBlankCell() const;
         Row  MakeBlankRow() const;

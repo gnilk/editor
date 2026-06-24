@@ -630,6 +630,25 @@ std::optional<size_t> TerminalController::SelectedBlockIndex() const {
     return std::nullopt;
 }
 
+std::optional<std::u32string> TerminalController::GetSelectedBlockText() {
+    std::lock_guard<std::mutex> guard(screenLock);
+    auto sel = SelectedBlockIndex();   // safe: we hold screenLock (its documented precondition)
+    if (!sel.has_value()) {
+        return std::nullopt;
+    }
+    const auto &blocks = screen.Blocks();
+    auto lines = screen.GetBlockOutputText(blocks[*sel].id);
+
+    std::u32string text;
+    for (size_t i = 0; i < lines.size(); i++) {
+        if (i > 0) {
+            text += U"\n";
+        }
+        text += lines[i];
+    }
+    return text;
+}
+
 void TerminalController::ExitShellOwned() {
     // Return to local line editing. The committed/aborted line lives in the shell's
     // output now; our local buffer starts fresh at the next prompt.

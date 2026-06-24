@@ -8,6 +8,7 @@
 #include "EditorAPI.h"
 #include "Core/RuntimeConfig.h"
 #include "Core/UI/Views/RootView.h"
+#include "Core/UnicodeHelper.h"
 
 using namespace gedit;
 
@@ -49,6 +50,48 @@ DocumentAPI::Ref EditorAPI::NewDocument(const char *name) {
         return nullptr;
     }
     auto node = workspace->NewDocument(name);
+    // This will also activate the document...
+    Editor::Instance().OpenDocumentFromWorkspace(node);
+
+    return DocumentAPI::Create(node);
+}
+
+DocumentAPI::Ref EditorAPI::NewDocumentFromText(const char *name, const char *text) {
+    auto workspace = Editor::Instance().GetWorkspace();
+    if (workspace == nullptr) {
+        return nullptr;
+    }
+    auto node = workspace->NewDocument(name);
+    auto textBuffer = node->GetTextBuffer();
+    if (textBuffer != nullptr && text != nullptr) {
+        // A fresh document buffer carries a single placeholder empty line (CreateEmptyBuffer); drop it
+        // so the supplied text becomes the buffer's content rather than sitting under a leading blank
+        // line. Guarded on IsEmpty() so a reused, already-loaded node is never wiped.
+        if (textBuffer->IsEmpty()) {
+            while (textBuffer->NumLines() > 0) {
+                textBuffer->DeleteLineAt(0);
+            }
+        }
+        // Split on '\n' into Lines. A non-existent new file is never loaded over this content
+        // (Node::LoadData is a no-op when the path doesn't exist), so filling before OpenDocument is
+        // safe and the document opens already showing the text.
+        auto u32 = UnicodeHelper::utf8to32(text);
+        size_t start = 0;
+        while (true) {
+            size_t nl = u32.find(U'\n', start);
+            size_t len = (nl == std::u32string::npos) ? std::u32string::npos : (nl - start);
+            std::u32string lineText = u32.substr(start, len);
+            if (!lineText.empty() && lineText.back() == U'\r') {
+                lineText.pop_back();   // tolerate CRLF input
+            }
+            textBuffer->AddLine(lineText);
+            if (nl == std::u32string::npos) {
+                break;
+            }
+            start = nl + 1;
+        }
+        textBuffer->Reparse();
+    }
     // This will also activate the document...
     Editor::Instance().OpenDocumentFromWorkspace(node);
 

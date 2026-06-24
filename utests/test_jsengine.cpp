@@ -16,6 +16,7 @@ extern "C" {
     DLL_EXPORT int test_jsengine_array(ITesting *t);
     DLL_EXPORT int test_jsengine_listlang(ITesting *t);
     DLL_EXPORT int test_jsengine_newbuffer(ITesting *t);
+    DLL_EXPORT int test_jsengine_newdocumentfromtext(ITesting *t);
     DLL_EXPORT int test_jsengine_loadbuffer(ITesting *t);
     DLL_EXPORT int test_jsengine_listbuffers(ITesting *t);
 }
@@ -82,6 +83,34 @@ DLL_EXPORT int test_jsengine_newbuffer(ITesting *t) {
     cmd->Execute({"mamma"});
     auto numAfter = Editor::Instance().GetDocuments().size();
     TR_ASSERT(t, numAfter > numBefore);
+    return kTR_Pass;
+}
+
+// End-to-end for the TS-2c JS seam: Editor.NewDocumentFromText (a 2-arg const char* method, dukglue-
+// registered) must create a new document AND pre-fill its buffer from the '\n'-split text. This is the
+// back half of the canonical "block to buffer" cmdlet (the front half, Console.GetSelectedBlock, is
+// covered at the controller level by test_terminalcontroller_selected_block_text).
+DLL_EXPORT int test_jsengine_newdocumentfromtext(ITesting *t) {
+    JSPluginEngine jsEngine;
+    jsEngine.Initialize();
+
+    auto numBefore = Editor::Instance().GetDocuments().size();
+    std::string script = "function main(args) {"\
+    "Editor.NewDocumentFromText(\"blockout\", \"alpha\\nbeta\\ngamma\");"\
+    "}";
+    jsEngine.RunScriptOnce(script, {});
+
+    TR_ASSERT(t, Editor::Instance().GetDocuments().size() > numBefore);
+
+    auto doc = Editor::Instance().GetActiveDocument();
+    TR_ASSERT(t, doc != nullptr);
+    auto buffer = doc->GetTextBuffer();
+    TR_ASSERT(t, buffer != nullptr);
+    TR_ASSERT(t, buffer->NumLines() == 3);
+    TR_ASSERT(t, buffer->LineAt(0)->Buffer() == std::u32string(U"alpha"));
+    TR_ASSERT(t, buffer->LineAt(1)->Buffer() == std::u32string(U"beta"));
+    TR_ASSERT(t, buffer->LineAt(2)->Buffer() == std::u32string(U"gamma"));
+
     return kTR_Pass;
 }
 

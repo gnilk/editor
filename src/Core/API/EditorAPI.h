@@ -31,6 +31,10 @@ namespace gedit {
 
         DocumentAPI::Ref GetActiveDocument();
         DocumentAPI::Ref NewDocument(const char *name);
+        // Like NewDocument, but pre-fills the new buffer from 'text' (split on '\n'). The seam that
+        // lets a plugin drop a terminal block's output - Console.GetSelectedBlock() - into a fresh,
+        // editable document (terminal-scrollback §5.5.3 / §9).
+        DocumentAPI::Ref NewDocumentFromText(const char *name, const char *text);
         DocumentAPI::Ref LoadDocument(const char *filename);
         std::vector<DocumentAPI::Ref> GetDocuments();
         void CloseActiveDocument();

@@ -34,6 +34,7 @@ DLL_EXPORT int test_terminalscreen_block_open_close(ITesting *t);
 DLL_EXPORT int test_terminalscreen_block_eviction_drops_whole_block(ITesting *t);
 DLL_EXPORT int test_terminalscreen_block_altscreen_excluded(ITesting *t);
 DLL_EXPORT int test_terminalscreen_block_single_open_block_not_evicted(ITesting *t);
+DLL_EXPORT int test_terminalscreen_block_output_text(ITesting *t);
 }
 
 static const ColorRGBA WHITE = ColorRGBA::FromRGB(1.0f, 1.0f, 1.0f);
@@ -809,5 +810,46 @@ DLL_EXPORT int test_terminalscreen_scrollback_cap_unlimited(ITesting *t) {
     TR_ASSERT(t, s.GetScrollback()->LineAt(0)->Buffer()[0] == U'A');
 
     Config::Instance()["terminal"].SetInt("scrollback_lines", oldCap);
+    return kTR_Pass;
+}
+
+// TS-2a (§9): GetBlockOutputText resolves a block's [startAbsRow, endAbsRow) back to text, spanning
+// BOTH stores - scrollback Lines and the live grid tail - for an OPEN block, and re-resolving the
+// same rows once the block CLOSES. A 2-row grid forces early scroll-off so the block's lines straddle
+// scrollback + grid, proving RowAtAbs is followed across the boundary.
+DLL_EXPORT int test_terminalscreen_block_output_text(ITesting *t) {
+    auto s = MakeScreen(20, 2);
+
+    s.BeginCommandBlock(U"cmd1", TerminalScreen::CommandBlock::Source::kCommitLine);
+    SimulateWriteLine(s, U"L0");   // scrolls into scrollback as more arrive
+    SimulateWriteLine(s, U"L1");
+    SimulateWriteLine(s, U"L2");
+    // scrollback == ["L0","L1"], grid top == "L2" (one above the live row); cmd1 is OPEN.
+
+    auto cmd1Id = s.Blocks().back().id;
+    auto openText = s.GetBlockOutputText(cmd1Id);
+    TR_ASSERT(t, openText.size() == 3);
+    TR_ASSERT(t, openText[0] == std::u32string(U"L0"));   // from scrollback
+    TR_ASSERT(t, openText[1] == std::u32string(U"L1"));   // from scrollback
+    TR_ASSERT(t, openText[2] == std::u32string(U"L2"));   // from the live grid tail
+
+    // Closing cmd1 (by opening cmd2) must not change cmd1's resolved text - it's a fixed line range.
+    s.BeginCommandBlock(U"cmd2", TerminalScreen::CommandBlock::Source::kCommitLine);
+    SimulateWriteLine(s, U"M0");
+
+    auto closedText = s.GetBlockOutputText(cmd1Id);
+    TR_ASSERT(t, closedText.size() == 3);
+    TR_ASSERT(t, closedText[0] == std::u32string(U"L0"));
+    TR_ASSERT(t, closedText[2] == std::u32string(U"L2"));
+
+    // The new open block resolves only its own row.
+    auto cmd2Id = s.Blocks().back().id;
+    auto cmd2Text = s.GetBlockOutputText(cmd2Id);
+    TR_ASSERT(t, cmd2Text.size() == 1);
+    TR_ASSERT(t, cmd2Text[0] == std::u32string(U"M0"));
+
+    // An unknown block id resolves to nothing (never crashes).
+    TR_ASSERT(t, s.GetBlockOutputText(999999).empty());
+
     return kTR_Pass;
 }

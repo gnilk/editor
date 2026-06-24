@@ -69,6 +69,36 @@ void TerminalScreen::SetOpenBlockCwd(const std::filesystem::path &cwd) {
     }
 }
 
+std::vector<std::u32string> TerminalScreen::GetBlockOutputText(uint64_t blockId) const {
+    std::vector<std::u32string> out;
+
+    const CommandBlock *block = nullptr;
+    for (const auto &candidate : blocks) {
+        if (candidate.id == blockId) {
+            block = &candidate;
+            break;
+        }
+    }
+    if (block == nullptr) {
+        return out;
+    }
+
+    uint64_t start = block->startAbsRow;
+    uint64_t end   = block->endAbsRow.value_or(AbsRowCount());   // open block runs to the live row
+    for (uint64_t abs = start; abs < end; abs++) {
+        AbsRow located = RowAtAbs(abs);
+        if (auto *line = std::get_if<Line::Ref>(&located)) {
+            out.push_back((*line)->Buffer());
+        } else if (auto *gridRow = std::get_if<const Row *>(&located)) {
+            // Convert a live grid row through RowToLine so it trims identically to how it will look
+            // once it scrolls into scrollback - the open block's text is stable across that transition.
+            out.push_back(RowToLine(**gridRow)->Buffer());
+        }
+        // std::monostate -> evicted / out of range; skip (a retained block is complete, §7).
+    }
+    return out;
+}
+
 void TerminalScreen::TrimScrollbackIfNeeded() {
     int cap = Config::Instance()["terminal"].GetInt("scrollback_lines", 10000);
     if (cap <= 0) {

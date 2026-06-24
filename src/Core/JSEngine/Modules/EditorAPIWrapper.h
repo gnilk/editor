@@ -18,6 +18,7 @@ namespace gedit {
 
         DocumentAPIWrapper::Ref GetActiveDocument();
         DocumentAPIWrapper::Ref NewDocument(const char *name);
+        DocumentAPIWrapper::Ref NewDocumentFromText(const char *name, const char *text);
         DocumentAPIWrapper::Ref LoadDocument(const char *filename);
         std::vector<DocumentAPIWrapper::Ref> GetDocuments();
         void CloseActiveDocument();

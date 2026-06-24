@@ -22,11 +22,19 @@
 
 #include <map>
 #include <thread>
+#include <optional>
+#include <string>
 
 namespace gedit {
     class IOutputConsole {
     public:
         virtual void WriteLine(const std::u32string &str) = 0;
+
+        // The output console's currently "selected" command block, as joined text (terminal scrollback
+        // §5.5.3 / TS-2a). Returns nullopt when nothing is selected - either there is no block concept
+        // (the default) or the terminal is following the live bottom. Exposed so the JS `Console`
+        // surface can act on the selected block without depending on TerminalController directly.
+        virtual std::optional<std::u32string> GetSelectedBlockText() { return std::nullopt; }
     };
     // Should have active buffer
     class RuntimeConfig {

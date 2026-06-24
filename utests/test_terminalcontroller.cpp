@@ -22,6 +22,8 @@ DLL_EXPORT int test_terminalcontroller_jump_prev_next_prompt(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_jump_prev_prompt_clamps_at_oldest(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_jump_next_prompt_clamps_at_newest(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_selected_block_index(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_selected_block_text(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_selection_survives_output(ITesting *t);
 }
 
 // Push 'n' lines through the grid into scrollback WITHOUT starting a real shell - WriteLine (the
@@ -370,6 +372,102 @@ DLL_EXPORT int test_terminalcontroller_selected_block_index(ITesting *t) {
     c.ScrollToBottom();
     TR_ASSERT(t, c.IsFollowingBottom());
     TR_ASSERT(t, !c.SelectedBlockIndex().has_value());
+
+    return kTR_Pass;
+}
+
+// TS-2a (§5.5.3): GetSelectedBlockText is the JS-facing seam (Console.GetSelectedBlock) - it returns
+// the selected block's GetBlockOutputText joined with '\n', or nullopt while following the bottom
+// (nothing selected). The text it returns must match exactly the model's text for whatever block the
+// viewport currently selects (no off-by-one, no foreign block bleeding in).
+DLL_EXPORT int test_terminalcontroller_selected_block_text(ITesting *t) {
+    TerminalController c;
+    c.Resize(20, 5);
+
+    auto commit = [&](const std::u32string &cmd) {
+        c.GetInputLine()->Append(cmd);
+        c.CommitLine();
+    };
+
+    WriteLines(c, 2);              // loose-block output before any command
+    commit(U"cmd1");
+    c.WriteLine(U"out-a");
+    c.WriteLine(U"out-b");
+    commit(U"cmd2");
+    c.WriteLine(U"out-c");
+
+    // Following the bottom: nothing selected -> no text.
+    TR_ASSERT(t, c.IsFollowingBottom());
+    TR_ASSERT(t, !c.GetSelectedBlockText().has_value());
+
+    // Jump back -> a block is selected; the controller's joined text must equal the model's text for
+    // exactly that block (self-consistent, independent of which block the jump lands on / grid size).
+    c.JumpToPrevPrompt();
+    auto sel = c.SelectedBlockIndex();
+    TR_ASSERT(t, sel.has_value());
+
+    const auto &block = c.GetScreen().Blocks()[*sel];
+    auto modelLines = c.GetScreen().GetBlockOutputText(block.id);
+    std::u32string expected;
+    for (size_t i = 0; i < modelLines.size(); i++) {
+        if (i > 0) { expected += U"\n"; }
+        expected += modelLines[i];
+    }
+
+    auto got = c.GetSelectedBlockText();
+    TR_ASSERT(t, got.has_value());
+    TR_ASSERT(t, got.value() == expected);
+
+    // Back at the bottom: nothing selected again.
+    c.ScrollToBottom();
+    TR_ASSERT(t, !c.GetSelectedBlockText().has_value());
+
+    return kTR_Pass;
+}
+
+// TS-1.5c / §5.5.3 item 4: a selected block must stay the active target while background output keeps
+// streaming in - that is what makes quick-command-mode a reliable action surface (you select a block,
+// ESC to the status bar, type a command while a build keeps printing, and your selection is still
+// there). Only ScrollToBottom (commit / local edit) clears the selection; new output never does. This
+// is the regression guard for "preserve the selection across focus loss" (today it holds by
+// construction - nothing in the redraw/output path resets the viewport).
+DLL_EXPORT int test_terminalcontroller_selection_survives_output(ITesting *t) {
+    TerminalController c;
+    c.Resize(20, 5);
+
+    auto commit = [&](const std::u32string &cmd) {
+        c.GetInputLine()->Append(cmd);
+        c.CommitLine();
+    };
+
+    WriteLines(c, 2);              // loose-block output
+    commit(U"cmd1");
+    WriteLines(c, 3);
+    commit(U"cmd2");
+    WriteLines(c, 3);
+
+    // Walk all the way back to the oldest block - guaranteed CLOSED (only the tail block is open), so
+    // its [start,end) range and resolved text are fixed regardless of later output.
+    for (int i = 0; i < 8; i++) {
+        c.JumpToPrevPrompt();
+    }
+    auto sel = c.SelectedBlockIndex();
+    TR_ASSERT(t, sel.has_value());
+    auto selectedId  = c.GetScreen().Blocks()[*sel].id;
+    auto textBefore  = c.GetSelectedBlockText();
+    auto anchorBefore = c.GetAnchorAbsRow();
+    TR_ASSERT(t, textBefore.has_value());
+    TR_ASSERT(t, c.GetScreen().Blocks()[*sel].endAbsRow.has_value());   // a closed block
+
+    // Background output streams in (a running build). No commit, no local edit -> must NOT snap.
+    WriteLines(c, 15);
+
+    TR_ASSERT(t, !c.IsFollowingBottom());                 // still scrolled
+    TR_ASSERT(t, c.GetAnchorAbsRow() == anchorBefore);    // anchor stationary
+    auto selAfter = c.SelectedBlockIndex();
+    TR_ASSERT(t, selAfter.has_value());
+    TR_ASSERT(t, c.GetScreen().Blocks()[*selAfter].id == selectedId);   // SAME block selected
+    TR_ASSERT(t, c.GetSelectedBlockText() == textBefore);              // SAME text
 
     return kTR_Pass;
 }

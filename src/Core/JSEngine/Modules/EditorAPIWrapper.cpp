@@ -14,6 +14,7 @@ void EditorAPIWrapper::RegisterModule(duk_context *ctx) {
 
     dukglue_register_method(ctx, &EditorAPIWrapper::GetActiveDocument, "GetActiveDocument");
     dukglue_register_method(ctx, &EditorAPIWrapper::NewDocument, "NewDocument");
+    dukglue_register_method(ctx, &EditorAPIWrapper::NewDocumentFromText, "NewDocumentFromText");
     dukglue_register_method(ctx, &EditorAPIWrapper::LoadDocument, "LoadDocument");
     dukglue_register_method(ctx, &EditorAPIWrapper::GetDocuments, "GetDocuments");
     dukglue_register_method(ctx, &EditorAPIWrapper::CloseActiveDocument, "CloseActiveDocument");
@@ -43,6 +44,11 @@ DocumentAPIWrapper::Ref EditorAPIWrapper::GetActiveDocument() {
 DocumentAPIWrapper::Ref EditorAPIWrapper::NewDocument(const char *name) {
     auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
     return DocumentAPIWrapper::Create(editorApi->NewDocument(name));
+}
+
+DocumentAPIWrapper::Ref EditorAPIWrapper::NewDocumentFromText(const char *name, const char *text) {
+    auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
+    return DocumentAPIWrapper::Create(editorApi->NewDocumentFromText(name, text));
 }
 
 DocumentAPIWrapper::Ref EditorAPIWrapper::LoadDocument(const char *filename) {

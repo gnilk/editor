@@ -1,33 +1,46 @@
 # Terminal scrollback + command blocks — design / spec
 
-Status: **Phase 0 (scroll viewport), Phase 1 (command blocks), and Phase 1.5a/b (block separator rule +
-selected-block highlight) DONE ✅ — TS-0a..TS-0f, TS-1a..TS-1c, TS-1.5a/b all shipped, GUI-verified, in
-the verified-green test suite.** TS-1.5c (acting on a block) was redirected onto quick-command + JS and
-folded into Phase 2 (§5.5.3). Phases 2-5 (downstream consumers, OSC 133, per-block highlighting,
-persistence) remain — see §11. Resolves
+Status: **Phase 0 (scroll viewport), Phase 1 (command blocks), Phase 1.5a/b (block separator rule +
+selected-block highlight), and the Phase 2 JS-consumer slice DONE ✅ — TS-0a..TS-0f, TS-1a..TS-1c,
+TS-1.5a/b, plus TS-2a (`GetBlockOutputText`) and the `Console.GetSelectedBlock()` / `Editor.NewDocumentFromText()`
+JS surface + the `blocktobuffer` (`b2b`) cmdlet all shipped, in the verified-green test suite.** TS-1.5c
+(acting on a block) was redirected onto quick-command + JS and is now delivered through that JS surface
+(§5.5.3). Remaining: Phase 2's dedicated `TerminalAPI` (`getBlocks`/`openBlockAsDocument`, TS-2b/2c), and
+Phases 3-5 (OSC 133, per-block highlighting, persistence) — see §11. Resolves
 [`open-bugs.md`](open-bugs.md) #10 ("Missing scrollback feature in terminal UI") for the viewing/scrolling
 half; the *grouping* infrastructure (jump-per-command, parse-build-output, open-output-as-document) the
 user wants on top of it is built (blocks exist + nav works) but not yet consumed downstream. Written
 cold-start so remaining phases can be picked up later without re-deriving the terminal model.
 
-> **▶ NEXT SESSION — pick up here (Phase 2, §9 + §5.5.3).** Start the JS/consumer slice in this order:
-> 1. **TS-2a** — `TerminalScreen`/`TerminalController::GetBlockOutputText(blockId)`: resolve a block's
->    `[startAbsRow, endAbsRow)` to text via `RowAtAbs` (scrollback `Line`s + live grid tail). Pure model
->    read under `screenLock`; unit-test round-trip for a closed block AND the open block.
-> 2. **`Console.GetSelectedBlock()`** — extend `ConsoleAPIWrapper` (already a JS global routing to the
->    terminal via `RuntimeConfig::OutputConsole()`): return `SelectedBlockIndex()` (done, TS-1.5b) →
->    `GetBlockOutputText`. Returns null/empty when nothing selected (following bottom).
-> 3. **Populate-doc-from-text** — `Editor.NewDocument` exists but DocumentAPI can't be filled from a
->    string yet; add `Editor.NewDocumentFromText(name, text)` (or `Document.AppendText`). Canonical cmdlet:
->    `var t = Console.GetSelectedBlock(); Editor.NewDocumentFromText("output", t);`. (A clipboard JS
->    method is also absent if "copy to paste buffer" is wanted — independent small add.)
-> 4. **Preserve the selection across focus loss** — make the terminal's `anchorAbsRow`/`followBottom`
->    survive entering quick-command-mode intentionally (today it's incidental) so step 2 is reliable.
+> **▶ DONE this session (Phase 2 JS-consumer slice, §9 + §5.5.3):**
+> 1. **TS-2a ✅** — `TerminalScreen::GetBlockOutputText(blockId)` resolves a block's `[startAbsRow,
+>    endAbsRow)` to text via `RowAtAbs` (scrollback `Line`s + live grid tail; open block runs to the live
+>    row). `TerminalController::GetSelectedBlockText()` joins the selected block with `\n` under
+>    `screenLock`. Tests: `test_terminalscreen_block_output_text` (closed + open, straddling both stores),
+>    `test_terminalcontroller_selected_block_text`.
+> 2. **`Console.GetSelectedBlock()` ✅** — new `IOutputConsole::GetSelectedBlockText()` virtual (default
+>    `nullopt`), overridden by `TerminalController`; `ConsoleAPIWrapper::GetSelectedBlock` returns the
+>    text or JS `null` when nothing is selected (following bottom / no console).
+> 3. **`Editor.NewDocumentFromText(name, text) ✅`** — `EditorAPI` + `EditorAPIWrapper`; splits on `\n`,
+>    drops the fresh buffer's placeholder empty line (guarded on `IsEmpty()`), `Reparse()`. Canonical
+>    cmdlet shipped as the **`blocktobuffer`** (`b2b`) plugin: `var t = Console.GetSelectedBlock();
+>    Editor.NewDocumentFromText("output", t);`. End-to-end test `test_jsengine_newdocumentfromtext`.
+> 4. **Selection survives focus loss ✅** — confirmed it holds *by construction* (only `ScrollToBottom`,
+>    wired to commit + local edit, clears the viewport; output streaming / focus switch never does).
+>    Locked with `test_terminalcontroller_selection_survives_output`.
 >
-> Already in place to build on: `TerminalController::SelectedBlockIndex()`, the block index
-> (`TerminalScreen::Blocks()`, `RowAtAbs`, abs-id spine), and the `Console`/`Editor`/`Document` JS wrappers.
-> The local `commandview.show_block_markers` is currently flipped to `true` for testing (config is in flux;
-> not a committed default decision).
+> **▶ NEXT SESSION — pick up here.** Remaining Phase 2 + beyond:
+> - **TS-2b/2c** — a dedicated `TerminalAPI`/`TerminalAPIWrapper` JS surface (`getBlocks()`,
+>   `getBlockOutput(id)`, `getLastBlock()`, `openBlockAsDocument(id)`) so blocks are scriptable by id, not
+>   only "the selected one". (A clipboard JS method for "copy block to paste buffer" is still absent — a
+>   small independent add.) The model/controller reads it needs (`GetBlockOutputText`, `Blocks()`) already
+>   exist.
+> - **Phase 3** (OSC 133), **Phase 4** (per-block language), **Phase 5** (persistence) — see §11.
+>
+> Already in place to build on: `TerminalController::SelectedBlockIndex()` / `GetSelectedBlockText()`, the
+> block index (`TerminalScreen::Blocks()`, `GetBlockOutputText`, `RowAtAbs`, abs-id spine), and the
+> `Console`/`Editor`/`Document` JS wrappers. The local `commandview.show_block_markers` is currently flipped
+> to `true` for testing (config is in flux; not a committed default decision).
 
 Sources this spec is grounded in (read these first when implementing):
 - `src/Core/TerminalScreen.{h,cpp}` — the `cols × rows` grid + flat `scrollback` + alt-screen save/restore.
@@ -759,23 +772,31 @@ Sized so each phase ships independently and is separately testable.
   Highlight color: new `terminal.selection` theme key (`term_selection`, translucent), with a code
   fallback. Tested via `test_terminalcontroller_selected_block_index` (selected-on-jump, empty on
   follow-bottom, range contains the anchor).
-- `TS-1.5c` ~~contextual HUD action bar~~ **superseded (§5.5.3, revised after TS-1.5b testing): act on the
-  selected block via quick-command-mode + JS, not a bespoke HUD.** Folds into Phase 2's JS surface (TS-2c):
-  `Console.GetSelectedBlock()` (over `SelectedBlockIndex()` + `GetBlockOutputText`/TS-2a) feeds a cmdlet
-  like `Editor.NewDocumentFromText(name, text)` (small gap: populate-doc-from-string + a clipboard JS
-  method are not there yet). Also: preserve the terminal's selected-block state across the focus switch
-  into quick-command-mode (today incidental); any future HUD renders ABOVE the block's first row. Held
-  until Phase 2.
+- `TS-1.5c` ✅ ~~contextual HUD action bar~~ **superseded (§5.5.3) and now DELIVERED via quick-command +
+  JS, not a bespoke HUD.** `Console.GetSelectedBlock()` (over `SelectedBlockIndex()` + `GetBlockOutputText`
+  /TS-2a) feeds the `blocktobuffer`/`b2b` cmdlet `Editor.NewDocumentFromText("output", t)` — the
+  populate-doc-from-string gap is closed (a clipboard JS method is still absent). The terminal's
+  selected-block state is preserved across the focus switch into quick-command-mode (confirmed by
+  construction — only commit/local-edit clear it — and guarded by a test). Any future HUD renders ABOVE
+  the block's first row.
 - Tests (assert **properties**, not pixels): ✅ selected-block resolution (`SelectedBlockIndex`). Separator/
   overlay *pixels* are GUI-verified, not unit-tested (SDL-bound render). 1.5c tests land with the Phase 2
   JS surface (block text round-trips into a new document).
 
-**Phase 2 — downstream consumers.**
-- `TS-2a` `GetBlockOutputText(id)` (resolve scrollback + live grid tail).
-- `TS-2b` "Open last command output as a Document" action.
-- `TS-2c` `TerminalAPI` JS surface (getBlocks/getBlockOutput/openBlockAsDocument).
-- Tests: output text round-trips for a closed block and the open (live) block; open-as-document produces
-  the right line set.
+**Phase 2 — downstream consumers. JS-consumer slice DONE ✅; dedicated TerminalAPI TODO.**
+- `TS-2a` ✅ `GetBlockOutputText(id)` on `TerminalScreen` (resolves scrollback + live grid tail, open
+  block runs to the live row) + `TerminalController::GetSelectedBlockText()` (joins the selected block
+  under `screenLock`). The JS seam shipped as `Console.GetSelectedBlock()` (via the new
+  `IOutputConsole::GetSelectedBlockText()` virtual) + `Editor.NewDocumentFromText(name, text)` + the
+  `blocktobuffer`/`b2b` cmdlet. Selection-survives-focus-loss confirmed by construction + guard test.
+- `TS-2b` "Open last command output as a Document" action — the *selected*-block path is shipped (the
+  `b2b` cmdlet); a "last block" / by-id variant still wants the TerminalAPI below.
+- `TS-2c` dedicated `TerminalAPI`/`TerminalAPIWrapper` JS surface (getBlocks/getBlockOutput/getLastBlock/
+  openBlockAsDocument) so blocks are scriptable by id, not only "the selected one". TODO. (A clipboard JS
+  method for "copy to paste buffer" is also still absent — small independent add.)
+- Tests: ✅ `test_terminalscreen_block_output_text` (closed + open, both stores),
+  `test_terminalcontroller_selected_block_text`, `test_terminalcontroller_selection_survives_output`,
+  `test_jsengine_newdocumentfromtext`. By-id/open-as-document round-trips land with TS-2c.
 
 **Phase 3 — OSC 133 shell integration (optional, opt-in fidelity upgrade).**
 - `TS-3a` VTermParser OSC 133 / OSC 7 → new `kAnsiCmd`s.

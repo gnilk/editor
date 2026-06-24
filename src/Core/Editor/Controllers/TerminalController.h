@@ -75,6 +75,12 @@ namespace gedit {
         bool ForwardActionToShell(const EditorAction &kpAction);
         void WriteLine(const std::u32string &str) override;
 
+        // IOutputConsole (§5.5.3): the viewport-selected block's output joined into one string, or
+        // nullopt when nothing is selected (following the live bottom). Takes screenLock, so it is safe
+        // to call from the JS/main thread while the pty thread mutates the grid. The Console JS surface
+        // routes here via RuntimeConfig::OutputConsole().
+        std::optional<std::u32string> GetSelectedBlockText() override;
+
     protected:
         void HandleTerminalData(const uint8_t *buffer, size_t length);
         void HandleAnsiCmd(const VTermParser::CMD &cmd);

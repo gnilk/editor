@@ -141,11 +141,10 @@ preserved, JS bindings in place) and closed; only Phase 4 (per-block highlightin
   write outside); save is driven from `Editor::SaveSession`, restore runs **inside `Begin()` before
   `shell.Begin()`**. Caps 2000 on-disk / 10000 in-memory. Command history (`TerminalCmdHistory`, TS-5d)
   was already plain-text shipped.
-- **Phase 4 — per-block language / hard-region highlighting — DEFERRED** (independent of everything
-  above; see [`deferred.md`](deferred.md)). Give a block its own highlighter (e.g. CMake colors over a
-  `cmake` run) without disturbing the surrounding ANSI history: TS-4a command→language map (storage already
-  on `CommandBlock` + `TerminalBlockSession`), TS-4b hard-region tokenize on a background `Job`, TS-4c
-  block-boundary isolation.
+- **Phase 4 — per-block syntax highlighting — EXTRACTED** to its own doc,
+  [`syntax-blocks.md`](syntax-blocks.md) (optional, independent, not started). The only seam the shipped
+  work had to preserve — the `language` field on `CommandBlock` + the persisted `TerminalBlockSession` —
+  is in place. Listed under Planned / not started below.
 - **Found along the way:** [`open-bugs.md`](open-bugs.md) #11 — a raw TAB byte from the pty was silently
   dropped, garbling multi-column shell output (e.g. plain `ls`); pre-existing, unrelated to this feature,
   documented but not fixed.
@@ -156,6 +155,11 @@ Detail + phase-by-phase status: [`terminal-scrollback.md`](done/terminal-scrollb
 
 ## Planned / not started
 
+- **Per-block syntax highlighting** — extracted from the terminal-scrollback effort (was its "Phase 4").
+  Highlight a command block's output with the matching language (e.g. CMake colors over a `cmake` run) via
+  a hard-region tokenize over the block's line range — a fixed start boundary on a background `Job`, no
+  state bleed across blocks. Independent of the shipped terminal work; the `language` seam is already in
+  place. Work packages TS-4a/4b/4c + design: [`syntax-blocks.md`](syntax-blocks.md).
 - **Folder monitor** — *disabled* live FS watcher (`foldermonitor.enabled: no`). Platform analysis of
   the two backends (macOS FSEvents = OS-recursive subtree watch; Linux inotify = per-dir, non-recursive,
   watch-capped, crippled by a leftover `IN_ONESHOT`), the fundamental asymmetry that blocked a clean

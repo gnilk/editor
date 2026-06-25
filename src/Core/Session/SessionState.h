@@ -95,7 +95,7 @@ namespace gedit {
         int         exitCode = kExitCodeUnknown;
         std::string cwd = {};
         int         source = 0;          // CommandBlock::Source as int
-        std::string language = {};       // optional per-block language id (§3.4, Phase 4), empty = none
+        std::string language = {};       // optional per-block language id (deferred — see docs/syntax-blocks.md), empty = none
     };
 
     // Terminal scrollback persistence (terminal-scrollback.md §8.1): the block index plus a pointer to the

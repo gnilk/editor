@@ -35,16 +35,13 @@ the section that has the full context. This is *deferred* work — distinct from
   fine (§2.A).
 - **GUI color retune** of the `md_*` placeholder colors — purely aesthetic (§0).
 
-## From [`done/terminal-scrollback.md`](done/terminal-scrollback.md) — Phases 0–3 + 5 shipped, Phase 4 deferred
+## From [`done/terminal-scrollback.md`](done/terminal-scrollback.md) — Phases 0–3 + 5 shipped
 
-- **Phase 4 — per-block language / hard-region highlighting** (independent of the shipped phases). Give a
-  command block its own syntax highlighter (e.g. CMake colors over a `cmake` run's output) without
-  disturbing the surrounding ANSI-colored history. Work packages: **TS-4a** command→language map (argv0 →
-  `LanguageBase`; the `language` storage field already exists on `CommandBlock` + the persisted
-  `TerminalBlockSession`), **TS-4b** hard-region tokenize (reparse a block's line range under an explicit
-  language with a hard start boundary, on a background `Job` — the bulk of the work), **TS-4c**
-  block-boundary isolation (no tokenizer-state bleed into block N±1). See §3.4 / §11 (Phase 4) + the
-  DEFERRED FEATURE callout.
+- **Per-block syntax highlighting** (was "Phase 4") — extracted to its own design doc,
+  [`syntax-blocks.md`](syntax-blocks.md). Independent of the shipped phases; not started. Give a command
+  block its own highlighter (e.g. CMake colors over a `cmake` run) via a hard-region tokenize, work
+  packages TS-4a/4b/4c. The only seam the shipped work had to preserve — the `language` field on
+  `CommandBlock` + the persisted `TerminalBlockSession` — is in place.
 - **Active-block highlight feels clunky during mouse scroll-back** (UX polish, not blocking). The
   selected/active block is highlighted while scrolled, but the moment the active block *switches* feels
   abrupt. Open question — change the scroll logic, or change which block the highlight tracks (the

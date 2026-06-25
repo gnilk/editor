@@ -12,8 +12,8 @@ also shipped (`Editor.CopyToClipboard` + `Terminal.CopyBlockToClipboard` + the `
 `useOsc133Boundaries` supersession + opt-in `terminal.shell_integration` bootstrap), in the verified-green
 suite. Phase 5 (persistence & restore) DONE ✅ — TS-5a/5b/5c (versioned `.bin` + session block index +
 snapshot/seed seams), **manually verified** (history + session restore round-trip, cmd history preserved).
-Only Phase 4 (per-block highlighting) remains, deferred — see the DEFERRED FEATURE callout below and §11.
-Doc CLOSED (moved to `done/`).** Resolves
+Phase 4 (per-block highlighting) was extracted to its own doc (`../syntax-blocks.md`) — optional,
+independent, not started. Doc CLOSED (moved to `done/`).** Resolves
 [`open-bugs.md`](../open-bugs.md) #10 ("Missing scrollback feature in terminal UI") for the viewing/scrolling
 half; the *grouping* infrastructure (jump-per-command, parse-build-output, open-output-as-document) the
 user wants on top of it is built (blocks exist + nav works) but not yet consumed downstream. Written
@@ -71,8 +71,9 @@ cold-start so remaining phases can be picked up later without re-deriving the te
 > Tests: `test_vtermparser_osc133`/`_osc7_cwd`, `test_terminalcontroller_osc133_block`/`_osc7_cwd`/
 > `_osc133_no_double_open`.
 >
-> **▶ STATUS — CLOSED ✅. Phases 0–3 + 5 shipped and manually verified; only Phase 4 (per-block
-> highlighting) is deferred ([`../deferred.md`](../deferred.md)). Doc moved to `done/`.**
+> **▶ STATUS — CLOSED ✅. Phases 0–3 + 5 shipped and manually verified. Phase 4 (per-block highlighting)
+> was extracted to its own doc ([`../syntax-blocks.md`](../syntax-blocks.md)) — independent, optional, not
+> started. Doc moved to `done/`.**
 >
 > **Phase 5** (persistence, §8) — **DONE ✅** — TS-5a (`TextBuffer::SaveWithAttributes`/`LoadWithAttributes`,
 > versioned `GTSB` binary), TS-5b (`TerminalSession` DTO + YAML serializer on `RootSession`), TS-5c
@@ -88,21 +89,10 @@ cold-start so remaining phases can be picked up later without re-deriving the te
 > logic, or change which block the highlight tracks (the `SelectedBlockIndex` selection rule). Left for
 > later; see [`../deferred.md`](../deferred.md).
 >
-> **▶ DEFERRED FEATURE — Phase 4: per-block language / hard-region highlighting (§3.4).** Optional, independent
-> of everything above; carried forward when this doc closes. Give a command block its own syntax highlighter
-> (e.g. CMake colors over a `cmake` run's output) without disturbing the surrounding ANSI-colored history.
-> Work packages:
-> - **TS-4a** — command→language map (argv0 → `LanguageBase`); set `block.language` on block open. The
->   `language` field already exists on `CommandBlock` (model) and `TerminalBlockSession` (persisted, §8.1),
->   so the storage seam is in place.
-> - **TS-4b** — **hard-region tokenize**: a new `TextBuffer` capability that reparses one block's line range
->   under an *explicit* language with a *hard* start boundary (no look-back past the block), writing token
->   attribs. Runs on a background `Job` (non-trivial — the meat of Phase 4).
-> - **TS-4c** — block-boundary isolation: reparsing block N must not bleed tokenizer state into block N±1.
-> - Tests: a `cmake` block's lines get CMake token attribs; an un-languaged block keeps its ANSI attribs;
->   reparse of block N leaves N±1 untouched.
->
-> Full detail in §3.4 and §11 (Phase 4).
+> **▶ Phase 4 (per-block language / hard-region highlighting) was EXTRACTED to its own doc**
+> ([`../syntax-blocks.md`](../syntax-blocks.md)) so this one could close. It is optional and independent of
+> everything here — the `language` field on `CommandBlock` + `TerminalBlockSession` is the only seam it
+> needs, and that already ships. See that doc for the design + the TS-4a/4b/4c work packages.
 >
 > Already in place to build on: the `Terminal` JS surface (`TerminalAPI`/`TerminalAPIWrapper`),
 > `TerminalController::SelectedBlockIndex()` / `GetSelectedBlockText()`, the block index
@@ -339,31 +329,14 @@ untouched. What changes: `scrollback` goes from `vector<Row>` to a scrollback `T
 the lossless Row→Line conversion, §3.0); we add the abs-id counter, the block deque, eviction (§7), and
 the scroll offset (§5).
 
-### 3.4 Per-block language / highlighting (the CMake case) — seam only, deferred
+### 3.4 Per-block language / highlighting (the CMake case) — EXTRACTED
 
-The goal: detect `cmake …` (or `make`, `cargo`, …) and highlight *that block's* lines with the matching
-language, **without splitting the buffer**. Two facts shape the seam:
-- A block already resolves to a contiguous `[startAbsRow, endAbsRow)` line range in the one shared
-  scrollback `TextBuffer`, and carries an optional `language`.
-- But `TextBuffer::SetLanguage` + `Reparse` are **buffer-global** and the tokenizer threads state
-  line-to-line (`Line::stateDepthAtStart`). So you can't natively highlight lines 10–50 as CMake and
-  51–80 as plain in one buffer today.
-
-The reachable design (do **not** build in v1): give the block a language and a **hard-region tokenize**
-that runs *that* language over *that* line range and writes the resulting attribs into those lines.
-"Hard-region" is the operative word: the normal reparse walks *backwards* from the edit looking for a line
-where the tokenizer state stack is at depth 1 (a safe restart point) — for a block we want a **fixed
-boundary**: the block's first line IS the reset, never look back past it (the previous block's tokenizer
-state must not bleed in). `ReparseRegion(idxStartLine, idxEndLine)` is the starting point but (a) it uses
-the buffer's single `language`, so it needs to take an explicit language (or read a line-range→language
-map), and (b) **the tokenizer runs on a background thread/`Job`** — so this is *not* a trivial add: the
-region parse must target exactly the block's range, write attribs back safely, and not disturb neighbours,
-all while the scrollback buffer is otherwise append-only. The append-only/read-only nature of historical
-blocks helps (a finished block's lines never change), but the threading is the real cost. This is purely
-additive — blocks-as-line-ranges already make it possible — so v1 only has to **not preclude** it: keep
-the `language` field and resolve blocks to line ranges. Detect language from the command's argv0 (a small
-command→language map), set on block open, hard-region reparse on block close. **Deferred (Phase 4);
-recorded so it isn't re-litigated.**
+The full design for highlighting a `cmake`/`make`/… block's lines with the matching language (the
+"hard-region tokenize" seam — give a block a language and reparse *its* line range with a fixed start
+boundary, on a background `Job`) was moved to its own doc: [`../syntax-blocks.md`](../syntax-blocks.md).
+It is optional and independent of everything here; the only seam v1 had to preserve is the `language`
+field on `CommandBlock` (and the persisted `TerminalBlockSession`, §8.1) plus block→line-range
+resolution — both of which ship. Nothing in this doc depends on it.
 
 ---
 
@@ -942,16 +915,11 @@ Sized so each phase ships independently and is separately testable.
   (command text from `;B..;C` + exit code, `kOsc133` source, closed at `;D`), `_osc7_cwd` (cwd on the open
   block), `_osc133_no_double_open` (prompt `;A/;B` → CommitLine suppressed → one block). All verified-green.
 
-**Phase 4 — per-block language / highlighting (§3.4) — DEFERRED.** *(optional, independent; the one feature
-carried forward when this doc closes. `block.language` storage already exists on both `CommandBlock` and the
-persisted `TerminalBlockSession`, §8.1.)*
-- `TS-4a` command→language map (argv0 → `LanguageBase`); set `block.language` on open.
-- `TS-4b` **hard-region tokenize**: run a block's language over its line range, writing attribs — new
-  `TextBuffer` capability (region reparse with an *explicit* language + a *hard* start boundary, no
-  look-back past the block). Non-trivial: the tokenizer runs on a **background `Job`** (§3.4).
-- `TS-4c` **block-boundary isolation**: reparsing block N must not bleed tokenizer state into block N±1.
-- Tests: a `cmake` block's lines get CMake token attribs; an un-languaged block keeps its ANSI attribs;
-  hard-region reparse of block N doesn't disturb block N±1 (no state bleed across the boundary).
+**Phase 4 — per-block language / highlighting (§3.4) — EXTRACTED to
+[`../syntax-blocks.md`](../syntax-blocks.md).** Optional, independent, not started. The TS-4a (command→
+language map), TS-4b (hard-region tokenize on a background `Job`), TS-4c (block-boundary isolation) work
+packages + tests now live there; only the `language` field on `CommandBlock` + `TerminalBlockSession`
+(§8.1) is the seam this doc had to preserve, and it ships.
 
 **Phase 5 — persistence & restore (§8) — DONE ✅ (user: "add once everything works").**
 *Decisions locked: write cadence = **clean exit only** (§8.3); open block = **closed at the saved tail**

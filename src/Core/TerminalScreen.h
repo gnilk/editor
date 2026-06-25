@@ -54,7 +54,7 @@ namespace gedit {
             std::optional<int>       exitCode;           // set when known (OSC 133;D or a future probe)
             std::filesystem::path    cwd;                // best-effort, when known
             enum class Source { kCommitLine, kOsc133, kHeuristic } source = Source::kHeuristic;
-            LanguageBase::Ref        language = nullptr; // optional per-block highlighter (§3.4, Phase 4)
+            LanguageBase::Ref        language = nullptr; // optional per-block highlighter (deferred — see docs/syntax-blocks.md)
         };
 
     public:

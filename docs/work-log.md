@@ -96,11 +96,12 @@ monitor + #6). Plan + work items: [`folder-scanner.md`](done/folder-scanner.md).
 
 ---
 
-## Terminal scrollback + command blocks — Phase 0/1 ✅ done, Phase 2-5 not started
+## Terminal scrollback + command blocks — Phases 0–3 + 5 ✅ (Phase 4 deferred; pending close-out)
 
-Resolved [`open-bugs.md`](open-bugs.md) #10 ("missing scrollback") and built the *grouping*
-infrastructure on top of it. The scrollback buffer already existed; the bug was that the view always
-pinned to the bottom.
+Resolved [`open-bugs.md`](open-bugs.md) #10 ("missing scrollback") and built the *grouping* + downstream
++ persistence infrastructure on top of it. The scrollback buffer already existed; the bug was that the
+view always pinned to the bottom. Still in `partially_done/` pending one manual live-GUI
+save→restart→restore check; only Phase 4 (per-block highlighting) is deferred.
 
 - **Phase 0 (TS-0a..TS-0f) — the scroll viewport.** Scrollback became a `TextBuffer` (`Row→Line` is
   lossless — `Line::LineAttrib` already carries per-span `ColorRGBA`, so ANSI color survives and the
@@ -109,18 +110,47 @@ pinned to the bottom.
   (`followBottom`/`anchorAbsRow`) lives on the controller, anchored to an absolute row (not an offset from
   the bottom) so a streaming build doesn't yank a scrolled-up reader back down. Wheel + PageUp/Down +
   Ctrl+Home/End gestures. `TerminalHistory`→`TerminalCmdHistory` rename cleared the name collision first.
-- **Phase 1 (TS-1a..TS-1c) — command blocks (the grouping).** `CommandBlock` is a line-range *reference*
-  into the shared scrollback `TextBuffer` (not a copy), tracked in a `blocks` deque on `TerminalScreen`.
-  Opened/closed from `CommitLine` (+ the tab-completion/shell-owned-line commit path) under `screenLock`;
-  alt-screen rows never create blocks. An implicit leading "loose" block (no command) covers output with
-  no committed command, so eviction is always whole-block (a retained block is always complete) — never
-  orphans a partial block. Alt+Up/Down jump the viewport to the previous/next block's start.
+- **Phase 1 (TS-1a..TS-1c) + 1.5a/b — command blocks (the grouping).** `CommandBlock` is a line-range
+  *reference* into the shared scrollback `TextBuffer` (not a copy), tracked in a `blocks` deque on
+  `TerminalScreen`. Opened/closed from `CommitLine` (+ the tab-completion/shell-owned-line commit path)
+  under `screenLock`; alt-screen rows never create blocks. An implicit leading "loose" block covers output
+  with no committed command, so eviction is always whole-block (a retained block is always complete) —
+  never orphans a partial block. Alt+Up/Down jump the viewport to the prev/next block start; block
+  separator rule + selected-block highlight (1.5a/b).
+- **Phase 2 (TS-2a..TS-2c) — downstream consumers.** `GetBlockOutputText` resolves a block's `[start,end)`
+  across scrollback + the live grid; a dedicated two-layer `TerminalAPI`/`TerminalAPIWrapper` JS surface
+  (`Terminal.GetBlocks/GetBlockOutput/GetLastBlock/GetSelectedBlock/OpenBlockAsDocument`) replaced the
+  implicit one; the `Editor.NewDocumentFromText()` seam + the `blocktobuffer` (`b2b`) cmdlet open a block's
+  output as a buffer; a clipboard JS seam (`Editor.CopyToClipboard` + `Terminal.CopyBlockToClipboard` + the
+  `b2c` cmdlet) copies a block to the paste buffer. (1.5c "act on a block" was redirected onto
+  quick-command + JS and delivered here.)
+- **Phase 3 (TS-3a..TS-3c) — OSC 133 shell integration.** `VTermParser` recognises the semantic-prompt
+  markers; the controller maps `;A/;B/;C/;D` into precise command blocks + exit codes, with
+  `useOsc133Boundaries` superseding the CommitLine heuristic once markers arrive (no double-open). Opt-in
+  via the `terminal.shell_integration` bootstrap (off by default — it rewrites PS1; bash DEBUG trap / zsh
+  preexec+precmd hooks).
+- **Phase 5 (TS-5a..TS-5d) — persistence & restore.** Scrollback survives across sessions, **clean-exit
+  only**, gated on a project `.goatedit` dir (`terminal.persist_scrollback`, on by default). The bulky
+  history goes to `<root>/.goatedit/terminal_scrollback.bin` — a **versioned `GTSB` binary** keeping line
+  text + per-span ANSI colors (`TextBuffer::Save/LoadWithAttributes`, TS-5a); the block index (no row
+  text) rides in `session.yml` as `TerminalSession`/`TerminalBlockSession` (TS-5b). `TerminalScreen` grew
+  `SnapshotScrollbackTail`/`SeedScrollback` seams (TS-5c) — the snapshot re-bases intersecting blocks into
+  `[0,N)`, **closes the open block at the saved tail** (live-grid tail dropped, exit unknown), and is empty
+  while alt-screen; the seed replaces scrollback at base 0 and appends a fresh open loose block. The
+  controller's `ToSession`/`FromSession` own the `.bin` I/O + kProject path (snapshot under `screenLock`,
+  write outside); save is driven from `Editor::SaveSession`, restore runs **inside `Begin()` before
+  `shell.Begin()`**. Caps 2000 on-disk / 10000 in-memory. Command history (`TerminalCmdHistory`, TS-5d)
+  was already plain-text shipped.
+- **Phase 4 — per-block language / hard-region highlighting — DEFERRED** (independent of everything
+  above; see [`deferred.md`](deferred.md)). Give a block its own highlighter (e.g. CMake colors over a
+  `cmake` run) without disturbing the surrounding ANSI history: TS-4a command→language map (storage already
+  on `CommandBlock` + `TerminalBlockSession`), TS-4b hard-region tokenize on a background `Job`, TS-4c
+  block-boundary isolation.
 - **Found along the way:** [`open-bugs.md`](open-bugs.md) #11 — a raw TAB byte from the pty was silently
   dropped, garbling multi-column shell output (e.g. plain `ls`); pre-existing, unrelated to this feature,
   documented but not fixed.
-- **Phases 2-5 not started:** downstream consumers (`GetBlockOutputText`, open-as-document, `TerminalAPI`
-  JS surface), OSC 133 shell integration, per-block language highlighting, persistence/restore. Detail +
-  phase-by-phase status: [`terminal-scrollback.md`](partially_done/terminal-scrollback.md).
+
+Detail + phase-by-phase status: [`terminal-scrollback.md`](partially_done/terminal-scrollback.md).
 
 ---
 

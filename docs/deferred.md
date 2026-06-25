@@ -35,6 +35,17 @@ the section that has the full context. This is *deferred* work — distinct from
   fine (§2.A).
 - **GUI color retune** of the `md_*` placeholder colors — purely aesthetic (§0).
 
+## From [`partially_done/terminal-scrollback.md`](partially_done/terminal-scrollback.md) — Phases 0–3 + 5 shipped, Phase 4 deferred
+
+- **Phase 4 — per-block language / hard-region highlighting** (independent of the shipped phases). Give a
+  command block its own syntax highlighter (e.g. CMake colors over a `cmake` run's output) without
+  disturbing the surrounding ANSI-colored history. Work packages: **TS-4a** command→language map (argv0 →
+  `LanguageBase`; the `language` storage field already exists on `CommandBlock` + the persisted
+  `TerminalBlockSession`), **TS-4b** hard-region tokenize (reparse a block's line range under an explicit
+  language with a hard start boundary, on a background `Job` — the bulk of the work), **TS-4c**
+  block-boundary isolation (no tokenizer-state bleed into block N±1). See §3.4 / §11 (Phase 4) + the
+  DEFERRED FEATURE callout.
+
 ## From [`done/mouse-support.md`](done/mouse-support.md) — explicitly out of scope (for now)
 
 - Terminal mouse (click / scrollback), drag-select, double-click word-select, gutter click, mouse inside

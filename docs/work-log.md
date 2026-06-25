@@ -96,12 +96,12 @@ monitor + #6). Plan + work items: [`folder-scanner.md`](done/folder-scanner.md).
 
 ---
 
-## Terminal scrollback + command blocks — Phases 0–3 + 5 ✅ (Phase 4 deferred; pending close-out)
+## Terminal scrollback + command blocks — Phases 0–3 + 5 ✅ (Phase 4 deferred)
 
 Resolved [`open-bugs.md`](open-bugs.md) #10 ("missing scrollback") and built the *grouping* + downstream
 + persistence infrastructure on top of it. The scrollback buffer already existed; the bug was that the
-view always pinned to the bottom. Still in `partially_done/` pending one manual live-GUI
-save→restart→restore check; only Phase 4 (per-block highlighting) is deferred.
+view always pinned to the bottom. Manually verified (history + session restore round-trip, cmd history
+preserved, JS bindings in place) and closed; only Phase 4 (per-block highlighting) is deferred.
 
 - **Phase 0 (TS-0a..TS-0f) — the scroll viewport.** Scrollback became a `TextBuffer` (`Row→Line` is
   lossless — `Line::LineAttrib` already carries per-span `ColorRGBA`, so ANSI color survives and the
@@ -150,7 +150,7 @@ save→restart→restore check; only Phase 4 (per-block highlighting) is deferre
   dropped, garbling multi-column shell output (e.g. plain `ls`); pre-existing, unrelated to this feature,
   documented but not fixed.
 
-Detail + phase-by-phase status: [`terminal-scrollback.md`](partially_done/terminal-scrollback.md).
+Detail + phase-by-phase status: [`terminal-scrollback.md`](done/terminal-scrollback.md).
 
 ---
 

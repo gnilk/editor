@@ -42,7 +42,7 @@ namespace gedit {
         // immutable scrollback, a still-live row in the grid, or empty (evicted/out of range).
         using AbsRow = std::variant<std::monostate, Line::Ref, const Row *>;
 
-        // The block index (§3.2 of docs/partially_done/terminal-scrollback.md): a line-range REFERENCE into the
+        // The block index (§3.2 of docs/terminal-scrollback.md): a line-range REFERENCE into the
         // shared scrollback - it does not own a copy. [startAbsRow, endAbsRow) resolves via RowAtAbs;
         // endAbsRow == nullopt means the block is still OPEN (the running command, always the tail of
         // `blocks`, at most one at a time).
@@ -80,7 +80,7 @@ namespace gedit {
         int Cols() const;
         int Rows() const;
 
-        // Abs-line spine (§3.1 of docs/partially_done/terminal-scrollback.md): a monotonic id space spanning
+        // Abs-line spine (§3.1 of docs/terminal-scrollback.md): a monotonic id space spanning
         // scrollback lines then live grid history rows, stable across scrollback eviction.
         uint64_t ScrollbackBase() const { return scrollbackBase; }
         uint64_t AbsRowCount() const;             // == absBottom (the live/cursor row's abs id)
@@ -116,7 +116,7 @@ namespace gedit {
         void RestoreScreen();
         bool IsAltScreen() const { return isAltScreen; }
 
-        // The block index (§3.2/§4 of docs/partially_done/terminal-scrollback.md). All called under screenLock by the
+        // The block index (§3.2/§4 of docs/terminal-scrollback.md). All called under screenLock by the
         // controller; no-ops while IsAltScreen() (§10 - alt-screen rows are never grouped into blocks).
         // Every scrollback line belongs to some block (§7) - including a leading, command-less "loose"
         // block (Source::kHeuristic) that the constructor opens up front, so eviction can always assume
@@ -185,7 +185,7 @@ namespace gedit {
 
         static TextBuffer::Ref MakeScrollbackBuffer();
 
-        // Cap enforcement (§7 of docs/partially_done/terminal-scrollback.md): "terminal.scrollback_lines" config,
+        // Cap enforcement (§7 of docs/terminal-scrollback.md): "terminal.scrollback_lines" config,
         // default 10000, 0 = unlimited. Block-granular: evicts the oldest WHOLE block (its lines +
         // its CommandBlock entry together) so a retained block is always complete - never behead the
         // oldest surviving block line-by-line. Called right after every scrollback->AddLine() so the

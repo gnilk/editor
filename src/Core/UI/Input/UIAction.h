@@ -28,7 +28,7 @@ namespace gedit {
         kUIActionGotoBottomLine,
         kUIActionCommitLine,
 
-        // Jump-per-block (docs/partially_done/terminal-scrollback.md §5.4) - terminal-only today, but toolkit-owned
+        // Jump-per-block (docs/terminal-scrollback.md §5.4) - terminal-only today, but toolkit-owned
         // since it's a navigation intent like the rest of this set.
         kUIActionPrevPrompt,
         kUIActionNextPrompt,

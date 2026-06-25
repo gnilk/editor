@@ -359,7 +359,7 @@ bool TextBuffer::DoSave(const std::filesystem::path &pathName, bool skipChangeCh
     return true;
 }
 
-// --- TS-5a: text + per-span attribute persistence (docs/partially_done/terminal-scrollback.md §8.1) ---
+// --- TS-5a: text + per-span attribute persistence (docs/terminal-scrollback.md §8.1) ---
 //
 // Binary layout (native-endian - a same-machine cache, like session.yml):
 //   header : magic[4]="GTSB" | version:u32 (sequential, starts at 1) | flags:u32 (reserved=0) | lineCount:u32

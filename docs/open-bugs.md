@@ -123,7 +123,7 @@ the defect was purely that `TerminalView::DrawViewContents` always pinned to the
 streaming build doesn't yank you back to the bottom) — this bug is closed. Phase 1 (command blocks +
 jump-per-prompt nav) also shipped on top of it. Remaining phases (downstream consumers, OSC 133,
 per-block highlighting, persistence) are enhancements, not part of this bug. Full design + phase status:
-[`terminal-scrollback.md`](partially_done/terminal-scrollback.md).
+[`terminal-scrollback.md`](done/terminal-scrollback.md).
 
 ---
 

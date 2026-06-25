@@ -11,9 +11,10 @@ also shipped (`Editor.CopyToClipboard` + `Terminal.CopyBlockToClipboard` + the `
 (OSC 133 shell integration) DONE ✅ — TS-3a/3b/3c (parser markers + controller→block mapping with the
 `useOsc133Boundaries` supersession + opt-in `terminal.shell_integration` bootstrap), in the verified-green
 suite. Phase 5 (persistence & restore) DONE ✅ — TS-5a/5b/5c (versioned `.bin` + session block index +
-snapshot/seed seams). Only Phase 4 (per-block highlighting) remains, deferred — see the DEFERRED FEATURE
-callout below and §11.** Resolves
-[`open-bugs.md`](open-bugs.md) #10 ("Missing scrollback feature in terminal UI") for the viewing/scrolling
+snapshot/seed seams), **manually verified** (history + session restore round-trip, cmd history preserved).
+Only Phase 4 (per-block highlighting) remains, deferred — see the DEFERRED FEATURE callout below and §11.
+Doc CLOSED (moved to `done/`).** Resolves
+[`open-bugs.md`](../open-bugs.md) #10 ("Missing scrollback feature in terminal UI") for the viewing/scrolling
 half; the *grouping* infrastructure (jump-per-command, parse-build-output, open-output-as-document) the
 user wants on top of it is built (blocks exist + nav works) but not yet consumed downstream. Written
 cold-start so remaining phases can be picked up later without re-deriving the terminal model.
@@ -70,8 +71,8 @@ cold-start so remaining phases can be picked up later without re-deriving the te
 > Tests: `test_vtermparser_osc133`/`_osc7_cwd`, `test_terminalcontroller_osc133_block`/`_osc7_cwd`/
 > `_osc133_no_double_open`.
 >
-> **▶ STATUS — Phases 0–3 + 5 DONE ✅. One feature deferred (Phase 4). Ready to close after manual
-> verification.**
+> **▶ STATUS — CLOSED ✅. Phases 0–3 + 5 shipped and manually verified; only Phase 4 (per-block
+> highlighting) is deferred ([`../deferred.md`](../deferred.md)). Doc moved to `done/`.**
 >
 > **Phase 5** (persistence, §8) — **DONE ✅** — TS-5a (`TextBuffer::SaveWithAttributes`/`LoadWithAttributes`,
 > versioned `GTSB` binary), TS-5b (`TerminalSession` DTO + YAML serializer on `RootSession`), TS-5c
@@ -79,8 +80,13 @@ cold-start so remaining phases can be picked up later without re-deriving the te
 > `FromSession`, wired into `Editor::SaveSession` and restored inside `Begin()` before `shell.Begin()`).
 > TS-5d (cmd-history) was already shipped. Clean-exit-only save, open block closed at the saved tail, on by
 > default (`terminal.persist_scrollback`), caps 2000 on-disk / 10000 in-memory, gated on a `.goatedit` dir.
-> See §11 / §12.7–8. **Verification gap before closing:** the seams + `.bin` round-trip are unit-tested green,
-> but the end-to-end live-GUI save→restart→restore path is NOT yet exercised — that's the manual check left.
+> See §11 / §12.7–8. **Verified:** unit-tested green (seams + `.bin` round-trip) **and** the live-GUI
+> save→restart→restore path manually confirmed (history + session restore work, cmd history preserved).
+>
+> **Known polish (deferred, not blocking):** during mouse scroll-back the selected/active block is
+> highlighted, but the moment the active block *switches* feels clunky. Open question — change the scroll
+> logic, or change which block the highlight tracks (the `SelectedBlockIndex` selection rule). Left for
+> later; see [`../deferred.md`](../deferred.md).
 >
 > **▶ DEFERRED FEATURE — Phase 4: per-block language / hard-region highlighting (§3.4).** Optional, independent
 > of everything above; carried forward when this doc closes. Give a command block its own syntax highlighter
@@ -852,7 +858,7 @@ Sized so each phase ships independently and is separately testable.
 - Tests: Row→Line color round-trips; anchor stays stationary as output appends; snap-to-bottom on commit/
   input; cap holds and abs ids stay valid. All in `test_terminalscreen`/`test_terminalcontroller`,
   verified-green.
-- Found-along-the-way: [`open-bugs.md`](open-bugs.md) #11 (raw TAB byte from the pty silently dropped,
+- Found-along-the-way: [`open-bugs.md`](../open-bugs.md) #11 (raw TAB byte from the pty silently dropped,
   garbling multi-column shell output) — pre-existing, unrelated to this feature, documented not fixed.
 
 **Phase 1 — command blocks via `CommitLine` (the grouping). ✅ DONE**

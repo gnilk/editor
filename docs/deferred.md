@@ -35,7 +35,7 @@ the section that has the full context. This is *deferred* work — distinct from
   fine (§2.A).
 - **GUI color retune** of the `md_*` placeholder colors — purely aesthetic (§0).
 
-## From [`partially_done/terminal-scrollback.md`](partially_done/terminal-scrollback.md) — Phases 0–3 + 5 shipped, Phase 4 deferred
+## From [`done/terminal-scrollback.md`](done/terminal-scrollback.md) — Phases 0–3 + 5 shipped, Phase 4 deferred
 
 - **Phase 4 — per-block language / hard-region highlighting** (independent of the shipped phases). Give a
   command block its own syntax highlighter (e.g. CMake colors over a `cmake` run's output) without
@@ -45,6 +45,11 @@ the section that has the full context. This is *deferred* work — distinct from
   language with a hard start boundary, on a background `Job` — the bulk of the work), **TS-4c**
   block-boundary isolation (no tokenizer-state bleed into block N±1). See §3.4 / §11 (Phase 4) + the
   DEFERRED FEATURE callout.
+- **Active-block highlight feels clunky during mouse scroll-back** (UX polish, not blocking). The
+  selected/active block is highlighted while scrolled, but the moment the active block *switches* feels
+  abrupt. Open question — change the scroll logic, or change which block the highlight tracks (the
+  `TerminalController::SelectedBlockIndex` selection rule, §5.5.2). Noted 2026-06-25 during manual
+  verification; left for later.
 
 ## From [`done/mouse-support.md`](done/mouse-support.md) — explicitly out of scope (for now)
 

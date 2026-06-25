@@ -46,7 +46,7 @@ namespace gedit {
 
         bool DoesShellOwnLineEditing() const { return doesShellOwnLineEditing; }
 
-        // Viewport (§5.1 of docs/partially_done/terminal-scrollback.md): scroll position is a UI/viewport concern,
+        // Viewport (§5.1 of docs/terminal-scrollback.md): scroll position is a UI/viewport concern,
         // not model state - it lives here, not on TerminalScreen.
         bool IsFollowingBottom() const { return followBottom; }
         uint64_t GetAnchorAbsRow() const { return anchorAbsRow; }

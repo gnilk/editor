@@ -134,7 +134,7 @@ void TerminalView::DrawViewContents() {
     }
 
     // Shell mode: scrollback + grid history above. The history window is H = scrollback ++
-    // grid[0..cursorGridRow), addressed by abs id (§3.1/§5.2 of docs/partially_done/terminal-scrollback.md).
+    // grid[0..cursorGridRow), addressed by abs id (§3.1/§5.2 of docs/terminal-scrollback.md).
     LineRender lineRender(dc);
     uint64_t historyTop    = screen.ScrollbackBase();
     uint64_t historyBottom = screen.AbsRowCount();   // exclusive — the live/cursor row is NOT in H

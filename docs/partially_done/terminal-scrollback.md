@@ -69,7 +69,15 @@ cold-start so remaining phases can be picked up later without re-deriving the te
 > `_osc133_no_double_open`.
 >
 > **▶ NEXT SESSION — pick up here.** Remaining beyond Phase 3:
-> - **Phase 4** (per-block language / hard-region highlighting, §3.4), **Phase 5** (persistence, §8) — see §11.
+> - **Phase 5** (persistence, §8) — **DONE ✅** — TS-5a (`TextBuffer::SaveWithAttributes`/`LoadWithAttributes`,
+>   versioned `GTSB` binary), TS-5b (`TerminalSession` DTO + YAML serializer on `RootSession`), TS-5c
+>   (`TerminalScreen::SnapshotScrollbackTail`/`SeedScrollback` seams + `TerminalController::ToSession`/
+>   `FromSession`, wired into `Editor::SaveSession` and restored inside `Begin()` before `shell.Begin()`).
+>   TS-5d (cmd-history) was already shipped. Clean-exit-only save, open block closed at the saved tail, on by
+>   default (`terminal.persist_scrollback`), caps 2000 on-disk / 10000 in-memory, gated on a `.goatedit` dir.
+>   See §11 / §12.7–8. **Verification gap:** the seams + `.bin` round-trip are unit-tested green, but the
+>   end-to-end save→restart→restore path has NOT been exercised in a live GUI session yet.
+> - **Phase 4** (per-block language / hard-region highlighting, §3.4) — **postponed**; independent of Phase 5.
 >
 > Already in place to build on: the `Terminal` JS surface (`TerminalAPI`/`TerminalAPIWrapper`),
 > `TerminalController::SelectedBlockIndex()` / `GetSelectedBlockText()`, the block index
@@ -673,13 +681,26 @@ Decisions baked in here:
   nicety, not a prerequisite for colored restore.) `.bin`, not `.txt`, precisely because it carries more
   than text.
 - **New `TextBuffer` capability — `SaveWithAttributes()` / `LoadWithAttributes()`.** Serialise each line
-  as `u32 text + its LineAttrib spans (idxOrigString, fg RGBA, bg RGBA, textAttributes)`. Versioned binary
-  header; the existing text `Save/Load` stay untouched. This is the bulk of the persistence phase's new
-  code and is why it lands **last** (below).
+  as `u32 text + its LineAttrib spans (idxOrigString, fg RGBA, bg RGBA, textAttributes)`. The existing text
+  `Save/Load` stay untouched. This is the bulk of the persistence phase's new code and is why it lands
+  **last** (below).
+  - **File header (fixed, the first bytes of the `.bin`).** A small metadata header precedes the line
+    records: `magic` (4 bytes, `"GTSB"`) · `version` (`uint32`, a plain **sequential** number — starts at
+    `1`, bumped by 1 on any incompatible layout change) · `flags` (`uint32`, reserved = 0) · `lineCount`
+    (`uint32`). `LoadWithAttributes` validates the magic and rejects an unknown/newer `version` → **start
+    with empty scrollback, never crash** (mirrors `RootSession::kVersion`). Native-endian — a same-machine
+    cache, like `session.yml`.
+  - **Per-line record.** `charCount:uint32`, then `charCount × char32_t` text; `attribCount:uint32`, then
+    per span `idxOrigString:int32`, `textAttributes:uint32`, `fg:4×float`, `bg:4×float`, `tokenClass:uint32`.
 - **Block line indices re-based to the saved slice.** Only the last N lines are saved, so on save the
   block `startLine`/`endLine` are rewritten into `[0, savedLineCount)` and blocks entirely older than the
   slice are dropped. On load, the live model seeds `scrollbackBase = 0` and continues. Keeps the on-disk
   format independent of how long the process ran.
+  - **The open (running) block is closed at the saved tail (decided this session).** Its live-grid portion
+    is never persisted (a fresh shell starts on restore, §8.2), so on save the open block is written as a
+    **complete closed block** ending at `savedLineCount`, `exitCode = unknown`. It restores as a normal
+    navigable block. (`exitCode` sentinel: `INT_MIN` — distinct from a real `-1`, which OSC 133 emits for a
+    shell that ran the command but omitted the status, §4.2.)
 
 ### 8.2 Restore semantics
 
@@ -690,8 +711,20 @@ pure, immutable history — scroll/jump/open-as-document work over it exactly li
 scrollback; only the *live grid* is new. A restored block's output is fully resolvable (all its lines are
 in the loaded buffer, none in the not-yet-existing live grid).
 
+**Ordering (load-bearing).** The shell's pty thread starts writing a prompt/banner into scrollback the
+instant `shell.Begin()` runs (`TerminalController::Begin`). So restore must seed scrollback **before** that
+— `FromSession` runs *inside* `Begin()` ahead of `shell.Begin()` (new `TerminalScreen::SeedScrollback(lines,
+blocks)` seam, which sets `scrollbackBase = 0`) — otherwise the fresh prompt would land *above* the restored
+history. Restore is gated, like `session.yml`, on a `.goatedit` (kProject) dir; a missing/corrupt `.bin`
+yields empty scrollback.
+
 ### 8.3 Constraints / gotchas
 
+- **Write cadence: clean exit only (decided this session).** The `.bin` is bulky, so — unlike the
+  lightweight `session.yml`, which also autosaves on every meaningful event — terminal scrollback is written
+  **only on clean exit** (`Editor::Close` → `SaveSession`), **not** on the debounced autosave. A crash loses
+  the *output* backlog (low-value, regenerable); the *command* history (§8.4) is saved eagerly per-commit
+  and survives a crash.
 - **Save off the main thread is forbidden** — `SessionManager`'s autosave handler is posted to the main
   runloop. The scrollback `TextBuffer` snapshot/`SaveWithAttributes` reads lines that the pty thread
   appends to, so the save path coordinates with `screenLock` (snapshot the slice under the lock, write the
@@ -706,6 +739,25 @@ in the loaded buffer, none in the not-yet-existing live grid).
   last because the `SaveWithAttributes`/`LoadWithAttributes` binary format is net-new `TextBuffer` code
   and the rest of the feature works without it (it's restart-fidelity, not core function). Per the user:
   "add that once everything works."
+
+### 8.4 Command history (`TerminalCmdHistory`) — already persisted, kept as a plain-text file
+
+The *output* backlog (above) is the scrollback half; the *command* history (readline-style ↑/↓ recall —
+`TerminalCmdHistory`, capped at `MAX_ENTRIES`) is the other half the user wants to survive a restart — and
+it **already does**, independently of this phase:
+- **Format — simple text, one UTF-8 command per line (decided).** The simplest of the candidate options
+  (binary / YAML / plain text), and what `TerminalCmdHistory::Save`/`Load` already do: newline-separated
+  UTF-8, no binary, no YAML. Kept as-is — a tiny human-readable file is the right primitive here; nothing in
+  command history needs colors or structure.
+- **Location** — the `terminal_history` asset: `<root>/.goatedit/terminal_history` when a project dir
+  exists (kProject), else per-user (kUser). Same `.goatedit/` home as the session cache, so it travels with
+  the project (resolved in `TerminalController::Begin`).
+- **Cadence** — saved **eagerly, on every commit** (`CommitLine` → `cmdHistory.Save`), loaded on
+  `TerminalController::Begin`. Eager is correct here (the file is tiny, and command history is worth keeping
+  across a crash — unlike the bulky scrollback `.bin`, §8.3).
+- **Phase 5 scope** — no new mechanism; recorded here as the command-history half of terminal persistence
+  so the two are documented together. The only Phase-5 touch is keeping it consistent with the scrollback
+  `.bin` / block-index story (same `.goatedit/` dir, same project gating).
 
 ---
 
@@ -873,17 +925,35 @@ Sized so each phase ships independently and is separately testable.
 - Tests: a `cmake` block's lines get CMake token attribs; an un-languaged block keeps its ANSI attribs;
   hard-region reparse of block N doesn't disturb block N±1 (no state bleed across the boundary).
 
-**Phase 5 — persistence & restore (§8) — LAST (user: "add once everything works").**
-- `TS-5a` New `TextBuffer::SaveWithAttributes()` / `LoadWithAttributes()` — versioned binary (text +
-  per-span fg/bg/attrs); existing text `Save/Load` untouched. The bulk of the new code.
-- `TS-5b` `TerminalSession` DTO (block index + `.bin` file pointer, **no row text**) on `RootSession`;
-  `SessionSerializer` to/from YAML; block line indices re-based to the saved slice.
-- `TS-5c` Terminal `ToSession`/`FromSession` (snapshot under `screenLock`, cap to
-  `terminal.persist_scrollback_lines`, never during alt-screen); on restore `LoadWithAttributes` the
-  `.bin` (read-only, colors intact) + rebuild blocks, fresh shell on top.
-- Tests: `.bin` round-trip preserves text **and** colors; block index round-trip (command/exit/cwd, re-
-  based indices valid); restored block output + color resolves; alt-screen never persisted; missing/
-  corrupt `.bin` → empty scrollback, no crash.
+**Phase 5 — persistence & restore (§8) — DONE ✅ (user: "add once everything works").**
+*Decisions locked: write cadence = **clean exit only** (§8.3); open block = **closed at the saved tail**
+(§8.1); persistence **on by default**, caps **2000** on-disk / **10000** in-memory (§12.2); cmd history =
+**plain text, one cmd/line**, already shipped (§8.4).*
+- `TS-5a` ✅ `TextBuffer::SaveWithAttributes()` / `LoadWithAttributes()` — versioned binary: a fixed
+  header (`magic "GTSB"` · `version:uint32`, sequential, start `1` · `flags` · `lineCount`) then per-line
+  `text + per-span fg/bg/attrs`; bad magic / unknown version → empty, no crash. Existing text `Save/Load`
+  untouched. The bulk of the new code.
+- `TS-5b` ✅ `TerminalSession`/`TerminalBlockSession` DTOs (block index + `.bin` file pointer, **no row
+  text**) on `RootSession`; `SessionSerializer` `TerminalToNode`/`NodeToTerminal`; block line indices
+  re-based to the saved slice (`exitCode` sentinel `kExitCodeUnknown == INT_MIN`).
+- `TS-5c` ✅ Terminal persistence end-to-end. New `TerminalScreen` seams: `SnapshotScrollbackTail(maxLines)`
+  (returns `ScrollbackSnapshot{lines, PersistedBlock[]}` re-based into `[0, lines.size()]`, open block
+  clipped+closed at the scrollback boundary, empty while alt-screen) and `SeedScrollback(lines, seedBlocks)`
+  (replaces scrollback at base 0, inserts seeded blocks CLOSED + a fresh OPEN loose block for new output).
+  `TerminalController::ToSession`/`FromSession` map `PersistedBlock`↔`TerminalBlockSession` (`Source`↔int via
+  explicit switch, `exitCode` optional↔sentinel, u32↔utf8, `cwd` path↔string) and own the `.bin` write/read
+  (`SaveWithAttributes`/`LoadWithAttributes`) + path resolution (`ResolveScrollbackBinPath` → kProject
+  `.goatedit`). Save is driven from `Editor::SaveSession` via `GetTerminalView()->GetController()` (clean-exit
+  only, idempotent); restore runs **inside `Begin()` before `shell.Begin()`** reading
+  `SessionManager::CurrentSession().terminal`. Gated on `terminal.persist_scrollback` (default on) + a project
+  dir. **NOT YET verified in a live GUI save→restart→restore.**
+- `TS-5d` ✅ Command history (`TerminalCmdHistory`, §8.4) — **already shipped** (plain-text `terminal_history`,
+  saved per-commit, loaded on `Begin`); the command-history half, no new code.
+- Tests: TS-5a — `.bin` round-trip preserves text **and** colors; header rejects bad magic / newer version →
+  empty (`test_textbuffer_saveattribs_*`). TS-5b — block index round-trip + back-compat (`test_session_terminal_*`).
+  TS-5c — snapshot/seed round-trip (lines + closed blocks + fresh loose tail), alt-screen → empty snapshot,
+  on-disk cap clips+re-bases to the tail, open block closed-at-tail (`test_terminalscreen_snapshot_*`). The
+  controller glue + Editor wiring lean on these seam tests (no asset-loader/session infra in unit tests).
 
 ---
 
@@ -894,8 +964,9 @@ Sized so each phase ships independently and is separately testable.
    modified-key split (we distinguish alt-screen-forwards-to-app from prompt-scrolls-backlog, so the
    xterm Shift+PageUp convention isn't needed). The only code change is a PageUp/Down handler in the
    shell-prompt path. Left here only as a record of the resolved choice.
-2. **Default scrollback cap.** `terminal.scrollback_lines` (in-memory) default — 10000 proposed
-   (`0` = unlimited). Separate, smaller `terminal.persist_scrollback_lines` (on-disk, §8) — 2000 proposed.
+2. **Default scrollback cap — settled.** `terminal.scrollback_lines` (in-memory) = **10000** (`0` =
+   unlimited). Separate, smaller `terminal.persist_scrollback_lines` (on-disk, §8) = **2000**. Terminal
+   persistence is **on by default** (gated only on a `.goatedit` dir, like `session.yml`) — see §12.7.
 3. **OSC 133 on by default? — settled (Phase 3 shipped).** **Off by default**, opt-in via
    `terminal.shell_integration` (default `no`), since it rewrites the user's PS1; the `CommitLine`
    baseline already delivers blocks without it. When on, the `BuildShellIntegrationBootstrap` snippet is
@@ -916,6 +987,14 @@ Sized so each phase ships independently and is separately testable.
 6. **Per-block highlighting storage — settled (§3.4).** Blocks are line-range **references** into one
    shared scrollback `TextBuffer` (not split per-block); per-block language is an additive region-reparse,
    deferred to Phase 4. Recorded as the chosen direction.
+7. **Phase 5 persistence cadence + open-block — settled this session.** The bulky scrollback `.bin` is
+   written **only on clean exit** (not on the debounced autosave, §8.3); the running/open block is persisted
+   **closed at the saved tail** (its live-grid tail is dropped, exit unknown, §8.1). Terminal persistence is
+   **on by default** (gated only on a `.goatedit` dir, like `session.yml`).
+8. **Command history persistence — settled (§8.4).** Kept as a **plain-text file, one UTF-8 command per
+   line** (`terminal_history`, already shipped — saved per-commit, loaded on `Begin`), not binary/YAML. The
+   scrollback `.bin` carries a small **versioned header** (`magic` / `version` (sequential) / `flags` /
+   `lineCount`); a bad magic or newer version restores empty, never crashes.
 
 ## 13. Test plan (module `terminalscreen` + a new `terminalblocks` module)
 

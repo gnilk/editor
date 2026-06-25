@@ -2,11 +2,16 @@
 // Created by gnilk on 18.07.23.
 //
 #include <testinterface.h>
+#include <filesystem>
+#include <fstream>
+#include <cstdint>
 #include "Core/Editor.h"
 #include "Core/Document.h"
 #include "Core/Language/LanguageBase.h"
 #include "Core/Language/LangLineTokenizer.h"
 #include "Core/TextBuffer.h"
+#include "Core/Line.h"
+#include "Core/ColorRGBA.h"
 
 
 using namespace gedit;
@@ -22,6 +27,10 @@ DLL_EXPORT int test_textbuffer_parselarge(ITesting *t);
 #endif
 DLL_EXPORT int test_textbuffer_flatten(ITesting *t);
 DLL_EXPORT int test_textbuffer_insertlast(ITesting *t);
+DLL_EXPORT int test_textbuffer_saveattribs_roundtrip(ITesting *t);
+DLL_EXPORT int test_textbuffer_saveattribs_badmagic(ITesting *t);
+DLL_EXPORT int test_textbuffer_saveattribs_newerversion(ITesting *t);
+DLL_EXPORT int test_textbuffer_saveattribs_missing(ITesting *t);
 }
 
 static void PostCaseCallback(ITesting *t) {
@@ -182,5 +191,122 @@ DLL_EXPORT int test_textbuffer_insertlast(ITesting *t) {
 
 
 
+    return kTR_Pass;
+}
+
+// --- TS-5a: SaveWithAttributes/LoadWithAttributes round-trip (terminal-scrollback §8.1) ---------------
+
+// Build a line with one explicit colored attrib span (mirrors what TerminalScreen::RowToLine produces
+// when a colored row scrolls into scrollback).
+static Line::Ref MakeColoredLine(const std::u32string &text, int idxStart,
+                                 const ColorRGBA &fg, const ColorRGBA &bg, kTextAttributes attrs) {
+    auto line = Line::Create(text);
+    line->Attributes().clear();
+    Line::LineAttrib a;
+    a.idxOrigString   = idxStart;
+    a.foregroundColor = fg;
+    a.backgroundColor = bg;
+    a.textAttributes  = attrs;
+    line->Attributes().push_back(a);
+    return line;
+}
+
+static std::filesystem::path ScratchBinPath(const char *name) {
+    return std::filesystem::temp_directory_path() / name;
+}
+
+// Save a 3-line colored buffer, load it into a fresh one, assert text AND every attribute span survive.
+DLL_EXPORT int test_textbuffer_saveattribs_roundtrip(ITesting *t) {
+    auto path = ScratchBinPath("goatedit_ts5a_roundtrip.bin");
+    std::filesystem::remove(path);
+
+    auto fgRed   = ColorRGBA::FromRGB(220, 40, 30);
+    auto bgDark  = ColorRGBA::FromRGB(10, 12, 16);
+    auto fgGreen = ColorRGBA::FromRGB(40, 200, 60);
+
+    auto src = std::make_shared<TextBuffer>();
+    src->AddLine(MakeColoredLine(U"hello world", 0, fgRed, bgDark, kTextAttributes::kBold));
+    // A line carrying TWO spans, to exercise multi-span lines.
+    {
+        auto line = Line::Create(U"two tone");
+        line->Attributes().clear();
+        Line::LineAttrib a0; a0.idxOrigString = 0; a0.foregroundColor = fgRed;   a0.backgroundColor = bgDark; a0.textAttributes = kTextAttributes::kNormal;
+        Line::LineAttrib a1; a1.idxOrigString = 4; a1.foregroundColor = fgGreen; a1.backgroundColor = bgDark; a1.textAttributes = kTextAttributes::kUnderline;
+        line->Attributes().push_back(a0);
+        line->Attributes().push_back(a1);
+        src->AddLine(line);
+    }
+    src->AddLine(MakeColoredLine(U"third", 0, fgGreen, bgDark, kTextAttributes::kNormal));
+
+    TR_ASSERT(t, src->SaveWithAttributes(path));
+
+    auto dst = std::make_shared<TextBuffer>();
+    TR_ASSERT(t, dst->LoadWithAttributes(path));
+    TR_ASSERT(t, dst->NumLines() == src->NumLines());
+
+    for (size_t i = 0; i < src->NumLines(); i++) {
+        auto a = src->LineAt(i);
+        auto b = dst->LineAt(i);
+        TR_ASSERT(t, b != nullptr);
+        // Text is lossless.
+        TR_ASSERT(t, b->Buffer() == a->Buffer());
+        // Attribute spans are lossless (count + every field, colors compared as 8-bit ints via ==).
+        auto &as = a->Attributes();
+        auto &bs = b->Attributes();
+        TR_ASSERT(t, bs.size() == as.size());
+        for (size_t s = 0; s < as.size(); s++) {
+            TR_ASSERT(t, bs[s].idxOrigString == as[s].idxOrigString);
+            TR_ASSERT(t, bs[s].textAttributes == as[s].textAttributes);
+            TR_ASSERT(t, bs[s].foregroundColor == as[s].foregroundColor);
+            TR_ASSERT(t, bs[s].backgroundColor == as[s].backgroundColor);
+            TR_ASSERT(t, bs[s].tokenClass == as[s].tokenClass);
+        }
+    }
+
+    std::filesystem::remove(path);
+    return kTR_Pass;
+}
+
+// A file that is not ours (wrong magic) is rejected without crashing; the target buffer is untouched.
+DLL_EXPORT int test_textbuffer_saveattribs_badmagic(ITesting *t) {
+    auto path = ScratchBinPath("goatedit_ts5a_badmagic.bin");
+    {
+        std::ofstream os(path, std::ios::binary | std::ios::trunc);
+        const char junk[] = {'X', 'X', 'X', 'X', 0, 1, 2, 3};
+        os.write(junk, sizeof(junk));
+    }
+    auto dst = std::make_shared<TextBuffer>();
+    TR_ASSERT(t, dst->LoadWithAttributes(path) == false);
+    TR_ASSERT(t, dst->NumLines() == 0);     // nothing loaded, no crash
+    std::filesystem::remove(path);
+    return kTR_Pass;
+}
+
+// A valid magic but an unknown/newer version is rejected (start clean, never mis-parse).
+DLL_EXPORT int test_textbuffer_saveattribs_newerversion(ITesting *t) {
+    auto path = ScratchBinPath("goatedit_ts5a_newerversion.bin");
+    {
+        std::ofstream os(path, std::ios::binary | std::ios::trunc);
+        const char magic[4] = {'G', 'T', 'S', 'B'};
+        uint32_t version   = 0xFFFF;    // far newer than anything we write
+        uint32_t flags     = 0;
+        uint32_t lineCount = 0;
+        os.write(magic, sizeof(magic));
+        os.write(reinterpret_cast<const char *>(&version), sizeof(version));
+        os.write(reinterpret_cast<const char *>(&flags), sizeof(flags));
+        os.write(reinterpret_cast<const char *>(&lineCount), sizeof(lineCount));
+    }
+    auto dst = std::make_shared<TextBuffer>();
+    TR_ASSERT(t, dst->LoadWithAttributes(path) == false);
+    std::filesystem::remove(path);
+    return kTR_Pass;
+}
+
+// A missing file is a clean false (the restore path starts with empty scrollback).
+DLL_EXPORT int test_textbuffer_saveattribs_missing(ITesting *t) {
+    auto path = ScratchBinPath("goatedit_ts5a_does_not_exist.bin");
+    std::filesystem::remove(path);
+    auto dst = std::make_shared<TextBuffer>();
+    TR_ASSERT(t, dst->LoadWithAttributes(path) == false);
     return kTR_Pass;
 }

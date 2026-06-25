@@ -35,6 +35,10 @@ DLL_EXPORT int test_terminalscreen_block_eviction_drops_whole_block(ITesting *t)
 DLL_EXPORT int test_terminalscreen_block_altscreen_excluded(ITesting *t);
 DLL_EXPORT int test_terminalscreen_block_single_open_block_not_evicted(ITesting *t);
 DLL_EXPORT int test_terminalscreen_block_output_text(ITesting *t);
+DLL_EXPORT int test_terminalscreen_snapshot_roundtrip(ITesting *t);
+DLL_EXPORT int test_terminalscreen_snapshot_altscreen_empty(ITesting *t);
+DLL_EXPORT int test_terminalscreen_snapshot_caps_tail(ITesting *t);
+DLL_EXPORT int test_terminalscreen_snapshot_open_block_closed_at_tail(ITesting *t);
 }
 
 static const ColorRGBA WHITE = ColorRGBA::FromRGB(1.0f, 1.0f, 1.0f);
@@ -851,5 +855,166 @@ DLL_EXPORT int test_terminalscreen_block_output_text(ITesting *t) {
     // An unknown block id resolves to nothing (never crashes).
     TR_ASSERT(t, s.GetBlockOutputText(999999).empty());
 
+    return kTR_Pass;
+}
+
+// TS-5c (§8): SnapshotScrollbackTail + SeedScrollback round-trip. Persist the immutable scrollback +
+// block index, seed a fresh screen, and assert the history lines and the closed blocks come back, with
+// a single fresh OPEN loose block appended to cover future output (§7).
+DLL_EXPORT int test_terminalscreen_snapshot_roundtrip(ITesting *t) {
+    auto oldCap = Config::Instance()["terminal"].GetInt("scrollback_lines", 10000);
+    Config::Instance()["terminal"].SetInt("scrollback_lines", 0);   // unlimited - no eviction, base stays 0
+
+    auto s = MakeScreen(20, 2);   // 2-row grid forces early scroll-off into scrollback
+    s.BeginCommandBlock(U"cmd1", TerminalScreen::CommandBlock::Source::kCommitLine);
+    s.SetForeground(RED);
+    SimulateWriteLine(s, U"alpha");
+    SimulateWriteLine(s, U"beta");
+    s.SetForeground(WHITE);
+    s.BeginCommandBlock(U"cmd2", TerminalScreen::CommandBlock::Source::kOsc133);
+    s.SetForeground(GREEN);
+    SimulateWriteLine(s, U"gamma");
+    SimulateWriteLine(s, U"delta");
+    SimulateWriteLine(s, U"epsilon");
+
+    auto sb = s.GetScrollback();
+    size_t numLines = sb->NumLines();
+    TR_ASSERT(t, numLines > 0);
+
+    auto snap = s.SnapshotScrollbackTail(0);   // keep all scrollback
+    TR_ASSERT(t, snap.lines.size() == numLines);
+    // The kept lines are the SAME immutable Line objects -> text trivially preserved here (the on-disk
+    // colour round-trip is proven separately by the TextBuffer SaveWithAttributes test, TS-5a).
+    for (size_t i = 0; i < numLines; i++) {
+        TR_ASSERT(t, snap.lines[i]->Buffer() == sb->LineAt(i)->Buffer());
+    }
+
+    TerminalScreen seeded;
+    seeded.SeedScrollback(snap.lines, snap.blocks);
+
+    TR_ASSERT(t, seeded.GetScrollback()->NumLines() == numLines);
+    for (size_t i = 0; i < numLines; i++) {
+        TR_ASSERT(t, seeded.GetScrollback()->LineAt(i)->Buffer() == sb->LineAt(i)->Buffer());
+    }
+    TR_ASSERT(t, seeded.ScrollbackBase() == 0);
+
+    // Every persisted block came back CLOSED, plus exactly one fresh OPEN loose block at the tail.
+    const auto &sblocks = seeded.Blocks();
+    TR_ASSERT(t, sblocks.size() == snap.blocks.size() + 1);
+    for (size_t i = 0; i < snap.blocks.size(); i++) {
+        TR_ASSERT(t, sblocks[i].command == snap.blocks[i].command);
+        TR_ASSERT(t, sblocks[i].startAbsRow == snap.blocks[i].startLine);
+        TR_ASSERT(t, sblocks[i].endAbsRow.has_value());
+        TR_ASSERT(t, sblocks[i].endAbsRow.value() == snap.blocks[i].endLine);
+    }
+    TR_ASSERT(t, !sblocks.back().endAbsRow.has_value());     // open
+    TR_ASSERT(t, sblocks.back().startAbsRow == numLines);    // abuts the seeded history
+    TR_ASSERT(t, sblocks.back().command.empty());
+
+    // "cmd1" fully scrolled into scrollback - it survives with its source + command intact.
+    bool foundCmd1 = false;
+    for (const auto &b : snap.blocks) {
+        if (b.command == std::u32string(U"cmd1")) {
+            foundCmd1 = true;
+            TR_ASSERT(t, b.source == TerminalScreen::CommandBlock::Source::kCommitLine);
+        }
+    }
+    TR_ASSERT(t, foundCmd1);
+
+    Config::Instance()["terminal"].SetInt("scrollback_lines", oldCap);
+    return kTR_Pass;
+}
+
+// §10: alt-screen history is NEVER persisted - SnapshotScrollbackTail returns empty while IsAltScreen(),
+// even though the real (saved) history still has content.
+DLL_EXPORT int test_terminalscreen_snapshot_altscreen_empty(ITesting *t) {
+    auto s = MakeScreen(20, 2);
+    s.BeginCommandBlock(U"cmd", TerminalScreen::CommandBlock::Source::kCommitLine);
+    SimulateWriteLine(s, U"one");
+    SimulateWriteLine(s, U"two");
+    SimulateWriteLine(s, U"three");
+    TR_ASSERT(t, s.GetScrollback()->NumLines() > 0);   // there IS history
+
+    s.SaveScreen();   // enter alt-screen
+    TR_ASSERT(t, s.IsAltScreen());
+
+    auto snap = s.SnapshotScrollbackTail(0);
+    TR_ASSERT(t, snap.lines.empty());
+    TR_ASSERT(t, snap.blocks.empty());
+
+    return kTR_Pass;
+}
+
+// §8.1: the on-disk cap keeps only the last N scrollback lines; surviving blocks are clipped+re-based to
+// the slice [0, N) and the oldest whole blocks (outside the window) are dropped.
+DLL_EXPORT int test_terminalscreen_snapshot_caps_tail(ITesting *t) {
+    auto oldCap = Config::Instance()["terminal"].GetInt("scrollback_lines", 10000);
+    Config::Instance()["terminal"].SetInt("scrollback_lines", 0);   // unlimited in-memory; the cap is on save
+
+    auto s = MakeScreen(20, 2);
+    for (int i = 0; i < 5; i++) {
+        std::u32string cmd = U"cmd";
+        cmd.push_back((char32_t)(U'0' + i));
+        s.BeginCommandBlock(cmd, TerminalScreen::CommandBlock::Source::kCommitLine);
+        SimulateWriteLine(s, cmd + U"-a");
+        SimulateWriteLine(s, cmd + U"-b");
+    }
+    size_t numLines = s.GetScrollback()->NumLines();
+    TR_ASSERT(t, numLines > 3);
+
+    auto snap = s.SnapshotScrollbackTail(3);   // keep only the last 3 scrollback lines
+    TR_ASSERT(t, snap.lines.size() == 3);
+    for (size_t i = 0; i < 3; i++) {
+        TR_ASSERT(t, snap.lines[i]->Buffer() == s.GetScrollback()->LineAt(numLines - 3 + i)->Buffer());
+    }
+    // Surviving blocks are contiguous, re-based to start at 0 and end at 3 (the slice).
+    TR_ASSERT(t, !snap.blocks.empty());
+    TR_ASSERT(t, snap.blocks.front().startLine == 0);
+    TR_ASSERT(t, snap.blocks.back().endLine == 3);
+    for (size_t i = 0; i + 1 < snap.blocks.size(); i++) {
+        TR_ASSERT(t, snap.blocks[i].endLine == snap.blocks[i + 1].startLine);
+    }
+    // The very first command can't still be inside a 3-line tail -> it was dropped.
+    TR_ASSERT(t, snap.blocks.front().command != std::u32string(U"cmd0"));
+
+    Config::Instance()["terminal"].SetInt("scrollback_lines", oldCap);
+    return kTR_Pass;
+}
+
+// §8.1 decision: the OPEN/running block is persisted CLOSED at the last saved scrollback line (its
+// live-grid tail dropped, exitCode left unknown). On restore it comes back closed, with a fresh open
+// loose block after it.
+DLL_EXPORT int test_terminalscreen_snapshot_open_block_closed_at_tail(ITesting *t) {
+    auto oldCap = Config::Instance()["terminal"].GetInt("scrollback_lines", 10000);
+    Config::Instance()["terminal"].SetInt("scrollback_lines", 0);
+
+    auto s = MakeScreen(20, 2);
+    s.BeginCommandBlock(U"running", TerminalScreen::CommandBlock::Source::kCommitLine);
+    SimulateWriteLine(s, U"out0");
+    SimulateWriteLine(s, U"out1");
+    SimulateWriteLine(s, U"out2");
+    // scrollback == ["out0","out1"], grid top == "out2"; "running" is OPEN and spans both stores.
+    TR_ASSERT(t, s.GetScrollback()->NumLines() == 2);
+    TR_ASSERT(t, !s.Blocks().back().endAbsRow.has_value());
+
+    auto snap = s.SnapshotScrollbackTail(0);
+    TR_ASSERT(t, snap.lines.size() == 2);
+    TR_ASSERT(t, snap.blocks.size() == 1);
+    TR_ASSERT(t, snap.blocks[0].command == std::u32string(U"running"));
+    TR_ASSERT(t, snap.blocks[0].startLine == 0);
+    TR_ASSERT(t, snap.blocks[0].endLine == 2);            // clipped at the scrollback boundary
+    TR_ASSERT(t, !snap.blocks[0].exitCode.has_value());   // unknown
+
+    TerminalScreen seeded;
+    seeded.SeedScrollback(snap.lines, snap.blocks);
+    const auto &sblocks = seeded.Blocks();
+    TR_ASSERT(t, sblocks.size() == 2);
+    TR_ASSERT(t, sblocks[0].command == std::u32string(U"running"));
+    TR_ASSERT(t, sblocks[0].endAbsRow.has_value());       // closed-at-tail
+    TR_ASSERT(t, sblocks[0].endAbsRow.value() == 2);
+    TR_ASSERT(t, !sblocks[1].endAbsRow.has_value());      // fresh open loose block
+    TR_ASSERT(t, sblocks[1].startAbsRow == 2);
+
+    Config::Instance()["terminal"].SetInt("scrollback_lines", oldCap);
     return kTR_Pass;
 }

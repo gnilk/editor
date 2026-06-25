@@ -9,8 +9,28 @@
 #include "Core/HexDump.h"
 #include "Core/Plugins/PluginExecutor.h"
 #include "Core/UnicodeHelper.h"
+#include "Core/Session/SessionManager.h"
+#include "Core/Session/SessionState.h"
 
 using namespace gedit;
+
+// CommandBlock::Source <-> the persisted int (TerminalBlockSession::source). Explicit (not a raw cast)
+// so a future enum reordering can't silently re-map persisted sessions.
+static int SourceToInt(TerminalScreen::CommandBlock::Source s) {
+    switch (s) {
+        case TerminalScreen::CommandBlock::Source::kCommitLine: return 0;
+        case TerminalScreen::CommandBlock::Source::kOsc133:     return 1;
+        case TerminalScreen::CommandBlock::Source::kHeuristic:  return 2;
+    }
+    return 2;
+}
+static TerminalScreen::CommandBlock::Source IntToSource(int v) {
+    switch (v) {
+        case 0:  return TerminalScreen::CommandBlock::Source::kCommitLine;
+        case 1:  return TerminalScreen::CommandBlock::Source::kOsc133;
+        default: return TerminalScreen::CommandBlock::Source::kHeuristic;
+    }
+}
 
 // 256-colour palette — first 16 entries from kitty, rest initialised in InitializeColorTable()
 static ColorRGBA FG_BG_256[256] = {
@@ -101,6 +121,13 @@ void TerminalController::Begin() {
         auto osc133 = BuildShellIntegrationBootstrap(shellBinary);
         shellInitScript.insert(shellInitScript.end(), osc133.begin(), osc133.end());
     }
+
+    // Restore persisted scrollback (terminal-scrollback.md §8.2) BEFORE the shell starts - the pty
+    // thread mutates the grid the instant shell.Begin() returns, so the seeded history (and the fresh
+    // open loose block covering new output) must already be in place. A no-op when there is no session,
+    // no persisted blocks, the feature is off, or the .bin is missing/corrupt.
+    FromSession(SessionManager::Instance().CurrentSession().terminal);
+
     shell.Begin(shellBinary, shellInitStr, shellInitScript);
 
     while (shell.GetState() != Shell::State::kRunning) {
@@ -125,6 +152,114 @@ void TerminalController::Begin() {
     cmdHistoryPath = (histAsset != nullptr)
                     ? histAsset->GetOriginPath()
                     : assetLoader.ResolveWritePath("terminal_history", histLocation);
+}
+
+std::filesystem::path TerminalController::ResolveScrollbackBinPath(const std::string &filename) const {
+    // Project-scoped: the .bin lives in the same kProject `.goatedit` dir as session.yml. Empty when no
+    // project dir is registered - persistence then stands down (gate for the whole feature).
+    auto &assetLoader = RuntimeConfig::Instance().GetAssetLoader();
+    return assetLoader.ResolveWritePath(filename, AssetLoaderBase::kLocationType::kProject);
+}
+
+bool TerminalController::ToSession(TerminalSession &out) {
+    out = TerminalSession{};   // fresh - overwrite any state lingering from the restore-time load
+
+    if (!Config::Instance()["terminal"].GetBool("persist_scrollback", true)) {
+        return false;
+    }
+    auto binPath = ResolveScrollbackBinPath("terminal_scrollback.bin");
+    if (binPath.empty()) {
+        return false;   // no project .goatedit dir - persistence is project-scoped
+    }
+
+    int maxLines = Config::Instance()["terminal"].GetInt("persist_scrollback_lines", 2000);
+    size_t cap   = (maxLines < 0) ? 0 : (size_t)maxLines;
+
+    // Snapshot under the lock (the pty thread mutates the grid/scrollback); write the file outside it.
+    TerminalScreen::ScrollbackSnapshot snap;
+    {
+        std::lock_guard<std::mutex> lock(screenLock);
+        snap = screen.SnapshotScrollbackTail(cap);
+    }
+    if (snap.lines.empty()) {
+        return false;   // alt-screen, or nothing has scrolled into history yet
+    }
+
+    // Serialise line text + ANSI colour spans to the .bin (lossless, versioned - TS-5a). The Line::Refs
+    // are shared into a throwaway buffer purely to reach TextBuffer::SaveWithAttributes.
+    TextBuffer buffer;
+    for (const auto &line : snap.lines) {
+        buffer.AddLine(line);
+    }
+    if (!buffer.SaveWithAttributes(binPath)) {
+        if (logger != nullptr) {
+            logger->Error("Failed to write terminal scrollback '%s'", binPath.string().c_str());
+        }
+        return false;
+    }
+
+    out.scrollbackFile = binPath.filename().string();
+    out.blocks.reserve(snap.blocks.size());
+    for (const auto &pb : snap.blocks) {
+        TerminalBlockSession tbs;
+        tbs.id        = pb.id;
+        tbs.command   = UnicodeHelper::utf32to8(pb.command);
+        tbs.startLine = pb.startLine;
+        tbs.endLine   = pb.endLine;
+        tbs.exitCode  = pb.exitCode.has_value() ? pb.exitCode.value()
+                                                : TerminalBlockSession::kExitCodeUnknown;
+        tbs.cwd       = pb.cwd.string();
+        tbs.source    = SourceToInt(pb.source);
+        tbs.language  = "";   // Phase 4
+        out.blocks.push_back(std::move(tbs));
+    }
+    return true;
+}
+
+void TerminalController::FromSession(const TerminalSession &in) {
+    if (in.blocks.empty()) {
+        return;   // nothing persisted (fresh project, or the feature was off when last saved)
+    }
+    if (!Config::Instance()["terminal"].GetBool("persist_scrollback", true)) {
+        return;
+    }
+    auto filename = in.scrollbackFile.empty() ? std::string("terminal_scrollback.bin") : in.scrollbackFile;
+    auto binPath  = ResolveScrollbackBinPath(filename);
+    if (binPath.empty()) {
+        return;   // no project dir - persistence is project-scoped
+    }
+
+    TextBuffer buffer;
+    if (!buffer.LoadWithAttributes(binPath)) {
+        return;   // missing / corrupt / newer version -> start clean (never throws)
+    }
+    std::vector<Line::Ref> lines;
+    lines.reserve(buffer.NumLines());
+    for (size_t i = 0; i < buffer.NumLines(); i++) {
+        lines.push_back(buffer.LineAt(i));
+    }
+    if (lines.empty()) {
+        return;
+    }
+
+    std::vector<TerminalScreen::PersistedBlock> seedBlocks;
+    seedBlocks.reserve(in.blocks.size());
+    for (const auto &tbs : in.blocks) {
+        TerminalScreen::PersistedBlock pb;
+        pb.id        = tbs.id;
+        pb.command   = UnicodeHelper::utf8to32(tbs.command);
+        pb.startLine = tbs.startLine;
+        pb.endLine   = tbs.endLine;
+        if (tbs.exitCode != TerminalBlockSession::kExitCodeUnknown) {
+            pb.exitCode = tbs.exitCode;
+        }
+        pb.cwd    = tbs.cwd;
+        pb.source = IntToSource(tbs.source);
+        seedBlocks.push_back(std::move(pb));
+    }
+
+    std::lock_guard<std::mutex> lock(screenLock);
+    screen.SeedScrollback(lines, seedBlocks);
 }
 
 void TerminalController::Resize(int cols, int rows) {

@@ -109,6 +109,51 @@ static LayoutSession NodeToLayout(const YAML::Node &node) {
     return layout;
 }
 
+static YAML::Node TerminalToNode(const TerminalSession &terminal) {
+    YAML::Node node;
+    node["scrollbackFile"] = terminal.scrollbackFile;
+
+    YAML::Node blocks;
+    for (const auto &b : terminal.blocks) {
+        YAML::Node bn;
+        bn["id"] = b.id;
+        bn["command"] = b.command;
+        bn["startLine"] = b.startLine;
+        bn["endLine"] = b.endLine;
+        bn["exitCode"] = b.exitCode;
+        bn["cwd"] = b.cwd;
+        bn["source"] = b.source;
+        bn["language"] = b.language;
+        blocks.push_back(bn);
+    }
+    node["blocks"] = blocks;
+    return node;
+}
+
+static TerminalSession NodeToTerminal(const YAML::Node &node) {
+    TerminalSession terminal;
+    if (!node) {
+        return terminal;
+    }
+    terminal.scrollbackFile = node["scrollbackFile"].as<std::string>("terminal_scrollback.bin");
+    const auto &blocks = node["blocks"];
+    if (blocks && blocks.IsSequence()) {
+        for (const auto &bn : blocks) {
+            TerminalBlockSession b;
+            b.id = bn["id"].as<uint64_t>(0);
+            b.command = bn["command"].as<std::string>("");
+            b.startLine = bn["startLine"].as<uint64_t>(0);
+            b.endLine = bn["endLine"].as<uint64_t>(0);
+            b.exitCode = bn["exitCode"].as<int>(TerminalBlockSession::kExitCodeUnknown);
+            b.cwd = bn["cwd"].as<std::string>("");
+            b.source = bn["source"].as<int>(0);
+            b.language = bn["language"].as<std::string>("");
+            terminal.blocks.push_back(b);
+        }
+    }
+    return terminal;
+}
+
 std::string SessionSerializer::ToYaml(const RootSession &session) {
     YAML::Node root;
     root["version"] = session.version;
@@ -135,6 +180,7 @@ std::string SessionSerializer::ToYaml(const RootSession &session) {
     root["expandCollapse"] = expandCollapse;
 
     root["layout"] = LayoutToNode(session.layout);
+    root["terminal"] = TerminalToNode(session.terminal);
 
     return YAML::Dump(root);
 }
@@ -181,6 +227,7 @@ bool SessionSerializer::FromYaml(const std::string &text, RootSession &outSessio
     }
 
     session.layout = NodeToLayout(root["layout"]);
+    session.terminal = NodeToTerminal(root["terminal"]);
 
     outSession = session;
     return true;

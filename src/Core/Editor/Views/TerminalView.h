@@ -35,6 +35,10 @@ namespace gedit {
             return defaultAbbr;
         }
 
+        // The embedded controller - exposed so the session orchestrator (Editor::SaveSession) can drive
+        // scrollback persistence (terminal-scrollback.md §8) through it.
+        TerminalController &GetController() { return controller; }
+
     protected:
         void OnActivate(bool isActive) override;
         bool OnActionCommitLine();

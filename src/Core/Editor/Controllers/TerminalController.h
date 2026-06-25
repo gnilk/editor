@@ -20,6 +20,8 @@
 #include "Core/VTermParser.h"
 
 namespace gedit {
+    struct TerminalSession;   // Core/Session/SessionState.h - the persisted block index + .bin pointer
+
     class TerminalController : public BaseController, IOutputConsole {
     public:
         TerminalController() = default;
@@ -101,6 +103,21 @@ namespace gedit {
         std::optional<std::u32string> GetBlockOutputText(uint64_t blockId) override;
         std::optional<OutputBlockInfo> GetLastBlock() override;
 
+        // Scrollback persistence (terminal-scrollback.md §8). Driven by the session orchestrator:
+        // Editor::SaveSession calls ToSession (clean-exit only); restore runs inside Begin() before the
+        // shell starts (FromSession). Both gate on `terminal.persist_scrollback` (on by default) and on a
+        // project `.goatedit` dir (the .bin lives alongside session.yml); a no-op otherwise.
+        //
+        // ToSession snapshots the last `terminal.persist_scrollback_lines` scrollback lines under
+        // screenLock, writes them (with ANSI colours) to the .bin OUTSIDE the lock via
+        // TextBuffer::SaveWithAttributes, and fills `out` with the re-based block index. Returns false
+        // (leaving `out` empty) while alt-screen, when scrollback is empty, or on a write failure.
+        bool ToSession(TerminalSession &out);
+
+        // FromSession loads the .bin (LoadWithAttributes - missing/corrupt -> no-op) and seeds
+        // scrollback+blocks via TerminalScreen::SeedScrollback. MUST be called before shell.Begin().
+        void FromSession(const TerminalSession &in);
+
     protected:
         void HandleAnsiCmd(const VTermParser::CMD &cmd);
         void SyncInputLineFromGrid();
@@ -115,6 +132,10 @@ namespace gedit {
         // Encode a keypress as raw pty bytes and forward it to the shell. Used by BOTH passthrough
         // paths in HandleKeyPress: a full-screen app (alt-screen) and readline (shell-owned line).
         bool ForwardKeyPressToShell(const KeyPress &keyPress);
+
+        // Resolve the project-local path of the scrollback .bin (the kProject `.goatedit` write path for
+        // `filename`), or empty when there is no project dir - the gate for project-scoped persistence.
+        std::filesystem::path ResolveScrollbackBinPath(const std::string &filename) const;
 
         // The abs id of the row currently at the top of the visible window - the followBottom
         // window-top when pinned to the bottom, or anchorAbsRow itself when already scrolled. Shared

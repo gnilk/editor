@@ -135,6 +135,42 @@ namespace gedit {
         // given id. Pure read; the caller holds screenLock.
         std::vector<std::u32string> GetBlockOutputText(uint64_t blockId) const;
 
+        // --- Persistence (terminal-scrollback.md §8) --------------------------------------------------
+        // One persisted block, with its line range expressed as indices into a ScrollbackSnapshot's
+        // `lines` (NOT abs-row ids). The cross-boundary value type between the model and the session DTO
+        // (TerminalBlockSession): it carries no Phase-4 `language` Ref and never aliases the live grid.
+        struct PersistedBlock {
+            uint64_t                id = 0;
+            std::u32string          command;
+            uint64_t                startLine = 0;          // inclusive, index into ScrollbackSnapshot::lines
+            uint64_t                endLine = 0;            // exclusive
+            std::optional<int>      exitCode;               // nullopt = unknown (open block closed at tail)
+            std::filesystem::path   cwd;
+            CommandBlock::Source    source = CommandBlock::Source::kHeuristic;
+        };
+        struct ScrollbackSnapshot {
+            std::vector<Line::Ref>      lines;              // immutable scrollback lines (with ANSI colours)
+            std::vector<PersistedBlock> blocks;             // ranges re-based into [0, lines.size()]
+        };
+
+        // Snapshot the last `maxLines` immutable scrollback lines plus the command blocks intersecting
+        // them, each block RE-BASED into the returned slice's index space [0, lines.size()] (§8.1).
+        // maxLines == 0 keeps all scrollback. The live grid is NOT included: the open/running block is
+        // returned closed at the saved tail (its live-grid rows dropped, exitCode left unset). Blocks
+        // lying entirely outside the slice are omitted. Returns an empty snapshot while IsAltScreen()
+        // (§10 - alt-screen history is never persisted) or when nothing has scrolled into scrollback.
+        // Pure read; the caller holds screenLock.
+        ScrollbackSnapshot SnapshotScrollbackTail(size_t maxLines) const;
+
+        // Seed the immutable scrollback + block index from a persisted snapshot, BEFORE the shell starts
+        // producing output (§8.2 - the pty thread writes immediately). Replaces any existing scrollback
+        // (scrollbackBase becomes 0; seeded lines occupy abs ids [0, lines.size())) and the block index.
+        // `seedBlocks` carry re-based line indices in [0, lines.size()]; they are inserted CLOSED and a
+        // fresh OPEN loose block is appended to cover post-restore output (keeps §7's "every scrollback
+        // line belongs to some block"). nextBlockId advances past every seeded id. No-op if `lines` is
+        // empty. Caller holds screenLock; must run before shell.Begin().
+        void SeedScrollback(const std::vector<Line::Ref> &lines, const std::vector<PersistedBlock> &seedBlocks);
+
     private:
         Cell MakeBlankCell() const;
         Row  MakeBlankRow() const;

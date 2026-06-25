@@ -31,6 +31,7 @@
 #include "Core/Plugins/PluginExecutor.h"
 #include "Core/UI/Views/RootView.h"
 #include "Core/Editor/Views/WorkspaceView.h"
+#include "Core/Editor/Views/TerminalView.h"
 
 
 // NCurses backend - Removed
@@ -394,6 +395,20 @@ static WorkspaceView *GetWorkspaceView() {
     return dynamic_cast<WorkspaceView *>(ref.get());
 }
 
+// Helper: the TerminalView top-view, or nullptr (not yet built / no root view / headless). Scrollback
+// persistence (terminal-scrollback.md §8) is driven through its controller from SaveSession.
+static TerminalView *GetTerminalView() {
+    if (!RuntimeConfig::Instance().HasRootView()) {
+        return nullptr;
+    }
+    auto *rootView = RuntimeConfig::Instance().GetRootViewAs<RootView>();
+    if (rootView == nullptr) {
+        return nullptr;
+    }
+    auto ref = rootView->GetTopViewByName(glbTerminalView);
+    return dynamic_cast<TerminalView *>(ref.get());
+}
+
 // Load the session once (data model only — documents). Layout is applied later by RestoreLayout, once
 // the view tree exists. The loaded session lingers in SessionManager::CurrentSession for that second pass.
 void Editor::RestoreSession() {
@@ -451,6 +466,13 @@ void Editor::SaveSession() {
         if (workspaceView != nullptr) {
             session.expandCollapse.clear();
             workspaceView->SaveExpandCollapseState(session.expandCollapse);
+        }
+        // Terminal scrollback (terminal-scrollback.md §8) - clean-exit only (SaveSession runs from
+        // Close()). ToSession resets session.terminal and refills it (or leaves it empty when there's
+        // nothing to persist / the feature is off), so a repeated save stays idempotent.
+        auto *terminalView = GetTerminalView();
+        if (terminalView != nullptr) {
+            terminalView->GetController().ToSession(session.terminal);
         }
     }
     SessionManager::Instance().Save();

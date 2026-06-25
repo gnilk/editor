@@ -28,11 +28,16 @@ namespace gedit {
         void DrawViewContents() override;
 
         bool OnAction(const EditorAction &kpAction) override;
+        bool OnMouseEvent(const MouseEvent &mouseEvent) override;
 
         const std::u32string &GetStatusBarAbbreviation() override {
             static std::u32string defaultAbbr = U"TRM";
             return defaultAbbr;
         }
+
+        // The embedded controller - exposed so the session orchestrator (Editor::SaveSession) can drive
+        // scrollback persistence (terminal-scrollback.md §8) through it.
+        TerminalController &GetController() { return controller; }
 
     protected:
         void OnActivate(bool isActive) override;
@@ -44,6 +49,11 @@ namespace gedit {
     private:
         TerminalController controller;
         gnilk::ILogger *logger = nullptr;
+        // Cached from config ("commandview.lines_per_scroll_wheel_notch") in InitView/ReInitView.
+        int linesPerScrollWheelNotch = 3;
+        // Cached from config ("commandview.show_block_markers"): draw a separator rule at the end of
+        // each closed command block (§5.5 of docs/terminal-scrollback.md). Off by default.
+        bool showBlockMarkers = false;
     };
 }
 

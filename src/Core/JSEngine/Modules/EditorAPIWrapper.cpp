@@ -14,9 +14,11 @@ void EditorAPIWrapper::RegisterModule(duk_context *ctx) {
 
     dukglue_register_method(ctx, &EditorAPIWrapper::GetActiveDocument, "GetActiveDocument");
     dukglue_register_method(ctx, &EditorAPIWrapper::NewDocument, "NewDocument");
+    dukglue_register_method(ctx, &EditorAPIWrapper::NewDocumentFromText, "NewDocumentFromText");
     dukglue_register_method(ctx, &EditorAPIWrapper::LoadDocument, "LoadDocument");
     dukglue_register_method(ctx, &EditorAPIWrapper::GetDocuments, "GetDocuments");
     dukglue_register_method(ctx, &EditorAPIWrapper::CloseActiveDocument, "CloseActiveDocument");
+    dukglue_register_method(ctx, &EditorAPIWrapper::CopyToClipboard, "CopyToClipboard");
 
     dukglue_register_method(ctx, &EditorAPIWrapper::GetCurrentTheme, "GetCurrentTheme");
     dukglue_register_method(ctx, &EditorAPIWrapper::ExitEditor, "ExitEditor");
@@ -45,6 +47,11 @@ DocumentAPIWrapper::Ref EditorAPIWrapper::NewDocument(const char *name) {
     return DocumentAPIWrapper::Create(editorApi->NewDocument(name));
 }
 
+DocumentAPIWrapper::Ref EditorAPIWrapper::NewDocumentFromText(const char *name, const char *text) {
+    auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
+    return DocumentAPIWrapper::Create(editorApi->NewDocumentFromText(name, text));
+}
+
 DocumentAPIWrapper::Ref EditorAPIWrapper::LoadDocument(const char *filename) {
     auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
     return DocumentAPIWrapper::Create(editorApi->LoadDocument(filename));
@@ -64,6 +71,11 @@ std::vector<DocumentAPIWrapper::Ref> EditorAPIWrapper::GetDocuments() {
 void EditorAPIWrapper::CloseActiveDocument() {
     auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
     editorApi->CloseActiveDocument();
+}
+
+void EditorAPIWrapper::CopyToClipboard(const char *text) {
+    auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
+    editorApi->CopyToClipboard(text);
 }
 
 

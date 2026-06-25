@@ -85,6 +85,13 @@ namespace gedit {
         virtual void FillLine(int y, kTextAttributes attrib, char c) const {}
         virtual void DrawLineOverlays(int y) const {}
 
+        // Draw a thin horizontal separator rule at the bottom edge of character row y (the boundary
+        // between row y and row y+1), in the current foreground color. Intention-named on purpose
+        // (§5.5 of docs/terminal-scrollback.md): a pixel backend draws a sub-cell line
+        // (no row cost); a future cell/terminal backend may fall back to a glyph row or gutter mark.
+        // The caller (TerminalView block markers) never depends on a perfect pixel line.
+        virtual void DrawHRule(int y) const {}
+
         virtual void DrawStringAt(int x, int y, const char *str) const {}
         virtual void DrawStringWithAttributesAt(int x, int y, kTextAttributes attrib, const char *str) const {}
         virtual void DrawStringWithAttributesAndColAt(int x, int y, kTextAttributes attrib, int idxColor, const char *str) const {}

@@ -134,12 +134,13 @@ bool Runloop::ProcessMouseEvent(MouseEvent mouseEvent) {
     auto rootView = RuntimeConfig::Instance().GetRootViewAs<RootView>();
 
     // --- Mouse-routing trace instrumentation (temporary, remove once P1 is verified) -------
+    // [fkling, note] keeping this as we will implement double-click and we might want it later
     // Shows which view the hit-test resolved to and the local row/col, mirroring the [DISP]
     // keyboard trace in DispatchToHandler. Re-enable while chasing routing/focus problems.
-    auto hit = rootView->HitTest(mouseEvent.x, mouseEvent.y);
-    fprintf(stderr, "[MOUSE] kind=%d row=%d col=%d button=%d wheelDelta=%d -> hit=%s\n",
-            (int)mouseEvent.kind, mouseEvent.y, mouseEvent.x, mouseEvent.button, mouseEvent.wheelDelta,
-            hit != nullptr ? hit->GetClassName().c_str() : "(none)");
+    //auto hit = rootView->HitTest(mouseEvent.x, mouseEvent.y);
+    // fprintf(stderr, "[MOUSE] kind=%d row=%d col=%d button=%d wheelDelta=%d -> hit=%s\n",
+    //         (int)mouseEvent.kind, mouseEvent.y, mouseEvent.x, mouseEvent.button, mouseEvent.wheelDelta,
+    //         hit != nullptr ? hit->GetClassName().c_str() : "(none)");
     // ----------------------------------------------------------------------------------------
 
     return rootView->DispatchMouse(mouseEvent);

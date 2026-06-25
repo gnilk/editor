@@ -329,6 +329,11 @@ void VTermParser::EmitCmd(gedit::VTermParser::kAnsiCmd kCmd, int p1, int p2) {
     cmdBuffer.push_back(cmd);
 }
 
+void VTermParser::EmitCmd(gedit::VTermParser::kAnsiCmd kCmd, const std::string &strParam) {
+    CMD cmd = {strParsed.size(), kCmd, {}, strParam};
+    cmdBuffer.push_back(cmd);
+}
+
 static const int C0_BEL = 0x07;
 static const int C0_ST = 0x9c;
 static const int C0_CAN = 0x18; // Cancel
@@ -341,6 +346,7 @@ enum kOscCommands {
     kIconName = 1,              // str
     kWindowTitleOnly = 2,       // str
     kChangeColor = 4,           // '4;<col num>;<spec>'
+    kSetWorkingDir = 7,         // '7;file://host/path'   (cwd reporting)
     kCreateHyperLink = 8,       // '8;params;uri
 
     kQueryDefaultForegroundColor = 10,  // str
@@ -351,6 +357,8 @@ enum kOscCommands {
     kRestoreForegroundColor = 110,      // nothing
     kRestoreBackgroundColor = 111,      // nothing
     kRestoreCursorColor = 112,          // nothing
+
+    kSemanticPrompt = 133,              // '133;A|B|C|D[;exit]'   (FinalTerm/iTerm2 shell integration)
 };
 
 // Quite good overview of OSC stuff
@@ -397,6 +405,22 @@ void VTermParser::ParseOSC() {
             case kQueryDefaultCursorColor :
                 OSC_ParseStringToBel();
                 break;
+            case kSetWorkingDir : {
+                // OSC 7 — 'file://host/path'. Strip the scheme+host, keep the path; emit as cwd.
+                auto payload = OSC_ReadPayloadToTerminator();
+                std::string path = payload;
+                const std::string scheme = "file://";
+                if (payload.rfind(scheme, 0) == 0) {
+                    auto slash = payload.find('/', scheme.size());
+                    path = (slash == std::string::npos) ? std::string("/") : payload.substr(slash);
+                }
+                EmitCmd(kAnsiCmd::kSetCwd, path);
+                break;
+            }
+            case kSemanticPrompt :
+                // OSC 133 — semantic prompt markers (A/B/C/D). At() is the marker letter.
+                ParseOSC133();
+                break;
             default :
                 while(At() != C0_BEL) {
                     if (!Next()) return;
@@ -420,6 +444,70 @@ std::string VTermParser::OSC_ParseStringToBel() {
     // printf("Window Title: %s\n", title.c_str());
 
     return strOut;
+}
+
+// Read the OSC payload from the CURRENT position up to the string terminator (BEL, the 8-bit ST, or
+// the two-byte 'ESC \' ST), consuming the terminator. Unlike OSC_ParseStringToBel there is no leading
+// skip - the cursor must already sit on the first payload byte. Used by the OSC 7 / 133 paths where
+// every byte of the payload matters.
+std::string VTermParser::OSC_ReadPayloadToTerminator() {
+    std::string strOut;
+    while (At() != 0) {
+        uint8_t c = At();
+        if (c == C0_BEL || c == C0_ST) {
+            Next();   // consume terminator
+            break;
+        }
+        if (c == ESC_7BIT) {
+            // ST written as the two-byte 'ESC \' - consume both.
+            Next();
+            if (At() == '\\') {
+                Next();
+            }
+            break;
+        }
+        strOut += (char)c;
+        if (!Next()) {
+            break;
+        }
+    }
+    return strOut;
+}
+
+// OSC 133 — FinalTerm/iTerm2 semantic prompt markers. The cursor sits on the marker letter; the
+// payload is "<letter>[;<field>...]". A/B/C are bare; D carries the command's exit code as the first
+// field ("D;<exit>"), with optional ';key=value' fields after it that we ignore. Emits the matching
+// kAnsiCmd; for D, param[0] is the exit code (or -1 when the shell omitted it).
+void VTermParser::ParseOSC133() {
+    std::string payload = OSC_ReadPayloadToTerminator();
+    if (payload.empty()) {
+        return;
+    }
+    switch (payload[0]) {
+        case 'A': EmitCmd(kAnsiCmd::kPromptStart);  break;
+        case 'B': EmitCmd(kAnsiCmd::kCommandStart); break;
+        case 'C': EmitCmd(kAnsiCmd::kOutputStart);  break;
+        case 'D': {
+            int exitCode = -1;   // -1 == shell did not report an exit code
+            auto semi = payload.find(';');
+            if (semi != std::string::npos) {
+                // Take the first field after 'D;' up to the next ';' (ignore trailing key=value).
+                auto end = payload.find(';', semi + 1);
+                std::string exitStr = payload.substr(semi + 1,
+                                        (end == std::string::npos) ? std::string::npos : end - semi - 1);
+                bool allDigits = !exitStr.empty();
+                for (char ch : exitStr) {
+                    if (!isdigit((unsigned char)ch)) { allDigits = false; break; }
+                }
+                if (allDigits) {
+                    exitCode = std::stoi(exitStr);
+                }
+            }
+            EmitCmd(kAnsiCmd::kCommandEnd, exitCode);
+            break;
+        }
+        default: break;   // unknown sub-command — ignore
+    }
 }
 
 bool VTermParser::Next() {

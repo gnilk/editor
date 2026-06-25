@@ -124,6 +124,10 @@ workspaceview:
 commandview:
   prompt: "ed>"
   keymap: terminal_keymap
+  # Number of backlog rows to scroll per mouse-wheel notch (§5.3 docs/terminal-scrollback.md)
+  lines_per_scroll_wheel_notch: 3
+  # Draw a thin separator rule at the end of each completed command block (§5.5). Off by default.
+  show_block_markers: true
 
 
 quickmode:
@@ -200,6 +204,20 @@ terminal:
   bootstrap:
     - SET XYZ=4
     - export path=%path%
+  # Max number of scrollback lines kept in memory per terminal. 0 = unlimited. Eviction is
+  # block-granular: the oldest whole command block is dropped (docs/terminal-scrollback.md §7).
+  scrollback_lines: 10000
+  # Persist terminal scrollback across sessions (docs/terminal-scrollback.md §8). On by default, but
+  # gated on a project `.goatedit` dir - the history is written to <root>/.goatedit/terminal_scrollback.bin
+  # (a versioned binary keeping line text + ANSI colours) next to session.yml, on a clean exit only.
+  persist_scrollback: yes
+  # Max scrollback lines written to disk on save (the in-memory cap above can be larger). Keeps the
+  # .bin bounded; the most recent N lines are kept, older whole blocks dropped.
+  persist_scrollback_lines: 2000
+  # OSC 133 shell integration (docs/terminal-scrollback.md §4.2 / Phase 3). When on, the bootstrap
+  # injects bash/zsh prompt hooks that emit semantic-prompt markers, so command blocks get exact
+  # boundaries + exit codes (instead of the CommitLine heuristic). Off by default - it rewrites PS1.
+  shell_integration: no
 
 languages:
   # Defines the maximum number of lines we extend a region for the syntax parser

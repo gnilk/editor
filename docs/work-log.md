@@ -96,24 +96,70 @@ monitor + #6). Plan + work items: [`folder-scanner.md`](done/folder-scanner.md).
 
 ---
 
+## Terminal scrollback + command blocks — Phases 0–3 + 5 ✅ (Phase 4 deferred)
+
+Resolved [`open-bugs.md`](open-bugs.md) #10 ("missing scrollback") and built the *grouping* + downstream
++ persistence infrastructure on top of it. The scrollback buffer already existed; the bug was that the
+view always pinned to the bottom. Manually verified (history + session restore round-trip, cmd history
+preserved, JS bindings in place) and closed; only Phase 4 (per-block highlighting) is deferred.
+
+- **Phase 0 (TS-0a..TS-0f) — the scroll viewport.** Scrollback became a `TextBuffer` (`Row→Line` is
+  lossless — `Line::LineAttrib` already carries per-span `ColorRGBA`, so ANSI color survives and the
+  history renders through the existing `LineRender`, no bespoke path). Abs-row spine
+  (`scrollbackBase`/`AbsRowCount`/`RowAtAbs`) so positions survive eviction. Viewport state
+  (`followBottom`/`anchorAbsRow`) lives on the controller, anchored to an absolute row (not an offset from
+  the bottom) so a streaming build doesn't yank a scrolled-up reader back down. Wheel + PageUp/Down +
+  Ctrl+Home/End gestures. `TerminalHistory`→`TerminalCmdHistory` rename cleared the name collision first.
+- **Phase 1 (TS-1a..TS-1c) + 1.5a/b — command blocks (the grouping).** `CommandBlock` is a line-range
+  *reference* into the shared scrollback `TextBuffer` (not a copy), tracked in a `blocks` deque on
+  `TerminalScreen`. Opened/closed from `CommitLine` (+ the tab-completion/shell-owned-line commit path)
+  under `screenLock`; alt-screen rows never create blocks. An implicit leading "loose" block covers output
+  with no committed command, so eviction is always whole-block (a retained block is always complete) —
+  never orphans a partial block. Alt+Up/Down jump the viewport to the prev/next block start; block
+  separator rule + selected-block highlight (1.5a/b).
+- **Phase 2 (TS-2a..TS-2c) — downstream consumers.** `GetBlockOutputText` resolves a block's `[start,end)`
+  across scrollback + the live grid; a dedicated two-layer `TerminalAPI`/`TerminalAPIWrapper` JS surface
+  (`Terminal.GetBlocks/GetBlockOutput/GetLastBlock/GetSelectedBlock/OpenBlockAsDocument`) replaced the
+  implicit one; the `Editor.NewDocumentFromText()` seam + the `blocktobuffer` (`b2b`) cmdlet open a block's
+  output as a buffer; a clipboard JS seam (`Editor.CopyToClipboard` + `Terminal.CopyBlockToClipboard` + the
+  `b2c` cmdlet) copies a block to the paste buffer. (1.5c "act on a block" was redirected onto
+  quick-command + JS and delivered here.)
+- **Phase 3 (TS-3a..TS-3c) — OSC 133 shell integration.** `VTermParser` recognises the semantic-prompt
+  markers; the controller maps `;A/;B/;C/;D` into precise command blocks + exit codes, with
+  `useOsc133Boundaries` superseding the CommitLine heuristic once markers arrive (no double-open). Opt-in
+  via the `terminal.shell_integration` bootstrap (off by default — it rewrites PS1; bash DEBUG trap / zsh
+  preexec+precmd hooks).
+- **Phase 5 (TS-5a..TS-5d) — persistence & restore.** Scrollback survives across sessions, **clean-exit
+  only**, gated on a project `.goatedit` dir (`terminal.persist_scrollback`, on by default). The bulky
+  history goes to `<root>/.goatedit/terminal_scrollback.bin` — a **versioned `GTSB` binary** keeping line
+  text + per-span ANSI colors (`TextBuffer::Save/LoadWithAttributes`, TS-5a); the block index (no row
+  text) rides in `session.yml` as `TerminalSession`/`TerminalBlockSession` (TS-5b). `TerminalScreen` grew
+  `SnapshotScrollbackTail`/`SeedScrollback` seams (TS-5c) — the snapshot re-bases intersecting blocks into
+  `[0,N)`, **closes the open block at the saved tail** (live-grid tail dropped, exit unknown), and is empty
+  while alt-screen; the seed replaces scrollback at base 0 and appends a fresh open loose block. The
+  controller's `ToSession`/`FromSession` own the `.bin` I/O + kProject path (snapshot under `screenLock`,
+  write outside); save is driven from `Editor::SaveSession`, restore runs **inside `Begin()` before
+  `shell.Begin()`**. Caps 2000 on-disk / 10000 in-memory. Command history (`TerminalCmdHistory`, TS-5d)
+  was already plain-text shipped.
+- **Phase 4 — per-block syntax highlighting — EXTRACTED** to its own doc,
+  [`syntax-blocks.md`](syntax-blocks.md) (optional, independent, not started). The only seam the shipped
+  work had to preserve — the `language` field on `CommandBlock` + the persisted `TerminalBlockSession` —
+  is in place. Listed under Planned / not started below.
+- **Found along the way:** [`open-bugs.md`](open-bugs.md) #11 — a raw TAB byte from the pty was silently
+  dropped, garbling multi-column shell output (e.g. plain `ls`); pre-existing, unrelated to this feature,
+  documented but not fixed.
+
+Detail + phase-by-phase status: [`terminal-scrollback.md`](done/terminal-scrollback.md).
+
+---
+
 ## Planned / not started
 
-- **Terminal scrollback + command blocks** — resolves [`open-bugs.md`](open-bugs.md) #10. The scrollback
-  buffer already exists; the bug is that the view always pins to the bottom. Spec covers the scroll
-  viewport (abs-row anchor so a streaming build doesn't shift what you're reading, wheel + page keys, cap/
-  trim) **plus** the grouping the user asked for: `command + output` blocks as a **meta-index alongside
-  the flat row buffer** (decided over list-of-groups — the live tail lives in the mutable grid, rendering
-  wants a flat indexable sequence, bad boundaries degrade gracefully), driven by `CommitLine` as the
-  zero-cooperation baseline and upgraded by optional OSC 133 for exact boundaries + exit codes. Blocks
-  feed jump-per-command nav and the downstream seams (open a block's output as a Document; parse a build
-  block into diagnostics; `TerminalAPI` JS surface). The **scrollback store is a `TextBuffer`** (live grid
-  stays `Cell`-based): `Row→Line` is lossless because `Line::LineAttrib` already carries per-span
-  `ColorRGBA`, so we keep ANSI color *and* get syntax highlighting (per-block language, e.g. CMake) and
-  save-to-file for free. Eviction is **whole-block** (a retained block is always complete). Persists the
-  scrollback *text to its own `.goatedit` file* (only the block index goes in `session.yml`). Plugin/
-  built-in output (search via `IOutputConsole::WriteLine`) is retained and groupable, not dismissed. Alt-
-  screen content stays out of the backlog. `TerminalHistory`→`TerminalCmdHistory` rename clears the name
-  collision. Phased TS-0..TS-5. Detail: [`terminal-scrollback.md`](terminal-scrollback.md).
+- **Per-block syntax highlighting** — extracted from the terminal-scrollback effort (was its "Phase 4").
+  Highlight a command block's output with the matching language (e.g. CMake colors over a `cmake` run) via
+  a hard-region tokenize over the block's line range — a fixed start boundary on a background `Job`, no
+  state bleed across blocks. Independent of the shipped terminal work; the `language` seam is already in
+  place. Work packages TS-4a/4b/4c + design: [`syntax-blocks.md`](syntax-blocks.md).
 - **Folder monitor** — *disabled* live FS watcher (`foldermonitor.enabled: no`). Platform analysis of
   the two backends (macOS FSEvents = OS-recursive subtree watch; Linux inotify = per-dir, non-recursive,
   watch-capped, crippled by a leftover `IN_ONESHOT`), the fundamental asymmetry that blocked a clean

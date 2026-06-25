@@ -11,6 +11,8 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include <cstring>
+#include <cstdint>
 #include "DurationTimer.h"
 #include "Core/CompileTimeConfig.h"
 
@@ -354,6 +356,143 @@ bool TextBuffer::DoSave(const std::filesystem::path &pathName, bool skipChangeCh
     // Note: we don't trigger UI redraws from change-state, because that would lead to all hell on earth...
     // unless we have somethine like 'DisableRedraw' / 'EnableRedraw'
     Editor::Instance().TriggerUIRedraw();
+    return true;
+}
+
+// --- TS-5a: text + per-span attribute persistence (docs/terminal-scrollback.md §8.1) ---
+//
+// Binary layout (native-endian - a same-machine cache, like session.yml):
+//   header : magic[4]="GTSB" | version:u32 (sequential, starts at 1) | flags:u32 (reserved=0) | lineCount:u32
+//   line   : charCount:u32 | charCount * char32_t text | attribCount:u32 | attrib[attribCount]
+//   attrib : idxOrigString:i32 | textAttributes:u32 | fg(4*f32) | bg(4*f32) | tokenClass:u32
+//
+// A sequential version is bumped by 1 on any incompatible layout change; LoadWithAttributes rejects an
+// unknown/newer one (start empty, never crash). No logger use - the scrollback buffer has none.
+
+namespace {
+    constexpr char     kAttribFileMagic[4]   = {'G', 'T', 'S', 'B'};
+    constexpr uint32_t kAttribFileVersion    = 1;
+
+    template <typename T>
+    void WritePod(std::ostream &os, const T &v) {
+        os.write(reinterpret_cast<const char *>(&v), sizeof(T));
+    }
+    template <typename T>
+    T ReadPod(std::istream &is) {
+        T v{};
+        is.read(reinterpret_cast<char *>(&v), sizeof(T));
+        return v;
+    }
+    void WriteColor(std::ostream &os, const ColorRGBA &c) {
+        WritePod<float>(os, c.R());
+        WritePod<float>(os, c.G());
+        WritePod<float>(os, c.B());
+        WritePod<float>(os, c.A());
+    }
+    ColorRGBA ReadColor(std::istream &is) {
+        float r = ReadPod<float>(is);
+        float g = ReadPod<float>(is);
+        float b = ReadPod<float>(is);
+        float a = ReadPod<float>(is);
+        return ColorRGBA::FromRGBA(r, g, b, a);
+    }
+}
+
+bool TextBuffer::SaveWithAttributes(const std::filesystem::path &pathName) {
+    std::ofstream os(pathName, std::ios::binary | std::ios::trunc);
+    if (!os.is_open()) {
+        return false;
+    }
+
+    os.write(kAttribFileMagic, sizeof(kAttribFileMagic));
+    WritePod<uint32_t>(os, kAttribFileVersion);
+    WritePod<uint32_t>(os, 0);                               // flags - reserved
+    WritePod<uint32_t>(os, static_cast<uint32_t>(lines.size()));
+
+    for (const auto &line : lines) {
+        const auto &buffer = line->Buffer();
+        WritePod<uint32_t>(os, static_cast<uint32_t>(buffer.size()));
+        os.write(reinterpret_cast<const char *>(buffer.data()),
+                 static_cast<std::streamsize>(buffer.size() * sizeof(char32_t)));
+
+        const auto &attribs = line->Attributes();
+        WritePod<uint32_t>(os, static_cast<uint32_t>(attribs.size()));
+        for (const auto &attrib : attribs) {
+            WritePod<int32_t>(os, static_cast<int32_t>(attrib.idxOrigString));
+            WritePod<uint32_t>(os, static_cast<uint32_t>(attrib.textAttributes));
+            WriteColor(os, attrib.foregroundColor);
+            WriteColor(os, attrib.backgroundColor);
+            WritePod<uint32_t>(os, static_cast<uint32_t>(attrib.tokenClass));
+        }
+    }
+    return os.good();
+}
+
+bool TextBuffer::LoadWithAttributes(const std::filesystem::path &pathName) {
+    if (!std::filesystem::exists(pathName) || !std::filesystem::is_regular_file(pathName)) {
+        return false;
+    }
+    std::ifstream is(pathName, std::ios::binary);
+    if (!is.is_open()) {
+        return false;
+    }
+
+    char magic[4] = {};
+    is.read(magic, sizeof(magic));
+    if (!is.good() || (memcmp(magic, kAttribFileMagic, sizeof(magic)) != 0)) {
+        return false;       // not our file
+    }
+    uint32_t version   = ReadPod<uint32_t>(is);
+    uint32_t flags     = ReadPod<uint32_t>(is);
+    uint32_t lineCount = ReadPod<uint32_t>(is);
+    (void)flags;
+    if (!is.good() || (version == 0) || (version > kAttribFileVersion)) {
+        return false;       // truncated header, or unknown/newer format
+    }
+
+    // Build into a temporary so a corrupt/truncated file mid-read leaves the live buffer untouched.
+    std::vector<Line::Ref> loaded;
+    loaded.reserve(lineCount);
+    for (uint32_t i = 0; i < lineCount; i++) {
+        uint32_t charCount = ReadPod<uint32_t>(is);
+        if (!is.good()) {
+            return false;
+        }
+        std::u32string text;
+        text.resize(charCount);
+        is.read(reinterpret_cast<char *>(text.data()),
+                static_cast<std::streamsize>(charCount * sizeof(char32_t)));
+        if (!is.good() && !is.eof()) {
+            return false;
+        }
+
+        auto line = Line::Create(text);
+        line->Attributes().clear();
+
+        uint32_t attribCount = ReadPod<uint32_t>(is);
+        if (!is.good()) {
+            return false;
+        }
+        for (uint32_t a = 0; a < attribCount; a++) {
+            Line::LineAttrib attrib;
+            attrib.idxOrigString  = ReadPod<int32_t>(is);
+            attrib.textAttributes = static_cast<kTextAttributes>(ReadPod<uint32_t>(is));
+            attrib.foregroundColor = ReadColor(is);
+            attrib.backgroundColor = ReadColor(is);
+            attrib.tokenClass     = static_cast<kLanguageTokenClass>(ReadPod<uint32_t>(is));
+            line->Attributes().push_back(attrib);
+        }
+        if (!is.good() && !is.eof()) {
+            return false;
+        }
+        loaded.push_back(line);
+    }
+
+    lines.clear();
+    for (auto &line : loaded) {
+        AddLine(line);
+    }
+    ChangeBufferState(kBuffer_Loaded);
     return true;
 }
 

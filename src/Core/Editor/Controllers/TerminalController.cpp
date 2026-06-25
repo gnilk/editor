@@ -2,13 +2,35 @@
 // Created by gnilk on 22.02.2024.
 //
 
+#include <algorithm>
+
 #include "TerminalController.h"
 #include "Core/Editor.h"
 #include "Core/HexDump.h"
 #include "Core/Plugins/PluginExecutor.h"
 #include "Core/UnicodeHelper.h"
+#include "Core/Session/SessionManager.h"
+#include "Core/Session/SessionState.h"
 
 using namespace gedit;
+
+// CommandBlock::Source <-> the persisted int (TerminalBlockSession::source). Explicit (not a raw cast)
+// so a future enum reordering can't silently re-map persisted sessions.
+static int SourceToInt(TerminalScreen::CommandBlock::Source s) {
+    switch (s) {
+        case TerminalScreen::CommandBlock::Source::kCommitLine: return 0;
+        case TerminalScreen::CommandBlock::Source::kOsc133:     return 1;
+        case TerminalScreen::CommandBlock::Source::kHeuristic:  return 2;
+    }
+    return 2;
+}
+static TerminalScreen::CommandBlock::Source IntToSource(int v) {
+    switch (v) {
+        case 0:  return TerminalScreen::CommandBlock::Source::kCommitLine;
+        case 1:  return TerminalScreen::CommandBlock::Source::kOsc133;
+        default: return TerminalScreen::CommandBlock::Source::kHeuristic;
+    }
+}
 
 // 256-colour palette — first 16 entries from kitty, rest initialised in InitializeColorTable()
 static ColorRGBA FG_BG_256[256] = {
@@ -30,6 +52,36 @@ static ColorRGBA FG_BG_256[256] = {
     ColorRGBA::FromRGB(0xff, 0xff, 0xff),   // 15
 };
 
+// OSC 133 shell-integration prompt hooks (TS-3c, §4.2), injected into the shell bootstrap when
+// terminal.shell_integration is on. Emits ;A (prompt start) / ;B (command start) around the prompt,
+// ;C (output start) before each command runs, and ;D;<exit> (command end) at the next prompt - the
+// markers TerminalController::HandleAnsiCmd turns into precise command blocks with exit codes. The
+// shell is detected from the binary path; bash uses the DEBUG trap (guarded to fire ;C once per
+// prompt), zsh uses preexec/precmd hooks. Off by default (it touches the user's PS1).
+static std::vector<std::string> BuildShellIntegrationBootstrap(const std::string &shellBinary) {
+    bool isZsh = shellBinary.find("zsh") != std::string::npos;
+    if (isZsh) {
+        return {
+            "__goat_osc133_preexec() { printf '\\033]133;C\\007'; }",
+            "__goat_osc133_precmd() { printf '\\033]133;D;%d\\007' \"$?\"; }",
+            "autoload -Uz add-zsh-hook 2>/dev/null; "
+                "add-zsh-hook preexec __goat_osc133_preexec; "
+                "add-zsh-hook precmd __goat_osc133_precmd",
+            "PS1=$'%{\\033]133;A\\007%}'$PS1$'%{\\033]133;B\\007%}'",
+        };
+    }
+    // bash (and bourne-ish fallbacks): DEBUG trap for ;C, guarded so it fires once per command cycle.
+    return {
+        "__goat_osc133_done=",
+        "__goat_osc133_precmd() { printf '\\033]133;D;%d\\007' \"$?\"; __goat_osc133_done=; }",
+        "__goat_osc133_preexec() { [ -n \"$__goat_osc133_done\" ] && return; "
+            "__goat_osc133_done=1; printf '\\033]133;C\\007'; }",
+        "PROMPT_COMMAND=\"__goat_osc133_precmd${PROMPT_COMMAND:+; $PROMPT_COMMAND}\"",
+        "trap '__goat_osc133_preexec' DEBUG",
+        "PS1='\\[\\033]133;A\\007\\]'\"$PS1\"'\\[\\033]133;B\\007\\]'",
+    };
+}
+
 void TerminalController::InitializeColorTable() {
     const uint8_t valuerange[6] = {0x00, 0x5f, 0x87, 0xaf, 0xd7, 0xff};
     uint8_t j = 16;
@@ -49,7 +101,7 @@ void TerminalController::Begin() {
     logger = gnilk::Logger::GetLogger("TerminalController");
     logger->Debug("Begin");
 
-    RuntimeConfig::Instance().SetOutputConsole(this);
+    RegisterAsOutputConsole();
 
     inputLine = std::make_shared<Line>();
     inputCursor.position.x = 0;
@@ -63,6 +115,19 @@ void TerminalController::Begin() {
     auto shellBinary    = Config::Instance()["terminal"].GetStr("shell", "/bin/bash");
     auto shellInitStr   = Config::Instance()["terminal"].GetStr("init", "-ils");
     auto shellInitScript = Config::Instance()["terminal"].GetSequenceOfStr("bootstrap");
+    // §4.2 (TS-3c): opt-in OSC 133 shell integration - appends prompt hooks that emit semantic-prompt
+    // markers, giving exact command boundaries + exit codes. Off by default (it rewrites PS1).
+    if (Config::Instance()["terminal"].GetBool("shell_integration", false)) {
+        auto osc133 = BuildShellIntegrationBootstrap(shellBinary);
+        shellInitScript.insert(shellInitScript.end(), osc133.begin(), osc133.end());
+    }
+
+    // Restore persisted scrollback (terminal-scrollback.md §8.2) BEFORE the shell starts - the pty
+    // thread mutates the grid the instant shell.Begin() returns, so the seeded history (and the fresh
+    // open loose block covering new output) must already be in place. A no-op when there is no session,
+    // no persisted blocks, the feature is off, or the .bin is missing/corrupt.
+    FromSession(SessionManager::Instance().CurrentSession().terminal);
+
     shell.Begin(shellBinary, shellInitStr, shellInitScript);
 
     while (shell.GetState() != Shell::State::kRunning) {
@@ -81,12 +146,120 @@ void TerminalController::Begin() {
                                             : AssetLoaderBase::kLocationType::kProject;
 
     auto histAsset = assetLoader.LoadTextAsset("terminal_history", histLocation);
-    history.Load(histAsset);
+    cmdHistory.Load(histAsset);
 
     // Save back to wherever it loaded from; on first run (no asset) resolve a write path.
-    historyPath = (histAsset != nullptr)
+    cmdHistoryPath = (histAsset != nullptr)
                     ? histAsset->GetOriginPath()
                     : assetLoader.ResolveWritePath("terminal_history", histLocation);
+}
+
+std::filesystem::path TerminalController::ResolveScrollbackBinPath(const std::string &filename) const {
+    // Project-scoped: the .bin lives in the same kProject `.goatedit` dir as session.yml. Empty when no
+    // project dir is registered - persistence then stands down (gate for the whole feature).
+    auto &assetLoader = RuntimeConfig::Instance().GetAssetLoader();
+    return assetLoader.ResolveWritePath(filename, AssetLoaderBase::kLocationType::kProject);
+}
+
+bool TerminalController::ToSession(TerminalSession &out) {
+    out = TerminalSession{};   // fresh - overwrite any state lingering from the restore-time load
+
+    if (!Config::Instance()["terminal"].GetBool("persist_scrollback", true)) {
+        return false;
+    }
+    auto binPath = ResolveScrollbackBinPath("terminal_scrollback.bin");
+    if (binPath.empty()) {
+        return false;   // no project .goatedit dir - persistence is project-scoped
+    }
+
+    int maxLines = Config::Instance()["terminal"].GetInt("persist_scrollback_lines", 2000);
+    size_t cap   = (maxLines < 0) ? 0 : (size_t)maxLines;
+
+    // Snapshot under the lock (the pty thread mutates the grid/scrollback); write the file outside it.
+    TerminalScreen::ScrollbackSnapshot snap;
+    {
+        std::lock_guard<std::mutex> lock(screenLock);
+        snap = screen.SnapshotScrollbackTail(cap);
+    }
+    if (snap.lines.empty()) {
+        return false;   // alt-screen, or nothing has scrolled into history yet
+    }
+
+    // Serialise line text + ANSI colour spans to the .bin (lossless, versioned - TS-5a). The Line::Refs
+    // are shared into a throwaway buffer purely to reach TextBuffer::SaveWithAttributes.
+    TextBuffer buffer;
+    for (const auto &line : snap.lines) {
+        buffer.AddLine(line);
+    }
+    if (!buffer.SaveWithAttributes(binPath)) {
+        if (logger != nullptr) {
+            logger->Error("Failed to write terminal scrollback '%s'", binPath.string().c_str());
+        }
+        return false;
+    }
+
+    out.scrollbackFile = binPath.filename().string();
+    out.blocks.reserve(snap.blocks.size());
+    for (const auto &pb : snap.blocks) {
+        TerminalBlockSession tbs;
+        tbs.id        = pb.id;
+        tbs.command   = UnicodeHelper::utf32to8(pb.command);
+        tbs.startLine = pb.startLine;
+        tbs.endLine   = pb.endLine;
+        tbs.exitCode  = pb.exitCode.has_value() ? pb.exitCode.value()
+                                                : TerminalBlockSession::kExitCodeUnknown;
+        tbs.cwd       = pb.cwd.string();
+        tbs.source    = SourceToInt(pb.source);
+        tbs.language  = "";   // Phase 4
+        out.blocks.push_back(std::move(tbs));
+    }
+    return true;
+}
+
+void TerminalController::FromSession(const TerminalSession &in) {
+    if (in.blocks.empty()) {
+        return;   // nothing persisted (fresh project, or the feature was off when last saved)
+    }
+    if (!Config::Instance()["terminal"].GetBool("persist_scrollback", true)) {
+        return;
+    }
+    auto filename = in.scrollbackFile.empty() ? std::string("terminal_scrollback.bin") : in.scrollbackFile;
+    auto binPath  = ResolveScrollbackBinPath(filename);
+    if (binPath.empty()) {
+        return;   // no project dir - persistence is project-scoped
+    }
+
+    TextBuffer buffer;
+    if (!buffer.LoadWithAttributes(binPath)) {
+        return;   // missing / corrupt / newer version -> start clean (never throws)
+    }
+    std::vector<Line::Ref> lines;
+    lines.reserve(buffer.NumLines());
+    for (size_t i = 0; i < buffer.NumLines(); i++) {
+        lines.push_back(buffer.LineAt(i));
+    }
+    if (lines.empty()) {
+        return;
+    }
+
+    std::vector<TerminalScreen::PersistedBlock> seedBlocks;
+    seedBlocks.reserve(in.blocks.size());
+    for (const auto &tbs : in.blocks) {
+        TerminalScreen::PersistedBlock pb;
+        pb.id        = tbs.id;
+        pb.command   = UnicodeHelper::utf8to32(tbs.command);
+        pb.startLine = tbs.startLine;
+        pb.endLine   = tbs.endLine;
+        if (tbs.exitCode != TerminalBlockSession::kExitCodeUnknown) {
+            pb.exitCode = tbs.exitCode;
+        }
+        pb.cwd    = tbs.cwd;
+        pb.source = IntToSource(tbs.source);
+        seedBlocks.push_back(std::move(pb));
+    }
+
+    std::lock_guard<std::mutex> lock(screenLock);
+    screen.SeedScrollback(lines, seedBlocks);
 }
 
 void TerminalController::Resize(int cols, int rows) {
@@ -331,7 +504,64 @@ void TerminalController::HandleAnsiCmd(const VTermParser::CMD &cmd) {
         case VTermParser::kAnsiCmd::kCursorShow :
         case VTermParser::kAnsiCmd::kCursorHide :
             break;
+
+        // --- OSC 133 shell integration (§4.2) ---
+        // Seeing ANY marker means the shell brackets its own commands, so the CommitLine heuristic
+        // stands down (useOsc133Boundaries) and OSC 133 drives the block boundaries from here.
+        case VTermParser::kAnsiCmd::kPromptStart :
+            useOsc133Boundaries = true;
+            break;
+        case VTermParser::kAnsiCmd::kCommandStart :
+            // End of prompt: the typed command starts at the cursor; record it for ;C to read back.
+            useOsc133Boundaries = true;
+            osc133CommandStart = screen.GetCursorPos();
+            break;
+        case VTermParser::kAnsiCmd::kOutputStart :
+            // Output start: open the block, command text = the grid span [;B .. here].
+            useOsc133Boundaries = true;
+            screen.BeginCommandBlock(ReadGridText(osc133CommandStart, screen.GetCursorPos()),
+                                     TerminalScreen::CommandBlock::Source::kOsc133);
+            break;
+        case VTermParser::kAnsiCmd::kCommandEnd : {
+            // Command finished: close the open block with the reported exit code (-1 == unknown).
+            useOsc133Boundaries = true;
+            std::optional<int> exitCode;
+            if (!cmd.param.empty() && cmd.param[0] >= 0) {
+                exitCode = cmd.param[0];
+            }
+            screen.EndOpenBlock(exitCode);
+            break;
+        }
+        case VTermParser::kAnsiCmd::kSetCwd :
+            // OSC 7: best-effort cwd for the open block.
+            if (!cmd.strParam.empty()) {
+                screen.SetOpenBlockCwd(std::filesystem::path(cmd.strParam));
+            }
+            break;
     }
+}
+
+// Recover text from the grid span [from, to] - the typed command between OSC 133;B and ;C. Joins
+// wrapped rows and trims trailing blanks. screenLock is held by the caller (HandleAnsiCmd).
+std::u32string TerminalController::ReadGridText(const Point &from, const Point &to) const {
+    std::u32string text;
+    for (int y = from.y; y <= to.y; y++) {
+        if (y < 0 || y >= screen.Rows()) {
+            continue;
+        }
+        const auto &row = screen.GetRow(y);
+        int startX = (y == from.y) ? from.x : 0;
+        int endX   = (y == to.y)   ? to.x   : (int)row.size();
+        startX = std::clamp(startX, 0, (int)row.size());
+        endX   = std::clamp(endX,   0, (int)row.size());
+        for (int x = startX; x < endX; x++) {
+            text += row[x].ch;
+        }
+    }
+    while (!text.empty() && text.back() == U' ') {
+        text.pop_back();
+    }
+    return text;
 }
 
 bool TerminalController::HandleKeyPress(Cursor &cursor, size_t &idxActiveLine, const KeyPress &keyPress) {
@@ -361,6 +591,7 @@ bool TerminalController::HandleKeyPress(Cursor &cursor, size_t &idxActiveLine, c
     //     until the line is committed.
     if (DefaultEditLine(inputCursor, inputLine, keyPress)) {
         cursor.position.x = GetCursorXPos();
+        ScrollToBottom();   // §5.3: any local text input snaps the viewport back to the bottom
         return true;
     }
     return false;
@@ -432,6 +663,17 @@ bool TerminalController::ForwardActionToShell(const EditorAction &kpAction) {
             // When the shell owns line editing the line lives in readline; committing hands
             // control back and the shell will print its output + a fresh prompt.
             if (doesShellOwnLineEditing) {
+                // §4.1 tab-completion edge case: this commit never goes through CommitLine(), so the
+                // block boundary has to open here instead. SyncInputLineFromGrid has been mirroring
+                // readline's edits into inputLine, so it holds the best-effort command text - read it
+                // before ExitShellOwned() clears it.
+                std::u32string cmdLine(inputLine->Buffer());
+                if (!cmdLine.empty()) {
+                    std::lock_guard<std::mutex> guard(screenLock);
+                    if (!useOsc133Boundaries) {   // §4.2: OSC 133;C opens the block when integration is active
+                        screen.BeginCommandBlock(cmdLine, TerminalScreen::CommandBlock::Source::kCommitLine);
+                    }
+                }
                 ExitShellOwned();
             }
             return true;
@@ -482,7 +724,7 @@ bool TerminalController::OnAction(const EditorAction &kpAction) {
             inputCursor.position.x = std::min((int)inputLine->Length(), inputCursor.position.x + 1);
             break;
         case kUIAction::kUIActionLineUp : {
-            auto entry = history.NavigateUp();
+            auto entry = cmdHistory.NavigateUp();
             if (entry.has_value()) {
                 inputLine->Clear();
                 inputLine->Append(entry.value());
@@ -491,7 +733,7 @@ bool TerminalController::OnAction(const EditorAction &kpAction) {
             break;
         }
         case kUIAction::kUIActionLineDown : {
-            auto entry = history.NavigateDown();
+            auto entry = cmdHistory.NavigateDown();
             inputLine->Clear();
             if (entry.has_value()) {
                 inputLine->Append(entry.value());
@@ -499,11 +741,194 @@ bool TerminalController::OnAction(const EditorAction &kpAction) {
             inputCursor.position.x = (int)inputLine->Length();
             break;
         }
+        // §5.3: at the prompt (local edit), Page/BufferStart/End page the BACKLOG, not the cursor —
+        // the prompt is a single line, so there's nothing else for these to mean here.
+        case kUIAction::kUIActionPageUp :
+            ScrollViewport(-(int64_t)std::max(1, screen.Rows() - 1));
+            break;
+        case kUIAction::kUIActionPageDown :
+            ScrollViewport((int64_t)std::max(1, screen.Rows() - 1));
+            break;
+        case kUIAction::kUIActionBufferStart :
+            ScrollToTop();
+            break;
+        case kUIAction::kUIActionBufferEnd :
+            ScrollToBottom();
+            break;
+        // §5.4: jump to the previous/next command block's start - same "pages the backlog" scope.
+        case kUIAction::kUIActionPrevPrompt :
+            JumpToPrevPrompt();
+            break;
+        case kUIAction::kUIActionNextPrompt :
+            JumpToNextPrompt();
+            break;
         default:
             return false;
     }
     Editor::Instance().TriggerUIRedraw();
     return true;
+}
+
+void TerminalController::ScrollToBottom() {
+    std::lock_guard<std::mutex> guard(screenLock);
+    followBottom = true;
+    anchorAbsRow = screen.AbsRowCount();
+}
+
+void TerminalController::ScrollToTop() {
+    std::lock_guard<std::mutex> guard(screenLock);
+    followBottom = false;
+    anchorAbsRow = screen.ScrollbackBase();
+}
+
+uint64_t TerminalController::CurrentTopVisibleAbsRow() const {
+    if (!followBottom) {
+        return anchorAbsRow;
+    }
+    // Must mirror TerminalView::DrawViewContents' followBottom windowTop exactly: that branch
+    // already shows rows [bottom-visibleRows, bottom), so anything measuring "from where we are"
+    // has to start from THAT window's top, not from 'bottom' itself - using 'bottom' directly is one
+    // page short (see the TS-0f first-PageUp flicker this fixed).
+    uint64_t bottom = screen.AbsRowCount();
+    uint64_t top    = screen.ScrollbackBase();
+    int64_t historyRows = (int64_t)(bottom - top);
+    int64_t visibleRows = std::max(0, screen.Rows() - 1);
+    return bottom - (uint64_t)std::min(historyRows, visibleRows);
+}
+
+void TerminalController::ScrollViewport(int64_t deltaRows) {
+    std::lock_guard<std::mutex> guard(screenLock);
+    uint64_t bottom = screen.AbsRowCount();
+    uint64_t top    = screen.ScrollbackBase();
+    uint64_t current = CurrentTopVisibleAbsRow();
+
+    int64_t next = (int64_t)current + deltaRows;
+    next = std::clamp(next, (int64_t)top, (int64_t)bottom);
+
+    anchorAbsRow = (uint64_t)next;
+    followBottom = (anchorAbsRow >= bottom);
+}
+
+void TerminalController::JumpToPrevPrompt() {
+    std::lock_guard<std::mutex> guard(screenLock);
+    uint64_t topVisible = CurrentTopVisibleAbsRow();
+    const auto &blocks = screen.Blocks();
+
+    uint64_t target = blocks.front().startAbsRow;   // clamp: nothing earlier than the oldest block
+    for (auto it = blocks.rbegin(); it != blocks.rend(); ++it) {
+        if (it->startAbsRow < topVisible) {
+            target = it->startAbsRow;
+            break;
+        }
+    }
+    anchorAbsRow = target;
+    followBottom = false;
+}
+
+void TerminalController::JumpToNextPrompt() {
+    std::lock_guard<std::mutex> guard(screenLock);
+    uint64_t topVisible = CurrentTopVisibleAbsRow();
+    const auto &blocks = screen.Blocks();
+
+    uint64_t target = blocks.back().startAbsRow;   // clamp: nothing later than the newest (open) block
+    for (const auto &block : blocks) {
+        if (block.startAbsRow > topVisible) {
+            target = block.startAbsRow;
+            break;
+        }
+    }
+    anchorAbsRow = target;
+    followBottom = false;
+}
+
+// §5.5.2: the block "selected" by the viewport - the one containing the top-visible anchor row while
+// scrolled. nullopt when following the bottom (at the live prompt, nothing selected) or when the anchor
+// falls in no block. Assumes screenLock is held (reads Blocks()/AbsRowCount()); the view holds it,
+// single-threaded tests need none - same contract as CurrentTopVisibleAbsRow.
+std::optional<size_t> TerminalController::SelectedBlockIndex() const {
+    if (followBottom) {
+        return std::nullopt;
+    }
+    const auto &blocks = screen.Blocks();
+    for (size_t i = 0; i < blocks.size(); i++) {
+        const auto &block = blocks[i];
+        uint64_t end = block.endAbsRow.value_or(screen.AbsRowCount());   // open block runs to the live row
+        if (anchorAbsRow >= block.startAbsRow && anchorAbsRow < end) {
+            return i;
+        }
+    }
+    return std::nullopt;
+}
+
+// Join a block's per-row output (GetBlockOutputText, TS-2a) into one '\n'-separated string, or nullopt
+// when the id matches no block. Assumes screenLock is held by the caller.
+static std::optional<std::u32string> JoinBlockOutput(const TerminalScreen &screen, uint64_t blockId) {
+    bool found = false;
+    for (const auto &block : screen.Blocks()) {
+        if (block.id == blockId) {
+            found = true;
+            break;
+        }
+    }
+    if (!found) {
+        return std::nullopt;
+    }
+    auto lines = screen.GetBlockOutputText(blockId);
+    std::u32string text;
+    for (size_t i = 0; i < lines.size(); i++) {
+        if (i > 0) {
+            text += U"\n";
+        }
+        text += lines[i];
+    }
+    return text;
+}
+
+// Project a model CommandBlock onto the engine-agnostic OutputBlockInfo (TS-2c). Assumes screenLock
+// is held (reads AbsRowCount for the open block's end).
+static IOutputConsole::OutputBlockInfo ToBlockInfo(const TerminalScreen &screen,
+                                                   const TerminalScreen::CommandBlock &block) {
+    IOutputConsole::OutputBlockInfo info;
+    info.id = block.id;
+    info.command = block.command;
+    info.exitCode = block.exitCode;
+    uint64_t end = block.endAbsRow.value_or(screen.AbsRowCount());   // open block runs to the live row
+    info.lineCount = (end > block.startAbsRow) ? (end - block.startAbsRow) : 0;
+    return info;
+}
+
+std::optional<std::u32string> TerminalController::GetSelectedBlockText() {
+    std::lock_guard<std::mutex> guard(screenLock);
+    auto sel = SelectedBlockIndex();   // safe: we hold screenLock (its documented precondition)
+    if (!sel.has_value()) {
+        return std::nullopt;
+    }
+    return JoinBlockOutput(screen, screen.Blocks()[*sel].id);
+}
+
+std::vector<IOutputConsole::OutputBlockInfo> TerminalController::GetBlocks() {
+    std::lock_guard<std::mutex> guard(screenLock);
+    std::vector<OutputBlockInfo> out;
+    const auto &blocks = screen.Blocks();
+    out.reserve(blocks.size());
+    for (const auto &block : blocks) {
+        out.push_back(ToBlockInfo(screen, block));
+    }
+    return out;
+}
+
+std::optional<std::u32string> TerminalController::GetBlockOutputText(uint64_t blockId) {
+    std::lock_guard<std::mutex> guard(screenLock);
+    return JoinBlockOutput(screen, blockId);
+}
+
+std::optional<IOutputConsole::OutputBlockInfo> TerminalController::GetLastBlock() {
+    std::lock_guard<std::mutex> guard(screenLock);
+    const auto &blocks = screen.Blocks();
+    if (blocks.empty()) {   // never happens (the ctor opens the loose block), but stay total
+        return std::nullopt;
+    }
+    return ToBlockInfo(screen, blocks.back());
 }
 
 void TerminalController::ExitShellOwned() {
@@ -522,12 +947,24 @@ void TerminalController::CommitLine() {
     std::u32string cmdLine(inputLine->Buffer());
 
     if (!cmdLine.empty()) {
-        history.Push(cmdLine);
-        if (!historyPath.empty()) {
-            history.Save(historyPath);
+        cmdHistory.Push(cmdLine);
+        if (!cmdHistoryPath.empty()) {
+            cmdHistory.Save(cmdHistoryPath);
+        }
+        // §4.1: every non-empty commit opens a block - plugin/built-in commands included (their
+        // output still lands in scrollback via WriteLine, §4.3; v1 leaves them coarser, closed by
+        // whatever commits next rather than a dedicated end event - producer-side bracketing is
+        // deferred, §4.3). BeginCommandBlock closes whatever block was previously open and no-ops in
+        // alt-screen (§10); mirrors WriteLine's short locked section rather than locking the whole
+        // function (shell.SendCmd below must not run under screenLock).
+        std::lock_guard<std::mutex> guard(screenLock);
+        // §4.2: once OSC 133 shell integration is active the shell opens the block itself at ;C, so the
+        // heuristic stands down to avoid a double-open (flag read under screenLock, set on the pty thread).
+        if (!useOsc133Boundaries) {
+            screen.BeginCommandBlock(cmdLine, TerminalScreen::CommandBlock::Source::kCommitLine);
         }
     }
-    history.ResetNavigation();
+    cmdHistory.ResetNavigation();
 
     inputLine->Clear();
     inputCursor.position.x = 0;
@@ -540,6 +977,7 @@ void TerminalController::CommitLine() {
         shell.SendCmd(cmdLine);
     }
 
+    ScrollToBottom();   // §5.3: committing a line snaps the viewport back to the bottom
     Editor::Instance().TriggerUIRedraw();
 }
 

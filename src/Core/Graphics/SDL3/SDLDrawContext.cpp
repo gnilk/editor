@@ -92,6 +92,13 @@ void SDLDrawContext::DrawLineOverlays(int y) const {
         DrawLineOverlay(y, overlay);
     }
 }
+
+// Sub-cell horizontal rule along the bottom edge of row y (= top edge of row y+1), spanning the
+// full content width, in the current foreground color. Same machinery the underline attribute uses
+// (a line over cell coords), just at the row boundary instead of the text baseline.
+void SDLDrawContext::DrawHRule(int y) const {
+    DrawLineWithPixelOffset(0, y + 1, (float)GetRect().Width(), y + 1);
+}
 void SDLDrawContext::DrawLineOverlay(int y, const Overlay &overlay) const {
     if (!overlay.isActive) {
         return;

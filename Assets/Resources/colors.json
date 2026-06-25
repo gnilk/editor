@@ -25,7 +25,8 @@
     "white": "hsl(0, 0%, 100%)",
     "white2": "hsl(0, 0%, 97%)",
     "white3": "hsl(219, 28%, 88%)",
-    "selection_alpha" : "alpha(224)"
+    "selection_alpha" : "alpha(224)",
+    "term_selection": "hsla(210, 40%, 50%, 0.25)"
   },
   "colors" : {
     "globals": {
@@ -98,6 +99,7 @@
     "terminal": {
       "background": "#000000",
       "foreground": "#7f7f7f",
+      "selection": "var(term_selection)",
       "0"  : "#000000",
       "1"  : "#cd0000",
       "2"  : "#00cd00",

@@ -65,6 +65,18 @@ commands:
     script: Scripts/listbuffers.js
 
   -
+    name: blocktobuffer
+    short: b2b
+    description: Open the selected terminal command block's output in a new buffer
+    script: Scripts/blocktobuffer.js
+
+  -
+    name: blocktoclipboard
+    short: b2c
+    description: Copy the selected terminal command block's output to the paste buffer
+    script: Scripts/blocktoclipboard.js
+
+  -
     name: closeactive
     short: cb
     description: Close Active Buffer

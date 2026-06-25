@@ -83,6 +83,8 @@ static std::unordered_map<std::string, kUIAction> strToUIActionMap = {
         {"CommitLine",            kUIAction::kUIActionCommitLine},
         {"GotoBottomLine",        kUIAction::kUIActionGotoBottomLine},
         {"GotoTopLine",           kUIAction::kUIActionGotoTopLine},
+        {"NavigatePrevPrompt",    kUIAction::kUIActionPrevPrompt},
+        {"NavigateNextPrompt",    kUIAction::kUIActionNextPrompt},
         {"CycleActiveView",       kUIAction::kUIActionCycleActiveView},
         {"CycleActiveViewNext",       kUIAction::kUIActionCycleActiveViewNext},
         {"CycleActiveViewPrev",       kUIAction::kUIActionCycleActiveViewPrev},

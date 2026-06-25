@@ -6,6 +6,7 @@
 
 #include "Core/Editor.h"
 #include "Core/RuntimeConfig.h"
+#include "Core/UnicodeHelper.h"
 
 #include "ConsoleAPIWrapper.h"
 
@@ -20,7 +21,6 @@ void ConsoleAPIWrapper::RegisterModule(duk_context *ctx) {
     dukglue_register_method_varargs(ctx,&ConsoleAPIWrapper::WriteLine, "WriteLine");
     dukglue_register_method_varargs(ctx,&ConsoleAPIWrapper::WriteLine, "log");
 }
-
 
 // Do variadic argument printing - this is pretty much lifted directly from duktape/extras/console
 // I do understand (to some extent) what it is doing, but I wouldn't have been able to write it myself...

@@ -35,6 +35,19 @@ the section that has the full context. This is *deferred* work — distinct from
   fine (§2.A).
 - **GUI color retune** of the `md_*` placeholder colors — purely aesthetic (§0).
 
+## From [`done/terminal-scrollback.md`](done/terminal-scrollback.md) — Phases 0–3 + 5 shipped
+
+- **Per-block syntax highlighting** (was "Phase 4") — extracted to its own design doc,
+  [`syntax-blocks.md`](syntax-blocks.md). Independent of the shipped phases; not started. Give a command
+  block its own highlighter (e.g. CMake colors over a `cmake` run) via a hard-region tokenize, work
+  packages TS-4a/4b/4c. The only seam the shipped work had to preserve — the `language` field on
+  `CommandBlock` + the persisted `TerminalBlockSession` — is in place.
+- **Active-block highlight feels clunky during mouse scroll-back** (UX polish, not blocking). The
+  selected/active block is highlighted while scrolled, but the moment the active block *switches* feels
+  abrupt. Open question — change the scroll logic, or change which block the highlight tracks (the
+  `TerminalController::SelectedBlockIndex` selection rule, §5.5.2). Noted 2026-06-25 during manual
+  verification; left for later.
+
 ## From [`done/mouse-support.md`](done/mouse-support.md) — explicitly out of scope (for now)
 
 - Terminal mouse (click / scrollback), drag-select, double-click word-select, gutter click, mouse inside

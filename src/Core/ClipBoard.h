@@ -82,6 +82,12 @@ namespace gedit {
         bool CopyFromExternal(const char *srcBuffer);
         // This is the app-internal routines
         bool CopyFromBuffer(TextBuffer::Ref srcBuffer, const Point &ptStart, const Point &ptEnd);
+        // Put literal text onto the clipboard as a new top item AND forward it to the OS pasteboard
+        // (fires the OnUpdate hook). The app-internal way to copy arbitrary, non-buffer text - e.g. a
+        // terminal command-block's output - so it can be pasted here or in another application. Unlike
+        // CopyFromExternal (data arriving FROM the OS, which must NOT notify back), this is data going
+        // TO the OS, so it notifies. Serialization stays in AsText() (E.18).
+        bool CopyText(const std::u32string &text);
         // Splice the top clipboard item into dstBuffer at ptWhere; returns the caret end Point
         // (or ptWhere unchanged if the clipboard is empty).
         Point PasteToBuffer(TextBuffer::Ref dstBuffer, const Point &ptWhere);

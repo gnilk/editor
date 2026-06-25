@@ -19,6 +19,14 @@ DLL_EXPORT int test_vtermparser_terminator_at_boundary(ITesting *t);
 DLL_EXPORT int test_vtermparser_scroll_region(ITesting *t);
 DLL_EXPORT int test_vtermparser_private(ITesting *t);
 DLL_EXPORT int test_vtermparser_decsc(ITesting *t);
+DLL_EXPORT int test_vtermparser_osc133(ITesting *t);
+DLL_EXPORT int test_vtermparser_osc7_cwd(ITesting *t);
+}
+
+// Build a byte vector from a string literal so the OSC sequences below read like the wire bytes
+// (\x1b = ESC, \x07 = BEL). Hex escapes are bounded by the following non-hex char in each literal.
+static std::vector<uint8_t> Bytes(const std::string &s) {
+    return std::vector<uint8_t>(s.begin(), s.end());
 }
 
 DLL_EXPORT int test_vtermparser(ITesting *t) {
@@ -194,6 +202,63 @@ DLL_EXPORT int test_vtermparser_decsc(ITesting *t) {
 
     // ESC[u — CSI restore cursor
     TR_ASSERT(t, FindCmd({0x1b, 0x5b, 0x75}, VTermParser::kAnsiCmd::kRestoreCursor));
+
+    return kTR_Pass;
+}
+
+// TS-3a: OSC 133 FinalTerm/iTerm2 semantic prompts. A/B/C are bare markers; D carries the exit code
+// as the first field. Both the BEL and the two-byte ESC '\' (ST) terminator must be recognised, and
+// the markers must NOT leak into the stripped text.
+DLL_EXPORT int test_vtermparser_osc133(ITesting *t) {
+    VTermParser::CMD cmd;
+
+    // ESC ] 133 ; A BEL  — prompt start
+    TR_ASSERT(t, FindCmd(Bytes("\x1b]133;A\x07"), VTermParser::kAnsiCmd::kPromptStart));
+    // ; B — command start
+    TR_ASSERT(t, FindCmd(Bytes("\x1b]133;B\x07"), VTermParser::kAnsiCmd::kCommandStart));
+    // ; C — output start
+    TR_ASSERT(t, FindCmd(Bytes("\x1b]133;C\x07"), VTermParser::kAnsiCmd::kOutputStart));
+
+    // ; D ; 0 — command end, exit 0
+    TR_ASSERT(t, FindCmd(Bytes("\x1b]133;D;0\x07"), VTermParser::kAnsiCmd::kCommandEnd, &cmd));
+    TR_ASSERT(t, !cmd.param.empty() && cmd.param[0] == 0);
+
+    // ; D ; 130 — non-zero exit code parses fully (not just the first digit)
+    TR_ASSERT(t, FindCmd(Bytes("\x1b]133;D;130\x07"), VTermParser::kAnsiCmd::kCommandEnd, &cmd));
+    TR_ASSERT(t, cmd.param[0] == 130);
+
+    // ; D with no exit field — exit reported as unknown (-1)
+    TR_ASSERT(t, FindCmd(Bytes("\x1b]133;D\x07"), VTermParser::kAnsiCmd::kCommandEnd, &cmd));
+    TR_ASSERT(t, cmd.param[0] == -1);
+
+    // ST-terminated (ESC '\') variant must parse identically and not leak the marker/terminator.
+    VTermParser p;
+    auto stBytes = Bytes("ab\x1b]133;C\x1b\\cd");
+    auto stripped = p.Parse(stBytes.data(), stBytes.size());
+    TR_ASSERT(t, stripped == std::string("abcd"));
+    bool foundC = false;
+    for (auto &c : p.LastCmdBuffer()) {
+        if (c.cmd == VTermParser::kAnsiCmd::kOutputStart) { foundC = true; }
+    }
+    TR_ASSERT(t, foundC);
+
+    return kTR_Pass;
+}
+
+// TS-3a: OSC 7 reports the cwd as a file:// URI. The scheme+host is stripped, leaving the path in
+// strParam; the sequence must not leak into the stripped text.
+DLL_EXPORT int test_vtermparser_osc7_cwd(ITesting *t) {
+    VTermParser::CMD cmd;
+
+    // file:///home/gnilk/src  (empty host) -> path /home/gnilk/src
+    TR_ASSERT(t, FindCmd(Bytes("\x1b]7;file:///home/gnilk/src\x07"),
+                         VTermParser::kAnsiCmd::kSetCwd, &cmd));
+    TR_ASSERT(t, cmd.strParam == std::string("/home/gnilk/src"));
+
+    // file://localhost/tmp  (named host) -> host dropped, path /tmp
+    TR_ASSERT(t, FindCmd(Bytes("\x1b]7;file://localhost/tmp\x07"),
+                         VTermParser::kAnsiCmd::kSetCwd, &cmd));
+    TR_ASSERT(t, cmd.strParam == std::string("/tmp"));
 
     return kTR_Pass;
 }

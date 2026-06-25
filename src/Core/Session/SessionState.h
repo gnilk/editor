@@ -14,6 +14,8 @@
 #define EDITOR_SESSIONSTATE_H
 
 #include <cstddef>
+#include <cstdint>
+#include <limits>
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -77,6 +79,33 @@ namespace gedit {
         DocumentViewMode viewMode = DocumentViewMode::kText;
     };
 
+    // One persisted terminal command block (terminal-scrollback.md §8.1). Pure METADATA — the block's
+    // output TEXT lives in the separate terminal_scrollback.bin (TextBuffer::SaveWithAttributes), referenced
+    // here by line indices RE-BASED into that file's saved slice [0, savedLineCount). exitCode is
+    // kExitCodeUnknown when no status is known (distinct from a real -1, which OSC 133 emits for a command
+    // that ran but reported no status). source is CommandBlock::Source as an int (the model<->int mapping is
+    // owned by the terminal ToSession/FromSession, not the serializer). language is empty until Phase 4.
+    struct TerminalBlockSession {
+        static constexpr int kExitCodeUnknown = std::numeric_limits<int>::min();
+
+        uint64_t    id = 0;
+        std::string command = {};       // utf-8
+        uint64_t    startLine = 0;       // first output line in the saved slice (inclusive)
+        uint64_t    endLine = 0;         // exclusive
+        int         exitCode = kExitCodeUnknown;
+        std::string cwd = {};
+        int         source = 0;          // CommandBlock::Source as int
+        std::string language = {};       // optional per-block language id (deferred — see docs/syntax-blocks.md), empty = none
+    };
+
+    // Terminal scrollback persistence (terminal-scrollback.md §8.1): the block index plus a pointer to the
+    // .bin holding the row text+attributes. NO row text here — that keeps the bulky history out of
+    // session.yml. Additive on RootSession; a session.yml without a `terminal` key restores an empty one.
+    struct TerminalSession {
+        std::string scrollbackFile = "terminal_scrollback.bin";   // relative to .goatedit/
+        std::vector<TerminalBlockSession> blocks = {};
+    };
+
     // The whole per-root session: everything needed to bring one project back as it was left.
     // Serialised to <root>/.goatedit/session.yml.
     struct RootSession {
@@ -92,6 +121,9 @@ namespace gedit {
         // WorkspaceView tree expand/collapse, keyed by node path string (consolidates the in-tree cache).
         std::unordered_map<std::string, bool> expandCollapse = {};
         LayoutSession layout = {};
+        // Terminal scrollback block index + .bin pointer (terminal-scrollback.md §8). Additive; empty when
+        // a session predates the feature or the terminal had no persisted scrollback.
+        TerminalSession terminal = {};
     };
 
 }

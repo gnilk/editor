@@ -18,9 +18,11 @@ namespace gedit {
 
         DocumentAPIWrapper::Ref GetActiveDocument();
         DocumentAPIWrapper::Ref NewDocument(const char *name);
+        DocumentAPIWrapper::Ref NewDocumentFromText(const char *name, const char *text);
         DocumentAPIWrapper::Ref LoadDocument(const char *filename);
         std::vector<DocumentAPIWrapper::Ref> GetDocuments();
         void CloseActiveDocument();
+        void CopyToClipboard(const char *text);
 
         std::vector<std::string> GetRootViewNames();
         ViewAPIWrapper::Ref GetViewByName(const char *name);

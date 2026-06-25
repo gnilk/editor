@@ -85,6 +85,8 @@ DLL_EXPORT int test_session_save_load_roundtrip(ITesting *t);
 DLL_EXPORT int test_session_assetloader_replace_kproject(ITesting *t);
 DLL_EXPORT int test_session_geometry_resolve(ITesting *t);
 DLL_EXPORT int test_session_geometry_callback(ITesting *t);
+DLL_EXPORT int test_session_terminal_roundtrip(ITesting *t);
+DLL_EXPORT int test_session_terminal_backcompat(ITesting *t);
 }
 
 DLL_EXPORT int test_session(ITesting *t) {
@@ -700,5 +702,71 @@ DLL_EXPORT int test_session_geometry_callback(ITesting *t) {
     // No handler -> no crash.
     GeometryTestScreen unwired;
     unwired.EmitGeometry(1, 2, 3, 4);
+    return kTR_Pass;
+}
+
+// --- TS-5b: TerminalSession block index round-trips through YAML (terminal-scrollback.md §8.1) ---------
+
+DLL_EXPORT int test_session_terminal_roundtrip(ITesting *t) {
+    RootSession s;
+    s.primaryRoot = "/home/u/proj";
+    s.terminal.scrollbackFile = "terminal_scrollback.bin";
+
+    // A closed block with full metadata (OSC 133: known exit + cwd), language set (Phase-4 forward-compat).
+    TerminalBlockSession b0;
+    b0.id = 1; b0.command = "cmake -B build";
+    b0.startLine = 0; b0.endLine = 12;
+    b0.exitCode = 0; b0.cwd = "/home/u/proj"; b0.source = 1; b0.language = "cmake";
+
+    // The (formerly open) block, closed at the saved tail: exit UNKNOWN (the sentinel must survive YAML).
+    TerminalBlockSession b1;
+    b1.id = 2; b1.command = "ls -la";
+    b1.startLine = 12; b1.endLine = 20;
+    b1.exitCode = TerminalBlockSession::kExitCodeUnknown; b1.source = 0;
+
+    s.terminal.blocks = {b0, b1};
+
+    std::string yaml = SessionSerializer::ToYaml(s);
+    TR_ASSERT(t, !yaml.empty());
+
+    RootSession r;
+    TR_ASSERT(t, SessionSerializer::FromYaml(yaml, r));
+
+    TR_ASSERT(t, r.terminal.scrollbackFile == "terminal_scrollback.bin");
+    TR_ASSERT(t, r.terminal.blocks.size() == 2);
+
+    TR_ASSERT(t, r.terminal.blocks[0].id == 1);
+    TR_ASSERT(t, r.terminal.blocks[0].command == "cmake -B build");
+    TR_ASSERT(t, r.terminal.blocks[0].startLine == 0);
+    TR_ASSERT(t, r.terminal.blocks[0].endLine == 12);
+    TR_ASSERT(t, r.terminal.blocks[0].exitCode == 0);
+    TR_ASSERT(t, r.terminal.blocks[0].cwd == "/home/u/proj");
+    TR_ASSERT(t, r.terminal.blocks[0].source == 1);
+    TR_ASSERT(t, r.terminal.blocks[0].language == "cmake");
+
+    TR_ASSERT(t, r.terminal.blocks[1].id == 2);
+    TR_ASSERT(t, r.terminal.blocks[1].command == "ls -la");
+    TR_ASSERT(t, r.terminal.blocks[1].startLine == 12);
+    TR_ASSERT(t, r.terminal.blocks[1].endLine == 20);
+    // The unknown-exit sentinel round-trips, distinct from a real status (incl. -1).
+    TR_ASSERT(t, r.terminal.blocks[1].exitCode == TerminalBlockSession::kExitCodeUnknown);
+    TR_ASSERT(t, r.terminal.blocks[1].cwd.empty());
+    TR_ASSERT(t, r.terminal.blocks[1].source == 0);
+    TR_ASSERT(t, r.terminal.blocks[1].language.empty());
+
+    return kTR_Pass;
+}
+
+// A session.yml predating the feature (no `terminal:` key) restores an empty terminal, defaulted file name.
+DLL_EXPORT int test_session_terminal_backcompat(ITesting *t) {
+    const std::string legacyYaml =
+        "version: 1\n"
+        "primaryRoot: /home/u/proj\n"
+        "documents: []\n";
+
+    RootSession r;
+    TR_ASSERT(t, SessionSerializer::FromYaml(legacyYaml, r));
+    TR_ASSERT(t, r.terminal.blocks.empty());
+    TR_ASSERT(t, r.terminal.scrollbackFile == "terminal_scrollback.bin");
     return kTR_Pass;
 }

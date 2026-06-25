@@ -63,6 +63,17 @@ namespace gedit {
         bool Save(const std::filesystem::path &pathName);
         bool SaveForce(const std::filesystem::path &pathName);
         bool Load(const std::filesystem::path &pathName);
+
+        // TS-5a (docs/terminal-scrollback.md §8.1): persist the buffer's text AND its
+        // per-span LineAttrib colours/attributes to a versioned binary file, and restore them. Unlike
+        // Save/Load (text only), this round-trips the attribute spans so restored terminal scrollback keeps
+        // its ANSI colours without a re-parse. The file opens with a fixed header (magic "GTSB" + a
+        // sequential uint32 version + flags + lineCount); LoadWithAttributes rejects a bad magic or an
+        // unknown/newer version by returning false (the caller starts with an empty buffer) - it never
+        // throws. Does NOT use the logger (the scrollback buffer is created without one).
+        bool SaveWithAttributes(const std::filesystem::path &pathName);
+        bool LoadWithAttributes(const std::filesystem::path &pathName);
+
         void Close();
 
         bool IsEmpty() {

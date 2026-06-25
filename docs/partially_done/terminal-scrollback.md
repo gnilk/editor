@@ -10,7 +10,9 @@ now delivered through that JS surface (§5.5.3). The clipboard JS seam ("copy bl
 also shipped (`Editor.CopyToClipboard` + `Terminal.CopyBlockToClipboard` + the `b2c` cmdlet). **Phase 3
 (OSC 133 shell integration) DONE ✅ — TS-3a/3b/3c (parser markers + controller→block mapping with the
 `useOsc133Boundaries` supersession + opt-in `terminal.shell_integration` bootstrap), in the verified-green
-suite.** Remaining: Phases 4-5 (per-block highlighting, persistence) — see §11. Resolves
+suite. Phase 5 (persistence & restore) DONE ✅ — TS-5a/5b/5c (versioned `.bin` + session block index +
+snapshot/seed seams). Only Phase 4 (per-block highlighting) remains, deferred — see the DEFERRED FEATURE
+callout below and §11.** Resolves
 [`open-bugs.md`](open-bugs.md) #10 ("Missing scrollback feature in terminal UI") for the viewing/scrolling
 half; the *grouping* infrastructure (jump-per-command, parse-build-output, open-output-as-document) the
 user wants on top of it is built (blocks exist + nav works) but not yet consumed downstream. Written
@@ -68,16 +70,33 @@ cold-start so remaining phases can be picked up later without re-deriving the te
 > Tests: `test_vtermparser_osc133`/`_osc7_cwd`, `test_terminalcontroller_osc133_block`/`_osc7_cwd`/
 > `_osc133_no_double_open`.
 >
-> **▶ NEXT SESSION — pick up here.** Remaining beyond Phase 3:
-> - **Phase 5** (persistence, §8) — **DONE ✅** — TS-5a (`TextBuffer::SaveWithAttributes`/`LoadWithAttributes`,
->   versioned `GTSB` binary), TS-5b (`TerminalSession` DTO + YAML serializer on `RootSession`), TS-5c
->   (`TerminalScreen::SnapshotScrollbackTail`/`SeedScrollback` seams + `TerminalController::ToSession`/
->   `FromSession`, wired into `Editor::SaveSession` and restored inside `Begin()` before `shell.Begin()`).
->   TS-5d (cmd-history) was already shipped. Clean-exit-only save, open block closed at the saved tail, on by
->   default (`terminal.persist_scrollback`), caps 2000 on-disk / 10000 in-memory, gated on a `.goatedit` dir.
->   See §11 / §12.7–8. **Verification gap:** the seams + `.bin` round-trip are unit-tested green, but the
->   end-to-end save→restart→restore path has NOT been exercised in a live GUI session yet.
-> - **Phase 4** (per-block language / hard-region highlighting, §3.4) — **postponed**; independent of Phase 5.
+> **▶ STATUS — Phases 0–3 + 5 DONE ✅. One feature deferred (Phase 4). Ready to close after manual
+> verification.**
+>
+> **Phase 5** (persistence, §8) — **DONE ✅** — TS-5a (`TextBuffer::SaveWithAttributes`/`LoadWithAttributes`,
+> versioned `GTSB` binary), TS-5b (`TerminalSession` DTO + YAML serializer on `RootSession`), TS-5c
+> (`TerminalScreen::SnapshotScrollbackTail`/`SeedScrollback` seams + `TerminalController::ToSession`/
+> `FromSession`, wired into `Editor::SaveSession` and restored inside `Begin()` before `shell.Begin()`).
+> TS-5d (cmd-history) was already shipped. Clean-exit-only save, open block closed at the saved tail, on by
+> default (`terminal.persist_scrollback`), caps 2000 on-disk / 10000 in-memory, gated on a `.goatedit` dir.
+> See §11 / §12.7–8. **Verification gap before closing:** the seams + `.bin` round-trip are unit-tested green,
+> but the end-to-end live-GUI save→restart→restore path is NOT yet exercised — that's the manual check left.
+>
+> **▶ DEFERRED FEATURE — Phase 4: per-block language / hard-region highlighting (§3.4).** Optional, independent
+> of everything above; carried forward when this doc closes. Give a command block its own syntax highlighter
+> (e.g. CMake colors over a `cmake` run's output) without disturbing the surrounding ANSI-colored history.
+> Work packages:
+> - **TS-4a** — command→language map (argv0 → `LanguageBase`); set `block.language` on block open. The
+>   `language` field already exists on `CommandBlock` (model) and `TerminalBlockSession` (persisted, §8.1),
+>   so the storage seam is in place.
+> - **TS-4b** — **hard-region tokenize**: a new `TextBuffer` capability that reparses one block's line range
+>   under an *explicit* language with a *hard* start boundary (no look-back past the block), writing token
+>   attribs. Runs on a background `Job` (non-trivial — the meat of Phase 4).
+> - **TS-4c** — block-boundary isolation: reparsing block N must not bleed tokenizer state into block N±1.
+> - Tests: a `cmake` block's lines get CMake token attribs; an un-languaged block keeps its ANSI attribs;
+>   reparse of block N leaves N±1 untouched.
+>
+> Full detail in §3.4 and §11 (Phase 4).
 >
 > Already in place to build on: the `Terminal` JS surface (`TerminalAPI`/`TerminalAPIWrapper`),
 > `TerminalController::SelectedBlockIndex()` / `GetSelectedBlockText()`, the block index
@@ -917,11 +936,14 @@ Sized so each phase ships independently and is separately testable.
   (command text from `;B..;C` + exit code, `kOsc133` source, closed at `;D`), `_osc7_cwd` (cwd on the open
   block), `_osc133_no_double_open` (prompt `;A/;B` → CommitLine suppressed → one block). All verified-green.
 
-**Phase 4 — per-block language / highlighting (§3.4).** *(optional, later; depends on Phase 1.)*
+**Phase 4 — per-block language / highlighting (§3.4) — DEFERRED.** *(optional, independent; the one feature
+carried forward when this doc closes. `block.language` storage already exists on both `CommandBlock` and the
+persisted `TerminalBlockSession`, §8.1.)*
 - `TS-4a` command→language map (argv0 → `LanguageBase`); set `block.language` on open.
 - `TS-4b` **hard-region tokenize**: run a block's language over its line range, writing attribs — new
   `TextBuffer` capability (region reparse with an *explicit* language + a *hard* start boundary, no
   look-back past the block). Non-trivial: the tokenizer runs on a **background `Job`** (§3.4).
+- `TS-4c` **block-boundary isolation**: reparsing block N must not bleed tokenizer state into block N±1.
 - Tests: a `cmake` block's lines get CMake token attribs; an un-languaged block keeps its ANSI attribs;
   hard-region reparse of block N doesn't disturb block N±1 (no state bleed across the boundary).
 

@@ -158,3 +158,10 @@ this.
 mirroring how `NewLine()`/`PutChar()` already wrap at `cols`. Add a `test_terminalscreen` or
 `test_terminalcontroller` case asserting a `0x09` byte mid-row advances the cursor to the next multiple-
 of-8 column and fills the skipped cells with blanks (current pen colors), rather than being dropped.
+
+## 12. 'Consolidate Terminal and CommandView in config.yml'
+Note: This is not a bug per-se, more of a 'reduce noise' situation
+**Where:** The CommandView and CommandController together with the Terminal implementation currently
+using two different sections in the config file. This doesn't make sense from an end user perspective.
+**ProperFix:** Consolidate everything under 'terminal' - it is the logical place. Just because it is
+called 'CommandView' internally, doesn't mean it has surface to the user.

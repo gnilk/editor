@@ -4,10 +4,8 @@
 /*
  * TO-DO List
  * - Add 'remove_actions' section to keymapping - for inheritance
- * - Key up/down in the terminal window, with history
- * - Continue improving the C++ syntax highlighter - took a big step forward this week, but still needs work
+ * + Continue improving the C++ syntax highlighter - took a big step forward this week, but still needs work
  * - Bookmarks?
- * - HexView?
  * + CPP Syntax highlighting (#pragma, #if #ifdef and friends)
         + Perhaps have a specific state for '#' preprocessor directives
  * ! Resize doesn't work (the EditorView), need to consider how this event is handled
@@ -33,13 +31,12 @@
  * - WorkspaceView - Home/End/PageUp/PageDown
  * + Shell should properly trap signals to detect if someone does 'exit' from shell - respawn shell in that case..
  * x [discarded] Replace the language parser with the new Lexer from the AST project...
- * - Move as much out from EditorView/CommandView/QuickView/WorkspaceView as possible and put in resp. controller
  * ! Sometimes loose syntax highlight - mostly seen towards end-of-file, need some 'reparse all' functionality
  *   or simply to use 'reparse-all' for any file < 1000 lines...
  *   Note: This was due to wrongly defined RAW U32 strings with wrong operator priorities for char/string definitions
  * ! Spotted another exception related to timers - but I think that was CPP-mode line bug
  * + Vertical navigation yet-again is acting strange on clipping when at the end of a file
- * - Delete some lines (upper 1/3 of file) and then page-down => segfault
+ * ! Delete some lines (upper 1/3 of file) and then page-down => segfault
  *   => Seen once??
  * ! Figure something to handle 'tab' correctly
  *   should be in rendering - the editor should NOT modify unless the user tells it
@@ -58,19 +55,14 @@
  * - Notification system needs review, should be able to have multiple subscribers
  * - File monitoring and reloading (for theme's and other?)
  * ! Define proper keymap for Linux (selection, copy/paste, etc..)
- * - LanguageToken to ScreenColor mapping is right now done in the editor - not sure where this should be..
+ * ! LanguageToken to ScreenColor mapping is right now done in the editor - not sure where this should be..
  * + Fix save!
  * - How to search in node-editor mode (i.e ProjectViews, Terminal - history), also for quickmode?
  * - Swap out the vertical navigation code in EditorView for the 'VerticalNavigationModel'
  *
  * Bigger features:
- * - Need new UI => Take what we learned and incorporate
- * - Allow editor view to be a HexView
  * - Make something to hold a 'builder' (I need somewhere to store build-errors and present them nicely)
  *   Later this can go into the project configuration, which is executed through a '.build'-command
- * - Workspace configuration
- *   When opening a folder it should be possible to 'initialize' a workspace there - this workspace can hold specific
- *   settings for it - like folders for intellisense and other things (build params, run params, etc...)
  * - Add some tool awareness (like ability to jump to src:line when compiling and so forth)
  *   Either through some kind of build command which can attach parsers to the console..
  * - Use references in view-system (most other code using references or smart pointers)
@@ -86,11 +78,18 @@
  *    - Be 'smart' depending on language search for type belonging to related files (C/CPP - header files)
  *    - Make sure the prefix-tree can be quickly update when changing stuff on a line
  *    - Make the Intellisense run in a background thread that locks the whole textbuffer (but does so when it sits Idle)
+ *
+ * Done:
  * ! Put some performance timings in the LanguageParser (this will have to be optimized sooner or later)
  * - macOS swaps left/right scancodes between keyboards (laptop has left/right one way my ext.keyboard another)
  *   need to consider a solution for this...
- *
- * Done:
+ * ! Workspace configuration
+ *   When opening a folder it should be possible to 'initialize' a workspace there - this workspace can hold specific
+ *   settings for it - like folders for intellisense and other things (build params, run params, etc...)
+ * ! Allow editor view to be a HexView
+ * ! HexView?
+ * ! Key up/down in the terminal window, with history
+ * ! Remove CommandView from the build (incl. file) is has been replaced by TerminalView
  * ! Moving Word-left at last token in line we jump back to beginning of line..
  * ! Rewrite 'CommandView' - replace with a 'TerminalView' which operates properly with the new shell component
  *   Should treat the shell as a stream rather than trying to keep track of cursor stuff and so forth..

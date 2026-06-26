@@ -289,7 +289,6 @@
 #include "Core/Editor/Views/HexView.h"
 #include "Core/Editor/Views/EditorViewContainer.h"
 #include "Core/UI/Views/RootView.h"
-#include "Core/Editor/Views/CommandView.h"
 #include "Core/Editor/Views/TerminalView.h"
 #include "Core/UI/Views/HSplitView.h"
 #include "Core/UI/Views/VSplitView.h"
@@ -443,8 +442,6 @@ int main(int argc, const char **argv) {
 
 
     auto terminalView = TerminalView();
-    //auto cmdView = CommandView();
-    //hSplitViewStatus.SetLower(&cmdView);
     hSplitViewStatus.SetLower(&terminalView);
 
     auto vStackViewEditor = VStackView();   // This is where the editor and the 'FileHeader' lives, they are stacked vertically

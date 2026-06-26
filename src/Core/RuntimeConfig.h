@@ -52,7 +52,7 @@ namespace gedit {
         // The block index, scriptable by id (TS-2c). GetBlocks lists every block oldest->newest (incl.
         // the open/loose tail block); GetBlockOutputText resolves one block's output to joined text, or
         // nullopt for an unknown id; GetLastBlock returns the newest block (the tail). Defaults are
-        // empty/nullopt so non-terminal consoles (CommandView, tests) need not implement them.
+        // empty/nullopt so non-terminal consoles (e.g. test stubs) need not implement them.
         virtual std::vector<OutputBlockInfo> GetBlocks() { return {}; }
         virtual std::optional<std::u32string> GetBlockOutputText(uint64_t blockId) { return std::nullopt; }
         virtual std::optional<OutputBlockInfo> GetLastBlock() { return std::nullopt; }

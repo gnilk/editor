@@ -348,7 +348,6 @@ list(APPEND uisrc src/Core/UI/Controllers/BaseController.cpp src/Core/UI/Control
 list(APPEND editorsrc src/Core/Editor/Views/EditorView.cpp src/Core/Editor/Views/EditorView.h)
 list(APPEND editorsrc src/Core/Editor/Views/HexView.cpp src/Core/Editor/Views/HexView.h)
 list(APPEND editorsrc src/Core/Editor/Views/GutterView.cpp src/Core/Editor/Views/GutterView.h)
-#list(APPEND editorsrc src/Core/Editor/Views/CommandView.cpp src/Core/Editor/Views/CommandView.h)
 list(APPEND editorsrc src/Core/Editor/Views/EditorHeaderView.h)
 list(APPEND editorsrc src/Core/Editor/Views/HSplitViewStatus.cpp src/Core/Editor/Views/HSplitViewStatus.h)
 list(APPEND editorsrc src/Core/Editor/Views/TerminalView.cpp src/Core/Editor/Views/TerminalView.h)

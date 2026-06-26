@@ -8,6 +8,17 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## Mouse double-click — open a workspace file ✅ (merged to `main`, `7d4bcca`)
+
+Double-click a file row in `WorkspaceView` to open it + focus the editor (like Enter), via a pure
+`MouseClickTracker` (click-count on `MouseEvent.clicks`, `mouse.dbl_click_speed` config; no backend or
+`Timer` edits — detection sits at the `Runloop::ProcessMouseEvent` chokepoint, runloop-thread, lockless).
+Fixed along the way: `RootView::DispatchMouse` focus-follows-click now fires on press/wheel, not the
+trailing release (which was clobbering the editor focus the double-click just set). Detail:
+[`mouse-dblclick.md`](done/mouse-dblclick.md).
+
+---
+
 ## UI refactor — generic toolkit vs editor-specific UI ✅ (merged to `main`, `d1622a7`)
 
 Split the monolithic `src/Core/Views` + controllers into a **generic UI toolkit** (`src/Core/UI/`) and

@@ -111,21 +111,6 @@ tokenizer's longest-match / boundary logic at operator↔identifier transitions.
 **Reproduce:** Initiate a project with npm (use older versions of some library) then do an update
 There are possibly other applications also not working but this is one I found
 
-## 10. 'Missing scrollback feature in terminal UI'
-**Where:** Terminal emulator/window
-**What's Wrong:** No scrolling through history buffer
-**Reproduce:** just list a directory with many files - this is missing functionality - but it is a bit 
-of a bummer - because you want this
-
-**RESOLVED (Phase 0, ✅ done):** the scrollback *buffer* already existed (`TerminalScreen::scrollback`);
-the defect was purely that `TerminalView::DrawViewContents` always pinned to the bottom. Phase 0
-(TS-0a..TS-0f) shipped the scroll viewport (wheel + PageUp/Down + Home/End, abs-row anchored so a
-streaming build doesn't yank you back to the bottom) — this bug is closed. Phase 1 (command blocks +
-jump-per-prompt nav) also shipped on top of it. Remaining phases (downstream consumers, OSC 133,
-per-block highlighting, persistence) are enhancements, not part of this bug. Full design + phase status:
-[`terminal-scrollback.md`](done/terminal-scrollback.md).
-
----
 
 ## 12. 'Consolidate Terminal and CommandView in config.yml'
 Note: This is not a bug per-se, more of a 'reduce noise' situation

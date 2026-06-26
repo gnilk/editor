@@ -13,6 +13,7 @@ DLL_EXPORT int test_terminalscreen_putchar(ITesting *t);
 DLL_EXPORT int test_terminalscreen_newline(ITesting *t);
 DLL_EXPORT int test_terminalscreen_scroll(ITesting *t);
 DLL_EXPORT int test_terminalscreen_cr(ITesting *t);
+DLL_EXPORT int test_terminalscreen_tab(ITesting *t);
 DLL_EXPORT int test_terminalscreen_colors(ITesting *t);
 DLL_EXPORT int test_terminalscreen_cursor(ITesting *t);
 DLL_EXPORT int test_terminalscreen_erase(ITesting *t);
@@ -214,6 +215,7 @@ DLL_EXPORT int test_terminalscreen_resize_degenerate(ITesting *t) {
         s.PutChar(U'Z');
         s.NewLine();
         s.CarriageReturn();
+        s.Tab();
         s.MoveCursor(3, 3);
         s.SetCursorPos(5, 5);
         s.EraseInLine(0);
@@ -279,6 +281,44 @@ DLL_EXPORT int test_terminalscreen_cr(ITesting *t) {
     s.PutChar(U'X');
     TR_ASSERT(t, s.GetRow(0)[0].ch == U'X');
     TR_ASSERT(t, s.GetRow(0)[1].ch == U'B');  // B was not cleared
+
+    return kTR_Pass;
+}
+
+// open-bugs.md #11: Tab() advances the cursor to the next 8-column tab stop and fills the skipped
+// cells with real blanks in the current pen colors - it must not be a silent no-op (the old bug,
+// where the raw 0x09 byte was dropped, fused multi-column shell output like BSD `ls`).
+DLL_EXPORT int test_terminalscreen_tab(ITesting *t) {
+    auto s = MakeScreen(40, 5);
+
+    // From column 0, a tab lands on column 8.
+    s.PutChar(U'a');                       // cursor (1,0)
+    s.Tab();                               // -> next stop at col 8
+    TR_ASSERT(t, s.GetCursorPos().x == 8);
+    s.PutChar(U'b');
+    TR_ASSERT(t, s.GetRow(0)[0].ch == U'a');
+    TR_ASSERT(t, s.GetRow(0)[8].ch == U'b');
+    // Skipped cells are genuine blanks in the current pen colors, not stale content.
+    for (int x = 1; x < 8; x++) {
+        TR_ASSERT(t, s.GetRow(0)[x].ch == U' ');
+        TR_ASSERT(t, s.GetRow(0)[x].fg == WHITE);
+        TR_ASSERT(t, s.GetRow(0)[x].bg == BLACK);
+    }
+
+    // A tab from a position already on a tab stop advances a full 8 columns to the next one.
+    s.Tab();                               // cursor was at 9 -> next stop at 16
+    TR_ASSERT(t, s.GetCursorPos().x == 16);
+
+    // A tab fills with the CURRENT pen color, not the default.
+    s.SetForeground(RED);
+    s.Tab();                               // 16 -> 24
+    TR_ASSERT(t, s.GetRow(0)[16].fg == RED);
+
+    // At the right margin a tab can't move off the row - it clamps to the last column, no wrap.
+    s.SetCursorPos(38, 0);
+    s.Tab();
+    TR_ASSERT(t, s.GetCursorPos().x == s.Cols() - 1);   // 39, not wrapped to row 1
+    TR_ASSERT(t, s.GetCursorPos().y == 0);
 
     return kTR_Pass;
 }

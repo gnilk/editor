@@ -67,6 +67,7 @@ namespace gedit {
         void PutChar(char32_t ch);
         void NewLine();
         void CarriageReturn();
+        void Tab();   // HT (0x09): advance to the next tab stop (multiples of 8), filling skipped cells
 
         // Pen state
         void SetForeground(ColorRGBA color);

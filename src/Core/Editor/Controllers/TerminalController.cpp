@@ -295,6 +295,10 @@ void TerminalController::HandleTerminalData(const uint8_t *buffer, size_t length
             // erases by sending "\b \b" (left, space-over, left), so the actual blanking
             // is done by the space; we just must not drop the \b or the cursor desyncs.
             screen.MoveCursor(-1, 0);
+        } else if (ch == 0x09) {
+            // Raw TAB: advance to the next tab stop. Dropping it (the old behaviour) fused
+            // multi-column shell output - e.g. BSD `ls` pads between columns with tabs (open-bugs #11).
+            screen.Tab();
         } else if (ch == 0x0a) {
             screen.NewLine();
         } else if (ch == 0x0d) {

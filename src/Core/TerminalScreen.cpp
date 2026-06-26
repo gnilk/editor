@@ -362,6 +362,20 @@ void TerminalScreen::CarriageReturn() {
     cursor.x = 0;
 }
 
+void TerminalScreen::Tab() {
+    if (cols == 0 || rows == 0) {
+        return;
+    }
+    // Advance to the next tab stop (the classic 8-column grid), writing real blank cells (current pen
+    // colors) into the columns we skip over so the gap is genuine padding, not stale grid content.
+    // Stops at the right margin (cols-1) without wrapping - HT never moves off the current row.
+    int nextStop = std::min(((cursor.x / 8) + 1) * 8, cols - 1);
+    while (cursor.x < nextStop) {
+        grid[cursor.y][cursor.x] = {U' ', penFg, penBg, penAttrs};
+        cursor.x++;
+    }
+}
+
 void TerminalScreen::SetForeground(ColorRGBA color) {
     penFg = color;
 }

@@ -159,6 +159,16 @@ mirroring how `NewLine()`/`PutChar()` already wrap at `cols`. Add a `test_termin
 `test_terminalcontroller` case asserting a `0x09` byte mid-row advances the cursor to the next multiple-
 of-8 column and fills the skipped cells with blanks (current pen colors), rather than being dropped.
 
+**RESOLVED (2026-06-26):** added `TerminalScreen::Tab()` (a dedicated grid method beside
+`NewLine()`/`CarriageReturn()`, NOT a `PutChar(U' ')` loop — reusing `PutChar`'s wrap-at-`cols` would
+infinite-fill the next row when a tab lands at the right margin). It advances to the next 8-column stop,
+writes real blank cells (current pen colors) into the skipped columns, and clamps at the right margin
+(`cols-1`) without wrapping — HT never moves off the current row. `HandleTerminalData` now dispatches
+`0x09` to it. The 0×0-screen guard is in place (covered by `test_terminalscreen_resize_degenerate`).
+Tests: `test_terminalscreen_tab` (tab-stop semantics + pen color + margin clamp) and the discriminating
+`test_terminalcontroller_raw_tab` (feeds a raw `\t` through the exact dispatch chain; was RED before the
+fix). The "stray inverse `%`" symptom was a likely-related guess, not separately reproduced.
+
 ## 12. 'Consolidate Terminal and CommandView in config.yml'
 Note: This is not a bug per-se, more of a 'reduce noise' situation
 **Where:** The CommandView and CommandController together with the Terminal implementation currently

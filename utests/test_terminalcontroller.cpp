@@ -28,6 +28,7 @@ DLL_EXPORT int test_terminalcontroller_block_index_surface(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_osc133_block(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_osc7_cwd(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_osc133_no_double_open(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_raw_tab(ITesting *t);
 }
 
 #include <cstdint>   // UINT64_MAX
@@ -608,6 +609,30 @@ DLL_EXPORT int test_terminalcontroller_osc133_no_double_open(ITesting *t) {
     TR_ASSERT(t, block.command == std::u32string(U"echo hi"));
     TR_ASSERT(t, block.source == TerminalScreen::CommandBlock::Source::kOsc133);
     TR_ASSERT(t, block.exitCode.has_value() && block.exitCode.value() == 0);
+
+    return kTR_Pass;
+}
+
+// open-bugs.md #11: a raw TAB (0x09) off the pty must advance the cursor to the next tab stop
+// (multiple of 8) instead of being silently dropped. macOS BSD `ls`'s multi-column listing pads
+// BETWEEN columns with tabs; with the tab eaten the entries fuse ("foobar" with no gap). This
+// drives the EXACT dispatch chain in HandleTerminalData where the byte was being discarded.
+DLL_EXPORT int test_terminalcontroller_raw_tab(ITesting *t) {
+    TerminalController c;
+    c.Resize(40, 10);
+
+    // 'a' at col 0, a TAB, then 'b'. With the tab honoured 'b' lands at the next tab stop (col 8);
+    // with it dropped (the bug) 'b' would land at col 1, fused against the 'a'.
+    FeedPty(c, "a\tb");
+
+    const auto &screen = c.GetScreen();
+    TR_ASSERT(t, screen.GetRow(0)[0].ch == U'a');
+    TR_ASSERT(t, screen.GetRow(0)[8].ch == U'b');       // advanced to the next multiple of 8
+    TR_ASSERT(t, screen.GetCursorPos().x == 9);         // cursor sits just past 'b'
+    // The skipped cells are real blanks, not stale/garbage content.
+    for (int x = 1; x < 8; x++) {
+        TR_ASSERT(t, screen.GetRow(0)[x].ch == U' ');
+    }
 
     return kTR_Pass;
 }

@@ -185,9 +185,16 @@ namespace gedit {
                 if (hit == nullptr) {
                     return false;
                 }
-                auto topViewName = FindEnclosingTopViewName(hit);
-                if (topViewName.has_value()) {
-                    SetActiveTopViewByName(*topViewName);
+                // Focus-follows-click activates on the PRESS (and wheel), never on the trailing RELEASE.
+                // A release is the tail of a gesture already focused on its press - re-activating the
+                // hit view's top view here would clobber any focus change the press handler just made
+                // (e.g. WorkspaceView double-click opens a file and switches to the editor view; the
+                // release that follows must not yank focus back to the workspace panel).
+                if (mouseEvent.kind != MouseEvent::kMouseEventKind_Release) {
+                    auto topViewName = FindEnclosingTopViewName(hit);
+                    if (topViewName.has_value()) {
+                        SetActiveTopViewByName(*topViewName);
+                    }
                 }
             }
 

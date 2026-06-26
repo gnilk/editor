@@ -259,23 +259,8 @@ bool WorkspaceView::OnAction(const EditorAction &kpAction) {
         return true;
     }
     if (kpAction.uiAction == kUIAction::kUIActionCommitLine) {
-        auto logger = gnilk::Logger::GetLogger("WorkspaceView");
-        auto itemSelected = treeView->GetCurrentSelectedItem();
-        // File nodes are opened (document created lazily); folder nodes are not. Check the node type
-        // rather than presence of a document - scanned file nodes are path-only until opened.
-        auto nodeType = itemSelected->GetMeta<int>(Workspace::Node::kMetaKey_NodeType, Workspace::Node::kNodeFolder);
-        if (nodeType != Workspace::Node::kNodeFolder) {
-            Editor::Instance().OpenDocumentFromWorkspace(itemSelected);
-            logger->Debug("Selected Item: %s", itemSelected->GetDisplayName().c_str());
-
-            if (Config::Instance()[cfgSectionName].GetBool("switch_to_editor_on_openfile", true)) {
-                SwitchToEditorView();
-            }
-
-            InvalidateAll();
+        if (OpenSelectedItem()) {
             return true;
-        } else {
-            logger->Debug("You selected a directory!");
         }
     }
     if (kpAction.action == kAction::kActionStartSearch) {
@@ -286,6 +271,30 @@ bool WorkspaceView::OnAction(const EditorAction &kpAction) {
 
     // Not for us - send further down the chain
     return ViewBase::OnAction(kpAction);
+}
+
+// Open the currently selected node: file nodes open (document created lazily) + optionally switch to
+// the editor view; folder nodes do nothing. Shared by the Enter path (OnAction) and the double-click
+// path (OnMousePressedEvent) — one open path, two triggers. Returns true when a file was opened.
+bool WorkspaceView::OpenSelectedItem() {
+    auto logger = gnilk::Logger::GetLogger("WorkspaceView");
+    auto itemSelected = treeView->GetCurrentSelectedItem();
+    // Check the node type rather than presence of a document - scanned file nodes are path-only
+    // until opened.
+    auto nodeType = itemSelected->GetMeta<int>(Workspace::Node::kMetaKey_NodeType, Workspace::Node::kNodeFolder);
+    if (nodeType == Workspace::Node::kNodeFolder) {
+        logger->Debug("You selected a directory!");
+        return false;
+    }
+    Editor::Instance().OpenDocumentFromWorkspace(itemSelected);
+    logger->Debug("Selected Item: %s", itemSelected->GetDisplayName().c_str());
+
+    if (Config::Instance()[cfgSectionName].GetBool("switch_to_editor_on_openfile", true)) {
+        SwitchToEditorView();
+    }
+
+    InvalidateAll();
+    return true;
 }
 
 // Active-line change side-effect shared by keyboard nav (OnAction) and mouse nav: if the newly
@@ -327,6 +336,12 @@ bool WorkspaceView::OnMousePressedEvent(const MouseEvent &mouseEvent) {
     treeView->SetSelectionAtRow(lineCursor.viewTopLine + row);
     NotifyActiveFolderNodeIfChanged(treeView);
     InvalidateAll();
+
+    // Single click only selects (immediate, no latency); a double-click additionally opens the
+    // selected file, exactly as if the row were selected and Enter pressed.
+    if (mouseEvent.clicks >= 2) {
+        OpenSelectedItem();
+    }
     return true;
 }
 

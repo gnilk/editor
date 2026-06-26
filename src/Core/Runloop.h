@@ -12,6 +12,7 @@
 #include "Core/KeypressAndActionHandler.h"
 #include "Core/KeyMapping.h"
 #include "Core/MouseEvent.h"
+#include "Core/MouseClickTracker.h"
 #include "Core/UI/Views/ViewBase.h"
 #include "Core/SafeQueue.h"
 
@@ -94,6 +95,11 @@ namespace gedit {
 
         static MessageQueue msgQueueA;
         static MessageQueue msgQueueB;
+
+        // Double-click detection. Lives here because ProcessMouseEvent is the single backend-agnostic
+        // chokepoint every mouse event passes through, and it runs on the runloop thread (events are
+        // drained from the message pump, not delivered directly by SDL) — so no locking is needed.
+        static MouseClickTracker mouseClickTracker;
 
     };
 }

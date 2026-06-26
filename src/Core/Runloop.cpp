@@ -7,6 +7,7 @@
 
 #include "DurationTimer.h"
 #include "RuntimeConfig.h"
+#include "Config/Config.h"
 #include "logger.h"
 #include "KeypressAndActionHandler.h"
 #include "Core/UI/Views/RootView.h"
@@ -25,6 +26,8 @@ Runloop::MessageQueue Runloop::msgQueueB = {};
 
 std::atomic<Runloop::MessageQueue *> Runloop::incomingQueue = &Runloop::msgQueueA;
 std::atomic<Runloop::MessageQueue *> Runloop::processingQueue = &Runloop::msgQueueB;
+
+MouseClickTracker Runloop::mouseClickTracker = {};
 
 
 void Runloop::SetKeypressAndActionHook(KeypressAndActionHandler *newHook) {
@@ -138,10 +141,20 @@ bool Runloop::ProcessMouseEvent(MouseEvent mouseEvent) {
     // Shows which view the hit-test resolved to and the local row/col, mirroring the [DISP]
     // keyboard trace in DispatchToHandler. Re-enable while chasing routing/focus problems.
     //auto hit = rootView->HitTest(mouseEvent.x, mouseEvent.y);
-    // fprintf(stderr, "[MOUSE] kind=%d row=%d col=%d button=%d wheelDelta=%d -> hit=%s\n",
+    // fprintf(stderr, "[MOUSE] kind=%d row=%d col=%d button=%d wheelDelta=%d clicks=%d -> hit=%s\n",
     //         (int)mouseEvent.kind, mouseEvent.y, mouseEvent.x, mouseEvent.button, mouseEvent.wheelDelta,
-    //         hit != nullptr ? hit->GetClassName().c_str() : "(none)");
+    //         mouseEvent.clicks, hit != nullptr ? hit->GetClassName().c_str() : "(none)");
     // ----------------------------------------------------------------------------------------
+
+    // Stamp the click count on presses (release/wheel/move pass through untouched). We run on the
+    // runloop thread, so the tracker needs no lock. The threshold is refreshed from Config on each
+    // press — clicks are rare, so this is free and picks up a user-config reload automatically.
+    if (mouseEvent.kind == MouseEvent::kMouseEventKind_Press) {
+        auto dblClickSpeed = Config::Instance()["mouse"].GetInt("dbl_click_speed", 250);
+        mouseClickTracker.SetThreshold(std::chrono::milliseconds(dblClickSpeed));
+        mouseEvent.clicks = mouseClickTracker.RegisterPress(
+                std::chrono::steady_clock::now(), mouseEvent.x, mouseEvent.y, mouseEvent.button);
+    }
 
     return rootView->DispatchMouse(mouseEvent);
 }

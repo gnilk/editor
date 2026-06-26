@@ -46,6 +46,13 @@ logging:
 #    - "KeyPress"
 
 
+# Global mouse behaviour. Double-click timing is application-wide (not per-view), so it lives in its
+# own top-level block rather than under any one view's section.
+mouse:
+  # Maximum time (milliseconds) between two presses for them to count as a double-click. Both presses
+  # must also land on the same character cell with the same button. Honoured by the user-config merge.
+  dbl_click_speed: 250
+
 foldermonitor:
   enabled: no
   # Note: for macos this can only be maximum 8 folders - or else!

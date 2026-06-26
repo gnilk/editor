@@ -110,11 +110,3 @@ tokenizer's longest-match / boundary logic at operator↔identifier transitions.
 **What's Wrong:** When running certain apps (in this case `npm update` on a project) the color output is missing
 **Reproduce:** Initiate a project with npm (use older versions of some library) then do an update
 There are possibly other applications also not working but this is one I found
-
-
-## 12. 'Consolidate Terminal and CommandView in config.yml'
-Note: This is not a bug per-se, more of a 'reduce noise' situation
-**Where:** The CommandView and CommandController together with the Terminal implementation currently
-using two different sections in the config file. This doesn't make sense from an end user perspective.
-**ProperFix:** Consolidate everything under 'terminal' - it is the logical place. Just because it is
-called 'CommandView' internally, doesn't mean it has surface to the user.

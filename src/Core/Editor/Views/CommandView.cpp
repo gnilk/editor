@@ -10,7 +10,9 @@
 #include "Core/Editor/LineRender.h"
 using namespace gedit;
 
-static const std::string cfgSectionName = "commandview";
+// NOTE: CommandView is out-of-build legacy (replaced by TerminalView; see CMakeLists.txt). Kept
+// pointing at the consolidated "terminal" section for coherence if it is ever resurrected.
+static const std::string cfgSectionName = "terminal";
 
 
 void CommandView::InitView() {

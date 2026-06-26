@@ -14,7 +14,7 @@
 
 using namespace gedit;
 
-static const std::string cfgSectionName = "commandview";
+static const std::string cfgSectionName = "terminal";
 
 void TerminalView::InitView() {
     logger = gnilk::Logger::GetLogger("TerminalView");

@@ -3,6 +3,7 @@
 //
 #include <testinterface.h>
 #include "Core/Editor/Controllers/TerminalController.h"
+#include "Core/Config/Config.h"
 
 using namespace gedit;
 
@@ -29,6 +30,7 @@ DLL_EXPORT int test_terminalcontroller_osc133_block(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_osc7_cwd(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_osc133_no_double_open(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_raw_tab(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_config_consolidated(ITesting *t);
 }
 
 #include <cstdint>   // UINT64_MAX
@@ -633,6 +635,36 @@ DLL_EXPORT int test_terminalcontroller_raw_tab(ITesting *t) {
     for (int x = 1; x < 8; x++) {
         TR_ASSERT(t, screen.GetRow(0)[x].ch == U' ');
     }
+
+    return kTR_Pass;
+}
+
+// open-bugs #12: the terminal's settings used to be split across two config sections - the view read
+// 'commandview' (keymap, scroll notch, block markers) while the shell/process read 'terminal'. They
+// are now consolidated under 'terminal' so the terminal exposes ONE section to the user. This runs on
+// the real shipped config (loaded headless by test_main) and guards against a re-split: it asserts the
+// PROPERTY that the view keys and the process keys now live in the same section, and that the legacy
+// 'commandview' section no longer carries them. (TerminalView::InitView spawns a real shell, so we
+// verify the consolidation at the config layer rather than driving the view - the view reads from the
+// same section constant asserted here.)
+DLL_EXPORT int test_terminalcontroller_config_consolidated(ITesting *t) {
+    auto terminal    = Config::Instance()["terminal"];
+    auto commandview = Config::Instance()["commandview"];
+
+    // The former view keys now resolve under 'terminal'...
+    TR_ASSERT(t, terminal.HasKey("keymap"));
+    TR_ASSERT(t, terminal.HasKey("lines_per_scroll_wheel_notch"));
+    TR_ASSERT(t, terminal.HasKey("show_block_markers"));
+    // ...alongside the shell/process keys - proving it's one shared section, not just a rename.
+    TR_ASSERT(t, terminal.HasKey("shell"));
+
+    // The load-bearing contract: the terminal binds the terminal keymap (NOT the default editor one).
+    TR_ASSERT(t, terminal.GetStr("keymap", "") == "terminal_keymap");
+
+    // The legacy section is gone (or at least no longer owns the terminal-view settings).
+    TR_ASSERT(t, !commandview.HasKey("keymap"));
+    TR_ASSERT(t, !commandview.HasKey("show_block_markers"));
+    TR_ASSERT(t, !commandview.HasKey("lines_per_scroll_wheel_notch"));
 
     return kTR_Pass;
 }

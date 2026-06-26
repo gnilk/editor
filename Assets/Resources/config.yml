@@ -118,17 +118,6 @@ workspaceview:
   # Number of rows to scroll per mouse-wheel notch
   lines_per_scroll_wheel_notch: 1
 
-#
-# Add ability to include user-name, and other things here (working dir???)
-#
-commandview:
-  prompt: "ed>"
-  keymap: terminal_keymap
-  # Number of backlog rows to scroll per mouse-wheel notch (§5.3 docs/terminal-scrollback.md)
-  lines_per_scroll_wheel_notch: 3
-  # Draw a thin separator rule at the end of each completed command block (§5.5). Off by default.
-  show_block_markers: true
-
 
 quickmode:
   # this will leave the quick-command mode automatically when a successfull command has been executed
@@ -194,7 +183,8 @@ temptemp: {
 }
 
 #
-# This defines the terminal to use in the command-view
+# Terminal: the embedded shell + its view. ONE section for everything the terminal exposes to the
+# user (shell/process settings + the view's keymap/scroll/markers; formerly split with 'commandview').
 #
 terminal:
   shell: /bin/zsh
@@ -218,6 +208,14 @@ terminal:
   # injects bash/zsh prompt hooks that emit semantic-prompt markers, so command blocks get exact
   # boundaries + exit codes (instead of the CommitLine heuristic). Off by default - it rewrites PS1.
   shell_integration: no
+  # --- Terminal view (these were the separate 'commandview' section; consolidated here so the
+  #     terminal has ONE config section from the user's point of view) ---
+  # Keymap used while the terminal/command input view is active.
+  keymap: terminal_keymap
+  # Number of backlog rows to scroll per mouse-wheel notch (§5.3 docs/terminal-scrollback.md)
+  lines_per_scroll_wheel_notch: 3
+  # Draw a thin separator rule at the end of each completed command block (§5.5).
+  show_block_markers: true
 
 languages:
   # Defines the maximum number of lines we extend a region for the syntax parser

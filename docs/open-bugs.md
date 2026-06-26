@@ -127,48 +127,6 @@ per-block highlighting, persistence) are enhancements, not part of this bug. Ful
 
 ---
 
-## 11. Raw TAB byte (`0x09`) from the pty is silently dropped — garbles multi-column shell output
-
-**Where:** `src/Core/Editor/Controllers/TerminalController.cpp`, `TerminalController::HandleTerminalData`
-— the byte-dispatch `if/else if` chain after stripping ANSI commands only handles backspace (`0x08`),
-newline (`0x0a`), carriage return (`0x0d`), printable `0x20-0x7e`, and `>=0x80` (UTF-8 continuation). A
-raw `0x09` (tab) matches none of these branches, so it is silently consumed and discarded: no cursor
-advance, no cell written.
-
-**Symptom:** macOS BSD `ls`'s default multi-column listing (no `-la`) pads BETWEEN columns with tab
-characters (its long-format `-la` output is one-entry-per-line and never hits this path, which is why
-that one always rendered correctly). With the tab eaten, consecutive column entries land back-to-back
-with zero separation — e.g. `CMakeCache.txt`, `_CPack_Packages`, `generated`, `resources` (4 separate
-column entries) render as one fused string `CMakeCache.txt_CPack_Packagesgeneratedresources`.
-
-**Likely related symptom:** the stray inverse-video `%` zsh sometimes prints before a prompt (including
-after just pressing Enter on an empty line) is zsh's own `PROMPT_EOL_MARK` — "the previous line didn't
-end at column 0". Because the eaten tab leaves our `cursor.x` short of where the real shell output left
-it, our terminal's cursor column can desync from what zsh thinks it wrote, tripping that marker on the
-next redraw even though nothing is actually wrong with that next command.
-
-**Discovered:** 2026-06-23, manually verifying TS-0e/TS-0f (terminal-scrollback) — a plain `ls` in
-the scrollback view showed the fused filenames above. Pre-existing in the live grid (not introduced by
-the scrollback work); scrollback just faithfully preserves whatever was already in the grid, including
-this.
-
-**Proper fix:** add a `0x09` case to `HandleTerminalData` that advances `cursor.x` to the next tab stop
-(traditionally a multiple of 8) — most simply by calling `screen.PutChar(U' ')` (or an equivalent
-"advance without drawing a visible char if you want true passthrough") in a loop until the next stop,
-mirroring how `NewLine()`/`PutChar()` already wrap at `cols`. Add a `test_terminalscreen` or
-`test_terminalcontroller` case asserting a `0x09` byte mid-row advances the cursor to the next multiple-
-of-8 column and fills the skipped cells with blanks (current pen colors), rather than being dropped.
-
-**RESOLVED (2026-06-26):** added `TerminalScreen::Tab()` (a dedicated grid method beside
-`NewLine()`/`CarriageReturn()`, NOT a `PutChar(U' ')` loop — reusing `PutChar`'s wrap-at-`cols` would
-infinite-fill the next row when a tab lands at the right margin). It advances to the next 8-column stop,
-writes real blank cells (current pen colors) into the skipped columns, and clamps at the right margin
-(`cols-1`) without wrapping — HT never moves off the current row. `HandleTerminalData` now dispatches
-`0x09` to it. The 0×0-screen guard is in place (covered by `test_terminalscreen_resize_degenerate`).
-Tests: `test_terminalscreen_tab` (tab-stop semantics + pen color + margin clamp) and the discriminating
-`test_terminalcontroller_raw_tab` (feeds a raw `\t` through the exact dispatch chain; was RED before the
-fix). The "stray inverse `%`" symptom was a likely-related guess, not separately reproduced.
-
 ## 12. 'Consolidate Terminal and CommandView in config.yml'
 Note: This is not a bug per-se, more of a 'reduce noise' situation
 **Where:** The CommandView and CommandController together with the Terminal implementation currently

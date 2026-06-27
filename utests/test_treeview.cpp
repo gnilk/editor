@@ -20,12 +20,14 @@ DLL_EXPORT int test_treeview_fetch_fires_once(ITesting *t);
 DLL_EXPORT int test_treeview_fetch_reentrant_additem(ITesting *t);
 DLL_EXPORT int test_treeview_fetch_noop_reexpand(ITesting *t);
 DLL_EXPORT int test_treeview_additem_no_flatten(ITesting *t);
+DLL_EXPORT int test_treeview_narrow_width_no_overflow(ITesting *t);
 }
 
 namespace {
-    // Thin subclass that exposes the protected Flatten() for test assertions.
+    // Thin subclass that exposes the protected Flatten()/AdjustNodeDrawStrings() for test assertions.
     struct TestTree : TreeView<int> {
         void Reflatten() { Flatten(); }
+        void CallAdjustNodeDrawStrings() { AdjustNodeDrawStrings(); }
     };
 }
 
@@ -159,5 +161,32 @@ DLL_EXPORT int test_treeview_additem_no_flatten(ITesting *t) {
     // Parent has children → glyph '+' (collapsed).
     TR_ASSERT(t, parent->drawString[0] == '+');
 
+    return kTR_Pass;
+}
+
+// Regression: a deeply-indented node in a NARROW view (e.g. the workspace panel in a small terminal)
+// drove `widthMax - indent - 3` negative; std::string::erase takes size_t, so the wrapped huge index
+// threw std::out_of_range and SIGABRT'd the editor mid-draw. AdjustNodeDrawStrings must clip safely.
+DLL_EXPORT int test_treeview_narrow_width_no_overflow(ITesting *t) {
+    TestTree tree;
+    tree.SetToStringDelegate([](int i) { return std::string("filename_") + std::to_string(i); });
+
+    // Build an expanded depth-4 chain → indents 0, 2, 4, 6 after Flatten.
+    auto a = tree.AddItem(1);          a->isExpanded = true;
+    auto b = tree.AddItem(a, 2);       b->isExpanded = true;
+    auto c = tree.AddItem(b, 3);       c->isExpanded = true;
+    (void) tree.AddItem(c, 4);         // deepest node: indent 6, long label
+    tree.Reflatten();
+
+    // Narrow view: widthMax(7) - indent(6) - 3 = -2  →  was an out_of_range crash.
+    tree.SetViewRect(Rect(7, 50));
+
+    bool threw = false;
+    try {
+        tree.CallAdjustNodeDrawStrings();
+    } catch (const std::out_of_range &) {
+        threw = true;
+    }
+    TR_ASSERT(t, !threw);
     return kTR_Pass;
 }

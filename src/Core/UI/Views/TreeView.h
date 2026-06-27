@@ -310,8 +310,15 @@ namespace gedit {
                 // erase last three chars and replace with '...'
                 // sanity check for short strings
                 if (strWidth > (node->indent + 6)) {
-                    node->drawString.erase(widthMax - node->indent - 3);
-                    node->drawString += "...";
+                    // A deeply-indented node in a narrow view (small terminal workspace panel) drives
+                    // this negative; erase() takes size_t, so a negative value wraps to a huge index
+                    // and throws std::out_of_range. Guard it — if there's no room, leave the string
+                    // for the DrawContext to clip.
+                    int erasePos = widthMax - node->indent - 3;
+                    if (erasePos > 0) {
+                        node->drawString.erase(erasePos);
+                        node->drawString += "...";
+                    }
                 }
             }
         }

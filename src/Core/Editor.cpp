@@ -839,6 +839,11 @@ void Editor::ConfigureSubSystems() {
 // ANSI / modern-TTY backend (gansi). Renders to the controlling terminal via the gansi library.
 void Editor::SetupAnsi() {
 #ifdef GEDIT_USE_ANSI
+    // The ANSI backend OWNS the controlling terminal — the console log sink would scribble log lines
+    // straight onto the rendered grid (corrupting the display), so drop it regardless of
+    // --console-logging. Logs still reach the file sink. Pre-init logs already flushed above alt-screen.
+    gnilk::Logger::RemoveSink("console");
+
     auto screenDriver = Gansi::GansiScreen::Create();
     RuntimeConfig::Instance().SetScreen(screenDriver);
     UIHost::Instance().SetScreen(screenDriver);

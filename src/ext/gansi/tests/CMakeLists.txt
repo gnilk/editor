@@ -30,6 +30,7 @@ list(APPEND gansitest_src
     test_mockio.cpp
     test_inputparser.cpp
     test_caps.cpp
+    test_capabilities.cpp
     test_terminal.cpp
     test_posixio.cpp
 )

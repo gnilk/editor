@@ -31,7 +31,7 @@ namespace {
     }
 }
 
-void AnsiEncoder::EncodeDiff(const CellGrid &front, const CellGrid &back, std::string &out) {
+void AnsiEncoder::EncodeDiff(const CellGrid &front, const CellGrid &back, std::string &out, ColorMode mode) {
     // Same-size, non-empty grids only — the caller keeps front/back in lockstep across a resize.
     if (front.IsEmpty() || back.IsEmpty() || !front.SameSizeAs(back)) {
         return;
@@ -56,7 +56,7 @@ void AnsiEncoder::EncodeDiff(const CellGrid &front, const CellGrid &back, std::s
             while (x < cols && back.At(x, y) != front.At(x, y)) {
                 const Cell &cell = back.At(x, y);
                 if (!penValid || !SamePen(activePen, cell)) {
-                    out += Sgr(cell);
+                    out += Sgr(cell, mode);
                     activePen = cell;
                     penValid = true;
                 }
@@ -72,7 +72,7 @@ std::string AnsiEncoder::MoveCursor(int col, int row) {
     return kCSI + std::to_string(row + 1) + ";" + std::to_string(col + 1) + "H";
 }
 
-std::string AnsiEncoder::Sgr(const Cell &pen) {
+std::string AnsiEncoder::Sgr(const Cell &pen, ColorMode mode) {
     std::string s = kCSI;
     s += "0";   // full reset first, then re-establish the whole pen
     for (const auto &ac : kAttrCodes) {
@@ -80,10 +80,61 @@ std::string AnsiEncoder::Sgr(const Cell &pen) {
             s += ";" + std::to_string(ac.sgr);
         }
     }
-    s += ";38;2;" + std::to_string(pen.fg.r) + ";" + std::to_string(pen.fg.g) + ";" + std::to_string(pen.fg.b);
-    s += ";48;2;" + std::to_string(pen.bg.r) + ";" + std::to_string(pen.bg.g) + ";" + std::to_string(pen.bg.b);
+    if (mode == ColorMode::Truecolor) {
+        s += ";38;2;" + std::to_string(pen.fg.r) + ";" + std::to_string(pen.fg.g) + ";" + std::to_string(pen.fg.b);
+        s += ";48;2;" + std::to_string(pen.bg.r) + ";" + std::to_string(pen.bg.g) + ";" + std::to_string(pen.bg.b);
+    } else {
+        s += ";38;5;" + std::to_string(Rgb256(pen.fg));
+        s += ";48;5;" + std::to_string(Rgb256(pen.bg));
+    }
     s += "m";
     return s;
+}
+
+int AnsiEncoder::Rgb256(Color c) {
+    // The 6x6x6 colour cube uses these six levels per channel; the index is 16 + 36*r + 6*g + b.
+    static constexpr int kLevels[6] = {0, 95, 135, 175, 215, 255};
+    auto nearestLevel = [](int v) {
+        int bestIdx = 0;
+        int bestDist = 1 << 30;
+        for (int i = 0; i < 6; ++i) {
+            int d = v - kLevels[i];
+            if (d < 0) {
+                d = -d;
+            }
+            if (d < bestDist) {
+                bestDist = d;
+                bestIdx = i;
+            }
+        }
+        return bestIdx;
+    };
+    auto dist2 = [](int r1, int g1, int b1, int r2, int g2, int b2) {
+        int dr = r1 - r2, dg = g1 - g2, db = b1 - b2;
+        return dr * dr + dg * dg + db * db;
+    };
+
+    const int ri = nearestLevel(c.r);
+    const int gi = nearestLevel(c.g);
+    const int bi = nearestLevel(c.b);
+    const int cubeIdx = 16 + 36 * ri + 6 * gi + bi;
+    const int cubeDist = dist2(c.r, c.g, c.b, kLevels[ri], kLevels[gi], kLevels[bi]);
+
+    // Grayscale ramp candidate: indices 232..255 hold values 8 + 10*i (i in 0..23). Neutral grays land
+    // far closer here than on the coarse cube.
+    const int gray = (c.r + c.g + c.b) / 3;
+    int grayStep = (gray - 8 + 5) / 10;   // round to nearest ramp step
+    if (grayStep < 0) {
+        grayStep = 0;
+    }
+    if (grayStep > 23) {
+        grayStep = 23;
+    }
+    const int grayVal = 8 + 10 * grayStep;
+    const int grayIdx = 232 + grayStep;
+    const int grayDist = dist2(c.r, c.g, c.b, grayVal, grayVal, grayVal);
+
+    return (grayDist < cubeDist) ? grayIdx : cubeIdx;
 }
 
 std::string AnsiEncoder::EncodeUtf8(char32_t ch) {

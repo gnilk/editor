@@ -26,6 +26,10 @@ namespace {
 Terminal::Terminal(std::unique_ptr<ITerminalIO> ioIn) : io(std::move(ioIn)) {
 }
 
+Terminal::Terminal(std::unique_ptr<ITerminalIO> ioIn, Capabilities capsIn)
+    : io(std::move(ioIn)), caps(capsIn) {
+}
+
 Terminal::~Terminal() {
     Close();
 }
@@ -48,15 +52,24 @@ bool Terminal::Open() {
     back.Clear();
     Invalidate();
 
-    // Enter alt-screen, clear, hide cursor during setup, enable input capabilities.
+    // Enter alt-screen, clear, hide cursor during setup, then enable only the input capabilities the
+    // terminal actually supports (an unsupported enable can leave a stray glyph or mis-parse input).
     std::string seq;
     seq += AnsiEncoder::EnterAltScreen();
     seq += AnsiEncoder::ClearScreen();
     seq += AnsiEncoder::HideCursor();
-    seq += Caps::EnableMouse();
-    seq += Caps::EnablePaste();
-    seq += Caps::EnableFocus();
-    seq += Caps::EnableKittyKeyboard();
+    if (caps.sgrMouse) {
+        seq += Caps::EnableMouse();
+    }
+    if (caps.bracketedPaste) {
+        seq += Caps::EnablePaste();
+    }
+    if (caps.focusReporting) {
+        seq += Caps::EnableFocus();
+    }
+    if (caps.kittyKeyboard) {
+        seq += Caps::EnableKittyKeyboard();
+    }
     WriteStr(*io, seq);
     lastCursorVisible = false;
 
@@ -68,11 +81,20 @@ void Terminal::Close() {
     if (!isOpen) {
         return;
     }
+    // Disable exactly what Open enabled (mirror the gating), then restore cursor + leave alt-screen.
     std::string seq;
-    seq += Caps::DisableKittyKeyboard();
-    seq += Caps::DisableFocus();
-    seq += Caps::DisablePaste();
-    seq += Caps::DisableMouse();
+    if (caps.kittyKeyboard) {
+        seq += Caps::DisableKittyKeyboard();
+    }
+    if (caps.focusReporting) {
+        seq += Caps::DisableFocus();
+    }
+    if (caps.bracketedPaste) {
+        seq += Caps::DisablePaste();
+    }
+    if (caps.sgrMouse) {
+        seq += Caps::DisableMouse();
+    }
     seq += AnsiEncoder::SetCursorShape(CursorShape::Default);
     seq += AnsiEncoder::ShowCursor();
     seq += AnsiEncoder::LeaveAltScreen();
@@ -94,7 +116,8 @@ void Terminal::Invalidate() {
 
 void Terminal::Flush() {
     std::string out;
-    AnsiEncoder::EncodeDiff(front, back, out);
+    const ColorMode colorMode = caps.truecolor ? ColorMode::Truecolor : ColorMode::Indexed256;
+    AnsiEncoder::EncodeDiff(front, back, out, colorMode);
 
     // Position / show the hardware cursor. The shape sequence is only re-sent when it changes.
     if (cursorVisible) {
@@ -162,5 +185,8 @@ std::optional<Event> Terminal::PollEvent(int timeoutMs) {
 }
 
 void Terminal::SetClipboard(const std::string &utf8) {
+    if (!caps.osc52Clipboard) {
+        return;   // terminal can't accept OSC 52 — drop silently rather than leak the sequence
+    }
     WriteStr(*io, Caps::SetClipboardOSC52(utf8));
 }

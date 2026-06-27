@@ -10,6 +10,7 @@
 #include "Core/Runloop.h"
 #include "Core/RuntimeConfig.h"
 #include "Core/UnicodeHelper.h"
+#include "gansi/Capabilities.h"
 #include "gansi/PosixTerminalIO.h"
 
 #include <variant>
@@ -28,7 +29,11 @@ GansiScreen::~GansiScreen() {
 
 ScreenBase::Ref GansiScreen::Create() {
     auto io = std::make_unique<gnilk::ansi::PosixTerminalIO>();
-    auto term = std::make_unique<gnilk::ansi::Terminal>(std::move(io));
+    // Detect what this terminal actually supports (TERM / TERM_PROGRAM / COLORTERM) so we never emit a
+    // sequence it mis-handles — e.g. Apple_Terminal gets no Kitty keyboard / focus / SGR mouse / OSC 52
+    // and falls back to 256-colour, which renders correctly there.
+    auto caps = gnilk::ansi::Capabilities::Detect();
+    auto term = std::make_unique<gnilk::ansi::Terminal>(std::move(io), caps);
     return std::make_shared<GansiScreen>(std::move(term));
 }
 

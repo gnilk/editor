@@ -18,20 +18,33 @@
 
 namespace gnilk::ansi {
 
+    // How a cell's colour is encoded into SGR. Truecolor emits 24-bit (38;2;r;g;b); Indexed256 degrades
+    // each colour to the nearest xterm-256 palette index (38;5;n) for terminals without 24-bit support.
+    enum class ColorMode {
+        Truecolor,
+        Indexed256,
+    };
+
     class AnsiEncoder {
     public:
         // Diff `back` against `front`, appending the minimal ANSI byte stream to `out`. Grids must be
         // the same size; if they differ (or either is empty) nothing is written. Emits content only —
         // it does not move/show the hardware cursor (the caller does that after the flush).
-        static void EncodeDiff(const CellGrid &front, const CellGrid &back, std::string &out);
+        static void EncodeDiff(const CellGrid &front, const CellGrid &back, std::string &out,
+                               ColorMode mode = ColorMode::Truecolor);
 
         // --- Pure sequence builders (also used directly by the Terminal glue) ---
 
         // CSI CUP — absolute cursor position. col/row are 0-based; the wire form is 1-based.
         static std::string MoveCursor(int col, int row);
 
-        // SGR for a cell's pen: full reset (0) then attrs (ascending SGR code) then truecolor fg + bg.
-        static std::string Sgr(const Cell &pen);
+        // SGR for a cell's pen: full reset (0) then attrs (ascending SGR code) then fg + bg in the
+        // requested colour mode.
+        static std::string Sgr(const Cell &pen, ColorMode mode = ColorMode::Truecolor);
+
+        // Nearest xterm-256 palette index (16..255) for a 24-bit colour — best of the 6x6x6 colour cube
+        // and the 24-step grayscale ramp. Exposed for testing.
+        static int Rgb256(Color c);
 
         // UTF-8 encoding of a single code point (1..4 bytes).
         static std::string EncodeUtf8(char32_t ch);

@@ -12,6 +12,7 @@
 #include <optional>
 #include <vector>
 
+#include "gansi/Capabilities.h"
 #include "gansi/CellGrid.h"
 #include "gansi/Event.h"
 #include "gansi/ITerminalIO.h"
@@ -22,7 +23,13 @@ namespace gnilk::ansi {
 
     class Terminal {
     public:
+        // Full-capability terminal (modern defaults). The single-arg form keeps existing callers/tests
+        // emitting the complete enable set.
         explicit Terminal(std::unique_ptr<ITerminalIO> io);
+        // Capability-gated terminal: Open() only emits sequences the profile marks supported, and the
+        // encoder degrades truecolor -> xterm-256 when the profile lacks 24-bit colour. The editor
+        // backend builds this with Capabilities::Detect().
+        Terminal(std::unique_ptr<ITerminalIO> io, Capabilities caps);
         ~Terminal();
 
         // Enter raw mode + alt-screen, enable capabilities, size the grids to the current terminal.
@@ -71,6 +78,7 @@ namespace gnilk::ansi {
 
     private:
         std::unique_ptr<ITerminalIO> io;
+        Capabilities caps;
         CellGrid front;
         CellGrid back;
         CellGrid snapshot;      // saved back buffer for modal overlays

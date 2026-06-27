@@ -24,6 +24,8 @@ DLL_EXPORT int test_terminal_resize_repaint(ITesting *t);
 DLL_EXPORT int test_terminal_clipboard(ITesting *t);
 DLL_EXPORT int test_terminal_snapshot(ITesting *t);
 DLL_EXPORT int test_terminal_cursor_shape_coalesce(ITesting *t);
+DLL_EXPORT int test_terminal_open_caps_gated(ITesting *t);
+DLL_EXPORT int test_terminal_clipboard_gated(ITesting *t);
 }
 
 static bool Contains(const std::string &hay, const std::string &needle) {
@@ -189,6 +191,58 @@ DLL_EXPORT int test_terminal_snapshot(ITesting *t) {
     term.RestoreSnapshot();
     TR_ASSERT(t, term.At(0, 0).ch == U'X');
     TR_ASSERT(t, term.At(3, 1).ch == U' ');
+    return kTR_Pass;
+}
+
+// A reduced-capability profile (Apple_Terminal: bracketed paste only) must NOT emit Kitty keyboard,
+// focus or mouse enables on Open — those are exactly the sequences a terminal mis-handles as a stray
+// glyph. Alt-screen and bracketed paste still go out.
+DLL_EXPORT int test_terminal_open_caps_gated(ITesting *t) {
+    Capabilities caps;
+    caps.kittyKeyboard = false;
+    caps.focusReporting = false;
+    caps.sgrMouse = false;
+    caps.osc52Clipboard = false;
+    caps.truecolor = false;
+    // bracketedPaste stays true.
+
+    auto mock = std::make_unique<MockTerminalIO>();
+    MockTerminalIO *raw = mock.get();
+    raw->SetSize(80, 24);
+    Terminal term(std::move(mock), caps);
+    TR_ASSERT(t, term.Open());
+
+    const std::string &w = raw->Written();
+    TR_ASSERT(t, Contains(w, "\x1b[?1049h"));    // alt screen — always
+    TR_ASSERT(t, Contains(w, "\x1b[?2004h"));    // bracketed paste — supported
+    TR_ASSERT(t, !Contains(w, "\x1b[>1u"));       // NO kitty keyboard
+    TR_ASSERT(t, !Contains(w, "\x1b[?1004h"));   // NO focus reporting
+    TR_ASSERT(t, !Contains(w, "\x1b[?1006h"));   // NO SGR mouse
+    TR_ASSERT(t, !Contains(w, "\x1b[?1000h"));   // NO mouse tracking at all
+
+    // Close mirrors it: only the disables for what was enabled.
+    raw->ClearWritten();
+    term.Close();
+    const std::string &c = raw->Written();
+    TR_ASSERT(t, Contains(c, "\x1b[?1049l"));    // leave alt screen
+    TR_ASSERT(t, Contains(c, "\x1b[?2004l"));    // disable bracketed paste
+    TR_ASSERT(t, !Contains(c, "\x1b[<u"));        // NO kitty pop
+    TR_ASSERT(t, !Contains(c, "\x1b[?1006l"));   // NO mouse disable
+    return kTR_Pass;
+}
+
+// With OSC 52 unsupported, SetClipboard is a silent no-op (nothing reaches the wire).
+DLL_EXPORT int test_terminal_clipboard_gated(ITesting *t) {
+    Capabilities caps;
+    caps.osc52Clipboard = false;
+
+    auto mock = std::make_unique<MockTerminalIO>();
+    MockTerminalIO *raw = mock.get();
+    Terminal term(std::move(mock), caps);
+    term.Open();
+    raw->ClearWritten();
+    term.SetClipboard("hi");
+    TR_ASSERT(t, raw->Written().empty());
     return kTR_Pass;
 }
 

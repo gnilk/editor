@@ -401,10 +401,14 @@ or real TTY wiring** — write the discriminating tests first.
 
 ## 9. Terminal compatibility matrix
 
-The backend targets *modern* terminals and **sends** sequences (no terminfo query); it degrades by
-feature, not by terminal. Tiers below describe what each gives. Truecolor SGR + SGR mouse (1006) +
-alt-screen + bracketed paste are broadly supported; the differentiators are the **Kitty keyboard
-protocol** (unambiguous modifiers / Shift-Arrow / Alt-nav) and **OSC 52** (clipboard, esp. over SSH).
+The backend targets *modern* terminals. It does **capability detection from the environment** at
+startup (`gnilk::ansi::Capabilities::Detect` — reads `TERM`, `TERM_PROGRAM`, `COLORTERM`) and then only
+emits sequences the terminal supports; the encoder degrades truecolor → xterm-256 when 24-bit colour
+isn't advertised. This matters because emitting an *unsupported* enable (notably the Kitty keyboard
+`CSI > 1 u`) on a terminal that can't parse it leaves a **stray glyph** on screen and/or mis-parses
+input. Tiers below describe what each terminal gives. Truecolor SGR + SGR mouse (1006) + alt-screen +
+bracketed paste are broadly supported; the differentiators are the **Kitty keyboard protocol**
+(unambiguous modifiers / Shift-Arrow / Alt-nav) and **OSC 52** (clipboard, esp. over SSH).
 
 | Terminal | Truecolor | SGR mouse | Bracketed paste | Kitty keyboard | OSC 52 | Notes |
 |---|---|---|---|---|---|---|
@@ -415,12 +419,20 @@ protocol** (unambiguous modifiers / Shift-Arrow / Alt-nav) and **OSC 52** (clipb
 | **iTerm2** (macOS) | ✅ | ✅ | ✅ | ⚠️ partial | ✅ (allow in prefs) | Falls back to `modifyOtherKeys`/legacy modifiers. |
 | **Alacritty** | ✅ | ✅ | ✅ | ⚠️ partial | ✅ | Kitty support is version-dependent. |
 | **Windows Terminal** | ✅ | ✅ | ✅ | ⚠️ growing | ⚠️ | Not built/tested yet (no `WindowsTerminalIO`); listed as a target. |
-| **Terminal.app** (macOS) | ⚠️ 256-ish | ⚠️ limited | ⚠️ | ❌ | ❌ | Weakest tier; usable but degraded — prefer iTerm2/kitty/Ghostty. |
+| **Terminal.app** (macOS) | ⬇️ 256-color | ❌ off | ✅ | ❌ off | ❌ off | Detected via `TERM_PROGRAM=Apple_Terminal` → Kitty/focus/SGR-mouse/OSC 52 **gated off**, 256-color fallback. Renders cleanly (no stray glyph); mouse/clipboard unavailable. Modifiers (Option) need the terminal's "Use Option as Meta key" pref. |
 | **tmux / screen** | ✅* | ✅* | ✅* | ⚠️* | ⚠️* | *Needs passthrough/`allow-passthrough`; OSC 52 needs `set-clipboard on`; Kitty flags may be filtered. |
 
-Degradation paths already in the code: Kitty unsupported → keys still arrive via legacy CSI/SS3 +
-xterm modifier params (`modifyOtherKeys` builder available); OSC 52 refused → the internal clipboard
-still works locally (paste-in via bracketed paste is independent). Nesting (the embedded forkpty
-`TerminalView` inside an editor that itself runs in a terminal) is a pty-in-a-pty and is expected to
-work; it's on the manual smoke-test list.
+Degradation paths already in the code (`Terminal::Open/Close/Flush/SetClipboard` gate on the detected
+`Capabilities`): non-truecolor → encoder emits `38;5;n`/`48;5;n` via `AnsiEncoder::Rgb256` (nearest of
+the 6×6×6 cube and the grayscale ramp); Kitty unsupported → not enabled, keys still arrive via legacy
+CSI/SS3 + xterm modifier params (`modifyOtherKeys` builder available); SGR-mouse unsupported → mouse
+left disabled entirely (the parser only speaks SGR); OSC 52 unsupported → `SetClipboard` is a silent
+no-op, the internal clipboard still works locally (paste-in via bracketed paste is independent).
+Detection is env-heuristic for now; a runtime DA/XTVERSION query is a possible future refinement.
+Nesting (the embedded forkpty `TerminalView` inside an editor that itself runs in a terminal) is a
+pty-in-a-pty and is expected to work; it's on the manual smoke-test list.
+
+**Verified end-to-end** (pty harness, `--backend ansi`): with `TERM_PROGRAM=Apple_Terminal` the startup
+stream contains alt-screen + bracketed paste + `38;5;` (256-color) and **none** of `>1u` / `?1004h` /
+`?1006h` / `?1000h` / `38;2;`; with `TERM_PROGRAM=ghostty COLORTERM=truecolor` all of those are present.
 ```

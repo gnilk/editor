@@ -65,6 +65,21 @@ list(APPEND duktape ${DUKTAPE_EXTRAS}/module-node/duk_module_node.c)
 # Fetch / configure source dependencies and locate trun testrunner headers
 include(cmake/CMakeDeps.cmake)
 
+# ---------------------------------------------------------------------------
+# gansi — modern-terminal (ANSI/VT) backend library. Standalone unit with its
+# own CMake + tests; pulled in via add_subdirectory (never by listing sources).
+# Coexists with SDL (NOT the SDL2-XOR-SDL3 split) — default ON.
+# ---------------------------------------------------------------------------
+option(GEDIT_BUILD_ANSI "Build the ANSI/TTY (gansi) backend" ON)
+if (GEDIT_BUILD_ANSI)
+    # The editor build does not need the gansi test shared lib as part of `all`;
+    # it builds on demand (target gansitests). Keep it configured though, so trun
+    # can find libgansitests next to libutests in the build tree.
+    add_subdirectory(src/ext/gansi)
+    list(APPEND extlibs gansi)
+    add_definitions(-DGEDIT_USE_ANSI)
+endif()
+
 set(CUR_TARGET goatedit)
 
 if (APPLE)

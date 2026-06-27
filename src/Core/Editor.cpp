@@ -34,10 +34,6 @@
 #include "Core/Editor/Views/TerminalView.h"
 
 
-// NCurses backend - Removed
-// #include "Core/Graphics/NCurses/NCursesScreen.h"
-// #include "Core/Graphics/NCurses/NCursesKeyboardDriver.h"
-
 // SDL3 backend
 #ifdef GEDIT_USE_SDL3
 #include "Core/Graphics/SDL3/SDLScreen.h"
@@ -332,7 +328,7 @@ void Editor::PrintHelpToConsole() {
     printf("Options:\n");
     printf("  --console-logging, enables console logging to console, this is needed to get pre-initalization logging (before config has been loaded)\n");
     printf("  --skip-user-config, won't load user specific config (starts with defaults)\n");
-    printf("  --backend <sdl | headless>, override the configuration file backend\n");
+    printf("  --backend <sdl | ansi | headless>, override the configuration file backend\n");
 }
 
 
@@ -756,6 +752,9 @@ static std::vector<std::string> glbSupportedBackends = {
 #if defined(GEDIT_USE_SDL3) || defined(GEDIT_USE_SDL2)
         {"sdl"},
 #endif
+#if defined(GEDIT_USE_ANSI)
+        {"ansi"},
+#endif
     {"headless"}
 };
 
@@ -789,9 +788,18 @@ void Editor::ConfigureSubSystems() {
     }
 #endif
 
-    if (isTerminal && !enforceSDL) {
-        logger->Error("Terminal session without enforced SDL — NCurses backend discontinued, exiting!");
+    // A terminal session is only valid with the ANSI backend (the SDL/desktop backends need a
+    // windowing environment). Anything else in a TTY (and not started from the desktop UI) exits.
+    if (isTerminal && !enforceSDL && backend != "ansi") {
+        logger->Error("Terminal session requires the 'ansi' backend (got '%s'), exiting!", backend.c_str());
+        fprintf(stderr, "Terminal session requires the 'ansi' backend (got '%s')\n", backend.c_str());
         exit(1);
+    }
+
+    if (backend == "ansi" && !enforceSDL) {
+        logger->Debug("Starting ANSI (gansi) backend");
+        SetupAnsi();
+        return;
     }
 
     if (backend == "sdl" || enforceSDL) {
@@ -822,15 +830,16 @@ void Editor::ConfigureSubSystems() {
     exit(1);
 }
 
-void Editor::SetupNCurses() {
-
-    // auto screenDriver = NCursesScreen::Create();
-    // auto kbDriver = NCursesKeyboardDriver::Create();
-    // RuntimeConfig::Instance().SetKeyboard(kbDriver);
-    // RuntimeConfig::Instance().SetScreen(screenDriver);
-    //
-    // screenDriver->Open();
-    // screenDriver->Clear();
+// ANSI / modern-TTY backend (gansi). Stub for now — Phase 3/4 wires GansiScreen + GansiKeyboardDriver.
+void Editor::SetupAnsi() {
+#ifdef GEDIT_USE_ANSI
+    logger->Error("ANSI backend not yet wired (stub)");
+    fprintf(stderr, "ANSI backend not yet implemented\n");
+    exit(1);
+#else
+    logger->Error("ANSI backend not compiled in!");
+    exit(1);
+#endif
 }
 
 // Glue between the session (app) and the graphics backend: the backend never references SessionManager,

@@ -195,10 +195,10 @@ namespace gedit {
         void PrintHelpToConsole();
 
         // TEMP - backend configuration
-        void SetupNCurses();
         void SetupSDL2();
         void SetupSDL3();
         void SetupHeadless();
+        void SetupAnsi();
         // Glue: feed the screen its startup geometry from the session and register the write-back/autosave
         // callback. Keeps the graphics backend free of any SessionManager dependency (data flows through
         // plain setters/callbacks). Called before the backend's Open().

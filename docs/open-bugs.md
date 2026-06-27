@@ -110,3 +110,10 @@ tokenizer's longest-match / boundary logic at operator↔identifier transitions.
 **What's Wrong:** When running certain apps (in this case `npm update` on a project) the color output is missing
 **Reproduce:** Initiate a project with npm (use older versions of some library) then do an update
 There are possibly other applications also not working but this is one I found
+
+## 10. 'GansiDrawContext does not respect fg/bg colors when drawing overlays'
+**Where:** GansiDrawContext::DrawLineOverlays
+**What's Wrong:** The color settings for overlays are defined at the application level and should be respected
+for the overlays. See the SDL2/SDL3 drawing logic.
+**Reproduce:** Mark/Select text - overlays are inverted not properly marked
+

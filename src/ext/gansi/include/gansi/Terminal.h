@@ -42,6 +42,15 @@ namespace gnilk::ansi {
         Cell &At(int col, int row) { return back.At(col, row); }
         void Clear(Color bg = kDefaultBg) { back.Clear(bg); }
 
+        // Back buffer access (the backend's DrawContext composites into it).
+        CellGrid &BackBuffer() { return back; }
+        const CellGrid &BackBuffer() const { return back; }
+
+        // Modal snapshot: save the current back buffer, then restore it later (CopyToTexture /
+        // ClearWithTexture in the backend). Cheap whole-grid copy.
+        void SaveSnapshot() { snapshot.CopyFrom(back); }
+        void RestoreSnapshot() { back.CopyFrom(snapshot); }
+
         // Diff back vs front -> minimal ANSI -> Write; position the hardware cursor; front <- back.
         void Flush();
 
@@ -64,6 +73,7 @@ namespace gnilk::ansi {
         std::unique_ptr<ITerminalIO> io;
         CellGrid front;
         CellGrid back;
+        CellGrid snapshot;      // saved back buffer for modal overlays
         InputParser parser;
         std::deque<Event> eventQueue;
 

@@ -8,7 +8,7 @@
 #include <string>
 
 #include "gansi/Terminal.h"
-#include "MockTerminalIO.h"
+#include "gansi/MockTerminalIO.h"
 
 using namespace gnilk::ansi;
 
@@ -22,6 +22,7 @@ DLL_EXPORT int test_terminal_poll_resize(ITesting *t);
 DLL_EXPORT int test_terminal_poll_timeout(ITesting *t);
 DLL_EXPORT int test_terminal_resize_repaint(ITesting *t);
 DLL_EXPORT int test_terminal_clipboard(ITesting *t);
+DLL_EXPORT int test_terminal_snapshot(ITesting *t);
 }
 
 static bool Contains(const std::string &hay, const std::string &needle) {
@@ -168,5 +169,24 @@ DLL_EXPORT int test_terminal_clipboard(ITesting *t) {
     raw->ClearWritten();
     term.SetClipboard("hi");
     TR_ASSERT(t, raw->Written() == std::string("\x1b]52;c;aGk=\x1b\\"));
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_terminal_snapshot(ITesting *t) {
+    auto mock = std::make_unique<MockTerminalIO>();
+    mock->SetSize(5, 2);
+    Terminal term(std::move(mock));
+    term.Open();
+    term.Clear({0, 0, 0});
+    term.At(0, 0) = RedX();
+    term.SaveSnapshot();
+
+    // Scribble over the back buffer (as a modal would), then restore.
+    term.At(0, 0).ch = U'M';
+    term.At(3, 1).ch = U'M';
+    TR_ASSERT(t, term.At(0, 0).ch == U'M');
+    term.RestoreSnapshot();
+    TR_ASSERT(t, term.At(0, 0).ch == U'X');
+    TR_ASSERT(t, term.At(3, 1).ch == U' ');
     return kTR_Pass;
 }

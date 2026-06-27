@@ -1,10 +1,11 @@
 //
-// MockTerminalIO — in-memory ITerminalIO for headless tests. Scripted input bytes feed Read()
-// (optionally chunked to simulate sequences split across reads); Write() captures all output;
-// resize + size are scripted directly.
+// MockTerminalIO — in-memory ITerminalIO test double (a public header so the editor's own backend
+// tests can drive gansi headlessly too, not just the library's tests). Scripted input bytes feed
+// Read() (optionally chunked to simulate sequences split across reads); Write() captures all output;
+// resize + size are scripted directly. Not used in production paths.
 //
-#ifndef GANSI_TEST_MOCKTERMINALIO_H
-#define GANSI_TEST_MOCKTERMINALIO_H
+#ifndef GANSI_MOCKTERMINALIO_H
+#define GANSI_MOCKTERMINALIO_H
 
 #include <algorithm>
 #include <cstring>

@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <string>
 
-#include "MockTerminalIO.h"
+#include "gansi/MockTerminalIO.h"
 
 using namespace gnilk::ansi;
 

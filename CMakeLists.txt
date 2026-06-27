@@ -445,6 +445,18 @@ elseif (GEDIT_BUILD_SDL2)
     add_definitions(-DGEDIT_USE_SDL2)
 endif()
 
+# ---------------------------------------------------------------------------
+# graphics_gansisrc — ANSI/TTY (gansi) backend. Coexists with SDL (not XOR), so these compile into
+# both goatedit and utests whenever GEDIT_BUILD_ANSI is ON. Links the `gansi` library (added above).
+# ---------------------------------------------------------------------------
+if (GEDIT_BUILD_ANSI)
+    list(APPEND graphics_gansisrc src/Core/Graphics/Gansi/GansiScreen.cpp src/Core/Graphics/Gansi/GansiScreen.h)
+    list(APPEND graphics_gansisrc src/Core/Graphics/Gansi/GansiWindow.cpp src/Core/Graphics/Gansi/GansiWindow.h)
+    list(APPEND graphics_gansisrc src/Core/Graphics/Gansi/GansiDrawContext.cpp src/Core/Graphics/Gansi/GansiDrawContext.h)
+    list(APPEND graphics_gansisrc src/Core/Graphics/Gansi/GansiKeyboardDriver.cpp src/Core/Graphics/Gansi/GansiKeyboardDriver.h)
+    list(APPEND graphics_gansisrc src/Core/Graphics/Gansi/GansiTranslate.h)
+endif()
+
 
 # append configuration stuff - these are copied with custom command
 
@@ -458,7 +470,7 @@ list(APPEND includedirs ${DUKTAPE_HOME})
 list(APPEND includedirs ${DUKTAPE_EXTRAS}/module-node)
 
 
-target_sources(${CUR_TARGET} PUBLIC ${coresrc} ${uisrc} ${editorsrc} ${platformsrc} ${graphics_sdlsrc} ${jsapi} ${duktape})
+target_sources(${CUR_TARGET} PUBLIC ${coresrc} ${uisrc} ${editorsrc} ${platformsrc} ${graphics_sdlsrc} ${graphics_gansisrc} ${jsapi} ${duktape})
 target_include_directories(${CUR_TARGET} PUBLIC ${includedirs})
 target_link_libraries(${CUR_TARGET} ${extlibs})
 
@@ -502,10 +514,13 @@ list(APPEND utestsrc utests/test_treeview.cpp)
 list(APPEND utestsrc utests/test_mouseclicktracker.cpp)
 list(APPEND utestsrc utests/test_session.cpp)
 list(APPEND utestsrc utests/test_xgdenv.cpp)
+if (GEDIT_BUILD_ANSI)
+    list(APPEND utestsrc utests/test_gansibackend.cpp)
+endif()
 
 
 
-add_library(utests SHARED ${coresrc} ${uisrc} ${editorsrc} ${platformsrc} ${graphics_sdlsrc} ${jsapi} ${duktape} ${utestsrc})
+add_library(utests SHARED ${coresrc} ${uisrc} ${editorsrc} ${platformsrc} ${graphics_sdlsrc} ${graphics_gansisrc} ${jsapi} ${duktape} ${utestsrc})
 target_compile_options(utests PUBLIC -fPIC -D TRUN_USE_V1)
 target_include_directories(utests PUBLIC ${includedirs} ${CMAKE_BINARY_DIR}/generated)
 target_include_directories(utests SYSTEM PUBLIC ${DUKGLUE_HOME}/include)

@@ -45,6 +45,11 @@
 #include "Core/Graphics/SDL2/SDLKeyboardDriver.h"
 #endif
 
+#ifdef GEDIT_USE_ANSI
+#include "Core/Graphics/Gansi/GansiScreen.h"
+#include "Core/Graphics/Gansi/GansiKeyboardDriver.h"
+#endif
+
 #include <sys/stat.h>
 #include <wordexp.h>
 #include <unistd.h>
@@ -830,12 +835,29 @@ void Editor::ConfigureSubSystems() {
     exit(1);
 }
 
-// ANSI / modern-TTY backend (gansi). Stub for now — Phase 3/4 wires GansiScreen + GansiKeyboardDriver.
+// ANSI / modern-TTY backend (gansi). Renders to the controlling terminal via the gansi library.
 void Editor::SetupAnsi() {
 #ifdef GEDIT_USE_ANSI
-    logger->Error("ANSI backend not yet wired (stub)");
-    fprintf(stderr, "ANSI backend not yet implemented\n");
-    exit(1);
+    auto screenDriver = Gansi::GansiScreen::Create();
+    RuntimeConfig::Instance().SetScreen(screenDriver);
+    UIHost::Instance().SetScreen(screenDriver);
+    // No WireScreenGeometry: a TTY owns its own size (the terminal emulator), there is no window
+    // geometry to restore/persist.
+    if (!screenDriver->Open()) {
+        logger->Error("Failed to open ANSI backend (no controlling terminal?)");
+        fprintf(stderr, "Failed to open ANSI backend (no controlling terminal?)\n");
+        exit(1);
+    }
+    screenDriver->Clear();
+
+    auto keyDriver = Gansi::GansiKeyboardDriver::Create();
+    if (keyDriver == nullptr) {
+        logger->Error("Failed to initialize ANSI keyboard driver!");
+        fprintf(stderr, "Failed to initialize ANSI keyboard driver!\n");
+        exit(1);
+    }
+    keyDriver->Initialize();
+    RuntimeConfig::Instance().SetKeyboard(keyDriver);
 #else
     logger->Error("ANSI backend not compiled in!");
     exit(1);

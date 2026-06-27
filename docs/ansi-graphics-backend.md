@@ -416,7 +416,7 @@ bracketed paste are broadly supported; the differentiators are the **Kitty keybo
 | **Ghostty** | ✅ | ✅ | ✅ | ✅ | ✅ | Modern, full support. |
 | **foot** (Wayland) | ✅ | ✅ | ✅ | ✅ | ✅ | Full support. |
 | **WezTerm** | ✅ | ✅ | ✅ | ✅ | ✅ | OSC 52 may need a config opt-in. |
-| **iTerm2** (macOS) | ✅ | ✅ | ✅ | ⚠️ partial | ✅ (allow in prefs) | Falls back to `modifyOtherKeys`/legacy modifiers. |
+| **iTerm2** (macOS) | ✅ | ✅ | ✅ | ⚠️ version-dependent | ✅ (allow in prefs) | CSI-u keyboard only in 3.5+. Older/disabled → **strips modifiers on arrows** (Shift+↑ arrives as bare `\033[A`, identical to ↑), so Shift-selection silently does nothing. See "Keyboard modifier reporting" below. |
 | **Alacritty** | ✅ | ✅ | ✅ | ⚠️ partial | ✅ | Kitty support is version-dependent. |
 | **Windows Terminal** | ✅ | ✅ | ✅ | ⚠️ growing | ⚠️ | Not built/tested yet (no `WindowsTerminalIO`); listed as a target. |
 | **Terminal.app** (macOS) | ⬇️ 256-color | ❌ off | ✅ | ❌ off | ❌ off | Detected via `TERM_PROGRAM=Apple_Terminal` → Kitty/focus/SGR-mouse/OSC 52 **gated off**, 256-color fallback. Renders cleanly (no stray glyph); mouse/clipboard unavailable. Modifiers (Option) need the terminal's "Use Option as Meta key" pref. |
@@ -435,4 +435,34 @@ pty-in-a-pty and is expected to work; it's on the manual smoke-test list.
 **Verified end-to-end** (pty harness, `--backend ansi`): with `TERM_PROGRAM=Apple_Terminal` the startup
 stream contains alt-screen + bracketed paste + `38;5;` (256-color) and **none** of `>1u` / `?1004h` /
 `?1006h` / `?1000h` / `38;2;`; with `TERM_PROGRAM=ghostty COLORTERM=truecolor` all of those are present.
-```
+
+### Keyboard modifier reporting (the hard limit — and why we don't fight it)
+
+A TTY app only ever sees the **bytes the terminal chooses to send**. There is *no* side channel and no
+ioctl for "is Shift down right now" — the modifier exists for us only if the terminal encodes it into
+the input stream. Modern terminals do (xterm modifier params, or the Kitty protocol we enable with
+`CSI > 1 u`); some don't, and **we cannot recover what was never transmitted.**
+
+Two concrete, confirmed cases on macOS, both *terminal-side*, not editor bugs:
+
+- **iTerm2 (Kitty off / pre-3.5): Shift+Arrow drops the modifier.** Captured with `sed -n l`:
+  Ghostty sends `\033[1;2A` for Shift+↑ (the `;2` = Shift → our `InputParser` yields `{Up, Shift}` →
+  `Document::OnAction` sees `actionModifier==Selection` → `BeginSelection`); **iTerm sends bare
+  `\033[A`**, byte-identical to a plain ↑. No Shift reaches us, so Shift-selection silently no-ops.
+  Fix is **iTerm-side**: update to 3.5+ / enable its CSI-u reporting, after which Shift+Arrow arrives
+  and selection works with no editor change. The whole `KeyPress → action → selection` chain is shared
+  with the SDL backend and is *proven correct by Ghostty*, where it works through the identical code.
+- **Terminal.app: Option composes to a glyph** (`Option+t`→`†`, `Option+s`→`ß`, …) instead of arriving
+  as Alt — see the matrix row. Same root cause: the modifier is consumed by the terminal and only a
+  composed character byte is sent.
+
+**Rejected approach — low-level OS keyboard interception (do not re-attempt without new information).**
+The tempting "fix" is to grab the physical keystrokes *below* the terminal — a macOS `CGEventTap` /
+IOKit HID hook (cf. the untracked `tests/MacOSKeyMonCGEvents.{cpp,h}`, `macOS/MacOSKBEmulator`) — read
+the real modifier state there and splice synthetic Shift+Arrow events back into the editor's input
+queue. This was tried and **abandoned**: it never worked reliably, it forces the editor to run under the
+**Accessibility / Input-Monitoring** permission layer (a gatekeeper prompt + a fragile entitlement for
+what is supposed to be a plain terminal program), and it fights the OS event pipeline instead of using
+it. The correct boundary is the terminal's own keyboard protocol — if the terminal won't report the
+modifier, that's a terminal configuration/version matter for the user, not something the editor should
+reach under the OS to forge.

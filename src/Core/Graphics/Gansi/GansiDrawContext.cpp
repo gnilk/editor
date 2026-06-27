@@ -74,13 +74,24 @@ void GansiDrawContext::DrawLineOverlays(int y) const {
     if (terminal == nullptr) {
         return;
     }
-    // The overlay color is the application-set foreground: LineRender sets it to the theme's
-    // (semi-transparent) 'selection' color immediately before this call. A cell grid has no alpha
-    // compositing, so mirror the SDL backend's translucent FillRect by alpha-blending that color
-    // into each covered cell's fg AND bg. Shifting both equally preserves the glyph contrast, so
-    // the text stays legible under the highlight.
-    const float a = fgColor.A();
+
+    // The overlay color is the application-set foreground: LineRender points it at the theme's
+    // 'selection' color immediately before this call. A cell grid can't alpha-composite, so we
+    // highlight by blending that color into each covered cell's BACKGROUND only — the glyph and its
+    // fg are left intact so the text stays readable.
+    //
+    // NOTE: theme alphas are stored 0..255 (e.g. `alpha(224)`), NOT normalized 0..1 — see
+    // SublimeConfigColorScript::ExecuteAlpha. Using the raw value as a blend factor overflows the
+    // uint8 cast below (the `c * (1 - a)` term goes hugely negative and wraps), which is what turned
+    // the selection green. Normalize first; a color that already uses a 0..1 alpha is left as-is.
+    float a = fgColor.A();
+    if (a > 1.0f) {
+        a /= 255.0f;
+    }
+    // Invert for now - this gives better results - but we should get this under control
+    a = 1.0 - a;
     const gnilk::ansi::Color ovl = ToAnsiColor(fgColor);
+
     auto blend = [a, &ovl](const gnilk::ansi::Color &c) -> gnilk::ansi::Color {
         return {
             static_cast<uint8_t>(c.r * (1.0f - a) + ovl.r * a),
@@ -88,6 +99,7 @@ void GansiDrawContext::DrawLineOverlays(int y) const {
             static_cast<uint8_t>(c.b * (1.0f - a) + ovl.b * a),
         };
     };
+
     for (auto &overlay : overlays) {
         if (!overlay.isActive || !overlay.IsLinePartiallyCovered(y)) {
             continue;
@@ -110,7 +122,6 @@ void GansiDrawContext::DrawLineOverlays(int y) const {
                 continue;
             }
             gnilk::ansi::Cell &cell = terminal->At(absCol, absRow);
-            cell.fg = blend(cell.fg);
             cell.bg = blend(cell.bg);
         }
     }

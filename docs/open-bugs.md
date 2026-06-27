@@ -116,7 +116,48 @@ There are possibly other applications also not working but this is one I found
 **What was wrong:** the cell-grid overlay path did a plain video-invert (`std::swap(cell.fg, cell.bg)`)
 and ignored the application-set overlay color. `LineRender::DrawLines` points `fgColor` at the theme
 `selection` color right before calling `DrawLineOverlays`, exactly as the SDL backends rely on.
-**Fix:** mirror SDL's translucent `FillRect` — alpha-blend the overlay color (`fgColor`, alpha
-included) into each covered cell's fg AND bg, preserving glyph contrast on a grid with no compositing.
-Covered by `test_gansibackend_overlay`.
+**Fix:** highlight by blending the overlay color (`fgColor`) into each covered cell's BACKGROUND only
+— glyph + its fg left intact so text stays readable on a grid with no alpha compositing. Covered by
+`test_gansibackend_overlay`. **Caveat:** the blend carries two stopgaps — `if (a > 1) a /= 255`
+(theme alphas are stored 0..255, not 0..1) and `a = 1.0 - a` ("invert for now", to match SDL's
+faintness) — both tracked under bug 11 below; drop them together once 11 is fixed.
+
+---
+
+## 11. Theme/color alpha is stored 0..255, not normalized 0..1
+
+**Where:** `src/Core/Sublime/SublimeConfigColorScript.cpp`, `ExecuteAlpha` —
+`col.SetAlpha(args[0].Number())` stores the raw argument. `alpha(224)` (used by the content
+`selection` color, `color(var(orange), var(selection_alpha))`) therefore yields `ColorRGBA::a = 224.0`,
+even though `a` is treated as a 0..1 fraction everywhere else (the existence of
+`ColorRGBA::AlphaAsInt()` = `a * 255` shows 0..1 was the intent).
+
+**What's wrong / blast radius:** every consumer that reads alpha assumes 0..1:
+- `ColorRGBA::AlphaAsInt()` returns `a * 255` → correct for a 0..1 alpha, but `224 * 255 = 57120` for
+  the stored value.
+- SDL `SDLColor` (SDL2 + SDL3) feeds `AlphaAsInt()` into `SDL_SetRenderDrawColor` — only "works"
+  because 57120 wraps to a Uint8 of 32 (a faint tint). Accidental, not intentional.
+- The Gansi overlay blend (bug 10) overflowed its `uint8` cast and rendered the selection **green**;
+  it carries a local `if (a > 1) a /= 255` workaround as a result.
+
+**Compounding (visual tuning, not just magnitude):** the theme alpha *values* look authored against
+SDL's accidental faint render — `alpha(224)` reaches SDL as a Uint8 of 32 (≈ 0.12), not 0.88. To make
+the ANSI selection match that faintness, `GansiDrawContext::DrawLineOverlays` carries a *second*
+stopgap, `a = 1.0 - a` ("invert for now"), which turns the normalized 0.88 back into ≈ 0.12. So the
+proper fix is not only "normalize at parse": once `a` means 0..1, the theme's alpha values almost
+certainly need re-tuning (e.g. `alpha(224)` → ~`alpha(32)`), after which BOTH the `a > 1` guard AND the
+`1.0 - a` invert in the Gansi blend should come out together.
+
+**Why deferred:** the parser change itself is a one-liner (`SetAlpha(n / 255.0f)`, and audit the
+`*`-alpha multiply in `ExecuteColor`), but it shifts the meaning of `ColorRGBA::a` for ALL consumers at
+once — both SDL backends' `SDLColor::AlphaAsInt`, the JS/theme color APIs, any `FromRGBA(int…)` path
+(already divides by 255), etc. Needs a coordinated sweep with a per-backend re-verify, so it's its own
+branch.
+
+**When fixing:** normalize at parse, then (a) drop the `a > 1` guard in
+`GansiDrawContext::DrawLineOverlays` (bug 10), and (b) re-verify `SDLColor::AlphaAsInt` — the `* 255`
+becomes genuinely correct once `a` is 0..1, but confirm nothing else relied on the wrap.
+
+**Discovered:** 2026-06-27, while fixing the Gansi overlay color (bug 10) — the green selection traced
+straight back to `fgColor.A()` returning 224.
 

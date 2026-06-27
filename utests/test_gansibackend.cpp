@@ -136,8 +136,11 @@ DLL_EXPORT int test_gansibackend_overlay(ITesting *t) {
     dc.DrawStringAt(0, 0, std::u32string(U"ABC"));
 
     // The overlay color is the application-set foreground (LineRender points it at the theme
-    // 'selection' color before drawing overlays). Use a half-transparent red so the blend is exact.
-    dc.SetFGColor(ColorRGBA::FromRGBA(1.0f, 0.0f, 0.0f, 0.5f));
+    // 'selection' color before drawing overlays). Use a clean 50% alpha: a symmetric 50/50 mix pins
+    // the DURABLE properties (bg-only, blended toward the selection color) without depending on the
+    // in-flux handling of out-of-range theme alphas (the >1 normalize + temporary invert — bug 11),
+    // both of which are no-ops at exactly 0.5.
+    dc.SetFGColor(ColorRGBA::FromRGBA(0.0f, 0.0f, 1.0f, 0.5f));   // blue, 50% alpha
 
     DrawContext::Overlay ov;
     ov.isActive = true;
@@ -145,12 +148,12 @@ DLL_EXPORT int test_gansibackend_overlay(ITesting *t) {
     dc.AddOverlay(ov);
     dc.DrawLineOverlays(0);
 
-    // Covered cells: the overlay color is alpha-blended into BOTH fg and bg (not a plain swap),
-    // glyph preserved. fg {0,0,0} -> {127,0,0}; bg {255,255,255} -> {255,127,127}.
+    // Covered cells: the selection color is blended into the BACKGROUND only; the glyph and its fg
+    // are left intact. bg {255,255,255} mixed 50/50 with blue -> {127,127,255}; fg stays {0,0,0}.
     auto &covered = grid->At(5, 2);
     TR_ASSERT(t, covered.ch == U'A');
-    TR_ASSERT(t, (covered.fg == gnilk::ansi::Color{127, 0, 0}));
-    TR_ASSERT(t, (covered.bg == gnilk::ansi::Color{255, 127, 127}));
+    TR_ASSERT(t, (covered.fg == gnilk::ansi::Color{0, 0, 0}));
+    TR_ASSERT(t, (covered.bg == gnilk::ansi::Color{127, 127, 255}));
 
     // Uncovered cell ('C' at local col 2) is left untouched.
     auto &uncovered = grid->At(7, 2);

@@ -131,8 +131,13 @@ DLL_EXPORT int test_gansibackend_overlay(ITesting *t) {
     auto *grid = screen->GetTerminal();
     auto *win = screen->CreateWindow(gedit::Rect(gedit::Point(5, 2), 10, 4), WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
     auto &dc = win->GetContentDC();
-    dc.SetColor(ColorRGBA::FromRGB(200, 200, 200), ColorRGBA::FromRGB(0, 0, 0));
-    dc.DrawStringAt(0, 0, std::u32string(U"AB"));
+    // Black-on-white text...
+    dc.SetColor(ColorRGBA::FromRGB(0, 0, 0), ColorRGBA::FromRGB(255, 255, 255));
+    dc.DrawStringAt(0, 0, std::u32string(U"ABC"));
+
+    // The overlay color is the application-set foreground (LineRender points it at the theme
+    // 'selection' color before drawing overlays). Use a half-transparent red so the blend is exact.
+    dc.SetFGColor(ColorRGBA::FromRGBA(1.0f, 0.0f, 0.0f, 0.5f));
 
     DrawContext::Overlay ov;
     ov.isActive = true;
@@ -140,11 +145,18 @@ DLL_EXPORT int test_gansibackend_overlay(ITesting *t) {
     dc.AddOverlay(ov);
     dc.DrawLineOverlays(0);
 
-    // Covered cells: fg/bg swapped (inverse highlight), glyph preserved.
-    auto &cell = grid->At(5, 2);
-    TR_ASSERT(t, cell.ch == U'A');
-    TR_ASSERT(t, (cell.fg == gnilk::ansi::Color{0, 0, 0}));
-    TR_ASSERT(t, (cell.bg == gnilk::ansi::Color{200, 200, 200}));
+    // Covered cells: the overlay color is alpha-blended into BOTH fg and bg (not a plain swap),
+    // glyph preserved. fg {0,0,0} -> {127,0,0}; bg {255,255,255} -> {255,127,127}.
+    auto &covered = grid->At(5, 2);
+    TR_ASSERT(t, covered.ch == U'A');
+    TR_ASSERT(t, (covered.fg == gnilk::ansi::Color{127, 0, 0}));
+    TR_ASSERT(t, (covered.bg == gnilk::ansi::Color{255, 127, 127}));
+
+    // Uncovered cell ('C' at local col 2) is left untouched.
+    auto &uncovered = grid->At(7, 2);
+    TR_ASSERT(t, uncovered.ch == U'C');
+    TR_ASSERT(t, (uncovered.fg == gnilk::ansi::Color{0, 0, 0}));
+    TR_ASSERT(t, (uncovered.bg == gnilk::ansi::Color{255, 255, 255}));
     delete win;
     return kTR_Pass;
 }

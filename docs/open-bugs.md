@@ -111,9 +111,12 @@ tokenizer's longest-match / boundary logic at operator↔identifier transitions.
 **Reproduce:** Initiate a project with npm (use older versions of some library) then do an update
 There are possibly other applications also not working but this is one I found
 
-## 10. 'GansiDrawContext does not respect fg/bg colors when drawing overlays'
+## 10. 'GansiDrawContext does not respect fg/bg colors when drawing overlays' — FIXED 2026-06-27
 **Where:** GansiDrawContext::DrawLineOverlays
-**What's Wrong:** The color settings for overlays are defined at the application level and should be respected
-for the overlays. See the SDL2/SDL3 drawing logic.
-**Reproduce:** Mark/Select text - overlays are inverted not properly marked
+**What was wrong:** the cell-grid overlay path did a plain video-invert (`std::swap(cell.fg, cell.bg)`)
+and ignored the application-set overlay color. `LineRender::DrawLines` points `fgColor` at the theme
+`selection` color right before calling `DrawLineOverlays`, exactly as the SDL backends rely on.
+**Fix:** mirror SDL's translucent `FillRect` — alpha-blend the overlay color (`fgColor`, alpha
+included) into each covered cell's fg AND bg, preserving glyph contrast on a grid with no compositing.
+Covered by `test_gansibackend_overlay`.
 

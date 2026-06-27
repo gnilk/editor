@@ -74,6 +74,20 @@ void GansiDrawContext::DrawLineOverlays(int y) const {
     if (terminal == nullptr) {
         return;
     }
+    // The overlay color is the application-set foreground: LineRender sets it to the theme's
+    // (semi-transparent) 'selection' color immediately before this call. A cell grid has no alpha
+    // compositing, so mirror the SDL backend's translucent FillRect by alpha-blending that color
+    // into each covered cell's fg AND bg. Shifting both equally preserves the glyph contrast, so
+    // the text stays legible under the highlight.
+    const float a = fgColor.A();
+    const gnilk::ansi::Color ovl = ToAnsiColor(fgColor);
+    auto blend = [a, &ovl](const gnilk::ansi::Color &c) -> gnilk::ansi::Color {
+        return {
+            static_cast<uint8_t>(c.r * (1.0f - a) + ovl.r * a),
+            static_cast<uint8_t>(c.g * (1.0f - a) + ovl.g * a),
+            static_cast<uint8_t>(c.b * (1.0f - a) + ovl.b * a),
+        };
+    };
     for (auto &overlay : overlays) {
         if (!overlay.isActive || !overlay.IsLinePartiallyCovered(y)) {
             continue;
@@ -86,7 +100,6 @@ void GansiDrawContext::DrawLineOverlays(int y) const {
         if (y == overlay.end.y) {
             end = overlay.end.x;
         }
-        // Invert covered cells (swap fg/bg) — the selection highlight that keeps the glyph visible.
         for (int x = start; x < end; ++x) {
             if (x < 0 || y < 0 || x >= rect.Width() || y >= rect.Height()) {
                 continue;
@@ -97,7 +110,8 @@ void GansiDrawContext::DrawLineOverlays(int y) const {
                 continue;
             }
             gnilk::ansi::Cell &cell = terminal->At(absCol, absRow);
-            std::swap(cell.fg, cell.bg);
+            cell.fg = blend(cell.fg);
+            cell.bg = blend(cell.bg);
         }
     }
 }

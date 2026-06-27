@@ -1,6 +1,7 @@
 //
 // gansi capability sequences.
 //
+#include <stdint.h>
 #include "gansi/Caps.h"
 
 using namespace gnilk::ansi;

@@ -25,6 +25,9 @@ endif()
 
 list(APPEND gansitest_src
     test_gansi.cpp
+    test_cellgrid.cpp
+    test_ansiencoder.cpp
+    test_mockio.cpp
 )
 
 add_library(gansitests SHARED ${gansitest_src})

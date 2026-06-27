@@ -15,8 +15,8 @@ namespace gedit::Gansi {
     class GansiDrawContext : public DrawContext {
     public:
         GansiDrawContext() = default;
-        GansiDrawContext(gnilk::ansi::Terminal *terminal, const Rect &clientRect)
-            : DrawContext(clientRect), terminal(terminal) {
+        GansiDrawContext(gnilk::ansi::Terminal *_terminal, const Rect &clientRect)
+            : DrawContext(clientRect), terminal(_terminal) {
         }
         ~GansiDrawContext() override = default;
 

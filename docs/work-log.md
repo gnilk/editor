@@ -8,11 +8,11 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
-## ANSI/TTY graphics backend — `gansi` ✅ (branch `feature/gansi-backend`)
+## ANSI/TTY graphics backend — `gansi` ✅ (merged to `main`, `e9fa64f`)
 
 A modern-terminal rendering backend so the editor runs in a TTY / over SSH, selectable alongside SDL
 (`--backend ansi` or `main.backend: ansi`; a plain terminal session now auto-selects it). NCurses was
-removed entirely. Detail + full phased plan: [`ansi-graphics-backend.md`](ansi-graphics-backend.md).
+removed entirely. Detail + full phased plan: [`done/ansi-graphics-backend.md`](done/ansi-graphics-backend.md).
 
 - **Standalone library `gansi` (`gnilk::ansi`), NOT editor code** — its own folder
   (`src/ext/gansi/`), own `CMakeLists.txt` (static target `gansi`, alias `gnilk::ansi`,
@@ -46,6 +46,14 @@ removed entirely. Detail + full phased plan: [`ansi-graphics-backend.md`](ansi-g
   Kitty/focus/SGR-mouse/OSC 52 gated **off** + 256-color; capable terminals (Ghostty/kitty/foot) keep
   full fidelity. Env-heuristic for now (runtime DA/XTVERSION query is a possible later refinement).
   Verified end-to-end via the pty harness (Apple_Terminal vs ghostty startup streams).
+- **Post-ship hardening on real terminals (macOS Ghostty/Terminal.app/iTerm + Linux):** bracketed paste
+  now *inserts* — the terminal handles Cmd+V / Ctrl+Shift+V itself and delivers a paste *event* (not a
+  keypress), so it's routed through a new shared `Runloop::DispatchAction` (the action peer of
+  `ProcessKeyPress`/`ProcessMouseEvent`, one dispatch chokepoint) as a normal `PasteFromClipboard`.
+  Keyboard-modifier-reporting limits (iTerm pre-3.5 drops Shift+Arrow, Terminal.app composes Option to a
+  glyph) are terminal-side and unrecoverable app-side — documented in §9, with the low-level OS
+  interception "fix" (`CGEventTap`/IOKit) recorded as a rejected dead end. Kitty CSI-u functional-key
+  decoding deferred ([`deferred.md`](deferred.md)). Verified on macOS+Ghostty and Linux.
 
 ---
 

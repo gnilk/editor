@@ -8,7 +8,7 @@ the section that has the full context. This is *deferred* work — distinct from
 
 ---
 
-## From [`ansi-graphics-backend.md`](ansi-graphics-backend.md) §9 — TTY backend
+## From [`done/ansi-graphics-backend.md`](done/ansi-graphics-backend.md) §9 — TTY backend
 
 - **Kitty CSI-u functional-key decoding in `InputParser`.** When a terminal reports modified navigation
   keys via the Kitty CSI-u *functional* form (`CSI <keycode> ; <mods> u`, keycodes in the Unicode PUA

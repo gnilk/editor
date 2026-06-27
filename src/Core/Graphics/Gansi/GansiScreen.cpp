@@ -40,6 +40,15 @@ bool GansiScreen::Open() {
         if (logger) logger->Error("gansi Terminal::Open failed (raw mode unavailable?)");
         return false;
     }
+
+    // Outbound clipboard: when the editor's clipboard changes, push it to the terminal via OSC 52
+    // (works over SSH where the terminal forwards it). Serialization stays in AsText() (E.18). Inbound
+    // paste arrives as a bracketed-paste event -> ClipBoard::CopyFromExternal (see DispatchEvent).
+    gnilk::ansi::Terminal *term = terminal.get();
+    Editor::Instance().GetClipBoard().SetOnUpdateCallback([term](ClipBoard::ClipBoardItem::Ref item) {
+        term->SetClipboard(UnicodeHelper::utf32to8(item->AsText()));
+    });
+
     isOpen = true;
     return true;
 }
@@ -48,6 +57,8 @@ void GansiScreen::Close() {
     if (!isOpen) {
         return;
     }
+    // Drop the clipboard delegate before tearing down the terminal it captures.
+    Editor::Instance().GetClipBoard().SetOnUpdateCallback(nullptr);
     terminal->Close();
     isOpen = false;
 }

@@ -2,8 +2,9 @@
 
 Create a new graphics backend that enables rendering to a modern TTY console terminal.
 
-> Status: **proposal / design** (2026-06-27). No code written yet — this document is the plan.
-> The phased work-item list is at the end.
+> Status: **implemented** on `feature/gansi-backend` (Phases 0–4). Originally a proposal/design
+> (2026-06-27); the phased work-item list at the end is now a checklist with done-state. Library lives
+> at `src/ext/gansi` (`gnilk::ansi`), backend at `src/Core/Graphics/Gansi` (`gedit::Gansi`).
 
 ---
 
@@ -344,50 +345,82 @@ and sets each cell's background (or inverse) in the shared grid — composited n
 Phases are dependency-ordered. **Phases 1–2 are pure logic and fully unit-testable before any backend
 or real TTY wiring** — write the discriminating tests first.
 
-### Phase 0 — Groundwork & cleanup
-- [ ] Remove `src/Core/Graphics/NCurses/` entirely; delete `Editor::SetupNCurses()` and any references.
-- [ ] Scaffold library skeleton at `src/ext/gansi`: `CMakeLists.txt`
-      (static target `gansi`, namespace `gnilk::ansi`), `include/gansi/`, `src/`, empty `tests/`.
-- [ ] Wire `add_subdirectory(src/ext/gansi)` + `GEDIT_BUILD_ANSI` option (default ON, coexists with SDL);
+### Phase 0 — Groundwork & cleanup ✅
+- [x] Remove `src/Core/Graphics/NCurses/` entirely; delete `Editor::SetupNCurses()` and any references.
+- [x] Scaffold library skeleton at `src/ext/gansi`: `CMakeLists.txt`
+      (static target `gansi`, namespace `gnilk::ansi`), `include/gansi/`, `src/`, `tests/`.
+- [x] Wire `add_subdirectory(src/ext/gansi)` + `GEDIT_BUILD_ANSI` option (default ON, coexists with SDL);
       define `GEDIT_USE_ANSI`.
-- [ ] Add `"ansi"` to `glbSupportedBackends`; add a stub `Editor::SetupAnsi()`; amend the
+- [x] Add `"ansi"` to `glbSupportedBackends`; add a stub `Editor::SetupAnsi()`; amend the
       terminal-session guard in `ConfigureSubSystems()` so `backend == ansi` is allowed.
 
-### Phase 1 — Library: cell model + ANSI output (no real TTY)
-- [ ] Core types: `Color`, `Attr`, `Cell`; double-buffered grid; `Resize` with bounds/invariants.
-- [ ] `AnsiEncoder`: cell-diff → minimal ANSI (truecolor SGR, cursor move, pen coalescing, UTF-8 encode,
+### Phase 1 — Library: cell model + ANSI output (no real TTY) ✅
+- [x] Core types: `Color`, `Attr`, `Cell`; double-buffered grid; `Resize` with bounds/invariants.
+- [x] `AnsiEncoder`: cell-diff → minimal ANSI (truecolor SGR, cursor move, pen coalescing, UTF-8 encode,
       clear, alt-screen enter/leave, cursor show/hide/shape).
-- [ ] `ITerminalIO` interface + `MockTerminalIO` (in-memory) for tests.
-- [ ] Unit tests: render→assert bytes; diff is minimal; pen-change coalescing; resize property tests.
+- [x] `ITerminalIO` interface + `MockTerminalIO` (in-memory) for tests.
+- [x] Unit tests: render→assert bytes; diff is minimal; pen-change coalescing; resize property tests.
 
-### Phase 2 — Library: input parsing + platform I/O
-- [ ] `InputParser`: UTF-8 decode; CSI/SS3 special keys; SGR mouse (1006); bracketed paste; focus
+### Phase 2 — Library: input parsing + platform I/O ✅
+- [x] `InputParser`: UTF-8 decode; CSI/SS3 special keys; SGR mouse (1006); bracketed paste; focus
       in/out; **Kitty keyboard (CSI u)** with `modifyOtherKeys` fallback → neutral `Event`s. Tolerate
       split sequences.
-- [ ] `PosixTerminalIO`: termios raw mode (RAII restore), `TIOCGWINSZ`, `SIGWINCH` atomic flag,
+- [x] `PosixTerminalIO`: termios raw mode (RAII restore), `TIOCGWINSZ`, `SIGWINCH` atomic flag,
       `poll()` read-with-timeout, write flush.
-- [ ] `Caps`: enable/disable sequence builders (alt-screen, mouse, bracketed paste, focus, kitty flags).
-- [ ] `Terminal::Open/Close/PollEvent/Flush/SetCursor/SetClipboard` glue.
-- [ ] Unit tests: byte-stream→event tables incl. modifier combos and partial reads (discriminating-first).
+- [x] `Caps`: enable/disable sequence builders (alt-screen via `AnsiEncoder`; mouse, bracketed paste,
+      focus, kitty flags, modifyOtherKeys, OSC 52 in `Caps`).
+- [x] `Terminal::Open/Close/PollEvent/Flush/SetCursor/SetClipboard` glue.
+- [x] Unit tests: byte-stream→event tables incl. modifier combos and partial reads (discriminating-first).
 
-### Phase 3 — Backend: wire library to the `ScreenBase` contract
-- [ ] `GansiScreen : ScreenBase` — Open (raw+alt+caps), Close (restore), `Dimensions()`=cols×rows,
+### Phase 3 — Backend: wire library to the `ScreenBase` contract ✅
+- [x] `GansiScreen : ScreenBase` — Open (raw+alt+caps), Close (restore), `Dimensions()`=cols×rows,
       `Clear`/`Update`(=Flush), `PollEvents` (parse→post; ResizeEvent→`OnSizeChanged`→`RootView().Resize()`),
       `CopyToTexture`/`ClearWithTexture` (grid snapshot/restore).
-- [ ] `GansiWindow : WindowBase` — logical rect + shared back-buffer ref + cursor.
-- [ ] `GansiDrawContext : DrawContext` — all draw virtuals → cell writes; offset+clip; overlays→cell bg;
+- [x] `GansiWindow : WindowBase` — logical rect + shared back-buffer ref + cursor.
+- [x] `GansiDrawContext : DrawContext` — all draw virtuals → cell writes; offset+clip; overlays→invert;
       `DrawHRule`→box-drawing; underline/inverse→SGR.
-- [ ] `GansiKeyboardDriver : KeyboardDriverBase` — `gnilk::ansi::KeyEvent`→`KeyPress`; shared modifier
+- [x] `GansiKeyboardDriver : KeyboardDriverBase` — `gnilk::ansi::KeyEvent`→`KeyPress`; shared modifier
       translation for mouse parity.
-- [ ] Cursor: position/shape the real terminal cursor on `Update`.
+- [x] Cursor: position/shape the real terminal cursor on `Update`.
 
-### Phase 4 — Integration, clipboard, polish, verification
-- [ ] Real `Editor::SetupAnsi()`; decide & implement terminal-session default policy; config defaults.
-- [ ] Clipboard: OSC 52 out (`SetClipboardChangeDelegate`); bracketed-paste in via `CopyFromExternal`
-      — honour the **E.18** external round-trip (test it).
-- [ ] Manual verification: local terminal + over SSH; nesting smoke test (embedded `TerminalView`).
-- [ ] Terminal-compat matrix doc (kitty/iTerm2/WezTerm/foot/Windows Terminal/Ghostty/tmux tiers).
-- [ ] Performance pass (diff coalescing, avoid full repaints); theme/color sanity.
-- [ ] `docs/work-log.md` entry + link this doc; note `gansi`/`gnilk::ansi` is a standalone library
+### Phase 4 — Integration, clipboard, polish, verification ✅
+- [x] Real `Editor::SetupAnsi()`; terminal-session default policy (a TTY session auto-selects `ansi`
+      unless `--backend`/desktop-launch overrides); config defaults.
+- [x] Clipboard: OSC 52 out (registered via `SetOnUpdateCallback` in `GansiScreen::Open`); bracketed-paste
+      in via `CopyFromExternal` — honours the **E.18** external round-trip (tested).
+- [x] Performance pass (damage-tracked diff, full repaint only on resize; cursor-shape coalescing);
+      theme/color sanity (truecolor end-to-end).
+- [x] Terminal-compat matrix doc — see §9.
+- [x] `docs/work-log.md` entry + link this doc; note `gansi`/`gnilk::ansi` is a standalone library
       (its own CMake + tests), not editor code.
+- [~] Manual verification: automated real-pty smoke confirms the init/teardown escape sequences on a
+      genuine terminal; **interactive local-terminal + over-SSH + embedded-`TerminalView` nesting checks
+      remain a human visual step** (inherently manual).
+
+---
+
+## 9. Terminal compatibility matrix
+
+The backend targets *modern* terminals and **sends** sequences (no terminfo query); it degrades by
+feature, not by terminal. Tiers below describe what each gives. Truecolor SGR + SGR mouse (1006) +
+alt-screen + bracketed paste are broadly supported; the differentiators are the **Kitty keyboard
+protocol** (unambiguous modifiers / Shift-Arrow / Alt-nav) and **OSC 52** (clipboard, esp. over SSH).
+
+| Terminal | Truecolor | SGR mouse | Bracketed paste | Kitty keyboard | OSC 52 | Notes |
+|---|---|---|---|---|---|---|
+| **kitty** | ✅ | ✅ | ✅ | ✅ (native) | ✅ | Reference target; full fidelity. |
+| **Ghostty** | ✅ | ✅ | ✅ | ✅ | ✅ | Modern, full support. |
+| **foot** (Wayland) | ✅ | ✅ | ✅ | ✅ | ✅ | Full support. |
+| **WezTerm** | ✅ | ✅ | ✅ | ✅ | ✅ | OSC 52 may need a config opt-in. |
+| **iTerm2** (macOS) | ✅ | ✅ | ✅ | ⚠️ partial | ✅ (allow in prefs) | Falls back to `modifyOtherKeys`/legacy modifiers. |
+| **Alacritty** | ✅ | ✅ | ✅ | ⚠️ partial | ✅ | Kitty support is version-dependent. |
+| **Windows Terminal** | ✅ | ✅ | ✅ | ⚠️ growing | ⚠️ | Not built/tested yet (no `WindowsTerminalIO`); listed as a target. |
+| **Terminal.app** (macOS) | ⚠️ 256-ish | ⚠️ limited | ⚠️ | ❌ | ❌ | Weakest tier; usable but degraded — prefer iTerm2/kitty/Ghostty. |
+| **tmux / screen** | ✅* | ✅* | ✅* | ⚠️* | ⚠️* | *Needs passthrough/`allow-passthrough`; OSC 52 needs `set-clipboard on`; Kitty flags may be filtered. |
+
+Degradation paths already in the code: Kitty unsupported → keys still arrive via legacy CSI/SS3 +
+xterm modifier params (`modifyOtherKeys` builder available); OSC 52 refused → the internal clipboard
+still works locally (paste-in via bracketed paste is independent). Nesting (the embedded forkpty
+`TerminalView` inside an editor that itself runs in a terminal) is a pty-in-a-pty and is expected to
+work; it's on the manual smoke-test list.
 ```

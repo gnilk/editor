@@ -766,9 +766,28 @@ static std::vector<std::string> glbSupportedBackends = {
 extern "C" char ** environ;
 
 void Editor::ConfigureSubSystems() {
-    auto backend = argBackend.empty()
-        ? Config::Instance()["main"].GetStr("backend", "sdl")
-        : argBackend;
+    // Launch context decides the default backend. A desktop/Finder launch (or an explicit
+    // start-from-UI) enforces SDL; a plain terminal session defaults to the ANSI/TTY backend.
+    // (Generalizable later to 'GEDIT_STARTED_FROM_UI', also settable via the Linux .desktop file.)
+    bool enforceSDL = false;
+    bool isTerminal = XDGEnvironment::Instance().IsTerminalSession();
+#ifdef GEDIT_MACOS
+    if (std::getenv("GEDIT_MACOS_STARTED_FROM_UI") != nullptr) {
+        enforceSDL = true;
+        logger->Debug("Application started from desktop environment, enforcing SDL");
+    }
+#endif
+
+    // Resolve the backend: an explicit --backend wins; otherwise a terminal session (not started from
+    // the desktop UI) auto-selects 'ansi'; everything else falls back to the configured backend.
+    std::string backend;
+    if (!argBackend.empty()) {
+        backend = argBackend;
+    } else if (isTerminal && !enforceSDL) {
+        backend = "ansi";
+    } else {
+        backend = Config::Instance()["main"].GetStr("backend", "sdl");
+    }
     // Normalise to lowercase
     std::transform(backend.begin(), backend.end(), backend.begin(), ::tolower);
     // See if supported; if not, print the list and exit.
@@ -782,24 +801,6 @@ void Editor::ConfigureSubSystems() {
         exit(1);
     }
     logger->Debug("Initialize Graphics Backend: %s", backend.c_str());
-
-    // This could probably be generalized to 'GEDIT_STARTED_FROM_UI' and also set through the Desktop file on Linux
-    bool enforceSDL = false;
-    bool isTerminal = XDGEnvironment::Instance().IsTerminalSession();
-#ifdef GEDIT_MACOS
-    if (std::getenv("GEDIT_MACOS_STARTED_FROM_UI") != nullptr) {
-        enforceSDL = true;
-        logger->Debug("Application started from desktop environment, enforcing SDL");
-    }
-#endif
-
-    // A terminal session is only valid with the ANSI backend (the SDL/desktop backends need a
-    // windowing environment). Anything else in a TTY (and not started from the desktop UI) exits.
-    if (isTerminal && !enforceSDL && backend != "ansi") {
-        logger->Error("Terminal session requires the 'ansi' backend (got '%s'), exiting!", backend.c_str());
-        fprintf(stderr, "Terminal session requires the 'ansi' backend (got '%s')\n", backend.c_str());
-        exit(1);
-    }
 
     if (backend == "ansi" && !enforceSDL) {
         logger->Debug("Starting ANSI (gansi) backend");

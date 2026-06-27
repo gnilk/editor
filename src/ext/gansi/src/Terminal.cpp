@@ -96,12 +96,16 @@ void Terminal::Flush() {
     std::string out;
     AnsiEncoder::EncodeDiff(front, back, out);
 
-    // Position / show the hardware cursor.
+    // Position / show the hardware cursor. The shape sequence is only re-sent when it changes.
     if (cursorVisible) {
         if (!lastCursorVisible) {
             out += AnsiEncoder::ShowCursor();
         }
-        out += AnsiEncoder::SetCursorShape(cursorShape);
+        if (!lastCursorShapeValid || cursorShape != lastCursorShape) {
+            out += AnsiEncoder::SetCursorShape(cursorShape);
+            lastCursorShape = cursorShape;
+            lastCursorShapeValid = true;
+        }
         out += AnsiEncoder::MoveCursor(cursorCol, cursorRow);
     } else if (lastCursorVisible) {
         out += AnsiEncoder::HideCursor();

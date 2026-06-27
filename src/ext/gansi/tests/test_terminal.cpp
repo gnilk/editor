@@ -23,6 +23,7 @@ DLL_EXPORT int test_terminal_poll_timeout(ITesting *t);
 DLL_EXPORT int test_terminal_resize_repaint(ITesting *t);
 DLL_EXPORT int test_terminal_clipboard(ITesting *t);
 DLL_EXPORT int test_terminal_snapshot(ITesting *t);
+DLL_EXPORT int test_terminal_cursor_shape_coalesce(ITesting *t);
 }
 
 static bool Contains(const std::string &hay, const std::string &needle) {
@@ -188,5 +189,33 @@ DLL_EXPORT int test_terminal_snapshot(ITesting *t) {
     term.RestoreSnapshot();
     TR_ASSERT(t, term.At(0, 0).ch == U'X');
     TR_ASSERT(t, term.At(3, 1).ch == U' ');
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_terminal_cursor_shape_coalesce(ITesting *t) {
+    auto mock = std::make_unique<MockTerminalIO>();
+    MockTerminalIO *raw = mock.get();
+    mock->SetSize(10, 3);
+    Terminal term(std::move(mock));
+    term.Open();
+
+    // First visible flush sets the shape (DECSCUSR bar-blink == CSI 5 SP q).
+    term.SetCursor(0, 0, true, CursorShape::BarBlink);
+    raw->ClearWritten();
+    term.Flush();
+    TR_ASSERT(t, Contains(raw->Written(), "\x1b[5 q"));
+
+    // Same shape, cursor moved -> shape NOT re-sent, but the cursor still moves.
+    term.SetCursor(1, 0, true, CursorShape::BarBlink);
+    raw->ClearWritten();
+    term.Flush();
+    TR_ASSERT(t, !Contains(raw->Written(), " q"));
+    TR_ASSERT(t, Contains(raw->Written(), "\x1b[1;2H"));
+
+    // Changed shape -> re-sent.
+    term.SetCursor(1, 0, true, CursorShape::BlockSteady);
+    raw->ClearWritten();
+    term.Flush();
+    TR_ASSERT(t, Contains(raw->Written(), "\x1b[2 q"));
     return kTR_Pass;
 }

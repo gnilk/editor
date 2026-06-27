@@ -81,7 +81,9 @@ namespace gnilk::ansi {
         int cursorRow = 0;
         bool cursorVisible = true;
         CursorShape cursorShape = CursorShape::Default;
-        bool lastCursorVisible = false;     // what the terminal was last told (drives show/hide emit)
+        bool lastCursorVisible = false;             // what the terminal was last told (drives show/hide emit)
+        CursorShape lastCursorShape = CursorShape::Default;
+        bool lastCursorShapeValid = false;          // false until a shape has been emitted once
 
         bool isOpen = false;
     };

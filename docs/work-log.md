@@ -8,6 +8,39 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## ANSI/TTY graphics backend — `gansi` ✅ (branch `feature/gansi-backend`)
+
+A modern-terminal rendering backend so the editor runs in a TTY / over SSH, selectable alongside SDL
+(`--backend ansi` or `main.backend: ansi`; a plain terminal session now auto-selects it). NCurses was
+removed entirely. Detail + full phased plan: [`ansi-graphics-backend.md`](ansi-graphics-backend.md).
+
+- **Standalone library `gansi` (`gnilk::ansi`), NOT editor code** — its own folder
+  (`src/ext/gansi/`), own `CMakeLists.txt` (static target `gansi`, alias `gnilk::ansi`,
+  `add_subdirectory`'d by the editor — never source-listed), own trun tests (`gansitests`), zero editor
+  dependencies. Think "our SDL": a cell grid + ANSI encoder + input parser + a single platform seam.
+- **Cell model + damage-tracked encoder** (`CellGrid`, `AnsiEncoder`): double-buffered grid; the diff
+  emits only changed cells, one CUP per contiguous run, an SGR only when the truecolor pen changes
+  (full repaint only on resize). Byte-for-byte unit-tested.
+- **Input parser** (`InputParser`): split-read-tolerant byte→`Event` state machine — UTF-8, C0
+  controls, CSI/SS3 special keys with xterm modifier params, **Kitty keyboard (`CSI u`)** (fixes
+  Shift-Arrow + Alt-as-nav, the SDL/macOS pain), SGR mouse (1006), bracketed paste, focus.
+- **Platform seam** = `ITerminalIO`; `PosixTerminalIO` is the only termios/poll/SIGWINCH file (macOS +
+  Linux share it; Windows would be the sibling impl). `MockTerminalIO` (public header) drives everything
+  headlessly — the whole library + backend are unit-tested with no real TTY.
+- **Backend `gedit::Gansi`** mirrors the SDL layout: `GansiScreen`/`GansiWindow`/`GansiDrawContext`/
+  `GansiKeyboardDriver`. One shared back-buffer; windows are clip rects; `DrawContext` writes
+  `origin+local` cells (no pixels/scaling). Inverse swaps fg/bg, underline/bold→SGR, `DrawHRule`→box
+  row, overlays→invert covered cells. Real terminal hardware cursor; OSC 52 clipboard out + bracketed
+  paste in (honours the **E.18** external round-trip). `CopyToTexture`/`ClearWithTexture` = grid
+  snapshot/restore.
+- **Load-bearing decisions:** library stays under `gnilk::` (the signal it's not editor code); coexists
+  with SDL (a third backend, *not* the SDL2-XOR-SDL3 split) under `GEDIT_BUILD_ANSI`; no
+  `WireScreenGeometry` (a TTY owns its own size). TDD throughout — each unit's tests written first
+  against a stub (RED) then implemented (GREEN); ~90 tests across `gansitests` + `test_gansibackend`,
+  plus a real-pty smoke confirming the init/teardown escape sequences.
+
+---
+
 ## Mouse double-click — open a workspace file ✅ (merged to `main`, `7d4bcca`)
 
 Double-click a file row in `WorkspaceView` to open it + focus the editor (like Enter), via a pure

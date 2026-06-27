@@ -124,39 +124,13 @@ faintness) — both tracked under bug 11 below; drop them together once 11 is fi
 
 ---
 
-## 11. Theme/color alpha is stored 0..255, not normalized 0..1
+## 11. Theme/color alpha is not on a single 0..1 convention → **promoted to its own doc**
 
-**Where:** `src/Core/Sublime/SublimeConfigColorScript.cpp`, `ExecuteAlpha` —
-`col.SetAlpha(args[0].Number())` stores the raw argument. `alpha(224)` (used by the content
-`selection` color, `color(var(orange), var(selection_alpha))`) therefore yields `ColorRGBA::a = 224.0`,
-even though `a` is treated as a 0..1 fraction everywhere else (the existence of
-`ColorRGBA::AlphaAsInt()` = `a * 255` shows 0..1 was the intent).
-
-**What's wrong / blast radius:** every consumer that reads alpha assumes 0..1:
-- `ColorRGBA::AlphaAsInt()` returns `a * 255` → correct for a 0..1 alpha, but `224 * 255 = 57120` for
-  the stored value.
-- SDL `SDLColor` (SDL2 + SDL3) feeds `AlphaAsInt()` into `SDL_SetRenderDrawColor` — only "works"
-  because 57120 wraps to a Uint8 of 32 (a faint tint). Accidental, not intentional.
-- The Gansi overlay blend (bug 10) overflowed its `uint8` cast and rendered the selection **green**;
-  it carries a local `if (a > 1) a /= 255` workaround as a result.
-
-**Compounding (visual tuning, not just magnitude):** the theme alpha *values* look authored against
-SDL's accidental faint render — `alpha(224)` reaches SDL as a Uint8 of 32 (≈ 0.12), not 0.88. To make
-the ANSI selection match that faintness, `GansiDrawContext::DrawLineOverlays` carries a *second*
-stopgap, `a = 1.0 - a` ("invert for now"), which turns the normalized 0.88 back into ≈ 0.12. So the
-proper fix is not only "normalize at parse": once `a` means 0..1, the theme's alpha values almost
-certainly need re-tuning (e.g. `alpha(224)` → ~`alpha(32)`), after which BOTH the `a > 1` guard AND the
-`1.0 - a` invert in the Gansi blend should come out together.
-
-**Why deferred:** the parser change itself is a one-liner (`SetAlpha(n / 255.0f)`, and audit the
-`*`-alpha multiply in `ExecuteColor`), but it shifts the meaning of `ColorRGBA::a` for ALL consumers at
-once — both SDL backends' `SDLColor::AlphaAsInt`, the JS/theme color APIs, any `FromRGBA(int…)` path
-(already divides by 255), etc. Needs a coordinated sweep with a per-backend re-verify, so it's its own
-branch.
-
-**When fixing:** normalize at parse, then (a) drop the `a > 1` guard in
-`GansiDrawContext::DrawLineOverlays` (bug 10), and (b) re-verify `SDLColor::AlphaAsInt` — the `* 255`
-becomes genuinely correct once `a` is 0..1, but confirm nothing else relied on the wrap.
+`ColorRGBA::a` is meant to be a 0..1 fraction (and is everywhere except `ExecuteAlpha`, which stores its
+raw argument, so the theme's `alpha(224)` leaks a 0..255 magnitude into the `selection` color). That
+overflows the Gansi overlay blend (rendered green — bug 10, now carrying two stopgaps) and only "works"
+in SDL via an accidental integer wrap. The full diagnosis, touch-point inventory, fix options, and
+verification plan live in the deep-dive: [`alpha-normalization.md`](alpha-normalization.md).
 
 **Discovered:** 2026-06-27, while fixing the Gansi overlay color (bug 10) — the green selection traced
 straight back to `fgColor.A()` returning 224.

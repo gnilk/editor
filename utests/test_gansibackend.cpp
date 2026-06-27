@@ -197,14 +197,16 @@ DLL_EXPORT int test_gansibackend_clipboard_out(ITesting *t) {
     return kTR_Pass;
 }
 
-// Inbound paste: a bracketed-paste sequence on stdin surfaces as a PasteEvent and is delivered to the
-// clipboard via CopyFromExternal (the E.18 external item), reusing AsText() for serialization.
+// Inbound paste: a bracketed-paste sequence on stdin surfaces as a PasteEvent. The text is loaded onto
+// the clipboard via CopyFromExternal (the E.18 external item, reusing AsText()) DIRECTLY in PollEvents;
+// the follow-up PasteFromClipboard action is posted to the runloop queue (verified in test_runloop) and
+// is not processed here, so we assert only the synchronous clipboard load.
 DLL_EXPORT int test_gansibackend_paste_in(ITesting *t) {
     gnilk::ansi::MockTerminalIO *mock = nullptr;
     auto screen = MakeScreenRaw(20, 10, &mock);
     mock->QueueInput("\x1b[200~world\x1b[201~");
 
-    screen->PollEvents();   // drains the paste event -> CopyFromExternal (no Runloop posting)
+    screen->PollEvents();   // drains the paste event -> CopyFromExternal (action dispatch is posted)
 
     auto top = Editor::Instance().GetClipBoard().Top();
     TR_ASSERT(t, top != nullptr);

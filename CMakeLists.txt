@@ -481,6 +481,7 @@ list(APPEND utestsrc utests/test_main.cpp)
 
 list(APPEND utestsrc utests/test_assetloader.cpp)
 list(APPEND utestsrc utests/test_clipboard.cpp)
+list(APPEND utestsrc utests/test_runloop.cpp)
 list(APPEND utestsrc utests/test_cpplang.cpp)
 list(APPEND utestsrc utests/test_cppnumbers.cpp)
 list(APPEND utestsrc utests/test_jsonlang.cpp)

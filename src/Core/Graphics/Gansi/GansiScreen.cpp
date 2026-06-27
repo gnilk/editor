@@ -161,8 +161,18 @@ void GansiScreen::DispatchEvent(const gnilk::ansi::Event &ev) {
     }
 
     if (std::holds_alternative<gnilk::ansi::PasteEvent>(ev)) {
+        // Bracketed paste (e.g. the terminal handled Cmd+V itself). Load the text as the top clipboard
+        // item now — clipboard events are handled directly in PollEvents — then POST a normal
+        // PasteFromClipboard action so the insert + redraw happen in the message-processing phase like a
+        // keypress-driven paste: the editor view inserts at the caret with undo, the terminal controller
+        // writes it to the pty.
         const auto &paste = std::get<gnilk::ansi::PasteEvent>(ev);
         Editor::Instance().GetClipBoard().CopyFromExternal(UnicodeHelper::utf32to8(paste.text).c_str());
+        Runloop::PostMessage(0, [](uint32_t) {
+            EditorAction action;
+            action.action = kAction::kActionPasteFromClipboard;
+            Runloop::DispatchAction(action);
+        });
         return;
     }
     // FocusEvent: nothing to do for now.

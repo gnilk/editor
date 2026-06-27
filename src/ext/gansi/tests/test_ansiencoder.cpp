@@ -25,6 +25,9 @@ DLL_EXPORT int test_ansiencoder_penchange(ITesting *t);
 DLL_EXPORT int test_ansiencoder_tworuns(ITesting *t);
 DLL_EXPORT int test_ansiencoder_multirow(ITesting *t);
 DLL_EXPORT int test_ansiencoder_sizemismatch(ITesting *t);
+DLL_EXPORT int test_ansiencoder_rgb256(ITesting *t);
+DLL_EXPORT int test_ansiencoder_sgr_256(ITesting *t);
+DLL_EXPORT int test_ansiencoder_encodediff_256(ITesting *t);
 }
 
 static const Color kRed{255, 0, 0};
@@ -196,5 +199,36 @@ DLL_EXPORT int test_ansiencoder_sizemismatch(ITesting *t) {
     AnsiEncoder::EncodeDiff(front, back, out);
     // Mismatched sizes -> safe no-op (caller is expected to keep grids in lockstep).
     TR_ASSERT(t, out.empty());
+    return kTR_Pass;
+}
+
+// Nearest xterm-256 index: pure colours map onto the 6x6x6 cube, neutral grays onto the ramp.
+DLL_EXPORT int test_ansiencoder_rgb256(ITesting *t) {
+    TR_ASSERT(t, AnsiEncoder::Rgb256(kBlack) == 16);             // cube (0,0,0)
+    TR_ASSERT(t, AnsiEncoder::Rgb256(kWhite) == 231);            // cube (5,5,5)
+    TR_ASSERT(t, AnsiEncoder::Rgb256(kRed) == 196);             // cube (5,0,0)
+    TR_ASSERT(t, AnsiEncoder::Rgb256(Color{128, 128, 128}) == 244); // grayscale ramp (exact)
+    return kTR_Pass;
+}
+
+// Indexed256 SGR uses 38;5;n / 48;5;n — never 24-bit 38;2.
+DLL_EXPORT int test_ansiencoder_sgr_256(ITesting *t) {
+    std::string s = AnsiEncoder::Sgr(Glyph(U' ', kRed, kBlack), ColorMode::Indexed256);
+    TR_ASSERT(t, Expect(t, s, "\x1b[0;38;5;196;48;5;16m", "sgr-256-red"));
+    // Truecolor mode (and the default) still emit 38;2.
+    TR_ASSERT(t, AnsiEncoder::Sgr(Glyph(U' ', kRed, kBlack), ColorMode::Truecolor).find("38;2") != std::string::npos);
+    TR_ASSERT(t, AnsiEncoder::Sgr(Glyph(U' ', kRed, kBlack)).find("38;2") != std::string::npos);
+    return kTR_Pass;
+}
+
+// EncodeDiff threads the colour mode through to every pen it emits.
+DLL_EXPORT int test_ansiencoder_encodediff_256(ITesting *t) {
+    CellGrid front(3, 1);
+    CellGrid back(3, 1);
+    back.At(1, 0) = Glyph(U'X', kRed, kBlack);
+    std::string out;
+    AnsiEncoder::EncodeDiff(front, back, out, ColorMode::Indexed256);
+    TR_ASSERT(t, out.find("38;5;196") != std::string::npos);
+    TR_ASSERT(t, out.find("38;2") == std::string::npos);
     return kTR_Pass;
 }

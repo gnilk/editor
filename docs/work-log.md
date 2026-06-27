@@ -38,6 +38,14 @@ removed entirely. Detail + full phased plan: [`ansi-graphics-backend.md`](ansi-g
   `WireScreenGeometry` (a TTY owns its own size). TDD throughout — each unit's tests written first
   against a stub (RED) then implemented (GREEN); ~90 tests across `gansitests` + `test_gansibackend`,
   plus a real-pty smoke confirming the init/teardown escape sequences.
+- **Terminal capability detection** (`gansi/Capabilities.{h,cpp}`): `Detect(TERM/TERM_PROGRAM/COLORTERM)`
+  → feature profile; `Terminal::Open/Close/Flush/SetClipboard` gate every emitted sequence on it, and
+  `AnsiEncoder` degrades truecolor→xterm-256 (`Rgb256`, cube + grayscale-ramp nearest) when 24-bit isn't
+  advertised. Fixes the macOS **Terminal.app** stray-glyph: it was the Kitty-keyboard enable
+  (`CSI > 1 u`) printed verbatim by a terminal that can't parse it. Apple_Terminal now gets
+  Kitty/focus/SGR-mouse/OSC 52 gated **off** + 256-color; capable terminals (Ghostty/kitty/foot) keep
+  full fidelity. Env-heuristic for now (runtime DA/XTVERSION query is a possible later refinement).
+  Verified end-to-end via the pty harness (Apple_Terminal vs ghostty startup streams).
 
 ---
 

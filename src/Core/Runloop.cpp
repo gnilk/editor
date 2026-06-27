@@ -236,18 +236,28 @@ bool Runloop::DispatchToHandler(KeyPress keyPress) {
 
     if (kpAction.has_value()) {
         logger->Debug("Action '%s' found - sending to handler", activeKeyMap->ActionName(kpAction->action).c_str());
-
-        if (!kpaHandler->HandleAction(*kpAction)) {
-            // Here I introduce yet another dependency in this class
-            // While it could be handled through a lambda set on the run loop (perhaps nicer) I choose not
-            // in the end we are writing a specific application - this the way I choose to dispatch otherwise unhandled actions...
-            Editor::Instance().HandleGlobalAction(*kpAction);
-        }
+        DispatchAction(*kpAction);
     } else {
         logger->Debug("No action for keypress, treating as regular input");
         kpaHandler->HandleKeyPress(keyPress);
     }
     // Well - this just controls the redraw for now..
+    return true;
+}
+
+bool Runloop::DispatchAction(const EditorAction &action) {
+    if (kpaHandlers.empty()) {
+        return false;
+    }
+    auto kpaHandler = kpaHandlers.top();
+    if (kpaHandler == nullptr) {
+        return false;
+    }
+    // The focused handler gets first refusal; anything it doesn't take falls through to the editor's
+    // global action handler (same policy the keymap path has always used).
+    if (!kpaHandler->HandleAction(action)) {
+        Editor::Instance().HandleGlobalAction(action);
+    }
     return true;
 }
 

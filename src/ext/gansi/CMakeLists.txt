@@ -36,6 +36,7 @@ list(APPEND gansi_src
     src/AnsiEncoder.cpp
     src/InputParser.cpp
     src/Caps.cpp
+    src/Capabilities.cpp
     src/Terminal.cpp
     src/platform/PosixTerminalIO.cpp
 )

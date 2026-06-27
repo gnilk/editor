@@ -8,6 +8,20 @@ the section that has the full context. This is *deferred* work — distinct from
 
 ---
 
+## From [`ansi-graphics-backend.md`](ansi-graphics-backend.md) §9 — TTY backend
+
+- **Kitty CSI-u functional-key decoding in `InputParser`.** When a terminal reports modified navigation
+  keys via the Kitty CSI-u *functional* form (`CSI <keycode> ; <mods> u`, keycodes in the Unicode PUA
+  range 57344+) instead of the legacy `CSI 1 ; <mods> A` form, the parser's `'u'` branch
+  (`src/ext/gansi/src/InputParser.cpp`, `ParseCSI`) currently treats the functional codepoint as a
+  literal character — so the arrow / Home / End / PgUp / PgDn / etc. is lost. Map the Kitty functional
+  keycodes (exact values from the Kitty keyboard-protocol spec table) back to `Key::*`. Test-first: feed
+  the bytes, assert `{Up, Shift}` etc. **Deferred — it doesn't change current behavior:** the terminals
+  that drop modifiers (iTerm pre-3.5, Terminal.app) emit *no* modifier at all, CSI-u or otherwise, so
+  this only pays off once such a terminal is configured to report via CSI-u. Pure spec-correctness
+  groundwork. Context: §9 "Keyboard modifier reporting" + the `tty-modifier-reporting-terminal-side`
+  auto-memory.
+
 ## From [`done/folder-scanner.md`](done/folder-scanner.md)
 
 - **FS-5 — monitor reuse: scan rooted at a newly-created directory.** Deferred because the folder

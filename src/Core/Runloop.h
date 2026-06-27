@@ -77,6 +77,11 @@ namespace gedit {
         // TEMP?
         static bool ProcessKeyPress(KeyPress keyPress);
         static bool ProcessMouseEvent(MouseEvent mouseEvent);
+        // Route an already-resolved action to the focused handler (with the global fallback). The
+        // single action-dispatch chokepoint: the keymap path (DispatchToHandler) and external triggers
+        // — e.g. the gansi backend turning a bracketed-paste event into a PasteFromClipboard — both
+        // funnel through here, so paste handling has ONE path, just two entry points.
+        static bool DispatchAction(const EditorAction &action);
     private:
         static bool DispatchToHandler(KeyPress keyPress);
         static void InstallKeymapChangeNotification();

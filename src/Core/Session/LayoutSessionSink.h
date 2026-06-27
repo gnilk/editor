@@ -14,7 +14,7 @@ namespace gedit {
 
     class LayoutSessionSink : public ILayoutSink {
     public:
-        explicit LayoutSessionSink(LayoutSession &layout) : layout(layout) {
+        explicit LayoutSessionSink(LayoutSession &_layout) : layout(_layout) {
         }
 
         void PutSplitter(const std::string &id, int absolutePos, float relativePos) override {

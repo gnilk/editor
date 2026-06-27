@@ -24,7 +24,7 @@ namespace gedit {
         static constexpr int kLeftButton = 1;
     public:
         MouseClickTracker() = default;
-        explicit MouseClickTracker(DurationMS threshold) : threshold(threshold) {}
+        explicit MouseClickTracker(DurationMS _threshold) : threshold(_threshold) {}
         virtual ~MouseClickTracker() = default;
 
         void SetThreshold(DurationMS newThreshold) {

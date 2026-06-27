@@ -28,7 +28,7 @@ namespace gedit {
         public:
             // The origin path is mandatory at construction - an asset always knows where
             // it came from, so save-back has a target. Go through Create() to make one.
-            explicit Asset(std::filesystem::path originPath) : originPath(std::move(originPath)) {}
+            explicit Asset(std::filesystem::path _originPath) : originPath(std::move(_originPath)) {}
             virtual ~Asset() {
                 if (ptrData != nullptr) {
                     delete[] static_cast<unsigned char *>(ptrData);

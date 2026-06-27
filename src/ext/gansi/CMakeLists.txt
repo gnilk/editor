@@ -34,6 +34,10 @@ list(APPEND gansi_src
     src/Version.cpp
     src/CellGrid.cpp
     src/AnsiEncoder.cpp
+    src/InputParser.cpp
+    src/Caps.cpp
+    src/Terminal.cpp
+    src/platform/PosixTerminalIO.cpp
 )
 
 add_library(gansi STATIC ${gansi_src})

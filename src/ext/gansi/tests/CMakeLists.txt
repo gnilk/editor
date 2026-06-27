@@ -28,6 +28,10 @@ list(APPEND gansitest_src
     test_cellgrid.cpp
     test_ansiencoder.cpp
     test_mockio.cpp
+    test_inputparser.cpp
+    test_caps.cpp
+    test_terminal.cpp
+    test_posixio.cpp
 )
 
 add_library(gansitests SHARED ${gansitest_src})

@@ -111,62 +111,20 @@ tokenizer's longest-match / boundary logic at operator↔identifier transitions.
 **Reproduce:** Initiate a project with npm (use older versions of some library) then do an update
 There are possibly other applications also not working but this is one I found
 
-## 10. 'GansiDrawContext does not respect fg/bg colors when drawing overlays' — FIXED 2026-06-27
-**Where:** GansiDrawContext::DrawLineOverlays
-**What was wrong:** the cell-grid overlay path did a plain video-invert (`std::swap(cell.fg, cell.bg)`)
-and ignored the application-set overlay color. `LineRender::DrawLines` points `fgColor` at the theme
-`selection` color right before calling `DrawLineOverlays`, exactly as the SDL backends rely on.
-**Fix:** highlight by blending the overlay color (`fgColor`) into each covered cell's BACKGROUND only
-— glyph + its fg left intact so text stays readable on a grid with no alpha compositing. Covered by
-`test_gansibackend_overlay`. **Update 2026-06-28:** the two stopgaps it used to carry — `if (a > 1) a
-/= 255` and `a = 1.0 - a` ("invert for now") — were **removed** when bug 11 was fixed; `fgColor.A()` is
-now a true 0..1 opacity used as the blend fraction directly. The test now uses a discriminating 0.25
-alpha (a 0.5 mix is invert-symmetric and couldn't catch a regression of the old invert).
 
 ---
 
-## 11. Theme/color alpha is not on a single 0..1 convention — FIXED 2026-06-28
+# 13. 'If in QuickCommand mode - from hitting ESC in any other View - single click back to a view doesnt work'
 
-`ColorRGBA::a` is meant to be a 0..1 fraction (and is everywhere except `ExecuteAlpha`, which stored its
-raw argument, so the theme's `alpha(224)` leaked a 0..255 magnitude into the `selection` color). That
-overflowed the Gansi overlay blend (rendered green — bug 10) and only "worked" in SDL via an accidental
-integer wrap. The full diagnosis, touch-point inventory, and fix live in the deep-dive:
-[`alpha-normalization.md`](alpha-normalization.md).
+**Where:** Any view capturing 'single-click' should activate, regardless of in quick-edit mode or not.
+**FIX:** Not sure - this requires a bit of analysis because QuickCommandMode lives in the HorizontalStatusBar/Splitter
+between the Terminal and the Editor container. Good point to start looking: 'Editor::HandleGlobalAction(const EditorAction &kpAction)'
 
-**Discovered:** 2026-06-27, while fixing the Gansi overlay color (bug 10) — the green selection traced
-straight back to `fgColor.A()` returning 224.
-
-**Root cause (resolved):** the value was the defect, not the reader. Sublime's `alpha()` is a 0..1
-fraction (per the color-scheme spec), and the theme already authored every other alpha 0..1
-(`hsla(…, 0.7)`, `hsla(…, 0.25)`); `alpha(224)` was a stray 0..255 magnitude (a hand edit). Fix:
-(1) corrected the theme value `alpha(224)` → `alpha(0.12)` in both `Assets/Resources/colors.json` and
-`Assets/testfiles/colors.json`; (2) made `ExecuteAlpha` a faithful 0..1 import boundary — store verbatim
-+ clamp to `[0,1]` (with a warn on out-of-range, which would have caught the original 224);
-(3) removed both Gansi stopgaps. SDL/JS need no change (alpha ≤ 1 now → `AlphaAsInt ≤ 255`, no wrap).
-Pinned by `test_theme_alpha` (alpha stays 0..1, out-of-range clamps) and the updated
-`test_gansibackend_overlay`. The selection's faint look is preserved (~0.12 opacity, vs the old
-accidental ~0.125).
+There is a state in the Editor guarding this - it also guards switching active views - to some extent. While we are in QuickCmdState
+the editor will not leave it unless explicitly asked. Regardless of which view is called as the active one.  This is intentional.
+So, when we now have added mouse-capability to switch active view - we probably have to consider how to handle 'state = QuickCommandState;'
+in the editor.
 
 ---
 
-## 12. Overlays carry no color/role — every overlay is painted with the `selection` color — FIXED 2026-06-28
-
-**Where:** `LineRender::DrawLines` (`src/Core/Editor/LineRender.cpp`) +
-`*DrawContext::DrawLineOverlays` (SDL2 / SDL3 / Gansi) and `DrawContext::Overlay`.
-**What was wrong:** an `Overlay` was just a covered region — no color/role of its own.
-`LineRender::DrawLines` hard-coded `dc.SetFGColor(contentColors["selection"])` immediately before
-`DrawLineOverlays`, so **all** overlays rendered with the theme `selection` tint. Search-result overlays
-are not selections, but they inherited the selection color (tuned faint for selection) and read as too
-faint.
-**Fix:** `DrawContext::Overlay` now carries its OWN `ColorRGBA color` (and its alpha IS the blend
-opacity). The **view** resolves theme role→color at creation — `EditorView::DrawSelectionOverlay` uses
-`content.selection`, `DrawSearchResultOverlays` uses a new `content.search` (fallback to `selection` for
-themes that don't define it), `TerminalView` sets its block-highlight color on the overlay. The three
-backends' `DrawLineOverlay(s)` blend `overlay.color` instead of the single app-set `fgColor`, so
-selection + search overlays in the same frame keep distinct tints. `LineRender` no longer sets a
-selection color (the graphics layer stays theme-free; the view owns the lookup). New theme color
-`search` = `color(var(blue5), alpha(0.30))` — a teal at 0.30 (vs selection's faint orange 0.12), so
-matches read clearly. Pinned by the updated `test_gansibackend_overlay` (points `fgColor` at a WRONG
-color to prove the backend reads `overlay.color`). Surfaced 2026-06-28 while verifying the
-alpha-normalization fix (bug 11).
-
+--> Next bug is #14

@@ -147,3 +147,19 @@ Pinned by `test_theme_alpha` (alpha stays 0..1, out-of-range clamps) and the upd
 `test_gansibackend_overlay`. The selection's faint look is preserved (~0.12 opacity, vs the old
 accidental ~0.125).
 
+---
+
+## 12. Overlays carry no color/role — every overlay is painted with the `selection` color
+
+**Where:** `LineRender::DrawLines` (`src/Core/Editor/LineRender.cpp`) +
+`*DrawContext::DrawLineOverlays` (SDL2 / SDL3 / Gansi) and `DrawContext::Overlay`.
+**What's wrong:** an `Overlay` is just a covered region — it has no color or role of its own.
+`LineRender::DrawLines` hard-codes `dc.SetFGColor(contentColors["selection"])` immediately before
+`DrawLineOverlays`, so **all** overlays render with the theme `selection` tint. Search-result overlays
+are not selections, but they inherit the selection color (tuned faint for selection) and read as too
+faint.
+**Direction (not done):** give `Overlay` a color/role (e.g. `selection` vs `search`/`match`), add a
+distinct theme color for search matches, and have `DrawLineOverlays` use the overlay's own color instead
+of the single app-set `fgColor`. Tracked for a separate change; surfaced 2026-06-28 while verifying the
+alpha-normalization fix (bug 11) — selection looked right, search overlays too faint.
+

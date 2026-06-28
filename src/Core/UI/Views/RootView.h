@@ -193,6 +193,14 @@ namespace gedit {
                 if (mouseEvent.kind != MouseEvent::kMouseEventKind_Release) {
                     auto topViewName = FindEnclosingTopViewName(hit);
                     if (topViewName.has_value()) {
+                        // A click is an explicit "focus this view" gesture, so it must leave
+                        // quick-command mode even when the clicked view is ALREADY the active top
+                        // view - SetActiveTopViewByName short-circuits the same-view case and would
+                        // otherwise skip the leave, stranding the user in quick-command mode
+                        // (open-bug 13). The leave policy/flag (quickmode.leave_when_switching_view)
+                        // lives app-side behind this notification; a second leave from inside
+                        // SetActiveTopViewByName (the cross-view case) is a harmless no-op.
+                        LeaveQuickCommand();
                         SetActiveTopViewByName(*topViewName);
                     }
                 }

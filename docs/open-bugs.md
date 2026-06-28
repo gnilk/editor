@@ -114,17 +114,5 @@ There are possibly other applications also not working but this is one I found
 
 ---
 
-# 13. 'If in QuickCommand mode - from hitting ESC in any other View - single click back to a view doesnt work'
-
-**Where:** Any view capturing 'single-click' should activate, regardless of in quick-edit mode or not.
-**FIX:** Not sure - this requires a bit of analysis because QuickCommandMode lives in the HorizontalStatusBar/Splitter
-between the Terminal and the Editor container. Good point to start looking: 'Editor::HandleGlobalAction(const EditorAction &kpAction)'
-
-There is a state in the Editor guarding this - it also guards switching active views - to some extent. While we are in QuickCmdState
-the editor will not leave it unless explicitly asked. Regardless of which view is called as the active one.  This is intentional.
-So, when we now have added mouse-capability to switch active view - we probably have to consider how to handle 'state = QuickCommandState;'
-in the editor.
-
----
-
+--> Bug #13 FIXED (2026-06-28) — see docs/fixed-bugs.md
 --> Next bug is #14

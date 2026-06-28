@@ -7,6 +7,8 @@
 #include "Core/UI/Views/RootView.h"
 #include "Core/UI/Views/HSplitView.h"
 #include "Core/UI/Views/VSplitView.h"
+#include "Core/UI/UIHost.h"
+#include "Core/MouseEvent.h"
 #include "logger.h"
 
 using namespace gedit;
@@ -354,5 +356,50 @@ extern "C" int test_layout_nested_width(ITesting *t) {
     TR_ASSERT(t, sp < contentW);
     TR_ASSERT(t, leftView.GetWidth() > 0);
 
+    return kTR_Pass;
+}
+
+// open-bug 13: a single click that resolves to the ALREADY-ACTIVE top view must still fire the
+// leave-quick-command notification from RootView::DispatchMouse. The app wires that notification to
+// Editor::LeaveCommandMode (gated on quickmode.leave_when_switching_view), so this is the precise
+// mechanism that strands the user in quick-command mode after they ESC out of a view and then click
+// straight back into it. Before the fix SetActiveTopViewByName short-circuited the same-view case and
+// the notification never fired. We observe the notification directly via the UIHost hook (the app
+// policy point), which keeps the test off the heavier Editor state machine.
+extern "C" int test_layout_quickcmdclick(ITesting *t) {
+    RootView rootView;
+
+    ViewBase topContent;
+    rootView.AddView(&topContent);
+    rootView.AddTopView(&topContent, "editor");
+    rootView.Initialize();
+
+    // The single registered top view is the active one - so clicking it is the same-view case.
+    TR_ASSERT(t, rootView.GetTopViewName().has_value());
+    TR_ASSERT(t, rootView.GetTopViewName().value() == "editor");
+
+    bool leaveNotified = false;
+    UIHost::Instance().SetOnLeaveQuickCommand([&leaveNotified]() {
+        leaveNotified = true;
+    });
+
+    auto hitPoint = topContent.GetViewRect().MidPt();
+
+    // A PRESS inside the active top view must fire the leave notification (the fix).
+    MouseEvent press;
+    press.kind = MouseEvent::kMouseEventKind_Press;
+    press.x = hitPoint.x;
+    press.y = hitPoint.y;
+    rootView.DispatchMouse(press);
+    TR_ASSERT(t, leaveNotified == true);
+
+    // A RELEASE is the tail of a gesture and must NOT re-fire the focus/leave path.
+    leaveNotified = false;
+    MouseEvent release = press;
+    release.kind = MouseEvent::kMouseEventKind_Release;
+    rootView.DispatchMouse(release);
+    TR_ASSERT(t, leaveNotified == false);
+
+    UIHost::Instance().SetOnLeaveQuickCommand(nullptr);
     return kTR_Pass;
 }

@@ -287,3 +287,26 @@ selection color (the graphics layer stays theme-free; the view owns the lookup).
 matches read clearly. Pinned by the updated `test_gansibackend_overlay` (points `fgColor` at a WRONG
 color to prove the backend reads `overlay.color`). Surfaced 2026-06-28 while verifying the
 alpha-normalization fix (bug 11).
+
+---
+
+## 13. In quick-command mode, a single click BACK INTO the active view didn't leave quick-command mode — FIXED 2026-06-28
+
+**Where:** `RootView::DispatchMouse` (`src/Core/UI/Views/RootView.h`), the focus-follows-click path.
+**What was wrong:** the leave-quick-command policy is wired through `RootView::SetActiveTopViewByName`
+→ `LeaveQuickCommand()` → `UIHost::NotifyLeaveQuickCommand()` → the app glue
+(`Editor::Initialize`'s `SetOnLeaveQuickCommand`, gated on `quickmode.leave_when_switching_view`).
+But `SetActiveTopViewByName` **short-circuits the same-view case** (`if (name == currentName) return
+true;`) *before* calling `LeaveQuickCommand()`. So clicking a *different* view left quick-command mode
+(names differ → notification fires), while ESC-ing out of a view and clicking straight **back into it**
+(the already-active top view) hit the early return and never fired the notification — stranding the
+user in quick-command mode. This only surfaced once click-to-activate (focus-follows-click) was added.
+**Fix:** a click is an explicit "focus this view" gesture, so `DispatchMouse` now calls
+`LeaveQuickCommand()` directly on the focus-follows-click press/wheel — independent of whether the
+resolved top view actually changed — *before* `SetActiveTopViewByName`. The same-view click now leaves
+quick-command mode; the cross-view case fires the notification a second time from inside
+`SetActiveTopViewByName`, a harmless no-op (the glue checks state). No new config: the existing
+`quickmode.leave_when_switching_view` flag (default true) still governs the behavior, so mouse stays
+consistent with keyboard view-switching. Pinned by `test_layout_quickcmdclick` (asserts a press on the
+already-active top view fires the `UIHost` leave notification, and a release does not — proven
+discriminating: it fails with the `LeaveQuickCommand()` call removed).

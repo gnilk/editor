@@ -213,6 +213,17 @@ Detail + phase-by-phase status: [`terminal-scrollback.md`](done/terminal-scrollb
 
 ---
 
+## Alpha normalization — `ColorRGBA::a` on a single 0..1 convention ✅ (2026-06-28)
+
+`ColorRGBA::a` is a 0..1 fraction everywhere; the lone violation was the theme's `alpha(224)` — a stray
+0..255 magnitude (hand edit) that leaked into the `selection` color, overflowing the Gansi overlay blend
+(the green-selection bug 10) and surviving in SDL only by an accidental Uint8 wrap. **Load-bearing
+decision:** the Sublime spec says `alpha()` is 0..1 and the theme already authored every *other* alpha
+0..1, so the *value* was the defect, not the reader — fix was to correct `alpha(224)` → `alpha(0.12)`
+(both `colors.json`), make `ExecuteAlpha` a faithful 0..1 boundary (store verbatim + clamp + warn), and
+drop both Gansi stopgaps. SDL/JS/serialization unchanged (alpha ≤ 1 ⇒ no wrap). Pinned by
+`test_theme_alpha` + the updated `test_gansibackend_overlay`. Detail: [`alpha-normalization.md`](alpha-normalization.md).
+
 ## Planned / not started
 
 - **Per-block syntax highlighting** — extracted from the terminal-scrollback effort (was its "Phase 4").
@@ -226,12 +237,6 @@ Detail + phase-by-phase status: [`terminal-scrollback.md`](done/terminal-scrollb
   abstraction, a defect checklist, and a re-enable plan (FM-n) that converges on "rescan the affected
   subtree via the FolderScanner" instead of trusting fragile event flags. Distinct work area from the
   scanner. Detail: [`folder-monitor.md`](partially_done/folder-monitor.md).
-- **Alpha normalization** — get `ColorRGBA::a` onto a single 0..1 convention. It already is everywhere
-  except the `alpha()` color-script function, which stores its raw argument; the theme's `alpha(224)`
-  then leaks a 0..255 magnitude into the `selection` color, overflowing the Gansi overlay blend (the
-  green-selection bug) and surviving in SDL only by an accidental Uint8 wrap. Small to write, but
-  cross-cutting to verify (color value type, both SDL backends, Gansi, JS color API, serialization, and
-  a theme re-tune). Detail + touch-point inventory + fix options: [`alpha-normalization.md`](alpha-normalization.md).
 - **CMake cleanup** — FetchContent for deps (known-working SHAs pinned), group the flat `editorsrc` into
   named source-list variables (one target, *not* separate libs), per-compiler flags, hoist deps/flags/
   packaging into `cmake/*.cmake`, and `.deb` + AppImage via CI → GitHub Releases. Plan + grounded

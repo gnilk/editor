@@ -25,8 +25,7 @@
     "white": "hsl(0, 0%, 100%)",
     "white2": "hsl(0, 0%, 97%)",
     "white3": "hsl(219, 28%, 88%)",
-    "selection_alpha" : "alpha(0.12)",
-    "term_selection": "hsla(210, 40%, 50%, 0.25)"
+    "selection_alpha" : "alpha(0.12)"
   },
   "colors" : {
     "globals": {
@@ -46,14 +45,6 @@
       "import": "var(blue5)",
       "preprocessor": "var(pink)",
       "macro_identifier": "var(orange3)",
-      "heading": "var(orange)",
-      "strong": "var(orange3)",
-      "emphasis": "var(blue5)",
-      "code": "var(green)",
-      "list_marker": "var(red2)",
-      "block_quote": "var(blue6)",
-      "link": "var(blue)",
-      "rule": "var(grey3)",
       "selection": "var(blue2)",
       "funky": "var(white3)"
     },
@@ -74,14 +65,6 @@
       "import": "var(blue5)",
       "preprocessor": "var(pink)",
       "macro_identifier": "var(orange3)",
-      "heading": "var(orange)",
-      "strong": "var(orange3)",
-      "emphasis": "var(blue5)",
-      "code": "var(green)",
-      "list_marker": "var(red2)",
-      "block_quote": "var(blue6)",
-      "link": "var(blue)",
-      "rule": "var(grey3)",
       "selection": "color(var(orange),var(selection_alpha))",
       "hexview": "var(grey3)",
       "funky": "var(white3)"
@@ -99,7 +82,6 @@
     "terminal": {
       "background": "#000000",
       "foreground": "#7f7f7f",
-      "selection": "var(term_selection)",
       "0"  : "#000000",
       "1"  : "#cd0000",
       "2"  : "#00cd00",

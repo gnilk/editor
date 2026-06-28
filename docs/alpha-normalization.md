@@ -1,9 +1,30 @@
 # Alpha normalization — get `ColorRGBA::a` onto a single 0..1 convention
 
-**Status:** planned / not started. Tracked as a one-liner in [`open-bugs.md`](open-bugs.md) (bug 11);
-this is the full cold-start detail + fix plan. **Discovered** 2026-06-27 while fixing the Gansi overlay
-selection color (open-bugs bug 10): the selection rendered **green**, traced straight back to
-`fgColor.A()` returning **224** instead of a 0..1 fraction.
+**Status:** ✅ **FIXED 2026-06-28.** Tracked in [`open-bugs.md`](open-bugs.md) (bug 11). **Discovered**
+2026-06-27 while fixing the Gansi overlay selection color (open-bugs bug 10): the selection rendered
+**green**, traced straight back to `fgColor.A()` returning **224** instead of a 0..1 fraction.
+
+> ## Resolution (what shipped — read this first)
+>
+> The diagnosis below stands, but the conclusion changed once the **Sublime spec** was checked: `alpha()`
+> is a **0..1 fraction** (`color(var(base_green) alpha(0.9))` = "alpha to 90%"), and the theme already
+> authored every other alpha 0..1 (`hsla(…, 0.7)`, `hsla(…, 0.25)`). So `alpha(224)` was a **malformed
+> value** (a stray 0..255 hand edit), not a convention — the *writer* was right, the *value* was wrong.
+> That makes this **Option B's spirit**, not Option A: we did **not** add a `/255` to `ExecuteAlpha`.
+>
+> **What changed:**
+> 1. Theme value corrected: `alpha(224)` → `alpha(0.12)` in `Assets/Resources/colors.json` **and**
+>    `Assets/testfiles/colors.json` (a valid 0..1 alpha, consistent with the file's own `hsla` alphas,
+>    reproducing the old faint look at a *real* opacity).
+> 2. `ExecuteAlpha` is now a faithful 0..1 import boundary: store verbatim **+ clamp to `[0,1]`** exactly
+>    as Sublime does, with a `Warn:` on out-of-range (would have caught the original `224`).
+> 3. Both Gansi stopgaps removed (`if (a>1) a/=255` and the `1.0 - a` invert); `fgColor.A()` is the blend
+>    fraction directly.
+> 4. **No SDL / JS / serialization change needed** — alpha ≤ 1 now ⇒ `AlphaAsInt() ≤ 255`, no Uint8 wrap.
+>    (Note: the touch-point inventory below lists a `ColorRGBA::ToUint32` — that method does not exist;
+>    `operator==`/`Hash()` are the only `AlphaAsInt`-packers and both are effectively unused.)
+> 5. Pinned by `test_theme_alpha` (alpha stays 0..1; out-of-range clamps; full `color(... alpha(x))`
+>    path) and the updated `test_gansibackend_overlay` (discriminating 0.25 alpha → `{191,191,255}`).
 
 ---
 

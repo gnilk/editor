@@ -129,9 +129,19 @@ SublimeConfigScriptEngine::ScriptValue SublimeConfigColorScript::ExecuteAlpha(st
         printf("Err: Argument type mismatch, not a number\n");
         return invalidScriptValue;
     }
-    // Construct a color with {1,1,1 <alpha>}
+    // Sublime's alpha() is a 0..1 fraction (0.0 = transparent, 1.0 = opaque) — see
+    // https://www.sublimetext.com/docs/color_schemes.html. This is the Sublime->GoatEdit boundary,
+    // so normalize here: clamp into [0,1] exactly as Sublime does. ColorRGBA::a is then a clean 0..1
+    // opacity for every downstream reader (SDL, Gansi, JS). A value > 1 is almost certainly a 0..255
+    // magnitude authored by mistake (the old `alpha(224)` bug) — warn so it's not silent.
+    float alpha = args[0].Number();
+    if (alpha < 0.0f || alpha > 1.0f) {
+        printf("Warn: alpha(%f) out of range — alpha is a 0..1 fraction, clamping\n", alpha);
+        alpha = (alpha < 0.0f) ? 0.0f : 1.0f;
+    }
+    // Construct a color with {1,1,1, <alpha>}
     ColorRGBA col;
-    col.SetAlpha(args[0].Number());
+    col.SetAlpha(alpha);
     return {.vType = kColor, .data = col};
 }
 

@@ -118,20 +118,32 @@ and ignored the application-set overlay color. `LineRender::DrawLines` points `f
 `selection` color right before calling `DrawLineOverlays`, exactly as the SDL backends rely on.
 **Fix:** highlight by blending the overlay color (`fgColor`) into each covered cell's BACKGROUND only
 — glyph + its fg left intact so text stays readable on a grid with no alpha compositing. Covered by
-`test_gansibackend_overlay`. **Caveat:** the blend carries two stopgaps — `if (a > 1) a /= 255`
-(theme alphas are stored 0..255, not 0..1) and `a = 1.0 - a` ("invert for now", to match SDL's
-faintness) — both tracked under bug 11 below; drop them together once 11 is fixed.
+`test_gansibackend_overlay`. **Update 2026-06-28:** the two stopgaps it used to carry — `if (a > 1) a
+/= 255` and `a = 1.0 - a` ("invert for now") — were **removed** when bug 11 was fixed; `fgColor.A()` is
+now a true 0..1 opacity used as the blend fraction directly. The test now uses a discriminating 0.25
+alpha (a 0.5 mix is invert-symmetric and couldn't catch a regression of the old invert).
 
 ---
 
-## 11. Theme/color alpha is not on a single 0..1 convention → **promoted to its own doc**
+## 11. Theme/color alpha is not on a single 0..1 convention — FIXED 2026-06-28
 
-`ColorRGBA::a` is meant to be a 0..1 fraction (and is everywhere except `ExecuteAlpha`, which stores its
-raw argument, so the theme's `alpha(224)` leaks a 0..255 magnitude into the `selection` color). That
-overflows the Gansi overlay blend (rendered green — bug 10, now carrying two stopgaps) and only "works"
-in SDL via an accidental integer wrap. The full diagnosis, touch-point inventory, fix options, and
-verification plan live in the deep-dive: [`alpha-normalization.md`](alpha-normalization.md).
+`ColorRGBA::a` is meant to be a 0..1 fraction (and is everywhere except `ExecuteAlpha`, which stored its
+raw argument, so the theme's `alpha(224)` leaked a 0..255 magnitude into the `selection` color). That
+overflowed the Gansi overlay blend (rendered green — bug 10) and only "worked" in SDL via an accidental
+integer wrap. The full diagnosis, touch-point inventory, and fix live in the deep-dive:
+[`alpha-normalization.md`](alpha-normalization.md).
 
 **Discovered:** 2026-06-27, while fixing the Gansi overlay color (bug 10) — the green selection traced
 straight back to `fgColor.A()` returning 224.
+
+**Root cause (resolved):** the value was the defect, not the reader. Sublime's `alpha()` is a 0..1
+fraction (per the color-scheme spec), and the theme already authored every other alpha 0..1
+(`hsla(…, 0.7)`, `hsla(…, 0.25)`); `alpha(224)` was a stray 0..255 magnitude (a hand edit). Fix:
+(1) corrected the theme value `alpha(224)` → `alpha(0.12)` in both `Assets/Resources/colors.json` and
+`Assets/testfiles/colors.json`; (2) made `ExecuteAlpha` a faithful 0..1 import boundary — store verbatim
++ clamp to `[0,1]` (with a warn on out-of-range, which would have caught the original 224);
+(3) removed both Gansi stopgaps. SDL/JS need no change (alpha ≤ 1 now → `AlphaAsInt ≤ 255`, no wrap).
+Pinned by `test_theme_alpha` (alpha stays 0..1, out-of-range clamps) and the updated
+`test_gansibackend_overlay`. The selection's faint look is preserved (~0.12 opacity, vs the old
+accidental ~0.125).
 

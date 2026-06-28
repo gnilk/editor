@@ -80,16 +80,10 @@ void GansiDrawContext::DrawLineOverlays(int y) const {
     // highlight by blending that color into each covered cell's BACKGROUND only — the glyph and its
     // fg are left intact so the text stays readable.
     //
-    // NOTE: theme alphas are stored 0..255 (e.g. `alpha(224)`), NOT normalized 0..1 — see
-    // SublimeConfigColorScript::ExecuteAlpha. Using the raw value as a blend factor overflows the
-    // uint8 cast below (the `c * (1 - a)` term goes hugely negative and wraps), which is what turned
-    // the selection green. Normalize first; a color that already uses a 0..1 alpha is left as-is.
+    // fgColor.A() is a true 0..1 opacity (normalized at the Sublime->GoatEdit boundary in
+    // SublimeConfigColorScript::ExecuteAlpha), so it's the blend fraction directly — a == 0 leaves the
+    // cell untouched, a == 1 fully replaces the background with the selection color.
     float a = fgColor.A();
-    if (a > 1.0f) {
-        a /= 255.0f;
-    }
-    // Invert for now - this gives better results - but we should get this under control
-    a = 1.0 - a;
     const gnilk::ansi::Color ovl = ToAnsiColor(fgColor);
 
     auto blend = [a, &ovl](const gnilk::ansi::Color &c) -> gnilk::ansi::Color {

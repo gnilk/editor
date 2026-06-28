@@ -4,6 +4,7 @@
 #include "Core/Graphics/Gansi/GansiScreen.h"
 #include "Core/Graphics/Gansi/GansiWindow.h"
 #include "Core/Graphics/Gansi/GansiKeyboardDriver.h"
+#include "Core/Graphics/Gansi/GansiTranslate.h"
 
 #include "Core/Editor.h"
 #include "Core/MouseEvent.h"
@@ -69,7 +70,13 @@ void GansiScreen::Close() {
 }
 
 void GansiScreen::Clear() {
-    terminal->Clear(gnilk::ansi::kDefaultBg);
+    // Clear to the THEME background, mirroring SDLScreen::Clear() — NOT the gansi library default (black).
+    // Windows are clip rects over this one shared grid (no per-window buffer), so the clear colour is what
+    // shows through wherever a view paints fewer cells than its window covers (rows below a short file
+    // list, an editor with few lines, inter-window gaps). kDefaultBg left those uncovered cells black
+    // instead of the editor background (open-bugs #14).
+    auto theme = Editor::Instance().GetTheme();
+    terminal->Clear(ToAnsiColor(theme->GetGlobalColors().GetColor("background")));
 }
 
 void GansiScreen::Update() {

@@ -310,3 +310,35 @@ quick-command mode; the cross-view case fires the notification a second time fro
 consistent with keyboard view-switching. Pinned by `test_layout_quickcmdclick` (asserts a press on the
 already-active top view fires the `UIHost` leave notification, and a release does not — proven
 discriminating: it fails with the `LeaveQuickCommand()` call removed).
+
+## 14. ANSI (Gansi) backend did not clear the complete background of a window — uncovered cells rendered black — FIXED 2026-06-28
+
+**Where:** `GansiScreen::Clear()` (`src/Core/Graphics/Gansi/GansiScreen.cpp`).
+**What was wrong:** `Clear()` wiped the shared grid to the gansi library default `kDefaultBg` (pure
+black) instead of the theme `background`. In the Gansi model windows are clip rects over ONE shared
+grid (no per-window buffer), so the screen-clear colour is exactly what shows through wherever a view
+paints fewer cells than its window covers — the rows below a short file list (`TreeView::DrawViewContents`
+breaks at the last node), an editor with fewer lines than the view (`LineRender::DrawLines` breaks at
+EOF), and any inter-window gap. Those uncovered cells therefore rendered black rather than the editor
+background. Visible in `screenshots/ANSI_Backend_NotClearing_Window.png` (workspace panel below the
+file list) and `ANSI_Backend_NotClearing_Background2.png` (empty file → whole editor + workspace black).
+**Why it was the screen clear, not a missing window clear:** `SDLWindow::Clear()` is **no longer called
+in the draw pipeline** (`WindowBase::Clear()` / `SDLWindow::Clear()` have no callers — dead code in the
+current path). The SDL backends look correct because `SDLScreen::Clear()` clears to theme `background`
+and the views draw on top (offset by the window origin, no clip rect), so an undrawn cell shows the
+*screen*-clear colour. The only discrepancy with Gansi was that colour (theme bg vs black). Implementing
+**and wiring** `GansiWindow::Clear()` is a valid alternative, but the minimal parallel to what the SDL
+path actually relies on today is the screen clear — so that's where the fix went.
+
+**Also fixed in passing (latent, both SDL backends):** `SDLWindow::Clear()` did `SDL_RenderClear` after
+`SDL_SetRenderTarget(renderer, windowBackBuffer)`, but `windowBackBuffer` is `nullptr` today (the
+per-window texture creation is commented out → the target resolves to the shared ROOT framebuffer), so
+`RenderClear` would have wiped the **whole screen**, not just this window. It now fills only the
+window's pixel rect when drawing into the root target (and still `RenderClear`s if a real window-sized
+texture is ever restored). Still uncalled, but correct for anyone who wires per-window clears back in.
+**Fix:** `GansiScreen::Clear()` now clears to `ToAnsiColor(theme->GetGlobalColors().GetColor("background"))`,
+mirroring `SDLScreen::Clear()` exactly. (`uiColors["background"]` == `globals.background` == `blue3` in
+the default theme, so the workspace rows and the area below them are now the same colour — uniform,
+matching SDL.) Pinned by `test_gansibackend_clear_themebg` (asserts every grid cell's bg equals the
+theme background after `Clear()`; discriminating — it first asserts the theme bg is not black, then
+fails on the old `kDefaultBg` clear).

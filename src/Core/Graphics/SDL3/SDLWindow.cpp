@@ -121,8 +121,19 @@ void SDLWindow::Clear() {
     SDLColor bgColor(theme->GetGlobalColors().GetColor("background"));
     bgColor.Use(renderer);
 
-
-    SDL_RenderClear(renderer);
+    if (windowBackBuffer != nullptr) {
+        // Dedicated, window-sized render target: the whole target IS this window, so a full clear is fine.
+        SDL_RenderClear(renderer);
+    } else {
+        // windowBackBuffer is null -> SetRenderTarget selected the shared ROOT target (the whole
+        // framebuffer). SDL_RenderClear would wipe every OTHER window too, so fill ONLY this window's
+        // pixel rect (same offset model the DrawContext / Refresh use). Not called in the current draw
+        // pipeline, but kept correct for anyone who wires per-window clears back in.
+        auto pixRect = SDLTranslate::RowColToPixel(windowRect);
+        SDL_FRect r = {(float)pixRect.TopLeft().x, (float)pixRect.TopLeft().y,
+                       (float)pixRect.Width(), (float)pixRect.Height()};
+        SDL_RenderFillRect(renderer, &r);
+    }
     SDL_SetRenderTarget(renderer, nullptr);
 }
 

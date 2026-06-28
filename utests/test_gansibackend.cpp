@@ -14,6 +14,7 @@
 #include "Core/Graphics/Gansi/GansiScreen.h"
 #include "Core/Graphics/Gansi/GansiWindow.h"
 #include "Core/Graphics/Gansi/GansiKeyboardDriver.h"
+#include "Core/Graphics/Gansi/GansiTranslate.h"
 #include "gansi/MockTerminalIO.h"
 #include "gansi/Terminal.h"
 
@@ -24,6 +25,7 @@ DLL_EXPORT int test_gansibackend(ITesting *t);
 DLL_EXPORT int test_gansibackend_dimensions(ITesting *t);
 DLL_EXPORT int test_gansibackend_window_offset(ITesting *t);
 DLL_EXPORT int test_gansibackend_clip(ITesting *t);
+DLL_EXPORT int test_gansibackend_clear_themebg(ITesting *t);
 DLL_EXPORT int test_gansibackend_color(ITesting *t);
 DLL_EXPORT int test_gansibackend_hrule(ITesting *t);
 DLL_EXPORT int test_gansibackend_overlay(ITesting *t);
@@ -95,6 +97,28 @@ DLL_EXPORT int test_gansibackend_clip(ITesting *t) {
     dc.DrawStringAt(0, 4, std::u32string(U"Q"));
     TR_ASSERT(t, grid->At(5, 6).ch == U' ');
     delete win;
+    return kTR_Pass;
+}
+
+// Clear() must paint the WHOLE grid with the theme 'background' — not the gansi library default (black).
+// Windows here are clip rects over one shared grid (no per-window buffer), so the screen-clear colour is
+// exactly what shows through wherever a view paints fewer cells than its window covers: the rows below a
+// short file list, an editor with fewer lines than the view, inter-window gaps. The SDL backends clear
+// the renderer to theme 'background' and draw directly on top; gansi must match, or those uncovered cells
+// render black instead of the editor background (open-bugs #14).
+DLL_EXPORT int test_gansibackend_clear_themebg(ITesting *t) {
+    auto screen = MakeScreen(20, 10);   // MakeScreen() already calls Clear()
+    auto *grid = screen->GetTerminal();
+    auto expectedBg = Gansi::ToAnsiColor(Editor::Instance().GetTheme()->GetGlobalColors().GetColor("background"));
+    // Discriminator: the loaded theme bg is NOT black, so a kDefaultBg clear fails the per-cell check below.
+    TR_ASSERT(t, !(expectedBg == gnilk::ansi::kDefaultBg));
+    for (int y = 0; y < grid->Rows(); ++y) {
+        for (int x = 0; x < grid->Cols(); ++x) {
+            auto &cell = grid->At(x, y);
+            TR_ASSERT(t, cell.ch == U' ');
+            TR_ASSERT(t, (cell.bg == expectedBg));
+        }
+    }
     return kTR_Pass;
 }
 

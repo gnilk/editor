@@ -114,5 +114,4 @@ There are possibly other applications also not working but this is one I found
 
 ---
 
---> Bug #13 FIXED (2026-06-28) — see docs/fixed-bugs.md
---> Next bug is #14
+--> Next bug is #15

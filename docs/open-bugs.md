@@ -149,17 +149,24 @@ accidental ~0.125).
 
 ---
 
-## 12. Overlays carry no color/role — every overlay is painted with the `selection` color
+## 12. Overlays carry no color/role — every overlay is painted with the `selection` color — FIXED 2026-06-28
 
 **Where:** `LineRender::DrawLines` (`src/Core/Editor/LineRender.cpp`) +
 `*DrawContext::DrawLineOverlays` (SDL2 / SDL3 / Gansi) and `DrawContext::Overlay`.
-**What's wrong:** an `Overlay` is just a covered region — it has no color or role of its own.
-`LineRender::DrawLines` hard-codes `dc.SetFGColor(contentColors["selection"])` immediately before
-`DrawLineOverlays`, so **all** overlays render with the theme `selection` tint. Search-result overlays
-are not selections, but they inherit the selection color (tuned faint for selection) and read as too
+**What was wrong:** an `Overlay` was just a covered region — no color/role of its own.
+`LineRender::DrawLines` hard-coded `dc.SetFGColor(contentColors["selection"])` immediately before
+`DrawLineOverlays`, so **all** overlays rendered with the theme `selection` tint. Search-result overlays
+are not selections, but they inherited the selection color (tuned faint for selection) and read as too
 faint.
-**Direction (not done):** give `Overlay` a color/role (e.g. `selection` vs `search`/`match`), add a
-distinct theme color for search matches, and have `DrawLineOverlays` use the overlay's own color instead
-of the single app-set `fgColor`. Tracked for a separate change; surfaced 2026-06-28 while verifying the
-alpha-normalization fix (bug 11) — selection looked right, search overlays too faint.
+**Fix:** `DrawContext::Overlay` now carries its OWN `ColorRGBA color` (and its alpha IS the blend
+opacity). The **view** resolves theme role→color at creation — `EditorView::DrawSelectionOverlay` uses
+`content.selection`, `DrawSearchResultOverlays` uses a new `content.search` (fallback to `selection` for
+themes that don't define it), `TerminalView` sets its block-highlight color on the overlay. The three
+backends' `DrawLineOverlay(s)` blend `overlay.color` instead of the single app-set `fgColor`, so
+selection + search overlays in the same frame keep distinct tints. `LineRender` no longer sets a
+selection color (the graphics layer stays theme-free; the view owns the lookup). New theme color
+`search` = `color(var(blue5), alpha(0.30))` — a teal at 0.30 (vs selection's faint orange 0.12), so
+matches read clearly. Pinned by the updated `test_gansibackend_overlay` (points `fgColor` at a WRONG
+color to prove the backend reads `overlay.color`). Surfaced 2026-06-28 while verifying the
+alpha-normalization fix (bug 11).
 

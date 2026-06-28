@@ -75,29 +75,26 @@ void GansiDrawContext::DrawLineOverlays(int y) const {
         return;
     }
 
-    // The overlay color is the application-set foreground: LineRender points it at the theme's
-    // 'selection' color immediately before this call. A cell grid can't alpha-composite, so we
-    // highlight by blending that color into each covered cell's BACKGROUND only — the glyph and its
-    // fg are left intact so the text stays readable.
+    // A cell grid can't alpha-composite, so we highlight by blending the overlay's color into each
+    // covered cell's BACKGROUND only — the glyph and its fg are left intact so the text stays readable.
     //
-    // fgColor.A() is a true 0..1 opacity (normalized at the Sublime->GoatEdit boundary in
-    // SublimeConfigColorScript::ExecuteAlpha), so it's the blend fraction directly — a == 0 leaves the
-    // cell untouched, a == 1 fully replaces the background with the selection color.
-    float a = fgColor.A();
-    const gnilk::ansi::Color ovl = ToAnsiColor(fgColor);
-
-    auto blend = [a, &ovl](const gnilk::ansi::Color &c) -> gnilk::ansi::Color {
-        return {
-            static_cast<uint8_t>(c.r * (1.0f - a) + ovl.r * a),
-            static_cast<uint8_t>(c.g * (1.0f - a) + ovl.g * a),
-            static_cast<uint8_t>(c.b * (1.0f - a) + ovl.b * a),
-        };
-    };
-
+    // The blend color/opacity is per-overlay (overlay.color), NOT the single app-set fgColor: selection
+    // and search overlays carry their own theme color + alpha. overlay.color.A() is a true 0..1 opacity
+    // (normalized at the Sublime->GoatEdit boundary in SublimeConfigColorScript::ExecuteAlpha), so it's
+    // the blend fraction directly — a == 0 leaves the cell untouched, a == 1 fully replaces the bg.
     for (auto &overlay : overlays) {
         if (!overlay.isActive || !overlay.IsLinePartiallyCovered(y)) {
             continue;
         }
+        const float a = overlay.color.A();
+        const gnilk::ansi::Color ovl = ToAnsiColor(overlay.color);
+        auto blend = [a, &ovl](const gnilk::ansi::Color &c) -> gnilk::ansi::Color {
+            return {
+                static_cast<uint8_t>(c.r * (1.0f - a) + ovl.r * a),
+                static_cast<uint8_t>(c.g * (1.0f - a) + ovl.g * a),
+                static_cast<uint8_t>(c.b * (1.0f - a) + ovl.b * a),
+            };
+        };
         int start = 0;
         int end = rect.Width();
         if (y == overlay.start.y) {

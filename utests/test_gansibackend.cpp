@@ -135,21 +135,23 @@ DLL_EXPORT int test_gansibackend_overlay(ITesting *t) {
     dc.SetColor(ColorRGBA::FromRGB(0, 0, 0), ColorRGBA::FromRGB(255, 255, 255));
     dc.DrawStringAt(0, 0, std::u32string(U"ABC"));
 
-    // The overlay color is the application-set foreground (LineRender points it at the theme
-    // 'selection' color before drawing overlays). Its alpha is now a true 0..1 opacity (bug 11), used
-    // as the blend fraction directly — NO inversion. Use 0.25 (not 0.5): a 0.5 mix is invert-symmetric
-    // and would pass either way, so it can't catch a regression of the old `1.0 - a` stopgap; 0.25
-    // does (no-invert -> {191,191,255}; the old invert would have given {63,63,255}).
-    dc.SetFGColor(ColorRGBA::FromRGBA(0.0f, 0.0f, 1.0f, 0.25f));   // blue, 25% opacity
+    // Each overlay carries its OWN color (bug 12); the backend blends overlay.color, NOT the app-set
+    // fgColor. Point fgColor at a deliberately-wrong opaque green to prove it's ignored. The overlay's
+    // alpha is a true 0..1 opacity (bug 11) used as the blend fraction directly — NO inversion. Use
+    // 0.25 (not 0.5): a 0.5 mix is invert-symmetric and would pass either way, so it can't catch a
+    // regression of the old `1.0 - a` stopgap; 0.25 does (no-invert -> {191,191,255}).
+    dc.SetFGColor(ColorRGBA::FromRGBA(0.0f, 1.0f, 0.0f, 1.0f));   // WRONG color: must be ignored
 
     DrawContext::Overlay ov;
     ov.isActive = true;
+    ov.color = ColorRGBA::FromRGBA(0.0f, 0.0f, 1.0f, 0.25f);   // blue, 25% opacity — the real source
     ov.Set(gedit::Point(0, 0), gedit::Point(2, 0));   // covers local cols 0..1 on row 0
     dc.AddOverlay(ov);
     dc.DrawLineOverlays(0);
 
-    // Covered cells: the selection color is blended into the BACKGROUND only; the glyph and its fg
+    // Covered cells: the overlay color is blended into the BACKGROUND only; the glyph and its fg
     // are left intact. bg {255,255,255} mixed 25% toward blue -> {191,191,255}; fg stays {0,0,0}.
+    // (If the backend had used fgColor it would be green, not blue — discriminating.)
     auto &covered = grid->At(5, 2);
     TR_ASSERT(t, covered.ch == U'A');
     TR_ASSERT(t, (covered.fg == gnilk::ansi::Color{0, 0, 0}));

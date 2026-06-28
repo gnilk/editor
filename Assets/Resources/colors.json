@@ -26,6 +26,7 @@
     "white2": "hsl(0, 0%, 97%)",
     "white3": "hsl(219, 28%, 88%)",
     "selection_alpha" : "alpha(0.12)",
+    "search_alpha" : "alpha(0.30)",
     "term_selection": "hsla(210, 40%, 50%, 0.25)"
   },
   "colors" : {
@@ -83,6 +84,7 @@
       "link": "var(blue)",
       "rule": "var(grey3)",
       "selection": "color(var(orange),var(selection_alpha))",
+      "search": "color(var(blue5),var(search_alpha))",
       "hexview": "var(grey3)",
       "funky": "var(white3)"
     },

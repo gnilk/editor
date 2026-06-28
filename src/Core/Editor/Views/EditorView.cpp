@@ -111,6 +111,12 @@ void EditorView::DrawSearchResultOverlays(DrawContext &dc, int tabSize) {
         return;
     }
     auto &lineCursor = document->GetLineCursor();
+    // Search matches are NOT selections — paint them with the theme's 'search' color so they read
+    // distinctly. Fall back to 'selection' for themes that don't define one.
+    const auto &contentColors = Editor::Instance().GetTheme()->GetContentColors();
+    const ColorRGBA searchColor = contentColors.HasColor("search")
+                                      ? contentColors["search"]
+                                      : contentColors["selection"];
     logger->Debug("DrawSearchResultOverlays, count=%zu", document->searchResults.size());
     for (auto &result : document->searchResults) {
         if (!lineCursor.IsInside(result.idxLine)) {
@@ -125,6 +131,7 @@ void EditorView::DrawSearchResultOverlays(DrawContext &dc, int tabSize) {
         DrawContext::Overlay overlay;
         overlay.Set(Point(startVisualX, result.idxLine - lineCursor.viewTopLine),
                     Point(endVisualX,   result.idxLine - lineCursor.viewTopLine));
+        overlay.color = searchColor;
         overlay.isActive = true;
         dc.AddOverlay(overlay);
     }
@@ -135,6 +142,7 @@ void EditorView::DrawSelectionOverlay(DrawContext &dc, int tabSize) {
     if (!selection.IsActive()) {
         return;
     }
+    const ColorRGBA selectionColor = Editor::Instance().GetTheme()->GetContentColors()["selection"];
     auto &lineCursor = document->GetLineCursor();
     auto selStart = selection.GetStart();
     auto selEnd = selection.GetEnd();
@@ -150,6 +158,7 @@ void EditorView::DrawSelectionOverlay(DrawContext &dc, int tabSize) {
 
     DrawContext::Overlay overlay;
     overlay.Set(Point(startVisualX, selStart.y), Point(endVisualX, selEnd.y));
+    overlay.color = selectionColor;
     overlay.attributes = 0;
     overlay.isActive = true;
     int dy = selEnd.y - selStart.y;

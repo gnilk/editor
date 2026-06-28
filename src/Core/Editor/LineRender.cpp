@@ -34,9 +34,6 @@ std::u32string LineRender::ExpandTabs(const std::u32string &in, int startCol, in
 // This assumes X = 0
 void LineRender::DrawLines(const std::vector<Line::Ref> &lines, int idxTopLine, int idxBottomLine, const Selection &selection) {
     auto &rect = dc.GetRect();
-    auto &theme = Editor::Instance().GetTheme();
-    auto contentColors = theme->GetContentColors();
-
 
     for (int i = idxTopLine; i < idxBottomLine; i++) {
         if (i >= (int)lines.size()) {
@@ -55,8 +52,8 @@ void LineRender::DrawLines(const std::vector<Line::Ref> &lines, int idxTopLine, 
         dc.ClearLine(i - idxTopLine);
         DrawLineWithAttributesAt(0, i - idxTopLine, nCharToPrint, *line, selection);
 
-
-        dc.SetFGColor(contentColors["selection"]);
+        // Overlays now carry their own color/alpha (set by the view from the theme) — no app-set
+        // selection color here.
         dc.DrawLineOverlays(i - idxTopLine);
         line->Release();
     }

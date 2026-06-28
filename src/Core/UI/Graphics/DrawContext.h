@@ -68,6 +68,13 @@ namespace gedit {
                 return true;
             }
 
+            // The color this overlay is painted with — and its alpha IS the blend opacity. Set by the
+            // view from the theme when the overlay is created: selection overlays carry the theme
+            // 'selection' color, search matches carry 'search'. The backends read THIS, not the single
+            // app-set fgColor, so different overlays in the same frame render with different
+            // colors/roles. Defaults to opaque white so an unset overlay is conspicuous, not silent.
+            ColorRGBA color;
+
             int attributes; // let's see...
         };
     public:

@@ -136,7 +136,9 @@ void SDLDrawContext::DrawLineOverlay(int y, const Overlay &overlay) const {
         if (y == overlay.end.y) end = overlay.end.x;
     }
 
-    SetRenderColor();
+    // Paint with the overlay's OWN color (carries its own alpha as the blend opacity), not the
+    // app-set fgColor — so selection and search overlays in the same frame keep their distinct tints.
+    SDLColor(overlay.color).Use(renderer);
     FillRect(start, y, end - start, 1, true);
 
 }

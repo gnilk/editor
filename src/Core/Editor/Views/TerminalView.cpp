@@ -180,7 +180,7 @@ void TerminalView::DrawViewContents() {
             dc.DrawHRule(viewY);
         }
         if (drawHighlight) {
-            dc.SetFGColor(highlightColor);
+            // The overlay carries highlightColor itself now (set at AddOverlay) — no app-set fg here.
             dc.DrawLineOverlays(viewY);
         }
     };
@@ -205,6 +205,7 @@ void TerminalView::DrawViewContents() {
                 if (lastViewY >= firstViewY) {
                     DrawContext::Overlay overlay;
                     overlay.Set(Point(0, (int)firstViewY), Point(dc.GetRect().Width(), (int)lastViewY));
+                    overlay.color = highlightColor;
                     overlay.isActive = true;
                     dc.AddOverlay(overlay);
                     drawHighlight = true;

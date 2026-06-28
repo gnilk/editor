@@ -29,6 +29,8 @@ drop-down terminal, but driving a syntax-highlighting, multi-backend editor.
   rendering via stb_truetype) and SDL2 for CI/fallback. The core knows nothing about pixels, so a
   fresh backend is a self-contained job — a modern-terminal backend (no NCurses baggage) is on the
   roadmap.
+- **Terminal Compatible** Modern ANSI Terminal rendering (no NCurses) - 256/truecolor terminals supported,
+  runs well over SSH.
 - **Scriptable in JavaScript.** An embedded Duktape engine exposes the editor through a clean JS API
   (`Editor`, `Document`, `View`, `Theme`, `Console`…). The startup banner goat? That's a plugin.
 - **Its own syntax engine.** A compact stack-based tokenizer drives highlighting (C++, JSON, Make,
@@ -110,16 +112,17 @@ Everything lives in the `gedit` namespace. A few landmarks:
 - `main.cpp` — picks a backend, then `Editor::Instance().Initialize()` / `OpenScreen()`.
 - `src/Core/Editor.*` — the application singleton (owns the workspace, model, plugin engine, theme,
   keymap, runloop).
-- `src/Core/TextBuffer / Line / EditorModel / Workspace` — the data model (a buffer is a vector of
+- `src/Core/TextBuffer / Line / Workspace` — the data model (a buffer is a vector of
   `Line`s; a `Line` is a `std::u32string` plus token attributes).
-- `src/Core/Views/` — a view tree (`EditorView`, `GutterView`, `TerminalView`, `WorkspaceView`,
-  split/stack containers, modal overlays).
+- `src/Core/UI/` - UI base with graphics, input and controllers
+- `src/Core/Editor/UI/` — Controller and Application views (workspace, editor, terminal) + status bars etc..
 - `src/Core/Controllers/` — input logic decoupled from views (`EditController`, `TerminalController`,
   `QuickCommandController`).
-- `src/Core/SDL3/` — backends behind the `ScreenBase` / `DrawContext` interfaces.
+- `src/Core/Graphics/` — SDL2/3, GAnsi backends behind the `ScreenBase` / `DrawContext` interfaces.
 - `src/Core/Language/` — the tokenizer and per-language configs.
 - `src/Core/JSEngine/` — Duktape host + the JS API wrappers; plugin scripts live in `src/Plugins/`.
 - `src/Core/Config/` — YAML config and theming.
+- `src/ext/gansi/` - Terminal rendering library, written as a stand alone library
 
 There's a much deeper architecture/coding-standards write-up in [`CLAUDE.md`](CLAUDE.md) — worth a
 read before a first PR.
@@ -134,9 +137,6 @@ evenings, and there's a lot of low-friction surface area to jump in on:
 - 🧩 **Write a plugin.** The JS API is the easiest on-ramp — add a cmdlet, a theme tweak, a goat.
 - 🎨 **Add a language.** Implement a `LanguageBase` + a tokenizer config (see `CPPLanguage` /
   `JSONLanguage` as templates).
-- 🖥️ **A modern-terminal backend.** SDL3 is primary; the big open prize is a clean console backend
-  built for today's terminals (no NCurses legacy baggage) — a stepping stone toward running GoatEdit
-  over SSH on a remote box.
 - 🐚 **Terminal/VT corner cases.** The VT parser (`VTermParser`) handles a healthy subset of
   xterm — origin mode, bracketed paste, and friends are still open.
 - 🧪 **Tests.** The suite runs under [trun](https://github.com/gnilk/testrunner); modules live in

@@ -3,7 +3,7 @@
 # Note: I throughly dislike CMake but I find it better than plain makefiles so that's it..
 #
 cmake_minimum_required(VERSION 3.28)
-project(goatedit VERSION 0.1.0)
+project(goatedit VERSION 0.2.0)
 set(CMAKE_CXX_STANDARD 20)
 
 # ---------------------------------------------------------------------------

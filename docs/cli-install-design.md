@@ -6,6 +6,43 @@ shell, and evolving that into a JS boot-script-driven self-install feature
 
 ---
 
+## Status
+
+**The CMake half is done; the in-editor `:install-cli` command is not.**
+
+Landed: a macOS-only `install-cli` CMake target that writes a wrapper script to
+`~/.local/bin/goat` (§2 baseline solution — note the default differs from §2's
+`/usr/local/bin` recommendation: that path is root-owned on a stock Apple
+Silicon box, and needing `sudo` for the common case is worse than needing one
+`PATH` line in a shell rc). `Assets/CMake/goat.sh.in` is the
+template, `cmake/InstallCli.cmake` does the copy + `chmod`, and
+`GEDIT_CLI_NAME` / `GEDIT_CLI_BIN_DIR` / `GEDIT_CLI_APP_PATH` are the cache
+overrides. It is a **custom target, not an `install()` rule** — an `install()`
+rule to an absolute path would leak out of the staging prefix that
+`cmake --install`/CPack build the `.dmg` from. The "never escalate silently"
+principle from §4 is honoured: an unwritable destination prints the exact
+`sudo install` line and stops.
+
+Two corrections to the sketches below, found while implementing:
+- The bundle is **`goatedit.app`** with binary `Contents/MacOS/goatedit` (the
+  target name is lowercase) — not `GoatEdit.app/Contents/MacOS/GoatEdit`. The
+  case only slips by on a case-insensitive filesystem.
+- Phase 5's "wrapper inside `Contents/Resources/bin/goat`" was skipped. The
+  wrapper is generated into the *build dir* instead and installed from there,
+  which keeps it inspectable without adding a file to the shipped bundle.
+
+Also changed while here: `CMAKE_INSTALL_PREFIX` now **defaults to
+`/Applications`** on macOS (guarded by `CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT`
+so an explicit `-D` still wins, and CPack still stages the `.dmg` into its own
+temp prefix). The stock `/usr/local` default meant `cmake --install` put the
+bundle somewhere the wrapper's hardcoded `/Applications/goatedit.app` didn't
+point - install path and wrapper assumption now agree by construction.
+
+Still open: Phases 1–4 (status-line yes/no prompt, `Fs_*`/`App.bundlePath()`
+bindings, JS install logic, the `:install-cli` command + boot-script hook).
+
+---
+
 ## 1. Problem
 
 GoatEdit is packaged as a proper macOS `.app` bundle (CMake/CPack), which is
@@ -238,7 +275,10 @@ are new native/script boundary surface going into the same feature.
 - [ ] Wire `Cli.isInstalled()` check into the default boot script with the yes/no prompt
 - [ ] Verify boot-script auto-check doesn't fire repeatedly/annoyingly once declined once (e.g. respect a "don't ask again" choice)
 
-### Phase 5 — Packaging follow-through (lower priority / later)
-- [ ] Add CMake `install()` rule placing the wrapper script inside `Contents/Resources/bin/goat` in the bundle
-- [ ] Document the manual symlink step (`ln -s .../Contents/Resources/bin/goat /usr/local/bin/goat`) as the supported non-scripted path
+### Phase 5 — Packaging follow-through ✅ (done, ahead of Phases 1-4)
+- [x] CMake `install-cli` target generating + installing the wrapper — landed as a **custom target**
+      writing to `${GEDIT_CLI_BIN_DIR}` (default `~/.local/bin`), not an `install()` rule into the
+      bundle (see Status above for why)
+- [x] Document the supported non-scripted path — README "Command-line launch on macOS"; the target
+      prints the exact `sudo install` command when the destination isn't writable
 - [ ] Revisit `.pkg` + postflight automation only if/when distributing GoatEdit beyond personal use

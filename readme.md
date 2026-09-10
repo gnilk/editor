@@ -168,7 +168,26 @@ cmake --build ./cmake-build-release --target package
 # -> cmake-build-release/goatedit-<ver>-linux-<arch>.deb
 ```
 
-**2b) AppImage** — built separately; writes `goatedit-<arch>.AppImage` to the repo root by default:
+**2b) macOS** — two separate things, neither of which is implied by the other:
+
+```shell
+# Install the bundle straight into /Applications (no packaging step, no sudo):
+cmake --install ./cmake-build-release
+
+# ..or produce a distributable disk image, to be mounted + dragged by hand:
+cmake --build ./cmake-build-release --target package
+# -> cmake-build-release/GoatEdit-<ver>-macOS.dmg
+```
+
+`CMAKE_INSTALL_PREFIX` **defaults to `/Applications` on macOS** (CMake's stock `/usr/local` would
+put the bundle where no Mac user looks for it, and where the `goat` wrapper doesn't point). Only the
+default is overridden, so `-DCMAKE_INSTALL_PREFIX=...` still wins, and CPack is unaffected — it
+stages the `.dmg` into its own temp prefix.
+
+The `.dmg` is unsigned/un-notarised, so first launch needs a right-click → Open (or
+`xattr -dr com.apple.quarantine /Applications/goatedit.app`).
+
+**2c) AppImage** — built separately; writes `goatedit-<arch>.AppImage` to the repo root by default:
 
 ```shell
 ./scripts/build-appimage.sh
@@ -183,6 +202,45 @@ Notes on the AppImage script:
 - It runs `cmake --install <BUILD_DIR> --prefix <AppDir>/usr` (reusing the project's install rules),
   bundling the binary, SDL + yaml-cpp, the assets, the desktop file, and the icon, then sets the
   custom `AppRun`.
+
+### Command-line launch on macOS (`install-cli`)
+
+A `.app` bundle can't be started from a shell as-is. The `install-cli` target drops a small wrapper
+script that `exec`s the bundle binary into a directory on `PATH` (macOS only — on Linux the `.deb`
+already puts `goatedit` in `/usr/bin`):
+
+```shell
+cmake --build ./cmake-build-release --target install-cli
+# -> ~/.local/bin/goat  ->  /Applications/goatedit.app/Contents/MacOS/goatedit
+```
+
+`~/.local/bin` is the default because it needs no `sudo` — on a stock Apple Silicon box
+`/usr/local/bin` is root-owned (Homebrew lives in `/opt/homebrew`). It is **not** on `PATH` by
+default on macOS though, so either add it to your shell rc or set `GEDIT_CLI_BIN_DIR` to somewhere
+that already is. The directory is created if missing.
+
+The wrapper is generated into the build dir at configure time, so you can read it before installing
+it (`cat cmake-build-release/goat`). If the destination isn't writable the target **prints the exact
+`sudo install` command and stops**; it never escalates privileges on its own.
+
+Three cache variables override the defaults:
+
+| Variable | Default | |
+|---|---|---|
+| `GEDIT_CLI_NAME` | `goat` | name of the installed command |
+| `GEDIT_CLI_BIN_DIR` | `~/.local/bin` | where it's written — e.g. `/usr/local/bin` (needs `sudo`) |
+| `GEDIT_CLI_APP_PATH` | `/Applications/goatedit.app` | the bundle the wrapper launches |
+
+Because it `exec`s (rather than forks), the wrapper blocks until the editor exits, so it works as
+`$EDITOR`/`$VISUAL` for `git commit` and friends:
+
+```shell
+export EDITOR="$HOME/.local/bin/goat"
+export VISUAL="$EDITOR"
+```
+
+This is only the packaging half of [`docs/cli-install-design.md`](docs/cli-install-design.md) — the
+`:install-cli` in-editor self-install command is still on the back burner.
 
 
 ## License

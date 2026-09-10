@@ -145,9 +145,52 @@ if (APPLE)
     )
 
 
+    #
+    # A Mac app belongs in /Applications, not CMake's default /usr/local prefix - `cmake --install`
+    # with the stock default would leave the bundle somewhere no Mac user looks for it (and where
+    # the install-cli wrapper doesn't point). Only override the DEFAULT: the guard variable is set
+    # by CMake solely when the prefix was NOT given on the command line, so an explicit
+    # -DCMAKE_INSTALL_PREFIX=... (and CPack, which stages into its own temp prefix) still wins.
+    #
+    if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+        set(CMAKE_INSTALL_PREFIX "/Applications" CACHE PATH "Install prefix - the bundle lands directly here" FORCE)
+    endif()
+
     install(TARGETS ${CUR_TARGET} BUNDLE DESTINATION .)
     install(DIRECTORY ${EDITOR_ASSET_DIR}/
             DESTINATION ${CUR_TARGET}.app/Contents/SharedSupport)
+
+    #
+    # Command-line wrapper - a `.app` bundle isn't launchable from a shell as-is, so put a small
+    # script that exec's the bundle binary somewhere on PATH. Opt-in and explicit:
+    #
+    #   cmake --build <builddir> --target install-cli
+    #
+    # NOT part of `cmake --install`/CPack on purpose - those stage into a temp prefix while this
+    # writes an absolute system path. The generated script lands in the build dir first, so it can
+    # be inspected (`cat <builddir>/goat`) before it is installed. See docs/cli-install-design.md.
+    #
+    set(GEDIT_CLI_NAME "goat" CACHE STRING "Name of the command-line wrapper installed by install-cli")
+    # Default to ~/.local/bin: writable without sudo, unlike a stock root-owned /usr/local/bin on a
+    # box where Homebrew lives in /opt/homebrew. It is NOT on PATH by default on macOS - add it, or
+    # point this at /usr/local/bin (and take the sudo step install-cli prints).
+    set(GEDIT_CLI_BIN_DIR "$ENV{HOME}/.local/bin" CACHE PATH "Directory install-cli writes the wrapper to")
+    set(GEDIT_CLI_APP_PATH "/Applications/${CUR_TARGET}.app" CACHE PATH "Bundle the wrapper exec's")
+
+    set(GEDIT_CLI_APP_BINARY "${GEDIT_CLI_APP_PATH}/Contents/MacOS/${CUR_TARGET}")
+    set(GEDIT_CLI_WRAPPER "${CMAKE_BINARY_DIR}/${GEDIT_CLI_NAME}")
+    configure_file(${CMAKE_SOURCE_DIR}/Assets/CMake/goat.sh.in ${GEDIT_CLI_WRAPPER} @ONLY)
+
+    add_custom_target(install-cli
+            COMMAND ${CMAKE_COMMAND}
+            -D "WRAPPER=${GEDIT_CLI_WRAPPER}"
+            -D "BIN_DIR=${GEDIT_CLI_BIN_DIR}"
+            -D "CLI_NAME=${GEDIT_CLI_NAME}"
+            -D "APP_BINARY=${GEDIT_CLI_APP_BINARY}"
+            -P ${CMAKE_SOURCE_DIR}/cmake/InstallCli.cmake
+            COMMENT "Installing CLI wrapper -> ${GEDIT_CLI_BIN_DIR}/${GEDIT_CLI_NAME}"
+            VERBATIM
+            USES_TERMINAL)
 
     set(CPACK_GENERATOR "DragNDrop")
     set(CPACK_PACKAGE_NAME "GoatEdit")

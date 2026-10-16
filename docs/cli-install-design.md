@@ -83,12 +83,19 @@ wrapper script (not a raw symlink) so default flags can be added later.
 ### `$EDITOR` / `$VISUAL` integration
 
 ```bash
-export EDITOR="/usr/local/bin/goat"
+export EDITOR="/usr/local/bin/goat -w"
 export VISUAL="$EDITOR"
 ```
 
 Requires the wrapper to **block until the editor exits** (no early
 fork/detach in `main()`) for tools like `git commit` to work correctly.
+The wrapper launches via LaunchServices (`open -n -a <bundle> --args --cwd "$PWD" …`),
+which detaches from the console AND activates the app (a plain `nohup … &` launch
+gets its activation refused by macOS cooperative activation and lands last in
+Cmd-Tab). `-w`/`--wait` adds `open -W` to block. LaunchServices starts the process
+in `/` with launchd's env, hence `--cwd` (an editor switch, applied immediately in
+`ParseArguments` so following file args resolve against it) and `--env PATH=$PATH`.
+Detaching lives in the wrapper, never in `main()`, so the binary itself always blocks.
 
 ---
 

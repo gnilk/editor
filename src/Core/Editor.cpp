@@ -308,6 +308,17 @@ void Editor::ParseArguments(int argc, const char **argv) {
                     argBackend = argv[++i];
                     std::transform(argBackend.begin(), argBackend.end(), argBackend.begin(), ::tolower);
                 }
+            } else if (cmdSwitch == "cwd") {
+                // Set the launch working directory - used by the macOS 'goat' wrapper, which launches
+                // through LaunchServices ('open'), where the process always starts in '/'. Applied
+                // immediately so positional args that FOLLOW it resolve against this directory.
+                if (i + 1 < argc) {
+                    std::error_code ec;
+                    std::filesystem::current_path(argv[++i], ec);
+                    if (ec) {
+                        fprintf(stderr, "--cwd '%s' failed: %s\n", argv[i], ec.message().c_str());
+                    }
+                }
             } else if (cmdSwitch == "help") {
                 PrintHelpToConsole();
                 exit(1);
@@ -334,6 +345,7 @@ void Editor::PrintHelpToConsole() {
     printf("  --console-logging, enables console logging to console, this is needed to get pre-initalization logging (before config has been loaded)\n");
     printf("  --skip-user-config, won't load user specific config (starts with defaults)\n");
     printf("  --backend <sdl | ansi | headless>, override the configuration file backend\n");
+    printf("  --cwd <dir>, set the working directory (project root) before resolving file arguments\n");
 }
 
 

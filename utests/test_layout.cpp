@@ -61,6 +61,30 @@ extern "C" int test_layout_simple(ITesting *t) {
     return kTR_Pass;
 }
 
+// Default split follows the initial RATIO (not an absolute row), both on first layout and after a
+// ResetContentHeight - so the editor|terminal proportion is independent of window size.
+extern "C" int test_layout_initial_ratio(ITesting *t) {
+    RootView rootView;
+    HSplitView hSplitView;
+    rootView.AddView(&hSplitView);
+    ViewBase upperView;
+    ViewBase lowerView;
+    hSplitView.SetUpper(&upperView);
+    hSplitView.SetLower(&lowerView);
+    hSplitView.SetInitialSplitterRatio(0.75f);
+
+    rootView.Initialize();
+    int contentHeight = hSplitView.GetContentRect().Height();
+    TR_ASSERT(t, hSplitView.GetSplitterPos() == static_cast<int>(contentHeight * 0.75f));
+    TR_ASSERT(t, upperView.GetHeight() > lowerView.GetHeight());
+
+    hSplitView.SetSplitterPos(contentHeight / 4);
+    hSplitView.ResetContentHeight();
+    TR_ASSERT(t, hSplitView.GetSplitterPos() == static_cast<int>(contentHeight * 0.75f));
+
+    return kTR_Pass;
+}
+
 // ---------------------------------------------------------------------------------------------------
 // Splitter bounds (regression: increase/decrease height/width had no clamp, so the splitter - and the
 // status line drawn on it - could be pushed off-screen, or a view given a negative extent).

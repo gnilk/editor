@@ -24,7 +24,7 @@ namespace gedit {
             window->SetCaption("HSplitView");
 
             if (splitterPos == 0) {
-                splitterPos = GetContentRect().Height()/2;
+                splitterPos = DefaultSplitterPos(GetContentRect().Height());
             }
 
             UpdateUpperViewRect();
@@ -42,8 +42,8 @@ namespace gedit {
             // Don't touch splitterPos then - just (re)derive the child rects from the current value.
             if (contentHeight > 0) {
                 if (splitterPos == 0) {
-                    // First layout - default to a centred split.
-                    splitterPos = contentHeight / 2;
+                    // First layout - default split (see SetInitialSplitterRatio).
+                    splitterPos = DefaultSplitterPos(contentHeight);
                 } else {
                     // Keep the user's chosen split across window resizes, clamped into the new content
                     // area. splitterPos is the AUTHORITY here; the child view heights are DERIVED from
@@ -61,6 +61,19 @@ namespace gedit {
 
         void SetInitialSplitterPos(int pos) {
             splitterPos = pos;
+        }
+
+        // Default split as a fraction of the content height (upper view share), applied on first layout
+        // and on ResetContentHeight. Prefer this over SetInitialSplitterPos - an absolute row count
+        // gives very different proportions depending on window size.
+        // Typically called after AddView, which has already laid us out with the old default - so
+        // re-derive the splitter now if a layout exists.
+        void SetInitialSplitterRatio(float ratio) {
+            initialSplitterRatio = ratio;
+            int contentHeight = GetContentRect().Height();
+            if (contentHeight > 0) {
+                splitterPos = DefaultSplitterPos(contentHeight);
+            }
         }
 
         void SetSplitterPos(int newSplitterPos) {
@@ -170,7 +183,7 @@ namespace gedit {
             viewRect = rect;
 
             if (splitterPos == 0) {
-                splitterPos = GetContentRect().Height() / 2;
+                splitterPos = DefaultSplitterPos(GetContentRect().Height());
             }
             UpdateUpperViewRect();
             UpdateLowerViewRect();
@@ -310,6 +323,10 @@ namespace gedit {
 
         // Clamp a candidate splitter row into the visible content area, leaving room for both views.
         // Falls back to a strict on-screen clamp when the content is too small for the normal margin.
+        int DefaultSplitterPos(int contentHeight) {
+            return static_cast<int>(contentHeight * initialSplitterRatio);
+        }
+
         int ClampSplitterPos(int pos) {
             int h = GetContentRect().Height();
             int lo = kMinViewExtent;
@@ -325,6 +342,7 @@ namespace gedit {
 
     protected:
         int splitterPos = {};
+        float initialSplitterRatio = 0.5f;
         int splitterPosBeforeReset = -1;
         bool bWasUseFullView = false;
         bool bUseFullView = false;  // This affects the computation of full view semantics

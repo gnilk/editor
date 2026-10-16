@@ -503,7 +503,7 @@ int main(int argc, const char **argv) {
 
 
     hSplitViewStatus.SetUpper(&vSplitViewUpper);
-    hSplitViewStatus.SetInitialSplitterPos(20);
+    hSplitViewStatus.SetInitialSplitterRatio(0.75f);    // editor gets 3/4, terminal 1/4
     // Stable session id so the editor|terminal divide round-trips through the session cache (§4.1).
     hSplitViewStatus.SetSessionId("split.terminal");
 

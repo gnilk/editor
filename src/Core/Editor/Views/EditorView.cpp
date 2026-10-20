@@ -23,6 +23,17 @@ using namespace gedit;
 // This is the global section in the config.yml for this view
 static const std::string cfgSectionName = "editorview";
 
+// "editorview.wrap": none | char | word - anything else is no wrap.
+static WrapMode WrapModeFromString(const std::string &str) {
+    if (str == "char") {
+        return WrapMode::kChar;
+    }
+    if (str == "word") {
+        return WrapMode::kWord;
+    }
+    return WrapMode::kNone;
+}
+
 void EditorView::InitView()  {
     logger = gnilk::Logger::GetLogger("EditorView");
     logger->Debug("InitView!");
@@ -38,6 +49,7 @@ void EditorView::InitView()  {
 
     bUseCLionPageNav = Config::Instance()[cfgSectionName].GetBool("pgupdown_content_first", true);
     linesPerScrollWheelNotch = Config::Instance()[cfgSectionName].GetInt("lines_per_scroll_wheel_notch", 5);
+    wrapMode = WrapModeFromString(Config::Instance()[cfgSectionName].GetStr("wrap", "none"));
 
     document = Editor::Instance().GetActiveDocument();
     if (document == nullptr) {
@@ -48,6 +60,7 @@ void EditorView::InitView()  {
     // Bind our controller to the active document and seed the view geometry from the document.
     editController.Attach(document);
     document->OnViewInit(rect);
+    document->SetWrap(wrapMode, rect.Width());
 }
 
 void EditorView::ReInitView() {
@@ -60,6 +73,7 @@ void EditorView::ReInitView() {
 
     bUseCLionPageNav = Config::Instance()[cfgSectionName].GetBool("pgupdown_content_first", true);
     linesPerScrollWheelNotch = Config::Instance()[cfgSectionName].GetInt("lines_per_scroll_wheel_notch", 5);
+    wrapMode = WrapModeFromString(Config::Instance()[cfgSectionName].GetStr("wrap", "none"));
 
     document = Editor::Instance().GetActiveDocument();
     if (document == nullptr) {
@@ -69,6 +83,8 @@ void EditorView::ReInitView() {
     // Re-point the controller at whatever document is now active (the document switch / attach).
     editController.Attach(document);
     document->OnViewInit(viewRect);
+    // Every resize and document switch funnels through here - re-push the wrap width (content width).
+    document->SetWrap(wrapMode, rect.Width());
 }
 
 // FIXME: This is never used!!!
@@ -95,22 +111,21 @@ void EditorView::DrawViewContents() {
     dc.ResetDrawColors();
     dc.ClearOverlays();
 
-    int tabSize = document->GetTextBuffer()->GetLanguage().GetTabSize();
-    DrawSearchResultOverlays(dc, tabSize);
-    DrawSelectionOverlay(dc, tabSize);
+    // One row projection per frame: the text, the overlays (and the caret, in SetWindowCursor) all map text
+    // positions through the same rows. Tab size must be the one the rows were projected with.
+    int tabSize = document->GetTabSize();
+    auto rows = document->GetVisibleRows();
+    DrawSearchResultOverlays(dc, rows, tabSize);
+    DrawSelectionOverlay(dc, rows, tabSize);
 
     LineRender lineRender(dc, tabSize);
-    lineRender.DrawLines(document->Lines(),
-                         lineCursor.viewTopLine,
-                         lineCursor.viewBottomLine,
-                         document->GetSelection());
+    lineRender.DrawRows(document->Lines(), rows);
 }
 
-void EditorView::DrawSearchResultOverlays(DrawContext &dc, int tabSize) {
+void EditorView::DrawSearchResultOverlays(DrawContext &dc, const std::vector<WrapRow> &rows, int tabSize) {
     if (document->searchResults.empty()) {
         return;
     }
-    auto &lineCursor = document->GetLineCursor();
     // Search matches are NOT selections — paint them with the theme's 'search' color so they read
     // distinctly. Fall back to 'selection' for themes that don't define one.
     const auto &contentColors = Editor::Instance().GetTheme()->GetContentColors();
@@ -118,52 +133,44 @@ void EditorView::DrawSearchResultOverlays(DrawContext &dc, int tabSize) {
                                       ? contentColors["search"]
                                       : contentColors["selection"];
     logger->Debug("DrawSearchResultOverlays, count=%zu", document->searchResults.size());
+    auto &lines = document->Lines();
     for (auto &result : document->searchResults) {
-        if (!lineCursor.IsInside(result.idxLine)) {
-            continue;
-        }
-        int startVisualX = result.cursor_x;
-        int endVisualX = result.cursor_x + result.length;
-        if (auto line = document->LineAt(result.idxLine)) {
-            startVisualX = line->CharToVisualColumn(result.cursor_x, tabSize);
-            endVisualX = line->CharToVisualColumn(result.cursor_x + result.length, tabSize);
+        // Overlay ends are screen (row, visual column); a match on a wrapped line may span rows.
+        Point textStart(static_cast<int>(result.cursor_x), static_cast<int>(result.idxLine));
+        Point textEnd(static_cast<int>(result.cursor_x + result.length), static_cast<int>(result.idxLine));
+        auto start = WrapProjection::TextToScreenClamped(rows, lines, textStart, tabSize);
+        auto end = WrapProjection::TextToScreenClamped(rows, lines, textEnd, tabSize);
+        if ((end.y < 0) || (start.y >= static_cast<int>(rows.size()))) {
+            continue;   // wholly above or below the view
         }
         DrawContext::Overlay overlay;
-        overlay.Set(Point(startVisualX, result.idxLine - lineCursor.viewTopLine),
-                    Point(endVisualX,   result.idxLine - lineCursor.viewTopLine));
+        overlay.Set(start, end);
         overlay.color = searchColor;
         overlay.isActive = true;
         dc.AddOverlay(overlay);
     }
 }
 
-void EditorView::DrawSelectionOverlay(DrawContext &dc, int tabSize) {
+void EditorView::DrawSelectionOverlay(DrawContext &dc, const std::vector<WrapRow> &rows, int tabSize) {
     auto &selection = document->GetSelection();
     if (!selection.IsActive()) {
         return;
     }
     const ColorRGBA selectionColor = Editor::Instance().GetTheme()->GetContentColors()["selection"];
-    auto &lineCursor = document->GetLineCursor();
-    auto selStart = selection.GetStart();
-    auto selEnd = selection.GetEnd();
-
-    int startVisualX = selStart.x;
-    if (auto line = document->LineAt(selStart.y)) {
-        startVisualX = line->CharToVisualColumn(selStart.x, tabSize);
-    }
-    int endVisualX = selEnd.x;
-    if (auto line = document->LineAt(selEnd.y)) {
-        endVisualX = line->CharToVisualColumn(selEnd.x, tabSize);
+    // Selection is in text coordinates (x=charIdx, y=line); a part running out of the view clamps to the row
+    // just outside it, so every visible row it spans still paints.
+    auto &lines = document->Lines();
+    auto start = WrapProjection::TextToScreenClamped(rows, lines, selection.GetStart(), tabSize);
+    auto end = WrapProjection::TextToScreenClamped(rows, lines, selection.GetEnd(), tabSize);
+    if ((end.y < 0) || (start.y >= static_cast<int>(rows.size()))) {
+        return;
     }
 
     DrawContext::Overlay overlay;
-    overlay.Set(Point(startVisualX, selStart.y), Point(endVisualX, selEnd.y));
+    overlay.Set(start, end);
     overlay.color = selectionColor;
     overlay.attributes = 0;
     overlay.isActive = true;
-    int dy = selEnd.y - selStart.y;
-    overlay.start.y -= lineCursor.viewTopLine;
-    overlay.end.y = overlay.start.y + dy;
     dc.AddOverlay(overlay);
 }
 
@@ -225,15 +232,12 @@ bool EditorView::OnMousePressedEvent(const MouseEvent &mouseEvent) {
     int row = mouseEvent.y - contentOrigin.y;
     int col = mouseEvent.x - contentOrigin.x;
 
-    auto &lineCursor = document->GetLineCursor();
-    size_t idxLine = lineCursor.viewTopLine + row;
-    auto line = document->LineAt(idxLine);
-    if (line == nullptr) {
-        return true;
+    auto rows = document->GetVisibleRows();
+    if ((row < 0) || (row >= static_cast<int>(rows.size()))) {
+        return true;    // below the last line - nothing there
     }
-    int tabSize = document->GetTextBuffer()->GetLanguage().GetTabSize();
-    size_t idxChar = line->VisualToCharIndex(col, tabSize);
-    document->SetCursorPosition(idxLine, idxChar);
+    auto textPos = WrapProjection::ScreenToText(rows, document->Lines(), Point(col, row), document->GetTabSize());
+    document->SetCursorPosition(textPos.y, textPos.x);
     InvalidateView();
     return true;
 }
@@ -244,11 +248,17 @@ void EditorView::SetWindowCursor(const Cursor &cursor) {
         // translate it to a visual column before drawing the caret - otherwise the caret sits left
         // of where the character actually renders and inserts appear misplaced. The document cursor is
         // left untouched (char index stays the source of truth for editing); only the draw copy moves.
+        // With soft-wrap the screen row is derived the same way: the caret's (line, char) is mapped through the
+        // visible rows, so it lands on the wrapped row actually holding that char.
         Cursor screenCursor = document->GetCursor();
         auto &lineCursor = document->GetLineCursor();
-        auto activeLine = document->LineAt(lineCursor.idxActiveLine);
-        if (activeLine != nullptr) {
-            int tabSize = document->GetTextBuffer()->GetLanguage().GetTabSize();
+        int tabSize = document->GetTabSize();
+        Point textPos(screenCursor.position.x, static_cast<int>(lineCursor.idxActiveLine));
+        Point screenPos;
+        if (WrapProjection::TextToScreen(document->GetVisibleRows(), document->Lines(), textPos, tabSize, screenPos)) {
+            screenCursor.position = screenPos;
+        } else if (auto activeLine = document->LineAt(lineCursor.idxActiveLine)) {
+            // Active line not on a visible row - keep the model's screen row (pre-wrap behaviour).
             screenCursor.position.x = activeLine->CharToVisualColumn(screenCursor.position.x, tabSize);
         }
         window->SetCursor(screenCursor);

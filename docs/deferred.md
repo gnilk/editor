@@ -75,6 +75,18 @@ the section that has the full context. This is *deferred* work — distinct from
 
 ---
 
+## From [`work-log.md`](work-log.md) — Soft-wrap (v1 shipped)
+
+- **Up/Down by screen row** (VSCode style). v1 moves by logical line (vim default); moving by row touches
+  `VerticalNavigationViewModel` and the `wantedColumn` logic.
+- **Page Up/Down by a page of rows.** Pages are still `height` LINES, which is more than a screen when lines
+  wrap (`ScrollActiveRowIntoView` keeps the caret visible regardless).
+- **A line taller than the whole view.** The view top is always a line start, so a caret further down such a
+  line than the view is high can't be brought in. Needs a sub-line view top (`viewTopLine` + row offset).
+- **Hanging indent** — continuation rows start at column 0 rather than at the line's indentation.
+- **A wrap toggle action + persisting the mode** (per document in the session, next to `viewMode`) — today the
+  mode comes from config only, and `EditorView` re-pushes it on every `ReInitView`.
+
 ## Dropped (not deferred)
 
 - **ui-refactor AI-7 — a shipped, exported `goatui` library.** *Dropped*, not deferred: the in-tree

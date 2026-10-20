@@ -115,6 +115,8 @@ editorview:
   pgupdown_content_first: yes
   # Number of lines to scroll per mouse-wheel notch
   lines_per_scroll_wheel_notch: 5
+  # Soft-wrap of long lines: none | char | word
+  wrap: none
   keymap: "default_keymap"
 
 workspaceview:

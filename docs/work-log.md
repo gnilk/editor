@@ -8,6 +8,36 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## Soft-wrap (word/char line wrap) ✅
+
+Long lines continue on the following screen rows instead of clipping at the view edge. Off by default;
+`editorview.wrap: none | char | word` in config. Deferred tail: [`deferred.md`](deferred.md) (Soft-wrap).
+
+- **`WrapProjection` (`src/Core/WrapProjection.{h,cpp}`)** — pure, stateless, sibling of `HexProjection`
+  (deliberately NOT "layout", to stay clear of the UI layout classes). `WrapLine` splits a line into row
+  segments; `ProjectRows` gives the visible rows; `TextToScreen` / `TextToScreenClamped` / `ScreenToText`
+  map between text (line, char) and screen (row, col). Tab stops stay LINE-relative across a wrap
+  (`segment.visualStart` feeds `LineRender::ExpandTabs`'s `startCol`); every segment holds ≥1 char; word
+  mode lets whitespace on the break hang off the row and hard-breaks words wider than the view.
+- **Gutter and editor share ONE row list, via the Document — the views never link to each other.** The rows
+  are per-view state: `DocumentViewState::ProjectVisibleRows` (+ `wrapMode`/`wrapWidth`, pushed in by
+  `EditorView` from config and its content width on every `(Re)InitView`). Both views read
+  `Document::GetVisibleRows()`. No cache — only the visible lines are wrapped, and `TextBuffer` has no
+  revision counter to invalidate on.
+- **Model stays logical; the view translates.** Cursor / selection / search stay in text coordinates.
+  Caret, selection + search overlays and mouse clicks map through the rows. Overlay ends off-view clamp to
+  row -1 / row N — the existing "rows strictly between start and end are fully covered" overlay rule (all
+  three backends) then paints wrapped spans with no backend change. `LineRender::DrawLines` became
+  `DrawRows` (one code path: without wrap each row is a whole line).
+- **Scroll correction at one chokepoint.** Navigation still scrolls in LINES (`VerticalNavigationViewModel`);
+  `DocumentViewState::ScrollActiveRowIntoView` advances `viewTopLine` until the caret's row fits, keeping
+  `viewBottomLine = top + height` and `position.y = idxActiveLine - top` so the line-based nav stays
+  consistent. Called from `Document::GetVisibleRows()` — every consumer reads rows there, so every caret
+  move (keys, typing, goto, wheel, search from another view) is covered. No-op without wrap.
+- Tests: `wrapprojection` module (tiling property, break rules, tabs, mapping round-trip, scroll
+  correction); `test_document_wrap_caret_stays_visible` drives real navigation with wrap on (fails without
+  the correction).
+
 ## ANSI/TTY graphics backend — `gansi` ✅ (merged to `main`, `e9fa64f`)
 
 A modern-terminal rendering backend so the editor runs in a TTY / over SSH, selectable alongside SDL

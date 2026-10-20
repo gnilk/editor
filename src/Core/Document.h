@@ -167,6 +167,23 @@ namespace gedit {
             documentViewState->viewMode = newViewMode;
         }
 
+        // Soft-wrap: the editor view pushes its mode + content width; editor and gutter both draw from
+        // GetVisibleRows() (see DocumentViewState::ProjectVisibleRows).
+        void SetWrap(WrapMode newWrapMode, int newWrapWidth) {
+            documentViewState->wrapMode = newWrapMode;
+            documentViewState->wrapWidth = newWrapWidth;
+        }
+        WrapMode GetWrapMode() const {
+            return documentViewState->wrapMode;
+        }
+        // Settles the scroll first: every consumer of the rows (gutter, text, caret, mouse) comes through here, so
+        // this is the one chokepoint where the line-based scroll is corrected for wrapped rows - whatever moved
+        // the caret (keys, typing, goto, wheel, a search from another view).
+        std::vector<WrapRow> GetVisibleRows() {
+            documentViewState->ScrollActiveRowIntoView(Lines(), GetTabSize());
+            return documentViewState->ProjectVisibleRows(Lines(), GetTabSize());
+        }
+
         // Move the caret to an absolute (line, charIdx) text position and refocus the text view around
         // it. The single canonical way to set the cursor from outside navigation - used by search jumps
         // and by the HexView write-back (a hex-space move translated back into text coords).

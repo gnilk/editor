@@ -8,7 +8,7 @@
 #include <vector>
 #include "Core/Line.h"
 #include "Core/UI/Graphics/DrawContext.h"
-#include "Core/Document.h"   // Because of selection in drawing routines...
+#include "Core/WrapProjection.h"
 
 namespace gedit {
     class LineRender {
@@ -16,12 +16,14 @@ namespace gedit {
         LineRender(DrawContext &drawContext, int tabSize = 4) : dc(drawContext), tabSize(tabSize) {
 
         }
-        void DrawLines(const std::vector<Line::Ref> &lines, int idxTopLine, int idxBottomLine, const Selection &selection);
+        // Draw the projected screen rows (DocumentViewState::ProjectVisibleRows) - row N at screen row N.
+        // Without wrap each row is a whole line, so this is also the plain one-row-per-line render.
+        void DrawRows(const std::vector<Line::Ref> &lines, const std::vector<WrapRow> &rows);
         void DrawLine(int x, int y, const Line::Ref line);
 
     protected:
         void DrawLineWithAttributesAt(int x, int y, const Line::Ref line);
-        void DrawLineWithAttributesAt(int x, int y, int nCharToPrint, Line &l, const Selection &selection);
+        void DrawSegmentWithAttributesAt(int y, Line &line, const WrapSegment &segment);
 
         // Expand tabs in 'in' to spaces, advancing to the next tabSize stop. 'startCol' is the
         // line-relative column of the first character (so tab stops are computed correctly for a

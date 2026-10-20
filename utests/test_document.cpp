@@ -4,6 +4,7 @@
 #include <testinterface.h>
 #include "Core/Editor.h"
 #include "Core/TextBuffer.h"
+#include "Core/WrapProjection.h"
 #include "Core/Editor/Controllers/EditController.h"
 #include "Core/Language/AutoPairCache.h"
 #include "Core/Language/IndentCache.h"
@@ -75,6 +76,7 @@ DLL_EXPORT int test_document_cut_paste_funcbody(ITesting *t);
 // (docs/mouse-support.md P4), against a real file with tabs.
 DLL_EXPORT int test_document_mouseclick_maps_to_charpos(ITesting *t);
 DLL_EXPORT int test_document_mouseclick_maps_with_scroll(ITesting *t);
+DLL_EXPORT int test_document_wrap_caret_stays_visible(ITesting *t);
 
 }
 
@@ -1370,5 +1372,47 @@ DLL_EXPORT int test_document_mouseclick_maps_with_scroll(ITesting *t) {
     TR_ASSERT(t, line->VisualToCharIndex(14, tabSize) == 13);   // inside the tab cell
     TR_ASSERT(t, line->VisualToCharIndex(19, tabSize) == 17);   // the '0'
 
+    return kTR_Pass;
+}
+
+// Soft-wrap step 4: the navigation scrolls in LINES, but with wrap on fewer lines fit than the view is high.
+// Drive the real navigation (line steps down/up, goto) with every line wrapping onto 2 rows and assert the
+// safety property after each move: the caret's row is one of the visible rows (GetVisibleRows settles the scroll).
+static bool IsDocumentCaretVisible(Document::Ref document) {
+    auto rows = document->GetVisibleRows();
+    auto &lineCursor = document->GetLineCursor();
+    gedit::Point caret(lineCursor.cursor.position.x, static_cast<int>(lineCursor.idxActiveLine));
+    gedit::Point screen;
+    return WrapProjection::TextToScreen(rows, document->Lines(), caret, document->GetTabSize(), screen);
+}
+
+DLL_EXPORT int test_document_wrap_caret_stays_visible(ITesting *t) {
+    auto document = CreateEmptyDocument(t);
+    gedit::Rect rect(20, 20);
+    document->OnViewInit(rect);
+    FillEmptyDocument(document, 40, 40);    // 40 chars at width 20 -> 2 rows per line, 10 lines fit
+    document->SetWrap(WrapMode::kChar, rect.Width());
+
+    // Caret in the line's second row, so each line's LAST row is what has to fit
+    document->SetCursorPosition(0, 30);
+    TR_ASSERT(t, IsDocumentCaretVisible(document));
+
+    for (int i = 0; i < 39; i++) {
+        document->MoveCursorByLines(1);
+        TR_ASSERT(t, IsDocumentCaretVisible(document));
+    }
+    TR_ASSERT(t, document->GetLineCursor().idxActiveLine == 39);
+
+    for (int i = 0; i < 39; i++) {
+        document->MoveCursorByLines(-1);
+        TR_ASSERT(t, IsDocumentCaretVisible(document));
+    }
+    TR_ASSERT(t, document->GetLineCursor().idxActiveLine == 0);
+
+    // Goto (line-based refocus puts the line ~1/3 down - 2 rows per line pushes it off without the correction)
+    document->SetCursorPosition(25, 30);
+    TR_ASSERT(t, IsDocumentCaretVisible(document));
+    document->SetCursorPosition(39, 39);
+    TR_ASSERT(t, IsDocumentCaretVisible(document));
     return kTR_Pass;
 }

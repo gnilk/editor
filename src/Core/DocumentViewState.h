@@ -14,9 +14,12 @@
 
 #include <memory>
 #include <cstddef>
+#include <vector>
 #include "Core/Point.h"
 #include "Core/Graphics/Cursor.h"
 #include "Core/DocumentViewMode.h"
+#include "Core/Line.h"
+#include "Core/WrapProjection.h"
 #include "Core/Session/SessionState.h"   // DocumentSession (the serialised form)
 
 namespace gedit {
@@ -138,10 +141,27 @@ namespace gedit {
         // cursor, scroll window, selection and view-mode; the file path is owned by Document, not here.
         DocumentSession ToSession() const;
         void FromSession(const DocumentSession &session);
+
+        // The screen rows of this view, from viewTopLine down (soft-wrap aware). This is the ONE row list
+        // both the editor text and the gutter line numbers draw from, so they cannot disagree. Projected
+        // on demand - only the visible lines are wrapped, so no cache (and nothing to invalidate on edit).
+        std::vector<WrapRow> ProjectVisibleRows(const std::vector<Line::Ref> &lines, int tabSize) const;
+
+        // Soft-wrap scroll correction. The scroll window is kept in LINES by the line-based navigation
+        // (VerticalNavigationViewModel), which assumes one row per line - with wrap, fewer lines fit than the view
+        // is high and the caret's row can fall below the view. Advance viewTopLine until it fits again, keeping
+        // viewBottomLine = viewTopLine + height and position.y = idxActiveLine - viewTopLine so the line-based
+        // navigation stays consistent. A caret row further down a line taller than the whole view can't be
+        // brought in (that needs a view top part-way into a line). No-op without wrap.
+        void ScrollActiveRowIntoView(const std::vector<Line::Ref> &lines, int tabSize);
     public:
         LineCursor lineCursor;
         Selection currentSelection = {};
         DocumentViewMode viewMode = DocumentViewMode::kText;
+        // Soft-wrap, pushed in by the editor view: the mode is a view setting, and the width is the view's
+        // content width (a property of the view, not the document).
+        WrapMode wrapMode = WrapMode::kNone;
+        int wrapWidth = 0;
     };
 }
 

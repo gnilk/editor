@@ -70,20 +70,20 @@ void GutterView::DrawViewContents() {
         return;
     }
 
+    // Number the same rows the editor draws (DocumentViewState::ProjectVisibleRows): a line's number goes
+    // on its first row only; the continuation rows of a soft-wrapped line stay blank.
     char str[64];
     auto &lineCursor = document->GetLineCursor();
-    for(int i=0;i<dc.GetRect().Height();i++) {
-        size_t idxLine = i + lineCursor.viewTopLine;
-
-        if (idxLine >= document->Lines().size()) {
-            break;
+    auto rows = document->GetVisibleRows();
+    for (size_t idxRow = 0; idxRow < rows.size(); idxRow++) {
+        auto &row = rows[idxRow];
+        if (row.idxSegment != 0) {
+            continue;
         }
-
-        auto line = document->LineAt(idxLine);
-        snprintf(str, 64, "%6zu", idxLine);
-        if (idxLine == lineCursor.idxActiveLine) {
-            snprintf(str, 64, "%6zu  *",  idxLine);
+        snprintf(str, 64, "%6zu", row.idxLine);
+        if (row.idxLine == lineCursor.idxActiveLine) {
+            snprintf(str, 64, "%6zu  *", row.idxLine);
         }
-        dc.DrawStringAt(0,i,str);
+        dc.DrawStringAt(0, static_cast<int>(idxRow), str);
     }
 }

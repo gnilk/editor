@@ -60,12 +60,14 @@ namespace gedit {
         void DrawViewContents() override;
         bool OnMousePressedEvent(const MouseEvent &mouseEvent);
     private:
-        void DrawSearchResultOverlays(DrawContext &dc, int tabSize);
-        void DrawSelectionOverlay(DrawContext &dc, int tabSize);
+        void DrawSearchResultOverlays(DrawContext &dc, const std::vector<WrapRow> &rows, int tabSize);
+        void DrawSelectionOverlay(DrawContext &dc, const std::vector<WrapRow> &rows, int tabSize);
     private:
         bool bUseCLionPageNav = true;
         // Cached from config ("editorview.lines_per_scroll_wheel_notch") in InitView/ReInitView.
         int linesPerScrollWheelNotch = 5;
+        // Cached from config ("editorview.wrap"); pushed into the document's view state with our width.
+        WrapMode wrapMode = WrapMode::kNone;
         Document::Ref document;
         // The edit controller is a per-item member (1:1 with this view), like TerminalController in
         // TerminalView. It borrows the active document; we Attach/Detach it on document switch.

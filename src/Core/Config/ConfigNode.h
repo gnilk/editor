@@ -63,6 +63,14 @@ namespace gedit {
             return dataNode[key].as<T>();
         }
 
+        // Removes 'key' from this (map) node; false when this isn't a map or the key isn't there.
+        bool RemoveKey(const std::string &key) {
+            if (!dataNode.IsMap() || !HasKey(key)) {
+                return false;
+            }
+            return dataNode.remove(key);
+        }
+
         void SetStr(const std::string &key, const std::string &newValue) {
             dataNode[key] = newValue;
         }

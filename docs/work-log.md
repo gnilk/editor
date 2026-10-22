@@ -8,6 +8,23 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## Project config — `<root>/.goatedit/config.yml` merged at startup ✅ (on `feat/project-config`)
+
+Config now merges **system → user → project** (last wins). The project root is resolved *before* the
+config load by `Editor::ResolveProjectDir(args, cwd, home)`: the LAST absolute folder argument, else the
+cwd (after the outside-`$HOME` relocation, which moved ahead of the config load). Same guard as
+`EstablishProjectDir` — strict subdir of `$HOME` only, and `.goatedit/` must already exist (resolving
+never creates it; a folder open may still auto-create it later, but its config can only apply next
+launch). Because the merge happens with the rest of the config, logging/theme/languages/views all see it.
+- **Denied keys** (a cloned repo may carry `.goatedit/config.yml`, so opening a folder must not run its
+  commands): `main.bootstrap_scripts`, `main.plugin_directory`, `terminal.shell`, `terminal.init`,
+  `terminal.bootstrap`, `logging.logfile` — stripped by `Config::StripProjectUnsafeKeys` (a denied
+  section given as a non-map is dropped whole); a non-map document is ignored.
+- `--skip-user-config` skips the project config too.
+- Sequences still merge **by index** (`YAMLMerge`) — a project can override/extend a list, not shorten it.
+- Behaviour change: a folder argument outside `$HOME` no longer leaves the *launch dir's* `.goatedit`
+  registered as `kProject` (it was, since the init-time registration used the launch cwd).
+
 ## Soft-wrap (word/char line wrap) ✅
 
 Long lines continue on the following screen rows instead of clipping at the view edge. Off by default;

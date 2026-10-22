@@ -22,7 +22,11 @@ namespace gedit {
         // Load configuration and alos the theme file
         bool LoadSystemConfig(const std::string &filename);
         void TryMergeUserConfig(const std::string &filename, bool replace);
-
+        // Merge '<root>/.goatedit/<filename>' (AssetLoader kProject) on top of system+user. A project
+        // config travels with the repo, so keys that run commands/code or write files are stripped first.
+        void TryMergeProjectConfig(const std::string &filename);
+        // Removes the keys a project config may not set; returns them as "section.key" (for logging/tests).
+        static std::vector<std::string> StripProjectUnsafeKeys(ConfigNode &projectConfig);
 
 
     private:

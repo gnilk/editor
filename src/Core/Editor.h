@@ -6,6 +6,8 @@
 #define EDITOR_EDITOR_H
 
 #include <vector>
+#include <optional>
+#include <filesystem>
 
 #include "logger.h"
 
@@ -168,6 +170,12 @@ namespace gedit {
         }
 
         void TriggerUIRedraw();
+
+        // '<root>/.goatedit' for a launch with these (absolute) file/folder args, or nullopt. Pure - no
+        // cwd change, nothing created; startup uses it to register kProject before the config load.
+        static std::optional<std::filesystem::path> ResolveProjectDir(const std::vector<std::string> &args,
+                                                                      const std::filesystem::path &cwd,
+                                                                      const std::filesystem::path &pathHome);
     protected:
         bool OpenDocumentOrFolder(const std::string &fileOrFolder);
 

@@ -1,3 +1,10 @@
+# Merge order: this file (system) -> user config (~/.config/goatedit/ or ~/.goatedit/ on macOS,
+# ~/.local/share/goatedit/ or ~/.goatedit/ on Linux) -> project config <root>/.goatedit/config.yml.
+# A project config can override anything EXCEPT keys that run commands/code or write files:
+# main.bootstrap_scripts, main.plugin_directory, terminal.shell/init/bootstrap, logging.logfile.
+# Lists merge item-by-item (a later config can change/extend a list, not shorten it).
+# session.auto_create_project_dir has no effect in a project config (the dir must exist to be read).
+#
 main:
   backend: sdl
   theme: default.theme.yml

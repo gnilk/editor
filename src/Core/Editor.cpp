@@ -114,6 +114,28 @@ static bool IsStrictSubdir(const std::filesystem::path &path, const std::filesys
     return first != "." && first != "..";
 }
 
+// The project dir ('<root>/.goatedit') for this launch, or nullopt. The root is the LAST folder argument
+// (OpenDocumentOrFolder cds into each absolute folder in turn, so that's where EstablishProjectDir ends
+// up), else the cwd. Same guard as EstablishProjectDir - only a real sub-directory of home, so '/',
+// '$HOME' itself and anything outside home (e.g. /var/log) can never become a project. Resolving never
+// creates anything: the dir must already exist (a folder open may still auto-create it later).
+std::optional<std::filesystem::path> Editor::ResolveProjectDir(const std::vector<std::string> &args,
+                                                               const std::filesystem::path &cwd,
+                                                               const std::filesystem::path &pathHome) {
+    auto root = cwd;
+    for (auto &arg : args) {
+        std::filesystem::path argPath(arg);
+        if (argPath.is_absolute() && std::filesystem::is_directory(argPath)) {
+            root = argPath;
+        }
+    }
+    auto projectDir = root / ".goatedit";
+    if (!IsStrictSubdir(root, pathHome) || !std::filesystem::is_directory(projectDir)) {
+        return {};
+    }
+    return projectDir;
+}
+
 bool Editor::Initialize(int argc, const char **argv) {
     if (isInitialized) {
         return true;
@@ -174,6 +196,27 @@ bool Editor::Initialize(int argc, const char **argv) {
     // Add ".goatedit" in the root folder for the user - if someone is installing on old systems
     assetLoader.AddSearchPath(pathHome / ".goatedit", AssetLoaderBase::kLocationType::kUser);
 #endif
+
+    // When started from the UI (someone clicking the icon) there is no meaningful CWD
+    // pointing at a project - notably macOS Finder launches start at filesystem root.
+    // Relative-path operations (open/save, default workspace) would then resolve under
+    // '/' where nothing useful lives, so relocate to $HOME when CWD is outside the home tree.
+    // Done BEFORE the config load: the project root (and so the project config) depends on it.
+    auto cwd = std::filesystem::current_path();
+    auto cwdBeforeRelocation = cwd;
+    if (!IsWithinTree(cwd, pathHome)) {
+        std::filesystem::current_path(pathHome);
+        cwd = std::filesystem::current_path();
+    }
+
+    // A '.goatedit' directory in the project (mirroring '~/.goatedit') is the opt-in
+    // marker for project-local assets/config/history. Resolved from the arguments BEFORE anything is
+    // opened, so the project config can be merged together with the system + user config below.
+    auto projectDir = ResolveProjectDir(pendingFiles, cwd, pathHome);
+    if (projectDir.has_value()) {
+        assetLoader.AddSearchPath(projectDir.value(), AssetLoaderBase::kLocationType::kProject);
+    }
+
     // should probably rename the config-file to 'goatedit.yml' or something...
     if (!TryLoadConfig("config.yml")) {
         logger->Error("Configuration file missing - please reinstall!!");
@@ -187,25 +230,12 @@ bool Editor::Initialize(int argc, const char **argv) {
     // From this point on we have proper logging to files....
     logger->Debug("*********** Config file was loaded, pre-boot completed **************");
 
-    // When started from the UI (someone clicking the icon) there is no meaningful CWD
-    // pointing at a project - notably macOS Finder launches start at filesystem root.
-    // Relative-path operations (open/save, default workspace) would then resolve under
-    // '/' where nothing useful lives, so relocate to $HOME when CWD is outside the home tree.
-    auto cwd = std::filesystem::current_path();
-    if (!IsWithinTree(cwd, pathHome)) {
-        logger->Warning("Working Directory (%s) outside of home directory, changing to home-root (%s)", cwd.c_str(), pathHome.c_str());
-        std::filesystem::current_path(pathHome);
-        cwd = std::filesystem::current_path();
+    if (cwd != cwdBeforeRelocation) {
+        logger->Warning("Working Directory (%s) outside of home directory, changed to home-root (%s)", cwdBeforeRelocation.c_str(), pathHome.c_str());
     }
     logger->Debug("CWD is: %s", cwd.c_str());
-
-    // A '.goatedit' directory in the project (mirroring '~/.goatedit') is the opt-in
-    // marker for project-local assets/history. Register it as the kProject search path
-    // only when it exists, and only for a real sub-directory of home - so '/', '$HOME'
-    // itself and anything outside home (e.g. /var/log) can never become a project.
-    auto projectDir = cwd / ".goatedit";
-    if (IsStrictSubdir(cwd, pathHome) && std::filesystem::is_directory(projectDir)) {
-        assetLoader.AddSearchPath(projectDir, AssetLoaderBase::kLocationType::kProject);
+    if (projectDir.has_value()) {
+        logger->Debug("Project dir: %s", projectDir->c_str());
     }
 
     // Load and configure theme related details..
@@ -343,7 +373,7 @@ void Editor::PrintHelpToConsole() {
     printf("use: %s <options> [files...]\n", glbApplicationName.c_str());
     printf("Options:\n");
     printf("  --console-logging, enables console logging to console, this is needed to get pre-initalization logging (before config has been loaded)\n");
-    printf("  --skip-user-config, won't load user specific config (starts with defaults)\n");
+    printf("  --skip-user-config, won't load user or project specific config (starts with defaults)\n");
     printf("  --backend <sdl | ansi | headless>, override the configuration file backend\n");
     printf("  --cwd <dir>, set the working directory (project root) before resolving file arguments\n");
 }
@@ -672,11 +702,12 @@ void Editor::ConfigureLogFilter() {
 bool Editor::TryLoadConfig(const char *configFile) {
     auto isMainConfOk =  Config::Instance().LoadSystemConfig(configFile);
 
-    // Merge with user conf..
+    // Merge with user conf, then project conf (system -> user -> project; last one wins)..
     if (loadUserConfig) {
         Config::Instance().TryMergeUserConfig(configFile, true);
+        Config::Instance().TryMergeProjectConfig(configFile);
     } else {
-        logger->Debug("User config loading disabled, skipping!");
+        logger->Debug("User + project config loading disabled, skipping!");
     }
 
     return isMainConfOk;

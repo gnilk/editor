@@ -188,20 +188,43 @@ const Workspace::Node::Ref Workspace::GetDefaultWorkspace() {
     return GetDefaultRoot()->GetRootNode();
 }
 
-// Create an empty Document in the workspace
+// Create an empty Document in the workspace's ACTIVE FOLDER (the folder selected in the workspace view -
+// a tree concept, the process CWD is never involved). 'name' may carry sub-folders ("sub/x.cpp"): inside a
+// project root they're created on disk and in the tree, and the deepest one becomes the active folder. An
+// absolute name is placed by its own path. A name naming an existing file on disk reuses that file's node.
 Workspace::Node::Ref Workspace::NewDocument(const std::string &name) {
-    auto parent = activeFolderNode;
-    if (parent == nullptr) {
-        parent = GetDefaultWorkspace();
-    } else if (!parent->IsFolder()) {
-        parent = parent->GetParent();
+    fs::path pathName(name);
+    if (!pathName.has_filename()) {
+        logger->Error("NewDocument, invalid name '%s'", name.c_str());
+        return nullptr;
     }
+    auto activeFolder = (activeFolderNode != nullptr) ? activeFolderNode : GetDefaultWorkspace();
+    // operator/ keeps an absolute name as-is
+    auto pathFile = fs::absolute(activeFolder->GetNodePath() / pathName).lexically_normal();
 
-    if (parent == nullptr) {
-        logger->Error("NewDocument, parent is NULL or default workspace is gone");
-        exit(1);
+    auto folderNode = EnsureFolderNode(pathFile.parent_path());
+    if (folderNode == nullptr) {
+        // Not below any project root (nor the default root's own folder) - a loose file under 'default'
+        return NewDocumentWithFileRef(pathFile);
     }
-    return NewDocumentWithFileRef(parent, name);
+    activeFolderNode = folderNode;
+
+    if (fs::is_directory(pathFile)) {
+        logger->Error("NewDocument, '%s' is a folder", pathFile.c_str());
+        return nullptr;
+    }
+    // An existing FILE opens instead - an empty buffer saved over it would wipe it
+    if (fs::exists(pathFile)) {
+        std::vector<Node::Ref> children;
+        folderNode->FlattenChilds(children);
+        for (auto &child : children) {
+            if (child->GetNodePath().lexically_normal() == pathFile) {
+                EnsureDocumentForNode(child);
+                return child;
+            }
+        }
+    }
+    return NewDocumentWithFileRef(folderNode, pathFile);
 }
 
 // Create a new empty Document under a specific parent. A brand-new file is meant to be edited
@@ -326,6 +349,60 @@ Workspace::Node::Ref Workspace::EnsurePathInTree(const std::filesystem::path &pa
 
     ScanPathToReference(node, absFile);
     return node->FindNodeWithPath(absFile);
+}
+
+// The folder node for 'dirPath' (absolute, normalized), descending from the deepest project root that owns
+// it. Folders on the way that aren't in the tree are scanned in (unscanned frontier) or - when missing on
+// disk - created. The default root only owns its own folder (it's a bucket for loose files, never scanned).
+// nullptr when no root owns the path.
+Workspace::Node::Ref Workspace::EnsureFolderNode(const std::filesystem::path &dirPath) {
+    ProjectRoot::Ref owningRoot = nullptr;
+    fs::path owningRootPath;
+    for (auto &projectRoot : projectRoots) {
+        auto rootPath = fs::absolute(projectRoot->GetRootPath()).lexically_normal();
+        bool isOwner = (projectRoot == defaultRoot) ? (rootPath == dirPath) : IsAncestorPath(rootPath, dirPath);
+        // Nested roots: the deepest one wins
+        if (isOwner && ((owningRoot == nullptr) || (rootPath.native().size() > owningRootPath.native().size()))) {
+            owningRoot = projectRoot;
+            owningRootPath = rootPath;
+        }
+    }
+    if (owningRoot == nullptr) {
+        return nullptr;
+    }
+
+    auto node = owningRoot->GetRootNode();
+    auto relPath = dirPath.lexically_relative(owningRootPath);
+    for (const auto &folderName : relPath) {
+        if (folderName.empty() || (folderName == ".")) {
+            continue;
+        }
+        if ((owningRoot != defaultRoot) && !node->IsScanned()) {
+            ScanNode(node);
+        }
+        auto folderPath = node->GetNodePath() / folderName;
+        std::vector<Node::Ref> children;
+        node->FlattenChilds(children);
+        Node::Ref next = nullptr;
+        for (auto &child : children) {
+            if (child->GetNodePath().lexically_normal() == folderPath.lexically_normal()) {
+                next = child;
+                break;
+            }
+        }
+        if (next == nullptr) {
+            std::error_code ec;
+            fs::create_directory(folderPath, ec);
+            next = NewFolderNode(node, folderPath);
+            if (next == nullptr) {
+                logger->Error("Unable to create folder %s", folderPath.c_str());
+                return nullptr;
+            }
+            next->SetIsScanned(true);       // new and empty - nothing to scan
+        }
+        node = next;
+    }
+    return node;
 }
 
 // Reference-guided shallow scan from a frontier folder toward refPath, reusing the same ApplyFsEntry

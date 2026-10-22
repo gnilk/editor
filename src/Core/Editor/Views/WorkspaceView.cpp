@@ -104,7 +104,10 @@ void WorkspaceView::ReInitView() {
     bool syncOnBufferChange = Config::Instance()[cfgSectionName].GetBool("sync_on_active_buffer_changed", true);
     if (syncOnBufferChange && Editor::Instance().GetActiveDocument() != nullptr) {
         auto activeNode = Editor::Instance().GetWorkspaceNodeForActiveDocument();
-        treeView->SetCurrentlySelectedItem(activeNode);
+        // The selection moved to the active buffer - its folder is now the one the view points at
+        if (treeView->SetCurrentlySelectedItem(activeNode)) {
+            Editor::Instance().GetWorkspace()->SetActiveFolderNode(activeNode);
+        }
     }
 
 
@@ -248,13 +251,8 @@ bool WorkspaceView::OnAction(const EditorAction &kpAction) {
 
     if (treeView->OnAction(kpAction)) {
         if (idxPrevActiveLine != lineCursor.idxActiveLine) {
-            auto activeNode = treeView->GetCurrentSelectedItem();
-            auto nodeType = activeNode->GetMeta<int>(Workspace::Node::kMetaKey_NodeType, Workspace::Node::kNodeFolder);
-            if (nodeType == Workspace::Node::kNodeFolder) {
-                auto workspace = Editor::Instance().GetWorkspace();
-                workspace->SetActiveFolderNode(activeNode);
-            }
-            // node did change!
+            // node did change - a folder becomes the active folder, a file makes its folder active
+            Editor::Instance().GetWorkspace()->SetActiveFolderNode(treeView->GetCurrentSelectedItem());
         }
         return true;
     }
@@ -297,15 +295,10 @@ bool WorkspaceView::OpenSelectedItem() {
     return true;
 }
 
-// Active-line change side-effect shared by keyboard nav (OnAction) and mouse nav: if the newly
-// selected node is a folder, it becomes the workspace's active folder node.
+// Active-line change side-effect for mouse nav: the newly selected node's folder (the node itself when
+// it's a folder) becomes the workspace's active folder node.
 static void NotifyActiveFolderNodeIfChanged(WorkspaceView::TreeRef treeView) {
-    auto activeNode = treeView->GetCurrentSelectedItem();
-    auto nodeType = activeNode->GetMeta<int>(Workspace::Node::kMetaKey_NodeType, Workspace::Node::kNodeFolder);
-    if (nodeType == Workspace::Node::kNodeFolder) {
-        auto workspace = Editor::Instance().GetWorkspace();
-        workspace->SetActiveFolderNode(activeNode);
-    }
+    Editor::Instance().GetWorkspace()->SetActiveFolderNode(treeView->GetCurrentSelectedItem());
 }
 
 bool WorkspaceView::OnMouseEvent(const MouseEvent &mouseEvent) {

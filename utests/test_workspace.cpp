@@ -28,6 +28,8 @@ DLL_EXPORT int test_workspace_openabsfolder(ITesting *t);
 DLL_EXPORT int test_workspace_openfolder_excludes_builddir(ITesting *t);
 DLL_EXPORT int test_workspace_isscanned(ITesting *t);
 DLL_EXPORT int test_workspace_scannode(ITesting *t);
+DLL_EXPORT int test_workspace_activefolder(ITesting *t);
+DLL_EXPORT int test_workspace_newsubfolder(ITesting *t);
 DLL_EXPORT int test_workspace_removedocument(ITesting *t);
 DLL_EXPORT int test_workspace_recreate(ITesting *t);
 }
@@ -303,6 +305,94 @@ DLL_EXPORT int test_workspace_scannode(ITesting *t) {
     auto nodeB2 = rootNode->FindNodeWithPath(root / "a" / "b");
     TR_ASSERT(t, nodeB2 != nullptr);
     TR_ASSERT(t, !nodeB2->IsScanned());
+
+    fs::remove_all(root, ec);
+    return kTR_Pass;
+}
+
+// A selected FILE makes its folder the active folder, and a new document lands in the active folder
+// (absolute path below it) - never in the process CWD.
+DLL_EXPORT int test_workspace_activefolder(ITesting *t) {
+    namespace fs = std::filesystem;
+    static int counter = 0;
+    auto root = (fs::temp_directory_path() / ("goat_ws_activefolder_" + std::to_string(counter++))).lexically_normal();
+    std::error_code ec;
+    fs::remove_all(root, ec);
+    fs::create_directories(root / "a");
+    { std::ofstream(root / "a" / "leaf.txt") << "x"; }
+
+    Workspace workspace;
+    TR_ASSERT(t, workspace.OpenFolder(root.string()));
+    auto rootNode = workspace.GetProjectRoots()[0]->GetRootNode();
+    auto nodeA = rootNode->FindNodeWithPath(root / "a");
+    auto leaf = rootNode->FindNodeWithPath(root / "a" / "leaf.txt");
+    TR_ASSERT(t, (nodeA != nullptr) && (leaf != nullptr));
+
+    workspace.SetActiveFolderNode(leaf);
+    TR_ASSERT(t, workspace.GetActiveFolderNode() == nodeA);
+    workspace.SetActiveFolderNode(nodeA);
+    TR_ASSERT(t, workspace.GetActiveFolderNode() == nodeA);
+
+    auto node = workspace.NewDocument("new.cpp");
+    TR_ASSERT(t, node != nullptr);
+    TR_ASSERT(t, node->GetNodePath() == root / "a" / "new.cpp");
+    TR_ASSERT(t, node->GetParent() == nodeA);
+    TR_ASSERT(t, node->GetDocument() != nullptr);
+
+    // The name of a file that exists on disk reuses its node (opens it) rather than adding an empty twin
+    auto existing = workspace.NewDocument("leaf.txt");
+    TR_ASSERT(t, existing == leaf);
+
+    fs::remove_all(root, ec);
+    return kTR_Pass;
+}
+
+// '.nb sub/deeper/x.cpp': the folders are created (disk + tree), the document lands in the deepest one,
+// which becomes the active folder. A folder name or an absolute path outside every root is handled too.
+DLL_EXPORT int test_workspace_newsubfolder(ITesting *t) {
+    namespace fs = std::filesystem;
+    static int counter = 0;
+    auto root = (fs::temp_directory_path() / ("goat_ws_newsub_" + std::to_string(counter++))).lexically_normal();
+    std::error_code ec;
+    fs::remove_all(root, ec);
+    fs::create_directories(root);
+
+    Workspace workspace;
+    TR_ASSERT(t, workspace.OpenFolder(root.string()));
+    auto rootNode = workspace.GetProjectRoots()[0]->GetRootNode();
+    workspace.SetActiveFolderNode(rootNode);
+
+    auto node = workspace.NewDocument("sub/deeper/x.cpp");
+    TR_ASSERT(t, node != nullptr);
+    TR_ASSERT(t, node->GetNodePath() == root / "sub" / "deeper" / "x.cpp");
+    TR_ASSERT(t, fs::is_directory(root / "sub" / "deeper"));
+    TR_ASSERT(t, !fs::exists(root / "sub" / "deeper" / "x.cpp"));   // nothing written until saved
+
+    auto deeper = rootNode->FindNodeWithPath(root / "sub" / "deeper");
+    TR_ASSERT(t, deeper != nullptr);
+    TR_ASSERT(t, node->GetParent() == deeper);
+    TR_ASSERT(t, deeper->GetParent() == rootNode->FindNodeWithPath(root / "sub"));
+    TR_ASSERT(t, workspace.GetActiveFolderNode() == deeper);
+
+    // The next plain name lands in the (new) active folder
+    auto next = workspace.NewDocument("y.cpp");
+    TR_ASSERT(t, next->GetNodePath() == root / "sub" / "deeper" / "y.cpp");
+
+    // '..' climbs back out, still inside the root - no duplicate 'sub' node
+    auto up = workspace.NewDocument("../z.cpp");
+    TR_ASSERT(t, up->GetNodePath() == root / "sub" / "z.cpp");
+    TR_ASSERT(t, rootNode->GetNumChildNodes() == 1);
+
+    // A name that is an existing folder isn't a document
+    workspace.SetActiveFolderNode(rootNode);
+    TR_ASSERT(t, workspace.NewDocument("sub") == nullptr);
+
+    // Absolute path outside every root: a loose file under 'default', path kept, no folders created
+    auto outside = (fs::temp_directory_path() / ("goat_ws_outside_" + std::to_string(counter)) / "o.cpp").lexically_normal();
+    auto loose = workspace.NewDocument(outside.string());
+    TR_ASSERT(t, loose != nullptr);
+    TR_ASSERT(t, fs::absolute(loose->GetNodePath()).lexically_normal() == outside);
+    TR_ASSERT(t, !fs::exists(outside.parent_path()));
 
     fs::remove_all(root, ec);
     return kTR_Pass;

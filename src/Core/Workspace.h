@@ -446,6 +446,11 @@ namespace gedit {
                     logger->Error("Unable to find node for path=%s", path.c_str());
                     return nullptr;
                 }
+                // Already in the tree - added by the editor itself (a new buffer saved, a folder made by '.nb sub/x')
+                auto existing = rootNode->FindNodeWithPath(path);
+                if (existing != nullptr) {
+                    return existing;
+                }
 
                 // The workspace will notify the 'view' on any changes -> cause a rebuild of the tree...
                 return funcCreateNode(parentNode, path);
@@ -497,7 +502,13 @@ namespace gedit {
         Node::Ref GetActiveFolderNode() {
             return activeFolderNode;
         }
+        // The workspace's current folder (what the workspace view points at) - NOT the process CWD. Given a
+        // file node, its parent folder becomes active.
         void SetActiveFolderNode(Node::Ref newActiveFolder) {
+            if ((newActiveFolder != nullptr) && (newActiveFolder->GetParent() != nullptr) &&
+                (newActiveFolder->GetMeta<int>(Node::kMetaKey_NodeType, Node::kNodeFolder) != Node::kNodeFolder)) {
+                newActiveFolder = newActiveFolder->GetParent();
+            }
             activeFolderNode = newActiveFolder;
         }
 
@@ -572,6 +583,9 @@ namespace gedit {
         // that root (full listing per level, descend toward the file) and return its node; nullptr if
         // the path isn't under any real root (caller then falls back to the default root).
         Node::Ref EnsurePathInTree(const std::filesystem::path &pathFileName);
+        // The folder node for an absolute dir path below a project root - scans in / creates (on disk and
+        // in the tree) the folders on the way. nullptr when no root owns the path.
+        Node::Ref EnsureFolderNode(const std::filesystem::path &dirPath);
         // Reference-guided shallow scan from `startNode` (a frontier folder) toward refPath, via the
         // same ApplyFsEntry seam / parent-stack adapter as ReadFolderToNode and ScanNode.
         void ScanPathToReference(Node::Ref startNode, const std::filesystem::path &refPath);

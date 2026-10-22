@@ -51,6 +51,9 @@ DocumentAPI::Ref EditorAPI::NewDocument(const char *name) {
         return nullptr;
     }
     auto node = workspace->NewDocument(name);
+    if (node == nullptr) {
+        return nullptr;
+    }
     // This will also activate the document...
     Editor::Instance().OpenDocumentFromWorkspace(node);
 
@@ -63,6 +66,9 @@ DocumentAPI::Ref EditorAPI::NewDocumentFromText(const char *name, const char *te
         return nullptr;
     }
     auto node = workspace->NewDocument(name);
+    if (node == nullptr) {
+        return nullptr;
+    }
     auto textBuffer = node->GetTextBuffer();
     if (textBuffer != nullptr && text != nullptr) {
         // A fresh document buffer carries a single placeholder empty line (CreateEmptyBuffer); drop it

@@ -14,6 +14,7 @@ namespace gedit {
         kBold = 4,
         kItalic = 8,
         kUnderline = 16,
+        kStrikethrough = 32,
     };
 
     inline kTextAttributes operator|(kTextAttributes lhs, kTextAttributes rhs) {

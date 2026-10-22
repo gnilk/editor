@@ -169,6 +169,13 @@ void WorkspaceView::CreateTree() {
             }
             return node->GetDisplayName();
         });
+        // Gone from disk but kept for an open document (Workspace::RemoveNodeGoneFromDisk)
+        treeView->SetStyleDelegate([](Workspace::Node::Ref node) -> kTextAttributes {
+            if ((node != nullptr) && node->IsMissingOnDisk()) {
+                return kTextAttributes::kStrikethrough;
+            }
+            return kTextAttributes::kNormal;
+        });
 
         // FS-6 W5: on expand of a node with hasUnfetchedChildren, run a shallow ScanNode
         // to populate the model, then mirror the new level into the view tree node.

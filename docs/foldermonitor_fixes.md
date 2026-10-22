@@ -184,7 +184,7 @@ record the hook: a dirty *file* path whose node has an open document is where a 
 |---|---|---|
 | 1 ✅ | **Canonical root** in `OpenFolder` (C3). | `test_workspace`: `OpenFolder(".")`-style path with a trailing `.` (and, on macOS, a root under `/tmp`). `FindNodeWithPath(canonical child)` finds the node — fails today. |
 | 2 ✅ | **Null-safe removal** (C2): `cbDeleteNode` checks `node`; `RemoveNode` never re-enters `CloseDocument` (C5 interim: a node with an open document is flagged, not removed or closed). | Remove-unknown-path no longer crashes. Removing an open doc's file keeps the doc open and in `openDocuments`. |
-| 2b | **Missing-on-disk marker** (§4.1): status-line prefix first; then a `TreeView` per-item style delegate, plus `kStrikethrough` in SDL2 and SDL3 (or a theme colour). | Unit: a flagged node reports missing, and a save clears the flag. Marker rendering is checked in the GUI. |
+| 2b ✅ | **Missing-on-disk marker** (§4.1): status-line prefix first; then a `TreeView` per-item style delegate, plus `kStrikethrough` in SDL2 and SDL3 (or a theme colour). | Unit: a flagged node reports missing, and a save clears the flag. Marker rendering is checked in the GUI. |
 | 3 | **`FsFilter::IsExcludedRelative`** (per component). | `test_folderscanner` / new `test_fsfilter` cases: `cmake-build-debug/a/b.o` excluded, `src/bld.cpp` not excluded by the `bld` pattern, glob `cmake-build-*`. |
 | 4 | **`Workspace::ReconcileFolder`** + `ScanNode` built on it (C4, C6). | Temp tree: add / remove / rename a file and a dir on disk, then reconcile. The tree matches disk; a node owning a Document survives removal (flagged); a new subdir arrives `isScanned == false`; excluded dirs never appear. **This is the bulk of the correctness and is fully OS-independent.** |
 | 5 | **Base rework**: injected `postToMain`, dirty set + coalescing, weak-ptr lifetime, filter in `OnRawEvent`, drop the `monitorPoints` registry and flag decoding (B1–B3, C1, C7). ProjectRoot gets `FlushDirty`; start moves to `OpenFolder` (C8). | A fake `MonitorPoint` subclass, test-driven via `OnRawEvent` with a synchronous poster. N events in one folder → one reconcile + one change notification; events under an excluded dir → zero; an event after the ProjectRoot is gone → no crash. |
@@ -204,6 +204,14 @@ record the hook: a dirty *file* path whose node has an open document is where a 
   - Test: `test_workspace_gonefromdisk`.
   - `RemoveNode` itself is unchanged; the monitor path just never reaches its `CloseDocument`, because
     open documents are kept.
+
+- **Step 2b:** the marker.
+  - `kTextAttributes::kStrikethrough` is drawn as a line at 3/4 of the baseline, in SDL3 and SDL2. The
+    SDL2 change is the same as the SDL3 one but wasn't compiled on the Mac.
+  - The gansi backend maps it to `Dim`, since gansi has no SGR 9.
+  - `TreeView::SetStyleDelegate` adds per-item attributes; `WorkspaceView` strikes flagged nodes.
+  - `EditorView`'s status line shows `[deleted] `.
+  - Verified in the GUI only; there is no draw-capture test infrastructure for the SDL path.
 
 Steps 1–5 are platform-independent and unit-testable. They give a working feature on the Mac as soon as
 step 6 is done. Step 7 only needs the Linux box.

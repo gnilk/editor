@@ -61,6 +61,8 @@ namespace gedit {
     public:
         using Ref = std::shared_ptr<TreeView>;
         using ToStringDelegate = std::function<std::string(const T &data)>;
+        // Optional - extra attributes for an item (e.g. kStrikethrough), combined with the normal/selected ones
+        using StyleDelegate = std::function<kTextAttributes(const T &data)>;
         // FS-6: fired from Expand()/ExpandToNode() when a node carries hasUnfetchedChildren.
         // The node is passed BY VALUE (shared_ptr copy) — the callback may call AddItem or
         // AddItemNoFlatten, which can trigger Flatten() and rebuild flattenNodeList; holding
@@ -145,6 +147,10 @@ namespace gedit {
 
         void SetToStringDelegate(ToStringDelegate newToString) {
             cbToString = newToString;
+        }
+
+        void SetStyleDelegate(StyleDelegate newStyle) {
+            cbStyle = newStyle;
         }
 
         typename TreeNode::Ref AddItem(const T &item) {
@@ -342,13 +348,18 @@ namespace gedit {
                 auto &str = node->drawString;
 
 
+                auto itemAttributes = kTextAttributes::kNormal;
+                if (cbStyle != nullptr) {
+                    itemAttributes = itemAttributes | cbStyle(node->data);
+                }
+
                 dc.FillLine(yPos, kTextAttributes::kNormal, ' ');
                 if (i == treeLineCursor.idxActiveLine) {
                     dc.FillLine(yPos, kTextAttributes::kNormal | kTextAttributes::kInverted, ' ');
-                    dc.DrawStringWithAttributesAt(node->indent, yPos, kTextAttributes::kNormal | kTextAttributes::kInverted, str.c_str());
+                    dc.DrawStringWithAttributesAt(node->indent, yPos, itemAttributes | kTextAttributes::kInverted, str.c_str());
 
                 } else {
-                    dc.DrawStringWithAttributesAt(node->indent, yPos, kTextAttributes::kNormal, str.c_str());
+                    dc.DrawStringWithAttributesAt(node->indent, yPos, itemAttributes, str.c_str());
                 }
             }
         }
@@ -402,6 +413,7 @@ namespace gedit {
     private:
         std::vector<typename TreeNode::Ref> flattenNodeList;
         ToStringDelegate cbToString = nullptr;
+        StyleDelegate cbStyle = nullptr;
         typename TreeNode::Ref rootNode;
         LineCursor treeLineCursor;  // This is not really used - just for storage
         VerticalNavigationCLion verticalNavigationViewModel;

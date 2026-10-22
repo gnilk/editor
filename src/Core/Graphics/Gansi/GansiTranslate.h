@@ -38,6 +38,10 @@ namespace gedit::Gansi {
         if (attrib & kTextAttributes::kUnderline) {
             outAttr |= gnilk::ansi::Attr::Underline;
         }
+        // gansi has no strikethrough (SGR 9) - dim is the closest 'not really there' look
+        if (attrib & kTextAttributes::kStrikethrough) {
+            outAttr |= gnilk::ansi::Attr::Dim;
+        }
         if (attrib & kTextAttributes::kInverted) {
             std::swap(outFg, outBg);
         }

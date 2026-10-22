@@ -185,6 +185,10 @@ void SDLDrawContext::DrawStringWithAttributesAt(int x, int y, kTextAttributes at
         }
         DrawLineWithPixelOffset(x, y , x + strlen(str), y,0,font->baseline+margin);
     }
+    // struck through - a line through the middle of the lower-case letters (~1/4 of the ascent above the baseline)
+    if (attrib & kTextAttributes::kStrikethrough) {
+        DrawLineWithPixelOffset(x, y , x + strlen(str), y,0,(font->baseline * 3) / 4);
+    }
 }
 
 
@@ -227,6 +231,10 @@ void SDLDrawContext::DrawStringWithAttributesAt(int x, int y, kTextAttributes at
             margin = Config::Instance()["sdl"].GetInt("line_margin",4) - 1;
         }
         DrawLineWithPixelOffset(x, y , x + str.length(), y,0,font->baseline+margin);
+    }
+    // struck through - a line through the middle of the lower-case letters (~1/4 of the ascent above the baseline)
+    if (attrib & kTextAttributes::kStrikethrough) {
+        DrawLineWithPixelOffset(x, y , x + str.length(), y,0,(font->baseline * 3) / 4);
     }
 }
 

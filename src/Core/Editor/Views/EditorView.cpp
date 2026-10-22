@@ -293,6 +293,9 @@ std::pair<std::u32string, std::u32string> EditorView::GetStatusBarInfo() {
     if (document->GetTextBuffer()->IsReadOnly()) {
         statusCenter += U"R/O ";
     }
+    if (node->IsMissingOnDisk()) {
+        statusCenter += U"[deleted] ";
+    }
 
     statusCenter += node->GetDisplayNameU32();
     statusCenter += U" | ";

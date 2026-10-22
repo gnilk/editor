@@ -188,6 +188,9 @@ void WorkspaceView::CreateTree() {
             if (Config::Instance()[cfgSectionName].GetBool("hide_dot_files", true)) {
                 excludePrefixes.push_back(".");
             }
+            // A frontier can already show some children (a file opened below it was scanned in) - the scan
+            // keeps those model nodes, so mirror the whole level afresh instead of appending duplicates.
+            treeView->RemoveChildren(viewNode);
             // Empty expand/collapse cache: freshly-scanned nodes have no saved state.
             FillTreeView(treeView, viewNode, viewNode->data, excludePrefixes, {});
         };

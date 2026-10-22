@@ -192,6 +192,12 @@ namespace gedit {
         // Batch variant: add an item without triggering Flatten. Use this inside
         // cbFetchChildrenForNode to populate many children in one pass; Expand() calls
         // Flatten() once at the end so the tree is coherent after the callback returns.
+        // Drop a node's children from the view (the items themselves are untouched)
+        void RemoveChildren(typename TreeNode::Ref parent) {
+            parent->children.clear();
+            Flatten();
+        }
+
         typename TreeNode::Ref AddItemNoFlatten(typename TreeNode::Ref parent, const T &item) {
             auto treeItem = TreeNode::Create(item);
             parent->children.emplace_back(treeItem);

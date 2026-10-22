@@ -37,6 +37,8 @@ DLL_EXPORT int test_workspace_recreate(ITesting *t);
 DLL_EXPORT int test_workspace_canonicalroot(ITesting *t);
 DLL_EXPORT int test_workspace_gonefromdisk(ITesting *t);
 DLL_EXPORT int test_workspace_monitorexclude(ITesting *t);
+DLL_EXPORT int test_workspace_scannode_keepsopen(ITesting *t);
+DLL_EXPORT int test_workspace_reconcile(ITesting *t);
 }
 
 DLL_EXPORT int test_workspace(ITesting *t) {
@@ -595,6 +597,118 @@ DLL_EXPORT int test_workspace_monitorexclude(ITesting *t) {
     TR_ASSERT(t, !projectRoot->IsPathExcluded(root / "src"));
     TR_ASSERT(t, !projectRoot->IsPathExcluded(root / "src" / "main.cpp"));
     TR_ASSERT(t, !projectRoot->IsPathExcluded(root / ".gitignore"));
+
+    cfgWorkspace.SetValue<std::vector<std::string>>("exclude", oldExclude);
+    fs::remove_all(root, ec);
+    return kTR_Pass;
+}
+
+// (Re)scanning a folder keeps the nodes already there - an open document's node (and its Document) must
+// survive. The old ScanNode cleared the children and rebuilt them, detaching the open document.
+DLL_EXPORT int test_workspace_scannode_keepsopen(ITesting *t) {
+    namespace fs = std::filesystem;
+    auto root = pathutil::CanonicalPath(fs::temp_directory_path() / "goat_ws_scankeep");
+    std::error_code ec;
+    fs::remove_all(root, ec);
+    fs::create_directories(root / "a");
+    { std::ofstream(root / "a" / "open.txt") << "x\n"; }
+
+    Workspace workspace;
+    TR_ASSERT(t, workspace.OpenFolder(root.string()));
+    auto rootNode = workspace.GetProjectRoots()[0]->GetRootNode();
+    auto openNode = workspace.NewDocumentWithFileRef(root / "a" / "open.txt");
+    TR_ASSERT(t, openNode != nullptr);
+    workspace.AddOpenDocument(openNode->GetDocument());
+    auto nodeA = openNode->GetParent();
+
+    workspace.ScanNode(nodeA);
+    TR_ASSERT(t, nodeA->HasChild(openNode));
+    TR_ASSERT(t, rootNode->FindNodeWithPath(root / "a" / "open.txt") == openNode);
+    TR_ASSERT(t, workspace.GetNodeFromDocument(openNode->GetDocument()) == openNode);
+
+    fs::remove_all(root, ec);
+    return kTR_Pass;
+}
+
+// ReconcileFolder - the folder monitor's "something changed in this folder": one level, against disk.
+// Renames are just 'old gone + new there'; nodes still on disk are kept as they are.
+DLL_EXPORT int test_workspace_reconcile(ITesting *t) {
+    namespace fs = std::filesystem;
+    auto root = pathutil::CanonicalPath(fs::temp_directory_path() / "goat_ws_reconcile");
+    std::error_code ec;
+    fs::remove_all(root, ec);
+    fs::create_directories(root / "a");
+    fs::create_directories(root / "sub" / "deep");
+    { std::ofstream(root / "a" / "open.txt") << "x\n"; }
+    { std::ofstream(root / "a" / "closed.txt") << "x\n"; }
+    { std::ofstream(root / "keep.txt") << "x\n"; }
+    { std::ofstream(root / "old.txt") << "x\n"; }
+
+    auto oldExclude = Config::Instance()["workspace"].GetSequenceOfStr("exclude");
+    auto cfgWorkspace = Config::Instance()["workspace"];
+    cfgWorkspace.SetValue<std::vector<std::string>>("exclude", {".git", "cmake-build-*"});
+
+    Workspace workspace;
+    TR_ASSERT(t, workspace.OpenFolder(root.string()));
+    auto rootNode = workspace.GetProjectRoots()[0]->GetRootNode();
+    auto keep = rootNode->FindNodeWithPath(root / "keep.txt");
+    auto nodeA = rootNode->FindNodeWithPath(root / "a");
+    auto openNode = workspace.NewDocumentWithFileRef(root / "a" / "open.txt");
+    workspace.AddOpenDocument(openNode->GetDocument());
+    // A '.nb' buffer, never saved - open, not on disk
+    workspace.SetActiveFolderNode(rootNode);
+    auto ghost = workspace.NewDocument("ghost.cpp");
+    TR_ASSERT(t, (ghost != nullptr) && ghost->IsNewFile());
+    workspace.AddOpenDocument(ghost->GetDocument());
+
+    // Nothing changed on disk
+    TR_ASSERT(t, !workspace.ReconcileFolder(rootNode));
+
+    fs::rename(root / "old.txt", root / "new.txt");
+    fs::create_directories(root / "newdir");
+    { std::ofstream(root / "newdir" / "inside.txt") << "x\n"; }
+    fs::create_directories(root / "cmake-build-debug");
+    fs::remove_all(root / "sub");
+
+    TR_ASSERT(t, workspace.ReconcileFolder(rootNode));
+    TR_ASSERT(t, rootNode->FindNodeWithPath(root / "old.txt") == nullptr);
+    TR_ASSERT(t, rootNode->FindNodeWithPath(root / "new.txt") != nullptr);
+    auto newDir = rootNode->FindNodeWithPath(root / "newdir");
+    TR_ASSERT(t, (newDir != nullptr) && newDir->IsFolder() && !newDir->IsScanned());
+    TR_ASSERT(t, newDir->GetNumChildNodes() == 0);                     // a frontier - filled on expand
+    TR_ASSERT(t, rootNode->FindNodeWithPath(root / "cmake-build-debug") == nullptr);
+    TR_ASSERT(t, rootNode->FindNodeWithPath(root / "sub") == nullptr);
+    TR_ASSERT(t, rootNode->FindNodeWithPath(root / "keep.txt") == keep);  // untouched - same node
+    TR_ASSERT(t, rootNode->FindNodeWithPath(root / "a") == nodeA);
+    TR_ASSERT(t, rootNode->HasChild(ghost) && !ghost->IsMissingOnDisk());
+
+    // Expanding the new folder fills it
+    workspace.ScanNode(newDir);
+    TR_ASSERT(t, newDir->IsScanned() && (newDir->GetNumChildNodes() == 1));
+
+    // Files gone below 'a': the open one is kept and flagged, the closed one goes
+    fs::remove(root / "a" / "open.txt");
+    fs::remove(root / "a" / "closed.txt");
+    TR_ASSERT(t, workspace.ReconcileFolder(nodeA));
+    TR_ASSERT(t, nodeA->HasChild(openNode) && openNode->IsMissingOnDisk());
+    TR_ASSERT(t, rootNode->FindNodeWithPath(root / "a" / "closed.txt") == nullptr);
+    TR_ASSERT(t, !workspace.ReconcileFolder(nodeA));      // stable - nothing new
+
+    // The file comes back (e.g. 'git checkout') - same node, flag cleared
+    { std::ofstream(root / "a" / "open.txt") << "x\n"; }
+    TR_ASSERT(t, workspace.ReconcileFolder(nodeA));
+    TR_ASSERT(t, nodeA->HasChild(openNode) && !openNode->IsMissingOnDisk());
+
+    // The whole folder goes - kept (open document below), still a folder
+    fs::remove_all(root / "a");
+    TR_ASSERT(t, workspace.ReconcileFolder(nodeA));
+    TR_ASSERT(t, rootNode->HasChild(nodeA) && nodeA->IsMissingOnDisk() && nodeA->IsFolder());
+    TR_ASSERT(t, openNode->IsMissingOnDisk());
+
+    // Saving the ghost writes it - no longer a new file
+    ghost->GetDocument()->GetTextBuffer()->AddLineUTF8("int x;");
+    TR_ASSERT(t, ghost->SaveData());
+    TR_ASSERT(t, fs::exists(root / "ghost.cpp") && !ghost->IsNewFile());
 
     cfgWorkspace.SetValue<std::vector<std::string>>("exclude", oldExclude);
     fs::remove_all(root, ec);

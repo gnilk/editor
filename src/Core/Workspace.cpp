@@ -2,6 +2,7 @@
 // Created by gnilk on 09.05.23.
 //
 #include <filesystem>
+#include <unordered_map>
 
 #include "Core/Config/Config.h"
 #include "Core/Editor.h"
@@ -90,7 +91,8 @@ bool Workspace::PruneGoneFromDisk(Node::Ref node) {
             child->SetDocument(nullptr);
         }
     }
-    if (isKept) {
+    // A never-saved '.nb' buffer isn't on disk yet - it wasn't deleted
+    if (isKept && !node->IsNewFile()) {
         node->SetMissingOnDisk(true);
     }
     return isKept;
@@ -278,6 +280,7 @@ Workspace::Node::Ref Workspace::NewDocument(const Node::Ref parent, const std::s
         return nullptr;
     }
     auto node = AddFileNode(parent, parentPath / name);
+    node->SetNewFile(!fs::exists(parentPath / name));
     EnsureDocumentForNode(node);
     NotifyChangeHandler();   // Removed while debugging change notifications from FolderMonitor
     return node;
@@ -491,6 +494,7 @@ void Workspace::ScanPathToReference(Node::Ref startNode, const std::filesystem::
 Workspace::Node::Ref Workspace::NewDocumentWithFileRef(Node::Ref parent, const std::filesystem::path &pathFileName) {
     DisableNotifications();
     auto node = AddFileNode(parent, pathFileName);
+    node->SetNewFile(!fs::exists(pathFileName));
     EnsureDocumentForNode(node);
     EnableNotifications();
 
@@ -672,46 +676,101 @@ bool Workspace::ReadFolderToNode(Node::Ref rootNode, const std::filesystem::path
     return true;
 }
 
-// FS-6: shallow on-demand scan for a frontier folder. Clears existing children (makes it
-// idempotent and monitor-reusable), runs a depth-1 scan rooted at the node's path, then marks
-// the node itself as fully scanned. Discovered child directories arrive isScanned=false (they are
-// the next frontier). Never reads isScanned — it is an output of scanning, not an input to it.
+// FS-6: shallow on-demand scan for a frontier folder: reconcile its direct children with disk, then mark
+// it fully scanned. Discovered child directories arrive isScanned=false (they are the next frontier).
+// Nodes already there are kept - a node holding an open document must survive a rescan. Never reads
+// isScanned - it is an output of scanning, not an input to it. No notification (called from the view's
+// expand, which mirrors the new level itself).
 void Workspace::ScanNode(Node::Ref node) {
     if (node == nullptr || !fs::is_directory(node->GetNodePath())) {
         return;
     }
+    DoReconcileFolder(node);
+    node->SetIsScanned(true);
+}
 
-    node->ClearChildren();
+bool Workspace::ReconcileFolder(Node::Ref node) {
+    if (!DoReconcileFolder(node)) {
+        return false;
+    }
+    NotifyChangeHandler();
+    return true;
+}
 
+bool Workspace::DoReconcileFolder(Node::Ref node) {
+    if (node == nullptr) {
+        return false;
+    }
+    auto folderPath = node->GetNodePath();
+    if (!fs::is_directory(folderPath)) {
+        // The folder itself is gone (a root has nowhere to go - leave it)
+        auto parent = node->GetParent();
+        if (parent == nullptr) {
+            return false;
+        }
+        if (!PruneGoneFromDisk(node)) {
+            parent->DelChild(node);
+        }
+        return true;
+    }
+
+    // One level of what is on disk, excludes applied
+    std::vector<fs::path> onDisk;
     FolderScanner scanner;
     FolderScanner::Options opts;
     opts.exclude = Config::Instance()["workspace"].GetSequenceOfStr("exclude");
     opts.maxDepth = 1;
-
-    std::vector<Node::Ref> parents;
-    parents.push_back(node);
-
-    scanner.onEnterDir = [this, &parents](const fs::path &path, int) -> bool {
-        auto parent = parents.back();
-        Node::Ref child = (parent != nullptr) ? ApplyFsEntry(parent, path) : nullptr;
-        parents.push_back(child);
-        return child != nullptr;
+    scanner.onEnterDir = [&onDisk](const fs::path &path, int) -> bool {
+        onDisk.push_back(path);
+        return false;
     };
-    scanner.onFile = [this, &parents](const fs::path &path, int) {
-        auto parent = parents.back();
-        if (parent != nullptr) {
-            ApplyFsEntry(parent, path);
+    scanner.onFile = [&onDisk](const fs::path &path, int) {
+        onDisk.push_back(path);
+    };
+    scanner.Scan(folderPath, opts);
+
+    std::vector<Node::Ref> children;
+    node->FlattenChilds(children);
+    std::unordered_map<std::string, Node::Ref> childByPath;
+    for (auto &child : children) {
+        childByPath[child->GetNodePath().lexically_normal().string()] = child;
+    }
+
+    bool isChanged = false;
+    for (auto &path : onDisk) {
+        auto itChild = childByPath.find(path.lexically_normal().string());
+        if (itChild != childByPath.end()) {
+            auto child = itChild->second;
+            if (child->IsMissingOnDisk()) {
+                // Back on disk (restored, or re-created by someone else)
+                child->SetMissingOnDisk(false);
+                isChanged = true;
+            }
+            childByPath.erase(itChild);
+            continue;
         }
-    };
-    scanner.onLeaveDir = [&parents](const fs::path &, int, bool fullyScanned) {
-        if (parents.back() != nullptr) {
-            parents.back()->SetIsScanned(fullyScanned);
+        auto child = ApplyFsEntry(node, path);
+        if ((child != nullptr) && (child->GetMeta<int>(Node::kMetaKey_NodeType, Node::kNodeFolder) == Node::kNodeFolder)) {
+            child->SetIsScanned(false);     // a new folder is a frontier - expanded on demand
         }
-        parents.pop_back();
-    };
+        isChanged = true;
+    }
 
-    scanner.Scan(node->GetNodePath(), opts);
-    node->SetIsScanned(true);
+    // What is left wasn't listed. Something still on disk was filtered (excluded) - leave it; the rest is gone.
+    for (auto &[path, child] : childByPath) {
+        if (fs::exists(child->GetNodePath())) {
+            continue;
+        }
+        bool wasMissing = child->IsMissingOnDisk();
+        if (PruneGoneFromDisk(child)) {
+            isChanged = isChanged || (child->IsMissingOnDisk() != wasMissing);
+            continue;
+        }
+        node->DelChild(child);
+        child->SetDocument(nullptr);
+        isChanged = true;
+    }
+    return isChanged;
 }
 
 // THE single filesystem->tree mutator. Maps one filesystem entry to a node under parent:

@@ -186,7 +186,7 @@ record the hook: a dirty *file* path whose node has an open document is where a 
 | 2 ✅ | **Null-safe removal** (C2): `cbDeleteNode` checks `node`; `RemoveNode` never re-enters `CloseDocument` (C5 interim: a node with an open document is flagged, not removed or closed). | Remove-unknown-path no longer crashes. Removing an open doc's file keeps the doc open and in `openDocuments`. |
 | 2b ✅ | **Missing-on-disk marker** (§4.1): status-line prefix first; then a `TreeView` per-item style delegate, plus `kStrikethrough` in SDL2 and SDL3 (or a theme colour). | Unit: a flagged node reports missing, and a save clears the flag. Marker rendering is checked in the GUI. |
 | 3 ✅ | **`FsFilter::IsExcludedRelative`** (per component). | `test_folderscanner` / new `test_fsfilter` cases: `cmake-build-debug/a/b.o` excluded, `src/bld.cpp` not excluded by the `bld` pattern, glob `cmake-build-*`. |
-| 4 | **`Workspace::ReconcileFolder`** + `ScanNode` built on it (C4, C6). | Temp tree: add / remove / rename a file and a dir on disk, then reconcile. The tree matches disk; a node owning a Document survives removal (flagged); a new subdir arrives `isScanned == false`; excluded dirs never appear. **This is the bulk of the correctness and is fully OS-independent.** |
+| 4 ✅ | **`Workspace::ReconcileFolder`** + `ScanNode` built on it (C4, C6). | Temp tree: add / remove / rename a file and a dir on disk, then reconcile. The tree matches disk; a node owning a Document survives removal (flagged); a new subdir arrives `isScanned == false`; excluded dirs never appear. **This is the bulk of the correctness and is fully OS-independent.** |
 | 5 | **Base rework**: injected `postToMain`, dirty set + coalescing, weak-ptr lifetime, filter in `OnRawEvent`, drop the `monitorPoints` registry and flag decoding (B1–B3, C1, C7). ProjectRoot gets `FlushDirty`; start moves to `OpenFolder` (C8). | A fake `MonitorPoint` subclass, test-driven via `OnRawEvent` with a synchronous poster. N events in one folder → one reconcile + one change notification; events under an excluded dir → zero; an event after the ProjectRoot is gone → no crash. |
 | 6 | **macOS backend** per §2.5 (B4–B6, FM-d6..d10). | GUI/manual on the Mac: `touch`, `rm`, `mv a b`, `mkdir x && touch x/y`, `git switch`, and a rebuild in `cmake-build-debug` (must cause no tree activity). Optional integration test, gated on platform, with a real stream + temp dir + polling for ≤ 2 s. |
 | 7 | **Linux backend** per §2.5 (FM-d1..d5, B7, B8). Simple version first: walk the tree with the filter (pruned) and watch every non-excluded dir. Later, optionally: watch-set = scanned folder nodes (`Workspace` tells the monitor on scan/remove). | Same manual list on the Linux box; check the watch count (`ls /proc/<pid>/fdinfo` → inotify lines). |
@@ -218,6 +218,17 @@ record the hook: a dirty *file* path whose node has an open document is where a 
     the root itself, or below an excluded folder. It is applied in `OnMonitorEvent`. Each ProjectRoot
     gets the `workspace.exclude` filter at creation.
   - Tests: `test_folderscanner_exclude_relative`, `test_workspace_monitorexclude`.
+
+- **Step 4:** `Workspace::ReconcileFolder` (notifies once; returns whether anything changed).
+  - `ScanNode` is now reconcile + mark scanned, so it keeps existing nodes (C6).
+  - A never-saved `.nb` buffer is tagged `kMetaKey_NewFile` (cleared when the save reaches disk), so it
+    is kept without the "deleted" mark.
+  - `Node::IsFolder` uses the recorded node type, so a folder gone from disk still draws as a folder.
+  - In `WorkspaceView`, expanding a frontier that already shows some children (a file opened below it)
+    re-mirrors the level via `TreeView::RemoveChildren` instead of appending duplicates. That was a
+    latent bug before this change; the view side is verified in the GUI only.
+  - Tests: `test_workspace_scannode_keepsopen` (failed before), `test_workspace_reconcile`.
+  - **Known gap:** an entry that changes type under the same name (file ↔ folder) keeps its old node.
 
 Steps 1–5 are platform-independent and unit-testable. They give a working feature on the Mac as soon as
 step 6 is done. Step 7 only needs the Linux box.

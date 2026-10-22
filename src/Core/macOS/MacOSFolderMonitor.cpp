@@ -2,16 +2,18 @@
 // Created by gnilk on 29.08.23.
 //
 #include <CoreServices/CoreServices.h>
-#include <mutex>
+#include <dispatch/dispatch.h>
+#include <vector>
 #include "logger.h"
-#include "Core/Config/Config.h"
-#include "Core/PathUtil.h"
-#include "Core/StrUtil.h"
 
 #include "MacOSFolderMonitor.h"
 
 using namespace gedit;
 
+// FSEvents can only exclude this many paths - the rest is caught by the base's filter
+static constexpr size_t kMaxOSExclusionPaths = 8;
+// Seconds FSEvents collects before calling back - NoDefer delivers the first event of a quiet period at once
+static constexpr CFAbsoluteTime kStreamLatency = 0.3;
 
 static void glbFSNotifyTrampoline(
 
@@ -26,109 +28,136 @@ static void glbFSNotifyTrampoline(
 
 
 FolderMonitor::MonitorPoint::Ref MacOSFolderMonitor::CreateMonitorPoint(const std::filesystem::path &pathToMonitor) {
-    auto monitor = MacOSFolderMonitorPoint::Create(pathToMonitor);
-    monitor->SetExcludePaths(GetExclusionPaths());
-    return monitor;
+    return MacOSFolderMonitorPoint::Create(pathToMonitor);
 }
 
 
 
 MacOSFolderMonitorPoint::~MacOSFolderMonitorPoint() {
-    if (isRunning) {
-        Stop();
-    }
-    if (cfPathToWatch) CFRelease(cfPathToWatch);
-    if (cfPathsToWatch) CFRelease(cfPathsToWatch);
-    if (cfPathsToExclude) CFRelease(cfPathsToExclude);
+    Stop();
 }
 
 bool MacOSFolderMonitorPoint::Start() {
     if (isRunning) {
         return true;
     }
+    auto logger = gnilk::Logger::GetLogger("FolderMonitor");
 
-    std::lock_guard<std::mutex> guard(dataGuard);
+    auto cfPathToWatch = CFStringCreateWithCString(nullptr, pathToMonitor.c_str(), kCFStringEncodingUTF8);
+    auto cfPathsToWatch = CFArrayCreate(nullptr, (const void **) &cfPathToWatch, 1, &kCFTypeArrayCallBacks);
+    CFRelease(cfPathToWatch);
 
-    cfPathToWatch = CFStringCreateWithCString(nullptr, pathToMonitor.c_str(), kCFStringEncodingUTF8);
-    cfPathsToWatch = CFArrayCreate(nullptr, (const void **) &cfPathToWatch, 1, nullptr);
-
-
-
-    // Setup context so we can jump into the class
+    // The callback gets 'this' - Stop drains the queue before we can go away
+    fsContext = {};
     fsContext.info = this;
 
-    CFAbsoluteTime latency          = 3.0; /* Latency in seconds */
-
-    // Create the event stream with out trampoline as callback
-    // FIXME: consider passing 'kFSEventStreamCreateFlagNone' and check
-    // perhaps test 'kFSEventStreamCreateFlagNoDefer' first
-    // also, see documentation for: kFSEventStreamCreateFlagWatchRoot = 0x00000004
-    // add this: kFSEventStreamCreateFlagIgnoreSelf
-    //
-
+    // FileEvents: per-file paths (the folder to reconcile is the parent). WatchRoot: the root itself being
+    // moved/deleted is reported (RootChanged).
     fsEventStream = FSEventStreamCreate(
             nullptr,
             &glbFSNotifyTrampoline,
-            &fsContext, //NULL, // could put stream-specific data here. FSEventStreamRef stream;*/
+            &fsContext,
             cfPathsToWatch,
-            kFSEventStreamEventIdSinceNow, /* Or a previous event ID */
-            latency,
-            kFSEventStreamCreateFlagFileEvents /* Flags explained in reference: https://developer.apple.com/library/mac/documentation/Darwin/Reference/FSEvents_Ref/Reference/reference.html */
+            kFSEventStreamEventIdSinceNow,
+            kStreamLatency,
+            kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagNoDefer | kFSEventStreamCreateFlagWatchRoot
     );
-
-
-    // Get the main dispatch queue - we will attach to this one..
-    auto dispatchQ = dispatch_get_main_queue();
-
-    // FIXME: Split exclusion paths in OS supported and what we need to support..
-    //        MacOS can only handle 8 paths in the exclude list, the rest we need to filter in user-land...
-    // Have exclusion paths? - let's incorporate them...
-    if (!pathsToExclude.empty()) {
-        cfPathsToExclude = CFArrayCreateMutable(nullptr, pathsToExclude.size(), nullptr);
-        for (auto &s: pathsToExclude) {
-            auto exPath = std::filesystem::path(pathToMonitor) / s;
-            CFStringRef cfPathToExclude = CFStringCreateWithCString(nullptr, exPath.c_str(), kCFStringEncodingUTF8);
-            CFArrayAppendValue(cfPathsToExclude, cfPathToExclude);
-        }
-        FSEventStreamSetExclusionPaths(fsEventStream, cfPathsToExclude);
+    CFRelease(cfPathsToWatch);
+    if (fsEventStream == nullptr) {
+        logger->Error("Unable to create the event stream for: %s", pathToMonitor.c_str());
+        return false;
     }
 
-    // Attach to dispatch queue and kick this off
-    FSEventStreamSetDispatchQueue(fsEventStream, dispatchQ);
-    if (!FSEventStreamStart( fsEventStream )) {
-        auto logger = gnilk::Logger::GetLogger("MacOSFolderMonitor");
-        logger->Error("Unable to start monitoring for path: ", pathToMonitor.c_str());
-    }
+    SetOSExclusionPaths();
 
+    dispatchQueue = dispatch_queue_create("goatedit.foldermonitor", DISPATCH_QUEUE_SERIAL);
+    FSEventStreamSetDispatchQueue(fsEventStream, dispatchQueue);
+
+    // Running before the stream starts - an event may arrive before FSEventStreamStart returns
     isRunning = true;
-    return true;
-}
-
-bool MacOSFolderMonitorPoint::Stop() {
-    // Already stopped??
-    if (!isRunning) {
-        return true;
+    if (!FSEventStreamStart(fsEventStream)) {
+        logger->Error("Unable to start monitoring for path: %s", pathToMonitor.c_str());
+        Stop();
+        return false;
     }
-    std::lock_guard<std::mutex> guard(dataGuard);
-    // Release and dispose of the event stream...
-    FSEventStreamStop(fsEventStream);
-    FSEventStreamInvalidate(fsEventStream);
-    FSEventStreamRelease(fsEventStream);
-
-
-    isRunning = false;
+    logger->Debug("Monitoring: %s", pathToMonitor.c_str());
     return true;
 }
-void MacOSFolderMonitorPoint::OnFSEvent(const std::string &path) {
-    OnRawEvent(path);
+
+void MacOSFolderMonitorPoint::SetOSExclusionPaths() {
+    auto &filter = GetExcludeFilter();
+    if (filter.IsEmpty()) {
+        return;
+    }
+
+    // Only folders that exist now at the top level - a nested or later match is still dropped by the filter
+    std::vector<std::filesystem::path> toExclude;
+    std::error_code ec;
+    for (auto it = std::filesystem::directory_iterator(pathToMonitor, ec); !ec && (it != std::filesystem::directory_iterator()); it.increment(ec)) {
+        if (toExclude.size() == kMaxOSExclusionPaths) {
+            break;
+        }
+        std::error_code ecDir;
+        if (it->is_directory(ecDir) && filter.IsExcluded(it->path())) {
+            toExclude.push_back(it->path());
+        }
+    }
+    if (toExclude.empty()) {
+        return;
+    }
+
+    auto cfPathsToExclude = CFArrayCreateMutable(nullptr, static_cast<CFIndex>(toExclude.size()), &kCFTypeArrayCallBacks);
+    for (auto &path : toExclude) {
+        auto cfPath = CFStringCreateWithCString(nullptr, path.c_str(), kCFStringEncodingUTF8);
+        CFArrayAppendValue(cfPathsToExclude, cfPath);
+        CFRelease(cfPath);
+    }
+    if (!FSEventStreamSetExclusionPaths(fsEventStream, cfPathsToExclude)) {
+        auto logger = gnilk::Logger::GetLogger("FolderMonitor");
+        logger->Warning("Unable to set the exclusion paths for: %s", pathToMonitor.c_str());
+    }
+    CFRelease(cfPathsToExclude);
 }
 
+// Main thread. Never called from the stream's queue (it would wait for itself).
+bool MacOSFolderMonitorPoint::Stop() {
+    // Events still in flight are dropped by the base from here on
+    isRunning = false;
+    if (fsEventStream != nullptr) {
+        FSEventStreamStop(fsEventStream);
+        FSEventStreamInvalidate(fsEventStream);
+        FSEventStreamRelease(fsEventStream);
+        fsEventStream = nullptr;
+    }
+    if (dispatchQueue != nullptr) {
+        // No new callbacks after Invalidate - wait for one that is already running, it holds 'this'
+        dispatch_sync_f(dispatchQueue, nullptr, [](void *) {});
+        dispatch_release(dispatchQueue);
+        dispatchQueue = nullptr;
+    }
+    return true;
+}
 
+void MacOSFolderMonitorPoint::OnFSEvents(size_t numEvents, const char **paths, const FSEventStreamEventFlags eventFlags[]) {
+    // The other flags are historical and coalesced (a rename has no create/remove, a later event still says
+    // 'created') - only the path is used, the folder is reconciled. These mean the reported paths are not
+    // the whole story.
+    static constexpr FSEventStreamEventFlags lostFlags = kFSEventStreamEventFlagMustScanSubDirs |
+                                                         kFSEventStreamEventFlagUserDropped |
+                                                         kFSEventStreamEventFlagKernelDropped |
+                                                         kFSEventStreamEventFlagRootChanged;
+    for (size_t i = 0; i < numEvents; i++) {
+        if (eventFlags[i] & lostFlags) {
+            OnLostEvents();
+            continue;
+        }
+        OnRawEvent(paths[i]);
+    }
+}
 
 
 //
-// This is the C-callback from macOS when events happen
-// We basically just translates the stuff and jump to our callback
+// This is the C-callback from macOS when events happen, on the stream's dispatch queue
 //
 static void glbFSNotifyTrampoline(
 
@@ -140,17 +169,9 @@ static void glbFSNotifyTrampoline(
         const FSEventStreamEventId eventIds[]
 
 ){
-
-    if (clientCallBackInfo != nullptr) {
-        auto pThis = static_cast<MacOSFolderMonitorPoint *>(clientCallBackInfo);
-        const char **paths = (const char **)eventPaths;
-
-        for(auto i=0;i<numEvents;i++) {
-            // The flags are historical and coalesced - not trusted, the folder is reconciled instead
-            std::string path(paths[i]);
-            pThis->OnFSEvent(path);
-        }
+    if (clientCallBackInfo == nullptr) {
+        return;
     }
-
+    auto pThis = static_cast<MacOSFolderMonitorPoint *>(clientCallBackInfo);
+    pThis->OnFSEvents(numEvents, static_cast<const char **>(eventPaths), eventFlags);
 }
-

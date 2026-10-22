@@ -188,7 +188,7 @@ record the hook: a dirty *file* path whose node has an open document is where a 
 | 3 ✅ | **`FsFilter::IsExcludedRelative`** (per component). | `test_folderscanner` / new `test_fsfilter` cases: `cmake-build-debug/a/b.o` excluded, `src/bld.cpp` not excluded by the `bld` pattern, glob `cmake-build-*`. |
 | 4 ✅ | **`Workspace::ReconcileFolder`** + `ScanNode` built on it (C4, C6). | Temp tree: add / remove / rename a file and a dir on disk, then reconcile. The tree matches disk; a node owning a Document survives removal (flagged); a new subdir arrives `isScanned == false`; excluded dirs never appear. **This is the bulk of the correctness and is fully OS-independent.** |
 | 5 ✅ | **Base rework**: injected `postToMain`, dirty set + coalescing, weak-ptr lifetime, filter in `OnRawEvent`, drop the `monitorPoints` registry and flag decoding (B1–B3, C1, C7). ProjectRoot gets `FlushDirty`; start moves to `OpenFolder` (C8). | A fake `MonitorPoint` subclass, test-driven via `OnRawEvent` with a synchronous poster. N events in one folder → one reconcile + one change notification; events under an excluded dir → zero; an event after the ProjectRoot is gone → no crash. |
-| 6 | **macOS backend** per §2.5 (B4–B6, FM-d6..d10). | GUI/manual on the Mac: `touch`, `rm`, `mv a b`, `mkdir x && touch x/y`, `git switch`, and a rebuild in `cmake-build-debug` (must cause no tree activity). Optional integration test, gated on platform, with a real stream + temp dir + polling for ≤ 2 s. |
+| 6 ✅ | **macOS backend** per §2.5 (B4–B6, FM-d6..d10). | GUI/manual on the Mac: `touch`, `rm`, `mv a b`, `mkdir x && touch x/y`, `git switch`, and a rebuild in `cmake-build-debug` (must cause no tree activity). Optional integration test, gated on platform, with a real stream + temp dir + polling for ≤ 2 s. |
 | 7 | **Linux backend** per §2.5 (FM-d1..d5, B7, B8). Simple version first: walk the tree with the filter (pruned) and watch every non-excluded dir. Later, optionally: watch-set = scanned folder nodes (`Workspace` tells the monitor on scan/remove). | Same manual list on the Linux box; check the watch count (`ls /proc/<pid>/fdinfo` → inotify lines). |
 | 8 | Flip `foldermonitor.enabled` default (system config only). Update `folder-monitor.md` §0 and `work-log.md`; add the new test modules to the CLAUDE.md verified-green set. | Full verified-green set. |
 
@@ -251,6 +251,24 @@ record the hook: a dirty *file* path whose node has an open document is where a 
     one-flush-in-flight does the coalescing.
   - Tests: `test_workspace_monitorexclude` (rewritten on a fake point), `test_workspace_monitorflush`,
     `test_workspace_monitorlifetime`. A mutant without the one-flush guard fails `monitorflush`.
+
+- **Step 6:** the macOS backend.
+  - The stream runs on a private serial dispatch queue (FM-d6 gone), latency 0.3 s,
+    `FileEvents | NoDefer | WatchRoot`. Every path goes to `OnRawEvent`; `MustScanSubDirs`,
+    `User/KernelDropped` and `RootChanged` go to `OnLostEvents`. No other flag is read.
+  - `Start` only reports running when the stream started, and cleans up when it didn't; `Stop` nulls the
+    stream, then drains the queue (`dispatch_sync_f`) so a callback already running - it holds a raw
+    `this` - finishes before the point can be destroyed. `Stop` never holds `dataGuard` while draining
+    (the callback takes it). CF objects use `kCFTypeArrayCallBacks` - no leaks (B4).
+  - OS exclusion (B5): top-level folders that exist at start and match the filter, as concrete paths,
+    at most 8, return value checked. Globs, nested and later matches are left to the filter.
+  - The base's `SetExcludePaths` / `pathsToExclude` are gone; backends read `GetExcludeFilter()`.
+  - Tests: new module `foldermonitor` (macOS-gated, real FSEvents in a temp dir):
+    `test_foldermonitor_fsevents` (a write and a rename reach the main thread with the right dirty
+    folders; a build in an OS-excluded and a filter-excluded folder posts nothing; nothing after
+    `Stop`) and `test_foldermonitor_stopinflight` (destroying points mid-burst). The old backend would
+    fail the first: it delivered on the main dispatch queue, which nothing drains in the test.
+  - Not verified in the GUI yet.
 
 Steps 1–5 are platform-independent and unit-testable. They give a working feature on the Mac as soon as
 step 6 is done. Step 7 only needs the Linux box.

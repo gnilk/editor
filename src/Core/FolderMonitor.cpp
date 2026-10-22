@@ -33,15 +33,6 @@ void FolderMonitor::MonitorPoint::SetDirtyHandler(DirtyDelegate newDirtyHandler)
     dirtyHandler = std::move(newDirtyHandler);
 }
 
-bool FolderMonitor::MonitorPoint::SetExcludePaths(const std::vector<std::string> &newPathsToExclude) {
-    if (isRunning) {
-        return false;
-    }
-    std::lock_guard<std::mutex> guard(dataGuard);
-    pathsToExclude = newPathsToExclude;
-    return true;
-}
-
 bool FolderMonitor::MonitorPoint::IsPathExcluded(const std::filesystem::path &path) const {
     auto relPath = path.lexically_normal().lexically_relative(pathToMonitor);
     if (relPath.empty() || (*relPath.begin() == "..")) {

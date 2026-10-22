@@ -70,15 +70,16 @@ namespace gedit {
             void SetPostToMain(PostDelegate newPostToMain);
             void SetDirtyHandler(DirtyDelegate newDirtyHandler);
 
-            // OS-level exclusion paths (an optimisation only - the filter is authoritative)
-            virtual bool SetExcludePaths(const std::vector<std::string> &newPathsToExclude);
-
             // True for a path the tree never shows: outside the root, or below an excluded folder (any
             // component - 'cmake-build-debug/x/y.o'). Takes canonical paths.
             bool IsPathExcluded(const std::filesystem::path &path) const;
 
         protected:
             MonitorPoint() = default;
+            // For OS-level exclusion (an optimisation only - OnRawEvent applies the filter regardless)
+            const FsFilter &GetExcludeFilter() const {
+                return excludeFilter;
+            }
             // Any thread: something happened at 'path' (a file or a folder)
             void OnRawEvent(const std::filesystem::path &path);
             // Any thread: the OS dropped events
@@ -92,7 +93,6 @@ namespace gedit {
             std::atomic_bool isRunning = false;
             std::mutex dataGuard;
             std::filesystem::path pathToMonitor = {};
-            std::vector<std::string> pathsToExclude = {};
         private:
             FsFilter excludeFilter = {};
             PostDelegate postToMain = {};

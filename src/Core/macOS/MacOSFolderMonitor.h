@@ -8,14 +8,19 @@
 #include <memory>
 #include <string>
 #include <filesystem>
-#include <mutex>
 
 #include <CoreServices/CoreServices.h>
+#include <dispatch/dispatch.h>
 
 #include "Core/FolderMonitor.h"
 
 namespace gedit {
 
+    //
+    // FSEvents backend. The stream runs on a private serial dispatch queue (not the main queue - nothing
+    // depends on SDL pumping GCD) and feeds every reported path to OnRawEvent; the flags are not trusted
+    // beyond "events were lost". The base filters, coalesces and posts to the main thread.
+    //
     class MacOSFolderMonitorPoint : public FolderMonitor::MonitorPoint {
     public:
         using Ref = std::shared_ptr<MacOSFolderMonitorPoint>;
@@ -31,17 +36,16 @@ namespace gedit {
         bool Start() override;
         bool Stop() override;
 
-        void OnFSEvent(const std::string &path);
+        // Called on the stream's queue (by the C callback)
+        void OnFSEvents(size_t numEvents, const char **paths, const FSEventStreamEventFlags eventFlags[]);
     protected:
         MacOSFolderMonitorPoint() = default;
+        // The excluded top-level folders as concrete paths (FSEvents takes no globs, at most 8)
+        void SetOSExclusionPaths();
     protected:
         FSEventStreamContext fsContext = {};
-        CFStringRef cfPathToWatch = {};
-        CFArrayRef cfPathsToWatch = {};
-
-        CFMutableArrayRef cfPathsToExclude = {};
-        FSEventStreamRef fsEventStream = {};
-
+        FSEventStreamRef fsEventStream = nullptr;
+        dispatch_queue_t dispatchQueue = nullptr;
     };
 
 

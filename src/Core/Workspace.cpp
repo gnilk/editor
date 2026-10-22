@@ -66,6 +66,36 @@ bool Workspace::RemoveNodeIfNotOnDisk(Node::Ref node) {
     return RemoveNode(node);
 }
 
+bool Workspace::RemoveNodeGoneFromDisk(Node::Ref node) {
+    if ((node == nullptr) || (node->GetParent() == nullptr)) {
+        return false;
+    }
+    if (PruneGoneFromDisk(node)) {
+        NotifyChangeHandler();
+        return false;
+    }
+    return RemoveNode(node);
+}
+
+bool Workspace::PruneGoneFromDisk(Node::Ref node) {
+    bool isKept = (node->GetDocument() != nullptr) && IsDocumentOpen(node->GetDocument());
+
+    std::vector<Node::Ref> children;
+    node->FlattenChilds(children);
+    for (auto &child : children) {
+        if (PruneGoneFromDisk(child)) {
+            isKept = true;
+        } else {
+            node->DelChild(child);
+            child->SetDocument(nullptr);
+        }
+    }
+    if (isKept) {
+        node->SetMissingOnDisk(true);
+    }
+    return isKept;
+}
+
 bool Workspace::IsDocumentOpen(Document::Ref document) {
     return std::find(openDocuments.begin(), openDocuments.end(), document) != openDocuments.end();
 }
@@ -727,8 +757,12 @@ Workspace::ProjectRoot::Ref Workspace::GetOrAddProjectRoot(const std::filesystem
     };
 
     auto cbDeleteNode = [this](Node::Ref node, const std::filesystem::path &path) -> void {
-        logger->Debug("Removing node: %s", node->GetDisplayName().c_str());
-        RemoveNode(node);
+        // Not in the tree: excluded, below an unscanned folder, or already gone
+        if (node == nullptr) {
+            return;
+        }
+        logger->Debug("Gone from disk: %s", node->GetDisplayName().c_str());
+        RemoveNodeGoneFromDisk(node);
     };
 
     auto projectRoot = ProjectRoot::Create(cbCreateNode, cbDeleteNode, rootPath, rootName);

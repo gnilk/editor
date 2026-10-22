@@ -47,6 +47,8 @@ namespace gedit {
             inline static const std::string kMetaKey_NodeType = "type";
             inline static const std::string kMetaKey_FileSize = "filesize";
             inline static const std::string kMetaKey_ReadOnly = "readonly";
+            // Gone from disk while an open document still lives at or below it (kept, not removed)
+            inline static const std::string kMetaKey_MissingOnDisk = "missing_on_disk";
 
             enum NodeType : int {
                 kNodeVirtual = 0,   // Virtual nodes are like the 'Default' node - it doesn't exists, used only for grouping
@@ -263,6 +265,14 @@ namespace gedit {
                 return metaData.GetValue(keyName, defValue);
             }
 
+            bool IsMissingOnDisk() {
+                return GetMeta<bool>(kMetaKey_MissingOnDisk, false);
+            }
+
+            void SetMissingOnDisk(bool isMissing) {
+                SetMeta<bool>(kMetaKey_MissingOnDisk, isMissing);
+            }
+
             // Load data associated with the workspace node, this is here as we OWN the filename
             bool LoadData() {
                 if (document == nullptr) {
@@ -284,7 +294,15 @@ namespace gedit {
                     return false;
                 }
                 bool result = false;
-                if (isPathNameChanged) {
+                if (IsMissingOnDisk()) {
+                    // Deleted behind our back - re-create it (and its folders), even when unchanged
+                    std::error_code ec;
+                    std::filesystem::create_directories(pathName.parent_path(), ec);
+                    result = document->SaveDataNoChangeCheck(pathName);
+                    if (result) {
+                        ClearMissingOnDiskUpwards();
+                    }
+                } else if (isPathNameChanged) {
                     result = document->SaveDataNoChangeCheck(pathName);
                     isPathNameChanged = false;
                 } else {
@@ -295,6 +313,16 @@ namespace gedit {
             }
 
         private:
+            // This node and the folders above it are back on disk
+            void ClearMissingOnDiskUpwards() {
+                for (auto node = shared_from_this(); node != nullptr; node = node->GetParent()) {
+                    if (!node->IsMissingOnDisk()) {
+                        break;
+                    }
+                    node->SetMissingOnDisk(false);
+                }
+            }
+
             void UpdateDisplayNameFromPath() {
                 displayName = pathutil::LastNameOfPath(pathName);
             }
@@ -446,9 +474,11 @@ namespace gedit {
                     logger->Error("Unable to find node for path=%s", path.c_str());
                     return nullptr;
                 }
-                // Already in the tree - added by the editor itself (a new buffer saved, a folder made by '.nb sub/x')
+                // Already in the tree - added by the editor itself (a new buffer saved, a folder made by '.nb sub/x'),
+                // or kept (flagged) after it disappeared because an open document lives there
                 auto existing = rootNode->FindNodeWithPath(path);
                 if (existing != nullptr) {
+                    existing->SetMissingOnDisk(false);
                     return existing;
                 }
 
@@ -549,6 +579,11 @@ namespace gedit {
         // Drop a FILE node whose file doesn't exist on disk (a new buffer never saved) - for after its
         // document is closed. False when the node is a folder or its file exists.
         bool RemoveNodeIfNotOnDisk(Node::Ref node);
+        // A node's file/folder disappeared from disk (deleted/moved behind our back). Removed from the tree -
+        // unless an OPEN document lives at or below it: that node (and the folders leading to it) stays,
+        // flagged kMetaKey_MissingOnDisk, and the document stays open with its edits. Saving it re-creates
+        // the file. Never closes a document. True when the node was removed.
+        bool RemoveNodeGoneFromDisk(Node::Ref node);
         bool IsDocumentOpen(Document::Ref document);
 
         Document::Ref GetActiveDocument() {
@@ -596,6 +631,9 @@ namespace gedit {
         ProjectRoot::Ref GetDefaultRoot();   // creates the CWD-based default root if needed
 
         bool RemoveNode(Node::Ref node);
+        // RemoveNodeGoneFromDisk's walk: drops the children with no open document below them, flags the
+        // rest. True when 'node' must stay (an open document lives at or below it).
+        bool PruneGoneFromDisk(Node::Ref node);
         bool ReadFolderToNode(Node::Ref rootNode, const std::filesystem::path &folder);
         void UpdateMetaDataForNode(Node::Ref node);
         ProjectRoot::Ref GetOrAddProjectRoot(const std::filesystem::path &rootPath, const std::string &rootName);

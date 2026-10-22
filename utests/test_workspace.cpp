@@ -35,6 +35,7 @@ DLL_EXPORT int test_workspace_reopen(ITesting *t);
 DLL_EXPORT int test_workspace_removedocument(ITesting *t);
 DLL_EXPORT int test_workspace_recreate(ITesting *t);
 DLL_EXPORT int test_workspace_canonicalroot(ITesting *t);
+DLL_EXPORT int test_workspace_gonefromdisk(ITesting *t);
 }
 
 DLL_EXPORT int test_workspace(ITesting *t) {
@@ -505,6 +506,63 @@ DLL_EXPORT int test_workspace_canonicalroot(ITesting *t) {
     auto leaf = rootNode->FindNodeWithPath(canonicalRoot / "a" / "leaf.txt");
     TR_ASSERT(t, leaf != nullptr);
     TR_ASSERT(t, workspace.NewDocumentWithFileRef(root / "." / "a" / "leaf.txt") == leaf);
+
+    fs::remove_all(root, ec);
+    return kTR_Pass;
+}
+
+// Files/folders deleted behind our back (what the folder monitor reports): a node without an open document
+// leaves the tree, a node holding an OPEN document stays - flagged, document still open - and saving it
+// re-creates the file and clears the flags. Never a crash for a path that isn't in the tree.
+DLL_EXPORT int test_workspace_gonefromdisk(ITesting *t) {
+    namespace fs = std::filesystem;
+    auto root = pathutil::CanonicalPath(fs::temp_directory_path() / "goat_ws_gone");
+    std::error_code ec;
+    fs::remove_all(root, ec);
+    fs::create_directories(root / "a");
+    fs::create_directories(root / "b");
+    { std::ofstream(root / "a" / "open.txt") << "keep me\n"; }
+    { std::ofstream(root / "a" / "closed.txt") << "x\n"; }
+    { std::ofstream(root / "b" / "x.txt") << "x\n"; }
+
+    Workspace workspace;
+    TR_ASSERT(t, workspace.OpenFolder(root.string()));
+    auto rootNode = workspace.GetProjectRoots()[0]->GetRootNode();
+    auto openNode = workspace.NewDocumentWithFileRef(root / "a" / "open.txt");
+    auto closedNode = workspace.NewDocumentWithFileRef(root / "a" / "closed.txt");
+    TR_ASSERT(t, (openNode != nullptr) && (closedNode != nullptr));
+    TR_ASSERT(t, openNode->LoadData());
+    workspace.AddOpenDocument(openNode->GetDocument());
+    auto nodeA = rootNode->FindNodeWithPath(root / "a");
+    auto nodeB = rootNode->FindNodeWithPath(root / "b");
+    TR_ASSERT(t, (nodeA != nullptr) && (nodeB != nullptr));
+
+    fs::remove_all(root / "a");
+    fs::remove_all(root / "b");
+
+    // Not in the tree (excluded / unscanned / already gone)
+    TR_ASSERT(t, !workspace.RemoveNodeGoneFromDisk(nullptr));
+
+    // Nothing open below 'b' - it goes
+    TR_ASSERT(t, workspace.RemoveNodeGoneFromDisk(nodeB));
+    TR_ASSERT(t, rootNode->FindNodeWithPath(root / "b") == nullptr);
+
+    // 'a' holds an open document - 'a' and the open file stay (flagged), the closed file goes
+    TR_ASSERT(t, !workspace.RemoveNodeGoneFromDisk(nodeA));
+    TR_ASSERT(t, rootNode->FindNodeWithPath(root / "a") == nodeA);
+    TR_ASSERT(t, nodeA->IsMissingOnDisk());
+    TR_ASSERT(t, openNode->GetParent() == nodeA);
+    TR_ASSERT(t, nodeA->HasChild(openNode));
+    TR_ASSERT(t, openNode->IsMissingOnDisk());
+    TR_ASSERT(t, !nodeA->HasChild(closedNode));
+    TR_ASSERT(t, workspace.IsDocumentOpen(openNode->GetDocument()));
+    TR_ASSERT(t, !rootNode->IsMissingOnDisk());
+
+    // Saving the (unchanged) buffer re-creates the file and its folder, and clears the flags
+    TR_ASSERT(t, openNode->SaveData());
+    TR_ASSERT(t, fs::exists(root / "a" / "open.txt"));
+    TR_ASSERT(t, !openNode->IsMissingOnDisk());
+    TR_ASSERT(t, !nodeA->IsMissingOnDisk());
 
     fs::remove_all(root, ec);
     return kTR_Pass;

@@ -25,7 +25,7 @@ every folder in the tree. Honour `workspace.exclude`, so build folders and simil
 | C2 | **Null deref on removal of an unknown path.** `OnFsRemoved` passes `FindNodeWithPath()` (possibly `nullptr`) to `cbDeleteNode`, which calls `node->GetDisplayName()` *before* `RemoveNode`'s null check. | `Workspace.cpp` `GetOrAddProjectRoot` `cbDeleteNode` | Crash on deleting any file not in the tree. Examples: a file in an excluded dir, under an unscanned frontier folder, or a temp file the OS reports late. |
 | C3 | **Path identity mismatch.** The root path is `fs::absolute(folder)`, not canonical, so `goatedit .` gives `/…/editor/.`. Its `lexically_normal()` is `/…/editor/` with a **trailing slash**. FSEvents reports *canonical real paths* (symlinks resolved, e.g. `/tmp` → `/private/tmp`). | `Workspace::OpenFolder`, `Node::FindNodeWithPath` | An event for a direct child of the root has parent `/…/editor`, which ≠ `/…/editor/`, so the parent is never found and nothing is added. The same happens for any root reached through a symlink. **Probably part of the "it never worked".** |
 | C4 | **Flags are trusted.** `OnMonitorEvent` picks create/remove from the flags. FSEvents flags are historical and coalesced: a later event for the same path still carries `Created`. A rename arrives as `Renamed` on both old and new path with no `Created`/`Removed`, so it goes to `OnFsChanged`, which is a no-op. `Created\|Removed` in one batch means "removed" even if the file exists now. | `Workspace.h` `OnMonitorEvent` | Renames and moves never show. Atomic-save editors (write temp + rename) and `git checkout` / `git switch` leave the tree stale or wrong. |
-| C5 | **External delete of an open file closes it and silently drops unsaved edits.** `RemoveNode` calls `Editor::CloseDocument` when the node holds the *active* document. `CloseDocument` then calls `RemoveNodeIfNotOnDisk` → `RemoveNode` again (re-entrant, double `DelChild` / notify). A *non-active* open document keeps its entry in `openDocuments` while its node leaves the tree. | `Workspace::RemoveNode`, `Editor::CloseDocument` | Data loss, plus an orphaned open-documents entry. `git stash` while editing would close your buffer. |
+| C5 | **External delete of an open file closes it and silently drops unsaved edits.** `RemoveNode` calls `Editor::CloseDocument` when the node holds the *active* document. `CloseDocument` then calls `RemoveNodeIfNotOnDisk` → `RemoveNode` again; it doesn't loop, because `RemoveOpenDocument` has already cleared the active document, but the node is removed twice and the view notified twice. A *non-active* open document keeps its entry in `openDocuments` while its node leaves the tree. | `Workspace::RemoveNode`, `Editor::CloseDocument` | Data loss, plus an orphaned open-documents entry. `git stash` while editing would close your buffer. |
 | C6 | **Lazy tree not respected.** Events under a frontier folder (`isScanned == false`) add a child to a partly-known folder. The lazy scan's `ClearChildren` then wipes it on expand. That is harmless for plain nodes, but `ScanNode`'s `ClearChildren` **also drops nodes that own an open `Document`** — the same hazard as C5. | `Workspace::ScanNode` | Expanding or rescanning a folder that holds an open document detaches it from the tree. (Already latent today — expanding is rare after a doc opens, but a monitor would call rescans constantly.) |
 | C7 | **One full `PopulateTree()` per event.** `cbCreateNode` / `RemoveNode` each call `NotifyChangeHandler`, and the change handler rebuilds the whole view tree. | `Workspace.cpp` | A `git checkout` touching 300 files gives 300 rebuilds. |
 | C8 | **The monitor is started from the view.** `WorkspaceView::PopulateTree` calls `projectRoot->StartFolderMonitor()` on every repopulate. Starting a filesystem service from a view rebuild is the wrong layer (it's idempotent, so not a bug today). | `WorkspaceView.cpp:223` | Monitoring depends on a view existing and being populated. Not testable without a view. |
@@ -110,6 +110,13 @@ A **non-destructive** sibling of `ScanNode`:
    re-creates the file and clears the flag. **Never close a document because the disk changed (C5).**
 4. **Keep** existing nodes untouched. Their `Document`, expand state and `isScanned` all survive.
 
+**Depth: a dirty folder is reconciled ONE level deep.** Its direct entries are compared against disk.
+Subfolders already in the tree are kept as they are, scanned or not; they are *not* walked from the
+parent. Changes inside a scanned subfolder produce their own events (FSEvents is recursive; Linux has a
+watch per folder), so that subfolder gets dirty itself. The one exception is a "lost events" signal
+(FSEvents `MustScanSubDirs` / `Dropped`, inotify `IN_Q_OVERFLOW`). Then every **scanned** folder under
+the affected root is reconciled, recursively, one level each. Unscanned frontiers are still skipped.
+
 `ScanNode` should then use the same keep-documents rule instead of `ClearChildren` (fixes C6). The
 cleanest way is to implement `ScanNode` as "reconcile + mark scanned".
 
@@ -175,8 +182,8 @@ record the hook: a dirty *file* path whose node has an open document is where a 
 
 | # | Step | Test (reproduce-first where it's a bug) |
 |---|---|---|
-| 1 | **Canonical root** in `OpenFolder` (C3). | `test_workspace`: `OpenFolder(".")`-style path with a trailing `.` (and, on macOS, a root under `/tmp`). `FindNodeWithPath(canonical child)` finds the node — fails today. |
-| 2 | **Null-safe removal** (C2): `cbDeleteNode` checks `node`; `RemoveNode` never re-enters `CloseDocument` (C5 interim: a node with an open document is flagged, not removed or closed). | Remove-unknown-path no longer crashes. Removing an open doc's file keeps the doc open and in `openDocuments`. |
+| 1 ✅ | **Canonical root** in `OpenFolder` (C3). | `test_workspace`: `OpenFolder(".")`-style path with a trailing `.` (and, on macOS, a root under `/tmp`). `FindNodeWithPath(canonical child)` finds the node — fails today. |
+| 2 ✅ | **Null-safe removal** (C2): `cbDeleteNode` checks `node`; `RemoveNode` never re-enters `CloseDocument` (C5 interim: a node with an open document is flagged, not removed or closed). | Remove-unknown-path no longer crashes. Removing an open doc's file keeps the doc open and in `openDocuments`. |
 | 2b | **Missing-on-disk marker** (§4.1): status-line prefix first; then a `TreeView` per-item style delegate, plus `kStrikethrough` in SDL2 and SDL3 (or a theme colour). | Unit: a flagged node reports missing, and a save clears the flag. Marker rendering is checked in the GUI. |
 | 3 | **`FsFilter::IsExcludedRelative`** (per component). | `test_folderscanner` / new `test_fsfilter` cases: `cmake-build-debug/a/b.o` excluded, `src/bld.cpp` not excluded by the `bld` pattern, glob `cmake-build-*`. |
 | 4 | **`Workspace::ReconcileFolder`** + `ScanNode` built on it (C4, C6). | Temp tree: add / remove / rename a file and a dir on disk, then reconcile. The tree matches disk; a node owning a Document survives removal (flagged); a new subdir arrives `isScanned == false`; excluded dirs never appear. **This is the bulk of the correctness and is fully OS-independent.** |
@@ -184,6 +191,19 @@ record the hook: a dirty *file* path whose node has an open document is where a 
 | 6 | **macOS backend** per §2.5 (B4–B6, FM-d6..d10). | GUI/manual on the Mac: `touch`, `rm`, `mv a b`, `mkdir x && touch x/y`, `git switch`, and a rebuild in `cmake-build-debug` (must cause no tree activity). Optional integration test, gated on platform, with a real stream + temp dir + polling for ≤ 2 s. |
 | 7 | **Linux backend** per §2.5 (FM-d1..d5, B7, B8). Simple version first: walk the tree with the filter (pruned) and watch every non-excluded dir. Later, optionally: watch-set = scanned folder nodes (`Workspace` tells the monitor on scan/remove). | Same manual list on the Linux box; check the watch count (`ls /proc/<pid>/fdinfo` → inotify lines). |
 | 8 | Flip `foldermonitor.enabled` default (system config only). Update `folder-monitor.md` §0 and `work-log.md`; add the new test modules to the CLAUDE.md verified-green set. | Full verified-green set. |
+
+**Done (branch `fix/foldermonitor-prep`):**
+- **Step 1:** `pathutil::CanonicalPath` is used by `OpenFolder`, the default root, `FindNodeForPath`,
+  `EnsurePathInTree` and `NewDocument`. Tests: `test_workspace_canonicalroot`; older workspace tests
+  now build their temp roots canonically.
+- **Step 2:** `Workspace::RemoveNodeGoneFromDisk` and `Node::kMetaKey_MissingOnDisk`.
+  - The monitor's delete callback is null-safe and routes through it.
+  - `OnFsCreated` clears the flag when the path comes back.
+  - `Node::SaveData` re-creates a missing file (force-writes even an unchanged buffer, creates its
+    folders) and clears the flags upwards.
+  - Test: `test_workspace_gonefromdisk`.
+  - `RemoveNode` itself is unchanged; the monitor path just never reaches its `CloseDocument`, because
+    open documents are kept.
 
 Steps 1–5 are platform-independent and unit-testable. They give a working feature on the Mac as soon as
 step 6 is done. Step 7 only needs the Linux box.

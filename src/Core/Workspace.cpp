@@ -766,6 +766,7 @@ Workspace::ProjectRoot::Ref Workspace::GetOrAddProjectRoot(const std::filesystem
     };
 
     auto projectRoot = ProjectRoot::Create(cbCreateNode, cbDeleteNode, rootPath, rootName);
+    projectRoot->SetExcludeFilter(FsFilter(Config::Instance()["workspace"].GetSequenceOfStr("exclude")));
     projectRoots.push_back(projectRoot);
     return projectRoot;
 }

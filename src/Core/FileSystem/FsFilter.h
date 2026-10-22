@@ -23,7 +23,12 @@ namespace gedit {
         bool IsEmpty() const;
         // True if the entry's filename matches any exclude pattern (=> prune: no event, no descent).
         bool IsExcluded(const std::filesystem::path &path) const;
+        // True if ANY component of a path relative to the scanned root matches ('cmake-build-debug/x/y.o').
+        // For the folder monitor, which gets single paths with no walk above them to have pruned them.
+        bool IsExcludedRelative(const std::filesystem::path &relPath) const;
 
+    private:
+        bool IsNameExcluded(const std::string &name) const;
     private:
         std::vector<std::string> patterns;
     };

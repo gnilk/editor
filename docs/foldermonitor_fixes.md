@@ -185,7 +185,7 @@ record the hook: a dirty *file* path whose node has an open document is where a 
 | 1 ✅ | **Canonical root** in `OpenFolder` (C3). | `test_workspace`: `OpenFolder(".")`-style path with a trailing `.` (and, on macOS, a root under `/tmp`). `FindNodeWithPath(canonical child)` finds the node — fails today. |
 | 2 ✅ | **Null-safe removal** (C2): `cbDeleteNode` checks `node`; `RemoveNode` never re-enters `CloseDocument` (C5 interim: a node with an open document is flagged, not removed or closed). | Remove-unknown-path no longer crashes. Removing an open doc's file keeps the doc open and in `openDocuments`. |
 | 2b ✅ | **Missing-on-disk marker** (§4.1): status-line prefix first; then a `TreeView` per-item style delegate, plus `kStrikethrough` in SDL2 and SDL3 (or a theme colour). | Unit: a flagged node reports missing, and a save clears the flag. Marker rendering is checked in the GUI. |
-| 3 | **`FsFilter::IsExcludedRelative`** (per component). | `test_folderscanner` / new `test_fsfilter` cases: `cmake-build-debug/a/b.o` excluded, `src/bld.cpp` not excluded by the `bld` pattern, glob `cmake-build-*`. |
+| 3 ✅ | **`FsFilter::IsExcludedRelative`** (per component). | `test_folderscanner` / new `test_fsfilter` cases: `cmake-build-debug/a/b.o` excluded, `src/bld.cpp` not excluded by the `bld` pattern, glob `cmake-build-*`. |
 | 4 | **`Workspace::ReconcileFolder`** + `ScanNode` built on it (C4, C6). | Temp tree: add / remove / rename a file and a dir on disk, then reconcile. The tree matches disk; a node owning a Document survives removal (flagged); a new subdir arrives `isScanned == false`; excluded dirs never appear. **This is the bulk of the correctness and is fully OS-independent.** |
 | 5 | **Base rework**: injected `postToMain`, dirty set + coalescing, weak-ptr lifetime, filter in `OnRawEvent`, drop the `monitorPoints` registry and flag decoding (B1–B3, C1, C7). ProjectRoot gets `FlushDirty`; start moves to `OpenFolder` (C8). | A fake `MonitorPoint` subclass, test-driven via `OnRawEvent` with a synchronous poster. N events in one folder → one reconcile + one change notification; events under an excluded dir → zero; an event after the ProjectRoot is gone → no crash. |
 | 6 | **macOS backend** per §2.5 (B4–B6, FM-d6..d10). | GUI/manual on the Mac: `touch`, `rm`, `mv a b`, `mkdir x && touch x/y`, `git switch`, and a rebuild in `cmake-build-debug` (must cause no tree activity). Optional integration test, gated on platform, with a real stream + temp dir + polling for ≤ 2 s. |
@@ -212,6 +212,12 @@ record the hook: a dirty *file* path whose node has an open document is where a 
   - `TreeView::SetStyleDelegate` adds per-item attributes; `WorkspaceView` strikes flagged nodes.
   - `EditorView`'s status line shows `[deleted] `.
   - Verified in the GUI only; there is no draw-capture test infrastructure for the SDL path.
+
+- **Step 3:** `FsFilter::IsExcludedRelative` (matches any path component).
+  - C1 is fixed early: `ProjectRoot::IsPathExcluded` drops monitor events that are outside the root, on
+    the root itself, or below an excluded folder. It is applied in `OnMonitorEvent`. Each ProjectRoot
+    gets the `workspace.exclude` filter at creation.
+  - Tests: `test_folderscanner_exclude_relative`, `test_workspace_monitorexclude`.
 
 Steps 1–5 are platform-independent and unit-testable. They give a working feature on the Mac as soon as
 step 6 is done. Step 7 only needs the Linux box.

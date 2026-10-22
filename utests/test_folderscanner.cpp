@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "Core/FileSystem/FolderScanner.h"
+#include "Core/FileSystem/FsFilter.h"
 
 using namespace gedit;
 namespace fs = std::filesystem;
@@ -32,6 +33,7 @@ DLL_EXPORT int test_folderscanner_symlink_no_follow(ITesting *t);
 DLL_EXPORT int test_folderscanner_symlink_follow(ITesting *t);
 DLL_EXPORT int test_folderscanner_exclude(ITesting *t);
 DLL_EXPORT int test_folderscanner_exclude_glob(ITesting *t);
+DLL_EXPORT int test_folderscanner_exclude_relative(ITesting *t);
 DLL_EXPORT int test_folderscanner_fully_scanned(ITesting *t);
 DLL_EXPORT int test_folderscanner_reference(ITesting *t);
 }
@@ -329,6 +331,30 @@ DLL_EXPORT int test_folderscanner_exclude_glob(ITesting *t) {
     TR_ASSERT(t, Count(events, FsEvent::Kind::EnterDir) == 0);
     TR_ASSERT(t, Count(events, FsEvent::Kind::File) == 1);
     TR_ASSERT(t, IndexOf(events, FsEvent::Kind::File, "keep.txt") >= 0);
+    return kTR_Pass;
+}
+
+// The folder monitor gets single paths (no walk to prune), so a path is excluded when ANY of its components
+// (relative to the root) matches - 'cmake-build-debug/x/y.o' has filename 'y.o'. Patterns still match whole
+// components: 'bld' excludes the folder 'bld', not 'src/bld.cpp'.
+DLL_EXPORT int test_folderscanner_exclude_relative(ITesting *t) {
+    FsFilter filter({".git", "bld", "cmake-build-*"});
+
+    TR_ASSERT(t, filter.IsExcludedRelative("cmake-build-debug"));
+    TR_ASSERT(t, filter.IsExcludedRelative("cmake-build-debug/CMakeFiles/y.o"));
+    TR_ASSERT(t, filter.IsExcludedRelative("sub/cmake-build-release/a.o"));
+    TR_ASSERT(t, filter.IsExcludedRelative(".git/objects/ab/cdef"));
+    TR_ASSERT(t, filter.IsExcludedRelative("sub/bld/x.o"));
+    TR_ASSERT(t, filter.IsExcludedRelative("./bld/x.o"));
+
+    TR_ASSERT(t, !filter.IsExcludedRelative("src/bld.cpp"));
+    TR_ASSERT(t, !filter.IsExcludedRelative("src/main.cpp"));
+    TR_ASSERT(t, !filter.IsExcludedRelative(".gitignore"));
+    TR_ASSERT(t, !filter.IsExcludedRelative(""));
+    TR_ASSERT(t, !filter.IsExcludedRelative("."));
+
+    // No patterns - nothing excluded
+    TR_ASSERT(t, !FsFilter().IsExcludedRelative("cmake-build-debug/y.o"));
     return kTR_Pass;
 }
 

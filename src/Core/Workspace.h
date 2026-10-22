@@ -17,6 +17,7 @@
 
 #include "Core/RuntimeConfig.h"
 #include "Core/FolderMonitor.h"
+#include "Core/FileSystem/FsFilter.h"
 #include "Core/PathUtil.h"
 #include "Core/Config/ConfigNode.h"
 #include "Document.h"
@@ -410,6 +411,22 @@ namespace gedit {
                 return rootNode;
             }
 
+            // The scan's exclude patterns (workspace.exclude) - monitor events below a match are dropped
+            void SetExcludeFilter(const FsFilter &newExcludeFilter) {
+                excludeFilter = newExcludeFilter;
+            }
+
+            // True for a path the tree never shows: outside this root, or below an excluded folder (any
+            // component - 'cmake-build-debug/x/y.o'). Takes canonical paths, as the monitor reports them.
+            bool IsPathExcluded(const std::filesystem::path &path) {
+                auto relPath = path.lexically_normal().lexically_relative(rootPath);
+                // The root itself has no parent node to change; anything with a leading '..' is outside
+                if (relPath.empty() || (relPath == ".") || (*relPath.begin() == "..")) {
+                    return true;
+                }
+                return excludeFilter.IsExcludedRelative(relPath);
+            }
+
             bool StartFolderMonitor() {
                 auto logger = gnilk::Logger::GetLogger("Workspace");
                 if ((funcCreateNode == nullptr) || (funcDeleteNode == nullptr)) {
@@ -449,6 +466,9 @@ namespace gedit {
         protected:
             // Any event from the FolderMonitor is decoded here and dispatched to the OnFs* seam.
             void OnMonitorEvent(const std::filesystem::path &path, FolderMonitor::kChangeFlags flags) {
+                if (IsPathExcluded(path)) {
+                    return;
+                }
                 if ((flags & FolderMonitor::kChangeFlags::kCreated) && !(flags & FolderMonitor::kChangeFlags::kRemoved)) {
                     OnFsCreated(path);
                 } else if (flags & FolderMonitor::kChangeFlags::kRemoved) {
@@ -511,6 +531,7 @@ namespace gedit {
             DeleteNodeDelgate funcDeleteNode = nullptr;
             Node::Ref rootNode = {};
             FolderMonitor::MonitorPoint::Ref monitor = {};
+            FsFilter excludeFilter = {};
         };
 
     public:

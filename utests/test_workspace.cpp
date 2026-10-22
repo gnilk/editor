@@ -36,6 +36,7 @@ DLL_EXPORT int test_workspace_removedocument(ITesting *t);
 DLL_EXPORT int test_workspace_recreate(ITesting *t);
 DLL_EXPORT int test_workspace_canonicalroot(ITesting *t);
 DLL_EXPORT int test_workspace_gonefromdisk(ITesting *t);
+DLL_EXPORT int test_workspace_monitorexclude(ITesting *t);
 }
 
 DLL_EXPORT int test_workspace(ITesting *t) {
@@ -564,6 +565,38 @@ DLL_EXPORT int test_workspace_gonefromdisk(ITesting *t) {
     TR_ASSERT(t, !openNode->IsMissingOnDisk());
     TR_ASSERT(t, !nodeA->IsMissingOnDisk());
 
+    fs::remove_all(root, ec);
+    return kTR_Pass;
+}
+
+// Folder-monitor events below an excluded folder (workspace.exclude, any path component) or outside the
+// root never reach the tree - a rebuild in cmake-build-debug used to add the folder / spam errors.
+DLL_EXPORT int test_workspace_monitorexclude(ITesting *t) {
+    namespace fs = std::filesystem;
+    auto root = pathutil::CanonicalPath(fs::temp_directory_path() / "goat_ws_monexclude");
+    std::error_code ec;
+    fs::remove_all(root, ec);
+    fs::create_directories(root / "src");
+
+    auto oldExclude = Config::Instance()["workspace"].GetSequenceOfStr("exclude");
+    auto cfgWorkspace = Config::Instance()["workspace"];
+    cfgWorkspace.SetValue<std::vector<std::string>>("exclude", {".git", "cmake-build-*"});
+
+    Workspace workspace;
+    TR_ASSERT(t, workspace.OpenFolder(root.string()));
+    auto projectRoot = workspace.GetProjectRoots()[0];
+
+    TR_ASSERT(t, projectRoot->IsPathExcluded(root / "cmake-build-debug"));
+    TR_ASSERT(t, projectRoot->IsPathExcluded(root / "cmake-build-debug" / "CMakeFiles" / "y.o"));
+    TR_ASSERT(t, projectRoot->IsPathExcluded(root / "src" / ".git" / "HEAD"));
+    TR_ASSERT(t, projectRoot->IsPathExcluded(root.parent_path() / "elsewhere.txt"));
+    TR_ASSERT(t, projectRoot->IsPathExcluded(root));     // the root itself has no node to change
+
+    TR_ASSERT(t, !projectRoot->IsPathExcluded(root / "src"));
+    TR_ASSERT(t, !projectRoot->IsPathExcluded(root / "src" / "main.cpp"));
+    TR_ASSERT(t, !projectRoot->IsPathExcluded(root / ".gitignore"));
+
+    cfgWorkspace.SetValue<std::vector<std::string>>("exclude", oldExclude);
     fs::remove_all(root, ec);
     return kTR_Pass;
 }

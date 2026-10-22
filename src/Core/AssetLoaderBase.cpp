@@ -89,6 +89,20 @@ std::filesystem::path AssetLoaderBase::ResolveWritePath(const std::string &fileN
     return {};
 }
 
+std::filesystem::path AssetLoaderBase::ResolveExistingPath(const std::string &fileName, kLocationType locationType) const {
+    for (auto &searchPath : baseSearchPaths) {
+        if ((searchPath.locationType != locationType) && (locationType != kLocationType::kAny)) {
+            continue;
+        }
+        std::error_code ec;
+        auto candidate = searchPath.path / fileName;
+        if (std::filesystem::is_regular_file(candidate, ec)) {
+            return candidate;
+        }
+    }
+    return {};
+}
+
 static int locationPriority(AssetLoaderBase::kLocationType t) {
     switch (t) {
         case AssetLoaderBase::kLocationType::kSystem:  return 0;

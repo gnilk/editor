@@ -59,6 +59,7 @@
 // API stuff
 #include "Core/API/EditorAPI.h"
 #include "Core/API/TerminalAPI.h"
+#include "Core/API/ConfigAPI.h"
 #include "Core/Graphics/Headless/HLScreen.h"
 
 #if defined(GEDIT_MACOS)
@@ -134,6 +135,17 @@ std::optional<std::filesystem::path> Editor::ResolveProjectDir(const std::vector
         return {};
     }
     return projectDir;
+}
+
+std::filesystem::path Editor::GetDefaultUserConfigDir() {
+    auto pathHome = XDGEnvironment::Instance().GetUserHomePath();
+#if defined(GEDIT_MACOS)
+    return pathHome / ".config" / glbApplicationName;
+#elif defined(GEDIT_LINUX)
+    return XDGEnvironment::Instance().GetUserDataPath() / "goatedit";
+#else
+    return pathHome / ".goatedit";
+#endif
 }
 
 bool Editor::Initialize(int argc, const char **argv) {
@@ -787,9 +799,11 @@ void Editor::ConfigureTheme() {
 void Editor::ConfigureGlobalAPIObjects() {
     static EditorAPI editorApi;
     static TerminalAPI terminalApi;
+    static ConfigAPI configApi;
 
     RegisterGlobalAPIObject<EditorAPI>(&editorApi);
     RegisterGlobalAPIObject<TerminalAPI>(&terminalApi);
+    RegisterGlobalAPIObject<ConfigAPI>(&configApi);
 
     // Initialize the Javascript wrapper engine...
     logger->Debug("Initialize JSEngine and Preload Plugins");

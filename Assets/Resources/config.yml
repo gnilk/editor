@@ -4,6 +4,8 @@
 # main.bootstrap_scripts, main.plugin_directory, terminal.shell/init/bootstrap, logging.logfile.
 # Lists merge item-by-item (a later config can change/extend a list, not shorten it).
 # session.auto_create_project_dir has no effect in a project config (the dir must exist to be read).
+# From the editor: .cfg [--user | --project] list | get <key> | set <key> <value> | edit
+# (set edits the file in place - comments are kept; the system config is never written).
 #
 main:
   backend: sdl

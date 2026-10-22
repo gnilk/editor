@@ -5,7 +5,12 @@
 #include "Core/Editor.h"
 #include "Core/JSEngine/JSPluginEngine.h"
 #include "Core/RuntimeConfig.h"
+#include "Core/Config/Config.h"
 #include "Core/Editor/Controllers/TerminalController.h"
+#include "Core/UnicodeHelper.h"
+#include <filesystem>
+#include <fstream>
+#include <sstream>
 
 using namespace gedit;
 
@@ -22,6 +27,7 @@ extern "C" {
     DLL_EXPORT int test_jsengine_copytoclipboard(ITesting *t);
     DLL_EXPORT int test_jsengine_loadbuffer(ITesting *t);
     DLL_EXPORT int test_jsengine_listbuffers(ITesting *t);
+    DLL_EXPORT int test_jsengine_configcmd(ITesting *t);
 }
 
 DLL_EXPORT int test_jsengine(ITesting *t) {
@@ -248,5 +254,70 @@ DLL_EXPORT int test_jsengine_listbuffers(ITesting *t) {
     auto cmd = RuntimeConfig::Instance().GetPluginCommand("listbuffers");
     TR_ASSERT(t, cmd != nullptr);
     cmd->Execute({});
+    return kTR_Pass;
+}
+
+// Captures what a script writes through Console.WriteLine
+namespace {
+    class CaptureConsole : public IOutputConsole {
+    public:
+        void WriteLine(const std::u32string &str) override {
+            lines.push_back(UnicodeHelper::utf32to8(str));
+        }
+        bool Contains(const std::string &text) const {
+            for (auto &line : lines) {
+                if (line.find(text) != std::string::npos) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        std::vector<std::string> lines;
+    };
+}
+
+// The '.cfg' plugin end-to-end (script -> Config wrapper -> ConfigAPI), at the project level only.
+DLL_EXPORT int test_jsengine_configcmd(ITesting *t) {
+    auto root = std::filesystem::temp_directory_path() / "goatedit_cfgcmd_test";
+    auto projectDir = root / ".goatedit";
+    std::error_code ec;
+    std::filesystem::remove_all(root, ec);
+    std::filesystem::create_directories(projectDir);
+    {
+        std::ofstream f(projectDir / "config.yml");
+        f << "# keep\ncfgjs:\n  value: one\n";
+    }
+    RuntimeConfig::Instance().GetAssetLoader().ReplaceSearchPath(projectDir, AssetLoaderBase::kLocationType::kProject);
+
+    TR_ASSERT(t, RuntimeConfig::Instance().HasPluginCommand("cfg"));
+    auto cmd = RuntimeConfig::Instance().GetPluginCommand("cfg");
+    auto *prevConsole = RuntimeConfig::Instance().OutputConsole();
+    CaptureConsole console;
+    RuntimeConfig::Instance().SetOutputConsole(&console);
+
+    TR_ASSERT(t, cmd->Execute({"--project", "get", "cfgjs.value"}));
+    TR_ASSERT(t, console.Contains("cfgjs.value = one"));
+
+    // The value is everything after the key (the command line is split on spaces)
+    console.lines.clear();
+    TR_ASSERT(t, cmd->Execute({"--project", "set", "cfgjs.value", "two", "words"}));
+    TR_ASSERT(t, console.Contains("written to"));
+    std::ifstream f(projectDir / "config.yml");
+    std::stringstream buffer;
+    buffer << f.rdbuf();
+    TR_ASSERT(t, buffer.str() == "# keep\ncfgjs:\n  value: \"two words\"\n");
+
+    console.lines.clear();
+    TR_ASSERT(t, cmd->Execute({"--project", "list", "cfgjs"}));
+    TR_ASSERT(t, console.Contains("cfgjs.value = two words"));
+
+    // Unknown action -> usage
+    console.lines.clear();
+    TR_ASSERT(t, cmd->Execute({"bogus"}));
+    TR_ASSERT(t, console.Contains("use: .cfg"));
+
+    RuntimeConfig::Instance().SetOutputConsole(prevConsole);
+    Config::Instance().RemoveKey("cfgjs");
+    std::filesystem::remove_all(root, ec);
     return kTR_Pass;
 }

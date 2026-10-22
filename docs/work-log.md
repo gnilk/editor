@@ -18,12 +18,36 @@ never creates it; a folder open may still auto-create it later, but its config c
 launch). Because the merge happens with the rest of the config, logging/theme/languages/views all see it.
 - **Denied keys** (a cloned repo may carry `.goatedit/config.yml`, so opening a folder must not run its
   commands): `main.bootstrap_scripts`, `main.plugin_directory`, `terminal.shell`, `terminal.init`,
-  `terminal.bootstrap`, `logging.logfile` — stripped by `Config::StripProjectUnsafeKeys` (a denied
-  section given as a non-map is dropped whole); a non-map document is ignored.
+  `terminal.bootstrap`, `logging.logfile` — stripped by `ProjectConfigPolicy::StripDeniedKeys` (a denied
+  section given as a non-map is dropped whole); a non-map document is ignored. (Now in
+  `ProjectConfigPolicy` - see the `.cfg` entry above.)
 - `--skip-user-config` skips the project config too.
 - Sequences still merge **by index** (`YAMLMerge`) — a project can override/extend a list, not shorten it.
 - Behaviour change: a folder argument outside `$HOME` no longer leaves the *launch dir's* `.goatedit`
   registered as `kProject` (it was, since the init-time registration used the launch cwd).
+
+## `.cfg` — read/write config from the command line ✅ (on `feat/project-config`)
+
+`.cfg [--user | --project] <action> [args]` (plugin `config`, short `cfg`; `Scripts/config.js` →
+global JS `Config` (`ConfigAPIWrapper`) → `ConfigAPI`). Actions: `list [prefix]` (running config with the
+level each value comes from, or the `--user`/`--project` file as-is), `get <key>`, `set <key> <value>`,
+`edit` (opens the level's file in a buffer; creates it with a header comment if missing).
+- **No `--global`:** the system config is never written from here (changing the default for all users
+  is a deliberate, by-hand act).
+- **Nothing is kept per level.** Each call loads the user/project files fresh from disk into temporaries
+  (a hand-edit since startup is never clobbered). `set` writes the target file, then puts the EFFECTIVE
+  value (project > user > system) into the running config - a user value the project overrides warns
+  and leaves the running value alone. `--skip-user-config` instances only get the file written.
+- **Comments are sacred** (they're used to toggle logging): `ConfigFilePatcher` edits the TEXT in place
+  - replaces the one value (keeping a trailing `# comment`) or inserts missing keys at the end of the
+  deepest existing section; every other line byte-identical. **No fallback:** the result is re-parsed
+  and must equal "original + this one value", otherwise nothing is written and the user is pointed at
+  `.cfg --<level> edit`. Refuses flow style, list/map targets, tabs, CRLF, unparseable files.
+- Writes are atomic (tmp → rename) and go **through** a symlinked config (dotfiles) to its target.
+- The project deny-list moved out of `Config` into `ProjectConfigPolicy` (used by the startup merge and
+  by `set --project`).
+- Live effect is limited to settings read after the set; startup-read settings (theme, languages,
+  keymaps, a view's construction-time options) need a restart - `set` says so.
 
 ## Soft-wrap (word/char line wrap) ✅
 

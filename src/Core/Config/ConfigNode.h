@@ -71,6 +71,37 @@ namespace gedit {
             return dataNode.remove(key);
         }
 
+        // The node at a key path ({"editorview", "wrap"}) below 'root'; undefined when any part is missing.
+        // Never creates anything.
+        static YAML::Node NodeAtPath(const YAML::Node &root, const std::vector<std::string> &keyPath) {
+            YAML::Node node = root;
+            for (auto &key : keyPath) {
+                if (!node.IsMap()) {
+                    return YAML::Node(YAML::NodeType::Undefined);
+                }
+                const YAML::Node &constNode = node;     // const lookup - doesn't insert the key
+                YAML::Node child = constNode[key];
+                if (!child.IsDefined()) {
+                    return YAML::Node(YAML::NodeType::Undefined);
+                }
+                node.reset(child);      // re-bind; operator= would assign INTO the node
+            }
+            return node;
+        }
+
+        // Set the scalar at a key path, creating missing sections. Mutates this tree in place, so
+        // ConfigNode handles already pointing into it see the new value.
+        void SetScalarAtPath(const std::vector<std::string> &keyPath, const std::string &newValue) {
+            if (keyPath.empty()) {
+                return;
+            }
+            YAML::Node node = dataNode;
+            for (size_t i = 0; i < keyPath.size() - 1; i++) {
+                node.reset(node[keyPath[i]]);
+            }
+            node[keyPath.back()] = newValue;
+        }
+
         void SetStr(const std::string &key, const std::string &newValue) {
             dataNode[key] = newValue;
         }

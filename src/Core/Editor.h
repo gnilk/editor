@@ -176,6 +176,13 @@ namespace gedit {
         static std::optional<std::filesystem::path> ResolveProjectDir(const std::vector<std::string> &args,
                                                                       const std::filesystem::path &cwd,
                                                                       const std::filesystem::path &pathHome);
+        // Where a user config is created when none exists yet ('.cfg --user set/edit'): ~/.config/goatedit on
+        // macOS, <XDG user data>/goatedit on Linux - the first-choice kUser search paths of each platform.
+        static std::filesystem::path GetDefaultUserConfigDir();
+        // False when started with --skip-user-config (then neither the user nor the project config is merged).
+        bool IsUserConfigEnabled() const {
+            return loadUserConfig;
+        }
     protected:
         bool OpenDocumentOrFolder(const std::string &fileOrFolder);
 

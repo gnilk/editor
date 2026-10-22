@@ -79,6 +79,9 @@ namespace gedit {
         // on first run (e.g. history). Returns the first registered search path of that
         // location type, or empty if none qualifies.
         std::filesystem::path ResolveWritePath(const std::string &fileName, kLocationType locationType) const;
+        // The full path of the file LoadAsset/LoadTextAsset would pick for this location type (same search
+        // order), or empty if no search path of that type has it. For writing back to the file that was read.
+        std::filesystem::path ResolveExistingPath(const std::string &fileName, kLocationType locationType) const;
 
     protected:
         void SortSearchPaths();

@@ -84,6 +84,11 @@ namespace gedit {
                     dc.DrawStringWithAttributesAt(xp,0,kTextAttributes::kNormal, "R ");
                     xp += 2;
                 }
+                // Gone from disk, kept open - cleared by the save that re-creates it
+                if (node->IsMissingOnDisk()) {
+                    dc.DrawStringWithAttributesAt(xp,0,kTextAttributes::kNormal, "[D] ");
+                    xp += 4;
+                }
 
                 if (document == activeDocument) {
                     dc.DrawStringWithAttributesAt(xp,0,kTextAttributes::kUnderline, header.c_str());

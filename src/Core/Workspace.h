@@ -305,6 +305,15 @@ namespace gedit {
             }
 
             // save data associated with the workspace node, this is here as we OWN the filename
+            // The autosave: like SaveData, but never re-creates a file deleted behind our back - only an
+            // explicit save brings it back (a 'git switch' or an 'rm' was likely meant). Edits stay in the buffer.
+            bool AutoSaveData() {
+                if (IsMissingOnDisk()) {
+                    return false;
+                }
+                return SaveData();
+            }
+
             bool SaveData() {
                 if (document == nullptr) {
                     return false;

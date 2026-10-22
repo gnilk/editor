@@ -294,7 +294,8 @@ std::pair<std::u32string, std::u32string> EditorView::GetStatusBarInfo() {
         statusCenter += U"R/O ";
     }
     if (node->IsMissingOnDisk()) {
-        statusCenter += U"[deleted] ";
+        // Gone from disk (kept open) - cleared by the save that re-creates it
+        statusCenter += U"[DELETED] ";
     }
 
     statusCenter += node->GetDisplayNameU32();

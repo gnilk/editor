@@ -210,7 +210,7 @@ record the hook: a dirty *file* path whose node has an open document is where a 
     SDL2 change is the same as the SDL3 one but wasn't compiled on the Mac.
   - The gansi backend maps it to `Dim`, since gansi has no SGR 9.
   - `TreeView::SetStyleDelegate` adds per-item attributes; `WorkspaceView` strikes flagged nodes.
-  - `EditorView`'s status line shows `[deleted] `.
+  - `EditorView`'s status line shows `[DELETED] ` (was `[deleted] `).
   - Verified in the GUI only; there is no draw-capture test infrastructure for the SDL path.
 
 - **Step 3:** `FsFilter::IsExcludedRelative` (matches any path component).
@@ -282,6 +282,17 @@ record the hook: a dirty *file* path whose node has an open document is where a 
   row - a stale index, so with a row added above the selection it expanded the folder that moved into it
   (`tools/`), and keeping the selection's screen row then scrolled the view. It now runs on the first
   build only, with the cursor put on the root first.
+
+- **Follow-up: deleted + open (decided 2026-10-22).** Autosave never re-creates a file that is gone from
+  disk (`Node::AutoSaveData`); the edits stay in the buffer and only an explicit save brings the file back.
+  No prompt (no modals yet). The editor's tab header (`EditorHeaderView`) marks the file `[D] `, next to
+  `*` / `R` - where the eye goes first - and the status line says `[DELETED] `; both clear with the save
+  that re-creates the file. Test: `test_workspace_gonefromdisk` (autosave part).
+
+**Later (noted, not scheduled):**
+- **Strikethrough colour.** The struck-through line is drawn in the item's text colour, which is hard to
+  see. It should have an explicit colour (red on black, or similar). The theme has no key for it - add
+  one (e.g. `ui.missing_on_disk`) and draw the line with it in both SDL draw contexts.
   Test: `test_session_workspaceview_keepselection` (failed before).
 
 Steps 1–5 are platform-independent and unit-testable. They give a working feature on the Mac as soon as

@@ -565,11 +565,24 @@ DLL_EXPORT int test_workspace_gonefromdisk(ITesting *t) {
     TR_ASSERT(t, workspace.IsDocumentOpen(openNode->GetDocument()));
     TR_ASSERT(t, !rootNode->IsMissingOnDisk());
 
-    // Saving the (unchanged) buffer re-creates the file and its folder, and clears the flags
+    // Autosave never brings it back - not even with edits; the edits stay in the buffer
+    openNode->GetDocument()->GetTextBuffer()->AddLineUTF8("edited");
+    TR_ASSERT(t, !openNode->AutoSaveData());
+    TR_ASSERT(t, !fs::exists(root / "a" / "open.txt"));
+    TR_ASSERT(t, openNode->IsMissingOnDisk());
+
+    // An explicit save re-creates the file and its folder, and clears the flags
     TR_ASSERT(t, openNode->SaveData());
     TR_ASSERT(t, fs::exists(root / "a" / "open.txt"));
+    {
+        std::ifstream savedFile(root / "a" / "open.txt");
+        std::string savedText((std::istreambuf_iterator<char>(savedFile)), std::istreambuf_iterator<char>());
+        TR_ASSERT(t, savedText.find("edited") != std::string::npos);     // the kept edits
+    }
     TR_ASSERT(t, !openNode->IsMissingOnDisk());
     TR_ASSERT(t, !nodeA->IsMissingOnDisk());
+    // Back on disk - autosave works as usual again
+    TR_ASSERT(t, openNode->AutoSaveData());
 
     fs::remove_all(root, ec);
     return kTR_Pass;

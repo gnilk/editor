@@ -541,7 +541,9 @@ void TextBuffer::OnLineChanged(const Line &line) {
             // this is a bit convoluted but not done very often...
             auto document = Editor::Instance().GetDocumentFromTextBuffer(shared_from_this());
             auto node = Editor::Instance().GetWorkspaceNodeForDocument(document);
-            node->SaveData();
+            if (node != nullptr) {
+                node->AutoSaveData();
+            }
         });
         // Trigger main thread...
         logger->Debug("Triggering UI redraw");

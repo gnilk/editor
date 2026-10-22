@@ -12,10 +12,10 @@
 #include <filesystem>
 #include <vector>
 #include <functional>
+#include <set>
 
 #include "logger.h"
 
-#include "Core/RuntimeConfig.h"
 #include "Core/FolderMonitor.h"
 #include "Core/FileSystem/FsFilter.h"
 #include "Core/PathUtil.h"
@@ -36,6 +36,7 @@ namespace gedit {
     public:
         using Ref = std::shared_ptr<Workspace>;
         using ContentsChangedDelegate = std::function<void()>;
+        using MonitorFactory = std::function<FolderMonitor::MonitorPoint::Ref (const std::filesystem::path &rootPath)>;
         // Node define the structure of a workspace
     public:
 
@@ -376,42 +377,46 @@ namespace gedit {
 
         //
         // A ProjectRoot is one top-level browseable folder in the workspace - what you perceive as a
-        // top-level entry in the file browser. It owns the Node tree for that folder and (later) the
-        // folder monitor that keeps the tree in sync with the filesystem. A node can't reference an
-        // item outside its ProjectRoot folder. In essence:
+        // top-level entry in the file browser. It owns the Node tree for that folder and the folder monitor
+        // that keeps the tree in sync with the filesystem. A node can't reference an item outside its
+        // ProjectRoot folder. In essence:
         //   Workspace -> ProjectRoot [1..n] -> Node tree (folder/file tree)
         //
         // In the editor the 'WorkspaceView' is the graphical representation of these classes.
         //
-        // NOTE: the folder monitor is currently broken/disabled (gated behind 'foldermonitor.enabled').
-        // The seam is kept here for later: OnFsCreated/OnFsRemoved/OnFsChanged are the single entry
-        // points the monitor calls, and they route node creation/removal back through the Workspace's
-        // delegates (the same path the initial scan uses). Wiring it up later is config, not redesign.
+        // The monitor reports dirty FOLDERS on the main thread (FlushDirty); each one that is in the tree and
+        // scanned is reconciled with disk through the Workspace (which owns node mutation), then the
+        // Workspace is told once that the tree changed. See docs/foldermonitor_fixes.md §2.
         //
-        class ProjectRoot {
+        class ProjectRoot : public std::enable_shared_from_this<ProjectRoot> {
         public:
             using Ref = std::shared_ptr<ProjectRoot>;
-            // Node create/delete are delegated back to the Workspace (which owns node creation).
-            using CreateNodeDelgate = std::function<Node::Ref (Node::Ref parent, const std::filesystem::path &path)>;
-            using DeleteNodeDelgate = std::function<void (Node::Ref parent, const std::filesystem::path &path)>;
+            // Bring one folder's children in line with disk, without notifying - true if the tree changed
+            using ReconcileDelegate = std::function<bool (Node::Ref folder)>;
+            // The tree changed (called once per flush)
+            using ChangedDelegate = std::function<void ()>;
         public:
-            ProjectRoot(CreateNodeDelgate createNodeHandler, DeleteNodeDelgate deleteNodeHandler,
+            ProjectRoot(ReconcileDelegate reconcileHandler, ChangedDelegate changedHandler,
                     const std::filesystem::path path,
-                    const std::string &rootName) : name(rootName),rootPath(path), funcCreateNode(createNodeHandler), funcDeleteNode(deleteNodeHandler){
+                    const std::string &rootName) : name(rootName),rootPath(path), funcReconcile(reconcileHandler), funcChanged(changedHandler){
 
                 rootNode = Node::Create(rootName);
                 rootNode->SetNodePath(rootPath);
             }
-            virtual ~ProjectRoot() = default;
+            virtual ~ProjectRoot() {
+                if (monitor != nullptr) {
+                    monitor->Stop();
+                }
+            }
 
-            static Ref Create(CreateNodeDelgate createNodeHandler,
-                              DeleteNodeDelgate deleteNodeHandler,
+            static Ref Create(ReconcileDelegate reconcileHandler,
+                              ChangedDelegate changedHandler,
                               const std::filesystem::path path, const std::string &rootName) {
 
                 auto logger = gnilk::Logger::GetLogger("Workspace");
                 logger->Debug("ProjectRoot '%s' created @ cwd: %s", rootName.c_str(), path.c_str());
 
-                auto ref = std::make_shared<ProjectRoot>(createNodeHandler, deleteNodeHandler, path, rootName);
+                auto ref = std::make_shared<ProjectRoot>(reconcileHandler, changedHandler, path, rootName);
 
                 return ref;
             }
@@ -428,114 +433,81 @@ namespace gedit {
                 return rootNode;
             }
 
-            // The scan's exclude patterns (workspace.exclude) - monitor events below a match are dropped
+            // The scan's exclude patterns (workspace.exclude) - handed to the monitor, which drops events below a match
             void SetExcludeFilter(const FsFilter &newExcludeFilter) {
                 excludeFilter = newExcludeFilter;
             }
 
-            // True for a path the tree never shows: outside this root, or below an excluded folder (any
-            // component - 'cmake-build-debug/x/y.o'). Takes canonical paths, as the monitor reports them.
-            bool IsPathExcluded(const std::filesystem::path &path) {
-                auto relPath = path.lexically_normal().lexically_relative(rootPath);
-                // The root itself has no parent node to change; anything with a leading '..' is outside
-                if (relPath.empty() || (relPath == ".") || (*relPath.begin() == "..")) {
-                    return true;
-                }
-                return excludeFilter.IsExcludedRelative(relPath);
+            bool HasFolderMonitor() {
+                return (monitor != nullptr);
             }
 
-            bool StartFolderMonitor() {
-                auto logger = gnilk::Logger::GetLogger("Workspace");
-                if ((funcCreateNode == nullptr) || (funcDeleteNode == nullptr)) {
-                    logger->Debug("no callbacks defined - if this is default all is fine");
-                    return true;
+            FolderMonitor::MonitorPoint::Ref GetFolderMonitor() {
+                return monitor;
+            }
+
+            // Takes ownership of 'newMonitor' and starts it. Dirty folders come back through 'postToMain'.
+            bool StartFolderMonitor(FolderMonitor::MonitorPoint::Ref newMonitor, FolderMonitor::MonitorPoint::PostDelegate postToMain) {
+                if ((newMonitor == nullptr) || (funcReconcile == nullptr)) {
+                    return false;
                 }
-
-                // Need to stop first..
-                if ((monitor != nullptr) && (monitor->IsRunning())) {
-                    logger->Debug("FolderMonitor already started");
-                    return true;
+                if (monitor != nullptr) {
+                    monitor->Stop();
                 }
-
-                // Only create if needed
-                if (monitor == nullptr) {
-                    logger->Debug("FolderMonitor is null - creating with root: %s", rootPath.c_str());
-
-                    auto &folderMonitor = RuntimeConfig::Instance().GetFolderMonitor();
-                    monitor = folderMonitor.CreateMonitorPoint(rootPath, [this](const std::filesystem::path &path, FolderMonitor::kChangeFlags flags) -> void {
-                        // FIXME: This won't work right now - IF we monitor the build folder...
-                        OnMonitorEvent(path, flags);
-                    });
-                    // We can't start this
-                    if (monitor == nullptr) {
-                        return false;
+                monitor = newMonitor;
+                monitor->SetExcludeFilter(excludeFilter);
+                monitor->SetPostToMain(postToMain);
+                // The monitor can outlive us by a queued flush
+                std::weak_ptr<ProjectRoot> weakThis = weak_from_this();
+                monitor->SetDirtyHandler([weakThis](const std::set<std::filesystem::path> &dirtyFolders, bool isLostEvents) {
+                    if (auto self = weakThis.lock()) {
+                        self->FlushDirty(dirtyFolders, isLostEvents);
                     }
-                }
-
-                std::filesystem::path gitIgnoreFile = rootPath / ".gitignore";
-                if (exists(gitIgnoreFile)) {
-                    logger->Debug("GitIgnore file found - we should read and add to exclude list");
-                }
-
+                });
                 return monitor->Start();
             }
 
-        protected:
-            // Any event from the FolderMonitor is decoded here and dispatched to the OnFs* seam.
-            void OnMonitorEvent(const std::filesystem::path &path, FolderMonitor::kChangeFlags flags) {
-                if (IsPathExcluded(path)) {
+            // Main thread: reconcile the dirty folders that are in the tree and scanned - an unscanned frontier
+            // is read when expanded, a folder not in the tree is below one or excluded. The set is ordered, so
+            // a parent comes before its children (its reconcile may drop a child folder). Lost events ->
+            // every scanned folder. One change notification for the lot.
+            void FlushDirty(const std::set<std::filesystem::path> &dirtyFolders, bool isLostEvents) {
+                if (funcReconcile == nullptr) {
                     return;
                 }
-                if ((flags & FolderMonitor::kChangeFlags::kCreated) && !(flags & FolderMonitor::kChangeFlags::kRemoved)) {
-                    OnFsCreated(path);
-                } else if (flags & FolderMonitor::kChangeFlags::kRemoved) {
-                    OnFsRemoved(path);
+                bool isChanged = false;
+                if (isLostEvents) {
+                    isChanged = ReconcileScanned(rootNode);
                 } else {
-                    OnFsChanged(path);
+                    for (auto &folder : dirtyFolders) {
+                        auto node = rootNode->FindNodeWithPath(folder);
+                        if ((node == nullptr) || !node->IsFolder() || !node->IsScanned()) {
+                            continue;
+                        }
+                        isChanged |= funcReconcile(node);
+                    }
+                }
+                if (isChanged && (funcChanged != nullptr)) {
+                    funcChanged();
                 }
             }
 
-            // --- Filesystem -> tree seam (single set of entry points for the monitor) ---
-
-            // A filesystem entry appeared: add a node for it under its parent.
-            Node::Ref OnFsCreated(const std::filesystem::path &path) {
-                if (funcCreateNode == nullptr) {
-                    return nullptr;
+        protected:
+            // Reconcile 'folder' and every scanned folder below it, one level each
+            bool ReconcileScanned(Node::Ref folder) {
+                if (!folder->IsScanned()) {
+                    return false;
                 }
-
-                auto logger = gnilk::Logger::GetLogger("Workspace");
-
-                auto parent = path.parent_path();
-                auto parentNode = rootNode->FindNodeWithPath(parent);
-                if (parentNode == nullptr) {
-                    logger->Error("Unable to find node for path=%s", path.c_str());
-                    return nullptr;
+                bool isChanged = funcReconcile(folder);
+                std::vector<Node::Ref> children;
+                folder->FlattenChilds(children);
+                for (auto &child : children) {
+                    // A folder kept for an open document below it is already known to be gone
+                    if (child->IsFolder() && !child->IsMissingOnDisk()) {
+                        isChanged |= ReconcileScanned(child);
+                    }
                 }
-                // Already in the tree - added by the editor itself (a new buffer saved, a folder made by '.nb sub/x'),
-                // or kept (flagged) after it disappeared because an open document lives there
-                auto existing = rootNode->FindNodeWithPath(path);
-                if (existing != nullptr) {
-                    existing->SetMissingOnDisk(false);
-                    return existing;
-                }
-
-                // The workspace will notify the 'view' on any changes -> cause a rebuild of the tree...
-                return funcCreateNode(parentNode, path);
-            }
-
-            // A filesystem entry was removed: drop its node.
-            void OnFsRemoved(const std::filesystem::path &path) {
-                if (!funcDeleteNode) {
-                    return;
-                }
-                auto node = rootNode->FindNodeWithPath(path);
-                funcDeleteNode(node, path);
-            }
-
-            // A filesystem entry changed on disk. Placeholder for the (future) "reload/dirty on disk"
-            // signal to an open Document; the tree structure itself doesn't change. No-op for now.
-            void OnFsChanged(const std::filesystem::path &path) {
-                (void)path;
+                return isChanged;
             }
 
         private:
@@ -544,8 +516,8 @@ namespace gedit {
         private:
             std::string name = {};
             std::filesystem::path rootPath = {};
-            CreateNodeDelgate funcCreateNode = nullptr;
-            DeleteNodeDelgate funcDeleteNode = nullptr;
+            ReconcileDelegate funcReconcile = nullptr;
+            ChangedDelegate funcChanged = nullptr;
             Node::Ref rootNode = {};
             FolderMonitor::MonitorPoint::Ref monitor = {};
             FsFilter excludeFilter = {};
@@ -561,6 +533,14 @@ namespace gedit {
 
         void SetChangeDelegate(ContentsChangedDelegate newChangeHandler) {
             onChangeHandler = newChangeHandler;
+        }
+
+        // Folder-monitor glue, set by the Editor: 'factory' makes a monitor for a root folder (nullptr when
+        // monitoring is off), 'postToMain' runs its flushes on the main thread. Unset -> OpenFolder doesn't
+        // monitor (tests, tools).
+        void SetFolderMonitor(MonitorFactory factory, FolderMonitor::MonitorPoint::PostDelegate postToMain) {
+            monitorFactory = std::move(factory);
+            monitorPostToMain = std::move(postToMain);
         }
 
         const std::vector<Workspace::ProjectRoot::Ref> &GetProjectRoots() {
@@ -683,6 +663,7 @@ namespace gedit {
         bool ReadFolderToNode(Node::Ref rootNode, const std::filesystem::path &folder);
         void UpdateMetaDataForNode(Node::Ref node);
         ProjectRoot::Ref GetOrAddProjectRoot(const std::filesystem::path &rootPath, const std::string &rootName);
+        void StartFolderMonitor(ProjectRoot::Ref projectRoot);
         void DisableNotifications() {
             isChangeHandlerDisabled++;
         }
@@ -704,6 +685,8 @@ namespace gedit {
         int isChangeHandlerDisabled = 0;
 
         ContentsChangedDelegate onChangeHandler = {};
+        MonitorFactory monitorFactory = {};
+        FolderMonitor::MonitorPoint::PostDelegate monitorPostToMain = {};
 
         Node::Ref activeFolderNode = nullptr;
 

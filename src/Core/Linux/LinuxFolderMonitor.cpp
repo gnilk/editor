@@ -8,22 +8,17 @@
 #include <stdlib.h>
 #include <poll.h>
 #include <cstring>
+#include <algorithm>
+#include <pthread.h>
 
 #include "LinuxFolderMonitor.h"
 #include "Core/Config/Config.h"
 #include "Core/CompileTimeConfig.h"
-#include "Core/Editor.h"
 
 using namespace gedit;
 
-FolderMonitor::MonitorPoint::Ref LinuxFolderMonitor::CreateMonitorPoint(const std::filesystem::path &pathToMonitor, EventDelegate handler) {
-    auto monitor = LinuxFolderMonitorPoint::Create(pathToMonitor);
-
-    monitor->SetEventHandler(handler);
-
-    AddMonitor(monitor);
-
-    return monitor;
+FolderMonitor::MonitorPoint::Ref LinuxFolderMonitor::CreateMonitorPoint(const std::filesystem::path &pathToMonitor) {
+    return LinuxFolderMonitorPoint::Create(pathToMonitor);
 }
 
 LinuxFolderMonitorPoint::~LinuxFolderMonitorPoint() {
@@ -140,11 +135,11 @@ void LinuxFolderMonitorPoint::ProcessEvent(struct inotify_event *event) {
     if ((event->mask & IN_CREATE) && (AddMonitorItem(path))) {
         StartWatchers();
     }
-    OnFSEvent(path.string(), (event->mask & IN_CREATE)?FolderMonitor::kCreated : FolderMonitor::kRemoved);
+    OnFSEvent(path);
 }
 
-void LinuxFolderMonitorPoint::OnFSEvent(const std::string &fullPathName, FolderMonitor::kChangeFlags flags) {
-    DispatchEvent(fullPathName, flags);
+void LinuxFolderMonitorPoint::OnFSEvent(const std::filesystem::path &fullPathName) {
+    OnRawEvent(fullPathName);
 }
 
 void LinuxFolderMonitorPoint::ScanForDirectories(std::filesystem::path path) {

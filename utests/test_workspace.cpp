@@ -8,6 +8,8 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include <functional>
+#include <memory>
 #include "Core/Editor.h"
 #include "Core/Workspace.h"
 #include "Core/RuntimeConfig.h"
@@ -39,6 +41,8 @@ DLL_EXPORT int test_workspace_gonefromdisk(ITesting *t);
 DLL_EXPORT int test_workspace_monitorexclude(ITesting *t);
 DLL_EXPORT int test_workspace_scannode_keepsopen(ITesting *t);
 DLL_EXPORT int test_workspace_reconcile(ITesting *t);
+DLL_EXPORT int test_workspace_monitorflush(ITesting *t);
+DLL_EXPORT int test_workspace_monitorlifetime(ITesting *t);
 }
 
 DLL_EXPORT int test_workspace(ITesting *t) {
@@ -571,6 +575,52 @@ DLL_EXPORT int test_workspace_gonefromdisk(ITesting *t) {
     return kTR_Pass;
 }
 
+// A monitor point without an OS backend - the test plays the OS thread through OnRawEvent/OnLostEvents
+class FakeMonitorPoint : public FolderMonitor::MonitorPoint {
+public:
+    using Ref = std::shared_ptr<FakeMonitorPoint>;
+public:
+    explicit FakeMonitorPoint(const std::filesystem::path &path) : FolderMonitor::MonitorPoint(path) {
+
+    }
+    bool Start() override {
+        isRunning = true;
+        return true;
+    }
+    bool Stop() override {
+        isRunning = false;
+        return true;
+    }
+    void Event(const std::filesystem::path &path) {
+        OnRawEvent(path);
+    }
+    void LostEvents() {
+        OnLostEvents();
+    }
+};
+
+// Wires 'workspace' to fake monitors; posted flushes queue up until the test runs them
+struct FakeMonitorGlue {
+    FakeMonitorPoint::Ref monitor = nullptr;
+    std::vector<std::function<void()>> posted = {};
+
+    void Wire(Workspace &workspace) {
+        workspace.SetFolderMonitor([this](const std::filesystem::path &rootPath) -> FolderMonitor::MonitorPoint::Ref {
+            monitor = std::make_shared<FakeMonitorPoint>(rootPath);
+            return monitor;
+        }, [this](std::function<void()> callback) {
+            posted.push_back(callback);
+        });
+    }
+    void RunPosted() {
+        auto toRun = std::move(posted);
+        posted.clear();
+        for (auto &callback : toRun) {
+            callback();
+        }
+    }
+};
+
 // Folder-monitor events below an excluded folder (workspace.exclude, any path component) or outside the
 // root never reach the tree - a rebuild in cmake-build-debug used to add the folder / spam errors.
 DLL_EXPORT int test_workspace_monitorexclude(ITesting *t) {
@@ -579,24 +629,35 @@ DLL_EXPORT int test_workspace_monitorexclude(ITesting *t) {
     std::error_code ec;
     fs::remove_all(root, ec);
     fs::create_directories(root / "src");
+    fs::create_directories(root / "cmake-build-debug" / "CMakeFiles");
 
     auto oldExclude = Config::Instance()["workspace"].GetSequenceOfStr("exclude");
     auto cfgWorkspace = Config::Instance()["workspace"];
     cfgWorkspace.SetValue<std::vector<std::string>>("exclude", {".git", "cmake-build-*"});
 
     Workspace workspace;
+    FakeMonitorGlue glue;
+    glue.Wire(workspace);
     TR_ASSERT(t, workspace.OpenFolder(root.string()));
-    auto projectRoot = workspace.GetProjectRoots()[0];
+    TR_ASSERT(t, (glue.monitor != nullptr) && glue.monitor->IsRunning());
+    auto monitor = glue.monitor;
 
-    TR_ASSERT(t, projectRoot->IsPathExcluded(root / "cmake-build-debug"));
-    TR_ASSERT(t, projectRoot->IsPathExcluded(root / "cmake-build-debug" / "CMakeFiles" / "y.o"));
-    TR_ASSERT(t, projectRoot->IsPathExcluded(root / "src" / ".git" / "HEAD"));
-    TR_ASSERT(t, projectRoot->IsPathExcluded(root.parent_path() / "elsewhere.txt"));
-    TR_ASSERT(t, projectRoot->IsPathExcluded(root));     // the root itself has no node to change
+    TR_ASSERT(t, monitor->IsPathExcluded(root / "cmake-build-debug"));
+    TR_ASSERT(t, monitor->IsPathExcluded(root / "cmake-build-debug" / "CMakeFiles" / "y.o"));
+    TR_ASSERT(t, monitor->IsPathExcluded(root / "src" / ".git" / "HEAD"));
+    TR_ASSERT(t, monitor->IsPathExcluded(root.parent_path() / "elsewhere.txt"));
 
-    TR_ASSERT(t, !projectRoot->IsPathExcluded(root / "src"));
-    TR_ASSERT(t, !projectRoot->IsPathExcluded(root / "src" / "main.cpp"));
-    TR_ASSERT(t, !projectRoot->IsPathExcluded(root / ".gitignore"));
+    TR_ASSERT(t, !monitor->IsPathExcluded(root));
+    TR_ASSERT(t, !monitor->IsPathExcluded(root / "src"));
+    TR_ASSERT(t, !monitor->IsPathExcluded(root / "src" / "main.cpp"));
+    TR_ASSERT(t, !monitor->IsPathExcluded(root / ".gitignore"));
+
+    // A rebuild: nothing is posted at all
+    { std::ofstream(root / "cmake-build-debug" / "CMakeFiles" / "y.o") << "x\n"; }
+    monitor->Event(root / "cmake-build-debug" / "CMakeFiles" / "y.o");
+    monitor->Event(root / "cmake-build-debug");
+    monitor->Event(root.parent_path() / "elsewhere.txt");
+    TR_ASSERT(t, glue.posted.empty());
 
     cfgWorkspace.SetValue<std::vector<std::string>>("exclude", oldExclude);
     fs::remove_all(root, ec);
@@ -711,6 +772,125 @@ DLL_EXPORT int test_workspace_reconcile(ITesting *t) {
     TR_ASSERT(t, fs::exists(root / "ghost.cpp") && !ghost->IsNewFile());
 
     cfgWorkspace.SetValue<std::vector<std::string>>("exclude", oldExclude);
+    fs::remove_all(root, ec);
+    return kTR_Pass;
+}
+
+// A burst of monitor events is ONE flush on the main thread: the dirty folders are reconciled and the tree
+// is notified once. Unscanned frontiers are left for the expand; lost events reconcile everything loaded.
+DLL_EXPORT int test_workspace_monitorflush(ITesting *t) {
+    namespace fs = std::filesystem;
+    auto root = pathutil::CanonicalPath(fs::temp_directory_path() / "goat_ws_monflush");
+    std::error_code ec;
+    fs::remove_all(root, ec);
+    fs::create_directories(root / "src");
+    fs::create_directories(root / "sub");
+    { std::ofstream(root / "src" / "a.txt") << "x\n"; }
+
+    Workspace workspace;
+    FakeMonitorGlue glue;
+    glue.Wire(workspace);
+    int nNotify = 0;
+    workspace.SetChangeDelegate([&nNotify]() { nNotify++; });
+    TR_ASSERT(t, workspace.OpenFolder(root.string()));
+    TR_ASSERT(t, glue.monitor != nullptr);
+    auto monitor = glue.monitor;
+    auto rootNode = workspace.GetProjectRoots()[0]->GetRootNode();
+    auto srcNode = rootNode->FindNodeWithPath(root / "src");
+    TR_ASSERT(t, srcNode != nullptr);
+
+    // Three changes in one folder -> one post, one notification
+    nNotify = 0;
+    { std::ofstream(root / "src" / "b.txt") << "x\n"; }
+    { std::ofstream(root / "src" / "c.txt") << "x\n"; }
+    fs::remove(root / "src" / "a.txt");
+    monitor->Event(root / "src" / "b.txt");
+    monitor->Event(root / "src" / "c.txt");
+    monitor->Event(root / "src" / "a.txt");
+    TR_ASSERT(t, glue.posted.size() == 1);
+    TR_ASSERT(t, nNotify == 0);           // nothing happens until the main thread runs the flush
+    glue.RunPosted();
+    TR_ASSERT(t, nNotify == 1);
+    TR_ASSERT(t, srcNode->GetNumChildNodes() == 2);
+    TR_ASSERT(t, rootNode->FindNodeWithPath(root / "src" / "a.txt") == nullptr);
+    TR_ASSERT(t, rootNode->FindNodeWithPath(root / "src" / "b.txt") != nullptr);
+
+    // An event that changes nothing in the tree (a file written) -> flushed, but no notification
+    { std::ofstream(root / "src" / "b.txt") << "more\n"; }
+    monitor->Event(root / "src" / "b.txt");
+    TR_ASSERT(t, glue.posted.size() == 1);
+    glue.RunPosted();
+    TR_ASSERT(t, nNotify == 1);
+
+    // A new folder arrives as a frontier; what is written inside it waits for the expand
+    fs::create_directories(root / "fresh");
+    monitor->Event(root / "fresh");
+    glue.RunPosted();
+    TR_ASSERT(t, nNotify == 2);
+    auto freshNode = rootNode->FindNodeWithPath(root / "fresh");
+    TR_ASSERT(t, (freshNode != nullptr) && !freshNode->IsScanned());
+    { std::ofstream(root / "fresh" / "inner.txt") << "x\n"; }
+    monitor->Event(root / "fresh" / "inner.txt");
+    glue.RunPosted();
+    TR_ASSERT(t, nNotify == 2);
+    TR_ASSERT(t, freshNode->GetNumChildNodes() == 0);
+
+    // The OS dropped events: changes nobody reported are picked up in every scanned folder
+    { std::ofstream(root / "sub" / "unseen.txt") << "x\n"; }
+    fs::remove(root / "src" / "c.txt");
+    monitor->LostEvents();
+    TR_ASSERT(t, glue.posted.size() == 1);
+    glue.RunPosted();
+    TR_ASSERT(t, nNotify == 3);
+    TR_ASSERT(t, rootNode->FindNodeWithPath(root / "sub" / "unseen.txt") != nullptr);
+    TR_ASSERT(t, rootNode->FindNodeWithPath(root / "src" / "c.txt") == nullptr);
+    TR_ASSERT(t, freshNode->GetNumChildNodes() == 0);     // still a frontier
+
+    // A whole folder removed - the parent's reconcile drops it, its own (now dangling) dirty entry is skipped
+    fs::remove_all(root / "src");
+    monitor->Event(root / "src" / "b.txt");
+    monitor->Event(root / "src");
+    glue.RunPosted();
+    TR_ASSERT(t, nNotify == 4);
+    TR_ASSERT(t, rootNode->FindNodeWithPath(root / "src") == nullptr);
+
+    fs::remove_all(root, ec);
+    return kTR_Pass;
+}
+
+// A flush queued on the main thread can outlive its workspace (folder closed / editor shutting down)
+DLL_EXPORT int test_workspace_monitorlifetime(ITesting *t) {
+    namespace fs = std::filesystem;
+    auto root = pathutil::CanonicalPath(fs::temp_directory_path() / "goat_ws_monlife");
+    std::error_code ec;
+    fs::remove_all(root, ec);
+    fs::create_directories(root);
+
+    // The ProjectRoot is gone, the monitor point is still alive (held here)
+    FakeMonitorGlue glue;
+    {
+        auto workspace = Workspace::Create();
+        glue.Wire(*workspace);
+        TR_ASSERT(t, workspace->OpenFolder(root.string()));
+        { std::ofstream(root / "x.txt") << "x\n"; }
+        glue.monitor->Event(root / "x.txt");
+        TR_ASSERT(t, glue.posted.size() == 1);
+    }
+    TR_ASSERT(t, !glue.monitor->IsRunning());     // the ProjectRoot stopped it
+    glue.RunPosted();
+
+    // Both gone
+    {
+        auto workspace = Workspace::Create();
+        glue.Wire(*workspace);
+        TR_ASSERT(t, workspace->OpenFolder(root.string()));
+        { std::ofstream(root / "y.txt") << "x\n"; }
+        glue.monitor->Event(root / "y.txt");
+        TR_ASSERT(t, glue.posted.size() == 1);
+    }
+    glue.monitor = nullptr;
+    glue.RunPosted();
+
     fs::remove_all(root, ec);
     return kTR_Pass;
 }

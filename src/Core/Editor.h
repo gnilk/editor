@@ -218,6 +218,9 @@ namespace gedit {
         // callback. Keeps the graphics backend free of any SessionManager dependency (data flows through
         // plain setters/callbacks). Called before the backend's Open().
         void WireScreenGeometry(const ScreenBase::Ref &screen);
+        // Glue: the workspace makes its folder monitors through the platform FolderMonitor (when
+        // 'foldermonitor.enabled') and has their flushes run on the runloop. Keeps Workspace free of both.
+        void WireFolderMonitor();
 
         void ExecutePostScript(std::istream &stream);
     private:

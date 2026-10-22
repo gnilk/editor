@@ -628,8 +628,23 @@ bool Workspace::OpenFolder(const std::string &folder) {
     }
 
     EnableNotifications();
+    StartFolderMonitor(projectRoot);
     NotifyChangeHandler();
     return true;
+}
+
+// Started by the model when the folder opens (not by a view). Re-opening a folder keeps its running monitor.
+void Workspace::StartFolderMonitor(ProjectRoot::Ref projectRoot) {
+    if ((monitorFactory == nullptr) || projectRoot->HasFolderMonitor()) {
+        return;
+    }
+    auto monitor = monitorFactory(projectRoot->GetRootPath());
+    if (monitor == nullptr) {
+        return;
+    }
+    if (!projectRoot->StartFolderMonitor(monitor, monitorPostToMain)) {
+        logger->Error("Unable to start the folder monitor for: %s", projectRoot->GetRootPath().c_str());
+    }
 }
 
 
@@ -808,23 +823,16 @@ Workspace::ProjectRoot::Ref Workspace::GetOrAddProjectRoot(const std::filesystem
         }
     }
 
-    // The monitor's create-callback routes through the SAME mutator as the initial scan.
-    auto cbCreateNode = [this](Node::Ref parent, const std::filesystem::path &path) {
-        auto node = ApplyFsEntry(parent, path);
+    // The monitor's dirty folders are reconciled through the SAME path as an expand (ApplyFsEntry stays
+    // the single mutator); the root notifies once per flush.
+    auto cbReconcile = [this](Node::Ref folder) -> bool {
+        return DoReconcileFolder(folder);
+    };
+    auto cbChanged = [this]() {
         NotifyChangeHandler();
-        return node;
     };
 
-    auto cbDeleteNode = [this](Node::Ref node, const std::filesystem::path &path) -> void {
-        // Not in the tree: excluded, below an unscanned folder, or already gone
-        if (node == nullptr) {
-            return;
-        }
-        logger->Debug("Gone from disk: %s", node->GetDisplayName().c_str());
-        RemoveNodeGoneFromDisk(node);
-    };
-
-    auto projectRoot = ProjectRoot::Create(cbCreateNode, cbDeleteNode, rootPath, rootName);
+    auto projectRoot = ProjectRoot::Create(cbReconcile, cbChanged, rootPath, rootName);
     projectRoot->SetExcludeFilter(FsFilter(Config::Instance()["workspace"].GetSequenceOfStr("exclude")));
     projectRoots.push_back(projectRoot);
     return projectRoot;

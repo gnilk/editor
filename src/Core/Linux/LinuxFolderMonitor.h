@@ -25,12 +25,12 @@ namespace gedit {
     public:
         using Ref = std::shared_ptr<LinuxFolderMonitorPoint>;
 
-        explicit LinuxFolderMonitorPoint(const std::string &monitorPath) : FolderMonitor::MonitorPoint(monitorPath) {
+        explicit LinuxFolderMonitorPoint(const std::filesystem::path &monitorPath) : FolderMonitor::MonitorPoint(monitorPath) {
 
         }
         virtual ~LinuxFolderMonitorPoint();
 
-        static Ref Create(const std::string &pathToMonitor) {
+        static Ref Create(const std::filesystem::path &pathToMonitor) {
             return std::make_shared<LinuxFolderMonitorPoint>(pathToMonitor);
         }
 
@@ -46,7 +46,7 @@ namespace gedit {
         void StartWatchers();
         void ScanThread();
         void ProcessEvent(struct inotify_event *event);
-        void OnFSEvent(const std::string &fullPathName, FolderMonitor::kChangeFlags flags);
+        void OnFSEvent(const std::filesystem::path &fullPathName);
     protected:
         struct LinuxMonitorItem {
             int wd = -1;
@@ -66,7 +66,7 @@ namespace gedit {
         LinuxFolderMonitor() = default;
         virtual ~LinuxFolderMonitor() = default;
 
-        MonitorPoint::Ref CreateMonitorPoint(const std::filesystem::path &pathToMonitor, EventDelegate handler) override;
+        MonitorPoint::Ref CreateMonitorPoint(const std::filesystem::path &pathToMonitor) override;
     };
 }
 

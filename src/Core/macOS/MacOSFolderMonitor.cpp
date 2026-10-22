@@ -25,26 +25,9 @@ static void glbFSNotifyTrampoline(
 );
 
 
-FolderMonitor::MonitorPoint::Ref MacOSFolderMonitor::CreateMonitorPoint(const std::filesystem::path &pathToMonitor, EventDelegate handler) {
-    if (!IsEnabled()) {
-        return nullptr;
-    }
-
-    auto &excludePaths = GetExclusionPaths();
-
-    auto lastPath = pathutil::LastNameOfPath(pathToMonitor);
-    if (std::find(excludePaths.begin(), excludePaths.end(),lastPath) != excludePaths.end()) {
-        return nullptr;
-    }
-
-
+FolderMonitor::MonitorPoint::Ref MacOSFolderMonitor::CreateMonitorPoint(const std::filesystem::path &pathToMonitor) {
     auto monitor = MacOSFolderMonitorPoint::Create(pathToMonitor);
-    monitor->SetExcludePaths(excludePaths);
-    monitor->SetEventHandler(handler);
-    monitor->SetExcludePaths(excludePaths);
-
-    AddMonitor(monitor);
-
+    monitor->SetExcludePaths(GetExclusionPaths());
     return monitor;
 }
 
@@ -136,24 +119,8 @@ bool MacOSFolderMonitorPoint::Stop() {
     isRunning = false;
     return true;
 }
-void MacOSFolderMonitorPoint::OnFSEvent(const std::string &path, FolderMonitor::kChangeFlags flags) {
-    std::lock_guard<std::mutex> guard(dataGuard);
-
-    // TODO:
-    //  - Check the SW exclusion paths list here
-    //  - The change flags are very flawed, try 'mv apa.txt -> bpa.txt'
-    //  - We are probably better off to just 'rescan' in a particular folder
-
-    auto logger = gnilk::Logger::GetLogger("FolderMonitor");
-    logger->Debug("0x%x : %s", static_cast<int>(flags), path.c_str());
-    if (flags & FolderMonitor::kChangeFlags::kCreated) {
-        logger->Debug("Created!");
-    }
-    if (flags & FolderMonitor::kChangeFlags::kRenamed) {
-        logger->Debug("Renamed");
-    }
-
-    DispatchEvent(path, flags);
+void MacOSFolderMonitorPoint::OnFSEvent(const std::string &path) {
+    OnRawEvent(path);
 }
 
 
@@ -179,24 +146,9 @@ static void glbFSNotifyTrampoline(
         const char **paths = (const char **)eventPaths;
 
         for(auto i=0;i<numEvents;i++) {
+            // The flags are historical and coalesced - not trusted, the folder is reconciled instead
             std::string path(paths[i]);
-            // FIXME: Translate events here
-            FolderMonitor::kChangeFlags flags = {};
-
-            if (eventFlags[i] & kFSEventStreamEventFlagItemCreated) {
-                flags |= FolderMonitor::kChangeFlags::kCreated;
-            }
-            if (eventFlags[i] & kFSEventStreamEventFlagItemModified) {
-                flags |= FolderMonitor::kChangeFlags::kModified;
-            }
-            if (eventFlags[i] & kFSEventStreamEventFlagItemRemoved) {
-                flags |= FolderMonitor::kChangeFlags::kRemoved;
-            }
-            if (eventFlags[i] & kFSEventStreamEventFlagItemRenamed) {
-                flags |= FolderMonitor::kChangeFlags::kRenamed;
-            }
-
-            pThis->OnFSEvent(path, flags);
+            pThis->OnFSEvent(path);
         }
     }
 

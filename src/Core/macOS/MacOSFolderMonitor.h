@@ -20,18 +20,18 @@ namespace gedit {
     public:
         using Ref = std::shared_ptr<MacOSFolderMonitorPoint>;
     public:
-        explicit MacOSFolderMonitorPoint(const std::string &pathToMonitor) : FolderMonitor::MonitorPoint(pathToMonitor) {
+        explicit MacOSFolderMonitorPoint(const std::filesystem::path &pathToMonitor) : FolderMonitor::MonitorPoint(pathToMonitor) {
 
         }
         virtual ~MacOSFolderMonitorPoint();
-        static Ref Create(const std::string &pathToMonitor) {
+        static Ref Create(const std::filesystem::path &pathToMonitor) {
             return std::make_shared<MacOSFolderMonitorPoint>(pathToMonitor);
         }
 
         bool Start() override;
         bool Stop() override;
 
-        void OnFSEvent(const std::string &path, FolderMonitor::kChangeFlags flags);
+        void OnFSEvent(const std::string &path);
     protected:
         MacOSFolderMonitorPoint() = default;
     protected:
@@ -50,7 +50,7 @@ namespace gedit {
         MacOSFolderMonitor() = default;
         virtual ~MacOSFolderMonitor() = default;
 
-        MonitorPoint::Ref CreateMonitorPoint(const std::filesystem::path &pathToMonitor, EventDelegate handler) override;
+        MonitorPoint::Ref CreateMonitorPoint(const std::filesystem::path &pathToMonitor) override;
     };
 }
 

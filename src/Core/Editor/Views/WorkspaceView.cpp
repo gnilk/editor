@@ -169,7 +169,7 @@ void WorkspaceView::CreateTree() {
             }
             return node->GetDisplayName();
         });
-        // Gone from disk but kept for an open document (Workspace::RemoveNodeGoneFromDisk)
+        // Gone from disk but kept for an open document (Workspace::ReconcileFolder)
         treeView->SetStyleDelegate([](Workspace::Node::Ref node) -> kTextAttributes {
             if ((node != nullptr) && node->IsMissingOnDisk()) {
                 return kTextAttributes::kStrikethrough;
@@ -222,19 +222,12 @@ void WorkspaceView::PopulateTree() {
         excludePrefixList.push_back(".");
     }
 
-    auto isFolderMonitorEnabled = Config::Instance()["foldermonitor"].GetBool("enabled", true);
-
     // Traverse and add items
     auto projectRoots = workspace->GetProjectRoots();
     for(auto &projectRoot : projectRoots) {
         auto rootNode = projectRoot->GetRootNode();
         auto treeRoot = treeView->AddItem(rootNode);
 
-        if (isFolderMonitorEnabled) {
-            projectRoot->StartFolderMonitor();
-        }
-
-        // TODO: We can add to exclude list from the ProjectRoot->FolderMonitor->ExcludeList
         FillTreeView(treeView, treeRoot, rootNode, excludePrefixList, expandCollapseCache);
     }
     // All nodes start collapsed, but we want the root to start expanded...

@@ -187,7 +187,7 @@ record the hook: a dirty *file* path whose node has an open document is where a 
 | 2b ✅ | **Missing-on-disk marker** (§4.1): status-line prefix first; then a `TreeView` per-item style delegate, plus `kStrikethrough` in SDL2 and SDL3 (or a theme colour). | Unit: a flagged node reports missing, and a save clears the flag. Marker rendering is checked in the GUI. |
 | 3 ✅ | **`FsFilter::IsExcludedRelative`** (per component). | `test_folderscanner` / new `test_fsfilter` cases: `cmake-build-debug/a/b.o` excluded, `src/bld.cpp` not excluded by the `bld` pattern, glob `cmake-build-*`. |
 | 4 ✅ | **`Workspace::ReconcileFolder`** + `ScanNode` built on it (C4, C6). | Temp tree: add / remove / rename a file and a dir on disk, then reconcile. The tree matches disk; a node owning a Document survives removal (flagged); a new subdir arrives `isScanned == false`; excluded dirs never appear. **This is the bulk of the correctness and is fully OS-independent.** |
-| 5 | **Base rework**: injected `postToMain`, dirty set + coalescing, weak-ptr lifetime, filter in `OnRawEvent`, drop the `monitorPoints` registry and flag decoding (B1–B3, C1, C7). ProjectRoot gets `FlushDirty`; start moves to `OpenFolder` (C8). | A fake `MonitorPoint` subclass, test-driven via `OnRawEvent` with a synchronous poster. N events in one folder → one reconcile + one change notification; events under an excluded dir → zero; an event after the ProjectRoot is gone → no crash. |
+| 5 ✅ | **Base rework**: injected `postToMain`, dirty set + coalescing, weak-ptr lifetime, filter in `OnRawEvent`, drop the `monitorPoints` registry and flag decoding (B1–B3, C1, C7). ProjectRoot gets `FlushDirty`; start moves to `OpenFolder` (C8). | A fake `MonitorPoint` subclass, test-driven via `OnRawEvent` with a synchronous poster. N events in one folder → one reconcile + one change notification; events under an excluded dir → zero; an event after the ProjectRoot is gone → no crash. |
 | 6 | **macOS backend** per §2.5 (B4–B6, FM-d6..d10). | GUI/manual on the Mac: `touch`, `rm`, `mv a b`, `mkdir x && touch x/y`, `git switch`, and a rebuild in `cmake-build-debug` (must cause no tree activity). Optional integration test, gated on platform, with a real stream + temp dir + polling for ≤ 2 s. |
 | 7 | **Linux backend** per §2.5 (FM-d1..d5, B7, B8). Simple version first: walk the tree with the filter (pruned) and watch every non-excluded dir. Later, optionally: watch-set = scanned folder nodes (`Workspace` tells the monitor on scan/remove). | Same manual list on the Linux box; check the watch count (`ls /proc/<pid>/fdinfo` → inotify lines). |
 | 8 | Flip `foldermonitor.enabled` default (system config only). Update `folder-monitor.md` §0 and `work-log.md`; add the new test modules to the CLAUDE.md verified-green set. | Full verified-green set. |
@@ -229,6 +229,28 @@ record the hook: a dirty *file* path whose node has an open document is where a 
     latent bug before this change; the view side is verified in the GUI only.
   - Tests: `test_workspace_scannode_keepsopen` (failed before), `test_workspace_reconcile`.
   - **Known gap:** an entry that changes type under the same name (file ↔ folder) keeps its old node.
+
+- **Step 5:** the base is a dirty-folder signal.
+  - `MonitorPoint` canonicalizes and filters each raw path (`IsPathExcluded`: outside the root or below an
+    excluded component → dropped), marks the entry's folder dirty (and the entry, if it is a folder),
+    and posts ONE flush through the injected `postToMain` until that flush has run. `OnLostEvents` asks
+    for a reconcile of everything loaded. Flags (`kChangeFlags`), the `EventDelegate`, the
+    `monitorPoints` registry and the `RuntimeConfig::GetRootView()` dependency are gone; `isRunning` is
+    atomic.
+  - Lifetimes: the posted flush holds a `weak_ptr` to the point, the point's dirty handler a `weak_ptr` to
+    the `ProjectRoot`; the `ProjectRoot` owns its point and stops it on destruction.
+  - `ProjectRoot::FlushDirty` reconciles each dirty folder that is in the tree and scanned (parents first),
+    or every scanned folder on lost events, and notifies once. The old `OnMonitorEvent` / `OnFs*` seam and
+    the create/delete callbacks are gone (`RemoveNodeGoneFromDisk` stays as an API; the monitor no longer
+    calls it).
+  - Started from `Workspace::OpenFolder` through `Workspace::SetFolderMonitor(factory, postToMain)`; the
+    Editor wires the platform factory (gated on `foldermonitor.enabled`) and `Runloop::PostMessage`
+    (`Editor::WireFolderMonitor`). `WorkspaceView` no longer starts anything.
+  - Backends only adapted to call `OnRawEvent` (macOS: flags no longer decoded; Linux: the `Editor.h`
+    include is gone). Their real rework is steps 6/7. No debounce timer: the OS latency plus
+    one-flush-in-flight does the coalescing.
+  - Tests: `test_workspace_monitorexclude` (rewritten on a fake point), `test_workspace_monitorflush`,
+    `test_workspace_monitorlifetime`. A mutant without the one-flush guard fails `monitorflush`.
 
 Steps 1–5 are platform-independent and unit-testable. They give a working feature on the Mac as soon as
 step 6 is done. Step 7 only needs the Linux box.

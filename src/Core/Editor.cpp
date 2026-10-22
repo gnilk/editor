@@ -14,6 +14,7 @@
 
 #include "Editor.h"
 #include "Core/RuntimeConfig.h"
+#include "Core/Runloop.h"
 #include "Core/UI/UIHost.h"
 #include "Core/Config/Config.h"
 #include "Core/Session/SessionManager.h"
@@ -258,6 +259,7 @@ bool Editor::Initialize(int argc, const char **argv) {
 
     // Create workspace
     workspace = Workspace::Create();
+    WireFolderMonitor();
 
     bool createDefaultWorkspace = true;
     for (auto &file : pendingFiles) {
@@ -946,6 +948,23 @@ void Editor::WireScreenGeometry(const ScreenBase::Ref &screen) {
         window.height = height;
         SessionManager::Instance().NotifyChanged();
     });
+}
+
+void Editor::WireFolderMonitor() {
+    auto factory = [](const std::filesystem::path &rootPath) -> FolderMonitor::MonitorPoint::Ref {
+        auto &folderMonitor = RuntimeConfig::Instance().GetFolderMonitor();
+        if (!folderMonitor.IsEnabled()) {
+            return nullptr;
+        }
+        return folderMonitor.CreateMonitorPoint(rootPath);
+    };
+    // Called from the monitor's thread - the runloop queue is thread-safe and works before the screen opens
+    auto postToMain = [](std::function<void()> callback) {
+        Runloop::PostMessage(0x00, [callback](uint32_t) {
+            callback();
+        });
+    };
+    workspace->SetFolderMonitor(factory, postToMain);
 }
 
 #ifdef GEDIT_USE_SDL3

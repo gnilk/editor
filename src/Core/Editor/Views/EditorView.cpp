@@ -51,14 +51,16 @@ void EditorView::InitView()  {
     linesPerScrollWheelNotch = Config::Instance()[cfgSectionName].GetInt("lines_per_scroll_wheel_notch", 5);
     wrapMode = WrapModeFromString(Config::Instance()[cfgSectionName].GetStr("wrap", "none"));
 
+    // Bind our controller to the active document - null detaches it, so key presses are no-ops when no
+    // buffer is open (it holds a raw pointer, it must never keep a closed document).
     document = Editor::Instance().GetActiveDocument();
+    editController.Attach(document);
     if (document == nullptr) {
         logger->Error("Document is null - no active textbuffer");
         return;
     }
 
-    // Bind our controller to the active document and seed the view geometry from the document.
-    editController.Attach(document);
+    // Seed the view geometry from the document.
     document->OnViewInit(rect);
     document->SetWrap(wrapMode, rect.Width());
 }
@@ -75,13 +77,14 @@ void EditorView::ReInitView() {
     linesPerScrollWheelNotch = Config::Instance()[cfgSectionName].GetInt("lines_per_scroll_wheel_notch", 5);
     wrapMode = WrapModeFromString(Config::Instance()[cfgSectionName].GetStr("wrap", "none"));
 
+    // Re-point the controller at whatever document is now active (the document switch / attach). Null
+    // after the last buffer was closed - that detaches it; the controller must never keep a closed document.
     document = Editor::Instance().GetActiveDocument();
+    editController.Attach(document);
     if (document == nullptr) {
         logger->Error("Document is null - no active textbuffer");
         return;
     }
-    // Re-point the controller at whatever document is now active (the document switch / attach).
-    editController.Attach(document);
     document->OnViewInit(viewRect);
     // Every resize and document switch funnels through here - re-push the wrap width (content width).
     document->SetWrap(wrapMode, rect.Width());

@@ -73,12 +73,19 @@ bool QuickCommandController::HandleActionInQuickCmdState(const EditorAction &kpA
             ActionHelper::SwitchToPreviousBuffer();
             return true;
         case kAction::kActionStartSearch :
+            // Nothing to search when no buffer is open
+            if (Editor::Instance().GetActiveDocument() == nullptr) {
+                return true;
+            }
             Editor::Instance().GetActiveDocument()->ResetSearchHitIndex();
             logger->Debug("Entering search, key: %c",(int)kpAction.keyPress.key);
             ChangeState(State::SearchState);
             cmdInputBaseController.DefaultEditLine(cursor, cmdInput, kpAction.keyPress, true);
             break;
         case kAction::kActionLastSearch :
+            if (Editor::Instance().GetActiveDocument() == nullptr) {
+                return true;
+            }
             Editor::Instance().GetActiveDocument()->ResetSearchHitIndex();
             logger->Debug("Entering search, key: %c",(int)kpAction.keyPress.key);
             cmdInputBaseController.DefaultEditLine(cursor, cmdInput, kpAction.keyPress, true);
@@ -111,8 +118,10 @@ bool QuickCommandController::HandleActionInSearch(const EditorAction &kpAction) 
         logger->Debug("LeaveCommandMode, in Search - leaving");
 
         auto document = Editor::Instance().GetActiveDocument();
-        document->ResetSearchHitIndex();
-        document->ClearSearchResults();
+        if (document != nullptr) {
+            document->ResetSearchHitIndex();
+            document->ClearSearchResults();
+        }
         ChangeState(State::QuickCmdState);
         return true;
     }
@@ -163,6 +172,9 @@ void QuickCommandController::DoLeaveOnSuccess() {
 
 void QuickCommandController::SearchInActiveDocument(const std::u32string &searchItem) {
     auto document = Editor::Instance().GetActiveDocument();
+    if (document == nullptr) {
+        return;
+    }
     document->ClearSearchResults();
     if (searchItem.length() < 1) {
         return;
@@ -186,10 +198,16 @@ void QuickCommandController::SearchInActiveDocument(const std::u32string &search
 // obtained...
 void QuickCommandController::NextSearchResult() {
     auto document = Editor::Instance().GetActiveDocument();
+    if (document == nullptr) {
+        return;
+    }
     document->NextSearchResult();
 }
 void QuickCommandController::PrevSearchResult() {
     auto document = Editor::Instance().GetActiveDocument();
+    if (document == nullptr) {
+        return;
+    }
     document->PrevSearchResult();
 }
 
@@ -231,7 +249,9 @@ void QuickCommandController::HandleKeyPress(const KeyPress &keyPress) {
         if (cmdInput->Buffer().length() == 0) {
             ChangeState(State::QuickCmdState);
             auto document = Editor::Instance().GetActiveDocument();
-            document->ClearSearchResults();
+            if (document != nullptr) {
+                document->ClearSearchResults();
+            }
         }
         if (cmdInput->Buffer().length() > 4) {
             // Use the 'substr' if we keep the 'search' character visible in the cmd-input...
@@ -242,7 +262,7 @@ void QuickCommandController::HandleKeyPress(const KeyPress &keyPress) {
             SearchInActiveDocument(searchItem);
         } else {
             auto document = Editor::Instance().GetActiveDocument();
-            if (document->HaveSearchResults()) {
+            if ((document != nullptr) && document->HaveSearchResults()) {
                 document->ClearSearchResults();
             }
         }

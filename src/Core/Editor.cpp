@@ -1298,6 +1298,13 @@ bool Editor::CloseDocument(Document::Ref document) {
 
     if (RuntimeConfig::Instance().HasRootView()) {
         RuntimeConfig::Instance().GetRootView().Initialize();
+        // The last buffer is gone - focus the workspace view, as on a start without documents. Posted, so
+        // it runs once the command that closed it (e.g. '.cb' from the terminal) is done.
+        if (nextActive == nullptr) {
+            RuntimeConfig::Instance().GetRootView().PostMessage([]() {
+                ActionHelper::SwitchToNamedView(glbWorkSpaceView);
+            });
+        }
     }
 
     return true;

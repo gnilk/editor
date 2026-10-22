@@ -92,14 +92,41 @@ namespace gedit {
             Flatten();
         }
 
+        // An empty tree has no selection - returns a default T (nullptr for a Ref)
         const T &GetCurrentSelectedItem() {
-            if (treeLineCursor.idxActiveLine > flattenNodeList.size()) {
+            static const T noItem = {};
+            if (treeLineCursor.idxActiveLine >= flattenNodeList.size()) {
                 Flatten();
-                if (treeLineCursor.idxActiveLine > flattenNodeList.size()) {
+                if (treeLineCursor.idxActiveLine >= flattenNodeList.size()) {
                     treeLineCursor.idxActiveLine = 0;
                 }
             }
+            if (flattenNodeList.empty()) {
+                return noItem;
+            }
             return flattenNodeList[treeLineCursor.idxActiveLine]->data;
+        }
+
+        // The selected row's offset from the top of the view - to put it back in place after a rebuild
+        int GetSelectionViewRow() {
+            return static_cast<int>(treeLineCursor.idxActiveLine) - treeLineCursor.viewTopLine;
+        }
+
+        // Scroll so the selected row sits 'viewRow' rows from the top of the view (clamped to the view)
+        void SetSelectionViewRow(int viewRow) {
+            auto height = treeLineCursor.viewBottomLine - treeLineCursor.viewTopLine;
+            if ((height > 0) && (viewRow >= height)) {
+                viewRow = height - 1;
+            }
+            if (viewRow < 0) {
+                viewRow = 0;
+            }
+            auto top = static_cast<int>(treeLineCursor.idxActiveLine) - viewRow;
+            if (top < 0) {
+                top = 0;
+            }
+            treeLineCursor.viewTopLine = top;
+            treeLineCursor.viewBottomLine = top + height;
         }
 
         void Clear() {

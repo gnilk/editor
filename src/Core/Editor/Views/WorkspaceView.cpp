@@ -203,6 +203,9 @@ void WorkspaceView::PopulateTree() {
     std::unordered_map<std::string, bool> expandCollapseCache;
 
     BuildExpandCollapseCache(expandCollapseCache);
+    // The user's place: a rebuild (a file added on disk, a buffer saved) must not move it
+    auto prevSelected = treeView->GetCurrentSelectedItem();
+    auto prevViewRow = treeView->GetSelectionViewRow();
     // Merge a one-shot session seed (restored expand/collapse) over the live-tree snapshot, then clear it
     // so subsequent user collapse/expand is preserved on later rebuilds.
     if (hasPendingExpandCollapseSeed) {
@@ -230,15 +233,25 @@ void WorkspaceView::PopulateTree() {
 
         FillTreeView(treeView, treeRoot, rootNode, excludePrefixList, expandCollapseCache);
     }
-    // All nodes start collapsed, but we want the root to start expanded...
-    treeView->Expand();
-    if (Editor::Instance().GetActiveDocument() != nullptr) {
-        auto activeNode = Editor::Instance().GetWorkspaceNodeForActiveDocument();
-        treeView->SetCurrentlySelectedItem(activeNode);
+    // All nodes start collapsed, but we want the root to start expanded - on the first build only, a rebuild
+    // has the snapshot. Expand() acts on the cursor row, so put it on the root first (a rebuild's stale row
+    // index pointed at whatever moved into it).
+    if (prevSelected == nullptr) {
+        treeView->SetSelectionAtRow(0);
+        treeView->Expand();
     }
-
-    auto currentItem = treeView->GetCurrentSelectedItem();
-    workspace->SetActiveFolderNode(currentItem);
+    if (!SelectAfterRebuild(prevSelected)) {
+        // First build, or nothing of the old selection is left: the active buffer (if any)
+        if (Editor::Instance().GetActiveDocument() != nullptr) {
+            auto activeNode = Editor::Instance().GetWorkspaceNodeForActiveDocument();
+            treeView->SetCurrentlySelectedItem(activeNode);
+        }
+        auto currentItem = treeView->GetCurrentSelectedItem();
+        workspace->SetActiveFolderNode(currentItem);
+    } else {
+        // Same node, same place on screen - and the active folder stays what the user picked
+        treeView->SetSelectionViewRow(prevViewRow);
+    }
 
 
     if (Config::Instance()[cfgSectionName].GetBool("auto_expand_view", true)) {
@@ -246,6 +259,17 @@ void WorkspaceView::PopulateTree() {
         // 0 - no clip width
         // treeView->ExpandViewToWidestItem();
     }
+}
+
+// Re-select the node that was selected before the rebuild. The workspace keeps its nodes across a
+// reconcile, so it's found by identity; if it's gone from the tree, its nearest ancestor still there.
+bool WorkspaceView::SelectAfterRebuild(Workspace::Node::Ref prevSelected) {
+    for (auto node = prevSelected; node != nullptr; node = node->GetParent()) {
+        if (treeView->SetCurrentlySelectedItem(node)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 bool WorkspaceView::OnAction(const EditorAction &kpAction) {

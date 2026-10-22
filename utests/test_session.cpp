@@ -8,6 +8,7 @@
 #include <memory>
 #include <cstdlib>
 #include <filesystem>
+#include <fstream>
 #include <unordered_map>
 #include "Core/Editor.h"
 #include "Core/RuntimeConfig.h"
@@ -33,6 +34,15 @@ namespace {
         void BuildTree() {
             CreateTree();
             PopulateTree();
+        }
+        void Rebuild() {
+            PopulateTree();
+        }
+        bool Select(const Workspace::Node::Ref &node) {
+            return GetTreeView()->SetCurrentlySelectedItem(node);
+        }
+        Workspace::Node::Ref Selected() {
+            return GetTreeView()->GetCurrentSelectedItem();
         }
     };
 
@@ -78,6 +88,7 @@ DLL_EXPORT int test_session_splitter_roundtrip(ITesting *t);
 DLL_EXPORT int test_session_splitter_untagged_noop(ITesting *t);
 DLL_EXPORT int test_session_layout_walk_roundtrip(ITesting *t);
 DLL_EXPORT int test_session_workspaceview_expandcollapse(ITesting *t);
+DLL_EXPORT int test_session_workspaceview_keepselection(ITesting *t);
 DLL_EXPORT int test_session_yaml_roundtrip(ITesting *t);
 DLL_EXPORT int test_session_yaml_bad_version(ITesting *t);
 DLL_EXPORT int test_session_yaml_corrupt(ITesting *t);
@@ -768,5 +779,72 @@ DLL_EXPORT int test_session_terminal_backcompat(ITesting *t) {
     TR_ASSERT(t, SessionSerializer::FromYaml(legacyYaml, r));
     TR_ASSERT(t, r.terminal.blocks.empty());
     TR_ASSERT(t, r.terminal.scrollbackFile == "terminal_scrollback.bin");
+    return kTR_Pass;
+}
+
+// A tree rebuild (the folder monitor found a new file) keeps the user's selection - it used to jump to the
+// active buffer's node (expanding its folder) or, with no buffer open, keep a row index that now points
+// elsewhere. A selected node gone from disk leaves the selection on its folder.
+DLL_EXPORT int test_session_workspaceview_keepselection(ITesting *t) {
+    namespace fs = std::filesystem;
+    auto root = pathutil::CanonicalPath(fs::temp_directory_path() / "goat_wsv_keepsel");
+    std::error_code ec;
+    fs::remove_all(root, ec);
+    fs::create_directories(root / "core");
+    fs::create_directories(root / "docs");
+    fs::create_directories(root / "tools");
+    { std::ofstream(root / "core" / "x.cpp") << "x\n"; }
+    { std::ofstream(root / "tools" / "t.sh") << "x\n"; }
+    { std::ofstream(root / "docs" / "open.md") << "x\n"; }
+    { std::ofstream(root / "zz.md") << "x\n"; }
+
+    auto workspace = Editor::Instance().GetWorkspace();
+    TR_ASSERT(t, workspace->OpenFolder(root.string()));
+    Workspace::Node::Ref rootNode = nullptr;
+    for (auto &projectRoot : workspace->GetProjectRoots()) {
+        if (projectRoot->GetRootPath() == root) {
+            rootNode = projectRoot->GetRootNode();
+        }
+    }
+    TR_ASSERT(t, rootNode != nullptr);
+    auto zzNode = rootNode->FindNodeWithPath(root / "zz.md");
+    auto xNode = rootNode->FindNodeWithPath(root / "core" / "x.cpp");
+    auto coreNode = rootNode->FindNodeWithPath(root / "core");
+    // The active buffer lives in 'docs/'
+    auto openNode = workspace->NewDocumentWithFileRef(root / "docs" / "open.md");
+    workspace->AddOpenDocument(openNode->GetDocument());
+    workspace->SetActiveDocument(openNode->GetDocument());
+
+    SessionTestWorkspaceView wv;
+    wv.BuildTree();
+    // 'core/' expanded, the cursor on a root file below it
+    wv.Select(xNode);
+    bool isSelected = wv.Select(zzNode);
+
+    // 'touch core/some.file' - a row appears above the selection
+    { std::ofstream(root / "core" / "some.file") << "x\n"; }
+    workspace->ReconcileFolder(coreNode);
+    wv.Rebuild();
+    auto afterAdd = wv.Selected();
+    // Nothing else opened up - the root's 'expand' used to hit whatever row the old index pointed at now
+    std::unordered_map<std::string, bool> expanded;
+    wv.SaveExpandCollapseState(expanded);
+    // 'tools/' is the last folder - the row right above 'zz.md'
+    bool isToolsExpanded = expanded.contains((root / "tools").string());
+
+    // The selected file itself is removed - the selection falls back to its folder
+    wv.Select(xNode);
+    fs::remove(root / "core" / "x.cpp");
+    workspace->ReconcileFolder(coreNode);
+    wv.Rebuild();
+    auto afterRemove = wv.Selected();
+
+    workspace->RemoveOpenDocument(openNode->GetDocument());
+    fs::remove_all(root, ec);
+
+    TR_ASSERT(t, isSelected);
+    TR_ASSERT(t, afterAdd == zzNode);
+    TR_ASSERT(t, !isToolsExpanded);
+    TR_ASSERT(t, afterRemove == coreNode);
     return kTR_Pass;
 }

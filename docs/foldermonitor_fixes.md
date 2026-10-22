@@ -268,7 +268,21 @@ record the hook: a dirty *file* path whose node has an open document is where a 
     folders; a build in an OS-excluded and a filter-excluded folder posts nothing; nothing after
     `Stop`) and `test_foldermonitor_stopinflight` (destroying points mid-burst). The old backend would
     fail the first: it delivered on the main dispatch queue, which nothing drains in the test.
-  - Not verified in the GUI yet.
+  - Verified in the GUI (2026-10-22): works.
+
+- **Follow-up from the GUI test - the tree selection jumped on a rebuild.** `WorkspaceView::PopulateTree`
+  (run on every workspace change, now including every monitor flush) re-selected the active buffer's node
+  - expanding its folder and making it the active folder - or, with no buffer open, kept a row index that
+  pointed elsewhere once a row appeared above it. It now re-selects the previously selected node (by
+  identity; reconcile keeps nodes), or its nearest ancestor still in the tree, at the same screen row,
+  and leaves the active folder alone. The active buffer is only the fallback (first build). The
+  'follow the active buffer' sync in `ReInitView` (`sync_on_active_buffer_changed`) is unchanged.
+  `TreeView::GetCurrentSelectedItem` also had an off-by-one bounds check and indexed an empty list.
+  Second round from the GUI: the "expand the root" step after every rebuild was `Expand()` on the cursor
+  row - a stale index, so with a row added above the selection it expanded the folder that moved into it
+  (`tools/`), and keeping the selection's screen row then scrolled the view. It now runs on the first
+  build only, with the cursor put on the root first.
+  Test: `test_session_workspaceview_keepselection` (failed before).
 
 Steps 1–5 are platform-independent and unit-testable. They give a working feature on the Mac as soon as
 step 6 is done. Step 7 only needs the Linux box.

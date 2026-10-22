@@ -55,6 +55,10 @@ namespace gedit {
         TreeNodeRef FindDocumentNode(TreeNodeRef node, const std::string &pathName);
         void CreateTree();
         void PopulateTree();
+        bool SelectAfterRebuild(Workspace::Node::Ref prevSelected);
+        TreeRef GetTreeView() {
+            return treeView;
+        }
         void BuildExpandCollapseCache(std::unordered_map<std::string, bool> &cache);
         void OnActivate(bool isActive) override;
         void SwitchToEditorView();

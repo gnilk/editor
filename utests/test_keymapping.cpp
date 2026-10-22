@@ -20,6 +20,7 @@ DLL_EXPORT int test_keymapping_inherit_empty_actions(ITesting *t);
 DLL_EXPORT int test_keymapping_inherit_multilevel(ITesting *t);
 DLL_EXPORT int test_keymapping_workspace_inherit(ITesting *t);
 DLL_EXPORT int test_keymapping_cache(ITesting *t);
+DLL_EXPORT int test_keymapping_switchbuffer(ITesting *t);
 }
 
 //
@@ -318,5 +319,30 @@ DLL_EXPORT int test_keymapping_cache(ITesting *t) {
     TR_ASSERT(t, lineDown.has_value());
     TR_ASSERT(t, lineDown->uiAction == kUIAction::kUIActionLineDown);
 
+    return kTR_Pass;
+}
+
+// Jump to buffer N: Alt+1..9 everywhere (UINavigationModifier - the Linux standard), and on macOS also the
+// platform's Cmd+1..9. Every keymap inherits it from default_keymap.
+DLL_EXPORT int test_keymapping_switchbuffer(ITesting *t) {
+    std::vector<int> modifierMasks = { Keyboard::kMod_LeftAlt };
+#ifdef GEDIT_MACOS
+    modifierMasks.push_back(Keyboard::kMod_LeftCommand);
+#endif
+    for (auto &keymapName : { "default_keymap", "workspace_keymap", "terminal_keymap" }) {
+        auto keymap = Editor::Instance().GetKeyMapping(keymapName);
+        TR_ASSERT(t, keymap != nullptr);
+        for (auto modifiers : modifierMasks) {
+            for (char digit = '1'; digit <= '9'; digit++) {
+                KeyPress keyPress = {};
+                keyPress.key = digit;
+                keyPress.modifiers = modifiers;
+                keyPress.isKeyValid = true;
+                auto action = keymap->ActionFromKeyPress(keyPress);
+                TR_ASSERT(t, action.has_value());
+                TR_ASSERT(t, action->action == kAction::kActionSwitchToBuffer);
+            }
+        }
+    }
     return kTR_Pass;
 }

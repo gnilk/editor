@@ -625,6 +625,9 @@ namespace gedit {
         void SetActiveDocument(Document::Ref document);   // ignored if the document isn't open
         size_t GetActiveDocumentIndex();
         Document::Ref GetDocumentFromIndex(size_t idxDocument);
+        // Tab number (1-based, as the header shows them) -> open-document index. 1..8 is that tab, 9 the last
+        // one (browser/terminal convention). Empty when there is no such tab.
+        std::optional<size_t> DocumentIndexForTabNumber(int tabNumber);
         Document::Ref GetDocumentFromTextBuffer(TextBuffer::Ref textBuffer);
         size_t NextDocumentIndex(size_t idxCurrent);
         size_t PreviousDocumentIndex(size_t idxCurrent);

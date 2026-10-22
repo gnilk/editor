@@ -130,6 +130,20 @@ Document::Ref Workspace::GetDocumentFromIndex(size_t idxDocument) {
     return openDocuments[idxDocument];
 }
 
+std::optional<size_t> Workspace::DocumentIndexForTabNumber(int tabNumber) {
+    if ((tabNumber < 1) || (tabNumber > 9) || openDocuments.empty()) {
+        return {};
+    }
+    if (tabNumber == 9) {
+        return openDocuments.size() - 1;
+    }
+    auto idxDocument = static_cast<size_t>(tabNumber - 1);
+    if (idxDocument >= openDocuments.size()) {
+        return {};
+    }
+    return idxDocument;
+}
+
 Document::Ref Workspace::GetDocumentFromTextBuffer(TextBuffer::Ref textBuffer) {
     for (auto &document : openDocuments) {
         if (document->GetTextBuffer() == textBuffer) {

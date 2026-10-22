@@ -41,6 +41,16 @@ keymap: {
     CycleActiveViewPrev: "UINavigationModifier + '['",
     CycleBufferNext: "UINavigationModifier + '\\'",
     CycleBufferPrev: "UINavigationModifier + '\''",
+    # Buffer N (the tab number in the header; 9 = the last): Cmd+N is the macOS standard, Alt+N the
+    # UI-navigation house style (and the Linux standard)
+    SwitchToBuffer: [
+      "KeyCode_Command + '1'", "KeyCode_Command + '2'", "KeyCode_Command + '3'",
+      "KeyCode_Command + '4'", "KeyCode_Command + '5'", "KeyCode_Command + '6'",
+      "KeyCode_Command + '7'", "KeyCode_Command + '8'", "KeyCode_Command + '9'",
+      "UINavigationModifier + '1'", "UINavigationModifier + '2'", "UINavigationModifier + '3'",
+      "UINavigationModifier + '4'", "UINavigationModifier + '5'", "UINavigationModifier + '6'",
+      "UINavigationModifier + '7'", "UINavigationModifier + '8'", "UINavigationModifier + '9'",
+    ],
     CycleActiveEditor: KeyCode_F3,
     CommitLine: KeyCode_Return,
     CommentLine: CopyPasteModifier + '/',

@@ -43,6 +43,12 @@ keymap: {
       "UINavigationModifier + '\''",
       UINavigationModifier + KeyCode_LeftArrow,
     ],
+    # Buffer N (the tab number in the header; 9 = the last) - Alt+N, the Linux standard (browsers, Ghostty)
+    SwitchToBuffer: [
+      "UINavigationModifier + '1'", "UINavigationModifier + '2'", "UINavigationModifier + '3'",
+      "UINavigationModifier + '4'", "UINavigationModifier + '5'", "UINavigationModifier + '6'",
+      "UINavigationModifier + '7'", "UINavigationModifier + '8'", "UINavigationModifier + '9'",
+    ],
     NavigateWordRight : KeyCode_RightArrow + KeyCode_Ctrl,
     NavigateWordLeft : KeyCode_LeftArrow + KeyCode_Ctrl,
 

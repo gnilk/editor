@@ -43,6 +43,7 @@ DLL_EXPORT int test_workspace_scannode_keepsopen(ITesting *t);
 DLL_EXPORT int test_workspace_reconcile(ITesting *t);
 DLL_EXPORT int test_workspace_monitorflush(ITesting *t);
 DLL_EXPORT int test_workspace_monitorlifetime(ITesting *t);
+DLL_EXPORT int test_workspace_tabnumber(ITesting *t);
 }
 
 DLL_EXPORT int test_workspace(ITesting *t) {
@@ -905,5 +906,26 @@ DLL_EXPORT int test_workspace_monitorlifetime(ITesting *t) {
     glue.RunPosted();
 
     fs::remove_all(root, ec);
+    return kTR_Pass;
+}
+
+// Buffer N (Cmd/Alt+N): 1..8 is that tab, 9 is the last one (browser/terminal convention); a tab that
+// doesn't exist is no jump.
+DLL_EXPORT int test_workspace_tabnumber(ITesting *t) {
+    Workspace workspace;
+    TR_ASSERT(t, !workspace.DocumentIndexForTabNumber(1).has_value());   // nothing open
+    TR_ASSERT(t, !workspace.DocumentIndexForTabNumber(9).has_value());
+
+    for (int i = 0; i < 3; i++) {
+        auto node = workspace.NewDocument("tab" + std::to_string(i) + ".txt");
+        workspace.AddOpenDocument(node->GetDocument());
+    }
+    TR_ASSERT(t, workspace.DocumentIndexForTabNumber(1) == 0);
+    TR_ASSERT(t, workspace.DocumentIndexForTabNumber(3) == 2);
+    TR_ASSERT(t, !workspace.DocumentIndexForTabNumber(4).has_value());
+    TR_ASSERT(t, !workspace.DocumentIndexForTabNumber(8).has_value());
+    TR_ASSERT(t, workspace.DocumentIndexForTabNumber(9) == 2);           // the last
+    TR_ASSERT(t, !workspace.DocumentIndexForTabNumber(0).has_value());
+    TR_ASSERT(t, !workspace.DocumentIndexForTabNumber(10).has_value());
     return kTR_Pass;
 }

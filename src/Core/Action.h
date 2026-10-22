@@ -35,6 +35,7 @@ namespace gedit {
         kActionCycleActiveEditor,       // TEST-TEST Default: F3
         kActionCycleActiveBufferNext,
         kActionCycleActiveBufferPrev,
+        kActionSwitchToBuffer,          // default: Alt+1..9 (macOS also Cmd+1..9) - the digit picks the tab, 9 = last
         kActionEnterCommandMode,
         kActionLeaveCommandMode,
         kActionStartSearch,

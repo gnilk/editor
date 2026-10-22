@@ -606,6 +606,12 @@ void Editor::HandleGlobalAction(const EditorAction &kpAction) {
         } else if (kpAction.action == kAction::kActionSwitchToProject) {
             logger->Debug("Should switch to editor view");
             ActionHelper::SwitchToNamedView(glbWorkSpaceView);
+        } else if (kpAction.action == kAction::kActionSwitchToBuffer) {
+            // The digit that was pressed is the tab number
+            auto key = kpAction.keyPress.key;
+            if ((key >= '1') && (key <= '9')) {
+                ActionHelper::SwitchToBufferNumber(key - '0');
+            }
         }
     } else if (state == QuickCommandState) {
         if (kpAction.action == kAction::kActionLeaveCommandMode) {

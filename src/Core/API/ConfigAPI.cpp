@@ -210,14 +210,32 @@ ConfigAPI::Result ConfigAPI::Set(kLevel level, const std::string &key, const std
     }
     auto effective = EffectiveValue(files, keyPath);
     if (effective.has_value()) {
+        // 'running' points into the live tree - take the old value before it's overwritten
+        auto oldValue = running.IsDefined() ? std::optional<std::string>(ValueToString(running)) : std::nullopt;
         try {
             Config::Instance().SetScalarAtPath(keyPath, effective.value());
+            if (oldValue != effective) {
+                ReInitializeViews();
+            }
         } catch (const YAML::Exception &e) {
             result.lines.push_back(std::string("Note: couldn't update the running config: ") + e.what());
         }
     }
-    result.lines.push_back("Some settings are only read at startup - restart if the change doesn't show");
+    result.lines.push_back("Applied to the views - settings only read at startup need a restart");
     return result;
+}
+
+// Views re-read their config in ReInitView - re-initialize the whole tree, the same pair the view resize
+// actions use. Posted, so it runs from the runloop once the script (and the command line commit) is done.
+void ConfigAPI::ReInitializeViews() {
+    if (!RuntimeConfig::Instance().HasRootView()) {
+        return;
+    }
+    auto &rootView = RuntimeConfig::Instance().GetRootView();
+    rootView.PostMessage([&rootView]() {
+        rootView.Initialize();
+        rootView.InvalidateAll();
+    });
 }
 
 ConfigAPI::Result ConfigAPI::Edit(kLevel level) {

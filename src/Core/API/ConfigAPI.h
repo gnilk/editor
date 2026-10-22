@@ -51,6 +51,9 @@ namespace gedit {
         // The file for a level - the one that was loaded if it exists, else where it would be created.
         // Empty for the running level, and for project when no project is open.
         std::filesystem::path ConfigFilePath(kLevel level);
+    private:
+        // Re-run ReInitView over the view tree (posted to the runloop) so views pick up a changed value
+        static void ReInitializeViews();
     };
 }
 

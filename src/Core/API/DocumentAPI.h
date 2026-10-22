@@ -25,6 +25,7 @@ namespace gedit {
         void SetLanguage(const std::string &extension);
         bool Save();
         bool SaveAs(const std::string &newFileName);
+        bool IsModified();
 
         const std::string GetName();
         const std::string GetFileName();

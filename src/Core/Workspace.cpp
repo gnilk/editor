@@ -55,6 +55,17 @@ bool Workspace::RemoveOpenDocument(Document::Ref document) {
     return true;
 }
 
+bool Workspace::RemoveNodeIfNotOnDisk(Node::Ref node) {
+    if (node == nullptr) {
+        return false;
+    }
+    auto nodeType = node->GetMeta<int>(Node::kMetaKey_NodeType, Node::kNodeFolder);
+    if ((nodeType == Node::kNodeFolder) || fs::exists(node->GetNodePath())) {
+        return false;
+    }
+    return RemoveNode(node);
+}
+
 bool Workspace::IsDocumentOpen(Document::Ref document) {
     return std::find(openDocuments.begin(), openDocuments.end(), document) != openDocuments.end();
 }

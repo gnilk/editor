@@ -28,6 +28,7 @@ extern "C" {
     DLL_EXPORT int test_jsengine_loadbuffer(ITesting *t);
     DLL_EXPORT int test_jsengine_listbuffers(ITesting *t);
     DLL_EXPORT int test_jsengine_configcmd(ITesting *t);
+    DLL_EXPORT int test_jsengine_closecmd(ITesting *t);
 }
 
 DLL_EXPORT int test_jsengine(ITesting *t) {
@@ -319,5 +320,59 @@ DLL_EXPORT int test_jsengine_configcmd(ITesting *t) {
     RuntimeConfig::Instance().SetOutputConsole(prevConsole);
     Config::Instance().RemoveKey("cfgjs");
     std::filesystem::remove_all(root, ec);
+    return kTR_Pass;
+}
+
+// '.cb': refuses a buffer with unsaved changes unless '!'; a closed buffer that never reached disk
+// leaves the workspace tree, one backed by a file stays.
+DLL_EXPORT int test_jsengine_closecmd(ITesting *t) {
+    namespace fs = std::filesystem;
+    auto root = fs::temp_directory_path() / "goatedit_closecmd_test";
+    std::error_code ec;
+    fs::remove_all(root, ec);
+    fs::create_directories(root);
+    auto pathGhost = (root / "ghost.cpp").lexically_normal();
+    auto pathOnDisk = (root / "ondisk.cpp").lexically_normal();
+    {
+        std::ofstream f(pathOnDisk);
+        f << "int x;\n";
+    }
+
+    TR_ASSERT(t, RuntimeConfig::Instance().HasPluginCommand("cb"));
+    auto cmd = RuntimeConfig::Instance().GetPluginCommand("cb");
+    auto workspace = Editor::Instance().GetWorkspace();
+    auto *prevConsole = RuntimeConfig::Instance().OutputConsole();
+    CaptureConsole console;
+    RuntimeConfig::Instance().SetOutputConsole(&console);
+
+    // Never saved + edited: refused, then discarded with '!' - and its node is gone
+    auto ghost = workspace->NewDocumentWithFileRef(pathGhost);
+    auto ghostDoc = Editor::Instance().OpenDocumentFromWorkspace(ghost);
+    TR_ASSERT(t, ghostDoc != nullptr);
+    ghostDoc->GetTextBuffer()->AddLineUTF8("edited");
+    TR_ASSERT(t, ghostDoc->IsModified());
+
+    TR_ASSERT(t, cmd->Execute({}));
+    TR_ASSERT(t, console.Contains("unsaved changes"));
+    TR_ASSERT(t, Editor::Instance().IsDocumentOpen(ghostDoc));
+
+    TR_ASSERT(t, cmd->Execute({"!"}));
+    TR_ASSERT(t, !Editor::Instance().IsDocumentOpen(ghostDoc));
+    auto ghostParent = ghost->GetParent();
+    TR_ASSERT(t, (ghostParent != nullptr) && !ghostParent->HasChild(ghost));
+
+    // A file on disk, unmodified: closes without a word, its node stays
+    auto onDisk = workspace->NewDocumentWithFileRef(pathOnDisk);
+    auto onDiskDoc = Editor::Instance().OpenDocumentFromWorkspace(onDisk);
+    TR_ASSERT(t, onDiskDoc != nullptr);
+    TR_ASSERT(t, !onDiskDoc->IsModified());
+    console.lines.clear();
+    TR_ASSERT(t, cmd->Execute({}));
+    TR_ASSERT(t, !console.Contains("unsaved changes"));
+    TR_ASSERT(t, !Editor::Instance().IsDocumentOpen(onDiskDoc));
+    TR_ASSERT(t, onDisk->GetParent()->HasChild(onDisk));
+
+    RuntimeConfig::Instance().SetOutputConsole(prevConsole);
+    fs::remove_all(root, ec);
     return kTR_Pass;
 }

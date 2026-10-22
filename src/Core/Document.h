@@ -52,6 +52,11 @@ namespace gedit {
             textBuffer->Close();
         }
 
+        // Edited since it was loaded/saved
+        bool IsModified() {
+            return textBuffer->GetBufferState() == TextBuffer::BufferState::kBuffer_Changed;
+        }
+
         TextBuffer::Ref GetTextBuffer() {
             return textBuffer;
         }

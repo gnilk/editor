@@ -546,6 +546,9 @@ namespace gedit {
         }
         void AddOpenDocument(Document::Ref document);
         bool RemoveOpenDocument(Document::Ref document);
+        // Drop a FILE node whose file doesn't exist on disk (a new buffer never saved) - for after its
+        // document is closed. False when the node is a folder or its file exists.
+        bool RemoveNodeIfNotOnDisk(Node::Ref node);
         bool IsDocumentOpen(Document::Ref document);
 
         Document::Ref GetActiveDocument() {

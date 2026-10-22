@@ -17,6 +17,7 @@ void DocumentAPIWrapper::RegisterModule(duk_context *ctx) {
 
     dukglue_register_method(ctx, &DocumentAPIWrapper::Save, "Save");
     dukglue_register_method(ctx, &DocumentAPIWrapper::SaveAs, "SaveAs");
+    dukglue_register_method(ctx, &DocumentAPIWrapper::IsModified, "IsModified");
 
 
 }
@@ -48,3 +49,9 @@ bool DocumentAPIWrapper::SaveAs(const char *newFileName) {
     return document->SaveAs(newFileName);
 }
 
+bool DocumentAPIWrapper::IsModified() {
+    if (document == nullptr) {
+        return false;
+    }
+    return document->IsModified();
+}

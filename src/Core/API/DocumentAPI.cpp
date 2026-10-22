@@ -46,6 +46,13 @@ bool DocumentAPI::Save() {
     return document->SaveData();
 }
 
+bool DocumentAPI::IsModified() {
+    if ((document == nullptr) || (document->GetDocument() == nullptr)) {
+        return false;
+    }
+    return document->GetDocument()->IsModified();
+}
+
 bool DocumentAPI::SaveAs(const std::string &newFileName) {
     if (document == nullptr) {
         return false;

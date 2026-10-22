@@ -1289,6 +1289,9 @@ bool Editor::CloseDocument(Document::Ref document) {
     workspace->RemoveOpenDocument(document);
     document->Close();
 
+    // A buffer that never reached disk ('.nb' never saved) has nothing left to show in the tree
+    workspace->RemoveNodeIfNotOnDisk(node);
+
     if (nextActive != nullptr) {
         SetActiveDocument(nextActive);
     }

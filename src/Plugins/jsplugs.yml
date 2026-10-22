@@ -79,7 +79,7 @@ commands:
   -
     name: closeactive
     short: cb
-    description: Close Active Buffer ('!' discards unsaved changes)
+    description: Close Active Buffer ('!' closes even with changes not yet saved)
     script: Scripts/closeactive.js
 
   -

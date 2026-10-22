@@ -48,8 +48,13 @@ namespace gedit {
         void OnViewInit(const Rect &rect);
         void RefocusViewArea();
 
+        // Closed but kept (the workspace node holds it, a reopen reuses it): drop what refers to the
+        // in-memory lines - the reopen loads them from disk again. Cursor/scroll stay (reopen where you were).
         void Close() {
             textBuffer->Close();
+            editState = EditState::Create();     // undo items point at the old lines
+            CancelSelection();
+            ClearSearchResults();
         }
 
         // Edited since it was loaded/saved

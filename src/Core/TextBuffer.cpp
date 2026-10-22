@@ -115,17 +115,24 @@ Job::Ref TextBuffer::ReparseRegion(size_t idxStartLine, size_t idxEndLine) {
     return std::static_pointer_cast<Job>(job);
 }
 
+// The buffer outlives a close (its Document stays on the workspace node and is reused on reopen), so it
+// goes back to 'references a file': a reopen loads it from disk again - unsaved edits are dropped.
 void TextBuffer::Close() {
+    // A pending autosave must not fire for a closed buffer
+    if (autoSaveTimer != nullptr) {
+        autoSaveTimer->Stop();
+        autoSaveTimer = nullptr;    // joins the timer thread
+    }
     if (reparseThread != nullptr) {
         bQuitReparse = true;
         parseQueueEvent.release();
         reparseThread->join();
         reparseThread = nullptr;
-
-        // FIXME: Not sure this is a good idea, it works for basic stuff..
-        if ((bufferState == kBuffer_Changed) || (bufferState == kBuffer_Loaded)) {
-            ChangeBufferState(BufferState::kBuffer_FileRef);
-        }
+    }
+    // Independent of the parse thread - without one (single-threaded parser, an empty file, no language)
+    // the state used to stay 'loaded' and the reopen refused to load.
+    if ((bufferState == kBuffer_Changed) || (bufferState == kBuffer_Loaded)) {
+        ChangeBufferState(BufferState::kBuffer_FileRef);
     }
 }
 

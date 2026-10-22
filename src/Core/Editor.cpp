@@ -1293,18 +1293,15 @@ bool Editor::CloseDocument(Document::Ref document) {
     workspace->RemoveNodeIfNotOnDisk(node);
 
     if (nextActive != nullptr) {
+        // Re-initializes the view tree itself
         SetActiveDocument(nextActive);
-    }
-
-    if (RuntimeConfig::Instance().HasRootView()) {
+    } else if (RuntimeConfig::Instance().HasRootView()) {
         RuntimeConfig::Instance().GetRootView().Initialize();
         // The last buffer is gone - focus the workspace view, as on a start without documents. Posted, so
         // it runs once the command that closed it (e.g. '.cb' from the terminal) is done.
-        if (nextActive == nullptr) {
-            RuntimeConfig::Instance().GetRootView().PostMessage([]() {
-                ActionHelper::SwitchToNamedView(glbWorkSpaceView);
-            });
-        }
+        RuntimeConfig::Instance().GetRootView().PostMessage([]() {
+            ActionHelper::SwitchToNamedView(glbWorkSpaceView);
+        });
     }
 
     return true;

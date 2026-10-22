@@ -30,6 +30,7 @@ DLL_EXPORT int test_workspace_isscanned(ITesting *t);
 DLL_EXPORT int test_workspace_scannode(ITesting *t);
 DLL_EXPORT int test_workspace_activefolder(ITesting *t);
 DLL_EXPORT int test_workspace_newsubfolder(ITesting *t);
+DLL_EXPORT int test_workspace_reopen(ITesting *t);
 DLL_EXPORT int test_workspace_removedocument(ITesting *t);
 DLL_EXPORT int test_workspace_recreate(ITesting *t);
 }
@@ -394,6 +395,59 @@ DLL_EXPORT int test_workspace_newsubfolder(ITesting *t) {
     TR_ASSERT(t, fs::absolute(loose->GetNodePath()).lexically_normal() == outside);
     TR_ASSERT(t, !fs::exists(outside.parent_path()));
 
+    fs::remove_all(root, ec);
+    return kTR_Pass;
+}
+
+// Close then reopen a file shows the file as it is on disk - in both parser modes, and for an empty file
+// (which never starts a parse thread). Closing must leave the buffer re-loadable.
+static bool CloseAndReopen(ITesting *t, const std::filesystem::path &path, const std::string &expectFirstLine) {
+    auto &editor = Editor::Instance();
+    auto node = editor.GetWorkspace()->NewDocumentWithFileRef(path);
+    auto document = editor.OpenDocumentFromWorkspace(node);
+    if (document == nullptr) {
+        return false;
+    }
+    document->GetTextBuffer()->AddLineUTF8("in memory only");   // an edit that was never saved
+    if (!editor.CloseDocument(document)) {
+        return false;
+    }
+    auto reopened = editor.OpenDocumentFromWorkspace(node);
+    if (reopened == nullptr) {
+        return false;
+    }
+    auto buffer = reopened->GetTextBuffer();
+    bool isOk = (buffer->NumLines() > 0) && (buffer->LineAt(0)->BufferAsUTF8() == expectFirstLine) &&
+                !reopened->IsModified();
+    editor.CloseDocument(reopened);
+    return isOk;
+}
+
+DLL_EXPORT int test_workspace_reopen(ITesting *t) {
+    namespace fs = std::filesystem;
+    auto root = (fs::temp_directory_path() / "goat_ws_reopen").lexically_normal();
+    std::error_code ec;
+    fs::remove_all(root, ec);
+    fs::create_directories(root);
+    { std::ofstream(root / "a.cpp") << "int a;\n"; }
+    { std::ofstream(root / "b.cpp") << "int b;\n"; }
+    { std::ofstream(root / "empty.cpp"); }
+
+    // No autosave - the unsaved edit must still be unsaved at close (tests have no root view, so no timer
+    // is created anyway - this keeps the test honest if that changes)
+    auto oldAutoSave = Config::Instance()["main"].GetInt("autosave_timeout_ms", 0);
+    Config::Instance()["main"].SetInt("autosave_timeout_ms", 0);
+    auto oldThreaded = Config::Instance()["main"].GetBool("threaded_syntaxparser", false);
+
+    Config::Instance()["main"].SetBool("threaded_syntaxparser", true);
+    TR_ASSERT(t, CloseAndReopen(t, root / "a.cpp", "int a;"));
+    TR_ASSERT(t, CloseAndReopen(t, root / "empty.cpp", ""));
+
+    Config::Instance()["main"].SetBool("threaded_syntaxparser", false);
+    TR_ASSERT(t, CloseAndReopen(t, root / "b.cpp", "int b;"));
+
+    Config::Instance()["main"].SetBool("threaded_syntaxparser", oldThreaded);
+    Config::Instance()["main"].SetInt("autosave_timeout_ms", oldAutoSave);
     fs::remove_all(root, ec);
     return kTR_Pass;
 }

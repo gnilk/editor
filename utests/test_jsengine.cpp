@@ -353,7 +353,7 @@ DLL_EXPORT int test_jsengine_closecmd(ITesting *t) {
     TR_ASSERT(t, ghostDoc->IsModified());
 
     TR_ASSERT(t, cmd->Execute({}));
-    TR_ASSERT(t, console.Contains("unsaved changes"));
+    TR_ASSERT(t, console.Contains("not yet saved"));
     TR_ASSERT(t, Editor::Instance().IsDocumentOpen(ghostDoc));
 
     TR_ASSERT(t, cmd->Execute({"!"}));
@@ -368,7 +368,7 @@ DLL_EXPORT int test_jsengine_closecmd(ITesting *t) {
     TR_ASSERT(t, !onDiskDoc->IsModified());
     console.lines.clear();
     TR_ASSERT(t, cmd->Execute({}));
-    TR_ASSERT(t, !console.Contains("unsaved changes"));
+    TR_ASSERT(t, !console.Contains("not yet saved"));
     TR_ASSERT(t, !Editor::Instance().IsDocumentOpen(onDiskDoc));
     TR_ASSERT(t, onDisk->GetParent()->HasChild(onDisk));
 

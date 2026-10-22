@@ -1,4 +1,5 @@
-// '.cb [!]' - close the active buffer. Refuses when it has unsaved changes, unless '!' (discard them).
+// '.cb [!]' - close the active buffer. Refuses when it has changes not yet saved (or autosaved), unless '!'
+// (close anyway - those changes are dropped).
 function main(args) {
     var doc = Editor.GetActiveDocument();
     var force = false;
@@ -8,7 +9,7 @@ function main(args) {
         }
     }
     if (doc.IsModified() && !force) {
-        Console.WriteLine("'" + doc.GetName() + "' has unsaved changes - save it first ('.s'), or '.cb !' to discard them");
+        Console.WriteLine("'" + doc.GetName() + "' has changes not yet saved - save it ('.s'), or '.cb !' to close anyway (they are dropped)");
         return;
     }
     Editor.CloseActiveDocument();

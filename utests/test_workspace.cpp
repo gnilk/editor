@@ -11,6 +11,7 @@
 #include "Core/Editor.h"
 #include "Core/Workspace.h"
 #include "Core/RuntimeConfig.h"
+#include "Core/PathUtil.h"
 
 using namespace gedit;
 using namespace std::chrono_literals;
@@ -33,6 +34,7 @@ DLL_EXPORT int test_workspace_newsubfolder(ITesting *t);
 DLL_EXPORT int test_workspace_reopen(ITesting *t);
 DLL_EXPORT int test_workspace_removedocument(ITesting *t);
 DLL_EXPORT int test_workspace_recreate(ITesting *t);
+DLL_EXPORT int test_workspace_canonicalroot(ITesting *t);
 }
 
 DLL_EXPORT int test_workspace(ITesting *t) {
@@ -182,7 +184,7 @@ static bool Contains(const std::vector<std::string> &names, const std::string &n
 DLL_EXPORT int test_workspace_openfolder_excludes_builddir(ITesting *t) {
     namespace fs = std::filesystem;
     static int counter = 0;
-    auto root = fs::temp_directory_path() / ("goat_ws_exclude_" + std::to_string(counter++));
+    auto root = pathutil::CanonicalPath(fs::temp_directory_path() / ("goat_ws_exclude_" + std::to_string(counter++)));
     std::error_code ec;
     fs::remove_all(root, ec);
     fs::create_directories(root / "src");
@@ -221,7 +223,7 @@ DLL_EXPORT int test_workspace_openfolder_excludes_builddir(ITesting *t) {
 DLL_EXPORT int test_workspace_isscanned(ITesting *t) {
     namespace fs = std::filesystem;
     static int counter = 0;
-    auto root = fs::temp_directory_path() / ("goat_ws_isscanned_" + std::to_string(counter++));
+    auto root = pathutil::CanonicalPath(fs::temp_directory_path() / ("goat_ws_isscanned_" + std::to_string(counter++)));
     std::error_code ec;
     fs::remove_all(root, ec);
     // a/b/deep.txt: "a" at depth 0 gets descended (isScanned=true), "b" at depth 1 hits the bound
@@ -264,7 +266,7 @@ DLL_EXPORT int test_workspace_isscanned(ITesting *t) {
 DLL_EXPORT int test_workspace_scannode(ITesting *t) {
     namespace fs = std::filesystem;
     static int counter = 0;
-    auto root = fs::temp_directory_path() / ("goat_ws_scannode_" + std::to_string(counter++));
+    auto root = pathutil::CanonicalPath(fs::temp_directory_path() / ("goat_ws_scannode_" + std::to_string(counter++)));
     std::error_code ec;
     fs::remove_all(root, ec);
     // a/b/deep.txt — with max_scan_depth=1 the initial scan sees "a" (isScanned=false) but not "b".
@@ -316,7 +318,7 @@ DLL_EXPORT int test_workspace_scannode(ITesting *t) {
 DLL_EXPORT int test_workspace_activefolder(ITesting *t) {
     namespace fs = std::filesystem;
     static int counter = 0;
-    auto root = (fs::temp_directory_path() / ("goat_ws_activefolder_" + std::to_string(counter++))).lexically_normal();
+    auto root = pathutil::CanonicalPath(fs::temp_directory_path() / ("goat_ws_activefolder_" + std::to_string(counter++)));
     std::error_code ec;
     fs::remove_all(root, ec);
     fs::create_directories(root / "a");
@@ -353,7 +355,7 @@ DLL_EXPORT int test_workspace_activefolder(ITesting *t) {
 DLL_EXPORT int test_workspace_newsubfolder(ITesting *t) {
     namespace fs = std::filesystem;
     static int counter = 0;
-    auto root = (fs::temp_directory_path() / ("goat_ws_newsub_" + std::to_string(counter++))).lexically_normal();
+    auto root = pathutil::CanonicalPath(fs::temp_directory_path() / ("goat_ws_newsub_" + std::to_string(counter++)));
     std::error_code ec;
     fs::remove_all(root, ec);
     fs::create_directories(root);
@@ -389,7 +391,7 @@ DLL_EXPORT int test_workspace_newsubfolder(ITesting *t) {
     TR_ASSERT(t, workspace.NewDocument("sub") == nullptr);
 
     // Absolute path outside every root: a loose file under 'default', path kept, no folders created
-    auto outside = (fs::temp_directory_path() / ("goat_ws_outside_" + std::to_string(counter)) / "o.cpp").lexically_normal();
+    auto outside = pathutil::CanonicalPath(fs::temp_directory_path() / ("goat_ws_outside_" + std::to_string(counter)) / "o.cpp");
     auto loose = workspace.NewDocument(outside.string());
     TR_ASSERT(t, loose != nullptr);
     TR_ASSERT(t, fs::absolute(loose->GetNodePath()).lexically_normal() == outside);
@@ -478,4 +480,32 @@ DLL_EXPORT int test_workspace_recreate(ITesting *t) {
     return kTR_Pass;
 
 
+}
+
+// The tree's paths are canonical, whatever form the folder was opened with: 'goatedit .' gives '<dir>/.',
+// and macOS temp dirs live behind a symlink (/var -> /private/var). The folder monitor reports canonical
+// real paths, so an event for a direct child of the root must find the root as its parent.
+DLL_EXPORT int test_workspace_canonicalroot(ITesting *t) {
+    namespace fs = std::filesystem;
+    auto root = fs::temp_directory_path() / "goat_ws_canonical";
+    std::error_code ec;
+    fs::remove_all(root, ec);
+    fs::create_directories(root / "a");
+    { std::ofstream(root / "a" / "leaf.txt") << "x"; }
+    auto canonicalRoot = fs::canonical(root);
+
+    Workspace workspace;
+    TR_ASSERT(t, workspace.OpenFolder((root / ".").string()));
+    auto rootNode = workspace.GetProjectRoots()[0]->GetRootNode();
+    TR_ASSERT(t, rootNode->GetNodePath() == canonicalRoot);
+    TR_ASSERT(t, rootNode->FindNodeWithPath(canonicalRoot) == rootNode);
+    TR_ASSERT(t, rootNode->FindNodeWithPath(canonicalRoot / "a") != nullptr);
+
+    // Lookups with the non-canonical form still find the (canonical) node - no duplicate under 'default'
+    auto leaf = rootNode->FindNodeWithPath(canonicalRoot / "a" / "leaf.txt");
+    TR_ASSERT(t, leaf != nullptr);
+    TR_ASSERT(t, workspace.NewDocumentWithFileRef(root / "." / "a" / "leaf.txt") == leaf);
+
+    fs::remove_all(root, ec);
+    return kTR_Pass;
 }

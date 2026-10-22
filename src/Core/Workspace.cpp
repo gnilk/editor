@@ -183,7 +183,7 @@ Workspace::ProjectRoot::Ref Workspace::GetDefaultRoot() {
     if (defaultRoot == nullptr) {
         logger->Debug("Default root does not exist, creating...");
         auto nameDefault = Config::Instance()["main"].GetStr("default_workspace_name", "default");
-        auto rootDefault = std::filesystem::current_path();
+        auto rootDefault = pathutil::CanonicalPath(std::filesystem::current_path());
 
         // The default root has no file-monitor and no create/delete callbacks (at least for now).
         defaultRoot = ProjectRoot::Create(nullptr, nullptr, rootDefault, nameDefault);
@@ -211,7 +211,7 @@ Workspace::Node::Ref Workspace::NewDocument(const std::string &name) {
     }
     auto activeFolder = (activeFolderNode != nullptr) ? activeFolderNode : GetDefaultWorkspace();
     // operator/ keeps an absolute name as-is
-    auto pathFile = fs::absolute(activeFolder->GetNodePath() / pathName).lexically_normal();
+    auto pathFile = pathutil::CanonicalPath(activeFolder->GetNodePath() / pathName);
 
     auto folderNode = EnsureFolderNode(pathFile.parent_path());
     if (folderNode == nullptr) {
@@ -281,7 +281,7 @@ Workspace::Node::Ref Workspace::NewDocumentWithFileRef(const std::filesystem::pa
 }
 
 Workspace::Node::Ref Workspace::FindNodeForPath(const std::filesystem::path &path) {
-    auto absPath = fs::absolute(path);
+    auto absPath = pathutil::CanonicalPath(path);
     for (auto &projectRoot : projectRoots) {
         auto node = projectRoot->GetRootNode()->FindNodeWithPath(absPath);
         if (node != nullptr) {
@@ -306,7 +306,7 @@ static bool IsAncestorPath(const std::filesystem::path &dir, const std::filesyst
 // scan ONLY the path from there toward the file (full listing per level, sibling subtrees left as
 // frontier). Returns the file's node, or nullptr if the path isn't under a real root.
 Workspace::Node::Ref Workspace::EnsurePathInTree(const std::filesystem::path &pathFileName) {
-    auto absFile = fs::absolute(pathFileName).lexically_normal();
+    auto absFile = pathutil::CanonicalPath(pathFileName);
 
     // Find the project root that owns this path. The default root is a CWD bucket for loose files, not a
     // real on-disk subtree to scan into - skip it.
@@ -569,7 +569,9 @@ bool Workspace::OpenFolder(const std::string &folder) {
     // Disable notifications - otherwise the callback is invoked for each added document...
 
     // If it doesn't exists - just leave..
-    auto pathName = fs::absolute(fs::path(folder));
+    // Canonical, so every node path below is too ('goatedit .' would otherwise give '<dir>/.', and a
+    // symlinked folder its link path) - the folder monitor reports canonical real paths.
+    auto pathName = pathutil::CanonicalPath(fs::path(folder));
     if (!fs::exists(pathName)) {
         return false;
     }

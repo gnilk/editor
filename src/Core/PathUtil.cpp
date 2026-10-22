@@ -19,3 +19,15 @@ std::string pathutil::LastNameOfPath(const std::filesystem::path &pathName) {
     it--;
     return it->string();
 }
+std::filesystem::path pathutil::CanonicalPath(const std::filesystem::path &pathName) {
+    std::error_code ec;
+    auto result = std::filesystem::weakly_canonical(std::filesystem::absolute(pathName), ec);
+    if (ec) {
+        return std::filesystem::absolute(pathName).lexically_normal();
+    }
+    // weakly_canonical keeps a trailing separator when the input ended in '.' or '/'
+    if (!result.has_filename() && result.has_parent_path() && (result != result.root_path())) {
+        result = result.parent_path();
+    }
+    return result;
+}

@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <stack>
 #include <memory>
+#include <functional>
 #include "Core/StrUtil.h"
 #include "Core/Line.h"
 #include "Core/Language/LangToken.h"
@@ -65,7 +66,7 @@ namespace gedit {
 
 
             __inline bool IsPartialMatch(const std::u32string_view &input, int &outSzToken) {
-                for (auto s: tokens) {
+                for (auto &s: tokens) {
                     if (!input.compare(0,s.size(), s)) {
                         outSzToken = static_cast<int>(s.size());
                         return true;
@@ -74,7 +75,7 @@ namespace gedit {
                 return false;
             }
             __inline bool IsFullMatch(const std::u32string_view &input, int &outSzToken) {
-                for (auto s: tokens) {
+                for (auto &s: tokens) {
                     if (input  == s) {
                         outSzToken = static_cast<int>(s.size());
                         return true;
@@ -229,6 +230,14 @@ namespace gedit {
         virtual ~LangLineTokenizer() = default;
 
         void ParseLines(std::vector<Line::Ref> &lines);
+
+        // Index fast path (docs/code-index.md §4.1): the same states as ParseLines over a whole text, without
+        // Line objects, locks or attributes. Lines split on '\n' ('\r' before it dropped); every token is
+        // handed to 'onToken' with its 0-based line. No post-line callback (that's for rendering). A copy of
+        // the tokenizer has its own state stack and shares the (immutable) states - one per thread.
+        // Returns the number of lines.
+        using TokenSink = std::function<void(size_t idxLine, const LangToken &token)>;
+        size_t TokenizeText(const std::u32string &text, const TokenSink &onToken);
         size_t ParseRegion(std::vector<Line::Ref> &lines, size_t idxLineStart, size_t idxLineEnd);
         void ParseLine(const Line::Ref l, int &indentCounter);
         void ParseLineFromState(const std::string &newStartState, Line::Ref line);
@@ -255,7 +264,7 @@ namespace gedit {
 
         void ParseLineWithCurrentState(std::vector<LangToken> &tokens, const std::u32string &input);
 
-        kLanguageTokenClass CheckExecuteActionForToken(State::Ref currentState, const std::u32string &token, kLanguageTokenClass tokenClass);
+        kLanguageTokenClass CheckExecuteActionForToken(State *currentState, const std::u32string &token, kLanguageTokenClass tokenClass);
         std::pair<bool, kLanguageTokenClass> GetNextToken(std::u32string &dst, const std::u32string &strInput, std::u32string::const_iterator &it, const std::u32string::const_iterator &last);
 
 

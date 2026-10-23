@@ -121,6 +121,51 @@ void LangLineTokenizer::ParseLines(std::vector<Line::Ref> &lines) {
     }
 }
 
+size_t LangLineTokenizer::TokenizeText(const std::u32string &text, const TokenSink &onToken) {
+    if (!ResetStateStack()) {
+        return 0;
+    }
+    PushState(startState.c_str());
+
+    std::u32string line;
+    std::vector<LangToken> tokens;
+    size_t idxLine = 0;
+    size_t idxStart = 0;
+    while (idxStart <= text.size()) {
+        auto idxEnd = text.find(U'\n', idxStart);
+        if (idxEnd == std::u32string::npos) {
+            idxEnd = text.size();
+            // A trailing newline doesn't start another line
+            if (idxStart == idxEnd) {
+                break;
+            }
+        }
+        auto len = idxEnd - idxStart;
+        if ((len > 0) && (text[idxEnd - 1] == U'\r')) {
+            len--;
+        }
+        line.assign(text, idxStart, len);
+
+        // As ParseLine: an empty line leaves the state stack alone
+        if (!line.empty()) {
+            tokens.clear();
+            ParseLineWithCurrentState(tokens, line);
+            for (auto &token : tokens) {
+                onToken(idxLine, token);
+            }
+        }
+        idxLine++;
+        idxStart = idxEnd + 1;
+    }
+
+    // An unterminated construct (e.g. a block comment) leaves more than the start state - the next
+    // call resets the stack anyway
+    if (!stateStack.empty()) {
+        PopState();
+    }
+    return idxLine;
+}
+
 // Parse a single line and compute the next line indentation..
 void LangLineTokenizer::ParseLine(const Line::Ref l, int &nextIndent) {
     l->Lock();
@@ -210,7 +255,9 @@ void LangLineTokenizer::ParseLineWithCurrentState(std::vector<LangToken> &tokens
     auto it = input.begin();
 
     while(true) {
-        auto currentState = stateStack.top();
+        // Raw pointers in the per-token path: the states are owned by 'states' and live as long as the
+        // tokenizer; copying the shared_ptr costs an atomic ref count per token, contended between threads
+        auto currentState = stateStack.top().get();
         if (currentState == nullptr) {
             return;
         }
@@ -250,7 +297,7 @@ void LangLineTokenizer::ParseLineWithCurrentState(std::vector<LangToken> &tokens
     // must all unwind at end-of-line, so keep popping while the top state defines an EOL action.
     // States without an EOL action (main, block comments) deliberately survive across lines.
     while (!stateStack.empty()) {
-        auto currentState = stateStack.top();
+        auto currentState = stateStack.top().get();
         if (currentState->eolAction.action == kAction::kNone) {
             break;
         }
@@ -290,7 +337,7 @@ bool LangLineTokenizer::ResetStateStack() {
 //  now - '*/' is consumed and parsed by the 'block_comment' state (which is all good)
 //  but we really want it classified by the outer/parent state.
 //
-kLanguageTokenClass LangLineTokenizer::CheckExecuteActionForToken(State::Ref currentState, const std::u32string &token, kLanguageTokenClass tokenClass) {
+kLanguageTokenClass LangLineTokenizer::CheckExecuteActionForToken(State *currentState, const std::u32string &token, kLanguageTokenClass tokenClass) {
     // Check if we have an action for this token
     if (!currentState->HasActionForToken(token)) {
         return tokenClass;
@@ -300,7 +347,7 @@ kLanguageTokenClass LangLineTokenizer::CheckExecuteActionForToken(State::Ref cur
     if (action->action == kAction::kPopState) {
 
         auto oldState  = PopState();
-        currentState = stateStack.top();
+        currentState = stateStack.top().get();
 
         // printf("PopState, %s -> %s (at token: %s)\n", oldState->name.c_str(), stateStack.top()->name.c_str(), token);
 
@@ -375,7 +422,7 @@ kLanguageTokenClass LangLineTokenizer::CheckExecuteActionForToken(State::Ref cur
 //
 std::pair<bool, kLanguageTokenClass> LangLineTokenizer::GetNextToken(std::u32string &dst, const std::u32string &currentLine, std::u32string::const_iterator &itInput, const std::u32string::const_iterator &last) {
 
-    auto currentState = stateStack.top();
+    auto currentState = stateStack.top().get();
     assert(currentState != nullptr);
 
     if (!strutil::skipWhiteSpace(itInput)) {

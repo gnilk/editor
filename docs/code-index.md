@@ -427,7 +427,7 @@ What the index enables once it exists (not v1, but the schema must allow them):
 
 | # | Step | Status |
 |---|---|---|
-| 0 | **Measure.** `TokenizeText` fast path + a release-only benchmark (lines/s) on sqlite3.c and this repo. Decides threading and whether the lexer needs speeding up first. | - |
+| 0 | **Measure.** `TokenizeText` fast path + a release-only benchmark (lines/s) on sqlite3.c and this repo. Decides threading and whether the lexer needs speeding up first. | ✅ §11.1 - plus two tokenizer fixes (~3-4x, highlighter too) |
 | 1 | **C++ structure engine** over strings - the low-hanging fruit only: namespaces, classes/structs, methods/functions, members, `#include`, and the edges visible right in the declaration (`inherits`, `holds` + ownership). Rules as tables in code (§5.4), shape + edge tests (§7). No storage yet - dump symbols/edges for a file and judge on this repo. Nothing from §8.1. | - |
 | 2 | **In-memory index + Go to symbol** over the workspace, in the background: indexer threads, resolution (§5.2), query ranking, `SymbolSearchModal`. | - |
 | 3 | **Relationship views**: hierarchy and composition (trees, §5.5), "derived from / held by" from any symbol. | - |
@@ -435,6 +435,62 @@ What the index enables once it exists (not v1, but the schema must allow them):
 | 5 | **Persistence + incremental**: store (D2), `FolderMonitor`, re-index on save. | - |
 | 6 | **Calls / uses / refs** (D3), usages view; **architecture rules** (§10). | - |
 | 7 | **Rules as data**: move the C++ tables to config, project overrides; a second language (§5.4, D9). | - |
+
+### 11.1 Step 0 results (2026-10-23, M-series Mac, release, 10 cores)
+
+**What was built:** `LangLineTokenizer::TokenizeText(text, onToken)` - the highlighter's states over a
+whole text, tokens with their line, no `Line` objects / locks / attributes. Tests (`codeindex` module):
+same tokens (position + class) as the editor's parse of `ConvertUTF.cpp`; line numbers, CRLF, empty lines,
+a block comment carried across lines, an unterminated construct not leaking into the next call.
+Mutation-checked (state reset per line → both cases fail). Benchmark: `gedit-bench` (a plain executable -
+**not** a trun case: trun links the ASan runtime, which made the same run ~5x slower and mostly measured
+ASan's allocator).
+
+| Corpus (no excludes - build dirs included) | Lines | Editor path | Fast path, 1 thread | Fast path, 9 threads |
+|---|---|---|---|---|
+| GoatEdit `src/Core` | 43k | 66k lines/s | 148k | 379k |
+| testrunner | 550k | 74k | 167k | 483k |
+| noc_goa | 66k | 61k | 155k | 247k |
+| vcpu | 56k | 67k | 154k | 414k |
+| sqlite3.c (one file) | 238k | 118k | 289k | 290k (one file = one thread) |
+| PuckoNew `src` | 437k | 96k | 232k | 369k |
+
+UTF-8 → UTF-32 is negligible (~2 ms per MB).
+
+**Reading it (before the fixes):** the fast path was ~2.3x the editor path on one thread, but threads
+scaled poorly (~3x on 9). Profile (`sample`, no ASan): ~45 % allocation/copying and allocator lock
+contention, ~40 % in `GetNextToken`. Two causes in the shared tokenizer code:
+
+1. `IdentifierList::IsPartialMatch` / `IsFullMatch` looped with `for (auto s: tokens)` - a **copy of every
+   keyword/operator string**, for every list, for every token. Worse: the postfix check runs per
+   *character* of an identifier over ~60 operators - ~60 string copies per character.
+2. `stateStack.top()` / a `State::Ref` parameter copied a `shared_ptr<State>` several times per token -
+   atomic ref counts on states shared by every tokenizer copy → cache-line contention between threads
+   (after fix 1 the threaded run was *slower* than one thread).
+
+**Fixed** (`for (auto &s: ...)`; raw `State *` in the per-token path - the states are owned by the
+tokenizer's map and outlive a parse). Same tokens (the `codeindex` equivalence test and the highlighter
+tests are green). After:
+
+| Corpus | Lines | Editor path | Fast path, 1 thread | Fast path, 9 threads |
+|---|---|---|---|---|
+| GoatEdit `src/Core` | 43k | 196k lines/s (3.0x) | 565k (3.8x) | 2.54M (6.7x) |
+| testrunner | 550k | 211k (2.9x) | 632k (3.8x) | 3.79M (7.8x) |
+| noc_goa | 66k | 167k (2.8x) | 591k (3.8x) | 2.66M (10.8x) |
+| vcpu | 56k | 202k (3.0x) | 604k (3.9x) | 2.67M (6.5x) |
+| sqlite3.c (one file) | 238k | 262k (2.2x) | 918k (3.2x) | 912k (one file = one thread) |
+| PuckoNew `src` | 437k | 230k (2.4x) | 766k (3.3x) | 1.52M (4.1x) |
+
+(factor = vs. before the fixes)
+
+- The **editor's highlighter got ~2.5-3x faster** as a side effect (same code).
+- Index lexing: a 500k-line tree in ~0.15-0.3 s on 9 threads; the Linux kernel (~30M lines) roughly
+  10-20 s. The lexer is not a concern for the index.
+- Threads scale ~5-6x on 9 when files are balanced; one huge file is one unit of work (PuckoNew is
+  dominated by sqlite3.c).
+- What's left in the profile: `GetNextToken`'s linear scans (operators, whole-word lists), the action
+  hash lookup per token, per-token `u32string` in `LangToken`. Further gains need structural changes (a
+  trie / first-char table for operators, a token sink with views) - not worth it now.
 
 ## 12. Open decisions
 

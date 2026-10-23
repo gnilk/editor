@@ -534,6 +534,7 @@ list(APPEND utestsrc utests/test_assetloader.cpp)
 list(APPEND utestsrc utests/test_clipboard.cpp)
 list(APPEND utestsrc utests/test_runloop.cpp)
 list(APPEND utestsrc utests/test_cpplang.cpp)
+list(APPEND utestsrc utests/test_codeindex.cpp)
 list(APPEND utestsrc utests/test_cppnumbers.cpp)
 list(APPEND utestsrc utests/test_jsonlang.cpp)
 list(APPEND utestsrc utests/test_markdown.cpp)
@@ -587,6 +588,16 @@ if (TRUN_INCLUDE_DIR)
     target_compile_options(utests PUBLIC -I${TRUN_INCLUDE_DIR})
 endif()
 target_link_libraries(utests ${extlibs})
+
+# Code index lexer benchmark (docs/code-index.md step 0) - a plain executable, not a trun case (trun links
+# the ASan runtime, which skews allocation-heavy numbers). Build in release: cmake --build --preset release
+# --target gedit-bench; run from the build dir.
+add_executable(gedit-bench utests/bench/codeindex_bench.cpp ${coresrc} ${uisrc} ${editorsrc} ${platformsrc} ${graphics_sdlsrc} ${graphics_gansisrc} ${jsapi} ${duktape})
+target_include_directories(gedit-bench PUBLIC ${includedirs} ${CMAKE_BINARY_DIR}/generated)
+target_include_directories(gedit-bench SYSTEM PUBLIC ${DUKGLUE_HOME}/include)
+target_link_libraries(gedit-bench ${extlibs})
+add_dependencies(gedit-bench plugins resources)
+set_target_properties(gedit-bench PROPERTIES EXCLUDE_FROM_ALL true)
 
 
 add_custom_target(resources ${CMAKE_COMMAND} -E copy_directory_if_different

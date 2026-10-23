@@ -291,6 +291,11 @@ bool Editor::Initialize(int argc, const char **argv) {
         }
     });
 
+    // Glue for the modal host: RootView only says a modal is up or gone, the keymap swap is ours
+    UIHost::Instance().SetOnModalActive([](bool isModalActive) {
+        Editor::Instance().SetModalActive(isModalActive);
+    });
+
     // Wire the debounced autosave: meaningful events call SessionManager::NotifyChanged(), which (once
     // a project is open and the view tree exists) posts this handler to the main thread. SaveSession is
     // idempotent + guarded, so an early/spurious schedule is harmless.
@@ -1097,6 +1102,13 @@ Workspace::Node::Ref Editor::GetWorkspaceNodeForDocument(Document::Ref document)
 }
 
 KeyMapping::Ref Editor::GetActiveKeyMap() {
+    if (isModalActive) {
+        auto modalKeyMap = GetKeyMapping("modal_keymap");
+        if (modalKeyMap != nullptr) {
+            return modalKeyMap;
+        }
+        logger->Error("keymap 'modal_keymap' not found - using the view keymap");
+    }
     return GetKeyMapForState(state);
 }
 
@@ -1134,14 +1146,25 @@ void Editor::SetActiveKeyMapping(const std::string &name) {
         return;
     }
 
-    if (cbKeymapUpdate != nullptr) {
-        cbKeymapUpdate(newKeyMap);
-    }
-
     // In case of view-state we save the active keymap - not quite sure if this is needed...
     if (state == ViewState) {
         //logger->Debug("ViewState Keymapping Changed: %s -> %s", viewStateKeymapName.c_str(), name.c_str());
         viewStateKeymapName = name;
+    }
+
+    // A modal keeps its keymap - the change applies when it closes (GetActiveKeyMap)
+    if (isModalActive) {
+        return;
+    }
+    if (cbKeymapUpdate != nullptr) {
+        cbKeymapUpdate(newKeyMap);
+    }
+}
+
+void Editor::SetModalActive(bool newIsModalActive) {
+    isModalActive = newIsModalActive;
+    if (cbKeymapUpdate != nullptr) {
+        cbKeymapUpdate(GetActiveKeyMap());
     }
 }
 

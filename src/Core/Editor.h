@@ -103,6 +103,8 @@ namespace gedit {
             cbKeymapUpdate = newKeymapDelegate;
         }
         void RestoreViewStateKeymapping();
+        // A modal is up: 'modal_keymap' wins over the state's keymap until it closes
+        void SetModalActive(bool newIsModalActive);
 
 
         void LeaveCommandMode();
@@ -248,6 +250,7 @@ namespace gedit {
         State state = ViewState;
         std::string viewStateKeymapName = "default_keymap";  // This is the default key-map for any 'view' related activity
         KeymapUpdateDelegate cbKeymapUpdate = nullptr;
+        bool isModalActive = false;
 
 //        KeyMapping::Ref mappingsForEditState = nullptr;
 //        KeyMapping::Ref mappingsForCmdState = nullptr;

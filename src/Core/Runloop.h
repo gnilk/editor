@@ -51,12 +51,14 @@ namespace gedit {
         using MessageQueue = SafeQueue<std::unique_ptr<Message> >;
     public:
         static void DefaultLoop();
-        static void ShowModal(ViewBase *modal);
         static void StopRunLoop() {
             bQuit = true;
         }
         static bool IsRunning() {
             return isRunning;
+        }
+        static bool IsQuitRequested() {
+            return bQuit;
         }
 
         template<typename T>
@@ -84,6 +86,7 @@ namespace gedit {
         static bool DispatchAction(const EditorAction &action);
     private:
         static bool DispatchToHandler(KeyPress keyPress);
+        static KeypressAndActionHandler *ActiveHandler();
         static void InstallKeymapChangeNotification();
         static bool ProcessMessageQueue();
         static void SwapQueues();

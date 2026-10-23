@@ -1,6 +1,7 @@
 # Modal dialogs - state, defects and a plan
 
-Status: **proposal** (2026-10-22). Nothing implemented yet. Decisions are in §4 (D3, D5, D6 decided).
+Status: **in progress.** Proposal 2026-10-22; steps 1-3 (host, confirm, `.cb` / `.q`) done 2026-10-23 on
+`feature/modal-host`, GUI-verified on SDL3 (macOS); SDL2 (Linux) not yet. Decisions are in §4 (D2 for confirms only).
 
 Modals are wanted for several things already on the list:
 - "changed on disk - reload?" (deferred in `foldermonitor_fixes.md` §4.4);
@@ -134,10 +135,10 @@ gets before step 1.
 
 | # | Question | Recommendation |
 |---|---|---|
-| D1 | **Nested loop (blocking `ShowModal`, caller gets the answer as a return value) vs overlay + callback (non-blocking).** | **Overlay + callback.** The nested loop re-enters the message queue (M2) and lets the world change under a blocked caller (M3). The callback costs a lambda at each call site; JS gets the same shape (`Editor.Confirm(text, choices, function(choice) {...})`). |
-| D2 | Look: centred box with border/caption, or a bar like quick-command (VSCode-style palette at the top)? | Centred box for confirms; the same box for pickers to start with. A palette-style picker can come later. |
+| D1 | **Nested loop (blocking `ShowModal`, caller gets the answer as a return value) vs overlay + callback (non-blocking).** | **Decided (step 1): overlay + callback.** The nested loop re-enters the message queue (M2) and lets the world change under a blocked caller (M3). The callback costs a lambda at each call site; JS gets the same shape (`Editor.Confirm(text, choices, function(choice) {...})`). |
+| D2 | Look: centred box with border/caption, or a bar like quick-command (VSCode-style palette at the top)? | **Confirms: centred box, sized from its content (step 2).** Pickers / Find: open until step 4. |
 | D3 | Esc in a modal = cancel (via `modal_keymap`), even though Esc is "command mode" elsewhere? | **Decided: yes.** There is no command mode inside a modal. |
-| D4 | One `ModalResult` struct for all modals, or a typed callback per modal kind (`OnChoice(int)`, `OnPicked(index)`, `OnText(string)`)? | Typed callbacks per kind, with cancel as its own case. It reads better at call sites. |
+| D4 | One `ModalResult` struct for all modals, or a typed callback per modal kind (`OnChoice(int)`, `OnPicked(index)`, `OnText(string)`)? | **Decided (step 1): typed callbacks.** The host knows only closed / cancelled (`ModalView::OnClosed(bool wasCancelled)`); each kind overrides it and calls its own typed callback. |
 | D5 | First consumer to drive the work. | **Decided: the confirm.** `.cb` on a modified buffer and `.q` with unsaved buffers. |
 | D6 | Your features that need modals - which building block do they need first? | **Decided: Find.** Cmd+F opens a search box over the active file and lists the hits as you type; "search everywhere" (all files) builds on it later. That needs a text input + result list (§3.4 items 2 and 3, combined). |
 
@@ -147,11 +148,73 @@ gets before step 1.
 
 | # | Step | Test |
 |---|---|---|
-| 1 | **Host:** modal stack on `RootView` (replaces `ViewBase::modal`), `Show(modal, onClose)`, deferred close, input routing (actions, keys, mouse), drawing after the tree, `modal_keymap` push/pop. Delete `Runloop::ShowModal`. | Unit: actions reach only the top modal; the callback fires once; closing inside `OnAction` is safe; a nested modal closes back to its parent; the keymap is restored. |
-| 2 | **`ConfirmModal`** (message + choices with hotkeys) + theme keys for the modal colours (and the strikethrough colour). | Unit: hotkey → choice; Enter → selected choice; Esc → cancelled. GUI: look on SDL3 (and SDL2 on Linux). |
-| 3 | **First consumer: `.cb` on a modified buffer** → Save / Discard / Cancel; `.q` with unsaved buffers → Save all / Discard / Cancel. Needs a JS binding (`Editor.Confirm`). | Unit for the JS wrapper; GUI for the flow. |
+| 1 ✅ | **Host:** modal stack on `RootView` (replaces `ViewBase::modal`), `Show(modal, onClose)`, deferred close, input routing (actions, keys, mouse), drawing after the tree, `modal_keymap` push/pop. Delete `Runloop::ShowModal`. | Unit: actions reach only the top modal; the callback fires once; closing inside `OnAction` is safe; a nested modal closes back to its parent; the keymap is restored. |
+| 2 ✅ | **`ConfirmModal`** (message + choices with hotkeys) + theme keys for the modal colours (and the strikethrough colour). | Unit: hotkey → choice; Enter → selected choice; Esc → cancelled. GUI: look on SDL3 (and SDL2 on Linux). |
+| 3 ✅ | **First consumer: `.cb` on a modified buffer** → Save / Discard / Cancel; `.q` with unsaved buffers → Save all / Discard / Cancel. Needs a JS binding (`Editor.Confirm`). | Unit for the JS wrapper; GUI for the flow. |
 | 4 | **`FindModal`** (§3.4 item 2): the list part of the `ListSelectionModal` rework (M7, M8), the edit line, live search over the active document, preview / commit / cancel, Cmd+F / Ctrl+F. Needs read access to the document's hits (positions + line text). | Unit: typing narrows the hits; Up/Down moves the preview; Enter keeps the cursor + results; Esc restores the cursor; empty pattern / no hits. |
 | 5 | **Search everywhere** - design note first (result source over unopened files, threading, excludes, limits, opening a hit). | — |
 | 6 | Pickers / `TextInputModal` as needed (buffer picker, `Editor.Prompt`). | Unit: navigation + pick + cancel; empty list. |
 | 7 | **Changed on disk → reload?** The folder monitor reconciles folders, not file contents: on a flush, compare each open document's mtime/size in a dirty folder with what was loaded, and ask `Reload / Keep mine` (a buffer with no edits could just reload - §4 decision then). Cross-ref `foldermonitor_fixes.md` §2.2 "hook". | Unit: a changed open file in a flushed folder triggers the callback; an unchanged one doesn't. |
 | 8 | Clean up: `TreeSelectionModal` onto the new host, remove `CopyToTexture` / `ClearWithTexture` if unused. | Green set. |
+
+---
+
+## §6 — Done
+
+### Step 1 — the host (2026-10-23)
+
+- **`RootView`** owns `std::vector<ModalView::Ptr> modals` (the back gets input). `ShowModal(Ptr)` takes
+  ownership, sets the root as the modal's *overlay parent* (`ViewBase::SetOverlayParent`: invalidation
+  and unhandled keys bubble to the root, but the modal is not a subview - not drawn, hit-tested or
+  resized with the tree), initializes and activates it (the modal below is deactivated).
+- **Routing:** `OnAction` (handled or not, returns true - nothing passes to the tree or the global
+  handler), `HandleKeyPress` and `DispatchMouse` (hit-test inside the top modal, bubbling stops at the
+  modal, a click outside is swallowed) go to the top modal only.
+- **Deferred close:** `ModalView::Close()` / `Cancel()` only mark it (and invalidate). `ReapClosedModals`
+  runs after each dispatch and at the start of `RootView::Draw` (a close from a posted message): it
+  pops, reactivates the new top, then calls `OnClosed` once and destroys it. A callback may show the
+  next modal. Esc = `CloseModal` = cancel.
+- **Draw:** the tree, then the modals bottom to top. `RootView::ReInitView` re-centres them (`Resize`).
+  The look is still the old one (half the screen, centred, a cleared content area) - step 2.
+- **Keymap:** `UIHost::SetOnModalActive` (empty <-> non-empty stack) → `Editor::SetModalActive`.
+  While a modal is up `GetActiveKeyMap` returns `modal_keymap` (no `inherit` - Esc, Return, arrows,
+  page, home/end only); a `SetActiveKeyMapping` underneath is recorded but held back, and applies when
+  the last modal closes. `modal_keymap` registered in `config.yml` (`macos:` / `linux:`).
+- **Runloop:** `ShowModal` (nested loop) deleted. `ActiveHandler()` routes keys/actions to the root
+  while a modal is up, even when quick-command mode has its hook pushed - a modal opened from a `.`
+  command gets the input; quick-command mode is still there underneath when it closes.
+- `ViewBase::modal` and `ViewBase::CloseModal()` deleted (`ListSelectionModal` uses `Close()`).
+- Tests: `utests/test_modal.cpp` (module `modal`) - routing, close in action, cancel, nested, show from
+  close, close outside a dispatch, keymap (incl. the held-back change and what the run loop is handed).
+  Mutation-checked: keys falling through, unhandled actions falling through, no reap in `Draw`, the
+  parent not reactivated, and no keymap hold-back each fail a test.
+
+GUI-verified together with steps 2 + 3 (SDL3).
+
+### Steps 2 + 3 — the confirm and its first consumers (2026-10-23)
+
+- **`ConfirmModal`** (`Core/UI/Views/ConfirmModal.{h,cpp}`, toolkit): a caption, a message (`\n` = more
+  lines) and choices. A choice's hotkey is its first letter, drawn `[S]ave`; a letter picks it (either
+  case; shift is fine, ctrl/alt/cmd aren't). Left/Right move the selection (inverted), Return picks it,
+  Esc cancels. Typed callbacks: `SetOnChoice(int)`, `SetOnCancel()`.
+- **Sizing:** `ModalView::ComputeRect(screenRect)` is virtual (default: half the screen, centred) with a
+  `CenterIn(screen, w, h)` helper that clamps to the screen. The confirm sizes itself from its text:
+  caption, blank, message lines, blank, choices, blank; 2 columns of margin.
+- **Colours:** `ui.modal_background` / `ui.modal_foreground` in `colors.json` (fallback: `ui.background` /
+  `ui.foreground`). The border and caption are still the window decoration's (white line, inverted row).
+  The strikethrough colour is not part of this.
+- **JS:** `Editor.Confirm(message, choices, function(choice) {...})` - returns at once; the function is
+  called when the dialog closes, with the choice's index or -1 when cancelled. The `DukValue` keeps the
+  function alive (heap stash) until then; the call is a `dukglue_pcall`, a script error is logged. Glue:
+  `EditorAPI::Confirm` (utf8 -> u32, builds the modal, `RootView::ShowModal`); without a root view it
+  cancels right away.
+- **`.cb`** on a modified buffer: Save (then close; a failed save keeps it open and says so) / Discard /
+  Cancel. `.cb !` still closes at once.
+- **`.q`** with modified buffers: lists them, Save all (then exit; stops at the first failed save) /
+  Discard / Cancel. New: `.q !` exits at once.
+- Tests: `modal` - confirmhotkey, confirmselect, confirmcancel, confirmsize; `jsengine` - closecmd
+  (rewritten: Esc keeps the buffer, Discard closes and drops the node, Save writes then closes, `!` and
+  unmodified close without asking), quitcmd (asks, Cancel keeps running). Mutation-checked: the hotkey
+  modifier rule.
+- `Runloop::IsQuitRequested()` added (for the test).
+

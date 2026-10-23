@@ -159,48 +159,17 @@ bool Runloop::ProcessMouseEvent(MouseEvent mouseEvent) {
     return rootView->DispatchMouse(mouseEvent);
 }
 
-void Runloop::ShowModal(ViewBase *modal) {
-    // This is a special case of the main loop...
-    auto screen = RuntimeConfig::Instance().GetScreen();
-
-    activeKeyMap = Editor::Instance().GetActiveKeyMap();
-    InstallKeymapChangeNotification();
-
-    modal->SetActive(true);
-    modal->Initialize();
-    modal->InvalidateAll();
-    screen->CopyToTexture();
-
-
-    kpaHandlers.push(modal);
-
-    isRunning = true;
-
-    while((modal->IsActive()) && !bQuit) {
-        // Process any messages from other threads before we do anything else..
-        bool redraw = ProcessMessageQueue();
-
-        if (modal->IsInvalid()) {
-            redraw = true;
+// A modal takes the input from whoever has it (the editor, quick-command mode) - the root routes it to
+// the modal, and takes every action (nothing falls through to the global handler behind a dialog)
+KeypressAndActionHandler *Runloop::ActiveHandler() {
+    if (RuntimeConfig::Instance().HasRootView()) {
+        auto rootView = RuntimeConfig::Instance().GetRootViewAs<RootView>();
+        if (rootView->HasModal()) {
+            return rootView;
         }
-        if (redraw == true) {
-            //logger->Debug("Redraw was triggered...");
-            //screen->Clear();
-            screen->ClearWithTexture();
-            {
-                auto &dc = modal->GetWindow()->GetContentDC();
-                dc.Clear();
-
-            }
-            modal->Draw();
-            screen->Update();
-        }
-        // Yield the main-thread..
-        std::this_thread::yield();
     }
-    kpaHandlers.pop();
+    return kpaHandlers.top();
 }
-
 
 void Runloop::InstallKeymapChangeNotification() {
     Editor::Instance().SetKeymapUpdateDelegate([](KeyMapping::Ref newKeymap){
@@ -213,7 +182,7 @@ void Runloop::InstallKeymapChangeNotification() {
 bool Runloop::DispatchToHandler(KeyPress keyPress) {
     auto logger = gnilk::Logger::GetLogger("Dispatcher");
 
-    auto kpaHandler = kpaHandlers.top();
+    auto kpaHandler = ActiveHandler();
 
     if (kpaHandler == nullptr) {
         fprintf(stderr, "[FATAL] RunLoop::DispatchToHandler, no kpaHandler (EditorAction) - this is fatal!!!\n");
@@ -249,7 +218,7 @@ bool Runloop::DispatchAction(const EditorAction &action) {
     if (kpaHandlers.empty()) {
         return false;
     }
-    auto kpaHandler = kpaHandlers.top();
+    auto kpaHandler = ActiveHandler();
     if (kpaHandler == nullptr) {
         return false;
     }

@@ -45,6 +45,11 @@ namespace gedit {
         // paste buffer.
         void CopyToClipboard(const char *text);
 
+        // Show a confirm dialog and return at once (docs/modal_fixes.md §3.4). 'onResult' gets the picked
+        // choice's index, or -1 when cancelled (Esc) - later, on the main thread, once the dialog closes.
+        // Without a UI (no root view) it is cancelled right away.
+        void Confirm(const char *message, const std::vector<std::string> &choices, std::function<void(int idxChoice)> onResult);
+
 
         const std::vector<std::string> GetTopViews();
         ViewAPI::Ref GetViewByName(const char *name);

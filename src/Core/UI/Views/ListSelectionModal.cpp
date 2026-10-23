@@ -120,7 +120,7 @@ bool ListSelectionModal::OnAction(const EditorAction &kpAction) {
 
     if (kpAction.uiAction == kUIAction::kUIActionCommitLine) {
         listView->GetSelectedItemIndex();
-        CloseModal();
+        Close();
     }
     if (kpAction.uiAction == kUIAction::kUIActionLineRight) {
         if (listHeader->IsVisible()) {

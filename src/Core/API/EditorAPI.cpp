@@ -8,6 +8,7 @@
 #include "EditorAPI.h"
 #include "Core/RuntimeConfig.h"
 #include "Core/UI/Views/RootView.h"
+#include "Core/UI/Views/ConfirmModal.h"
 #include "Core/UnicodeHelper.h"
 #include "Core/ClipBoard.h"
 
@@ -144,6 +145,23 @@ void EditorAPI::CloseActiveDocument() {
     if (current != nullptr) {
         Editor::Instance().CloseDocument(current);
     }
+}
+
+void EditorAPI::Confirm(const char *message, const std::vector<std::string> &choices, std::function<void(int idxChoice)> onResult) {
+    if (!RuntimeConfig::Instance().HasRootView()) {
+        onResult(-1);
+        return;
+    }
+    std::vector<std::u32string> choices32;
+    for (auto &choice : choices) {
+        choices32.push_back(UnicodeHelper::utf8to32(choice));
+    }
+    auto modal = ConfirmModal::Create("Confirm", UnicodeHelper::utf8to32(message != nullptr ? message : ""), choices32);
+    modal->SetOnChoice(onResult);
+    modal->SetOnCancel([onResult]() {
+        onResult(-1);
+    });
+    RuntimeConfig::Instance().GetRootViewAs<RootView>()->ShowModal(std::move(modal));
 }
 
 void EditorAPI::CopyToClipboard(const char *text) {

@@ -19,6 +19,7 @@ void EditorAPIWrapper::RegisterModule(duk_context *ctx) {
     dukglue_register_method(ctx, &EditorAPIWrapper::GetDocuments, "GetDocuments");
     dukglue_register_method(ctx, &EditorAPIWrapper::CloseActiveDocument, "CloseActiveDocument");
     dukglue_register_method(ctx, &EditorAPIWrapper::CopyToClipboard, "CopyToClipboard");
+    dukglue_register_method(ctx, &EditorAPIWrapper::Confirm, "Confirm");
 
     dukglue_register_method(ctx, &EditorAPIWrapper::GetCurrentTheme, "GetCurrentTheme");
     dukglue_register_method(ctx, &EditorAPIWrapper::ExitEditor, "ExitEditor");
@@ -78,6 +79,20 @@ void EditorAPIWrapper::CopyToClipboard(const char *text) {
     editorApi->CopyToClipboard(text);
 }
 
+
+// Editor.Confirm(message, ["Save", "Discard", "Cancel"], function(choice) {...}) - choice is the index, -1
+// when cancelled. The function is kept alive (in the heap stash) by the DukValue until the dialog closes.
+void EditorAPIWrapper::Confirm(const char *message, std::vector<std::string> choices, DukValue onResult) {
+    auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
+    editorApi->Confirm(message, choices, [onResult](int idxChoice) {
+        try {
+            dukglue_pcall<void>(onResult.context(), onResult, idxChoice);
+        } catch (const DukException &e) {
+            auto logger = gnilk::Logger::GetLogger("EditorAPI");
+            logger->Error("Confirm callback failed: %s", e.what());
+        }
+    });
+}
 
 ThemeAPIWrapper::Ref EditorAPIWrapper::GetCurrentTheme() {
     auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();

@@ -2,6 +2,7 @@
 #define GEDIT_EDITORWRAPPERAPI_H
 
 #include "duktape.h"
+#include "dukglue/dukvalue.h"
 #include "ThemeAPIWrapper.h"
 #include "ViewAPIWrapper.h"
 #include "DocumentAPIWrapper.h"
@@ -23,6 +24,7 @@ namespace gedit {
         std::vector<DocumentAPIWrapper::Ref> GetDocuments();
         void CloseActiveDocument();
         void CopyToClipboard(const char *text);
+        void Confirm(const char *message, std::vector<std::string> choices, DukValue onResult);
 
         std::vector<std::string> GetRootViewNames();
         ViewAPIWrapper::Ref GetViewByName(const char *name);

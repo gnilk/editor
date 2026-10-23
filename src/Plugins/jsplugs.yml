@@ -49,7 +49,7 @@ commands:
   -
     name: quit
     short: q
-    description: Quit/Exit Editor
+    description: Quit/Exit Editor ('!' exits even with changes not yet saved)
     script: Scripts/exiteditor.js
   -
     name: newbuffer
@@ -79,7 +79,7 @@ commands:
   -
     name: closeactive
     short: cb
-    description: Close Active Buffer ('!' closes even with changes not yet saved)
+    description: Close Active Buffer (asks when it has changes not yet saved; '!' closes anyway)
     script: Scripts/closeactive.js
 
   -

@@ -8,6 +8,9 @@
 #include "Core/Config/Config.h"
 #include "Core/Editor/Controllers/TerminalController.h"
 #include "Core/UnicodeHelper.h"
+#include "Core/Runloop.h"
+#include "Core/UI/UIHost.h"
+#include "Core/UI/Views/RootView.h"
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -29,6 +32,7 @@ extern "C" {
     DLL_EXPORT int test_jsengine_listbuffers(ITesting *t);
     DLL_EXPORT int test_jsengine_configcmd(ITesting *t);
     DLL_EXPORT int test_jsengine_closecmd(ITesting *t);
+    DLL_EXPORT int test_jsengine_quitcmd(ITesting *t);
 }
 
 DLL_EXPORT int test_jsengine(ITesting *t) {
@@ -323,8 +327,40 @@ DLL_EXPORT int test_jsengine_configcmd(ITesting *t) {
     return kTR_Pass;
 }
 
-// '.cb': refuses a buffer with unsaved changes unless '!'; a closed buffer that never reached disk
-// leaves the workspace tree, one backed by a file stays.
+namespace {
+    // The confirm dialogs need a modal host: a root view standing in for the app's, restored after
+    struct ModalHostFixture {
+        ModalHostFixture() {
+            if (UIHost::Instance().GetScreen() == nullptr) {
+                Editor::Instance().OpenScreen();
+            }
+            prevRootView = RuntimeConfig::Instance().HasRootView() ? &RuntimeConfig::Instance().GetRootView() : nullptr;
+            rootView.Initialize();
+            RuntimeConfig::Instance().SetRootView(&rootView);
+        }
+        ~ModalHostFixture() {
+            RuntimeConfig::Instance().SetRootView(prevRootView);
+        }
+        RootView rootView;
+        ViewBase *prevRootView = nullptr;
+    };
+
+    KeyPress Letter(char32_t key) {
+        KeyPress keyPress;
+        keyPress.isKeyValid = true;
+        keyPress.key = key;
+        return keyPress;
+    }
+
+    EditorAction Escape() {
+        EditorAction action;
+        action.uiAction = kUIAction::kUIActionCloseModal;
+        return action;
+    }
+}
+
+// '.cb': a buffer with unsaved changes asks Save / Discard / Cancel ('!' closes at once); a closed buffer
+// that never reached disk leaves the workspace tree, one backed by a file stays.
 DLL_EXPORT int test_jsengine_closecmd(ITesting *t) {
     namespace fs = std::filesystem;
     auto root = fs::temp_directory_path() / "goatedit_closecmd_test";
@@ -332,6 +368,7 @@ DLL_EXPORT int test_jsengine_closecmd(ITesting *t) {
     fs::remove_all(root, ec);
     fs::create_directories(root);
     auto pathGhost = (root / "ghost.cpp").lexically_normal();
+    auto pathGhost2 = (root / "ghost2.cpp").lexically_normal();
     auto pathOnDisk = (root / "ondisk.cpp").lexically_normal();
     {
         std::ofstream f(pathOnDisk);
@@ -341,11 +378,10 @@ DLL_EXPORT int test_jsengine_closecmd(ITesting *t) {
     TR_ASSERT(t, RuntimeConfig::Instance().HasPluginCommand("cb"));
     auto cmd = RuntimeConfig::Instance().GetPluginCommand("cb");
     auto workspace = Editor::Instance().GetWorkspace();
-    auto *prevConsole = RuntimeConfig::Instance().OutputConsole();
-    CaptureConsole console;
-    RuntimeConfig::Instance().SetOutputConsole(&console);
+    ModalHostFixture host;
+    auto &rootView = host.rootView;
 
-    // Never saved + edited: refused, then discarded with '!' - and its node is gone
+    // Never saved + edited: asks; Esc keeps it open
     auto ghost = workspace->NewDocumentWithFileRef(pathGhost);
     auto ghostDoc = Editor::Instance().OpenDocumentFromWorkspace(ghost);
     TR_ASSERT(t, ghostDoc != nullptr);
@@ -353,26 +389,79 @@ DLL_EXPORT int test_jsengine_closecmd(ITesting *t) {
     TR_ASSERT(t, ghostDoc->IsModified());
 
     TR_ASSERT(t, cmd->Execute({}));
-    TR_ASSERT(t, console.Contains("not yet saved"));
+    TR_ASSERT(t, rootView.HasModal());
+    TR_ASSERT(t, Editor::Instance().IsDocumentOpen(ghostDoc));
+    rootView.OnAction(Escape());
+    TR_ASSERT(t, !rootView.HasModal());
     TR_ASSERT(t, Editor::Instance().IsDocumentOpen(ghostDoc));
 
-    TR_ASSERT(t, cmd->Execute({"!"}));
+    // ...'D'iscard closes it - and its node is gone
+    TR_ASSERT(t, cmd->Execute({}));
+    rootView.HandleKeyPress(Letter('d'));
+    TR_ASSERT(t, !rootView.HasModal());
     TR_ASSERT(t, !Editor::Instance().IsDocumentOpen(ghostDoc));
     auto ghostParent = ghost->GetParent();
     TR_ASSERT(t, (ghostParent != nullptr) && !ghostParent->HasChild(ghost));
 
-    // A file on disk, unmodified: closes without a word, its node stays
+    // '!' closes without asking
+    auto ghost2 = workspace->NewDocumentWithFileRef(pathGhost2);
+    auto ghost2Doc = Editor::Instance().OpenDocumentFromWorkspace(ghost2);
+    ghost2Doc->GetTextBuffer()->AddLineUTF8("edited");
+    TR_ASSERT(t, cmd->Execute({"!"}));
+    TR_ASSERT(t, !rootView.HasModal());
+    TR_ASSERT(t, !Editor::Instance().IsDocumentOpen(ghost2Doc));
+
+    // A file on disk, edited: 'S'ave writes it, then closes; its node stays
     auto onDisk = workspace->NewDocumentWithFileRef(pathOnDisk);
     auto onDiskDoc = Editor::Instance().OpenDocumentFromWorkspace(onDisk);
     TR_ASSERT(t, onDiskDoc != nullptr);
-    TR_ASSERT(t, !onDiskDoc->IsModified());
-    console.lines.clear();
+    onDiskDoc->GetTextBuffer()->AddLineUTF8("edited");
     TR_ASSERT(t, cmd->Execute({}));
-    TR_ASSERT(t, !console.Contains("not yet saved"));
+    TR_ASSERT(t, rootView.HasModal());
+    rootView.HandleKeyPress(Letter('s'));
+    TR_ASSERT(t, !rootView.HasModal());
     TR_ASSERT(t, !Editor::Instance().IsDocumentOpen(onDiskDoc));
     TR_ASSERT(t, onDisk->GetParent()->HasChild(onDisk));
+    {
+        std::ifstream f(pathOnDisk);
+        std::stringstream buffer;
+        buffer << f.rdbuf();
+        TR_ASSERT(t, buffer.str().find("edited") != std::string::npos);
+    }
 
-    RuntimeConfig::Instance().SetOutputConsole(prevConsole);
+    // Unmodified: closes without asking
+    auto onDiskAgain = Editor::Instance().OpenDocumentFromWorkspace(onDisk);
+    TR_ASSERT(t, onDiskAgain != nullptr);
+    TR_ASSERT(t, !onDiskAgain->IsModified());
+    TR_ASSERT(t, cmd->Execute({}));
+    TR_ASSERT(t, !rootView.HasModal());
+    TR_ASSERT(t, !Editor::Instance().IsDocumentOpen(onDiskAgain));
+
     fs::remove_all(root, ec);
+    return kTR_Pass;
+}
+
+// '.q' with a buffer that has unsaved changes asks; Cancel keeps everything (exiting isn't testable here -
+// it stops the run loop for good)
+DLL_EXPORT int test_jsengine_quitcmd(ITesting *t) {
+    TR_ASSERT(t, RuntimeConfig::Instance().HasPluginCommand("q"));
+    auto cmd = RuntimeConfig::Instance().GetPluginCommand("q");
+    ModalHostFixture host;
+    auto &rootView = host.rootView;
+
+    auto node = Editor::Instance().GetWorkspace()->NewDocument("quitcmd.txt");
+    auto doc = Editor::Instance().OpenDocumentFromWorkspace(node);
+    TR_ASSERT(t, doc != nullptr);
+    doc->GetTextBuffer()->AddLineUTF8("edited");
+    TR_ASSERT(t, doc->IsModified());
+
+    TR_ASSERT(t, cmd->Execute({}));
+    TR_ASSERT(t, rootView.HasModal());
+    rootView.HandleKeyPress(Letter('c'));
+    TR_ASSERT(t, !rootView.HasModal());
+    TR_ASSERT(t, !Runloop::IsQuitRequested());
+    TR_ASSERT(t, Editor::Instance().IsDocumentOpen(doc));
+
+    Editor::Instance().CloseDocument(doc);
     return kTR_Pass;
 }

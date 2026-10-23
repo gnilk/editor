@@ -137,10 +137,6 @@ namespace gedit {
         }
         // This is purely done in order to handle the window stuff...
         virtual void Draw() {
-            if (modal != nullptr) {
-                modal->Draw();
-                return;
-            }
             DoDraw();
         }
 
@@ -297,10 +293,6 @@ namespace gedit {
         virtual void PostMessage(MessageCallback callback) final;
         //virtual int ProcessMessageQueue() final;
 
-        void CloseModal() {
-            SetActive(false);
-        }
-
         virtual void Resize() final {
             DoResize();
             Initialize();
@@ -344,6 +336,11 @@ namespace gedit {
         // Override these to handles, they are called in an event kind of manner on certain actions
         //
     protected:
+        // An overlay (a modal) is not a subview - not drawn, hit-tested or resized with the tree - but its
+        // invalidation and unhandled input still bubble up to us
+        void SetOverlayParent(ViewBase *overlay) {
+            overlay->parentView = this;
+        }
         virtual void OnViewInitialized() {
             for(auto view : subviews) {
                 view->OnViewInitialized();
@@ -426,7 +423,6 @@ namespace gedit {
         WindowBase *window = nullptr;       // The underlying graphical window
         ViewBase *layoutHandler = nullptr;
         ViewBase *parentView = nullptr;
-        ViewBase *modal = nullptr;
         Rect viewRect = {};
         std::string sessionId = {};         // stable id for layout/session persistence (empty = not persisted)
         bool isInitialized = false;

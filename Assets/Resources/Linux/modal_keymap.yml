@@ -1,0 +1,18 @@
+#
+# Keymap while a modal (dialog) is up. Deliberately no 'inherit': editor actions must not fire behind
+# a dialog. There is no command mode in a modal - Esc cancels it.
+#
+keymap: {
+  actions: {
+    CloseModal: KeyCode_Escape,
+    CommitLine: KeyCode_Return,
+    NavigateLineUp: KeyCode_UpArrow,
+    NavigateLineDown: KeyCode_DownArrow,
+    NavigateLeft: KeyCode_LeftArrow,
+    NavigateRight: KeyCode_RightArrow,
+    NavigatePageUp: KeyCode_PageUp,
+    NavigatePageDown: KeyCode_PageDown,
+    NavigateLineHome: KeyCode_Home,
+    NavigateLineEnd: KeyCode_End,
+  }
+}

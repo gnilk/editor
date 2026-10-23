@@ -96,7 +96,9 @@
       "header_background": "var(blue4)",
       "header_foreground": "var(grey2)",
       "header_active_background": "var(grey)",
-      "header_active_foreground": "var(white3)"
+      "header_active_foreground": "var(white3)",
+      "modal_background": "var(blue4)",
+      "modal_foreground": "var(white3)"
     },
     "terminal": {
       "background": "#000000",

@@ -75,6 +75,17 @@ namespace gedit {
             }
         }
 
+        // Whether a modal is up (RootView's modal stack went empty <-> non-empty). The app swaps to the
+        // modal keymap behind this - the toolkit doesn't know about keymaps.
+        void SetOnModalActive(std::function<void(bool isModalActive)> hook) {
+            onModalActive = std::move(hook);
+        }
+        void NotifyModalActive(bool isModalActive) const {
+            if (onModalActive) {
+                onModalActive(isModalActive);
+            }
+        }
+
         // AI-6: copies of the active theme's color tables, pushed in by the app whenever the theme
         // (re)loads (Editor::ConfigureTheme, ThemeAPI::Reload). Copies, not a Theme::Ref - Theme
         // extends ConfigNode (an app/config concept) and Theme::Reload() clears+rebuilds colorConfig,
@@ -100,6 +111,7 @@ namespace gedit {
         ViewBase *quickCmdView = nullptr;
         bool quickCommandActive = false;
         std::function<void()> onLeaveQuickCommand = nullptr;
+        std::function<void(bool isModalActive)> onModalActive = nullptr;
         NamedColors uiColors;
         NamedColors globalColors;
     };

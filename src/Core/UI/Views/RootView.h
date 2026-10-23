@@ -5,11 +5,15 @@
 #ifndef GEDIT_ROOTVIEW_H
 #define GEDIT_ROOTVIEW_H
 
+#include <algorithm>
+#include <vector>
+
 #include "logger.h"
 
 #include "Core/UI/UIHost.h"
 #include "Core/MouseEvent.h"
 #include "ViewBase.h"
+#include "ModalView.h"
 
 namespace gedit {
     // The root view should be the first view and cover the full screen...
@@ -31,13 +35,53 @@ namespace gedit {
             auto screen = UIHost::Instance().GetScreen();
             viewRect = screen->Dimensions();
             window = screen->UpdateWindow(window, viewRect, WindowBase::kWin_Invisible, WindowBase::kWinDeco_None);
+            // Modals aren't subviews - re-centre them on the new screen
+            for (auto &modal : modals) {
+                modal->Resize();
+            }
         }
 
         virtual void Draw() override {
             auto logger = gnilk::Logger::GetLogger("RootView");
             logger->Debug("==== Begin Draw Cycle ====");
+            // A modal closed from outside an input dispatch (a posted message) goes here
+            ReapClosedModals();
             ViewBase::Draw();
+            // Bottom to top, a nested modal sits on its parent
+            for (auto &modal : modals) {
+                modal->Draw();
+            }
             logger->Debug("==== End Draw Cycle ====");
+        }
+
+        //
+        // Modal host (docs/modal_fixes.md §3.1). Non-blocking: the modal is drawn on top of the tree and
+        // gets all input until it closes. A modal may show another one (a picker -> a confirm).
+        //
+        void ShowModal(ModalView::Ptr modal) {
+            auto wasModalActive = HasModal();
+            if (wasModalActive) {
+                TopModal()->SetActive(false);
+            }
+            SetOverlayParent(modal.get());
+            modal->Initialize();
+            modal->SetActive(true);
+            modals.push_back(std::move(modal));
+            InvalidateAll();
+            if (!wasModalActive) {
+                UIHost::Instance().NotifyModalActive(true);
+            }
+        }
+
+        bool HasModal() const {
+            return !modals.empty();
+        }
+
+        ModalView *TopModal() {
+            if (modals.empty()) {
+                return nullptr;
+            }
+            return modals.back().get();
         }
 
         // Layout session (docs/session-cache.md §4.1) — the focused top-view is a RootView concept, so
@@ -124,12 +168,12 @@ namespace gedit {
         }
 
         bool OnAction(const EditorAction &kpAction) override {
-            // The modal takes control over everything...
-            if (modal != nullptr) {
-                return modal->OnAction(kpAction);
+            // The top modal takes everything - an action it doesn't handle goes nowhere else
+            if (HasModal()) {
+                TopModal()->OnAction(kpAction);
+                ReapClosedModals();
+                return true;
             }
-
-
 
             // Dispatch to top-view...
             if ((TopView() != nullptr) && TopView()->OnAction(kpAction)) {
@@ -157,8 +201,10 @@ namespace gedit {
         }
 
         void HandleKeyPress(const KeyPress &keyPress) override {
-            if (modal != nullptr) {
-                modal->HandleKeyPress(keyPress);
+            if (HasModal()) {
+                TopModal()->HandleKeyPress(keyPress);
+                ReapClosedModals();
+                return;
             }
             if (TopView() == nullptr) {
                 return;
@@ -175,11 +221,20 @@ namespace gedit {
         // call OnMouseEvent on the hit view, bubbling to parentView while it returns false.
         bool DispatchMouse(const MouseEvent &mouseEvent) {
             ViewBase *hit = nullptr;
-            if (modal != nullptr) {
+            if (HasModal()) {
+                auto modal = TopModal();
                 hit = modal->HitTest(mouseEvent.x, mouseEvent.y);
                 if (hit == nullptr) {
                     return true; // swallow - modal owns all input while active
                 }
+                // Stop at the modal - its overlay parent (us) is not part of the dialog
+                for (auto view = hit; view != nullptr; view = view->GetParentView()) {
+                    if (view->OnMouseEvent(mouseEvent) || (view == modal)) {
+                        break;
+                    }
+                }
+                ReapClosedModals();
+                return true;
             } else {
                 hit = HitTest(mouseEvent.x, mouseEvent.y);
                 if (hit == nullptr) {
@@ -251,6 +306,29 @@ namespace gedit {
         }
 
     protected:
+        // Pop every modal marked closed, then call its OnClosed - never from inside the modal's own
+        // dispatch. A callback may show a new modal, so look again after each one.
+        void ReapClosedModals() {
+            for (;;) {
+                auto it = std::find_if(modals.rbegin(), modals.rend(), [](const ModalView::Ptr &modal) {
+                    return modal->IsClosing();
+                });
+                if (it == modals.rend()) {
+                    return;
+                }
+                auto closed = std::move(*it);
+                modals.erase(std::next(it).base());
+                closed->SetActive(false);
+                if (HasModal()) {
+                    TopModal()->SetActive(true);
+                } else {
+                    UIHost::Instance().NotifyModalActive(false);
+                }
+                InvalidateAll();
+                closed->NotifyClosed();
+            }
+        }
+
         void LeaveQuickCommand() {
             UIHost::Instance().NotifyLeaveQuickCommand();
         }
@@ -272,6 +350,7 @@ namespace gedit {
     protected:
         int idxCurrentTopView = -1;
         std::vector<TopViewInstance> topViews;
+        std::vector<ModalView::Ptr> modals;     // Top of the stack (back) gets the input
     };
 }
 

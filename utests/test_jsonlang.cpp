@@ -15,6 +15,7 @@ DLL_EXPORT int test_jsonlang(ITesting *t);
 DLL_EXPORT int test_jsonlang_string(ITesting *t);
 DLL_EXPORT int test_jsonlang_keywords(ITesting *t);
 DLL_EXPORT int test_jsonlang_indent(ITesting *t);
+DLL_EXPORT int test_jsonlang_closeafterword(ITesting *t);
 }
 
 DLL_EXPORT int test_jsonlang(ITesting *t) {
@@ -107,5 +108,28 @@ DLL_EXPORT int test_jsonlang_indent(ITesting *t) {
     }
 
     TR_ASSERT(t, workspace->RemoveDocument(node->GetDocument()));
+    return kTR_Pass;
+}
+
+// A closing brace/bracket right after a word is its own token ('true}' is 'true' + '}')
+DLL_EXPORT int test_jsonlang_closeafterword(ITesting *t) {
+    auto tokenizer = Editor::Instance().GetLanguageForExtension(".json")->Tokenizer();
+    std::vector<LangToken> tokens;
+    tokenizer.TokenizeText(U"{\"a\": true}\n[null]", [&tokens](size_t, const LangToken &token) {
+        tokens.push_back(token);
+    });
+    bool hasTrue = false;
+    bool hasNull = false;
+    size_t numClose = 0;
+    for (auto &token : tokens) {
+        hasTrue = hasTrue || ((token.string == U"true") && (token.classification == kLanguageTokenClass::kKeyword));
+        hasNull = hasNull || ((token.string == U"null") && (token.classification == kLanguageTokenClass::kKeyword));
+        if ((token.string == U"}") || (token.string == U"]")) {
+            numClose++;
+        }
+    }
+    TR_ASSERT(t, hasTrue);
+    TR_ASSERT(t, hasNull);
+    TR_ASSERT(t, numClose == 2);
     return kTR_Pass;
 }

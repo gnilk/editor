@@ -477,7 +477,7 @@ function's start has scrolled out of view; scope-aware brace matching and indent
 | # | Step | Status |
 |---|---|---|
 | 0 | **Measure.** `TokenizeText` fast path + a release-only benchmark (lines/s) on sqlite3.c and this repo. Decides threading and whether the lexer needs speeding up first. | ✅ §11.1 - plus two tokenizer fixes (~3-4x, highlighter too) |
-| 1 | **C++ structure engine** over strings - the low-hanging fruit only: namespaces, classes/structs, methods/functions, members, `#include`, and the edges visible right in the declaration (`inherits`, `holds` + ownership). Rules as tables in code (§5.4), shape + edge tests (§7). No storage yet - dump symbols/edges for a file and judge on this repo. Nothing from §8.1. | - |
+| 1 | ✅ §11.2 - **C++ structure engine** over strings - the low-hanging fruit only: namespaces, classes/structs, methods/functions, members, `#include`, and the edges visible right in the declaration (`inherits`, `holds` + ownership). Rules as tables in code (§5.4), shape + edge tests (§7). No storage yet - dump symbols/edges for a file and judge on this repo. Nothing from §8.1. | - |
 | 1b | **Semantic highlighting from the file itself** (§10.1): new token classes with `regular` fallback, reclassification via the post-line hook, the open file's own structure pass. New theme keys in `colors.json`; no theme-format work. | - |
 | 1c | **Theme importer** (§10.1, D13): Sublime / VS Code theme → GoatEdit `theme.yml` + `colors.json` via the scope table; `--import-theme`. Independent of the index - can come any time after 1b. | - |
 | 2 | **In-memory index + Go to symbol** over the workspace, in the background: indexer threads, resolution (§5.2), query ranking, `SymbolSearchModal`. | - |
@@ -542,6 +542,55 @@ tests are green). After:
 - What's left in the profile: `GetNextToken`'s linear scans (operators, whole-word lists), the action
   hash lookup per token, per-token `u32string` in `LangToken`. Further gains need structural changes (a
   trie / first-char table for operators, a token sink with views) - not worth it now.
+
+### 11.2 Step 1 results (2026-10-23)
+
+**What was built:** `src/Core/Index/` - `FileStructure.h` (plain data: `CodeSymbol`, `CodeEdge`),
+`StructureScanner` (interface), `CPPStructureScanner` (C and C++). One pass over `TokenizeText`'s tokens:
+preprocessor lines first (`#include` → edge, `#define` → macro, conditionals keep the first arm, `#if 0`
+keeps the `#else`, `\` continuations skipped, comments/strings dropped), then a scope stack + a statement
+buffer classified at `{` / `;` / `}`; function bodies are skipped by brace counting.
+
+- **Symbols:** namespaces (incl. `a::b`), class/struct/union (incl. anonymous, `typedef struct {...} Name`
+  named at the `;` with members re-qualified), enums + enumerators (plain: enclosing scope; `enum class`:
+  scoped), methods (in a class) / functions (free or out-of-line `A::f` - the qualifier may be a class or a
+  namespace, resolution is step 2), constructors/destructors/operators, members, variables (incl.
+  out-of-line static members `T Runloop::bQuit`), aliases (`using X =`, `typedef`, function pointer
+  typedefs), macros. Each with qualified name, parent, name position, `beginLine`/`endLine` extent,
+  declaration vs definition.
+- **Edges:** `inherits` (base lists: access, virtual, template args stripped), `holds` + ownership
+  (by value / `unique_ptr` / `T::Ptr` own; `shared_ptr` / `weak_ptr` / `T::Ref` share; `*` / `&` borrow;
+  containers take their element's; `std::` library types and builtins give no edge), `includes`
+  (quoted / system).
+- **Handled noise:** macro call prefixes (`DECLARE_X(Foo) void f();`), macro statements (`REGISTER(x);`),
+  macro-headed blocks (`TEST(a, b) {`), export macros, attributes, `template<...>`, initializer braces
+  (`= {...}`, `Foo f{1}`, ctor init lists `: a(1), b{2} {`), lambdas, default arguments, `extern "C" {`.
+- **Tests:** 9 shape cases in `codeindex` (classes, inherits, holds, out-of-line, enums, C typedefs,
+  preprocessor, macros, initializers). Mutation-checked: conditionals ignored, no macro-prefix strip,
+  `Ref` as owns, the ctor-init-list marker removed - each fails its case.
+- **Dump:** `gedit-bench --dump <file-or-dir>` - judged on GoatEdit `src/Core`, testrunner, noc_goa (C),
+  PuckoNew. No crashes over all corpora including PuckoNew's vendored/generated code (`bld/`, `examples/`).
+- **Speed:** lexer + structure ~450-620k lines/s on one thread (the structure pass adds ~13 % to the
+  lexer). PuckoNew `src` (437k lines): 0.7 s, 30k symbols, 6.9k edges.
+
+**Found on the way (lexer bugs, fixed - affect highlighting too):**
+
+- C++: `{` / `}` were not word-ending postfix characters, so `return {value};` lexed `value}` as one token
+  - the braces didn't balance (and the `}` was coloured as text). Test `cpplang braceafterword`.
+- JSON: same for `{ } [ ]` - `true}` was one token, not a keyword + `}`. Test `jsonlang closeafterword`.
+
+**Seen in the dumps:**
+
+- `Document` *shares* its `TextBuffer` (`TextBuffer::Ref`) although the comment says it owns it - the kind
+  of fact the index is for.
+- noc_goa: `#ifdef __GOA_AMIGA__` first arm wins (`float ambient` instead of `GOA_FRGBA`) - the parked
+  platform-variant problem (§8.1), as expected.
+- PuckoNew: the most-derived bases are interfaces with many platform implementations (`Platform` 15,
+  `CPUBoard` 16, `GPIOController` 12, `IWriter` 29) - the variant structure becomes visible as data.
+
+**Known limits (not handled, by design for now):** the most vexing parse (`Foo f(1);` is a function
+declaration), anonymous members not distinguished from named (`vtxinfo.size` is `GOA_MATERIAL::size`),
+locals / local classes / lambdas inside bodies, `#if` arms other than the first, macros that open scopes.
 
 ## 12. Open decisions
 

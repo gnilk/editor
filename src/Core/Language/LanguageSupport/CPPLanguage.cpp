@@ -24,8 +24,9 @@ static const std::u32string cppKeywords = U"alignas alignof and and_eq asm auto 
 // see: https://en.cppreference.com/w/cpp/language/punctuators
 // Note: longer operators must come first — 3-char, then 2-char, then 1-char
 static const std::u32string cppOperators = U"... <=> ->* <<= >>= == ++ -- << >> <= >= != += -= *= /= %= &= ^= |= -> :: && || .* : | % ~ ^ & ? ! . = + - < > ( , * / ) [ ] ; ' \"";
-// The full operator set is used to identify post-fix operators but not used for classification
-static const std::u32string cppOperatorsFull = U"... <=> ->* <<= >>= == ++ -- << >> <= >= != += -= *= /= %= &= ^= |= -> :: && || .* : | % ~ ^ & ? ! . = + - < > ( , * / ) [ ] ; ' \"";
+// The full operator set is used to identify post-fix operators but not used for classification. Braces end a
+// word too - without them 'return {value};' lexes 'value}' and the braces don't balance.
+static const std::u32string cppOperatorsFull = U"... <=> ->* <<= >>= == ++ -- << >> <= >= != += -= *= /= %= &= ^= |= -> :: && || .* : | % ~ ^ & ? ! . = + - < > ( , * / ) [ ] { } ; ' \"";
 //static const std::u32string cppOperatorsFull = U"== ++ -- << >> <= >= != += -= *= /= &= ^= |= :: /* */ // -> && || ^ & ? : ! . = + - < > ( , * / ) [ ] < > ; ' { } \" '";
 static const std::u32string cppLineComment = U"//";
 static const std::u32string cppCodeBlockStart = U"{";

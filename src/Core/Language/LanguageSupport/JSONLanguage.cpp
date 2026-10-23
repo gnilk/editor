@@ -10,6 +10,8 @@ using namespace gedit;
 //
 
 static const std::u32string jsonOperatorsFull = U"=== ++ -- == = < > ; . , : \' ( ) \"";
+// What ends a word: the operators plus braces/brackets ('true}' is 'true' + '}')
+static const std::u32string jsonPostFix = U"=== ++ -- == = < > ; . , : \' ( ) \" { } [ ]";
 
 // Well, not quite right - but until we have an 'array' classification we use this...
 static const std::u32string jsonObjectStart = U"{";
@@ -36,7 +38,7 @@ bool JSONLanguage::Initialize() {
     state->SetIdentifiers(kLanguageTokenClass::kArrayStart, jsonArrayStart);
     state->SetIdentifiers(kLanguageTokenClass::kArrayEnd, jsonArrayEnd);
     state->SetIdentifiers(kLanguageTokenClass::kLineComment, jsLineComment);
-    state->SetPostFixIdentifiers(jsonOperatorsFull);
+    state->SetPostFixIdentifiers(jsonPostFix);
 
     state->GetOrAddAction(U"//",LangLineTokenizer::kAction::kPushState, "in_line_comment");
     state->GetOrAddAction(U"\"",LangLineTokenizer::kAction::kPushState, "in_string");

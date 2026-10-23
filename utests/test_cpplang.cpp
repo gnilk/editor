@@ -27,6 +27,7 @@ DLL_EXPORT int test_cpplang_reparseregion_classification(ITesting *t);
 DLL_EXPORT int test_cpplang_keywords(ITesting *t);
 DLL_EXPORT int test_cpplang_types(ITesting *t);
 DLL_EXPORT int test_cpplang_keywords_sample(ITesting *t);
+DLL_EXPORT int test_cpplang_braceafterword(ITesting *t);
 }
 
 DLL_EXPORT int test_cpplang(ITesting *t) {
@@ -536,5 +537,27 @@ DLL_EXPORT int test_cpplang_keywords_sample(ITesting *t) {
     TR_ASSERT(t, line->Attributes()[4].tokenClass == kLanguageTokenClass::kKeyword);  // reinterpret_cast
 
     TR_ASSERT(t, workspace->RemoveDocument(node->GetDocument()));
+    return kTR_Pass;
+}
+
+// A brace right after a word is its own token: 'return {value};' has the '}' as kCodeBlockEnd - otherwise
+// the body's braces don't balance (found by the code index structure pass)
+DLL_EXPORT int test_cpplang_braceafterword(ITesting *t) {
+    auto tokenizer = Editor::Instance().GetLanguageForExtension(".cpp")->Tokenizer();
+    std::vector<LangToken> tokens;
+    tokenizer.TokenizeText(U"return {value};\nFoo f{1};\nint a{b};", [&tokens](size_t, const LangToken &token) {
+        tokens.push_back(token);
+    });
+    size_t numOpen = 0;
+    size_t numClose = 0;
+    bool hasValue = false;
+    for (auto &token : tokens) {
+        numOpen += (token.classification == kLanguageTokenClass::kCodeBlockStart) ? 1 : 0;
+        numClose += (token.classification == kLanguageTokenClass::kCodeBlockEnd) ? 1 : 0;
+        hasValue = hasValue || (token.string == U"value");
+    }
+    TR_ASSERT(t, numOpen == 3);
+    TR_ASSERT(t, numClose == 3);
+    TR_ASSERT(t, hasValue);
     return kTR_Pass;
 }

@@ -323,6 +323,43 @@ The editor wires it (root, excludes, cache path, open-document hooks) - same rul
 - Performance smoke (release only, like `sqlite3-parse`): lines/s for the lexer path and query time on a
   generated 1M-symbol set.
 
+### 7.1 Real code bases to judge it on
+
+Unit tests prove the shapes; whether the index is *useful* is judged on real projects the user knows
+well (counts: C/C++ files and lines, measured 2026-10-23, build dirs and `.git` excluded). Live,
+disciplined code bases come first - they're the ones where a wrong edge is noticed at once.
+
+**Stage 1 - live projects, used daily:**
+
+| Project | Path (`~/src/...`) | Size | Why it's a good test |
+|---|---|---|---|
+| GoatEdit | `github.com/editor` | 351 files, ~58k lines (C++) | Our own code - the layering rules (CLAUDE.md) are known, so edges can be checked against them. Step 1 target. |
+| testrunner | `github.com/testrunner` | 154 files, ~15k lines (C++) | Live and used daily (GoatEdit's test framework). Cross-platform (platform-specific files / `#ifdef`s), plugin-style loading of test libraries. |
+| noc_goa | `github.com/noc_goa` | 180 files, ~73k lines (mostly C, since 1998) | Live, still in use. Old C: no classes, structure is structs + function pointers + naming conventions + files. Tests that the index is still useful without OO (modules, includes, struct composition, function-pointer tables). |
+| vcpu | `github.com/vcpu` | 130 files, ~23k lines (C++) | An experiment, less disciplined - last of stage 1. Small but complex: CPU + MMU emulator, AST-style assembler, several linkers - hierarchies and interfaces, the §8.1 problems. |
+
+**Stage 2 - a large, modular system:**
+
+| Project | Path (`~/src/...`) | Size | Why it's a good test |
+|---|---|---|---|
+| PuckoNew | `embedded/libraries/PuckoNew` | ~1400 files, ~560k lines (C/C++) | Multi-MCU meta-OS with its own component/build system: modules and dependencies are the point. External dependencies (mbedTLS, lwIP, SQLite) are all modularised components; the SQLite amalgamation (`sqlite3.c`, 238k lines / 8.4 MB) lives in the source tree but is not really used. **`src/Pucko/Platforms`** (~430 files) is an elaborate platform tree - `arduino/esp32`, `arm/{efr32,nrf52,nrf9160}`, `espidf`, `macos`, `win32`, `zephyr/{nrf52,nrf9160,stm32/...}`, `generic` - each with its own `Components/`; it has repeatedly confused AI audits. |
+
+**Stage 3 - scale:** the Linux kernel (~30M lines).
+
+Notes from the counts:
+
+- **Lines are not structure.** In PuckoNew one vendored file is ~40 % of the lines, and a shallow look
+  (file sizes, text search) says SQLite is a big part of the system. A deeper analysis would show the
+  opposite: it's barely used and the external dependencies are carefully managed behind components. The
+  index must be able to show *that* - who actually depends on a component, through which interface -
+  rather than echo the line counts. So: external components are modules with a public surface (their
+  headers / the names that are used) and internals indexed shallowly or not at all; excludes and a size
+  cap (D5) from step 2; and a "depended on by" count per module that reflects real use.
+- **C matters as much as C++** (noc_goa, parts of PuckoNew): the C++ rules must degrade gracefully to C -
+  structs, typedefs, function prototypes/definitions, `#include`, function-pointer members.
+- Order: stage 1 GoatEdit (step 1) → testrunner → noc_goa (C) → vcpu; stage 2 PuckoNew (modules,
+  components, external dependencies); stage 3 the Linux kernel.
+
 ## 8. Risks
 
 - **Lexer speed** - the measured editor path is ~40k lines/s. If the fast path can't reach a few hundred
@@ -353,6 +390,7 @@ steps; each is listed with what the index would need, so the schema leaves room.
 | **Singletons / service locators** | `Editor::Instance().GetClipBoard()` | a hidden dependency - not in any member or parameter | `uses` on `Instance()` calls; easy to collect, worth showing per module (who reaches the singleton) |
 | **Macros** | a macro that declares a class or opens a scope | the structure is only visible after expansion | lexer sees the macro name; per-project rules can say "this macro declares X" (§5.4) |
 | **Templates / CRTP / type aliases** | `class A : public Base<A>`, `using Ref = std::shared_ptr<T>` | the real type is a parameter or an alias | keep the name as written; aliases resolved through the index; no instantiation |
+| **Build variants / platform selection** | PuckoNew `src/Pucko/Platforms`: the same interface implemented once per platform (`macos/`, `win32/`, `zephyr/nrf52/`, ...), the build picks one | a text or name index sees N definitions of one thing and calls it ambiguous or duplicated; which one is "real" depends on the build configuration, not the source | a **variant** dimension on files/modules (platform dir = variant of an interface module), edges `implements-for-platform`; group the N definitions as one interface with N variants instead of N conflicts. Ideally read from the build system's selection, at first from directory conventions (project rules, §5.4) |
 | **Cross-language** | JS plugins calling into `EditorAPI`, keymaps naming actions | different languages, a binding layer in between | per-language edges + a binding table (`dukglue_register_method` names) - much later |
 
 The general rule: **when the tool doesn't know, it shows that** (ambiguous, unresolved, "via

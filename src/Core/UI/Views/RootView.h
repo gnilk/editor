@@ -13,7 +13,7 @@
 #include "Core/UI/UIHost.h"
 #include "Core/MouseEvent.h"
 #include "ViewBase.h"
-#include "ModalView.h"
+#include "Core/UI/Modals/ModalView.h"
 
 namespace gedit {
     // The root view should be the first view and cover the full screen...

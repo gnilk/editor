@@ -8,7 +8,7 @@
 #include "EditorAPI.h"
 #include "Core/RuntimeConfig.h"
 #include "Core/UI/Views/RootView.h"
-#include "Core/UI/Views/ConfirmModal.h"
+#include "Core/UI/Modals/ConfirmModal.h"
 #include "Core/UnicodeHelper.h"
 #include "Core/ClipBoard.h"
 

@@ -9,7 +9,7 @@
 #include <string>
 
 #include "logger.h"
-#include "ViewBase.h"
+#include "Core/UI/Views/ViewBase.h"
 
 namespace gedit {
     //

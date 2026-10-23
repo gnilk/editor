@@ -102,7 +102,12 @@ keypresses via `KeypressAndActionHandler`. Editor-specific concrete views (`src/
 - `TerminalView` — embedded shell terminal (uses `forkpty`)
 - `WorkspaceView` — file browser panel
 - `HexView` — read-only hex projection of a document
-- Modal views (`ListSelectionModal`, `TreeSelectionModal`, generic, `src/Core/UI/Views/`) overlay the main layout
+
+Modals live apart from the views, in their own `Modals/` directories, so a new view is not modelled on
+one: `ModalView` (overlay base - own window, deferred close, parented via `SetOverlayParent`, not a
+subview) plus the generic `ConfirmModal`, `ListSelectionModal`, `TreeSelectionModal` in
+`src/Core/UI/Modals/`. The modal stack is hosted by `RootView` - the only file under `Views/` that may
+include `Modals/`.
 
 Real app layout (`main.cpp`): `RootView > HSplitViewStatus[ upper = VSplitView[ workspace | VStack>HStack>editor ], lower = terminal ]`. The status line is drawn ON the HSplit splitter row (`HSplitViewStatus::DrawSplitter` at `GetSplitRow() == splitterPos`).
 

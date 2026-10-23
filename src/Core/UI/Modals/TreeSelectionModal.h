@@ -14,7 +14,7 @@
 #include "Core/VerticalNavigationViewModel.h"
 #include "Core/UI/Views/VStackView.h"
 
-#include "TreeView.h"
+#include "Core/UI/Views/TreeView.h"
 
 namespace gedit {
     template <typename T>

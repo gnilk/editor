@@ -395,11 +395,11 @@ list(APPEND uisrc src/Core/UI/Views/SingleLineView.h)
 list(APPEND uisrc src/Core/UI/Views/TestView.cpp src/Core/UI/Views/TestView.h)
 
 # Modals / dialogs
-list(APPEND uisrc src/Core/UI/Views/ModalView.cpp src/Core/UI/Views/ModalView.h)
-list(APPEND uisrc src/Core/UI/Views/ConfirmModal.cpp src/Core/UI/Views/ConfirmModal.h)
-list(APPEND uisrc src/Core/UI/Views/ListSelectionModal.cpp src/Core/UI/Views/ListSelectionModal.h)
+list(APPEND uisrc src/Core/UI/Modals/ModalView.cpp src/Core/UI/Modals/ModalView.h)
+list(APPEND uisrc src/Core/UI/Modals/ConfirmModal.cpp src/Core/UI/Modals/ConfirmModal.h)
+list(APPEND uisrc src/Core/UI/Modals/ListSelectionModal.cpp src/Core/UI/Modals/ListSelectionModal.h)
 list(APPEND uisrc src/Core/UI/Views/TreeView.h)
-list(APPEND uisrc src/Core/UI/Views/TreeSelectionModal.cpp src/Core/UI/Views/TreeSelectionModal.h)
+list(APPEND uisrc src/Core/UI/Modals/TreeSelectionModal.cpp src/Core/UI/Modals/TreeSelectionModal.h)
 
 # Base controller
 list(APPEND uisrc src/Core/UI/Controllers/BaseController.cpp src/Core/UI/Controllers/BaseController.h)

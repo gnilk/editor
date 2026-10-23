@@ -297,7 +297,7 @@
 #include "Core/Editor/Views/HSplitViewStatus.h"
 #include "Core/Editor/Views/WorkspaceView.h"
 
-#include "Core/UI/Views/TreeSelectionModal.h"
+#include "Core/UI/Modals/TreeSelectionModal.h"
 #include "Core/UI/Views/TestView.h"
 
 using namespace gedit;

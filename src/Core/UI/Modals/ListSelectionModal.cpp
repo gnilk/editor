@@ -4,8 +4,8 @@
 //
 
 #include "ListSelectionModal.h"
-#include "VStackView.h"
-#include "SingleLineView.h"
+#include "Core/UI/Views/VStackView.h"
+#include "Core/UI/Views/SingleLineView.h"
 #include "Core/NamedColors.h"
 #include "Core/UI/UIHost.h"
 

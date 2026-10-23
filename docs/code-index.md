@@ -417,6 +417,47 @@ What the index enables once it exists (not v1, but the schema must allow them):
   `Core/Session`", "only `RootView` under `Views/` includes `Modals/`") checked on every re-index, shown
   like diagnostics. The layering decisions written as prose in CLAUDE.md become checked facts.
 - **Impact**: before changing a type, what depends on it - transitively, per module.
+
+### 10.1 Semantic highlighting - the visible proof that the index works
+
+Today every identifier is `kRegular` - `Document`, `SearchFor`, `viewTopLine`, `MAX_BUFFER_SIZE` all get
+one colour. The structure pass and the index know what each name *is*, so the highlighter can show it.
+The colours are mostly a way to **see** that the indexing works - a wrongly coloured name is a bug
+report for free.
+
+- **Kinds:** user type (class/struct/union/enum/alias), function/method, member, macro, enum value,
+  namespace. New `kLanguageTokenClass` values + theme keys, each **falling back to `regular`** so
+  existing themes don't change.
+- **Two sources, cheapest first:** (1) the open file's own structure pass (members, local types,
+  methods) - no index needed, can come right after step 1 (step 1b); (2) the workspace index for names
+  declared elsewhere (`ViewBase` used in `RootView.cpp`) - after step 2. A name → kind lookup is a hash
+  probe per identifier, nothing next to the lexing.
+- **Hook:** a reclassification pass over a line's `kRegular` identifiers after the tokenizer -
+  `LanguageBase::OnPostProcessParsedLine` (the per-line callback markdown uses) is the seam. The
+  language layer must not depend on the index: the editor injects a plain `name → kind` lookup.
+- **Ambiguous names** (a type here, a member there) stay `regular` or take the local meaning first -
+  never a guess.
+
+**Themes - keep the Sublime route.** Themes reuse Sublime's colour-scheme *language* (`variables`,
+`hsl()`/`var()`/`color()`/`alpha()`), but the colour *keys* are GoatEdit's own token-class names in its
+own sections (`globals`/`content`/`ui`/`terminal`). A real `.sublime-color-scheme` colours code through
+its `rules` (`{"scope": "entity.name.class", "foreground": ...}`), which `Theme.cpp` doesn't read today -
+so a Sublime scheme's syntax colours don't carry over as-is. To make multiple themes cheap:
+
+- Give every token class a **Sublime scope name** (one table): `keyword` → `keyword`, `known_type` →
+  `storage.type`, `string` → `string`, `line_comment` → `comment.line`, and the new kinds →
+  `entity.name.type` / `entity.name.class`, `entity.name.function`, `variable.other.member`,
+  `entity.name.namespace`, `constant.other.enum` (exact names to check against Mariana/Monokai), macro →
+  `entity.name.macro` / `support.macro`.
+- The theme resolves a class's colour from (1) GoatEdit's own key if present, (2) else the scheme's
+  `rules` - best (longest) matching scope selector, (3) else `regular`. Existing GoatEdit themes keep
+  working; a stock Sublime scheme starts to work.
+- Scope selectors can be much richer in Sublime (`source.c++ entity.name.function - meta.block`); v1
+  takes plain prefix matching on a single scope - enough for the stock schemes' common rules.
+
+**Same data, beyond colour:** code folding from symbol extents; a scope breadcrumb
+(`gedit › Document › SearchFor`) in the header/status line; a sticky scope line when the enclosing
+function's start has scrolled out of view; scope-aware brace matching and indent.
 - **Navigate by structure**: next/previous symbol, go to parent scope, jump between declaration and
   definition.
 - **Edit in structure**: open a symbol (one function) as the unit of editing rather than a whole file;
@@ -429,6 +470,7 @@ What the index enables once it exists (not v1, but the schema must allow them):
 |---|---|---|
 | 0 | **Measure.** `TokenizeText` fast path + a release-only benchmark (lines/s) on sqlite3.c and this repo. Decides threading and whether the lexer needs speeding up first. | ✅ §11.1 - plus two tokenizer fixes (~3-4x, highlighter too) |
 | 1 | **C++ structure engine** over strings - the low-hanging fruit only: namespaces, classes/structs, methods/functions, members, `#include`, and the edges visible right in the declaration (`inherits`, `holds` + ownership). Rules as tables in code (§5.4), shape + edge tests (§7). No storage yet - dump symbols/edges for a file and judge on this repo. Nothing from §8.1. | - |
+| 1b | **Semantic highlighting from the file itself** (§10.1): new token classes with `regular` fallback, reclassification via the post-line hook, the open file's own structure pass. Plus the Sublime-scope table / `rules` reading for themes. | - |
 | 2 | **In-memory index + Go to symbol** over the workspace, in the background: indexer threads, resolution (§5.2), query ranking, `SymbolSearchModal`. | - |
 | 3 | **Relationship views**: hierarchy and composition (trees, §5.5), "derived from / held by" from any symbol. | - |
 | 4 | **Modules**: file → module roll-up, dependency view + matrix, cycles; DOT/Mermaid export. | - |
@@ -507,3 +549,5 @@ tests are green). After:
 | D9 | Structure rules (§5.4): YAML in the config dir (like keymaps/themes, user/project overridable) or tables in the language classes? | Tables in code first (step 1); config once the shape has settled (step 7). |
 | D10 | Module = directory, or declared? | Directory by default; declared modules / layers in `.goatedit/` later (§5.3). |
 | D11 | Graph pictures: export only (DOT/Mermaid), or a pixel graph view in the SDL backend? | Export first; a drawn view only if the trees/matrix aren't enough. |
+| D12 | A full parser (e.g. the hand-written AST parser in `vcpu`, which drives the assembler and a scripting language) as a second structure producer? | Overkill for C/C++ (shallow pass instead); a good fit for languages we control (the vcpu assembler / script). The structure output (symbols + edges) is the interface, so a full parser can plug in next to the shallow pass later. tree-sitter is the third-party equivalent if the shallow pass proves too weak. |
+| D13 | Themes: read Sublime `rules` (scope → colour) in addition to GoatEdit's keys? | Yes, with step 1b - keeps stock Sublime schemes usable (§10.1). |

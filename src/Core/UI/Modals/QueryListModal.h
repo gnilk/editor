@@ -49,6 +49,9 @@ namespace gedit {
         // Esc
         virtual void OnCancel() {}
 
+        // Insert at the edit cursor (e.g. a paste) and run the query again - only up to the first line break
+        void InsertText(const std::u32string &text);
+
         void OnClosed(bool wasCancelled) override;
         void DrawViewContents() override;
         Rect ComputeRect(const Rect &screenRect) override;

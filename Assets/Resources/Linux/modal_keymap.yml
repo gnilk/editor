@@ -3,6 +3,10 @@
 # a dialog. There is no command mode in a modal - Esc cancels it.
 #
 keymap: {
+  # Modifier aliases are per keymap - the same as default_keymap
+  modifiers: {
+    CopyPasteModifier: KeyCode_Ctrl,
+  },
   actions: {
     CloseModal: KeyCode_Escape,
     CommitLine: KeyCode_Return,
@@ -14,5 +18,7 @@ keymap: {
     NavigatePageDown: KeyCode_PageDown,
     NavigateLineHome: KeyCode_Home,
     NavigateLineEnd: KeyCode_End,
+    # Into a modal's edit line (e.g. the Find field) - the modal decides what it means
+    PasteFromClipboard: CopyPasteModifier + 'v',
   }
 }

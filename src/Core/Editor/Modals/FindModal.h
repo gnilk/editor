@@ -26,6 +26,8 @@ namespace gedit {
 
         // The single-line selection, if any - what Find starts with
         static std::u32string SelectedText(Document::Ref document);
+
+        bool OnAction(const EditorAction &kpAction) override;
     protected:
         std::vector<std::u32string> OnQuery(const std::u32string &query) override;
         void OnPreview(int idxRow) override;

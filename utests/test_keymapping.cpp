@@ -369,5 +369,11 @@ DLL_EXPORT int test_keymapping_find(ITesting *t) {
     auto modalKeymap = Editor::Instance().GetKeyMapping("modal_keymap");
     TR_ASSERT(t, modalKeymap != nullptr);
     TR_ASSERT(t, !modalKeymap->ActionFromKeyPress(keyPress).has_value());
+
+    // Paste reaches a modal's edit line (the Find field)
+    keyPress.key = 'v';
+    auto pasteAction = modalKeymap->ActionFromKeyPress(keyPress);
+    TR_ASSERT(t, pasteAction.has_value());
+    TR_ASSERT(t, pasteAction->action == kAction::kActionPasteFromClipboard);
     return kTR_Pass;
 }

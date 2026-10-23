@@ -5,6 +5,7 @@
 #include "FindModal.h"
 #include "Core/ActionHelper.h"
 #include "Core/Editor.h"
+#include "Core/RuntimeConfig.h"
 
 using namespace gedit;
 
@@ -30,6 +31,23 @@ std::u32string FindModal::SelectedText(Document::Ref document) {
         return {};
     }
     return text.substr(start.x, end.x - start.x);
+}
+
+// Paste goes into the field - the clipboard is an editor service, so the toolkit modal doesn't see it
+bool FindModal::OnAction(const EditorAction &kpAction) {
+    if (kpAction.action != kAction::kActionPasteFromClipboard) {
+        return QueryListModal::OnAction(kpAction);
+    }
+    // Pick up what another application put on the OS pasteboard (as Document::PasteFromClipboard)
+    auto screen = RuntimeConfig::Instance().GetScreen();
+    if (screen != nullptr) {
+        screen->UpdateClipboardData();
+    }
+    auto item = Editor::Instance().GetClipBoard().Top();
+    if (item != nullptr) {
+        InsertText(item->AsText());
+    }
+    return true;
 }
 
 std::vector<std::u32string> FindModal::OnQuery(const std::u32string &query) {

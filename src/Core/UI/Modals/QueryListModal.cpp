@@ -86,6 +86,19 @@ void QueryListModal::OnKeyPress(const KeyPress &keyPress) {
     InvalidateView();
 }
 
+void QueryListModal::InsertText(const std::u32string &text) {
+    auto firstLine = text.substr(0, text.find_first_of(U"\r\n"));
+    if (firstLine.empty()) {
+        return;
+    }
+    auto buffer = input->Buffer();
+    auto idxInsert = std::clamp(inputCursor.position.x, 0, (int)buffer.length());
+    buffer.insert((size_t)idxInsert, firstLine);
+    input = Line::Create(buffer);
+    inputCursor.position.x = idxInsert + (int)firstLine.length();
+    RunQuery();
+}
+
 void QueryListModal::RunQuery() {
     rows = OnQuery(input->Buffer());
     idxTopRow = 0;

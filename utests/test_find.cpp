@@ -23,6 +23,7 @@ extern "C" {
     DLL_EXPORT int test_find_nohits(ITesting *t);
     DLL_EXPORT int test_find_scroll(ITesting *t);
     DLL_EXPORT int test_find_selection(ITesting *t);
+    DLL_EXPORT int test_find_paste(ITesting *t);
 }
 
 namespace {
@@ -259,5 +260,31 @@ DLL_EXPORT int test_find_selection(ITesting *t) {
     selection.SetEnd({2, 6});
     TR_ASSERT(t, FindModal::SelectedText(document).empty());
     document->CancelSelection();
+    return kTR_Pass;
+}
+
+// Paste inserts at the field's cursor (only the first line) and narrows like typing - the clipboard is
+// filled from 'outside', the round-trip the GUI takes (E.18)
+DLL_EXPORT int test_find_paste(ITesting *t) {
+    auto document = MakeDocument(100);
+    Fixture fixture;
+    auto findModal = fixture.ShowFind(document, U"5;");
+    TR_ASSERT(t, findModal->GetNumRows() == 10);    // every 'Needle<n>5;' line
+
+    Editor::Instance().GetClipBoard().CopyFromExternal("NEEDLE2\nsecond line");
+    fixture.rootView.OnAction(UIAction(kUIAction::kUIActionLineHome));
+    EditorAction paste;
+    paste.action = kAction::kActionPasteFromClipboard;
+    TR_ASSERT(t, fixture.rootView.OnAction(paste));
+
+    TR_ASSERT(t, findModal->GetQuery() == U"NEEDLE25;");
+    TR_ASSERT(t, findModal->GetNumRows() == 1);
+    TR_ASSERT(t, document->GetLineCursor().idxActiveLine == 25);
+
+    // The cursor is after the pasted text - typing continues there
+    fixture.rootView.HandleKeyPress(Key(' '));
+    TR_ASSERT(t, findModal->GetQuery() == U"NEEDLE2 5;");
+    TR_ASSERT(t, findModal->GetNumRows() == 0);
+    fixture.rootView.OnAction(UIAction(kUIAction::kUIActionCloseModal));
     return kTR_Pass;
 }

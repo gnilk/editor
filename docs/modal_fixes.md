@@ -245,8 +245,14 @@ GUI-verified together with steps 2 + 3 (SDL3).
   selection) + `keymapping` find. Mutation-checked: no lower-part scroll, view top not restored, the case
   flag ignored.
 - Not done here: the `ListSelectionModal` rework (M7, M8) - the list lives in `QueryListModal`; the
-  picker (step 6) can reuse it or the rework happens there. Paste into the edit line (Cmd+V) isn't
-  bound in the modal keymap yet.
+  picker (step 6) can reuse it or the rework happens there.
+- **Paste (follow-up):** `PasteFromClipboard: CopyPasteModifier + 'v'` in `modal_keymap` (which got its
+  own `modifiers:` - aliases are per keymap). The clipboard is an editor service, so the toolkit
+  `QueryListModal` only offers `InsertText` (at the field cursor, up to the first line break, query run
+  again); `FindModal::OnAction` takes the editor action, refreshes from the OS pasteboard
+  (`UpdateClipboardData`, as `Document::PasteFromClipboard`) and inserts `Top()->AsText()`. Tests:
+  `find` paste (clipboard filled via `CopyFromExternal`, E.18) + `keymapping` find; mutation-checked:
+  no cut at the line break, appended instead of at the cursor.
 - Known: on Linux the terminal keymap inherits Ctrl+F, so it opens Find instead of reaching the shell
   (readline forward-char) - the same as the other CopyPasteModifier bindings there.
 

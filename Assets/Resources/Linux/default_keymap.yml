@@ -71,6 +71,8 @@ keymap: {
     ReformatLine: "CopyPasteModifier + 'l'",
     ReformatBlock: "CopyPasteModifier + 'i'",
 
+    # Find in the active document (a dialog listing the hits) - Cmd+F / Ctrl+F
+    Find: "CopyPasteModifier + 'f'",
     NextSearchResult: "KeyCode_Ctrl + 'n'",
     PrevSearchResult: "KeyCode_Ctrl + 'p'",
 

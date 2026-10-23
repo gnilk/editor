@@ -21,6 +21,7 @@ DLL_EXPORT int test_keymapping_inherit_multilevel(ITesting *t);
 DLL_EXPORT int test_keymapping_workspace_inherit(ITesting *t);
 DLL_EXPORT int test_keymapping_cache(ITesting *t);
 DLL_EXPORT int test_keymapping_switchbuffer(ITesting *t);
+DLL_EXPORT int test_keymapping_find(ITesting *t);
 }
 
 //
@@ -344,5 +345,29 @@ DLL_EXPORT int test_keymapping_switchbuffer(ITesting *t) {
             }
         }
     }
+    return kTR_Pass;
+}
+
+// Find: Cmd+F on macOS, Ctrl+F on Linux (CopyPasteModifier) - in the editor and the workspace view; not
+// in a modal (the modal keymap has no Find)
+DLL_EXPORT int test_keymapping_find(ITesting *t) {
+    KeyPress keyPress = {};
+    keyPress.key = 'f';
+    keyPress.isKeyValid = true;
+#ifdef GEDIT_MACOS
+    keyPress.modifiers = Keyboard::kMod_LeftCommand;
+#else
+    keyPress.modifiers = Keyboard::kMod_LeftCtrl;
+#endif
+    for (auto &keymapName : { "default_keymap", "workspace_keymap" }) {
+        auto keymap = Editor::Instance().GetKeyMapping(keymapName);
+        TR_ASSERT(t, keymap != nullptr);
+        auto action = keymap->ActionFromKeyPress(keyPress);
+        TR_ASSERT(t, action.has_value());
+        TR_ASSERT(t, action->action == kAction::kActionFind);
+    }
+    auto modalKeymap = Editor::Instance().GetKeyMapping("modal_keymap");
+    TR_ASSERT(t, modalKeymap != nullptr);
+    TR_ASSERT(t, !modalKeymap->ActionFromKeyPress(keyPress).has_value());
     return kTR_Pass;
 }

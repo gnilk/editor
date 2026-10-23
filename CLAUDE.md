@@ -69,8 +69,8 @@ cd cmake-build-debug && trun -l ./libutests.so                     # list
 
 Test source files live in `utests/`. Each `test_<module>.cpp` corresponds to one module; `test_main.cpp` initializes the editor singleton for all tests. Test functions are `extern "C"` (or `DLL_EXPORT`) and discovered by exported symbol name — adding a new case is just a new function (+ a forward declaration where the file uses one).
 
-**Verified-green set** (372 tests, run from `cmake-build-debug/`):
-`trun -m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,vtermparser,keymapping,hexprojection,bytestream,hexview,indent,session,markdown,folderscanner,foldermonitor,treeview,textbuffer,mouseclicktracker,wrapprojection,config,modal --sequential ./libutests.so`
+**Verified-green set** (382 tests, run from `cmake-build-debug/`):
+`trun -m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,vtermparser,keymapping,hexprojection,bytestream,hexview,indent,session,markdown,folderscanner,foldermonitor,treeview,textbuffer,mouseclicktracker,wrapprojection,config,modal,find --sequential ./libutests.so`
 
 **Do NOT run the full debug suite** — the sqlite3-parse test is intentionally excluded (~1s release, 13–15s debug: syntax highlighter over a large file, no optimizations). `test_timer`/`test_timer_exit` are pre/post module hooks (intentionally empty); logger tests are obsolete (external lib has its own suite).
 
@@ -105,9 +105,9 @@ keypresses via `KeypressAndActionHandler`. Editor-specific concrete views (`src/
 
 Modals live apart from the views, in their own `Modals/` directories, so a new view is not modelled on
 one: `ModalView` (overlay base - own window, deferred close, parented via `SetOverlayParent`, not a
-subview) plus the generic `ConfirmModal`, `ListSelectionModal`, `TreeSelectionModal` in
-`src/Core/UI/Modals/`. The modal stack is hosted by `RootView` - the only file under `Views/` that may
-include `Modals/`.
+subview) plus the generic `ConfirmModal`, `QueryListModal`, `ListSelectionModal`, `TreeSelectionModal`
+in `src/Core/UI/Modals/`; editor-specific `FindModal` in `src/Core/Editor/Modals/`. The modal stack is
+hosted by `RootView` - the only file under `Views/` that may include `Modals/`.
 
 Real app layout (`main.cpp`): `RootView > HSplitViewStatus[ upper = VSplitView[ workspace | VStack>HStack>editor ], lower = terminal ]`. The status line is drawn ON the HSplit splitter row (`HSplitViewStatus::DrawSplitter` at `GetSplitRow() == splitterPos`).
 

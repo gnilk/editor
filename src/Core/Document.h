@@ -125,16 +125,27 @@ namespace gedit {
         void DeleteRange(const Point &startPos, const Point &endPos);
 
 
-        size_t SearchFor(const std::u32string &searchItem);
+        // One hit per line (the first). Case-insensitive compares lower case (std::towlower).
+        size_t SearchFor(const std::u32string &searchItem, bool isCaseSensitive = true);
         void ClearSearchResults();
         bool HaveSearchResults() {
             return !searchResults.empty();
         }
+        const std::vector<SearchResult> &GetSearchResults() const {
+            return searchResults;
+        }
         size_t GetSearchHitIndex();
+        // Next/Prev continue from here
+        void SetSearchHitIndex(size_t idxHit);
         bool JumpToSearchHit(size_t idxHit);
         void NextSearchResult();
         void PrevSearchResult();
         void ResetSearchHitIndex();
+        // An overlay covers the top of the view (Find): scroll so the active line sits in the lower part,
+        // unless it already does
+        void ScrollActiveLineIntoLowerPart();
+        // Put the cursor and the view back exactly (Find cancelled)
+        void RestoreCursorAndViewTop(size_t idxLine, size_t idxChar, int32_t viewTopLine);
 
         bool LoadData(const std::filesystem::path &pathName);
         bool SaveData(const std::filesystem::path &pathName);

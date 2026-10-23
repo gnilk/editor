@@ -5,6 +5,7 @@
 #include "ActionHelper.h"
 #include "Core/Editor.h"
 #include "Core/UI/Views/RootView.h"
+#include "Core/Editor/Modals/FindModal.h"
 
 using namespace gedit;
 
@@ -34,6 +35,20 @@ void ActionHelper::SwitchToBufferNumber(int tabNumber) {
     Editor::Instance().SetActiveDocumentFromIndex(*idxDocument);
     // Jumping to a buffer means working in it - from the workspace or the terminal too
     SwitchToNamedView(glbEditorView);
+}
+
+// Find in the active document - starts with the selection when it is on one line
+void ActionHelper::ShowFind() {
+    auto document = Editor::Instance().GetActiveDocument();
+    if ((document == nullptr) || !RuntimeConfig::Instance().HasRootView()) {
+        return;
+    }
+    auto modal = FindModal::Create(document);
+    auto findModal = modal.get();
+    auto rootView = RuntimeConfig::Instance().GetRootViewAs<RootView>();
+    rootView->ShowModal(std::move(modal));
+    // After ShowModal - the list height comes from the laid out modal
+    findModal->SetQuery(FindModal::SelectedText(document));
 }
 
 void ActionHelper::SwitchToNamedView(const std::string &viewName) {

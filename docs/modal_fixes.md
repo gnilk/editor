@@ -1,7 +1,8 @@
 # Modal dialogs - state, defects and a plan
 
-Status: **in progress.** Proposal 2026-10-22; steps 1-3 (host, confirm, `.cb` / `.q`) done 2026-10-23 on
-`feature/modal-host`, GUI-verified on SDL3 (macOS); SDL2 (Linux) not yet. Decisions are in §4 (D2 for confirms only).
+Status: **in progress.** Proposal 2026-10-22; steps 1-3 (host, confirm, `.cb` / `.q`) done 2026-10-23, merged,
+GUI-verified on SDL3 (macOS); SDL2 (Linux) not yet. Step 4 (Find) implemented on `feature/find-modal`,
+waiting for the GUI check. Decisions are in §4 (D2 for confirms only).
 
 Modals are wanted for several things already on the list:
 - "changed on disk - reload?" (deferred in `foldermonitor_fixes.md` §4.4);
@@ -19,9 +20,9 @@ Modals are wanted for several things already on the list:
 
 | Piece | Where | What it does |
 |---|---|---|
-| `ModalView` | `Core/UI/Views/ModalView.{h,cpp}` | A `ViewBase` with its own window: centred, half the screen, border + caption ("ModalView"). Optionally wraps one view (`viewPtr`), forwards actions to it or a `dispatchView`. Esc (as a raw keypress) or `CycleActiveView` closes it (`CloseModal()` = `SetActive(false)`). |
-| `ListSelectionModal` + `ListView` | `Core/UI/Views/ListSelectionModal.{h,cpp}` | A list of strings with up/down/page navigation and an optional header line. |
-| `TreeSelectionModal<T>` | `Core/UI/Views/TreeSelectionModal.h` | A `TreeView<T>` inside a `ModalView`. |
+| `ModalView` | `Core/UI/Modals/ModalView.{h,cpp}` | A `ViewBase` with its own window: centred, half the screen, border + caption ("ModalView"). Optionally wraps one view (`viewPtr`), forwards actions to it or a `dispatchView`. Esc (as a raw keypress) or `CycleActiveView` closes it (`CloseModal()` = `SetActive(false)`). |
+| `ListSelectionModal` + `ListView` | `Core/UI/Modals/ListSelectionModal.{h,cpp}` | A list of strings with up/down/page navigation and an optional header line. |
+| `TreeSelectionModal<T>` | `Core/UI/Modals/TreeSelectionModal.h` | A `TreeView<T>` inside a `ModalView`. |
 | `Runloop::ShowModal(modal)` | `Core/Runloop.cpp:162` | A **nested** run loop: snapshots the screen, pushes the modal on `kpaHandlers`, then loops `ProcessMessageQueue()` + redraw (snapshot + modal) until the modal goes inactive. Blocks the caller. |
 | `ViewBase::modal` / `RootView` routing | `ViewBase.h:429`, `RootView.h:127-181` | If `modal` is set: `Draw` draws only the modal; `RootView::OnAction` / `HandleKeyPress` / `DispatchMouse` send everything to it (mouse hit-test restricted to it). |
 | Screen snapshot | `ScreenBase::CopyToTexture` / `ClearWithTexture` (SDL2, SDL3, gansi) | Save the frame, restore it as the modal's background. |
@@ -136,7 +137,7 @@ gets before step 1.
 | # | Question | Recommendation |
 |---|---|---|
 | D1 | **Nested loop (blocking `ShowModal`, caller gets the answer as a return value) vs overlay + callback (non-blocking).** | **Decided (step 1): overlay + callback.** The nested loop re-enters the message queue (M2) and lets the world change under a blocked caller (M3). The callback costs a lambda at each call site; JS gets the same shape (`Editor.Confirm(text, choices, function(choice) {...})`). |
-| D2 | Look: centred box with border/caption, or a bar like quick-command (VSCode-style palette at the top)? | **Confirms: centred box, sized from its content (step 2).** Pickers / Find: open until step 4. |
+| D2 | Look: centred box with border/caption, or a bar like quick-command (VSCode-style palette at the top)? | **Decided: centred box.** Confirms sized from their content (step 2). Find (2026-10-23): a box with the input line and a result list, anchored in the upper part of the screen; the editor centres the previewed hit so it lands below the box. A top bar was rejected - it would duplicate quick-command `/` search and can't grow into "search everywhere". |
 | D3 | Esc in a modal = cancel (via `modal_keymap`), even though Esc is "command mode" elsewhere? | **Decided: yes.** There is no command mode inside a modal. |
 | D4 | One `ModalResult` struct for all modals, or a typed callback per modal kind (`OnChoice(int)`, `OnPicked(index)`, `OnText(string)`)? | **Decided (step 1): typed callbacks.** The host knows only closed / cancelled (`ModalView::OnClosed(bool wasCancelled)`); each kind overrides it and calls its own typed callback. |
 | D5 | First consumer to drive the work. | **Decided: the confirm.** `.cb` on a modified buffer and `.q` with unsaved buffers. |
@@ -151,8 +152,8 @@ gets before step 1.
 | 1 ✅ | **Host:** modal stack on `RootView` (replaces `ViewBase::modal`), `Show(modal, onClose)`, deferred close, input routing (actions, keys, mouse), drawing after the tree, `modal_keymap` push/pop. Delete `Runloop::ShowModal`. | Unit: actions reach only the top modal; the callback fires once; closing inside `OnAction` is safe; a nested modal closes back to its parent; the keymap is restored. |
 | 2 ✅ | **`ConfirmModal`** (message + choices with hotkeys) + theme keys for the modal colours (and the strikethrough colour). | Unit: hotkey → choice; Enter → selected choice; Esc → cancelled. GUI: look on SDL3 (and SDL2 on Linux). |
 | 3 ✅ | **First consumer: `.cb` on a modified buffer** → Save / Discard / Cancel; `.q` with unsaved buffers → Save all / Discard / Cancel. Needs a JS binding (`Editor.Confirm`). | Unit for the JS wrapper; GUI for the flow. |
-| 4 | **`FindModal`** (§3.4 item 2): the list part of the `ListSelectionModal` rework (M7, M8), the edit line, live search over the active document, preview / commit / cancel, Cmd+F / Ctrl+F. Needs read access to the document's hits (positions + line text). | Unit: typing narrows the hits; Up/Down moves the preview; Enter keeps the cursor + results; Esc restores the cursor; empty pattern / no hits. |
-| 5 | **Search everywhere** - design note first (result source over unopened files, threading, excludes, limits, opening a hit). | — |
+| 4 ✅ | **`FindModal`** (§3.4 item 2): the list part of the `ListSelectionModal` rework (M7, M8), the edit line, live search over the active document, preview / commit / cancel, Cmd+F / Ctrl+F. Needs read access to the document's hits (positions + line text). | Unit: typing narrows the hits; Up/Down moves the preview; Enter keeps the cursor + results; Esc restores the cursor; empty pattern / no hits. |
+| 5 | **Search everywhere** - design note first (result source over unopened files, threading, excludes, limits, opening a hit). Revisit the **code index** idea with it: `docs/done/session-cache.md` §6 sketches a SQLite/FTS5 index (`files`, `symbols(name, kind, line, col)`) fed by a background indexer from the tokenizer. Wanted on top (2026-10-23): **context-aware** search - classes / structs / members / functions - which needs more than the line tokenizer's token classes (a structural pass per language). Basics (Find) first. | — |
 | 6 | Pickers / `TextInputModal` as needed (buffer picker, `Editor.Prompt`). | Unit: navigation + pick + cancel; empty list. |
 | 7 | **Changed on disk → reload?** The folder monitor reconciles folders, not file contents: on a flush, compare each open document's mtime/size in a dirty folder with what was loaded, and ask `Reload / Keep mine` (a buffer with no edits could just reload - §4 decision then). Cross-ref `foldermonitor_fixes.md` §2.2 "hook". | Unit: a changed open file in a flushed folder triggers the callback; an unchanged one doesn't. |
 | 8 | Clean up: `TreeSelectionModal` onto the new host, remove `CopyToTexture` / `ClearWithTexture` if unused. | Green set. |
@@ -193,7 +194,7 @@ GUI-verified together with steps 2 + 3 (SDL3).
 
 ### Steps 2 + 3 — the confirm and its first consumers (2026-10-23)
 
-- **`ConfirmModal`** (`Core/UI/Views/ConfirmModal.{h,cpp}`, toolkit): a caption, a message (`\n` = more
+- **`ConfirmModal`** (`Core/UI/Modals/ConfirmModal.{h,cpp}`, toolkit): a caption, a message (`\n` = more
   lines) and choices. A choice's hotkey is its first letter, drawn `[S]ave`; a letter picks it (either
   case; shift is fine, ctrl/alt/cmd aren't). Left/Right move the selection (inverted), Return picks it,
   Esc cancels. Typed callbacks: `SetOnChoice(int)`, `SetOnCancel()`.
@@ -217,4 +218,35 @@ GUI-verified together with steps 2 + 3 (SDL3).
   unmodified close without asking), quitcmd (asks, Cancel keeps running). Mutation-checked: the hotkey
   modifier rule.
 - `Runloop::IsQuitRequested()` added (for the test).
+
+### Step 4 — Find (2026-10-23)
+
+- **`QueryListModal`** (`Core/UI/Modals/`, toolkit): an edit line (`Find: ...`, a hit counter `3/17` /
+  `no hits` on the right) and a result list below it. Every edit runs the query again and selects the
+  first row. Up/Down/PageUp/PageDown move the selection (clamped, the list scrolls), each move is a
+  *preview*; Return commits the selected row (does nothing without one); Esc cancels.
+  Left/Right/Home/End/Backspace/Delete edit the line (`BaseController::DefaultEditLine`); typing with
+  ctrl/alt/cmd is not text. Virtual hooks: `OnQuery(query) -> rows`, `OnPreview(idx | -1)`,
+  `OnCommit(idx)`, `OnCancel()` - "search everywhere" is another subclass. Placed in the upper part of
+  the screen: 60% wide, 35% high, 5% from the top.
+- **`FindModal`** (`Core/Editor/Modals/`): case-insensitive plain text over the active document
+  (`Document::SearchFor(item, isCaseSensitive)` - the quick-command `/` search stays case-sensitive;
+  still one hit per line, the first). Rows `  12: text` (numbers right-aligned, indent dropped, tabs as
+  spaces). Preview = jump to the hit + `Document::ScrollActiveLineIntoLowerPart` (unless it is already in
+  the lower half of the view, it goes two thirds down - below the dialog). No hits = the cursor goes back
+  to where it was. Commit = cursor on the hit, the selection is dropped, the results stay (highlighted,
+  `Cmd+n`/`Cmd+p` continue from that hit), the editor view gets the focus. Cancel = results cleared,
+  cursor *and* view top restored exactly (`Document::RestoreCursorAndViewTop`). Starts with the
+  selection when it is on one line.
+- **Binding:** action `Find` (`kActionFind`, global in view state) → `ActionHelper::ShowFind()`;
+  `CopyPasteModifier + 'f'` in both default keymaps = Cmd+F (macOS) / Ctrl+F (Linux). Workspace and
+  terminal keymaps inherit it.
+- Tests: new module `find` (caseinsensitive, narrows, preview, commit, cancel, nohits, scroll,
+  selection) + `keymapping` find. Mutation-checked: no lower-part scroll, view top not restored, the case
+  flag ignored.
+- Not done here: the `ListSelectionModal` rework (M7, M8) - the list lives in `QueryListModal`; the
+  picker (step 6) can reuse it or the rework happens there. Paste into the edit line (Cmd+V) isn't
+  bound in the modal keymap yet.
+- Known: on Linux the terminal keymap inherits Ctrl+F, so it opens Find instead of reaching the shell
+  (readline forward-char) - the same as the other CopyPasteModifier bindings there.
 

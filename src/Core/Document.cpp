@@ -4,7 +4,9 @@
 // We need a good way to define how the document and the controller interoperate as the controller either needs access to data in the document
 // OR the document needs to talk to a modifier API in the controller
 //
+#include <algorithm>
 #include <chrono>
+#include <cwctype>
 #include "Editor.h"
 #include "Document.h"
 #include "Core/Session/SessionState.h"
@@ -66,13 +68,22 @@ void Document::OnViewInit(const Rect &rect) {
 
 
 // This is a little naive and I should probably spin it of to a specific thread
-size_t Document::SearchFor(const std::u32string &searchItem) {
+static std::u32string ToLower(std::u32string_view str) {
+    std::u32string lower(str);
+    for (auto &ch : lower) {
+        ch = (char32_t)std::towlower((wint_t)ch);
+    }
+    return lower;
+}
+
+size_t Document::SearchFor(const std::u32string &searchItem, bool isCaseSensitive) {
 
     auto tStart = std::chrono::steady_clock::now();
 
     searchResults.clear();
     auto nLines = textBuffer->NumLines();
     auto len = searchItem.length();
+    auto needle = isCaseSensitive ? searchItem : ToLower(searchItem);
     for(size_t idxLine = 0; idxLine < nLines; idxLine++) {
         // This is a cut-off time for searching, we don't want to stall
         // Currently my Macbook M1 use 170ms to search through 105MB of data
@@ -87,7 +98,7 @@ size_t Document::SearchFor(const std::u32string &searchItem) {
 
 
         auto line = textBuffer->LineAt(idxLine);
-        auto idxStart = line->Buffer().find(searchItem.c_str());
+        auto idxStart = isCaseSensitive ? line->Buffer().find(needle) : ToLower(line->Buffer()).find(needle);
         if (idxStart == std::string_view::npos) {
             continue;
         }
@@ -182,6 +193,35 @@ void Document::PrevSearchResult() {
 
 void Document::ResetSearchHitIndex() {
     idxActiveSearchHit = 0;
+}
+
+void Document::SetSearchHitIndex(size_t idxHit) {
+    idxActiveSearchHit = idxHit;
+}
+
+void Document::ScrollActiveLineIntoLowerPart() {
+    auto &lineCursor = documentViewState->lineCursor;
+    auto height = lineCursor.Height();
+    if (height <= 0) {
+        return;
+    }
+    auto row = (int32_t)lineCursor.idxActiveLine - lineCursor.viewTopLine;
+    if ((row >= height / 2) && (row < height)) {
+        return;
+    }
+    // Two thirds down
+    lineCursor.viewTopLine = std::max((int32_t)0, (int32_t)lineCursor.idxActiveLine - (height * 2) / 3);
+    lineCursor.viewBottomLine = lineCursor.viewTopLine + height;
+    GetCursor().position.y = (int32_t)lineCursor.idxActiveLine - lineCursor.viewTopLine;
+}
+
+void Document::RestoreCursorAndViewTop(size_t idxLine, size_t idxChar, int32_t viewTopLine) {
+    SetCursorPosition(idxLine, idxChar);
+    auto &lineCursor = documentViewState->lineCursor;
+    auto height = lineCursor.Height();
+    lineCursor.viewTopLine = viewTopLine;
+    lineCursor.viewBottomLine = viewTopLine + height;
+    GetCursor().position.y = (int32_t)idxLine - lineCursor.viewTopLine;
 }
 
 size_t Document::GetSearchHitIndex() {

@@ -617,6 +617,8 @@ void Editor::HandleGlobalAction(const EditorAction &kpAction) {
             if ((key >= '1') && (key <= '9')) {
                 ActionHelper::SwitchToBufferNumber(key - '0');
             }
+        } else if (kpAction.action == kAction::kActionFind) {
+            ActionHelper::ShowFind();
         }
     } else if (state == QuickCommandState) {
         if (kpAction.action == kAction::kActionLeaveCommandMode) {

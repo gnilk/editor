@@ -28,6 +28,8 @@ DLL_EXPORT int test_cpplang_keywords(ITesting *t);
 DLL_EXPORT int test_cpplang_types(ITesting *t);
 DLL_EXPORT int test_cpplang_keywords_sample(ITesting *t);
 DLL_EXPORT int test_cpplang_braceafterword(ITesting *t);
+DLL_EXPORT int test_cpplang_stringescape(ITesting *t);
+DLL_EXPORT int test_cpplang_rawstring(ITesting *t);
 }
 
 DLL_EXPORT int test_cpplang(ITesting *t) {
@@ -559,5 +561,60 @@ DLL_EXPORT int test_cpplang_braceafterword(ITesting *t) {
     TR_ASSERT(t, numOpen == 3);
     TR_ASSERT(t, numClose == 3);
     TR_ASSERT(t, hasValue);
+    return kTR_Pass;
+}
+
+// An escaped quote inside a word in a string doesn't end the string: '"\"Summary\":{"' is one string, its
+// '{' is not code (found by gedit-bench --check)
+DLL_EXPORT int test_cpplang_stringescape(ITesting *t) {
+    auto tokenizer = Editor::Instance().GetLanguageForExtension(".cpp")->Tokenizer();
+    std::vector<LangToken> tokens;
+    tokenizer.TokenizeText(U"WriteLine(\"\\\"Summary\\\":{\");\nauto s = \"a $?\\\"; }\";\nchar c = '\\'';\nint x;",
+                           [&tokens](size_t, const LangToken &token) {
+        tokens.push_back(token);
+    });
+    size_t numBlocks = 0;
+    bool hasInt = false;
+    for (auto &token : tokens) {
+        if ((token.classification == kLanguageTokenClass::kCodeBlockStart) || (token.classification == kLanguageTokenClass::kCodeBlockEnd)) {
+            numBlocks++;
+        }
+        // 'int' on the last line is code again - every string/char before it ended where it should
+        if ((token.string == U"int") && (token.classification == kLanguageTokenClass::kKnownType)) {
+            hasInt = true;
+        }
+    }
+    TR_ASSERT(t, numBlocks == 0);
+    TR_ASSERT(t, hasInt);
+    return kTR_Pass;
+}
+
+// Raw strings - 'R"(...)"' (with the u8/u/U/L prefixes) and 'R"_(...)_"' - can hold quotes, backslashes and
+// braces, and span lines; the code after them is code again
+DLL_EXPORT int test_cpplang_rawstring(ITesting *t) {
+    auto tokenizer = Editor::Instance().GetLanguageForExtension(".cpp")->Tokenizer();
+    std::vector<std::pair<size_t, LangToken>> tokens;
+    tokenizer.TokenizeText(U"auto a = R\"(\"Passes\":[ { \\ )\";\n"
+                           U"auto b = u8R\"(line one {\n"
+                           U"line \"two\" })\";\n"
+                           U"auto c = R\"_(x)\" { )_\";\n"
+                           U"Print((char *)\"not raw {\");\n"      // ')"' in ordinary code
+                           U"int x;",
+                           [&tokens](size_t idxLine, const LangToken &token) {
+        tokens.push_back({idxLine, token});
+    });
+    size_t numBlocks = 0;
+    bool hasInt = false;
+    bool hasStringOnLine2 = false;
+    for (auto &[idxLine, token] : tokens) {
+        if ((token.classification == kLanguageTokenClass::kCodeBlockStart) || (token.classification == kLanguageTokenClass::kCodeBlockEnd)) {
+            numBlocks++;
+        }
+        hasInt = hasInt || ((token.string == U"int") && (token.classification == kLanguageTokenClass::kKnownType));
+        hasStringOnLine2 = hasStringOnLine2 || ((idxLine == 2) && (token.classification == kLanguageTokenClass::kString));
+    }
+    TR_ASSERT(t, numBlocks == 0);
+    TR_ASSERT(t, hasStringOnLine2);
+    TR_ASSERT(t, hasInt);
     return kTR_Pass;
 }

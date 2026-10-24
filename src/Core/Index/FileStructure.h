@@ -65,6 +65,13 @@ namespace gedit {
         std::vector<CodeSymbol> symbols;
         std::vector<CodeEdge> edges;
         size_t numLines = 0;
+
+        // Brace balance at the end of the file. A mismatch usually means the lexer misread something - or
+        // the first-arm '#if' policy cut a construct in half
+        uint32_t numUnclosedBraces = 0;
+        uint32_t lineFirstUnclosed = 0;     // where the outermost still-open brace was opened
+        uint32_t numStrayCloseBraces = 0;
+        uint32_t lineFirstStrayClose = 0;
     };
 
     const char *SymbolKindName(kSymbolKind kind);

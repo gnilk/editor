@@ -224,6 +224,7 @@ FileStructure CPPStructureScanner::Scan(const std::u32string &text) {
     isAfterAnonymousType = false;
     conditionals.clear();
     isContinuation = false;
+    idxPreviousLine = 0;
 
     CollectTokens(text);
     ScanCode();
@@ -251,6 +252,12 @@ void CPPStructureScanner::FlushLine(std::vector<Token> &lineTokens) {
     if (lineTokens.empty()) {
         return;
     }
+    // An empty line in between ends a continuation - it was the continued line
+    auto idxLine = lineTokens[0].line;
+    if (idxLine > idxPreviousLine + 1) {
+        isContinuation = false;
+    }
+    idxPreviousLine = idxLine;
     // The rest of a '\' continued preprocessor line (a multi-line #define)
     if (isContinuation) {
         isContinuation = EndsWithBackslash(lineTokens.back());
@@ -365,55 +372,72 @@ bool CPPStructureScanner::IsSkipping() const {
 void CPPStructureScanner::ScanCode() {
     scopes.push_back({});
     for (size_t i = 0; i < tokens.size(); i++) {
-        auto &token = tokens[i];
-        auto scopeKind = CurrentScope().kind;
-        bool isOpen = (token.classification == kLanguageTokenClass::kCodeBlockStart);
-        bool isClose = (token.classification == kLanguageTokenClass::kCodeBlockEnd);
-
-        // Inside a body we only count braces
-        if ((scopeKind == kScope::kOpaque) || (scopeKind == kScope::kInitializer)) {
-            if (isOpen) {
-                scopes.push_back({kScope::kOpaque});
-            } else if (isClose) {
-                OnCloseBrace(i);
-            }
-            continue;
-        }
-        if (isOpen) {
-            OnOpenBrace(i);
-            continue;
-        }
-        if (isClose) {
-            OnCloseBrace(i);
-            continue;
-        }
-        if (token.text == U"(") {
-            parenDepth++;
-        } else if (token.text == U")") {
-            parenDepth = std::max(0, parenDepth - 1);
-        }
-        if (scopeKind == kScope::kEnum) {
-            if ((token.text == U",") && (parenDepth == 0)) {
-                OnEnumItemEnd();
-            } else {
-                enumItem.push_back(i);
-            }
-            continue;
-        }
-        if ((token.text == U";") && (parenDepth == 0)) {
-            OnSemicolon();
-            continue;
-        }
-        // 'public:' - the access specifier isn't part of the next declaration
-        if ((token.text == U":") && InClassScope() && !statement.empty()) {
-            auto &last = tokens[statement.back()].text;
-            if ((last == U"public") || (last == U"protected") || (last == U"private")) {
-                statement.clear();
-                continue;
-            }
-        }
-        statement.push_back(i);
+        ScanToken(i);
     }
+    // Still open at the end of the file
+    if (scopes.size() > 1) {
+        result.numUnclosedBraces = (uint32_t)(scopes.size() - 1);
+        result.lineFirstUnclosed = scopes[1].openLine;
+    }
+}
+
+void CPPStructureScanner::ScanToken(size_t i) {
+    auto numScopes = scopes.size();
+    ScanTokenInScope(i);
+    if (scopes.size() > numScopes) {
+        scopes.back().openLine = tokens[i].line;
+    }
+}
+
+void CPPStructureScanner::ScanTokenInScope(size_t i) {
+    auto &token = tokens[i];
+    auto scopeKind = CurrentScope().kind;
+    bool isOpen = (token.classification == kLanguageTokenClass::kCodeBlockStart);
+    bool isClose = (token.classification == kLanguageTokenClass::kCodeBlockEnd);
+
+    // Inside a body we only count braces
+    if ((scopeKind == kScope::kOpaque) || (scopeKind == kScope::kInitializer)) {
+        if (isOpen) {
+            scopes.push_back({kScope::kOpaque});
+        } else if (isClose) {
+            OnCloseBrace(i);
+        }
+        return;
+    }
+    if (isOpen) {
+        OnOpenBrace(i);
+        return;
+    }
+    if (isClose) {
+        OnCloseBrace(i);
+        return;
+    }
+    if (token.text == U"(") {
+        parenDepth++;
+    } else if (token.text == U")") {
+        parenDepth = std::max(0, parenDepth - 1);
+    }
+    if (scopeKind == kScope::kEnum) {
+        if ((token.text == U",") && (parenDepth == 0)) {
+            OnEnumItemEnd();
+        } else {
+            enumItem.push_back(i);
+        }
+        return;
+    }
+    if ((token.text == U";") && (parenDepth == 0)) {
+        OnSemicolon();
+        return;
+    }
+    // 'public:' - the access specifier isn't part of the next declaration
+    if ((token.text == U":") && InClassScope() && !statement.empty()) {
+        auto &last = tokens[statement.back()].text;
+        if ((last == U"public") || (last == U"protected") || (last == U"private")) {
+            statement.clear();
+            return;
+        }
+    }
+    statement.push_back(i);
 }
 
 void CPPStructureScanner::OnOpenBrace(size_t idxToken) {
@@ -494,6 +518,10 @@ void CPPStructureScanner::OnOpenBrace(size_t idxToken) {
 
 void CPPStructureScanner::OnCloseBrace(size_t idxToken) {
     if (scopes.size() <= 1) {
+        if (result.numStrayCloseBraces == 0) {
+            result.lineFirstStrayClose = tokens[idxToken].line;
+        }
+        result.numStrayCloseBraces++;
         return;
     }
     if (CurrentScope().kind == kScope::kEnum) {

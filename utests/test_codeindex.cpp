@@ -34,6 +34,7 @@ extern "C" {
     DLL_EXPORT int test_codeindex_struct_preprocessor(ITesting *t);
     DLL_EXPORT int test_codeindex_struct_macros(ITesting *t);
     DLL_EXPORT int test_codeindex_struct_initializers(ITesting *t);
+    DLL_EXPORT int test_codeindex_struct_balance(ITesting *t);
 }
 
 namespace {
@@ -463,6 +464,10 @@ DLL_EXPORT int test_codeindex_struct_preprocessor(ITesting *t) {
         U"/* class Blocked {\n"
         U"   } */\n"
         U"const char *text = \"class Quoted { }\";\n"
+        U"#define TRAILING(x) \\\n"
+        U"    if (x) { \\\n"
+        U"    }       \\\n"
+        U"\n"                                                   // the continuation ends on the empty line
         U"class Last {};\n");
     TR_ASSERT(t, HasEdge(structure, kEdgeKind::kIncludes, U"", U"Core/Line.h"));
     TR_ASSERT(t, HasEdge(structure, kEdgeKind::kIncludes, U"", U"memory"));
@@ -539,5 +544,21 @@ DLL_EXPORT int test_codeindex_struct_initializers(ITesting *t) {
     TR_ASSERT(t, Find(structure, U"After::a", kSymbolKind::kMember) != nullptr);
     TR_ASSERT(t, Find(structure, U"After::v", kSymbolKind::kMember) != nullptr);
     TR_ASSERT(t, structure.symbols.size() == 8);
+    return kTR_Pass;
+}
+
+// Brace balance at the end of the file - the signal for a lexer misread (gedit-bench --check)
+DLL_EXPORT int test_codeindex_struct_balance(ITesting *t) {
+    auto balanced = ScanCPP(U"namespace a {\nclass B { void f() { if (x) { } } };\n}\n");
+    TR_ASSERT(t, (balanced.numUnclosedBraces == 0) && (balanced.numStrayCloseBraces == 0));
+
+    auto unclosed = ScanCPP(U"int x;\nnamespace a {\nclass B {\n  void f() {\n");
+    TR_ASSERT(t, unclosed.numUnclosedBraces == 3);
+    TR_ASSERT(t, unclosed.lineFirstUnclosed == 1);
+
+    auto stray = ScanCPP(U"void f() {\n}\n}\nint y;\n}\n");
+    TR_ASSERT(t, stray.numStrayCloseBraces == 2);
+    TR_ASSERT(t, stray.lineFirstStrayClose == 2);
+    TR_ASSERT(t, stray.numUnclosedBraces == 0);
     return kTR_Pass;
 }

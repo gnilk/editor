@@ -5,6 +5,9 @@
 // Usage (from the build dir - the editor resolves its assets relative to the working directory):
 //   ./gedit-bench [path] [path...]         a file or a directory (C/C++ sources under it); default ../src
 //   ./gedit-bench --dump [path] [path...]  print the structure (symbols + edges) of each file - step 1
+//   ./gedit-bench --check [path] [path...] list files whose braces don't balance - usually a lexer misread
+//   ./gedit-bench --braces <file>          brace depth after each line as the lexer sees it ('line depth') -
+//                                          diff it against a reference count to find the misread line
 //
 // Files are read before timing. Per corpus it prints lines/s for the editor path (TextBuffer + Reparse),
 // the fast path (LangLineTokenizer::TokenizeText) on one thread and on N threads, and the structure pass
@@ -34,19 +37,29 @@ using Clock = std::chrono::steady_clock;
 static std::string ReadFile(const fs::path &path);
 static void Bench(const fs::path &root);
 static void Dump(const fs::path &root);
+static void Check(const fs::path &root);
+static void Braces(const fs::path &root);
 static std::vector<fs::path> SourceFiles(const fs::path &root);
 
 int main(int argc, const char **argv) {
     static const char *editorArgv[] = {"gedit-bench", "--skip-user-config", "--backend", "headless"};
     Editor::Instance().Initialize(4, editorArgv);
 
-    bool isDump = (argc > 1) && (std::string(argv[1]) == "--dump");
-    int idxFirstPath = isDump ? 2 : 1;
+    std::string mode = (argc > 1) ? argv[1] : "";
+    auto run = Bench;
+    if (mode == "--dump") {
+        run = Dump;
+    } else if (mode == "--check") {
+        run = Check;
+    } else if (mode == "--braces") {
+        run = Braces;
+    }
+    int idxFirstPath = (run == Bench) ? 1 : 2;
     if (argc <= idxFirstPath) {
-        isDump ? Dump("../src") : Bench("../src");
+        run("../src");
     }
     for (int i = idxFirstPath; i < argc; i++) {
-        isDump ? Dump(argv[i]) : Bench(argv[i]);
+        run(argv[i]);
     }
     return 0;
 }
@@ -97,6 +110,55 @@ static void Dump(const fs::path &root) {
             printf("  %5u %s %s%s %s\n", edge.line + 1, from.c_str(), EdgeKindName(edge.kind), how.c_str(), Utf8(edge.toName).c_str());
         }
     }
+}
+
+static void Braces(const fs::path &root) {
+    auto tokenizer = Editor::Instance().GetLanguageForExtension(".cpp")->Tokenizer();
+    auto text = UnicodeHelper::utf8to32(ReadFile(root));
+    std::vector<int> depthAfterLine;
+    int depth = 0;
+    auto numLines = tokenizer.TokenizeText(text, [&depth, &depthAfterLine](size_t idxLine, const LangToken &token) {
+        if (token.classification == kLanguageTokenClass::kCodeBlockStart) {
+            depth++;
+        } else if (token.classification == kLanguageTokenClass::kCodeBlockEnd) {
+            depth--;
+        }
+        if (depthAfterLine.size() <= idxLine) {
+            depthAfterLine.resize(idxLine + 1, INT32_MIN);
+        }
+        depthAfterLine[idxLine] = depth;
+    });
+    int last = 0;
+    for (size_t i = 0; i < numLines; i++) {
+        if ((i < depthAfterLine.size()) && (depthAfterLine[i] != INT32_MIN)) {
+            last = depthAfterLine[i];
+        }
+        printf("%zu %d\n", i + 1, last);
+    }
+}
+
+// Files whose braces don't balance: still open at the end, or a '}' with nothing open
+static void Check(const fs::path &root) {
+    auto language = Editor::Instance().GetLanguageForExtension(".cpp");
+    CPPStructureScanner scanner(language->Tokenizer());
+    auto paths = SourceFiles(root);
+    size_t numSuspicious = 0;
+    for (auto &path : paths) {
+        auto structure = scanner.Scan(UnicodeHelper::utf8to32(ReadFile(path)));
+        if ((structure.numUnclosedBraces == 0) && (structure.numStrayCloseBraces == 0)) {
+            continue;
+        }
+        numSuspicious++;
+        printf("%s:", path.string().c_str());
+        if (structure.numUnclosedBraces > 0) {
+            printf(" %u unclosed (outermost opened at line %u)", structure.numUnclosedBraces, structure.lineFirstUnclosed + 1);
+        }
+        if (structure.numStrayCloseBraces > 0) {
+            printf(" %u stray '}' (first at line %u)", structure.numStrayCloseBraces, structure.lineFirstStrayClose + 1);
+        }
+        printf("\n");
+    }
+    printf("[check] %s - %zu files, %zu unbalanced\n", root.string().c_str(), paths.size(), numSuspicious);
 }
 
 static double MsSince(Clock::time_point start) {

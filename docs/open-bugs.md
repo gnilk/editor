@@ -100,6 +100,10 @@ fresh identifier token. The space forces a token boundary.
 
 **Discovered:** 2026-06-12 (feel-check). Deferred to a later bug sweep — do NOT fix piecemeal.
 
+**Likely fixed (2026-10-24, code index step 1, `c019133`):** `{` `}` are now in the C++ postfix list, so a
+word ends at a brace; `cpplang braceafterword` covers `{value}`. Verify the caret repro in the GUI, then
+remove this entry.
+
 **When fixing:** add a `test_cpplang` case asserting the token class of an identifier immediately following
 an opener (`{foo`, and likely `(foo`, `[foo`) is `kRegular`/identifier, not operator/brace. Check the
 tokenizer's longest-match / boundary logic at operator↔identifier transitions.
@@ -112,6 +116,35 @@ tokenizer's longest-match / boundary logic at operator↔identifier transitions.
 There are possibly other applications also not working but this is one I found
 
 
+## 15. Opening and saving a Latin-1 (non-UTF-8) file silently truncates lines - DATA LOSS
+
+**Where:** `UnicodeHelper::ConvertUTF8ToUTF32String` (strict decode), used per line by
+`TextBuffer::Load` → `AddLineUTF8`. Save writes the buffer back as UTF-8.
+
+**What's wrong:** on the first invalid UTF-8 byte the conversion returns `false` with the output already
+sized to the input - everything from the bad byte on is NUL characters. Nobody checks the result, so the
+line loads as "the part before the first non-ASCII char", and **saving writes the truncated line back**.
+
+**Repro (real file):** noc_goa `src/extras/pcx.c` (ISO-8859-1, Swedish comments), line 296:
+```c
+				if (pcx->width&1) /* Kolla om oj\xe4mn bredd */
+```
+Open + save → the line becomes `if (pcx->width&1) /* Kolla om oj` - the comment's `*/` is gone, so the
+file no longer compiles. Verified with a throwaway test (`/* g\xf6r om s\xe5 */` saved as `/* g`). Other
+Latin-1 files in noc_goa: `src/extras/gms.c`, `quater.c`, `g3d/g3d.c`, `src/windows/*.c` (10+ files).
+
+**Discovered:** 2026-10-24, by the code index brace-balance check (`gedit-bench --check`; the index
+decodes whole files, so there the rest of the FILE vanishes). See `docs/code-index.md` §11.2.
+
+**Fix options (own branch):**
+1. Detect invalid UTF-8 at load, decode the file as Latin-1 instead, remember the encoding on the buffer,
+   and save back as Latin-1 (status line shows the encoding). Preferred.
+2. Minimum: mark the buffer read-only / refuse to save when the decode failed, with a message.
+
+Either way the decode result must be checked, and the code index needs a lenient decode too.
+Test: load a fixture with `\xe4`/`\xf6` bytes, save, compare bytes (round-trip must be lossless).
+
+
 ---
 
---> Next bug is #15
+--> Next bug is #16

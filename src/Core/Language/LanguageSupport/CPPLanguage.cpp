@@ -42,11 +42,17 @@ static const std::u32string cppBlockCommentStart = U"/* */";        // why do I 
 static const std::u32string cppBlockCommentStop = U"*/";
 // state: in_string
 static const std::u32string inStringOperators = UR"_(\" \\ ")_"; // not sure how to declare U32 raw strings?
-static const std::u32string inStringPostFixOp = U"\"";
+
+// state: main -> in_raw_string / in_raw_string_us. The lexer has fixed tokens, so only the common
+// delimiters: none ('R"(...)"') and '_' ('R"_(...)_"'), each with the u8/u/U/L prefixes. The closers are NOT
+// main-state tokens: ')"' is ordinary code too ('(char *)"text"') - so a popped closer is coloured as ')'.
+static const std::u32string cppRawStringOpen = U"R\"( u8R\"( uR\"( UR\"( LR\"(";
+static const std::u32string cppRawStringOpenUs = U"R\"_( u8R\"_( uR\"_( UR\"_( LR\"_(";
+static const std::u32string cppRawStringClose = U")\"";
+static const std::u32string cppRawStringCloseUs = U")_\"";
 
 // state: in_char
 static const std::u32string inCharOperators = UR"_(\\ \' ')_";
-static const std::u32string inCharPostFixOp = U"'";
 
 //
 // Configure the tokenizer for C++
@@ -71,11 +77,30 @@ bool CPPLanguage::Initialize() {
     state->GetOrAddAction(U"\'", LangLineTokenizer::kAction::kPushState, "in_char");
     state->GetOrAddAction(U"#", LangLineTokenizer::kAction::kPushState, "in_preprocessor");
 
+    state->SetIdentifiers(kLanguageTokenClass::kString, cppRawStringOpen + U" " + cppRawStringOpenUs);
+    for (auto &opener : { U"R\"(", U"u8R\"(", U"uR\"(", U"UR\"(", U"LR\"(" }) {
+        state->GetOrAddAction(opener, LangLineTokenizer::kAction::kPushState, "in_raw_string");
+    }
+    for (auto &opener : { U"R\"_(", U"u8R\"_(", U"uR\"_(", U"UR\"_(", U"LR\"_(" }) {
+        state->GetOrAddAction(opener, LangLineTokenizer::kAction::kPushState, "in_raw_string_us");
+    }
+    auto stateRaw = tokenizer.GetOrAddState("in_raw_string");
+    stateRaw->SetRegularTokenClass(kLanguageTokenClass::kString);
+    stateRaw->SetIdentifiers(kLanguageTokenClass::kString, cppRawStringClose);
+    stateRaw->SetPostFixIdentifiers(cppRawStringClose);
+    stateRaw->GetOrAddAction(cppRawStringClose, LangLineTokenizer::kAction::kPopState);
+    auto stateRawUs = tokenizer.GetOrAddState("in_raw_string_us");
+    stateRawUs->SetRegularTokenClass(kLanguageTokenClass::kString);
+    stateRawUs->SetIdentifiers(kLanguageTokenClass::kString, cppRawStringCloseUs);
+    stateRawUs->SetPostFixIdentifiers(cppRawStringCloseUs);
+    stateRawUs->GetOrAddAction(cppRawStringCloseUs, LangLineTokenizer::kAction::kPopState);
+
     auto stateChr = tokenizer.GetOrAddState("in_char");
     stateChr->SetRegularTokenClass(kLanguageTokenClass::kChar);
     //auto u32inchrOp = UnicodeHelper::utf8to32(inCharOperators);
     stateChr->SetIdentifiers(kLanguageTokenClass::kChar, inCharOperators);
-    stateChr->SetPostFixIdentifiers(inCharPostFixOp);
+    // The escapes end a word too - otherwise 'x\'' reads the backslash into the word and the quote ends the char
+    stateChr->SetPostFixIdentifiers(inCharOperators);
     stateChr->GetOrAddAction(U"'",LangLineTokenizer::kAction::kPopState);
 
 
@@ -83,7 +108,8 @@ bool CPPLanguage::Initialize() {
     stateStr->SetRegularTokenClass(kLanguageTokenClass::kString);
     //auto u32instrOp = UnicodeHelper::utf8to32(inStringOperators);
     stateStr->SetIdentifiers(kLanguageTokenClass::kString, inStringOperators);
-    stateStr->SetPostFixIdentifiers(inStringPostFixOp);
+    // The escapes end a word too - otherwise '"\"Summary\":{"' reads 'Summary\' and the quote ends the string
+    stateStr->SetPostFixIdentifiers(inStringOperators);
     stateStr->GetOrAddAction(U"\"",LangLineTokenizer::kAction::kPopState);
 
     auto stateBlkComment = tokenizer.GetOrAddState("in_block_comment");

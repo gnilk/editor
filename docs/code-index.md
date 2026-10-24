@@ -588,6 +588,39 @@ buffer classified at `{` / `;` / `}`; function bodies are skipped by brace count
 - PuckoNew: the most-derived bases are interfaces with many platform implementations (`Platform` 15,
   `CPUBoard` 16, `GPIOController` 12, `IWriter` 29) - the variant structure becomes visible as data.
 
+**Brace-balance check (follow-up, same branch):** the scanner records braces still open at the end of a file
+and stray `}` (`FileStructure::numUnclosedBraces` / `numStrayCloseBraces` + lines); `gedit-bench --check`
+lists the unbalanced files, `--braces <file>` prints the lexer's depth per line (diffed against a small
+reference counter to find the misread line). First run: 23 unbalanced files over the five code bases.
+Causes found and fixed:
+
+- **C++ lexer - escapes in strings/chars:** a word in a string ran to the next `"` and swallowed the
+  backslash, so `"\"Summary\":{"` ended at `\"` and its `{` became code. The escapes now end a word in
+  the string and char states. Test `cpplang stringescape`. (GoatEdit `TerminalController.cpp`,
+  testrunner `reportjson.cpp`, PuckoNew `JSONDecoder.cpp`, ...)
+- **C++ lexer - raw strings:** no support at all. Added `R"(...)"` and `R"_(...)_"` (with u8/u/U/L) - the
+  lexer has fixed tokens, so other delimiters still aren't handled. The closers are *not* main-state
+  tokens: `)"` is ordinary code (`(char *)"text"`) - a first version that listed them broke exactly that
+  (caught by the check on testrunner `dynlib_win32.cpp` and PuckoNew `win32/i2cdriver.c`). Test
+  `cpplang rawstring`. (vcpu assembler tests)
+- **Scanner - continuation over an empty line:** `#define X \` followed by an empty line ended the macro
+  in C, but the scanner never saw the empty line (no tokens) and swallowed the next code line as macro
+  body. Fixed with a line gap check. (testrunner `responseproxy.cpp`, vcpu `positeigen.h`)
+
+After: GoatEdit, testrunner, vcpu, noc_goa `include`: 0 unbalanced; PuckoNew: only the vendored
+`sqlite3.c` (not investigated - likely a preprocessor arm). noc_goa `src`: 10 files, all **ISO-8859
+(Latin-1)**, not UTF-8 - see below.
+
+**Found: Latin-1 files lose data in the editor (not fixed - outside step 1).** `UnicodeHelper::
+ConvertUTF8ToUTF32String` converts strictly and, on an invalid byte, returns `false` with the output
+already sized to the input: the rest is NUL characters. The editor loads line by line
+(`TextBuffer::Load` → `AddLineUTF8`), so a line with `ö` becomes the part before it + NULs - and **saving
+writes the truncated line back**: `/* g\xf6r om s\xe5 */` was saved as `/* g` (verified with a throwaway
+test, removed). Opening and saving a Latin-1 file silently destroys content - and can break code (here
+the comment's `*/` is gone). The index needs a lenient decode too (whole-file decode makes the rest of
+the file vanish). Options: detect invalid UTF-8 and fall back to Latin-1 (and save back as Latin-1), or
+refuse to save / open read-only. Tracked as `docs/open-bugs.md` #15.
+
 **Known limits (not handled, by design for now):** the most vexing parse (`Foo f(1);` is a function
 declaration), anonymous members not distinguished from named (`vtxinfo.size` is `GOA_MATERIAL::size`),
 locals / local classes / lambdas inside bodies, `#if` arms other than the first, macros that open scopes.

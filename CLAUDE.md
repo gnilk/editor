@@ -69,7 +69,7 @@ cd cmake-build-debug && trun -l ./libutests.so                     # list
 
 Test source files live in `utests/`. Each `test_<module>.cpp` corresponds to one module; `test_main.cpp` initializes the editor singleton for all tests. Test functions are `extern "C"` (or `DLL_EXPORT`) and discovered by exported symbol name — adding a new case is just a new function (+ a forward declaration where the file uses one).
 
-**Verified-green set** (397 tests, run from `cmake-build-debug/`):
+**Verified-green set** (400 tests, run from `cmake-build-debug/`):
 `trun -m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,vtermparser,keymapping,hexprojection,bytestream,hexview,indent,session,markdown,folderscanner,foldermonitor,treeview,textbuffer,mouseclicktracker,wrapprojection,config,modal,find,codeindex --sequential ./libutests.so`
 
 **Benchmarks are not trun cases** - trun links the ASan runtime (see below), which makes every
@@ -79,6 +79,8 @@ cmake --build cmake-build-release --target gedit-bench`, then from `cmake-build-
 `./gedit-bench [file-or-dir ...]` (default `../src`). `./gedit-bench --dump <file-or-dir>` prints what the
 C/C++ structure pass (`src/Core/Index/CPPStructureScanner`, code index step 1) finds per file - symbols
 (nested, with extents) and edges (inherits / holds+ownership / includes) - the way to judge it on real code.
+`./gedit-bench --check <file-or-dir>` lists files whose braces don't balance at the end (usually a lexer
+misread); `./gedit-bench --braces <file>` prints the lexer's brace depth per line to find the line.
 
 **Do NOT run the full debug suite** — the sqlite3-parse test is intentionally excluded (~1s release, 13–15s debug: syntax highlighter over a large file, no optimizations). `test_timer`/`test_timer_exit` are pre/post module hooks (intentionally empty); logger tests are obsolete (external lib has its own suite).
 

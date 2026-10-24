@@ -52,6 +52,7 @@ namespace gedit {
             std::u32string name;            // namespace / class name - for qualified names and constructors
             bool isEnumClass = false;
             bool isTypedef = false;         // 'typedef struct {...} Name;' - named at the ';'
+            uint32_t openLine = 0;          // the line of its '{'
         };
         using Statement = std::vector<size_t>;     // indices into 'tokens'
     protected:
@@ -60,6 +61,8 @@ namespace gedit {
         bool IsSkipping() const;
 
         void ScanCode();
+        void ScanToken(size_t idxToken);
+        void ScanTokenInScope(size_t idxToken);
         void OnOpenBrace(size_t idxToken);
         void OnCloseBrace(size_t idxToken);
         void OnSemicolon();
@@ -102,6 +105,7 @@ namespace gedit {
         };
         std::vector<Conditional> conditionals;
         bool isContinuation = false;
+        uint32_t idxPreviousLine = 0;   // the last line with tokens - a gap is an empty line, which ends a continuation
     };
 }
 

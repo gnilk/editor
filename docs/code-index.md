@@ -438,22 +438,30 @@ report for free.
 - **Ambiguous names** (a type here, a member there) stay `regular` or take the local meaning first -
   never a guess.
 
-**Themes - keep the Sublime route.** Themes reuse Sublime's colour-scheme *language* (`variables`,
-`hsl()`/`var()`/`color()`/`alpha()`), but the colour *keys* are GoatEdit's own token-class names in its
-own sections (`globals`/`content`/`ui`/`terminal`). A real `.sublime-color-scheme` colours code through
-its `rules` (`{"scope": "entity.name.class", "foreground": ...}`), which `Theme.cpp` doesn't read today -
-so a Sublime scheme's syntax colours don't carry over as-is. To make multiple themes cheap:
+**Themes - import, don't read foreign formats at runtime (D13).** GoatEdit's `colors.json` borrows
+Sublime's colour-scheme *language* (`variables`, `hsl()`/`var()`/`color()`/`alpha()`), but its keys are
+GoatEdit's own token-class names in its own sections (`globals`/`content`/`ui`/`terminal`) - it has no
+Sublime `rules`, and years of tuning have made it GoatEdit's own format. That stays the **one runtime
+format**: the theme loader is a plain token class → colour lookup. Other editors' themes come in through
+an **importer** (step 1c) that converts once and saves a GoatEdit theme the user can then tune:
 
-- Give every token class a **Sublime scope name** (one table): `keyword` → `keyword`, `known_type` →
-  `storage.type`, `string` → `string`, `line_comment` → `comment.line`, and the new kinds →
-  `entity.name.type` / `entity.name.class`, `entity.name.function`, `variable.other.member`,
-  `entity.name.namespace`, `constant.other.enum` (exact names to check against Mariana/Monokai), macro →
-  `entity.name.macro` / `support.macro`.
-- The theme resolves a class's colour from (1) GoatEdit's own key if present, (2) else the scheme's
-  `rules` - best (longest) matching scope selector, (3) else `regular`. Existing GoatEdit themes keep
-  working; a stock Sublime scheme starts to work.
-- Scope selectors can be much richer in Sublime (`source.c++ entity.name.function - meta.block`); v1
-  takes plain prefix matching on a single scope - enough for the stock schemes' common rules.
+- **Sources:** Sublime `.sublime-color-scheme` (`globals`, `rules` by scope) and VS Code themes (`colors`
+  for the UI, `tokenColors` by scope, `semanticTokenColors`). Both name code by **TextMate scopes**, so
+  one matcher serves both; VS Code's semantic kinds (`class`, `function`, `method`, `property`,
+  `namespace`, `enumMember`, `macro`) map almost 1:1 onto the new token classes, and its `colors`
+  (`editor.background`, `editorGutter.*`, `terminal.ansi*`) onto `ui` / `terminal`.
+- **The scope table** (one table, importer only): each token class → the scopes it takes its colour
+  from, best (longest) matching selector wins: `keyword` → `keyword`, `known_type` → `storage.type`,
+  `string` → `string`, `line_comment` → `comment.line`, the new kinds → `entity.name.type` /
+  `entity.name.class`, `entity.name.function`, `variable.other.member`, `entity.name.namespace`,
+  `constant.other.enum`, `entity.name.macro` / `support.macro` (exact names checked against stock
+  schemes when 1c is built).
+- **Lossy, and says so:** compound selectors (`source.c++ entity.name.function - meta.block`),
+  per-language rules and font styles don't map; the importer reports what it dropped or approximated.
+  VS Code themes need a lenient reader (comments, trailing commas) and `include` of a parent theme.
+- **Use:** `goatedit --import-theme <file> [--name x]` writes `x.theme.yml` + `x.colors.json` to the
+  user config dir (never the system one). An upstream theme change means re-running the import - fine
+  for themes.
 
 **Same data, beyond colour:** code folding from symbol extents; a scope breadcrumb
 (`gedit › Document › SearchFor`) in the header/status line; a sticky scope line when the enclosing
@@ -470,7 +478,8 @@ function's start has scrolled out of view; scope-aware brace matching and indent
 |---|---|---|
 | 0 | **Measure.** `TokenizeText` fast path + a release-only benchmark (lines/s) on sqlite3.c and this repo. Decides threading and whether the lexer needs speeding up first. | ✅ §11.1 - plus two tokenizer fixes (~3-4x, highlighter too) |
 | 1 | **C++ structure engine** over strings - the low-hanging fruit only: namespaces, classes/structs, methods/functions, members, `#include`, and the edges visible right in the declaration (`inherits`, `holds` + ownership). Rules as tables in code (§5.4), shape + edge tests (§7). No storage yet - dump symbols/edges for a file and judge on this repo. Nothing from §8.1. | - |
-| 1b | **Semantic highlighting from the file itself** (§10.1): new token classes with `regular` fallback, reclassification via the post-line hook, the open file's own structure pass. Plus the Sublime-scope table / `rules` reading for themes. | - |
+| 1b | **Semantic highlighting from the file itself** (§10.1): new token classes with `regular` fallback, reclassification via the post-line hook, the open file's own structure pass. New theme keys in `colors.json`; no theme-format work. | - |
+| 1c | **Theme importer** (§10.1, D13): Sublime / VS Code theme → GoatEdit `theme.yml` + `colors.json` via the scope table; `--import-theme`. Independent of the index - can come any time after 1b. | - |
 | 2 | **In-memory index + Go to symbol** over the workspace, in the background: indexer threads, resolution (§5.2), query ranking, `SymbolSearchModal`. | - |
 | 3 | **Relationship views**: hierarchy and composition (trees, §5.5), "derived from / held by" from any symbol. | - |
 | 4 | **Modules**: file → module roll-up, dependency view + matrix, cycles; DOT/Mermaid export. | - |
@@ -550,4 +559,4 @@ tests are green). After:
 | D10 | Module = directory, or declared? | Directory by default; declared modules / layers in `.goatedit/` later (§5.3). |
 | D11 | Graph pictures: export only (DOT/Mermaid), or a pixel graph view in the SDL backend? | Export first; a drawn view only if the trees/matrix aren't enough. |
 | D12 | A full parser (e.g. the hand-written AST parser in `vcpu`, which drives the assembler and a scripting language) as a second structure producer? | Overkill for C/C++ (shallow pass instead); a good fit for languages we control (the vcpu assembler / script). The structure output (symbols + edges) is the interface, so a full parser can plug in next to the shallow pass later. tree-sitter is the third-party equivalent if the shallow pass proves too weak. |
-| D13 | Themes: read Sublime `rules` (scope → colour) in addition to GoatEdit's keys? | Yes, with step 1b - keeps stock Sublime schemes usable (§10.1). |
+| D13 | Themes: read Sublime `rules` (scope → colour) in addition to GoatEdit's keys? | **No - import instead** (revised 2026-10-24). One runtime format (GoatEdit's own, already diverged from Sublime's); Sublime and VS Code themes are converted once by an importer (step 1c) into an editable GoatEdit theme. Both use TextMate scopes, so one scope table serves both (§10.1). |

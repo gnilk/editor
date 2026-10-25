@@ -472,14 +472,57 @@ function's start has scrolled out of view; scope-aware brace matching and indent
   the file becomes the storage format. This is the "code secondary, structure primary" direction - the
   index (symbol extents, parents, refs) is what makes it possible.
 
+### 10.2 System and library names - shipped as assets (planned 2026-10-25)
+
+Recognise the names a program gets from its platform - `std::vector`, `fopen`, `printf`, `size_t` - so they
+get their own colour now, and so on-demand suggestions (type `.` → the members) can be built on the same data
+later. Go-to-definition into system headers is **not** a goal. Compilers, versions and standard libraries
+differ, so v1 knows nothing about the installed toolchain - only syntax and data the editor ships.
+
+**1. By syntax - no knowledge needed:**
+- Anything qualified `std::` / `::std::` is the standard library.
+- `#include <...>` is a system/library header, `#include "..."` the project's - the include edges of step 1
+  already tell them apart.
+
+**2. Curated name lists - editor assets, one per library:**
+- `c_std` (the C standard library, ~500 names), `cpp_std` (the C++ standard library, versioned), later
+  `posix`, `sdl`, ... - shipped with the editor like `colors.json`; a project could add its own.
+- An entry: name, kind (function / type / macro / namespace / constant), qualified scope (`std`), the
+  standard version it appeared in, and **optionally its members** (`std::string` → `size`, `c_str`,
+  `substr`, ...). Members aren't used for colour; they are there so suggestions on `.` / `->` / `::` can
+  be built later without changing the format.
+- Produced by hand from the standards, or once by a tool run against real headers (the experiment below) -
+  either way shipped and loaded the same way.
+- New token classes `library_type`, `library_function` (`regular` fallback, like 1b's). TextMate themes
+  already name these `support.type` / `support.class` / `support.function`, so the importer's scope table
+  (§11.4) maps them directly.
+
+**In the index:** library names are symbols with **origin = system** - ranked below the project's own in Go
+to symbol, coloured apart, never shadowing a name the file or project declares (the file's own meaning wins,
+as in §11.3). Lookup is the same hash probe per identifier as 1b.
+
+**Later - suggestions (intellisense-like, on demand):** `x.` needs the type of `x`: members of project types
+come from the index (step 2, declared member types); locals need a light scan of the enclosing function;
+library types come from the members in the assets. That scan is the larger piece and comes after the
+index - the asset format just must not rule it out.
+
+**Experiment, not v1 - scanning real headers:** search paths from `compile_commands.json` (per-file
+`-isystem`, `-std`) or the compiler itself (`clang -E -x c++ - -v </dev/null`, `xcrun --show-sdk-path` on
+macOS); index only headers reachable through the workspace's includes. Hard part: library headers are
+written for the preprocessor (libc++ `_LIBCPP_BEGIN_NAMESPACE_STD`, inline `std::__1`,
+`_LIBCPP_HIDE_FROM_ABI`; glibc `__BEGIN_DECLS`, `__THROW`, `__wur`) - a small per-library macro table
+(namespace openers, attributes to ignore, `std::__1` → `std`) plus hiding reserved names (`__x`, `_Upper`).
+Its output could also *generate* the shipped assets.
+
 ## 11. Steps
 
 | # | Step | Status |
 |---|---|---|
 | 0 | **Measure.** `TokenizeText` fast path + a release-only benchmark (lines/s) on sqlite3.c and this repo. Decides threading and whether the lexer needs speeding up first. | ✅ §11.1 - plus two tokenizer fixes (~3-4x, highlighter too) |
 | 1 | ✅ §11.2 - **C++ structure engine** over strings - the low-hanging fruit only: namespaces, classes/structs, methods/functions, members, `#include`, and the edges visible right in the declaration (`inherits`, `holds` + ownership). Rules as tables in code (§5.4), shape + edge tests (§7). No storage yet - dump symbols/edges for a file and judge on this repo. Nothing from §8.1. | - |
-| 1b | **Semantic highlighting from the file itself** (§10.1): new token classes with `regular` fallback, reclassification via the post-line hook, the open file's own structure pass. New theme keys in `colors.json`; no theme-format work. | §11.3 (in GUI test) |
-| 1c | **Theme importer** (§10.1, D13): Sublime / VS Code theme → GoatEdit `theme.yml` + `colors.json` via the scope table; `--import-theme`. Independent of the index - can come any time after 1b. | §11.4 (in GUI test) |
+| 1b | **Semantic highlighting from the file itself** (§10.1): new token classes with `regular` fallback, reclassification via the post-line hook, the open file's own structure pass. New theme keys in `colors.json`; no theme-format work. | ✅ §11.3 |
+| 1c | **Theme importer** (§10.1, D13): Sublime / VS Code theme → GoatEdit `theme.yml` + `colors.json` via the scope table; `--import-theme`. Independent of the index - can come any time after 1b. | ✅ §11.4 (+ `.theme --import`) |
+| 1d | **System / library names** (§10.2, D14): `std::` by syntax, `<...>` includes marked system, curated name lists as editor assets (`c_std`, `cpp_std`), `library_type` / `library_function` classes. Members in the format for later suggestions. Independent of step 2 (can come before or after). | - |
 | 2 | **In-memory index + Go to symbol** over the workspace, in the background: indexer threads, resolution (§5.2), query ranking, `SymbolSearchModal`. | - |
 | 3 | **Relationship views**: hierarchy and composition (trees, §5.5), "derived from / held by" from any symbol. | - |
 | 4 | **Modules**: file → module roll-up, dependency view + matrix, cycles; DOT/Mermaid export. | - |
@@ -711,3 +754,4 @@ context selectors and 29 font styles reported.
 | D11 | Graph pictures: export only (DOT/Mermaid), or a pixel graph view in the SDL backend? | Export first; a drawn view only if the trees/matrix aren't enough. |
 | D12 | A full parser (e.g. the hand-written AST parser in `vcpu`, which drives the assembler and a scripting language) as a second structure producer? | Overkill for C/C++ (shallow pass instead); a good fit for languages we control (the vcpu assembler / script). The structure output (symbols + edges) is the interface, so a full parser can plug in next to the shallow pass later. tree-sitter is the third-party equivalent if the shallow pass proves too weak. |
 | D13 | Themes: read Sublime `rules` (scope → colour) in addition to GoatEdit's keys? | **No - import instead** (revised 2026-10-24). One runtime format (GoatEdit's own, already diverged from Sublime's); Sublime and VS Code themes are converted once by an importer (step 1c) into an editable GoatEdit theme. Both use TextMate scopes, so one scope table serves both (§10.1). |
+| D14 | System / library names: ask the installed toolchain (header scan) or ship curated data? | **Ship data first** (2026-10-25): syntax (`std::`, `<...>`) + curated per-library assets; same on every machine, no compiler knowledge. A header scan stays an experiment - and may generate the assets. Members are in the format from the start, for on-demand suggestions later (§10.2). |

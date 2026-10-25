@@ -185,6 +185,12 @@ namespace gedit {
         bool IsUserConfigEnabled() const {
             return loadUserConfig;
         }
+        // '--import-theme <file>': convert a VS Code / Sublime theme into a GoatEdit theme in the user config
+        // dir and quit (docs/code-index.md §10.1, step 1c) - no screen is opened
+        bool IsThemeImportRequested() const {
+            return !importThemeFile.empty();
+        }
+        bool ImportTheme();
     protected:
         bool OpenDocumentOrFolder(const std::string &fileOrFolder);
 
@@ -234,6 +240,9 @@ namespace gedit {
         bool loadUserConfig = true;
         std::string argBackend;
         std::vector<std::string> pendingFiles;
+        std::string importThemeFile;
+        std::string importThemeName;        // '--name', default: from the theme's own name
+        bool isImportThemeForced = false;   // '--force' - overwrite an earlier import
 
         Theme::Ref theme = nullptr;
 

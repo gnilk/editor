@@ -121,6 +121,13 @@ commands:
     arguments:
       - string, theme color class
   -
+    name: theme
+    short: theme
+    description: "Theme: --import <file> [--name <name>] [--force] - convert a VS Code / Sublime theme"
+    script: Scripts/theme.js
+    arguments:
+      - string, action and its arguments
+  -
     name: config
     short: cfg
     description: "Config: [--user | --project] list [prefix] | get <key> | set <key> <value> | edit"

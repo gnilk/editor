@@ -6,6 +6,7 @@
 #include "Core/JSEngine/JSPluginEngine.h"
 #include "Core/RuntimeConfig.h"
 #include "Core/Config/Config.h"
+#include "Core/API/ConfigAPI.h"
 #include "Core/Editor/Controllers/TerminalController.h"
 #include "Core/UnicodeHelper.h"
 #include "Core/Runloop.h"
@@ -31,6 +32,7 @@ extern "C" {
     DLL_EXPORT int test_jsengine_loadbuffer(ITesting *t);
     DLL_EXPORT int test_jsengine_listbuffers(ITesting *t);
     DLL_EXPORT int test_jsengine_configcmd(ITesting *t);
+    DLL_EXPORT int test_jsengine_themecmd(ITesting *t);
     DLL_EXPORT int test_jsengine_closecmd(ITesting *t);
     DLL_EXPORT int test_jsengine_quitcmd(ITesting *t);
 }
@@ -323,6 +325,65 @@ DLL_EXPORT int test_jsengine_configcmd(ITesting *t) {
 
     RuntimeConfig::Instance().SetOutputConsole(prevConsole);
     Config::Instance().RemoveKey("cfgjs");
+    std::filesystem::remove_all(root, ec);
+    return kTR_Pass;
+}
+
+// '.theme --import' writes into the user config dir - pointed at a temp dir here, never the real one
+DLL_EXPORT int test_jsengine_themecmd(ITesting *t) {
+    auto root = std::filesystem::temp_directory_path() / "goatedit_themecmd_test";
+    auto userDir = root / "user";
+    std::error_code ec;
+    std::filesystem::remove_all(root, ec);
+    std::filesystem::create_directories(userDir);
+    {
+        std::ofstream f(userDir / "config.yml");
+        f << "# user\n";
+    }
+    {
+        std::ofstream f(root / "My Theme.json");
+        f << "{ \"name\": \"My Theme\", // comment\n"
+             "  \"colors\": { \"editor.background\": \"#102030\", },\n"
+             "  \"tokenColors\": [ { \"scope\": \"keyword\", \"settings\": { \"foreground\": \"#c080ff\" } } ] }\n";
+    }
+    auto &assetLoader = RuntimeConfig::Instance().GetAssetLoader();
+    assetLoader.ReplaceSearchPath(userDir, AssetLoaderBase::kLocationType::kUser);
+    // Refuse to run unless the import really lands in the temp dir
+    auto userConfig = ConfigAPI().ConfigFilePath(ConfigAPI::kLevel::kUser);
+    TR_ASSERT(t, userConfig.parent_path() == userDir);
+
+    TR_ASSERT(t, RuntimeConfig::Instance().HasPluginCommand("theme"));
+    auto cmd = RuntimeConfig::Instance().GetPluginCommand("theme");
+    auto *prevConsole = RuntimeConfig::Instance().OutputConsole();
+    CaptureConsole console;
+    RuntimeConfig::Instance().SetOutputConsole(&console);
+
+    // The command line is split on spaces - the file name is glued back together
+    auto pathStart = (root / "My").string();
+    TR_ASSERT(t, cmd->Execute({"--import", pathStart, "Theme.json"}));
+    TR_ASSERT(t, console.Contains("Imported 'My Theme'"));
+    TR_ASSERT(t, std::filesystem::exists(userDir / "my-theme.theme.yml"));
+    TR_ASSERT(t, std::filesystem::exists(userDir / "my-theme.colors.json"));
+
+    // Again: refused unless forced
+    console.lines.clear();
+    TR_ASSERT(t, cmd->Execute({"--import", pathStart, "Theme.json"}));
+    TR_ASSERT(t, console.Contains("already exists"));
+    console.lines.clear();
+    TR_ASSERT(t, cmd->Execute({"--import", pathStart, "Theme.json", "--force"}));
+    TR_ASSERT(t, console.Contains("Imported"));
+
+    // Quoted, with a name of its own (kept as given)
+    console.lines.clear();
+    TR_ASSERT(t, cmd->Execute({"--import", "\"" + pathStart, "Theme.json\"", "--name", "my_theme"}));
+    TR_ASSERT(t, std::filesystem::exists(userDir / "my_theme.theme.yml"));
+
+    console.lines.clear();
+    TR_ASSERT(t, cmd->Execute({"bogus"}));
+    TR_ASSERT(t, console.Contains("use: .theme"));
+
+    RuntimeConfig::Instance().SetOutputConsole(prevConsole);
+    assetLoader.ReplaceSearchPath(Editor::GetDefaultUserConfigDir(), AssetLoaderBase::kLocationType::kUser);
     std::filesystem::remove_all(root, ec);
     return kTR_Pass;
 }

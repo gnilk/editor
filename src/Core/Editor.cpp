@@ -61,6 +61,7 @@
 #include "Core/API/EditorAPI.h"
 #include "Core/API/TerminalAPI.h"
 #include "Core/API/ConfigAPI.h"
+#include "Core/API/ThemesAPI.h"
 #include "Core/Graphics/Headless/HLScreen.h"
 
 #if defined(GEDIT_MACOS)
@@ -78,6 +79,8 @@ using namespace gedit;
 #define xstr(a) str(a)
 #define str(a) #a
 static const std::string glbApplicationName = xstr(GEDIT_APP_NAME);
+// The user config folder ('~/.config/goatedit', '<XDG data>/goatedit') - lower case on every platform, not the app name
+static const std::string glbUserDirName = "goatedit";
 #undef str
 #undef xstr
 
@@ -141,9 +144,9 @@ std::optional<std::filesystem::path> Editor::ResolveProjectDir(const std::vector
 std::filesystem::path Editor::GetDefaultUserConfigDir() {
     auto pathHome = XDGEnvironment::Instance().GetUserHomePath();
 #if defined(GEDIT_MACOS)
-    return pathHome / ".config" / glbApplicationName;
+    return pathHome / ".config" / glbUserDirName;
 #elif defined(GEDIT_LINUX)
-    return XDGEnvironment::Instance().GetUserDataPath() / "goatedit";
+    return XDGEnvironment::Instance().GetUserDataPath() / glbUserDirName;
 #else
     return pathHome / ".goatedit";
 #endif
@@ -172,7 +175,7 @@ bool Editor::Initialize(int argc, const char **argv) {
     // Add ".goatedit" in the root folder for the user
     assetLoader.AddSearchPath(pathHome / ".goatedit", AssetLoaderBase::kLocationType::kUser);
     // Add the Linux (Ubuntu?) .config folder
-    assetLoader.AddSearchPath( pathHome / ".config/" / glbApplicationName, AssetLoaderBase::kLocationType::kUser);
+    assetLoader.AddSearchPath(pathHome / ".config" / glbUserDirName, AssetLoaderBase::kLocationType::kUser);
 
     CFBundleRef bundle = CFBundleGetMainBundle();
     CFURLRef bundleURL = CFBundleCopyBundleURL(bundle);
@@ -198,7 +201,7 @@ bool Editor::Initialize(int argc, const char **argv) {
 
     // Add in the user data...
     auto userData = XDGEnvironment::Instance().GetUserDataPath();
-    assetLoader.AddSearchPath(userData / "goatedit",AssetLoaderBase::kLocationType::kUser);
+    assetLoader.AddSearchPath(userData / glbUserDirName, AssetLoaderBase::kLocationType::kUser);
 
     // Add ".goatedit" in the root folder for the user - if someone is installing on old systems
     assetLoader.AddSearchPath(pathHome / ".goatedit",AssetLoaderBase::kLocationType::kUser);
@@ -368,6 +371,19 @@ void Editor::ParseArguments(int argc, const char **argv) {
                         fprintf(stderr, "--cwd '%s' failed: %s\n", argv[i], ec.message().c_str());
                     }
                 }
+            } else if (cmdSwitch == "import-theme") {
+                // Absolute now, like the file args - Initialize may move cwd to $HOME
+                if (i + 1 < argc) {
+                    std::error_code ec;
+                    auto absPath = std::filesystem::absolute(std::filesystem::path(argv[++i]), ec).lexically_normal();
+                    importThemeFile = ec ? std::string(argv[i]) : absPath.string();
+                }
+            } else if (cmdSwitch == "name") {
+                if (i + 1 < argc) {
+                    importThemeName = argv[++i];
+                }
+            } else if (cmdSwitch == "force") {
+                isImportThemeForced = true;
             } else if (cmdSwitch == "help") {
                 PrintHelpToConsole();
                 exit(1);
@@ -395,6 +411,8 @@ void Editor::PrintHelpToConsole() {
     printf("  --skip-user-config, won't load user or project specific config (starts with defaults)\n");
     printf("  --backend <sdl | ansi | headless>, override the configuration file backend\n");
     printf("  --cwd <dir>, set the working directory (project root) before resolving file arguments\n");
+    printf("  --import-theme <file> [--name <name>] [--force], convert a VS Code theme (.json) or Sublime color scheme\n");
+    printf("      (.sublime-color-scheme) into <name>.theme.yml + <name>.colors.json in the user config dir, then quit\n");
 }
 
 
@@ -810,6 +828,16 @@ void Editor::ConfigureTheme() {
                       fg.RedAsInt(255),fg.GreenAsInt(255),fg.BlueAsInt(255),
                       bg.RedAsInt(255),bg.GreenAsInt(255),bg.BlueAsInt(255));
     }
+}
+
+// '--import-theme': the same import as '.theme --import' (ThemesAPI), printed to the console
+bool Editor::ImportTheme() {
+    ThemesAPI themesApi;
+    auto result = themesApi.Import(importThemeFile, importThemeName, isImportThemeForced);
+    for (auto &line : result.lines) {
+        fprintf(result.isOk ? stdout : stderr, "%s\n", line.c_str());
+    }
+    return result.isOk;
 }
 
 // Configure global/static API objects..

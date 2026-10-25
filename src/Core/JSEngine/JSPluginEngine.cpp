@@ -19,6 +19,7 @@
 #include "Modules/DocumentAPIWrapper.h"
 #include "Modules/ThemeAPIWrapper.h"
 #include "Modules/ConfigAPIWrapper.h"
+#include "Modules/ThemesAPIWrapper.h"
 #include "Modules/ViewAPIWrapper.h"
 #include "Core/StrUtil.h"
 #include "Core/RuntimeConfig.h"
@@ -173,6 +174,7 @@ void JSPluginEngine::RegisterBuiltIns() {
     ViewAPIWrapper::RegisterModule(ctx);
     NamedColorsAPIWrapper::RegisterModule(ctx);
     ConfigAPIWrapper::RegisterModule(ctx);
+    ThemesAPIWrapper::RegisterModule(ctx);
 
 }
 

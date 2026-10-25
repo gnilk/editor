@@ -479,7 +479,7 @@ function's start has scrolled out of view; scope-aware brace matching and indent
 | 0 | **Measure.** `TokenizeText` fast path + a release-only benchmark (lines/s) on sqlite3.c and this repo. Decides threading and whether the lexer needs speeding up first. | ✅ §11.1 - plus two tokenizer fixes (~3-4x, highlighter too) |
 | 1 | ✅ §11.2 - **C++ structure engine** over strings - the low-hanging fruit only: namespaces, classes/structs, methods/functions, members, `#include`, and the edges visible right in the declaration (`inherits`, `holds` + ownership). Rules as tables in code (§5.4), shape + edge tests (§7). No storage yet - dump symbols/edges for a file and judge on this repo. Nothing from §8.1. | - |
 | 1b | **Semantic highlighting from the file itself** (§10.1): new token classes with `regular` fallback, reclassification via the post-line hook, the open file's own structure pass. New theme keys in `colors.json`; no theme-format work. | §11.3 (in GUI test) |
-| 1c | **Theme importer** (§10.1, D13): Sublime / VS Code theme → GoatEdit `theme.yml` + `colors.json` via the scope table; `--import-theme`. Independent of the index - can come any time after 1b. | - |
+| 1c | **Theme importer** (§10.1, D13): Sublime / VS Code theme → GoatEdit `theme.yml` + `colors.json` via the scope table; `--import-theme`. Independent of the index - can come any time after 1b. | §11.4 (in GUI test) |
 | 2 | **In-memory index + Go to symbol** over the workspace, in the background: indexer threads, resolution (§5.2), query ranking, `SymbolSearchModal`. | - |
 | 3 | **Relationship views**: hierarchy and composition (trees, §5.5), "derived from / held by" from any symbol. | - |
 | 4 | **Modules**: file → module roll-up, dependency view + matrix, cycles; DOT/Mermaid export. | - |
@@ -653,6 +653,46 @@ locals / local classes / lambdas inside bodies, `#if` arms other than the first,
 **Not handled (by design for now):** locals and parameters aren't symbols (a local named like a member gets
 the member colour); namespace-scope variables stay `regular`; names declared in other files wait for the
 index (step 2).
+
+### 11.4 Step 1c - theme importer (2026-10-25)
+
+`goatedit --import-theme <file> [--name x] [--force]` converts once and quits (no screen); in the editor
+the same is `.theme --import <file> [--name x] [--force]` (`ThemesAPI`, JS global `Themes`):
+`<x>.theme.yml` + `<x>.colors.json` next to the user config the editor reads (else where one would be
+created) - never the system assets; an existing import is only overwritten with `--force`. The theme file
+names the import's source and lists what didn't carry over (YAML comments); the font is the current
+theme's. `x` defaults to the theme's name (`Night Owl` → `night-owl`; a `--name` is used as given). Switching
+to it stays a `main.theme:` edit (`.cfg --user set main.theme x.theme.yml`) and a restart - the command says so.
+
+- **Plain data in/out** (`Core/Theme/ThemeImporter`): text in, colors.json text + a report out; an
+  included parent theme comes through a loader callback. `ThemesAPI::Import` is the file glue, shared by
+  the command line (`Editor::ImportTheme` prints its lines) and `.theme` (`theme.js` glues a file name
+  with spaces back together - the command line is split on spaces).
+- **Readers:** VS Code (`colors`, `tokenColors`, `semanticTokenColors`, `include`; comments and trailing
+  commas allowed) and Sublime `.sublime-color-scheme` (`variables`, `globals`, `rules`). `.tmTheme` (XML)
+  is refused with a message.
+- **The scope table:** each content key lists the scopes its tokens carry in VS Code's C/C++ grammar, best
+  first (`known_type` → `storage.type.built-in.primitive.cpp`, `import` → `string.quoted.other.lt-gt.include.cpp`,
+  `macro` → `entity.name.function.preprocessor.cpp`, `member` → `variable.other.property.cpp`, ...). A
+  selector element matches a scope it is a dot-prefix of; more segments win, then the later rule (TextMate's
+  rule). The first scope in the list that any rule matches decides; a key nothing matches copies a related
+  key (`block_comment` ← `line_comment`, `user_type` ← `known_type`) and is reported.
+- **What maps approximately:** context selectors (`meta.class entity.name.type.class`) apply only where no
+  context-free rule matches; `a - b` reads as `a`; `source.cpp x` is just `x` and `source.go x` is dropped;
+  rules that only set a font style don't take a colour away; font styles are dropped; semantic token
+  entries with modifiers or another language are skipped.
+- **Selection and search are overlays** - GoatEdit paints them OVER the text with their alpha, the source
+  editors paint them under it. An opaque source colour becomes the least translucent tint (alpha >= 0.35)
+  that gives exactly the source colour over the background; a missing one is the foreground at 0.25.
+- **Output for tuning:** each literal colour becomes a variable named after the first key that uses it
+  (`keyword`, `ui_gutter_foreground`, `ansi1`); Sublime variables and expressions are kept as written
+  (validated through the colour script). Colours are written `#rrggbb` / `rgba()` - the colour script
+  misreads `#rgb` and can't read `#rrggbbaa` (open-bugs #16), so the importer parses hex itself.
+- `globals` gets the same colours as `content`; missing UI/terminal colours fall back to the editor's
+  background/foreground and the xterm palette.
+
+Night Owl (the sample in `Assets/Themes/`, not committed) imports with one key unmatched (`rule`), 38
+context selectors and 29 font styles reported.
 
 ## 12. Open decisions
 

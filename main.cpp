@@ -384,6 +384,9 @@ int main(int argc, const char **argv) {
                         "not found. Please reinstall.\n");
         return 1;
     }
+    if (Editor::Instance().IsThemeImportRequested()) {
+        return Editor::Instance().ImportTheme() ? 0 : 1;
+    }
     Editor::Instance().OpenScreen();
 
 

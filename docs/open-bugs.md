@@ -152,6 +152,41 @@ Either way the decode result must be checked, and the code index needs a lenient
 Test: load a fixture with `\xe4`/`\xf6` bytes, save, compare bytes (round-trip must be lossless).
 
 
+## 16. The colour script misreads `#rgb` and can't read `#rrggbbaa`
+
+**Where:** `SublimeConfigScriptEngine::ParseWebColor` (colors.json values).
+
+**What's wrong:** the short form takes each hex digit as the whole channel - `#fff` becomes
+`(15, 15, 15)` (near black), not `#ffffff`. An 8-digit `#rrggbbaa` (VS Code, Sublime both allow it) is
+rejected ("Hex color description to short"). The stock colors.json uses neither, so nothing shows today.
+
+**Workaround in place:** the theme importer (code index step 1c) parses hex itself and writes `#rrggbb` /
+`rgba()` only. **Fix:** expand `#rgb` / `#rgba` to two digits per channel; accept 4 and 8 digits with alpha.
+
+**Discovered:** 2026-10-25, writing the theme importer.
+
+## 17. A dot-command goes to the shell once Tab has been pressed on its line
+
+**Where:** `TerminalController` - `OnAction` (`kActionShellCompletion`) and `ForwardKeyPressToShell`
+(`kUIActionCommitLine`).
+
+**What's wrong:** dot-commands (`.theme`, `.cfg`, ...) are only recognised in `CommitLine`, which offers the
+line to `PluginExecutor::ParseAndExecuteWithCmdPrefix` before the shell. The first Tab hands the line to
+readline/zsh for completion (`doesShellOwnLineEditing = true`, line + Tab sent to the pty); from then on
+Enter is forwarded as a raw CR, the line never passes the dot-command check, and the shell runs it:
+`zsh: command not found: .theme`. Typing the same line without Tab works.
+
+**Repro:** in the terminal, type `.theme --import ~/Down` + Tab (complete the path) + `--name x` + Enter.
+
+**Fix (agreed direction 2026-10-25):** check the line before letting the shell execute it. On commit in
+shell-owned mode, read the line (`SyncInputLineFromGrid` keeps `inputLine` mirroring readline's line);
+if it starts with `cmdlet_prefix`: send Ctrl-U (clear readline's line) instead of CR, `ExitShellOwned()`,
+then run it through the plugin executor like `CommitLine` (which sends a newline for a fresh prompt).
+Tab completion of paths then works for dot-commands too. Caveat: the mirrored line is read back from the
+grid - a wrapped long line or a visible completion menu can garble it; test both.
+
+**Discovered:** 2026-10-25, GUI test of `.theme --import` (code index step 1c).
+
 ---
 
---> Next bug is #16
+--> Next bug is #18

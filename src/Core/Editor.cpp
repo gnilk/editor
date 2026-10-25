@@ -795,8 +795,10 @@ void Editor::ConfigureTheme() {
     auto &colorConfig = theme->GetContentColors();
     for(int i=0;IsLanguageTokenClass(i);i++) {
         auto langClass = gedit::LanguageTokenClassToString(static_cast<kLanguageTokenClass>(i));
+        // A theme that predates a class (e.g. the semantic ones) shows it as plain code
         if (!colorConfig.HasColor(langClass)) {
-            logger->Warning("Missing color configuration for: %s", langClass.c_str());
+            logger->Warning("Missing color configuration for: %s - using 'regular'", langClass.c_str());
+            langClass = "regular";
         }
         auto &fg = colorConfig.GetColor(langClass);
         auto &bg = colorConfig.GetColor("background");

@@ -15,6 +15,7 @@
 #include "Core/TextAttributes.h"
 #include "Core/Language/LanguageTokenClass.h"
 #include "Core/ColorRGBA.h"
+#include "Core/Index/LineStructure.h"
 
 #ifndef GEDIT_MAX_LINE_LENGTH
 #define GEDIT_MAX_LINE_LENGTH 65536
@@ -84,6 +85,12 @@ namespace gedit {
 
         LineAttribIterator AttributeAt(int pos);
         std::vector<LineAttrib> &Attributes() { return attribs; }
+        const std::vector<LineAttrib> &Attributes() const { return attribs; }
+
+        // Structure pass metadata (code index, Core/Index/LineStructure.h) - owned here, opaque to the line.
+        // Not copied with the line: a copy hasn't been scanned.
+        void SetStructure(LineStructure::Ref newStructure) { structure = std::move(newStructure); }
+        const LineStructure::Ref &GetStructure() const { return structure; }
 
         void SetSelected(bool bSelected) {
             selected = bSelected;
@@ -141,6 +148,7 @@ namespace gedit {
         // It is used to parse the smallest region of a file
         // Search the first line backwards 'til the stateDepth == 1 and start parsing from that line
         int stateDepthAtStart = 0;
+        LineStructure::Ref structure = nullptr;
     };
 }
 

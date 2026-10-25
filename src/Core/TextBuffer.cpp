@@ -18,6 +18,9 @@
 
 using namespace gedit;
 
+// The lines outside an edit get changed names after a pause (the parse thread's idle tick)
+static const auto RECOLOUR_DELAY = std::chrono::milliseconds(300);
+
 TextBuffer::TextBuffer() : parseQueueEvent(0) {
 }
 
@@ -211,6 +214,11 @@ void TextBuffer::ParseThread() {
     ChangeParseState(kState_Idle);
     while(!bQuitReparse) {
         if (!parseQueue.wait(GEDIT_DEFAULT_POLL_TMO_MS)) {
+            // Idle - a pause in editing
+            if (isRecolourPending && ((std::chrono::steady_clock::now() - timeNamesChanged) >= RECOLOUR_DELAY)) {
+                RecolourSemanticNames();
+                Editor::Instance().TriggerUIRedraw();
+            }
             continue;
         }
         auto jobItem = parseQueue.pop();
@@ -241,22 +249,244 @@ void TextBuffer::ExecuteParseJob(const ParseJob::Ref &job) {
 }
 
 void TextBuffer::ExecuteFullParse() {
-    auto tokenizer = language->Tokenizer();
+    auto tokenizer = ParserTokenizer();
     tokenizer.ParseLines(lines);
+    // The names were applied while parsing - new names only need the colours redone, no lexing
+    if (ScanStructure(0, lines.size(), true)) {
+        RecolourSemanticNames();
+    }
     parseMetrics.total += 1;
     parseMetrics.full += 1;
 }
 
 size_t TextBuffer::ExecuteRegionParse(size_t idxLineStart, size_t idxLineEnd) {
-    auto tokenizer = language->Tokenizer();
+    auto tokenizer = ParserTokenizer();
     auto result = tokenizer.ParseRegion(lines, idxLineStart, idxLineEnd);
     if (result != 0) {
         logger->Error("ParseRegion, tokenizer didn't reach complete, result=%zu", result);
         // perhaps issue a full/complete Reparse here??
     }
+    // The edited lines got the names while parsing; a declared/removed name changes lines elsewhere too
+    if (ScanStructure(idxLineStart, idxLineEnd, false)) {
+        if (reparseThread != nullptr) {
+            isRecolourPending = true;
+            timeNamesChanged = std::chrono::steady_clock::now();
+        } else {
+            RecolourSemanticNames();
+        }
+    }
     parseMetrics.total += 1;
     parseMetrics.region += 1;
     return result;
+}
+
+// A copy of the language's tokenizer whose per-line hook also applies the semantic names - after the
+// language's own post-process, so the language layer never sees the index
+LangLineTokenizer TextBuffer::ParserTokenizer() {
+    auto tokenizer = language->Tokenizer();
+    auto postProcessLanguage = language.get();
+    tokenizer.SetPostLineCallback([this, postProcessLanguage](const Line::Ref &line) {
+        postProcessLanguage->OnPostProcessParsedLine(line);
+        ApplySemanticNames(*line);
+    });
+    return tokenizer;
+}
+
+//
+// The structure pass over the tokens the highlighter left on the lines (no text copy, no lexing). A region
+// scan works like the highlighter's: it resumes at the closest line at or before the edit that starts between
+// statements (the state stored on the line), and runs past the edit until a line starts in the same state as
+// before - the rest of the file is unchanged. Each scanned line's declarations replace the ones it had in the
+// counted name table. Returns true when a name's meaning changed.
+//
+bool TextBuffer::ScanStructure(size_t idxLineStart, size_t idxLineEnd, bool isFullScan) {
+    if (!PrepareStructureScanner() || lines.empty()) {
+        bool isChanged = !semanticNames.IsEmpty();
+        semanticNames.Clear();
+        return isChanged;
+    }
+    std::vector<SemanticDeclaration> removed;
+    {
+        std::lock_guard<std::mutex> guard(removedDeclarationsLock);
+        removed.swap(removedDeclarations);
+    }
+
+    size_t idxStart = 0;
+    StructureScanState::Ref resumeState = nullptr;
+    if (!isFullScan) {
+        idxStart = std::min(idxLineStart, lines.size() - 1);
+        for (; idxStart > 0; idxStart--) {
+            auto &structure = lines[idxStart]->GetStructure();
+            if ((structure != nullptr) && (structure->stateAtStart != nullptr)) {
+                resumeState = structure->stateAtStart;
+                break;
+            }
+        }
+    }
+
+    auto maxRegionLines = (size_t)Config::Instance()["languages"].GetInt("regionMaxLines", 1000);
+    std::vector<Line::Ref> scannedLines;
+    std::vector<LineStructure::Ref> scannedStructures;
+    structureScanner->Begin(resumeState);
+    for (auto idxLine = idxStart; idxLine < lines.size(); idxLine++) {
+        auto line = lines[idxLine];
+        auto stateAtStart = structureScanner->StateAtLineStart();
+        auto structure = line->GetStructure();
+        bool isPastEdit = !isFullScan && (idxLine >= idxLineEnd) && (idxLine > idxStart);
+        if (isPastEdit) {
+            bool isConverged = (stateAtStart != nullptr) && (structure != nullptr) && (structure->stateAtStart != nullptr) &&
+                               stateAtStart->Equals(*structure->stateAtStart);
+            if (isConverged || (scannedLines.size() >= maxRegionLines)) {
+                break;
+            }
+        }
+        line->Lock();
+        if (structure == nullptr) {
+            structure = std::make_shared<LineStructure>();
+            line->SetStructure(structure);
+        }
+        structure->stateAtStart = stateAtStart;
+        structureScanner->ScanLine(*line, (uint32_t)idxLine);
+        line->Release();
+        scannedLines.push_back(line);
+        scannedStructures.push_back(structure);
+    }
+    auto fileStructure = structureScanner->End();
+
+    // The declarations by line (a declaration is on the line of its name)
+    std::vector<std::vector<SemanticDeclaration>> declarations(scannedLines.size());
+    for (auto &symbol : fileStructure.symbols) {
+        if ((symbol.line < idxStart) || (symbol.line >= idxStart + scannedLines.size())) {
+            continue;
+        }
+        auto declaration = SemanticNames::DeclarationFor(symbol);
+        if (declaration.has_value()) {
+            declarations[symbol.line - idxStart].push_back(std::move(*declaration));
+        }
+    }
+
+    bool wasEmpty = semanticNames.IsEmpty();
+    if (isFullScan) {
+        semanticNames.Clear();
+    }
+    // The names this scan touches, and what they meant before
+    std::vector<std::u32string> touchedNames;
+    if (!isFullScan) {
+        for (auto &declaration : removed) {
+            touchedNames.push_back(declaration.name);
+        }
+        for (size_t i = 0; i < scannedLines.size(); i++) {
+            auto &previous = scannedStructures[i]->declarations;
+            if (previous == declarations[i]) {
+                continue;
+            }
+            for (auto &declaration : previous) {
+                touchedNames.push_back(declaration.name);
+            }
+            for (auto &declaration : declarations[i]) {
+                touchedNames.push_back(declaration.name);
+            }
+        }
+    }
+    std::vector<kLanguageTokenClass> meaningsBefore;
+    for (auto &name : touchedNames) {
+        meaningsBefore.push_back(semanticNames.Lookup(name));
+    }
+
+    for (auto &declaration : removed) {
+        semanticNames.Remove(declaration);
+    }
+    for (size_t i = 0; i < scannedLines.size(); i++) {
+        auto &line = scannedLines[i];
+        line->Lock();
+        // A line deleted meanwhile took its (counted) declarations along - see OnLineRemoved
+        if (line->GetStructure() == scannedStructures[i]) {
+            auto &previous = scannedStructures[i]->declarations;
+            if (!isFullScan) {
+                for (auto &declaration : previous) {
+                    semanticNames.Remove(declaration);
+                }
+            }
+            previous = std::move(declarations[i]);
+            for (auto &declaration : previous) {
+                semanticNames.Add(declaration);
+            }
+        }
+        line->Release();
+    }
+
+    if (isFullScan) {
+        return !wasEmpty || !semanticNames.IsEmpty();
+    }
+    for (size_t i = 0; i < touchedNames.size(); i++) {
+        if (semanticNames.Lookup(touchedNames[i]) != meaningsBefore[i]) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool TextBuffer::PrepareStructureScanner() {
+    if (structureScannerLanguage != language.get()) {
+        structureScanner = StructureScanner::CreateForLanguage(*language);
+        structureScannerLanguage = language.get();
+    }
+    return (structureScanner != nullptr) && language->GetBool("semantic_highlighting", true);
+}
+
+// The token lists get the current names - no lexing
+void TextBuffer::RecolourSemanticNames() {
+    isRecolourPending = false;
+    for (auto &line : lines) {
+        line->Lock();
+        ApplySemanticNames(*line);
+        line->Release();
+    }
+}
+
+static bool IsIdentifierChar(char32_t ch) {
+    return ((ch >= U'a') && (ch <= U'z')) || ((ch >= U'A') && (ch <= U'Z')) || ((ch >= U'0') && (ch <= U'9')) || (ch == U'_');
+}
+
+// With the line locked: each 'regular' (or earlier semantic) identifier gets the class the names give it
+void TextBuffer::ApplySemanticNames(Line &line) {
+    auto &text = line.Buffer();
+    for (auto &attrib : line.Attributes()) {
+        bool isSemantic = SemanticNames::IsSemanticClass(attrib.tokenClass);
+        if (!isSemantic && ((attrib.tokenClass != kLanguageTokenClass::kRegular) || semanticNames.IsEmpty())) {
+            continue;
+        }
+        auto idxStart = static_cast<size_t>(attrib.idxOrigString);
+        auto idxEnd = idxStart;
+        while ((idxEnd < text.size()) && IsIdentifierChar(text[idxEnd])) {
+            idxEnd++;
+        }
+        auto tokenClass = kLanguageTokenClass::kRegular;
+        if (idxEnd > idxStart) {
+            tokenClass = semanticNames.Lookup(text.substr(idxStart, idxEnd - idxStart));
+        }
+        if (tokenClass == attrib.tokenClass) {
+            continue;
+        }
+        auto [fgColor, bgColor] = Editor::Instance().ColorFromLanguageToken(tokenClass);
+        attrib.tokenClass = tokenClass;
+        attrib.foregroundColor = fgColor;
+        attrib.backgroundColor = bgColor;
+    }
+}
+
+// With the line locked (DeleteLineAt, UI thread): what it declared leaves the names at the next scan
+void TextBuffer::OnLineRemoved(Line &line) {
+    auto structure = line.GetStructure();
+    if (structure == nullptr) {
+        return;
+    }
+    line.SetStructure(nullptr);
+    if (structure->declarations.empty()) {
+        return;
+    }
+    std::lock_guard<std::mutex> guard(removedDeclarationsLock);
+    removedDeclarations.insert(removedDeclarations.end(), structure->declarations.begin(), structure->declarations.end());
 }
 
 void TextBuffer::CopyRegionToString(std::u32string &outText, const Point &start, const Point &end) {

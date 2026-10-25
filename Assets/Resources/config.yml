@@ -248,6 +248,7 @@ languages:
     insert_closing_brace: yes
     auto_indent: yes
     continue_comment: yes
+    semantic_highlighting: yes  # colour types/functions/members/macros the file itself declares (docs/code-index.md §10.1)
 
 # Session cache — restore a project as you left it (docs/session-cache.md). Phase 1: per-root
 # <root>/.goatedit/session.yml with open files + cursors (+ layout/geometry as those land).

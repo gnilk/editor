@@ -18,6 +18,9 @@
 #include "Core/UnicodeHelper.h"
 #include "Core/Language/LangLineTokenizer.h"
 #include "Core/Index/CPPStructureScanner.h"
+#include "Core/Index/SemanticNames.h"
+#include "Core/Index/StructureScanner.h"
+#include <functional>
 
 using namespace gedit;
 
@@ -35,6 +38,14 @@ extern "C" {
     DLL_EXPORT int test_codeindex_struct_macros(ITesting *t);
     DLL_EXPORT int test_codeindex_struct_initializers(ITesting *t);
     DLL_EXPORT int test_codeindex_struct_balance(ITesting *t);
+    DLL_EXPORT int test_codeindex_semantic_names(ITesting *t);
+    DLL_EXPORT int test_codeindex_semantic_buffer(ITesting *t);
+    DLL_EXPORT int test_codeindex_semantic_edit(ITesting *t);
+    DLL_EXPORT int test_codeindex_semantic_linefed(ITesting *t);
+    DLL_EXPORT int test_codeindex_semantic_regionlocal(ITesting *t);
+    DLL_EXPORT int test_codeindex_semantic_delete(ITesting *t);
+    DLL_EXPORT int test_codeindex_semantic_resume(ITesting *t);
+    DLL_EXPORT int test_codeindex_semantic_incremental(ITesting *t);
 }
 
 namespace {
@@ -94,6 +105,58 @@ namespace {
             }
         }
         return false;
+    }
+
+    // A synchronously parsed C++ buffer
+    TextBuffer::Ref CPPBuffer(const std::vector<std::u32string> &lines) {
+        auto mainConfig = Config::Instance()["main"];
+        auto wasThreaded = mainConfig.GetBool("threaded_syntaxparser", false);
+        mainConfig.SetBool("threaded_syntaxparser", false);
+        auto buffer = TextBuffer::CreateEmptyBuffer();
+        buffer->DeleteLineAt(0);
+        for (auto &line : lines) {
+            buffer->AddLineUTF8(UnicodeHelper::utf32to8(line).c_str());
+        }
+        buffer->SetLanguage(Editor::Instance().GetLanguageForExtension(".cpp"));
+        mainConfig.SetBool("threaded_syntaxparser", wasThreaded);
+        return buffer;
+    }
+
+    // The token class at the first occurrence of 'word' on the line
+    kLanguageTokenClass ClassOf(TextBuffer::Ref buffer, size_t idxLine, const std::u32string &word) {
+        auto line = buffer->LineAt(idxLine);
+        auto idxWord = (int)line->Buffer().find(word);
+        auto tokenClass = kLanguageTokenClass::kUnknown;
+        for (auto &attrib : line->Attributes()) {
+            if (attrib.idxOrigString > idxWord) {
+                break;
+            }
+            tokenClass = attrib.tokenClass;
+        }
+        return tokenClass;
+    }
+
+    // An edit as the editor does it: the lines change, then the region is reparsed (synchronously)
+    void EditRegion(TextBuffer::Ref buffer, size_t idxStart, size_t idxEnd, const std::function<void()> &edit) {
+        auto mainConfig = Config::Instance()["main"];
+        auto wasThreaded = mainConfig.GetBool("threaded_syntaxparser", false);
+        mainConfig.SetBool("threaded_syntaxparser", false);
+        edit();
+        buffer->ReparseRegion(idxStart, idxEnd);
+        mainConfig.SetBool("threaded_syntaxparser", wasThreaded);
+    }
+
+    std::vector<std::u32string> BufferLines(TextBuffer::Ref buffer) {
+        std::vector<std::u32string> lines;
+        for (size_t i = 0; i < buffer->NumLines(); i++) {
+            lines.push_back(buffer->LineAt(i)->Buffer());
+        }
+        return lines;
+    }
+
+    const void *StateAt(TextBuffer::Ref buffer, size_t idxLine) {
+        auto &structure = buffer->LineAt(idxLine)->GetStructure();
+        return (structure != nullptr) ? structure->stateAtStart.get() : nullptr;
     }
 
     bool HasEdgeTo(const FileStructure &structure, const std::u32string &to) {
@@ -167,6 +230,7 @@ DLL_EXPORT int test_codeindex_tokenize_lines(ITesting *t) {
 }
 
 // The fast path gives the same tokens (position + class) as the editor's parse of the same file
+// (apart from the semantic classes the buffer adds)
 DLL_EXPORT int test_codeindex_tokenize_matches_editor(ITesting *t) {
     auto data = ReadFile("testfiles/ConvertUTF.cpp");
     TR_ASSERT(t, !data.empty());
@@ -212,7 +276,10 @@ DLL_EXPORT int test_codeindex_tokenize_matches_editor(ITesting *t) {
             TR_ASSERT(t, idxToken < tokens.size());
             TR_ASSERT(t, tokens[idxToken].idxLine == idxLine);
             TR_ASSERT(t, tokens[idxToken].idxChar == attributes[idxAttrib].idxOrigString);
-            TR_ASSERT(t, tokens[idxToken].classification == attributes[idxAttrib].tokenClass);
+            // The buffer's parse also applies semantic names (step 1b) - those are 'regular' to the lexer
+            auto editorClass = attributes[idxAttrib].tokenClass;
+            bool isSemantic = (editorClass >= kLanguageTokenClass::kUserType) && (editorClass < kLanguageTokenClass::kLastTokenClass);
+            TR_ASSERT(t, tokens[idxToken].classification == (isSemantic ? kLanguageTokenClass::kRegular : editorClass));
         }
         TR_ASSERT(t, (idxToken >= tokens.size()) || (tokens[idxToken].idxLine != idxLine));
     }
@@ -560,5 +627,249 @@ DLL_EXPORT int test_codeindex_struct_balance(ITesting *t) {
     TR_ASSERT(t, stray.numStrayCloseBraces == 2);
     TR_ASSERT(t, stray.lineFirstStrayClose == 2);
     TR_ASSERT(t, stray.numUnclosedBraces == 0);
+    return kTR_Pass;
+}
+
+// Name -> class from a file's structure; two meanings stay regular, a constructor keeps its class's meaning
+DLL_EXPORT int test_codeindex_semantic_names(ITesting *t) {
+    auto names = SemanticNames::FromStructure(ScanCPP(
+        U"#define MAX_ITEMS 16\n"
+        U"namespace app {\n"
+        U"    enum class kMode { kIdle, kBusy };\n"
+        U"    class Widget {\n"
+        U"    public:\n"
+        U"        Widget();\n"
+        U"        ~Widget();\n"
+        U"        void Draw();\n"
+        U"        int size;\n"
+        U"    };\n"
+        U"    struct Other { void size(); };\n"
+        U"}\n"
+        U"void Run(int count);\n"));
+    TR_ASSERT(t, names.Lookup(U"MAX_ITEMS") == kLanguageTokenClass::kMacro);
+    TR_ASSERT(t, names.Lookup(U"app") == kLanguageTokenClass::kNamespace);
+    TR_ASSERT(t, names.Lookup(U"kMode") == kLanguageTokenClass::kUserType);
+    TR_ASSERT(t, names.Lookup(U"kBusy") == kLanguageTokenClass::kEnumValue);
+    TR_ASSERT(t, names.Lookup(U"Widget") == kLanguageTokenClass::kUserType);
+    TR_ASSERT(t, names.Lookup(U"Draw") == kLanguageTokenClass::kFunction);
+    TR_ASSERT(t, names.Lookup(U"Run") == kLanguageTokenClass::kFunction);
+    // A member in Widget, a method in Other
+    TR_ASSERT(t, names.Lookup(U"size") == kLanguageTokenClass::kRegular);
+    // Parameters aren't symbols
+    TR_ASSERT(t, names.Lookup(U"count") == kLanguageTokenClass::kRegular);
+    return kTR_Pass;
+}
+
+// The buffer's parse reclassifies the identifiers the file declares - at their use sites too
+DLL_EXPORT int test_codeindex_semantic_buffer(ITesting *t) {
+    auto buffer = CPPBuffer({
+        U"#define LIMIT 4",
+        U"class Item {",
+        U"public:",
+        U"    void Update();",
+        U"    int counter;",
+        U"};",
+        U"void Item::Update() {",
+        U"    counter = LIMIT;",
+        U"    other = 1;",
+        U"}",
+    });
+    TR_ASSERT(t, ClassOf(buffer, 1, U"Item") == kLanguageTokenClass::kUserType);
+    TR_ASSERT(t, ClassOf(buffer, 3, U"Update") == kLanguageTokenClass::kFunction);
+    TR_ASSERT(t, ClassOf(buffer, 6, U"Item") == kLanguageTokenClass::kUserType);
+    TR_ASSERT(t, ClassOf(buffer, 6, U"Update") == kLanguageTokenClass::kFunction);
+    TR_ASSERT(t, ClassOf(buffer, 7, U"counter") == kLanguageTokenClass::kMember);
+    TR_ASSERT(t, ClassOf(buffer, 7, U"LIMIT") == kLanguageTokenClass::kMacro);
+    // Unknown names, and what the tokenizer already classified, are untouched
+    TR_ASSERT(t, ClassOf(buffer, 8, U"other") == kLanguageTokenClass::kRegular);
+    TR_ASSERT(t, ClassOf(buffer, 3, U"void") == kLanguageTokenClass::kKnownType);
+    // The theme colour follows the class
+    auto line = buffer->LineAt(7);
+    auto [memberColor, bg] = Editor::Instance().ColorFromLanguageToken(kLanguageTokenClass::kMember);
+    bool hasMemberColor = std::any_of(line->Attributes().begin(), line->Attributes().end(), [&memberColor](const Line::LineAttrib &attrib) {
+        auto &fg = attrib.foregroundColor;
+        return (attrib.tokenClass == kLanguageTokenClass::kMember) && (fg.RedAsInt(255) == memberColor.RedAsInt(255)) &&
+               (fg.GreenAsInt(255) == memberColor.GreenAsInt(255)) && (fg.BlueAsInt(255) == memberColor.BlueAsInt(255));
+    });
+    TR_ASSERT(t, hasMemberColor);
+    return kTR_Pass;
+}
+
+// An edit that declares a name recolours its earlier uses (region parse, small file)
+DLL_EXPORT int test_codeindex_semantic_edit(ITesting *t) {
+    auto buffer = CPPBuffer({
+        U"void Tick() {",
+        U"    Advance();",
+        U"}",
+    });
+    TR_ASSERT(t, ClassOf(buffer, 1, U"Advance") == kLanguageTokenClass::kRegular);
+
+    auto mainConfig = Config::Instance()["main"];
+    auto wasThreaded = mainConfig.GetBool("threaded_syntaxparser", false);
+    mainConfig.SetBool("threaded_syntaxparser", false);
+    buffer->Insert(3, U"void Advance();");
+    buffer->ReparseRegion(3, 4);
+    mainConfig.SetBool("threaded_syntaxparser", wasThreaded);
+
+    TR_ASSERT(t, ClassOf(buffer, 3, U"Advance") == kLanguageTokenClass::kFunction);
+    TR_ASSERT(t, ClassOf(buffer, 1, U"Advance") == kLanguageTokenClass::kFunction);
+    return kTR_Pass;
+}
+
+// The line-fed scan (the highlighter's tokens) finds what the text scan finds
+DLL_EXPORT int test_codeindex_semantic_linefed(ITesting *t) {
+    auto data = ReadFile("testfiles/ConvertUTF.cpp");
+    TR_ASSERT(t, !data.empty());
+    std::vector<std::u32string> lines;
+    std::stringstream stream(data);
+    std::string lineText;
+    while (std::getline(stream, lineText)) {
+        if (!lineText.empty() && (lineText.back() == '\r')) {
+            lineText.pop_back();
+        }
+        lines.push_back(UnicodeHelper::utf8to32(lineText));
+    }
+    auto buffer = CPPBuffer(lines);
+    std::u32string text;
+    for (size_t i = 0; i < buffer->NumLines(); i++) {
+        text += buffer->LineAt(i)->Buffer() + U"\n";
+    }
+    auto fromText = ScanCPP(text);
+
+    CPPStructureScanner scanner(CPPTokenizer());
+    scanner.Begin(nullptr);
+    for (size_t i = 0; i < buffer->NumLines(); i++) {
+        scanner.StateAtLineStart();
+        scanner.ScanLine(*buffer->LineAt(i), (uint32_t)i);
+    }
+    auto fromLines = scanner.End();
+    TR_ASSERT(t, fromText.symbols.size() > 10);
+    TR_ASSERT(t, fromLines.symbols.size() == fromText.symbols.size());
+    for (size_t i = 0; i < fromText.symbols.size(); i++) {
+        TR_ASSERT(t, fromLines.symbols[i].qualifiedName == fromText.symbols[i].qualifiedName);
+        TR_ASSERT(t, fromLines.symbols[i].kind == fromText.symbols[i].kind);
+        TR_ASSERT(t, fromLines.symbols[i].line == fromText.symbols[i].line);
+    }
+    TR_ASSERT(t, fromLines.edges.size() == fromText.edges.size());
+    return kTR_Pass;
+}
+
+// An edit in a function body rescans around the edit only - lines far away keep their stored state
+DLL_EXPORT int test_codeindex_semantic_regionlocal(ITesting *t) {
+    std::vector<std::u32string> lines;
+    for (int i = 0; i < 60; i++) {
+        lines.push_back(U"void Func" + UnicodeHelper::utf8to32(std::to_string(i)) + U"() {");
+        lines.push_back(U"    int x = 1;");
+        lines.push_back(U"}");
+    }
+    auto buffer = CPPBuffer(lines);
+    auto stateNear = StateAt(buffer, 3);
+    auto stateFar = StateAt(buffer, 150);
+    TR_ASSERT(t, (stateNear != nullptr) && (stateFar != nullptr));
+
+    EditRegion(buffer, 91, 92, [&buffer]() {
+        buffer->LineAt(91)->Append(std::u32string(U" x++;"));
+    });
+    TR_ASSERT(t, StateAt(buffer, 3) == stateNear);
+    TR_ASSERT(t, StateAt(buffer, 150) == stateFar);
+    return kTR_Pass;
+}
+
+// A deleted declaration takes its name along
+DLL_EXPORT int test_codeindex_semantic_delete(ITesting *t) {
+    auto buffer = CPPBuffer({
+        U"void Helper();",
+        U"void Main() {",
+        U"    Helper();",
+        U"}",
+    });
+    TR_ASSERT(t, ClassOf(buffer, 2, U"Helper") == kLanguageTokenClass::kFunction);
+    EditRegion(buffer, 0, 1, [&buffer]() {
+        buffer->DeleteLineAt(0);
+    });
+    TR_ASSERT(t, ClassOf(buffer, 1, U"Helper") == kLanguageTokenClass::kRegular);
+    return kTR_Pass;
+}
+
+// A scan resumed inside a class body or a typedef'd struct still knows where it is
+DLL_EXPORT int test_codeindex_semantic_resume(ITesting *t) {
+    std::vector<std::u32string> lines = { U"class Big {" };
+    for (int i = 0; i < 20; i++) {
+        lines.push_back(U"    int field" + UnicodeHelper::utf8to32(std::to_string(i)) + U";");
+    }
+    lines.push_back(U"};");
+    lines.push_back(U"typedef struct {");
+    for (int i = 0; i < 20; i++) {
+        lines.push_back(U"    int part" + UnicodeHelper::utf8to32(std::to_string(i)) + U";");
+    }
+    lines.push_back(U"} Packet_t;");
+    lines.push_back(U"void Use() { added = 1; extra = 2; Packet_t p; }");
+    auto buffer = CPPBuffer(lines);
+    auto idxUse = buffer->NumLines() - 1;
+    TR_ASSERT(t, ClassOf(buffer, idxUse, U"Packet_t") == kLanguageTokenClass::kUserType);
+
+    // Mid-class: a new member
+    EditRegion(buffer, 10, 11, [&buffer]() {
+        buffer->Insert(10, U"    int added;");
+    });
+    idxUse++;
+    TR_ASSERT(t, ClassOf(buffer, idxUse, U"added") == kLanguageTokenClass::kMember);
+
+    // Mid-struct: a new member, and the typedef name at the end is still the type
+    EditRegion(buffer, 33, 34, [&buffer]() {
+        buffer->Insert(33, U"    int extra;");
+    });
+    idxUse++;
+    TR_ASSERT(t, ClassOf(buffer, idxUse, U"extra") == kLanguageTokenClass::kMember);
+    TR_ASSERT(t, ClassOf(buffer, idxUse, U"Packet_t") == kLanguageTokenClass::kUserType);
+    return kTR_Pass;
+}
+
+// After a series of edits the names are what a fresh parse of the result gives
+DLL_EXPORT int test_codeindex_semantic_incremental(ITesting *t) {
+    auto buffer = CPPBuffer({
+        U"#define LIMIT 4",
+        U"namespace app {",
+        U"    class Item {",
+        U"    public:",
+        U"        void Update();",
+        U"        int counter;",
+        U"    };",
+        U"    void Item::Update() {",
+        U"        counter = LIMIT;",
+        U"    }",
+        U"}",
+        U"void Run() { app::Item item; item.Update(); item.Reset(); total = 0; }",
+    });
+    // Rename a method, add one, add a member, drop the macro
+    EditRegion(buffer, 4, 5, [&buffer]() {
+        auto line = buffer->LineAt(4);
+        line->Delete(0, (int)line->Length());
+        line->Append(std::u32string(U"        void Refresh();"));
+    });
+    EditRegion(buffer, 5, 6, [&buffer]() {
+        buffer->Insert(5, U"        void Reset();");
+    });
+    EditRegion(buffer, 7, 8, [&buffer]() {
+        buffer->Insert(7, U"        int total;");
+    });
+    EditRegion(buffer, 0, 1, [&buffer]() {
+        buffer->DeleteLineAt(0);
+    });
+
+    auto fresh = CPPBuffer(BufferLines(buffer));
+    TR_ASSERT(t, fresh->NumLines() == buffer->NumLines());
+    for (size_t idxLine = 0; idxLine < buffer->NumLines(); idxLine++) {
+        auto &attributes = buffer->LineAt(idxLine)->Attributes();
+        auto &freshAttributes = fresh->LineAt(idxLine)->Attributes();
+        TR_ASSERT(t, attributes.size() == freshAttributes.size());
+        for (size_t i = 0; i < attributes.size(); i++) {
+            TR_ASSERT(t, attributes[i].tokenClass == freshAttributes[i].tokenClass);
+        }
+    }
+    auto idxRun = buffer->NumLines() - 1;
+    TR_ASSERT(t, ClassOf(buffer, idxRun, U"Reset") == kLanguageTokenClass::kFunction);
+    TR_ASSERT(t, ClassOf(buffer, idxRun, U"total") == kLanguageTokenClass::kMember);
+    TR_ASSERT(t, ClassOf(buffer, idxRun, U"Update") == kLanguageTokenClass::kFunction);   // the definition still declares it
     return kTR_Pass;
 }

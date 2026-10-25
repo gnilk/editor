@@ -213,7 +213,25 @@ const char *gedit::OwnershipName(kOwnership ownership) {
 CPPStructureScanner::CPPStructureScanner(const LangLineTokenizer &tokenizer) : tokenizer(tokenizer) {
 }
 
+// A whole file: lex it and feed it a line at a time
 FileStructure CPPStructureScanner::Scan(const std::u32string &text) {
+    Begin(nullptr);
+    std::vector<Token> lineTokens;
+    size_t idxCurrentLine = 0;
+    auto numLines = tokenizer.TokenizeText(text, [this, &lineTokens, &idxCurrentLine](size_t idxLine, const LangToken &token) {
+        if ((idxLine != idxCurrentLine) && !lineTokens.empty()) {
+            ScanLineTokens(lineTokens);
+        }
+        idxCurrentLine = idxLine;
+        lineTokens.push_back({token.string, (uint32_t)idxLine, (uint32_t)token.idxOrigStr, token.classification});
+    });
+    ScanLineTokens(lineTokens);
+    auto structure = End();
+    structure.numLines = numLines;
+    return structure;
+}
+
+void CPPStructureScanner::Begin(const StructureScanState::Ref &state) {
     result = {};
     tokens.clear();
     scopes.clear();
@@ -222,30 +240,108 @@ FileStructure CPPStructureScanner::Scan(const std::u32string &text) {
     parenDepth = 0;
     pendingTypedefSymbol = -1;
     isAfterAnonymousType = false;
+    isPendingTypedefAlias = false;
     conditionals.clear();
     isContinuation = false;
     idxPreviousLine = 0;
+    lastState = nullptr;
 
-    CollectTokens(text);
-    ScanCode();
+    auto resumeState = std::dynamic_pointer_cast<const ScanState>(state);
+    if (resumeState == nullptr) {
+        scopes.push_back({});
+        return;
+    }
+    // The symbols the scopes were opened with belong to an earlier scan
+    scopes = resumeState->scopes;
+    for (auto &scope : scopes) {
+        scope.idxSymbol = -1;
+    }
+    conditionals = resumeState->conditionals;
+    lastState = resumeState;
+}
+
+StructureScanState::Ref CPPStructureScanner::StateAtLineStart() {
+    if (!IsBetweenStatements()) {
+        return nullptr;
+    }
+    if ((lastState != nullptr) && lastState->IsSame(scopes, conditionals)) {
+        return lastState;
+    }
+    auto state = std::make_shared<ScanState>();
+    state->scopes = scopes;
+    state->conditionals = conditionals;
+    lastState = state;
+    return state;
+}
+
+// The tokens the highlighter left on the line: each attribute starts a token, which runs to the next one
+// (minus the whitespace in between). The semantic classes are the highlighter's view of the index - to the
+// scanner they are plain identifiers.
+void CPPStructureScanner::ScanLine(const Line &line, uint32_t idxLine) {
+    auto &text = line.Buffer();
+    auto &attributes = line.Attributes();
+    std::vector<Token> lineTokens;
+    for (size_t i = 0; i < attributes.size(); i++) {
+        auto idxStart = (size_t)std::max(0, attributes[i].idxOrigString);
+        auto idxEnd = (i + 1 < attributes.size()) ? (size_t)attributes[i + 1].idxOrigString : text.size();
+        idxEnd = std::min(idxEnd, text.size());
+        while ((idxEnd > idxStart) && ((text[idxEnd - 1] == U' ') || (text[idxEnd - 1] == U'\t'))) {
+            idxEnd--;
+        }
+        if (idxEnd <= idxStart) {
+            continue;
+        }
+        auto classification = attributes[i].tokenClass;
+        if ((classification >= kLanguageTokenClass::kUserType) && (classification < kLanguageTokenClass::kLastTokenClass)) {
+            classification = kLanguageTokenClass::kRegular;
+        }
+        lineTokens.push_back({text.substr(idxStart, idxEnd - idxStart), idxLine, (uint32_t)idxStart, classification});
+    }
+    ScanLineTokens(lineTokens);
+}
+
+FileStructure CPPStructureScanner::End() {
+    // Still open at the end of the file
+    if (scopes.size() > 1) {
+        result.numUnclosedBraces = (uint32_t)(scopes.size() - 1);
+        result.lineFirstUnclosed = scopes[1].openLine;
+    }
     return std::move(result);
 }
 
-//
-// Pass 1: the lexer's tokens, a line at a time - preprocessor lines are read here, comments and strings
-// dropped, the rest kept for the code pass
-//
-void CPPStructureScanner::CollectTokens(const std::u32string &text) {
-    std::vector<Token> lineTokens;
-    size_t idxCurrentLine = 0;
-    result.numLines = tokenizer.TokenizeText(text, [this, &lineTokens, &idxCurrentLine](size_t idxLine, const LangToken &token) {
-        if ((idxLine != idxCurrentLine) && !lineTokens.empty()) {
-            FlushLine(lineTokens);
-        }
-        idxCurrentLine = idxLine;
-        lineTokens.push_back({token.string, (uint32_t)idxLine, (uint32_t)token.idxOrigStr, token.classification});
-    });
+// One line's tokens: the preprocessor is read, comments and strings dropped, the code tokens scanned
+void CPPStructureScanner::ScanLineTokens(std::vector<Token> &lineTokens) {
+    auto idxFirstNew = tokens.size();
     FlushLine(lineTokens);
+    for (auto i = idxFirstNew; i < tokens.size(); i++) {
+        ScanToken(i);
+    }
+    // Statements hold indices into 'tokens' - between statements it can start over
+    if (IsBetweenStatements()) {
+        tokens.clear();
+    }
+}
+
+bool CPPStructureScanner::IsBetweenStatements() const {
+    return statement.empty() && enumItem.empty() && (parenDepth == 0) && (pendingTypedefSymbol < 0) &&
+           !isAfterAnonymousType && !isPendingTypedefAlias && !isContinuation;
+}
+
+bool CPPStructureScanner::ScanState::Equals(const StructureScanState &other) const {
+    auto otherState = dynamic_cast<const ScanState *>(&other);
+    return (otherState != nullptr) && IsSame(otherState->scopes, otherState->conditionals);
+}
+
+bool CPPStructureScanner::ScanState::IsSame(const std::vector<Scope> &otherScopes, const std::vector<Conditional> &otherConditionals) const {
+    if ((scopes.size() != otherScopes.size()) || (conditionals != otherConditionals)) {
+        return false;
+    }
+    for (size_t i = 0; i < scopes.size(); i++) {
+        if (!scopes[i].IsSameScope(otherScopes[i])) {
+            return false;
+        }
+    }
+    return true;
 }
 
 void CPPStructureScanner::FlushLine(std::vector<Token> &lineTokens) {
@@ -367,20 +463,8 @@ bool CPPStructureScanner::IsSkipping() const {
 }
 
 //
-// Pass 2: the code tokens - a scope stack and the statement being collected in the current scope
+// The code tokens - a scope stack and the statement being collected in the current scope
 //
-void CPPStructureScanner::ScanCode() {
-    scopes.push_back({});
-    for (size_t i = 0; i < tokens.size(); i++) {
-        ScanToken(i);
-    }
-    // Still open at the end of the file
-    if (scopes.size() > 1) {
-        result.numUnclosedBraces = (uint32_t)(scopes.size() - 1);
-        result.lineFirstUnclosed = scopes[1].openLine;
-    }
-}
-
 void CPPStructureScanner::ScanToken(size_t i) {
     auto numScopes = scopes.size();
     ScanTokenInScope(i);
@@ -542,9 +626,16 @@ void CPPStructureScanner::OnCloseBrace(size_t idxToken) {
     if (scope.kind == kScope::kOpaque) {
         return;
     }
-    if (scope.isTypedef && (scope.idxSymbol >= 0)) {
-        pendingTypedefSymbol = scope.idxSymbol;
-    } else if ((scope.kind == kScope::kClass) && (scope.idxSymbol >= 0) && result.symbols[scope.idxSymbol].name.empty()) {
+    if (scope.isTypedef) {
+        if (scope.idxSymbol >= 0) {
+            pendingTypedefSymbol = scope.idxSymbol;
+        } else if (scope.name.empty()) {
+            // Resumed inside 'typedef struct {' - the type is named here
+            pendingTypedefSymbol = AddSymbol(scope.symbolKind, U"", U"", tokens[idxToken], true);
+        } else {
+            isPendingTypedefAlias = true;
+        }
+    } else if ((scope.kind == kScope::kClass) && scope.name.empty()) {
         isAfterAnonymousType = true;
     }
     statement.clear();
@@ -558,6 +649,16 @@ void CPPStructureScanner::OnSemicolon() {
     if (pendingTypedefSymbol >= 0) {
         OnTypedefName(stmt);
         pendingTypedefSymbol = -1;
+        return;
+    }
+    if (isPendingTypedefAlias) {
+        isPendingTypedefAlias = false;
+        for (size_t i = stmt.size(); i > 0; i--) {
+            if (IsIdentifier(stmt, i - 1)) {
+                AddSymbol(kSymbolKind::kAlias, At(stmt, i - 1).text, U"", At(stmt, i - 1), true);
+                break;
+            }
+        }
         return;
     }
     if (isAfterAnonymousType) {
@@ -783,6 +884,7 @@ bool CPPStructureScanner::TryClassDefinition(const Statement &stmt, size_t idxBr
         }
     }
     scopes.push_back({kScope::kClass, idxSymbol, LastComponent(name), false, idxKey == 1});
+    scopes.back().symbolKind = kind;
     return true;
 }
 
@@ -809,6 +911,7 @@ bool CPPStructureScanner::TryEnumDefinition(const Statement &stmt) {
     }
     auto idxSymbol = AddSymbol(kSymbolKind::kEnum, name, U"", *at, true);
     scopes.push_back({kScope::kEnum, idxSymbol, name, isEnumClass, IsText(stmt, 0, U"typedef")});
+    scopes.back().symbolKind = kSymbolKind::kEnum;
     enumItem.clear();
     return true;
 }

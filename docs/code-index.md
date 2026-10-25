@@ -478,7 +478,7 @@ function's start has scrolled out of view; scope-aware brace matching and indent
 |---|---|---|
 | 0 | **Measure.** `TokenizeText` fast path + a release-only benchmark (lines/s) on sqlite3.c and this repo. Decides threading and whether the lexer needs speeding up first. | ✅ §11.1 - plus two tokenizer fixes (~3-4x, highlighter too) |
 | 1 | ✅ §11.2 - **C++ structure engine** over strings - the low-hanging fruit only: namespaces, classes/structs, methods/functions, members, `#include`, and the edges visible right in the declaration (`inherits`, `holds` + ownership). Rules as tables in code (§5.4), shape + edge tests (§7). No storage yet - dump symbols/edges for a file and judge on this repo. Nothing from §8.1. | - |
-| 1b | **Semantic highlighting from the file itself** (§10.1): new token classes with `regular` fallback, reclassification via the post-line hook, the open file's own structure pass. New theme keys in `colors.json`; no theme-format work. | - |
+| 1b | **Semantic highlighting from the file itself** (§10.1): new token classes with `regular` fallback, reclassification via the post-line hook, the open file's own structure pass. New theme keys in `colors.json`; no theme-format work. | §11.3 (in GUI test) |
 | 1c | **Theme importer** (§10.1, D13): Sublime / VS Code theme → GoatEdit `theme.yml` + `colors.json` via the scope table; `--import-theme`. Independent of the index - can come any time after 1b. | - |
 | 2 | **In-memory index + Go to symbol** over the workspace, in the background: indexer threads, resolution (§5.2), query ranking, `SymbolSearchModal`. | - |
 | 3 | **Relationship views**: hierarchy and composition (trees, §5.5), "derived from / held by" from any symbol. | - |
@@ -624,6 +624,35 @@ refuse to save / open read-only. Tracked as `docs/open-bugs.md` #15.
 **Known limits (not handled, by design for now):** the most vexing parse (`Foo f(1);` is a function
 declaration), anonymous members not distinguished from named (`vtxinfo.size` is `GOA_MATERIAL::size`),
 locals / local classes / lambdas inside bodies, `#if` arms other than the first, macros that open scopes.
+
+### 11.3 Step 1b - semantic highlighting from the file itself (2026-10-24)
+
+**It runs on the highlighter's terms** - same lines, same regions, no text copy, no second lex:
+
+- **Line-fed scan.** `StructureScanner::Begin / StateAtLineStart / ScanLine / End` read the tokens the
+  highlighter left on each `Line` (`Attributes()`: a token runs from one attribute to the next). The
+  scanner is streaming, a line at a time; `Scan(text)` (indexer, `gedit-bench`) lexes and feeds the same
+  path. A test asserts both give the same symbols.
+- **State on the line** (`Line::SetStructure`, `Core/Index/LineStructure.h`): the scanner's state at the
+  line's start - only at a line that starts between statements, where it is just the scope stack +
+  `#if` arms - plus the names the line declares. Like `stateDepthAtStart`; consecutive lines share one
+  immutable state object; not copied with a line.
+- **Region scan** (`TextBuffer::ScanStructure`, after the highlighter's `ParseRegion`): back from the edit
+  to the closest line with a stored state, forward past the edit until a line starts in the same state as
+  before (converged), capped by `regionMaxLines`. An edit in a function body converges right after it.
+  A resumed scan doesn't know the symbols of the scopes it is inside - only what the highlighter needs.
+- **Counted names** (`SemanticNames`): per (name, class); a rescanned line takes its old declarations out
+  and puts its new ones in, a deleted line (`DeleteLineAt`) hands its declarations to the next scan.
+  A type wins over its constructors; two other meanings → `regular`.
+- **Colour:** the per-line hook applies the names to the lines being parsed. When a name's meaning
+  changes, the other lines are recoloured by walking their token lists (no lexing) - at once on a full
+  parse, after a 300 ms pause on the parse thread's idle tick for an edit.
+- New token classes `user_type`, `function`, `member`, `macro`, `enum_value`, `namespace`; a theme without
+  them shows `regular` (`Editor::ConfigureTheme`). Off switch: `languages.cpp.semantic_highlighting`.
+
+**Not handled (by design for now):** locals and parameters aren't symbols (a local named like a member gets
+the member colour); namespace-scope variables stay `regular`; names declared in other files wait for the
+index (step 2).
 
 ## 12. Open decisions
 

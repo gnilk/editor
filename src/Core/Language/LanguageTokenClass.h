@@ -38,7 +38,15 @@ namespace gedit {
         kBlockQuote = 24,       // quoted block text
         kLink = 25,             // hyperlink / reference
         kRule = 26,             // horizontal rule / thematic break
-        kLastTokenClass = 27,         // this is used as numeric detection of the last token class
+        // Semantic classes - an identifier the code index knows (docs/code-index.md §10.1). The tokenizer
+        // never produces these; a 'regular' identifier is reclassified after the line is parsed.
+        kUserType = 27,         // class / struct / union / enum / alias
+        kFunction = 28,         // function or method
+        kMember = 29,           // data member
+        kMacro = 30,            // a #define'd name where it is used
+        kEnumValue = 31,        // enumerator
+        kNamespace = 32,
+        kLastTokenClass = 33,         // this is used as numeric detection of the last token class
         kFunky = 196,       // USED for debugging..
     };
 }

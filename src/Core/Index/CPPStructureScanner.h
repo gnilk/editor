@@ -4,7 +4,8 @@
 // the edges visible in a declaration: inherits, holds (with ownership), includes.
 //
 // Heuristic, not a parser: a scope stack and a statement buffer, classified at '{', ';' and '}'. Function
-// bodies are skipped. Preprocessor: '#include' / '#define' are read, conditionals keep the first arm
+// bodies are skipped. Streaming, a line at a time: at a line that starts between statements the state is
+// just the scope stack + conditionals, which is what a line-fed scan resumes from. Preprocessor: '#include' / '#define' are read, conditionals keep the first arm
 // ('#if 0' keeps the '#else'), continuation lines are skipped. Comments and strings are dropped.
 //
 
@@ -29,6 +30,11 @@ namespace gedit {
         }
 
         FileStructure Scan(const std::u32string &text) override;
+
+        void Begin(const StructureScanState::Ref &state) override;
+        StructureScanState::Ref StateAtLineStart() override;
+        void ScanLine(const Line &line, uint32_t idxLine) override;
+        FileStructure End() override;
     public:
         struct Token {
             std::u32string text;
@@ -53,14 +59,40 @@ namespace gedit {
             bool isEnumClass = false;
             bool isTypedef = false;         // 'typedef struct {...} Name;' - named at the ';'
             uint32_t openLine = 0;          // the line of its '{'
+            kSymbolKind symbolKind = kSymbolKind::kClass;  // class / enum scopes - what a resumed scan names at the ';'
+
+            // The resumable part - not the symbol (a resumed scan's symbols start over) or the line
+            bool IsSameScope(const Scope &other) const {
+                return (kind == other.kind) && (name == other.name) && (isEnumClass == other.isEnumClass) &&
+                       (isTypedef == other.isTypedef) && (symbolKind == other.symbolKind);
+            }
+        };
+        struct Conditional {
+            bool isSkipping = false;
+            bool isTaken = false;
+
+            bool operator==(const Conditional &other) const {
+                return (isSkipping == other.isSkipping) && (isTaken == other.isTaken);
+            }
+        };
+        // The state at a line that starts between statements
+        class ScanState : public StructureScanState {
+        public:
+            using Ref = std::shared_ptr<const ScanState>;
+        public:
+            bool Equals(const StructureScanState &other) const override;
+            bool IsSame(const std::vector<Scope> &otherScopes, const std::vector<Conditional> &otherConditionals) const;
+        public:
+            std::vector<Scope> scopes;
+            std::vector<Conditional> conditionals;
         };
         using Statement = std::vector<size_t>;     // indices into 'tokens'
     protected:
-        void CollectTokens(const std::u32string &text);
+        void ScanLineTokens(std::vector<Token> &lineTokens);
+        bool IsBetweenStatements() const;
         void ScanPreprocessorLine(const std::vector<Token> &lineTokens);
         bool IsSkipping() const;
 
-        void ScanCode();
         void ScanToken(size_t idxToken);
         void ScanTokenInScope(size_t idxToken);
         void OnOpenBrace(size_t idxToken);
@@ -98,12 +130,9 @@ namespace gedit {
         int parenDepth = 0;             // in 'statement'
         int pendingTypedefSymbol = -1;  // 'typedef struct/enum {...} Name;' - the type waiting for its name
         bool isAfterAnonymousType = false;  // 'struct {...} name;' - the names before the ';' are members
-
-        struct Conditional {
-            bool isSkipping = false;
-            bool isTaken = false;
-        };
+        bool isPendingTypedefAlias = false; // a resumed scan at 'typedef struct Foo {...} Foo_t;' - the alias at the ';'
         std::vector<Conditional> conditionals;
+        ScanState::Ref lastState = nullptr;   // shared by the following lines while unchanged
         bool isContinuation = false;
         uint32_t idxPreviousLine = 0;   // the last line with tokens - a gap is an empty line, which ends a continuation
     };

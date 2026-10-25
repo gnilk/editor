@@ -12,10 +12,13 @@
 #include <filesystem>
 #include <semaphore>
 #include <mutex>
+#include <chrono>
 
 #include "logger.h"
 
 #include "Core/Language/LanguageBase.h"
+#include "Core/Index/StructureScanner.h"
+#include "Core/Index/SemanticNames.h"
 #include "Core/Line.h"
 #include "Core/Point.h"
 #include "Core/UnicodeHelper.h"
@@ -137,6 +140,7 @@ namespace gedit {
             auto line = LineAt(idxLine);
             line->Lock();
             lines.erase(lines.begin() + idxLine);
+            OnLineRemoved(*line);
             line->Release();
             ChangeBufferState(kBuffer_Changed);
         }
@@ -227,6 +231,12 @@ namespace gedit {
         void ExecuteParseJob(const ParseJob::Ref &job);
         void ExecuteFullParse();
         size_t ExecuteRegionParse(size_t idxLineStart, size_t idxLineEnd);
+        LangLineTokenizer ParserTokenizer();
+        bool ScanStructure(size_t idxLineStart, size_t idxLineEnd, bool isFullScan);
+        bool PrepareStructureScanner();
+        void RecolourSemanticNames();
+        void ApplySemanticNames(Line &line);
+        void OnLineRemoved(Line &line);
     private:
         volatile ParseState parseState = kState_None;
 
@@ -238,6 +248,17 @@ namespace gedit {
         // Language parsing variables
         LanguageBase::Ref language = nullptr;
         std::thread *reparseThread = nullptr;
+
+        // Semantic highlighting (docs/code-index.md §10.1) - the structure pass over the lines the highlighter
+        // parsed, used by the parse (thread) only
+        StructureScanner::Ptr structureScanner = nullptr;
+        const LanguageBase *structureScannerLanguage = nullptr;     // the language 'structureScanner' was made for
+        SemanticNames semanticNames;
+        bool isRecolourPending = false;     // the names changed - the lines outside the edit wait for a pause
+        std::chrono::steady_clock::time_point timeNamesChanged = {};
+        // What deleted lines declared - deleted on the UI thread, taken out of 'semanticNames' by the next scan
+        std::mutex removedDeclarationsLock;
+        std::vector<SemanticDeclaration> removedDeclarations;
         std::mutex parseThreadLock;
 
         std::binary_semaphore parseQueueEvent;

@@ -199,7 +199,7 @@ void WorkspaceView::CreateTree() {
             workspace->ScanNode(viewNode->data);
 
             std::vector<std::string> excludePrefixes;
-            if (Config::Instance()[cfgSectionName].GetBool("hide_dot_files", true)) {
+            if (Config::Instance()[cfgSectionName].GetBool("hide_dot_files", false)) {
                 excludePrefixes.push_back(".");
             }
             // A frontier can already show some children (a file opened below it was scanned in) - the scan
@@ -235,7 +235,7 @@ void WorkspaceView::PopulateTree() {
 
     std::vector<std::string> excludePrefixList;
     // Perhaps have a list somewhere...
-    if (Config::Instance()[cfgSectionName].GetBool("hide_dot_files", true)) {
+    if (Config::Instance()[cfgSectionName].GetBool("hide_dot_files", false)) {
         excludePrefixList.push_back(".");
     }
 

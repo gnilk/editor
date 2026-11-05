@@ -85,6 +85,7 @@ workspace:
   # browsable in the workspace view.
   exclude:
     - ".git"
+    - ".github"
     - ".idea"
 
 # The code index behind Go to symbol (docs/code-index.md): project folders are indexed in the background
@@ -142,7 +143,7 @@ workspaceview:
   keymap: "workspace_keymap"
   switch_to_editor_on_openfile: yes
   auto_expand_view: yes
-  hide_dot_files: yes
+  hide_dot_files: no
   # Show what '.gitignore' leaves out, dimmed. ToggleIgnored (Alt+H in this view) flips it for the session.
   show_ignored: yes
   # Number of rows to scroll per mouse-wheel notch

@@ -8,6 +8,17 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## Code index - structural search over the code base (in progress)
+
+The base for "search everywhere": a lexer-driven index of symbols and their relationships, not plain text
+search. **Shipped:** step 0 (`TokenizeText` fast path, `gedit-bench`, tokenizer 3-4x faster), step 1 (C/C++
+structure pass: symbols, inherits/holds/includes), step 1b (semantic highlighting from the file's own
+declarations, kept per `Line`), step 1c (VS Code / Sublime theme import, `--import-theme`,
+`.theme --import`). **Load-bearing decisions:** no compiler or language server; anything per-buffer rides
+the highlighter's line/region machinery, never a whole-buffer copy or re-lex per edit; themes are converted
+once, not read at runtime (D13); library names are shipped data, not a toolchain scan (D14). **Next:** step 2,
+in-memory index and Go to symbol; decisions in §11.5. Detail: [`code-index.md`](code-index.md).
+
 ## Project config — `<root>/.goatedit/config.yml` merged at startup ✅ (on `feat/project-config`)
 
 Config now merges **system → user → project** (last wins). The project root is resolved *before* the

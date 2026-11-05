@@ -6,6 +6,9 @@ cmake-build-release/
 bld/
 .idea/
 
+# Per-project editor state (session, terminal scrollback) - written by the editor when it runs here
+.goatedit/
+
 # Packaging artifacts (CM-6): AppImage output + linuxdeploy staging
 *.AppImage
 *.deb

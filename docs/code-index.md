@@ -1,6 +1,6 @@
 # Code index - structural search over the whole code base
 
-Status: **DESIGN, not started** (opened 2026-10-23). Replaces the sketch in
+Status: **In progress** - steps 0, 1, 1b and 1c shipped, step 2 next (§11). Opened 2026-10-23. Replaces the sketch in
 [`done/session-cache.md`](done/session-cache.md) §6 and is step 5 of [`modal_fixes.md`](modal_fixes.md).
 
 ## 1. Aim
@@ -166,8 +166,9 @@ refs(name_id, file_id, line, col)                     -- identifier occurrences 
   `(mtime, size)` match the store are skipped; the rest go to a work queue drained by N threads
   (N = cores - 1). Each thread: read → lex → structural pass → result batch → one writer applies
   batches (single writer, no lock contention on the store).
-- **Incremental:** `FolderMonitor` events re-queue the file (deleted → drop its rows). Open documents:
-  re-index on save; optionally on idle from the editor's own parse (D6).
+- **Incremental:** `FolderMonitor` events re-queue the file (deleted → drop its rows). Open documents
+  feed the index from the buffer: the declarations 1b already keeps on each `Line`, no re-read and no
+  second lex (D6). A closed file comes from disk.
 - **Progress & priority:** the open/active files and their directory first; a status-line hint
   ("indexing 12 034 / 48 211"); search works on what is indexed so far.
 - Cancellable on project close / quit; never blocks the UI thread.
@@ -523,10 +524,10 @@ Its output could also *generate* the shipped assets.
 | 1b | **Semantic highlighting from the file itself** (§10.1): new token classes with `regular` fallback, reclassification via the post-line hook, the open file's own structure pass. New theme keys in `colors.json`; no theme-format work. | ✅ §11.3 |
 | 1c | **Theme importer** (§10.1, D13): Sublime / VS Code theme → GoatEdit `theme.yml` + `colors.json` via the scope table; `--import-theme`. Independent of the index - can come any time after 1b. | ✅ §11.4 (+ `.theme --import`) |
 | 1d | **System / library names** (§10.2, D14): `std::` by syntax, `<...>` includes marked system, curated name lists as editor assets (`c_std`, `cpp_std`), `library_type` / `library_function` classes. Members in the format for later suggestions. Independent of step 2 (can come before or after). | - |
-| 2 | **In-memory index + Go to symbol** over the workspace, in the background: indexer threads, resolution (§5.2), query ranking, `SymbolSearchModal`. | - |
+| 2 | **In-memory index + Go to symbol** over the workspace, in the background: indexer threads, resolution (§5.2), query ranking, `SymbolSearchModal`. Kept current by `FolderMonitor` and, for open files, the buffer. Decisions: §11.5. | - |
 | 3 | **Relationship views**: hierarchy and composition (trees, §5.5), "derived from / held by" from any symbol. | - |
 | 4 | **Modules**: file → module roll-up, dependency view + matrix, cycles; DOT/Mermaid export. | - |
-| 5 | **Persistence + incremental**: store (D2), `FolderMonitor`, re-index on save. | - |
+| 5 | **Persistence**: store (D2), skip unchanged files at startup. Only if measuring says startup needs it. | - |
 | 6 | **Calls / uses / refs** (D3), usages view; **architecture rules** (§10). | - |
 | 7 | **Rules as data**: move the C++ tables to config, project overrides; a second language (§5.4, D9). | - |
 
@@ -737,17 +738,31 @@ to it stays a `main.theme:` edit (`.cfg --user set main.theme x.theme.yml`) and 
 Night Owl (the sample in `Assets/Themes/`, not committed) imports with one key unmatched (`rule`), 38
 context selectors and 29 font styles reported.
 
+### 11.5 Step 2 - decisions taken before starting (2026-11-05)
+
+- **No persistence yet** (D2): re-index at startup; PuckoNew (~560k lines) is the first real test of that.
+- **Open files come from the buffer** (D6), closed files from disk.
+- **`FolderMonitor` updates are part of step 2** (moved from step 5): otherwise results go stale after a
+  `git pull` or an external edit until restart. The macOS backend works; Linux gets live updates when its
+  backend does.
+- **Cross-file colouring:** names with several meanings in the workspace stay plain. Narrowing by includes
+  can come later.
+- **Keys and filters:** Cmd+T / Ctrl+T (D7), `Scope::name` only (D4).
+- **C/C++ only** (D5): the only structure scanner so far.
+- **Memory:** tens of MB per million symbols is accepted; a stats readout checks it on PuckoNew.
+- **Order:** step 2 before 1d. Library names then slot in as symbols with origin = system.
+
 ## 12. Open decisions
 
 | # | Question | Leaning |
 |---|---|---|
 | D1 | Plain text search-everywhere: before, after or alongside the symbol index? | After step 2 - symbol search first, as the one you'd prefer. |
-| D2 | Persistence: SQLite (FTS5) amalgamation, or a flat versioned binary (`BinBuffer`, like the terminal scrollback) loaded into memory? | Decide at step 5. Name search runs in memory either way. The relationship focus tilts towards SQLite: transitive questions (all derived types, impact, module reach) are recursive CTEs, and ad-hoc structure queries / saved rules (§10) are SQL instead of hand-written traversals. |
+| D2 | Persistence: SQLite (FTS5) amalgamation, or a flat versioned binary (`BinBuffer`, like the terminal scrollback) loaded into memory? | Not in step 2 (decided 2026-11-05): re-index at startup, measure on PuckoNew. Format decided at step 5. Name search runs in memory either way. The relationship focus tilts towards SQLite: transitive questions (all derived types, impact, module reach) are recursive CTEs, and ad-hoc structure queries / saved rules (§10) are SQL instead of hand-written traversals. |
 | D3 | Index identifier occurrences (refs) from the start? | Collect in step 1 (cheap, same pass), store from step 4. |
-| D4 | Query syntax for kind/scope filters (`c:`, `f:`, `Scope::name`)? | `::` scoping in step 2; kind prefixes when there's a need. |
+| D4 | Query syntax for kind/scope filters (`c:`, `f:`, `Scope::name`)? | **Decided 2026-11-05:** `::` scoping in step 2; kind prefixes only if ranking proves not to be enough. |
 | D5 | Limits: max file size, max files, which extensions (by language map only?) | Index only files with a structural scanner (C/C++ in v1); cap ~4 MB per file. |
-| D6 | Open, unsaved buffers: index the buffer content (from the editor's parse) or only on save? | On save in v1. |
-| D7 | Key for Go to symbol? | Pick at step 2 (e.g. Cmd+T / Ctrl+T, or Cmd+Shift+O). |
+| D6 | Open, unsaved buffers: index the buffer content (from the editor's parse) or only on save? | **Buffer** (revised 2026-11-05, was: on save). Go to symbol sees what was just typed; no second lex, riding 1b's per-`Line` declarations. |
+| D7 | Key for Go to symbol? | **Cmd+T (macOS) / Ctrl+T (Linux)** (2026-11-05), subject to a keymap conflict check. |
 | D8 | Several workspace roots: one index per root (cache key per root) or one per workspace? | Per root - matches the session cache key; a query fans out over the open roots. |
 | D9 | Structure rules (§5.4): YAML in the config dir (like keymaps/themes, user/project overridable) or tables in the language classes? | Tables in code first (step 1); config once the shape has settled (step 7). |
 | D10 | Module = directory, or declared? | Directory by default; declared modules / layers in `.goatedit/` later (§5.3). |

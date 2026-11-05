@@ -372,7 +372,34 @@ CodeIndex::Hit CodeIndex::MakeHit(const SymbolHandle &handle) const {
     hit.line = symbol.line;
     hit.column = symbol.column;
     hit.isDefinition = symbol.isDefinition;
+    // One file can't tell 'A::f' of a class from one of a namespace (FileStructure.h) - the index can
+    if ((hit.kind == kSymbolKind::kFunction) && IsClassScope(scope.text)) {
+        hit.kind = kSymbolKind::kMethod;
+    }
     return hit;
+}
+
+// The innermost part of the scope names a class, struct or union somewhere in the index
+bool CodeIndex::IsClassScope(const std::u32string &scope) const {
+    if (scope.empty()) {
+        return false;
+    }
+    std::u32string_view innermost = scope;
+    auto idxSeparator = innermost.rfind(U"::");
+    if (idxSeparator != std::u32string_view::npos) {
+        innermost.remove_prefix(idxSeparator + 2);
+    }
+    auto itName = nameIds.find(innermost);
+    if (itName == nameIds.end()) {
+        return false;
+    }
+    for (auto &handle : names[itName->second].symbols) {
+        auto kind = files[handle.idFile].symbols[handle.idxSymbol].kind;
+        if ((kind == kSymbolKind::kClass) || (kind == kSymbolKind::kStruct) || (kind == kSymbolKind::kUnion)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 CodeIndex::Stats CodeIndex::GetStats() const {

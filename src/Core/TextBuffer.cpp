@@ -219,6 +219,9 @@ void TextBuffer::ParseThread() {
                 RecolourSemanticNames();
                 Editor::Instance().TriggerUIRedraw();
             }
+            if (isStructurePending && ((std::chrono::steady_clock::now() - timeStructureChanged) >= RECOLOUR_DELAY)) {
+                PublishStructure();
+            }
             continue;
         }
         auto jobItem = parseQueue.pop();
@@ -255,6 +258,7 @@ void TextBuffer::ExecuteFullParse() {
     if (ScanStructure(0, lines.size(), true)) {
         RecolourSemanticNames();
     }
+    NotifyStructureChanged();
     parseMetrics.total += 1;
     parseMetrics.full += 1;
 }
@@ -275,9 +279,59 @@ size_t TextBuffer::ExecuteRegionParse(size_t idxLineStart, size_t idxLineEnd) {
             RecolourSemanticNames();
         }
     }
+    NotifyStructureChanged();
     parseMetrics.total += 1;
     parseMetrics.region += 1;
     return result;
+}
+
+// Any edit moves the lines below it, so any parse counts as a change. Waits for a pause - one walk over the
+// lines per pause, whatever was typed before it.
+void TextBuffer::NotifyStructureChanged() {
+    if (structureScanner == nullptr) {
+        return;
+    }
+    isStructurePending = true;
+    timeStructureChanged = std::chrono::steady_clock::now();
+    if (reparseThread == nullptr) {
+        PublishStructure();
+    }
+}
+
+void TextBuffer::SetStructureHandler(StructureHandler newHandler) {
+    std::lock_guard<std::mutex> guard(structureHandlerLock);
+    structureHandler = std::move(newHandler);
+}
+
+// With no handler the change stays pending, so a buffer that finished parsing before it was opened publishes
+void TextBuffer::PublishStructure() {
+    std::lock_guard<std::mutex> guard(structureHandlerLock);
+    if (structureHandler == nullptr) {
+        return;
+    }
+    isStructurePending = false;
+    structureHandler(CollectStructure());
+}
+
+FileStructure TextBuffer::CollectStructure() {
+    FileStructure fileStructure;
+    fileStructure.numLines = lines.size();
+    for (size_t idxLine = 0; idxLine < lines.size(); idxLine++) {
+        auto line = lines[idxLine];
+        line->Lock();
+        auto structure = line->GetStructure();
+        if (structure != nullptr) {
+            for (auto &symbol : structure->symbols) {
+                auto &collected = fileStructure.symbols.emplace_back(symbol);
+                collected.line = (uint32_t)idxLine;
+                collected.beginLine = (uint32_t)idxLine;
+                collected.endLine = (uint32_t)idxLine;
+                collected.idxParent = -1;
+            }
+        }
+        line->Release();
+    }
+    return fileStructure;
 }
 
 // A copy of the language's tokenizer whose per-line hook also applies the semantic names - after the
@@ -355,10 +409,12 @@ bool TextBuffer::ScanStructure(size_t idxLineStart, size_t idxLineEnd, bool isFu
 
     // The declarations by line (a declaration is on the line of its name)
     std::vector<std::vector<SemanticDeclaration>> declarations(scannedLines.size());
+    std::vector<std::vector<CodeSymbol>> symbols(scannedLines.size());
     for (auto &symbol : fileStructure.symbols) {
         if ((symbol.line < idxStart) || (symbol.line >= idxStart + scannedLines.size())) {
             continue;
         }
+        symbols[symbol.line - idxStart].push_back(symbol);
         auto declaration = SemanticNames::DeclarationFor(symbol);
         if (declaration.has_value()) {
             declarations[symbol.line - idxStart].push_back(std::move(*declaration));
@@ -411,6 +467,7 @@ bool TextBuffer::ScanStructure(size_t idxLineStart, size_t idxLineEnd, bool isFu
             for (auto &declaration : previous) {
                 semanticNames.Add(declaration);
             }
+            scannedStructures[i]->symbols = std::move(symbols[i]);
         }
         line->Release();
     }

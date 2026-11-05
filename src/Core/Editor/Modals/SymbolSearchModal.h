@@ -29,6 +29,8 @@ namespace gedit {
             return std::make_unique<SymbolSearchModal>(std::move(index), std::move(activeDocument), std::move(activePath), std::move(roots));
         }
 
+        // One letter for the kind of symbol; for functions and methods upper case is the body, lower the declaration
+        static char32_t KindMarker(const CodeIndex::Hit &hit);
         // 'src/Core/Document.cpp:12' - relative to the root that holds the file, 1-based line
         static std::string HitLocation(const CodeIndex::Hit &hit, const std::vector<std::filesystem::path> &roots);
 

@@ -26,7 +26,8 @@ void Indexer::AddRoot(const fs::path &root, const fs::path &priorityPath) {
         if (isStopping) {
             return;
         }
-        queue.push_back({true, root.string(), priorityPath.string()});
+        roots.push_back(root);
+        queue.push_back({kWorkType::kRoot, root.string(), priorityPath.string()});
         StartThreads();
     }
     workAvailable.notify_one();
@@ -35,15 +36,61 @@ void Indexer::AddRoot(const fs::path &root, const fs::path &priorityPath) {
 void Indexer::Enqueue(const std::string &path) {
     {
         std::lock_guard guard(lock);
-        if (isStopping || queuedPaths.contains(path)) {
+        if (isStopping) {
             return;
         }
-        queuedPaths.insert(path);
-        queue.push_back({false, path, {}});
-        numTotal++;
+        QueueFile(path);
         StartThreads();
     }
     workAvailable.notify_one();
+}
+
+void Indexer::EnqueueFolder(const fs::path &folder) {
+    {
+        std::lock_guard guard(lock);
+        if (isStopping) {
+            return;
+        }
+        queue.push_back({kWorkType::kFolder, folder.string(), {}});
+        StartThreads();
+    }
+    workAvailable.notify_one();
+}
+
+void Indexer::RescanRoots() {
+    {
+        std::lock_guard guard(lock);
+        if (isStopping) {
+            return;
+        }
+        for (auto &root : roots) {
+            queue.push_back({kWorkType::kRoot, root.string(), {}});
+        }
+        StartThreads();
+    }
+    workAvailable.notify_all();
+}
+
+void Indexer::ReplaceFromBuffer(const std::string &path, const FileStructure &structure) {
+    std::lock_guard guard(bufferLock);
+    bufferPaths.insert(path);
+    index->ReplaceFile(path, structure);
+}
+
+void Indexer::ReleaseFromBuffer(const std::string &path) {
+    {
+        std::lock_guard guard(bufferLock);
+        bufferPaths.erase(path);
+    }
+    Enqueue(path);
+}
+
+// Caller holds the lock
+void Indexer::QueueFile(const std::string &path) {
+    if (queuedPaths.insert(path).second) {
+        queue.push_back({kWorkType::kFile, path, {}});
+        numTotal++;
+    }
 }
 
 // Caller holds the lock
@@ -96,8 +143,10 @@ void Indexer::WorkerLoop() {
     std::unordered_map<LanguageBase *, StructureScanner::Ptr> scanners;
     WorkItem item;
     while (TakeWork(item)) {
-        if (item.isRoot) {
+        if (item.type == kWorkType::kRoot) {
             ScanRoot(item);
+        } else if (item.type == kWorkType::kFolder) {
+            ScanFolder(item);
         } else {
             IndexFile(item.path, scanners);
         }
@@ -116,7 +165,7 @@ bool Indexer::TakeWork(WorkItem &item) {
         }
         item = std::move(queue.front());
         queue.pop_front();
-        if (item.isRoot) {
+        if (item.type != kWorkType::kFile) {
             numActive++;
             return true;
         }
@@ -138,12 +187,11 @@ void Indexer::FinishWork(const WorkItem &item) {
     {
         std::lock_guard guard(lock);
         numActive--;
-        if (!item.isRoot) {
+        if (item.type == kWorkType::kFile) {
             numDone++;
             activePaths.erase(item.path);
-            if ((requeuedPaths.erase(item.path) > 0) && queuedPaths.insert(item.path).second) {
-                queue.push_back({false, item.path, {}});
-                numTotal++;
+            if (requeuedPaths.erase(item.path) > 0) {
+                QueueFile(item.path);
                 workAvailable.notify_one();
             }
         }
@@ -165,6 +213,11 @@ static size_t CommonDepth(const fs::path &a, const fs::path &b) {
         ++itB;
     }
     return depth;
+}
+
+// 'folder' is 'root' or somewhere below it
+static bool IsBelow(const std::string &folder, const std::string &root) {
+    return (folder.compare(0, root.size(), root) == 0) && ((folder.size() == root.size()) || (folder[root.size()] == '/'));
 }
 
 void Indexer::ScanRoot(const WorkItem &item) {
@@ -196,19 +249,79 @@ void Indexer::ScanRoot(const WorkItem &item) {
         }
     }
 
+    std::unordered_set<std::string> found(paths.begin(), paths.end());
     {
         std::lock_guard guard(lock);
         if (isStopping) {
             return;
         }
         for (auto &path : paths) {
-            if (queuedPaths.insert(path).second) {
-                queue.push_back({false, path, {}});
-                numTotal++;
+            if (IsStale(path)) {
+                QueueFile(path);
+            }
+        }
+        // Read before, not there now
+        for (auto &[folder, files] : stamps) {
+            if (!IsBelow(folder, item.path)) {
+                continue;
+            }
+            for (auto &[path, stamp] : files) {
+                if (!found.contains(path)) {
+                    QueueFile(path);
+                }
             }
         }
     }
     workAvailable.notify_all();
+}
+
+void Indexer::ScanFolder(const WorkItem &item) {
+    std::unordered_set<std::string> found;
+    std::error_code error;
+    for (auto &entry : fs::directory_iterator(item.path, fs::directory_options::skip_permission_denied, error)) {
+        if (entry.is_regular_file(error) && languages.contains(entry.path().extension().string())) {
+            found.insert(entry.path().string());
+        }
+    }
+    bool isGone = !fs::is_directory(item.path, error);
+    {
+        std::lock_guard guard(lock);
+        if (isStopping) {
+            return;
+        }
+        for (auto &path : found) {
+            if (IsStale(path)) {
+                QueueFile(path);
+            }
+        }
+        for (auto &[folder, files] : stamps) {
+            if ((folder != item.path) && !(isGone && IsBelow(folder, item.path))) {
+                continue;
+            }
+            for (auto &[path, stamp] : files) {
+                if (!found.contains(path)) {
+                    QueueFile(path);
+                }
+            }
+        }
+    }
+    workAvailable.notify_all();
+}
+
+// Caller holds the lock
+bool Indexer::IsStale(const fs::path &path) {
+    auto itFolder = stamps.find(path.parent_path().string());
+    if (itFolder == stamps.end()) {
+        return true;
+    }
+    auto itFile = itFolder->second.find(path.string());
+    if (itFile == itFolder->second.end()) {
+        return true;
+    }
+    std::error_code error;
+    auto timeModified = fs::last_write_time(path, error);
+    auto size = fs::file_size(path, error);
+    return error || (timeModified != itFile->second.timeModified) || (size != itFile->second.size);
 }
 
 // A file that isn't UTF-8 (Latin-1 comments are common in old C) would stop the decoder at the first bad
@@ -239,17 +352,31 @@ static void ReplaceInvalidUtf8(std::string &data) {
 
 void Indexer::IndexFile(const std::string &path, std::unordered_map<LanguageBase *, StructureScanner::Ptr> &scanners) {
     fs::path filePath(path);
+    auto folder = filePath.parent_path().string();
     auto itLanguage = languages.find(filePath.extension().string());
     std::error_code error;
     auto fileSize = fs::file_size(filePath, error);
-    if ((itLanguage == languages.end()) || error || (fileSize > options.maxFileSize)) {
-        index->RemoveFile(path);
-        return;
+    auto timeModified = fs::last_write_time(filePath, error);
+    std::ifstream file(filePath, std::ios::binary);
+
+    // Stamped before the read: a change while reading then looks like a change, not like the same file
+    {
+        std::lock_guard guard(lock);
+        if (error || !file.is_open()) {
+            auto itFolder = stamps.find(folder);
+            if (itFolder != stamps.end()) {
+                itFolder->second.erase(path);
+                if (itFolder->second.empty()) {
+                    stamps.erase(itFolder);
+                }
+            }
+        } else {
+            stamps[folder][path] = {timeModified, fileSize};
+        }
     }
 
-    std::ifstream file(filePath, std::ios::binary);
-    if (!file.is_open()) {
-        index->RemoveFile(path);
+    if ((itLanguage == languages.end()) || error || !file.is_open() || (fileSize > options.maxFileSize)) {
+        RemoveUnlessFromBuffer(path);
         return;
     }
     std::ostringstream content;
@@ -265,5 +392,16 @@ void Indexer::IndexFile(const std::string &path, std::unordered_map<LanguageBase
     if (scanner == nullptr) {
         return;
     }
-    index->ReplaceFile(path, scanner->Scan(UnicodeHelper::utf8to32(data)));
+    auto structure = scanner->Scan(UnicodeHelper::utf8to32(data));
+    std::lock_guard guard(bufferLock);
+    if (!bufferPaths.contains(path)) {
+        index->ReplaceFile(path, structure);
+    }
+}
+
+void Indexer::RemoveUnlessFromBuffer(const std::string &path) {
+    std::lock_guard guard(bufferLock);
+    if (!bufferPaths.contains(path)) {
+        index->RemoveFile(path);
+    }
 }

@@ -781,6 +781,22 @@ indexed.
 - **Bad UTF-8:** the indexer turns invalid bytes into `?` before decoding, so a Latin-1 comment doesn't cost
   the rest of the file (the editor's own load still has bug #15).
 
+**Keeping current (slice 2):**
+- **Open files:** a `Line` keeps its symbols (`LineStructure::symbols`). After a pause in typing (300 ms, as for
+  recolouring) the parse thread walks the lines - no text copy, no lexing - and hands the index one
+  `FileStructure`. Line numbers come from the walk, so they survive edits above a symbol. Any parse counts as
+  a change, because any edit moves the lines below it.
+- **The buffer owns an open file:** the indexer leaves it alone until the document closes, so a disk read can't
+  put an older version over unsaved work. Closing reads it from disk again.
+- **Changes on disk:** `FolderMonitor`'s dirty folders go to the indexer, which compares (mtime, size) and reads
+  only what differs; lost events compare every root. Off unless `foldermonitor.enabled` is set; the Linux
+  backend is still pending.
+- **Markers:** one file can't tell `A::f` of a class from one of a namespace, the index can - a hit whose scope
+  names a known class is a method. For functions and methods upper case is the body (`F`, `M`), lower the
+  declaration (`f`, `m`).
+- **Known, inherited:** the parse thread walks `lines` without a lock against the UI thread, as `ScanStructure`
+  and `RecolourSemanticNames` already do. The walk happens at a pause, but typing can still meet it.
+
 ## 12. Open decisions
 
 | # | Question | Leaning |

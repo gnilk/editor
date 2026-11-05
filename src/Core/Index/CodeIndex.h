@@ -32,7 +32,7 @@ namespace gedit {
             std::u32string name;
             std::u32string qualifiedName;
             std::string path;
-            kSymbolKind kind = kSymbolKind::kFunction;
+            kSymbolKind kind = kSymbolKind::kFunction;     // an out-of-line 'A::f' is a method when the index knows A as a class
             uint32_t line = 0;
             uint32_t column = 0;
             bool isDefinition = false;
@@ -131,6 +131,7 @@ namespace gedit {
         std::vector<bool> MatchingScopes(const std::u32string &lowerScopeQuery) const;
         uint8_t Proximity(const File &file, const std::string &activeFolder, const std::string &activePath) const;
         Hit MakeHit(const SymbolHandle &handle) const;
+        bool IsClassScope(const std::u32string &scope) const;
         bool IsBetter(const Candidate &a, const Candidate &b) const;
     private:
         mutable std::shared_mutex lock;

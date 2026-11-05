@@ -263,6 +263,7 @@ bool Editor::Initialize(int argc, const char **argv) {
     // Create workspace
     workspace = Workspace::Create();
     WireFolderMonitor();
+    WireCodeIndex();
 
     bool createDefaultWorkspace = true;
     for (auto &file : pendingFiles) {
@@ -1017,13 +1018,66 @@ void Editor::WireFolderMonitor() {
     workspace->SetFolderMonitor(factory, postToMain);
 }
 
-void Editor::IndexProjectRoots() {
+void Editor::WireCodeIndex() {
     auto config = Config::Instance()["codeindex"];
     if (!config.GetBool("enabled", true)) {
         return;
     }
-    if (codeIndex == nullptr) {
-        codeIndex = CodeIndex::Create();
+    // Here, before any document: parse threads read 'indexer' from now on. No threads until the first root.
+    Indexer::Options options;
+    options.exclude = Config::Instance()["workspace"].GetSequenceOfStr("exclude");
+    options.maxFileSize = (uintmax_t)config.GetInt("max_file_size_kb", 4096) * 1024;
+    codeIndex = CodeIndex::Create();
+    indexer = Indexer::Create(codeIndex, IndexableLanguages(), options);
+
+    workspace->SetDirtyFoldersHandler([this](const std::set<std::filesystem::path> &dirtyFolders, bool isLostEvents) {
+        if (isLostEvents) {
+            indexer->RescanRoots();
+            return;
+        }
+        for (auto &folder : dirtyFolders) {
+            indexer->EnqueueFolder(folder);
+        }
+    });
+    workspace->SetOpenDocumentHandlers([this](Document::Ref document) {
+        OnDocumentOpened(document);
+    }, [this](Document::Ref document) {
+        OnDocumentClosed(document);
+    });
+}
+
+// The path the indexer knows the file by. Empty for a document that has no place on disk yet.
+std::string Editor::IndexPathForDocument(const Document::Ref &document) {
+    auto node = workspace->GetNodeFromDocument(document);
+    if (node == nullptr) {
+        return {};
+    }
+    std::error_code error;
+    auto path = std::filesystem::canonical(node->GetNodePath(), error);
+    return error ? std::string{} : path.string();
+}
+
+void Editor::OnDocumentOpened(const Document::Ref &document) {
+    auto path = IndexPathForDocument(document);
+    if (path.empty()) {
+        return;
+    }
+    document->GetTextBuffer()->SetStructureHandler([this, path](const FileStructure &structure) {
+        indexer->ReplaceFromBuffer(path, structure);
+    });
+}
+
+void Editor::OnDocumentClosed(const Document::Ref &document) {
+    document->GetTextBuffer()->SetStructureHandler(nullptr);
+    auto path = IndexPathForDocument(document);
+    if (!path.empty()) {
+        indexer->ReleaseFromBuffer(path);
+    }
+}
+
+void Editor::IndexProjectRoots() {
+    if (indexer == nullptr) {
+        return;
     }
     auto pathHome = XDGEnvironment::Instance().GetUserHomePath();
     for (auto &root : workspace->GetProjectRoots()) {
@@ -1033,12 +1087,6 @@ void Editor::IndexProjectRoots() {
         bool isIndexed = std::find(indexedRoots.begin(), indexedRoots.end(), rootPath) != indexedRoots.end();
         if (workspace->IsDefaultRoot(root) || isTooWide || isIndexed) {
             continue;
-        }
-        if (indexer == nullptr) {
-            Indexer::Options options;
-            options.exclude = Config::Instance()["workspace"].GetSequenceOfStr("exclude");
-            options.maxFileSize = (uintmax_t)config.GetInt("max_file_size_kb", 4096) * 1024;
-            indexer = Indexer::Create(codeIndex, IndexableLanguages(), options);
         }
         auto activeNode = (GetActiveDocument() != nullptr) ? workspace->GetNodeFromDocument(GetActiveDocument()) : nullptr;
         indexer->AddRoot(rootPath, (activeNode != nullptr) ? pathutil::CanonicalPath(activeNode->GetNodePath()) : std::filesystem::path{});

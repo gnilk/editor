@@ -241,6 +241,11 @@ namespace gedit {
         // Glue: index the project roots not indexed yet, in the background (docs/code-index.md §4.4)
         void IndexProjectRoots();
         Indexer::Languages IndexableLanguages();
+        // Glue: open documents feed the index from their buffer, and folder changes reach the indexer
+        void WireCodeIndex();
+        void OnDocumentOpened(const Document::Ref &document);
+        void OnDocumentClosed(const Document::Ref &document);
+        std::string IndexPathForDocument(const Document::Ref &document);
 
         void ExecutePostScript(std::istream &stream);
     private:

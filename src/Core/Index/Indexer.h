@@ -55,6 +55,16 @@ namespace gedit {
         void AddRoot(const std::filesystem::path &root, const std::filesystem::path &priorityPath = {});
         // Read a file again - if it is gone, or no longer indexable, it leaves the index
         void Enqueue(const std::string &path);
+        // Something below a folder changed: read what differs from what was read, drop what is gone. Not
+        // recursive - each folder with a change reports itself - unless the folder itself is gone.
+        void EnqueueFolder(const std::filesystem::path &folder);
+        // Change events were lost: compare every root against the disk
+        void RescanRoots();
+
+        // An open file comes from its buffer (D6): the buffer's structure replaces the file, and the disk
+        // stays out of it - it may hold an older version - until the buffer lets go
+        void ReplaceFromBuffer(const std::string &path, const FileStructure &structure);
+        void ReleaseFromBuffer(const std::string &path);
 
         Progress GetProgress();
         // Block until the queue has drained (tests, gedit-bench)
@@ -62,10 +72,22 @@ namespace gedit {
         // Finish the files in hand and drop the rest. The destructor does this too.
         void Stop();
     private:
+        enum class kWorkType : uint8_t {
+            kRoot,
+            kFolder,
+            kFile,
+        };
+
         struct WorkItem {
-            bool isRoot = false;
+            kWorkType type = kWorkType::kFile;
             std::string path;
             std::string priorityPath;
+        };
+
+        // A file differs from what was read when one of these does
+        struct FileStamp {
+            std::filesystem::file_time_type timeModified = {};
+            uintmax_t size = 0;
         };
     private:
         void StartThreads();
@@ -73,7 +95,12 @@ namespace gedit {
         bool TakeWork(WorkItem &item);
         void FinishWork(const WorkItem &item);
         void ScanRoot(const WorkItem &item);
+        void ScanFolder(const WorkItem &item);
+        // Caller holds the lock
+        void QueueFile(const std::string &path);
+        bool IsStale(const std::filesystem::path &path);
         void IndexFile(const std::string &path, std::unordered_map<LanguageBase *, StructureScanner::Ptr> &scanners);
+        void RemoveUnlessFromBuffer(const std::string &path);
     private:
         CodeIndex::Ref index;
         Languages languages;
@@ -87,6 +114,10 @@ namespace gedit {
         std::unordered_set<std::string> queuedPaths;
         std::unordered_set<std::string> activePaths;    // two threads on one file could leave the older text in the index
         std::unordered_set<std::string> requeuedPaths;  // changed again while being read
+        std::vector<std::filesystem::path> roots;
+        std::unordered_map<std::string, std::unordered_map<std::string, FileStamp>> stamps;     // folder -> file
+        std::mutex bufferLock;                                  // held across 'is it from a buffer?' + the write
+        std::unordered_set<std::string> bufferPaths;
         size_t numActive = 0;
         size_t numDone = 0;
         size_t numTotal = 0;

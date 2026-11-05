@@ -40,6 +40,9 @@ void Workspace::AddOpenDocument(Document::Ref document) {
         return;
     }
     openDocuments.push_back(document);
+    if (documentOpenedHandler != nullptr) {
+        documentOpenedHandler(document);
+    }
     SessionManager::Instance().NotifyChanged();
 }
 
@@ -51,6 +54,9 @@ bool Workspace::RemoveOpenDocument(Document::Ref document) {
     openDocuments.erase(it);
     if (activeDocument == document) {
         activeDocument = nullptr;
+    }
+    if (documentClosedHandler != nullptr) {
+        documentClosedHandler(document);
     }
     SessionManager::Instance().NotifyChanged();
     return true;
@@ -656,6 +662,7 @@ void Workspace::StartFolderMonitor(ProjectRoot::Ref projectRoot) {
     if (monitor == nullptr) {
         return;
     }
+    projectRoot->SetDirtyFoldersHandler(dirtyFoldersHandler);
     if (!projectRoot->StartFolderMonitor(monitor, monitorPostToMain)) {
         logger->Error("Unable to start the folder monitor for: %s", projectRoot->GetRootPath().c_str());
     }

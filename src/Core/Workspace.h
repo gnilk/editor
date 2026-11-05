@@ -37,6 +37,7 @@ namespace gedit {
         using Ref = std::shared_ptr<Workspace>;
         using ContentsChangedDelegate = std::function<void()>;
         using MonitorFactory = std::function<FolderMonitor::MonitorPoint::Ref (const std::filesystem::path &rootPath)>;
+        using OpenDocumentDelegate = std::function<void(Document::Ref document)>;
         // Node define the structure of a workspace
     public:
 
@@ -455,6 +456,11 @@ namespace gedit {
                 return monitor;
             }
 
+            // Also told about the dirty folders, whatever the tree holds (the code index has every folder)
+            void SetDirtyFoldersHandler(FolderMonitor::MonitorPoint::DirtyDelegate newHandler) {
+                funcDirtyFolders = std::move(newHandler);
+            }
+
             // Takes ownership of 'newMonitor' and starts it. Dirty folders come back through 'postToMain'.
             bool StartFolderMonitor(FolderMonitor::MonitorPoint::Ref newMonitor, FolderMonitor::MonitorPoint::PostDelegate postToMain) {
                 if ((newMonitor == nullptr) || (funcReconcile == nullptr)) {
@@ -481,6 +487,9 @@ namespace gedit {
             // a parent comes before its children (its reconcile may drop a child folder). Lost events ->
             // every scanned folder. One change notification for the lot.
             void FlushDirty(const std::set<std::filesystem::path> &dirtyFolders, bool isLostEvents) {
+                if (funcDirtyFolders != nullptr) {
+                    funcDirtyFolders(dirtyFolders, isLostEvents);
+                }
                 if (funcReconcile == nullptr) {
                     return;
                 }
@@ -527,6 +536,7 @@ namespace gedit {
             std::filesystem::path rootPath = {};
             ReconcileDelegate funcReconcile = nullptr;
             ChangedDelegate funcChanged = nullptr;
+            FolderMonitor::MonitorPoint::DirtyDelegate funcDirtyFolders = nullptr;
             Node::Ref rootNode = {};
             FolderMonitor::MonitorPoint::Ref monitor = {};
             FsFilter excludeFilter = {};
@@ -550,6 +560,16 @@ namespace gedit {
         void SetFolderMonitor(MonitorFactory factory, FolderMonitor::MonitorPoint::PostDelegate postToMain) {
             monitorFactory = std::move(factory);
             monitorPostToMain = std::move(postToMain);
+        }
+
+        // Told about the dirty folders of every monitored root (the Editor's glue to the code index)
+        void SetDirtyFoldersHandler(FolderMonitor::MonitorPoint::DirtyDelegate newHandler) {
+            dirtyFoldersHandler = std::move(newHandler);
+        }
+        // A document joined / left the open list
+        void SetOpenDocumentHandlers(OpenDocumentDelegate onOpened, OpenDocumentDelegate onClosed) {
+            documentOpenedHandler = std::move(onOpened);
+            documentClosedHandler = std::move(onClosed);
         }
 
         // The root for loose files - the cwd, not a folder anyone opened
@@ -703,6 +723,9 @@ namespace gedit {
         ContentsChangedDelegate onChangeHandler = {};
         MonitorFactory monitorFactory = {};
         FolderMonitor::MonitorPoint::PostDelegate monitorPostToMain = {};
+        FolderMonitor::MonitorPoint::DirtyDelegate dirtyFoldersHandler = nullptr;
+        OpenDocumentDelegate documentOpenedHandler = nullptr;
+        OpenDocumentDelegate documentClosedHandler = nullptr;
 
         Node::Ref activeFolderNode = nullptr;
 

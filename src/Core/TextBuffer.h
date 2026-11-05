@@ -32,6 +32,7 @@ namespace gedit {
     class TextBuffer : public std::enable_shared_from_this<TextBuffer> {
     public:
         using Ref = std::shared_ptr<TextBuffer>;
+        using StructureHandler = std::function<void(const FileStructure &structure)>;
 
     public:
         typedef enum {
@@ -66,6 +67,11 @@ namespace gedit {
         bool Save(const std::filesystem::path &pathName);
         bool SaveForce(const std::filesystem::path &pathName);
         bool Load(const std::filesystem::path &pathName);
+
+        // Called with the buffer's structure after a pause in editing (docs/code-index.md §4.4), on the parse
+        // thread: no text copy, no lexing, just what the lines carry. Line numbers are the current ones.
+        void SetStructureHandler(StructureHandler newHandler);
+        FileStructure CollectStructure();
 
         // TS-5a (docs/terminal-scrollback.md §8.1): persist the buffer's text AND its
         // per-span LineAttrib colours/attributes to a versioned binary file, and restore them. Unlike
@@ -235,6 +241,8 @@ namespace gedit {
         bool ScanStructure(size_t idxLineStart, size_t idxLineEnd, bool isFullScan);
         bool PrepareStructureScanner();
         void RecolourSemanticNames();
+        void NotifyStructureChanged();
+        void PublishStructure();
         void ApplySemanticNames(Line &line);
         void OnLineRemoved(Line &line);
     private:
@@ -255,6 +263,10 @@ namespace gedit {
         const LanguageBase *structureScannerLanguage = nullptr;     // the language 'structureScanner' was made for
         SemanticNames semanticNames;
         bool isRecolourPending = false;     // the names changed - the lines outside the edit wait for a pause
+        bool isStructurePending = false;    // the lines changed - the structure handler waits for a pause
+        std::chrono::steady_clock::time_point timeStructureChanged = {};
+        std::mutex structureHandlerLock;
+        StructureHandler structureHandler = nullptr;
         std::chrono::steady_clock::time_point timeNamesChanged = {};
         // What deleted lines declared - deleted on the UI thread, taken out of 'semanticNames' by the next scan
         std::mutex removedDeclarationsLock;

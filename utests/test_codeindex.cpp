@@ -57,6 +57,15 @@ extern "C" {
     DLL_EXPORT int test_codeindex_store_ranking(ITesting *t);
     DLL_EXPORT int test_codeindex_store_scope(ITesting *t);
     DLL_EXPORT int test_codeindex_store_replace(ITesting *t);
+    DLL_EXPORT int test_codeindex_store_outofline(ITesting *t);
+    DLL_EXPORT int test_codeindex_buffer_lines(ITesting *t);
+    DLL_EXPORT int test_codeindex_buffer_region(ITesting *t);
+    DLL_EXPORT int test_codeindex_buffer_handler(ITesting *t);
+    DLL_EXPORT int test_codeindex_buffer_pause(ITesting *t);
+    DLL_EXPORT int test_codeindex_indexer_buffer(ITesting *t);
+    DLL_EXPORT int test_codeindex_indexer_changedfolder(ITesting *t);
+    DLL_EXPORT int test_codeindex_indexer_goneroot(ITesting *t);
+    DLL_EXPORT int test_codeindex_modal_markers(ITesting *t);
     DLL_EXPORT int test_codeindex_modal_rows(ITesting *t);
     DLL_EXPORT int test_codeindex_modal_location(ITesting *t);
     DLL_EXPORT int test_codeindex_modal_preview(ITesting *t);
@@ -1241,5 +1250,274 @@ DLL_EXPORT int test_codeindex_modal_preview(ITesting *t) {
     fixture.rootView.OnAction(cancel);
     TR_ASSERT(t, !fixture.rootView.HasModal());
     TR_ASSERT(t, document->GetLineCursor().idxActiveLine == 10);
+    return kTR_Pass;
+}
+
+// Slice 2: an out-of-line definition is a method when the index knows its class
+DLL_EXPORT int test_codeindex_store_outofline(ITesting *t) {
+    auto index = CodeIndex::Create();
+    index->ReplaceFile("/p/doc.h", MakeFile({MakeSymbol(U"Document", kSymbolKind::kClass, U"gedit")}));
+    index->ReplaceFile("/p/doc.cpp", MakeFile({
+        MakeSymbol(U"Save", kSymbolKind::kFunction, U"Document"),
+        MakeSymbol(U"Load", kSymbolKind::kFunction, U"gedit::Document"),
+        MakeSymbol(U"Free", kSymbolKind::kFunction, U"gedit"),
+        MakeSymbol(U"Lone", kSymbolKind::kFunction),
+    }));
+    TR_ASSERT(t, index->Query(U"Save")[0].kind == kSymbolKind::kMethod);
+    TR_ASSERT(t, index->Query(U"Load")[0].kind == kSymbolKind::kMethod);
+    TR_ASSERT(t, index->Query(U"Free")[0].kind == kSymbolKind::kFunction);      // a namespace is no class
+    TR_ASSERT(t, index->Query(U"Lone")[0].kind == kSymbolKind::kFunction);
+
+    // Follows the index: the class goes, and so does what it says about the rest
+    index->RemoveFile("/p/doc.h");
+    TR_ASSERT(t, index->Query(U"Save")[0].kind == kSymbolKind::kFunction);
+    return kTR_Pass;
+}
+
+static const CodeSymbol *FindSymbol(const FileStructure &structure, const std::u32string &name) {
+    for (auto &symbol : structure.symbols) {
+        if (symbol.name == name) {
+            return &symbol;
+        }
+    }
+    return nullptr;
+}
+
+static void EditLines(const TextBuffer::Ref &buffer, const std::function<void()> &edit) {
+    auto mainConfig = Config::Instance()["main"];
+    auto wasThreaded = mainConfig.GetBool("threaded_syntaxparser", false);
+    mainConfig.SetBool("threaded_syntaxparser", false);
+    edit();
+    mainConfig.SetBool("threaded_syntaxparser", wasThreaded);
+}
+
+// The line numbers are where the lines are now - not where they were scanned
+DLL_EXPORT int test_codeindex_buffer_lines(ITesting *t) {
+    auto buffer = CPPBuffer({
+        U"class Alpha {",
+        U"};",
+        U"void Bravo();",
+    });
+    auto structure = buffer->CollectStructure();
+    TR_ASSERT(t, FindSymbol(structure, U"Bravo") != nullptr);
+    TR_ASSERT(t, FindSymbol(structure, U"Bravo")->line == 2);
+
+    EditLines(buffer, [&buffer]() {
+        buffer->Insert(0, U"// a comment");
+        buffer->Insert(0, U"// and one more");
+        buffer->ReparseRegion(0, 2);
+    });
+    structure = buffer->CollectStructure();
+    TR_ASSERT(t, FindSymbol(structure, U"Alpha")->line == 2);
+    TR_ASSERT(t, FindSymbol(structure, U"Bravo")->line == 4);
+
+    // A deleted line takes its symbols along
+    EditLines(buffer, [&buffer]() {
+        buffer->DeleteLineAt(4);
+        buffer->ReparseRegion(3, 4);
+    });
+    structure = buffer->CollectStructure();
+    TR_ASSERT(t, FindSymbol(structure, U"Bravo") == nullptr);
+    TR_ASSERT(t, FindSymbol(structure, U"Alpha") != nullptr);
+    return kTR_Pass;
+}
+
+// A scan that resumes mid-file still knows the scope it is in
+DLL_EXPORT int test_codeindex_buffer_region(ITesting *t) {
+    auto buffer = CPPBuffer({
+        U"namespace outer {",
+        U"class Alpha {",
+        U"public:",
+        U"    void First();",
+        U"};",
+        U"}",
+    });
+    EditLines(buffer, [&buffer]() {
+        buffer->Insert(4, U"    void Second();");
+        buffer->ReparseRegion(4, 5);
+    });
+    auto structure = buffer->CollectStructure();
+    auto second = FindSymbol(structure, U"Second");
+    TR_ASSERT(t, second != nullptr);
+    TR_ASSERT(t, second->qualifiedName == U"outer::Alpha::Second");
+    TR_ASSERT(t, second->kind == kSymbolKind::kMethod);
+    TR_ASSERT(t, second->line == 4);
+    TR_ASSERT(t, FindSymbol(structure, U"First") != nullptr);
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_buffer_handler(ITesting *t) {
+    auto buffer = CPPBuffer({U"class Alpha {};"});
+    size_t numCalls = 0;
+    bool hasBravo = false;
+    buffer->SetStructureHandler([&numCalls, &hasBravo](const FileStructure &structure) {
+        numCalls++;
+        hasBravo = FindSymbol(structure, U"Bravo") != nullptr;
+    });
+    EditLines(buffer, [&buffer]() {
+        buffer->Insert(1, U"class Bravo {};");
+        buffer->ReparseRegion(1, 2);
+    });
+    TR_ASSERT(t, numCalls == 1);
+    TR_ASSERT(t, hasBravo);
+
+    buffer->SetStructureHandler(nullptr);
+    EditLines(buffer, [&buffer]() {
+        buffer->Insert(2, U"class Charlie {};");
+        buffer->ReparseRegion(2, 3);
+    });
+    TR_ASSERT(t, numCalls == 1);
+    return kTR_Pass;
+}
+
+// While a buffer owns the file, what is on disk may be older: unsaved work must not be read over
+DLL_EXPORT int test_codeindex_indexer_buffer(ITesting *t) {
+    auto root = IndexerFolder("buffer");
+    auto path = root / "a.h";
+    WriteTextFile(path, "class OnDisk {};\n");
+
+    auto index = CodeIndex::Create();
+    auto indexer = MakeIndexer(index);
+    indexer->AddRoot(root);
+    indexer->WaitIdle();
+    TR_ASSERT(t, index->Query(U"OnDisk").size() == 1);
+
+    indexer->ReplaceFromBuffer(path.string(), MakeFile({MakeSymbol(U"Unsaved", kSymbolKind::kClass)}));
+    TR_ASSERT(t, index->Query(U"Unsaved").size() == 1);
+    TR_ASSERT(t, index->Query(U"OnDisk").empty());
+
+    indexer->Enqueue(path.string());
+    indexer->WaitIdle();
+    TR_ASSERT(t, index->Query(U"Unsaved").size() == 1);
+    TR_ASSERT(t, index->Query(U"OnDisk").empty());
+
+    // The file vanishing from disk leaves the buffer's symbols alone too - the document is still open
+    std::filesystem::remove(path);
+    indexer->Enqueue(path.string());
+    indexer->WaitIdle();
+    TR_ASSERT(t, index->Query(U"Unsaved").size() == 1);
+
+    // Closed without saving: back to the disk
+    WriteTextFile(path, "class OnDisk {};\n");
+    indexer->ReleaseFromBuffer(path.string());
+    indexer->WaitIdle();
+    TR_ASSERT(t, index->Query(U"Unsaved").empty());
+    TR_ASSERT(t, index->Query(U"OnDisk").size() == 1);
+    std::filesystem::remove_all(root);
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_indexer_changedfolder(ITesting *t) {
+    auto root = IndexerFolder("changedfolder");
+    WriteTextFile(root / "same.h", "class Same {};\n");
+    WriteTextFile(root / "changes.h", "class Before {};\n");
+    WriteTextFile(root / "goes.h", "class Goes {};\n");
+    WriteTextFile(root / "sub/other.h", "class Other {};\n");
+
+    auto index = CodeIndex::Create();
+    auto indexer = MakeIndexer(index);
+    indexer->AddRoot(root);
+    indexer->WaitIdle();
+    auto numRead = indexer->GetProgress().numTotal;
+    TR_ASSERT(t, numRead == 4);
+
+    WriteTextFile(root / "changes.h", "class AfterTheChange {};\n");
+    WriteTextFile(root / "comes.h", "class Comes {};\n");
+    std::filesystem::remove(root / "goes.h");
+    indexer->EnqueueFolder(root);
+    indexer->WaitIdle();
+
+    TR_ASSERT(t, index->Query(U"Before").empty());
+    TR_ASSERT(t, index->Query(U"AfterTheChange").size() == 1);
+    TR_ASSERT(t, index->Query(U"Comes").size() == 1);
+    TR_ASSERT(t, index->Query(U"Goes").empty());
+    TR_ASSERT(t, index->Query(U"Same").size() == 1);
+    // Only those three were read - not the unchanged one, not the sub folder
+    TR_ASSERT(t, indexer->GetProgress().numTotal == numRead + 3);
+
+    // Nothing changed: nothing read
+    indexer->EnqueueFolder(root);
+    indexer->RescanRoots();
+    indexer->WaitIdle();
+    TR_ASSERT(t, indexer->GetProgress().numTotal == numRead + 3);
+
+    // A folder that disappears takes what is below it along
+    std::filesystem::remove_all(root / "sub");
+    indexer->EnqueueFolder(root / "sub");
+    indexer->WaitIdle();
+    TR_ASSERT(t, index->Query(U"Other").empty());
+    std::filesystem::remove_all(root);
+    return kTR_Pass;
+}
+
+// Events were lost: a rescan finds what changed anywhere below the root
+DLL_EXPORT int test_codeindex_indexer_goneroot(ITesting *t) {
+    auto root = IndexerFolder("rescan");
+    WriteTextFile(root / "deep/er/a.h", "class Stays {};\n");
+    WriteTextFile(root / "deep/b.h", "class Vanishes {};\n");
+
+    auto index = CodeIndex::Create();
+    auto indexer = MakeIndexer(index);
+    indexer->AddRoot(root);
+    indexer->WaitIdle();
+
+    std::filesystem::remove(root / "deep/b.h");
+    WriteTextFile(root / "deep/er/c.h", "class Arrives {};\n");
+    indexer->RescanRoots();
+    indexer->WaitIdle();
+
+    TR_ASSERT(t, index->Query(U"Stays").size() == 1);
+    TR_ASSERT(t, index->Query(U"Vanishes").empty());
+    TR_ASSERT(t, index->Query(U"Arrives").size() == 1);
+    std::filesystem::remove_all(root);
+    return kTR_Pass;
+}
+
+// Upper case is the body, for functions and methods alike
+DLL_EXPORT int test_codeindex_modal_markers(ITesting *t) {
+    CodeIndex::Hit hit;
+    hit.kind = kSymbolKind::kMethod;
+    hit.isDefinition = false;
+    TR_ASSERT(t, SymbolSearchModal::KindMarker(hit) == U'm');
+    hit.isDefinition = true;
+    TR_ASSERT(t, SymbolSearchModal::KindMarker(hit) == U'M');
+    hit.kind = kSymbolKind::kFunction;
+    TR_ASSERT(t, SymbolSearchModal::KindMarker(hit) == U'F');
+    hit.isDefinition = false;
+    TR_ASSERT(t, SymbolSearchModal::KindMarker(hit) == U'f');
+    hit.kind = kSymbolKind::kClass;
+    TR_ASSERT(t, SymbolSearchModal::KindMarker(hit) == U'c');
+    return kTR_Pass;
+}
+
+// The real path: the parse thread publishes once, after a pause - not per edit
+DLL_EXPORT int test_codeindex_buffer_pause(ITesting *t) {
+    auto mainConfig = Config::Instance()["main"];
+    auto wasThreaded = mainConfig.GetBool("threaded_syntaxparser", false);
+    mainConfig.SetBool("threaded_syntaxparser", true);
+
+    auto buffer = CPPBuffer({U"class Alpha {};"});
+    std::atomic_int numCalls = 0;
+    std::atomic_bool hasLast = false;
+    buffer->SetStructureHandler([&numCalls, &hasLast](const FileStructure &structure) {
+        numCalls++;
+        hasLast = FindSymbol(structure, U"Last") != nullptr;
+    });
+    for (int i = 0; i < 5; i++) {
+        buffer->Insert(1, U"// typing " + std::u32string(1, (char32_t)(U'0' + i)));
+        buffer->ReparseRegion(1, 2);
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+    buffer->Insert(1, U"class Last {};");
+    buffer->ReparseRegion(1, 2);
+    for (int i = 0; (i < 200) && !hasLast; i++) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    TR_ASSERT(t, hasLast);
+    TR_ASSERT(t, numCalls == 1);
+
+    buffer->SetStructureHandler(nullptr);
+    buffer->Close();
+    mainConfig.SetBool("threaded_syntaxparser", wasThreaded);
     return kTR_Pass;
 }

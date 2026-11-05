@@ -20,8 +20,24 @@ SymbolSearchModal::SymbolSearchModal(CodeIndex::Ref index, Document::Ref activeD
     }
 }
 
-static char32_t KindMarker(kSymbolKind kind) {
-    switch (kind) {
+std::vector<std::u32string> SymbolSearchModal::OnQuery(const std::u32string &query) {
+    CodeIndex::QueryContext context;
+    context.activePath = activePath;
+    hits = index->Query(query, context);
+
+    std::vector<std::u32string> rows;
+    rows.reserve(hits.size());
+    for (auto &hit : hits) {
+        std::u32string row(1, KindMarker(hit));
+        row += U' ';
+        row += hit.qualifiedName;
+        rows.push_back(std::move(row));
+    }
+    return rows;
+}
+
+char32_t SymbolSearchModal::KindMarker(const CodeIndex::Hit &hit) {
+    switch (hit.kind) {
         case kSymbolKind::kNamespace :
             return U'n';
         case kSymbolKind::kClass :
@@ -35,9 +51,9 @@ static char32_t KindMarker(kSymbolKind kind) {
         case kSymbolKind::kEnumerator :
             return U'v';
         case kSymbolKind::kFunction :
-            return U'f';
+            return hit.isDefinition ? U'F' : U'f';
         case kSymbolKind::kMethod :
-            return U'm';
+            return hit.isDefinition ? U'M' : U'm';
         case kSymbolKind::kMember :
             return U'd';
         case kSymbolKind::kVariable :
@@ -48,22 +64,6 @@ static char32_t KindMarker(kSymbolKind kind) {
             return U'#';
     }
     return U' ';
-}
-
-std::vector<std::u32string> SymbolSearchModal::OnQuery(const std::u32string &query) {
-    CodeIndex::QueryContext context;
-    context.activePath = activePath;
-    hits = index->Query(query, context);
-
-    std::vector<std::u32string> rows;
-    rows.reserve(hits.size());
-    for (auto &hit : hits) {
-        std::u32string row(1, KindMarker(hit.kind));
-        row += U' ';
-        row += hit.qualifiedName;
-        rows.push_back(std::move(row));
-    }
-    return rows;
 }
 
 std::u32string SymbolSearchModal::OnRowDetail(int idxRow) {

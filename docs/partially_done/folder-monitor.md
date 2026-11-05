@@ -244,7 +244,7 @@ monitor re-enable on; listed so the analysis isn't lost.
 - **Effort·Risk:** M · medium. **Done-when:** create/move/delete of files *and* directories reconcile on
   both platforms with the monitor enabled. **Depends-on:** FM-2, FM-4, FolderScanner FS-5.
 
-### FM-6 — `.gitignore` honoring (optional)
+### FM-6 — `.gitignore` honoring ✅ (`ExclusionRules`, see [`code-index.md`](../code-index.md) §11.7)
 - **Goal:** implement the `use_git_ignore` TODO so exclusion follows the repo's own ignore rules.
 - **Effort·Risk:** M · low. **Done-when:** ignored paths are neither scanned nor watched.
 - **Depends-on:** FM-3.

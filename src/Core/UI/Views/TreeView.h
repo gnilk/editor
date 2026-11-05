@@ -63,6 +63,8 @@ namespace gedit {
         using ToStringDelegate = std::function<std::string(const T &data)>;
         // Optional - extra attributes for an item (e.g. kStrikethrough), combined with the normal/selected ones
         using StyleDelegate = std::function<kTextAttributes(const T &data)>;
+        // True for a row that steps back - drawn in 'tree_dimmed', or between the foreground and the background
+        using DimDelegate = std::function<bool(const T &data)>;
         // FS-6: fired from Expand()/ExpandToNode() when a node carries hasUnfetchedChildren.
         // The node is passed BY VALUE (shared_ptr copy) — the callback may call AddItem or
         // AddItemNoFlatten, which can trigger Flatten() and rebuild flattenNodeList; holding
@@ -180,6 +182,10 @@ namespace gedit {
             cbStyle = newStyle;
         }
 
+        void SetDimDelegate(DimDelegate newDim) {
+            cbDim = newDim;
+        }
+
         typename TreeNode::Ref AddItem(const T &item) {
             return AddItem(rootNode, item);
         }
@@ -239,8 +245,10 @@ namespace gedit {
             if (node == nullptr) {
                 return false;
             }
-            // 2) expand all nodes leading up to that item
-            ExpandToNode(node);
+            // 2) expand all nodes leading up to that item - not the item: a rebuild re-selects the user's row
+            if (node->parent != nullptr) {
+                ExpandToNode(node->parent);
+            }
             // 3) flatten
 
             Flatten();
@@ -370,7 +378,14 @@ namespace gedit {
             AdjustNodeDrawStrings();
 
             auto &uiColors = UIHost::Instance().GetUIColors();
-            dc.SetColor(uiColors["foreground"], uiColors["background"]);
+            auto foreground = uiColors["foreground"];
+            auto background = uiColors["background"];
+            dc.SetColor(foreground, background);
+            // A theme without the key (an imported one) still gets a readable row
+            auto dimmed = uiColors.HasColor("tree_dimmed") ? uiColors["tree_dimmed"]
+                                                           : ColorRGBA::FromRGB((foreground.RedAsInt() + background.RedAsInt()) / 2,
+                                                                                (foreground.GreenAsInt() + background.GreenAsInt()) / 2,
+                                                                                (foreground.BlueAsInt() + background.BlueAsInt()) / 2);
 
             for(auto i=treeLineCursor.viewTopLine;i<treeLineCursor.viewBottomLine;i++) {
                 if (i >= flattenNodeList.size()) {
@@ -391,6 +406,10 @@ namespace gedit {
                     dc.FillLine(yPos, kTextAttributes::kNormal | kTextAttributes::kInverted, ' ');
                     dc.DrawStringWithAttributesAt(node->indent, yPos, itemAttributes | kTextAttributes::kInverted, str.c_str());
 
+                } else if ((cbDim != nullptr) && cbDim(node->data)) {
+                    dc.SetColor(dimmed, background);
+                    dc.DrawStringWithAttributesAt(node->indent, yPos, itemAttributes, str.c_str());
+                    dc.SetColor(foreground, background);
                 } else {
                     dc.DrawStringWithAttributesAt(node->indent, yPos, itemAttributes, str.c_str());
                 }
@@ -447,6 +466,7 @@ namespace gedit {
         std::vector<typename TreeNode::Ref> flattenNodeList;
         ToStringDelegate cbToString = nullptr;
         StyleDelegate cbStyle = nullptr;
+        DimDelegate cbDim = nullptr;
         typename TreeNode::Ref rootNode;
         LineCursor treeLineCursor;  // This is not really used - just for storage
         VerticalNavigationCLion verticalNavigationViewModel;

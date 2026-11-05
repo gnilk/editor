@@ -66,11 +66,14 @@ foldermonitor:
   enabled: no
   # Note: for macos this can only be maximum 8 folders - or else!
 
-# Scan-time filtering, owned by the Workspace folder scan (FolderScanner) and shared with the folder
-# monitor when it is re-enabled. Excluded names/globs are pruned AT SCAN TIME -> the matching dirs never
+# Scan-time filtering, owned by the Workspace (ExclusionRules) and shared with the folder monitor and the code
+# index. Excluded names/globs are pruned AT SCAN TIME -> the matching dirs never
 # enter the node tree (build dirs / generated trees). Distinct from workspaceview.hide_dot_files, which
 # is a VIEW-time filter (dotfiles stay scanned, just hidden).
 workspace:
+  # Also honour the repository's '.gitignore' files. Ignored items stay in the workspace view, dimmed and read
+  # only when expanded (workspaceview.show_ignored); the code index and the folder monitor skip them. 'exclude'
+  # below is the hard list: nothing shows or touches those.
   use_git_ignore: yes
   # Backstop against pathological recursion depth only (symlink cycles are handled separately by the
   # scanner's no-follow default). Set to 1 so only the top level of each folder is scanned
@@ -78,12 +81,11 @@ workspace:
   # the lazy-expansion hook (FolderScanner FS-6 — docs/folder-scanner.md §12). The lazy UX
   # is fully wired (W1–W5 done), so lowering this defers rather than truncates.
   max_scan_depth: 6
+  # Nothing shows or touches these. Build folders don't belong here: '.gitignore' covers them, which keeps them
+  # browsable in the workspace view.
   exclude:
     - ".git"
     - ".idea"
-    - "bld"
-    - "cmake-build-debug"
-    - "cmake-build-release"
 
 # The code index behind Go to symbol (docs/code-index.md): project folders are indexed in the background
 # with the excludes above. Only files with a structure scanner (C/C++); larger ones are skipped.
@@ -141,6 +143,8 @@ workspaceview:
   switch_to_editor_on_openfile: yes
   auto_expand_view: yes
   hide_dot_files: yes
+  # Show what '.gitignore' leaves out, dimmed. ToggleIgnored (Alt+H in this view) flips it for the session.
+  show_ignored: yes
   # Number of rows to scroll per mouse-wheel notch
   lines_per_scroll_wheel_notch: 1
 

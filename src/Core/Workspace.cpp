@@ -239,12 +239,19 @@ Workspace::ProjectRoot::Ref Workspace::GetDefaultRoot() {
 
         // The default root has no file-monitor and no create/delete callbacks (at least for now).
         defaultRoot = ProjectRoot::Create(nullptr, nullptr, rootDefault, nameDefault);
+        defaultRoot->SetExclusionRules(CreateExclusionRules(rootDefault));
         // Display name defaults to the last path component; force it to the configured name.
         defaultRoot->GetRootNode()->SetDisplayName(nameDefault);
 
         projectRoots.push_back(defaultRoot);
     }
     return defaultRoot;
+}
+
+ExclusionRules::Ref Workspace::CreateExclusionRules(const std::filesystem::path &rootPath) {
+    auto config = Config::Instance()["workspace"];
+    return ExclusionRules::Create(rootPath, config.GetSequenceOfStr("exclude"), config.GetBool("use_git_ignore", true),
+                                  ExclusionRules::DefaultGlobalIgnoreFile());
 }
 
 const Workspace::Node::Ref Workspace::GetDefaultWorkspace() {
@@ -352,6 +359,21 @@ static bool IsAncestorPath(const std::filesystem::path &dir, const std::filesyst
         return false;
     }
     return *rel.begin() != "..";
+}
+
+ExclusionRules::Ref Workspace::ExclusionRulesFor(const std::filesystem::path &path) {
+    ExclusionRules::Ref rules = nullptr;
+    size_t depthBest = 0;
+    auto normalPath = path.lexically_normal();
+    for (auto &projectRoot : projectRoots) {
+        auto rootPath = projectRoot->GetRootPath().lexically_normal();
+        auto depth = (size_t)std::distance(rootPath.begin(), rootPath.end());
+        if (((normalPath == rootPath) || IsAncestorPath(rootPath, normalPath)) && (depth >= depthBest)) {
+            rules = projectRoot->GetExclusionRules();
+            depthBest = depth;
+        }
+    }
+    return (rules != nullptr) ? rules : CreateExclusionRules(path);
 }
 
 // open-bugs.md #8. A file below the initial max_scan_depth frontier isn't in any tree. If it lives
@@ -479,7 +501,7 @@ void Workspace::ScanPathToReference(Node::Ref startNode, const std::filesystem::
 
     FolderScanner scanner;
     FolderScanner::Options opts;
-    opts.exclude = Config::Instance()["workspace"].GetSequenceOfStr("exclude");
+    opts.rules = ExclusionRulesFor(startNode->GetNodePath());
     // No maxDepth: ScanToReference is bounded by the reference path, not the depth backstop.
 
     std::vector<Node::Ref> parents;
@@ -678,8 +700,8 @@ void Workspace::StartFolderMonitor(ProjectRoot::Ref projectRoot) {
 bool Workspace::ReadFolderToNode(Node::Ref rootNode, const std::filesystem::path &folder) {
     FolderScanner scanner;
     FolderScanner::Options opts;
-    // Static prune (build dirs / .git): the scan-owned config key, NOT the disabled monitor's section.
-    opts.exclude = Config::Instance()["workspace"].GetSequenceOfStr("exclude");
+    // Static prune (build dirs / .git)
+    opts.rules = ExclusionRulesFor(folder);
     // Operational depth backstop only (symlink cycles are handled by the scanner's no-follow default);
     // generous so a legitimate deep tree is never truncated. NOT the build-dir filter (that's exclude).
     opts.maxDepth = Config::Instance()["workspace"].GetInt("max_scan_depth", 6);
@@ -693,7 +715,9 @@ bool Workspace::ReadFolderToNode(Node::Ref rootNode, const std::filesystem::path
         auto parent = parents.back();
         Node::Ref node = (parent != nullptr) ? ApplyFsEntry(parent, path) : nullptr;
         parents.push_back(node);          // push even on failure to stay balanced with onLeaveDir
-        return node != nullptr;           // couldn't create the node => don't descend
+        // couldn't create the node => don't descend. An ignored folder stays a frontier: 'cmake-build-debug'
+        // costs one row until someone expands it
+        return (node != nullptr) && !node->IsIgnored();
     };
     scanner.onFile = [this, &parents](const std::filesystem::path &path, int) {
         auto parent = parents.back();
@@ -754,7 +778,7 @@ bool Workspace::DoReconcileFolder(Node::Ref node) {
     std::vector<fs::path> onDisk;
     FolderScanner scanner;
     FolderScanner::Options opts;
-    opts.exclude = Config::Instance()["workspace"].GetSequenceOfStr("exclude");
+    opts.rules = ExclusionRulesFor(folderPath);
     opts.maxDepth = 1;
     scanner.onEnterDir = [&onDisk](const fs::path &path, int) -> bool {
         onDisk.push_back(path);
@@ -780,6 +804,12 @@ bool Workspace::DoReconcileFolder(Node::Ref node) {
             if (child->IsMissingOnDisk()) {
                 // Back on disk (restored, or re-created by someone else)
                 child->SetMissingOnDisk(false);
+                isChanged = true;
+            }
+            // A '.gitignore' may have changed
+            auto isIgnored = IsPathIgnored(path, child->IsFolder());
+            if (child->IsIgnored() != isIgnored) {
+                child->SetIgnored(isIgnored);
                 isChanged = true;
             }
             childByPath.erase(itChild);
@@ -814,13 +844,21 @@ bool Workspace::DoReconcileFolder(Node::Ref node) {
 // Both the initial scan (ReadFolderToNode) and the folder monitor's create-callback go through here,
 // so scan and live updates can never drift apart.
 Workspace::Node::Ref Workspace::ApplyFsEntry(Node::Ref parent, const std::filesystem::path &path) {
-    if (fs::is_directory(path)) {
-        return NewFolderNode(parent, path);
+    bool isFolder = fs::is_directory(path);
+    Node::Ref node = nullptr;
+    if (isFolder) {
+        node = NewFolderNode(parent, path);
+    } else if (fs::is_regular_file(path)) {
+        node = AddFileNode(parent, path);
     }
-    if (fs::is_regular_file(path)) {
-        return AddFileNode(parent, path);
+    if (node != nullptr) {
+        node->SetIgnored(IsPathIgnored(path, isFolder));
     }
-    return nullptr;
+    return node;
+}
+
+bool Workspace::IsPathIgnored(const std::filesystem::path &path, bool isFolder) {
+    return ExclusionRulesFor(path)->Check(path, isFolder) == ExclusionRules::kVerdict::kIgnored;
 }
 
 Workspace::Node::Ref Workspace::NewFolderNode(Node::Ref parent, const std::filesystem::path &pathName) {
@@ -854,7 +892,7 @@ Workspace::ProjectRoot::Ref Workspace::GetOrAddProjectRoot(const std::filesystem
     };
 
     auto projectRoot = ProjectRoot::Create(cbReconcile, cbChanged, rootPath, rootName);
-    projectRoot->SetExcludeFilter(FsFilter(Config::Instance()["workspace"].GetSequenceOfStr("exclude")));
+    projectRoot->SetExclusionRules(CreateExclusionRules(rootPath));
     projectRoots.push_back(projectRoot);
     return projectRoot;
 }

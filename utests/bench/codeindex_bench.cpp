@@ -28,6 +28,7 @@
 #include "Core/TextBuffer.h"
 #include "Core/UnicodeHelper.h"
 #include "Core/Language/LangLineTokenizer.h"
+#include "Core/FileSystem/ExclusionRules.h"
 #include "Core/Index/CodeIndex.h"
 #include "Core/Index/CPPStructureScanner.h"
 #include "Core/Index/Indexer.h"
@@ -42,6 +43,7 @@ static void Dump(const fs::path &root);
 static void Check(const fs::path &root);
 static void Braces(const fs::path &root);
 static void IndexBench(const fs::path &root);
+static void Ignored(const fs::path &root);
 static std::string Utf8(const std::u32string &text);
 static std::vector<fs::path> SourceFiles(const fs::path &root);
 
@@ -59,6 +61,8 @@ int main(int argc, const char **argv) {
         run = Braces;
     } else if (mode == "--index") {
         run = IndexBench;
+    } else if (mode == "--ignored") {
+        run = Ignored;
     }
     int idxFirstPath = (run == Bench) ? 1 : 2;
     if (argc <= idxFirstPath) {
@@ -70,6 +74,22 @@ int main(int argc, const char **argv) {
     return 0;
 }
 
+// Every file below a root that ExclusionRules ignores, one per line relative to the root - to hold against
+// 'git check-ignore --no-index --stdin' on a real repository
+static void Ignored(const fs::path &root) {
+    auto absoluteRoot = fs::canonical(root);
+    auto rules = ExclusionRules::Create(absoluteRoot, {".git"}, true, ExclusionRules::DefaultGlobalIgnoreFile());
+    for (auto it = fs::recursive_directory_iterator(absoluteRoot, fs::directory_options::skip_permission_denied); it != fs::recursive_directory_iterator(); ++it) {
+        if (it->path().filename() == ".git") {
+            it.disable_recursion_pending();
+            continue;
+        }
+        bool isDirectory = it->is_directory() && !it->is_symlink();
+        auto verdict = rules->Check(it->path(), isDirectory);
+        printf("%c %s%s\n", (verdict == ExclusionRules::kVerdict::kIgnored) ? 'I' : '.', it->path().lexically_relative(absoluteRoot).c_str(), isDirectory ? "/" : "");
+    }
+}
+
 // Step 2's targets on real code: how long a tree takes to index, what it costs in memory, and what a keypress
 // costs (< 10 ms at 1M symbols, §4.5). Queries run on the finished index, single-threaded.
 static void IndexBench(const fs::path &root) {
@@ -78,13 +98,14 @@ static void IndexBench(const fs::path &root) {
     for (auto &extension : {".cpp", ".h", ".c", ".hpp"}) {
         languages[extension] = language;
     }
-    Indexer::Options options;
-    options.exclude = Config::Instance()["workspace"].GetSequenceOfStr("exclude");
+    auto workspaceConfig = Config::Instance()["workspace"];
+    auto absoluteRoot = fs::canonical(root);
+    auto rules = ExclusionRules::Create(absoluteRoot, workspaceConfig.GetSequenceOfStr("exclude"), workspaceConfig.GetBool("use_git_ignore", true));
 
     auto index = CodeIndex::Create();
-    auto indexer = Indexer::Create(index, languages, options);
+    auto indexer = Indexer::Create(index, languages, Indexer::Options{});
     auto tStart = std::chrono::steady_clock::now();
-    indexer->AddRoot(fs::absolute(root));
+    indexer->AddRoot(absoluteRoot, rules);
     indexer->WaitIdle();
     auto msIndex = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tStart).count();
 

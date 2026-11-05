@@ -77,7 +77,7 @@ DLL_EXPORT int test_foldermonitor_fsevents(ITesting *t) {
     bool isLost = false;
 
     auto monitor = MacOSFolderMonitorPoint::Create(fs::temp_directory_path() / "goat_fm_fsevents");
-    monitor->SetExcludeFilter(FsFilter({"cmake-build-*"}));
+    monitor->SetExclusionRules(ExclusionRules::Create(fs::temp_directory_path() / "goat_fm_fsevents", {"cmake-build-*"}, false));
     monitor->SetPostToMain([&collector](std::function<void()> callback) { collector.Post(std::move(callback)); });
     monitor->SetDirtyHandler([&dirty, &isLost](const std::set<fs::path> &folders, bool isLostEvents) {
         dirty.insert(folders.begin(), folders.end());

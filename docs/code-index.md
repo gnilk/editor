@@ -754,15 +754,16 @@ context selectors and 29 font styles reported.
 
 ### 11.6 Step 2 results (2026-11-05, M-series Mac, release)
 
-`gedit-bench --index <dir>` indexes a tree and times the queries, single-threaded on the finished index:
+`gedit-bench --index <dir>` indexes a tree and times the queries, single-threaded on the finished index. With
+`.gitignore` honoured (§11.7) - testrunner drops from 399 files because it was indexing build output:
 
 | Tree | Files | Index time | Symbols | Names | Memory | Worst keypress |
 |---|---|---|---|---|---|---|
-| GoatEdit `src` | 353 | 166 ms | 14 764 | 9 977 | 2.7 MB | 0.36 ms |
-| testrunner | 399 | 53 ms | 16 808 | 10 394 | 2.9 MB | 0.42 ms |
-| noc_goa | 178 | 16 ms | 5 822 | 3 842 | 0.9 MB | 0.20 ms |
-| vcpu | 200 | 21 ms | 7 176 | 4 332 | 1.1 MB | 0.20 ms |
-| PuckoNew | 1 382 | 123 ms | 39 584 | 20 584 | 6.2 MB | 0.92 ms |
+| GoatEdit `src` | 357 | 149 ms | 14 936 | 10 070 | 2.7 MB | 0.32 ms |
+| testrunner | 149 | 10 ms | 2 224 | 1 185 | 0.3 MB | 0.07 ms |
+| noc_goa | 178 | 16 ms | 5 822 | 3 842 | 0.9 MB | 0.13 ms |
+| vcpu | 167 | 15 ms | 5 356 | 2 836 | 0.7 MB | 0.12 ms |
+| PuckoNew | 1 377 | 96 ms | 39 463 | 20 551 | 6.2 MB | 0.83 ms |
 
 So persistence stays out: startup indexing is well under a second. Query time grows with the number of
 names, so a short query at 1M symbols extrapolates to ~20 ms - over the §4.5 target, but kernel-sized, and
@@ -796,6 +797,41 @@ indexed.
   declaration (`f`, `m`).
 - **Known, inherited:** the parse thread walks `lines` without a lock against the UI thread, as `ScanStructure`
   and `RecolourSemanticNames` already do. The walk happens at a pause, but typing can still meet it.
+
+### 11.7 Exclusions - `ExclusionRules` (2026-11-05)
+
+`use_git_ignore: yes` had never done anything: `.gitignore` wasn't parsed anywhere, the one branch for it was an
+inverted `TODO` in a function nobody called, and `workspace.exclude` was read separately by each consumer. Now a
+`ProjectRoot` owns one `ExclusionRules`, shared with the folder scanner, the monitor and the indexer.
+
+| | `workspace.exclude` | `.gitignore` |
+|---|---|---|
+| Meaning | Never touch this (`.git`) | Not source, but it exists |
+| Tree | Not shown | Dimmed; `ToggleIgnored` (Alt+H in the workspace view) hides it |
+| Scanned | Never | When expanded |
+| Index, monitor | Skipped | Skipped |
+
+**It can't be a merge into the exclude list.** `FsFilter` matches single names, so `/ext/` would also hide `src/ext`
+(this repo's rule), and `src/ext/ELFIO/` can't be expressed at all. Rules are git's: anchoring, `!`, `**`, last line
+wins, deeper files beat shallower ones, nothing below an ignored folder comes back, and a folder opened inside a
+repository follows the repository's files.
+
+**Checked against git itself:** `gedit-bench --ignored` held against `git check-ignore --no-index` on GoatEdit,
+testrunner, noc_goa, vcpu and PuckoNew - 20 782 paths, 1 difference, and that one explained: a folder in testrunner
+holding its own `.gitignore` of `*` (we ignore what's in it, git also the folder - the same files are skipped).
+
+**Limits:** `.git/info/exclude` and a global file named by `core.excludesFile` aren't read; git's default global file
+(`~/.config/git/ignore`) is. A changed `.gitignore` reaches the tree and
+the monitor at the next flush, but files it newly ignores or un-ignores stay as they are in the index until a restart
+or a lost-events rescan. An expanded ignored folder isn't live - the monitor drops its events. The Linux monitor still
+reads the old `foldermonitor.exclude` key (B7 in `foldermonitor_fixes.md`), so it has no exclusions until that backend
+is done.
+
+**Default list:** `bld` and `cmake-build-*` left `workspace.exclude`, or they could never be browsed - the hard list
+wins. A build folder in a project without a `.gitignore` entry for it now counts as source.
+
+**Colour:** `tree_dimmed` in `colors.json`, from VS Code's `gitDecoration.ignoredResourceForeground` on import. A theme
+without the key gets the midpoint of foreground and background.
 
 ## 12. Open decisions
 

@@ -22,6 +22,7 @@
 
 #include "CodeIndex.h"
 #include "StructureScanner.h"
+#include "Core/FileSystem/ExclusionRules.h"
 #include "Core/Language/LanguageBase.h"
 
 namespace gedit {
@@ -32,7 +33,6 @@ namespace gedit {
         using Languages = std::unordered_map<std::string, LanguageBase::Ref>;
 
         struct Options {
-            std::vector<std::string> exclude;           // workspace.exclude
             int maxDepth = 32;
             uintmax_t maxFileSize = 4 * 1024 * 1024;    // D5 - larger files are nearly always generated or vendored
             size_t numThreads = 0;                      // 0: cores - 1
@@ -51,8 +51,9 @@ namespace gedit {
             return std::make_shared<Indexer>(std::move(index), std::move(languages), std::move(options));
         }
 
-        // Index everything below a root; files closest to 'priorityPath' go first
-        void AddRoot(const std::filesystem::path &root, const std::filesystem::path &priorityPath = {});
+        // Index everything below a root that 'rules' leave in (nullptr: all of it); files closest to
+        // 'priorityPath' go first
+        void AddRoot(const std::filesystem::path &root, ExclusionRules::Ref rules = nullptr, const std::filesystem::path &priorityPath = {});
         // Read a file again - if it is gone, or no longer indexable, it leaves the index
         void Enqueue(const std::string &path);
         // Something below a folder changed: read what differs from what was read, drop what is gone. Not
@@ -84,6 +85,11 @@ namespace gedit {
             std::string priorityPath;
         };
 
+        struct Root {
+            std::filesystem::path path;
+            ExclusionRules::Ref rules = nullptr;
+        };
+
         // A file differs from what was read when one of these does
         struct FileStamp {
             std::filesystem::file_time_type timeModified = {};
@@ -96,6 +102,8 @@ namespace gedit {
         void FinishWork(const WorkItem &item);
         void ScanRoot(const WorkItem &item);
         void ScanFolder(const WorkItem &item);
+        ExclusionRules::Ref RulesForRoot(const std::string &rootPath);
+        bool IsLeftOut(const std::string &path);
         // Caller holds the lock
         void QueueFile(const std::string &path);
         bool IsStale(const std::filesystem::path &path);
@@ -114,7 +122,7 @@ namespace gedit {
         std::unordered_set<std::string> queuedPaths;
         std::unordered_set<std::string> activePaths;    // two threads on one file could leave the older text in the index
         std::unordered_set<std::string> requeuedPaths;  // changed again while being read
-        std::vector<std::filesystem::path> roots;
+        std::vector<Root> roots;
         std::unordered_map<std::string, std::unordered_map<std::string, FileStamp>> stamps;     // folder -> file
         std::mutex bufferLock;                                  // held across 'is it from a buffer?' + the write
         std::unordered_set<std::string> bufferPaths;

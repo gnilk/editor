@@ -16,6 +16,7 @@
 #include <string>
 #include <vector>
 
+#include "ExclusionRules.h"
 #include "FsFilter.h"
 
 namespace gedit {
@@ -35,6 +36,8 @@ namespace gedit {
             int maxDepth = 8;                    // hard safety bound against cycles / pathological depth
             bool followSymlinks = false;         // FS-4: don't descend symlinked dirs (cycle safety)
             std::vector<std::string> exclude;    // FS-2: static prune (build dirs / dotfiles)
+            ExclusionRules::Ref rules = nullptr; // a project root's rules: what they exclude is pruned...
+            bool skipIgnored = false;            // ...and what '.gitignore' ignores too, when set
         };
 
     public:
@@ -65,6 +68,7 @@ namespace gedit {
     private:
         void ScanDir(const std::filesystem::path &dir, int depth, const Options &opts, const FsFilter &filter);
         void ScanDirToReference(const std::filesystem::path &dir, const std::filesystem::path &refPath, int depth, const Options &opts, const FsFilter &filter);
+        static bool IsPruned(const std::filesystem::path &path, const Options &opts, const FsFilter &filter);
     };
 }
 

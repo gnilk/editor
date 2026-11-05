@@ -269,6 +269,7 @@ namespace {
         {"header_active_foreground", {"tab.activeForeground"}, "foreground"},
         {"modal_background",         {"quickInput.background", "editorWidget.background"}, "header_background"},
         {"modal_foreground",         {"quickInput.foreground", "editorWidget.foreground", "foreground"}, "foreground"},
+        {"tree_dimmed",              {"gitDecoration.ignoredResourceForeground"}, "gutter_foreground"},
     };
     const std::vector<MappedKey> sublimeUIKeys = {
         {"background",               {"background"}, nullptr},
@@ -281,6 +282,7 @@ namespace {
         {"header_active_foreground", {}, "foreground"},
         {"modal_background",         {}, "gutter_background"},
         {"modal_foreground",         {}, "foreground"},
+        {"tree_dimmed",              {}, "gutter_foreground"},
     };
     const std::vector<MappedKey> vscodeTerminalKeys = {
         {"background", {"terminal.background", "panel.background", "editor.background"}, nullptr},

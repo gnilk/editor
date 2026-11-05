@@ -63,6 +63,7 @@ extern "C" {
     DLL_EXPORT int test_codeindex_buffer_handler(ITesting *t);
     DLL_EXPORT int test_codeindex_buffer_pause(ITesting *t);
     DLL_EXPORT int test_codeindex_indexer_buffer(ITesting *t);
+    DLL_EXPORT int test_codeindex_indexer_gitignore(ITesting *t);
     DLL_EXPORT int test_codeindex_indexer_changedfolder(ITesting *t);
     DLL_EXPORT int test_codeindex_indexer_goneroot(ITesting *t);
     DLL_EXPORT int test_codeindex_modal_markers(ITesting *t);
@@ -1053,19 +1054,23 @@ static std::filesystem::path IndexerFolder(const std::string &name) {
     return root;
 }
 
+static std::filesystem::path fs_canonical_root(const std::string &name) {
+    auto root = IndexerFolder(name);
+    return std::filesystem::canonical(root);
+}
+
 static void WriteTextFile(const std::filesystem::path &path, const std::string &text) {
     std::filesystem::create_directories(path.parent_path());
     std::ofstream file(path, std::ios::binary);
     file << text;
 }
 
-static Indexer::Ref MakeIndexer(const CodeIndex::Ref &index, std::vector<std::string> exclude = {}, uintmax_t maxFileSize = 4 * 1024 * 1024) {
+static Indexer::Ref MakeIndexer(const CodeIndex::Ref &index, uintmax_t maxFileSize = 4 * 1024 * 1024) {
     Indexer::Languages languages;
     auto language = Editor::Instance().GetLanguageForExtension(".cpp");
     languages[".cpp"] = language;
     languages[".h"] = language;
     Indexer::Options options;
-    options.exclude = std::move(exclude);
     options.maxFileSize = maxFileSize;
     return Indexer::Create(index, languages, options);
 }
@@ -1079,8 +1084,8 @@ DLL_EXPORT int test_codeindex_indexer_folder(ITesting *t) {
     WriteTextFile(root / "big.h", "class Echo {};\n" + std::string(4096, ' '));
 
     auto index = CodeIndex::Create();
-    auto indexer = MakeIndexer(index, {"skipped"}, 1024);
-    indexer->AddRoot(root);
+    auto indexer = MakeIndexer(index, 1024);
+    indexer->AddRoot(root, ExclusionRules::Create(root, {"skipped"}, false));
     indexer->WaitIdle();
 
     auto alpha = index->Query(U"Alpha");
@@ -1519,5 +1524,43 @@ DLL_EXPORT int test_codeindex_buffer_pause(ITesting *t) {
     buffer->SetStructureHandler(nullptr);
     buffer->Close();
     mainConfig.SetBool("threaded_syntaxparser", wasThreaded);
+    return kTR_Pass;
+}
+
+// '.gitignore' reaches every way a file can get in: the walk, a dirty folder, a document closing
+DLL_EXPORT int test_codeindex_indexer_gitignore(ITesting *t) {
+    auto root = fs_canonical_root("gitignore");
+    WriteTextFile(root / ".gitignore", "/ext/\nbuild/\ngen_*.h\n");
+    WriteTextFile(root / "main.h", "class Kept {};\n");
+    WriteTextFile(root / "src/ext/dep.h", "class Vendored {};\n");
+    WriteTextFile(root / "ext/dep.h", "class FetchedDep {};\n");
+    WriteTextFile(root / "src/build/x.h", "class BuildOutput {};\n");
+    WriteTextFile(root / "gen_a.h", "class Generated {};\n");
+
+    auto index = CodeIndex::Create();
+    auto indexer = MakeIndexer(index);
+    indexer->AddRoot(root, ExclusionRules::Create(root, {}, true));
+    indexer->WaitIdle();
+
+    TR_ASSERT(t, index->Query(U"Kept").size() == 1);
+    TR_ASSERT(t, index->Query(U"Vendored").size() == 1);    // '/ext/' is the top-level one only
+    TR_ASSERT(t, index->Query(U"FetchedDep").empty());
+    TR_ASSERT(t, index->Query(U"BuildOutput").empty());
+    TR_ASSERT(t, index->Query(U"Generated").empty());
+
+    // A dirty folder lists an ignored file too
+    WriteTextFile(root / "gen_b.h", "class AlsoGenerated {};\n");
+    indexer->EnqueueFolder(root);
+    indexer->WaitIdle();
+    TR_ASSERT(t, index->Query(U"AlsoGenerated").empty());
+
+    // Opened from an ignored folder: searchable while it is open, gone when it closes
+    auto ignoredPath = (root / "ext/dep.h").string();
+    indexer->ReplaceFromBuffer(ignoredPath, MakeFile({MakeSymbol(U"FetchedDep", kSymbolKind::kClass)}));
+    TR_ASSERT(t, index->Query(U"FetchedDep").size() == 1);
+    indexer->ReleaseFromBuffer(ignoredPath);
+    indexer->WaitIdle();
+    TR_ASSERT(t, index->Query(U"FetchedDep").empty());
+    std::filesystem::remove_all(root);
     return kTR_Pass;
 }

@@ -12,6 +12,7 @@ using namespace gedit;
 extern "C" {
 DLL_EXPORT int test_keymapping(ITesting *t);
 DLL_EXPORT int test_keymapping_parse(ITesting *t);
+DLL_EXPORT int test_keymapping_toggleignored(ITesting *t);
 DLL_EXPORT int test_keymapping_badmodifiers(ITesting *t);
 DLL_EXPORT int test_keymapping_kpaction(ITesting *t);
 DLL_EXPORT int test_keymapping_load(ITesting *t);
@@ -375,5 +376,22 @@ DLL_EXPORT int test_keymapping_find(ITesting *t) {
     auto pasteAction = modalKeymap->ActionFromKeyPress(keyPress);
     TR_ASSERT(t, pasteAction.has_value());
     TR_ASSERT(t, pasteAction->action == kAction::kActionPasteFromClipboard);
+    return kTR_Pass;
+}
+
+// Alt+H in the workspace view only - it stays the hex view everywhere else
+DLL_EXPORT int test_keymapping_toggleignored(ITesting *t) {
+    KeyPress keyPress = {};
+    keyPress.key = 'h';
+    keyPress.isKeyValid = true;
+    keyPress.modifiers = Keyboard::kMod_LeftAlt;
+
+    auto workspaceAction = Editor::Instance().GetKeyMapping("workspace_keymap")->ActionFromKeyPress(keyPress);
+    TR_ASSERT(t, workspaceAction.has_value());
+    TR_ASSERT(t, workspaceAction->action == kAction::kActionToggleIgnored);
+
+    auto defaultAction = Editor::Instance().GetKeyMapping("default_keymap")->ActionFromKeyPress(keyPress);
+    TR_ASSERT(t, defaultAction.has_value());
+    TR_ASSERT(t, defaultAction->action != kAction::kActionToggleIgnored);
     return kTR_Pass;
 }

@@ -24,7 +24,7 @@ static bool IsStringExcluded(const std::string &str, const std::vector<std::stri
     return false;
 }
 
-static void FillTreeView(WorkspaceView::TreeRef tree, WorkspaceView::TreeNodeRef parent, Workspace::Node::Ref node, const std::vector<std::string> &excludePrefixes, const std::unordered_map<std::string, bool> &expandCollapseCache) {
+static void FillTreeView(WorkspaceView::TreeRef tree, WorkspaceView::TreeNodeRef parent, Workspace::Node::Ref node, const std::vector<std::string> &excludePrefixes, bool showIgnored, const std::unordered_map<std::string, bool> &expandCollapseCache) {
     std::vector<Workspace::Node::Ref> children;
 
     auto itExpandCollapse = expandCollapseCache.find(node->GetNodePath().string());
@@ -61,19 +61,24 @@ static void FillTreeView(WorkspaceView::TreeRef tree, WorkspaceView::TreeNodeRef
             if (IsStringExcluded(child->GetDisplayName(), excludePrefixes)) {
                 continue;
             }
+            // Like the dot files, a view-time filter: the nodes stay
+            if (child->IsIgnored() && !showIgnored) {
+                continue;
+            }
             auto newParent = tree->AddItem(parent, child);
             // FS-6 W5: the ONLY place where Workspace::Node::isScanned is translated into the
             // view flag. !is_symlink keeps non-followed symlink dirs as leaves (consistent with
             // scan behaviour — a symlink dir is emitted but not descended).
             newParent->hasUnfetchedChildren = child->IsFolder() && !child->IsScanned()
                                               && !fs::is_symlink(child->GetNodePath());
-            FillTreeView(tree, newParent, child, excludePrefixes, expandCollapseCache);
+            FillTreeView(tree, newParent, child, excludePrefixes, showIgnored, expandCollapseCache);
         }
     }
 }
 
 void WorkspaceView::InitView() {
     VisibleView::InitView();
+    isShowingIgnored = Config::Instance()[cfgSectionName].GetBool("show_ignored", true);
     linesPerScrollWheelNotch = Config::Instance()[cfgSectionName].GetInt("lines_per_scroll_wheel_notch", 3);
     CreateTree();
     AddView(treeView.get());
@@ -101,12 +106,16 @@ void WorkspaceView::ReInitView() {
     // Re-Init is called by a lot of reasons...
     // resync IF the user wants the buffers in workspace view to reflect the editor (this is VSCode behaviour)
 
+    // Only when the buffer did change: a reinit from anything else (a view being resized) must not move the
+    // user's selection, or expand the folders on the way to the active file.
     bool syncOnBufferChange = Config::Instance()[cfgSectionName].GetBool("sync_on_active_buffer_changed", true);
-    if (syncOnBufferChange && Editor::Instance().GetActiveDocument() != nullptr) {
+    auto activeDocument = Editor::Instance().GetActiveDocument();
+    if (syncOnBufferChange && (activeDocument != nullptr) && (activeDocument.get() != syncedDocument)) {
         auto activeNode = Editor::Instance().GetWorkspaceNodeForActiveDocument();
         // The selection moved to the active buffer - its folder is now the one the view points at
         if (treeView->SetCurrentlySelectedItem(activeNode)) {
             Editor::Instance().GetWorkspace()->SetActiveFolderNode(activeNode);
+            syncedDocument = activeDocument.get();
         }
     }
 
@@ -177,6 +186,11 @@ void WorkspaceView::CreateTree() {
             return kTextAttributes::kNormal;
         });
 
+        // Not source, but there to browse (what the repository's '.gitignore' leaves out)
+        treeView->SetDimDelegate([](Workspace::Node::Ref node) -> bool {
+            return (node != nullptr) && node->IsIgnored();
+        });
+
         // FS-6 W5: on expand of a node with hasUnfetchedChildren, run a shallow ScanNode
         // to populate the model, then mirror the new level into the view tree node.
         // No full PopulateTree — the cursor stays put and only this branch is updated.
@@ -192,7 +206,7 @@ void WorkspaceView::CreateTree() {
             // keeps those model nodes, so mirror the whole level afresh instead of appending duplicates.
             treeView->RemoveChildren(viewNode);
             // Empty expand/collapse cache: freshly-scanned nodes have no saved state.
-            FillTreeView(treeView, viewNode, viewNode->data, excludePrefixes, {});
+            FillTreeView(treeView, viewNode, viewNode->data, excludePrefixes, isShowingIgnored, {});
         };
     }
 }
@@ -231,7 +245,7 @@ void WorkspaceView::PopulateTree() {
         auto rootNode = projectRoot->GetRootNode();
         auto treeRoot = treeView->AddItem(rootNode);
 
-        FillTreeView(treeView, treeRoot, rootNode, excludePrefixList, expandCollapseCache);
+        FillTreeView(treeView, treeRoot, rootNode, excludePrefixList, isShowingIgnored, expandCollapseCache);
     }
     // All nodes start collapsed, but we want the root to start expanded - on the first build only, a rebuild
     // has the snapshot. Expand() acts on the cursor row, so put it on the root first (a rebuild's stale row
@@ -287,6 +301,11 @@ bool WorkspaceView::OnAction(const EditorAction &kpAction) {
         if (OpenSelectedItem()) {
             return true;
         }
+    }
+    if (kpAction.action == kAction::kActionToggleIgnored) {
+        isShowingIgnored = !isShowingIgnored;
+        PopulateTree();
+        return true;
     }
     if (kpAction.action == kAction::kActionStartSearch) {
         auto logger = gnilk::Logger::GetLogger("WorkspaceView");

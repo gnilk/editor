@@ -85,8 +85,8 @@ bool MacOSFolderMonitorPoint::Start() {
 }
 
 void MacOSFolderMonitorPoint::SetOSExclusionPaths() {
-    auto &filter = GetExcludeFilter();
-    if (filter.IsEmpty()) {
+    auto &rules = GetExclusionRules();
+    if (rules == nullptr) {
         return;
     }
 
@@ -98,7 +98,7 @@ void MacOSFolderMonitorPoint::SetOSExclusionPaths() {
             break;
         }
         std::error_code ecDir;
-        if (it->is_directory(ecDir) && filter.IsExcluded(it->path())) {
+        if (it->is_directory(ecDir) && !rules->IsIncluded(it->path(), true)) {
             toExclude.push_back(it->path());
         }
     }

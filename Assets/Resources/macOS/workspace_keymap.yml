@@ -19,5 +19,8 @@ keymap: {
       "UINavigationModifier + ']'",
       KeyCode_Tab
     ],
+    # Hide/show what '.gitignore' leaves out. Replaces the inherited hex view, which means nothing here.
+    # Not Cmd+H: macOS hides the whole application on that one.
+    ToggleIgnored : "UINavigationModifier + 'h'",
   }
 }

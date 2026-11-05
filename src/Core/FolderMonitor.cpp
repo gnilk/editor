@@ -18,9 +18,9 @@ FolderMonitor::MonitorPoint::MonitorPoint(const std::filesystem::path &path) : p
 
 }
 
-void FolderMonitor::MonitorPoint::SetExcludeFilter(const FsFilter &newExcludeFilter) {
+void FolderMonitor::MonitorPoint::SetExclusionRules(ExclusionRules::Ref newRules) {
     std::lock_guard<std::mutex> guard(dataGuard);
-    excludeFilter = newExcludeFilter;
+    exclusionRules = std::move(newRules);
 }
 
 void FolderMonitor::MonitorPoint::SetPostToMain(PostDelegate newPostToMain) {
@@ -42,7 +42,11 @@ bool FolderMonitor::MonitorPoint::IsPathExcluded(const std::filesystem::path &pa
     if (relPath == ".") {
         return false;
     }
-    return excludeFilter.IsExcludedRelative(relPath);
+    if (exclusionRules == nullptr) {
+        return false;
+    }
+    std::error_code error;
+    return !exclusionRules->IsIncluded(path, std::filesystem::is_directory(path, error));
 }
 
 // protected - called from the OS thread
@@ -117,15 +121,4 @@ bool FolderMonitor::IsEnabled() {
         return false;
     }
     return true;
-}
-
-const std::vector<std::string> &FolderMonitor::GetExclusionPaths() {
-    // The exclude list is scan-owned (config "workspace") so the scan does not depend on this disabled
-    // subsystem; the monitor reads the SAME key. See docs/folder-scanner.md §6.
-    exclusionPaths = Config::Instance()["workspace"].GetSequenceOfStr("exclude");
-    if (!Config::Instance()["workspace"].GetBool("use_git_ignore", true)) {
-        // TODO: Parse .gitignore here
-    }
-
-    return exclusionPaths;
 }

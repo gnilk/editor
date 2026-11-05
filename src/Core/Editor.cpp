@@ -1025,7 +1025,6 @@ void Editor::WireCodeIndex() {
     }
     // Here, before any document: parse threads read 'indexer' from now on. No threads until the first root.
     Indexer::Options options;
-    options.exclude = Config::Instance()["workspace"].GetSequenceOfStr("exclude");
     options.maxFileSize = (uintmax_t)config.GetInt("max_file_size_kb", 4096) * 1024;
     codeIndex = CodeIndex::Create();
     indexer = Indexer::Create(codeIndex, IndexableLanguages(), options);
@@ -1089,7 +1088,7 @@ void Editor::IndexProjectRoots() {
             continue;
         }
         auto activeNode = (GetActiveDocument() != nullptr) ? workspace->GetNodeFromDocument(GetActiveDocument()) : nullptr;
-        indexer->AddRoot(rootPath, (activeNode != nullptr) ? pathutil::CanonicalPath(activeNode->GetNodePath()) : std::filesystem::path{});
+        indexer->AddRoot(rootPath, root->GetExclusionRules(), (activeNode != nullptr) ? pathutil::CanonicalPath(activeNode->GetNodePath()) : std::filesystem::path{});
         indexedRoots.push_back(rootPath);
     }
 }

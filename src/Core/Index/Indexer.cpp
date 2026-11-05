@@ -13,6 +13,11 @@
 using namespace gedit;
 namespace fs = std::filesystem;
 
+// 'folder' is 'root' or somewhere below it
+static bool IsBelow(const std::string &folder, const std::string &root) {
+    return (folder.compare(0, root.size(), root) == 0) && ((folder.size() == root.size()) || (folder[root.size()] == '/'));
+}
+
 Indexer::Indexer(CodeIndex::Ref index, Languages languages, Options options) : index(std::move(index)), languages(std::move(languages)), options(std::move(options)) {
 }
 
@@ -20,13 +25,13 @@ Indexer::~Indexer() {
     Stop();
 }
 
-void Indexer::AddRoot(const fs::path &root, const fs::path &priorityPath) {
+void Indexer::AddRoot(const fs::path &root, ExclusionRules::Ref rules, const fs::path &priorityPath) {
     {
         std::lock_guard guard(lock);
         if (isStopping) {
             return;
         }
-        roots.push_back(root);
+        roots.push_back({root, std::move(rules)});
         queue.push_back({kWorkType::kRoot, root.string(), priorityPath.string()});
         StartThreads();
     }
@@ -64,7 +69,7 @@ void Indexer::RescanRoots() {
             return;
         }
         for (auto &root : roots) {
-            queue.push_back({kWorkType::kRoot, root.string(), {}});
+            queue.push_back({kWorkType::kRoot, root.path.string(), {}});
         }
         StartThreads();
     }
@@ -215,11 +220,6 @@ static size_t CommonDepth(const fs::path &a, const fs::path &b) {
     return depth;
 }
 
-// 'folder' is 'root' or somewhere below it
-static bool IsBelow(const std::string &folder, const std::string &root) {
-    return (folder.compare(0, root.size(), root) == 0) && ((folder.size() == root.size()) || (folder[root.size()] == '/'));
-}
-
 void Indexer::ScanRoot(const WorkItem &item) {
     std::vector<std::string> paths;
     FolderScanner scanner;
@@ -229,7 +229,8 @@ void Indexer::ScanRoot(const WorkItem &item) {
         }
     };
     FolderScanner::Options scanOptions;
-    scanOptions.exclude = options.exclude;
+    scanOptions.rules = RulesForRoot(item.path);
+    scanOptions.skipIgnored = true;
     scanOptions.maxDepth = options.maxDepth;
     scanner.Scan(item.path, scanOptions);
 
@@ -273,6 +274,31 @@ void Indexer::ScanRoot(const WorkItem &item) {
         }
     }
     workAvailable.notify_all();
+}
+
+ExclusionRules::Ref Indexer::RulesForRoot(const std::string &rootPath) {
+    std::lock_guard guard(lock);
+    for (auto &root : roots) {
+        if (root.path == rootPath) {
+            return root.rules;
+        }
+    }
+    return nullptr;
+}
+
+// The one gate: a dirty folder can list an ignored file, and a closed document can be one
+bool Indexer::IsLeftOut(const std::string &path) {
+    ExclusionRules::Ref rules = nullptr;
+    {
+        std::lock_guard guard(lock);
+        for (auto &root : roots) {
+            if (IsBelow(path, root.path.string())) {
+                rules = root.rules;
+                break;
+            }
+        }
+    }
+    return (rules != nullptr) && !rules->IsIncluded(path, false);
 }
 
 void Indexer::ScanFolder(const WorkItem &item) {
@@ -375,7 +401,7 @@ void Indexer::IndexFile(const std::string &path, std::unordered_map<LanguageBase
         }
     }
 
-    if ((itLanguage == languages.end()) || error || !file.is_open() || (fileSize > options.maxFileSize)) {
+    if ((itLanguage == languages.end()) || error || !file.is_open() || (fileSize > options.maxFileSize) || IsLeftOut(path)) {
         RemoveUnlessFromBuffer(path);
         return;
     }

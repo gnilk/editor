@@ -69,8 +69,8 @@ cd cmake-build-debug && trun -l ./libutests.so                     # list
 
 Test source files live in `utests/`. Each `test_<module>.cpp` corresponds to one module; `test_main.cpp` initializes the editor singleton for all tests. Test functions are `extern "C"` (or `DLL_EXPORT`) and discovered by exported symbol name — adding a new case is just a new function (+ a forward declaration where the file uses one).
 
-**Verified-green set** (440 tests, run from `cmake-build-debug/`):
-`trun -m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,vtermparser,keymapping,hexprojection,bytestream,hexview,indent,session,markdown,folderscanner,foldermonitor,treeview,textbuffer,mouseclicktracker,wrapprojection,config,modal,find,codeindex,themeimport --sequential ./libutests.so`
+**Verified-green set** (461 tests, run from `cmake-build-debug/`):
+`trun -m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,vtermparser,keymapping,hexprojection,bytestream,hexview,indent,session,markdown,folderscanner,foldermonitor,treeview,textbuffer,mouseclicktracker,wrapprojection,config,modal,find,codeindex,themeimport,exclusion --sequential ./libutests.so`
 
 **Benchmarks are not trun cases** - trun links the ASan runtime (see below), which makes every
 allocation expensive and skews throughput numbers ~5x. Lexer throughput (code index step 0) is the
@@ -79,7 +79,8 @@ cmake --build cmake-build-release --target gedit-bench`, then from `cmake-build-
 `./gedit-bench [file-or-dir ...]` (default `../src`). `./gedit-bench --dump <file-or-dir>` prints what the
 C/C++ structure pass (`src/Core/Index/CPPStructureScanner`, code index step 1) finds per file - symbols
 (nested, with extents) and edges (inherits / holds+ownership / includes) - the way to judge it on real code.
-`./gedit-bench --index <dir>` indexes a tree and times Go to symbol queries.
+`./gedit-bench --index <dir>` indexes a tree and times Go to symbol queries. `./gedit-bench --ignored <dir>` lists
+`ExclusionRules`' verdict per path, to hold against `git check-ignore --no-index --stdin`.
 `./gedit-bench --check <file-or-dir>` lists files whose braces don't balance at the end (usually a lexer
 misread); `./gedit-bench --braces <file>` prints the lexer's brace depth per line to find the line.
 
@@ -150,7 +151,9 @@ Each backend implements `ScreenBase`, `NativeWindow`, and `DrawContext` interfac
 Embeds Duktape 2.7.0 (`src/ext/duktape-2.7.0/`). `JSPluginEngine` loads `.js` files from the `resources/Plugins/` directory. JS API wrappers live in `src/Core/JSEngine/Modules/` and expose `DocumentAPI`, `EditorAPI`, `ThemeAPI`, `ViewAPI`, etc. Plugin JS source lives in `src/Plugins/`.
 
 ### Configuration (`src/Core/Config/`)
-YAML-based config loaded by `Config` singleton. `ConfigNode` provides typed access. `Theme` loads `.theme.yml` files. Runtime defaults are in `Assets/Resources/config.yml`. A **user config** is merged at startup (`~/.config/goatedit/config.yml` or `~/.goatedit/` on macOS; `~/.local/share/goatedit/` or `~/.goatedit/` on Linux), then a **project config** `<root>/.goatedit/config.yml` (root resolved up front by `Editor::ResolveProjectDir`; keys that run commands/code — terminal shell/init/bootstrap, bootstrap scripts, plugin dir, logfile — are stripped by `ProjectConfigPolicy`). `--skip-user-config` skips both. `.cfg` (`ConfigAPI`) reads/writes the user/project files; writes go through `ConfigFilePatcher` (in-place text edit, comments preserved, NO yaml-cpp round-trip - yaml-cpp drops all comments). Logger sink is `logsink: filesink` → `~/.local/state/goatedit.log` (only bootstrap lines reliably land there; SDL/runtime debug logs are flaky — prefer stderr instrumentation or ASan over the logfile when debugging).
+What a project root leaves out has one owner, `ExclusionRules` (`src/Core/FileSystem/`), held by the `ProjectRoot`
+and shared with the scanner, monitor and code index: `workspace.exclude` is hard (never touched), `.gitignore` is
+soft (dimmed in the tree, a frontier until expanded, skipped by index and monitor). YAML-based config loaded by `Config` singleton. `ConfigNode` provides typed access. `Theme` loads `.theme.yml` files. Runtime defaults are in `Assets/Resources/config.yml`. A **user config** is merged at startup (`~/.config/goatedit/config.yml` or `~/.goatedit/` on macOS; `~/.local/share/goatedit/` or `~/.goatedit/` on Linux), then a **project config** `<root>/.goatedit/config.yml` (root resolved up front by `Editor::ResolveProjectDir`; keys that run commands/code — terminal shell/init/bootstrap, bootstrap scripts, plugin dir, logfile — are stripped by `ProjectConfigPolicy`). `--skip-user-config` skips both. `.cfg` (`ConfigAPI`) reads/writes the user/project files; writes go through `ConfigFilePatcher` (in-place text edit, comments preserved, NO yaml-cpp round-trip - yaml-cpp drops all comments). Logger sink is `logsink: filesink` → `~/.local/state/goatedit.log` (only bootstrap lines reliably land there; SDL/runtime debug logs are flaky — prefer stderr instrumentation or ASan over the logfile when debugging).
 
 ### Terminal Emulation (`src/Core/TerminalScreen.{h,cpp}`, `VTermParser.{h,cpp}`)
 `TerminalScreen` is a `cols × rows` cell grid (per-cell fg/bg/attrs) + scrollback + pen state + a single `isAltScreen` flag. `VTermParser` parses the pty byte stream into a command list; `TerminalController::HandleAnsiCmd` applies them to the grid. The pty is read on a **separate thread** (`Shell::ConsumePty`) that mutates `TerminalScreen` under `TerminalController::screenLock` — **every path that mutates the grid (including `Resize`) must hold that lock.**
@@ -167,6 +170,13 @@ YAML-based config loaded by `Config` singleton. `ConfigNode` provides typed acce
 - String literals for unicode content use `U"..."` (`char32_t`); `UnicodeHelper` handles conversions.
 - `fmt` (fmtlib) is the string formatting library.
 - Platform macros: `GEDIT_LINUX`, `GEDIT_MACOS`, `GEDIT_USE_SDL3`, `GEDIT_USE_SDL2`.
+
+## Key bindings
+
+**`Cmd`/`Ctrl` is functionality, `Option`/`Alt` is UI control** (views, sizing, panels, toggles): `CopyPasteModifier`
+and `UINavigationModifier` in the keymaps. Decide which one an action is, then pick the modifier from that. macOS owns
+many `Cmd+<letter>` combos (`Cmd+H` hides the app), so check before binding. A view's own action goes in that view's
+keymap (`workspace_keymap.yml`), not `default_keymap.yml`; a child keymap wins on first match.
 
 ## Coding Standards
 

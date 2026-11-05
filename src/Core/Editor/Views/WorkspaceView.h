@@ -76,6 +76,10 @@ namespace gedit {
         // user collapse/expand.
         std::unordered_map<std::string, bool> pendingExpandCollapseSeed;
         bool hasPendingExpandCollapseSeed = false;
+        // Ignored items in the tree ('workspaceview.show_ignored', then ToggleIgnored). Survives a reinit.
+        bool isShowingIgnored = true;
+        // The buffer the selection last followed - compared, never dereferenced
+        const Document *syncedDocument = nullptr;
     };
 }
 

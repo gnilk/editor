@@ -85,6 +85,12 @@ workspace:
     - "cmake-build-debug"
     - "cmake-build-release"
 
+# The code index behind Go to symbol (docs/code-index.md): project folders are indexed in the background
+# with the excludes above. Only files with a structure scanner (C/C++); larger ones are skipped.
+codeindex:
+  enabled: yes
+  max_file_size_kb: 4096
+
 #
 # keymapping varies a bit for native feel, thus - each OS has their own file to map nicely
 # in order to change this you need to copy the file and override it completely

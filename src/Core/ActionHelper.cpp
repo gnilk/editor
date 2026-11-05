@@ -6,6 +6,8 @@
 #include "Core/Editor.h"
 #include "Core/UI/Views/RootView.h"
 #include "Core/Editor/Modals/FindModal.h"
+#include "Core/Editor/Modals/SymbolSearchModal.h"
+#include "Core/PathUtil.h"
 
 using namespace gedit;
 
@@ -49,6 +51,28 @@ void ActionHelper::ShowFind() {
     rootView->ShowModal(std::move(modal));
     // After ShowModal - the list height comes from the laid out modal
     findModal->SetQuery(FindModal::SelectedText(document));
+}
+
+// Search the code index - starts with the selection when it is on one line
+void ActionHelper::ShowGotoSymbol() {
+    auto &editor = Editor::Instance();
+    if ((editor.GetCodeIndex() == nullptr) || !RuntimeConfig::Instance().HasRootView()) {
+        return;
+    }
+    auto document = editor.GetActiveDocument();
+    std::string activePath;
+    if (document != nullptr) {
+        auto node = editor.GetWorkspace()->GetNodeFromDocument(document);
+        if (node != nullptr) {
+            activePath = pathutil::CanonicalPath(node->GetNodePath()).string();
+        }
+    }
+    auto modal = SymbolSearchModal::Create(editor.GetCodeIndex(), document, activePath, editor.GetIndexedRoots());
+    auto symbolModal = modal.get();
+    auto rootView = RuntimeConfig::Instance().GetRootViewAs<RootView>();
+    rootView->ShowModal(std::move(modal));
+    // After ShowModal - the list height comes from the laid out modal
+    symbolModal->SetQuery(FindModal::SelectedText(document));
 }
 
 void ActionHelper::SwitchToNamedView(const std::string &viewName) {

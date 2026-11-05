@@ -735,7 +735,7 @@ to it stays a `main.theme:` edit (`.cfg --user set main.theme x.theme.yml`) and 
 - `globals` gets the same colours as `content`; missing UI/terminal colours fall back to the editor's
   background/foreground and the xterm palette.
 
-Night Owl (the sample in `Assets/Themes/`, not committed) imports with one key unmatched (`rule`), 38
+Night Owl (the sample in `Assets/Themes/`) imports with one key unmatched (`rule`), 38
 context selectors and 29 font styles reported.
 
 ### 11.5 Step 2 - decisions taken before starting (2026-11-05)
@@ -751,6 +751,35 @@ context selectors and 29 font styles reported.
 - **C/C++ only** (D5): the only structure scanner so far.
 - **Memory:** tens of MB per million symbols is accepted; a stats readout checks it on PuckoNew.
 - **Order:** step 2 before 1d. Library names then slot in as symbols with origin = system.
+
+### 11.6 Step 2 results (2026-11-05, M-series Mac, release)
+
+`gedit-bench --index <dir>` indexes a tree and times the queries, single-threaded on the finished index:
+
+| Tree | Files | Index time | Symbols | Names | Memory | Worst keypress |
+|---|---|---|---|---|---|---|
+| GoatEdit `src` | 353 | 166 ms | 14 764 | 9 977 | 2.7 MB | 0.36 ms |
+| testrunner | 399 | 53 ms | 16 808 | 10 394 | 2.9 MB | 0.42 ms |
+| noc_goa | 178 | 16 ms | 5 822 | 3 842 | 0.9 MB | 0.20 ms |
+| vcpu | 200 | 21 ms | 7 176 | 4 332 | 1.1 MB | 0.20 ms |
+| PuckoNew | 1 382 | 123 ms | 39 584 | 20 584 | 6.2 MB | 0.92 ms |
+
+So persistence stays out: startup indexing is well under a second. Query time grows with the number of
+names, so a short query at 1M symbols extrapolates to ~20 ms - over the §4.5 target, but kernel-sized, and
+nothing here has that many. PuckoNew's size cap (D5) skips the vendored SQLite, so its 560k lines aren't all
+indexed.
+
+**Where the code went another way than §4.3-4.5:**
+- **No trigram table.** A trigram can't help a subsequence (`srch`) or word-start match (`SF`). Each distinct
+  name carries a mask of its characters instead; a query walks the names, the mask rejects most, the rest are
+  scored.
+- **No separate writer thread.** A worker replaces one file under a short write lock. Same effect, less code;
+  a query only waits for one file's worth of work.
+- **One index across all roots**, not one per root (D8) - per-root was for the cache key, which step 5 can
+  still split.
+- **Not a project:** the cwd default root, and any folder that is `$HOME` or holds it, are never indexed.
+- **Bad UTF-8:** the indexer turns invalid bytes into `?` before decoding, so a Latin-1 comment doesn't cost
+  the rest of the file (the editor's own load still has bug #15).
 
 ## 12. Open decisions
 

@@ -177,6 +177,9 @@ void QueryListModal::DrawViewContents() {
     cursor.position.x = kMarginX + (int)prompt.size() + inputCursor.position.x;
     cursor.position.y = 0;
 
+    // Between the two colours - readable, but it steps back from the row
+    auto dimmed = ColorRGBA::FromRGB((fg.RedAsInt() + bg.RedAsInt()) / 2, (fg.GreenAsInt() + bg.GreenAsInt()) / 2, (fg.BlueAsInt() + bg.BlueAsInt()) / 2);
+
     // The list - the selected row inverted across the whole width
     for (int i = 0; i < ListHeight(); i++) {
         auto idxRow = idxTopRow + i;
@@ -184,12 +187,25 @@ void QueryListModal::DrawViewContents() {
             break;
         }
         auto y = kListTopRow + i;
-        auto text = rows[idxRow].substr(0, std::max(0, width));
+        // A long detail shows its end - the part that tells two paths apart
+        auto detail = OnRowDetail(idxRow);
+        auto maxDetail = (size_t)std::max(0, width / 2);
+        if (detail.size() > maxDetail) {
+            auto numKept = (maxDetail > 3) ? (maxDetail - 3) : 0;
+            detail = U"..." + detail.substr(detail.size() - numKept);
+        }
+        auto widthText = detail.empty() ? width : (width - (int)detail.size() - 1);
+        auto text = rows[idxRow].substr(0, std::max(0, widthText));
+        auto xDetail = rect.Width() - kMarginX - (int)detail.size();
         if (idxRow == idxSelected) {
             dc.FillLine(y, kTextAttributes::kInverted, ' ');
             dc.DrawStringWithAttributesAt(kMarginX, y, kTextAttributes::kInverted, text);
+            dc.DrawStringWithAttributesAt(xDetail, y, kTextAttributes::kInverted, detail);
         } else {
             dc.DrawStringWithAttributesAt(kMarginX, y, kTextAttributes::kNormal, text);
+            dc.SetColor(dimmed, bg);
+            dc.DrawStringWithAttributesAt(xDetail, y, kTextAttributes::kNormal, detail);
+            dc.SetColor(fg, bg);
         }
     }
 }

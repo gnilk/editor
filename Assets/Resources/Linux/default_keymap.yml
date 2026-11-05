@@ -73,6 +73,8 @@ keymap: {
 
     # Find in the active document (a dialog listing the hits) - Cmd+F / Ctrl+F
     Find: "CopyPasteModifier + 'f'",
+    # Go to symbol - search the code index of the whole workspace - Cmd+T / Ctrl+T
+    GotoSymbol: "CopyPasteModifier + 't'",
     NextSearchResult: "KeyCode_Ctrl + 'n'",
     PrevSearchResult: "KeyCode_Ctrl + 'p'",
 

@@ -17,10 +17,17 @@
 #include "Core/TextBuffer.h"
 #include "Core/UnicodeHelper.h"
 #include "Core/Language/LangLineTokenizer.h"
+#include "Core/Index/CodeIndex.h"
 #include "Core/Index/CPPStructureScanner.h"
+#include "Core/Index/Indexer.h"
 #include "Core/Index/SemanticNames.h"
 #include "Core/Index/StructureScanner.h"
+#include "Core/Editor/Modals/SymbolSearchModal.h"
+#include "Core/UI/UIHost.h"
+#include "Core/UI/Views/RootView.h"
+#include <atomic>
 #include <functional>
+#include <thread>
 
 using namespace gedit;
 
@@ -46,6 +53,17 @@ extern "C" {
     DLL_EXPORT int test_codeindex_semantic_delete(ITesting *t);
     DLL_EXPORT int test_codeindex_semantic_resume(ITesting *t);
     DLL_EXPORT int test_codeindex_semantic_incremental(ITesting *t);
+    DLL_EXPORT int test_codeindex_store_matchquality(ITesting *t);
+    DLL_EXPORT int test_codeindex_store_ranking(ITesting *t);
+    DLL_EXPORT int test_codeindex_store_scope(ITesting *t);
+    DLL_EXPORT int test_codeindex_store_replace(ITesting *t);
+    DLL_EXPORT int test_codeindex_modal_rows(ITesting *t);
+    DLL_EXPORT int test_codeindex_modal_location(ITesting *t);
+    DLL_EXPORT int test_codeindex_modal_preview(ITesting *t);
+    DLL_EXPORT int test_codeindex_indexer_folder(ITesting *t);
+    DLL_EXPORT int test_codeindex_indexer_latin1(ITesting *t);
+    DLL_EXPORT int test_codeindex_indexer_change(ITesting *t);
+    DLL_EXPORT int test_codeindex_indexer_concurrent(ITesting *t);
 }
 
 namespace {
@@ -167,6 +185,10 @@ namespace {
 }
 
 DLL_EXPORT int test_codeindex(ITesting *t) {
+    // Headless screen (test_main) - the Go to symbol modal needs it to initialize
+    if (UIHost::Instance().GetScreen() == nullptr) {
+        Editor::Instance().OpenScreen();
+    }
     return kTR_Pass;
 }
 
@@ -871,5 +893,353 @@ DLL_EXPORT int test_codeindex_semantic_incremental(ITesting *t) {
     TR_ASSERT(t, ClassOf(buffer, idxRun, U"Reset") == kLanguageTokenClass::kFunction);
     TR_ASSERT(t, ClassOf(buffer, idxRun, U"total") == kLanguageTokenClass::kMember);
     TR_ASSERT(t, ClassOf(buffer, idxRun, U"Update") == kLanguageTokenClass::kFunction);   // the definition still declares it
+    return kTR_Pass;
+}
+
+// Step 2 - the in-memory index and its query (§4.3, §4.5), the background indexer (§4.4)
+
+static CodeSymbol MakeSymbol(const std::u32string &name, kSymbolKind kind, const std::u32string &scope = U"", uint32_t line = 0) {
+    CodeSymbol symbol;
+    symbol.name = name;
+    symbol.qualifiedName = scope.empty() ? name : (scope + U"::" + name);
+    symbol.kind = kind;
+    symbol.line = line;
+    symbol.isDefinition = true;
+    return symbol;
+}
+
+static FileStructure MakeFile(std::vector<CodeSymbol> symbols) {
+    FileStructure structure;
+    structure.symbols = std::move(symbols);
+    return structure;
+}
+
+static std::vector<std::u32string> HitNames(const std::vector<CodeIndex::Hit> &hits) {
+    std::vector<std::u32string> names;
+    for (auto &hit : hits) {
+        names.push_back(hit.name);
+    }
+    return names;
+}
+
+DLL_EXPORT int test_codeindex_store_matchquality(ITesting *t) {
+    using Quality = CodeIndex::kMatchQuality;
+    auto match = [](const std::u32string &query, const std::u32string &name) {
+        std::u32string lower = name;
+        std::transform(lower.begin(), lower.end(), lower.begin(), [](char32_t ch) {
+            return ((ch >= U'A') && (ch <= U'Z')) ? (ch + 32) : ch;
+        });
+        return CodeIndex::MatchName(query, name, lower);
+    };
+    TR_ASSERT(t, match(U"searchfor", U"SearchFor") == Quality::kExact);
+    TR_ASSERT(t, match(U"sea", U"SearchFor") == Quality::kPrefix);
+    TR_ASSERT(t, match(U"sf", U"SearchFor") == Quality::kWordStarts);
+    TR_ASSERT(t, match(U"sefo", U"SearchFor") == Quality::kWordStarts);
+    TR_ASSERT(t, match(U"ss", U"HTTPServerState") == Quality::kWordStarts);
+    TR_ASSERT(t, match(U"ws", U"word_start") == Quality::kWordStarts);
+    TR_ASSERT(t, match(U"arch", U"SearchFor") == Quality::kSubstring);
+    TR_ASSERT(t, match(U"srch", U"SearchFor") == Quality::kSubsequence);
+    TR_ASSERT(t, match(U"xyz", U"SearchFor") == Quality::kNone);
+    TR_ASSERT(t, match(U"searchforx", U"SearchFor") == Quality::kNone);
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_store_ranking(ITesting *t) {
+    auto index = CodeIndex::Create();
+    index->ReplaceFile("/p/a/one.h", MakeFile({
+        MakeSymbol(U"Search", kSymbolKind::kClass),
+        MakeSymbol(U"SearchFor", kSymbolKind::kMethod, U"Document"),
+        MakeSymbol(U"Search_MAX", kSymbolKind::kMacro),
+        MakeSymbol(U"searchState", kSymbolKind::kMember, U"Document"),
+        MakeSymbol(U"Research", kSymbolKind::kFunction),
+    }));
+
+    // Quality first: exact, then the prefixes - a macro is a better match than a substring, even of a function
+    auto hits = HitNames(index->Query(U"search"));
+    TR_ASSERT(t, hits.size() == 5);
+    TR_ASSERT(t, hits[0] == U"Search");
+    TR_ASSERT(t, hits[1] == U"SearchFor");
+    TR_ASSERT(t, hits[2] == U"searchState");
+    TR_ASSERT(t, hits[3] == U"Search_MAX");
+    TR_ASSERT(t, hits[4] == U"Research");
+
+    // Same name and kind: the active file, then its folder, then the rest - and a definition before a declaration
+    index->ReplaceFile("/p/b/two.cpp", MakeFile({MakeSymbol(U"Update", kSymbolKind::kFunction)}));
+    index->ReplaceFile("/p/a/near.cpp", MakeFile({MakeSymbol(U"Update", kSymbolKind::kFunction)}));
+    index->ReplaceFile("/p/a/sub/deep.cpp", MakeFile({MakeSymbol(U"Update", kSymbolKind::kFunction)}));
+    auto declaration = MakeSymbol(U"Update", kSymbolKind::kFunction);
+    declaration.isDefinition = false;
+    index->ReplaceFile("/p/a/active.cpp", MakeFile({declaration}));
+    index->ReplaceFile("/p/c/three.cpp", MakeFile({declaration}));
+
+    CodeIndex::QueryContext context;
+    context.activePath = "/p/a/active.cpp";
+    auto updates = index->Query(U"Update", context);
+    TR_ASSERT(t, updates.size() == 5);
+    TR_ASSERT(t, updates[0].path == "/p/a/active.cpp");
+    TR_ASSERT(t, updates[1].path == "/p/a/near.cpp");
+    // A sub folder isn't the same folder; among the far ones the definitions come first
+    TR_ASSERT(t, updates[4].path == "/p/c/three.cpp");
+
+    context.maxHits = 2;
+    TR_ASSERT(t, index->Query(U"Update", context).size() == 2);
+    TR_ASSERT(t, index->Query(U"").empty());
+    TR_ASSERT(t, index->Query(U"::").empty());
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_store_scope(ITesting *t) {
+    auto index = CodeIndex::Create();
+    index->ReplaceFile("/p/one.h", MakeFile({
+        MakeSymbol(U"Search", kSymbolKind::kMethod, U"gedit::Document"),
+        MakeSymbol(U"Search", kSymbolKind::kMethod, U"gedit::Workspace"),
+        MakeSymbol(U"Save", kSymbolKind::kMethod, U"gedit::Document"),
+    }));
+
+    auto hits = index->Query(U"Document::Sea");
+    TR_ASSERT(t, hits.size() == 1);
+    TR_ASSERT(t, hits[0].qualifiedName == U"gedit::Document::Search");
+    // Case-insensitive, and the scope alone lists it
+    TR_ASSERT(t, index->Query(U"document::").size() == 2);
+    TR_ASSERT(t, index->Query(U"Nothing::Sea").empty());
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_store_replace(ITesting *t) {
+    auto index = CodeIndex::Create();
+    index->ReplaceFile("/p/one.h", MakeFile({MakeSymbol(U"Alpha", kSymbolKind::kClass), MakeSymbol(U"Alpha", kSymbolKind::kFunction), MakeSymbol(U"Beta", kSymbolKind::kClass)}));
+    index->ReplaceFile("/p/two.h", MakeFile({MakeSymbol(U"Beta", kSymbolKind::kClass)}));
+    TR_ASSERT(t, index->GetStats().numSymbols == 4);
+    TR_ASSERT(t, index->GetStats().numNames == 2);
+
+    // Replacing drops what the file had, not what others have
+    index->ReplaceFile("/p/one.h", MakeFile({MakeSymbol(U"Gamma", kSymbolKind::kClass)}));
+    TR_ASSERT(t, index->Query(U"Alpha").empty());
+    TR_ASSERT(t, index->Query(U"Beta").size() == 1);
+    TR_ASSERT(t, index->Query(U"Gamma").size() == 1);
+    TR_ASSERT(t, index->GetStats().numNames == 2);
+
+    index->RemoveFile("/p/two.h");
+    TR_ASSERT(t, index->Query(U"Beta").empty());
+    TR_ASSERT(t, index->GetStats().numFiles == 1);
+
+    // Repeated edits must not grow the tables: a removed name's entry is reused
+    auto numBytes = index->GetStats().numBytes;
+    for (int i = 0; i < 100; i++) {
+        index->ReplaceFile("/p/one.h", MakeFile({MakeSymbol(U"Temporary" + std::u32string(1, (char32_t)(U'a' + (i % 26))), kSymbolKind::kClass)}));
+    }
+    TR_ASSERT(t, index->GetStats().numNames == 1);
+    TR_ASSERT(t, index->GetStats().numBytes <= numBytes + 256);
+
+    // A nameless symbol isn't searchable
+    index->ReplaceFile("/p/one.h", MakeFile({MakeSymbol(U"", kSymbolKind::kStruct)}));
+    TR_ASSERT(t, index->GetStats().numSymbols == 0);
+    return kTR_Pass;
+}
+
+static std::filesystem::path IndexerFolder(const std::string &name) {
+    auto root = std::filesystem::temp_directory_path() / ("goatedit_indexer_" + name);
+    std::filesystem::remove_all(root);
+    std::filesystem::create_directories(root);
+    return root;
+}
+
+static void WriteTextFile(const std::filesystem::path &path, const std::string &text) {
+    std::filesystem::create_directories(path.parent_path());
+    std::ofstream file(path, std::ios::binary);
+    file << text;
+}
+
+static Indexer::Ref MakeIndexer(const CodeIndex::Ref &index, std::vector<std::string> exclude = {}, uintmax_t maxFileSize = 4 * 1024 * 1024) {
+    Indexer::Languages languages;
+    auto language = Editor::Instance().GetLanguageForExtension(".cpp");
+    languages[".cpp"] = language;
+    languages[".h"] = language;
+    Indexer::Options options;
+    options.exclude = std::move(exclude);
+    options.maxFileSize = maxFileSize;
+    return Indexer::Create(index, languages, options);
+}
+
+DLL_EXPORT int test_codeindex_indexer_folder(ITesting *t) {
+    auto root = IndexerFolder("folder");
+    WriteTextFile(root / "a.h", "class Alpha { public: void Run(); };\n");
+    WriteTextFile(root / "sub/deep/b.cpp", "namespace n { void Bravo() {} }\n");
+    WriteTextFile(root / "skipped/c.h", "class Charlie {};\n");
+    WriteTextFile(root / "notes.txt", "class Delta {};\n");
+    WriteTextFile(root / "big.h", "class Echo {};\n" + std::string(4096, ' '));
+
+    auto index = CodeIndex::Create();
+    auto indexer = MakeIndexer(index, {"skipped"}, 1024);
+    indexer->AddRoot(root);
+    indexer->WaitIdle();
+
+    auto alpha = index->Query(U"Alpha");
+    TR_ASSERT(t, alpha.size() == 1);
+    TR_ASSERT(t, alpha[0].path == (root / "a.h").string());
+    TR_ASSERT(t, alpha[0].kind == kSymbolKind::kClass);
+    TR_ASSERT(t, index->Query(U"Run").size() == 1);
+    TR_ASSERT(t, index->Query(U"n::Bravo").size() == 1);
+    TR_ASSERT(t, index->Query(U"Charlie").empty());     // excluded folder
+    TR_ASSERT(t, index->Query(U"Delta").empty());       // no language for it
+    TR_ASSERT(t, index->Query(U"Echo").empty());        // over the size cap
+
+    auto progress = indexer->GetProgress();
+    TR_ASSERT(t, progress.isIdle);
+    TR_ASSERT(t, progress.numDone == progress.numTotal);
+    std::filesystem::remove_all(root);
+    return kTR_Pass;
+}
+
+// Open bug #15: a bad UTF-8 byte must not cost the rest of the file (old C with Latin-1 comments)
+DLL_EXPORT int test_codeindex_indexer_latin1(ITesting *t) {
+    auto root = IndexerFolder("latin1");
+    WriteTextFile(root / "old.h", "struct Before { int a; };\n/* r\xe4ksm\xf6rg\xe5s */\nstruct After { int b; };\n/* \xe2\x82 */ struct Last {};\n");
+
+    auto index = CodeIndex::Create();
+    auto indexer = MakeIndexer(index);
+    indexer->AddRoot(root);
+    indexer->WaitIdle();
+
+    TR_ASSERT(t, index->Query(U"Before").size() == 1);
+    TR_ASSERT(t, index->Query(U"After").size() == 1);
+    TR_ASSERT(t, index->Query(U"Last").size() == 1);
+    std::filesystem::remove_all(root);
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_indexer_change(ITesting *t) {
+    auto root = IndexerFolder("change");
+    auto path = root / "a.h";
+    WriteTextFile(path, "class Before {};\n");
+
+    auto index = CodeIndex::Create();
+    auto indexer = MakeIndexer(index);
+    indexer->AddRoot(root);
+    indexer->WaitIdle();
+    TR_ASSERT(t, index->Query(U"Before").size() == 1);
+
+    WriteTextFile(path, "class After {};\n");
+    indexer->Enqueue(path.string());
+    indexer->WaitIdle();
+    TR_ASSERT(t, index->Query(U"Before").empty());
+    TR_ASSERT(t, index->Query(U"After").size() == 1);
+
+    // Gone from disk: it leaves the index
+    std::filesystem::remove(path);
+    indexer->Enqueue(path.string());
+    indexer->WaitIdle();
+    TR_ASSERT(t, index->Query(U"After").empty());
+    std::filesystem::remove_all(root);
+    return kTR_Pass;
+}
+
+// A search runs while the index fills, and Stop in the middle of it leaves nothing behind
+DLL_EXPORT int test_codeindex_indexer_concurrent(ITesting *t) {
+    auto root = IndexerFolder("concurrent");
+    for (int i = 0; i < 200; i++) {
+        auto name = std::to_string(i);
+        WriteTextFile(root / ("f" + name + ".h"), "class Shared" + name + " { void Method(); };\n");
+    }
+    auto index = CodeIndex::Create();
+    auto indexer = MakeIndexer(index);
+    indexer->AddRoot(root);
+
+    size_t lastCount = 0;
+    while (!indexer->GetProgress().isIdle || (lastCount == 0)) {
+        lastCount = index->Query(U"Shared").size();
+    }
+    indexer->WaitIdle();
+    TR_ASSERT(t, index->Query(U"Shared").size() == 200);
+
+    auto stopped = MakeIndexer(CodeIndex::Create());
+    stopped->AddRoot(root);
+    stopped->Stop();
+    stopped->Enqueue((root / "f0.h").string());     // ignored once stopped
+    TR_ASSERT(t, stopped->GetProgress().isIdle);
+    std::filesystem::remove_all(root);
+    return kTR_Pass;
+}
+
+// Go to symbol (§4.6)
+
+namespace {
+    struct SymbolModalFixture {
+        SymbolModalFixture() {
+            rootView.Initialize();
+            index->ReplaceFile("/p/src/doc.cpp", MakeFile({MakeSymbol(U"Save", kSymbolKind::kMethod, U"gedit::Document", 2)}));
+            index->ReplaceFile("/p/src/other.cpp", MakeFile({MakeSymbol(U"SaveAll", kSymbolKind::kFunction, U"", 7)}));
+        }
+        SymbolSearchModal *Show(const Document::Ref &document, const std::string &activePath, const std::u32string &query) {
+            auto modal = SymbolSearchModal::Create(index, document, activePath, {"/p"});
+            auto symbolModal = modal.get();
+            rootView.ShowModal(std::move(modal));
+            symbolModal->SetQuery(query);
+            return symbolModal;
+        }
+        RootView rootView;
+        CodeIndex::Ref index = CodeIndex::Create();
+    };
+
+    Document::Ref MakeSymbolDocument() {
+        auto document = Document::Create(TextBuffer::CreateEmptyBuffer());
+        document->GetTextBuffer()->DeleteLineAt(0);
+        for (int i = 0; i < 20; i++) {
+            document->GetTextBuffer()->AddLineUTF8(("line " + std::to_string(i)).c_str());
+        }
+        document->OnViewInit(gedit::Rect(80, 10));
+        return document;
+    }
+}
+
+DLL_EXPORT int test_codeindex_modal_rows(ITesting *t) {
+    SymbolModalFixture fixture;
+    auto modal = fixture.Show(nullptr, "", U"Save");
+    TR_ASSERT(t, modal->GetNumRows() == 2);
+    TR_ASSERT(t, modal->GetSelectedRow() == 0);
+    TR_ASSERT(t, modal->GetHits()[0].qualifiedName == U"gedit::Document::Save");
+
+    modal->SetQuery(U"nothing here");
+    TR_ASSERT(t, modal->GetNumRows() == 0);
+    TR_ASSERT(t, modal->GetSelectedRow() == -1);
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_modal_location(ITesting *t) {
+    CodeIndex::Hit hit;
+    hit.path = "/p/src/doc.cpp";
+    hit.line = 2;
+    TR_ASSERT(t, SymbolSearchModal::HitLocation(hit, {"/other", "/p"}) == "src/doc.cpp:3");
+    TR_ASSERT(t, SymbolSearchModal::HitLocation(hit, {"/other"}) == "/p/src/doc.cpp:3");
+    TR_ASSERT(t, SymbolSearchModal::HitLocation(hit, {}) == "/p/src/doc.cpp:3");
+    return kTR_Pass;
+}
+
+// A hit in the active document is previewed, one elsewhere isn't, and Esc undoes the preview
+DLL_EXPORT int test_codeindex_modal_preview(ITesting *t) {
+    SymbolModalFixture fixture;
+    auto document = MakeSymbolDocument();
+    document->SetCursorPosition(10, 1);
+
+    auto modal = fixture.Show(document, "/p/src/doc.cpp", U"Save");
+    TR_ASSERT(t, modal->GetHits()[0].path == "/p/src/doc.cpp");
+    TR_ASSERT(t, document->GetLineCursor().idxActiveLine == 2);
+
+    EditorAction down;
+    down.uiAction = kUIAction::kUIActionLineDown;
+    fixture.rootView.OnAction(down);
+    TR_ASSERT(t, modal->GetHits()[(size_t)modal->GetSelectedRow()].path == "/p/src/other.cpp");
+    TR_ASSERT(t, document->GetLineCursor().idxActiveLine == 10);
+
+    EditorAction up;
+    up.uiAction = kUIAction::kUIActionLineUp;
+    fixture.rootView.OnAction(up);
+    TR_ASSERT(t, document->GetLineCursor().idxActiveLine == 2);
+
+    EditorAction cancel;
+    cancel.uiAction = kUIAction::kUIActionCloseModal;
+    fixture.rootView.OnAction(cancel);
+    TR_ASSERT(t, !fixture.rootView.HasModal());
+    TR_ASSERT(t, document->GetLineCursor().idxActiveLine == 10);
     return kTR_Pass;
 }

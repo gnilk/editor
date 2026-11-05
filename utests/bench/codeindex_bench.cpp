@@ -28,7 +28,9 @@
 #include "Core/TextBuffer.h"
 #include "Core/UnicodeHelper.h"
 #include "Core/Language/LangLineTokenizer.h"
+#include "Core/Index/CodeIndex.h"
 #include "Core/Index/CPPStructureScanner.h"
+#include "Core/Index/Indexer.h"
 
 using namespace gedit;
 namespace fs = std::filesystem;
@@ -39,6 +41,8 @@ static void Bench(const fs::path &root);
 static void Dump(const fs::path &root);
 static void Check(const fs::path &root);
 static void Braces(const fs::path &root);
+static void IndexBench(const fs::path &root);
+static std::string Utf8(const std::u32string &text);
 static std::vector<fs::path> SourceFiles(const fs::path &root);
 
 int main(int argc, const char **argv) {
@@ -53,6 +57,8 @@ int main(int argc, const char **argv) {
         run = Check;
     } else if (mode == "--braces") {
         run = Braces;
+    } else if (mode == "--index") {
+        run = IndexBench;
     }
     int idxFirstPath = (run == Bench) ? 1 : 2;
     if (argc <= idxFirstPath) {
@@ -62,6 +68,45 @@ int main(int argc, const char **argv) {
         run(argv[i]);
     }
     return 0;
+}
+
+// Step 2's targets on real code: how long a tree takes to index, what it costs in memory, and what a keypress
+// costs (< 10 ms at 1M symbols, §4.5). Queries run on the finished index, single-threaded.
+static void IndexBench(const fs::path &root) {
+    auto language = Editor::Instance().GetLanguageForExtension(".cpp");
+    Indexer::Languages languages;
+    for (auto &extension : {".cpp", ".h", ".c", ".hpp"}) {
+        languages[extension] = language;
+    }
+    Indexer::Options options;
+    options.exclude = Config::Instance()["workspace"].GetSequenceOfStr("exclude");
+
+    auto index = CodeIndex::Create();
+    auto indexer = Indexer::Create(index, languages, options);
+    auto tStart = std::chrono::steady_clock::now();
+    indexer->AddRoot(fs::absolute(root));
+    indexer->WaitIdle();
+    auto msIndex = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tStart).count();
+
+    auto stats = index->GetStats();
+    printf("%s\n  indexed %zu files in %.0f ms: %zu symbols, %zu names, %zu scopes, ~%.1f MB\n", root.c_str(), stats.numFiles, msIndex,
+           stats.numSymbols, stats.numNames, stats.numScopes, (double)stats.numBytes / (1024.0 * 1024.0));
+
+    static const std::u32string queries[] = {U"s", U"se", U"sea", U"init", U"srch", U"SF", U"Document::Sea", U"get::", U"zqxj"};
+    for (auto &query : queries) {
+        static constexpr int NUM_RUNS = 20;
+        double msWorst = 0;
+        double msTotal = 0;
+        size_t numHits = 0;
+        for (int i = 0; i < NUM_RUNS; i++) {
+            auto tQuery = std::chrono::steady_clock::now();
+            numHits = index->Query(query).size();
+            auto ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tQuery).count();
+            msWorst = std::max(msWorst, ms);
+            msTotal += ms;
+        }
+        printf("  %-16s %3zu hits  avg %6.2f ms  worst %6.2f ms\n", Utf8(query).c_str(), numHits, msTotal / NUM_RUNS, msWorst);
+    }
 }
 
 static bool IsSource(const fs::path &path) {

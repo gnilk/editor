@@ -276,6 +276,8 @@ bool Editor::Initialize(int argc, const char **argv) {
     // Restore the per-root session (open files + cursors) if a folder/project was opened above. A no-op
     // when there is no project or no saved session - leaves createDefaultWorkspace to handle the rest.
     RestoreSession();
+    // After the session - the active document's folder is indexed first
+    IndexProjectRoots();
 
     // Glue for the ILayoutSink seam (docs/ui-refactor.md AI-5): the toolkit's ViewBase calls
     // NotifySessionChanged() (e.g. after a splitter move) through this injected handler rather than
@@ -423,6 +425,9 @@ bool Editor::OpenScreen() {
 
 void Editor::Close() {
     logger->Debug("Closing editor");
+    if (indexer != nullptr) {
+        indexer->Stop();
+    }
     // Capture + persist the session while the documents are still open (clean-exit save).
     SaveSession();
     for(auto &document : workspace->GetOpenDocuments()) {
@@ -637,6 +642,8 @@ void Editor::HandleGlobalAction(const EditorAction &kpAction) {
             }
         } else if (kpAction.action == kAction::kActionFind) {
             ActionHelper::ShowFind();
+        } else if (kpAction.action == kAction::kActionGotoSymbol) {
+            ActionHelper::ShowGotoSymbol();
         }
     } else if (state == QuickCommandState) {
         if (kpAction.action == kAction::kActionLeaveCommandMode) {
@@ -1010,6 +1017,46 @@ void Editor::WireFolderMonitor() {
     workspace->SetFolderMonitor(factory, postToMain);
 }
 
+void Editor::IndexProjectRoots() {
+    auto config = Config::Instance()["codeindex"];
+    if (!config.GetBool("enabled", true)) {
+        return;
+    }
+    if (codeIndex == nullptr) {
+        codeIndex = CodeIndex::Create();
+    }
+    auto pathHome = XDGEnvironment::Instance().GetUserHomePath();
+    for (auto &root : workspace->GetProjectRoots()) {
+        auto rootPath = pathutil::CanonicalPath(root->GetRootPath());
+        // Not a project: the cwd root, or a folder that holds the whole home directory
+        bool isTooWide = (rootPath == pathHome) || IsStrictSubdir(pathHome, rootPath);
+        bool isIndexed = std::find(indexedRoots.begin(), indexedRoots.end(), rootPath) != indexedRoots.end();
+        if (workspace->IsDefaultRoot(root) || isTooWide || isIndexed) {
+            continue;
+        }
+        if (indexer == nullptr) {
+            Indexer::Options options;
+            options.exclude = Config::Instance()["workspace"].GetSequenceOfStr("exclude");
+            options.maxFileSize = (uintmax_t)config.GetInt("max_file_size_kb", 4096) * 1024;
+            indexer = Indexer::Create(codeIndex, IndexableLanguages(), options);
+        }
+        auto activeNode = (GetActiveDocument() != nullptr) ? workspace->GetNodeFromDocument(GetActiveDocument()) : nullptr;
+        indexer->AddRoot(rootPath, (activeNode != nullptr) ? pathutil::CanonicalPath(activeNode->GetNodePath()) : std::filesystem::path{});
+        indexedRoots.push_back(rootPath);
+    }
+}
+
+// The registered extensions whose language has a structure scanner
+Indexer::Languages Editor::IndexableLanguages() {
+    Indexer::Languages languages;
+    for (auto &[extension, language] : extToLanguages) {
+        if (StructureScanner::CreateForLanguage(*language) != nullptr) {
+            languages[extension] = language;
+        }
+    }
+    return languages;
+}
+
 #ifdef GEDIT_USE_SDL3
 void Editor::SetupSDL3() {
     auto screenDriver = SDL3::SDLScreen::Create();
@@ -1284,6 +1331,10 @@ bool Editor::OpenDocumentOrFolder(const std::string &fileOrFolder) {
         // Opening a FOLDER establishes the project root: create <cwd>/.goatedit (in-home) and point
         // kProject at it, so the per-root session can be loaded/saved. Single-file opens never reach here.
         EstablishProjectDir();
+        // During startup Initialize does this, once the session is restored
+        if (isInitialized) {
+            IndexProjectRoots();
+        }
 
         return true;
     }

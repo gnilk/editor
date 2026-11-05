@@ -552,6 +552,10 @@ namespace gedit {
             monitorPostToMain = std::move(postToMain);
         }
 
+        // The root for loose files - the cwd, not a folder anyone opened
+        bool IsDefaultRoot(const ProjectRoot::Ref &root) const {
+            return root == defaultRoot;
+        }
         const std::vector<Workspace::ProjectRoot::Ref> &GetProjectRoots() {
             return projectRoots;
         }

@@ -153,6 +153,10 @@ namespace gedit {
         LibraryNames::Ref GetLibraryNames() {
             return libraryNames;
         }
+        // For testing - with no parse running
+        void SetLibraryNames(LibraryNames::Ref newLibraryNames) {
+            libraryNames = std::move(newLibraryNames);
+        }
         const std::vector<std::filesystem::path> &GetIndexedRoots() {
             return indexedRoots;
         }

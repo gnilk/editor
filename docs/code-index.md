@@ -491,8 +491,9 @@ differ, so v1 knows nothing about the installed toolchain - only syntax and data
   project can add its own in `<root>/.goatedit/libraries/*.yml`.
 - A list holds a library's public names, not the library: `c_std` is the complete public surface, `cpp_std` the names
   in common use.
-- **When a list applies:** `c_std` and `cpp_std` always. Any other list names its headers (`SDL3/SDL.h`) and applies
-  only to a file that includes one - the include edges of step 1 say which.
+- **When a list applies:** a list naming `headers: [SDL3/SDL.h]` applies only to a file that includes one, as written
+  there - the include edges of step 1 say which. A list naming none always applies, as `c_std` and `cpp_std` do.
+- **A name in a scope** needs that scope, as with `std`: `fmt::format` with `scope: fmt` in the list, or a `using`.
 - An entry: name, kind (function / type / macro / namespace / constant), qualified scope (`std`), the
   standard version it appeared in, and **optionally its members** (`std::string` → `size`, `c_str`,
   `substr`, ...). Members aren't used for colour; they are there so suggestions on `.` / `->` / `::` can
@@ -546,7 +547,7 @@ Its output could also *generate* the shipped assets.
 | 1 | ✅ §11.2 - **C++ structure engine** over strings - the low-hanging fruit only: namespaces, classes/structs, methods/functions, members, `#include`, and the edges visible right in the declaration (`inherits`, `holds` + ownership). Rules as tables in code (§5.4), shape + edge tests (§7). No storage yet - dump symbols/edges for a file and judge on this repo. Nothing from §8.1. | - |
 | 1b | **Semantic highlighting from the file itself** (§10.1): new token classes with `regular` fallback, reclassification via the post-line hook, the open file's own structure pass. New theme keys in `colors.json`; no theme-format work. | ✅ §11.3 |
 | 1c | **Theme importer** (§10.1, D13): Sublime / VS Code theme → GoatEdit `theme.yml` + `colors.json` via the scope table; `--import-theme`. Independent of the index - can come any time after 1b. | ✅ §11.4 (+ `.theme --import`) |
-| 1d | **System / library names** (§10.2, D14): `std::` by syntax, `<...>` includes marked system, hand-made name lists as editor assets (`c_std`, `cpp_std`), bare names by the tiers of §10.2, `library_type` / `library_function` classes. Members in the format for later suggestions. Independent of step 2 (can come before or after). | First slice: §11.8 |
+| 1d | **System / library names** (§10.2, D14): `std::` by syntax, `<...>` includes marked system, hand-made name lists as editor assets (`c_std`, `cpp_std`), bare names by the tiers of §10.2, `library_type` / `library_function` classes. Members in the format for later suggestions. Independent of step 2 (can come before or after). | ✅ §11.8 |
 | 2 | **In-memory index + Go to symbol** over the workspace, in the background: indexer threads, resolution (§5.2), query ranking, `SymbolSearchModal`. Kept current by `FolderMonitor` and, for open files, the buffer. Decisions: §11.5. | - |
 | 3 | **Relationship views**: hierarchy and composition (trees, §5.5), "derived from / held by" from any symbol. | - |
 | 4 | **Modules**: file → module roll-up, dependency view + matrix, cycles; DOT/Mermaid export. | - |
@@ -921,16 +922,21 @@ libraries.
 | Walk after a pause | 2.6 ms | 2.7 ms |
 | Loading the lists at startup | - | 2.1 ms |
 
-**Left out of this slice:**
-- **Project lists and header activation:** `<root>/.goatedit/libraries/*.yml`, and lists that apply through their `headers`.
-  The include edges are there and could travel the same way as `using`.
+**Project lists and header activation (second slice):** `LibraryNames::Load` adds `<root>/.goatedit/libraries/*.yml` to the
+shipped lists, in name order; a file that won't load costs only itself and says so in the log. `#include` travels as a
+counted declaration like `using`, so editing one recolours the file. Each name keeps one origin per list and scope, and
+the first that applies decides, so two libraries can share a name. Only the root found at startup is read, so a changed list
+needs a restart. Nothing in a list runs, so a project list needs no entry in `ProjectConfigPolicy`.
+
+**Left out:**
 - **Library names in Go to symbol:** §10.2 ranks them below the project's, but they have no file or line to go to, and
   go-to-definition into system headers is a non-goal. Worth revisiting with suggestions.
 - **Standard version:** `since` is in the lists and not read.
 
 **Known limits, plain rather than wrong:** `std::vector<int>::iterator` (a template argument hides the `std`), a namespace
 alias (`namespace fs = std::filesystem; fs::path`), a `using` inside a function or reaching a file through a header,
-lower-case `stderr` or `errno` outside a type position.
+lower-case `stderr` or `errno` outside a type position, a list's name in a file that gets the header through another of the
+project's headers: only direct includes count, and the index holds no include edges.
 
 ## 12. Open decisions
 

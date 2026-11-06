@@ -14,15 +14,15 @@ The base for "search everywhere": a lexer-driven index of symbols and their rela
 search. **Shipped:** step 0 (`TokenizeText` fast path, `gedit-bench`, tokenizer 3-4x faster), step 1 (C/C++
 structure pass: symbols, inherits/holds/includes), step 1b (semantic highlighting from the file's own
 declarations, kept per `Line`), step 1c (VS Code / Sublime theme import, `--import-theme`,
-`.theme --import`), step 2 (in-memory index, background indexer, Go to symbol on Cmd+T / Ctrl+T, open files fed
+`.theme --import`), step 1d (library names), step 2 (in-memory index, background indexer, Go to symbol on Cmd+T / Ctrl+T, open files fed
 from their buffer, disk changes through `FolderMonitor`, `ExclusionRules` with real `.gitignore`, cross-file colouring).
 **Load-bearing decisions:** no compiler or language server; anything per-buffer rides
 the highlighter's line/region machinery, never a whole-buffer copy or re-lex per edit; themes are converted
 once, not read at runtime (D13); library names are shipped data, not a toolchain scan (D14); a name with several
 meanings in the workspace stays plain, and without locals in the index, context decides the rest (§11.6); a library
-never takes a name the project declares, and a bare C++ name needs a `using` in the file (§10.2). **In progress:** step 1d
-(library names): hand-made `c_std` and `cpp_std` lists, `std::` by syntax, the `using` tiers (§11.8). Project lists and
-header activation are next. Detail: [`code-index.md`](code-index.md).
+never takes a name the project declares, and a bare C++ name needs a `using` in the file (§10.2). Step 1d shipped too: hand-made `c_std` and
+`cpp_std` lists, `std::` by syntax, the `using` tiers, project lists in `.goatedit/libraries/` and lists that apply by header
+(§11.8). Detail: [`code-index.md`](code-index.md).
 
 ## Project config — `<root>/.goatedit/config.yml` merged at startup ✅ (on `feat/project-config`)
 

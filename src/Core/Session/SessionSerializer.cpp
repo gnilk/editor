@@ -154,6 +154,44 @@ static TerminalSession NodeToTerminal(const YAML::Node &node) {
     return terminal;
 }
 
+static YAML::Node NavigationToNode(const NavigationSession &navigation) {
+    YAML::Node node;
+    node["idxCurrent"] = navigation.idxCurrent;
+    YAML::Node entries;
+    for (const auto &e : navigation.entries) {
+        YAML::Node en;
+        en["path"] = e.path;
+        en["symbol"] = e.symbol;
+        en["lineOffset"] = e.lineOffset;
+        en["line"] = e.line;
+        en["column"] = e.column;
+        entries.push_back(en);
+    }
+    node["entries"] = entries;
+    return node;
+}
+
+static NavigationSession NodeToNavigation(const YAML::Node &node) {
+    NavigationSession navigation;
+    if (!node) {
+        return navigation;
+    }
+    navigation.idxCurrent = node["idxCurrent"].as<std::size_t>(0);
+    const auto &entries = node["entries"];
+    if (entries && entries.IsSequence()) {
+        for (const auto &en : entries) {
+            NavigationEntrySession e;
+            e.path = en["path"].as<std::string>("");
+            e.symbol = en["symbol"].as<std::string>("");
+            e.lineOffset = en["lineOffset"].as<int32_t>(0);
+            e.line = en["line"].as<uint32_t>(0);
+            e.column = en["column"].as<uint32_t>(0);
+            navigation.entries.push_back(e);
+        }
+    }
+    return navigation;
+}
+
 std::string SessionSerializer::ToYaml(const RootSession &session) {
     YAML::Node root;
     root["version"] = session.version;
@@ -181,6 +219,7 @@ std::string SessionSerializer::ToYaml(const RootSession &session) {
 
     root["layout"] = LayoutToNode(session.layout);
     root["terminal"] = TerminalToNode(session.terminal);
+    root["navigation"] = NavigationToNode(session.navigation);
 
     return YAML::Dump(root);
 }
@@ -228,6 +267,7 @@ bool SessionSerializer::FromYaml(const std::string &text, RootSession &outSessio
 
     session.layout = NodeToLayout(root["layout"]);
     session.terminal = NodeToTerminal(root["terminal"]);
+    session.navigation = NodeToNavigation(root["navigation"]);
 
     outSession = session;
     return true;

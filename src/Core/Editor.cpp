@@ -57,6 +57,7 @@
 
 #include "Core/XDGEnvironment.h"
 #include "Core/UnicodeHelper.h"
+#include "Core/PathUtil.h"
 // API stuff
 #include "Core/API/EditorAPI.h"
 #include "Core/API/TerminalAPI.h"
@@ -510,6 +511,7 @@ void Editor::RestoreSession() {
         workspace->FromSession(SessionManager::Instance().CurrentSession());
         logger->Debug("Restored session: %zu document(s)", workspace->GetOpenDocuments().size());
     }
+    navigationStack.FromSession(SessionManager::Instance().CurrentSession().navigation);
 }
 
 // Second restore pass — runs from main.cpp AFTER the view tree is built+initialized (the splitters /
@@ -542,6 +544,7 @@ void Editor::SaveSession() {
     auto &session = SessionManager::Instance().CurrentSession();
     // Documents (tabs + cursors) — ToSession clears+repopulates, so this is idempotent for autosave.
     workspace->ToSession(session);
+    session.navigation = navigationStack.ToSession();
     // Layout: walk the live view tree so each persistable view (splitters + focused top-view) writes
     // itself; plus the workspace tree expand/collapse (kept on RootSession). Clear first so a repeated
     // save doesn't accumulate. Guarded — at Close the views are still alive, but a headless path is not.
@@ -646,6 +649,16 @@ void Editor::HandleGlobalAction(const EditorAction &kpAction) {
             ActionHelper::ShowFind();
         } else if (kpAction.action == kAction::kActionGotoSymbol) {
             ActionHelper::ShowGotoSymbol();
+        } else if (kpAction.action == kAction::kActionGotoDefinition) {
+            ActionHelper::GoToNameAtCursor(GoToResolver::kMode::kDefinition);
+        } else if (kpAction.action == kAction::kActionGotoDeclaration) {
+            ActionHelper::GoToNameAtCursor(GoToResolver::kMode::kDeclaration);
+        } else if (kpAction.action == kAction::kActionGotoToggle) {
+            ActionHelper::GoToNameAtCursor(GoToResolver::kMode::kToggle);
+        } else if (kpAction.action == kAction::kActionJumpBack) {
+            ActionHelper::JumpBack();
+        } else if (kpAction.action == kAction::kActionJumpForward) {
+            ActionHelper::JumpForward();
         }
     } else if (state == QuickCommandState) {
         if (kpAction.action == kAction::kActionLeaveCommandMode) {
@@ -655,7 +668,24 @@ void Editor::HandleGlobalAction(const EditorAction &kpAction) {
     }
 }
 
+static const auto STATUS_MESSAGE_DURATION = std::chrono::seconds(4);
+
+void Editor::ShowStatusMessage(const std::u32string &message) {
+    statusMessage = message;
+    timeStatusMessageEnds = std::chrono::steady_clock::now() + STATUS_MESSAGE_DURATION;
+    TriggerUIRedraw();
+}
+
+std::u32string Editor::GetStatusMessage() const {
+    return (std::chrono::steady_clock::now() < timeStatusMessageEnds) ? statusMessage : std::u32string{};
+}
+
+// Can come twice for one action: a view switch leaves by policy, then the action finishing leaves too. Each leave takes
+// a handler off the run loop, so a second one would take the root view and crash on the next key.
 void Editor::LeaveCommandMode() {
+    if (state != QuickCommandState) {
+        return;
+    }
     logger->Debug("Leaving command mode!");
     quickCommandController.Leave();
     state = ViewState;
@@ -1414,6 +1444,16 @@ Document::Ref Editor::LoadDocument(const std::string &filename) {
     if (std::filesystem::is_directory(pathName)) {
         logger->Error("DO NOT CALL 'LoadDocument' with directories!!!");
         return nullptr;
+    }
+    // Spelled differently - the index's paths are canonical - a file already open must not open again: the second
+    // document wouldn't have the first one's unsaved edits
+    auto canonicalPath = pathutil::CanonicalPath(pathName);
+    for (auto &document : workspace->GetOpenDocuments()) {
+        auto openNode = workspace->GetNodeFromDocument(document);
+        if ((openNode != nullptr) && (pathutil::CanonicalPath(openNode->GetNodePath()) == canonicalPath)) {
+            SetActiveDocument(document);
+            return document;
+        }
     }
     auto node = workspace->NewDocumentWithFileRef(filename);
     if (node == nullptr) {

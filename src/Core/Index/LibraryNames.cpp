@@ -123,6 +123,10 @@ bool LibraryNames::IsQualifiedStd(const std::u32string &text, size_t idxName) {
     return QualifierOf(text, idxName).kind == kQualifier::kStd;
 }
 
+std::u32string LibraryNames::WrittenQualifier(const std::u32string &text, size_t idxName) {
+    return std::u32string(QualifierOf(text, idxName).written);
+}
+
 bool LibraryNames::Add(const std::string &yaml) {
     auto added = names;
     Headers headers;

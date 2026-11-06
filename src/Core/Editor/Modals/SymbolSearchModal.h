@@ -29,6 +29,9 @@ namespace gedit {
             return std::make_unique<SymbolSearchModal>(std::move(index), std::move(activeDocument), std::move(activePath), std::move(roots));
         }
 
+        // A fixed list to choose from - the candidates of a go-to, best first. Typing filters it.
+        static Ptr CreateForHits(std::vector<CodeIndex::Hit> hits, Document::Ref activeDocument, std::string activePath, std::vector<std::filesystem::path> roots);
+
         // One letter for the kind of symbol; for functions and methods upper case is the body, lower the declaration
         static char32_t KindMarker(const CodeIndex::Hit &hit);
         // 'src/Core/Document.cpp:12' - relative to the root that holds the file, 1-based line
@@ -46,7 +49,8 @@ namespace gedit {
     private:
         void RestoreActiveDocument();
     private:
-        CodeIndex::Ref index = nullptr;
+        CodeIndex::Ref index = nullptr;     // nullptr: 'fixedHits' is all there is
+        std::vector<CodeIndex::Hit> fixedHits;
         Document::Ref activeDocument = nullptr;
         std::string activePath;
         std::vector<std::filesystem::path> roots;

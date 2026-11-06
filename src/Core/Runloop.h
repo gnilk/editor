@@ -74,6 +74,7 @@ namespace gedit {
 
         // Call with 'null' to disable
         static void SetKeypressAndActionHook(KeypressAndActionHandler *newHook);
+        static size_t NumKeypressHandlers();
         static void TestLoop();
 
         // TEMP?

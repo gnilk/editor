@@ -406,6 +406,46 @@ bool CodeIndex::IsClassScope(const std::u32string &scope) const {
     return false;
 }
 
+std::vector<CodeIndex::Hit> CodeIndex::FindExact(const std::u32string &name) const {
+    std::shared_lock guard(lock);
+    std::vector<Hit> hits;
+    auto itName = nameIds.find(name);
+    if (itName == nameIds.end()) {
+        return hits;
+    }
+    for (auto &handle : names[itName->second].symbols) {
+        hits.push_back(MakeHit(handle));
+    }
+    return hits;
+}
+
+std::optional<CodeIndex::Hit> CodeIndex::NearestSymbol(const std::string &path, uint32_t line) const {
+    std::shared_lock guard(lock);
+    auto itFile = fileIds.find(path);
+    if (itFile == fileIds.end()) {
+        return {};
+    }
+    std::optional<SymbolHandle> nearest;
+    uint32_t nearestLine = 0;
+    auto &symbols = files[itFile->second].symbols;
+    for (uint32_t idxSymbol = 0; idxSymbol < symbols.size(); idxSymbol++) {
+        auto &symbol = symbols[idxSymbol];
+        bool isCloser = !nearest.has_value() || (symbol.line > nearestLine);
+        if (isCloser && (symbol.line <= line) && (symbol.kind != kSymbolKind::kNamespace)) {
+            nearest = SymbolHandle{itFile->second, idxSymbol};
+            nearestLine = symbol.line;
+        }
+    }
+    if (!nearest.has_value()) {
+        return {};
+    }
+    return MakeHit(*nearest);
+}
+
+std::u32string CodeIndex::LowerCase(const std::u32string_view &text) {
+    return Lower(text);
+}
+
 WorkspaceNames::Ref CodeIndex::GetWorkspaceNames() {
     std::lock_guard namesGuard(workspaceNamesLock);
     std::shared_lock guard(lock);

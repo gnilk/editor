@@ -49,7 +49,8 @@ void HSplitViewStatus::DrawSplitter(int row) {
         statusLine += U" | ";
     }  else {
         std::tie(viewStatusCenter, viewStatusRight) = GetStatusLineForTopview();
-        statusLine += viewStatusCenter;
+        auto message = Editor::Instance().GetStatusMessage();
+        statusLine += message.empty() ? viewStatusCenter : message;
     }
 
     dc.FillLine(row, kTextAttributes::kInverted, ' ');

@@ -38,6 +38,10 @@ void Runloop::SetKeypressAndActionHook(KeypressAndActionHandler *newHook) {
     }
 }
 
+size_t Runloop::NumKeypressHandlers() {
+    return kpaHandlers.size();
+}
+
 void Runloop::SwapQueues() {
     // incomingQueue/processingQueue are std::atomic<MessageQueue *> so a concurrent
     // PostMessage on another thread always sees a fully-formed pointer, never a torn one.

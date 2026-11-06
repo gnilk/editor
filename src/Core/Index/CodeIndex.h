@@ -84,6 +84,13 @@ namespace gedit {
         std::vector<Hit> Query(const std::u32string &query) const {
             return Query(query, QueryContext{});
         }
+        // Every symbol with exactly this name, case and all, unranked
+        std::vector<Hit> FindExact(const std::u32string &name) const;
+        // The last symbol at or above the line, namespaces aside. Not the enclosing one: an open file's symbols have no
+        // extent in the index, see TextBuffer::CollectStructure.
+        std::optional<Hit> NearestSymbol(const std::string &path, uint32_t line) const;
+        static std::u32string LowerCase(const std::u32string_view &text);
+
         // What each name means across the index. The same pointer until a meaning changes, so a caller can
         // compare pointers to see if there is anything to recolour. Names with several meanings aren't in it.
         WorkspaceNames::Ref GetWorkspaceNames();

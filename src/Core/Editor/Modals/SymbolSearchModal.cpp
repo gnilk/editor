@@ -20,10 +20,24 @@ SymbolSearchModal::SymbolSearchModal(CodeIndex::Ref index, Document::Ref activeD
     }
 }
 
+SymbolSearchModal::Ptr SymbolSearchModal::CreateForHits(std::vector<CodeIndex::Hit> hits, Document::Ref activeDocument, std::string activePath, std::vector<std::filesystem::path> roots) {
+    auto modal = Create(nullptr, std::move(activeDocument), std::move(activePath), std::move(roots));
+    modal->fixedHits = std::move(hits);
+    return modal;
+}
+
 std::vector<std::u32string> SymbolSearchModal::OnQuery(const std::u32string &query) {
-    CodeIndex::QueryContext context;
-    context.activePath = activePath;
-    hits = index->Query(query, context);
+    if (index != nullptr) {
+        CodeIndex::QueryContext context;
+        context.activePath = activePath;
+        hits = index->Query(query, context);
+    } else {
+        hits.clear();
+        auto lowerQuery = CodeIndex::LowerCase(query);
+        std::copy_if(fixedHits.begin(), fixedHits.end(), std::back_inserter(hits), [&lowerQuery](const CodeIndex::Hit &hit) {
+            return lowerQuery.empty() || (CodeIndex::LowerCase(hit.qualifiedName).find(lowerQuery) != std::u32string::npos);
+        });
+    }
 
     std::vector<std::u32string> rows;
     rows.reserve(hits.size());
@@ -99,19 +113,11 @@ void SymbolSearchModal::OnPreview(int idxRow) {
     activeDocument->ScrollActiveLineIntoLowerPart();
 }
 
+// Back first: a preview moved the cursor, and the jump starts from where the modal did
 void SymbolSearchModal::OnCommit(int idxRow) {
     auto hit = hits[(size_t)idxRow];
-    auto document = Editor::Instance().LoadDocument(hit.path);
-    if (document == nullptr) {
-        return;
-    }
-    Editor::Instance().SetActiveDocument(document);
-    document->CancelSelection();
-    document->SetCursorPosition(hit.line, hit.column);
-    document->ScrollActiveLineIntoLowerPart();
-    if (RuntimeConfig::Instance().HasRootView()) {
-        ActionHelper::SwitchToNamedView(glbEditorView);
-    }
+    RestoreActiveDocument();
+    ActionHelper::JumpTo(hit.path, hit.line, hit.column);
 }
 
 void SymbolSearchModal::OnCancel() {

@@ -21,6 +21,11 @@
 #include "Core/Index/CPPStructureScanner.h"
 #include "Core/Index/Indexer.h"
 #include "Core/Index/SemanticNames.h"
+#include "Core/Index/GoToResolver.h"
+#include "Core/Index/NavigationStack.h"
+#include "Core/ActionHelper.h"
+#include "Core/Runloop.h"
+#include "Core/Session/SessionSerializer.h"
 #include "Core/Index/StructureScanner.h"
 #include "Core/Editor/Modals/SymbolSearchModal.h"
 #include "Core/UI/UIHost.h"
@@ -47,6 +52,36 @@ extern "C" {
     DLL_EXPORT int test_codeindex_library_project_wins(ITesting *t);
     DLL_EXPORT int test_codeindex_library_using_edit(ITesting *t);
     DLL_EXPORT int test_codeindex_library_other_scope(ITesting *t);
+    DLL_EXPORT int test_codeindex_nav_quick_mode_view_switch(ITesting *t);
+    DLL_EXPORT int test_codeindex_goto_nearest_symbol(ITesting *t);
+    DLL_EXPORT int test_codeindex_goto_find_exact(ITesting *t);
+    DLL_EXPORT int test_codeindex_goto_toggle(ITesting *t);
+    DLL_EXPORT int test_codeindex_goto_modes(ITesting *t);
+    DLL_EXPORT int test_codeindex_goto_already_there(ITesting *t);
+    DLL_EXPORT int test_codeindex_goto_no_target(ITesting *t);
+    DLL_EXPORT int test_codeindex_goto_cursor_positions(ITesting *t);
+    DLL_EXPORT int test_codeindex_goto_qualifier(ITesting *t);
+    DLL_EXPORT int test_codeindex_goto_object_syntax(ITesting *t);
+    DLL_EXPORT int test_codeindex_goto_enclosing_scope(ITesting *t);
+    DLL_EXPORT int test_codeindex_goto_constructor(ITesting *t);
+    DLL_EXPORT int test_codeindex_goto_proximity(ITesting *t);
+    DLL_EXPORT int test_codeindex_nav_back_forward(ITesting *t);
+    DLL_EXPORT int test_codeindex_nav_jump_drops_forward(ITesting *t);
+    DLL_EXPORT int test_codeindex_nav_same_symbol(ITesting *t);
+    DLL_EXPORT int test_codeindex_nav_bounce(ITesting *t);
+    DLL_EXPORT int test_codeindex_nav_no_from(ITesting *t);
+    DLL_EXPORT int test_codeindex_nav_cap(ITesting *t);
+    DLL_EXPORT int test_codeindex_nav_lines_moved(ITesting *t);
+    DLL_EXPORT int test_codeindex_nav_symbol_gone(ITesting *t);
+    DLL_EXPORT int test_codeindex_nav_overloads(ITesting *t);
+    DLL_EXPORT int test_codeindex_nav_session(ITesting *t);
+    DLL_EXPORT int test_codeindex_nav_other_file(ITesting *t);
+    DLL_EXPORT int test_codeindex_nav_back_after_edit(ITesting *t);
+    DLL_EXPORT int test_codeindex_nav_session_yaml(ITesting *t);
+    DLL_EXPORT int test_codeindex_nav_real_documents(ITesting *t);
+    DLL_EXPORT int test_codeindex_nav_missing_file(ITesting *t);
+    DLL_EXPORT int test_codeindex_nav_load_symlinked(ITesting *t);
+    DLL_EXPORT int test_codeindex_goto_modal_list(ITesting *t);
     DLL_EXPORT int test_codeindex_library_list_header(ITesting *t);
     DLL_EXPORT int test_codeindex_library_list_include_edit(ITesting *t);
     DLL_EXPORT int test_codeindex_library_list_no_headers(ITesting *t);
@@ -2368,5 +2403,561 @@ DLL_EXPORT int test_codeindex_library_list_bad_project_file(ITesting *t) {
     WriteTextFile(projectDir / "libraries" / "b_sdl.yml", SDL_LIST);
     auto library = LibraryNames::Load(projectDir);
     TR_ASSERT(t, library->Size() == LibraryNames::Load(std::nullopt)->Size() + 2);
+    return kTR_Pass;
+}
+
+// Smart go-to and the navigation stack (docs/code-index.md §5.6)
+namespace {
+    const char32_t *FOO_H =
+        U"namespace app {\n"                // 0
+        U"class Foo {\n"                    // 1
+        U"public:\n"                        // 2
+        U"    Foo(int x);\n"                // 3
+        U"    void run();\n"                // 4
+        U"    void other();\n"              // 5
+        U"    int count;\n"                 // 6
+        U"};\n"                             // 7
+        U"void helper();\n"                 // 8
+        U"int count();\n"                   // 9
+        U"}\n";
+
+    const char32_t *FOO_CPP =
+        U"#include \"foo.h\"\n"             // 0
+        U"namespace app {\n"                // 1
+        U"Foo::Foo(int x) { }\n"            // 2
+        U"void Foo::run() {\n"              // 3
+        U"    helper();\n"                  // 4
+        U"}\n"                              // 5
+        U"void Foo::other() {\n"            // 6
+        U"    run();\n"                     // 7
+        U"}\n"                              // 8
+        U"void helper() { }\n"              // 9
+        U"}\n";
+
+    const char32_t *BAR_H =
+        U"namespace other {\n"
+        U"class Bar {\n"
+        U"    void run() { }\n"
+        U"};\n"
+        U"}\n";
+
+    CodeIndex::Ref GoToIndex() {
+        auto index = CodeIndex::Create();
+        index->ReplaceFile("/p/foo.h", ScanCPP(FOO_H));
+        index->ReplaceFile("/p/foo.cpp", ScanCPP(FOO_CPP));
+        index->ReplaceFile("/q/bar.h", ScanCPP(BAR_H));
+        return index;
+    }
+
+    using kMode = GoToResolver::kMode;
+
+    GoToResolver::Result Go(const CodeIndex::Ref &index, const std::u32string &text, const std::u32string &word, uint32_t idxLine, const std::string &path, kMode mode = kMode::kToggle) {
+        return GoToResolver::Resolve(*index, text, text.find(word), idxLine, path, mode);
+    }
+
+    bool IsAt(const GoToResolver::Result &result, const std::string &path, uint32_t line) {
+        return (result.hits.size() == 1) && (result.hits[0].path == path) && (result.hits[0].line == line);
+    }
+
+    NavigationStack::Entry Place(const std::string &path, const std::u32string &symbol, uint32_t line) {
+        return {path, symbol, 0, line, 0};
+    }
+}
+
+DLL_EXPORT int test_codeindex_goto_nearest_symbol(ITesting *t) {
+    auto index = GoToIndex();
+    // Inside a body: the function it's in
+    TR_ASSERT(t, index->NearestSymbol("/p/foo.cpp", 4)->qualifiedName == U"app::Foo::run");
+    TR_ASSERT(t, index->NearestSymbol("/p/foo.cpp", 3)->qualifiedName == U"app::Foo::run");
+    // A namespace is too wide to mean a place
+    TR_ASSERT(t, !index->NearestSymbol("/p/foo.cpp", 1).has_value());
+    TR_ASSERT(t, !index->NearestSymbol("/p/none.cpp", 1).has_value());
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_goto_find_exact(ITesting *t) {
+    auto index = GoToIndex();
+    TR_ASSERT(t, index->FindExact(U"helper").size() == 2);
+    TR_ASSERT(t, index->FindExact(U"Helper").empty());
+    TR_ASSERT(t, index->FindExact(U"help").empty());
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_goto_toggle(ITesting *t) {
+    auto index = GoToIndex();
+    // The declaration and the definition lead to each other
+    TR_ASSERT(t, IsAt(Go(index, U"    void run();", U"run", 4, "/p/foo.h"), "/p/foo.cpp", 3));
+    TR_ASSERT(t, IsAt(Go(index, U"void Foo::run() {", U"run", 3, "/p/foo.cpp"), "/p/foo.h", 4));
+    // A use goes to the definition
+    TR_ASSERT(t, IsAt(Go(index, U"    helper();", U"helper", 4, "/p/foo.cpp"), "/p/foo.cpp", 9));
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_goto_modes(ITesting *t) {
+    auto index = GoToIndex();
+    std::u32string use = U"    helper();";
+    TR_ASSERT(t, IsAt(Go(index, use, U"helper", 4, "/p/foo.cpp", kMode::kDefinition), "/p/foo.cpp", 9));
+    TR_ASSERT(t, IsAt(Go(index, use, U"helper", 4, "/p/foo.cpp", kMode::kDeclaration), "/p/foo.h", 8));
+    // Only one side exists: that's where it goes
+    TR_ASSERT(t, IsAt(Go(index, U"Bar b;", U"Bar", 0, "/z.cpp", kMode::kDeclaration), "/q/bar.h", 1));
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_goto_already_there(ITesting *t) {
+    auto index = GoToIndex();
+    auto result = Go(index, U"class Foo {", U"Foo", 1, "/p/foo.h");
+    TR_ASSERT(t, result.isAlreadyThere);
+    TR_ASSERT(t, result.hits.empty());
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_goto_no_target(ITesting *t) {
+    auto index = GoToIndex();
+    TR_ASSERT(t, Go(index, U"    localName = 1;", U"localName", 4, "/p/foo.cpp").hits.empty());
+    // 'std::' says it isn't the project's, even if the project has one
+    auto library = Go(index, U"    std::run(x);", U"run", 4, "/p/foo.cpp");
+    TR_ASSERT(t, library.name == U"run");
+    TR_ASSERT(t, library.hits.empty());
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_goto_cursor_positions(ITesting *t) {
+    auto index = GoToIndex();
+    std::u32string text = U"    helper();";
+    auto at = [&](size_t idxChar) {
+        return GoToResolver::Resolve(*index, text, idxChar, 4, "/p/foo.cpp", kMode::kToggle).name;
+    };
+    TR_ASSERT(t, at(4) == U"helper");
+    TR_ASSERT(t, at(7) == U"helper");
+    TR_ASSERT(t, at(10) == U"helper");      // on the '(', right behind the name
+    TR_ASSERT(t, at(1).empty());
+    TR_ASSERT(t, at(12).empty());
+    TR_ASSERT(t, at(13).empty());
+    TR_ASSERT(t, at(99).empty());
+    std::u32string endOfLine = U"helper";
+    TR_ASSERT(t, GoToResolver::Resolve(*index, endOfLine, 6, 0, "/z", kMode::kToggle).name == U"helper");
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_goto_qualifier(ITesting *t) {
+    auto index = GoToIndex();
+    TR_ASSERT(t, IsAt(Go(index, U"x = Foo::run;", U"run", 0, "/z.cpp", kMode::kDefinition), "/p/foo.cpp", 3));
+    TR_ASSERT(t, IsAt(Go(index, U"x = Bar::run;", U"run", 0, "/z.cpp", kMode::kDefinition), "/q/bar.h", 2));
+    // 'oo::run' isn't 'Foo::run'
+    TR_ASSERT(t, Go(index, U"x = oo::run;", U"run", 0, "/z.cpp", kMode::kDefinition).hits.size() == 2);
+    // A qualifier the index doesn't know: every 'run' is still the best answer
+    TR_ASSERT(t, Go(index, U"x = Alias::run;", U"run", 0, "/z.cpp", kMode::kDefinition).hits.size() == 2);
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_goto_object_syntax(ITesting *t) {
+    auto index = GoToIndex();
+    // 'count' is a member and a function; the code says which
+    auto member = Go(index, U"x = a.count;", U"count", 0, "/z.cpp", kMode::kDefinition);
+    TR_ASSERT(t, (member.hits.size() == 1) && (member.hits[0].kind == kSymbolKind::kMember));
+    auto function = Go(index, U"x = a.count();", U"count", 0, "/z.cpp", kMode::kDefinition);
+    TR_ASSERT(t, (function.hits.size() == 1) && IsAt(function, "/p/foo.h", 9));
+    // Both defined: the syntax alone tells them apart
+    index->ReplaceFile("/p/count.cpp", ScanCPP(U"namespace app {\nint count() { return 0; }\n}\n"));
+    auto definedMember = Go(index, U"x = a.count;", U"count", 0, "/z.cpp", kMode::kDefinition);
+    TR_ASSERT(t, (definedMember.hits.size() == 1) && (definedMember.hits[0].kind == kSymbolKind::kMember));
+    // The type of 'a' isn't known: all of them, to choose from
+    TR_ASSERT(t, Go(index, U"a.run();", U"run", 0, "/z.cpp", kMode::kDefinition).hits.size() == 2);
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_goto_enclosing_scope(ITesting *t) {
+    auto index = GoToIndex();
+    // In Foo::other, a bare 'run' is Foo's, not Bar's
+    TR_ASSERT(t, IsAt(Go(index, U"    run();", U"run", 7, "/p/foo.cpp", kMode::kDefinition), "/p/foo.cpp", 3));
+    // Outside any: both
+    TR_ASSERT(t, Go(index, U"run();", U"run", 0, "/z.cpp", kMode::kDefinition).hits.size() == 2);
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_goto_constructor(ITesting *t) {
+    auto index = GoToIndex();
+    TR_ASSERT(t, IsAt(Go(index, U"Foo x(1);", U"Foo", 0, "/z.cpp", kMode::kDefinition), "/p/foo.h", 1));
+    // On the constructor itself it is the constructor
+    TR_ASSERT(t, IsAt(Go(index, U"    Foo(int x);", U"Foo", 3, "/p/foo.h"), "/p/foo.cpp", 2));
+    TR_ASSERT(t, IsAt(Go(index, U"Foo::Foo(int x) { }", U"Foo(", 2, "/p/foo.cpp"), "/p/foo.h", 3));
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_goto_proximity(ITesting *t) {
+    auto index = CodeIndex::Create();
+    for (auto path : {"/a/z.h", "/b/here.h", "/b/apple.h", "/b/here.cpp"}) {
+        index->ReplaceFile(path, MakeFile({MakeSymbol(U"Thing", kSymbolKind::kClass)}));
+    }
+    auto result = Go(index, U"Thing x;", U"Thing", 40, "/b/here.cpp", kMode::kDefinition);
+    TR_ASSERT(t, result.hits.size() == 4);
+    TR_ASSERT(t, result.hits[0].path == "/b/here.cpp");
+    TR_ASSERT(t, result.hits[1].path == "/b/here.h");
+    TR_ASSERT(t, result.hits[2].path == "/b/apple.h");
+    TR_ASSERT(t, result.hits[3].path == "/a/z.h");
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_nav_back_forward(ITesting *t) {
+    NavigationStack stack;
+    auto a = Place("/a", U"A", 1);
+    auto b = Place("/b", U"B", 2);
+    auto c = Place("/c", U"C", 3);
+    TR_ASSERT(t, !stack.Back(a).has_value());
+    stack.Jump(a, b);
+    stack.Jump(b, c);
+    TR_ASSERT(t, stack.Size() == 3);
+    TR_ASSERT(t, !stack.Forward(c).has_value());
+    TR_ASSERT(t, stack.Back(c)->path == "/b");
+    TR_ASSERT(t, stack.Back(b)->path == "/a");
+    TR_ASSERT(t, !stack.Back(a).has_value());
+    TR_ASSERT(t, stack.Forward(a)->path == "/b");
+    TR_ASSERT(t, stack.Forward(b)->path == "/c");
+    return kTR_Pass;
+}
+
+// Forward comes back to where back left, not to where the jump landed
+DLL_EXPORT int test_codeindex_nav_jump_drops_forward(ITesting *t) {
+    NavigationStack stack;
+    auto a = Place("/a", U"A", 1);
+    auto b = Place("/b", U"B", 2);
+    stack.Jump(a, b);
+    auto movedOn = Place("/b", U"B2", 30);
+    stack.Back(movedOn);
+    TR_ASSERT(t, stack.Forward(a)->line == 30);
+
+    stack.Back(movedOn);
+    stack.Jump(a, Place("/c", U"C", 3));
+    TR_ASSERT(t, stack.Size() == 2);
+    TR_ASSERT(t, !stack.Forward(Place("/c", U"C", 3)).has_value());
+    TR_ASSERT(t, stack.Back(Place("/c", U"C", 3))->path == "/a");
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_nav_same_symbol(ITesting *t) {
+    NavigationStack stack;
+    auto a = Place("/a", U"A", 1);
+    auto b = NavigationStack::Entry{"/b", U"B", 0, 10, 0};
+    auto sameB = NavigationStack::Entry{"/b", U"B", 5, 15, 0};
+    // Nothing on the stack and a jump within a symbol: still nothing to go back to
+    stack.Jump(b, sameB);
+    TR_ASSERT(t, stack.Size() == 0);
+    stack.Jump(a, b);
+    stack.Jump(b, sameB);
+    TR_ASSERT(t, stack.Size() == 2);
+    TR_ASSERT(t, stack.Forward(sameB).has_value() == false);
+    TR_ASSERT(t, stack.Back(sameB)->path == "/a");
+    TR_ASSERT(t, stack.Forward(a)->line == 15);
+    // Same name further down the file is another overload
+    auto overload = NavigationStack::Entry{"/b", U"B", 0, 40, 0};
+    stack.Jump(sameB, overload);
+    TR_ASSERT(t, stack.Size() == 3);
+    return kTR_Pass;
+}
+
+// F12, F12, F12 between a declaration and its definition
+DLL_EXPORT int test_codeindex_nav_bounce(ITesting *t) {
+    NavigationStack stack;
+    auto start = Place("/s", U"S", 1);
+    auto decl = Place("/a.h", U"f", 2);
+    auto def = Place("/a.cpp", U"f", 3);
+    stack.Jump(start, decl);
+    stack.Jump(decl, def);
+    for (int i = 0; i < 10; i++) {
+        stack.Jump(def, decl);
+        stack.Jump(decl, def);
+    }
+    TR_ASSERT(t, stack.Size() == 3);
+    TR_ASSERT(t, stack.Back(def)->path == "/a.h");
+    TR_ASSERT(t, stack.Back(decl)->path == "/s");
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_nav_no_from(ITesting *t) {
+    NavigationStack stack;
+    auto b = Place("/b", U"B", 2);
+    stack.Jump({}, b);
+    TR_ASSERT(t, stack.Size() == 1);
+    TR_ASSERT(t, !stack.Back(b).has_value());
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_nav_cap(ITesting *t) {
+    NavigationStack stack;
+    for (uint32_t i = 0; i < 500; i++) {
+        stack.Jump(Place("/f", U"S" + std::u32string(1, (char32_t)(U'a' + (i % 26))) + std::u32string(i / 26, U'x'), i),
+                   Place("/g", U"T", i + 1000));
+    }
+    TR_ASSERT(t, stack.Size() <= 100);
+    TR_ASSERT(t, stack.CurrentIndex() == stack.Size() - 1);
+    return kTR_Pass;
+}
+
+// The reason an entry isn't only a line
+DLL_EXPORT int test_codeindex_nav_lines_moved(ITesting *t) {
+    auto index = CodeIndex::Create();
+    index->ReplaceFile("/f.cpp", ScanCPP(U"void first() { }\nvoid second() {\n    int a;\n    int b;\n}\n"));
+    auto entry = NavigationStack::MakeEntry(index.get(), "/f.cpp", 3, 4);
+    TR_ASSERT(t, entry.symbol == U"second");
+    TR_ASSERT(t, entry.lineOffset == 2);
+    TR_ASSERT(t, NavigationStack::CurrentLine(index.get(), entry) == 3);
+
+    index->ReplaceFile("/f.cpp", ScanCPP(U"// new\n// new\n// new\nvoid first() { }\nvoid second() {\n    int a;\n    int b;\n}\n"));
+    TR_ASSERT(t, NavigationStack::CurrentLine(index.get(), entry) == 6);
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_nav_symbol_gone(ITesting *t) {
+    auto index = CodeIndex::Create();
+    index->ReplaceFile("/f.cpp", ScanCPP(U"void first() { }\n\n\nvoid second() { }\n"));
+    auto entry = NavigationStack::MakeEntry(index.get(), "/f.cpp", 3, 0);
+    index->ReplaceFile("/f.cpp", ScanCPP(U"void first() { }\n"));
+    TR_ASSERT(t, NavigationStack::CurrentLine(index.get(), entry) == 3);
+    // No index, or a file it doesn't hold: the line
+    TR_ASSERT(t, NavigationStack::CurrentLine(nullptr, entry) == 3);
+    auto noSymbol = NavigationStack::MakeEntry(index.get(), "/none.cpp", 7, 0);
+    TR_ASSERT(t, noSymbol.symbol.empty());
+    TR_ASSERT(t, NavigationStack::CurrentLine(index.get(), noSymbol) == 7);
+    TR_ASSERT(t, NavigationStack::MakeEntry(nullptr, "/f.cpp", 3, 0).symbol.empty());
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_nav_overloads(ITesting *t) {
+    auto index = CodeIndex::Create();
+    const std::u32string overloads = U"void f(int a) { }\n\n\n\n\n\nvoid f(char b) {\n    int x;\n}\n";
+    index->ReplaceFile("/f.cpp", ScanCPP(overloads));
+    auto entry = NavigationStack::MakeEntry(index.get(), "/f.cpp", 7, 0);
+    TR_ASSERT(t, entry.symbol == U"f");
+    index->ReplaceFile("/f.cpp", ScanCPP(U"// new\n// new\n" + overloads));
+    TR_ASSERT(t, NavigationStack::CurrentLine(index.get(), entry) == 9);
+    return kTR_Pass;
+}
+
+// A header's 'f' isn't the one in the file next to it, however close its line is
+DLL_EXPORT int test_codeindex_nav_other_file(ITesting *t) {
+    auto index = CodeIndex::Create();
+    const std::u32string blanks(8, U'\n');
+    index->ReplaceFile("/a.cpp", ScanCPP(blanks + U"void f() {\n}\n"));
+    index->ReplaceFile("/b.cpp", ScanCPP(blanks + U"void f() {\n}\n"));
+    auto entry = NavigationStack::MakeEntry(index.get(), "/b.cpp", 9, 0);
+    index->ReplaceFile("/b.cpp", ScanCPP(blanks + blanks + U"void f() {\n}\n"));
+    TR_ASSERT(t, NavigationStack::CurrentLine(index.get(), entry) == 17);
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_nav_session(ITesting *t) {
+    NavigationStack stack;
+    auto a = NavigationStack::Entry{"/a", U"app::Foo", 3, 13, 2};
+    auto b = Place("/b", U"", 20);
+    auto c = Place("/c", U"C", 30);
+    stack.Jump(a, b);
+    stack.Jump(b, c);
+    stack.Back(c);
+
+    NavigationStack restored;
+    restored.FromSession(stack.ToSession());
+    TR_ASSERT(t, restored.Size() == 3);
+    TR_ASSERT(t, restored.CurrentIndex() == 1);
+    TR_ASSERT(t, restored.Forward(b)->path == "/c");
+    auto back = restored.Back(c);
+    back = restored.Back(*back);
+    TR_ASSERT(t, (back->symbol == U"app::Foo") && (back->lineOffset == 3) && (back->line == 13) && (back->column == 2));
+
+    // A hand-edited file can't point outside
+    auto session = stack.ToSession();
+    session.idxCurrent = 99;
+    restored.FromSession(session);
+    TR_ASSERT(t, restored.CurrentIndex() == 2);
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_nav_session_yaml(ITesting *t) {
+    RootSession session;
+    session.navigation.idxCurrent = 1;
+    session.navigation.entries.push_back({"/a", "app::Foo", 3, 13, 2});
+    session.navigation.entries.push_back({"/b", "", 0, 20, 0});
+    RootSession restored;
+    TR_ASSERT(t, SessionSerializer::FromYaml(SessionSerializer::ToYaml(session), restored));
+    TR_ASSERT(t, restored.navigation.idxCurrent == 1);
+    TR_ASSERT(t, restored.navigation.entries.size() == 2);
+    auto &entry = restored.navigation.entries[0];
+    TR_ASSERT(t, (entry.path == "/a") && (entry.symbol == "app::Foo") && (entry.lineOffset == 3) && (entry.line == 13) && (entry.column == 2));
+
+    // A session from before the stack
+    RootSession older;
+    TR_ASSERT(t, SessionSerializer::FromYaml("version: 1\n", older));
+    TR_ASSERT(t, older.navigation.entries.empty());
+    return kTR_Pass;
+}
+
+// The same steps a key would take, on real documents
+DLL_EXPORT int test_codeindex_nav_real_documents(ITesting *t) {
+    auto root = IndexerFolder("navdocuments");
+    auto pathA = (root / "a.cpp").string();
+    auto pathB = (root / "b.cpp").string();
+    WriteTextFile(pathA, "line0\nline1\nline2\nline3\n");
+    WriteTextFile(pathB, "other0\nother1\n");
+
+    auto &editor = Editor::Instance();
+    editor.GetNavigationStack().Clear();
+    auto documentA = editor.LoadDocument(pathA);
+    TR_ASSERT(t, documentA != nullptr);
+    editor.SetActiveDocument(documentA);
+    documentA->SetCursorPosition(2, 3);
+
+    TR_ASSERT(t, ActionHelper::JumpTo(pathB, 1, 2));
+    auto documentB = editor.GetActiveDocument();
+    TR_ASSERT(t, documentB != documentA);
+    TR_ASSERT(t, documentB->GetLineCursor().idxActiveLine == 1);
+
+    ActionHelper::JumpBack();
+    TR_ASSERT(t, editor.GetActiveDocument() == documentA);
+    TR_ASSERT(t, documentA->GetLineCursor().idxActiveLine == 2);
+    TR_ASSERT(t, documentA->GetLineCursor().cursor.position.x == 3);
+
+    ActionHelper::JumpForward();
+    TR_ASSERT(t, editor.GetActiveDocument() == documentB);
+
+    // A line past the end of a shrunk file lands on its last one
+    TR_ASSERT(t, ActionHelper::JumpTo(pathA, 400, 400));
+    TR_ASSERT(t, editor.GetActiveDocument()->GetLineCursor().idxActiveLine == documentA->GetTextBuffer()->NumLines() - 1);
+    editor.GetNavigationStack().Clear();
+    return kTR_Pass;
+}
+
+// A file gone from disk is stepped over
+DLL_EXPORT int test_codeindex_nav_missing_file(ITesting *t) {
+    auto root = IndexerFolder("navmissing");
+    auto pathA = (root / "a.cpp").string();
+    auto pathGone = (root / "gone.cpp").string();
+    auto pathC = (root / "c.cpp").string();
+    WriteTextFile(pathA, "line0\n");
+    WriteTextFile(pathC, "line0\n");
+
+    auto &editor = Editor::Instance();
+    auto &stack = editor.GetNavigationStack();
+    stack.Clear();
+    auto documentC = editor.LoadDocument(pathC);
+    auto documentA = editor.LoadDocument(pathA);
+    stack.Jump(Place(pathA, U"", 0), Place(pathGone, U"", 0));
+    stack.Jump(Place(pathGone, U"", 0), Place(pathC, U"", 0));
+    editor.SetActiveDocument(documentC);
+
+    ActionHelper::JumpBack();
+    TR_ASSERT(t, editor.GetActiveDocument() == documentA);
+    TR_ASSERT(t, !ActionHelper::JumpTo(pathGone, 0, 0));
+    stack.Clear();
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_goto_modal_list(ITesting *t) {
+    auto index = GoToIndex();
+    auto hits = Go(index, U"a.run();", U"run", 0, "/z.cpp", kMode::kDefinition).hits;
+    TR_ASSERT(t, hits.size() == 2);
+    auto modal = SymbolSearchModal::CreateForHits(hits, nullptr, "/z.cpp", {"/p"});
+    modal->SetQuery(U"");
+    TR_ASSERT(t, modal->GetHits().size() == 2);
+    modal->SetQuery(U"BAR");
+    TR_ASSERT(t, modal->GetHits().size() == 1);
+    TR_ASSERT(t, modal->GetHits()[0].qualifiedName == U"other::Bar::run");
+    modal->SetQuery(U"nothing");
+    TR_ASSERT(t, modal->GetHits().empty());
+    return kTR_Pass;
+}
+
+// The index holds canonical paths, the workspace what it was opened with. Through a symlink they differ, and a second
+// document for the same file wouldn't have the first one's unsaved edits.
+DLL_EXPORT int test_codeindex_nav_load_symlinked(ITesting *t) {
+    auto root = IndexerFolder("navsymlinked");
+    std::filesystem::create_directories(root / "real");
+    auto realPath = root / "real" / "a.cpp";
+    WriteTextFile(realPath, "line0\n");
+    auto linkedRoot = root / "linked";
+    std::error_code error;
+    std::filesystem::remove(linkedRoot, error);
+    std::filesystem::create_directory_symlink(root / "real", linkedRoot);
+
+    auto &editor = Editor::Instance();
+    auto document = editor.LoadDocument((linkedRoot / "a.cpp").string());
+    TR_ASSERT(t, document != nullptr);
+    auto again = editor.LoadDocument(std::filesystem::canonical(realPath).string());
+    TR_ASSERT(t, again == document);
+    return kTR_Pass;
+}
+
+// The point of the anchor, through the key's own path: lines added above, and back lands in the same code
+DLL_EXPORT int test_codeindex_nav_back_after_edit(ITesting *t) {
+    auto &editor = Editor::Instance();
+    auto index = editor.GetCodeIndex();
+    TR_ASSERT(t, index != nullptr);
+    auto root = IndexerFolder("navedit");
+    auto pathA = (root / "a.cpp").string();
+    auto pathB = (root / "b.cpp").string();
+    const std::string body = "void first() {\n}\nvoid second() {\n    int a;\n    int b;\n}\n";
+    WriteTextFile(pathA, "// one\n// two\n// three\n" + body);
+    WriteTextFile(pathB, "other\n");
+    auto canonicalA = std::filesystem::canonical(pathA).string();
+    index->ReplaceFile(canonicalA, ScanCPP(UnicodeHelper::utf8to32(body)));
+
+    editor.GetNavigationStack().Clear();
+    auto document = editor.LoadDocument(pathA);
+    TR_ASSERT(t, document != nullptr);
+    editor.SetActiveDocument(document);
+    document->SetCursorPosition(4, 4);      // 'int b', with the index one edit behind the three comment lines below
+    TR_ASSERT(t, ActionHelper::JumpTo(pathB, 0, 0));
+
+    // The three comment lines are in the index now, as they would be after a pause
+    index->ReplaceFile(canonicalA, ScanCPP(UnicodeHelper::utf8to32("// one\n// two\n// three\n" + body)));
+    ActionHelper::JumpBack();
+    TR_ASSERT(t, editor.GetActiveDocument() == document);
+    TR_ASSERT(t, document->GetLineCursor().idxActiveLine == 7);
+
+    index->RemoveFile(canonicalA);
+    editor.GetNavigationStack().Clear();
+    return kTR_Pass;
+}
+
+// Esc, then ']' to the next view: the switch leaves quick mode by policy, and the action then finishing leaves it again.
+// The second leave took the root view off the run loop's handlers, and the next key - any key - crashed on an empty stack.
+DLL_EXPORT int test_codeindex_nav_quick_mode_view_switch(ITesting *t) {
+    auto mainConfig = Config::Instance()["quickmode"];
+    auto wasAutoLeave = mainConfig.GetBool("leave_automatically", false);
+    auto wasSwitchLeave = mainConfig.GetBool("leave_when_switching_view", false);
+    mainConfig.SetBool("leave_automatically", true);
+    mainConfig.SetBool("leave_when_switching_view", true);
+
+    RootView rootView;
+    ViewBase first;
+    ViewBase second;
+    rootView.AddTopView(&first, "first");
+    rootView.AddTopView(&second, "second");
+    rootView.Initialize();
+    auto hadRootView = RuntimeConfig::Instance().HasRootView();
+    auto *previousRoot = hadRootView ? &RuntimeConfig::Instance().GetRootView() : nullptr;
+    RuntimeConfig::Instance().SetRootView(&rootView);
+    Runloop::SetKeypressAndActionHook(&rootView);
+    auto numHandlers = Runloop::NumKeypressHandlers();
+
+    EditorAction enter;
+    enter.action = kAction::kActionEnterCommandMode;
+    Runloop::DispatchAction(enter);
+    TR_ASSERT(t, Editor::Instance().GetState() == Editor::QuickCommandState);
+    TR_ASSERT(t, Runloop::NumKeypressHandlers() == numHandlers + 1);
+
+    EditorAction cycle;
+    cycle.uiAction = kUIAction::kUIActionCycleActiveViewNext;
+    Runloop::DispatchAction(cycle);
+    auto numAfter = Runloop::NumKeypressHandlers();
+
+    // Everything back as it was, whatever the outcome: the rest of the run shares these
+    if (numAfter >= numHandlers) {
+        Runloop::SetKeypressAndActionHook(nullptr);
+    }
+    RuntimeConfig::Instance().SetRootView(previousRoot);
+    mainConfig.SetBool("leave_automatically", wasAutoLeave);
+    mainConfig.SetBool("leave_when_switching_view", wasSwitchLeave);
+
+    TR_ASSERT(t, Editor::Instance().GetState() == Editor::ViewState);
+    TR_ASSERT(t, numAfter == numHandlers);
     return kTR_Pass;
 }

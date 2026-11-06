@@ -14,7 +14,7 @@
 #include <functional>
 #include <filesystem>
 
-#include "Core/FileSystem/FsFilter.h"
+#include "Core/FileSystem/ExclusionRules.h"
 
 namespace gedit {
 
@@ -66,19 +66,19 @@ namespace gedit {
             }
 
             // Set these before Start - the OS thread reads the filter without a lock
-            void SetExcludeFilter(const FsFilter &newExcludeFilter);
+            void SetExclusionRules(ExclusionRules::Ref newRules);
             void SetPostToMain(PostDelegate newPostToMain);
             void SetDirtyHandler(DirtyDelegate newDirtyHandler);
 
-            // True for a path the tree never shows: outside the root, or below an excluded folder (any
-            // component - 'cmake-build-debug/x/y.o'). Takes canonical paths.
+            // True for a path nobody listens for: outside the root, or excluded / ignored (any component -
+            // 'cmake-build-debug/x/y.o'). Takes canonical paths.
             bool IsPathExcluded(const std::filesystem::path &path) const;
 
         protected:
             MonitorPoint() = default;
             // For OS-level exclusion (an optimisation only - OnRawEvent applies the filter regardless)
-            const FsFilter &GetExcludeFilter() const {
-                return excludeFilter;
+            const ExclusionRules::Ref &GetExclusionRules() const {
+                return exclusionRules;
             }
             // Any thread: something happened at 'path' (a file or a folder)
             void OnRawEvent(const std::filesystem::path &path);
@@ -94,7 +94,7 @@ namespace gedit {
             std::mutex dataGuard;
             std::filesystem::path pathToMonitor = {};
         private:
-            FsFilter excludeFilter = {};
+            ExclusionRules::Ref exclusionRules = nullptr;
             PostDelegate postToMain = {};
             DirtyDelegate dirtyHandler = {};
             std::set<std::filesystem::path> dirtyFolders = {};
@@ -110,10 +110,6 @@ namespace gedit {
         virtual MonitorPoint::Ref CreateMonitorPoint(const std::filesystem::path &pathToMonitor);
         // config 'foldermonitor.enabled'
         bool IsEnabled();
-    protected:
-        const std::vector<std::string> &GetExclusionPaths();
-    private:
-        std::vector<std::string> exclusionPaths;
     };
 }
 

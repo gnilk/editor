@@ -5,6 +5,7 @@ cmake-build-asan/
 cmake-build-release/
 bld/
 .idea/
+.github/
 
 # Per-project editor state (session, terminal scrollback) - written by the editor when it runs here
 .goatedit/

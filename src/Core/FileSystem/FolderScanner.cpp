@@ -37,7 +37,7 @@ void FolderScanner::ScanDirToReference(const fs::path &dir, const fs::path &refP
     std::error_code ec;
     for (const auto &entry : fs::directory_iterator(dir, ec)) {
         const auto &path = entry.path();
-        if (filter.IsExcluded(path)) {
+        if (IsPruned(path, opts, filter)) {
             continue;
         }
         if (fs::is_directory(path, ec)) {
@@ -61,6 +61,20 @@ void FolderScanner::ScanDirToReference(const fs::path &dir, const fs::path &refP
     }
 }
 
+bool FolderScanner::IsPruned(const fs::path &path, const Options &opts, const FsFilter &filter) {
+    if (filter.IsExcluded(path)) {
+        return true;
+    }
+    if (opts.rules == nullptr) {
+        return false;
+    }
+    if (!opts.skipIgnored) {
+        return opts.rules->IsExcluded(path);
+    }
+    std::error_code ec;
+    return !opts.rules->IsIncluded(path, fs::is_directory(path, ec));
+}
+
 void FolderScanner::ScanDir(const fs::path &dir, int depth, const Options &opts, const FsFilter &filter) {
     // Hard depth bound: bounds path growth so a symlink cycle can't recurse until is_directory
     // throws ENAMETOOLONG. FS-4 adds the symlink-aware no-follow guard on top of this.
@@ -76,7 +90,7 @@ void FolderScanner::ScanDir(const fs::path &dir, int depth, const Options &opts,
         // Static exclude (FS-2): a matching entry is pruned entirely — no event, no descent. This is
         // where build dirs (cmake-build-debug, _deps, .git, ...) are kept out of memory, the build-dir
         // side of open-bugs #4.
-        if (filter.IsExcluded(path)) {
+        if (IsPruned(path, opts, filter)) {
             continue;
         }
         // is_symlink uses symlink_status (does NOT follow); is_directory DOES follow, so a symlink that

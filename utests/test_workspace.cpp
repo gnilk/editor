@@ -39,6 +39,8 @@ DLL_EXPORT int test_workspace_recreate(ITesting *t);
 DLL_EXPORT int test_workspace_canonicalroot(ITesting *t);
 DLL_EXPORT int test_workspace_gonefromdisk(ITesting *t);
 DLL_EXPORT int test_workspace_monitorexclude(ITesting *t);
+DLL_EXPORT int test_workspace_monitorgitignore(ITesting *t);
+DLL_EXPORT int test_workspace_ignored(ITesting *t);
 DLL_EXPORT int test_workspace_scannode_keepsopen(ITesting *t);
 DLL_EXPORT int test_workspace_reconcile(ITesting *t);
 DLL_EXPORT int test_workspace_monitorflush(ITesting *t);
@@ -204,11 +206,16 @@ DLL_EXPORT int test_workspace_openfolder_excludes_builddir(ITesting *t) {
 
     auto oldDepth = Config::Instance()["workspace"].GetInt("max_scan_depth", 1);
     Config::Instance()["workspace"].SetInt("max_scan_depth", 4);
+    // What the hard list names - the shipped default leaves build folders to '.gitignore' (test_workspace_ignored)
+    auto cfgWorkspace = Config::Instance()["workspace"];
+    auto oldExclude = cfgWorkspace.GetSequenceOfStr("exclude");
+    cfgWorkspace.SetValue<std::vector<std::string>>("exclude", {".git", "cmake-build-debug"});
 
     Workspace workspace;
     TR_ASSERT(t, workspace.OpenFolder(root.string()));
 
     Config::Instance()["workspace"].SetInt("max_scan_depth", oldDepth);
+    cfgWorkspace.SetValue<std::vector<std::string>>("exclude", oldExclude);
 
     std::vector<std::string> names;
     CollectNodeNames(workspace.GetProjectRoots()[0]->GetRootNode(), names);
@@ -674,6 +681,80 @@ DLL_EXPORT int test_workspace_monitorexclude(ITesting *t) {
     TR_ASSERT(t, glue.posted.empty());
 
     cfgWorkspace.SetValue<std::vector<std::string>>("exclude", oldExclude);
+    fs::remove_all(root, ec);
+    return kTR_Pass;
+}
+
+// The monitor follows '.gitignore' too - and a change to that file takes effect with the next flush
+DLL_EXPORT int test_workspace_monitorgitignore(ITesting *t) {
+    namespace fs = std::filesystem;
+    auto root = pathutil::CanonicalPath(fs::temp_directory_path() / "goat_ws_mongitignore");
+    std::error_code ec;
+    fs::remove_all(root, ec);
+    fs::create_directories(root / "out");
+    fs::create_directories(root / "src");
+    { std::ofstream(root / ".gitignore") << "/out/\n"; }
+
+    Workspace workspace;
+    FakeMonitorGlue glue;
+    glue.Wire(workspace);
+    TR_ASSERT(t, workspace.OpenFolder(root.string()));
+    auto monitor = glue.monitor;
+    auto projectRoot = workspace.GetProjectRoots()[0];
+
+    TR_ASSERT(t, monitor->IsPathExcluded(root / "out"));
+    TR_ASSERT(t, monitor->IsPathExcluded(root / "out" / "x.o"));
+    TR_ASSERT(t, !monitor->IsPathExcluded(root / "src" / "out"));
+    TR_ASSERT(t, !monitor->IsPathExcluded(root / ".gitignore"));
+
+    { std::ofstream(root / ".gitignore") << "/src/\n"; }
+    projectRoot->FlushDirty({root}, false);
+    TR_ASSERT(t, !monitor->IsPathExcluded(root / "out" / "x.o"));
+    TR_ASSERT(t, monitor->IsPathExcluded(root / "src" / "y.h"));
+    fs::remove_all(root, ec);
+    return kTR_Pass;
+}
+
+// Ignored items stay in the tree, marked - and an ignored folder costs one row until it is expanded
+DLL_EXPORT int test_workspace_ignored(ITesting *t) {
+    namespace fs = std::filesystem;
+    auto root = pathutil::CanonicalPath(fs::temp_directory_path() / "goat_ws_ignored");
+    std::error_code ec;
+    fs::remove_all(root, ec);
+    fs::create_directories(root / "out" / "deep");
+    fs::create_directories(root / "src");
+    { std::ofstream(root / ".gitignore") << "/out/\n*.gen\n"; }
+    { std::ofstream(root / "out" / "deep" / "x.o") << "x\n"; }
+    { std::ofstream(root / "src" / "main.cpp") << "x\n"; }
+    { std::ofstream(root / "src" / "a.gen") << "x\n"; }
+
+    Workspace workspace;
+    TR_ASSERT(t, workspace.OpenFolder(root.string()));
+    auto rootNode = workspace.GetProjectRoots()[0]->GetRootNode();
+
+    auto out = rootNode->FindNodeWithPath(root / "out");
+    TR_ASSERT(t, out != nullptr);
+    TR_ASSERT(t, out->IsIgnored());
+    TR_ASSERT(t, !out->IsScanned());
+    TR_ASSERT(t, rootNode->FindNodeWithPath(root / "out" / "deep") == nullptr);
+
+    auto src = rootNode->FindNodeWithPath(root / "src");
+    TR_ASSERT(t, !src->IsIgnored());
+    TR_ASSERT(t, !rootNode->FindNodeWithPath(root / "src" / "main.cpp")->IsIgnored());
+    TR_ASSERT(t, rootNode->FindNodeWithPath(root / "src" / "a.gen")->IsIgnored());
+
+    // Expanded: it can be browsed, and what's in it is ignored too
+    workspace.ScanNode(out);
+    auto deep = rootNode->FindNodeWithPath(root / "out" / "deep");
+    TR_ASSERT(t, deep != nullptr);
+    TR_ASSERT(t, deep->IsIgnored());
+
+    // '.gitignore' changes: the next reconcile follows
+    { std::ofstream(root / ".gitignore") << "*.cpp\n"; }
+    workspace.GetProjectRoots()[0]->GetExclusionRules()->InvalidateAll();
+    TR_ASSERT(t, workspace.ReconcileFolder(src));
+    TR_ASSERT(t, rootNode->FindNodeWithPath(root / "src" / "main.cpp")->IsIgnored());
+    TR_ASSERT(t, !rootNode->FindNodeWithPath(root / "src" / "a.gen")->IsIgnored());
     fs::remove_all(root, ec);
     return kTR_Pass;
 }

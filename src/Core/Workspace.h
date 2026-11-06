@@ -17,7 +17,7 @@
 #include "logger.h"
 
 #include "Core/FolderMonitor.h"
-#include "Core/FileSystem/FsFilter.h"
+#include "Core/FileSystem/ExclusionRules.h"
 #include "Core/PathUtil.h"
 #include "Core/Config/ConfigNode.h"
 #include "Document.h"
@@ -37,6 +37,7 @@ namespace gedit {
         using Ref = std::shared_ptr<Workspace>;
         using ContentsChangedDelegate = std::function<void()>;
         using MonitorFactory = std::function<FolderMonitor::MonitorPoint::Ref (const std::filesystem::path &rootPath)>;
+        using OpenDocumentDelegate = std::function<void(Document::Ref document)>;
         // Node define the structure of a workspace
     public:
 
@@ -51,6 +52,7 @@ namespace gedit {
             inline static const std::string kMetaKey_ReadOnly = "readonly";
             // Gone from disk while an open document still lives at or below it (kept, not removed)
             inline static const std::string kMetaKey_MissingOnDisk = "missing_on_disk";
+            inline static const std::string kMetaKey_Ignored = "ignored";
             // A new buffer ('.nb') whose file hasn't been written yet - not on disk, but not deleted either
             inline static const std::string kMetaKey_NewFile = "new_file";
 
@@ -281,6 +283,15 @@ namespace gedit {
                 SetMeta<bool>(kMetaKey_MissingOnDisk, isMissing);
             }
 
+            // Left out by '.gitignore': browsable, but not source - a folder is read when expanded, not before
+            bool IsIgnored() {
+                return GetMeta<bool>(kMetaKey_Ignored, false);
+            }
+
+            void SetIgnored(bool isIgnored) {
+                SetMeta<bool>(kMetaKey_Ignored, isIgnored);
+            }
+
             bool IsNewFile() {
                 return GetMeta<bool>(kMetaKey_NewFile, false);
             }
@@ -442,9 +453,12 @@ namespace gedit {
                 return rootNode;
             }
 
-            // The scan's exclude patterns (workspace.exclude) - handed to the monitor, which drops events below a match
-            void SetExcludeFilter(const FsFilter &newExcludeFilter) {
-                excludeFilter = newExcludeFilter;
+            // What this root leaves out - shared with the monitor (which drops the events) and the code index
+            void SetExclusionRules(ExclusionRules::Ref newRules) {
+                exclusionRules = std::move(newRules);
+            }
+            const ExclusionRules::Ref &GetExclusionRules() const {
+                return exclusionRules;
             }
 
             bool HasFolderMonitor() {
@@ -453,6 +467,11 @@ namespace gedit {
 
             FolderMonitor::MonitorPoint::Ref GetFolderMonitor() {
                 return monitor;
+            }
+
+            // Also told about the dirty folders, whatever the tree holds (the code index has every folder)
+            void SetDirtyFoldersHandler(FolderMonitor::MonitorPoint::DirtyDelegate newHandler) {
+                funcDirtyFolders = std::move(newHandler);
             }
 
             // Takes ownership of 'newMonitor' and starts it. Dirty folders come back through 'postToMain'.
@@ -464,7 +483,7 @@ namespace gedit {
                     monitor->Stop();
                 }
                 monitor = newMonitor;
-                monitor->SetExcludeFilter(excludeFilter);
+                monitor->SetExclusionRules(exclusionRules);
                 monitor->SetPostToMain(postToMain);
                 // The monitor can outlive us by a queued flush
                 std::weak_ptr<ProjectRoot> weakThis = weak_from_this();
@@ -481,6 +500,17 @@ namespace gedit {
             // a parent comes before its children (its reconcile may drop a child folder). Lost events ->
             // every scanned folder. One change notification for the lot.
             void FlushDirty(const std::set<std::filesystem::path> &dirtyFolders, bool isLostEvents) {
+                // First: a changed '.gitignore' changes what the handlers below see
+                if ((exclusionRules != nullptr) && isLostEvents) {
+                    exclusionRules->InvalidateAll();
+                } else if (exclusionRules != nullptr) {
+                    for (auto &folder : dirtyFolders) {
+                        exclusionRules->Invalidate(folder);
+                    }
+                }
+                if (funcDirtyFolders != nullptr) {
+                    funcDirtyFolders(dirtyFolders, isLostEvents);
+                }
                 if (funcReconcile == nullptr) {
                     return;
                 }
@@ -527,9 +557,10 @@ namespace gedit {
             std::filesystem::path rootPath = {};
             ReconcileDelegate funcReconcile = nullptr;
             ChangedDelegate funcChanged = nullptr;
+            FolderMonitor::MonitorPoint::DirtyDelegate funcDirtyFolders = nullptr;
             Node::Ref rootNode = {};
             FolderMonitor::MonitorPoint::Ref monitor = {};
-            FsFilter excludeFilter = {};
+            ExclusionRules::Ref exclusionRules = nullptr;
         };
 
     public:
@@ -552,6 +583,20 @@ namespace gedit {
             monitorPostToMain = std::move(postToMain);
         }
 
+        // Told about the dirty folders of every monitored root (the Editor's glue to the code index)
+        void SetDirtyFoldersHandler(FolderMonitor::MonitorPoint::DirtyDelegate newHandler) {
+            dirtyFoldersHandler = std::move(newHandler);
+        }
+        // A document joined / left the open list
+        void SetOpenDocumentHandlers(OpenDocumentDelegate onOpened, OpenDocumentDelegate onClosed) {
+            documentOpenedHandler = std::move(onOpened);
+            documentClosedHandler = std::move(onClosed);
+        }
+
+        // The root for loose files - the cwd, not a folder anyone opened
+        bool IsDefaultRoot(const ProjectRoot::Ref &root) const {
+            return root == defaultRoot;
+        }
         const std::vector<Workspace::ProjectRoot::Ref> &GetProjectRoots() {
             return projectRoots;
         }
@@ -665,6 +710,11 @@ namespace gedit {
         void ScanPathToReference(Node::Ref startNode, const std::filesystem::path &refPath);
 
         ProjectRoot::Ref GetDefaultRoot();   // creates the CWD-based default root if needed
+        // The one place the 'workspace' config becomes rules
+        ExclusionRules::Ref CreateExclusionRules(const std::filesystem::path &rootPath);
+        // The rules of the innermost root holding 'path'
+        ExclusionRules::Ref ExclusionRulesFor(const std::filesystem::path &path);
+        bool IsPathIgnored(const std::filesystem::path &path, bool isFolder);
 
         bool RemoveNode(Node::Ref node);
         // RemoveNodeGoneFromDisk's walk: drops the children with no open document below them, flags the
@@ -699,6 +749,9 @@ namespace gedit {
         ContentsChangedDelegate onChangeHandler = {};
         MonitorFactory monitorFactory = {};
         FolderMonitor::MonitorPoint::PostDelegate monitorPostToMain = {};
+        FolderMonitor::MonitorPoint::DirtyDelegate dirtyFoldersHandler = nullptr;
+        OpenDocumentDelegate documentOpenedHandler = nullptr;
+        OpenDocumentDelegate documentClosedHandler = nullptr;
 
         Node::Ref activeFolderNode = nullptr;
 

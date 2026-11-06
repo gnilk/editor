@@ -43,6 +43,8 @@ static std::unordered_map<std::string, kAction> strToActionMap = {
         {"CycleBufferPrev",      kAction::kActionCycleActiveBufferPrev},
         {"SwitchToBuffer",       kAction::kActionSwitchToBuffer},
         {"Find",                 kAction::kActionFind},
+        {"GotoSymbol",           kAction::kActionGotoSymbol},
+        {"ToggleIgnored",        kAction::kActionToggleIgnored},
         {"EditBackspace",         kAction::kActionEditBackspace},
         {"CopyToClipboard",       kAction::kActionCopyToClipboard},
         {"CutToClipboard",        kAction::kActionCutToClipboard},

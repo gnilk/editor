@@ -16,6 +16,7 @@ namespace gedit {
         static void SwitchToBufferNumber(int tabNumber);
         static void SwitchToNamedView(const std::string &viewName);
         static void ShowFind();
+        static void ShowGotoSymbol();
     };
 }
 

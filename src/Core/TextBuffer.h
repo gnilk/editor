@@ -19,6 +19,7 @@
 #include "Core/Language/LanguageBase.h"
 #include "Core/Index/StructureScanner.h"
 #include "Core/Index/SemanticNames.h"
+#include "Core/Index/WorkspaceNames.h"
 #include "Core/Line.h"
 #include "Core/Point.h"
 #include "Core/UnicodeHelper.h"
@@ -32,6 +33,9 @@ namespace gedit {
     class TextBuffer : public std::enable_shared_from_this<TextBuffer> {
     public:
         using Ref = std::shared_ptr<TextBuffer>;
+        using StructureHandler = std::function<void(const FileStructure &structure)>;
+        // The current names across the workspace. nullptr: nothing new yet, keep what you have.
+        using WorkspaceNamesSource = std::function<WorkspaceNames::Ref()>;
 
     public:
         typedef enum {
@@ -66,6 +70,16 @@ namespace gedit {
         bool Save(const std::filesystem::path &pathName);
         bool SaveForce(const std::filesystem::path &pathName);
         bool Load(const std::filesystem::path &pathName);
+
+        // Called with the buffer's structure after a pause in editing (docs/code-index.md §4.4), on the parse
+        // thread: no text copy, no lexing, just what the lines carry. Line numbers are the current ones.
+        void SetStructureHandler(StructureHandler newHandler);
+        FileStructure CollectStructure();
+
+        // Where the names this buffer doesn't declare itself come from (docs/code-index.md §11.5). Asked at each
+        // full parse and on the idle tick, on the parse thread; a new answer recolours the lines without lexing.
+        // Only a language with a structure scanner takes them.
+        void SetWorkspaceNamesSource(WorkspaceNamesSource newSource);
 
         // TS-5a (docs/terminal-scrollback.md §8.1): persist the buffer's text AND its
         // per-span LineAttrib colours/attributes to a versioned binary file, and restore them. Unlike
@@ -192,6 +206,7 @@ namespace gedit {
         enum class ParseJobType {
             kParseFull,
             kParseRegion,
+            kWorkspaceNames,
         };
 
         class ParseJob : public Job {
@@ -235,7 +250,12 @@ namespace gedit {
         bool ScanStructure(size_t idxLineStart, size_t idxLineEnd, bool isFullScan);
         bool PrepareStructureScanner();
         void RecolourSemanticNames();
+        void TakeWorkspaceNames();
+        bool RefreshWorkspaceNames();
+        void NotifyStructureChanged();
+        void PublishStructure();
         void ApplySemanticNames(Line &line);
+        kLanguageTokenClass TokenClassOfName(const std::u32string &text, size_t idxName, const std::u32string &name);
         void OnLineRemoved(Line &line);
     private:
         volatile ParseState parseState = kState_None;
@@ -254,7 +274,14 @@ namespace gedit {
         StructureScanner::Ptr structureScanner = nullptr;
         const LanguageBase *structureScannerLanguage = nullptr;     // the language 'structureScanner' was made for
         SemanticNames semanticNames;
+        WorkspaceNames::Ref workspaceNames = nullptr;       // the file's own names go first
+        bool isSyntaxColoured = false;                      // a language with a structure scanner - set by each parse
         bool isRecolourPending = false;     // the names changed - the lines outside the edit wait for a pause
+        bool isStructurePending = false;    // the lines changed - the structure handler waits for a pause
+        std::chrono::steady_clock::time_point timeStructureChanged = {};
+        std::mutex structureHandlerLock;
+        StructureHandler structureHandler = nullptr;
+        WorkspaceNamesSource workspaceNamesSource = nullptr;
         std::chrono::steady_clock::time_point timeNamesChanged = {};
         // What deleted lines declared - deleted on the UI thread, taken out of 'semanticNames' by the next scan
         std::mutex removedDeclarationsLock;

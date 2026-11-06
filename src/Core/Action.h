@@ -37,6 +37,8 @@ namespace gedit {
         kActionCycleActiveBufferPrev,
         kActionSwitchToBuffer,          // default: Alt+1..9 (macOS also Cmd+1..9) - the digit picks the tab, 9 = last
         kActionFind,                    // default: Cmd+F (macOS) / Ctrl+F (Linux) - Find in the active document
+        kActionToggleIgnored,           // default: Alt+H in the workspace view - hide/show what .gitignore leaves out
+        kActionGotoSymbol,              // default: Cmd+T (macOS) / Ctrl+T (Linux) - search the code index
         kActionEnterCommandMode,
         kActionLeaveCommandMode,
         kActionStartSearch,

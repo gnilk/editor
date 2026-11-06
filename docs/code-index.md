@@ -695,8 +695,8 @@ locals / local classes / lambdas inside bodies, `#if` arms other than the first,
   them shows `regular` (`Editor::ConfigureTheme`). Off switch: `languages.cpp.semantic_highlighting`.
 
 **Not handled (by design for now):** locals and parameters aren't symbols (a local named like a member gets
-the member colour); namespace-scope variables stay `regular`; names declared in other files wait for the
-index (step 2).
+the member colour); namespace-scope variables stay `regular`; names declared in other files came with the
+index (§11.6).
 
 ### 11.4 Step 1c - theme importer (2026-10-25)
 
@@ -735,7 +735,7 @@ to it stays a `main.theme:` edit (`.cfg --user set main.theme x.theme.yml`) and 
 - `globals` gets the same colours as `content`; missing UI/terminal colours fall back to the editor's
   background/foreground and the xterm palette.
 
-Night Owl (the sample in `Assets/Themes/`, not committed) imports with one key unmatched (`rule`), 38
+Night Owl (the sample in `Assets/Themes/`) imports with one key unmatched (`rule`), 38
 context selectors and 29 font styles reported.
 
 ### 11.5 Step 2 - decisions taken before starting (2026-11-05)
@@ -751,6 +751,122 @@ context selectors and 29 font styles reported.
 - **C/C++ only** (D5): the only structure scanner so far.
 - **Memory:** tens of MB per million symbols is accepted; a stats readout checks it on PuckoNew.
 - **Order:** step 2 before 1d. Library names then slot in as symbols with origin = system.
+
+### 11.6 Step 2 results (2026-11-05, M-series Mac, release)
+
+`gedit-bench --index <dir>` indexes a tree and times the queries, single-threaded on the finished index. With
+`.gitignore` honoured (§11.7) - testrunner drops from 399 files because it was indexing build output:
+
+| Tree | Files | Index time | Symbols | Names | Memory | Worst keypress |
+|---|---|---|---|---|---|---|
+| GoatEdit `src` | 357 | 149 ms | 14 936 | 10 070 | 2.7 MB | 0.32 ms |
+| testrunner | 149 | 10 ms | 2 224 | 1 185 | 0.3 MB | 0.07 ms |
+| noc_goa | 178 | 16 ms | 5 822 | 3 842 | 0.9 MB | 0.13 ms |
+| vcpu | 167 | 15 ms | 5 356 | 2 836 | 0.7 MB | 0.12 ms |
+| PuckoNew | 1 377 | 96 ms | 39 463 | 20 551 | 6.2 MB | 0.83 ms |
+
+So persistence stays out: startup indexing is well under a second. Query time grows with the number of
+names, so a short query at 1M symbols extrapolates to ~20 ms - over the §4.5 target, but kernel-sized, and
+nothing here has that many. PuckoNew's size cap (D5) skips the vendored SQLite, so its 560k lines aren't all
+indexed.
+
+**Where the code went another way than §4.3-4.5:**
+- **No trigram table.** A trigram can't help a subsequence (`srch`) or word-start match (`SF`). Each distinct
+  name carries a mask of its characters instead; a query walks the names, the mask rejects most, the rest are
+  scored.
+- **No separate writer thread.** A worker replaces one file under a short write lock. Same effect, less code;
+  a query only waits for one file's worth of work.
+- **One index across all roots**, not one per root (D8) - per-root was for the cache key, which step 5 can
+  still split.
+- **Not a project:** the cwd default root, and any folder that is `$HOME` or holds it, are never indexed.
+- **Bad UTF-8:** the indexer turns invalid bytes into `?` before decoding, so a Latin-1 comment doesn't cost
+  the rest of the file (the editor's own load still has bug #15).
+
+**Keeping current (slice 2):**
+- **Open files:** a `Line` keeps its symbols (`LineStructure::symbols`). After a pause in typing (300 ms, as for
+  recolouring) the parse thread walks the lines - no text copy, no lexing - and hands the index one
+  `FileStructure`. Line numbers come from the walk, so they survive edits above a symbol. Any parse counts as
+  a change, because any edit moves the lines below it.
+- **The buffer owns an open file:** the indexer leaves it alone until the document closes, so a disk read can't
+  put an older version over unsaved work. Closing reads it from disk again.
+- **Changes on disk:** `FolderMonitor`'s dirty folders go to the indexer, which compares (mtime, size) and reads
+  only what differs; lost events compare every root. Off unless `foldermonitor.enabled` is set; the Linux
+  backend is still pending.
+- **Markers:** one file can't tell `A::f` of a class from one of a namespace, the index can - a hit whose scope
+  names a known class is a method. For functions and methods upper case is the body (`F`, `M`), lower the
+  declaration (`f`, `m`).
+- **Known, inherited:** the parse thread walks `lines` without a lock against the UI thread, as `ScanStructure`
+  and `RecolourSemanticNames` already do. The walk happens at a pause, but typing can still meet it.
+
+**Cross-file colouring (slice 3, 2026-11-06):** the second source of §10.1. `CodeIndex::GetWorkspaceNames()` gives an
+immutable name -> class snapshot (`WorkspaceNames`). A parse thread takes the pointer and probes it per identifier
+without a lock.
+- **Order:** the syntax first, then the file's own meaning - also when that meaning is "ambiguous", a name the file
+  disagrees with itself about doesn't fall through to the workspace - then the workspace.
+- **The syntax first:** after `.` or `->` the code says what a name is: called, a method; otherwise a member. It needs
+  no index and can't be fooled by a name's other meanings, so `a.begin()` and `b.size()` look alike whatever `a` and `b`
+  are. Before `<` it can't tell (`a.get<int>()`, `a.count < 3`) and the names decide. Excluded: `Args... rest` and
+  a trailing return type (`[]() -> Foo`, a `->` spaced off a `)` or a qualifier). `f()->x` written without the space
+  stays an access, so `auto f()->Foo` shows a member.
+- **One meaning or none:** a constructor doesn't count as a second meaning; a namespace-scope variable does, although
+  it has no colour. GoatEdit: 273 of 10 103 names have several meanings; PuckoNew 1 044 of 20 671.
+- **Context, because the index has no locals:** by name alone, a member `path` anywhere colours every local `path`
+  everywhere. So for a bare name a function must be followed by `(`, a member stays plain, and a type, macro, enum value
+  or namespace starting in lower case (`other`, `current`, `ptr` - hundreds of those on real trees) must stand where a
+  local can't: after `::`, or before a name, `(`, `::`, `<`, `*`, `&`. `kFoo` is exempt. A miss stays plain; that is
+  the cheap way to be wrong.
+- **Reaching the buffers:** `TextBuffer::SetWorkspaceNamesSource`, asked at each full parse and on the idle tick. Any pause
+  in typing rebuilds the table (0.8 ms GoatEdit, 3.9 ms PuckoNew), and it almost never differs: the same pointer comes
+  back, so nothing recolours. A real change recolours by walking the token lists. While the indexer works the source
+  answers nothing: a meaning isn't settled until every file is in.
+- **Languages:** only one with a structure scanner takes the names, so `ViewBase` in a markdown file stays text.
+- **Noted for later - types on symbols:** the scanner parses a member's full type (`TypeRef`), then `ResolveHeld` keeps
+  only the held type for the `kHolds` edge, and edges never reach the index. Keeping the type on `CodeSymbol` (members,
+  and return types on methods) is small; resolving `a.b.c` from it gives bare members, Go to definition and `.`
+  suggestions a base. No need to parse the standard library for it: `std::vector<Document>` shows it is a template, so
+  `std::vector` can go in as a type of unknown origin, outside the project, and the dependency on `Document` still
+  resolves. Locals and `auto` stay out of reach - that way lies a compiler front end.
+- **Limits:** a member used bare in a `.cpp` (`viewTopLine` inside `Foo::Bar`) stays plain unless that file declares it;
+  it needs the file's class or its includes. With `threaded_syntaxparser: no` there is no idle tick, so colours follow
+  the next full parse.
+- **A very large file:** `gedit-bench --recolour <file> <root>`, SQLite's 8 MB amalgamation (238 189 lines) open with
+  PuckoNew's 19 630 names: full parse about 420 ms (the syntax check adds some 25 ms, the names nothing measurable); a
+  recolour 19 ms; the walk after each pause in typing 2.6 ms.
+
+### 11.7 Exclusions - `ExclusionRules` (2026-11-05)
+
+`use_git_ignore: yes` had never done anything: `.gitignore` wasn't parsed anywhere, the one branch for it was an
+inverted `TODO` in a function nobody called, and `workspace.exclude` was read separately by each consumer. Now a
+`ProjectRoot` owns one `ExclusionRules`, shared with the folder scanner, the monitor and the indexer.
+
+| | `workspace.exclude` | `.gitignore` |
+|---|---|---|
+| Meaning | Never touch this (`.git`) | Not source, but it exists |
+| Tree | Not shown | Dimmed; `ToggleIgnored` (Alt+H in the workspace view) hides it |
+| Scanned | Never | When expanded |
+| Index, monitor | Skipped | Skipped |
+
+**It can't be a merge into the exclude list.** `FsFilter` matches single names, so `/ext/` would also hide `src/ext`
+(this repo's rule), and `src/ext/ELFIO/` can't be expressed at all. Rules are git's: anchoring, `!`, `**`, last line
+wins, deeper files beat shallower ones, nothing below an ignored folder comes back, and a folder opened inside a
+repository follows the repository's files.
+
+**Checked against git itself:** `gedit-bench --ignored` held against `git check-ignore --no-index` on GoatEdit,
+testrunner, noc_goa, vcpu and PuckoNew - 20 782 paths, 1 difference, and that one explained: a folder in testrunner
+holding its own `.gitignore` of `*` (we ignore what's in it, git also the folder - the same files are skipped).
+
+**Limits:** `.git/info/exclude` and a global file named by `core.excludesFile` aren't read; git's default global file
+(`~/.config/git/ignore`) is. A changed `.gitignore` reaches the tree and
+the monitor at the next flush, but files it newly ignores or un-ignores stay as they are in the index until a restart
+or a lost-events rescan. An expanded ignored folder isn't live - the monitor drops its events. The Linux monitor still
+reads the old `foldermonitor.exclude` key (B7 in `foldermonitor_fixes.md`), so it has no exclusions until that backend
+is done.
+
+**Default list:** `bld` and `cmake-build-*` left `workspace.exclude`, or they could never be browsed - the hard list
+wins. A build folder in a project without a `.gitignore` entry for it now counts as source.
+
+**Colour:** `tree_dimmed` in `colors.json`, from VS Code's `gitDecoration.ignoredResourceForeground` on import. A theme
+without the key gets the midpoint of foreground and background.
 
 ## 12. Open decisions
 

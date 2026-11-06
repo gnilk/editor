@@ -219,6 +219,10 @@ void TextBuffer::ParseThread() {
                 RecolourSemanticNames();
                 Editor::Instance().TriggerUIRedraw();
             }
+            if (isStructurePending && ((std::chrono::steady_clock::now() - timeStructureChanged) >= RECOLOUR_DELAY)) {
+                PublishStructure();
+            }
+            TakeWorkspaceNames();
             continue;
         }
         auto jobItem = parseQueue.pop();
@@ -244,17 +248,22 @@ void TextBuffer::ExecuteParseJob(const ParseJob::Ref &job) {
         ExecuteFullParse();
     } else if (job->jobType == ParseJobType::kParseRegion) {
         ExecuteRegionParse(job->idxLineStart, job->idxLineEnd);
+    } else if (job->jobType == ParseJobType::kWorkspaceNames) {
+        TakeWorkspaceNames();
     }
     job->NotifyComplete();
 }
 
 void TextBuffer::ExecuteFullParse() {
+    // Every line is about to be coloured - nothing to recolour for a new answer
+    RefreshWorkspaceNames();
     auto tokenizer = ParserTokenizer();
     tokenizer.ParseLines(lines);
     // The names were applied while parsing - new names only need the colours redone, no lexing
     if (ScanStructure(0, lines.size(), true)) {
         RecolourSemanticNames();
     }
+    NotifyStructureChanged();
     parseMetrics.total += 1;
     parseMetrics.full += 1;
 }
@@ -275,14 +284,82 @@ size_t TextBuffer::ExecuteRegionParse(size_t idxLineStart, size_t idxLineEnd) {
             RecolourSemanticNames();
         }
     }
+    NotifyStructureChanged();
     parseMetrics.total += 1;
     parseMetrics.region += 1;
     return result;
 }
 
+// Any edit moves the lines below it, so any parse counts as a change. Waits for a pause - one walk over the
+// lines per pause, whatever was typed before it.
+void TextBuffer::NotifyStructureChanged() {
+    if (structureScanner == nullptr) {
+        return;
+    }
+    isStructurePending = true;
+    timeStructureChanged = std::chrono::steady_clock::now();
+    if (reparseThread == nullptr) {
+        PublishStructure();
+    }
+}
+
+void TextBuffer::SetStructureHandler(StructureHandler newHandler) {
+    std::lock_guard<std::mutex> guard(structureHandlerLock);
+    structureHandler = std::move(newHandler);
+}
+
+// A buffer is parsed before it is opened, so the job is what keeps it from showing plain until the next tick
+void TextBuffer::SetWorkspaceNamesSource(WorkspaceNamesSource newSource) {
+    bool hasSource = newSource != nullptr;
+    {
+        std::lock_guard<std::mutex> guard(structureHandlerLock);
+        workspaceNamesSource = std::move(newSource);
+    }
+    if (!hasSource) {
+        return;
+    }
+    if (reparseThread != nullptr) {
+        StartParseJob(ParseJobType::kWorkspaceNames);
+    } else {
+        TakeWorkspaceNames();
+    }
+}
+
+// With no handler the change stays pending, so a buffer that finished parsing before it was opened publishes
+void TextBuffer::PublishStructure() {
+    std::lock_guard<std::mutex> guard(structureHandlerLock);
+    if (structureHandler == nullptr) {
+        return;
+    }
+    isStructurePending = false;
+    structureHandler(CollectStructure());
+}
+
+FileStructure TextBuffer::CollectStructure() {
+    FileStructure fileStructure;
+    fileStructure.numLines = lines.size();
+    for (size_t idxLine = 0; idxLine < lines.size(); idxLine++) {
+        auto line = lines[idxLine];
+        line->Lock();
+        auto structure = line->GetStructure();
+        if (structure != nullptr) {
+            for (auto &symbol : structure->symbols) {
+                auto &collected = fileStructure.symbols.emplace_back(symbol);
+                collected.line = (uint32_t)idxLine;
+                collected.beginLine = (uint32_t)idxLine;
+                collected.endLine = (uint32_t)idxLine;
+                collected.idxParent = -1;
+            }
+        }
+        line->Release();
+    }
+    return fileStructure;
+}
+
 // A copy of the language's tokenizer whose per-line hook also applies the semantic names - after the
 // language's own post-process, so the language layer never sees the index
 LangLineTokenizer TextBuffer::ParserTokenizer() {
+    isSyntaxColoured = PrepareStructureScanner();
     auto tokenizer = language->Tokenizer();
     auto postProcessLanguage = language.get();
     tokenizer.SetPostLineCallback([this, postProcessLanguage](const Line::Ref &line) {
@@ -355,10 +432,12 @@ bool TextBuffer::ScanStructure(size_t idxLineStart, size_t idxLineEnd, bool isFu
 
     // The declarations by line (a declaration is on the line of its name)
     std::vector<std::vector<SemanticDeclaration>> declarations(scannedLines.size());
+    std::vector<std::vector<CodeSymbol>> symbols(scannedLines.size());
     for (auto &symbol : fileStructure.symbols) {
         if ((symbol.line < idxStart) || (symbol.line >= idxStart + scannedLines.size())) {
             continue;
         }
+        symbols[symbol.line - idxStart].push_back(symbol);
         auto declaration = SemanticNames::DeclarationFor(symbol);
         if (declaration.has_value()) {
             declarations[symbol.line - idxStart].push_back(std::move(*declaration));
@@ -411,6 +490,7 @@ bool TextBuffer::ScanStructure(size_t idxLineStart, size_t idxLineEnd, bool isFu
             for (auto &declaration : previous) {
                 semanticNames.Add(declaration);
             }
+            scannedStructures[i]->symbols = std::move(symbols[i]);
         }
         line->Release();
     }
@@ -444,6 +524,30 @@ void TextBuffer::RecolourSemanticNames() {
     }
 }
 
+void TextBuffer::TakeWorkspaceNames() {
+    if (RefreshWorkspaceNames()) {
+        RecolourSemanticNames();
+        Editor::Instance().TriggerUIRedraw();
+    }
+}
+
+// True when the lines need recolouring
+bool TextBuffer::RefreshWorkspaceNames() {
+    WorkspaceNames::Ref current = workspaceNames;
+    if ((language == nullptr) || !PrepareStructureScanner()) {
+        current = nullptr;
+    } else {
+        std::lock_guard<std::mutex> guard(structureHandlerLock);
+        auto answer = (workspaceNamesSource != nullptr) ? workspaceNamesSource() : nullptr;
+        if (answer != nullptr) {
+            current = std::move(answer);
+        }
+    }
+    bool isChanged = current != workspaceNames;
+    workspaceNames = std::move(current);
+    return isChanged;
+}
+
 static bool IsIdentifierChar(char32_t ch) {
     return ((ch >= U'a') && (ch <= U'z')) || ((ch >= U'A') && (ch <= U'Z')) || ((ch >= U'0') && (ch <= U'9')) || (ch == U'_');
 }
@@ -453,7 +557,7 @@ void TextBuffer::ApplySemanticNames(Line &line) {
     auto &text = line.Buffer();
     for (auto &attrib : line.Attributes()) {
         bool isSemantic = SemanticNames::IsSemanticClass(attrib.tokenClass);
-        if (!isSemantic && ((attrib.tokenClass != kLanguageTokenClass::kRegular) || semanticNames.IsEmpty())) {
+        if (!isSemantic && ((attrib.tokenClass != kLanguageTokenClass::kRegular) || (semanticNames.IsEmpty() && (workspaceNames == nullptr) && !isSyntaxColoured))) {
             continue;
         }
         auto idxStart = static_cast<size_t>(attrib.idxOrigString);
@@ -463,7 +567,7 @@ void TextBuffer::ApplySemanticNames(Line &line) {
         }
         auto tokenClass = kLanguageTokenClass::kRegular;
         if (idxEnd > idxStart) {
-            tokenClass = semanticNames.Lookup(text.substr(idxStart, idxEnd - idxStart));
+            tokenClass = TokenClassOfName(text, idxStart, text.substr(idxStart, idxEnd - idxStart));
         }
         if (tokenClass == attrib.tokenClass) {
             continue;
@@ -473,6 +577,24 @@ void TextBuffer::ApplySemanticNames(Line &line) {
         attrib.foregroundColor = fgColor;
         attrib.backgroundColor = bgColor;
     }
+}
+
+// The syntax goes first: it can't be wrong about 'a.size()', a name can. Then the file's own meaning - also when
+// that is 'no single meaning'.
+kLanguageTokenClass TextBuffer::TokenClassOfName(const std::u32string &text, size_t idxName, const std::u32string &name) {
+    if (isSyntaxColoured) {
+        auto fromSyntax = WorkspaceNames::ClassFromSyntax(text, idxName, idxName + name.size());
+        if (fromSyntax != kLanguageTokenClass::kRegular) {
+            return fromSyntax;
+        }
+    }
+    if (semanticNames.Contains(name)) {
+        return semanticNames.Lookup(name);
+    }
+    if (workspaceNames != nullptr) {
+        return workspaceNames->LookupAt(text, idxName, name);
+    }
+    return kLanguageTokenClass::kRegular;
 }
 
 // With the line locked (DeleteLineAt, UI thread): what it declared leaves the names at the next scan

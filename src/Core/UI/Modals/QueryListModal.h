@@ -42,6 +42,10 @@ namespace gedit {
     protected:
         // The rows to list for this query (one line each)
         virtual std::vector<std::u32string> OnQuery(const std::u32string &query) = 0;
+        // Text for the right of a row, dimmed - e.g. where a hit is. It wins over the row's own text.
+        virtual std::u32string OnRowDetail(int idxRow) {
+            return {};
+        }
         // The selection moved (-1: no results)
         virtual void OnPreview(int idxRow) {}
         // Return on a row

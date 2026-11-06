@@ -1,11 +1,18 @@
 #
 # Keymap file for the workspace view.
 #
-# Every binding the workspace view needs is identical to default_keymap, so this
-# is a pure-inheritance keymap: it declares no bindings of its own and re-uses
-# default_keymap wholesale. (An empty/absent 'actions' section is valid for a
-# keymap that only inherits.)
+# Inherits all shared bindings from default_keymap; only workspace-specific
+# overrides live here. NOTE: modifier aliases are resolved per-file (they are
+# NOT inherited), so the 'modifiers' block must still define every alias that a
+# binding below references.
 #
 keymap: {
-  inherit: default_keymap
+  inherit: default_keymap,
+  modifiers: {
+    UINavigationModifier : KeyCode_Alt,
+  },
+  actions: {
+    # Hide/show what '.gitignore' leaves out. Replaces the inherited hex view, which means nothing here.
+    ToggleIgnored : "UINavigationModifier + 'h'",
+  }
 }

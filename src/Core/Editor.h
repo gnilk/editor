@@ -16,6 +16,8 @@
 #include "Core/RuntimeConfig.h"
 #include "Core/UI/Graphics/KeyboardDriverBase.h"
 #include "Core/Workspace.h"
+#include "Core/Index/CodeIndex.h"
+#include "Core/Index/Indexer.h"
 #include "Core/Document.h"
 #include "Core/Workspace.h"
 #include "Core/TypeUtil.h"
@@ -142,6 +144,13 @@ namespace gedit {
         std::vector<std::string> GetRegisteredLanguages();
 
 
+        // nullptr when 'codeindex.enabled' is off
+        CodeIndex::Ref GetCodeIndex() {
+            return codeIndex;
+        }
+        const std::vector<std::filesystem::path> &GetIndexedRoots() {
+            return indexedRoots;
+        }
         const Workspace::Ref GetWorkspace() {
             return workspace;
         }
@@ -229,6 +238,14 @@ namespace gedit {
         // Glue: the workspace makes its folder monitors through the platform FolderMonitor (when
         // 'foldermonitor.enabled') and has their flushes run on the runloop. Keeps Workspace free of both.
         void WireFolderMonitor();
+        // Glue: index the project roots not indexed yet, in the background (docs/code-index.md §4.4)
+        void IndexProjectRoots();
+        Indexer::Languages IndexableLanguages();
+        // Glue: open documents feed the index from their buffer, and folder changes reach the indexer
+        void WireCodeIndex();
+        void OnDocumentOpened(const Document::Ref &document);
+        void OnDocumentClosed(const Document::Ref &document);
+        std::string IndexPathForDocument(const Document::Ref &document);
 
         void ExecutePostScript(std::istream &stream);
     private:
@@ -255,6 +272,9 @@ namespace gedit {
         std::unordered_map<kLanguageTokenClass, std::pair<ColorRGBA, ColorRGBA>> languageColorConfig;
         LanguageBase::Ref defaultLanguage = {};
         std::unordered_map<std::string, LanguageBase::Ref> extToLanguages;
+        CodeIndex::Ref codeIndex = nullptr;
+        Indexer::Ref indexer = nullptr;
+        std::vector<std::filesystem::path> indexedRoots;
 
         State state = ViewState;
         std::string viewStateKeymapName = "default_keymap";  // This is the default key-map for any 'view' related activity

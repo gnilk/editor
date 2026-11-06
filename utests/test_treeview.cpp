@@ -21,6 +21,7 @@ DLL_EXPORT int test_treeview_fetch_reentrant_additem(ITesting *t);
 DLL_EXPORT int test_treeview_fetch_noop_reexpand(ITesting *t);
 DLL_EXPORT int test_treeview_additem_no_flatten(ITesting *t);
 DLL_EXPORT int test_treeview_narrow_width_no_overflow(ITesting *t);
+DLL_EXPORT int test_treeview_select_keeps_collapsed(ITesting *t);
 }
 
 namespace {
@@ -188,5 +189,28 @@ DLL_EXPORT int test_treeview_narrow_width_no_overflow(ITesting *t) {
         threw = true;
     }
     TR_ASSERT(t, !threw);
+    return kTR_Pass;
+}
+
+// Selecting shows an item: what leads to it opens, the item itself stays as it was. A rebuild re-selects the row
+// the user is on, and a collapsed folder under the cursor must not open because of that.
+DLL_EXPORT int test_treeview_select_keeps_collapsed(ITesting *t) {
+    TestTree tree;
+    tree.SetToStringDelegate([](int i) { return std::to_string(i); });
+
+    auto root = tree.AddItem(1);
+    auto folder = tree.AddItem(root, 2);
+    auto child = tree.AddItem(folder, 3);
+
+    TR_ASSERT(t, tree.SetCurrentlySelectedItem(2));
+    TR_ASSERT(t, tree.GetCurrentSelectedItem() == 2);
+    TR_ASSERT(t, root->isExpanded);
+    TR_ASSERT(t, !folder->isExpanded);
+
+    // Selecting what is inside it does open it
+    TR_ASSERT(t, tree.SetCurrentlySelectedItem(3));
+    TR_ASSERT(t, tree.GetCurrentSelectedItem() == 3);
+    TR_ASSERT(t, folder->isExpanded);
+    TR_ASSERT(t, !child->isExpanded);
     return kTR_Pass;
 }

@@ -1141,7 +1141,7 @@ A relation is an `inherits` or `holds` edge; the rest are includes and `using`. 
   or `Ctrl` held no text comes. `Keyboard::IsShiftedText` now tells the two apart. This is the first binding with two modifiers on a
   letter, and the drivers themselves have no test; only the rule does.
 - **Modals on SDL3:** the right border was drawn just inside the window, where the contents painted over it, and every caption was
-  white on white. Both found through this view. SDL2's caption is fixed too; its borders work differently and aren't checked.
+  blank: nothing set the window context's colours. Both found through this view. SDL2's caption is fixed too; its borders work differently and aren't checked.
 - **`TreeSelectionModal`** had no users and laid its tree out over the whole screen. It now fills the modal, as `ListSelectionModal` does.
 - **A crash found by a mutation test:** `IsNameOf` underflowed when a type is one character longer than the name (`ab::Item`, `b::Item`).
   Adding a test for a surviving mutation showed it, and any edge written that way would have thrown.

@@ -79,6 +79,7 @@ extern "C" {
     DLL_EXPORT int test_codeindex_tree_line_range(ITesting *t);
     DLL_EXPORT int test_codeindex_tree_coloured_line(ITesting *t);
     DLL_EXPORT int test_codeindex_tree_draw_source_row(ITesting *t);
+    DLL_EXPORT int test_codeindex_tree_closed_like_open(ITesting *t);
     DLL_EXPORT int test_codeindex_goto_nearest_symbol(ITesting *t);
     DLL_EXPORT int test_codeindex_goto_find_exact(ITesting *t);
     DLL_EXPORT int test_codeindex_goto_toggle(ITesting *t);
@@ -3696,5 +3697,40 @@ DLL_EXPORT int test_codeindex_tree_draw_source_row(ITesting *t) {
 
     // Anything else is the tree's to draw
     TR_ASSERT(t, !modal.DrawSourceRow(wide, 2, 0, 200, tree->GetRootNode()->children[0]->data));
+    return kTR_Pass;
+}
+
+// The same line colours the same, closed or open - in the colours, not only the classes
+DLL_EXPORT int test_codeindex_tree_closed_like_open(ITesting *t) {
+    auto root = IndexerFolder("treeclosedopen");
+    auto path = (root / "a.h").string();
+    WriteTextFile(path, "#include <string>\nnamespace app {\n    class Item {\n        const int count = 4;  // note\n    };\n}\n");
+
+    auto closed = ActionHelper::SourceLine(path, 3);
+    TR_ASSERT(t, closed != nullptr);
+
+    auto mainConfig = Config::Instance()["main"];
+    auto wasThreaded = mainConfig.GetBool("threaded_syntaxparser", false);
+    mainConfig.SetBool("threaded_syntaxparser", false);
+    auto document = Editor::Instance().LoadDocument(path);
+    TR_ASSERT(t, document != nullptr);
+    document->GetTextBuffer()->Reparse();
+    auto open = ActionHelper::SourceLine(path, 3);
+    mainConfig.SetBool("threaded_syntaxparser", wasThreaded);
+    Editor::Instance().CloseDocument(document);
+
+    TR_ASSERT(t, open != nullptr);
+    TR_ASSERT(t, closed->Attributes().size() == open->Attributes().size());
+    for (size_t i = 0; i < closed->Attributes().size(); i++) {
+        auto &closedAttrib = closed->Attributes()[i];
+        auto &openAttrib = open->Attributes()[i];
+        TR_ASSERT(t, closedAttrib.idxOrigString == openAttrib.idxOrigString);
+        // Only an open file knows its own names
+        if (!SemanticNames::IsSemanticClass(openAttrib.tokenClass)) {
+            TR_ASSERT(t, closedAttrib.foregroundColor.RedAsInt() == openAttrib.foregroundColor.RedAsInt());
+            TR_ASSERT(t, closedAttrib.foregroundColor.GreenAsInt() == openAttrib.foregroundColor.GreenAsInt());
+            TR_ASSERT(t, closedAttrib.foregroundColor.BlueAsInt() == openAttrib.foregroundColor.BlueAsInt());
+        }
+    }
     return kTR_Pass;
 }

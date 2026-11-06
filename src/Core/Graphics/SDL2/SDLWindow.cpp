@@ -168,6 +168,7 @@ void SDLWindow::DrawWindowDecoration() {
     if (glbDebugSDLWindows || decorationFlags & kWinDeco_DrawCaption) {
         // Need a font-class to store this - should be initalized by screen...
         auto &dcWin = GetWindowDC();
+        dcWin.ResetDrawColors();    // nothing else sets this context's colours, and alike they'd draw a blank bar
         dcWin.FillLine(0, kTextAttributes::kInverted, ' ');
         dcWin.DrawStringWithAttributesAt(0, 0, kTextAttributes::kInverted, caption.c_str());
     }

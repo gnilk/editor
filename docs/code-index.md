@@ -595,6 +595,33 @@ written for the preprocessor (libc++ `_LIBCPP_BEGIN_NAMESPACE_STD`, inline `std:
 (namespace openers, attributes to ignore, `std::__1` → `std`) plus hiding reserved names (`__x`, `_Upper`).
 Its output could also *generate* the shipped assets.
 
+### 10.3 Keeping the architecture in view while working with an agent (explored 2026-11-06)
+
+This project started as an editor with a very fast syntax highlighter and has become a workbench. What matters after months
+of working with agents is the architectural decisions and being able to dive into the specifics quickly, and the editor
+should support that. How it will look isn't known yet; this section records the thinking, not a plan. As in §1, we'll know it
+when we see it.
+
+**The problem:** an agent works from what is in its context, and a code base doesn't fit. It reads what it finds and builds
+from there, so some decisions come out sloppy without any single line being wrong: the structure pass that re-parsed what the
+highlighter had already parsed is the example from this project. A person doesn't hold the whole code base either, but holds
+it in layers, can skip what doesn't matter, and remembers why something was decided long ago. The agent has none of that, and
+it writes faster than anyone reads. So the thing to watch is the architectural effect of a change, not its lines.
+
+**Questions the editor could answer, all from the index:**
+
+| Question | For whom | What it takes |
+|---|---|---|
+| What did this change do to the structure? New dependencies between modules, new types, a new base class, who now owns what. | The person reviewing | Edges from the working tree against edges from the base commit. Only changed files need scanning, with `Scan(text)` on what `git show` gives, so no stored index is needed. |
+| Does this already exist? What already does this, who holds it, what depends on it? | The agent, before it writes | The queries of §11.10, reachable from outside the UI. `gedit-bench` shows the shape; a command against the running editor would see unsaved work. |
+| Does it still follow the rules? | Both | The architecture rules of §10: "nothing in `Core/Graphics` includes `Core/Session`". |
+| Why is it like this? | Both | Decisions tied to the structure. The cheap start: which docs and `CLAUDE.md` sections name this symbol, found with the index's own names, with nothing to annotate by hand. |
+
+**The second question is the one to try first:** a helper for the agent, so it can ask before it writes.
+
+**What this asks of step 3, and no more:** the queries stay plain data below the UI, so a view, a command or an agent can ask
+them alike, and edges stay names, not ids, so two states of a tree can be compared. The rest waits until the views are in use.
+
 ## 11. Steps
 
 | # | Step | Status |
@@ -604,9 +631,9 @@ Its output could also *generate* the shipped assets.
 | 1b | **Semantic highlighting from the file itself** (§10.1): new token classes with `regular` fallback, reclassification via the post-line hook, the open file's own structure pass. New theme keys in `colors.json`; no theme-format work. | ✅ §11.3 |
 | 1c | **Theme importer** (§10.1, D13): Sublime / VS Code theme → GoatEdit `theme.yml` + `colors.json` via the scope table; `--import-theme`. Independent of the index - can come any time after 1b. | ✅ §11.4 (+ `.theme --import`) |
 | 1d | **System / library names** (§10.2, D14): `std::` by syntax, `<...>` includes marked system, hand-made name lists as editor assets (`c_std`, `cpp_std`), bare names by the tiers of §10.2, `library_type` / `library_function` classes. Members in the format for later suggestions. Independent of step 2 (can come before or after). | ✅ §11.8 |
-| 2 | **In-memory index + Go to symbol** over the workspace, in the background: indexer threads, resolution (§5.2), query ranking, `SymbolSearchModal`. Kept current by `FolderMonitor` and, for open files, the buffer. Decisions: §11.5. | - |
+| 2 | **In-memory index + Go to symbol** over the workspace, in the background: indexer threads, resolution (§5.2), query ranking, `SymbolSearchModal`. Kept current by `FolderMonitor` and, for open files, the buffer. Decisions: §11.5. | ✅ §11.6 |
 | 2b | **Smart go-to and the navigation stack** (§5.6): go to definition, declaration and the toggle from the name under the cursor, with a list when there are several candidates; back and forward on `Cmd+[` / `Cmd+]`, kept across a restart. Go to implementation and base follow with step 3, references with step 6. | ✅ §11.9 |
-| 3 | **Relationship views**: hierarchy and composition (trees, §5.5), "derived from / held by" from any symbol. Their edges also give §5.6 go to implementation and base. | - |
+| 3 | **Relationship views**: edges into the index, open files included, then hierarchy and composition (trees, §5.5), "derived from / held by" from any symbol. Their edges also give §5.6 go to implementation and base. Design: §11.10. | - |
 | 4 | **Modules**: file → module roll-up, dependency view + matrix, cycles; DOT/Mermaid export. | - |
 | 5 | **Persistence**: store (D2), skip unchanged files at startup. Only if measuring says startup needs it. | - |
 | 6 | **Calls / uses / refs** (D3), usages view; **architecture rules** (§10). | - |
@@ -1022,6 +1049,59 @@ with no document or UI in them. `ActionHelper` joins them to the documents, and 
 - **Linux, not fixed:** the terminal keymap inherits the default one, so in the terminal `Ctrl+B`, `Ctrl+[` and `Ctrl+]` go to
   the editor, as `Ctrl+T` and `Ctrl+F` already do, and that includes full-screen programs: `ForwardActionToShell` passes on a
   fixed set of actions. `Ctrl+[` is `Esc` to a terminal, so this one will be felt in vim. macOS isn't affected.
+
+### 11.10 Step 3 - design (2026-11-06)
+
+Not started. The scanner has always found the edges, 1 156 `holds` and 94 `inherits` in GoatEdit's `src`, and they stop there.
+
+**Two gaps:**
+- **No file's edges reach the index.** `CodeIndex::ReplaceFile` reads `structure.symbols` only. The indexer's files are as blind
+  as the open ones.
+- **Open files have none to give.** `TextBuffer::ScanStructure` reads each edge for its declaration and drops it, so
+  `CollectStructure` has only symbols to hand over. Without this, a tree is wrong for the file being edited, which is the one
+  that matters.
+
+**Open files - edges ride on the lines, as symbols do.** `LineStructure` gets `edges` next to `symbols`. `ScanStructure` fills
+them in the same loop, under the same check for a line deleted meanwhile, and `CollectStructure` walks them with the line number
+from the walk. Nothing is lexed or copied beyond what the region scan already does.
+
+**The trap: `idxFrom` doesn't survive a region scan.** It indexes the symbols of one scan, and `Begin` sets every resumed scope's
+`idxSymbol` to -1, because those symbols belong to an earlier scan. So an edit inside a class gives its `holds` edges an
+`idxFrom` of -1, which means "the file itself". Copying edges to the lines as they are would pass on a fresh parse and go wrong
+at the first keystroke. **`CodeEdge` carries `fromName`, the qualified name, instead of `idxFrom`:** `ScopePrefix()` still has the
+names after a resume, because they are part of the resumable state, and §10.3 wants names anyway. An empty `fromName` is the
+file itself.
+
+**The store:** `ReplaceFile` takes all the edges, per file, removed with the file as symbols are.
+- Two lookups: by the last component of `toName`, so `ILogger` and `gnilk::ILogger` meet, and by `fromName`. They are separate
+  from the `names` table: most targets are never symbols (`std::string`, `duk_int_t`), and a search shouldn't walk them.
+- **Resolved at query time,** not stored. §5.2 re-resolves when a target appears or vanishes; asking at query time makes that free.
+  Trees are asked per row expanded, not per keystroke. An ambiguous name shows all its candidates, as §5.2 says.
+- Plain queries on `CodeIndex`: bases of, derived from, holds, held by. One level each. The view expands lazily, so a cycle in
+  composition is one more row, marked, and not a loop.
+
+**Order, each one usable alone:**
+
+| Slice | What | Judged by |
+|---|---|---|
+| 3a | Edges in the index, open files included. `gedit-bench --edges <name> <root>` asks the queries from the outside. | The answers on GoatEdit and PuckoNew; index time and memory against §11.6 |
+| 3b | The views: hierarchy and composition, each row a `JumpTo`, so it lands on the navigation stack. | Use |
+| 3c | Go to implementation and go to base (§5.6): the transitive derived types with a symbol of that name. A name is a name, so overloads aren't told apart. | Use |
+
+**Known limits:**
+- **`typedef struct { Foo *x; } Bar;`** has no name until the `;`, so its `holds` edges wait for `OnTypedefName`. A region scan
+  that stops before the `;` can't name the owner, and those edges stay file-level until the next full parse. A test holds that they
+  never land on the wrong type.
+- **Inherited members:** `holds` is per class; what a type holds through its bases is the view's to show.
+- **Templates:** `template<class T> class A : public T` gives an edge to `T`, as it does today. It resolves to nothing and shows so.
+
+**Decided (2026-11-06):** a modal first for 3b. `TreeSelectionModal` exists and Go to symbol has the same rhythm: ask, look, jump.
+A view that stays open and follows the cursor may be the better end state, and using the modal will say what it should show.
+
+**Open:**
+- **Keys for 3b and 3c.** Functionality, so `Cmd`/`Ctrl`.
+- **The look of the UI.** The toolkit's modals and trees are plain. These views are where the structure gets read, so what they
+  look like may need its own work.
 
 ## 12. Open decisions
 

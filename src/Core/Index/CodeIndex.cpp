@@ -414,9 +414,9 @@ WorkspaceNames::Ref CodeIndex::GetWorkspaceNames() {
     }
     auto current = std::make_shared<WorkspaceNames>();
     for (auto &name : names) {
-        auto meaning = SingleMeaning(name);
-        if (meaning.has_value()) {
-            current->Add(name.text, *meaning);
+        // No single meaning stays in, plain: it's still the project's name
+        if (!name.symbols.empty()) {
+            current->Add(name.text, SingleMeaning(name).value_or(kLanguageTokenClass::kRegular));
         }
     }
     generationOfNames = generation;

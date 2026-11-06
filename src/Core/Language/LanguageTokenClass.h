@@ -46,7 +46,9 @@ namespace gedit {
         kMacro = 30,            // a #define'd name where it is used
         kEnumValue = 31,        // enumerator
         kNamespace = 32,
-        kLastTokenClass = 33,         // this is used as numeric detection of the last token class
+        kLibraryType = 33,      // from the standard library, or a list of names (docs/code-index.md §10.2)
+        kLibraryFunction = 34,
+        kLastTokenClass = 35,         // this is used as numeric detection of the last token class
         kFunky = 196,       // USED for debugging..
     };
 }

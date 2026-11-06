@@ -259,6 +259,7 @@ bool Editor::Initialize(int argc, const char **argv) {
 
     // Language configuration must currently be done before we load editor documents
     ConfigureLanguages();
+    libraryNames = LibraryNames::LoadShipped();
 
     // Create workspace
     workspace = Workspace::Create();
@@ -821,10 +822,13 @@ void Editor::ConfigureTheme() {
     auto &colorConfig = theme->GetContentColors();
     for(int i=0;IsLanguageTokenClass(i);i++) {
         auto langClass = gedit::LanguageTokenClassToString(static_cast<kLanguageTokenClass>(i));
-        // A theme that predates a class (e.g. the semantic ones) shows it as plain code
-        if (!colorConfig.HasColor(langClass)) {
-            logger->Warning("Missing color configuration for: %s - using 'regular'", langClass.c_str());
-            langClass = "regular";
+        // A theme that predates a class (e.g. the semantic ones) shows it as the closest class it has
+        auto themeKey = ThemeKeyForTokenClass(static_cast<kLanguageTokenClass>(i), [&colorConfig](const std::string &key) {
+            return colorConfig.HasColor(key);
+        });
+        if (themeKey != langClass) {
+            logger->Warning("Missing color configuration for: %s - using '%s'", langClass.c_str(), themeKey.c_str());
+            langClass = themeKey;
         }
         auto &fg = colorConfig.GetColor(langClass);
         auto &bg = colorConfig.GetColor("background");

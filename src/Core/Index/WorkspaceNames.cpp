@@ -103,14 +103,20 @@ kLanguageTokenClass WorkspaceNames::Lookup(const std::u32string &name) const {
 }
 
 kLanguageTokenClass WorkspaceNames::LookupAt(const std::u32string &text, size_t idxName, const std::u32string &name) const {
-    auto tokenClass = Lookup(name);
-    if ((tokenClass == kLanguageTokenClass::kFunction) && !IsFollowedByCall(text, idxName + name.size())) {
-        return kLanguageTokenClass::kRegular;
+    return ClassInContext(text, idxName, name, Lookup(name));
+}
+
+kLanguageTokenClass WorkspaceNames::ClassInContext(const std::u32string &text, size_t idxName, const std::u32string &name, kLanguageTokenClass tokenClass) {
+    if (tokenClass == kLanguageTokenClass::kRegular) {
+        return tokenClass;
+    }
+    if ((tokenClass == kLanguageTokenClass::kFunction) || (tokenClass == kLanguageTokenClass::kLibraryFunction)) {
+        return IsFollowedByCall(text, idxName + name.size()) ? tokenClass : kLanguageTokenClass::kRegular;
     }
     if (tokenClass == kLanguageTokenClass::kMember) {
         return IsReachedThroughObject(text, idxName) ? tokenClass : kLanguageTokenClass::kRegular;
     }
-    if ((tokenClass != kLanguageTokenClass::kRegular) && (tokenClass != kLanguageTokenClass::kFunction) && CouldBeLocal(name) && !IsInTypePosition(text, idxName, idxName + name.size())) {
+    if (CouldBeLocal(name) && !IsInTypePosition(text, idxName, idxName + name.size())) {
         return kLanguageTokenClass::kRegular;
     }
     return tokenClass;

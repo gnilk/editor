@@ -29,12 +29,18 @@ namespace gedit {
         // called, otherwise a member. kRegular when the syntax can't tell. C and C++ only, as the index is.
         static kLanguageTokenClass ClassFromSyntax(const std::u32string &text, size_t idxName, size_t idxEnd);
 
+        // 'tokenClass' if the code around the name at 'idxName' allows it, otherwise kRegular: a function must be
+        // called, a member must be reached through '.' or '->', and a lower-case type, macro, enum value or namespace
+        // must be where a local can't be
+        static kLanguageTokenClass ClassInContext(const std::u32string &text, size_t idxName, const std::u32string &name, kLanguageTokenClass tokenClass);
+
         void Add(const std::u32string &name, kLanguageTokenClass tokenClass);
 
         // kRegular when the workspace gives the name no single meaning
+        // Declared in the project - also when Lookup gives kRegular because it has no single meaning
+        bool Contains(const std::u32string &name) const { return names.find(name) != names.end(); }
         kLanguageTokenClass Lookup(const std::u32string &name) const;
-        // The same for the name at 'idxName' in a line: a function must be called, a member must be reached
-        // through '.' or '->', and a lower-case type, macro, enum value or namespace must be where a local can't be
+        // The same for the name at 'idxName' in a line - see ClassInContext
         kLanguageTokenClass LookupAt(const std::u32string &text, size_t idxName, const std::u32string &name) const;
 
         size_t Size() const { return names.size(); }

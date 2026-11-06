@@ -1,0 +1,291 @@
+# The C++ standard library: the names in common use, not all of it (docs/code-index.md §10.2). 'std::' colours what isn't
+# here too; a name here gets the right class, and is known bare under a 'using'.
+#
+# The format is c_std.yml's.
+name: cpp_std
+entries:
+  - kind: namespace
+    since: c++98
+    names: [std]
+  - kind: namespace
+    scope: std
+    since: c++11
+    names: [chrono, this_thread, placeholders, literals, regex_constants]
+  - kind: namespace
+    scope: std
+    since: c++17
+    names: [filesystem, execution, pmr]
+  - kind: namespace
+    scope: std
+    since: c++20
+    names: [ranges, views, numbers]
+
+  # Containers and strings
+  - kind: type
+    scope: std
+    since: c++98
+    names:
+      - string: [size, length, empty, clear, c_str, data, substr, find, rfind, append, insert, erase, replace, compare, push_back, pop_back, begin, end, front, back]
+      - vector: [size, empty, clear, data, reserve, capacity, resize, push_back, pop_back, emplace_back, insert, erase, begin, end, front, back, at]
+      - basic_string
+      - wstring
+      - array
+      - deque
+      - list
+      - map
+      - multimap
+      - multiset
+      - queue
+      - priority_queue
+      - set
+      - stack
+      - bitset
+      - valarray
+      - pair
+      - allocator
+  - kind: type
+    scope: std
+    since: c++11
+    names: [u8string, u16string, u32string, forward_list, unordered_map, unordered_multimap, unordered_multiset, unordered_set, tuple, initializer_list]
+  - kind: type
+    scope: std
+    since: c++17
+    names: [any, optional, string_view, variant, wstring_view, u8string_view, u16string_view, u32string_view, monostate, byte, bad_any_cast, bad_optional_access, bad_variant_access]
+  - kind: type
+    scope: std
+    since: c++20
+    names: [span, source_location, strong_ordering, weak_ordering, partial_ordering]
+  - kind: type
+    scope: std
+    since: c++23
+    names: [expected, unexpected, flat_map, flat_set, mdspan, stacktrace]
+
+  # Memory, utilities, functional
+  - kind: type
+    scope: std
+    since: c++11
+    names: [shared_ptr, unique_ptr, weak_ptr, enable_shared_from_this, default_delete, function, hash, reference_wrapper, bad_function_call, ratio, type_index, nullptr_t, max_align_t, error_code, error_condition, error_category, system_error, errc, align_val_t]
+  - kind: type
+    scope: std
+    since: c++98
+    names: [size_t, ptrdiff_t, less, greater, less_equal, greater_equal, equal_to, not_equal_to, plus, minus, multiplies, divides, modulus, negate, logical_and, logical_or, logical_not, bit_and, bit_or, bit_xor, type_info]
+
+  # Streams
+  - kind: type
+    scope: std
+    since: c++98
+    names: [ios, ios_base, istream, ostream, iostream, ifstream, ofstream, fstream, stringstream, istringstream, ostringstream, streambuf, filebuf, stringbuf, streamsize, streamoff, wostream, wistream]
+  - kind: constant
+    scope: std
+    since: c++98
+    names: [cin, cout, cerr, clog, wcin, wcout, wcerr, wclog]
+  - kind: function
+    scope: std
+    since: c++98
+    names: [endl, ends, flush, ws, boolalpha, noboolalpha, dec, hex, oct, fixed, scientific, showbase, noshowbase, showpoint, noshowpoint, showpos, noshowpos, skipws, noskipws, uppercase, nouppercase, unitbuf, nounitbuf, left, right, internal, setw, setfill, setprecision, setbase, setiosflags, resetiosflags, getline]
+  - kind: function
+    scope: std
+    since: c++11
+    names: [defaultfloat, hexfloat, put_money, get_money, put_time, get_time]
+  - kind: function
+    scope: std
+    since: c++14
+    names: [quoted]
+
+  # Exceptions
+  - kind: type
+    scope: std
+    since: c++98
+    names: [exception, bad_alloc, bad_cast, bad_typeid, bad_exception, domain_error, invalid_argument, length_error, logic_error, out_of_range, overflow_error, range_error, runtime_error, underflow_error]
+  - kind: type
+    scope: std
+    since: c++11
+    names: [exception_ptr, nested_exception, bad_weak_ptr, bad_array_new_length]
+  - kind: function
+    scope: std
+    since: c++98
+    names: [terminate]
+  - kind: function
+    scope: std
+    since: c++11
+    names: [current_exception, make_exception_ptr, rethrow_exception, throw_with_nested, rethrow_if_nested, set_terminate, get_terminate]
+
+  # Threads
+  - kind: type
+    scope: std
+    since: c++11
+    names: [thread, mutex, recursive_mutex, timed_mutex, recursive_timed_mutex, lock_guard, unique_lock, condition_variable, condition_variable_any, atomic, atomic_flag, atomic_bool, atomic_int, atomic_size_t, future, promise, shared_future, packaged_task, once_flag, memory_order, future_error, future_status, launch]
+  - kind: type
+    scope: std
+    since: c++14
+    names: [shared_timed_mutex, shared_lock]
+  - kind: type
+    scope: std
+    since: c++17
+    names: [shared_mutex, scoped_lock]
+  - kind: type
+    scope: std
+    since: c++20
+    names: [jthread, stop_token, stop_source, stop_callback, counting_semaphore, binary_semaphore, latch, barrier, atomic_ref]
+  - kind: function
+    scope: std
+    since: c++11
+    names: [async, call_once, lock, try_lock, atomic_thread_fence, atomic_signal_fence]
+  - kind: function
+    scope: std::this_thread
+    since: c++11
+    names: [get_id, sleep_for, sleep_until, yield]
+  - kind: constant
+    scope: std
+    since: c++11
+    names: [memory_order_relaxed, memory_order_consume, memory_order_acquire, memory_order_release, memory_order_acq_rel, memory_order_seq_cst, adopt_lock, defer_lock, try_to_lock]
+
+  # Algorithms, numerics
+  - kind: function
+    scope: std
+    since: c++98
+    names: [accumulate, adjacent_difference, adjacent_find, binary_search, copy, copy_backward, count, count_if, equal, equal_range, fill, fill_n, find, find_end, find_first_of, find_if, for_each, generate, generate_n, includes, inner_product, inplace_merge, iter_swap, lexicographical_compare, lower_bound, make_heap, max, max_element, merge, min, min_element, mismatch, next_permutation, nth_element, partial_sort, partial_sort_copy, partial_sum, partition, pop_heap, prev_permutation, push_heap, random_shuffle, remove, remove_copy, remove_copy_if, remove_if, replace, replace_copy, replace_copy_if, replace_if, reverse, reverse_copy, rotate, rotate_copy, search, search_n, set_difference, set_intersection, set_symmetric_difference, set_union, sort, sort_heap, stable_partition, stable_sort, swap, swap_ranges, transform, unique, unique_copy, upper_bound]
+  - kind: function
+    scope: std
+    since: c++11
+    names: [all_of, any_of, none_of, copy_if, copy_n, find_if_not, iota, is_heap, is_heap_until, is_partitioned, is_permutation, is_sorted, is_sorted_until, minmax, minmax_element, move_backward, partition_copy, partition_point, shuffle]
+  - kind: function
+    scope: std
+    since: c++17
+    names: [clamp, exclusive_scan, for_each_n, gcd, inclusive_scan, lcm, reduce, sample, transform_exclusive_scan, transform_inclusive_scan, transform_reduce]
+  - kind: function
+    scope: std
+    since: c++20
+    names: [midpoint, lerp, shift_left, shift_right, bit_cast, popcount, countl_zero, countr_zero, has_single_bit, bit_ceil, bit_floor, bit_width, rotl, rotr, to_array, ssize, erase, erase_if]
+
+  # Memory and utility functions
+  - kind: function
+    scope: std
+    since: c++98
+    names: [make_pair, advance, back_inserter, distance, front_inserter, inserter]
+  - kind: function
+    scope: std
+    since: c++11
+    names: [addressof, begin, bind, cbegin, cend, crbegin, crend, declval, end, forward, get, ignore, make_shared, make_tuple, move, move_if_noexcept, next, prev, rbegin, ref, rend, cref, mem_fn, tie, tuple_cat, forward_as_tuple, allocate_shared, static_pointer_cast, dynamic_pointer_cast, const_pointer_cast, reinterpret_pointer_cast, to_string, to_wstring, stod, stof, stoi, stol, stold, stoll, stoul, stoull]
+  - kind: function
+    scope: std
+    since: c++14
+    names: [exchange, make_unique]
+  - kind: function
+    scope: std
+    since: c++17
+    names: [apply, as_const, data, empty, from_chars, holds_alternative, get_if, invoke, launder, make_any, make_optional, make_from_tuple, not_fn, size, to_chars, visit, any_cast, destroy, destroy_at, uninitialized_default_construct, uninitialized_move, uninitialized_value_construct]
+  - kind: function
+    scope: std
+    since: c++20
+    names: [format, format_to, format_to_n, formatted_size, make_format_args, vformat, vformat_to, bind_front, to_address, assume_aligned, make_shared_for_overwrite, make_unique_for_overwrite, in_range, cmp_equal, cmp_not_equal, cmp_less, cmp_less_equal, cmp_greater, cmp_greater_equal, construct_at, is_constant_evaluated]
+  - kind: function
+    scope: std
+    since: c++23
+    names: [print, println, to_underlying, unreachable, byteswap, forward_like, bind_back]
+  - kind: constant
+    scope: std
+    since: c++17
+    names: [nullopt, in_place, in_place_type, in_place_index]
+  - kind: constant
+    scope: std
+    since: c++98
+    names: [nothrow]
+  - kind: constant
+    scope: std
+    since: c++11
+    names: [piecewise_construct]
+
+  # Iterators and limits
+  - kind: type
+    scope: std
+    since: c++98
+    names: [iterator_traits, reverse_iterator, back_insert_iterator, front_insert_iterator, insert_iterator, istream_iterator, ostream_iterator, istreambuf_iterator, ostreambuf_iterator, input_iterator_tag, output_iterator_tag, forward_iterator_tag, bidirectional_iterator_tag, random_access_iterator_tag, numeric_limits]
+  - kind: type
+    scope: std
+    since: c++11
+    names: [move_iterator, regex, wregex, smatch, cmatch, wsmatch, sregex_iterator, regex_error, match_results, sub_match, regex_iterator, regex_token_iterator, sregex_token_iterator]
+  - kind: function
+    scope: std
+    since: c++11
+    names: [regex_match, regex_replace, regex_search]
+  - kind: type
+    scope: std
+    since: c++11
+    names: [complex, random_device, mt19937, mt19937_64, default_random_engine, minstd_rand, uniform_int_distribution, uniform_real_distribution, normal_distribution, bernoulli_distribution, discrete_distribution, poisson_distribution, exponential_distribution]
+
+  # Type traits
+  - kind: type
+    scope: std
+    since: c++11
+    names: [add_const, add_cv, add_lvalue_reference, add_pointer, add_rvalue_reference, add_volatile, aligned_storage, common_type, conditional, decay, enable_if, extent, false_type, integral_constant, is_abstract, is_arithmetic, is_array, is_assignable, is_base_of, is_class, is_compound, is_const, is_constructible, is_convertible, is_copy_assignable, is_copy_constructible, is_default_constructible, is_destructible, is_empty, is_enum, is_final, is_floating_point, is_function, is_fundamental, is_integral, is_lvalue_reference, is_member_function_pointer, is_member_object_pointer, is_member_pointer, is_move_assignable, is_move_constructible, is_nothrow_constructible, is_nothrow_copy_constructible, is_nothrow_move_assignable, is_nothrow_move_constructible, is_null_pointer, is_object, is_pod, is_pointer, is_polymorphic, is_reference, is_rvalue_reference, is_same, is_scalar, is_signed, is_standard_layout, is_trivial, is_trivially_copyable, is_trivially_destructible, is_union, is_unsigned, is_void, is_volatile, make_signed, make_unsigned, rank, remove_all_extents, remove_const, remove_cv, remove_extent, remove_pointer, remove_reference, remove_volatile, true_type, underlying_type]
+  - kind: type
+    scope: std
+    since: c++14
+    names: [enable_if_t, conditional_t, decay_t, remove_const_t, remove_cv_t, remove_pointer_t, remove_reference_t, make_signed_t, make_unsigned_t, underlying_type_t, common_type_t, add_pointer_t, index_sequence, integer_sequence, make_index_sequence, index_sequence_for]
+  - kind: type
+    scope: std
+    since: c++17
+    names: [bool_constant, conjunction, disjunction, negation, void_t, invoke_result, invoke_result_t, is_invocable, is_invocable_r, is_aggregate]
+  - kind: type
+    scope: std
+    since: c++20
+    names: [remove_cvref, remove_cvref_t, type_identity, type_identity_t, common_reference, is_bounded_array, is_unbounded_array]
+  - kind: constant
+    scope: std
+    since: c++17
+    names: [is_same_v, is_base_of_v, is_convertible_v, is_const_v, is_pointer_v, is_reference_v, is_integral_v, is_floating_point_v, is_arithmetic_v, is_enum_v, is_class_v, is_void_v, is_invocable_v, is_constructible_v, is_trivially_copyable_v]
+
+  # Concepts
+  - kind: type
+    scope: std
+    since: c++20
+    names: [same_as, derived_from, convertible_to, integral, signed_integral, unsigned_integral, floating_point, invocable, predicate, regular, semiregular, movable, copyable, default_initializable, constructible_from, assignable_from, equality_comparable, totally_ordered, three_way_comparable, input_iterator, output_iterator, forward_iterator, bidirectional_iterator, random_access_iterator, contiguous_iterator]
+
+  # chrono
+  - kind: type
+    scope: std::chrono
+    since: c++11
+    names: [duration, time_point, system_clock, steady_clock, high_resolution_clock, nanoseconds, microseconds, milliseconds, seconds, minutes, hours]
+  - kind: type
+    scope: std::chrono
+    since: c++20
+    names: [days, weeks, months, years, year_month_day, utc_clock, file_clock, sys_time, local_time]
+  - kind: function
+    scope: std::chrono
+    since: c++11
+    names: [duration_cast, time_point_cast]
+  - kind: function
+    scope: std::chrono
+    since: c++17
+    names: [ceil, floor, round, abs]
+
+  # filesystem
+  - kind: type
+    scope: std::filesystem
+    since: c++17
+    names: [path, directory_entry, directory_iterator, recursive_directory_iterator, file_status, file_type, perms, copy_options, directory_options, file_time_type, filesystem_error, space_info]
+  - kind: function
+    scope: std::filesystem
+    since: c++17
+    names: [absolute, canonical, copy, copy_file, copy_symlink, create_directories, create_directory, create_directory_symlink, create_hard_link, create_symlink, current_path, equivalent, exists, file_size, hard_link_count, is_block_file, is_character_file, is_directory, is_empty, is_fifo, is_other, is_regular_file, is_socket, is_symlink, last_write_time, permissions, proximate, read_symlink, relative, remove, remove_all, rename, resize_file, space, status, status_known, symlink_status, temp_directory_path, weakly_canonical]
+
+  # ranges
+  - kind: function
+    scope: std::ranges
+    since: c++20
+    names: [all_of, any_of, none_of, copy, count, equal, fill, find, find_if, for_each, max, min, max_element, min_element, reverse, sort, stable_sort, transform, unique]
+  - kind: type
+    scope: std::ranges
+    since: c++20
+    names: [range, view, input_range, forward_range, bidirectional_range, random_access_range, contiguous_range, sized_range, subrange]
+  - kind: constant
+    scope: std::views
+    since: c++20
+    names: [all, common, counted, drop, drop_while, elements, filter, iota, join, keys, reverse, split, take, take_while, transform, values]
+
+  # Named members reached with '::'
+  - kind: constant
+    scope: std::string
+    since: c++98
+    names: [npos]

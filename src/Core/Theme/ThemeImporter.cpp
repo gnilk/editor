@@ -231,6 +231,8 @@ namespace {
         {"macro",            {"entity.name.function.preprocessor.cpp", "entity.name.macro", "support.macro"}, "macro_identifier"},
         {"enum_value",       {"variable.other.enummember.cpp", "constant.other.enum", "constant.other"}, "number"},
         {"namespace",        {"entity.name.namespace.cpp", "entity.name.type.namespace"}, "regular"},
+        {"library_type",     {"support.type", "support.class"}, "user_type"},
+        {"library_function", {"support.function"}, "function"},
         {"hexview",          {}, "line_comment"},
         {"unknown",          {}, "regular"},
         {"funky",            {}, "regular"},

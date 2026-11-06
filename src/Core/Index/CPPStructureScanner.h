@@ -101,6 +101,7 @@ namespace gedit {
         void OnEnumItemEnd();
 
         void ClassifyDeclaration(Statement statement);
+        void AddUsing(const Statement &stmt);
         bool TryClassDefinition(const Statement &statement, size_t idxBrace);
         bool TryEnumDefinition(const Statement &statement);
         bool TryFunction(const Statement &statement, bool isDefinition, int &outIdxSymbol);

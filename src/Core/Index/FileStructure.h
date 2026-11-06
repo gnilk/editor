@@ -31,6 +31,8 @@ namespace gedit {
         kInherits,      // class -> base
         kHolds,         // class -> type of a data member (see kOwnership)
         kIncludes,      // file -> included path
+        kUsing,         // file -> 'std::vector' of 'using std::vector;'
+        kUsingNamespace,    // file -> 'std' of 'using namespace std;'
     };
 
     enum class kOwnership : uint8_t {

@@ -196,6 +196,8 @@ const char *gedit::EdgeKindName(kEdgeKind kind) {
         case kEdgeKind::kInherits : return "inherits";
         case kEdgeKind::kHolds : return "holds";
         case kEdgeKind::kIncludes : return "includes";
+        case kEdgeKind::kUsing : return "using";
+        case kEdgeKind::kUsingNamespace : return "using namespace";
     }
     return "?";
 }
@@ -733,6 +735,8 @@ void CPPStructureScanner::ClassifyDeclaration(Statement stmt) {
     if (IsText(stmt, 0, U"using")) {
         if (IsIdentifier(stmt, 1) && IsText(stmt, 2, U"=")) {
             AddSymbol(kSymbolKind::kAlias, At(stmt, 1).text, U"", At(stmt, 1), true);
+        } else {
+            AddUsing(stmt);
         }
         return;
     }
@@ -774,6 +778,23 @@ void CPPStructureScanner::ClassifyDeclaration(Statement stmt) {
         return;
     }
     AddVariables(stmt);
+}
+
+// 'using std::vector;', 'using namespace std::chrono;'
+void CPPStructureScanner::AddUsing(const Statement &stmt) {
+    CodeEdge edge;
+    bool isNamespace = IsText(stmt, 1, U"namespace");
+    edge.kind = isNamespace ? kEdgeKind::kUsingNamespace : kEdgeKind::kUsing;
+    for (size_t i = isNamespace ? 2 : 1; i < stmt.size(); i++) {
+        if (IsIdentifier(stmt, i) || IsText(stmt, i, U"::")) {
+            edge.toName += At(stmt, i).text;
+        }
+    }
+    if (edge.toName.empty()) {
+        return;
+    }
+    edge.line = At(stmt, 0).line;
+    result.edges.push_back(std::move(edge));
 }
 
 // 'class/struct/union [attributes/macros] Name [final] [: bases] {'

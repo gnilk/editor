@@ -19,8 +19,10 @@ from their buffer, disk changes through `FolderMonitor`, `ExclusionRules` with r
 **Load-bearing decisions:** no compiler or language server; anything per-buffer rides
 the highlighter's line/region machinery, never a whole-buffer copy or re-lex per edit; themes are converted
 once, not read at runtime (D13); library names are shipped data, not a toolchain scan (D14); a name with several
-meanings in the workspace stays plain, and without locals in the index, context decides the rest (§11.6). **Next:**
-step 1d (library names). Detail: [`code-index.md`](code-index.md).
+meanings in the workspace stays plain, and without locals in the index, context decides the rest (§11.6); a library
+never takes a name the project declares, and a bare C++ name needs a `using` in the file (§10.2). **In progress:** step 1d
+(library names): hand-made `c_std` and `cpp_std` lists, `std::` by syntax, the `using` tiers (§11.8). Project lists and
+header activation are next. Detail: [`code-index.md`](code-index.md).
 
 ## Project config — `<root>/.goatedit/config.yml` merged at startup ✅ (on `feat/project-config`)
 

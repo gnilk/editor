@@ -499,7 +499,8 @@ differ, so v1 knows nothing about the installed toolchain - only syntax and data
   be built later without changing the format.
 - Written by hand from the standards (decided 2026-11-06). A generator stays possible - it would ship and load the
   same way - but libc++'s headers, full of macros and `__internal` names, are a poor source.
-- New token classes `library_type`, `library_function` (`regular` fallback, like 1b's). TextMate themes
+- New token classes `library_type`, `library_function`. A theme without them shows `user_type` and `function`, then
+  `regular`: with `regular` first, every existing theme would hide the feature. TextMate themes
   already name these `support.type` / `support.class` / `support.function`, so the importer's scope table
   (§11.4) maps them directly.
 
@@ -545,7 +546,7 @@ Its output could also *generate* the shipped assets.
 | 1 | ✅ §11.2 - **C++ structure engine** over strings - the low-hanging fruit only: namespaces, classes/structs, methods/functions, members, `#include`, and the edges visible right in the declaration (`inherits`, `holds` + ownership). Rules as tables in code (§5.4), shape + edge tests (§7). No storage yet - dump symbols/edges for a file and judge on this repo. Nothing from §8.1. | - |
 | 1b | **Semantic highlighting from the file itself** (§10.1): new token classes with `regular` fallback, reclassification via the post-line hook, the open file's own structure pass. New theme keys in `colors.json`; no theme-format work. | ✅ §11.3 |
 | 1c | **Theme importer** (§10.1, D13): Sublime / VS Code theme → GoatEdit `theme.yml` + `colors.json` via the scope table; `--import-theme`. Independent of the index - can come any time after 1b. | ✅ §11.4 (+ `.theme --import`) |
-| 1d | **System / library names** (§10.2, D14): `std::` by syntax, `<...>` includes marked system, hand-made name lists as editor assets (`c_std`, `cpp_std`), bare names by the tiers of §10.2, `library_type` / `library_function` classes. Members in the format for later suggestions. Independent of step 2 (can come before or after). | - |
+| 1d | **System / library names** (§10.2, D14): `std::` by syntax, `<...>` includes marked system, hand-made name lists as editor assets (`c_std`, `cpp_std`), bare names by the tiers of §10.2, `library_type` / `library_function` classes. Members in the format for later suggestions. Independent of step 2 (can come before or after). | First slice: §11.8 |
 | 2 | **In-memory index + Go to symbol** over the workspace, in the background: indexer threads, resolution (§5.2), query ranking, `SymbolSearchModal`. Kept current by `FolderMonitor` and, for open files, the buffer. Decisions: §11.5. | - |
 | 3 | **Relationship views**: hierarchy and composition (trees, §5.5), "derived from / held by" from any symbol. | - |
 | 4 | **Modules**: file → module roll-up, dependency view + matrix, cycles; DOT/Mermaid export. | - |
@@ -889,6 +890,47 @@ wins. A build folder in a project without a `.gitignore` entry for it now counts
 
 **Colour:** `tree_dimmed` in `colors.json`, from VS Code's `gitDecoration.ignoredResourceForeground` on import. A theme
 without the key gets the midpoint of foreground and background.
+
+### 11.8 Step 1d results (2026-11-06, M-series Mac, release)
+
+A name's colour now comes from four places, in this order: the syntax (`.`/`->`, then `std::`), the file, the workspace, the
+libraries.
+`LibraryNames` (`src/Core/Index/`) is an immutable table built at startup from `c_std.yml` and `cpp_std.yml`.
+
+- **Lists:** 1,413 entries, 1,382 names. Checked against the toolchain with `clang -std=c++2b`: a C macro must be defined,
+  every other name must compile, and `using std::x;` works for any kind of C++ name. Four entries don't resolve and stay,
+  all correct: `std::chrono::utc_clock` and `std::stacktrace` (libc++ lags), `std::random_shuffle` (removed in C++17, still
+  in old code), `setjmp` (a function on macOS, a macro in the standard).
+- **Format:** the fields of §10.2, grouped so a list stays writable by hand: each group gives `kind`, `scope` and `since`
+  for its `names`, and a name may hold its members. `NULL` is quoted, or YAML reads it as null.
+- **Classes:** `function` and `type` get the new `library_function` and `library_type`. `macro` and `namespace` use the
+  existing classes, and `constant` (`std::cout`, `std::string::npos`) uses `enum_value`.
+- **`std::x` not in a list** goes by what follows: `(` is a function, `::` a namespace, anything else a type. A name in two
+  scopes takes its first kind, so `std::filesystem::is_empty(p)` shows as the type `std::is_empty`.
+- **`using`** is a pair of edge kinds from the scanner, held as counted declarations on the line like any other, so typing
+  or deleting one recolours the file with no new mechanism.
+- **Project names win, ambiguous ones too:** `WorkspaceNames` used to drop a name with no single meaning, which made it look
+  unknown to the libraries. It now keeps it, plain. The cost: a project with a member `time` loses the colour on the C
+  `time()` too. Plain is cheap.
+- **`::x`** can't be a local, so `::tolower` is library even without a call. `Foo::remove` never is.
+
+| On `sqlite3.c` (238,189 lines) | Before | With the libraries |
+|---|---|---|
+| Full parse | ~420 ms | ~420 ms |
+| Recolour | 19 ms | 20 ms |
+| Walk after a pause | 2.6 ms | 2.7 ms |
+| Loading the lists at startup | - | 2.1 ms |
+
+**Left out of this slice:**
+- **Project lists and header activation:** `<root>/.goatedit/libraries/*.yml`, and lists that apply through their `headers`.
+  The include edges are there and could travel the same way as `using`.
+- **Library names in Go to symbol:** §10.2 ranks them below the project's, but they have no file or line to go to, and
+  go-to-definition into system headers is a non-goal. Worth revisiting with suggestions.
+- **Standard version:** `since` is in the lists and not read.
+
+**Known limits, plain rather than wrong:** `std::vector<int>::iterator` (a template argument hides the `std`), a namespace
+alias (`namespace fs = std::filesystem; fs::path`), a `using` inside a function or reaching a file through a header,
+lower-case `stderr` or `errno` outside a type position.
 
 ## 12. Open decisions
 

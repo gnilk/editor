@@ -18,6 +18,7 @@
 #include "Core/Workspace.h"
 #include "Core/Index/CodeIndex.h"
 #include "Core/Index/Indexer.h"
+#include "Core/Index/LibraryNames.h"
 #include "Core/Document.h"
 #include "Core/Workspace.h"
 #include "Core/TypeUtil.h"
@@ -148,6 +149,10 @@ namespace gedit {
         CodeIndex::Ref GetCodeIndex() {
             return codeIndex;
         }
+        // Never nullptr. Set before any document is, parse threads read it without a lock
+        LibraryNames::Ref GetLibraryNames() {
+            return libraryNames;
+        }
         const std::vector<std::filesystem::path> &GetIndexedRoots() {
             return indexedRoots;
         }
@@ -273,6 +278,7 @@ namespace gedit {
         LanguageBase::Ref defaultLanguage = {};
         std::unordered_map<std::string, LanguageBase::Ref> extToLanguages;
         CodeIndex::Ref codeIndex = nullptr;
+        LibraryNames::Ref libraryNames = std::make_shared<const LibraryNames>();
         Indexer::Ref indexer = nullptr;
         std::vector<std::filesystem::path> indexedRoots;
 

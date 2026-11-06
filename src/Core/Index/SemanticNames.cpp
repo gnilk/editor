@@ -6,6 +6,10 @@
 
 using namespace gedit;
 
+// The space keeps these apart from every name a file can declare
+static const std::u32string USING_PREFIX = U"using ";
+static const std::u32string USING_NAMESPACE_PREFIX = U"using namespace ";
+
 kLanguageTokenClass SemanticNames::TokenClassFor(kSymbolKind kind) {
     switch (kind) {
         case kSymbolKind::kNamespace :
@@ -41,10 +45,34 @@ std::optional<SemanticDeclaration> SemanticNames::DeclarationFor(const CodeSymbo
     return SemanticDeclaration{symbol.name, tokenClass};
 }
 
+std::optional<SemanticDeclaration> SemanticNames::DeclarationFor(const CodeEdge &edge) {
+    if (edge.kind == kEdgeKind::kUsing) {
+        return SemanticDeclaration{USING_PREFIX + edge.toName, kLanguageTokenClass::kNamespace};
+    }
+    if (edge.kind == kEdgeKind::kUsingNamespace) {
+        return SemanticDeclaration{USING_NAMESPACE_PREFIX + edge.toName, kLanguageTokenClass::kNamespace};
+    }
+    return {};
+}
+
+bool SemanticNames::IsUsing(const std::u32string &qualifiedName) const {
+    return Contains(USING_PREFIX + qualifiedName);
+}
+
+bool SemanticNames::IsUsingNamespace(const std::u32string &scope) const {
+    return Contains(USING_NAMESPACE_PREFIX + scope);
+}
+
 SemanticNames SemanticNames::FromStructure(const FileStructure &structure) {
     SemanticNames semanticNames;
     for (auto &symbol : structure.symbols) {
         auto declaration = DeclarationFor(symbol);
+        if (declaration.has_value()) {
+            semanticNames.Add(*declaration);
+        }
+    }
+    for (auto &edge : structure.edges) {
+        auto declaration = DeclarationFor(edge);
         if (declaration.has_value()) {
             semanticNames.Add(*declaration);
         }

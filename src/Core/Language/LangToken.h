@@ -5,6 +5,9 @@
 #ifndef EDITOR_LANGTOKEN_H
 #define EDITOR_LANGTOKEN_H
 
+#include <functional>
+#include <string>
+
 #include "Core/Line.h"
 #include "Core/Language/LanguageTokenClass.h"
 
@@ -12,6 +15,8 @@ namespace gedit {
 
     bool IsLanguageTokenClass(int num);
     const std::string &LanguageTokenClassToString(kLanguageTokenClass tokenClass);
+    // The theme key that colours a class: its own, or the closest one the theme has
+    std::string ThemeKeyForTokenClass(kLanguageTokenClass tokenClass, const std::function<bool(const std::string &)> &hasColor);
 
     class LangToken {
     public:

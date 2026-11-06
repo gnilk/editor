@@ -54,6 +54,8 @@ static const std::unordered_map<kLanguageTokenClass, std::string> tokenNames = {
         {kLanguageTokenClass::kMacro, "macro"},
         {kLanguageTokenClass::kEnumValue, "enum_value"},
         {kLanguageTokenClass::kNamespace, "namespace"},
+        {kLanguageTokenClass::kLibraryType, "library_type"},
+        {kLanguageTokenClass::kLibraryFunction, "library_function"},
         {kLanguageTokenClass::kFunky,"funky"},
 };
 
@@ -102,5 +104,21 @@ namespace gedit {
             exit(1);
         }
         return it->second;
+    }
+
+    // A library name is first of all a type or a function: in a theme that predates it, it should still look like one
+    std::string ThemeKeyForTokenClass(kLanguageTokenClass tokenClass, const std::function<bool(const std::string &)> &hasColor) {
+        auto key = LanguageTokenClassToString(tokenClass);
+        if (hasColor(key)) {
+            return key;
+        }
+        auto stepDown = kLanguageTokenClass::kRegular;
+        if (tokenClass == kLanguageTokenClass::kLibraryType) {
+            stepDown = kLanguageTokenClass::kUserType;
+        } else if (tokenClass == kLanguageTokenClass::kLibraryFunction) {
+            stepDown = kLanguageTokenClass::kFunction;
+        }
+        key = LanguageTokenClassToString(stepDown);
+        return hasColor(key) ? key : LanguageTokenClassToString(kLanguageTokenClass::kRegular);
     }
 }

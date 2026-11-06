@@ -36,6 +36,20 @@ extern "C" {
     DLL_EXPORT int test_codeindex_tokenize_lines(ITesting *t);
     DLL_EXPORT int test_codeindex_tokenize_matches_editor(ITesting *t);
     DLL_EXPORT int test_codeindex_struct_classes(ITesting *t);
+    DLL_EXPORT int test_codeindex_library_shipped_lists(ITesting *t);
+    DLL_EXPORT int test_codeindex_library_malformed_list(ITesting *t);
+    DLL_EXPORT int test_codeindex_library_std_qualified(ITesting *t);
+    DLL_EXPORT int test_codeindex_library_std_beats_file(ITesting *t);
+    DLL_EXPORT int test_codeindex_library_c_names(ITesting *t);
+    DLL_EXPORT int test_codeindex_library_bare_needs_using(ITesting *t);
+    DLL_EXPORT int test_codeindex_library_using_name(ITesting *t);
+    DLL_EXPORT int test_codeindex_library_using_namespace_scope(ITesting *t);
+    DLL_EXPORT int test_codeindex_library_project_wins(ITesting *t);
+    DLL_EXPORT int test_codeindex_library_using_edit(ITesting *t);
+    DLL_EXPORT int test_codeindex_library_other_scope(ITesting *t);
+    DLL_EXPORT int test_codeindex_library_themefallback(ITesting *t);
+    DLL_EXPORT int test_codeindex_library_realline(ITesting *t);
+    DLL_EXPORT int test_codeindex_library_project_ambiguous(ITesting *t);
     DLL_EXPORT int test_codeindex_struct_inherits(ITesting *t);
     DLL_EXPORT int test_codeindex_struct_holds(ITesting *t);
     DLL_EXPORT int test_codeindex_struct_outofline(ITesting *t);
@@ -1911,5 +1925,255 @@ DLL_EXPORT int test_codeindex_workspace_syntaxbuffer(ITesting *t) {
     plain->SetLanguage(Editor::Instance().GetDefaultLanguage());
     plain->Reparse();
     TR_ASSERT(t, ClassOf(plain, 0, U"size") != kLanguageTokenClass::kFunction);
+    return kTR_Pass;
+}
+
+// docs/code-index.md §10.2 - the names a program gets from its platform
+
+namespace {
+    kLanguageTokenClass BareClass(const std::u32string &line, const std::u32string &name) {
+        auto buffer = CPPBuffer({line});
+        return ClassOf(buffer, 0, name);
+    }
+}
+
+DLL_EXPORT int test_codeindex_library_shipped_lists(ITesting *t) {
+    auto library = Editor::Instance().GetLibraryNames();
+    TR_ASSERT(t, library->Size() > 1000);
+    // 'NULL' is what a YAML reader turns into a null unless quoted
+    SemanticNames noNames;
+    std::u32string line = U"p = NULL;";
+    TR_ASSERT(t, library->LookupBare(line, 4, U"NULL", noNames) == kLanguageTokenClass::kMacro);
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_library_malformed_list(ITesting *t) {
+    LibraryNames library;
+    TR_ASSERT(t, library.Add("entries:\n  - kind: type\n    names: [good]\n"));
+    TR_ASSERT(t, library.Size() == 1);
+    // All or nothing
+    TR_ASSERT(t, !library.Add("entries:\n  - kind: type\n    names: [other]\n  - kind: nonsense\n    names: [bad]\n"));
+    TR_ASSERT(t, !library.Add("entries: ["));
+    TR_ASSERT(t, !library.Add("name: nothing"));
+    TR_ASSERT(t, library.Size() == 1);
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_library_std_qualified(ITesting *t) {
+    auto buffer = CPPBuffer({
+        U"void f() {",
+        U"    std::vector<int> v;",
+        U"    std::string s = std::to_string(3);",
+        U"    auto t = std::chrono::steady_clock::now();",
+        U"    std::filesystem::current_path(p, ec);",
+        U"    std::cout << s;",
+        U"    ::std::size_t n = std::string::npos;",
+        U"    std::no_such_function(1);",
+        U"    std::no_such_type x;",
+        U"    v.size();",
+        U"    std::no_such_namespace::thing y;",
+        U"}",
+    });
+    TR_ASSERT(t, ClassOf(buffer, 1, U"std") == kLanguageTokenClass::kNamespace);
+    TR_ASSERT(t, ClassOf(buffer, 1, U"vector") == kLanguageTokenClass::kLibraryType);
+    TR_ASSERT(t, ClassOf(buffer, 2, U"string") == kLanguageTokenClass::kLibraryType);
+    TR_ASSERT(t, ClassOf(buffer, 2, U"to_string") == kLanguageTokenClass::kLibraryFunction);
+    TR_ASSERT(t, ClassOf(buffer, 3, U"chrono") == kLanguageTokenClass::kNamespace);
+    TR_ASSERT(t, ClassOf(buffer, 3, U"steady_clock") == kLanguageTokenClass::kLibraryType);
+    TR_ASSERT(t, ClassOf(buffer, 4, U"current_path") == kLanguageTokenClass::kLibraryFunction);
+    TR_ASSERT(t, ClassOf(buffer, 5, U"cout") == kLanguageTokenClass::kEnumValue);
+    TR_ASSERT(t, ClassOf(buffer, 6, U"npos") == kLanguageTokenClass::kEnumValue);
+    // By syntax, without a list
+    TR_ASSERT(t, ClassOf(buffer, 7, U"no_such_function") == kLanguageTokenClass::kLibraryFunction);
+    TR_ASSERT(t, ClassOf(buffer, 8, U"no_such_type") == kLanguageTokenClass::kLibraryType);
+    // The object's own syntax still wins
+    TR_ASSERT(t, ClassOf(buffer, 9, U"size") == kLanguageTokenClass::kFunction);
+    TR_ASSERT(t, ClassOf(buffer, 10, U"no_such_namespace") == kLanguageTokenClass::kNamespace);
+    return kTR_Pass;
+}
+
+// What 'std::' says isn't for the file to overrule; the bare name is the file's
+DLL_EXPORT int test_codeindex_library_std_beats_file(ITesting *t) {
+    auto buffer = CPPBuffer({
+        U"struct sort { int x; };",
+        U"void f() {",
+        U"    std::sort(a, b);",
+        U"    sort s;",
+        U"}",
+    });
+    TR_ASSERT(t, ClassOf(buffer, 2, U"sort") == kLanguageTokenClass::kLibraryFunction);
+    TR_ASSERT(t, ClassOf(buffer, 3, U"sort") == kLanguageTokenClass::kUserType);
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_library_c_names(ITesting *t) {
+    TR_ASSERT(t, BareClass(U"    printf(\"x\");", U"printf") == kLanguageTokenClass::kLibraryFunction);
+    TR_ASSERT(t, BareClass(U"    FILE *f = 0;", U"FILE") == kLanguageTokenClass::kLibraryType);
+    TR_ASSERT(t, BareClass(U"    if (c == EOF) {", U"EOF") == kLanguageTokenClass::kMacro);
+    // A local named like a function
+    TR_ASSERT(t, BareClass(U"    x = time + 1;", U"time") == kLanguageTokenClass::kRegular);
+    TR_ASSERT(t, BareClass(U"    x = time(0);", U"time") == kLanguageTokenClass::kLibraryFunction);
+    // The global qualifier leaves no local to confuse it with
+    TR_ASSERT(t, BareClass(U"    apply(::tolower);", U"tolower") == kLanguageTokenClass::kLibraryFunction);
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_library_bare_needs_using(ITesting *t) {
+    auto without = CPPBuffer({
+        U"void f() {",
+        U"    vector<int> v;",
+        U"    sort(a, b);",
+        U"}",
+    });
+    TR_ASSERT(t, ClassOf(without, 1, U"vector") == kLanguageTokenClass::kRegular);
+    TR_ASSERT(t, ClassOf(without, 2, U"sort") == kLanguageTokenClass::kRegular);
+
+    auto with = CPPBuffer({
+        U"using namespace std;",
+        U"void f() {",
+        U"    vector<int> v;",
+        U"    sort(a, b);",
+        U"    int count = 0;",
+        U"    count = list + 1;",
+        U"}",
+    });
+    TR_ASSERT(t, ClassOf(with, 2, U"vector") == kLanguageTokenClass::kLibraryType);
+    TR_ASSERT(t, ClassOf(with, 3, U"sort") == kLanguageTokenClass::kLibraryFunction);
+    // Where a local can stand it stays one
+    TR_ASSERT(t, ClassOf(with, 5, U"count") == kLanguageTokenClass::kRegular);
+    TR_ASSERT(t, ClassOf(with, 5, U"list") == kLanguageTokenClass::kRegular);
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_library_using_name(ITesting *t) {
+    auto buffer = CPPBuffer({
+        U"using std::vector;",
+        U"vector<int> v;",
+        U"list<int> l;",
+    });
+    TR_ASSERT(t, ClassOf(buffer, 1, U"vector") == kLanguageTokenClass::kLibraryType);
+    TR_ASSERT(t, ClassOf(buffer, 2, U"list") == kLanguageTokenClass::kRegular);
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_library_using_namespace_scope(ITesting *t) {
+    auto buffer = CPPBuffer({
+        U"using namespace std::chrono;",
+        U"seconds s;",
+        U"vector<int> v;",
+    });
+    TR_ASSERT(t, ClassOf(buffer, 1, U"seconds") == kLanguageTokenClass::kLibraryType);
+    TR_ASSERT(t, ClassOf(buffer, 2, U"vector") == kLanguageTokenClass::kRegular);
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_library_project_wins(ITesting *t) {
+    auto buffer = CPPBuffer({
+        U"void g() {",
+        U"    printf(1);",
+        U"    run(1);",
+        U"}",
+    });
+    TR_ASSERT(t, ClassOf(buffer, 1, U"printf") == kLanguageTokenClass::kLibraryFunction);
+    auto names = std::make_shared<WorkspaceNames>();
+    names->Add(U"printf", kLanguageTokenClass::kUserType);
+    buffer->SetWorkspaceNamesSource([names]() -> WorkspaceNames::Ref {
+        return names;
+    });
+    TR_ASSERT(t, ClassOf(buffer, 1, U"printf") == kLanguageTokenClass::kUserType);
+    buffer->SetWorkspaceNamesSource(nullptr);
+    return kTR_Pass;
+}
+
+// Typing or deleting a 'using' changes lines far from it
+DLL_EXPORT int test_codeindex_library_using_edit(ITesting *t) {
+    auto buffer = CPPBuffer({
+        U"int a;",
+        U"int b;",
+        U"vector<int> v;",
+    });
+    TR_ASSERT(t, ClassOf(buffer, 2, U"vector") == kLanguageTokenClass::kRegular);
+    EditRegion(buffer, 0, 1, [&]() {
+        buffer->LineAt(0)->Clear();
+        buffer->LineAt(0)->Append(std::u32string(U"using namespace std;"));
+    });
+    TR_ASSERT(t, ClassOf(buffer, 2, U"vector") == kLanguageTokenClass::kLibraryType);
+    EditRegion(buffer, 0, 1, [&]() {
+        buffer->LineAt(0)->Clear();
+        buffer->LineAt(0)->Append(std::u32string(U"int a;"));
+    });
+    TR_ASSERT(t, ClassOf(buffer, 2, U"vector") == kLanguageTokenClass::kRegular);
+    return kTR_Pass;
+}
+
+// 'Foo::remove' is Foo's, whatever <cstdio> says
+DLL_EXPORT int test_codeindex_library_other_scope(ITesting *t) {
+    TR_ASSERT(t, BareClass(U"    Foo::remove(1);", U"remove") == kLanguageTokenClass::kRegular);
+    TR_ASSERT(t, BareClass(U"    a<b>::remove(1);", U"remove") == kLanguageTokenClass::kRegular);
+    TR_ASSERT(t, BareClass(U"    stdx::vector<int> v;", U"vector") == kLanguageTokenClass::kRegular);
+    TR_ASSERT(t, BareClass(U"    foo::std::vector<int> v;", U"vector") == kLanguageTokenClass::kRegular);
+    return kTR_Pass;
+}
+
+// The workspace has no single meaning for 'log', but it does have the name: it isn't the C function's to take. Gone from
+// the project, the name is the library's again.
+DLL_EXPORT int test_codeindex_library_project_ambiguous(ITesting *t) {
+    auto index = CodeIndex::Create();
+    index->ReplaceFile("/a.h", MakeFile({
+        MakeSymbol(U"log", kSymbolKind::kMember, U"Item"),
+        MakeSymbol(U"log", kSymbolKind::kFunction),
+        MakeSymbol(U"sqrt", kSymbolKind::kVariable),
+        MakeSymbol(U"floor", kSymbolKind::kFunction),
+    }));
+    auto buffer = CPPBuffer({
+        U"void g() {",
+        U"    log(1);",
+        U"    sqrt(2);",
+        U"    tan(3);",
+        U"    floor(4);",
+        U"}",
+    });
+    TR_ASSERT(t, ClassOf(buffer, 1, U"log") == kLanguageTokenClass::kLibraryFunction);
+    buffer->SetWorkspaceNamesSource([index]() -> WorkspaceNames::Ref {
+        return index->GetWorkspaceNames();
+    });
+    TR_ASSERT(t, ClassOf(buffer, 1, U"log") == kLanguageTokenClass::kRegular);
+    TR_ASSERT(t, ClassOf(buffer, 2, U"sqrt") == kLanguageTokenClass::kRegular);
+    TR_ASSERT(t, ClassOf(buffer, 3, U"tan") == kLanguageTokenClass::kLibraryFunction);
+    TR_ASSERT(t, ClassOf(buffer, 4, U"floor") == kLanguageTokenClass::kFunction);
+
+    index->ReplaceFile("/a.h", MakeFile({}));
+    auto names = index->GetWorkspaceNames();
+    TR_ASSERT(t, !names->Contains(U"log"));
+    buffer->SetWorkspaceNamesSource(nullptr);
+    return kTR_Pass;
+}
+
+// The line from Editor.cpp, as it stands
+DLL_EXPORT int test_codeindex_library_realline(ITesting *t) {
+    auto buffer = CPPBuffer({
+        U"void f() {",
+        U"                    std::transform(argBackend.begin(), argBackend.end(), argBackend.begin(), ::tolower);",
+        U"}",
+    });
+    TR_ASSERT(t, ClassOf(buffer, 1, U"std") == kLanguageTokenClass::kNamespace);
+    TR_ASSERT(t, ClassOf(buffer, 1, U"transform") == kLanguageTokenClass::kLibraryFunction);
+    TR_ASSERT(t, ClassOf(buffer, 1, U"tolower") == kLanguageTokenClass::kLibraryFunction);
+    return kTR_Pass;
+}
+
+// A theme imported before the library classes existed still has to show them
+DLL_EXPORT int test_codeindex_library_themefallback(ITesting *t) {
+    auto has = [](std::vector<std::string> keys) {
+        return [keys](const std::string &key) {
+            return std::find(keys.begin(), keys.end(), key) != keys.end();
+        };
+    };
+    auto library = kLanguageTokenClass::kLibraryFunction;
+    TR_ASSERT(t, ThemeKeyForTokenClass(library, has({"library_function", "function", "regular"})) == "library_function");
+    TR_ASSERT(t, ThemeKeyForTokenClass(library, has({"function", "regular"})) == "function");
+    TR_ASSERT(t, ThemeKeyForTokenClass(library, has({"regular"})) == "regular");
+    TR_ASSERT(t, ThemeKeyForTokenClass(kLanguageTokenClass::kLibraryType, has({"user_type", "regular"})) == "user_type");
+    TR_ASSERT(t, ThemeKeyForTokenClass(kLanguageTokenClass::kMember, has({"regular"})) == "regular");
     return kTR_Pass;
 }

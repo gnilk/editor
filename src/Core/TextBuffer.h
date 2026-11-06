@@ -20,6 +20,7 @@
 #include "Core/Index/StructureScanner.h"
 #include "Core/Index/SemanticNames.h"
 #include "Core/Index/WorkspaceNames.h"
+#include "Core/Index/LibraryNames.h"
 #include "Core/Line.h"
 #include "Core/Point.h"
 #include "Core/UnicodeHelper.h"
@@ -275,6 +276,7 @@ namespace gedit {
         const LanguageBase *structureScannerLanguage = nullptr;     // the language 'structureScanner' was made for
         SemanticNames semanticNames;
         WorkspaceNames::Ref workspaceNames = nullptr;       // the file's own names go first
+        LibraryNames::Ref libraryNames = nullptr;           // the file's and the workspace's go first
         bool isSyntaxColoured = false;                      // a language with a structure scanner - set by each parse
         bool isRecolourPending = false;     // the names changed - the lines outside the edit wait for a pause
         bool isStructurePending = false;    // the lines changed - the structure handler waits for a pause

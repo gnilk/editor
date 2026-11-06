@@ -1,0 +1,153 @@
+# The C standard library: its complete public surface (docs/code-index.md §10.2).
+#
+# Each group gives a kind (function, type, macro, namespace, constant), the scope and the standard the names appeared
+# in. A name may carry its members ('- string: [size, c_str]'): not used for colour, kept for suggestions on '.'.
+# YAML reads a bare NULL as null, so it stays quoted.
+name: c_std
+entries:
+  # ctype.h
+  - kind: function
+    since: c89
+    names: [isalnum, isalpha, iscntrl, isdigit, isgraph, islower, isprint, ispunct, isspace, isupper, isxdigit, tolower, toupper]
+  - kind: function
+    since: c99
+    names: [isblank]
+  # locale.h, setjmp.h, signal.h
+  - kind: type
+    since: c89
+    names: [lconv, jmp_buf, sig_atomic_t]
+  - kind: function
+    since: c89
+    names: [localeconv, setlocale, longjmp, raise, signal]
+  - kind: macro
+    since: c89
+    names: [LC_ALL, LC_COLLATE, LC_CTYPE, LC_MONETARY, LC_NUMERIC, LC_TIME, setjmp, SIGABRT, SIGFPE, SIGILL, SIGINT, SIGSEGV, SIGTERM, SIG_DFL, SIG_ERR, SIG_IGN]
+  # math.h
+  - kind: function
+    since: c89
+    names: [acos, asin, atan, atan2, ceil, cos, cosh, exp, fabs, floor, fmod, frexp, ldexp, log, log10, modf, pow, sin, sinh, sqrt, tan, tanh]
+  - kind: function
+    since: c99
+    names: [acosf, acosh, acoshf, acoshl, acosl, asinf, asinh, asinhf, asinhl, asinl, atan2f, atan2l, atanf, atanh, atanhf, atanhl, atanl, cbrt, cbrtf, cbrtl,
+            ceilf, ceill, copysign, copysignf, copysignl, cosf, coshf, coshl, cosl, erf, erfc, erfcf, erfcl, erff, erfl, exp2, exp2f, exp2l, expf, expl, expm1,
+            expm1f, expm1l, fabsf, fabsl, fdim, fdimf, fdiml, floorf, floorl, fma, fmaf, fmal, fmax, fmaxf, fmaxl, fmin, fminf, fminl, fmodf, fmodl, frexpf,
+            frexpl, hypot, hypotf, hypotl, ilogb, ilogbf, ilogbl, ldexpf, ldexpl, lgamma, lgammaf, lgammal, llrint, llrintf, llrintl, llround, llroundf,
+            llroundl, log10f, log10l, log1p, log1pf, log1pl, log2, log2f, log2l, logb, logbf, logbl, logf, logl, lrint, lrintf, lrintl, lround, lroundf,
+            lroundl, modff, modfl, nan, nanf, nanl, nearbyint, nearbyintf, nearbyintl, nextafter, nextafterf, nextafterl, nexttoward, nexttowardf, nexttowardl,
+            powf, powl, remainder, remainderf, remainderl, remquo, remquof, remquol, rint, rintf, rintl, round, roundf, roundl, scalbln, scalblnf, scalblnl,
+            scalbn, scalbnf, scalbnl, sinf, sinhf, sinhl, sinl, sqrtf, sqrtl, tanf, tanhf, tanhl, tanl, tgamma, tgammaf, tgammal, trunc, truncf, truncl]
+  - kind: type
+    since: c99
+    names: [double_t, float_t]
+  - kind: macro
+    since: c89
+    names: [HUGE_VAL]
+  - kind: macro
+    since: c99
+    names: [FP_ILOGB0, FP_ILOGBNAN, FP_INFINITE, FP_NAN, FP_NORMAL, FP_SUBNORMAL, FP_ZERO, HUGE_VALF, HUGE_VALL, INFINITY, MATH_ERRNO, MATH_ERREXCEPT, NAN,
+            fpclassify, isfinite, isgreater, isgreaterequal, isinf, isless, islessequal, islessgreater, isnan, isnormal, isunordered, signbit]
+  # stdarg.h, stddef.h, assert.h, errno.h
+  - kind: type
+    since: c89
+    names: [va_list]
+  - kind: macro
+    since: c89
+    names: [va_arg, va_end, va_start, 'NULL', offsetof, assert, errno, EDOM, ERANGE]
+  - kind: macro
+    since: c99
+    names: [va_copy, EILSEQ]
+  # stdio.h
+  - kind: type
+    since: c89
+    names: [FILE, fpos_t]
+  - kind: function
+    since: c89
+    names: [clearerr, fclose, feof, ferror, fflush, fgetc, fgetpos, fgets, fopen, fprintf, fputc, fputs, fread, freopen, fscanf, fseek, fsetpos, ftell, fwrite,
+            getc, getchar, perror, printf, putc, putchar, puts, remove, rename, rewind, scanf, setbuf, setvbuf, sprintf, sscanf, tmpfile, tmpnam, ungetc,
+            vfprintf, vprintf, vsprintf]
+  - kind: function
+    since: c99
+    names: [snprintf, vfscanf, vscanf, vsnprintf, vsscanf]
+  - kind: macro
+    since: c89
+    names: [BUFSIZ, EOF, FILENAME_MAX, FOPEN_MAX, L_tmpnam, SEEK_CUR, SEEK_END, SEEK_SET, TMP_MAX, _IOFBF, _IOLBF, _IONBF, stderr, stdin, stdout]
+  # stdlib.h
+  - kind: type
+    since: c89
+    names: [div_t, ldiv_t]
+  - kind: type
+    since: c99
+    names: [lldiv_t]
+  - kind: function
+    since: c89
+    names: [abort, abs, atexit, atof, atoi, atol, bsearch, calloc, div, exit, free, getenv, labs, ldiv, malloc, mblen, mbstowcs, mbtowc, qsort, rand, realloc,
+            srand, strtod, strtol, strtoul, system, wcstombs, wctomb]
+  - kind: function
+    since: c99
+    names: [_Exit, atoll, llabs, lldiv, strtof, strtold, strtoll, strtoull]
+  - kind: function
+    since: c11
+    names: [aligned_alloc, at_quick_exit, quick_exit]
+  - kind: macro
+    since: c89
+    names: [EXIT_FAILURE, EXIT_SUCCESS, MB_CUR_MAX, RAND_MAX]
+  # string.h
+  - kind: function
+    since: c89
+    names: [memchr, memcmp, memcpy, memmove, memset, strcat, strchr, strcmp, strcoll, strcpy, strcspn, strerror, strlen, strncat, strncmp, strncpy, strpbrk,
+            strrchr, strspn, strstr, strtok, strxfrm]
+  # time.h
+  - kind: type
+    since: c89
+    names: [clock_t, time_t, tm]
+  - kind: type
+    since: c11
+    names: [timespec]
+  - kind: function
+    since: c89
+    names: [asctime, clock, ctime, difftime, gmtime, localtime, mktime, strftime, time]
+  - kind: macro
+    since: c89
+    names: [CLOCKS_PER_SEC]
+  # limits.h, float.h, stdint.h
+  - kind: macro
+    since: c89
+    names: [CHAR_BIT, CHAR_MAX, CHAR_MIN, INT_MAX, INT_MIN, LONG_MAX, LONG_MIN, MB_LEN_MAX, SCHAR_MAX, SCHAR_MIN, SHRT_MAX, SHRT_MIN, UCHAR_MAX, UINT_MAX, ULONG_MAX,
+            USHRT_MAX, DBL_DIG, DBL_EPSILON, DBL_MANT_DIG, DBL_MAX, DBL_MAX_10_EXP, DBL_MAX_EXP, DBL_MIN, DBL_MIN_10_EXP, DBL_MIN_EXP, FLT_DIG, FLT_EPSILON,
+            FLT_MANT_DIG, FLT_MAX, FLT_MAX_10_EXP, FLT_MAX_EXP, FLT_MIN, FLT_MIN_10_EXP, FLT_MIN_EXP, FLT_RADIX, FLT_ROUNDS, LDBL_DIG, LDBL_EPSILON, LDBL_MANT_DIG,
+            LDBL_MAX, LDBL_MAX_10_EXP, LDBL_MAX_EXP, LDBL_MIN, LDBL_MIN_10_EXP, LDBL_MIN_EXP]
+  - kind: macro
+    since: c99
+    names: [LLONG_MAX, LLONG_MIN, ULLONG_MAX, INT8_MAX, INT8_MIN, INT16_MAX, INT16_MIN, INT32_MAX, INT32_MIN, INT64_MAX, INT64_MIN, UINT8_MAX, UINT16_MAX, UINT32_MAX,
+            UINT64_MAX, INTPTR_MAX, INTPTR_MIN, UINTPTR_MAX, INTMAX_MAX, INTMAX_MIN, UINTMAX_MAX, PTRDIFF_MAX, PTRDIFF_MIN, SIZE_MAX, INT8_C, INT16_C, INT32_C,
+            INT64_C, UINT8_C, UINT16_C, UINT32_C, UINT64_C, INTMAX_C, UINTMAX_C]
+  # wchar.h, wctype.h
+  - kind: type
+    since: c89
+    names: [mbstate_t, wint_t, wctrans_t, wctype_t]
+  - kind: function
+    since: c89
+    names: [btowc, fgetwc, fgetws, fputwc, fputws, fwide, fwprintf, fwscanf, getwc, getwchar, iswalnum, iswalpha, iswcntrl, iswctype, iswdigit, iswgraph, iswlower,
+            iswprint, iswpunct, iswspace, iswupper, iswxdigit, mbrlen, mbrtowc, mbsinit, mbsrtowcs, putwc, putwchar, swprintf, swscanf, towctrans, towlower,
+            towupper, ungetwc, vfwprintf, vswprintf, vwprintf, wcrtomb, wcscat, wcschr, wcscmp, wcscoll, wcscpy, wcscspn, wcsftime, wcslen, wcsncat, wcsncmp,
+            wcsncpy, wcspbrk, wcsrchr, wcsrtombs, wcsspn, wcsstr, wcstod, wcstok, wcstol, wcstoul, wcsxfrm, wctob, wctrans, wctype, wmemchr, wmemcmp, wmemcpy,
+            wmemmove, wmemset, wprintf, wscanf]
+  - kind: function
+    since: c99
+    names: [iswblank, vfwscanf, vswscanf, vwscanf, wcstof, wcstold, wcstoll, wcstoull]
+  - kind: macro
+    since: c89
+    names: [WCHAR_MAX, WCHAR_MIN, WEOF]
+  # fenv.h, inttypes.h
+  - kind: type
+    since: c99
+    names: [fenv_t, fexcept_t, imaxdiv_t]
+  - kind: function
+    since: c99
+    names: [feclearexcept, fegetenv, fegetexceptflag, fegetround, feholdexcept, feraiseexcept, fesetenv, fesetexceptflag, fesetround, fetestexcept, feupdateenv,
+            imaxabs, imaxdiv, strtoimax, strtoumax, wcstoimax, wcstoumax]
+  - kind: macro
+    since: c99
+    names: [FE_ALL_EXCEPT, FE_DFL_ENV, FE_DIVBYZERO, FE_DOWNWARD, FE_INEXACT, FE_INVALID, FE_OVERFLOW, FE_TONEAREST, FE_TOWARDZERO, FE_UNDERFLOW, FE_UPWARD,
+            PRId8, PRId16, PRId32, PRId64, PRIdMAX, PRIdPTR, PRIi8, PRIi16, PRIi32, PRIi64, PRIu8, PRIu16, PRIu32, PRIu64, PRIuMAX, PRIuPTR, PRIx8, PRIx16, PRIx32,
+            PRIx64, PRIxMAX, PRIxPTR, PRIX8, PRIX16, PRIX32, PRIX64, PRIXMAX, PRIXPTR, SCNd8, SCNd16, SCNd32, SCNd64, SCNi32, SCNu8, SCNu16, SCNu32, SCNu64, SCNx32]

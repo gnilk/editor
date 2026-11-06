@@ -360,6 +360,7 @@ FileStructure TextBuffer::CollectStructure() {
 // language's own post-process, so the language layer never sees the index
 LangLineTokenizer TextBuffer::ParserTokenizer() {
     isSyntaxColoured = PrepareStructureScanner();
+    libraryNames = Editor::Instance().GetLibraryNames();
     auto tokenizer = language->Tokenizer();
     auto postProcessLanguage = language.get();
     tokenizer.SetPostLineCallback([this, postProcessLanguage](const Line::Ref &line) {
@@ -441,6 +442,12 @@ bool TextBuffer::ScanStructure(size_t idxLineStart, size_t idxLineEnd, bool isFu
         auto declaration = SemanticNames::DeclarationFor(symbol);
         if (declaration.has_value()) {
             declarations[symbol.line - idxStart].push_back(std::move(*declaration));
+        }
+    }
+    for (auto &edge : fileStructure.edges) {
+        auto declaration = SemanticNames::DeclarationFor(edge);
+        if (declaration.has_value() && (edge.line >= idxStart) && (edge.line < idxStart + scannedLines.size())) {
+            declarations[edge.line - idxStart].push_back(std::move(*declaration));
         }
     }
 
@@ -579,22 +586,25 @@ void TextBuffer::ApplySemanticNames(Line &line) {
     }
 }
 
-// The syntax goes first: it can't be wrong about 'a.size()', a name can. Then the file's own meaning - also when
-// that is 'no single meaning'.
+// The syntax goes first: it can't be wrong about 'a.size()' or 'std::size', a name can. Then the file's own meaning -
+// also when that is 'no single meaning' - the workspace's and last the libraries'.
 kLanguageTokenClass TextBuffer::TokenClassOfName(const std::u32string &text, size_t idxName, const std::u32string &name) {
     if (isSyntaxColoured) {
         auto fromSyntax = WorkspaceNames::ClassFromSyntax(text, idxName, idxName + name.size());
         if (fromSyntax != kLanguageTokenClass::kRegular) {
             return fromSyntax;
         }
+        if (LibraryNames::IsQualifiedStd(text, idxName)) {
+            return libraryNames->LookupQualified(text, idxName, name);
+        }
     }
     if (semanticNames.Contains(name)) {
         return semanticNames.Lookup(name);
     }
-    if (workspaceNames != nullptr) {
+    if ((workspaceNames != nullptr) && workspaceNames->Contains(name)) {
         return workspaceNames->LookupAt(text, idxName, name);
     }
-    return kLanguageTokenClass::kRegular;
+    return isSyntaxColoured ? libraryNames->LookupBare(text, idxName, name, semanticNames) : kLanguageTokenClass::kRegular;
 }
 
 // With the line locked (DeleteLineAt, UI thread): what it declared leaves the names at the next scan

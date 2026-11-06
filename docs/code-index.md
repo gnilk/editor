@@ -695,8 +695,8 @@ locals / local classes / lambdas inside bodies, `#if` arms other than the first,
   them shows `regular` (`Editor::ConfigureTheme`). Off switch: `languages.cpp.semantic_highlighting`.
 
 **Not handled (by design for now):** locals and parameters aren't symbols (a local named like a member gets
-the member colour); namespace-scope variables stay `regular`; names declared in other files wait for the
-index (step 2).
+the member colour); namespace-scope variables stay `regular`; names declared in other files came with the
+index (§11.6).
 
 ### 11.4 Step 1c - theme importer (2026-10-25)
 
@@ -797,6 +797,41 @@ indexed.
   declaration (`f`, `m`).
 - **Known, inherited:** the parse thread walks `lines` without a lock against the UI thread, as `ScanStructure`
   and `RecolourSemanticNames` already do. The walk happens at a pause, but typing can still meet it.
+
+**Cross-file colouring (slice 3, 2026-11-06):** the second source of §10.1. `CodeIndex::GetWorkspaceNames()` gives an
+immutable name -> class snapshot (`WorkspaceNames`). A parse thread takes the pointer and probes it per identifier
+without a lock.
+- **Order:** the syntax first, then the file's own meaning - also when that meaning is "ambiguous", a name the file
+  disagrees with itself about doesn't fall through to the workspace - then the workspace.
+- **The syntax first:** after `.` or `->` the code says what a name is: called, a method; otherwise a member. It needs
+  no index and can't be fooled by a name's other meanings, so `a.begin()` and `b.size()` look alike whatever `a` and `b`
+  are. Before `<` it can't tell (`a.get<int>()`, `a.count < 3`) and the names decide. Excluded: `Args... rest` and
+  a trailing return type (`[]() -> Foo`, a `->` spaced off a `)` or a qualifier). `f()->x` written without the space
+  stays an access, so `auto f()->Foo` shows a member.
+- **One meaning or none:** a constructor doesn't count as a second meaning; a namespace-scope variable does, although
+  it has no colour. GoatEdit: 273 of 10 103 names have several meanings; PuckoNew 1 044 of 20 671.
+- **Context, because the index has no locals:** by name alone, a member `path` anywhere colours every local `path`
+  everywhere. So for a bare name a function must be followed by `(`, a member stays plain, and a type, macro, enum value
+  or namespace starting in lower case (`other`, `current`, `ptr` - hundreds of those on real trees) must stand where a
+  local can't: after `::`, or before a name, `(`, `::`, `<`, `*`, `&`. `kFoo` is exempt. A miss stays plain; that is
+  the cheap way to be wrong.
+- **Reaching the buffers:** `TextBuffer::SetWorkspaceNamesSource`, asked at each full parse and on the idle tick. Any pause
+  in typing rebuilds the table (0.8 ms GoatEdit, 3.9 ms PuckoNew), and it almost never differs: the same pointer comes
+  back, so nothing recolours. A real change recolours by walking the token lists. While the indexer works the source
+  answers nothing: a meaning isn't settled until every file is in.
+- **Languages:** only one with a structure scanner takes the names, so `ViewBase` in a markdown file stays text.
+- **Noted for later - types on symbols:** the scanner parses a member's full type (`TypeRef`), then `ResolveHeld` keeps
+  only the held type for the `kHolds` edge, and edges never reach the index. Keeping the type on `CodeSymbol` (members,
+  and return types on methods) is small; resolving `a.b.c` from it gives bare members, Go to definition and `.`
+  suggestions a base. No need to parse the standard library for it: `std::vector<Document>` shows it is a template, so
+  `std::vector` can go in as a type of unknown origin, outside the project, and the dependency on `Document` still
+  resolves. Locals and `auto` stay out of reach - that way lies a compiler front end.
+- **Limits:** a member used bare in a `.cpp` (`viewTopLine` inside `Foo::Bar`) stays plain unless that file declares it;
+  it needs the file's class or its includes. With `threaded_syntaxparser: no` there is no idle tick, so colours follow
+  the next full parse.
+- **A very large file:** `gedit-bench --recolour <file> <root>`, SQLite's 8 MB amalgamation (238 189 lines) open with
+  PuckoNew's 19 630 names: full parse about 420 ms (the syntax check adds some 25 ms, the names nothing measurable); a
+  recolour 19 ms; the walk after each pause in typing 2.6 ms.
 
 ### 11.7 Exclusions - `ExclusionRules` (2026-11-05)
 

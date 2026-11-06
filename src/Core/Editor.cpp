@@ -1057,6 +1057,10 @@ std::string Editor::IndexPathForDocument(const Document::Ref &document) {
 }
 
 void Editor::OnDocumentOpened(const Document::Ref &document) {
+    // Not while indexing: a name's meaning isn't settled until every file is in, and each answer recolours
+    document->GetTextBuffer()->SetWorkspaceNamesSource([this]() -> WorkspaceNames::Ref {
+        return indexer->GetProgress().isIdle ? codeIndex->GetWorkspaceNames() : nullptr;
+    });
     auto path = IndexPathForDocument(document);
     if (path.empty()) {
         return;
@@ -1067,6 +1071,7 @@ void Editor::OnDocumentOpened(const Document::Ref &document) {
 }
 
 void Editor::OnDocumentClosed(const Document::Ref &document) {
+    document->GetTextBuffer()->SetWorkspaceNamesSource(nullptr);
     document->GetTextBuffer()->SetStructureHandler(nullptr);
     auto path = IndexPathForDocument(document);
     if (!path.empty()) {

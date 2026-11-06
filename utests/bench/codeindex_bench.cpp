@@ -18,6 +18,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -32,6 +33,7 @@
 #include "Core/Index/CodeIndex.h"
 #include "Core/Index/CPPStructureScanner.h"
 #include "Core/Index/Indexer.h"
+#include "Core/Index/SemanticNames.h"
 
 using namespace gedit;
 namespace fs = std::filesystem;
@@ -44,6 +46,7 @@ static void Check(const fs::path &root);
 static void Braces(const fs::path &root);
 static void IndexBench(const fs::path &root);
 static void Ignored(const fs::path &root);
+static void Recolour(const fs::path &file, const fs::path &root);
 static std::string Utf8(const std::u32string &text);
 static std::vector<fs::path> SourceFiles(const fs::path &root);
 
@@ -52,6 +55,10 @@ int main(int argc, const char **argv) {
     Editor::Instance().Initialize(4, editorArgv);
 
     std::string mode = (argc > 1) ? argv[1] : "";
+    if ((mode == "--recolour") && (argc > 3)) {
+        Recolour(argv[2], argv[3]);
+        return 0;
+    }
     auto run = Bench;
     if (mode == "--dump") {
         run = Dump;
@@ -90,6 +97,71 @@ static void Ignored(const fs::path &root) {
     }
 }
 
+// What cross-file colouring costs a large open file (§11.6): 'file' as a document, the names from 'root'. On the
+// calling thread, so the times are the buffer's own.
+static void Recolour(const fs::path &file, const fs::path &root) {
+    auto mainConfig = Config::Instance()["main"];
+    mainConfig.SetBool("threaded_syntaxparser", false);
+    auto language = Editor::Instance().GetLanguageForExtension(".cpp");
+
+    Indexer::Languages languages;
+    for (auto &extension : {".cpp", ".h", ".c", ".hpp"}) {
+        languages[extension] = language;
+    }
+    auto index = CodeIndex::Create();
+    auto indexer = Indexer::Create(index, languages, Indexer::Options{});
+    indexer->AddRoot(fs::canonical(root));
+    indexer->WaitIdle();
+    indexer->Stop();
+
+    auto timed = [](const char *what, const std::function<void()> &work) {
+        auto timeStart = std::chrono::steady_clock::now();
+        work();
+        printf("  %-44s %8.1f ms\n", what, std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - timeStart).count());
+    };
+
+    auto names = index->GetWorkspaceNames();
+    auto changed = std::make_shared<WorkspaceNames>(*names);
+    changed->Add(U"NoSuchNameAnywhere", kLanguageTokenClass::kUserType);
+
+    printf("%s: %zu workspace names from %s\n", file.c_str(), names->Size(), root.c_str());
+    auto buffer = TextBuffer::CreateEmptyBuffer();
+    buffer->DeleteLineAt(0);
+    timed("load lines", [&]() {
+        std::ifstream stream(file);
+        std::string line;
+        while (std::getline(stream, line)) {
+            buffer->AddLineUTF8(line.c_str());
+        }
+    });
+    printf("  %zu lines\n", buffer->NumLines());
+    timed("first full parse, no workspace names", [&]() { buffer->SetLanguage(language); });
+    // Proof that a recolour did something - a fast one that changed nothing proves nothing
+    auto colouredTokens = [&buffer]() {
+        size_t numColoured = 0;
+        for (size_t idxLine = 0; idxLine < buffer->NumLines(); idxLine++) {
+            for (auto &attrib : buffer->LineAt(idxLine)->Attributes()) {
+                numColoured += SemanticNames::IsSemanticClass(attrib.tokenClass) ? 1 : 0;
+            }
+        }
+        return numColoured;
+    };
+    printf("  %-44s %8zu\n", "  coloured tokens, the file's own names", colouredTokens());
+    WorkspaceNames::Ref current = names;
+    buffer->SetWorkspaceNamesSource([&current]() -> WorkspaceNames::Ref { return current; });
+    current = nullptr;
+    timed("full parse, names kept", [&]() { buffer->Reparse(); });
+    for (auto &[what, next] : std::vector<std::pair<const char *, WorkspaceNames::Ref>>{
+            {"recolour: one name added", changed}, {"recolour: one name removed", names}, {"recolour: names removed", std::make_shared<WorkspaceNames>()}, {"recolour: names back", names}}) {
+        current = next;
+        timed(what, [&]() { buffer->SetWorkspaceNamesSource([&current]() -> WorkspaceNames::Ref { return current; }); });
+        printf("  %-44s %8zu\n", "  coloured tokens", colouredTokens());
+    }
+    timed("full parse with workspace names", [&]() { buffer->Reparse(); });
+    timed("collect structure (each pause in typing)", [&]() { buffer->CollectStructure(); });
+    buffer->SetWorkspaceNamesSource(nullptr);
+}
+
 // Step 2's targets on real code: how long a tree takes to index, what it costs in memory, and what a keypress
 // costs (< 10 ms at 1M symbols, §4.5). Queries run on the finished index, single-threaded.
 static void IndexBench(const fs::path &root) {
@@ -112,6 +184,11 @@ static void IndexBench(const fs::path &root) {
     auto stats = index->GetStats();
     printf("%s\n  indexed %zu files in %.0f ms: %zu symbols, %zu names, %zu scopes, ~%.1f MB\n", root.c_str(), stats.numFiles, msIndex,
            stats.numSymbols, stats.numNames, stats.numScopes, (double)stats.numBytes / (1024.0 * 1024.0));
+
+    auto timeNames = std::chrono::steady_clock::now();
+    auto workspaceNames = index->GetWorkspaceNames();
+    auto msNames = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - timeNames).count();
+    printf("  workspace names: %zu with one meaning, %zu not, built in %.2f ms\n", workspaceNames->Size(), stats.numNames - workspaceNames->Size(), msNames);
 
     static const std::u32string queries[] = {U"s", U"se", U"sea", U"init", U"srch", U"SF", U"Document::Sea", U"get::", U"zqxj"};
     for (auto &query : queries) {

@@ -15,6 +15,8 @@
 #include <cstdint>
 #include <deque>
 #include <memory>
+#include <mutex>
+#include <optional>
 #include <shared_mutex>
 #include <string>
 #include <string_view>
@@ -22,6 +24,7 @@
 #include <vector>
 
 #include "FileStructure.h"
+#include "WorkspaceNames.h"
 
 namespace gedit {
     class CodeIndex {
@@ -81,6 +84,9 @@ namespace gedit {
         std::vector<Hit> Query(const std::u32string &query) const {
             return Query(query, QueryContext{});
         }
+        // What each name means across the index. The same pointer until a meaning changes, so a caller can
+        // compare pointers to see if there is anything to recolour. Names with several meanings aren't in it.
+        WorkspaceNames::Ref GetWorkspaceNames();
         Stats GetStats() const;
     private:
         struct Symbol {
@@ -132,6 +138,7 @@ namespace gedit {
         uint8_t Proximity(const File &file, const std::string &activeFolder, const std::string &activePath) const;
         Hit MakeHit(const SymbolHandle &handle) const;
         bool IsClassScope(const std::u32string &scope) const;
+        std::optional<kLanguageTokenClass> SingleMeaning(const Name &name) const;
         bool IsBetter(const Candidate &a, const Candidate &b) const;
     private:
         mutable std::shared_mutex lock;
@@ -145,6 +152,12 @@ namespace gedit {
         std::unordered_map<std::u32string_view, uint32_t> scopeIds;
         std::vector<uint32_t> freeNames;        // entries whose last symbol went away
         size_t numSymbols = 0;
+        uint64_t generation = 0;                // counts the changes to the files
+
+        // Taken before 'lock'
+        std::mutex workspaceNamesLock;
+        WorkspaceNames::Ref workspaceNames = nullptr;
+        uint64_t generationOfNames = 0;
     };
 }
 

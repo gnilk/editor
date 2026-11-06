@@ -7,6 +7,7 @@
 #include <mutex>
 
 #include "CodeIndex.h"
+#include "SemanticNames.h"
 
 using namespace gedit;
 
@@ -137,6 +138,12 @@ static uint8_t KindRank(kSymbolKind kind) {
     return 2;
 }
 
+// 'gedit::Document' -> 'Document'
+static std::u32string_view InnermostScope(const std::u32string_view &scope) {
+    auto idxSeparator = scope.rfind(U"::");
+    return (idxSeparator == std::u32string_view::npos) ? scope : scope.substr(idxSeparator + 2);
+}
+
 // 'gedit::Document::SearchFor' -> 'gedit::Document'
 static std::u32string_view ScopeOf(const CodeSymbol &symbol) {
     std::u32string_view qualified = symbol.qualifiedName;
@@ -183,6 +190,7 @@ void CodeIndex::ReplaceFile(const std::string &path, const FileStructure &struct
         file.symbols.push_back(symbol);
     }
     numSymbols += file.symbols.size();
+    generation++;
 }
 
 void CodeIndex::RemoveFile(const std::string &path) {
@@ -190,6 +198,7 @@ void CodeIndex::RemoveFile(const std::string &path) {
     auto itFile = fileIds.find(path);
     if (itFile != fileIds.end()) {
         RemoveSymbols(itFile->second);
+        generation++;
     }
 }
 
@@ -384,12 +393,7 @@ bool CodeIndex::IsClassScope(const std::u32string &scope) const {
     if (scope.empty()) {
         return false;
     }
-    std::u32string_view innermost = scope;
-    auto idxSeparator = innermost.rfind(U"::");
-    if (idxSeparator != std::u32string_view::npos) {
-        innermost.remove_prefix(idxSeparator + 2);
-    }
-    auto itName = nameIds.find(innermost);
+    auto itName = nameIds.find(InnermostScope(scope));
     if (itName == nameIds.end()) {
         return false;
     }
@@ -400,6 +404,49 @@ bool CodeIndex::IsClassScope(const std::u32string &scope) const {
         }
     }
     return false;
+}
+
+WorkspaceNames::Ref CodeIndex::GetWorkspaceNames() {
+    std::lock_guard namesGuard(workspaceNamesLock);
+    std::shared_lock guard(lock);
+    if ((workspaceNames != nullptr) && (generationOfNames == generation)) {
+        return workspaceNames;
+    }
+    auto current = std::make_shared<WorkspaceNames>();
+    for (auto &name : names) {
+        auto meaning = SingleMeaning(name);
+        if (meaning.has_value()) {
+            current->Add(name.text, *meaning);
+        }
+    }
+    generationOfNames = generation;
+    // Most changes - any pause in typing is one - leave every meaning as it was
+    if ((workspaceNames == nullptr) || !(*current == *workspaceNames)) {
+        workspaceNames = current;
+    }
+    return workspaceNames;
+}
+
+// A constructor is its class, not a second meaning. A namespace-scope variable has no colour of its own but it
+// is a meaning: a name that is also a variable can't be told from it.
+std::optional<kLanguageTokenClass> CodeIndex::SingleMeaning(const Name &name) const {
+    std::optional<kLanguageTokenClass> meaning;
+    for (auto &handle : name.symbols) {
+        auto &symbol = files[handle.idFile].symbols[handle.idxSymbol];
+        bool isCallable = (symbol.kind == kSymbolKind::kFunction) || (symbol.kind == kSymbolKind::kMethod);
+        if (isCallable && (InnermostScope(scopes[symbol.idScope].text) == name.text)) {
+            continue;
+        }
+        auto tokenClass = SemanticNames::TokenClassFor(symbol.kind);
+        if (meaning.has_value() && (*meaning != tokenClass)) {
+            return {};
+        }
+        meaning = tokenClass;
+    }
+    if (meaning == kLanguageTokenClass::kRegular) {
+        return {};
+    }
+    return meaning;
 }
 
 CodeIndex::Stats CodeIndex::GetStats() const {

@@ -28,6 +28,8 @@ namespace gedit {
 
         // What a symbol declares for highlighting - nothing for a nameless type or a plain variable
         static std::optional<SemanticDeclaration> DeclarationFor(const CodeSymbol &symbol);
+        // kRegular for what has no colour of its own (a namespace-scope variable)
+        static kLanguageTokenClass TokenClassFor(kSymbolKind kind);
         static SemanticNames FromStructure(const FileStructure &structure);
         static bool IsSemanticClass(kLanguageTokenClass tokenClass) {
             return (tokenClass >= kLanguageTokenClass::kUserType) && (tokenClass < kLanguageTokenClass::kLastTokenClass);
@@ -39,6 +41,8 @@ namespace gedit {
 
         // kRegular when the name isn't known (or is ambiguous)
         kLanguageTokenClass Lookup(const std::u32string &name) const;
+        // Declared here - also when Lookup gives kRegular because the meanings disagree
+        bool Contains(const std::u32string &name) const { return names.find(name) != names.end(); }
         bool IsEmpty() const { return names.empty(); }
     protected:
         static constexpr size_t NUM_SEMANTIC_CLASSES = (size_t)kLanguageTokenClass::kLastTokenClass - (size_t)kLanguageTokenClass::kUserType;

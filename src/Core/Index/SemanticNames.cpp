@@ -6,7 +6,7 @@
 
 using namespace gedit;
 
-static kLanguageTokenClass TokenClassFromSymbolKind(kSymbolKind kind) {
+kLanguageTokenClass SemanticNames::TokenClassFor(kSymbolKind kind) {
     switch (kind) {
         case kSymbolKind::kNamespace :
             return kLanguageTokenClass::kNamespace;
@@ -33,7 +33,7 @@ static kLanguageTokenClass TokenClassFromSymbolKind(kSymbolKind kind) {
 }
 
 std::optional<SemanticDeclaration> SemanticNames::DeclarationFor(const CodeSymbol &symbol) {
-    auto tokenClass = TokenClassFromSymbolKind(symbol.kind);
+    auto tokenClass = TokenClassFor(symbol.kind);
     // Anonymous types, destructors ('~Foo' is two tokens to the lexer)
     if (symbol.name.empty() || (symbol.name[0] == U'~') || (tokenClass == kLanguageTokenClass::kRegular)) {
         return {};

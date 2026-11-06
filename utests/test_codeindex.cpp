@@ -62,6 +62,16 @@ extern "C" {
     DLL_EXPORT int test_codeindex_buffer_region(ITesting *t);
     DLL_EXPORT int test_codeindex_buffer_handler(ITesting *t);
     DLL_EXPORT int test_codeindex_buffer_pause(ITesting *t);
+    DLL_EXPORT int test_codeindex_workspace_meanings(ITesting *t);
+    DLL_EXPORT int test_codeindex_workspace_context(ITesting *t);
+    DLL_EXPORT int test_codeindex_workspace_snapshot(ITesting *t);
+    DLL_EXPORT int test_codeindex_workspace_buffer(ITesting *t);
+    DLL_EXPORT int test_codeindex_workspace_fileownfirst(ITesting *t);
+    DLL_EXPORT int test_codeindex_workspace_otherlanguage(ITesting *t);
+    DLL_EXPORT int test_codeindex_workspace_recolour(ITesting *t);
+    DLL_EXPORT int test_codeindex_workspace_fromdisk(ITesting *t);
+    DLL_EXPORT int test_codeindex_workspace_syntax(ITesting *t);
+    DLL_EXPORT int test_codeindex_workspace_syntaxbuffer(ITesting *t);
     DLL_EXPORT int test_codeindex_indexer_buffer(ITesting *t);
     DLL_EXPORT int test_codeindex_indexer_gitignore(ITesting *t);
     DLL_EXPORT int test_codeindex_indexer_changedfolder(ITesting *t);
@@ -1562,5 +1572,344 @@ DLL_EXPORT int test_codeindex_indexer_gitignore(ITesting *t) {
     indexer->WaitIdle();
     TR_ASSERT(t, index->Query(U"FetchedDep").empty());
     std::filesystem::remove_all(root);
+    return kTR_Pass;
+}
+
+// Slice 3: one meaning across the workspace, or none
+DLL_EXPORT int test_codeindex_workspace_meanings(ITesting *t) {
+    auto index = CodeIndex::Create();
+    index->ReplaceFile("/a.h", MakeFile({
+        MakeSymbol(U"Item", kSymbolKind::kClass),
+        MakeSymbol(U"Item", kSymbolKind::kMethod, U"Item"),         // its constructor
+        MakeSymbol(U"Close", kSymbolKind::kMethod, U"Item"),
+        MakeSymbol(U"Both", kSymbolKind::kMember, U"Item"),
+        MakeSymbol(U"Shared", kSymbolKind::kClass),
+        MakeSymbol(U"Global", kSymbolKind::kVariable),
+        MakeSymbol(U"kValue", kSymbolKind::kEnumerator),
+    }));
+    index->ReplaceFile("/b.h", MakeFile({
+        MakeSymbol(U"Item", kSymbolKind::kFunction, U"Item"),       // out-of-line constructor
+        MakeSymbol(U"Close", kSymbolKind::kFunction, U"Other"),     // same meaning in another class
+        MakeSymbol(U"Both", kSymbolKind::kMethod, U"Other"),
+        MakeSymbol(U"Shared", kSymbolKind::kVariable),
+    }));
+    auto names = index->GetWorkspaceNames();
+    TR_ASSERT(t, names->Lookup(U"Item") == kLanguageTokenClass::kUserType);
+    TR_ASSERT(t, names->Lookup(U"Close") == kLanguageTokenClass::kFunction);
+    TR_ASSERT(t, names->Lookup(U"kValue") == kLanguageTokenClass::kEnumValue);
+    TR_ASSERT(t, names->Lookup(U"Both") == kLanguageTokenClass::kRegular);
+    TR_ASSERT(t, names->Lookup(U"Shared") == kLanguageTokenClass::kRegular);
+    TR_ASSERT(t, names->Lookup(U"Global") == kLanguageTokenClass::kRegular);
+    TR_ASSERT(t, names->Lookup(U"Unknown") == kLanguageTokenClass::kRegular);
+    return kTR_Pass;
+}
+
+// The index has no locals - a function must be called, a member reached through an object
+DLL_EXPORT int test_codeindex_workspace_context(ITesting *t) {
+    WorkspaceNames names;
+    names.Add(U"path", kLanguageTokenClass::kMember);
+    names.Add(U"Close", kLanguageTokenClass::kFunction);
+    names.Add(U"Item", kLanguageTokenClass::kUserType);
+
+    auto lookup = [&names](const std::u32string &text, const std::u32string &name) {
+        return names.LookupAt(text, text.find(name), name);
+    };
+    TR_ASSERT(t, lookup(U"auto path = 1;", U"path") == kLanguageTokenClass::kRegular);
+    TR_ASSERT(t, lookup(U"path", U"path") == kLanguageTokenClass::kRegular);
+    TR_ASSERT(t, lookup(U"a.path = 1;", U"path") == kLanguageTokenClass::kMember);
+    TR_ASSERT(t, lookup(U"a->path = 1;", U"path") == kLanguageTokenClass::kMember);
+    TR_ASSERT(t, lookup(U"a -> path = 1;", U"path") == kLanguageTokenClass::kMember);
+    TR_ASSERT(t, lookup(U"a > path", U"path") == kLanguageTokenClass::kRegular);
+    TR_ASSERT(t, lookup(U"void f(Args... path);", U"path") == kLanguageTokenClass::kRegular);
+
+    TR_ASSERT(t, lookup(U"Close();", U"Close") == kLanguageTokenClass::kFunction);
+    TR_ASSERT(t, lookup(U"Close ();", U"Close") == kLanguageTokenClass::kFunction);
+    TR_ASSERT(t, lookup(U"a->Close(1);", U"Close") == kLanguageTokenClass::kFunction);
+    TR_ASSERT(t, lookup(U"auto Close = 1;", U"Close") == kLanguageTokenClass::kRegular);
+    TR_ASSERT(t, lookup(U"Close", U"Close") == kLanguageTokenClass::kRegular);
+
+    TR_ASSERT(t, lookup(U"Item item;", U"Item") == kLanguageTokenClass::kUserType);
+    TR_ASSERT(t, lookup(U"return Item;", U"Item") == kLanguageTokenClass::kUserType);
+
+    // Lower case can be a local: it needs to stand where a local can't
+    names.Add(U"other", kLanguageTokenClass::kUserType);
+    names.Add(U"gedit", kLanguageTokenClass::kNamespace);
+    names.Add(U"running", kLanguageTokenClass::kEnumValue);
+    names.Add(U"log_e", kLanguageTokenClass::kMacro);
+    names.Add(U"kState", kLanguageTokenClass::kEnumValue);
+    TR_ASSERT(t, lookup(U"a == other;", U"other") == kLanguageTokenClass::kRegular);
+    TR_ASSERT(t, lookup(U"other.x = 1;", U"other") == kLanguageTokenClass::kRegular);
+    TR_ASSERT(t, lookup(U"foo(other, 1);", U"other") == kLanguageTokenClass::kRegular);
+    TR_ASSERT(t, lookup(U"return other", U"other") == kLanguageTokenClass::kRegular);
+    TR_ASSERT(t, lookup(U"other value;", U"other") == kLanguageTokenClass::kUserType);
+    TR_ASSERT(t, lookup(U"other *value;", U"other") == kLanguageTokenClass::kUserType);
+    TR_ASSERT(t, lookup(U"other<int> value;", U"other") == kLanguageTokenClass::kUserType);
+    TR_ASSERT(t, lookup(U"gedit::Editor", U"gedit") == kLanguageTokenClass::kNamespace);
+    TR_ASSERT(t, lookup(U"gedit;", U"gedit") == kLanguageTokenClass::kRegular);
+    TR_ASSERT(t, lookup(U"x = running;", U"running") == kLanguageTokenClass::kRegular);
+    TR_ASSERT(t, lookup(U"x = kind::running;", U"running") == kLanguageTokenClass::kEnumValue);
+    TR_ASSERT(t, lookup(U"log_e(1);", U"log_e") == kLanguageTokenClass::kMacro);
+    TR_ASSERT(t, lookup(U"auto log_e = 1;", U"log_e") == kLanguageTokenClass::kRegular);
+    TR_ASSERT(t, lookup(U"x = kState;", U"kState") == kLanguageTokenClass::kEnumValue);
+    return kTR_Pass;
+}
+
+// A buffer compares pointers: a new one only when a meaning changed
+DLL_EXPORT int test_codeindex_workspace_snapshot(ITesting *t) {
+    auto index = CodeIndex::Create();
+    index->ReplaceFile("/a.h", MakeFile({MakeSymbol(U"Item", kSymbolKind::kClass)}));
+    auto names = index->GetWorkspaceNames();
+    TR_ASSERT(t, names == index->GetWorkspaceNames());
+
+    // Moved a line down: the file changed, no name did
+    index->ReplaceFile("/a.h", MakeFile({MakeSymbol(U"Item", kSymbolKind::kClass, U"", 7)}));
+    TR_ASSERT(t, names == index->GetWorkspaceNames());
+
+    index->ReplaceFile("/a.h", MakeFile({MakeSymbol(U"Item", kSymbolKind::kClass), MakeSymbol(U"Fresh", kSymbolKind::kClass)}));
+    auto withFresh = index->GetWorkspaceNames();
+    TR_ASSERT(t, names != withFresh);
+    TR_ASSERT(t, withFresh->Lookup(U"Fresh") == kLanguageTokenClass::kUserType);
+    // What a reader holds doesn't change under it
+    TR_ASSERT(t, names->Lookup(U"Fresh") == kLanguageTokenClass::kRegular);
+
+    index->RemoveFile("/a.h");
+    TR_ASSERT(t, index->GetWorkspaceNames()->Lookup(U"Item") == kLanguageTokenClass::kRegular);
+    return kTR_Pass;
+}
+
+static WorkspaceNames::Ref MakeWorkspaceNames(const std::vector<std::pair<std::u32string, kLanguageTokenClass>> &entries) {
+    auto names = std::make_shared<WorkspaceNames>();
+    for (auto &[name, tokenClass] : entries) {
+        names->Add(name, tokenClass);
+    }
+    return names;
+}
+
+DLL_EXPORT int test_codeindex_workspace_buffer(ITesting *t) {
+    auto buffer = CPPBuffer({
+        U"ViewBase view;",
+        U"view.bounds = 1;",
+        U"auto bounds = view.Size();",
+        U"auto Size = kAlpha;",
+    });
+    TR_ASSERT(t, ClassOf(buffer, 0, U"ViewBase") == kLanguageTokenClass::kRegular);
+
+    auto names = MakeWorkspaceNames({
+        {U"ViewBase", kLanguageTokenClass::kUserType},
+        {U"bounds", kLanguageTokenClass::kMember},
+        {U"Size", kLanguageTokenClass::kFunction},
+        {U"kAlpha", kLanguageTokenClass::kEnumValue},
+    });
+    buffer->SetWorkspaceNamesSource([&names]() -> WorkspaceNames::Ref {
+        return names;
+    });
+    TR_ASSERT(t, ClassOf(buffer, 0, U"ViewBase") == kLanguageTokenClass::kUserType);
+    TR_ASSERT(t, ClassOf(buffer, 1, U"bounds") == kLanguageTokenClass::kMember);
+    TR_ASSERT(t, ClassOf(buffer, 2, U"bounds") == kLanguageTokenClass::kRegular);       // a local
+    TR_ASSERT(t, ClassOf(buffer, 2, U"Size") == kLanguageTokenClass::kFunction);
+    TR_ASSERT(t, ClassOf(buffer, 3, U"Size") == kLanguageTokenClass::kRegular);         // a local
+    TR_ASSERT(t, ClassOf(buffer, 3, U"kAlpha") == kLanguageTokenClass::kEnumValue);
+
+    // Not code, though it looks like a member access
+    auto include = CPPBuffer({U"#include <sys/types.h>", U"#include \"types.h\""});
+    auto withH = MakeWorkspaceNames({{U"h", kLanguageTokenClass::kMember}});
+    include->SetWorkspaceNamesSource([&withH]() -> WorkspaceNames::Ref {
+        return withH;
+    });
+    TR_ASSERT(t, ClassOf(include, 0, U"h") != kLanguageTokenClass::kMember);
+    TR_ASSERT(t, ClassOf(include, 1, U"h") != kLanguageTokenClass::kMember);
+    include->SetWorkspaceNamesSource(nullptr);
+
+    // A full parse keeps them; a name that leaves the workspace leaves the colour
+    buffer->Reparse();
+    TR_ASSERT(t, ClassOf(buffer, 0, U"ViewBase") == kLanguageTokenClass::kUserType);
+    names = MakeWorkspaceNames({{U"kAlpha", kLanguageTokenClass::kEnumValue}});
+    buffer->Reparse();
+    TR_ASSERT(t, ClassOf(buffer, 0, U"ViewBase") == kLanguageTokenClass::kRegular);
+    TR_ASSERT(t, ClassOf(buffer, 3, U"kAlpha") == kLanguageTokenClass::kEnumValue);
+    buffer->SetWorkspaceNamesSource(nullptr);
+    return kTR_Pass;
+}
+
+// 'Mixed' means two things in this file - that isn't an opening for the workspace's opinion
+DLL_EXPORT int test_codeindex_workspace_fileownfirst(ITesting *t) {
+    auto buffer = CPPBuffer({
+        U"#define Mixed 1",
+        U"#define Local 2",
+        U"struct Holder {",
+        U"    int Mixed;",
+        U"};",
+        U"int value = Mixed + Local;",
+    });
+    auto names = MakeWorkspaceNames({
+        {U"Mixed", kLanguageTokenClass::kUserType},
+        {U"Local", kLanguageTokenClass::kUserType},
+    });
+    buffer->SetWorkspaceNamesSource([&names]() -> WorkspaceNames::Ref {
+        return names;
+    });
+    TR_ASSERT(t, ClassOf(buffer, 5, U"Mixed") == kLanguageTokenClass::kRegular);
+    TR_ASSERT(t, ClassOf(buffer, 5, U"Local") == kLanguageTokenClass::kMacro);
+    buffer->SetWorkspaceNamesSource(nullptr);
+    return kTR_Pass;
+}
+
+// The index is C/C++ - a word in another language happening to match it means nothing
+DLL_EXPORT int test_codeindex_workspace_otherlanguage(ITesting *t) {
+    auto buffer = TextBuffer::CreateEmptyBuffer();
+    buffer->AddLine(U"ViewBase");
+    buffer->SetLanguage(Editor::Instance().GetDefaultLanguage());
+    auto names = MakeWorkspaceNames({{U"ViewBase", kLanguageTokenClass::kUserType}});
+    buffer->SetWorkspaceNamesSource([&names]() -> WorkspaceNames::Ref {
+        return names;
+    });
+    TR_ASSERT(t, ClassOf(buffer, 0, U"ViewBase") != kLanguageTokenClass::kUserType);
+
+    // Switching language takes the colours along
+    auto cppBuffer = CPPBuffer({U"ViewBase view;"});
+    cppBuffer->SetWorkspaceNamesSource([&names]() -> WorkspaceNames::Ref {
+        return names;
+    });
+    TR_ASSERT(t, ClassOf(cppBuffer, 0, U"ViewBase") == kLanguageTokenClass::kUserType);
+    cppBuffer->SetLanguage(Editor::Instance().GetDefaultLanguage());
+    TR_ASSERT(t, ClassOf(cppBuffer, 0, U"ViewBase") != kLanguageTokenClass::kUserType);
+
+    buffer->SetWorkspaceNamesSource(nullptr);
+    cppBuffer->SetWorkspaceNamesSource(nullptr);
+    return kTR_Pass;
+}
+
+// With the parse thread: a new answer reaches a buffer nobody is typing in, and nullptr keeps the colours
+DLL_EXPORT int test_codeindex_workspace_recolour(ITesting *t) {
+    auto mainConfig = Config::Instance()["main"];
+    auto wasThreaded = mainConfig.GetBool("threaded_syntaxparser", false);
+    mainConfig.SetBool("threaded_syntaxparser", true);
+
+    auto buffer = CPPBuffer({U"ViewBase view;"});
+    buffer->Reparse();      // starts the thread - as loading a document does
+    WorkspaceNames::Ref next = MakeWorkspaceNames({{U"ViewBase", kLanguageTokenClass::kUserType}});
+    std::mutex lockNext;
+    buffer->SetWorkspaceNamesSource([&next, &lockNext]() -> WorkspaceNames::Ref {
+        std::lock_guard guard(lockNext);
+        return next;
+    });
+    auto waitFor = [&buffer](kLanguageTokenClass tokenClass) {
+        for (int i = 0; (i < 200) && (ClassOf(buffer, 0, U"ViewBase") != tokenClass); i++) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+        return ClassOf(buffer, 0, U"ViewBase") == tokenClass;
+    };
+    TR_ASSERT(t, waitFor(kLanguageTokenClass::kUserType));
+
+    {
+        std::lock_guard guard(lockNext);
+        next = nullptr;     // indexing again
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(400));
+    TR_ASSERT(t, ClassOf(buffer, 0, U"ViewBase") == kLanguageTokenClass::kUserType);
+
+    {
+        std::lock_guard guard(lockNext);
+        next = MakeWorkspaceNames({});
+    }
+    TR_ASSERT(t, waitFor(kLanguageTokenClass::kRegular));
+
+    buffer->SetWorkspaceNamesSource(nullptr);
+    buffer->Close();
+    mainConfig.SetBool("threaded_syntaxparser", wasThreaded);
+    return kTR_Pass;
+}
+
+// The whole way: a header on disk, the indexer, the snapshot, a colour in another file's buffer
+DLL_EXPORT int test_codeindex_workspace_fromdisk(ITesting *t) {
+    auto root = IndexerFolder("workspace_fromdisk");
+    WriteTextFile(root / "view.h", "#define VIEW_MAX 4\nclass ViewBase {\npublic:\n    ViewBase();\n    void Draw();\n    int width;\n};\n");
+
+    auto index = CodeIndex::Create();
+    auto indexer = MakeIndexer(index);
+    indexer->AddRoot(root);
+    indexer->WaitIdle();
+
+    auto buffer = CPPBuffer({
+        U"ViewBase view;",
+        U"view.width = VIEW_MAX;",
+        U"view.Draw();",
+        U"int width = 0;",
+    });
+    buffer->SetWorkspaceNamesSource([&index]() -> WorkspaceNames::Ref {
+        return index->GetWorkspaceNames();
+    });
+    TR_ASSERT(t, ClassOf(buffer, 0, U"ViewBase") == kLanguageTokenClass::kUserType);
+    TR_ASSERT(t, ClassOf(buffer, 1, U"width") == kLanguageTokenClass::kMember);
+    TR_ASSERT(t, ClassOf(buffer, 1, U"VIEW_MAX") == kLanguageTokenClass::kMacro);
+    TR_ASSERT(t, ClassOf(buffer, 2, U"Draw") == kLanguageTokenClass::kFunction);
+    TR_ASSERT(t, ClassOf(buffer, 3, U"width") == kLanguageTokenClass::kRegular);
+    buffer->SetWorkspaceNamesSource(nullptr);
+    indexer->Stop();
+    std::filesystem::remove_all(root);
+    return kTR_Pass;
+}
+
+// After '.' or '->' the code says what a name is, no index needed
+DLL_EXPORT int test_codeindex_workspace_syntax(ITesting *t) {
+    auto syntaxOf = [](const std::u32string &text, const std::u32string &name) {
+        auto idxName = text.find(name);
+        return WorkspaceNames::ClassFromSyntax(text, idxName, idxName + name.size());
+    };
+    TR_ASSERT(t, syntaxOf(U"list.size();", U"size") == kLanguageTokenClass::kFunction);
+    TR_ASSERT(t, syntaxOf(U"list->size ();", U"size") == kLanguageTokenClass::kFunction);
+    TR_ASSERT(t, syntaxOf(U"a.b().c;", U"c") == kLanguageTokenClass::kMember);
+    TR_ASSERT(t, syntaxOf(U"f()->size", U"size") == kLanguageTokenClass::kMember);
+    TR_ASSERT(t, syntaxOf(U"cursor.y = 1;", U"y") == kLanguageTokenClass::kMember);
+    TR_ASSERT(t, syntaxOf(U"    .first = 1,", U"first") == kLanguageTokenClass::kMember);
+
+    TR_ASSERT(t, syntaxOf(U"size();", U"size") == kLanguageTokenClass::kRegular);
+    TR_ASSERT(t, syntaxOf(U"auto size = 1;", U"size") == kLanguageTokenClass::kRegular);
+    TR_ASSERT(t, syntaxOf(U"void f(Args... rest);", U"rest") == kLanguageTokenClass::kRegular);
+
+    // '<' can go either way
+    TR_ASSERT(t, syntaxOf(U"a.get<int>();", U"get") == kLanguageTokenClass::kRegular);
+    TR_ASSERT(t, syntaxOf(U"a.count < 3", U"count") == kLanguageTokenClass::kRegular);
+
+    // A trailing return type is not a member access
+    TR_ASSERT(t, syntaxOf(U"auto f() -> Foo {", U"Foo") == kLanguageTokenClass::kRegular);
+    TR_ASSERT(t, syntaxOf(U"[this]() -> Foo {", U"Foo") == kLanguageTokenClass::kRegular);
+    TR_ASSERT(t, syntaxOf(U"auto f() const -> Foo;", U"Foo") == kLanguageTokenClass::kRegular);
+    TR_ASSERT(t, syntaxOf(U"[x]() mutable -> Foo {", U"Foo") == kLanguageTokenClass::kRegular);
+    TR_ASSERT(t, syntaxOf(U"auto f() noexcept -> Foo;", U"Foo") == kLanguageTokenClass::kRegular);
+    return kTR_Pass;
+}
+
+// With no workspace names at all: the case that started this - two calls on two library types, coloured alike
+DLL_EXPORT int test_codeindex_workspace_syntaxbuffer(ITesting *t) {
+    auto buffer = CPPBuffer({
+        U"#define Mixed 1",
+        U"struct Holder {",
+        U"    int Mixed;",
+        U"};",
+        U"void f() {",
+        U"    argBackend.begin();",
+        U"    openDocuments.size();",
+        U"    other.Mixed();",
+        U"    cursor.y = 1;",
+        U"    Mixed = 2;",
+        U"}",
+    });
+    TR_ASSERT(t, ClassOf(buffer, 5, U"begin") == kLanguageTokenClass::kFunction);
+    TR_ASSERT(t, ClassOf(buffer, 6, U"size") == kLanguageTokenClass::kFunction);
+    TR_ASSERT(t, ClassOf(buffer, 7, U"Mixed") == kLanguageTokenClass::kFunction);
+    TR_ASSERT(t, ClassOf(buffer, 8, U"y") == kLanguageTokenClass::kMember);
+    TR_ASSERT(t, ClassOf(buffer, 9, U"Mixed") == kLanguageTokenClass::kRegular);    // the file disagrees with itself
+
+    // A file that declares nothing has no names to look at - the syntax still counts
+    auto noDeclarations = CPPBuffer({U"if (a) { list.size(); }"});
+    TR_ASSERT(t, ClassOf(noDeclarations, 0, U"size") == kLanguageTokenClass::kFunction);
+
+    // A language without a structure scanner keeps its text
+    auto plain = TextBuffer::CreateEmptyBuffer();
+    plain->AddLine(U"list.size();");
+    plain->SetLanguage(Editor::Instance().GetDefaultLanguage());
+    plain->Reparse();
+    TR_ASSERT(t, ClassOf(plain, 0, U"size") != kLanguageTokenClass::kFunction);
     return kTR_Pass;
 }

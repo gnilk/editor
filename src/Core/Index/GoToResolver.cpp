@@ -94,6 +94,13 @@ static void NarrowByCode(Hits &hits, const CodeIndex &index, const std::u32strin
             return hit.kind == kSymbolKind::kMember;
         });
     } else {
+        // In its own class a constructor is closer than the class, which sits one scope out, and would win. A constructor
+        // written out ('Foo::Foo') took the branch above.
+        if (std::any_of(hits.begin(), hits.end(), IsClassLike)) {
+            NarrowTo(hits, [](const CodeIndex::Hit &hit) {
+                return !IsConstructor(hit);
+            });
+        }
         NarrowToEnclosingScope(hits, index, path, idxLine);
     }
 }
@@ -155,6 +162,123 @@ GoToResolver::Result GoToResolver::Resolve(const CodeIndex &index, const std::u3
         NarrowTo(hits, [isDeclaration](const CodeIndex::Hit &hit) {
             return hit.isDefinition != isDeclaration;
         });
+    }
+    std::sort(hits.begin(), hits.end(), [&path](const CodeIndex::Hit &a, const CodeIndex::Hit &b) {
+        return std::make_tuple(ProximityOf(a, path), std::cref(a.path), a.line) < std::make_tuple(ProximityOf(b, path), std::cref(b.path), b.line);
+    });
+    result.hits = std::move(hits);
+    return result;
+}
+
+static bool IsTypeHit(const CodeIndex::Hit &hit) {
+    return IsClassLike(hit) || (hit.kind == kSymbolKind::kEnum) || (hit.kind == kSymbolKind::kAlias);
+}
+
+static std::u32string LastComponent(const std::u32string &name) {
+    auto idxSeparator = name.rfind(U"::");
+    return (idxSeparator == std::u32string::npos) ? name : name.substr(idxSeparator + 2);
+}
+
+namespace {
+    // What the relations are asked about
+    struct Subject {
+        std::u32string name;
+        std::vector<std::u32string> types;  // a type, or the types the method is in
+        bool isMethod = false;
+    };
+}
+
+// Out of line a method is written 'EditorView::Draw' and its type is 'gedit::EditorView'
+static Subject SubjectFromHits(const CodeIndex &index, const Hits &hits) {
+    Subject subject;
+    for (auto &hit : hits) {
+        if (IsTypeHit(hit)) {
+            subject.name = hit.name;
+            subject.isMethod = false;
+            subject.types.push_back(hit.qualifiedName);
+        } else if (IsCallable(hit) && subject.types.empty() && !OuterScope(hit.qualifiedName).empty()) {
+            subject.name = hit.name;
+            subject.isMethod = true;
+            subject.types = index.TypesNamed(OuterScope(hit.qualifiedName));
+        }
+    }
+    return subject;
+}
+
+static std::vector<std::u32string> DirectlyRelated(const CodeIndex &index, const std::u32string &type, GoToResolver::kRelated related) {
+    std::vector<std::u32string> types;
+    if (related == GoToResolver::kRelated::kImplementation) {
+        for (auto &relation : index.DerivedFrom(type)) {
+            types.push_back(relation.fromName);
+        }
+    } else {
+        for (auto &relation : index.BasesOf(type)) {
+            types.insert(types.end(), relation.targets.begin(), relation.targets.end());
+        }
+    }
+    return types;
+}
+
+static void AddTypeHits(Hits &hits, const CodeIndex &index, const std::u32string &type) {
+    Hits found = index.FindExact(LastComponent(type));
+    std::erase_if(found, [&type](const CodeIndex::Hit &hit) {
+        return (hit.qualifiedName != type) || !IsTypeHit(hit);
+    });
+    NarrowTo(found, [](const CodeIndex::Hit &hit) {
+        return hit.isDefinition;
+    });
+    hits.insert(hits.end(), found.begin(), found.end());
+}
+
+// An implementation is a body. A base is where the method is declared, which is all an interface has.
+static void AddMethodHits(Hits &hits, const CodeIndex &index, const std::u32string &type, const std::u32string &method, GoToResolver::kRelated related) {
+    Hits found = index.FindExact(method);
+    std::erase_if(found, [&type](const CodeIndex::Hit &hit) {
+        return !IsCallable(hit) || !EndsWithScope(type, OuterScope(hit.qualifiedName));
+    });
+    bool isDefinition = related == GoToResolver::kRelated::kImplementation;
+    NarrowTo(found, [isDefinition](const CodeIndex::Hit &hit) {
+        return hit.isDefinition == isDefinition;
+    });
+    hits.insert(hits.end(), found.begin(), found.end());
+}
+
+GoToResolver::Result GoToResolver::ResolveRelated(const CodeIndex &index, const std::u32string &text, size_t idxChar, uint32_t idxLine, const std::string &path, kRelated related) {
+    auto atCursor = Resolve(index, text, idxChar, idxLine, path, kMode::kDefinition);
+    auto subject = SubjectFromHits(index, atCursor.hits);
+    if (subject.types.empty()) {
+        auto nearest = index.NearestSymbol(path, idxLine);
+        if (nearest.has_value()) {
+            subject = SubjectFromHits(index, {*nearest});
+        }
+    }
+    Result result;
+    result.name = subject.types.empty() ? atCursor.name : subject.name;
+    result.idxName = atCursor.idxName;
+
+    Hits hits;
+    std::vector<std::u32string> seen = subject.types;
+    auto level = subject.types;
+    // Level by level, as the nearest base is the one a method overrides. A cycle in bad code ends at what's been seen.
+    while (!level.empty()) {
+        std::vector<std::u32string> nextLevel;
+        for (auto &type : level) {
+            for (auto &relatedType : DirectlyRelated(index, type, related)) {
+                if (std::find(seen.begin(), seen.end(), relatedType) == seen.end()) {
+                    seen.push_back(relatedType);
+                    nextLevel.push_back(relatedType);
+                }
+            }
+        }
+        for (auto &type : nextLevel) {
+            if (subject.isMethod) {
+                AddMethodHits(hits, index, type, subject.name, related);
+            } else {
+                AddTypeHits(hits, index, type);
+            }
+        }
+        bool isDone = (related == kRelated::kBase) && (!subject.isMethod || !hits.empty());
+        level = isDone ? std::vector<std::u32string>{} : std::move(nextLevel);
     }
     std::sort(hits.begin(), hits.end(), [&path](const CodeIndex::Hit &a, const CodeIndex::Hit &b) {
         return std::make_tuple(ProximityOf(a, path), std::cref(a.path), a.line) < std::make_tuple(ProximityOf(b, path), std::cref(b.path), b.line);

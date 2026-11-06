@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <mutex>
+#include <tuple>
 
 #include "CodeIndex.h"
 #include "SemanticNames.h"
@@ -157,6 +158,35 @@ static std::u32string_view ScopeOf(const CodeSymbol &symbol) {
     return qualified;
 }
 
+// 'A::Line' -> 'Line'
+static std::u32string LastComponent(const std::u32string &name) {
+    auto idxSeparator = name.rfind(U"::");
+    return (idxSeparator == std::u32string::npos) ? name : name.substr(idxSeparator + 2);
+}
+
+// 'gedit::Line' is called 'Line' and 'gedit::Line', not 'ine'
+static bool IsNameOf(const std::u32string &qualifiedName, const std::u32string &name) {
+    if (qualifiedName.size() <= name.size()) {
+        return qualifiedName == name;
+    }
+    auto idxName = qualifiedName.size() - name.size();
+    if (idxName < 2) {
+        return false;
+    }
+    return (qualifiedName.compare(idxName, name.size(), name) == 0) && (qualifiedName.compare(idxName - 2, 2, U"::") == 0);
+}
+
+static bool IsTypeKind(kSymbolKind kind) {
+    return (kind == kSymbolKind::kClass) || (kind == kSymbolKind::kStruct) || (kind == kSymbolKind::kUnion) ||
+           (kind == kSymbolKind::kEnum) || (kind == kSymbolKind::kAlias);
+}
+
+static void SortRelations(std::vector<CodeIndex::Relation> &relations) {
+    std::sort(relations.begin(), relations.end(), [](const CodeIndex::Relation &a, const CodeIndex::Relation &b) {
+        return std::tie(a.fromName, a.toName, a.path, a.line) < std::tie(b.fromName, b.toName, b.path, b.line);
+    });
+}
+
 void CodeIndex::ReplaceFile(const std::string &path, const FileStructure &structure) {
     std::unique_lock guard(lock);
 
@@ -170,6 +200,7 @@ void CodeIndex::ReplaceFile(const std::string &path, const FileStructure &struct
     } else {
         idFile = itFile->second;
         RemoveSymbols(idFile);
+        RemoveEdges(idFile);
     }
 
     auto &file = files[idFile];
@@ -190,6 +221,7 @@ void CodeIndex::ReplaceFile(const std::string &path, const FileStructure &struct
         file.symbols.push_back(symbol);
     }
     numSymbols += file.symbols.size();
+    AddEdges(idFile, structure);
     generation++;
 }
 
@@ -198,6 +230,7 @@ void CodeIndex::RemoveFile(const std::string &path) {
     auto itFile = fileIds.find(path);
     if (itFile != fileIds.end()) {
         RemoveSymbols(itFile->second);
+        RemoveEdges(itFile->second);
         generation++;
     }
 }
@@ -220,6 +253,42 @@ void CodeIndex::RemoveSymbols(uint32_t idFile) {
         }
     }
     file.symbols.clear();
+}
+
+void CodeIndex::AddEdges(uint32_t idFile, const FileStructure &structure) {
+    auto &file = files[idFile];
+    file.edges = structure.edges;
+    for (uint32_t idxEdge = 0; idxEdge < file.edges.size(); idxEdge++) {
+        auto &edge = file.edges[idxEdge];
+        if (!edge.fromName.empty()) {
+            edgesByFrom[edge.fromName].push_back({idFile, idxEdge});
+        }
+        edgesByTarget[LastComponent(edge.toName)].push_back({idFile, idxEdge});
+    }
+    numEdges += file.edges.size();
+}
+
+void CodeIndex::RemoveEdges(uint32_t idFile) {
+    auto &file = files[idFile];
+    auto removeFrom = [idFile](std::unordered_map<std::u32string, std::vector<EdgeHandle>> &table, const std::u32string &key) {
+        auto it = table.find(key);
+        if (it == table.end()) {
+            return;
+        }
+        // Several edges of this file can share the key - the first one takes them all out
+        std::erase_if(it->second, [idFile](const EdgeHandle &handle) {
+            return handle.idFile == idFile;
+        });
+        if (it->second.empty()) {
+            table.erase(it);
+        }
+    };
+    for (auto &edge : file.edges) {
+        removeFrom(edgesByFrom, edge.fromName);
+        removeFrom(edgesByTarget, LastComponent(edge.toName));
+    }
+    numEdges -= file.edges.size();
+    file.edges.clear();
 }
 
 uint32_t CodeIndex::InternName(const std::u32string &text) {
@@ -419,6 +488,153 @@ std::vector<CodeIndex::Hit> CodeIndex::FindExact(const std::u32string &name) con
     return hits;
 }
 
+std::vector<std::u32string> CodeIndex::TypesNamed(const std::u32string &name) const {
+    std::shared_lock guard(lock);
+    auto types = TypesWithLastName(LastComponent(name));
+    std::erase_if(types, [&name](const std::u32string &type) {
+        return !IsNameOf(type, name);
+    });
+    return types;
+}
+
+std::vector<CodeIndex::Relation> CodeIndex::BasesOf(const std::u32string &qualifiedType) const {
+    return EdgesFrom(qualifiedType, kEdgeKind::kInherits);
+}
+
+std::vector<CodeIndex::Relation> CodeIndex::DerivedFrom(const std::u32string &qualifiedType) const {
+    return EdgesTo(qualifiedType, kEdgeKind::kInherits);
+}
+
+std::vector<CodeIndex::Relation> CodeIndex::HoldsOf(const std::u32string &qualifiedType) const {
+    return EdgesFrom(qualifiedType, kEdgeKind::kHolds);
+}
+
+std::vector<CodeIndex::Relation> CodeIndex::HeldBy(const std::u32string &qualifiedType) const {
+    return EdgesTo(qualifiedType, kEdgeKind::kHolds);
+}
+
+std::vector<CodeIndex::Relation> CodeIndex::AllRelations() const {
+    std::shared_lock guard(lock);
+    std::vector<Relation> relations;
+    for (uint32_t idFile = 0; idFile < files.size(); idFile++) {
+        auto &edges = files[idFile].edges;
+        for (uint32_t idxEdge = 0; idxEdge < edges.size(); idxEdge++) {
+            if ((edges[idxEdge].kind == kEdgeKind::kInherits) || (edges[idxEdge].kind == kEdgeKind::kHolds)) {
+                relations.push_back(MakeRelation({idFile, idxEdge}));
+            }
+        }
+    }
+    SortRelations(relations);
+    return relations;
+}
+
+std::vector<CodeIndex::Relation> CodeIndex::EdgesFrom(const std::u32string &qualifiedType, kEdgeKind kind) const {
+    std::shared_lock guard(lock);
+    std::vector<Relation> relations;
+    auto it = edgesByFrom.find(qualifiedType);
+    if (it == edgesByFrom.end()) {
+        return relations;
+    }
+    for (auto &handle : it->second) {
+        if (files[handle.idFile].edges[handle.idxEdge].kind == kind) {
+            relations.push_back(MakeRelation(handle));
+        }
+    }
+    SortRelations(relations);
+    return relations;
+}
+
+std::vector<CodeIndex::Relation> CodeIndex::EdgesTo(const std::u32string &qualifiedType, kEdgeKind kind) const {
+    std::shared_lock guard(lock);
+    std::vector<Relation> relations;
+    auto it = edgesByTarget.find(std::u32string(LastComponent(qualifiedType)));
+    if (it == edgesByTarget.end()) {
+        return relations;
+    }
+    for (auto &handle : it->second) {
+        if (files[handle.idFile].edges[handle.idxEdge].kind != kind) {
+            continue;
+        }
+        auto relation = MakeRelation(handle);
+        if (std::find(relation.targets.begin(), relation.targets.end(), qualifiedType) != relation.targets.end()) {
+            relations.push_back(std::move(relation));
+        }
+    }
+    SortRelations(relations);
+    return relations;
+}
+
+CodeIndex::Relation CodeIndex::MakeRelation(const EdgeHandle &handle) const {
+    auto &file = files[handle.idFile];
+    auto &edge = file.edges[handle.idxEdge];
+    Relation relation;
+    relation.kind = edge.kind;
+    relation.ownership = edge.ownership;
+    relation.fromName = edge.fromName;
+    relation.toName = edge.toName;
+    relation.targets = ResolveTarget(edge.toName, edge.fromName, relation.isMacro);
+    relation.path = file.path;
+    relation.line = edge.line;
+    return relation;
+}
+
+std::vector<std::u32string> CodeIndex::TypesWithLastName(const std::u32string &lastName) const {
+    std::vector<std::u32string> types;
+    auto itName = nameIds.find(lastName);
+    if (itName == nameIds.end()) {
+        return types;
+    }
+    for (auto &handle : names[itName->second].symbols) {
+        auto &symbol = files[handle.idFile].symbols[handle.idxSymbol];
+        if (!IsTypeKind(symbol.kind)) {
+            continue;
+        }
+        auto &scope = scopes[symbol.idScope].text;
+        types.push_back(scope.empty() ? lastName : (scope + U"::" + lastName));
+    }
+    std::sort(types.begin(), types.end());
+    types.erase(std::unique(types.begin(), types.end()), types.end());
+    return types;
+}
+
+// §5.2, at query time, so a target that appears or vanishes costs nothing. The scopes around the edge from the inside out,
+// as the compiler reads them, also takes the qualified match; then the name anywhere in the index.
+std::vector<std::u32string> CodeIndex::ResolveTarget(const std::u32string &toName, const std::u32string &fromName, bool &outIsMacro) const {
+    auto types = TypesWithLastName(LastComponent(toName));
+    auto scope = fromName;
+    while (true) {
+        auto candidate = scope.empty() ? toName : (scope + U"::" + toName);
+        if (std::binary_search(types.begin(), types.end(), candidate)) {
+            return {candidate};
+        }
+        if (scope.empty()) {
+            break;
+        }
+        auto idxScopeEnd = scope.rfind(U"::");
+        scope.resize((idxScopeEnd == std::u32string::npos) ? 0 : idxScopeEnd);
+    }
+    std::erase_if(types, [&toName](const std::u32string &type) {
+        return !IsNameOf(type, toName);
+    });
+    if (types.empty() && IsMacro(toName)) {
+        outIsMacro = true;
+        return {toName};
+    }
+    return types;
+}
+
+// '#define _u8 unsigned char': vendored C drivers name whole families of types this way
+bool CodeIndex::IsMacro(const std::u32string &name) const {
+    auto itName = nameIds.find(name);
+    if (itName == nameIds.end()) {
+        return false;
+    }
+    auto &symbols = names[itName->second].symbols;
+    return std::any_of(symbols.begin(), symbols.end(), [this](const SymbolHandle &handle) {
+        return files[handle.idFile].symbols[handle.idxSymbol].kind == kSymbolKind::kMacro;
+    });
+}
+
 std::optional<CodeIndex::Hit> CodeIndex::NearestSymbol(const std::string &path, uint32_t line) const {
     std::shared_lock guard(lock);
     auto itFile = fileIds.find(path);
@@ -493,6 +709,7 @@ CodeIndex::Stats CodeIndex::GetStats() const {
     std::shared_lock guard(lock);
     Stats stats;
     stats.numSymbols = numSymbols;
+    stats.numEdges = numEdges;
     stats.numNames = nameIds.size();
     stats.numScopes = scopes.size();
     stats.numBytes = numSymbols * (sizeof(Symbol) + sizeof(SymbolHandle));
@@ -501,6 +718,9 @@ CodeIndex::Stats CodeIndex::GetStats() const {
             stats.numFiles++;
         }
         stats.numBytes += sizeof(File) + file.path.capacity();
+        for (auto &edge : file.edges) {
+            stats.numBytes += sizeof(CodeEdge) + (2 * sizeof(EdgeHandle)) + (edge.fromName.capacity() + edge.toName.capacity()) * sizeof(char32_t);
+        }
     }
     for (auto &name : names) {
         stats.numBytes += sizeof(Name) + (name.text.capacity() + name.lower.capacity()) * sizeof(char32_t);

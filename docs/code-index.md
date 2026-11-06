@@ -301,8 +301,8 @@ answer "how does this fit together"; this answers "take me there", from the same
 | Go to definition | The body: the function's or the class's `{` | The index today (`isDefinition`) |
 | Go to declaration | The declaration, normally in the header | The index today |
 | Toggle | The other one of those two, from either side | The index today |
-| Go to implementation | From a virtual method or base class: the overrides, or the derived types | `inherits` edges (step 3) |
-| Go to base | The method or class this one overrides or derives from | `inherits` edges (step 3) |
+| Go to implementation | From a virtual method or base class: the overrides, or the derived types | `inherits` edges (step 3, §11.10) |
+| Go to base | The method or class this one overrides or derives from | `inherits` edges (step 3, §11.10) |
 | Go to type | The type of a member or variable | Type on symbol (noted in §11.6) |
 | Find references | Where the name is used | Refs (step 6, D3) |
 
@@ -404,6 +404,9 @@ disciplined code bases come first - they're the ones where a wrong edge is notic
 **Stage 3 - scale:** the Linux kernel (~30M lines).
 
 Notes from the counts:
+
+- **PuckoNew stays on the benchmark list as an outlier:** vendored C drivers in several copies and macro-named types. It showed a
+  gap in resolving names that the other trees hide (§11.10).
 
 - **Lines are not structure.** In PuckoNew one vendored file is ~40 % of the lines, and a shallow look
   (file sizes, text search) says SQLite is a big part of the system. A deeper analysis would show the
@@ -633,7 +636,7 @@ them alike, and edges stay names, not ids, so two states of a tree can be compar
 | 1d | **System / library names** (§10.2, D14): `std::` by syntax, `<...>` includes marked system, hand-made name lists as editor assets (`c_std`, `cpp_std`), bare names by the tiers of §10.2, `library_type` / `library_function` classes. Members in the format for later suggestions. Independent of step 2 (can come before or after). | ✅ §11.8 |
 | 2 | **In-memory index + Go to symbol** over the workspace, in the background: indexer threads, resolution (§5.2), query ranking, `SymbolSearchModal`. Kept current by `FolderMonitor` and, for open files, the buffer. Decisions: §11.5. | ✅ §11.6 |
 | 2b | **Smart go-to and the navigation stack** (§5.6): go to definition, declaration and the toggle from the name under the cursor, with a list when there are several candidates; back and forward on `Cmd+[` / `Cmd+]`, kept across a restart. Go to implementation and base follow with step 3, references with step 6. | ✅ §11.9 |
-| 3 | **Relationship views**: edges into the index, open files included, then hierarchy and composition (trees, §5.5), "derived from / held by" from any symbol. Their edges also give §5.6 go to implementation and base. Design: §11.10. | - |
+| 3 | **Relationship views**: edges into the index, open files included, then hierarchy and composition (trees, §5.5), "derived from / held by" from any symbol. Their edges also give §5.6 go to implementation and base. | ✅ §11.10 |
 | 4 | **Modules**: file → module roll-up, dependency view + matrix, cycles; DOT/Mermaid export. | - |
 | 5 | **Persistence**: store (D2), skip unchanged files at startup. Only if measuring says startup needs it. | - |
 | 6 | **Calls / uses / refs** (D3), usages view; **architecture rules** (§10). | - |
@@ -1052,7 +1055,7 @@ with no document or UI in them. `ActionHelper` joins them to the documents, and 
 
 ### 11.10 Step 3 - design (2026-11-06)
 
-Not started. The scanner has always found the edges, 1 156 `holds` and 94 `inherits` in GoatEdit's `src`, and they stop there.
+3a, 3b and 3c are done, see their results below. The scanner has always found the edges, 1 156 `holds` and 94 `inherits` in GoatEdit's `src`, and they stop there.
 
 **Two gaps:**
 - **No file's edges reach the index.** `CodeIndex::ReplaceFile` reads `structure.symbols` only. The indexer's files are as blind
@@ -1066,15 +1069,15 @@ them in the same loop, under the same check for a line deleted meanwhile, and `C
 from the walk. Nothing is lexed or copied beyond what the region scan already does.
 
 **The trap: `idxFrom` doesn't survive a region scan.** It indexes the symbols of one scan, and `Begin` sets every resumed scope's
-`idxSymbol` to -1, because those symbols belong to an earlier scan. So an edit inside a class gives its `holds` edges an
-`idxFrom` of -1, which means "the file itself". Copying edges to the lines as they are would pass on a fresh parse and go wrong
-at the first keystroke. **`CodeEdge` carries `fromName`, the qualified name, instead of `idxFrom`:** `ScopePrefix()` still has the
+`idxSymbol` to -1, because those symbols belong to an earlier scan, and `AddHoldsEdge` leaves out an edge with no owner. So an edit
+inside a class loses the `holds` edges of every line it scans. Copying edges to the lines as they are would pass on a fresh parse
+and go wrong at the first keystroke. **`CodeEdge` carries `fromName`, the qualified name, instead of `idxFrom`:** `ScopePrefix()` still has the
 names after a resume, because they are part of the resumable state, and §10.3 wants names anyway. An empty `fromName` is the
 file itself.
 
 **The store:** `ReplaceFile` takes all the edges, per file, removed with the file as symbols are.
 - Two lookups: by the last component of `toName`, so `ILogger` and `gnilk::ILogger` meet, and by `fromName`. They are separate
-  from the `names` table: most targets are never symbols (`std::string`, `duk_int_t`), and a search shouldn't walk them.
+  from the `names` table: many targets are never symbols (`gnilk::ILogger`, `_u32`), and a search shouldn't walk them.
 - **Resolved at query time,** not stored. §5.2 re-resolves when a target appears or vanishes; asking at query time makes that free.
   Trees are asked per row expanded, not per keystroke. An ambiguous name shows all its candidates, as §5.2 says.
 - Plain queries on `CodeIndex`: bases of, derived from, holds, held by. One level each. The view expands lazily, so a cycle in
@@ -1090,16 +1093,76 @@ file itself.
 
 **Known limits:**
 - **`typedef struct { Foo *x; } Bar;`** has no name until the `;`, so its `holds` edges wait for `OnTypedefName`. A region scan
-  that stops before the `;` can't name the owner, and those edges stay file-level until the next full parse. A test holds that they
+  that stops before the `;` can't name the owner, and those edges are left out until the next full parse. A test holds that they
   never land on the wrong type.
+- **`struct { Foo *x; } global;`** at namespace scope: nothing named holds it, so there is no edge. Inside a class the class holds it.
+- **`class A::B { ... }`:** `inherits` goes from `A::B` and `holds` from `B`, as the members' own qualified names already do.
 - **Inherited members:** `holds` is per class; what a type holds through its bases is the view's to show.
 - **Templates:** `template<class T> class A : public T` gives an edge to `T`, as it does today. It resolves to nothing and shows so.
+
+**3a results (2026-11-06, M-series Mac, release).** `gedit-bench --index <dir>`, against §11.6:
+
+| Tree | Files | Index time | Edges | Memory | Relations | Resolved | Outside | Ambiguous | All resolved in |
+|---|---|---|---|---|---|---|---|---|---|
+| GoatEdit `src` | 365 | ~150 ms | 3 205 | 3.3 MB | 1 256 | 1 185 | 71 | 0 | 0.8 ms |
+| testrunner | 149 | 12 ms | 928 | 0.5 MB | 157 | 120 | 37 | 0 | 0.1 ms |
+| noc_goa | 178 | 20 ms | 1 067 | 1.1 MB | 456 | 441 | 15 | 0 | 0.2 ms |
+| vcpu | 169 | 24 ms | 1 461 | 1.0 MB | 577 | 463 | 93 | 21 | 0.4 ms |
+| PuckoNew | 1 385 | ~125 ms | 10 471 | 8.1 MB | 4 057 | 3 784 | 262 | 11 | 2.3 ms |
+
+A relation is an `inherits` or `holds` edge; the rest are includes and `using`. Index time is up from 96 ms on PuckoNew and memory from
+6.2 MB, for a few more files and all its edges. Startup stays far from needing a stored index: resolving the whole of PuckoNew takes
+2.2 ms, so a tree row costs nothing noticeable, and D2 stays where it is.
+
+- **Checked against grep:** what derives from `ViewBase` is the same 12 types.
+- **PuckoNew was the outlier, and worth keeping as one:** 1 823 relations outside the index at first, 45%. MBED-TLS and lwIP weren't
+  the cause. 1 574 came from TI's SimpleLink driver, vendored twice, where `#define _u8 unsigned char` names the types. A macro
+  now counts when no type has the name, and the count fell to 262: `DWORD`, `mbedtls_*`, template parameters. `--index` prints what
+  falls outside by name and folder, so the next outlier explains itself.
+- **For 3b:** a macro type says nothing about the architecture, so the composition view should put such rows last or fold them.
+
+**3b results (2026-11-06).** `Cmd+Shift+T`, `Ctrl` on Linux, opens the type under the cursor, or the type the cursor is in.
+`RelationshipTree` builds the rows as plain data and `RelationshipModal` shows them.
+- **One level at a time:** the tree's lazy fetch asks the index when a row opens. The first type opens on arrival. A name with several
+  types shows them all as roots, and an ambiguous target opens into its candidates.
+- **Rows:** ordered by owns, shares, borrows, with macro types and names outside the index last and dimmed. The same relation on several
+  lines is one row, `borrows ViewBase x3`, which goes to the first. A type already open further up its branch is marked `(above)`
+  and doesn't open again.
+- **Return** goes through `ActionHelper::JumpTo`, so `Cmd+[` comes back. It lands where the relation is written: the member, or the
+  derived class's line.
+- **The code itself:** opening a row starts with the lines it stands for, one per place, trimmed, each one a jump:
+  `Workspace.h:764  Document::Ref activeDocument = nullptr;`. So `x2` opens into its two members, and you read what a relation is
+  before going anywhere. An open file gives its current text, unsaved edits included; a closed one is read from disk. Later: a small
+  pop-up with the lines around it, once there is such a thing.
+- **In colour:** a code row is drawn with `LineRender`, through a per-row hook on `TreeView`. An open file's line already has its
+  colours, semantic ones included. A closed file's is tokenized on its own and then coloured by `WorkspaceNames`, so the middle of a
+  block comment reads as code, and a name only that file declares stays plain. The selected row stays one inverted bar.
+- **A key that couldn't arrive:** both keyboard drivers dropped every `Shift` + letter key-down, leaving it to text input, but with `Cmd`
+  or `Ctrl` held no text comes. `Keyboard::IsShiftedText` now tells the two apart. This is the first binding with two modifiers on a
+  letter, and the drivers themselves have no test; only the rule does.
+- **Modals on SDL3:** the right border was drawn just inside the window, where the contents painted over it, and every caption was
+  blank: nothing set the window context's colours. Both found through this view. SDL2's caption is fixed too; its borders work differently and aren't checked.
+- **`TreeSelectionModal`** had no users and laid its tree out over the whole screen. It now fills the modal, as `ListSelectionModal` does.
+- **A crash found by a mutation test:** `IsNameOf` underflowed when a type is one character longer than the name (`ab::Item`, `b::Item`).
+  Adding a test for a surviving mutation showed it, and any edge written that way would have thrown.
+
+**3c results (2026-11-06).** `Cmd+Shift+B` goes to implementation and `Cmd+Shift+U` to base, `Ctrl` on Linux. `Cmd+Shift` stays the
+default for this kind of action. `U` is a stand-in; the key may change.
+- **From a type:** implementation lists the derived types at any depth, and base goes to the direct bases.
+- **From a method:** implementation lists the bodies below it, and base goes to the nearest base that has the method, where it is
+  declared, which is all an interface has. A class in between without the method is passed over.
+- **Anywhere else** in a method or class, either key goes from the one the cursor is in. So base works from inside a method body.
+- **One place jumps, several open the list,** as for go to definition, and every jump lands on the navigation stack.
+- **A bug from 2b, found here:** on a class's own line its constructors were closer than the class, so the class was lost. Go to
+  base looked for a method of that name, and go to definition went to the constructor. Constructors now give way before the scopes do.
+- **A name is a name (§5.2):** overloads aren't told apart, and a method counts as an override by its name alone, `override` or not.
+
+**Relation rows** show the type name in the user-type colour. A row that doesn't fit, and one outside the index, stays plain.
 
 **Decided (2026-11-06):** a modal first for 3b. `TreeSelectionModal` exists and Go to symbol has the same rhythm: ask, look, jump.
 A view that stays open and follows the cursor may be the better end state, and using the modal will say what it should show.
 
 **Open:**
-- **Keys for 3b and 3c.** Functionality, so `Cmd`/`Ctrl`.
 - **The look of the UI.** The toolkit's modals and trees are plain. These views are where the structure gets read, so what they
   look like may need its own work.
 

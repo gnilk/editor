@@ -69,7 +69,7 @@ cd cmake-build-debug && trun -l ./libutests.so                     # list
 
 Test source files live in `utests/`. Each `test_<module>.cpp` corresponds to one module; `test_main.cpp` initializes the editor singleton for all tests. Test functions are `extern "C"` (or `DLL_EXPORT`) and discovered by exported symbol name — adding a new case is just a new function (+ a forward declaration where the file uses one).
 
-**Verified-green set** (524 tests, run from `cmake-build-debug/`):
+**Verified-green set** (554 tests, run from `cmake-build-debug/`):
 `trun -m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,vtermparser,keymapping,hexprojection,bytestream,hexview,indent,session,markdown,folderscanner,foldermonitor,treeview,textbuffer,mouseclicktracker,wrapprojection,config,modal,find,codeindex,themeimport,exclusion --sequential ./libutests.so`
 
 **Benchmarks are not trun cases** - trun links the ASan runtime (see below), which makes every
@@ -81,6 +81,7 @@ C/C++ structure pass (`src/Core/Index/CPPStructureScanner`, code index step 1) f
 (nested, with extents) and edges (inherits / holds+ownership / includes) - the way to judge it on real code.
 `./gedit-bench --index <dir>` indexes a tree and times Go to symbol queries. `./gedit-bench --ignored <dir>` lists
 `ExclusionRules`' verdict per path, to hold against `git check-ignore --no-index --stdin`.
+`./gedit-bench --edges <name> <root>` asks the relationship queries (bases, derived, holds, held by) from the outside.
 `./gedit-bench --recolour <file> <root>` times a large open file: parse, recolour, the walk after a pause in typing.
 `./gedit-bench --check <file-or-dir>` lists files whose braces don't balance at the end (usually a lexer
 misread); `./gedit-bench --braces <file>` prints the lexer's brace depth per line to find the line.

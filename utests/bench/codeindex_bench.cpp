@@ -19,6 +19,7 @@
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <map>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -47,6 +48,7 @@ static void Braces(const fs::path &root);
 static void IndexBench(const fs::path &root);
 static void Ignored(const fs::path &root);
 static void Recolour(const fs::path &file, const fs::path &root);
+static void Edges(const std::string &name, const fs::path &root);
 static std::string Utf8(const std::u32string &text);
 static std::vector<fs::path> SourceFiles(const fs::path &root);
 
@@ -57,6 +59,10 @@ int main(int argc, const char **argv) {
     std::string mode = (argc > 1) ? argv[1] : "";
     if ((mode == "--recolour") && (argc > 3)) {
         Recolour(argv[2], argv[3]);
+        return 0;
+    }
+    if ((mode == "--edges") && (argc > 3)) {
+        Edges(argv[2], argv[3]);
         return 0;
     }
     auto run = Bench;
@@ -168,7 +174,7 @@ static void Recolour(const fs::path &file, const fs::path &root) {
 
 // Step 2's targets on real code: how long a tree takes to index, what it costs in memory, and what a keypress
 // costs (< 10 ms at 1M symbols, §4.5). Queries run on the finished index, single-threaded.
-static void IndexBench(const fs::path &root) {
+static CodeIndex::Ref IndexTree(const fs::path &root) {
     auto language = Editor::Instance().GetLanguageForExtension(".cpp");
     Indexer::Languages languages;
     for (auto &extension : {".cpp", ".h", ".c", ".hpp"}) {
@@ -180,14 +186,95 @@ static void IndexBench(const fs::path &root) {
 
     auto index = CodeIndex::Create();
     auto indexer = Indexer::Create(index, languages, Indexer::Options{});
-    auto tStart = std::chrono::steady_clock::now();
     indexer->AddRoot(absoluteRoot, rules);
     indexer->WaitIdle();
+    return index;
+}
+
+// The relationship queries from the outside, as a view or an agent asks them (docs/code-index.md §11.10)
+static void Edges(const std::string &name, const fs::path &root) {
+    auto index = IndexTree(root);
+    auto printRows = [&root](const char *title, const std::vector<CodeIndex::Relation> &relations, bool isToTarget) {
+        printf("  %s (%zu)\n", title, relations.size());
+        for (auto &relation : relations) {
+            auto row = isToTarget ? Utf8(relation.toName) : Utf8(relation.fromName);
+            std::string how = (relation.ownership != kOwnership::kNone) ? std::string(" (") + OwnershipName(relation.ownership) + ")" : "";
+            std::string targets;
+            if (isToTarget && relation.targets.empty()) {
+                targets = " [outside the index]";
+            } else if (isToTarget && (relation.targets.size() > 1)) {
+                targets = " [ambiguous:";
+                for (auto &target : relation.targets) {
+                    targets += " " + Utf8(target);
+                }
+                targets += "]";
+            }
+            printf("    %s%s%s  %s:%u\n", row.c_str(), how.c_str(), targets.c_str(), fs::path(relation.path).lexically_relative(fs::canonical(root)).c_str(), relation.line + 1);
+        }
+    };
+    auto tStart = std::chrono::steady_clock::now();
+    auto types = index->TypesNamed(UnicodeHelper::utf8to32(name));
+    for (auto &type : types) {
+        printf("%s\n", Utf8(type).c_str());
+        printRows("bases", index->BasesOf(type), true);
+        printRows("derived", index->DerivedFrom(type), false);
+        printRows("holds", index->HoldsOf(type), true);
+        printRows("held by", index->HeldBy(type), false);
+    }
+    auto msQuery = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tStart).count();
+    printf("%zu type(s), %zu edges in the index, queries and printing %.2f ms\n", types.size(), index->GetStats().numEdges, msQuery);
+}
+
+static void IndexBench(const fs::path &root) {
+    auto tStart = std::chrono::steady_clock::now();
+    auto index = IndexTree(root);
     auto msIndex = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tStart).count();
 
     auto stats = index->GetStats();
-    printf("%s\n  indexed %zu files in %.0f ms: %zu symbols, %zu names, %zu scopes, ~%.1f MB\n", root.c_str(), stats.numFiles, msIndex,
-           stats.numSymbols, stats.numNames, stats.numScopes, (double)stats.numBytes / (1024.0 * 1024.0));
+    printf("%s\n  indexed %zu files in %.0f ms: %zu symbols, %zu edges, %zu names, %zu scopes, ~%.1f MB\n", root.c_str(), stats.numFiles, msIndex,
+           stats.numSymbols, stats.numEdges, stats.numNames, stats.numScopes, (double)stats.numBytes / (1024.0 * 1024.0));
+
+    auto timeRelations = std::chrono::steady_clock::now();
+    auto relations = index->AllRelations();
+    auto msRelations = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - timeRelations).count();
+    size_t numOutside = 0;
+    size_t numAmbiguous = 0;
+    for (auto &relation : relations) {
+        numOutside += relation.targets.empty() ? 1 : 0;
+        numAmbiguous += (relation.targets.size() > 1) ? 1 : 0;
+    }
+    printf("  relations: %zu, %zu resolved, %zu outside the index, %zu ambiguous, all in %.1f ms\n", relations.size(),
+           relations.size() - numOutside - numAmbiguous, numOutside, numAmbiguous, msRelations);
+    // What falls outside says what the index can't see - a tree that stands out here is worth a look
+    std::map<std::string, size_t> outsideNames;
+    std::map<std::string, size_t> outsideFolders;
+    auto absoluteRoot = fs::canonical(root);
+    for (auto &relation : relations) {
+        if (relation.targets.empty()) {
+            outsideNames[Utf8(relation.toName)]++;
+            auto folder = fs::path(relation.path).lexically_relative(absoluteRoot);
+            auto it = folder.begin();
+            std::string top = it->string();
+            if (++it != folder.end()) {
+                top += "/" + it->string();
+            }
+            outsideFolders[top]++;
+        }
+    }
+    auto printTop = [](const char *title, const std::map<std::string, size_t> &counts) {
+        std::vector<std::pair<size_t, std::string>> sorted;
+        for (auto &[name, count] : counts) {
+            sorted.emplace_back(count, name);
+        }
+        std::sort(sorted.rbegin(), sorted.rend());
+        printf("  outside, by %s:", title);
+        for (size_t i = 0; i < std::min<size_t>(sorted.size(), 8); i++) {
+            printf(" %s %zu", sorted[i].second.c_str(), sorted[i].first);
+        }
+        printf("\n");
+    };
+    printTop("name", outsideNames);
+    printTop("folder", outsideFolders);
 
     auto timeNames = std::chrono::steady_clock::now();
     auto workspaceNames = index->GetWorkspaceNames();
@@ -252,7 +339,7 @@ static void Dump(const fs::path &root) {
                    Utf8(symbol.qualifiedName).c_str(), symbol.isDefinition ? "" : "  [decl]", extent.c_str());
         }
         for (auto &edge : structure.edges) {
-            auto from = (edge.idxFrom >= 0) ? Utf8(structure.symbols[edge.idxFrom].qualifiedName) : std::string("<file>");
+            auto from = edge.fromName.empty() ? std::string("<file>") : Utf8(edge.fromName);
             std::string how = (edge.ownership != kOwnership::kNone) ? std::string("(") + OwnershipName(edge.ownership) + ")" : (edge.isSystemInclude ? "<sys>" : "");
             printf("  %5u %s %s%s %s\n", edge.line + 1, from.c_str(), EdgeKindName(edge.kind), how.c_str(), Utf8(edge.toName).c_str());
         }

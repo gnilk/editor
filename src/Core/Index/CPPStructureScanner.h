@@ -106,7 +106,7 @@ namespace gedit {
         bool TryEnumDefinition(const Statement &statement);
         bool TryFunction(const Statement &statement, bool isDefinition, int &outIdxSymbol);
         void AddVariables(const Statement &statement);
-        void AddHoldsEdge(int idxFrom, const Statement &statement, size_t idxBegin, size_t idxEnd, bool isExtraPointer, uint32_t line);
+        void AddHoldsEdge(const Statement &statement, size_t idxBegin, size_t idxEnd, bool isExtraPointer, uint32_t line);
         void OnTypedefName(const Statement &statement);
         void FlushLine(std::vector<Token> &lineTokens);
 
@@ -130,6 +130,7 @@ namespace gedit {
         Statement enumItem;
         int parenDepth = 0;             // in 'statement'
         int pendingTypedefSymbol = -1;  // 'typedef struct/enum {...} Name;' - the type waiting for its name
+        std::vector<size_t> edgesAwaitingTypedefName;   // indices into result.edges, inside a nameless typedef's body
         bool isAfterAnonymousType = false;  // 'struct {...} name;' - the names before the ';' are members
         bool isPendingTypedefAlias = false; // a resumed scan at 'typedef struct Foo {...} Foo_t;' - the alias at the ';'
         std::vector<Conditional> conditionals;

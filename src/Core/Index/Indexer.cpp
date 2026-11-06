@@ -350,32 +350,6 @@ bool Indexer::IsStale(const fs::path &path) {
     return error || (timeModified != itFile->second.timeModified) || (size != itFile->second.size);
 }
 
-// A file that isn't UTF-8 (Latin-1 comments are common in old C) would stop the decoder at the first bad
-// byte and lose the rest of the file. Identifiers are ASCII, so each bad byte just becomes a '?'.
-static void ReplaceInvalidUtf8(std::string &data) {
-    size_t idx = 0;
-    while (idx < data.size()) {
-        auto ch = (unsigned char)data[idx];
-        size_t length = (ch < 0x80) ? 1 : ((ch >= 0xc2) && (ch <= 0xdf)) ? 2 : ((ch & 0xf0) == 0xe0) ? 3 : ((ch >= 0xf0) && (ch <= 0xf4)) ? 4 : 0;
-        bool isValid = (length > 0) && ((idx + length) <= data.size());
-        for (size_t i = 1; isValid && (i < length); i++) {
-            isValid = ((unsigned char)data[idx + i] & 0xc0) == 0x80;
-        }
-        // Overlong forms, surrogates and past U+10FFFF
-        if (isValid && (length > 2)) {
-            auto second = (unsigned char)data[idx + 1];
-            isValid = !(((ch == 0xe0) && (second < 0xa0)) || ((ch == 0xed) && (second > 0x9f)) ||
-                        ((ch == 0xf0) && (second < 0x90)) || ((ch == 0xf4) && (second > 0x8f)));
-        }
-        if (isValid) {
-            idx += length;
-        } else {
-            data[idx] = '?';
-            idx++;
-        }
-    }
-}
-
 void Indexer::IndexFile(const std::string &path, std::unordered_map<LanguageBase *, StructureScanner::Ptr> &scanners) {
     fs::path filePath(path);
     auto folder = filePath.parent_path().string();
@@ -408,7 +382,7 @@ void Indexer::IndexFile(const std::string &path, std::unordered_map<LanguageBase
     std::ostringstream content;
     content << file.rdbuf();
     auto data = std::move(content).str();
-    ReplaceInvalidUtf8(data);
+    UnicodeHelper::ReplaceInvalidUtf8(data);
 
     auto *language = itLanguage->second.get();
     auto &scanner = scanners[language];

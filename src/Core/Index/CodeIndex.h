@@ -41,6 +41,20 @@ namespace gedit {
             bool isDefinition = false;
         };
 
+        // An edge between two names (§5.1). Plain data, so a view, a command or an agent can ask alike (§10.3).
+        struct Relation {
+            kEdgeKind kind = kEdgeKind::kInherits;
+            kOwnership ownership = kOwnership::kNone;
+            std::u32string fromName;
+            std::u32string toName;                  // as written
+            // What 'toName' can mean from where it is written (§5.2), qualified. None: outside the index ('gnilk::ILogger').
+            // Several: ambiguous, and all are shown - never a guess.
+            std::vector<std::u32string> targets;
+            bool isMacro = false;                   // the target is '#define _u8 unsigned char', no type has the name
+            std::string path;
+            uint32_t line = 0;
+        };
+
         struct QueryContext {
             std::string activePath;     // what closeness is measured from - empty: no proximity ranking
             size_t maxHits = 200;
@@ -51,6 +65,7 @@ namespace gedit {
             size_t numSymbols = 0;
             size_t numNames = 0;
             size_t numScopes = 0;
+            size_t numEdges = 0;
             size_t numBytes = 0;        // estimate of what the tables hold
         };
 
@@ -91,6 +106,16 @@ namespace gedit {
         std::optional<Hit> NearestSymbol(const std::string &path, uint32_t line) const;
         static std::u32string LowerCase(const std::u32string_view &text);
 
+        // The types this name can be, qualified: 'Line' or 'gedit::Line' -> 'gedit::Line'. The relations below take these.
+        std::vector<std::u32string> TypesNamed(const std::u32string &name) const;
+        // One level each - a tree asks again per row, so a cycle is one more row and not a loop. By name, then line.
+        std::vector<Relation> BasesOf(const std::u32string &qualifiedType) const;
+        std::vector<Relation> DerivedFrom(const std::u32string &qualifiedType) const;
+        std::vector<Relation> HoldsOf(const std::u32string &qualifiedType) const;
+        std::vector<Relation> HeldBy(const std::u32string &qualifiedType) const;
+        // Every 'inherits' and 'holds' edge, resolved: the whole structure at once, to compare or to measure
+        std::vector<Relation> AllRelations() const;
+
         // What each name means across the index. The same pointer until a meaning changes, so a caller can
         // compare pointers to see if there is anything to recolour. Names with several meanings aren't in it.
         WorkspaceNames::Ref GetWorkspaceNames();
@@ -108,11 +133,17 @@ namespace gedit {
         struct File {
             std::string path;
             std::vector<Symbol> symbols;
+            std::vector<CodeEdge> edges;
         };
 
         struct SymbolHandle {
             uint32_t idFile = 0;
             uint32_t idxSymbol = 0;
+        };
+
+        struct EdgeHandle {
+            uint32_t idFile = 0;
+            uint32_t idxEdge = 0;
         };
 
         struct Name {
@@ -138,6 +169,8 @@ namespace gedit {
     private:
         // Caller holds the write lock
         void RemoveSymbols(uint32_t idFile);
+        void AddEdges(uint32_t idFile, const FileStructure &structure);
+        void RemoveEdges(uint32_t idFile);
         uint32_t InternName(const std::u32string &text);
         uint32_t InternScope(const std::u32string &text);
 
@@ -145,6 +178,12 @@ namespace gedit {
         uint8_t Proximity(const File &file, const std::string &activeFolder, const std::string &activePath) const;
         Hit MakeHit(const SymbolHandle &handle) const;
         bool IsClassScope(const std::u32string &scope) const;
+        std::vector<Relation> EdgesFrom(const std::u32string &qualifiedType, kEdgeKind kind) const;
+        std::vector<Relation> EdgesTo(const std::u32string &qualifiedType, kEdgeKind kind) const;
+        Relation MakeRelation(const EdgeHandle &handle) const;
+        std::vector<std::u32string> TypesWithLastName(const std::u32string &lastName) const;
+        std::vector<std::u32string> ResolveTarget(const std::u32string &toName, const std::u32string &fromName, bool &outIsMacro) const;
+        bool IsMacro(const std::u32string &name) const;
         std::optional<kLanguageTokenClass> SingleMeaning(const Name &name) const;
         bool IsBetter(const Candidate &a, const Candidate &b) const;
     private:
@@ -158,7 +197,11 @@ namespace gedit {
         std::unordered_map<std::u32string_view, uint32_t> nameIds;
         std::unordered_map<std::u32string_view, uint32_t> scopeIds;
         std::vector<uint32_t> freeNames;        // entries whose last symbol went away
+        // Apart from 'names': many targets are never symbols ('gnilk::ILogger'), and a search shouldn't walk them
+        std::unordered_map<std::u32string, std::vector<EdgeHandle>> edgesByFrom;       // the qualified name
+        std::unordered_map<std::u32string, std::vector<EdgeHandle>> edgesByTarget;     // the last component, as 'A::Line' and 'Line' must meet
         size_t numSymbols = 0;
+        size_t numEdges = 0;
         uint64_t generation = 0;                // counts the changes to the files
 
         // Taken before 'lock'

@@ -42,6 +42,9 @@ namespace gedit {
         kActionGotoDefinition,          // no default key: GotoToggle gets there from any use of a name
         kActionGotoDeclaration,         // no default key: GotoToggle gets there from the definition
         kActionGotoToggle,              // default: Cmd+B (macOS) / Ctrl+B (Linux) - definition <-> declaration
+        kActionGotoImplementation,      // default: Cmd+Shift+B (macOS) / Ctrl+Shift+B (Linux) - derived types, overrides
+        kActionGotoBase,                // default: Cmd+Shift+U (macOS) / Ctrl+Shift+U (Linux) - the base class, the method overridden
+        kActionShowRelationships,       // default: Cmd+Shift+T (macOS) / Ctrl+Shift+T (Linux) - how a type fits in
         kActionJumpBack,                // default: Cmd+[ (macOS) / Ctrl+[ (Linux) - the navigation stack
         kActionJumpForward,             // default: Cmd+] (macOS) / Ctrl+] (Linux)
         kActionEnterCommandMode,

@@ -30,9 +30,17 @@ namespace gedit {
             std::vector<CodeIndex::Hit> hits;   // best first
             bool isAlreadyThere = false;        // the only place it can lead is under the cursor
         };
+
+        enum class kRelated {
+            kImplementation,    // a class: the types derived from it. A method: its overrides, at any depth.
+            kBase,              // a class: its bases. A method: the nearest one it overrides.
+        };
     public:
         // 'text' is the line 'idxLine' of 'path'
         static Result Resolve(const CodeIndex &index, const std::u32string &text, size_t idxChar, uint32_t idxLine, const std::string &path, kMode mode);
+        // From the type or method under the cursor, else the one the cursor is in. A name is a name (§5.2): a method overrides
+        // any method of that name in a base, so overloads aren't told apart.
+        static Result ResolveRelated(const CodeIndex &index, const std::u32string &text, size_t idxChar, uint32_t idxLine, const std::string &path, kRelated related);
     };
 }
 

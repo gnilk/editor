@@ -281,3 +281,20 @@ void Line::IterateWithAttributes(LineIteratorDelegate callback) {
     }
 
 }
+
+Line::Ref Line::CopyOfRange(size_t idxStart, size_t idxEnd) const {
+    idxEnd = std::min(idxEnd, buffer.size());
+    idxStart = std::min(idxStart, idxEnd);
+    auto copy = Line::Create(buffer.substr(idxStart, idxEnd - idxStart));
+    for (size_t i = 0; i < attribs.size(); i++) {
+        auto spanStart = (size_t)attribs[i].idxOrigString;
+        auto spanEnd = ((i + 1) < attribs.size()) ? (size_t)attribs[i + 1].idxOrigString : buffer.size();
+        if ((spanStart >= idxEnd) || (spanEnd <= idxStart)) {
+            continue;
+        }
+        auto attrib = attribs[i];
+        attrib.idxOrigString = (int)(std::max(spanStart, idxStart) - idxStart);
+        copy->attribs.push_back(attrib);
+    }
+    return copy;
+}

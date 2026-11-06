@@ -69,9 +69,12 @@ keymap: {
     Find: "CopyPasteModifier + 'f'",
     # Go to symbol - search the code index of the whole workspace - Cmd+T / Ctrl+T
     GotoSymbol: "CopyPasteModifier + 't'",
+    ShowRelationships: "CopyPasteModifier + SelectionModifier + 't'",
     # Smart go-to on the name under the cursor, back and forward through the jumps (docs/code-index.md §5.6).
     # GotoDefinition and GotoDeclaration exist too, without a key of their own.
     GotoToggle: "CopyPasteModifier + 'b'",
+    GotoImplementation: "CopyPasteModifier + SelectionModifier + 'b'",
+    GotoBase: "CopyPasteModifier + SelectionModifier + 'u'",
     JumpBack: "CopyPasteModifier + '['",
     JumpForward: "CopyPasteModifier + ']'",
     NextSearchResult: "KeyCode_Command + 'n'",

@@ -80,6 +80,11 @@ namespace gedit {
         static __inline int CmdMask() {
             return kMod_LeftCommand | kMod_RightCommand;
         }
+        // Shift alone types a character, and that comes as text input. With Cmd or Ctrl held there is no text, only the key.
+        static __inline bool IsShiftedText(int modifiers) {
+            return ((modifiers & ShiftMask()) != 0) && ((modifiers & (CmdMask() | CtrlMask())) == 0);
+        }
+
         static int ModifierMaskFromString(const std::string &strModifiers);
 
         static bool IsNameModifierMask(const std::string &modiferName);

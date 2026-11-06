@@ -131,9 +131,8 @@ std::optional<KeyPress> SDLKeyboardDriver::HandleKeyPressEvent(const SDL_Event &
         logger->Debug("  special kp, modifiers=%.2x, specialKey=%.2x (%s)", kp.modifiers, kp.specialKey, keyName.c_str());
         return kp;
     } else if (kp.modifiers != 0) {
-        static int shiftModifiers = Keyboard::kModifierKeys::kMod_RightShift | Keyboard::kModifierKeys::kMod_LeftShift;
         kp.key = TranslateScanCode(event.key.keysym.scancode);
-        if ((kp.modifiers & shiftModifiers) && (kp.key != 0)) {
+        if (Keyboard::IsShiftedText(kp.modifiers) && (kp.key != 0)) {
             logger->Debug("Shift+ASCII  (%c) - skipping, this is handled by EVENT_TEXT_INPUT", (int)kp.key);
             return {};
         }

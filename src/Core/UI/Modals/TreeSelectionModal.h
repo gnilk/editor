@@ -30,8 +30,9 @@ namespace gedit {
 
         void InitView() override {
             ModalView::InitView();
-            window->SetCaption("Tree");
-            AddView(treeView.get());
+            layoutView = std::make_unique<VStackView>(GetContentRect());
+            AddView(layoutView.get());
+            layoutView->AddSubView(treeView.get(), kFill);
         }
         bool OnAction(const EditorAction &kpAction) override {
             if (treeView->OnAction(kpAction)) {
@@ -45,6 +46,7 @@ namespace gedit {
         }
 
     private:
+        std::unique_ptr<VStackView> layoutView = nullptr;
         typename TreeView<T>::Ref treeView;
     };
 }

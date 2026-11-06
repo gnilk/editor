@@ -320,8 +320,10 @@ system headers isn't a goal, §10.2), so the status line says what it is and the
 
 - **What goes on it:** where a jump started and where it landed: any go-to above, Go to symbol, go to line, a row in a
   relationship view. Moving the cursor doesn't, or the stack fills with noise.
-- **Smart about edits:** an entry holds the symbol and the offset into it, not only a line. Lines above it can come and go
-  and back still lands in the right place. If the symbol is gone it falls back to the line, clamped.
+- **Smart about edits:** an entry holds the nearest symbol at or above its line and the distance to it, not only a line.
+  Lines above it can come and go and back still lands in the right place. If the symbol is gone it falls back to the line,
+  clamped. Not the enclosing symbol: an open file's symbols have no extent in the index, and a function body holds none of
+  its own, so the nearest one is the enclosing one where it matters.
 - **Smart about noise:** a jump within the same symbol replaces the top entry instead of adding one, and so does going
   back and forth between the same two places.
 - **Across files:** an entry for a closed file reopens it.
@@ -335,7 +337,10 @@ system headers isn't a goal, §10.2), so the status line says what it is and the
 - **It survives a restart,** through the session cache (`docs/session-cache.md`). An entry holds the path, the symbol and
   the offset, so it needs nothing from a previous run but the file.
 
-**Open:** whether `Cmd+click` jumps too, and the keys for the go-to actions themselves.
+- **Go-to key:** the toggle is `Cmd+B`, `Ctrl` on Linux. From a use it goes to the definition, so one key reaches both;
+  `GotoDefinition` and `GotoDeclaration` exist without a key of their own.
+
+**Open:** whether `Cmd+click` jumps too.
 
 **Order:** definition, declaration, toggle and the stack need nothing from step 3 and come first, as step 2b. Implementation
 and base come with the edges of step 3, and references with step 6.
@@ -600,7 +605,7 @@ Its output could also *generate* the shipped assets.
 | 1c | **Theme importer** (§10.1, D13): Sublime / VS Code theme → GoatEdit `theme.yml` + `colors.json` via the scope table; `--import-theme`. Independent of the index - can come any time after 1b. | ✅ §11.4 (+ `.theme --import`) |
 | 1d | **System / library names** (§10.2, D14): `std::` by syntax, `<...>` includes marked system, hand-made name lists as editor assets (`c_std`, `cpp_std`), bare names by the tiers of §10.2, `library_type` / `library_function` classes. Members in the format for later suggestions. Independent of step 2 (can come before or after). | ✅ §11.8 |
 | 2 | **In-memory index + Go to symbol** over the workspace, in the background: indexer threads, resolution (§5.2), query ranking, `SymbolSearchModal`. Kept current by `FolderMonitor` and, for open files, the buffer. Decisions: §11.5. | - |
-| 2b | **Smart go-to and the navigation stack** (§5.6): go to definition, declaration and the toggle from the name under the cursor, with a list when there are several candidates; back and forward on `Cmd+[` / `Cmd+]`, kept across a restart. Go to implementation and base follow with step 3, references with step 6. | - |
+| 2b | **Smart go-to and the navigation stack** (§5.6): go to definition, declaration and the toggle from the name under the cursor, with a list when there are several candidates; back and forward on `Cmd+[` / `Cmd+]`, kept across a restart. Go to implementation and base follow with step 3, references with step 6. | ✅ §11.9 |
 | 3 | **Relationship views**: hierarchy and composition (trees, §5.5), "derived from / held by" from any symbol. Their edges also give §5.6 go to implementation and base. | - |
 | 4 | **Modules**: file → module roll-up, dependency view + matrix, cycles; DOT/Mermaid export. | - |
 | 5 | **Persistence**: store (D2), skip unchanged files at startup. Only if measuring says startup needs it. | - |
@@ -989,6 +994,34 @@ needs a restart. Nothing in a list runs, so a project list needs no entry in `Pr
 alias (`namespace fs = std::filesystem; fs::path`), a `using` inside a function or reaching a file through a header,
 lower-case `stderr` or `errno` outside a type position, a list's name in a file that gets the header through another of the
 project's headers: only direct includes count, and the index holds no include edges.
+
+### 11.9 Step 2b results (2026-11-06)
+
+`GoToResolver` narrows the name under the cursor to its candidates, `NavigationStack` keeps the jumps; both are plain code
+with no document or UI in them. `ActionHelper` joins them to the documents, and every jump goes through `ActionHelper::JumpTo`.
+
+- **Resolving:** in this order, the qualifier as written, else `.`/`->` syntax, else the scopes around the cursor; then
+  constructors give way to their class when the class is a candidate, and definition or declaration is picked by the mode.
+  A step that would leave nothing is skipped. On a name's own declaration or definition the toggle goes by the qualified name.
+- **A list** is Go to symbol's modal over a fixed set of hits; typing filters it.
+- **The status line** had no way to say anything: `Editor::ShowStatusMessage` holds a message for four seconds, for "'x' is
+  from a library", "'x' isn't in the index" and "'x' has no other place".
+- **A bug found on the way:** the index holds canonical paths and the workspace what it was opened with, so for a project
+  reached through a symlink, Go to symbol opened a second document for a file already open, without its unsaved edits.
+  `Editor::LoadDocument` now compares canonical paths, which covers every caller.
+- **A crash found on the way, older than this step:** in quick mode, `]` or `[` to another view with `leave_automatically` on
+  left quick mode twice, and the second leave took the root view off the run loop's handlers. The next key, any key, read an
+  empty stack. It showed up as a crash on `Cmd+[`. `Editor::LeaveCommandMode` now does nothing outside quick mode.
+
+**Left out or limited:**
+- **Go to line** isn't on the stack: `kActionGotoLine` is mapped to a name but nothing implements it yet.
+- **Overloads** in one file share a name, so after an edit the closest to the old line wins. A shift of half the distance
+  between them picks the wrong one.
+- **The stack reads the index,** so a jump right after an edit, before the pause that feeds the index, anchors on slightly
+  old lines. Only the anchor is affected, and the next pause corrects it.
+- **Linux, not fixed:** the terminal keymap inherits the default one, so in the terminal `Ctrl+B`, `Ctrl+[` and `Ctrl+]` go to
+  the editor, as `Ctrl+T` and `Ctrl+F` already do, and that includes full-screen programs: `ForwardActionToShell` passes on a
+  fixed set of actions. `Ctrl+[` is `Esc` to a terminal, so this one will be felt in vim. macOS isn't affected.
 
 ## 12. Open decisions
 

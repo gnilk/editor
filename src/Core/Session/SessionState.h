@@ -106,6 +106,21 @@ namespace gedit {
         std::vector<TerminalBlockSession> blocks = {};
     };
 
+    // One place on the navigation stack (docs/code-index.md §5.6): enough to find it again in a changed file.
+    struct NavigationEntrySession {
+        std::string path = {};
+        std::string symbol = {};        // qualified, utf-8 - empty: only the line
+        int32_t lineOffset = 0;
+        uint32_t line = 0;
+        uint32_t column = 0;
+    };
+
+    // Additive on RootSession: a session.yml without it restores an empty stack.
+    struct NavigationSession {
+        std::vector<NavigationEntrySession> entries = {};
+        std::size_t idxCurrent = 0;
+    };
+
     // The whole per-root session: everything needed to bring one project back as it was left.
     // Serialised to <root>/.goatedit/session.yml.
     struct RootSession {
@@ -124,6 +139,7 @@ namespace gedit {
         // Terminal scrollback block index + .bin pointer (terminal-scrollback.md §8). Additive; empty when
         // a session predates the feature or the terminal had no persisted scrollback.
         TerminalSession terminal = {};
+        NavigationSession navigation = {};
     };
 
 }

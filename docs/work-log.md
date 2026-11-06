@@ -14,7 +14,8 @@ The base for "search everywhere": a lexer-driven index of symbols and their rela
 search. **Shipped:** step 0 (`TokenizeText` fast path, `gedit-bench`, tokenizer 3-4x faster), step 1 (C/C++
 structure pass: symbols, inherits/holds/includes), step 1b (semantic highlighting from the file's own
 declarations, kept per `Line`), step 1c (VS Code / Sublime theme import, `--import-theme`,
-`.theme --import`), step 1d (library names), step 2 (in-memory index, background indexer, Go to symbol on Cmd+T / Ctrl+T, open files fed
+`.theme --import`), step 1d (library names), step 2b (smart go-to on `Cmd+B`, navigation stack on `Cmd+[` / `Cmd+]`,
+kept across a restart), step 2 (in-memory index, background indexer, Go to symbol on Cmd+T / Ctrl+T, open files fed
 from their buffer, disk changes through `FolderMonitor`, `ExclusionRules` with real `.gitignore`, cross-file colouring).
 **Load-bearing decisions:** no compiler or language server; anything per-buffer rides
 the highlighter's line/region machinery, never a whole-buffer copy or re-lex per edit; themes are converted

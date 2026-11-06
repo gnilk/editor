@@ -35,6 +35,9 @@ namespace gedit {
         // True for the name at 'idxName' in 'std::x', '::std::x', 'std::chrono::x'
         static bool IsQualifiedStd(const std::u32string &text, size_t idxName);
 
+        // 'std::chrono' for the name at 'idxName' in 'std::chrono::x'. Empty if there is none, or template arguments hide it.
+        static std::u32string WrittenQualifier(const std::u32string &text, size_t idxName);
+
         // One list as YAML - see Assets/Resources/Libraries/c_std.yml. False, and nothing added, if it's malformed.
         bool Add(const std::string &yaml);
 

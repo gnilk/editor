@@ -18,7 +18,11 @@
 #include "Core/Workspace.h"
 #include "Core/Index/CodeIndex.h"
 #include "Core/Index/Indexer.h"
+#include <chrono>
+
 #include "Core/Index/LibraryNames.h"
+#include "Core/Index/GoToResolver.h"
+#include "Core/Index/NavigationStack.h"
 #include "Core/Document.h"
 #include "Core/Workspace.h"
 #include "Core/TypeUtil.h"
@@ -153,6 +157,13 @@ namespace gedit {
         LibraryNames::Ref GetLibraryNames() {
             return libraryNames;
         }
+        NavigationStack &GetNavigationStack() {
+            return navigationStack;
+        }
+        // A word from the editor on the status line, for a few seconds
+        void ShowStatusMessage(const std::u32string &message);
+        // Empty when there is none
+        std::u32string GetStatusMessage() const;
         // For testing - with no parse running
         void SetLibraryNames(LibraryNames::Ref newLibraryNames) {
             libraryNames = std::move(newLibraryNames);
@@ -283,6 +294,9 @@ namespace gedit {
         std::unordered_map<std::string, LanguageBase::Ref> extToLanguages;
         CodeIndex::Ref codeIndex = nullptr;
         LibraryNames::Ref libraryNames = std::make_shared<const LibraryNames>();
+        NavigationStack navigationStack;
+        std::u32string statusMessage;
+        std::chrono::steady_clock::time_point timeStatusMessageEnds = {};
         Indexer::Ref indexer = nullptr;
         std::vector<std::filesystem::path> indexedRoots;
 

@@ -37,8 +37,9 @@ namespace gedit {
         }
 
         bool OnAction(const EditorAction &kpAction) override;
-        // A code row in its colours, within 'width' columns. False for any other row.
-        bool DrawSourceRow(DrawContext &dc, int x, int y, int width, const RelationshipTree::Row &row);
+        // A code row in its colours, or a relation with its type name in the type colour, within 'width' columns. False for a
+        // row that is plain: a title, a name that says nothing about the architecture, or one that doesn't fit.
+        bool DrawRow(DrawContext &dc, int x, int y, int width, const RelationshipTree::Row &row);
         const std::optional<RelationshipTree::Row> &GetCommitted() const {
             return committed;
         }
@@ -47,6 +48,8 @@ namespace gedit {
         Rect ComputeRect(const Rect &screenRect) override;
     private:
         void FetchChildren(Tree::TreeNode::Ref node);
+        bool DrawSourceRow(DrawContext &dc, int x, int y, int width, const RelationshipTree::Row &row);
+        bool DrawRelationRow(DrawContext &dc, int x, int y, int width, const RelationshipTree::Row &row);
         void AddRow(Tree::TreeNode::Ref parent, const RelationshipTree::Row &row);
         void AddSourceRow(Tree::TreeNode::Ref parent, const RelationshipTree::Place &place);
         std::string RowText(const RelationshipTree::Row &row) const;

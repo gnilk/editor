@@ -204,10 +204,42 @@ void ActionHelper::GoToNameAtCursor(GoToResolver::kMode mode) {
     } else if (result.hits.empty()) {
         bool isLibrary = IsLibraryName(*line, result.idxName);
         editor.ShowStatusMessage(U"'" + result.name + (isLibrary ? U"' is from a library" : U"' isn't in the index"));
-    } else if (result.hits.size() == 1) {
-        JumpTo(result.hits[0].path, result.hits[0].line, result.hits[0].column);
+    } else {
+        GoToHits(std::move(result.hits), document, path);
+    }
+}
+
+void ActionHelper::GoToRelatedAtCursor(GoToResolver::kRelated related) {
+    auto &editor = Editor::Instance();
+    auto document = editor.GetActiveDocument();
+    if ((document == nullptr) || (editor.GetCodeIndex() == nullptr)) {
+        return;
+    }
+    auto &lineCursor = document->GetLineCursor();
+    auto line = document->GetTextBuffer()->LineAt(lineCursor.idxActiveLine);
+    if (line == nullptr) {
+        return;
+    }
+    auto path = ActivePath();
+    line->Lock();
+    auto text = line->Buffer();
+    line->Release();
+
+    auto result = GoToResolver::ResolveRelated(*editor.GetCodeIndex(), text, (size_t)lineCursor.cursor.position.x, (uint32_t)lineCursor.idxActiveLine, path, related);
+    if (result.hits.empty()) {
+        bool isBase = related == GoToResolver::kRelated::kBase;
+        editor.ShowStatusMessage(result.name.empty() ? U"Nothing here to go from" : U"'" + result.name + (isBase ? U"' has no base in the index" : U"' has no implementation in the index"));
+        return;
+    }
+    GoToHits(std::move(result.hits), document, path);
+}
+
+// One place jumps, several are a list
+void ActionHelper::GoToHits(std::vector<CodeIndex::Hit> hits, Document::Ref document, const std::string &path) {
+    if (hits.size() == 1) {
+        JumpTo(hits[0].path, hits[0].line, hits[0].column);
     } else if (RuntimeConfig::Instance().HasRootView()) {
-        auto modal = SymbolSearchModal::CreateForHits(std::move(result.hits), document, path, editor.GetIndexedRoots());
+        auto modal = SymbolSearchModal::CreateForHits(std::move(hits), document, path, Editor::Instance().GetIndexedRoots());
         auto symbolModal = modal.get();
         RuntimeConfig::Instance().GetRootViewAs<RootView>()->ShowModal(std::move(modal));
         // After ShowModal - the list height comes from the laid out modal

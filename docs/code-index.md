@@ -301,8 +301,8 @@ answer "how does this fit together"; this answers "take me there", from the same
 | Go to definition | The body: the function's or the class's `{` | The index today (`isDefinition`) |
 | Go to declaration | The declaration, normally in the header | The index today |
 | Toggle | The other one of those two, from either side | The index today |
-| Go to implementation | From a virtual method or base class: the overrides, or the derived types | `inherits` edges (step 3) |
-| Go to base | The method or class this one overrides or derives from | `inherits` edges (step 3) |
+| Go to implementation | From a virtual method or base class: the overrides, or the derived types | `inherits` edges (step 3, §11.10) |
+| Go to base | The method or class this one overrides or derives from | `inherits` edges (step 3, §11.10) |
 | Go to type | The type of a member or variable | Type on symbol (noted in §11.6) |
 | Find references | Where the name is used | Refs (step 6, D3) |
 
@@ -636,7 +636,7 @@ them alike, and edges stay names, not ids, so two states of a tree can be compar
 | 1d | **System / library names** (§10.2, D14): `std::` by syntax, `<...>` includes marked system, hand-made name lists as editor assets (`c_std`, `cpp_std`), bare names by the tiers of §10.2, `library_type` / `library_function` classes. Members in the format for later suggestions. Independent of step 2 (can come before or after). | ✅ §11.8 |
 | 2 | **In-memory index + Go to symbol** over the workspace, in the background: indexer threads, resolution (§5.2), query ranking, `SymbolSearchModal`. Kept current by `FolderMonitor` and, for open files, the buffer. Decisions: §11.5. | ✅ §11.6 |
 | 2b | **Smart go-to and the navigation stack** (§5.6): go to definition, declaration and the toggle from the name under the cursor, with a list when there are several candidates; back and forward on `Cmd+[` / `Cmd+]`, kept across a restart. Go to implementation and base follow with step 3, references with step 6. | ✅ §11.9 |
-| 3 | **Relationship views**: edges into the index, open files included, then hierarchy and composition (trees, §5.5), "derived from / held by" from any symbol. Their edges also give §5.6 go to implementation and base. Design: §11.10. | - |
+| 3 | **Relationship views**: edges into the index, open files included, then hierarchy and composition (trees, §5.5), "derived from / held by" from any symbol. Their edges also give §5.6 go to implementation and base. | ✅ §11.10 |
 | 4 | **Modules**: file → module roll-up, dependency view + matrix, cycles; DOT/Mermaid export. | - |
 | 5 | **Persistence**: store (D2), skip unchanged files at startup. Only if measuring says startup needs it. | - |
 | 6 | **Calls / uses / refs** (D3), usages view; **architecture rules** (§10). | - |
@@ -1055,7 +1055,7 @@ with no document or UI in them. `ActionHelper` joins them to the documents, and 
 
 ### 11.10 Step 3 - design (2026-11-06)
 
-3a is done and 3b is built, see their results below; 3c isn't started. The scanner has always found the edges, 1 156 `holds` and 94 `inherits` in GoatEdit's `src`, and they stop there.
+3a, 3b and 3c are done, see their results below. The scanner has always found the edges, 1 156 `holds` and 94 `inherits` in GoatEdit's `src`, and they stop there.
 
 **Two gaps:**
 - **No file's edges reach the index.** `CodeIndex::ReplaceFile` reads `structure.symbols` only. The indexer's files are as blind
@@ -1146,11 +1146,23 @@ A relation is an `inherits` or `holds` edge; the rest are includes and `using`. 
 - **A crash found by a mutation test:** `IsNameOf` underflowed when a type is one character longer than the name (`ab::Item`, `b::Item`).
   Adding a test for a surviving mutation showed it, and any edge written that way would have thrown.
 
+**3c results (2026-11-06).** `Cmd+Shift+B` goes to implementation and `Cmd+Shift+U` to base, `Ctrl` on Linux. `Cmd+Shift` stays the
+default for this kind of action. `U` is a stand-in; the key may change.
+- **From a type:** implementation lists the derived types at any depth, and base goes to the direct bases.
+- **From a method:** implementation lists the bodies below it, and base goes to the nearest base that has the method, where it is
+  declared, which is all an interface has. A class in between without the method is passed over.
+- **Anywhere else** in a method or class, either key goes from the one the cursor is in. So base works from inside a method body.
+- **One place jumps, several open the list,** as for go to definition, and every jump lands on the navigation stack.
+- **A bug from 2b, found here:** on a class's own line its constructors were closer than the class, so the class was lost. Go to
+  base looked for a method of that name, and go to definition went to the constructor. Constructors now give way before the scopes do.
+- **A name is a name (§5.2):** overloads aren't told apart, and a method counts as an override by its name alone, `override` or not.
+
+**Relation rows** show the type name in the user-type colour. A row that doesn't fit, and one outside the index, stays plain.
+
 **Decided (2026-11-06):** a modal first for 3b. `TreeSelectionModal` exists and Go to symbol has the same rhythm: ask, look, jump.
 A view that stays open and follows the cursor may be the better end state, and using the modal will say what it should show.
 
 **Open:**
-- **Keys for 3c.** Functionality, so `Cmd`/`Ctrl`.
 - **The look of the UI.** The toolkit's modals and trees are plain. These views are where the structure gets read, so what they
   look like may need its own work.
 

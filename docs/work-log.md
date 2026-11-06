@@ -23,7 +23,9 @@ once, not read at runtime (D13); library names are shipped data, not a toolchain
 meanings in the workspace stays plain, and without locals in the index, context decides the rest (§11.6); a library
 never takes a name the project declares, and a bare C++ name needs a `using` in the file (§10.2). Step 1d shipped too: hand-made `c_std` and
 `cpp_std` lists, `std::` by syntax, the `using` tiers, project lists in `.goatedit/libraries/` and lists that apply by header
-(§11.8). Detail: [`code-index.md`](code-index.md).
+(§11.8). Step 3 (2026-11-06): edges in the index, open files included; the relationship view (`Cmd+Shift+T`) with the code of each
+relation in colour; go to implementation and base (`Cmd+Shift+B`, `Cmd+Shift+U`) (§11.10). The longer aim, keeping the architecture
+in view while working with an agent, is in §10.3. Detail: [`code-index.md`](code-index.md).
 
 ## Project config — `<root>/.goatedit/config.yml` merged at startup ✅ (on `feat/project-config`)
 

@@ -65,7 +65,8 @@ namespace gedit {
         using StyleDelegate = std::function<kTextAttributes(const T &data)>;
         // True for a row that steps back - drawn in 'tree_dimmed', or between the foreground and the background
         using DimDelegate = std::function<bool(const T &data)>;
-        // Optional - draws a row itself, within 'width' columns from the left of the view. False: draw it the normal way.
+        // Optional - draws a row itself from 'x', behind its +/-, within 'width' columns from the left of the view. False: draw
+        // it the normal way.
         // Not asked for the selected row, which stays one inverted bar.
         using DrawRowDelegate = std::function<bool(DrawContext &dc, int x, int y, int width, const T &data)>;
         // FS-6: fired from Expand()/ExpandToNode() when a node carries hasUnfetchedChildren.
@@ -413,9 +414,17 @@ namespace gedit {
                     dc.FillLine(yPos, kTextAttributes::kNormal | kTextAttributes::kInverted, ' ');
                     dc.DrawStringWithAttributesAt(node->indent, yPos, itemAttributes | kTextAttributes::kInverted, str.c_str());
 
-                } else if ((cbDrawRow != nullptr) && cbDrawRow(dc, node->indent + 1, yPos, viewRect.Width(), node->data)) {
+                    continue;
+                }
+                if (cbDrawRow != nullptr) {
+                    dc.DrawStringWithAttributesAt(node->indent, yPos, itemAttributes, str.substr(0, 1).c_str());   // the +/-
+                    bool isDrawn = cbDrawRow(dc, node->indent + 1, yPos, viewRect.Width(), node->data);
                     dc.SetColor(foreground, background);
-                } else if ((cbDim != nullptr) && cbDim(node->data)) {
+                    if (isDrawn) {
+                        continue;
+                    }
+                }
+                if ((cbDim != nullptr) && cbDim(node->data)) {
                     dc.SetColor(dimmed, background);
                     dc.DrawStringWithAttributesAt(node->indent, yPos, itemAttributes, str.c_str());
                     dc.SetColor(foreground, background);

@@ -7,6 +7,7 @@
 #include "RelationshipModal.h"
 #include "SymbolSearchModal.h"
 #include "Core/ActionHelper.h"
+#include "Core/Editor.h"
 #include "Core/Editor/LineRender.h"
 #include "Core/UI/UIHost.h"
 #include "Core/UnicodeHelper.h"
@@ -24,7 +25,7 @@ RelationshipModal::RelationshipModal(CodeIndex::Ref index, const std::vector<std
         return row.isOutside || row.isMacro;
     });
     tree->SetDrawRowDelegate([this](DrawContext &dc, int x, int y, int width, const RelationshipTree::Row &row) {
-        return DrawSourceRow(dc, x, y, width, row);
+        return DrawRow(dc, x, y, width, row);
     });
     tree->cbFetchChildrenForNode = [this](Tree::TreeNode::Ref node) {
         FetchChildren(std::move(node));
@@ -93,10 +94,32 @@ void RelationshipModal::FetchChildren(Tree::TreeNode::Ref node) {
     }
 }
 
-bool RelationshipModal::DrawSourceRow(DrawContext &dc, int x, int y, int width, const RelationshipTree::Row &row) {
-    if (!row.isSource) {
+bool RelationshipModal::DrawRow(DrawContext &dc, int x, int y, int width, const RelationshipTree::Row &row) {
+    return row.isSource ? DrawSourceRow(dc, x, y, width, row) : DrawRelationRow(dc, x, y, width, row);
+}
+
+bool RelationshipModal::DrawRelationRow(DrawContext &dc, int x, int y, int width, const RelationshipTree::Row &row) {
+    if (row.path.empty() || row.isOutside || row.isMacro) {
         return false;
     }
+    auto text = UnicodeHelper::utf8to32(RowText(row));
+    auto idxName = text.find(row.text);
+    if ((idxName == std::u32string::npos) || ((x + (int)text.size()) >= width)) {
+        return false;
+    }
+    auto &uiColors = UIHost::Instance().GetUIColors();
+    auto foreground = uiColors["foreground"];
+    auto background = uiColors["background"];
+    auto idxRest = idxName + row.text.size();
+    dc.DrawStringAt(x, y, text.substr(0, idxName));
+    dc.SetColor(Editor::Instance().ColorFromLanguageToken(kLanguageTokenClass::kUserType).first, background);
+    dc.DrawStringAt(x + (int)idxName, y, row.text);
+    dc.SetColor(foreground, background);
+    dc.DrawStringAt(x + (int)idxRest, y, text.substr(idxRest));
+    return true;
+}
+
+bool RelationshipModal::DrawSourceRow(DrawContext &dc, int x, int y, int width, const RelationshipTree::Row &row) {
     auto it = sourceLines.find({row.path, row.line});
     if ((it == sourceLines.end()) || (row.text.size() < it->second->Length())) {
         return false;
@@ -141,6 +164,6 @@ void RelationshipModal::OnClosed(bool wasCancelled) {
     }
 }
 
-Rect RelationshipModal::ComputeRect(const Rect &screenRect) {
+gedit::Rect RelationshipModal::ComputeRect(const gedit::Rect &screenRect) {
     return CenterIn(screenRect, (screenRect.Width() * 7) / 10, (screenRect.Height() * 7) / 10);
 }

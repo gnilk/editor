@@ -9,6 +9,7 @@ using namespace gedit;
 // The space keeps these apart from every name a file can declare
 static const std::u32string USING_PREFIX = U"using ";
 static const std::u32string USING_NAMESPACE_PREFIX = U"using namespace ";
+static const std::u32string INCLUDE_PREFIX = U"#include ";
 
 kLanguageTokenClass SemanticNames::TokenClassFor(kSymbolKind kind) {
     switch (kind) {
@@ -52,6 +53,9 @@ std::optional<SemanticDeclaration> SemanticNames::DeclarationFor(const CodeEdge 
     if (edge.kind == kEdgeKind::kUsingNamespace) {
         return SemanticDeclaration{USING_NAMESPACE_PREFIX + edge.toName, kLanguageTokenClass::kNamespace};
     }
+    if (edge.kind == kEdgeKind::kIncludes) {
+        return SemanticDeclaration{INCLUDE_PREFIX + edge.toName, kLanguageTokenClass::kNamespace};
+    }
     return {};
 }
 
@@ -61,6 +65,10 @@ bool SemanticNames::IsUsing(const std::u32string &qualifiedName) const {
 
 bool SemanticNames::IsUsingNamespace(const std::u32string &scope) const {
     return Contains(USING_NAMESPACE_PREFIX + scope);
+}
+
+bool SemanticNames::IsIncluding(const std::u32string &header) const {
+    return Contains(INCLUDE_PREFIX + header);
 }
 
 SemanticNames SemanticNames::FromStructure(const FileStructure &structure) {

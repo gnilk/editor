@@ -28,7 +28,7 @@ namespace gedit {
 
         // What a symbol declares for highlighting - nothing for a nameless type or a plain variable
         static std::optional<SemanticDeclaration> DeclarationFor(const CodeSymbol &symbol);
-        // A 'using' counts like a declaration, so an edit brings it and takes it away the same way
+        // A 'using' or an '#include' counts like a declaration, so an edit brings it and takes it away the same way
         static std::optional<SemanticDeclaration> DeclarationFor(const CodeEdge &edge);
         // kRegular for what has no colour of its own (a namespace-scope variable)
         static kLanguageTokenClass TokenClassFor(kSymbolKind kind);
@@ -49,6 +49,8 @@ namespace gedit {
         // 'using std::vector;' is IsUsing(U"std::vector"), 'using namespace std;' is IsUsingNamespace(U"std")
         bool IsUsing(const std::u32string &qualifiedName) const;
         bool IsUsingNamespace(const std::u32string &scope) const;
+        // As written, whichever quotes it had: IsIncluding(U"SDL3/SDL.h")
+        bool IsIncluding(const std::u32string &header) const;
     protected:
         static constexpr size_t NUM_SEMANTIC_CLASSES = (size_t)kLanguageTokenClass::kLastTokenClass - (size_t)kLanguageTokenClass::kUserType;
         using Counts = std::array<uint32_t, NUM_SEMANTIC_CLASSES>;

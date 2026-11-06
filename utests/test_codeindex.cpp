@@ -47,6 +47,15 @@ extern "C" {
     DLL_EXPORT int test_codeindex_library_project_wins(ITesting *t);
     DLL_EXPORT int test_codeindex_library_using_edit(ITesting *t);
     DLL_EXPORT int test_codeindex_library_other_scope(ITesting *t);
+    DLL_EXPORT int test_codeindex_library_list_header(ITesting *t);
+    DLL_EXPORT int test_codeindex_library_list_include_edit(ITesting *t);
+    DLL_EXPORT int test_codeindex_library_list_no_headers(ITesting *t);
+    DLL_EXPORT int test_codeindex_library_list_two_origins(ITesting *t);
+    DLL_EXPORT int test_codeindex_library_list_scope(ITesting *t);
+    DLL_EXPORT int test_codeindex_library_list_scope_using(ITesting *t);
+    DLL_EXPORT int test_codeindex_library_list_scope_template(ITesting *t);
+    DLL_EXPORT int test_codeindex_library_list_project_dir(ITesting *t);
+    DLL_EXPORT int test_codeindex_library_list_bad_project_file(ITesting *t);
     DLL_EXPORT int test_codeindex_library_themefallback(ITesting *t);
     DLL_EXPORT int test_codeindex_library_realline(ITesting *t);
     DLL_EXPORT int test_codeindex_library_project_ambiguous(ITesting *t);
@@ -1972,6 +1981,7 @@ DLL_EXPORT int test_codeindex_library_std_qualified(ITesting *t) {
         U"    std::no_such_type x;",
         U"    v.size();",
         U"    std::no_such_namespace::thing y;",
+        U"    std::chrono::no_such_clock c;",
         U"}",
     });
     TR_ASSERT(t, ClassOf(buffer, 1, U"std") == kLanguageTokenClass::kNamespace);
@@ -1989,6 +1999,7 @@ DLL_EXPORT int test_codeindex_library_std_qualified(ITesting *t) {
     // The object's own syntax still wins
     TR_ASSERT(t, ClassOf(buffer, 9, U"size") == kLanguageTokenClass::kFunction);
     TR_ASSERT(t, ClassOf(buffer, 10, U"no_such_namespace") == kLanguageTokenClass::kNamespace);
+    TR_ASSERT(t, ClassOf(buffer, 11, U"no_such_clock") == kLanguageTokenClass::kLibraryType);
     return kTR_Pass;
 }
 
@@ -2175,5 +2186,187 @@ DLL_EXPORT int test_codeindex_library_themefallback(ITesting *t) {
     TR_ASSERT(t, ThemeKeyForTokenClass(library, has({"regular"})) == "regular");
     TR_ASSERT(t, ThemeKeyForTokenClass(kLanguageTokenClass::kLibraryType, has({"user_type", "regular"})) == "user_type");
     TR_ASSERT(t, ThemeKeyForTokenClass(kLanguageTokenClass::kMember, has({"regular"})) == "regular");
+    return kTR_Pass;
+}
+
+// Project lists and lists that apply by header (§10.2). Probed directly: the buffers use the editor's lists.
+namespace {
+    const char *SDL_LIST =
+        "name: sdl\n"
+        "headers: [SDL3/SDL.h, SDL3/SDL_main.h]\n"
+        "entries:\n"
+        "  - kind: function\n"
+        "    names: [SDL_Init]\n"
+        "  - kind: type\n"
+        "    names: [SDL_Event]\n";
+
+    const char *FMT_LIST =
+        "name: fmt\n"
+        "headers: [fmt/format.h]\n"
+        "entries:\n"
+        "  - kind: namespace\n"
+        "    names: [fmt]\n"
+        "  - kind: function\n"
+        "    scope: fmt\n"
+        "    names: [format]\n";
+
+    // A failed assert leaves the test early: the next one still gets the shipped lists
+    class ScopedLibraryNames {
+    public:
+        explicit ScopedLibraryNames(LibraryNames::Ref names) : shipped(Editor::Instance().GetLibraryNames()) {
+            Editor::Instance().SetLibraryNames(std::move(names));
+        }
+        ~ScopedLibraryNames() {
+            Editor::Instance().SetLibraryNames(shipped);
+        }
+    private:
+        LibraryNames::Ref shipped;
+    };
+
+    // The file's names, by the scanner
+    SemanticNames NamesOf(const std::vector<std::u32string> &lines) {
+        std::u32string text;
+        for (auto &line : lines) {
+            text += line + U"\n";
+        }
+        return SemanticNames::FromStructure(ScanCPP(text));
+    }
+
+    std::vector<std::u32string> WithInclude(const std::u32string &include) {
+        return {include, U"int a;"};
+    }
+}
+
+DLL_EXPORT int test_codeindex_library_list_header(ITesting *t) {
+    LibraryNames library;
+    TR_ASSERT(t, library.Add(SDL_LIST));
+    std::u32string line = U"SDL_Init(0);";
+    auto lookup = [&](const std::u32string &include) {
+        return library.LookupBare(line, 0, U"SDL_Init", NamesOf(WithInclude(include)));
+    };
+    TR_ASSERT(t, lookup(U"#include <SDL3/SDL.h>") == kLanguageTokenClass::kLibraryFunction);
+    // Any of its headers, whichever quotes
+    TR_ASSERT(t, lookup(U"#include <SDL3/SDL_main.h>") == kLanguageTokenClass::kLibraryFunction);
+    TR_ASSERT(t, lookup(U"#include \"SDL3/SDL.h\"") == kLanguageTokenClass::kLibraryFunction);
+    TR_ASSERT(t, lookup(U"#include <vector>") == kLanguageTokenClass::kRegular);
+    TR_ASSERT(t, lookup(U"// #include <SDL3/SDL.h>") == kLanguageTokenClass::kRegular);
+    return kTR_Pass;
+}
+
+// Adding or removing an '#include' is seen, as adding or removing a 'using' is
+DLL_EXPORT int test_codeindex_library_list_include_edit(ITesting *t) {
+    auto library = std::make_shared<LibraryNames>();
+    TR_ASSERT(t, library->Add(SDL_LIST));
+    ScopedLibraryNames scoped(library);
+
+    auto buffer = CPPBuffer({U"int a;", U"int b;", U"void f() { SDL_Init(0); }"});
+    TR_ASSERT(t, ClassOf(buffer, 2, U"SDL_Init") == kLanguageTokenClass::kRegular);
+    EditRegion(buffer, 0, 1, [&]() {
+        buffer->LineAt(0)->Clear();
+        buffer->LineAt(0)->Append(std::u32string(U"#include <SDL3/SDL.h>"));
+    });
+    TR_ASSERT(t, ClassOf(buffer, 2, U"SDL_Init") == kLanguageTokenClass::kLibraryFunction);
+    EditRegion(buffer, 0, 1, [&]() {
+        buffer->LineAt(0)->Clear();
+        buffer->LineAt(0)->Append(std::u32string(U"int a;"));
+    });
+    TR_ASSERT(t, ClassOf(buffer, 2, U"SDL_Init") == kLanguageTokenClass::kRegular);
+    return kTR_Pass;
+}
+
+// A list naming no headers applies everywhere, as c_std does
+DLL_EXPORT int test_codeindex_library_list_no_headers(ITesting *t) {
+    LibraryNames library;
+    TR_ASSERT(t, library.Add("entries:\n  - kind: function\n    names: [company_log]\n"));
+    SemanticNames noNames;
+    std::u32string line = U"company_log(1);";
+    TR_ASSERT(t, library.LookupBare(line, 0, U"company_log", noNames) == kLanguageTokenClass::kLibraryFunction);
+    return kTR_Pass;
+}
+
+// One name in two lists: the list that applies says what it is
+DLL_EXPORT int test_codeindex_library_list_two_origins(ITesting *t) {
+    LibraryNames library;
+    TR_ASSERT(t, library.Add("headers: [a.h]\nentries:\n  - kind: type\n    names: [Thing]\n"));
+    TR_ASSERT(t, library.Add("headers: [b.h]\nentries:\n  - kind: macro\n    names: [Thing]\n"));
+    std::u32string line = U"Thing x;";
+    TR_ASSERT(t, library.LookupBare(line, 0, U"Thing", NamesOf(WithInclude(U"#include <a.h>"))) == kLanguageTokenClass::kLibraryType);
+    TR_ASSERT(t, library.LookupBare(line, 0, U"Thing", NamesOf(WithInclude(U"#include <b.h>"))) == kLanguageTokenClass::kMacro);
+    TR_ASSERT(t, library.LookupBare(line, 0, U"Thing", NamesOf(WithInclude(U"#include <c.h>"))) == kLanguageTokenClass::kRegular);
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_library_list_scope(ITesting *t) {
+    LibraryNames library;
+    TR_ASSERT(t, library.Add(FMT_LIST));
+    auto included = NamesOf(WithInclude(U"#include <fmt/format.h>"));
+    std::u32string line = U"auto s = fmt::format(x);";
+    TR_ASSERT(t, library.LookupBare(line, 9, U"fmt", included) == kLanguageTokenClass::kNamespace);
+    TR_ASSERT(t, library.LookupBare(line, 14, U"format", included) == kLanguageTokenClass::kLibraryFunction);
+    // Written with a scope, not as a call: it can't be a local
+    std::u32string passed = U"apply(fmt::format);";
+    TR_ASSERT(t, library.LookupBare(passed, 11, U"format", included) == kLanguageTokenClass::kLibraryFunction);
+    // Not the header, or not the scope, or not written with it
+    auto notIncluded = NamesOf(WithInclude(U"#include <vector>"));
+    TR_ASSERT(t, library.LookupBare(line, 14, U"format", notIncluded) == kLanguageTokenClass::kRegular);
+    std::u32string otherScope = U"auto s = other::format(x);";
+    TR_ASSERT(t, library.LookupBare(otherScope, 16, U"format", included) == kLanguageTokenClass::kRegular);
+    std::u32string nested = U"auto s = fmt::detail::format(x);";
+    TR_ASSERT(t, library.LookupBare(nested, 22, U"format", included) == kLanguageTokenClass::kRegular);
+    std::u32string bare = U"auto s = format(x);";
+    TR_ASSERT(t, library.LookupBare(bare, 9, U"format", included) == kLanguageTokenClass::kRegular);
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_library_list_scope_using(ITesting *t) {
+    LibraryNames library;
+    TR_ASSERT(t, library.Add(FMT_LIST));
+    std::u32string line = U"auto s = format(x);";
+    auto bothNames = NamesOf({U"#include <fmt/format.h>", U"using namespace fmt;"});
+    TR_ASSERT(t, library.LookupBare(line, 9, U"format", bothNames) == kLanguageTokenClass::kLibraryFunction);
+    // The 'using' alone doesn't make the list apply
+    auto usingOnly = NamesOf({U"using namespace fmt;"});
+    TR_ASSERT(t, library.LookupBare(line, 9, U"format", usingOnly) == kLanguageTokenClass::kRegular);
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_library_list_scope_template(ITesting *t) {
+    LibraryNames library;
+    TR_ASSERT(t, library.Add(FMT_LIST));
+    auto included = NamesOf(WithInclude(U"#include <fmt/format.h>"));
+    std::u32string line = U"x = a<b>::fmt::format(1);";
+    TR_ASSERT(t, library.LookupBare(line, 15, U"format", included) == kLanguageTokenClass::kRegular);
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_library_list_project_dir(ITesting *t) {
+    auto projectDir = IndexerFolder("libraries");
+    std::filesystem::create_directories(projectDir / "libraries");
+    WriteTextFile(projectDir / "libraries" / "sdl.yml", SDL_LIST);
+    WriteTextFile(projectDir / "libraries" / "notes.txt", "entries:\n  - kind: type\n    names: [NotALibrary]\n");
+
+    auto library = LibraryNames::Load(projectDir);
+    std::u32string line = U"NotALibrary x;";
+    SemanticNames noNames;
+    TR_ASSERT(t, library->LookupBare(line, 0, U"NotALibrary", noNames) == kLanguageTokenClass::kRegular);
+    std::u32string call = U"SDL_Init(0);";
+    auto included = NamesOf(WithInclude(U"#include <SDL3/SDL.h>"));
+    TR_ASSERT(t, library->LookupBare(call, 0, U"SDL_Init", included) == kLanguageTokenClass::kLibraryFunction);
+    // The shipped lists are still there, and no project is fine
+    std::u32string printfLine = U"printf(0);";
+    TR_ASSERT(t, library->LookupBare(printfLine, 0, U"printf", noNames) == kLanguageTokenClass::kLibraryFunction);
+    TR_ASSERT(t, LibraryNames::Load(std::nullopt)->Size() < library->Size());
+    TR_ASSERT(t, LibraryNames::Load(projectDir / "no_such_dir")->Size() < library->Size());
+    return kTR_Pass;
+}
+
+// One bad file costs that file, not the others or the shipped lists
+DLL_EXPORT int test_codeindex_library_list_bad_project_file(ITesting *t) {
+    auto projectDir = IndexerFolder("badlibraries");
+    std::filesystem::create_directories(projectDir / "libraries");
+    WriteTextFile(projectDir / "libraries" / "a_bad.yml", "entries: [");
+    WriteTextFile(projectDir / "libraries" / "b_sdl.yml", SDL_LIST);
+    auto library = LibraryNames::Load(projectDir);
+    TR_ASSERT(t, library->Size() == LibraryNames::Load(std::nullopt)->Size() + 2);
     return kTR_Pass;
 }

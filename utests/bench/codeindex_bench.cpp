@@ -126,7 +126,7 @@ static void Recolour(const fs::path &file, const fs::path &root) {
 
     printf("%s: %zu workspace names from %s\n", file.c_str(), names->Size(), root.c_str());
     timed("load library lists", []() {
-        LibraryNames::LoadShipped();
+        LibraryNames::Load(std::nullopt);
     });
     printf("  %zu library names\n", Editor::Instance().GetLibraryNames()->Size());
     auto buffer = TextBuffer::CreateEmptyBuffer();

@@ -259,7 +259,7 @@ bool Editor::Initialize(int argc, const char **argv) {
 
     // Language configuration must currently be done before we load editor documents
     ConfigureLanguages();
-    libraryNames = LibraryNames::LoadShipped();
+    libraryNames = LibraryNames::Load(projectDir);
 
     // Create workspace
     workspace = Workspace::Create();

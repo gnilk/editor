@@ -487,16 +487,34 @@ differ, so v1 knows nothing about the installed toolchain - only syntax and data
 
 **2. Curated name lists - editor assets, one per library:**
 - `c_std` (the C standard library, ~500 names), `cpp_std` (the C++ standard library, versioned), later
-  `posix`, `sdl`, ... - shipped with the editor like `colors.json`; a project could add its own.
+  `posix`, `sdl`, ... - shipped with the editor like `colors.json`, in `Assets/Resources/Libraries/<name>.yml`; a
+  project can add its own in `<root>/.goatedit/libraries/*.yml`.
+- A list holds a library's public names, not the library: `c_std` is the complete public surface, `cpp_std` the names
+  in common use.
+- **When a list applies:** `c_std` and `cpp_std` always. Any other list names its headers (`SDL3/SDL.h`) and applies
+  only to a file that includes one - the include edges of step 1 say which.
 - An entry: name, kind (function / type / macro / namespace / constant), qualified scope (`std`), the
   standard version it appeared in, and **optionally its members** (`std::string` → `size`, `c_str`,
   `substr`, ...). Members aren't used for colour; they are there so suggestions on `.` / `->` / `::` can
   be built later without changing the format.
-- Produced by hand from the standards, or once by a tool run against real headers (the experiment below) -
-  either way shipped and loaded the same way.
+- Written by hand from the standards (decided 2026-11-06). A generator stays possible - it would ship and load the
+  same way - but libc++'s headers, full of macros and `__internal` names, are a poor source.
 - New token classes `library_type`, `library_function` (`regular` fallback, like 1b's). TextMate themes
   already name these `support.type` / `support.class` / `support.function`, so the importer's scope table
   (§11.4) maps them directly.
+
+**Bare names, and `using namespace std;`:** rule 1 only covers what is written `std::`. A bare `vector` needs the list,
+but applying it everywhere brings back what §11.6 solved: `count`, `find`, `list`, `map`, `min`, `move`, `string` are
+common locals. So:
+
+| Written as | Treated as |
+|---|---|
+| `std::vector` | Library, always |
+| Bare, the file has `using namespace std;` or `using std::vector;` | Library, where a local can't stand (the rule of §11.6) |
+| Bare, no `using` in the file | Project or plain, never `std` |
+
+C names are global by nature, so `printf` and `fopen` follow the rule for a bare function: a following `(`. A `using` in a
+header reaches the files including it, which v1 doesn't see; those names stay plain.
 
 **In the index:** library names are symbols with **origin = system** - ranked below the project's own in Go
 to symbol, coloured apart, never shadowing a name the file or project declares (the file's own meaning wins,
@@ -506,6 +524,10 @@ as in §11.3). Lookup is the same hash probe per identifier as 1b.
 come from the index (step 2, declared member types); locals need a light scan of the enclosing function;
 library types come from the members in the assets. That scan is the larger piece and comes after the
 index - the asset format just must not rule it out.
+
+**Later - `codeindex.library_paths`:** folders outside the project (a vendored SDK, `/opt/homebrew/include/SDL3`) fed
+through the existing indexer with origin = system. Gives a whole library with no list to maintain, and fits clean C headers
+best. After 1d: the hand-made lists come first.
 
 **Experiment, not v1 - scanning real headers:** search paths from `compile_commands.json` (per-file
 `-isystem`, `-std`) or the compiler itself (`clang -E -x c++ - -v </dev/null`, `xcrun --show-sdk-path` on
@@ -523,7 +545,7 @@ Its output could also *generate* the shipped assets.
 | 1 | ✅ §11.2 - **C++ structure engine** over strings - the low-hanging fruit only: namespaces, classes/structs, methods/functions, members, `#include`, and the edges visible right in the declaration (`inherits`, `holds` + ownership). Rules as tables in code (§5.4), shape + edge tests (§7). No storage yet - dump symbols/edges for a file and judge on this repo. Nothing from §8.1. | - |
 | 1b | **Semantic highlighting from the file itself** (§10.1): new token classes with `regular` fallback, reclassification via the post-line hook, the open file's own structure pass. New theme keys in `colors.json`; no theme-format work. | ✅ §11.3 |
 | 1c | **Theme importer** (§10.1, D13): Sublime / VS Code theme → GoatEdit `theme.yml` + `colors.json` via the scope table; `--import-theme`. Independent of the index - can come any time after 1b. | ✅ §11.4 (+ `.theme --import`) |
-| 1d | **System / library names** (§10.2, D14): `std::` by syntax, `<...>` includes marked system, curated name lists as editor assets (`c_std`, `cpp_std`), `library_type` / `library_function` classes. Members in the format for later suggestions. Independent of step 2 (can come before or after). | - |
+| 1d | **System / library names** (§10.2, D14): `std::` by syntax, `<...>` includes marked system, hand-made name lists as editor assets (`c_std`, `cpp_std`), bare names by the tiers of §10.2, `library_type` / `library_function` classes. Members in the format for later suggestions. Independent of step 2 (can come before or after). | - |
 | 2 | **In-memory index + Go to symbol** over the workspace, in the background: indexer threads, resolution (§5.2), query ranking, `SymbolSearchModal`. Kept current by `FolderMonitor` and, for open files, the buffer. Decisions: §11.5. | - |
 | 3 | **Relationship views**: hierarchy and composition (trees, §5.5), "derived from / held by" from any symbol. | - |
 | 4 | **Modules**: file → module roll-up, dependency view + matrix, cycles; DOT/Mermaid export. | - |

@@ -289,6 +289,57 @@ GoatEdit renders a character grid, so the first views are **trees and lists**, w
 Every row in these views is a jump target (Return opens the symbol/file), so the overview and the
 deep dive into the specifics are one keypress apart.
 
+### 5.6 Smart go-to and the navigation stack (planned 2026-11-06)
+
+Jumping around the code from the name under the cursor, and getting back to where the thought started. The views of §5.5
+answer "how does this fit together"; this answers "take me there", from the same data.
+
+**Go to, from the name under the cursor:**
+
+| Action | Goes to | Needs |
+|---|---|---|
+| Go to definition | The body: the function's or the class's `{` | The index today (`isDefinition`) |
+| Go to declaration | The declaration, normally in the header | The index today |
+| Toggle | The other one of those two, from either side | The index today |
+| Go to implementation | From a virtual method or base class: the overrides, or the derived types | `inherits` edges (step 3) |
+| Go to base | The method or class this one overrides or derives from | `inherits` edges (step 3) |
+| Go to type | The type of a member or variable | Type on symbol (noted in §11.6) |
+| Find references | Where the name is used | Refs (step 6, D3) |
+
+**Finding the target:** a name is a name (§5.2), so this narrows what it can and never guesses:
+
+1. The qualifier as written (`Editor::Instance`, `gedit::Line`) and the enclosing scopes, as in §5.2.
+2. The syntax: `a.size()` is a method, `Foo x` a type - the same rules that colour it (§11.6).
+3. Proximity, as in §4.5: the same file, the file's own header, the same directory.
+
+One candidate jumps at once. Several open a list in the style of Go to symbol, best first, with the location on each row;
+`a.size()` will often land here, since the type of `a` isn't known. A library name has no target (go-to-definition into
+system headers isn't a goal, §10.2), so the status line says what it is and the cursor stays.
+
+**The navigation stack:** back and forward through jumps, not through every cursor move.
+
+- **What goes on it:** where a jump started and where it landed: any go-to above, Go to symbol, go to line, a row in a
+  relationship view. Moving the cursor doesn't, or the stack fills with noise.
+- **Smart about edits:** an entry holds the symbol and the offset into it, not only a line. Lines above it can come and go
+  and back still lands in the right place. If the symbol is gone it falls back to the line, clamped.
+- **Smart about noise:** a jump within the same symbol replaces the top entry instead of adding one, and so does going
+  back and forth between the same two places.
+- **Across files:** an entry for a closed file reopens it.
+- **Jumping from the middle:** going back and then jumping somewhere new drops the forward entries, as a browser does. A
+  tree that keeps them is possible later; it's a view over the same entries.
+
+**Decided (2026-11-06):**
+- **Keys:** back and forward are `Cmd+[` and `Cmd+]`, `Ctrl` on Linux: functionality, so not the `Option` pair, which is
+  already mapped.
+- **One stack per editor,** not per view.
+- **It survives a restart,** through the session cache (`docs/session-cache.md`). An entry holds the path, the symbol and
+  the offset, so it needs nothing from a previous run but the file.
+
+**Open:** whether `Cmd+click` jumps too, and the keys for the go-to actions themselves.
+
+**Order:** definition, declaration, toggle and the stack need nothing from step 3 and come first, as step 2b. Implementation
+and base come with the edges of step 3, and references with step 6.
+
 ## 6. Where it lives in the code
 
 | New | Where | Notes |
@@ -549,7 +600,8 @@ Its output could also *generate* the shipped assets.
 | 1c | **Theme importer** (§10.1, D13): Sublime / VS Code theme → GoatEdit `theme.yml` + `colors.json` via the scope table; `--import-theme`. Independent of the index - can come any time after 1b. | ✅ §11.4 (+ `.theme --import`) |
 | 1d | **System / library names** (§10.2, D14): `std::` by syntax, `<...>` includes marked system, hand-made name lists as editor assets (`c_std`, `cpp_std`), bare names by the tiers of §10.2, `library_type` / `library_function` classes. Members in the format for later suggestions. Independent of step 2 (can come before or after). | ✅ §11.8 |
 | 2 | **In-memory index + Go to symbol** over the workspace, in the background: indexer threads, resolution (§5.2), query ranking, `SymbolSearchModal`. Kept current by `FolderMonitor` and, for open files, the buffer. Decisions: §11.5. | - |
-| 3 | **Relationship views**: hierarchy and composition (trees, §5.5), "derived from / held by" from any symbol. | - |
+| 2b | **Smart go-to and the navigation stack** (§5.6): go to definition, declaration and the toggle from the name under the cursor, with a list when there are several candidates; back and forward on `Cmd+[` / `Cmd+]`, kept across a restart. Go to implementation and base follow with step 3, references with step 6. | - |
+| 3 | **Relationship views**: hierarchy and composition (trees, §5.5), "derived from / held by" from any symbol. Their edges also give §5.6 go to implementation and base. | - |
 | 4 | **Modules**: file → module roll-up, dependency view + matrix, cycles; DOT/Mermaid export. | - |
 | 5 | **Persistence**: store (D2), skip unchanged files at startup. Only if measuring says startup needs it. | - |
 | 6 | **Calls / uses / refs** (D3), usages view; **architecture rules** (§10). | - |

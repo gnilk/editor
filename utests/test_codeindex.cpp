@@ -24,6 +24,9 @@
 #include "Core/Index/SemanticNames.h"
 #include "Core/Index/GoToResolver.h"
 #include "Core/Index/NavigationStack.h"
+#include "Core/Index/RelationshipTree.h"
+#include "Core/Editor/Modals/RelationshipModal.h"
+#include "Core/KeyMapping.h"
 #include "Core/ActionHelper.h"
 #include "Core/Runloop.h"
 #include "Core/Session/SessionSerializer.h"
@@ -64,6 +67,18 @@ extern "C" {
     DLL_EXPORT int test_codeindex_relations_resolve(ITesting *t);
     DLL_EXPORT int test_codeindex_relations_replace(ITesting *t);
     DLL_EXPORT int test_codeindex_relations_macro_type(ITesting *t);
+    DLL_EXPORT int test_codeindex_tree_types_at(ITesting *t);
+    DLL_EXPORT int test_codeindex_tree_rows(ITesting *t);
+    DLL_EXPORT int test_codeindex_tree_repeat(ITesting *t);
+    DLL_EXPORT int test_codeindex_tree_modal(ITesting *t);
+    DLL_EXPORT int test_codeindex_tree_modal_ambiguous(ITesting *t);
+    DLL_EXPORT int test_codeindex_tree_key(ITesting *t);
+    DLL_EXPORT int test_codeindex_tree_modal_shown(ITesting *t);
+    DLL_EXPORT int test_codeindex_tree_source_rows(ITesting *t);
+    DLL_EXPORT int test_codeindex_tree_source_line(ITesting *t);
+    DLL_EXPORT int test_codeindex_tree_line_range(ITesting *t);
+    DLL_EXPORT int test_codeindex_tree_coloured_line(ITesting *t);
+    DLL_EXPORT int test_codeindex_tree_draw_source_row(ITesting *t);
     DLL_EXPORT int test_codeindex_goto_nearest_symbol(ITesting *t);
     DLL_EXPORT int test_codeindex_goto_find_exact(ITesting *t);
     DLL_EXPORT int test_codeindex_goto_toggle(ITesting *t);
@@ -3251,5 +3266,435 @@ DLL_EXPORT int test_codeindex_relations_macro_type(ITesting *t) {
             TR_ASSERT(t, relation.targets.empty());
         }
     }
+    return kTR_Pass;
+}
+
+// The name under the cursor if it is a type, else the type the cursor is in
+DLL_EXPORT int test_codeindex_tree_types_at(ITesting *t) {
+    CPPStructureScanner scanner(CPPTokenizer());
+    auto index = CodeIndex::Create();
+    index->ReplaceFile("/p/item.h", scanner.Scan(U"namespace app {\n"
+                                                 U"    class Item {\n"
+                                                 U"        void Update();\n"
+                                                 U"        int count;\n"
+                                                 U"    };\n"
+                                                 U"    class Node { };\n"
+                                                 U"}\n"
+                                                 U"namespace other { class Node { }; }\n"));
+    index->ReplaceFile("/p/item.cpp", scanner.Scan(U"using namespace app;\n"
+                                                   U"void Item::Update() {\n"
+                                                   U"    count = 1;\n"
+                                                   U"}\n"
+                                                   U"void Free() {\n"
+                                                   U"}\n"));
+    using Types = std::vector<std::u32string>;
+    TR_ASSERT(t, RelationshipTree::TypesAt(*index, U"Item", "/p/item.cpp", 2) == Types{U"app::Item"});
+    TR_ASSERT(t, RelationshipTree::TypesAt(*index, U"Node", "/p/item.cpp", 2) == (Types{U"app::Node", U"other::Node"}));
+    // Not a type: the one around it, in the class and out of line
+    TR_ASSERT(t, RelationshipTree::TypesAt(*index, U"count", "/p/item.h", 3) == Types{U"app::Item"});
+    TR_ASSERT(t, RelationshipTree::TypesAt(*index, U"count", "/p/item.cpp", 2) == Types{U"app::Item"});
+    TR_ASSERT(t, RelationshipTree::TypesAt(*index, U"", "/p/item.cpp", 2) == Types{U"app::Item"});
+    TR_ASSERT(t, RelationshipTree::TypesAt(*index, U"x", "/p/item.cpp", 5).empty());
+    TR_ASSERT(t, RelationshipTree::TypesAt(*index, U"x", "/p/nothing.cpp", 0).empty());
+
+    // A qualifier is whole components: 'b::Item' isn't 'ab::Item'
+    index->ReplaceFile("/p/ab.h", scanner.Scan(U"namespace ab { class Item { }; }\nclass User : public b::Item { };\n"));
+    TR_ASSERT(t, index->TypesNamed(U"b::Item").empty());
+    auto bases = index->BasesOf(U"User");       // one character short of the type: resolving it used to throw
+    TR_ASSERT(t, bases.size() == 1);
+    TR_ASSERT(t, bases[0].targets.empty());
+    TR_ASSERT(t, index->TypesNamed(U"ab::Item") == Types{U"ab::Item"});
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_tree_rows(ITesting *t) {
+    CPPStructureScanner scanner(CPPTokenizer());
+    auto index = CodeIndex::Create();
+    index->ReplaceFile("/p/a.h", scanner.Scan(U"#define _u8 unsigned char\n"
+                                              U"class Base { };\n"
+                                              U"class Part { };\n"
+                                              U"class Item : public Base {\n"
+                                              U"    Part *b;\n"
+                                              U"    _u8 size;\n"
+                                              U"    Lost lost;\n"
+                                              U"    Part *c;\n"
+                                              U"    Part owned;\n"
+                                              U"    Base::Ref shared;\n"
+                                              U"};\n"));
+    auto groups = RelationshipTree::RelationsOf(*index, U"Item", {});
+    TR_ASSERT(t, groups.size() == 2);       // nothing derives from it or holds it
+    TR_ASSERT(t, groups[0].title.text == U"Bases");
+    TR_ASSERT(t, groups[1].title.text == U"Holds");
+
+    auto &holds = groups[1].rows;
+    TR_ASSERT(t, holds.size() == 5);
+    TR_ASSERT(t, RelationshipTree::Label(holds[0]) == U"owns Part");
+    TR_ASSERT(t, RelationshipTree::Label(holds[1]) == U"shares Base");
+    TR_ASSERT(t, RelationshipTree::Label(holds[2]) == U"borrows Part x2");
+    TR_ASSERT(t, holds[2].line == 4);       // the first of them
+    TR_ASSERT(t, holds[2].places.size() == 2);
+    TR_ASSERT(t, holds[2].places[1].line == 7);
+    // What says nothing about the architecture goes last, and leads nowhere
+    TR_ASSERT(t, holds[3].isMacro || holds[3].isOutside);
+    TR_ASSERT(t, holds[4].isMacro || holds[4].isOutside);
+    TR_ASSERT(t, holds[3].types.empty());
+    TR_ASSERT(t, holds[4].types.empty());
+    TR_ASSERT(t, RelationshipTree::Label(holds[4]) != RelationshipTree::Label(holds[3]));
+
+    auto base = RelationshipTree::RelationsOf(*index, U"Base", {});
+    TR_ASSERT(t, base.size() == 2);
+    TR_ASSERT(t, base[0].title.text == U"Derived");
+    TR_ASSERT(t, base[0].rows[0].types == std::vector<std::u32string>{U"Item"});
+
+    auto row = RelationshipTree::TypeRow(*index, U"Item");
+    TR_ASSERT(t, row.path == "/p/a.h");
+    TR_ASSERT(t, row.line == 3);
+
+    // A forward declaration comes first and the row still goes to the class
+    index->ReplaceFile("/p/b.h", scanner.Scan(U"class Later;\nclass Later { };\n"));
+    TR_ASSERT(t, RelationshipTree::TypeRow(*index, U"Later").line == 1);
+    return kTR_Pass;
+}
+
+// A cycle in composition is a marked row, not one more level
+DLL_EXPORT int test_codeindex_tree_repeat(ITesting *t) {
+    CPPStructureScanner scanner(CPPTokenizer());
+    auto index = CodeIndex::Create();
+    index->ReplaceFile("/p/a.h", scanner.Scan(U"class A { B *b; };\nclass B { A *a; };\n"));
+    auto groups = RelationshipTree::RelationsOf(*index, U"B", {U"A", U"B"});
+    bool sawHolds = false;
+    for (auto &group : groups) {
+        for (auto &row : group.rows) {
+            TR_ASSERT(t, row.isRepeat);
+            TR_ASSERT(t, row.types.empty());
+            TR_ASSERT(t, RelationshipTree::Label(row).find(U"(above)") != std::u32string::npos);
+            sawHolds = true;
+        }
+    }
+    TR_ASSERT(t, sawHolds);
+    return kTR_Pass;
+}
+
+static Line::Ref NoLines(const std::string &path, uint32_t line) {
+    return nullptr;
+}
+
+static size_t NumRowsOpen(RelationshipModal::Tree::TreeNode::Ref node) {
+    size_t count = 0;
+    for (auto &child : node->children) {
+        count += 1 + (child->isExpanded ? NumRowsOpen(child) : 0);
+    }
+    return count;
+}
+
+// The first type opens on arrival, a row asks the index when it opens, and Return jumps from a row with a place
+DLL_EXPORT int test_codeindex_tree_modal(ITesting *t) {
+    CPPStructureScanner scanner(CPPTokenizer());
+    auto index = CodeIndex::Create();
+    index->ReplaceFile("/p/a.h", scanner.Scan(U"class Base { };\n"
+                                              U"class Item : public Base { };\n"
+                                              U"class Leaf : public Item { };\n"));
+    RelationshipModal modal(index, {U"Base"}, {"/p"}, NoLines);
+    auto tree = modal.GetTree();
+    auto root = tree->GetRootNode();
+    TR_ASSERT(t, root->children.size() == 1);
+    auto baseNode = root->children[0];
+    TR_ASSERT(t, baseNode->isExpanded);
+    TR_ASSERT(t, baseNode->children.size() == 1);       // 'Derived'
+    TR_ASSERT(t, baseNode->children[0]->isExpanded);
+    auto itemNode = baseNode->children[0]->children[0];
+    TR_ASSERT(t, itemNode->data.text == U"Item");
+    TR_ASSERT(t, itemNode->hasUnfetchedChildren);
+    TR_ASSERT(t, itemNode->children.empty());
+    TR_ASSERT(t, NumRowsOpen(root) == 3);
+
+    // Down to 'Item' and open it: its own base is Base, already open above
+    tree->SetSelectionAtRow(2);
+    tree->Expand();
+    TR_ASSERT(t, itemNode->children.size() == 3);       // its line, then 'Bases' and 'Derived'
+    TR_ASSERT(t, itemNode->children[0]->data.isSource);
+    TR_ASSERT(t, itemNode->children[1]->children[0]->data.isRepeat);
+    TR_ASSERT(t, itemNode->children[2]->children[0]->data.text == U"Leaf");
+
+    EditorAction commit = {};
+    commit.uiAction = kUIAction::kUIActionCommitLine;
+    // A group's title has nowhere to go
+    tree->SetSelectionAtRow(1);
+    TR_ASSERT(t, modal.OnAction(commit));
+    TR_ASSERT(t, !modal.IsClosing());
+
+    tree->SetSelectionAtRow(2);
+    TR_ASSERT(t, modal.OnAction(commit));
+    TR_ASSERT(t, modal.IsClosing());
+    TR_ASSERT(t, modal.GetCommitted().has_value());
+    TR_ASSERT(t, modal.GetCommitted()->path == "/p/a.h");
+    TR_ASSERT(t, modal.GetCommitted()->line == 1);
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_tree_modal_ambiguous(ITesting *t) {
+    CPPStructureScanner scanner(CPPTokenizer());
+    auto index = CodeIndex::Create();
+    index->ReplaceFile("/p/a.h", scanner.Scan(U"namespace a { class Node { }; }\nnamespace b { class Node { }; }\nclass Stray : public Node { };\n"));
+    RelationshipModal modal(index, {U"Stray"}, {"/p"}, NoLines);
+    auto tree = modal.GetTree();
+    auto stray = tree->GetRootNode()->children[0];
+    auto nodeRow = stray->children[0]->children[0];
+    TR_ASSERT(t, RelationshipTree::Label(nodeRow->data) == U"Node (2 candidates)");
+
+    tree->SetSelectionAtRow(2);
+    tree->Expand();
+    TR_ASSERT(t, nodeRow->children.size() == 3);        // its line, then one row per candidate
+    TR_ASSERT(t, nodeRow->children[1]->data.text == U"a::Node");
+    TR_ASSERT(t, nodeRow->children[2]->data.text == U"b::Node");
+    return kTR_Pass;
+}
+
+// Shift with Cmd or Ctrl is a shortcut, not text, and has to reach the keymap
+DLL_EXPORT int test_codeindex_tree_key(ITesting *t) {
+    TR_ASSERT(t, Keyboard::IsShiftedText(Keyboard::kMod_LeftShift));
+    TR_ASSERT(t, Keyboard::IsShiftedText(Keyboard::kMod_RightShift | Keyboard::kMod_LeftAlt));
+    TR_ASSERT(t, !Keyboard::IsShiftedText(Keyboard::kMod_LeftShift | Keyboard::kMod_LeftCommand));
+    TR_ASSERT(t, !Keyboard::IsShiftedText(Keyboard::kMod_LeftShift | Keyboard::kMod_LeftCtrl));
+    TR_ASSERT(t, !Keyboard::IsShiftedText(Keyboard::kMod_LeftCommand));
+    TR_ASSERT(t, !Keyboard::IsShiftedText(0));
+
+#ifdef GEDIT_MACOS
+    int copyPaste = Keyboard::kMod_LeftCommand;
+#else
+    int copyPaste = Keyboard::kMod_LeftCtrl;
+#endif
+    auto keymap = Editor::Instance().GetKeyMapping("default_keymap");
+    TR_ASSERT(t, keymap != nullptr);
+    KeyPress keyPress = {};
+    keyPress.isKeyValid = true;
+    keyPress.key = 't';
+    keyPress.modifiers = (uint8_t)copyPaste;
+    auto plain = keymap->ActionFromKeyPress(keyPress);
+    TR_ASSERT(t, plain.has_value());
+    TR_ASSERT(t, plain->action == kAction::kActionGotoSymbol);
+
+    keyPress.modifiers = (uint8_t)(copyPaste | Keyboard::kMod_LeftShift);
+    auto shifted = keymap->ActionFromKeyPress(keyPress);
+    TR_ASSERT(t, shifted.has_value());
+    TR_ASSERT(t, shifted->action == kAction::kActionShowRelationships);
+    return kTR_Pass;
+}
+
+// Shown for real: the tree sits inside the modal and fills it, not the screen, and it draws
+DLL_EXPORT int test_codeindex_tree_modal_shown(ITesting *t) {
+    CPPStructureScanner scanner(CPPTokenizer());
+    auto index = CodeIndex::Create();
+    index->ReplaceFile("/p/a.h", scanner.Scan(U"class Base { };\nclass Item : public Base { };\n"));
+
+    auto screen = UIHost::Instance().GetScreen();
+    RootView rootView;
+    rootView.Initialize();
+    auto modal = RelationshipModal::Create(index, {U"Base"}, {"/p"}, NoLines);
+    auto shown = modal.get();
+    rootView.ShowModal(std::move(modal));
+
+    auto treeRect = shown->GetTree()->GetContentRect();
+    auto modalRect = shown->GetContentRect();
+    TR_ASSERT(t, !treeRect.IsEmpty());
+    TR_ASSERT(t, treeRect.Width() <= modalRect.Width());
+    TR_ASSERT(t, treeRect.Height() <= modalRect.Height());
+    TR_ASSERT(t, treeRect.Height() >= modalRect.Height() - 2);
+    TR_ASSERT(t, modalRect.Height() < screen->Dimensions().Height());
+
+    rootView.Draw();
+    shown->Cancel();
+    rootView.Draw();
+    return kTR_Pass;
+}
+
+// Opening a row shows the code it stands for, one line per place, and each one jumps
+DLL_EXPORT int test_codeindex_tree_source_rows(ITesting *t) {
+    auto row = RelationshipTree::SourceRow({"/p/src/Workspace.h", 763}, U" \t    Document::Ref activeDocument = nullptr;");
+    TR_ASSERT(t, row.text == U"Workspace.h:764  Document::Ref activeDocument = nullptr;");
+    TR_ASSERT(t, RelationshipTree::Label(row) == row.text);
+    TR_ASSERT(t, RelationshipTree::SourceRow({"/p/a.h", 0}, U"   ").text == U"a.h:1");
+
+    CPPStructureScanner scanner(CPPTokenizer());
+    auto index = CodeIndex::Create();
+    index->ReplaceFile("/p/a.h", scanner.Scan(U"class Part { };\n"
+                                              U"class Item {\n"
+                                              U"    Part *first;\n"
+                                              U"    Part *second;\n"
+                                              U"    Lost lost;\n"
+                                              U"};\n"));
+    auto lines = [](const std::string &path, uint32_t line) {
+        return Line::Create(U"    line " + UnicodeHelper::utf8to32(std::to_string(line)));
+    };
+    RelationshipModal modal(index, {U"Item"}, {"/p"}, lines);
+    auto tree = modal.GetTree();
+    auto holds = tree->GetRootNode()->children[0]->children[0];
+    auto partRow = holds->children[0];
+    TR_ASSERT(t, RelationshipTree::Label(partRow->data) == U"borrows Part x2");
+
+    tree->SetSelectionAtRow(2);
+    tree->Expand();
+    TR_ASSERT(t, partRow->children[0]->data.text == U"a.h:3  line 2");
+    TR_ASSERT(t, partRow->children[1]->data.text == U"a.h:4  line 3");
+    TR_ASSERT(t, partRow->children[0]->data.isSource);
+    TR_ASSERT(t, !partRow->children[0]->hasUnfetchedChildren);
+
+    // A name outside the index has no relations, but it has its line
+    auto lostRow = holds->children[1];
+    TR_ASSERT(t, lostRow->data.isOutside);
+    TR_ASSERT(t, lostRow->hasUnfetchedChildren);
+    tree->SetSelectionAtRow(7);     // below 'Part', its two lines and its 'Held by' with the row for Item
+    tree->Expand();
+    TR_ASSERT(t, lostRow->children.size() == 1);
+    TR_ASSERT(t, lostRow->children[0]->data.text == U"a.h:5  line 4");
+
+    tree->SetSelectionAtRow(4);
+    EditorAction commit = {};
+    commit.uiAction = kUIAction::kUIActionCommitLine;
+    TR_ASSERT(t, modal.OnAction(commit));
+    TR_ASSERT(t, modal.GetCommitted().has_value());
+    TR_ASSERT(t, modal.GetCommitted()->line == 3);      // the second place, not the row's first
+    return kTR_Pass;
+}
+
+// What the editor has: unsaved edits win over the file, and a byte that isn't UTF-8 doesn't lose the line
+DLL_EXPORT int test_codeindex_tree_source_line(ITesting *t) {
+    auto root = IndexerFolder("treesourceline");
+    auto path = (root / "a.cpp").string();
+    WriteTextFile(path, "line0\n    line1\n");
+    auto latinPath = (root / "latin.cpp").string();
+    WriteTextFile(latinPath, std::string("// caf\xe9 au lait\n"));
+
+    TR_ASSERT(t, ActionHelper::SourceLine(path, 1)->Buffer() == U"    line1");
+    TR_ASSERT(t, ActionHelper::SourceLine(path, 2) == nullptr);
+    TR_ASSERT(t, ActionHelper::SourceLine((root / "gone.cpp").string(), 0) == nullptr);
+    TR_ASSERT(t, ActionHelper::SourceLine(latinPath, 0)->Buffer() == U"// caf? au lait");
+
+    auto document = Editor::Instance().LoadDocument(path);
+    TR_ASSERT(t, document != nullptr);
+    document->GetTextBuffer()->LineAt(1)->Append(std::u32string(U" edited"));
+    TR_ASSERT(t, ActionHelper::SourceLine(path, 1)->Buffer() == U"    line1 edited");
+    TR_ASSERT(t, ActionHelper::SourceLine(path, 9) == nullptr);
+    Editor::Instance().CloseDocument(document);
+    return kTR_Pass;
+}
+
+// A part of a line keeps its colours: spans are cut at the edges and the first one starts at 0
+DLL_EXPORT int test_codeindex_tree_line_range(ITesting *t) {
+    auto line = Line::Create(U"    int count;");
+    auto attrib = [](int idx, kLanguageTokenClass tokenClass) {
+        Line::LineAttrib span = {};
+        span.idxOrigString = idx;
+        span.tokenClass = tokenClass;
+        return span;
+    };
+    line->Attributes() = {attrib(0, kLanguageTokenClass::kRegular), attrib(4, kLanguageTokenClass::kKnownType),
+                          attrib(8, kLanguageTokenClass::kRegular), attrib(13, kLanguageTokenClass::kOperator)};
+    auto trimmed = line->CopyOfRange(4, line->Length());
+    TR_ASSERT(t, trimmed->Buffer() == U"int count;");
+    TR_ASSERT(t, trimmed->Attributes().size() == 3);
+    TR_ASSERT(t, trimmed->Attributes()[0].idxOrigString == 0);
+    TR_ASSERT(t, trimmed->Attributes()[0].tokenClass == kLanguageTokenClass::kKnownType);
+    TR_ASSERT(t, trimmed->Attributes()[1].idxOrigString == 4);
+    TR_ASSERT(t, trimmed->Attributes()[2].idxOrigString == 9);
+
+    // Cut inside a span at both ends
+    auto middle = trimmed->CopyOfRange(1, 6);
+    TR_ASSERT(t, middle->Buffer() == U"nt co");
+    TR_ASSERT(t, middle->Attributes().size() == 2);
+    TR_ASSERT(t, middle->Attributes()[0].idxOrigString == 0);
+    TR_ASSERT(t, middle->Attributes()[1].idxOrigString == 3);
+
+    TR_ASSERT(t, trimmed->CopyOfRange(4, 99)->Buffer() == U"count;");
+    TR_ASSERT(t, trimmed->CopyOfRange(99, 99)->Buffer().empty());
+    TR_ASSERT(t, trimmed->CopyOfRange(99, 99)->Attributes().empty());
+    return kTR_Pass;
+}
+
+static kLanguageTokenClass ClassAt(const Line::Ref &line, size_t idxChar) {
+    auto tokenClass = kLanguageTokenClass::kUnknown;
+    for (auto &attrib : line->Attributes()) {
+        if ((size_t)attrib.idxOrigString > idxChar) {
+            break;
+        }
+        tokenClass = attrib.tokenClass;
+    }
+    return tokenClass;
+}
+
+// A closed file's line: the language colours it and the workspace says what its names mean
+DLL_EXPORT int test_codeindex_tree_coloured_line(ITesting *t) {
+    auto names = std::make_shared<WorkspaceNames>();
+    names->Add(U"Document", kLanguageTokenClass::kUserType);
+    std::u32string text = U"    const Document *doc; // note";
+
+    auto plain = ActionHelper::ColouredLine(text, ".h", nullptr);
+    TR_ASSERT(t, !plain->Attributes().empty());
+    TR_ASSERT(t, plain->Buffer() == text);
+    TR_ASSERT(t, ClassAt(plain, text.find(U"const")) != kLanguageTokenClass::kRegular);
+    TR_ASSERT(t, ClassAt(plain, text.find(U"Document")) == kLanguageTokenClass::kRegular);
+    TR_ASSERT(t, ClassAt(plain, text.find(U"note")) != kLanguageTokenClass::kRegular);
+
+    auto coloured = ActionHelper::ColouredLine(text, ".h", names);
+    TR_ASSERT(t, ClassAt(coloured, text.find(U"Document")) == kLanguageTokenClass::kUserType);
+    TR_ASSERT(t, ClassAt(coloured, text.find(U"doc;")) == kLanguageTokenClass::kRegular);
+
+    auto member = ActionHelper::ColouredLine(U"a->count;", ".cpp", names);
+    TR_ASSERT(t, ClassAt(member, 3) == kLanguageTokenClass::kMember);
+    return kTR_Pass;
+}
+
+namespace {
+    // Where the text goes, in columns - what's past the right edge would land on the editor beside the modal
+    class ExtentDrawContext : public DrawContext {
+    public:
+        void DrawStringAt(int x, int y, const std::u32string &str) const override {
+            Note(x, str);
+        }
+        void DrawStringWithAttributesAt(int x, int y, kTextAttributes attrib, const std::u32string &str) const override {
+            Note(x, str);
+        }
+    private:
+        void Note(int x, const std::u32string &str) const {
+            auto self = const_cast<ExtentDrawContext *>(this);
+            self->text += str;
+            self->xEnd = std::max(self->xEnd, x + (int)str.size());
+        }
+    public:
+        std::u32string text;
+        int xEnd = 0;
+    };
+}
+
+DLL_EXPORT int test_codeindex_tree_draw_source_row(ITesting *t) {
+    CPPStructureScanner scanner(CPPTokenizer());
+    auto index = CodeIndex::Create();
+    index->ReplaceFile("/p/a.h", scanner.Scan(U"class Part { };\nclass Item { Part part; };\n"));
+    auto lines = [](const std::string &path, uint32_t line) {
+        return ActionHelper::ColouredLine(U"    Part part;  // and a comment that goes on and on", ".h", nullptr);
+    };
+    RelationshipModal modal(index, {U"Item"}, {"/p"}, lines);
+    auto tree = modal.GetTree();
+    tree->SetSelectionAtRow(2);
+    tree->Expand();
+    auto &row = tree->GetRootNode()->children[0]->children[0]->children[0]->children[0]->data;
+    TR_ASSERT(t, row.isSource);
+
+    ExtentDrawContext wide;
+    TR_ASSERT(t, modal.DrawSourceRow(wide, 2, 0, 200, row));
+    TR_ASSERT(t, wide.text == U"a.h:2  Part part;  // and a comment that goes on and on");
+
+    ExtentDrawContext narrow;
+    TR_ASSERT(t, modal.DrawSourceRow(narrow, 2, 0, 30, row));
+    TR_ASSERT(t, narrow.xEnd <= 30);
+    TR_ASSERT(t, narrow.text.rfind(U"a.h:2  Part", 0) == 0);
+
+    // No room for the code: the normal row, which is cut to fit
+    ExtentDrawContext none;
+    TR_ASSERT(t, !modal.DrawSourceRow(none, 2, 0, 5, row));
+    TR_ASSERT(t, none.text.empty());
+
+    // Anything else is the tree's to draw
+    TR_ASSERT(t, !modal.DrawSourceRow(wide, 2, 0, 200, tree->GetRootNode()->children[0]->data));
     return kTR_Pass;
 }

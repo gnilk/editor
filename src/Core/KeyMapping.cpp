@@ -44,6 +44,7 @@ static std::unordered_map<std::string, kAction> strToActionMap = {
         {"SwitchToBuffer",       kAction::kActionSwitchToBuffer},
         {"Find",                 kAction::kActionFind},
         {"GotoSymbol",           kAction::kActionGotoSymbol},
+        {"ShowRelationships",    kAction::kActionShowRelationships},
         {"GotoDefinition",       kAction::kActionGotoDefinition},
         {"GotoDeclaration",      kAction::kActionGotoDeclaration},
         {"GotoToggle",           kAction::kActionGotoToggle},

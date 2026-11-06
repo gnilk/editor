@@ -50,6 +50,7 @@ namespace gedit {
             // What 'toName' can mean from where it is written (§5.2), qualified. None: outside the index ('gnilk::ILogger').
             // Several: ambiguous, and all are shown - never a guess.
             std::vector<std::u32string> targets;
+            bool isMacro = false;                   // the target is '#define _u8 unsigned char', no type has the name
             std::string path;
             uint32_t line = 0;
         };
@@ -181,7 +182,7 @@ namespace gedit {
         std::vector<Relation> EdgesTo(const std::u32string &qualifiedType, kEdgeKind kind) const;
         Relation MakeRelation(const EdgeHandle &handle) const;
         std::vector<std::u32string> TypesWithLastName(const std::u32string &lastName) const;
-        std::vector<std::u32string> ResolveTarget(const std::u32string &toName, const std::u32string &fromName) const;
+        std::vector<std::u32string> ResolveTarget(const std::u32string &toName, const std::u32string &fromName, bool &outIsMacro) const;
         bool IsMacro(const std::u32string &name) const;
         std::optional<kLanguageTokenClass> SingleMeaning(const Name &name) const;
         bool IsBetter(const Candidate &a, const Candidate &b) const;

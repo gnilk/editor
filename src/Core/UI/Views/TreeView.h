@@ -65,6 +65,9 @@ namespace gedit {
         using StyleDelegate = std::function<kTextAttributes(const T &data)>;
         // True for a row that steps back - drawn in 'tree_dimmed', or between the foreground and the background
         using DimDelegate = std::function<bool(const T &data)>;
+        // Optional - draws a row itself, within 'width' columns from the left of the view. False: draw it the normal way.
+        // Not asked for the selected row, which stays one inverted bar.
+        using DrawRowDelegate = std::function<bool(DrawContext &dc, int x, int y, int width, const T &data)>;
         // FS-6: fired from Expand()/ExpandToNode() when a node carries hasUnfetchedChildren.
         // The node is passed BY VALUE (shared_ptr copy) — the callback may call AddItem or
         // AddItemNoFlatten, which can trigger Flatten() and rebuild flattenNodeList; holding
@@ -184,6 +187,10 @@ namespace gedit {
 
         void SetDimDelegate(DimDelegate newDim) {
             cbDim = newDim;
+        }
+
+        void SetDrawRowDelegate(DrawRowDelegate newDrawRow) {
+            cbDrawRow = newDrawRow;
         }
 
         typename TreeNode::Ref AddItem(const T &item) {
@@ -406,6 +413,8 @@ namespace gedit {
                     dc.FillLine(yPos, kTextAttributes::kNormal | kTextAttributes::kInverted, ' ');
                     dc.DrawStringWithAttributesAt(node->indent, yPos, itemAttributes | kTextAttributes::kInverted, str.c_str());
 
+                } else if ((cbDrawRow != nullptr) && cbDrawRow(dc, node->indent + 1, yPos, viewRect.Width(), node->data)) {
+                    dc.SetColor(foreground, background);
                 } else if ((cbDim != nullptr) && cbDim(node->data)) {
                     dc.SetColor(dimmed, background);
                     dc.DrawStringWithAttributesAt(node->indent, yPos, itemAttributes, str.c_str());
@@ -467,6 +476,7 @@ namespace gedit {
         ToStringDelegate cbToString = nullptr;
         StyleDelegate cbStyle = nullptr;
         DimDelegate cbDim = nullptr;
+        DrawRowDelegate cbDrawRow = nullptr;
         typename TreeNode::Ref rootNode;
         LineCursor treeLineCursor;  // This is not really used - just for storage
         VerticalNavigationCLion verticalNavigationViewModel;

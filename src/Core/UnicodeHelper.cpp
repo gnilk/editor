@@ -221,4 +221,28 @@ bool UnicodeHelper::ConvertUTF8ToASCII(std::string &out, const std::string &src)
     return ConvertUTF32ToASCII(out, stru32);
 }
 
-
+// A file that isn't UTF-8 (Latin-1 comments are common in old C) would stop the decoder at the first bad
+// byte and lose the rest of the file. Identifiers are ASCII, so each bad byte just becomes a '?'.
+void UnicodeHelper::ReplaceInvalidUtf8(std::string &data) {
+    size_t idx = 0;
+    while (idx < data.size()) {
+        auto ch = (unsigned char)data[idx];
+        size_t length = (ch < 0x80) ? 1 : ((ch >= 0xc2) && (ch <= 0xdf)) ? 2 : ((ch & 0xf0) == 0xe0) ? 3 : ((ch >= 0xf0) && (ch <= 0xf4)) ? 4 : 0;
+        bool isValid = (length > 0) && ((idx + length) <= data.size());
+        for (size_t i = 1; isValid && (i < length); i++) {
+            isValid = ((unsigned char)data[idx + i] & 0xc0) == 0x80;
+        }
+        // Overlong forms, surrogates and past U+10FFFF
+        if (isValid && (length > 2)) {
+            auto second = (unsigned char)data[idx + 1];
+            isValid = !(((ch == 0xe0) && (second < 0xa0)) || ((ch == 0xed) && (second > 0x9f)) ||
+                        ((ch == 0xf0) && (second < 0x90)) || ((ch == 0xf4) && (second > 0x8f)));
+        }
+        if (isValid) {
+            idx += length;
+        } else {
+            data[idx] = '?';
+            idx++;
+        }
+    }
+}

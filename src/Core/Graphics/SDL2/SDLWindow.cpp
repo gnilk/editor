@@ -169,7 +169,7 @@ void SDLWindow::DrawWindowDecoration() {
         // Need a font-class to store this - should be initalized by screen...
         auto &dcWin = GetWindowDC();
         dcWin.FillLine(0, kTextAttributes::kInverted, ' ');
-        dcWin.DrawStringAt(0,0,caption.c_str());
+        dcWin.DrawStringWithAttributesAt(0, 0, kTextAttributes::kInverted, caption.c_str());
     }
 
     //SDL_RenderDrawLine(renderer, pxTopLeft.x, pxTopLeft.y, pxBottomRight.x, pxBottomRight.y);

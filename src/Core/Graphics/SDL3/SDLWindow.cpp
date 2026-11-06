@@ -155,20 +155,21 @@ void SDLWindow::DrawWindowDecoration() {
         SDL_RenderLine(renderer, pxTopLeft.x-1, pxTopLeft.y-1, pxBottomRight.x, pxTopLeft.y-1);
     }
     if (glbDebugSDLWindows ||decorationFlags & kWinDeco_BottomBorder) {
-        SDL_RenderLine(renderer, pxTopLeft.x, pxBottomRight.y+1, pxBottomRight.x-1, pxBottomRight.y+1);
+        SDL_RenderLine(renderer, pxTopLeft.x-1, pxBottomRight.y+1, pxBottomRight.x, pxBottomRight.y+1);
     }
     if (glbDebugSDLWindows ||decorationFlags & kWinDeco_LeftBorder) {
         SDL_RenderLine(renderer, pxTopLeft.x-1, pxTopLeft.y, pxTopLeft.x-1, pxBottomRight.y+1);
     }
     if (glbDebugSDLWindows ||decorationFlags & kWinDeco_RightBorder) {
-        SDL_RenderLine(renderer, pxBottomRight.x-1, pxTopLeft.y, pxBottomRight.x-1, pxBottomRight.y+1);
+        // Just outside the window, as the left border is: the first column in would be drawn over by the contents
+        SDL_RenderLine(renderer, pxBottomRight.x, pxTopLeft.y, pxBottomRight.x, pxBottomRight.y+1);
     }
 
     if (glbDebugSDLWindows || decorationFlags & kWinDeco_DrawCaption) {
         // Need a font-class to store this - should be initalized by screen...
         auto &dcWin = GetWindowDC();
         dcWin.FillLine(0, kTextAttributes::kInverted, ' ');
-        dcWin.DrawStringAt(0,0,caption.c_str());
+        dcWin.DrawStringWithAttributesAt(0, 0, kTextAttributes::kInverted, caption.c_str());
     }
 
     //SDL_RenderLine(renderer, pxTopLeft.x, pxTopLeft.y, pxBottomRight.x, pxBottomRight.y);

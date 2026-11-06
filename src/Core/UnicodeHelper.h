@@ -22,6 +22,8 @@ namespace gedit {
 
 
         static std::u32string utf8to32(const std::string &src);
+        // Each byte that isn't UTF-8 becomes a '?', so utf8to32 gets through the whole text
+        static void ReplaceInvalidUtf8(std::string &data);
         static std::string utf32to8(const std::u32string &src);
         static std::string utf8toascii(const std::string &src);
         static std::string utf8toascii(const char8_t *src);

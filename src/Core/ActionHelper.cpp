@@ -2,10 +2,13 @@
 // Created by gnilk on 16.05.23.
 //
 
+#include <fstream>
+
 #include "ActionHelper.h"
 #include "Core/Editor.h"
 #include "Core/UI/Views/RootView.h"
 #include "Core/Editor/Modals/FindModal.h"
+#include "Core/Editor/Modals/RelationshipModal.h"
 #include "Core/Editor/Modals/SymbolSearchModal.h"
 #include "Core/PathUtil.h"
 #include "Core/Session/SessionManager.h"
@@ -146,6 +149,35 @@ void ActionHelper::ShowGotoSymbol() {
     symbolModal->SetQuery(FindModal::SelectedText(document));
 }
 
+// The type under the cursor, or the one the cursor is in
+void ActionHelper::ShowRelationships() {
+    auto &editor = Editor::Instance();
+    auto document = editor.GetActiveDocument();
+    if ((document == nullptr) || (editor.GetCodeIndex() == nullptr) || !RuntimeConfig::Instance().HasRootView()) {
+        return;
+    }
+    auto &lineCursor = document->GetLineCursor();
+    auto line = document->GetTextBuffer()->LineAt(lineCursor.idxActiveLine);
+    if (line == nullptr) {
+        return;
+    }
+    auto path = ActivePath();
+    line->Lock();
+    auto text = line->Buffer();
+    line->Release();
+
+    auto idxLine = (uint32_t)lineCursor.idxActiveLine;
+    auto &index = *editor.GetCodeIndex();
+    auto atCursor = GoToResolver::Resolve(index, text, (size_t)lineCursor.cursor.position.x, idxLine, path, GoToResolver::kMode::kDefinition);
+    auto types = RelationshipTree::TypesAt(index, atCursor.name, path, idxLine);
+    if (types.empty()) {
+        editor.ShowStatusMessage(U"No type here");
+        return;
+    }
+    auto modal = RelationshipModal::Create(editor.GetCodeIndex(), types, editor.GetIndexedRoots(), ActionHelper::SourceLine);
+    RuntimeConfig::Instance().GetRootViewAs<RootView>()->ShowModal(std::move(modal));
+}
+
 void ActionHelper::GoToNameAtCursor(GoToResolver::kMode mode) {
     auto &editor = Editor::Instance();
     auto document = editor.GetActiveDocument();
@@ -181,6 +213,81 @@ void ActionHelper::GoToNameAtCursor(GoToResolver::kMode mode) {
         // After ShowModal - the list height comes from the laid out modal
         symbolModal->SetQuery(U"");
     }
+}
+
+Line::Ref ActionHelper::SourceLine(const std::string &path, uint32_t line) {
+    auto &editor = Editor::Instance();
+    auto canonicalPath = pathutil::CanonicalPath(path);
+    auto workspace = editor.GetWorkspace();
+    for (auto &document : workspace->GetOpenDocuments()) {
+        auto node = workspace->GetNodeFromDocument(document);
+        if ((node == nullptr) || (pathutil::CanonicalPath(node->GetNodePath()) != canonicalPath)) {
+            continue;
+        }
+        auto buffer = document->GetTextBuffer();
+        if (buffer->IsEmpty()) {
+            break;      // not read in yet
+        }
+        auto textLine = buffer->LineAt(line);
+        if (textLine == nullptr) {
+            return nullptr;
+        }
+        textLine->Lock();
+        auto copy = textLine->CopyOfRange(0, textLine->Length());
+        textLine->Release();
+        return copy;
+    }
+    std::ifstream file(path);
+    std::string text;
+    for (uint32_t idxLine = 0; idxLine <= line; idxLine++) {
+        if (!std::getline(file, text)) {
+            return nullptr;
+        }
+    }
+    UnicodeHelper::ReplaceInvalidUtf8(text);
+    auto index = editor.GetCodeIndex();
+    return ColouredLine(UnicodeHelper::utf8to32(text), std::filesystem::path(path).extension().string(), (index != nullptr) ? index->GetWorkspaceNames() : nullptr);
+}
+
+static bool IsNameChar(char32_t ch) {
+    return ((ch >= U'a') && (ch <= U'z')) || ((ch >= U'A') && (ch <= U'Z')) || ((ch >= U'0') && (ch <= U'9')) || (ch == U'_');
+}
+
+Line::Ref ActionHelper::ColouredLine(const std::u32string &text, const std::string &extension, const WorkspaceNames::Ref &workspaceNames) {
+    auto line = Line::Create(text);
+    auto language = Editor::Instance().GetLanguageForExtension(extension);
+    if (language == nullptr) {
+        return line;
+    }
+    auto tokenizer = language->Tokenizer();     // a copy: the parser keeps its state in it
+    tokenizer.ParseLineFromState("main", line);
+    if (workspaceNames == nullptr) {
+        return line;
+    }
+    for (auto &attrib : line->Attributes()) {
+        if (attrib.tokenClass != kLanguageTokenClass::kRegular) {
+            continue;
+        }
+        auto idxName = (size_t)attrib.idxOrigString;
+        auto idxEnd = idxName;
+        while ((idxEnd < text.size()) && IsNameChar(text[idxEnd])) {
+            idxEnd++;
+        }
+        if (idxEnd == idxName) {
+            continue;
+        }
+        auto tokenClass = WorkspaceNames::ClassFromSyntax(text, idxName, idxEnd);
+        if (tokenClass == kLanguageTokenClass::kRegular) {
+            tokenClass = workspaceNames->LookupAt(text, idxName, text.substr(idxName, idxEnd - idxName));
+        }
+        if (tokenClass != kLanguageTokenClass::kRegular) {
+            auto [fgColor, bgColor] = Editor::Instance().ColorFromLanguageToken(tokenClass);
+            attrib.tokenClass = tokenClass;
+            attrib.foregroundColor = fgColor;
+            attrib.backgroundColor = bgColor;
+        }
+    }
+    return line;
 }
 
 bool ActionHelper::JumpTo(const std::string &path, uint32_t line, uint32_t column) {

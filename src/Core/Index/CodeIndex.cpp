@@ -170,6 +170,9 @@ static bool IsNameOf(const std::u32string &qualifiedName, const std::u32string &
         return qualifiedName == name;
     }
     auto idxName = qualifiedName.size() - name.size();
+    if (idxName < 2) {
+        return false;
+    }
     return (qualifiedName.compare(idxName, name.size(), name) == 0) && (qualifiedName.compare(idxName - 2, 2, U"::") == 0);
 }
 
@@ -569,7 +572,7 @@ CodeIndex::Relation CodeIndex::MakeRelation(const EdgeHandle &handle) const {
     relation.ownership = edge.ownership;
     relation.fromName = edge.fromName;
     relation.toName = edge.toName;
-    relation.targets = ResolveTarget(edge.toName, edge.fromName);
+    relation.targets = ResolveTarget(edge.toName, edge.fromName, relation.isMacro);
     relation.path = file.path;
     relation.line = edge.line;
     return relation;
@@ -596,7 +599,7 @@ std::vector<std::u32string> CodeIndex::TypesWithLastName(const std::u32string &l
 
 // §5.2, at query time, so a target that appears or vanishes costs nothing. The scopes around the edge from the inside out,
 // as the compiler reads them, also takes the qualified match; then the name anywhere in the index.
-std::vector<std::u32string> CodeIndex::ResolveTarget(const std::u32string &toName, const std::u32string &fromName) const {
+std::vector<std::u32string> CodeIndex::ResolveTarget(const std::u32string &toName, const std::u32string &fromName, bool &outIsMacro) const {
     auto types = TypesWithLastName(LastComponent(toName));
     auto scope = fromName;
     while (true) {
@@ -614,6 +617,7 @@ std::vector<std::u32string> CodeIndex::ResolveTarget(const std::u32string &toNam
         return !IsNameOf(type, toName);
     });
     if (types.empty() && IsMacro(toName)) {
+        outIsMacro = true;
         return {toName};
     }
     return types;

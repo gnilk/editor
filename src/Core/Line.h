@@ -53,6 +53,8 @@ namespace gedit {
         static Line::Ref Create();
         static Line::Ref Create(const std::u32string &data);
         static Line::Ref Create(const Line::Ref &other);
+        // The chars [idxStart, idxEnd) with their attributes, as a line of its own: spans cut at the edges, first one at 0
+        Line::Ref CopyOfRange(size_t idxStart, size_t idxEnd) const;
 
 
         void SetOnChangeDelegate(OnChangeDelegate newOnChangeDelegate) {

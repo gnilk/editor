@@ -1055,7 +1055,7 @@ with no document or UI in them. `ActionHelper` joins them to the documents, and 
 
 ### 11.10 Step 3 - design (2026-11-06)
 
-3a is done, see its results below; 3b and 3c aren't started. The scanner has always found the edges, 1 156 `holds` and 94 `inherits` in GoatEdit's `src`, and they stop there.
+3a is done and 3b is built, see their results below; 3c isn't started. The scanner has always found the edges, 1 156 `holds` and 94 `inherits` in GoatEdit's `src`, and they stop there.
 
 **Two gaps:**
 - **No file's edges reach the index.** `CodeIndex::ReplaceFile` reads `structure.symbols` only. The indexer's files are as blind
@@ -1121,11 +1121,36 @@ A relation is an `inherits` or `holds` edge; the rest are includes and `using`. 
   falls outside by name and folder, so the next outlier explains itself.
 - **For 3b:** a macro type says nothing about the architecture, so the composition view should put such rows last or fold them.
 
+**3b results (2026-11-06).** `Cmd+Shift+T`, `Ctrl` on Linux, opens the type under the cursor, or the type the cursor is in.
+`RelationshipTree` builds the rows as plain data and `RelationshipModal` shows them.
+- **One level at a time:** the tree's lazy fetch asks the index when a row opens. The first type opens on arrival. A name with several
+  types shows them all as roots, and an ambiguous target opens into its candidates.
+- **Rows:** ordered by owns, shares, borrows, with macro types and names outside the index last and dimmed. The same relation on several
+  lines is one row, `borrows ViewBase x3`, which goes to the first. A type already open further up its branch is marked `(above)`
+  and doesn't open again.
+- **Return** goes through `ActionHelper::JumpTo`, so `Cmd+[` comes back. It lands where the relation is written: the member, or the
+  derived class's line.
+- **The code itself:** opening a row starts with the lines it stands for, one per place, trimmed, each one a jump:
+  `Workspace.h:764  Document::Ref activeDocument = nullptr;`. So `x2` opens into its two members, and you read what a relation is
+  before going anywhere. An open file gives its current text, unsaved edits included; a closed one is read from disk. Later: a small
+  pop-up with the lines around it, once there is such a thing.
+- **In colour:** a code row is drawn with `LineRender`, through a per-row hook on `TreeView`. An open file's line already has its
+  colours, semantic ones included. A closed file's is tokenized on its own and then coloured by `WorkspaceNames`, so the middle of a
+  block comment reads as code, and a name only that file declares stays plain. The selected row stays one inverted bar.
+- **A key that couldn't arrive:** both keyboard drivers dropped every `Shift` + letter key-down, leaving it to text input, but with `Cmd`
+  or `Ctrl` held no text comes. `Keyboard::IsShiftedText` now tells the two apart. This is the first binding with two modifiers on a
+  letter, and the drivers themselves have no test; only the rule does.
+- **Modals on SDL3:** the right border was drawn just inside the window, where the contents painted over it, and every caption was
+  white on white. Both found through this view. SDL2's caption is fixed too; its borders work differently and aren't checked.
+- **`TreeSelectionModal`** had no users and laid its tree out over the whole screen. It now fills the modal, as `ListSelectionModal` does.
+- **A crash found by a mutation test:** `IsNameOf` underflowed when a type is one character longer than the name (`ab::Item`, `b::Item`).
+  Adding a test for a surviving mutation showed it, and any edge written that way would have thrown.
+
 **Decided (2026-11-06):** a modal first for 3b. `TreeSelectionModal` exists and Go to symbol has the same rhythm: ask, look, jump.
 A view that stays open and follows the cursor may be the better end state, and using the modal will say what it should show.
 
 **Open:**
-- **Keys for 3b and 3c.** Functionality, so `Cmd`/`Ctrl`.
+- **Keys for 3c.** Functionality, so `Cmd`/`Ctrl`.
 - **The look of the UI.** The toolkit's modals and trees are plain. These views are where the structure gets read, so what they
   look like may need its own work.
 

@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include <tuple>
 #include <vector>
 
 #include "Core/Editor.h"
@@ -53,6 +54,16 @@ extern "C" {
     DLL_EXPORT int test_codeindex_library_using_edit(ITesting *t);
     DLL_EXPORT int test_codeindex_library_other_scope(ITesting *t);
     DLL_EXPORT int test_codeindex_nav_quick_mode_view_switch(ITesting *t);
+    DLL_EXPORT int test_codeindex_edges_open_file(ITesting *t);
+    DLL_EXPORT int test_codeindex_edges_region_scan(ITesting *t);
+    DLL_EXPORT int test_codeindex_edges_follow_lines(ITesting *t);
+    DLL_EXPORT int test_codeindex_edges_incremental(ITesting *t);
+    DLL_EXPORT int test_codeindex_edges_typedef(ITesting *t);
+    DLL_EXPORT int test_codeindex_edges_typedef_region(ITesting *t);
+    DLL_EXPORT int test_codeindex_relations(ITesting *t);
+    DLL_EXPORT int test_codeindex_relations_resolve(ITesting *t);
+    DLL_EXPORT int test_codeindex_relations_replace(ITesting *t);
+    DLL_EXPORT int test_codeindex_relations_macro_type(ITesting *t);
     DLL_EXPORT int test_codeindex_goto_nearest_symbol(ITesting *t);
     DLL_EXPORT int test_codeindex_goto_find_exact(ITesting *t);
     DLL_EXPORT int test_codeindex_goto_toggle(ITesting *t);
@@ -195,8 +206,7 @@ namespace {
 
     bool HasEdge(const FileStructure &structure, kEdgeKind kind, const std::u32string &from, const std::u32string &to, kOwnership ownership = kOwnership::kNone) {
         for (auto &edge : structure.edges) {
-            auto fromName = (edge.idxFrom >= 0) ? structure.symbols[edge.idxFrom].qualifiedName : std::u32string();
-            if ((edge.kind == kind) && (fromName == from) && (edge.toName == to) && (edge.ownership == ownership)) {
+            if ((edge.kind == kind) && (edge.fromName == from) && (edge.toName == to) && (edge.ownership == ownership)) {
                 return true;
             }
         }
@@ -2959,5 +2969,287 @@ DLL_EXPORT int test_codeindex_nav_quick_mode_view_switch(ITesting *t) {
 
     TR_ASSERT(t, Editor::Instance().GetState() == Editor::ViewState);
     TR_ASSERT(t, numAfter == numHandlers);
+    return kTR_Pass;
+}
+
+static const CodeEdge *FindEdge(const FileStructure &structure, kEdgeKind kind, const std::u32string &to) {
+    for (auto &edge : structure.edges) {
+        if ((edge.kind == kind) && (edge.toName == to)) {
+            return &edge;
+        }
+    }
+    return nullptr;
+}
+
+// An open file gives the index its edges, not only its symbols
+DLL_EXPORT int test_codeindex_edges_open_file(ITesting *t) {
+    auto buffer = CPPBuffer({
+        U"#include \"Base.h\"",
+        U"namespace app {",
+        U"    class Item : public Base {",
+        U"        Part part;",
+        U"        std::shared_ptr<Other> other;",
+        U"    };",
+        U"}",
+    });
+    auto structure = buffer->CollectStructure();
+    TR_ASSERT(t, HasEdge(structure, kEdgeKind::kInherits, U"app::Item", U"Base"));
+    TR_ASSERT(t, HasEdge(structure, kEdgeKind::kHolds, U"app::Item", U"Part", kOwnership::kOwns));
+    TR_ASSERT(t, HasEdge(structure, kEdgeKind::kHolds, U"app::Item", U"Other", kOwnership::kShares));
+    TR_ASSERT(t, HasEdge(structure, kEdgeKind::kIncludes, U"", U"Base.h"));
+    return kTR_Pass;
+}
+
+// A region scan starts its symbols over, and the owner of an edge is above the edit
+DLL_EXPORT int test_codeindex_edges_region_scan(ITesting *t) {
+    auto buffer = CPPBuffer({
+        U"namespace app {",
+        U"    class Item {",
+        U"        Part part;",
+        U"        int count;",
+        U"    };",
+        U"}",
+    });
+    EditRegion(buffer, 3, 4, [&buffer]() {
+        auto line = buffer->LineAt(3);
+        line->Delete(0, (int)line->Length());
+        line->Append(std::u32string(U"        Extra *extra;"));
+    });
+    auto structure = buffer->CollectStructure();
+    TR_ASSERT(t, HasEdge(structure, kEdgeKind::kHolds, U"app::Item", U"Extra", kOwnership::kBorrows));
+    TR_ASSERT(t, HasEdge(structure, kEdgeKind::kHolds, U"app::Item", U"Part", kOwnership::kOwns));
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_edges_follow_lines(ITesting *t) {
+    auto buffer = CPPBuffer({
+        U"class Item {",
+        U"    Part part;",
+        U"    Gone gone;",
+        U"};",
+    });
+    EditRegion(buffer, 0, 1, [&buffer]() {
+        buffer->Insert(0, U"// a comment");
+    });
+    auto structure = buffer->CollectStructure();
+    auto edge = FindEdge(structure, kEdgeKind::kHolds, U"Part");
+    TR_ASSERT(t, edge != nullptr);
+    TR_ASSERT(t, edge->line == 2);
+
+    EditRegion(buffer, 3, 3, [&buffer]() {
+        buffer->DeleteLineAt(3);
+    });
+    structure = buffer->CollectStructure();
+    TR_ASSERT(t, FindEdge(structure, kEdgeKind::kHolds, U"Gone") == nullptr);
+    TR_ASSERT(t, FindEdge(structure, kEdgeKind::kHolds, U"Part") != nullptr);
+    return kTR_Pass;
+}
+
+// After a series of edits the edges are what a fresh parse of the result gives
+DLL_EXPORT int test_codeindex_edges_incremental(ITesting *t) {
+    auto buffer = CPPBuffer({
+        U"#include \"a.h\"",
+        U"namespace app {",
+        U"    class Item : public Base {",
+        U"        Part part;",
+        U"    };",
+        U"    class Other {",
+        U"        Item *item;",
+        U"    };",
+        U"}",
+    });
+    EditRegion(buffer, 2, 3, [&buffer]() {
+        auto line = buffer->LineAt(2);
+        line->Delete(0, (int)line->Length());
+        line->Append(std::u32string(U"    class Item : public Newer {"));
+    });
+    EditRegion(buffer, 7, 8, [&buffer]() {
+        buffer->Insert(7, U"        std::unique_ptr<Part> owned;");
+    });
+    EditRegion(buffer, 3, 3, [&buffer]() {
+        buffer->DeleteLineAt(3);
+    });
+    EditRegion(buffer, 0, 1, [&buffer]() {
+        buffer->Insert(0, U"#include \"b.h\"");
+    });
+
+    auto describe = [](const FileStructure &structure) {
+        std::vector<std::tuple<kEdgeKind, std::u32string, std::u32string, kOwnership, uint32_t>> edges;
+        for (auto &edge : structure.edges) {
+            edges.emplace_back(edge.kind, edge.fromName, edge.toName, edge.ownership, edge.line);
+        }
+        std::sort(edges.begin(), edges.end());
+        return edges;
+    };
+    auto fresh = CPPBuffer(BufferLines(buffer));
+    TR_ASSERT(t, describe(buffer->CollectStructure()) == describe(fresh->CollectStructure()));
+    return kTR_Pass;
+}
+
+// A nameless typedef has no name until the ';', so its edges get theirs there
+DLL_EXPORT int test_codeindex_edges_typedef(ITesting *t) {
+    CPPStructureScanner scanner(CPPTokenizer());
+    auto structure = scanner.Scan(U"namespace app {\n"
+                                  U"    struct Before { Part part; };\n"
+                                  U"    typedef struct {\n"
+                                  U"        Foo *foo;\n"
+                                  U"        struct { Inner *inner; } nested;\n"
+                                  U"    } Bar;\n"
+                                  U"    typedef struct Named { Foo *foo; } Named_t;\n"
+                                  U"}\n"
+                                  U"typedef struct { Top *top; } TopLevel;\n");
+    TR_ASSERT(t, HasEdge(structure, kEdgeKind::kHolds, U"app::Before", U"Part", kOwnership::kOwns));
+    TR_ASSERT(t, HasEdge(structure, kEdgeKind::kHolds, U"app::Bar", U"Foo", kOwnership::kBorrows));
+    TR_ASSERT(t, HasEdge(structure, kEdgeKind::kHolds, U"app::Bar", U"Inner", kOwnership::kBorrows));
+    TR_ASSERT(t, HasEdge(structure, kEdgeKind::kHolds, U"app::Named", U"Foo", kOwnership::kBorrows));
+    TR_ASSERT(t, HasEdge(structure, kEdgeKind::kHolds, U"TopLevel", U"Top", kOwnership::kBorrows));
+
+    auto anonymous = scanner.Scan(U"struct { Foo *foo; } global;\n");
+    TR_ASSERT(t, FindEdge(anonymous, kEdgeKind::kHolds, U"Foo") == nullptr);   // nothing named holds it
+    return kTR_Pass;
+}
+
+// A region scan inside a nameless typedef can't know the name. A missing edge is cheap, the wrong owner isn't.
+DLL_EXPORT int test_codeindex_edges_typedef_region(ITesting *t) {
+    auto buffer = CPPBuffer({
+        U"namespace app {",
+        U"    typedef struct {",
+        U"        Foo *foo;",
+        U"        int count;",
+        U"    } Bar;",
+        U"}",
+    });
+    EditRegion(buffer, 3, 4, [&buffer]() {
+        auto line = buffer->LineAt(3);
+        line->Delete(0, (int)line->Length());
+        line->Append(std::u32string(U"        Extra *extra;"));
+    });
+    auto structure = buffer->CollectStructure();
+    for (auto &edge : structure.edges) {
+        TR_ASSERT(t, edge.fromName != U"app");
+        TR_ASSERT(t, !edge.fromName.empty());
+    }
+    return kTR_Pass;
+}
+
+static std::vector<std::u32string> FromNames(const std::vector<CodeIndex::Relation> &relations) {
+    std::vector<std::u32string> fromNames;
+    for (auto &relation : relations) {
+        fromNames.push_back(relation.fromName);
+    }
+    return fromNames;
+}
+
+DLL_EXPORT int test_codeindex_relations(ITesting *t) {
+    CPPStructureScanner scanner(CPPTokenizer());
+    auto index = CodeIndex::Create();
+    index->ReplaceFile("/p/base.h", scanner.Scan(U"namespace app { class Base { }; class Part { }; }"));
+    index->ReplaceFile("/p/item.h", scanner.Scan(U"namespace app {\n"
+                                                 U"    class Item : public Base {\n"
+                                                 U"        Part part;\n"
+                                                 U"        Base *base;\n"
+                                                 U"        gnilk::ILogger *logger;\n"
+                                                 U"    };\n"
+                                                 U"}\n"));
+    index->ReplaceFile("/p/other.h", scanner.Scan(U"class Other : public app::Item { app::Part *part; };"));
+
+    TR_ASSERT(t, index->TypesNamed(U"Item") == std::vector<std::u32string>{U"app::Item"});
+    TR_ASSERT(t, index->TypesNamed(U"app::Item") == std::vector<std::u32string>{U"app::Item"});
+    TR_ASSERT(t, index->TypesNamed(U"tem").empty());
+
+    auto bases = index->BasesOf(U"app::Item");
+    TR_ASSERT(t, bases.size() == 1);
+    TR_ASSERT(t, bases[0].targets == std::vector<std::u32string>{U"app::Base"});
+    TR_ASSERT(t, bases[0].path == "/p/item.h");
+    TR_ASSERT(t, bases[0].line == 1);
+
+    TR_ASSERT(t, FromNames(index->DerivedFrom(U"app::Base")) == std::vector<std::u32string>{U"app::Item"});
+    TR_ASSERT(t, FromNames(index->DerivedFrom(U"app::Item")) == std::vector<std::u32string>{U"Other"});
+
+    auto holds = index->HoldsOf(U"app::Item");
+    TR_ASSERT(t, holds.size() == 3);
+    bool sawOutside = false;
+    for (auto &relation : holds) {
+        sawOutside = sawOutside || ((relation.toName == U"gnilk::ILogger") && relation.targets.empty());
+    }
+    TR_ASSERT(t, sawOutside);
+
+    auto heldBy = index->HeldBy(U"app::Part");
+    TR_ASSERT(t, FromNames(heldBy) == (std::vector<std::u32string>{U"Other", U"app::Item"}));
+    TR_ASSERT(t, heldBy[1].ownership == kOwnership::kOwns);
+    TR_ASSERT(t, heldBy[0].ownership == kOwnership::kBorrows);
+    TR_ASSERT(t, index->GetStats().numEdges == 6);
+    return kTR_Pass;
+}
+
+// §5.2: the scopes around the edge first, then the name anywhere, and several stay several
+DLL_EXPORT int test_codeindex_relations_resolve(ITesting *t) {
+    CPPStructureScanner scanner(CPPTokenizer());
+    auto index = CodeIndex::Create();
+    index->ReplaceFile("/p/a.h", scanner.Scan(U"namespace a { class Node { }; class User : public Node { }; }"));
+    index->ReplaceFile("/p/b.h", scanner.Scan(U"namespace b { class Node { }; class User : public Node { }; }"));
+    index->ReplaceFile("/p/c.h", scanner.Scan(U"class Stray : public Node { };"));
+    index->ReplaceFile("/p/d.h", scanner.Scan(U"class Node { }; namespace c { class Global : public Node { }; }"));
+    index->ReplaceFile("/p/e.h", scanner.Scan(U"class Outer { class Node { }; class Inner : public Node { }; };"));
+
+    TR_ASSERT(t, FromNames(index->DerivedFrom(U"a::Node")) == std::vector<std::u32string>{U"a::User"});
+    TR_ASSERT(t, FromNames(index->DerivedFrom(U"b::Node")) == std::vector<std::u32string>{U"b::User"});
+    // The nested type goes first, and the global one is what the others reach
+    TR_ASSERT(t, FromNames(index->DerivedFrom(U"Outer::Node")) == std::vector<std::u32string>{U"Outer::Inner"});
+    TR_ASSERT(t, FromNames(index->DerivedFrom(U"Node")) == (std::vector<std::u32string>{U"Stray", U"c::Global"}));
+
+    index->RemoveFile("/p/d.h");
+    auto bases = index->BasesOf(U"Stray");
+    TR_ASSERT(t, bases.size() == 1);
+    TR_ASSERT(t, bases[0].targets == (std::vector<std::u32string>{U"Outer::Node", U"a::Node", U"b::Node"}));   // ambiguous, never a guess
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_relations_replace(ITesting *t) {
+    CPPStructureScanner scanner(CPPTokenizer());
+    auto index = CodeIndex::Create();
+    index->ReplaceFile("/p/base.h", scanner.Scan(U"class Base { }; class Newer { };"));
+    index->ReplaceFile("/p/item.h", scanner.Scan(U"class Item : public Base { Base *a; Base *b; };"));
+    TR_ASSERT(t, index->GetStats().numEdges == 3);
+
+    index->ReplaceFile("/p/item.h", scanner.Scan(U"class Item : public Newer { };"));
+    TR_ASSERT(t, index->DerivedFrom(U"Base").empty());
+    TR_ASSERT(t, index->HeldBy(U"Base").empty());
+    TR_ASSERT(t, index->HoldsOf(U"Item").empty());
+    TR_ASSERT(t, FromNames(index->DerivedFrom(U"Newer")) == std::vector<std::u32string>{U"Item"});
+    TR_ASSERT(t, index->GetStats().numEdges == 1);
+
+    index->RemoveFile("/p/item.h");
+    TR_ASSERT(t, index->DerivedFrom(U"Newer").empty());
+    TR_ASSERT(t, index->BasesOf(U"Item").empty());
+    TR_ASSERT(t, index->GetStats().numEdges == 0);
+
+    // A file with no target left: what it pointed to resolves to nothing, and nothing dangles
+    index->ReplaceFile("/p/item.h", scanner.Scan(U"class Item : public Newer { };"));
+    index->RemoveFile("/p/base.h");
+    auto bases = index->BasesOf(U"Item");
+    TR_ASSERT(t, bases.size() == 1);
+    TR_ASSERT(t, bases[0].targets.empty());
+    return kTR_Pass;
+}
+
+// '#define _u8 unsigned char' names a type too, and a real type of that name goes first
+DLL_EXPORT int test_codeindex_relations_macro_type(ITesting *t) {
+    CPPStructureScanner scanner(CPPTokenizer());
+    auto index = CodeIndex::Create();
+    index->ReplaceFile("/p/a.h", scanner.Scan(U"#define _u8 unsigned char\n#define Part int\nstruct A { _u8 count; Part part; Lost *lost; };\n"));
+    index->ReplaceFile("/p/b.h", scanner.Scan(U"namespace b { class Part { }; }"));
+
+    auto holds = index->HoldsOf(U"A");
+    TR_ASSERT(t, holds.size() == 3);
+    for (auto &relation : holds) {
+        if (relation.toName == U"_u8") {
+            TR_ASSERT(t, relation.targets == std::vector<std::u32string>{U"_u8"});
+        } else if (relation.toName == U"Part") {
+            TR_ASSERT(t, relation.targets == std::vector<std::u32string>{U"b::Part"});
+        } else {
+            TR_ASSERT(t, relation.targets.empty());
+        }
+    }
     return kTR_Pass;
 }

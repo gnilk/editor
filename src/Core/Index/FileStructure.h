@@ -56,7 +56,8 @@ namespace gedit {
 
     struct CodeEdge {
         kEdgeKind kind = kEdgeKind::kInherits;
-        int idxFrom = -1;               // symbol (-1: the file itself, e.g. includes)
+        std::u32string fromName;        // qualified name of the symbol, empty: the file itself (includes). A name, not an
+                                        // index: a region scan starts its symbols over, and the name outlives the scan
         std::u32string toName;          // as written, template arguments stripped: 'ViewBase', 'gedit::Line'
         kOwnership ownership = kOwnership::kNone;
         uint32_t line = 0;

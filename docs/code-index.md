@@ -405,6 +405,9 @@ disciplined code bases come first - they're the ones where a wrong edge is notic
 
 Notes from the counts:
 
+- **PuckoNew stays on the benchmark list as an outlier:** vendored C drivers in several copies and macro-named types. It showed a
+  gap in resolving names that the other trees hide (§11.10).
+
 - **Lines are not structure.** In PuckoNew one vendored file is ~40 % of the lines, and a shallow look
   (file sizes, text search) says SQLite is a big part of the system. A deeper analysis would show the
   opposite: it's barely used and the external dependencies are carefully managed behind components. The
@@ -1052,7 +1055,7 @@ with no document or UI in them. `ActionHelper` joins them to the documents, and 
 
 ### 11.10 Step 3 - design (2026-11-06)
 
-Not started. The scanner has always found the edges, 1 156 `holds` and 94 `inherits` in GoatEdit's `src`, and they stop there.
+3a is done, see its results below; 3b and 3c aren't started. The scanner has always found the edges, 1 156 `holds` and 94 `inherits` in GoatEdit's `src`, and they stop there.
 
 **Two gaps:**
 - **No file's edges reach the index.** `CodeIndex::ReplaceFile` reads `structure.symbols` only. The indexer's files are as blind
@@ -1066,15 +1069,15 @@ them in the same loop, under the same check for a line deleted meanwhile, and `C
 from the walk. Nothing is lexed or copied beyond what the region scan already does.
 
 **The trap: `idxFrom` doesn't survive a region scan.** It indexes the symbols of one scan, and `Begin` sets every resumed scope's
-`idxSymbol` to -1, because those symbols belong to an earlier scan. So an edit inside a class gives its `holds` edges an
-`idxFrom` of -1, which means "the file itself". Copying edges to the lines as they are would pass on a fresh parse and go wrong
-at the first keystroke. **`CodeEdge` carries `fromName`, the qualified name, instead of `idxFrom`:** `ScopePrefix()` still has the
+`idxSymbol` to -1, because those symbols belong to an earlier scan, and `AddHoldsEdge` leaves out an edge with no owner. So an edit
+inside a class loses the `holds` edges of every line it scans. Copying edges to the lines as they are would pass on a fresh parse
+and go wrong at the first keystroke. **`CodeEdge` carries `fromName`, the qualified name, instead of `idxFrom`:** `ScopePrefix()` still has the
 names after a resume, because they are part of the resumable state, and §10.3 wants names anyway. An empty `fromName` is the
 file itself.
 
 **The store:** `ReplaceFile` takes all the edges, per file, removed with the file as symbols are.
 - Two lookups: by the last component of `toName`, so `ILogger` and `gnilk::ILogger` meet, and by `fromName`. They are separate
-  from the `names` table: most targets are never symbols (`std::string`, `duk_int_t`), and a search shouldn't walk them.
+  from the `names` table: many targets are never symbols (`gnilk::ILogger`, `_u32`), and a search shouldn't walk them.
 - **Resolved at query time,** not stored. §5.2 re-resolves when a target appears or vanishes; asking at query time makes that free.
   Trees are asked per row expanded, not per keystroke. An ambiguous name shows all its candidates, as §5.2 says.
 - Plain queries on `CodeIndex`: bases of, derived from, holds, held by. One level each. The view expands lazily, so a cycle in
@@ -1090,10 +1093,33 @@ file itself.
 
 **Known limits:**
 - **`typedef struct { Foo *x; } Bar;`** has no name until the `;`, so its `holds` edges wait for `OnTypedefName`. A region scan
-  that stops before the `;` can't name the owner, and those edges stay file-level until the next full parse. A test holds that they
+  that stops before the `;` can't name the owner, and those edges are left out until the next full parse. A test holds that they
   never land on the wrong type.
+- **`struct { Foo *x; } global;`** at namespace scope: nothing named holds it, so there is no edge. Inside a class the class holds it.
+- **`class A::B { ... }`:** `inherits` goes from `A::B` and `holds` from `B`, as the members' own qualified names already do.
 - **Inherited members:** `holds` is per class; what a type holds through its bases is the view's to show.
 - **Templates:** `template<class T> class A : public T` gives an edge to `T`, as it does today. It resolves to nothing and shows so.
+
+**3a results (2026-11-06, M-series Mac, release).** `gedit-bench --index <dir>`, against §11.6:
+
+| Tree | Files | Index time | Edges | Memory | Relations | Resolved | Outside | Ambiguous | All resolved in |
+|---|---|---|---|---|---|---|---|---|---|
+| GoatEdit `src` | 365 | ~150 ms | 3 205 | 3.3 MB | 1 256 | 1 185 | 71 | 0 | 0.8 ms |
+| testrunner | 149 | 12 ms | 928 | 0.5 MB | 157 | 120 | 37 | 0 | 0.1 ms |
+| noc_goa | 178 | 20 ms | 1 067 | 1.1 MB | 456 | 441 | 15 | 0 | 0.2 ms |
+| vcpu | 169 | 24 ms | 1 461 | 1.0 MB | 577 | 463 | 93 | 21 | 0.4 ms |
+| PuckoNew | 1 385 | ~125 ms | 10 471 | 8.1 MB | 4 057 | 3 784 | 262 | 11 | 2.3 ms |
+
+A relation is an `inherits` or `holds` edge; the rest are includes and `using`. Index time is up from 96 ms on PuckoNew and memory from
+6.2 MB, for a few more files and all its edges. Startup stays far from needing a stored index: resolving the whole of PuckoNew takes
+2.2 ms, so a tree row costs nothing noticeable, and D2 stays where it is.
+
+- **Checked against grep:** what derives from `ViewBase` is the same 12 types.
+- **PuckoNew was the outlier, and worth keeping as one:** 1 823 relations outside the index at first, 45%. MBED-TLS and lwIP weren't
+  the cause. 1 574 came from TI's SimpleLink driver, vendored twice, where `#define _u8 unsigned char` names the types. A macro
+  now counts when no type has the name, and the count fell to 262: `DWORD`, `mbedtls_*`, template parameters. `--index` prints what
+  falls outside by name and folder, so the next outlier explains itself.
+- **For 3b:** a macro type says nothing about the architecture, so the composition view should put such rows last or fold them.
 
 **Decided (2026-11-06):** a modal first for 3b. `TreeSelectionModal` exists and Go to symbol has the same rhythm: ask, look, jump.
 A view that stays open and follows the cursor may be the better end state, and using the modal will say what it should show.

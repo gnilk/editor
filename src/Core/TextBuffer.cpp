@@ -350,6 +350,9 @@ FileStructure TextBuffer::CollectStructure() {
                 collected.endLine = (uint32_t)idxLine;
                 collected.idxParent = -1;
             }
+            for (auto &edge : structure->edges) {
+                fileStructure.edges.emplace_back(edge).line = (uint32_t)idxLine;
+            }
         }
         line->Release();
     }
@@ -434,6 +437,7 @@ bool TextBuffer::ScanStructure(size_t idxLineStart, size_t idxLineEnd, bool isFu
     // The declarations by line (a declaration is on the line of its name)
     std::vector<std::vector<SemanticDeclaration>> declarations(scannedLines.size());
     std::vector<std::vector<CodeSymbol>> symbols(scannedLines.size());
+    std::vector<std::vector<CodeEdge>> edges(scannedLines.size());
     for (auto &symbol : fileStructure.symbols) {
         if ((symbol.line < idxStart) || (symbol.line >= idxStart + scannedLines.size())) {
             continue;
@@ -445,8 +449,12 @@ bool TextBuffer::ScanStructure(size_t idxLineStart, size_t idxLineEnd, bool isFu
         }
     }
     for (auto &edge : fileStructure.edges) {
+        if ((edge.line < idxStart) || (edge.line >= idxStart + scannedLines.size())) {
+            continue;
+        }
+        edges[edge.line - idxStart].push_back(edge);
         auto declaration = SemanticNames::DeclarationFor(edge);
-        if (declaration.has_value() && (edge.line >= idxStart) && (edge.line < idxStart + scannedLines.size())) {
+        if (declaration.has_value()) {
             declarations[edge.line - idxStart].push_back(std::move(*declaration));
         }
     }
@@ -498,6 +506,7 @@ bool TextBuffer::ScanStructure(size_t idxLineStart, size_t idxLineEnd, bool isFu
                 semanticNames.Add(declaration);
             }
             scannedStructures[i]->symbols = std::move(symbols[i]);
+            scannedStructures[i]->edges = std::move(edges[i]);
         }
         line->Release();
     }

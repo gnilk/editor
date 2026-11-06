@@ -241,6 +241,7 @@ void CPPStructureScanner::Begin(const StructureScanState::Ref &state) {
     enumItem.clear();
     parenDepth = 0;
     pendingTypedefSymbol = -1;
+    edgesAwaitingTypedefName.clear();
     isAfterAnonymousType = false;
     isPendingTypedefAlias = false;
     conditionals.clear();
@@ -691,6 +692,16 @@ void CPPStructureScanner::OnTypedefName(const Statement &stmt) {
             // for a plain enum - its enumerators belong to the enclosing scope.
             auto prefix = symbol.qualifiedName;
             auto newQualifiedName = prefix.empty() ? nameToken.text : prefix + U"::" + nameToken.text;
+            auto addTypedefName = [&prefix, &newQualifiedName](std::u32string &qualifiedName) {
+                // A nested anonymous type carries exactly the prefix
+                if (qualifiedName == prefix) {
+                    qualifiedName = newQualifiedName;
+                } else if (prefix.empty()) {
+                    qualifiedName = newQualifiedName + U"::" + qualifiedName;
+                } else if (qualifiedName.rfind(prefix + U"::", 0) == 0) {
+                    qualifiedName = newQualifiedName + qualifiedName.substr(prefix.size());
+                }
+            };
             bool isScope = (symbol.kind != kSymbolKind::kEnum);
             for (size_t idx = (size_t)pendingTypedefSymbol + 1; isScope && (idx < result.symbols.size()); idx++) {
                 auto &child = result.symbols[idx];
@@ -701,15 +712,12 @@ void CPPStructureScanner::OnTypedefName(const Statement &stmt) {
                 if (!isInside) {
                     continue;
                 }
-                // A nested anonymous type carries exactly the prefix
-                if (child.qualifiedName == prefix) {
-                    child.qualifiedName = newQualifiedName;
-                } else if (prefix.empty()) {
-                    child.qualifiedName = newQualifiedName + U"::" + child.qualifiedName;
-                } else if (child.qualifiedName.rfind(prefix + U"::", 0) == 0) {
-                    child.qualifiedName = newQualifiedName + child.qualifiedName.substr(prefix.size());
-                }
+                addTypedefName(child.qualifiedName);
             }
+            for (auto idxEdge : edgesAwaitingTypedefName) {
+                addTypedefName(result.edges[idxEdge].fromName);
+            }
+            edgesAwaitingTypedefName.clear();
             symbol.name = nameToken.text;
             symbol.qualifiedName = newQualifiedName;
             symbol.line = nameToken.line;
@@ -897,7 +905,7 @@ bool CPPStructureScanner::TryClassDefinition(const Statement &stmt, size_t idxBr
             if (!baseName.empty()) {
                 CodeEdge edge;
                 edge.kind = kEdgeKind::kInherits;
-                edge.idxFrom = idxSymbol;
+                edge.fromName = result.symbols[idxSymbol].qualifiedName;
                 edge.toName = baseName;
                 edge.line = baseToken->line;
                 result.edges.push_back(std::move(edge));
@@ -1132,15 +1140,30 @@ void CPPStructureScanner::AddVariables(const Statement &stmt) {
             for (size_t i = idxDeclarator; !isFirst && (i < idxName); i++) {
                 isExtraPointer = isExtraPointer || IsText(stmt, i, U"*") || IsText(stmt, i, U"&");
             }
-            AddHoldsEdge(CurrentScope().idxSymbol, stmt, idxTypeBegin, idxTypeEnd, isExtraPointer, nameToken.line);
+            AddHoldsEdge(stmt, idxTypeBegin, idxTypeEnd, isExtraPointer, nameToken.line);
         }
         isFirst = false;
         idxDeclarator = idxEnd + 1;
     }
 }
 
-void CPPStructureScanner::AddHoldsEdge(int idxFrom, const Statement &stmt, size_t idxBegin, size_t idxEnd, bool isExtraPointer, uint32_t line) {
-    if (idxFrom < 0) {
+// A resumed scan has no symbols for its scopes, but it has their names, so the owner goes by name. Only inside a nameless
+// typedef is there none: on a full scan the ';' supplies it, and a resumed scan leaves the edge out, for the next full parse.
+void CPPStructureScanner::AddHoldsEdge(const Statement &stmt, size_t idxBegin, size_t idxEnd, bool isExtraPointer, uint32_t line) {
+    bool isInNamelessTypedef = false;
+    bool isOwned = false;
+    for (auto it = scopes.rbegin(); (it != scopes.rend()) && (it->kind == kScope::kClass); it++) {
+        if (it->isTypedef && it->name.empty()) {
+            isInNamelessTypedef = true;
+            isOwned = (it->idxSymbol >= 0);
+            break;
+        }
+        if (!it->name.empty()) {
+            isOwned = true;
+            break;
+        }
+    }
+    if (!isOwned) {
         return;
     }
     std::vector<TypeToken> typeTokens;
@@ -1163,10 +1186,13 @@ void CPPStructureScanner::AddHoldsEdge(int idxFrom, const Statement &stmt, size_
     }
     CodeEdge edge;
     edge.kind = kEdgeKind::kHolds;
-    edge.idxFrom = idxFrom;
+    edge.fromName = ScopePrefix();
     edge.toName = target;
     edge.ownership = ownership;
     edge.line = line;
+    if (isInNamelessTypedef) {
+        edgesAwaitingTypedefName.push_back(result.edges.size());
+    }
     result.edges.push_back(std::move(edge));
 }
 

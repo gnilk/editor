@@ -317,6 +317,11 @@ drop both Gansi stopgaps. SDL/JS/serialization unchanged (alpha ≤ 1 ⇒ no wra
 
 ## Planned / not started
 
+- **Usability round** (2026-11-08) - in this order: the change set (`git status`) marked in the workspace tree; the header's open files cut off with `...` and listed on `Cmd+E`;
+  splitters dragged with the mouse (moves from SDL, mouse capture in `RootView`); workspace search: type-to-jump in the
+  tree, open a file by name on `Cmd+P`, plain text search on `Cmd+Shift+F`. Noted, not scheduled: key bindings for script
+  commands, so `ReformatLine` can become a quick command. Detail: [`usability-round.md`](usability-round.md).
+
 - **Terminal enhancements — run the Claude CLI / modern TUIs** — gap analysis from a captured `claude`
   byte stream replayed through the real parser/grid: no stream parser (split reads corrupt sequences), C1
   bytes misread inside UTF-8, missing CHA/truecolor/pending-wrap, prefixed CSI misdispatched, local line

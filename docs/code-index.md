@@ -345,6 +345,41 @@ system headers isn't a goal, §10.2), so the status line says what it is and the
 **Order:** definition, declaration, toggle and the stack need nothing from step 3 and come first, as step 2b. Implementation
 and base come with the edges of step 3, and references with step 6.
 
+### 5.7 The context menu at the caret (idea, 2026-11-08)
+
+**An idea, not a plan.** Nothing here is decided or scheduled.
+
+Early Delphi and the Borland C/C++ IDEs had a menu at the caret: one key, and a short list of what could be done with the
+word under it, such as go to definition, go to header or follow. Early Visual Assist had the same. Steps 2 and 3 give the
+index what it needs to build that menu, so navigation can become one key and a short list instead of a key per action.
+
+**What it could list, from the word under the caret:**
+
+| On | Entries |
+|---|---|
+| A type | Go to definition, go to declaration, show relationships, go to base, derived types, held by |
+| A method | Go to definition, go to declaration. Overrides need an edge kind we don't record yet. |
+| An `#include` | Open the file |
+
+- **Only what leads somewhere.** The index can count each entry before the menu opens, so "no base" is greyed out or left
+  off, and the menu never offers something that ends in "not found". The counts go on the rows: `Derived (12)`.
+- **Most likely first.** From a declaration the implementation comes first, from a use the definition. A type with many
+  derived types puts that entry high. The relations of §11.10 are plain data, so this ranking is cheap.
+- **One key for the rare ones.** Go to base still has only a stand-in key (`Cmd+Shift+U`); it could live here instead.
+
+**Key:** `Cmd+Return`, `Ctrl` on Linux: functionality (see `CLAUDE.md`, Key bindings). The old menus' `Cmd+Space` is
+Spotlight on macOS, and `Ctrl+Space` switches input sources.
+
+**The UI:** there is no pop-up menu, but a modal can act as one: placed at the caret instead of centred (windows draw in
+absolute coordinates on SDL3), no caption, sized to its rows, one level, arrows, Enter and Esc. `ListSelectionModal` is most
+of the way there.
+
+**Member completion is a different problem.** For `myStruct.<key>` the old menus listed the members, the likely one first:
+after `myStruct.x = 4;` that is `y`, the member declared next. The index knows a type's members and their order, so that
+part is easy. What it doesn't know is the type of `myStruct`: the structure pass records members and namespace-scope
+variables, not locals (`kSymbolKind`). That is "type on symbol" (§5.6, §11.6) and more, and belongs with editing help, not
+with navigation.
+
 ## 6. Where it lives in the code
 
 | New | Where | Notes |

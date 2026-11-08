@@ -25,7 +25,8 @@ never takes a name the project declares, and a bare C++ name needs a `using` in 
 `cpp_std` lists, `std::` by syntax, the `using` tiers, project lists in `.goatedit/libraries/` and lists that apply by header
 (§11.8). Step 3 (2026-11-06): edges in the index, open files included; the relationship view (`Cmd+Shift+T`) with the code of each
 relation in colour; go to implementation and base (`Cmd+Shift+B`, `Cmd+Shift+U`) (§11.10). The longer aim, keeping the architecture
-in view while working with an agent, is in §10.3. Detail: [`code-index.md`](code-index.md).
+in view while working with an agent, is in §10.3; a context menu at the caret (`Cmd+Return`) is an idea in §5.7.
+**Paused 2026-11-08:** step 4 (modules) is next, once its design is thought through. Detail: [`code-index.md`](code-index.md).
 
 ## Project config — `<root>/.goatedit/config.yml` merged at startup ✅ (on `feat/project-config`)
 

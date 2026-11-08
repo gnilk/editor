@@ -1,6 +1,7 @@
 # Code index - structural search over the whole code base
 
-Status: **In progress** - steps 0, 1, 1b and 1c shipped, step 2 next (§11). Opened 2026-10-23. Replaces the sketch in
+Status: **In progress, paused 2026-11-08** - steps 0 to 3 shipped (0, 1, 1b, 1c, 1d, 2, 2b, 3); step 4 (modules) is next
+(§11), once its design is thought through. Opened 2026-10-23. Replaces the sketch in
 [`done/session-cache.md`](done/session-cache.md) §6 and is step 5 of [`modal_fixes.md`](modal_fixes.md).
 
 ## 1. Aim

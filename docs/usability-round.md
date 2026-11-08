@@ -2,7 +2,8 @@
 
 Status: **Planned 2026-11-08.** The code index is paused before its step 4 (`code-index.md`); this round comes first.
 Order: the change set in the tree (§0), reloading files changed on disk (§0b), open files list (§1), dragging splitters
-(§2), workspace search (§3). The note on key bindings for script commands (§4) is recorded, not scheduled.
+(§2), workspace search (§3), quick commands: close all and `!` (§5). The note on key bindings for script commands (§4) is
+recorded, not scheduled.
 
 ## 0. The change set in the workspace tree
 
@@ -206,3 +207,24 @@ rarely used native actions move to quick commands, while anyone who uses one oft
 - `ReformatLine` and `ReformatBlock` (now `Cmd+L` / `Cmd+I`) could become `.fm_line` and `.fm_file` (names open). They need
   a reformat call in the JS API (`DocumentAPI`) first.
 - A binding could name the command, say `Command: "fm_line"`, next to the action names, resolved when the key fires.
+
+## 5. Quick commands - close all, and `!` to skip the question
+
+**Close all:** `.closeall`, short `.ca`, a script command next to `.cb` (`closeactive.js`). Closes every open document.
+With unsaved edits in any of them it asks as `.q` does - Save all (then close), Discard (close, the edits are dropped),
+Cancel - listing the documents. `.ca!` closes them all at once, dropping the edits.
+
+**`!` - do it, don't ask** (vi's `:q!`): one convention for every command that asks before it drops something.
+- **Today:** `.cb` and `.q` already ask, and already take `!` to skip it - but only as a separate argument (`.cb !`). The
+  executor (`PluginExecutor::ParseAndExecuteWithCmdPrefix`) takes the first word as the command's name, so `.cb!` looks for
+  a command called `cb!` and finds none.
+- **Change:** the executor takes a `!` at the end of the command's name off and passes it as the first argument, `!`. So
+  `.cb!`, `.q!`, `.ca!` work, `.cb !` keeps working, and no script changes: they already look for a `!` argument. A command
+  that has no question to skip ignores it.
+- **The commands it fits:** `.q!` exit, `.cb!` close the buffer, `.ca!` close all - dropping unsaved edits; and from §0b:
+  `.reload` asks before it drops the edits of a `[!]` document and `.reload!` doesn't, `.s` asks before it writes over a
+  file changed on disk and `.s!` doesn't.
+- **Help:** `.h` lists the commands; one that takes `!` says so (a `force:` line in `jsplugs.yml` with what `!` skips).
+
+**Tests:** the executor on `.cb!` / `.cb !` / `.cb` (the arguments the script gets), a name that is only `!`, and `.ca`
+over a workspace with a modified and an unmodified document.

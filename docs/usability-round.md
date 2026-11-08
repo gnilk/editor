@@ -117,15 +117,33 @@ a deleted file is already handled (kept, struck through, `IsMissingOnDisk`).
   it; only a file that differs from that is reloaded. That also skips a folder event for a sibling file.
 - **Not the active file only:** every open document in a dirty folder is checked; a background tab reloads too.
 
-**Open:**
-- **Undo across a reload:** cleared (simple, as now on load), or the reload as one undo step, so an agent's rewrite can be
-  stepped back (VS Code does the latter).
-- **Large files:** read on the main thread like a normal open, or in the background and swapped in.
-- **With the folder monitor off:** nothing is seen - the same gap as the change set; a check when the window gets focus would
-  cover it cheaply.
+**Built (2026-11-08):**
+- **The stamp:** each document keeps the size and modification time of its file from its last load, from a save that
+  wrote, and from a reload. A save of an unedited buffer writes nothing and keeps the stamp - else a file rewritten
+  meanwhile would be taken as ours and never reload.
+- **The check:** on the folder monitor's flush, every open document in a dirty folder (all of them on lost events) whose
+  file differs from its stamp. `Workspace::CheckOpenDocumentsOnDisk`, also for a later check on window focus.
+- **The reload replaces only what differs** (`Document::ReloadFromDisk`): the lines the same at the start and at the end
+  stay - the same `Line`s, colours and all - and the middle goes through `ReplaceLineRange`, which re-parses that region
+  only. Lines are read as a load reads them (`TextBuffer::ReadLines`, shared with `Load`), so like is compared with like.
+- **Undo:** the reload is one undo step (decided 2026-11-08): what another program wrote can be stepped back, as VS Code
+  does.
+- **Unsaved edits:** kept, `[!]` in the header, a status line message.
+- **The autosave** checks the file before it writes: autosave is on by default, 2 s after the last key, so without the
+  check it would write over an agent's rewrite within seconds - before the folder monitor had even said so. It marks the
+  document instead.
+- **A bug found on the way:** every scanned node starts with its "path changed" flag set (it is meant for save-as), and
+  only a save cleared it, so the first save of any file force-wrote the buffer, edited or not - over a file an agent had
+  rewritten meanwhile. A load now clears it: a document read from that path is in step with it.
 
-**Tests:** a workspace on a temp folder with an open document, the file rewritten behind it: reloaded when clean, kept and
-marked when dirty, untouched after our own save, cursor clamped when the file got shorter.
+**Still to do:** `.reload` to take the file and drop the edits; an explicit save of a `[!]` document asks first
+(`ConfirmModal`), as it writes over what the other program wrote - today it saves as before. A check on window focus.
+Large files are read on the main thread, like a normal open.
+
+**Tests:** `reload` - clean reload, unchanged lines kept as they were, undo, lines only added / only removed / everything /
+emptied, cursor on a shorter file, unsaved edits kept and the file untouched, our own save, a save of an unedited buffer,
+the autosave refusing, another folder's flush. Three mutations (no autosave check, a stamp on every save, a reload of every
+line) each fail one test.
 
 ## 1. Open files - the header overflows, `Cmd+E` lists them
 

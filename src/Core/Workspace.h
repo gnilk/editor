@@ -325,7 +325,13 @@ namespace gedit {
                 if (!std::filesystem::exists(pathName)) {
                     return true;
                 }
-                return document->LoadData(pathName);
+                if (!document->LoadData(pathName)) {
+                    return false;
+                }
+                // Read from this very path, so in step with it: the next save of an unedited buffer writes nothing.
+                // Left set, the first save force-wrote the old text over a file rewritten meanwhile (§0b).
+                isPathNameChanged = false;
+                return true;
             }
 
             // save data associated with the workspace node, this is here as we OWN the filename
@@ -333,6 +339,12 @@ namespace gedit {
             // explicit save brings it back (a 'git switch' or an 'rm' was likely meant). Edits stay in the buffer.
             bool AutoSaveData() {
                 if (IsMissingOnDisk()) {
+                    return false;
+                }
+                // Rewritten by someone else since we read it (an agent): saving would write over theirs. Kept, marked -
+                // the folder monitor may not have said so yet (docs/usability-round.md §0b).
+                if ((document != nullptr) && document->IsChangedOnDisk()) {
+                    document->SetConflictOnDisk(true);
                     return false;
                 }
                 return SaveData();
@@ -635,6 +647,9 @@ namespace gedit {
         }
         // Where the node stands in its root's change set; a folder: the heaviest change at or below it
         GitStatus::kChange ChangeOf(const Node::Ref &node);
+        // Main thread, on the folder monitor's flush: open documents rewritten on disk reload, or are marked when they
+        // have unsaved edits (docs/usability-round.md §0b)
+        void CheckOpenDocumentsOnDisk(const std::set<std::filesystem::path> &dirtyFolders, bool isLostEvents);
 
         // Told about the dirty folders of every monitored root (the Editor's glue to the code index)
         void SetDirtyFoldersHandler(FolderMonitor::MonitorPoint::DirtyDelegate newHandler) {

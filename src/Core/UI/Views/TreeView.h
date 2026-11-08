@@ -378,7 +378,7 @@ namespace gedit {
 
                 if (strWidth < widthMax) continue;
 
-                // erase last three chars and replace with '...'
+                // erase last three chars and replace with '...'                        
                 // sanity check for short strings
                 if (strWidth > (node->indent + 6)) {
                     // A deeply-indented node in a narrow view (small terminal workspace panel) drives

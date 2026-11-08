@@ -84,6 +84,11 @@ namespace gedit {
                     dc.DrawStringWithAttributesAt(xp,0,kTextAttributes::kNormal, "R ");
                     xp += 2;
                 }
+                // Changed on disk while it had unsaved edits - kept, not reloaded (docs/usability-round.md §0b)
+                if (document->HasConflictOnDisk()) {
+                    dc.DrawStringWithAttributesAt(xp,0,kTextAttributes::kNormal, "[!] ");
+                    xp += 4;
+                }
                 // Gone from disk, kept open - cleared by the save that re-creates it
                 if (node->IsMissingOnDisk()) {
                     dc.DrawStringWithAttributesAt(xp,0,kTextAttributes::kNormal, "[D] ");

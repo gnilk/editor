@@ -163,6 +163,21 @@ namespace gedit {
         bool Save();
         bool SaveForce();
 
+        // The file on disk against the one this document last read or wrote (docs/usability-round.md §0b): by size and
+        // modification time. False when it is gone - that is the workspace's 'missing on disk' - or never read.
+        bool IsChangedOnDisk();
+        // Take in what the file holds now: only the lines that differ are replaced, as one undo step, so the colouring
+        // of the rest stays and undo steps back over what another program wrote. Clean afterwards. The cursor stays on
+        // its line, clamped.
+        bool ReloadFromDisk();
+        // Changed on disk while this document has unsaved edits: they are kept, the file isn't overwritten unasked
+        bool HasConflictOnDisk() const {
+            return isConflictOnDisk;
+        }
+        void SetConflictOnDisk(bool newIsConflict) {
+            isConflictOnDisk = newIsConflict;
+        }
+
         // Session serialisation (docs/session-cache.md §11.3). Aggregates the document's file identity
         // (path) with its DocumentViewState (cursor/scroll/selection/view-mode) into one DocumentSession.
         // FromSession restores the view-state only — the buffer is (re)loaded by the Workspace reopen path,
@@ -256,6 +271,9 @@ namespace gedit {
         Point SelectionEndForCopy(const Selection &selection);
 
     protected:
+        // Remember the file as it is on disk now - after a load, a save that wrote, a reload
+        void TakeDiskStamp();
+
         void UpdateSelection() {
             // perhaps check if active...
             Point newEnd(documentViewState->lineCursor.cursor.position.x, documentViewState->lineCursor.idxActiveLine);
@@ -315,6 +333,15 @@ namespace gedit {
 
         TextBuffer::Ref textBuffer = nullptr;             // The document owns its buffer
         std::filesystem::path path;                       // File identity (load/save target)
+
+        // The file as this document last read or wrote it
+        struct DiskStamp {
+            bool isValid = false;
+            uintmax_t size = 0;
+            std::filesystem::file_time_type time = {};
+        };
+        DiskStamp diskStamp = {};
+        bool isConflictOnDisk = false;
 
     };
 }

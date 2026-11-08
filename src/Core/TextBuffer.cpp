@@ -15,6 +15,7 @@
 #include <cstdint>
 #include "DurationTimer.h"
 #include "Core/CompileTimeConfig.h"
+#include "Core/StrUtil.h"
 
 using namespace gedit;
 
@@ -651,45 +652,54 @@ bool TextBuffer::Load(const std::filesystem::path &pathName) {
         return false;
     }
 
-    auto filename = pathName.string();
-
-    // Clear out any lines before loading - the CTOR add's an empty line (so we can edit directly)
-    lines.clear();
-
-    // Now load
-    FILE *f = fopen(filename.c_str(), "r");
-    if (f == nullptr) {
+    std::vector<std::u32string> fileLines;
+    if (!ReadLines(pathName, fileLines)) {
         return false;
     }
-
-    static uint8_t tmp[GEDIT_MAX_LINE_LENGTH];
-
-    // Read first line and check BOM
-    if (fgets((char *)tmp, GEDIT_MAX_LINE_LENGTH, f)) {
-        // Check BOM on first line
-        if ((tmp[0] == 0xfe) && (tmp[1] == 0xff)) {
-            // remove BOM and proceed..
-            AddLineUTF8((char *) &tmp[2]);
-        } else {
-            AddLineUTF8((char *) tmp);
-        }
-        // Continue reading rest of file...
-        while(fgets((char *)tmp, GEDIT_MAX_LINE_LENGTH, f)) {
-            // BOM detection on first line
-            AddLineUTF8((char *) tmp);
-        }
-    }
-    fclose(f);
-
-    // Ok, I admit - it never quite occured to me that we should open EMPTY files..  but of course we do (so do I)
-    // We opened an empty file - let's add a dummy here
-    if (lines.size() == 0) {
-        AddLineUTF8("");
+    // Clear out any lines before loading - the CTOR add's an empty line (so we can edit directly)
+    lines.clear();
+    for (auto &text : fileLines) {
+        AddLine(text);
     }
     // Change state, do this before UpdateLang - since lang checks if loaded before allowing parse to happen
     ChangeBufferState(kBuffer_Loaded);
 //    UpdateLanguageParserFromFilename();
     return true;
+}
+
+// The lines as Load gives them - so a reload compares like with like. Trailing whitespace goes, as Line does it; a line
+// longer than GEDIT_MAX_LINE_LENGTH is split. An empty file is one empty line.
+bool TextBuffer::ReadLines(const std::filesystem::path &pathName, std::vector<std::u32string> &outLines) {
+    outLines.clear();
+    FILE *f = fopen(pathName.string().c_str(), "r");
+    if (f == nullptr) {
+        return false;
+    }
+    std::vector<char> tmp(GEDIT_MAX_LINE_LENGTH);
+    bool isFirst = true;
+    while (fgets(tmp.data(), GEDIT_MAX_LINE_LENGTH, f)) {
+        const char *text = tmp.data();
+        // Check BOM on first line
+        if (isFirst && ((uint8_t)tmp[0] == 0xfe) && ((uint8_t)tmp[1] == 0xff)) {
+            text += 2;
+        }
+        isFirst = false;
+        auto line = UnicodeHelper::utf8to32(text);
+        strutil::rtrim(line);
+        outLines.push_back(std::move(line));
+    }
+    fclose(f);
+
+    // Ok, I admit - it never quite occured to me that we should open EMPTY files..  but of course we do (so do I)
+    // We opened an empty file - let's add a dummy here
+    if (outLines.empty()) {
+        outLines.emplace_back();
+    }
+    return true;
+}
+
+void TextBuffer::MarkInSyncWithDisk() {
+    ChangeBufferState(kBuffer_Loaded);
 }
 
 bool TextBuffer::Save(const std::filesystem::path &pathName) {

@@ -686,7 +686,12 @@ void Workspace::StartFolderMonitor(ProjectRoot::Ref projectRoot) {
     if (monitor == nullptr) {
         return;
     }
-    projectRoot->SetDirtyFoldersHandler(dirtyFoldersHandler);
+    projectRoot->SetDirtyFoldersHandler([this](const std::set<std::filesystem::path> &dirtyFolders, bool isLostEvents) {
+        CheckOpenDocumentsOnDisk(dirtyFolders, isLostEvents);
+        if (dirtyFoldersHandler != nullptr) {
+            dirtyFoldersHandler(dirtyFolders, isLostEvents);
+        }
+    });
     if (!projectRoot->StartFolderMonitor(monitor, monitorPostToMain)) {
         logger->Error("Unable to start the folder monitor for: %s", projectRoot->GetRootPath().c_str());
     }
@@ -763,6 +768,47 @@ void Workspace::ApplyChangeSet(ProjectRoot::Ref projectRoot) {
     }
     projectRoot->DeletedNodes() = std::move(kept);
     NotifyChangeHandler();
+}
+
+void Workspace::CheckOpenDocumentsOnDisk(const std::set<std::filesystem::path> &dirtyFolders, bool isLostEvents) {
+    // The monitor's folders and the documents' paths may be spelled differently ('./src', a symlink)
+    std::unordered_set<std::string> folders;
+    for (auto &folder : dirtyFolders) {
+        std::error_code error;
+        folders.insert(ChangeSet::Key(fs::weakly_canonical(folder, error)));
+    }
+
+    bool isChanged = false;
+    for (auto &document : openDocuments) {
+        auto &path = document->GetPath();
+        if (path.empty()) {
+            continue;
+        }
+        if (!isLostEvents) {
+            std::error_code error;
+            if (folders.count(ChangeSet::Key(fs::weakly_canonical(path, error).parent_path())) == 0) {
+                continue;
+            }
+        }
+        if (!document->IsChangedOnDisk()) {
+            continue;
+        }
+        auto name = UnicodeHelper::utf8to32(path.filename().string());
+        if (document->IsModified()) {
+            if (!document->HasConflictOnDisk()) {
+                document->SetConflictOnDisk(true);
+                Editor::Instance().ShowStatusMessage(U"'" + name + U"' changed on disk - your unsaved edits are kept");
+                isChanged = true;
+            }
+            continue;
+        }
+        if (document->ReloadFromDisk()) {
+            isChanged = true;
+        }
+    }
+    if (isChanged) {
+        Editor::Instance().TriggerUIRedraw();
+    }
 }
 
 GitStatus::kChange Workspace::ChangeOf(const Node::Ref &node) {

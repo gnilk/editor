@@ -71,6 +71,10 @@ namespace gedit {
         bool Save(const std::filesystem::path &pathName);
         bool SaveForce(const std::filesystem::path &pathName);
         bool Load(const std::filesystem::path &pathName);
+        // A file's lines as Load reads them, without a buffer - what a reload compares against
+        static bool ReadLines(const std::filesystem::path &pathName, std::vector<std::u32string> &outLines);
+        // The lines are what the file holds (a reload put them there): not changed, nothing to save
+        void MarkInSyncWithDisk();
 
         // Called with the buffer's structure after a pause in editing (docs/code-index.md §4.4), on the parse
         // thread: no text copy, no lexing, just what the lines carry. Line numbers are the current ones.

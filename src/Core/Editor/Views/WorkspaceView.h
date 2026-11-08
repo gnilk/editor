@@ -54,6 +54,7 @@ namespace gedit {
     protected:
         TreeNodeRef FindDocumentNode(TreeNodeRef node, const std::string &pathName);
         void CreateTree();
+        static std::optional<ColorRGBA> ChangeColour(GitStatus::kChange change);
         void PopulateTree();
         bool SelectAfterRebuild(Workspace::Node::Ref prevSelected);
         TreeRef GetTreeView() {

@@ -7,53 +7,86 @@ key bindings for script commands (§4) is recorded, not scheduled.
 ## 0. The change set in the workspace tree
 
 **Why:** working with an agent, the question is often "what has it touched?". The files in the current change set, what
-`git status` lists, should stand out in the workspace tree: in a colour of their own, perhaps with a `*` in front as the
-header has for unsaved buffers.
+`git status` lists, stand out in the workspace tree: in a colour of their own, with a `*` in front as the header has for
+unsaved buffers.
 
 **Where the answer comes from: `git status`, not the folder monitor.** The monitor says a file was written, not that it
 differs from the last commit: a file changed and changed back is not in the change set, and a commit or a `git add` changes
 it without touching the working tree. So git is asked, and the monitor only says when to ask.
 
-- **The call:** `git -C <root> status --porcelain=v1 -z`, in the background: the editor never waits for git. The result is
-  posted to the main thread (`Runloop::PostMessage`) when the process has finished, and only then put on the nodes. About 13 ms on this repository. Paths come
-  relative to the repository's top level (`git rev-parse --show-toplevel`), which may be above the workspace root.
-- **When:** after the first scan; when the folder monitor reports dirty folders (debounced, it often reports in bursts);
-  after the editor saves a file; and when `.git/index` or `.git/HEAD` changes. `.git` is excluded outright, so the monitor
-  never sees those two: their modification times are checked on an idle tick instead. Nothing runs while nothing changes.
-- **No git, or not a repository:** nothing is marked, nothing is reported.
+**The call** (`GitStatus`): `git -C <root> rev-parse --show-toplevel --absolute-git-dir`, then `git --no-optional-locks -C
+<root> status --porcelain=v1 -z --untracked-files=normal -- .`, in the background - the editor never waits for git.
+- **Stable:** porcelain v1 is documented as stable across git versions and not changed by user configuration; `-z` gives
+  names unquoted. What configuration could still change is given explicitly (untracked files).
+- **`--no-optional-locks`:** a background status doesn't take the index lock while an agent runs git in the terminal, and
+  doesn't rewrite `.git/index` - which the check below would see, and run status again, for ever.
+- **`-- .`:** only what is under the workspace root. Paths still come from the top level, which may be above the root.
+- **The git directory** comes from git: in a worktree or a submodule `.git` is a file pointing elsewhere.
+- About 13 ms on this repository.
+
+**When it runs** (`RepoMonitor`, one per project root):
+
+| Trigger | Catches |
+|---|---|
+| The folder opens | The first state |
+| The folder monitor reports dirty folders | Files written by anyone: an agent, the terminal, another editor, our own saves |
+| `.git/index`, `.git/HEAD` or `.git/logs/HEAD` changes, checked by modification time every `check_interval_ms` (1 s) on a thread of its own - no process | commit, add, reset, checkout, switch, stash, merge: the change set changes, the working tree may not. `.git` is excluded, so the folder monitor never sees these. |
+
+Nothing runs while nothing changes. One query runs at a time; asks meanwhile make one more after it. The change set is
+built on git's thread and posted to the main thread only when it differs from the last.
+
+**Found on the way - startup messages were dropped:** `Runloop::DefaultLoop` cleared both message queues when it started, so
+anything another thread posted during startup was lost - here the first status, which arrives before the loop runs, so the
+tree stayed plain until the folder monitor's first change. The clear is gone; what was posted runs on the first pass. The
+two queues stay: they keep a message posted while one is processed from running in the same pass.
+
+**No git, or not a repository:** one `rev-parse`, then nothing; nothing is marked. A repository whose status fails keeps
+what is shown.
+
+**Config (decided 2026-11-08):** `repomonitor.enabled` switches it, apart from the folder monitor: some don't want an
+application looking around their disk without saying so. Both default to `yes`. With the folder monitor off, files
+changed outside the editor without git (an agent writing them) aren't seen until the next git operation - said in the
+`config.yml` comment rather than polled for.
 
 **What is marked:**
 
-| State (porcelain) | Shown | |
+| State (porcelain) | Shown | Theme key |
 |---|---|---|
-| Modified, staged or not (`M`) | `*` and the modified colour | |
-| Added (`A`), untracked (`??`) | the added colour | Untracked folders are listed as the folder, so the folder is marked. |
-| Renamed (`R`) | as added, under the new name | |
-| Deleted (`D`) | a struck-through row, as for a file gone from disk | not in the tree today, so a node is added for it |
-| Conflicted (`U`) | the conflict colour | |
-| A folder holding any of these | a lighter mark | so a collapsed tree still shows where the change is |
+| Modified, staged or not (`M`, `T`) | `*`, coloured | `tree_modified` |
+| Added (`A`), copied (`C`), renamed (`R`, under the new name) | `*`, coloured | `tree_added` |
+| Untracked (`??`) | `*`, coloured. Git lists an untracked folder, not its files: what is inside it counts as untracked. | `tree_untracked` |
+| Deleted (`D`) | a struck-through row, coloured | `tree_deleted` |
+| Conflicted (`U`, `AA`, `DD`) | `*`, coloured | `tree_conflicted` |
+| A folder holding any of these | the colour of the heaviest change below it, no `*` - a collapsed tree still shows where the changes are | |
 
-Colours are theme keys next to the existing tree ones, with fallbacks. `TreeView` has style and dim delegates but no
-colour one; a colour delegate is the generic addition.
+The theme importer maps VS Code's `gitDecoration.*Foreground` colours onto the keys. A theme without them shows the `*`
+alone.
 
-**Layering:** a small `GitStatus` below the workspace: run the command, parse the output into plain data (path → state).
-It knows nothing about nodes or views. The workspace puts the states on its nodes (node metadata, like `ignored` and
-`missing_on_disk`), the view draws them. Running a process needs a small runner; today the only process code is the terminal's
-`forkpty`. A `Process` in `src/Core/unix/` (macOS and Linux), modelled on testrunner's `procspawn` (`posix_spawn`, pipes,
-`poll`): async by default on its own thread, stdout / stderr / exit as callbacks there, `WaitFor()` to wait for completion,
-`Kill()`, a working directory and the exit code. It knows nothing of `Runloop`; the caller posts to the main thread.
-The core stays generic: anything git-specific is built on it by composition (`GitStatus` holds and runs a `Process`), not by
-deriving from it.
+**Looked up when a row is drawn, not stored on the nodes** (revised 2026-11-08, was: node metadata). A `ChangeSet` maps the
+snapshot onto the paths the nodes have (the root as the workspace has it, whatever symlinks lie between) and is replaced as
+a whole. Node metadata would go stale: a folder expanded later, or a reconcile that rebuilds its children, would show its
+files unmarked until the next status. A lookup is a hash probe per visible row.
 
-**Decided (2026-11-08):** `*` is reused: in the tree it means "in the change set", in the header "unsaved". Deleted files are
-shown, struck through.
+**Deleted files** are the one case that needs nodes: they aren't on disk, so nothing else puts them in the tree. Applying a
+change set adds a node for each where its folder is in the tree and read (a folder not read yet shows the change on
+itself). A reconcile keeps them. They go when the change set stops listing them - committed, or restored - unless the file
+is back on disk or open. Nothing tracks commits as such: the next status no longer lists the file.
+
+**Layering:** `Process` (`src/Core/`, generic, with the platform part in `ProcessUnix`, `src/Core/unix/`, as `FolderMonitor`
+has its per-platform classes; `Process::Create` is defined by the platform's source, so a Windows port adds a file and the
+base names no platform). Async by default on its own thread, stdout / stderr / exit as callbacks there, `WaitFor()`,
+`Kill()`, a working directory and the exit code; it knows nothing of `Runloop`. Modelled on testrunner's `procspawn`, written
+anew. Git is built on it by composition: `GitStatus` runs `Process`es, `ChangeSet` is plain data, `RepoMonitor` asks and
+posts (`src/Core/Git/`). The workspace holds a monitor per root and draws nothing; the view asks `Workspace::ChangeOf`.
 
 **Later:** for an agent's work on a branch: the change set against a base (`git diff --name-status main...`), not only
-  against the last commit. That set is also what the code index's §10.3 "what did this change do to the structure?"
-  would scan.
+against the last commit. That set is also what the code index's §10.3 "what did this change do to the structure?" would
+scan.
 
-**Tests:** the porcelain parser on fixed output (renames, spaces in names, `-z`), the roll-up to folders, and a temp
-repository with one modified, one untracked and one staged file.
+**Tests:** `process` (exit codes, output, large output, working directory, kill, async callbacks, stdin, a pipe held by a
+grandchild) and `gitstatus` (the parser on fixed output, every XY code, real temp repositories, a root below the top level,
+the change set's lookups and roll-up, the monitor seeing a commit through the git directory, and the workspace: marks, the
+deleted node kept by a reconcile and gone after the commit).
 
 ## 1. Open files - the header overflows, `Cmd+E` lists them
 

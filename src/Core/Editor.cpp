@@ -265,6 +265,7 @@ bool Editor::Initialize(int argc, const char **argv) {
     // Create workspace
     workspace = Workspace::Create();
     WireFolderMonitor();
+    WireRepoMonitor();
     WireCodeIndex();
 
     bool createDefaultWorkspace = true;
@@ -1056,6 +1057,24 @@ void Editor::WireFolderMonitor() {
         });
     };
     workspace->SetFolderMonitor(factory, postToMain);
+}
+
+// The change set in the workspace tree (docs/usability-round.md §0) - 'repomonitor' in the config
+void Editor::WireRepoMonitor() {
+    auto config = Config::Instance()["repomonitor"];
+    if (!config.GetBool("enabled", true)) {
+        return;
+    }
+    auto checkInterval = std::chrono::milliseconds(std::max(100, config.GetInt("check_interval_ms", 1000)));
+    workspace->SetRepoMonitor([checkInterval](const std::filesystem::path &rootPath) -> RepoMonitor::Ref {
+        // Called from git's thread - the runloop queue is thread-safe
+        auto postToMain = [](std::function<void()> callback) {
+            Runloop::PostMessage(0x00, [callback](uint32_t) {
+                callback();
+            });
+        };
+        return RepoMonitor::Create(rootPath, postToMain, checkInterval);
+    });
 }
 
 void Editor::WireCodeIndex() {

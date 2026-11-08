@@ -3,6 +3,7 @@
 //
 #include <filesystem>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "Core/Config/Config.h"
 #include "Core/Editor.h"
@@ -671,6 +672,7 @@ bool Workspace::OpenFolder(const std::string &folder) {
 
     EnableNotifications();
     StartFolderMonitor(projectRoot);
+    StartRepoMonitor(projectRoot);
     NotifyChangeHandler();
     return true;
 }
@@ -690,6 +692,99 @@ void Workspace::StartFolderMonitor(ProjectRoot::Ref projectRoot) {
     }
 }
 
+
+// Started with the folder monitor. Re-opening a folder keeps its running monitor.
+void Workspace::StartRepoMonitor(ProjectRoot::Ref projectRoot) {
+    if ((repoMonitorFactory == nullptr) || projectRoot->HasRepoMonitor()) {
+        return;
+    }
+    auto monitor = repoMonitorFactory(projectRoot->GetRootPath());
+    if (monitor == nullptr) {
+        return;
+    }
+    // The monitor is the root's, and the root is ours: a handler that runs has both
+    std::weak_ptr<ProjectRoot> weakRoot = projectRoot;
+    monitor->SetChangedHandler([this, weakRoot](const ChangeSet::Ref &) {
+        if (auto root = weakRoot.lock()) {
+            ApplyChangeSet(root);
+        }
+    });
+    projectRoot->StartRepoMonitor(monitor);
+}
+
+// A deleted file isn't on disk, so nothing else puts it in the tree: a node is added for it where its folder is in
+// the tree and read (a folder not read yet shows the change on itself). It goes when the change set stops listing
+// it - committed, or restored - unless it is back on disk or open.
+void Workspace::ApplyChangeSet(ProjectRoot::Ref projectRoot) {
+    auto changeSet = projectRoot->GetChangeSet();
+    auto rootNode = projectRoot->GetRootNode();
+    std::unordered_set<std::string> deleted;
+    if (changeSet != nullptr) {
+        for (auto &path : changeSet->Deleted()) {
+            deleted.insert(ChangeSet::Key(path));
+        }
+    }
+
+    std::vector<Node::Ref> kept;
+    for (auto &node : projectRoot->DeletedNodes()) {
+        // Gone with its folder (a reconcile)
+        if (rootNode->FindNodeWithPath(node->GetNodePath()) != node) {
+            continue;
+        }
+        if (deleted.erase(ChangeSet::Key(node->GetNodePath())) != 0) {
+            kept.push_back(node);
+            continue;
+        }
+        node->SetDeletedInChangeSet(false);
+        bool isOpen = (node->GetDocument() != nullptr) && IsDocumentOpen(node->GetDocument());
+        if (fs::exists(node->GetNodePath()) || isOpen) {
+            continue;
+        }
+        if (auto parent = node->GetParent(); parent != nullptr) {
+            parent->DelChild(node);
+        }
+    }
+
+    for (auto &key : deleted) {
+        fs::path path(key);
+        // Kept already for an open document, struck through as gone from disk
+        if (rootNode->FindNodeWithPath(path) != nullptr) {
+            continue;
+        }
+        auto parentPath = path.parent_path().empty() ? fs::path(".") : path.parent_path();
+        auto parent = rootNode->FindNodeWithPath(parentPath);
+        if ((parent == nullptr) || !parent->IsFolder() || !parent->IsScanned()) {
+            continue;
+        }
+        auto node = AddFileNode(parent, path);
+        node->SetMissingOnDisk(true);
+        node->SetDeletedInChangeSet(true);
+        kept.push_back(node);
+    }
+    projectRoot->DeletedNodes() = std::move(kept);
+    NotifyChangeHandler();
+}
+
+GitStatus::kChange Workspace::ChangeOf(const Node::Ref &node) {
+    if (node == nullptr) {
+        return GitStatus::kChange::kNone;
+    }
+    auto top = node;
+    while (top->GetParent() != nullptr) {
+        top = top->GetParent();
+    }
+    for (auto &projectRoot : projectRoots) {
+        if (projectRoot->GetRootNode() != top) {
+            continue;
+        }
+        auto changeSet = projectRoot->GetChangeSet();
+        if (changeSet == nullptr) {
+            return GitStatus::kChange::kNone;
+        }
+        return node->IsFolder() ? changeSet->FolderChangeOf(node->GetNodePath()) : changeSet->ChangeOf(node->GetNodePath());
+    }
+    return GitStatus::kChange::kNone;
+}
 
 // Drive the pure FolderScanner over `folder`, building the Node subtree under rootNode. The adapter
 // only supplies the parent for each discovered entry; ApplyFsEntry stays THE single fs->tree mutator and
@@ -825,6 +920,10 @@ bool Workspace::DoReconcileFolder(Node::Ref node) {
     // What is left wasn't listed. Something still on disk was filtered (excluded) - leave it; the rest is gone.
     for (auto &[path, child] : childByPath) {
         if (fs::exists(child->GetNodePath())) {
+            continue;
+        }
+        // Never on disk: there for the change set, which takes it away (ApplyChangeSet)
+        if (child->IsDeletedInChangeSet()) {
             continue;
         }
         bool wasMissing = child->IsMissingOnDisk();

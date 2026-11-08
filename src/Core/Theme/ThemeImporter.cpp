@@ -272,6 +272,11 @@ namespace {
         {"modal_background",         {"quickInput.background", "editorWidget.background"}, "header_background"},
         {"modal_foreground",         {"quickInput.foreground", "editorWidget.foreground", "foreground"}, "foreground"},
         {"tree_dimmed",              {"gitDecoration.ignoredResourceForeground"}, "gutter_foreground"},
+        {"tree_modified",            {"gitDecoration.modifiedResourceForeground"}, "foreground"},
+        {"tree_added",               {"gitDecoration.addedResourceForeground"}, "foreground"},
+        {"tree_untracked",           {"gitDecoration.untrackedResourceForeground", "gitDecoration.addedResourceForeground"}, "foreground"},
+        {"tree_deleted",             {"gitDecoration.deletedResourceForeground"}, "foreground"},
+        {"tree_conflicted",          {"gitDecoration.conflictingResourceForeground"}, "foreground"},
     };
     const std::vector<MappedKey> sublimeUIKeys = {
         {"background",               {"background"}, nullptr},

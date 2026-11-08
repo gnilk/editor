@@ -3,6 +3,8 @@
 //
 
 #include <filesystem>
+#include <optional>
+#include <unordered_map>
 #include "Core/Editor.h"
 #include "Core/UI/Views/RootView.h"
 #include "WorkspaceView.h"
@@ -167,6 +169,27 @@ void WorkspaceView::RestoreExpandCollapseState(const std::unordered_map<std::str
     }
 }
 
+// A theme without the key (an imported one, an older one) shows the change by the '*' alone
+std::optional<ColorRGBA> WorkspaceView::ChangeColour(GitStatus::kChange change) {
+    static const std::unordered_map<GitStatus::kChange, std::string> keys = {
+        {GitStatus::kChange::kModified, "tree_modified"},
+        {GitStatus::kChange::kAdded, "tree_added"},
+        {GitStatus::kChange::kRenamed, "tree_added"},
+        {GitStatus::kChange::kUntracked, "tree_untracked"},
+        {GitStatus::kChange::kDeleted, "tree_deleted"},
+        {GitStatus::kChange::kConflicted, "tree_conflicted"},
+    };
+    auto itKey = keys.find(change);
+    if (itKey == keys.end()) {
+        return std::nullopt;
+    }
+    auto &uiColors = Editor::Instance().GetTheme()->GetUIColors();
+    if (!uiColors.HasColor(itKey->second)) {
+        return std::nullopt;
+    }
+    return uiColors[itKey->second];
+}
+
 void WorkspaceView::CreateTree() {
     if (treeView == nullptr) {
         treeView = TreeView<Workspace::Node::Ref>::Create();
@@ -176,7 +199,15 @@ void WorkspaceView::CreateTree() {
             if (node->IsFolder()) {
                 return (node->GetDisplayName() + "/");
             }
+            // In the change set, as the header marks a buffer that isn't saved
+            if (Editor::Instance().GetWorkspace()->ChangeOf(node) != GitStatus::kChange::kNone) {
+                return "* " + node->GetDisplayName();
+            }
             return node->GetDisplayName();
+        });
+        // The change set (docs/usability-round.md §0): a file by its own change, a folder by the heaviest below it
+        treeView->SetColourDelegate([](Workspace::Node::Ref node) -> std::optional<ColorRGBA> {
+            return ChangeColour(Editor::Instance().GetWorkspace()->ChangeOf(node));
         });
         // Gone from disk but kept for an open document (Workspace::ReconcileFolder)
         treeView->SetStyleDelegate([](Workspace::Node::Ref node) -> kTextAttributes {

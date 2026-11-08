@@ -258,6 +258,7 @@ namespace gedit {
         // Glue: the workspace makes its folder monitors through the platform FolderMonitor (when
         // 'foldermonitor.enabled') and has their flushes run on the runloop. Keeps Workspace free of both.
         void WireFolderMonitor();
+        void WireRepoMonitor();
         // Glue: index the project roots not indexed yet, in the background (docs/code-index.md §4.4)
         void IndexProjectRoots();
         Indexer::Languages IndexableLanguages();

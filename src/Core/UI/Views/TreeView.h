@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <functional>
+#include <optional>
 #include "VisibleView.h"
 #include "Core/UI/UIHost.h"
 #include "Core/VerticalNavigationViewModel.h"
@@ -65,6 +66,8 @@ namespace gedit {
         using StyleDelegate = std::function<kTextAttributes(const T &data)>;
         // True for a row that steps back - drawn in 'tree_dimmed', or between the foreground and the background
         using DimDelegate = std::function<bool(const T &data)>;
+        // Optional - a row's own foreground (a file in the change set). Empty: the normal one, or dimmed.
+        using ColourDelegate = std::function<std::optional<ColorRGBA>(const T &data)>;
         // Optional - draws a row itself from 'x', behind its +/-, within 'width' columns from the left of the view. False: draw
         // it the normal way.
         // Not asked for the selected row, which stays one inverted bar.
@@ -188,6 +191,10 @@ namespace gedit {
 
         void SetDimDelegate(DimDelegate newDim) {
             cbDim = newDim;
+        }
+
+        void SetColourDelegate(ColourDelegate newColour) {
+            cbColour = newColour;
         }
 
         void SetDrawRowDelegate(DrawRowDelegate newDrawRow) {
@@ -424,7 +431,12 @@ namespace gedit {
                         continue;
                     }
                 }
-                if ((cbDim != nullptr) && cbDim(node->data)) {
+                auto colour = (cbColour != nullptr) ? cbColour(node->data) : std::nullopt;
+                if (colour.has_value()) {
+                    dc.SetColor(*colour, background);
+                    dc.DrawStringWithAttributesAt(node->indent, yPos, itemAttributes, str.c_str());
+                    dc.SetColor(foreground, background);
+                } else if ((cbDim != nullptr) && cbDim(node->data)) {
                     dc.SetColor(dimmed, background);
                     dc.DrawStringWithAttributesAt(node->indent, yPos, itemAttributes, str.c_str());
                     dc.SetColor(foreground, background);
@@ -485,6 +497,7 @@ namespace gedit {
         ToStringDelegate cbToString = nullptr;
         StyleDelegate cbStyle = nullptr;
         DimDelegate cbDim = nullptr;
+        ColourDelegate cbColour = nullptr;
         DrawRowDelegate cbDrawRow = nullptr;
         typename TreeNode::Ref rootNode;
         LineCursor treeLineCursor;  // This is not really used - just for storage

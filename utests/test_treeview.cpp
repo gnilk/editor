@@ -22,6 +22,7 @@ DLL_EXPORT int test_treeview_fetch_noop_reexpand(ITesting *t);
 DLL_EXPORT int test_treeview_additem_no_flatten(ITesting *t);
 DLL_EXPORT int test_treeview_narrow_width_no_overflow(ITesting *t);
 DLL_EXPORT int test_treeview_select_keeps_collapsed(ITesting *t);
+DLL_EXPORT int test_treeview_markers(ITesting *t);
 }
 
 namespace {
@@ -212,5 +213,37 @@ DLL_EXPORT int test_treeview_select_keeps_collapsed(ITesting *t) {
     TR_ASSERT(t, tree.GetCurrentSelectedItem() == 3);
     TR_ASSERT(t, folder->isExpanded);
     TR_ASSERT(t, !child->isExpanded);
+    return kTR_Pass;
+}
+
+// Markers sit at the right edge: the row's text is what it was, and a name that would run into them is cut short, while
+// the same name without markers is left alone.
+DLL_EXPORT int test_treeview_markers(ITesting *t) {
+    TestTree tree;
+    tree.SetToStringDelegate([](int i) { return std::string("a_long_file_name_") + std::to_string(i); });
+    tree.SetMarkersDelegate([](int i) -> std::string {
+        return (i == 1) ? "C" : "";
+    });
+    auto marked = tree.AddItem(1);
+    auto plain = tree.AddItem(2);
+    auto folder = tree.AddItem(3);
+    tree.AddItemNoFlatten(folder, 4);
+    tree.Reflatten();
+    TR_ASSERT(t, marked->markers == "C");
+    TR_ASSERT(t, plain->markers.empty());
+    TR_ASSERT(t, marked->drawString == " a_long_file_name_1");
+    TR_ASSERT(t, folder->drawString == "+a_long_file_name_3");
+
+    // 20 columns: 19 fit, unless a marker needs room - itself, a space before it and a cell of air after it
+    tree.SetViewRect(Rect(20, 10));
+    tree.CallAdjustNodeDrawStrings();
+    TR_ASSERT(t, plain->drawString == " a_long_file_name_2");
+    TR_ASSERT(t, marked->drawString.length() + marked->indent < 20 - marked->markers.length() - 1);
+    TR_ASSERT(t, marked->drawString.find("...") != std::string::npos);
+
+    // No delegate: no markers
+    TestTree bare;
+    bare.SetToStringDelegate([](int i) { return std::to_string(i); });
+    TR_ASSERT(t, bare.AddItem(7)->markers.empty());
     return kTR_Pass;
 }

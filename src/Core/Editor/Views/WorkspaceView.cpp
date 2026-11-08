@@ -169,7 +169,28 @@ void WorkspaceView::RestoreExpandCollapseState(const std::unordered_map<std::str
     }
 }
 
-// A theme without the key (an imported one, an older one) shows the change by the '*' alone
+// C changed, N new (not added), A added, D deleted, R renamed, ! conflict
+std::string WorkspaceView::ChangeLetter(GitStatus::kChange change) {
+    switch (change) {
+        case GitStatus::kChange::kModified :
+            return "C";
+        case GitStatus::kChange::kUntracked :
+            return "N";
+        case GitStatus::kChange::kAdded :
+            return "A";
+        case GitStatus::kChange::kDeleted :
+            return "D";
+        case GitStatus::kChange::kRenamed :
+            return "R";
+        case GitStatus::kChange::kConflicted :
+            return "!";
+        case GitStatus::kChange::kNone :
+            break;
+    }
+    return "";
+}
+
+// A theme without the key (an imported one, an older one) shows the change by its letter alone
 std::optional<ColorRGBA> WorkspaceView::ChangeColour(GitStatus::kChange change) {
     static const std::unordered_map<GitStatus::kChange, std::string> keys = {
         {GitStatus::kChange::kModified, "tree_modified"},
@@ -199,11 +220,14 @@ void WorkspaceView::CreateTree() {
             if (node->IsFolder()) {
                 return (node->GetDisplayName() + "/");
             }
-            // In the change set, as the header marks a buffer that isn't saved
-            if (Editor::Instance().GetWorkspace()->ChangeOf(node) != GitStatus::kChange::kNone) {
-                return "* " + node->GetDisplayName();
-            }
             return node->GetDisplayName();
+        });
+        // A file's place in the change set, by letter, at the right edge - the tree itself stays as it is
+        treeView->SetMarkersDelegate([](Workspace::Node::Ref node) -> std::string {
+            if (node->IsFolder()) {
+                return "";
+            }
+            return ChangeLetter(Editor::Instance().GetWorkspace()->ChangeOf(node));
         });
         // The change set (docs/usability-round.md §0): a file by its own change, a folder by the heaviest below it
         treeView->SetColourDelegate([](Workspace::Node::Ref node) -> std::optional<ColorRGBA> {

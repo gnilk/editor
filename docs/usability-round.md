@@ -1,14 +1,14 @@
 # Usability round - open files, splitters, workspace search
 
 Status: **Planned 2026-11-08.** The code index is paused before its step 4 (`code-index.md`); this round comes first.
-Order: the change set in the tree (§0), open files list (§1), dragging splitters (§2), workspace search (§3). The note on
-key bindings for script commands (§4) is recorded, not scheduled.
+Order: the change set in the tree (§0), reloading files changed on disk (§0b), open files list (§1), dragging splitters
+(§2), workspace search (§3). The note on key bindings for script commands (§4) is recorded, not scheduled.
 
 ## 0. The change set in the workspace tree
 
 **Why:** working with an agent, the question is often "what has it touched?". The files in the current change set, what
-`git status` lists, stand out in the workspace tree: in a colour of their own, with a `*` in front as the header has for
-unsaved buffers.
+`git status` lists, stand out in the workspace tree: in a colour of their own, with a letter at the right edge of the row
+saying what kind of change it is.
 
 **Where the answer comes from: `git status`, not the folder monitor.** The monitor says a file was written, not that it
 differs from the last commit: a file changed and changed back is not in the change set, and a commit or a `git add` changes
@@ -50,16 +50,25 @@ changed outside the editor without git (an agent writing them) aren't seen until
 
 **What is marked:**
 
-| State (porcelain) | Shown | Theme key |
+| State (porcelain) | Letter | Theme key |
 |---|---|---|
-| Modified, staged or not (`M`, `T`) | `*`, coloured | `tree_modified` |
-| Added (`A`), copied (`C`), renamed (`R`, under the new name) | `*`, coloured | `tree_added` |
-| Untracked (`??`) | `*`, coloured. Git lists an untracked folder, not its files: what is inside it counts as untracked. | `tree_untracked` |
-| Deleted (`D`) | a struck-through row, coloured | `tree_deleted` |
-| Conflicted (`U`, `AA`, `DD`) | `*`, coloured | `tree_conflicted` |
-| A folder holding any of these | the colour of the heaviest change below it, no `*` - a collapsed tree still shows where the changes are | |
+| Modified, staged or not (`M`, `T`) | `C` changed | `tree_modified` |
+| Untracked (`??`). Git lists an untracked folder, not its files: what is inside it counts as untracked. | `N` new | `tree_untracked` |
+| Added (`A`), copied (`C`) | `A` added | `tree_added` |
+| Renamed (`R`, under the new name) | `R` | `tree_added` |
+| Deleted (`D`) | `D`, and the row struck through | `tree_deleted` |
+| Conflicted (`U`, `AA`, `DD`) | `!` | `tree_conflicted` |
+| A folder holding any of these | no letter: the colour of the heaviest change below it - a collapsed tree still shows where the changes are | |
 
-The theme importer maps VS Code's `gitDecoration.*Foreground` colours onto the keys. A theme without them shows the `*`
+**The letter is at the right edge of the row** (decided 2026-11-08). First a `*`, then a letter in front of the name in a
+column every file row kept, so names wouldn't move - but that column made the tree read thick at every level, and a 4-wide
+indent to make room was worse. At the right edge the tree stays as it was, and the letters line up in one column. More
+markers can join it as they come; a real gutter for the tree is possible later. Not git's letters: `M` / `??` / `U` read
+worse, and `U` is "unmerged" in git but "untracked" elsewhere. `N` and `A` stay apart - created, and staged, are
+different steps. `TreeView` has it as a generic option, a markers delegate asked when the tree is flattened; a name that
+would run into the markers is cut with `...`. The other trees have none.
+
+The theme importer maps VS Code's `gitDecoration.*Foreground` colours onto the keys. A theme without them shows the letter
 alone.
 
 **Looked up when a row is drawn, not stored on the nodes** (revised 2026-11-08, was: node metadata). A `ChangeSet` maps the
@@ -87,6 +96,36 @@ scan.
 grandchild) and `gitstatus` (the parser on fixed output, every XY code, real temp repositories, a root below the top level,
 the change set's lookups and roll-up, the monitor seeing a commit through the git directory, and the workspace: marks, the
 deleted node kept by a reconcile and gone after the commit).
+
+## 0b. Reloading a file changed on disk
+
+**Today:** nothing reloads. An open file that something else rewrites - an agent, `git checkout`, a formatter in the
+terminal - keeps its old text in the editor, and a save writes the old text back over the new. Working with an agent this is
+the common case, not the rare one. Nobody wrote it; it is a missing piece, not a bug.
+
+**What is there already:** the folder monitor reports the folders that changed (on the main thread, `ProjectRoot::FlushDirty`),
+the workspace knows the open documents and their paths, a buffer knows whether it has unsaved edits (`kBuffer_Changed`), and
+a deleted file is already handled (kept, struck through, `IsMissingOnDisk`).
+
+**Behaviour** (as VS Code and most editors do it):
+- **No unsaved edits: reload, silently.** The cursor stays on its line (clamped), the view keeps its top line. The code index
+  and the semantic colouring follow through the buffer's parse, as for any edit.
+- **Unsaved edits: never touch the buffer.** Mark it in the header (`[!]`, next to `*` and `[D]`) and say so in the status
+  line. The choice is the user's: reload and lose the edits (a quick command, `.reload`), or save, which overwrites the file
+  on disk - asked first (`ConfirmModal`), since that drops what the other program wrote.
+- **Our own saves don't reload.** Each document keeps the size and modification time of the file as it last loaded or saved
+  it; only a file that differs from that is reloaded. That also skips a folder event for a sibling file.
+- **Not the active file only:** every open document in a dirty folder is checked; a background tab reloads too.
+
+**Open:**
+- **Undo across a reload:** cleared (simple, as now on load), or the reload as one undo step, so an agent's rewrite can be
+  stepped back (VS Code does the latter).
+- **Large files:** read on the main thread like a normal open, or in the background and swapped in.
+- **With the folder monitor off:** nothing is seen - the same gap as the change set; a check when the window gets focus would
+  cover it cheaply.
+
+**Tests:** a workspace on a temp folder with an open document, the file rewritten behind it: reloaded when clean, kept and
+marked when dirty, untouched after our own save, cursor clamped when the file got shorter.
 
 ## 1. Open files - the header overflows, `Cmd+E` lists them
 

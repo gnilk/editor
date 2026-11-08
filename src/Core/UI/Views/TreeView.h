@@ -33,6 +33,7 @@ namespace gedit {
 
             // this one is clipped and mutiliated during drawing - should now be relied on for anything
             std::string drawString = {};    // filled in during 'Flatten'
+            std::string markers = {};       // right-aligned, filled in during 'Flatten'
 
             int indent = 0;
 
@@ -68,6 +69,9 @@ namespace gedit {
         using DimDelegate = std::function<bool(const T &data)>;
         // Optional - a row's own foreground (a file in the change set). Empty: the normal one, or dimmed.
         using ColourDelegate = std::function<std::optional<ColorRGBA>(const T &data)>;
+        // Optional - a few characters drawn right-aligned in the row ('C' for a changed file), more than one as they come.
+        // A name that would run into them is cut with '...'. Asked when the tree is flattened, not on every draw.
+        using MarkersDelegate = std::function<std::string(const T &data)>;
         // Optional - draws a row itself from 'x', behind its +/-, within 'width' columns from the left of the view. False: draw
         // it the normal way.
         // Not asked for the selected row, which stays one inverted bar.
@@ -195,6 +199,10 @@ namespace gedit {
 
         void SetColourDelegate(ColourDelegate newColour) {
             cbColour = newColour;
+        }
+
+        void SetMarkersDelegate(MarkersDelegate newMarkers) {
+            cbMarkers = newMarkers;
         }
 
         void SetDrawRowDelegate(DrawRowDelegate newDrawRow) {
@@ -363,8 +371,9 @@ namespace gedit {
         }
 
         void AdjustNodeDrawStrings() {
-            auto widthMax = viewRect.Width();
             for(auto &node : flattenNodeList) {
+                // The markers, a space before them and the gap after them are the name's limit
+                int widthMax = viewRect.Width() - (node->markers.empty() ? 0 : (int)node->markers.length() + 1 + MARKERS_RIGHT_GAP);
                 auto strWidth = node->drawString.length() + node->indent;
 
                 if (strWidth < widthMax) continue;
@@ -416,11 +425,18 @@ namespace gedit {
                     itemAttributes = itemAttributes | cbStyle(node->data);
                 }
 
+                auto drawMarkers = [&](kTextAttributes attributes) {
+                    int xMarkers = viewRect.Width() - (int)node->markers.length() - MARKERS_RIGHT_GAP;
+                    if (!node->markers.empty() && (xMarkers > node->indent)) {
+                        dc.DrawStringWithAttributesAt(xMarkers, yPos, attributes, node->markers.c_str());
+                    }
+                };
+
                 dc.FillLine(yPos, kTextAttributes::kNormal, ' ');
                 if (i == treeLineCursor.idxActiveLine) {
                     dc.FillLine(yPos, kTextAttributes::kNormal | kTextAttributes::kInverted, ' ');
                     dc.DrawStringWithAttributesAt(node->indent, yPos, itemAttributes | kTextAttributes::kInverted, str.c_str());
-
+                    drawMarkers(kTextAttributes::kNormal | kTextAttributes::kInverted);
                     continue;
                 }
                 if (cbDrawRow != nullptr) {
@@ -435,13 +451,16 @@ namespace gedit {
                 if (colour.has_value()) {
                     dc.SetColor(*colour, background);
                     dc.DrawStringWithAttributesAt(node->indent, yPos, itemAttributes, str.c_str());
+                    drawMarkers(kTextAttributes::kNormal);
                     dc.SetColor(foreground, background);
                 } else if ((cbDim != nullptr) && cbDim(node->data)) {
                     dc.SetColor(dimmed, background);
                     dc.DrawStringWithAttributesAt(node->indent, yPos, itemAttributes, str.c_str());
+                    drawMarkers(kTextAttributes::kNormal);
                     dc.SetColor(foreground, background);
                 } else {
                     dc.DrawStringWithAttributesAt(node->indent, yPos, itemAttributes, str.c_str());
+                    drawMarkers(kTextAttributes::kNormal);
                 }
             }
         }
@@ -462,6 +481,7 @@ namespace gedit {
 
 
             auto str = cbToString(node->data);
+            node->markers = (cbMarkers != nullptr) ? cbMarkers(node->data) : std::string{};
 
             // Show +/- when the node has children OR has unfetched children waiting to be
             // populated. `> 0` not `!= 0` — using `== 0` would put a '+' on every file.
@@ -498,6 +518,10 @@ namespace gedit {
         StyleDelegate cbStyle = nullptr;
         DimDelegate cbDim = nullptr;
         ColourDelegate cbColour = nullptr;
+        MarkersDelegate cbMarkers = nullptr;
+        // Air between the markers and the view's edge. A whole cell: the views are a character grid, and the terminal
+        // backend has nothing finer.
+        static constexpr int MARKERS_RIGHT_GAP = 1;
         DrawRowDelegate cbDrawRow = nullptr;
         typename TreeNode::Ref rootNode;
         LineCursor treeLineCursor;  // This is not really used - just for storage

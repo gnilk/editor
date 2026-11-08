@@ -9,6 +9,7 @@
 #include "Core/UI/Views/RootView.h"
 #include "Core/Editor/Modals/FindModal.h"
 #include "Core/Editor/Modals/RelationshipModal.h"
+#include "Core/Editor/Modals/OpenFilesModal.h"
 #include "Core/Editor/Modals/SymbolSearchModal.h"
 #include "Core/PathUtil.h"
 #include "Core/Session/SessionManager.h"
@@ -147,6 +148,19 @@ void ActionHelper::ShowGotoSymbol() {
     rootView->ShowModal(std::move(modal));
     // After ShowModal - the list height comes from the laid out modal
     symbolModal->SetQuery(FindModal::SelectedText(document));
+}
+
+// The open files, the active one selected - docs/usability-round.md §1
+void ActionHelper::ShowOpenFiles() {
+    if (!RuntimeConfig::Instance().HasRootView() || Editor::Instance().GetWorkspace()->GetOpenDocuments().empty()) {
+        return;
+    }
+    auto modal = OpenFilesModal::Create();
+    auto openFilesModal = modal.get();
+    auto rootView = RuntimeConfig::Instance().GetRootViewAs<RootView>();
+    rootView->ShowModal(std::move(modal));
+    // After ShowModal - the list height comes from the laid out modal
+    openFilesModal->SetQuery(U"");
 }
 
 // The type under the cursor, or the one the cursor is in

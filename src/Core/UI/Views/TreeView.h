@@ -5,6 +5,7 @@
 #ifndef EDITOR_TREEVIEW_H
 #define EDITOR_TREEVIEW_H
 
+#include <algorithm>
 #include <memory>
 #include <functional>
 #include <optional>
@@ -99,10 +100,33 @@ namespace gedit {
         void ReInitView() override {
             VisibleView::ReInitView();
             verticalNavigationViewModel.lineCursor = &treeLineCursor;
-            treeLineCursor.viewTopLine = 0;
-            treeLineCursor.viewBottomLine = viewRect.Height();
             // This will recompute the draw-strings
             Flatten();
+            // Not back to the top: a re-layout comes with every switch of the active document, and the tree would
+            // jump to its first row, leaving the selection off screen
+            FitViewToHeight(viewRect.Height());
+        }
+
+        // The view is 'height' rows now: it stays scrolled where it was, moved only as far as needed to keep the
+        // selection in sight, and with no empty rows below the last when the tree is shorter than the view
+        void FitViewToHeight(int height) {
+            height = std::max(0, height);
+            int top = treeLineCursor.viewTopLine;
+            int idxActive = (int)treeLineCursor.idxActiveLine;
+            int numRows = (int)flattenNodeList.size();
+            if (height > 0) {
+                if (idxActive < top) {
+                    top = idxActive;
+                } else if (idxActive >= top + height) {
+                    top = idxActive - height + 1;
+                }
+                if (top + height > numRows) {
+                    top = numRows - height;
+                }
+            }
+            top = std::max(0, top);
+            treeLineCursor.viewTopLine = top;
+            treeLineCursor.viewBottomLine = top + height;
         }
 
         // An empty tree has no selection - returns a default T (nullptr for a Ref)

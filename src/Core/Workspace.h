@@ -645,6 +645,9 @@ namespace gedit {
         void SetRepoMonitor(RepoMonitorFactory factory) {
             repoMonitorFactory = std::move(factory);
         }
+        // What the header and the open-files list show in front of a document's name: '* ' unsaved edits, 'R '
+        // read-only, '[!] ' changed on disk while edited, '[D] ' gone from disk
+        std::string StatusMarkers(const Document::Ref &document);
         // Where the node stands in its root's change set; a folder: the heaviest change at or below it
         GitStatus::kChange ChangeOf(const Node::Ref &node);
         // Main thread, on the folder monitor's flush: open documents rewritten on disk reload, or are marked when they

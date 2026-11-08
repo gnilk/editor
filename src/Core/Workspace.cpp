@@ -811,6 +811,29 @@ void Workspace::CheckOpenDocumentsOnDisk(const std::set<std::filesystem::path> &
     }
 }
 
+std::string Workspace::StatusMarkers(const Document::Ref &document) {
+    std::string markers;
+    if (document == nullptr) {
+        return markers;
+    }
+    if (document->GetTextBuffer()->GetBufferState() == TextBuffer::kBuffer_Changed) {
+        markers += "* ";
+    }
+    if (document->GetTextBuffer()->IsReadOnly()) {
+        markers += "R ";
+    }
+    // Changed on disk while it had unsaved edits - kept, not reloaded (docs/usability-round.md §0b)
+    if (document->HasConflictOnDisk()) {
+        markers += "[!] ";
+    }
+    // Gone from disk, kept open - cleared by the save that re-creates it
+    auto node = GetNodeFromDocument(document);
+    if ((node != nullptr) && node->IsMissingOnDisk()) {
+        markers += "[D] ";
+    }
+    return markers;
+}
+
 GitStatus::kChange Workspace::ChangeOf(const Node::Ref &node) {
     if (node == nullptr) {
         return GitStatus::kChange::kNone;

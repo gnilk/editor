@@ -161,6 +161,28 @@ edge are cut off, including the active one.
 
 **Not `Cmd+L`:** that is `ReformatLine` (native, `Document::OnActionReformatLine`). See §4.
 
+**Built (2026-11-08):**
+- **The header** (`EditorHeaderView::LayoutEntries`, plain and tested apart from drawing): the entries that fit, joined by
+  ` | `; a cut end shows `...` and a separator. The row starts later when the active file would fall past the edge, so it
+  is always shown - a file too wide on its own is shown anyway, and the screen cuts it. Each `...` is clickable and opens
+  the list.
+- **The list** (`OpenFilesModal`) is a `QueryListModal`, not `ListSelectionModal` (unused, older): typing filters by name
+  (the code index's `MatchName`: prefix, word starts, subsequence - best first, ties in the header's order), the folder
+  relative to its root sits dimmed on the right, Enter switches and goes to the editor view - from the terminal or the tree
+  too. Nothing typed: the active file is selected (`QueryListModal::OnInitialRow`, a new hook).
+- **One set of markers:** `Workspace::StatusMarkers` (`*`, `R`, `[!]`, `[D]`) for the header and the list.
+- **The key:** `ShowOpenFiles`, `Cmd+E` / `Ctrl+E`. On Linux, `Ctrl+E` in the terminal view is the editor's, not the
+  shell's end of line - as `Ctrl+T` and `Ctrl+B` already are there.
+
+**Found while testing - the tree jumped to its top:** switching the active document re-lays out every view
+(`Editor::SetActiveDocument` -> `RootView::Initialize()`), and `TreeView::ReInitView` set its top row to 0 while keeping
+the selection - so opening a file from the tree, switching from the header or `Cmd+E`, or a resize left the tree at its
+first row and the selected file off screen. A re-layout now keeps the scroll position, moved only as far as needed to keep
+the selection in sight (`TreeView::FitViewToHeight`).
+
+**Tests:** `openfiles` - the header layout (all fit, cut at the end, at the start, at both, one too wide, and a sweep over
+widths, rows and active files: the active one is always shown and what is drawn fits), the filter, the folder shown.
+
 ## 2. Dragging the splitters with the mouse
 
 **Today:** splitters move with `Option+W/A/S/D` (`Option+M` maximises the height). The SDL backends send press, release and

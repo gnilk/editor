@@ -69,8 +69,8 @@ cd cmake-build-debug && trun -l ./libutests.so                     # list
 
 Test source files live in `utests/`. Each `test_<module>.cpp` corresponds to one module; `test_main.cpp` initializes the editor singleton for all tests. Test functions are `extern "C"` (or `DLL_EXPORT`) and discovered by exported symbol name — adding a new case is just a new function (+ a forward declaration where the file uses one).
 
-**Verified-green set** (596 tests, run from `cmake-build-debug/`):
-`trun -m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,vtermparser,keymapping,hexprojection,bytestream,hexview,indent,session,markdown,folderscanner,foldermonitor,treeview,textbuffer,mouseclicktracker,wrapprojection,config,modal,find,codeindex,themeimport,exclusion,process,gitstatus,reload --sequential ./libutests.so`
+**Verified-green set** (603 tests, run from `cmake-build-debug/`):
+`trun -m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,vtermparser,keymapping,hexprojection,bytestream,hexview,indent,session,markdown,folderscanner,foldermonitor,treeview,textbuffer,mouseclicktracker,wrapprojection,config,modal,find,codeindex,themeimport,exclusion,process,gitstatus,reload,openfiles --sequential ./libutests.so`
 
 **Benchmarks are not trun cases** - trun links the ASan runtime (see below), which makes every
 allocation expensive and skews throughput numbers ~5x. Lexer throughput (code index step 0) is the

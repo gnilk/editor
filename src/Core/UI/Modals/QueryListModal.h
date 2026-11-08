@@ -46,6 +46,10 @@ namespace gedit {
         virtual std::u32string OnRowDetail(int idxRow) {
             return {};
         }
+        // The row selected when a query has run - the first unless a subclass knows better (the active file)
+        virtual int OnInitialRow(const std::u32string &query) {
+            return 0;
+        }
         // The selection moved (-1: no results)
         virtual void OnPreview(int idxRow) {}
         // Return on a row

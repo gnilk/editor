@@ -45,6 +45,7 @@ namespace gedit {
         kActionGotoImplementation,      // default: Cmd+Shift+B (macOS) / Ctrl+Shift+B (Linux) - derived types, overrides
         kActionGotoBase,                // default: Cmd+Shift+U (macOS) / Ctrl+Shift+U (Linux) - the base class, the method overridden
         kActionShowRelationships,       // default: Cmd+Shift+T (macOS) / Ctrl+Shift+T (Linux) - how a type fits in
+        kActionShowOpenFiles,           // default: Cmd+E (macOS) / Ctrl+E (Linux) - the open files, to switch to one
         kActionJumpBack,                // default: Cmd+[ (macOS) / Ctrl+[ (Linux) - the navigation stack
         kActionJumpForward,             // default: Cmd+] (macOS) / Ctrl+] (Linux)
         kActionEnterCommandMode,

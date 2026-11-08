@@ -23,6 +23,7 @@ DLL_EXPORT int test_treeview_additem_no_flatten(ITesting *t);
 DLL_EXPORT int test_treeview_narrow_width_no_overflow(ITesting *t);
 DLL_EXPORT int test_treeview_select_keeps_collapsed(ITesting *t);
 DLL_EXPORT int test_treeview_markers(ITesting *t);
+DLL_EXPORT int test_treeview_relayout_keeps_scroll(ITesting *t);
 }
 
 namespace {
@@ -245,5 +246,41 @@ DLL_EXPORT int test_treeview_markers(ITesting *t) {
     TestTree bare;
     bare.SetToStringDelegate([](int i) { return std::to_string(i); });
     TR_ASSERT(t, bare.AddItem(7)->markers.empty());
+    return kTR_Pass;
+}
+
+// A re-layout (every switch of the active document, a resize) keeps the tree where it was scrolled: it used to go back to
+// the first row and leave the selection - the file just opened - off screen
+DLL_EXPORT int test_treeview_relayout_keeps_scroll(ITesting *t) {
+    TestTree tree;
+    tree.SetToStringDelegate([](int i) { return std::to_string(i); });
+    for (int i = 0; i < 50; i++) {
+        tree.AddItem(i);
+    }
+    tree.FitViewToHeight(10);
+    tree.SetSelectionAtRow(30);
+    tree.SetSelectionViewRow(5);
+    TR_ASSERT(t, tree.GetLineCursor().viewTopLine == 25);
+
+    // Same height: nothing moves
+    tree.FitViewToHeight(10);
+    TR_ASSERT(t, tree.GetLineCursor().viewTopLine == 25);
+    TR_ASSERT(t, tree.GetLineCursor().viewBottomLine == 35);
+    TR_ASSERT(t, tree.GetSelectionViewRow() == 5);
+
+    // Smaller: only as far as needed for the selection to stay in sight
+    tree.FitViewToHeight(4);
+    TR_ASSERT(t, tree.GetLineCursor().viewTopLine == 27);
+    TR_ASSERT(t, tree.GetSelectionViewRow() == 3);
+
+    // Taller than what is left below: no empty rows, the selection still in sight
+    tree.FitViewToHeight(30);
+    TR_ASSERT(t, tree.GetLineCursor().viewTopLine == 20);
+    TR_ASSERT(t, tree.GetLineCursor().viewBottomLine == 50);
+
+    // Taller than the whole tree: from the top
+    tree.FitViewToHeight(80);
+    TR_ASSERT(t, tree.GetLineCursor().viewTopLine == 0);
+    TR_ASSERT(t, tree.GetSelectionViewRow() == 30);
     return kTR_Pass;
 }

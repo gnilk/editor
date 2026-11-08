@@ -24,7 +24,8 @@ namespace gedit {
             if (splitterPos == 0) {
                 splitterPos = viewRect.Width() / 2;
             }
-            window = screen->CreateWindow(viewRect, WindowBase::kWin_Invisible, WindowBase::kWinDeco_None);
+            // Visible, as HSplitView is: an invisible window's context draws nowhere, and the divider is drawn (DoDraw)
+            window = screen->CreateWindow(viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
             UpdateLeftViewRect();
             UpdateRightViewRect();
         }
@@ -34,7 +35,7 @@ namespace gedit {
             if (viewRect.IsEmpty()) {
                 viewRect = screen->Dimensions();
             }
-            window = screen->UpdateWindow(window, viewRect, WindowBase::kWin_Invisible, WindowBase::kWinDeco_None);
+            window = screen->UpdateWindow(window, viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
 
             int contentWidth = viewRect.Width();
             // splitterPos is the AUTHORITY; the child view widths are DERIVED from it - never the
@@ -106,6 +107,36 @@ namespace gedit {
             splitterPos = pos;
         }
 
+        // No column of its own: the divide is the left panel's last column, drawn as a line over it (DoDraw). A press on
+        // the line, or on the column right of it, drags with the left button instead of reaching a panel - one cell is
+        // easy to miss.
+        bool OnMouseDragStart(const MouseEvent &press) override {
+            bool isOnDivider = (press.x == DividerColumn()) || (press.x == DividerColumn() + 1);
+            if ((press.button != kLeftButton) || !isOnDivider || !viewRect.PointInRect(press.x, press.y)) {
+                return false;
+            }
+            dragOffset = press.x - DividerColumn();
+            return true;
+        }
+
+        void OnMouseDrag(const MouseEvent &mouseEvent) override {
+            if ((mouseEvent.kind != MouseEvent::kMouseEventKind_Move) && (mouseEvent.kind != MouseEvent::kMouseEventKind_Release)) {
+                return;
+            }
+            // The divider column follows the pointer; SetSplitterPos clamps
+            int newPos = mouseEvent.x - dragOffset - viewRect.TopLeft().x + 1;
+            if (newPos != splitterPos) {
+                SetSplitterPos(newPos);
+            }
+            splitterPosBeforeReset = GetSplitterPos();
+        }
+
+        // The panels first, then the line over the left one's last column - drawn before them, they would paint over it
+        void DoDraw() override {
+            ViewBase::DoDraw();
+            DrawDivider();
+        }
+
         void SetLeft(ViewBase *newLeft) {
             leftView = newLeft;
             leftView->SetLayoutHandler(this);
@@ -146,6 +177,27 @@ namespace gedit {
             if (handler != nullptr && handler != this) { handler->OnActionDecreaseHeight(); }
         }
 
+        // Shows where the divide is, and where to take hold of it. In the panel's background, as the gutter's numbers are
+        // drawn: a line, not a panel of its own - no column is spent on it.
+        void DrawDivider() {
+            if ((window == nullptr) || (leftView == nullptr) || (rightView == nullptr) || !leftView->IsVisible() || !rightView->IsVisible()) {
+                return;
+            }
+            auto &dc = window->GetContentDC();
+            auto &uiColors = UIHost::Instance().GetUIColors();
+            dc.SetColor(uiColors["gutter_foreground"], uiColors["background"]);
+            int x = DividerColumn() - viewRect.TopLeft().x;
+            for (int y = 0; y < viewRect.Height(); y++) {
+                dc.DrawStringWithAttributesAt(x, y, kTextAttributes::kNormal, U"|");
+            }
+            dc.ResetDrawColors();
+        }
+
+        // The left panel's last column, on screen (UpdateLeftViewRect)
+        int DividerColumn() {
+            return viewRect.TopLeft().x + splitterPos - 1;
+        }
+
         void UpdateRightViewRect() {
             if (rightView == nullptr) { return; }
             Rect rightRect = viewRect;
@@ -163,6 +215,7 @@ namespace gedit {
         // Keep at least this many columns for each of the left/right panels (and the divider) when the
         // view is wide enough to allow it.
         static constexpr int kMinViewExtent = 5;
+        static constexpr int kLeftButton = 1;      // as the backends number them (SDL; gansi maps onto it)
 
         // Clamp a candidate divider column into the visible width, leaving room for both panels.
         // Falls back to a strict on-screen clamp when the view is too narrow for the normal margin.
@@ -182,6 +235,7 @@ namespace gedit {
     protected:
         int splitterPos = 0;
         int splitterPosBeforeReset = -1;
+        int dragOffset = 0;         // where on the divider the drag took hold
         ViewBase *leftView = nullptr;
         ViewBase *rightView = nullptr;
     };

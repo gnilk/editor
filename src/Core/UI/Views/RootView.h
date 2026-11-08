@@ -220,6 +220,19 @@ namespace gedit {
         // instances, see AddTopView), (3) activate the enclosing top view (focus-follows-click), (4)
         // call OnMouseEvent on the hit view, bubbling to parentView while it returns false.
         bool DispatchMouse(const MouseEvent &mouseEvent) {
+            // A drag under way: its view gets everything up to the release. A press means the release was lost (the
+            // pointer let go outside the window) - the drag is over, and this press is a new one.
+            if (dragView != nullptr) {
+                if (mouseEvent.kind != MouseEvent::kMouseEventKind_Press) {
+                    dragView->OnMouseDrag(mouseEvent);
+                    if (mouseEvent.kind == MouseEvent::kMouseEventKind_Release) {
+                        dragView = nullptr;
+                    }
+                    return true;
+                }
+                dragView = nullptr;
+            }
+
             ViewBase *hit = nullptr;
             if (HasModal()) {
                 auto modal = TopModal();
@@ -239,6 +252,19 @@ namespace gedit {
                 hit = HitTest(mouseEvent.x, mouseEvent.y);
                 if (hit == nullptr) {
                     return false;
+                }
+                // Before focus and before the view under the pointer: a container may take the press for a drag
+                if (mouseEvent.kind == MouseEvent::kMouseEventKind_Press) {
+                    std::vector<ViewBase *> outsideIn;
+                    for (auto view = hit; view != nullptr; view = view->GetParentView()) {
+                        outsideIn.insert(outsideIn.begin(), view);
+                    }
+                    for (auto view : outsideIn) {
+                        if (view->OnMouseDragStart(mouseEvent)) {
+                            dragView = view;
+                            return true;
+                        }
+                    }
                 }
                 // Focus-follows-click activates on the PRESS (and wheel), never on the trailing RELEASE.
                 // A release is the tail of a gesture already focused on its press - re-activating the
@@ -351,6 +377,7 @@ namespace gedit {
         int idxCurrentTopView = -1;
         std::vector<TopViewInstance> topViews;
         std::vector<ModalView::Ptr> modals;     // Top of the stack (back) gets the input
+        ViewBase *dragView = nullptr;           // the view a drag belongs to, up to its release (OnMouseDragStart)
     };
 }
 

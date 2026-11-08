@@ -69,6 +69,9 @@ namespace gedit::SDL3 {
         // In characters (which is what the editor works with)
         int rows = 0;
         int cols = 0;
+        // The cell the pointer was last reported in - a move is only sent when it leaves it
+        int lastMouseCol = -1;
+        int lastMouseRow = -1;
 
     };
 }

@@ -274,6 +274,14 @@ namespace gedit {
             return false;
         }
 
+        // A press this view takes for a drag before the view under the pointer sees it - a splitter's divider, which a
+        // panel may cover. Asked of the views from the outside in. True: the drag is this view's, and every move and
+        // the release go to OnMouseDrag until the release, wherever the pointer goes - focus doesn't follow it.
+        virtual bool OnMouseDragStart(const MouseEvent &press) {
+            return false;
+        }
+        virtual void OnMouseDrag(const MouseEvent &mouseEvent) {}
+
         // Deepest visible view whose absolute viewRect contains (x,y) - row/col, same space as
         // viewRect (Core/Rect.h). Rects are absolute screen coordinates (splitters Move() children off
         // the parent's origin), so this generic walk works unchanged for stacks/splitters. Returns

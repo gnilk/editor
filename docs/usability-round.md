@@ -1,9 +1,10 @@
 # Usability round - open files, splitters, workspace search
 
 Status: **Planned 2026-11-08.** The code index is paused before its step 4 (`code-index.md`); this round comes first.
-Order: the change set in the tree (§0), reloading files changed on disk (§0b), open files list (§1), dragging splitters
-(§2), workspace search (§3), quick commands: close all and `!` (§5). The note on key bindings for script commands (§4) is
-recorded, not scheduled.
+Order: the change set in the tree (§0), reloading files changed on disk (§0b), changed lines in the gutter (§0c), open
+files list (§1), dragging splitters (§2), workspace search (§3), quick commands: close all and `!` (§5), glyphs beyond
+code point 255 on SDL (§6). The note on key bindings for script commands (§4) is recorded, not scheduled.
+**Next: §6** - the glyph page table, and the font code out of the SDL2/SDL3 copies; §0c's change bar waits on it.
 
 ## 0. The change set in the workspace tree
 
@@ -146,6 +147,50 @@ emptied, cursor on a shorter file, unsaved edits kept and the file untouched, ou
 the autosave refusing, another folder's flush. Three mutations (no autosave check, a stamp on every save, a reload of every
 line) each fail one test.
 
+## 0c. Changed lines in the gutter
+
+**Why:** the change set (§0) says which files an agent touched; the next level is which lines, in the file you have open.
+The gutter - where the line numbers are - marks each line that differs from the last commit, so the change can be read
+in place instead of in a diff.
+
+**What is marked**, against `HEAD` as the change set is:
+
+| Change | Mark | Theme key |
+|---|---|---|
+| Added line | a bar | `gutter_added` |
+| Changed line | a bar | `gutter_modified` |
+| Lines removed here | a low mark on the line after them (on the last line, when the end was removed) | `gutter_deleted` |
+
+The mark goes in the gutter's free column, between the number and the active line's `*` (`    12│ *`), so nothing
+moves. A coloured `│` (U+2502): the default font (Andale Mono) has it, not the thinner `▎` (U+258E). The SDL backends
+only draw code points 32-255 today, so this waits on §6 (or uses `|` meanwhile, as the workspace divide does). The importer maps VS Code's `editorGutter.addedBackground` / `modifiedBackground` / `deletedBackground` onto the
+keys. A file git doesn't track yet (`N` in the tree) is all added; a file outside a repository has no marks.
+
+**Against the buffer, not the file:** the marks follow what you type, unsaved edits included - the question is "what
+differs from the commit", and the answer shouldn't wait for a save. So the comparison is the buffer's lines against the
+file as it is in `HEAD`, done in the editor:
+- **The base:** `git show HEAD:<path>` through `Process`, once per open file, kept until `HEAD` moves - which the
+  repository monitor already notices (`.git/HEAD`, `.git/logs/HEAD`, §0). Read in the background; the marks come when
+  it is there.
+- **The diff:** a line diff (Myers, `O(ND)`: cheap when the differences are few, which is the common case) of the base
+  against the buffer's lines - plain, in `src/Core`, tested on strings. Run off the main thread after a pause in typing,
+  as the structure pass is (`TextBuffer`'s pause), and after a reload (§0b) or a change of the base. Not per keystroke.
+- **The result:** per document, plain data - for each line added / changed / nothing, and where lines were removed. The
+  gutter only draws it.
+
+**Layering:** `GitStatus`'s neighbour in `src/Core/Git/` asks git for the base (composition, on `Process`); the diff knows
+nothing of git; the document holds the result; `GutterView` draws it. Nothing in the gutter runs git.
+
+**Later:**
+- **Next / previous change** (`F7`-like, key open): the result is the list to step through.
+- **The base:** against the index (what is staged) or a branch's base (`main...`, as §0's later), switchable.
+- **For an agent:** "which lines did this change touch" per file - the same data, asked from outside (code index §10.3).
+- **Hover or a key on a mark:** the base's lines that were there (the `+/- 5 lines` pop-up of the relationship view).
+
+**Tests:** the diff on strings (only added, only removed, changed, moved blocks, an empty base, an empty buffer, a large
+file with one change - the `O(ND)` case), the marks for each, the base from a temp repository, and the marks following an
+unsaved edit.
+
 ## 1. Open files - the header overflows, `Cmd+E` lists them
 
 **Today:** `EditorHeaderView` draws every open file's name in a row and never checks the width, so names past the right
@@ -202,6 +247,35 @@ own.
 **Tests:** capture routing on a view tree without a screen (press captures, moves outside still arrive, release ends it,
 no focus change mid-drag), and a splitter moved by a press and moves stays clamped.
 
+**Built (2026-11-08):**
+- **The drag, in the UI layer, for any backend:** `ViewBase::OnMouseDragStart` / `OnMouseDrag`. On a press,
+  `RootView::DispatchMouse` asks the views from the outside in, before focus and before the view under the pointer; the
+  one that takes it gets every move and the release, wherever the pointer goes. A press with no release before it (let go
+  outside the window) ends the drag and is a new press.
+- **The terminal splitter** (`HSplitView`, so `HSplitViewStatus`): its divider row - the status line - with the left
+  button. **The workspace splitter** (`VSplitView`) has no column of its own: the divide is the left panel's last column,
+  which the drag takes before the tree sees the press. Both follow the pointer through `SetSplitterPos`, which clamps and
+  saves the position.
+- **The workspace divide is drawn:** a dimmed `|` (`gutter_foreground`) down the left panel's last column, drawn by the
+  `VSplitView` after its panels (`DoDraw`) so they don't paint over it. No column is spent: that cell was the air gap
+  right of the change letters already. The column right of the line - the gutter's padding - is a handle too: one cell is
+  easy to miss. Tried before a plain colour change, the other way (2026-11-08). Not a `VSplitViewStatus`: a column that
+  carries nothing costs space on an SSH terminal, and the change letters belong to the tree's rows.
+- **`|`, not `│`:** the SDL font atlas holds code points 32-255 only (`stbttf.h`), so `│` (U+2502) drew nothing - the cell
+  was filled, the glyph skipped. The ASCII `|` draws on every backend, as a dashed line on SDL (it doesn't fill the cell's
+  height). `│` comes back with §6. A `DrawVRule` next to `DrawHRule` (a 1-pixel line on SDL) was the other way; not taken
+  - the glyph is the general fix.
+- **The backends:** SDL3 and SDL2 send a move while a button is held, and only when the pointer enters another character
+  cell - SDL reports every pixel, and each move lays the views out again. Gansi needed nothing: it already asks the
+  terminal for motion while a button is held (mode 1002) and turns it into moves.
+- **SDL2 on macOS:** `cmake -B cmake-build-sdl2 -G Ninja -DCMAKE_BUILD_TYPE=Debug -DGEDIT_BUILD_SDL3=OFF
+  -DGEDIT_BUILD_SDL2=ON`, with Homebrew's `sdl2` - which is `sdl2-compat`, the SDL2 API on SDL3: it checks our SDL2 code,
+  not the Linux SDL2 itself.
+
+**Tests:** `layout` - a drag of the terminal splitter (past the bottom and outside the view: clamped; the panels see
+nothing; after the release a move is nobody's), of the workspace splitter over its panel (the divider follows, the next
+column is the panel's, another button isn't a drag), and no focus change or quick-command leave, a lost release.
+
 ## 3. Workspace search - three kinds
 
 All three are wanted. Each is its own piece, smallest first.
@@ -250,3 +324,35 @@ Cancel - listing the documents. `.ca!` closes them all at once, dropping the edi
 
 **Tests:** the executor on `.cb!` / `.cb !` / `.cb` (the arguments the script gets), a name that is only `!`, and `.ca`
 over a workspace with a modified and an unmodified document.
+
+## 6. Glyphs beyond code point 255 on SDL
+
+Status: **next** (after §2).
+
+**Today:** both SDL backends (`SDL2/ext/stbttf.h`, `SDL3/ext/stbttf.h` - two copies, already drifted apart) pack code points
+32-255 into one texture when the font opens, and skip anything else when drawing: `│`, `▎`, `→`, box drawing, accented
+letters past Latin-1, all draw as an empty cell. Gansi has no such limit - the terminal draws the text.
+
+**Change - a page table, filled on demand:** split a code point into a page (`cp >> 8`) and a slot (`cp & 0xff`).
+- **The lookup** is two array indexes, `pages[cp >> 8]->glyphs[cp & 0xff]` - no hashing, no search. The only extra test
+  over today's `cp < 256` is whether the page exists: a null pointer, the one branch, and it is the miss.
+- **A miss builds the whole page,** 256 code points in one `stbtt_PackFontRange` into its own texture - the code the font
+  already runs for page 0, with another start. Pages are few in practice (Latin, box drawing `0x25xx`, arrows `0x21xx`,
+  maybe CJK), so a page per texture keeps it simple; the draw switches texture between pages, cheap at our character counts.
+- **Page 0** is built when the font opens, as today; nothing changes for ASCII text.
+- **The table:** 4352 page pointers for all of Unicode (`0x110000 >> 8`), about 34 KB per font, or a smaller table grown
+  on demand. A page that has been tried is never built again.
+- **Not in the font:** `stbtt_FindGlyphIndex` gives 0. Mark that slot missing when the page is built and draw nothing (or
+  a placeholder box), so a missing glyph costs a lookup, not a retry. Andale Mono lacks `▎` - this is where a **fallback
+  font** would come in (Menlo on macOS, DejaVu Sans Mono on Linux): build the missing slots of a page from the next font.
+  Later; the page table is the place for it.
+- **The grid stays monospaced:** a glyph is drawn into its cell, advance or not. Wide glyphs (CJK, emoji over two cells)
+  are a separate question.
+
+**One copy:** the page table, the missing marks and the build-on-miss know nothing of SDL - only uploading a page's bitmap
+to a texture and drawing from it differ between SDL2 and SDL3. Move the font code into one shared place with those two
+as the backend's part, instead of fixing it twice.
+
+**Tests:** without a screen - the page and slot of a code point; a lookup in page 0; a miss builds the page once; a code
+point the font lacks is marked missing, not retried - against the shipped `Assets/Resources/Andale Mono.ttf` (has `│`,
+lacks `▎`).

@@ -427,3 +427,150 @@ extern "C" int test_layout_quickcmdclick(ITesting *t) {
     UIHost::Instance().SetOnLeaveQuickCommand(nullptr);
     return kTR_Pass;
 }
+// ---------------------------------------------------------------------------------------------------
+// Dragging a splitter with the mouse (docs/usability-round.md §2): a press on the divider takes the
+// drag, the moves and the release go to the splitter wherever the pointer is, and nothing else sees
+// them - not the panel under the divider, not focus.
+// ---------------------------------------------------------------------------------------------------
+
+namespace {
+    // A panel that takes every press it is given - as the tree or the editor does
+    struct PressCountingView : public ViewBase {
+        int numPresses = 0;
+        bool OnMouseEvent(const MouseEvent &mouseEvent) override {
+            if (mouseEvent.kind == MouseEvent::kMouseEventKind_Press) {
+                numPresses++;
+            }
+            return true;
+        }
+    };
+
+    MouseEvent Mouse(MouseEvent::kMouseEventKind kind, int x, int y) {
+        MouseEvent mouseEvent;
+        mouseEvent.kind = kind;
+        mouseEvent.x = x;
+        mouseEvent.y = y;
+        mouseEvent.button = 1;
+        return mouseEvent;
+    }
+}
+
+extern "C" int test_layout_drag_hsplit(ITesting *t) {
+    RootView rootView;
+    HSplitView hSplitView;
+    rootView.AddView(&hSplitView);
+    PressCountingView upperView;
+    PressCountingView lowerView;
+    hSplitView.SetUpper(&upperView);
+    hSplitView.SetLower(&lowerView);
+    rootView.Initialize();
+
+    int contentH = hSplitView.GetContentRect().Height();
+    int x = hSplitView.GetContentRect().Width() / 2;
+    int start = hSplitView.GetSplitterPos();
+
+    TR_ASSERT(t, rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Press, x, start)));
+    rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Move, x, start - 10));
+    TR_ASSERT(t, hSplitView.GetSplitterPos() == start - 10);
+    TR_ASSERT(t, upperView.GetHeight() + lowerView.GetHeight() + 1 == contentH);
+    // Far past the bottom, and outside the view: still the splitter's, and clamped
+    rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Move, x + 1000, contentH + 100));
+    TR_ASSERT(t, hSplitView.GetSplitterPos() < contentH);
+    TR_ASSERT(t, lowerView.GetHeight() > 0);
+    rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Move, x, start + 3));
+    rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Release, x, start + 3));
+    TR_ASSERT(t, hSplitView.GetSplitterPos() == start + 3);
+    // The panels saw none of it
+    TR_ASSERT(t, (upperView.numPresses == 0) && (lowerView.numPresses == 0));
+
+    // After the release a move is nobody's drag
+    rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Move, x, start - 5));
+    TR_ASSERT(t, hSplitView.GetSplitterPos() == start + 3);
+    // A press elsewhere is the panel's
+    rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Press, x, 2));
+    TR_ASSERT(t, upperView.numPresses == 1);
+    return kTR_Pass;
+}
+
+extern "C" int test_layout_drag_vsplit(ITesting *t) {
+    // The vertical divide has no column of its own - it is the left panel's last column, which the panel would take
+    RootView rootView;
+    VSplitView vSplitView;
+    rootView.AddView(&vSplitView);
+    PressCountingView leftView;
+    PressCountingView rightView;
+    vSplitView.SetLeft(&leftView);
+    vSplitView.SetRight(&rightView);
+    rootView.Initialize();
+
+    int y = vSplitView.GetViewRect().Height() / 2;
+    int start = vSplitView.GetSplitterPos();
+    int dividerColumn = vSplitView.GetViewRect().TopLeft().x + start - 1;
+
+    rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Press, dividerColumn, y));
+    TR_ASSERT(t, leftView.numPresses == 0);
+    rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Move, dividerColumn + 7, y));
+    rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Release, dividerColumn + 7, y));
+    TR_ASSERT(t, vSplitView.GetSplitterPos() == start + 7);
+    TR_ASSERT(t, leftView.GetWidth() == start + 7);
+    // The divider follows: its new column drags again
+    rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Press, dividerColumn + 7, y));
+    rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Release, dividerColumn + 2, y));
+    TR_ASSERT(t, vSplitView.GetSplitterPos() == start + 2);
+
+    // The column right of the line is a handle too - one cell is easy to miss
+    int divider = vSplitView.GetViewRect().TopLeft().x + vSplitView.GetSplitterPos() - 1;
+    rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Press, divider + 1, y));
+    rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Move, divider + 4, y));
+    rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Release, divider + 4, y));
+    TR_ASSERT(t, vSplitView.GetSplitterPos() == start + 5);
+    TR_ASSERT(t, (leftView.numPresses == 0) && (rightView.numPresses == 0));
+    // Two columns to the right, the right panel's own press
+    divider = vSplitView.GetViewRect().TopLeft().x + vSplitView.GetSplitterPos() - 1;
+    rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Press, divider + 2, y));
+    TR_ASSERT(t, (leftView.numPresses == 0) && (rightView.numPresses == 1));
+    // Another button on the divider isn't a drag: the panel under it gets it
+    auto rightButton = Mouse(MouseEvent::kMouseEventKind_Press, divider, y);
+    rightButton.button = 3;
+    rootView.DispatchMouse(rightButton);
+    TR_ASSERT(t, leftView.numPresses == 1);
+    TR_ASSERT(t, vSplitView.GetSplitterPos() == start + 5);
+    return kTR_Pass;
+}
+
+extern "C" int test_layout_drag_nofocus(ITesting *t) {
+    // A drag on a divider is no click into a view: focus stays, quick-command mode isn't left
+    RootView rootView;
+    HSplitView hSplitView;
+    rootView.AddView(&hSplitView);
+    PressCountingView upperView;
+    PressCountingView lowerView;
+    hSplitView.SetUpper(&upperView);
+    hSplitView.SetLower(&lowerView);
+    rootView.AddTopView(&upperView, "upper");
+    rootView.AddTopView(&lowerView, "lower");
+    rootView.Initialize();
+    TR_ASSERT(t, rootView.GetTopViewName().value() == "upper");
+
+    bool leaveNotified = false;
+    UIHost::Instance().SetOnLeaveQuickCommand([&leaveNotified]() {
+        leaveNotified = true;
+    });
+    int x = hSplitView.GetContentRect().Width() / 2;
+    int start = hSplitView.GetSplitterPos();
+    rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Press, x, start));
+    rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Move, x, start + 4));
+    rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Release, x, start + 4));
+    TR_ASSERT(t, rootView.GetTopViewName().value() == "upper");
+    TR_ASSERT(t, !leaveNotified);
+    UIHost::Instance().SetOnLeaveQuickCommand(nullptr);
+
+    // A press with no release before it (let go outside the window): the drag is over, the press is a new one
+    rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Press, x, hSplitView.GetSplitterPos()));
+    rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Press, x, 1));
+    TR_ASSERT(t, upperView.numPresses == 1);
+    int splitterPos = hSplitView.GetSplitterPos();
+    rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Move, x, splitterPos + 6));
+    TR_ASSERT(t, hSplitView.GetSplitterPos() == splitterPos);
+    return kTR_Pass;
+}

@@ -426,6 +426,36 @@ void SDLScreen::PollEvents() {
                 me.y = (int)row;
                 me.button = event.button.button;
                 me.modifiers = keyDriver->TranslateModifiers(SDL_GetModState());
+                lastMouseCol = me.x;
+                lastMouseRow = me.y;
+                Runloop::PostMessage(0, [me](uint32_t) {
+                    Runloop::ProcessMouseEvent(me);
+                });
+                break;
+            }
+
+            // A drag (a splitter, docs/usability-round.md §2): only while a button is held, and only when the pointer
+            // reaches another character cell - SDL reports every pixel, and a move may lay the views out again. Keep
+            // in step with SDL2/SDLScreen.cpp.
+            case SDL_EVENT_MOUSE_MOTION: {
+                if (event.motion.state == 0) {
+                    break;
+                }
+                float col = event.motion.x;
+                float row = event.motion.y;
+                SDLTranslate::PixelToRowCol(col, row);
+                if (((int)col == lastMouseCol) && ((int)row == lastMouseRow)) {
+                    break;
+                }
+                lastMouseCol = (int)col;
+                lastMouseRow = (int)row;
+                MouseEvent me;
+                me.kind = MouseEvent::kMouseEventKind_Move;
+                me.x = (int)col;
+                me.y = (int)row;
+                me.button = (event.motion.state & SDL_BUTTON_LMASK) ? SDL_BUTTON_LEFT
+                          : (event.motion.state & SDL_BUTTON_MMASK) ? SDL_BUTTON_MIDDLE : SDL_BUTTON_RIGHT;
+                me.modifiers = keyDriver->TranslateModifiers(SDL_GetModState());
                 Runloop::PostMessage(0, [me](uint32_t) {
                     Runloop::ProcessMouseEvent(me);
                 });

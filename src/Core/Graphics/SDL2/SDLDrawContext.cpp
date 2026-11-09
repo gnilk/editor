@@ -282,8 +282,8 @@ void SDLDrawContext::DrawStringWithAttributesAt(int x, int y, kTextAttributes at
 
 // The image's own texture, kept between frames: a minimap changes far less often than it is drawn (keep in step with
 // SDL3/SDLDrawContext.cpp)
-void SDLDrawContext::DrawImage(const Rect &rect, const PixelImage &image) const {
-    if (image.IsEmpty() || (rect.Width() <= 0) || (rect.Height() <= 0)) {
+void SDLDrawContext::DrawImage(const Rect &cellRect, const PixelImage &image) const {
+    if (image.IsEmpty() || (cellRect.Width() <= 0) || (cellRect.Height() <= 0)) {
         return;
     }
     if ((imageTexture == nullptr) || (imageTextureWidth != image.Width()) || (imageTextureHeight != image.Height())) {
@@ -306,7 +306,7 @@ void SDLDrawContext::DrawImage(const Rect &rect, const PixelImage &image) const 
         imageRevision = image.Revision();
     }
     SDL_SetRenderTarget(renderer, renderTarget);
-    auto [px, py] = CoordsToScreen((float)rect.TopLeft().x, (float)rect.TopLeft().y);
-    SDL_FRect dst = {px, py, SDLTranslate::ColToXPos(rect.Width()), SDLTranslate::RowToYPos(rect.Height())};
+    auto [px, py] = CoordsToScreen((float)cellRect.TopLeft().x, (float)cellRect.TopLeft().y);
+    SDL_FRect dst = {px, py, SDLTranslate::ColToXPos(cellRect.Width()), SDLTranslate::RowToYPos(cellRect.Height())};
     SDL_RenderCopyF(renderer, imageTexture, nullptr, &dst);
 }

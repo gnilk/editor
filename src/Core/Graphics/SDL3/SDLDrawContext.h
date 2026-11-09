@@ -38,7 +38,7 @@ namespace gedit::SDL3 {
 
         void DrawStringAt(int x, int y, const std::u32string &str) const override;
         void DrawStringWithAttributesAt(int x, int y, kTextAttributes attrib, const std::u32string &str) const override;
-        void DrawImage(const Rect &rect, const PixelImage &image) const override;
+        void DrawImage(const Rect &cellRect, const PixelImage &image) const override;
     protected:
         void SetRenderColor() const;
         void SetRenderColor(kTextAttributes attrib) const;

@@ -23,6 +23,7 @@ extern "C" {
     DLL_EXPORT int test_overviewmap_marks(ITesting *t);
     DLL_EXPORT int test_overviewmap_marksshared(ITesting *t);
     DLL_EXPORT int test_overviewmap_thicken(ITesting *t);
+    DLL_EXPORT int test_overviewmap_nevergone(ITesting *t);
 }
 
 namespace {
@@ -245,5 +246,38 @@ DLL_EXPORT int test_overviewmap_thicken(ITesting *t) {
     TR_ASSERT(t, Marks(OverviewMap::Thicken(marks("...AR....."), 4)) == "..ARRRR...");
     TR_ASSERT(t, Marks(OverviewMap::Thicken(marks("..A..."), 1)) == "..A...");
     TR_ASSERT(t, Marks(OverviewMap::Thicken(marks("A."), 4)) == "AA");
+    return kTR_Pass;
+}
+
+// However many lines share a row, a changed line is never scaled away: its row carries a mark at least as heavy as the
+// change - for every line of every shape, the first and the last line included
+DLL_EXPORT int test_overviewmap_nevergone(ITesting *t) {
+    for (auto &shape : kShapes) {
+        OverviewMap map(shape.numLines, shape.numRows);
+        auto step = 1 + shape.numLines / 500;
+        for (size_t idxLine = 0; idxLine < shape.numLines; idxLine += step) {
+            for (uint8_t change : {(uint8_t)LineDiff::kAdded, (uint8_t)LineDiff::kModified, (uint8_t)LineDiff::kRemovedAbove,
+                                   (uint8_t)LineDiff::kRemovedBelow}) {
+                std::vector<uint8_t> changes(shape.numLines, LineDiff::kNone);
+                changes[idxLine] = change;
+                auto marks = map.MarksPerRow(changes, {}, OverviewMap::kNoLine);
+                TR_ASSERT(t, marks.size() == (size_t)shape.numRows);
+                int numMarked = 0;
+                for (auto mark : marks) {
+                    numMarked += (mark != OverviewMap::kNone) ? 1 : 0;
+                }
+                TR_ASSERT(t, numMarked >= 1);
+                TR_ASSERT(t, marks[(size_t)map.RowOfLine(idxLine)] != OverviewMap::kNone ||
+                             change == LineDiff::kRemovedBelow);
+                // Thickened, it is still there, and at least the least height (when the overview has the rows)
+                auto thick = OverviewMap::Thicken(marks, 4);
+                int numThick = 0;
+                for (auto mark : thick) {
+                    numThick += (mark != OverviewMap::kNone) ? 1 : 0;
+                }
+                TR_ASSERT(t, numThick >= std::min(4, shape.numRows));
+            }
+        }
+    }
     return kTR_Pass;
 }

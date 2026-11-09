@@ -8,6 +8,7 @@
 #include <vector>
 #include <string>
 #include <functional>
+#include <atomic>
 #include <cstdint>
 #include <stdio.h>
 #include <stdlib.h>
@@ -49,8 +50,10 @@ namespace gedit {
             onOutput = handler;
         }
 
-        State GetState() {
-            return state;
+        // Written by the pty thread, polled by the UI thread - must be atomic or an optimised build may
+        // hoist the load out of a wait loop and spin forever.
+        State GetState() const {
+            return state.load();
         }
 
         void OnSignal(int sig);
@@ -59,9 +62,10 @@ namespace gedit {
         void ConsumePty();
         bool StartShellProc(const std::string &shell, const std::string &shellInitStr);
         void SendInitScript(const std::vector<std::string> &initScript);
+        std::string ResolveShellBinary(const std::string &configured);
         void ChangeState(State newState) {
             logger->Debug("ChangeState: %s -> %s",
-                          StateName(state).c_str(), StateName(newState).c_str());
+                          StateName(state.load()).c_str(), StateName(newState).c_str());
             state = newState;
         }
 
@@ -83,7 +87,7 @@ namespace gedit {
         pid_t    pid       = -1;
         int      exitStatus = 0;
         int      extSignal  = -1;
-        State    state      = State::kIdle;
+        std::atomic<State> state { State::kIdle };
 
         OutputDelegate onOutput = nullptr;
     };

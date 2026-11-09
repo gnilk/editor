@@ -112,7 +112,7 @@ void TerminalController::Begin() {
         HandleTerminalData(buffer, length);
     });
 
-    auto shellBinary    = Config::Instance()["terminal"].GetStr("shell", "/bin/bash");
+    auto shellBinary    = Config::Instance()["terminal"].GetStr("shell", "");
     auto shellInitStr   = Config::Instance()["terminal"].GetStr("init", "-ils");
     auto shellInitScript = Config::Instance()["terminal"].GetSequenceOfStr("bootstrap");
     // §4.2 (TS-3c): opt-in OSC 133 shell integration - appends prompt hooks that emit semantic-prompt
@@ -128,7 +128,12 @@ void TerminalController::Begin() {
     // no persisted blocks, the feature is off, or the .bin is missing/corrupt.
     FromSession(SessionManager::Instance().CurrentSession().terminal);
 
-    shell.Begin(shellBinary, shellInitStr, shellInitScript);
+    if (!shell.Begin(shellBinary, shellInitStr, shellInitScript)) {
+        // No pty thread was started, so the state never leaves kIdle - waiting for kRunning would spin
+        // forever before the first frame. Carry on with a dead terminal instead.
+        logger->Error("Shell failed to start - terminal is unavailable");
+        return;
+    }
 
     while (shell.GetState() != Shell::State::kRunning) {
         if (shell.GetState() == Shell::State::kTerminated) {

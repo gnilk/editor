@@ -2,7 +2,7 @@
 
 Status: **Planned 2026-11-08.** The code index is paused before its step 4 (`code-index.md`); this round comes first.
 Order: the change set in the tree (§0), reloading files changed on disk (§0b), changed lines in the gutter (§0c), open
-files list (§1), dragging splitters (§2), workspace search (§3), quick commands: close all and `!` (§5), glyphs beyond
+files list (§1), dragging splitters (§2), workspace search (§3), quick commands: close all and `!` (§5), headless drawing that can be checked (§5b), glyphs beyond
 code point 255 on SDL (§6). The note on key bindings for script commands (§4) is recorded, not scheduled.
 **Next: §6** - the glyph page table, and the font code out of the SDL2/SDL3 copies; §0c's change bar waits on it.
 
@@ -324,6 +324,57 @@ Cancel - listing the documents. `.ca!` closes them all at once, dropping the edi
 
 **Tests:** the executor on `.cb!` / `.cb !` / `.cb` (the arguments the script gets), a name that is only `!`, and `.ca`
 over a workspace with a modified and an unmodified document.
+
+## 5b. Headless drawing that can be checked
+
+**Why:** the headless backend (`--backend headless`, what every `trun` case runs on) drops every draw call:
+`HLScreen` hands out windows over the base `DrawContext`, whose virtuals are empty. Layout maths can be tested, but not
+what ends up on screen - the workspace divide in its column, a header cut with `...`, a change letter at the right edge, a
+modal's frame. Those were checked by eye, with a screenshot or a `fprintf` added and removed again; nothing stayed behind
+as a test.
+
+**The grid is already there:** the Gansi backend composites every window into one cell grid (`gnilk::ansi::Terminal`'s
+back buffer: per cell a code point, fg, bg, attributes), with the real window offsets and clipping, and only then turns it
+into ANSI. `test_gansibackend` drives it over a `MockTerminalIO` and asserts on cells. That is the analytical renderer; it
+was only used to test itself.
+
+**Change:**
+- **Headless draws into a Gansi grid.** `HLScreen` becomes a `GansiScreen` over a terminal IO that keeps nothing it is
+  sent (`HeadlessTerminalIO`: a fixed size, no input, writes dropped - no ANSI piling up over a test run). Same size as
+  before (100 x 100 cells), so the existing tests see the same layout. Without the ANSI backend in the build
+  (`GEDIT_BUILD_ANSI=OFF`) headless stays the old no-op screen.
+- **Read back as text:** `HLScreen::Dump(rect)` gives the grid's characters, one line per row - for a test to compare a
+  region against, and to look at a layout without a display. `HLScreen::CellAt(x, y)` for the colour and attributes.
+  A test reaches it through `HLScreen::FromRuntime()` (null when the headless screen isn't the grid one).
+- **Assert on the grid, not on a log of draw calls:** a call log breaks when the drawing order or batching changes while
+  the screen stays the same; the grid is the result. Tests assert the property ("the divide is in the left panel's last
+  column, after a drag too"), not a whole-screen snapshot.
+
+**Where it stops:** cells, not pixels. How SDL draws a glyph (the dashed `|`), font metrics, whether a code point
+rasterises: those stay with the font code's own tests (§6, without a screen) and a screenshot. A view that draws through
+SDL-only calls with no cell equivalent shows nothing in the grid.
+
+**Built (2026-11-09):**
+- **`HLScreen`** (`src/Core/Graphics/Headless/HLScreen.h`) is a `GansiScreen` over `HeadlessTerminalIO`, 100 x 100 cells,
+  with `Dump()`, `Dump(rect)`, `CellAt(x, y)`, `ClearGrid()` and `FromRuntime()`. The no-op screen stays behind
+  `#ifndef GEDIT_USE_ANSI`. The whole verified-green set passes on it unchanged, `gansibackend` included (619 cases).
+- **A view draws only with a window:** a bare `ViewBase` has none (`window` is null, and `DoDraw` dereferences it), so
+  a test's panels make their own - `FilledView` in `test_layout` fills its window with `.`, which also shows that the
+  divide is drawn over the panel, not under it.
+- **Headless now opens a Gansi screen,** so `GansiScreen::Open` sets the clipboard's update callback (OSC 52 into the
+  dropped output). Tests that watch the clipboard set their own callback, as before.
+
+**Tests:** `layout` - `draw_vsplit`: the workspace divide is a `|` on every row of the left panel's last column, over
+the panel and nowhere else, and follows a drag; the row read back with `Dump`. Not drawing the divide fails it. More views
+move over as they are touched (the tree's change letters next).
+`openfiles` - `drawn`: real open documents in the editor's workspace, the header drawn at widths 20-90 with each file
+active - the active name is drawn whole and underlined, nothing past the header's width, `...` exactly when a name is left
+out. Not underlining the active name fails it; so does a row that never starts later.
+
+**Found by the drawn header test:** when the active name doesn't fit with `... | ` on both sides (a narrow editor, a long
+name), `LayoutEntries` shows it anyway and the screen cuts it - so the active name is the part cut off. The layout test
+allowed it ("too wide alone"); drawn, it reads as a bug. Open: drop the `...` before it in that case, or cut the name
+with `...` itself.
 
 ## 6. Glyphs beyond code point 255 on SDL
 

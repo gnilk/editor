@@ -5,8 +5,13 @@
 #include <testinterface.h>
 
 #include <filesystem>
+#include <fstream>
 #include <string>
 #include <vector>
+
+#include "Core/Editor.h"
+#include "Core/Graphics/Headless/HLScreen.h"
+#include "Core/UI/Views/RootView.h"
 
 #include "Core/Editor/Modals/OpenFilesModal.h"
 #include "Core/Editor/Views/EditorHeaderView.h"
@@ -20,6 +25,7 @@ extern "C" {
     DLL_EXPORT int test_openfiles_layout_fits(ITesting *t);
     DLL_EXPORT int test_openfiles_layout_cut(ITesting *t);
     DLL_EXPORT int test_openfiles_layout_active(ITesting *t);
+    DLL_EXPORT int test_openfiles_drawn(ITesting *t);
     DLL_EXPORT int test_openfiles_filter(ITesting *t);
     DLL_EXPORT int test_openfiles_folder(ITesting *t);
 }
@@ -48,6 +54,8 @@ namespace {
 }
 
 DLL_EXPORT int test_openfiles(ITesting *t) {
+    // The drawn case reads the headless screen's grid
+    Editor::Instance().OpenScreen();
     return kTR_Pass;
 }
 
@@ -98,6 +106,84 @@ DLL_EXPORT int test_openfiles_layout_active(ITesting *t) {
                 TR_ASSERT(t, span.isCutAfter == (span.idxEnd < numEntries));
                 TR_ASSERT(t, (DrawnWidth(widths, span) <= width) || (span.idxEnd - span.idxFirst == 1));
             }
+        }
+    }
+    return kTR_Pass;
+}
+
+namespace {
+    // Open files in the editor's own workspace, the first active - closed again when it goes out of scope
+    struct OpenFiles {
+        std::vector<Document::Ref> documents;
+        std::vector<std::string> names;
+        Document::Ref prevActive;
+
+        OpenFiles(ITesting *t, const std::vector<std::string> &fileNames) {
+            auto workspace = Editor::Instance().GetWorkspace();
+            prevActive = Editor::Instance().GetActiveDocument();
+            auto root = fs::canonical(fs::temp_directory_path()) / "goatedit_openfiles_drawn";
+            fs::create_directories(root);
+            for (auto &name : fileNames) {
+                std::ofstream(root / name) << "x\n";
+                auto node = workspace->NewDocumentWithFileRef(root / name);
+                TR_ASSERT(t, node != nullptr);
+                workspace->AddOpenDocument(node->GetDocument());
+                documents.push_back(node->GetDocument());
+                names.push_back(node->GetDisplayName());
+            }
+        }
+        ~OpenFiles() {
+            auto workspace = Editor::Instance().GetWorkspace();
+            for (auto &document : documents) {
+                workspace->RemoveOpenDocument(document);
+            }
+            Editor::Instance().SetActiveDocument(prevActive);
+        }
+    };
+}
+
+// The header drawn (docs/usability-round.md §5b): whatever the width and the active file, the active name is drawn
+// whole and underlined, the row fits, and '...' is there exactly when a name is left out
+DLL_EXPORT int test_openfiles_drawn(ITesting *t) {
+    auto screen = HLScreen::FromRuntime();
+    TR_ASSERT(t, screen != nullptr);
+    OpenFiles files(t, {"alpha.cpp", "beta.h", "gamma_long_name.cpp", "delta.cpp", "epsilon.h", "zeta.cpp"});
+
+    for (int width = 20; width <= 90; width += 7) {
+        for (size_t idxActive = 0; idxActive < files.documents.size(); idxActive++) {
+            Editor::Instance().SetActiveDocument(files.documents[idxActive]);
+            RootView rootView;
+            EditorHeaderView header;
+            header.SetViewRect(gedit::Rect(gedit::Point(0, 0), width, 1));
+            rootView.AddView(&header);
+            rootView.Initialize();
+            screen->ClearGrid();
+            rootView.Draw();
+
+            auto row = screen->Dump(gedit::Rect(gedit::Point(0, 0), width, 1));
+            row.pop_back();     // the '\n'
+            TR_ASSERT(t, row.rfind("[Files] ", 0) == 0);
+            // Nothing past the header's width
+            TR_ASSERT(t, screen->CellAt(width, 0).ch == U' ');
+
+            // When the name can't fit with a '... | ' on either side, it is drawn anyway and the screen cuts it
+            auto &active = files.names[idxActive];
+            const int widthCuts = 2 * 6;
+            if ((8 + widthCuts + (int)active.length() + 1) > width) {
+                continue;
+            }
+            auto at = row.find(active);
+            TR_ASSERT(t, at != std::string::npos);
+            for (size_t x = at; x < at + active.length(); x++) {
+                TR_ASSERT(t, gnilk::ansi::HasAttr(screen->CellAt((int)x, 0).attr, gnilk::ansi::Attr::Underline));
+            }
+            // A name left out shows as '...'; all in, none - every open document, not only these
+            bool isAllShown = true;
+            for (auto &document : Editor::Instance().GetDocuments()) {
+                auto node = Editor::Instance().GetWorkspace()->GetNodeFromDocument(document);
+                isAllShown = isAllShown && (row.find(node->GetDisplayName()) != std::string::npos);
+            }
+            TR_ASSERT(t, isAllShown == (row.find("...") == std::string::npos));
         }
     }
     return kTR_Pass;

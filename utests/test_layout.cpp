@@ -9,6 +9,7 @@
 #include "Core/UI/Views/VSplitView.h"
 #include "Core/UI/UIHost.h"
 #include "Core/MouseEvent.h"
+#include "Core/Graphics/Headless/HLScreen.h"
 #include "logger.h"
 
 using namespace gedit;
@@ -572,5 +573,73 @@ extern "C" int test_layout_drag_nofocus(ITesting *t) {
     int splitterPos = hSplitView.GetSplitterPos();
     rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Move, x, splitterPos + 6));
     TR_ASSERT(t, hSplitView.GetSplitterPos() == splitterPos);
+    return kTR_Pass;
+}
+
+// The headless screen draws into a cell grid (docs/usability-round.md §5b): the workspace divide is a '|' down the
+// left panel's last column, on every row, over the panel and nowhere else - and it follows a drag
+namespace {
+    // A panel with a window of its own, filled with '.' - so a divider drawn over it shows, and one drawn under it doesn't
+    struct FilledView : public ViewBase {
+        void InitView() override {
+            window = UIHost::Instance().GetScreen()->CreateWindow(viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
+        }
+        void ReInitView() override {
+            window = UIHost::Instance().GetScreen()->UpdateWindow(window, viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
+        }
+        void DrawViewContents() override {
+            auto &dc = window->GetContentDC();
+            std::u32string row(viewRect.Width(), U'.');
+            for (int y = 0; y < viewRect.Height(); y++) {
+                dc.DrawStringAt(0, y, row);
+            }
+        }
+    };
+}
+
+static bool IsDividerAt(HLScreen *screen, const gedit::Rect &rect, int column) {
+    for (int y = rect.TopLeft().y; y < rect.BottomRight().y; y++) {
+        for (int x = rect.TopLeft().x; x < rect.BottomRight().x; x++) {
+            auto expected = (x == column) ? U'|' : U'.';
+            if (screen->CellAt(x, y).ch != expected) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+extern "C" int test_layout_draw_vsplit(ITesting *t) {
+    auto screen = HLScreen::FromRuntime();
+    TR_ASSERT(t, screen != nullptr);
+
+    RootView rootView;
+    VSplitView vSplitView;
+    rootView.AddView(&vSplitView);
+    FilledView leftView;
+    FilledView rightView;
+    vSplitView.SetLeft(&leftView);
+    vSplitView.SetRight(&rightView);
+    rootView.Initialize();
+
+    auto rect = vSplitView.GetViewRect();
+    int divider = rect.TopLeft().x + vSplitView.GetSplitterPos() - 1;
+    screen->ClearGrid();
+    rootView.Draw();
+    TR_ASSERT(t, IsDividerAt(screen, rect, divider));
+
+    // Dragged 7 columns right: drawn there, and gone from where it was
+    int y = rect.Height() / 2;
+    rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Press, divider, y));
+    rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Move, divider + 7, y));
+    rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Release, divider + 7, y));
+    screen->ClearGrid();
+    rootView.Draw();
+    TR_ASSERT(t, IsDividerAt(screen, rect, divider + 7));
+
+    // The same row read back as text
+    auto row = gedit::Rect(gedit::Point(rect.TopLeft().x, y), rect.Width(), 1);
+    auto expected = std::string(divider + 7 - rect.TopLeft().x, '.') + "|" + std::string(rect.BottomRight().x - divider - 8, '.') + "\n";
+    TR_ASSERT(t, screen->Dump(row) == expected);
     return kTR_Pass;
 }

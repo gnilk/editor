@@ -87,6 +87,13 @@ DLL_EXPORT int test_openfiles_layout_cut(ITesting *t) {
     // Wider than the row on its own: still the one shown
     auto wide = EditorHeaderView::LayoutEntries({50, 5}, 0, 10);
     TR_ASSERT(t, (wide.idxFirst == 0) && (wide.idxEnd == 1) && wide.isCutAfter);
+    // ...and after others: no '...' in front of it, it starts the row
+    auto wideLater = EditorHeaderView::LayoutEntries({5, 50, 5}, 1, 10);
+    TR_ASSERT(t, (wideLater.idxFirst == 1) && (wideLater.idxEnd == 2));
+    TR_ASSERT(t, !wideLater.isCutBefore && wideLater.isCutAfter);
+    // Room for the '... | ' and the name: kept
+    auto fitsLater = EditorHeaderView::LayoutEntries({5, 8, 5}, 1, 14);
+    TR_ASSERT(t, (fitsLater.idxFirst == 1) && fitsLater.isCutBefore);
     return kTR_Pass;
 }
 
@@ -102,7 +109,9 @@ DLL_EXPORT int test_openfiles_layout_active(ITesting *t) {
             for (int width = 8; width <= 70; width++) {
                 auto span = EditorHeaderView::LayoutEntries(widths, idxActive, width);
                 TR_ASSERT(t, (span.idxFirst <= idxActive) && (idxActive < span.idxEnd));
-                TR_ASSERT(t, span.isCutBefore == (span.idxFirst > 0));
+                // A cut start shows '...' - unless the active one alone has no room for it, then it starts the row
+                bool isActiveAloneTooWide = (span.idxEnd - span.idxFirst == 1) && ((widths[idxActive] + 6) > width);
+                TR_ASSERT(t, span.isCutBefore == ((span.idxFirst > 0) && !isActiveAloneTooWide));
                 TR_ASSERT(t, span.isCutAfter == (span.idxEnd < numEntries));
                 TR_ASSERT(t, (DrawnWidth(widths, span) <= width) || (span.idxEnd - span.idxFirst == 1));
             }
@@ -166,10 +175,11 @@ DLL_EXPORT int test_openfiles_drawn(ITesting *t) {
             // Nothing past the header's width
             TR_ASSERT(t, screen->CellAt(width, 0).ch == U' ');
 
-            // When the name can't fit with a '... | ' on either side, it is drawn anyway and the screen cuts it
+            // A name too wide for the row starts right after '[Files] ' - the screen cuts its end, never its start
             auto &active = files.names[idxActive];
-            const int widthCuts = 2 * 6;
-            if ((8 + widthCuts + (int)active.length() + 1) > width) {
+            if ((8 + (int)active.length() + 1) > width) {
+                auto shown = std::min(active.length(), (size_t)(width - 8));
+                TR_ASSERT(t, row.substr(8, shown) == active.substr(0, shown));
                 continue;
             }
             auto at = row.find(active);
@@ -177,7 +187,11 @@ DLL_EXPORT int test_openfiles_drawn(ITesting *t) {
             for (size_t x = at; x < at + active.length(); x++) {
                 TR_ASSERT(t, gnilk::ansi::HasAttr(screen->CellAt((int)x, 0).attr, gnilk::ansi::Attr::Underline));
             }
-            // A name left out shows as '...'; all in, none - every open document, not only these
+            // A name left out shows as '...'; all in, none - every open document, not only these. Only with room for a
+            // '... | ' on both sides: else the one after it may be past the edge
+            if ((8 + 2 * 6 + (int)active.length() + 1) > width) {
+                continue;
+            }
             bool isAllShown = true;
             for (auto &document : Editor::Instance().GetDocuments()) {
                 auto node = Editor::Instance().GetWorkspace()->GetNodeFromDocument(document);

@@ -45,7 +45,7 @@ namespace gedit {
 
         // Which entries the header shows when 'width' columns hold them - joined by ' | ', with '...' and a separator
         // in place of what is cut at either end. The active one is always in: the row starts later rather than
-        // leaving it out. [idxFirst, idxEnd).
+        // leaving it out, and when it is too wide for a '...' before it, it starts the row. [idxFirst, idxEnd).
         struct Span {
             size_t idxFirst = 0;
             size_t idxEnd = 0;
@@ -85,7 +85,13 @@ namespace gedit {
             if (idxEnd <= idxActive) {
                 idxEnd = idxActive + 1;
             }
-            return {idxFirst, idxEnd, idxFirst > 0, idxEnd < numEntries};
+            Span span = {idxFirst, idxEnd, idxFirst > 0, idxEnd < numEntries};
+            // The active one alone, and no room for a '... | ' before it: the '...' goes, so the row starts with the
+            // name and the screen cuts its end, not its start. The '...' after it still opens the list.
+            if (span.isCutBefore && (idxEnd - idxFirst == 1) && ((widths[idxFirst] + widthCut) > width)) {
+                span.isCutBefore = false;
+            }
+            return span;
         }
 
     protected:

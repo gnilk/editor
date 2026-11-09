@@ -4,7 +4,7 @@ Status: **Planned 2026-11-08.** The code index is paused before its step 4 (`cod
 Order: the change set in the tree (§0), reloading files changed on disk (§0b), changed lines in the gutter (§0c), open
 files list (§1), dragging splitters (§2), workspace search (§3), quick commands: close all and `!` (§5), headless drawing that can be checked (§5b), glyphs beyond
 code point 255 on SDL (§6). The note on key bindings for script commands (§4) is recorded, not scheduled.
-**Next:** open - built: §0, §0b, §0c, §1, §2, §5, §5b, §6. Left: the narrow header (§5b), §3.
+**Next:** §3, workspace search - everything before it in this round is built (§0, §0b, §0c, §1, §2, §5, §5b, §6).
 
 ## 0. The change set in the workspace tree
 
@@ -421,8 +421,11 @@ out. Not underlining the active name fails it; so does a row that never starts l
 
 **Found by the drawn header test:** when the active name doesn't fit with `... | ` on both sides (a narrow editor, a long
 name), `LayoutEntries` shows it anyway and the screen cuts it - so the active name is the part cut off. The layout test
-allowed it ("too wide alone"); drawn, it reads as a bug. Open: drop the `...` before it in that case, or cut the name
-with `...` itself.
+allowed it ("too wide alone"); drawn, it reads as a bug. **Fixed (2026-11-09):** the `...` before it goes - when the
+active one is left alone and has no room for a `... | ` in front, `LayoutEntries` clears `isCutBefore`, so the row
+starts `[Files] <name>` and the screen cuts the name's end, not its start. The `...` after it still opens the list.
+The drawn test now checks those widths too (the name starts right after `[Files] `); without the fix it and the layout
+tests fail.
 
 ## 6. Glyphs beyond code point 255 on SDL
 

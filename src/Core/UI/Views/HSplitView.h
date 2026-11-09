@@ -192,11 +192,19 @@ namespace gedit {
 
         // The divider row - the status line, in the editor - can be dragged with the left button
         bool OnMouseDragStart(const MouseEvent &press) override {
-            if (bUseFullView || (press.button != kLeftButton) || (press.y != DividerRow()) || !viewRect.PointInRect(press.x, press.y)) {
+            if ((press.button != kLeftButton) || !IsOnDivider(press.x, press.y)) {
                 return false;
             }
             dragOffset = press.y - DividerRow();
             return true;
+        }
+
+        std::optional<kPointerShape> PointerShapeAt(int x, int y) override {
+            return IsOnDivider(x, y) ? std::optional(kPointerShape::kResizeRows) : std::nullopt;
+        }
+
+        kPointerShape DragPointerShape() override {
+            return kPointerShape::kResizeRows;
         }
 
         void OnMouseDrag(const MouseEvent &mouseEvent) override {
@@ -255,6 +263,10 @@ namespace gedit {
         // On screen, by UpdateUpper/LowerViewRect: the upper view ends the row above, the lower starts the row below
         int DividerRow() {
             return splitterPos;
+        }
+
+        bool IsOnDivider(int x, int y) {
+            return !bUseFullView && (y == DividerRow()) && viewRect.PointInRect(x, y);
         }
 
         void UpdateUpperViewRect() {

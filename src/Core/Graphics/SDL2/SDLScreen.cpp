@@ -325,6 +325,7 @@ bool SDLScreen::GetPrimaryDisplayBounds(int &x, int &y, int &width, int &height)
 }
 
 void SDLScreen::Close() {
+    FreePointerShapes();
     SDLFontManager::Instance().SetActiveFont(nullptr);
     SDL_Quit();
 }
@@ -483,6 +484,9 @@ void SDLScreen::PollEvents() {
             // step with SDL3/SDLScreen.cpp.
             case SDL_MOUSEMOTION: {
                 if (event.motion.state == 0) {
+                    MouseEvent hover;
+                    SetMousePosition(hover, (float)event.motion.x, (float)event.motion.y);
+                    PostHover(hover);
                     break;
                 }
                 MouseEvent me;
@@ -538,6 +542,44 @@ void SDLScreen::PollEvents() {
 
             default:
                 break;
+        }
+    }
+}
+
+void SDLScreen::PostHover(MouseEvent &hover) {
+    if ((hover.x == hoverCellX) && (hover.y == hoverCellY)) {
+        return;
+    }
+    hoverCellX = hover.x;
+    hoverCellY = hover.y;
+    hover.kind = MouseEvent::kMouseEventKind_Hover;
+    Runloop::PostMessage(0, [hover](uint32_t) {
+        Runloop::ProcessMouseEvent(hover);
+    });
+}
+
+// Keep in step with SDL3/SDLScreen.cpp
+void SDLScreen::SetPointerShape(kPointerShape shape) {
+    static const SDL_SystemCursor systemCursors[] = {
+        SDL_SYSTEM_CURSOR_ARROW, SDL_SYSTEM_CURSOR_IBEAM, SDL_SYSTEM_CURSOR_SIZEWE, SDL_SYSTEM_CURSOR_SIZENS,
+    };
+    auto idx = (size_t)shape;
+    if (idx >= std::size(pointerShapes)) {
+        return;
+    }
+    if (pointerShapes[idx] == nullptr) {
+        pointerShapes[idx] = SDL_CreateSystemCursor(systemCursors[idx]);
+    }
+    if (pointerShapes[idx] != nullptr) {
+        SDL_SetCursor(pointerShapes[idx]);
+    }
+}
+
+void SDLScreen::FreePointerShapes() {
+    for (auto &pointerShape : pointerShapes) {
+        if (pointerShape != nullptr) {
+            SDL_FreeCursor(pointerShape);
+            pointerShape = nullptr;
         }
     }
 }

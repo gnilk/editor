@@ -111,12 +111,19 @@ namespace gedit {
         // the line, or on the column right of it, drags with the left button instead of reaching a panel - one cell is
         // easy to miss.
         bool OnMouseDragStart(const MouseEvent &press) override {
-            bool isOnDivider = (press.x == DividerColumn()) || (press.x == DividerColumn() + 1);
-            if ((press.button != kLeftButton) || !isOnDivider || !viewRect.PointInRect(press.x, press.y)) {
+            if ((press.button != kLeftButton) || !IsOnDivider(press.x, press.y)) {
                 return false;
             }
             dragOffset = press.x - DividerColumn();
             return true;
+        }
+
+        std::optional<kPointerShape> PointerShapeAt(int x, int y) override {
+            return IsOnDivider(x, y) ? std::optional(kPointerShape::kResizeColumns) : std::nullopt;
+        }
+
+        kPointerShape DragPointerShape() override {
+            return kPointerShape::kResizeColumns;
         }
 
         void OnMouseDrag(const MouseEvent &mouseEvent) override {
@@ -196,6 +203,11 @@ namespace gedit {
         // The left panel's last column, on screen (UpdateLeftViewRect)
         int DividerColumn() {
             return viewRect.TopLeft().x + splitterPos - 1;
+        }
+
+        // The line, or the column right of it
+        bool IsOnDivider(int x, int y) {
+            return ((x == DividerColumn()) || (x == DividerColumn() + 1)) && viewRect.PointInRect(x, y);
         }
 
         void UpdateRightViewRect() {

@@ -13,7 +13,8 @@ namespace gedit {
             kMouseEventKind_Press,
             kMouseEventKind_Release,
             kMouseEventKind_Wheel,
-            kMouseEventKind_Move,
+            kMouseEventKind_Move,       // with a button held: a drag
+            kMouseEventKind_Hover,      // no button held, into another cell - only the pointer's shape follows it
         } kMouseEventKind;
 
         kMouseEventKind kind = kMouseEventKind_Press;

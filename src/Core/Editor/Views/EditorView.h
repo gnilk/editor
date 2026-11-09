@@ -45,6 +45,10 @@ namespace gedit {
 
         bool OnAction(const EditorAction &kpAction) override;
         bool OnMouseEvent(const MouseEvent &mouseEvent) override;
+        // The I-beam: what is under the pointer is text
+        std::optional<kPointerShape> PointerShapeAt(int x, int y) override {
+            return viewRect.PointInRect(x, y) ? std::optional(kPointerShape::kText) : std::nullopt;
+        }
 
 
         const std::u32string &GetStatusBarAbbreviation() override {

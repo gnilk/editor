@@ -278,7 +278,7 @@ own.
 - **The splitters:** a press on the divider row (`HSplitView`) or column (`VSplitView`) is not covered by either child, so
   the hit lands on the split view itself today. On a move it calls `SetSplitterPos`, which already clamps and saves the
   position to the session. `HSplitViewStatus` draws the status line on its divider row, so the status line is the handle.
-- **Feedback:** none needed at first; the views follow the pointer. A cursor shape change is a later nicety.
+- **Feedback:** none needed at first; the views follow the pointer. A cursor shape change is a later nicety (built, below).
 
 **Tests:** capture routing on a view tree without a screen (press captures, moves outside still arrive, release ends it,
 no focus change mid-drag), and a splitter moved by a press and moves stays clamped.
@@ -311,6 +311,22 @@ no focus change mid-drag), and a splitter moved by a press and moves stays clamp
 **Tests:** `layout` - a drag of the terminal splitter (past the bottom and outside the view: clamped; the panels see
 nothing; after the release a move is nobody's), of the workspace splitter over its panel (the divider follows, the next
 column is the panel's, another button isn't a drag), and no focus change or quick-command leave, a lost release.
+
+**The pointer's shape (built 2026-11-09):** over a divider the pointer is a resize arrow, over text an I-beam, elsewhere
+the arrow - and a drag keeps its shape wherever the pointer goes.
+- **The views decide, the backend draws:** `ViewBase::PointerShapeAt(x, y)` (none: no opinion) and `DragPointerShape()`;
+  `RootView::PointerShapeUnder` asks from the outside in, as a press for a drag is asked, so a divider beats the panel
+  under it. The splitters share `IsOnDivider` between the shape and the drag. `EditorView` and `TerminalView` say text.
+  `ScreenBase::SetPointerShape(kPointerShape)` is plain data (`Core/UI/Graphics/PointerShape.h`).
+- **A hover:** `MouseEvent::kMouseEventKind_Hover`, a move with no button held, sent by the SDL backends only when the
+  pointer reaches another cell. `RootView` takes it for the shape alone: no view sees it, nothing is laid out. After a
+  press or a release the shape is asked again (a drag starts or ends there). Only a change reaches the screen.
+- **SDL:** system cursors, made the first time each is shown, freed on close. SDL3 `DEFAULT` / `TEXT` / `EW_RESIZE` /
+  `NS_RESIZE`; SDL2 `ARROW` / `IBEAM` / `SIZEWE` / `SIZENS`. Gansi: no pointer (it doesn't ask the terminal for hover
+  motion); `SetPointerShape` does nothing there.
+- **Stale until the next move:** a splitter moved by a key leaves the shape as it was until the pointer moves a cell.
+- **Tests:** `layout` - `pointer_shape` (a divider over a panel, the status row, text, a drag over text and its release)
+  and `pointer_hover` (a hover reaches no view and moves nothing; only changes reach the screen).
 
 ## 3. Workspace search - three kinds
 

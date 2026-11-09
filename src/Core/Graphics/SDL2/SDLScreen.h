@@ -49,6 +49,7 @@ namespace gedit::SDL2 {
         void OnSizeChanged() override;
         void OnMoved() override;
         void PollEvents() override;
+        void SetPointerShape(kPointerShape shape) override;
     protected:
         bool GetPrimaryDisplayBounds(int &x, int &y, int &width, int &height) override;
     private:
@@ -61,6 +62,9 @@ namespace gedit::SDL2 {
         // The window's pixel size changed - lay out again only when it is because the density did
         void OnPixelSizeChanged();
         void SetMousePosition(MouseEvent &mouseEvent, float pixelX, float pixelY);
+        // No button held: a hover, only when the pointer reaches another cell - the shape is all that follows it
+        void PostHover(MouseEvent &hover);
+        void FreePointerShapes();
         // Load the app icon (appicon.png) via the asset loader and set it as the window/taskbar
         // icon. Without this the WM has no icon to show (ALT+TAB) unless a matching .desktop is
         // installed system-wide — which is not the case for an AppImage or a dev build.
@@ -86,6 +90,10 @@ namespace gedit::SDL2 {
 
         gnilk::Logger::ILogger *logger = nullptr;
 
+        // The system pointers, made the first time each is shown (docs/usability-round.md §2)
+        SDL_Cursor *pointerShapes[4] = {};
+        int hoverCellX = -1;
+        int hoverCellY = -1;
     };
 }
 

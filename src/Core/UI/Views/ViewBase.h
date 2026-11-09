@@ -7,6 +7,7 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <cxxabi.h>
 #include <string>
 #include <typeinfo>
@@ -16,6 +17,7 @@
 #include "Core/UI/Graphics/WindowBase.h"
 #include "Core/KeyPress.h"
 #include "Core/MouseEvent.h"
+#include "Core/UI/Graphics/PointerShape.h"
 #include "Core/Graphics/Cursor.h"
 #include "Core/Action.h"
 #include "Core/KeyMapping.h"
@@ -284,6 +286,14 @@ namespace gedit {
         // A drag that draws finer than a cell (the minimap) gets every move; the others only one per cell reached
         virtual bool IsSubCellDrag() const {
             return false;
+        }
+        // The pointer's shape over (x, y), absolute. Asked of the views from the outside in, as a drag is - none: no
+        // opinion, ask the next one in. A view that takes a drag says what the pointer looks like while it lasts.
+        virtual std::optional<kPointerShape> PointerShapeAt(int x, int y) {
+            return std::nullopt;
+        }
+        virtual kPointerShape DragPointerShape() {
+            return kPointerShape::kDefault;
         }
 
         // Deepest visible view whose absolute viewRect contains (x,y) - row/col, same space as

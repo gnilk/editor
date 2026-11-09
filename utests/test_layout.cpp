@@ -643,3 +643,90 @@ extern "C" int test_layout_draw_vsplit(ITesting *t) {
     TR_ASSERT(t, screen->Dump(row) == expected);
     return kTR_Pass;
 }
+
+// ---------------------------------------------------------------------------------------------------
+// The pointer's shape (docs/usability-round.md §2): a divider beats the panel under it, text shows the I-beam, a drag keeps
+// its shape wherever the pointer goes, and a hover reaches no view - only the screen, and only on a change.
+// ---------------------------------------------------------------------------------------------------
+
+namespace {
+    struct TextView : public PressCountingView {
+        std::optional<kPointerShape> PointerShapeAt(int x, int y) override {
+            return viewRect.PointInRect(x, y) ? std::optional(kPointerShape::kText) : std::nullopt;
+        }
+    };
+
+    // Stands in for the backend: what reached it
+    struct PointerRecordingScreen : public ScreenBase {
+        std::vector<kPointerShape> shown;
+        void SetPointerShape(kPointerShape shape) override {
+            shown.push_back(shape);
+        }
+    };
+}
+
+extern "C" int test_layout_pointer_shape(ITesting *t) {
+    RootView rootView;
+    HSplitView hSplitView;
+    VSplitView vSplitView;
+    PressCountingView treeView;
+    TextView textView;
+    PressCountingView terminalView;
+    rootView.AddView(&hSplitView);
+    vSplitView.SetLeft(&treeView);
+    vSplitView.SetRight(&textView);
+    hSplitView.SetUpper(&vSplitView);
+    hSplitView.SetLower(&terminalView);
+    rootView.Initialize();
+
+    int dividerRow = hSplitView.GetSplitterPos();
+    int dividerColumn = vSplitView.GetViewRect().TopLeft().x + vSplitView.GetSplitterPos() - 1;
+    int y = 2;
+    int textX = dividerColumn + 5;
+
+    TR_ASSERT(t, rootView.PointerShapeUnder(textX, y) == kPointerShape::kText);
+    TR_ASSERT(t, rootView.PointerShapeUnder(1, y) == kPointerShape::kDefault);
+    // Over the panel's last column, and the column right of it: the divider's
+    TR_ASSERT(t, rootView.PointerShapeUnder(dividerColumn, y) == kPointerShape::kResizeColumns);
+    TR_ASSERT(t, rootView.PointerShapeUnder(dividerColumn + 1, y) == kPointerShape::kResizeColumns);
+    TR_ASSERT(t, rootView.PointerShapeUnder(textX, dividerRow) == kPointerShape::kResizeRows);
+    TR_ASSERT(t, rootView.PointerShapeUnder(textX, dividerRow + 2) == kPointerShape::kDefault);
+
+    // A drag keeps its shape over the text; the release gives the text's back
+    rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Press, textX, dividerRow));
+    rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Move, textX, y));
+    TR_ASSERT(t, rootView.PointerShapeUnder(textX, y) == kPointerShape::kResizeRows);
+    rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Release, textX, y));
+    TR_ASSERT(t, rootView.PointerShapeUnder(textX, y) == kPointerShape::kText);
+    return kTR_Pass;
+}
+
+extern "C" int test_layout_pointer_hover(ITesting *t) {
+    RootView rootView;
+    VSplitView vSplitView;
+    PressCountingView treeView;
+    TextView textView;
+    rootView.AddView(&vSplitView);
+    vSplitView.SetLeft(&treeView);
+    vSplitView.SetRight(&textView);
+    rootView.Initialize();
+    int start = vSplitView.GetSplitterPos();
+    int dividerColumn = vSplitView.GetViewRect().TopLeft().x + start - 1;
+    // After the views are laid out - the stand-in has no windows to give them
+    auto previousScreen = UIHost::Instance().GetScreen();
+    auto screen = std::make_shared<PointerRecordingScreen>();
+    UIHost::Instance().SetScreen(screen);
+
+    rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Hover, dividerColumn + 5, 2));
+    rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Hover, dividerColumn + 6, 2));
+    rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Hover, dividerColumn, 2));
+    rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Hover, 1, 2));
+    // Only the changes: text, divider, default
+    std::vector<kPointerShape> expected = { kPointerShape::kText, kPointerShape::kResizeColumns, kPointerShape::kDefault };
+    UIHost::Instance().SetScreen(previousScreen);
+    TR_ASSERT(t, screen->shown == expected);
+    // No view saw a hover, and nothing moved
+    TR_ASSERT(t, (treeView.numPresses == 0) && (textView.numPresses == 0));
+    TR_ASSERT(t, vSplitView.GetSplitterPos() == start);
+    return kTR_Pass;
+}

@@ -63,6 +63,7 @@
 #include "Core/API/TerminalAPI.h"
 #include "Core/API/ConfigAPI.h"
 #include "Core/API/ThemesAPI.h"
+#include "Core/Git/GitBase.h"
 #include "Core/Graphics/Headless/HLScreen.h"
 
 #if defined(GEDIT_MACOS)
@@ -1077,6 +1078,44 @@ void Editor::WireRepoMonitor() {
         };
         return RepoMonitor::Create(rootPath, postToMain, checkInterval);
     });
+    // The change marks (docs/usability-round.md §0c) ride the same switch: both run git on what is open
+    isChangeMarksEnabled = true;
+    workspace->SetChangeSetAppliedHandler([this]() {
+        for (auto &document : workspace->GetOpenDocuments()) {
+            RefreshChangeBase(document);
+        }
+    });
+}
+
+// The file as the last commit has it, in the background; split and hashed there too, then handed to the document on
+// the main thread. A document closed meanwhile is left alone.
+void Editor::RefreshChangeBase(const Document::Ref &document) {
+    if (!isChangeMarksEnabled) {
+        return;
+    }
+    auto path = IndexPathForDocument(document);
+    if (path.empty()) {
+        return;
+    }
+    std::weak_ptr<Document> weakDocument = document;
+    GitBase::Query(path, [weakDocument](const GitBase::Result &result) {
+        auto kind = result.kind;
+        auto hashes = (kind == GitBase::kKind::kBase) ? Document::HashLines(result.text) : nullptr;
+        Runloop::PostMessage(0x00, [weakDocument, kind, hashes](uint32_t) {
+            auto document = weakDocument.lock();
+            if ((document == nullptr) || !Editor::Instance().GetWorkspace()->IsDocumentOpen(document)) {
+                return;
+            }
+            if (kind == GitBase::kKind::kBase) {
+                document->SetChangeBase(hashes);
+            } else if (kind == GitBase::kKind::kAllAdded) {
+                document->SetChangeBaseAllAdded();
+            } else {
+                document->ClearChangeBase();
+            }
+            Editor::Instance().TriggerUIRedraw();
+        });
+    });
 }
 
 void Editor::WireCodeIndex() {
@@ -1118,6 +1157,7 @@ std::string Editor::IndexPathForDocument(const Document::Ref &document) {
 }
 
 void Editor::OnDocumentOpened(const Document::Ref &document) {
+    RefreshChangeBase(document);
     // Not while indexing: a name's meaning isn't settled until every file is in, and each answer recolours
     document->GetTextBuffer()->SetWorkspaceNamesSource([this]() -> WorkspaceNames::Ref {
         return indexer->GetProgress().isIdle ? codeIndex->GetWorkspaceNames() : nullptr;
@@ -1132,6 +1172,7 @@ void Editor::OnDocumentOpened(const Document::Ref &document) {
 }
 
 void Editor::OnDocumentClosed(const Document::Ref &document) {
+    document->ClearChangeBase();
     document->GetTextBuffer()->SetWorkspaceNamesSource(nullptr);
     document->GetTextBuffer()->SetStructureHandler(nullptr);
     auto path = IndexPathForDocument(document);

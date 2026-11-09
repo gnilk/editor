@@ -63,6 +63,7 @@ void Line::Release() {
 }
 
 void Line::NotifyChangeHandler() {
+    isHashValid = false;
     if (cbChanged == nullptr) {
         return;
     }
@@ -71,6 +72,19 @@ void Line::NotifyChangeHandler() {
 
 void Line::Clear() {
     buffer = U"";
+    isHashValid = false;
+}
+
+uint64_t Line::ContentHashLocked() {
+    if (!isHashValid) {
+        contentHash = HashOf(buffer);
+        isHashValid = true;
+    }
+    return contentHash;
+}
+
+uint64_t Line::HashOf(const std::u32string_view &text) {
+    return std::hash<std::u32string_view>{}(text);
 }
 
 void Line::Append(char32_t ch) {

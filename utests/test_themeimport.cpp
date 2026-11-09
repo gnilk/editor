@@ -104,6 +104,8 @@ DLL_EXPORT int test_themeimport_vscode(ITesting *t) {
             "editor.foreground": "#c0c0c0",
             "editorCursor.foreground": "#fff",
             "editorLineNumber.foreground": "#405060",
+            "editorGutter.addedBackground": "#00a000",
+            "gitDecoration.modifiedResourceForeground": "#a0a000",
             "terminal.ansiRed": "#aa0000",
         },
         "tokenColors": [
@@ -131,6 +133,10 @@ DLL_EXPORT int test_themeimport_vscode(ITesting *t) {
     // 'globals' carries the same colours
     TR_ASSERT(t, IsColor(colors["globals"]["keyword"], 0xc0, 0x80, 0xff));
     TR_ASSERT(t, IsColor(colors["ui"]["gutter_foreground"], 0x40, 0x50, 0x60));
+    // The change marks: the gutter's own key, else the tree's, else the foreground
+    TR_ASSERT(t, IsColor(colors["ui"]["gutter_added"], 0x00, 0xa0, 0x00));
+    TR_ASSERT(t, IsColor(colors["ui"]["gutter_modified"], 0xa0, 0xa0, 0x00));
+    TR_ASSERT(t, IsColor(colors["ui"]["gutter_deleted"], 0xc0, 0xc0, 0xc0));
     TR_ASSERT(t, IsColor(colors["terminal"]["1"], 0xaa, 0x00, 0x00));
     TR_ASSERT(t, IsColor(colors["terminal"]["2"], 0x00, 0xcd, 0x00));
     return kTR_Pass;

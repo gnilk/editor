@@ -74,6 +74,8 @@ foldermonitor:
 # modification times - that check runs no process. Nothing runs while nothing changes.
 # With 'foldermonitor' off, files changed outside the editor without git (an agent writing them) aren't seen until
 # the next git operation: keep the folder monitor on when working with an agent.
+# Also switches the change marks in the gutter (§0c): each open file as the last commit has it ('git show'), fetched
+# when it opens and when the change set changes, compared with the buffer after a pause in typing.
 repomonitor:
   enabled: yes
   check_interval_ms: 1000

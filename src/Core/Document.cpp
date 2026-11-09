@@ -33,6 +33,81 @@ Document::Ref Document::Create(TextBuffer::Ref newTextBuffer) {
     return document;
 }
 
+Document::BaseHashes Document::HashLines(std::string_view text) {
+    std::vector<std::u32string> lines;
+    TextBuffer::SplitLines(text, lines);
+    auto hashes = std::make_shared<std::vector<uint64_t>>();
+    hashes->reserve(lines.size());
+    for (auto &line : lines) {
+        hashes->push_back(Line::HashOf(line));
+    }
+    return hashes;
+}
+
+void Document::SetChangeBase(BaseHashes newBaseHashes) {
+    {
+        std::lock_guard<std::mutex> guard(changesLock);
+        hasChangeBase = true;
+        isAllAdded = false;
+        baseHashes = std::move(newBaseHashes);
+    }
+    WatchLineHashes();
+}
+
+void Document::SetChangeBaseAllAdded() {
+    {
+        std::lock_guard<std::mutex> guard(changesLock);
+        hasChangeBase = true;
+        isAllAdded = true;
+        baseHashes = nullptr;
+    }
+    WatchLineHashes();
+}
+
+void Document::ClearChangeBase() {
+    textBuffer->SetLineHashesHandler(nullptr);
+    std::lock_guard<std::mutex> guard(changesLock);
+    hasChangeBase = false;
+    isAllAdded = false;
+    baseHashes = nullptr;
+    lineChanges = nullptr;
+}
+
+// The buffer reports its lines to this document while it has a base; the destructor and ClearChangeBase stop it
+void Document::WatchLineHashes() {
+    textBuffer->SetLineHashesHandler([this](const std::vector<uint64_t> &hashes) {
+        UpdateLineChanges(hashes);
+    });
+    textBuffer->RequestLineHashes();
+}
+
+LineDiff::Changes::Ref Document::GetLineChanges() {
+    std::lock_guard<std::mutex> guard(changesLock);
+    return lineChanges;
+}
+
+void Document::UpdateLineChanges(const std::vector<uint64_t> &hashes) {
+    BaseHashes base;
+    bool isAllAddedNow;
+    {
+        std::lock_guard<std::mutex> guard(changesLock);
+        if (!hasChangeBase) {
+            return;
+        }
+        base = baseHashes;
+        isAllAddedNow = isAllAdded;
+    }
+    if (!isAllAddedNow && (base == nullptr)) {
+        return;
+    }
+    // Compared outside the lock: GetLineChanges, from the drawing, doesn't wait for it
+    auto changes = std::make_shared<LineDiff::Changes>(isAllAddedNow ? LineDiff::AllAdded(hashes.size()) : LineDiff::Compute(*base, hashes));
+    std::lock_guard<std::mutex> guard(changesLock);
+    if (hasChangeBase) {
+        lineChanges = std::move(changes);
+    }
+}
+
 void Document::Begin() {
     logger = gnilk::Logger::GetLogRef("Document");
     bUseCLionPageNav = Config::Instance()[cfgSectionName].GetBool("pgupdown_content_first", true);

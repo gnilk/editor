@@ -768,6 +768,9 @@ void Workspace::ApplyChangeSet(ProjectRoot::Ref projectRoot) {
     }
     projectRoot->DeletedNodes() = std::move(kept);
     NotifyChangeHandler();
+    if (changeSetAppliedHandler != nullptr) {
+        changeSetAppliedHandler();
+    }
 }
 
 void Workspace::CheckOpenDocumentsOnDisk(const std::set<std::filesystem::path> &dirtyFolders, bool isLostEvents) {

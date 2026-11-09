@@ -14,8 +14,10 @@
 #include "Core/KeyMapping.h"
 #include "Core/DocumentViewState.h"
 #include "Core/EditState.h"
+#include "Core/LineDiff.h"
 
 #include <memory>
+#include <mutex>
 
 namespace gedit {
 
@@ -39,8 +41,10 @@ namespace gedit {
         Document(TextBuffer::Ref newTextBuffer) : textBuffer(newTextBuffer) {
         }
         virtual ~Document() {
-            // note: this is just here for debugging purposes..
-            // printf("Document::DTOR\n");
+            // The parse thread may be about to report to this document: no more (waits for a report under way)
+            if (textBuffer != nullptr) {
+                textBuffer->SetLineHashesHandler(nullptr);
+            }
         }
         static Ref Create(TextBuffer::Ref newTextBuffer);
 
@@ -51,6 +55,7 @@ namespace gedit {
         // Closed but kept (the workspace node holds it, a reopen reuses it): drop what refers to the
         // in-memory lines - the reopen loads them from disk again. Cursor/scroll stay (reopen where you were).
         void Close() {
+            ClearChangeBase();
             textBuffer->Close();
             editState = EditState::Create();     // undo items point at the old lines
             CancelSelection();
@@ -270,9 +275,25 @@ namespace gedit {
         // returned unchanged (charwise).
         Point SelectionEndForCopy(const Selection &selection);
 
+        // The change marks (docs/usability-round.md §0c): the lines of the file as the last commit has it, as hashes
+        // (Line::HashOf). The buffer is compared with them after each pause in editing, unsaved edits included.
+        using BaseHashes = std::shared_ptr<const std::vector<uint64_t>>;
+        // The file's text as git prints it, split as a load splits a file
+        static BaseHashes HashLines(std::string_view text);
+        void SetChangeBase(BaseHashes newBaseHashes);
+        // Not in the last commit (new, or only staged): every line is added
+        void SetChangeBaseAllAdded();
+        // No marks: not in a repository, ignored, or closed
+        void ClearChangeBase();
+        // The marks of the last comparison; null when there is no base. Any thread.
+        LineDiff::Changes::Ref GetLineChanges();
+        // Compare the buffer's lines with the base - the buffer calls this after a pause, on its parse thread
+        void UpdateLineChanges(const std::vector<uint64_t> &hashes);
+
     protected:
         // Remember the file as it is on disk now - after a load, a save that wrote, a reload
         void TakeDiskStamp();
+        void WatchLineHashes();
 
         void UpdateSelection() {
             // perhaps check if active...
@@ -342,6 +363,13 @@ namespace gedit {
         };
         DiskStamp diskStamp = {};
         bool isConflictOnDisk = false;
+
+        // The change marks - set on the main thread, compared on the parse thread
+        std::mutex changesLock;
+        bool hasChangeBase = false;
+        bool isAllAdded = false;
+        BaseHashes baseHashes = nullptr;
+        LineDiff::Changes::Ref lineChanges = nullptr;
 
     };
 }

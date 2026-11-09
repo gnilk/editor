@@ -223,6 +223,10 @@ void TextBuffer::ParseThread() {
             if (isStructurePending && ((std::chrono::steady_clock::now() - timeStructureChanged) >= RECOLOUR_DELAY)) {
                 PublishStructure();
             }
+            if (isLineHashesPending && ((std::chrono::steady_clock::now() - timeLinesChanged) >= RECOLOUR_DELAY)) {
+                PublishLineHashes();
+                Editor::Instance().TriggerUIRedraw();
+            }
             TakeWorkspaceNames();
             continue;
         }
@@ -265,6 +269,7 @@ void TextBuffer::ExecuteFullParse() {
         RecolourSemanticNames();
     }
     NotifyStructureChanged();
+    NotifyLinesChanged();
     parseMetrics.total += 1;
     parseMetrics.full += 1;
 }
@@ -286,6 +291,7 @@ size_t TextBuffer::ExecuteRegionParse(size_t idxLineStart, size_t idxLineEnd) {
         }
     }
     NotifyStructureChanged();
+    NotifyLinesChanged();
     parseMetrics.total += 1;
     parseMetrics.region += 1;
     return result;
@@ -307,6 +313,47 @@ void TextBuffer::NotifyStructureChanged() {
 void TextBuffer::SetStructureHandler(StructureHandler newHandler) {
     std::lock_guard<std::mutex> guard(structureHandlerLock);
     structureHandler = std::move(newHandler);
+}
+
+// Every parse follows an edit (or a load). Like the structure, waits for a pause: one walk over the lines per pause.
+void TextBuffer::NotifyLinesChanged() {
+    timeLinesChanged = std::chrono::steady_clock::now();
+    isLineHashesPending = true;
+    if (reparseThread == nullptr) {
+        PublishLineHashes();
+    }
+}
+
+void TextBuffer::SetLineHashesHandler(LineHashesHandler newHandler) {
+    std::lock_guard<std::mutex> guard(lineHashesLock);
+    lineHashesHandler = std::move(newHandler);
+}
+
+// At the next idle tick: the pause is already there
+void TextBuffer::RequestLineHashes() {
+    timeLinesChanged = std::chrono::steady_clock::now() - RECOLOUR_DELAY;
+    isLineHashesPending = true;
+    if (reparseThread == nullptr) {
+        PublishLineHashes();
+    }
+}
+
+// A line's hash is kept until it changes, so this hashes only what was edited. With no handler the hashes stay
+// pending, as the structure does.
+void TextBuffer::PublishLineHashes() {
+    std::lock_guard<std::mutex> guard(lineHashesLock);
+    if (lineHashesHandler == nullptr) {
+        return;
+    }
+    isLineHashesPending = false;
+    std::vector<uint64_t> hashes;
+    hashes.reserve(lines.size());
+    for (auto &line : lines) {
+        line->Lock();
+        hashes.push_back(line->ContentHashLocked());
+        line->Release();
+    }
+    lineHashesHandler(hashes);
 }
 
 // A buffer is parsed before it is opened, so the job is what keeps it from showing plain until the next tick
@@ -669,6 +716,28 @@ bool TextBuffer::Load(const std::filesystem::path &pathName) {
 
 // The lines as Load gives them - so a reload compares like with like. Trailing whitespace goes, as Line does it; a line
 // longer than GEDIT_MAX_LINE_LENGTH is split. An empty file is one empty line.
+// As ReadLines: a line per '\n', converted, trailing white space off; no line after a last '\n'; at least one line
+void TextBuffer::SplitLines(std::string_view text, std::vector<std::u32string> &outLines) {
+    outLines.clear();
+    if ((text.size() >= 2) && ((uint8_t)text[0] == 0xfe) && ((uint8_t)text[1] == 0xff)) {
+        text.remove_prefix(2);
+    }
+    while (!text.empty()) {
+        auto idxEnd = text.find('\n');
+        auto lineText = std::string(text.substr(0, idxEnd));
+        auto line = UnicodeHelper::utf8to32(lineText.c_str());
+        strutil::rtrim(line);
+        outLines.push_back(std::move(line));
+        if (idxEnd == std::string_view::npos) {
+            break;
+        }
+        text.remove_prefix(idxEnd + 1);
+    }
+    if (outLines.empty()) {
+        outLines.emplace_back();
+    }
+}
+
 bool TextBuffer::ReadLines(const std::filesystem::path &pathName, std::vector<std::u32string> &outLines) {
     outLines.clear();
     FILE *f = fopen(pathName.string().c_str(), "r");

@@ -4,7 +4,7 @@ Status: **Planned 2026-11-08.** The code index is paused before its step 4 (`cod
 Order: the change set in the tree (§0), reloading files changed on disk (§0b), changed lines in the gutter (§0c), open
 files list (§1), dragging splitters (§2), workspace search (§3), quick commands: close all and `!` (§5), headless drawing that can be checked (§5b), glyphs beyond
 code point 255 on SDL (§6). The note on key bindings for script commands (§4) is recorded, not scheduled.
-**Next:** §0c, changed lines in the gutter - §6 (glyphs past 255) is built, so its bar can be `│`.
+**Next:** open - §0c (the gutter's change marks) is built; left: §0b's `.reload` and the `!` of §5, the narrow header (§5b), §3.
 
 ## 0. The change set in the workspace tree
 
@@ -187,7 +187,38 @@ nothing of git; the document holds the result; `GutterView` draws it. Nothing in
 - **For an agent:** "which lines did this change touch" per file - the same data, asked from outside (code index §10.3).
 - **Hover or a key on a mark:** the base's lines that were there (the `+/- 5 lines` pop-up of the relationship view).
 
-**Tests:** the diff on strings (only added, only removed, changed, moved blocks, an empty base, an empty buffer, a large
+**Built (2026-11-09):**
+- **Hashes, not text:** a line's hash is kept on the `Line` (`ContentHashLocked`), cleared when its text changes. After a
+  pause in typing the buffer hands its line hashes to the document - one walk over the lines per pause, as the
+  structure pass makes, hashing only the edited lines; no text is copied. The base is hashed the same way
+  (`Line::HashOf`), from git's text split as a load splits a file (`TextBuffer::SplitLines`, next to `ReadLines`).
+- **The pause hook** is the buffer's, for any language (`TextBuffer::SetLineHashesHandler`): after every parse, at
+  the parse thread's idle tick, or at once without a parse thread. `RequestLineHashes()` asks again when a new base
+  arrives. The document listens only while it has a base, so a file outside a repository costs nothing.
+- **`LineDiff`** (`src/Core/`): Myers on the hashes, after the common start and end are taken off; past 2000
+  differences the middle is marked changed. A run of removed and added lines between equal ones: as many changed as
+  both sides have, the rest added, more removed leaves a mark on the line after (`kRemovedAbove`; the last line's
+  `kRemovedBelow` when the end went).
+- **`GitBase`** (`src/Core/Git/`): `git show HEAD:./<name>` from the file's folder. Failing that, `git status` of the
+  file: untracked or staged as added - all added (a repository with no commit too); renamed - the old name's text;
+  ignored, no repository - no marks. Binary - no marks.
+- **The glue** (`Editor::RefreshChangeBase`): on open, and after every applied change set (a commit, a checkout - the
+  workspace's `SetChangeSetAppliedHandler`), for every open document; git, the split and the hashes off the main
+  thread, the document set on it. A checkout that leaves the change set as it was changes the files, so the reload
+  re-diffs - against the old base until the next change set. Switched with `repomonitor`.
+- **Drawn:** column 6, between the number and the `*`. `│` for added and changed; `‾` (U+203E) for removed above
+  and `_` for removed below the last line - Andale Mono has neither the eighth blocks (U+2581, U+2594) nor `▸`. A
+  line's own change wins over a removal next to it. Colours `gutter_added` / `gutter_modified` / `gutter_deleted`,
+  falling back to the tree's; the importer takes VS Code's `editorGutter.*Background`, then `gitDecoration.*`.
+
+**Tests:** `linediff` (same, added, removed, changed, moved, empty either side, 100 000 lines with two changes, the
+limit, and a sweep over every insert/remove at every place), `changemarks` (the base from temporary repositories:
+committed, new, staged, no commit yet, ignored, outside, binary, renamed; the split; a document's marks following
+unsaved edits, all added, cleared; and the gutter drawn into the headless grid - the mark per row, added and changed
+apart from each other and from the numbers), `themeimport` (the gutter keys). Not drawing the marks fails the drawn
+test.
+
+**Planned tests (as designed):** the diff on strings (only added, only removed, changed, moved blocks, an empty base, an empty buffer, a large
 file with one change - the `O(ND)` case), the marks for each, the base from a temp repository, and the marks following an
 unsaved edit.
 

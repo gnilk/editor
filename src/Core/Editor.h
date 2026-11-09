@@ -266,6 +266,7 @@ namespace gedit {
         void WireCodeIndex();
         void OnDocumentOpened(const Document::Ref &document);
         void OnDocumentClosed(const Document::Ref &document);
+        void RefreshChangeBase(const Document::Ref &document);
         std::string IndexPathForDocument(const Document::Ref &document);
 
         void ExecutePostScript(std::istream &stream);
@@ -300,6 +301,7 @@ namespace gedit {
         std::chrono::steady_clock::time_point timeStatusMessageEnds = {};
         Indexer::Ref indexer = nullptr;
         std::vector<std::filesystem::path> indexedRoots;
+        bool isChangeMarksEnabled = false;      // the gutter's change marks - on with 'repomonitor'
 
         State state = ViewState;
         std::string viewStateKeymapName = "default_keymap";  // This is the default key-map for any 'view' related activity

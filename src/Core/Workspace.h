@@ -39,6 +39,7 @@ namespace gedit {
         using ContentsChangedDelegate = std::function<void()>;
         using MonitorFactory = std::function<FolderMonitor::MonitorPoint::Ref (const std::filesystem::path &rootPath)>;
         using RepoMonitorFactory = std::function<RepoMonitor::Ref (const std::filesystem::path &rootPath)>;
+        using ChangeSetAppliedDelegate = std::function<void()>;
         using OpenDocumentDelegate = std::function<void(Document::Ref document)>;
         // Node define the structure of a workspace
     public:
@@ -645,6 +646,10 @@ namespace gedit {
         void SetRepoMonitor(RepoMonitorFactory factory) {
             repoMonitorFactory = std::move(factory);
         }
+        // After a root's new change set is in the tree - a commit, a checkout: the change marks' base may have moved
+        void SetChangeSetAppliedHandler(ChangeSetAppliedDelegate newHandler) {
+            changeSetAppliedHandler = std::move(newHandler);
+        }
         // What the header and the open-files list show in front of a document's name: '* ' unsaved edits, 'R '
         // read-only, '[!] ' changed on disk while edited, '[D] ' gone from disk
         std::string StatusMarkers(const Document::Ref &document);
@@ -823,6 +828,7 @@ namespace gedit {
         ContentsChangedDelegate onChangeHandler = {};
         MonitorFactory monitorFactory = {};
         RepoMonitorFactory repoMonitorFactory = {};
+        ChangeSetAppliedDelegate changeSetAppliedHandler = nullptr;
         FolderMonitor::MonitorPoint::PostDelegate monitorPostToMain = {};
         FolderMonitor::MonitorPoint::DirtyDelegate dirtyFoldersHandler = nullptr;
         OpenDocumentDelegate documentOpenedHandler = nullptr;

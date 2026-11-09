@@ -22,6 +22,7 @@ extern "C" {
     DLL_EXPORT int test_overviewmap_drag(ITesting *t);
     DLL_EXPORT int test_overviewmap_marks(ITesting *t);
     DLL_EXPORT int test_overviewmap_marksshared(ITesting *t);
+    DLL_EXPORT int test_overviewmap_thicken(ITesting *t);
 }
 
 namespace {
@@ -226,5 +227,23 @@ DLL_EXPORT int test_overviewmap_marksshared(ITesting *t) {
     changes[11] = LineDiff::kAdded;
     TR_ASSERT(t, Marks(map.MarksPerRow(changes, {}, OverviewMap::kNoLine)) == "MRA");
     TR_ASSERT(t, Marks(map.MarksPerRow(changes, {10}, OverviewMap::kNoLine)) == "MRS");
+    return kTR_Pass;
+}
+
+// A mark a pixel high grows to the least height, centred, inside the image; where two meet the heavier wins
+DLL_EXPORT int test_overviewmap_thicken(ITesting *t) {
+    auto marks = [](const std::string &text) {
+        std::vector<uint8_t> out;
+        for (auto ch : text) {
+            out.push_back((ch == 'A') ? OverviewMap::kAdded : (ch == 'R') ? OverviewMap::kRemoved : OverviewMap::kNone);
+        }
+        return out;
+    };
+    TR_ASSERT(t, Marks(OverviewMap::Thicken(marks("....A....."), 4)) == "...AAAA...");
+    TR_ASSERT(t, Marks(OverviewMap::Thicken(marks("A........."), 4)) == "AAAA......");
+    TR_ASSERT(t, Marks(OverviewMap::Thicken(marks(".........A"), 4)) == "......AAAA");
+    TR_ASSERT(t, Marks(OverviewMap::Thicken(marks("...AR....."), 4)) == "..ARRRR...");
+    TR_ASSERT(t, Marks(OverviewMap::Thicken(marks("..A..."), 1)) == "..A...");
+    TR_ASSERT(t, Marks(OverviewMap::Thicken(marks("A."), 4)) == "AA");
     return kTR_Pass;
 }

@@ -153,6 +153,14 @@ editorview:
   wrap: none
   keymap: "default_keymap"
 
+# The whole file at the editor's right edge (docs/usability-round.md §7) - on screens that draw pixels (SDL)
+minimap:
+  enabled: yes
+  # In character cells - a character is a pixel wide, so 10 cells hold ~100 characters
+  width: 10
+  # A short file doesn't stretch: at most this many pixels a line
+  max_pixels_per_line: 2
+
 workspaceview:
   keymap: "workspace_keymap"
   switch_to_editor_on_openfile: yes

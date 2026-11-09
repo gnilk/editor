@@ -117,6 +117,26 @@ size_t OverviewMap::FirstLineFromRow(int row) const {
     return first;
 }
 
+std::vector<uint8_t> OverviewMap::Thicken(const std::vector<uint8_t> &marks, int minRows) {
+    if (minRows <= 1) {
+        return marks;
+    }
+    std::vector<uint8_t> thick(marks.size(), kNone);
+    auto above = (minRows - 1) / 2;
+    for (int row = 0; row < (int)marks.size(); row++) {
+        if (marks[(size_t)row] == kNone) {
+            continue;
+        }
+        // Kept inside the image: a mark at an edge grows inwards instead of being cut
+        auto first = std::clamp(row - above, 0, std::max((int)marks.size() - minRows, 0));
+        auto end = std::min(first + minRows, (int)marks.size());
+        for (int r = first; r < end; r++) {
+            thick[(size_t)r] = std::max(thick[(size_t)r], marks[(size_t)row]);
+        }
+    }
+    return thick;
+}
+
 // Every row of the line - a line two rows high is marked on both - and at least its first
 void OverviewMap::MarkLine(std::vector<uint8_t> &marks, size_t idxLine, kMark mark) const {
     if (idxLine >= numLines) {

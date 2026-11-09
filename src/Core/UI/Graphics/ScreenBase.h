@@ -41,6 +41,16 @@ namespace gedit {
         virtual void EndRefreshCycle() {}
 
 
+        // Screen pixels per logical pixel - 2 on a Retina display
+        virtual float PixelDensity() {
+            return 1.0f;
+        }
+        // The size of a character cell in the screen's own pixels (2x on a Retina display) - false when the screen can't
+        // draw pixels (DrawContext::DrawImage), only cells
+        virtual bool CellSizeInPixels(float &width, float &height) {
+            return false;
+        }
+
         virtual Rect Dimensions() {
             return {};
         };

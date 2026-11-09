@@ -221,6 +221,24 @@ void Document::MoveCursorByLines(int delta) {
     UpdateDocumentFromNavigation(true);
 }
 
+void Document::ScrollViewTo(size_t idxTopLine) {
+    auto numLines = Lines().size();
+    if (numLines == 0) {
+        return;
+    }
+    auto &lineCursor = documentViewState->lineCursor;
+    auto height = std::max(lineCursor.Height(), (int32_t)1);
+    idxTopLine = std::min(idxTopLine, numLines - 1);
+    auto caretRow = std::clamp(GetCursor().position.y, 0, height - 1);
+    auto idxLine = std::min(idxTopLine + (size_t)caretRow, numLines - 1);
+
+    lineCursor.viewTopLine = (int32_t)idxTopLine;
+    lineCursor.viewBottomLine = lineCursor.viewTopLine + height;
+    lineCursor.idxActiveLine = idxLine;
+    ApplyWantedColumn(GetCursor(), LineAt(idxLine));
+    GetCursor().position.y = (int32_t)(idxLine - idxTopLine);
+}
+
 bool Document::JumpToSearchHit(size_t idxHit) {
     if (idxHit >= searchResults.size()) {
         return false;

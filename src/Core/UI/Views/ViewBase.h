@@ -281,6 +281,10 @@ namespace gedit {
             return false;
         }
         virtual void OnMouseDrag(const MouseEvent &mouseEvent) {}
+        // A drag that draws finer than a cell (the minimap) gets every move; the others only one per cell reached
+        virtual bool IsSubCellDrag() const {
+            return false;
+        }
 
         // Deepest visible view whose absolute viewRect contains (x,y) - row/col, same space as
         // viewRect (Core/Rect.h). Rects are absolute screen coordinates (splitters Move() children off

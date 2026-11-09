@@ -238,6 +238,7 @@ void TextBuffer::ParseThread() {
         ChangeParseState(kState_Parsing);
         DurationTimer durationTimer;
         ExecuteParseJob(job);
+        revision++;
         auto duration = durationTimer.Sample();
         logger->Debug("ParseThread, job completed. Duration=%ld ms, Type=%s", duration.count(),
                       (job->jobType == ParseJobType::kParseFull) ? "Full" : "Region");
@@ -580,6 +581,7 @@ bool TextBuffer::PrepareStructureScanner() {
 
 // The token lists get the current names - no lexing
 void TextBuffer::RecolourSemanticNames() {
+    revision++;
     isRecolourPending = false;
     for (auto &line : lines) {
         line->Lock();
@@ -955,6 +957,7 @@ bool TextBuffer::LoadWithAttributes(const std::filesystem::path &pathName) {
 
 void TextBuffer::ChangeBufferState(BufferState newState) {
     bufferState = newState;
+    revision++;
 }
 
 void TextBuffer::OnLineChanged(const Line &line) {

@@ -511,6 +511,29 @@ functions are, the comment blocks - and needs a pixel path the cell grid doesn't
 2. **The minimap on SDL3 and SDL2:** `MinimapImage`, `DrawImage`, the texture, the marks strip, the box. Bug #18
    (glyphs drawn at 1x on Retina) is fixed: `SDLFont` rasterises at the screen's density and draws in logical
    units - the minimap's texture wants the same (pixels at density, a destination rect in logical units).
+   **Built 2026-11-09** (`OverviewView`, `Core/Minimap`, `PixelImage`, `DrawContext::DrawImage`,
+   `ScreenBase::CellSizeInPixels` / `PixelDensity`). Where it went other than planned:
+   - **The image is the overview's rows, not the file's lines.** A texture a line a row would be 250k rows for
+     `sqlite3.c` (past any texture limit); `Minimap::Render` blends a row's lines itself (a column's colour the
+     average of its characters, its strength the share of the row's lines that have one) into an image the size of
+     the column in screen pixels - drawn 1:1, nothing scaled.
+   - **One image, composed by the view:** the text, the marks strip (left, two logical px) and the box blended in
+     (`minimap_viewport`). Three layers, each redone only on a change: the text on a buffer revision
+     (`TextBuffer::Revision` - an edit, a parse, a recolour), waiting 4x its last build cost before the next (a
+     huge file doesn't rebuild at every key); the frame when the text, a mark or the box moved; the texture on
+     the frame's revision. So `DrawImage` is the only pixel primitive - what Gansi will implement too.
+   - **The caret rides along.** "The cursor doesn't move" can't hold: `cursor.position.y` is screen-relative and
+     the caret is always on screen (the wheel moves it too). `Document::ScrollViewTo` moves the view and the active
+     line together - the caret keeps its screen row and its wanted column, as a page jump does.
+   - **Sub-cell mouse:** `MouseEvent::subCellX/Y` (SDL fills them). The SDL backends now send every pixel of a
+     drag; `RootView` drops a move within the same cell unless the drag view says `IsSubCellDrag()` - the
+     splitters see what they saw before.
+   - **Placed in the editor's `HStackView`** after the container (as the gutter is, `kFixed`), not inside the
+     container; it draws nothing in hex mode, as the gutter. Not added at all without pixels (until the ruler).
+   - Config: `minimap.enabled` / `width` (cells, 10) / `max_pixels_per_line` (2, logical). Theme:
+     `ui.minimap_viewport`; the importer maps `minimapSlider.background` (VS Code), a faint foreground otherwise.
+   - **Marks are 3 logical px wide and at least 2 high** (`OverviewMap::Thicken`, centred, heaviest wins): at one
+     screen row a line, a change in `Document.cpp` was a single pixel - too thin to see.
 3. **The terminal (Gansi), explored after (c):** the minimap where the terminal can draw pixels, the ruler (a) where it
    can't - decided once, at startup. (a) is small once 1 exists; it is the fallback, not a step of its own.
 

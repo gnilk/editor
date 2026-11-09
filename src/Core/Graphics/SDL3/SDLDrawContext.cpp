@@ -14,6 +14,12 @@
 using namespace gedit;
 using namespace gedit::SDL3;
 
+SDLDrawContext::~SDLDrawContext() {
+    if (imageTexture != nullptr) {
+        SDL_DestroyTexture(imageTexture);
+    }
+}
+
 //
 // Consider having a special function to clear the area
 //
@@ -238,6 +244,33 @@ void SDLDrawContext::DrawStringWithAttributesAt(int x, int y, kTextAttributes at
     }
 }
 
-
-
-
+// The image's own texture, kept between frames: a minimap changes far less often than it is drawn (keep in step with
+// SDL2/SDLDrawContext.cpp)
+void SDLDrawContext::DrawImage(const Rect &rect, const PixelImage &image) const {
+    if (image.IsEmpty() || (rect.Width() <= 0) || (rect.Height() <= 0)) {
+        return;
+    }
+    if ((imageTexture == nullptr) || (imageTextureWidth != image.Width()) || (imageTextureHeight != image.Height())) {
+        if (imageTexture != nullptr) {
+            SDL_DestroyTexture(imageTexture);
+        }
+        imageTexture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, image.Width(), image.Height());
+        if (imageTexture == nullptr) {
+            return;
+        }
+        SDL_SetTextureBlendMode(imageTexture, SDL_BLENDMODE_BLEND);
+        SDL_SetTextureScaleMode(imageTexture, SDL_SCALEMODE_NEAREST);
+        imageTextureWidth = image.Width();
+        imageTextureHeight = image.Height();
+        imageSource = nullptr;
+    }
+    if ((imageSource != &image) || (imageRevision != image.Revision())) {
+        SDL_UpdateTexture(imageTexture, nullptr, image.Data(), image.Pitch());
+        imageSource = &image;
+        imageRevision = image.Revision();
+    }
+    SDL_SetRenderTarget(renderer, renderTarget);
+    auto [px, py] = CoordsToScreen((float)rect.TopLeft().x, (float)rect.TopLeft().y);
+    SDL_FRect dst = {px, py, SDLTranslate::ColToXPos(rect.Width()), SDLTranslate::RowToYPos(rect.Height())};
+    SDL_RenderTexture(renderer, imageTexture, nullptr, &dst);
+}

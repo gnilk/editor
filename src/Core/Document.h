@@ -235,6 +235,10 @@ namespace gedit {
         // callers (mouse wheel) that need an arbitrary row count without going through kUIAction.
         void MoveCursorByLines(int delta);
 
+        // Scroll the view so 'idxTopLine' is its top line - the overview's click and drag (docs/usability-round.md §7).
+        // The caret is screen-relative and always on screen, so it rides along on its screen row, at its wanted column.
+        void ScrollViewTo(size_t idxTopLine);
+
         void PasteFromClipboard();
 
         bool OnAction(const EditorAction &kpAction);

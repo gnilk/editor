@@ -12,6 +12,7 @@
 #include "Core/Point.h"
 #include "Core/TextAttributes.h"
 #include "Core/ColorRGBA.h"
+#include "Core/UI/Graphics/PixelImage.h"
 
 namespace gedit {
 
@@ -105,6 +106,11 @@ namespace gedit {
 
         virtual void DrawStringAt(int x, int y, const std::u32string &str) const {}
         virtual void DrawStringWithAttributesAt(int x, int y, kTextAttributes attrib, const std::u32string &str) const {}
+
+        // Pixels (the minimap, docs/usability-round.md §7): 'image' over the cells 'rect' (this context's coordinates),
+        // stretched to fit - built at ScreenBase::CellSizeInPixels it fits one pixel to one. A backend that can't draw
+        // pixels leaves it out; the view asks the screen first.
+        virtual void DrawImage(const Rect &rect, const PixelImage &image) const {}
 
         __inline void SetBGColor(const ColorRGBA &newBackgroundColor) {
             const_cast<DrawContext *>(this)->bgColor = newBackgroundColor;

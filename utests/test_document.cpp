@@ -35,6 +35,8 @@ DLL_EXPORT int test_document_switch_preserves_undo(ITesting *t);
 // undo must act on the EDITED document, not whichever document happens to be active
 DLL_EXPORT int test_document_undo_independent_of_active(ITesting *t);
 DLL_EXPORT int test_document_viewmode(ITesting *t);
+// the overview's click/drag scroll (docs/usability-round.md §7)
+DLL_EXPORT int test_document_scrollviewto(ITesting *t);
 
 // 'autopair' - the AutoPairEngine wired through EditController (insert-pair / skip-over / backspace-pair)
 DLL_EXPORT int test_document_autopair_insertpair(ITesting *t);
@@ -1414,5 +1416,44 @@ DLL_EXPORT int test_document_wrap_caret_stays_visible(ITesting *t) {
     TR_ASSERT(t, IsDocumentCaretVisible(document));
     document->SetCursorPosition(39, 39);
     TR_ASSERT(t, IsDocumentCaretVisible(document));
+    return kTR_Pass;
+}
+
+// The overview scrolls the view: the top line goes where it was asked, and the caret - screen-relative, always on
+// screen - rides along on its screen row, at its wanted column, clamped to a shorter line and to the file's end
+DLL_EXPORT int test_document_scrollviewto(ITesting *t) {
+    auto document = CreateEmptyDocument(t);
+    gedit::Rect rect(20, 20);
+    document->OnViewInit(rect);
+    FillEmptyDocument(document, 100, 40);
+    auto lineCursor = document->GetLineCursorRef();
+
+    // Caret on screen row 3, column 10
+    for (int i = 0; i < 3; i++) {
+        document->OnAction(actionLineDown);
+    }
+    document->SetCursorPosition(3, 10);
+    TR_ASSERT(t, lineCursor->cursor.position.y == 3);
+
+    document->ScrollViewTo(50);
+    TR_ASSERT(t, lineCursor->viewTopLine == 50);
+    TR_ASSERT(t, lineCursor->viewBottomLine - lineCursor->viewTopLine == 20);
+    TR_ASSERT(t, lineCursor->idxActiveLine == 53);
+    TR_ASSERT(t, lineCursor->cursor.position.y == 3);
+    TR_ASSERT(t, lineCursor->cursor.position.x == 10);
+
+    // A short line: the caret stops at its end, and comes back to its column on a long one
+    document->LineAt(73)->Delete(0, 35);
+    document->ScrollViewTo(70);
+    TR_ASSERT(t, lineCursor->idxActiveLine == 73);
+    TR_ASSERT(t, lineCursor->cursor.position.x == 5);
+    document->ScrollViewTo(10);
+    TR_ASSERT(t, lineCursor->cursor.position.x == 10);
+
+    // Past the end: the caret stays on a line of the file, still on screen
+    document->ScrollViewTo(98);
+    TR_ASSERT(t, lineCursor->idxActiveLine == 99);
+    TR_ASSERT(t, lineCursor->cursor.position.y == (int)(lineCursor->idxActiveLine - lineCursor->viewTopLine));
+    TR_ASSERT(t, (lineCursor->cursor.position.y >= 0) && (lineCursor->cursor.position.y < 20));
     return kTR_Pass;
 }

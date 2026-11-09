@@ -223,7 +223,7 @@ void SDLScreen::ComputeScalingFactors() {
 
     // The glyphs are rasterised at the display's density, the layout below stays in logical pixels. The first call,
     // or a window moved to a display of another density, builds the font (again).
-    float density = PixelDensity();
+    float density = WindowPixelDensity();
     auto font = SDLFontManager::Instance().GetActiveFont();
     if ((font == nullptr) || !IsSameDensity(font->Density(), density)) {
         logger->Debug("Pixel density %f - rasterising the font for it", density);
@@ -234,6 +234,8 @@ void SDLScreen::ComputeScalingFactors() {
         logger->Error("No font - can't lay out the screen");
         return;
     }
+
+    pixelDensity = density;
 
     float line_margin = Config::Instance()["sdl"].GetInt("line_margin", 4);
     rows = heightPixels / (font->Baseline() + line_margin);
@@ -259,7 +261,7 @@ void SDLScreen::ComputeScalingFactors() {
     SDL_SetRenderScale(renderer, density, density);
 }
 
-float SDLScreen::PixelDensity() {
+float SDLScreen::WindowPixelDensity() {
     float density = SDL_GetWindowPixelDensity(window);
     return (density > 0.0f) ? density : 1.0f;
 }
@@ -293,7 +295,7 @@ void SDLScreen::OnSizeChanged() {
 // A resize changes the pixel size too, and has its own event - only a change of density is handled here
 void SDLScreen::OnPixelSizeChanged() {
     auto font = SDLFontManager::Instance().GetActiveFont();
-    if ((font != nullptr) && IsSameDensity(font->Density(), PixelDensity())) {
+    if ((font != nullptr) && IsSameDensity(font->Density(), WindowPixelDensity())) {
         return;
     }
     logger->Debug("Pixel density changed");
@@ -399,6 +401,16 @@ gedit::Rect SDLScreen::Dimensions() {
     return rect;
 }
 
+// A cell in logical pixels (the translation's factors), times the density
+bool SDLScreen::CellSizeInPixels(float &width, float &height) {
+    if ((cols <= 0) || (rows <= 0)) {
+        return false;
+    }
+    width = SDLTranslate::ColToXPos(1) * pixelDensity;
+    height = SDLTranslate::RowToYPos(1) * pixelDensity;
+    return true;
+}
+
 // PollEvents is the single SDL event pump for all platforms.
 // Must be called from the main thread (Cocoa/SDL requirement on macOS).
 // Blocks up to ~250 ms waiting for events, then drains the queue.
@@ -430,42 +442,27 @@ void SDLScreen::PollEvents() {
 
             case SDL_EVENT_MOUSE_BUTTON_DOWN:
             case SDL_EVENT_MOUSE_BUTTON_UP: {
-                float col = event.button.x;
-                float row = event.button.y;
-                SDLTranslate::PixelToRowCol(col, row);
                 MouseEvent me;
                 me.kind = (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN) ? MouseEvent::kMouseEventKind_Press : MouseEvent::kMouseEventKind_Release;
-                me.x = (int)col;
-                me.y = (int)row;
+                SetMousePosition(me, event.button.x, event.button.y);
                 me.button = event.button.button;
                 me.modifiers = keyDriver->TranslateModifiers(SDL_GetModState());
-                lastMouseCol = me.x;
-                lastMouseRow = me.y;
                 Runloop::PostMessage(0, [me](uint32_t) {
                     Runloop::ProcessMouseEvent(me);
                 });
                 break;
             }
 
-            // A drag (a splitter, docs/usability-round.md §2): only while a button is held, and only when the pointer
-            // reaches another character cell - SDL reports every pixel, and a move may lay the views out again. Keep
-            // in step with SDL2/SDLScreen.cpp.
+            // A drag (a splitter, docs/usability-round.md §2; the minimap, §7): only while a button is held. Every pixel
+            // goes on - RootView passes a move within the same cell only to a drag that draws finer than cells. Keep in
+            // step with SDL2/SDLScreen.cpp.
             case SDL_EVENT_MOUSE_MOTION: {
                 if (event.motion.state == 0) {
                     break;
                 }
-                float col = event.motion.x;
-                float row = event.motion.y;
-                SDLTranslate::PixelToRowCol(col, row);
-                if (((int)col == lastMouseCol) && ((int)row == lastMouseRow)) {
-                    break;
-                }
-                lastMouseCol = (int)col;
-                lastMouseRow = (int)row;
                 MouseEvent me;
                 me.kind = MouseEvent::kMouseEventKind_Move;
-                me.x = (int)col;
-                me.y = (int)row;
+                SetMousePosition(me, event.motion.x, event.motion.y);
                 me.button = (event.motion.state & SDL_BUTTON_LMASK) ? SDL_BUTTON_LEFT
                           : (event.motion.state & SDL_BUTTON_MMASK) ? SDL_BUTTON_MIDDLE : SDL_BUTTON_RIGHT;
                 me.modifiers = keyDriver->TranslateModifiers(SDL_GetModState());
@@ -476,13 +473,9 @@ void SDLScreen::PollEvents() {
             }
 
             case SDL_EVENT_MOUSE_WHEEL: {
-                float col = event.wheel.mouse_x;
-                float row = event.wheel.mouse_y;
-                SDLTranslate::PixelToRowCol(col, row);
                 MouseEvent me;
                 me.kind = MouseEvent::kMouseEventKind_Wheel;
-                me.x = (int)col;
-                me.y = (int)row;
+                SetMousePosition(me, event.wheel.mouse_x, event.wheel.mouse_y);
                 me.wheelDelta = (int)event.wheel.y;
                 me.modifiers = keyDriver->TranslateModifiers(SDL_GetModState());
                 Runloop::PostMessage(0, [me](uint32_t) {
@@ -521,4 +514,15 @@ void SDLScreen::PollEvents() {
                 break;
         }
     }
+}
+
+// The cell under a window position (logical pixels), and where in that cell it is
+void SDLScreen::SetMousePosition(MouseEvent &mouseEvent, float pixelX, float pixelY) {
+    float col = pixelX;
+    float row = pixelY;
+    SDLTranslate::PixelToRowCol(col, row);
+    mouseEvent.x = (int)std::floor(col);
+    mouseEvent.y = (int)std::floor(row);
+    mouseEvent.subCellX = col - std::floor(col);
+    mouseEvent.subCellY = row - std::floor(row);
 }

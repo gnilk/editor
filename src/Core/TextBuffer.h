@@ -203,6 +203,12 @@ namespace gedit {
         }
 
     public:
+        // Changes each time the text or its colours change - an edit, a finished parse, a recolour. For what is built from
+        // the whole buffer on the UI thread (the minimap, docs/usability-round.md §7) to know it is stale.
+        uint64_t Revision() const {
+            return revision.load();
+        }
+
         // For unit testing...
         BufferState GetBufferState() {
             return bufferState;
@@ -278,6 +284,7 @@ namespace gedit {
 
         Timer::Ref autoSaveTimer = nullptr;
         BufferState bufferState = kBuffer_Empty;
+        std::atomic<uint64_t> revision = 0;
 
         std::vector<Line::Ref> lines;
 

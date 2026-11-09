@@ -220,6 +220,11 @@ namespace gedit {
         // instances, see AddTopView), (3) activate the enclosing top view (focus-follows-click), (4)
         // call OnMouseEvent on the hit view, bubbling to parentView while it returns false.
         bool DispatchMouse(const MouseEvent &mouseEvent) {
+            // The backend may report every pixel the pointer moves; a move only goes on when it reaches another cell -
+            // a move may lay the views out again - unless a drag under way draws finer than cells
+            if (IsMoveWithinCell(mouseEvent)) {
+                return true;
+            }
             // A drag under way: its view gets everything up to the release. A press means the release was lost (the
             // pointer let go outside the window) - the drag is over, and this press is a new one.
             if (dragView != nullptr) {
@@ -296,6 +301,16 @@ namespace gedit {
         }
 
     protected:
+        bool IsMoveWithinCell(const MouseEvent &mouseEvent) {
+            bool isSameCell = (mouseEvent.x == lastMouseX) && (mouseEvent.y == lastMouseY);
+            lastMouseX = mouseEvent.x;
+            lastMouseY = mouseEvent.y;
+            if (mouseEvent.kind != MouseEvent::kMouseEventKind_Move) {
+                return false;
+            }
+            return isSameCell && ((dragView == nullptr) || !dragView->IsSubCellDrag());
+        }
+
         void OnViewInitialized() override {
             ViewBase::OnViewInitialized();
             if (TopView() != nullptr) {
@@ -378,6 +393,8 @@ namespace gedit {
         std::vector<TopViewInstance> topViews;
         std::vector<ModalView::Ptr> modals;     // Top of the stack (back) gets the input
         ViewBase *dragView = nullptr;           // the view a drag belongs to, up to its release (OnMouseDragStart)
+        int lastMouseX = -1;                    // the cell the pointer was last reported in
+        int lastMouseY = -1;
     };
 }
 

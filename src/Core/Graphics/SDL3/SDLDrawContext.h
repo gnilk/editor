@@ -22,7 +22,7 @@ namespace gedit::SDL3 {
             renderer(sdlRenderer),
             renderTarget(sdlRenderTarget) {
         }
-        virtual ~SDLDrawContext() = default;
+        virtual ~SDLDrawContext();
 
         void Clear() const override;
         void Scroll(int nRows) const override;
@@ -38,6 +38,7 @@ namespace gedit::SDL3 {
 
         void DrawStringAt(int x, int y, const std::u32string &str) const override;
         void DrawStringWithAttributesAt(int x, int y, kTextAttributes attrib, const std::u32string &str) const override;
+        void DrawImage(const Rect &rect, const PixelImage &image) const override;
     protected:
         void SetRenderColor() const;
         void SetRenderColor(kTextAttributes attrib) const;
@@ -56,6 +57,12 @@ namespace gedit::SDL3 {
     private:
         SDL_Renderer *renderer;
         SDL_Texture *renderTarget;
+        // The texture DrawImage keeps the last image in - uploaded again when the image or its revision changes
+        mutable SDL_Texture *imageTexture = nullptr;
+        mutable const PixelImage *imageSource = nullptr;
+        mutable uint64_t imageRevision = 0;
+        mutable int imageTextureWidth = 0;
+        mutable int imageTextureHeight = 0;
     };
 }
 

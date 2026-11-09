@@ -83,6 +83,10 @@ namespace gedit {
         std::vector<uint8_t> MarksPerRow(const std::vector<uint8_t> &lineChanges, const std::vector<size_t> &searchLines,
                                          size_t idxActiveLine) const;
 
+        // The marks at least 'minRows' high, centred on their row - a line a pixel high is hard to see - the heaviest
+        // still winning where two meet
+        static std::vector<uint8_t> Thicken(const std::vector<uint8_t> &marks, int minRows);
+
     private:
         size_t FirstLineFromRow(int row) const;
         void MarkLine(std::vector<uint8_t> &marks, size_t idxLine, kMark mark) const;

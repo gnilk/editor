@@ -32,6 +32,8 @@ namespace gedit {
         TypeRef Accessed() const;
         // The type '[i]' reaches: a container's element (a map's value), a pointer's target. None for anything else.
         std::optional<TypeRef> Element() const;
+        // What 'for (auto x : <this>)' gives: the element - but a map gives pairs, which aren't known, so none
+        std::optional<TypeRef> RangeElement() const;
         // What a member of this type means for the class holding it: the held type and how. Empty: nothing of this code base.
         std::pair<std::u32string, kOwnership> Held(bool isExtraPointer) const;
 

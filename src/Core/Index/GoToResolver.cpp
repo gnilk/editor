@@ -135,6 +135,7 @@ namespace {
     enum class kPostfix {
         kCall,
         kIndex,
+        kRange,     // 'for (auto x : <chain>)' - not written, added for a range-for's local
     };
 
     struct Link {
@@ -163,27 +164,49 @@ namespace {
         }
     };
 
+    // Where the cursor is, and the parameters and locals it sees (slice C)
+    struct Context {
+        const CodeIndex &index;
+        uint32_t idxLine = 0;
+        const std::string &path;
+        const GoToResolver::Locals &locals;
+        size_t numVisible = 0;          // of 'locals' - an initializer sees only what was declared before it
+        std::u32string functionScope;   // the function the cursor is in: where a local's written type resolves from
+    };
+
     // An alias of an alias of ... - and 'typedef struct X X;' names itself
     const int kMaxAliasDepth = 8;
 }
 
-static Receiver ReceiverBefore(const CodeIndex &index, const std::u32string &text, size_t idxName, uint32_t idxLine, const std::string &path);
-static std::vector<Link> ChainBefore(const std::u32string &text, size_t idxName);
-static Receiver ReceiverOfChain(const CodeIndex &index, const std::vector<Link> &links, uint32_t idxLine, const std::string &path);
-static Hits FirstLinkHits(const CodeIndex &index, const Link &link, uint32_t idxLine, const std::string &path);
-static std::vector<std::u32string> EnclosingClass(const CodeIndex &index, uint32_t idxLine, const std::string &path);
+static Context MakeContext(const CodeIndex &index, uint32_t idxLine, const std::string &path, const GoToResolver::Locals &locals);
+static Receiver ReceiverBefore(const Context &context, const std::u32string &text, size_t idxName);
+static std::vector<Link> ChainBefore(const std::u32string &text, size_t idxName, size_t *outIdxStart = nullptr);
+static Receiver ReceiverOfChain(const Context &context, const std::vector<Link> &links);
+static int FindLocal(const Context &context, const std::u32string &name);
+static Receiver TypeOfLocal(const Context &context, size_t idxLocal, const std::vector<kPostfix> &postfixes);
+static Hits FirstLinkHits(const Context &context, const Link &link);
+static std::vector<std::u32string> EnclosingClass(const Context &context);
 static Hits MembersOf(const CodeIndex &index, const std::vector<std::u32string> &types, const std::u32string &name);
 static std::vector<std::u32string> WithBases(const CodeIndex &index, const std::vector<std::u32string> &types);
 static Receiver TypeOfHit(const CodeIndex &index, const CodeIndex::Hit &hit, const std::vector<kPostfix> &postfixes);
 static Receiver ResolveWritten(const CodeIndex &index, const TypeRef &type, const std::u32string &fromScope, int depth);
 
+static Context MakeContext(const CodeIndex &index, uint32_t idxLine, const std::string &path, const GoToResolver::Locals &locals) {
+    Context context{index, idxLine, path, locals, locals.size(), {}};
+    auto nearest = index.NearestSymbol(path, idxLine);
+    if (nearest.has_value() && IsCallable(*nearest)) {
+        context.functionScope = nearest->qualifiedName;
+    }
+    return context;
+}
+
 // What the name at 'idxName' is a member of, from the code before it. Unknown when there is no '.' or '->' before it.
-static Receiver ReceiverBefore(const CodeIndex &index, const std::u32string &text, size_t idxName, uint32_t idxLine, const std::string &path) {
+static Receiver ReceiverBefore(const Context &context, const std::u32string &text, size_t idxName) {
     auto links = ChainBefore(text, idxName);
     if (links.empty()) {
         return {};
     }
-    return ReceiverOfChain(index, links, idxLine, path);
+    return ReceiverOfChain(context, links);
 }
 
 static size_t SkipSpacesBack(const std::u32string &text, size_t idx) {
@@ -206,7 +229,7 @@ static size_t AccessBefore(const std::u32string &text, size_t idx) {
 }
 
 // The links before the name, first to last - empty when the name isn't reached through '.' or '->'
-static std::vector<Link> ChainBefore(const std::u32string &text, size_t idxName) {
+static std::vector<Link> ChainBefore(const std::u32string &text, size_t idxName, size_t *outIdxStart) {
     std::vector<Link> links;
     auto idx = AccessBefore(text, idxName);
     if (idx == idxName) {
@@ -254,24 +277,35 @@ static std::vector<Link> ChainBefore(const std::u32string &text, size_t idxName)
         idx = idxAccess;
     }
     std::reverse(links.begin(), links.end());
+    if (outIdxStart != nullptr) {
+        *outIdxStart = links.front().qualifier.empty() ? idx : SkipSpacesBack(text, idx) - links.front().qualifier.size() - 2;
+    }
     return links;
 }
 
-static Receiver ReceiverOfChain(const CodeIndex &index, const std::vector<Link> &links, uint32_t idxLine, const std::string &path) {
+static Receiver ReceiverOfChain(const Context &context, const std::vector<Link> &links) {
+    auto &index = context.index;
     Receiver receiver;
     for (size_t i = 0; i < links.size(); i++) {
         auto &link = links[i];
-        if ((i == 0) && (link.name == U"this") && link.qualifier.empty()) {
-            receiver.types = EnclosingClass(index, idxLine, path);
+        bool isBare = (i == 0) && link.qualifier.empty();
+        if (isBare && (link.name == U"this")) {
+            receiver.types = EnclosingClass(context);
             if (receiver.types.empty()) {
                 return {};
             }
             continue;
         }
-        auto hits = (i == 0) ? FirstLinkHits(index, link, idxLine, path) : MembersOf(index, receiver.types, link.name);
+        // A parameter or local hides a member of that name, as it does for the compiler
+        auto idxLocal = isBare ? FindLocal(context, link.name) : -1;
         Receiver next;
-        for (auto &hit : hits) {
-            next.Add(TypeOfHit(index, hit, link.postfixes));
+        if (idxLocal >= 0) {
+            next = TypeOfLocal(context, (size_t)idxLocal, link.postfixes);
+        } else {
+            auto hits = (i == 0) ? FirstLinkHits(context, link) : MembersOf(index, receiver.types, link.name);
+            for (auto &hit : hits) {
+                next.Add(TypeOfHit(index, hit, link.postfixes));
+            }
         }
         // A library type has no members the index knows; only the last link may be one
         if (!next.types.empty() || (!next.libraryType.empty() && (i + 1 == links.size()))) {
@@ -283,9 +317,54 @@ static Receiver ReceiverOfChain(const CodeIndex &index, const std::vector<Link> 
     return receiver;
 }
 
+// The last one declared with the name, of those visible - -1 if none
+static int FindLocal(const Context &context, const std::u32string &name) {
+    for (size_t i = context.numVisible; i > 0; i--) {
+        if (context.locals[i - 1].name == name) {
+            return (int)(i - 1);
+        }
+    }
+    return -1;
+}
+
+// A written type resolves from the function; 'auto' is the type of its initializer, typed as a chain with only what was
+// declared before it in sight
+static Receiver TypeOfLocal(const Context &context, size_t idxLocal, const std::vector<kPostfix> &postfixes) {
+    auto &local = context.locals[idxLocal];
+    if (!local.type.empty()) {
+        auto type = TypeRef::FromSpelling(local.type);
+        for (auto postfix : postfixes) {
+            if (postfix == kPostfix::kCall) {
+                return {};
+            }
+            auto element = (postfix == kPostfix::kRange) ? type.RangeElement() : type.Element();
+            if (!element.has_value()) {
+                return {};
+            }
+            type = *element;
+        }
+        return ResolveWritten(context.index, type.Accessed(), context.functionScope, 0);
+    }
+    // The whole initializer must be one chain: 'a + b' is not the type of 'b'
+    auto expression = local.initializer + U".x";
+    size_t idxStart = 0;
+    auto links = ChainBefore(expression, expression.size() - 1, &idxStart);
+    if (links.empty() || (idxStart != 0)) {
+        return {};
+    }
+    if (local.isElement) {
+        links.back().postfixes.push_back(kPostfix::kRange);
+    }
+    links.back().postfixes.insert(links.back().postfixes.end(), postfixes.begin(), postfixes.end());
+    auto inner = context;
+    inner.numVisible = idxLocal;
+    return ReceiverOfChain(inner, links);
+}
+
 // The first link, by the scopes around the cursor from the inside out - a class's bases at its level. A name found nowhere
 // around the cursor is a local or a parameter, and nobody knows its type: a member of an unrelated class isn't a guess worth making.
-static Hits FirstLinkHits(const CodeIndex &index, const Link &link, uint32_t idxLine, const std::string &path) {
+static Hits FirstLinkHits(const Context &context, const Link &link) {
+    auto &index = context.index;
     auto hits = index.FindExact(link.name);
     std::erase_if(hits, [](const CodeIndex::Hit &hit) {
         return (hit.kind == kSymbolKind::kNamespace) || (hit.kind == kSymbolKind::kEnumerator) || (hit.kind == kSymbolKind::kMacro);
@@ -297,7 +376,7 @@ static Hits FirstLinkHits(const CodeIndex &index, const Link &link, uint32_t idx
         });
         return hits;
     }
-    auto nearest = index.NearestSymbol(path, idxLine);
+    auto nearest = index.NearestSymbol(context.path, context.idxLine);
     std::u32string scope = nearest.has_value() ? nearest->qualifiedName : U"";
     while (true) {
         auto family = scope.empty() ? std::vector<std::u32string>{U""} : WithBases(index, {scope});
@@ -316,13 +395,13 @@ static Hits FirstLinkHits(const CodeIndex &index, const Link &link, uint32_t idx
 }
 
 // The innermost scope around the cursor that is a type
-static std::vector<std::u32string> EnclosingClass(const CodeIndex &index, uint32_t idxLine, const std::string &path) {
-    auto nearest = index.NearestSymbol(path, idxLine);
+static std::vector<std::u32string> EnclosingClass(const Context &context) {
+    auto nearest = context.index.NearestSymbol(context.path, context.idxLine);
     if (!nearest.has_value()) {
         return {};
     }
     for (auto scope = nearest->qualifiedName; !scope.empty(); scope = OuterScope(scope)) {
-        auto types = index.TypesNamed(scope);
+        auto types = context.index.TypesNamed(scope);
         if (std::find(types.begin(), types.end(), scope) != types.end()) {
             return {scope};
         }
@@ -388,8 +467,8 @@ static Receiver TypeOfHit(const CodeIndex &index, const CodeIndex::Hit &hit, con
     }
     auto type = TypeRef::FromSpelling(hit.type);
     for (auto postfix : postfixes) {
-        if (postfix == kPostfix::kIndex) {
-            auto element = type.Element();
+        if ((postfix == kPostfix::kIndex) || (postfix == kPostfix::kRange)) {
+            auto element = (postfix == kPostfix::kRange) ? type.RangeElement() : type.Element();
             if (!element.has_value()) {
                 return {};
             }
@@ -433,7 +512,7 @@ static Receiver ResolveWritten(const CodeIndex &index, const TypeRef &type, cons
     return receiver;
 }
 
-GoToResolver::Result GoToResolver::Resolve(const CodeIndex &index, const std::u32string &text, size_t idxChar, uint32_t idxLine, const std::string &path, kMode mode) {
+GoToResolver::Result GoToResolver::Resolve(const CodeIndex &index, const std::u32string &text, size_t idxChar, uint32_t idxLine, const std::string &path, kMode mode, const Locals &locals) {
     Result result;
     // Right behind a name counts: that's where the cursor is after typing it
     if ((idxChar >= text.size()) || !IsIdentifierChar(text[idxChar])) {
@@ -456,6 +535,29 @@ GoToResolver::Result GoToResolver::Resolve(const CodeIndex &index, const std::u3
         return result;
     }
 
+    auto context = MakeContext(index, idxLine, path, locals);
+    // A parameter or local, written bare: its declaration. On the declaration itself there is nowhere else to go.
+    bool isBare = ChainBefore(text, idxStart).empty() && LibraryNames::WrittenQualifier(text, idxStart).empty();
+    auto idxLocal = isBare ? FindLocal(context, result.name) : -1;
+    if (idxLocal >= 0) {
+        auto &local = locals[(size_t)idxLocal];
+        if ((local.line == idxLine) && (local.column == idxStart)) {
+            result.isAlreadyThere = true;
+            return result;
+        }
+        CodeIndex::Hit hit;
+        hit.name = local.name;
+        hit.qualifiedName = context.functionScope.empty() ? local.name : context.functionScope + U"::" + local.name;
+        hit.path = path;
+        hit.kind = kSymbolKind::kVariable;
+        hit.line = local.line;
+        hit.column = local.column;
+        hit.isDefinition = true;
+        hit.type = local.type;
+        result.hits.push_back(std::move(hit));
+        return result;
+    }
+
     auto hits = index.FindExact(result.name);
     auto self = std::find_if(hits.begin(), hits.end(), [&](const CodeIndex::Hit &hit) {
         return (hit.path == path) && (hit.line == idxLine) && (hit.column == idxStart);
@@ -467,7 +569,7 @@ GoToResolver::Result GoToResolver::Resolve(const CodeIndex &index, const std::u3
         });
         result.isAlreadyThere = hits.empty();
     } else {
-        auto receiver = ReceiverBefore(index, text, idxStart, idxLine, path);
+        auto receiver = ReceiverBefore(context, text, idxStart);
         auto members = receiver.types.empty() ? Hits{} : MembersOf(index, receiver.types, result.name);
         if (!members.empty()) {
             hits = std::move(members);
@@ -558,8 +660,8 @@ static void AddMethodHits(Hits &hits, const CodeIndex &index, const std::u32stri
     hits.insert(hits.end(), found.begin(), found.end());
 }
 
-GoToResolver::Result GoToResolver::ResolveRelated(const CodeIndex &index, const std::u32string &text, size_t idxChar, uint32_t idxLine, const std::string &path, kRelated related) {
-    auto atCursor = Resolve(index, text, idxChar, idxLine, path, kMode::kDefinition);
+GoToResolver::Result GoToResolver::ResolveRelated(const CodeIndex &index, const std::u32string &text, size_t idxChar, uint32_t idxLine, const std::string &path, kRelated related, const Locals &locals) {
+    auto atCursor = Resolve(index, text, idxChar, idxLine, path, kMode::kDefinition, locals);
     auto subject = SubjectFromHits(index, atCursor.hits);
     if (subject.types.empty()) {
         auto nearest = index.NearestSymbol(path, idxLine);
@@ -602,12 +704,32 @@ GoToResolver::Result GoToResolver::ResolveRelated(const CodeIndex &index, const 
     return result;
 }
 
-GoToResolver::Result GoToResolver::ResolveTypeOf(const CodeIndex &index, const std::u32string &text, size_t idxChar, uint32_t idxLine, const std::string &path) {
-    auto atCursor = Resolve(index, text, idxChar, idxLine, path, kMode::kDefinition);
+GoToResolver::Result GoToResolver::ResolveTypeOf(const CodeIndex &index, const std::u32string &text, size_t idxChar, uint32_t idxLine, const std::string &path, const Locals &locals) {
+    auto atCursor = Resolve(index, text, idxChar, idxLine, path, kMode::kDefinition, locals);
     Result result;
     result.name = atCursor.name;
     result.idxName = atCursor.idxName;
     result.libraryType = atCursor.libraryType;
+    // A local, on its declaration or a use: 'auto' has no written type, its initializer has one
+    auto context = MakeContext(index, idxLine, path, locals);
+    bool isBare = !atCursor.name.empty() && ChainBefore(text, atCursor.idxName).empty() && LibraryNames::WrittenQualifier(text, atCursor.idxName).empty();
+    auto idxLocal = isBare ? FindLocal(context, atCursor.name) : -1;
+    if ((idxLocal >= 0) && locals[(size_t)idxLocal].type.empty()) {
+        auto receiver = TypeOfLocal(context, (size_t)idxLocal, {});
+        Hits hits;
+        for (auto &type : receiver.types) {
+            AddTypeHits(hits, index, type);
+        }
+        result.libraryType = hits.empty() ? receiver.libraryType : U"";
+        result.hits = std::move(hits);
+        return result;
+    }
+    if (idxLocal >= 0) {
+        CodeIndex::Hit hit;
+        hit.qualifiedName = context.functionScope.empty() ? atCursor.name : context.functionScope + U"::" + atCursor.name;
+        hit.type = locals[(size_t)idxLocal].type;
+        atCursor.hits = {hit};
+    }
     if (std::any_of(atCursor.hits.begin(), atCursor.hits.end(), IsTypeHit)) {
         std::erase_if(atCursor.hits, [](const CodeIndex::Hit &hit) {
             return !IsTypeHit(hit);

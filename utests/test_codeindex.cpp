@@ -24,6 +24,7 @@
 #include "Core/Index/SemanticNames.h"
 #include "Core/Index/GoToResolver.h"
 #include "Core/Index/TypeRef.h"
+#include "Core/Index/LocalScanner.h"
 #include "Core/Index/NavigationStack.h"
 #include "Core/Index/RelationshipTree.h"
 #include "Core/Editor/Modals/RelationshipModal.h"
@@ -149,6 +150,15 @@ extern "C" {
     DLL_EXPORT int test_codeindex_types_chain_library(ITesting *t);
     DLL_EXPORT int test_codeindex_types_gototype(ITesting *t);
     DLL_EXPORT int test_codeindex_types_key(ITesting *t);
+    DLL_EXPORT int test_codeindex_locals_parameters(ITesting *t);
+    DLL_EXPORT int test_codeindex_locals_blocks(ITesting *t);
+    DLL_EXPORT int test_codeindex_locals_auto(ITesting *t);
+    DLL_EXPORT int test_codeindex_locals_expressions(ITesting *t);
+    DLL_EXPORT int test_codeindex_locals_lambda(ITesting *t);
+    DLL_EXPORT int test_codeindex_locals_declarators(ITesting *t);
+    DLL_EXPORT int test_codeindex_locals_switch(ITesting *t);
+    DLL_EXPORT int test_codeindex_locals_chain(ITesting *t);
+    DLL_EXPORT int test_codeindex_locals_bare(ITesting *t);
     DLL_EXPORT int test_codeindex_semantic_names(ITesting *t);
     DLL_EXPORT int test_codeindex_semantic_buffer(ITesting *t);
     DLL_EXPORT int test_codeindex_semantic_edit(ITesting *t);
@@ -4254,5 +4264,257 @@ DLL_EXPORT int test_codeindex_types_key(ITesting *t) {
     keyPress.key = 'i';
     auto action = keymap->ActionFromKeyPress(keyPress);
     TR_ASSERT(t, action.has_value() && (action->action == kAction::kActionGotoType));
+    return kTR_Pass;
+}
+
+//
+// Parameters and locals (§11.11 slice C)
+//
+namespace {
+    // The locals in sight at the end of the last line - the lines are a function from its first line, as the editor scans them
+    GoToResolver::Locals LocalsOf(const std::vector<std::u32string> &lines) {
+        auto buffer = CPPBuffer(lines);
+        std::vector<LocalScanner::Token> tokens;
+        for (size_t i = 0; i < lines.size(); i++) {
+            LocalScanner::AppendLineTokens(*buffer->LineAt(i), (uint32_t)i, SIZE_MAX, tokens);
+        }
+        return LocalScanner::Scan(tokens);
+    }
+
+    const LocalVariable *FindLocal(const GoToResolver::Locals &locals, const std::u32string &name) {
+        for (auto it = locals.rbegin(); it != locals.rend(); it++) {
+            if (it->name == name) {
+                return &*it;
+            }
+        }
+        return nullptr;
+    }
+
+    std::u32string LocalType(const GoToResolver::Locals &locals, const std::u32string &name) {
+        auto local = FindLocal(locals, name);
+        return (local == nullptr) ? U"<missing>" : local->type;
+    }
+}
+
+DLL_EXPORT int test_codeindex_locals_parameters(ITesting *t) {
+    auto locals = LocalsOf({
+        U"void Editor::Run(const Document::Ref &document, int count, Line *line,",
+        U"                 std::vector<Line::Ref> lines = {}, Point) const {",
+        U"    int x = 0;",
+    });
+    TR_ASSERT(t, LocalType(locals, U"document") == U"Document::Ref&");
+    TR_ASSERT(t, LocalType(locals, U"count") == U"int");
+    TR_ASSERT(t, LocalType(locals, U"line") == U"Line*");
+    TR_ASSERT(t, LocalType(locals, U"lines") == U"std::vector<Line::Ref>");
+    TR_ASSERT(t, LocalType(locals, U"x") == U"int");
+    TR_ASSERT(t, locals.size() == 5);
+    // Where it is declared
+    TR_ASSERT(t, (FindLocal(locals, U"count")->line == 0) && (FindLocal(locals, U"count")->column == 52));
+    // A constructor: its parameters, not the initializer list
+    auto constructor = LocalsOf({
+        U"Foo::Foo(Engine *engine) : base(engine), item{1}, other(engine) {",
+        U"}",
+    });
+    TR_ASSERT(t, constructor.empty());     // the body closed
+    constructor = LocalsOf({
+        U"Foo::Foo(Engine *engine) : base(engine), item{1}, other(engine) {",
+        U"    run();",
+    });
+    TR_ASSERT(t, (constructor.size() == 1) && (LocalType(constructor, U"engine") == U"Engine*"));
+    return kTR_Pass;
+}
+
+// What a closed block declared is gone; a header's variable lives in its block
+DLL_EXPORT int test_codeindex_locals_blocks(ITesting *t) {
+    auto locals = LocalsOf({
+        U"void f(int a) {",
+        U"    if (a) {",
+        U"        Line *gone = nullptr;",
+        U"    } else {",
+        U"        Line *alsoGone = nullptr;",
+        U"    }",
+        U"    for (int i = 0; i < 3; i++) {",
+        U"    }",
+        U"    for (Line::Ref line : lines) {",
+        U"        Document *inner;",
+        U"        while (true) {",
+        U"            if (auto found = Find(); found) {",
+    });
+    TR_ASSERT(t, FindLocal(locals, U"gone") == nullptr);
+    TR_ASSERT(t, FindLocal(locals, U"alsoGone") == nullptr);
+    TR_ASSERT(t, FindLocal(locals, U"i") == nullptr);
+    TR_ASSERT(t, LocalType(locals, U"line") == U"Line::Ref");
+    TR_ASSERT(t, LocalType(locals, U"inner") == U"Document*");
+    auto found = FindLocal(locals, U"found");
+    TR_ASSERT(t, (found != nullptr) && (found->initializer == U"Find()"));
+    TR_ASSERT(t, LocalType(locals, U"a") == U"int");
+    return kTR_Pass;
+}
+
+// 'auto' keeps its initializer - unless the initializer writes the type out
+DLL_EXPORT int test_codeindex_locals_auto(ITesting *t) {
+    auto locals = LocalsOf({
+        U"void f() {",
+        U"    auto doc = editor->GetActiveDocument();",
+        U"    const auto &lines = doc->Lines();",
+        U"    auto made = std::make_shared<Engine>(1, 2);",
+        U"    auto unique = make_unique<Cache>();",
+        U"    auto raw = new Window(3);",
+        U"    auto cast = static_cast<Line *>(ptr);",
+        U"    auto view = std::dynamic_pointer_cast<EditorView>(base);",
+        U"    for (auto &line : doc->Lines()) {",
+        U"        auto [key, value] = Pair();",
+        U"        for (const auto &[k, v] : map) {",
+    });
+    auto doc = FindLocal(locals, U"doc");
+    TR_ASSERT(t, (doc != nullptr) && doc->type.empty() && (doc->initializer == U"editor->GetActiveDocument()"));
+    TR_ASSERT(t, FindLocal(locals, U"lines")->initializer == U"doc->Lines()");
+    TR_ASSERT(t, LocalType(locals, U"made") == U"Engine");
+    TR_ASSERT(t, LocalType(locals, U"unique") == U"Cache");
+    TR_ASSERT(t, LocalType(locals, U"raw") == U"Window*");
+    TR_ASSERT(t, LocalType(locals, U"cast") == U"Line*");
+    TR_ASSERT(t, LocalType(locals, U"view") == U"EditorView");
+    auto line = FindLocal(locals, U"line");
+    TR_ASSERT(t, (line != nullptr) && line->isElement && (line->initializer == U"doc->Lines()"));
+    // Structured bindings have no one type
+    TR_ASSERT(t, FindLocal(locals, U"key") == nullptr);
+    TR_ASSERT(t, FindLocal(locals, U"k") == nullptr);
+    return kTR_Pass;
+}
+
+// Statements that only look a little like declarations
+DLL_EXPORT int test_codeindex_locals_expressions(ITesting *t) {
+    auto locals = LocalsOf({
+        U"void f() {",
+        U"    x = 1;",
+        U"    run(x);",
+        U"    a.b = c;",
+        U"    a->b(c);",
+        U"    return y;",
+        U"    i++;",
+        U"    *p = 3;",
+        U"    std::cout << x;",
+        U"    Foo::Bar(1);",
+        U"    delete p;",
+        U"    throw Error(1);",
+        U"    // Line *commented;",
+        U"    log(\"Line *inString;\");",
+        U"#if DEBUG",
+        U"    Line *debugOnly;",
+        U"#endif",
+    });
+    // Only what the preprocessor arm declares - the scan keeps both arms, as the highlighter colours both
+    TR_ASSERT(t, (locals.size() == 1) && (locals[0].name == U"debugOnly"));
+    return kTR_Pass;
+}
+
+// A lambda's parameters inside its body, also as an argument to a call - and gone after it
+DLL_EXPORT int test_codeindex_locals_lambda(ITesting *t) {
+    auto inside = LocalsOf({
+        U"void f(Document *document) {",
+        U"    document->ForEach([this, &count](const Line::Ref &line) {",
+        U"        count++;",
+    });
+    TR_ASSERT(t, LocalType(inside, U"line") == U"Line::Ref&");
+    TR_ASSERT(t, LocalType(inside, U"document") == U"Document*");
+    auto after = LocalsOf({
+        U"void f(Document *document) {",
+        U"    document->ForEach([&](const Line::Ref &line) {",
+        U"        count++;",
+        U"    });",
+        U"    auto other = [](int n) -> bool { return n > 0; };",
+        U"    Window *window;",
+    });
+    TR_ASSERT(t, FindLocal(after, U"line") == nullptr);
+    TR_ASSERT(t, FindLocal(after, U"n") == nullptr);
+    TR_ASSERT(t, LocalType(after, U"window") == U"Window*");
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_locals_declarators(ITesting *t) {
+    auto locals = LocalsOf({
+        U"void f() {",
+        U"    Foo *a = nullptr, b, &c = b;",
+        U"    Bar d(1, 2), e{3};",
+        U"    std::vector<int> v = {1, 2};",
+        U"    static int counter = 0;",
+        U"    std::map<std::string, std::vector<Line::Ref>> m;",
+    });
+    TR_ASSERT(t, LocalType(locals, U"a") == U"Foo*");
+    TR_ASSERT(t, LocalType(locals, U"b") == U"Foo");
+    TR_ASSERT(t, LocalType(locals, U"c") == U"Foo&");
+    TR_ASSERT(t, LocalType(locals, U"d") == U"Bar");
+    TR_ASSERT(t, LocalType(locals, U"e") == U"Bar");
+    TR_ASSERT(t, LocalType(locals, U"v") == U"std::vector<int>");
+    TR_ASSERT(t, LocalType(locals, U"counter") == U"int");
+    TR_ASSERT(t, LocalType(locals, U"m") == U"std::map<std::string,std::vector<Line::Ref>>");
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_locals_switch(ITesting *t) {
+    auto locals = LocalsOf({
+        U"void f(int kind) {",
+        U"    switch (kind) {",
+        U"        case 1: {",
+        U"            Line *gone;",
+        U"            break;",
+        U"        }",
+        U"        case 2: {",
+        U"            Window *window;",
+    });
+    TR_ASSERT(t, FindLocal(locals, U"gone") == nullptr);
+    TR_ASSERT(t, LocalType(locals, U"window") == U"Window*");
+    return kTR_Pass;
+}
+
+// Chains that start at a parameter or local
+DLL_EXPORT int test_codeindex_locals_chain(ITesting *t) {
+    auto index = ChainIndex();
+    auto locals = LocalsOf({
+        U"void Editor::Run(Document::Ref doc, Line *line) {",
+        U"    auto current = doc->Current();",
+        U"    auto editor = Editor::Instance();",
+        U"    auto copy = current;",
+        U"    for (auto &each : doc->lines) {",
+    });
+    auto go = [&index, &locals](const std::u32string &text, const std::u32string &word) {
+        return GoToResolver::Resolve(*index, text, text.rfind(word), 2, "/c/chain.cpp", GoToResolver::kMode::kDefinition, locals);
+    };
+    TR_ASSERT(t, IsSymbol(go(U"    doc->Current();", U"Current"), U"app::Document::Current"));
+    TR_ASSERT(t, IsSymbol(go(U"    line->Length();", U"Length"), U"app::Line::Length"));
+    // 'auto' from a call, from another local, from a range
+    TR_ASSERT(t, IsSymbol(go(U"    current->Length();", U"Length"), U"app::Line::Length"));
+    TR_ASSERT(t, IsSymbol(go(U"    copy->Length();", U"Length"), U"app::Line::Length"));
+    TR_ASSERT(t, IsSymbol(go(U"    each->Length();", U"Length"), U"app::Line::Length"));
+    // A parameter hides a member of the same name: 'document' is Editor's member, 'doc' isn't one
+    TR_ASSERT(t, IsSymbol(go(U"    doc->Draw();", U"Draw"), U"app::Document::Draw"));
+    // A map's range gives pairs, which aren't known - not its values
+    auto onMap = LocalsOf({U"void f(std::map<int, Line *> byNumber) {", U"    for (auto &entry : byNumber) {"});
+    TR_ASSERT(t, GoToResolver::Resolve(*index, U"    entry->Length();", 11, 2, "/c/chain.cpp", GoToResolver::kMode::kDefinition, onMap).hits.size() == 2);
+    // An initializer that is more than one chain says nothing
+    auto sum = LocalsOf({U"void f() {", U"    auto n = a.size() + doc->Current();"});
+    auto unknown = GoToResolver::Resolve(*index, U"    n->Length();", 7, 2, "/c/chain.cpp", GoToResolver::kMode::kDefinition, sum);
+    TR_ASSERT(t, unknown.hits.size() == 2);
+    return kTR_Pass;
+}
+
+// A local written bare: Go to definition goes to its declaration, Go to type to its type
+DLL_EXPORT int test_codeindex_locals_bare(ITesting *t) {
+    auto index = ChainIndex();
+    auto locals = LocalsOf({
+        U"void Editor::Run(Document::Ref doc) {",
+        U"    auto current = doc->Current();",
+    });
+    std::u32string use = U"    Use(current, doc);";
+    auto definition = GoToResolver::Resolve(*index, use, use.find(U"current"), 2, "/c/chain.cpp", GoToResolver::kMode::kToggle, locals);
+    TR_ASSERT(t, (definition.hits.size() == 1) && (definition.hits[0].line == 1) && (definition.hits[0].column == 9));
+    // On the declaration itself
+    std::u32string declaration = U"    auto current = doc->Current();";
+    TR_ASSERT(t, GoToResolver::Resolve(*index, declaration, 9, 1, "/c/chain.cpp", GoToResolver::kMode::kToggle, locals).isAlreadyThere);
+    auto typeOf = [&index, &locals](const std::u32string &text, const std::u32string &word) {
+        return GoToResolver::ResolveTypeOf(*index, text, text.find(word), 2, "/c/chain.cpp", locals);
+    };
+    TR_ASSERT(t, IsSymbol(typeOf(use, U"current"), U"app::Line"));
+    TR_ASSERT(t, IsSymbol(typeOf(use, U"doc"), U"app::Document"));
     return kTR_Pass;
 }

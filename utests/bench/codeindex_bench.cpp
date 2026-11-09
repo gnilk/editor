@@ -36,6 +36,7 @@
 #include "Core/Index/Indexer.h"
 #include "Core/Index/SemanticNames.h"
 #include "Core/Index/GoToResolver.h"
+#include "Core/Index/LocalScanner.h"
 
 using namespace gedit;
 namespace fs = std::filesystem;
@@ -196,26 +197,42 @@ static CodeIndex::Ref IndexTree(const fs::path &root) {
 }
 
 // Go to definition on every 'a.b' / 'a->b' of a tree (docs/code-index.md §11.11): what the chain gives, against the same
-// name with the receiver unknown - how often the types on symbols narrow it, and to what
+// name with the receiver unknown - how often the types on symbols narrow it, and to what. Each file is a parsed buffer, so the
+// parameters and locals come from its lines as in the editor; the count without them is slice B alone.
+static GoToResolver::Locals LocalsAt(const CodeIndex &index, const TextBuffer::Ref &buffer, const std::string &path, uint32_t idxLine, size_t idxColumn) {
+    auto function = index.NearestSymbol(path, idxLine);
+    if (!function.has_value() || ((function->kind != kSymbolKind::kFunction) && (function->kind != kSymbolKind::kMethod))) {
+        return {};
+    }
+    std::vector<LocalScanner::Token> tokens;
+    for (auto i = function->line; i <= idxLine; i++) {
+        LocalScanner::AppendLineTokens(*buffer->LineAt(i), i, (i == idxLine) ? idxColumn : SIZE_MAX, tokens);
+    }
+    return LocalScanner::Scan(tokens);
+}
+
 static void Chains(const fs::path &root) {
+    Config::Instance()["main"].SetBool("threaded_syntaxparser", false);
+    auto language = Editor::Instance().GetLanguageForExtension(".cpp");
     auto tStart = std::chrono::steady_clock::now();
     auto index = IndexTree(root);
     auto msIndex = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tStart).count();
-    size_t numSameList = 0;
+    size_t numSameList = 0, numNarrowedWithoutLocals = 0;
     size_t numUses = 0, numNarrowed = 0, numToOne = 0, numLibrary = 0, numSame = 0, numNone = 0;
     std::map<std::u32string, size_t> libraryTypes;
     double msResolve = 0;
     for (auto &file : SourceFiles(root)) {
         auto path = fs::canonical(file).string();
-        std::u32string text = UnicodeHelper::utf8to32(ReadFile(file));
-        uint32_t idxLine = 0;
-        size_t idxLineStart = 0;
-        while (idxLineStart <= text.size()) {
-            auto idxLineEnd = text.find(U'\n', idxLineStart);
-            if (idxLineEnd == std::u32string::npos) {
-                idxLineEnd = text.size();
-            }
-            auto line = text.substr(idxLineStart, idxLineEnd - idxLineStart);
+        auto buffer = TextBuffer::CreateEmptyBuffer();
+        buffer->DeleteLineAt(0);
+        std::ifstream stream(file);
+        std::string utf8;
+        while (std::getline(stream, utf8)) {
+            buffer->AddLineUTF8(utf8.c_str());
+        }
+        buffer->SetLanguage(language);
+        for (uint32_t idxLine = 0; idxLine < buffer->NumLines(); idxLine++) {
+            auto line = buffer->LineAt(idxLine)->Buffer();
             auto idxCode = line.find_first_not_of(U" \t");
             bool isCode = (idxCode != std::u32string::npos) && (line.compare(idxCode, 2, U"//") != 0) && (line[idxCode] != U'#') && (line[idxCode] != U'*');
             for (size_t i = 1; isCode && (i + 1 < line.size()); i++) {
@@ -226,11 +243,14 @@ static void Chains(const fs::path &root) {
                     continue;
                 }
                 auto tResolve = std::chrono::steady_clock::now();
-                auto result = GoToResolver::Resolve(*index, line, i + 1, idxLine, path, GoToResolver::kMode::kDefinition);
+                auto locals = LocalsAt(*index, buffer, path, idxLine, i + 1);
+                auto result = GoToResolver::Resolve(*index, line, i + 1, idxLine, path, GoToResolver::kMode::kDefinition, locals);
                 msResolve += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tResolve).count();
+                auto withoutLocals = GoToResolver::Resolve(*index, line, i + 1, idxLine, path, GoToResolver::kMode::kDefinition);
                 auto unknownLine = U"x." + line.substr(i + 1);
                 auto without = GoToResolver::Resolve(*index, unknownLine, 2, idxLine, path, GoToResolver::kMode::kDefinition);
                 numUses++;
+                numNarrowedWithoutLocals += (!withoutLocals.hits.empty() && (withoutLocals.hits.size() < without.hits.size())) ? 1 : 0;
                 if (!result.libraryType.empty()) {
                     numLibrary++;
                     libraryTypes[result.libraryType]++;
@@ -244,14 +264,12 @@ static void Chains(const fs::path &root) {
                     numSameList += (result.hits.size() > 1) ? 1 : 0;
                 }
             }
-            idxLineStart = idxLineEnd + 1;
-            idxLine++;
         }
     }
     printf("%s (indexed in %.0f ms)\n", root.c_str(), msIndex);
-    printf("  %zu uses of '.' / '->': %zu narrowed (%zu to one place), %zu on a library type, %zu as before (%zu of them a list), %zu not in the index\n",
-           numUses, numNarrowed, numToOne, numLibrary, numSame, numSameList, numNone);
-    printf("  resolving took %.1f ms, %.1f us a use\n", msResolve, numUses ? (1000.0 * msResolve / (double)numUses) : 0.0);
+    printf("  %zu uses of '.' / '->': %zu narrowed (%zu to one place; %zu without locals), %zu on a library type, %zu as before (%zu of them a list), %zu not in the index\n",
+           numUses, numNarrowed, numToOne, numNarrowedWithoutLocals, numLibrary, numSame, numSameList, numNone);
+    printf("  locals + resolving took %.1f ms, %.1f us a use\n", msResolve, numUses ? (1000.0 * msResolve / (double)numUses) : 0.0);
     std::vector<std::pair<size_t, std::u32string>> sorted;
     for (auto &[type, count] : libraryTypes) {
         sorted.push_back({count, type});

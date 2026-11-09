@@ -35,6 +35,8 @@ namespace gedit {
         static void GoToNameAtCursor(GoToResolver::kMode mode);
         static void GoToRelatedAtCursor(GoToResolver::kRelated related);
         static void GoToTypeAtCursor();
+        // The parameters and locals in sight of the cursor, from the lines of the function it is in (docs/code-index.md §11.11 C)
+        static GoToResolver::Locals LocalsAtCursor(const Document::Ref &document, const std::string &path);
         static void GoToHits(std::vector<CodeIndex::Hit> hits, Document::Ref document, const std::string &path);
         // Opens the place and puts the jump on the navigation stack
         static bool JumpTo(const std::string &path, uint32_t line, uint32_t column);

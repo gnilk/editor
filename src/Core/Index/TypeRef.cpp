@@ -16,6 +16,7 @@ namespace {
         U"vector", U"list", U"deque", U"array", U"set", U"unordered_set", U"multiset", U"map", U"unordered_map",
         U"multimap", U"optional", U"stack", U"queue", U"priority_queue", U"forward_list", U"span",
     };
+    const std::vector<std::u32string> kMaps = { U"map", U"unordered_map", U"multimap", U"unordered_multimap" };
     // Project idioms: 'T::Ref' is a shared_ptr<T>, 'T::Ptr' a unique_ptr<T> (GoatEdit)
     const std::u32string kRefAlias = U"Ref";
     const std::u32string kPtrAlias = U"Ptr";
@@ -194,6 +195,13 @@ std::optional<TypeRef> TypeRef::Element() const {
         return args.back();
     }
     return {};
+}
+
+std::optional<TypeRef> TypeRef::RangeElement() const {
+    if ((numPointers == 0) && Contains(kMaps, LastComponent(name))) {
+        return {};
+    }
+    return Element();
 }
 
 std::pair<std::u32string, kOwnership> TypeRef::Held(bool isExtraPointer) const {

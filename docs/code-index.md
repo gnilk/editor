@@ -1239,7 +1239,7 @@ container. The type's own name when the cursor is on a type.
 |---|---|---|
 | A | `CodeSymbol::type` from the scanner, through the lines, into the index. `--dump` prints it. | Tests on spellings; `--index` memory against §11.10 |
 | B | Chains in Go to definition; Go to type. | Use |
-| C | Parameters and locals: a light scan of the enclosing function's lines, which the editor already has tokenized. | Use |
+| C | Parameters and locals: a light scan of the enclosing function's lines, which the editor already has tokenized. | `--chains`; use |
 
 **Not here:** `auto`, template parameters, overloads (a name is a name), and a type reached through a `typedef` of a
 pointer. Member completion (§5.7) builds on this but is its own step.
@@ -1272,10 +1272,39 @@ an unknown receiver:
 
 Where it applies it is right: a sample of the narrowed ones all land on the member meant. But it rarely applies. Of
 GoatEdit's 10 595 uses still answered with a list, nearly all start at a parameter or a local (`document->`, `line->`), which
-is slice C. So C is what makes this felt, not a refinement.
+is slice C.
 
 **Known limits:** `std::vector<T>::value_type` loses its argument in the spelling (`Foo<T>::X` keeps only `Foo::X`, as `holds`
-needs). An index on an alias (`Lines lines; lines[0]`) isn't followed. A local that shadows a member is taken for the member.
+needs). An index on an alias (`Lines lines; lines[0]`) isn't followed.
+
+**C results (2026-11-09).** `LocalScanner` reads the tokens the highlighter left on the lines (`Line::Attributes`), from the
+function's line in the index to the cursor, when a go-to asks. Nothing per edit, nothing lexed again.
+- **What it finds:** parameters (a constructor's, not its initializer list), lambda and `catch` parameters, `Type a = x, *b,
+  c(1), d{2}`, the variable of an `if` / `for` header, and a range-for's. Blocks are tracked, so what a closed block declared
+  is gone, a `case 1: {` included, and a lambda passed to a call opens a block of its own.
+- **The test for a declaration:** the last identifier before what may follow a name (`=`, `(`, `{`, `[`, `,`, `:`), with a type
+  that is all of the tokens before it. `a.b = c`, `run(x)`, `Foo::Bar(1)` and `std::cout << x` fail it. `TypeRef::Parse` alone
+  would read `int count` as the type `count`: two words in a row are `unsigned long` to it.
+- **`auto`** keeps its initializer, and the resolver types it as a chain with only the locals declared before it in sight,
+  so `auto doc = editor->GetActiveDocument();` and `auto copy = doc;` both work, and there is no loop. The whole initializer
+  must be one chain: `a.size() + b` says nothing. `make_shared<T>`, `make_unique<T>`, `new T` and the casts write the type
+  out. A range-for gives the element, but a map gives pairs, which aren't known, so nothing.
+- **A local hides a member** of the same name, as for the compiler. Written bare, Go to definition goes to its declaration
+  and Go to type to its type.
+- **The function's line** comes from the index, which lags an edit until the next pause. The scan starts outside any body
+  either way: what comes before the function's `{` declares nothing and a stray `}` there is ignored.
+
+| Tree | Uses | Narrowed (to one) | Without locals | Library type | Still a list | Per use, locals included |
+|---|---|---|---|---|---|---|
+| GoatEdit `src` | 25 896 | 7 078 (6 690) | 617 | 2 458 | 3 631 (was 10 595) | 18.6 us |
+| noc_goa | 14 201 | 6 490 (6 252) | 204 | 0 | 3 019 | 16.6 us |
+| vcpu | 8 279 | 1 400 (1 361) | 150 | 427 | 1 639 | 9.0 us |
+
+(The use counts differ a little from the table above: each file is now a parsed buffer, read line by line as the editor reads it.)
+Samples of the narrowed ones, C and C++, land on the member meant.
+
+**Limits of C:** both arms of an `#if` count, as the highlighter colours both. A structured binding has no one type. A function
+pointer or `std::function` called gives nothing. Locals of a function longer than 5 000 lines aren't read.
 
 ## 12. Open decisions
 

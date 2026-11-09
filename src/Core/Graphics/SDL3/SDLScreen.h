@@ -47,7 +47,12 @@ namespace gedit::SDL3 {
     private:
         void ComputeScalingFactors();
         void CreateTextures();
-        void LoadFontFromTheme();
+        // Screen pixels per logical (window) pixel - 2 on a Retina display
+        float PixelDensity();
+        // The theme's font, rasterised for 'density' (docs/open-bugs.md #18)
+        void LoadFontFromTheme(float density);
+        // The window's pixel size changed - lay out again only when it is because the density did
+        void OnPixelSizeChanged();
         // Load the app icon (appicon.png) via the asset loader and set it as the window/taskbar
         // icon. Without this the WM has no icon to show (ALT+TAB) unless a matching .desktop is
         // installed system-wide — which is not the case for an AppImage or a dev build.

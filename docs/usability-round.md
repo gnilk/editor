@@ -504,8 +504,9 @@ functions are, the comment blocks - and needs a pixel path the cell grid doesn't
 
 1. **The model, no drawing:** the mapping, the marks per row, the visible box, click and drag -> line. Plain, tested on
    strings (below).
-2. **The minimap on SDL3 and SDL2:** `MinimapImage`, `DrawImage`, the texture, the marks strip, the box. Open bug #18
-   (glyphs drawn at 1x on Retina) is fixed before this - the minimap's texture wants screen density too.
+2. **The minimap on SDL3 and SDL2:** `MinimapImage`, `DrawImage`, the texture, the marks strip, the box. Bug #18
+   (glyphs drawn at 1x on Retina) is fixed: `SDLFont` rasterises at the screen's density and draws in logical
+   units - the minimap's texture wants the same (pixels at density, a destination rect in logical units).
 3. **The terminal (Gansi), explored after (c):** the minimap where the terminal can draw pixels, the ruler (a) where it
    can't - decided once, at startup. (a) is small once 1 exists; it is the fallback, not a step of its own.
 

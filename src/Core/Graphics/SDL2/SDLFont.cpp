@@ -3,20 +3,25 @@
 //
 #include "SDLFont.h"
 
+#include <cmath>
 #include <cstring>
 
 using namespace gedit;
 using namespace gedit::SDL2;
 
-SDLFont::Ptr SDLFont::Create(SDL_Renderer *renderer, const uint8_t *data, size_t size, float pixelHeight) {
-    auto glyphFont = GlyphFont::Create(data, size, pixelHeight);
+SDLFont::Ptr SDLFont::Create(SDL_Renderer *renderer, const uint8_t *data, size_t size, float pixelHeight, float density) {
+    if (density <= 0.0f) {
+        density = 1.0f;
+    }
+    auto glyphFont = GlyphFont::Create(data, size, pixelHeight * density);
     if (glyphFont == nullptr) {
         return nullptr;
     }
-    return std::make_unique<SDLFont>(renderer, glyphFont);
+    return std::make_unique<SDLFont>(renderer, glyphFont, density);
 }
 
-SDLFont::SDLFont(SDL_Renderer *renderer, GlyphFont::Ref glyphFont) : renderer(renderer), glyphFont(std::move(glyphFont)) {
+SDLFont::SDLFont(SDL_Renderer *renderer, GlyphFont::Ref glyphFont, float density) :
+    renderer(renderer), glyphFont(std::move(glyphFont)), density(density) {
     textures.reserve(GlyphFont::kNumPages);
     for (int i = 0; i < GlyphFont::kNumPages; i++) {
         textures.emplace_back(nullptr, &SDL_DestroyTexture);
@@ -40,7 +45,7 @@ void SDLFont::RenderText(float x, float y, const char *text, size_t maxChars) {
 }
 
 float SDLFont::MeasureText(const char *text) const {
-    return glyphFont->CellAdvance() * (float)strlen(text);
+    return glyphFont->CellAdvance() * (float)strlen(text) / density;
 }
 
 void SDLFont::RenderGlyph(float &x, float y, char32_t codePoint) {
@@ -54,11 +59,19 @@ void SDLFont::RenderGlyph(float &x, float y, char32_t codePoint) {
             float w = (float)(glyph->x1 - glyph->x0);
             float h = (float)(glyph->y1 - glyph->y0);
             SDL_Rect src = {glyph->x0, glyph->y0, (int)w, (int)h};
-            SDL_Rect dst = {(int)(x + glyph->xoff), (int)(y + glyph->yoff), (int)w, (int)h};
-            SDL_RenderCopy(renderer, texture, &src, &dst);
+            SDL_FRect dst = GlyphDestination(x, y, *glyph, w, h);
+            SDL_RenderCopyF(renderer, texture, &src, &dst);
         }
     }
-    x += glyphFont->CellAdvance();
+    x += glyphFont->CellAdvance() / density;
+}
+
+// Where a glyph goes, in logical units: the pen and the glyph's offset meet in screen pixels, snapped to a whole one so
+// the bitmap isn't resampled, and the glyph keeps its rasterised size - one bitmap pixel on one screen pixel
+SDL_FRect SDLFont::GlyphDestination(float x, float y, const GlyphFont::Glyph &glyph, float w, float h) const {
+    float screenX = std::round(x * density + glyph.xoff);
+    float screenY = std::round(y * density + glyph.yoff);
+    return {screenX / density, screenY / density, w / density, h / density};
 }
 
 // The page's alpha bitmap as white with that alpha, coloured at draw by the texture's colour mod

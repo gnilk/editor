@@ -12,6 +12,8 @@
 //
 
 #include "SDLScreen.h"
+
+#include <cmath>
 #include "SDLWindow.h"
 #include "SDLTranslate.h"
 #include "SDLFontManager.h"
@@ -41,6 +43,11 @@ using namespace gedit::SDL2;
 
 
 //static const std::string fontName = "Andale Mono.ttf";
+
+// A density is a ratio of pixel sizes; a window a pixel off shouldn't rasterise the font again
+static bool IsSameDensity(float a, float b) {
+    return std::fabs(a - b) < 0.01f;
+}
 
 ScreenBase::Ref SDLScreen::Create() {
     auto instance = std::make_shared<SDLScreen>();
@@ -107,7 +114,7 @@ bool SDLScreen::Open() {
 
     logger->Debug("Resolution: %d x %d", widthPixels, heightPixels);
 
-    LoadFontFromTheme();
+    // Loads the font too - it is rasterised at the display's density
     ComputeScalingFactors();
     CreateTextures();
     return true;
@@ -148,7 +155,7 @@ void SDLScreen::SetWindowIcon() {
     stbi_image_free(pixels);
 }
 
-void SDLScreen::LoadFontFromTheme() {
+void SDLScreen::LoadFontFromTheme(float density) {
     // Resolve font name from theme
     auto currentTheme = Editor::Instance().GetTheme();
     if (currentTheme == nullptr) {
@@ -165,7 +172,7 @@ void SDLScreen::LoadFontFromTheme() {
         logger->Error("Unable to open font: '%s'\n", fontName.c_str());
         return;
     }
-    auto font = SDLFont::Create(sdlRenderer, fontAsset->GetPtrAs<const uint8_t *>(), fontAsset->GetSize(), 18);
+    auto font = SDLFont::Create(sdlRenderer, fontAsset->GetPtrAs<const uint8_t *>(), fontAsset->GetSize(), 18, density);
 
     if (font == nullptr) {
         logger->Error("Unable to load font: '%s'\n", fontName.c_str());
@@ -195,7 +202,19 @@ void SDLScreen::ComputeScalingFactors() {
     logger->Debug("Resolution: %d x %d", widthPixels, heightPixels);
     logger->Debug("Display, pixels: %d x %d", displayMode.w, displayMode.h);
 
+    // The glyphs are rasterised at the display's density, the layout below stays in logical pixels. The first call,
+    // or a window moved to a display of another density, builds the font (again).
+    float density = PixelDensity();
     auto font = SDLFontManager::Instance().GetActiveFont();
+    if ((font == nullptr) || !IsSameDensity(font->Density(), density)) {
+        logger->Debug("Pixel density %f - rasterising the font for it", density);
+        LoadFontFromTheme(density);
+        font = SDLFontManager::Instance().GetActiveFont();
+    }
+    if (font == nullptr) {
+        logger->Error("No font - can't lay out the screen");
+        return;
+    }
 
     float line_margin = Config::Instance()["sdl"].GetInt("line_margin", 4);
     rows = heightPixels / (font->Baseline() + line_margin); // baseline = font->ascent * font->scale
@@ -208,7 +227,7 @@ void SDLScreen::ComputeScalingFactors() {
     cols = widthPixels / fontWidthAverage;
 
     logger->Debug("Font scaling factors:");
-    logger->Debug("  Height: %d px (font: %d, line margin: %f)", (int)(font->Baseline() + line_margin), font->Baseline(), line_margin);
+    logger->Debug("  Height: %d px (font: %d, line margin: %f)", (int)(font->Baseline() + line_margin), (int)font->Baseline(), line_margin);
     logger->Debug("  Width : %d px (based on average widht for '%s')", (int)fontWidthAverage, textToMeasure.c_str());
 
     logger->Debug("Text to Graphics defined as");
@@ -220,24 +239,20 @@ void SDLScreen::ComputeScalingFactors() {
 
     logger->Debug("Scaling factors = (%f,%f)", SDLTranslate::fac_x_to_rc, SDLTranslate::fac_y_to_rc);
 
-    // This should make it possible to move the window between HDPI screens and regular screens
-    // or if you just use a high-dpi screen...
-    int rw = 0, rh = 0;
-    SDL_GetRendererOutputSize(sdlRenderer, &rw, &rh);
-    if(rw != widthPixels) {
-        logger->Debug("Renderer Output != widthPixels - assuming high DPI display");
-        float widthScale = (float)rw / (float) widthPixels;
-        float heightScale = (float)rh / (float) heightPixels;
+    // Everything is drawn in logical pixels; the render scale maps them onto the screen's. The font's glyphs are
+    // drawn at 1/density of their rasterised size, so they come out 1:1.
+    logger->Debug("Render scale: %f", density);
+    SDL_RenderSetScale(sdlRenderer, density, density);
+}
 
-        if(widthScale != heightScale) {
-            logger->Debug("WARNING: width scale != height scale");
-        }
-        logger->Debug("Scaling factors: %f, %f", widthScale, heightScale);
-        SDL_RenderSetScale(sdlRenderer, widthScale, heightScale);
-    } else {
-        logger->Debug("Non HDPI display, resetting scaling factors");
-        SDL_RenderSetScale(sdlRenderer, 1,1);
+float SDLScreen::PixelDensity() {
+    int windowWidth = 0, windowHeight = 0;
+    int outputWidth = 0, outputHeight = 0;
+    SDL_GetWindowSize(sdlWindow, &windowWidth, &windowHeight);
+    if ((windowWidth <= 0) || (SDL_GetRendererOutputSize(sdlRenderer, &outputWidth, &outputHeight) != 0) || (outputWidth <= 0)) {
+        return 1.0f;
     }
+    return (float)outputWidth / (float)windowWidth;
 }
 
 void SDLScreen::CreateTextures() {
@@ -271,6 +286,16 @@ void SDLScreen::OnSizeChanged() {
     // This a mechanism we can use to trigger a redraw in the main run-loop..
     // Just post a message, but we don't care about the callback - so an empty lambda..
     RuntimeConfig::Instance().GetRootView().PostMessage([](){});
+}
+
+// A resize changes the pixel size too, and has its own event - only a change of density is handled here
+void SDLScreen::OnPixelSizeChanged() {
+    auto font = SDLFontManager::Instance().GetActiveFont();
+    if ((font != nullptr) && IsSameDensity(font->Density(), PixelDensity())) {
+        return;
+    }
+    logger->Debug("Pixel density changed");
+    OnSizeChanged();
 }
 
 void SDLScreen::OnMoved() {
@@ -492,7 +517,15 @@ void SDLScreen::PollEvents() {
                 } else if (event.window.event == SDL_WINDOWEVENT_MOVED) {
                     logger->Debug("SDL_EVENT_WINDOW_MOVED");
                     OnMoved();
+                } else if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+                    // The window went to a display of another density (keep in step with SDL3/SDLScreen.cpp)
+                    OnPixelSizeChanged();
                 }
+#if SDL_VERSION_ATLEAST(2, 0, 18)
+                else if (event.window.event == SDL_WINDOWEVENT_DISPLAY_CHANGED) {
+                    OnPixelSizeChanged();
+                }
+#endif
                 break;
 
             case SDL_CLIPBOARDUPDATE:

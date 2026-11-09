@@ -56,6 +56,7 @@
 #include <unistd.h>
 
 #include "Core/XDGEnvironment.h"
+#include "Core/InstallPaths.h"
 #include "Core/UnicodeHelper.h"
 #include "Core/PathUtil.h"
 // API stuff
@@ -81,8 +82,6 @@ using namespace gedit;
 #define xstr(a) str(a)
 #define str(a) #a
 static const std::string glbApplicationName = xstr(GEDIT_APP_NAME);
-// The user config folder ('~/.config/goatedit', '<XDG data>/goatedit') - lower case on every platform, not the app name
-static const std::string glbUserDirName = "goatedit";
 #undef str
 #undef xstr
 
@@ -143,15 +142,10 @@ std::optional<std::filesystem::path> Editor::ResolveProjectDir(const std::vector
     return projectDir;
 }
 
+// Where new user files (config, imported themes) are written - see docs/install-layout.md
 std::filesystem::path Editor::GetDefaultUserConfigDir() {
-    auto pathHome = XDGEnvironment::Instance().GetUserHomePath();
-#if defined(GEDIT_MACOS)
-    return pathHome / ".config" / glbUserDirName;
-#elif defined(GEDIT_LINUX)
-    return XDGEnvironment::Instance().GetUserDataPath() / glbUserDirName;
-#else
-    return pathHome / ".goatedit";
-#endif
+    auto &xdg = XDGEnvironment::Instance();
+    return InstallPaths::UserAssetDirs(xdg.GetUserHomePath(), xdg.GetUserConfigPath()).front();
 }
 
 bool Editor::Initialize(int argc, const char **argv) {
@@ -169,51 +163,7 @@ bool Editor::Initialize(int argc, const char **argv) {
     auto pathHome = XDGEnvironment::Instance().GetUserHomePath();
     auto &assetLoader = RuntimeConfig::Instance().GetAssetLoader();
 
-    // During development, we search in the current directory
-    assetLoader.AddSearchPath("resources/", AssetLoaderBase::kLocationType::kSystem);
-
-    // On macOS we add the bundle-root/Contents/SharedSupport to the search path..
-#if defined(GEDIT_MACOS)
-    // Add ".goatedit" in the root folder for the user
-    assetLoader.AddSearchPath(pathHome / ".goatedit", AssetLoaderBase::kLocationType::kUser);
-    // Add the Linux (Ubuntu?) .config folder
-    assetLoader.AddSearchPath(pathHome / ".config" / glbUserDirName, AssetLoaderBase::kLocationType::kUser);
-
-    CFBundleRef bundle = CFBundleGetMainBundle();
-    CFURLRef bundleURL = CFBundleCopyBundleURL(bundle);
-    char path[PATH_MAX];
-    Boolean success = CFURLGetFileSystemRepresentation(bundleURL, TRUE, (UInt8 *)path, PATH_MAX);
-    assert(success);
-    CFRelease(bundleURL);
-    std::filesystem::path pathBundle = path;
-    assetLoader.AddSearchPath(pathBundle / "Contents" / "SharedSupport", AssetLoaderBase::kLocationType::kSystem);
-    logger->Debug("We are on macOS, bundle path: %s", path);
-#elif defined(GEDIT_LINUX)
-    // On Linux (and others) Add the usr/share directory - this is our default from the install script...
-    logger->Debug("We are on Linux, resolving XDG paths");
-
-    auto sysConfigPath = XDGEnvironment::Instance().GetFirstSystemDataPathWithSubDir("goatedit");
-    if (sysConfigPath.has_value()) {
-        assetLoader.AddSearchPath(sysConfigPath.value(), AssetLoaderBase::kLocationType::kSystem);
-    } else {
-        logger->Warning("No system install path, assuming dev-env");
-    }
-
-
-
-    // Add in the user data...
-    auto userData = XDGEnvironment::Instance().GetUserDataPath();
-    assetLoader.AddSearchPath(userData / glbUserDirName, AssetLoaderBase::kLocationType::kUser);
-
-    // Add ".goatedit" in the root folder for the user - if someone is installing on old systems
-    assetLoader.AddSearchPath(pathHome / ".goatedit",AssetLoaderBase::kLocationType::kUser);
-
-#else
-    logger->Error("Unknown or unsupported/untested OS - assuming unix-based");
-    assetLoader.AddSearchPath("/usr/share/goatedit", AssetLoaderBase::kLocationType::kSystem);
-    // Add ".goatedit" in the root folder for the user - if someone is installing on old systems
-    assetLoader.AddSearchPath(pathHome / ".goatedit", AssetLoaderBase::kLocationType::kUser);
-#endif
+    ConfigureAssetSearchPaths();
 
     // When started from the UI (someone clicking the icon) there is no meaningful CWD
     // pointing at a project - notably macOS Finder launches start at filesystem root.
@@ -351,6 +301,39 @@ bool Editor::Initialize(int argc, const char **argv) {
     return true;
 }
 
+// One system asset directory, found relative to the executable; the user layer is the preferred XDG config
+// dir plus legacy dirs that are still read. See docs/install-layout.md.
+void Editor::ConfigureAssetSearchPaths() {
+    auto &xdg = XDGEnvironment::Instance();
+    auto &assetLoader = RuntimeConfig::Instance().GetAssetLoader();
+
+    std::optional<std::filesystem::path> systemDir;
+    if (!argAssetDir.empty()) {
+        systemDir = argAssetDir;
+    } else {
+        auto exeDir = InstallPaths::ExecutableDir();
+        logger->Debug("Executable dir: %s", exeDir.c_str());
+        systemDir = InstallPaths::FindSystemAssetDir(InstallPaths::SystemAssetCandidates(exeDir, xdg.GetSystemDataPaths()));
+    }
+    if (systemDir.has_value()) {
+        logger->Debug("System assets: %s", systemDir->c_str());
+        assetLoader.AddSearchPath(*systemDir, AssetLoaderBase::kLocationType::kSystem);
+    } else {
+        logger->Error("No system assets found next to the executable or in $XDG_DATA_DIRS");
+    }
+
+    auto userDirs = InstallPaths::UserAssetDirs(xdg.GetUserHomePath(), xdg.GetUserConfigPath());
+    for (size_t i = 0; i < userDirs.size(); i++) {
+        if (!assetLoader.AddSearchPath(userDirs[i], AssetLoaderBase::kLocationType::kUser)) {
+            continue;
+        }
+        if (i > 0) {
+            logger->Warning("Legacy user dir '%s' is still read - move its files to '%s'",
+                            userDirs[i].c_str(), userDirs.front().c_str());
+        }
+    }
+}
+
 // Grab stuff which controls initialization
 void Editor::ParseArguments(int argc, const char **argv) {
     pendingFiles.clear();
@@ -366,6 +349,12 @@ void Editor::ParseArguments(int argc, const char **argv) {
                 if (i + 1 < argc) {
                     argBackend = argv[++i];
                     std::transform(argBackend.begin(), argBackend.end(), argBackend.begin(), ::tolower);
+                }
+            } else if (cmdSwitch == "asset-dir") {
+                // Absolute now, like the file args - Initialize may move cwd to $HOME
+                if (i + 1 < argc) {
+                    std::error_code ec;
+                    argAssetDir = std::filesystem::absolute(std::filesystem::path(argv[++i]), ec).lexically_normal();
                 }
             } else if (cmdSwitch == "cwd") {
                 // Set the launch working directory - used by the macOS 'goat' wrapper, which launches
@@ -417,6 +406,7 @@ void Editor::PrintHelpToConsole() {
     printf("  --console-logging, enables console logging to console, this is needed to get pre-initalization logging (before config has been loaded)\n");
     printf("  --skip-user-config, won't load user or project specific config (starts with defaults)\n");
     printf("  --backend <sdl | ansi | headless>, override the configuration file backend\n");
+    printf("  --asset-dir <dir>, use <dir> for the system assets (config.yml, themes, keymaps) instead of looking next to the executable\n");
     printf("  --cwd <dir>, set the working directory (project root) before resolving file arguments\n");
     printf("  --import-theme <file> [--name <name>] [--force], convert a VS Code theme (.json) or Sublime color scheme\n");
     printf("      (.sublime-color-scheme) into <name>.theme.yml + <name>.colors.json in the user config dir, then quit\n");
@@ -743,7 +733,7 @@ void Editor::ConfigureLogger() {
     auto sinkName = cfgLogging.GetStr("logsink","filesink");
 
 #ifdef GEDIT_LINUX
-    auto logPath = XDGEnvironment::Instance().GetUserStatePath();
+    auto logPath = InstallPaths::UserStateDir(XDGEnvironment::Instance().GetUserStatePath());
 #else
     auto logPath = XDGEnvironment::Instance().GetUserHomePath();
     logPath /= "Library/Logs/GoatEdit";

@@ -55,7 +55,6 @@ namespace gedit {
         };
     private:
         struct SearchPath {
-            int score = 0;
             kLocationType locationType;
             std::filesystem::path path;
         };

@@ -28,7 +28,12 @@ namespace gedit {
         void ResetNavigation();
 
         bool Load(AssetLoaderBase::Asset::Ref asset);
+        // From a plain file outside the asset layers (the user state dir); false if it can't be read
+        bool Load(const std::filesystem::path &path);
         bool Save(const std::filesystem::path &path) const;
+
+    private:
+        void Parse(const char *text, const char *end);
 
     private:
         std::vector<std::u32string> entries;

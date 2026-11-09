@@ -189,4 +189,28 @@ grid - a wrapped long line or a visible completion menu can garble it; test both
 
 ---
 
---> Next bug is #18
+## 18. SDL text is soft on a Retina display - glyphs are rasterised at 1x and drawn magnified
+
+**Where:** `SDL3/SDLScreen.cpp` - `LoadFontFromTheme` (font at 18 px) and `ComputeScalingFactors`
+(`SDL_SetRenderScale`); `SDL3/SDLFont.cpp` (`SDL_SCALEMODE_NEAREST`). The SDL2 backend does the same
+(`SDL_RenderSetScale`).
+
+**What's wrong (to confirm):** the window asks for high density (`SDL_WINDOW_HIGH_PIXEL_DENSITY`), so on a
+Retina screen the render output is 2x the window's size. But the font is rasterised at 18 *logical* px, and
+the render scale (2, 2) then draws every glyph texture at twice its size - nearest-neighbour, so each glyph
+pixel becomes a 2x2 block. The same editor in the Gansi backend (the terminal draws its own font at the
+screen's density) is visibly crisper.
+
+**Fix direction:** rasterise the font at `18 * scale` (`SDL_GetWindowPixelDensity` / the output size over
+the window size) and draw each glyph into a destination rect of its logical size, so a glyph pixel maps to
+one screen pixel - the cell grid, `SDLTranslate` and the layout stay in logical units. Rebuild the font when
+the density changes (the window moved to a non-Retina display: `SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED` /
+`DISPLAY_SCALE_CHANGED`). Check the other things drawn through the render scale (lines, the caret,
+rectangles) look right at 1:1 too. The minimap (`usability-round.md` §7) wants its texture at screen density
+as well - fix this first.
+
+**Discovered:** 2026-11-09, comparing the Gansi backend with SDL3 on the macOS dev box.
+
+---
+
+--> Next bug is #19

@@ -3,7 +3,8 @@
 Status: **Planned 2026-11-08.** The code index is paused before its step 4 (`code-index.md`); this round comes first.
 Order: the change set in the tree (§0), reloading files changed on disk (§0b), changed lines in the gutter (§0c), open
 files list (§1), dragging splitters (§2), workspace search (§3), quick commands: close all and `!` (§5), headless drawing that can be checked (§5b), glyphs beyond
-code point 255 on SDL (§6). The note on key bindings for script commands (§4) is recorded, not scheduled.
+code point 255 on SDL (§6). The note on key bindings for script commands (§4) is recorded, not scheduled; the
+overview - a minimap on SDL, then the terminal (§7) - is planned, not scheduled.
 **Next:** §3, workspace search - everything before it in this round is built (§0, §0b, §0c, §1, §2, §5, §5b, §6).
 
 ## 0. The change set in the workspace tree
@@ -479,3 +480,128 @@ lacks `▎`).
 **Tests:** `glyphfont` - page and slot, page 0 at open, a page built once, a missing glyph and an empty page not
 retried, glyph rectangles inside their bitmap and with ink, every glyph one cell wide, junk bytes refused. Not covered:
 the texture upload and the draw - SDL, needs a window (a look at the running app).
+
+## 7. The overview - the whole file at the editor's right edge
+
+Status: **outlined 2026-11-09, planned the same day**, not scheduled. Not built. SDL first, the terminal after.
+
+**Why:** the change marks (§0c) say which lines differ, but only for the lines on screen. In a file of 1500 lines
+(`Document.cpp`) the question is "where are the changes in this file?", and the answer means paging through it. VS Code
+answers it with the minimap: the whole file drawn small down the right edge, a line one or two pixels high, with a
+translucent box over the part the editor shows - the changes, the search hits and where you are, all at a glance.
+
+**Two parts, the second on the first:**
+
+| | What | Where it draws |
+|---|---|---|
+| a | **The overview ruler**: one column the height of the editor, the whole file mapped onto it. Marks only - the change marks, the search hits, the active line - and the visible part shaded. | Any backend: cells. |
+| b | **The minimap**: the file's text drawn small - a pixel per character, coloured as the highlighter coloured it, whitespace left out - under the same marks and the same shaded part. | SDL only: pixels. |
+
+(a) answers the question that started this and works on any backend. (b) adds the shape of the code - where the long
+functions are, the comment blocks - and needs a pixel path the cell grid doesn't have.
+
+**Build order** (planned 2026-11-09):
+
+1. **The model, no drawing:** the mapping, the marks per row, the visible box, click and drag -> line. Plain, tested on
+   strings (below).
+2. **The minimap on SDL3 and SDL2:** `MinimapImage`, `DrawImage`, the texture, the marks strip, the box. Open bug #18
+   (glyphs drawn at 1x on Retina) is fixed before this - the minimap's texture wants screen density too.
+3. **The terminal (Gansi), explored after (c):** the minimap where the terminal can draw pixels, the ruler (a) where it
+   can't - decided once, at startup. (a) is small once 1 exists; it is the fallback, not a step of its own.
+
+### The mapping (both)
+
+- **The whole file fits the height** (VS Code's `minimap.size: fit`): a line is `h = viewHeight / numLines` pixels (or
+  rows), at most 2 px - a short file doesn't stretch, it stays at the top. 1500 lines in a 900 px editor: 0.6 px a
+  line, so several lines share a pixel row; a row shows the heaviest mark of its lines (removed > changed > added), as
+  a folder in the tree shows the heaviest change below it. No scrolling of the overview itself - the point is all of it
+  at once.
+- **The visible part**: the box from the view's top line to its bottom line, in the same mapping - translucent over
+  the minimap, a shaded background in the ruler. At least one row high, so a huge file still shows where you are.
+- **Plain and tested apart from drawing**: line -> row, row -> line, the box for a view, the marks per row. Soft-wrapped
+  lines (`WrapRow`) count as one line - the overview is of the file, not the screen.
+
+### The mouse
+
+- **Click**: the editor scrolls so the line under the pointer is centred. **Drag** the box: the view follows -
+  `OnMouseDragStart` / `OnMouseDrag` from §2, so it keeps the pointer outside the column too.
+- The cursor doesn't move: it is a look, not a jump. (VS Code moves neither.)
+
+### (a) The ruler, in cells
+
+- **Where:** a column at the editor's right edge, inside the `EditorViewContainer` next to the text (and not drawn over
+  the hex view). One column - two with a gap; `overview.width`.
+- **Two slots per cell:** `▀` (U+2580, Andale Mono has it) with the upper half's colour as foreground and the lower
+  half's as background gives each cell two marks, so 40 rows show 80 slots. The visible part is the background of its
+  slots in `overview_viewport`.
+- **What is marked**, one colour per slot, heaviest wins: removed / changed / added (§0c's colours), a search hit
+  (`search`), the active line (`caret`). Later: diagnostics, the code index's "where is this symbol used".
+- **The drawn test** (§5b): a document with marks, the ruler drawn into the headless grid - the slot of each changed line
+  carries its colour, the visible part is shaded and moves with the view. The whole of (a) is checkable without a
+  window.
+
+### (b) The minimap, in pixels
+
+- **Where:** the same place, wider (`minimap.width`, in cells: 10 cells of 10 px hold 100 characters at a pixel each).
+  The ruler's marks become a strip at its left edge, as VS Code puts them.
+- **From the lines' colours, not from the text:** a row of the minimap is the line's attribute spans
+  (`Line::Attributes()`, what the highlighter left) turned into runs of pixels - no lexing, no copy of the text. Tabs
+  expand as the view does (`CharToVisualColumn`). Kept per line, rebuilt for the lines a parse touched: the same
+  region the highlighter re-parses, as the structure pass and the change marks do; a full parse or a recolour
+  rebuilds them all.
+- **The image** is plain data in Core (`MinimapImage`: a width, and per row runs of `(x, length, colour)`), built and
+  tested without SDL. The backends draw it: a texture they update for the changed rows only, scaled into the column
+  when the file is taller than the minimap (several lines to a pixel row - the scaling blends them, which is what fit
+  mode looks like).
+- **The drawing primitive:** the cell-based `DrawContext` has nothing for pixels. A new `DrawImage(rect, image)` - the
+  rect in cells, the image in its own pixels - that SDL implements and the other backends leave empty; the view checks
+  whether the backend draws pixels (a `ScreenBase` capability) and shows the ruler instead when it doesn't. Nothing in
+  `Core/Graphics` knows a `Document` (the layering rule in `CLAUDE.md`).
+- **The box over it:** a translucent fill (`minimap_viewport`, with alpha), one draw.
+- **Checked by:** the image built from lines on strings (a known line's runs, tabs, a recolour), the mapping (a), and a
+  look at the running app for the texture - as §6 left it.
+
+### (c) The terminal (Gansi) - after SDL
+
+Planned 2026-11-09, to explore once (b) runs on SDL. In the terminal, pixels are the terminal program's to give, not
+the pty's (the pty only carries bytes) - so the editor has to ask it, at startup, and pick the overview from the answer.
+
+- **Today Gansi only reads the environment** (`TERM`, `TERM_PROGRAM`, `COLORTERM` in `gansi/src/Capabilities.cpp`).
+  That can't decide this: `TERM_PROGRAM` doesn't cross SSH, and no variable says "draws images".
+- **The probe:** one write at startup - kitty's graphics query (`ESC _G i=31,s=1,v=1,a=q,t=d,f=24;AAAA ESC \`), then
+  `CSI c` (DA1), which every terminal answers, so there is no timeout to wait for. A `_G i=31;OK` before the DA1 reply:
+  kitty graphics. A `4` among DA1's parameters: sixel. `CSI 16 t`: a cell's size in pixels (also in the window size's
+  `ws_xpixel`/`ws_ypixel` on many terminals; SSH carries those). Optional: `CSI >0q` (XTVERSION), the terminal's name,
+  which does cross SSH. Gansi's input parser has to learn these replies - APC (`ESC _ ... ST`) isn't parsed today, so a
+  kitty reply would most likely turn into key presses - and hand them to the probe, not to the key handler.
+- **The result** is a Gansi capability (`graphics`: none / kitty / sixel, and the cell's pixel size), read by the
+  screen's pixel capability from (b). `overview.kind: minimap` without it falls back to the ruler - the same check SDL
+  answers with "yes", so nothing in the views knows about terminals.
+- **Kitty graphics** (kitty, Ghostty, WezTerm, Konsole in part) is the one to build: an image lives on its own layer, by
+  id, so the cell grid's diff never writes over it. The box is a second, translucent image, moved by placing it again
+  (a few bytes, with a pixel offset within the cell). Transmit compressed (`o=z`) - a minimap is mostly background -
+  and only on the pause after typing, not per key; a changed band could be sent alone (the protocol's frame edit - to
+  check). The protocol lives in Gansi (`Terminal` places, updates and removes an image); `GansiDrawContext::DrawImage`
+  hands it the image.
+- **Sixel** (foot, WezTerm, xterm, iTerm2, Windows Terminal): pixels in the cells - text drawn there erases them, the
+  whole image goes again on any change, no alpha. Only if a terminal in use needs it.
+- **Cells as pixels** (`▀`, quadrants, sextants U+1FB00, octants U+1CD00 - two colours a cell): a minimap without a
+  graphics protocol, checkable in the headless grid. A middle ground between the ruler and pixels; an option, not
+  planned.
+- **tmux** answers DA1 itself and blocks kitty graphics unless `allow-passthrough` is on - the probe sees no graphics
+  and the ruler is shown, which is right.
+- **Headless:** `HLScreen` records the images placed (rect, size) so a test checks where the minimap went, and draws the
+  ruler into the grid as the fallback.
+
+### Config and theme
+
+`overview.enabled`, `overview.kind` (`ruler` / `minimap`, `minimap` falls back to the ruler without pixels),
+`overview.width`, `minimap.max_pixels_per_line` (2). Theme: `overview_viewport`, `minimap_viewport`; the marks reuse
+`gutter_added` / `gutter_modified` / `gutter_deleted`, `search`, `caret`. The importer: VS Code's
+`minimapSlider.background`, `editorOverviewRuler.*`, `minimapGutter.*`.
+
+### Open
+
+- Ruler and minimap side by side (VS Code has both), or one or the other - one, by `overview.kind`, to start.
+- The terminal view and the tree: a ruler for the terminal's scrollback is the same mapping; not now.
+- A hover on the minimap showing the lines there (VS Code doesn't; Sublime doesn't either) - no.

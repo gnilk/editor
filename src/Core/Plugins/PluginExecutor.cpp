@@ -22,13 +22,11 @@ bool PluginExecutor::ParseAndExecuteWithCmdPrefix(const std::u32string &cmdline3
         return false;
     }
 
-    std::string cmdLineNoPrefix = cmdline.substr(prefix.length());
+    auto commandList = SplitCommandLine(cmdline.substr(prefix.length()));
+    if (commandList.empty()) {
+        return false;
+    }
 
-    std::vector<std::string> commandList;
-    // We should have a 'smarter' that keeps strings and so forth
-    strutil::split(commandList, cmdLineNoPrefix, ' ');
-
-    // There is more to come...
     if (!RuntimeConfig::Instance().HasPluginCommand(commandList[0])) {
         auto logger = gnilk::Logger::GetLogger("PluginExecutor");
         logger->Error("Plugin '%s' not found", commandList[0].c_str());
@@ -36,11 +34,29 @@ bool PluginExecutor::ParseAndExecuteWithCmdPrefix(const std::u32string &cmdline3
     }
 
     auto cmd = RuntimeConfig::Instance().GetPluginCommand(commandList[0]);
-    auto argStart = commandList.begin()+1;
-    auto argEnd = commandList.end();
-    auto argList = std::vector<std::string>(argStart, argEnd);
+    auto argList = std::vector<std::string>(commandList.begin() + 1, commandList.end());
     cmd->Execute(argList);
 
     return true;
+}
 
+std::vector<std::string> PluginExecutor::SplitCommandLine(const std::string &cmdLineNoPrefix) {
+    // We should have a 'smarter' that keeps strings and so forth
+    std::vector<std::string> words;
+    strutil::split(words, cmdLineNoPrefix, ' ');
+    std::vector<std::string> commandList;
+    for (auto &word : words) {
+        if (!word.empty()) {
+            commandList.push_back(word);
+        }
+    }
+    if (commandList.empty()) {
+        return {};
+    }
+    auto &name = commandList[0];
+    if ((name.length() > 1) && (name.back() == '!')) {
+        name.pop_back();
+        commandList.insert(commandList.begin() + 1, "!");
+    }
+    return commandList;
 }

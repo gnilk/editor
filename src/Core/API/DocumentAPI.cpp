@@ -63,3 +63,22 @@ bool DocumentAPI::SaveAs(const std::string &newFileName) {
     return document->SaveData();
 }
 
+
+bool DocumentAPI::IsChangedOnDisk() {
+    if ((document == nullptr) || (document->GetDocument() == nullptr)) {
+        return false;
+    }
+    auto doc = document->GetDocument();
+    return doc->HasConflictOnDisk() || doc->IsChangedOnDisk();
+}
+
+bool DocumentAPI::Reload() {
+    if ((document == nullptr) || (document->GetDocument() == nullptr)) {
+        return false;
+    }
+    if (!document->GetDocument()->ReloadFromDisk()) {
+        return false;
+    }
+    Editor::Instance().TriggerUIRedraw();
+    return true;
+}

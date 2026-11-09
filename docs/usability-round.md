@@ -4,7 +4,7 @@ Status: **Planned 2026-11-08.** The code index is paused before its step 4 (`cod
 Order: the change set in the tree (§0), reloading files changed on disk (§0b), changed lines in the gutter (§0c), open
 files list (§1), dragging splitters (§2), workspace search (§3), quick commands: close all and `!` (§5), headless drawing that can be checked (§5b), glyphs beyond
 code point 255 on SDL (§6). The note on key bindings for script commands (§4) is recorded, not scheduled.
-**Next:** open - §0c (the gutter's change marks) is built; left: §0b's `.reload` and the `!` of §5, the narrow header (§5b), §3.
+**Next:** open - built: §0, §0b, §0c, §1, §2, §5, §5b, §6. Left: the narrow header (§5b), §3.
 
 ## 0. The change set in the workspace tree
 
@@ -138,9 +138,13 @@ a deleted file is already handled (kept, struck through, `IsMissingOnDisk`).
   only a save cleared it, so the first save of any file force-wrote the buffer, edited or not - over a file an agent had
   rewritten meanwhile. A load now clears it: a document read from that path is in step with it.
 
-**Still to do:** `.reload` to take the file and drop the edits; an explicit save of a `[!]` document asks first
-(`ConfirmModal`), as it writes over what the other program wrote - today it saves as before. A check on window focus.
-Large files are read on the main thread, like a normal open.
+**Built (2026-11-09), with §5's `!`:** `.reload` / `.rl` takes the file - at once when unedited, asking first (Reload /
+Cancel) when it would drop edits; the reload is one undo step, so they can be stepped back to. `.s` over a file another
+program rewrote (`[!]`, or rewritten since and not yet noticed) asks: Overwrite / Reload / Cancel. `.rl!` and `.s!` don't
+ask. `DocumentAPI` gained `IsChangedOnDisk()` and `Reload()`. There is no native save action - saving is `.s` and the
+autosave, which already refuses.
+
+**Still to do:** a check on window focus. Large files are read on the main thread, like a normal open.
 
 **Tests:** `reload` - clean reload, unchanged lines kept as they were, undo, lines only added / only removed / everything /
 emptied, cursor on a shorter file, unsaved edits kept and the file untouched, our own save, a save of an unedited buffer,
@@ -353,8 +357,21 @@ Cancel - listing the documents. `.ca!` closes them all at once, dropping the edi
   file changed on disk and `.s!` doesn't.
 - **Help:** `.h` lists the commands; one that takes `!` says so (a `force:` line in `jsplugs.yml` with what `!` skips).
 
-**Tests:** the executor on `.cb!` / `.cb !` / `.cb` (the arguments the script gets), a name that is only `!`, and `.ca`
-over a workspace with a modified and an unmodified document.
+**Built (2026-11-09) - the `!`:** `PluginExecutor::SplitCommandLine` takes a `!` off the end of the name and passes it
+as the first argument; empty words are dropped, and an empty command line no longer indexes an empty list. `.cb!`,
+`.q!`, `.rl!`, `.s!` work; the scripts were unchanged except `.s`, which now has a question to skip. The `force:` line
+for `.h` wasn't added: the descriptions say what `!` does, as `.cb`'s and `.q`'s already did.
+
+**Built (2026-11-09) - close all:** `.closeall` / `.ca` (`closeall.js`), as `.q` asks: Save all / Discard / Cancel,
+listing the edited ones; a failed save closes nothing. `EditorAPI::CloseAllDocuments()` closes them all (a never-saved
+one leaves the tree, as with `.cb`).
+
+**Tests:** `jsengine` - `bangsuffix` (`.cb!` / `.cb !` / `.cb`, an argument ending in `!` left alone, a name that is only
+`!`, empty lines), `reloadcmd` (unedited: no question; edited: Cancel keeps, Reload drops; `.rl!` through the command
+line), `savecmd` (untouched: saved; rewritten: Cancel writes nothing, Overwrite, Reload takes theirs; `.s!`). An
+`IsChangedOnDisk` that is always false fails `savecmd`; an executor that keeps the `!` on the name fails `reloadcmd`.
+`closeallcmd` (an edited and an unedited document: Cancel keeps both, Discard closes both and writes nothing, Save
+all writes then closes; `.ca!`; nothing edited: no question).
 
 ## 5b. Headless drawing that can be checked
 

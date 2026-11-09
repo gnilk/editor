@@ -23,6 +23,7 @@ namespace gedit {
         DocumentAPIWrapper::Ref LoadDocument(const char *filename);
         std::vector<DocumentAPIWrapper::Ref> GetDocuments();
         void CloseActiveDocument();
+        void CloseAllDocuments();
         void CopyToClipboard(const char *text);
         void Confirm(const char *message, std::vector<std::string> choices, DukValue onResult);
 

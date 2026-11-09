@@ -147,6 +147,14 @@ void EditorAPI::CloseActiveDocument() {
     }
 }
 
+void EditorAPI::CloseAllDocuments() {
+    // A copy: closing changes the list
+    std::vector<Document::Ref> documents = Editor::Instance().GetDocuments();
+    for (auto &document : documents) {
+        Editor::Instance().CloseDocument(document);
+    }
+}
+
 void EditorAPI::Confirm(const char *message, const std::vector<std::string> &choices, std::function<void(int idxChoice)> onResult) {
     if (!RuntimeConfig::Instance().HasRootView()) {
         onResult(-1);

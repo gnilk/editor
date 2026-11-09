@@ -12,6 +12,8 @@
 #include "Core/Runloop.h"
 #include "Core/UI/UIHost.h"
 #include "Core/UI/Views/RootView.h"
+#include "Core/Plugins/PluginExecutor.h"
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -35,6 +37,10 @@ extern "C" {
     DLL_EXPORT int test_jsengine_themecmd(ITesting *t);
     DLL_EXPORT int test_jsengine_closecmd(ITesting *t);
     DLL_EXPORT int test_jsengine_quitcmd(ITesting *t);
+    DLL_EXPORT int test_jsengine_bangsuffix(ITesting *t);
+    DLL_EXPORT int test_jsengine_reloadcmd(ITesting *t);
+    DLL_EXPORT int test_jsengine_savecmd(ITesting *t);
+    DLL_EXPORT int test_jsengine_closeallcmd(ITesting *t);
 }
 
 DLL_EXPORT int test_jsengine(ITesting *t) {
@@ -524,5 +530,233 @@ DLL_EXPORT int test_jsengine_quitcmd(ITesting *t) {
     TR_ASSERT(t, Editor::Instance().IsDocumentOpen(doc));
 
     Editor::Instance().CloseDocument(doc);
+    return kTR_Pass;
+}
+
+// '!' at the end of a command's name is its first argument (docs/usability-round.md §5): '.cb!' as '.cb !'
+DLL_EXPORT int test_jsengine_bangsuffix(ITesting *t) {
+    using Words = std::vector<std::string>;
+    TR_ASSERT(t, (PluginExecutor::SplitCommandLine("cb!") == Words{"cb", "!"}));
+    TR_ASSERT(t, (PluginExecutor::SplitCommandLine("cb !") == Words{"cb", "!"}));
+    TR_ASSERT(t, (PluginExecutor::SplitCommandLine("cb") == Words{"cb"}));
+    TR_ASSERT(t, (PluginExecutor::SplitCommandLine("sa! name.txt") == Words{"sa", "!", "name.txt"}));
+    // Only the name's: an argument ending in '!' is left as it is
+    TR_ASSERT(t, (PluginExecutor::SplitCommandLine("o wow!") == Words{"o", "wow!"}));
+    // A name that is only '!' is a name, and no command has it
+    TR_ASSERT(t, (PluginExecutor::SplitCommandLine("!") == Words{"!"}));
+    TR_ASSERT(t, (PluginExecutor::SplitCommandLine("cb  !") == Words{"cb", "!"}));
+    TR_ASSERT(t, PluginExecutor::SplitCommandLine("").empty());
+    TR_ASSERT(t, PluginExecutor::SplitCommandLine("   ").empty());
+    return kTR_Pass;
+}
+
+namespace {
+    // Another program rewrites the file - a later modification time, so the document sees the change
+    void RewriteFile(const std::filesystem::path &path, const std::string &text) {
+        {
+            std::ofstream f(path, std::ios::binary | std::ios::trunc);
+            f << text;
+        }
+        static int numWrites = 0;
+        numWrites++;
+        std::filesystem::last_write_time(path, std::filesystem::file_time_type::clock::now() + std::chrono::seconds(numWrites));
+    }
+
+    std::string ReadFile(const std::filesystem::path &path) {
+        std::ifstream f(path);
+        std::stringstream buffer;
+        buffer << f.rdbuf();
+        return buffer.str();
+    }
+
+    std::string FirstLine(const Document::Ref &doc) {
+        return UnicodeHelper::utf32to8(doc->GetTextBuffer()->LineAt(0)->Buffer());
+    }
+
+    // An edit as typing makes one: the first line replaced
+    void EditFirstLine(const Document::Ref &doc, const std::u32string &text) {
+        auto line = doc->GetTextBuffer()->LineAt(0);
+        line->Delete(0, (int)line->Length());
+        line->Append(text);
+    }
+}
+
+// '.reload' / '.rl': unedited, it takes the file at once; edited, it asks - Cancel keeps the edits, Reload drops them;
+// '.rl!' doesn't ask
+DLL_EXPORT int test_jsengine_reloadcmd(ITesting *t) {
+    namespace fs = std::filesystem;
+    auto root = fs::canonical(fs::temp_directory_path()) / "goatedit_reloadcmd_test";
+    std::error_code ec;
+    fs::remove_all(root, ec);
+    fs::create_directories(root);
+    auto path = root / "file.txt";
+    RewriteFile(path, "first\n");
+
+    TR_ASSERT(t, RuntimeConfig::Instance().HasPluginCommand("rl"));
+    auto cmd = RuntimeConfig::Instance().GetPluginCommand("rl");
+    ModalHostFixture host;
+    auto &rootView = host.rootView;
+    auto doc = Editor::Instance().OpenDocumentFromWorkspace(Editor::Instance().GetWorkspace()->NewDocumentWithFileRef(path));
+    TR_ASSERT(t, doc != nullptr);
+
+    // Unedited: no question
+    RewriteFile(path, "second\n");
+    TR_ASSERT(t, cmd->Execute({}));
+    TR_ASSERT(t, !rootView.HasModal());
+    TR_ASSERT(t, FirstLine(doc) == "second");
+
+    // Edited: asks; Cancel keeps the edit
+    EditFirstLine(doc, U"mine");
+    RewriteFile(path, "third\n");
+    TR_ASSERT(t, cmd->Execute({}));
+    TR_ASSERT(t, rootView.HasModal());
+    rootView.HandleKeyPress(Letter('c'));
+    TR_ASSERT(t, !rootView.HasModal());
+    TR_ASSERT(t, FirstLine(doc) == "mine");
+    // ...'R'eload drops it
+    TR_ASSERT(t, cmd->Execute({}));
+    rootView.HandleKeyPress(Letter('r'));
+    TR_ASSERT(t, !rootView.HasModal());
+    TR_ASSERT(t, FirstLine(doc) == "third");
+    TR_ASSERT(t, !doc->IsModified());
+
+    // '.rl!' through the command line: no question
+    EditFirstLine(doc, U"mine again");
+    RewriteFile(path, "fourth\n");
+    TR_ASSERT(t, PluginExecutor::ParseAndExecuteWithCmdPrefix(U".rl!"));
+    TR_ASSERT(t, !rootView.HasModal());
+    TR_ASSERT(t, FirstLine(doc) == "fourth");
+
+    Editor::Instance().CloseDocument(doc);
+    fs::remove_all(root, ec);
+    return kTR_Pass;
+}
+
+// '.s' over a file another program rewrote asks: Cancel writes nothing, Overwrite writes, Reload takes theirs; '.s!'
+// and a file nobody else touched save without asking
+DLL_EXPORT int test_jsengine_savecmd(ITesting *t) {
+    namespace fs = std::filesystem;
+    auto root = fs::canonical(fs::temp_directory_path()) / "goatedit_savecmd_test";
+    std::error_code ec;
+    fs::remove_all(root, ec);
+    fs::create_directories(root);
+    auto path = root / "file.txt";
+    RewriteFile(path, "first\n");
+
+    TR_ASSERT(t, RuntimeConfig::Instance().HasPluginCommand("s"));
+    auto cmd = RuntimeConfig::Instance().GetPluginCommand("s");
+    ModalHostFixture host;
+    auto &rootView = host.rootView;
+    auto doc = Editor::Instance().OpenDocumentFromWorkspace(Editor::Instance().GetWorkspace()->NewDocumentWithFileRef(path));
+    TR_ASSERT(t, doc != nullptr);
+
+    // Nobody else touched it: saved, no question
+    EditFirstLine(doc, U"mine");
+    TR_ASSERT(t, cmd->Execute({}));
+    TR_ASSERT(t, !rootView.HasModal());
+    TR_ASSERT(t, ReadFile(path) == "mine\n");
+
+    // Rewritten meanwhile: asks; Cancel writes nothing
+    EditFirstLine(doc, U"mine 2");
+    RewriteFile(path, "theirs\n");
+    TR_ASSERT(t, cmd->Execute({}));
+    TR_ASSERT(t, rootView.HasModal());
+    rootView.HandleKeyPress(Letter('c'));
+    TR_ASSERT(t, ReadFile(path) == "theirs\n");
+    TR_ASSERT(t, FirstLine(doc) == "mine 2");
+    // ...'O'verwrite writes ours
+    TR_ASSERT(t, cmd->Execute({}));
+    rootView.HandleKeyPress(Letter('o'));
+    TR_ASSERT(t, !rootView.HasModal());
+    TR_ASSERT(t, ReadFile(path) == "mine 2\n");
+
+    // ...'R'eload takes theirs and writes nothing
+    EditFirstLine(doc, U"mine 3");
+    RewriteFile(path, "theirs 2\n");
+    TR_ASSERT(t, cmd->Execute({}));
+    rootView.HandleKeyPress(Letter('r'));
+    TR_ASSERT(t, ReadFile(path) == "theirs 2\n");
+    TR_ASSERT(t, FirstLine(doc) == "theirs 2");
+
+    // '.s!' doesn't ask
+    EditFirstLine(doc, U"mine 4");
+    RewriteFile(path, "theirs 3\n");
+    TR_ASSERT(t, PluginExecutor::ParseAndExecuteWithCmdPrefix(U".s!"));
+    TR_ASSERT(t, !rootView.HasModal());
+    TR_ASSERT(t, ReadFile(path) == "mine 4\n");
+
+    Editor::Instance().CloseDocument(doc);
+    fs::remove_all(root, ec);
+    return kTR_Pass;
+}
+
+// '.closeall' / '.ca': with an edited buffer among them it asks - Cancel keeps all, Discard closes all and writes
+// nothing, Save all writes then closes; '.ca!' and nothing edited close without asking
+DLL_EXPORT int test_jsengine_closeallcmd(ITesting *t) {
+    namespace fs = std::filesystem;
+    auto root = fs::canonical(fs::temp_directory_path()) / "goatedit_closeallcmd_test";
+    std::error_code ec;
+    fs::remove_all(root, ec);
+    fs::create_directories(root);
+    auto pathA = root / "a.txt";
+    auto pathB = root / "b.txt";
+    RewriteFile(pathA, "a\n");
+    RewriteFile(pathB, "b\n");
+
+    TR_ASSERT(t, RuntimeConfig::Instance().HasPluginCommand("ca"));
+    auto cmd = RuntimeConfig::Instance().GetPluginCommand("ca");
+    ModalHostFixture host;
+    auto &rootView = host.rootView;
+    auto workspace = Editor::Instance().GetWorkspace();
+    auto nodeA = workspace->NewDocumentWithFileRef(pathA);
+    auto nodeB = workspace->NewDocumentWithFileRef(pathB);
+    auto open = [&]() {
+        auto docA = Editor::Instance().OpenDocumentFromWorkspace(nodeA);
+        auto docB = Editor::Instance().OpenDocumentFromWorkspace(nodeB);
+        return std::make_pair(docA, docB);
+    };
+
+    // One edited, one not: asks; Cancel keeps both
+    auto [docA, docB] = open();
+    TR_ASSERT(t, (docA != nullptr) && (docB != nullptr));
+    EditFirstLine(docA, U"edited");
+    TR_ASSERT(t, cmd->Execute({}));
+    TR_ASSERT(t, rootView.HasModal());
+    rootView.HandleKeyPress(Letter('c'));
+    TR_ASSERT(t, !rootView.HasModal());
+    TR_ASSERT(t, Editor::Instance().IsDocumentOpen(docA) && Editor::Instance().IsDocumentOpen(docB));
+
+    // ...'D'iscard closes both, writes nothing
+    TR_ASSERT(t, cmd->Execute({}));
+    rootView.HandleKeyPress(Letter('d'));
+    TR_ASSERT(t, !rootView.HasModal());
+    TR_ASSERT(t, !Editor::Instance().IsDocumentOpen(docA) && !Editor::Instance().IsDocumentOpen(docB));
+    TR_ASSERT(t, Editor::Instance().GetDocuments().empty());
+    TR_ASSERT(t, ReadFile(pathA) == "a\n");
+
+    // ...'S'ave all writes, then closes
+    std::tie(docA, docB) = open();
+    EditFirstLine(docA, U"saved");
+    TR_ASSERT(t, cmd->Execute({}));
+    rootView.HandleKeyPress(Letter('s'));
+    TR_ASSERT(t, !rootView.HasModal());
+    TR_ASSERT(t, Editor::Instance().GetDocuments().empty());
+    TR_ASSERT(t, ReadFile(pathA) == "saved\n");
+
+    // '.ca!' through the command line: no question, nothing written
+    std::tie(docA, docB) = open();
+    EditFirstLine(docB, U"dropped");
+    TR_ASSERT(t, PluginExecutor::ParseAndExecuteWithCmdPrefix(U".ca!"));
+    TR_ASSERT(t, !rootView.HasModal());
+    TR_ASSERT(t, Editor::Instance().GetDocuments().empty());
+    TR_ASSERT(t, ReadFile(pathB) == "b\n");
+
+    // Nothing edited: no question
+    open();
+    TR_ASSERT(t, cmd->Execute({}));
+    TR_ASSERT(t, !rootView.HasModal());
+    TR_ASSERT(t, Editor::Instance().GetDocuments().empty());
+
+    fs::remove_all(root, ec);
     return kTR_Pass;
 }

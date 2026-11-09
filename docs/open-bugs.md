@@ -221,3 +221,37 @@ sources are only compiled there. Then consider making new warnings visible - `-W
 ---
 
 --> Next bug is #20
+## 20. The terminal version on macOS gets the Cmd keymaps - and the terminal takes the keys first
+
+**Where:** `KeyMapping::LoadKeymapConfig` (`src/Core/KeyMapping.cpp`) picks the keymap files by operating system: the
+`macos:` / `linux:` sections of `Assets/Resources/config.yml`. Not by backend. So the ANSI/terminal version (Gansi) on
+macOS runs the same `macOS/*_keymap.yml` as the SDL window, with `CopyPasteModifier: KeyCode_Cmd`.
+
+**What's wrong:** in a terminal, `Cmd` belongs to the terminal program first. Gansi turns on the kitty keyboard protocol
+(`gansi/src/Capabilities.cpp` - kitty, Ghostty) and decodes Super as `Cmd` (`GansiKeyboardDriver`), so a `Cmd` key the
+terminal doesn't bind does arrive. But Ghostty binds many of ours by default (check with `ghostty +list-keybinds
+--default`):
+- `Cmd+1..9` - its tabs (our `SwitchToBuffer`)
+- `Cmd+T` - a new tab (our Go to symbol)
+- `Cmd+[` / `Cmd+]` - the previous / next split (our navigation stack, back / forward)
+- `Cmd+C` / `Cmd+V` - its copy and paste
+
+The `Option` alternatives (`Option+1..9`, every `UINavigationModifier` key) don't arrive either unless Ghostty has
+`macos-option-as-alt` set: by default Option composes characters (`¡™£`), as SDL3 did before its `only_left` hint.
+
+**Found:** 2026-11-09, running the terminal version in a Ghostty tab: `Cmd+1..9` never reached the editor.
+
+**Fix direction (to design):**
+- **The terminal version takes the Linux keymaps on macOS too:** `Ctrl` for functionality, `Alt` for the UI - what
+  terminals are built around. The section becomes a choice made at startup: `Editor` (the glue that picks the backend)
+  tells the keymap cache which section to read, so `KeyMapping` stays free of backends (the layering rule in
+  `CLAUDE.md`, as for the screen geometry).
+- **With the kitty protocol** `Ctrl+[` and `Esc`, `Ctrl+I` and `Tab` arrive apart, so the Linux keymaps work in Ghostty.
+  Without it (Apple Terminal, tmux) the legacy collisions remain - as on Linux today.
+- **`Option` as `Alt`** can't be fixed from our side: document it, or say so once at startup when Gansi finds Ghostty
+  (`TERM_PROGRAM`) - `macos-option-as-alt = left` matches what SDL3 does.
+
+**Open questions:** all keymaps or only `default`; whether config can override the choice (`keymap_section:`); and the
+related Linux one - the terminal keymap inherits the default one, so `Ctrl+B`, `Ctrl+[` and `Ctrl+]` go to the editor
+even in a full-screen program in the embedded terminal (`Ctrl+[` is `Esc` to vim; `docs/code-index.md` §11.9). Both are
+"which keys are the editor's in a terminal", and may want one answer.

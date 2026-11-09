@@ -1,0 +1,2 @@
+# Byte-exact terminal captures - never convert line endings
+*.bin binary

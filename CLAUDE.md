@@ -72,6 +72,11 @@ Test source files live in `utests/`. Each `test_<module>.cpp` corresponds to one
 **Verified-green set** (606 tests, run from `cmake-build-debug/`):
 `trun -m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,vtermparser,keymapping,hexprojection,bytestream,hexview,indent,session,markdown,folderscanner,foldermonitor,treeview,textbuffer,mouseclicktracker,wrapprojection,config,modal,find,codeindex,themeimport,exclusion,process,gitstatus,reload,openfiles --sequential ./libutests.so`
 
+**Terminal library tests** are a separate trun lib, `gvttests` (`src/ext/gvt`, built on demand):
+`cmake --build cmake-build-debug --target gvttests && cd cmake-build-debug && trun --sequential ./libgvttests.so`.
+Its `oracle` module compares against libvterm and is only built when libvterm is installed (`libvterm-dev` /
+`brew install libvterm pkg-config`). Plan: `docs/terminal-vt.md`.
+
 **Benchmarks are not trun cases** - trun links the ASan runtime (see below), which makes every
 allocation expensive and skews throughput numbers ~5x. Lexer throughput (code index step 0) is the
 release-only executable `gedit-bench` (`utests/bench/codeindex_bench.cpp`): `cmake --preset release &&
@@ -158,7 +163,7 @@ What a project root leaves out has one owner, `ExclusionRules` (`src/Core/FileSy
 and shared with the scanner, monitor and code index: `workspace.exclude` is hard (never touched), `.gitignore` is
 soft (dimmed in the tree, a frontier until expanded, skipped by index and monitor). YAML-based config loaded by `Config` singleton. `ConfigNode` provides typed access. `Theme` loads `.theme.yml` files. Runtime defaults are in `Assets/Resources/config.yml`. System assets are found **relative to the executable**, exactly one directory (`InstallPaths`: `--asset-dir`, `<exedir>/resources`, `<exedir>/../SharedSupport`, `<exedir>/../share/goatedit`, then `$XDG_DATA_DIRS/goatedit`) - never the cwd; see `docs/install-layout.md` (also `scripts/install.sh --user|--system|--uninstall`). A **user config** is merged at startup (`$XDG_CONFIG_HOME/goatedit` = `~/.config/goatedit` on both platforms, preferred/written; legacy `~/.goatedit` still read, with a log warning; `~/.local/share/goatedit` is NOT a user dir - it's the per-user install's system assets), then a **project config** `<root>/.goatedit/config.yml` (root resolved up front by `Editor::ResolveProjectDir`; keys that run commands/code — terminal shell/init/bootstrap, bootstrap scripts, plugin dir, logfile — are stripped by `ProjectConfigPolicy`). `--skip-user-config` skips both. `.cfg` (`ConfigAPI`) reads/writes the user/project files; writes go through `ConfigFilePatcher` (in-place text edit, comments preserved, NO yaml-cpp round-trip - yaml-cpp drops all comments). Logger sink is `logsink: filesink` → `~/.local/state/goatedit/goatedit.log` (Linux; macOS `~/Library/Logs/GoatEdit`) (only bootstrap lines reliably land there; SDL/runtime debug logs are flaky — prefer stderr instrumentation or ASan over the logfile when debugging).
 
-### Terminal Emulation (`src/Core/TerminalScreen.{h,cpp}`, `VTermParser.{h,cpp}`)
+### Terminal Emulation (`src/Core/TerminalScreen.{h,cpp}`, `VTermParser.{h,cpp}`; replacement in `src/ext/gvt`, see `docs/terminal-vt.md`)
 `TerminalScreen` is a `cols × rows` cell grid (per-cell fg/bg/attrs) + scrollback + pen state + a single `isAltScreen` flag. `VTermParser` parses the pty byte stream into a command list; `TerminalController::HandleAnsiCmd` applies them to the grid. The pty is read on a **separate thread** (`Shell::ConsumePty`) that mutates `TerminalScreen` under `TerminalController::screenLock` — **every path that mutates the grid (including `Resize`) must hold that lock.** `Shell` installs **no signal handlers**: the shell's end is the pty read failing (`EIO`). A `SIGCHLD` handler fires for *any* child of the editor (`git status` via `Process`) and once stopped the reader on Linux - commands still ran, nothing was shown (`test_process_shellsurvives`).
 
 ### Platform-Specific

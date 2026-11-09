@@ -1,6 +1,8 @@
 # Terminal enhancements — running the Claude CLI (and other modern TUIs) in the embedded terminal
 
-**Status:** analysis + implementation plan, nothing implemented. Written 2026-10-20 against `main` @ `660a586`.
+**Status:** gap analysis — still valid. **The implementation plan (§5) is superseded** by
+[`terminal-vt.md`](terminal-vt.md) (2026-11-09: own streaming parser + screen as the standalone `gvt` library,
+libvterm as test oracle). §2–§4, §6 and §7 are referenced from there. Written 2026-10-20 against `main` @ `660a586`.
 **Trigger:** starting `claude` in the editor's terminal "didn't fly at all".
 
 The short version: the Claude CLI is not exotic — it is a normal raw-mode TUI that speaks a mainstream
@@ -261,7 +263,7 @@ There is no paste path into the terminal at all (paste is `Document`-only). Add 
 
 ---
 
-## 5. Implementation plan
+## 5. Implementation plan (superseded — see [`terminal-vt.md`](terminal-vt.md) §5)
 
 Order is chosen so each step is independently testable and the CLI becomes usable after Phase 1. Every
 package follows the repo's reproduce-before-fix rule: write the failing test first (for the parser/screen

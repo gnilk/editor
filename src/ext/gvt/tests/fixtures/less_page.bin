@@ -1,0 +1,98 @@
+[?1049h[22;0;0t[?1h=//
+// gvt — streaming DEC/ANSI parser. State machine and terms (clear, collect, par am, hook, put, unhook, dispatch)
+// follow https://vt100.net/emu/dec_ansi_parser; the deviations are listed in Pa rser.h.
+//
+#include <algorithm>
+
+#include "gvt/Parser.h"
+
+using namespace gnilk::vt;
+
+static constexpr uint8_t kCAN = 0x18;
+static constexpr uint8_t kSUB = 0x1A;
+static constexpr uint8_t kESC = 0x1B;
+static constexpr uint8_t kBEL = 0x07;
+static constexpr uint8_t kDEL = 0x7F;
+static constexpr char32_t kReplacementChar = 0xFFFD;
+
+Parser::Parser(IParserSink &sink) : sink(sink) {
+}
+
+void Parser::Feed(std::string_view data) {
+[7mParser.cpp[27m[K[K    Feed(reinterpret_cast<const uint8_t *>(data.data()), data.size());
+}
+
+void Parser::Feed(const uint8_t *data, size_t length) {
+    for (size_t i = 0; i < length; i++) {
+        Advance(data[i]);
+    }
+}
+
+void Parser::Reset() {
+    state = State::kGround;
+    utf8Codepoint = 0;
+    utf8Minimum = 0;
+    utf8Remaining = 0;
+    Clear();
+    stringBuffer.clear();
+    isStringOverflow = false;
+    isStringTerminatorPending = false;
+}
+
+void Parser::Advance(uint8_t byte) {
+    // "Anywhere" transitions: CAN and SUB cancel whatever is in progress, ESC s tarts over
+:[K[K/[KSS[Ktt[Kaa[Ktt[Kee[K[1;1H    Feed(reinterpret_cast<const uint8_t *>(data.data()), data.size());
+[2;1H}
+[3;1H
+[4;1Hvoid Parser::Feed(const uint8_t *data, size_t length) {
+[5;1H    for (size_t i = 0; i < length; i++) {
+[6;1H        Advance(data[i]);
+[7;1H    }
+[8;1H}
+[9;1H
+[10;1Hvoid Parser::Reset() {
+[11;1H    state = State::kGround;
+[12;1H    utf8Codepoint = 0;
+[13;1H    utf8Minimum = 0;
+[14;1H    utf8Remaining = 0;
+[15;1H    Clear();
+[16;1H    stringBuffer.clear();
+[17;1H    isStringOverflow = false;
+[18;1H    isStringTerminatorPending = false;
+[19;1H}
+[20;1H
+[21;1Hvoid Parser::Advance(uint8_t byte) {
+[22;1H    // "Anywhere" transitions: CAN and SUB cancel whatever is in progress, ESC s [23;1Htarts over
+[24;1H[1;1H    Feed(reinterpret_cast<const uint8_t *>(data.data()), data.size());
+[2;1H}
+[3;1H
+[4;1Hvoid Parser::Feed(const uint8_t *data, size_t length) {
+[5;1H    for (size_t i = 0; i < length; i++) {
+[6;1H        Advance(data[i]);
+[7;1H    }
+[8;1H}
+[9;1H
+[10;1Hvoid Parser::Reset() {
+[11;1H    state = [7mState[27m::kGround;
+[12;1H    utf8Codepoint = 0;
+[13;1H    utf8Minimum = 0;
+[14;1H    utf8Remaining = 0;
+[15;1H    Clear();
+[16;1H    stringBuffer.clear();
+[17;1H    isStringOverflow = false;
+[18;1H    isStringTerminatorPending = false;
+[19;1H}
+[20;1H
+[21;1Hvoid Parser::Advance(uint8_t byte) {
+[22;1H    // "Anywhere" transitions: CAN and SUB cancel whatever is in progress, ESC s [23;1Htarts over
+[24;1H    if ((byte == kCAN) || (byte == kSUB)) {
+        FlushIncompleteUtf8();
+        Leave[7mState[27m(false);
+        state = [7mState[27m::kGround;
+        sink.Execute(byte);
+        return;
+    }
+    if (byte == kESC) {
+        FlushIncompleteUtf8();
+        bool wasString = Leave[7mState[27m(true);
+:[K[K[?1l>[?1049l[23;0;0t

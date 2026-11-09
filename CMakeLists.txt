@@ -80,6 +80,13 @@ if (GEDIT_BUILD_ANSI)
     add_definitions(-DGEDIT_USE_ANSI)
 endif()
 
+# ---------------------------------------------------------------------------
+# gvt — terminal emulation library (streaming VT parser; screen model to come).
+# Standalone like gansi; tests are `gvttests` (built on demand, libvterm oracle
+# when installed). Not linked into goatedit yet - see docs/terminal-vt.md VT-7.
+# ---------------------------------------------------------------------------
+add_subdirectory(src/ext/gvt)
+
 set(CUR_TARGET goatedit)
 
 if (APPLE)

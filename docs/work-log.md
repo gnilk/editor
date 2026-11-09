@@ -337,11 +337,12 @@ drop both Gansi stopgaps. SDL/JS/serialization unchanged (alpha ≤ 1 ⇒ no wra
   tree, open a file by name on `Cmd+P`, plain text search on `Cmd+Shift+F`. Noted, not scheduled: key bindings for script
   commands, so `ReformatLine` can become a quick command. Detail: [`usability-round.md`](usability-round.md).
 
-- **Terminal enhancements — run the Claude CLI / modern TUIs** — gap analysis from a captured `claude`
-  byte stream replayed through the real parser/grid: no stream parser (split reads corrupt sequences), C1
-  bytes misread inside UTF-8, missing CHA/truecolor/pending-wrap, prefixed CSI misdispatched, local line
-  editing applied to foreground jobs, keys/paste swallowed in passthrough. Phased plan TE-1..TE-14:
-  [`terminal-enhancements.md`](terminal-enhancements.md).
+- **Terminal emulation library `gvt`** (2026-11-09) — rewrite `VTermParser` as a Williams streaming state
+  machine and move parser + screen model into a standalone `src/ext/gvt` library (like `gansi`), driven through
+  `IParserSink` / `ITerminalHost` interfaces; libvterm as a test-only oracle, libghostty as reading reference
+  (no Zig dependency). VT-0..VT-2 done on `feat/gvt` (parser, Ghostty vectors, libvterm oracle, fixtures).
+  Work packages VT-0..VT-10: [`terminal-vt.md`](terminal-vt.md). Gap analysis it builds on
+  (the claude capture, TE items): [`terminal-enhancements.md`](terminal-enhancements.md).
 - **Per-block syntax highlighting** — extracted from the terminal-scrollback effort (was its "Phase 4").
   Highlight a command block's output with the matching language (e.g. CMake colors over a `cmake` run) via
   a hard-region tokenize over the block's line range — a fixed start boundary on a background `Job`, no

@@ -284,6 +284,7 @@
 // Bring in the view handling
 #include "Core/UI/Views/ViewBase.h"
 #include "Core/Editor/Views/GutterView.h"
+#include "Core/Editor/Views/OverviewView.h"
 #include "Core/Editor/Views/EditorView.h"
 #include "Core/Editor/Views/HexView.h"
 #include "Core/Editor/Views/EditorViewContainer.h"
@@ -494,6 +495,15 @@ int main(int argc, const char **argv) {
     hStackViewEditor.AddSubView(&editorViewContainer, kFill);
     editorViewContainer.SetContentView(&editorView);
     editorViewContainer.SetAlternateView(&hexView);
+
+    // The overview at the editor's right edge (docs/usability-round.md §7): the minimap, where the screen draws pixels.
+    // The ruler for a screen that draws cells only is still to come - without pixels there is no overview yet.
+    auto overviewView = OverviewView();
+    float cellWidthPixels = 0;
+    float cellHeightPixels = 0;
+    if (Config::Instance()["minimap"].GetBool("enabled", true) && screen->CellSizeInPixels(cellWidthPixels, cellHeightPixels)) {
+        hStackViewEditor.AddSubView(&overviewView, kFixed);
+    }
 
     vSplitViewUpper.SetInitialSplitterPos(24);
     // Stable session id so the workspace|editor divide round-trips through the session cache (§4.1).

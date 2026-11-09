@@ -33,6 +33,81 @@ Document::Ref Document::Create(TextBuffer::Ref newTextBuffer) {
     return document;
 }
 
+Document::BaseHashes Document::HashLines(std::string_view text) {
+    std::vector<std::u32string> lines;
+    TextBuffer::SplitLines(text, lines);
+    auto hashes = std::make_shared<std::vector<uint64_t>>();
+    hashes->reserve(lines.size());
+    for (auto &line : lines) {
+        hashes->push_back(Line::HashOf(line));
+    }
+    return hashes;
+}
+
+void Document::SetChangeBase(BaseHashes newBaseHashes) {
+    {
+        std::lock_guard<std::mutex> guard(changesLock);
+        hasChangeBase = true;
+        isAllAdded = false;
+        baseHashes = std::move(newBaseHashes);
+    }
+    WatchLineHashes();
+}
+
+void Document::SetChangeBaseAllAdded() {
+    {
+        std::lock_guard<std::mutex> guard(changesLock);
+        hasChangeBase = true;
+        isAllAdded = true;
+        baseHashes = nullptr;
+    }
+    WatchLineHashes();
+}
+
+void Document::ClearChangeBase() {
+    textBuffer->SetLineHashesHandler(nullptr);
+    std::lock_guard<std::mutex> guard(changesLock);
+    hasChangeBase = false;
+    isAllAdded = false;
+    baseHashes = nullptr;
+    lineChanges = nullptr;
+}
+
+// The buffer reports its lines to this document while it has a base; the destructor and ClearChangeBase stop it
+void Document::WatchLineHashes() {
+    textBuffer->SetLineHashesHandler([this](const std::vector<uint64_t> &hashes) {
+        UpdateLineChanges(hashes);
+    });
+    textBuffer->RequestLineHashes();
+}
+
+LineDiff::Changes::Ref Document::GetLineChanges() {
+    std::lock_guard<std::mutex> guard(changesLock);
+    return lineChanges;
+}
+
+void Document::UpdateLineChanges(const std::vector<uint64_t> &hashes) {
+    BaseHashes base;
+    bool isAllAddedNow;
+    {
+        std::lock_guard<std::mutex> guard(changesLock);
+        if (!hasChangeBase) {
+            return;
+        }
+        base = baseHashes;
+        isAllAddedNow = isAllAdded;
+    }
+    if (!isAllAddedNow && (base == nullptr)) {
+        return;
+    }
+    // Compared outside the lock: GetLineChanges, from the drawing, doesn't wait for it
+    auto changes = std::make_shared<LineDiff::Changes>(isAllAddedNow ? LineDiff::AllAdded(hashes.size()) : LineDiff::Compute(*base, hashes));
+    std::lock_guard<std::mutex> guard(changesLock);
+    if (hasChangeBase) {
+        lineChanges = std::move(changes);
+    }
+}
+
 void Document::Begin() {
     logger = gnilk::Logger::GetLogRef("Document");
     bUseCLionPageNav = Config::Instance()[cfgSectionName].GetBool("pgupdown_content_first", true);
@@ -146,6 +221,24 @@ void Document::MoveCursorByLines(int delta) {
     UpdateDocumentFromNavigation(true);
 }
 
+void Document::ScrollViewTo(size_t idxTopLine) {
+    auto numLines = Lines().size();
+    if (numLines == 0) {
+        return;
+    }
+    auto &lineCursor = documentViewState->lineCursor;
+    auto height = std::max(lineCursor.Height(), (int32_t)1);
+    idxTopLine = std::min(idxTopLine, numLines - 1);
+    auto caretRow = std::clamp(GetCursor().position.y, 0, height - 1);
+    auto idxLine = std::min(idxTopLine + (size_t)caretRow, numLines - 1);
+
+    lineCursor.viewTopLine = (int32_t)idxTopLine;
+    lineCursor.viewBottomLine = lineCursor.viewTopLine + height;
+    lineCursor.idxActiveLine = idxLine;
+    ApplyWantedColumn(GetCursor(), LineAt(idxLine));
+    GetCursor().position.y = (int32_t)(idxLine - idxTopLine);
+}
+
 bool Document::JumpToSearchHit(size_t idxHit) {
     if (idxHit >= searchResults.size()) {
         return false;
@@ -234,6 +327,7 @@ bool Document::LoadData(const std::filesystem::path &pathName) {
     if (!textBuffer->Load(pathName)) {
         return false;
     }
+    TakeDiskStamp();
     logger->Debug("LoadData, ok, file loaded");
     auto lang = Editor::Instance().GetLanguageForExtension(pathName.extension());
     if (lang != nullptr) {
@@ -245,10 +339,24 @@ bool Document::LoadData(const std::filesystem::path &pathName) {
 }
 
 bool Document::SaveData(const std::filesystem::path &pathName) {
-    return textBuffer->Save(pathName);
+    // A save of an unchanged buffer writes nothing: the stamp stays, or a file rewritten meanwhile would never reload
+    bool isWriting = IsModified();
+    if (!textBuffer->Save(pathName)) {
+        return false;
+    }
+    if (isWriting) {
+        TakeDiskStamp();
+        isConflictOnDisk = false;
+    }
+    return true;
 }
 bool Document::SaveDataNoChangeCheck(const std::filesystem::path &pathName) {
-    return textBuffer->SaveForce(pathName);
+    if (!textBuffer->SaveForce(pathName)) {
+        return false;
+    }
+    TakeDiskStamp();
+    isConflictOnDisk = false;
+    return true;
 }
 
 // No-arg variants operate on the document's own path (its file identity).
@@ -260,6 +368,87 @@ bool Document::Save() {
 }
 bool Document::SaveForce() {
     return SaveDataNoChangeCheck(path);
+}
+
+void Document::TakeDiskStamp() {
+    std::error_code error;
+    diskStamp = {};
+    auto size = std::filesystem::file_size(path, error);
+    if (error) {
+        return;
+    }
+    auto time = std::filesystem::last_write_time(path, error);
+    if (error) {
+        return;
+    }
+    diskStamp = {true, size, time};
+}
+
+bool Document::IsChangedOnDisk() {
+    if (!diskStamp.isValid) {
+        return false;
+    }
+    std::error_code error;
+    auto size = std::filesystem::file_size(path, error);
+    if (error) {
+        return false;
+    }
+    auto time = std::filesystem::last_write_time(path, error);
+    if (error) {
+        return false;
+    }
+    return (size != diskStamp.size) || (time != diskStamp.time);
+}
+
+bool Document::ReloadFromDisk() {
+    std::vector<std::u32string> newLines;
+    if (!TextBuffer::ReadLines(path, newLines)) {
+        return false;
+    }
+    auto &oldLines = textBuffer->Lines();
+    size_t numOld = oldLines.size();
+    size_t numNew = newLines.size();
+
+    // What is the same at the start and at the end stays - lines, colours and all
+    size_t idxFirst = 0;
+    while ((idxFirst < numOld) && (idxFirst < numNew) && (oldLines[idxFirst]->Buffer() == newLines[idxFirst])) {
+        idxFirst++;
+    }
+    size_t numSameAtEnd = 0;
+    while ((numSameAtEnd < (numOld - idxFirst)) && (numSameAtEnd < (numNew - idxFirst))
+           && (oldLines[numOld - 1 - numSameAtEnd]->Buffer() == newLines[numNew - 1 - numSameAtEnd])) {
+        numSameAtEnd++;
+    }
+
+    if ((idxFirst != numOld) || (numOld != numNew)) {
+        size_t idxOldEnd = numOld - numSameAtEnd;      // exclusive
+        size_t idxNewEnd = numNew - numSameAtEnd;
+        // ReplaceLineRange replaces at least one line: lines only added take a neighbour along
+        if (idxOldEnd == idxFirst) {
+            if (idxFirst > 0) {
+                idxFirst--;
+            } else {
+                idxOldEnd++;
+                idxNewEnd++;
+            }
+        }
+        std::vector<std::u32string> replacement(newLines.begin() + (long)idxFirst, newLines.begin() + (long)idxNewEnd);
+        ReplaceLineRange(idxFirst, idxOldEnd - 1, replacement);
+    }
+    textBuffer->MarkInSyncWithDisk();
+    TakeDiskStamp();
+    isConflictOnDisk = false;
+
+    // A shorter file: the cursor goes to what is left
+    auto idxLine = (size_t)documentViewState->lineCursor.idxActiveLine;
+    auto numLines = textBuffer->NumLines();
+    if (idxLine >= numLines) {
+        auto idxLast = numLines - 1;
+        SetCursorPosition(idxLast, std::min((size_t)GetCursor().position.x, LineAt(idxLast)->Length()));
+    } else if ((size_t)GetCursor().position.x > LineAt(idxLine)->Length()) {
+        GetCursor().position.x = (int)LineAt(idxLine)->Length();
+    }
+    return true;
 }
 
 DocumentSession Document::ToSession() const {

@@ -69,8 +69,8 @@ cd cmake-build-debug && trun -l ./libutests.so                     # list
 
 Test source files live in `utests/`. Each `test_<module>.cpp` corresponds to one module; `test_main.cpp` initializes the editor singleton for all tests. Test functions are `extern "C"` (or `DLL_EXPORT`) and discovered by exported symbol name — adding a new case is just a new function (+ a forward declaration where the file uses one).
 
-**Verified-green set** (554 tests, run from `cmake-build-debug/`):
-`trun -m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,vtermparser,keymapping,hexprojection,bytestream,hexview,indent,session,markdown,folderscanner,foldermonitor,treeview,textbuffer,mouseclicktracker,wrapprojection,config,modal,find,codeindex,themeimport,exclusion --sequential ./libutests.so`
+**Verified-green set** (606 tests, run from `cmake-build-debug/`):
+`trun -m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,vtermparser,keymapping,hexprojection,bytestream,hexview,indent,session,markdown,folderscanner,foldermonitor,treeview,textbuffer,mouseclicktracker,wrapprojection,config,modal,find,codeindex,themeimport,exclusion,process,gitstatus,reload,openfiles --sequential ./libutests.so`
 
 **Benchmarks are not trun cases** - trun links the ASan runtime (see below), which makes every
 allocation expensive and skews throughput numbers ~5x. Lexer throughput (code index step 0) is the
@@ -82,6 +82,7 @@ C/C++ structure pass (`src/Core/Index/CPPStructureScanner`, code index step 1) f
 `./gedit-bench --index <dir>` indexes a tree and times Go to symbol queries. `./gedit-bench --ignored <dir>` lists
 `ExclusionRules`' verdict per path, to hold against `git check-ignore --no-index --stdin`.
 `./gedit-bench --edges <name> <root>` asks the relationship queries (bases, derived, holds, held by) from the outside.
+`./gedit-bench --chains <dir>` runs Go to definition on every `.` / `->` in a tree (locals included, as the editor reads them) and counts what the types on symbols narrow.
 `./gedit-bench --recolour <file> <root>` times a large open file: parse, recolour, the walk after a pause in typing.
 `./gedit-bench --check <file-or-dir>` lists files whose braces don't balance at the end (usually a lexer
 misread); `./gedit-bench --braces <file>` prints the lexer's brace depth per line to find the line.

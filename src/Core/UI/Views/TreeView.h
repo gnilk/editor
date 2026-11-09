@@ -5,11 +5,15 @@
 #ifndef EDITOR_TREEVIEW_H
 #define EDITOR_TREEVIEW_H
 
+#include <algorithm>
 #include <memory>
 #include <functional>
+#include <optional>
 #include "VisibleView.h"
 #include "Core/UI/UIHost.h"
 #include "Core/VerticalNavigationViewModel.h"
+#include "Core/UI/TypeToFind.h"
+#include "Core/UnicodeHelper.h"
 
 namespace gedit {
 
@@ -32,6 +36,7 @@ namespace gedit {
 
             // this one is clipped and mutiliated during drawing - should now be relied on for anything
             std::string drawString = {};    // filled in during 'Flatten'
+            std::string markers = {};       // right-aligned, filled in during 'Flatten'
 
             int indent = 0;
 
@@ -65,6 +70,11 @@ namespace gedit {
         using StyleDelegate = std::function<kTextAttributes(const T &data)>;
         // True for a row that steps back - drawn in 'tree_dimmed', or between the foreground and the background
         using DimDelegate = std::function<bool(const T &data)>;
+        // Optional - a row's own foreground (a file in the change set). Empty: the normal one, or dimmed.
+        using ColourDelegate = std::function<std::optional<ColorRGBA>(const T &data)>;
+        // Optional - a few characters drawn right-aligned in the row ('C' for a changed file), more than one as they come.
+        // A name that would run into them is cut with '...'. Asked when the tree is flattened, not on every draw.
+        using MarkersDelegate = std::function<std::string(const T &data)>;
         // Optional - draws a row itself from 'x', behind its +/-, within 'width' columns from the left of the view. False: draw
         // it the normal way.
         // Not asked for the selected row, which stays one inverted bar.
@@ -92,10 +102,33 @@ namespace gedit {
         void ReInitView() override {
             VisibleView::ReInitView();
             verticalNavigationViewModel.lineCursor = &treeLineCursor;
-            treeLineCursor.viewTopLine = 0;
-            treeLineCursor.viewBottomLine = viewRect.Height();
             // This will recompute the draw-strings
             Flatten();
+            // Not back to the top: a re-layout comes with every switch of the active document, and the tree would
+            // jump to its first row, leaving the selection off screen
+            FitViewToHeight(viewRect.Height());
+        }
+
+        // The view is 'height' rows now: it stays scrolled where it was, moved only as far as needed to keep the
+        // selection in sight, and with no empty rows below the last when the tree is shorter than the view
+        void FitViewToHeight(int height) {
+            height = std::max(0, height);
+            int top = treeLineCursor.viewTopLine;
+            int idxActive = (int)treeLineCursor.idxActiveLine;
+            int numRows = (int)flattenNodeList.size();
+            if (height > 0) {
+                if (idxActive < top) {
+                    top = idxActive;
+                } else if (idxActive >= top + height) {
+                    top = idxActive - height + 1;
+                }
+                if (top + height > numRows) {
+                    top = numRows - height;
+                }
+            }
+            top = std::max(0, top);
+            treeLineCursor.viewTopLine = top;
+            treeLineCursor.viewBottomLine = top + height;
         }
 
         // An empty tree has no selection - returns a default T (nullptr for a Ref)
@@ -174,8 +207,37 @@ namespace gedit {
             if (!wasHandled) {
                 return false;
             }
+            // Moved by hand: the next letter typed starts a new name
+            typeToFind.Reset();
             InvalidateAll();
             return true;
+        }
+
+        // A letter typed in the tree (docs/usability-round.md §3 a): the selection jumps to the next visible row whose
+        // name starts with the letters typed within a pause (TypeToFind). False when no row does - it stays put.
+        bool FindByTyping(char32_t ch) {
+            auto &prefix = typeToFind.Type(ch, TypeToFind::Clock::now());
+            if (!cbToString) {
+                return false;
+            }
+            std::vector<std::u32string> names;
+            names.reserve(flattenNodeList.size());
+            for (auto &node : flattenNodeList) {
+                names.push_back(UnicodeHelper::utf8to32(cbToString(node->data)));
+            }
+            auto idxFound = TypeToFind::FindNext(names, treeLineCursor.idxActiveLine, prefix);
+            if (!idxFound.has_value()) {
+                return false;
+            }
+            treeLineCursor.idxActiveLine = *idxFound;
+            FitViewToHeight(treeLineCursor.viewBottomLine - treeLineCursor.viewTopLine);
+            InvalidateAll();
+            return true;
+        }
+
+        // How long a pause in typing ends a name (FindByTyping)
+        void SetTypeToFindPause(TypeToFind::Clock::duration pause) {
+            typeToFind.SetPause(pause);
         }
 
         void SetToStringDelegate(ToStringDelegate newToString) {
@@ -188,6 +250,14 @@ namespace gedit {
 
         void SetDimDelegate(DimDelegate newDim) {
             cbDim = newDim;
+        }
+
+        void SetColourDelegate(ColourDelegate newColour) {
+            cbColour = newColour;
+        }
+
+        void SetMarkersDelegate(MarkersDelegate newMarkers) {
+            cbMarkers = newMarkers;
         }
 
         void SetDrawRowDelegate(DrawRowDelegate newDrawRow) {
@@ -356,13 +426,14 @@ namespace gedit {
         }
 
         void AdjustNodeDrawStrings() {
-            auto widthMax = viewRect.Width();
             for(auto &node : flattenNodeList) {
+                // The markers, a space before them and the gap after them are the name's limit
+                int widthMax = viewRect.Width() - (node->markers.empty() ? 0 : (int)node->markers.length() + 1 + MARKERS_RIGHT_GAP);
                 auto strWidth = node->drawString.length() + node->indent;
 
                 if (strWidth < widthMax) continue;
 
-                // erase last three chars and replace with '...'
+                // erase last three chars and replace with '...'                        
                 // sanity check for short strings
                 if (strWidth > (node->indent + 6)) {
                     // A deeply-indented node in a narrow view (small terminal workspace panel) drives
@@ -409,11 +480,18 @@ namespace gedit {
                     itemAttributes = itemAttributes | cbStyle(node->data);
                 }
 
+                auto drawMarkers = [&](kTextAttributes attributes) {
+                    int xMarkers = viewRect.Width() - (int)node->markers.length() - MARKERS_RIGHT_GAP;
+                    if (!node->markers.empty() && (xMarkers > node->indent)) {
+                        dc.DrawStringWithAttributesAt(xMarkers, yPos, attributes, node->markers.c_str());
+                    }
+                };
+
                 dc.FillLine(yPos, kTextAttributes::kNormal, ' ');
                 if (i == treeLineCursor.idxActiveLine) {
                     dc.FillLine(yPos, kTextAttributes::kNormal | kTextAttributes::kInverted, ' ');
                     dc.DrawStringWithAttributesAt(node->indent, yPos, itemAttributes | kTextAttributes::kInverted, str.c_str());
-
+                    drawMarkers(kTextAttributes::kNormal | kTextAttributes::kInverted);
                     continue;
                 }
                 if (cbDrawRow != nullptr) {
@@ -424,12 +502,20 @@ namespace gedit {
                         continue;
                     }
                 }
-                if ((cbDim != nullptr) && cbDim(node->data)) {
+                auto colour = (cbColour != nullptr) ? cbColour(node->data) : std::nullopt;
+                if (colour.has_value()) {
+                    dc.SetColor(*colour, background);
+                    dc.DrawStringWithAttributesAt(node->indent, yPos, itemAttributes, str.c_str());
+                    drawMarkers(kTextAttributes::kNormal);
+                    dc.SetColor(foreground, background);
+                } else if ((cbDim != nullptr) && cbDim(node->data)) {
                     dc.SetColor(dimmed, background);
                     dc.DrawStringWithAttributesAt(node->indent, yPos, itemAttributes, str.c_str());
+                    drawMarkers(kTextAttributes::kNormal);
                     dc.SetColor(foreground, background);
                 } else {
                     dc.DrawStringWithAttributesAt(node->indent, yPos, itemAttributes, str.c_str());
+                    drawMarkers(kTextAttributes::kNormal);
                 }
             }
         }
@@ -450,6 +536,7 @@ namespace gedit {
 
 
             auto str = cbToString(node->data);
+            node->markers = (cbMarkers != nullptr) ? cbMarkers(node->data) : std::string{};
 
             // Show +/- when the node has children OR has unfetched children waiting to be
             // populated. `> 0` not `!= 0` — using `== 0` would put a '+' on every file.
@@ -482,9 +569,15 @@ namespace gedit {
 
     private:
         std::vector<typename TreeNode::Ref> flattenNodeList;
+        TypeToFind typeToFind;
         ToStringDelegate cbToString = nullptr;
         StyleDelegate cbStyle = nullptr;
         DimDelegate cbDim = nullptr;
+        ColourDelegate cbColour = nullptr;
+        MarkersDelegate cbMarkers = nullptr;
+        // Air between the markers and the view's edge. A whole cell: the views are a character grid, and the terminal
+        // backend has nothing finer.
+        static constexpr int MARKERS_RIGHT_GAP = 1;
         DrawRowDelegate cbDrawRow = nullptr;
         typename TreeNode::Ref rootNode;
         LineCursor treeLineCursor;  // This is not really used - just for storage

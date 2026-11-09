@@ -5,6 +5,7 @@
 #ifndef EDITOR_TEXTBUFFER_H
 #define EDITOR_TEXTBUFFER_H
 
+#include <atomic>
 #include <vector>
 #include <thread>
 #include <memory>
@@ -35,6 +36,7 @@ namespace gedit {
     public:
         using Ref = std::shared_ptr<TextBuffer>;
         using StructureHandler = std::function<void(const FileStructure &structure)>;
+        using LineHashesHandler = std::function<void(const std::vector<uint64_t> &hashes)>;
         // The current names across the workspace. nullptr: nothing new yet, keep what you have.
         using WorkspaceNamesSource = std::function<WorkspaceNames::Ref()>;
 
@@ -71,10 +73,21 @@ namespace gedit {
         bool Save(const std::filesystem::path &pathName);
         bool SaveForce(const std::filesystem::path &pathName);
         bool Load(const std::filesystem::path &pathName);
+        // A file's lines as Load reads them, without a buffer - what a reload compares against
+        static bool ReadLines(const std::filesystem::path &pathName, std::vector<std::u32string> &outLines);
+        // Text split into lines as ReadLines splits a file - the file as git has it
+        static void SplitLines(std::string_view text, std::vector<std::u32string> &outLines);
+        // The lines are what the file holds (a reload put them there): not changed, nothing to save
+        void MarkInSyncWithDisk();
 
         // Called with the buffer's structure after a pause in editing (docs/code-index.md §4.4), on the parse
         // thread: no text copy, no lexing, just what the lines carry. Line numbers are the current ones.
         void SetStructureHandler(StructureHandler newHandler);
+        // Called with a hash per line (Line::ContentHashLocked) after a pause in editing - any language - on the parse
+        // thread, or at once without one. For the change marks (docs/usability-round.md §0c).
+        void SetLineHashesHandler(LineHashesHandler newHandler);
+        // The hashes again at the next pause, edited or not - the base they are compared with changed
+        void RequestLineHashes();
         FileStructure CollectStructure();
 
         // Where the names this buffer doesn't declare itself come from (docs/code-index.md §11.5). Asked at each
@@ -190,6 +203,12 @@ namespace gedit {
         }
 
     public:
+        // Changes each time the text or its colours change - an edit, a finished parse, a recolour. For what is built from
+        // the whole buffer on the UI thread (the minimap, docs/usability-round.md §7) to know it is stale.
+        uint64_t Revision() const {
+            return revision.load();
+        }
+
         // For unit testing...
         BufferState GetBufferState() {
             return bufferState;
@@ -255,6 +274,8 @@ namespace gedit {
         bool RefreshWorkspaceNames();
         void NotifyStructureChanged();
         void PublishStructure();
+        void NotifyLinesChanged();
+        void PublishLineHashes();
         void ApplySemanticNames(Line &line);
         kLanguageTokenClass TokenClassOfName(const std::u32string &text, size_t idxName, const std::u32string &name);
         void OnLineRemoved(Line &line);
@@ -263,6 +284,7 @@ namespace gedit {
 
         Timer::Ref autoSaveTimer = nullptr;
         BufferState bufferState = kBuffer_Empty;
+        std::atomic<uint64_t> revision = 0;
 
         std::vector<Line::Ref> lines;
 
@@ -283,6 +305,10 @@ namespace gedit {
         std::chrono::steady_clock::time_point timeStructureChanged = {};
         std::mutex structureHandlerLock;
         StructureHandler structureHandler = nullptr;
+        std::atomic<bool> isLineHashesPending = false;
+        std::chrono::steady_clock::time_point timeLinesChanged = {};
+        std::mutex lineHashesLock;
+        LineHashesHandler lineHashesHandler = nullptr;
         WorkspaceNamesSource workspaceNamesSource = nullptr;
         std::chrono::steady_clock::time_point timeNamesChanged = {};
         // What deleted lines declared - deleted on the UI thread, taken out of 'semanticNames' by the next scan

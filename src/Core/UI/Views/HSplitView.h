@@ -190,6 +190,35 @@ namespace gedit {
         }
 
 
+        // The divider row - the status line, in the editor - can be dragged with the left button
+        bool OnMouseDragStart(const MouseEvent &press) override {
+            if ((press.button != kLeftButton) || !IsOnDivider(press.x, press.y)) {
+                return false;
+            }
+            dragOffset = press.y - DividerRow();
+            return true;
+        }
+
+        std::optional<kPointerShape> PointerShapeAt(int x, int y) override {
+            return IsOnDivider(x, y) ? std::optional(kPointerShape::kResizeRows) : std::nullopt;
+        }
+
+        kPointerShape DragPointerShape() override {
+            return kPointerShape::kResizeRows;
+        }
+
+        void OnMouseDrag(const MouseEvent &mouseEvent) override {
+            if ((mouseEvent.kind != MouseEvent::kMouseEventKind_Move) && (mouseEvent.kind != MouseEvent::kMouseEventKind_Release)) {
+                return;
+            }
+            // Clamped by SetSplitterPos - a pointer past either end leaves both views their minimum
+            int newPos = mouseEvent.y - dragOffset;
+            if (newPos != splitterPos) {
+                SetSplitterPos(newPos);
+            }
+            splitterPosBeforeReset = GetSplitterPos();
+        }
+
         void SetUpper(ViewBase *newUpper) {
             upperView = newUpper;
             upperView->SetLayoutHandler(this);
@@ -229,6 +258,15 @@ namespace gedit {
             std::string dummy(dc.GetRect().Width(), '-');
             dc.DrawStringWithAttributesAt(0,row, kTextAttributes::kInverted, dummy.c_str());
 
+        }
+
+        // On screen, by UpdateUpper/LowerViewRect: the upper view ends the row above, the lower starts the row below
+        int DividerRow() {
+            return splitterPos;
+        }
+
+        bool IsOnDivider(int x, int y) {
+            return !bUseFullView && (y == DividerRow()) && viewRect.PointInRect(x, y);
         }
 
         void UpdateUpperViewRect() {
@@ -320,6 +358,7 @@ namespace gedit {
         // Keep at least this many rows for each of the upper/lower views (and thus the splitter row
         // itself on-screen) whenever the content area is large enough to allow it.
         static constexpr int kMinViewExtent = 5;
+        static constexpr int kLeftButton = 1;      // as the backends number them (SDL; gansi maps onto it)
 
         // Clamp a candidate splitter row into the visible content area, leaving room for both views.
         // Falls back to a strict on-screen clamp when the content is too small for the normal margin.
@@ -346,6 +385,7 @@ namespace gedit {
         int splitterPosBeforeReset = -1;
         bool bWasUseFullView = false;
         bool bUseFullView = false;  // This affects the computation of full view semantics
+        int dragOffset = 0;         // where on the divider the drag took hold
 
         ViewBase *upperView = nullptr;
         ViewBase *lowerView = nullptr;

@@ -69,16 +69,22 @@ keymap: {
     Find: "CopyPasteModifier + 'f'",
     # Go to symbol - search the code index of the whole workspace - Cmd+T / Ctrl+T
     GotoSymbol: "CopyPasteModifier + 't'",
+    # Open a file by part of its name, from anywhere
+    QuickOpen: "CopyPasteModifier + 'p'",
+    ShowOpenFiles: "CopyPasteModifier + 'e'",
     ShowRelationships: "CopyPasteModifier + SelectionModifier + 't'",
     # Smart go-to on the name under the cursor, back and forward through the jumps (docs/code-index.md §5.6).
     # GotoDefinition and GotoDeclaration exist too, without a key of their own.
     GotoToggle: "CopyPasteModifier + 'b'",
     GotoImplementation: "CopyPasteModifier + SelectionModifier + 'b'",
     GotoBase: "CopyPasteModifier + SelectionModifier + 'u'",
+    # The type of the member, variable or function under the cursor - 'i' is a stand-in
+    GotoType: "CopyPasteModifier + SelectionModifier + 'i'",
     JumpBack: "CopyPasteModifier + '['",
     JumpForward: "CopyPasteModifier + ']'",
-    NextSearchResult: "KeyCode_Command + 'n'",
-    PrevSearchResult: "KeyCode_Command + 'p'",
+    # Next/previous search hit - Cmd+G / Cmd+Shift+G is the macOS standard (Ctrl on Linux)
+    NextSearchResult: "KeyCode_Command + 'g'",
+    PrevSearchResult: "KeyCode_Command + SelectionModifier + 'g'",
 
     # This doesn't work unless we are in modal-mode..
     # CloseModal : KeyCode_Escape,

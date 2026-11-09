@@ -189,4 +189,35 @@ grid - a wrapped long line or a visible completion menu can garble it; test both
 
 ---
 
---> Next bug is #18
+## 19. Build warnings - a cleanup session (mostly `-Wshadow`)
+
+**Where (a clean debug build, macOS/SDL3, 2026-11-09 - 28 distinct warnings):**
+
+- `-Wshadow`, a local or parameter named as a member (12): `Document.cpp` lines 168, 190, 325, 1579;
+  `EditorView.cpp:284`; `HexView.cpp:249`; `SDL3/SDLScreen.cpp` `CreateWindow` (its `window` parameter);
+  `SDL3/SDLWindow.cpp:212`; `Index/CPPStructureScanner.h:119` (a header - repeats in every file including it);
+  `Theme/Theme.cpp:67`, `:75`.
+- `-Wshadow`, a local hiding a local (2): `KeyMapping.cpp:372`, `VTermParser.cpp:100`.
+- `-Wmissing-field-initializers` (9): `Index/CPPStructureScanner.cpp` 488, 533, 539, 582, 594, 601 (`name`);
+  `VTermParser.cpp` 318, 323, 328 (`strParam`) - aggregate initialisers leaving the last field out.
+- One each: `-Winconsistent-missing-override` `macOS/MacOSKBEmulator.h:17` (`Initialize`); `-Wformat-pedantic`
+  `Language/LangToken.cpp:103` (an enum through `%d`); `-Wunused-function` `unix/Shell.cpp:38` (`signal_handler`).
+- Not ours, leave: `stb_image.h` (two unused functions), gnklog's `LogManager.cpp:318` (`-Wunused-result`).
+
+**What's wrong:** nothing breaks today, but the noise hides a warning that matters - a new one in a header repeats in
+every file including it (`DrawContext::DrawImage`'s `rect` parameter, from the minimap, was 69 of 98 lines until it
+was renamed `cellRect`). A shadowing parameter is also the kind that reads the wrong value silently on the next edit.
+
+**Fix direction:** one session, file by file: rename the shadowing names (the member keeps its name; the local or
+parameter says what it is - `newWindow`, `cellRect`), complete the initialisers (or name the fields), add the
+`override`, cast the enum, drop the unused `signal_handler`. Check the SDL2 build too (Linux/`cmake-build-sdl2`) - its
+sources are only compiled there. Then consider making new warnings visible - `-Werror=shadow` on our sources (not
+`_deps`/`ext`) so a header one can't slip in again.
+
+**Recount:** `cmake --build --preset debug --clean-first 2>&1 | grep warning: | sort -u`
+
+**Discovered:** 2026-11-09, after the minimap (§7) - "a lot of build warnings now".
+
+---
+
+--> Next bug is #20

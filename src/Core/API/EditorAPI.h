@@ -38,6 +38,8 @@ namespace gedit {
         DocumentAPI::Ref LoadDocument(const char *filename);
         std::vector<DocumentAPI::Ref> GetDocuments();
         void CloseActiveDocument();
+        // Every open document, unsaved edits or not - the caller asks first (docs/usability-round.md §5)
+        void CloseAllDocuments();
 
         // Put literal text onto the system clipboard / paste buffer (forwarded to the OS pasteboard so
         // it pastes in other apps too). The string->clipboard seam, parallel to NewDocumentFromText -

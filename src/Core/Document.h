@@ -14,8 +14,10 @@
 #include "Core/KeyMapping.h"
 #include "Core/DocumentViewState.h"
 #include "Core/EditState.h"
+#include "Core/LineDiff.h"
 
 #include <memory>
+#include <mutex>
 
 namespace gedit {
 
@@ -39,8 +41,10 @@ namespace gedit {
         Document(TextBuffer::Ref newTextBuffer) : textBuffer(newTextBuffer) {
         }
         virtual ~Document() {
-            // note: this is just here for debugging purposes..
-            // printf("Document::DTOR\n");
+            // The parse thread may be about to report to this document: no more (waits for a report under way)
+            if (textBuffer != nullptr) {
+                textBuffer->SetLineHashesHandler(nullptr);
+            }
         }
         static Ref Create(TextBuffer::Ref newTextBuffer);
 
@@ -51,6 +55,7 @@ namespace gedit {
         // Closed but kept (the workspace node holds it, a reopen reuses it): drop what refers to the
         // in-memory lines - the reopen loads them from disk again. Cursor/scroll stay (reopen where you were).
         void Close() {
+            ClearChangeBase();
             textBuffer->Close();
             editState = EditState::Create();     // undo items point at the old lines
             CancelSelection();
@@ -163,6 +168,21 @@ namespace gedit {
         bool Save();
         bool SaveForce();
 
+        // The file on disk against the one this document last read or wrote (docs/usability-round.md §0b): by size and
+        // modification time. False when it is gone - that is the workspace's 'missing on disk' - or never read.
+        bool IsChangedOnDisk();
+        // Take in what the file holds now: only the lines that differ are replaced, as one undo step, so the colouring
+        // of the rest stays and undo steps back over what another program wrote. Clean afterwards. The cursor stays on
+        // its line, clamped.
+        bool ReloadFromDisk();
+        // Changed on disk while this document has unsaved edits: they are kept, the file isn't overwritten unasked
+        bool HasConflictOnDisk() const {
+            return isConflictOnDisk;
+        }
+        void SetConflictOnDisk(bool newIsConflict) {
+            isConflictOnDisk = newIsConflict;
+        }
+
         // Session serialisation (docs/session-cache.md §11.3). Aggregates the document's file identity
         // (path) with its DocumentViewState (cursor/scroll/selection/view-mode) into one DocumentSession.
         // FromSession restores the view-state only — the buffer is (re)loaded by the Workspace reopen path,
@@ -215,6 +235,10 @@ namespace gedit {
         // callers (mouse wheel) that need an arbitrary row count without going through kUIAction.
         void MoveCursorByLines(int delta);
 
+        // Scroll the view so 'idxTopLine' is its top line - the overview's click and drag (docs/usability-round.md §7).
+        // The caret is screen-relative and always on screen, so it rides along on its screen row, at its wanted column.
+        void ScrollViewTo(size_t idxTopLine);
+
         void PasteFromClipboard();
 
         bool OnAction(const EditorAction &kpAction);
@@ -255,7 +279,26 @@ namespace gedit {
         // returned unchanged (charwise).
         Point SelectionEndForCopy(const Selection &selection);
 
+        // The change marks (docs/usability-round.md §0c): the lines of the file as the last commit has it, as hashes
+        // (Line::HashOf). The buffer is compared with them after each pause in editing, unsaved edits included.
+        using BaseHashes = std::shared_ptr<const std::vector<uint64_t>>;
+        // The file's text as git prints it, split as a load splits a file
+        static BaseHashes HashLines(std::string_view text);
+        void SetChangeBase(BaseHashes newBaseHashes);
+        // Not in the last commit (new, or only staged): every line is added
+        void SetChangeBaseAllAdded();
+        // No marks: not in a repository, ignored, or closed
+        void ClearChangeBase();
+        // The marks of the last comparison; null when there is no base. Any thread.
+        LineDiff::Changes::Ref GetLineChanges();
+        // Compare the buffer's lines with the base - the buffer calls this after a pause, on its parse thread
+        void UpdateLineChanges(const std::vector<uint64_t> &hashes);
+
     protected:
+        // Remember the file as it is on disk now - after a load, a save that wrote, a reload
+        void TakeDiskStamp();
+        void WatchLineHashes();
+
         void UpdateSelection() {
             // perhaps check if active...
             Point newEnd(documentViewState->lineCursor.cursor.position.x, documentViewState->lineCursor.idxActiveLine);
@@ -315,6 +358,22 @@ namespace gedit {
 
         TextBuffer::Ref textBuffer = nullptr;             // The document owns its buffer
         std::filesystem::path path;                       // File identity (load/save target)
+
+        // The file as this document last read or wrote it
+        struct DiskStamp {
+            bool isValid = false;
+            uintmax_t size = 0;
+            std::filesystem::file_time_type time = {};
+        };
+        DiskStamp diskStamp = {};
+        bool isConflictOnDisk = false;
+
+        // The change marks - set on the main thread, compared on the parse thread
+        std::mutex changesLock;
+        bool hasChangeBase = false;
+        bool isAllAdded = false;
+        BaseHashes baseHashes = nullptr;
+        LineDiff::Changes::Ref lineChanges = nullptr;
 
     };
 }

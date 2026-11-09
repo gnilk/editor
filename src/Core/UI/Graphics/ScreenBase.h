@@ -10,6 +10,7 @@
 #include <functional>
 #include "Core/Rect.h"
 #include "Core/UI/Graphics/WindowBase.h"
+#include "Core/UI/Graphics/PointerShape.h"
 #include "Core/ColorRGBA.h"
 
 namespace gedit {
@@ -41,6 +42,16 @@ namespace gedit {
         virtual void EndRefreshCycle() {}
 
 
+        // Screen pixels per logical pixel - 2 on a Retina display
+        virtual float PixelDensity() {
+            return 1.0f;
+        }
+        // The size of a character cell in the screen's own pixels (2x on a Retina display) - false when the screen can't
+        // draw pixels (DrawContext::DrawImage), only cells
+        virtual bool CellSizeInPixels(float &width, float &height) {
+            return false;
+        }
+
         virtual Rect Dimensions() {
             return {};
         };
@@ -53,6 +64,8 @@ namespace gedit {
         // Pump platform events and dispatch keyboard/window/clipboard events.
         // Must be called from the main thread. Blocks up to ~250 ms waiting for events.
         virtual void PollEvents() {}
+        // The mouse pointer - a backend without one (the terminal) ignores it
+        virtual void SetPointerShape(kPointerShape shape) {}
 
         // --- Window geometry: plain-data API, no session/app dependency (docs/session-cache.md §4.2) ---
         // The glue layer supplies the geometry to open with (sourced from the session) and a callback to

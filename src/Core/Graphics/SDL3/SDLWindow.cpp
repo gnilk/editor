@@ -19,7 +19,6 @@
 
 #include <SDL3/SDL.h>
 
-#include "ext/stbttf.h"
 
 using namespace gedit;
 using namespace gedit::SDL3;

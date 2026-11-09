@@ -18,6 +18,8 @@ void DocumentAPIWrapper::RegisterModule(duk_context *ctx) {
     dukglue_register_method(ctx, &DocumentAPIWrapper::Save, "Save");
     dukglue_register_method(ctx, &DocumentAPIWrapper::SaveAs, "SaveAs");
     dukglue_register_method(ctx, &DocumentAPIWrapper::IsModified, "IsModified");
+    dukglue_register_method(ctx, &DocumentAPIWrapper::IsChangedOnDisk, "IsChangedOnDisk");
+    dukglue_register_method(ctx, &DocumentAPIWrapper::Reload, "Reload");
 
 
 }
@@ -54,4 +56,18 @@ bool DocumentAPIWrapper::IsModified() {
         return false;
     }
     return document->IsModified();
+}
+
+bool DocumentAPIWrapper::IsChangedOnDisk() {
+    if (document == nullptr) {
+        return false;
+    }
+    return document->IsChangedOnDisk();
+}
+
+bool DocumentAPIWrapper::Reload() {
+    if (document == nullptr) {
+        return false;
+    }
+    return document->Reload();
 }

@@ -2,6 +2,9 @@
 // Smart go-to (docs/code-index.md §5.6): where the name under the cursor can lead. A name is a name (§5.2), so this
 // narrows by what the code says and never guesses: what's left is either one place or a list to choose from, best first.
 //
+// 'a.b' and 'a->b' follow the types on symbols (§11.11): from 'this', a parameter or local the caller hands in, a member
+// or a global, link by link. A link that can't be typed ends the chain, and the name is narrowed as it was without one.
+//
 // Each narrowing step keeps what it had if it would leave nothing: 'Alias::run' finding no 'Alias' in any scope is still
 // better answered with every 'run'.
 //
@@ -14,6 +17,7 @@
 #include <vector>
 
 #include "CodeIndex.h"
+#include "LocalScanner.h"
 
 namespace gedit {
     class GoToResolver {
@@ -29,7 +33,12 @@ namespace gedit {
             size_t idxName = 0;
             std::vector<CodeIndex::Hit> hits;   // best first
             bool isAlreadyThere = false;        // the only place it can lead is under the cursor
+            // 'lines.size()': the receiver is a library type ('std::vector'), so the project's 'size' isn't meant - no hits
+            std::u32string libraryType;
         };
+
+        // The parameters and locals in sight of the cursor (LocalScanner) - the index has none
+        using Locals = std::vector<LocalVariable>;
 
         enum class kRelated {
             kImplementation,    // a class: the types derived from it. A method: its overrides, at any depth.
@@ -37,10 +46,13 @@ namespace gedit {
         };
     public:
         // 'text' is the line 'idxLine' of 'path'
-        static Result Resolve(const CodeIndex &index, const std::u32string &text, size_t idxChar, uint32_t idxLine, const std::string &path, kMode mode);
+        static Result Resolve(const CodeIndex &index, const std::u32string &text, size_t idxChar, uint32_t idxLine, const std::string &path, kMode mode, const Locals &locals = {});
         // From the type or method under the cursor, else the one the cursor is in. A name is a name (§5.2): a method overrides
         // any method of that name in a base, so overloads aren't told apart.
-        static Result ResolveRelated(const CodeIndex &index, const std::u32string &text, size_t idxChar, uint32_t idxLine, const std::string &path, kRelated related);
+        static Result ResolveRelated(const CodeIndex &index, const std::u32string &text, size_t idxChar, uint32_t idxLine, const std::string &path, kRelated related, const Locals &locals = {});
+        // The type of the member, variable or function under the cursor (§11.11): what '.' reaches, a container's element.
+        // On a type, the type itself.
+        static Result ResolveTypeOf(const CodeIndex &index, const std::u32string &text, size_t idxChar, uint32_t idxLine, const std::string &path, const Locals &locals = {});
     };
 }
 

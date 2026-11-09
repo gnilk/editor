@@ -104,13 +104,22 @@
       "foreground": "var(white3)",
       "gutter_background" : "var(blue4)",
       "gutter_foreground": "var(grey3)",
+      "gutter_added": "var(green)",
+      "gutter_modified": "var(orange3)",
+      "gutter_deleted": "var(red)",
+      "minimap_viewport": "hsla(0, 0%, 75%, 0.15)",
       "header_background": "var(blue4)",
       "header_foreground": "var(grey2)",
       "header_active_background": "var(grey)",
       "header_active_foreground": "var(white3)",
       "modal_background": "var(blue4)",
       "modal_foreground": "var(white3)",
-      "tree_dimmed": "var(grey3)"
+      "tree_dimmed": "var(grey3)",
+      "tree_modified": "var(orange3)",
+      "tree_added": "var(green)",
+      "tree_untracked": "var(green)",
+      "tree_deleted": "var(red)",
+      "tree_conflicted": "var(red2)"
     },
     "terminal": {
       "background": "#000000",

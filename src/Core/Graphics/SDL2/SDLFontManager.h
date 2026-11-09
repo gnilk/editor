@@ -5,7 +5,7 @@
 #ifndef STBMEETSDL_SDL2_SDLFONTMANAGER_H
 #define STBMEETSDL_SDL2_SDLFONTMANAGER_H
 
-#include "ext/stbttf.h"
+#include "SDLFont.h"
 
 
 namespace gedit::SDL2 {
@@ -14,18 +14,18 @@ namespace gedit::SDL2 {
         virtual ~SDLFontManager() = default;
         static SDLFontManager &Instance();
 
-        STBTTF_Font *GetActiveFont() {
-            return font;
+        SDLFont *GetActiveFont() {
+            return font.get();
         }
-        void SetActiveFont(STBTTF_Font *newFont) {
-            font = newFont;
+        // Null closes the font - before the renderer goes, its textures are the renderer's
+        void SetActiveFont(SDLFont::Ptr newFont) {
+            font = std::move(newFont);
         }
 
     private:
         SDLFontManager() = default;
     private:
-        // Font must be public for now..
-        STBTTF_Font* font = nullptr;
+        SDLFont::Ptr font;
 
     };
 }

@@ -22,6 +22,9 @@ DLL_EXPORT int test_treeview_fetch_noop_reexpand(ITesting *t);
 DLL_EXPORT int test_treeview_additem_no_flatten(ITesting *t);
 DLL_EXPORT int test_treeview_narrow_width_no_overflow(ITesting *t);
 DLL_EXPORT int test_treeview_select_keeps_collapsed(ITesting *t);
+DLL_EXPORT int test_treeview_markers(ITesting *t);
+DLL_EXPORT int test_treeview_relayout_keeps_scroll(ITesting *t);
+DLL_EXPORT int test_treeview_typetofind(ITesting *t);
 }
 
 namespace {
@@ -212,5 +215,103 @@ DLL_EXPORT int test_treeview_select_keeps_collapsed(ITesting *t) {
     TR_ASSERT(t, tree.GetCurrentSelectedItem() == 3);
     TR_ASSERT(t, folder->isExpanded);
     TR_ASSERT(t, !child->isExpanded);
+    return kTR_Pass;
+}
+
+// Markers sit at the right edge: the row's text is what it was, and a name that would run into them is cut short, while
+// the same name without markers is left alone.
+DLL_EXPORT int test_treeview_markers(ITesting *t) {
+    TestTree tree;
+    tree.SetToStringDelegate([](int i) { return std::string("a_long_file_name_") + std::to_string(i); });
+    tree.SetMarkersDelegate([](int i) -> std::string {
+        return (i == 1) ? "C" : "";
+    });
+    auto marked = tree.AddItem(1);
+    auto plain = tree.AddItem(2);
+    auto folder = tree.AddItem(3);
+    tree.AddItemNoFlatten(folder, 4);
+    tree.Reflatten();
+    TR_ASSERT(t, marked->markers == "C");
+    TR_ASSERT(t, plain->markers.empty());
+    TR_ASSERT(t, marked->drawString == " a_long_file_name_1");
+    TR_ASSERT(t, folder->drawString == "+a_long_file_name_3");
+
+    // 20 columns: 19 fit, unless a marker needs room - itself, a space before it and a cell of air after it
+    tree.SetViewRect(Rect(20, 10));
+    tree.CallAdjustNodeDrawStrings();
+    TR_ASSERT(t, plain->drawString == " a_long_file_name_2");
+    TR_ASSERT(t, marked->drawString.length() + marked->indent < 20 - marked->markers.length() - 1);
+    TR_ASSERT(t, marked->drawString.find("...") != std::string::npos);
+
+    // No delegate: no markers
+    TestTree bare;
+    bare.SetToStringDelegate([](int i) { return std::to_string(i); });
+    TR_ASSERT(t, bare.AddItem(7)->markers.empty());
+    return kTR_Pass;
+}
+
+// A re-layout (every switch of the active document, a resize) keeps the tree where it was scrolled: it used to go back to
+// the first row and leave the selection - the file just opened - off screen
+DLL_EXPORT int test_treeview_relayout_keeps_scroll(ITesting *t) {
+    TestTree tree;
+    tree.SetToStringDelegate([](int i) { return std::to_string(i); });
+    for (int i = 0; i < 50; i++) {
+        tree.AddItem(i);
+    }
+    tree.FitViewToHeight(10);
+    tree.SetSelectionAtRow(30);
+    tree.SetSelectionViewRow(5);
+    TR_ASSERT(t, tree.GetLineCursor().viewTopLine == 25);
+
+    // Same height: nothing moves
+    tree.FitViewToHeight(10);
+    TR_ASSERT(t, tree.GetLineCursor().viewTopLine == 25);
+    TR_ASSERT(t, tree.GetLineCursor().viewBottomLine == 35);
+    TR_ASSERT(t, tree.GetSelectionViewRow() == 5);
+
+    // Smaller: only as far as needed for the selection to stay in sight
+    tree.FitViewToHeight(4);
+    TR_ASSERT(t, tree.GetLineCursor().viewTopLine == 27);
+    TR_ASSERT(t, tree.GetSelectionViewRow() == 3);
+
+    // Taller than what is left below: no empty rows, the selection still in sight
+    tree.FitViewToHeight(30);
+    TR_ASSERT(t, tree.GetLineCursor().viewTopLine == 20);
+    TR_ASSERT(t, tree.GetLineCursor().viewBottomLine == 50);
+
+    // Taller than the whole tree: from the top
+    tree.FitViewToHeight(80);
+    TR_ASSERT(t, tree.GetLineCursor().viewTopLine == 0);
+    TR_ASSERT(t, tree.GetSelectionViewRow() == 30);
+    return kTR_Pass;
+}
+
+// Letters typed in the tree (docs/usability-round.md §3 a): the selection goes to the next visible row whose name starts
+// with them, scrolled into sight; no match leaves it; a pause starts a new name
+DLL_EXPORT int test_treeview_typetofind(ITesting *t) {
+    TestTree tree;
+    tree.SetToStringDelegate([](int i) { return (i == 40) ? std::string("zebra") : std::to_string(i); });
+    for (int i = 0; i < 50; i++) {
+        tree.AddItem(i);
+    }
+    tree.FitViewToHeight(10);
+    TR_ASSERT(t, tree.GetLineCursor().idxActiveLine == 0);
+
+    TR_ASSERT(t, tree.FindByTyping(U'4'));
+    TR_ASSERT(t, tree.GetLineCursor().idxActiveLine == 4);
+    TR_ASSERT(t, tree.FindByTyping(U'2'));          // "42"
+    TR_ASSERT(t, tree.GetLineCursor().idxActiveLine == 42);
+    auto &cursor = tree.GetLineCursor();
+    TR_ASSERT(t, (cursor.viewTopLine <= 42) && (42 < cursor.viewBottomLine));
+    TR_ASSERT(t, cursor.viewBottomLine - cursor.viewTopLine == 10);
+
+    // "42q": nothing starts with it - the selection stays
+    TR_ASSERT(t, !tree.FindByTyping(U'q'));
+    TR_ASSERT(t, tree.GetLineCursor().idxActiveLine == 42);
+
+    // After a pause 'z' is a new name, not "42qz" (no pause at all here: every letter starts one)
+    tree.SetTypeToFindPause(std::chrono::milliseconds(0));
+    TR_ASSERT(t, tree.FindByTyping(U'z'));
+    TR_ASSERT(t, tree.GetLineCursor().idxActiveLine == 40);
     return kTR_Pass;
 }

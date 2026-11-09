@@ -15,3 +15,4 @@ bld/
 *.deb
 AppDir/
 dist/
+cmake-build-sdl2/

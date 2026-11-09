@@ -9,14 +9,16 @@
 #include "Core/UI/Views/RootView.h"
 #include "Core/Editor/Modals/FindModal.h"
 #include "Core/Editor/Modals/RelationshipModal.h"
+#include "Core/Editor/Modals/OpenFilesModal.h"
 #include "Core/Editor/Modals/SymbolSearchModal.h"
+#include "Core/Editor/Modals/QuickOpenModal.h"
 #include "Core/PathUtil.h"
 #include "Core/Session/SessionManager.h"
 
 using namespace gedit;
 
 // The active document's path as the index knows it. Empty if it has no place on disk.
-static std::string ActivePath() {
+std::string ActionHelper::ActivePath() {
     auto &editor = Editor::Instance();
     auto document = editor.GetActiveDocument();
     if (document == nullptr) {
@@ -33,7 +35,7 @@ static NavigationStack::Entry CurrentPlace() {
         return {};
     }
     auto &lineCursor = document->GetLineCursor();
-    return NavigationStack::MakeEntry(editor.GetCodeIndex().get(), ActivePath(), (uint32_t)lineCursor.idxActiveLine, (uint32_t)lineCursor.cursor.position.x);
+    return NavigationStack::MakeEntry(editor.GetCodeIndex().get(), ActionHelper::ActivePath(), (uint32_t)lineCursor.idxActiveLine, (uint32_t)lineCursor.cursor.position.x);
 }
 
 // A file can have shrunk since the place was stored
@@ -141,12 +143,58 @@ void ActionHelper::ShowGotoSymbol() {
         return;
     }
     auto document = editor.GetActiveDocument();
-    auto modal = SymbolSearchModal::Create(editor.GetCodeIndex(), document, ActivePath(), editor.GetIndexedRoots());
+    auto modal = SymbolSearchModal::Create(editor.GetCodeIndex(), document, ActionHelper::ActivePath(), editor.GetIndexedRoots());
     auto symbolModal = modal.get();
     auto rootView = RuntimeConfig::Instance().GetRootViewAs<RootView>();
     rootView->ShowModal(std::move(modal));
     // After ShowModal - the list height comes from the laid out modal
     symbolModal->SetQuery(FindModal::SelectedText(document));
+}
+
+// Every file of the project roots - the list of the last walk at once, the new walk's when it is in
+void ActionHelper::ShowQuickOpen() {
+    if (!RuntimeConfig::Instance().HasRootView()) {
+        return;
+    }
+    Editor::Instance().RefreshFileFinder();
+    auto modal = QuickOpenModal::Create();
+    auto quickOpenModal = modal.get();
+    auto rootView = RuntimeConfig::Instance().GetRootViewAs<RootView>();
+    rootView->ShowModal(std::move(modal));
+    // After ShowModal - the list height comes from the laid out modal
+    quickOpenModal->SetQuery(U"");
+}
+
+bool ActionHelper::OpenFile(const std::string &path) {
+    auto &editor = Editor::Instance();
+    auto from = CurrentPlace();
+    auto document = editor.LoadDocument(path);
+    if (document == nullptr) {
+        return false;
+    }
+    editor.SetActiveDocument(document);
+    if (RuntimeConfig::Instance().HasRootView()) {
+        SwitchToNamedView(glbEditorView);
+    }
+    auto &lineCursor = document->GetLineCursor();
+    editor.GetNavigationStack().Jump(from, NavigationStack::MakeEntry(editor.GetCodeIndex().get(), path,
+                                                                      (uint32_t)lineCursor.idxActiveLine,
+                                                                      (uint32_t)lineCursor.cursor.position.x));
+    SessionManager::Instance().NotifyChanged();
+    return true;
+}
+
+// The open files, the active one selected - docs/usability-round.md §1
+void ActionHelper::ShowOpenFiles() {
+    if (!RuntimeConfig::Instance().HasRootView() || Editor::Instance().GetWorkspace()->GetOpenDocuments().empty()) {
+        return;
+    }
+    auto modal = OpenFilesModal::Create();
+    auto openFilesModal = modal.get();
+    auto rootView = RuntimeConfig::Instance().GetRootViewAs<RootView>();
+    rootView->ShowModal(std::move(modal));
+    // After ShowModal - the list height comes from the laid out modal
+    openFilesModal->SetQuery(U"");
 }
 
 // The type under the cursor, or the one the cursor is in
@@ -161,14 +209,14 @@ void ActionHelper::ShowRelationships() {
     if (line == nullptr) {
         return;
     }
-    auto path = ActivePath();
+    auto path = ActionHelper::ActivePath();
     line->Lock();
     auto text = line->Buffer();
     line->Release();
 
     auto idxLine = (uint32_t)lineCursor.idxActiveLine;
     auto &index = *editor.GetCodeIndex();
-    auto atCursor = GoToResolver::Resolve(index, text, (size_t)lineCursor.cursor.position.x, idxLine, path, GoToResolver::kMode::kDefinition);
+    auto atCursor = GoToResolver::Resolve(index, text, (size_t)lineCursor.cursor.position.x, idxLine, path, GoToResolver::kMode::kDefinition, LocalsAtCursor(document, path));
     auto types = RelationshipTree::TypesAt(index, atCursor.name, path, idxLine);
     if (types.empty()) {
         editor.ShowStatusMessage(U"No type here");
@@ -189,18 +237,20 @@ void ActionHelper::GoToNameAtCursor(GoToResolver::kMode mode) {
     if (line == nullptr) {
         return;
     }
-    auto path = ActivePath();
+    auto path = ActionHelper::ActivePath();
     size_t idxChar = (size_t)lineCursor.cursor.position.x;
     line->Lock();
     auto text = line->Buffer();
     line->Release();
 
-    auto result = GoToResolver::Resolve(*editor.GetCodeIndex(), text, idxChar, (uint32_t)lineCursor.idxActiveLine, path, mode);
+    auto result = GoToResolver::Resolve(*editor.GetCodeIndex(), text, idxChar, (uint32_t)lineCursor.idxActiveLine, path, mode, LocalsAtCursor(document, path));
     if (result.name.empty()) {
         return;
     }
     if (result.isAlreadyThere) {
         editor.ShowStatusMessage(U"'" + result.name + U"' has no other place");
+    } else if (result.hits.empty() && !result.libraryType.empty()) {
+        editor.ShowStatusMessage(U"'" + result.name + U"' is a member of " + result.libraryType);
     } else if (result.hits.empty()) {
         bool isLibrary = IsLibraryName(*line, result.idxName);
         editor.ShowStatusMessage(U"'" + result.name + (isLibrary ? U"' is from a library" : U"' isn't in the index"));
@@ -220,18 +270,77 @@ void ActionHelper::GoToRelatedAtCursor(GoToResolver::kRelated related) {
     if (line == nullptr) {
         return;
     }
-    auto path = ActivePath();
+    auto path = ActionHelper::ActivePath();
     line->Lock();
     auto text = line->Buffer();
     line->Release();
 
-    auto result = GoToResolver::ResolveRelated(*editor.GetCodeIndex(), text, (size_t)lineCursor.cursor.position.x, (uint32_t)lineCursor.idxActiveLine, path, related);
+    auto result = GoToResolver::ResolveRelated(*editor.GetCodeIndex(), text, (size_t)lineCursor.cursor.position.x, (uint32_t)lineCursor.idxActiveLine, path, related, LocalsAtCursor(document, path));
     if (result.hits.empty()) {
         bool isBase = related == GoToResolver::kRelated::kBase;
         editor.ShowStatusMessage(result.name.empty() ? U"Nothing here to go from" : U"'" + result.name + (isBase ? U"' has no base in the index" : U"' has no implementation in the index"));
         return;
     }
     GoToHits(std::move(result.hits), document, path);
+}
+
+// docs/code-index.md §11.11
+void ActionHelper::GoToTypeAtCursor() {
+    auto &editor = Editor::Instance();
+    auto document = editor.GetActiveDocument();
+    if ((document == nullptr) || (editor.GetCodeIndex() == nullptr)) {
+        return;
+    }
+    auto &lineCursor = document->GetLineCursor();
+    auto line = document->GetTextBuffer()->LineAt(lineCursor.idxActiveLine);
+    if (line == nullptr) {
+        return;
+    }
+    auto path = ActionHelper::ActivePath();
+    line->Lock();
+    auto text = line->Buffer();
+    line->Release();
+
+    auto result = GoToResolver::ResolveTypeOf(*editor.GetCodeIndex(), text, (size_t)lineCursor.cursor.position.x, (uint32_t)lineCursor.idxActiveLine, path, LocalsAtCursor(document, path));
+    if (result.name.empty()) {
+        return;
+    }
+    if (result.hits.empty()) {
+        editor.ShowStatusMessage(result.libraryType.empty() ? U"No type in the index for '" + result.name + U"'" : U"'" + result.name + U"' is a " + result.libraryType);
+        return;
+    }
+    GoToHits(std::move(result.hits), document, path);
+}
+
+// Read when a go-to asks, not per edit: the tokens the highlighter left on the lines, from the function's line in the index
+// to the cursor. The index lags an edit until the next pause, so the start may be a few lines off - the scan starts outside
+// any body either way, and what comes before the function's '{' declares nothing.
+GoToResolver::Locals ActionHelper::LocalsAtCursor(const Document::Ref &document, const std::string &path) {
+    static const uint32_t kMaxFunctionLines = 5000;
+    auto index = Editor::Instance().GetCodeIndex();
+    if ((index == nullptr) || (document == nullptr)) {
+        return {};
+    }
+    auto &lineCursor = document->GetLineCursor();
+    auto idxCursorLine = (uint32_t)lineCursor.idxActiveLine;
+    auto function = index->NearestSymbol(path, idxCursorLine);
+    bool isInFunction = function.has_value() && ((function->kind == kSymbolKind::kFunction) || (function->kind == kSymbolKind::kMethod));
+    if (!isInFunction || (idxCursorLine - function->line > kMaxFunctionLines)) {
+        return {};
+    }
+    auto textBuffer = document->GetTextBuffer();
+    std::vector<LocalScanner::Token> tokens;
+    for (auto idxLine = function->line; idxLine <= idxCursorLine; idxLine++) {
+        auto line = textBuffer->LineAt(idxLine);
+        if (line == nullptr) {
+            break;
+        }
+        line->Lock();
+        auto idxEndColumn = (idxLine == idxCursorLine) ? (size_t)lineCursor.cursor.position.x : SIZE_MAX;
+        LocalScanner::AppendLineTokens(*line, idxLine, idxEndColumn, tokens);
+        line->Release();
+    }
+    return LocalScanner::Scan(tokens);
 }
 
 // One place jumps, several are a list

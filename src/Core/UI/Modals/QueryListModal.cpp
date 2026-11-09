@@ -106,7 +106,7 @@ void QueryListModal::RunQuery() {
     if (rows.empty()) {
         OnPreview(-1);
     } else {
-        Select(0);
+        Select(OnInitialRow(input->Buffer()));
     }
     InvalidateView();
 }

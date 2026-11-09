@@ -62,9 +62,23 @@ mouse:
   # must also land on the same character cell with the same button. Honoured by the user-config merge.
   dbl_click_speed: 250
 
+# Watches the open folders for files written by anyone (an agent, the terminal, other editors) and keeps the
+# workspace tree and the code index current.
 foldermonitor:
-  enabled: no
+  enabled: yes
   # Note: for macos this can only be maximum 8 folders - or else!
+
+# Marks the current change set - what 'git status' lists - in the workspace tree (docs/usability-round.md §0).
+# Runs 'git status' in the background when the folder monitor reports a change, and when a git operation (commit,
+# add, checkout, reset, ...) changes '.git/index' or '.git/HEAD', checked every 'check_interval_ms' by their
+# modification times - that check runs no process. Nothing runs while nothing changes.
+# With 'foldermonitor' off, files changed outside the editor without git (an agent writing them) aren't seen until
+# the next git operation: keep the folder monitor on when working with an agent.
+# Also switches the change marks in the gutter (§0c): each open file as the last commit has it ('git show'), fetched
+# when it opens and when the change set changes, compared with the buffer after a pause in typing.
+repomonitor:
+  enabled: yes
+  check_interval_ms: 1000
 
 # Scan-time filtering, owned by the Workspace (ExclusionRules) and shared with the folder monitor and the code
 # index. Excluded names/globs are pruned AT SCAN TIME -> the matching dirs never
@@ -139,6 +153,14 @@ editorview:
   wrap: none
   keymap: "default_keymap"
 
+# The whole file at the editor's right edge (docs/usability-round.md §7) - on screens that draw pixels (SDL)
+minimap:
+  enabled: yes
+  # In character cells - a character is a pixel wide, so 10 cells hold ~100 characters
+  width: 10
+  # A short file doesn't stretch: at most this many pixels a line
+  max_pixels_per_line: 2
+
 workspaceview:
   keymap: "workspace_keymap"
   switch_to_editor_on_openfile: yes
@@ -148,6 +170,8 @@ workspaceview:
   show_ignored: yes
   # Number of rows to scroll per mouse-wheel notch
   lines_per_scroll_wheel_notch: 1
+  # Letters typed in the tree jump to the next row whose name starts with them; a pause this long starts a new name
+  type_to_find_pause_ms: 1000
 
 
 quickmode:

@@ -1202,6 +1202,110 @@ A view that stays open and follows the cursor may be the better end state, and u
 - **The look of the UI.** The toolkit's modals and trees are plain. These views are where the structure gets read, so what they
   look like may need its own work.
 
+### 11.11 Types on symbols - design (2026-11-09)
+
+Noted in §11.6: the scanner parses a member's whole type and keeps only what the `holds` edge needs. Keeping it gives
+`a.b` and `a->b` something to stand on: today Go to definition on `size` in `doc->size()` lists every `size` in the tree.
+
+**What is kept:** `CodeSymbol::type`, the type as written, in one canonical spelling: `std::vector<Line::Ref>`,
+`Document*`, `int`. No `const`, `static` or spaces. On members, namespace-scope variables, and the return type of functions
+and methods. Empty where there is none: constructors, a type, a macro. Open files carry it on their lines, as they carry the
+symbol. The index interns it in its own table, apart from the scopes a search walks.
+
+**One parser:** `TypeRef` and the ownership idioms move out of the scanner into `TypeRef.{h,cpp}`. The scanner writes the
+spelling with it, and the resolver reads it back with it. Two questions on top, both from the same tables as `holds`:
+- **What `.` and `->` reach:** a pointer, `shared_ptr<T>`, `unique_ptr<T>`, `T::Ref` and `T::Ptr` reach `T`. Anything else
+  is itself, `std::vector` included, so `lines.size()` is a member of `std::vector`.
+- **What `[i]` reaches:** the element of a container, the target of a pointer.
+
+**Resolving a chain:** from the name under the cursor, back over `.`, `->`, `[...]` and `(...)` to where the chain starts:
+- `this` is the class the cursor is in.
+- A bare name is a member of that class or one of its bases, else a namespace-scope variable or a function, by the scopes
+  around the cursor, as today.
+- Each link after it is a member or method of the type before it, its bases included. A method's link is its return type.
+- The type as written is resolved from the scope it was written in, as an edge target is (§5.2): `Ref` inside `Document`
+  is `Document::Ref`.
+
+Every step can fail: a local, a parameter, `auto`, a template parameter, an ambiguous name. Then the chain gives up and the
+hits are narrowed as before. It narrows, it never guesses (§5.6). A chain that reaches a library type (`std::string`)
+says so on the status line instead of listing the project's `size`.
+
+**Go to type:** from a member, variable or function, to the definition of the type `.` reaches, or the element for a
+container. The type's own name when the cursor is on a type.
+
+**Slices:**
+
+| Slice | What | Judged by |
+|---|---|---|
+| A | `CodeSymbol::type` from the scanner, through the lines, into the index. `--dump` prints it. | Tests on spellings; `--index` memory against §11.10 |
+| B | Chains in Go to definition; Go to type. | Use |
+| C | Parameters and locals: a light scan of the enclosing function's lines, which the editor already has tokenized. | `--chains`; use |
+
+**Not here:** `auto`, template parameters, overloads (a name is a name), and a type reached through a `typedef` of a
+pointer. Member completion (§5.7) builds on this but is its own step.
+
+**A and B results (2026-11-09).**
+- **`TypeRef.{h,cpp}`** holds the parser, the spelling and the ownership idioms; `holds` asks `TypeRef::Held`, as it did
+  `ResolveHeld`. Two fixes on the way: a value argument no longer becomes an empty type (`std::array<Cell, 8>` held nothing,
+  now `Cell`), and `Foo *a, b;` gives `b` the type `Foo`, not `Foo*`.
+- **Aliases carry what they stand for:** `using Ref = std::shared_ptr<Document>` has that type, and a chain goes through it,
+  so a bare `Ref` inside a class works without the `T::Ref` idiom. `typedef struct X X;` names itself and stops there.
+- **The index:** an interned `idType` per symbol, `Hit::type`, and `CodeIndex::ResolveType(written, fromScope)`, the edge
+  resolution of §5.2 asked from the outside. Memory as in §11.10 to the 0.1 MB: GoatEdit `src` 3.6 MB with 1 070 distinct
+  types for 16 177 symbols.
+- **The resolver:** `ChainBefore` reads the links back from the name, `ReceiverOfChain` types them. A bare first link is
+  looked for around the cursor only, the class with its bases at its level, so `document` in an unrelated class is never
+  taken for a local. A member is looked for in the type, then its bases level by level, so an override wins over what it
+  overrides. Nothing found: the old narrowing.
+- **Go to type:** `Cmd+Shift+I`, `Ctrl` on Linux, `GoToResolver::ResolveTypeOf`. `I` is a stand-in, as `U` is:
+  `Cmd+Shift+Y` is the Stickies service on macOS.
+- **The status line:** "'size' is a member of std::vector" instead of a list of the project's `size`.
+
+`gedit-bench --chains <dir>` runs Go to definition on every `.` and `->` in a tree and compares it with the same name with
+an unknown receiver:
+
+| Tree | Uses | Narrowed (to one) | Library type | As before (a list) | Not in the index | Per use |
+|---|---|---|---|---|---|---|
+| GoatEdit `src` | 25 624 | 616 (609) | 344 | 21 296 (10 595) | 3 368 | 5.7 us |
+| noc_goa | 12 102 | 204 (192) | 0 | 10 945 | 953 | 9.0 us |
+| vcpu | 8 279 | 150 (131) | 58 | 5 704 | 2 367 | 3.6 us |
+
+Where it applies it is right: a sample of the narrowed ones all land on the member meant. But it rarely applies. Of
+GoatEdit's 10 595 uses still answered with a list, nearly all start at a parameter or a local (`document->`, `line->`), which
+is slice C.
+
+**Known limits:** `std::vector<T>::value_type` loses its argument in the spelling (`Foo<T>::X` keeps only `Foo::X`, as `holds`
+needs). An index on an alias (`Lines lines; lines[0]`) isn't followed.
+
+**C results (2026-11-09).** `LocalScanner` reads the tokens the highlighter left on the lines (`Line::Attributes`), from the
+function's line in the index to the cursor, when a go-to asks. Nothing per edit, nothing lexed again.
+- **What it finds:** parameters (a constructor's, not its initializer list), lambda and `catch` parameters, `Type a = x, *b,
+  c(1), d{2}`, the variable of an `if` / `for` header, and a range-for's. Blocks are tracked, so what a closed block declared
+  is gone, a `case 1: {` included, and a lambda passed to a call opens a block of its own.
+- **The test for a declaration:** the last identifier before what may follow a name (`=`, `(`, `{`, `[`, `,`, `:`), with a type
+  that is all of the tokens before it. `a.b = c`, `run(x)`, `Foo::Bar(1)` and `std::cout << x` fail it. `TypeRef::Parse` alone
+  would read `int count` as the type `count`: two words in a row are `unsigned long` to it.
+- **`auto`** keeps its initializer, and the resolver types it as a chain with only the locals declared before it in sight,
+  so `auto doc = editor->GetActiveDocument();` and `auto copy = doc;` both work, and there is no loop. The whole initializer
+  must be one chain: `a.size() + b` says nothing. `make_shared<T>`, `make_unique<T>`, `new T` and the casts write the type
+  out. A range-for gives the element, but a map gives pairs, which aren't known, so nothing.
+- **A local hides a member** of the same name, as for the compiler. Written bare, Go to definition goes to its declaration
+  and Go to type to its type.
+- **The function's line** comes from the index, which lags an edit until the next pause. The scan starts outside any body
+  either way: what comes before the function's `{` declares nothing and a stray `}` there is ignored.
+
+| Tree | Uses | Narrowed (to one) | Without locals | Library type | Still a list | Per use, locals included |
+|---|---|---|---|---|---|---|
+| GoatEdit `src` | 25 896 | 7 078 (6 690) | 617 | 2 458 | 3 631 (was 10 595) | 18.6 us |
+| noc_goa | 14 201 | 6 490 (6 252) | 204 | 0 | 3 019 | 16.6 us |
+| vcpu | 8 279 | 1 400 (1 361) | 150 | 427 | 1 639 | 9.0 us |
+
+(The use counts differ a little from the table above: each file is now a parsed buffer, read line by line as the editor reads it.)
+Samples of the narrowed ones, C and C++, land on the member meant.
+
+**Limits of C:** both arms of an `#if` count, as the highlighter colours both. A structured binding has no one type. A function
+pointer or `std::function` called gives nothing. Locals of a function longer than 5 000 lines aren't read.
+
 ## 12. Open decisions
 
 | # | Question | Leaning |

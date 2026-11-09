@@ -3,6 +3,8 @@
 //
 
 #include <filesystem>
+#include <optional>
+#include <unordered_map>
 #include "Core/Editor.h"
 #include "Core/UI/Views/RootView.h"
 #include "WorkspaceView.h"
@@ -80,6 +82,7 @@ void WorkspaceView::InitView() {
     VisibleView::InitView();
     isShowingIgnored = Config::Instance()[cfgSectionName].GetBool("show_ignored", true);
     linesPerScrollWheelNotch = Config::Instance()[cfgSectionName].GetInt("lines_per_scroll_wheel_notch", 3);
+    typeToFindPauseMs = Config::Instance()[cfgSectionName].GetInt("type_to_find_pause_ms", 1000);
     CreateTree();
     AddView(treeView.get());
 
@@ -101,6 +104,7 @@ void WorkspaceView::InitView() {
 void WorkspaceView::ReInitView() {
     VisibleView::ReInitView();
     linesPerScrollWheelNotch = Config::Instance()[cfgSectionName].GetInt("lines_per_scroll_wheel_notch", 3);
+    typeToFindPauseMs = Config::Instance()[cfgSectionName].GetInt("type_to_find_pause_ms", 1000);
 
 
     // Re-Init is called by a lot of reasons...
@@ -167,6 +171,48 @@ void WorkspaceView::RestoreExpandCollapseState(const std::unordered_map<std::str
     }
 }
 
+// C changed, N new (not added), A added, D deleted, R renamed, ! conflict
+std::string WorkspaceView::ChangeLetter(GitStatus::kChange change) {
+    switch (change) {
+        case GitStatus::kChange::kModified :
+            return "C";
+        case GitStatus::kChange::kUntracked :
+            return "N";
+        case GitStatus::kChange::kAdded :
+            return "A";
+        case GitStatus::kChange::kDeleted :
+            return "D";
+        case GitStatus::kChange::kRenamed :
+            return "R";
+        case GitStatus::kChange::kConflicted :
+            return "!";
+        case GitStatus::kChange::kNone :
+            break;
+    }
+    return "";
+}
+
+// A theme without the key (an imported one, an older one) shows the change by its letter alone
+std::optional<ColorRGBA> WorkspaceView::ChangeColour(GitStatus::kChange change) {
+    static const std::unordered_map<GitStatus::kChange, std::string> keys = {
+        {GitStatus::kChange::kModified, "tree_modified"},
+        {GitStatus::kChange::kAdded, "tree_added"},
+        {GitStatus::kChange::kRenamed, "tree_added"},
+        {GitStatus::kChange::kUntracked, "tree_untracked"},
+        {GitStatus::kChange::kDeleted, "tree_deleted"},
+        {GitStatus::kChange::kConflicted, "tree_conflicted"},
+    };
+    auto itKey = keys.find(change);
+    if (itKey == keys.end()) {
+        return std::nullopt;
+    }
+    auto &uiColors = Editor::Instance().GetTheme()->GetUIColors();
+    if (!uiColors.HasColor(itKey->second)) {
+        return std::nullopt;
+    }
+    return uiColors[itKey->second];
+}
+
 void WorkspaceView::CreateTree() {
     if (treeView == nullptr) {
         treeView = TreeView<Workspace::Node::Ref>::Create();
@@ -177,6 +223,17 @@ void WorkspaceView::CreateTree() {
                 return (node->GetDisplayName() + "/");
             }
             return node->GetDisplayName();
+        });
+        // A file's place in the change set, by letter, at the right edge - the tree itself stays as it is
+        treeView->SetMarkersDelegate([](Workspace::Node::Ref node) -> std::string {
+            if (node->IsFolder()) {
+                return "";
+            }
+            return ChangeLetter(Editor::Instance().GetWorkspace()->ChangeOf(node));
+        });
+        // The change set (docs/usability-round.md §0): a file by its own change, a folder by the heaviest below it
+        treeView->SetColourDelegate([](Workspace::Node::Ref node) -> std::optional<ColorRGBA> {
+            return ChangeColour(Editor::Instance().GetWorkspace()->ChangeOf(node));
         });
         // Gone from disk but kept for an open document (Workspace::ReconcileFolder)
         treeView->SetStyleDelegate([](Workspace::Node::Ref node) -> kTextAttributes {
@@ -284,6 +341,17 @@ bool WorkspaceView::SelectAfterRebuild(Workspace::Node::Ref prevSelected) {
         }
     }
     return false;
+}
+
+// A letter no key binding took: find the row by its name (docs/usability-round.md §3 a). Not with Ctrl or Cmd held - those
+// are commands, bound or not.
+void WorkspaceView::HandleKeyPress(const KeyPress &keyPress) {
+    if ((treeView != nullptr) && keyPress.IsHumanReadable() && !keyPress.IsCtrlPressed() && !keyPress.IsCommandPressed()) {
+        treeView->SetTypeToFindPause(std::chrono::milliseconds(typeToFindPauseMs));
+        treeView->FindByTyping(keyPress.key);
+        return;
+    }
+    VisibleView::HandleKeyPress(keyPress);
 }
 
 bool WorkspaceView::OnAction(const EditorAction &kpAction) {

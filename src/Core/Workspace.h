@@ -17,6 +17,7 @@
 #include "logger.h"
 
 #include "Core/FolderMonitor.h"
+#include "Core/Git/RepoMonitor.h"
 #include "Core/FileSystem/ExclusionRules.h"
 #include "Core/PathUtil.h"
 #include "Core/Config/ConfigNode.h"
@@ -37,6 +38,8 @@ namespace gedit {
         using Ref = std::shared_ptr<Workspace>;
         using ContentsChangedDelegate = std::function<void()>;
         using MonitorFactory = std::function<FolderMonitor::MonitorPoint::Ref (const std::filesystem::path &rootPath)>;
+        using RepoMonitorFactory = std::function<RepoMonitor::Ref (const std::filesystem::path &rootPath)>;
+        using ChangeSetAppliedDelegate = std::function<void()>;
         using OpenDocumentDelegate = std::function<void(Document::Ref document)>;
         // Node define the structure of a workspace
     public:
@@ -55,6 +58,9 @@ namespace gedit {
             inline static const std::string kMetaKey_Ignored = "ignored";
             // A new buffer ('.nb') whose file hasn't been written yet - not on disk, but not deleted either
             inline static const std::string kMetaKey_NewFile = "new_file";
+            // Added for a file the change set lists as deleted (docs/usability-round.md §0) - kept by a reconcile,
+            // dropped when the change set no longer lists it
+            inline static const std::string kMetaKey_DeletedInChangeSet = "deleted_in_change_set";
 
             enum NodeType : int {
                 kNodeVirtual = 0,   // Virtual nodes are like the 'Default' node - it doesn't exists, used only for grouping
@@ -300,6 +306,14 @@ namespace gedit {
                 SetMeta<bool>(kMetaKey_NewFile, isNew);
             }
 
+            bool IsDeletedInChangeSet() {
+                return GetMeta<bool>(kMetaKey_DeletedInChangeSet, false);
+            }
+
+            void SetDeletedInChangeSet(bool isDeleted) {
+                SetMeta<bool>(kMetaKey_DeletedInChangeSet, isDeleted);
+            }
+
             // Load data associated with the workspace node, this is here as we OWN the filename
             bool LoadData() {
                 if (document == nullptr) {
@@ -312,7 +326,13 @@ namespace gedit {
                 if (!std::filesystem::exists(pathName)) {
                     return true;
                 }
-                return document->LoadData(pathName);
+                if (!document->LoadData(pathName)) {
+                    return false;
+                }
+                // Read from this very path, so in step with it: the next save of an unedited buffer writes nothing.
+                // Left set, the first save force-wrote the old text over a file rewritten meanwhile (§0b).
+                isPathNameChanged = false;
+                return true;
             }
 
             // save data associated with the workspace node, this is here as we OWN the filename
@@ -320,6 +340,12 @@ namespace gedit {
             // explicit save brings it back (a 'git switch' or an 'rm' was likely meant). Edits stay in the buffer.
             bool AutoSaveData() {
                 if (IsMissingOnDisk()) {
+                    return false;
+                }
+                // Rewritten by someone else since we read it (an agent): saving would write over theirs. Kept, marked -
+                // the folder monitor may not have said so yet (docs/usability-round.md §0b).
+                if ((document != nullptr) && document->IsChangedOnDisk()) {
+                    document->SetConflictOnDisk(true);
                     return false;
                 }
                 return SaveData();
@@ -424,6 +450,9 @@ namespace gedit {
                 rootNode->SetNodePath(rootPath);
             }
             virtual ~ProjectRoot() {
+                if (repoMonitor != nullptr) {
+                    repoMonitor->Stop();
+                }
                 if (monitor != nullptr) {
                     monitor->Stop();
                 }
@@ -500,6 +529,10 @@ namespace gedit {
             // a parent comes before its children (its reconcile may drop a child folder). Lost events ->
             // every scanned folder. One change notification for the lot.
             void FlushDirty(const std::set<std::filesystem::path> &dirtyFolders, bool isLostEvents) {
+                // Files changed, so the change set may have: git runs in the background, the answer comes later
+                if (repoMonitor != nullptr) {
+                    repoMonitor->Refresh();
+                }
                 // First: a changed '.gitignore' changes what the handlers below see
                 if ((exclusionRules != nullptr) && isLostEvents) {
                     exclusionRules->InvalidateAll();
@@ -531,6 +564,29 @@ namespace gedit {
                 }
             }
 
+            bool HasRepoMonitor() {
+                return (repoMonitor != nullptr);
+            }
+
+            // Takes ownership of 'newMonitor' and starts it; its handler says when the change set changed
+            void StartRepoMonitor(RepoMonitor::Ref newMonitor) {
+                if (repoMonitor != nullptr) {
+                    repoMonitor->Stop();
+                }
+                repoMonitor = std::move(newMonitor);
+                repoMonitor->Start();
+            }
+
+            // Main thread. nullptr: no repository monitor, or no answer yet.
+            ChangeSet::Ref GetChangeSet() {
+                return (repoMonitor != nullptr) ? repoMonitor->GetChangeSet() : nullptr;
+            }
+
+            // The nodes added for deleted files, kept by the Workspace (ApplyChangeSet)
+            std::vector<Node::Ref> &DeletedNodes() {
+                return deletedNodes;
+            }
+
         protected:
             // Reconcile 'folder' and every scanned folder below it, one level each
             bool ReconcileScanned(Node::Ref folder) {
@@ -560,6 +616,8 @@ namespace gedit {
             FolderMonitor::MonitorPoint::DirtyDelegate funcDirtyFolders = nullptr;
             Node::Ref rootNode = {};
             FolderMonitor::MonitorPoint::Ref monitor = {};
+            RepoMonitor::Ref repoMonitor = nullptr;
+            std::vector<Node::Ref> deletedNodes;
             ExclusionRules::Ref exclusionRules = nullptr;
         };
 
@@ -582,6 +640,24 @@ namespace gedit {
             monitorFactory = std::move(factory);
             monitorPostToMain = std::move(postToMain);
         }
+
+        // Change-set glue, set by the Editor: 'factory' makes a repository monitor for a root folder (nullptr when
+        // 'repomonitor' is off). Unset -> OpenFolder doesn't run git (tests, tools).
+        void SetRepoMonitor(RepoMonitorFactory factory) {
+            repoMonitorFactory = std::move(factory);
+        }
+        // After a root's new change set is in the tree - a commit, a checkout: the change marks' base may have moved
+        void SetChangeSetAppliedHandler(ChangeSetAppliedDelegate newHandler) {
+            changeSetAppliedHandler = std::move(newHandler);
+        }
+        // What the header and the open-files list show in front of a document's name: '* ' unsaved edits, 'R '
+        // read-only, '[!] ' changed on disk while edited, '[D] ' gone from disk
+        std::string StatusMarkers(const Document::Ref &document);
+        // Where the node stands in its root's change set; a folder: the heaviest change at or below it
+        GitStatus::kChange ChangeOf(const Node::Ref &node);
+        // Main thread, on the folder monitor's flush: open documents rewritten on disk reload, or are marked when they
+        // have unsaved edits (docs/usability-round.md §0b)
+        void CheckOpenDocumentsOnDisk(const std::set<std::filesystem::path> &dirtyFolders, bool isLostEvents);
 
         // Told about the dirty folders of every monitored root (the Editor's glue to the code index)
         void SetDirtyFoldersHandler(FolderMonitor::MonitorPoint::DirtyDelegate newHandler) {
@@ -726,6 +802,9 @@ namespace gedit {
         void UpdateMetaDataForNode(Node::Ref node);
         ProjectRoot::Ref GetOrAddProjectRoot(const std::filesystem::path &rootPath, const std::string &rootName);
         void StartFolderMonitor(ProjectRoot::Ref projectRoot);
+        void StartRepoMonitor(ProjectRoot::Ref projectRoot);
+        // Main thread, when a root's change set changed: the nodes for deleted files, and the view told
+        void ApplyChangeSet(ProjectRoot::Ref projectRoot);
         void DisableNotifications() {
             isChangeHandlerDisabled++;
         }
@@ -748,6 +827,8 @@ namespace gedit {
 
         ContentsChangedDelegate onChangeHandler = {};
         MonitorFactory monitorFactory = {};
+        RepoMonitorFactory repoMonitorFactory = {};
+        ChangeSetAppliedDelegate changeSetAppliedHandler = nullptr;
         FolderMonitor::MonitorPoint::PostDelegate monitorPostToMain = {};
         FolderMonitor::MonitorPoint::DirtyDelegate dirtyFoldersHandler = nullptr;
         OpenDocumentDelegate documentOpenedHandler = nullptr;

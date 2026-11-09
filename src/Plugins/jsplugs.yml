@@ -83,6 +83,12 @@ commands:
     script: Scripts/closeactive.js
 
   -
+    name: closeall
+    short: ca
+    description: Close All Buffers (asks when any has changes not yet saved; '!' closes anyway)
+    script: Scripts/closeall.js
+
+  -
     name: openfile
     short: o
     description: Open a file for editing
@@ -92,8 +98,13 @@ commands:
   -
     name: save
     short: s
-    description: Save active buffer
+    description: Save active buffer (asks when the file was changed on disk; '!' saves anyway)
     script: Scripts/savebuffer.js
+  -
+    name: reload
+    short: rl
+    description: Reload active buffer from disk (asks when it has changes not yet saved; '!' reloads anyway)
+    script: Scripts/reload.js
   -
     name: saveas
     short: sa

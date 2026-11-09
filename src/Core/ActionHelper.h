@@ -21,12 +21,22 @@ namespace gedit {
         // Tab 'tabNumber' (1..9, 9 = last) becomes the active buffer and the editor gets focus
         static void SwitchToBufferNumber(int tabNumber);
         static void SwitchToNamedView(const std::string &viewName);
+        static void ShowOpenFiles();
         static void ShowFind();
         static void ShowGotoSymbol();
+        // Open a file by part of its name (docs/usability-round.md §3 b) - walks the roots again meanwhile
+        static void ShowQuickOpen();
+        // Opens the file as it was left (an open one keeps its cursor) and puts the jump on the navigation stack
+        static bool OpenFile(const std::string &path);
+        // The active document's file, canonical; empty when there is none
+        static std::string ActivePath();
         static void ShowRelationships();
         // Smart go-to on the name under the cursor: one place jumps, several open a list (docs/code-index.md §5.6)
         static void GoToNameAtCursor(GoToResolver::kMode mode);
         static void GoToRelatedAtCursor(GoToResolver::kRelated related);
+        static void GoToTypeAtCursor();
+        // The parameters and locals in sight of the cursor, from the lines of the function it is in (docs/code-index.md §11.11 C)
+        static GoToResolver::Locals LocalsAtCursor(const Document::Ref &document, const std::string &path);
         static void GoToHits(std::vector<CodeIndex::Hit> hits, Document::Ref document, const std::string &path);
         // Opens the place and puts the jump on the navigation stack
         static bool JumpTo(const std::string &path, uint32_t line, uint32_t column);

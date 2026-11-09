@@ -23,6 +23,8 @@
 #include "Core/Index/Indexer.h"
 #include "Core/Index/SemanticNames.h"
 #include "Core/Index/GoToResolver.h"
+#include "Core/Index/TypeRef.h"
+#include "Core/Index/LocalScanner.h"
 #include "Core/Index/NavigationStack.h"
 #include "Core/Index/RelationshipTree.h"
 #include "Core/Editor/Modals/RelationshipModal.h"
@@ -137,6 +139,26 @@ extern "C" {
     DLL_EXPORT int test_codeindex_struct_macros(ITesting *t);
     DLL_EXPORT int test_codeindex_struct_initializers(ITesting *t);
     DLL_EXPORT int test_codeindex_struct_balance(ITesting *t);
+    DLL_EXPORT int test_codeindex_types_spelling(ITesting *t);
+    DLL_EXPORT int test_codeindex_types_reach(ITesting *t);
+    DLL_EXPORT int test_codeindex_types_symbols(ITesting *t);
+    DLL_EXPORT int test_codeindex_types_aliases(ITesting *t);
+    DLL_EXPORT int test_codeindex_types_buffer(ITesting *t);
+    DLL_EXPORT int test_codeindex_types_store(ITesting *t);
+    DLL_EXPORT int test_codeindex_types_chain(ITesting *t);
+    DLL_EXPORT int test_codeindex_types_chain_unknown(ITesting *t);
+    DLL_EXPORT int test_codeindex_types_chain_library(ITesting *t);
+    DLL_EXPORT int test_codeindex_types_gototype(ITesting *t);
+    DLL_EXPORT int test_codeindex_types_key(ITesting *t);
+    DLL_EXPORT int test_codeindex_locals_parameters(ITesting *t);
+    DLL_EXPORT int test_codeindex_locals_blocks(ITesting *t);
+    DLL_EXPORT int test_codeindex_locals_auto(ITesting *t);
+    DLL_EXPORT int test_codeindex_locals_expressions(ITesting *t);
+    DLL_EXPORT int test_codeindex_locals_lambda(ITesting *t);
+    DLL_EXPORT int test_codeindex_locals_declarators(ITesting *t);
+    DLL_EXPORT int test_codeindex_locals_switch(ITesting *t);
+    DLL_EXPORT int test_codeindex_locals_chain(ITesting *t);
+    DLL_EXPORT int test_codeindex_locals_bare(ITesting *t);
     DLL_EXPORT int test_codeindex_semantic_names(ITesting *t);
     DLL_EXPORT int test_codeindex_semantic_buffer(ITesting *t);
     DLL_EXPORT int test_codeindex_semantic_edit(ITesting *t);
@@ -3929,5 +3951,570 @@ DLL_EXPORT int test_codeindex_related_constructor(ITesting *t) {
     auto written = GoToResolver::Resolve(*index, outOfLine, outOfLine.rfind(U"Status"), 0, "/p/a.cpp", GoToResolver::kMode::kDefinition);
     TR_ASSERT(t, written.hits.size() == 1);
     TR_ASSERT(t, written.hits[0].kind == kSymbolKind::kMethod);
+    return kTR_Pass;
+}
+
+//
+// Types on symbols (docs/code-index.md §11.11)
+//
+namespace {
+    std::u32string TypeOfSymbol(const FileStructure &structure, const std::u32string &qualifiedName, kSymbolKind kind) {
+        auto symbol = Find(structure, qualifiedName, kind);
+        return (symbol == nullptr) ? U"<missing>" : symbol->type;
+    }
+}
+
+// One spelling, and it reads back as itself
+DLL_EXPORT int test_codeindex_types_spelling(ITesting *t) {
+    const std::vector<std::u32string> spellings = {
+        U"int", U"Document*", U"Foo&", U"std::vector<Line::Ref>", U"std::map<std::string,std::vector<Foo*>>",
+        U"gedit::Document::Ref", U"char**",
+    };
+    for (auto &spelling : spellings) {
+        TR_ASSERT(t, TypeRef::FromSpelling(spelling).Spelling() == spelling);
+    }
+    // What is dropped on the way: qualifiers, spaces, value arguments
+    TR_ASSERT(t, TypeRef::FromSpelling(U"const std::vector< Foo > &").Spelling() == U"std::vector<Foo>&");
+    TR_ASSERT(t, TypeRef::FromSpelling(U"std::array<Foo, 4>").Spelling() == U"std::array<Foo>");
+    TR_ASSERT(t, TypeRef::FromSpelling(U"Foo<T>::Ref").Spelling() == U"Foo::Ref");
+    return kTR_Pass;
+}
+
+// What '.' / '->' and '[i]' lead to
+DLL_EXPORT int test_codeindex_types_reach(ITesting *t) {
+    auto accessed = [](const std::u32string &spelling) {
+        return TypeRef::FromSpelling(spelling).Accessed().Spelling();
+    };
+    TR_ASSERT(t, accessed(U"Document*") == U"Document");
+    TR_ASSERT(t, accessed(U"Document&") == U"Document");
+    TR_ASSERT(t, accessed(U"Document::Ref") == U"Document");
+    TR_ASSERT(t, accessed(U"gedit::Document::Ptr") == U"gedit::Document");
+    TR_ASSERT(t, accessed(U"std::shared_ptr<Theme>") == U"Theme");
+    TR_ASSERT(t, accessed(U"std::unique_ptr<Engine>&") == U"Engine");
+    TR_ASSERT(t, accessed(U"std::vector<Line::Ref>") == U"std::vector<Line::Ref>");
+    // A bare 'Ref' is an alias of the class it's written in - the index knows what it stands for, TypeRef doesn't
+    TR_ASSERT(t, accessed(U"Ref") == U"Ref");
+
+    auto element = [](const std::u32string &spelling) {
+        auto type = TypeRef::FromSpelling(spelling).Element();
+        return type.has_value() ? type->Spelling() : U"<none>";
+    };
+    TR_ASSERT(t, element(U"std::vector<Line::Ref>") == U"Line::Ref");
+    TR_ASSERT(t, element(U"std::map<std::string,Cell>") == U"Cell");
+    TR_ASSERT(t, element(U"Cell*") == U"Cell");
+    TR_ASSERT(t, element(U"std::array<Cell,8>") == U"Cell");
+    TR_ASSERT(t, element(U"Document") == U"<none>");
+    return kTR_Pass;
+}
+
+// Members, variables, return types - and none where there is no type
+DLL_EXPORT int test_codeindex_types_symbols(ITesting *t) {
+    auto structure = ScanCPP(
+        U"namespace gedit {\n"
+        U"class Owner : public Base {\n"
+        U"public:\n"
+        U"    Owner();\n"
+        U"    virtual ~Owner();\n"
+        U"    virtual const Document::Ref &GetDocument() const;\n"
+        U"    static std::vector<Line::Ref> Lines(int count);\n"
+        U"    explicit operator bool() const;\n"
+        U"    void Draw() override;\n"
+        U"private:\n"
+        U"    mutable std::mutex lock;\n"
+        U"    Window *window = nullptr, frame;\n"
+        U"    const Config &config;\n"
+        U"    std::unique_ptr<Engine> engine;\n"
+        U"    unsigned long count = 0;\n"
+        U"};\n"
+        U"static Editor *editor = nullptr;\n"
+        U"Theme::Ref Owner::ThemeOf(const std::string &name) {\n"
+        U"    return nullptr;\n"
+        U"}\n"
+        U"}\n");
+    TR_ASSERT(t, TypeOfSymbol(structure, U"gedit::Owner", kSymbolKind::kClass).empty());
+    TR_ASSERT(t, TypeOfSymbol(structure, U"gedit::Owner::Owner", kSymbolKind::kMethod).empty());
+    TR_ASSERT(t, TypeOfSymbol(structure, U"gedit::Owner::~Owner", kSymbolKind::kMethod).empty());
+    TR_ASSERT(t, TypeOfSymbol(structure, U"gedit::Owner::GetDocument", kSymbolKind::kMethod) == U"Document::Ref&");
+    TR_ASSERT(t, TypeOfSymbol(structure, U"gedit::Owner::Lines", kSymbolKind::kMethod) == U"std::vector<Line::Ref>");
+    TR_ASSERT(t, TypeOfSymbol(structure, U"gedit::Owner::Draw", kSymbolKind::kMethod) == U"void");
+    TR_ASSERT(t, TypeOfSymbol(structure, U"gedit::Owner::lock", kSymbolKind::kMember) == U"std::mutex");
+    TR_ASSERT(t, TypeOfSymbol(structure, U"gedit::Owner::window", kSymbolKind::kMember) == U"Window*");
+    // The second declarator shares 'Window', not the first one's '*'
+    TR_ASSERT(t, TypeOfSymbol(structure, U"gedit::Owner::frame", kSymbolKind::kMember) == U"Window");
+    TR_ASSERT(t, TypeOfSymbol(structure, U"gedit::Owner::config", kSymbolKind::kMember) == U"Config&");
+    TR_ASSERT(t, TypeOfSymbol(structure, U"gedit::Owner::engine", kSymbolKind::kMember) == U"std::unique_ptr<Engine>");
+    TR_ASSERT(t, TypeOfSymbol(structure, U"gedit::Owner::count", kSymbolKind::kMember) == U"long");
+    TR_ASSERT(t, TypeOfSymbol(structure, U"gedit::editor", kSymbolKind::kVariable) == U"Editor*");
+    TR_ASSERT(t, TypeOfSymbol(structure, U"gedit::Owner::ThemeOf", kSymbolKind::kFunction) == U"Theme::Ref");
+    // The holds edges are what they were
+    TR_ASSERT(t, HasEdge(structure, kEdgeKind::kHolds, U"gedit::Owner", U"Window", kOwnership::kBorrows));
+    TR_ASSERT(t, HasEdge(structure, kEdgeKind::kHolds, U"gedit::Owner", U"Engine", kOwnership::kOwns));
+    return kTR_Pass;
+}
+
+// An alias's type is what it stands for, so a chain can go through it
+DLL_EXPORT int test_codeindex_types_aliases(ITesting *t) {
+    auto structure = ScanCPP(
+        U"class Document {\n"
+        U"public:\n"
+        U"    using Ref = std::shared_ptr<Document>;\n"
+        U"};\n"
+        U"typedef unsigned int u32;\n"
+        U"typedef struct Node { int v; } Node_t, *NodePtr;\n"
+        U"typedef struct Leaf { int v; } *LeafPtr;\n"
+        U"typedef void (*Callback)(int);\n");
+    TR_ASSERT(t, TypeOfSymbol(structure, U"Document::Ref", kSymbolKind::kAlias) == U"std::shared_ptr<Document>");
+    TR_ASSERT(t, TypeOfSymbol(structure, U"u32", kSymbolKind::kAlias) == U"int");
+    TR_ASSERT(t, TypeOfSymbol(structure, U"LeafPtr", kSymbolKind::kAlias) == U"Leaf*");
+    // A function pointer has no type a '.' reaches
+    TR_ASSERT(t, TypeOfSymbol(structure, U"Callback", kSymbolKind::kAlias).empty());
+    // Several names after one struct: the scanner names the last - the first is known to be missed
+    TR_ASSERT(t, TypeOfSymbol(structure, U"NodePtr", kSymbolKind::kAlias) == U"Node*");
+    return kTR_Pass;
+}
+
+// An open file keeps the types on its lines, through a region scan
+DLL_EXPORT int test_codeindex_types_buffer(ITesting *t) {
+    auto buffer = CPPBuffer({
+        U"class Alpha {",
+        U"    Document::Ref document;",
+        U"};",
+    });
+    EditLines(buffer, [&buffer]() {
+        buffer->Insert(2, U"    Line *Current() const;");
+        buffer->ReparseRegion(2, 3);
+    });
+    auto structure = buffer->CollectStructure();
+    auto document = FindSymbol(structure, U"document");
+    auto current = FindSymbol(structure, U"Current");
+    TR_ASSERT(t, (document != nullptr) && (document->type == U"Document::Ref"));
+    TR_ASSERT(t, (current != nullptr) && (current->type == U"Line*"));
+    return kTR_Pass;
+}
+
+// The index hands the type out, and resolves it from where it was written
+DLL_EXPORT int test_codeindex_types_store(ITesting *t) {
+    auto index = CodeIndex::Create();
+    auto member = MakeSymbol(U"parent", kSymbolKind::kMember, U"gedit::View");
+    member.type = U"Ref";
+    auto alias = MakeSymbol(U"Ref", kSymbolKind::kAlias, U"gedit::View");
+    alias.type = U"std::shared_ptr<View>";
+    index->ReplaceFile("/p/View.h", MakeFile({
+        MakeSymbol(U"View", kSymbolKind::kClass, U"gedit"),
+        alias,
+        member,
+        MakeSymbol(U"Ref", kSymbolKind::kAlias, U"gedit::Other"),
+    }));
+    auto hits = index->FindExact(U"parent");
+    TR_ASSERT(t, (hits.size() == 1) && (hits[0].type == U"Ref"));
+    TR_ASSERT(t, index->FindExact(U"View")[0].type.empty());
+    // 'Ref' from inside View is View's, not Other's
+    auto resolved = index->ResolveType(U"Ref", U"gedit::View");
+    TR_ASSERT(t, (resolved.size() == 1) && (resolved[0] == U"gedit::View::Ref"));
+    // From nowhere in particular it is either
+    TR_ASSERT(t, index->ResolveType(U"Ref", U"").size() == 2);
+    TR_ASSERT(t, index->ResolveType(U"Missing", U"gedit").empty());
+    // The same spelling is held once
+    TR_ASSERT(t, index->GetStats().numTypes == 2);
+    return kTR_Pass;
+}
+
+namespace {
+    const char32_t *CHAIN_H =
+        U"namespace app {\n"                                    // 0
+        U"class Line {\n"                                       // 1
+        U"public:\n"                                            // 2
+        U"    int Length() const;\n"                            // 3
+        U"    int size;\n"                                      // 4
+        U"};\n"                                                 // 5
+        U"class Base {\n"                                       // 6
+        U"public:\n"                                            // 7
+        U"    virtual void Draw();\n"                           // 8
+        U"    Line *first;\n"                                   // 9
+        U"};\n"                                                 // 10
+        U"class Document : public Base {\n"                     // 11
+        U"public:\n"                                            // 12
+        U"    using Ref = std::shared_ptr<Document>;\n"         // 13
+        U"    void Draw() override;\n"                          // 14
+        U"    Line::Ref Current();\n"                           // 15
+        U"    std::vector<Line::Ref> lines;\n"                  // 16
+        U"    std::string name;\n"                              // 17
+        U"    Ref parent;\n"                                    // 18
+        U"    static Document &Instance();\n"                   // 19
+        U"};\n"                                                 // 20
+        U"class Editor {\n"                                     // 21
+        U"public:\n"                                            // 22
+        U"    Document::Ref document;\n"                        // 23
+        U"    void Run();\n"                                    // 24
+        U"};\n"                                                 // 25
+        U"Editor *glbEditor;\n"                                 // 26
+        U"class Other {\n"                                      // 27
+        U"    int Length();\n"                                  // 28
+        U"    void Draw();\n"                                   // 29
+        U"    int size;\n"                                      // 30
+        U"    void Current();\n"                                // 31
+        U"};\n"                                                 // 32
+        U"}\n";
+
+    const char32_t *CHAIN_CPP =
+        U"namespace app {\n"                                    // 0
+        U"void Editor::Run() {\n"                               // 1
+        U"    int x = 0;\n"                                     // 2
+        U"}\n"                                                  // 3
+        U"}\n";
+
+    CodeIndex::Ref ChainIndex() {
+        auto index = CodeIndex::Create();
+        index->ReplaceFile("/c/chain.h", ScanCPP(CHAIN_H));
+        index->ReplaceFile("/c/chain.cpp", ScanCPP(CHAIN_CPP));
+        return index;
+    }
+
+    // In the body of Editor::Run, on the last occurrence of 'word'
+    GoToResolver::Result InRun(const CodeIndex::Ref &index, const std::u32string &text, const std::u32string &word) {
+        return GoToResolver::Resolve(*index, text, text.rfind(word), 2, "/c/chain.cpp", GoToResolver::kMode::kDefinition);
+    }
+
+    bool IsSymbol(const GoToResolver::Result &result, const std::u32string &qualifiedName) {
+        return (result.hits.size() == 1) && (result.hits[0].qualifiedName == qualifiedName);
+    }
+}
+
+// Link by link from where the chain starts - a member of the class the cursor is in, 'this', a global, a qualified call
+DLL_EXPORT int test_codeindex_types_chain(ITesting *t) {
+    auto index = ChainIndex();
+    // Through a member, a call and a 'T::Ref'
+    TR_ASSERT(t, IsSymbol(InRun(index, U"    document->Current()->Length();", U"Length"), U"app::Line::Length"));
+    TR_ASSERT(t, IsSymbol(InRun(index, U"    document->Current();", U"Current"), U"app::Document::Current"));
+    TR_ASSERT(t, IsSymbol(InRun(index, U"    this->document->Current();", U"Current"), U"app::Document::Current"));
+    // An index reaches the element
+    TR_ASSERT(t, IsSymbol(InRun(index, U"    x = document->lines[i]->size;", U"size"), U"app::Line::size"));
+    // A bare 'Ref' is the alias of the class it's written in, and the alias is followed
+    TR_ASSERT(t, IsSymbol(InRun(index, U"    document->parent->Current();", U"Current"), U"app::Document::Current"));
+    // An override hides what it overrides; a member of a base is found in the base
+    TR_ASSERT(t, IsSymbol(InRun(index, U"    document->Draw();", U"Draw"), U"app::Document::Draw"));
+    TR_ASSERT(t, IsSymbol(InRun(index, U"    document->first->Length();", U"Length"), U"app::Line::Length"));
+    // A global, and a static call written with its class
+    TR_ASSERT(t, IsSymbol(InRun(index, U"    glbEditor->document;", U"document"), U"app::Editor::document"));
+    TR_ASSERT(t, IsSymbol(InRun(index, U"    Document::Instance().Current();", U"Current"), U"app::Document::Current"));
+    // Spaces and lines of their own don't matter, as long as the chain is on the line
+    TR_ASSERT(t, IsSymbol(InRun(index, U"    document -> Current ( ) . Length();", U"Length"), U"app::Line::Length"));
+    return kTR_Pass;
+}
+
+// A chain that can't be followed narrows as it did before - never a guess
+DLL_EXPORT int test_codeindex_types_chain_unknown(ITesting *t) {
+    auto index = ChainIndex();
+    // A local: every 'Length' to choose from
+    TR_ASSERT(t, InRun(index, U"    doc->Length();", U"Length").hits.size() == 2);
+    // Not a member of an unrelated class that happens to have the name ('document' outside Editor)
+    std::u32string outsideText = U"document->Length();";
+    auto outside = GoToResolver::Resolve(*index, outsideText, outsideText.find(U"Length"), 0, "/z.cpp", GoToResolver::kMode::kDefinition);
+    TR_ASSERT(t, outside.hits.size() == 2);
+    // A member the type doesn't have: the old answer
+    TR_ASSERT(t, InRun(index, U"    document->Length();", U"Length").hits.size() == 2);
+    // A function object called
+    index->ReplaceFile("/c/fn.h", ScanCPP(U"namespace app { std::function<Line *()> glbMake; }\n"));
+    TR_ASSERT(t, InRun(index, U"    glbMake()->Length();", U"Length").hits.size() == 2);
+    return kTR_Pass;
+}
+
+// A library receiver: the project's namesakes aren't meant
+DLL_EXPORT int test_codeindex_types_chain_library(ITesting *t) {
+    auto index = ChainIndex();
+    auto onString = InRun(index, U"    document->name.size();", U"size");
+    TR_ASSERT(t, onString.hits.empty());
+    TR_ASSERT(t, onString.libraryType == U"std::string");
+    auto onVector = InRun(index, U"    document->lines.size();", U"size");
+    TR_ASSERT(t, onVector.hits.empty());
+    TR_ASSERT(t, onVector.libraryType == U"std::vector");
+    // Going on from a library type is out of reach
+    TR_ASSERT(t, InRun(index, U"    document->name.c_str()->size;", U"size").libraryType.empty());
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_types_gototype(ITesting *t) {
+    auto index = ChainIndex();
+    auto typeOf = [&index](const std::u32string &text, const std::u32string &word) {
+        return GoToResolver::ResolveTypeOf(*index, text, text.rfind(word), 2, "/c/chain.cpp");
+    };
+    TR_ASSERT(t, IsSymbol(typeOf(U"    document->Current();", U"document"), U"app::Document"));
+    // A container's element, a method's return type, through an alias
+    TR_ASSERT(t, IsSymbol(typeOf(U"    document->lines;", U"lines"), U"app::Line"));
+    TR_ASSERT(t, IsSymbol(typeOf(U"    document->Current();", U"Current"), U"app::Line"));
+    TR_ASSERT(t, IsSymbol(typeOf(U"    document->parent;", U"parent"), U"app::Document"));
+    // On a type: the type
+    TR_ASSERT(t, IsSymbol(typeOf(U"    Document *d;", U"Document"), U"app::Document"));
+    // A library type says so
+    auto name = typeOf(U"    document->name;", U"name");
+    TR_ASSERT(t, name.hits.empty() && (name.libraryType == U"std::string"));
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_types_key(ITesting *t) {
+#ifdef GEDIT_MACOS
+    int copyPaste = Keyboard::kMod_LeftCommand;
+#else
+    int copyPaste = Keyboard::kMod_LeftCtrl;
+#endif
+    auto keymap = Editor::Instance().GetKeyMapping("default_keymap");
+    KeyPress keyPress = {};
+    keyPress.isKeyValid = true;
+    keyPress.modifiers = (uint8_t)(copyPaste | Keyboard::kMod_LeftShift);
+    keyPress.key = 'i';
+    auto action = keymap->ActionFromKeyPress(keyPress);
+    TR_ASSERT(t, action.has_value() && (action->action == kAction::kActionGotoType));
+    return kTR_Pass;
+}
+
+//
+// Parameters and locals (§11.11 slice C)
+//
+namespace {
+    // The locals in sight at the end of the last line - the lines are a function from its first line, as the editor scans them
+    GoToResolver::Locals LocalsOf(const std::vector<std::u32string> &lines) {
+        auto buffer = CPPBuffer(lines);
+        std::vector<LocalScanner::Token> tokens;
+        for (size_t i = 0; i < lines.size(); i++) {
+            LocalScanner::AppendLineTokens(*buffer->LineAt(i), (uint32_t)i, SIZE_MAX, tokens);
+        }
+        return LocalScanner::Scan(tokens);
+    }
+
+    const LocalVariable *FindLocal(const GoToResolver::Locals &locals, const std::u32string &name) {
+        for (auto it = locals.rbegin(); it != locals.rend(); it++) {
+            if (it->name == name) {
+                return &*it;
+            }
+        }
+        return nullptr;
+    }
+
+    std::u32string LocalType(const GoToResolver::Locals &locals, const std::u32string &name) {
+        auto local = FindLocal(locals, name);
+        return (local == nullptr) ? U"<missing>" : local->type;
+    }
+}
+
+DLL_EXPORT int test_codeindex_locals_parameters(ITesting *t) {
+    auto locals = LocalsOf({
+        U"void Editor::Run(const Document::Ref &document, int count, Line *line,",
+        U"                 std::vector<Line::Ref> lines = {}, Point) const {",
+        U"    int x = 0;",
+    });
+    TR_ASSERT(t, LocalType(locals, U"document") == U"Document::Ref&");
+    TR_ASSERT(t, LocalType(locals, U"count") == U"int");
+    TR_ASSERT(t, LocalType(locals, U"line") == U"Line*");
+    TR_ASSERT(t, LocalType(locals, U"lines") == U"std::vector<Line::Ref>");
+    TR_ASSERT(t, LocalType(locals, U"x") == U"int");
+    TR_ASSERT(t, locals.size() == 5);
+    // Where it is declared
+    TR_ASSERT(t, (FindLocal(locals, U"count")->line == 0) && (FindLocal(locals, U"count")->column == 52));
+    // A constructor: its parameters, not the initializer list
+    auto constructor = LocalsOf({
+        U"Foo::Foo(Engine *engine) : base(engine), item{1}, other(engine) {",
+        U"}",
+    });
+    TR_ASSERT(t, constructor.empty());     // the body closed
+    constructor = LocalsOf({
+        U"Foo::Foo(Engine *engine) : base(engine), item{1}, other(engine) {",
+        U"    run();",
+    });
+    TR_ASSERT(t, (constructor.size() == 1) && (LocalType(constructor, U"engine") == U"Engine*"));
+    return kTR_Pass;
+}
+
+// What a closed block declared is gone; a header's variable lives in its block
+DLL_EXPORT int test_codeindex_locals_blocks(ITesting *t) {
+    auto locals = LocalsOf({
+        U"void f(int a) {",
+        U"    if (a) {",
+        U"        Line *gone = nullptr;",
+        U"    } else {",
+        U"        Line *alsoGone = nullptr;",
+        U"    }",
+        U"    for (int i = 0; i < 3; i++) {",
+        U"    }",
+        U"    for (Line::Ref line : lines) {",
+        U"        Document *inner;",
+        U"        while (true) {",
+        U"            if (auto found = Find(); found) {",
+    });
+    TR_ASSERT(t, FindLocal(locals, U"gone") == nullptr);
+    TR_ASSERT(t, FindLocal(locals, U"alsoGone") == nullptr);
+    TR_ASSERT(t, FindLocal(locals, U"i") == nullptr);
+    TR_ASSERT(t, LocalType(locals, U"line") == U"Line::Ref");
+    TR_ASSERT(t, LocalType(locals, U"inner") == U"Document*");
+    auto found = FindLocal(locals, U"found");
+    TR_ASSERT(t, (found != nullptr) && (found->initializer == U"Find()"));
+    TR_ASSERT(t, LocalType(locals, U"a") == U"int");
+    return kTR_Pass;
+}
+
+// 'auto' keeps its initializer - unless the initializer writes the type out
+DLL_EXPORT int test_codeindex_locals_auto(ITesting *t) {
+    auto locals = LocalsOf({
+        U"void f() {",
+        U"    auto doc = editor->GetActiveDocument();",
+        U"    const auto &lines = doc->Lines();",
+        U"    auto made = std::make_shared<Engine>(1, 2);",
+        U"    auto unique = make_unique<Cache>();",
+        U"    auto raw = new Window(3);",
+        U"    auto cast = static_cast<Line *>(ptr);",
+        U"    auto view = std::dynamic_pointer_cast<EditorView>(base);",
+        U"    for (auto &line : doc->Lines()) {",
+        U"        auto [key, value] = Pair();",
+        U"        for (const auto &[k, v] : map) {",
+    });
+    auto doc = FindLocal(locals, U"doc");
+    TR_ASSERT(t, (doc != nullptr) && doc->type.empty() && (doc->initializer == U"editor->GetActiveDocument()"));
+    TR_ASSERT(t, FindLocal(locals, U"lines")->initializer == U"doc->Lines()");
+    TR_ASSERT(t, LocalType(locals, U"made") == U"Engine");
+    TR_ASSERT(t, LocalType(locals, U"unique") == U"Cache");
+    TR_ASSERT(t, LocalType(locals, U"raw") == U"Window*");
+    TR_ASSERT(t, LocalType(locals, U"cast") == U"Line*");
+    TR_ASSERT(t, LocalType(locals, U"view") == U"EditorView");
+    auto line = FindLocal(locals, U"line");
+    TR_ASSERT(t, (line != nullptr) && line->isElement && (line->initializer == U"doc->Lines()"));
+    // Structured bindings have no one type
+    TR_ASSERT(t, FindLocal(locals, U"key") == nullptr);
+    TR_ASSERT(t, FindLocal(locals, U"k") == nullptr);
+    return kTR_Pass;
+}
+
+// Statements that only look a little like declarations
+DLL_EXPORT int test_codeindex_locals_expressions(ITesting *t) {
+    auto locals = LocalsOf({
+        U"void f() {",
+        U"    x = 1;",
+        U"    run(x);",
+        U"    a.b = c;",
+        U"    a->b(c);",
+        U"    return y;",
+        U"    i++;",
+        U"    *p = 3;",
+        U"    std::cout << x;",
+        U"    Foo::Bar(1);",
+        U"    delete p;",
+        U"    throw Error(1);",
+        U"    // Line *commented;",
+        U"    log(\"Line *inString;\");",
+        U"#if DEBUG",
+        U"    Line *debugOnly;",
+        U"#endif",
+    });
+    // Only what the preprocessor arm declares - the scan keeps both arms, as the highlighter colours both
+    TR_ASSERT(t, (locals.size() == 1) && (locals[0].name == U"debugOnly"));
+    return kTR_Pass;
+}
+
+// A lambda's parameters inside its body, also as an argument to a call - and gone after it
+DLL_EXPORT int test_codeindex_locals_lambda(ITesting *t) {
+    auto inside = LocalsOf({
+        U"void f(Document *document) {",
+        U"    document->ForEach([this, &count](const Line::Ref &line) {",
+        U"        count++;",
+    });
+    TR_ASSERT(t, LocalType(inside, U"line") == U"Line::Ref&");
+    TR_ASSERT(t, LocalType(inside, U"document") == U"Document*");
+    auto after = LocalsOf({
+        U"void f(Document *document) {",
+        U"    document->ForEach([&](const Line::Ref &line) {",
+        U"        count++;",
+        U"    });",
+        U"    auto other = [](int n) -> bool { return n > 0; };",
+        U"    Window *window;",
+    });
+    TR_ASSERT(t, FindLocal(after, U"line") == nullptr);
+    TR_ASSERT(t, FindLocal(after, U"n") == nullptr);
+    TR_ASSERT(t, LocalType(after, U"window") == U"Window*");
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_locals_declarators(ITesting *t) {
+    auto locals = LocalsOf({
+        U"void f() {",
+        U"    Foo *a = nullptr, b, &c = b;",
+        U"    Bar d(1, 2), e{3};",
+        U"    std::vector<int> v = {1, 2};",
+        U"    static int counter = 0;",
+        U"    std::map<std::string, std::vector<Line::Ref>> m;",
+    });
+    TR_ASSERT(t, LocalType(locals, U"a") == U"Foo*");
+    TR_ASSERT(t, LocalType(locals, U"b") == U"Foo");
+    TR_ASSERT(t, LocalType(locals, U"c") == U"Foo&");
+    TR_ASSERT(t, LocalType(locals, U"d") == U"Bar");
+    TR_ASSERT(t, LocalType(locals, U"e") == U"Bar");
+    TR_ASSERT(t, LocalType(locals, U"v") == U"std::vector<int>");
+    TR_ASSERT(t, LocalType(locals, U"counter") == U"int");
+    TR_ASSERT(t, LocalType(locals, U"m") == U"std::map<std::string,std::vector<Line::Ref>>");
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_codeindex_locals_switch(ITesting *t) {
+    auto locals = LocalsOf({
+        U"void f(int kind) {",
+        U"    switch (kind) {",
+        U"        case 1: {",
+        U"            Line *gone;",
+        U"            break;",
+        U"        }",
+        U"        case 2: {",
+        U"            Window *window;",
+    });
+    TR_ASSERT(t, FindLocal(locals, U"gone") == nullptr);
+    TR_ASSERT(t, LocalType(locals, U"window") == U"Window*");
+    return kTR_Pass;
+}
+
+// Chains that start at a parameter or local
+DLL_EXPORT int test_codeindex_locals_chain(ITesting *t) {
+    auto index = ChainIndex();
+    auto locals = LocalsOf({
+        U"void Editor::Run(Document::Ref doc, Line *line) {",
+        U"    auto current = doc->Current();",
+        U"    auto editor = Editor::Instance();",
+        U"    auto copy = current;",
+        U"    for (auto &each : doc->lines) {",
+    });
+    auto go = [&index, &locals](const std::u32string &text, const std::u32string &word) {
+        return GoToResolver::Resolve(*index, text, text.rfind(word), 2, "/c/chain.cpp", GoToResolver::kMode::kDefinition, locals);
+    };
+    TR_ASSERT(t, IsSymbol(go(U"    doc->Current();", U"Current"), U"app::Document::Current"));
+    TR_ASSERT(t, IsSymbol(go(U"    line->Length();", U"Length"), U"app::Line::Length"));
+    // 'auto' from a call, from another local, from a range
+    TR_ASSERT(t, IsSymbol(go(U"    current->Length();", U"Length"), U"app::Line::Length"));
+    TR_ASSERT(t, IsSymbol(go(U"    copy->Length();", U"Length"), U"app::Line::Length"));
+    TR_ASSERT(t, IsSymbol(go(U"    each->Length();", U"Length"), U"app::Line::Length"));
+    // A parameter hides a member of the same name: 'document' is Editor's member, 'doc' isn't one
+    TR_ASSERT(t, IsSymbol(go(U"    doc->Draw();", U"Draw"), U"app::Document::Draw"));
+    // A map's range gives pairs, which aren't known - not its values
+    auto onMap = LocalsOf({U"void f(std::map<int, Line *> byNumber) {", U"    for (auto &entry : byNumber) {"});
+    TR_ASSERT(t, GoToResolver::Resolve(*index, U"    entry->Length();", 11, 2, "/c/chain.cpp", GoToResolver::kMode::kDefinition, onMap).hits.size() == 2);
+    // An initializer that is more than one chain says nothing
+    auto sum = LocalsOf({U"void f() {", U"    auto n = a.size() + doc->Current();"});
+    auto unknown = GoToResolver::Resolve(*index, U"    n->Length();", 7, 2, "/c/chain.cpp", GoToResolver::kMode::kDefinition, sum);
+    TR_ASSERT(t, unknown.hits.size() == 2);
+    return kTR_Pass;
+}
+
+// A local written bare: Go to definition goes to its declaration, Go to type to its type
+DLL_EXPORT int test_codeindex_locals_bare(ITesting *t) {
+    auto index = ChainIndex();
+    auto locals = LocalsOf({
+        U"void Editor::Run(Document::Ref doc) {",
+        U"    auto current = doc->Current();",
+    });
+    std::u32string use = U"    Use(current, doc);";
+    auto definition = GoToResolver::Resolve(*index, use, use.find(U"current"), 2, "/c/chain.cpp", GoToResolver::kMode::kToggle, locals);
+    TR_ASSERT(t, (definition.hits.size() == 1) && (definition.hits[0].line == 1) && (definition.hits[0].column == 9));
+    // On the declaration itself
+    std::u32string declaration = U"    auto current = doc->Current();";
+    TR_ASSERT(t, GoToResolver::Resolve(*index, declaration, 9, 1, "/c/chain.cpp", GoToResolver::kMode::kToggle, locals).isAlreadyThere);
+    auto typeOf = [&index, &locals](const std::u32string &text, const std::u32string &word) {
+        return GoToResolver::ResolveTypeOf(*index, text, text.find(word), 2, "/c/chain.cpp", locals);
+    };
+    TR_ASSERT(t, IsSymbol(typeOf(use, U"current"), U"app::Line"));
+    TR_ASSERT(t, IsSymbol(typeOf(use, U"doc"), U"app::Document"));
     return kTR_Pass;
 }

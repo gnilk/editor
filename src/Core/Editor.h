@@ -18,6 +18,7 @@
 #include "Core/Workspace.h"
 #include "Core/Index/CodeIndex.h"
 #include "Core/Index/Indexer.h"
+#include "Core/FileSystem/FileFinder.h"
 #include <chrono>
 
 #include "Core/Index/LibraryNames.h"
@@ -171,6 +172,12 @@ namespace gedit {
         const std::vector<std::filesystem::path> &GetIndexedRoots() {
             return indexedRoots;
         }
+        // Every file of the project roots, for opening one by name (docs/usability-round.md §3 b). Never nullptr.
+        FileFinder::Ref GetFileFinder() {
+            return fileFinder;
+        }
+        // Walk the project roots again, in the background - a redraw when the new list is in
+        void RefreshFileFinder();
         const Workspace::Ref GetWorkspace() {
             return workspace;
         }
@@ -258,13 +265,17 @@ namespace gedit {
         // Glue: the workspace makes its folder monitors through the platform FolderMonitor (when
         // 'foldermonitor.enabled') and has their flushes run on the runloop. Keeps Workspace free of both.
         void WireFolderMonitor();
+        void WireRepoMonitor();
         // Glue: index the project roots not indexed yet, in the background (docs/code-index.md §4.4)
         void IndexProjectRoots();
+        // A root worth walking: not the startup folder's own root, not one holding the whole home directory
+        bool IsProjectRoot(const Workspace::ProjectRoot::Ref &root);
         Indexer::Languages IndexableLanguages();
         // Glue: open documents feed the index from their buffer, and folder changes reach the indexer
         void WireCodeIndex();
         void OnDocumentOpened(const Document::Ref &document);
         void OnDocumentClosed(const Document::Ref &document);
+        void RefreshChangeBase(const Document::Ref &document);
         std::string IndexPathForDocument(const Document::Ref &document);
 
         void ExecutePostScript(std::istream &stream);
@@ -299,6 +310,8 @@ namespace gedit {
         std::chrono::steady_clock::time_point timeStatusMessageEnds = {};
         Indexer::Ref indexer = nullptr;
         std::vector<std::filesystem::path> indexedRoots;
+        FileFinder::Ref fileFinder = FileFinder::Create();
+        bool isChangeMarksEnabled = false;      // the gutter's change marks - on with 'repomonitor'
 
         State state = ViewState;
         std::string viewStateKeymapName = "default_keymap";  // This is the default key-map for any 'view' related activity

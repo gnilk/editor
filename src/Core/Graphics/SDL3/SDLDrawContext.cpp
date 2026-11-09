@@ -14,6 +14,12 @@
 using namespace gedit;
 using namespace gedit::SDL3;
 
+SDLDrawContext::~SDLDrawContext() {
+    if (imageTexture != nullptr) {
+        SDL_DestroyTexture(imageTexture);
+    }
+}
+
 //
 // Consider having a special function to clear the area
 //
@@ -148,7 +154,7 @@ void SDLDrawContext::DrawStringAt(int x, int y, const char *str) const {
     SDL_SetRenderTarget(renderer, renderTarget);
     SetRenderColor();
     auto [px, py] = CoordsToScreen(x, y);
-    STBTTF_RenderText(renderer, font, px, py + font->baseline, str);
+    font->RenderText(px, py + font->Baseline(), str);
 }
 
 void SDLDrawContext::DrawStringWithAttributesAndColAt(int x, int y, kTextAttributes attrib, int idxColor, const char *str) const {
@@ -175,7 +181,7 @@ void SDLDrawContext::DrawStringWithAttributesAt(int x, int y, kTextAttributes at
 
     // Translate coordinates and draw text...
     auto [px, py] = CoordsToScreen(x, y);
-    STBTTF_RenderText(renderer, font, px, py + font->baseline, str);
+    font->RenderText(px, py + font->Baseline(), str);
 
     // underlined???  draw a line under the text
     if (attrib & kTextAttributes::kUnderline) {
@@ -183,11 +189,11 @@ void SDLDrawContext::DrawStringWithAttributesAt(int x, int y, kTextAttributes at
         if (margin > Config::Instance()["sdl"].GetInt("line_margin",4)) {
             margin = Config::Instance()["sdl"].GetInt("line_margin",4) - 1;
         }
-        DrawLineWithPixelOffset(x, y , x + strlen(str), y,0,font->baseline+margin);
+        DrawLineWithPixelOffset(x, y , x + strlen(str), y,0,font->Baseline()+margin);
     }
     // struck through - a line through the middle of the lower-case letters (~1/4 of the ascent above the baseline)
     if (attrib & kTextAttributes::kStrikethrough) {
-        DrawLineWithPixelOffset(x, y , x + strlen(str), y,0,(font->baseline * 3) / 4);
+        DrawLineWithPixelOffset(x, y , x + strlen(str), y,0,(font->Baseline() * 3) / 4);
     }
 }
 
@@ -200,7 +206,7 @@ void SDLDrawContext::DrawStringAt(int x, int y, const std::u32string &str) const
 
     auto [px, py] = CoordsToScreen(x, y);
 
-    STBTTF_RenderText(renderer, font, px, py + font->baseline, str);
+    font->RenderText(px, py + font->Baseline(), str);
 }
 
 void SDLDrawContext::DrawStringWithAttributesAt(int x, int y, kTextAttributes attrib, const std::u32string &str) const {
@@ -222,7 +228,7 @@ void SDLDrawContext::DrawStringWithAttributesAt(int x, int y, kTextAttributes at
 
     // Translate coordinates and draw text...
     auto [px, py] = CoordsToScreen(x, y);
-    STBTTF_RenderText(renderer, font, px, py + font->baseline, str);
+    font->RenderText(px, py + font->Baseline(), str);
 
     // underlined???  draw a line under the text
     if (attrib & kTextAttributes::kUnderline) {
@@ -230,14 +236,41 @@ void SDLDrawContext::DrawStringWithAttributesAt(int x, int y, kTextAttributes at
         if (margin > Config::Instance()["sdl"].GetInt("line_margin",4)) {
             margin = Config::Instance()["sdl"].GetInt("line_margin",4) - 1;
         }
-        DrawLineWithPixelOffset(x, y , x + str.length(), y,0,font->baseline+margin);
+        DrawLineWithPixelOffset(x, y , x + str.length(), y,0,font->Baseline()+margin);
     }
     // struck through - a line through the middle of the lower-case letters (~1/4 of the ascent above the baseline)
     if (attrib & kTextAttributes::kStrikethrough) {
-        DrawLineWithPixelOffset(x, y , x + str.length(), y,0,(font->baseline * 3) / 4);
+        DrawLineWithPixelOffset(x, y , x + str.length(), y,0,(font->Baseline() * 3) / 4);
     }
 }
 
-
-
-
+// The image's own texture, kept between frames: a minimap changes far less often than it is drawn (keep in step with
+// SDL2/SDLDrawContext.cpp)
+void SDLDrawContext::DrawImage(const Rect &cellRect, const PixelImage &image) const {
+    if (image.IsEmpty() || (cellRect.Width() <= 0) || (cellRect.Height() <= 0)) {
+        return;
+    }
+    if ((imageTexture == nullptr) || (imageTextureWidth != image.Width()) || (imageTextureHeight != image.Height())) {
+        if (imageTexture != nullptr) {
+            SDL_DestroyTexture(imageTexture);
+        }
+        imageTexture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, image.Width(), image.Height());
+        if (imageTexture == nullptr) {
+            return;
+        }
+        SDL_SetTextureBlendMode(imageTexture, SDL_BLENDMODE_BLEND);
+        SDL_SetTextureScaleMode(imageTexture, SDL_SCALEMODE_NEAREST);
+        imageTextureWidth = image.Width();
+        imageTextureHeight = image.Height();
+        imageSource = nullptr;
+    }
+    if ((imageSource != &image) || (imageRevision != image.Revision())) {
+        SDL_UpdateTexture(imageTexture, nullptr, image.Data(), image.Pitch());
+        imageSource = &image;
+        imageRevision = image.Revision();
+    }
+    SDL_SetRenderTarget(renderer, renderTarget);
+    auto [px, py] = CoordsToScreen((float)cellRect.TopLeft().x, (float)cellRect.TopLeft().y);
+    SDL_FRect dst = {px, py, SDLTranslate::ColToXPos(cellRect.Width()), SDLTranslate::RowToYPos(cellRect.Height())};
+    SDL_RenderTexture(renderer, imageTexture, nullptr, &dst);
+}

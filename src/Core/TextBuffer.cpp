@@ -15,6 +15,7 @@
 #include <cstdint>
 #include "DurationTimer.h"
 #include "Core/CompileTimeConfig.h"
+#include "Core/StrUtil.h"
 
 using namespace gedit;
 
@@ -222,6 +223,10 @@ void TextBuffer::ParseThread() {
             if (isStructurePending && ((std::chrono::steady_clock::now() - timeStructureChanged) >= RECOLOUR_DELAY)) {
                 PublishStructure();
             }
+            if (isLineHashesPending && ((std::chrono::steady_clock::now() - timeLinesChanged) >= RECOLOUR_DELAY)) {
+                PublishLineHashes();
+                Editor::Instance().TriggerUIRedraw();
+            }
             TakeWorkspaceNames();
             continue;
         }
@@ -233,6 +238,7 @@ void TextBuffer::ParseThread() {
         ChangeParseState(kState_Parsing);
         DurationTimer durationTimer;
         ExecuteParseJob(job);
+        revision++;
         auto duration = durationTimer.Sample();
         logger->Debug("ParseThread, job completed. Duration=%ld ms, Type=%s", duration.count(),
                       (job->jobType == ParseJobType::kParseFull) ? "Full" : "Region");
@@ -264,6 +270,7 @@ void TextBuffer::ExecuteFullParse() {
         RecolourSemanticNames();
     }
     NotifyStructureChanged();
+    NotifyLinesChanged();
     parseMetrics.total += 1;
     parseMetrics.full += 1;
 }
@@ -285,6 +292,7 @@ size_t TextBuffer::ExecuteRegionParse(size_t idxLineStart, size_t idxLineEnd) {
         }
     }
     NotifyStructureChanged();
+    NotifyLinesChanged();
     parseMetrics.total += 1;
     parseMetrics.region += 1;
     return result;
@@ -306,6 +314,47 @@ void TextBuffer::NotifyStructureChanged() {
 void TextBuffer::SetStructureHandler(StructureHandler newHandler) {
     std::lock_guard<std::mutex> guard(structureHandlerLock);
     structureHandler = std::move(newHandler);
+}
+
+// Every parse follows an edit (or a load). Like the structure, waits for a pause: one walk over the lines per pause.
+void TextBuffer::NotifyLinesChanged() {
+    timeLinesChanged = std::chrono::steady_clock::now();
+    isLineHashesPending = true;
+    if (reparseThread == nullptr) {
+        PublishLineHashes();
+    }
+}
+
+void TextBuffer::SetLineHashesHandler(LineHashesHandler newHandler) {
+    std::lock_guard<std::mutex> guard(lineHashesLock);
+    lineHashesHandler = std::move(newHandler);
+}
+
+// At the next idle tick: the pause is already there
+void TextBuffer::RequestLineHashes() {
+    timeLinesChanged = std::chrono::steady_clock::now() - RECOLOUR_DELAY;
+    isLineHashesPending = true;
+    if (reparseThread == nullptr) {
+        PublishLineHashes();
+    }
+}
+
+// A line's hash is kept until it changes, so this hashes only what was edited. With no handler the hashes stay
+// pending, as the structure does.
+void TextBuffer::PublishLineHashes() {
+    std::lock_guard<std::mutex> guard(lineHashesLock);
+    if (lineHashesHandler == nullptr) {
+        return;
+    }
+    isLineHashesPending = false;
+    std::vector<uint64_t> hashes;
+    hashes.reserve(lines.size());
+    for (auto &line : lines) {
+        line->Lock();
+        hashes.push_back(line->ContentHashLocked());
+        line->Release();
+    }
+    lineHashesHandler(hashes);
 }
 
 // A buffer is parsed before it is opened, so the job is what keeps it from showing plain until the next tick
@@ -532,6 +581,7 @@ bool TextBuffer::PrepareStructureScanner() {
 
 // The token lists get the current names - no lexing
 void TextBuffer::RecolourSemanticNames() {
+    revision++;
     isRecolourPending = false;
     for (auto &line : lines) {
         line->Lock();
@@ -651,45 +701,76 @@ bool TextBuffer::Load(const std::filesystem::path &pathName) {
         return false;
     }
 
-    auto filename = pathName.string();
-
-    // Clear out any lines before loading - the CTOR add's an empty line (so we can edit directly)
-    lines.clear();
-
-    // Now load
-    FILE *f = fopen(filename.c_str(), "r");
-    if (f == nullptr) {
+    std::vector<std::u32string> fileLines;
+    if (!ReadLines(pathName, fileLines)) {
         return false;
     }
-
-    static uint8_t tmp[GEDIT_MAX_LINE_LENGTH];
-
-    // Read first line and check BOM
-    if (fgets((char *)tmp, GEDIT_MAX_LINE_LENGTH, f)) {
-        // Check BOM on first line
-        if ((tmp[0] == 0xfe) && (tmp[1] == 0xff)) {
-            // remove BOM and proceed..
-            AddLineUTF8((char *) &tmp[2]);
-        } else {
-            AddLineUTF8((char *) tmp);
-        }
-        // Continue reading rest of file...
-        while(fgets((char *)tmp, GEDIT_MAX_LINE_LENGTH, f)) {
-            // BOM detection on first line
-            AddLineUTF8((char *) tmp);
-        }
-    }
-    fclose(f);
-
-    // Ok, I admit - it never quite occured to me that we should open EMPTY files..  but of course we do (so do I)
-    // We opened an empty file - let's add a dummy here
-    if (lines.size() == 0) {
-        AddLineUTF8("");
+    // Clear out any lines before loading - the CTOR add's an empty line (so we can edit directly)
+    lines.clear();
+    for (auto &text : fileLines) {
+        AddLine(text);
     }
     // Change state, do this before UpdateLang - since lang checks if loaded before allowing parse to happen
     ChangeBufferState(kBuffer_Loaded);
 //    UpdateLanguageParserFromFilename();
     return true;
+}
+
+// The lines as Load gives them - so a reload compares like with like. Trailing whitespace goes, as Line does it; a line
+// longer than GEDIT_MAX_LINE_LENGTH is split. An empty file is one empty line.
+// As ReadLines: a line per '\n', converted, trailing white space off; no line after a last '\n'; at least one line
+void TextBuffer::SplitLines(std::string_view text, std::vector<std::u32string> &outLines) {
+    outLines.clear();
+    if ((text.size() >= 2) && ((uint8_t)text[0] == 0xfe) && ((uint8_t)text[1] == 0xff)) {
+        text.remove_prefix(2);
+    }
+    while (!text.empty()) {
+        auto idxEnd = text.find('\n');
+        auto lineText = std::string(text.substr(0, idxEnd));
+        auto line = UnicodeHelper::utf8to32(lineText.c_str());
+        strutil::rtrim(line);
+        outLines.push_back(std::move(line));
+        if (idxEnd == std::string_view::npos) {
+            break;
+        }
+        text.remove_prefix(idxEnd + 1);
+    }
+    if (outLines.empty()) {
+        outLines.emplace_back();
+    }
+}
+
+bool TextBuffer::ReadLines(const std::filesystem::path &pathName, std::vector<std::u32string> &outLines) {
+    outLines.clear();
+    FILE *f = fopen(pathName.string().c_str(), "r");
+    if (f == nullptr) {
+        return false;
+    }
+    std::vector<char> tmp(GEDIT_MAX_LINE_LENGTH);
+    bool isFirst = true;
+    while (fgets(tmp.data(), GEDIT_MAX_LINE_LENGTH, f)) {
+        const char *text = tmp.data();
+        // Check BOM on first line
+        if (isFirst && ((uint8_t)tmp[0] == 0xfe) && ((uint8_t)tmp[1] == 0xff)) {
+            text += 2;
+        }
+        isFirst = false;
+        auto line = UnicodeHelper::utf8to32(text);
+        strutil::rtrim(line);
+        outLines.push_back(std::move(line));
+    }
+    fclose(f);
+
+    // Ok, I admit - it never quite occured to me that we should open EMPTY files..  but of course we do (so do I)
+    // We opened an empty file - let's add a dummy here
+    if (outLines.empty()) {
+        outLines.emplace_back();
+    }
+    return true;
+}
+
+void TextBuffer::MarkInSyncWithDisk() {
+    ChangeBufferState(kBuffer_Loaded);
 }
 
 bool TextBuffer::Save(const std::filesystem::path &pathName) {
@@ -876,6 +957,7 @@ bool TextBuffer::LoadWithAttributes(const std::filesystem::path &pathName) {
 
 void TextBuffer::ChangeBufferState(BufferState newState) {
     bufferState = newState;
+    revision++;
 }
 
 void TextBuffer::OnLineChanged(const Line &line) {

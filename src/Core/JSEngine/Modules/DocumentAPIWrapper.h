@@ -31,6 +31,8 @@ namespace gedit {
         bool Save();
         bool SaveAs(const char *newFileName);
         bool IsModified();
+        bool IsChangedOnDisk();
+        bool Reload();
 
         const std::string GetName();
         const std::string GetFileName();

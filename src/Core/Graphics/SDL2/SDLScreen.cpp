@@ -12,6 +12,8 @@
 //
 
 #include "SDLScreen.h"
+
+#include <cmath>
 #include "SDLWindow.h"
 #include "SDLTranslate.h"
 #include "SDLFontManager.h"
@@ -28,10 +30,6 @@
 #include <SDL2/SDL_video.h>
 #include "Core/Editor.h"
 
-#ifndef STBTTF_IMPLEMENTATION
-#define STBTTF_IMPLEMENTATION
-#endif
-#include "ext/stbttf.h"
 
 // Implementation lives in src/ext/stb/stb_impl.cpp — header only here.
 #include "stb_image.h"
@@ -45,6 +43,11 @@ using namespace gedit::SDL2;
 
 
 //static const std::string fontName = "Andale Mono.ttf";
+
+// A density is a ratio of pixel sizes; a window a pixel off shouldn't rasterise the font again
+static bool IsSameDensity(float a, float b) {
+    return std::fabs(a - b) < 0.01f;
+}
 
 ScreenBase::Ref SDLScreen::Create() {
     auto instance = std::make_shared<SDLScreen>();
@@ -111,7 +114,7 @@ bool SDLScreen::Open() {
 
     logger->Debug("Resolution: %d x %d", widthPixels, heightPixels);
 
-    LoadFontFromTheme();
+    // Loads the font too - it is rasterised at the display's density
     ComputeScalingFactors();
     CreateTextures();
     return true;
@@ -152,7 +155,7 @@ void SDLScreen::SetWindowIcon() {
     stbi_image_free(pixels);
 }
 
-void SDLScreen::LoadFontFromTheme() {
+void SDLScreen::LoadFontFromTheme(float density) {
     // Resolve font name from theme
     auto currentTheme = Editor::Instance().GetTheme();
     if (currentTheme == nullptr) {
@@ -169,9 +172,7 @@ void SDLScreen::LoadFontFromTheme() {
         logger->Error("Unable to open font: '%s'\n", fontName.c_str());
         return;
     }
-    // Create an in-memory loader for this asset and open the font
-    auto sdlRWOps = SDL_RWFromConstMem(fontAsset->GetPtrAs<const void *>(), (int)fontAsset->GetSize());
-    auto font = STBTTF_OpenFontRW(sdlRenderer, sdlRWOps, 18);
+    auto font = SDLFont::Create(sdlRenderer, fontAsset->GetPtrAs<const uint8_t *>(), fontAsset->GetSize(), 18, density);
 
     if (font == nullptr) {
         logger->Error("Unable to load font: '%s'\n", fontName.c_str());
@@ -179,7 +180,7 @@ void SDLScreen::LoadFontFromTheme() {
     }
 
     // Set the font active..
-    SDLFontManager::Instance().SetActiveFont(font);
+    SDLFontManager::Instance().SetActiveFont(std::move(font));
 
 }
 
@@ -201,20 +202,34 @@ void SDLScreen::ComputeScalingFactors() {
     logger->Debug("Resolution: %d x %d", widthPixels, heightPixels);
     logger->Debug("Display, pixels: %d x %d", displayMode.w, displayMode.h);
 
+    // The glyphs are rasterised at the display's density, the layout below stays in logical pixels. The first call,
+    // or a window moved to a display of another density, builds the font (again).
+    float density = WindowPixelDensity();
     auto font = SDLFontManager::Instance().GetActiveFont();
+    if ((font == nullptr) || !IsSameDensity(font->Density(), density)) {
+        logger->Debug("Pixel density %f - rasterising the font for it", density);
+        LoadFontFromTheme(density);
+        font = SDLFontManager::Instance().GetActiveFont();
+    }
+    if (font == nullptr) {
+        logger->Error("No font - can't lay out the screen");
+        return;
+    }
+
+    pixelDensity = density;
 
     float line_margin = Config::Instance()["sdl"].GetInt("line_margin", 4);
-    rows = heightPixels / (font->baseline + line_margin); // baseline = font->ascent * font->scale
+    rows = heightPixels / (font->Baseline() + line_margin); // baseline = font->ascent * font->scale
 
     // subjective representation of average type of chars you might find in a something
     // small,wide,average type of chars
     std::string textToMeasure = "AaWwiI109 []{}/*.,\"";
-    auto textWidth =  STBTTF_MeasureText(font, textToMeasure.c_str());
+    auto textWidth =  font->MeasureText(textToMeasure.c_str());
     auto fontWidthAverage = textWidth / (float)textToMeasure.length();
     cols = widthPixels / fontWidthAverage;
 
     logger->Debug("Font scaling factors:");
-    logger->Debug("  Height: %d px (font: %d, line margin: %f)", (int)(font->baseline + line_margin), font->baseline, line_margin);
+    logger->Debug("  Height: %d px (font: %d, line margin: %f)", (int)(font->Baseline() + line_margin), (int)font->Baseline(), line_margin);
     logger->Debug("  Width : %d px (based on average widht for '%s')", (int)fontWidthAverage, textToMeasure.c_str());
 
     logger->Debug("Text to Graphics defined as");
@@ -226,24 +241,20 @@ void SDLScreen::ComputeScalingFactors() {
 
     logger->Debug("Scaling factors = (%f,%f)", SDLTranslate::fac_x_to_rc, SDLTranslate::fac_y_to_rc);
 
-    // This should make it possible to move the window between HDPI screens and regular screens
-    // or if you just use a high-dpi screen...
-    int rw = 0, rh = 0;
-    SDL_GetRendererOutputSize(sdlRenderer, &rw, &rh);
-    if(rw != widthPixels) {
-        logger->Debug("Renderer Output != widthPixels - assuming high DPI display");
-        float widthScale = (float)rw / (float) widthPixels;
-        float heightScale = (float)rh / (float) heightPixels;
+    // Everything is drawn in logical pixels; the render scale maps them onto the screen's. The font's glyphs are
+    // drawn at 1/density of their rasterised size, so they come out 1:1.
+    logger->Debug("Render scale: %f", density);
+    SDL_RenderSetScale(sdlRenderer, density, density);
+}
 
-        if(widthScale != heightScale) {
-            logger->Debug("WARNING: width scale != height scale");
-        }
-        logger->Debug("Scaling factors: %f, %f", widthScale, heightScale);
-        SDL_RenderSetScale(sdlRenderer, widthScale, heightScale);
-    } else {
-        logger->Debug("Non HDPI display, resetting scaling factors");
-        SDL_RenderSetScale(sdlRenderer, 1,1);
+float SDLScreen::WindowPixelDensity() {
+    int windowWidth = 0, windowHeight = 0;
+    int outputWidth = 0, outputHeight = 0;
+    SDL_GetWindowSize(sdlWindow, &windowWidth, &windowHeight);
+    if ((windowWidth <= 0) || (SDL_GetRendererOutputSize(sdlRenderer, &outputWidth, &outputHeight) != 0) || (outputWidth <= 0)) {
+        return 1.0f;
     }
+    return (float)outputWidth / (float)windowWidth;
 }
 
 void SDLScreen::CreateTextures() {
@@ -279,6 +290,16 @@ void SDLScreen::OnSizeChanged() {
     RuntimeConfig::Instance().GetRootView().PostMessage([](){});
 }
 
+// A resize changes the pixel size too, and has its own event - only a change of density is handled here
+void SDLScreen::OnPixelSizeChanged() {
+    auto font = SDLFontManager::Instance().GetActiveFont();
+    if ((font != nullptr) && IsSameDensity(font->Density(), WindowPixelDensity())) {
+        return;
+    }
+    logger->Debug("Pixel density changed");
+    OnSizeChanged();
+}
+
 void SDLScreen::OnMoved() {
     logger->Debug("Window moved, reporting geometry to session");
     ReportWindowGeometry();
@@ -304,8 +325,8 @@ bool SDLScreen::GetPrimaryDisplayBounds(int &x, int &y, int &width, int &height)
 }
 
 void SDLScreen::Close() {
-    auto font = SDLFontManager::Instance().GetActiveFont();
-    STBTTF_CloseFont(font);
+    FreePointerShapes();
+    SDLFontManager::Instance().SetActiveFont(nullptr);
     SDL_Quit();
 }
 
@@ -340,10 +361,6 @@ void SDLScreen::Update() {
 //    dc.DrawStringAt(3,3,"01 23 45 67 89 01 23 45 67 8901234567890123456789012345678901234567890123456789");
 //    dc.DrawStringAt(4,4,"01 23 45 67 89 01 23 45 67 8901234567890123456789012345678901234567890123456789");
 
-//    auto font = SDLFontManager::Instance().GetActiveFont();
-//    STBTTF_RenderText(renderer, font, 0, font->size * 2, "0123456789012345678901234567890123456789012345678901234567890123456789");
-//    STBTTF_RenderText(renderer, font, 1, font->size * 3, "0123456789012345678901234567890123456789012345678901234567890123456789");
-//    STBTTF_RenderText(renderer, font, 2, font->size * 4, "0123456789012345678901234567890123456789012345678901234567890123456789");
 
     SDLCursor::Instance().Draw();
     SDL_RenderPresent(sdlRenderer);
@@ -409,6 +426,16 @@ gedit::Rect SDLScreen::Dimensions() {
     return rect;
 }
 
+// A cell in logical pixels (the translation's factors), times the density
+bool SDLScreen::CellSizeInPixels(float &width, float &height) {
+    if ((cols <= 0) || (rows <= 0)) {
+        return false;
+    }
+    width = SDLTranslate::ColToXPos(1) * pixelDensity;
+    height = SDLTranslate::RowToYPos(1) * pixelDensity;
+    return true;
+}
+
 // PollEvents is the single SDL event pump for all platforms.
 // It must be called from the main thread (Cocoa/SDL requirement on macOS).
 // Blocks up to ~250 ms waiting for events, then drains the queue.
@@ -441,11 +468,9 @@ void SDLScreen::PollEvents() {
 
             case SDL_MOUSEBUTTONDOWN:
             case SDL_MOUSEBUTTONUP: {
-                Point rc = SDLTranslate::PixelToRowCol(Point(event.button.x, event.button.y));
                 MouseEvent me;
                 me.kind = (event.type == SDL_MOUSEBUTTONDOWN) ? MouseEvent::kMouseEventKind_Press : MouseEvent::kMouseEventKind_Release;
-                me.x = rc.x;
-                me.y = rc.y;
+                SetMousePosition(me, (float)event.button.x, (float)event.button.y);
                 me.button = event.button.button;
                 me.modifiers = keyDriver->TranslateModifiers(SDL_GetModState());
                 Runloop::PostMessage(0, [me](uint32_t) {
@@ -454,12 +479,32 @@ void SDLScreen::PollEvents() {
                 break;
             }
 
+            // A drag (a splitter, docs/usability-round.md §2; the minimap, §7): only while a button is held. Every pixel
+            // goes on - RootView passes a move within the same cell only to a drag that draws finer than cells. Keep in
+            // step with SDL3/SDLScreen.cpp.
+            case SDL_MOUSEMOTION: {
+                if (event.motion.state == 0) {
+                    MouseEvent hover;
+                    SetMousePosition(hover, (float)event.motion.x, (float)event.motion.y);
+                    PostHover(hover);
+                    break;
+                }
+                MouseEvent me;
+                me.kind = MouseEvent::kMouseEventKind_Move;
+                SetMousePosition(me, (float)event.motion.x, (float)event.motion.y);
+                me.button = (event.motion.state & SDL_BUTTON_LMASK) ? SDL_BUTTON_LEFT
+                          : (event.motion.state & SDL_BUTTON_MMASK) ? SDL_BUTTON_MIDDLE : SDL_BUTTON_RIGHT;
+                me.modifiers = keyDriver->TranslateModifiers(SDL_GetModState());
+                Runloop::PostMessage(0, [me](uint32_t) {
+                    Runloop::ProcessMouseEvent(me);
+                });
+                break;
+            }
+
             case SDL_MOUSEWHEEL: {
-                Point rc = SDLTranslate::PixelToRowCol(Point(event.wheel.mouseX, event.wheel.mouseY));
                 MouseEvent me;
                 me.kind = MouseEvent::kMouseEventKind_Wheel;
-                me.x = rc.x;
-                me.y = rc.y;
+                SetMousePosition(me, (float)event.wheel.mouseX, (float)event.wheel.mouseY);
                 me.wheelDelta = event.wheel.y;
                 me.modifiers = keyDriver->TranslateModifiers(SDL_GetModState());
                 Runloop::PostMessage(0, [me](uint32_t) {
@@ -475,7 +520,15 @@ void SDLScreen::PollEvents() {
                 } else if (event.window.event == SDL_WINDOWEVENT_MOVED) {
                     logger->Debug("SDL_EVENT_WINDOW_MOVED");
                     OnMoved();
+                } else if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+                    // The window went to a display of another density (keep in step with SDL3/SDLScreen.cpp)
+                    OnPixelSizeChanged();
                 }
+#if SDL_VERSION_ATLEAST(2, 0, 18)
+                else if (event.window.event == SDL_WINDOWEVENT_DISPLAY_CHANGED) {
+                    OnPixelSizeChanged();
+                }
+#endif
                 break;
 
             case SDL_CLIPBOARDUPDATE:
@@ -491,4 +544,53 @@ void SDLScreen::PollEvents() {
                 break;
         }
     }
+}
+
+void SDLScreen::PostHover(MouseEvent &hover) {
+    if ((hover.x == hoverCellX) && (hover.y == hoverCellY)) {
+        return;
+    }
+    hoverCellX = hover.x;
+    hoverCellY = hover.y;
+    hover.kind = MouseEvent::kMouseEventKind_Hover;
+    Runloop::PostMessage(0, [hover](uint32_t) {
+        Runloop::ProcessMouseEvent(hover);
+    });
+}
+
+// Keep in step with SDL3/SDLScreen.cpp
+void SDLScreen::SetPointerShape(kPointerShape shape) {
+    static const SDL_SystemCursor systemCursors[] = {
+        SDL_SYSTEM_CURSOR_ARROW, SDL_SYSTEM_CURSOR_IBEAM, SDL_SYSTEM_CURSOR_SIZEWE, SDL_SYSTEM_CURSOR_SIZENS,
+    };
+    auto idx = (size_t)shape;
+    if (idx >= std::size(pointerShapes)) {
+        return;
+    }
+    if (pointerShapes[idx] == nullptr) {
+        pointerShapes[idx] = SDL_CreateSystemCursor(systemCursors[idx]);
+    }
+    if (pointerShapes[idx] != nullptr) {
+        SDL_SetCursor(pointerShapes[idx]);
+    }
+}
+
+void SDLScreen::FreePointerShapes() {
+    for (auto &pointerShape : pointerShapes) {
+        if (pointerShape != nullptr) {
+            SDL_FreeCursor(pointerShape);
+            pointerShape = nullptr;
+        }
+    }
+}
+
+// The cell under a window position (logical pixels), and where in that cell it is
+void SDLScreen::SetMousePosition(MouseEvent &mouseEvent, float pixelX, float pixelY) {
+    float col = pixelX;
+    float row = pixelY;
+    SDLTranslate::PixelToRowCol(col, row);
+    mouseEvent.x = (int)std::floor(col);
+    mouseEvent.y = (int)std::floor(row);
+    mouseEvent.subCellX = col - std::floor(col);
+    mouseEvent.subCellY = row - std::floor(row);
 }

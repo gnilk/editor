@@ -16,6 +16,7 @@
 #include <logger.h>
 
 #include "Core/UI/Graphics/ScreenBase.h"
+#include "Core/MouseEvent.h"
 #include "Core/UI/Graphics/WindowBase.h"
 #include "Core/Rect.h"
 
@@ -41,15 +42,29 @@ namespace gedit::SDL2 {
         WindowBase *CreateWindow(const gedit::Rect &rect, WindowBase::kWinFlags flags, WindowBase::kWinDecoration decoFlags) override;
         WindowBase *UpdateWindow(WindowBase *window, const gedit::Rect &rect, WindowBase::kWinFlags flags, WindowBase::kWinDecoration decoFlags) override;
         Rect Dimensions() override;
+        bool CellSizeInPixels(float &width, float &height) override;
+        float PixelDensity() override {
+            return pixelDensity;
+        }
         void OnSizeChanged() override;
         void OnMoved() override;
         void PollEvents() override;
+        void SetPointerShape(kPointerShape shape) override;
     protected:
         bool GetPrimaryDisplayBounds(int &x, int &y, int &width, int &height) override;
     private:
         void ComputeScalingFactors();
         void CreateTextures();
-        void LoadFontFromTheme();
+        // Screen pixels per logical (window) pixel, asked of SDL - 2 on a Retina display
+        float WindowPixelDensity();
+        // The theme's font, rasterised for 'density' (docs/open-bugs.md #18)
+        void LoadFontFromTheme(float density);
+        // The window's pixel size changed - lay out again only when it is because the density did
+        void OnPixelSizeChanged();
+        void SetMousePosition(MouseEvent &mouseEvent, float pixelX, float pixelY);
+        // No button held: a hover, only when the pointer reaches another cell - the shape is all that follows it
+        void PostHover(MouseEvent &hover);
+        void FreePointerShapes();
         // Load the app icon (appicon.png) via the asset loader and set it as the window/taskbar
         // icon. Without this the WM has no icon to show (ALT+TAB) unless a matching .desktop is
         // installed system-wide — which is not the case for an AppImage or a dev build.
@@ -71,9 +86,14 @@ namespace gedit::SDL2 {
         // In characters (which is what the editor works with)
         int rows = 0;
         int cols = 0;
+        float pixelDensity = 1.0f;      // screen pixels per logical pixel, as the font was built for
 
         gnilk::Logger::ILogger *logger = nullptr;
 
+        // The system pointers, made the first time each is shown (docs/usability-round.md §2)
+        SDL_Cursor *pointerShapes[4] = {};
+        int hoverCellX = -1;
+        int hoverCellY = -1;
     };
 }
 

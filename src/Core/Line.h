@@ -5,6 +5,8 @@
 #ifndef EDITOR_LINE_H
 #define EDITOR_LINE_H
 
+#include <atomic>
+#include <cstdint>
 #include <vector>
 #include <string_view>
 #include <string>
@@ -94,6 +96,13 @@ namespace gedit {
         void SetStructure(LineStructure::Ref newStructure) { structure = std::move(newStructure); }
         const LineStructure::Ref &GetStructure() const { return structure; }
 
+        // The text's hash, for comparing lines without their text (the change marks, docs/usability-round.md §0c). Kept
+        // until the text changes; the first ask after a change hashes it again. Taken under the line's lock - the
+        // caller holds it (Lock / Release).
+        uint64_t ContentHashLocked();
+        // The same hash for a text that isn't a line - a line of the file as git has it
+        static uint64_t HashOf(const std::u32string_view &text);
+
         void SetSelected(bool bSelected) {
             selected = bSelected;
         }
@@ -151,6 +160,8 @@ namespace gedit {
         // Search the first line backwards 'til the stateDepth == 1 and start parsing from that line
         int stateDepthAtStart = 0;
         LineStructure::Ref structure = nullptr;
+        uint64_t contentHash = 0;
+        std::atomic<bool> isHashValid = false;      // cleared after an edit, on the editing thread
     };
 }
 

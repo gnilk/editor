@@ -63,6 +63,7 @@
 #include "Core/API/TerminalAPI.h"
 #include "Core/API/ConfigAPI.h"
 #include "Core/API/ThemesAPI.h"
+#include "Core/Git/GitBase.h"
 #include "Core/Graphics/Headless/HLScreen.h"
 
 #if defined(GEDIT_MACOS)
@@ -265,6 +266,7 @@ bool Editor::Initialize(int argc, const char **argv) {
     // Create workspace
     workspace = Workspace::Create();
     WireFolderMonitor();
+    WireRepoMonitor();
     WireCodeIndex();
 
     bool createDefaultWorkspace = true;
@@ -649,12 +651,18 @@ void Editor::HandleGlobalAction(const EditorAction &kpAction) {
             ActionHelper::ShowFind();
         } else if (kpAction.action == kAction::kActionGotoSymbol) {
             ActionHelper::ShowGotoSymbol();
+        } else if (kpAction.action == kAction::kActionQuickOpen) {
+            ActionHelper::ShowQuickOpen();
         } else if (kpAction.action == kAction::kActionGotoImplementation) {
             ActionHelper::GoToRelatedAtCursor(GoToResolver::kRelated::kImplementation);
         } else if (kpAction.action == kAction::kActionGotoBase) {
             ActionHelper::GoToRelatedAtCursor(GoToResolver::kRelated::kBase);
+        } else if (kpAction.action == kAction::kActionGotoType) {
+            ActionHelper::GoToTypeAtCursor();
         } else if (kpAction.action == kAction::kActionShowRelationships) {
             ActionHelper::ShowRelationships();
+        } else if (kpAction.action == kAction::kActionShowOpenFiles) {
+            ActionHelper::ShowOpenFiles();
         } else if (kpAction.action == kAction::kActionGotoDefinition) {
             ActionHelper::GoToNameAtCursor(GoToResolver::kMode::kDefinition);
         } else if (kpAction.action == kAction::kActionGotoDeclaration) {
@@ -1058,6 +1066,62 @@ void Editor::WireFolderMonitor() {
     workspace->SetFolderMonitor(factory, postToMain);
 }
 
+// The change set in the workspace tree (docs/usability-round.md §0) - 'repomonitor' in the config
+void Editor::WireRepoMonitor() {
+    auto config = Config::Instance()["repomonitor"];
+    if (!config.GetBool("enabled", true)) {
+        return;
+    }
+    auto checkInterval = std::chrono::milliseconds(std::max(100, config.GetInt("check_interval_ms", 1000)));
+    workspace->SetRepoMonitor([checkInterval](const std::filesystem::path &rootPath) -> RepoMonitor::Ref {
+        // Called from git's thread - the runloop queue is thread-safe
+        auto postToMain = [](std::function<void()> callback) {
+            Runloop::PostMessage(0x00, [callback](uint32_t) {
+                callback();
+            });
+        };
+        return RepoMonitor::Create(rootPath, postToMain, checkInterval);
+    });
+    // The change marks (docs/usability-round.md §0c) ride the same switch: both run git on what is open
+    isChangeMarksEnabled = true;
+    workspace->SetChangeSetAppliedHandler([this]() {
+        for (auto &document : workspace->GetOpenDocuments()) {
+            RefreshChangeBase(document);
+        }
+    });
+}
+
+// The file as the last commit has it, in the background; split and hashed there too, then handed to the document on
+// the main thread. A document closed meanwhile is left alone.
+void Editor::RefreshChangeBase(const Document::Ref &document) {
+    if (!isChangeMarksEnabled) {
+        return;
+    }
+    auto path = IndexPathForDocument(document);
+    if (path.empty()) {
+        return;
+    }
+    std::weak_ptr<Document> weakDocument = document;
+    GitBase::Query(path, [weakDocument](const GitBase::Result &result) {
+        auto kind = result.kind;
+        auto hashes = (kind == GitBase::kKind::kBase) ? Document::HashLines(result.text) : nullptr;
+        Runloop::PostMessage(0x00, [weakDocument, kind, hashes](uint32_t) {
+            auto document = weakDocument.lock();
+            if ((document == nullptr) || !Editor::Instance().GetWorkspace()->IsDocumentOpen(document)) {
+                return;
+            }
+            if (kind == GitBase::kKind::kBase) {
+                document->SetChangeBase(hashes);
+            } else if (kind == GitBase::kKind::kAllAdded) {
+                document->SetChangeBaseAllAdded();
+            } else {
+                document->ClearChangeBase();
+            }
+            Editor::Instance().TriggerUIRedraw();
+        });
+    });
+}
+
 void Editor::WireCodeIndex() {
     auto config = Config::Instance()["codeindex"];
     if (!config.GetBool("enabled", true)) {
@@ -1097,6 +1161,7 @@ std::string Editor::IndexPathForDocument(const Document::Ref &document) {
 }
 
 void Editor::OnDocumentOpened(const Document::Ref &document) {
+    RefreshChangeBase(document);
     // Not while indexing: a name's meaning isn't settled until every file is in, and each answer recolours
     document->GetTextBuffer()->SetWorkspaceNamesSource([this]() -> WorkspaceNames::Ref {
         return indexer->GetProgress().isIdle ? codeIndex->GetWorkspaceNames() : nullptr;
@@ -1111,6 +1176,7 @@ void Editor::OnDocumentOpened(const Document::Ref &document) {
 }
 
 void Editor::OnDocumentClosed(const Document::Ref &document) {
+    document->ClearChangeBase();
     document->GetTextBuffer()->SetWorkspaceNamesSource(nullptr);
     document->GetTextBuffer()->SetStructureHandler(nullptr);
     auto path = IndexPathForDocument(document);
@@ -1123,19 +1189,39 @@ void Editor::IndexProjectRoots() {
     if (indexer == nullptr) {
         return;
     }
-    auto pathHome = XDGEnvironment::Instance().GetUserHomePath();
     for (auto &root : workspace->GetProjectRoots()) {
         auto rootPath = pathutil::CanonicalPath(root->GetRootPath());
-        // Not a project: the cwd root, or a folder that holds the whole home directory
-        bool isTooWide = (rootPath == pathHome) || IsStrictSubdir(pathHome, rootPath);
         bool isIndexed = std::find(indexedRoots.begin(), indexedRoots.end(), rootPath) != indexedRoots.end();
-        if (workspace->IsDefaultRoot(root) || isTooWide || isIndexed) {
+        if (!IsProjectRoot(root) || isIndexed) {
             continue;
         }
         auto activeNode = (GetActiveDocument() != nullptr) ? workspace->GetNodeFromDocument(GetActiveDocument()) : nullptr;
         indexer->AddRoot(rootPath, root->GetExclusionRules(), (activeNode != nullptr) ? pathutil::CanonicalPath(activeNode->GetNodePath()) : std::filesystem::path{});
         indexedRoots.push_back(rootPath);
     }
+}
+
+// Not a project: the cwd root, or a folder that holds the whole home directory
+bool Editor::IsProjectRoot(const Workspace::ProjectRoot::Ref &root) {
+    auto pathHome = XDGEnvironment::Instance().GetUserHomePath();
+    auto rootPath = pathutil::CanonicalPath(root->GetRootPath());
+    bool isTooWide = (rootPath == pathHome) || IsStrictSubdir(pathHome, rootPath);
+    return !workspace->IsDefaultRoot(root) && !isTooWide;
+}
+
+// The roots the code index walks, each with its rules; the walk's end only asks for a redraw - the open list takes the
+// new files when it draws
+void Editor::RefreshFileFinder() {
+    std::vector<FileFinder::Root> roots;
+    for (auto &root : workspace->GetProjectRoots()) {
+        if (IsProjectRoot(root)) {
+            roots.push_back({pathutil::CanonicalPath(root->GetRootPath()), root->GetExclusionRules()});
+        }
+    }
+    fileFinder->SetDoneHandler([]() {
+        Editor::Instance().TriggerUIRedraw();
+    });
+    fileFinder->Refresh(std::move(roots));
 }
 
 // The registered extensions whose language has a structure scanner

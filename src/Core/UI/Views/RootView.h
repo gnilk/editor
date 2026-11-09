@@ -220,6 +220,71 @@ namespace gedit {
         // instances, see AddTopView), (3) activate the enclosing top view (focus-follows-click), (4)
         // call OnMouseEvent on the hit view, bubbling to parentView while it returns false.
         bool DispatchMouse(const MouseEvent &mouseEvent) {
+            // No button held: only the pointer's shape follows - no view sees it, nothing is laid out
+            if (mouseEvent.kind == MouseEvent::kMouseEventKind_Hover) {
+                ShowPointerShape(PointerShapeUnder(mouseEvent.x, mouseEvent.y));
+                return true;
+            }
+            bool isHandled = DispatchMouseToViews(mouseEvent);
+            // A press may start a drag, a release end one - and a click can move what is under the pointer
+            if (mouseEvent.kind != MouseEvent::kMouseEventKind_Wheel) {
+                ShowPointerShape(PointerShapeUnder(mouseEvent.x, mouseEvent.y));
+            }
+            return isHandled;
+        }
+
+        // What the pointer looks like over (x, y): a drag under way keeps its shape; a modal shows the default outside its
+        // views' opinion; otherwise the first opinion from the outside in, so a divider beats the panel it lies over
+        kPointerShape PointerShapeUnder(int x, int y) {
+            if (dragView != nullptr) {
+                return dragView->DragPointerShape();
+            }
+            ViewBase *hit = HasModal() ? TopModal()->HitTest(x, y) : HitTest(x, y);
+            std::vector<ViewBase *> outsideIn;
+            for (auto view = hit; view != nullptr; view = view->GetParentView()) {
+                outsideIn.insert(outsideIn.begin(), view);
+            }
+            for (auto view : outsideIn) {
+                auto shape = view->PointerShapeAt(x, y);
+                if (shape.has_value()) {
+                    return *shape;
+                }
+            }
+            return kPointerShape::kDefault;
+        }
+
+    protected:
+        // Only a change goes to the screen
+        void ShowPointerShape(kPointerShape shape) {
+            if (shape == shownPointerShape) {
+                return;
+            }
+            shownPointerShape = shape;
+            auto screen = UIHost::Instance().GetScreen();
+            if (screen != nullptr) {
+                screen->SetPointerShape(shape);
+            }
+        }
+
+        bool DispatchMouseToViews(const MouseEvent &mouseEvent) {
+            // The backend may report every pixel the pointer moves; a move only goes on when it reaches another cell -
+            // a move may lay the views out again - unless a drag under way draws finer than cells
+            if (IsMoveWithinCell(mouseEvent)) {
+                return true;
+            }
+            // A drag under way: its view gets everything up to the release. A press means the release was lost (the
+            // pointer let go outside the window) - the drag is over, and this press is a new one.
+            if (dragView != nullptr) {
+                if (mouseEvent.kind != MouseEvent::kMouseEventKind_Press) {
+                    dragView->OnMouseDrag(mouseEvent);
+                    if (mouseEvent.kind == MouseEvent::kMouseEventKind_Release) {
+                        dragView = nullptr;
+                    }
+                    return true;
+                }
+                dragView = nullptr;
+            }
+
             ViewBase *hit = nullptr;
             if (HasModal()) {
                 auto modal = TopModal();
@@ -239,6 +304,19 @@ namespace gedit {
                 hit = HitTest(mouseEvent.x, mouseEvent.y);
                 if (hit == nullptr) {
                     return false;
+                }
+                // Before focus and before the view under the pointer: a container may take the press for a drag
+                if (mouseEvent.kind == MouseEvent::kMouseEventKind_Press) {
+                    std::vector<ViewBase *> outsideIn;
+                    for (auto view = hit; view != nullptr; view = view->GetParentView()) {
+                        outsideIn.insert(outsideIn.begin(), view);
+                    }
+                    for (auto view : outsideIn) {
+                        if (view->OnMouseDragStart(mouseEvent)) {
+                            dragView = view;
+                            return true;
+                        }
+                    }
                 }
                 // Focus-follows-click activates on the PRESS (and wheel), never on the trailing RELEASE.
                 // A release is the tail of a gesture already focused on its press - re-activating the
@@ -269,7 +347,16 @@ namespace gedit {
             return false;
         }
 
-    protected:
+        bool IsMoveWithinCell(const MouseEvent &mouseEvent) {
+            bool isSameCell = (mouseEvent.x == lastMouseX) && (mouseEvent.y == lastMouseY);
+            lastMouseX = mouseEvent.x;
+            lastMouseY = mouseEvent.y;
+            if (mouseEvent.kind != MouseEvent::kMouseEventKind_Move) {
+                return false;
+            }
+            return isSameCell && ((dragView == nullptr) || !dragView->IsSubCellDrag());
+        }
+
         void OnViewInitialized() override {
             ViewBase::OnViewInitialized();
             if (TopView() != nullptr) {
@@ -351,6 +438,10 @@ namespace gedit {
         int idxCurrentTopView = -1;
         std::vector<TopViewInstance> topViews;
         std::vector<ModalView::Ptr> modals;     // Top of the stack (back) gets the input
+        ViewBase *dragView = nullptr;           // the view a drag belongs to, up to its release (OnMouseDragStart)
+        kPointerShape shownPointerShape = kPointerShape::kDefault;
+        int lastMouseX = -1;                    // the cell the pointer was last reported in
+        int lastMouseY = -1;
     };
 }
 

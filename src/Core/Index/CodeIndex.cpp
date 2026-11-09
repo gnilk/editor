@@ -213,6 +213,7 @@ void CodeIndex::ReplaceFile(const std::string &path, const FileStructure &struct
         Symbol symbol;
         symbol.idName = InternName(codeSymbol.name);
         symbol.idScope = InternScope(std::u32string(ScopeOf(codeSymbol)));
+        symbol.idType = InternType(codeSymbol.type);
         symbol.line = codeSymbol.line;
         symbol.column = codeSymbol.column;
         symbol.kind = codeSymbol.kind;
@@ -321,6 +322,20 @@ uint32_t CodeIndex::InternScope(const std::u32string &text) {
     scopes.push_back({text, Lower(text)});
     scopeIds[scopes.back().text] = idScope;
     return idScope;
+}
+
+uint32_t CodeIndex::InternType(const std::u32string &text) {
+    if (text.empty()) {
+        return 0;
+    }
+    auto it = typeIds.find(text);
+    if (it != typeIds.end()) {
+        return it->second;
+    }
+    auto idType = (uint32_t)types.size();
+    types.push_back(text);
+    typeIds[types.back()] = idType;
+    return idType;
 }
 
 std::vector<CodeIndex::Hit> CodeIndex::Query(const std::u32string &query, const QueryContext &context) const {
@@ -450,6 +465,7 @@ CodeIndex::Hit CodeIndex::MakeHit(const SymbolHandle &handle) const {
     hit.line = symbol.line;
     hit.column = symbol.column;
     hit.isDefinition = symbol.isDefinition;
+    hit.type = types[symbol.idType];
     // One file can't tell 'A::f' of a class from one of a namespace (FileStructure.h) - the index can
     if ((hit.kind == kSymbolKind::kFunction) && IsClassScope(scope.text)) {
         hit.kind = kSymbolKind::kMethod;
@@ -495,6 +511,16 @@ std::vector<std::u32string> CodeIndex::TypesNamed(const std::u32string &name) co
         return !IsNameOf(type, name);
     });
     return types;
+}
+
+std::vector<std::u32string> CodeIndex::ResolveType(const std::u32string &written, const std::u32string &fromScope) const {
+    std::shared_lock guard(lock);
+    bool isMacro = false;
+    auto resolved = ResolveTarget(written, fromScope, isMacro);
+    if (isMacro) {
+        return {};
+    }
+    return resolved;
 }
 
 std::vector<CodeIndex::Relation> CodeIndex::BasesOf(const std::u32string &qualifiedType) const {
@@ -712,6 +738,7 @@ CodeIndex::Stats CodeIndex::GetStats() const {
     stats.numEdges = numEdges;
     stats.numNames = nameIds.size();
     stats.numScopes = scopes.size();
+    stats.numTypes = types.size() - 1;
     stats.numBytes = numSymbols * (sizeof(Symbol) + sizeof(SymbolHandle));
     for (auto &file : files) {
         if (!file.symbols.empty()) {
@@ -727,6 +754,9 @@ CodeIndex::Stats CodeIndex::GetStats() const {
     }
     for (auto &scope : scopes) {
         stats.numBytes += sizeof(Scope) + (scope.text.capacity() + scope.lower.capacity()) * sizeof(char32_t);
+    }
+    for (auto &type : types) {
+        stats.numBytes += sizeof(std::u32string) + type.capacity() * sizeof(char32_t);
     }
     return stats;
 }

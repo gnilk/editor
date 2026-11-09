@@ -61,9 +61,9 @@ void Runloop::DefaultLoop() {
 
     kpaHandlers.push({&rootView});
     isRunning = true;
-    auto szNow = incomingQueue.load()->size();
-    processingQueue.load()->clear();
-    incomingQueue.load()->clear();
+    // What was posted before the loop ran (an answer from another thread during startup - the change set's first
+    // 'git status') runs on the first pass, not dropped. The two queues still keep a message posted while one is
+    // processed from running in the same pass.
     auto logger = gnilk::Logger::GetLogger("RunLoop");
     while(!bQuit) {
         // Process any messages from other threads before we do anything else..

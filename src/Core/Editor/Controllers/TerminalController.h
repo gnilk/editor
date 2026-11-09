@@ -133,6 +133,7 @@ namespace gedit {
         // paths in HandleKeyPress: a full-screen app (alt-screen) and readline (shell-owned line).
         bool ForwardKeyPressToShell(const KeyPress &keyPress);
 
+        void LoadCmdHistory();
         // Resolve the project-local path of the scrollback .bin (the kProject `.goatedit` write path for
         // `filename`), or empty when there is no project dir - the gate for project-scoped persistence.
         std::filesystem::path ResolveScrollbackBinPath(const std::string &filename) const;

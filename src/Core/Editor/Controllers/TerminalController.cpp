@@ -11,6 +11,8 @@
 #include "Core/UnicodeHelper.h"
 #include "Core/Session/SessionManager.h"
 #include "Core/Session/SessionState.h"
+#include "Core/InstallPaths.h"
+#include "Core/XDGEnvironment.h"
 
 using namespace gedit;
 
@@ -112,7 +114,7 @@ void TerminalController::Begin() {
         HandleTerminalData(buffer, length);
     });
 
-    auto shellBinary    = Config::Instance()["terminal"].GetStr("shell", "/bin/bash");
+    auto shellBinary    = Config::Instance()["terminal"].GetStr("shell", "");
     auto shellInitStr   = Config::Instance()["terminal"].GetStr("init", "-ils");
     auto shellInitScript = Config::Instance()["terminal"].GetSequenceOfStr("bootstrap");
     // §4.2 (TS-3c): opt-in OSC 133 shell integration - appends prompt hooks that emit semantic-prompt
@@ -128,7 +130,12 @@ void TerminalController::Begin() {
     // no persisted blocks, the feature is off, or the .bin is missing/corrupt.
     FromSession(SessionManager::Instance().CurrentSession().terminal);
 
-    shell.Begin(shellBinary, shellInitStr, shellInitScript);
+    if (!shell.Begin(shellBinary, shellInitStr, shellInitScript)) {
+        // No pty thread was started, so the state never leaves kIdle - waiting for kRunning would spin
+        // forever before the first frame. Carry on with a dead terminal instead.
+        logger->Error("Shell failed to start - terminal is unavailable");
+        return;
+    }
 
     while (shell.GetState() != Shell::State::kRunning) {
         if (shell.GetState() == Shell::State::kTerminated) {
@@ -138,20 +145,29 @@ void TerminalController::Begin() {
         std::this_thread::yield();
     }
 
-    // A '.goatedit' marker directory in the project registers a kProject search path; its
-    // presence opts the project into project-local history. Otherwise history is per-user.
+    LoadCmdHistory();
+}
+
+// A '.goatedit' marker directory in the project registers a kProject search path; its presence opts the
+// project into project-local history. Otherwise history is per-user, in the user state dir
+// (docs/install-layout.md), read once from a legacy user asset dir when the state file isn't there yet.
+void TerminalController::LoadCmdHistory() {
+    static const char *historyFileName = "terminal_history";
     auto &assetLoader = RuntimeConfig::Instance().GetAssetLoader();
-    auto projectPath = assetLoader.ResolveWritePath("terminal_history", AssetLoaderBase::kLocationType::kProject);
-    auto histLocation = projectPath.empty() ? AssetLoaderBase::kLocationType::kUser
-                                            : AssetLoaderBase::kLocationType::kProject;
 
-    auto histAsset = assetLoader.LoadTextAsset("terminal_history", histLocation);
-    cmdHistory.Load(histAsset);
+    auto projectPath = assetLoader.ResolveWritePath(historyFileName, AssetLoaderBase::kLocationType::kProject);
+    if (!projectPath.empty()) {
+        auto histAsset = assetLoader.LoadTextAsset(historyFileName, AssetLoaderBase::kLocationType::kProject);
+        cmdHistory.Load(histAsset);
+        // Save back to wherever it loaded from
+        cmdHistoryPath = (histAsset != nullptr) ? histAsset->GetOriginPath() : projectPath;
+        return;
+    }
 
-    // Save back to wherever it loaded from; on first run (no asset) resolve a write path.
-    cmdHistoryPath = (histAsset != nullptr)
-                    ? histAsset->GetOriginPath()
-                    : assetLoader.ResolveWritePath("terminal_history", histLocation);
+    cmdHistoryPath = InstallPaths::UserStateDir(XDGEnvironment::Instance().GetUserStatePath()) / historyFileName;
+    if (!cmdHistory.Load(cmdHistoryPath)) {
+        cmdHistory.Load(assetLoader.LoadTextAsset(historyFileName, AssetLoaderBase::kLocationType::kUser));
+    }
 }
 
 std::filesystem::path TerminalController::ResolveScrollbackBinPath(const std::string &filename) const {

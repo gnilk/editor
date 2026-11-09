@@ -255,3 +255,20 @@ The `Option` alternatives (`Option+1..9`, every `UINavigationModifier` key) don'
 related Linux one - the terminal keymap inherits the default one, so `Ctrl+B`, `Ctrl+[` and `Ctrl+]` go to the editor
 even in a full-screen program in the embedded terminal (`Ctrl+[` is `Esc` to vim; `docs/code-index.md` §11.9). Both are
 "which keys are the editor's in a terminal", and may want one answer.
+
+## 21. A file argument before the folder leaves that folder without a folder monitor
+
+`goatedit src/a.txt .` (from the project root) shows the tree but never updates it: no files written by others,
+no reload. `goatedit .` works. Both platforms - the consumer side, not a backend.
+
+**Why:** `LoadDocument` for the file runs first and creates the **default root** at the cwd
+(`Workspace::GetDefaultRoot`: `ProjectRoot::Create(nullptr, nullptr, ...)` - no reconcile callback, "no
+file-monitor" by design). `OpenFolder(".")` then calls `GetOrAddProjectRoot`, which matches by path and returns
+that default root, so `StartFolderMonitor` works on a root that can't reconcile. The loose file also shows at the
+root's level instead of under `src/`.
+
+**Fix direction:** decide whether a folder open at the default root's path *promotes* it (give it the reconcile /
+changed callbacks, re-scan, re-home its loose documents into the tree), or whether `GetOrAddProjectRoot` must
+skip the default root and the default root be dropped once empty. Repro in a unit test: open a document, then
+`OpenFolder` of the cwd, and assert the root has a reconcile callback / a started monitor (fake factory).
+

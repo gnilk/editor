@@ -8,6 +8,21 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## Install layout and asset lookup (2026-11-09)
+
+The Linux build only started from inside its build dir: system assets were looked up in `./resources/`
+(the cwd) or an installed `/usr/share/goatedit`. **Shipped:** `InstallPaths` finds exactly one system asset
+dir relative to the executable (build tree, macOS bundle, any install prefix, `$XDG_DATA_DIRS` last;
+`--asset-dir` overrides); the user layer is `~/.config/goatedit` on both platforms, `~/.goatedit` read-only (not `~/.local/share/goatedit`: a `~/.local` install puts its system assets there);
+log and user-scope terminal history in `~/.local/state/goatedit/`; `scripts/install.sh --user|--system`
+with a manifest-driven `--uninstall`. **Load-bearing decisions:** never the cwd for assets (a stray
+`resources/` could take over); a dev tree and an install are never mixed (one system dir); within a location
+type the loader keeps registration order (the old hit-count reordering let a legacy dir overtake the
+preferred one). Also: the terminal no longer hangs startup when the shell can't start, and the default
+shell is `$SHELL`. Detail: [`install-layout.md`](install-layout.md).
+
+---
+
 ## Code index - structural search over the code base (in progress)
 
 The base for "search everywhere": a lexer-driven index of symbols and their relationships, not plain text

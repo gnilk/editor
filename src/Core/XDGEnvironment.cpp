@@ -159,9 +159,19 @@ bool XDGEnvironment::Initialize() {
 }
 
 
+// An absolute value from the environment is used as-is; the defaults are home-relative ("/.config" =>
+// ~/.config). Per the XDG spec a relative or empty value is invalid and falls back to the default.
 bool XDGEnvironment::ResolvePathAndVar(XDGEnvironment::PathVar &pathVar, const std::string &var, const std::string &defaultValue) {
-    std::tie(pathVar.envValue, pathVar.isDefault) = GetEnv(var, defaultValue);
-    pathVar.fsPath = PathFromVar(pathVar.envValue);
+    const char *value = getenv(var.c_str());
+    if ((value != nullptr) && (value[0] == '/')) {
+        pathVar.envValue = value;
+        pathVar.isDefault = false;
+        pathVar.fsPath = std::filesystem::path(value);
+        return true;
+    }
+    pathVar.envValue = defaultValue;
+    pathVar.isDefault = true;
+    pathVar.fsPath = PathFromVar(defaultValue);
     return true;
 }
 bool XDGEnvironment::ResolvePathListFromVar(XDGEnvironment::PathList &pathList, const std::string &var, const std::string &defaultValue) {

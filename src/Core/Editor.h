@@ -241,6 +241,7 @@ namespace gedit {
         void ParseArguments(int argc, const char **argv);
 
 
+        void ConfigureAssetSearchPaths();
         bool TryLoadConfig(const char *configFile);
         void ConfigurePreInitLogger();
         void ConfigureLogger();
@@ -287,6 +288,7 @@ namespace gedit {
         bool keepConsoleLogger = false;
         bool loadUserConfig = true;
         std::string argBackend;
+        std::filesystem::path argAssetDir;  // '--asset-dir', replaces the system asset lookup when set
         std::vector<std::string> pendingFiles;
         std::string importThemeFile;
         std::string importThemeName;        // '--name', default: from the theme's own name

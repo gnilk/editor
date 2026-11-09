@@ -242,13 +242,13 @@ temptemp: {
 # user (shell/process settings + the view's keymap/scroll/markers; formerly split with 'commandview').
 #
 terminal:
-  shell: /bin/zsh
+  # Shell binary. Leave unset to use the login shell ($SHELL); a configured shell that is not
+  # executable also falls back to $SHELL, then /bin/sh.
+  # shell: /bin/zsh
   init: -is
   # This is a set of shell commands run after starting the shell..
   # Consider merging with the generic main bootstrap script..
-  bootstrap:
-    - SET XYZ=4
-    - export path=%path%
+  bootstrap: []
   # Max number of scrollback lines kept in memory per terminal. 0 = unlimited. Eviction is
   # block-granular: the oldest whole command block is dropped (docs/terminal-scrollback.md §7).
   scrollback_lines: 10000

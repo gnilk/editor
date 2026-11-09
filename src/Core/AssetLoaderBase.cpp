@@ -36,7 +36,7 @@ bool AssetLoaderBase::AddSearchPath(const std::filesystem::path &path, kLocation
     }
     auto absPath = std::filesystem::absolute(path);
     logger->Debug("Adding absolute: '%s'", absPath.c_str());
-    baseSearchPaths.push_back({0, locationType, absPath});
+    baseSearchPaths.push_back({locationType, absPath});
     SortSearchPaths();
     return true;
 }
@@ -55,8 +55,6 @@ AssetLoaderBase::Asset::Ref AssetLoaderBase::LoadAsset(const std::string &fileNa
         if ((searchPath.locationType == locationType) || (locationType == kLocationType::kAny)) {
             auto asset = DoLoadAsset(searchPath, fileName);
             if (asset != nullptr) {
-                searchPath.score += 1;  // Add a score to this path => higher probability we search it first next time...
-                SortSearchPaths();
                 return asset;
             }
         }
@@ -68,8 +66,6 @@ AssetLoaderBase::Asset::Ref AssetLoaderBase::LoadTextAsset(const std::string &fi
         if ( (searchPath.locationType == locationType) || (locationType == kLocationType::kAny)) {
             auto asset = DoLoadAsset(searchPath, fileName, 1);
             if (asset != nullptr) {
-                searchPath.score += 1;
-                SortSearchPaths();
                 return asset;
             }
         }
@@ -78,9 +74,8 @@ AssetLoaderBase::Asset::Ref AssetLoaderBase::LoadTextAsset(const std::string &fi
 }
 
 std::filesystem::path AssetLoaderBase::ResolveWritePath(const std::string &fileName, kLocationType locationType) const {
-    // NOTE: baseSearchPaths is score-sorted, so "first matching" is the highest-priority
-    // path of this location type. A designated primary-write path per location would be a
-    // more stable long-term target (see kProject work).
+    // NOTE: within a location type baseSearchPaths keeps registration order, so "first matching" is the
+    // preferred path of this type (e.g. the XDG config dir before the legacy user dirs).
     for (auto &searchPath : baseSearchPaths) {
         if (searchPath.locationType == locationType) {
             return searchPath.path / fileName;
@@ -117,17 +112,11 @@ static int locationPriority(AssetLoaderBase::kLocationType t) {
 }
 
 void AssetLoaderBase::SortSearchPaths() {
-    std::sort(baseSearchPaths.begin(), baseSearchPaths.end(), [](const SearchPath &a, const SearchPath &b) -> bool {
-        int pa = locationPriority(a.locationType);
-        int pb = locationPriority(b.locationType);
-        if (pa != pb) return pa < pb;   // system before user before any
-        return a.score > b.score;       // higher hit-count first within same type
+    // Stable: within a location type the registration order is the priority order - the caller registers
+    // the preferred directory first, and a hit in a fallback must never promote it above that.
+    std::stable_sort(baseSearchPaths.begin(), baseSearchPaths.end(), [](const SearchPath &a, const SearchPath &b) -> bool {
+        return locationPriority(a.locationType) < locationPriority(b.locationType);
     });
-//    auto logger = gnilk::Logger::GetLogger("AssetLoader");
-//    logger->Debug("Resorting paths");
-//    for(auto &path : baseSearchPaths) {
-//        logger->Debug("  S=%d, P=%s",path.score, path.path.c_str());
-//    }
 }
 
 //

@@ -219,8 +219,32 @@ elseif(UNIX)
     #
     # Linux packaging — .deb via CPack (AppImage is built separately, see scripts/build-appimage.sh).
     #
+    #
+    # `make install` installs for the current user (~/.local) - no root, and the binary is on PATH on
+    # Ubuntu. The editor finds its assets relative to the binary (docs/install-layout.md), so any prefix
+    # works. Only the DEFAULT is overridden (same guard as the macOS /Applications default above):
+    # -DCMAKE_INSTALL_PREFIX=/usr/local for all users, and CPack (.deb, prefix /usr) and the AppImage
+    # script set their own. The guard is only true on a FIRST configure - an existing build dir keeps
+    # its cached prefix until given -DCMAKE_INSTALL_PREFIX.
+    #
+    if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+        set(CMAKE_INSTALL_PREFIX "$ENV{HOME}/.local" CACHE PATH "Install prefix - per user by default" FORCE)
+    endif()
     include(GNUInstallDirs)
     install(TARGETS ${CUR_TARGET} RUNTIME DESTINATION bin)
+
+    #
+    # Short command name, the Linux side of the macOS `install-cli` wrapper: a symlink next to the binary.
+    # No wrapper needed - the binary is runnable as-is and finds its assets through /proc/self/exe, which
+    # resolves the link. Recorded in the install manifest so an uninstall removes it too.
+    #
+    set(GEDIT_CLI_NAME "goat" CACHE STRING "Name of the short command installed next to goatedit")
+    install(CODE "
+        set(cliLink \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/bin/${GEDIT_CLI_NAME}\")
+        message(STATUS \"Installing: \${cliLink} -> ${CUR_TARGET}\")
+        file(CREATE_LINK ${CUR_TARGET} \"\${cliLink}\" SYMBOLIC)
+        list(APPEND CMAKE_INSTALL_MANIFEST_FILES \"\${cliLink}\")
+    ")
     install(DIRECTORY ${EDITOR_ASSET_DIR}/. DESTINATION ${CMAKE_INSTALL_DATADIR}/goatedit)
     install(FILES ${CMAKE_SOURCE_DIR}/Assets/CMake/com.gnilk.goatedit.desktop
             DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
@@ -356,6 +380,7 @@ list(APPEND coresrc src/Core/Theme/Theme.cpp src/Core/Theme/Theme.h)
 list(APPEND coresrc src/Core/Theme/ThemeImporter.cpp src/Core/Theme/ThemeImporter.h)
 list(APPEND coresrc src/Core/RuntimeConfig.cpp src/Core/RuntimeConfig.h)
 list(APPEND coresrc src/Core/XDGEnvironment.cpp src/Core/XDGEnvironment.h)
+list(APPEND coresrc src/Core/InstallPaths.cpp src/Core/InstallPaths.h)
 list(APPEND coresrc src/Core/Session/SessionManager.cpp src/Core/Session/SessionManager.h)
 list(APPEND coresrc src/Core/Session/SessionState.h)
 list(APPEND coresrc src/Core/Session/SessionSerializer.cpp src/Core/Session/SessionSerializer.h)
@@ -607,6 +632,7 @@ list(APPEND utestsrc utests/test_treeview.cpp)
 list(APPEND utestsrc utests/test_mouseclicktracker.cpp)
 list(APPEND utestsrc utests/test_session.cpp)
 list(APPEND utestsrc utests/test_xgdenv.cpp)
+list(APPEND utestsrc utests/test_installpaths.cpp)
 if (GEDIT_BUILD_ANSI)
     list(APPEND utestsrc utests/test_gansibackend.cpp)
 endif()

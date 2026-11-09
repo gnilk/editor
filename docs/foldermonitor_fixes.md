@@ -175,6 +175,13 @@ record the hook: a dirty *file* path whose node has an open document is where a 
   - On `IN_IGNORED`, drop the `wd`.
   - On `IN_Q_OVERFLOW`, mark the root dirty.
   - Remove the `printf` and the `Editor.h` include.
+  - **Done 2026-11-09**, with one change: the mask also has `IN_CLOSE_WRITE` - the "changed on disk" hook
+    shipped (reload, the change set), and on macOS FSEvents reports writes too. The tree is walked in `Start`
+    (pruned by `ExclusionRules`, no throw on a permission error), so the point is live when `Start` returns,
+    like the macOS stream; a folder that arrives later gets its watches from its `IN_CREATE` / `IN_MOVED_TO`.
+    `ENOSPC` (watch limit) is logged once. `test_foldermonitor` runs the same cases on both platforms, plus
+    `_repeat` (one folder reporting again, a write, a new folder, a delete - failed on the old backend). On this
+    repo: 67 watches for 1116 folders (`bld/`, `cmake-build-*`, `ext/` left out).
 
 ---
 
@@ -189,7 +196,7 @@ record the hook: a dirty *file* path whose node has an open document is where a 
 | 4 ✅ | **`Workspace::ReconcileFolder`** + `ScanNode` built on it (C4, C6). | Temp tree: add / remove / rename a file and a dir on disk, then reconcile. The tree matches disk; a node owning a Document survives removal (flagged); a new subdir arrives `isScanned == false`; excluded dirs never appear. **This is the bulk of the correctness and is fully OS-independent.** |
 | 5 ✅ | **Base rework**: injected `postToMain`, dirty set + coalescing, weak-ptr lifetime, filter in `OnRawEvent`, drop the `monitorPoints` registry and flag decoding (B1–B3, C1, C7). ProjectRoot gets `FlushDirty`; start moves to `OpenFolder` (C8). | A fake `MonitorPoint` subclass, test-driven via `OnRawEvent` with a synchronous poster. N events in one folder → one reconcile + one change notification; events under an excluded dir → zero; an event after the ProjectRoot is gone → no crash. |
 | 6 ✅ | **macOS backend** per §2.5 (B4–B6, FM-d6..d10). | GUI/manual on the Mac: `touch`, `rm`, `mv a b`, `mkdir x && touch x/y`, `git switch`, and a rebuild in `cmake-build-debug` (must cause no tree activity). Optional integration test, gated on platform, with a real stream + temp dir + polling for ≤ 2 s. |
-| 7 | **Linux backend** per §2.5 (FM-d1..d5, B7, B8). Simple version first: walk the tree with the filter (pruned) and watch every non-excluded dir. Later, optionally: watch-set = scanned folder nodes (`Workspace` tells the monitor on scan/remove). | Same manual list on the Linux box; check the watch count (`ls /proc/<pid>/fdinfo` → inotify lines). |
+| 7 ✅ | **Linux backend** per §2.5 (FM-d1..d5, B7, B8). Simple version first: walk the tree with the filter (pruned) and watch every non-excluded dir. Later, optionally: watch-set = scanned folder nodes (`Workspace` tells the monitor on scan/remove). | Same manual list on the Linux box; check the watch count (`ls /proc/<pid>/fdinfo` → inotify lines). |
 | 8 | Flip `foldermonitor.enabled` default (system config only). Update `folder-monitor.md` §0 and `work-log.md`; add the new test modules to the CLAUDE.md verified-green set. | Full verified-green set. |
 
 **Done (branch `fix/foldermonitor-prep`):**

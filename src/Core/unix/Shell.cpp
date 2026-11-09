@@ -59,14 +59,13 @@ bool Shell::Begin(const std::string &shell, const std::string &args,
     return true;
 }
 
-bool Shell::StartShellProc(const std::string &shell, const std::string &shellInitStr) {
-    logger->Debug("Starting shell process: %s %s", shell.c_str(), shellInitStr.c_str());
-
-    struct stat shellstat;
-    if (stat(shell.c_str(), &shellstat)) {
-        logger->Error("Can't stat shell '%s' — verify path", shell.c_str());
+bool Shell::StartShellProc(const std::string &configuredShell, const std::string &shellInitStr) {
+    auto shell = ResolveShellBinary(configuredShell);
+    if (shell.empty()) {
+        logger->Error("No usable shell found (configured '%s', $SHELL, /bin/sh)", configuredShell.c_str());
         return false;
     }
+    logger->Debug("Starting shell process: %s %s", shell.c_str(), shellInitStr.c_str());
 
 #if defined(GEDIT_LINUX)
     signal(SIGINT,  signal_handler);
@@ -93,6 +92,30 @@ bool Shell::StartShellProc(const std::string &shell, const std::string &shellIni
         return false;
     }
     return true;
+}
+
+// The configured shell if it is executable, otherwise the user's login shell ($SHELL), otherwise /bin/sh.
+// An empty configured value means "use $SHELL". Returns empty when none of them is usable.
+std::string Shell::ResolveShellBinary(const std::string &configured) {
+    auto isExecutable = [](const std::string &path) {
+        return !path.empty() && (::access(path.c_str(), X_OK) == 0);
+    };
+
+    if (isExecutable(configured)) {
+        return configured;
+    }
+    if (!configured.empty()) {
+        logger->Warning("Configured shell '%s' is not executable, falling back", configured.c_str());
+    }
+
+    const char *envShell = ::getenv("SHELL");
+    if ((envShell != nullptr) && isExecutable(envShell)) {
+        return envShell;
+    }
+    if (isExecutable("/bin/sh")) {
+        return "/bin/sh";
+    }
+    return {};
 }
 
 void Shell::SetWindowSize(int cols, int rows) {

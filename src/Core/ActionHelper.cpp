@@ -249,6 +249,8 @@ void ActionHelper::GoToNameAtCursor(GoToResolver::kMode mode) {
     }
     if (result.isAlreadyThere) {
         editor.ShowStatusMessage(U"'" + result.name + U"' has no other place");
+    } else if (result.hits.empty() && !result.libraryType.empty()) {
+        editor.ShowStatusMessage(U"'" + result.name + U"' is a member of " + result.libraryType);
     } else if (result.hits.empty()) {
         bool isLibrary = IsLibraryName(*line, result.idxName);
         editor.ShowStatusMessage(U"'" + result.name + (isLibrary ? U"' is from a library" : U"' isn't in the index"));
@@ -277,6 +279,34 @@ void ActionHelper::GoToRelatedAtCursor(GoToResolver::kRelated related) {
     if (result.hits.empty()) {
         bool isBase = related == GoToResolver::kRelated::kBase;
         editor.ShowStatusMessage(result.name.empty() ? U"Nothing here to go from" : U"'" + result.name + (isBase ? U"' has no base in the index" : U"' has no implementation in the index"));
+        return;
+    }
+    GoToHits(std::move(result.hits), document, path);
+}
+
+// docs/code-index.md §11.11
+void ActionHelper::GoToTypeAtCursor() {
+    auto &editor = Editor::Instance();
+    auto document = editor.GetActiveDocument();
+    if ((document == nullptr) || (editor.GetCodeIndex() == nullptr)) {
+        return;
+    }
+    auto &lineCursor = document->GetLineCursor();
+    auto line = document->GetTextBuffer()->LineAt(lineCursor.idxActiveLine);
+    if (line == nullptr) {
+        return;
+    }
+    auto path = ActionHelper::ActivePath();
+    line->Lock();
+    auto text = line->Buffer();
+    line->Release();
+
+    auto result = GoToResolver::ResolveTypeOf(*editor.GetCodeIndex(), text, (size_t)lineCursor.cursor.position.x, (uint32_t)lineCursor.idxActiveLine, path);
+    if (result.name.empty()) {
+        return;
+    }
+    if (result.hits.empty()) {
+        editor.ShowStatusMessage(result.libraryType.empty() ? U"No type in the index for '" + result.name + U"'" : U"'" + result.name + U"' is a " + result.libraryType);
         return;
     }
     GoToHits(std::move(result.hits), document, path);

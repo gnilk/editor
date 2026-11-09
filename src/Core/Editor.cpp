@@ -657,6 +657,8 @@ void Editor::HandleGlobalAction(const EditorAction &kpAction) {
             ActionHelper::GoToRelatedAtCursor(GoToResolver::kRelated::kImplementation);
         } else if (kpAction.action == kAction::kActionGotoBase) {
             ActionHelper::GoToRelatedAtCursor(GoToResolver::kRelated::kBase);
+        } else if (kpAction.action == kAction::kActionGotoType) {
+            ActionHelper::GoToTypeAtCursor();
         } else if (kpAction.action == kAction::kActionShowRelationships) {
             ActionHelper::ShowRelationships();
         } else if (kpAction.action == kAction::kActionShowOpenFiles) {

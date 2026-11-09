@@ -5,29 +5,15 @@
 #include <algorithm>
 
 #include "CPPStructureScanner.h"
+#include "TypeRef.h"
 
 using namespace gedit;
 
 namespace {
-    // Ownership idioms (docs/code-index.md §5.4) - tables in code for now, config later (step 7)
-    const std::vector<std::u32string> kOwningPointers = { U"unique_ptr", U"auto_ptr" };
-    const std::vector<std::u32string> kSharingPointers = { U"shared_ptr", U"weak_ptr" };
-    const std::vector<std::u32string> kContainers = {
-        U"vector", U"list", U"deque", U"array", U"set", U"unordered_set", U"multiset", U"map", U"unordered_map",
-        U"multimap", U"optional", U"stack", U"queue", U"priority_queue", U"forward_list", U"span",
-    };
-    // Project idioms: 'T::Ref' is a shared_ptr<T>, 'T::Ptr' a unique_ptr<T> (GoatEdit)
-    const std::u32string kRefAlias = U"Ref";
-    const std::u32string kPtrAlias = U"Ptr";
-
     // Leading words that make a statement not a type ('static int x' still has 'int')
     const std::vector<std::u32string> kSpecifiers = {
         U"virtual", U"static", U"inline", U"explicit", U"constexpr", U"consteval", U"constinit", U"friend",
         U"extern", U"mutable", U"thread_local", U"register",
-    };
-    const std::vector<std::u32string> kTypeQualifiers = {
-        U"const", U"volatile", U"static", U"mutable", U"inline", U"constexpr", U"typename", U"struct", U"class",
-        U"enum", U"union", U"extern", U"thread_local", U"register", U"unsigned", U"signed",
     };
 
     bool Contains(const std::vector<std::u32string> &list, const std::u32string &text) {
@@ -59,117 +45,6 @@ namespace {
     std::u32string Qualifier(const std::u32string &qualifiedName) {
         auto idx = qualifiedName.rfind(U"::");
         return (idx == std::u32string::npos) ? std::u32string() : qualifiedName.substr(0, idx);
-    }
-
-    // A type as written: 'std::vector<Foo::Ref> &'
-    struct TypeRef {
-        std::u32string name;
-        std::vector<TypeRef> args;
-        int numPointers = 0;        // '*' and '&'
-        bool isBuiltin = false;     // int, void, auto, ...
-    };
-
-    struct TypeToken {
-        std::u32string text;
-        bool isBuiltin = false;
-    };
-
-    // Recursive descent over 'tokens' from 'idx': name [ '<' args '>' ] { '*' | '&' | '&&' | const }
-    TypeRef ParseType(const std::vector<TypeToken> &tokens, size_t &idx) {
-        TypeRef type;
-        while ((idx < tokens.size()) && Contains(kTypeQualifiers, tokens[idx].text)) {
-            idx++;
-        }
-        while (idx < tokens.size()) {
-            auto &text = tokens[idx].text;
-            if (text == U"::") {
-                type.name += text;
-                idx++;
-                continue;
-            }
-            if (text.empty() || !(std::isalnum((int)(text[0] & 0x7f)) || (text[0] == U'_') || (text[0] > 127))) {
-                break;
-            }
-            // Two words in a row ('unsigned long') - keep the last; builtin either way
-            if (!type.name.empty() && (type.name.back() != U':')) {
-                type.name.clear();
-            }
-            type.name += text;
-            type.isBuiltin = type.isBuiltin || tokens[idx].isBuiltin;
-            idx++;
-        }
-        if ((idx < tokens.size()) && (tokens[idx].text == U"<")) {
-            idx++;
-            while (idx < tokens.size()) {
-                if (tokens[idx].text == U">") {
-                    idx++;
-                    break;
-                }
-                if (tokens[idx].text == U",") {
-                    idx++;
-                    continue;
-                }
-                auto before = idx;
-                type.args.push_back(ParseType(tokens, idx));
-                if (idx == before) {
-                    // Something we don't understand (a value argument) - skip it
-                    idx++;
-                }
-            }
-            // 'Foo<T>::Ref'
-            if ((idx + 1 < tokens.size()) && (tokens[idx].text == U"::")) {
-                idx++;
-                auto nested = ParseType(tokens, idx);
-                type.name += U"::" + nested.name;
-                type.args.clear();
-                type.numPointers = nested.numPointers;
-                return type;
-            }
-        }
-        while (idx < tokens.size()) {
-            auto &text = tokens[idx].text;
-            if ((text == U"*") || (text == U"&") || (text == U"&&")) {
-                type.numPointers++;
-            } else if ((text != U"const") && (text != U"volatile")) {
-                break;
-            }
-            idx++;
-        }
-        return type;
-    }
-
-    // What a member of this type means for the class holding it: the held type and how
-    std::pair<std::u32string, kOwnership> ResolveHeld(const TypeRef &type, bool isPointer) {
-        isPointer = isPointer || (type.numPointers > 0);
-        auto last = LastComponent(type.name);
-        auto qualifier = Qualifier(type.name);
-        if (type.isBuiltin || type.name.empty()) {
-            return {};
-        }
-        if (Contains(kOwningPointers, last) && !type.args.empty()) {
-            auto [target, ownership] = ResolveHeld(type.args[0], false);
-            return {target, isPointer ? kOwnership::kBorrows : kOwnership::kOwns};
-        }
-        if (Contains(kSharingPointers, last) && !type.args.empty()) {
-            auto [target, ownership] = ResolveHeld(type.args[0], false);
-            return {target, isPointer ? kOwnership::kBorrows : kOwnership::kShares};
-        }
-        if ((last == kRefAlias) && !qualifier.empty()) {
-            return {qualifier, isPointer ? kOwnership::kBorrows : kOwnership::kShares};
-        }
-        if ((last == kPtrAlias) && !qualifier.empty()) {
-            return {qualifier, isPointer ? kOwnership::kBorrows : kOwnership::kOwns};
-        }
-        if (Contains(kContainers, last) && !type.args.empty()) {
-            // The element (for a map: the value)
-            auto [target, ownership] = ResolveHeld(type.args.back(), false);
-            return {target, isPointer ? kOwnership::kBorrows : ownership};
-        }
-        // Other library types (std::string, std::mutex, std::function) aren't structure of this code base
-        if (type.name.rfind(U"std::", 0) == 0) {
-            return {};
-        }
-        return {type.name, isPointer ? kOwnership::kBorrows : kOwnership::kOwns};
     }
 }
 
@@ -243,7 +118,7 @@ void CPPStructureScanner::Begin(const StructureScanState::Ref &state) {
     pendingTypedefSymbol = -1;
     edgesAwaitingTypedefName.clear();
     isAfterAnonymousType = false;
-    isPendingTypedefAlias = false;
+    pendingTypedefAliasOf.clear();
     conditionals.clear();
     isContinuation = false;
     idxPreviousLine = 0;
@@ -327,7 +202,7 @@ void CPPStructureScanner::ScanLineTokens(std::vector<Token> &lineTokens) {
 
 bool CPPStructureScanner::IsBetweenStatements() const {
     return statement.empty() && enumItem.empty() && (parenDepth == 0) && (pendingTypedefSymbol < 0) &&
-           !isAfterAnonymousType && !isPendingTypedefAlias && !isContinuation;
+           !isAfterAnonymousType && pendingTypedefAliasOf.empty() && !isContinuation;
 }
 
 bool CPPStructureScanner::ScanState::Equals(const StructureScanState &other) const {
@@ -636,7 +511,7 @@ void CPPStructureScanner::OnCloseBrace(size_t idxToken) {
             // Resumed inside 'typedef struct {' - the type is named here
             pendingTypedefSymbol = AddSymbol(scope.symbolKind, U"", U"", tokens[idxToken], true);
         } else {
-            isPendingTypedefAlias = true;
+            pendingTypedefAliasOf = scope.name;
         }
     } else if ((scope.kind == kScope::kClass) && scope.name.empty()) {
         isAfterAnonymousType = true;
@@ -654,11 +529,13 @@ void CPPStructureScanner::OnSemicolon() {
         pendingTypedefSymbol = -1;
         return;
     }
-    if (isPendingTypedefAlias) {
-        isPendingTypedefAlias = false;
+    if (!pendingTypedefAliasOf.empty()) {
+        auto aliasOf = std::move(pendingTypedefAliasOf);
+        pendingTypedefAliasOf.clear();
         for (size_t i = stmt.size(); i > 0; i--) {
             if (IsIdentifier(stmt, i - 1)) {
-                AddSymbol(kSymbolKind::kAlias, At(stmt, i - 1).text, U"", At(stmt, i - 1), true);
+                auto idxSymbol = AddSymbol(kSymbolKind::kAlias, At(stmt, i - 1).text, U"", At(stmt, i - 1), true);
+                result.symbols[idxSymbol].type = TypeWithPointers(aliasOf, stmt, 0, i - 1);
                 break;
             }
         }
@@ -723,7 +600,9 @@ void CPPStructureScanner::OnTypedefName(const Statement &stmt) {
             symbol.line = nameToken.line;
             symbol.column = nameToken.column;
         } else {
-            AddSymbol(kSymbolKind::kAlias, nameToken.text, U"", nameToken, true);
+            auto aliasOf = symbol.name;
+            auto idxSymbol = AddSymbol(kSymbolKind::kAlias, nameToken.text, U"", nameToken, true);
+            result.symbols[idxSymbol].type = TypeWithPointers(aliasOf, stmt, 0, i - 1);
         }
         return;
     }
@@ -742,7 +621,8 @@ void CPPStructureScanner::OnEnumItemEnd() {
 void CPPStructureScanner::ClassifyDeclaration(Statement stmt) {
     if (IsText(stmt, 0, U"using")) {
         if (IsIdentifier(stmt, 1) && IsText(stmt, 2, U"=")) {
-            AddSymbol(kSymbolKind::kAlias, At(stmt, 1).text, U"", At(stmt, 1), true);
+            auto idxSymbol = AddSymbol(kSymbolKind::kAlias, At(stmt, 1).text, U"", At(stmt, 1), true);
+            result.symbols[idxSymbol].type = TypeOf(stmt, 3, stmt.size()).Spelling();
         } else {
             AddUsing(stmt);
         }
@@ -758,7 +638,8 @@ void CPPStructureScanner::ClassifyDeclaration(Statement stmt) {
         }
         for (size_t i = stmt.size(); i > 1; i--) {
             if (IsIdentifier(stmt, i - 1)) {
-                AddSymbol(kSymbolKind::kAlias, At(stmt, i - 1).text, U"", At(stmt, i - 1), true);
+                auto idxSymbol = AddSymbol(kSymbolKind::kAlias, At(stmt, i - 1).text, U"", At(stmt, i - 1), true);
+                result.symbols[idxSymbol].type = TypeOf(stmt, 1, i - 1).Spelling();
                 return;
             }
         }
@@ -1055,6 +936,9 @@ bool CPPStructureScanner::TryFunction(const Statement &stmt, bool isDefinition, 
     }
     auto kind = (InClassScope() && qualifier.empty()) ? kSymbolKind::kMethod : kSymbolKind::kFunction;
     outIdxSymbol = AddSymbol(kind, simpleName, qualifier, At(stmt, idxNameToken), isDefinition);
+    if (hasType && !isConstructor) {
+        result.symbols[outIdxSymbol].type = TypeOf(stmt, 0, idxNameBegin).Spelling();
+    }
     return true;
 }
 
@@ -1133,13 +1017,21 @@ void CPPStructureScanner::AddVariables(const Statement &stmt) {
         }
         auto &nameToken = At(stmt, idxName);
         auto kind = InClassScope() ? kSymbolKind::kMember : kSymbolKind::kVariable;
-        AddSymbol(kind, nameToken.text, qualifier, nameToken, !isExtern);
-        if (kind == kSymbolKind::kMember) {
-            // Later declarators share the type; their own '*' / '&' sits before their name
-            bool isExtraPointer = false;
-            for (size_t i = idxDeclarator; !isFirst && (i < idxName); i++) {
+        auto idxSymbol = AddSymbol(kind, nameToken.text, qualifier, nameToken, !isExtern);
+        // Later declarators share the type, but not the first one's '*' / '&': theirs sit before their own name
+        auto type = TypeOf(stmt, idxTypeBegin, idxTypeEnd);
+        bool isExtraPointer = false;
+        if (!isFirst) {
+            type.numPointers = 0;
+            type.isReference = false;
+            for (size_t i = idxDeclarator; i < idxName; i++) {
+                type.numPointers += IsText(stmt, i, U"*") ? 1 : 0;
+                type.isReference = type.isReference || IsText(stmt, i, U"&");
                 isExtraPointer = isExtraPointer || IsText(stmt, i, U"*") || IsText(stmt, i, U"&");
             }
+        }
+        result.symbols[idxSymbol].type = type.Spelling();
+        if (kind == kSymbolKind::kMember) {
             AddHoldsEdge(stmt, idxTypeBegin, idxTypeEnd, isExtraPointer, nameToken.line);
         }
         isFirst = false;
@@ -1166,21 +1058,7 @@ void CPPStructureScanner::AddHoldsEdge(const Statement &stmt, size_t idxBegin, s
     if (!isOwned) {
         return;
     }
-    std::vector<TypeToken> typeTokens;
-    for (size_t i = idxBegin; i < idxEnd; i++) {
-        auto &token = At(stmt, i);
-        bool isBuiltin = (token.classification == kLanguageTokenClass::kKnownType) || (token.text == U"auto");
-        // '>>' closes two template argument lists
-        if (token.text == U">>") {
-            typeTokens.push_back({U">"});
-            typeTokens.push_back({U">"});
-            continue;
-        }
-        typeTokens.push_back({token.text, isBuiltin});
-    }
-    size_t idx = 0;
-    auto type = ParseType(typeTokens, idx);
-    auto [target, ownership] = ResolveHeld(type, isExtraPointer);
+    auto [target, ownership] = TypeOf(stmt, idxBegin, idxEnd).Held(isExtraPointer);
     if (target.empty()) {
         return;
     }
@@ -1194,6 +1072,37 @@ void CPPStructureScanner::AddHoldsEdge(const Statement &stmt, size_t idxBegin, s
         edgesAwaitingTypedefName.push_back(result.edges.size());
     }
     result.edges.push_back(std::move(edge));
+}
+
+// The type written in [idxBegin, idxEnd) - specifiers skipped ('virtual', 'static', ...)
+TypeRef CPPStructureScanner::TypeOf(const Statement &stmt, size_t idxBegin, size_t idxEnd) const {
+    std::vector<TypeRef::Token> typeTokens;
+    for (size_t i = idxBegin; i < std::min(idxEnd, stmt.size()); i++) {
+        auto &token = At(stmt, i);
+        if (Contains(kSpecifiers, token.text)) {
+            continue;
+        }
+        bool isBuiltin = (token.classification == kLanguageTokenClass::kKnownType) || (token.text == U"auto");
+        // '>>' closes two template argument lists
+        if (token.text == U">>") {
+            typeTokens.push_back({U">"});
+            typeTokens.push_back({U">"});
+            continue;
+        }
+        typeTokens.push_back({token.text, isBuiltin});
+    }
+    size_t idx = 0;
+    return TypeRef::Parse(typeTokens, idx);
+}
+
+// 'typedef struct Foo {...} *FooPtr;' - the struct's name with the '*' written before the alias
+std::u32string CPPStructureScanner::TypeWithPointers(const std::u32string &name, const Statement &stmt, size_t idxBegin, size_t idxEnd) const {
+    TypeRef type;
+    type.name = name;
+    for (size_t i = idxBegin; i < std::min(idxEnd, stmt.size()); i++) {
+        type.numPointers += IsText(stmt, i, U"*") ? 1 : 0;
+    }
+    return type.Spelling();
 }
 
 // 'template <...>', '[[attributes]]', 'alignas(...)' and a leading macro call 'DECLARE_X(Foo) void f()'

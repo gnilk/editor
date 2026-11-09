@@ -34,6 +34,7 @@ namespace gedit {
         // Smart go-to on the name under the cursor: one place jumps, several open a list (docs/code-index.md §5.6)
         static void GoToNameAtCursor(GoToResolver::kMode mode);
         static void GoToRelatedAtCursor(GoToResolver::kRelated related);
+        static void GoToTypeAtCursor();
         static void GoToHits(std::vector<CodeIndex::Hit> hits, Document::Ref document, const std::string &path);
         // Opens the place and puts the jump on the navigation stack
         static bool JumpTo(const std::string &path, uint32_t line, uint32_t column);

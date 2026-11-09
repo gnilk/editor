@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "StructureScanner.h"
+#include "TypeRef.h"
 #include "Core/Language/LangLineTokenizer.h"
 
 namespace gedit {
@@ -110,6 +111,8 @@ namespace gedit {
         void OnTypedefName(const Statement &statement);
         void FlushLine(std::vector<Token> &lineTokens);
 
+        TypeRef TypeOf(const Statement &statement, size_t idxBegin, size_t idxEnd) const;
+        std::u32string TypeWithPointers(const std::u32string &name, const Statement &statement, size_t idxBegin, size_t idxEnd) const;
         Statement StripPrefixes(const Statement &statement) const;
         int AddSymbol(kSymbolKind kind, const std::u32string &name, const std::u32string &qualifier, const Token &at, bool isDefinition);
         std::u32string ScopePrefix() const;
@@ -132,7 +135,7 @@ namespace gedit {
         int pendingTypedefSymbol = -1;  // 'typedef struct/enum {...} Name;' - the type waiting for its name
         std::vector<size_t> edgesAwaitingTypedefName;   // indices into result.edges, inside a nameless typedef's body
         bool isAfterAnonymousType = false;  // 'struct {...} name;' - the names before the ';' are members
-        bool isPendingTypedefAlias = false; // a resumed scan at 'typedef struct Foo {...} Foo_t;' - the alias at the ';'
+        std::u32string pendingTypedefAliasOf;   // a resumed scan at 'typedef struct Foo {...} Foo_t;' - 'Foo', the alias at the ';'
         std::vector<Conditional> conditionals;
         ScanState::Ref lastState = nullptr;   // shared by the following lines while unchanged
         bool isContinuation = false;

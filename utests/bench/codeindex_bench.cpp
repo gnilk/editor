@@ -35,6 +35,7 @@
 #include "Core/Index/CPPStructureScanner.h"
 #include "Core/Index/Indexer.h"
 #include "Core/Index/SemanticNames.h"
+#include "Core/Index/GoToResolver.h"
 
 using namespace gedit;
 namespace fs = std::filesystem;
@@ -49,6 +50,7 @@ static void IndexBench(const fs::path &root);
 static void Ignored(const fs::path &root);
 static void Recolour(const fs::path &file, const fs::path &root);
 static void Edges(const std::string &name, const fs::path &root);
+static void Chains(const fs::path &root);
 static std::string Utf8(const std::u32string &text);
 static std::vector<fs::path> SourceFiles(const fs::path &root);
 
@@ -76,6 +78,8 @@ int main(int argc, const char **argv) {
         run = IndexBench;
     } else if (mode == "--ignored") {
         run = Ignored;
+    } else if (mode == "--chains") {
+        run = Chains;
     }
     int idxFirstPath = (run == Bench) ? 1 : 2;
     if (argc <= idxFirstPath) {
@@ -191,6 +195,73 @@ static CodeIndex::Ref IndexTree(const fs::path &root) {
     return index;
 }
 
+// Go to definition on every 'a.b' / 'a->b' of a tree (docs/code-index.md §11.11): what the chain gives, against the same
+// name with the receiver unknown - how often the types on symbols narrow it, and to what
+static void Chains(const fs::path &root) {
+    auto tStart = std::chrono::steady_clock::now();
+    auto index = IndexTree(root);
+    auto msIndex = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tStart).count();
+    size_t numSameList = 0;
+    size_t numUses = 0, numNarrowed = 0, numToOne = 0, numLibrary = 0, numSame = 0, numNone = 0;
+    std::map<std::u32string, size_t> libraryTypes;
+    double msResolve = 0;
+    for (auto &file : SourceFiles(root)) {
+        auto path = fs::canonical(file).string();
+        std::u32string text = UnicodeHelper::utf8to32(ReadFile(file));
+        uint32_t idxLine = 0;
+        size_t idxLineStart = 0;
+        while (idxLineStart <= text.size()) {
+            auto idxLineEnd = text.find(U'\n', idxLineStart);
+            if (idxLineEnd == std::u32string::npos) {
+                idxLineEnd = text.size();
+            }
+            auto line = text.substr(idxLineStart, idxLineEnd - idxLineStart);
+            auto idxCode = line.find_first_not_of(U" \t");
+            bool isCode = (idxCode != std::u32string::npos) && (line.compare(idxCode, 2, U"//") != 0) && (line[idxCode] != U'#') && (line[idxCode] != U'*');
+            for (size_t i = 1; isCode && (i + 1 < line.size()); i++) {
+                bool isAccess = ((line[i] == U'.') && (line[i - 1] != U'.')) || ((line[i] == U'>') && (line[i - 1] == U'-'));
+                auto ch = line[i + 1];
+                bool isName = ((ch >= U'a') && (ch <= U'z')) || ((ch >= U'A') && (ch <= U'Z')) || (ch == U'_');
+                if (!isAccess || !isName) {
+                    continue;
+                }
+                auto tResolve = std::chrono::steady_clock::now();
+                auto result = GoToResolver::Resolve(*index, line, i + 1, idxLine, path, GoToResolver::kMode::kDefinition);
+                msResolve += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tResolve).count();
+                auto unknownLine = U"x." + line.substr(i + 1);
+                auto without = GoToResolver::Resolve(*index, unknownLine, 2, idxLine, path, GoToResolver::kMode::kDefinition);
+                numUses++;
+                if (!result.libraryType.empty()) {
+                    numLibrary++;
+                    libraryTypes[result.libraryType]++;
+                } else if (result.hits.empty()) {
+                    numNone++;
+                } else if (result.hits.size() < without.hits.size()) {
+                    numNarrowed++;
+                    numToOne += (result.hits.size() == 1) ? 1 : 0;
+                } else {
+                    numSame++;
+                    numSameList += (result.hits.size() > 1) ? 1 : 0;
+                }
+            }
+            idxLineStart = idxLineEnd + 1;
+            idxLine++;
+        }
+    }
+    printf("%s (indexed in %.0f ms)\n", root.c_str(), msIndex);
+    printf("  %zu uses of '.' / '->': %zu narrowed (%zu to one place), %zu on a library type, %zu as before (%zu of them a list), %zu not in the index\n",
+           numUses, numNarrowed, numToOne, numLibrary, numSame, numSameList, numNone);
+    printf("  resolving took %.1f ms, %.1f us a use\n", msResolve, numUses ? (1000.0 * msResolve / (double)numUses) : 0.0);
+    std::vector<std::pair<size_t, std::u32string>> sorted;
+    for (auto &[type, count] : libraryTypes) {
+        sorted.push_back({count, type});
+    }
+    std::sort(sorted.rbegin(), sorted.rend());
+    for (size_t i = 0; i < std::min<size_t>(8, sorted.size()); i++) {
+        printf("    %5zu %s\n", sorted[i].first, Utf8(sorted[i].second).c_str());
+    }
+}
+
 // The relationship queries from the outside, as a view or an agent asks them (docs/code-index.md §11.10)
 static void Edges(const std::string &name, const fs::path &root) {
     auto index = IndexTree(root);
@@ -231,8 +302,8 @@ static void IndexBench(const fs::path &root) {
     auto msIndex = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tStart).count();
 
     auto stats = index->GetStats();
-    printf("%s\n  indexed %zu files in %.0f ms: %zu symbols, %zu edges, %zu names, %zu scopes, ~%.1f MB\n", root.c_str(), stats.numFiles, msIndex,
-           stats.numSymbols, stats.numEdges, stats.numNames, stats.numScopes, (double)stats.numBytes / (1024.0 * 1024.0));
+    printf("%s\n  indexed %zu files in %.0f ms: %zu symbols, %zu edges, %zu names, %zu scopes, %zu types, ~%.1f MB\n", root.c_str(), stats.numFiles, msIndex,
+           stats.numSymbols, stats.numEdges, stats.numNames, stats.numScopes, stats.numTypes, (double)stats.numBytes / (1024.0 * 1024.0));
 
     auto timeRelations = std::chrono::steady_clock::now();
     auto relations = index->AllRelations();
@@ -335,8 +406,9 @@ static void Dump(const fs::path &root) {
                 depth++;
             }
             std::string extent = (symbol.endLine != symbol.beginLine) ? " " + std::to_string(symbol.beginLine + 1) + "-" + std::to_string(symbol.endLine + 1) : "";
-            printf("  %5u %*s%-10s %s%s%s\n", symbol.line + 1, depth * 2, "", SymbolKindName(symbol.kind),
-                   Utf8(symbol.qualifiedName).c_str(), symbol.isDefinition ? "" : "  [decl]", extent.c_str());
+            std::string type = symbol.type.empty() ? "" : "  : " + Utf8(symbol.type);
+            printf("  %5u %*s%-10s %s%s%s%s\n", symbol.line + 1, depth * 2, "", SymbolKindName(symbol.kind),
+                   Utf8(symbol.qualifiedName).c_str(), type.c_str(), symbol.isDefinition ? "" : "  [decl]", extent.c_str());
         }
         for (auto &edge : structure.edges) {
             auto from = edge.fromName.empty() ? std::string("<file>") : Utf8(edge.fromName);

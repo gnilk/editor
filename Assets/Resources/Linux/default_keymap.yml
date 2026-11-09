@@ -84,6 +84,8 @@ keymap: {
     GotoToggle: "CopyPasteModifier + 'b'",
     GotoImplementation: "CopyPasteModifier + SelectionModifier + 'b'",
     GotoBase: "CopyPasteModifier + SelectionModifier + 'u'",
+    # The type of the member, variable or function under the cursor - 'i' is a stand-in
+    GotoType: "CopyPasteModifier + SelectionModifier + 'i'",
     JumpBack: "CopyPasteModifier + '['",
     JumpForward: "CopyPasteModifier + ']'",
     # Next/previous search hit - Cmd+G / Cmd+Shift+G is the macOS standard (Ctrl on Linux)

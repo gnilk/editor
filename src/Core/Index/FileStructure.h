@@ -52,6 +52,9 @@ namespace gedit {
         uint32_t beginLine = 0;         // first line of the definition - before 'line' for 'typedef struct {...} Name;'
         uint32_t endLine = 0;           // last line of the body, or 'line' when there is none
         bool isDefinition = false;      // has a body (class/function) - false for declarations / forward declarations
+        // As written, one spelling (TypeRef::Spelling): a member's or variable's type, a function's return type, what an
+        // alias stands for. Empty where there is none (a class, a constructor) or the scanner can't tell.
+        std::u32string type;
     };
 
     struct CodeEdge {

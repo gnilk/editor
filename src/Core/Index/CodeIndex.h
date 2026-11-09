@@ -39,6 +39,7 @@ namespace gedit {
             uint32_t line = 0;
             uint32_t column = 0;
             bool isDefinition = false;
+            std::u32string type;        // as written (CodeSymbol::type) - resolve it from the symbol's scope with ResolveType
         };
 
         // An edge between two names (§5.1). Plain data, so a view, a command or an agent can ask alike (§10.3).
@@ -65,6 +66,7 @@ namespace gedit {
             size_t numSymbols = 0;
             size_t numNames = 0;
             size_t numScopes = 0;
+            size_t numTypes = 0;        // distinct spellings of symbol types
             size_t numEdges = 0;
             size_t numBytes = 0;        // estimate of what the tables hold
         };
@@ -108,6 +110,9 @@ namespace gedit {
 
         // The types this name can be, qualified: 'Line' or 'gedit::Line' -> 'gedit::Line'. The relations below take these.
         std::vector<std::u32string> TypesNamed(const std::u32string &name) const;
+        // A type name as written in 'fromScope' ('Ref' in 'gedit::Document'), resolved as an edge target is (§5.2): the scopes
+        // around it from the inside out, then the name anywhere. Several when that leaves it ambiguous, none outside the index.
+        std::vector<std::u32string> ResolveType(const std::u32string &written, const std::u32string &fromScope) const;
         // One level each - a tree asks again per row, so a cycle is one more row and not a loop. By name, then line.
         std::vector<Relation> BasesOf(const std::u32string &qualifiedType) const;
         std::vector<Relation> DerivedFrom(const std::u32string &qualifiedType) const;
@@ -124,6 +129,7 @@ namespace gedit {
         struct Symbol {
             uint32_t idName = 0;
             uint32_t idScope = 0;
+            uint32_t idType = 0;        // 0: none
             uint32_t line = 0;
             uint32_t column = 0;
             kSymbolKind kind = kSymbolKind::kFunction;
@@ -173,6 +179,7 @@ namespace gedit {
         void RemoveEdges(uint32_t idFile);
         uint32_t InternName(const std::u32string &text);
         uint32_t InternScope(const std::u32string &text);
+        uint32_t InternType(const std::u32string &text);
 
         std::vector<bool> MatchingScopes(const std::u32string &lowerScopeQuery) const;
         uint8_t Proximity(const File &file, const std::string &activeFolder, const std::string &activePath) const;
@@ -196,6 +203,9 @@ namespace gedit {
         std::unordered_map<std::string, uint32_t> fileIds;
         std::unordered_map<std::u32string_view, uint32_t> nameIds;
         std::unordered_map<std::u32string_view, uint32_t> scopeIds;
+        // Apart from 'scopes', which a search walks. Entry 0 is 'no type'.
+        std::deque<std::u32string> types = { U"" };
+        std::unordered_map<std::u32string_view, uint32_t> typeIds;
         std::vector<uint32_t> freeNames;        // entries whose last symbol went away
         // Apart from 'names': many targets are never symbols ('gnilk::ILogger'), and a search shouldn't walk them
         std::unordered_map<std::u32string, std::vector<EdgeHandle>> edgesByFrom;       // the qualified name

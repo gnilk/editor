@@ -24,6 +24,12 @@ namespace gedit {
         static void ShowOpenFiles();
         static void ShowFind();
         static void ShowGotoSymbol();
+        // Open a file by part of its name (docs/usability-round.md §3 b) - walks the roots again meanwhile
+        static void ShowQuickOpen();
+        // Opens the file as it was left (an open one keeps its cursor) and puts the jump on the navigation stack
+        static bool OpenFile(const std::string &path);
+        // The active document's file, canonical; empty when there is none
+        static std::string ActivePath();
         static void ShowRelationships();
         // Smart go-to on the name under the cursor: one place jumps, several open a list (docs/code-index.md §5.6)
         static void GoToNameAtCursor(GoToResolver::kMode mode);

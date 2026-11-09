@@ -75,6 +75,8 @@ keymap: {
     Find: "CopyPasteModifier + 'f'",
     # Go to symbol - search the code index of the whole workspace - Cmd+T / Ctrl+T
     GotoSymbol: "CopyPasteModifier + 't'",
+    # Open a file by part of its name, from anywhere
+    QuickOpen: "CopyPasteModifier + 'p'",
     ShowOpenFiles: "CopyPasteModifier + 'e'",
     ShowRelationships: "CopyPasteModifier + SelectionModifier + 't'",
     # Smart go-to on the name under the cursor, back and forward through the jumps (docs/code-index.md §5.6).
@@ -84,8 +86,9 @@ keymap: {
     GotoBase: "CopyPasteModifier + SelectionModifier + 'u'",
     JumpBack: "CopyPasteModifier + '['",
     JumpForward: "CopyPasteModifier + ']'",
-    NextSearchResult: "KeyCode_Ctrl + 'n'",
-    PrevSearchResult: "KeyCode_Ctrl + 'p'",
+    # Next/previous search hit - Cmd+G / Cmd+Shift+G is the macOS standard (Ctrl on Linux)
+    NextSearchResult: "KeyCode_Ctrl + 'g'",
+    PrevSearchResult: "KeyCode_Ctrl + SelectionModifier + 'g'",
 
     # WASD
     UIIncreaseViewWidth : "UINavigationModifier + 'd'",

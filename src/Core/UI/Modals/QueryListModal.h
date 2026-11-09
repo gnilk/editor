@@ -59,6 +59,10 @@ namespace gedit {
 
         // Insert at the edit cursor (e.g. a paste) and run the query again - only up to the first line break
         void InsertText(const std::u32string &text);
+        // The query again, as it is typed - for a subclass whose rows changed under it (a list that arrived later)
+        void Requery() {
+            RunQuery();
+        }
 
         void OnClosed(bool wasCancelled) override;
         void DrawViewContents() override;

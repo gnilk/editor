@@ -333,6 +333,14 @@ All three are wanted. Each is its own piece, smallest first.
 - **b)** Not the code index: that holds only the files a structure scanner reads (C/C++). The list comes from the
   workspace's tree, with `ExclusionRules` applied. Ranked like Go to symbol (`CodeIndex::MatchName`: prefix, word starts,
   subsequence), closeness to the active file next.
+  **Built 2026-11-09:** `QuickOpenModal` (`Cmd+P` / `Ctrl+P`; next/previous search hit moved to `Cmd+G` /
+  `Cmd+Shift+G`, Ctrl on Linux). Not the workspace tree either - it is scanned lazily, folder by folder, so it doesn't
+  hold the files below a closed folder. `Core/FileSystem/FileFinder` walks the project roots (the code index's: not the
+  startup folder's root, not one holding the home directory) off the UI thread with each root's `ExclusionRules` - an
+  ignored folder isn't entered, symlinked folders aren't followed, 200k files at most. Each `Cmd+P` walks again; the
+  modal lists the last walk's files at once and takes the new list when it is in (a redraw, then `Requery`). Ties after
+  the match: open files, then the active file's folder, then the shorter path. A query with a `/` matches the path
+  below the root (`core/doc`). Opening goes on the navigation stack (`JumpBack` returns); an open file keeps its cursor.
 - **c)** The code index's D1: "after the symbol index", which has shipped. Search runs off the UI thread, results arrive as
   they are found, each row a file, a line and the line's text in colour (as the relationship view does). Needs more design
   before it starts: literal or regex, case, limits, what a big tree costs.

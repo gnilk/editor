@@ -651,6 +651,8 @@ void Editor::HandleGlobalAction(const EditorAction &kpAction) {
             ActionHelper::ShowFind();
         } else if (kpAction.action == kAction::kActionGotoSymbol) {
             ActionHelper::ShowGotoSymbol();
+        } else if (kpAction.action == kAction::kActionQuickOpen) {
+            ActionHelper::ShowQuickOpen();
         } else if (kpAction.action == kAction::kActionGotoImplementation) {
             ActionHelper::GoToRelatedAtCursor(GoToResolver::kRelated::kImplementation);
         } else if (kpAction.action == kAction::kActionGotoBase) {
@@ -1185,19 +1187,39 @@ void Editor::IndexProjectRoots() {
     if (indexer == nullptr) {
         return;
     }
-    auto pathHome = XDGEnvironment::Instance().GetUserHomePath();
     for (auto &root : workspace->GetProjectRoots()) {
         auto rootPath = pathutil::CanonicalPath(root->GetRootPath());
-        // Not a project: the cwd root, or a folder that holds the whole home directory
-        bool isTooWide = (rootPath == pathHome) || IsStrictSubdir(pathHome, rootPath);
         bool isIndexed = std::find(indexedRoots.begin(), indexedRoots.end(), rootPath) != indexedRoots.end();
-        if (workspace->IsDefaultRoot(root) || isTooWide || isIndexed) {
+        if (!IsProjectRoot(root) || isIndexed) {
             continue;
         }
         auto activeNode = (GetActiveDocument() != nullptr) ? workspace->GetNodeFromDocument(GetActiveDocument()) : nullptr;
         indexer->AddRoot(rootPath, root->GetExclusionRules(), (activeNode != nullptr) ? pathutil::CanonicalPath(activeNode->GetNodePath()) : std::filesystem::path{});
         indexedRoots.push_back(rootPath);
     }
+}
+
+// Not a project: the cwd root, or a folder that holds the whole home directory
+bool Editor::IsProjectRoot(const Workspace::ProjectRoot::Ref &root) {
+    auto pathHome = XDGEnvironment::Instance().GetUserHomePath();
+    auto rootPath = pathutil::CanonicalPath(root->GetRootPath());
+    bool isTooWide = (rootPath == pathHome) || IsStrictSubdir(pathHome, rootPath);
+    return !workspace->IsDefaultRoot(root) && !isTooWide;
+}
+
+// The roots the code index walks, each with its rules; the walk's end only asks for a redraw - the open list takes the
+// new files when it draws
+void Editor::RefreshFileFinder() {
+    std::vector<FileFinder::Root> roots;
+    for (auto &root : workspace->GetProjectRoots()) {
+        if (IsProjectRoot(root)) {
+            roots.push_back({pathutil::CanonicalPath(root->GetRootPath()), root->GetExclusionRules()});
+        }
+    }
+    fileFinder->SetDoneHandler([]() {
+        Editor::Instance().TriggerUIRedraw();
+    });
+    fileFinder->Refresh(std::move(roots));
 }
 
 // The registered extensions whose language has a structure scanner

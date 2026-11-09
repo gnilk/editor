@@ -39,6 +39,7 @@ namespace gedit {
         kActionFind,                    // default: Cmd+F (macOS) / Ctrl+F (Linux) - Find in the active document
         kActionToggleIgnored,           // default: Alt+H in the workspace view - hide/show what .gitignore leaves out
         kActionGotoSymbol,              // default: Cmd+T (macOS) / Ctrl+T (Linux) - search the code index
+        kActionQuickOpen,               // default: Cmd+P (macOS) / Ctrl+P (Linux) - open a file by part of its name
         kActionGotoDefinition,          // no default key: GotoToggle gets there from any use of a name
         kActionGotoDeclaration,         // no default key: GotoToggle gets there from the definition
         kActionGotoToggle,              // default: Cmd+B (macOS) / Ctrl+B (Linux) - definition <-> declaration

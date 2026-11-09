@@ -11,13 +11,14 @@
 #include "Core/Editor/Modals/RelationshipModal.h"
 #include "Core/Editor/Modals/OpenFilesModal.h"
 #include "Core/Editor/Modals/SymbolSearchModal.h"
+#include "Core/Editor/Modals/QuickOpenModal.h"
 #include "Core/PathUtil.h"
 #include "Core/Session/SessionManager.h"
 
 using namespace gedit;
 
 // The active document's path as the index knows it. Empty if it has no place on disk.
-static std::string ActivePath() {
+std::string ActionHelper::ActivePath() {
     auto &editor = Editor::Instance();
     auto document = editor.GetActiveDocument();
     if (document == nullptr) {
@@ -34,7 +35,7 @@ static NavigationStack::Entry CurrentPlace() {
         return {};
     }
     auto &lineCursor = document->GetLineCursor();
-    return NavigationStack::MakeEntry(editor.GetCodeIndex().get(), ActivePath(), (uint32_t)lineCursor.idxActiveLine, (uint32_t)lineCursor.cursor.position.x);
+    return NavigationStack::MakeEntry(editor.GetCodeIndex().get(), ActionHelper::ActivePath(), (uint32_t)lineCursor.idxActiveLine, (uint32_t)lineCursor.cursor.position.x);
 }
 
 // A file can have shrunk since the place was stored
@@ -142,12 +143,45 @@ void ActionHelper::ShowGotoSymbol() {
         return;
     }
     auto document = editor.GetActiveDocument();
-    auto modal = SymbolSearchModal::Create(editor.GetCodeIndex(), document, ActivePath(), editor.GetIndexedRoots());
+    auto modal = SymbolSearchModal::Create(editor.GetCodeIndex(), document, ActionHelper::ActivePath(), editor.GetIndexedRoots());
     auto symbolModal = modal.get();
     auto rootView = RuntimeConfig::Instance().GetRootViewAs<RootView>();
     rootView->ShowModal(std::move(modal));
     // After ShowModal - the list height comes from the laid out modal
     symbolModal->SetQuery(FindModal::SelectedText(document));
+}
+
+// Every file of the project roots - the list of the last walk at once, the new walk's when it is in
+void ActionHelper::ShowQuickOpen() {
+    if (!RuntimeConfig::Instance().HasRootView()) {
+        return;
+    }
+    Editor::Instance().RefreshFileFinder();
+    auto modal = QuickOpenModal::Create();
+    auto quickOpenModal = modal.get();
+    auto rootView = RuntimeConfig::Instance().GetRootViewAs<RootView>();
+    rootView->ShowModal(std::move(modal));
+    // After ShowModal - the list height comes from the laid out modal
+    quickOpenModal->SetQuery(U"");
+}
+
+bool ActionHelper::OpenFile(const std::string &path) {
+    auto &editor = Editor::Instance();
+    auto from = CurrentPlace();
+    auto document = editor.LoadDocument(path);
+    if (document == nullptr) {
+        return false;
+    }
+    editor.SetActiveDocument(document);
+    if (RuntimeConfig::Instance().HasRootView()) {
+        SwitchToNamedView(glbEditorView);
+    }
+    auto &lineCursor = document->GetLineCursor();
+    editor.GetNavigationStack().Jump(from, NavigationStack::MakeEntry(editor.GetCodeIndex().get(), path,
+                                                                      (uint32_t)lineCursor.idxActiveLine,
+                                                                      (uint32_t)lineCursor.cursor.position.x));
+    SessionManager::Instance().NotifyChanged();
+    return true;
 }
 
 // The open files, the active one selected - docs/usability-round.md §1
@@ -175,7 +209,7 @@ void ActionHelper::ShowRelationships() {
     if (line == nullptr) {
         return;
     }
-    auto path = ActivePath();
+    auto path = ActionHelper::ActivePath();
     line->Lock();
     auto text = line->Buffer();
     line->Release();
@@ -203,7 +237,7 @@ void ActionHelper::GoToNameAtCursor(GoToResolver::kMode mode) {
     if (line == nullptr) {
         return;
     }
-    auto path = ActivePath();
+    auto path = ActionHelper::ActivePath();
     size_t idxChar = (size_t)lineCursor.cursor.position.x;
     line->Lock();
     auto text = line->Buffer();
@@ -234,7 +268,7 @@ void ActionHelper::GoToRelatedAtCursor(GoToResolver::kRelated related) {
     if (line == nullptr) {
         return;
     }
-    auto path = ActivePath();
+    auto path = ActionHelper::ActivePath();
     line->Lock();
     auto text = line->Buffer();
     line->Release();

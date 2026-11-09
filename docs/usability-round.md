@@ -4,7 +4,7 @@ Status: **Planned 2026-11-08.** The code index is paused before its step 4 (`cod
 Order: the change set in the tree (§0), reloading files changed on disk (§0b), changed lines in the gutter (§0c), open
 files list (§1), dragging splitters (§2), workspace search (§3), quick commands: close all and `!` (§5), headless drawing that can be checked (§5b), glyphs beyond
 code point 255 on SDL (§6). The note on key bindings for script commands (§4) is recorded, not scheduled.
-**Next: §6** - the glyph page table, and the font code out of the SDL2/SDL3 copies; §0c's change bar waits on it.
+**Next:** §0c, changed lines in the gutter - §6 (glyphs past 255) is built, so its bar can be `│`.
 
 ## 0. The change set in the workspace tree
 
@@ -163,7 +163,7 @@ in place instead of in a diff.
 
 The mark goes in the gutter's free column, between the number and the active line's `*` (`    12│ *`), so nothing
 moves. A coloured `│` (U+2502): the default font (Andale Mono) has it, not the thinner `▎` (U+258E). The SDL backends
-only draw code points 32-255 today, so this waits on §6 (or uses `|` meanwhile, as the workspace divide does). The importer maps VS Code's `editorGutter.addedBackground` / `modifiedBackground` / `deletedBackground` onto the
+draw it since §6. The importer maps VS Code's `editorGutter.addedBackground` / `modifiedBackground` / `deletedBackground` onto the
 keys. A file git doesn't track yet (`N` in the tree) is all added; a file outside a repository has no marks.
 
 **Against the buffer, not the file:** the marks follow what you type, unsaved edits included - the question is "what
@@ -263,7 +263,7 @@ no focus change mid-drag), and a splitter moved by a press and moves stays clamp
   carries nothing costs space on an SSH terminal, and the change letters belong to the tree's rows.
 - **`|`, not `│`:** the SDL font atlas holds code points 32-255 only (`stbttf.h`), so `│` (U+2502) drew nothing - the cell
   was filled, the glyph skipped. The ASCII `|` draws on every backend, as a dashed line on SDL (it doesn't fill the cell's
-  height). `│` comes back with §6. A `DrawVRule` next to `DrawHRule` (a 1-pixel line on SDL) was the other way; not taken
+  height). `│` came back with §6 (2026-11-09). A `DrawVRule` next to `DrawHRule` (a 1-pixel line on SDL) was the other way; not taken
   - the glyph is the general fix.
 - **The backends:** SDL3 and SDL2 send a move while a button is held, and only when the pointer enters another character
   cell - SDL reports every pixel, and each move lays the views out again. Gansi needed nothing: it already asks the
@@ -378,7 +378,7 @@ with `...` itself.
 
 ## 6. Glyphs beyond code point 255 on SDL
 
-Status: **next** (after §2).
+Status: **built 2026-11-09.**
 
 **Today:** both SDL backends (`SDL2/ext/stbttf.h`, `SDL3/ext/stbttf.h` - two copies, already drifted apart) pack code points
 32-255 into one texture when the font opens, and skip anything else when drawing: `│`, `▎`, `→`, box drawing, accented
@@ -407,3 +407,24 @@ as the backend's part, instead of fixing it twice.
 **Tests:** without a screen - the page and slot of a code point; a lookup in page 0; a miss builds the page once; a code
 point the font lacks is marked missing, not retried - against the shipped `Assets/Resources/Andale Mono.ttf` (has `│`,
 lacks `▎`).
+
+**Built (2026-11-09):**
+- **`GlyphFont`** (`src/Core/Graphics/GlyphFont.{h,cpp}`, in the core sources - no SDL): the page table (4352 slots),
+  a page built on a miss with `stbtt_PackFontRanges` over only the code points the font has - `stbtt_FindGlyphIndex`
+  first, since stb would otherwise pack the font's "no glyph" box for a missing one. A page tried once stays, empty or
+  not. The bitmap starts at 128 px and doubles up to 4096. Page 0 is built when the font opens.
+- **One cell per character:** the old code advanced the pen by each drawn glyph and skipped anything past 255 without
+  advancing - so a `│` also pulled the rest of the line one cell left. Now every character advances by the cell (a
+  space's advance), drawn or missing. Same as before for a monospaced font.
+- **The checked bytes:** stb_truetype reads without bounds checks, so junk bytes crashed it. `GlyphFont` first checks
+  the sfnt tag and that the table directory fits; the tables themselves are trusted.
+- **The backend part** is `SDLFont` per backend (`SDL2/`, `SDL3/`): a texture per page, uploaded the first time a
+  glyph of it is drawn, colour-modded at draw. `SDLFontManager` owns it; closing the screen releases the textures
+  before `SDL_Quit`. Both `ext/stbttf.h` copies are gone.
+- **The `const char *` path** draws ASCII only, as before - a byte past 127 is a piece of UTF-8 - but each byte takes
+  its cell, as the background fill already did.
+- **The workspace divide** is `│` again.
+
+**Tests:** `glyphfont` - page and slot, page 0 at open, a page built once, a missing glyph and an empty page not
+retried, glyph rectangles inside their bitmap and with ink, every glyph one cell wide, junk bytes refused. Not covered:
+the texture upload and the draw - SDL, needs a window (a look at the running app).

@@ -28,10 +28,6 @@
 #include <SDL2/SDL_video.h>
 #include "Core/Editor.h"
 
-#ifndef STBTTF_IMPLEMENTATION
-#define STBTTF_IMPLEMENTATION
-#endif
-#include "ext/stbttf.h"
 
 // Implementation lives in src/ext/stb/stb_impl.cpp — header only here.
 #include "stb_image.h"
@@ -169,9 +165,7 @@ void SDLScreen::LoadFontFromTheme() {
         logger->Error("Unable to open font: '%s'\n", fontName.c_str());
         return;
     }
-    // Create an in-memory loader for this asset and open the font
-    auto sdlRWOps = SDL_RWFromConstMem(fontAsset->GetPtrAs<const void *>(), (int)fontAsset->GetSize());
-    auto font = STBTTF_OpenFontRW(sdlRenderer, sdlRWOps, 18);
+    auto font = SDLFont::Create(sdlRenderer, fontAsset->GetPtrAs<const uint8_t *>(), fontAsset->GetSize(), 18);
 
     if (font == nullptr) {
         logger->Error("Unable to load font: '%s'\n", fontName.c_str());
@@ -179,7 +173,7 @@ void SDLScreen::LoadFontFromTheme() {
     }
 
     // Set the font active..
-    SDLFontManager::Instance().SetActiveFont(font);
+    SDLFontManager::Instance().SetActiveFont(std::move(font));
 
 }
 
@@ -204,17 +198,17 @@ void SDLScreen::ComputeScalingFactors() {
     auto font = SDLFontManager::Instance().GetActiveFont();
 
     float line_margin = Config::Instance()["sdl"].GetInt("line_margin", 4);
-    rows = heightPixels / (font->baseline + line_margin); // baseline = font->ascent * font->scale
+    rows = heightPixels / (font->Baseline() + line_margin); // baseline = font->ascent * font->scale
 
     // subjective representation of average type of chars you might find in a something
     // small,wide,average type of chars
     std::string textToMeasure = "AaWwiI109 []{}/*.,\"";
-    auto textWidth =  STBTTF_MeasureText(font, textToMeasure.c_str());
+    auto textWidth =  font->MeasureText(textToMeasure.c_str());
     auto fontWidthAverage = textWidth / (float)textToMeasure.length();
     cols = widthPixels / fontWidthAverage;
 
     logger->Debug("Font scaling factors:");
-    logger->Debug("  Height: %d px (font: %d, line margin: %f)", (int)(font->baseline + line_margin), font->baseline, line_margin);
+    logger->Debug("  Height: %d px (font: %d, line margin: %f)", (int)(font->Baseline() + line_margin), font->Baseline(), line_margin);
     logger->Debug("  Width : %d px (based on average widht for '%s')", (int)fontWidthAverage, textToMeasure.c_str());
 
     logger->Debug("Text to Graphics defined as");
@@ -304,8 +298,7 @@ bool SDLScreen::GetPrimaryDisplayBounds(int &x, int &y, int &width, int &height)
 }
 
 void SDLScreen::Close() {
-    auto font = SDLFontManager::Instance().GetActiveFont();
-    STBTTF_CloseFont(font);
+    SDLFontManager::Instance().SetActiveFont(nullptr);
     SDL_Quit();
 }
 
@@ -340,10 +333,6 @@ void SDLScreen::Update() {
 //    dc.DrawStringAt(3,3,"01 23 45 67 89 01 23 45 67 8901234567890123456789012345678901234567890123456789");
 //    dc.DrawStringAt(4,4,"01 23 45 67 89 01 23 45 67 8901234567890123456789012345678901234567890123456789");
 
-//    auto font = SDLFontManager::Instance().GetActiveFont();
-//    STBTTF_RenderText(renderer, font, 0, font->size * 2, "0123456789012345678901234567890123456789012345678901234567890123456789");
-//    STBTTF_RenderText(renderer, font, 1, font->size * 3, "0123456789012345678901234567890123456789012345678901234567890123456789");
-//    STBTTF_RenderText(renderer, font, 2, font->size * 4, "0123456789012345678901234567890123456789012345678901234567890123456789");
 
     SDLCursor::Instance().Draw();
     SDL_RenderPresent(sdlRenderer);

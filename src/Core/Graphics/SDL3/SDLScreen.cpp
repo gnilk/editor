@@ -23,10 +23,6 @@
 
 #include <SDL3/SDL.h>
 
-#ifndef STBTTF_IMPLEMENTATION
-#define STBTTF_IMPLEMENTATION
-#endif
-#include "ext/stbttf.h"
 
 // Implementation lives in src/ext/stb/stb_impl.cpp — header only here.
 #include "stb_image.h"
@@ -194,16 +190,14 @@ void SDLScreen::LoadFontFromTheme() {
         logger->Error("Unable to open font: '%s'\n", fontName.c_str());
         return;
     }
-    // SDL3: SDL_RWFromConstMem → SDL_IOFromConstMem
-    auto sdlIO = SDL_IOFromConstMem(fontAsset->GetPtrAs<const void *>(), (size_t)fontAsset->GetSize());
-    auto font = STBTTF_OpenFontRW(renderer, sdlIO, 18);
+    auto font = SDLFont::Create(renderer, fontAsset->GetPtrAs<const uint8_t *>(), fontAsset->GetSize(), 18);
 
     if (font == nullptr) {
         logger->Error("Unable to load font: '%s'\n", fontName.c_str());
         return;
     }
 
-    SDLFontManager::Instance().SetActiveFont(font);
+    SDLFontManager::Instance().SetActiveFont(std::move(font));
 }
 
 // Called also from resize.
@@ -223,15 +217,15 @@ void SDLScreen::ComputeScalingFactors() {
     auto font = SDLFontManager::Instance().GetActiveFont();
 
     float line_margin = Config::Instance()["sdl"].GetInt("line_margin", 4);
-    rows = heightPixels / (font->baseline + line_margin);
+    rows = heightPixels / (font->Baseline() + line_margin);
 
     std::string textToMeasure = "AaWwiI109 []{}/*.,\"";
-    auto textWidth = STBTTF_MeasureText(font, textToMeasure.c_str());
+    auto textWidth = font->MeasureText(textToMeasure.c_str());
     auto fontWidthAverage = textWidth / (float)textToMeasure.length();
     cols = widthPixels / fontWidthAverage;
 
     logger->Debug("Font scaling factors:");
-    logger->Debug("  Height: %d px (font: %d, line margin: %f)", (int)(font->baseline + line_margin), font->baseline, line_margin);
+    logger->Debug("  Height: %d px (font: %d, line margin: %f)", (int)(font->Baseline() + line_margin), font->Baseline(), line_margin);
     logger->Debug("  Width : %d px (based on average width for '%s')", (int)fontWidthAverage, textToMeasure.c_str());
     logger->Debug("Rows=%d, Cols=%d", rows, cols);
 
@@ -317,8 +311,7 @@ bool SDLScreen::GetPrimaryDisplayBounds(int &x, int &y, int &width, int &height)
 void SDLScreen::Close() {
     // SDL3: SDL_StopTextInput requires the window pointer
     SDL_StopTextInput(window);
-    auto font = SDLFontManager::Instance().GetActiveFont();
-    STBTTF_CloseFont(font);
+    SDLFontManager::Instance().SetActiveFont(nullptr);
     SDL_Quit();
 }
 

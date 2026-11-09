@@ -188,7 +188,7 @@ namespace gedit {
             dc.SetColor(uiColors["gutter_foreground"], uiColors["background"]);
             int x = DividerColumn() - viewRect.TopLeft().x;
             for (int y = 0; y < viewRect.Height(); y++) {
-                dc.DrawStringWithAttributesAt(x, y, kTextAttributes::kNormal, U"|");
+                dc.DrawStringWithAttributesAt(x, y, kTextAttributes::kNormal, U"\u2502");
             }
             dc.ResetDrawColors();
         }

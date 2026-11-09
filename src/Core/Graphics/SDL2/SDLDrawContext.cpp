@@ -170,7 +170,7 @@ void SDLDrawContext::DrawStringAt(int x, int y, const char *str) const {
 
     auto [px, py] = CoordsToScreen(x, y);
 
-    STBTTF_RenderText(renderer, font, px, py + font->baseline, str);
+    font->RenderText(px, py + font->Baseline(), str);
 }
 
 void SDLDrawContext::DrawStringWithAttributesAndColAt(int x, int y, kTextAttributes attrib, int idxColor, const char *str) const {
@@ -202,7 +202,7 @@ void SDLDrawContext::DrawStringWithAttributesAt(int x, int y, kTextAttributes at
 
     // Translate coordinates and draw text...
     auto [px, py] = CoordsToScreen(x, y);
-    STBTTF_RenderTextN(renderer, font, px, py + font->baseline, w, str);
+    font->RenderText(px, py + font->Baseline(), str, w);
 
     // underlined???  draw a line under the text
     if (attrib & kTextAttributes::kUnderline) {
@@ -210,11 +210,11 @@ void SDLDrawContext::DrawStringWithAttributesAt(int x, int y, kTextAttributes at
         if (margin > Config::Instance()["sdl"].GetInt("line_margin",4)) {
             margin = Config::Instance()["sdl"].GetInt("line_margin",4) - 1;
         }
-        DrawLineWithPixelOffset(x, y , x + strlen(str), y,0,font->baseline+margin);
+        DrawLineWithPixelOffset(x, y , x + strlen(str), y,0,font->Baseline()+margin);
     }
     // struck through - a line through the middle of the lower-case letters (~1/4 of the ascent above the baseline)
     if (attrib & kTextAttributes::kStrikethrough) {
-        DrawLineWithPixelOffset(x, y , x + strlen(str), y,0,(font->baseline * 3) / 4);
+        DrawLineWithPixelOffset(x, y , x + strlen(str), y,0,(font->Baseline() * 3) / 4);
     }
 }
 
@@ -226,7 +226,7 @@ void SDLDrawContext::DrawStringAt(int x, int y, const std::u32string &str) const
 
     auto [px, py] = CoordsToScreen(x, y);
 
-    STBTTF_RenderText(renderer, font, px, py + font->baseline, str);
+    font->RenderText(px, py + font->Baseline(), str);
 }
 
 void SDLDrawContext::DrawStringWithAttributesAt(int x, int y, kTextAttributes attrib, const std::u32string &str) const {
@@ -258,7 +258,7 @@ void SDLDrawContext::DrawStringWithAttributesAt(int x, int y, kTextAttributes at
 
     // Translate coordinates and draw text...
     auto [px, py] = CoordsToScreen(x, y);
-    STBTTF_RenderText(renderer, font, px, py + font->baseline, str);
+    font->RenderText(px, py + font->Baseline(), str);
 
     // underlined???  draw a line under the text
     if (attrib & kTextAttributes::kUnderline) {
@@ -266,11 +266,11 @@ void SDLDrawContext::DrawStringWithAttributesAt(int x, int y, kTextAttributes at
         if (margin > Config::Instance()["sdl"].GetInt("line_margin",4)) {
             margin = Config::Instance()["sdl"].GetInt("line_margin",4) - 1;
         }
-        DrawLineWithPixelOffset(x, y , x + str.length(), y,0,font->baseline+margin);
+        DrawLineWithPixelOffset(x, y , x + str.length(), y,0,font->Baseline()+margin);
     }
     // struck through - a line through the middle of the lower-case letters (~1/4 of the ascent above the baseline)
     if (attrib & kTextAttributes::kStrikethrough) {
-        DrawLineWithPixelOffset(x, y , x + str.length(), y,0,(font->baseline * 3) / 4);
+        DrawLineWithPixelOffset(x, y , x + str.length(), y,0,(font->Baseline() * 3) / 4);
     }
 }
 

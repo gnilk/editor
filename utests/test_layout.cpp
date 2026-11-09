@@ -576,7 +576,7 @@ extern "C" int test_layout_drag_nofocus(ITesting *t) {
     return kTR_Pass;
 }
 
-// The headless screen draws into a cell grid (docs/usability-round.md §5b): the workspace divide is a '|' down the
+// The headless screen draws into a cell grid (docs/usability-round.md §5b): the workspace divide is a '│' (U+2502) down the
 // left panel's last column, on every row, over the panel and nowhere else - and it follows a drag
 namespace {
     // A panel with a window of its own, filled with '.' - so a divider drawn over it shows, and one drawn under it doesn't
@@ -600,7 +600,7 @@ namespace {
 static bool IsDividerAt(HLScreen *screen, const gedit::Rect &rect, int column) {
     for (int y = rect.TopLeft().y; y < rect.BottomRight().y; y++) {
         for (int x = rect.TopLeft().x; x < rect.BottomRight().x; x++) {
-            auto expected = (x == column) ? U'|' : U'.';
+            auto expected = (x == column) ? U'\u2502' : U'.';
             if (screen->CellAt(x, y).ch != expected) {
                 return false;
             }
@@ -639,7 +639,7 @@ extern "C" int test_layout_draw_vsplit(ITesting *t) {
 
     // The same row read back as text
     auto row = gedit::Rect(gedit::Point(rect.TopLeft().x, y), rect.Width(), 1);
-    auto expected = std::string(divider + 7 - rect.TopLeft().x, '.') + "|" + std::string(rect.BottomRight().x - divider - 8, '.') + "\n";
+    auto expected = std::string(divider + 7 - rect.TopLeft().x, '.') + "\u2502" + std::string(rect.BottomRight().x - divider - 8, '.') + "\n";
     TR_ASSERT(t, screen->Dump(row) == expected);
     return kTR_Pass;
 }

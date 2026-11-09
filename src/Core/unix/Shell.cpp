@@ -32,26 +32,9 @@
 
 using namespace gedit;
 
-static Shell *glbShell = nullptr;
-
-static volatile sig_atomic_t gSignalStatus = {};
-static void signal_handler(int signal) {
-    gSignalStatus = signal;
-    glbShell->OnSignal(signal);
-}
-
-void Shell::OnSignal(int sig) {
-    logger->Debug("Signal raised, sig=%d, pid=%d", sig, getpid());
-    if (GetState() == State::kRunning) {
-        extSignal = sig;
-        ChangeState(State::kTerminate);
-    }
-}
-
 bool Shell::Begin(const std::string &shell, const std::string &args,
                   const std::vector<std::string> &initScript) {
     logger = gnilk::Logger::GetLogger("Shell");
-    glbShell = this;
     if (!StartShellProc(shell, args)) {
         return false;
     }
@@ -67,12 +50,9 @@ bool Shell::StartShellProc(const std::string &configuredShell, const std::string
     }
     logger->Debug("Starting shell process: %s %s", shell.c_str(), shellInitStr.c_str());
 
-#if defined(GEDIT_LINUX)
-    signal(SIGINT,  signal_handler);
-    signal(SIGTERM, signal_handler);
-    signal(SIGCHLD, signal_handler);
-#endif
-
+    // No signal handlers here. The shell's end is the pty read failing (EIO) in ConsumePty. A SIGCHLD handler
+    // fires for ANY child of the editor (git status, ...) and stopped the reader; SIGINT/SIGTERM are SDL's
+    // (it turns them into a quit) - installing ours replaced that, on Linux only.
     logger->Info("Forking PTY");
     pid = forkpty(&amaster, NULL, NULL, NULL);
 
@@ -222,11 +202,11 @@ void Shell::ConsumePty() {
         }
     }
 
-    if (extSignal == SIGTERM) {
-        logger->Debug("SIGTERM — killing child pid=%d", pid);
-        kill(pid, SIGKILL);
+    // Closed by us (Close) rather than by the shell exiting: hang up, as a terminal closing does, so the
+    // wait below returns instead of waiting on a shell that is still running
+    if (GetState() == State::kTerminate) {
+        kill(pid, SIGHUP);
     }
-
     int status = 0;
     waitpid(pid, &status, 0);
     if (WIFEXITED(status)) {

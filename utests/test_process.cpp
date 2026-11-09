@@ -12,6 +12,7 @@
 #include <thread>
 
 #include "Core/Process.h"
+#include "Core/unix/Shell.h"
 
 using namespace gedit;
 namespace fs = std::filesystem;
@@ -31,6 +32,7 @@ extern "C" {
     DLL_EXPORT int test_process_stdin(ITesting *t);
     DLL_EXPORT int test_process_inheritedpipe(ITesting *t);
     DLL_EXPORT int test_process_startonce(ITesting *t);
+    DLL_EXPORT int test_process_shellsurvives(ITesting *t);
 }
 
 namespace {
@@ -211,3 +213,51 @@ DLL_EXPORT int test_process_startonce(ITesting *t) {
     TR_ASSERT(t, process->WaitFor().IsSuccess());
     return kTR_Pass;
 }
+
+// The embedded terminal's shell keeps delivering output after one of OUR children exits. A SIGCHLD handler
+// (Linux only) set the shell to kTerminate on any child's exit - the first 'git rev-parse' after opening a folder
+// stopped the pty reader, and the terminal showed nothing from then on while the shell still ran the commands.
+DLL_EXPORT int test_process_shellsurvives(ITesting *t) {
+    // Never destroyed: the pty reader is a detached thread holding 'this'
+    static Shell shell;
+    std::mutex lock;
+    std::string output;
+    shell.SetOutputDelegate([&lock, &output](const uint8_t *buffer, size_t length) {
+        std::lock_guard<std::mutex> guard(lock);
+        output.append(reinterpret_cast<const char *>(buffer), length);
+    });
+    TR_ASSERT(t, shell.Begin("/bin/sh", "-i", {}));
+    auto tEnd = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+    while ((shell.GetState() != Shell::State::kRunning) && (std::chrono::steady_clock::now() < tEnd)) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    TR_ASSERT(t, shell.GetState() == Shell::State::kRunning);
+
+    // One of the editor's own children comes and goes
+    TR_ASSERT(t, Process::Create("true", {})->Run().exitCode == 0);
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    TR_ASSERT(t, shell.GetState() == Shell::State::kRunning);
+
+    std::u32string cmd = U"echo goat_$((40+2))\n";
+    shell.SendCmd(cmd);
+    bool isSeen = false;
+    tEnd = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+    while (!isSeen && (std::chrono::steady_clock::now() < tEnd)) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        std::lock_guard<std::mutex> guard(lock);
+        isSeen = (output.find("goat_42") != std::string::npos);
+    }
+
+    // Done with it: the shell exits, the reader sees EIO and stops (and stops calling into our locals)
+    std::u32string exitCmd = U"exit\n";
+    shell.SendCmd(exitCmd);
+    tEnd = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+    while ((shell.GetState() != Shell::State::kTerminated) && (std::chrono::steady_clock::now() < tEnd)) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    shell.SetOutputDelegate(nullptr);
+
+    TR_ASSERT(t, isSeen);
+    return kTR_Pass;
+}
+

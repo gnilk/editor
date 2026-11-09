@@ -56,8 +56,6 @@ namespace gedit {
             return state.load();
         }
 
-        void OnSignal(int sig);
-
     private:
         void ConsumePty();
         bool StartShellProc(const std::string &shell, const std::string &shellInitStr);
@@ -86,7 +84,6 @@ namespace gedit {
         int      amaster   = -1;   // pty master — single fd for all shell I/O
         pid_t    pid       = -1;
         int      exitStatus = 0;
-        int      extSignal  = -1;
         std::atomic<State> state { State::kIdle };
 
         OutputDelegate onOutput = nullptr;

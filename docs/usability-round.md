@@ -503,7 +503,11 @@ functions are, the comment blocks - and needs a pixel path the cell grid doesn't
 **Build order** (planned 2026-11-09):
 
 1. **The model, no drawing:** the mapping, the marks per row, the visible box, click and drag -> line. Plain, tested on
-   strings (below).
+   strings (below). **Built 2026-11-09:** `Core/OverviewMap` (`test_overviewmap`). A row shows the heaviest mark:
+   active line > search hit > removed > modified > added. A click and a drag are one path - `GrabOffset` (inside the
+   box: where it was taken; outside: its middle, so the view centres) then `TopLineFor`. For the minimap the rows are
+   pixel rows, but `MouseEvent` carries whole cells - step 2 needs the pointer's position within the cell (SDL has it)
+   or a click lands to the nearest ~20 px.
 2. **The minimap on SDL3 and SDL2:** `MinimapImage`, `DrawImage`, the texture, the marks strip, the box. Bug #18
    (glyphs drawn at 1x on Retina) is fixed: `SDLFont` rasterises at the screen's density and draws in logical
    units - the minimap's texture wants the same (pixels at density, a destination rect in logical units).

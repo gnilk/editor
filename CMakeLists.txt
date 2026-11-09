@@ -396,6 +396,7 @@ list(APPEND uisrc src/Core/UI/Graphics/KeyboardDriverBase.cpp src/Core/UI/Graphi
 list(APPEND uisrc src/Core/UI/Graphics/DrawContext.cpp src/Core/UI/Graphics/DrawContext.h)
 list(APPEND uisrc src/Core/Graphics/Cursor.h)
 list(APPEND uisrc src/Core/UI/UIHost.cpp src/Core/UI/UIHost.h)
+list(APPEND uisrc src/Core/UI/TypeToFind.cpp src/Core/UI/TypeToFind.h)
 list(APPEND uisrc src/Core/UI/ILayoutSink.h)
 
 # Base views
@@ -564,6 +565,7 @@ list(APPEND utestsrc utests/test_glyphfont.cpp)
 list(APPEND utestsrc utests/test_linediff.cpp)
 list(APPEND utestsrc utests/test_overviewmap.cpp)
 list(APPEND utestsrc utests/test_minimap.cpp)
+list(APPEND utestsrc utests/test_typetofind.cpp)
 list(APPEND utestsrc utests/test_changemarks.cpp)
 list(APPEND utestsrc utests/test_cppnumbers.cpp)
 list(APPEND utestsrc utests/test_jsonlang.cpp)

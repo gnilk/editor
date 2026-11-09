@@ -324,6 +324,12 @@ All three are wanted. Each is its own piece, smallest first.
 
 - **a)** Letters typed in the workspace view build a short prefix (reset after a pause), and the selection moves to the next
   visible match. Whether it should also filter the tree is open.
+  **Built 2026-11-09:** `Core/UI/TypeToFind` (plain, `test_typetofind`) in the generic `TreeView::FindByTyping`, so any
+  tree has it; `WorkspaceView::HandleKeyPress` gives it the letters no binding took (not with Ctrl/Cmd). Jump only, no
+  filter. Case doesn't count; visible rows only; wraps. While the prefix grows the row it is on counts ("do" stays on
+  `docs/`); one letter goes to the next match, and one letter repeated steps through them unless a name starts with the
+  repeat - Finder's rules. A tree action (an arrow) or a pause (`workspaceview.type_to_find_pause_ms`, 1000) starts a new
+  name.
 - **b)** Not the code index: that holds only the files a structure scanner reads (C/C++). The list comes from the
   workspace's tree, with `ExclusionRules` applied. Ranked like Go to symbol (`CodeIndex::MatchName`: prefix, word starts,
   subsequence), closeness to the active file next.

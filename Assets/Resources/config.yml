@@ -170,6 +170,8 @@ workspaceview:
   show_ignored: yes
   # Number of rows to scroll per mouse-wheel notch
   lines_per_scroll_wheel_notch: 1
+  # Letters typed in the tree jump to the next row whose name starts with them; a pause this long starts a new name
+  type_to_find_pause_ms: 1000
 
 
 quickmode:

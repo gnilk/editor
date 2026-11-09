@@ -12,6 +12,8 @@
 #include "VisibleView.h"
 #include "Core/UI/UIHost.h"
 #include "Core/VerticalNavigationViewModel.h"
+#include "Core/UI/TypeToFind.h"
+#include "Core/UnicodeHelper.h"
 
 namespace gedit {
 
@@ -205,8 +207,37 @@ namespace gedit {
             if (!wasHandled) {
                 return false;
             }
+            // Moved by hand: the next letter typed starts a new name
+            typeToFind.Reset();
             InvalidateAll();
             return true;
+        }
+
+        // A letter typed in the tree (docs/usability-round.md §3 a): the selection jumps to the next visible row whose
+        // name starts with the letters typed within a pause (TypeToFind). False when no row does - it stays put.
+        bool FindByTyping(char32_t ch) {
+            auto &prefix = typeToFind.Type(ch, TypeToFind::Clock::now());
+            if (!cbToString) {
+                return false;
+            }
+            std::vector<std::u32string> names;
+            names.reserve(flattenNodeList.size());
+            for (auto &node : flattenNodeList) {
+                names.push_back(UnicodeHelper::utf8to32(cbToString(node->data)));
+            }
+            auto idxFound = TypeToFind::FindNext(names, treeLineCursor.idxActiveLine, prefix);
+            if (!idxFound.has_value()) {
+                return false;
+            }
+            treeLineCursor.idxActiveLine = *idxFound;
+            FitViewToHeight(treeLineCursor.viewBottomLine - treeLineCursor.viewTopLine);
+            InvalidateAll();
+            return true;
+        }
+
+        // How long a pause in typing ends a name (FindByTyping)
+        void SetTypeToFindPause(TypeToFind::Clock::duration pause) {
+            typeToFind.SetPause(pause);
         }
 
         void SetToStringDelegate(ToStringDelegate newToString) {
@@ -538,6 +569,7 @@ namespace gedit {
 
     private:
         std::vector<typename TreeNode::Ref> flattenNodeList;
+        TypeToFind typeToFind;
         ToStringDelegate cbToString = nullptr;
         StyleDelegate cbStyle = nullptr;
         DimDelegate cbDim = nullptr;

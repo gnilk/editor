@@ -36,6 +36,7 @@ namespace gedit {
             return parentView->IsVisible();
         }
 
+        void HandleKeyPress(const KeyPress &keyPress) override;
         bool OnAction(const EditorAction &kpAction) override;
         bool OnMouseEvent(const MouseEvent &mouseEvent) override;
 
@@ -73,6 +74,8 @@ namespace gedit {
         TreeRef treeView;
         // Cached from config ("workspaceview.lines_per_scroll_wheel_notch") in InitView/ReInitView.
         int linesPerScrollWheelNotch = 3;
+        // A pause in typing this long ends a name ('workspaceview.type_to_find_pause_ms')
+        int typeToFindPauseMs = 1000;
         // One-shot expand/collapse seed from a restored session: merged into the next PopulateTree then
         // cleared. Kept separate from the per-rebuild live-tree snapshot so it never overrides a later
         // user collapse/expand.

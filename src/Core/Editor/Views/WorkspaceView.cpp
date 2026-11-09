@@ -82,6 +82,7 @@ void WorkspaceView::InitView() {
     VisibleView::InitView();
     isShowingIgnored = Config::Instance()[cfgSectionName].GetBool("show_ignored", true);
     linesPerScrollWheelNotch = Config::Instance()[cfgSectionName].GetInt("lines_per_scroll_wheel_notch", 3);
+    typeToFindPauseMs = Config::Instance()[cfgSectionName].GetInt("type_to_find_pause_ms", 1000);
     CreateTree();
     AddView(treeView.get());
 
@@ -103,6 +104,7 @@ void WorkspaceView::InitView() {
 void WorkspaceView::ReInitView() {
     VisibleView::ReInitView();
     linesPerScrollWheelNotch = Config::Instance()[cfgSectionName].GetInt("lines_per_scroll_wheel_notch", 3);
+    typeToFindPauseMs = Config::Instance()[cfgSectionName].GetInt("type_to_find_pause_ms", 1000);
 
 
     // Re-Init is called by a lot of reasons...
@@ -339,6 +341,17 @@ bool WorkspaceView::SelectAfterRebuild(Workspace::Node::Ref prevSelected) {
         }
     }
     return false;
+}
+
+// A letter no key binding took: find the row by its name (docs/usability-round.md §3 a). Not with Ctrl or Cmd held - those
+// are commands, bound or not.
+void WorkspaceView::HandleKeyPress(const KeyPress &keyPress) {
+    if ((treeView != nullptr) && keyPress.IsHumanReadable() && !keyPress.IsCtrlPressed() && !keyPress.IsCommandPressed()) {
+        treeView->SetTypeToFindPause(std::chrono::milliseconds(typeToFindPauseMs));
+        treeView->FindByTyping(keyPress.key);
+        return;
+    }
+    VisibleView::HandleKeyPress(keyPress);
 }
 
 bool WorkspaceView::OnAction(const EditorAction &kpAction) {

@@ -6,8 +6,8 @@
 // own (replies to the pty, bell, title, rows leaving the screen) goes to the ITerminalHost.
 //
 // Scope: print, C0, cursor movement, erase, insert/delete, scroll region, tab stops, save/restore, pending wrap,
-// DECAWM, alternate screen, DEC Special Graphics (VT-3); SGR (VT-4). Replies and wide characters follow
-// (VT-5, VT-6, docs/terminal-vt.md).
+// DECAWM, alternate screen, DEC Special Graphics (VT-3); SGR (VT-4); modes, replies and OSC to the host (VT-5).
+// Wide characters follow (VT-6, docs/terminal-vt.md).
 //
 // Not thread-safe: the caller serialises Feed/Resize against readers (the editor holds screenLock).
 //
@@ -101,6 +101,30 @@ namespace gnilk::vt {
         bool isPendingWrap = false;     // the last column was written; the next printable wraps first
     };
 
+    enum class MouseTracking : uint8_t {
+        kOff,
+        kX10,               // ?9    press only
+        kNormal,            // ?1000 press + release
+        kButtonEvent,       // ?1002 + motion while a button is down
+        kAnyEvent,          // ?1003 + all motion
+    };
+
+    enum class MouseEncoding : uint8_t {
+        kDefault,           // X10 bytes
+        kUtf8,              // ?1005
+        kSgr,               // ?1006
+        kUrxvt,             // ?1015
+        kSgrPixels,         // ?1016
+    };
+
+    // DECSCUSR (CSI Ps SP q)
+    enum class CursorShape : uint8_t {
+        kDefault,
+        kBlock,
+        kUnderline,
+        kBar,
+    };
+
     struct Modes {
         bool isAutoWrap = true;             // DECAWM  ?7
         bool isOriginMode = false;          // DECOM   ?6
@@ -110,6 +134,18 @@ namespace gnilk::vt {
         bool isBracketedPaste = false;      //         ?2004
         bool isInsertMode = false;          // IRM     4
         bool isNewLineMode = false;         // LNM     20 (LF also returns the carriage)
+        bool isCursorBlink = false;         // ?12, or DECSCUSR odd shapes
+        bool isFocusEvents = false;         // ?1004
+        bool isSynchronizedOutput = false;  // ?2026 - the host defers drawing while set
+        MouseTracking mouseTracking = MouseTracking::kOff;
+        MouseEncoding mouseEncoding = MouseEncoding::kDefault;
+        CursorShape cursorShape = CursorShape::kDefault;
+    };
+
+    struct Rgb {
+        uint8_t r = 0;
+        uint8_t g = 0;
+        uint8_t b = 0;
     };
 
     // Everything the model can't decide. All default to no-op. Called synchronously from inside Feed/Resize;
@@ -118,14 +154,35 @@ namespace gnilk::vt {
     public:
         virtual ~ITerminalHost() = default;
 
-        // Replies the terminal sends back (DA, DSR/CPR, ...) - VT-5
+        // Replies the terminal sends back (DA, DSR/CPR, DECRQM, XTVERSION, OSC colour queries)
         virtual void WriteToPty(std::string_view bytes) {
+        }
+        // OSC 10/11/12 (which = 10, 11, 12) and OSC 4 (which = palette index 0-255) queries: the colour the host
+        // draws with. Return false to leave the query unanswered.
+        virtual bool QueryColor(int which, Rgb &out) {
+            return false;
         }
         // A row leaving the top of the PRIMARY screen (scroll with the region starting at the top row, or a
         // resize that pushes rows out). isWrapped: the row continues on the next one (soft wrap).
         virtual void OnRowScrolledOut(std::span<const Cell> row, bool isWrapped) {
         }
         virtual void OnBell() {
+        }
+        // OSC 0 / 2
+        virtual void OnTitle(std::string_view title) {
+        }
+        // OSC 7, as sent ("file://host/path", percent-encoded)
+        virtual void OnWorkingDirectory(std::string_view uri) {
+        }
+        // OSC 133: kind 'A' prompt start, 'B' command start, 'C' output start, 'D' command end; params is what
+        // follows "<kind>;" (the exit code for D, may be empty)
+        virtual void OnSemanticPrompt(char kind, std::string_view params) {
+        }
+        // OSC 8: "8;params;uri"; an empty uri ends the link
+        virtual void OnHyperlink(std::string_view params, std::string_view uri) {
+        }
+        // OSC 52 set: "52;selection;base64". Queries ("?") are not answered - clipboard reads are not offered.
+        virtual void OnClipboardWrite(std::string_view selection, std::string_view base64) {
         }
         // Sequences the model recognises but does not act on; for logging
         virtual void OnUnhandled(std::string_view description) {
@@ -165,6 +222,9 @@ namespace gnilk::vt {
         // Bumps on every Feed/Resize/Reset that may have changed what is visible - a redraw cue
         uint64_t GetGeneration() const {
             return generation;
+        }
+        bool IsSynchronizedUpdate() const {
+            return modes.isSynchronizedOutput;
         }
 
         // IParserSink
@@ -208,6 +268,10 @@ namespace gnilk::vt {
         void SetUnderline(UnderlineStyle style);
         void SetSgrColor(int code, const Color &color);
         void SetPrivateMode(int mode, bool isSet);
+        void ReportMode(int mode, bool isPrivate);
+        int PrivateModeState(int mode) const;
+        void DeviceStatusReport(const CsiParams &params, bool isPrivate);
+        void ReplyColor(int which, std::string_view osc);
 
         // Cursor
         void MoveTo(int x, int y);

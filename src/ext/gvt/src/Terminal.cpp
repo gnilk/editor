@@ -6,8 +6,10 @@
 //
 #include <algorithm>
 #include <string>
+#include <cstdio>
 
 #include "gvt/Terminal.h"
+#include "gvt/Version.h"
 
 using namespace gnilk::vt;
 
@@ -212,6 +214,34 @@ void Terminal::CsiDispatch(const CsiParams &params, std::string_view intermediat
         DispatchCsiPrivate(params, final);
         return;
     }
+    // DA2 - VT220-class, firmware 10
+    if (intermediates.empty() && (prefix == '>') && (final == 'c') && (params.Get(0, 0) == 0)) {
+        host.WriteToPty("\x1b[>1;10;0c");
+        return;
+    }
+    // XTVERSION
+    if (intermediates.empty() && (prefix == '>') && (final == 'q') && (params.Get(0, 0) == 0)) {
+        host.WriteToPty("\x1bP>|gvt " + std::to_string(kVersionMajor) + "." + std::to_string(kVersionMinor) + "." +
+                        std::to_string(kVersionPatch) + "\x1b\\");
+        return;
+    }
+    // DECRQM - "is mode n set?"
+    if ((intermediates == "$") && (final == 'p') && ((prefix == 0) || (prefix == '?'))) {
+        ReportMode(params.Get(0, 0), prefix == '?');
+        return;
+    }
+    // DECSCUSR - cursor shape: 0/1 blinking block, 2 block, 3/4 underline, 5/6 bar (odd = blinking)
+    if ((intermediates == " ") && (prefix == 0) && (final == 'q')) {
+        int shape = params.Get(0, 0);
+        static constexpr CursorShape kShapes[] = {CursorShape::kDefault, CursorShape::kBlock, CursorShape::kBlock,
+                                                  CursorShape::kUnderline, CursorShape::kUnderline, CursorShape::kBar,
+                                                  CursorShape::kBar};
+        if ((shape >= 0) && (shape <= 6)) {
+            modes.cursorShape = kShapes[shape];
+            modes.isCursorBlink = (shape == 0) || ((shape % 2) == 1);
+            return;
+        }
+    }
     // DECSTR - soft reset
     if ((intermediates == "!") && (prefix == 0) && (final == 'p')) {
         modes = Modes{};
@@ -278,11 +308,70 @@ void Terminal::EscDispatch(std::string_view intermediates, uint8_t final) {
     host.OnUnhandled(description);
 }
 
+// "Ps;Pt": the number decides; the rest is handed over as is
 void Terminal::OscDispatch(std::string_view payload) {
-    // OSC 0/2/7/8/52/133 go to the host in VT-5
-    std::string description = "OSC ";
-    description += payload.substr(0, payload.find(';'));
-    host.OnUnhandled(description);
+    auto semicolon = payload.find(';');
+    auto command = payload.substr(0, semicolon);
+    auto rest = (semicolon == std::string_view::npos) ? std::string_view{} : payload.substr(semicolon + 1);
+
+    if ((command == "0") || (command == "2")) {
+        host.OnTitle(rest);
+    } else if (command == "1") {
+        // icon name - nothing to show it on
+    } else if (command == "7") {
+        host.OnWorkingDirectory(rest);
+    } else if (command == "8") {
+        auto split = rest.find(';');
+        if (split != std::string_view::npos) {
+            host.OnHyperlink(rest.substr(0, split), rest.substr(split + 1));
+        }
+    } else if (command == "52") {
+        auto split = rest.find(';');
+        if ((split != std::string_view::npos) && (rest.substr(split + 1) != "?")) {
+            host.OnClipboardWrite(rest.substr(0, split), rest.substr(split + 1));
+        }
+    } else if (command == "133") {
+        if (!rest.empty()) {
+            auto params = (rest.size() > 2) ? rest.substr(2) : std::string_view{};
+            host.OnSemanticPrompt(rest[0], params);
+        }
+    } else if (((command == "10") || (command == "11") || (command == "12")) && (rest == "?")) {
+        ReplyColor(command[1] - '0' + 10, command);
+    } else if (command == "4") {
+        // "4;index;?" - possibly several pairs; only the queries are answered (palette changes are the theme's)
+        while (!rest.empty()) {
+            auto first = rest.find(';');
+            if (first == std::string_view::npos) {
+                break;
+            }
+            auto index = rest.substr(0, first);
+            auto spec = rest.substr(first + 1);
+            auto second = spec.find(';');
+            auto value = spec.substr(0, second);
+            if ((value == "?") && !index.empty() && (index.size() <= 3) &&
+                (index.find_first_not_of("0123456789") == std::string_view::npos)) {
+                int n = std::stoi(std::string(index));
+                if (n <= 255) {
+                    ReplyColor(n, "4;" + std::string(index));
+                }
+            }
+            rest = (second == std::string_view::npos) ? std::string_view{} : spec.substr(second + 1);
+        }
+    } else {
+        host.OnUnhandled("OSC " + std::string(command));
+    }
+}
+
+// "OSC <osc>;rgb:rrrr/gggg/bbbb ST", in xterm's 16-bit form
+void Terminal::ReplyColor(int which, std::string_view osc) {
+    Rgb color;
+    if (!host.QueryColor(which, color)) {
+        return;
+    }
+    char reply[64];
+    snprintf(reply, sizeof(reply), "\x1b]%.*s;rgb:%02x%02x/%02x%02x/%02x%02x\x1b\\", static_cast<int>(osc.size()),
+             osc.data(), color.r, color.r, color.g, color.g, color.b, color.b);
+    host.WriteToPty(reply);
 }
 
 //
@@ -394,6 +483,21 @@ void Terminal::DispatchCsiPlain(const CsiParams &params, uint8_t final) {
             }
             break;
         }
+        case 'c':   // DA1 - VT220 with ANSI colour
+            if (params.Get(0, 0) == 0) {
+                host.WriteToPty("\x1b[?62;22c");
+            }
+            break;
+        case 'n':   // DSR
+            DeviceStatusReport(params, false);
+            break;
+        case 't':   // XTWINOPS: only the text-area size report (18)
+            if (params.Get(0, 0) == 18) {
+                host.WriteToPty("\x1b[8;" + std::to_string(rows) + ";" + std::to_string(cols) + "t");
+            } else {
+                host.OnUnhandled(Describe(params, {}, 0, final));
+            }
+            break;
         case 's':   // SCOSC (no left/right margin mode in gvt)
             SaveCursor();
             break;
@@ -411,6 +515,10 @@ void Terminal::DispatchCsiPrivate(const CsiParams &params, uint8_t final) {
         for (size_t i = 0; i < params.count; i++) {
             SetPrivateMode(params.Get(i, 0), final == 'h');
         }
+        return;
+    }
+    if (final == 'n') {
+        DeviceStatusReport(params, true);
         return;
     }
     host.OnUnhandled(Describe(params, {}, '?', final));
@@ -480,10 +588,124 @@ void Terminal::SetPrivateMode(int mode, bool isSet) {
         case 2004:
             modes.isBracketedPaste = isSet;
             break;
+        case 12:
+            modes.isCursorBlink = isSet;
+            break;
+        case 1004:
+            modes.isFocusEvents = isSet;
+            break;
+        case 2026:
+            modes.isSynchronizedOutput = isSet;
+            break;
+        case 9:
+        case 1000:
+        case 1002:
+        case 1003: {
+            auto tracking = (mode == 9) ? MouseTracking::kX10 :
+                            (mode == 1000) ? MouseTracking::kNormal :
+                            (mode == 1002) ? MouseTracking::kButtonEvent : MouseTracking::kAnyEvent;
+            if (isSet) {
+                modes.mouseTracking = tracking;
+            } else if (modes.mouseTracking == tracking) {
+                modes.mouseTracking = MouseTracking::kOff;
+            }
+            break;
+        }
+        case 1005:
+        case 1006:
+        case 1015:
+        case 1016: {
+            auto encoding = (mode == 1005) ? MouseEncoding::kUtf8 :
+                            (mode == 1006) ? MouseEncoding::kSgr :
+                            (mode == 1015) ? MouseEncoding::kUrxvt : MouseEncoding::kSgrPixels;
+            if (isSet) {
+                modes.mouseEncoding = encoding;
+            } else if (modes.mouseEncoding == encoding) {
+                modes.mouseEncoding = MouseEncoding::kDefault;
+            }
+            break;
+        }
         default:
             host.OnUnhandled(std::string(isSet ? "DECSET " : "DECRST ") + std::to_string(mode));
             break;
     }
+}
+
+// DECRPM: CSI [?] mode ; state $ y - state 1 set, 2 reset, 0 not recognised
+void Terminal::ReportMode(int mode, bool isPrivate) {
+    int state = 0;
+    if (isPrivate) {
+        state = PrivateModeState(mode);
+    } else if (mode == 4) {
+        state = modes.isInsertMode ? 1 : 2;
+    } else if (mode == 20) {
+        state = modes.isNewLineMode ? 1 : 2;
+    }
+    host.WriteToPty(std::string("\x1b[") + (isPrivate ? "?" : "") + std::to_string(mode) + ";" +
+                    std::to_string(state) + "$y");
+}
+
+int Terminal::PrivateModeState(int mode) const {
+    auto state = [](bool isSet) {
+        return isSet ? 1 : 2;
+    };
+    switch (mode) {
+        case 1:
+            return state(modes.isCursorKeysApp);
+        case 6:
+            return state(modes.isOriginMode);
+        case 7:
+            return state(modes.isAutoWrap);
+        case 12:
+            return state(modes.isCursorBlink);
+        case 25:
+            return state(modes.isCursorVisible);
+        case 47:
+        case 1047:
+        case 1049:
+            return state(isAltScreen);
+        case 9:
+            return state(modes.mouseTracking == MouseTracking::kX10);
+        case 1000:
+            return state(modes.mouseTracking == MouseTracking::kNormal);
+        case 1002:
+            return state(modes.mouseTracking == MouseTracking::kButtonEvent);
+        case 1003:
+            return state(modes.mouseTracking == MouseTracking::kAnyEvent);
+        case 1004:
+            return state(modes.isFocusEvents);
+        case 1005:
+            return state(modes.mouseEncoding == MouseEncoding::kUtf8);
+        case 1006:
+            return state(modes.mouseEncoding == MouseEncoding::kSgr);
+        case 1015:
+            return state(modes.mouseEncoding == MouseEncoding::kUrxvt);
+        case 1016:
+            return state(modes.mouseEncoding == MouseEncoding::kSgrPixels);
+        case 2004:
+            return state(modes.isBracketedPaste);
+        case 2026:
+            return state(modes.isSynchronizedOutput);
+        default:
+            return 0;
+    }
+}
+
+// DSR 5: "OK". DSR 6: cursor position (CPR), relative to the scroll region's top under DECOM; CSI ? 6 n is DECXCPR.
+void Terminal::DeviceStatusReport(const CsiParams &params, bool isPrivate) {
+    int request = params.Get(0, 0);
+    if ((request == 5) && !isPrivate) {
+        host.WriteToPty("\x1b[0n");
+        return;
+    }
+    if (request == 6) {
+        int row = cursor.y + 1 - (modes.isOriginMode ? scrollTop : 0);
+        int col = cursor.x + 1;
+        host.WriteToPty(std::string("\x1b[") + (isPrivate ? "?" : "") + std::to_string(row) + ";" +
+                        std::to_string(col) + "R");
+        return;
+    }
+    host.OnUnhandled(Describe(params, {}, isPrivate ? '?' : 0, 'n'));
 }
 
 //

@@ -69,8 +69,36 @@ namespace gvttest {
         void OnUnhandled(std::string_view description) override {
             unhandled.emplace_back(description);
         }
+        bool QueryColor(int which, gnilk::vt::Rgb &out) override {
+            if (!isAnsweringColors) {
+                return false;
+            }
+            out = {static_cast<uint8_t>(which), 0x80, 0xFF};
+            return true;
+        }
+        void OnTitle(std::string_view title) override {
+            titles.emplace_back(title);
+        }
+        void OnWorkingDirectory(std::string_view uri) override {
+            directories.emplace_back(uri);
+        }
+        void OnSemanticPrompt(char kind, std::string_view params) override {
+            prompts.push_back(std::string(1, kind) + "|" + std::string(params));
+        }
+        void OnHyperlink(std::string_view params, std::string_view uri) override {
+            links.push_back(std::string(params) + "|" + std::string(uri));
+        }
+        void OnClipboardWrite(std::string_view selection, std::string_view base64) override {
+            clipboard.push_back(std::string(selection) + "|" + std::string(base64));
+        }
 
     public:
+        bool isAnsweringColors = false;
+        std::vector<std::string> titles;
+        std::vector<std::string> directories;
+        std::vector<std::string> prompts;
+        std::vector<std::string> links;
+        std::vector<std::string> clipboard;
         std::string replies;
         std::vector<std::string> scrolledOut;
         std::vector<bool> scrolledOutWrapped;

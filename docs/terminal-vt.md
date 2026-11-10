@@ -226,7 +226,7 @@ oracle suite green modulo the documented allowlist.
 
 ## 7. Status and pick-up notes
 
-### Done (VT-0..VT-4, branch `feat/gvt`)
+### Done (VT-0..VT-5, branch `feat/gvt`)
 
 - `src/ext/gvt/`: CMake (standalone + `add_subdirectory` from the editor), `Parser`, `IParserSink`, `README.md`.
   Not linked into `goatedit` yet.
@@ -251,6 +251,14 @@ oracle suite green modulo the documented allowlist.
   sequence (xterm); a `:` group on any other code is skipped whole; `:` on any CSI other than SGR drops it.
   `CompareScreens` now also compares every cell's attributes and colours: **git log and ls fixtures match libvterm
   cell for cell**. `gvttests`: 53 green.
+- **VT-5** replies through `ITerminalHost::WriteToPty`: DA1 (`?62;22c`), DA2 (`>1;10;0c`), DSR 5, CPR / DECXCPR
+  (origin-relative under DECOM), XTVERSION (`DCS >|gvt x.y.z ST`), DECRQM (ANSI + private), XTWINOPS 18. OSC 10/11/12
+  and OSC 4 queries answered from `ITerminalHost::QueryColor` (reply in xterm's `rgb:rrrr/gggg/bbbb`, ST). OSC to the
+  host: 0/2 `OnTitle`, 7 `OnWorkingDirectory` (raw URI), 8 `OnHyperlink`, 52 `OnClipboardWrite` (queries not
+  answered), 133 `OnSemanticPrompt`. `Modes` gained cursor blink (?12), focus events (?1004), synchronized output
+  (?2026, `IsSynchronizedUpdate()`), mouse tracking 9/1000/1002/1003 + encoding 1005/1006/1015/1016, DECSCUSR shape.
+  The kitty keyboard query (`CSI ? u`) is deliberately unanswered (no kitty support yet - apps fall back).
+  `gvttests`: 58 green.
 
 Decisions made while building it:
 - **Malformed CSI** (`CSI 1?2h`, `CSI 1$2p`): ignored up to the final byte (Williams `csi_ignore`, as xterm,
@@ -279,17 +287,15 @@ brew install libvterm pkg-config          # without them the oracle module is sk
 git fetch && git checkout feat/gvt
 cmake --preset debug                       # or reconfigure an existing build dir
 cmake --build cmake-build-debug --target gvttests
-cd cmake-build-debug && trun --sequential ./libgvttests.dylib     # expect 53 executed, 0 failed
+cd cmake-build-debug && trun --sequential ./libgvttests.dylib     # expect 58 executed, 0 failed
 ```
 
 Not yet verified on macOS: the build, the oracle with Homebrew's libvterm, the fixture copy step.
 
-### Next: VT-5 (modes + replies, OSC to the host)
+### Next: VT-6 (wide characters), then VT-7 (editor switch-over)
 
-Grow `ITerminalHost` per §3.2 (`OnTitle`, `OnWorkingDirectory`, `OnSemanticPrompt`, `OnHyperlink`,
-`OnClipboardWrite`) and route `Terminal::OscDispatch` (0/2, 7, 8, 52, 133; 4/10/11 queries answered through
-`WriteToPty`). Replies via `WriteToPty`: DA1 `CSI c` / DA2 `CSI > c`, DSR `CSI 5n` / CPR `CSI 6n` (origin-relative
-under DECOM), XTVERSION `CSI > q`, DECRQM `CSI ? Ps $ p`. Store the remaining DECSET modes the editor needs
-later (mouse 1000/1002/1003/1006, focus 1004, synchronized output 2026, cursor blink 12, DECSCUSR shape
-`CSI Ps SP q`) in `Modes`. The vim fixture already sends DSR/DA/OSC 10/11 queries - `RecordingHost::replies`
-captures what gvt answers. Then VT-6 (widths: take `dialog_menu.bin` off `kScreenDivergences`).
+VT-6: generated East-Asian-Width + emoji table (`tools/`), `Cell::width` 2/0, wrap before a wide char that does not
+fit, erase/insert/delete/overwrite keep pairs whole, combining marks join the previous cell (grapheme table).
+Take `dialog_menu.bin` off `kScreenDivergences`. VT-7 plan: `TerminalScreen` keeps scrollback, blocks, abs-row
+spine and persistence; its grid half becomes a `gvt::Terminal` with a resolved-colour row cache for the view;
+`TerminalController` implements `ITerminalHost` (pty replies, OSC 133/7); `VTermParser` + `HandleAnsiCmd` go.

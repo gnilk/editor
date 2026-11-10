@@ -36,6 +36,11 @@ DLL_EXPORT int test_terminal_sgr(ITesting *t);
 DLL_EXPORT int test_terminal_sgrcolor(ITesting *t);
 DLL_EXPORT int test_terminal_sgrcolon(ITesting *t);
 DLL_EXPORT int test_terminal_sgrerase(ITesting *t);
+DLL_EXPORT int test_terminal_replies(ITesting *t);
+DLL_EXPORT int test_terminal_decrqm(ITesting *t);
+DLL_EXPORT int test_terminal_modes(ITesting *t);
+DLL_EXPORT int test_terminal_osc(ITesting *t);
+DLL_EXPORT int test_terminal_osccolor(ITesting *t);
 }
 
 DLL_EXPORT int test_terminal(ITesting *t) {
@@ -579,5 +584,138 @@ DLL_EXPORT int test_terminal_sgrerase(ITesting *t) {
     // Rows scrolled in take it too
     term.Feed("\x1b[3;1H\n");
     TR_ASSERT(t, term.At(0, 2) == expected);
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_terminal_replies(ITesting *t) {
+    RecordingHost host;
+    Terminal term(host, 20, 10);
+    term.Feed("\x1b[c");
+    TR_ASSERT(t, host.replies == "\x1b[?62;22c");
+    host.replies.clear();
+    term.Feed("\x1b[0c\x1b[1c");                 // only Ps = 0 asks
+    TR_ASSERT(t, host.replies == "\x1b[?62;22c");
+    host.replies.clear();
+    term.Feed("\x1b[>c");
+    TR_ASSERT(t, host.replies == "\x1b[>1;10;0c");
+    host.replies.clear();
+    term.Feed("\x1b[5n");
+    TR_ASSERT(t, host.replies == "\x1b[0n");
+    host.replies.clear();
+    term.Feed("\x1b[3;7H\x1b[6n");
+    TR_ASSERT(t, host.replies == "\x1b[3;7R");
+    host.replies.clear();
+    term.Feed("\x1b[?6n");
+    TR_ASSERT(t, host.replies == "\x1b[?3;7R");
+    host.replies.clear();
+    // CPR under DECOM is relative to the region
+    term.Feed("\x1b[2;8r\x1b[?6h\x1b[3;1H\x1b[6n\x1b[?6l\x1b[r");
+    TR_ASSERT(t, host.replies == "\x1b[3;1R");
+    host.replies.clear();
+    term.Feed("\x1b[>q");
+    TR_ASSERT(t, host.replies == "\x1bP>|gvt 0.1.0\x1b\\");
+    host.replies.clear();
+    term.Feed("\x1b[18t");
+    TR_ASSERT(t, host.replies == "\x1b[8;10;20t");
+    host.replies.clear();
+    // The kitty keyboard query stays unanswered: apps then fall back to legacy keys (DA1 answers after it)
+    term.Feed("\x1b[?u\x1b[c");
+    TR_ASSERT(t, host.replies == "\x1b[?62;22c");
+    // Split across feeds, the reply still comes once
+    host.replies.clear();
+    term.Feed("\x1b[");
+    term.Feed("6");
+    term.Feed("n");
+    TR_ASSERT(t, host.replies == "\x1b[1;1R");     // DECSTBM above homed the cursor
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_terminal_decrqm(ITesting *t) {
+    RecordingHost host;
+    Terminal term(host, 20, 10);
+    term.Feed("\x1b[?2026$p");
+    TR_ASSERT(t, host.replies == "\x1b[?2026;2$y");
+    host.replies.clear();
+    term.Feed("\x1b[?2026h\x1b[?2026$p\x1b[?7$p\x1b[?9999$p");
+    TR_ASSERT(t, host.replies == "\x1b[?2026;1$y\x1b[?7;1$y\x1b[?9999;0$y");
+    host.replies.clear();
+    term.Feed("\x1b[4$p\x1b[4h\x1b[4$p\x1b[3$p");
+    TR_ASSERT(t, host.replies == "\x1b[4;2$y\x1b[4;1$y\x1b[3;0$y");
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_terminal_modes(ITesting *t) {
+    RecordingHost host;
+    Terminal term(host, 20, 10);
+    auto &modes = term.GetModes();
+    term.Feed("\x1b[?1h\x1b=\x1b[?25l\x1b[?2004h\x1b[?1004h\x1b[?12h");
+    TR_ASSERT(t, modes.isCursorKeysApp);
+    TR_ASSERT(t, modes.isKeypadApp);
+    TR_ASSERT(t, !term.GetCursor().isVisible);
+    TR_ASSERT(t, modes.isBracketedPaste);
+    TR_ASSERT(t, modes.isFocusEvents);
+    TR_ASSERT(t, modes.isCursorBlink);
+    // Mouse: the last tracking mode set wins; resetting another one leaves it
+    term.Feed("\x1b[?1000h\x1b[?1002h\x1b[?1006h");
+    TR_ASSERT(t, modes.mouseTracking == MouseTracking::kButtonEvent);
+    TR_ASSERT(t, modes.mouseEncoding == MouseEncoding::kSgr);
+    term.Feed("\x1b[?1000l");
+    TR_ASSERT(t, modes.mouseTracking == MouseTracking::kButtonEvent);
+    term.Feed("\x1b[?1002l\x1b[?1006l");
+    TR_ASSERT(t, modes.mouseTracking == MouseTracking::kOff);
+    TR_ASSERT(t, modes.mouseEncoding == MouseEncoding::kDefault);
+    // Synchronized output
+    term.Feed("\x1b[?2026h");
+    TR_ASSERT(t, term.IsSynchronizedUpdate());
+    term.Feed("\x1b[?2026l");
+    TR_ASSERT(t, !term.IsSynchronizedUpdate());
+    // DECSCUSR
+    term.Feed("\x1b[6 q");
+    TR_ASSERT(t, modes.cursorShape == CursorShape::kBar);
+    TR_ASSERT(t, !modes.isCursorBlink);
+    term.Feed("\x1b[3 q");
+    TR_ASSERT(t, modes.cursorShape == CursorShape::kUnderline);
+    TR_ASSERT(t, modes.isCursorBlink);
+    term.Feed("\x1b[0 q");
+    TR_ASSERT(t, modes.cursorShape == CursorShape::kDefault);
+    // RIS clears them all
+    term.Feed("\x1b" "c");
+    TR_ASSERT(t, !modes.isCursorKeysApp);
+    TR_ASSERT(t, modes.mouseTracking == MouseTracking::kOff);
+    TR_ASSERT(t, term.GetCursor().isVisible);
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_terminal_osc(ITesting *t) {
+    RecordingHost host;
+    Terminal term(host, 20, 10);
+    term.Feed("\x1b]0;hello\x07\x1b]2;\xE2\x9C\xB3 Claude\x1b\\\x1b]1;icon\x07");
+    TR_ASSERT(t, host.titles == std::vector<std::string>({"hello", "\xE2\x9C\xB3 Claude"}));
+    term.Feed("\x1b]7;file://host/tmp/a%20b\x07");
+    TR_ASSERT(t, host.directories == std::vector<std::string>({"file://host/tmp/a%20b"}));
+    term.Feed("\x1b]133;A\x07$ \x1b]133;B\x07ls\r\n\x1b]133;C\x07out\r\n\x1b]133;D;0\x1b\\\x1b]133;D\x07");
+    TR_ASSERT(t, host.prompts == std::vector<std::string>({"A|", "B|", "C|", "D|0", "D|"}));
+    TR_ASSERT(t, ScreenText(term) == "$ ls\nout");
+    term.Feed("\x1b]8;id=1;http://x\x1b\\link\x1b]8;;\x1b\\");
+    TR_ASSERT(t, host.links == std::vector<std::string>({"id=1|http://x", "|"}));
+    term.Feed("\x1b]52;c;aGVsbG8=\x07\x1b]52;c;?\x07");
+    TR_ASSERT(t, host.clipboard == std::vector<std::string>({"c|aGVsbG8="}));
+    // Nothing printed by any of them
+    TR_ASSERT(t, RowText(term, 2) == "link");
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_terminal_osccolor(ITesting *t) {
+    RecordingHost host;
+    Terminal term(host, 20, 10);
+    // A host that does not answer: no reply at all
+    term.Feed("\x1b]10;?\x07");
+    TR_ASSERT(t, host.replies.empty());
+    host.isAnsweringColors = true;
+    term.Feed("\x1b]10;?\x07\x1b]11;?\x1b\\");
+    TR_ASSERT(t, host.replies == "\x1b]10;rgb:0a0a/8080/ffff\x1b\\\x1b]11;rgb:0b0b/8080/ffff\x1b\\");
+    host.replies.clear();
+    term.Feed("\x1b]4;1;?;200;?\x07\x1b]4;2;#ff0000\x07");
+    TR_ASSERT(t, host.replies == "\x1b]4;1;rgb:0101/8080/ffff\x1b\\\x1b]4;200;rgb:c8c8/8080/ffff\x1b\\");
     return kTR_Pass;
 }

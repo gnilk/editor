@@ -51,15 +51,24 @@ std::vector<std::u32string> TerminalScreen::GetLastOutputText() const {
 }
 
 std::vector<Line::Ref> TerminalScreen::SnapshotScrollbackTail(size_t maxLines) const {
-    std::vector<Line::Ref> lines;
-    if (IsAltScreen()) {
-        return lines;   // §10: alt-screen history is never persisted
+    // What is still on screen is the newest history: the grid rows up to the cursor (content is cursor-anchored),
+    // trailing blank rows dropped. Not on the alternate screen - that grid is the app's (§10).
+    std::vector<Line::Ref> screenLines;
+    if (!IsAltScreen()) {
+        for (int y = 0; y <= GetCursorPos().y; y++) {
+            screenLines.push_back(RowToLine(GetRow(y)));
+        }
+        while (!screenLines.empty() && (screenLines.back()->Length() == 0)) {
+            screenLines.pop_back();
+        }
     }
-    size_t numLines = scrollback->NumLines();
+
+    size_t numLines = scrollback->NumLines() + screenLines.size();
     size_t keep = ((maxLines != 0) && (numLines > maxLines)) ? maxLines : numLines;
+    std::vector<Line::Ref> lines;
     lines.reserve(keep);
     for (size_t i = numLines - keep; i < numLines; i++) {
-        lines.push_back(scrollback->LineAt(i));
+        lines.push_back((i < scrollback->NumLines()) ? scrollback->LineAt(i) : screenLines[i - scrollback->NumLines()]);
     }
     return lines;
 }

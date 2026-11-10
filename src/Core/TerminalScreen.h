@@ -126,8 +126,9 @@ namespace gedit {
         std::vector<std::u32string> GetLastOutputText() const;
 
         // --- Persistence (terminal-scrollback.md §8) --------------------------------------------------
-        // The last `maxLines` scrollback lines (0 = all); the live grid is not included. Empty on the alternate
-        // screen (§10). Pure read; the caller holds screenLock.
+        // The last `maxLines` lines of history (0 = all): the scrollback, then what is still on screen (the grid rows
+        // up to the cursor, trailing blank rows dropped) - on the alternate screen the scrollback only (§10). Pure
+        // read; the caller holds screenLock.
         std::vector<Line::Ref> SnapshotScrollbackTail(size_t maxLines) const;
 
         // Replace the scrollback with persisted lines, BEFORE the shell starts producing output (§8.2 - the pty

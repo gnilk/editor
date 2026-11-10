@@ -40,6 +40,7 @@ DLL_EXPORT int test_terminalscreen_last_output(ITesting *t);
 DLL_EXPORT int test_terminalscreen_snapshot_roundtrip(ITesting *t);
 DLL_EXPORT int test_terminalscreen_snapshot_altscreen_empty(ITesting *t);
 DLL_EXPORT int test_terminalscreen_snapshot_caps_tail(ITesting *t);
+DLL_EXPORT int test_terminalscreen_snapshot_includes_screen(ITesting *t);
 DLL_EXPORT int test_terminalscreen_split_sequence(ITesting *t);
 DLL_EXPORT int test_terminalscreen_palette(ITesting *t);
 DLL_EXPORT int test_terminalscreen_inverse(ITesting *t);
@@ -720,17 +721,18 @@ DLL_EXPORT int test_terminalscreen_snapshot_roundtrip(ITesting *t) {
     size_t numLines = sb->NumLines();
     TR_ASSERT(t, numLines > 0);
 
-    auto lines = s.SnapshotScrollbackTail(0);   // keep all scrollback
-    TR_ASSERT(t, lines.size() == numLines);
+    auto lines = s.SnapshotScrollbackTail(0);   // all of it: the scrollback, then "delta" still on screen
+    TR_ASSERT(t, lines.size() == numLines + 1);
     for (size_t i = 0; i < numLines; i++) {
         TR_ASSERT(t, lines[i]->Buffer() == sb->LineAt(i)->Buffer());
     }
+    TR_ASSERT(t, lines.back()->Buffer() == std::u32string(U"delta"));
 
     TerminalScreen seeded;
     seeded.SeedScrollback(lines);
-    TR_ASSERT(t, seeded.GetScrollback()->NumLines() == numLines);
-    for (size_t i = 0; i < numLines; i++) {
-        TR_ASSERT(t, seeded.GetScrollback()->LineAt(i)->Buffer() == sb->LineAt(i)->Buffer());
+    TR_ASSERT(t, seeded.GetScrollback()->NumLines() == lines.size());
+    for (size_t i = 0; i < lines.size(); i++) {
+        TR_ASSERT(t, seeded.GetScrollback()->LineAt(i)->Buffer() == lines[i]->Buffer());
     }
     TR_ASSERT(t, seeded.ScrollbackBase() == 0);
     TR_ASSERT(t, seeded.GetLastOutputText().empty());
@@ -739,8 +741,8 @@ DLL_EXPORT int test_terminalscreen_snapshot_roundtrip(ITesting *t) {
     return kTR_Pass;
 }
 
-// §10: alt-screen history is NEVER persisted - SnapshotScrollbackTail returns empty while IsAltScreen(),
-// even though the real (saved) history still has content.
+// §10: the alternate screen is NEVER persisted - while IsAltScreen() SnapshotScrollbackTail is the scrollback only,
+// not the app's grid.
 DLL_EXPORT int test_terminalscreen_snapshot_altscreen_empty(ITesting *t) {
     TerminalScreen s;
     Setup(s, 20, 2);
@@ -751,11 +753,16 @@ DLL_EXPORT int test_terminalscreen_snapshot_altscreen_empty(ITesting *t) {
 
     s.Feed(ENTER_ALT);   // enter alt-screen
     TR_ASSERT(t, s.IsAltScreen());
-    TR_ASSERT(t, s.SnapshotScrollbackTail(0).empty());
+    s.Feed("app screen");
+    auto lines = s.SnapshotScrollbackTail(0);
+    TR_ASSERT(t, lines.size() == s.GetScrollback()->NumLines());
+    for (auto &line : lines) {
+        TR_ASSERT(t, line->Buffer() != std::u32string(U"app screen"));
+    }
     return kTR_Pass;
 }
 
-// §8.1: the on-disk cap keeps only the last N scrollback lines
+// §8.1: the on-disk cap keeps only the last N lines of history
 DLL_EXPORT int test_terminalscreen_snapshot_caps_tail(ITesting *t) {
     auto oldCap = Config::Instance()["terminal"].GetInt("scrollback_lines", 10000);
     Config::Instance()["terminal"].SetInt("scrollback_lines", 0);   // unlimited in-memory; the cap is on save
@@ -770,11 +777,54 @@ DLL_EXPORT int test_terminalscreen_snapshot_caps_tail(ITesting *t) {
     size_t numLines = s.GetScrollback()->NumLines();
     TR_ASSERT(t, numLines > 3);
 
-    auto lines = s.SnapshotScrollbackTail(3);   // keep only the last 3 scrollback lines
+    auto lines = s.SnapshotScrollbackTail(3);   // keep only the last 3 lines: two from scrollback, "line9" on screen
     TR_ASSERT(t, lines.size() == 3);
-    for (size_t i = 0; i < 3; i++) {
-        TR_ASSERT(t, lines[i]->Buffer() == s.GetScrollback()->LineAt(numLines - 3 + i)->Buffer());
+    for (size_t i = 0; i < 2; i++) {
+        TR_ASSERT(t, lines[i]->Buffer() == s.GetScrollback()->LineAt(numLines - 2 + i)->Buffer());
     }
+    TR_ASSERT(t, lines[2]->Buffer() == std::u32string(U"line9"));
+
+    Config::Instance()["terminal"].SetInt("scrollback_lines", oldCap);
+    return kTR_Pass;
+}
+
+// What is still on screen at exit is history too: the grid's rows up to the cursor follow the scrollback (trailing
+// blank rows dropped), and the cap counts them. On the alternate screen only the scrollback is saved - the grid is
+// the app's. (The Mac repro: `ls -laF`, quit, start again - the listing was gone.)
+DLL_EXPORT int test_terminalscreen_snapshot_includes_screen(ITesting *t) {
+    auto oldCap = Config::Instance()["terminal"].GetInt("scrollback_lines", 10000);
+    Config::Instance()["terminal"].SetInt("scrollback_lines", 0);
+
+    TerminalScreen s;
+    Setup(s, 20, 5);
+    s.Feed("$ ls\r\na.txt\r\nb.txt\r\n$ ");      // fits on screen: nothing has scrolled out
+    TR_ASSERT(t, s.GetScrollback()->NumLines() == 0);
+    auto lines = s.SnapshotScrollbackTail(0);
+    TR_ASSERT(t, lines.size() == 4);
+    TR_ASSERT(t, lines[0]->Buffer() == std::u32string(U"$ ls"));
+    TR_ASSERT(t, lines[2]->Buffer() == std::u32string(U"b.txt"));
+    TR_ASSERT(t, lines[3]->Buffer() == std::u32string(U"$"));
+
+    // Scrollback first, then the screen; the cap keeps the newest
+    s.Feed("\r\nc\r\nd\r\ne\r\n$ ");
+    TR_ASSERT(t, s.GetScrollback()->NumLines() > 0);
+    lines = s.SnapshotScrollbackTail(0);
+    TR_ASSERT(t, lines.front()->Buffer() == std::u32string(U"$ ls"));
+    TR_ASSERT(t, lines.back()->Buffer() == std::u32string(U"$"));
+    auto tail = s.SnapshotScrollbackTail(2);
+    TR_ASSERT(t, tail.size() == 2);
+    TR_ASSERT(t, tail[0]->Buffer() == std::u32string(U"e"));
+
+    // An empty screen adds nothing
+    TerminalScreen empty;
+    Setup(empty, 20, 5);
+    TR_ASSERT(t, empty.SnapshotScrollbackTail(0).empty());
+
+    // Alternate screen: the scrollback only
+    s.Feed(ENTER_ALT);
+    s.Feed("vim screen");
+    lines = s.SnapshotScrollbackTail(0);
+    TR_ASSERT(t, lines.size() == s.GetScrollback()->NumLines());
 
     Config::Instance()["terminal"].SetInt("scrollback_lines", oldCap);
     return kTR_Pass;

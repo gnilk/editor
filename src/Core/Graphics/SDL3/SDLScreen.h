@@ -77,6 +77,8 @@ namespace gedit::SDL3 {
         SDL_Window* window = nullptr;
         // WakeUp's event (registered at init), and whether one is already queued - a burst of posts is one event
         uint32_t wakeEventType = 0;
+        // The part of a notch the wheel has moved but not yet sent (SDL3 reports fractions)
+        float wheelRemainder = 0;
         std::atomic<bool> isWakePending = false;
         SDL_Renderer* renderer = nullptr;
         SDL_Texture* screenAsTexture = nullptr;

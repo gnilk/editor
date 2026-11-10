@@ -25,11 +25,11 @@
 #include "gvt/Input.h"
 
 namespace gedit {
-    struct TerminalSession;   // Core/Session/SessionState.h - the persisted block index + .bin pointer
+    struct TerminalSession;   // Core/Session/SessionState.h - the .bin pointer
 
-    // The pty side of the embedded terminal: shell, local line editing, viewport, blocks. The emulation is
+    // The pty side of the embedded terminal: shell, local line editing, viewport. The emulation is
     // gnilk::vt::Terminal inside TerminalScreen; this class is its host (ITerminalHost) - it writes the terminal's
-    // replies to the pty and turns OSC 133 / OSC 7 into command blocks.
+    // replies to the pty and takes where a command's output starts from OSC 133.
     class TerminalController : public BaseController, IOutputConsole, gnilk::vt::ITerminalHost {
     public:
         TerminalController();
@@ -110,19 +110,6 @@ namespace gedit {
         // shell-prompt path - the backlog equivalent of "go to top".
         void ScrollToTop();
 
-        // Jump-per-block (§5.4): set the anchor to the previous/next command block's startAbsRow,
-        // relative to whatever's currently top-visible (the followBottom window-top, or anchorAbsRow
-        // when already scrolled). Always leaves followBottom == false; clamped to the oldest/newest
-        // block - never walks past either end of screen.Blocks() (which is never empty, TS-1a).
-        void JumpToPrevPrompt();
-        void JumpToNextPrompt();
-
-        // Index into screen.Blocks() of the block "selected" by the viewport (§5.5.2) - the block
-        // containing the top-visible anchor row while scrolled. nullopt when following the bottom (at
-        // the live prompt) or when the anchor falls in no block. Drives the block highlight + action
-        // bar. Assumes screenLock is held (the view holds it; single-threaded tests need none).
-        std::optional<size_t> SelectedBlockIndex() const;
-
         bool OnAction(const EditorAction &kpAction);
         bool ForwardActionToShell(const EditorAction &kpAction);
         void WriteLine(const std::u32string &str) override;
@@ -134,18 +121,9 @@ namespace gedit {
         // without starting a real shell.
         void RegisterAsOutputConsole() { RuntimeConfig::Instance().SetOutputConsole(this); }
 
-        // IOutputConsole (§5.5.3): the viewport-selected block's output joined into one string, or
-        // nullopt when nothing is selected (following the live bottom). Takes screenLock, so it is safe
-        // to call from the JS/main thread while the pty thread mutates the grid. The Terminal JS surface
-        // routes here via RuntimeConfig::OutputConsole().
-        std::optional<std::u32string> GetSelectedBlockText() override;
-
-        // IOutputConsole block-by-id surface (TS-2c): enumerate blocks, resolve one block's output by
-        // id, and the newest block. Each takes screenLock (the pty thread mutates the grid/index). The
-        // JS `Terminal` surface routes here via RuntimeConfig::OutputConsole().
-        std::vector<OutputBlockInfo> GetBlocks() override;
-        std::optional<std::u32string> GetBlockOutputText(uint64_t blockId) override;
-        std::optional<OutputBlockInfo> GetLastBlock() override;
+        // IOutputConsole: the last command's output joined with '\n', or nullopt when there is none. Takes
+        // screenLock - safe from the JS/main thread while the pty thread writes.
+        std::optional<std::u32string> GetLastOutputText() override;
 
         // Scrollback persistence (terminal-scrollback.md §8). Driven by the session orchestrator:
         // Editor::SaveSession calls ToSession (clean-exit only); restore runs inside Begin() before the
@@ -154,18 +132,17 @@ namespace gedit {
         //
         // ToSession snapshots the last `terminal.persist_scrollback_lines` scrollback lines under
         // screenLock, writes them (with ANSI colours) to the .bin OUTSIDE the lock via
-        // TextBuffer::SaveWithAttributes, and fills `out` with the re-based block index. Returns false
+        // TextBuffer::SaveWithAttributes, and names the file in `out`. Returns false
         // (leaving `out` empty) while alt-screen, when scrollback is empty, or on a write failure.
         bool ToSession(TerminalSession &out);
 
         // FromSession loads the .bin (LoadWithAttributes - missing/corrupt -> no-op) and seeds
-        // scrollback+blocks via TerminalScreen::SeedScrollback. MUST be called before shell.Begin().
+        // the scrollback via TerminalScreen::SeedScrollback. MUST be called before shell.Begin().
         void FromSession(const TerminalSession &in);
 
         // gnilk::vt::ITerminalHost - called by the terminal inside HandleTerminalData, screenLock held
         void WriteToPty(std::string_view bytes) override;
         void OnSemanticPrompt(char kind, std::string_view params) override;
-        void OnWorkingDirectory(std::string_view uri) override;
 
     protected:
         void SyncInputLineFromGrid();
@@ -174,11 +151,6 @@ namespace gedit {
         // Default fg/bg and the 16 system colours from the theme's terminal colours (the rest of the
         // 256-colour palette is xterm's). Caller holds screenLock.
         void ApplyThemeColors();
-
-        // Read the grid text spanning [from, to) cell positions, joining wrapped rows and trimming
-        // trailing blanks. Used to recover the typed command from the grid span between OSC 133;B
-        // (command start) and ;C (output start). Assumes screenLock is held.
-        std::u32string ReadGridText(const Point &from, const Point &to) const;
 
         // Encode a keypress as pty bytes (gvt EncodeKey/EncodeText over the current modes) and send it. Used by
         // every passthrough path: an app owns the terminal, or readline owns the line. False for keys that never
@@ -196,8 +168,8 @@ namespace gedit {
         std::filesystem::path ResolveScrollbackBinPath(const std::string &filename) const;
 
         // The abs id of the row currently at the top of the visible window - the followBottom
-        // window-top when pinned to the bottom, or anchorAbsRow itself when already scrolled. Shared
-        // by ScrollViewport and the jump-per-block handlers so they agree on "where we are". Assumes
+        // window-top when pinned to the bottom, or anchorAbsRow itself when already scrolled. Used
+        // by ScrollViewport to know "where we are". Assumes
         // screenLock is already held.
         uint64_t CurrentTopVisibleAbsRow() const;
 
@@ -250,13 +222,9 @@ namespace gedit {
         // grid). Used to read the line back.
         Point promptAnchor = {};
 
-        // OSC 133 shell-integration state (§4.2). Set once the first OSC 133 marker arrives: from then
-        // on the shell brackets its own commands, so the CommitLine heuristic stands down (it would
-        // otherwise double-open against ;C). Read under screenLock in the commit paths. Touched only on
-        // the pty thread inside HandleAnsiCmd (already under screenLock).
+        // OSC 133 shell integration (§4.2). Set once the first OSC 133 marker arrives: from then on the shell
+        // marks where output starts (;C), so the CommitLine guess stands down. Under screenLock.
         bool useOsc133Boundaries = false;
-        // Grid cell recorded at OSC 133;B (command start); ;C reads the typed command from [here..cursor].
-        Point osc133CommandStart = {};
 
         // Viewport state (§5.1) - read/written on the UI thread only (key/mouse handlers); reads of
         // screen.AbsRowCount()/ScrollbackBase() go through screenLock since the pty thread mutates them.

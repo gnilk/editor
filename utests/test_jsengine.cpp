@@ -110,8 +110,8 @@ DLL_EXPORT int test_jsengine_newbuffer(ITesting *t) {
 
 // End-to-end for the TS-2c JS seam: Editor.NewDocumentFromText (a 2-arg const char* method, dukglue-
 // registered) must create a new document AND pre-fill its buffer from the '\n'-split text. This is the
-// back half of the canonical "block to buffer" cmdlet (the front half, Console.GetSelectedBlock, is
-// covered at the controller level by test_terminalcontroller_selected_block_text).
+// back half of "last output to a buffer" (the front half, the terminal's last output, is covered at the
+// controller level by test_terminalcontroller_commitline_marks_output).
 DLL_EXPORT int test_jsengine_newdocumentfromtext(ITesting *t) {
     JSPluginEngine jsEngine;
     jsEngine.Initialize();
@@ -136,24 +136,25 @@ DLL_EXPORT int test_jsengine_newdocumentfromtext(ITesting *t) {
     return kTR_Pass;
 }
 
-// End-to-end for the TS-2c `Terminal` JS surface (the dedicated TerminalAPI/TerminalAPIWrapper). A real
-// TerminalController is registered as the output console so the engine-agnostic TerminalAPI - which
-// reads RuntimeConfig::OutputConsole() - resolves against it. We drive a deterministic CLOSED block
-// (cmd1 -> alpha/beta, closed by committing cmd2), then a plugin script enumerates blocks by id and
-// opens that block as a document. Asserts via the editor side-effect (the new doc's content), since JS
-// return values aren't read back here.
+// A command run in a controller with no shell: the prompt, the commit, then the shell's echo, output and next
+// prompt as if off the pty. Its last output is "alpha\nbeta".
+static void RunCommandWithOutput(TerminalController &controller) {
+    auto feed = [&controller](const std::string &bytes) {
+        controller.HandleTerminalData(reinterpret_cast<const uint8_t *>(bytes.data()), bytes.size());
+    };
+    feed("$ ");
+    controller.GetInputLine()->Append(std::u32string(U"cmd1"));
+    controller.CommitLine();
+    feed("cmd1\r\nalpha\r\nbeta\r\n$ ");
+}
+
+// End-to-end for the `Terminal` JS surface (TerminalAPI/TerminalAPIWrapper). A real TerminalController is
+// registered as the output console so TerminalAPI - which reads RuntimeConfig::OutputConsole() - resolves against
+// it; a plugin script opens the last output as a document. Asserted through the new document's content.
 DLL_EXPORT int test_jsengine_terminalapi(ITesting *t) {
     TerminalController controller;
     controller.Resize(20, 5);
-
-    auto commit = [&](const std::u32string &cmd) {
-        controller.GetInputLine()->Append(cmd);
-        controller.CommitLine();
-    };
-    commit(U"cmd1");
-    controller.WriteLine(U"alpha");
-    controller.WriteLine(U"beta");
-    commit(U"cmd2");   // closes cmd1's block -> [alpha, beta] is fixed
+    RunCommandWithOutput(controller);
 
     auto *prevConsole = RuntimeConfig::Instance().OutputConsole();
     controller.RegisterAsOutputConsole();   // IOutputConsole is a private base; the controller upcasts
@@ -162,11 +163,9 @@ DLL_EXPORT int test_jsengine_terminalapi(ITesting *t) {
     jsEngine.Initialize();
 
     auto numBefore = Editor::Instance().GetDocuments().size();
-    // blocks[0] = loose, blocks[1] = cmd1 (closed), blocks[2] = cmd2 (open tail).
     std::string script = "function main(args) {"\
-    "var blocks = Terminal.GetBlocks();"\
-    "if (blocks.length < 2) { return; }"\
-    "Terminal.OpenBlockAsDocument(blocks[1].id);"\
+    "if (Terminal.GetLastOutput() === null) { return; }"\
+    "Terminal.OpenLastOutputAsDocument();"\
     "}";
     jsEngine.RunScriptOnce(script, {});
 
@@ -185,7 +184,7 @@ DLL_EXPORT int test_jsengine_terminalapi(ITesting *t) {
 }
 
 // The clipboard JS seam: Editor.CopyToClipboard(text) (the general primitive) and
-// Terminal.CopyBlockToClipboard(id) (the block composite). Both land literal text on the paste buffer
+// Terminal.CopyLastOutputToClipboard() (the terminal composite). Both land literal text on the paste buffer
 // (RuntimeConfig clipboard top item, AsText round-tripping the text). The OnUpdate->OS-pasteboard
 // wiring is covered at the clipboard level by test_clipboard_copytext_notifies.
 DLL_EXPORT int test_jsengine_copytoclipboard(ITesting *t) {
@@ -203,19 +202,11 @@ DLL_EXPORT int test_jsengine_copytoclipboard(ITesting *t) {
         TR_ASSERT(t, top->AsText() == std::u32string(U"hello\nworld"));
     }
 
-    // Terminal.CopyBlockToClipboard composite: resolve a block by id -> paste buffer. Same controller-
-    // as-console setup as test_jsengine_terminalapi; cmd1's block is closed (-> [alpha, beta]).
+    // Terminal.CopyLastOutputToClipboard composite: the last output -> paste buffer
     {
         TerminalController controller;
         controller.Resize(20, 5);
-        auto commit = [&](const std::u32string &cmd) {
-            controller.GetInputLine()->Append(cmd);
-            controller.CommitLine();
-        };
-        commit(U"cmd1");
-        controller.WriteLine(U"alpha");
-        controller.WriteLine(U"beta");
-        commit(U"cmd2");   // closes cmd1's block -> [alpha, beta] is fixed
+        RunCommandWithOutput(controller);
 
         auto *prevConsole = RuntimeConfig::Instance().OutputConsole();
         controller.RegisterAsOutputConsole();
@@ -223,9 +214,7 @@ DLL_EXPORT int test_jsengine_copytoclipboard(ITesting *t) {
         JSPluginEngine jsEngine;
         jsEngine.Initialize();
         std::string script = "function main(args) {"\
-        "var blocks = Terminal.GetBlocks();"\
-        "if (blocks.length < 2) { return; }"\
-        "Terminal.CopyBlockToClipboard(blocks[1].id);"\
+        "Terminal.CopyLastOutputToClipboard();"\
         "}";
         jsEngine.RunScriptOnce(script, {});
 

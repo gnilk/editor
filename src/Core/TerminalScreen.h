@@ -7,7 +7,6 @@
 
 #include <array>
 #include <vector>
-#include <deque>
 #include <memory>
 #include <cstdint>
 #include <variant>
@@ -21,14 +20,13 @@
 #include "Core/Point.h"
 #include "Core/TextBuffer.h"
 #include "Core/Line.h"
-#include "Core/Language/LanguageBase.h"
 
 namespace gedit {
     //
     // The embedded terminal's model. The emulation itself - parsing, grid, cursor, modes, alternate screen - is a
     // gnilk::vt::Terminal (src/ext/gvt, docs/terminal-vt.md); this class owns what the EDITOR adds on top of it:
-    // the scrollback history (rows the terminal pushes out at the top, as Lines), the command-block index over it,
-    // the abs-row spine, persistence, and a row cache in resolved colours for the view (GetRow).
+    // the scrollback history (rows the terminal pushes out at the top, as Lines), where the last command's output
+    // starts, the abs-row spine, persistence, and a row cache in resolved colours for the view (GetRow).
     //
     // Not thread-safe; the controller serialises everything under screenLock. Not copyable or movable: the
     // gvt::Terminal holds a reference back to this object as its host.
@@ -75,21 +73,6 @@ namespace gedit {
         // immutable scrollback, a still-live row in the grid, or empty (evicted/out of range).
         using AbsRow = std::variant<std::monostate, Line::Ref, const Row *>;
 
-        // The block index (§3.2 of docs/terminal-scrollback.md): a line-range REFERENCE into the
-        // shared scrollback - it does not own a copy. [startAbsRow, endAbsRow) resolves via RowAtAbs;
-        // endAbsRow == nullopt means the block is still OPEN (the running command, always the tail of
-        // `blocks`, at most one at a time).
-        struct CommandBlock {
-            uint64_t                 id = 0;            // monotonic, never reused
-            std::u32string           command;           // empty for the implicit loose block (§7)
-            uint64_t                 startAbsRow = 0;    // first output row (abs id)
-            std::optional<uint64_t>  endAbsRow;          // exclusive end; nullopt while OPEN
-            std::optional<int>       exitCode;           // set when known (OSC 133;D or a future probe)
-            std::filesystem::path    cwd;                // best-effort, when known
-            enum class Source { kCommitLine, kOsc133, kHeuristic } source = Source::kHeuristic;
-            LanguageBase::Ref        language = nullptr; // optional per-block highlighter (deferred — see docs/syntax-blocks.md)
-        };
-
     public:
         TerminalScreen();
         TerminalScreen(const TerminalScreen &) = delete;
@@ -135,60 +118,21 @@ namespace gedit {
         // The frame from just before the current synchronized update; null when there is none
         const Frame *GetHeldFrame() const;
 
-        // The block index (§3.2/§4 of docs/terminal-scrollback.md). All called under screenLock by the
-        // controller; no-ops while IsAltScreen() (§10 - alt-screen rows are never grouped into blocks).
-        // Every scrollback line belongs to some block (§7) - including a leading, command-less "loose"
-        // block (Source::kHeuristic) that the constructor opens up front, so eviction can always assume
-        // "drop the oldest whole block" rather than ever orphaning lines.
-        void BeginCommandBlock(const std::u32string &command, CommandBlock::Source src);
-        void EndOpenBlock(std::optional<int> exitCode);
-        void SetOpenBlockExit(int code);
-        void SetOpenBlockCwd(const std::filesystem::path &cwd);
-        const std::deque<CommandBlock> &Blocks() const { return blocks; }
-
-        // Resolve a block's output to text, one string per row (TS-2a, §9). Walks [startAbsRow,
-        // endAbsRow) via RowAtAbs - scrollback Lines plus the live grid tail; the OPEN block resolves
-        // up to the live cursor row (endAbsRow defaults to AbsRowCount()). Rows that have been evicted
-        // resolve empty and are skipped (eviction is whole-block per §7, so a retained block is always
-        // complete - this only bites a block caught mid-eviction). Returns empty if no block has the
-        // given id. Pure read; the caller holds screenLock.
-        std::vector<std::u32string> GetBlockOutputText(uint64_t blockId) const;
+        // The last command's output (a stack trace to copy): MarkOutputStart is called when a command is committed -
+        // its output starts on the row below the cursor (the command line) - or, with shell integration, at OSC
+        // 133;C, where it starts on the cursor row. GetLastOutputText is that output, one string per row, up to the
+        // cursor row (the next prompt); empty when there is none, or it has been trimmed or cleared away.
+        void MarkOutputStart(bool isOnCursorRow);
+        std::vector<std::u32string> GetLastOutputText() const;
 
         // --- Persistence (terminal-scrollback.md §8) --------------------------------------------------
-        // One persisted block, with its line range expressed as indices into a ScrollbackSnapshot's
-        // `lines` (NOT abs-row ids). The cross-boundary value type between the model and the session DTO
-        // (TerminalBlockSession): it carries no Phase-4 `language` Ref and never aliases the live grid.
-        struct PersistedBlock {
-            uint64_t                id = 0;
-            std::u32string          command;
-            uint64_t                startLine = 0;          // inclusive, index into ScrollbackSnapshot::lines
-            uint64_t                endLine = 0;            // exclusive
-            std::optional<int>      exitCode;               // nullopt = unknown (open block closed at tail)
-            std::filesystem::path   cwd;
-            CommandBlock::Source    source = CommandBlock::Source::kHeuristic;
-        };
-        struct ScrollbackSnapshot {
-            std::vector<Line::Ref>      lines;              // immutable scrollback lines (with ANSI colours)
-            std::vector<PersistedBlock> blocks;             // ranges re-based into [0, lines.size()]
-        };
+        // The last `maxLines` scrollback lines (0 = all); the live grid is not included. Empty on the alternate
+        // screen (§10). Pure read; the caller holds screenLock.
+        std::vector<Line::Ref> SnapshotScrollbackTail(size_t maxLines) const;
 
-        // Snapshot the last `maxLines` immutable scrollback lines plus the command blocks intersecting
-        // them, each block RE-BASED into the returned slice's index space [0, lines.size()] (§8.1).
-        // maxLines == 0 keeps all scrollback. The live grid is NOT included: the open/running block is
-        // returned closed at the saved tail (its live-grid rows dropped, exitCode left unset). Blocks
-        // lying entirely outside the slice are omitted. Returns an empty snapshot while IsAltScreen()
-        // (§10 - alt-screen history is never persisted) or when nothing has scrolled into scrollback.
-        // Pure read; the caller holds screenLock.
-        ScrollbackSnapshot SnapshotScrollbackTail(size_t maxLines) const;
-
-        // Seed the immutable scrollback + block index from a persisted snapshot, BEFORE the shell starts
-        // producing output (§8.2 - the pty thread writes immediately). Replaces any existing scrollback
-        // (scrollbackBase becomes 0; seeded lines occupy abs ids [0, lines.size())) and the block index.
-        // `seedBlocks` carry re-based line indices in [0, lines.size()]; they are inserted CLOSED and a
-        // fresh OPEN loose block is appended to cover post-restore output (keeps §7's "every scrollback
-        // line belongs to some block"). nextBlockId advances past every seeded id. No-op if `lines` is
-        // empty. Caller holds screenLock; must run before shell.Begin().
-        void SeedScrollback(const std::vector<Line::Ref> &lines, const std::vector<PersistedBlock> &seedBlocks);
+        // Replace the scrollback with persisted lines, BEFORE the shell starts producing output (§8.2 - the pty
+        // thread writes immediately); they take abs ids [0, lines.size()). No-op if `lines` is empty.
+        void SeedScrollback(const std::vector<Line::Ref> &lines);
 
     private:
         // gnilk::vt::ITerminalHost - OnRowScrolledOut feeds scrollback; the rest goes on to `host`
@@ -219,11 +163,8 @@ namespace gedit {
 
         static TextBuffer::Ref MakeScrollbackBuffer();
 
-        // Cap enforcement (§7 of docs/terminal-scrollback.md): "terminal.scrollback_lines" config,
-        // default 10000, 0 = unlimited. Block-granular: evicts the oldest WHOLE block (its lines +
-        // its CommandBlock entry together) so a retained block is always complete - never behead the
-        // oldest surviving block line-by-line. Called right after every scrollback->AddLine() so the
-        // buffer never grows past the cap.
+        // Cap enforcement: "terminal.scrollback_lines" config, default 10000, 0 = unlimited - the oldest lines
+        // go. Called right after every scrollback->AddLine() so the buffer never grows past the cap.
         void TrimScrollbackIfNeeded();
 
     private:
@@ -245,11 +186,8 @@ namespace gedit {
         // grid. Read-only, no language attached (plain ANSI-colored lines, no async tokenizer).
         TextBuffer::Ref scrollback;
         uint64_t scrollbackBase = 0;   // abs id of scrollback line 0 (bumped on eviction, §7)
-
-        // Block index (§3.2) - deque so the oldest pops cheaply on eviction. At most one open block
-        // (endAbsRow == nullopt) at the tail. Never empty: the ctor opens the initial loose block.
-        std::deque<CommandBlock> blocks;
-        uint64_t nextBlockId = 0;
+        // Abs id of the first row of the last command's output (MarkOutputStart)
+        std::optional<uint64_t> lastOutputStart;
 
     };
 }

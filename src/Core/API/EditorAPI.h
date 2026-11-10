@@ -32,7 +32,7 @@ namespace gedit {
         DocumentAPI::Ref GetActiveDocument();
         DocumentAPI::Ref NewDocument(const char *name);
         // Like NewDocument, but pre-fills the new buffer from 'text' (split on '\n'). The seam that
-        // lets a plugin drop a terminal block's output - Console.GetSelectedBlock() - into a fresh,
+        // lets a plugin drop the terminal's last output - Terminal.GetLastOutput() - into a fresh,
         // editable document (terminal-scrollback §5.5.3 / §9).
         DocumentAPI::Ref NewDocumentFromText(const char *name, const char *text);
         DocumentAPI::Ref LoadDocument(const char *filename);
@@ -43,7 +43,7 @@ namespace gedit {
 
         // Put literal text onto the system clipboard / paste buffer (forwarded to the OS pasteboard so
         // it pastes in other apps too). The string->clipboard seam, parallel to NewDocumentFromText -
-        // lets a plugin drop e.g. a terminal block's output (Terminal.GetSelectedBlock()) onto the
+        // lets a plugin drop e.g. the terminal's last output (Terminal.GetLastOutput()) onto the
         // paste buffer.
         void CopyToClipboard(const char *text);
 

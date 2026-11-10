@@ -30,8 +30,6 @@ namespace gedit {
 
         // Jump-per-block (docs/terminal-scrollback.md §5.4) - terminal-only today, but toolkit-owned
         // since it's a navigation intent like the rest of this set.
-        kUIActionPrevPrompt,
-        kUIActionNextPrompt,
 
         // View management - handled by the toolkit itself.
         kUIActionCycleActiveView,

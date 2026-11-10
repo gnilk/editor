@@ -262,7 +262,15 @@ monitor + #6). Plan + work items: [`folder-scanner.md`](done/folder-scanner.md).
 
 ---
 
-## Terminal scrollback + command blocks — Phases 0–3 + 5 ✅ (Phase 4 deferred)
+## Terminal scrollback + command blocks — Phases 0–3 + 5 ✅ (Phase 4 deferred) — blocks REMOVED 2026-11-10
+
+> **2026-11-10, owner's call: command blocks are gone** (branch `feat/gvt`). Never used in practice, and the
+> selected-block highlight jumping between short blocks made wheel-scrolling flicker. What is left is plain
+> scrollback (line-granular trim and persistence, `session.yml` keeps only the `.bin` name) plus one marker -
+> where the last command's output starts (`TerminalScreen::MarkOutputStart`, set at commit or OSC 133;C) - for
+> `Terminal.GetLastOutput / OpenLastOutputAsDocument / CopyLastOutputToClipboard` (a stack trace to copy). Removed:
+> `CommandBlock`, block eviction/persistence, the highlight, end-of-block rules, Alt+Up/Down prompt jumps, OSC 7
+> cwd, the block JS API and the `blocktobuffer`/`blocktoclipboard` plugins. The text below is history.
 
 Resolved [`open-bugs.md`](open-bugs.md) #10 ("missing scrollback") and built the *grouping* + downstream
 + persistence infrastructure on top of it. The scrollback buffer already existed; the bug was that the

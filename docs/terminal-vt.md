@@ -352,6 +352,10 @@ Decisions made while building it:
   `OnClearScrollback`; the editor drops its scrollback and the command blocks wholly inside it (owner's call).
 - **Buffer switching goes to the app** (owner's call): Alt+Left/Right and Alt+1..9 are not in the escape hatch, so
   readline's Alt+arrow word motion and tmux/irssi Alt+N work. Cmd+N (macOS) still switches; else Alt+E first.
+- **Command blocks removed** (owner's call, 2026-11-10): plain scrollback plus one "where the last command's output
+  starts" marker (commit, or OSC 133;C) behind `Terminal.GetLastOutput()` and friends - see `work-log.md`. The
+  wheel scroll stops at the newest full page instead of showing a part-empty one and snapping; SDL3 adds up the
+  fractional wheel deltas a trackpad sends.
 - **Alt+Left/Right encoding** (owner's call, `terminal.alt_arrows: words | xterm`): `words` sends ESC b / ESC f -
   readline's word motion, what Terminal.app/iTerm2 send (Python's PyREPL binds only these and Ctrl+arrows);
   `xterm` sends CSI 1;3D / 1;3C. Unset: words on macOS, xterm on Linux - so a Linux-habit user on the Mac can opt

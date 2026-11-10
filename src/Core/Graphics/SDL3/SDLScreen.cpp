@@ -493,7 +493,14 @@ void SDLScreen::PollEvents() {
                 MouseEvent me;
                 me.kind = MouseEvent::kMouseEventKind_Wheel;
                 SetMousePosition(me, event.wheel.mouse_x, event.wheel.mouse_y);
-                me.wheelDelta = (int)event.wheel.y;
+                // A trackpad / Magic Mouse reports fractions of a notch: add them up and send whole notches, or a
+                // slow scroll does nothing and a fast one jumps
+                wheelRemainder += event.wheel.y;
+                me.wheelDelta = (int)wheelRemainder;
+                wheelRemainder -= (float)me.wheelDelta;
+                if (me.wheelDelta == 0) {
+                    break;
+                }
                 me.modifiers = keyDriver->TranslateModifiers(SDL_GetModState());
                 Runloop::PostMessage(0, [me](uint32_t) {
                     Runloop::ProcessMouseEvent(me);

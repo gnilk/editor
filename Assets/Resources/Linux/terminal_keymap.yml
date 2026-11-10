@@ -15,7 +15,5 @@ keymap: {
     ShellCompletion: KeyCode_Tab,
     NavigateHome: KeyCode_Ctrl + KeyCode_Home,
     NavigateEnd: KeyCode_Ctrl + KeyCode_End,
-    NavigatePrevPrompt: KeyCode_Alt + KeyCode_UpArrow,
-    NavigateNextPrompt: KeyCode_Alt + KeyCode_DownArrow,
   }
 }

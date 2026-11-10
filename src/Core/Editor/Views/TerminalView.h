@@ -62,9 +62,6 @@ namespace gedit {
         gnilk::ILogger *logger = nullptr;
         // Cached from config ("terminal.lines_per_scroll_wheel_notch") in InitView/ReInitView.
         int linesPerScrollWheelNotch = 3;
-        // Cached from config ("terminal.show_block_markers"): draw a separator rule at the end of
-        // each closed command block (§5.5 of docs/terminal-scrollback.md). Off by default.
-        bool showBlockMarkers = false;
         // Grid row drawn on view row 0 while an app owns the terminal (set by the draw, read by mouse reporting):
         // grid y = view y + this. 0 on the alternate screen; a foreground job is drawn bottom-anchored.
         int gridRowAtViewTop = 0;

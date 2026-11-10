@@ -81,11 +81,12 @@ if (GEDIT_BUILD_ANSI)
 endif()
 
 # ---------------------------------------------------------------------------
-# gvt — terminal emulation library (streaming VT parser; screen model to come).
-# Standalone like gansi; tests are `gvttests` (built on demand, libvterm oracle
-# when installed). Not linked into goatedit yet - see docs/terminal-vt.md VT-7.
+# gvt — terminal emulation library (streaming VT parser + screen model) behind the
+# embedded terminal (TerminalScreen). Standalone like gansi; tests are `gvttests`
+# (built on demand, libvterm oracle when installed). docs/terminal-vt.md.
 # ---------------------------------------------------------------------------
 add_subdirectory(src/ext/gvt)
+list(APPEND extlibs gvt)
 
 set(CUR_TARGET goatedit)
 
@@ -368,7 +369,6 @@ list(APPEND coresrc src/Core/Rect.h)
 list(APPEND coresrc src/Core/UndoHistory.cpp src/Core/UndoHistory.h)
 
 # Terminal emulation
-list(APPEND coresrc src/Core/VTermParser.cpp src/Core/VTermParser.h)
 list(APPEND coresrc src/Core/TerminalScreen.cpp src/Core/TerminalScreen.h)
 list(APPEND coresrc src/Core/TerminalCmdHistory.cpp src/Core/TerminalCmdHistory.h)
 list(APPEND coresrc src/Core/UnicodeHelper.cpp src/Core/UnicodeHelper.h)
@@ -631,7 +631,6 @@ list(APPEND utestsrc utests/test_unicode.cpp)
 list(APPEND utestsrc utests/test_vnav.cpp)
 list(APPEND utestsrc utests/test_terminalscreen.cpp)
 list(APPEND utestsrc utests/test_terminalcontroller.cpp)
-list(APPEND utestsrc utests/test_vtermparser.cpp)
 list(APPEND utestsrc utests/test_workspace.cpp)
 list(APPEND utestsrc utests/test_folderscanner.cpp)
 list(APPEND utestsrc utests/test_foldermonitor.cpp)

@@ -286,35 +286,42 @@ void TerminalView::DrawViewContents() {
     cursor.position.x = controller.GetCursorXPos();
 }
 
+// Colour runs: consecutive cells with the same fg, bg and attributes are one draw call, which also paints the
+// run's background (cell backgrounds, inverse) and its underline / strike-through.
 void TerminalView::DrawScreenRow(DrawContext &dc, const TerminalScreen::Row &row, int y) {
     if (row.empty()) {
         return;
     }
-    // Render as colour runs: consecutive cells with the same fg+bg are batched into one draw call
+    auto toTextAttributes = [](uint8_t attrs) {
+        auto result = kTextAttributes::kNormal;
+        if (attrs & TerminalScreen::kAttrBold)      { result = result | kTextAttributes::kBold; }
+        if (attrs & TerminalScreen::kAttrItalic)    { result = result | kTextAttributes::kItalic; }
+        if (attrs & TerminalScreen::kAttrUnderline) { result = result | kTextAttributes::kUnderline; }
+        if (attrs & TerminalScreen::kAttrStrike)    { result = result | kTextAttributes::kStrikethrough; }
+        return result;
+    };
+
     int xStart = 0;
     std::u32string run;
-    ColorRGBA runFg = row[0].fg;
-    ColorRGBA runBg = row[0].bg;
+    const TerminalScreen::Cell *runCell = &row[0];
 
     auto flush = [&](int upToX) {
         if (run.empty()) {
             return;
         }
-        dc.SetColor(runFg, runBg);
-        dc.DrawStringAt(xStart, y, run);
+        dc.SetColor(runCell->fg, runCell->bg);
+        dc.DrawStringWithAttributesAt(xStart, y, toTextAttributes(runCell->attrs), run);
         run.clear();
         xStart = upToX;
     };
 
     for (int x = 0; x < (int)row.size(); x++) {
-        if (row[x].fg == runFg && row[x].bg == runBg) {
-            run += row[x].ch;
-        } else {
+        const auto &cell = row[x];
+        if ((cell.fg != runCell->fg) || (cell.bg != runCell->bg) || (cell.attrs != runCell->attrs)) {
             flush(x);
-            runFg = row[x].fg;
-            runBg = row[x].bg;
-            run += row[x].ch;
+            runCell = &cell;
         }
+        run += (cell.ch != 0) ? cell.ch : U' ';   // a wide character's right half
     }
     flush((int)row.size());
 }

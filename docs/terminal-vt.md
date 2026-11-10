@@ -226,7 +226,7 @@ oracle suite green modulo the documented allowlist.
 
 ## 7. Status and pick-up notes
 
-### Done (VT-0..VT-6, branch `feat/gvt`)
+### Done (VT-0..VT-7, branch `feat/gvt`)
 
 - `src/ext/gvt/`: CMake (standalone + `add_subdirectory` from the editor), `Parser`, `IParserSink`, `README.md`.
   Not linked into `goatedit` yet.
@@ -269,6 +269,27 @@ oracle suite green modulo the documented allowlist.
   **All six fixtures (incl. `dialog_menu` with CJK + emoji) now match libvterm** - text, attributes, colours (foreground
   where visible), widths, cursor, alt flag, scrollback. Found on the way: `?1049l` on the primary screen must still
   restore the cursor (dialog relies on it). `gvttests`: 62 green.
+- **VT-7 editor switch-over.** `gvt` linked into goatedit/utests/gedit-bench (`extlibs`). `TerminalScreen` owns a
+  `gvt::Terminal` (private `ITerminalHost`): `OnRowScrolledOut` -> scrollback `Line`s (+ block-granular trim); the rest
+  is forwarded to `SetHost` (the controller). `GetRow` serves a resolved-colour row cache (default fg/bg + 256 palette:
+  xterm's, first 16 from the theme's terminal colours `"0".."15"` when present; inverse/hidden applied; `width` on
+  the editor `Cell`), invalidated on Feed/Resize/colour change and before each host callback (OSC 133;C reads the
+  grid mid-feed). Step API (`PutChar`, `SetCursorPos`, `SaveScreen`, ...) removed - content is fed as bytes.
+  Degenerate `Resize` is ignored (Cols/Rows report 0, nothing lost); output before the first Resize is kept (80x24
+  working size). Alt-screen rows never reach scrollback (no more swapped alt scrollback). `TerminalController`:
+  `HandleTerminalData` = lock + `screen.Feed` (one persistent parser: TE-1 split bug gone); `WriteToPty` ->
+  `shell.WriteBytes`; `OnSemanticPrompt` / `OnWorkingDirectory` replace the OSC 133/7 cases of `HandleAnsiCmd`;
+  DECCKM read from `GetModes()` into an atomic; `WriteLine` feeds UTF-8 (`\n` breaks lines, other controls ->
+  U+FFFD). `TerminalView::DrawScreenRow` batches by fg/bg/attrs and draws with `DrawStringWithAttributesAt` - cell
+  **backgrounds, inverse, underline, strike now render** (the old path never painted backgrounds). `VTermParser`,
+  `HandleAnsiCmd`, the colour table and `test_vtermparser` deleted.
+  Tests: `terminalscreen` rewritten to bytes (38 green, 6 new: split sequence, palette, inverse, wide, host,
+  before-resize); `terminalcontroller` unchanged (23/24 - `config_consolidated` fails before and after, config
+  issue, not the terminal); verified-green set 633/633.
+  GUI check (Linux, SDL2): banner, coloured prompt, `ls --color`, SGR bold/inverse/underline/256, vim (alt screen,
+  syntax colours, Ctrl-D scrolling, back to an intact shell), dialog backgrounds and line drawing, `seq` scrollback.
+  Behaviour changes to know: SGR 30-37 now give the normal colours (the old code always mapped them to the bright
+  8-15); HT only moves the cursor (xterm) instead of painting blanks.
 
 Decisions made while building it:
 - **Malformed CSI** (`CSI 1?2h`, `CSI 1$2p`): ignored up to the final byte (Williams `csi_ignore`, as xterm,
@@ -300,13 +321,22 @@ brew install libvterm pkg-config          # without them the oracle module is sk
 git fetch && git checkout feat/gvt
 cmake --preset debug                       # or reconfigure an existing build dir
 cmake --build cmake-build-debug --target gvttests
-cd cmake-build-debug && trun --sequential ./libgvttests.dylib     # expect 62 executed, 0 failed
+cd cmake-build-debug && trun --sequential ./libgvttests.dylib     # expect 62 executed, 0 failed (editor: verified-green set 633)
 ```
 
 Not yet verified on macOS: the build, the oracle with Homebrew's libvterm, the fixture copy step.
 
-### Next: VT-7 (editor switch-over)
+### Next: VT-8 (input + passthrough policy), VT-9 (rendering)
 
-`TerminalScreen` keeps scrollback, blocks, abs-row spine and persistence; its grid half becomes a `gvt::Terminal`
-with a resolved-colour row cache for the view; `TerminalController` implements `ITerminalHost` (pty replies, OSC
-133/7); `VTermParser` + `HandleAnsiCmd` go.
+Seen in the GUI check, both pre-existing (same with the old parser):
+- **Apps that draw on the primary screen** (dialog leaves the alt screen right after entering it and paints the
+  primary): the view stays in shell mode - bottom-anchored with scrollback above, last row is the local input line -
+  and keys go to local line editing, so arrows never reach the app. VT-8's passthrough decision must not hinge on
+  `IsAltScreen()` alone: foreground-job detection (`tcgetpgrp(amaster) != shell pid`), or app-ish modes (DECCKM,
+  mouse tracking, bracketed paste off) as hints; the view then draws the full grid.
+- **CJK / emoji show as blanks**: the model is right (two cells, gap preserved) but Andale Mono has no such glyphs.
+  VT-9: font fallback in `SDLFontManager` and drawing a width-2 glyph across both cells (SDL2 + SDL3 + gansi).
+- Bold is carried to the draw call (`kTextAttributes::kBold`) but the SDL backends may not render it; dim, blink,
+  overline and underline colour/style are in the model and not drawn yet (VT-9).
+- Cursor visibility/shape (`IsCursorVisible`, `GetModes().cursorShape`) and synchronized output
+  (`gvt::Terminal::IsSynchronizedUpdate`) are exposed but unused by the view (VT-9).

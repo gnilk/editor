@@ -69,8 +69,8 @@ cd cmake-build-debug && trun -l ./libutests.so                     # list
 
 Test source files live in `utests/`. Each `test_<module>.cpp` corresponds to one module; `test_main.cpp` initializes the editor singleton for all tests. Test functions are `extern "C"` (or `DLL_EXPORT`) and discovered by exported symbol name — adding a new case is just a new function (+ a forward declaration where the file uses one).
 
-**Verified-green set** (606 tests, run from `cmake-build-debug/`):
-`trun -m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,vtermparser,keymapping,hexprojection,bytestream,hexview,indent,session,markdown,folderscanner,foldermonitor,treeview,textbuffer,mouseclicktracker,wrapprojection,config,modal,find,codeindex,themeimport,exclusion,process,gitstatus,reload,openfiles --sequential ./libutests.so`
+**Verified-green set** (633 tests, run from `cmake-build-debug/`):
+`trun -m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,keymapping,hexprojection,bytestream,hexview,indent,session,markdown,folderscanner,foldermonitor,treeview,textbuffer,mouseclicktracker,wrapprojection,config,modal,find,codeindex,themeimport,exclusion,process,gitstatus,reload,openfiles --sequential ./libutests.so`
 
 **Terminal library tests** are a separate trun lib, `gvttests` (`src/ext/gvt`, built on demand):
 `cmake --build cmake-build-debug --target gvttests && cd cmake-build-debug && trun --sequential ./libgvttests.so`.
@@ -163,8 +163,8 @@ What a project root leaves out has one owner, `ExclusionRules` (`src/Core/FileSy
 and shared with the scanner, monitor and code index: `workspace.exclude` is hard (never touched), `.gitignore` is
 soft (dimmed in the tree, a frontier until expanded, skipped by index and monitor). YAML-based config loaded by `Config` singleton. `ConfigNode` provides typed access. `Theme` loads `.theme.yml` files. Runtime defaults are in `Assets/Resources/config.yml`. System assets are found **relative to the executable**, exactly one directory (`InstallPaths`: `--asset-dir`, `<exedir>/resources`, `<exedir>/../SharedSupport`, `<exedir>/../share/goatedit`, then `$XDG_DATA_DIRS/goatedit`) - never the cwd; see `docs/install-layout.md` (also `scripts/install.sh --user|--system|--uninstall`). A **user config** is merged at startup (`$XDG_CONFIG_HOME/goatedit` = `~/.config/goatedit` on both platforms, preferred/written; legacy `~/.goatedit` still read, with a log warning; `~/.local/share/goatedit` is NOT a user dir - it's the per-user install's system assets), then a **project config** `<root>/.goatedit/config.yml` (root resolved up front by `Editor::ResolveProjectDir`; keys that run commands/code — terminal shell/init/bootstrap, bootstrap scripts, plugin dir, logfile — are stripped by `ProjectConfigPolicy`). `--skip-user-config` skips both. `.cfg` (`ConfigAPI`) reads/writes the user/project files; writes go through `ConfigFilePatcher` (in-place text edit, comments preserved, NO yaml-cpp round-trip - yaml-cpp drops all comments). Logger sink is `logsink: filesink` → `~/.local/state/goatedit/goatedit.log` (Linux; macOS `~/Library/Logs/GoatEdit`) (only bootstrap lines reliably land there; SDL/runtime debug logs are flaky — prefer stderr instrumentation or ASan over the logfile when debugging).
 
-### Terminal Emulation (`src/Core/TerminalScreen.{h,cpp}`, `VTermParser.{h,cpp}`; replacement in `src/ext/gvt`, see `docs/terminal-vt.md`)
-`TerminalScreen` is a `cols × rows` cell grid (per-cell fg/bg/attrs) + scrollback + pen state + a single `isAltScreen` flag. `VTermParser` parses the pty byte stream into a command list; `TerminalController::HandleAnsiCmd` applies them to the grid. The pty is read on a **separate thread** (`Shell::ConsumePty`) that mutates `TerminalScreen` under `TerminalController::screenLock` — **every path that mutates the grid (including `Resize`) must hold that lock.** `Shell` installs **no signal handlers**: the shell's end is the pty read failing (`EIO`). A `SIGCHLD` handler fires for *any* child of the editor (`git status` via `Process`) and once stopped the reader on Linux - commands still ran, nothing was shown (`test_process_shellsurvives`).
+### Terminal Emulation (`src/ext/gvt` + `src/Core/TerminalScreen.{h,cpp}`; plan and status `docs/terminal-vt.md`)
+The emulation is the standalone **gvt** library (`gnilk::vt`): `Parser` (Williams state machine, streaming - split reads are fine) -> `Terminal` (grid, cursor, pending wrap, scroll region, SGR, alt screen, wide chars, replies) -> `ITerminalHost` callbacks. Tested on its own (`gvttests`, against libvterm). `TerminalScreen` owns a `gvt::Terminal` and keeps the EDITOR's parts: scrollback (fed by `OnRowScrolledOut`), command blocks, abs-row spine, persistence, and a resolved-colour row cache (`GetRow`; inverse/hidden applied, a wide char's right half is `width 0`, `ch 0`). `TerminalController` is the host: `WriteToPty` (DA/DSR/... replies), `OnSemanticPrompt` (OSC 133 blocks), `OnWorkingDirectory` (OSC 7). The pty is read on a **separate thread** (`Shell::ConsumePty`) that feeds `TerminalScreen` under `TerminalController::screenLock` — **every path that touches the screen (including `Resize`) must hold that lock.** `Shell` installs **no signal handlers**: the shell's end is the pty read failing (`EIO`). A `SIGCHLD` handler fires for *any* child of the editor (`git status` via `Process`) and once stopped the reader on Linux - commands still ran, nothing was shown (`test_process_shellsurvives`).
 
 ### Platform-Specific
 - Linux: `src/Core/Linux/LinuxFolderMonitor.cpp`
@@ -274,14 +274,12 @@ Docs live under `docs/`. Two are *active references* — check them before touch
   rows below the cursor are blank padding the view never shows. Anything that preserves content across
   a resize must anchor to the cursor (`contentRows = min(gridRows, cursor.y+1)`), not blindly keep the
   bottom N rows.
-- **A threaded model's dimension fields must track its buffer.** `TerminalScreen::cols/rows` must equal
-  the real grid dimensions at all times, because the pty-reader thread's grid mutators guard on
-  `cols==0||rows==0`. Leaving them non-zero/negative while the grid is empty lets a write land in freed
-  memory (heap UAF). When emptying the grid, zero the dimensions too.
-- **ANSI/VT parsing gotchas:** CSI parameter MODIFIER bytes `< = > ?` (0x3c–0x3f) sit in the parameter
-  byte range but are NOT numeric — never `stoi` them; skip during param collection (`?` also flags a
-  private sequence). Guard every grid mutation against a 0×0 screen (sequences arrive before the first
-  `Resize`).
+- **A threaded model's dimension fields must track its buffer.** The old `TerminalScreen` emptied its grid on a
+  0x0 resize while the pty thread kept writing - a heap UAF. The cure in the gvt design: the grid is never
+  emptied (min 1x1; a degenerate size is ignored), so there is no state where size and buffer disagree.
+- **VT parsing/emulation lives in gvt, not the editor.** A terminal behaviour fix goes into `src/ext/gvt` with a
+  `gvttests` case (and, where libvterm differs on purpose, a `kScreenDivergences` entry with the reason).
+  `TerminalScreen` is never 0x0 underneath: a degenerate `Resize` is ignored and only `Cols()/Rows()` report 0.
 - **JS API layer pattern:** to expose a new C++ capability to JS, add the method to `EditorAPI` (or the
   relevant `*API`), mirror it in the `*APIWrapper` (wrapping in the `Wrapper::Ref` type), register it in
   `RegisterModule` via `dukglue_register_method`, and update the `.js` script. `NewDocument` /

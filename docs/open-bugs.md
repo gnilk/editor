@@ -197,9 +197,9 @@ grid - a wrapped long line or a visible completion menu can garble it; test both
   `EditorView.cpp:284`; `HexView.cpp:249`; `SDL3/SDLScreen.cpp` `CreateWindow` (its `window` parameter);
   `SDL3/SDLWindow.cpp:212`; `Index/CPPStructureScanner.h:119` (a header - repeats in every file including it);
   `Theme/Theme.cpp:67`, `:75`.
-- `-Wshadow`, a local hiding a local (2): `KeyMapping.cpp:372`, `VTermParser.cpp:100`.
-- `-Wmissing-field-initializers` (9): `Index/CPPStructureScanner.cpp` 488, 533, 539, 582, 594, 601 (`name`);
-  `VTermParser.cpp` 318, 323, 328 (`strParam`) - aggregate initialisers leaving the last field out.
+- `-Wshadow`, a local hiding a local (1): `KeyMapping.cpp:372`.
+- `-Wmissing-field-initializers` (6): `Index/CPPStructureScanner.cpp` 488, 533, 539, 582, 594, 601 (`name`) -
+  aggregate initialisers leaving the last field out.
 - One each: `-Winconsistent-missing-override` `macOS/MacOSKBEmulator.h:17` (`Initialize`); `-Wformat-pedantic`
   `Language/LangToken.cpp:103` (an enum through `%d`); `-Wunused-function` `unix/Shell.cpp:38` (`signal_handler`).
 - Not ours, leave: `stb_image.h` (two unused functions), gnklog's `LogManager.cpp:318` (`-Wunused-result`).

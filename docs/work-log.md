@@ -340,7 +340,8 @@ drop both Gansi stopgaps. SDL/JS/serialization unchanged (alpha ≤ 1 ⇒ no wra
 - **Terminal emulation library `gvt`** (2026-11-09) — rewrite `VTermParser` as a Williams streaming state
   machine and move parser + screen model into a standalone `src/ext/gvt` library (like `gansi`), driven through
   `IParserSink` / `ITerminalHost` interfaces; libvterm as a test-only oracle, libghostty as reading reference
-  (no Zig dependency). VT-0..VT-4 done on `feat/gvt` (parser, Ghostty vectors, libvterm oracle, fixtures, `Terminal` screen core, SGR).
+  (no Zig dependency). VT-0..VT-7 done on `feat/gvt`: parser, screen model, SGR, replies/OSC, wide chars (all six fixtures match
+  libvterm), and the editor switch-over - `TerminalScreen` runs on `gvt::Terminal`, `VTermParser` is gone.
   Work packages VT-0..VT-10: [`terminal-vt.md`](terminal-vt.md). Gap analysis it builds on
   (the claude capture, TE items): [`terminal-enhancements.md`](terminal-enhancements.md).
 - **Per-block syntax highlighting** — extracted from the terminal-scrollback effort (was its "Phase 4").

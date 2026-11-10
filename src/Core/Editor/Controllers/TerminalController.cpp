@@ -34,26 +34,6 @@ static TerminalScreen::CommandBlock::Source IntToSource(int v) {
     }
 }
 
-// 256-colour palette — first 16 entries from kitty, rest initialised in InitializeColorTable()
-static ColorRGBA FG_BG_256[256] = {
-    ColorRGBA::FromRGB(0x00, 0x00, 0x00),   // 0
-    ColorRGBA::FromRGB(0xcd, 0x00, 0x00),   // 1
-    ColorRGBA::FromRGB(0x00, 0xcd, 0x00),   // 2
-    ColorRGBA::FromRGB(0xcd, 0xcd, 0x00),   // 3
-    ColorRGBA::FromRGB(0x00, 0x00, 0xee),   // 4
-    ColorRGBA::FromRGB(0xcd, 0x00, 0xcd),   // 5
-    ColorRGBA::FromRGB(0x00, 0xcd, 0xcd),   // 6
-    ColorRGBA::FromRGB(0xe5, 0xe5, 0xe5),   // 7
-    ColorRGBA::FromRGB(0x7f, 0x7f, 0x7f),   // 8
-    ColorRGBA::FromRGB(0xff, 0x00, 0x00),   // 9
-    ColorRGBA::FromRGB(0x00, 0xff, 0x00),   // 10
-    ColorRGBA::FromRGB(0xff, 0xff, 0x00),   // 11
-    ColorRGBA::FromRGB(0x5c, 0x5c, 0xff),   // 12
-    ColorRGBA::FromRGB(0xff, 0x00, 0xff),   // 13
-    ColorRGBA::FromRGB(0x00, 0xff, 0xff),   // 14
-    ColorRGBA::FromRGB(0xff, 0xff, 0xff),   // 15
-};
-
 // OSC 133 shell-integration prompt hooks (TS-3c, §4.2), injected into the shell bootstrap when
 // terminal.shell_integration is on. Emits ;A (prompt start) / ;B (command start) around the prompt,
 // ;C (output start) before each command runs, and ;D;<exit> (command end) at the next prompt - the
@@ -84,19 +64,8 @@ static std::vector<std::string> BuildShellIntegrationBootstrap(const std::string
     };
 }
 
-void TerminalController::InitializeColorTable() {
-    const uint8_t valuerange[6] = {0x00, 0x5f, 0x87, 0xaf, 0xd7, 0xff};
-    uint8_t j = 16;
-    for (uint8_t i = 0; i < 216; i++, j++) {
-        auto r = valuerange[(i / 36) % 6];
-        auto g = valuerange[(i / 6)  % 6];
-        auto b = valuerange[i % 6];
-        FG_BG_256[j] = ColorRGBA::FromRGB(r, g, b);
-    }
-    for (uint8_t i = 0; i < 24; i++, j++) {
-        uint8_t v = 8 + i * 10;
-        FG_BG_256[j] = ColorRGBA::FromRGB(v, v, v);
-    }
+TerminalController::TerminalController() {
+    screen.SetHost(this);
 }
 
 void TerminalController::Begin() {
@@ -107,8 +76,6 @@ void TerminalController::Begin() {
 
     inputLine = std::make_shared<Line>();
     inputCursor.position.x = 0;
-
-    InitializeColorTable();
 
     shell.SetOutputDelegate([this](const uint8_t *buffer, size_t length) {
         HandleTerminalData(buffer, length);
@@ -282,63 +249,29 @@ void TerminalController::Resize(int cols, int rows) {
     if (cols == screen.Cols() && rows == screen.Rows()) {
         return;
     }
-    auto termColors = Editor::Instance().GetTheme()->GetTerminalColor();
     std::lock_guard<std::mutex> guard(screenLock);
-    // SetDefaultColors first so blank cells created by Resize get the right colors
-    screen.SetDefaultColors(termColors.GetColor("foreground"), termColors.GetColor("background"));
+    ApplyThemeColors();
     screen.Resize(cols, rows);
     shell.SetWindowSize(cols, rows);
 }
 
+void TerminalController::ApplyThemeColors() {
+    auto &termColors = Editor::Instance().GetTheme()->GetTerminalColor();
+    screen.SetDefaultColors(termColors.GetColor("foreground"), termColors.GetColor("background"));
+    auto palette = TerminalScreen::DefaultPalette();
+    for (int i = 0; i < 16; i++) {
+        auto name = std::to_string(i);
+        if (termColors.HasColor(name)) {
+            palette[i] = termColors.GetColor(name);
+        }
+    }
+    screen.SetPalette(palette);
+}
+
 void TerminalController::HandleTerminalData(const uint8_t *buffer, size_t length) {
-    VTermParser vtParser;
-    auto stripped = vtParser.Parse(buffer, length);
-    auto &cmdBuffer = vtParser.LastCmdBuffer();
-
     std::lock_guard<std::mutex> guard(screenLock);
-
-    size_t idxCmd = 0;
-    for (size_t i = 0; i < stripped.size(); i++) {
-        // Apply all commands whose position falls at this character
-        while (idxCmd < cmdBuffer.size() && cmdBuffer[idxCmd].idxString == i) {
-            HandleAnsiCmd(cmdBuffer[idxCmd]);
-            idxCmd++;
-        }
-
-        auto ch = static_cast<uint8_t>(stripped[i]);
-        if (ch == 0x08) {
-            // Backspace is non-destructive: it only moves the cursor left. readline
-            // erases by sending "\b \b" (left, space-over, left), so the actual blanking
-            // is done by the space; we just must not drop the \b or the cursor desyncs.
-            screen.MoveCursor(-1, 0);
-        } else if (ch == 0x09) {
-            // Raw TAB: advance to the next tab stop. Dropping it (the old behaviour) fused
-            // multi-column shell output - e.g. BSD `ls` pads between columns with tabs (open-bugs #11).
-            screen.Tab();
-        } else if (ch == 0x0a) {
-            screen.NewLine();
-        } else if (ch == 0x0d) {
-            screen.CarriageReturn();
-        } else if (ch >= 0x20 && ch < 0x7f) {
-            screen.PutChar(static_cast<char32_t>(ch));
-        } else if (ch >= 0x80) {
-            std::u32string u32;
-            int n = UnicodeHelper::ConvertUTF8ToUTF32Char(
-                u32, reinterpret_cast<const uint8_t *>(&stripped[i]), stripped.size() - i);
-            if (n > 0) {
-                for (auto c : u32) {
-                    screen.PutChar(c);
-                }
-                i += (n - 1);
-            } else {
-                screen.PutChar(U'.');
-            }
-        }
-    }
-    // Drain any trailing commands
-    while (idxCmd < cmdBuffer.size()) {
-        HandleAnsiCmd(cmdBuffer[idxCmd++]);
-    }
+    screen.Feed(buffer, length);
+    cursorKeyAppMode = screen.GetModes().isCursorKeysApp;
 
     // While the shell owns the line (completion in progress), mirror what readline
     // has echoed back into our local inputLine so the model stays truthful.
@@ -371,7 +304,9 @@ void TerminalController::SyncInputLineFromGrid() {
 
     std::u32string lineText;
     for (int x = start; x < end; x++) {
-        lineText += row[x].ch;
+        if (row[x].width != 0) {
+            lineText += row[x].ch;
+        }
     }
 
     inputLine->Clear();
@@ -379,185 +314,51 @@ void TerminalController::SyncInputLineFromGrid() {
     inputCursor.position.x = std::clamp(cursorPos.x - promptAnchor.x, 0, (int)inputLine->Length());
 }
 
-void TerminalController::HandleAnsiCmd(const VTermParser::CMD &cmd) {
-    auto termColors = Editor::Instance().GetTheme()->GetTerminalColor();
-    auto P = [&](int i, int def = 1) -> int {
-        return (i < (int)cmd.param.size()) ? cmd.param[i] : def;
-    };
+//
+// gnilk::vt::ITerminalHost - inside HandleTerminalData, screenLock held
+//
+void TerminalController::WriteToPty(std::string_view bytes) {
+    shell.WriteBytes(std::string(bytes));
+}
 
-    switch (cmd.cmd) {
-        // --- SGR ---
-        case VTermParser::kAnsiCmd::kSGRReset :
-            screen.ResetAttributes();
-            break;
-        case VTermParser::kAnsiCmd::kFontBold :
-            screen.SetAttributes(TerminalScreen::kAttrBold);
-            break;
-        case VTermParser::kAnsiCmd::kFontItalic :
-            screen.SetAttributes(TerminalScreen::kAttrItalic);
-            break;
-        case VTermParser::kAnsiCmd::kFontUnderline :
-            screen.SetAttributes(TerminalScreen::kAttrUnderline);
-            break;
-        case VTermParser::kAnsiCmd::kInvertColors :
-            screen.SetAttributes(TerminalScreen::kAttrInvert);
-            break;
-        case VTermParser::kAnsiCmd::kFontNormal :
-            screen.SetAttributes(0);
-            break;
-        case VTermParser::kAnsiCmd::kSetForegroundColor :
-            if (!cmd.param.empty()) {
-                auto idx = (cmd.param[0] & 7) + 8;
-                screen.SetForeground(termColors.GetColor(std::to_string(idx)));
-            }
-            break;
-        case VTermParser::kAnsiCmd::kSetBackgroundColor :
-            if (!cmd.param.empty()) {
-                auto idx = cmd.param[0] & 7;
-                screen.SetBackground(termColors.GetColor(std::to_string(idx)));
-            }
-            break;
-        case VTermParser::kAnsiCmd::kSetForeground256 :
-            if (!cmd.param.empty()) {
-                int idx = std::clamp(cmd.param[0], 0, 255);
-                screen.SetForeground(FG_BG_256[idx]);
-            }
-            break;
-        case VTermParser::kAnsiCmd::kSetBackground256 :
-            if (!cmd.param.empty()) {
-                int idx = std::clamp(cmd.param[0], 0, 255);
-                screen.SetBackground(FG_BG_256[idx]);
-            }
-            break;
-        case VTermParser::kAnsiCmd::kSetDefaultForegroundColor :
-            screen.SetForeground(termColors.GetColor("foreground"));
-            break;
-        case VTermParser::kAnsiCmd::kSetDefaultBackgroundColor :
-            screen.SetBackground(termColors.GetColor("background"));
-            break;
-
-        // --- Cursor movement ---
-        case VTermParser::kAnsiCmd::kCursorUp :
-            screen.MoveCursor(0, -P(0));
-            break;
-        case VTermParser::kAnsiCmd::kCursorDown :
-            screen.MoveCursor(0, P(0));
-            break;
-        case VTermParser::kAnsiCmd::kCursorForward :
-            screen.MoveCursor(P(0), 0);
-            break;
-        case VTermParser::kAnsiCmd::kCursorBack :
-            screen.MoveCursor(-P(0), 0);
-            break;
-        case VTermParser::kAnsiCmd::kCursorPos :
-            // ANSI is 1-indexed; convert to 0-indexed
-            screen.SetCursorPos(P(1, 1) - 1, P(0, 1) - 1);
-            break;
-
-        // --- Erase ---
-        case VTermParser::kAnsiCmd::kEraseInLine :
-            screen.EraseInLine(P(0, 0));
-            break;
-        case VTermParser::kAnsiCmd::kEraseInDisplay :
-            screen.EraseInDisplay(P(0, 0));
-            break;
-
-        // --- Cursor save/restore ---
-        case VTermParser::kAnsiCmd::kSaveCursor :
-            screen.SaveCursorPos();
-            break;
-        case VTermParser::kAnsiCmd::kRestoreCursor :
-            screen.RestoreCursorPos();
-            break;
-
-        // --- Scroll region (1-indexed in the sequence, 0-indexed in TerminalScreen) ---
-        case VTermParser::kAnsiCmd::kSetScrollRegion :
-            screen.SetScrollRegion(P(0, 1) - 1, P(1, screen.Rows()) - 1);
-            break;
-
-        // --- Alternate screen ---
-        case VTermParser::kAnsiCmd::kEnterAltScreen :
-            screen.SaveScreen();
-            break;
-        case VTermParser::kAnsiCmd::kLeaveAltScreen :
-            screen.RestoreScreen();
-            break;
-
-        // --- Terminal responses (write back to the pty) ---
-        case VTermParser::kAnsiCmd::kDeviceStatusReport : {
-            auto pos = screen.GetCursorPos();
-            char resp[32];
-            snprintf(resp, sizeof(resp), "\x1b[%d;%dR", pos.y + 1, pos.x + 1);
-            shell.WriteBytes(resp);
-            break;
-        }
-        case VTermParser::kAnsiCmd::kPrimaryDA :
-            shell.WriteBytes("\x1b[?1;2c");
-            break;
-
-        // --- Full-screen app line/char operations ---
-        case VTermParser::kAnsiCmd::kReverseIndex :
-            screen.ReverseIndex();
-            break;
-        case VTermParser::kAnsiCmd::kInsertLine :
-            screen.InsertLine(P(0, 1));
-            break;
-        case VTermParser::kAnsiCmd::kDeleteLine :
-            screen.DeleteLine(P(0, 1));
-            break;
-        case VTermParser::kAnsiCmd::kInsertChar :
-            screen.InsertChar(P(0, 1));
-            break;
-        case VTermParser::kAnsiCmd::kDeleteChar :
-            screen.DeleteChar(P(0, 1));
-            break;
-
-        // --- Cursor key mode ---
-        case VTermParser::kAnsiCmd::kCursorKeyModeApp :
-            cursorKeyAppMode = true;
-            break;
-        case VTermParser::kAnsiCmd::kCursorKeyModeNormal :
-            cursorKeyAppMode = false;
-            break;
-
-        // --- Cursor visibility (not yet tracked — silently consumed) ---
-        case VTermParser::kAnsiCmd::kCursorShow :
-        case VTermParser::kAnsiCmd::kCursorHide :
-            break;
-
-        // --- OSC 133 shell integration (§4.2) ---
-        // Seeing ANY marker means the shell brackets its own commands, so the CommitLine heuristic
-        // stands down (useOsc133Boundaries) and OSC 133 drives the block boundaries from here.
-        case VTermParser::kAnsiCmd::kPromptStart :
-            useOsc133Boundaries = true;
-            break;
-        case VTermParser::kAnsiCmd::kCommandStart :
-            // End of prompt: the typed command starts at the cursor; record it for ;C to read back.
-            useOsc133Boundaries = true;
+// OSC 133 (§4.2). The first marker switches the CommitLine heuristic off (useOsc133Boundaries): from then on the
+// shell brackets its own commands. A prompt start, B command start, C output start (opens the block, command text
+// = the grid between B and here), D;<exit> command end.
+void TerminalController::OnSemanticPrompt(char kind, std::string_view params) {
+    useOsc133Boundaries = true;
+    switch (kind) {
+        case 'B':
             osc133CommandStart = screen.GetCursorPos();
             break;
-        case VTermParser::kAnsiCmd::kOutputStart :
-            // Output start: open the block, command text = the grid span [;B .. here].
-            useOsc133Boundaries = true;
+        case 'C':
             screen.BeginCommandBlock(ReadGridText(osc133CommandStart, screen.GetCursorPos()),
                                      TerminalScreen::CommandBlock::Source::kOsc133);
             break;
-        case VTermParser::kAnsiCmd::kCommandEnd : {
-            // Command finished: close the open block with the reported exit code (-1 == unknown).
-            useOsc133Boundaries = true;
+        case 'D': {
             std::optional<int> exitCode;
-            if (!cmd.param.empty() && cmd.param[0] >= 0) {
-                exitCode = cmd.param[0];
+            auto code = params.substr(0, params.find(';'));
+            if (!code.empty() && (code.find_first_not_of("0123456789") == std::string_view::npos) &&
+                (code.size() < 10)) {
+                exitCode = std::stoi(std::string(code));
             }
             screen.EndOpenBlock(exitCode);
             break;
         }
-        case VTermParser::kAnsiCmd::kSetCwd :
-            // OSC 7: best-effort cwd for the open block.
-            if (!cmd.strParam.empty()) {
-                screen.SetOpenBlockCwd(std::filesystem::path(cmd.strParam));
-            }
+        default:
             break;
+    }
+}
+
+// OSC 7 - "file://host/path": the path is the block's working directory (best effort)
+void TerminalController::OnWorkingDirectory(std::string_view uri) {
+    std::string_view path = uri;
+    static constexpr std::string_view kScheme = "file://";
+    if (uri.substr(0, kScheme.size()) == kScheme) {
+        auto slash = uri.find('/', kScheme.size());
+        path = (slash == std::string_view::npos) ? std::string_view("/") : uri.substr(slash);
+    }
+    if (!path.empty()) {
+        screen.SetOpenBlockCwd(std::filesystem::path(std::string(path)));
     }
 }
 
@@ -575,7 +376,9 @@ std::u32string TerminalController::ReadGridText(const Point &from, const Point &
         startX = std::clamp(startX, 0, (int)row.size());
         endX   = std::clamp(endX,   0, (int)row.size());
         for (int x = startX; x < endX; x++) {
-            text += row[x].ch;
+            if (row[x].width != 0) {
+                text += row[x].ch;
+            }
         }
     }
     while (!text.empty() && text.back() == U' ') {
@@ -1001,17 +804,27 @@ void TerminalController::CommitLine() {
     Editor::Instance().TriggerUIRedraw();
 }
 
+// Console output from the editor (JS Console, plugins) - printed as text on a fresh line. '\n' breaks the line;
+// other control characters except TAB show as U+FFFD, so the text can't drive the terminal.
 void TerminalController::WriteLine(const std::u32string &str) {
-    std::lock_guard<std::mutex> guard(screenLock);
-    // If mid-line (shell prompt may have already arrived), move to a fresh line first.
-    if (screen.GetCursorPos().x > 0) {
-        screen.CarriageReturn();
-        screen.NewLine();
-    }
+    std::u32string text;
+    text.reserve(str.size());
     for (auto ch : str) {
-        screen.PutChar(ch);
+        if (ch == U'\n') {
+            text += U"\r\n";
+            continue;
+        }
+        bool isControl = (ch < 0x20) || (ch == 0x7F) || ((ch >= 0x80) && (ch < 0xA0));
+        text.push_back((isControl && (ch != U'\t')) ? U'\uFFFD' : ch);
     }
-    screen.CarriageReturn();
-    screen.NewLine();
+    {
+        std::lock_guard<std::mutex> guard(screenLock);
+        // If mid-line (the shell prompt may have arrived already), start a fresh line first
+        if (screen.GetCursorPos().x > 0) {
+            screen.Feed("\r\n");
+        }
+        screen.Feed(UnicodeHelper::utf32to8(text));
+        screen.Feed("\r\n");
+    }
     Editor::Instance().TriggerUIRedraw();
 }

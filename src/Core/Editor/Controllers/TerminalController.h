@@ -5,6 +5,7 @@
 #ifndef GOATEDIT_TERMINALCONTROLLER_H
 #define GOATEDIT_TERMINALCONTROLLER_H
 
+#include <atomic>
 #include <vector>
 #include <string>
 #include <mutex>
@@ -17,14 +18,17 @@
 #include "Core/unix/Shell.h"
 #include "Core/TerminalScreen.h"
 #include "Core/TerminalCmdHistory.h"
-#include "Core/VTermParser.h"
+#include "gvt/Terminal.h"
 
 namespace gedit {
     struct TerminalSession;   // Core/Session/SessionState.h - the persisted block index + .bin pointer
 
-    class TerminalController : public BaseController, IOutputConsole {
+    // The pty side of the embedded terminal: shell, local line editing, viewport, blocks. The emulation is
+    // gnilk::vt::Terminal inside TerminalScreen; this class is its host (ITerminalHost) - it writes the terminal's
+    // replies to the pty and turns OSC 133 / OSC 7 into command blocks.
+    class TerminalController : public BaseController, IOutputConsole, gnilk::vt::ITerminalHost {
     public:
-        TerminalController() = default;
+        TerminalController();
         virtual ~TerminalController() = default;
 
         void Begin() override;
@@ -32,8 +36,8 @@ namespace gedit {
         bool HandleKeyPress(Cursor &cursor, size_t &idxActiveLine, const KeyPress &keyPress) override;
 
         // The shell's pty-output sink: feed raw bytes here (Begin() wires it as Shell's output
-        // delegate, called on the pty-reader thread). Parses ANSI/OSC and mutates the grid under
-        // screenLock. Public so a test can drive a scripted byte stream (e.g. OSC 133 markers) into
+        // delegate, called on the pty-reader thread). Feeds the terminal under screenLock; sequences
+        // split across reads are fine. Public so a test can drive a scripted byte stream (e.g. OSC 133 markers) into
         // the controller without a live shell - the same role RegisterAsOutputConsole plays for output.
         void HandleTerminalData(const uint8_t *buffer, size_t length);
 
@@ -118,11 +122,17 @@ namespace gedit {
         // scrollback+blocks via TerminalScreen::SeedScrollback. MUST be called before shell.Begin().
         void FromSession(const TerminalSession &in);
 
+        // gnilk::vt::ITerminalHost - called by the terminal inside HandleTerminalData, screenLock held
+        void WriteToPty(std::string_view bytes) override;
+        void OnSemanticPrompt(char kind, std::string_view params) override;
+        void OnWorkingDirectory(std::string_view uri) override;
+
     protected:
-        void HandleAnsiCmd(const VTermParser::CMD &cmd);
         void SyncInputLineFromGrid();
         void ExitShellOwned();
-        void InitializeColorTable();
+        // Default fg/bg and the 16 system colours from the theme's terminal colours (the rest of the
+        // 256-colour palette is xterm's). Caller holds screenLock.
+        void ApplyThemeColors();
 
         // Read the grid text spanning [from, to) cell positions, joining wrapped rows and trimming
         // trailing blanks. Used to recover the typed command from the grid span between OSC 133;B
@@ -159,7 +169,8 @@ namespace gedit {
         TerminalScreen screen;
         std::mutex screenLock;
 
-        bool cursorKeyAppMode = false;
+        // DECCKM, copied from the terminal's modes after each feed (pty thread) for the key encoder (UI thread)
+        std::atomic<bool> cursorKeyAppMode = false;
 
         // Line-ownership flag - ONE of two independent dimensions that decide how a keypress is
         // handled; the other is screen.IsAltScreen() (a flag on the TerminalScreen model, flipped by

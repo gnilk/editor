@@ -5,6 +5,7 @@
 #ifndef GOATEDIT_TERMINALSCREEN_H
 #define GOATEDIT_TERMINALSCREEN_H
 
+#include <array>
 #include <vector>
 #include <deque>
 #include <memory>
@@ -12,6 +13,9 @@
 #include <variant>
 #include <optional>
 #include <filesystem>
+#include <string_view>
+
+#include "gvt/Terminal.h"
 
 #include "Core/ColorRGBA.h"
 #include "Core/Point.h"
@@ -20,20 +24,32 @@
 #include "Core/Language/LanguageBase.h"
 
 namespace gedit {
-    class TerminalScreen {
+    //
+    // The embedded terminal's model. The emulation itself - parsing, grid, cursor, modes, alternate screen - is a
+    // gnilk::vt::Terminal (src/ext/gvt, docs/terminal-vt.md); this class owns what the EDITOR adds on top of it:
+    // the scrollback history (rows the terminal pushes out at the top, as Lines), the command-block index over it,
+    // the abs-row spine, persistence, and a row cache in resolved colours for the view (GetRow).
+    //
+    // Not thread-safe; the controller serialises everything under screenLock. Not copyable or movable: the
+    // gvt::Terminal holds a reference back to this object as its host.
+    //
+    class TerminalScreen : private gnilk::vt::ITerminalHost {
     public:
         using Ref = std::shared_ptr<TerminalScreen>;
 
         static constexpr uint8_t kAttrBold      = 0x01;
         static constexpr uint8_t kAttrItalic    = 0x02;
         static constexpr uint8_t kAttrUnderline = 0x04;
-        static constexpr uint8_t kAttrInvert    = 0x08;
+        static constexpr uint8_t kAttrStrike    = 0x08;
 
+        // A grid cell with its colours resolved. Inverse and hidden are already applied to fg/bg. A wide
+        // character's right half is a width-0 cell with ch == 0 (draw it as nothing; skip it when reading text).
         struct Cell {
             char32_t  ch    = U' ';
             ColorRGBA fg    = {};
             ColorRGBA bg    = {};
             uint8_t   attrs = 0;
+            uint8_t   width = 1;
         };
 
         using Row = std::vector<Cell>;
@@ -59,27 +75,35 @@ namespace gedit {
 
     public:
         TerminalScreen();
+        TerminalScreen(const TerminalScreen &) = delete;
+        TerminalScreen &operator=(const TerminalScreen &) = delete;
 
+        // The pty byte stream, any chunking (a sequence split across reads parses like a whole one)
+        void Feed(const uint8_t *data, size_t length);
+        void Feed(std::string_view data);
+
+        // A zero/negative size (the pane squeezed to nothing) is ignored: the grid keeps its last real size
+        // while Cols()/Rows() report 0, so nothing is drawn and no content is lost.
         void Resize(int newCols, int newRows);
+
+        // Colours the cells resolve to: default fg/bg, and the 256-colour palette (DefaultPalette() + the theme's
+        // first 16). Set before content arrives or at any time - the cache re-resolves.
         void SetDefaultColors(ColorRGBA fg, ColorRGBA bg);
+        void SetPalette(const std::array<ColorRGBA, 256> &colors);
+        static std::array<ColorRGBA, 256> DefaultPalette();
 
-        // Step 1 — stream input (replaces historyBuffer + lastLine)
-        void PutChar(char32_t ch);
-        void NewLine();
-        void CarriageReturn();
-        void Tab();   // HT (0x09): advance to the next tab stop (multiples of 8), filling skipped cells
-
-        // Pen state
-        void SetForeground(ColorRGBA color);
-        void SetBackground(ColorRGBA color);
-        void ResetAttributes();
+        // Everything gvt reports that the screen itself does not handle (replies for the pty, OSC 133/7, title,
+        // bell, ...) is passed on to this host; scrollback (OnRowScrolledOut) is handled here. nullptr = dropped.
+        void SetHost(gnilk::vt::ITerminalHost *newHost) { host = newHost; }
 
         // Rendering accessors
         const Row &GetRow(int y) const;
         TextBuffer::Ref GetScrollback() const;
         Point GetCursorPos() const;
+        bool IsCursorVisible() const;
         int Cols() const;
         int Rows() const;
+        const gnilk::vt::Modes &GetModes() const { return terminal->GetModes(); }
 
         // Abs-line spine (§3.1 of docs/terminal-scrollback.md): a monotonic id space spanning
         // scrollback lines then live grid history rows, stable across scrollback eviction.
@@ -87,35 +111,8 @@ namespace gedit {
         uint64_t AbsRowCount() const;             // == absBottom (the live/cursor row's abs id)
         AbsRow RowAtAbs(uint64_t abs) const;
 
-        // Step 2 — cursor movement and erase (full-screen apps)
-        void SetCursorPos(int x, int y);
-        void MoveCursor(int dx, int dy);
-        void EraseToEndOfLine();   // convenience — same as EraseInLine(0)
-        void EraseScreen();        // convenience — clears grid AND resets cursor to (0,0)
-        void EraseInLine(int mode);     // 0=to end, 1=from start, 2=entire line
-        void EraseInDisplay(int mode);  // 0=to end, 1=from start, 2=entire (cursor stays)
-        void SetAttributes(uint8_t attrs);
-
-        // Step 3 — full-screen app line/char operations
-        void ReverseIndex();           // ESC M: scroll down or move cursor up
-        void InsertLine(int count);    // CSI L: insert blank lines at cursor row
-        void DeleteLine(int count);    // CSI M: delete lines at cursor row
-        void InsertChar(int count);    // CSI @: insert blank chars at cursor col
-        void DeleteChar(int count);    // CSI P: delete chars at cursor col
-
-        // Cursor save/restore (position only, not full grid)
-        void SaveCursorPos();
-        void RestoreCursorPos();
-
-        // Scroll region (0-indexed; defaults to full grid on Resize)
-        void SetScrollRegion(int top, int bottom);
-        int ScrollRegionTop()    const { return scrollRegionTop;    }
-        int ScrollRegionBottom() const { return scrollRegionBottom; }
-
-        // Alternate screen buffer
-        void SaveScreen();
-        void RestoreScreen();
-        bool IsAltScreen() const { return isAltScreen; }
+        // Alternate screen (a full-screen app owns the grid; nothing reaches scrollback meanwhile)
+        bool IsAltScreen() const { return terminal->IsAltScreen(); }
 
         // The block index (§3.2/§4 of docs/terminal-scrollback.md). All called under screenLock by the
         // controller; no-ops while IsAltScreen() (§10 - alt-screen rows are never grouped into blocks).
@@ -173,15 +170,28 @@ namespace gedit {
         void SeedScrollback(const std::vector<Line::Ref> &lines, const std::vector<PersistedBlock> &seedBlocks);
 
     private:
-        Cell MakeBlankCell() const;
-        Row  MakeBlankRow() const;
-        void ScrollRegionUp();
+        // gnilk::vt::ITerminalHost - OnRowScrolledOut feeds scrollback; the rest goes on to `host`
+        void OnRowScrolledOut(std::span<const gnilk::vt::Cell> row, bool isWrapped) override;
+        void WriteToPty(std::string_view bytes) override;
+        bool QueryColor(int which, gnilk::vt::Rgb &out) override;
+        void OnBell() override;
+        void OnTitle(std::string_view title) override;
+        void OnWorkingDirectory(std::string_view uri) override;
+        void OnSemanticPrompt(char kind, std::string_view params) override;
+        void OnHyperlink(std::string_view params, std::string_view uri) override;
+        void OnClipboardWrite(std::string_view selection, std::string_view base64) override;
+        void OnUnhandled(std::string_view description) override;
+
+        // gvt cells -> the editor's resolved Cells (colour references through the palette, inverse/hidden applied)
+        Row ResolveRow(std::span<const gnilk::vt::Cell> cells) const;
+        ColorRGBA ResolveColor(const gnilk::vt::Color &color, bool isForeground) const;
+        void RefreshRowCache() const;
 
         // Lossless Row -> Line conversion (run-length encodes maximal same fg/bg/attrs spans into
         // LineAttrib spans, the same batching DrawScreenRow already does for live rendering) used at
         // every point a row leaves the live grid and becomes immutable scrollback history. Trailing
         // blank cells are trimmed (Line's own ctor rtrims), matching how every other Line in the
-        // editor is stored.
+        // editor is stored. A wide character's right half (width 0) contributes nothing.
         Line::Ref RowToLine(const Row &row) const;
 
         static TextBuffer::Ref MakeScrollbackBuffer();
@@ -194,10 +204,18 @@ namespace gedit {
         void TrimScrollbackIfNeeded();
 
     private:
-        int cols = 0;
-        int rows = 0;
+        std::unique_ptr<gnilk::vt::Terminal> terminal;
+        gnilk::vt::ITerminalHost *host = nullptr;
+        bool isSized = false;           // false until the first real Resize, and while squeezed to nothing
 
-        std::vector<Row> grid;
+        // GetRow's cache of the grid in resolved colours. Marked stale on every Feed/Resize/colour change - and
+        // before each host callback, which runs mid-Feed and may read the grid (OSC 133 reads the command text).
+        mutable std::vector<Row> rowCache;
+        mutable bool isRowCacheStale = true;
+
+        ColorRGBA defaultFg = {};
+        ColorRGBA defaultBg = {};
+        std::array<ColorRGBA, 256> palette;
 
         // Immutable scrollback history. Fed by RowToLine() whenever a row scrolls off the top of the
         // grid. Read-only, no language attached (plain ANSI-colored lines, no async tokenizer).
@@ -209,32 +227,6 @@ namespace gedit {
         std::deque<CommandBlock> blocks;
         uint64_t nextBlockId = 0;
 
-        Point     cursor     = {};
-        ColorRGBA penFg      = {};
-        ColorRGBA penBg      = {};
-        uint8_t   penAttrs   = 0;
-
-        ColorRGBA defaultFg  = {};
-        ColorRGBA defaultBg  = {};
-
-        int scrollRegionTop    = 0;
-        int scrollRegionBottom = 0;
-
-        // Saved cursor position (SaveCursorPos/RestoreCursorPos)
-        Point savedCursorPos = {};
-
-        bool isAltScreen = false;
-
-        // Saved state for alternate screen
-        std::vector<Row>     savedGrid;
-        TextBuffer::Ref       savedScrollback;
-        uint64_t              savedScrollbackBase = 0;
-        Point                savedCursor   = {};
-        ColorRGBA            savedPenFg    = {};
-        ColorRGBA            savedPenBg    = {};
-        uint8_t              savedPenAttrs = 0;
-        int                  savedScrollRegionTop    = 0;
-        int                  savedScrollRegionBottom = 0;
     };
 }
 

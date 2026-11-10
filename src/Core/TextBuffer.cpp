@@ -825,12 +825,14 @@ bool TextBuffer::DoSave(const std::filesystem::path &pathName, bool skipChangeCh
 //   line   : charCount:u32 | charCount * char32_t text | attribCount:u32 | attrib[attribCount]
 //   attrib : idxOrigString:i32 | textAttributes:u32 | fg(4*f32) | bg(4*f32) | tokenClass:u32
 //
-// A sequential version is bumped by 1 on any incompatible layout change; LoadWithAttributes rejects an
-// unknown/newer one (start empty, never crash). No logger use - the scrollback buffer has none.
+// A sequential version is bumped by 1 on any incompatible change; LoadWithAttributes rejects any other one (start
+// empty, never crash). No logger use - the scrollback buffer has none.
+// v2: the terminal stores its default colours as markers (TerminalScreen::ResolveHistoryLine). A v1 file baked the
+// theme's colours of the moment into every line - it is dropped rather than drawn in a theme that has moved on.
 
 namespace {
     constexpr char     kAttribFileMagic[4]   = {'G', 'T', 'S', 'B'};
-    constexpr uint32_t kAttribFileVersion    = 1;
+    constexpr uint32_t kAttribFileVersion    = 2;
 
     template <typename T>
     void WritePod(std::ostream &os, const T &v) {
@@ -905,8 +907,8 @@ bool TextBuffer::LoadWithAttributes(const std::filesystem::path &pathName) {
     uint32_t flags     = ReadPod<uint32_t>(is);
     uint32_t lineCount = ReadPod<uint32_t>(is);
     (void)flags;
-    if (!is.good() || (version == 0) || (version > kAttribFileVersion)) {
-        return false;       // truncated header, or unknown/newer format
+    if (!is.good() || (version != kAttribFileVersion)) {
+        return false;       // truncated header, or an older/newer format
     }
 
     // Build into a temporary so a corrupt/truncated file mid-read leaves the live buffer untouched.

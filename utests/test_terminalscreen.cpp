@@ -41,6 +41,7 @@ DLL_EXPORT int test_terminalscreen_snapshot_roundtrip(ITesting *t);
 DLL_EXPORT int test_terminalscreen_snapshot_altscreen_empty(ITesting *t);
 DLL_EXPORT int test_terminalscreen_snapshot_caps_tail(ITesting *t);
 DLL_EXPORT int test_terminalscreen_snapshot_includes_screen(ITesting *t);
+DLL_EXPORT int test_terminalscreen_history_follows_theme(ITesting *t);
 DLL_EXPORT int test_terminalscreen_split_sequence(ITesting *t);
 DLL_EXPORT int test_terminalscreen_palette(ITesting *t);
 DLL_EXPORT int test_terminalscreen_inverse(ITesting *t);
@@ -825,6 +826,49 @@ DLL_EXPORT int test_terminalscreen_snapshot_includes_screen(ITesting *t) {
     s.Feed("vim screen");
     lines = s.SnapshotScrollbackTail(0);
     TR_ASSERT(t, lines.size() == s.GetScrollback()->NumLines());
+
+    Config::Instance()["terminal"].SetInt("scrollback_lines", oldCap);
+    return kTR_Pass;
+}
+
+// History keeps the default colours as defaults: saved under one theme, restored and drawn under another, a line
+// in the default colours takes the new theme's; a colour an app set stays. (The Mac: history saved with a black
+// background showed as black boxes once the terminal took the editor's blue.)
+DLL_EXPORT int test_terminalscreen_history_follows_theme(ITesting *t) {
+    auto oldCap = Config::Instance()["terminal"].GetInt("scrollback_lines", 10000);
+    Config::Instance()["terminal"].SetInt("scrollback_lines", 0);
+    auto black = ColorRGBA::FromRGB(0, 0, 0);
+    auto grey = ColorRGBA::FromRGB(127, 127, 127);
+    auto blue = ColorRGBA::FromRGB(20, 30, 60);
+    auto white = ColorRGBA::FromRGB(230, 230, 230);
+
+    TerminalScreen s;
+    Setup(s, 20, 2);
+    s.SetDefaultColors(grey, black);
+    s.Feed(std::string("plain\r\n") + SGR_RED + "red\x1b[0m\r\n\x1b[7minverse\x1b[0m\r\nlast");
+    auto lines = s.SnapshotScrollbackTail(0);
+    TR_ASSERT(t, lines.size() == 4);          // three scrolled out, "last" still on screen
+
+    TerminalScreen restored;
+    Setup(restored, 20, 2);
+    restored.SetDefaultColors(white, blue);   // another theme
+    restored.SeedScrollback(lines);
+    auto plain = restored.ResolveHistoryLine(restored.GetScrollback()->LineAt(0));
+    TR_ASSERT(t, plain->Attributes()[0].foregroundColor == white);
+    TR_ASSERT(t, plain->Attributes()[0].backgroundColor == blue);
+    auto red = restored.ResolveHistoryLine(restored.GetScrollback()->LineAt(1));
+    TR_ASSERT(t, red->Attributes()[0].foregroundColor == RED);
+    TR_ASSERT(t, red->Attributes()[0].backgroundColor == blue);
+    auto inverse = restored.ResolveHistoryLine(restored.GetScrollback()->LineAt(2));
+    TR_ASSERT(t, inverse->Attributes()[0].foregroundColor == blue);
+    TR_ASSERT(t, inverse->Attributes()[0].backgroundColor == white);
+    auto last = restored.ResolveHistoryLine(restored.GetScrollback()->LineAt(3));
+    TR_ASSERT(t, last->Attributes()[0].backgroundColor == blue);
+
+    // The live scrollback follows a theme change too
+    s.SetDefaultColors(white, blue);
+    auto live = s.ResolveHistoryLine(s.GetScrollback()->LineAt(0));
+    TR_ASSERT(t, live->Attributes()[0].backgroundColor == blue);
 
     Config::Instance()["terminal"].SetInt("scrollback_lines", oldCap);
     return kTR_Pass;

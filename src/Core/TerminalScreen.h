@@ -114,6 +114,12 @@ namespace gedit {
         // Alternate screen (a full-screen app owns the grid; nothing reaches scrollback meanwhile)
         bool IsAltScreen() const { return terminal->IsAltScreen(); }
 
+        // History lines (scrollback, and what is persisted) keep the DEFAULT colours as markers, not as the theme's
+        // colours of the moment - so they follow the theme, also after a restart under another one. Only colours an
+        // app set (SGR) are stored as they are. This is a history line with its markers resolved for drawing (the
+        // line itself when it has none).
+        Line::Ref ResolveHistoryLine(const Line::Ref &line) const;
+
         Frame CaptureFrame() const;
         // The frame from just before the current synchronized update; null when there is none
         const Frame *GetHeldFrame() const;
@@ -150,9 +156,12 @@ namespace gedit {
         void OnClipboardWrite(std::string_view selection, std::string_view base64) override;
         void OnUnhandled(std::string_view description) override;
 
-        // gvt cells -> the editor's resolved Cells (colour references through the palette, inverse/hidden applied)
-        Row ResolveRow(std::span<const gnilk::vt::Cell> cells) const;
-        ColorRGBA ResolveColor(const gnilk::vt::Color &color, bool isForeground) const;
+        // gvt cells -> the editor's resolved Cells (colour references through the palette, inverse/hidden applied).
+        // 'isForHistory': the default colours become the history markers (ResolveHistoryLine) instead.
+        Row ResolveRow(std::span<const gnilk::vt::Cell> cells, bool isForHistory = false) const;
+        ColorRGBA ResolveColor(const gnilk::vt::Color &color, bool isForeground, bool isForHistory = false) const;
+        // Grid row 'y' as a history line (default colours as markers)
+        Line::Ref GridRowToHistoryLine(int y) const;
         void RefreshRowCache() const;
 
         // Lossless Row -> Line conversion (run-length encodes maximal same fg/bg/attrs spans into

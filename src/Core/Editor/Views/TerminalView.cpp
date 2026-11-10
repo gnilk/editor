@@ -216,7 +216,7 @@ void TerminalView::DrawViewContents() {
     auto drawAbsRow = [&](uint64_t abs, int viewY) {
         auto resolved = screen.RowAtAbs(abs);
         if (std::holds_alternative<Line::Ref>(resolved)) {
-            lineRender.DrawLine(0, viewY, std::get<Line::Ref>(resolved));
+            lineRender.DrawLine(0, viewY, screen.ResolveHistoryLine(std::get<Line::Ref>(resolved)));
         } else if (std::holds_alternative<const TerminalScreen::Row *>(resolved)) {
             DrawScreenRow(dc, *std::get<const TerminalScreen::Row *>(resolved), viewY);
         }
@@ -361,7 +361,7 @@ void TerminalView::DrawAppScreen(DrawContext &dc, const TerminalScreen &screen, 
         if (abs < gridTop) {
             auto resolved = screen.RowAtAbs(abs);
             if (std::holds_alternative<Line::Ref>(resolved)) {
-                lineRender.DrawLine(0, viewY, std::get<Line::Ref>(resolved));
+                lineRender.DrawLine(0, viewY, screen.ResolveHistoryLine(std::get<Line::Ref>(resolved)));
             }
         } else {
             DrawScreenRow(dc, frame.GetRow((int)(abs - gridTop)), viewY);

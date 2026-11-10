@@ -9,6 +9,11 @@
 
 using namespace gedit;
 
+// The default colours in a history line: alpha 0, which no resolved colour has (the palette, the theme and SGR
+// RGB are opaque). Two of them - an inverse cell carries the default background as its foreground.
+static const ColorRGBA kHistoryDefaultFg = ColorRGBA::FromRGBA(1.0f, 0.0f, 0.0f, 0.0f);
+static const ColorRGBA kHistoryDefaultBg = ColorRGBA::FromRGBA(0.0f, 1.0f, 0.0f, 0.0f);
+
 TextBuffer::Ref TerminalScreen::MakeScrollbackBuffer() {
     // Plain line store: no language attached (no async tokenizer running over scrollback - it is
     // mutated only from RowToLine under screenLock), read-only (it is a history, not an editable
@@ -50,13 +55,42 @@ std::vector<std::u32string> TerminalScreen::GetLastOutputText() const {
     return out;
 }
 
+Line::Ref TerminalScreen::ResolveHistoryLine(const Line::Ref &line) const {
+    auto resolve = [this](const ColorRGBA &color) {
+        if (color == kHistoryDefaultFg) {
+            return defaultFg;
+        }
+        if (color == kHistoryDefaultBg) {
+            return defaultBg;
+        }
+        return color;
+    };
+    bool hasMarker = false;
+    for (const auto &attrib : line->Attributes()) {
+        if ((resolve(attrib.foregroundColor) != attrib.foregroundColor) ||
+            (resolve(attrib.backgroundColor) != attrib.backgroundColor)) {
+            hasMarker = true;
+            break;
+        }
+    }
+    if (!hasMarker) {
+        return line;
+    }
+    auto resolved = std::make_shared<Line>(line);
+    for (auto &attrib : resolved->Attributes()) {
+        attrib.foregroundColor = resolve(attrib.foregroundColor);
+        attrib.backgroundColor = resolve(attrib.backgroundColor);
+    }
+    return resolved;
+}
+
 std::vector<Line::Ref> TerminalScreen::SnapshotScrollbackTail(size_t maxLines) const {
     // What is still on screen is the newest history: the grid rows up to the cursor (content is cursor-anchored),
     // trailing blank rows dropped. Not on the alternate screen - that grid is the app's (§10).
     std::vector<Line::Ref> screenLines;
     if (!IsAltScreen()) {
         for (int y = 0; y <= GetCursorPos().y; y++) {
-            screenLines.push_back(RowToLine(GetRow(y)));
+            screenLines.push_back(GridRowToHistoryLine(y));
         }
         while (!screenLines.empty() && (screenLines.back()->Length() == 0)) {
             screenLines.pop_back();
@@ -281,7 +315,7 @@ int TerminalScreen::Rows() const {
 // gnilk::vt::ITerminalHost
 //
 void TerminalScreen::OnRowScrolledOut(std::span<const gnilk::vt::Cell> row, bool isWrapped) {
-    scrollback->AddLine(RowToLine(ResolveRow(row)));
+    scrollback->AddLine(RowToLine(ResolveRow(row, true)));
     TrimScrollbackIfNeeded();
 }
 
@@ -395,20 +429,22 @@ void TerminalScreen::RefreshRowCache() const {
     isRowCacheStale = false;
 }
 
-TerminalScreen::Row TerminalScreen::ResolveRow(std::span<const gnilk::vt::Cell> cells) const {
+TerminalScreen::Row TerminalScreen::ResolveRow(std::span<const gnilk::vt::Cell> cells, bool isForHistory) const {
     Row row;
     row.reserve(cells.size());
     for (const auto &cell : cells) {
         Cell resolved;
         resolved.ch = cell.codepoint;
         resolved.width = cell.width;
-        resolved.fg = ResolveColor(cell.fg, true);
-        resolved.bg = ResolveColor(cell.bg, false);
-        // Dim (SGR 2): the foreground half way to the background, as xterm and Ghostty draw it
+        resolved.fg = ResolveColor(cell.fg, true, isForHistory);
+        resolved.bg = ResolveColor(cell.bg, false, isForHistory);
+        // Dim (SGR 2): the foreground half way to the background, as xterm and Ghostty draw it - a mix of real
+        // colours, so a dim history cell keeps the theme's colours of the moment
         if (cell.attrs & gnilk::vt::kAttrDim) {
-            resolved.fg = ColorRGBA::FromRGBA((resolved.fg.R() + resolved.bg.R()) * 0.5f,
-                                              (resolved.fg.G() + resolved.bg.G()) * 0.5f,
-                                              (resolved.fg.B() + resolved.bg.B()) * 0.5f, resolved.fg.A());
+            auto fg = ResolveColor(cell.fg, true);
+            auto bg = ResolveColor(cell.bg, false);
+            resolved.fg = ColorRGBA::FromRGBA((fg.R() + bg.R()) * 0.5f, (fg.G() + bg.G()) * 0.5f,
+                                              (fg.B() + bg.B()) * 0.5f, fg.A());
         }
         if (cell.attrs & gnilk::vt::kAttrInverse) {
             std::swap(resolved.fg, resolved.bg);
@@ -425,13 +461,24 @@ TerminalScreen::Row TerminalScreen::ResolveRow(std::span<const gnilk::vt::Cell> 
     return row;
 }
 
-ColorRGBA TerminalScreen::ResolveColor(const gnilk::vt::Color &color, bool isForeground) const {
+ColorRGBA TerminalScreen::ResolveColor(const gnilk::vt::Color &color, bool isForeground, bool isForHistory) const {
     switch (color.kind) {
         case gnilk::vt::Color::Kind::kIndexed:
             return palette[color.index];
         case gnilk::vt::Color::Kind::kRgb:
             return ColorRGBA::FromRGB((int)color.r, (int)color.g, (int)color.b);
         default:
+            if (isForHistory) {
+                return isForeground ? kHistoryDefaultFg : kHistoryDefaultBg;
+            }
             return isForeground ? defaultFg : defaultBg;
     }
+}
+
+Line::Ref TerminalScreen::GridRowToHistoryLine(int y) const {
+    std::vector<gnilk::vt::Cell> cells(static_cast<size_t>(terminal->Cols()));
+    for (int x = 0; x < terminal->Cols(); x++) {
+        cells[x] = terminal->At(x, y);
+    }
+    return RowToLine(ResolveRow(cells, true));
 }

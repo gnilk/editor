@@ -282,9 +282,25 @@ DLL_EXPORT int test_textbuffer_saveattribs_badmagic(ITesting *t) {
     return kTR_Pass;
 }
 
-// A valid magic but an unknown/newer version is rejected (start clean, never mis-parse).
+// A valid magic but another version - newer, or v1 (the terminal's colours baked in) - is rejected (start clean,
+// never mis-parse).
 DLL_EXPORT int test_textbuffer_saveattribs_newerversion(ITesting *t) {
     auto path = ScratchBinPath("goatedit_ts5a_newerversion.bin");
+    {
+        std::ofstream os(path, std::ios::binary | std::ios::trunc);
+        const char magic[4] = {'G', 'T', 'S', 'B'};
+        uint32_t version   = 1;
+        uint32_t flags     = 0;
+        uint32_t lineCount = 0;
+        os.write(magic, sizeof(magic));
+        os.write(reinterpret_cast<const char *>(&version), sizeof(version));
+        os.write(reinterpret_cast<const char *>(&flags), sizeof(flags));
+        os.write(reinterpret_cast<const char *>(&lineCount), sizeof(lineCount));
+    }
+    {
+        auto older = std::make_shared<TextBuffer>();
+        TR_ASSERT(t, older->LoadWithAttributes(path) == false);
+    }
     {
         std::ofstream os(path, std::ios::binary | std::ios::trunc);
         const char magic[4] = {'G', 'T', 'S', 'B'};

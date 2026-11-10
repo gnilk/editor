@@ -1,6 +1,6 @@
 # Terminal emulation library — `gvt` (streaming VT parser + screen, outside the editor)
 
-**Status:** VT-0..VT-2 done on `feat/gvt` (2026-11-09) — see §7 for where things stand and how to pick up. Plan written
+**Status:** VT-0..VT-9 done on `feat/gvt` (2026-11-10) — see §7 for where things stand and how to pick up. Plan written
 2026-11-09 against `main` @ `7b95bc3`.
 **Replaces:** the implementation plan (§5) of [`terminal-enhancements.md`](terminal-enhancements.md). Its gap
 analysis (§2–§4) and capture recipe (§7) stay valid and are referenced from here.
@@ -318,8 +318,14 @@ oracle suite green modulo the documented allowlist.
   glyphs drawn again one screen pixel right (SDL2 + SDL3, no bold face). Dim: fg half way to bg in
   `TerminalScreen::ResolveRow`. Caret: `Cursor::Shape` (bar/block/underline) + `isVisible`; while an app owns the
   terminal the view uses DECSCUSR (default = block, translucent) and DECTCEM; the local prompt keeps the bar.
-  Synchronized output (?2026): `TerminalController` asks for no redraw while it is on, for at most 1 s
-  (`IsHoldingRedraw`). GUI-checked on Linux/SDL2: CJK, box/block drawing, arrows, bold, dim, underline, vim's block
+  Synchronized output (?2026): gvt calls `ITerminalHost::OnSynchronizedOutput` at the byte where the mode
+  changes; `TerminalScreen` then keeps a `Frame` (resolved rows, cursor, alt flag, grid top) - the app's last whole
+  frame. While `TerminalController::IsHoldingRedraw()` (mode on, at most 1 s) the controller asks for no redraw
+  and `TerminalView` draws app/alt screens from that held frame, so a redraw for any other reason (caret, other
+  views) never shows a half-drawn update. A timer thread asks for one redraw at the cap, so an update the app
+  never ends is let go without more output. Holding only applies to app/alt screens, not the local prompt.
+  (The first version only skipped the pty's redraws - leaked on unrelated redraws; fixed `33d0403`, Mac-verified.)
+  GUI-checked on Linux/SDL2: CJK, box/block drawing, arrows, bold, dim, underline, vim's block
   caret; SDL3 builds on Linux.
 
 Decisions made while building it:
@@ -346,6 +352,10 @@ Decisions made while building it:
   `OnClearScrollback`; the editor drops its scrollback and the command blocks wholly inside it (owner's call).
 - **Buffer switching goes to the app** (owner's call): Alt+Left/Right and Alt+1..9 are not in the escape hatch, so
   readline's Alt+arrow word motion and tmux/irssi Alt+N work. Cmd+N (macOS) still switches; else Alt+E first.
+- **Alt+Left/Right encoding** (owner's call, `terminal.alt_arrows: words | xterm`): `words` sends ESC b / ESC f -
+  readline's word motion, what Terminal.app/iTerm2 send (Python's PyREPL binds only these and Ctrl+arrows);
+  `xterm` sends CSI 1;3D / 1;3C. Unset: words on macOS, xterm on Linux - so a Linux-habit user on the Mac can opt
+  out. Only exact Alt+Left/Right; done in `TerminalController::ForwardKeyPressToShell`, gvt stays xterm.
 
 ### Pick up on macOS
 

@@ -55,6 +55,7 @@ void TerminalView::ReInitView() {
 
 void TerminalView::OnActivate(bool isActive) {
     logger->Debug("OnActive, isActive: %s", isActive ? "yes" : "no");
+    controller.SetFocus(isActive);
     if (!isActive) {
         parentView->RestoreContentHeight();
     } else {
@@ -75,10 +76,18 @@ void TerminalView::OnKeyPress(const KeyPress &keyPress) {
 }
 
 bool TerminalView::OnAction(const EditorAction &kpAction) {
-    // Full-screen apps (alt-screen) and an in-progress shell completion both let
-    // readline/the app own the line, so actions are forwarded straight to the pty.
-    if (controller.GetScreen().IsAltScreen() || controller.DoesShellOwnLineEditing()) {
-        return controller.ForwardActionToShell(kpAction);
+    if (kpAction.action == kAction::kActionPasteFromClipboard) {
+        PasteFromClipboard();
+        return true;
+    }
+    // An app owns the terminal (alt screen, foreground job) or readline owns the line: the action's key goes to
+    // the pty. Escape-hatch actions (view/buffer switching, resizing, Cmd) come back unhandled - the view takes
+    // its own (resize) and the rest falls through to the editor.
+    if (controller.IsAppActive() || controller.DoesShellOwnLineEditing()) {
+        if (controller.ForwardActionToShell(kpAction)) {
+            return true;
+        }
+        return ViewBase::OnAction(kpAction);
     }
     if (kpAction.uiAction == kUIAction::kUIActionCommitLine) {
         return OnActionCommitLine();
@@ -90,17 +99,80 @@ bool TerminalView::OnAction(const EditorAction &kpAction) {
     return ViewBase::OnAction(kpAction);
 }
 
+// What another application put on the OS pasteboard first (E.18: paste round-trips through the external item)
+void TerminalView::PasteFromClipboard() {
+    auto screen = RuntimeConfig::Instance().GetScreen();
+    if (screen != nullptr) {
+        screen->UpdateClipboardData();
+    }
+    auto item = Editor::Instance().GetClipBoard().Top();
+    if (item == nullptr) {
+        return;
+    }
+    controller.Paste(item->AsText());
+    cursor.position.x = controller.GetCursorXPos();
+    InvalidateView();
+}
+
 bool TerminalView::OnMouseEvent(const MouseEvent &mouseEvent) {
+    if (controller.IsAppActive()) {
+        // Shift keeps the mouse for the editor even when the app reports it (xterm's override)
+        bool isShift = (mouseEvent.modifiers & (Keyboard::kMod_LeftShift | Keyboard::kMod_RightShift)) != 0;
+        if (!isShift && ForwardMouseToApp(mouseEvent)) {
+            return true;
+        }
+        // Alt-screen apps (vi/less) own scrolling themselves (§5.2: never scrollable here)
+        if (controller.GetScreen().IsAltScreen() && (mouseEvent.kind == MouseEvent::kMouseEventKind_Wheel)) {
+            return false;
+        }
+    }
     if (mouseEvent.kind != MouseEvent::kMouseEventKind_Wheel) {
         return ViewBase::OnMouseEvent(mouseEvent);
-    }
-    // Alt-screen apps (vi/less) own scrolling themselves (§5.2: never scrollable here).
-    if (controller.GetScreen().IsAltScreen()) {
-        return false;
     }
     controller.ScrollViewport(-(int64_t)mouseEvent.wheelDelta * linesPerScrollWheelNotch);
     InvalidateView();
     return true;
+}
+
+// Mouse reporting (?1000/1002/1003, SGR or X10 bytes): the event at its grid cell, if the app's mode reports it
+bool TerminalView::ForwardMouseToApp(const MouseEvent &mouseEvent) {
+    using gnilk::vt::MouseAction;
+    using gnilk::vt::MouseButton;
+    auto origin = GetContentRect().TopLeft();
+    int x = mouseEvent.x - origin.x;
+    int y = mouseEvent.y - origin.y + gridRowAtViewTop;
+    if ((x < 0) || (y < 0)) {
+        return false;
+    }
+    uint8_t modifiers = gnilk::vt::kModNone;
+    if (mouseEvent.modifiers & (Keyboard::kMod_LeftAlt | Keyboard::kMod_RightAlt)) {
+        modifiers |= gnilk::vt::kModAlt;
+    }
+    if (mouseEvent.modifiers & (Keyboard::kMod_LeftCtrl | Keyboard::kMod_RightCtrl)) {
+        modifiers |= gnilk::vt::kModCtrl;
+    }
+    // SDL numbers the buttons 1 left, 2 middle, 3 right
+    auto button = (mouseEvent.button == 2) ? MouseButton::kMiddle :
+                  (mouseEvent.button == 3) ? MouseButton::kRight : MouseButton::kLeft;
+    switch (mouseEvent.kind) {
+        case MouseEvent::kMouseEventKind_Press:
+            return controller.ForwardMouse(button, MouseAction::kPress, x, y, modifiers);
+        case MouseEvent::kMouseEventKind_Release:
+            return controller.ForwardMouse(button, MouseAction::kRelease, x, y, modifiers);
+        case MouseEvent::kMouseEventKind_Move:
+            return controller.ForwardMouse(button, MouseAction::kMotion, x, y, modifiers);
+        case MouseEvent::kMouseEventKind_Hover:
+            return controller.ForwardMouse(MouseButton::kNone, MouseAction::kMotion, x, y, modifiers);
+        case MouseEvent::kMouseEventKind_Wheel: {
+            auto wheel = (mouseEvent.wheelDelta > 0) ? MouseButton::kWheelUp : MouseButton::kWheelDown;
+            bool isSent = false;
+            for (int i = 0; i < std::abs(mouseEvent.wheelDelta); i++) {
+                isSent = controller.ForwardMouse(wheel, MouseAction::kPress, x, y, modifiers) || isSent;
+            }
+            return isSent;
+        }
+    }
+    return false;
 }
 
 bool TerminalView::OnActionCommitLine() {
@@ -115,6 +187,9 @@ void TerminalView::DrawViewContents() {
     dc.SetColor(termColors.GetColor("foreground"), termColors.GetColor("background"));
     dc.Clear();
 
+    // Before taking the lock - IsAppActive takes it too
+    bool isAppActive = controller.IsAppActive();
+
     std::lock_guard<std::mutex> guard(controller.GetScreenLock());
     auto &screen = controller.GetScreen();
     int viewHeight = dc.GetRect().Height();
@@ -128,8 +203,13 @@ void TerminalView::DrawViewContents() {
                 DrawScreenRow(dc, screen.GetRow(y), y);
             }
         }
+        gridRowAtViewTop = 0;
         cursor.position.x = screen.GetCursorPos().x;
         cursor.position.y = screen.GetCursorPos().y;
+        return;
+    }
+    if (isAppActive && controller.IsFollowingBottom()) {
+        DrawAppScreen(dc, screen, viewHeight);
         return;
     }
 
@@ -284,6 +364,57 @@ void TerminalView::DrawViewContents() {
 
     cursor.position.y = inputViewRow;
     cursor.position.x = controller.GetCursorXPos();
+}
+
+// A foreground job on the primary screen (dialog, python, make, ...): like the shell view - bottom-anchored, history
+// above - but down to the last row the app has drawn on, which may lie below the cursor, and without the local
+// input line (keys go to the app). Output that just streams (cursor on the last content row) looks exactly as it
+// does at the prompt. Caller holds screenLock.
+void TerminalView::DrawAppScreen(DrawContext &dc, const TerminalScreen &screen, int viewHeight) {
+    auto background = Editor::Instance().GetTheme()->GetTerminalColor().GetColor("background");
+    auto isRowEmpty = [&](const TerminalScreen::Row &row) {
+        for (auto &cell : row) {
+            if (((cell.ch != U' ') && (cell.ch != 0)) || (cell.bg != background)) {
+                return false;
+            }
+        }
+        return true;
+    };
+    int cursorY = screen.GetCursorPos().y;
+    int lastRow = cursorY;
+    for (int y = screen.Rows() - 1; y > cursorY; y--) {
+        if (!isRowEmpty(screen.GetRow(y))) {
+            lastRow = y;
+            break;
+        }
+    }
+
+    LineRender lineRender(dc);
+    uint64_t historyTop = screen.ScrollbackBase();
+    uint64_t gridTop = historyTop + screen.GetScrollback()->NumLines();     // abs id of grid row 0
+    uint64_t contentEnd = gridTop + (uint64_t)lastRow + 1;                  // exclusive
+    int shown = (int)std::min<uint64_t>(contentEnd - historyTop, (uint64_t)viewHeight);
+    uint64_t windowTop = contentEnd - (uint64_t)shown;
+    int blankRows = viewHeight - shown;
+
+    for (int viewY = 0; viewY < viewHeight; viewY++) {
+        dc.ClearLine(viewY);
+        if (viewY < blankRows) {
+            continue;
+        }
+        uint64_t abs = windowTop + (uint64_t)(viewY - blankRows);
+        if (abs < gridTop) {
+            auto resolved = screen.RowAtAbs(abs);
+            if (std::holds_alternative<Line::Ref>(resolved)) {
+                lineRender.DrawLine(0, viewY, std::get<Line::Ref>(resolved));
+            }
+        } else {
+            DrawScreenRow(dc, screen.GetRow((int)(abs - gridTop)), viewY);
+        }
+    }
+    gridRowAtViewTop = (int)((int64_t)windowTop - (int64_t)gridTop) - blankRows;
+    cursor.position.x = screen.GetCursorPos().x;
+    cursor.position.y = cursorY - gridRowAtViewTop;
 }
 
 // Colour runs: consecutive cells with the same fg, bg and attributes are one draw call, which also paints the

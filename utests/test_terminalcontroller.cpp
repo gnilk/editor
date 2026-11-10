@@ -31,6 +31,12 @@ DLL_EXPORT int test_terminalcontroller_osc7_cwd(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_osc133_no_double_open(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_raw_tab(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_config_consolidated(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_passthrough_keys(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_passthrough_actions(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_local_mode_keeps_keys(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_paste(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_mouse_focus(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_replies_to_pty(ITesting *t);
 }
 
 #include <cstdint>   // UINT64_MAX
@@ -666,5 +672,186 @@ DLL_EXPORT int test_terminalcontroller_config_consolidated(ITesting *t) {
     TR_ASSERT(t, !commandview.HasKey("show_block_markers"));
     TR_ASSERT(t, !commandview.HasKey("lines_per_scroll_wheel_notch"));
 
+    return kTR_Pass;
+}
+
+//
+// VT-8: input to the pty. A capturing pty writer and an injected foreground-job probe stand in for the shell.
+//
+static KeyPress TextKey(char32_t ch, uint8_t modifiers = 0) {
+    KeyPress keyPress;
+    keyPress.isKeyValid = true;
+    keyPress.key = ch;
+    keyPress.modifiers = modifiers;
+    return keyPress;
+}
+
+static KeyPress SpecialKey(int code, uint8_t modifiers = 0) {
+    KeyPress keyPress;
+    keyPress.isSpecialKey = true;
+    keyPress.specialKey = code;
+    keyPress.modifiers = modifiers;
+    return keyPress;
+}
+
+static void CaptureInput(TerminalController &c, std::string &sink, bool isForegroundJob) {
+    c.SetPtyWriter([&sink](std::string_view bytes) { sink += bytes; });
+    c.SetForegroundJobProbe([isForegroundJob]() { return isForegroundJob; });
+}
+
+// A foreground job owns the keyboard: every key reaches it, encoded as xterm does (TE-6, TE-7, TE-12)
+DLL_EXPORT int test_terminalcontroller_passthrough_keys(ITesting *t) {
+    TerminalController c;
+    c.Resize(40, 10);
+    std::string sent;
+    CaptureInput(c, sent, true);
+    TR_ASSERT(t, c.IsAppActive());
+
+    Cursor cursor;
+    size_t line = 0;
+    auto press = [&](const KeyPress &keyPress) {
+        sent.clear();
+        c.HandleKeyPress(cursor, line, keyPress);
+        return sent;
+    };
+    TR_ASSERT(t, press(TextKey(U'a')) == "a");
+    TR_ASSERT(t, press(TextKey(U'å')) == "\xC3\xA5");
+    TR_ASSERT(t, press(TextKey(U'c', Keyboard::kMod_LeftCtrl)) == "\x03");
+    TR_ASSERT(t, press(TextKey(U'b', Keyboard::kMod_LeftAlt)) == "\x1b" "b");
+    TR_ASSERT(t, press(SpecialKey(Keyboard::kKeyCode_Return)) == "\r");
+    TR_ASSERT(t, press(SpecialKey(Keyboard::kKeyCode_Return, Keyboard::kMod_LeftAlt)) == "\x1b\r");
+    TR_ASSERT(t, press(SpecialKey(Keyboard::kKeyCode_Tab, Keyboard::kMod_LeftShift)) == "\x1b[Z");
+    TR_ASSERT(t, press(SpecialKey(Keyboard::kKeyCode_Escape)) == "\x1b");
+    TR_ASSERT(t, press(SpecialKey(Keyboard::kKeyCode_UpArrow)) == "\x1b[A");
+    TR_ASSERT(t, press(SpecialKey(Keyboard::kKeyCode_RightArrow, Keyboard::kMod_LeftCtrl)) == "\x1b[1;5C");
+    // DECCKM from the app switches the arrows to SS3
+    FeedPty(c, "\x1b[?1h");
+    TR_ASSERT(t, press(SpecialKey(Keyboard::kKeyCode_UpArrow)) == "\x1bOA");
+    // Cmd stays with the editor (macOS)
+    TR_ASSERT(t, press(TextKey(U's', Keyboard::kMod_LeftCommand)).empty());
+    return kTR_Pass;
+}
+
+// Actions bound in the editor still send their key to the app; the escape hatch is left to the editor
+DLL_EXPORT int test_terminalcontroller_passthrough_actions(ITesting *t) {
+    TerminalController c;
+    c.Resize(40, 10);
+    std::string sent;
+    CaptureInput(c, sent, true);
+
+    // Esc is EnterCommandMode, Ctrl+C is CopyToClipboard - vim and Claude must still get them
+    EditorAction esc;
+    esc.action = kAction::kActionEnterCommandMode;
+    esc.keyPress = SpecialKey(Keyboard::kKeyCode_Escape);
+    TR_ASSERT(t, c.ForwardActionToShell(esc));
+    EditorAction copy;
+    copy.action = kAction::kActionCopyToClipboard;
+    copy.keyPress = TextKey(U'c', Keyboard::kMod_LeftCtrl);
+    TR_ASSERT(t, c.ForwardActionToShell(copy));
+    EditorAction pageUp;
+    pageUp.uiAction = kUIAction::kUIActionPageUp;
+    pageUp.keyPress = SpecialKey(Keyboard::kKeyCode_PageUp);
+    TR_ASSERT(t, c.ForwardActionToShell(pageUp));
+    TR_ASSERT(t, sent == "\x1b\x03\x1b[5~");
+
+    // View switching and resizing are not sent; the view hands them on
+    sent.clear();
+    EditorAction toEditor;
+    toEditor.action = kAction::kActionSwitchToEditor;
+    toEditor.keyPress = TextKey(U'e', Keyboard::kMod_LeftAlt);
+    TR_ASSERT(t, !c.ForwardActionToShell(toEditor));
+    EditorAction wider;
+    wider.uiAction = kUIAction::kUIActionIncreaseViewWidth;
+    wider.keyPress = TextKey(U'd', Keyboard::kMod_LeftAlt);
+    TR_ASSERT(t, !c.ForwardActionToShell(wider));
+    TR_ASSERT(t, sent.empty());
+    TR_ASSERT(t, TerminalController::IsTerminalEscapeHatch(toEditor));
+    TR_ASSERT(t, !TerminalController::IsTerminalEscapeHatch(esc));
+    return kTR_Pass;
+}
+
+// At the shell prompt (no job, no alt screen) keys stay with the local line editor - nothing reaches the pty
+DLL_EXPORT int test_terminalcontroller_local_mode_keeps_keys(ITesting *t) {
+    TerminalController c;
+    c.Resize(40, 10);
+    std::string sent;
+    CaptureInput(c, sent, false);
+    TR_ASSERT(t, !c.IsAppActive());
+    Cursor cursor;
+    size_t line = 0;
+    c.HandleKeyPress(cursor, line, TextKey(U'l'));
+    c.HandleKeyPress(cursor, line, TextKey(U's'));
+    TR_ASSERT(t, sent.empty());
+    TR_ASSERT(t, c.GetInputLine()->Buffer() == std::u32string(U"ls"));
+    // The alternate screen makes the app active without a job probe
+    FeedPty(c, "\x1b[?1049h");
+    TR_ASSERT(t, c.IsAppActive());
+    c.HandleKeyPress(cursor, line, TextKey(U'q'));
+    TR_ASSERT(t, sent == "q");
+    return kTR_Pass;
+}
+
+// TE-9: paste - bracketed for an app that asked; a line at the local prompt; several lines to readline, not run
+DLL_EXPORT int test_terminalcontroller_paste(ITesting *t) {
+    {
+        TerminalController c;
+        c.Resize(40, 10);
+        std::string sent;
+        CaptureInput(c, sent, true);
+        c.Paste(U"echo hi\n");
+        TR_ASSERT(t, sent == "echo hi\r");
+        sent.clear();
+        FeedPty(c, "\x1b[?2004h");
+        c.Paste(U"a\nb");
+        TR_ASSERT(t, sent == "\x1b[200~a\rb\x1b[201~");
+    }
+    {
+        TerminalController c;
+        c.Resize(40, 10);
+        std::string sent;
+        CaptureInput(c, sent, false);
+        Cursor cursor;
+        size_t line = 0;
+        c.HandleKeyPress(cursor, line, TextKey(U'x'));
+        c.Paste(U"yz");
+        TR_ASSERT(t, sent.empty());
+        TR_ASSERT(t, c.GetInputLine()->Buffer() == std::u32string(U"xyz"));
+        TR_ASSERT(t, c.GetCursorXPos() >= 3);
+
+        c.Paste(U"one\ntwo\n");
+        TR_ASSERT(t, sent == "xyz\x1b[200~one\rtwo\r\x1b[201~");
+        TR_ASSERT(t, c.DoesShellOwnLineEditing());
+    }
+    return kTR_Pass;
+}
+
+// TE-11 + focus events: only when the app asked for them
+DLL_EXPORT int test_terminalcontroller_mouse_focus(ITesting *t) {
+    TerminalController c;
+    c.Resize(40, 10);
+    std::string sent;
+    CaptureInput(c, sent, true);
+    using gnilk::vt::MouseButton;
+    using gnilk::vt::MouseAction;
+    TR_ASSERT(t, !c.ForwardMouse(MouseButton::kLeft, MouseAction::kPress, 3, 4, 0));
+    c.SetFocus(true);
+    TR_ASSERT(t, sent.empty());
+
+    FeedPty(c, "\x1b[?1000;1006h\x1b[?1004h");
+    TR_ASSERT(t, c.ForwardMouse(MouseButton::kLeft, MouseAction::kPress, 3, 4, 0));
+    TR_ASSERT(t, c.ForwardMouse(MouseButton::kWheelDown, MouseAction::kPress, 0, 0, 0));
+    c.SetFocus(false);
+    TR_ASSERT(t, sent == "\x1b[<0;4;5M\x1b[<65;1;1M\x1b[O");
+    return kTR_Pass;
+}
+
+// The terminal's own replies (DA, CPR) take the same way out as keys
+DLL_EXPORT int test_terminalcontroller_replies_to_pty(ITesting *t) {
+    TerminalController c;
+    c.Resize(40, 10);
+    std::string sent;
+    CaptureInput(c, sent, false);
+    FeedPty(c, "\x1b[c\x1b[2;5H\x1b[6n");
+    TR_ASSERT(t, sent == "\x1b[?62;22c\x1b[2;5R");
     return kTR_Pass;
 }

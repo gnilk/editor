@@ -226,7 +226,7 @@ oracle suite green modulo the documented allowlist.
 
 ## 7. Status and pick-up notes
 
-### Done (VT-0..VT-7, branch `feat/gvt`)
+### Done (VT-0..VT-8, branch `feat/gvt`)
 
 - `src/ext/gvt/`: CMake (standalone + `add_subdirectory` from the editor), `Parser`, `IParserSink`, `README.md`.
   Not linked into `goatedit` yet.
@@ -290,6 +290,25 @@ oracle suite green modulo the documented allowlist.
   syntax colours, Ctrl-D scrolling, back to an intact shell), dialog backgrounds and line drawing, `seq` scrollback.
   Behaviour changes to know: SGR 30-37 now give the normal colours (the old code always mapped them to the bright
   8-15); HT only moves the cursor (xterm) instead of painting blanks.
+- macOS (from the Mac session, `3750ba4`): build, `gvttests` 62/0 and the green set 633/0 on SDL3; SDL3's
+  `DrawStringWithAttributesAt` now clips at the right edge like SDL2. GUI check on the Mac still open.
+- **VT-8 input.** `gvt/Input.h`: `EncodeKey` (DECCKM, `CSI 1;m X` / `CSI n;m ~` modifiers, Shift+Tab `CSI Z`,
+  Alt+Enter `ESC CR`, Ctrl/Alt+Backspace), `EncodeText` (UTF-8, Ctrl+letter/symbol C0, Alt as ESC prefix),
+  `EncodePaste` (CR line ends, bracketed with `ESC[201~` stripped), `EncodeMouse` (X10/1000/1002/1003, SGR and
+  byte forms), `EncodeFocus` - `input` module, byte-exact against xterm.
+  Editor: **an app owns the terminal** = alternate screen OR a foreground job (`Shell::IsForegroundJobRunning`:
+  `tcgetpgrp(amaster) != shell pid`). Then keys AND bound actions are encoded from the raw key and sent
+  (`TerminalController::ForwardKeyPressToShell` / `ForwardActionToShell`) - Esc, Ctrl+C, Shift+Tab, Ctrl+arrows,
+  PageUp now reach vim/Claude (before, bound actions were swallowed in alt-screen mode); the escape hatch
+  (`IsTerminalEscapeHatch`: view focus/cycle/resize, buffer switching, view modes, paste, anything with Cmd)
+  returns to the view/editor - Alt+E leaves vim. A foreground job on the primary screen is drawn
+  bottom-anchored down to its last drawn row, without the local input line (`TerminalView::DrawAppScreen`).
+  Paste (TE-9, E.18 round-trip through `UpdateClipboardData`): app/readline -> `EncodePaste`; local prompt -> one
+  line inserted at the caret, several lines handed to readline as one bracketed paste (shown, not run). Mouse
+  (TE-11): reported when the app enabled it, Shift overrides. Focus events on view (de)activation. All pty output
+  goes through `TerminalController::WriteToPty`; test seams `SetPtyWriter` / `SetForegroundJobProbe`
+  (6 new `terminalcontroller` cases). GUI-checked: python3 REPL (its own history via Up, Ctrl+D), dialog (arrows,
+  whole box), vim (Esc, Alt+E out and Alt+T back, ZZ).
 
 Decisions made while building it:
 - **Malformed CSI** (`CSI 1?2h`, `CSI 1$2p`): ignored up to the final byte (Williams `csi_ignore`, as xterm,
@@ -321,22 +340,23 @@ brew install libvterm pkg-config          # without them the oracle module is sk
 git fetch && git checkout feat/gvt
 cmake --preset debug                       # or reconfigure an existing build dir
 cmake --build cmake-build-debug --target gvttests
-cd cmake-build-debug && trun --sequential ./libgvttests.dylib     # expect 62 executed, 0 failed (editor: verified-green set 633)
+cd cmake-build-debug && trun --sequential ./libgvttests.dylib     # expect 69 executed, 0 failed (editor: verified-green set 633)
 ```
 
 Not yet verified on macOS: the build, the oracle with Homebrew's libvterm, the fixture copy step.
 
-### Next: VT-8 (input + passthrough policy), VT-9 (rendering)
+### Next: VT-9 (rendering), then the exit criterion (Claude inside goatedit)
 
-Seen in the GUI check, both pre-existing (same with the old parser):
-- **Apps that draw on the primary screen** (dialog leaves the alt screen right after entering it and paints the
-  primary): the view stays in shell mode - bottom-anchored with scrollback above, last row is the local input line -
-  and keys go to local line editing, so arrows never reach the app. VT-8's passthrough decision must not hinge on
-  `IsAltScreen()` alone: foreground-job detection (`tcgetpgrp(amaster) != shell pid`), or app-ish modes (DECCKM,
-  mouse tracking, bracketed paste off) as hints; the view then draws the full grid.
 - **CJK / emoji show as blanks**: the model is right (two cells, gap preserved) but Andale Mono has no such glyphs.
   VT-9: font fallback in `SDLFontManager` and drawing a width-2 glyph across both cells (SDL2 + SDL3 + gansi).
 - Bold is carried to the draw call (`kTextAttributes::kBold`) but the SDL backends may not render it; dim, blink,
   overline and underline colour/style are in the model and not drawn yet (VT-9).
 - Cursor visibility/shape (`IsCursorVisible`, `GetModes().cursorShape`) and synchronized output
   (`gvt::Terminal::IsSynchronizedUpdate`) are exposed but unused by the view (VT-9).
+- **Decision for the owner:** `clear` sends ED 3 (erase scrollback). gvt reports it as unhandled and the editor keeps
+  its scrollback + command blocks, so earlier output stays visible above the prompt after `clear` (as before gvt).
+  Clear the history on ED 3, or keep it (it is the editor's block history)?
+- Escape-hatch set is a first cut: Alt+Left/Right (buffer cycling) and Alt+1..9 stay with the editor, so readline's
+  Alt+arrow word motion does not reach apps. Adjust `IsTerminalEscapeHatch` if that bites.
+- Exit criterion still to run: `claude` inside goatedit (trust dialog, typing incl. non-ASCII, Esc, Shift+Tab,
+  Ctrl+C twice back to the shell) - VT-8 should cover it; not tried yet (needs an interactive account session).

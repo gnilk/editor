@@ -22,6 +22,7 @@ list(APPEND gvttest_src
     test_gvt.cpp
     test_parser.cpp
     test_terminal.cpp
+    test_input.cpp
 )
 
 find_package(PkgConfig QUIET)

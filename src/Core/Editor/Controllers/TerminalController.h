@@ -5,7 +5,7 @@
 #ifndef GOATEDIT_TERMINALCONTROLLER_H
 #define GOATEDIT_TERMINALCONTROLLER_H
 
-#include <atomic>
+#include <functional>
 #include <vector>
 #include <string>
 #include <mutex>
@@ -19,6 +19,7 @@
 #include "Core/TerminalScreen.h"
 #include "Core/TerminalCmdHistory.h"
 #include "gvt/Terminal.h"
+#include "gvt/Input.h"
 
 namespace gedit {
     struct TerminalSession;   // Core/Session/SessionState.h - the persisted block index + .bin pointer
@@ -49,6 +50,32 @@ namespace gedit {
         int GetCursorXPos();
 
         bool DoesShellOwnLineEditing() const { return doesShellOwnLineEditing; }
+
+        // An application owns the terminal: a full-screen app on the alternate screen, or any job in the foreground
+        // (dialog, python, ssh, sleep, ...: the pty's foreground process group is not the shell's). Then every key
+        // goes to the pty except the escape hatch (IsTerminalEscapeHatch), and the view shows the grid as is.
+        bool IsAppActive();
+        // The editor keeps these while an app owns the terminal: view focus/cycling/resizing, buffer switching, the
+        // view modes, paste (sent to the app as a paste) and anything with Cmd. Everything else reaches the app.
+        static bool IsTerminalEscapeHatch(const EditorAction &kpAction);
+
+        // Clipboard text into the terminal. An app (or readline, while it owns the line) gets it as a paste
+        // (bracketed when it asked, ?2004). At the local prompt one line is inserted at the caret; several lines go
+        // to readline as one bracketed paste with the typed line - shown there for review, not run.
+        void Paste(const std::u32string &text);
+        // Focus in/out for apps that asked for focus events (?1004)
+        void SetFocus(bool isFocused);
+        // A mouse event at a grid cell, for an app that turned on mouse reporting. False when nothing was sent
+        // (reporting off, or not an event the mode reports) - the view then handles it itself.
+        bool ForwardMouse(gnilk::vt::MouseButton button, gnilk::vt::MouseAction action, int x, int y,
+                          uint8_t modifiers);
+        // The terminal's modes (DECCKM, bracketed paste, mouse, ...) - a copy taken under screenLock
+        gnilk::vt::Modes GetModes();
+
+        // Test seams: where pty bytes go (default: the shell), and the foreground-job probe (default:
+        // Shell::IsForegroundJobRunning)
+        void SetPtyWriter(std::function<void(std::string_view)> writer) { ptyWriter = std::move(writer); }
+        void SetForegroundJobProbe(std::function<bool()> probe) { foregroundJobProbe = std::move(probe); }
 
         // Viewport (§5.1 of docs/terminal-scrollback.md): scroll position is a UI/viewport concern,
         // not model state - it lives here, not on TerminalScreen.
@@ -139,8 +166,9 @@ namespace gedit {
         // (command start) and ;C (output start). Assumes screenLock is held.
         std::u32string ReadGridText(const Point &from, const Point &to) const;
 
-        // Encode a keypress as raw pty bytes and forward it to the shell. Used by BOTH passthrough
-        // paths in HandleKeyPress: a full-screen app (alt-screen) and readline (shell-owned line).
+        // Encode a keypress as pty bytes (gvt EncodeKey/EncodeText over the current modes) and send it. Used by
+        // every passthrough path: an app owns the terminal, or readline owns the line. False for keys that never
+        // go to the pty (Cmd combinations, keys with no encoding).
         bool ForwardKeyPressToShell(const KeyPress &keyPress);
 
         void LoadCmdHistory();
@@ -169,8 +197,8 @@ namespace gedit {
         TerminalScreen screen;
         std::mutex screenLock;
 
-        // DECCKM, copied from the terminal's modes after each feed (pty thread) for the key encoder (UI thread)
-        std::atomic<bool> cursorKeyAppMode = false;
+        std::function<void(std::string_view)> ptyWriter;
+        std::function<bool()> foregroundJobProbe;
 
         // Line-ownership flag - ONE of two independent dimensions that decide how a keypress is
         // handled; the other is screen.IsAltScreen() (a flag on the TerminalScreen model, flipped by

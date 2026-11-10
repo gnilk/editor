@@ -137,6 +137,14 @@ int Shell::WriteBytes(const std::string &data) {
     return write(amaster, data.c_str(), data.size());
 }
 
+bool Shell::IsForegroundJobRunning() const {
+    if ((amaster < 0) || (pid <= 0)) {
+        return false;
+    }
+    pid_t foreground = tcgetpgrp(amaster);
+    return (foreground > 0) && (foreground != pid);
+}
+
 void Shell::Close() {
     ChangeState(State::kTerminate);
 }

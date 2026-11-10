@@ -271,7 +271,6 @@ void TerminalController::ApplyThemeColors() {
 void TerminalController::HandleTerminalData(const uint8_t *buffer, size_t length) {
     std::lock_guard<std::mutex> guard(screenLock);
     screen.Feed(buffer, length);
-    cursorKeyAppMode = screen.GetModes().isCursorKeysApp;
 
     // While the shell owns the line (completion in progress), mirror what readline
     // has echoed back into our local inputLine so the model stays truthful.
@@ -317,7 +316,12 @@ void TerminalController::SyncInputLineFromGrid() {
 //
 // gnilk::vt::ITerminalHost - inside HandleTerminalData, screenLock held
 //
+// Everything the terminal sends - replies, keys, pastes, mouse, focus - goes out here
 void TerminalController::WriteToPty(std::string_view bytes) {
+    if (ptyWriter) {
+        ptyWriter(bytes);
+        return;
+    }
     shell.WriteBytes(std::string(bytes));
 }
 
@@ -393,9 +397,9 @@ bool TerminalController::HandleKeyPress(Cursor &cursor, size_t &idxActiveLine, c
     // locally. See the doesShellOwnLineEditing comment in the header for why these are two separate
     // dimensions.
 
-    // (1) Full-screen app owns the grid (vi/less requested the alt-screen via ANSI). This wins
-    //     over everything else - while a full-screen app is up, every key is its input.
-    if (screen.IsAltScreen()) {
+    // (1) An application owns the terminal (alternate screen, or a foreground job). This wins over
+    //     everything else - while it runs, every key is its input.
+    if (IsAppActive()) {
         return ForwardKeyPressToShell(keyPress);
     }
 
@@ -420,99 +424,205 @@ bool TerminalController::HandleKeyPress(Cursor &cursor, size_t &idxActiveLine, c
     return false;
 }
 
-bool TerminalController::ForwardKeyPressToShell(const KeyPress &keyPress) {
-    if (keyPress.IsHumanReadable()) {
-        uint8_t ch = (uint8_t)keyPress.key;
-        if (keyPress.IsCtrlPressed()) {
-            if (keyPress.key >= 'a' && keyPress.key <= 'z') {
-                ch = (uint8_t)(keyPress.key - 'a' + 1);
-            } else if (keyPress.key >= 'A' && keyPress.key <= 'Z') {
-                ch = (uint8_t)(keyPress.key - 'A' + 1);
-            } else if (keyPress.key == '[') {
-                ch = 0x1b;  // Ctrl+[ == ESC
-            }
+namespace {
+
+    uint8_t ToVtModifiers(const KeyPress &keyPress) {
+        uint8_t modifiers = gnilk::vt::kModNone;
+        if (keyPress.IsShiftPressed()) {
+            modifiers |= gnilk::vt::kModShift;
         }
-        shell.Write(ch);
-        return true;
+        if (keyPress.IsAltPressed()) {
+            modifiers |= gnilk::vt::kModAlt;
+        }
+        if (keyPress.IsCtrlPressed()) {
+            modifiers |= gnilk::vt::kModCtrl;
+        }
+        return modifiers;
     }
-    if (!keyPress.isSpecialKey) {
-        return false;
+
+    std::optional<gnilk::vt::Key> ToVtKey(int specialKey) {
+        using gnilk::vt::Key;
+        switch (specialKey) {
+            case Keyboard::kKeyCode_Return:         return Key::kEnter;
+            case Keyboard::kKeyCode_Tab:            return Key::kTab;
+            case Keyboard::kKeyCode_Backspace:      return Key::kBackspace;
+            case Keyboard::kKeyCode_Escape:         return Key::kEscape;
+            case Keyboard::kKeyCode_UpArrow:        return Key::kUp;
+            case Keyboard::kKeyCode_DownArrow:      return Key::kDown;
+            case Keyboard::kKeyCode_RightArrow:     return Key::kRight;
+            case Keyboard::kKeyCode_LeftArrow:      return Key::kLeft;
+            case Keyboard::kKeyCode_Home:           return Key::kHome;
+            case Keyboard::kKeyCode_End:            return Key::kEnd;
+            case Keyboard::kKeyCode_PageUp:         return Key::kPageUp;
+            case Keyboard::kKeyCode_PageDown:       return Key::kPageDown;
+            case Keyboard::kKeyCode_Insert:         return Key::kInsert;
+            case Keyboard::kKeyCode_DeleteForward:  return Key::kDelete;
+            case Keyboard::kKeyCode_F1:             return Key::kF1;
+            case Keyboard::kKeyCode_F2:             return Key::kF2;
+            case Keyboard::kKeyCode_F3:             return Key::kF3;
+            case Keyboard::kKeyCode_F4:             return Key::kF4;
+            case Keyboard::kKeyCode_F5:             return Key::kF5;
+            case Keyboard::kKeyCode_F6:             return Key::kF6;
+            case Keyboard::kKeyCode_F7:             return Key::kF7;
+            case Keyboard::kKeyCode_F8:             return Key::kF8;
+            case Keyboard::kKeyCode_F9:             return Key::kF9;
+            case Keyboard::kKeyCode_F10:            return Key::kF10;
+            case Keyboard::kKeyCode_F11:            return Key::kF11;
+            case Keyboard::kKeyCode_F12:            return Key::kF12;
+            default:                                return std::nullopt;
+        }
     }
-    const char *seq = nullptr;
-    switch (keyPress.specialKey) {
-        case Keyboard::kKeyCode_Return:    shell.Write(0x0d); return true;
-        case Keyboard::kKeyCode_Escape:    shell.Write(0x1b); return true;
-        case Keyboard::kKeyCode_Backspace: shell.Write(0x7f); return true;
-        case Keyboard::kKeyCode_Tab:       shell.Write(0x09); return true;
-        case Keyboard::kKeyCode_UpArrow:    seq = cursorKeyAppMode ? "\x1bOA" : "\x1b[A"; break;
-        case Keyboard::kKeyCode_DownArrow:  seq = cursorKeyAppMode ? "\x1bOB" : "\x1b[B"; break;
-        case Keyboard::kKeyCode_RightArrow: seq = cursorKeyAppMode ? "\x1bOC" : "\x1b[C"; break;
-        case Keyboard::kKeyCode_LeftArrow:  seq = cursorKeyAppMode ? "\x1bOD" : "\x1b[D"; break;
-        case Keyboard::kKeyCode_Home:       seq = "\x1b[H";   break;
-        case Keyboard::kKeyCode_End:        seq = "\x1b[F";   break;
-        case Keyboard::kKeyCode_PageUp:     seq = "\x1b[5~";  break;
-        case Keyboard::kKeyCode_PageDown:   seq = "\x1b[6~";  break;
-        case Keyboard::kKeyCode_Insert:     seq = "\x1b[2~";  break;
-        case Keyboard::kKeyCode_DeleteForward: seq = "\x1b[3~"; break;
-        case Keyboard::kKeyCode_F1:  seq = "\x1bOP";    break;
-        case Keyboard::kKeyCode_F2:  seq = "\x1bOQ";    break;
-        case Keyboard::kKeyCode_F3:  seq = "\x1bOR";    break;
-        case Keyboard::kKeyCode_F4:  seq = "\x1bOS";    break;
-        case Keyboard::kKeyCode_F5:  seq = "\x1b[15~";  break;
-        case Keyboard::kKeyCode_F6:  seq = "\x1b[17~";  break;
-        case Keyboard::kKeyCode_F7:  seq = "\x1b[18~";  break;
-        case Keyboard::kKeyCode_F8:  seq = "\x1b[19~";  break;
-        case Keyboard::kKeyCode_F9:  seq = "\x1b[20~";  break;
-        case Keyboard::kKeyCode_F10: seq = "\x1b[21~";  break;
-        case Keyboard::kKeyCode_F11: seq = "\x1b[23~";  break;
-        case Keyboard::kKeyCode_F12: seq = "\x1b[24~";  break;
-        default: return false;
-    }
-    if (seq != nullptr) {
-        shell.WriteBytes(seq);
-    }
-    return true;
+
 }
 
+bool TerminalController::ForwardKeyPressToShell(const KeyPress &keyPress) {
+    // Cmd (macOS) is the editor's - Save, Quit, ... keep working while an app runs
+    if (keyPress.IsCommandPressed()) {
+        return false;
+    }
+    auto modifiers = ToVtModifiers(keyPress);
+    if (keyPress.IsHumanReadable()) {
+        WriteToPty(gnilk::vt::EncodeText(keyPress.key, modifiers));
+        return true;
+    }
+    if (keyPress.isSpecialKey) {
+        auto key = ToVtKey(keyPress.specialKey);
+        if (!key.has_value()) {
+            return false;
+        }
+        WriteToPty(gnilk::vt::EncodeKey(*key, modifiers, GetModes()));
+        return true;
+    }
+    // A backend that already delivers the control character
+    if (keyPress.isKeyValid && (keyPress.key != 0) && (keyPress.key < 0x80)) {
+        WriteToPty(std::string(1, static_cast<char>(keyPress.key)));
+        return true;
+    }
+    return false;
+}
+
+// Passthrough: the action's own key goes to the pty, encoded - Esc, Ctrl+C, Shift+Tab, Ctrl+arrows reach the app
+// even though the editor binds them. Escape-hatch actions return false so the view hands them to the editor.
 bool TerminalController::ForwardActionToShell(const EditorAction &kpAction) {
-    const char *seq = nullptr;
-    if (kpAction.action == kAction::kActionShellCompletion) {
-        shell.Write(0x09);
+    if (IsTerminalEscapeHatch(kpAction)) {
+        return false;
+    }
+    if ((kpAction.uiAction == kUIAction::kUIActionCommitLine) && doesShellOwnLineEditing) {
+        // §4.1 tab-completion edge case: this commit never goes through CommitLine(), so the
+        // block boundary has to open here instead. SyncInputLineFromGrid has been mirroring
+        // readline's edits into inputLine, so it holds the best-effort command text - read it
+        // before ExitShellOwned() clears it.
+        std::u32string cmdLine(inputLine->Buffer());
+        if (!cmdLine.empty()) {
+            std::lock_guard<std::mutex> guard(screenLock);
+            if (!useOsc133Boundaries) {   // §4.2: OSC 133;C opens the block when integration is active
+                screen.BeginCommandBlock(cmdLine, TerminalScreen::CommandBlock::Source::kCommitLine);
+            }
+        }
+        WriteToPty("\r");
+        ExitShellOwned();
+        return true;
+    }
+    bool isHandled = ForwardKeyPressToShell(kpAction.keyPress);
+    // Ctrl+C aborts readline's line: back to local editing, or we'd be stuck in passthrough with a stale anchor
+    auto &key = kpAction.keyPress;
+    if (doesShellOwnLineEditing && key.IsCtrlPressed() && ((key.key == 'c') || (key.key == 'C'))) {
+        ExitShellOwned();
+    }
+    return isHandled;
+}
+
+bool TerminalController::IsTerminalEscapeHatch(const EditorAction &kpAction) {
+    if (kpAction.keyPress.IsCommandPressed()) {
         return true;
     }
     switch (kpAction.uiAction) {
-        case kUIAction::kUIActionCommitLine:
-            shell.Write(0x0d);
-            // When the shell owns line editing the line lives in readline; committing hands
-            // control back and the shell will print its output + a fresh prompt.
-            if (doesShellOwnLineEditing) {
-                // §4.1 tab-completion edge case: this commit never goes through CommitLine(), so the
-                // block boundary has to open here instead. SyncInputLineFromGrid has been mirroring
-                // readline's edits into inputLine, so it holds the best-effort command text - read it
-                // before ExitShellOwned() clears it.
-                std::u32string cmdLine(inputLine->Buffer());
-                if (!cmdLine.empty()) {
-                    std::lock_guard<std::mutex> guard(screenLock);
-                    if (!useOsc133Boundaries) {   // §4.2: OSC 133;C opens the block when integration is active
-                        screen.BeginCommandBlock(cmdLine, TerminalScreen::CommandBlock::Source::kCommitLine);
-                    }
-                }
-                ExitShellOwned();
-            }
+        case kUIAction::kUIActionCycleActiveView:
+        case kUIAction::kUIActionCycleActiveViewNext:
+        case kUIAction::kUIActionCycleActiveViewPrev:
+        case kUIAction::kUIActionIncreaseViewWidth:
+        case kUIAction::kUIActionDecreaseViewWidth:
+        case kUIAction::kUIActionIncreaseViewHeight:
+        case kUIAction::kUIActionDecreaseViewHeight:
+        case kUIAction::kUIActionMaximizeViewHeight:
             return true;
-        case kUIAction::kUIActionLineLeft:    seq = cursorKeyAppMode ? "\x1bOD" : "\x1b[D"; break;
-        case kUIAction::kUIActionLineRight:   seq = cursorKeyAppMode ? "\x1bOC" : "\x1b[C"; break;
-        case kUIAction::kUIActionLineUp:      seq = cursorKeyAppMode ? "\x1bOA" : "\x1b[A"; break;
-        case kUIAction::kUIActionLineDown:    seq = cursorKeyAppMode ? "\x1bOB" : "\x1b[B"; break;
-        case kUIAction::kUIActionLineHome:    seq = "\x1b[H";  break;
-        case kUIAction::kUIActionLineEnd:     seq = "\x1b[F";  break;
-        case kUIAction::kUIActionPageUp:      seq = "\x1b[5~"; break;
-        case kUIAction::kUIActionPageDown:    seq = "\x1b[6~"; break;
-        default: return true;  // swallow — don't let editor-level actions fire
+        default:
+            break;
     }
-    if (seq != nullptr) {
-        shell.WriteBytes(seq);
+    switch (kpAction.action) {
+        case kAction::kActionCycleActiveEditor:
+        case kAction::kActionCycleActiveBufferNext:
+        case kAction::kActionCycleActiveBufferPrev:
+        case kAction::kActionSwitchToBuffer:
+        case kAction::kActionSwitchToTerminal:
+        case kAction::kActionSwitchToEditor:
+        case kAction::kActionSwitchToProject:
+        case kAction::kActionViewModeText:
+        case kAction::kActionViewModeHex:
+        case kAction::kActionPasteFromClipboard:
+            return true;
+        default:
+            return false;
     }
+}
+
+bool TerminalController::IsAppActive() {
+    {
+        std::lock_guard<std::mutex> guard(screenLock);
+        if (screen.IsAltScreen()) {
+            return true;
+        }
+    }
+    return foregroundJobProbe ? foregroundJobProbe() : shell.IsForegroundJobRunning();
+}
+
+gnilk::vt::Modes TerminalController::GetModes() {
+    std::lock_guard<std::mutex> guard(screenLock);
+    return screen.GetModes();
+}
+
+void TerminalController::Paste(const std::u32string &text) {
+    if (text.empty()) {
+        return;
+    }
+    auto bytes = UnicodeHelper::utf32to8(text);
+    if (IsAppActive() || doesShellOwnLineEditing) {
+        WriteToPty(gnilk::vt::EncodePaste(bytes, GetModes()));
+        return;
+    }
+    if (text.find_first_of(U"\r\n") == std::u32string::npos) {
+        inputLine->Insert(inputCursor.position.x, text);
+        inputCursor.position.x += (int)text.length();
+        ScrollToBottom();
+        return;
+    }
+    // Several lines: readline takes the line (as on Tab completion), the paste lands in it bracketed - visible
+    // and editable, run on Enter
+    {
+        std::lock_guard<std::mutex> guard(screenLock);
+        promptAnchor = screen.GetCursorPos();
+    }
+    doesShellOwnLineEditing = true;
+    gnilk::vt::Modes bracketed;
+    bracketed.isBracketedPaste = true;
+    WriteToPty(UnicodeHelper::utf32to8(inputLine->Buffer()) + gnilk::vt::EncodePaste(bytes, bracketed));
+    ScrollToBottom();
+}
+
+void TerminalController::SetFocus(bool isFocused) {
+    auto bytes = gnilk::vt::EncodeFocus(isFocused, GetModes());
+    if (!bytes.empty()) {
+        WriteToPty(bytes);
+    }
+}
+
+bool TerminalController::ForwardMouse(gnilk::vt::MouseButton button, gnilk::vt::MouseAction action, int x, int y,
+                                      uint8_t modifiers) {
+    auto bytes = gnilk::vt::EncodeMouse(button, action, x, y, modifiers, GetModes());
+    if (bytes.empty()) {
+        return false;
+    }
+    WriteToPty(bytes);
     return true;
 }
 
@@ -526,10 +636,7 @@ bool TerminalController::OnAction(const EditorAction &kpAction) {
         promptAnchor = screen.GetCursorPos();
         doesShellOwnLineEditing = true;
         auto cmdLine = std::u32string(inputLine->Buffer());
-        if (!cmdLine.empty()) {
-            shell.SendCmd(cmdLine);
-        }
-        shell.Write(0x09);
+        WriteToPty(UnicodeHelper::utf32to8(cmdLine) + "\t");
         return true;
     }
 

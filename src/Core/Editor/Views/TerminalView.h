@@ -48,6 +48,9 @@ namespace gedit {
         bool OnActionCommitLine();
 
     private:
+        void PasteFromClipboard();
+        bool ForwardMouseToApp(const MouseEvent &mouseEvent);
+        void DrawAppScreen(DrawContext &dc, const TerminalScreen &screen, int viewHeight);
         void DrawScreenRow(DrawContext &dc, const TerminalScreen::Row &row, int y);
 
     private:
@@ -58,6 +61,9 @@ namespace gedit {
         // Cached from config ("terminal.show_block_markers"): draw a separator rule at the end of
         // each closed command block (§5.5 of docs/terminal-scrollback.md). Off by default.
         bool showBlockMarkers = false;
+        // Grid row drawn on view row 0 while an app owns the terminal (set by the draw, read by mouse reporting):
+        // grid y = view y + this. 0 on the alternate screen; a foreground job is drawn bottom-anchored.
+        int gridRowAtViewTop = 0;
     };
 }
 

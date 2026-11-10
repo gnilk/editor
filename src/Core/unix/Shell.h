@@ -42,6 +42,9 @@ namespace gedit {
         int  SendCmd(std::u32string &cmd);
         int  Write(uint8_t chr);
         int  WriteBytes(const std::string &data);
+        // A job other than the shell is in the foreground of the pty (tcgetpgrp != the shell's process group):
+        // an interactive shell gives each command its own group, so this is "a program is running"
+        bool IsForegroundJobRunning() const;
 
         void Close();
         void CleanUp();

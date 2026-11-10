@@ -290,3 +290,14 @@ bundle, the `POST_BUILD` `copy_directory` into the build tree's `goatedit.app/Co
 `file(REMOVE_RECURSE ...)` ahead of `install(DIRECTORY ...)`), and do the same for the build tree's bundle copy, or
 copy with a mirror step that deletes what the source no longer has. Check it with a file removed from
 `Assets/Resources`: after build + install it must be gone from both bundles.
+
+## 23. ANSI backend is sluggish on terminal input which takes over the screen
+
+Terminal is generally fast. But starting processes that take over the terminal (vim, claude, etc..) cause a slow-down.
+This was previously also the case for the SDL2/SDL3 handlers - they all had a thread waiting for 250ms for an input event.
+When a terminal app did an override on the input such input was not routed through the SDL2/SDL3 pipeline causing a 250ms
+queue wait everytime..
+
+We should try to implement a similar handling for the ANSI backend as I suspect there is a similar event-queue timeout handling
+while ANSI backend is used...
+

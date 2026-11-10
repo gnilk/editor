@@ -276,6 +276,9 @@ terminal:
   # injects bash/zsh prompt hooks that emit semantic-prompt markers, so command blocks get exact
   # boundaries + exit codes (instead of the CommitLine heuristic). Off by default - it rewrites PS1.
   shell_integration: no
+  # What Alt(Option)+Left/Right sends to an app in the terminal: 'words' = ESC b / ESC f (readline word motion,
+  # what Terminal.app/iTerm2 send), 'xterm' = CSI 1;3D / 1;3C. Unset: words on macOS, xterm on Linux.
+  # alt_arrows: words
   # --- Terminal view (these were the separate 'commandview' section; consolidated here so the
   #     terminal has ONE config section from the user's point of view) ---
   # Keymap used while the terminal/command input view is active.

@@ -84,6 +84,10 @@ void TerminalController::Begin() {
     auto shellBinary    = Config::Instance()["terminal"].GetStr("shell", "");
     auto shellInitStr   = Config::Instance()["terminal"].GetStr("init", "-ils");
     auto shellInitScript = Config::Instance()["terminal"].GetSequenceOfStr("bootstrap");
+    auto altArrows = Config::Instance()["terminal"].GetStr("alt_arrows", "");
+    if (!altArrows.empty()) {
+        isAltArrowsAsWords = (altArrows == "words");
+    }
     // §4.2 (TS-3c): opt-in OSC 133 shell integration - appends prompt hooks that emit semantic-prompt
     // markers, giving exact command boundaries + exit codes. Off by default (it rewrites PS1).
     if (Config::Instance()["terminal"].GetBool("shell_integration", false)) {
@@ -504,6 +508,11 @@ bool TerminalController::ForwardKeyPressToShell(const KeyPress &keyPress) {
         auto key = ToVtKey(keyPress.specialKey);
         if (!key.has_value()) {
             return false;
+        }
+        bool isWordArrow = (*key == gnilk::vt::Key::kLeft) || (*key == gnilk::vt::Key::kRight);
+        if (isAltArrowsAsWords && isWordArrow && (modifiers == gnilk::vt::kModAlt)) {
+            WriteToPty((*key == gnilk::vt::Key::kLeft) ? "\x1b" "b" : "\x1b" "f");
+            return true;
         }
         WriteToPty(gnilk::vt::EncodeKey(*key, modifiers, GetModes()));
         return true;

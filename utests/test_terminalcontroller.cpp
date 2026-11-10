@@ -738,6 +738,7 @@ DLL_EXPORT int test_terminalcontroller_passthrough_keys(ITesting *t) {
 DLL_EXPORT int test_terminalcontroller_passthrough_actions(ITesting *t) {
     TerminalController c;
     c.Resize(40, 10);
+    c.SetAltArrowsAsWords(false);
     std::string sent;
     CaptureInput(c, sent, true);
 
@@ -767,6 +768,20 @@ DLL_EXPORT int test_terminalcontroller_passthrough_actions(ITesting *t) {
     buffer1.keyPress = TextKey(U'1', Keyboard::kMod_LeftAlt);
     TR_ASSERT(t, c.ForwardActionToShell(buffer1));
     TR_ASSERT(t, sent == "\x1b[1;3C\x1b" "1");
+
+    // The macOS convention (terminal.alt_arrows: words): Alt+Left/Right is ESC b / ESC f; other modifiers keep xterm's
+    sent.clear();
+    c.SetAltArrowsAsWords(true);
+    TR_ASSERT(t, c.ForwardActionToShell(nextBuffer));
+    EditorAction prevBuffer;
+    prevBuffer.action = kAction::kActionCycleActiveBufferPrev;
+    prevBuffer.keyPress = SpecialKey(Keyboard::kKeyCode_LeftArrow, Keyboard::kMod_LeftAlt);
+    TR_ASSERT(t, c.ForwardActionToShell(prevBuffer));
+    EditorAction wordRight;
+    wordRight.keyPress = SpecialKey(Keyboard::kKeyCode_RightArrow, Keyboard::kMod_LeftCtrl);
+    TR_ASSERT(t, c.ForwardActionToShell(wordRight));
+    TR_ASSERT(t, sent == "\x1b" "f" "\x1b" "b" "\x1b[1;5C");
+    c.SetAltArrowsAsWords(false);
 
     // View switching and resizing are not sent; the view hands them on
     sent.clear();

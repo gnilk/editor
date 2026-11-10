@@ -48,6 +48,9 @@ namespace gedit {
         // redraw is asked for until the app ends the update - the screen is never drawn half-way through a frame
         bool IsHoldingRedraw() const { return isHoldingRedraw; }
         std::mutex &GetScreenLock() { return screenLock; }
+        // Alt+Left/Right to an app: ESC b / ESC f (readline's word motion, as Terminal.app/iTerm2 send) instead of
+        // xterm's CSI 1;3D / 1;3C. Config 'terminal.alt_arrows: words | xterm'; macOS defaults to words.
+        void SetAltArrowsAsWords(bool isWords) { isAltArrowsAsWords = isWords; }
 
         Line::Ref GetInputLine() const { return inputLine; }
         void CommitLine();
@@ -220,6 +223,11 @@ namespace gedit {
         static constexpr std::chrono::milliseconds kMaxSyncHold{1000};
         std::optional<std::chrono::steady_clock::time_point> syncStart;
         bool isHoldingRedraw = false;
+#ifdef GEDIT_MACOS
+        bool isAltArrowsAsWords = true;
+#else
+        bool isAltArrowsAsWords = false;
+#endif
         // Grid cell where the prompt ends, captured on the local->shell-owned transition (the real
         // grid cursor stays parked there while editing locally, since local edits never touch the
         // grid). Used to read the line back.

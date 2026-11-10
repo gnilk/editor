@@ -32,6 +32,10 @@ DLL_EXPORT int test_terminal_insertmode(ITesting *t);
 DLL_EXPORT int test_terminal_resize(ITesting *t);
 DLL_EXPORT int test_terminal_reset(ITesting *t);
 DLL_EXPORT int test_terminal_split(ITesting *t);
+DLL_EXPORT int test_terminal_sgr(ITesting *t);
+DLL_EXPORT int test_terminal_sgrcolor(ITesting *t);
+DLL_EXPORT int test_terminal_sgrcolon(ITesting *t);
+DLL_EXPORT int test_terminal_sgrerase(ITesting *t);
 }
 
 DLL_EXPORT int test_terminal(ITesting *t) {
@@ -453,5 +457,127 @@ DLL_EXPORT int test_terminal_split(ITesting *t) {
             }
         }
     }
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_terminal_sgr(ITesting *t) {
+    RecordingHost host;
+    Terminal term(host, 20, 2);
+    term.Feed("\x1b[1;3;4;5;7;8;9;53mA\x1b[22;23;24;25;27;28;29;55mB\x1b[2mC\x1b[22mD");
+    TR_ASSERT(t, term.At(0, 0).attrs == (kAttrBold | kAttrItalic | kAttrUnderline | kAttrBlink | kAttrInverse |
+                                         kAttrHidden | kAttrStrike | kAttrOverline));
+    TR_ASSERT(t, term.At(0, 0).underlineStyle == UnderlineStyle::kSingle);
+    TR_ASSERT(t, term.At(1, 0).attrs == kAttrNone);
+    TR_ASSERT(t, term.At(1, 0).underlineStyle == UnderlineStyle::kNone);
+    TR_ASSERT(t, term.At(2, 0).attrs == kAttrDim);
+    TR_ASSERT(t, term.At(3, 0).attrs == kAttrNone);
+    // 22 clears bold AND dim; 21 is double underline
+    term.Feed("\x1b[1;2;21mE\x1b[22mF");
+    TR_ASSERT(t, term.At(4, 0).attrs == (kAttrBold | kAttrDim | kAttrUnderline));
+    TR_ASSERT(t, term.At(4, 0).underlineStyle == UnderlineStyle::kDouble);
+    TR_ASSERT(t, term.At(5, 0).attrs == kAttrUnderline);
+    // CSI m and CSI 0m reset everything, including colours
+    term.Feed("\x1b[31;44mG\x1b[mH\x1b[1;32m\x1b[0mI");
+    TR_ASSERT(t, term.At(6, 0).fg == Color::Indexed(1));
+    TR_ASSERT(t, term.At(7, 0) == Cell{U'H'});
+    TR_ASSERT(t, term.At(8, 0) == Cell{U'I'});
+    // Empty parameters are 0: "CSI 1;m" ends with a reset
+    term.Feed("\x1b[1;mJ");
+    TR_ASSERT(t, term.At(9, 0).attrs == kAttrNone);
+    // The pen is saved and restored with the cursor
+    term.Feed("\x1b[1;35m\x1b" "7\x1b[0m\x1b" "8K");
+    TR_ASSERT(t, term.At(10, 0).attrs == kAttrBold);
+    TR_ASSERT(t, term.At(10, 0).fg == Color::Indexed(5));
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_terminal_sgrcolor(ITesting *t) {
+    RecordingHost host;
+    Terminal term(host, 20, 2);
+    term.Feed("\x1b[30;47mA\x1b[97;100mB\x1b[39mC\x1b[49mD");
+    TR_ASSERT(t, term.At(0, 0).fg == Color::Indexed(0));
+    TR_ASSERT(t, term.At(0, 0).bg == Color::Indexed(7));
+    TR_ASSERT(t, term.At(1, 0).fg == Color::Indexed(15));
+    TR_ASSERT(t, term.At(1, 0).bg == Color::Indexed(8));
+    TR_ASSERT(t, term.At(2, 0).fg == Color{});
+    TR_ASSERT(t, term.At(2, 0).bg == Color::Indexed(8));
+    TR_ASSERT(t, term.At(3, 0).bg == Color{});
+    // 256 and truecolor, ';' form, mixed with plain codes
+    term.Feed("\x1b[1;38;5;208;48;2;1;2;3;4mE");
+    auto &e = term.At(4, 0);
+    TR_ASSERT(t, e.fg == Color::Indexed(208));
+    TR_ASSERT(t, e.bg == Color::Rgb(1, 2, 3));
+    TR_ASSERT(t, e.attrs == (kAttrBold | kAttrUnderline));
+    // Clamped to a byte
+    term.Feed("\x1b[0;38;5;999;48;2;300;0;256mF");
+    TR_ASSERT(t, term.At(5, 0).fg == Color::Indexed(255));
+    TR_ASSERT(t, term.At(5, 0).bg == Color::Rgb(255, 0, 255));
+    // A cut-short colour ends the sequence: what came before applies, nothing after
+    term.Feed("\x1b[0;1;38;2;10;20mG");
+    TR_ASSERT(t, term.At(6, 0).attrs == kAttrBold);
+    TR_ASSERT(t, term.At(6, 0).fg == Color{});
+    // Underline colour, and 59 resets it
+    term.Feed("\x1b[0;4;58;5;9mH\x1b[59mI");
+    TR_ASSERT(t, term.At(7, 0).underlineColor == Color::Indexed(9));
+    TR_ASSERT(t, term.At(8, 0).underlineColor == Color{});
+    return kTR_Pass;
+}
+
+// Colon sub-parameters: the forms from Ghostty's Parser.zig / sgr.zig tests and real applications
+DLL_EXPORT int test_terminal_sgrcolon(ITesting *t) {
+    RecordingHost host;
+    Terminal term(host, 20, 2);
+    term.Feed("\x1b[38:2::255:193:7mA");                // T.416 with empty colorspace
+    TR_ASSERT(t, term.At(0, 0).fg == Color::Rgb(255, 193, 7));
+    term.Feed("\x1b[48:2:1:2:3mB");                     // common form without colorspace
+    TR_ASSERT(t, term.At(1, 0).bg == Color::Rgb(1, 2, 3));
+    term.Feed("\x1b[38:5:17mC");
+    TR_ASSERT(t, term.At(2, 0).fg == Color::Indexed(17));
+    term.Feed("\x1b[0;4:3mD\x1b[4:0mE\x1b[4:5mF\x1b[4:4mG\x1b[4:2mH\x1b[4:1mI");
+    TR_ASSERT(t, term.At(3, 0).underlineStyle == UnderlineStyle::kCurly);
+    TR_ASSERT(t, (term.At(3, 0).attrs & kAttrUnderline) != 0);
+    TR_ASSERT(t, term.At(4, 0).underlineStyle == UnderlineStyle::kNone);
+    TR_ASSERT(t, (term.At(4, 0).attrs & kAttrUnderline) == 0);
+    TR_ASSERT(t, term.At(5, 0).underlineStyle == UnderlineStyle::kDashed);
+    TR_ASSERT(t, term.At(6, 0).underlineStyle == UnderlineStyle::kDotted);
+    TR_ASSERT(t, term.At(7, 0).underlineStyle == UnderlineStyle::kDouble);
+    TR_ASSERT(t, term.At(8, 0).underlineStyle == UnderlineStyle::kSingle);
+    // kakoune: reset, curly underline, ';' truecolor fg, ':' underline colour - all in one
+    term.Feed("\r\n\x1b[;4:3;38;2;175;175;215;58:2::190:80:70mK");
+    auto &k = term.At(0, 1);
+    TR_ASSERT(t, k.underlineStyle == UnderlineStyle::kCurly);
+    TR_ASSERT(t, k.fg == Color::Rgb(175, 175, 215));
+    TR_ASSERT(t, k.underlineColor == Color::Rgb(190, 80, 70));
+    TR_ASSERT(t, k.bg == Color{});
+    // A colon group on another code is ignored whole, the rest still applies
+    term.Feed("\x1b[0;1:2;3mL");
+    TR_ASSERT(t, term.At(1, 1).attrs == kAttrItalic);
+    // A colon group does not swallow the ';' parameters after it
+    term.Feed("\x1b[0;38:5:1;44mM");
+    TR_ASSERT(t, term.At(2, 1).fg == Color::Indexed(1));
+    TR_ASSERT(t, term.At(2, 1).bg == Color::Indexed(4));
+    // Outside SGR a colon drops the sequence: no cursor move, no mode change
+    term.Feed("\x1b[1:2H\x1b[?7:1l");
+    TR_ASSERT(t, term.GetCursor().x == 3);
+    TR_ASSERT(t, term.GetCursor().y == 1);
+    TR_ASSERT(t, term.GetModes().isAutoWrap);
+    TR_ASSERT(t, host.unhandled.size() >= 2);
+    return kTR_Pass;
+}
+
+// Erase fills with the pen's background only (BCE), never its attributes
+DLL_EXPORT int test_terminal_sgrerase(ITesting *t) {
+    RecordingHost host;
+    Terminal term(host, 6, 3);
+    term.Feed("abcdef\x1b[1;4;31;42m\x1b[1;3H\x1b[K\x1b[2;1H\x1b[2X");
+    Cell expected;
+    expected.bg = Color::Indexed(2);
+    TR_ASSERT(t, term.At(2, 0) == expected);
+    TR_ASSERT(t, term.At(5, 0) == expected);
+    TR_ASSERT(t, term.At(1, 1) == expected);
+    TR_ASSERT(t, term.At(2, 1) == Cell{});
+    // Rows scrolled in take it too
+    term.Feed("\x1b[3;1H\n");
+    TR_ASSERT(t, term.At(0, 2) == expected);
     return kTR_Pass;
 }

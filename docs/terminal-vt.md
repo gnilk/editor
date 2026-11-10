@@ -226,7 +226,7 @@ oracle suite green modulo the documented allowlist.
 
 ## 7. Status and pick-up notes
 
-### Done (VT-0..VT-3, branch `feat/gvt`)
+### Done (VT-0..VT-4, branch `feat/gvt`)
 
 - `src/ext/gvt/`: CMake (standalone + `add_subdirectory` from the editor), `Parser`, `IParserSink`, `README.md`.
   Not linked into `goatedit` yet.
@@ -244,6 +244,13 @@ oracle suite green modulo the documented allowlist.
   `gvttests` 49 cases green: `terminal` module (20, xterm-expected results) and `oracle` `terminal` /
   `terminalfixtures` — **vim, less, git log, ls, cat match libvterm's screen** row for row, cursor, alt flag and
   scrollback. `dialog_menu` waits for wide characters (VT-6).
+- **VT-4** SGR complete (`Terminal::SelectGraphicRendition`): bold/dim/italic/underline/blink/inverse/hidden/
+  strike/overline set + clear (22 clears bold and dim, 21 = double underline), 16/bright/256/RGB fg+bg, underline
+  colour 58/59 and style `4:0..5` (`Cell::underlineColor`, `Cell::underlineStyle`), `;` and `:` colour forms
+  (`38:2::r:g:b` T.416 with colorspace slot, `38:2:r:g:b`, kakoune's mixed form). A cut-short `;` colour ends the
+  sequence (xterm); a `:` group on any other code is skipped whole; `:` on any CSI other than SGR drops it.
+  `CompareScreens` now also compares every cell's attributes and colours: **git log and ls fixtures match libvterm
+  cell for cell**. `gvttests`: 53 green.
 
 Decisions made while building it:
 - **Malformed CSI** (`CSI 1?2h`, `CSI 1$2p`): ignored up to the final byte (Williams `csi_ignore`, as xterm,
@@ -256,7 +263,10 @@ Decisions made while building it:
 - libvterm reports 7-bit C1 escapes (`ESC M`) as C1 controls (0x8D); the oracle maps them back.
 - Screen level, gvt follows xterm where libvterm differs (`kScreenDivergences`, each pinned in `test_terminal.cpp`):
   CUU/CUD from outside the scroll region stop at the margin (VT510); REP wraps; `CSI s`/`CSI u` save/restore
-  (libvterm lacks them); `?47` switches screens (libvterm ignores it); RIS leaves the alternate screen.
+  (libvterm lacks them); `?47` switches screens (libvterm ignores it); RIS leaves the alternate screen;
+  `ESC 8` with nothing saved restores the default pen (libvterm: black on black); `38:2::r:g:b` skips the
+  T.416 colorspace slot (libvterm reads the channels one off); erase takes only the pen's background (libvterm
+  keeps its foreground too). libvterm has no dim, overline, dotted/dashed underline: not compared.
 - **Scrollback feed:** a row goes to `OnRowScrolledOut` when it leaves row 0 of the primary screen by LF/IND/SU/
   wrap with the region's top at row 0 (xterm; libvterm agrees on the fixtures), or when `Resize` shrinks below
   the cursor. DL at row 0, regions starting lower and the alternate screen never feed it. ED 3 goes to
@@ -269,17 +279,17 @@ brew install libvterm pkg-config          # without them the oracle module is sk
 git fetch && git checkout feat/gvt
 cmake --preset debug                       # or reconfigure an existing build dir
 cmake --build cmake-build-debug --target gvttests
-cd cmake-build-debug && trun --sequential ./libgvttests.dylib     # expect 49 executed, 0 failed
+cd cmake-build-debug && trun --sequential ./libgvttests.dylib     # expect 53 executed, 0 failed
 ```
 
 Not yet verified on macOS: the build, the oracle with Homebrew's libvterm, the fixture copy step.
 
-### Next: VT-4 (SGR)
+### Next: VT-5 (modes + replies, OSC to the host)
 
-`Terminal::DispatchCsiPlain` case `'m'` handles only the reset. Complete it: bold/dim/italic/underline(+style via
-`4:n`)/blink/inverse/hidden/strike/overline set and clear (22-29, 55), 30-37/90-97/39, 40-47/100-107/49, 38/48/58
-with `;5;n`, `;2;r;g;b` and the colon forms (`CsiParams::IsFollowedByColon`; the Ghostty `Parser.zig` vectors in
-`test_parser.cpp` show the shapes, incl. kakoune's mixed form). Extend `CompareScreens` with per-cell attrs and colours
-(libvterm `VTermScreenCell.attrs`/`fg`/`bg`; map its colours with `vterm_color_is_indexed` / `is_default_fg/bg`) -
-the git log and ls fixtures then check colours end to end. Then VT-5 (replies, OSC to host), VT-6 (widths: take
-`dialog_menu.bin` off `kScreenDivergences`).
+Grow `ITerminalHost` per §3.2 (`OnTitle`, `OnWorkingDirectory`, `OnSemanticPrompt`, `OnHyperlink`,
+`OnClipboardWrite`) and route `Terminal::OscDispatch` (0/2, 7, 8, 52, 133; 4/10/11 queries answered through
+`WriteToPty`). Replies via `WriteToPty`: DA1 `CSI c` / DA2 `CSI > c`, DSR `CSI 5n` / CPR `CSI 6n` (origin-relative
+under DECOM), XTVERSION `CSI > q`, DECRQM `CSI ? Ps $ p`. Store the remaining DECSET modes the editor needs
+later (mouse 1000/1002/1003/1006, focus 1004, synchronized output 2026, cursor blink 12, DECSCUSR shape
+`CSI Ps SP q`) in `Modes`. The vim fixture already sends DSR/DA/OSC 10/11 queries - `RecordingHost::replies`
+captures what gvt answers. Then VT-6 (widths: take `dialog_menu.bin` off `kScreenDivergences`).

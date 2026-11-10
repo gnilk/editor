@@ -199,6 +199,11 @@ void Terminal::Execute(uint8_t control) {
 }
 
 void Terminal::CsiDispatch(const CsiParams &params, std::string_view intermediates, uint8_t prefix, uint8_t final) {
+    // ':' sub-parameters only mean something to SGR; anywhere else the sequence is dropped (as Ghostty's parser does)
+    if ((params.colonMask != 0) && !((final == 'm') && intermediates.empty() && (prefix == 0))) {
+        host.OnUnhandled(Describe(params, intermediates, prefix, final));
+        return;
+    }
     if (intermediates.empty() && (prefix == 0)) {
         DispatchCsiPlain(params, final);
         return;
@@ -375,10 +380,8 @@ void Terminal::DispatchCsiPlain(const CsiParams &params, uint8_t final) {
                 SetMode(params.Get(i, 0), final == 'h');
             }
             break;
-        case 'm':   // SGR - VT-4; only the reset for now
-            if ((params.count == 0) || ((params.count == 1) && (params.Get(0, 0) == 0))) {
-                pen = Pen{};
-            }
+        case 'm':   // SGR
+            SelectGraphicRendition(params);
             break;
         case 'r': { // DECSTBM
             int top = Count(params, 0) - 1;
@@ -480,6 +483,217 @@ void Terminal::SetPrivateMode(int mode, bool isSet) {
         default:
             host.OnUnhandled(std::string(isSet ? "DECSET " : "DECRST ") + std::to_string(mode));
             break;
+    }
+}
+
+//
+// SGR. A parameter followed by ':' opens a sub-parameter group ("4:3", "38:2::r:g:b") that is taken as a whole;
+// 38/48/58 also take the legacy ';' form ("38;5;n", "38;2;r;g;b"). A truncated ';' colour ends the sequence, as xterm.
+//
+void Terminal::SelectGraphicRendition(const CsiParams &params) {
+    if (params.count == 0) {
+        pen = Pen{};
+        return;
+    }
+    size_t i = 0;
+    while (i < params.count) {
+        size_t last = i;
+        while (params.IsFollowedByColon(last)) {
+            last++;
+        }
+        if (last > i) {
+            ApplySgrSubParams(params, i, last);
+            i = last + 1;
+            continue;
+        }
+        int code = params.Get(i, 0);
+        if ((code == 38) || (code == 48) || (code == 58)) {
+            Color color;
+            size_t used = ParseSemicolonColor(params, i + 1, color);
+            if (used == 0) {
+                return;
+            }
+            SetSgrColor(code, color);
+            i += 1 + used;
+            continue;
+        }
+        ApplySgr(code);
+        i++;
+    }
+}
+
+void Terminal::ApplySgr(int code) {
+    if ((code >= 30) && (code <= 37)) {
+        pen.fg = Color::Indexed(code - 30);
+        return;
+    }
+    if ((code >= 40) && (code <= 47)) {
+        pen.bg = Color::Indexed(code - 40);
+        return;
+    }
+    if ((code >= 90) && (code <= 97)) {
+        pen.fg = Color::Indexed(code - 90 + 8);
+        return;
+    }
+    if ((code >= 100) && (code <= 107)) {
+        pen.bg = Color::Indexed(code - 100 + 8);
+        return;
+    }
+    switch (code) {
+        case 0:
+            pen = Pen{};
+            break;
+        case 1:
+            pen.attrs |= kAttrBold;
+            break;
+        case 2:
+            pen.attrs |= kAttrDim;
+            break;
+        case 3:
+            pen.attrs |= kAttrItalic;
+            break;
+        case 4:
+            SetUnderline(UnderlineStyle::kSingle);
+            break;
+        case 5:
+        case 6:
+            pen.attrs |= kAttrBlink;
+            break;
+        case 7:
+            pen.attrs |= kAttrInverse;
+            break;
+        case 8:
+            pen.attrs |= kAttrHidden;
+            break;
+        case 9:
+            pen.attrs |= kAttrStrike;
+            break;
+        case 21:
+            SetUnderline(UnderlineStyle::kDouble);
+            break;
+        case 22:
+            pen.attrs &= ~(kAttrBold | kAttrDim);
+            break;
+        case 23:
+            pen.attrs &= ~kAttrItalic;
+            break;
+        case 24:
+            SetUnderline(UnderlineStyle::kNone);
+            break;
+        case 25:
+            pen.attrs &= ~kAttrBlink;
+            break;
+        case 27:
+            pen.attrs &= ~kAttrInverse;
+            break;
+        case 28:
+            pen.attrs &= ~kAttrHidden;
+            break;
+        case 29:
+            pen.attrs &= ~kAttrStrike;
+            break;
+        case 39:
+            pen.fg = Color{};
+            break;
+        case 49:
+            pen.bg = Color{};
+            break;
+        case 53:
+            pen.attrs |= kAttrOverline;
+            break;
+        case 55:
+            pen.attrs &= ~kAttrOverline;
+            break;
+        case 59:
+            pen.underlineColor = Color{};
+            break;
+        default:
+            break;
+    }
+}
+
+// params[first..last] were joined by ':'. Only 4 (underline style) and 38/48/58 (colours) take sub-parameters;
+// any other group is ignored whole.
+void Terminal::ApplySgrSubParams(const CsiParams &params, size_t first, size_t last) {
+    int code = params.Get(first, 0);
+    if (code == 4) {
+        switch (params.Get(first + 1, 1)) {
+            case 0:
+                SetUnderline(UnderlineStyle::kNone);
+                break;
+            case 2:
+                SetUnderline(UnderlineStyle::kDouble);
+                break;
+            case 3:
+                SetUnderline(UnderlineStyle::kCurly);
+                break;
+            case 4:
+                SetUnderline(UnderlineStyle::kDotted);
+                break;
+            case 5:
+                SetUnderline(UnderlineStyle::kDashed);
+                break;
+            default:
+                SetUnderline(UnderlineStyle::kSingle);
+                break;
+        }
+        return;
+    }
+    if ((code != 38) && (code != 48) && (code != 58)) {
+        return;
+    }
+    int kind = params.Get(first + 1, -1);
+    if ((kind == 5) && (last >= first + 2)) {
+        SetSgrColor(code, Color::Indexed(static_cast<uint8_t>(std::min(255, params.Get(first + 2, 0)))));
+        return;
+    }
+    if (kind == 2) {
+        // "38:2:<colorspace>:r:g:b" (ITU T.416) or the common "38:2:r:g:b"
+        size_t values = last - (first + 1);
+        size_t red = (values >= 4) ? first + 3 : first + 2;
+        if (values < 3) {
+            return;
+        }
+        auto channel = [&](size_t index) {
+            return static_cast<uint8_t>(std::min(255, params.Get(index, 0)));
+        };
+        SetSgrColor(code, Color::Rgb(channel(red), channel(red + 1), channel(red + 2)));
+    }
+}
+
+// "5;n" or "2;r;g;b" starting at 'start'. Returns how many parameters it took; 0 when malformed or cut short.
+size_t Terminal::ParseSemicolonColor(const CsiParams &params, size_t start, Color &out) const {
+    int kind = params.Get(start, -1);
+    if ((kind == 5) && (start + 1 < params.count)) {
+        out = Color::Indexed(static_cast<uint8_t>(std::min(255, params.Get(start + 1, 0))));
+        return 2;
+    }
+    if ((kind == 2) && (start + 3 < params.count)) {
+        auto channel = [&](size_t index) {
+            return static_cast<uint8_t>(std::min(255, params.Get(index, 0)));
+        };
+        out = Color::Rgb(channel(start + 1), channel(start + 2), channel(start + 3));
+        return 4;
+    }
+    return 0;
+}
+
+void Terminal::SetUnderline(UnderlineStyle style) {
+    pen.underlineStyle = style;
+    if (style == UnderlineStyle::kNone) {
+        pen.attrs &= ~kAttrUnderline;
+    } else {
+        pen.attrs |= kAttrUnderline;
+    }
+}
+
+void Terminal::SetSgrColor(int code, const Color &color) {
+    if (code == 38) {
+        pen.fg = color;
+    } else if (code == 48) {
+        pen.bg = color;
+    } else {
+        pen.underlineColor = color;
     }
 }
 
@@ -604,7 +818,8 @@ void Terminal::PutChar(char32_t codepoint) {
     if (modes.isInsertMode) {
         InsertChars(1);
     }
-    CellAt(cursor.x, cursor.y) = Cell{codepoint, 0, pen.fg, pen.bg, pen.attrs, 1};
+    CellAt(cursor.x, cursor.y) = Cell{codepoint, 0, pen.fg, pen.bg, pen.underlineColor, pen.attrs,
+                                      pen.underlineStyle, 1};
     lastPrinted = codepoint;
     if (cursor.x < cols - 1) {
         cursor.x++;

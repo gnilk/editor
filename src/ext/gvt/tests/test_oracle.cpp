@@ -305,6 +305,22 @@ namespace {
             return cols;
         }
 
+        // Attributes and colours of one cell in a common form (see CellStyle below)
+        std::string Style(int row, int col) const {
+            VTermScreenCell cell;
+            vterm_screen_get_cell(screen, VTermPos{row, col}, &cell);
+            std::string out;
+            out += cell.attrs.bold ? 'B' : '-';
+            out += cell.attrs.italic ? 'I' : '-';
+            out += static_cast<char>('0' + cell.attrs.underline);
+            out += cell.attrs.blink ? 'K' : '-';
+            out += cell.attrs.reverse ? 'R' : '-';
+            out += cell.attrs.conceal ? 'H' : '-';
+            out += cell.attrs.strike ? 'S' : '-';
+            out += " fg=" + ColorText(cell.fg) + " bg=" + ColorText(cell.bg);
+            return out;
+        }
+
         int Rows() const {
             return rows;
         }
@@ -314,6 +330,17 @@ namespace {
         std::vector<std::string> scrolledOut;
 
     private:
+        static std::string ColorText(const VTermColor &color) {
+            if (VTERM_COLOR_IS_DEFAULT_FG(&color) || VTERM_COLOR_IS_DEFAULT_BG(&color)) {
+                return "default";
+            }
+            if (VTERM_COLOR_IS_INDEXED(&color)) {
+                return std::to_string(color.indexed.idx);
+            }
+            return "#" + std::to_string(color.rgb.red) + "," + std::to_string(color.rgb.green) + "," +
+                   std::to_string(color.rgb.blue);
+        }
+
         static int OnSetTermProp(VTermProp prop, VTermValue *value, void *user) {
             if (prop == VTERM_PROP_ALTSCREEN) {
                 static_cast<OracleScreen *>(user)->isAltScreen = value->boolean;
@@ -354,8 +381,49 @@ namespace {
         VTermScreenCallbacks callbacks = {};
     };
 
-    // gvt::Terminal vs libvterm's screen after the same bytes: every row's text, the cursor, the alt-screen flag and
-    // the rows that went to scrollback. Reports the first difference with the neighbouring rows.
+    // A gvt cell in OracleScreen::Style's form. libvterm has no dim, overline or dotted/dashed underline: dim and
+    // overline are left out, dotted/dashed compare as single (libvterm's reading of 4:4 / 4:5).
+    std::string CellStyle(const Cell &cell) {
+        auto color = [](const Color &c) -> std::string {
+            switch (c.kind) {
+                case Color::Kind::kDefault:
+                    return "default";
+                case Color::Kind::kIndexed:
+                    return std::to_string(c.index);
+                case Color::Kind::kRgb:
+                    return "#" + std::to_string(c.r) + "," + std::to_string(c.g) + "," + std::to_string(c.b);
+            }
+            return "?";
+        };
+        int underline = 0;
+        switch (cell.underlineStyle) {
+            case UnderlineStyle::kNone:
+                underline = 0;
+                break;
+            case UnderlineStyle::kDouble:
+                underline = 2;
+                break;
+            case UnderlineStyle::kCurly:
+                underline = 3;
+                break;
+            default:
+                underline = 1;
+                break;
+        }
+        std::string out;
+        out += (cell.attrs & kAttrBold) ? 'B' : '-';
+        out += (cell.attrs & kAttrItalic) ? 'I' : '-';
+        out += static_cast<char>('0' + underline);
+        out += (cell.attrs & kAttrBlink) ? 'K' : '-';
+        out += (cell.attrs & kAttrInverse) ? 'R' : '-';
+        out += (cell.attrs & kAttrHidden) ? 'H' : '-';
+        out += (cell.attrs & kAttrStrike) ? 'S' : '-';
+        out += " fg=" + color(cell.fg) + " bg=" + color(cell.bg);
+        return out;
+    }
+
+    // gvt::Terminal vs libvterm's screen after the same bytes: every row's text, every cell's attributes and colours,
+    // the cursor, the alt-screen flag and the rows that went to scrollback. Reports the first difference.
     bool CompareScreens(ITesting *t, const char *name, std::string_view bytes, int cols, int rows) {
         RecordingHost host;
         Terminal ours(host, cols, rows);
@@ -376,6 +444,17 @@ namespace {
             }
             t->Error(__LINE__, __FILE__, "%s: row %d differs%s", name, y, context.c_str());
             return false;
+        }
+        for (int y = 0; y < rows; y++) {
+            for (int x = 0; x < cols; x++) {
+                auto ourStyle = CellStyle(ours.At(x, y));
+                auto theirStyle = theirs.Style(y, x);
+                if (ourStyle != theirStyle) {
+                    t->Error(__LINE__, __FILE__, "%s: cell (%d,%d) '%s'\n  gvt:      %s\n  libvterm: %s", name, x, y,
+                             RowText(ours, y).c_str(), ourStyle.c_str(), theirStyle.c_str());
+                    return false;
+                }
+            }
         }
         auto cursor = ours.GetCursor();
         auto theirCursor = theirs.Cursor();
@@ -453,6 +532,16 @@ namespace {
         {"decaln", 4, 3, "\x1b#8\x1b[2;2Hx"},
         {"ris-primary", 6, 3, "abc\x1b[2;3r\x1b[?7l\x1b(0q\x1b" "cq\r\n\n\nx"},
         {"ris", 6, 3, "abc\x1b[2;3r\x1b[?7l\x1b(0\x1b[?1049hq\x1b" "cq\r\n\n\nx"},
+        {"sgr-attrs", 20, 2, "\x1b[1;3;4;5;7;8;9mA\x1b[22;23;24;25;27;28;29mB\x1b[1;21mC\x1b[22;24mD"},
+        {"sgr-16", 20, 2, "\x1b[30;47mA\x1b[97;100mB\x1b[39mC\x1b[49mD\x1b[31;42m\x1b[mE"},
+        {"sgr-256", 20, 2, "\x1b[38;5;208;48;5;17mA\x1b[38;5;3mB\x1b[0m"},
+        {"sgr-rgb", 20, 2, "\x1b[38;2;255;193;7mA\x1b[48;2;1;2;3mB\x1b[0m"},
+        {"sgr-colon-t416", 20, 2, "\x1b[38:2::255:193:7mA\x1b[0m"},
+        {"sgr-colon", 20, 2, "\x1b[38:2:255:193:7mA\x1b[38:5:17mB\x1b[4:3mC\x1b[4:0mD\x1b[4:2mE\x1b[0m"},
+        {"sgr-kakoune", 20, 2, "\x1b[;4:3;38;2;175;175;215;58:2::190:80:70mK\x1b[0m"},
+        {"sgr-mixed", 20, 2, "\x1b[1;38;5;208;48;2;1;2;3;4mE\x1b[0;38:5:1;44mM"},
+        {"sgr-erase", 6, 3, "abcdef\x1b[1;4;31;42m\x1b[1;3H\x1b[K\x1b[2;1H\x1b[2X\x1b[3;1H\n"},
+        {"sgr-saved", 20, 2, "\x1b[1;35m\x1b" "7\x1b[0m\x1b" "8K"},
         {"decstr", 6, 3, "\x1b[2;3r\x1b[?7l\x1b[!p\x1b[3;1H\nabcdefgh"},
     };
 
@@ -473,6 +562,14 @@ namespace {
         {"alt-47", "DECSET 47 switches screens (xterm)"},
         // RIS returns to the primary screen in xterm and Ghostty; libvterm stays on the alternate one
         {"ris", "RIS leaves the alternate screen (xterm, Ghostty)"},
+        // DECRC with nothing saved: xterm restores the default pen; libvterm restores a zeroed one (black on black)
+        {"decsc-none", "ESC 8 without a save restores default colours (xterm)"},
+        // "38:2:<colorspace>:r:g:b" (ITU T.416, Ghostty, xterm): libvterm has no colorspace slot and reads the
+        // channels one off (r = 255 for the empty slot, g = 255, b = 193)
+        {"sgr-colon-t416", "38:2::r:g:b skips the colorspace slot (T.416)"},
+        // Erase (BCE) fills with the pen's background only, as xterm and Ghostty; libvterm also keeps the
+        // foreground on the blank cells (invisible there)
+        {"sgr-erase", "erased cells take the background only (xterm, Ghostty)"},
         // Wide characters take two cells - VT-6. Remove when the width table lands.
         {"dialog_menu.bin", "wide characters (VT-6)"},
     };

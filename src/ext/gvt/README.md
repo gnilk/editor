@@ -4,7 +4,7 @@ A streaming DEC/ANSI (VT/xterm) parser and the screen model behind GoatEdit's em
 Standalone: nothing here depends on the editor, only on the C++20 standard library. Namespace `gnilk::vt`.
 The plan, design and work packages live in the editor repo: `docs/terminal-vt.md`.
 
-## What's here (VT-0..VT-3)
+## What's here (VT-0..VT-4)
 
 - `Parser` (`include/gvt/Parser.h`) — Paul Flo Williams' state machine (<https://vt100.net/emu/dec_ansi_parser>)
   with the usual UTF-8-era changes (no C1 controls in 0x80-0x9F, `:` sub-parameters, OSC ends on BEL or ST,
@@ -14,8 +14,8 @@ The plan, design and work packages live in the editor repo: `docs/terminal-vt.md
 - `Terminal` (`include/gvt/Terminal.h`) — the screen model, an `IParserSink`: primary + alternate grid, cursor,
   pending wrap, scroll region, tab stops, DEC Special Graphics, save/restore, insert/erase/delete. What it can't
   decide goes to an `ITerminalHost` (`OnRowScrolledOut` - scrollback is the host's - `OnBell`, `WriteToPty`).
-  Colours are references (default / indexed / RGB), resolved by the host's theme. Not yet: SGR beyond reset (VT-4),
-  replies and OSC (VT-5), wide characters (VT-6).
+  Full SGR (attributes, 16/256/RGB in `;` and `:` forms, underline style + colour). Colours are references
+  (default / indexed / RGB), resolved by the host's theme. Not yet: replies and OSC (VT-5), wide characters (VT-6).
 
 ```cpp
 class MySink : public gnilk::vt::IParserSink { /* ... */ };

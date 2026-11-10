@@ -5,9 +5,9 @@
 // alternate), cursor, pen, scroll region, tab stops, charsets and modes. Anything it cannot decide on its
 // own (replies to the pty, bell, title, rows leaving the screen) goes to the ITerminalHost.
 //
-// Scope (VT-3): print, C0, cursor movement, erase, insert/delete, scroll region, tab stops, save/restore,
-// pending wrap, DECAWM, alternate screen, DEC Special Graphics. SGR, replies and wide characters follow
-// (VT-4..VT-6, docs/terminal-vt.md).
+// Scope: print, C0, cursor movement, erase, insert/delete, scroll region, tab stops, save/restore, pending wrap,
+// DECAWM, alternate screen, DEC Special Graphics (VT-3); SGR (VT-4). Replies and wide characters follow
+// (VT-5, VT-6, docs/terminal-vt.md).
 //
 // Not thread-safe: the caller serialises Feed/Resize against readers (the editor holds screenLock).
 //
@@ -54,7 +54,7 @@ namespace gnilk::vt {
         kAttrBold = 1 << 0,
         kAttrDim = 1 << 1,
         kAttrItalic = 1 << 2,
-        kAttrUnderline = 1 << 3,
+        kAttrUnderline = 1 << 3,       // set whenever underlineStyle is not kNone
         kAttrBlink = 1 << 4,
         kAttrInverse = 1 << 5,
         kAttrHidden = 1 << 6,
@@ -62,22 +62,36 @@ namespace gnilk::vt {
         kAttrOverline = 1 << 8,
     };
 
+    // SGR 4:n (4 = single, 21 = double)
+    enum class UnderlineStyle : uint8_t {
+        kNone,
+        kSingle,
+        kDouble,
+        kCurly,
+        kDotted,
+        kDashed,
+    };
+
     struct Cell {
         char32_t codepoint = U' ';
         uint32_t graphemeId = 0;        // 0 = single code point (grapheme clusters: VT-6)
         Color fg = {};
         Color bg = {};
+        Color underlineColor = {};      // SGR 58; default = the foreground
         uint16_t attrs = kAttrNone;
+        UnderlineStyle underlineStyle = UnderlineStyle::kNone;
         uint8_t width = 1;              // 1; 2 = wide lead; 0 = wide continuation (VT-6)
 
         bool operator==(const Cell &other) const = default;
     };
 
-    // What the cursor writes with
+    // What the cursor writes with (SGR state)
     struct Pen {
         Color fg = {};
         Color bg = {};
+        Color underlineColor = {};
         uint16_t attrs = kAttrNone;
+        UnderlineStyle underlineStyle = UnderlineStyle::kNone;
     };
 
     struct CursorState {
@@ -187,6 +201,12 @@ namespace gnilk::vt {
         void DispatchCsiPlain(const CsiParams &params, uint8_t final);
         void DispatchCsiPrivate(const CsiParams &params, uint8_t final);
         void SetMode(int mode, bool isSet);
+        void SelectGraphicRendition(const CsiParams &params);
+        void ApplySgr(int code);
+        void ApplySgrSubParams(const CsiParams &params, size_t first, size_t last);
+        size_t ParseSemicolonColor(const CsiParams &params, size_t start, Color &out) const;
+        void SetUnderline(UnderlineStyle style);
+        void SetSgrColor(int code, const Color &color);
         void SetPrivateMode(int mode, bool isSet);
 
         // Cursor

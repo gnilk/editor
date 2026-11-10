@@ -313,6 +313,7 @@ namespace gedit {
 
     protected:
         void Begin();
+        void ClampViewStateToText();
 
 
         bool OnActionLineDown(const EditorAction &kpAction);

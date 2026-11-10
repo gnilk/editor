@@ -460,6 +460,32 @@ DocumentSession Document::ToSession() const {
 void Document::FromSession(const DocumentSession &session) {
     // Path/buffer identity is owned by the reopen path; here we only restore the per-view editing state.
     documentViewState->FromSession(session);
+    ClampViewStateToText();
+}
+
+// The session was saved against the text as it was then; the file may have been changed elsewhere since
+// (shorter, or a line cut). Cursor and selection go to what is left - same rule as ReloadFromDisk.
+void Document::ClampViewStateToText() {
+    if ((textBuffer == nullptr) || (textBuffer->NumLines() == 0)) {
+        return;
+    }
+    auto numLines = textBuffer->NumLines();
+    auto clampPoint = [&](const Point &pt) {
+        auto idxLine = std::min((size_t)std::max(pt.y, 0), numLines - 1);
+        auto x = std::min((size_t)std::max(pt.x, 0), LineAt(idxLine)->Length());
+        return Point((int)x, (int)idxLine);
+    };
+    auto &selection = documentViewState->currentSelection;
+    selection.SetStart(clampPoint(selection.GetRawStart()));
+    selection.SetEnd(clampPoint(selection.GetRawEnd()));
+
+    auto idxLine = (size_t)documentViewState->lineCursor.idxActiveLine;
+    if (idxLine >= numLines) {
+        auto idxLast = numLines - 1;
+        SetCursorPosition(idxLast, std::min((size_t)std::max(GetCursor().position.x, 0), LineAt(idxLast)->Length()));
+    } else if ((size_t)GetCursor().position.x > LineAt(idxLine)->Length()) {
+        GetCursor().position.x = (int)LineAt(idxLine)->Length();
+    }
 }
 
 /////////

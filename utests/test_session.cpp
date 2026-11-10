@@ -80,6 +80,7 @@ DLL_EXPORT int test_session_singleton_clear(ITesting *t);
 DLL_EXPORT int test_session_documentviewstate_roundtrip(ITesting *t);
 DLL_EXPORT int test_session_selection_direction_preserved(ITesting *t);
 DLL_EXPORT int test_session_document_roundtrip(ITesting *t);
+DLL_EXPORT int test_session_document_shorterfile(ITesting *t);
 DLL_EXPORT int test_session_workspace_enumerate(ITesting *t);
 DLL_EXPORT int test_session_workspace_reopen_skips_missing(ITesting *t);
 DLL_EXPORT int test_session_workspace_reopen_reuses_scanned_node(ITesting *t);
@@ -232,6 +233,37 @@ DLL_EXPORT int test_session_document_roundtrip(ITesting *t) {
 }
 
 // Workspace enumerates its open documents + the active index into a RootSession.
+// The file got shorter while the editor was closed (edited elsewhere): the restored cursor and selection must land
+// inside the text, or the first motion dereferences a line that is not there (crash in OnActionStepRight).
+DLL_EXPORT int test_session_document_shorterfile(ITesting *t) {
+    auto textBuffer = TextBuffer::CreateEmptyBuffer();
+    textBuffer->AddLineUTF8("abc");
+    auto document = Document::Create(textBuffer);
+
+    DocumentSession dto;
+    dto.cursorX = 5;
+    dto.cursorY = 2;
+    dto.idxActiveLine = 2;
+    dto.viewTopLine = 0;
+    dto.viewBottomLine = 17;
+    dto.selection.isActive = true;
+    dto.selection.startX = 3;
+    dto.selection.startY = 2;
+    dto.selection.endX = 0;
+    dto.selection.endY = 0;
+    document->FromSession(dto);
+
+    auto numLines = document->GetTextBuffer()->NumLines();
+    TR_ASSERT(t, (size_t)document->GetLineCursor().idxActiveLine < numLines);
+    TR_ASSERT(t, document->ActiveLine() != nullptr);
+    TR_ASSERT(t, document->GetCursor().position.x <= (int)document->ActiveLine()->Length());
+    TR_ASSERT(t, (size_t)document->GetSelection().GetRawStart().y < numLines);
+    TR_ASSERT(t, (size_t)document->GetSelection().GetRawEnd().y < numLines);
+    EditorAction stepRight = {.uiAction = gedit::kUIAction::kUIActionLineRight};
+    TR_ASSERT(t, document->OnAction(stepRight));
+    return kTR_Pass;
+}
+
 DLL_EXPORT int test_session_workspace_enumerate(ITesting *t) {
     Workspace workspace;
 

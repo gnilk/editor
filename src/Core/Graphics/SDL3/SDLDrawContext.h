@@ -54,6 +54,9 @@ namespace gedit::SDL3 {
 
         std::pair<float, float>CoordsToScreen(float x, float y) const;
 
+        // Clips a run of 'width' cells starting at column 'x' to the context's width; false when nothing is left
+        bool ClipX(int &x, int &width) const;
+
     private:
         SDL_Renderer *renderer;
         SDL_Texture *renderTarget;

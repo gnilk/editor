@@ -62,6 +62,23 @@ std::pair<float, float> SDLDrawContext::CoordsToScreen(float x, float y) const {
     return {screenXPos, screenYPos};
 }
 
+// X is 'absolute' in that sense we don't move it...
+bool SDLDrawContext::ClipX(int &x, int &width) const {
+    if (x < 0) {
+        width -= (0 - x);
+        x = 0;
+    }
+
+    if ((x + width) > rect.Width()) {
+        width -= ((x + width) - rect.Width());
+    }
+
+    if (width < 0) {
+        return false;
+    }
+    return true;
+}
+
 void SDLDrawContext::FillRect(float x, float y, float w, float h, bool isColorSet) const {
     auto [pixXStart, pixYStart] = CoordsToScreen(x, y);
 
@@ -173,15 +190,21 @@ void SDLDrawContext::DrawStringWithAttributesAt(int x, int y, kTextAttributes at
     } else {
         SDLColor(bgColor).Use(renderer);
     }
+
+    int w = strlen(str);
+    if (!ClipX(x, w)) {
+        return;
+    }
+
     // Fill the background, tell the fill-rect colors are already set...
-    FillRect(x, y, strlen(str), 1, true);
+    FillRect(x, y, w, 1, true);
 
     // Now set the render colors
     SetRenderColor(attrib);
 
     // Translate coordinates and draw text...
     auto [px, py] = CoordsToScreen(x, y);
-    font->RenderText(px, py + font->Baseline(), str);
+    font->RenderText(px, py + font->Baseline(), str, w);
 
     // underlined???  draw a line under the text
     if (attrib & kTextAttributes::kUnderline) {
@@ -220,8 +243,17 @@ void SDLDrawContext::DrawStringWithAttributesAt(int x, int y, kTextAttributes at
     } else {
         SDLColor(bgColor).Use(renderer);
     }
+
+    int w = str.length();
+    if ((x + w) > rect.Width()) {
+        w -= ((x + w) - rect.Width());
+        if (w < 0) {
+            return;
+        }
+    }
+
     // Fill the background, tell the fill-rect colors are already set...
-    FillRect(x, y, str.length(), 1, true);
+    FillRect(x, y, w, 1, true);
 
     // Now set the render colors
     SetRenderColor(attrib);

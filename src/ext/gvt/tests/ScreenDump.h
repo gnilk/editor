@@ -76,6 +76,9 @@ namespace gvttest {
         void OnBell() override {
             bells++;
         }
+        void OnClearScrollback() override {
+            scrollbackClears++;
+        }
         void OnUnhandled(std::string_view description) override {
             unhandled.emplace_back(description);
         }
@@ -114,6 +117,7 @@ namespace gvttest {
         std::vector<bool> scrolledOutWrapped;
         std::vector<std::string> unhandled;
         int bells = 0;
+        int scrollbackClears = 0;
     };
 
 }

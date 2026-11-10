@@ -1207,7 +1207,7 @@ void Terminal::EraseInDisplay(int mode) {
             }
             break;
         case 3:     // scrollback lives in the host
-            host.OnUnhandled("ED 3");
+            host.OnClearScrollback();
             break;
         default:
             break;

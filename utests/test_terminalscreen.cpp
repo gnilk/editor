@@ -52,6 +52,7 @@ DLL_EXPORT int test_terminalscreen_inverse(ITesting *t);
 DLL_EXPORT int test_terminalscreen_wide(ITesting *t);
 DLL_EXPORT int test_terminalscreen_host(ITesting *t);
 DLL_EXPORT int test_terminalscreen_before_resize(ITesting *t);
+DLL_EXPORT int test_terminalscreen_clear_scrollback(ITesting *t);
 }
 
 static const ColorRGBA WHITE = ColorRGBA::FromRGB(1.0f, 1.0f, 1.0f);
@@ -1083,5 +1084,37 @@ DLL_EXPORT int test_terminalscreen_before_resize(ITesting *t) {
     TR_ASSERT(t, s.GetScrollback()->NumLines() == 1);   // the cursor's row and the one above fit
     TR_ASSERT(t, s.GetScrollback()->LineAt(0)->Buffer() == std::u32string(U"banner"));
     TR_ASSERT(t, s.GetRow(1)[0].ch == U'$');
+    return kTR_Pass;
+}
+
+// `clear` sends ED 3: the scrollback goes, abs ids stay monotonic, the blocks keep only what is left
+DLL_EXPORT int test_terminalscreen_clear_scrollback(ITesting *t) {
+    TerminalScreen s;
+    s.Resize(20, 3);
+    s.BeginCommandBlock(U"old", TerminalScreen::CommandBlock::Source::kCommitLine);
+    s.Feed("a\r\nb\r\nc\r\nd\r\n");
+    s.BeginCommandBlock(U"clear", TerminalScreen::CommandBlock::Source::kCommitLine);
+    s.Feed("e\r\nf\r\n");
+    TR_ASSERT(t, s.GetScrollback()->NumLines() == 4);
+    auto absBefore = s.AbsRowCount();
+
+    s.Feed("\x1b[H\x1b[2J\x1b[3J$ ");
+    TR_ASSERT(t, s.GetScrollback()->NumLines() == 0);
+    TR_ASSERT(t, s.ScrollbackBase() == 4);
+    TR_ASSERT(t, s.AbsRowCount() == 4);                 // the cursor's row: base + grid row 0
+    TR_ASSERT(t, s.AbsRowCount() <= absBefore);
+    TR_ASSERT(t, s.GetRow(0)[0].ch == U'$');
+    // The finished block is gone; the open one starts at the grid
+    TR_ASSERT(t, !s.Blocks().empty());
+    TR_ASSERT(t, s.Blocks().back().command == std::u32string(U"clear"));
+    TR_ASSERT(t, !s.Blocks().back().endAbsRow.has_value());
+    for (const auto &block : s.Blocks()) {
+        TR_ASSERT(t, block.startAbsRow >= s.ScrollbackBase());
+        TR_ASSERT(t, block.command != std::u32string(U"old"));
+    }
+    // New history lands after the cleared range
+    s.Feed("1\r\n2\r\n3\r\n");
+    TR_ASSERT(t, s.GetScrollback()->NumLines() == 1);
+    TR_ASSERT(t, s.GetScrollback()->LineAt(0)->Buffer() == std::u32string(U"$ 1"));
     return kTR_Pass;
 }

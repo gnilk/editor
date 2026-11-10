@@ -167,6 +167,9 @@ namespace gnilk::vt {
         // resize that pushes rows out). isWrapped: the row continues on the next one (soft wrap).
         virtual void OnRowScrolledOut(std::span<const Cell> row, bool isWrapped) {
         }
+        // ED 3 (CSI 3 J, what `clear` sends): drop the saved lines - the scrollback the host keeps
+        virtual void OnClearScrollback() {
+        }
         virtual void OnBell() {
         }
         // OSC 0 / 2

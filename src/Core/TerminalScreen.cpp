@@ -381,6 +381,28 @@ void TerminalScreen::OnRowScrolledOut(std::span<const gnilk::vt::Cell> row, bool
     TrimScrollbackIfNeeded();
 }
 
+// ED 3 (`clear`): the history goes. Abs ids stay monotonic - the base moves past the dropped lines - and the
+// blocks keep only what is still there: closed blocks wholly in the dropped history go, a block reaching into
+// the grid (the open one) now starts at the grid.
+void TerminalScreen::OnClearScrollback() {
+    scrollbackBase += scrollback->NumLines();
+    scrollback = MakeScrollbackBuffer();
+    while (!blocks.empty() && blocks.front().endAbsRow.has_value() &&
+           (blocks.front().endAbsRow.value() <= scrollbackBase)) {
+        blocks.pop_front();
+    }
+    for (auto &block : blocks) {
+        block.startAbsRow = std::max(block.startAbsRow, scrollbackBase);
+    }
+    if (blocks.empty()) {
+        CommandBlock loose;
+        loose.id          = nextBlockId++;
+        loose.startAbsRow = scrollbackBase;
+        loose.source      = CommandBlock::Source::kHeuristic;
+        blocks.push_back(std::move(loose));
+    }
+}
+
 void TerminalScreen::WriteToPty(std::string_view bytes) {
     if (host != nullptr) {
         host->WriteToPty(bytes);

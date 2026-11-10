@@ -300,7 +300,7 @@ oracle suite green modulo the documented allowlist.
   `tcgetpgrp(amaster) != shell pid`). Then keys AND bound actions are encoded from the raw key and sent
   (`TerminalController::ForwardKeyPressToShell` / `ForwardActionToShell`) - Esc, Ctrl+C, Shift+Tab, Ctrl+arrows,
   PageUp now reach vim/Claude (before, bound actions were swallowed in alt-screen mode); the escape hatch
-  (`IsTerminalEscapeHatch`: view focus/cycle/resize, buffer switching, view modes, paste, anything with Cmd)
+  (`IsTerminalEscapeHatch`: view focus/cycle/resize, view modes, paste, anything with Cmd)
   returns to the view/editor - Alt+E leaves vim. A foreground job on the primary screen is drawn
   bottom-anchored down to its last drawn row, without the local input line (`TerminalView::DrawAppScreen`).
   Paste (TE-9, E.18 round-trip through `UpdateClipboardData`): app/readline -> `EncodePaste`; local prompt -> one
@@ -330,8 +330,10 @@ Decisions made while building it:
   a wide character whole (libvterm stops short).
 - **Scrollback feed:** a row goes to `OnRowScrolledOut` when it leaves row 0 of the primary screen by LF/IND/SU/
   wrap with the region's top at row 0 (xterm; libvterm agrees on the fixtures), or when `Resize` shrinks below
-  the cursor. DL at row 0, regions starting lower and the alternate screen never feed it. ED 3 goes to
-  `OnUnhandled` for now (the editor owns scrollback).
+  the cursor. DL at row 0, regions starting lower and the alternate screen never feed it. ED 3 (`clear`) calls
+  `OnClearScrollback`; the editor drops its scrollback and the command blocks wholly inside it (owner's call).
+- **Buffer switching goes to the app** (owner's call): Alt+Left/Right and Alt+1..9 are not in the escape hatch, so
+  readline's Alt+arrow word motion and tmux/irssi Alt+N work. Cmd+N (macOS) still switches; else Alt+E first.
 
 ### Pick up on macOS
 
@@ -340,7 +342,7 @@ brew install libvterm pkg-config          # without them the oracle module is sk
 git fetch && git checkout feat/gvt
 cmake --preset debug                       # or reconfigure an existing build dir
 cmake --build cmake-build-debug --target gvttests
-cd cmake-build-debug && trun --sequential ./libgvttests.dylib     # expect 69 executed, 0 failed (editor: verified-green set 633)
+cd cmake-build-debug && trun --sequential ./libgvttests.dylib     # expect 69 executed, 0 failed (editor: verified-green set 634)
 ```
 
 Not yet verified on macOS: the build, the oracle with Homebrew's libvterm, the fixture copy step.
@@ -353,10 +355,5 @@ Not yet verified on macOS: the build, the oracle with Homebrew's libvterm, the f
   overline and underline colour/style are in the model and not drawn yet (VT-9).
 - Cursor visibility/shape (`IsCursorVisible`, `GetModes().cursorShape`) and synchronized output
   (`gvt::Terminal::IsSynchronizedUpdate`) are exposed but unused by the view (VT-9).
-- **Decision for the owner:** `clear` sends ED 3 (erase scrollback). gvt reports it as unhandled and the editor keeps
-  its scrollback + command blocks, so earlier output stays visible above the prompt after `clear` (as before gvt).
-  Clear the history on ED 3, or keep it (it is the editor's block history)?
-- Escape-hatch set is a first cut: Alt+Left/Right (buffer cycling) and Alt+1..9 stay with the editor, so readline's
-  Alt+arrow word motion does not reach apps. Adjust `IsTerminalEscapeHatch` if that bites.
 - Exit criterion still to run: `claude` inside goatedit (trust dialog, typing incl. non-ASCII, Esc, Shift+Tab,
   Ctrl+C twice back to the shell) - VT-8 should cover it; not tried yet (needs an interactive account session).

@@ -755,6 +755,18 @@ DLL_EXPORT int test_terminalcontroller_passthrough_actions(ITesting *t) {
     TR_ASSERT(t, c.ForwardActionToShell(pageUp));
     TR_ASSERT(t, sent == "\x1b\x03\x1b[5~");
 
+    // Buffer switching keys belong to the app: Alt+Right is readline's word motion, Alt+1 is tmux/irssi's
+    sent.clear();
+    EditorAction nextBuffer;
+    nextBuffer.action = kAction::kActionCycleActiveBufferNext;
+    nextBuffer.keyPress = SpecialKey(Keyboard::kKeyCode_RightArrow, Keyboard::kMod_LeftAlt);
+    TR_ASSERT(t, c.ForwardActionToShell(nextBuffer));
+    EditorAction buffer1;
+    buffer1.action = kAction::kActionSwitchToBuffer;
+    buffer1.keyPress = TextKey(U'1', Keyboard::kMod_LeftAlt);
+    TR_ASSERT(t, c.ForwardActionToShell(buffer1));
+    TR_ASSERT(t, sent == "\x1b[1;3C\x1b" "1");
+
     // View switching and resizing are not sent; the view hands them on
     sent.clear();
     EditorAction toEditor;

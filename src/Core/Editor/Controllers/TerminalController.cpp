@@ -549,10 +549,9 @@ bool TerminalController::IsTerminalEscapeHatch(const EditorAction &kpAction) {
             break;
     }
     switch (kpAction.action) {
+        // Buffer switching (Alt+Left/Right, Alt+1..9) is not here: an app gets those keys - readline's word
+        // motion, Alt+N in tmux/irssi. Cmd+N (macOS) still switches; or Alt+E to the editor first.
         case kAction::kActionCycleActiveEditor:
-        case kAction::kActionCycleActiveBufferNext:
-        case kAction::kActionCycleActiveBufferPrev:
-        case kAction::kActionSwitchToBuffer:
         case kAction::kActionSwitchToTerminal:
         case kAction::kActionSwitchToEditor:
         case kAction::kActionSwitchToProject:

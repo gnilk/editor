@@ -174,6 +174,7 @@ namespace gedit {
         void OnRowScrolledOut(std::span<const gnilk::vt::Cell> row, bool isWrapped) override;
         void WriteToPty(std::string_view bytes) override;
         bool QueryColor(int which, gnilk::vt::Rgb &out) override;
+        void OnClearScrollback() override;
         void OnBell() override;
         void OnTitle(std::string_view title) override;
         void OnWorkingDirectory(std::string_view uri) override;

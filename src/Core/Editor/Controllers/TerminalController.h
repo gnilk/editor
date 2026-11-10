@@ -55,7 +55,7 @@ namespace gedit {
         // (dialog, python, ssh, sleep, ...: the pty's foreground process group is not the shell's). Then every key
         // goes to the pty except the escape hatch (IsTerminalEscapeHatch), and the view shows the grid as is.
         bool IsAppActive();
-        // The editor keeps these while an app owns the terminal: view focus/cycling/resizing, buffer switching, the
+        // The editor keeps these while an app owns the terminal: view focus/cycling/resizing, the
         // view modes, paste (sent to the app as a paste) and anything with Cmd. Everything else reaches the app.
         static bool IsTerminalEscapeHatch(const EditorAction &kpAction);
 

@@ -174,6 +174,11 @@ DLL_EXPORT int test_terminal_erase(ITesting *t) {
     term.Feed(fill);
     term.Feed("\x1b[2J");
     TR_ASSERT(t, ScreenText(term).empty());
+    TR_ASSERT(t, host.scrollbackClears == 0);
+    // ED 3 leaves the screen alone and tells the host to drop its scrollback
+    term.Feed("X\x1b[3J");
+    TR_ASSERT(t, host.scrollbackClears == 1);
+    TR_ASSERT(t, ScreenText(term) == "\n\n\n     X");
     // The cursor stays where it was
     TR_ASSERT(t, term.GetCursor().x == 5);
     TR_ASSERT(t, term.GetCursor().y == 3);

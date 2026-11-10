@@ -508,17 +508,16 @@ bool TerminalController::ForwardActionToShell(const EditorAction &kpAction) {
         return false;
     }
     if ((kpAction.uiAction == kUIAction::kUIActionCommitLine) && doesShellOwnLineEditing) {
-        // §4.1 tab-completion edge case: this commit never goes through CommitLine(), so the
-        // block boundary has to open here instead. SyncInputLineFromGrid has been mirroring
-        // readline's edits into inputLine, so it holds the best-effort command text - read it
-        // before ExitShellOwned() clears it.
-        std::u32string cmdLine(inputLine->Buffer());
-        if (!cmdLine.empty()) {
+        // §4.1 tab-completion edge case: this commit never goes through CommitLine(). readline's edits have been
+        // mirrored into inputLine on the pty thread; mirror once more from the grid as it stands now and read it
+        // under the lock, before ExitShellOwned() clears it. Best effort: an echo still in flight is not seen.
+        std::u32string cmdLine;
+        {
             std::lock_guard<std::mutex> guard(screenLock);
-            if (!useOsc133Boundaries) {   // §4.2: OSC 133;C opens the block when integration is active
-                screen.BeginCommandBlock(cmdLine, TerminalScreen::CommandBlock::Source::kCommitLine);
-            }
+            SyncInputLineFromGrid();
+            cmdLine = inputLine->Buffer();
         }
+        RecordCommand(cmdLine);
         WriteToPty("\r");
         ExitShellOwned();
         return true;
@@ -633,7 +632,10 @@ bool TerminalController::OnAction(const EditorAction &kpAction) {
         // whole time we edited locally (local edits never touch the grid), so
         // capture it now as the prompt anchor for reading the line back. From here
         // readline owns the line until the command is committed or aborted.
-        promptAnchor = screen.GetCursorPos();
+        {
+            std::lock_guard<std::mutex> guard(screenLock);
+            promptAnchor = screen.GetCursorPos();
+        }
         doesShellOwnLineEditing = true;
         auto cmdLine = std::u32string(inputLine->Buffer());
         WriteToPty(UnicodeHelper::utf32to8(cmdLine) + "\t");
@@ -875,26 +877,8 @@ int TerminalController::GetCursorXPos() {
 
 void TerminalController::CommitLine() {
     std::u32string cmdLine(inputLine->Buffer());
+    RecordCommand(cmdLine);
 
-    if (!cmdLine.empty()) {
-        cmdHistory.Push(cmdLine);
-        if (!cmdHistoryPath.empty()) {
-            cmdHistory.Save(cmdHistoryPath);
-        }
-        // §4.1: every non-empty commit opens a block - plugin/built-in commands included (their
-        // output still lands in scrollback via WriteLine, §4.3; v1 leaves them coarser, closed by
-        // whatever commits next rather than a dedicated end event - producer-side bracketing is
-        // deferred, §4.3). BeginCommandBlock closes whatever block was previously open and no-ops in
-        // alt-screen (§10); mirrors WriteLine's short locked section rather than locking the whole
-        // function (shell.SendCmd below must not run under screenLock).
-        std::lock_guard<std::mutex> guard(screenLock);
-        // §4.2: once OSC 133 shell integration is active the shell opens the block itself at ;C, so the
-        // heuristic stands down to avoid a double-open (flag read under screenLock, set on the pty thread).
-        if (!useOsc133Boundaries) {
-            screen.BeginCommandBlock(cmdLine, TerminalScreen::CommandBlock::Source::kCommitLine);
-        }
-    }
-    cmdHistory.ResetNavigation();
 
     inputLine->Clear();
     inputCursor.position.x = 0;
@@ -909,6 +893,29 @@ void TerminalController::CommitLine() {
 
     ScrollToBottom();   // §5.3: committing a line snaps the viewport back to the bottom
     Editor::Instance().TriggerUIRedraw();
+}
+
+// A committed command line - typed locally (CommitLine) or finished in readline after Tab (ForwardActionToShell):
+// into the history, saved, and (without OSC 133) opens its command block. Call without screenLock held.
+void TerminalController::RecordCommand(const std::u32string &cmdLine) {
+    if (!cmdLine.empty()) {
+        cmdHistory.Push(cmdLine);
+        if (!cmdHistoryPath.empty()) {
+            cmdHistory.Save(cmdHistoryPath);
+        }
+        // §4.1: every non-empty commit opens a block - plugin/built-in commands included (their
+        // output still lands in scrollback via WriteLine, §4.3; v1 leaves them coarser, closed by
+        // whatever commits next rather than a dedicated end event - producer-side bracketing is
+        // deferred, §4.3). BeginCommandBlock closes whatever block was previously open and no-ops in
+        // alt-screen (§10). Only this part runs under screenLock (shell.SendCmd must not).
+        std::lock_guard<std::mutex> guard(screenLock);
+        // §4.2: once OSC 133 shell integration is active the shell opens the block itself at ;C, so the
+        // heuristic stands down to avoid a double-open (flag read under screenLock, set on the pty thread).
+        if (!useOsc133Boundaries) {
+            screen.BeginCommandBlock(cmdLine, TerminalScreen::CommandBlock::Source::kCommitLine);
+        }
+    }
+    cmdHistory.ResetNavigation();
 }
 
 // Console output from the editor (JS Console, plugins) - printed as text on a fresh line. '\n' breaks the line;

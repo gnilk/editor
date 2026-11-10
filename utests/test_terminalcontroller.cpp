@@ -37,6 +37,7 @@ DLL_EXPORT int test_terminalcontroller_local_mode_keeps_keys(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_paste(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_mouse_focus(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_replies_to_pty(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_tab_commit_history(ITesting *t);
 }
 
 #include <cstdint>   // UINT64_MAX
@@ -853,5 +854,45 @@ DLL_EXPORT int test_terminalcontroller_replies_to_pty(ITesting *t) {
     CaptureInput(c, sent, false);
     FeedPty(c, "\x1b[c\x1b[2;5H\x1b[6n");
     TR_ASSERT(t, sent == "\x1b[?62;22c\x1b[2;5R");
+    return kTR_Pass;
+}
+
+// A line finished in readline after Tab is committed through ForwardActionToShell, not CommitLine - it must still
+// reach the history (Up recalls it) and open its block, with the text readline shows, not what was typed
+DLL_EXPORT int test_terminalcontroller_tab_commit_history(ITesting *t) {
+    TerminalController c;
+    c.Resize(40, 10);
+    std::string sent;
+    CaptureInput(c, sent, false);
+    FeedPty(c, "$ ");
+
+    Cursor cursor;
+    size_t line = 0;
+    for (auto ch : std::u32string(U"vim a")) {
+        c.HandleKeyPress(cursor, line, TextKey(ch));
+    }
+    EditorAction complete;
+    complete.action = kAction::kActionShellCompletion;
+    TR_ASSERT(t, c.OnAction(complete));
+    TR_ASSERT(t, c.DoesShellOwnLineEditing());
+    TR_ASSERT(t, sent == "vim a\t");
+
+    FeedPty(c, "vim apa.cpp");                  // readline's echo of the completed line
+    auto blocksBefore = c.GetScreen().Blocks().size();
+    sent.clear();
+    EditorAction commit;
+    commit.uiAction = kUIAction::kUIActionCommitLine;
+    commit.keyPress = SpecialKey(Keyboard::kKeyCode_Return);
+    TR_ASSERT(t, c.ForwardActionToShell(commit));
+    TR_ASSERT(t, sent == "\r");
+    TR_ASSERT(t, !c.DoesShellOwnLineEditing());
+    TR_ASSERT(t, c.GetScreen().Blocks().size() == blocksBefore + 1);
+    TR_ASSERT(t, c.GetScreen().Blocks().back().command == std::u32string(U"vim apa.cpp"));
+
+    FeedPty(c, "\r\n$ ");
+    EditorAction up;
+    up.uiAction = kUIAction::kUIActionLineUp;
+    TR_ASSERT(t, c.OnAction(up));
+    TR_ASSERT(t, c.GetInputLine()->Buffer() == std::u32string(U"vim apa.cpp"));
     return kTR_Pass;
 }

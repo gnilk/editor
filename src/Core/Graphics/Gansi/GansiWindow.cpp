@@ -19,7 +19,7 @@ void GansiWindow::SetCursor(const Cursor &cursor) {
     // Window-local caret -> absolute grid cell.
     int absCol = windowRect.TopLeft().x + cursor.position.x;
     int absRow = windowRect.TopLeft().y + cursor.position.y;
-    screen->SetActiveCursor(absCol, absRow, true);
+    screen->SetActiveCursor(absCol, absRow, cursor.isVisible);
 }
 
 void GansiWindow::UpdateRect(const Rect &newRect) {

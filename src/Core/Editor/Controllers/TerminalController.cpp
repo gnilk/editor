@@ -269,16 +269,31 @@ void TerminalController::ApplyThemeColors() {
 }
 
 void TerminalController::HandleTerminalData(const uint8_t *buffer, size_t length) {
-    std::lock_guard<std::mutex> guard(screenLock);
-    screen.Feed(buffer, length);
+    {
+        std::lock_guard<std::mutex> guard(screenLock);
+        screen.Feed(buffer, length);
 
-    // While the shell owns the line (completion in progress), mirror what readline
-    // has echoed back into our local inputLine so the model stays truthful.
-    if (doesShellOwnLineEditing) {
-        SyncInputLineFromGrid();
+        // While the shell owns the line (completion in progress), mirror what readline
+        // has echoed back into our local inputLine so the model stays truthful.
+        if (doesShellOwnLineEditing) {
+            SyncInputLineFromGrid();
+        }
+
+        // Synchronized output: no redraw until the app ends its update (or it has held one too long)
+        isHoldingRedraw = false;
+        if (screen.GetModes().isSynchronizedOutput) {
+            auto now = std::chrono::steady_clock::now();
+            if (!syncStart.has_value()) {
+                syncStart = now;
+            }
+            isHoldingRedraw = (now - syncStart.value()) < kMaxSyncHold;
+        } else {
+            syncStart.reset();
+        }
     }
-
-    Editor::Instance().TriggerUIRedraw();
+    if (!isHoldingRedraw) {
+        Editor::Instance().TriggerUIRedraw();
+    }
 }
 
 void TerminalController::SyncInputLineFromGrid() {

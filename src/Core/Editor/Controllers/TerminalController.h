@@ -11,6 +11,7 @@
 #include <mutex>
 #include <filesystem>
 #include <optional>
+#include <chrono>
 
 #include "logger.h"
 #include "Core/UI/Controllers/BaseController.h"
@@ -43,6 +44,9 @@ namespace gedit {
         void HandleTerminalData(const uint8_t *buffer, size_t length);
 
         const TerminalScreen &GetScreen() const { return screen; }
+        // True while the app has synchronized output on (?2026, at most kMaxSyncHold): output is taken in but no
+        // redraw is asked for until the app ends the update - the screen is never drawn half-way through a frame
+        bool IsHoldingRedraw() const { return isHoldingRedraw; }
         std::mutex &GetScreenLock() { return screenLock; }
 
         Line::Ref GetInputLine() const { return inputLine; }
@@ -212,6 +216,10 @@ namespace gedit {
         //                    the grid is mirrored back into inputLine until the line is committed
         //                    (or aborted), which returns to local editing.
         bool doesShellOwnLineEditing = false;
+        // Synchronized output (?2026): when the app began the update; held for at most kMaxSyncHold, as Ghostty
+        static constexpr std::chrono::milliseconds kMaxSyncHold{1000};
+        std::optional<std::chrono::steady_clock::time_point> syncStart;
+        bool isHoldingRedraw = false;
         // Grid cell where the prompt ends, captured on the local->shell-owned transition (the real
         // grid cursor stays parked there while editing locally, since local edits never touch the
         // grid). Used to read the line back.

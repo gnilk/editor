@@ -2,6 +2,7 @@
 // GlyphFont (docs/usability-round.md §6) - the glyph page table, without a screen, against the shipped Andale Mono:
 // it has '│' (U+2502), it lacks '▎' (U+258E).
 //
+#include <filesystem>
 #include <testinterface.h>
 
 #include "Core/Graphics/GlyphFont.h"
@@ -18,6 +19,8 @@ extern "C" {
     DLL_EXPORT int test_glyphfont_bitmap(ITesting *t);
     DLL_EXPORT int test_glyphfont_advance(ITesting *t);
     DLL_EXPORT int test_glyphfont_notafont(ITesting *t);
+    DLL_EXPORT int test_glyphfont_fallback(ITesting *t);
+    DLL_EXPORT int test_glyphfont_fallback_colouremoji(ITesting *t);
 }
 
 namespace {
@@ -129,5 +132,59 @@ DLL_EXPORT int test_glyphfont_notafont(ITesting *t) {
     const uint8_t junk[] = {1, 2, 3, 4, 5, 6, 7, 8};
     TR_ASSERT(t, GlyphFont::Create(junk, sizeof(junk), 18) == nullptr);
     TR_ASSERT(t, GlyphFont::Create(nullptr, 0, 18) == nullptr);
+    return kTR_Pass;
+}
+
+namespace {
+    // The first of these the machine has - the tests below only run what they can
+    std::filesystem::path FirstExisting(std::initializer_list<const char *> files) {
+        for (auto file : files) {
+            if (std::filesystem::exists(file)) {
+                return file;
+            }
+        }
+        return {};
+    }
+}
+
+// A code point the font lacks comes from a fallback, into the same page; the fallback file is only read when a page
+// needs it, and one that is not there is skipped
+DLL_EXPORT int test_glyphfont_fallback(ITesting *t) {
+    auto cjk = FirstExisting({"/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
+                              "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+                              "/Library/Fonts/Arial Unicode.ttf"});
+    auto font = OpenAndale(t);
+    font->SetFallbackFiles({"/no/such/font.ttf", cjk});
+    TR_ASSERT(t, font->Lookup(U'A') != nullptr);
+    TR_ASSERT(t, font->NumFallbacksOpened() == 0);
+    float advance = font->CellAdvance();
+    if (cjk.empty()) {
+        TR_ASSERT(t, font->Lookup(U'中') == nullptr);
+        return kTR_Pass;
+    }
+    const GlyphFont::Page *page = nullptr;
+    auto glyph = font->Lookup(U'中', &page);
+    TR_ASSERT(t, glyph != nullptr);
+    TR_ASSERT(t, page == font->GetPage(0x4e));
+    TR_ASSERT(t, HasInk(page, glyph));
+    TR_ASSERT(t, font->NumFallbacksOpened() == 1);
+    // Wider than one cell (it is drawn across two), and the cell is still the font's own
+    TR_ASSERT(t, (float)(glyph->x1 - glyph->x0) > advance);
+    TR_ASSERT(t, font->CellAdvance() == advance);
+    // The font's own glyphs are its own on a page shared with a fallback (Latin Extended-A: Andale + fallback)
+    TR_ASSERT(t, font->Lookup(U'ő') != nullptr);
+    return kTR_Pass;
+}
+
+// A colour emoji font's glyphs are bitmaps stb_truetype cannot draw: they are not taken (the cell stays empty
+// instead of drawing nothing as if it were a glyph)
+DLL_EXPORT int test_glyphfont_fallback_colouremoji(ITesting *t) {
+    auto emoji = FirstExisting({"/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf"});
+    if (emoji.empty()) {
+        return kTR_Pass;
+    }
+    auto font = OpenAndale(t);
+    font->SetFallbackFiles({emoji});
+    TR_ASSERT(t, font->Lookup(U'😀') == nullptr);      // (stb_truetype does not open this one at all - no outlines)
     return kTR_Pass;
 }

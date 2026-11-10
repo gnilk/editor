@@ -226,7 +226,7 @@ oracle suite green modulo the documented allowlist.
 
 ## 7. Status and pick-up notes
 
-### Done (VT-0..VT-8, branch `feat/gvt`)
+### Done (VT-0..VT-9, branch `feat/gvt`)
 
 - `src/ext/gvt/`: CMake (standalone + `add_subdirectory` from the editor), `Parser`, `IParserSink`, `README.md`.
   Not linked into `goatedit` yet.
@@ -310,6 +310,18 @@ oracle suite green modulo the documented allowlist.
   (6 new `terminalcontroller` cases). GUI-checked: python3 REPL (its own history via Up, Ctrl+D), dialog (arrows,
   whole box), vim (Esc, Alt+E out and Alt+T back, ZZ).
 
+- **VT-9 rendering.** Font fallback in the shared `GlyphFont`: what the theme font lacks comes from
+  `sdl.font_fallback` (config.yml lists both platforms' paths; missing files are skipped, a file is read the first
+  time a page needs it) and is packed into the same page bitmap, so the backends still draw one texture per page.
+  Glyphs without outlines (colour emoji: CBDT/sbix) are never taken - stb_truetype cannot draw them. A wide
+  character's glyph is drawn at its lead cell and runs into the continuation cell (blank in the run). Bold: the
+  glyphs drawn again one screen pixel right (SDL2 + SDL3, no bold face). Dim: fg half way to bg in
+  `TerminalScreen::ResolveRow`. Caret: `Cursor::Shape` (bar/block/underline) + `isVisible`; while an app owns the
+  terminal the view uses DECSCUSR (default = block, translucent) and DECTCEM; the local prompt keeps the bar.
+  Synchronized output (?2026): `TerminalController` asks for no redraw while it is on, for at most 1 s
+  (`IsHoldingRedraw`). GUI-checked on Linux/SDL2: CJK, box/block drawing, arrows, bold, dim, underline, vim's block
+  caret; SDL3 builds on Linux.
+
 Decisions made while building it:
 - **Malformed CSI** (`CSI 1?2h`, `CSI 1$2p`): ignored up to the final byte (Williams `csi_ignore`, as xterm,
   Ghostty, vte). libvterm prints the tail instead — recorded in the oracle's `kKnownDivergences`.
@@ -342,18 +354,18 @@ brew install libvterm pkg-config          # without them the oracle module is sk
 git fetch && git checkout feat/gvt
 cmake --preset debug                       # or reconfigure an existing build dir
 cmake --build cmake-build-debug --target gvttests
-cd cmake-build-debug && trun --sequential ./libgvttests.dylib     # expect 69 executed, 0 failed (editor: verified-green set 634)
+cd cmake-build-debug && trun --sequential ./libgvttests.dylib     # expect 69 executed, 0 failed (editor: verified-green set 644)
 ```
 
 Not yet verified on macOS: the build, the oracle with Homebrew's libvterm, the fixture copy step.
 
-### Next: VT-9 (rendering), then the exit criterion (Claude inside goatedit)
+### Next: the exit criterion (Claude inside goatedit), and what VT-9 left
 
-- **CJK / emoji show as blanks**: the model is right (two cells, gap preserved) but Andale Mono has no such glyphs.
-  VT-9: font fallback in `SDLFontManager` and drawing a width-2 glyph across both cells (SDL2 + SDL3 + gansi).
-- Bold is carried to the draw call (`kTextAttributes::kBold`) but the SDL backends may not render it; dim, blink,
-  overline and underline colour/style are in the model and not drawn yet (VT-9).
-- Cursor visibility/shape (`IsCursorVisible`, `GetModes().cursorShape`) and synchronized output
-  (`gvt::Terminal::IsSynchronizedUpdate`) are exposed but unused by the view (VT-9).
+- **Colour emoji** stay blank: no outline emoji font is installed by default (Noto Color Emoji / Apple Color Emoji
+  are bitmap fonts). A monochrome emoji font (Noto Emoji, Symbola) in `sdl.font_fallback` draws them.
+- A wide character in **scrollback** (a `Line`) takes one column, so the text after it overlaps (RowToLine drops the
+  continuation cell to keep copy text right) - the editor's general CJK-column issue, not the terminal's.
+- Not drawn yet: blink, overline, underline colour and styles (curly, dotted...); box-drawing glyphs come from
+  the fallback font at its own proportions, so lines may not join exactly.
 - Exit criterion still to run: `claude` inside goatedit (trust dialog, typing incl. non-ASCII, Esc, Shift+Tab,
   Ctrl+C twice back to the shell) - VT-8 should cover it; not tried yet (needs an interactive account session).

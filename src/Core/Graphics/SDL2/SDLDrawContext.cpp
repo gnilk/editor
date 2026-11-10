@@ -209,6 +209,10 @@ void SDLDrawContext::DrawStringWithAttributesAt(int x, int y, kTextAttributes at
     // Translate coordinates and draw text...
     auto [px, py] = CoordsToScreen(x, y);
     font->RenderText(px, py + font->Baseline(), str, w);
+    // Bold: the glyphs again, one screen pixel to the right (there is no bold face)
+    if (attrib & kTextAttributes::kBold) {
+        font->RenderText(px + 1.0f / font->Density(), py + font->Baseline(), str, w);
+    }
 
     // underlined???  draw a line under the text
     if (attrib & kTextAttributes::kUnderline) {
@@ -265,6 +269,10 @@ void SDLDrawContext::DrawStringWithAttributesAt(int x, int y, kTextAttributes at
     // Translate coordinates and draw text...
     auto [px, py] = CoordsToScreen(x, y);
     font->RenderText(px, py + font->Baseline(), str);
+    // Bold: the glyphs again, one screen pixel to the right (there is no bold face)
+    if (attrib & kTextAttributes::kBold) {
+        font->RenderText(px + 1.0f / font->Density(), py + font->Baseline(), str);
+    }
 
     // underlined???  draw a line under the text
     if (attrib & kTextAttributes::kUnderline) {

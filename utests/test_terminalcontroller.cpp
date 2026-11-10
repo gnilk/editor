@@ -38,6 +38,7 @@ DLL_EXPORT int test_terminalcontroller_paste(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_mouse_focus(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_replies_to_pty(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_tab_commit_history(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_sync_output(ITesting *t);
 }
 
 #include <cstdint>   // UINT64_MAX
@@ -906,5 +907,21 @@ DLL_EXPORT int test_terminalcontroller_tab_commit_history(ITesting *t) {
     up.uiAction = kUIAction::kUIActionLineUp;
     TR_ASSERT(t, c.OnAction(up));
     TR_ASSERT(t, c.GetInputLine()->Buffer() == std::u32string(U"vim apa.cpp"));
+    return kTR_Pass;
+}
+
+// ?2026: output inside a synchronized update is taken in without a redraw; the end of the update redraws
+DLL_EXPORT int test_terminalcontroller_sync_output(ITesting *t) {
+    TerminalController c;
+    c.Resize(20, 5);
+    FeedPty(c, "plain");
+    TR_ASSERT(t, !c.IsHoldingRedraw());
+    FeedPty(c, "\x1b[?2026h\x1b[2J\x1b[Hhalf");
+    TR_ASSERT(t, c.IsHoldingRedraw());
+    FeedPty(c, " a frame");
+    TR_ASSERT(t, c.IsHoldingRedraw());
+    FeedPty(c, "\x1b[?2026l");
+    TR_ASSERT(t, !c.IsHoldingRedraw());
+    TR_ASSERT(t, c.GetScreen().GetRow(0)[0].ch == U'h');
     return kTR_Pass;
 }

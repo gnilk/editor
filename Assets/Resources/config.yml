@@ -135,6 +135,19 @@ sdl:
   text_underline_margin: 16
   # this increases the spacing between lines - it is added to the baseline of the font
   line_margin: 4
+  # Fonts that draw what the theme's font has no glyph for (CJK, box drawing, symbols), tried in order. A file that
+  # isn't there is skipped, so the list holds both platforms' paths. Colour emoji fonts can't be used (no outlines).
+  font_fallback:
+    # Linux
+    - /usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf
+    - /usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf
+    - /usr/share/fonts/truetype/noto/NotoSansSymbols2-Regular.ttf
+    - /usr/share/fonts/truetype/ancient-scripts/Symbola_hint.ttf
+    # macOS
+    - /System/Library/Fonts/Menlo.ttc
+    - /System/Library/Fonts/Supplemental/Arial Unicode.ttf
+    - /Library/Fonts/Arial Unicode.ttf
+    - /System/Library/Fonts/Apple Symbols.ttf
 
 ncurses:
   timeoutKeyEvent: 500

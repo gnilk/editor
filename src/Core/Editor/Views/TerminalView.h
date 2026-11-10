@@ -52,6 +52,7 @@ namespace gedit {
         bool ForwardMouseToApp(const MouseEvent &mouseEvent);
         void DrawAppScreen(DrawContext &dc, const TerminalScreen &screen, int viewHeight);
         void DrawScreenRow(DrawContext &dc, const TerminalScreen::Row &row, int y);
+        static Cursor::Shape ToCursorShape(gnilk::vt::CursorShape shape);
 
     private:
         TerminalController controller;

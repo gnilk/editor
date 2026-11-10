@@ -10,8 +10,17 @@
 
 namespace gedit {
     struct Cursor {
+        // How the caret is drawn: the editor's bar, or what a terminal application asked for (DECSCUSR)
+        enum class Shape {
+            kBar,
+            kBlock,
+            kUnderline,
+        };
+
         gedit::Point position;
         int wantedColumn = 0;   // This is the virtual position (i.e. last-good)
+        Shape shape = Shape::kBar;
+        bool isVisible = true;  // a terminal application can hide it (DECTCEM)
     };
     // Name??
     struct LineCursor {

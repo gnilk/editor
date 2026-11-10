@@ -215,12 +215,32 @@ void SDLWindow::OnDrawCursor(const Cursor &otherCursor) {
         return;
     }
     // SDL_PIXELFORMAT_RGBA8888
+    if (!otherCursor.isVisible) {
+        return;
+    }
     auto dc = static_cast<SDLDrawContext *>(clientContext);
     auto theme = Editor::Instance().GetTheme();
     // FillRect assumes the render target has been set..
     SDL_SetRenderTarget(renderer, dc->renderTarget);
-    dc->SetFGColor(theme->GetGlobalColors().GetColor("caret"));
-    dc->DrawLine(otherCursor.position.x, otherCursor.position.y, otherCursor.position.x, otherCursor.position.y + 1);
-
+    auto caretColor = theme->GetGlobalColors().GetColor("caret");
+    dc->SetFGColor(caretColor);
+    int x = otherCursor.position.x;
+    int y = otherCursor.position.y;
+    switch (otherCursor.shape) {
+        case Cursor::Shape::kBlock: {
+            // Over the character, translucent so it stays readable
+            auto blockColor = caretColor;
+            blockColor.SetAlpha(0.5f);
+            SDLColor(blockColor).Use(renderer);
+            dc->FillRect((float)x, (float)y, 1, 1, true);
+            break;
+        }
+        case Cursor::Shape::kUnderline:
+            dc->DrawLineWithPixelOffset((float)x, (float)(y + 1), (float)(x + 1), (float)(y + 1), 0, -1);
+            break;
+        case Cursor::Shape::kBar:
+            dc->DrawLine(x, y, x, y + 1);
+            break;
+    }
 }
 

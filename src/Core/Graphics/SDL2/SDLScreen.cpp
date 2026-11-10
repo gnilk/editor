@@ -179,6 +179,10 @@ void SDLScreen::LoadFontFromTheme(float density) {
         return;
     }
 
+    // Glyphs the font lacks (CJK, box drawing, symbols) from the fallback fonts, read when first needed
+    auto fallbackNames = Config::Instance()["sdl"].GetSequenceOfStr("font_fallback");
+    font->SetFallbackFiles(std::vector<std::filesystem::path>(fallbackNames.begin(), fallbackNames.end()));
+
     // Set the font active..
     SDLFontManager::Instance().SetActiveFont(std::move(font));
 

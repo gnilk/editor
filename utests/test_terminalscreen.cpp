@@ -1015,6 +1015,13 @@ DLL_EXPORT int test_terminalscreen_inverse(ITesting *t) {
     TR_ASSERT(t, s.GetRow(0)[0].bg == RED);
     TR_ASSERT(t, s.GetRow(0)[1].fg == BLACK);     // hidden: drawn in the background colour
     TR_ASSERT(t, s.GetRow(0)[2].attrs == (TerminalScreen::kAttrBold | TerminalScreen::kAttrUnderline));
+    // Dim: the foreground half way to the background; with inverse, the dimmed colour becomes the background
+    s.Feed("\x1b[m\x1b[2mD\x1b[7mE");
+    auto grey = ColorRGBA::FromRGB(0.5f, 0.5f, 0.5f);
+    TR_ASSERT(t, s.GetRow(0)[3].fg == grey);
+    TR_ASSERT(t, s.GetRow(0)[3].bg == BLACK);
+    TR_ASSERT(t, s.GetRow(0)[4].fg == BLACK);
+    TR_ASSERT(t, s.GetRow(0)[4].bg == grey);
     return kTR_Pass;
 }
 

@@ -193,6 +193,13 @@ void TerminalView::DrawViewContents() {
     std::lock_guard<std::mutex> guard(controller.GetScreenLock());
     auto &screen = controller.GetScreen();
     int viewHeight = dc.GetRect().Height();
+    // The editor's bar at the local prompt; an app's own caret (DECSCUSR, DECTCEM) while it owns the terminal
+    cursor.shape = Cursor::Shape::kBar;
+    cursor.isVisible = true;
+    if (screen.IsAltScreen() || isAppActive) {
+        cursor.shape = ToCursorShape(screen.GetModes().cursorShape);
+        cursor.isVisible = screen.IsCursorVisible();
+    }
 
     if (screen.IsAltScreen()) {
         // Full-screen mode (vi, less, ...): render the entire grid directly.
@@ -455,4 +462,16 @@ void TerminalView::DrawScreenRow(DrawContext &dc, const TerminalScreen::Row &row
         run += (cell.ch != 0) ? cell.ch : U' ';   // a wide character's right half
     }
     flush((int)row.size());
+}
+
+// DECSCUSR's shapes; the default (0) is a block, as in xterm
+Cursor::Shape TerminalView::ToCursorShape(gnilk::vt::CursorShape shape) {
+    switch (shape) {
+        case gnilk::vt::CursorShape::kBar:
+            return Cursor::Shape::kBar;
+        case gnilk::vt::CursorShape::kUnderline:
+            return Cursor::Shape::kUnderline;
+        default:
+            return Cursor::Shape::kBlock;
+    }
 }

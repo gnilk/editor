@@ -6,10 +6,14 @@
 // The lookup is two array indexes, pages[cp >> 8]->glyphs[cp & 0xff]; a page that isn't there yet is the only miss.
 // A code point the font has no glyph for is marked missing when its page is built, so it costs a lookup, not a retry.
 //
+// Fallback fonts (SetFallbackFiles) fill in what the font lacks - CJK, symbols, emoji outlines - into the same page,
+// so the backend still draws one bitmap per page. A fallback file is read the first time a page needs it.
+//
 #ifndef GEDIT_GLYPHFONT_H
 #define GEDIT_GLYPHFONT_H
 
 #include <array>
+#include <filesystem>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -65,6 +69,13 @@ namespace gedit {
         // is the page the glyph's rectangle is in.
         const Glyph *Lookup(char32_t codePoint, const Page **outPage = nullptr);
 
+        // Fonts to take a glyph from when this one has none, tried in order; a file that is missing or not a font is
+        // skipped. Pages built before this keep what they have.
+        void SetFallbackFiles(const std::vector<std::filesystem::path> &files);
+
+        // How many fallback files have been read - for the tests: none until a page needs one
+        int NumFallbacksOpened() const;
+
         // A page, built or not - for the backend to know whether there is a bitmap to upload
         const Page *GetPage(int idxPage) const;
 
@@ -97,14 +108,34 @@ namespace gedit {
         }
 
     private:
+        // A font file's bytes and stb's view of them; opened on first use
+        struct Face {
+            std::vector<uint8_t> data;
+            stbtt_fontinfo info = {};
+        };
+        struct Fallback {
+            std::filesystem::path file;
+            bool isTried = false;
+            std::unique_ptr<Face> face;     // null when the file could not be read as a font
+        };
+        // The code points of a page one face draws
+        struct FaceRange {
+            const Face *face = nullptr;
+            std::vector<int> codePoints;
+        };
+
         static bool IsFontHeader(const uint8_t *data, size_t size);
+        static bool OpenFace(Face &face, const uint8_t *data, size_t size);
         bool Open(const uint8_t *data, size_t size, float newPixelHeight);
         Page *BuildPage(int idxPage);
-        bool PackPage(Page &page, std::vector<int> &codePoints);
+        const Face *FallbackFaceFor(int codePoint);
+        bool PackPage(Page &page, std::vector<FaceRange> &ranges);
+        static void StoreGlyphs(Page &page, const std::vector<int> &codePoints,
+                                const std::vector<stbtt_packedchar> &packed);
 
     private:
-        std::vector<uint8_t> fontData;
-        stbtt_fontinfo info = {};
+        Face primary;
+        std::vector<Fallback> fallbacks;
         float pixelHeight = 0;
         float scale = 0;
         int ascent = 0;

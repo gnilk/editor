@@ -10,6 +10,7 @@
 #ifndef GEDIT_SDL3_SDLFONT_H
 #define GEDIT_SDL3_SDLFONT_H
 
+#include <filesystem>
 #include <memory>
 #include <string>
 #include <vector>
@@ -38,6 +39,11 @@ namespace gedit::SDL3 {
         void RenderText(float x, float y, const char *text, size_t maxChars = SIZE_MAX);
 
         float MeasureText(const char *text) const;
+
+        // Fonts to draw what this one has no glyph for, tried in order (GlyphFont::SetFallbackFiles)
+        void SetFallbackFiles(const std::vector<std::filesystem::path> &files) {
+            glyphFont->SetFallbackFiles(files);
+        }
 
         // Logical pixels from the top of a line to the baseline
         float Baseline() const {

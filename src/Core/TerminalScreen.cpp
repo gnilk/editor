@@ -501,6 +501,12 @@ TerminalScreen::Row TerminalScreen::ResolveRow(std::span<const gnilk::vt::Cell> 
         resolved.width = cell.width;
         resolved.fg = ResolveColor(cell.fg, true);
         resolved.bg = ResolveColor(cell.bg, false);
+        // Dim (SGR 2): the foreground half way to the background, as xterm and Ghostty draw it
+        if (cell.attrs & gnilk::vt::kAttrDim) {
+            resolved.fg = ColorRGBA::FromRGBA((resolved.fg.R() + resolved.bg.R()) * 0.5f,
+                                              (resolved.fg.G() + resolved.bg.G()) * 0.5f,
+                                              (resolved.fg.B() + resolved.bg.B()) * 0.5f, resolved.fg.A());
+        }
         if (cell.attrs & gnilk::vt::kAttrInverse) {
             std::swap(resolved.fg, resolved.bg);
         }

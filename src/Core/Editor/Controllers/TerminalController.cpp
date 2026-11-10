@@ -68,6 +68,17 @@ TerminalController::TerminalController() {
     screen.SetHost(this);
 }
 
+TerminalController::~TerminalController() {
+    {
+        std::lock_guard<std::mutex> guard(syncTimerLock);
+        isSyncTimerStopping = true;
+    }
+    syncTimerWake.notify_one();
+    if (syncTimer.joinable()) {
+        syncTimer.join();
+    }
+}
+
 void TerminalController::Begin() {
     logger = gnilk::Logger::GetLogger("TerminalController");
     logger->Debug("Begin");
@@ -273,6 +284,7 @@ void TerminalController::ApplyThemeColors() {
 }
 
 void TerminalController::HandleTerminalData(const uint8_t *buffer, size_t length) {
+    bool isHolding = false;
     {
         std::lock_guard<std::mutex> guard(screenLock);
         screen.Feed(buffer, length);
@@ -283,20 +295,61 @@ void TerminalController::HandleTerminalData(const uint8_t *buffer, size_t length
             SyncInputLineFromGrid();
         }
 
-        // Synchronized output: no redraw until the app ends its update (or it has held one too long)
-        isHoldingRedraw = false;
+        // Synchronized output: no redraw until the app ends its update - or the cap ends it, with no more output
         if (screen.GetModes().isSynchronizedOutput) {
-            auto now = std::chrono::steady_clock::now();
             if (!syncStart.has_value()) {
-                syncStart = now;
+                syncStart = std::chrono::steady_clock::now();
+                ArmSyncTimer(syncStart.value() + maxSyncHold);
             }
-            isHoldingRedraw = (now - syncStart.value()) < kMaxSyncHold;
         } else {
             syncStart.reset();
         }
+        isHolding = IsHoldingRedraw();
     }
-    if (!isHoldingRedraw) {
-        Editor::Instance().TriggerUIRedraw();
+    if (!isHolding) {
+        RequestRedraw();
+    }
+}
+
+bool TerminalController::IsHoldingRedraw() const {
+    if (!screen.GetModes().isSynchronizedOutput || !syncStart.has_value()) {
+        return false;
+    }
+    return (std::chrono::steady_clock::now() - syncStart.value()) < maxSyncHold;
+}
+
+void TerminalController::RequestRedraw() {
+    if (redrawTrigger) {
+        redrawTrigger();
+        return;
+    }
+    Editor::Instance().TriggerUIRedraw();
+}
+
+void TerminalController::ArmSyncTimer(std::chrono::steady_clock::time_point deadline) {
+    std::lock_guard<std::mutex> guard(syncTimerLock);
+    syncTimerDeadline = deadline;
+    if (!syncTimer.joinable()) {
+        syncTimer = std::thread([this]() { SyncTimerLoop(); });
+    }
+    syncTimerWake.notify_one();
+}
+
+void TerminalController::SyncTimerLoop() {
+    std::unique_lock<std::mutex> lock(syncTimerLock);
+    while (!isSyncTimerStopping) {
+        if (!syncTimerDeadline.has_value()) {
+            syncTimerWake.wait(lock);
+            continue;
+        }
+        auto deadline = syncTimerDeadline.value();
+        bool isExpired = syncTimerWake.wait_until(lock, deadline) == std::cv_status::timeout;
+        if (isExpired && (syncTimerDeadline == deadline) && !isSyncTimerStopping) {
+            syncTimerDeadline.reset();
+            lock.unlock();
+            RequestRedraw();
+            lock.lock();
+        }
     }
 }
 

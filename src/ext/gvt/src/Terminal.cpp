@@ -605,7 +605,10 @@ void Terminal::SetPrivateMode(int mode, bool isSet) {
             modes.isFocusEvents = isSet;
             break;
         case 2026:
-            modes.isSynchronizedOutput = isSet;
+            if (modes.isSynchronizedOutput != isSet) {
+                modes.isSynchronizedOutput = isSet;
+                host.OnSynchronizedOutput(isSet);
+            }
             break;
         case 9:
         case 1000:

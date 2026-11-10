@@ -50,7 +50,10 @@ namespace gedit {
     private:
         void PasteFromClipboard();
         bool ForwardMouseToApp(const MouseEvent &mouseEvent);
-        void DrawAppScreen(DrawContext &dc, const TerminalScreen &screen, int viewHeight);
+        void DrawAppFrame(DrawContext &dc, const TerminalScreen &screen, const TerminalScreen::Frame &frame,
+                          int viewHeight);
+        void DrawAppScreen(DrawContext &dc, const TerminalScreen &screen, const TerminalScreen::Frame &frame,
+                           int viewHeight);
         void DrawScreenRow(DrawContext &dc, const TerminalScreen::Row &row, int y);
         static Cursor::Shape ToCursorShape(gnilk::vt::CursorShape shape);
 

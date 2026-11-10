@@ -196,27 +196,17 @@ void TerminalView::DrawViewContents() {
     // The editor's bar at the local prompt; an app's own caret (DECSCUSR, DECTCEM) while it owns the terminal
     cursor.shape = Cursor::Shape::kBar;
     cursor.isVisible = true;
-    if (screen.IsAltScreen() || isAppActive) {
-        cursor.shape = ToCursorShape(screen.GetModes().cursorShape);
-        cursor.isVisible = screen.IsCursorVisible();
-    }
 
-    if (screen.IsAltScreen()) {
-        // Full-screen mode (vi, less, ...): render the entire grid directly.
-        // No inputLine overlay — keystrokes go straight to the pty.
-        for (int y = 0; y < viewHeight; y++) {
-            dc.ClearLine(y);
-            if (y < screen.Rows()) {
-                DrawScreenRow(dc, screen.GetRow(y), y);
-            }
-        }
-        gridRowAtViewTop = 0;
-        cursor.position.x = screen.GetCursorPos().x;
-        cursor.position.y = screen.GetCursorPos().y;
+    // An app's screen: during a synchronized update (?2026) the frame from before it - whatever else asks for a
+    // redraw meanwhile (other views, the caret) - so a half-drawn frame is never shown
+    bool isAppScreen = screen.IsAltScreen() || (isAppActive && controller.IsFollowingBottom());
+    auto heldFrame = controller.IsHoldingRedraw() ? screen.GetHeldFrame() : nullptr;
+    if ((heldFrame != nullptr) && (isAppScreen || heldFrame->isAltScreen)) {
+        DrawAppFrame(dc, screen, *heldFrame, viewHeight);
         return;
     }
-    if (isAppActive && controller.IsFollowingBottom()) {
-        DrawAppScreen(dc, screen, viewHeight);
+    if (isAppScreen) {
+        DrawAppFrame(dc, screen, screen.CaptureFrame(), viewHeight);
         return;
     }
 
@@ -377,7 +367,27 @@ void TerminalView::DrawViewContents() {
 // above - but down to the last row the app has drawn on, which may lie below the cursor, and without the local
 // input line (keys go to the app). Output that just streams (cursor on the last content row) looks exactly as it
 // does at the prompt. Caller holds screenLock.
-void TerminalView::DrawAppScreen(DrawContext &dc, const TerminalScreen &screen, int viewHeight) {
+void TerminalView::DrawAppFrame(DrawContext &dc, const TerminalScreen &screen, const TerminalScreen::Frame &frame,
+                                int viewHeight) {
+    cursor.shape = ToCursorShape(frame.cursorShape);
+    cursor.isVisible = frame.isCursorVisible;
+    if (frame.isAltScreen) {
+        // Full-screen mode (vi, less, ...): render the entire grid directly.
+        // No inputLine overlay — keystrokes go straight to the pty.
+        for (int y = 0; y < viewHeight; y++) {
+            dc.ClearLine(y);
+            DrawScreenRow(dc, frame.GetRow(y), y);
+        }
+        gridRowAtViewTop = 0;
+        cursor.position.x = frame.cursor.x;
+        cursor.position.y = frame.cursor.y;
+        return;
+    }
+    DrawAppScreen(dc, screen, frame, viewHeight);
+}
+
+void TerminalView::DrawAppScreen(DrawContext &dc, const TerminalScreen &screen, const TerminalScreen::Frame &frame,
+                                 int viewHeight) {
     auto background = Editor::Instance().GetTheme()->GetTerminalColor().GetColor("background");
     auto isRowEmpty = [&](const TerminalScreen::Row &row) {
         for (auto &cell : row) {
@@ -387,10 +397,10 @@ void TerminalView::DrawAppScreen(DrawContext &dc, const TerminalScreen &screen, 
         }
         return true;
     };
-    int cursorY = screen.GetCursorPos().y;
+    int cursorY = frame.cursor.y;
     int lastRow = cursorY;
-    for (int y = screen.Rows() - 1; y > cursorY; y--) {
-        if (!isRowEmpty(screen.GetRow(y))) {
+    for (int y = (int)frame.rows.size() - 1; y > cursorY; y--) {
+        if (!isRowEmpty(frame.GetRow(y))) {
             lastRow = y;
             break;
         }
@@ -398,7 +408,7 @@ void TerminalView::DrawAppScreen(DrawContext &dc, const TerminalScreen &screen, 
 
     LineRender lineRender(dc);
     uint64_t historyTop = screen.ScrollbackBase();
-    uint64_t gridTop = historyTop + screen.GetScrollback()->NumLines();     // abs id of grid row 0
+    uint64_t gridTop = std::max(frame.gridTopAbs, historyTop);              // abs id of grid row 0
     uint64_t contentEnd = gridTop + (uint64_t)lastRow + 1;                  // exclusive
     int shown = (int)std::min<uint64_t>(contentEnd - historyTop, (uint64_t)viewHeight);
     uint64_t windowTop = contentEnd - (uint64_t)shown;
@@ -416,11 +426,11 @@ void TerminalView::DrawAppScreen(DrawContext &dc, const TerminalScreen &screen, 
                 lineRender.DrawLine(0, viewY, std::get<Line::Ref>(resolved));
             }
         } else {
-            DrawScreenRow(dc, screen.GetRow((int)(abs - gridTop)), viewY);
+            DrawScreenRow(dc, frame.GetRow((int)(abs - gridTop)), viewY);
         }
     }
     gridRowAtViewTop = (int)((int64_t)windowTop - (int64_t)gridTop) - blankRows;
-    cursor.position.x = screen.GetCursorPos().x;
+    cursor.position.x = frame.cursor.x;
     cursor.position.y = cursorY - gridRowAtViewTop;
 }
 

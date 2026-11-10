@@ -684,6 +684,9 @@ DLL_EXPORT int test_terminal_modes(ITesting *t) {
     TR_ASSERT(t, term.IsSynchronizedUpdate());
     term.Feed("\x1b[?2026l");
     TR_ASSERT(t, !term.IsSynchronizedUpdate());
+    // The host hears of a change only, at its place in the stream
+    term.Feed("\x1b[?2026h\x1b[?2026h\x1b[?2026l\x1b[?2026l");
+    TR_ASSERT(t, host.syncChanges == "hlhl");
     // DECSCUSR
     term.Feed("\x1b[6 q");
     TR_ASSERT(t, modes.cursorShape == CursorShape::kBar);

@@ -54,6 +54,23 @@ namespace gedit {
 
         using Row = std::vector<Cell>;
 
+        // What the view draws of the grid: its rows (resolved), the cursor and where the grid starts in the abs-row
+        // spine. CaptureFrame takes the live one; GetHeldFrame is the one taken when the app began a synchronized
+        // update (?2026), shown until it ends.
+        struct Frame {
+            std::vector<Row> rows;
+            Point cursor = {};
+            bool isCursorVisible = true;
+            gnilk::vt::CursorShape cursorShape = gnilk::vt::CursorShape::kDefault;
+            bool isAltScreen = false;
+            uint64_t gridTopAbs = 0;        // abs id of rows[0]; older rows resolve via RowAtAbs
+
+            const Row &GetRow(int y) const {
+                static const Row empty;
+                return ((y >= 0) && (y < (int)rows.size())) ? rows[y] : empty;
+            }
+        };
+
         // Resolved location of an absolute row id (see AbsRowCount/RowAtAbs): either a line in the
         // immutable scrollback, a still-live row in the grid, or empty (evicted/out of range).
         using AbsRow = std::variant<std::monostate, Line::Ref, const Row *>;
@@ -113,6 +130,10 @@ namespace gedit {
 
         // Alternate screen (a full-screen app owns the grid; nothing reaches scrollback meanwhile)
         bool IsAltScreen() const { return terminal->IsAltScreen(); }
+
+        Frame CaptureFrame() const;
+        // The frame from just before the current synchronized update; null when there is none
+        const Frame *GetHeldFrame() const;
 
         // The block index (§3.2/§4 of docs/terminal-scrollback.md). All called under screenLock by the
         // controller; no-ops while IsAltScreen() (§10 - alt-screen rows are never grouped into blocks).
@@ -175,6 +196,7 @@ namespace gedit {
         void WriteToPty(std::string_view bytes) override;
         bool QueryColor(int which, gnilk::vt::Rgb &out) override;
         void OnClearScrollback() override;
+        void OnSynchronizedOutput(bool isOn) override;
         void OnBell() override;
         void OnTitle(std::string_view title) override;
         void OnWorkingDirectory(std::string_view uri) override;
@@ -213,6 +235,7 @@ namespace gedit {
         // before each host callback, which runs mid-Feed and may read the grid (OSC 133 reads the command text).
         mutable std::vector<Row> rowCache;
         mutable bool isRowCacheStale = true;
+        std::optional<Frame> heldFrame;
 
         ColorRGBA defaultFg = {};
         ColorRGBA defaultBg = {};

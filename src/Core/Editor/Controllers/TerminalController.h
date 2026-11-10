@@ -12,6 +12,8 @@
 #include <filesystem>
 #include <optional>
 #include <chrono>
+#include <thread>
+#include <condition_variable>
 
 #include "logger.h"
 #include "Core/UI/Controllers/BaseController.h"
@@ -31,7 +33,7 @@ namespace gedit {
     class TerminalController : public BaseController, IOutputConsole, gnilk::vt::ITerminalHost {
     public:
         TerminalController();
-        virtual ~TerminalController() = default;
+        virtual ~TerminalController();
 
         void Begin() override;
         void Resize(int cols, int rows);
@@ -45,8 +47,9 @@ namespace gedit {
 
         const TerminalScreen &GetScreen() const { return screen; }
         // True while the app has synchronized output on (?2026, at most kMaxSyncHold): output is taken in but no
-        // redraw is asked for until the app ends the update - the screen is never drawn half-way through a frame
-        bool IsHoldingRedraw() const { return isHoldingRedraw; }
+        // redraw is asked for until the app ends the update, and the view draws the screen's held frame - the
+        // screen is never drawn half-way through a frame. Call with screenLock held.
+        bool IsHoldingRedraw() const;
         std::mutex &GetScreenLock() { return screenLock; }
         // Alt+Left/Right to an app: ESC b / ESC f (readline's word motion, as Terminal.app/iTerm2 send) instead of
         // xterm's CSI 1;3D / 1;3C. Config 'terminal.alt_arrows: words | xterm'; macOS defaults to words.
@@ -83,6 +86,9 @@ namespace gedit {
         // Shell::IsForegroundJobRunning)
         void SetPtyWriter(std::function<void(std::string_view)> writer) { ptyWriter = std::move(writer); }
         void SetForegroundJobProbe(std::function<bool()> probe) { foregroundJobProbe = std::move(probe); }
+        // For the tests: what asks the UI to redraw (default Editor::TriggerUIRedraw), and the synchronized-output cap
+        void SetRedrawTrigger(std::function<void()> trigger) { redrawTrigger = std::move(trigger); }
+        void SetMaxSyncHold(std::chrono::milliseconds hold) { maxSyncHold = hold; }
 
         // Viewport (§5.1 of docs/terminal-scrollback.md): scroll position is a UI/viewport concern,
         // not model state - it lives here, not on TerminalScreen.
@@ -179,6 +185,11 @@ namespace gedit {
         // go to the pty (Cmd combinations, keys with no encoding).
         bool ForwardKeyPressToShell(const KeyPress &keyPress);
 
+        void RequestRedraw();
+        // One redraw at 'deadline' - the end of a synchronized update the app never ended - on the timer thread
+        void ArmSyncTimer(std::chrono::steady_clock::time_point deadline);
+        void SyncTimerLoop();
+
         void LoadCmdHistory();
         // Resolve the project-local path of the scrollback .bin (the kProject `.goatedit` write path for
         // `filename`), or empty when there is no project dir - the gate for project-scoped persistence.
@@ -221,8 +232,14 @@ namespace gedit {
         bool doesShellOwnLineEditing = false;
         // Synchronized output (?2026): when the app began the update; held for at most kMaxSyncHold, as Ghostty
         static constexpr std::chrono::milliseconds kMaxSyncHold{1000};
+        std::chrono::milliseconds maxSyncHold = kMaxSyncHold;
         std::optional<std::chrono::steady_clock::time_point> syncStart;
-        bool isHoldingRedraw = false;
+        std::function<void()> redrawTrigger;
+        std::thread syncTimer;
+        std::mutex syncTimerLock;
+        std::condition_variable syncTimerWake;
+        std::optional<std::chrono::steady_clock::time_point> syncTimerDeadline;
+        bool isSyncTimerStopping = false;
 #ifdef GEDIT_MACOS
         bool isAltArrowsAsWords = true;
 #else

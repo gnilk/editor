@@ -79,6 +79,9 @@ namespace gvttest {
         void OnClearScrollback() override {
             scrollbackClears++;
         }
+        void OnSynchronizedOutput(bool isOn) override {
+            syncChanges += isOn ? "h" : "l";
+        }
         void OnUnhandled(std::string_view description) override {
             unhandled.emplace_back(description);
         }
@@ -118,6 +121,7 @@ namespace gvttest {
         std::vector<std::string> unhandled;
         int bells = 0;
         int scrollbackClears = 0;
+        std::string syncChanges;
     };
 
 }

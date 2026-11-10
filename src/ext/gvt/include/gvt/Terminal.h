@@ -170,6 +170,10 @@ namespace gnilk::vt {
         // ED 3 (CSI 3 J, what `clear` sends): drop the saved lines - the scrollback the host keeps
         virtual void OnClearScrollback() {
         }
+        // ?2026 set or reset, at that point in the stream: the screen as it is now is the last whole frame - the
+        // host keeps showing it until the update ends. Called only when the mode changes.
+        virtual void OnSynchronizedOutput(bool isOn) {
+        }
         virtual void OnBell() {
         }
         // OSC 0 / 2

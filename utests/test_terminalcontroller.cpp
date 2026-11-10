@@ -39,9 +39,13 @@ DLL_EXPORT int test_terminalcontroller_mouse_focus(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_replies_to_pty(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_tab_commit_history(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_sync_output(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_sync_output_frame(ITesting *t);
 }
 
 #include <cstdint>   // UINT64_MAX
+#include <atomic>
+#include <thread>
+#include <chrono>
 
 // Feed a scripted byte stream into the controller as if it came off the pty (HandleTerminalData is
 // the Shell output-delegate target). Lets a test drive OSC 133 markers without a live shell.
@@ -938,5 +942,44 @@ DLL_EXPORT int test_terminalcontroller_sync_output(ITesting *t) {
     FeedPty(c, "\x1b[?2026l");
     TR_ASSERT(t, !c.IsHoldingRedraw());
     TR_ASSERT(t, c.GetScreen().GetRow(0)[0].ch == U'h');
+    TR_ASSERT(t, c.GetScreen().GetHeldFrame() == nullptr);
+    return kTR_Pass;
+}
+
+// What the view draws during an update is the frame from before it, and an update the app never ends is let go at
+// the cap with no further output (the Mac repro: `printf '\e[?2026h'; echo held; sleep 3` showed "held" at once)
+DLL_EXPORT int test_terminalcontroller_sync_output_frame(ITesting *t) {
+    TerminalController c;
+    c.Resize(20, 5);
+    std::atomic<int> redraws = 0;
+    c.SetRedrawTrigger([&redraws]() { redraws++; });
+    c.SetMaxSyncHold(std::chrono::milliseconds(100));
+    FeedPty(c, "before");
+    TR_ASSERT(t, redraws == 1);
+
+    // The update's start and its first output in one read: the held frame is cut at the mode change
+    FeedPty(c, "\x1b[?2026h\r\nheld");
+    TR_ASSERT(t, redraws == 1);
+    {
+        std::lock_guard<std::mutex> guard(c.GetScreenLock());
+        TR_ASSERT(t, c.IsHoldingRedraw());
+        auto frame = c.GetScreen().GetHeldFrame();
+        TR_ASSERT(t, frame != nullptr);
+        TR_ASSERT(t, frame->GetRow(0)[0].ch == U'b');
+        TR_ASSERT(t, frame->GetRow(1)[0].ch == U' ');
+        TR_ASSERT(t, frame->cursor.y == 0);
+        TR_ASSERT(t, c.GetScreen().GetRow(1)[0].ch == U'h');     // the grid itself has it
+    }
+
+    // No more output: the timer asks for the redraw once the cap is past, and the hold is over
+    auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+    while ((redraws == 1) && (std::chrono::steady_clock::now() < deadline)) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    TR_ASSERT(t, redraws == 2);
+    {
+        std::lock_guard<std::mutex> guard(c.GetScreenLock());
+        TR_ASSERT(t, !c.IsHoldingRedraw());
+    }
     return kTR_Pass;
 }

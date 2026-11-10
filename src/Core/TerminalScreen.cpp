@@ -278,6 +278,7 @@ void TerminalScreen::Feed(std::string_view data) {
 
 void TerminalScreen::Resize(int newCols, int newRows) {
     isRowCacheStale = true;
+    heldFrame.reset();      // the app redraws for the new size; a frame of the old one would be drawn wrong
     if ((newCols <= 0) || (newRows <= 0)) {
         isSized = false;
         return;
@@ -356,6 +357,27 @@ TerminalScreen::AbsRow TerminalScreen::RowAtAbs(uint64_t abs) const {
     return std::monostate{};
 }
 
+TerminalScreen::Frame TerminalScreen::CaptureFrame() const {
+    Frame frame;
+    frame.rows.reserve(Rows());
+    for (int y = 0; y < Rows(); y++) {
+        frame.rows.push_back(GetRow(y));
+    }
+    frame.cursor = GetCursorPos();
+    frame.isCursorVisible = IsCursorVisible();
+    frame.cursorShape = GetModes().cursorShape;
+    frame.isAltScreen = IsAltScreen();
+    frame.gridTopAbs = scrollbackBase + scrollback->NumLines();
+    return frame;
+}
+
+const TerminalScreen::Frame *TerminalScreen::GetHeldFrame() const {
+    if (!heldFrame.has_value() || !GetModes().isSynchronizedOutput) {
+        return nullptr;
+    }
+    return &heldFrame.value();
+}
+
 Point TerminalScreen::GetCursorPos() const {
     auto cursor = terminal->GetCursor();
     return {cursor.x, cursor.y};
@@ -426,6 +448,18 @@ bool TerminalScreen::QueryColor(int which, gnilk::vt::Rgb &out) {
     };
     out = {channel(color.R()), channel(color.G()), channel(color.B())};
     return true;
+}
+
+// Mid-Feed, at the mode change: the grid is the app's last whole frame
+void TerminalScreen::OnSynchronizedOutput(bool isOn) {
+    isRowCacheStale = true;
+    heldFrame.reset();
+    if (isOn) {
+        heldFrame = CaptureFrame();
+    }
+    if (host != nullptr) {
+        host->OnSynchronizedOutput(isOn);
+    }
 }
 
 void TerminalScreen::OnBell() {

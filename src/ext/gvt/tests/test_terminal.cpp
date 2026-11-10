@@ -5,6 +5,7 @@
 #include <testinterface.h>
 
 #include "gvt/Terminal.h"
+#include "gvt/CharWidth.h"
 #include "ScreenDump.h"
 #include "Fixtures.h"
 
@@ -41,6 +42,10 @@ DLL_EXPORT int test_terminal_decrqm(ITesting *t);
 DLL_EXPORT int test_terminal_modes(ITesting *t);
 DLL_EXPORT int test_terminal_osc(ITesting *t);
 DLL_EXPORT int test_terminal_osccolor(ITesting *t);
+DLL_EXPORT int test_terminal_charwidth(ITesting *t);
+DLL_EXPORT int test_terminal_wide(ITesting *t);
+DLL_EXPORT int test_terminal_widehalves(ITesting *t);
+DLL_EXPORT int test_terminal_combining(ITesting *t);
 }
 
 DLL_EXPORT int test_terminal(ITesting *t) {
@@ -342,6 +347,11 @@ DLL_EXPORT int test_terminal_altscreen(ITesting *t) {
     TR_ASSERT(t, !term.IsAltScreen());
     TR_ASSERT(t, ScreenText(term) == "shell$");
     TR_ASSERT(t, term.GetCursor().x == 7);      // restored
+    TR_ASSERT(t, term.GetCursor().y == 0);
+
+    // 1049 reset on the primary screen still restores the saved cursor (dialog does this on exit)
+    term.Feed("\x1b[3;3H\x1b[?1049l");
+    TR_ASSERT(t, term.GetCursor().x == 7);
     TR_ASSERT(t, term.GetCursor().y == 0);
 
     // 1049 entered again starts clean
@@ -717,5 +727,123 @@ DLL_EXPORT int test_terminal_osccolor(ITesting *t) {
     host.replies.clear();
     term.Feed("\x1b]4;1;?;200;?\x07\x1b]4;2;#ff0000\x07");
     TR_ASSERT(t, host.replies == "\x1b]4;1;rgb:0101/8080/ffff\x1b\\\x1b]4;200;rgb:c8c8/8080/ffff\x1b\\");
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_terminal_charwidth(ITesting *t) {
+    TR_ASSERT(t, CharWidth(U'a') == 1);
+    TR_ASSERT(t, CharWidth(U'å') == 1);
+    TR_ASSERT(t, CharWidth(U'▛') == 1);             // block elements: narrow (East Asian Ambiguous counts as 1)
+    TR_ASSERT(t, CharWidth(U'─') == 1);
+    TR_ASSERT(t, CharWidth(U'✳') == 1);             // text presentation by default
+    TR_ASSERT(t, CharWidth(U'中') == 2);
+    TR_ASSERT(t, CharWidth(U'가') == 2);             // Hangul syllable
+    TR_ASSERT(t, CharWidth(U'Ａ') == 2);             // fullwidth Latin
+    TR_ASSERT(t, CharWidth(U'😀') == 2);
+    TR_ASSERT(t, CharWidth(U'🚀') == 2);
+    TR_ASSERT(t, CharWidth(U'\U00020000') == 2);    // CJK Extension B
+    TR_ASSERT(t, CharWidth(U'\U0002FFF0') == 2);    // unassigned, but in a wide plane
+    TR_ASSERT(t, CharWidth(U'́') == 0);         // combining acute
+    TR_ASSERT(t, CharWidth(U'‍') == 0);         // ZWJ
+    TR_ASSERT(t, CharWidth(U'️') == 0);         // VS16
+    TR_ASSERT(t, CharWidth(U'ᅠ') == 0);         // Hangul medial jamo
+    TR_ASSERT(t, CharWidth(U'­') == 1);         // soft hyphen stays visible
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_terminal_wide(ITesting *t) {
+    RecordingHost host;
+    Terminal term(host, 6, 3);
+    term.Feed("a中b");
+    TR_ASSERT(t, term.At(1, 0).codepoint == U'中');
+    TR_ASSERT(t, term.At(1, 0).width == 2);
+    TR_ASSERT(t, term.At(2, 0).width == 0);
+    TR_ASSERT(t, term.At(3, 0).codepoint == U'b');
+    TR_ASSERT(t, term.GetCursor().x == 4);
+    TR_ASSERT(t, RowText(term, 0) == "a中b");
+    // Does not fit in the last column: the column is left blank and the character wraps
+    term.Feed("c文");
+    TR_ASSERT(t, RowText(term, 0) == "a中bc");
+    TR_ASSERT(t, term.IsRowWrapped(0));
+    TR_ASSERT(t, RowText(term, 1) == "文");
+    // Exactly fills the row: pending wrap on its right half
+    term.Feed("\x1b[3;1Habcd字");
+    TR_ASSERT(t, term.GetCursor().x == 5);
+    TR_ASSERT(t, term.GetCursor().isPendingWrap);
+    // Without autowrap it takes the last two columns
+    term.Feed("\x1b[?7l\x1b[2;1Hxxxxx中\x1b[?7h");
+    TR_ASSERT(t, RowText(term, 1) == "xxxx中");
+    // REP repeats it whole
+    term.Feed("\x1b[3;1H\x1b[2K中\x1b[b");
+    TR_ASSERT(t, RowText(term, 2) == "中中");
+    return kTR_Pass;
+}
+
+// Writing, erasing, inserting or deleting over one half of a wide character takes the whole character (xterm,
+// Ghostty). libvterm leaves the other half behind - see kScreenDivergences.
+DLL_EXPORT int test_terminal_widehalves(ITesting *t) {
+    RecordingHost host;
+    Terminal term(host, 10, 6);
+    term.Feed("中文\x1b[1Gx");
+    TR_ASSERT(t, RowText(term, 0) == "x 文");
+    TR_ASSERT(t, term.At(1, 0).width == 1);
+    term.Feed("\x1b[2;1H中文\x1b[2;2Hx");
+    TR_ASSERT(t, RowText(term, 1) == " x文");
+    term.Feed("\x1b[3;1H中文字\x1b[3;4H\x1b[K");
+    TR_ASSERT(t, RowText(term, 2) == "中");
+    term.Feed("\x1b[4;1H中文字\x1b[4;2H\x1b[X");
+    TR_ASSERT(t, RowText(term, 3) == "  文字");
+    // DCH that moves a right half to the front of the cursor
+    term.Feed("\x1b[5;1Ha中b\x1b[5;2H\x1b[P");
+    TR_ASSERT(t, RowText(term, 4) == "a b");
+    // ICH pushing a wide character over the right edge drops it whole
+    term.Feed("\x1b[6;1Habcdefgh中\x1b[6;1H\x1b[@");
+    TR_ASSERT(t, RowText(term, 5) == " abcdefgh");
+    for (int y = 0; y < term.Rows(); y++) {
+        for (int x = 0; x < term.Cols(); x++) {
+            auto &cell = term.At(x, y);
+            if (cell.width == 2) {
+                TR_ASSERT(t, term.At(x + 1, y).width == 0);
+            } else if (cell.width == 0) {
+                TR_ASSERT(t, (x > 0) && (term.At(x - 1, y).width == 2));
+            }
+        }
+    }
+    // Shrinking through a wide character keeps no half
+    Terminal narrow(host, 4, 1);
+    narrow.Feed("ab中");
+    narrow.Resize(3, 1);
+    TR_ASSERT(t, RowText(narrow, 0) == "ab");
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_terminal_combining(ITesting *t) {
+    RecordingHost host;
+    Terminal term(host, 10, 3);
+    term.Feed("éä̲x");
+    TR_ASSERT(t, RowText(term, 0) == "éä̲x");
+    TR_ASSERT(t, term.GetCursor().x == 3);
+    TR_ASSERT(t, term.Grapheme(term.At(0, 0)) == U"é");
+    TR_ASSERT(t, term.Grapheme(term.At(2, 0)) == U"x");
+    // Onto a wide character, and onto the last column while a wrap is pending
+    term.Feed("\r\n中́\x1b[3;10Hź");
+    TR_ASSERT(t, term.Grapheme(term.At(0, 1)) == U"中́");
+    TR_ASSERT(t, term.Grapheme(term.At(9, 2)) == U"ź");
+    // At the start of a row there is nothing to join: dropped
+    term.Feed("\x1b[2;1H\x1b[2Ḱq");
+    TR_ASSERT(t, RowText(term, 1) == "q");
+    // Overwriting the cell drops its marks
+    term.Feed("\x1b[1;1Hy");
+    TR_ASSERT(t, term.Grapheme(term.At(0, 0)) == U"y");
+    // ZWJ joins, the emoji after it takes its own cells (what wcwidth-based apps expect)
+    term.Feed("\x1b[3;1H\x1b[2K👨‍👩!");
+    TR_ASSERT(t, term.Grapheme(term.At(0, 2)) == U"👨‍");
+    TR_ASSERT(t, term.At(2, 2).codepoint == U'👩');
+    TR_ASSERT(t, term.GetCursor().x == 5);
+    // The pool is compacted rather than growing without end
+    for (int i = 0; i < 70000; i++) {
+        term.Feed("\x1b[1;1Há");
+    }
+    TR_ASSERT(t, term.Grapheme(term.At(0, 0)) == U"á");
     return kTR_Pass;
 }

@@ -6,8 +6,8 @@
 // own (replies to the pty, bell, title, rows leaving the screen) goes to the ITerminalHost.
 //
 // Scope: print, C0, cursor movement, erase, insert/delete, scroll region, tab stops, save/restore, pending wrap,
-// DECAWM, alternate screen, DEC Special Graphics (VT-3); SGR (VT-4); modes, replies and OSC to the host (VT-5).
-// Wide characters follow (VT-6, docs/terminal-vt.md).
+// DECAWM, alternate screen, DEC Special Graphics (VT-3); SGR (VT-4); modes, replies and OSC to the host (VT-5);
+// wide characters and combining marks (VT-6). docs/terminal-vt.md.
 //
 // Not thread-safe: the caller serialises Feed/Resize against readers (the editor holds screenLock).
 //
@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <span>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -74,13 +75,13 @@ namespace gnilk::vt {
 
     struct Cell {
         char32_t codepoint = U' ';
-        uint32_t graphemeId = 0;        // 0 = single code point (grapheme clusters: VT-6)
+        uint32_t graphemeId = 0;        // 0 = single code point; else Terminal::Grapheme has the joined marks
         Color fg = {};
         Color bg = {};
         Color underlineColor = {};      // SGR 58; default = the foreground
         uint16_t attrs = kAttrNone;
         UnderlineStyle underlineStyle = UnderlineStyle::kNone;
-        uint8_t width = 1;              // 1; 2 = wide lead; 0 = wide continuation (VT-6)
+        uint8_t width = 1;              // 1; 2 = wide lead; 0 = continuation (right half of the cell to its left)
 
         bool operator==(const Cell &other) const = default;
     };
@@ -209,6 +210,9 @@ namespace gnilk::vt {
         // Out-of-range coordinates return a blank cell
         const Cell &At(int x, int y) const;
         bool IsRowWrapped(int y) const;
+        // The cell's text: its code point plus any combining marks joined to it. A continuation cell (width 0)
+        // holds code point 0. Valid for cells handed to OnRowScrolledOut during that call.
+        std::u32string Grapheme(const Cell &cell) const;
         CursorState GetCursor() const;
         bool IsAltScreen() const {
             return isAltScreen;
@@ -289,6 +293,11 @@ namespace gnilk::vt {
 
         // Grid edits
         void PutChar(char32_t codepoint);
+        void WrapToNextRow();
+        void AttachToPrevious(char32_t codepoint);
+        void ClearWideHalves(int x, int y, int width);
+        void RepairWideRow(Cell *row, int count, const Cell &blank);
+        void CompactGraphemes();
         void ScrollUp(int top, int bottom, int n, bool isToScrollback);
         void ScrollDown(int top, int bottom, int n);
         void EraseInDisplay(int mode);
@@ -318,6 +327,7 @@ namespace gnilk::vt {
 
     private:
         static constexpr int kTabWidth = 8;
+        static constexpr size_t kMaxGraphemes = 65536;
 
         ITerminalHost &host;
         Parser parser;
@@ -337,6 +347,7 @@ namespace gnilk::vt {
         SavedCursor savedPrimary;
         SavedCursor savedAlternate;
         char32_t lastPrinted = 0;       // for REP; 0 = nothing printable yet
+        std::vector<std::u32string> graphemes;  // Cell::graphemeId - 1 -> combining marks after the code point
         uint64_t generation = 0;
     };
 

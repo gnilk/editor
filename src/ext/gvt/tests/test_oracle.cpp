@@ -317,7 +317,10 @@ namespace {
             out += cell.attrs.reverse ? 'R' : '-';
             out += cell.attrs.conceal ? 'H' : '-';
             out += cell.attrs.strike ? 'S' : '-';
-            out += " fg=" + ColorText(cell.fg) + " bg=" + ColorText(cell.bg);
+            bool isBlank = (cell.chars[0] == 0) || (cell.chars[0] == ' ') || (cell.chars[0] == kWideContinuation);
+            bool isFgVisible = !isBlank || cell.attrs.underline || cell.attrs.reverse || cell.attrs.strike;
+            out += " fg=" + (isFgVisible ? ColorText(cell.fg) : std::string("-")) + " bg=" + ColorText(cell.bg);
+            out += " w=" + std::to_string((cell.chars[0] == kWideContinuation) ? 0 : cell.width);
             return out;
         }
 
@@ -381,7 +384,8 @@ namespace {
         VTermScreenCallbacks callbacks = {};
     };
 
-    // A gvt cell in OracleScreen::Style's form. libvterm has no dim, overline or dotted/dashed underline: dim and
+    // A gvt cell in OracleScreen::Style's form. The foreground counts only where it can be seen (a glyph, or an
+    // underline / inverse / strike line) - a blank's foreground is invisible, and libvterm keeps the pen's there. libvterm has no dim, overline or dotted/dashed underline: dim and
     // overline are left out, dotted/dashed compare as single (libvterm's reading of 4:4 / 4:5).
     std::string CellStyle(const Cell &cell) {
         auto color = [](const Color &c) -> std::string {
@@ -418,7 +422,10 @@ namespace {
         out += (cell.attrs & kAttrInverse) ? 'R' : '-';
         out += (cell.attrs & kAttrHidden) ? 'H' : '-';
         out += (cell.attrs & kAttrStrike) ? 'S' : '-';
-        out += " fg=" + color(cell.fg) + " bg=" + color(cell.bg);
+        bool isBlank = (cell.codepoint == 0) || (cell.codepoint == U' ');
+        bool isFgVisible = !isBlank || (cell.attrs & (kAttrUnderline | kAttrInverse | kAttrStrike));
+        out += " fg=" + (isFgVisible ? color(cell.fg) : std::string("-")) + " bg=" + color(cell.bg);
+        out += " w=" + std::to_string(cell.width);
         return out;
     }
 
@@ -447,6 +454,10 @@ namespace {
         }
         for (int y = 0; y < rows; y++) {
             for (int x = 0; x < cols; x++) {
+                // A wide character's right half is drawn by its lead (libvterm keeps no colours there)
+                if (ours.At(x, y).width == 0) {
+                    continue;
+                }
                 auto ourStyle = CellStyle(ours.At(x, y));
                 auto theirStyle = theirs.Style(y, x);
                 if (ourStyle != theirStyle) {
@@ -542,6 +553,21 @@ namespace {
         {"sgr-mixed", 20, 2, "\x1b[1;38;5;208;48;2;1;2;3;4mE\x1b[0;38:5:1;44mM"},
         {"sgr-erase", 6, 3, "abcdef\x1b[1;4;31;42m\x1b[1;3H\x1b[K\x1b[2;1H\x1b[2X\x1b[3;1H\n"},
         {"sgr-saved", 20, 2, "\x1b[1;35m\x1b" "7\x1b[0m\x1b" "8K"},
+        {"wide-basic", 10, 3, "a\xE4\xB8\xAD\xE6\x96\x87" "b\xF0\x9F\x98\x80" "c"},
+        {"wide-wrap-edge", 5, 3, "abcd\xE4\xB8\xADx"},
+        {"wide-fill-edge", 6, 3, "abcd\xE4\xB8\xADx"},
+        {"wide-overwrite-lead", 10, 2, "\xE4\xB8\xAD\xE6\x96\x87\x1b[1Gx"},
+        {"wide-overwrite-tail", 10, 2, "\xE4\xB8\xAD\xE6\x96\x87\x1b[2Gx"},
+        {"wide-erase-half", 10, 2, "\xE4\xB8\xAD\xE6\x96\x87\xE5\xAD\x97\x1b[4G\x1b[K"},
+        {"wide-ech-half", 10, 2, "\xE4\xB8\xAD\xE6\x96\x87\xE5\xAD\x97\x1b[2G\x1b[X"},
+        {"wide-dch", 10, 2, "a\xE4\xB8\xAD" "b\xE6\x96\x87" "c\x1b[2G\x1b[P"},
+        {"wide-ich", 6, 2, "abc\xE4\xB8\xAD\x1b[1G\x1b[@"},
+        {"wide-cursor", 10, 2, "\xE4\xB8\xAD\x1b[D\x1b[Dz"},
+        {"combining", 10, 2, "e\xCC\x81" "a\xCC\x88\xCC\xB2x"},
+        {"combining-after-wide", 10, 2, "\xE4\xB8\xAD\xCC\x81x"},
+        {"combining-pending", 4, 2, "abcd\xCC\x81"},
+        {"emoji-zwj", 12, 2, "\xF0\x9F\x91\xA8\xE2\x80\x8D\xF0\x9F\x91\xA9x"},
+        {"wide-rep", 10, 2, "\xE4\xB8\xAD\x1b[3b"},
         {"decstr", 6, 3, "\x1b[2;3r\x1b[?7l\x1b[!p\x1b[3;1H\nabcdefgh"},
     };
 
@@ -567,11 +593,16 @@ namespace {
         // "38:2:<colorspace>:r:g:b" (ITU T.416, Ghostty, xterm): libvterm has no colorspace slot and reads the
         // channels one off (r = 255 for the empty slot, g = 255, b = 193)
         {"sgr-colon-t416", "38:2::r:g:b skips the colorspace slot (T.416)"},
-        // Erase (BCE) fills with the pen's background only, as xterm and Ghostty; libvterm also keeps the
-        // foreground on the blank cells (invisible there)
-        {"sgr-erase", "erased cells take the background only (xterm, Ghostty)"},
-        // Wide characters take two cells - VT-6. Remove when the width table lands.
-        {"dialog_menu.bin", "wide characters (VT-6)"},
+        // Writing or erasing one half of a wide character blanks the other half too (xterm, Ghostty). libvterm
+        // leaves the orphaned half (or the old cell width) behind. Pinned in test_terminal_wide.
+        {"wide-overwrite-lead", "overwriting a wide lead blanks its right half (xterm, Ghostty)"},
+        {"wide-overwrite-tail", "overwriting a wide right half blanks its lead (xterm, Ghostty)"},
+        {"wide-erase-half", "EL from a wide right half erases the whole character (xterm, Ghostty)"},
+        {"wide-ech-half", "ECH on a wide right half erases the whole character (xterm, Ghostty)"},
+        {"wide-cursor", "a narrow character over a wide lead is narrow (xterm, Ghostty)"},
+        {"wide-dch", "DCH leaving a wide right half on its own blanks it (xterm, Ghostty)"},
+        // REP repeats the character, wide or not (xterm); libvterm stops short
+        {"wide-rep", "REP repeats a wide character (xterm)"},
     };
 
     bool IsScreenDivergence(std::string_view name) {

@@ -10,6 +10,7 @@
 
 #include "gvt/Terminal.h"
 #include "gvt/Version.h"
+#include "gvt/CharWidth.h"
 
 using namespace gnilk::vt;
 
@@ -154,6 +155,14 @@ bool Terminal::IsRowWrapped(int y) const {
         return false;
     }
     return ActiveGrid().isWrapped[y] != 0;
+}
+
+std::u32string Terminal::Grapheme(const Cell &cell) const {
+    std::u32string text(1, cell.codepoint);
+    if ((cell.graphemeId != 0) && (cell.graphemeId <= graphemes.size())) {
+        text += graphemes[cell.graphemeId - 1];
+    }
+    return text;
 }
 
 CursorState Terminal::GetCursor() const {
@@ -580,7 +589,8 @@ void Terminal::SetPrivateMode(int mode, bool isSet) {
                     SaveCursor();
                     EnterAltScreen(true);
                 }
-            } else if (isAltScreen) {
+            } else {
+                // The restore happens even when already on the primary screen (xterm: DECRC regardless)
                 LeaveAltScreen();
                 RestoreCursor();
             }
@@ -1031,23 +1041,113 @@ void Terminal::RestoreCursor() {
 //
 // Grid edits
 //
+// One or two cells at the cursor (CharWidth); a zero-width code point joins the previous cell instead. A wide
+// character that does not fit in the last column wraps first (autowrap) or lands in the last two columns.
 void Terminal::PutChar(char32_t codepoint) {
+    int width = CharWidth(codepoint);
+    if (width == 0) {
+        AttachToPrevious(codepoint);
+        return;
+    }
+    if (width > cols) {
+        width = 1;
+    }
     if (cursor.isPendingWrap && modes.isAutoWrap) {
-        ActiveGrid().isWrapped[cursor.y] = 1;
-        CarriageReturn();
-        Index();
+        WrapToNextRow();
+    }
+    if ((width == 2) && (cursor.x == cols - 1)) {
+        if (modes.isAutoWrap) {
+            ClearWideHalves(cursor.x, cursor.y, 1);
+            CellAt(cursor.x, cursor.y) = BlankCell();
+            WrapToNextRow();
+        } else {
+            cursor.x = cols - 2;
+        }
     }
     if (modes.isInsertMode) {
-        InsertChars(1);
+        InsertChars(width);
     }
+    ClearWideHalves(cursor.x, cursor.y, width);
     CellAt(cursor.x, cursor.y) = Cell{codepoint, 0, pen.fg, pen.bg, pen.underlineColor, pen.attrs,
-                                      pen.underlineStyle, 1};
-    lastPrinted = codepoint;
-    if (cursor.x < cols - 1) {
-        cursor.x++;
-    } else if (modes.isAutoWrap) {
-        cursor.isPendingWrap = true;
+                                      pen.underlineStyle, static_cast<uint8_t>(width)};
+    if (width == 2) {
+        CellAt(cursor.x + 1, cursor.y) = Cell{0, 0, pen.fg, pen.bg, pen.underlineColor, pen.attrs,
+                                              pen.underlineStyle, 0};
     }
+    lastPrinted = codepoint;
+    if (cursor.x + width < cols) {
+        cursor.x += width;
+    } else {
+        cursor.x = cols - 1;
+        cursor.isPendingWrap = modes.isAutoWrap;
+    }
+}
+
+void Terminal::WrapToNextRow() {
+    ActiveGrid().isWrapped[cursor.y] = 1;
+    CarriageReturn();
+    Index();
+}
+
+// Combining marks, ZWJ, variation selectors: appended to the cell left of the cursor (the cursor cell itself while a
+// wrap is pending). Dropped at the start of a row, where there is nothing to join.
+void Terminal::AttachToPrevious(char32_t codepoint) {
+    int x = cursor.isPendingWrap ? cursor.x : cursor.x - 1;
+    if ((x > 0) && (CellAt(x, cursor.y).width == 0)) {
+        x--;
+    }
+    if (x < 0) {
+        return;
+    }
+    auto &cell = CellAt(x, cursor.y);
+    if (cell.graphemeId == 0) {
+        if (graphemes.size() >= kMaxGraphemes) {
+            CompactGraphemes();
+        }
+        graphemes.emplace_back(1, codepoint);
+        cell.graphemeId = static_cast<uint32_t>(graphemes.size());
+    } else if (cell.graphemeId <= graphemes.size()) {
+        graphemes[cell.graphemeId - 1].push_back(codepoint);
+    }
+}
+
+// Writing 'width' cells at x splits any wide pair straddling either edge: its other half becomes blank
+void Terminal::ClearWideHalves(int x, int y, int width) {
+    if ((CellAt(x, y).width == 0) && (x > 0)) {
+        CellAt(x - 1, y) = BlankCell();
+    }
+    int last = x + width - 1;
+    if ((CellAt(last, y).width == 2) && (last + 1 < cols)) {
+        CellAt(last + 1, y) = BlankCell();
+    }
+}
+
+// After a row was shifted or partly erased: a lead without its continuation, or a continuation without its lead,
+// becomes blank
+void Terminal::RepairWideRow(Cell *row, int count, const Cell &blank) {
+    for (int x = 0; x < count; x++) {
+        if ((row[x].width == 2) && ((x + 1 >= count) || (row[x + 1].width != 0))) {
+            row[x] = blank;
+        } else if ((row[x].width == 0) && ((x == 0) || (row[x - 1].width != 2))) {
+            row[x] = blank;
+        }
+    }
+}
+
+// The pool only grows while cells take new combining marks; past the cap it is rebuilt from the ids still on screen
+void Terminal::CompactGraphemes() {
+    std::vector<std::u32string> kept;
+    for (auto *grid : {&primary, &alternate}) {
+        for (auto &cell : grid->cells) {
+            if ((cell.graphemeId != 0) && (cell.graphemeId <= graphemes.size())) {
+                kept.push_back(std::move(graphemes[cell.graphemeId - 1]));
+                cell.graphemeId = static_cast<uint32_t>(kept.size());
+            } else {
+                cell.graphemeId = 0;
+            }
+        }
+    }
+    graphemes = std::move(kept);
 }
 
 // Rows [top, bottom] move up n; blank rows enter at the bottom. With isToScrollback, rows leaving the top of the
@@ -1137,6 +1237,9 @@ void Terminal::EraseCells(int y, int fromX, int toX) {
     for (int x = fromX; x <= toX; x++) {
         CellAt(x, y) = blank;
     }
+    if ((fromX > 0) || (toX < cols - 1)) {
+        RepairWideRow(&CellAt(0, y), cols, blank);
+    }
     if (toX == cols - 1) {
         ActiveGrid().isWrapped[y] = 0;
     }
@@ -1149,6 +1252,7 @@ void Terminal::InsertChars(int n) {
     std::move_backward(rowStart + cursor.x, rowStart + (cols - n), rowStart + cols);
     auto blank = BlankCell();
     std::fill(rowStart + cursor.x, rowStart + cursor.x + n, blank);
+    RepairWideRow(&*rowStart, cols, blank);
 }
 
 void Terminal::DeleteChars(int n) {
@@ -1158,6 +1262,7 @@ void Terminal::DeleteChars(int n) {
     std::move(rowStart + cursor.x + n, rowStart + cols, rowStart + cursor.x);
     auto blank = BlankCell();
     std::fill(rowStart + (cols - n), rowStart + cols, blank);
+    RepairWideRow(&*rowStart, cols, blank);
 }
 
 // IL / DL act only with the cursor inside the scroll region, and leave it in the first column
@@ -1207,6 +1312,7 @@ void Terminal::LeaveAltScreen() {
 void Terminal::ResetState() {
     ClearGrid(primary);
     ClearGrid(alternate);
+    graphemes.clear();
     isAltScreen = false;
     cursor = CursorState{};
     pen = Pen{};
@@ -1262,8 +1368,9 @@ void Terminal::ResizeGrid(Grid &grid, int newCols, int newRows, int dropTopRows)
     for (int y = 0; (y < newRows) && (y + dropTopRows < oldRows); y++) {
         auto src = grid.cells.begin() + static_cast<ptrdiff_t>(y + dropTopRows) * cols;
         std::copy(src, src + copyCols, resized.cells.begin() + static_cast<ptrdiff_t>(y) * newCols);
-        // A row cut narrower no longer flows into the next one
+        // A row cut narrower no longer flows into the next one, and may have lost half a wide character
         resized.isWrapped[y] = (newCols >= cols) ? grid.isWrapped[y + dropTopRows] : 0;
+        RepairWideRow(&resized.cells[static_cast<size_t>(y) * newCols], newCols, Cell{});
     }
     grid = std::move(resized);
 }

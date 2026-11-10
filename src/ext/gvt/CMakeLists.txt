@@ -22,6 +22,7 @@ list(APPEND gvt_src
     src/Version.cpp
     src/Parser.cpp
     src/Terminal.cpp
+    src/CharWidth.cpp
 )
 
 add_library(gvt STATIC ${gvt_src})

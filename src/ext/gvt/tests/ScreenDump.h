@@ -27,12 +27,22 @@ namespace gvttest {
         return out;
     }
 
+    // With combining marks (Terminal::Grapheme)
     inline std::string RowText(const gnilk::vt::Terminal &terminal, int y) {
-        std::vector<gnilk::vt::Cell> cells;
+        std::string out;
         for (int x = 0; x < terminal.Cols(); x++) {
-            cells.push_back(terminal.At(x, y));
+            auto &cell = terminal.At(x, y);
+            if (cell.width == 0) {
+                continue;
+            }
+            for (auto cp : terminal.Grapheme(cell)) {
+                AppendUtf8(out, cp);
+            }
         }
-        return CellsText(cells);
+        while (!out.empty() && (out.back() == ' ')) {
+            out.pop_back();
+        }
+        return out;
     }
 
     // All rows joined with '\n', trailing empty rows dropped - compact for assertions

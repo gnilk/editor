@@ -21,6 +21,7 @@ endif()
 list(APPEND gvttest_src
     test_gvt.cpp
     test_parser.cpp
+    test_terminal.cpp
 )
 
 find_package(PkgConfig QUIET)

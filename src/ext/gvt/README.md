@@ -1,22 +1,32 @@
 # gvt — terminal emulation library
 
-A streaming DEC/ANSI (VT/xterm) parser, and later the screen model behind GoatEdit's embedded terminal.
+A streaming DEC/ANSI (VT/xterm) parser and the screen model behind GoatEdit's embedded terminal.
 Standalone: nothing here depends on the editor, only on the C++20 standard library. Namespace `gnilk::vt`.
 The plan, design and work packages live in the editor repo: `docs/terminal-vt.md`.
 
-## What's here (VT-0..VT-2)
+## What's here (VT-0..VT-3)
 
 - `Parser` (`include/gvt/Parser.h`) — Paul Flo Williams' state machine (<https://vt100.net/emu/dec_ansi_parser>)
   with the usual UTF-8-era changes (no C1 controls in 0x80-0x9F, `:` sub-parameters, OSC ends on BEL or ST,
   over-long sequences dropped). State persists between `Feed` calls: split reads parse like whole ones.
 - `IParserSink` (`include/gvt/IParserSink.h`) — what the parser emits: `Print`, `Execute`, `CsiDispatch`,
   `EscDispatch`, `OscDispatch`, `DcsHook/Put/Unhook`, `ApcDispatch`. Implement it to do anything with a VT stream.
+- `Terminal` (`include/gvt/Terminal.h`) — the screen model, an `IParserSink`: primary + alternate grid, cursor,
+  pending wrap, scroll region, tab stops, DEC Special Graphics, save/restore, insert/erase/delete. What it can't
+  decide goes to an `ITerminalHost` (`OnRowScrolledOut` - scrollback is the host's - `OnBell`, `WriteToPty`).
+  Colours are references (default / indexed / RGB), resolved by the host's theme. Not yet: SGR beyond reset (VT-4),
+  replies and OSC (VT-5), wide characters (VT-6).
 
 ```cpp
 class MySink : public gnilk::vt::IParserSink { /* ... */ };
 MySink sink;
 gnilk::vt::Parser parser(sink);
 parser.Feed(bytes, length);     // any chunking
+
+class MyHost : public gnilk::vt::ITerminalHost { /* all optional */ };
+MyHost host;
+gnilk::vt::Terminal terminal(host, 80, 24);
+terminal.Feed(bytes, length);   // then read terminal.At(x, y), GetCursor(), IsAltScreen()
 ```
 
 ## Build and test
@@ -32,5 +42,8 @@ In the editor build the target is `gvttests` too (`libgvttests.*` next to `libut
   cut of a corpus, every chunk size over the fixtures).
 - `oracle` module — built only when libvterm is installed (`libvterm-dev`; macOS `brew install libvterm pkg-config`).
   Compares gvt's events with libvterm's parser on hand-built cases and on every fixture; deliberate differences
-  are listed in `kKnownDivergences`. Also holds `OracleScreen` (libvterm's screen snapshot) for the screen work.
+  are listed in `kKnownDivergences`. At screen level `CompareScreens` holds a `Terminal` against libvterm's screen
+  (rows, cursor, alt screen, rows pushed to scrollback) on hand-built cases and the fixtures; where gvt follows
+  xterm instead, the case is in `kScreenDivergences` with the reason and pinned in the `terminal` module.
+- `terminal` module — the screen model per concern (xterm's expected results), plus split invariance on the grid.
 - Fixtures: `tests/fixtures/*.bin`, recorded with `tools/capture.py` — see `tests/fixtures/README.md`.

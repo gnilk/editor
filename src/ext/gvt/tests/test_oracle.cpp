@@ -6,8 +6,8 @@
 // PURPOSE, the difference is listed in kKnownDivergences with the reason - the oracle informs, xterm's
 // documented behaviour decides.
 //
-// Screen level: OracleScreen runs bytes through libvterm's screen and snapshots text + cursor. It is the
-// reference gvt::Terminal (VT-3) will be compared against; until then it is checked on its own here.
+// Screen level: OracleScreen runs bytes through libvterm's screen and snapshots text, cursor, alt-screen flag and the
+// rows pushed to scrollback; CompareScreens holds a gvt::Terminal against it (module case `terminal`).
 //
 #include <string>
 #include <vector>
@@ -17,7 +17,9 @@
 #include <testinterface.h>
 
 #include "gvt/Parser.h"
+#include "gvt/Terminal.h"
 #include "EventRecorder.h"
+#include "ScreenDump.h"
 #include "Fixtures.h"
 
 using namespace gnilk::vt;
@@ -28,6 +30,8 @@ DLL_EXPORT int test_oracle(ITesting *t);
 DLL_EXPORT int test_oracle_sequences(ITesting *t);
 DLL_EXPORT int test_oracle_fixtures(ITesting *t);
 DLL_EXPORT int test_oracle_screen(ITesting *t);
+DLL_EXPORT int test_oracle_terminal(ITesting *t);
+DLL_EXPORT int test_oracle_terminalfixtures(ITesting *t);
 }
 
 namespace {
@@ -252,6 +256,9 @@ namespace {
             vterm_set_utf8(vt, 1);
             screen = vterm_obtain_screen(vt);
             vterm_screen_enable_altscreen(screen, 1);
+            callbacks.settermprop = OnSetTermProp;
+            callbacks.sb_pushline = OnPushLine;
+            vterm_screen_set_callbacks(screen, &callbacks, this);
             vterm_screen_reset(screen, 1);
         }
 
@@ -294,6 +301,47 @@ namespace {
             return pos;
         }
 
+        int Cols() const {
+            return cols;
+        }
+
+        int Rows() const {
+            return rows;
+        }
+
+    public:
+        bool isAltScreen = false;
+        std::vector<std::string> scrolledOut;
+
+    private:
+        static int OnSetTermProp(VTermProp prop, VTermValue *value, void *user) {
+            if (prop == VTERM_PROP_ALTSCREEN) {
+                static_cast<OracleScreen *>(user)->isAltScreen = value->boolean;
+            }
+            return 1;
+        }
+
+        static int OnPushLine(int width, const VTermScreenCell *cells, void *user) {
+            std::string out;
+            for (int col = 0; col < width; col++) {
+                if (cells[col].chars[0] == kWideContinuation) {
+                    continue;
+                }
+                if (cells[col].chars[0] == 0) {
+                    out.push_back(' ');
+                    continue;
+                }
+                for (int i = 0; (i < VTERM_MAX_CHARS_PER_CELL) && (cells[col].chars[i] != 0); i++) {
+                    AppendUtf8(out, cells[col].chars[i]);
+                }
+            }
+            while (!out.empty() && (out.back() == ' ')) {
+                out.pop_back();
+            }
+            static_cast<OracleScreen *>(user)->scrolledOut.push_back(out);
+            return 1;
+        }
+
     private:
         // libvterm's marker in the cell right of a wide character
         static constexpr uint32_t kWideContinuation = 0xFFFFFFFF;
@@ -303,7 +351,151 @@ namespace {
         int rows;
         VTerm *vt = nullptr;
         VTermScreen *screen = nullptr;
+        VTermScreenCallbacks callbacks = {};
     };
+
+    // gvt::Terminal vs libvterm's screen after the same bytes: every row's text, the cursor, the alt-screen flag and
+    // the rows that went to scrollback. Reports the first difference with the neighbouring rows.
+    bool CompareScreens(ITesting *t, const char *name, std::string_view bytes, int cols, int rows) {
+        RecordingHost host;
+        Terminal ours(host, cols, rows);
+        ours.Feed(bytes);
+        OracleScreen theirs(cols, rows);
+        theirs.Feed(bytes);
+
+        for (int y = 0; y < rows; y++) {
+            auto ourRow = RowText(ours, y);
+            auto theirRow = theirs.RowText(y);
+            if (ourRow == theirRow) {
+                continue;
+            }
+            std::string context;
+            for (int i = std::max(0, y - 2); i <= std::min(rows - 1, y + 2); i++) {
+                context += "\n  [" + std::to_string(i) + "] gvt:      '" + RowText(ours, i) + "'";
+                context += "\n  [" + std::to_string(i) + "] libvterm: '" + theirs.RowText(i) + "'";
+            }
+            t->Error(__LINE__, __FILE__, "%s: row %d differs%s", name, y, context.c_str());
+            return false;
+        }
+        auto cursor = ours.GetCursor();
+        auto theirCursor = theirs.Cursor();
+        if ((cursor.x != theirCursor.col) || (cursor.y != theirCursor.row)) {
+            t->Error(__LINE__, __FILE__, "%s: cursor gvt (%d,%d) libvterm (%d,%d)", name, cursor.x, cursor.y,
+                     theirCursor.col, theirCursor.row);
+            return false;
+        }
+        if (ours.IsAltScreen() != theirs.isAltScreen) {
+            t->Error(__LINE__, __FILE__, "%s: alt screen gvt %d libvterm %d", name, ours.IsAltScreen(),
+                     theirs.isAltScreen);
+            return false;
+        }
+        if (host.scrolledOut != theirs.scrolledOut) {
+            std::string context;
+            size_t n = std::max(host.scrolledOut.size(), theirs.scrolledOut.size());
+            for (size_t i = 0; i < n; i++) {
+                auto a = (i < host.scrolledOut.size()) ? host.scrolledOut[i] : std::string("<none>");
+                auto b = (i < theirs.scrolledOut.size()) ? theirs.scrolledOut[i] : std::string("<none>");
+                if (a != b) {
+                    context = "\n  [" + std::to_string(i) + "] gvt: '" + a + "'\n  [" + std::to_string(i) +
+                              "] libvterm: '" + b + "'";
+                    break;
+                }
+            }
+            t->Error(__LINE__, __FILE__, "%s: scrollback gvt %zu rows, libvterm %zu%s", name,
+                     host.scrolledOut.size(), theirs.scrolledOut.size(), context.c_str());
+            return false;
+        }
+        return true;
+    }
+
+    // Hand-built screen cases, one VT-3 concern each, compared with libvterm
+    struct ScreenCase {
+        const char *name;
+        int cols;
+        int rows;
+        const char *bytes;
+    };
+    const ScreenCase kScreenCases[] = {
+        {"print-wrap", 10, 4, "0123456789\r\nX\r\n0123456789AB"},
+        {"nowrap", 10, 3, "\x1b[?7l0123456789AB\x1b[?7h\r\nabc"},
+        {"bs-pendingwrap", 10, 3, "0123456789\x08X"},
+        {"bs-cr-lf", 10, 3, "abc\x08\x08X\nY\rZ\r\x08W"},
+        {"cursor", 20, 10, "\x1b[5;10Ha\x1b[2Ab\x1b[Bc\x1b[3Cd\x1b[0De\x1b[2Ef\x1b[4G\x1b[Fg\x1b[7`\x1b[9dh"
+                           "\x1b[2a\x1b[ei\x1b[;5Hj\x1b[3Hk\x1b[99;99Hl\x1b[99A\x1b[99Dm"},
+        {"erase-ed", 6, 4, "AAAAAA\r\nBBBBBB\r\nCCCCCC\r\nDDDDDD\x1b[2;3H\x1b[J"},
+        {"erase-ed1", 6, 4, "AAAAAA\r\nBBBBBB\r\nCCCCCC\r\nDDDDDD\x1b[2;3H\x1b[1J"},
+        {"erase-el", 6, 4, "AAAAAA\r\nBBBBBB\r\nCCCCCC\r\nDDDDDD\x1b[1;3H\x1b[K\x1b[2;3H\x1b[1K\x1b[3;3H\x1b[2K"
+                           "\x1b[4;2H\x1b[3X\x1b[4;5H\x1b[99X"},
+        {"ich-dch", 6, 4, "abcdef\x1b[1;3H\x1b[2@\r\nabcdef\x1b[2;2H\x1b[3P\r\nabcdef\x1b[3;2H\x1b[99P"},
+        {"il-dl", 6, 5, "1\r\n2\r\n3\r\n4\r\n5\x1b[2;4H\x1b[L\x1b[4;1H\x1b[2M"},
+        {"il-dl-region", 6, 5, "1\r\n2\r\n3\r\n4\r\n5\x1b[2;4r\x1b[5;1H\x1b[L\x1b[1;1H\x1b[M\x1b[2;1H\x1b[L"},
+        {"region-lf", 5, 5, "1\r\n2\r\n3\r\n4\r\n5\x1b[2;4r\x1b[4;1H\nX\x1b[2;1H\x1bMY"},
+        {"region-su-sd", 5, 5, "1\r\n2\r\n3\r\n4\r\n5\x1b[2;4r\x1b[S\x1b[2T"},
+        {"region-cud-cuu", 5, 5, "\x1b[2;4r\x1b[3;1H\x1b[9Ba\x1b[5;1H\x1b[9Ab\x1b[1;1H\x1b[9Bc"},
+        {"region-below", 5, 5, "\x1b[2;3r\x1b[5;1H\n\nZ"},
+        {"scroll-out", 4, 3, "a\r\nb\r\nc\r\nd\r\nabcdefg\r\n\r\n"},
+        {"scroll-region-top", 4, 4, "a\r\nb\r\nc\r\nd\x1b[1;3r\x1b[3;1H\n\n"},
+        {"scroll-su", 4, 3, "a\r\nb\r\nc\x1b[2S"},
+        {"tabs", 20, 2, "a\tb\tc\t\t\tX\r\n\x1b[3g\x1b[5G\x1bH\r\tY\tZ"},
+        {"cht-cbt", 30, 2, "\x1b[2Ia\x1b[Zb\x1b[9Zc"},
+        {"rep", 10, 2, "-\x1b[4b|\x1b[9b"},
+        {"decsc", 10, 5, "\x1b[3;4H\x1b" "7\x1b[H\x1b" "8X"},
+        {"decsc-none", 10, 5, "\x1b[3;3H\x1b" "8Z"},
+        {"scosc", 10, 5, "\x1b[2;2H\x1b[s\x1b[5;5H\x1b[uY"},
+        {"decom", 10, 6, "\x1b[2;5r\x1b[?6h\x1b[2;3HA\x1b[99;1HB\x1b[?6l\x1b[1;1HC"},
+        {"alt-1049", 10, 4, "shell$ \x1b[?1049h\x1b[HVIM\x1b[4;1H~\x1b[?1049l"},
+        {"alt-1049-inside", 10, 4, "shell$ \x1b[?1049h\x1b[HVIM"},
+        {"alt-47", 10, 4, "shell$ \x1b[?47hALT\x1b[?47l"},
+        {"alt-1047", 10, 4, "shell$ \x1b[?1047hALT\x1b[?1047l"},
+        {"charset", 10, 3, "\x1b(0lqk\x1b(Bx\r\n\x1b)0a\x0eqx\x0fq\r\n\x1b(0AZ~\x1b(B"},
+        {"irm", 6, 2, "abcdef\r\x1b[4hXY\x1b[4lZ"},
+        {"lnm", 6, 3, "\x1b[20ha\nb"},
+        {"decaln", 4, 3, "\x1b#8\x1b[2;2Hx"},
+        {"ris-primary", 6, 3, "abc\x1b[2;3r\x1b[?7l\x1b(0q\x1b" "cq\r\n\n\nx"},
+        {"ris", 6, 3, "abc\x1b[2;3r\x1b[?7l\x1b(0\x1b[?1049hq\x1b" "cq\r\n\n\nx"},
+        {"decstr", 6, 3, "\x1b[2;3r\x1b[?7l\x1b[!p\x1b[3;1H\nabcdefgh"},
+    };
+
+    // Screen-level differences from libvterm that are on purpose, or not implemented yet
+    struct ScreenDivergence {
+        const char *name;
+        const char *reason;
+    };
+    const ScreenDivergence kScreenDivergences[] = {
+        // VT510 / xterm (CursorUp/CursorDown): CUU stops at the top margin unless the cursor is already above it,
+        // CUD at the bottom margin unless already below it. libvterm clamps only when the cursor is inside the region.
+        {"region-cud-cuu", "CUU/CUD from outside the region stop at the margin (VT510, xterm)"},
+        // xterm prints REP through the normal path, so it wraps; libvterm stops at the end of the line
+        {"rep", "REP wraps like printing (xterm)"},
+        // SCOSC / SCORC (CSI s / CSI u) are xterm's; libvterm has neither
+        {"scosc", "CSI s / CSI u save and restore the cursor (xterm)"},
+        // Mode 47 switches to the alternate screen in xterm; libvterm only knows 1047/1049
+        {"alt-47", "DECSET 47 switches screens (xterm)"},
+        // RIS returns to the primary screen in xterm and Ghostty; libvterm stays on the alternate one
+        {"ris", "RIS leaves the alternate screen (xterm, Ghostty)"},
+        // Wide characters take two cells - VT-6. Remove when the width table lands.
+        {"dialog_menu.bin", "wide characters (VT-6)"},
+    };
+
+    bool IsScreenDivergence(std::string_view name) {
+        for (auto &d : kScreenDivergences) {
+            if ((d.name != nullptr) && (name == d.name)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // The size each fixture was recorded at (tests/fixtures/README.md)
+    std::pair<int, int> FixtureSize(const std::string &filename) {
+        if (filename == "git_log_graph.bin") {
+            return {100, 30};
+        }
+        if (filename == "cat_utf8.bin") {
+            return {40, 10};
+        }
+        return {80, 24};
+    }
 
     // Hand-built sequences, one concern each. The parser half of terminal-enhancements.md §4.B lives here.
     struct OracleCase {
@@ -400,5 +592,37 @@ DLL_EXPORT int test_oracle_screen(ITesting *t) {
         screen.Feed("Quick\x1b[7Gsafety\x1b[14Gcheck");
         TR_ASSERT(t, screen.RowText(0) == "Quick safety check");
     }
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_oracle_terminal(ITesting *t) {
+    int failures = 0;
+    for (auto &c : kScreenCases) {
+        if (IsScreenDivergence(c.name)) {
+            continue;
+        }
+        if (!CompareScreens(t, c.name, c.bytes, c.cols, c.rows)) {
+            failures++;
+        }
+    }
+    TR_ASSERT(t, failures == 0);
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_oracle_terminalfixtures(ITesting *t) {
+    auto fixtures = ListFixtures();
+    TR_ASSERT(t, !fixtures.empty());
+    int failures = 0;
+    for (auto &path : fixtures) {
+        auto filename = path.filename().string();
+        if (IsScreenDivergence(filename)) {
+            continue;
+        }
+        auto [cols, rows] = FixtureSize(filename);
+        if (!CompareScreens(t, filename.c_str(), LoadFixture(path), cols, rows)) {
+            failures++;
+        }
+    }
+    TR_ASSERT(t, failures == 0);
     return kTR_Pass;
 }

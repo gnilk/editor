@@ -226,15 +226,24 @@ oracle suite green modulo the documented allowlist.
 
 ## 7. Status and pick-up notes
 
-### Done (VT-0..VT-2, branch `feat/gvt`)
+### Done (VT-0..VT-3, branch `feat/gvt`)
 
 - `src/ext/gvt/`: CMake (standalone + `add_subdirectory` from the editor), `Parser`, `IParserSink`, `README.md`.
   Not linked into `goatedit` yet.
-- `gvttests` (27 cases, all green on Linux): `parser` (per-state cases, Ghostty `Parser.zig` vectors ported,
-  split invariance), `oracle` (gvt vs libvterm parser on hand-built cases and on every fixture: **all six
-  fixtures match libvterm event for event**; libvterm screen snapshot `OracleScreen` ready for VT-3).
+- VT-1/2 tests: `parser` (per-state cases, Ghostty `Parser.zig` vectors ported, split invariance), `oracle`
+  (gvt vs libvterm parser on hand-built cases and on every fixture: **all six fixtures match libvterm event for
+  event**).
 - Fixtures: `vim`, `less`, `git log --graph`, `ls --color`, `dialog --menu`, `cat` UTF-8 — recorded with
   `src/ext/gvt/tools/capture.py`, see `src/ext/gvt/tests/fixtures/README.md`.
+- **VT-3** `Terminal` (`include/gvt/Terminal.h`, `src/Terminal.cpp`): `Cell`/`Color` refs/`Pen`/`Modes`,
+  `ITerminalHost` (`WriteToPty`, `OnRowScrolledOut`, `OnBell`, `OnUnhandled` so far), print with pending wrap and
+  soft-wrap flag per row, DECAWM, C0, CUU/CUD/CUF/CUB/CNL/CPL/CHA/HPA/HPR/VPA/VPR/CUP/HVP, ED/EL/ECH,
+  ICH/DCH/IL/DL, DECSTBM + IND/RI/NEL/SU/SD, DECOM, HTS/TBC/CHT/CBT, REP, DECSC/DECRC + SCOSC/SCORC + ?1048,
+  alt screen 47/1047/1049, DEC Special Graphics G0/G1 + SO/SI, IRM, LNM, DECALN, DECSTR, RIS, `Resize`
+  (no reflow; rows above the cursor pushed out to the host). SGR handles reset only (VT-4).
+  `gvttests` 49 cases green: `terminal` module (20, xterm-expected results) and `oracle` `terminal` /
+  `terminalfixtures` — **vim, less, git log, ls, cat match libvterm's screen** row for row, cursor, alt flag and
+  scrollback. `dialog_menu` waits for wide characters (VT-6).
 
 Decisions made while building it:
 - **Malformed CSI** (`CSI 1?2h`, `CSI 1$2p`): ignored up to the final byte (Williams `csi_ignore`, as xterm,
@@ -245,6 +254,13 @@ Decisions made while building it:
   hooked DCS is always unhooked.
 - **"ESC \" after a string** is swallowed as the second half of ST; on its own it is dispatched as `ESC \`.
 - libvterm reports 7-bit C1 escapes (`ESC M`) as C1 controls (0x8D); the oracle maps them back.
+- Screen level, gvt follows xterm where libvterm differs (`kScreenDivergences`, each pinned in `test_terminal.cpp`):
+  CUU/CUD from outside the scroll region stop at the margin (VT510); REP wraps; `CSI s`/`CSI u` save/restore
+  (libvterm lacks them); `?47` switches screens (libvterm ignores it); RIS leaves the alternate screen.
+- **Scrollback feed:** a row goes to `OnRowScrolledOut` when it leaves row 0 of the primary screen by LF/IND/SU/
+  wrap with the region's top at row 0 (xterm; libvterm agrees on the fixtures), or when `Resize` shrinks below
+  the cursor. DL at row 0, regions starting lower and the alternate screen never feed it. ED 3 goes to
+  `OnUnhandled` for now (the editor owns scrollback).
 
 ### Pick up on macOS
 
@@ -253,16 +269,17 @@ brew install libvterm pkg-config          # without them the oracle module is sk
 git fetch && git checkout feat/gvt
 cmake --preset debug                       # or reconfigure an existing build dir
 cmake --build cmake-build-debug --target gvttests
-cd cmake-build-debug && trun --sequential ./libgvttests.dylib     # expect 27 executed, 0 failed
+cd cmake-build-debug && trun --sequential ./libgvttests.dylib     # expect 49 executed, 0 failed
 ```
 
 Not yet verified on macOS: the build, the oracle with Homebrew's libvterm, the fixture copy step.
 
-### Next: VT-3 (`Terminal` core)
+### Next: VT-4 (SGR)
 
-Start with `include/gvt/Terminal.h` (`Cell`, `Color` refs, `ITerminalHost`, `Terminal : IParserSink` — §3.2), then
-the grid operations listed in §5 VT-3. Test each against `OracleScreen` (`tests/test_oracle.cpp`): extend it with
-per-cell attrs/colours/cursor and add a `CompareScreens(gvtTerminal, oracleScreen)` helper; the six fixtures are
-the first end-to-end checks (vim/less/dialog exercise alt screen, scroll regions, DEC Special Graphics).
-Port `TerminalScreen` behaviour the editor depends on (`OnRowScrolledOut` replaces its scrollback push) but keep
-`TerminalScreen` itself untouched until VT-7.
+`Terminal::DispatchCsiPlain` case `'m'` handles only the reset. Complete it: bold/dim/italic/underline(+style via
+`4:n`)/blink/inverse/hidden/strike/overline set and clear (22-29, 55), 30-37/90-97/39, 40-47/100-107/49, 38/48/58
+with `;5;n`, `;2;r;g;b` and the colon forms (`CsiParams::IsFollowedByColon`; the Ghostty `Parser.zig` vectors in
+`test_parser.cpp` show the shapes, incl. kakoune's mixed form). Extend `CompareScreens` with per-cell attrs and colours
+(libvterm `VTermScreenCell.attrs`/`fg`/`bg`; map its colours with `vterm_color_is_indexed` / `is_default_fg/bg`) -
+the git log and ls fixtures then check colours end to end. Then VT-5 (replies, OSC to host), VT-6 (widths: take
+`dialog_menu.bin` off `kScreenDivergences`).

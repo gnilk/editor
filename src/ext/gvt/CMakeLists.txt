@@ -21,6 +21,7 @@ option(GVT_BUILD_TESTS "Build gvt unit tests (trun shared lib)" ON)
 list(APPEND gvt_src
     src/Version.cpp
     src/Parser.cpp
+    src/Terminal.cpp
 )
 
 add_library(gvt STATIC ${gvt_src})

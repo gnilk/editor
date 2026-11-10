@@ -4,6 +4,8 @@
 #include <testinterface.h>
 #include "Core/Editor/Controllers/TerminalController.h"
 #include "Core/Config/Config.h"
+#include "Core/Editor.h"
+#include "Core/ClipBoard.h"
 
 using namespace gedit;
 
@@ -19,6 +21,7 @@ DLL_EXPORT int test_terminalcontroller_viewport_first_pageup_moves_window(ITesti
 DLL_EXPORT int test_terminalcontroller_commitline_marks_output(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_viewport_scroll_stops_at_newest_page(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_commitline_empty_marks_nothing(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_dotcommand_keeps_output(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_osc133_output(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_osc133_commit_stands_down(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_raw_tab(ITesting *t);
@@ -215,6 +218,30 @@ DLL_EXPORT int test_terminalcontroller_commitline_empty_marks_nothing(ITesting *
     c.Resize(20, 5);
     c.CommitLine();   // inputLine is empty by default
     TR_ASSERT(t, !c.GetLastOutputText().has_value());
+    return kTR_Pass;
+}
+
+// A dot-command runs in the editor, not the shell: `.co` right after a build copies the BUILD's output, so it must
+// not move the last output onto its own (empty) one
+DLL_EXPORT int test_terminalcontroller_dotcommand_keeps_output(ITesting *t) {
+    TerminalController c;
+    c.Resize(20, 5);
+    TR_ASSERT(t, RuntimeConfig::Instance().HasPluginCommand("co"));
+    FeedPty(c, "$ ");
+    c.GetInputLine()->Append(std::u32string(U"make"));
+    c.CommitLine();
+    FeedPty(c, "make\r\nerror: x\r\n$ ");
+
+    auto *prevConsole = RuntimeConfig::Instance().OutputConsole();
+    c.RegisterAsOutputConsole();
+    c.GetInputLine()->Append(std::u32string(U".co"));
+    c.CommitLine();
+    RuntimeConfig::Instance().SetOutputConsole(prevConsole);
+
+    TR_ASSERT(t, c.GetLastOutputText() == std::optional<std::u32string>(U"error: x"));
+    auto top = Editor::Instance().GetClipBoard().Top();
+    TR_ASSERT(t, top != nullptr);
+    TR_ASSERT(t, top->AsText() == std::u32string(U"error: x"));
     return kTR_Pass;
 }
 

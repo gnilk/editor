@@ -65,6 +65,18 @@ commands:
     script: Scripts/listbuffers.js
 
   -
+    name: copyoutput
+    short: co
+    description: Copy the last terminal command's output to the clipboard
+    script: Scripts/copyoutput.js
+
+  -
+    name: outputtobuffer
+    short: ob
+    description: Open the last terminal command's output in a new buffer
+    script: Scripts/outputtobuffer.js
+
+  -
     name: closeactive
     short: cb
     description: Close Active Buffer (asks when it has changes not yet saved; '!' closes anyway)

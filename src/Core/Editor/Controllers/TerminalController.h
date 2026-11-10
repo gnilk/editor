@@ -148,6 +148,7 @@ namespace gedit {
         void SyncInputLineFromGrid();
         void ExitShellOwned();
         void RecordCommand(const std::u32string &cmdLine);
+        void MarkCommandOutput();
         // Default fg/bg and the 16 system colours from the theme's terminal colours (the rest of the
         // 256-colour palette is xterm's). Caller holds screenLock.
         void ApplyThemeColors();

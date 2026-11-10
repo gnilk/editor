@@ -488,6 +488,9 @@ bool TerminalController::ForwardActionToShell(const EditorAction &kpAction) {
             cmdLine = inputLine->Buffer();
         }
         RecordCommand(cmdLine);
+        if (!cmdLine.empty()) {
+            MarkCommandOutput();
+        }
         WriteToPty("\r");
         ExitShellOwned();
         return true;
@@ -747,10 +750,15 @@ void TerminalController::CommitLine() {
     inputLine->Clear();
     inputCursor.position.x = 0;
 
+    // A dot-command runs in the editor - it is no shell command, and leaves the last output alone (`.co` copies
+    // the output of the command before it)
     if (PluginExecutor::ParseAndExecuteWithCmdPrefix(cmdLine)) {
         static auto newline = std::u32string(U"\n");
         shell.SendCmd(newline);
     } else {
+        if (!cmdLine.empty()) {
+            MarkCommandOutput();
+        }
         cmdLine += U"\n";
         shell.SendCmd(cmdLine);
     }
@@ -760,20 +768,24 @@ void TerminalController::CommitLine() {
 }
 
 // A committed command line - typed locally (CommitLine) or finished in readline after Tab (ForwardActionToShell):
-// into the history, saved, and (without OSC 133) opens its command block. Call without screenLock held.
+// into the history, saved
 void TerminalController::RecordCommand(const std::u32string &cmdLine) {
     if (!cmdLine.empty()) {
         cmdHistory.Push(cmdLine);
         if (!cmdHistoryPath.empty()) {
             cmdHistory.Save(cmdHistoryPath);
         }
-        // The command's output starts below the line it was typed on - unless the shell says where (OSC 133;C)
-        std::lock_guard<std::mutex> guard(screenLock);
-        if (!useOsc133Boundaries) {
-            screen.MarkOutputStart(false);
-        }
     }
     cmdHistory.ResetNavigation();
+}
+
+// A command went to the shell: its output starts below the line it was typed on - unless the shell says where
+// (OSC 133;C). Call without screenLock held.
+void TerminalController::MarkCommandOutput() {
+    std::lock_guard<std::mutex> guard(screenLock);
+    if (!useOsc133Boundaries) {
+        screen.MarkOutputStart(false);
+    }
 }
 
 // Console output from the editor (JS Console, plugins) - printed as text on a fresh line. '\n' breaks the line;

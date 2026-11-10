@@ -375,6 +375,11 @@ Not yet verified on macOS: the build, the oracle with Homebrew's libvterm, the f
 
 ### Next: the exit criterion (Claude inside goatedit), and what VT-9 left
 
+- **Copying terminal output** (owner, 2026-11-10). `.co` copies / `.ob` opens the LAST command's output (a dot-command
+  leaves that marker alone). Not enough: a `make -j` then `ls` loses the build's output, and it often runs screens
+  back. Owner's idea, not decided: track command boundaries again (no highlight), and a modal like "open files"
+  listing the last ~10 commands' outputs to copy or open one. Mouse selection over scrollback is the other road -
+  hard to get right, most terminals don't.
 - **Colour emoji** stay blank: no outline emoji font is installed by default (Noto Color Emoji / Apple Color Emoji
   are bitmap fonts). A monochrome emoji font (Noto Emoji, Symbola) in `sdl.font_fallback` draws them.
 - A wide character in **scrollback** (a `Line`) takes one column, so the text after it overlaps (RowToLine drops the

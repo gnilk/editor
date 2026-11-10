@@ -68,6 +68,7 @@ namespace gedit {
     private:
         bool IsValidColorClass(const std::string &name);
         bool LoadSublimeColorFile(std::string filename);
+        void InheritGlobalColors();
 
         template<typename T, typename E>
         void ParseVariablesInScript(const T &from, E &scriptEngine);

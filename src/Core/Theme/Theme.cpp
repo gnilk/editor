@@ -57,11 +57,32 @@ bool Theme::Load(const std::string &pathname) {
         logger->Error("Failed to load colors from: '%s'", colorFile.c_str());
         return false;
     }
+    InheritGlobalColors();
 
     logger->Debug("Ok, theme '%s' loaded from file: %s", name.c_str(), pathname.c_str());
 
     filename = pathname;
     return true;
+}
+
+// One background for the editor: a section that sets no background/foreground of its own takes the global one, so a
+// theme sets it once and the text area and terminal follow. A section can still set its own (a darker terminal).
+void Theme::InheritGlobalColors() {
+    if (!HasColorsForClass(clrClassGlobals)) {
+        return;
+    }
+    auto globals = colorConfig[clrClassGlobals];
+    for (auto &clrClass : {clrClassContent, clrClassTerminal}) {
+        if (!HasColorsForClass(clrClass)) {
+            colorConfig[clrClass] = NamedColors::Create();
+        }
+        auto colors = colorConfig[clrClass];
+        for (auto name : {"background", "foreground"}) {
+            if (!colors->HasColor(name) && globals->HasColor(name)) {
+                colors->SetColor(name, globals->GetColor(name));
+            }
+        }
+    }
 }
 
 bool Theme::IsValidColorClass(const std::string &name) {

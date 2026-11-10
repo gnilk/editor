@@ -13,6 +13,7 @@ DLL_EXPORT int test_theme(ITesting *t);
 DLL_EXPORT int test_theme_create(ITesting *t);
 DLL_EXPORT int test_theme_load(ITesting *t);
 DLL_EXPORT int test_theme_alpha(ITesting *t);
+DLL_EXPORT int test_theme_sharedbackground(ITesting *t);
 }
 
 DLL_EXPORT int test_theme(ITesting *t) {
@@ -61,5 +62,19 @@ DLL_EXPORT int test_theme_alpha(ITesting *t) {
     TR_ASSERT(t, fabs(c4.A() - 0.12f) < 0.001f);
     TR_ASSERT(t, c4.A() >= 0.0f && c4.A() <= 1.0f);
 
+    return kTR_Pass;
+}
+
+// One background for the whole editor: a section that sets no background/foreground of its own takes the global one,
+// so the terminal and the text area match the rest of the UI unless a theme says otherwise.
+DLL_EXPORT int test_theme_sharedbackground(ITesting *t) {
+    auto theme = Theme::Create();
+    TR_ASSERT(t, theme->Load("default.theme.yml"));
+    auto globalBg = theme->GetGlobalColors().GetColor("background");
+    auto globalFg = theme->GetGlobalColors().GetColor("foreground");
+    TR_ASSERT(t, theme->GetGlobalColors().HasColor("background"));
+    TR_ASSERT(t, theme->GetContentColors().GetColor("background") == globalBg);
+    TR_ASSERT(t, theme->GetTerminalColor().GetColor("background") == globalBg);
+    TR_ASSERT(t, theme->GetTerminalColor().GetColor("foreground") == globalFg);
     return kTR_Pass;
 }

@@ -272,3 +272,21 @@ changed callbacks, re-scan, re-home its loose documents into the tree), or wheth
 skip the default root and the default root be dropped once empty. Repro in a unit test: open a document, then
 `OpenFolder` of the cwd, and assert the root has a reconcile callback / a started monitor (fake factory).
 
+
+## 22. Installing (and building) never removes an asset that was deleted from the repo
+
+After `blocktobuffer.js` / `blocktoclipboard.js` were removed (command blocks gone, `860dee3`), a fresh macOS
+`cmake --install bld` still left both in `/Applications/goatedit.app/Contents/SharedSupport/Plugins/Scripts/`.
+Removed by hand on 2026-11-10. Harmless this time - `jsplugs.yml` no longer names them, so nothing loads them - but
+a stale *loaded* file (a keymap, a theme, a plugin still listed by an older user/project config) would keep its old
+behaviour with no sign of where it came from.
+
+**Why:** every copy step only adds or overwrites: the macOS `install(DIRECTORY ${EDITOR_ASSET_DIR}/ ...)` into the
+bundle, the `POST_BUILD` `copy_directory` into the build tree's `goatedit.app/Contents/SharedSupport`, and the
+`resources` / `plugins` targets (`copy_directory_if_different`) into `EDITOR_ASSET_DIR`. Linux is covered for installs:
+`scripts/install.sh` uninstalls by its manifest before installing.
+
+**Fix direction:** on macOS, clear `<bundle>/Contents/SharedSupport` before the asset install (an `install(CODE ...)`
+`file(REMOVE_RECURSE ...)` ahead of `install(DIRECTORY ...)`), and do the same for the build tree's bundle copy, or
+copy with a mirror step that deletes what the source no longer has. Check it with a file removed from
+`Assets/Resources`: after build + install it must be gone from both bundles.

@@ -12,6 +12,7 @@
 //#include <utility>
 //#include <map>
 
+#include <atomic>
 #include <SDL2/SDL.h>
 #include <logger.h>
 
@@ -49,6 +50,7 @@ namespace gedit::SDL2 {
         void OnSizeChanged() override;
         void OnMoved() override;
         void PollEvents() override;
+        void WakeUp() override;
         void SetPointerShape(kPointerShape shape) override;
     protected:
         bool GetPrimaryDisplayBounds(int &x, int &y, int &width, int &height) override;
@@ -74,6 +76,9 @@ namespace gedit::SDL2 {
 
     private:
         SDL_Window* sdlWindow = nullptr;
+        // WakeUp's event (registered at init), and whether one is already queued - a burst of posts is one event
+        uint32_t wakeEventType = 0;
+        std::atomic<bool> isWakePending = false;
         SDL_Renderer* sdlRenderer = nullptr;
         SDL_Texture* sdlScreenAsTexture = nullptr;
         SDL_Surface* sdlScreenAsSurface = nullptr;

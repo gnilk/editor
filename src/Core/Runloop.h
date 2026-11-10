@@ -65,12 +65,16 @@ namespace gedit {
         static void PostMessage(uint32_t msgIdentifier, std::unique_ptr<T> msg, const MessageCallback handler) {
             auto msgData = std::make_unique<Message>(msgIdentifier, std::move(msg), handler);
             incomingQueue.load()->push(std::move(msgData));
+            WakeUp();
         }
 
         static void PostMessage(uint32_t msgIdentifier, const MessageCallbackNoData handler) {
             auto msgData = std::make_unique<Message>(msgIdentifier, handler);
             incomingQueue.load()->push(std::move(msgData));
+            WakeUp();
         }
+        // A posted message is handled now, not when the event wait times out (pty output, background jobs)
+        static void WakeUp();
 
         // Call with 'null' to disable
         static void SetKeypressAndActionHook(KeypressAndActionHandler *newHook);

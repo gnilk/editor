@@ -79,6 +79,10 @@ bool SDLScreen::Open() {
     }
 
     logger->Debug("SDL initialized ok, video driver = %s", SDL_GetCurrentVideoDriver());
+    wakeEventType = SDL_RegisterEvents(1);
+    if (wakeEventType == (Uint32)-1) {
+        wakeEventType = SDL_USEREVENT;
+    }
 
     int windowFlags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI;
 
@@ -453,6 +457,11 @@ void SDLScreen::PollEvents() {
 
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
+        if (event.type == wakeEventType) {
+            // Posts from here on need a new wake-up; what was posted before is processed in this pass
+            isWakePending = false;
+            continue;
+        }
         switch (event.type) {
             case SDL_QUIT:
                 SDL_Quit();
@@ -548,6 +557,16 @@ void SDLScreen::PollEvents() {
                 break;
         }
     }
+}
+
+// SDL_PushEvent is thread-safe; the waiting SDL_WaitEventTimeout returns for it
+void SDLScreen::WakeUp() {
+    if (isWakePending.exchange(true)) {
+        return;
+    }
+    SDL_Event event = {};
+    event.type = wakeEventType;
+    SDL_PushEvent(&event);
 }
 
 void SDLScreen::PostHover(MouseEvent &hover) {

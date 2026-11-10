@@ -95,6 +95,16 @@ void Runloop::DefaultLoop() {
     }
 }
 
+void Runloop::WakeUp() {
+    if (!isRunning) {
+        return;
+    }
+    auto screen = RuntimeConfig::Instance().GetScreen();
+    if (screen != nullptr) {
+        screen->WakeUp();
+    }
+}
+
 bool Runloop::ProcessMessageQueue() {
     bool result = false;
 

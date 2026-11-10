@@ -64,6 +64,9 @@ namespace gedit {
         // Pump platform events and dispatch keyboard/window/clipboard events.
         // Must be called from the main thread. Blocks up to ~250 ms waiting for events.
         virtual void PollEvents() {}
+        // Any thread: make a PollEvents that is waiting return now - something else (a pty, a background job) has
+        // posted work for the main loop. A backend without a way to wake keeps its timeout.
+        virtual void WakeUp() {}
         // The mouse pointer - a backend without one (the terminal) ignores it
         virtual void SetPointerShape(kPointerShape shape) {}
 

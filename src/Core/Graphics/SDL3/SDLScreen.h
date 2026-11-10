@@ -10,6 +10,7 @@
 //#include <utility>
 //#include <map>
 
+#include <atomic>
 #include <SDL3/SDL.h>
 
 #include "Core/UI/Graphics/ScreenBase.h"
@@ -47,6 +48,7 @@ namespace gedit::SDL3 {
         void OnSizeChanged() override;
         void OnMoved() override;
         void PollEvents() override;
+        void WakeUp() override;
         void SetPointerShape(kPointerShape shape) override;
     protected:
         bool GetPrimaryDisplayBounds(int &x, int &y, int &width, int &height) override;
@@ -73,6 +75,9 @@ namespace gedit::SDL3 {
     private:
         gnilk::ILogger *logger = nullptr;
         SDL_Window* window = nullptr;
+        // WakeUp's event (registered at init), and whether one is already queued - a burst of posts is one event
+        uint32_t wakeEventType = 0;
+        std::atomic<bool> isWakePending = false;
         SDL_Renderer* renderer = nullptr;
         SDL_Texture* screenAsTexture = nullptr;
         SDL_Surface* screenAsSurface = nullptr;

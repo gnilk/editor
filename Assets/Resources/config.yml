@@ -148,6 +148,9 @@ sdl:
     - /System/Library/Fonts/Supplemental/Arial Unicode.ttf
     - /Library/Fonts/Arial Unicode.ttf
     - /System/Library/Fonts/Apple Symbols.ttf
+  # After the theme's font and the list above, ask the system (CoreText / fontconfig) for a font that has the glyph.
+  # Off: a glyph none of them has is an empty cell.
+  system_font_fallback: yes
 
 ncurses:
   timeoutKeyEvent: 500

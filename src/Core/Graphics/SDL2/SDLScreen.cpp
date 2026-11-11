@@ -23,6 +23,7 @@
 
 #include "Core/RuntimeConfig.h"
 #include "Core/Config/Config.h"
+#include "Core/Graphics/SystemFonts.h"
 #include "Core/Runloop.h"
 #include "Core/MouseEvent.h"
 
@@ -196,6 +197,10 @@ void SDLScreen::LoadFontFromTheme(float density) {
     // Glyphs the font lacks (CJK, box drawing, symbols) from the fallback fonts, read when first needed
     auto fallbackNames = Config::Instance()["sdl"].GetSequenceOfStr("font_fallback");
     font->SetFallbackFiles(std::vector<std::filesystem::path>(fallbackNames.begin(), fallbackNames.end()));
+    // ...and after them, whatever font the system would draw it with (docs/system-font-fallback.md)
+    if (Config::Instance()["sdl"].GetBool("system_font_fallback", true)) {
+        font->SetSystemFallback(SystemFonts::FindFaceFor);
+    }
 
     // Set the font active..
     SDLFontManager::Instance().SetActiveFont(std::move(font));

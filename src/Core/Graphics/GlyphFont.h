@@ -8,24 +8,31 @@
 //
 // Fallback fonts (SetFallbackFiles) fill in what the font lacks - CJK, symbols, emoji outlines - into the same page,
 // so the backend still draws one bitmap per page. A fallback file is read the first time a page needs it.
+// After them the system is asked (SetSystemFallback, docs/system-font-fallback.md): a lookup, injected, from a code point
+// to a font file the OS would draw it with - GlyphFont knows nothing of CoreText or fontconfig.
 //
 #ifndef GEDIT_GLYPHFONT_H
 #define GEDIT_GLYPHFONT_H
 
 #include <array>
 #include <filesystem>
+#include <functional>
+#include <optional>
 #include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
 
 #include "stb_truetype.h"
+#include "SystemFonts.h"
 
 namespace gedit {
 
     class GlyphFont {
     public:
         using Ref = std::shared_ptr<GlyphFont>;
+        // The font file the system would draw a code point with (SystemFonts::FindFaceFor), or nothing
+        using SystemLookup = std::function<std::optional<SystemFontFace>(char32_t codePoint)>;
 
         static constexpr int kPageSize = 256;
         static constexpr int kNumPages = 0x110000 / kPageSize;     // all of Unicode
@@ -76,6 +83,16 @@ namespace gedit {
         // How many fallback files have been read - for the tests: none until a page needs one
         int NumFallbacksOpened() const;
 
+        // The last resort, after the fallback files: ask the system for a font with the glyph. Asked once per code
+        // point (when its page is built); a face it returns is read once and kept. Null turns it off.
+        void SetSystemFallback(SystemLookup lookup);
+
+        // For the tests: how often the system was asked, and how many of its faces were opened as fonts
+        int NumSystemLookups() const {
+            return numSystemLookups;
+        }
+        int NumSystemFacesOpened() const;
+
         // A page, built or not - for the backend to know whether there is a bitmap to upload
         const Page *GetPage(int idxPage) const;
 
@@ -111,12 +128,18 @@ namespace gedit {
         // A font file's bytes and stb's view of them; opened on first use
         struct Face {
             std::vector<uint8_t> data;
+            int index = 0;                  // which font of a collection (.ttc); 0 for a plain file
             stbtt_fontinfo info = {};
         };
         struct Fallback {
             std::filesystem::path file;
             bool isTried = false;
             std::unique_ptr<Face> face;     // null when the file could not be read as a font
+        };
+        // A face the system returned: the file and face it named, and the font read from it (null when it isn't one)
+        struct SystemFace {
+            SystemFontFace source;
+            std::unique_ptr<Face> face;
         };
         // The code points of a page one face draws
         struct FaceRange {
@@ -125,10 +148,16 @@ namespace gedit {
         };
 
         static bool IsFontHeader(const uint8_t *data, size_t size);
-        static bool OpenFace(Face &face, const uint8_t *data, size_t size);
+        static bool OpenFace(Face &face, const uint8_t *data, size_t size, int index = 0);
+        static bool HasOutlineTables(const std::filesystem::path &file, int index);
+        static bool ReadFile(const std::filesystem::path &file, std::vector<uint8_t> &outData);
+        static int FaceIndexByName(const std::vector<uint8_t> &data, const std::string &postScriptName);
+        static bool HasOutline(const Face &face, int codePoint);
         bool Open(const uint8_t *data, size_t size, float newPixelHeight);
         Page *BuildPage(int idxPage);
         const Face *FallbackFaceFor(int codePoint);
+        const Face *SystemFaceFor(int codePoint);
+        const Face *OpenSystemFace(const SystemFontFace &source);
         bool PackPage(Page &page, std::vector<FaceRange> &ranges);
         static void StoreGlyphs(Page &page, const std::vector<int> &codePoints,
                                 const std::vector<stbtt_packedchar> &packed);
@@ -136,6 +165,9 @@ namespace gedit {
     private:
         Face primary;
         std::vector<Fallback> fallbacks;
+        SystemLookup systemLookup;
+        std::vector<SystemFace> systemFaces;
+        int numSystemLookups = 0;
         float pixelHeight = 0;
         float scale = 0;
         int ascent = 0;

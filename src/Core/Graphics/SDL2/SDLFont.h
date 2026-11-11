@@ -44,6 +44,10 @@ namespace gedit::SDL2 {
         void SetFallbackFiles(const std::vector<std::filesystem::path> &files) {
             glyphFont->SetFallbackFiles(files);
         }
+        // The system's font for what the fallbacks lack too (GlyphFont::SetSystemFallback)
+        void SetSystemFallback(GlyphFont::SystemLookup lookup) {
+            glyphFont->SetSystemFallback(std::move(lookup));
+        }
 
         // Logical pixels from the top of a line to the baseline
         float Baseline() const {

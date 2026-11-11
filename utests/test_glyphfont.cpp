@@ -3,9 +3,11 @@
 // it has '│' (U+2502), it lacks '▎' (U+258E).
 //
 #include <filesystem>
+#include <optional>
 #include <testinterface.h>
 
 #include "Core/Graphics/GlyphFont.h"
+#include "Core/Graphics/SystemFonts.h"
 #include "Core/RuntimeConfig.h"
 
 using namespace gedit;
@@ -21,6 +23,10 @@ extern "C" {
     DLL_EXPORT int test_glyphfont_notafont(ITesting *t);
     DLL_EXPORT int test_glyphfont_fallback(ITesting *t);
     DLL_EXPORT int test_glyphfont_fallback_colouremoji(ITesting *t);
+    DLL_EXPORT int test_glyphfont_systemfallback(ITesting *t);
+    DLL_EXPORT int test_glyphfont_systemfallback_order(ITesting *t);
+    DLL_EXPORT int test_glyphfont_systemfallback_colouremoji(ITesting *t);
+    DLL_EXPORT int test_glyphfont_systemlookup(ITesting *t);
 }
 
 namespace {
@@ -186,5 +192,125 @@ DLL_EXPORT int test_glyphfont_fallback_colouremoji(ITesting *t) {
     auto font = OpenAndale(t);
     font->SetFallbackFiles({emoji});
     TR_ASSERT(t, font->Lookup(U'😀') == nullptr);      // (stb_truetype does not open this one at all - no outlines)
+    return kTR_Pass;
+}
+
+namespace {
+    // A font with the block elements Andale Mono lacks ('▎'), and none of the /context grid ('⛁'): Menlo (a
+    // collection, so the face is named) or DejaVu Sans Mono
+    std::optional<SystemFontFace> BlockElementsFace() {
+        if (std::filesystem::exists("/System/Library/Fonts/Menlo.ttc")) {
+            return SystemFontFace{"/System/Library/Fonts/Menlo.ttc", -1, "Menlo-Regular"};
+        }
+        if (std::filesystem::exists("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf")) {
+            return SystemFontFace{"/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 0, ""};
+        }
+        return {};
+    }
+}
+
+// The system is asked only for what the font lacks, a face it names is read once for all the code points it draws,
+// and a face without the glyph (or no file at all) draws nothing
+DLL_EXPORT int test_glyphfont_systemfallback(ITesting *t) {
+    auto blocks = BlockElementsFace();
+    if (!blocks.has_value()) {
+        return kTR_Pass;
+    }
+    auto font = OpenAndale(t);
+    int numAsked = 0;
+    font->SetSystemFallback([&](char32_t codePoint) -> std::optional<SystemFontFace> {
+        numAsked++;
+        if (codePoint == U'⛀') {
+            return SystemFontFace{"/no/such/font.ttf", 0, ""};
+        }
+        return blocks;
+    });
+    TR_ASSERT(t, font->Lookup(U'A') != nullptr);
+    TR_ASSERT(t, font->Lookup(U'ő') != nullptr);           // Andale's own: page 1 built, nothing asked for 'ő'
+    int askedBefore = font->NumSystemLookups();
+
+    const GlyphFont::Page *page = nullptr;
+    auto glyph = font->Lookup(U'▎', &page);
+    TR_ASSERT(t, glyph != nullptr);
+    TR_ASSERT(t, HasInk(page, glyph));
+    TR_ASSERT(t, font->Lookup(U'▏') != nullptr);
+    TR_ASSERT(t, font->Lookup(U'│') != nullptr);           // Andale's own, on the same page
+    TR_ASSERT(t, font->NumSystemFacesOpened() == 1);
+    TR_ASSERT(t, font->NumSystemLookups() > askedBefore);
+    TR_ASSERT(t, numAsked == font->NumSystemLookups());
+
+    // Once per code point: looking again builds nothing and asks nothing
+    int askedAfter = font->NumSystemLookups();
+    TR_ASSERT(t, font->Lookup(U'▎') != nullptr);
+    TR_ASSERT(t, font->NumSystemLookups() == askedAfter);
+
+    // The face it names has no '⛁'; for '⛀' it names no file at all
+    TR_ASSERT(t, font->Lookup(U'⛁') == nullptr);
+    TR_ASSERT(t, font->Lookup(U'⛀') == nullptr);
+    TR_ASSERT(t, font->NumSystemFacesOpened() == 1);
+    return kTR_Pass;
+}
+
+// A configured fallback that has the glyph wins: the system is not asked for it
+DLL_EXPORT int test_glyphfont_systemfallback_order(ITesting *t) {
+    auto blocks = BlockElementsFace();
+    if (!blocks.has_value()) {
+        return kTR_Pass;
+    }
+    auto font = OpenAndale(t);
+    font->SetFallbackFiles({blocks->file});
+    bool isAskedForBlock = false;
+    font->SetSystemFallback([&](char32_t codePoint) -> std::optional<SystemFontFace> {
+        if (codePoint == U'▎') {
+            isAskedForBlock = true;
+        }
+        return {};
+    });
+    TR_ASSERT(t, font->Lookup(U'▎') != nullptr);
+    TR_ASSERT(t, !isAskedForBlock);
+    TR_ASSERT(t, font->NumFallbacksOpened() == 1);
+    TR_ASSERT(t, font->NumSystemFacesOpened() == 0);
+    return kTR_Pass;
+}
+
+// A colour emoji font the system names is not read: its table directory says bitmaps ('sbix' / 'CBDT'), even when it
+// carries a 'glyf' table of empty outlines too (Apple Color Emoji, ~190MB - reading it stalled a page build ~2s)
+DLL_EXPORT int test_glyphfont_systemfallback_colouremoji(ITesting *t) {
+    auto emoji = FirstExisting({"/System/Library/Fonts/Apple Color Emoji.ttc",
+                                "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf"});
+    if (emoji.empty()) {
+        return kTR_Pass;
+    }
+    auto font = OpenAndale(t);
+    font->SetSystemFallback([&](char32_t) -> std::optional<SystemFontFace> {
+        return SystemFontFace{emoji, -1, "AppleColorEmoji"};
+    });
+    TR_ASSERT(t, font->Lookup(U'😀') == nullptr);
+    TR_ASSERT(t, font->NumSystemLookups() > 0);
+    TR_ASSERT(t, font->NumSystemFacesOpened() == 0);
+    return kTR_Pass;
+}
+
+// The real lookup draws Claude Code's /context grid, which no configured font has (open-bugs #26). On macOS CoreText
+// always finds one (STIX Two Math), never LastResort's box; on Linux it depends on what is installed.
+DLL_EXPORT int test_glyphfont_systemlookup(ITesting *t) {
+    auto face = SystemFonts::FindFaceFor(U'⛁');
+#ifdef GEDIT_MACOS
+    TR_ASSERT(t, face.has_value());
+#endif
+    if (!face.has_value()) {
+        return kTR_Pass;
+    }
+    TR_ASSERT(t, std::filesystem::exists(face->file));
+    TR_ASSERT(t, face->postScriptName != "LastResort");
+
+    auto font = OpenAndale(t);
+    font->SetSystemFallback(SystemFonts::FindFaceFor);
+    for (auto codePoint : {U'⛀', U'⛁', U'⛶', U'⛝'}) {
+        const GlyphFont::Page *page = nullptr;
+        auto glyph = font->Lookup(codePoint, &page);
+        TR_ASSERT(t, glyph != nullptr);
+        TR_ASSERT(t, HasInk(page, glyph));
+    }
     return kTR_Pass;
 }

@@ -1,6 +1,6 @@
 # System font fallback
 
-**Status:** planned 2026-11-11. Branch `feature/system-font-fallback`.
+**Status:** built 2026-11-11 on `feature/system-font-fallback`; macOS verified by tests, the app and Linux unchecked.
 
 ## Why
 
@@ -46,6 +46,12 @@ with the glyph.
 are cached by (file, face), so a font the system returns for many characters (CJK) is read once. A file is read whole
 (stb_truetype needs the bytes), the same as a configured fallback.
 
+**Colour emoji fonts are not read.** Before a system font file is read whole, its table directory is: one with a
+colour bitmap table (`sbix`, `CBDT`), or without outlines (`glyf` / `CFF `), is skipped. Apple Color Emoji has `sbix`
+*and* a `glyf` of empty outlines, and is ~190MB - CoreText names it for the emoji in U+2600-26FF, and reading it made
+that one page build take ~2s. Whole-file reads are one `read`, not a byte-wise `istreambuf_iterator` (the configured
+fallbacks gain too).
+
 **Also fixed on the way:** `PackPage` packed every face with font index 0. A face from a collection other than its
 first (any `.ttc` the system hands back) needs its own index there.
 
@@ -55,5 +61,6 @@ first (any `.ttc` the system hands back) needs its own index there.
   only for those, the face is opened once for several code points, and nothing is drawn when it returns a face
   without the glyph.
 - `glyphfont/systemfallback_order` - a configured fallback that has the glyph wins; the lookup is not asked.
+- `glyphfont/systemfallback_colouremoji` - a colour emoji font the lookup names is never opened.
 - `glyphfont/systemlookup` - the real lookup: on macOS `⛁` resolves to a file that draws it (not `LastResort`); on
   Linux it runs, and finds something when fontconfig is there.

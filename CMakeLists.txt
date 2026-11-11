@@ -111,6 +111,7 @@ if (APPLE)
 
     list(APPEND platformsrc src/Core/macOS/MacOSKBEmulator.cpp src/Core/macOS/MacOSKBEmulator.h)
     list(APPEND platformsrc src/Core/macOS/MacOSFolderMonitor.cpp src/Core/macOS/MacOSFolderMonitor.h)
+    list(APPEND platformsrc src/Core/macOS/MacOSSystemFonts.cpp)
     # list(APPEND platformsrc src/Core/macOS/MacOSKeyboardMonitor.cpp src/Core/macOS/MacOSKeyboardMonitor.h)
     list(APPEND platformsrc src/Core/unix/Shell.cpp src/Core/unix/Shell.h)
     list(APPEND platformsrc src/Core/unix/ProcessUnix.cpp src/Core/unix/ProcessUnix.h)
@@ -120,8 +121,10 @@ if (APPLE)
     # IOKit / Cocoa / Carbon — not directly called by our code; SDL3 brings them in transitively
     find_library(CORE_SERVICES CoreServices REQUIRED)
     find_library(CORE_FOUNDATION CoreFoundation REQUIRED)
+    # CoreText — MacOSSystemFonts asks the font cascade for a glyph the configured fonts lack
+    find_library(CORE_TEXT CoreText REQUIRED)
 
-    list(APPEND extlibs yaml-cpp::yaml-cpp ${CORE_SERVICES} ${CORE_FOUNDATION})
+    list(APPEND extlibs yaml-cpp::yaml-cpp ${CORE_SERVICES} ${CORE_FOUNDATION} ${CORE_TEXT})
 
 
     set(ICON_FILE ${CMAKE_SOURCE_DIR}/Assets/CMake/GoatEdit.icns)
@@ -217,8 +220,19 @@ elseif(UNIX)
     list(APPEND platformsrc src/Core/unix/Shell.cpp src/Core/unix/Shell.h)
     list(APPEND platformsrc src/Core/unix/ProcessUnix.cpp src/Core/unix/ProcessUnix.h)
     list(APPEND platformsrc src/Core/Linux/LinuxFolderMonitor.cpp src/Core/Linux/LinuxFolderMonitor.h)
+    list(APPEND platformsrc src/Core/Linux/LinuxSystemFonts.cpp)
 
     add_definitions(-DGEDIT_LINUX)
+
+    # fontconfig — LinuxSystemFonts asks it for a glyph the configured fonts lack (docs/system-font-fallback.md).
+    # Optional: without it the system fallback finds nothing.
+    find_package(Fontconfig)
+    if (Fontconfig_FOUND)
+        add_definitions(-DGEDIT_HAVE_FONTCONFIG)
+        list(APPEND extlibs Fontconfig::Fontconfig)
+    else()
+        message(STATUS "fontconfig not found (libfontconfig-dev) - no system font fallback")
+    endif()
 
     list(APPEND extlibs util)   ## see: man forkpty
     list(APPEND extlibs yaml-cpp::yaml-cpp)
@@ -302,7 +316,7 @@ target_include_directories(${CUR_TARGET} PUBLIC ${CMAKE_BINARY_DIR}/generated)
 
 # stb single-header implementations (one TU per binary)
 list(APPEND coresrc src/ext/stb/stb_impl.cpp)
-list(APPEND coresrc src/Core/Graphics/GlyphFont.cpp src/Core/Graphics/GlyphFont.h)
+list(APPEND coresrc src/Core/Graphics/GlyphFont.cpp src/Core/Graphics/GlyphFont.h src/Core/Graphics/SystemFonts.h)
 list(APPEND coresrc src/Core/LineDiff.cpp src/Core/LineDiff.h)
 list(APPEND coresrc src/Core/OverviewMap.cpp src/Core/OverviewMap.h)
 list(APPEND coresrc src/Core/Minimap.cpp src/Core/Minimap.h src/Core/UI/Graphics/PixelImage.h)

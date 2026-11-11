@@ -41,6 +41,9 @@ extern "C" {
     DLL_EXPORT int test_jsengine_reloadcmd(ITesting *t);
     DLL_EXPORT int test_jsengine_savecmd(ITesting *t);
     DLL_EXPORT int test_jsengine_closeallcmd(ITesting *t);
+    DLL_EXPORT int test_jsengine_fmfilecmd(ITesting *t);
+    DLL_EXPORT int test_jsengine_fmblockcmd(ITesting *t);
+    DLL_EXPORT int test_jsengine_fmyaml(ITesting *t);
 }
 
 DLL_EXPORT int test_jsengine(ITesting *t) {
@@ -747,5 +750,108 @@ DLL_EXPORT int test_jsengine_closeallcmd(ITesting *t) {
     TR_ASSERT(t, Editor::Instance().GetDocuments().empty());
 
     fs::remove_all(root, ec);
+    return kTR_Pass;
+}
+
+// ---------------------------------------------------------------------------------------------------
+// '.fm_file' / '.fm_block' - reformat from the command line (docs/usability-round.md §8)
+// ---------------------------------------------------------------------------------------------------
+namespace {
+    // A file on disk, opened as the active document (the language follows the extension)
+    Document::Ref OpenTempFile(const std::string &dirName, const std::string &fileName, const std::string &text) {
+        namespace fs = std::filesystem;
+        auto root = fs::canonical(fs::temp_directory_path()) / dirName;
+        std::error_code ec;
+        fs::remove_all(root, ec);
+        fs::create_directories(root);
+        auto path = root / fileName;
+        RewriteFile(path, text);
+        auto doc = Editor::Instance().OpenDocumentFromWorkspace(Editor::Instance().GetWorkspace()->NewDocumentWithFileRef(path));
+        if (doc != nullptr) {
+            gedit::Rect rect(40, 40);
+            doc->OnViewInit(rect);
+        }
+        return doc;
+    }
+
+    void CloseTempFile(const Document::Ref &doc, const std::string &dirName) {
+        namespace fs = std::filesystem;
+        Editor::Instance().CloseDocument(doc);
+        std::error_code ec;
+        fs::remove_all(fs::canonical(fs::temp_directory_path()) / dirName, ec);
+    }
+
+    std::string LineOf(const Document::Ref &doc, size_t idxLine) {
+        return UnicodeHelper::utf32to8(doc->GetTextBuffer()->LineAt(idxLine)->Buffer());
+    }
+}
+
+// '.fm_file' reindents every line (the last one too), and one undo brings the file back
+DLL_EXPORT int test_jsengine_fmfilecmd(ITesting *t) {
+    TR_ASSERT(t, RuntimeConfig::Instance().HasPluginCommand("fm_file"));
+    TR_ASSERT(t, RuntimeConfig::Instance().HasPluginCommand("fmf"));
+    ModalHostFixture host;
+    auto doc = OpenTempFile("goatedit_fmfile_test", "file.cpp", "void f() {\na();\nif (x) {\nb();\n}\n     }\n");
+    TR_ASSERT(t, doc != nullptr);
+    TR_ASSERT(t, doc->IsReindentable());
+
+    TR_ASSERT(t, PluginExecutor::ParseAndExecuteWithCmdPrefix(U".fm_file"));
+    TR_ASSERT(t, LineOf(doc, 0) == "void f() {");
+    TR_ASSERT(t, LineOf(doc, 1) == "    a();");
+    TR_ASSERT(t, LineOf(doc, 3) == "        b();");
+    TR_ASSERT(t, LineOf(doc, 4) == "    }");
+    TR_ASSERT(t, LineOf(doc, 5) == "}");
+
+    doc->OnAction({gedit::kAction::kActionUndo});
+    TR_ASSERT(t, LineOf(doc, 1) == "a();");
+    TR_ASSERT(t, LineOf(doc, 5) == "     }");
+
+    CloseTempFile(doc, "goatedit_fmfile_test");
+    return kTR_Pass;
+}
+
+// '.fm_block' with a selection reindents only the selected lines; without one, the enclosing block
+DLL_EXPORT int test_jsengine_fmblockcmd(ITesting *t) {
+    TR_ASSERT(t, RuntimeConfig::Instance().HasPluginCommand("fmb"));
+    ModalHostFixture host;
+    auto doc = OpenTempFile("goatedit_fmblock_test", "file.cpp", "void f() {\na();\nb();\n}\nvoid g() {\nc();\n}\n");
+    TR_ASSERT(t, doc != nullptr);
+
+    // Shift+Down from the start of line 1: the selection ends at column 0 of line 2, so only line 1 is in it
+    doc->SetCursorPosition(1, 0);
+    EditorAction shiftDown = {.uiAction = gedit::kUIAction::kUIActionLineDown,
+                              .actionModifier = kActionModifier::kActionModifierSelection};
+    doc->OnAction(shiftDown);
+    TR_ASSERT(t, doc->IsSelectionActive());
+    TR_ASSERT(t, PluginExecutor::ParseAndExecuteWithCmdPrefix(U".fmb"));
+    TR_ASSERT(t, LineOf(doc, 1) == "    a();");
+    TR_ASSERT(t, LineOf(doc, 2) == "b();");
+
+    // No selection, caret in g(): its block, not f()'s
+    doc->CancelSelection();
+    doc->SetCursorPosition(5, 0);
+    TR_ASSERT(t, PluginExecutor::ParseAndExecuteWithCmdPrefix(U".fm_block"));
+    TR_ASSERT(t, LineOf(doc, 5) == "    c();");
+    TR_ASSERT(t, LineOf(doc, 2) == "b();");
+
+    CloseTempFile(doc, "goatedit_fmblock_test");
+    return kTR_Pass;
+}
+
+// YAML has reformat off: both commands leave it byte for byte, and the document unmodified
+DLL_EXPORT int test_jsengine_fmyaml(ITesting *t) {
+    ModalHostFixture host;
+    auto doc = OpenTempFile("goatedit_fmyaml_test", "file.yml", "a:\n      b: 1\n  c: |\n        text\n");
+    TR_ASSERT(t, doc != nullptr);
+    TR_ASSERT(t, !doc->IsReindentable());
+
+    TR_ASSERT(t, PluginExecutor::ParseAndExecuteWithCmdPrefix(U".fmf"));
+    TR_ASSERT(t, PluginExecutor::ParseAndExecuteWithCmdPrefix(U".fmb"));
+    TR_ASSERT(t, LineOf(doc, 1) == "      b: 1");
+    TR_ASSERT(t, LineOf(doc, 2) == "  c: |");
+    TR_ASSERT(t, LineOf(doc, 3) == "        text");
+    TR_ASSERT(t, !doc->IsModified());
+
+    CloseTempFile(doc, "goatedit_fmyaml_test");
     return kTR_Pass;
 }

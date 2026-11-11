@@ -20,6 +20,10 @@ void DocumentAPIWrapper::RegisterModule(duk_context *ctx) {
     dukglue_register_method(ctx, &DocumentAPIWrapper::IsModified, "IsModified");
     dukglue_register_method(ctx, &DocumentAPIWrapper::IsChangedOnDisk, "IsChangedOnDisk");
     dukglue_register_method(ctx, &DocumentAPIWrapper::Reload, "Reload");
+    dukglue_register_method(ctx, &DocumentAPIWrapper::ReformatFile, "ReformatFile");
+    dukglue_register_method(ctx, &DocumentAPIWrapper::ReformatBlock, "ReformatBlock");
+    dukglue_register_method(ctx, &DocumentAPIWrapper::IsReformatEnabled, "IsReformatEnabled");
+    dukglue_register_method(ctx, &DocumentAPIWrapper::GetLanguage, "GetLanguage");
 
 
 }
@@ -70,4 +74,32 @@ bool DocumentAPIWrapper::Reload() {
         return false;
     }
     return document->Reload();
+}
+
+bool DocumentAPIWrapper::ReformatFile() {
+    if (document == nullptr) {
+        return false;
+    }
+    return document->ReformatFile();
+}
+
+bool DocumentAPIWrapper::ReformatBlock() {
+    if (document == nullptr) {
+        return false;
+    }
+    return document->ReformatBlock();
+}
+
+bool DocumentAPIWrapper::IsReformatEnabled() {
+    if (document == nullptr) {
+        return false;
+    }
+    return document->IsReformatEnabled();
+}
+
+const std::string DocumentAPIWrapper::GetLanguage() {
+    if (document == nullptr) {
+        return "";
+    }
+    return document->GetLanguage();
 }

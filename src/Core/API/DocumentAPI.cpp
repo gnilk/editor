@@ -82,3 +82,43 @@ bool DocumentAPI::Reload() {
     Editor::Instance().TriggerUIRedraw();
     return true;
 }
+
+bool DocumentAPI::ReformatFile() {
+    if ((document == nullptr) || (document->GetDocument() == nullptr)) {
+        return false;
+    }
+    if (!document->GetDocument()->ReformatFile()) {
+        return false;
+    }
+    Editor::Instance().TriggerUIRedraw();
+    return true;
+}
+
+bool DocumentAPI::ReformatBlock() {
+    if ((document == nullptr) || (document->GetDocument() == nullptr)) {
+        return false;
+    }
+    if (!document->GetDocument()->ReformatSelectionOrBlock()) {
+        return false;
+    }
+    Editor::Instance().TriggerUIRedraw();
+    return true;
+}
+
+bool DocumentAPI::IsReformatEnabled() {
+    if ((document == nullptr) || (document->GetDocument() == nullptr)) {
+        return false;
+    }
+    return document->GetDocument()->IsReindentable();
+}
+
+const std::string DocumentAPI::GetLanguage() {
+    if ((document == nullptr) || (document->GetDocument() == nullptr)) {
+        return "";
+    }
+    auto textBuffer = document->GetDocument()->GetTextBuffer();
+    if ((textBuffer == nullptr) || !textBuffer->HaveLanguage()) {
+        return "";
+    }
+    return textBuffer->GetLanguage().GetConfigNodeName();
+}

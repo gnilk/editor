@@ -33,6 +33,10 @@ namespace gedit {
         bool IsModified();
         bool IsChangedOnDisk();
         bool Reload();
+        bool ReformatFile();
+        bool ReformatBlock();
+        bool IsReformatEnabled();
+        const std::string GetLanguage();
 
         const std::string GetName();
         const std::string GetFileName();

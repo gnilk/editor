@@ -261,22 +261,3 @@ does (CLion finds it through the system's own fallback). Fix: [`system-font-fall
 `/usage` itself is still unexplained.
 2026-11-11: system font fallback merged; `/context` draws in the app. Open: whether `/usage` still fails.
 
----
-
-## 27. Selecting line by line can't select the last line of the file
-
-Filed 2026-11-11 (by the user, while trying YAML reformat). Selecting downward a line at a time (`Shift+Down`,
-`NavigateLineDown` + `SelectionModifier`) never takes in the last line: the selection stops short of it. So the
-last line can't be part of a `ReformatBlock` (`Cmd+I`) or a copy made that way. Not yet reproduced in a test.
-
-**Likely why (not verified):** line-wise selection moves the caret to the same column on the next line, and the
-selection runs to the caret. From the second-to-last line the caret lands *in* the last line, not past it, and on
-the last line there is no next line to move to (`Document::OnActionLineDown` ->
-`VerticalNavigationViewModel::OnNavigateDown`, clamped to `Lines().size()`). Nothing moves the caret to the end of
-the last line, which is what most editors do on `Shift+Down` there. `OnActionReformatBlock` then also drops a line
-whose selection ends at column 0 (`end.x == 0`).
-
-**Fix direction:** `Shift+Down` on the last line moves the caret to its end (and `Shift+Up` on the first line to its
-start). Repro first: a unit test that selects from line 0 with `NavigateLineDown` + selection until the caret stops,
-then asserts the selection covers the whole last line. Related: usability-round §8 (select all is missing).
-

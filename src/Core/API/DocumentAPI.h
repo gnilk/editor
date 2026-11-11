@@ -31,6 +31,13 @@ namespace gedit {
         bool IsChangedOnDisk();
         // Take in what the file holds now, dropping unsaved edits - one undo step, so they can be stepped back to
         bool Reload();
+        // Reformat (docs/usability-round.md §8) - the indent engine does the work, in C++; one undo item each.
+        // False when there is nothing to do: no document, or a language whose reformat is off (YAML).
+        bool ReformatFile();
+        bool ReformatBlock();       // the selection, else the enclosing block, else the line - as Cmd+I
+        bool IsReformatEnabled();
+        // The language's identifier ("cpp", "yaml") - for the scripts' messages
+        const std::string GetLanguage();
 
         const std::string GetName();
         const std::string GetFileName();

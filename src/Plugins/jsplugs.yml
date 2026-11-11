@@ -106,6 +106,16 @@ commands:
     description: Reload active buffer from disk (asks when it has changes not yet saved; '!' reloads anyway)
     script: Scripts/reload.js
   -
+    name: fm_file
+    short: fmf
+    description: Reformat (reindent) the whole active buffer - not for languages where indentation is syntax (YAML)
+    script: Scripts/reformatfile.js
+  -
+    name: fm_block
+    short: fmb
+    description: Reformat (reindent) the selection, else the enclosing block, else the line - as Cmd+I
+    script: Scripts/reformatblock.js
+  -
     name: saveas
     short: sa
     description: Save active buffer with a specific filename

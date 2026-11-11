@@ -649,6 +649,30 @@ bool Document::OnActionReformatLine() {
     return true;
 }
 bool Document::OnActionReformatBlock() {
+    ReformatSelectionOrBlock();
+    return true;
+}
+
+bool Document::IsReindentable() {
+    if (!textBuffer->HaveLanguage()) {
+        return false;
+    }
+    auto table = IndentCache::Instance().GetTableForLanguage(textBuffer->GetLanguage().GetConfigNodeName());
+    return (table != nullptr) && table->isReindentable;
+}
+
+bool Document::ReformatFile() {
+    if (!IsReindentable() || (textBuffer->NumLines() == 0)) {
+        return false;
+    }
+    ReindentLineRange(0, textBuffer->NumLines() - 1);
+    return true;
+}
+
+bool Document::ReformatSelectionOrBlock() {
+    if (!IsReindentable()) {
+        return false;
+    }
     if (IsSelectionActive()) {
         auto start = documentViewState->currentSelection.GetStart();
         auto end = documentViewState->currentSelection.GetEnd();

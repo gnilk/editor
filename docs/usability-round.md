@@ -700,7 +700,7 @@ the selection as data) is a larger API that nothing here needs; it waits for a s
 
 **B. `DocumentAPI::Reformat*` (C++ -> JS)**, following the API pattern (`DocumentAPI` -> `DocumentAPIWrapper` ->
 `RegisterModule`):
-- `ReformatAll()` -> `ReindentLineRange(0, n-1)`.
+- `ReformatFile()` -> `ReindentLineRange(0, n-1)`.
 - `ReformatBlock()` -> the same path as `Cmd+I`: the selection, or else the enclosing block, or else the line. The body
   of `OnActionReformatBlock` moves to a public `Document::ReformatSelectionOrBlock()`, which both the action and the
   API call, so the two can't drift apart.
@@ -708,7 +708,7 @@ the selection as data) is a larger API that nothing here needs; it waits for a s
   That needs an `IsReindentable()` that the scripts can ask through the document, so they can say why.
 
 **C. The scripts** (`jsplugs.yml`, like `reload.js`)
-- `.fm_file` / short `.fmf` -> `Editor.GetActiveDocument().ReformatAll()`.
+- `.fm_file` / short `.fmf` -> `Editor.GetActiveDocument().ReformatFile()`.
 - `.fm_block` / short `.fmb` -> `ReformatBlock()`: the selection when there is one, as `Cmd+I`. (Quick mode doesn't cancel
   the selection. A test confirms it.)
 - `.fm_line` is not added. `.fm_block` with no selection and no enclosing block already reformats the line, and
@@ -725,10 +725,27 @@ test first.
   back; `.fm_block` with a selection only touches those lines; YAML leaves it byte-identical and prints the note.
 - #27: the line-down selection covers the last line.
 
-The mutation checks: a `ReformatAll` that stops at `n-2`, or a select all that ends at column 0 of the last line, fails
+The mutation checks: a `ReformatFile` that stops at `n-2`, or a select all that ends at column 0 of the last line, fails
 these tests.
 
 **Branch:** `feat/select-all-reformat-cmds`, A -> B/C -> D, one commit each. About a day's work at most; no new design
 questions left.
 
 **Decided:** both the long and the short names (`.fmf` / `.fmb`); `Ctrl+A` on Linux is select all.
+
+**Built (2026-11-11), branch `feat/select-all-reformat-cmds`:**
+- **Select all:** `SelectAll` (`Cmd+A` / `Ctrl+A`); `Document::SelectAll`, handled in `OnAction` before `DispatchAction`
+  (which cancels the selection after a handled action).
+- **Bug #27:** `Down` on the last line moves the caret to that line's end, with or without `Shift`, mirroring `Up` on the
+  first line (which already went to its start).
+- **Reformat for scripts:** `Document::ReformatFile` / `ReformatSelectionOrBlock` (`Cmd+I` now calls the latter) /
+  `IsReindentable`. `DocumentAPI` exposes them as `ReformatFile`, `ReformatBlock`, `IsReformatEnabled` and
+  `GetLanguage`.
+- **Commands:** `.fm_file` / `.fmf` (`reformatfile.js`) and `.fm_block` / `.fmb` (`reformatblock.js`).
+- **Tests:**
+  - `document`: `selectall`, `selectall_empty`, `selectall_reformat`, `selectdown_lastline` (it failed before the fix),
+    `selectup_firstline`.
+  - `jsengine`: `fmfilecmd`, `fmblockcmd`, `fmyaml`.
+- **Mutation check:** a `ReformatFile` that stops one line short fails `fmfilecmd`.
+- **Not yet tried in the app:** select all with `Cmd+A` on SDL3. On the terminal version on macOS it stays behind #20, and
+  `.fmf` works there.

@@ -6,6 +6,7 @@
 #include "Core/Config/Config.h"
 #include "Core/Editor.h"
 #include "Core/ClipBoard.h"
+#include "Core/Plugins/PluginExecutor.h"
 
 using namespace gedit;
 
@@ -37,6 +38,8 @@ DLL_EXPORT int test_terminalcontroller_tab_dotcommand(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_tab_dotcommand_wrapped(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_tab_dotcommand_fullrow(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_tab_dotcommand_rprompt(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_tab_dotcommand_retyped(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_tab_dotcommand_scrolled(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_sync_output(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_sync_output_frame(ITesting *t);
 }
@@ -761,5 +764,79 @@ DLL_EXPORT int test_terminalcontroller_tab_dotcommand_rprompt(ITesting *t) {
     up.uiAction = kUIAction::kUIActionLineUp;
     TR_ASSERT(t, f.c.OnAction(up));
     TR_ASSERT(t, f.c.GetInputLine()->Buffer() == std::u32string(U".co"));
+    return kTR_Pass;
+}
+
+// The line is erased after Tab and a dot-command typed in its place - still readline's line, still a dot-command.
+// zsh's own echo, captured from a pty (80x24): the Tab completion, 40 backspaces, then '.q!'.
+DLL_EXPORT int test_terminalcontroller_tab_dotcommand_retyped(ITesting *t) {
+    TerminalController c;
+    c.Resize(80, 24);
+    std::string sent;
+    CaptureInput(c, sent, false);
+    FeedPty(c, "\x1b[1m\x1b[7m%\x1b[27m\x1b[1m\x1b[0m                                                                               \r \r"
+               "\r\x1b[0m\x1b[27m\x1b[24m\x1b[Jgnilk@MacBook-M5 /tmp % \x1b[K\x1b[?2004h");
+    Cursor cursor;
+    size_t line = 0;
+    for (auto ch : std::u32string(U".theme --import ~/Down")) {
+        c.HandleKeyPress(cursor, line, TextKey(ch));
+    }
+    EditorAction complete;
+    complete.action = kAction::kActionShellCompletion;
+    c.OnAction(complete);
+    FeedPty(c, ".\x08.theme --import ~/Downloads\x1b[1m/\x1b[0m");
+    TR_ASSERT(t, c.GetInputLine()->Buffer() == std::u32string(U".theme --import ~/Downloads/"));
+
+    for (int i = 0; i < 40; i++) {
+        c.HandleKeyPress(cursor, line, SpecialKey(Keyboard::kKeyCode_Backspace));
+    }
+    FeedPty(c, "\x08\x1b[0m \x08\x08 \x08\x08 \x08\x08 \x08\x08 \x08\x08 \x08\x08 \x08\x08 \x08\x08 \x08\x08 \x08\x08 \x08\x08 "
+               "\x08\x08\x08 \x08\x08 \x08\x08 \x08\x08 \x08\x08 \x08\x08 \x08\x08 \x08\x08 \x08\x08\x08 \x08\x08 \x08\x08 \x08\x08 "
+               "\x08\x08\x08. \x08\x08 \x08");
+    TR_ASSERT(t, c.GetInputLine()->Buffer().empty());
+    for (auto ch : std::u32string(U".q!")) {
+        c.HandleKeyPress(cursor, line, TextKey(ch));
+    }
+    FeedPty(c, ".\x08.q!");
+    TR_ASSERT(t, c.GetInputLine()->Buffer() == std::u32string(U".q!"));
+    TR_ASSERT(t, PluginExecutor::IsPluginCommandLine(U".q!"));
+    return kTR_Pass;
+}
+
+// The prompt on the bottom row, the line wraps: the screen scrolls and the prompt moves up a row. Erased back to a
+// dot-command that fits, the line is whole again - the anchor follows the prompt (an abs row), not a grid row.
+// Found in the GUI: a narrow terminal panel, '.theme --import ~/Down' + Tab, erased, '.q!' -> zsh: command not found.
+DLL_EXPORT int test_terminalcontroller_tab_dotcommand_scrolled(ITesting *t) {
+    TerminalController c;
+    c.Resize(12, 4);
+    std::string sent;
+    CaptureInput(c, sent, false);
+    auto *prevConsole = RuntimeConfig::Instance().OutputConsole();
+    c.RegisterAsOutputConsole();
+    FeedPty(c, "$ ");
+    c.GetInputLine()->Append(std::u32string(U"make"));
+    c.CommitLine();
+    FeedPty(c, "make\r\nerror: x\r\nb\r\n$ ");          // the prompt on the bottom row (3)
+    Editor::Instance().GetClipBoard().CopyText(U"before");
+
+    Cursor cursor;
+    size_t line = 0;
+    c.HandleKeyPress(cursor, line, TextKey(U'.'));
+    EditorAction complete;
+    complete.action = kAction::kActionShellCompletion;
+    c.OnAction(complete);
+    FeedPty(c, ".co aaaaaaaa");                         // 14 columns: wraps, the screen scrolls, the prompt is row 2
+    TR_ASSERT(t, c.GetScreen().GetCursorPos().y == 3);
+    FeedPty(c, "\x1b[A\x1b[6G\x1b[J");                  // erased back to '.co': up to the prompt's row, clear below
+    sent.clear();
+
+    EditorAction commit;
+    commit.uiAction = kUIAction::kUIActionCommitLine;
+    commit.keyPress = SpecialKey(Keyboard::kKeyCode_Return);
+    TR_ASSERT(t, c.ForwardActionToShell(commit));
+    RuntimeConfig::Instance().SetOutputConsole(prevConsole);
+    TR_ASSERT(t, sent == "\x05\x15\r");
+    auto top = Editor::Instance().GetClipBoard().Top();
+    TR_ASSERT(t, (top != nullptr) && (top->AsText() == U"error: x\nb"));
     return kTR_Pass;
 }

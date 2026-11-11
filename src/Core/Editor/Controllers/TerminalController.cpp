@@ -305,19 +305,21 @@ void TerminalController::SyncTimerLoop() {
 
 void TerminalController::SyncInputLineFromGrid() {
     // readline owns the line and echoes its edits into the grid. Read the prompt row
-    // back from promptAnchor.x (the prompt end) up to the trailing content and mirror
+    // back from promptAnchorCol (the prompt end) up to the trailing content and mirror
     // it into inputLine. Caret column is the grid cursor relative to the prompt end.
     auto cursorPos = screen.GetCursorPos();
-    if (cursorPos.y != promptAnchor.y) {
-        // The prompt moved (the line wrapped, or a candidate list redrew it lower).
-        // Re-anchoring is the ambiguous-completion case — deferred. Leave the mirror
-        // as-is, but it no longer holds the whole line.
+    // The prompt's row by its abs id: when the line wraps on the bottom row the screen scrolls and the prompt moves
+    // up a grid row - it is still the prompt's row once the line is erased back onto it.
+    if (screen.AbsRowCount() != promptAnchorAbs) {
+        // The cursor is off the prompt's row (the line wrapped, or a candidate list
+        // redrew the prompt lower). Re-anchoring is the ambiguous-completion case —
+        // deferred. Leave the mirror as-is, but it no longer holds the whole line.
         isLineMirrorValid = false;
         return;
     }
 
     const auto &row = screen.GetRow(cursorPos.y);
-    int start = std::clamp(promptAnchor.x, 0, (int)row.size());
+    int start = std::clamp(promptAnchorCol, 0, (int)row.size());
     int end   = (int)row.size();
     // Trim trailing blanks so we don't carry the rest of the (padded) grid row.
     while (end > start && row[end - 1].ch == U' ') {
@@ -335,7 +337,7 @@ void TerminalController::SyncInputLineFromGrid() {
 
     inputLine->Clear();
     inputLine->Append(lineText);
-    inputCursor.position.x = std::clamp(cursorPos.x - promptAnchor.x, 0, (int)inputLine->Length());
+    inputCursor.position.x = std::clamp(cursorPos.x - promptAnchorCol, 0, (int)inputLine->Length());
 }
 
 //
@@ -732,7 +734,8 @@ std::optional<std::u32string> TerminalController::GetLastOutputText() {
 // readline takes the line. Until its echo arrives, inputLine (what was typed) is the line.
 void TerminalController::EnterShellOwned() {
     std::lock_guard<std::mutex> guard(screenLock);
-    promptAnchor = screen.GetCursorPos();
+    promptAnchorCol = screen.GetCursorPos().x;
+    promptAnchorAbs = screen.AbsRowCount();
     isLineMirrorValid = true;
     doesShellOwnLineEditing = true;
 }

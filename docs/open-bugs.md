@@ -224,7 +224,8 @@ cursor, and only while `isLineMirrorValid` (cursor on the prompt's row, row not 
 its own line. **Fix direction:** record the same text the dot-command check uses (up to the cursor), and skip the
 history entry when the mirror isn't valid rather than recording a stale one. Limits shared with the dot-command
 path: Enter with the cursor mid-line drops the text after it; vi-mode readline may not clear the line with
-`Ctrl+E Ctrl+U`.
+`Ctrl+E Ctrl+U`; an Enter handled before the shell's echo of the last keys arrives reads the line without them
+(not seen in practice - zsh echoes within the same pass; a dot-command then falls back to the shell).
 
 ---
 

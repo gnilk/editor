@@ -222,10 +222,12 @@ namespace gedit {
 #else
         bool isAltArrowsAsWords = false;
 #endif
-        // Grid cell where the prompt ends, captured on the local->shell-owned transition (the real
-        // grid cursor stays parked there while editing locally, since local edits never touch the
-        // grid). Used to read the line back.
-        Point promptAnchor = {};
+        // Where the prompt ends, captured on the local->shell-owned transition (the real grid cursor
+        // stays parked there while editing locally, since local edits never touch the grid). Used to
+        // read the line back. The row is an abs id (TerminalScreen::AbsRowCount), so it follows the
+        // prompt when the screen scrolls under it. Under screenLock.
+        int promptAnchorCol = 0;
+        uint64_t promptAnchorAbs = 0;
         // The mirror in inputLine is the whole of readline's line: the cursor is on the prompt's row and the row
         // doesn't run to its last column (where the line may go on below). A dot-command runs from the mirror only
         // while this holds - otherwise the shell gets its own line. Under screenLock.

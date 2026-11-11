@@ -47,7 +47,7 @@ static const std::unordered_map<kLanguageTokenClass, std::string> tokenNames = {
         {kLanguageTokenClass::kBlockQuote, "block_quote"},
         {kLanguageTokenClass::kLink, "link"},
         {kLanguageTokenClass::kRule, "rule"},
-        {kLanguageTokenClass::kKey, "key"},
+        {kLanguageTokenClass::kConfigKey, "config_key"},
         // Semantic classes - a theme without them falls back to 'regular' (Editor::ConfigureTheme)
         {kLanguageTokenClass::kUserType, "user_type"},
         {kLanguageTokenClass::kFunction, "function"},

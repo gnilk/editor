@@ -34,6 +34,9 @@ namespace gedit {
             kNone,          // No action - this is used by EOL states..
             kPushState,
             kPopState,
+            // Push at END of line, and only if no other token follows on the line (a comment may). For a
+            // header that opens a multi-line construct only when it ends the line - YAML's 'key: |'.
+            kPushStateAtEOL,
         };
 
         struct Action {
@@ -131,6 +134,14 @@ namespace gedit {
             std::unordered_map<std::u32string, Action> actions;
             Action eolAction = {.action = kAction::kNone, .stateName = ""};
 
+            // An indent-scoped state ends at the start of the first non-blank line indented no deeper than
+            // the line that pushed it (YAML block scalars). Blank lines never end it.
+            bool isIndentScoped = false;
+
+            void SetIndentScoped(bool newIsIndentScoped) {
+                isIndentScoped = newIsIndentScoped;
+            }
+
             void SetRegularTokenClass(kLanguageTokenClass newRegularClass) {
                 regularTokenClass = newRegularClass;
             }
@@ -140,7 +151,7 @@ namespace gedit {
             //
             const Action &GetOrAddAction(const std::u32string &token, kAction action, const char *nextState = nullptr) {
                 if (actions.find(token) == actions.end()) {
-                    if ((action == kAction::kPushState) && (nextState == nullptr)) {
+                    if (((action == kAction::kPushState) || (action == kAction::kPushStateAtEOL)) && (nextState == nullptr)) {
                         fprintf(stderr, "ERR: PushState can't push nullptr as state name\n");
                         exit(1);
                     }
@@ -259,8 +270,16 @@ namespace gedit {
         using PostLineCallback = std::function<void(const Line::Ref &)>;
         void SetPostLineCallback(PostLineCallback newCallback) { postLineCallback = std::move(newCallback); }
 
+        // The indent an indent-scoped state records when it is pushed, from the pushing line. Default: the
+        // line's leading blanks. A language can say better - in YAML the scope of '- key: |' is the key's
+        // column, not the dash's. Ending the scope always compares plain leading blanks against it.
+        using ScopeIndentFunction = std::function<int(const std::u32string &line)>;
+        void SetScopeIndentFunction(ScopeIndentFunction newFunction) { scopeIndentFunction = std::move(newFunction); }
+
     protected:
         bool ResetStateStack();
+        void PopIndentScopedStates(const std::u32string &line);
+        int ScopeIndentOf(const std::u32string &line) const;
 
         void ParseLineWithCurrentState(std::vector<LangToken> &tokens, const std::u32string &input);
 
@@ -273,12 +292,21 @@ namespace gedit {
 
         // State stack manipulation - internal!
         bool PushState(const char *stateName);
-        void PushState(State::Ref state);
+        void PushState(State::Ref state, int scopeIndent = -1);
         State::Ref PopState();
         State::Ref CurrentState();
 
     protected:
         std::string startState = "main";
         PostLineCallback postLineCallback = nullptr;
+        ScopeIndentFunction scopeIndentFunction = nullptr;
+
+        // Runs in lockstep with stateStack: the scope indent of each pushed state, -1 if not indent-scoped.
+        std::stack<int> scopeIndents;
+
+        // A kPushStateAtEOL seen on the current line, waiting for end of line (empty = none), and the stack
+        // depth it was seen at - a later token at that depth (not a comment) cancels it.
+        std::string pendingEOLPush;
+        size_t pendingEOLPushDepth = 0;
     };
 }

@@ -58,7 +58,7 @@
       "block_quote": "var(blue6)",
       "link": "var(blue)",
       "rule": "var(grey3)",
-      "key": "var(red)",
+      "config_key": "var(blue5)",
       "selection": "var(blue2)",
       "funky": "var(white3)"
     },
@@ -86,7 +86,7 @@
       "block_quote": "var(blue6)",
       "link": "var(blue)",
       "rule": "var(grey3)",
-      "key": "var(red)",
+      "config_key": "var(blue5)",
       "user_type": "var(blue5)",
       "function": "var(blue)",
       "member": "var(lilac)",

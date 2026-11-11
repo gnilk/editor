@@ -40,7 +40,7 @@ namespace gedit {
         kRule = 26,             // horizontal rule / thematic break
         // Data / config classes (YAML, later JSON). Must stay BEFORE the semantic block: [kUserType,
         // kLastTokenClass) is treated as "semantic" (SemanticNames::IsSemanticClass).
-        kKey = 27,              // a mapping / property key ('key:' in YAML)
+        kConfigKey = 27,        // a key in a config / data file (YAML 'key:', later JSON) - not a hash-map or crypto key
         // Semantic classes - an identifier the code index knows (docs/code-index.md §10.1). The tokenizer
         // never produces these; a 'regular' identifier is reclassified after the line is parsed.
         kUserType = 28,         // class / struct / union / enum / alias

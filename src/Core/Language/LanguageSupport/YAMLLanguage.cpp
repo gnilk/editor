@@ -14,8 +14,12 @@
 
 using namespace gedit;
 
-// state: main
-static const std::u32string yamlOperators = U": , { } [ ]";
+// Forward declaration - Initialize reads top-down, the helper follows it.
+static int blockScalarScopeIndent(const std::u32string &line);
+
+// state: main. Block scalar headers first: the list matches in order, so '|-' must come before '|'.
+static const std::u32string yamlBlockHeaders = U"|- |+ >- >+ | >";
+static const std::u32string yamlOperators = U"|- |+ >- >+ | > : , { } [ ]";
 // What ends a plain word: 'key:' is 'key' + ':', '[a,b]' splits at the commas. Never '#' or quotes (above).
 static const std::u32string yamlMainPostfix = U": , { } [ ]";
 static const std::u32string yamlComment = U"#";
@@ -39,6 +43,19 @@ bool YAMLLanguage::Initialize() {
     state->GetOrAddAction(U"#", LangLineTokenizer::kAction::kPushState, "in_comment");
     state->GetOrAddAction(U"\"", LangLineTokenizer::kAction::kPushState, "in_dq_string");
     state->GetOrAddAction(U"'", LangLineTokenizer::kAction::kPushState, "in_sq_string");
+
+    // Block scalars ('key: |' / 'key: >' and their chomping variants): only a header when it ends the line
+    // (a comment may follow) - 'a > b' is plain text. The body is every following line indented deeper than
+    // the key, blank lines included (§4 of the plan).
+    std::vector<std::u32string> headers;
+    strutil::splitToStringList(headers, yamlBlockHeaders);
+    for (auto &header : headers) {
+        state->GetOrAddAction(header, LangLineTokenizer::kAction::kPushStateAtEOL, "in_block_scalar");
+    }
+    auto stateBlock = tokenizer.GetOrAddState("in_block_scalar");
+    stateBlock->SetRegularTokenClass(kLanguageTokenClass::kString);
+    stateBlock->SetIndentScoped(true);
+    tokenizer.SetScopeIndentFunction(blockScalarScopeIndent);
 
     // A comment runs to end of line.
     auto stateComment = tokenizer.GetOrAddState("in_comment");
@@ -67,6 +84,30 @@ bool YAMLLanguage::Initialize() {
     ConfigFromNodeName("yaml");
 
     return true;
+}
+
+// The indent a block scalar's body must exceed: the column of the key that owns it. '- key: |' -> the key's
+// column (past the list markers); '- |' -> the dash's column; 'key: |' -> the line's indent.
+static int blockScalarScopeIndent(const std::u32string &line) {
+    int n = static_cast<int>(line.size());
+    auto isBlank = [](char32_t ch) { return (ch == U' ') || (ch == U'\t'); };
+    int pos = 0;
+    while ((pos < n) && isBlank(line[pos])) {
+        pos++;
+    }
+    int lastDash = -1;
+    while ((pos < n) && (line[pos] == U'-') && ((pos + 1 == n) || isBlank(line[pos + 1]))) {
+        lastDash = pos;
+        pos++;
+        while ((pos < n) && isBlank(line[pos])) {
+            pos++;
+        }
+    }
+    bool isHeaderOnly = (pos < n) && ((line[pos] == U'|') || (line[pos] == U'>'));
+    if (isHeaderOnly && (lastDash >= 0)) {
+        return lastDash;
+    }
+    return pos;
 }
 
 //
@@ -179,7 +220,7 @@ void YAMLLinePass::ClassifyEntry(int pos) {
     if (sep >= 0) {
         int keyEnd = TrimEnd(pos, sep);
         if (keyEnd > pos) {
-            Reclassify(pos, keyEnd, kLanguageTokenClass::kKey);
+            Reclassify(pos, keyEnd, kLanguageTokenClass::kConfigKey);
         }
         pos = SkipBlanks(sep + 1, commentStart);
     }
@@ -236,7 +277,7 @@ void YAMLLinePass::ClassifyFlowPiece(int start, int end, bool isKey) {
         return;
     }
     if (isKey) {
-        Reclassify(start, pieceEnd, kLanguageTokenClass::kKey);
+        Reclassify(start, pieceEnd, kLanguageTokenClass::kConfigKey);
         return;
     }
     int pos = SkipProperties(start, pieceEnd);

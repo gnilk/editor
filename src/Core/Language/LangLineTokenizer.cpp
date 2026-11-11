@@ -148,6 +148,7 @@ size_t LangLineTokenizer::TokenizeText(const std::u32string &text, const TokenSi
 
         // As ParseLine: an empty line leaves the state stack alone
         if (!line.empty()) {
+            PopIndentScopedStates(line);
             tokens.clear();
             ParseLineWithCurrentState(tokens, line);
             for (auto &token : tokens) {
@@ -173,6 +174,8 @@ void LangLineTokenizer::ParseLine(const Line::Ref l, int &nextIndent) {
     std::vector<LangToken> tokens;
     int currentIndentCounter = nextIndent;
 
+    // Before stamping the depth: the line that ends an indent-scoped construct is itself clean
+    PopIndentScopedStates(l->Buffer());
     l->SetStateStackDepth((int)stateStack.size());
 
     if (l->Buffer().empty()) {
@@ -253,6 +256,7 @@ void LangLineTokenizer::ParseLineWithCurrentState(std::vector<LangToken> &tokens
     std::u32string nextToken;
     //char *parsepoint = (char *) input;
     auto it = input.begin();
+    pendingEOLPush.clear();
 
     while(true) {
         // Raw pointers in the per-token path: the states are owned by 'states' and live as long as the
@@ -281,7 +285,18 @@ void LangLineTokenizer::ParseLineWithCurrentState(std::vector<LangToken> &tokens
         int pos = static_cast<int>(it - input.begin());
         pos -= nextToken.size();
 
+        // Anything after a push-at-EOL header on the same level, other than a comment or another header,
+        // means it wasn't one. Depth is taken BEFORE the token's own action ('| "x"' pushes a string).
+        bool isFollowingHeader = !pendingEOLPush.empty() && (stateStack.size() == pendingEOLPushDepth);
+        bool isHeader = false;
+        if (isFollowingHeader) {
+            auto action = currentState->GetAction(nextToken);
+            isHeader = (action != nullptr) && (action->action == kAction::kPushStateAtEOL);
+        }
         classification = CheckExecuteActionForToken(currentState, nextToken, classification);
+        if (isFollowingHeader && !isHeader && (classification != kLanguageTokenClass::kLineComment)) {
+            pendingEOLPush.clear();
+        }
 
         // If this is regular text - reclassify it depending on the state (this allows for comments/string and other
         // encapsulation statements to override... (#include)
@@ -303,17 +318,53 @@ void LangLineTokenizer::ParseLineWithCurrentState(std::vector<LangToken> &tokens
         }
         PopState();
     }
+
+    // A push-at-EOL header that nothing followed opens its construct now
+    if (!pendingEOLPush.empty() && (stateStack.size() == pendingEOLPushDepth) && HasState(pendingEOLPush.c_str())) {
+        PushState(states[pendingEOLPush], ScopeIndentOf(input));
+    }
+    pendingEOLPush.clear();
+}
+
+//
+// At the start of a non-blank line: end every indent-scoped state the line is not indented deeper than.
+// Called by ParseLine and TokenizeText alike, so the highlighter and the index never disagree.
+//
+void LangLineTokenizer::PopIndentScopedStates(const std::u32string &line) {
+    size_t indent = 0;
+    while ((indent < line.size()) && ((line[indent] == U' ') || (line[indent] == U'\t'))) {
+        indent++;
+    }
+    if (indent == line.size()) {
+        return;     // blank lines belong to the construct
+    }
+    while ((stateStack.size() > 1) && stateStack.top()->isIndentScoped && (static_cast<int>(indent) <= scopeIndents.top())) {
+        PopState();
+    }
+}
+
+int LangLineTokenizer::ScopeIndentOf(const std::u32string &line) const {
+    if (scopeIndentFunction != nullptr) {
+        return scopeIndentFunction(line);
+    }
+    int indent = 0;
+    while ((indent < static_cast<int>(line.size())) && ((line[indent] == U' ') || (line[indent] == U'\t'))) {
+        indent++;
+    }
+    return indent;
 }
 
 //
 // Reset the state stack, empty any left-overs (this is not good) and set the proper start state..
 //
 bool LangLineTokenizer::ResetStateStack() {
-    if (!stateStack.empty()) {
-        while(!stateStack.empty()) {
-            stateStack.pop();
-        }
+    while (!stateStack.empty()) {
+        stateStack.pop();
     }
+    while (!scopeIndents.empty()) {
+        scopeIndents.pop();
+    }
+    pendingEOLPush.clear();
 
     if (!HasState(startState.c_str())) {
         // This is developer related, we can exit here...
@@ -363,6 +414,10 @@ kLanguageTokenClass LangLineTokenizer::CheckExecuteActionForToken(State *current
     } else if (action->action == kAction::kPushState) {
         // printf("PushState, %s -> %s (at token: %s)\n", currentState->name.c_str(), action->stateName.c_str(), token);
         PushState(action->stateName.c_str());
+    } else if (action->action == kAction::kPushStateAtEOL) {
+        // Deferred to the end of the line - see ParseLineWithCurrentState
+        pendingEOLPush = action->stateName;
+        pendingEOLPushDepth = stateStack.size();
     }
 
     return tokenClass;
@@ -545,13 +600,15 @@ bool LangLineTokenizer::PushState(const char *stateName) {
     return true;
 }
 
-void LangLineTokenizer::PushState(State::Ref state) {
+void LangLineTokenizer::PushState(State::Ref state, int scopeIndent) {
     stateStack.push(state);
+    scopeIndents.push(state->isIndentScoped ? scopeIndent : -1);
 }
 
 LangLineTokenizer::State::Ref LangLineTokenizer::PopState() {
     auto top = stateStack.top();
     stateStack.pop();
+    scopeIndents.pop();
     return top;
 }
 

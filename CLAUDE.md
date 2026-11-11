@@ -69,7 +69,7 @@ cd cmake-build-debug && trun -l ./libutests.so                     # list
 
 Test source files live in `utests/`. Each `test_<module>.cpp` corresponds to one module; `test_main.cpp` initializes the editor singleton for all tests. Test functions are `extern "C"` (or `DLL_EXPORT`) and discovered by exported symbol name — adding a new case is just a new function (+ a forward declaration where the file uses one).
 
-**Verified-green set** (673 tests, run from `cmake-build-debug/`):
+**Verified-green set** (684 tests, run from `cmake-build-debug/`):
 `trun -m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,keymapping,hexprojection,bytestream,hexview,indent,session,markdown,folderscanner,foldermonitor,treeview,textbuffer,mouseclicktracker,wrapprojection,config,modal,find,codeindex,themeimport,exclusion,process,gitstatus,reload,openfiles,glyphfont,yamllang --sequential ./libutests.so`
 
 **Terminal library tests** are a separate trun lib, `gvttests` (`src/ext/gvt`, built on demand):
@@ -153,7 +153,7 @@ see below).
 Each backend implements `ScreenBase`, `NativeWindow`, and `DrawContext` interfaces. SDL3 sources are kept in parallel with SDL2. NCurses sources exist but are out of the build. `SDLFontManager` uses stb_truetype (`ext/stbttf.h`) for TTF rendering. The editor renders into a character grid: `SDLScreen::ComputeScalingFactors` derives `rows`/`cols` from pixel size and font metrics; views lay out in character cells.
 
 ### Language / Syntax Highlighting (`src/Core/Language/`)
-`LanguageBase` is the interface. `LangLineTokenizer` uses a stack-based tokenizer configured per-language. Concrete languages: `CPPLanguage`, `JSONLanguage`, `MakeBuildLang`, `MarkdownLanguage`, `DefaultLanguage`. Language selection is driven by file extension via `Config`.
+`LanguageBase` is the interface. `LangLineTokenizer` uses a stack-based tokenizer configured per-language. Two hooks beyond push/pop: `kPushStateAtEOL` (a header that opens a construct only when it ends the line) and indent-scoped states (`State::SetIndentScoped`, ended at the start of the first non-blank line indented no deeper than the pusher - YAML block scalars; the pop runs before the depth stamp, in both `ParseLine` and `TokenizeText`). Concrete languages: `CPPLanguage`, `JSONLanguage`, `MakeBuildLang`, `MarkdownLanguage`, `YAMLLanguage`, `DefaultLanguage`. Language selection is driven by file extension via `Config`.
 
 ### Plugin / Scripting (`src/Core/JSEngine/`)
 Embeds Duktape 2.7.0 (`src/ext/duktape-2.7.0/`). `JSPluginEngine` loads `.js` files from the `resources/Plugins/` directory. JS API wrappers live in `src/Core/JSEngine/Modules/` and expose `DocumentAPI`, `EditorAPI`, `ThemeAPI`, `ViewAPI`, etc. Plugin JS source lives in `src/Plugins/`.

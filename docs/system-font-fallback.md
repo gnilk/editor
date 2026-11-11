@@ -1,6 +1,6 @@
 # System font fallback
 
-**Status:** merged to main 2026-11-11; macOS verified (tests + the app draws `/context`). Linux/SDL2 + fontconfig unchecked.
+**Status:** merged to main 2026-11-11; macOS verified (tests + the app draws `/context`). Linux/SDL2 + fontconfig verified 2026-11-11.
 
 ## Why
 

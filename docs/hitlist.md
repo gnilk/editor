@@ -6,11 +6,13 @@ When one is done, strike it through here and add a line in `work-log.md`.
 ## 0. First, on Linux (SDL2) - checks of what is already merged
 
 Nothing has been tried on the Linux box since these landed:
-- [ ] Build `goatedit` and run the verified-green set (701) with SDL2.
-- [ ] YAML highlighting, Enter auto-indent, `.fmf` in a `.yml` printing "Reformat is off" (`support-yaml.md`).
-- [ ] Select all with `Ctrl+A`, then `Ctrl+I`; `Shift+Down` taking in the last line (usability §8, former bug #27).
-- [ ] `.fmf` / `.fmb` on a C++ file.
-- [ ] The system font fallback on Linux (fontconfig) - still open from `system-font-fallback.md`.
+- [x] Build `goatedit` and run the verified-green set (701) with SDL2. (2026-11-11: 701 run, 0 failed)
+- [x] YAML highlighting, Enter auto-indent, `.fmf` in a `.yml` printing "Reformat is off" (`support-yaml.md`).
+- [x] Select all with `Ctrl+A`, then `Ctrl+I`; `Shift+Down` taking in the last line (usability §8, former bug #27).
+- [x] `.fmf` / `.fmb` on a C++ file.
+- [x] The system font fallback on Linux (fontconfig) (`system-font-fallback.md`).
+
+All of section 0 checked on 2026-11-11 (SDL2). The YAML, select all and `.fmf`/`.fmb` checks were also tried over SSH in the ANSI backend.
 
 ## 1. Small - an hour or two each
 

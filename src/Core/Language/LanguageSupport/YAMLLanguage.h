@@ -32,6 +32,7 @@ namespace gedit {
         }
 
         void OnPostProcessParsedLine(Line::Ref line) override;
+        int GetContinuationColumn(std::u32string_view lineBeforeCursor) override;
     };
 }
 

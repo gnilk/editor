@@ -24,6 +24,9 @@ namespace gedit {
         std::set<char32_t> indentAfter;             // a line ENDING with one of these => next line +1 level
         std::set<char32_t> dedentOn;                // a line STARTING with one of these => that line -1 level
         std::set<kLanguageTokenClass> suppressIn;   // token classes (string/comment) where electric is OFF
+        // Reformat may rewrite indentation. Off where indentation IS the syntax (YAML): nothing closes a
+        // 'key:', so the opener/closer walk would staircase the file - reformat leaves every line alone.
+        bool isReindentable = true;
 
         // Empty == no language rules; the engine just copies the previous indent and never dedents on type.
         bool IsEmpty() const {

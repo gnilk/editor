@@ -8,6 +8,21 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## YAML language support (2026-11-11) ✅
+
+`.yml`/`.yaml` highlighting and editing. **Shipped:** `YAMLLanguage` - comments and quoted strings in the
+tokenizer; keys, list markers, document markers, typed scalars (`true`, `8080` - only as the whole value),
+anchors/aliases/tags and one-line flow collections in a post-pass; block scalars (`run: |`) through two
+general tokenizer additions (`kPushStateAtEOL`, indent-scoped states); Enter indents after `key:` and lines
+up with an item's key after `- name: x`. Verified by the user in the app (ANSI backend). **Load-bearing
+decisions:** a new class `kConfigKey` (not `kKey` - too generic; placed before the semantic block, which
+`[kUserType, kLastTokenClass)` defines), teal like C++ class names (red read as errors); a block scalar's scope
+is the key's column, not the line's indent (`- run: |` must end at its sibling `name:`); the indent-scope pop
+runs before the depth stamp, in both `ParseLine` and `TokenizeText`; reformat leaves YAML alone (`reindent: no`)
+- nothing closes a `key:`, so the opener walk would staircase the file. Detail: [`support-yaml.md`](support-yaml.md).
+
+---
+
 ## Install layout and asset lookup (2026-11-09)
 
 The Linux build only started from inside its build dir: system assets were looked up in `./resources/`
@@ -340,10 +355,6 @@ drop both Gansi stopgaps. SDL/JS/serialization unchanged (alpha ≤ 1 ⇒ no wra
 
 ## Planned / not started
 
-- **YAML syntax highlighting** (2026-11-11) - `.yml`/`.yaml` as a new `YAMLLanguage`, following the Markdown split:
-  comments and strings in the tokenizer, keys / list markers / typed scalars in the post-pass with a new `kKey`
-  class, block scalars (`key: |`) through a small indent-scoped tokenizer state. Four phases, each shippable.
-  Detail: [`support-yaml.md`](support-yaml.md).
 
 - **System font fallback** (2026-11-11) - after the theme font and `sdl.font_fallback`, ask the system (CoreText /
   fontconfig) for a font with the character, behind `sdl.system_font_fallback` (default on). Prompted by open-bugs #26

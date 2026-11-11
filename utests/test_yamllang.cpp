@@ -10,6 +10,7 @@
 #include "Core/Language/LanguageBase.h"
 #include "Core/TextBuffer.h"
 #include "Core/Language/LangLineTokenizer.h"
+#include "Core/Language/IndentCache.h"
 
 using namespace gedit;
 
@@ -52,6 +53,12 @@ DLL_EXPORT int test_yamllang_block_header_with_comment(ITesting *t);
 DLL_EXPORT int test_yamllang_block_region_edit_inside(ITesting *t);
 DLL_EXPORT int test_yamllang_block_region_remove_header(ITesting *t);
 DLL_EXPORT int test_yamllang_block_tokenizetext_agrees(ITesting *t);
+DLL_EXPORT int test_yamllang_continuation_column(ITesting *t);
+DLL_EXPORT int test_yamllang_enter_after_key(ITesting *t);
+DLL_EXPORT int test_yamllang_enter_after_list_key(ITesting *t);
+DLL_EXPORT int test_yamllang_enter_after_list_scalar(ITesting *t);
+DLL_EXPORT int test_yamllang_enter_after_block_header(ITesting *t);
+DLL_EXPORT int test_yamllang_reformat_leaves_yaml(ITesting *t);
 }
 
 // The class effective at char index 'pos' (attributes are ascending spans).
@@ -537,5 +544,94 @@ DLL_EXPORT int test_yamllang_block_tokenizetext_agrees(ITesting *t) {
         }
     }
     TR_ASSERT(t, sawNext);
+    return kTR_Pass;
+}
+
+//
+// Phase 4 - editing: indent.yml 'yaml' section (the shipped asset), the continuation column, reformat off
+//
+DLL_EXPORT int test_yamllang_continuation_column(ITesting *t) {
+    auto yaml = Editor::Instance().GetLanguageForExtension(".yml");
+    TR_ASSERT(t, yaml->GetContinuationColumn(U"- name: x") == 2);
+    TR_ASSERT(t, yaml->GetContinuationColumn(U"    - run: |") == 6);
+    TR_ASSERT(t, yaml->GetContinuationColumn(U"- - key:") == 4);
+    TR_ASSERT(t, yaml->GetContinuationColumn(U"- item") == -1);             // back at the dash for '- next'
+    TR_ASSERT(t, yaml->GetContinuationColumn(U"- \"a: b\"") == -1);       // the ':' is inside a string
+    TR_ASSERT(t, yaml->GetContinuationColumn(U"- url#x: y") == 2);          // '#' mid-word is no comment
+    TR_ASSERT(t, yaml->GetContinuationColumn(U"- a # b: c") == -1);         // ...but after a blank it is
+    TR_ASSERT(t, yaml->GetContinuationColumn(U"key: v") == -1);             // no list marker: default
+    return kTR_Pass;
+}
+
+// A .yml document parsed with the shipped indent.yml; Enter at the end of the last line
+static std::u32string enterAtEnd(ITesting *t, std::initializer_list<const char *> lines) {
+    IndentCache::Instance().Clear();        // the shipped indent.yml, not a test's table
+    auto workspace = Editor::Instance().GetWorkspace();
+    auto node = workspace->NewDocument("enter.yml");
+    auto document = node->GetDocument();
+    gedit::Rect rect(40, 40);
+    document->OnViewInit(rect);
+    auto buffer = node->GetTextBuffer();
+    buffer->DeleteLineAt(0);
+    for (auto l : lines) {
+        buffer->AddLineUTF8(l);
+    }
+    buffer->Reparse();
+
+    auto &lc = document->GetLineCursor();
+    lc.idxActiveLine = buffer->NumLines() - 1;
+    lc.cursor.position.x = (int)buffer->LineAt(lc.idxActiveLine)->Buffer().size();
+    lc.idxActiveLine = document->NewLine(lc.idxActiveLine, lc.cursor);
+    auto result = document->ActiveLine()->Buffer();
+    workspace->RemoveDocument(document);
+    return result;
+}
+
+DLL_EXPORT int test_yamllang_enter_after_key(ITesting *t) {
+    TR_ASSERT(t, enterAtEnd(t, {"jobs:"}) == U"  ");
+    TR_ASSERT(t, enterAtEnd(t, {"jobs:", "  build:"}) == U"    ");
+    TR_ASSERT(t, enterAtEnd(t, {"name: Build"}) == U"");                    // a value: same level
+    return kTR_Pass;
+}
+
+// The GitHub Actions shape: after '- name: x' the next key of the same item lines up with 'name'
+DLL_EXPORT int test_yamllang_enter_after_list_key(ITesting *t) {
+    TR_ASSERT(t, enterAtEnd(t, {"steps:", "  - name: x"}) == U"    ");
+    TR_ASSERT(t, enterAtEnd(t, {"- key:"}) == U"    ");                      // a child of 'key'
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_yamllang_enter_after_list_scalar(ITesting *t) {
+    TR_ASSERT(t, enterAtEnd(t, {"items:", "  - a"}) == U"  ");               // at the dash, for '- b'
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_yamllang_enter_after_block_header(ITesting *t) {
+    TR_ASSERT(t, enterAtEnd(t, {"run: |"}) == U"  ");
+    TR_ASSERT(t, enterAtEnd(t, {"  - run: >"}) == U"      ");                 // deeper than 'run'
+    return kTR_Pass;
+}
+
+// Reformat must not touch YAML - indentation is its structure (an opener walk would staircase it)
+DLL_EXPORT int test_yamllang_reformat_leaves_yaml(ITesting *t) {
+    IndentCache::Instance().Clear();
+    auto workspace = Editor::Instance().GetWorkspace();
+    auto node = workspace->NewDocument("reformat.yml");
+    auto document = node->GetDocument();
+    gedit::Rect rect(40, 40);
+    document->OnViewInit(rect);
+    auto buffer = node->GetTextBuffer();
+    buffer->DeleteLineAt(0);
+    std::vector<std::u32string> lines = {U"a:", U"  b: 1", U"c:", U"   odd: 2", U"d: 3"};
+    for (auto &l : lines) {
+        buffer->AddLineUTF8(UnicodeHelper::utf32to8(l).c_str());
+    }
+    buffer->Reparse();
+
+    document->ReindentLineRange(0, lines.size() - 1);
+    for (size_t i = 0; i < lines.size(); i++) {
+        TR_ASSERT(t, document->LineAt(i)->Buffer() == lines[i]);
+    }
+    TR_ASSERT(t, workspace->RemoveDocument(document));
     return kTR_Pass;
 }

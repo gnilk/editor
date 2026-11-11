@@ -23,3 +23,12 @@ indent:
 
   json:
     inherit: generic
+
+  # Indentation IS the syntax: a line ending in 'key:' or a block scalar header ('|' / '>') indents the next
+  # one; nothing dedents on type except a flow collection's closer. 'reindent: no' - reformat would read the
+  # file as nested blocks that never close and staircase it, so it leaves YAML alone.
+  yaml:
+    inherit: generic
+    indent_after: [":", "|", ">", "[", "{"]
+    dedent_on:    ["]", "}"]
+    reindent: no

@@ -45,6 +45,9 @@ namespace gedit {
             int cursorX = 0;
             int tabSize = 4;
             kLanguageTokenClass tokenClassAtCursor = kLanguageTokenClass::kRegular;
+            // OnNewLine: the column the reference line is measured from, when the language knows better than
+            // its leading whitespace (YAML '- key: v' -> the key's column). -1 = the leading whitespace.
+            int referenceColumn = -1;
         };
 
         // Token-resolved triggers for ONE line, supplied by the caller (which has the parsed tokens). Optional:

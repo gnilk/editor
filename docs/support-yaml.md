@@ -16,9 +16,24 @@ comments + quoted strings, `#` line comment, `tabsize: 2`. Phase 2: `kConfigKey`
 importer row), post-pass `YAMLLinePass` (§2.B steps 1-6), Markdown's span helpers lifted into
 `src/Core/Language/LineAttribEdit`. Phase 3: block scalars through two tokenizer additions (§4 as built
 below). Module `yamllang` (38 cases) green, verified-green set 684; lexer throughput unchanged
-(`gedit-bench`, ~860k lines/s single thread before and after). Phases 1-3 verified by the user in the app,
+(`gedit-bench`, ~860k lines/s single thread before and after). Module `yamllang` is 44 cases now, verified-green set 693.
+Phases 1-3 verified by the user in the app,
 ANSI backend (2026-11-11). Keys are teal (`config_key` = `blue5`, as C++ class names): red read as errors,
-and the macro yellow is taken by anchors/aliases. Next move: merge, or Phase 4 (optional) first.
+and the macro yellow is taken by anchors/aliases. Phase 4 built (not yet tried in the app): see below.
+Next move: try Enter / reformat in a .yml file, then merge.
+
+**Phase 4 as built:** `indent.yml` `yaml:` section (indent after `: | > [ {`, dedent on `] }`) and
+`autopairs.yml` `yaml: { inherit: generic }` (`don't` was already safe: no quote pair after a word char).
+Two additions the plan didn't have:
+- `reindent: no` (`IndentTable::isReindentable`): reformat leaves every YAML line alone (-1, as a frozen line).
+  The opener/closer walk sees `key:` open and nothing ever close, so it would staircase the file.
+- `LanguageBase::GetContinuationColumn` -> `IndentEngine::Context::referenceColumn`: the column Enter measures
+  from. YAML: `- name: x` -> the key's column (the item's next key lines up with it); `- a` -> the dash, for
+  `- b`. Text-based (quotes and ` #` respected), on the text before the cursor.
+Known gap: `|-` / `>+` headers don't indent the next line (the trigger is the last char; `-` would also fire on
+`---`).
+
+
 
 **§4 as built:** `kAction::kPushStateAtEOL` - the header marks a pending push; a later token at the same
 stack depth (taken before that token's own action, so `| "x"` cancels) that is not a comment or another

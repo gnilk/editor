@@ -139,6 +139,9 @@ void IndentCache::ApplySection(const ConfigNode &section, IndentTable &table) {
             }
         }
     }
+    if (section.HasKey("reindent")) {
+        table.isReindentable = section.GetBool("reindent", true);
+    }
     if (section.HasKey("dedent_on")) {
         table.dedentOn.clear();
         for (auto &tok : section.GetSequenceOfStr("dedent_on")) {

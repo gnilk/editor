@@ -14,8 +14,9 @@
 
 using namespace gedit;
 
-// Forward declaration - Initialize reads top-down, the helper follows it.
+// Forward declarations - the methods read top-down, the helpers follow them.
 static int blockScalarScopeIndent(const std::u32string &line);
+static bool hasKeySeparator(std::u32string_view text);
 
 // state: main. Block scalar headers first: the list matches in order, so '|-' must come before '|'.
 static const std::u32string yamlBlockHeaders = U"|- |+ >- >+ | >";
@@ -84,6 +85,52 @@ bool YAMLLanguage::Initialize() {
     ConfigFromNodeName("yaml");
 
     return true;
+}
+
+// On Enter after a list item: '- name: x' -> the next line lines up with 'name' (the item's next key);
+// '- a' -> the default (back at the dash, ready for '- b'). Other lines keep the default too.
+int YAMLLanguage::GetContinuationColumn(std::u32string_view lineBeforeCursor) {
+    int n = static_cast<int>(lineBeforeCursor.size());
+    auto isBlank = [](char32_t ch) { return (ch == U' ') || (ch == U'\t'); };
+    int pos = 0;
+    while ((pos < n) && isBlank(lineBeforeCursor[pos])) {
+        pos++;
+    }
+    bool hasListMarker = false;
+    while ((pos < n) && (lineBeforeCursor[pos] == U'-') && ((pos + 1 == n) || isBlank(lineBeforeCursor[pos + 1]))) {
+        hasListMarker = true;
+        pos++;
+        while ((pos < n) && isBlank(lineBeforeCursor[pos])) {
+            pos++;
+        }
+    }
+    if (!hasListMarker || !hasKeySeparator(lineBeforeCursor.substr(pos))) {
+        return -1;
+    }
+    return pos;
+}
+
+// A block key's ':' (followed by a blank or the end) outside quotes and before a comment.
+static bool hasKeySeparator(std::u32string_view text) {
+    char32_t quote = 0;
+    for (size_t i = 0; i < text.size(); i++) {
+        char32_t ch = text[i];
+        if (quote != 0) {
+            if (ch == quote) {
+                quote = 0;
+            }
+            continue;
+        }
+        bool isTokenStart = (i == 0) || (text[i - 1] == U' ') || (text[i - 1] == U'\t');
+        if (((ch == U'"') || (ch == U'\'')) && isTokenStart) {
+            quote = ch;
+        } else if ((ch == U'#') && isTokenStart) {
+            return false;
+        } else if ((ch == U':') && ((i + 1 == text.size()) || (text[i + 1] == U' ') || (text[i + 1] == U'\t'))) {
+            return true;
+        }
+    }
+    return false;
 }
 
 // The indent a block scalar's body must exceed: the column of the key that owns it. '- key: |' -> the key's

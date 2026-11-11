@@ -36,6 +36,9 @@ DLL_EXPORT int test_indent_reindent_commentbraces(ITesting *t);
 DLL_EXPORT int test_indent_config(ITesting *t);
 DLL_EXPORT int test_indent_config_unknown(ITesting *t);
 DLL_EXPORT int test_indent_config_asset(ITesting *t);
+DLL_EXPORT int test_indent_reindent_disabled(ITesting *t);
+DLL_EXPORT int test_indent_newline_referencecolumn(ITesting *t);
+DLL_EXPORT int test_indent_config_reindent(ITesting *t);
 }
 
 using kIA = IndentEngine::kIndentAction;
@@ -341,6 +344,46 @@ DLL_EXPORT int test_indent_config_asset(ITesting *t) {
     // No 'default' section -> plaintext gets no language indent rules.
     TR_ASSERT(t, cache.GetTableForLanguage("default")->IsEmpty());
 
+    cache.Clear();
+    return kTR_Pass;
+}
+
+// A table with reindent off (YAML: indentation is the syntax) leaves every line alone (-1 = byte-faithful),
+// where the opener walk would have pushed each line after 'a:' one level deeper.
+DLL_EXPORT int test_indent_reindent_disabled(ITesting *t) {
+    auto tbl = CTable();
+    tbl.indentAfter.insert(U':');
+    tbl.isReindentable = false;
+    auto r = RR(tbl, {U"a:", U"  b: 1", U"c:", U"  d: 2"}, 0);
+    TR_ASSERT(t, r.size() == 4);
+    for (auto level : r) {
+        TR_ASSERT(t, level == -1);
+    }
+    return kTR_Pass;
+}
+
+// A reference column from the language replaces the line's leading whitespace as the base
+DLL_EXPORT int test_indent_newline_referencecolumn(ITesting *t) {
+    auto tbl = CTable();
+    tbl.indentAfter.insert(U':');
+    std::u32string line = U"- key: v";
+    IndentEngine::Context c;
+    c.table = &tbl;
+    c.lineText = line;
+    c.cursorX = (int)line.size();
+    c.tabSize = 2;
+    TR_ASSERT(t, IndentEngine::OnNewLine(c).indentLevel == 0);    // leading whitespace: column 0
+    c.referenceColumn = 2;
+    TR_ASSERT(t, IndentEngine::OnNewLine(c).indentLevel == 1);    // the key's column
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_indent_config_reindent(ITesting *t) {
+    auto &cache = IndentCache::Instance();
+    TR_ASSERT(t, cache.LoadFromString(
+        "indent:\n  generic:\n    indent_after: [\"{\"]\n  yaml:\n    inherit: generic\n    reindent: no\n"));
+    TR_ASSERT(t, cache.GetTableForLanguage("generic")->isReindentable);
+    TR_ASSERT(t, !cache.GetTableForLanguage("yaml")->isReindentable);
     cache.Clear();
     return kTR_Pass;
 }

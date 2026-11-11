@@ -1041,6 +1041,7 @@ static IndentEngine::Action ComputeNewLineIndent(LanguageBase &language, const s
     ctx.lineText = referenceText;
     ctx.cursorX = splitX;
     ctx.tabSize = tabSize;
+    ctx.referenceColumn = language.GetContinuationColumn(std::u32string_view(referenceText).substr(0, splitX));
     return IndentEngine::OnNewLine(ctx);
 }
 

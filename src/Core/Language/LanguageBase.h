@@ -41,6 +41,10 @@ namespace gedit {
         // Used by single line parsers (like 'makefile') to enhance the attributes after initial parsing
         virtual void OnPostProcessParsedLine(Line::Ref line) {}
 
+        // On Enter: the column the new line's indent is measured from, given the text before the cursor.
+        // -1 = its leading whitespace (the default). YAML: '- key: v' lines up the next line with 'key'.
+        virtual int GetContinuationColumn(std::u32string_view lineBeforeCursor) { return -1; }
+
         // The config name this language was configured from (the 'languages:' key, e.g. "cpp") - also the
         // key into autopairs.yml. Empty if the language never called ConfigFromNodeName.
         const std::string &GetConfigNodeName() const { return configNodeName; }

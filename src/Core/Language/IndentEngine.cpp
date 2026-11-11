@@ -20,7 +20,7 @@ IndentEngine::Action IndentEngine::OnNewLine(const Context &ctx) {
                      ? ctx.lineText.substr((size_t)ctx.cursorX)
                      : std::u32string_view();
 
-    int baseLevel = LeadingIndentLevel(before, tabSize);
+    int baseLevel = (ctx.referenceColumn >= 0) ? (ctx.referenceColumn / tabSize) : LeadingIndentLevel(before, tabSize);
 
     Action action;
     action.type = kIndentAction::kSetIndent;
@@ -87,6 +87,12 @@ std::vector<int> IndentEngine::ReindentRange(const RangeContext &ctx) {
         for (const auto &line : ctx.lines) {
             levels.push_back(LeadingIndentLevel(line, tabSize));
         }
+        return levels;
+    }
+
+    // Indentation is the syntax (YAML): every line is left byte-faithful (-1, as a frozen line)
+    if (!ctx.table->isReindentable) {
+        levels.assign(ctx.lines.size(), -1);
         return levels;
     }
 

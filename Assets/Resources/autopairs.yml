@@ -30,3 +30,6 @@ autopairs:
 
   json:
     inherit: generic
+
+  yaml:
+    inherit: generic

@@ -300,6 +300,8 @@ languages:
     auto_indent: yes
     continue_comment: yes
     semantic_highlighting: yes  # colour types/functions/members/macros the file itself declares (docs/code-index.md §10.1)
+  yaml:
+    tabsize: 2                  # YAML is conventionally indented by 2 (and never with tabs)
 
 # Session cache — restore a project as you left it (docs/session-cache.md). Phase 1: per-root
 # <root>/.goatedit/session.yml with open files + cursors (+ layout/geometry as those land).

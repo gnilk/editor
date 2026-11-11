@@ -28,6 +28,7 @@
 #include "Core/Language/LanguageSupport/CPPLanguage.h"
 #include "Core/Language/LanguageSupport/JSONLanguage.h"
 #include "Core/Language/LanguageSupport/MarkdownLanguage.h"
+#include "Core/Language/LanguageSupport/YAMLLanguage.h"
 #include "Core/Language/LanguageSupport/DefaultLanguage.h"
 #include "Core/Plugins/PluginExecutor.h"
 #include "Core/UI/Views/RootView.h"
@@ -819,6 +820,12 @@ void Editor::ConfigureLanguages() {
         auto language = MarkdownLanguage::Create();
         language->Initialize();
         RegisterLanguage(".md|.markdown", language);
+    }
+
+    {
+        auto language = YAMLLanguage::Create();
+        language->Initialize();
+        RegisterLanguage(".yml|.yaml", language);
     }
 
     {

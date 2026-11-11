@@ -1,6 +1,6 @@
 # System font fallback
 
-**Status:** built 2026-11-11 on `feature/system-font-fallback`; macOS verified by tests, the app and Linux unchecked.
+**Status:** merged to main 2026-11-11; macOS verified (tests + the app draws `/context`). Linux/SDL2 + fontconfig unchecked.
 
 ## Why
 

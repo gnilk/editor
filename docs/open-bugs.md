@@ -259,3 +259,4 @@ terminal should reproduce it without Claude Code.
 (`screenshots/claude_context-rendering-sdl3.png`). No configured font has them; on this Mac only `STIXTwoMath.otf`
 does (CLion finds it through the system's own fallback). Fix: [`system-font-fallback.md`](system-font-fallback.md).
 `/usage` itself is still unexplained.
+2026-11-11: system font fallback merged; `/context` draws in the app. Open: whether `/usage` still fails.

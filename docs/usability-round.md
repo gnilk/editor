@@ -678,3 +678,57 @@ terminal passes through. Open bug #20 is the general case (the terminal takes `C
 Open: the action (`SelectAll` - editor-owned `kAction`, it's functionality), its key per backend, and whether reformat
 over a whole file should also become a quick command (§4's `.fm_file`). Related: open bug #27 (selecting line by line
 can't take in the last line).
+
+### Plan (2026-11-11) - select all, `.fm_file`, `.fm_block`
+
+**What the JS API has today:** a `Document` (`DocumentAPI`, wrapping a workspace node) can save, reload, report whether it is
+modified, and give its name. It has no access to the content (no lines to read or write, no line iterator) and no
+selection. `TextBufferAPI` only has a name, a file name and the language.
+
+**Why that doesn't block this:** reformat doesn't happen in JS. It is `Document::ReindentLineRange` (C++, the indent
+engine, one undo item), and `OnActionReformatBlock` already knows the selection and the enclosing `{ }` block. The quick
+commands only need to *ask* for a reformat, so two thin methods do it. Content access from JS (lines, an iterator,
+the selection as data) is a larger API that nothing here needs; it waits for a script that does.
+
+**A. `SelectAll` (native action)**
+- `kAction::kActionSelectAll` ("SelectAll" in `KeyMapping.cpp`); `Document::OnActionSelectAll`: selection from `(0,0)`
+  to the end of the last line `(len(last), n-1)`, caret at that end. An empty buffer selects nothing.
+- Keys: `CopyPasteModifier + 'a'` in both `default_keymap.yml` (`Cmd+A` macOS, `Ctrl+A` Linux - neither is bound now).
+  The terminal version on macOS stays behind #20 (`Cmd+A` is the terminal's), and `.fm_file` is the way around it there.
+- Check: copy after select all gives the whole buffer, through the external round-trip (E.18); `ReformatBlock` after it
+  takes the last line (its `end.x == 0` rule doesn't fire, since the end is past the last character).
+
+**B. `DocumentAPI::Reformat*` (C++ -> JS)**, following the API pattern (`DocumentAPI` -> `DocumentAPIWrapper` ->
+`RegisterModule`):
+- `ReformatAll()` -> `ReindentLineRange(0, n-1)`.
+- `ReformatBlock()` -> the same path as `Cmd+I`: the selection, or else the enclosing block, or else the line. The body
+  of `OnActionReformatBlock` moves to a public `Document::ReformatSelectionOrBlock()`, which both the action and the
+  API call, so the two can't drift apart.
+- Both return `false` when there is nothing to do: no document, no language, or a language with `reindent: no` (YAML).
+  That needs an `IsReindentable()` that the scripts can ask through the document, so they can say why.
+
+**C. The scripts** (`jsplugs.yml`, like `reload.js`)
+- `.fm_file` / short `.fmf` -> `Editor.GetActiveDocument().ReformatAll()`.
+- `.fm_block` / short `.fmb` -> `ReformatBlock()`: the selection when there is one, as `Cmd+I`. (Quick mode doesn't cancel
+  the selection. A test confirms it.)
+- `.fm_line` is not added. `.fm_block` with no selection and no enclosing block already reformats the line, and
+  `Cmd+L` stays.
+- When reformat is off (YAML) they print `Reformat is off for 'yaml'` and don't edit anything.
+
+**D. Bug #27, in the same branch** (it's the other half of "select some lines and reformat"): `Shift+Down` on the last
+line moves the caret to the end of that line, and `Shift+Up` on the first line moves it to the start. Write the repro
+test first.
+
+**Tests** (`document` and `jsengine`):
+- `selectall`: copy after it is the whole buffer; it on an empty buffer; it then `ReformatBlock` takes the last line.
+- `fmfile` / `fmblock` through the command line: a misindented C++ buffer comes out reindented, and one undo brings it
+  back; `.fm_block` with a selection only touches those lines; YAML leaves it byte-identical and prints the note.
+- #27: the line-down selection covers the last line.
+
+The mutation checks: a `ReformatAll` that stops at `n-2`, or a select all that ends at column 0 of the last line, fails
+these tests.
+
+**Branch:** `feat/select-all-reformat-cmds`, A -> B/C -> D, one commit each. About a day's work at most; no new design
+questions apart from the one below.
+
+**Decided:** both the long and the short names (`.fmf` / `.fmb`); `Ctrl+A` on Linux is select all.

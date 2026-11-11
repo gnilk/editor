@@ -749,3 +749,147 @@ questions left.
 - **Mutation check:** a `ReformatFile` that stops one line short fails `fmfilecmd`.
 - **Not yet tried in the app:** select all with `Cmd+A` on SDL3. On the terminal version on macOS it stays behind #20, and
   `.fmf` works there.
+
+## 9. The git branch in the status line
+
+Filed 2026-11-11. When the opened folder (`goatedit .`) is in a git repository, the status line
+(`HSplitViewStatus::DrawSplitter`) shows the branch that is checked out: `⎇ main`. Just the branch - no ahead/behind
+(not now). Outside a repository, or when git isn't installed, nothing is shown.
+
+**What exists:**
+- `RepoMonitor` (`src/Core/Git/`) keeps each project root's change set current. It already re-queries when a git
+  operation touches `.git/index`, `.git/HEAD` or `.git/logs/HEAD`, so a `git switch` in the terminal already reaches
+  it - no new watcher is needed.
+- `GitStatus::Snapshot` knows `gitDir`, which is worktree-aware.
+
+**Where the branch comes from:** add `--branch` to the status query that already runs
+(`git status --porcelain=v1 -z --branch`). The first record is then `## main...origin/main`, `## HEAD (no branch)`
+when detached, or `## No commits yet on main` in a new repository. `GitStatus::Parse` takes the `##` record off before
+the file changes and keeps only the name.
+- **Why not read `<gitDir>/HEAD`:** it would be cheaper, but git interprets it better than we would. With the newer
+  reftable ref storage, `HEAD` holds a placeholder (`ref: refs/heads/.invalid`) and the real branch is elsewhere.
+  `--branch` costs no extra process.
+
+**Model:**
+- `Snapshot` gets a `branch`: the name, or the short SHA when detached.
+- `ChangeSet` carries it, so the status line reads one place.
+- **A catch:** `RepoMonitor` only posts a new change set when `IsSameAs` says it differs. A switch between two branches
+  with the same working-tree state changes nothing there, so `IsSameAs` must compare the branch too. A test pins this.
+
+**Whose branch:** the opened folder's - the one the editor was started on (`goatedit .`). That is the repository being
+worked in, and the branch doesn't change as documents are switched.
+- A folder inside a repository (`goatedit src/`) shows the enclosing repository's branch: git finds the top level.
+- Loose files (the default root, opened without a folder) don't matter: with no opened folder, nothing is shown.
+- **Not handled, on purpose:**
+  - more than one opened folder (each would have its own `RepoMonitor` and branch) - the first one wins;
+  - repositories nested inside the folder (a submodule shows the outer branch).
+
+**How it shows:**
+- In the status line's right part, before the view's own info: `⎇ main`.
+- When detached: `⎇ (a1b2c3d)`.
+- Very long names are cut in the middle (`feature/very-…-thing`).
+- `⎇` (U+2387) is in few monospace fonts; the system font fallback finds it on SDL. Gansi depends on the terminal's
+  font.
+
+**Tests:**
+- `gitstatus`:
+  - the `##` record parsed into the branch, including detached, no commits yet, and a branch with no upstream;
+  - the file changes after the `##` record are unchanged;
+  - `IsSameAs` is false for two change sets that differ only in branch.
+- `workspace`: the opened folder's root gives the branch; no opened folder, no branch.
+
+## 10. Double-click on a folder in the workspace tree expands or collapses it
+
+Filed 2026-11-11. A double-click on a file opens it. A double-click on a folder does nothing today; it should toggle
+the folder: expand it when it's collapsed, collapse it when it's expanded.
+
+**Today:**
+- `WorkspaceView::OnMousePressedEvent` selects the row on every press, and on `clicks >= 2` calls `OpenSelectedItem`.
+- `OpenSelectedItem` is the one open path for both Enter and double-click. It returns early on a folder ("You
+  selected a directory!").
+- Expanding and collapsing exist only as the arrow keys (`TreeView::OnAction`: Left -> `Collapse`, Right -> `Expand`).
+  `Expand` also fires the lazy fetch of a folder's children (FS-6), so a double-click takes the same path and needs
+  nothing new for unscanned folders.
+
+**Change:**
+- `TreeView::ToggleExpanded()` (expanded -> `Collapse`, else `Expand`), next to the two.
+- In `OpenSelectedItem`, a folder toggles instead of returning. Since Enter shares that path, **Enter on a folder
+  toggles too** - most file trees do that, and it keeps "one open path, two triggers".
+- **Triple-click:** SDL counts on (`clicks` 3, 4, ...), and each press arrives as its own event. With `>= 2`, a
+  triple-click toggles twice and ends where it started. Open/toggle on `clicks == 2` only.
+- The expand/collapse state is already kept in the session (`BuildExpandCollapseCache`), so a toggled folder stays as
+  it was left.
+
+**Tests (`treeview` / `session`):**
+- a double-click on a collapsed folder expands it, and a second double-click collapses it;
+- on an unscanned folder, the double-click fetches the children (the lazy path);
+- Enter does the same;
+- a press with `clicks == 3` doesn't toggle again;
+- a double-click on a file still opens it.
+
+## 11. Revisit the key bindings - modifiers by purpose
+
+Filed 2026-11-11. The named modifiers are meant to group bindings by purpose, so a whole group can be rebound in one
+place. `UINavigationModifier` does that for the views and panels. But `CopyPasteModifier` has grown into "anything on
+`Cmd`":
+- editing: copy, paste, cut, undo, comment, reformat, select all;
+- finding and opening: find, quick open, open files;
+- code navigation: go to symbol, the go-to family, back and forward.
+
+Code navigation is also split between `Cmd+<key>` (`Cmd+B`, `Cmd+T`, `Cmd+[`) and `Cmd+Shift+<key>` (implementation,
+base, type, relationships). It should be one group under one modifier, as UI navigation is.
+
+**How modifiers work today** (`KeyMapping.cpp`):
+- **The set of names is fixed:** `strToModifierMap` has `Selection`, `CopyPaste` and `UINavigation` (each also with
+  the `...Modifier` suffix). `ValidateModifiers` rejects any other name in a keymap's `modifiers:` section.
+- **Each name stands for one key:** the value must pass `Keyboard::IsNameModifierMask` - `KeyCode_Cmd`, not
+  `KeyCode_Cmd + KeyCode_Shift`. **So a modifier can't be a combination today.**
+- **A named modifier also tags the binding** with a `kActionModifier`, and only `Selection` means anything at run time
+  (`Document::OnAction` starts a selection on it). `CopyPaste` and `UINavigation` are tags only.
+- **The last named modifier in a binding wins the tag:** `CopyPasteModifier + SelectionModifier + 'b'`
+  (`GotoImplementation`) is tagged `Selection`. **To check:** whether that can start a stray selection when the editor
+  view sees the action. A combined `CodeNavigationModifier` would remove the case.
+
+**Proposal:**
+- **Modifiers can be combinations:** a value like `KeyCode_Cmd + KeyCode_Shift` parses into one mask
+  (`ModifierMaskFromString` over the `+` parts). The `@` optional form keeps working: it permutes the whole mask.
+- **The groups:**
+
+| Modifier | Purpose | macOS | Linux |
+|---|---|---|---|
+| `SelectionModifier` | extends a selection | `Shift` | `Shift` |
+| `FunctionModifier` | editing and the editor's functions: copy/paste/cut, undo, find, select all, comment, reformat, quick open, open files | `Cmd` | `Ctrl` |
+| `CodeNavigationModifier` | code navigation: go to symbol, go to (toggle, implementation, base, type), relationships, back/forward | to decide (below) | to decide |
+| `UINavigationModifier` | views, panels, sizes, view modes, buffers | `Option` | `Alt` |
+
+- **`FunctionModifier` replaces `CopyPasteModifier`.** The old name stays as an alias, so a user's own keymap keeps
+  working (and logs that it is deprecated).
+- **CLAUDE.md's rule** ("`Cmd`/`Ctrl` is functionality, `Option`/`Alt` is UI control") gets the third group.
+
+**`CodeNavigationModifier` - the choice:**
+- **`Cmd+Shift` / `Ctrl+Shift`:** every go-to moves to `Shift`, and the letters stay readable (`B` toggle, `I`
+  implementation, `U` base, `Y` type, `T` symbol, `R` relationships, `[` / `]` back and forward). The cost: `Cmd+B`,
+  which is in the fingers (and is CLion's), becomes `Cmd+Shift+B`.
+- **`Ctrl+Option` on macOS / `Ctrl+Alt` on Linux:** free of the OS's own `Cmd` combinations. But `Ctrl+Alt+<letter>` is
+  taken by some Linux desktops, and on Linux it's two of the same keys the other groups use.
+- **Keep `Cmd` (= `FunctionModifier`) for the go-to family and only regroup the names:** the least churn, but no
+  separate rebinding.
+- Before deciding: list what macOS, GNOME/KDE and Ghostty take in each candidate combination (open bug #20 has
+  Ghostty's).
+
+**Also in this pass:**
+- **An inventory** - one table of every binding: action, group, key per OS. It lives in `docs/keybindings.md` and is
+  the input to `.h` / help. Today the only list is the keymap files.
+- **The terminal version** (bug #20) chooses its own section; the groups make that a matter of four modifier values,
+  not every binding.
+- **A test (`keymapping`):** a combined modifier value parses into one mask; an unknown modifier name is still
+  rejected; the `CopyPasteModifier` alias resolves; a binding with two named modifiers keeps the tag of the one that
+  carries meaning (Selection only when it is the only one, or not at all - decided with the fix above).
+
+## 12. More languages - CMake, Python, and languages as data files
+
+Filed 2026-11-11. A design of its own: [`support-languages.md`](support-languages.md). In short:
+- a generic engine (`DataLanguage`) builds the existing tokenizer from a YAML file per language - its name,
+  extensions, author, date, then states, tokens, comments, strings and numbers;
+- languages can be added without recompiling (system, user and project directories, plus `.lang_reload`);
+- CMake and Python are the first data languages, and JSON is ported to data to prove the engine.

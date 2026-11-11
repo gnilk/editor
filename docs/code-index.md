@@ -341,7 +341,22 @@ system headers isn't a goal, §10.2), so the status line says what it is and the
 - **Go-to key:** the toggle is `Cmd+B`, `Ctrl` on Linux. From a use it goes to the definition, so one key reaches both;
   `GotoDefinition` and `GotoDeclaration` exist without a key of their own.
 
-**Open:** whether `Cmd+click` jumps too.
+**`Cmd+click` jumps too (decided 2026-11-11, not built).** A click with `CopyPasteModifier` held (`Cmd` on macOS,
+`Ctrl` on Linux) puts the caret on the clicked name and then does what `Cmd+B` does there (the toggle). So it is the same
+resolver, chains included: `documentViewState->lineCursor.viewBottomLine` goes to `lineCursor`'s declaration when
+`lineCursor` is clicked, and to `viewBottomLine`'s when that is clicked (§11.11).
+- **Where:** `EditorView::OnMousePressedEvent` already moves the caret, and `MouseEvent` carries `modifiers`. When the
+  modifier is held on a single click, it posts `GotoToggle` - the action, not a direct call - so the jump lands on the
+  navigation stack exactly as the key does.
+- **The modifier comes from the keymap** (`CopyPasteModifier`), not a hard-coded `Cmd`, so the Linux keymap gives
+  `Ctrl+click`.
+- **A plain click is unchanged.** A modifier-click on whitespace or on a name with no target moves the caret only, and
+  the status line says why, as for the key.
+- **Not in the ANSI backend for now:** terminals take `Cmd+click` (open a URL) and often `Ctrl+click` too; open bug #20.
+- **Later:** an underline under the name while the modifier is held and the pointer hovers it, as other editors do. It
+  needs the `Hover` mouse events with modifiers, and a resolve per hovered name, so it's not part of the first step.
+- **Tests:** a modifier press at a name's cell jumps (the caret's file and line after the press) and pushes the stack; a
+  press without the modifier doesn't; a modifier press on whitespace leaves the stack alone.
 
 **Order:** definition, declaration, toggle and the stack need nothing from step 3 and come first, as step 2b. Implementation
 and base come with the edges of step 3, and references with step 6.

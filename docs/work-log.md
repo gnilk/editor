@@ -340,6 +340,11 @@ drop both Gansi stopgaps. SDL/JS/serialization unchanged (alpha ≤ 1 ⇒ no wra
 
 ## Planned / not started
 
+- **YAML syntax highlighting** (2026-11-11) - `.yml`/`.yaml` as a new `YAMLLanguage`, following the Markdown split:
+  comments and strings in the tokenizer, keys / list markers / typed scalars in the post-pass with a new `kKey`
+  class, block scalars (`key: |`) through a small indent-scoped tokenizer state. Four phases, each shippable.
+  Detail: [`support-yaml.md`](support-yaml.md).
+
 - **System font fallback** (2026-11-11) - after the theme font and `sdl.font_fallback`, ask the system (CoreText /
   fontconfig) for a font with the character, behind `sdl.system_font_fallback` (default on). Prompted by open-bugs #26
   (Claude Code's `/context` grid). Detail: [`system-font-fallback.md`](system-font-fallback.md).

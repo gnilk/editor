@@ -347,8 +347,9 @@ DLL_EXPORT int test_terminalcontroller_config_consolidated(ITesting *t) {
     // The former view keys now resolve under 'terminal'...
     TR_ASSERT(t, terminal.HasKey("keymap"));
     TR_ASSERT(t, terminal.HasKey("lines_per_scroll_wheel_notch"));
-    // ...alongside the shell/process keys - proving it's one shared section, not just a rename.
-    TR_ASSERT(t, terminal.HasKey("shell"));
+    // ...alongside the shell/process keys - proving it's one shared section, not just a rename. ('shell' is
+    // unset by default - the login shell - so 'init', the shell's arguments, stands for them.)
+    TR_ASSERT(t, terminal.HasKey("init"));
 
     // The load-bearing contract: the terminal binds the terminal keymap (NOT the default editor one).
     TR_ASSERT(t, terminal.GetStr("keymap", "") == "terminal_keymap");

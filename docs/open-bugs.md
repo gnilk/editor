@@ -4,7 +4,7 @@ Durable list of known defects we've chosen NOT to fix in-place yet, with enough 
 up cold. Referenced from CLAUDE.md ("Documentation") so it surfaces each session.
 
 Numbers are stable (commits, docs and notes refer to them) - a fixed bug is removed, never renumbered.
-**Next bug is #26.**
+**Next bug is #27.**
 
 ---
 
@@ -226,3 +226,22 @@ history entry when the mirror isn't valid rather than recording a stale one. Lim
 path: Enter with the cursor mid-line drops the text after it; vi-mode readline may not clear the line with
 `Ctrl+E Ctrl+U`; an Enter handled before the shell's echo of the last keys arrives reads the line without them
 (not seen in practice - zsh echoes within the same pass; a dot-command then falls back to the shell).
+
+---
+
+## 26. Claude Code's `/usage` screen doesn't render in the embedded terminal - missing glyphs?
+
+**Where:** not yet known - the embedded terminal's text drawing (`GlyphFont`, the `terminal`/`sdl` `font_fallback`
+list in `config.yml`), or the emulation (`src/ext/gvt`) if it isn't glyphs at all.
+
+**What's wrong:** running Claude Code in the editor's terminal (macOS/SDL3), the `/usage` screen does not render.
+Other Claude Code screens (`/context`, the normal prompt) do. Suspected: `/usage` draws its bars with characters the
+theme font and the fallbacks don't have (Block Elements U+2580-259F - partial blocks `▏▎▍▌▋▊▉`, shades `░▒▓` - or
+similar), so they come out missing. **Unverified** - it could also be a sequence gvt doesn't handle.
+
+**How to pin it down:** capture what `/usage` writes (run `claude` under a pty logger - `script -q /tmp/usage.log
+claude`, open `/usage`, quit) and list the non-ASCII code points in it; for each, check whether `GlyphFont` finds a
+glyph (font, then each fallback). If they're all there, diff the escape sequences against what gvt supports (feed the
+log through `gvttests`' libvterm oracle). Compare with the same screen in Ghostty.
+
+**Found:** 2026-11-11 by the user, while working in Claude Code in the editor's terminal.

@@ -4,7 +4,7 @@ Durable list of known defects we've chosen NOT to fix in-place yet, with enough 
 up cold. Referenced from CLAUDE.md ("Documentation") so it surfaces each session.
 
 Numbers are stable (commits, docs and notes refer to them) - a fixed bug is removed, never renumbered.
-**Next bug is #24.**
+**Next bug is #26.**
 
 ---
 
@@ -99,34 +99,6 @@ rejected ("Hex color description to short"). The stock colors.json uses neither,
 `rgba()` only. **Fix:** expand `#rgb` / `#rgba` to two digits per channel; accept 4 and 8 digits with alpha.
 
 **Discovered:** 2026-10-25, writing the theme importer.
-
----
-
-## 17. A dot-command goes to the shell once Tab has been pressed on its line
-
-**Where:** `TerminalController` - `OnAction` (`kActionShellCompletion`) and `ForwardKeyPressToShell`
-(`kUIActionCommitLine`).
-
-**What's wrong:** dot-commands (`.theme`, `.cfg`, ...) are only recognised in `CommitLine`, which offers the
-line to `PluginExecutor::ParseAndExecuteWithCmdPrefix` before the shell. The first Tab hands the line to
-readline/zsh for completion (`doesShellOwnLineEditing = true`, line + Tab sent to the pty); from then on
-Enter is forwarded as a raw CR, the line never passes the dot-command check, and the shell runs it:
-`zsh: command not found: .theme`. Typing the same line without Tab works.
-
-**Repro:** in the terminal, type `.theme --import ~/Down` + Tab (complete the path) + `--name x` + Enter.
-
-**Fix (agreed direction 2026-10-25):** check the line before letting the shell execute it. On commit in
-shell-owned mode, read the line (`SyncInputLineFromGrid` keeps `inputLine` mirroring readline's line);
-if it starts with `cmdlet_prefix`: send Ctrl-U (clear readline's line) instead of CR, `ExitShellOwned()`,
-then run it through the plugin executor like `CommitLine` (which sends a newline for a fresh prompt).
-Tab completion of paths then works for dot-commands too. Caveat: the mirrored line is read back from the
-grid - a wrapped long line or a visible completion menu can garble it; test both.
-
-**Discovered:** 2026-10-25, GUI test of `.theme --import` (code index step 1c).
-
-**Still open (checked 2026-11-11):** half of the fix is in - `ForwardActionToShell` now mirrors the line from the grid
-on a shell-owned commit (`SyncInputLineFromGrid`, for history and the `.co`/`.ob` output mark), but it still sends
-`\r` to the shell without the `cmdlet_prefix` check.
 
 ---
 
@@ -234,3 +206,40 @@ bundle, the `POST_BUILD` `copy_directory` into the build tree's `goatedit.app/Co
 `file(REMOVE_RECURSE ...)` ahead of `install(DIRECTORY ...)`), and do the same for the build tree's bundle copy, or
 copy with a mirror step that deletes what the source no longer has. Check it with a file removed from
 `Assets/Resources`: after build + install it must be gone from both bundles.
+
+---
+
+## 24. A command finished in readline after Tab can go into the history with the shell's extras
+
+**Where:** `TerminalController::ForwardActionToShell` (shell-owned commit) records the mirror from
+`SyncInputLineFromGrid`, which reads the prompt's row from the prompt end to the last non-blank cell.
+
+**What's wrong:** what the shell draws after the cursor - zsh's `RPROMPT`, a zsh-autosuggestions suggestion - is
+read as part of the line, so `vim apa.cpp` can be recorded as `vim apa.cpp        12:30`. A line that wrapped, or a
+prompt redrawn lower (bash lists ambiguous completions), leaves the mirror stale, so the history gets an older
+version of the line. The shell itself runs its own line, so only the history (Up) is wrong.
+
+**Already handled for dot-commands (#17, 2026-11-11):** `CommitShellOwnedDotCommand` takes the mirror only up to the
+cursor, and only while `isLineMirrorValid` (cursor on the prompt's row, row not full); otherwise the shell gets
+its own line. **Fix direction:** record the same text the dot-command check uses (up to the cursor), and skip the
+history entry when the mirror isn't valid rather than recording a stale one. Limits shared with the dot-command
+path: Enter with the cursor mid-line drops the text after it; vi-mode readline may not clear the line with
+`Ctrl+E Ctrl+U`.
+
+---
+
+## 25. Test modules that open a screen exit the whole trun run when there is no window session
+
+**Where:** module setups that call `Editor::Instance().OpenScreen()` - `test_find`, `test_codeindex`,
+`test_openfiles`, `test_jsengine`'s `ModalHostFixture` (`closeallcmd`, ...).
+
+**What's wrong:** `OpenScreen` -> `ConfigureSubSystems` -> `SetupSDL3` -> `SDLScreen::Open`, which calls `exit()` when
+SDL can't open a window (a shell with no window session, e.g. an agent's or over SSH). `--sequential` ends with no
+summary at that module; forking mode reports `Tests Failed: 0` but runs ~230 fewer cases than the verified-green 642
+- the gap is the only sign. `test_main` already starts the editor with `--backend headless`; these setups bypass it.
+
+**Fix direction:** have the setups use the headless screen `test_main` configured (or make `OpenScreen` honour the
+selected backend), and have `SDLScreen::Open` return false instead of `exit()`. Check: the verified-green set runs all
+642 cases from a shell with no window session.
+
+**Found:** 2026-11-11, running the suite for #23 / #17.

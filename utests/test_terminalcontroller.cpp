@@ -33,6 +33,10 @@ DLL_EXPORT int test_terminalcontroller_paste(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_mouse_focus(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_replies_to_pty(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_tab_commit_history(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_tab_dotcommand(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_tab_dotcommand_wrapped(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_tab_dotcommand_fullrow(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_tab_dotcommand_rprompt(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_sync_output(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_sync_output_frame(ITesting *t);
 }
@@ -649,5 +653,113 @@ DLL_EXPORT int test_terminalcontroller_sync_output_frame(ITesting *t) {
         std::lock_guard<std::mutex> guard(c.GetScreenLock());
         TR_ASSERT(t, !c.IsHoldingRedraw());
     }
+    return kTR_Pass;
+}
+
+namespace {
+    // A prompt with a command's output above it ('make' -> 'error: x'), so '.co' has something to copy. The
+    // controller is the output console for the test's lifetime.
+    struct DotCommandFixture {
+        TerminalController c;
+        std::string sent;
+        IOutputConsole *prevConsole = nullptr;
+
+        explicit DotCommandFixture(int cols) {
+            c.Resize(cols, 10);
+            CaptureInput(c, sent, false);
+            prevConsole = RuntimeConfig::Instance().OutputConsole();
+            c.RegisterAsOutputConsole();
+            FeedPty(c, "$ ");
+            c.GetInputLine()->Append(std::u32string(U"make"));
+            c.CommitLine();
+            FeedPty(c, "make\r\nerror: x\r\n$ ");
+            Editor::Instance().GetClipBoard().CopyText(U"before");
+        }
+        ~DotCommandFixture() {
+            RuntimeConfig::Instance().SetOutputConsole(prevConsole);
+        }
+        // Type 'typed' locally, Tab (readline takes the line), then readline's echo arrives
+        void TabWithEcho(const std::u32string &typed, const std::string &echo) {
+            Cursor cursor;
+            size_t line = 0;
+            for (auto ch : typed) {
+                c.HandleKeyPress(cursor, line, TextKey(ch));
+            }
+            EditorAction complete;
+            complete.action = kAction::kActionShellCompletion;
+            c.OnAction(complete);
+            FeedPty(c, echo);
+            sent.clear();
+        }
+        bool Commit() {
+            EditorAction commit;
+            commit.uiAction = kUIAction::kUIActionCommitLine;
+            commit.keyPress = SpecialKey(Keyboard::kKeyCode_Return);
+            return c.ForwardActionToShell(commit);
+        }
+        std::u32string ClipboardText() {
+            auto top = Editor::Instance().GetClipBoard().Top();
+            return (top == nullptr) ? std::u32string() : top->AsText();
+        }
+    };
+}
+
+// Bug #17: a dot-command finished in readline after Tab runs in the editor - readline's line is cleared (end of
+// line, kill line) and an empty line gives a fresh prompt; the shell never sees '.co'. Like CommitLine, the
+// dot-command goes into the history and leaves the last output alone.
+DLL_EXPORT int test_terminalcontroller_tab_dotcommand(ITesting *t) {
+    DotCommandFixture f(40);
+    f.TabWithEcho(U".c", ".co");
+    TR_ASSERT(t, f.c.DoesShellOwnLineEditing());
+
+    TR_ASSERT(t, f.Commit());
+    TR_ASSERT(t, f.sent == "\x05\x15\r");
+    TR_ASSERT(t, !f.c.DoesShellOwnLineEditing());
+    TR_ASSERT(t, f.ClipboardText() == U"error: x");     // '.co' ran
+    TR_ASSERT(t, f.c.GetLastOutputText() == std::optional<std::u32string>(U"error: x"));   // not marked as a command
+
+    FeedPty(f.c, "\r\x1b[K$ \r\n$ ");                   // the shell erases its line, an empty line, a fresh prompt
+    EditorAction up;
+    up.uiAction = kUIAction::kUIActionLineUp;
+    TR_ASSERT(t, f.c.OnAction(up));
+    TR_ASSERT(t, f.c.GetInputLine()->Buffer() == std::u32string(U".co"));
+    return kTR_Pass;
+}
+
+// The line wrapped (the cursor left the prompt's row): what we read back is no longer the whole line - don't run it,
+// let the shell have its own line
+DLL_EXPORT int test_terminalcontroller_tab_dotcommand_wrapped(ITesting *t) {
+    DotCommandFixture f(12);
+    f.TabWithEcho(U".c", ".co aaaa");                  // still on the prompt's row: a good mirror, a '.co' line
+    FeedPty(f.c, "aaaaaaaaaa");                         // ...then it wraps
+    f.sent.clear();
+    TR_ASSERT(t, f.Commit());
+    TR_ASSERT(t, f.sent == "\r");
+    TR_ASSERT(t, f.ClipboardText() == U"before");       // nothing ran
+    return kTR_Pass;
+}
+
+// The line fills the prompt's row to the last column: the cursor is still on the row (pending wrap) but the line
+// may go on below - not trusted either
+DLL_EXPORT int test_terminalcontroller_tab_dotcommand_fullrow(ITesting *t) {
+    DotCommandFixture f(12);
+    f.TabWithEcho(U".c", ".co aaaaaa");                // '$ ' + 10 = 12 columns
+    TR_ASSERT(t, f.Commit());
+    TR_ASSERT(t, f.sent == "\r");
+    TR_ASSERT(t, f.ClipboardText() == U"before");
+    return kTR_Pass;
+}
+
+// What the shell draws after the cursor - zsh's RPROMPT, an autosuggestion - is not part of the command
+DLL_EXPORT int test_terminalcontroller_tab_dotcommand_rprompt(ITesting *t) {
+    DotCommandFixture f(40);
+    f.TabWithEcho(U".c", ".co\x1b" "7\x1b[34G12:30\x1b" "8");   // save cursor, RPROMPT at column 34, restore
+    TR_ASSERT(t, f.Commit());
+    TR_ASSERT(t, f.sent == "\x05\x15\r");
+    TR_ASSERT(t, f.ClipboardText() == U"error: x");
+    EditorAction up;
+    up.uiAction = kUIAction::kUIActionLineUp;
+    TR_ASSERT(t, f.c.OnAction(up));
+    TR_ASSERT(t, f.c.GetInputLine()->Buffer() == std::u32string(U".co"));
     return kTR_Pass;
 }

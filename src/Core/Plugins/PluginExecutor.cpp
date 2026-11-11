@@ -27,9 +27,10 @@ bool PluginExecutor::ParseAndExecuteWithCmdPrefix(const std::u32string &cmdline3
         return false;
     }
 
+    // Not ours - a shell line that starts like one ('./build.sh'); the caller hands it to the shell
     if (!RuntimeConfig::Instance().HasPluginCommand(commandList[0])) {
         auto logger = gnilk::Logger::GetLogger("PluginExecutor");
-        logger->Error("Plugin '%s' not found", commandList[0].c_str());
+        logger->Debug("No plugin command '%s' - not a command line", commandList[0].c_str());
         return false;
     }
 
@@ -38,6 +39,16 @@ bool PluginExecutor::ParseAndExecuteWithCmdPrefix(const std::u32string &cmdline3
     cmd->Execute(argList);
 
     return true;
+}
+
+bool PluginExecutor::IsPluginCommandLine(const std::u32string &cmdline32) {
+    auto prefix = Config::Instance()["main"].GetStr("cmdlet_prefix");
+    auto cmdline = UnicodeHelper::utf32to8(cmdline32);
+    if (prefix.empty() || !strutil::startsWith(cmdline, prefix)) {
+        return false;
+    }
+    auto commandList = SplitCommandLine(cmdline.substr(prefix.length()));
+    return !commandList.empty() && RuntimeConfig::Instance().HasPluginCommand(commandList[0]);
 }
 
 std::vector<std::string> PluginExecutor::SplitCommandLine(const std::string &cmdLineNoPrefix) {

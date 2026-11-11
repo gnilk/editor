@@ -309,9 +309,10 @@ void TerminalController::SyncInputLineFromGrid() {
     // it into inputLine. Caret column is the grid cursor relative to the prompt end.
     auto cursorPos = screen.GetCursorPos();
     if (cursorPos.y != promptAnchor.y) {
-        // The prompt moved (output scrolled, or a candidate list redrew it lower).
+        // The prompt moved (the line wrapped, or a candidate list redrew it lower).
         // Re-anchoring is the ambiguous-completion case — deferred. Leave the mirror
-        // as-is for now.
+        // as-is, but it no longer holds the whole line.
+        isLineMirrorValid = false;
         return;
     }
 
@@ -322,6 +323,8 @@ void TerminalController::SyncInputLineFromGrid() {
     while (end > start && row[end - 1].ch == U' ') {
         end--;
     }
+    // A line that reaches the last column may go on on the next row - we only read this one
+    isLineMirrorValid = (end < (int)row.size());
 
     std::u32string lineText;
     for (int x = start; x < end; x++) {
@@ -478,6 +481,10 @@ bool TerminalController::ForwardActionToShell(const EditorAction &kpAction) {
         return false;
     }
     if ((kpAction.uiAction == kUIAction::kUIActionCommitLine) && doesShellOwnLineEditing) {
+        // Bug #17: a dot-command finished in readline is the editor's, not the shell's
+        if (CommitShellOwnedDotCommand()) {
+            return true;
+        }
         // §4.1 tab-completion edge case: this commit never goes through CommitLine(). readline's edits have been
         // mirrored into inputLine on the pty thread; mirror once more from the grid as it stands now and read it
         // under the lock, before ExitShellOwned() clears it. Best effort: an echo still in flight is not seen.
@@ -569,11 +576,7 @@ void TerminalController::Paste(const std::u32string &text) {
     }
     // Several lines: readline takes the line (as on Tab completion), the paste lands in it bracketed - visible
     // and editable, run on Enter
-    {
-        std::lock_guard<std::mutex> guard(screenLock);
-        promptAnchor = screen.GetCursorPos();
-    }
-    doesShellOwnLineEditing = true;
+    EnterShellOwned();
     gnilk::vt::Modes bracketed;
     bracketed.isBracketedPaste = true;
     WriteToPty(UnicodeHelper::utf32to8(inputLine->Buffer()) + gnilk::vt::EncodePaste(bytes, bracketed));
@@ -604,11 +607,7 @@ bool TerminalController::OnAction(const EditorAction &kpAction) {
         // whole time we edited locally (local edits never touch the grid), so
         // capture it now as the prompt anchor for reading the line back. From here
         // readline owns the line until the command is committed or aborted.
-        {
-            std::lock_guard<std::mutex> guard(screenLock);
-            promptAnchor = screen.GetCursorPos();
-        }
-        doesShellOwnLineEditing = true;
+        EnterShellOwned();
         auto cmdLine = std::u32string(inputLine->Buffer());
         WriteToPty(UnicodeHelper::utf32to8(cmdLine) + "\t");
         return true;
@@ -730,12 +729,49 @@ std::optional<std::u32string> TerminalController::GetLastOutputText() {
     return text;
 }
 
+// readline takes the line. Until its echo arrives, inputLine (what was typed) is the line.
+void TerminalController::EnterShellOwned() {
+    std::lock_guard<std::mutex> guard(screenLock);
+    promptAnchor = screen.GetCursorPos();
+    isLineMirrorValid = true;
+    doesShellOwnLineEditing = true;
+}
+
 void TerminalController::ExitShellOwned() {
     // Return to local line editing. The committed/aborted line lives in the shell's
-    // output now; our local buffer starts fresh at the next prompt.
+    // output now; our local buffer starts fresh at the next prompt. Under the lock: the
+    // pty thread mirrors into inputLine while the flag is set.
+    std::lock_guard<std::mutex> guard(screenLock);
     doesShellOwnLineEditing = false;
+    isLineMirrorValid = false;
     inputLine->Clear();
     inputCursor.position.x = 0;
+}
+
+// Enter on a line readline owns (after Tab) that is a dot-command: clear readline's line - end of line, kill line
+// (bash and zsh, emacs mode) - and give it an empty line for a fresh prompt, then run the command as CommitLine does.
+// The command is the mirror up to the cursor: what the shell draws after it (zsh's RPROMPT, an autosuggestion) is
+// not typed text. Only from a mirror that holds the whole line - otherwise false, and the shell gets its own line.
+bool TerminalController::CommitShellOwnedDotCommand() {
+    std::u32string cmdLine;
+    {
+        std::lock_guard<std::mutex> guard(screenLock);
+        SyncInputLineFromGrid();
+        if (!isLineMirrorValid) {
+            return false;
+        }
+        cmdLine = inputLine->Buffer().substr(0, inputCursor.position.x);
+    }
+    if (!PluginExecutor::IsPluginCommandLine(cmdLine)) {
+        return false;
+    }
+    WriteToPty("\x05\x15\r");
+    ExitShellOwned();
+    RecordCommand(cmdLine);
+    PluginExecutor::ParseAndExecuteWithCmdPrefix(cmdLine);
+    ScrollToBottom();
+    Editor::Instance().TriggerUIRedraw();
+    return true;
 }
 
 int TerminalController::GetCursorXPos() {

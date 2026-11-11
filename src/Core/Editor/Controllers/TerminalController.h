@@ -146,7 +146,9 @@ namespace gedit {
 
     protected:
         void SyncInputLineFromGrid();
+        void EnterShellOwned();
         void ExitShellOwned();
+        bool CommitShellOwnedDotCommand();
         void RecordCommand(const std::u32string &cmdLine);
         void MarkCommandOutput();
         // Default fg/bg and the 16 system colours from the theme's terminal colours (the rest of the
@@ -202,6 +204,8 @@ namespace gedit {
         //                    shell's readline so it can complete. Keys pass through to the pty and
         //                    the grid is mirrored back into inputLine until the line is committed
         //                    (or aborted), which returns to local editing.
+        // Written on the UI thread under screenLock (EnterShellOwned / ExitShellOwned); the pty thread reads it under
+        // screenLock - the UI thread, its only writer, may read it without.
         bool doesShellOwnLineEditing = false;
         // Synchronized output (?2026): when the app began the update; held for at most kMaxSyncHold, as Ghostty
         static constexpr std::chrono::milliseconds kMaxSyncHold{1000};
@@ -222,6 +226,10 @@ namespace gedit {
         // grid cursor stays parked there while editing locally, since local edits never touch the
         // grid). Used to read the line back.
         Point promptAnchor = {};
+        // The mirror in inputLine is the whole of readline's line: the cursor is on the prompt's row and the row
+        // doesn't run to its last column (where the line may go on below). A dot-command runs from the mirror only
+        // while this holds - otherwise the shell gets its own line. Under screenLock.
+        bool isLineMirrorValid = false;
 
         // OSC 133 shell integration (§4.2). Set once the first OSC 133 marker arrives: from then on the shell
         // marks where output starts (;C), so the CommitLine guess stands down. Under screenLock.

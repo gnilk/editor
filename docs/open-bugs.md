@@ -249,3 +249,13 @@ those cells (width, colours) - the gvt side is cleared by the ANSI backend.
 
 **Found:** 2026-11-11 by the user, while working in Claude Code in the editor's terminal.
 2026-11-11: the user checked `--backend ansi` - `/usage` renders correctly there, so gvt is cleared.
+2026-11-11, **glyphs ruled out:** a pty capture of `/usage` uses only `· … ↓ █ ▌ ▔ ▝ ◐ ❯` (bars are `█`). Andale Mono
+has `· … ↓ █ ▌`; Menlo (first macOS fallback, `.ttc` opened at index 0) has all nine. (JetBrains Mono lacks `◐`.)
+The stream also sets mouse tracking (`?1000/1002/1003/1006h`) - not forwarded to the pty by either backend, so not
+it - and wraps each frame in synchronized output (`?2026`, ~9 frames), plus 24-bit SGR fg/bg. Next: see what the
+SDL failure actually looks like (blank? stale frame? partial?) - replaying the capture with `cat` in the editor's
+terminal should reproduce it without Claude Code.
+2026-11-11, **`/context` is glyphs:** its usage grid (`⛀ ⛁ ⛶ ⛝`, U+26C0/26C1/26F6/26DD) is blank in SDL
+(`screenshots/claude_context-rendering-sdl3.png`). No configured font has them; on this Mac only `STIXTwoMath.otf`
+does (CLion finds it through the system's own fallback). Fix: [`system-font-fallback.md`](system-font-fallback.md).
+`/usage` itself is still unexplained.

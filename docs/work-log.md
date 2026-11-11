@@ -340,6 +340,9 @@ drop both Gansi stopgaps. SDL/JS/serialization unchanged (alpha ≤ 1 ⇒ no wra
 
 ## Planned / not started
 
+- **System font fallback** (2026-11-11) - after the theme font and `sdl.font_fallback`, ask the system (CoreText /
+  fontconfig) for a font with the character, behind `sdl.system_font_fallback` (default on). Prompted by open-bugs #26
+  (Claude Code's `/context` grid). Detail: [`system-font-fallback.md`](system-font-fallback.md).
 - **Usability round** (2026-11-08) - in this order: the change set (`git status`) marked in the workspace tree; the header's open files cut off with `...` and listed on `Cmd+E`;
   splitters dragged with the mouse (moves from SDL, mouse capture in `RootView`); workspace search: type-to-jump in the
   tree, open a file by name on `Cmd+P`, plain text search on `Cmd+Shift+F`. Noted, not scheduled: key bindings for script

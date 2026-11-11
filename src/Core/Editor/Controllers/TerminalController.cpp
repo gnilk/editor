@@ -310,15 +310,18 @@ void TerminalController::SyncInputLineFromGrid() {
     auto cursorPos = screen.GetCursorPos();
     // The prompt's row by its abs id: when the line wraps on the bottom row the screen scrolls and the prompt moves
     // up a grid row - it is still the prompt's row once the line is erased back onto it.
+    const auto &row = screen.GetRow(cursorPos.y);
     if (screen.AbsRowCount() != promptAnchorAbs) {
-        // The cursor is off the prompt's row (the line wrapped, or a candidate list
-        // redrew the prompt lower). Re-anchoring is the ambiguous-completion case —
-        // deferred. Leave the mirror as-is, but it no longer holds the whole line.
-        isLineMirrorValid = false;
-        return;
+        if (!IsPromptRow(row)) {
+            // The cursor is off the prompt's row (the line wrapped, a question below it). Leave the
+            // mirror as-is, but it no longer holds the whole line.
+            isLineMirrorValid = false;
+            return;
+        }
+        // The shell redrew the prompt here - under a list of completion candidates (Tab Tab)
+        promptAnchorAbs = screen.AbsRowCount();
     }
 
-    const auto &row = screen.GetRow(cursorPos.y);
     int start = std::clamp(promptAnchorCol, 0, (int)row.size());
     int end   = (int)row.size();
     // Trim trailing blanks so we don't carry the rest of the (padded) grid row.
@@ -734,8 +737,10 @@ std::optional<std::u32string> TerminalController::GetLastOutputText() {
 // readline takes the line. Until its echo arrives, inputLine (what was typed) is the line.
 void TerminalController::EnterShellOwned() {
     std::lock_guard<std::mutex> guard(screenLock);
-    promptAnchorCol = screen.GetCursorPos().x;
+    auto cursorPos = screen.GetCursorPos();
+    promptAnchorCol = cursorPos.x;
     promptAnchorAbs = screen.AbsRowCount();
+    promptText = PromptTextOf(screen.GetRow(cursorPos.y));
     isLineMirrorValid = true;
     doesShellOwnLineEditing = true;
 }
@@ -749,6 +754,27 @@ void TerminalController::ExitShellOwned() {
     isLineMirrorValid = false;
     inputLine->Clear();
     inputCursor.position.x = 0;
+}
+
+// The prompt: the row's text left of the anchor column (wide characters' right halves skipped)
+std::u32string TerminalController::PromptTextOf(const TerminalScreen::Row &row) const {
+    std::u32string text;
+    int end = std::min(promptAnchorCol, (int)row.size());
+    for (int x = 0; x < end; x++) {
+        if (row[x].width != 0) {
+            text += row[x].ch;
+        }
+    }
+    return text;
+}
+
+// The row starts with the prompt the line was anchored to - the shell redrew it there. An empty prompt never matches
+// (every row would). A prompt that changed when redrawn (a clock) doesn't either: the line can't be read back then.
+bool TerminalController::IsPromptRow(const TerminalScreen::Row &row) const {
+    if (promptText.empty() || ((int)row.size() < promptAnchorCol)) {
+        return false;
+    }
+    return PromptTextOf(row) == promptText;
 }
 
 // Enter on a line readline owns (after Tab) that is a dot-command: clear readline's line - end of line, kill line

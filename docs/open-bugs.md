@@ -216,8 +216,8 @@ copy with a mirror step that deletes what the source no longer has. Check it wit
 
 **What's wrong:** what the shell draws after the cursor - zsh's `RPROMPT`, a zsh-autosuggestions suggestion - is
 read as part of the line, so `vim apa.cpp` can be recorded as `vim apa.cpp        12:30`. A line that wrapped, or a
-prompt redrawn lower (bash lists ambiguous completions), leaves the mirror stale, so the history gets an older
-version of the line. The shell itself runs its own line, so only the history (Up) is wrong.
+prompt redrawn with other text (a clock) under a completion list, leaves the mirror stale, so the history gets an
+older version of the line. (A prompt redrawn unchanged - Tab Tab - is followed: `IsPromptRow` re-anchors.) The shell itself runs its own line, so only the history (Up) is wrong.
 
 **Already handled for dot-commands (#17, 2026-11-11):** `CommitShellOwnedDotCommand` takes the mirror only up to the
 cursor, and only while `isLineMirrorValid` (cursor on the prompt's row, row not full); otherwise the shell gets

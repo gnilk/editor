@@ -40,6 +40,8 @@ DLL_EXPORT int test_terminalcontroller_tab_dotcommand_fullrow(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_tab_dotcommand_rprompt(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_tab_dotcommand_retyped(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_tab_dotcommand_scrolled(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_tab_dotcommand_listed(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_tab_dotcommand_listed_newprompt(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_sync_output(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_sync_output_frame(ITesting *t);
 }
@@ -667,15 +669,15 @@ namespace {
         std::string sent;
         IOutputConsole *prevConsole = nullptr;
 
-        explicit DotCommandFixture(int cols) {
-            c.Resize(cols, 10);
+        explicit DotCommandFixture(int cols, int rows = 10, const std::string &prompt = "$ ") {
+            c.Resize(cols, rows);
             CaptureInput(c, sent, false);
             prevConsole = RuntimeConfig::Instance().OutputConsole();
             c.RegisterAsOutputConsole();
-            FeedPty(c, "$ ");
+            FeedPty(c, prompt);
             c.GetInputLine()->Append(std::u32string(U"make"));
             c.CommitLine();
-            FeedPty(c, "make\r\nerror: x\r\n$ ");
+            FeedPty(c, "make\r\nerror: x\r\n" + prompt);
             Editor::Instance().GetClipBoard().CopyText(U"before");
         }
         ~DotCommandFixture() {
@@ -838,5 +840,55 @@ DLL_EXPORT int test_terminalcontroller_tab_dotcommand_scrolled(ITesting *t) {
     TR_ASSERT(t, sent == "\x05\x15\r");
     auto top = Editor::Instance().GetClipBoard().Top();
     TR_ASSERT(t, (top != nullptr) && (top->AsText() == U"error: x\nb"));
+    return kTR_Pass;
+}
+
+namespace {
+    // Tab twice on an ambiguous path: zsh lists the candidates below the line and redraws the prompt + line under
+    // the list (its output shape, captured from a pty - here with 'zsh %' as the prompt). 'redrawnPrompt' is what
+    // the prompt reads when it is redrawn. On a 6-row screen the list scrolls it.
+    void ListAndRetype(DotCommandFixture &f, const std::string &redrawnPrompt) {
+        f.TabWithEcho(U".theme --import ~/Downloads/", ".\x08.theme --import ~/Downloads/");
+        FeedPty(f.c, "\a\r\r\na.pdf\r\nb.pdf\r\nc.pdf\r\nd.pdf\r\n\x1b[0m\x1b[27m\x1b[24m\x1b[J" + redrawnPrompt +
+                     ".theme --import ~/Downloads/\x1b[K");
+        Cursor cursor;
+        size_t line = 0;
+        for (int i = 0; i < 28; i++) {
+            f.c.HandleKeyPress(cursor, line, SpecialKey(Keyboard::kKeyCode_Backspace));
+        }
+        std::string erase;
+        for (int i = 0; i < 28; i++) {
+            erase += "\x08 \x08";
+        }
+        FeedPty(f.c, erase);
+        for (auto ch : std::u32string(U".co")) {
+            f.c.HandleKeyPress(cursor, line, TextKey(ch));
+        }
+        FeedPty(f.c, ".\x08.co");
+        f.sent.clear();
+    }
+}
+
+// Bug #17, found in the GUI: '.theme --import ~/Downloads/' + Tab Tab lists the files and redraws the prompt below
+// them; erased and retyped as a dot-command, it is still one - the anchor moves to the redrawn prompt
+DLL_EXPORT int test_terminalcontroller_tab_dotcommand_listed(ITesting *t) {
+    DotCommandFixture f(60, 6, "zsh % ");
+    ListAndRetype(f, "zsh % ");
+    TR_ASSERT(t, f.c.GetInputLine()->Buffer() == std::u32string(U".co"));
+    TR_ASSERT(t, f.Commit());
+    TR_ASSERT(t, f.sent == "\x05\x15\r");
+    // '.co' ran - the output since 'make' runs to the cursor, the listing included
+    TR_ASSERT(t, f.ClipboardText().starts_with(U"error: x"));
+    return kTR_Pass;
+}
+
+// A prompt redrawn with other text (a clock, a git status that changed) is not recognised: the line can't be read
+// back - the shell gets its own line
+DLL_EXPORT int test_terminalcontroller_tab_dotcommand_listed_newprompt(ITesting *t) {
+    DotCommandFixture f(60, 6, "zsh % ");
+    ListAndRetype(f, "zsh # ");
+    TR_ASSERT(t, f.Commit());
+    TR_ASSERT(t, f.sent == "\r");
+    TR_ASSERT(t, f.ClipboardText() == U"before");
     return kTR_Pass;
 }

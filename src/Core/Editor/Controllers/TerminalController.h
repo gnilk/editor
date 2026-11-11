@@ -147,6 +147,8 @@ namespace gedit {
     protected:
         void SyncInputLineFromGrid();
         void EnterShellOwned();
+        std::u32string PromptTextOf(const TerminalScreen::Row &row) const;
+        bool IsPromptRow(const TerminalScreen::Row &row) const;
         void ExitShellOwned();
         bool CommitShellOwnedDotCommand();
         void RecordCommand(const std::u32string &cmdLine);
@@ -228,6 +230,9 @@ namespace gedit {
         // prompt when the screen scrolls under it. Under screenLock.
         int promptAnchorCol = 0;
         uint64_t promptAnchorAbs = 0;
+        // The prompt's text (left of promptAnchorCol) - a row starting with it is the prompt redrawn, where the
+        // anchor moves (Tab Tab lists the candidates and redraws the prompt below them). Under screenLock.
+        std::u32string promptText;
         // The mirror in inputLine is the whole of readline's line: the cursor is on the prompt's row and the row
         // doesn't run to its last column (where the line may go on below). A dot-command runs from the mirror only
         // while this holds - otherwise the shell gets its own line. Under screenLock.

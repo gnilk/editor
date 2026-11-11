@@ -169,6 +169,31 @@ related Linux one - the terminal keymap inherits the default one, so `Ctrl+B`, `
 even in a full-screen program in the embedded terminal (`Ctrl+[` is `Esc` to vim; `docs/code-index.md` §11.9). Both are
 "which keys are the editor's in a terminal", and may want one answer.
 
+**Research notes (2026-11-11) - how terminal editors do copy and paste.** Most of them treat paste and copy as two
+separate problems:
+- **Paste needs no key of the editor's own.** The terminal pastes with its own `Cmd+V` (`Ctrl+Shift+V` on Linux) and sends
+  the text as one bracketed-paste block. Neovim, Helix, micro and Kakoune all rely on this. Gansi does it already: a
+  `PasteEvent` is loaded into the clipboard and posted as `PasteFromClipboard` (`GansiScreen.cpp`, `DispatchEvent`).
+- **Copy: the editor pushes the text out itself.**
+  - **OSC 52** sets the system clipboard, and works over SSH. Ghostty, kitty, WezTerm and Alacritty support it,
+    iTerm2 only when it's turned on, and Apple Terminal not at all.
+  - **Locally,** Neovim and Helix try `pbcopy` / `xclip` / `wl-copy` first and use OSC 52 when those are missing.
+  - Gansi sends OSC 52 every time the editor's clipboard changes (`SetOnUpdateCallback` in `GansiScreen::Open`). It has no
+    local fallback, so copy goes nowhere in Apple Terminal.
+- **The copy key:**
+  - Neovim and Kakoune use their own keys (`"+y`, `y`); `Ctrl+C` is never copy.
+  - Helix uses `Space y` / `Space p`.
+  - **micro** uses plain `Ctrl+C` / `Ctrl+X` / `Ctrl+V`, as a GUI editor does. In raw mode `ISIG` is off, so `Ctrl+C`
+    reaches the program as a key (0x03), not an interrupt. micro is the closest precedent for us.
+  - nano uses `Alt+6` copy, `Ctrl+K` cut, `Ctrl+U` paste.
+- **The terminal's own `Cmd+C`** copies what's *on screen*, not the editor's selection. When the editor captures the mouse,
+  a terminal selection needs `Option`/`Shift`-drag. That is why the editors have a copy key of their own.
+- **For us:** micro's way (`Ctrl+C/X/V` - the Linux keymap) fits with what Gansi already does: `Ctrl+C` -> OSC 52;
+  `Ctrl+V` or the terminal's `Cmd+V` -> paste. That leaves two gaps:
+  - Apple Terminal: no OSC 52, so it needs a `pbcopy` fallback when local.
+  - The embedded terminal view: `Ctrl+C` there must stay the shell's interrupt. The terminal keymap already keeps that
+    apart.
+
 ---
 
 ## 21. A file argument before the folder leaves that folder without a folder monitor

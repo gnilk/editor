@@ -152,6 +152,8 @@ bool Editor::Initialize(int argc, const char **argv) {
     if (isInitialized) {
         return true;
     }
+    // First - before anything starts a child process (the shell, git) that would inherit it
+    isStartedFromUI = TakeStartedFromUI();
     ParseArguments(argc, argv);
 
     // Default should be that the logger is completely disabled but if --enable-logging or similar is given we enable it...
@@ -913,31 +915,41 @@ static std::vector<std::string> glbSupportedBackends = {
 
 extern "C" char ** environ;
 
-void Editor::ConfigureSubSystems() {
-    // Launch context decides the default backend. A desktop/Finder launch (or an explicit
-    // start-from-UI) enforces SDL; a plain terminal session defaults to the ANSI/TTY backend.
-    // (Generalizable later to 'GEDIT_STARTED_FROM_UI', also settable via the Linux .desktop file.)
-    bool enforceSDL = false;
-    bool isTerminal = XDGEnvironment::Instance().IsTerminalSession();
+bool Editor::TakeStartedFromUI() {
+    static const char *kStartedFromUI = "GEDIT_MACOS_STARTED_FROM_UI";
+    bool isSet = (std::getenv(kStartedFromUI) != nullptr);
+    unsetenv(kStartedFromUI);
 #ifdef GEDIT_MACOS
-    if (std::getenv("GEDIT_MACOS_STARTED_FROM_UI") != nullptr) {
-        enforceSDL = true;
-        logger->Debug("Application started from desktop environment, enforcing SDL");
-    }
+    return isSet;
+#else
+    return false;
 #endif
+}
 
-    // Resolve the backend: an explicit --backend wins; otherwise a terminal session (not started from
-    // the desktop UI) auto-selects 'ansi'; everything else falls back to the configured backend.
+std::string Editor::ResolveBackend(const std::string &argBackend, bool isStartedFromUI, bool isTerminal,
+                                   const std::string &configBackend) {
     std::string backend;
     if (!argBackend.empty()) {
         backend = argBackend;
-    } else if (isTerminal && !enforceSDL) {
+    } else if (isStartedFromUI) {
+        backend = "sdl";
+    } else if (isTerminal) {
         backend = "ansi";
     } else {
-        backend = Config::Instance()["main"].GetStr("backend", "sdl");
+        backend = configBackend;
     }
-    // Normalise to lowercase
     std::transform(backend.begin(), backend.end(), backend.begin(), ::tolower);
+    return backend;
+}
+
+void Editor::ConfigureSubSystems() {
+    // Launch context decides the default backend: a desktop/Finder launch gets a window, a plain terminal
+    // session the ANSI/TTY backend - unless --backend says otherwise.
+    if (isStartedFromUI) {
+        logger->Debug("Application started from desktop environment");
+    }
+    auto backend = ResolveBackend(argBackend, isStartedFromUI, XDGEnvironment::Instance().IsTerminalSession(),
+                                  Config::Instance()["main"].GetStr("backend", "sdl"));
     // See if supported; if not, print the list and exit.
     if (std::find(glbSupportedBackends.begin(), glbSupportedBackends.end(), backend) == glbSupportedBackends.end()) {
         logger->Error("Unknown backend: '%s'", backend.c_str());
@@ -950,13 +962,13 @@ void Editor::ConfigureSubSystems() {
     }
     logger->Debug("Initialize Graphics Backend: %s", backend.c_str());
 
-    if (backend == "ansi" && !enforceSDL) {
+    if (backend == "ansi") {
         logger->Debug("Starting ANSI (gansi) backend");
         SetupAnsi();
         return;
     }
 
-    if (backend == "sdl" || enforceSDL) {
+    if (backend == "sdl") {
 #ifdef GEDIT_USE_SDL3
         logger->Debug("Starting SDL3 backend");
         SetupSDL3();
@@ -1231,7 +1243,11 @@ void Editor::SetupSDL3() {
     RuntimeConfig::Instance().SetScreen(screenDriver);
     UIHost::Instance().SetScreen(screenDriver);
     WireScreenGeometry(screenDriver);
-    screenDriver->Open();
+    if (!screenDriver->Open()) {
+        // The reason is on stderr (SDLScreen::Open). No window - nothing to run in; '--backend ansi' runs in a terminal.
+        fprintf(stderr, "goatedit: can't open a window (SDL3) - try '--backend ansi' in a terminal\n");
+        exit(1);
+    }
     screenDriver->Clear();
 
     auto keyDriver = SDL3::SDLKeyboardDriver::Create();
@@ -1255,7 +1271,11 @@ void Editor::SetupSDL2() {
     RuntimeConfig::Instance().SetScreen(screenDriver);
     UIHost::Instance().SetScreen(screenDriver);
     WireScreenGeometry(screenDriver);
-    screenDriver->Open();
+    if (!screenDriver->Open()) {
+        // The reason is on stderr (SDLScreen::Open). No window - nothing to run in; '--backend ansi' runs in a terminal.
+        fprintf(stderr, "goatedit: can't open a window (SDL2) - try '--backend ansi' in a terminal\n");
+        exit(1);
+    }
     screenDriver->Clear();
 
     auto keyDriver = SDL2::SDLKeyboardDriver::Create();

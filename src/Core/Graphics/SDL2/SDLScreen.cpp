@@ -74,8 +74,8 @@ bool SDLScreen::Open() {
     int err = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_HAPTIC);
     if (err) {
         logger->Error("SDL_Init, %s", SDL_GetError());
-        printf("Error: SDL_Init, %s\n", SDL_GetError());
-        exit(1);
+        fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
+        return false;
     }
 
     logger->Debug("SDL initialized ok, video driver = %s", SDL_GetCurrentVideoDriver());
@@ -108,8 +108,18 @@ bool SDLScreen::Open() {
 
     // FIXME: Need to determine how HighDPI stuff works...
     sdlWindow = SDL_CreateWindow("gedit", geoX, geoY, widthPixels, heightPixels,  windowFlags);
+    if (sdlWindow == nullptr) {
+        logger->Error("SDL_CreateWindow failed: %s", SDL_GetError());
+        fprintf(stderr, "SDL_CreateWindow: %s\n", SDL_GetError());
+        return false;
+    }
     SetWindowIcon();
     sdlRenderer = SDL_CreateRenderer(sdlWindow, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    if (sdlRenderer == nullptr) {
+        logger->Error("SDL_CreateRenderer failed: %s", SDL_GetError());
+        fprintf(stderr, "SDL_CreateRenderer: %s\n", SDL_GetError());
+        return false;
+    }
     SDL_SetRenderDrawBlendMode(sdlRenderer, SDL_BLENDMODE_BLEND);
 
     // Report the geometry actually realised, so a window that is never moved/resized still persists its

@@ -73,7 +73,8 @@ bool SDLScreen::Open() {
     // SDL3: SDL_INIT_HAPTIC was removed; SDL_INIT_EVENTS is implied by SDL_INIT_VIDEO
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
         logger->Error("SDL_Init, %s", SDL_GetError());
-        exit(1);
+        fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
+        return false;
     }
 
     logger->Debug("SDL initialized ok, video driver = %s", SDL_GetCurrentVideoDriver());
@@ -108,7 +109,8 @@ bool SDLScreen::Open() {
     window = SDL_CreateWindow("goatedit", widthPixels, heightPixels, windowFlags);
     if (!window) {
         logger->Error("SDL_CreateWindow failed: %s", SDL_GetError());
-        exit(1);
+        fprintf(stderr, "SDL_CreateWindow: %s\n", SDL_GetError());
+        return false;
     }
     SDL_SetWindowPosition(window, geoX, geoY);
     SetWindowIcon();
@@ -123,7 +125,8 @@ bool SDLScreen::Open() {
     renderer = SDL_CreateRenderer(window, nullptr);
     if (!renderer) {
         logger->Error("SDL_CreateRenderer failed: %s", SDL_GetError());
-        exit(1);
+        fprintf(stderr, "SDL_CreateRenderer: %s\n", SDL_GetError());
+        return false;
     }
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
     SDL_SetRenderVSync(renderer, 1);

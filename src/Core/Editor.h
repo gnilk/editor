@@ -52,6 +52,13 @@ namespace gedit {
         using KeymapUpdateDelegate = std::function<void(KeyMapping::Ref newKeymap)>;
     public:
         static Editor &Instance();
+        // The backend to start: an explicit --backend always wins; then a desktop launch gets a window ('sdl'); then a
+        // terminal session gets 'ansi'; else the configured one. Lowercase. Unknown names are the caller's to reject.
+        static std::string ResolveBackend(const std::string &argBackend, bool isStartedFromUI, bool isTerminal,
+                                          const std::string &configBackend);
+        // Read the desktop-launch marker (GEDIT_MACOS_STARTED_FROM_UI, set by Info.plist's LSEnvironment - macOS only)
+        // and remove it from the environment, so the editor's shell and everything run from it don't inherit it.
+        static bool TakeStartedFromUI();
         bool Initialize(int argc, const char **argv);
         bool OpenScreen();
         // Second session-restore pass: re-apply the saved layout (splitters / focused view / tree
@@ -288,6 +295,7 @@ namespace gedit {
         bool keepConsoleLogger = false;
         bool loadUserConfig = true;
         std::string argBackend;
+        bool isStartedFromUI = false;       // launched from the desktop (TakeStartedFromUI, at Initialize)
         std::filesystem::path argAssetDir;  // '--asset-dir', replaces the system asset lookup when set
         std::vector<std::string> pendingFiles;
         std::string importThemeFile;

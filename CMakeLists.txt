@@ -583,6 +583,7 @@ target_link_libraries(${CUR_TARGET} ${extlibs})
 # unit testing
 #
 list(APPEND utestsrc utests/test_main.cpp)
+list(APPEND utestsrc utests/test_launch.cpp)
 
 list(APPEND utestsrc utests/test_assetloader.cpp)
 list(APPEND utestsrc utests/test_clipboard.cpp)

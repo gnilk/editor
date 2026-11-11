@@ -226,21 +226,3 @@ history entry when the mirror isn't valid rather than recording a stale one. Lim
 path: Enter with the cursor mid-line drops the text after it; vi-mode readline may not clear the line with
 `Ctrl+E Ctrl+U`; an Enter handled before the shell's echo of the last keys arrives reads the line without them
 (not seen in practice - zsh echoes within the same pass; a dot-command then falls back to the shell).
-
----
-
-## 25. Test modules that open a screen exit the whole trun run when there is no window session
-
-**Where:** module setups that call `Editor::Instance().OpenScreen()` - `test_find`, `test_codeindex`,
-`test_openfiles`, `test_jsengine`'s `ModalHostFixture` (`closeallcmd`, ...).
-
-**What's wrong:** `OpenScreen` -> `ConfigureSubSystems` -> `SetupSDL3` -> `SDLScreen::Open`, which calls `exit()` when
-SDL can't open a window (a shell with no window session, e.g. an agent's or over SSH). `--sequential` ends with no
-summary at that module; forking mode reports `Tests Failed: 0` but runs ~230 fewer cases than the verified-green 642
-- the gap is the only sign. `test_main` already starts the editor with `--backend headless`; these setups bypass it.
-
-**Fix direction:** have the setups use the headless screen `test_main` configured (or make `OpenScreen` honour the
-selected backend), and have `SDLScreen::Open` return false instead of `exit()`. Check: the verified-green set runs all
-642 cases from a shell with no window session.
-
-**Found:** 2026-11-11, running the suite for #23 / #17.

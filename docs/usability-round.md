@@ -663,3 +663,18 @@ the pty's (the pty only carries bytes) - so the editor has to ask it, at startup
 - Ruler and minimap side by side (VS Code has both), or one or the other - one, by `overview.kind`, to start.
 - The terminal view and the tree: a ruler for the terminal's scrollback is the same mapping; not now.
 - A hover on the minimap showing the lines there (VS Code doesn't; Sublime doesn't either) - no.
+
+## 8. Select all is missing
+
+Filed 2026-11-11 (found while trying YAML reformat). The editor has no notion of select all: no action in `kAction`,
+nothing in `Document`, and `Cmd+A` is not bound in any keymap - on SDL it does nothing. With no way to select the whole
+file, `ReformatBlock` (`Cmd+I`) can't be run over a file either, short of selecting it line by line.
+
+**The ANSI backend makes it worse:** a terminal keeps most `Cmd` combinations for itself, so `Cmd+A` selects the
+terminal's own text instead of reaching the editor (`Cmd+I` likely never arrives either - Terminal.app opens its
+Inspector). Gansi only sees `Cmd` when the terminal reports it as `Super`. A select all for Gansi needs a binding a
+terminal passes through. Open bug #20 is the general case (the terminal takes `Cmd` keys first).
+
+Open: the action (`SelectAll` - editor-owned `kAction`, it's functionality), its key per backend, and whether reformat
+over a whole file should also become a quick command (§4's `.fm_file`). Related: open bug #27 (selecting line by line
+can't take in the last line).

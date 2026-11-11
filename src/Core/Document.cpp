@@ -488,6 +488,21 @@ void Document::ClampViewStateToText() {
     }
 }
 
+void Document::SelectAll() {
+    auto numLines = textBuffer->NumLines();
+    if ((numLines == 0) || ((numLines == 1) && (LineAt(0)->Length() == 0))) {
+        CancelSelection();
+        return;
+    }
+    auto idxLast = numLines - 1;
+    auto &selection = documentViewState->currentSelection;
+    selection.SetActive(true);
+    selection.SetStartLine(0);
+    selection.SetStart(Point(0, 0));
+    SetCursorPosition(idxLast, LineAt(idxLast)->Length());
+    UpdateSelection();
+}
+
 /////////
 bool Document::OnAction(const EditorAction &kpAction) {
     if (kpAction.actionModifier == kActionModifier::kActionModifierSelection) {
@@ -526,6 +541,9 @@ bool Document::OnAction(const EditorAction &kpAction) {
     } else if (kpAction.action == kAction::kActionInsertLineComment) {
         // Handle this here since we want to keep the selection...
         CommentSelectionOrLine();
+    } else if (kpAction.action == kAction::kActionSelectAll) {
+        // Here, not in DispatchAction: a handled action there cancels the selection it just made
+        SelectAll();
     } else if (kpAction.action == kAction::kActionIndent && IsSelectionActive()) {
         IndentSelectionOrLine();
     } else if (kpAction.action == kAction::kActionUnindent && IsSelectionActive()) {
@@ -895,7 +913,14 @@ bool Document::OnActionLineDown(const EditorAction &kpAction) {
     if (currentLine == nullptr) {
         return true;
     }
-    auto &cursor = GetCursor();
+    // Down on the last line goes to its end, as Up on the first line goes to its start - otherwise a
+    // line-wise selection can never take in the last line (open-bugs #27)
+    if ((size_t)documentViewState->lineCursor.idxActiveLine + 1 >= Lines().size()) {
+        auto &cursor = GetCursor();
+        cursor.position.x = (int)currentLine->Length();
+        CaptureWantedColumn(cursor, currentLine);
+        return true;
+    }
     verticalNavigationViewModel->OnNavigateDown(1, viewRect, Lines().size());
     UpdateDocumentFromNavigation(true);
 

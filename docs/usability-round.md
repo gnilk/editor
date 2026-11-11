@@ -729,6 +729,6 @@ The mutation checks: a `ReformatAll` that stops at `n-2`, or a select all that e
 these tests.
 
 **Branch:** `feat/select-all-reformat-cmds`, A -> B/C -> D, one commit each. About a day's work at most; no new design
-questions apart from the one below.
+questions left.
 
 **Decided:** both the long and the short names (`.fmf` / `.fmb`); `Ctrl+A` on Linux is select all.

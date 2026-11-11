@@ -72,6 +72,7 @@ static std::unordered_map<std::string, kAction> strToActionMap = {
         {"Unindent",                kAction::kActionUnindent},
         {"ReformatLine",            kAction::kActionReformatLine},
         {"ReformatBlock",           kAction::kActionReformatBlock},
+        {"SelectAll",               kAction::kActionSelectAll},
         {"ShellCompletion",         kAction::kActionShellCompletion},
         {"UISwitchToTerminal",      kAction::kActionSwitchToTerminal},
         {"UISwitchToEditor",        kAction::kActionSwitchToEditor},

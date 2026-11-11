@@ -70,6 +70,7 @@ namespace gedit {
         kActionUnindent,
         kActionReformatLine,            // default: Cmd/Ctrl+L - re-derive indentation of the current line
         kActionReformatBlock,           // default: Cmd/Ctrl+I - re-derive indentation of the selection/block
+        kActionSelectAll,               // default: Cmd/Ctrl+A - select the whole buffer
 
         // Terminal actions
         kActionShellCompletion,

@@ -67,6 +67,12 @@ DLL_EXPORT int test_document_reformat_surround_cursor(ITesting *t);
 DLL_EXPORT int test_document_reformat_surround_undo(ITesting *t);
 // enclosing-block finder (RF.2b)
 DLL_EXPORT int test_document_reformat_block_enclosing(ITesting *t);
+// select all (docs/usability-round.md §8) and line-wise selection reaching the last line (open-bugs #27)
+DLL_EXPORT int test_document_selectall(ITesting *t);
+DLL_EXPORT int test_document_selectall_empty(ITesting *t);
+DLL_EXPORT int test_document_selectall_reformat(ITesting *t);
+DLL_EXPORT int test_document_selectdown_lastline(ITesting *t);
+DLL_EXPORT int test_document_selectup_firstline(ITesting *t);
 
 // 'cut' - whole-line cut/paste preserves the trailing newline (open-bugs.md #4 / feel-check E.18)
 DLL_EXPORT int test_document_cut_paste_linewise(ITesting *t);
@@ -1455,5 +1461,92 @@ DLL_EXPORT int test_document_scrollviewto(ITesting *t) {
     TR_ASSERT(t, lineCursor->idxActiveLine == 99);
     TR_ASSERT(t, lineCursor->cursor.position.y == (int)(lineCursor->idxActiveLine - lineCursor->viewTopLine));
     TR_ASSERT(t, (lineCursor->cursor.position.y >= 0) && (lineCursor->cursor.position.y < 20));
+    return kTR_Pass;
+}
+
+// ---------------------------------------------------------------------------------------------------
+// Select all (docs/usability-round.md §8) and line-wise selection at the ends of the buffer (open-bugs #27)
+// ---------------------------------------------------------------------------------------------------
+static EditorAction actionSelectAll = {gedit::kAction::kActionSelectAll};
+static EditorAction actionCopy = {gedit::kAction::kActionCopyToClipboard};
+static EditorAction actionReformatBlock = {gedit::kAction::kActionReformatBlock};
+
+// Select all covers the whole buffer and survives the action dispatch; copy then gives every line, the last one
+// included, through the OS round-trip text (E.18).
+DLL_EXPORT int test_document_selectall(ITesting *t) {
+    auto document = CreateReformatDoc(t, {"one", "two", "three"});
+    document->GetLineCursor().idxActiveLine = 1;
+
+    document->OnAction(actionSelectAll);
+    TR_ASSERT(t, document->IsSelectionActive());
+    auto &selection = document->GetSelection();
+    TR_ASSERT(t, selection.GetStart() == gedit::Point(0, 0));
+    TR_ASSERT(t, selection.GetEnd() == gedit::Point(5, 2));
+    TR_ASSERT(t, document->GetLineCursor().idxActiveLine == 2);
+    TR_ASSERT(t, document->GetCursor().position.x == 5);
+
+    document->OnAction(actionCopy);
+    auto text = Editor::Instance().GetClipBoard().Top()->AsText();
+    TR_ASSERT(t, text == U"one\ntwo\nthree");
+    IndentCache::Instance().Clear();
+    return kTR_Pass;
+}
+
+// A buffer with nothing in it has nothing to select.
+DLL_EXPORT int test_document_selectall_empty(ITesting *t) {
+    auto document = CreateEmptyDocument(t);
+    gedit::Rect rect(40, 40);
+    document->OnViewInit(rect);
+    document->OnAction(actionSelectAll);
+    TR_ASSERT(t, !document->IsSelectionActive());
+    return kTR_Pass;
+}
+
+// Select all then ReformatBlock reindents every line - the last one too (the end is past its last char, so the
+// "ends at column 0" rule doesn't drop it).
+DLL_EXPORT int test_document_selectall_reformat(ITesting *t) {
+    auto document = CreateReformatDoc(t, {"void f() {", "a();", "if (y) {", "b();", "}", "      }"});
+    document->OnAction(actionSelectAll);
+    document->OnAction(actionReformatBlock);
+
+    TR_ASSERT(t, document->LineAt(1)->Buffer() == U"    a();");
+    TR_ASSERT(t, document->LineAt(3)->Buffer() == U"        b();");
+    TR_ASSERT(t, document->LineAt(4)->Buffer() == U"    }");
+    TR_ASSERT(t, document->LineAt(5)->Buffer() == U"}");
+    IndentCache::Instance().Clear();
+    return kTR_Pass;
+}
+
+// #27: Shift+Down from the top until the caret stops - the selection must take in the whole last line.
+DLL_EXPORT int test_document_selectdown_lastline(ITesting *t) {
+    auto document = CreateReformatDoc(t, {"alpha", "beta", "gamma"});
+    auto &lc = document->GetLineCursor();
+    lc.idxActiveLine = 0;
+    lc.cursor.position.x = 0;
+
+    for (int i = 0; i < 5; i++) {
+        document->OnAction(actionShiftLineDown);
+    }
+    TR_ASSERT(t, document->IsSelectionActive());
+    auto &selection = document->GetSelection();
+    TR_ASSERT(t, selection.GetStart() == gedit::Point(0, 0));
+    TR_ASSERT(t, selection.GetEnd() == gedit::Point(5, 2));
+    return kTR_Pass;
+}
+
+// The mirror: Shift+Up on the first line takes the selection to its start.
+DLL_EXPORT int test_document_selectup_firstline(ITesting *t) {
+    auto document = CreateReformatDoc(t, {"alpha", "beta", "gamma"});
+    auto &lc = document->GetLineCursor();
+    lc.idxActiveLine = 1;
+    lc.cursor.position.x = 3;
+
+    for (int i = 0; i < 3; i++) {
+        document->OnAction(actionShiftLineUp);
+    }
+    TR_ASSERT(t, document->IsSelectionActive());
+    auto &selection = document->GetSelection();
+    TR_ASSERT(t, selection.GetStart() == gedit::Point(0, 0));
+    TR_ASSERT(t, selection.GetEnd() == gedit::Point(3, 1));
     return kTR_Pass;
 }

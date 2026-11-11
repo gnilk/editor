@@ -70,6 +70,7 @@ keymap: {
     Unindent : KeyCode_Shift + KeyCode_Tab,
     ReformatLine: "CopyPasteModifier + 'l'",
     ReformatBlock: "CopyPasteModifier + 'i'",
+    SelectAll: "CopyPasteModifier + 'a'",
 
     # Find in the active document (a dialog listing the hits) - Cmd+F / Ctrl+F
     Find: "CopyPasteModifier + 'f'",

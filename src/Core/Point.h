@@ -31,6 +31,8 @@ namespace gedit {
             return (x < other. x);
         }
 
+        bool operator == (const Point &other) const = default;
+
         int x = 0;
         int y = 0;
     };

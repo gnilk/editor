@@ -260,6 +260,8 @@ namespace gedit {
         __inline const Selection &GetSelection() {
             return documentViewState->currentSelection;
         }
+        // Select the whole buffer, caret at the end of the last line. Nothing to select in an empty buffer.
+        void SelectAll();
         __inline void CancelSelection() {
             documentViewState->currentSelection.SetActive(false);
         }

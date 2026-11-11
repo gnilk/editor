@@ -31,6 +31,10 @@ namespace gnilk::ansi {
 
         // Consume the pending SIGWINCH flag: true exactly once after a resize signal arrived.
         virtual bool TakePendingResize() = 0;
+
+        // Thread-safe: make a Read that is (or will next be) waiting return at once (0 bytes, unless input is ready
+        // too). The interrupt behind Terminal::PushEvent - a blocked poll() doesn't see a queued event on its own.
+        virtual void Wake() {}
     };
 
 }

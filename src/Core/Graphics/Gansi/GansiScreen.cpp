@@ -167,6 +167,14 @@ void GansiScreen::DispatchEvent(const gnilk::ansi::Event &ev) {
         return;
     }
 
+    if (std::holds_alternative<gnilk::ansi::UserEvent>(ev)) {
+        if (std::get<gnilk::ansi::UserEvent>(ev).code == kWakeEventCode) {
+            // Posts from here on need a new wake-up; what was posted before is processed after this pass
+            isWakePending = false;
+        }
+        return;
+    }
+
     if (std::holds_alternative<gnilk::ansi::PasteEvent>(ev)) {
         // Bracketed paste (e.g. the terminal handled Cmd+V itself). Load the text as the top clipboard
         // item now — clipboard events are handled directly in PollEvents — then POST a normal
@@ -186,10 +194,19 @@ void GansiScreen::DispatchEvent(const gnilk::ansi::Event &ev) {
 }
 
 void GansiScreen::PollEvents() {
-    // Block up to ~250 ms for the first event, then drain anything already parsed.
+    // Block up to ~250 ms for the first event - a pushed wake-up ends the wait - then drain anything already parsed.
     auto ev = terminal->PollEvent(250);
     while (ev.has_value()) {
         DispatchEvent(*ev);
         ev = terminal->PollEvent(0);
     }
+}
+
+// Called from any thread (Runloop::PostMessage - the pty reader, background jobs): push a wake event so the wait in
+// PollEvents returns and the posted work runs now, not when the 250 ms wait times out. PushEvent is thread-safe.
+void GansiScreen::WakeUp() {
+    if (isWakePending.exchange(true)) {
+        return;
+    }
+    terminal->PushEvent(gnilk::ansi::UserEvent{kWakeEventCode});
 }

@@ -234,22 +234,3 @@ bundle, the `POST_BUILD` `copy_directory` into the build tree's `goatedit.app/Co
 `file(REMOVE_RECURSE ...)` ahead of `install(DIRECTORY ...)`), and do the same for the build tree's bundle copy, or
 copy with a mirror step that deletes what the source no longer has. Check it with a file removed from
 `Assets/Resources`: after build + install it must be gone from both bundles.
-
----
-
-## 23. The ANSI backend is sluggish while a full-screen program runs in the embedded terminal
-
-The terminal is generally fast, but a program that takes over the terminal (vim, claude, ...) feels slow: its output
-appears in steps instead of as it arrives.
-
-**Why (from the code, 2026-11-11):** the SDL backends had the same symptom. Their `PollEvents` waits up to 250 ms
-for an event (`SDL_WaitEventTimeout(nullptr, 250)`); in raw passthrough the pty output never produced one, so each
-screen update waited out the timeout. The cure there is `SDLScreen::WakeUp()` - it pushes a wake event so the
-wait returns as soon as `Runloop::PostMessage` queues work from another thread. `GansiScreen::PollEvents` has the same
-wait (`terminal->PollEvent(250)`) but **does not override `ScreenBase::WakeUp()`**, which is an empty default - so
-nothing from the pty thread cuts the wait short.
-
-**Fix direction:** give `GansiScreen` a `WakeUp()` that makes the blocked `PollEvent` return - e.g. a self-pipe the
-terminal's poll also watches (gansi side: a wake fd or a `Wake()` on the terminal), written from `WakeUp()`, drained
-in `PollEvents`. Keep the "one pending wake" guard the SDL screens use (`isWakePending`) so a busy pty doesn't flood
-the pipe. Check: `vim` scrolling and typing in the embedded terminal under Gansi feel the same as under SDL3.

@@ -146,12 +146,35 @@ void Terminal::SetCursor(int col, int row, bool visible, CursorShape shape) {
     cursorShape = shape;
 }
 
+void Terminal::PushEvent(const Event &event) {
+    {
+        std::lock_guard<std::mutex> guard(pushedLock);
+        pushedQueue.push_back(event);
+    }
+    io->Wake();
+}
+
+std::optional<Event> Terminal::TakePushedEvent() {
+    std::lock_guard<std::mutex> guard(pushedLock);
+    if (pushedQueue.empty()) {
+        return std::nullopt;
+    }
+    Event e = pushedQueue.front();
+    pushedQueue.pop_front();
+    return e;
+}
+
 std::optional<Event> Terminal::PollEvent(int timeoutMs) {
     // Drain already-parsed events first.
     if (!eventQueue.empty()) {
         Event e = eventQueue.front();
         eventQueue.pop_front();
         return e;
+    }
+    // Then what other threads pushed - before blocking on input
+    auto pushed = TakePushedEvent();
+    if (pushed.has_value()) {
+        return pushed;
     }
 
     // A pending resize takes priority over input.
@@ -169,6 +192,11 @@ std::optional<Event> Terminal::PollEvent(int timeoutMs) {
     if (n > 0) {
         parser.Feed(buf, static_cast<size_t>(n), parsed);
     } else {
+        // Woken by a push: that's not a timeout - the rest of an escape sequence may still be on its way
+        pushed = TakePushedEvent();
+        if (pushed.has_value()) {
+            return pushed;
+        }
         // Timeout with a lone pending ESC -> resolve it as Escape.
         parser.Flush(parsed);
     }

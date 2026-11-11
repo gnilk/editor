@@ -33,6 +33,7 @@ DLL_EXPORT int test_gansibackend_keyboard(ITesting *t);
 DLL_EXPORT int test_gansibackend_snapshot(ITesting *t);
 DLL_EXPORT int test_gansibackend_clipboard_out(ITesting *t);
 DLL_EXPORT int test_gansibackend_paste_in(ITesting *t);
+DLL_EXPORT int test_gansibackend_wakeup(ITesting *t);
 }
 
 // Build an opened GansiScreen + hand back the raw mock for input/output inspection.
@@ -252,5 +253,25 @@ DLL_EXPORT int test_gansibackend_paste_in(ITesting *t) {
     auto top = Editor::Instance().GetClipBoard().Top();
     TR_ASSERT(t, top != nullptr);
     TR_ASSERT(t, top->AsText() == std::u32string(U"world"));
+    return kTR_Pass;
+}
+
+// Bug #23: a post from another thread (Runloop::PostMessage -> WakeUp) pushes a wake event that ends the PollEvents
+// wait. One wake in flight at a time; once PollEvents has taken it, the next post wakes again.
+DLL_EXPORT int test_gansibackend_wakeup(ITesting *t) {
+    gnilk::ansi::MockTerminalIO *mock = nullptr;
+    auto screen = MakeScreenRaw(20, 10, &mock);
+
+    screen->WakeUp();
+    TR_ASSERT(t, mock->WakeCalls() == 1);
+    screen->WakeUp();
+    screen->WakeUp();
+    TR_ASSERT(t, mock->WakeCalls() == 1);   // coalesced while pending - one event queued
+
+    screen->PollEvents();
+    TR_ASSERT(t, !screen->GetTerminal()->PollEvent(0).has_value());     // the one wake event was taken
+
+    screen->WakeUp();
+    TR_ASSERT(t, mock->WakeCalls() == 2);
     return kTR_Pass;
 }

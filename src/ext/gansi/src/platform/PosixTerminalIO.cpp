@@ -7,6 +7,7 @@
 #include <atomic>
 #include <cerrno>
 #include <csignal>
+#include <fcntl.h>
 #include <poll.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
@@ -23,13 +24,35 @@ namespace {
 }
 
 PosixTerminalIO::PosixTerminalIO() : inFd(STDIN_FILENO), outFd(STDOUT_FILENO) {
+    CreateWakePipe();
 }
 
 PosixTerminalIO::PosixTerminalIO(int inFdIn, int outFdIn) : inFd(inFdIn), outFd(outFdIn) {
+    CreateWakePipe();
 }
 
 PosixTerminalIO::~PosixTerminalIO() {
     RestoreMode();
+    if (wakeReadFd >= 0) {
+        close(wakeReadFd);
+    }
+    if (wakeWriteFd >= 0) {
+        close(wakeWriteFd);
+    }
+}
+
+// Without the pipe (fd exhaustion) Wake() is a no-op and Read() waits out its timeout, as before.
+void PosixTerminalIO::CreateWakePipe() {
+    int fds[2];
+    if (pipe(fds) != 0) {
+        return;
+    }
+    for (int fd : fds) {
+        fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK);
+        fcntl(fd, F_SETFD, FD_CLOEXEC);     // not inherited by the editor's shell / child processes
+    }
+    wakeReadFd = fds[0];
+    wakeWriteFd = fds[1];
 }
 
 void PosixTerminalIO::InstallResizeHandler() {
@@ -82,17 +105,23 @@ bool PosixTerminalIO::GetSize(int &cols, int &rows) {
 }
 
 long PosixTerminalIO::Read(uint8_t *buf, size_t n, int timeoutMs) {
-    struct pollfd pfd{};
-    pfd.fd = inFd;
-    pfd.events = POLLIN;
+    struct pollfd pfds[2]{};
+    pfds[0].fd = inFd;
+    pfds[0].events = POLLIN;
+    pfds[1].fd = wakeReadFd;        // -1 (no pipe) is ignored by poll
+    pfds[1].events = POLLIN;
 
-    int pr = poll(&pfd, 1, timeoutMs);
+    int pr = poll(pfds, 2, timeoutMs);
     if (pr < 0) {
         return (errno == EINTR) ? 0 : -1;   // EINTR (e.g. SIGWINCH) -> let the caller re-poll/resize
     }
     if (pr == 0) {
         return 0;       // timeout
     }
+    if (pfds[1].revents & POLLIN) {
+        DrainWakePipe();
+    }
+    struct pollfd &pfd = pfds[0];
     if (pfd.revents & (POLLIN | POLLHUP)) {
         ssize_t r = read(inFd, buf, n);
         if (r < 0) {
@@ -119,4 +148,21 @@ void PosixTerminalIO::Write(const uint8_t *buf, size_t n) {
 
 bool PosixTerminalIO::TakePendingResize() {
     return glbResizePending.exchange(false, std::memory_order_relaxed);
+}
+
+// write() on a pipe is async-signal- and thread-safe. A full pipe (EAGAIN) already holds a wake - fine.
+void PosixTerminalIO::Wake() {
+    if (wakeWriteFd < 0) {
+        return;
+    }
+    uint8_t byte = 1;
+    ssize_t res = write(wakeWriteFd, &byte, 1);
+    (void)res;
+}
+
+// All pending wakes collapse into this one return
+void PosixTerminalIO::DrainWakePipe() {
+    uint8_t buf[64];
+    while (read(wakeReadFd, buf, sizeof(buf)) > 0) {
+    }
 }

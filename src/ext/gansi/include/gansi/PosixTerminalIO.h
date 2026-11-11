@@ -25,13 +25,21 @@ namespace gnilk::ansi {
         long Read(uint8_t *buf, size_t n, int timeoutMs) override;
         void Write(const uint8_t *buf, size_t n) override;
         bool TakePendingResize() override;
+        void Wake() override;
 
         // Install the SIGWINCH handler (also done by EnterRawMode). Exposed for tests.
         void InstallResizeHandler();
 
     private:
+        void CreateWakePipe();
+        void DrainWakePipe();
+
+    private:
         int inFd;
         int outFd;
+        // Self-pipe: Wake() writes a byte, Read() polls the read end next to inFd. Both ends non-blocking.
+        int wakeReadFd = -1;
+        int wakeWriteFd = -1;
         bool rawActive = false;
         bool hasSaved = false;
         struct termios savedTermios{};

@@ -5,6 +5,7 @@
 #ifndef GEDIT_GANSI_GANSISCREEN_H
 #define GEDIT_GANSI_GANSISCREEN_H
 
+#include <atomic>
 #include <memory>
 
 #include "Core/UI/Graphics/ScreenBase.h"
@@ -16,6 +17,9 @@
 namespace gedit::Gansi {
 
     class GansiScreen : public ScreenBase {
+    public:
+        // gnilk::ansi::UserEvent code of the event WakeUp pushes (SDLScreen's wakeEventType)
+        static constexpr int32_t kWakeEventCode = 1;
     public:
         explicit GansiScreen(std::unique_ptr<gnilk::ansi::Terminal> terminal);
         ~GansiScreen() override;
@@ -35,6 +39,7 @@ namespace gedit::Gansi {
         WindowBase *UpdateWindow(WindowBase *window, const Rect &rect, WindowBase::kWinFlags flags, WindowBase::kWinDecoration decoFlags) override;
         void OnSizeChanged() override;
         void PollEvents() override;
+        void WakeUp() override;
 
         // Called by the active window when it places the caret. Last call before Update() wins (one
         // hardware cursor), mirroring the SDL global-cursor model.
@@ -54,6 +59,8 @@ namespace gedit::Gansi {
         int cursorRow = 0;
         bool cursorVisible = true;
         bool isOpen = false;
+        // One wake in flight at a time - a busy pty posting per read doesn't write the wake pipe per post
+        std::atomic<bool> isWakePending = false;
     };
 
 }

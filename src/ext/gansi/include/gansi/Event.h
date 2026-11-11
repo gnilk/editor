@@ -75,7 +75,14 @@ namespace gnilk::ansi {
         int rows = 0;
     };
 
-    using Event = std::variant<KeyEvent, MouseEvent, PasteEvent, FocusEvent, ResizeEvent>;
+    // Pushed by the host (Terminal::PushEvent), any thread - never parsed from input. A signal, not a carrier: the host
+    // keeps its own data where it was (a message queue) and uses the code to tell its user events apart, as SDL's
+    // user.code. The common one is "wake up" - get the polling loop out of its wait to process posted work.
+    struct UserEvent {
+        int32_t code = 0;
+    };
+
+    using Event = std::variant<KeyEvent, MouseEvent, PasteEvent, FocusEvent, ResizeEvent, UserEvent>;
 
 }
 

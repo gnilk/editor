@@ -4,11 +4,15 @@
 //
 #include <testinterface.h>
 
+#include <chrono>
 #include <memory>
 #include <string>
+#include <thread>
+#include <unistd.h>
 
 #include "gansi/Terminal.h"
 #include "gansi/MockTerminalIO.h"
+#include "gansi/PosixTerminalIO.h"
 
 using namespace gnilk::ansi;
 
@@ -26,6 +30,9 @@ DLL_EXPORT int test_terminal_snapshot(ITesting *t);
 DLL_EXPORT int test_terminal_cursor_shape_coalesce(ITesting *t);
 DLL_EXPORT int test_terminal_open_caps_gated(ITesting *t);
 DLL_EXPORT int test_terminal_clipboard_gated(ITesting *t);
+DLL_EXPORT int test_terminal_push_keeps_pending_esc(ITesting *t);
+DLL_EXPORT int test_terminal_push_order(ITesting *t);
+DLL_EXPORT int test_terminal_push_from_thread(ITesting *t);
 }
 
 static bool Contains(const std::string &hay, const std::string &needle) {
@@ -271,5 +278,86 @@ DLL_EXPORT int test_terminal_cursor_shape_coalesce(ITesting *t) {
     raw->ClearWritten();
     term.Flush();
     TR_ASSERT(t, Contains(raw->Written(), "\x1b[2 q"));
+    return kTR_Pass;
+}
+
+// A push is not a read timeout: a lone ESC stays pending (it may start a sequence still on its way); the next
+// real timeout resolves it as Escape
+DLL_EXPORT int test_terminal_push_keeps_pending_esc(ITesting *t) {
+    auto mock = std::make_unique<MockTerminalIO>();
+    MockTerminalIO *raw = mock.get();
+    Terminal term(std::move(mock));
+    term.Open();
+
+    raw->QueueInput("\x1b");
+    auto ev = term.PollEvent(0);
+    TR_ASSERT(t, !ev.has_value());          // ESC held pending
+
+    term.PushEvent(UserEvent{7});
+    TR_ASSERT(t, raw->WakeCalls() == 1);
+    ev = term.PollEvent(0);
+    TR_ASSERT(t, ev.has_value());
+    TR_ASSERT(t, std::holds_alternative<UserEvent>(*ev));
+    TR_ASSERT(t, std::get<UserEvent>(*ev).code == 7);
+
+    raw->QueueInput("[A");
+    ev = term.PollEvent(0);
+    TR_ASSERT(t, ev.has_value());
+    TR_ASSERT(t, std::holds_alternative<KeyEvent>(*ev));
+    TR_ASSERT(t, std::get<KeyEvent>(*ev).key == Key::Up);   // ESC [ A is one key, not Escape + '[' + 'A'
+    TR_ASSERT(t, !term.PollEvent(0).has_value());
+    return kTR_Pass;
+}
+
+// Pushed events come out in push order
+DLL_EXPORT int test_terminal_push_order(ITesting *t) {
+    Terminal term(std::make_unique<MockTerminalIO>());
+    term.Open();
+    term.PushEvent(UserEvent{1});
+    term.PushEvent(ResizeEvent{3, 4});
+    term.PushEvent(UserEvent{2});
+
+    auto ev = term.PollEvent(0);
+    TR_ASSERT(t, ev.has_value() && std::holds_alternative<UserEvent>(*ev) && (std::get<UserEvent>(*ev).code == 1));
+    ev = term.PollEvent(0);
+    TR_ASSERT(t, ev.has_value() && std::holds_alternative<ResizeEvent>(*ev));
+    ev = term.PollEvent(0);
+    TR_ASSERT(t, ev.has_value() && std::holds_alternative<UserEvent>(*ev) && (std::get<UserEvent>(*ev).code == 2));
+    TR_ASSERT(t, !term.PollEvent(0).has_value());
+    return kTR_Pass;
+}
+
+// The real thing: a PollEvent blocked on a (pipe) tty with a long timeout returns the event another thread pushes,
+// at once - and the wake doesn't resolve a pending lone ESC as Escape (a woken read is not a timeout)
+DLL_EXPORT int test_terminal_push_from_thread(ITesting *t) {
+    int fds[2];
+    TR_ASSERT(t, pipe(fds) == 0);
+    Terminal term(std::make_unique<PosixTerminalIO>(fds[0], fds[1]));
+
+    TR_ASSERT(t, write(fds[1], "\x1b", 1) == 1);
+    TR_ASSERT(t, !term.PollEvent(0).has_value());       // ESC held pending
+
+    std::thread pusher([&term]() {
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        term.PushEvent(UserEvent{42});
+    });
+    auto tStart = std::chrono::steady_clock::now();
+    auto ev = term.PollEvent(5000);
+    auto elapsed = std::chrono::steady_clock::now() - tStart;
+    pusher.join();
+
+    TR_ASSERT(t, ev.has_value());
+    TR_ASSERT(t, std::holds_alternative<UserEvent>(*ev));
+    TR_ASSERT(t, std::get<UserEvent>(*ev).code == 42);
+    TR_ASSERT(t, elapsed < std::chrono::milliseconds(2000));
+
+    TR_ASSERT(t, write(fds[1], "[A", 2) == 2);
+    ev = term.PollEvent(200);
+    TR_ASSERT(t, ev.has_value());
+    TR_ASSERT(t, std::holds_alternative<KeyEvent>(*ev));
+    TR_ASSERT(t, std::get<KeyEvent>(*ev).key == Key::Up);
+
+    close(fds[0]);
+    close(fds[1]);
     return kTR_Pass;
 }

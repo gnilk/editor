@@ -55,6 +55,9 @@ namespace gnilk::ansi {
             pendingResize = false;
             return p;
         }
+        void Wake() override {
+            wakeCalls++;
+        }
 
         // --- Test scripting helpers ---
         void SetSize(int c, int r) {
@@ -79,6 +82,7 @@ namespace gnilk::ansi {
         void ClearWritten() { written.clear(); }
         bool IsRawMode() const { return rawMode; }
         int RestoreCalls() const { return restoreCalls; }
+        int WakeCalls() const { return wakeCalls; }
 
     private:
         int cols = 80;
@@ -86,6 +90,7 @@ namespace gnilk::ansi {
         bool rawMode = false;
         bool pendingResize = false;
         int restoreCalls = 0;
+        int wakeCalls = 0;
         std::deque<std::string> inputChunks;
         std::string written;
     };

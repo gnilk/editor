@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <deque>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <vector>
 
@@ -65,8 +66,12 @@ namespace gnilk::ansi {
         void SetCursor(int col, int row, bool visible, CursorShape shape = CursorShape::Default);
 
         // Read + parse one event (waiting up to timeoutMs). Returns nullopt on timeout. A pending
-        // resize surfaces as a ResizeEvent before any input is read.
+        // resize surfaces as a ResizeEvent before any input is read; a pushed event before that.
         std::optional<Event> PollEvent(int timeoutMs);
+
+        // Thread-safe (SDL_PushEvent): queue an event for PollEvent and wake a PollEvent that is waiting, so it
+        // returns the event now rather than at its timeout. Pushed events come out in push order.
+        void PushEvent(const Event &event);
 
         // Outbound clipboard via OSC 52.
         void SetClipboard(const std::string &utf8);
@@ -75,6 +80,7 @@ namespace gnilk::ansi {
 
     private:
         void Invalidate();      // force a full repaint (front != back everywhere)
+        std::optional<Event> TakePushedEvent();
 
     private:
         std::unique_ptr<ITerminalIO> io;
@@ -83,7 +89,9 @@ namespace gnilk::ansi {
         CellGrid back;
         CellGrid snapshot;      // saved back buffer for modal overlays
         InputParser parser;
-        std::deque<Event> eventQueue;
+        std::deque<Event> eventQueue;       // parsed from input - the polling thread's own
+        std::mutex pushedLock;
+        std::deque<Event> pushedQueue;      // from PushEvent, any thread - under pushedLock
 
         int cursorCol = 0;
         int cursorRow = 0;

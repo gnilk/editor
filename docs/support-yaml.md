@@ -11,12 +11,22 @@ own `config.yml` / keymaps / themes). It is a highlighter, not a YAML parser. Th
 
 ## 0. Resume point / status
 
-**Status: Phase 1 done on `feat/yaml-lang`** (2026-11-11): `YAMLLanguage` registered for `.yml|.yaml`,
-comments + quoted strings, `#` line comment, `tabsize: 2`. Module `yamllang` (11 cases) green and in the
-verified-green set (657). Not yet eyeballed in the GUI. Next move: Phase 2 (§5).
+**Status: Phases 1 + 2 done on `feat/yaml-lang`** (2026-11-11). Phase 1: `YAMLLanguage` registered for
+`.yml|.yaml`, comments + quoted strings, `#` line comment, `tabsize: 2`. Phase 2: `kKey` class (+ `key` theme
+colour, importer row), post-pass `YAMLLinePass` (§2.B steps 1-6), Markdown's span helpers lifted into
+`src/Core/Language/LineAttribEdit`. Module `yamllang` (27 cases) green, verified-green set 673. Checked
+against `.github/workflows/cmake.yml`, `config.yml` and a keymap via a throwaway dump; not yet eyeballed in
+the GUI. Next move: Phase 3 (§4, block scalars) - today a `run: |` body is still read as YAML.
 
-Found in Phase 1: `'it''s'` needs no escape token - the doubled quote closes and reopens the string, which
-colours the same. Only `\"` / `\\` in double quotes are real escapes.
+Found on the way:
+- `'it''s'` needs no escape token - the doubled quote closes and reopens the string, which colours the
+  same. Only `\"` / `\\` in double quotes are real escapes.
+- `kKey` is **27, not appended**: `[kUserType, kLastTokenClass)` is the semantic range
+  (`SemanticNames::IsSemanticClass`, the structure scanner), so a class added at the end would count as a
+  code-index name. The semantic classes moved up by one; the only on-disk class numbers are in terminal
+  scrollback (`SaveWithAttributes`), which never holds semantic classes.
+- The keymaps' multi-line `{ … }` blocks come out right without multi-line flow support: each line is
+  `key: value,` and reads as a block key.
 
 Decisions (all taken as recommended, 2026-11-11):
 - D1 (§3): one new token class `kKey`, rather than reusing `kKeyword` for keys. **Recommended: new class.**
@@ -117,7 +127,7 @@ YAML's defining colour is the key. Options:
   keys look like language keywords.
 - **New `kKey`** (recommended): a generic "property key" class, also right for JSON keys later (today they
   are plain strings). Same 3-touch change as Markdown's classes:
-  1. `LanguageTokenClass.h`: `kKey = 35`, renumber `kLastTokenClass` to 36.
+  1. `LanguageTokenClass.h`: `kKey = 27`, before the semantic block (see §0), which moves up by one.
   2. `LangToken.cpp`: `{kLanguageTokenClass::kKey, "key"}` in `tokenNames` (a missing entry `exit(1)`s).
   3. `Assets/Resources/colors.json`: a `key` colour in **both** colour sections (the one with `heading` near
      line 53 and the `content` one near line 80).

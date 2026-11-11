@@ -225,6 +225,7 @@ namespace {
         {"block_quote",      {"markup.quote.markdown"}, "line_comment"},
         {"link",             {"markup.underline.link.markdown", "string.other.link"}, "string"},
         {"rule",             {"meta.separator.markdown"}, "line_comment"},
+        {"key",              {"entity.name.tag.yaml", "support.type.property-name"}, "keyword"},
         {"user_type",        {"entity.name.type.class.cpp", "entity.name.class", "entity.name.type", "support.class"}, "known_type"},
         {"function",         {"entity.name.function.cpp", "support.function"}, "regular"},
         {"member",           {"variable.other.property.cpp", "variable.other.member.cpp", "variable.other.object.property"}, "regular"},

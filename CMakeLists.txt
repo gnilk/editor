@@ -429,6 +429,7 @@ list(APPEND coresrc src/Core/Language/LanguageSupport/JSONLanguage.cpp src/Core/
 list(APPEND coresrc src/Core/Language/LanguageSupport/MakeBuildLang.cpp src/Core/Language/LanguageSupport/MakeBuildLang.h)
 list(APPEND coresrc src/Core/Language/LanguageSupport/MarkdownLanguage.cpp src/Core/Language/LanguageSupport/MarkdownLanguage.h)
 list(APPEND coresrc src/Core/Language/LanguageSupport/YAMLLanguage.cpp src/Core/Language/LanguageSupport/YAMLLanguage.h)
+list(APPEND coresrc src/Core/Language/LineAttribEdit.cpp src/Core/Language/LineAttribEdit.h)
 list(APPEND coresrc src/Core/Sublime/SublimeConfigScriptEngine.cpp src/Core/Sublime/SublimeConfigScriptEngine.h)
 list(APPEND coresrc src/Core/Sublime/SublimeConfigColorScript.cpp src/Core/Sublime/SublimeConfigColorScript.h)
 

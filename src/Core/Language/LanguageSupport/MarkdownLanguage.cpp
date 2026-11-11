@@ -14,15 +14,12 @@
 //
 
 #include "MarkdownLanguage.h"
-#include "Core/Editor.h"
+#include "Core/Language/LineAttribEdit.h"
 
 using namespace gedit;
 
-// Forward declarations - the public method reads top-down, helpers follow.
+// Forward declaration - the public method reads top-down, the helper follows.
 static bool isThematicBreak(const std::u32string &buffer);
-static Line::LineAttrib makeAttrib(int idx, kLanguageTokenClass cls);
-static void reclassifyWholeLine(const Line::Ref &line, kLanguageTokenClass cls);
-static void reclassifyRange(const Line::Ref &line, int start, int end, kLanguageTokenClass cls);
 
 // state: main - the delimiters that open an inline/fenced span. Declared length-descending within each
 // list so longest-match wins (``` before `, ** before *).
@@ -129,7 +126,7 @@ void MarkdownLanguage::OnPostProcessParsedLine(Line::Ref line) {
             h++;
         }
         if ((h <= 6) && ((i + h >= n) || (buffer[i + h] == U' '))) {
-            reclassifyWholeLine(line, kLanguageTokenClass::kHeading);
+            LineAttribEdit::ReclassifyWholeLine(line, kLanguageTokenClass::kHeading);
         }
         return;
     }
@@ -137,27 +134,27 @@ void MarkdownLanguage::OnPostProcessParsedLine(Line::Ref line) {
     // Thematic break (---, ***, ___) - takes priority over list/emphasis interpretation.
     if ((c == U'-') || (c == U'*') || (c == U'_')) {
         if (isThematicBreak(buffer)) {
-            reclassifyWholeLine(line, kLanguageTokenClass::kRule);
+            LineAttribEdit::ReclassifyWholeLine(line, kLanguageTokenClass::kRule);
             return;
         }
     }
 
     // Blockquote: '>' at line start - whole line muted.
     if (c == U'>') {
-        reclassifyWholeLine(line, kLanguageTokenClass::kBlockQuote);
+        LineAttribEdit::ReclassifyWholeLine(line, kLanguageTokenClass::kBlockQuote);
         return;
     }
 
     // Unordered list marker: '-', '*', '+' followed by a space.
     if ((c == U'-') || (c == U'*') || (c == U'+')) {
         if ((i + 1 < n) && (buffer[i + 1] == U' ')) {
-            reclassifyRange(line, i, i + 1, kLanguageTokenClass::kListMarker);
+            LineAttribEdit::ReclassifyRange(line, i, i + 1, kLanguageTokenClass::kListMarker);
             // A '*' bullet was mis-tokenized as emphasis (no line-start awareness in the lexer), so the
             // item text carries spurious kEmphasis spans - reset them to regular. '-'/'+' are not lexer
             // delimiters, so their item text is already correct and is left intact (inline code/emphasis
             // inside the item keeps its highlighting).
             if (c == U'*') {
-                reclassifyRange(line, i + 1, n, kLanguageTokenClass::kRegular);
+                LineAttribEdit::ReclassifyRange(line, i + 1, n, kLanguageTokenClass::kRegular);
             }
         }
         return;
@@ -172,7 +169,7 @@ void MarkdownLanguage::OnPostProcessParsedLine(Line::Ref line) {
         int marker = i + d;
         if ((marker < n) && ((buffer[marker] == U'.') || (buffer[marker] == U')')) &&
             ((marker + 1 >= n) || (buffer[marker + 1] == U' '))) {
-            reclassifyRange(line, i, marker + 1, kLanguageTokenClass::kListMarker);
+            LineAttribEdit::ReclassifyRange(line, i, marker + 1, kLanguageTokenClass::kListMarker);
         }
         return;
     }
@@ -198,62 +195,4 @@ static bool isThematicBreak(const std::u32string &buffer) {
         }
     }
     return (count >= 3);
-}
-
-// Build a single attribute (with theme colors) for the given class at the given char index.
-static Line::LineAttrib makeAttrib(int idx, kLanguageTokenClass cls) {
-    Line::LineAttrib attrib;
-    attrib.idxOrigString = idx;
-    attrib.tokenClass = cls;
-    auto [fg, bg] = Editor::Instance().ColorFromLanguageToken(cls);
-    attrib.foregroundColor = fg;
-    attrib.backgroundColor = bg;
-    return attrib;
-}
-
-// The class effective at char position 'pos' in the existing (ascending) attribute list.
-static kLanguageTokenClass classAt(const std::vector<Line::LineAttrib> &attribs, int pos) {
-    kLanguageTokenClass cls = kLanguageTokenClass::kRegular;
-    for (auto &a : attribs) {
-        if (a.idxOrigString <= pos) {
-            cls = a.tokenClass;
-        } else {
-            break;
-        }
-    }
-    return cls;
-}
-
-// Replace the whole line's attributes with one span of 'cls'.
-static void reclassifyWholeLine(const Line::Ref &line, kLanguageTokenClass cls) {
-    auto &attribs = line->Attributes();
-    attribs.clear();
-    attribs.push_back(makeAttrib(0, cls));
-}
-
-// Override the half-open char range [start, end) with 'cls', preserving spans outside it. The tail span
-// (at 'end') is restored to whatever class was effective there originally so later content keeps its
-// highlighting.
-static void reclassifyRange(const Line::Ref &line, int start, int end, kLanguageTokenClass cls) {
-    auto &attribs = line->Attributes();
-    int lineLen = static_cast<int>(line->Buffer().size());
-
-    kLanguageTokenClass tailClass = classAt(attribs, end);
-
-    std::vector<Line::LineAttrib> rebuilt;
-    for (auto &a : attribs) {
-        if (a.idxOrigString < start) {
-            rebuilt.push_back(a);
-        }
-    }
-    rebuilt.push_back(makeAttrib(start, cls));
-    if (end < lineLen) {
-        rebuilt.push_back(makeAttrib(end, tailClass));
-        for (auto &a : attribs) {
-            if (a.idxOrigString > end) {
-                rebuilt.push_back(a);
-            }
-        }
-    }
-    attribs = rebuilt;
 }

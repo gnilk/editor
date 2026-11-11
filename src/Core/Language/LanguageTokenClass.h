@@ -38,17 +38,20 @@ namespace gedit {
         kBlockQuote = 24,       // quoted block text
         kLink = 25,             // hyperlink / reference
         kRule = 26,             // horizontal rule / thematic break
+        // Data / config classes (YAML, later JSON). Must stay BEFORE the semantic block: [kUserType,
+        // kLastTokenClass) is treated as "semantic" (SemanticNames::IsSemanticClass).
+        kKey = 27,              // a mapping / property key ('key:' in YAML)
         // Semantic classes - an identifier the code index knows (docs/code-index.md §10.1). The tokenizer
         // never produces these; a 'regular' identifier is reclassified after the line is parsed.
-        kUserType = 27,         // class / struct / union / enum / alias
-        kFunction = 28,         // function or method
-        kMember = 29,           // data member
-        kMacro = 30,            // a #define'd name where it is used
-        kEnumValue = 31,        // enumerator
-        kNamespace = 32,
-        kLibraryType = 33,      // from the standard library, or a list of names (docs/code-index.md §10.2)
-        kLibraryFunction = 34,
-        kLastTokenClass = 35,         // this is used as numeric detection of the last token class
+        kUserType = 28,         // class / struct / union / enum / alias
+        kFunction = 29,         // function or method
+        kMember = 30,           // data member
+        kMacro = 31,            // a #define'd name where it is used
+        kEnumValue = 32,        // enumerator
+        kNamespace = 33,
+        kLibraryType = 34,      // from the standard library, or a list of names (docs/code-index.md §10.2)
+        kLibraryFunction = 35,
+        kLastTokenClass = 36,         // this is used as numeric detection of the last token class
         kFunky = 196,       // USED for debugging..
     };
 }

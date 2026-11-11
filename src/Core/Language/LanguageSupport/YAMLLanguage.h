@@ -9,8 +9,9 @@
 
 namespace gedit {
     // YAML (.yml / .yaml) syntax support. See docs/support-yaml.md for the plan.
-    // Phase 1: comments and quoted strings in the tokenizer. Keys, list markers and typed scalars (the
-    // line-anchored part) come in Phase 2 through OnPostProcessParsedLine.
+    // The tokenizer does comments and quoted strings (§2.A); keys, list markers, document markers, typed
+    // scalars, anchors/aliases/tags and one-line flow collections are line-anchored and live in the
+    // post-pass (§2.B).
     class YAMLLanguage : public LanguageBase {
     public:
         YAMLLanguage() = default;
@@ -29,6 +30,8 @@ namespace gedit {
             static std::u32string lineCommentPrefix = U"#";
             return lineCommentPrefix;
         }
+
+        void OnPostProcessParsedLine(Line::Ref line) override;
     };
 }
 

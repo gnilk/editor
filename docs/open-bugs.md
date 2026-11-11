@@ -1,7 +1,10 @@
 # Open bugs / known-wrong code (cross-session tracker)
 
 Durable list of known defects we've chosen NOT to fix in-place yet, with enough context to pick each
-up cold. Pointer to this file lives in CLAUDE.md ("Remaining / deferred") so it surfaces each session.
+up cold. Referenced from CLAUDE.md ("Documentation") so it surfaces each session.
+
+Numbers are stable (commits, docs and notes refer to them) - a fixed bug is removed, never renumbered.
+**Next bug is #24.**
 
 ---
 
@@ -47,75 +50,6 @@ today — revisit once it can).
 
 ---
 
-## 2. `Document::SetCursorPosition` writes an ABSOLUTE line index into the screen-relative `cursor.position.y`
-
-**Where:** `src/Core/Document.cpp`, `Document::SetCursorPosition(idxLine, idxChar)` — `GetCursor().position.y = idxLine;`.
-
-**What's wrong:** `cursor.position.y` is the SCREEN row the caret is drawn at — `EditorView::SetWindowCursor`
-hands `position.y` straight to the native caret with no `viewTopLine` subtraction, and the vertical-nav model
-maintains it as `position.y = idxActiveLine - viewTopLine` (see `VerticalNavigationViewModel.cpp`).
-`SetCursorPosition` instead assigns the ABSOLUTE `idxLine`. It then calls `RefocusViewArea()`, which adjusts
-`viewTopLine`/`viewBottomLine` but does NOT recompute `position.y`. So whenever the target ends up on a
-scrolled view (`viewTopLine != 0`) the caret is drawn at the wrong row / off-screen.
-
-**Symptom path:** `JumpToSearchHit` → `SetCursorPosition` — jumping to a search hit deep in the file scrolls
-the view (so `viewTopLine` becomes large) yet leaves `position.y` at the absolute hit line, so the caret is
-mis-placed. Any other "go to line N" caller is affected the same way.
-
-**Discovered:** 2026-06-12, while fixing the block-surround / inline-wrap "cursor gone" bugs (RF.2f), which
-were the same defect class in the reformat paths. Those were fixed locally (write screen-relative y +
-`RefocusViewArea`); `SetCursorPosition` itself was left alone as it's a wider-blast-radius shared method.
-
-**Proper fix:** after `RefocusViewArea()`, set `position.y = idxLine - viewTopLine` (clamped >= 0). Re-verify
-every caller: `JumpToSearchHit` (search nav), plus any "goto line"/jump callers. Add a unit test:
-`SetCursorPosition` to a line below the fold on a short, scrolled view → assert
-`position.y == idxActiveLine - viewTopLine` and the line is inside `[viewTopLine, viewBottomLine]`.
-
-**Reference pattern (already fixed this way):** `Document::SurroundLineRangeWithBlock` and
-`EditController::TryWrapSelection` both now write `position.y = absoluteLine - viewTopLine` (+ refocus where
-the line count changed) — copy that.
-
----
-
-## 3. Syntax highlighter mis-tags an identifier that directly abuts `{` (no separating whitespace)
-
-**Where:** the tokenizer — `src/Core/Language/LangLineTokenizer.cpp` and/or the CPP config in
-`CPPLanguage.cpp` (token boundary handling when an identifier abuts an opener). NOT yet root-caused.
-
-**Symptom (observed, not yet traced):** with the caret at `{|foo()` — i.e. `{` immediately followed by an
-identifier with NO space between — the highlighter tags `foo` with a non-identifier class (looks like an
-operator: it renders the SAME color as the brace). Typing a single space after the `{` (then it
-re-tokenizes) fixes the coloring.
-
-**Repro:**
-```cpp
-static void func() {foo();
-}
-```
-Place the caret between `{` and `foo` and observe `foo`'s color; insert a space → correct.
-
-**Hypothesis (unverified):** the tokenizer doesn't break a token at the `{`/identifier boundary when they
-abut, so `{foo` (or `foo` right after `{`) is matched against the operator/brace rule instead of starting a
-fresh identifier token. The space forces a token boundary.
-
-**Discovered:** 2026-06-12 (feel-check). Deferred to a later bug sweep — do NOT fix piecemeal.
-
-**Likely fixed (2026-10-24, code index step 1, `c019133`):** `{` `}` are now in the C++ postfix list, so a
-word ends at a brace; `cpplang braceafterword` covers `{value}`. Verify the caret repro in the GUI, then
-remove this entry.
-
-**When fixing:** add a `test_cpplang` case asserting the token class of an identifier immediately following
-an opener (`{foo`, and likely `(foo`, `[foo`) is `kRegular`/identifier, not operator/brace. Check the
-tokenizer's longest-match / boundary logic at operator↔identifier transitions.
-
-
-## 9. 'Running NPM update in the terminal does not produce the expected output'
-**Where:** Terminal emulator/window
-**What's Wrong:** When running certain apps (in this case `npm update` on a project) the color output is missing
-**Reproduce:** Initiate a project with npm (use older versions of some library) then do an update
-There are possibly other applications also not working but this is one I found
-
-
 ## 15. Opening and saving a Latin-1 (non-UTF-8) file silently truncates lines - DATA LOSS
 
 **Where:** `UnicodeHelper::ConvertUTF8ToUTF32String` (strict decode), used per line by
@@ -151,6 +85,7 @@ decodes whole files, so there the rest of the FILE vanishes). See `docs/code-ind
 Either way the decode result must be checked, and the code index needs a lenient decode too.
 Test: load a fixture with `\xe4`/`\xf6` bytes, save, compare bytes (round-trip must be lossless).
 
+---
 
 ## 16. The colour script misreads `#rgb` and can't read `#rrggbbaa`
 
@@ -164,6 +99,8 @@ rejected ("Hex color description to short"). The stock colors.json uses neither,
 `rgba()` only. **Fix:** expand `#rgb` / `#rgba` to two digits per channel; accept 4 and 8 digits with alpha.
 
 **Discovered:** 2026-10-25, writing the theme importer.
+
+---
 
 ## 17. A dot-command goes to the shell once Tab has been pressed on its line
 
@@ -187,6 +124,10 @@ grid - a wrapped long line or a visible completion menu can garble it; test both
 
 **Discovered:** 2026-10-25, GUI test of `.theme --import` (code index step 1c).
 
+**Still open (checked 2026-11-11):** half of the fix is in - `ForwardActionToShell` now mirrors the line from the grid
+on a shell-owned commit (`SyncInputLineFromGrid`, for history and the `.co`/`.ob` output mark), but it still sends
+`\r` to the shell without the `cmdlet_prefix` check.
+
 ---
 
 ## 19. Build warnings - a cleanup session (mostly `-Wshadow`)
@@ -201,7 +142,8 @@ grid - a wrapped long line or a visible completion menu can garble it; test both
 - `-Wmissing-field-initializers` (6): `Index/CPPStructureScanner.cpp` 488, 533, 539, 582, 594, 601 (`name`) -
   aggregate initialisers leaving the last field out.
 - One each: `-Winconsistent-missing-override` `macOS/MacOSKBEmulator.h:17` (`Initialize`); `-Wformat-pedantic`
-  `Language/LangToken.cpp:103` (an enum through `%d`); `-Wunused-function` `unix/Shell.cpp:38` (`signal_handler`).
+  `Language/LangToken.cpp:103` (an enum through `%d`). (`unix/Shell.cpp`'s unused `signal_handler` is gone - the
+  gvt terminal work removed it.)
 - Not ours, leave: `stb_image.h` (two unused functions), gnklog's `LogManager.cpp:318` (`-Wunused-result`).
 
 **What's wrong:** nothing breaks today, but the noise hides a warning that matters - a new one in a header repeats in
@@ -210,7 +152,7 @@ was renamed `cellRect`). A shadowing parameter is also the kind that reads the w
 
 **Fix direction:** one session, file by file: rename the shadowing names (the member keeps its name; the local or
 parameter says what it is - `newWindow`, `cellRect`), complete the initialisers (or name the fields), add the
-`override`, cast the enum, drop the unused `signal_handler`. Check the SDL2 build too (Linux/`cmake-build-sdl2`) - its
+`override`, cast the enum. Check the SDL2 build too (Linux/`cmake-build-sdl2`) - its
 sources are only compiled there. Then consider making new warnings visible - `-Werror=shadow` on our sources (not
 `_deps`/`ext`) so a header one can't slip in again.
 
@@ -220,7 +162,6 @@ sources are only compiled there. Then consider making new warnings visible - `-W
 
 ---
 
---> Next bug is #20
 ## 20. The terminal version on macOS gets the Cmd keymaps - and the terminal takes the keys first
 
 **Where:** `KeyMapping::LoadKeymapConfig` (`src/Core/KeyMapping.cpp`) picks the keymap files by operating system: the
@@ -256,6 +197,8 @@ related Linux one - the terminal keymap inherits the default one, so `Ctrl+B`, `
 even in a full-screen program in the embedded terminal (`Ctrl+[` is `Esc` to vim; `docs/code-index.md` §11.9). Both are
 "which keys are the editor's in a terminal", and may want one answer.
 
+---
+
 ## 21. A file argument before the folder leaves that folder without a folder monitor
 
 `goatedit src/a.txt .` (from the project root) shows the tree but never updates it: no files written by others,
@@ -272,6 +215,7 @@ changed callbacks, re-scan, re-home its loose documents into the tree), or wheth
 skip the default root and the default root be dropped once empty. Repro in a unit test: open a document, then
 `OpenFolder` of the cwd, and assert the root has a reconcile callback / a started monitor (fake factory).
 
+---
 
 ## 22. Installing (and building) never removes an asset that was deleted from the repo
 
@@ -291,13 +235,21 @@ bundle, the `POST_BUILD` `copy_directory` into the build tree's `goatedit.app/Co
 copy with a mirror step that deletes what the source no longer has. Check it with a file removed from
 `Assets/Resources`: after build + install it must be gone from both bundles.
 
-## 23. ANSI backend is sluggish on terminal input which takes over the screen
+---
 
-Terminal is generally fast. But starting processes that take over the terminal (vim, claude, etc..) cause a slow-down.
-This was previously also the case for the SDL2/SDL3 handlers - they all had a thread waiting for 250ms for an input event.
-When a terminal app did an override on the input such input was not routed through the SDL2/SDL3 pipeline causing a 250ms
-queue wait everytime..
+## 23. The ANSI backend is sluggish while a full-screen program runs in the embedded terminal
 
-We should try to implement a similar handling for the ANSI backend as I suspect there is a similar event-queue timeout handling
-while ANSI backend is used...
+The terminal is generally fast, but a program that takes over the terminal (vim, claude, ...) feels slow: its output
+appears in steps instead of as it arrives.
 
+**Why (from the code, 2026-11-11):** the SDL backends had the same symptom. Their `PollEvents` waits up to 250 ms
+for an event (`SDL_WaitEventTimeout(nullptr, 250)`); in raw passthrough the pty output never produced one, so each
+screen update waited out the timeout. The cure there is `SDLScreen::WakeUp()` - it pushes a wake event so the
+wait returns as soon as `Runloop::PostMessage` queues work from another thread. `GansiScreen::PollEvents` has the same
+wait (`terminal->PollEvent(250)`) but **does not override `ScreenBase::WakeUp()`**, which is an empty default - so
+nothing from the pty thread cuts the wait short.
+
+**Fix direction:** give `GansiScreen` a `WakeUp()` that makes the blocked `PollEvent` return - e.g. a self-pipe the
+terminal's poll also watches (gansi side: a wake fd or a `Wake()` on the terminal), written from `WakeUp()`, drained
+in `PollEvents`. Keep the "one pending wake" guard the SDL screens use (`isWakePending`) so a busy pty doesn't flood
+the pipe. Check: `vim` scrolling and typing in the embedded terminal under Gansi feel the same as under SDL3.

@@ -17,6 +17,7 @@ using namespace gedit;
 // Forward declarations - the methods read top-down, the helpers follow them.
 static int blockScalarScopeIndent(const std::u32string &line);
 static bool hasKeySeparator(std::u32string_view text);
+static size_t valueEnd(std::u32string_view text);
 
 // state: main. Block scalar headers first: the list matches in order, so '|-' must come before '|'.
 static const std::u32string yamlBlockHeaders = U"|- |+ >- >+ | >";
@@ -108,6 +109,67 @@ int YAMLLanguage::GetContinuationColumn(std::u32string_view lineBeforeCursor) {
         return -1;
     }
     return pos;
+}
+
+// On Enter after a block scalar header: '|-' / '>+' end in '-' / '+', and 'run: |  # x' in the comment, so indent.yml's
+// last-char triggers miss them. The header has to be the whole value - after 'key:', a list marker, or nothing - with
+// only a comment after it: '---', 'version: 1.0-' and 'a |-' (a plain scalar) aren't headers. The indicators are the
+// tokenizer's (yamlBlockHeaders), so Enter agrees with the colouring.
+bool YAMLLanguage::OpensBlockAtEnd(std::u32string_view lineBeforeCursor) {
+    auto isBlank = [](char32_t ch) { return (ch == U' ') || (ch == U'\t'); };
+    auto text = lineBeforeCursor.substr(0, valueEnd(lineBeforeCursor));
+    while (!text.empty() && isBlank(text.back())) {
+        text.remove_suffix(1);
+    }
+    size_t headerLen = 0;
+    if ((text.size() >= 2) && ((text[text.size() - 2] == U'|') || (text[text.size() - 2] == U'>')) &&
+        ((text.back() == U'-') || (text.back() == U'+'))) {
+        headerLen = 2;
+    } else if (!text.empty() && ((text.back() == U'|') || (text.back() == U'>'))) {
+        headerLen = 1;
+    }
+    if (headerLen == 0) {
+        return false;
+    }
+    auto before = text.substr(0, text.size() - headerLen);
+    if (!before.empty() && !isBlank(before.back())) {
+        return false;   // 'a|-': part of a word
+    }
+    while (!before.empty() && isBlank(before.back())) {
+        before.remove_suffix(1);
+    }
+    if (before.empty() || (before.back() == U':')) {
+        return true;
+    }
+    // Only list markers before it: '- |-', '  - - |'
+    for (auto ch : before) {
+        if (!isBlank(ch) && (ch != U'-')) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Where a line's value ends: at a comment's '#' (at a token start, outside quotes), or the end. An unclosed quote runs
+// to the end - nothing after it is structure.
+static size_t valueEnd(std::u32string_view text) {
+    char32_t quote = 0;
+    for (size_t i = 0; i < text.size(); i++) {
+        char32_t ch = text[i];
+        if (quote != 0) {
+            if (ch == quote) {
+                quote = 0;
+            }
+            continue;
+        }
+        bool isTokenStart = (i == 0) || (text[i - 1] == U' ') || (text[i - 1] == U'\t');
+        if (((ch == U'"') || (ch == U'\'')) && isTokenStart) {
+            quote = ch;
+        } else if ((ch == U'#') && isTokenStart) {
+            return i;
+        }
+    }
+    return (quote != 0) ? 0 : text.size();
 }
 
 // A block key's ':' (followed by a blank or the end) outside quotes and before a comment.

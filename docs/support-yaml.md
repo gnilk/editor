@@ -30,8 +30,12 @@ Two additions the plan didn't have:
 - `LanguageBase::GetContinuationColumn` -> `IndentEngine::Context::referenceColumn`: the column Enter measures
   from. YAML: `- name: x` -> the key's column (the item's next key lines up with it); `- a` -> the dash, for
   `- b`. Text-based (quotes and ` #` respected), on the text before the cursor.
-Known gap: `|-` / `>+` headers don't indent the next line (the trigger is the last char; `-` would also fire on
-`---`).
+~~Known gap: `|-` / `>+` headers don't indent the next line (the trigger is the last char; `-` would also fire on
+`---`).~~ Fixed 2026-11-12 (hitlist #4): `LanguageBase::OpensBlockAtEnd` -> `IndentEngine::Context::isOpenedByLanguage`,
+next to `GetContinuationColumn`. YAML's says yes when the value (before a comment, outside quotes) is a header from
+`yamlBlockHeaders` after `key:`, list markers or nothing - so `run: |  # x` indents too, and `---`, `version: 1.0-`,
+`a |-` don't. Tests (`yamllang`): `enter_after_chomping_header`, `enter_after_header_comment` (both failed before),
+`enter_not_a_header`. Not yet tried in the app.
 
 
 

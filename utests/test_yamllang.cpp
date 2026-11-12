@@ -58,6 +58,9 @@ DLL_EXPORT int test_yamllang_enter_after_key(ITesting *t);
 DLL_EXPORT int test_yamllang_enter_after_list_key(ITesting *t);
 DLL_EXPORT int test_yamllang_enter_after_list_scalar(ITesting *t);
 DLL_EXPORT int test_yamllang_enter_after_block_header(ITesting *t);
+DLL_EXPORT int test_yamllang_enter_after_chomping_header(ITesting *t);
+DLL_EXPORT int test_yamllang_enter_after_header_comment(ITesting *t);
+DLL_EXPORT int test_yamllang_enter_not_a_header(ITesting *t);
 DLL_EXPORT int test_yamllang_reformat_leaves_yaml(ITesting *t);
 }
 
@@ -609,6 +612,35 @@ DLL_EXPORT int test_yamllang_enter_after_list_scalar(ITesting *t) {
 DLL_EXPORT int test_yamllang_enter_after_block_header(ITesting *t) {
     TR_ASSERT(t, enterAtEnd(t, {"run: |"}) == U"  ");
     TR_ASSERT(t, enterAtEnd(t, {"  - run: >"}) == U"      ");                 // deeper than 'run'
+    return kTR_Pass;
+}
+
+// A header with a chomping indicator ends in '-' / '+', not in '|' / '>' - it opens the body all the same
+DLL_EXPORT int test_yamllang_enter_after_chomping_header(ITesting *t) {
+    TR_ASSERT(t, enterAtEnd(t, {"run: |-"}) == U"  ");
+    TR_ASSERT(t, enterAtEnd(t, {"run: |+"}) == U"  ");
+    TR_ASSERT(t, enterAtEnd(t, {"text: >-"}) == U"  ");
+    TR_ASSERT(t, enterAtEnd(t, {"text: >+"}) == U"  ");
+    TR_ASSERT(t, enterAtEnd(t, {"  - run: |-"}) == U"      ");                // deeper than 'run'
+    TR_ASSERT(t, enterAtEnd(t, {"- |-"}) == U"  ");                           // a bare item: deeper than the dash
+    return kTR_Pass;
+}
+
+// A comment may follow a header ('run: |  # keep newlines') - the body still opens
+DLL_EXPORT int test_yamllang_enter_after_header_comment(ITesting *t) {
+    TR_ASSERT(t, enterAtEnd(t, {"run: |  # keep newlines"}) == U"  ");
+    TR_ASSERT(t, enterAtEnd(t, {"run: >- # folded"}) == U"  ");
+    return kTR_Pass;
+}
+
+// What only looks like a header: a document marker, a '-' / '+' ending a plain value, a header inside quotes or a
+// comment
+DLL_EXPORT int test_yamllang_enter_not_a_header(ITesting *t) {
+    TR_ASSERT(t, enterAtEnd(t, {"---"}) == U"");
+    TR_ASSERT(t, enterAtEnd(t, {"version: 1.0-"}) == U"");
+    TR_ASSERT(t, enterAtEnd(t, {"sum: a+"}) == U"");
+    TR_ASSERT(t, enterAtEnd(t, {"name: \"|-\""}) == U"");
+    TR_ASSERT(t, enterAtEnd(t, {"name: x # ends with |-"}) == U"");
     return kTR_Pass;
 }
 

@@ -31,7 +31,7 @@ IndentEngine::Action IndentEngine::OnNewLine(const Context &ctx) {
         return action;
     }
 
-    bool opens = ctx.table->IsIndentAfter(LastNonSpace(before));
+    bool opens = ctx.isOpenedByLanguage || ctx.table->IsIndentAfter(LastNonSpace(before));
     bool closesNext = ctx.table->IsDedentOn(FirstNonSpace(after));
 
     // Cursor sits between an opener and its closer -> expand into three lines: an indented empty line in

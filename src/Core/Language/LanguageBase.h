@@ -45,6 +45,10 @@ namespace gedit {
         // -1 = its leading whitespace (the default). YAML: '- key: v' lines up the next line with 'key'.
         virtual int GetContinuationColumn(std::u32string_view lineBeforeCursor) { return -1; }
 
+        // On Enter: whether the text before the cursor opens a block the indent table's last-char triggers can't see.
+        // YAML: a block scalar header with a chomping indicator ('run: |-') or a comment after it ('run: |  # x').
+        virtual bool OpensBlockAtEnd(std::u32string_view lineBeforeCursor) { return false; }
+
         // The config name this language was configured from (the 'languages:' key, e.g. "cpp") - also the
         // key into autopairs.yml. Empty if the language never called ConfigFromNodeName.
         const std::string &GetConfigNodeName() const { return configNodeName; }

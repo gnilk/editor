@@ -48,6 +48,9 @@ namespace gedit {
             // OnNewLine: the column the reference line is measured from, when the language knows better than
             // its leading whitespace (YAML '- key: v' -> the key's column). -1 = the leading whitespace.
             int referenceColumn = -1;
+            // OnNewLine: the language says the reference line opens a block, whatever its last char is
+            // (LanguageBase::OpensBlockAtEnd - YAML 'run: |-').
+            bool isOpenedByLanguage = false;
         };
 
         // Token-resolved triggers for ONE line, supplied by the caller (which has the parsed tokens). Optional:

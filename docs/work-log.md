@@ -8,6 +8,14 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## YAML: Enter after `|-` / `>+` block headers indents (2026-11-12) ✅
+
+`indent.yml`'s triggers look at a line's last char, so `run: |-`, `|+`, `>-`, `>+` and `run: |  # comment` didn't indent
+the body. **Shipped:** a language hook, `LanguageBase::OpensBlockAtEnd` (-> `IndentEngine::Context::isOpenedByLanguage`),
+beside `GetContinuationColumn`. **Load-bearing decisions:** a hook, not `-`/`+` in `indent_after` (that fires on `---`
+and `1.0-`); the header must be the whole value (after `key:`, list markers or nothing), and uses the tokenizer's header
+list so Enter agrees with the colouring. Detail: [`support-yaml.md`](support-yaml.md).
+
 ## Checked: GotoImplementation starts no stray selection (2026-11-12) ✅
 
 An investigation (hitlist #3). `Cmd+Shift+B` / `Ctrl+Shift+B` is not tagged `Selection`: only an optional

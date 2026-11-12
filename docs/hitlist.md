@@ -3,33 +3,34 @@
 Made 2026-11-11. Planned work from the design docs, ordered from easy to hard. Each item links to where it's described.
 When one is done, strike it through here and add a line in `work-log.md`.
 
-## To try in the app (open - 2026-11-12)
+## To try in the app (Mac done 2026-11-12, Linux open)
 
 Built and unit-tested today, not yet tried by hand. Linux = SDL2 (Ctrl), Mac = SDL3 (Cmd) - the Mac needs `git pull` and
-a build first. Tick per platform; strike the hitlist item's "not yet tried" note when both are done.
+a build first. **Mac (SDL3, build 07f682b): all checked and working, 2026-11-12** (728/728 green on macOS).
+Tick per platform; strike the hitlist item's "not yet tried" note when both are done.
 
 - **#1 / #15 - workspace tree clicks** (now through `CommitLine: DoubleClick` in `workspace_keymap.yml`)
-  - [ ] Linux [ ] Mac - double-click a closed folder: opens; again: closes
-  - [ ] Linux [ ] Mac - Enter on a folder: toggles
-  - [ ] Linux [ ] Mac - triple-click a folder: toggles once
-  - [ ] Linux [ ] Mac - double-click a git-ignored folder (`cmake-build-debug`): its contents show
-  - [ ] Linux [ ] Mac - double-click a file: opens
-  - [ ] Linux [ ] Mac - Ctrl/Cmd+click a tree row: nothing happens in the editor (`mouse:` is not inherited)
+  - [ ] Linux [x] Mac - double-click a closed folder: opens; again: closes
+  - [ ] Linux [x] Mac - Enter on a folder: toggles
+  - [ ] Linux [x] Mac - triple-click a folder: toggles once
+  - [ ] Linux [x] Mac - double-click a git-ignored folder (`cmake-build-debug`): its contents show
+  - [ ] Linux [x] Mac - double-click a file: opens
+  - [ ] Linux [x] Mac - Ctrl/Cmd+click a tree row: nothing happens in the editor (`mouse:` is not inherited)
 - **#2 / #15 - go-to click** (now `GotoToggle: "CopyPasteModifier + Click"` in `default_keymap.yml`)
-  - [ ] Linux [ ] Mac - Ctrl/Cmd+click a function used in another file: jumps to its definition
-  - [ ] Linux [ ] Mac - Ctrl/Cmd+`[`: back
-  - [ ] Linux [ ] Mac - Ctrl/Cmd+click a declaration in a header: toggles to the definition
-  - [ ] Linux [ ] Mac - plain click: only moves the caret; Ctrl/Cmd+click on whitespace: nothing
-  - [ ] Linux [ ] Mac - Ctrl/Cmd+double-click a name: no second jump
-  - [ ] Linux [ ] Mac - Ctrl/Cmd+Shift+click: no jump (modifiers match exactly now)
+  - [ ] Linux [x] Mac - Ctrl/Cmd+click a function used in another file: jumps to its definition
+  - [ ] Linux [x] Mac - Ctrl/Cmd+`[`: back
+  - [ ] Linux [x] Mac - Ctrl/Cmd+click a declaration in a header: toggles to the definition
+  - [ ] Linux [x] Mac - plain click: only moves the caret; Ctrl/Cmd+click on whitespace: nothing
+  - [ ] Linux [x] Mac - Ctrl/Cmd+double-click a name: no second jump
+  - [ ] Linux [x] Mac - Ctrl/Cmd+Shift+click: no jump (modifiers match exactly now)
 - **#4 - YAML Enter**, in a `.yml`, Enter at the end of:
-  - [ ] Linux [ ] Mac - `run: |-` -> next line indented 2; `  - run: >+` -> 6; `run: |  # x` -> 2
-  - [ ] Linux [ ] Mac - `---` and `version: 1.0-` -> no indent
+  - [ ] Linux [x] Mac - `run: |-` -> next line indented 2; `  - run: >+` -> 6; `run: |  # x` -> 2
+  - [ ] Linux [x] Mac - `---` and `version: 1.0-` -> no indent
 - **#5 - git branch in the status line**
-  - [x] Linux [ ] Mac - `goatedit .` in this repo: `⎇ main` at the right of the status line (Linux seen 2026-11-12)
-  - [ ] Linux [ ] Mac - `git switch -c tmp` in the terminal panel: `⎇ tmp` within ~1 s, no keypress
-  - [ ] Linux [ ] Mac - `git switch --detach`: `⎇ (<sha>)`; `git switch main`: back
-  - [ ] Linux [ ] Mac - opened on a folder outside any repo: nothing shown
+  - [x] Linux [x] Mac - `goatedit .` in this repo: `⎇ main` at the right of the status line (Linux seen 2026-11-12)
+  - [ ] Linux [x] Mac - `git switch -c tmp` in the terminal panel: `⎇ tmp` within ~1 s, no keypress
+  - [ ] Linux [x] Mac - `git switch --detach`: `⎇ (<sha>)`; `git switch main`: back
+  - [ ] Linux [x] Mac - opened on a folder outside any repo: nothing shown
 
 **Next when work resumes:** #10 (languages as data, phase 1) - decide first where the default indent/autopairs live
 (`support-languages.md` §9, question 1).

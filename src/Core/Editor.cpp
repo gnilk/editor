@@ -1410,6 +1410,18 @@ KeyMapping::Ref Editor::GetKeyMapping(const std::string &name) {
     return KeyMappingCache::Instance().GetOrLoad(name);
 }
 
+bool Editor::DispatchMouseBinding(const std::string &keymapName, const MouseEvent &mouseEvent) {
+    auto keymap = GetKeyMapping(keymapName);
+    if (keymap == nullptr) {
+        return false;
+    }
+    auto action = keymap->ActionFromMouse(mouseEvent);
+    if (!action.has_value()) {
+        return false;
+    }
+    return Runloop::DispatchAction(*action);
+}
+
 // This checks if a keymapping is already loaded/cached - not if it can be loaded!
 bool Editor::HasKeyMapping(const std::string &name) {
     return KeyMappingCache::Instance().Has(name);

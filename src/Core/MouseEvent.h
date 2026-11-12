@@ -9,6 +9,11 @@
 
 namespace gedit {
     struct MouseEvent {
+        // The buttons as the backends number them (SDL's numbering; Gansi maps onto it)
+        static constexpr int kButtonLeft = 1;
+        static constexpr int kButtonMiddle = 2;
+        static constexpr int kButtonRight = 3;
+
         typedef enum : uint8_t {
             kMouseEventKind_Press,
             kMouseEventKind_Release,

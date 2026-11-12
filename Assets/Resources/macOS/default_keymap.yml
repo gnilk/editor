@@ -104,5 +104,12 @@ keymap: {
     # View mode (text / hex projection)
     UIViewModeText : "UINavigationModifier + 'r'",
     UIViewModeHex : "UINavigationModifier + 'h'"
+  },
+  # Clicks that stand for an action (docs/usability-round.md §13): Click, DoubleClick, TripleClick, MiddleClick, with
+  # modifiers as keys have them. The view under the pointer handles the click first (caret, selection), then this.
+  # Not inherited by other keymaps - a click acts on what is under the pointer.
+  mouse: {
+    # Cmd+click: to the definition, as the key does
+    GotoToggle: "CopyPasteModifier + Click",
   }
 }

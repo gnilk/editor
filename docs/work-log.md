@@ -8,6 +8,15 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## Mouse bindings: a `mouse:` section in the keymaps (2026-11-12) ✅
+
+What a click stands for is now in the keymap files: `GotoToggle: "CopyPasteModifier + Click"` (default), `CommitLine:
+DoubleClick` (workspace). **Load-bearing decisions:** the view always handles the press first (caret, selection), then
+`Editor::DispatchMouseBinding` looks it up and dispatches the action as a key's - the view never runs it itself, so it
+runs once; no binding means only the view's handling; clicks and modifiers match exactly (by kind); `mouse:` is NOT
+inherited, since an inherited go-to click would jump in the editor from a tree row. Detail:
+[`usability-round.md`](usability-round.md) §13.
+
 ## The git branch in the status line (2026-11-12) ✅
 
 The status line shows the opened folder's branch at the right: `⎇ main`, `⎇ (a1b2c3d)` when detached. **Load-bearing

@@ -839,7 +839,8 @@ the folder: expand it when it's collapsed, collapse it when it's expanded.
 **Built (2026-11-12):**
 - `TreeView::ToggleExpanded` (through `Expand`, so an unfetched folder fetches its children as the arrow key does).
 - `WorkspaceView::OpenSelectedItem` toggles a folder instead of returning - Enter on a folder toggles too.
-- `OnMousePressedEvent` opens/toggles on `clicks == 2` only.
+- `OnMousePressedEvent` opens/toggles on `clicks == 2` only. (Since §13: `CommitLine: DoubleClick` in
+  `workspace_keymap.yml`'s `mouse:` section, which matches exactly 2.)
 - **Tests:**
   - `session`: `workspaceview_dblclick_folder`, `workspaceview_dblclick_unscanned` (a git-ignored folder),
     `workspaceview_enter_folder`, `workspaceview_tripleclick` - all four failed before the change -, and
@@ -952,4 +953,25 @@ they are - they check behaviour, not where it's bound.
 
 Open: the names (`Click`, `DoubleClick`, `MiddleClick`?), and whether a view without a `mouse:` binding falls back to
 today's behaviour or does nothing.
+
+**Decided and built (2026-11-12):**
+- **The click always goes to the view first**, unchanged (with `MouseEvent::modifiers`): caret, row selection, drags,
+  the wheel and the terminal stay in the views. Then `Editor::DispatchMouseBinding` looks the press up in the view's
+  keymap (`KeyMapping::ActionFromMouse`) and dispatches a match through `Runloop::DispatchAction`, as a key's action.
+  No binding: nothing more - only the view's own handling.
+- **One path per action:** the view never runs a click's action itself (`IsGoToClick` and the `clicks == 2` call to
+  `OpenSelectedItem` are gone). `OpenSelectedItem` is reached through `CommitLine` only.
+- **Names:** `Click`, `DoubleClick`, `TripleClick` (left button, 1/2/3 presses), `MiddleClick`; modifiers before them as
+  a key's (`CopyPasteModifier + Click`, `KeyCode_Alt + Click`). No `@` optionals. Unknown names fail the keymap's load.
+- **Matching is exact:** the click count (a triple-click is no double-click, so the tree's triple-click toggles once),
+  the button, and the modifiers by kind (either Ctrl is Ctrl; Ctrl+Shift+click is not Ctrl+click).
+- **Not inherited** (a change from the plan above): `GotoToggle` is a global action on the editor's caret, so an
+  inherited go-to click would make Cmd/Ctrl+click on a tree row jump in the editor. A click acts on what is under the
+  pointer, which belongs to the keymap's own view.
+- `MouseEvent::kButtonLeft/Middle/Right` (1/2/3, SDL's numbering) name the buttons.
+- **Tests:** `keymapping` `mouse` (matching), `mouse_errors`, `mouse_notinherited` (the real keymaps);
+  `session` `workspaceview_dblclick_once` (exactly one `CommitLine`, and nothing toggled when nobody takes it). The
+  `gotoclick*` and `workspaceview_*click*` tests pass unchanged apart from the press now naming its button. Checked by
+  putting the view's own call back (4 tests fail: toggled twice) and by inheriting the clicks (`mouse_notinherited`
+  fails).
 

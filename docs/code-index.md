@@ -357,6 +357,8 @@ resolver, chains included: `documentViewState->lineCursor.viewBottomLine` goes t
   needs the `Hover` mouse events with modifiers, and a resolve per hovered name, so it's not part of the first step.
 - **Tests:** a modifier press at a name's cell jumps (the caret's file and line after the press) and pushes the stack; a
   press without the modifier doesn't; a modifier press on whitespace leaves the stack alone.
+- **Since #15 (2026-11-12):** the click is `GotoToggle: "CopyPasteModifier + Click"` in `default_keymap.yml`'s `mouse:`
+  section (usability-round §13); `IsGoToClick` is gone. Exact modifiers by kind now: Ctrl+Shift+click no longer jumps.
 - **Built (2026-11-12):** `EditorView::OnMousePressedEvent` moves the caret, then `IsGoToClick` (a single click, the
   editor view's keymap's `CopyPasteModifier` held) posts `GotoToggle` through `Runloop::DispatchAction`. The keymap keeps
   its `modifiers:` table for this: `KeyMapping::ModifierMask` (a child's own wins over its parent's). Tests: `document`

@@ -13,6 +13,7 @@
 #include "Core/RuntimeConfig.h"
 #include "Keyboard.h"
 #include "logger.h"
+#include <algorithm>
 #include <cctype>
 #include <unordered_map>
 #include <unordered_set>
@@ -200,6 +201,10 @@ bool KeyMapping::Initialize(const ConfigNode &cfgNode, const ParentResolver &res
     if (!RebuildActionMapping(cfgNode)) {
         return false;
     }
+    // Clicks are this keymap's own - never inherited (ActionFromMouse)
+    if (!ParseMouseBindings(cfgNode, cfgNode.GetMap("modifiers"))) {
+        return false;
+    }
     if (!ResolveInheritance(cfgNode, resolveParent)) {
         return false;
     }
@@ -254,6 +259,58 @@ std::optional<EditorAction> KeyMapping::ActionFromKeyPress(const KeyPress &keyPr
     return {};
 }
 
+namespace {
+    // Ctrl, Shift, Alt, Cmd - whichever side
+    int ModifierKinds(int modifierMask) {
+        int kinds = 0;
+        if ((modifierMask & Keyboard::ShiftMask()) != 0) {
+            kinds |= Keyboard::ShiftMask();
+        }
+        if ((modifierMask & Keyboard::CtrlMask()) != 0) {
+            kinds |= Keyboard::CtrlMask();
+        }
+        if ((modifierMask & Keyboard::AltMask()) != 0) {
+            kinds |= Keyboard::AltMask();
+        }
+        if ((modifierMask & Keyboard::CmdMask()) != 0) {
+            kinds |= Keyboard::CmdMask();
+        }
+        return kinds;
+    }
+
+    struct ClickName {
+        const char *name;
+        int button;
+        int clicks;
+    };
+    const ClickName clickNames[] = {
+        {"Click", MouseEvent::kButtonLeft, 1},
+        {"DoubleClick", MouseEvent::kButtonLeft, 2},
+        {"TripleClick", MouseEvent::kButtonLeft, 3},
+        {"MiddleClick", MouseEvent::kButtonMiddle, 1},
+    };
+}
+
+std::optional<EditorAction> KeyMapping::ActionFromMouse(const MouseEvent &mouseEvent) const {
+    if (mouseEvent.kind != MouseEvent::kMouseEventKind_Press) {
+        return {};
+    }
+    for (auto &binding : mouseBindings) {
+        if ((binding.button != mouseEvent.button) || (binding.clicks != mouseEvent.clicks)) {
+            continue;
+        }
+        if (ModifierKinds(binding.modifierMask) != ModifierKinds(mouseEvent.modifiers)) {
+            continue;
+        }
+        EditorAction action;
+        action.action = binding.action;
+        action.uiAction = binding.uiAction;
+        action.modifierMask = mouseEvent.modifiers;
+        return action;
+    }
+    return {};
+}
+
 static bool IsAsciiKeyCode(const std::string &strKeyCode) {
     if (strKeyCode.size() != 3) return false;
     if (strKeyCode[0] != '\'') return false;
@@ -293,8 +350,8 @@ bool KeyMapping::RebuildActionMapping(const ConfigNode &keymap) {
     // that pulls a parent's bindings in. An absent/empty 'actions' is valid for a
     // pure-inheritance child (e.g. a view keymap that only re-uses default_keymap).
     bool hasActions = keymap.HasKey("actions");
-    if (!hasActions && !keymap.HasKey("inherit")) {
-        logger->Error("Keymap must have an 'actions' section or 'inherit' a parent!");
+    if (!hasActions && !keymap.HasKey("inherit") && !keymap.HasKey("mouse")) {
+        logger->Error("Keymap must have an 'actions' or 'mouse' section, or 'inherit' a parent!");
         return false;
     }
 
@@ -423,6 +480,82 @@ std::optional<int> KeyMapping::ModifierMask(kActionModifier modifier) const {
         return {};
     }
     return it->second;
+}
+
+//
+// The 'mouse:' section: 'Action: <click>' or a list of them, a click being 'Click', 'DoubleClick', 'TripleClick' or
+// 'MiddleClick' with modifiers before it as a key's have ('CopyPasteModifier + Click'). No optional '@' modifiers.
+//
+bool KeyMapping::ParseMouseBindings(const ConfigNode &keymap, const std::map<std::string, std::string> &keymapModifiers) {
+    auto logger = gnilk::Logger::GetLogger("KeyMapping");
+    if (!keymap.HasKey("mouse")) {
+        return true;
+    }
+    auto rawNode = keymap.GetNode("mouse").GetDataNode();
+    for (auto it = rawNode.begin(); it != rawNode.end(); ++it) {
+        if (!it->first.IsScalar()) {
+            logger->Error("mouse: action must be string/scalar!");
+            return false;
+        }
+        auto actionName = it->first.Scalar();
+        std::vector<std::string> combos;
+        if (it->second.IsScalar()) {
+            combos.push_back(it->second.Scalar());
+        } else if (it->second.IsSequence()) {
+            combos = it->second.as<std::vector<std::string>>();
+        }
+        for (auto &combo : combos) {
+            if (!ParseMouseCombinationString(actionName, combo, keymapModifiers)) {
+                logger->Error("KeyMap parse error for mouse '%s : %s'", actionName.c_str(), combo.c_str());
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+bool KeyMapping::ParseMouseCombinationString(const std::string &actionName, const std::string &mouseCombo, const std::map<std::string, std::string> &keymapModifiers) {
+    auto logger = gnilk::Logger::GetLogger("KeyMapping");
+    MouseBinding binding;
+    binding.name = actionName;
+    if (strToActionMap.find(actionName) != strToActionMap.end()) {
+        binding.action = strToActionMap.at(actionName);
+    } else if (strToUIActionMap.find(actionName) != strToUIActionMap.end()) {
+        binding.uiAction = strToUIActionMap.at(actionName);
+    } else {
+        logger->Error("Invalid Action '%s'; not found", actionName.c_str());
+        return false;
+    }
+
+    std::vector<std::string> parts;
+    strutil::split(parts, mouseCombo.c_str(), '+');
+    bool hasClick = false;
+    for (auto &part : parts) {
+        auto name = part;
+        if (keymapModifiers.find(name) != keymapModifiers.end()) {
+            name = keymapModifiers.at(name);
+        }
+        if (Keyboard::IsNameModifierMask(name)) {
+            binding.modifierMask |= Keyboard::ModifierMaskFromString(name);
+            continue;
+        }
+        auto itClick = std::find_if(std::begin(clickNames), std::end(clickNames), [&name](const ClickName &click) {
+            return name == click.name;
+        });
+        if ((itClick == std::end(clickNames)) || hasClick) {
+            logger->Error("mouse: '%s' is no modifier or click (or a second click)", part.c_str());
+            return false;
+        }
+        hasClick = true;
+        binding.button = itClick->button;
+        binding.clicks = itClick->clicks;
+    }
+    if (!hasClick) {
+        logger->Error("mouse: no click in '%s'", mouseCombo.c_str());
+        return false;
+    }
+    mouseBindings.push_back(binding);
+    return true;
 }
 
 //

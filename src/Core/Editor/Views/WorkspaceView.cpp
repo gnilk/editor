@@ -386,8 +386,8 @@ bool WorkspaceView::OnAction(const EditorAction &kpAction) {
 }
 
 // Open the currently selected node: file nodes open (document created lazily) + optionally switch to
-// the editor view; folder nodes expand or collapse (docs/usability-round.md §10). Shared by the Enter path
-// (OnAction) and the double-click path (OnMousePressedEvent) — one open path, two triggers. Returns true
+// the editor view; folder nodes expand or collapse (docs/usability-round.md §10). Reached through CommitLine
+// (OnAction) only - Enter, and the double-click bound to it in the keymap's 'mouse:' section. Returns true
 // when a file was opened or a folder toggled.
 bool WorkspaceView::OpenSelectedItem() {
     auto logger = gnilk::Logger::GetLogger("WorkspaceView");
@@ -446,12 +446,10 @@ bool WorkspaceView::OnMousePressedEvent(const MouseEvent &mouseEvent) {
     NotifyActiveFolderNodeIfChanged(treeView);
     InvalidateAll();
 
-    // Single click only selects (immediate, no latency); a double-click additionally opens the
-    // selected file (or toggles the folder), exactly as if the row were selected and Enter pressed.
-    // Only on the 2nd press: SDL keeps counting (3, 4, ...), and a triple-click must not toggle back.
-    if (mouseEvent.clicks == 2) {
-        OpenSelectedItem();
-    }
+    // A press only selects (immediate, no latency). What a click stands for is in the keymap's 'mouse:' section -
+    // 'CommitLine: DoubleClick' opens the file or toggles the folder, as Enter does - and is dispatched from there,
+    // never called here, so it runs once (docs/usability-round.md §13). A triple-click is no double-click.
+    Editor::Instance().DispatchMouseBinding(Config::Instance()[cfgSectionName].GetStr("keymap", "default_keymap"), mouseEvent);
     return true;
 }
 

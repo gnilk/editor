@@ -11,6 +11,7 @@
 #include <fstream>
 #include <unordered_map>
 #include "Core/Editor.h"
+#include "Core/Runloop.h"
 #include "Core/RuntimeConfig.h"
 #include "Core/AssetLoaderBase.h"
 #include "Core/Config/Config.h"
@@ -95,6 +96,7 @@ DLL_EXPORT int test_session_workspaceview_dblclick_unscanned(ITesting *t);
 DLL_EXPORT int test_session_workspaceview_enter_folder(ITesting *t);
 DLL_EXPORT int test_session_workspaceview_tripleclick(ITesting *t);
 DLL_EXPORT int test_session_workspaceview_dblclick_file(ITesting *t);
+DLL_EXPORT int test_session_workspaceview_dblclick_once(ITesting *t);
 DLL_EXPORT int test_session_yaml_roundtrip(ITesting *t);
 DLL_EXPORT int test_session_yaml_bad_version(ITesting *t);
 DLL_EXPORT int test_session_yaml_corrupt(ITesting *t);
@@ -867,7 +869,21 @@ DLL_EXPORT int test_session_workspaceview_keepselection(ITesting *t) {
 // --- Double-click / Enter on a folder toggles it (docs/usability-round.md §10) ---
 namespace {
     // Drives the real input paths: a press on the row of a node (OnMousePressedEvent) and Enter (OnAction).
+    // Stands in for the run loop's handler: what a click dispatches is counted, and - as the root view does in the app -
+    // handed to the focused view, unless 'isForwarding' is off
+    struct ClickActionHook : KeypressAndActionHandler {
+        ViewBase *view = nullptr;
+        bool isForwarding = true;
+        std::vector<EditorAction> actions;
+        bool HandleAction(const EditorAction &action) override {
+            actions.push_back(action);
+            return isForwarding ? view->OnAction(action) : true;
+        }
+    };
+
     struct ClickTestWorkspaceView : public SessionTestWorkspaceView {
+        ClickActionHook hook;
+
         void Press(const Workspace::Node::Ref &node, int clicks) {
             Select(node);
             auto tree = GetTreeView();
@@ -876,9 +892,13 @@ namespace {
             tree->SetSelectionAtRow(0);
             MouseEvent ev;
             ev.kind = MouseEvent::kMouseEventKind_Press;
+            ev.button = MouseEvent::kButtonLeft;
             ev.y = tree->GetContentRect().TopLeft().y + row;
             ev.clicks = clicks;
+            hook.view = this;
+            Runloop::SetKeypressAndActionHook(&hook);
             OnMousePressedEvent(ev);
+            Runloop::SetKeypressAndActionHook(nullptr);
         }
         // A double-click arrives as two presses: clicks 1, then clicks 2
         void DoubleClick(const Workspace::Node::Ref &node) {
@@ -1045,5 +1065,32 @@ DLL_EXPORT int test_session_workspaceview_dblclick_file(ITesting *t) {
 
     TR_ASSERT(t, isOpen);
     TR_ASSERT(t, !isCoreExpanded);
+    return kTR_Pass;
+}
+
+// The double-click's action has one path, the keymap's 'mouse:' binding (docs/usability-round.md §13): exactly one
+// CommitLine is dispatched, and the view doesn't open or toggle anything itself - with nobody taking the action,
+// the folder stays as it was
+DLL_EXPORT int test_session_workspaceview_dblclick_once(ITesting *t) {
+    ClickTestTree fx("goat_wsv_dblclick_once");
+    TR_ASSERT(t, fx.rootNode != nullptr);
+    ClickTestWorkspaceView wv;
+    wv.BuildTree();
+    auto coreNode = fx.Node("core");
+    TR_ASSERT(t, coreNode != nullptr);
+
+    wv.hook.isForwarding = false;
+    wv.DoubleClick(coreNode);
+
+    TR_ASSERT(t, wv.hook.actions.size() == 1);
+    TR_ASSERT(t, wv.hook.actions[0].uiAction == kUIAction::kUIActionCommitLine);
+    TR_ASSERT(t, !wv.IsExpanded(fx.root / "core"));
+    TR_ASSERT(t, wv.Selected() == coreNode);
+    // Forwarded, as the app does: toggled once
+    wv.hook.isForwarding = true;
+    wv.hook.actions.clear();
+    wv.DoubleClick(coreNode);
+    TR_ASSERT(t, wv.hook.actions.size() == 1);
+    TR_ASSERT(t, wv.IsExpanded(fx.root / "core"));
     return kTR_Pass;
 }

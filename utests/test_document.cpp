@@ -1590,6 +1590,7 @@ namespace {
         ev.kind = MouseEvent::kMouseEventKind_Press;
         ev.y = view.GetContentRect().TopLeft().y + 62;
         ev.x = view.GetContentRect().TopLeft().x + 10;
+        ev.button = MouseEvent::kButtonLeft;
         ev.modifiers = modifiers;
         ev.clicks = clicks;
         view.OnMouseEvent(ev);

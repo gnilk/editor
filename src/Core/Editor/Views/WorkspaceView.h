@@ -67,7 +67,7 @@ namespace gedit {
         void SwitchToEditorView();
         bool OnMousePressedEvent(const MouseEvent &mouseEvent);
         // Open the selected node (file -> open + optional switch-to-editor; folder -> expand/collapse). Shared
-        // by the Enter (OnAction) and double-click (OnMousePressedEvent) paths. True if a file opened or a
+        // by Enter and the double-click, both through CommitLine (OnAction). True if a file opened or a
         // folder toggled.
         bool OpenSelectedItem();
 

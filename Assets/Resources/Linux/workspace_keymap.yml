@@ -14,5 +14,10 @@ keymap: {
   actions: {
     # Hide/show what '.gitignore' leaves out. Replaces the inherited hex view, which means nothing here.
     ToggleIgnored : "UINavigationModifier + 'h'",
+  },
+  # Not inherited from default_keymap (its go-to click means nothing in the tree)
+  mouse: {
+    # Open the file, or expand/collapse the folder - as Enter does
+    CommitLine: DoubleClick,
   }
 }

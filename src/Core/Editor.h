@@ -112,6 +112,10 @@ namespace gedit {
         KeyMapping::Ref GetActiveKeyMap();
         KeyMapping::Ref GetKeyMapForState(State state);
         KeyMapping::Ref GetKeyMapping(const std::string &name);
+        // A press the view under it has handled, looked up in that view's keymap's 'mouse:' section; a binding is
+        // dispatched as a key's action is (docs/usability-round.md §13). The one path a click's action takes - the
+        // view never runs it itself. True: an action was dispatched.
+        bool DispatchMouseBinding(const std::string &keymapName, const MouseEvent &mouseEvent);
         bool HasKeyMapping(const std::string &name);
         void SetActiveKeyMapping(const std::string &name);
         void SetKeymapUpdateDelegate(KeymapUpdateDelegate newKeymapDelegate) {

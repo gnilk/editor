@@ -16,6 +16,7 @@
 #include "Keyboard.h"
 #include "Action.h"
 #include "EditorAction.h"
+#include "MouseEvent.h"
 
 namespace gedit {
 
@@ -23,6 +24,15 @@ namespace gedit {
     class KeyMapping {
     public:
         using Ref = std::shared_ptr<KeyMapping>;
+        // A click that stands for an action - the 'mouse:' section (docs/usability-round.md §13)
+        struct MouseBinding {
+            kAction action = kAction::kActionNone;
+            kUIAction uiAction = kUIAction::kUIActionNone;
+            int button = MouseEvent::kButtonLeft;
+            int clicks = 1;
+            int modifierMask = 0;
+            std::string name;
+        };
         // Resolves an inherited parent keymap (by name) to a fully-built KeyMapping. Supplied by the
         // KeyMappingCache so inheritance reuses cached parents; null means "no cache" (the legacy
         // direct-load walk is used instead - keeps memory-built keymaps hermetic).
@@ -45,6 +55,10 @@ namespace gedit {
         const std::string &ActionName(const kAction action);
         kAction ActionFromName(const std::string &strAction);
         std::optional<EditorAction> ActionFromKeyPress(const KeyPress &keyPress);
+        // A press, after the view under it has handled it: the action its 'mouse:' binding stands for. The clicks match
+        // exactly (a triple-click is no double-click), and so do the modifiers, by kind (either Ctrl is Ctrl). Not
+        // inherited: a click acts on what is under the pointer, which is this keymap's view.
+        std::optional<EditorAction> ActionFromMouse(const MouseEvent &mouseEvent) const;
         bool RebuildActionMapping(const std::string &cfgNodeName);
         bool RebuildActionMapping(const ConfigNode &cfgNode);
 
@@ -63,11 +77,14 @@ namespace gedit {
         bool ParseKeyPressCombinationString(const std::string &actionName, const std::string &keyPressCombo, const std::map<std::string, std::string> &keymapModifiers);
         bool ValidateModifiers(const std::map<std::string, std::string> &keymapModifiers);
         void AddModifierMasks(const std::map<std::string, std::string> &keymapModifiers);
+        bool ParseMouseBindings(const ConfigNode &keymap, const std::map<std::string, std::string> &keymapModifiers);
+        bool ParseMouseCombinationString(const std::string &actionName, const std::string &mouseCombo, const std::map<std::string, std::string> &keymapModifiers);
     private:
         bool isInitialized = false;
         std::vector<ActionItem::Ref> actionItems = {};
         // From the 'modifiers' tables: own first, then the inherited ones (first one in wins)
         std::map<kActionModifier, int> modifierMasks = {};
+        std::vector<MouseBinding> mouseBindings = {};
 
     };
 }

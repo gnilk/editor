@@ -26,6 +26,9 @@ DLL_EXPORT int test_keymapping_find(ITesting *t);
 DLL_EXPORT int test_keymapping_modifiermask(ITesting *t);
 DLL_EXPORT int test_keymapping_modifiermask_inherit(ITesting *t);
 DLL_EXPORT int test_keymapping_shiftedletter_untagged(ITesting *t);
+DLL_EXPORT int test_keymapping_mouse(ITesting *t);
+DLL_EXPORT int test_keymapping_mouse_errors(ITesting *t);
+DLL_EXPORT int test_keymapping_mouse_notinherited(ITesting *t);
 }
 
 //
@@ -513,5 +516,104 @@ DLL_EXPORT int test_keymapping_shiftedletter_untagged(ITesting *t) {
     auto down = keymap->ActionFromKeyPress(shiftDown);
     TR_ASSERT(t, down.has_value());
     TR_ASSERT(t, down->actionModifier == kActionModifier::kActionModifierSelection);
+    return kTR_Pass;
+}
+
+//
+// The 'mouse:' section (docs/usability-round.md §13)
+//
+namespace {
+    MouseEvent Press(int button, int clicks, uint8_t modifiers) {
+        MouseEvent ev;
+        ev.kind = MouseEvent::kMouseEventKind_Press;
+        ev.button = button;
+        ev.clicks = clicks;
+        ev.modifiers = modifiers;
+        return ev;
+    }
+}
+
+DLL_EXPORT int test_keymapping_mouse(ITesting *t) {
+    KeyMapping keyMapping;
+    auto cfgNode = ConfigNode::FromString("{ modifiers: { CopyPasteModifier: KeyCode_Ctrl }, "
+                                          "mouse: { GotoToggle: \"CopyPasteModifier + Click\", CommitLine: DoubleClick, "
+                                          "         GotoDefinition: [MiddleClick, \"KeyCode_Alt + TripleClick\"] } }");
+    TR_ASSERT(t, cfgNode.has_value());
+    // A keymap of clicks alone is a keymap
+    TR_ASSERT(t, keyMapping.Initialize(cfgNode.value()));
+    const int left = MouseEvent::kButtonLeft;
+
+    // Either Ctrl, one click
+    auto action = keyMapping.ActionFromMouse(Press(left, 1, Keyboard::kMod_LeftCtrl));
+    TR_ASSERT(t, action.has_value() && (action->action == kAction::kActionGotoToggle));
+    TR_ASSERT(t, action->uiAction == kUIAction::kUIActionNone);
+    action = keyMapping.ActionFromMouse(Press(left, 1, Keyboard::kMod_RightCtrl));
+    TR_ASSERT(t, action.has_value() && (action->action == kAction::kActionGotoToggle));
+    // The modifiers match exactly, by kind: no Ctrl, Ctrl+Shift, Alt - none of them
+    TR_ASSERT(t, !keyMapping.ActionFromMouse(Press(left, 1, 0)).has_value());
+    TR_ASSERT(t, !keyMapping.ActionFromMouse(Press(left, 1, Keyboard::kMod_LeftCtrl | Keyboard::kMod_LeftShift)).has_value());
+    TR_ASSERT(t, !keyMapping.ActionFromMouse(Press(left, 1, Keyboard::kMod_LeftAlt)).has_value());
+    // The clicks match exactly: Ctrl+double-click is not Ctrl+click
+    TR_ASSERT(t, !keyMapping.ActionFromMouse(Press(left, 2, Keyboard::kMod_LeftCtrl)).has_value());
+    // Another button isn't the left one
+    TR_ASSERT(t, !keyMapping.ActionFromMouse(Press(MouseEvent::kButtonRight, 1, Keyboard::kMod_LeftCtrl)).has_value());
+    // Only presses
+    auto release = Press(left, 1, Keyboard::kMod_LeftCtrl);
+    release.kind = MouseEvent::kMouseEventKind_Release;
+    TR_ASSERT(t, !keyMapping.ActionFromMouse(release).has_value());
+
+    // A toolkit action; a double-click is exactly two - the third press of a triple-click is not one
+    action = keyMapping.ActionFromMouse(Press(left, 2, 0));
+    TR_ASSERT(t, action.has_value() && (action->uiAction == kUIAction::kUIActionCommitLine));
+    TR_ASSERT(t, action->action == kAction::kActionNone);
+    TR_ASSERT(t, !keyMapping.ActionFromMouse(Press(left, 3, 0)).has_value());
+
+    // A list, a plain modifier, the middle button
+    action = keyMapping.ActionFromMouse(Press(MouseEvent::kButtonMiddle, 1, 0));
+    TR_ASSERT(t, action.has_value() && (action->action == kAction::kActionGotoDefinition));
+    action = keyMapping.ActionFromMouse(Press(left, 3, Keyboard::kMod_RightAlt));
+    TR_ASSERT(t, action.has_value() && (action->action == kAction::kActionGotoDefinition));
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_keymapping_mouse_errors(ITesting *t) {
+    const char *bad[] = {
+        "{ mouse: { GotoToggle: \"KeyCode_Ctrl + Klick\" } }",            // no such click
+        "{ mouse: { GotoToggle: \"Click + DoubleClick\" } }",             // two clicks
+        "{ mouse: { GotoToggle: KeyCode_Ctrl } }",                        // no click
+        "{ mouse: { NoSuchAction: Click } }",                             // no such action
+        "{ mouse: { GotoToggle: \"KeyCode_Ctrl + 'a'\" } }",              // a key isn't a click
+    };
+    for (auto text : bad) {
+        KeyMapping keyMapping;
+        auto cfgNode = ConfigNode::FromString(text);
+        TR_ASSERT(t, cfgNode.has_value());
+        TR_ASSERT(t, !keyMapping.Initialize(cfgNode.value()));
+    }
+    return kTR_Pass;
+}
+
+// The real keymaps: the editor's go-to click is default_keymap's own; the workspace inherits default_keymap's keys but
+// not its clicks - a Cmd/Ctrl+click on a tree row must not jump in the editor - and has its double-click
+DLL_EXPORT int test_keymapping_mouse_notinherited(ITesting *t) {
+#ifdef GEDIT_MACOS
+    const uint8_t copyPaste = Keyboard::kMod_LeftCommand;
+#else
+    const uint8_t copyPaste = Keyboard::kMod_LeftCtrl;
+#endif
+    const int left = MouseEvent::kButtonLeft;
+    auto defaultKeymap = KeyMappingCache::Instance().GetOrLoad("default_keymap");
+    auto workspaceKeymap = KeyMappingCache::Instance().GetOrLoad("workspace_keymap");
+    TR_ASSERT(t, (defaultKeymap != nullptr) && (workspaceKeymap != nullptr));
+
+    auto action = defaultKeymap->ActionFromMouse(Press(left, 1, copyPaste));
+    TR_ASSERT(t, action.has_value() && (action->action == kAction::kActionGotoToggle));
+    TR_ASSERT(t, !defaultKeymap->ActionFromMouse(Press(left, 2, 0)).has_value());
+
+    TR_ASSERT(t, !workspaceKeymap->ActionFromMouse(Press(left, 1, copyPaste)).has_value());
+    action = workspaceKeymap->ActionFromMouse(Press(left, 2, 0));
+    TR_ASSERT(t, action.has_value() && (action->uiAction == kUIAction::kUIActionCommitLine));
+    // ...while its keys still come from default_keymap
+    TR_ASSERT(t, workspaceKeymap->ModifierMask(kActionModifier::kActionModifierCopyPaste).has_value());
     return kTR_Pass;
 }

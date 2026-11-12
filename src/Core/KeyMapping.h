@@ -53,14 +53,21 @@ namespace gedit {
         }
 
         const std::string &ModifierName(kActionModifier modifier);
+        // The keys a named modifier stands for in this keymap (e.g. CopyPasteModifier -> Cmd on macOS, Ctrl on Linux) as
+        // a Keyboard modifier mask; a child keymap's 'modifiers' win over its parent's. Empty when no keymap in the chain
+        // defines it. Lets a mouse click with a modifier follow the keymap instead of a hard-coded key.
+        std::optional<int> ModifierMask(kActionModifier modifier) const;
 
     protected:
         bool ResolveInheritance(const ConfigNode &cfgNode, const ParentResolver &resolveParent);
         bool ParseKeyPressCombinationString(const std::string &actionName, const std::string &keyPressCombo, const std::map<std::string, std::string> &keymapModifiers);
         bool ValidateModifiers(const std::map<std::string, std::string> &keymapModifiers);
+        void AddModifierMasks(const std::map<std::string, std::string> &keymapModifiers);
     private:
         bool isInitialized = false;
         std::vector<ActionItem::Ref> actionItems = {};
+        // From the 'modifiers' tables: own first, then the inherited ones (first one in wins)
+        std::map<kActionModifier, int> modifierMasks = {};
 
     };
 }

@@ -13,6 +13,7 @@
 #include "EditorView.h"
 #include "Core/Editor.h"
 #include "Core/ActionHelper.h"
+#include "Core/Runloop.h"
 #include "fmt/chrono.h"
 
 
@@ -242,7 +243,30 @@ bool EditorView::OnMousePressedEvent(const MouseEvent &mouseEvent) {
     auto textPos = WrapProjection::ScreenToText(rows, document->Lines(), Point(col, row), document->GetTabSize());
     document->SetCursorPosition(textPos.y, textPos.x);
     InvalidateView();
+
+    // Cmd+click (Ctrl+click on Linux) then does what Cmd+B does at the caret (docs/code-index.md §5.6). Posted as the
+    // action, not called, so the jump lands on the navigation stack exactly as the key's does. On whitespace, or a name
+    // with no target, the go-to itself does nothing (or says why) - the caret has moved either way.
+    if (IsGoToClick(mouseEvent)) {
+        EditorAction action;
+        action.action = kAction::kActionGotoToggle;
+        Runloop::DispatchAction(action);
+    }
     return true;
+}
+
+// A single click with the keymap's CopyPasteModifier held - the modifier comes from this view's keymap, not a hard-coded
+// key, so the macOS keymap gives Cmd and the Linux one Ctrl. A double-click stays a double-click.
+bool EditorView::IsGoToClick(const MouseEvent &mouseEvent) {
+    if (mouseEvent.clicks != 1) {
+        return false;
+    }
+    auto keymap = Editor::Instance().GetKeyMapping(Config::Instance()[cfgSectionName].GetStr("keymap", "default_keymap"));
+    if (keymap == nullptr) {
+        return false;
+    }
+    auto mask = keymap->ModifierMask(kActionModifier::kActionModifierCopyPaste);
+    return mask.has_value() && (*mask != 0) && ((mouseEvent.modifiers & *mask) != 0);
 }
 
 void EditorView::SetWindowCursor(const Cursor &cursor) {

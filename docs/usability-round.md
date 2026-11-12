@@ -905,3 +905,37 @@ Filed 2026-11-11. A design of its own: [`support-languages.md`](support-language
   extensions, author, date, then states, tokens, comments, strings and numbers;
 - languages can be added without recompiling (system, user and project directories, plus `.lang_reload`);
 - CMake and Python are the first data languages, and JSON is ported to data to prove the engine.
+
+## 13. Mouse bindings in the keymaps
+
+Filed 2026-11-12 (while building `Cmd+click`, code-index §5.6). What a click does is nowhere in a file today: the tree's
+double-click (§10), the go-to click and the terminal view's modifiers are written into the views. Only the go-to click's
+modifier comes from the keymap (`KeyMapping::ModifierMask`), and the click -> `GotoToggle` part is still code.
+
+**Change:** a `mouse:` section in the keymap files, next to `actions:` - not a separate `mousebindings.yml`:
+
+```yaml
+# macOS/default_keymap.yml (the Linux file is the same - CopyPasteModifier is Ctrl there)
+mouse:
+  GotoToggle: CopyPasteModifier + Click
+# workspace_keymap.yml
+mouse:
+  CommitLine: DoubleClick        # open a file, toggle a folder
+```
+
+**Why in the keymaps:**
+- the named modifiers (`CopyPasteModifier`) already resolve per OS - no second table to keep in step;
+- the `Linux/` / `macOS/` split, `inherit:` and the per-view keymaps (`KeyMappingCache`) come for free: the tree's
+  double-click goes in `workspace_keymap.yml` as its keys do;
+- a binding turns into the same `EditorAction` a key does, so a jump lands on the navigation stack as `Cmd+B`'s does.
+
+**Scope:** only clicks that stand for an action - a modifier plus `Click`, `DoubleClick`. Selecting, dragging, the wheel
+and the terminal's mouse pass-through stay in code: they are gestures, not actions.
+
+**Then:** `EditorView::IsGoToClick` and the `clicks == 2` in `WorkspaceView::OnMousePressedEvent` become lookups
+(`KeyMapping::ActionFromMouse`), and their tests (`document` `gotoclick*`, `session` `workspaceview_*click*`) stay as
+they are - they check behaviour, not where it's bound.
+
+Open: the names (`Click`, `DoubleClick`, `MiddleClick`?), and whether a view without a `mouse:` binding falls back to
+today's behaviour or does nothing.
+

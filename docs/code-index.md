@@ -341,7 +341,7 @@ system headers isn't a goal, §10.2), so the status line says what it is and the
 - **Go-to key:** the toggle is `Cmd+B`, `Ctrl` on Linux. From a use it goes to the definition, so one key reaches both;
   `GotoDefinition` and `GotoDeclaration` exist without a key of their own.
 
-**`Cmd+click` jumps too (decided 2026-11-11, not built).** A click with `CopyPasteModifier` held (`Cmd` on macOS,
+**`Cmd+click` jumps too (decided 2026-11-11, built 2026-11-12).** A click with `CopyPasteModifier` held (`Cmd` on macOS,
 `Ctrl` on Linux) puts the caret on the clicked name and then does what `Cmd+B` does there (the toggle). So it is the same
 resolver, chains included: `documentViewState->lineCursor.viewBottomLine` goes to `lineCursor`'s declaration when
 `lineCursor` is clicked, and to `viewBottomLine`'s when that is clicked (§11.11).
@@ -357,6 +357,14 @@ resolver, chains included: `documentViewState->lineCursor.viewBottomLine` goes t
   needs the `Hover` mouse events with modifiers, and a resolve per hovered name, so it's not part of the first step.
 - **Tests:** a modifier press at a name's cell jumps (the caret's file and line after the press) and pushes the stack; a
   press without the modifier doesn't; a modifier press on whitespace leaves the stack alone.
+- **Built (2026-11-12):** `EditorView::OnMousePressedEvent` moves the caret, then `IsGoToClick` (a single click, the
+  editor view's keymap's `CopyPasteModifier` held) posts `GotoToggle` through `Runloop::DispatchAction`. The keymap keeps
+  its `modifiers:` table for this: `KeyMapping::ModifierMask` (a child's own wins over its parent's). Tests: `document`
+  `gotoclick`, `gotoclick_plain`, `gotoclick_double`, `gotoclick_othermodifier` (through the real `EditorView`,
+  recording the posted action); `keymapping` `modifiermask`, `modifiermask_inherit`. The jump and the stack are the
+  key's path, tested there. Mutation checks: a hard-coded `Cmd` fails `gotoclick` on Linux; no single-click guard fails
+  `gotoclick_double`. Not yet tried in the app. The binding itself moves to a keymap `mouse:` section later
+  (usability-round §13).
 
 **Order:** definition, declaration, toggle and the stack need nothing from step 3 and come first, as step 2b. Implementation
 and base come with the edges of step 3, and references with step 6.

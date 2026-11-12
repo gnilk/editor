@@ -3,6 +3,9 @@
 //
 #include <testinterface.h>
 #include "Core/Editor.h"
+#include "Core/MouseEvent.h"
+#include "Core/Runloop.h"
+#include "Core/Editor/Views/EditorView.h"
 #include "Core/TextBuffer.h"
 #include "Core/WrapProjection.h"
 #include "Core/Editor/Controllers/EditController.h"
@@ -84,6 +87,10 @@ DLL_EXPORT int test_document_cut_paste_funcbody(ITesting *t);
 // (docs/mouse-support.md P4), against a real file with tabs.
 DLL_EXPORT int test_document_mouseclick_maps_to_charpos(ITesting *t);
 DLL_EXPORT int test_document_mouseclick_maps_with_scroll(ITesting *t);
+DLL_EXPORT int test_document_gotoclick(ITesting *t);
+DLL_EXPORT int test_document_gotoclick_plain(ITesting *t);
+DLL_EXPORT int test_document_gotoclick_double(ITesting *t);
+DLL_EXPORT int test_document_gotoclick_othermodifier(ITesting *t);
 DLL_EXPORT int test_document_wrap_caret_stays_visible(ITesting *t);
 
 }
@@ -1548,5 +1555,91 @@ DLL_EXPORT int test_document_selectup_firstline(ITesting *t) {
     auto &selection = document->GetSelection();
     TR_ASSERT(t, selection.GetStart() == gedit::Point(0, 0));
     TR_ASSERT(t, selection.GetEnd() == gedit::Point(3, 1));
+    return kTR_Pass;
+}
+
+// --- Cmd+click (Ctrl+click on Linux) does what Cmd+B does (docs/code-index.md §5.6) ---
+namespace {
+    // Takes the action the click posts, so nothing goes on to the global handler
+    struct GotoClickRecorder : KeypressAndActionHandler {
+        std::vector<kAction> actions;
+        bool HandleAction(const EditorAction &kpAction) override {
+            actions.push_back(kpAction.action);
+            return true;
+        }
+    };
+
+    struct GotoClickResult {
+        std::vector<kAction> actions;
+        size_t idxLine = 0;
+        int cursorX = 0;
+    };
+
+    // Press on 'false' in line 63 of ConvertUTF.cpp ('#define false<TAB>   0', column 10) through the real EditorView
+    GotoClickResult PressInEditor(ITesting *t, uint8_t modifiers, int clicks) {
+        GotoClickResult result;
+        auto document = LoadConvertUTFDocument(t, 80);
+        EditorView view;
+        view.SetDocument(document);
+        GotoClickRecorder recorder;
+        Runloop::SetKeypressAndActionHook(&recorder);
+
+        MouseEvent ev;
+        ev.kind = MouseEvent::kMouseEventKind_Press;
+        ev.y = view.GetContentRect().TopLeft().y + 62;
+        ev.x = view.GetContentRect().TopLeft().x + 10;
+        ev.modifiers = modifiers;
+        ev.clicks = clicks;
+        view.OnMouseEvent(ev);
+
+        Runloop::SetKeypressAndActionHook(nullptr);
+        result.actions = recorder.actions;
+        result.idxLine = document->GetLineCursor().idxActiveLine;
+        result.cursorX = document->GetCursor().position.x;
+        return result;
+    }
+
+    uint8_t PlatformCopyPasteModifier() {
+#ifdef GEDIT_MACOS
+        return Keyboard::kMod_LeftCommand;
+#else
+        return Keyboard::kMod_LeftCtrl;
+#endif
+    }
+}
+
+// The modifier from the keymap (Cmd on macOS, Ctrl on Linux) + a single click: the caret moves to the name, then
+// GotoToggle is posted
+DLL_EXPORT int test_document_gotoclick(ITesting *t) {
+    auto result = PressInEditor(t, PlatformCopyPasteModifier(), 1);
+    TR_ASSERT(t, result.idxLine == 62);
+    TR_ASSERT(t, result.cursorX == 10);
+    TR_ASSERT(t, result.actions.size() == 1);
+    TR_ASSERT(t, result.actions[0] == kAction::kActionGotoToggle);
+    return kTR_Pass;
+}
+
+// A plain click only moves the caret
+DLL_EXPORT int test_document_gotoclick_plain(ITesting *t) {
+    auto result = PressInEditor(t, 0, 1);
+    TR_ASSERT(t, result.idxLine == 62);
+    TR_ASSERT(t, result.cursorX == 10);
+    TR_ASSERT(t, result.actions.empty());
+    return kTR_Pass;
+}
+
+// The second press of a double-click with the modifier held doesn't jump again
+DLL_EXPORT int test_document_gotoclick_double(ITesting *t) {
+    auto result = PressInEditor(t, PlatformCopyPasteModifier(), 2);
+    TR_ASSERT(t, result.actions.empty());
+    return kTR_Pass;
+}
+
+// Another modifier (Alt - UI navigation, or Shift) is not the go-to modifier
+DLL_EXPORT int test_document_gotoclick_othermodifier(ITesting *t) {
+    auto withAlt = PressInEditor(t, Keyboard::kMod_LeftAlt, 1);
+    auto withShift = PressInEditor(t, Keyboard::kMod_LeftShift, 1);
+    TR_ASSERT(t, withAlt.actions.empty());
+    TR_ASSERT(t, withShift.actions.empty());
     return kTR_Pass;
 }

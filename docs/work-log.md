@@ -8,6 +8,14 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## Cmd+click / Ctrl+click goes to definition (2026-11-12) ✅
+
+A single click with `CopyPasteModifier` held (`Cmd` on macOS, `Ctrl` on Linux) moves the caret to the name and posts
+`GotoToggle`, as `Cmd+B` does. **Load-bearing decisions:** the modifier comes from the keymap (`KeyMapping::ModifierMask`,
+the `modifiers:` table kept after the build, a child's own winning), not a hard-coded key; the action is posted through
+`Runloop::DispatchAction`, not called, so the jump lands on the navigation stack; only `clicks == 1`. A keymap `mouse:`
+section is planned to make the binding itself data (usability-round §13). Detail: [`code-index.md`](code-index.md) §5.6.
+
 ## Folder double-click in the workspace tree (2026-11-12) ✅
 
 A double-click on a folder did nothing (`OpenSelectedItem` returned early on a folder). **Shipped:** a double-click or

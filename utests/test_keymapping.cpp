@@ -23,6 +23,8 @@ DLL_EXPORT int test_keymapping_workspace_inherit(ITesting *t);
 DLL_EXPORT int test_keymapping_cache(ITesting *t);
 DLL_EXPORT int test_keymapping_switchbuffer(ITesting *t);
 DLL_EXPORT int test_keymapping_find(ITesting *t);
+DLL_EXPORT int test_keymapping_modifiermask(ITesting *t);
+DLL_EXPORT int test_keymapping_modifiermask_inherit(ITesting *t);
 }
 
 //
@@ -393,5 +395,60 @@ DLL_EXPORT int test_keymapping_toggleignored(ITesting *t) {
     auto defaultAction = Editor::Instance().GetKeyMapping("default_keymap")->ActionFromKeyPress(keyPress);
     TR_ASSERT(t, defaultAction.has_value());
     TR_ASSERT(t, defaultAction->action != kAction::kActionToggleIgnored);
+    return kTR_Pass;
+}
+
+// A keymap keeps what its named modifiers stand for, so a mouse click can follow it (Cmd+click / Ctrl+click,
+// docs/code-index.md §5.6). A modifier no table defines has no mask.
+DLL_EXPORT int test_keymapping_modifiermask(ITesting *t) {
+    KeyMapping keyMapping;
+    auto cfgNode = ConfigNode::FromString(strKeymap);
+    TR_ASSERT(t, cfgNode.has_value());
+    TR_ASSERT(t, keyMapping.Initialize(cfgNode.value()));
+    auto copyPaste = keyMapping.ModifierMask(kActionModifier::kActionModifierCopyPaste);
+    auto selection = keyMapping.ModifierMask(kActionModifier::kActionModifierSelection);
+    TR_ASSERT(t, copyPaste.has_value());
+    TR_ASSERT(t, *copyPaste == (Keyboard::kMod_LeftCommand | Keyboard::kMod_RightCommand));
+    TR_ASSERT(t, selection.has_value());
+    TR_ASSERT(t, *selection == (Keyboard::kMod_LeftShift | Keyboard::kMod_RightShift));
+
+    KeyMapping onlySelection;
+    auto onlySelectionNode = ConfigNode::FromString("{ modifiers: { SelectionModifier: KeyCode_Shift }, "
+                                                    "actions: { GotoFirstLine: KeyCode_Home } }");
+    TR_ASSERT(t, onlySelectionNode.has_value());
+    TR_ASSERT(t, onlySelection.Initialize(onlySelectionNode.value()));
+    TR_ASSERT(t, !onlySelection.ModifierMask(kActionModifier::kActionModifierCopyPaste).has_value());
+    return kTR_Pass;
+}
+
+// A child's own modifier wins over the inherited one, and what it doesn't define comes from the parent - both through
+// the cache's resolver and through the legacy walk (no resolver).
+DLL_EXPORT int test_keymapping_modifiermask_inherit(ITesting *t) {
+#ifdef GEDIT_MACOS
+    const int platformCopyPaste = Keyboard::kMod_LeftCommand | Keyboard::kMod_RightCommand;
+#else
+    const int platformCopyPaste = Keyboard::kMod_LeftCtrl | Keyboard::kMod_RightCtrl;
+#endif
+    const int alt = Keyboard::kMod_LeftAlt | Keyboard::kMod_RightAlt;
+    const int shift = Keyboard::kMod_LeftShift | Keyboard::kMod_RightShift;
+
+    auto childNode = ConfigNode::FromString("{ inherit: default_keymap, modifiers: { CopyPasteModifier: KeyCode_Alt } }");
+    TR_ASSERT(t, childNode.has_value());
+    auto resolved = KeyMapping::Create(childNode.value(), [](const std::string &name) {
+        return KeyMappingCache::Instance().GetOrLoad(name);
+    });
+    TR_ASSERT(t, resolved != nullptr);
+    TR_ASSERT(t, resolved->ModifierMask(kActionModifier::kActionModifierCopyPaste) == alt);
+    TR_ASSERT(t, resolved->ModifierMask(kActionModifier::kActionModifierSelection) == shift);
+
+    KeyMapping legacy;
+    TR_ASSERT(t, legacy.Initialize(childNode.value()));
+    TR_ASSERT(t, legacy.ModifierMask(kActionModifier::kActionModifierCopyPaste) == alt);
+    TR_ASSERT(t, legacy.ModifierMask(kActionModifier::kActionModifierSelection) == shift);
+
+    // Pure inheritance: everything from the platform's default_keymap
+    auto plain = KeyMappingCache::Instance().GetOrLoad("workspace_keymap");
+    TR_ASSERT(t, plain != nullptr);
+    TR_ASSERT(t, plain->ModifierMask(kActionModifier::kActionModifierCopyPaste) == platformCopyPaste);
     return kTR_Pass;
 }

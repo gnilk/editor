@@ -304,6 +304,7 @@ bool KeyMapping::RebuildActionMapping(const ConfigNode &keymap) {
         if (!ValidateModifiers(keymapModifiers)) {
             return false;
         }
+        AddModifierMasks(keymapModifiers);
     }
 
     /*
@@ -406,6 +407,22 @@ bool KeyMapping::ValidateModifiers(const std::map<std::string, std::string> &key
         logger->Debug("  '%s' = '%s'", name.c_str(), strModifierMask.c_str());
     }
     return true;
+}
+
+// Remember what each named modifier stands for. emplace keeps the first one: this keymap's own table is read before
+// the inherited ones (both through the resolver and the legacy walk), so a child overrides its parent.
+void KeyMapping::AddModifierMasks(const std::map<std::string, std::string> &keymapModifiers) {
+    for (auto &[name, strModifierMask] : keymapModifiers) {
+        modifierMasks.emplace(strToModifierMap.at(name), Keyboard::ModifierMaskFromString(strModifierMask));
+    }
+}
+
+std::optional<int> KeyMapping::ModifierMask(kActionModifier modifier) const {
+    auto it = modifierMasks.find(modifier);
+    if (it == modifierMasks.end()) {
+        return {};
+    }
+    return it->second;
 }
 
 //
@@ -601,6 +618,10 @@ bool KeyMapping::ResolveInheritance(const ConfigNode &cfgNode, const ParentResol
         // ActionItem is immutable after build, so sharing the Ref across keymaps is safe.
         for (auto &actionItem : parent->actionItems) {
             actionItems.push_back(actionItem);
+        }
+        // The parent's modifiers fill in what this keymap doesn't define itself
+        for (auto &[modifier, mask] : parent->modifierMasks) {
+            modifierMasks.emplace(modifier, mask);
         }
         return true;
     }

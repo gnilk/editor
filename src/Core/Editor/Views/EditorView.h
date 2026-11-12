@@ -63,6 +63,7 @@ namespace gedit {
         void OnActivate(bool isActive) override;
         void DrawViewContents() override;
         bool OnMousePressedEvent(const MouseEvent &mouseEvent);
+        bool IsGoToClick(const MouseEvent &mouseEvent);
     private:
         void DrawSearchResultOverlays(DrawContext &dc, const std::vector<WrapRow> &rows, int tabSize);
         void DrawSelectionOverlay(DrawContext &dc, const std::vector<WrapRow> &rows, int tabSize);

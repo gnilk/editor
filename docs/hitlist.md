@@ -19,7 +19,7 @@ All of section 0 checked on 2026-11-11 (SDL2). The YAML, select all and `.fmf`/`
 | # | Item | Where | Notes |
 |---|---|---|---|
 | 1 | ~~Double-click (and Enter) on a folder expands or collapses it~~ | usability §10 | done 2026-11-12; not yet tried in the app |
-| 2 | `Cmd+click` (`Ctrl+click`) jumps as `Cmd+B` does | code-index §5.6 | posts `GotoToggle` from `EditorView::OnMousePressedEvent`; the modifier comes from the keymap |
+| 2 | ~~`Cmd+click` (`Ctrl+click`) jumps as `Cmd+B` does~~ | code-index §5.6 | done 2026-11-12; not yet tried in the app |
 | 3 | Check: does `GotoImplementation` (tagged `Selection` by its binding) start a stray selection? | usability §11 | an investigation; a repro test if it does |
 | 4 | YAML: `\|-` / `>+` headers don't auto-indent the next line | `support-yaml.md` | a gap noted at merge |
 
@@ -30,6 +30,7 @@ All of section 0 checked on 2026-11-11 (SDL2). The YAML, select all and `.fmf`/`
 | 5 | The git branch in the status line: `⎇ main` | usability §9 | `status --branch` on the query that already runs; `IsSameAs` must compare the branch |
 | 6 | Gansi copy fallback: `pbcopy` / `xclip` / `wl-copy` when local (Apple Terminal has no OSC 52) | open-bugs #20 notes | small on its own; fits with #20 |
 | 7 | Image view phase 0: `BufferBase`, `TextBuffer` / `ImageBuffer`, Document holds one buffer | `image-view.md` §2.4 | no behaviour change for text; the green set + a test per guarded site |
+| 15 | Mouse bindings: a `mouse:` section in the keymaps (`GotoToggle: CopyPasteModifier + Click`, the tree's `DoubleClick`) | usability §13 | added 2026-11-12; the click handling in `EditorView` / `WorkspaceView` becomes a lookup |
 
 ## 3. A few days, decisions needed first
 
@@ -50,7 +51,7 @@ All of section 0 checked on 2026-11-11 (SDL2). The YAML, select all and `.fmf`/`
 
 ## Order suggested
 
-0 (on Linux) -> 1, 2, 3, 4 -> 5 -> 10, 11, 12 -> 8 -> 9 -> 7 -> 13 -> 14.
+0 (on Linux) -> 1, 2, 3, 4 -> 5 -> 15 -> 10, 11, 12 -> 8 -> 9 -> 7 -> 13 -> 14.
 
 - The languages go before the key bindings: they need no decisions that aren't taken, and CMake/Python are used daily.
 - The bindings (8) go before #20 (9), which leans on them.

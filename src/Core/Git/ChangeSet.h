@@ -43,7 +43,11 @@ namespace gedit {
         bool IsEmpty() const {
             return changes.empty();
         }
-        // Same paths, same changes - nothing to redraw
+        // The branch checked out - empty name outside a repository
+        const GitStatus::Branch &GetBranch() const {
+            return branch;
+        }
+        // Same paths, same changes, same branch - nothing to redraw
         bool IsSameAs(const ChangeSet &other) const;
 
         // The form paths are compared in: lexically normal, no trailing separator, '.' for an empty path
@@ -56,6 +60,7 @@ namespace gedit {
         std::unordered_map<std::string, kChange> folders;           // every folder from a change up to the root
         std::unordered_set<std::string> untrackedFolders;
         std::vector<std::filesystem::path> deleted;
+        GitStatus::Branch branch;
     };
 }
 

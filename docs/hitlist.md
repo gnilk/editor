@@ -27,7 +27,7 @@ All of section 0 checked on 2026-11-11 (SDL2). The YAML, select all and `.fmf`/`
 
 | # | Item | Where | Notes |
 |---|---|---|---|
-| 5 | The git branch in the status line: `⎇ main` | usability §9 | `status --branch` on the query that already runs; `IsSameAs` must compare the branch |
+| 5 | ~~The git branch in the status line: `⎇ main`~~ | usability §9 | done 2026-11-12; seen in the SDL2 app (`⎇ main`); switch and detached not yet tried in the app |
 | 6 | Gansi copy fallback: `pbcopy` / `xclip` / `wl-copy` when local (Apple Terminal has no OSC 52) | open-bugs #20 notes | small on its own; fits with #20 |
 | 7 | Image view phase 0: `BufferBase`, `TextBuffer` / `ImageBuffer`, Document holds one buffer | `image-view.md` §2.4 | no behaviour change for text; the green set + a test per guarded site |
 | 15 | Mouse bindings: a `mouse:` section in the keymaps (`GotoToggle: CopyPasteModifier + Click`, the tree's `DoubleClick`) | usability §13 | added 2026-11-12; the click handling in `EditorView` / `WorkspaceView` becomes a lookup |

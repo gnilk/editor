@@ -1097,6 +1097,8 @@ void Editor::WireRepoMonitor() {
         for (auto &document : workspace->GetOpenDocuments()) {
             RefreshChangeBase(document);
         }
+        // The branch in the status line
+        TriggerUIRedraw();
     });
 }
 

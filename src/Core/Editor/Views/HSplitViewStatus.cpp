@@ -6,6 +6,7 @@
 
 #include "HSplitViewStatus.h"
 #include "Core/UI/Views/RootView.h"
+#include "Core/UnicodeHelper.h"
 
 using namespace gedit;
 
@@ -57,11 +58,34 @@ void HSplitViewStatus::DrawSplitter(int row) {
     dc.DrawStringWithAttributesAt(0,row, kTextAttributes::kInverted, statusLine.c_str());
 
 
+    // The opened folder's branch, before the view's own info (docs/usability-round.md §9)
+    auto branchLabel = BranchLabel(Editor::Instance().GetWorkspace()->GetOpenedFolderBranch());
+    if (!branchLabel.empty()) {
+        viewStatusRight = viewStatusRight.empty() ? branchLabel : branchLabel + U" | " + viewStatusRight;
+    }
+
     if (!viewStatusRight.empty()) {
         dc.DrawStringWithAttributesAt(dc.GetRect().Width() - viewStatusRight.size() - 4, row,
                                       kTextAttributes::kInverted,
                                       viewStatusRight.c_str());
     }
+}
+
+std::u32string HSplitViewStatus::BranchLabel(const GitStatus::Branch &branch, size_t maxNameChars) {
+    if (branch.name.empty()) {
+        return {};
+    }
+    auto name = UnicodeHelper::utf8to32(branch.name);
+    // The start says which kind of branch, the end which one: both stay
+    if ((name.size() > maxNameChars) && (maxNameChars >= 3)) {
+        auto nHead = (maxNameChars - 1) / 2;
+        auto nTail = maxNameChars - 1 - nHead;
+        name = name.substr(0, nHead) + U"…" + name.substr(name.size() - nTail);
+    }
+    if (branch.isDetached) {
+        name = U"(" + name + U")";
+    }
+    return U"⎇ " + name;
 }
 
 std::pair<std::u32string,std::u32string> HSplitViewStatus::GetStatusLineForTopview() {

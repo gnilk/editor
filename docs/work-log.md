@@ -8,6 +8,15 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## The git branch in the status line (2026-11-12) ✅
+
+The status line shows the opened folder's branch at the right: `⎇ main`, `⎇ (a1b2c3d)` when detached. **Load-bearing
+decisions:** the branch comes from `--branch` on the status query that already runs (not from reading `.git/HEAD` -
+reftable keeps a placeholder there), so no extra process except the short SHA when detached; `ChangeSet::IsSameAs`
+compares the branch, or a switch between branches with the same tree would never reach the screen (pinned by
+`test_gitstatus_monitor_branch`); the first opened folder's branch, not the active document's. Detail:
+[`usability-round.md`](usability-round.md) §9.
+
 ## YAML: Enter after `|-` / `>+` block headers indents (2026-11-12) ✅
 
 `indent.yml`'s triggers look at a line's last char, so `run: |-`, `|+`, `>-`, `>+` and `run: |  # comment` didn't indent

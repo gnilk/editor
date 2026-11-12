@@ -17,6 +17,7 @@
 #include "Core/Git/RepoMonitor.h"
 #include "Core/Config/Config.h"
 #include "Core/Workspace.h"
+#include "Core/Editor/Views/HSplitViewStatus.h"
 
 using namespace gedit;
 namespace fs = std::filesystem;
@@ -40,6 +41,12 @@ extern "C" {
     DLL_EXPORT int test_gitstatus_monitor(ITesting *t);
     DLL_EXPORT int test_gitstatus_monitor_norepository(ITesting *t);
     DLL_EXPORT int test_gitstatus_workspace(ITesting *t);
+    DLL_EXPORT int test_gitstatus_parse_branch(ITesting *t);
+    DLL_EXPORT int test_gitstatus_branch(ITesting *t);
+    DLL_EXPORT int test_gitstatus_changeset_branch(ITesting *t);
+    DLL_EXPORT int test_gitstatus_monitor_branch(ITesting *t);
+    DLL_EXPORT int test_gitstatus_workspace_branch(ITesting *t);
+    DLL_EXPORT int test_gitstatus_branchlabel(ITesting *t);
 }
 
 namespace {
@@ -496,5 +503,142 @@ DLL_EXPORT int test_gitstatus_workspace(ITesting *t) {
     TR_ASSERT(t, workspace.ChangeOf(nodeA) == kChange::kNone);
     TR_ASSERT(t, workspace.ChangeOf(nodeSub) == kChange::kNone);
     TR_ASSERT(t, workspace.ChangeOf(rootNode) == kChange::kNone);
+    return kTR_Pass;
+}
+
+//
+// The branch (docs/usability-round.md §9)
+//
+DLL_EXPORT int test_gitstatus_parse_branch(ITesting *t) {
+    auto branch = GitStatus::ParseBranch(Z({"## main...origin/main [ahead 1, behind 2]", " M a.txt"}));
+    TR_ASSERT(t, (branch.name == "main") && !branch.isDetached);
+    branch = GitStatus::ParseBranch(Z({"## feature/x-y"}));
+    TR_ASSERT(t, (branch.name == "feature/x-y") && !branch.isDetached);
+    // An upstream that is gone
+    branch = GitStatus::ParseBranch(Z({"## topic...origin/topic [gone]"}));
+    TR_ASSERT(t, branch.name == "topic");
+    branch = GitStatus::ParseBranch(Z({"## No commits yet on trunk"}));
+    TR_ASSERT(t, branch.name == "trunk");
+    branch = GitStatus::ParseBranch(Z({"## Initial commit on trunk"}));
+    TR_ASSERT(t, branch.name == "trunk");
+    // Detached: git doesn't name the commit here
+    branch = GitStatus::ParseBranch(Z({"## HEAD (no branch)"}));
+    TR_ASSERT(t, branch.isDetached && branch.name.empty());
+    // No '--branch' record: nothing
+    TR_ASSERT(t, GitStatus::ParseBranch(Z({" M a.txt"})).name.empty());
+    TR_ASSERT(t, GitStatus::ParseBranch("").name.empty());
+    // ...and the record isn't a change
+    TR_ASSERT(t, GitStatus::Parse(Z({"## main...origin/main", " M a.txt"})).size() == 1);
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_gitstatus_branch(ITesting *t) {
+    auto root = MakeRoot("branch");
+    TR_ASSERT(t, Git(root, "init -q -b trunk"));
+    // No commit yet: the branch is still named
+    auto snapshot = GitStatus::QueryAndWait(root);
+    TR_ASSERT(t, snapshot.branch.name == "trunk");
+    TR_ASSERT(t, !snapshot.branch.isDetached);
+
+    WriteFile(root / "a.txt", "a\n");
+    TR_ASSERT(t, Git(root, "add ."));
+    TR_ASSERT(t, Git(root, "commit -q -m initial"));
+    TR_ASSERT(t, Git(root, "switch -q -c feature/thing"));
+    snapshot = GitStatus::QueryAndWait(root);
+    TR_ASSERT(t, snapshot.branch.name == "feature/thing");
+
+    // Detached: the short SHA stands for it
+    TR_ASSERT(t, Git(root, "switch -q --detach"));
+    snapshot = GitStatus::QueryAndWait(root);
+    TR_ASSERT(t, snapshot.branch.isDetached);
+    TR_ASSERT(t, snapshot.branch.name.size() >= 4);
+    TR_ASSERT(t, snapshot.branch.name.find_first_not_of("0123456789abcdef") == std::string::npos);
+    TR_ASSERT(t, snapshot.changes.empty());
+
+    // Not a repository: none
+    auto plain = MakeRoot("branch_plain");
+    snapshot = GitStatus::QueryAndWait(plain);
+    TR_ASSERT(t, snapshot.branch.name.empty());
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_gitstatus_changeset_branch(ITesting *t) {
+    auto root = MakeRoot("changeset_branch");
+    auto snapshotMain = MakeSnapshot(root, {" M a.txt"});
+    snapshotMain.branch.name = "main";
+    auto snapshotTopic = snapshotMain;
+    snapshotTopic.branch.name = "topic";
+    auto main = ChangeSet::Create(snapshotMain, root);
+    auto topic = ChangeSet::Create(snapshotTopic, root);
+    TR_ASSERT(t, main->GetBranch().name == "main");
+    // Same working tree, another branch: not the same - the monitor must hand it over
+    TR_ASSERT(t, !main->IsSameAs(*topic));
+    TR_ASSERT(t, main->IsSameAs(*ChangeSet::Create(snapshotMain, root)));
+    // Not a repository: no branch
+    GitStatus::Snapshot none;
+    none.branch.name = "stale";
+    TR_ASSERT(t, ChangeSet::Create(none, root)->GetBranch().name.empty());
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_gitstatus_monitor_branch(ITesting *t) {
+    // 'git switch' in the terminal between two branches on the same commit: no file changes, only the branch
+    auto root = MakeRoot("monitor_branch");
+    TR_ASSERT(t, Git(root, "init -q -b main"));
+    WriteFile(root / "a.txt", "a\n");
+    TR_ASSERT(t, Git(root, "add ."));
+    TR_ASSERT(t, Git(root, "commit -q -m initial"));
+    TR_ASSERT(t, Git(root, "branch topic"));
+
+    Received received;
+    auto monitor = received.Monitor(root);
+    monitor->Start();
+    TR_ASSERT(t, received.WaitFor([](const ChangeSet &changeSet) {
+        return changeSet.GetBranch().name == "main";
+    }));
+    // The git directory check sees HEAD change
+    TR_ASSERT(t, Git(root, "switch -q topic"));
+    TR_ASSERT(t, received.WaitFor([](const ChangeSet &changeSet) {
+        return changeSet.GetBranch().name == "topic";
+    }));
+    monitor->Stop();
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_gitstatus_workspace_branch(ITesting *t) {
+    auto root = MakeRoot("workspace_branch");
+    TR_ASSERT(t, Git(root, "init -q -b main"));
+    WriteFile(root / "a.txt", "a\n");
+    TR_ASSERT(t, Git(root, "add ."));
+    TR_ASSERT(t, Git(root, "commit -q -m initial"));
+
+    MainQueue mainQueue;
+    Workspace workspace;
+    workspace.SetRepoMonitor([&mainQueue](const fs::path &rootPath) {
+        return RepoMonitor::Create(rootPath, mainQueue.Post(), std::chrono::milliseconds(20));
+    });
+    // Nothing opened yet: no branch
+    TR_ASSERT(t, workspace.GetOpenedFolderBranch().name.empty());
+    TR_ASSERT(t, workspace.OpenFolder(root.string()));
+    TR_ASSERT(t, mainQueue.PumpUntil([&]() {
+        return workspace.GetOpenedFolderBranch().name == "main";
+    }));
+    TR_ASSERT(t, Git(root, "switch -q -c other"));
+    TR_ASSERT(t, mainQueue.PumpUntil([&]() {
+        return workspace.GetOpenedFolderBranch().name == "other";
+    }));
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_gitstatus_branchlabel(ITesting *t) {
+    TR_ASSERT(t, HSplitViewStatus::BranchLabel({}).empty());
+    TR_ASSERT(t, HSplitViewStatus::BranchLabel({"main", false}) == U"⎇ main");
+    TR_ASSERT(t, HSplitViewStatus::BranchLabel({"a1b2c3d", true}) == U"⎇ (a1b2c3d)");
+    // Cut in the middle: both ends stay, and it is as long as asked
+    auto label = HSplitViewStatus::BranchLabel({"feature/very-long-branch-name-thing", false}, 15);
+    TR_ASSERT(t, label == U"⎇ feature…e-thing");
+    TR_ASSERT(t, label.size() == 2 + 15);
+    // Exactly the limit: untouched
+    TR_ASSERT(t, HSplitViewStatus::BranchLabel({"abcde", false}, 5) == U"⎇ abcde");
     return kTR_Pass;
 }

@@ -1,7 +1,9 @@
 //
-// GitStatus - 'git rev-parse --show-toplevel --absolute-git-dir', then 'git status --porcelain=v1 -z', both through Process.
+// GitStatus - 'git rev-parse --show-toplevel --absolute-git-dir', then 'git status --porcelain=v1 -z --branch' (and
+// 'git rev-parse --short HEAD' when detached), all through Process.
 //
 
+#include <algorithm>
 #include <future>
 #include <memory>
 
@@ -53,16 +55,21 @@ void GitStatus::Query(const std::filesystem::path &root, DoneDelegate onDone) {
         auto statusOut = std::make_shared<std::string>();
         auto statusErr = std::make_shared<std::string>();
         auto status = Process::Create("git", {"--no-optional-locks", "-C", root.string(), "status", "--porcelain=v1", "-z",
-                                              "--untracked-files=normal", "--", "."});
+                                              "--branch", "--untracked-files=normal", "--", "."});
         status->SetOnStdOut([statusOut](const std::string &data) {
             *statusOut += data;
         });
         status->SetOnStdErr([statusErr](const std::string &data) {
             *statusErr += data;
         });
-        status->SetOnExit([snapshot, statusOut, statusErr, onDone](const Process::Result &result) mutable {
+        status->SetOnExit([root, snapshot, statusOut, statusErr, onDone](const Process::Result &result) mutable {
             if (result.IsSuccess()) {
                 snapshot.changes = Parse(*statusOut);
+                snapshot.branch = ParseBranch(*statusOut);
+                if (snapshot.branch.isDetached) {
+                    QueryDetachedSha(root, snapshot, onDone);
+                    return;
+                }
             } else if (result.state == Process::kState::kFailedToStart) {
                 snapshot.error = result.error;
             } else {
@@ -71,6 +78,22 @@ void GitStatus::Query(const std::filesystem::path &root, DoneDelegate onDone) {
             onDone(snapshot);
         });
         status->Start();
+    });
+    revParse->Start();
+}
+
+// Detached: the status names no branch, so the commit stands for it
+void GitStatus::QueryDetachedSha(const std::filesystem::path &root, Snapshot snapshot, DoneDelegate onDone) {
+    auto shaOut = std::make_shared<std::string>();
+    auto revParse = Process::Create("git", {"-C", root.string(), "rev-parse", "--short", "HEAD"});
+    revParse->SetOnStdOut([shaOut](const std::string &data) {
+        *shaOut += data;
+    });
+    revParse->SetOnExit([snapshot, shaOut, onDone](const Process::Result &result) mutable {
+        if (result.IsSuccess()) {
+            snapshot.branch.name = TrimEnd(*shaOut);
+        }
+        onDone(snapshot);
     });
     revParse->Start();
 }
@@ -117,6 +140,30 @@ std::vector<GitStatus::Change> GitStatus::Parse(std::string_view porcelain) {
         changes.push_back(std::move(change));
     }
     return changes;
+}
+
+// '## main...origin/main [ahead 1]', '## main', '## HEAD (no branch)', '## No commits yet on main' (older git:
+// '## Initial commit on main'). A branch name holds no space and no '...', so it ends at the first of them.
+GitStatus::Branch GitStatus::ParseBranch(std::string_view porcelain) {
+    Branch branch;
+    auto record = porcelain.substr(0, porcelain.find('\0'));
+    if (record.rfind("## ", 0) != 0) {
+        return branch;
+    }
+    record.remove_prefix(3);
+    if (record == "HEAD (no branch)") {
+        branch.isDetached = true;
+        return branch;
+    }
+    for (std::string_view unborn : {"No commits yet on ", "Initial commit on "}) {
+        if (record.rfind(unborn, 0) == 0) {
+            record.remove_prefix(unborn.size());
+            break;
+        }
+    }
+    auto idxEnd = std::min(record.find("..."), record.find(' '));
+    branch.name = std::string(record.substr(0, idxEnd));
+    return branch;
 }
 
 GitStatus::kChange GitStatus::ChangeOf(char index, char workTree) {

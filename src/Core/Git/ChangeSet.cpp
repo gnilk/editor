@@ -15,6 +15,7 @@ ChangeSet::Ref ChangeSet::Create(const GitStatus::Snapshot &snapshot, const fs::
     if (!snapshot.isRepository || snapshot.topLevel.empty()) {
         return changeSet;
     }
+    changeSet->branch = snapshot.branch;
 
     // Where the root sits below the top level - by real paths, as git gives its top level
     std::error_code error;
@@ -105,7 +106,8 @@ ChangeSet::kChange ChangeSet::FolderChangeOf(const fs::path &folder) const {
 }
 
 bool ChangeSet::IsSameAs(const ChangeSet &other) const {
-    return (rootKey == other.rootKey) && (changes == other.changes);
+    // A switch between two branches with the same working tree changes only the branch
+    return (rootKey == other.rootKey) && (changes == other.changes) && (branch == other.branch);
 }
 
 std::string ChangeSet::Key(const fs::path &path) {

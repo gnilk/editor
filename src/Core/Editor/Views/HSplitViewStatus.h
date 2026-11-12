@@ -6,6 +6,7 @@
 #define EDITOR_HSPLITVIEWSTATUS_H
 #include "Core/UI/Views/HSplitView.h"
 #include "Core/RuntimeConfig.h"
+#include "Core/Git/GitStatus.h"
 
 namespace gedit {
     class HSplitViewStatus : public HSplitView {
@@ -23,6 +24,11 @@ namespace gedit {
         // widgets (buttons, editboxes, etc..) just windows..
         //
         void SetWindowCursor(const Cursor &cursor) override;
+
+        // '⎇ main', '⎇ (a1b2c3d)' when detached, a long name cut in the middle to 'maxNameChars'; empty without a name
+        static std::u32string BranchLabel(const GitStatus::Branch &branch, size_t maxNameChars = MAX_BRANCH_CHARS);
+    public:
+        static constexpr size_t MAX_BRANCH_CHARS = 32;
 
     protected:
         std::pair<std::u32string,std::u32string> GetStatusLineForTopview();

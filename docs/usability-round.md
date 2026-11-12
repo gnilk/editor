@@ -791,6 +791,15 @@ worked in, and the branch doesn't change as documents are switched.
 - `⎇` (U+2387) is in few monospace fonts; the system font fallback finds it on SDL. Gansi depends on the terminal's
   font.
 
+**Built (2026-11-12):** as above. `GitStatus::ParseBranch` reads the `##` record into `Snapshot::branch`
+(`GitStatus::Branch {name, isDetached}`); detached runs one more process, `git rev-parse --short HEAD`, only then.
+`ChangeSet::GetBranch` carries it and `IsSameAs` compares it. `Workspace::GetOpenedFolderBranch` picks the first opened
+folder (not the default root); `HSplitViewStatus::BranchLabel` formats it (cut to 32 chars in the middle) and
+`DrawSplitter` puts it before the view's right part. A change set applied triggers a UI redraw so a `git switch` shows
+without a keypress. Tests (`gitstatus`): `parse_branch`, `branch` (unborn, named, detached, none), `changeset_branch`,
+`monitor_branch` (a switch with the same tree reaches the monitor), `workspace_branch`, `branchlabel`. Seen in the SDL2
+app: `⎇ main` renders through the font fallback.
+
 **Tests:**
 - `gitstatus`:
   - the `##` record parsed into the branch, including detached, no commits yet, and a branch with no upstream;

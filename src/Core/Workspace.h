@@ -676,6 +676,18 @@ namespace gedit {
         const std::vector<Workspace::ProjectRoot::Ref> &GetProjectRoots() {
             return projectRoots;
         }
+        // The branch of the folder the editor was opened on (docs/usability-round.md §9): the first opened folder's -
+        // loose files have none. Empty name: no folder, not a repository, or no answer yet.
+        GitStatus::Branch GetOpenedFolderBranch() {
+            for (auto &root : projectRoots) {
+                if (IsDefaultRoot(root)) {
+                    continue;
+                }
+                auto changeSet = root->GetChangeSet();
+                return (changeSet != nullptr) ? changeSet->GetBranch() : GitStatus::Branch{};
+            }
+            return {};
+        }
 
         Node::Ref GetActiveFolderNode() {
             return activeFolderNode;

@@ -90,6 +90,11 @@ DLL_EXPORT int test_session_splitter_untagged_noop(ITesting *t);
 DLL_EXPORT int test_session_layout_walk_roundtrip(ITesting *t);
 DLL_EXPORT int test_session_workspaceview_expandcollapse(ITesting *t);
 DLL_EXPORT int test_session_workspaceview_keepselection(ITesting *t);
+DLL_EXPORT int test_session_workspaceview_dblclick_folder(ITesting *t);
+DLL_EXPORT int test_session_workspaceview_dblclick_unscanned(ITesting *t);
+DLL_EXPORT int test_session_workspaceview_enter_folder(ITesting *t);
+DLL_EXPORT int test_session_workspaceview_tripleclick(ITesting *t);
+DLL_EXPORT int test_session_workspaceview_dblclick_file(ITesting *t);
 DLL_EXPORT int test_session_yaml_roundtrip(ITesting *t);
 DLL_EXPORT int test_session_yaml_bad_version(ITesting *t);
 DLL_EXPORT int test_session_yaml_corrupt(ITesting *t);
@@ -856,5 +861,189 @@ DLL_EXPORT int test_session_workspaceview_keepselection(ITesting *t) {
     TR_ASSERT(t, afterAdd == zzNode);
     TR_ASSERT(t, !isToolsExpanded);
     TR_ASSERT(t, afterRemove == coreNode);
+    return kTR_Pass;
+}
+
+// --- Double-click / Enter on a folder toggles it (docs/usability-round.md §10) ---
+namespace {
+    // Drives the real input paths: a press on the row of a node (OnMousePressedEvent) and Enter (OnAction).
+    struct ClickTestWorkspaceView : public SessionTestWorkspaceView {
+        void Press(const Workspace::Node::Ref &node, int clicks) {
+            Select(node);
+            auto tree = GetTreeView();
+            int row = tree->GetLineCursor().idxActiveLine - tree->GetLineCursor().viewTopLine;
+            // Start from another row, so the press itself has to pick the node
+            tree->SetSelectionAtRow(0);
+            MouseEvent ev;
+            ev.kind = MouseEvent::kMouseEventKind_Press;
+            ev.y = tree->GetContentRect().TopLeft().y + row;
+            ev.clicks = clicks;
+            OnMousePressedEvent(ev);
+        }
+        // A double-click arrives as two presses: clicks 1, then clicks 2
+        void DoubleClick(const Workspace::Node::Ref &node) {
+            Press(node, 1);
+            Press(node, 2);
+        }
+        bool Enter(const Workspace::Node::Ref &node) {
+            Select(node);
+            EditorAction action;
+            action.uiAction = kUIAction::kUIActionCommitLine;
+            return OnAction(action);
+        }
+        bool IsExpanded(const std::filesystem::path &path) {
+            std::unordered_map<std::string, bool> state;
+            SaveExpandCollapseState(state);
+            auto it = state.find(path.string());
+            return (it != state.end()) && it->second;
+        }
+    };
+
+    // root/{core/x.cpp, core/inner/y.cpp, build/out.o (git-ignored: unscanned until expanded), zz.md}
+    struct ClickTestTree {
+        std::filesystem::path root;
+        Workspace::Node::Ref rootNode = nullptr;
+        bool prevMonitor = true;
+        bool prevSwitch = true;
+
+        explicit ClickTestTree(const char *name) {
+            namespace fs = std::filesystem;
+            prevMonitor = Config::Instance()["foldermonitor"].GetBool("enabled", true);
+            Config::Instance()["foldermonitor"].SetBool("enabled", false);
+            // No RootView in the tests - opening a file must not switch views
+            prevSwitch = Config::Instance()["workspaceview"].GetBool("switch_to_editor_on_openfile", true);
+            Config::Instance()["workspaceview"].SetBool("switch_to_editor_on_openfile", false);
+
+            root = pathutil::CanonicalPath(fs::temp_directory_path() / name);
+            std::error_code ec;
+            fs::remove_all(root, ec);
+            fs::create_directories(root / "core" / "inner");
+            fs::create_directories(root / "build");
+            { std::ofstream(root / "core" / "x.cpp") << "x\n"; }
+            { std::ofstream(root / "core" / "inner" / "y.cpp") << "y\n"; }
+            { std::ofstream(root / "build" / "out.o") << "o\n"; }
+            { std::ofstream(root / ".gitignore") << "build/\n"; }
+            { std::ofstream(root / "zz.md") << "z\n"; }
+
+            auto workspace = Editor::Instance().GetWorkspace();
+            workspace->OpenFolder(root.string());
+            for (auto &projectRoot : workspace->GetProjectRoots()) {
+                if (projectRoot->GetRootPath() == root) {
+                    rootNode = projectRoot->GetRootNode();
+                }
+            }
+        }
+        ~ClickTestTree() {
+            Config::Instance()["foldermonitor"].SetBool("enabled", prevMonitor);
+            Config::Instance()["workspaceview"].SetBool("switch_to_editor_on_openfile", prevSwitch);
+            std::error_code ec;
+            std::filesystem::remove_all(root, ec);
+        }
+        Workspace::Node::Ref Node(const std::filesystem::path &rel) {
+            return rootNode->FindNodeWithPath(root / rel);
+        }
+    };
+}
+
+// A double-click on a collapsed folder expands it; a second double-click collapses it again
+DLL_EXPORT int test_session_workspaceview_dblclick_folder(ITesting *t) {
+    ClickTestTree fx("goat_wsv_dblclick_folder");
+    TR_ASSERT(t, fx.rootNode != nullptr);
+    ClickTestWorkspaceView wv;
+    wv.BuildTree();
+    auto coreNode = fx.Node("core");
+    TR_ASSERT(t, coreNode != nullptr);
+    bool wasExpanded = wv.IsExpanded(fx.root / "core");
+
+    wv.DoubleClick(coreNode);
+    bool afterFirst = wv.IsExpanded(fx.root / "core");
+    wv.DoubleClick(coreNode);
+    bool afterSecond = wv.IsExpanded(fx.root / "core");
+
+    TR_ASSERT(t, !wasExpanded);
+    TR_ASSERT(t, afterFirst);
+    TR_ASSERT(t, !afterSecond);
+    TR_ASSERT(t, wv.Selected() == coreNode);
+    return kTR_Pass;
+}
+
+// An unscanned folder (git-ignored: a frontier until expanded) gets its children on the double-click - the lazy path
+DLL_EXPORT int test_session_workspaceview_dblclick_unscanned(ITesting *t) {
+    ClickTestTree fx("goat_wsv_dblclick_unscanned");
+    TR_ASSERT(t, fx.rootNode != nullptr);
+    ClickTestWorkspaceView wv;
+    wv.BuildTree();
+    auto buildNode = fx.Node("build");
+    TR_ASSERT(t, buildNode != nullptr);
+    bool wasScanned = buildNode->IsScanned();
+
+    wv.DoubleClick(buildNode);
+
+    TR_ASSERT(t, !wasScanned);
+    TR_ASSERT(t, wv.IsExpanded(fx.root / "build"));
+    TR_ASSERT(t, fx.Node("build/out.o") != nullptr);
+    return kTR_Pass;
+}
+
+// Enter shares the open path with the double-click: on a folder it toggles too
+DLL_EXPORT int test_session_workspaceview_enter_folder(ITesting *t) {
+    ClickTestTree fx("goat_wsv_enter_folder");
+    TR_ASSERT(t, fx.rootNode != nullptr);
+    ClickTestWorkspaceView wv;
+    wv.BuildTree();
+    auto coreNode = fx.Node("core");
+    TR_ASSERT(t, coreNode != nullptr);
+
+    bool isHandled = wv.Enter(coreNode);
+    bool afterFirst = wv.IsExpanded(fx.root / "core");
+    wv.Enter(coreNode);
+    bool afterSecond = wv.IsExpanded(fx.root / "core");
+
+    TR_ASSERT(t, isHandled);
+    TR_ASSERT(t, afterFirst);
+    TR_ASSERT(t, !afterSecond);
+    return kTR_Pass;
+}
+
+// SDL keeps counting (clicks 3, 4, ...): a triple-click toggles once, it doesn't end where it started
+DLL_EXPORT int test_session_workspaceview_tripleclick(ITesting *t) {
+    ClickTestTree fx("goat_wsv_tripleclick");
+    TR_ASSERT(t, fx.rootNode != nullptr);
+    ClickTestWorkspaceView wv;
+    wv.BuildTree();
+    auto coreNode = fx.Node("core");
+    TR_ASSERT(t, coreNode != nullptr);
+
+    wv.Press(coreNode, 1);
+    wv.Press(coreNode, 2);
+    wv.Press(coreNode, 3);
+    bool afterTriple = wv.IsExpanded(fx.root / "core");
+    wv.Press(coreNode, 4);
+    bool afterFour = wv.IsExpanded(fx.root / "core");
+
+    TR_ASSERT(t, afterTriple);
+    TR_ASSERT(t, afterFour);
+    return kTR_Pass;
+}
+
+// A double-click on a file still opens it, and leaves the folders as they were
+DLL_EXPORT int test_session_workspaceview_dblclick_file(ITesting *t) {
+    ClickTestTree fx("goat_wsv_dblclick_file");
+    TR_ASSERT(t, fx.rootNode != nullptr);
+    ClickTestWorkspaceView wv;
+    wv.BuildTree();
+    auto zzNode = fx.Node("zz.md");
+    TR_ASSERT(t, zzNode != nullptr);
+
+    wv.DoubleClick(zzNode);
+    auto document = zzNode->GetDocument();
+    bool isOpen = (document != nullptr) && Editor::Instance().IsDocumentOpen(document);
+    bool isCoreExpanded = wv.IsExpanded(fx.root / "core");
+    if (document != nullptr) {
+        Editor::Instance().GetWorkspace()->RemoveOpenDocument(document);
+    }
+
+    TR_ASSERT(t, isOpen);
+    TR_ASSERT(t, !isCoreExpanded);
     return kTR_Pass;
 }

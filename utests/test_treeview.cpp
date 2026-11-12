@@ -25,6 +25,7 @@ DLL_EXPORT int test_treeview_select_keeps_collapsed(ITesting *t);
 DLL_EXPORT int test_treeview_markers(ITesting *t);
 DLL_EXPORT int test_treeview_relayout_keeps_scroll(ITesting *t);
 DLL_EXPORT int test_treeview_typetofind(ITesting *t);
+DLL_EXPORT int test_treeview_toggleexpanded(ITesting *t);
 }
 
 namespace {
@@ -313,5 +314,38 @@ DLL_EXPORT int test_treeview_typetofind(ITesting *t) {
     tree.SetTypeToFindPause(std::chrono::milliseconds(0));
     TR_ASSERT(t, tree.FindByTyping(U'z'));
     TR_ASSERT(t, tree.GetLineCursor().idxActiveLine == 40);
+    return kTR_Pass;
+}
+
+// ToggleExpanded flips the active node, and the first expand of an unfetched node fetches its children once
+DLL_EXPORT int test_treeview_toggleexpanded(ITesting *t) {
+    TestTree tree;
+    tree.SetToStringDelegate([](int i) { return std::to_string(i); });
+    auto node = tree.AddItem(1);
+    node->hasUnfetchedChildren = true;
+    tree.Reflatten();
+
+    int callCount = 0;
+    tree.cbFetchChildrenForNode = [&](TestTree::TreeNode::Ref n) {
+        callCount++;
+        tree.AddItemNoFlatten(n, 2);
+    };
+
+    tree.GetLineCursor().idxActiveLine = 0;
+    tree.ToggleExpanded();
+    bool afterFirst = node->isExpanded;
+    tree.ToggleExpanded();
+    bool afterSecond = node->isExpanded;
+    tree.ToggleExpanded();
+
+    TR_ASSERT(t, afterFirst);
+    TR_ASSERT(t, !afterSecond);
+    TR_ASSERT(t, node->isExpanded);
+    TR_ASSERT(t, callCount == 1);
+    TR_ASSERT(t, node->children.size() == 1);
+
+    // An empty tree has no active node - nothing to toggle
+    TestTree empty;
+    empty.ToggleExpanded();
     return kTR_Pass;
 }

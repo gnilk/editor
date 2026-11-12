@@ -8,6 +8,14 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## Folder double-click in the workspace tree (2026-11-12) ✅
+
+A double-click on a folder did nothing (`OpenSelectedItem` returned early on a folder). **Shipped:** a double-click or
+Enter on a folder expands or collapses it (`TreeView::ToggleExpanded`); an unscanned folder fetches its children on
+the way, as the arrow key does. **Load-bearing decisions:** Enter toggles too - it shares the one open path with the
+double-click; act on `clicks == 2` only, since SDL counts on and a triple-click would toggle back. Detail:
+[`usability-round.md`](usability-round.md) §10.
+
 ## YAML language support (2026-11-11) ✅
 
 `.yml`/`.yaml` highlighting and editing. **Shipped:** `YAMLLanguage` - comments and quoted strings in the

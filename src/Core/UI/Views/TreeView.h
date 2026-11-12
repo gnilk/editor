@@ -288,6 +288,18 @@ namespace gedit {
             node->isExpanded = false;
             Flatten();
         }
+        // Expanded -> collapse, else expand (a double-click / Enter on a folder, docs/usability-round.md §10).
+        // Goes through Expand, so an unfetched node gets its children the same way the arrow key gets them.
+        void ToggleExpanded() {
+            if (flattenNodeList.empty()) {
+                return;
+            }
+            if (flattenNodeList[treeLineCursor.idxActiveLine]->isExpanded) {
+                Collapse();
+            } else {
+                Expand();
+            }
+        }
         void Expand() {
             // Hold by value: the callback may call AddItem → Flatten(), which rebuilds
             // flattenNodeList. A by-reference node into that list would dangle.

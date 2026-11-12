@@ -827,6 +827,18 @@ the folder: expand it when it's collapsed, collapse it when it's expanded.
 - a press with `clicks == 3` doesn't toggle again;
 - a double-click on a file still opens it.
 
+**Built (2026-11-12):**
+- `TreeView::ToggleExpanded` (through `Expand`, so an unfetched folder fetches its children as the arrow key does).
+- `WorkspaceView::OpenSelectedItem` toggles a folder instead of returning - Enter on a folder toggles too.
+- `OnMousePressedEvent` opens/toggles on `clicks == 2` only.
+- **Tests:**
+  - `session`: `workspaceview_dblclick_folder`, `workspaceview_dblclick_unscanned` (a git-ignored folder),
+    `workspaceview_enter_folder`, `workspaceview_tripleclick` - all four failed before the change -, and
+    `workspaceview_dblclick_file` (passed before and after).
+  - `treeview`: `toggleexpanded`.
+- **Mutation check:** `clicks >= 2` fails `workspaceview_tripleclick`.
+- **Not yet tried in the app** (SDL2 / SDL3).
+
 ## 11. Revisit the key bindings - modifiers by purpose
 
 Filed 2026-11-11. The named modifiers are meant to group bindings by purpose, so a whole group can be rebound in one

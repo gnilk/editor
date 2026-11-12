@@ -386,8 +386,9 @@ bool WorkspaceView::OnAction(const EditorAction &kpAction) {
 }
 
 // Open the currently selected node: file nodes open (document created lazily) + optionally switch to
-// the editor view; folder nodes do nothing. Shared by the Enter path (OnAction) and the double-click
-// path (OnMousePressedEvent) — one open path, two triggers. Returns true when a file was opened.
+// the editor view; folder nodes expand or collapse (docs/usability-round.md §10). Shared by the Enter path
+// (OnAction) and the double-click path (OnMousePressedEvent) — one open path, two triggers. Returns true
+// when a file was opened or a folder toggled.
 bool WorkspaceView::OpenSelectedItem() {
     auto logger = gnilk::Logger::GetLogger("WorkspaceView");
     auto itemSelected = treeView->GetCurrentSelectedItem();
@@ -395,8 +396,9 @@ bool WorkspaceView::OpenSelectedItem() {
     // until opened.
     auto nodeType = itemSelected->GetMeta<int>(Workspace::Node::kMetaKey_NodeType, Workspace::Node::kNodeFolder);
     if (nodeType == Workspace::Node::kNodeFolder) {
-        logger->Debug("You selected a directory!");
-        return false;
+        treeView->ToggleExpanded();
+        InvalidateAll();
+        return true;
     }
     Editor::Instance().OpenDocumentFromWorkspace(itemSelected);
     logger->Debug("Selected Item: %s", itemSelected->GetDisplayName().c_str());
@@ -445,8 +447,9 @@ bool WorkspaceView::OnMousePressedEvent(const MouseEvent &mouseEvent) {
     InvalidateAll();
 
     // Single click only selects (immediate, no latency); a double-click additionally opens the
-    // selected file, exactly as if the row were selected and Enter pressed.
-    if (mouseEvent.clicks >= 2) {
+    // selected file (or toggles the folder), exactly as if the row were selected and Enter pressed.
+    // Only on the 2nd press: SDL keeps counting (3, 4, ...), and a triple-click must not toggle back.
+    if (mouseEvent.clicks == 2) {
         OpenSelectedItem();
     }
     return true;

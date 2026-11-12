@@ -20,7 +20,7 @@ All of section 0 checked on 2026-11-11 (SDL2). The YAML, select all and `.fmf`/`
 |---|---|---|---|
 | 1 | ~~Double-click (and Enter) on a folder expands or collapses it~~ | usability §10 | done 2026-11-12; not yet tried in the app |
 | 2 | ~~`Cmd+click` (`Ctrl+click`) jumps as `Cmd+B` does~~ | code-index §5.6 | done 2026-11-12; not yet tried in the app |
-| 3 | Check: does `GotoImplementation` (tagged `Selection` by its binding) start a stray selection? | usability §11 | an investigation; a repro test if it does |
+| 3 | ~~Check: does `GotoImplementation` (tagged `Selection` by its binding) start a stray selection?~~ | usability §11 | checked 2026-11-12: no - letter bindings and required modifiers are never tagged; two guard tests |
 | 4 | YAML: `\|-` / `>+` headers don't auto-indent the next line | `support-yaml.md` | a gap noted at merge |
 
 ## 2. Half a day to a day

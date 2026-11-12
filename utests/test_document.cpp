@@ -3,6 +3,7 @@
 //
 #include <testinterface.h>
 #include "Core/Editor.h"
+#include "Core/KeyMappingCache.h"
 #include "Core/MouseEvent.h"
 #include "Core/Runloop.h"
 #include "Core/Editor/Views/EditorView.h"
@@ -91,6 +92,7 @@ DLL_EXPORT int test_document_gotoclick(ITesting *t);
 DLL_EXPORT int test_document_gotoclick_plain(ITesting *t);
 DLL_EXPORT int test_document_gotoclick_double(ITesting *t);
 DLL_EXPORT int test_document_gotoclick_othermodifier(ITesting *t);
+DLL_EXPORT int test_document_gotoimpl_noselection(ITesting *t);
 DLL_EXPORT int test_document_wrap_caret_stays_visible(ITesting *t);
 
 }
@@ -1641,5 +1643,40 @@ DLL_EXPORT int test_document_gotoclick_othermodifier(ITesting *t) {
     auto withShift = PressInEditor(t, Keyboard::kMod_LeftShift, 1);
     TR_ASSERT(t, withAlt.actions.empty());
     TR_ASSERT(t, withShift.actions.empty());
+    return kTR_Pass;
+}
+
+// usability-round §11: Ctrl+Shift+B (Cmd+Shift+B) - GotoImplementation - reaches the document before the global
+// handler does the jump. Resolved through the real keymap, it must not start a selection there. Shift+Down through the
+// same path does, so the test can tell.
+DLL_EXPORT int test_document_gotoimpl_noselection(ITesting *t) {
+    auto keymap = KeyMappingCache::Instance().GetOrLoad("default_keymap");
+    TR_ASSERT(t, keymap != nullptr);
+    auto document = LoadConvertUTFDocument(t, 40);
+    document->SetCursorPosition(10, 2);
+
+    KeyPress gotoImpl = {};
+    gotoImpl.key = U'b';
+    gotoImpl.isKeyValid = true;
+    gotoImpl.modifiers = PlatformCopyPasteModifier() | Keyboard::kMod_LeftShift;
+    auto action = keymap->ActionFromKeyPress(gotoImpl);
+    TR_ASSERT(t, action.has_value());
+    TR_ASSERT(t, action->action == kAction::kActionGotoImplementation);
+    document->OnAction(*action);
+    bool isSelectingAfterGoto = document->IsSelectionActive();
+
+    KeyPress shiftDown = {};
+    shiftDown.isSpecialKey = true;
+    shiftDown.isKeyValid = true;
+    shiftDown.specialKey = Keyboard::kKeyCode_DownArrow;
+    shiftDown.key = Keyboard::kKeyCode_DownArrow;
+    shiftDown.modifiers = Keyboard::kMod_LeftShift;
+    auto down = keymap->ActionFromKeyPress(shiftDown);
+    TR_ASSERT(t, down.has_value());
+    document->OnAction(*down);
+    bool isSelectingAfterShiftDown = document->IsSelectionActive();
+
+    TR_ASSERT(t, !isSelectingAfterGoto);
+    TR_ASSERT(t, isSelectingAfterShiftDown);
     return kTR_Pass;
 }

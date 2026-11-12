@@ -8,6 +8,14 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## Checked: GotoImplementation starts no stray selection (2026-11-12) ✅
+
+An investigation (hitlist #3). `Cmd+Shift+B` / `Ctrl+Shift+B` is not tagged `Selection`: only an optional
+`@SelectionModifier` tags a binding, and only on a special key, so `Document::OnAction` never begins a selection for
+it (nor for `GotoBase`, `GotoType`, `ShowRelationships`, `PrevSearchResult`). No code change; two guard tests through
+the real keymap, which fail if tagging takes in required modifiers or letter keys. The note in
+[`usability-round.md`](usability-round.md) §11 that assumed otherwise is corrected.
+
 ## Cmd+click / Ctrl+click goes to definition (2026-11-12) ✅
 
 A single click with `CopyPasteModifier` held (`Cmd` on macOS, `Ctrl` on Linux) moves the caret to the name and posts

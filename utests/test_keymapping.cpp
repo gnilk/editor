@@ -25,6 +25,7 @@ DLL_EXPORT int test_keymapping_switchbuffer(ITesting *t);
 DLL_EXPORT int test_keymapping_find(ITesting *t);
 DLL_EXPORT int test_keymapping_modifiermask(ITesting *t);
 DLL_EXPORT int test_keymapping_modifiermask_inherit(ITesting *t);
+DLL_EXPORT int test_keymapping_shiftedletter_untagged(ITesting *t);
 }
 
 //
@@ -450,5 +451,67 @@ DLL_EXPORT int test_keymapping_modifiermask_inherit(ITesting *t) {
     auto plain = KeyMappingCache::Instance().GetOrLoad("workspace_keymap");
     TR_ASSERT(t, plain != nullptr);
     TR_ASSERT(t, plain->ModifierMask(kActionModifier::kActionModifierCopyPaste) == platformCopyPaste);
+    return kTR_Pass;
+}
+
+namespace {
+    // A press as the SDL backends hand it over: Cmd/Ctrl (+ Shift) + a letter arrives as the lower-case key
+    KeyPress LetterPress(char32_t key, uint8_t modifiers) {
+        KeyPress kp = {};
+        kp.key = key;
+        kp.isKeyValid = true;
+        kp.modifiers = modifiers;
+        return kp;
+    }
+    uint8_t PlatformCopyPaste() {
+#ifdef GEDIT_MACOS
+        return Keyboard::kMod_LeftCommand;
+#else
+        return Keyboard::kMod_LeftCtrl;
+#endif
+    }
+}
+
+// usability-round §11 asked whether GotoImplementation ('CopyPasteModifier + SelectionModifier + b') is tagged
+// Selection and so starts a selection in Document::OnAction. It isn't: only an optional '@SelectionModifier' tags a
+// binding, and a letter binding is never tagged. The other required-Shift letter bindings with it. Shift+Down - an
+// '@SelectionModifier' binding - is tagged, so the test can tell the two apart.
+DLL_EXPORT int test_keymapping_shiftedletter_untagged(ITesting *t) {
+    auto keymap = KeyMappingCache::Instance().GetOrLoad("default_keymap");
+    TR_ASSERT(t, keymap != nullptr);
+    const uint8_t shift = Keyboard::kMod_LeftShift;
+
+    struct Case { char32_t key; kAction action; };
+    const Case cases[] = {
+        {U'b', kAction::kActionGotoImplementation},
+        {U'u', kAction::kActionGotoBase},
+        {U'i', kAction::kActionGotoType},
+        {U't', kAction::kActionShowRelationships},
+    };
+    for (auto &c : cases) {
+        auto resolved = keymap->ActionFromKeyPress(LetterPress(c.key, PlatformCopyPaste() | shift));
+        TR_ASSERT(t, resolved.has_value());
+        TR_ASSERT(t, resolved->action == c.action);
+        TR_ASSERT(t, !resolved->actionModifier.has_value());
+    }
+#ifdef GEDIT_MACOS
+    auto prevResult = keymap->ActionFromKeyPress(LetterPress(U'g', Keyboard::kMod_LeftCommand | shift));
+#else
+    auto prevResult = keymap->ActionFromKeyPress(LetterPress(U'g', Keyboard::kMod_LeftCtrl | shift));
+#endif
+    TR_ASSERT(t, prevResult.has_value());
+    TR_ASSERT(t, prevResult->action == kAction::kActionPrevSearchResult);
+    TR_ASSERT(t, !prevResult->actionModifier.has_value());
+
+    // The control: Shift+Down extends a selection, and is tagged so
+    KeyPress shiftDown = {};
+    shiftDown.isSpecialKey = true;
+    shiftDown.isKeyValid = true;
+    shiftDown.specialKey = Keyboard::kKeyCode_DownArrow;
+    shiftDown.key = Keyboard::kKeyCode_DownArrow;
+    shiftDown.modifiers = shift;
+    auto down = keymap->ActionFromKeyPress(shiftDown);
+    TR_ASSERT(t, down.has_value());
+    TR_ASSERT(t, down->actionModifier == kActionModifier::kActionModifierSelection);
     return kTR_Pass;
 }

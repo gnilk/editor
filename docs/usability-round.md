@@ -858,9 +858,14 @@ base, type, relationships). It should be one group under one modifier, as UI nav
   `KeyCode_Cmd + KeyCode_Shift`. **So a modifier can't be a combination today.**
 - **A named modifier also tags the binding** with a `kActionModifier`, and only `Selection` means anything at run time
   (`Document::OnAction` starts a selection on it). `CopyPaste` and `UINavigation` are tags only.
-- **The last named modifier in a binding wins the tag:** `CopyPasteModifier + SelectionModifier + 'b'`
-  (`GotoImplementation`) is tagged `Selection`. **To check:** whether that can start a stray selection when the editor
-  view sees the action. A combined `CodeNavigationModifier` would remove the case.
+- **Only an optional modifier tags a binding, and only on a special key** (corrected 2026-11-12; this said "the last
+  named modifier wins"). In `ParseKeyPressCombinationString` the tag comes from an `@` modifier present in that
+  permutation, and the ASCII branch never sets it. So `CopyPasteModifier + SelectionModifier + 'b'` (`GotoImplementation`)
+  is **not** tagged and starts no selection; nor do `GotoBase`, `GotoType`, `ShowRelationships`, `PrevSearchResult`.
+  `Shift+Down` (`@SelectionModifier`) is. **Checked** (hitlist #3): `keymapping` `shiftedletter_untagged` and
+  `document` `gotoimpl_noselection` resolve the real keys through the platform keymap; tagging the way this note
+  assumed (required modifiers too, letters too) makes both fail - the document then starts a selection. Keep that
+  rule when modifiers become combinations below.
 
 **Proposal:**
 - **Modifiers can be combinations:** a value like `KeyCode_Cmd + KeyCode_Shift` parses into one mask
@@ -895,8 +900,8 @@ base, type, relationships). It should be one group under one modifier, as UI nav
 - **The terminal version** (bug #20) chooses its own section; the groups make that a matter of four modifier values,
   not every binding.
 - **A test (`keymapping`):** a combined modifier value parses into one mask; an unknown modifier name is still
-  rejected; the `CopyPasteModifier` alias resolves; a binding with two named modifiers keeps the tag of the one that
-  carries meaning (Selection only when it is the only one, or not at all - decided with the fix above).
+  rejected; the `CopyPasteModifier` alias resolves; a binding keeps the `Selection` tag only through an `@SelectionModifier`
+  (as today - `shiftedletter_untagged` guards it).
 
 ## 12. More languages - CMake, Python, and languages as data files
 

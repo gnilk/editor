@@ -65,6 +65,7 @@ namespace gedit {
         int imageHeight = 0;
         int pixelsPerChar = 1;
         int stripWidth = 2;
+        int stripGap = 4;
         float cellHeight = 1.0f;
         OverviewMap map;
 

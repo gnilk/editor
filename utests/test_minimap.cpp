@@ -24,6 +24,7 @@ extern "C" {
     DLL_EXPORT int test_minimap_imagewide(ITesting *t);
     DLL_EXPORT int test_minimap_imageempty(ITesting *t);
     DLL_EXPORT int test_minimap_compose(ITesting *t);
+    DLL_EXPORT int test_minimap_textstrength(ITesting *t);
 }
 
 namespace {
@@ -205,5 +206,28 @@ DLL_EXPORT int test_minimap_compose(ITesting *t) {
     auto grey = (frame.PixelAt(0, 1) >> 24) & 0xff;
     TR_ASSERT(t, (grey > 110) && (grey < 145));
     TR_ASSERT(t, (frame.PixelAt(0, 1) & 0xff) == 0xff);
+    return kTR_Pass;
+}
+
+// Damped text (usability-round §7 follow-up): a full line comes out between the background and its colour, by the
+// strength; 1 is the colour itself, 0 the background
+DLL_EXPORT int test_minimap_textstrength(ITesting *t) {
+    std::vector<Line::Ref> lines = {LineWith(U"ab", {{0, kWhite}})};
+    OverviewMap map(lines.size(), 2);
+    PixelImage image;
+    auto style = StyleOf();
+
+    Minimap::Render(image, 4, map, lines, style);
+    TR_ASSERT(t, image.PixelAt(0, 0) == kPixelWhite);
+
+    style.textStrength = 0.4f;
+    Minimap::Render(image, 4, map, lines, style);
+    auto grey = (image.PixelAt(0, 0) >> 24) & 0xff;
+    TR_ASSERT(t, (grey >= 100) && (grey <= 104));           // 0.4 * 255
+    TR_ASSERT(t, image.PixelAt(2, 0) == kPixelBlack);       // no character: the background, as before
+
+    style.textStrength = 0.0f;
+    Minimap::Render(image, 4, map, lines, style);
+    TR_ASSERT(t, image.PixelAt(0, 0) == kPixelBlack);
     return kTR_Pass;
 }

@@ -191,6 +191,9 @@ void OverviewView::DrawBox(const OverviewMap::Box &box) {
     auto &uiColors = Editor::Instance().GetTheme()->GetUIColors();
     auto colour = uiColors.HasColor("minimap_viewport") ? uiColors["minimap_viewport"]
                                                         : ColorRGBA::FromRGBA(0.6f, 0.6f, 0.6f, 0.2f);
+    // The theme's alpha scaled - an imported VS Code theme carries the slider's hover colour, meant to be seen briefly
+    auto strength = (float)Config::Instance()["minimap"].GetValue<double>("overlay_strength", 0.5);
+    colour.SetAlpha(colour.A() * std::clamp(strength, 0.0f, 1.0f));
     frameImage.BlendRect(0, box.top, imageWidth, box.Height(), colour);
 }
 

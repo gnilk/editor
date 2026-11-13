@@ -180,6 +180,8 @@ minimap:
   text_strength: 0.4
   # Logical pixels between the change marks at the left edge and the text
   marks_gap: 4
+  # The viewport box's strength, 0..1 - scales the theme's 'minimap_viewport' alpha
+  overlay_strength: 0.5
 
 workspaceview:
   keymap: "workspace_keymap"

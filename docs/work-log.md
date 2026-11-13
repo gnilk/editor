@@ -418,6 +418,10 @@ drop both Gansi stopgaps. SDL/JS/serialization unchanged (alpha ≤ 1 ⇒ no wra
 ## Planned / not started
 
 
+- **Theme collection** (2026-11-13) - shipped themes in a `Themes/` folder (the same on Mac and Linux, from git), each
+  with `author` / `license` / `copyright` / `source` keys the importer writes from the theme, its `package.json` and
+  `LICENSE`; `Themes/LICENSES.md`; `.theme list` / `.theme use`. First candidate: Dark 2026 from VS Code (MIT).
+  Detail: [`theme-collection.md`](theme-collection.md).
 - **System font fallback** (2026-11-11) - after the theme font and `sdl.font_fallback`, ask the system (CoreText /
   fontconfig) for a font with the character, behind `sdl.system_font_fallback` (default on). Prompted by open-bugs #26
   (Claude Code's `/context` grid). Detail: [`system-font-fallback.md`](system-font-fallback.md).

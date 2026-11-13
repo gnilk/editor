@@ -1,0 +1,33 @@
+# The root of every language file (docs/support-languages.md §2.2). A language says 'inherit: default' (directly or
+# through a middle file such as a 'c_style') and gets everything here it doesn't set itself.
+#
+# Not a language of its own: no extensions, no tokenizer. config.yml 'languages.default' is laid over this file, so
+# a global setting there reaches every language without a convention of its own; 'languages.<name>' always wins.
+#
+# Until phase 4, indent.yml / autopairs.yml still win for the languages they have a section for.
+language:
+  name: default
+  display: Default
+  author: gnilk
+  date: 2026-11-13
+  version: 1
+  tabsize: 4
+  indent: 4
+  insert_spaces: yes
+
+# The indent rules (IndentCache's section format - see indent.yml)
+indent:
+  suppress_in:  [string, comment]
+  indent_after: ["{", "[", "("]
+  dedent_on:    ["}", "]", ")"]
+
+# The pairs (AutoPairCache's section format - see autopairs.yml)
+autopairs:
+  suppress_in: [string, comment]
+  auto_close_before: [")", "]", "}", ",", ";", whitespace, eol]
+  pairs:
+    - { open: "(",  close: ")" }
+    - { open: "[",  close: "]" }
+    - { open: "{",  close: "}" }
+    - { open: "\"", close: "\"", quote: yes }
+    - { open: "'",  close: "'",  quote: yes }

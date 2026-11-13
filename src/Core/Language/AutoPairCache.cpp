@@ -43,10 +43,9 @@ AutoPairTable::Ref AutoPairCache::GetTableForLanguage(const std::string &languag
     }
 
     AutoPairTable::Ref table;
-    if (EnsureLoaded()) {
-        std::set<std::string> inProgress;
-        table = BuildTable(languageName, inProgress);
-    }
+    EnsureLoaded();
+    std::set<std::string> inProgress;
+    table = BuildTable(languageName, inProgress);
     if (table == nullptr) {
         // No section / no config: a shared empty table => the engine is a no-op for this language.
         table = std::make_shared<AutoPairTable>();
@@ -59,6 +58,11 @@ void AutoPairCache::Clear() {
     cache.clear();
     autopairsRoot.reset();
     didAttemptLoad = false;
+}
+
+void AutoPairCache::SetLanguageFileSection(const std::string &languageName, const ConfigNode &section) {
+    languageFileSections[languageName] = section;
+    cache.erase(languageName);
 }
 
 bool AutoPairCache::LoadFromString(const std::string &yaml) {
@@ -99,7 +103,13 @@ bool AutoPairCache::EnsureLoaded() {
 // then apply this section's own rules. Cycle-guarded via inProgress.
 AutoPairTable::Ref AutoPairCache::BuildTable(const std::string &languageName, std::set<std::string> &inProgress) {
     if (!autopairsRoot.has_value() || !autopairsRoot->HasKey(languageName)) {
-        return nullptr;
+        auto itFileSection = languageFileSections.find(languageName);
+        if (itFileSection == languageFileSections.end()) {
+            return nullptr;
+        }
+        auto table = std::make_shared<AutoPairTable>();
+        ApplySection(itFileSection->second, *table);
+        return table;
     }
     if (inProgress.find(languageName) != inProgress.end()) {
         return nullptr;   // inheritance cycle

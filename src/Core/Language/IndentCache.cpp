@@ -43,10 +43,9 @@ IndentTable::Ref IndentCache::GetTableForLanguage(const std::string &languageNam
     }
 
     IndentTable::Ref table;
-    if (EnsureLoaded()) {
-        std::set<std::string> inProgress;
-        table = BuildTable(languageName, inProgress);
-    }
+    EnsureLoaded();
+    std::set<std::string> inProgress;
+    table = BuildTable(languageName, inProgress);
     if (table == nullptr) {
         // No section / no config: a shared empty table => copy-previous-indent, no electric dedent.
         table = std::make_shared<IndentTable>();
@@ -59,6 +58,11 @@ void IndentCache::Clear() {
     cache.clear();
     indentRoot.reset();
     didAttemptLoad = false;
+}
+
+void IndentCache::SetLanguageFileSection(const std::string &languageName, const ConfigNode &section) {
+    languageFileSections[languageName] = section;
+    cache.erase(languageName);
 }
 
 bool IndentCache::LoadFromString(const std::string &yaml) {
@@ -99,7 +103,13 @@ bool IndentCache::EnsureLoaded() {
 // apply this section's own rules. Cycle-guarded via inProgress.
 IndentTable::Ref IndentCache::BuildTable(const std::string &languageName, std::set<std::string> &inProgress) {
     if (!indentRoot.has_value() || !indentRoot->HasKey(languageName)) {
-        return nullptr;
+        auto itFileSection = languageFileSections.find(languageName);
+        if (itFileSection == languageFileSections.end()) {
+            return nullptr;
+        }
+        auto table = std::make_shared<IndentTable>();
+        ApplySection(itFileSection->second, *table);
+        return table;
     }
     if (inProgress.find(languageName) != inProgress.end()) {
         return nullptr;   // inheritance cycle

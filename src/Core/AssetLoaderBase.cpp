@@ -98,6 +98,21 @@ std::filesystem::path AssetLoaderBase::ResolveExistingPath(const std::string &fi
     return {};
 }
 
+std::vector<std::filesystem::path> AssetLoaderBase::ResolveExistingDirectories(const std::string &dirName, kLocationType locationType) const {
+    std::vector<std::filesystem::path> directories;
+    for (auto &searchPath : baseSearchPaths) {
+        if ((searchPath.locationType != locationType) && (locationType != kLocationType::kAny)) {
+            continue;
+        }
+        std::error_code ec;
+        auto candidate = searchPath.path / dirName;
+        if (std::filesystem::is_directory(candidate, ec)) {
+            directories.push_back(candidate);
+        }
+    }
+    return directories;
+}
+
 static int locationPriority(AssetLoaderBase::kLocationType t) {
     switch (t) {
         case AssetLoaderBase::kLocationType::kSystem:  return 0;

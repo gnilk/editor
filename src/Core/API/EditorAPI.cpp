@@ -25,6 +25,10 @@ std::vector<std::string> EditorAPI::GetRegisteredLanguages() {
     return Editor::Instance().GetRegisteredLanguages();
 }
 
+std::vector<std::string> EditorAPI::GetLanguageDescriptions() {
+    return Editor::Instance().GetLanguageDescriptions();
+}
+
 std::vector<PluginCommand::Ref> EditorAPI::GetRegisteredCommands() {
     return RuntimeConfig::Instance().GetPluginCommands();
 }

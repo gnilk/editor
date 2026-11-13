@@ -159,6 +159,8 @@ namespace gedit {
         void RegisterLanguage(const std::string &extension, LanguageBase::Ref languageBase);
         LanguageBase::Ref GetLanguageForExtension(const std::string &extension);
         std::vector<std::string> GetRegisteredLanguages();
+        // One line per language for '.ll': name, extensions, and for a language file its version, author and file
+        std::vector<std::string> GetLanguageDescriptions();
 
 
         // nullptr when 'codeindex.enabled' is off
@@ -257,6 +259,7 @@ namespace gedit {
         void ConfigurePreInitLogger();
         void ConfigureLogger();
         void ConfigureLanguages();
+        void RegisterDataLanguages();
         void ConfigureTheme();
         void ConfigureSubSystems();
         void ConfigureGlobalAPIObjects();

@@ -137,10 +137,12 @@ language name as keymaps do, and everything it doesn't set comes from the parent
 
 **Where a setting comes from (decided 2026-11-13):** the language file holds the language's conventions (YAML's
 `tabsize: 2`); `config.yml` overrides them. From weakest to strongest:
-1. `default.yml`, then each middle file, then the language's own file;
-2. `config.yml` `languages.default` - fills only what the language's chain left unset, so a global
-   `tabsize: 8` doesn't flatten YAML's 2;
-3. `config.yml` `languages.<name>` - user, then project - always wins.
+1. `default.yml`;
+2. `config.yml` `languages.default`, laid over `default.yml` itself - so a global `tabsize: 8` reaches every
+   language without a convention of its own, and doesn't flatten YAML's 2 (corrected 2026-11-13: "fills what the
+   chain left unset" never applied, since `default.yml` sets `tabsize`);
+3. each middle file, then the language's own file;
+4. `config.yml` `languages.<name>` - user, then project - always wins.
 
 **Built-in languages get a file too:** `cpp.yml`, `markdown.yml`, `yaml.yml` with `engine: builtin`.
 - The file gives the metadata, the extensions, the settings, the indent rules and the autopairs.

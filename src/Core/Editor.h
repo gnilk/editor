@@ -260,7 +260,7 @@ namespace gedit {
         void ConfigureLogger();
         void ConfigureLanguages();
         void RegisterDataLanguages();
-        void ConfigureTheme();
+        bool ConfigureTheme();
         void ConfigureSubSystems();
         void ConfigureGlobalAPIObjects();
         void ConfigureLogFilter();

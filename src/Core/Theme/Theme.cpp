@@ -23,38 +23,71 @@ Theme::Ref Theme::Create() {
     return instance;
 }
 
+Theme::Ref Theme::LoadOrDefault(const std::string &themeFile, std::string &outProblem) {
+    outProblem.clear();
+    auto theme = Theme::Create();
+    if (theme->Load(themeFile)) {
+        return theme;
+    }
+    outProblem = "theme " + themeFile + ": " + theme->GetLoadError();
+    if (themeFile == DEFAULT_THEME) {
+        return nullptr;
+    }
+    // A fresh one - the failed load may have left some colours behind
+    theme = Theme::Create();
+    if (!theme->Load(DEFAULT_THEME)) {
+        outProblem += "; the default theme " + std::string(DEFAULT_THEME) + ": " + theme->GetLoadError();
+        return nullptr;
+    }
+    outProblem += " - using " + std::string(DEFAULT_THEME);
+    return theme;
+}
+
 bool Theme::Initialize() {
     logger = gnilk::Logger::GetLogger("Theme");
     return true;
 }
 
+// Into a fresh theme first, so a file broken since the last load leaves this one as it was
 bool Theme::Reload() {
     if  (filename.empty()) {
         logger->Error("Theme must first be loaded");
         return false;
     }
-    // Clear colors..
-    colorConfig.clear();
-    return Load(filename);
+    auto fresh = Theme::Create();
+    if (!fresh->Load(filename)) {
+        loadError = fresh->loadError;
+        logger->Error("Reload of theme '%s' failed: %s - keeping the colours it had", filename.c_str(), loadError.c_str());
+        return false;
+    }
+    dataNode.reset(fresh->dataNode);
+    name = fresh->name;
+    colorConfig = fresh->colorConfig;
+    loadError.clear();
+    return true;
+}
+
+const NamedColors &Theme::ColorsOrEmpty(const std::string &clrClass) const {
+    static const NamedColors noColors;
+    auto it = colorConfig.find(clrClass);
+    if ((it == colorConfig.end()) || (it->second == nullptr)) {
+        return noColors;
+    }
+    return *it->second;
 }
 
 
 bool Theme::Load(const std::string &pathname) {
-    if (!ConfigNode::LoadConfig(pathname)) {
-        return false;
-    }
-
-    name = GetStr("name","noname");
-
-    if (!HasKey("colorfile")) {
-        logger->Warning("No color file defined for theme '%s' (theme file: %s)", name.c_str(), pathname.c_str());
-        return false;
-    }
-
-    auto colorFile = GetStr("colorfile", "colors.json");
-    auto colorsOk = LoadSublimeColorFile(colorFile);
-    if (!colorsOk) {
-        logger->Error("Failed to load colors from: '%s'", colorFile.c_str());
+    loadError.clear();
+    // The parsers throw on a broken file; that's a reason to report, not a crash
+    try {
+        if (!LoadThemeFile(pathname)) {
+            logger->Error("Theme '%s': %s", pathname.c_str(), loadError.c_str());
+            return false;
+        }
+    } catch (const std::exception &e) {
+        loadError = std::string("can't be parsed: ") + e.what();
+        logger->Error("Theme '%s': %s", pathname.c_str(), loadError.c_str());
         return false;
     }
     InheritGlobalColors();
@@ -62,6 +95,31 @@ bool Theme::Load(const std::string &pathname) {
     logger->Debug("Ok, theme '%s' loaded from file: %s", name.c_str(), pathname.c_str());
 
     filename = pathname;
+    return true;
+}
+
+bool Theme::LoadThemeFile(const std::string &pathname) {
+    if (!ConfigNode::LoadConfig(pathname)) {
+        loadError = "no such theme file";
+        return false;
+    }
+
+    name = GetStr("name","noname");
+
+    if (!HasKey("colorfile")) {
+        loadError = "the theme file has no 'colorfile:'";
+        return false;
+    }
+
+    auto colorFile = GetStr("colorfile", "colors.json");
+    if (!LoadSublimeColorFile(colorFile)) {
+        loadError = "its colour file '" + colorFile + "' is missing";
+        return false;
+    }
+    if (!HasColorsForClass(clrClassGlobals) || !HasColorsForClass(clrClassContent)) {
+        loadError = "its colour file '" + colorFile + "' has no 'globals' or no 'content' colours";
+        return false;
+    }
     return true;
 }
 

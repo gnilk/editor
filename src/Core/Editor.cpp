@@ -213,7 +213,9 @@ bool Editor::Initialize(int argc, const char **argv) {
     }
 
     // Load and configure theme related details..
-    ConfigureTheme();
+    if (!ConfigureTheme()) {
+        return false;
+    }
 
     // Language configuration must currently be done before we load editor documents
     ConfigureLanguages();
@@ -909,19 +911,25 @@ void Editor::RegisterDataLanguages() {
 
 // FIXME: This is more than a bit ugly - not really sure where to stuff it..
 // Could put in the theme class but than I would depend on LanguageToken stuff - which I quite don't like..
-void Editor::ConfigureTheme() {
+// The configured theme; one that can't be loaded is named on the console and in the log, and the shipped default is
+// used instead (open-bugs #29 was a segfault at the first parse). False only if the default can't be loaded either.
+bool Editor::ConfigureTheme() {
     logger->Debug("Configuring colors and theme");
 
     auto mainNode = Config::Instance().GetNode("main");
-    auto themeFile = mainNode.GetStr("theme", "default.theme.yml");
+    auto themeFile = mainNode.GetStr("theme", Theme::DEFAULT_THEME);
 
-    theme = Theme::Create();
-    if (theme == nullptr) {
-        return;
+    std::string problem;
+    auto loaded = Theme::LoadOrDefault(themeFile, problem);
+    if (!problem.empty()) {
+        logger->Error("%s", problem.c_str());
+        fprintf(stderr, "goatedit: %s\n", problem.c_str());
     }
-    if (!theme->Load(themeFile)) {
-        return;
+    if (loaded == nullptr) {
+        fprintf(stderr, "goatedit: no theme can be loaded - is the installation complete?\n");
+        return false;
     }
+    theme = loaded;
 
     // AI-6 (docs/ui-refactor.md §8): push copies of the theme's color tables into the UI toolkit's
     // UIHost - the toolkit reads colors through UIHost, never Editor/Theme directly. Re-pushed after
@@ -952,6 +960,7 @@ void Editor::ConfigureTheme() {
                       fg.RedAsInt(255),fg.GreenAsInt(255),fg.BlueAsInt(255),
                       bg.RedAsInt(255),bg.GreenAsInt(255),bg.BlueAsInt(255));
     }
+    return true;
 }
 
 // '--import-theme': the same import as '.theme --import' (ThemesAPI), printed to the console

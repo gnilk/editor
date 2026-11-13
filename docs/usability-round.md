@@ -664,6 +664,25 @@ the pty's (the pty only carries bytes) - so the editor has to ask it, at startup
 - The terminal view and the tree: a ruler for the terminal's scrollback is the same mapping; not now.
 - A hover on the minimap showing the lines there (VS Code doesn't; Sublime doesn't either) - no.
 
+### Follow-up (2026-11-13) - the change marks are hard to see
+
+Seen in the app (`screenshots/editor_minimap_hardtosee_changedlines.png` against `screenshots/vscode_minimap.png`): the
+marks strip at the minimap's left edge melts into the text next to it. VS Code's theme has more contrast, but the main
+difference is the **air gap** between the marks and the text - VS Code's looks at least three times ours.
+
+- **A wider gap.** Today `kStripGap` (`OverviewView.cpp`) is 1 character = 1 logical pixel, next to a 3 px strip
+  (`kStripWidth`). Make it about 4 logical pixels - wider than the strip itself - and a config key
+  (`minimap.marks_gap`) so it can be tuned by eye. The text moves right by the difference (it's 100 characters at 10
+  cells, so 3 fewer columns).
+- **Damped text colours.** `Minimap::RenderRow` lays each column's colour over the background as strongly as the share
+  of the row's lines that have a character there - at full strength for an ordinary line. Multiply that by a damping
+  factor (`minimap.text_strength`; measured on `screenshots/goatedit_vscode_side_by_side.png`, same theme: VS Code
+  draws its minimap text at about 0.3-0.4 of the full colour over the background, ours at 1.0 - so start near 0.4) so the text reads as texture and the marks, drawn at full strength,
+  and the viewport box stand out. The marks keep their colours (`gutter_*`, opaque).
+- **Checked by:** `minimap` - a full-strength line comes out between the background and its colour, by the factor;
+  `overviewmap`/the view - the text starts after the strip plus the gap. And a look at the running app against the
+  VS Code screenshot.
+
 ## 8. Select all is missing
 
 Filed 2026-11-11 (found while trying YAML reformat). The editor has no notion of select all: no action in `kAction`,

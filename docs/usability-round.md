@@ -679,6 +679,9 @@ difference is the **air gap** between the marks and the text - VS Code's looks a
   factor (`minimap.text_strength`; measured on `screenshots/goatedit_vscode_side_by_side.png`, same theme: VS Code
   draws its minimap text at about 0.3-0.4 of the full colour over the background, ours at 1.0 - so start near 0.4) so the text reads as texture and the marks, drawn at full strength,
   and the viewport box stand out. The marks keep their colours (`gutter_*`, opaque).
+- **Built (2026-11-13, branch `feature/minimap-contrast`):** `minimap.marks_gap: 4` (logical pixels, was 1) and
+  `minimap.text_strength: 0.4` (`Minimap::Style::textStrength`, 1.0 = the old look) in `config.yml`. To be tuned by
+  eye against a VS Code screenshot with a changed line in view.
 - **Checked by:** `minimap` - a full-strength line comes out between the background and its colour, by the factor;
   `overviewmap`/the view - the text starts after the strip plus the gap. And a look at the running app against the
   VS Code screenshot.

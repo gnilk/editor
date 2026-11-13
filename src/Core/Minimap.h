@@ -34,6 +34,9 @@ namespace gedit {
             int tabSize = 4;
             ColorRGBA background;
             ColorRGBA foreground;               // a line without spans (no language)
+            // How strongly the text is laid over the background, 0..1 - below 1 the text reads as texture and the
+            // marks and the box drawn over it stand out (usability-round §7 follow-up; VS Code is about 0.4)
+            float textStrength = 1.0f;
         };
 
     public:

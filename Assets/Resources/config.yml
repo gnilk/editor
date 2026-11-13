@@ -176,6 +176,10 @@ minimap:
   width: 10
   # A short file doesn't stretch: at most this many pixels a line
   max_pixels_per_line: 2
+  # The text's strength over the background, 0..1 - lower makes the change marks and the box stand out (VS Code ~0.4)
+  text_strength: 0.4
+  # Logical pixels between the change marks at the left edge and the text
+  marks_gap: 4
 
 workspaceview:
   keymap: "workspace_keymap"

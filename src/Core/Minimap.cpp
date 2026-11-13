@@ -58,12 +58,13 @@ void Minimap::RenderRow(PixelImage &image, int row, size_t idxFirstLine, size_t 
     auto bgR = (float)style.background.RedAsInt();
     auto bgG = (float)style.background.GreenAsInt();
     auto bgB = (float)style.background.BlueAsInt();
+    auto textStrength = std::clamp(style.textStrength, 0.0f, 1.0f);
     for (int column = 0; column < numColumns; column++) {
         auto n = count[(size_t)column];
         if (n == 0) {
             continue;
         }
-        auto strength = (float)n / numLinesInRow;
+        auto strength = textStrength * (float)n / numLinesInRow;
         auto r = (uint8_t)(bgR + ((sumR[(size_t)column] / (float)n) - bgR) * strength);
         auto g = (uint8_t)(bgG + ((sumG[(size_t)column] / (float)n) - bgG) * strength);
         auto b = (uint8_t)(bgB + ((sumB[(size_t)column] / (float)n) - bgB) * strength);

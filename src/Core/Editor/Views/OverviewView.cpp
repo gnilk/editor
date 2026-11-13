@@ -18,8 +18,6 @@ namespace {
     // A build that took this long waits this many times as long before the next - typing in a huge file doesn't
     // rebuild the whole picture at every key
     constexpr int kTextBuildBackoff = 4;
-    // Between the marks strip and the text, in characters
-    constexpr int kStripGap = 1;
     // The marks strip, in logical pixels: its width, and the least height of a mark - a changed line in a long file is
     // otherwise a single screen pixel
     constexpr int kStripWidth = 3;
@@ -85,13 +83,16 @@ bool OverviewView::UpdateGeometry() {
     // A character a logical pixel wide
     pixelsPerChar = std::max(1, (int)std::lround(screen->PixelDensity()));
     stripWidth = kStripWidth * pixelsPerChar;
+    // The air between the marks and the text, in logical pixels - wider than the strip, or the marks melt into the
+    // text next to them (usability-round §7 follow-up)
+    stripGap = std::max(0, Config::Instance()["minimap"].GetInt("marks_gap", 4)) * pixelsPerChar;
     return (imageWidth > 0) && (imageHeight > 0);
 }
 
 // The text again when the buffer changed (an edit, a parse, a recolour), the document or the size did - but not sooner
 // after the last build than a few times what it cost
 void OverviewView::UpdateText(const Document::Ref &document) {
-    auto textLeft = stripWidth + kStripGap * pixelsPerChar;
+    auto textLeft = stripWidth + stripGap;
     auto textWidth = std::max(imageWidth - textLeft, 0);
     auto buffer = document->GetTextBuffer();
     auto revision = buffer->Revision();
@@ -113,6 +114,7 @@ void OverviewView::UpdateText(const Document::Ref &document) {
     style.tabSize = document->GetTabSize();
     style.background = contentColors["background"];
     style.foreground = contentColors["foreground"];
+    style.textStrength = (float)Config::Instance()["minimap"].GetValue<double>("text_strength", 0.4);
     Minimap::Render(textImage, textWidth, map, document->Lines(), style);
 
     textDocument = document.get();
@@ -140,7 +142,7 @@ void OverviewView::ComposeFrame(const Document::Ref &document) {
 
     auto &contentColors = Editor::Instance().GetTheme()->GetContentColors();
     frameImage.Reset(imageWidth, imageHeight, contentColors["background"]);
-    frameImage.CopyFrom(textImage, stripWidth + kStripGap * pixelsPerChar, 0);
+    frameImage.CopyFrom(textImage, stripWidth + stripGap, 0);
     DrawMarks(key.marks);
     DrawBox(box);
     frameKey = std::move(key);

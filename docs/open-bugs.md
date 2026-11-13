@@ -4,7 +4,7 @@ Durable list of known defects we've chosen NOT to fix in-place yet, with enough 
 up cold. Referenced from CLAUDE.md ("Documentation") so it surfaces each session.
 
 Numbers are stable (commits, docs and notes refer to them) - a fixed bug is removed, never renumbered.
-**Next bug is #28.**
+**Next bug is #29.**
 
 ---
 
@@ -193,6 +193,27 @@ separate problems:
   - Apple Terminal: no OSC 52, so it needs a `pbcopy` fallback when local.
   - The embedded terminal view: `Ctrl+C` there must stay the shell's interrupt. The terminal keymap already keeps that
     apart.
+
+---
+
+## 28. A user or project config list overwrites the default list by position
+
+A list in `~/.config/goatedit/config.yml` (or `<root>/.goatedit/config.yml`) neither replaces the default list nor
+adds to it: element `i` overwrites the default's element `i`, and the rest of the default stays. With the shipped
+`workspace.exclude: [".git", ".github", ".idea"]`, a user config of `workspace: { exclude: ["build"] }` gives
+`["build", ".github", ".idea"]` - `.git` is no longer excluded, and nothing says so. The same goes for
+`font_fallback`, `bootstrap_scripts` and any list added later (languages as data: pairs, indent triggers).
+
+**Why:** `YAMLMerge::MergeSequences` (`src/Core/Config/YAMLMerge.cpp`) merges by index. It was written for scalars
+and maps; lists were never thought through. Every user/project merge goes through it (`Config::TryMergeUserConfig`,
+`TryMergeProjectConfig` -> `ConfigNode::MergeNode`).
+
+**Fix direction:** a list from a later layer **replaces** the earlier list whole - what a user who writes a list
+expects - with an explicit form for adding to it (to decide: e.g. a `<key>+:` key, or a `{ append: [...] }` map).
+Filed rather than fixed straight away: changing it changes what existing user configs mean, so check the users'
+and the shipped project configs for lists first. Test: merge a short list over a longer default and assert the
+result equals the short list (fails today), plus the append form. Languages as data (`support-languages.md` §9)
+does its own inheritance with these rules and doesn't use `YAMLMerge`.
 
 ---
 

@@ -32,8 +32,8 @@ Tick per platform; strike the hitlist item's "not yet tried" note when both are 
   - [ ] Linux [x] Mac - `git switch --detach`: `⎇ (<sha>)`; `git switch main`: back
   - [ ] Linux [x] Mac - opened on a folder outside any repo: nothing shown
 
-**Next when work resumes:** #10 (languages as data, phase 1) - decide first where the default indent/autopairs live
-(`support-languages.md` §9, question 1).
+**In progress (2026-11-13):** #10 (languages as data, phase 1). §9 question 1 decided: `Languages/default.yml` +
+`inherit:`; `config.yml` overrides.
 
 ## 0. First, on Linux (SDL2) - checks of what is already merged
 
@@ -70,7 +70,7 @@ All of section 0 checked on 2026-11-11 (SDL2). The YAML, select all and `.fmf`/`
 |---|---|---|---|
 | 8 | Key binding groups: `FunctionModifier`, `CodeNavigationModifier`, combined modifier values, `docs/keybindings.md` | usability §11 | the `CodeNavigationModifier` key (`Cmd+Shift`, `Ctrl+Option`, or keep `Cmd`) - after listing what macOS, GNOME/KDE and Ghostty take |
 | 9 | The terminal version on macOS uses the Linux keymaps | open-bugs #20 | your research on how other tools do it; easier after 8 (four modifier values instead of every binding) |
-| 10 | Languages as data, phase 1: `DataLanguage`, the loader, `json.yml` equal to `JSONLanguage`, `.ll` metadata | `support-languages.md` | where the default indent/autopairs live (its §9, question 1) |
+| 10 | Languages as data, phase 1: `DataLanguage`, the loader, `json.yml` equal to `JSONLanguage`, `.ll` metadata | `support-languages.md` | decided 2026-11-13: `default.yml` + `inherit:` (§2.2); started |
 | 11 | Languages phase 2: CMake and Python, with case-insensitive lists, the generic number matcher, the prefix rule | `support-languages.md` | - |
 | 12 | Languages phase 3: the user directory, `.lang_reload`, `override: yes` | `support-languages.md` | - |
 

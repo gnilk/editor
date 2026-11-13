@@ -52,7 +52,8 @@ language:
   version: 1                    # of this file
   line_comment: "#"             # for CommentLine (Cmd+/)
   engine: data                  # 'data': the tokenizer below; 'builtin': a C++ language (2.2)
-  tabsize: 4                    # what config.yml 'languages.<name>' holds today; the user's config still wins
+  inherit: default              # the parent file by name (2.2): everything not set here comes from it
+  tabsize: 4                    # the language's convention; config.yml 'languages.python.tabsize' still wins
 
 tokenizer:
   start: main
@@ -85,11 +86,11 @@ tokenizer:
         - { class: string, words: "\"", pop: yes }
     # ... in_sq_string, in_tq_dq_string ('"""' ... '"""', across lines), in_tq_sq_string
 
-indent:                          # what indent.yml holds today - or 'indent: use_default' (2.2)
+indent:                          # what indent.yml holds today; left out, it comes from the parent (2.2)
   indent_after: [":"]
   reindent: no                   # indentation is the syntax, as YAML
 
-autopairs: use_default           # or a section of its own, as autopairs.yml has
+# no 'autopairs:' - the parent's pairs apply
 ```
 
 **Rules the loader enforces, so a file can't trip the known traps:**
@@ -120,12 +121,26 @@ More are added when a language needs them, not ahead of time.
 **Everything about a language is in its file:** the metadata, the settings, the tokenizer, the indent rules and the
 autopairs. No other asset has to know about it.
 
-**`use_default`:** a file that has nothing special for a part says so instead of copying it:
-- `indent: use_default` - the generic indent rules (`indent.yml`'s `generic` section today);
-- `autopairs: use_default` - the generic pairs.
+**Inheritance (decided 2026-11-13, replaces `use_default`):** a file names its parent with `inherit: <name>`, by
+language name as keymaps do, and everything it doesn't set comes from the parent.
+- **The default is a language file of its own:** `Languages/default.yml` holds the generic indent rules, the generic
+  pairs and the default `tabsize` / `indent` / `insert_spaces`. It has no extensions and no tokenizer.
+- **More than one level:** a family can share a middle file - `cpp.yml`, `js.yml`, `java.yml` inherit `c_style.yml`,
+  which inherits `default`. A brace style (K&R or Allman) is then changed in one place for the whole family.
+- **Inherit, not include:** the child's own keys win and the parent fills the gaps. An include would splice text in,
+  and which copy wins would depend on where it sits.
+- **How a value merges:** a scalar or a map key from the child wins. A **list replaces the parent's list whole**;
+  adding to the parent's list takes an explicit form (`<key>+:`, e.g. `pairs+: [...]` - the form is a phase-1 detail).
+  This is the language loader's own resolver, not `YAMLMerge`, which merges lists by position (open-bugs #28).
+- **Loaded once:** each file is resolved once (its chain folded in) and shared, with a cycle guard - as
+  `KeyMappingCache` does for keymaps. A file without `inherit:` is a root (`default.yml` itself).
 
-The default is a named section of its own (`Languages/_default.yml`, or the generic sections of the existing files
-until they move), so "the default" is one place.
+**Where a setting comes from (decided 2026-11-13):** the language file holds the language's conventions (YAML's
+`tabsize: 2`); `config.yml` overrides them. From weakest to strongest:
+1. `default.yml`, then each middle file, then the language's own file;
+2. `config.yml` `languages.default` - fills only what the language's chain left unset, so a global
+   `tabsize: 8` doesn't flatten YAML's 2;
+3. `config.yml` `languages.<name>` - user, then project - always wins.
 
 **Built-in languages get a file too:** `cpp.yml`, `markdown.yml`, `yaml.yml` with `engine: builtin`.
 - The file gives the metadata, the extensions, the settings, the indent rules and the autopairs.
@@ -136,7 +151,8 @@ until they move), so "the default" is one place.
 **Consequences:**
 - `Editor::RegisterLanguage(".cpp|.h|.c|.hpp", ...)` goes: every language is registered from its file, and the
   extensions live in data.
-- `indent.yml` and `autopairs.yml` dissolve into the language files (`yaml`'s `reindent: no` moves into `yaml.yml`).
+- `indent.yml` and `autopairs.yml` dissolve into the language files: the `generic` sections into `default.yml`,
+  the rest into each language's file (`yaml`'s `reindent: no` moves into `yaml.yml`).
 - `config.yml`'s `languages:` keeps only the user's overrides: a user's `languages.python.tabsize` still wins over
   the file's `tabsize`.
 
@@ -159,9 +175,9 @@ none, and a language can move to C++ (or get a named hook) when the wrong spots 
 - **The parse is separate from the build:** `LanguageDefinition` (plain data, from YAML) and `DataLanguage`
   (definition -> tokenizer). The parse is testable from a string, without the asset loader, as `IndentCache`'s
   `LoadFromString` is.
-- **Indent and autopairs:** a file's `indent:` / `autopairs:` sections are handed to `IndentCache` / the autopair
-  config under the language's name, as if they were in `indent.yml`. A section in `indent.yml` itself wins, so
-  a user's own override still works.
+- **Indent and autopairs:** a file's resolved `indent:` / `autopairs:` sections (its chain folded in) are handed to
+  `IndentCache` / the autopair config under the language's name, as if they were in `indent.yml`. Until phase 4 a
+  section in `indent.yml` / `autopairs.yml` itself wins, so nothing changes for the built-in languages.
 - **Registration:** at startup `Editor` loads every `*.yml` in the language directories (section 4) and calls
   `RegisterLanguage` for its extensions and file names.
   - **A built-in C++ language wins** over a data file that claims the same extension, unless the file says
@@ -228,6 +244,7 @@ post-pass prints build errors, which is a hook, not data; keep it until that's d
 **Phase 1 - the engine.**
 - `LanguageDefinition` (parse, validate, longest-first, errors with `file:line`) and `DataLanguage` (build the
   tokenizer).
+- `inherit:` with its merge rules and a cache (2.2), and `default.yml` - `json.yml` inherits it from the start.
 - The system directory and registration.
 - `json.yml` equal to `JSONLanguage` on the fixtures.
 - `.ll` showing the metadata.
@@ -245,7 +262,7 @@ post-pass prints build errors, which is a hook, not data; keep it until that's d
 
 **Phase 4 - every language from a file (2.2).**
 - `cpp.yml`, `markdown.yml` and `yaml.yml` with `engine: builtin`, and the builtin registry.
-- `use_default`.
+- Middle files where a family shares settings (`c_style.yml`).
 - `indent.yml` / `autopairs.yml` sections and the extension lists in `Editor` move into the files.
 - `config.yml`'s `languages:` keeps only overrides.
 
@@ -280,8 +297,9 @@ is the same tokenizer, so a slowdown means the definition built something wrong.
 
 ## 9. Open for review
 
-1. **The default's home:** `Languages/_default.yml`, or keep `indent.yml` / `autopairs.yml`'s generic sections until
-   phase 4?
+1. ~~The default's home?~~ Decided 2026-11-13: `Languages/default.yml`, reached by `inherit: default` (2.2); the
+   language file holds its conventions and `config.yml` overrides them. Still open, small: the form for adding to a
+   parent's list (`<key>+:` proposed).
 2. ~~`push: by_token`?~~ Decided: each quote style is spelt out as its own state.
 3. ~~Where indent/autopairs live?~~ Decided: in the language file, with `use_default` (2.2).
 4. ~~Retiring `JSONLanguage.cpp`?~~ Decided: yes, once `json.yml` is equal on the fixtures.

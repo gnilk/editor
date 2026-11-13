@@ -62,7 +62,8 @@ namespace {
 
     class Importer {
     public:
-        explicit Importer(const ThemeImporter::IncludeLoader &includeLoader) : includeLoader(includeLoader) {
+        Importer(const ThemeImporter::IncludeLoader &includeLoader, const ThemeImporter::Provenance &around)
+            : includeLoader(includeLoader), around(around) {
             scriptEngine.RegisterBuiltIn();
         }
         ThemeImporter::Result Run(const std::string &text);
@@ -84,6 +85,7 @@ namespace {
         void Report(const std::string &line) { result.report.push_back(line); }
     protected:
         const ThemeImporter::IncludeLoader &includeLoader;
+        const ThemeImporter::Provenance &around;
         SublimeConfigColorScript scriptEngine;
         SourceTheme source;
         // Resolved GoatEdit colours per section, in output order
@@ -325,9 +327,64 @@ namespace {
     constexpr int MAX_INCLUDE_DEPTH = 8;
 }
 
-ThemeImporter::Result ThemeImporter::Import(const std::string &text, const IncludeLoader &includeLoader) {
-    Importer importer(includeLoader);
+ThemeImporter::Result ThemeImporter::Import(const std::string &text, const IncludeLoader &includeLoader,
+                                            const Provenance &around) {
+    Importer importer(includeLoader, around);
     return importer.Run(text);
+}
+
+ThemeImporter::Provenance ThemeImporter::FromPackageJson(const std::string &text) {
+    Provenance provenance;
+    auto data = json::parse(text, nullptr, false, true);
+    if (data.is_discarded() || !data.is_object()) {
+        return provenance;
+    }
+    // A string, or an object with the string under 'field'
+    auto stringOf = [](const json &value, const char *field) -> std::string {
+        if (value.is_string()) {
+            return value.get<std::string>();
+        }
+        if (value.is_object() && value.contains(field) && value[field].is_string()) {
+            return value[field].get<std::string>();
+        }
+        return {};
+    };
+    if (data.contains("license")) {
+        provenance.license = stringOf(data["license"], "type");
+    }
+    if (data.contains("author")) {
+        provenance.author = stringOf(data["author"], "name");
+    }
+    if (provenance.author.empty() && data.contains("publisher")) {
+        provenance.author = stringOf(data["publisher"], "name");
+    }
+    if (data.contains("repository")) {
+        provenance.source = stringOf(data["repository"], "url");
+    }
+    return provenance;
+}
+
+std::string ThemeImporter::CopyrightLine(const std::string &licenseText) {
+    size_t start = 0;
+    while (start < licenseText.size()) {
+        auto end = licenseText.find('\n', start);
+        end = (end == std::string::npos) ? licenseText.size() : end;
+        auto line = Trim(licenseText.substr(start, end - start));
+        if ((line.size() > 9) && (line.compare(0, 9, "Copyright") == 0)) {
+            return line;
+        }
+        start = end + 1;
+    }
+    return {};
+}
+
+void ThemeImporter::Provenance::FillFrom(const Provenance &other) {
+    for (auto [mine, theirs] : {std::pair{&author, &other.author}, std::pair{&license, &other.license},
+                                std::pair{&copyright, &other.copyright}, std::pair{&source, &other.source}}) {
+        if (mine->empty()) {
+            *mine = *theirs;
+        }
+    }
 }
 
 ThemeImporter::Result Importer::Run(const std::string &text) {
@@ -335,6 +392,10 @@ ThemeImporter::Result Importer::Run(const std::string &text) {
         return result;
     }
     result.name = source.name.empty() ? "imported" : source.name;
+    result.provenance.FillFrom(around);
+    if (result.provenance.license.empty()) {
+        Report("no licence found in the theme or its package - check the terms before sharing this theme");
+    }
 
     // Sublime variables first - rules and globals refer to them
     for (auto &[name, expr] : source.variables) {
@@ -383,6 +444,16 @@ bool Importer::ReadTheme(const std::string &text, int depth) {
     }
     if (source.name.empty() && data.contains("name") && data["name"].is_string()) {
         source.name = data["name"].get<std::string>();
+    }
+    // The theme's own terms - an included parent's would be another file's
+    if (depth == 0) {
+        auto &provenance = result.provenance;
+        for (auto [key, field] : {std::pair{"author", &provenance.author}, std::pair{"license", &provenance.license},
+                                  std::pair{"copyright", &provenance.copyright}}) {
+            if (data.contains(key) && data[key].is_string()) {
+                *field = Trim(data[key].get<std::string>());
+            }
+        }
     }
     if (data.contains("rules") || data.contains("globals")) {
         source.isSublime = true;
@@ -797,7 +868,14 @@ ordered_json Importer::BuildColorsJson() {
 
     ordered_json root = ordered_json::object();
     root["name"] = result.name;
-    root["author"] = "Imported by goatedit --import-theme";
+    auto &provenance = result.provenance;
+    root["author"] = provenance.author.empty() ? std::string("Imported by goatedit --import-theme") : provenance.author;
+    for (auto [key, value] : {std::pair{"license", &provenance.license}, std::pair{"copyright", &provenance.copyright},
+                              std::pair{"source", &provenance.source}}) {
+        if (!value->empty()) {
+            root[key] = *value;
+        }
+    }
     root["variables"] = variables;
     root["colors"] = colors;
     return root;

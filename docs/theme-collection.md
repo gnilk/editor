@@ -1,6 +1,6 @@
 # Theme collection - shipped themes, their licences, switching
 
-Status: planned (2026-11-13), not built - except §3, the importer's licence keys.
+Status: planned (2026-11-13); §3 (the importer's licence keys) built.
 
 Today one theme ships (`Assets/Resources/default.theme.yml` + `colors.json`, Mariana-like). Themes the user imports
 (`.theme --import`, `--import-theme`, `docs/code-index.md` §10.1) land next to the user config and exist on that machine
@@ -51,6 +51,12 @@ Where the importer finds them, first hit wins per key:
 Never a product licence above the package (VS Code's app bundle has `LICENSE.rtf` for the product, which isn't the
 theme's licence). A key not found is written empty and the import report says so - "no licence found: check before
 sharing this theme".
+
+**Built (2026-11-13, branch `feature/theme-licence-keys`):** `ThemeImporter::Provenance` (`FromPackageJson`,
+`CopyrightLine`, the theme's own keys at depth 0 - not an included parent's), `ThemesAPI` finds the package and
+writes the keys. Importing VS Code's installed `2026-dark.json` gives `author: vscode`, `license: MIT`,
+`source: https://github.com/microsoft/vscode.git`, `copyright: ""` (no LICENSE in the bundle's extension folder; the
+product's `LICENSE.rtf` above it is correctly not read). Checked by `themeimport` `provenance`.
 
 ## 4. Licences of the candidates
 

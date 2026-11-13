@@ -20,6 +20,7 @@ static std::optional<std::string> ReadText(const std::filesystem::path &path);
 static std::filesystem::path ResolveSourcePath(const std::string &file);
 static std::optional<std::string> ThemeFileName(const std::string &name, const std::string &themeName, std::string &error);
 static std::string Quoted(const std::string &str);
+static ThemeImporter::Provenance ProvenanceAround(const std::filesystem::path &themePath);
 
 ThemesAPI::Result ThemesAPI::Import(const std::string &file, const std::string &name, bool isForced) {
     Result result;
@@ -32,7 +33,7 @@ ThemesAPI::Result ThemesAPI::Import(const std::string &file, const std::string &
     // An included parent theme is relative to the theme that includes it
     auto imported = ThemeImporter::Import(*text, [&sourcePath](const std::string &includePath) {
         return ReadText(sourcePath.parent_path() / includePath);
-    });
+    }, ProvenanceAround(sourcePath));
     if (!imported.isOk) {
         result.lines.push_back("Can't import '" + sourcePath.string() + "':");
         for (auto &line : imported.report) {
@@ -78,6 +79,12 @@ ThemesAPI::Result ThemesAPI::Import(const std::string &file, const std::string &
         }
     }
     themeStream << "name: " << Quoted(imported.name) << "\n";
+    // Not read by the editor - where the theme comes from and its terms (docs/theme-collection.md §3)
+    auto &provenance = imported.provenance;
+    themeStream << "author: " << Quoted(provenance.author) << "\n";
+    themeStream << "license: " << Quoted(provenance.license) << "\n";
+    themeStream << "copyright: " << Quoted(provenance.copyright) << "\n";
+    themeStream << "source: " << Quoted(provenance.source.empty() ? sourcePath.string() : provenance.source) << "\n";
     themeStream << "font: " << Quoted(font) << "\n";
     themeStream << "colorfile: " << Quoted(colorsPath.filename().string()) << "\n";
     std::ofstream colorsStream(colorsPath);
@@ -108,6 +115,35 @@ static std::optional<std::string> ReadText(const std::filesystem::path &path) {
         return std::nullopt;
     }
     return std::string(std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>());
+}
+
+// The package the theme belongs to: the nearest package.json in its folder or up to two above (a VS Code extension:
+// themes/x.json next to ../package.json), and a LICENSE in that package folder - never further up, where a
+// product's own licence lives (VS Code's app bundle). No package.json: the theme's own folder.
+static ThemeImporter::Provenance ProvenanceAround(const std::filesystem::path &themePath) {
+    ThemeImporter::Provenance provenance;
+    auto packageDir = themePath.parent_path();
+    auto dir = packageDir;
+    for (int level = 0; level < 3; level++) {
+        auto packageText = ReadText(dir / "package.json");
+        if (packageText.has_value()) {
+            provenance = ThemeImporter::FromPackageJson(*packageText);
+            packageDir = dir;
+            break;
+        }
+        if (!dir.has_parent_path() || (dir.parent_path() == dir)) {
+            break;
+        }
+        dir = dir.parent_path();
+    }
+    for (auto name : {"LICENSE", "LICENSE.txt", "LICENSE.md"}) {
+        auto licenseText = ReadText(packageDir / name);
+        if (licenseText.has_value()) {
+            provenance.copyright = ThemeImporter::CopyrightLine(*licenseText);
+            break;
+        }
+    }
+    return provenance;
 }
 
 static std::filesystem::path ResolveSourcePath(const std::string &file) {

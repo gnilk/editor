@@ -1,0 +1,36 @@
+# JSON (and, for now, JavaScript - '.js' gets the same tokens). Ported from the old JSONLanguage.cpp, which it
+# matched token for token before that class was deleted.
+language:
+  name: json
+  display: JSON
+  inherit: default
+  extensions: [".json", ".js"]
+  author: gnilk
+  date: 2026-11-13
+  version: 1
+  line_comment: "//"
+
+tokenizer:
+  start: main
+  states:
+    main:
+      # What ends a word: the operators plus braces/brackets ('true}' is 'true' + '}')
+      postfix: "=== ++ -- == = < > ; . , : ' ( ) \" { } [ ]"
+      tokens:
+        - { class: operator, words: "=== ++ -- == = < > ; . , : ' ( )" }
+        - { class: operator, words: "\"", push: in_string }
+        - { class: keyword, whole_word: yes, words: "true false null function for var let const" }
+        - { class: code_block_start, words: "{" }
+        - { class: code_block_end, words: "}" }
+        - { class: array_start, words: "[" }
+        - { class: array_end, words: "]" }
+        - { class: line_comment, words: "//", push: in_line_comment }
+    in_string:
+      regular: string
+      postfix: "\""
+      tokens:
+        - { class: string, words: "\"", pop: yes }
+    # a line comment runs to the end of the line
+    in_line_comment:
+      regular: commented_text
+      eol: pop

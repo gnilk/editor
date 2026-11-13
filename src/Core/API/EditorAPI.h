@@ -27,6 +27,7 @@ namespace gedit {
         }
         ThemeAPI::Ref GetCurrentTheme();
         std::vector<std::string> GetRegisteredLanguages();
+        std::vector<std::string> GetLanguageDescriptions();
         std::vector<PluginCommand::Ref> GetRegisteredCommands();
 
         DocumentAPI::Ref GetActiveDocument();

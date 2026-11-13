@@ -238,12 +238,15 @@ markdown_headings"). That bridge isn't planned.
 - `indent_after: [":"]`, `reindent: no`.
 
 **And JSON, ported to a data file as the proof:** `json.yml` must tokenize every fixture exactly as `JSONLanguage` does.
-Once it does, `JSONLanguage.cpp` can go - the first C++ language replaced by data. `MakeBuildLang` is next, but its
+Once it does, `JSONLanguage.cpp` can go - the first C++ language replaced by data (done 2026-11-13). `MakeBuildLang` is next, but its
 post-pass prints build errors, which is a hook, not data; keep it until that's decided.
 
 ## 7. Phases
 
-**Phase 1 - the engine.**
+**Phase 1 - the engine.** Done 2026-11-13, tried in the app (Mac) and built + tested on Linux: `src/Core/Language/Data/`
+(`LanguageFileSet`, `LanguageDefinition`, `DataLanguage`), `Assets/Resources/Languages/{default,json}.yml`,
+`test_datalanguage`. The append form is `<key>+:`. `JSONLanguage.cpp` and its equality test were deleted
+once `json.yml` had been tried in the app.
 - `LanguageDefinition` (parse, validate, longest-first, errors with `file:line`) and `DataLanguage` (build the
   tokenizer).
 - `inherit:` with its merge rules and a cache (2.2), and `default.yml` - `json.yml` inherits it from the start.

@@ -15,6 +15,7 @@ namespace gedit {
 
         void ExitEditor();
         std::vector<std::string> GetRegisteredLanguages();
+        std::vector<std::string> GetLanguageDescriptions();
         std::vector<std::string> GetHelp();
 
         DocumentAPIWrapper::Ref GetActiveDocument();

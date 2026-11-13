@@ -81,6 +81,9 @@ namespace gedit {
         // The full path of the file LoadAsset/LoadTextAsset would pick for this location type (same search
         // order), or empty if no search path of that type has it. For writing back to the file that was read.
         std::filesystem::path ResolveExistingPath(const std::string &fileName, kLocationType locationType) const;
+        // Every folder of that name under the search paths of that location type, in search order. For assets that
+        // are a folder of files (language files).
+        std::vector<std::filesystem::path> ResolveExistingDirectories(const std::string &dirName, kLocationType locationType) const;
 
     protected:
         void SortSearchPaths();

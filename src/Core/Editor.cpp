@@ -26,7 +26,10 @@
 
 #include "Core/Language/LanguageBase.h"
 #include "Core/Language/LanguageSupport/CPPLanguage.h"
-#include "Core/Language/LanguageSupport/JSONLanguage.h"
+#include "Core/Language/Data/DataLanguage.h"
+#include "Core/Language/Data/LanguageFileSet.h"
+#include "Core/Language/IndentCache.h"
+#include "Core/Language/AutoPairCache.h"
 #include "Core/Language/LanguageSupport/MarkdownLanguage.h"
 #include "Core/Language/LanguageSupport/YAMLLanguage.h"
 #include "Core/Language/LanguageSupport/DefaultLanguage.h"
@@ -811,12 +814,6 @@ void Editor::ConfigureLanguages() {
     RegisterLanguage(".cpp|.h|.c|.hpp", cppLanguage);
 
     {
-        auto language = JSONLanguage::Create();
-        language->Initialize();
-        RegisterLanguage(".json|.js", language);
-    }
-
-    {
         auto language = MarkdownLanguage::Create();
         language->Initialize();
         RegisterLanguage(".md|.markdown", language);
@@ -835,6 +832,78 @@ void Editor::ConfigureLanguages() {
         SetDefaultLanguage(language);
     }
 
+    RegisterDataLanguages();
+}
+
+// The language files (docs/support-languages.md): every '*.yml' in the 'Languages' asset folder. A built-in C++
+// language wins over a file that claims one of its extensions, unless the file says 'override: yes'. A file with a
+// problem is rejected whole and named, with its line, on the console and in the log.
+void Editor::RegisterDataLanguages() {
+    auto fileSet = LanguageFileSet::Create();
+    auto &assetLoader = RuntimeConfig::Instance().GetAssetLoader();
+    for (auto &directory : assetLoader.ResolveExistingDirectories("Languages", AssetLoaderBase::kLocationType::kSystem)) {
+        fileSet->AddFromDirectory(directory);
+    }
+    if (Config::Instance().HasKey("languages")) {
+        auto languagesNode = Config::Instance().GetNode("languages");
+        if (languagesNode.HasKey("default")) {
+            fileSet->SetDefaultOverrides(languagesNode.GetNode("default").GetDataNode());
+        }
+    }
+
+    auto reportProblem = [this](const std::string &origin, int line, const std::string &reason) {
+        auto where = (line > 0) ? fmt::format("{}:{}", origin, line) : origin;
+        logger->Error("Language file %s: %s", where.c_str(), reason.c_str());
+        fprintf(stderr, "goatedit: language file %s: %s\n", where.c_str(), reason.c_str());
+    };
+
+    for (auto &name : fileSet->Names()) {
+        auto origin = fileSet->OriginOf(name);
+        auto root = fileSet->Resolve(name);
+        if (!root.IsDefined()) {
+            continue;   // a broken chain - reported with the file set's problems below
+        }
+        std::vector<LanguageDefinition::Problem> problems;
+        auto definition = LanguageDefinition::Parse(root, problems);
+        if (!definition.has_value()) {
+            for (auto &problem : problems) {
+                reportProblem(origin, problem.line, problem.reason);
+            }
+            continue;
+        }
+        // A base ('default', a family's middle file) or a built-in's file (phase 4) - nothing to register
+        if (definition->extensions.empty() || (definition->engine != LanguageDefinition::kEngine::kData)) {
+            continue;
+        }
+
+        std::string extensions;
+        bool isClaimed = false;
+        for (auto &extension : definition->extensions) {
+            if (extToLanguages.find(extension) != extToLanguages.end()) {
+                isClaimed = true;
+            }
+            extensions += extensions.empty() ? extension : "|" + extension;
+        }
+        if (isClaimed && !definition->isOverride) {
+            logger->Warning("Language file %s: a built-in language has one of its extensions - skipped (override: yes takes them)", origin.c_str());
+            continue;
+        }
+
+        if (definition->indent.IsDefined()) {
+            IndentCache::Instance().SetLanguageFileSection(name, ConfigNode(definition->indent));
+        }
+        if (definition->autoPairs.IsDefined()) {
+            AutoPairCache::Instance().SetLanguageFileSection(name, ConfigNode(definition->autoPairs));
+        }
+        auto language = DataLanguage::Create(std::move(*definition));
+        language->SetOrigin(origin);
+        language->Initialize();
+        RegisterLanguage(extensions, language);
+        logger->Debug("Language '%s' from %s", name.c_str(), origin.c_str());
+    }
+    for (auto &problem : fileSet->Problems()) {
+        reportProblem(problem.origin, problem.line, problem.reason);
+    }
 }
 
 
@@ -1343,6 +1412,35 @@ std::vector<std::string> Editor::GetRegisteredLanguages() {
         keys.push_back(key);
     }
     return keys;
+}
+
+std::vector<std::string> Editor::GetLanguageDescriptions() {
+    // Group the extensions by language - one language object can have several
+    std::vector<LanguageBase::Ref> order;
+    std::map<LanguageBase *, std::string> extensionsByLanguage;
+    for (auto &[extension, language] : extToLanguages) {
+        auto &extensions = extensionsByLanguage[language.get()];
+        if (extensions.empty()) {
+            order.push_back(language);
+        }
+        extensions += extensions.empty() ? extension : " " + extension;
+    }
+
+    std::vector<std::string> lines;
+    for (auto &language : order) {
+        auto name = UnicodeHelper::utf32to8(language->Identifier());
+        auto &extensions = extensionsByLanguage[language.get()];
+        auto dataLanguage = std::dynamic_pointer_cast<DataLanguage>(language);
+        if (dataLanguage == nullptr) {
+            lines.push_back(fmt::format("{:<10} {:<24} built-in", name, extensions));
+            continue;
+        }
+        auto &definition = dataLanguage->Definition();
+        lines.push_back(fmt::format("{:<10} {:<24} v{} {} {}", name, extensions, definition.version,
+                                    definition.author, dataLanguage->GetOrigin()));
+    }
+    std::sort(lines.begin(), lines.end());
+    return lines;
 }
 
 // Sets the active document in the workspace, then relays out the UI to reflect it. The state lives

@@ -70,7 +70,7 @@ All of section 0 checked on 2026-11-11 (SDL2). The YAML, select all and `.fmf`/`
 |---|---|---|---|
 | 8 | Key binding groups: `FunctionModifier`, `CodeNavigationModifier`, combined modifier values, `docs/keybindings.md` | usability §11 | the `CodeNavigationModifier` key (`Cmd+Shift`, `Ctrl+Option`, or keep `Cmd`) - after listing what macOS, GNOME/KDE and Ghostty take |
 | 9 | The terminal version on macOS uses the Linux keymaps | open-bugs #20 | your research on how other tools do it; easier after 8 (four modifier values instead of every binding) |
-| 10 | Languages as data, phase 1: `DataLanguage`, the loader, `json.yml` equal to `JSONLanguage`, `.ll` metadata | `support-languages.md` | decided 2026-11-13: `default.yml` + `inherit:` (§2.2); started |
+| 10 | Languages as data, phase 1: `DataLanguage`, the loader, `json.yml` equal to `JSONLanguage`, `.ll` metadata | `support-languages.md` | decided 2026-11-13: `default.yml` + `inherit:` (§2.2); phase 1 done: tried in the app on Mac, built + 743 tests green on Linux; `JSONLanguage` deleted, merged to main |
 | 11 | Languages phase 2: CMake and Python, with case-insensitive lists, the generic number matcher, the prefix rule | `support-languages.md` | - |
 | 12 | Languages phase 3: the user directory, `.lang_reload`, `override: yes` | `support-languages.md` | - |
 

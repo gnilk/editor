@@ -31,6 +31,10 @@ namespace gedit {
         // Reset cache + loaded config (reload / test isolation).
         void Clear();
 
+        // A language file's own section (docs/support-languages.md §3), its chain already folded in. Used for a
+        // language the asset file has no section for - until phase 4 the asset file wins. Kept across Clear().
+        void SetLanguageFileSection(const std::string &languageName, const ConfigNode &section);
+
         // Parse the 'autopairs' root from a YAML string instead of the asset file (tests / explicit load).
         bool LoadFromString(const std::string &yaml);
 
@@ -45,6 +49,7 @@ namespace gedit {
         std::optional<ConfigNode> autopairsRoot;   // the 'autopairs' node (sections keyed by language name)
         bool didAttemptLoad = false;
         std::map<std::string, AutoPairTable::Ref> cache;
+        std::map<std::string, ConfigNode> languageFileSections;
     };
 }
 

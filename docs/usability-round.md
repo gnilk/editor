@@ -975,3 +975,78 @@ today's behaviour or does nothing.
   putting the view's own call back (4 tests fail: toggled twice) and by inheriting the clicks (`mouse_notinherited`
   fails).
 
+
+## 14. Note - `Cmd` held highlights the word under the pointer (not scheduled)
+
+Filed 2026-11-13. While `CopyPasteModifier` is held (`Cmd` on macOS, `Ctrl` on Linux), the word under the mouse pointer
+is highlighted - it shows what a `Cmd+click` (§13, code-index §5.6) would jump from, as other editors do. This is the
+"Later" item in code-index §5.6 (an underline under the name while the modifier is held).
+
+What it needs:
+- **Pressing the modifier must update it without the pointer moving.** Today a hover is sent only when the pointer
+  reaches another cell, and only `RootView` sees it (for the pointer's shape, §2). So a modifier going down or up has to
+  re-ask the view under the pointer, and the view must get the hover, not only the shape question.
+- **The view draws it, the model stays as it is** - a transient overlay on the hovered word's cells, like the selection.
+  It goes away when the modifier is released, the pointer leaves the word, or a key is pressed.
+- **Which modifier comes from the keymap**, as the click's does (`GotoToggle: CopyPasteModifier + Click`) - not a
+  hard-coded `Cmd`.
+
+Open:
+- Any word, or only a name that has a target? The second needs a resolve per hovered word (the index's), but tells the
+  truth about whether the click would jump.
+- The look: an underline (VS Code, CLion) or the theme's highlight colour; a theme key either way.
+- Gansi: no hover motion there (§2), so SDL only.
+
+## 15. Note - a close button on each file in the header (not scheduled)
+
+Filed 2026-11-13. Each file in the editor header (`EditorHeaderView`, §1) gets a close cell to the right of its name,
+as CLion does:
+- **Unchanged file:** the cell is blank; hovering anywhere on the file's name shows `x` there. A click on the `x` closes
+  the file.
+- **Changed file:** the cell shows `*` (the changed marker moves there from `Workspace::StatusMarkers`' place). Hovering
+  the name leaves the `*`; only hovering the `*` cell itself turns it into `x` - so a changed file is never one careless
+  click from the save question.
+- **Closing** goes the way `.cb` does (`closeactive.js`), for the clicked file rather than the active one: a changed file
+  asks first (`ConfirmModal`).
+- **The cell is always reserved**, blank or not, so the row doesn't shift when the pointer moves over it; `LayoutEntries`
+  counts it in each entry's width.
+
+What it needs:
+- **A button** - the widget in §16. The header places one close button per entry where it records its click spans
+  today (`headerHits`).
+- **Hovers reaching the view** - the same dependency as §14: today a hover goes to `RootView` for the pointer's shape
+  only. The header must see hover moves (and the pointer leaving it) to show and hide the `x`.
+
+Open:
+- The glyph: `x`, `×` (needs the font, §6) or an icon.
+- Middle-click on a name closing the file too (browsers, CLion) - one `mouse:` binding (§13) once there is an action that
+  closes the file under the pointer.
+
+## 16. Note - a button widget in the UI toolkit (not scheduled)
+
+Filed 2026-11-13. Decided: a proper button widget in the generic toolkit (`src/Core/UI/`), not a one-off in the header.
+First user: the header's close button (§15); then the modals (`ConfirmModal`'s choices clickable, not keys only) and
+possibly the tree's rows.
+
+**No layout engine needed.** The UI has no general layout mechanism, but a button doesn't need one: everything is in
+cells, and the owner already knows where things go. The owner places each button at a rectangle in its own content
+cells, during its own layout or draw (as the header computes its click spans now). A button is fixed and logical: a
+label, a rectangle, a state.
+
+What a button is:
+- **Label:** text or a single glyph (`x`, `*`, `[ OK ]`); may change with the state (`*` -> `x` on hover, §15).
+- **State:** normal, hovered, pressed, disabled - drawn with theme keys per state.
+- **Action:** what a click does - a callback, or an `EditorAction` dispatched as a key's is (so it lands where a key
+  binding would, §13).
+- **Hit test:** the owner forwards the mouse events that fall in the button's cells; the button turns press + release
+  inside it into a click (a press dragged out and released elsewhere is no click).
+
+Open:
+- **A view or not?** A `ViewBase` subview brings layout and focus it doesn't need; a small object held and drawn by
+  its owning view (the owner forwards mouse events) is lighter and fits a cell grid. Leaning: not a view.
+- **Hover:** a button needs hover moves and "the pointer left" - the dependency shared with §14 and §15 (today a hover
+  reaches `RootView` only, for the pointer's shape).
+- **Keyboard:** whether a button can take focus (Tab between a modal's buttons) or stays mouse-only next to the
+  modal's existing keys.
+- **Tests:** headless, as `layout` and `openfiles` are - a press/release inside fires once, outside not at all, the
+  state follows hover, the label drawn is the state's.

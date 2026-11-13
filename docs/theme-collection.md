@@ -52,7 +52,7 @@ Never a product licence above the package (VS Code's app bundle has `LICENSE.rtf
 theme's licence). A key not found is written empty and the import report says so - "no licence found: check before
 sharing this theme".
 
-**Built (2026-11-13, branch `feature/theme-licence-keys`):** `ThemeImporter::Provenance` (`FromPackageJson`,
+**Built (2026-11-13, merged):** `ThemeImporter::Provenance` (`FromPackageJson`,
 `CopyrightLine`, the theme's own keys at depth 0 - not an included parent's), `ThemesAPI` finds the package and
 writes the keys. Importing VS Code's installed `2026-dark.json` gives `author: vscode`, `license: MIT`,
 `source: https://github.com/microsoft/vscode.git`, `copyright: ""` (no LICENSE in the bundle's extension folder; the

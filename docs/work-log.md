@@ -11,7 +11,7 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 ## Languages as data, phase 1: language files, `inherit:`, `json.yml` (2026-11-13) ✅
 
 A language can be a YAML file in `Assets/Resources/Languages/`; `json.yml` now drives `.json`/`.js` in place of
-`JSONLanguage` (equal over 30 texts / 5049 tokens). **Load-bearing decisions:** `inherit: <name>` (keymap-style, not
+`JSONLanguage` (equal over 30 texts / 5049 tokens; the class was then deleted, after the app check on Mac and Linux). **Load-bearing decisions:** `inherit: <name>` (keymap-style, not
 include), resolved once per name by `LanguageFileSet` with its own merge - a list replaces the parent's whole, `key+:`
 appends - never `YAMLMerge` (which merges lists by position, open-bugs #28); `default.yml` is the root, and
 `config.yml` `languages.default` is laid over it, `languages.<name>` over the language; `DataLanguage` makes the same

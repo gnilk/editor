@@ -1,5 +1,5 @@
-# JSON (and, for now, JavaScript - '.js' gets the same tokens). Ported from JSONLanguage.cpp: it must tokenize
-# every fixture as that class does (test_datalanguage_json_*), and replaces it.
+# JSON (and, for now, JavaScript - '.js' gets the same tokens). Ported from the old JSONLanguage.cpp, which it
+# matched token for token before that class was deleted.
 language:
   name: json
   display: JSON

@@ -1,19 +1,14 @@
 //
 // Languages as data (docs/support-languages.md): the inherit merge, the definition parse and its problems,
-// and json.yml tokenizing exactly as JSONLanguage does.
+// and the shipped json.yml as the editor registers it.
 //
-#include <filesystem>
-#include <fstream>
-#include <sstream>
 
 #include <testinterface.h>
 #include "Core/Editor.h"
-#include "Core/RuntimeConfig.h"
 #include "Core/Config/Config.h"
 #include "Core/Language/Data/LanguageFileSet.h"
 #include "Core/Language/Data/LanguageDefinition.h"
 #include "Core/Language/Data/DataLanguage.h"
-#include "Core/Language/LanguageSupport/JSONLanguage.h"
 #include "Core/UnicodeHelper.h"
 
 using namespace gedit;
@@ -32,7 +27,6 @@ DLL_EXPORT int test_datalanguage_parse_problems(ITesting *t);
 DLL_EXPORT int test_datalanguage_parse_mixedwholeword(ITesting *t);
 DLL_EXPORT int test_datalanguage_longestfirst(ITesting *t);
 DLL_EXPORT int test_datalanguage_usersettings(ITesting *t);
-DLL_EXPORT int test_datalanguage_json_equal(ITesting *t);
 DLL_EXPORT int test_datalanguage_json_registered(ITesting *t);
 }
 
@@ -307,78 +301,7 @@ DLL_EXPORT int test_datalanguage_usersettings(ITesting *t) {
     return kTR_Pass;
 }
 
-static std::string ReadFile(const std::filesystem::path &path) {
-    std::ifstream stream(path);
-    std::stringstream text;
-    text << stream.rdbuf();
-    return text.str();
-}
-
-// The shipped default.yml + json.yml, through the asset loader as the editor loads them
-static DataLanguage::Ref LoadShippedJSON(ITesting *t) {
-    auto fileSet = LanguageFileSet::Create();
-    auto directories = RuntimeConfig::Instance().GetAssetLoader().ResolveExistingDirectories("Languages", AssetLoaderBase::kLocationType::kSystem);
-    for (auto &directory : directories) {
-        fileSet->AddFromDirectory(directory);
-    }
-    if (!fileSet->Has("json")) {
-        return nullptr;
-    }
-    std::vector<LanguageDefinition::Problem> problems;
-    auto definition = LanguageDefinition::Parse(fileSet->Resolve("json"), problems);
-    for (auto &problem : problems) {
-        printf("json.yml:%d: %s\n", problem.line, problem.reason.c_str());
-    }
-    if (!definition.has_value()) {
-        return nullptr;
-    }
-    auto language = DataLanguage::Create(std::move(*definition));
-    language->Initialize();
-    return language;
-}
-
-// json.yml must tokenize as JSONLanguage does - every token's position and class, on JSON and on the JS plugins
-DLL_EXPORT int test_datalanguage_json_equal(ITesting *t) {
-    auto dataJSON = LoadShippedJSON(t);
-    TR_ASSERT(t, dataJSON != nullptr);
-    auto builtinJSON = JSONLanguage::Create();
-    builtinJSON->Initialize();
-
-    std::vector<std::string> texts = {
-        R"yml({ "a": [1, 2, true], "b": null, "c": { "d": "x//y" } } // trailing)yml",
-        "var x = function() { return a === b; }; let y = x++ -- 1;\nconst s = 'it' + \"q\";\n// comment {\n",
-        "{\"unterminated\n\"next\": false}",
-        "true}false]null,",
-    };
-    std::vector<std::filesystem::path> files = {"testfiles/colors.json"};
-    std::error_code ec;
-    for (auto &entry : std::filesystem::directory_iterator("../src/Plugins/Scripts", ec)) {
-        if (entry.path().extension() == ".js") {
-            files.push_back(entry.path());
-        }
-    }
-    for (auto &file : files) {
-        auto text = ReadFile(file);
-        TR_ASSERT(t, !text.empty());
-        texts.push_back(text);
-    }
-
-    size_t nTokens = 0;
-    for (auto &text : texts) {
-        auto expected = Tokenize(*builtinJSON, text);
-        auto actual = Tokenize(*dataJSON, text);
-        if (expected != actual) {
-            printf("json.yml differs from JSONLanguage on:\n%.200s\n", text.c_str());
-        }
-        TR_ASSERT(t, expected == actual);
-        nTokens += expected.size();
-    }
-    printf("json.yml == JSONLanguage over %zu texts, %zu tokens\n", texts.size(), nTokens);
-    TR_ASSERT(t, nTokens > 1000);
-    return kTR_Pass;
-}
-
-// The editor registers json.yml for .json and .js (JSONLanguage no longer is)
+// The editor registers json.yml for .json and .js 
 DLL_EXPORT int test_datalanguage_json_registered(ITesting *t) {
     auto language = Editor::Instance().GetLanguageForExtension(".json");
     TR_ASSERT(t, language != nullptr);

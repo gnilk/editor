@@ -69,7 +69,7 @@ cd cmake-build-debug && trun -l ./libutests.so                     # list
 
 Test source files live in `utests/`. Each `test_<module>.cpp` corresponds to one module; `test_main.cpp` initializes the editor singleton for all tests. Test functions are `extern "C"` (or `DLL_EXPORT`) and discovered by exported symbol name — adding a new case is just a new function (+ a forward declaration where the file uses one).
 
-**Verified-green set** (743 tests, run from `cmake-build-debug/`):
+**Verified-green set** (742 tests, run from `cmake-build-debug/`):
 `trun -m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,keymapping,hexprojection,bytestream,hexview,indent,session,markdown,folderscanner,foldermonitor,treeview,textbuffer,mouseclicktracker,wrapprojection,config,modal,find,codeindex,themeimport,exclusion,process,gitstatus,reload,openfiles,glyphfont,yamllang,datalanguage --sequential ./libutests.so`
 
 **Terminal library tests** are a separate trun lib, `gvttests` (`src/ext/gvt`, built on demand):

@@ -428,7 +428,6 @@ list(APPEND coresrc src/Core/Language/LanguageSupport/DefaultLanguage.cpp src/Co
 list(APPEND coresrc src/Core/Language/LanguageSupport/CPPLanguage.cpp src/Core/Language/LanguageSupport/CPPLanguage.h)
 list(APPEND coresrc src/Core/Language/LanguageSupport/CPPNumberMatcher.cpp src/Core/Language/LanguageSupport/CPPNumberMatcher.h)
 list(APPEND coresrc src/Core/Language/NumberMatcherBase.h)
-list(APPEND coresrc src/Core/Language/LanguageSupport/JSONLanguage.cpp src/Core/Language/LanguageSupport/JSONLanguage.h)
 list(APPEND coresrc src/Core/Language/LanguageSupport/MakeBuildLang.cpp src/Core/Language/LanguageSupport/MakeBuildLang.h)
 list(APPEND coresrc src/Core/Language/LanguageSupport/MarkdownLanguage.cpp src/Core/Language/LanguageSupport/MarkdownLanguage.h)
 list(APPEND coresrc src/Core/Language/LanguageSupport/YAMLLanguage.cpp src/Core/Language/LanguageSupport/YAMLLanguage.h)

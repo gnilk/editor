@@ -1,5 +1,11 @@
 # Folder monitor — platform analysis (macOS FSEvents vs Linux inotify)
 
+> **Status (2026-11-13): superseded - the monitor is ON** (`foldermonitor.enabled: yes`). It was rebuilt per
+> [`foldermonitor_fixes.md`](../foldermonitor_fixes.md): a dirty-folder signal flushed once on the main thread
+> (`5af6b61`), the macOS backend on a private queue (`b3c073d`), the Linux backend as inotify per non-excluded folder
+> (`b4be6b6`, merged 2026-11-09). This doc is kept as the platform analysis; its "disabled" status lines below are
+> history.
+
 > **Analysis + planning doc.** Started 2026-06-17. The live folder monitor is currently **disabled**
 > (`foldermonitor.enabled: no`) and has been for a long time because it never worked reliably across
 > both platforms. This captures, from a cold read of the current code, *what each platform backend

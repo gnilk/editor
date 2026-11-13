@@ -78,8 +78,6 @@ Built and unit-tested, not yet tried by hand on that platform. Linux = SDL2 (Ctr
 
 Smaller bugs not ranked yet: open-bugs #1 (`AttributeAt`, read before touching it), #24 (readline history extras),
 #26 (`/usage` glyphs).
-Status to check: `partially_done/folder-monitor.md` says the monitor is disabled, but `config.yml` ships
-`foldermonitor.enabled: yes` (`foldermonitor_fixes.md`) - the doc's status is likely stale.
 
 ## Done
 

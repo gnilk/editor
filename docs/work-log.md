@@ -1,12 +1,22 @@
 # Work log
 
 Short, reverse-chronological index of completed feature efforts. Each entry summarises *what shipped*
-and *the load-bearing decisions*; the linked detail doc carries the full cold-start history. Planned /
-not-yet-started efforts are listed at the bottom. For known-wrong code deliberately left unfixed, see
+and *the load-bearing decisions*; the linked detail doc carries the full cold-start history. What's
+planned is in [`hitlist.md`](hitlist.md). For known-wrong code deliberately left unfixed, see
 [`open-bugs.md`](open-bugs.md) (the active tracker, not logged here). For work explicitly deferred /
 left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
+
+## Minimap contrast, theme fallback, theme licence keys (2026-11-13) ✅
+
+- Minimap: the change marks 4 logical px from the text (`minimap.marks_gap`), the text damped to 0.4
+  (`minimap.text_strength`, VS Code measured at ~0.3-0.4), the viewport box's alpha scaled by `minimap.overlay_strength`
+  (0.5). Accepted by eye against VS Code (usability §7 follow-up).
+- open-bugs #29: a theme that can't be loaded falls back to `default.theme.yml` with a reason on stderr instead of a
+  segfault (`Theme::LoadOrDefault`; the colour accessors no longer insert and dereference a null).
+- The theme importer writes `author` / `license` / `copyright` / `source` from the theme, its `package.json` and
+  `LICENSE` - never a product licence above the package (`theme-collection.md` §3).
 
 ## Languages as data, phase 1: language files, `inherit:`, `json.yml` (2026-11-13) ✅
 
@@ -70,6 +80,12 @@ the way, as the arrow key does. **Load-bearing decisions:** Enter toggles too - 
 double-click; act on `clicks == 2` only, since SDL counts on and a triple-click would toggle back. Detail:
 [`usability-round.md`](usability-round.md) §10.
 
+## System font fallback (2026-11-11) ✅
+
+After the theme font and `sdl.font_fallback`, the system is asked (CoreText / fontconfig) for a font with the
+character, behind `sdl.system_font_fallback` (default on). Prompted by open-bugs #26 (Claude Code's `/context` grid).
+Verified on macOS and Linux. Detail: [`system-font-fallback.md`](system-font-fallback.md).
+
 ## YAML language support (2026-11-11) ✅
 
 `.yml`/`.yaml` highlighting and editing. **Shipped:** `YAMLLanguage` - comments and quoted strings in the
@@ -84,6 +100,20 @@ runs before the depth stamp, in both `ParseLine` and `TokenizeText`; reformat le
 - nothing closes a `key:`, so the opener walk would staircase the file. Detail: [`support-yaml.md`](support-yaml.md).
 
 ---
+
+## Terminal emulation library `gvt` (2026-11-10) ✅
+
+`VTermParser` rewritten as a Williams streaming state machine; parser and screen model are the standalone
+`src/ext/gvt` library behind `IParserSink` / `ITerminalHost`, libvterm a test-only oracle. VT-0..VT-9 done and merged;
+`TerminalScreen` runs on `gvt::Terminal`. What's left (the `claude` exit criterion, VT-10) is hitlist #32. Detail:
+[`terminal-vt.md`](terminal-vt.md), gap analysis [`terminal-enhancements.md`](terminal-enhancements.md).
+
+## Usability round (2026-11-08 - 2026-11-09) ✅
+
+The change set in the workspace tree, reload on disk change, changed lines in the gutter, open files on `Cmd+E`,
+splitters dragged with the mouse, type-to-find in the tree, `Cmd+P` quick open, close all and `!`, headless drawing on
+a Gansi grid, glyphs beyond 255, the overview (minimap), select all. Still open, in the hitlist: §3 c text search
+(#30), §7 step 3 the minimap in the terminal (#31), the notes §4, §14-§16. Detail: [`usability-round.md`](usability-round.md).
 
 ## Install layout and asset lookup (2026-11-09)
 
@@ -160,6 +190,12 @@ level each value comes from, or the `--user`/`--project` file as-is), `get <key>
   by `set --project`).
 - Live effect is limited to settings read after the set; startup-read settings (theme, languages,
   keymaps, a view's construction-time options) need a restart - `set` says so.
+
+## CMake cleanup (2026-06-23) ✅
+
+FetchContent for deps (SHAs pinned), the flat source list grouped into named variables (one target), per-compiler
+flags, deps/flags/packaging in `cmake/*.cmake`. Two non-blocking follow-ups in `deferred.md`. Detail:
+[`cmake-cleanup.md`](done/cmake-cleanup.md).
 
 ## Soft-wrap (word/char line wrap) ✅
 
@@ -417,38 +453,4 @@ drop both Gansi stopgaps. SDL/JS/serialization unchanged (alpha ≤ 1 ⇒ no wra
 
 ## Planned / not started
 
-
-- **Theme collection** (2026-11-13) - shipped themes in a `Themes/` folder (the same on Mac and Linux, from git), each
-  with `author` / `license` / `copyright` / `source` keys the importer writes from the theme, its `package.json` and
-  `LICENSE`; `Themes/LICENSES.md`; `.theme list` / `.theme use`. First candidate: Dark 2026 from VS Code (MIT).
-  Detail: [`theme-collection.md`](theme-collection.md).
-- **System font fallback** (2026-11-11) - after the theme font and `sdl.font_fallback`, ask the system (CoreText /
-  fontconfig) for a font with the character, behind `sdl.system_font_fallback` (default on). Prompted by open-bugs #26
-  (Claude Code's `/context` grid). Detail: [`system-font-fallback.md`](system-font-fallback.md).
-- **Usability round** (2026-11-08) - in this order: the change set (`git status`) marked in the workspace tree; the header's open files cut off with `...` and listed on `Cmd+E`;
-  splitters dragged with the mouse (moves from SDL, mouse capture in `RootView`); workspace search: type-to-jump in the
-  tree, open a file by name on `Cmd+P`, plain text search on `Cmd+Shift+F`. Noted, not scheduled: key bindings for script
-  commands, so `ReformatLine` can become a quick command. Detail: [`usability-round.md`](usability-round.md).
-
-- **Terminal emulation library `gvt`** (2026-11-09) — rewrite `VTermParser` as a Williams streaming state
-  machine and move parser + screen model into a standalone `src/ext/gvt` library (like `gansi`), driven through
-  `IParserSink` / `ITerminalHost` interfaces; libvterm as a test-only oracle, libghostty as reading reference
-  (no Zig dependency). VT-0..VT-7 done on `feat/gvt`: parser, screen model, SGR, replies/OSC, wide chars (all six fixtures match
-  libvterm), and the editor switch-over - `TerminalScreen` runs on `gvt::Terminal`, `VTermParser` is gone.
-  Work packages VT-0..VT-10: [`terminal-vt.md`](terminal-vt.md). Gap analysis it builds on
-  (the claude capture, TE items): [`terminal-enhancements.md`](terminal-enhancements.md).
-- **Per-block syntax highlighting** — extracted from the terminal-scrollback effort (was its "Phase 4").
-  Highlight a command block's output with the matching language (e.g. CMake colors over a `cmake` run) via
-  a hard-region tokenize over the block's line range — a fixed start boundary on a background `Job`, no
-  state bleed across blocks. Independent of the shipped terminal work; the `language` seam is already in
-  place. Work packages TS-4a/4b/4c + design: [`syntax-blocks.md`](syntax-blocks.md).
-- **Folder monitor** — *disabled* live FS watcher (`foldermonitor.enabled: no`). Platform analysis of
-  the two backends (macOS FSEvents = OS-recursive subtree watch; Linux inotify = per-dir, non-recursive,
-  watch-capped, crippled by a leftover `IN_ONESHOT`), the fundamental asymmetry that blocked a clean
-  abstraction, a defect checklist, and a re-enable plan (FM-n) that converges on "rescan the affected
-  subtree via the FolderScanner" instead of trusting fragile event flags. Distinct work area from the
-  scanner. Detail: [`folder-monitor.md`](partially_done/folder-monitor.md).
-- **CMake cleanup** — FetchContent for deps (known-working SHAs pinned), group the flat `editorsrc` into
-  named source-list variables (one target, *not* separate libs), per-compiler flags, hoist deps/flags/
-  packaging into `cmake/*.cmake`, and `.deb` + AppImage via CI → GitHub Releases. Plan + grounded
-  inventory (incl. a broken `.deb` install rule found): [`cmake-cleanup.md`](done/cmake-cleanup.md).
+Moved to [`hitlist.md`](hitlist.md) (2026-11-13) - the one index of what's next, open bugs worth fixing included.

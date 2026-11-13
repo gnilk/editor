@@ -223,12 +223,13 @@ keymap (`workspace_keymap.yml`), not `default_keymap.yml`; a child keymap wins o
 
 ## Documentation
 
-Docs live under `docs/`. Two are *active references* — check them before touching related code:
+Docs live under `docs/`. Three are *active references* — check them before touching related code:
 - **`open-bugs.md`** — known-wrong code intentionally left unfixed, with cold-start context (read it
   before touching `AttributeAt`, word-nav, caret/goto-line code, or the tokenizer).
-- **`work-log.md`** — short index of completed + planned efforts (UI refactor, markdown, session cache;
-  planned: CMake cleanup) with the load-bearing decisions; each entry links to its deep-dive doc
-  (`ui-refactor.md`, `support-markdown.md`, `session-cache.md`, `cmake-cleanup.md`) for full detail.
+- **`hitlist.md`** — the ONE index of planned work, open bugs worth fixing included. New planned work (a design
+  note, a "later", a bug to fix) gets a row there when it is written down, wherever the detail lives.
+- **`work-log.md`** — short index of completed efforts with the load-bearing decisions; each entry links to its
+  deep-dive doc (`ui-refactor.md`, `support-markdown.md`, `session-cache.md`, `cmake-cleanup.md`) for full detail.
 
 ---
 

@@ -243,7 +243,10 @@ post-pass prints build errors, which is a hook, not data; keep it until that's d
 
 ## 7. Phases
 
-**Phase 1 - the engine.**
+**Phase 1 - the engine.** Done 2026-11-13 (branch `feature/languages-as-data`): `src/Core/Language/Data/`
+(`LanguageFileSet`, `LanguageDefinition`, `DataLanguage`), `Assets/Resources/Languages/{default,json}.yml`,
+`test_datalanguage`. The append form is `<key>+:`. `JSONLanguage.cpp` is kept only for the equality test - delete
+both once `json.yml` has been tried in the app.
 - `LanguageDefinition` (parse, validate, longest-first, errors with `file:line`) and `DataLanguage` (build the
   tokenizer).
 - `inherit:` with its merge rules and a cache (2.2), and `default.yml` - `json.yml` inherits it from the start.

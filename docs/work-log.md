@@ -8,6 +8,18 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## Languages as data, phase 1: language files, `inherit:`, `json.yml` (2026-11-13) ✅
+
+A language can be a YAML file in `Assets/Resources/Languages/`; `json.yml` now drives `.json`/`.js` in place of
+`JSONLanguage` (equal over 30 texts / 5049 tokens). **Load-bearing decisions:** `inherit: <name>` (keymap-style, not
+include), resolved once per name by `LanguageFileSet` with its own merge - a list replaces the parent's whole, `key+:`
+appends - never `YAMLMerge` (which merges lists by position, open-bugs #28); `default.yml` is the root, and
+`config.yml` `languages.default` is laid over it, `languages.<name>` over the language; `DataLanguage` makes the same
+tokenizer calls a C++ language makes (no second tokenizer); a bad file is rejected whole, with `file:line`; a built-in
+wins an extension unless `override: yes`. yaml-cpp trap: `Node::operator=` writes through to a shared node - the
+merge uses `reset()` / copy-construction only (`test_datalanguage_merge_inputsunchanged`). Detail:
+[`support-languages.md`](support-languages.md).
+
 ## Mouse bindings: a `mouse:` section in the keymaps (2026-11-12) ✅
 
 What a click stands for is now in the keymap files: `GotoToggle: "CopyPasteModifier + Click"` (default), `CommitLine:

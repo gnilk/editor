@@ -20,6 +20,11 @@ depth-first walk - so the callbacks nest as before and the Workspace adapter is 
 entry, not looked into. `workspace.max_scan_entries: 5000`: this repo (746 entries) is read as before; apus stops at
 four levels (1,592). Measured (debug, under gdb): main thread 612 -> 165 ticks before idle. Tests:
 `folderscanner_budget_levels` / `_firstlevel` (failed before), `_fits`, `_ignored`.
+**Also: quitting while the index starts.** `.q!` right after opening apus took 7.3 s to exit (an `-O0` build):
+`Indexer::Stop` joined a worker that was inside `ScanRoot`'s walk of the whole tree - one work item, and `isStopping`
+is only read between items. `FolderScanner::Options::cancel` (an atomic the walk reads at every entry) is set first
+thing in `Stop`; now ~0.5 s. Test: `folderscanner_cancel` (failed before). Not done: freeing a full index at exit
+still costs ~2.6 s in release on apus (20M symbols).
 
 ## Languages as data, phase 1: language files, `inherit:`, `json.yml` (2026-11-13) ✅
 

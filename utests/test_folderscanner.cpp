@@ -12,6 +12,7 @@
 #include <testinterface.h>
 
 #include <algorithm>
+#include <atomic>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -41,6 +42,7 @@ DLL_EXPORT int test_folderscanner_budget_levels(ITesting *t);
 DLL_EXPORT int test_folderscanner_budget_firstlevel(ITesting *t);
 DLL_EXPORT int test_folderscanner_budget_fits(ITesting *t);
 DLL_EXPORT int test_folderscanner_budget_ignored(ITesting *t);
+DLL_EXPORT int test_folderscanner_cancel(ITesting *t);
 }
 
 namespace {
@@ -565,5 +567,49 @@ DLL_EXPORT int test_folderscanner_budget_ignored(ITesting *t) {
 
     TR_ASSERT(t, LeftFullyScanned(events, "src", true));
     TR_ASSERT(t, IndexOf(events, FsEvent::Kind::File, "f0.cpp") >= 0);
+    return kTR_Pass;
+}
+
+// A walk ends at the next entry once its cancel flag is set - the indexer's root walk is one work item, and quitting
+// waited for all of it. Enter/leave still pair up as the walk unwinds.
+DLL_EXPORT int test_folderscanner_cancel(ITesting *t) {
+    TempTree tree("cancel");
+    for (int idxDir = 0; idxDir < 5; idxDir++) {
+        for (int i = 0; i < 20; i++) {
+            tree.File("d" + std::to_string(idxDir) + "/sub/f" + std::to_string(i) + ".txt");
+        }
+    }
+
+    std::atomic<bool> isCancelled = false;
+    int numFiles = 0;
+    int numEntered = 0;
+    int numLeft = 0;
+    FolderScanner scanner;
+    scanner.onEnterDir = [&](const fs::path &, int) {
+        numEntered++;
+        return true;
+    };
+    scanner.onFile = [&](const fs::path &, int) {
+        numFiles++;
+        isCancelled = true;
+    };
+    scanner.onLeaveDir = [&](const fs::path &, int, bool) {
+        numLeft++;
+    };
+    FolderScanner::Options opts;
+    opts.cancel = &isCancelled;
+    scanner.Scan(tree.root, opts);
+
+    TR_ASSERT(t, numFiles == 1);
+    TR_ASSERT(t, numEntered == numLeft);
+    TR_ASSERT(t, numEntered <= 2);
+
+    // The budget's count stops too: nothing is handed out once cancelled
+    numFiles = 0;
+    numEntered = 0;
+    opts.maxEntries = 5000;
+    scanner.Scan(tree.root, opts);
+    TR_ASSERT(t, numFiles == 0);
+    TR_ASSERT(t, numEntered == 0);
     return kTR_Pass;
 }

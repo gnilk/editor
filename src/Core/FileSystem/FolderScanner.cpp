@@ -36,6 +36,9 @@ int FolderScanner::LevelsWithinBudget(const fs::path &root, const Options &opts,
         for (const auto &dir : level) {
             std::error_code ec;
             for (const auto &entry : fs::directory_iterator(dir, ec)) {
+                if (IsCancelled(opts)) {
+                    return 0;
+                }
                 const auto &path = entry.path();
                 if (IsPruned(path, opts, filter)) {
                     continue;
@@ -53,6 +56,10 @@ int FolderScanner::LevelsWithinBudget(const fs::path &root, const Options &opts,
         level = std::move(nextLevel);
     }
     return std::max(numLevels, 1);
+}
+
+bool FolderScanner::IsCancelled(const Options &opts) {
+    return (opts.cancel != nullptr) && opts.cancel->load(std::memory_order_relaxed);
 }
 
 // A folder the budget's count goes into: not a symlink (unless followed), not ignored
@@ -88,6 +95,9 @@ void FolderScanner::ScanDirToReference(const fs::path &dir, const fs::path &refP
     // refPath, which is finite and acyclic, so it can't run away even past opts.maxDepth.
     std::error_code ec;
     for (const auto &entry : fs::directory_iterator(dir, ec)) {
+        if (IsCancelled(opts)) {
+            return;
+        }
         const auto &path = entry.path();
         if (IsPruned(path, opts, filter)) {
             continue;
@@ -138,6 +148,9 @@ void FolderScanner::ScanDir(const fs::path &dir, int depth, const Options &opts,
     // unreadable directory or an over-long path.
     std::error_code ec;
     for (const auto &entry : fs::directory_iterator(dir, ec)) {
+        if (IsCancelled(opts)) {
+            return;
+        }
         const auto &path = entry.path();
         // Static exclude (FS-2): a matching entry is pruned entirely — no event, no descent. This is
         // where build dirs (cmake-build-debug, _deps, .git, ...) are kept out of memory, the build-dir

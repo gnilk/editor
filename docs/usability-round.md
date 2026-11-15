@@ -1015,11 +1015,18 @@ What it needs:
 - **Which modifier comes from the keymap**, as the click's does (`GotoToggle: CopyPasteModifier + Click`) - not a
   hard-coded `Cmd`.
 
+Decided 2026-11-15:
+- **Only a name that has a target.** The highlight answers "would a click jump from here?", so a word the index can't
+  resolve isn't marked - marking every word would promise jumps that don't happen. Needs a resolve per hovered word
+  (the index's Go to definition); cache the answer per word so moving within it, or back to it, doesn't resolve again.
+  `gedit-bench --chains` times the resolve, if its cost needs a number first.
+- **An underline**, as VS Code and CLion do - it reads as a link, and a selection-like highlight would look like a real
+  selection. Its own theme key.
+
 Open:
-- Any word, or only a name that has a target? The second needs a resolve per hovered word (the index's), but tells the
-  truth about whether the click would jump.
-- The look: an underline (VS Code, CLion) or the theme's highlight colour; a theme key either way.
 - Gansi: no hover motion there (§2), so SDL only.
+- Comes after the hover plumbing (hovers reaching the view under the pointer, and "the pointer left"), which §15 and
+  §16 need as well.
 
 ## 15. Note - a close button on each file in the header (not scheduled)
 

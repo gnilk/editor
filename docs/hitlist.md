@@ -47,6 +47,8 @@ Built and unit-tested, not yet tried by hand on that platform. Linux = SDL2 (Ctr
   - [ ] Linux [ ] Mac - `goatedit .` in a big tree (`~/src/apus`, an npm project with `node_modules` not ignored): the window answers at once
   - [ ] Linux [ ] Mac - folders below the fourth level open when expanded; a session file deep in the tree reopens
   - [ ] Linux [ ] Mac - `.q!` right after start-up: exits at once
+- **Short-file scroll window** (#35, open-bugs #30)
+  - [ ] Linux [x] Mac - a new file, a dozen lines, PageDown, then Enter in the middle: the top line stays until the view is full
 
 ## Next - suggested order
 
@@ -64,7 +66,7 @@ Built and unit-tested, not yet tried by hand on that platform. Linux = SDL2 (Ctr
 | 6 | Gansi copy fallback: `pbcopy` / `xclip` / `wl-copy` when local | open-bugs #20 notes | half a day | fits with #20 |
 | 23 | A file argument before the folder leaves the folder unmonitored | open-bugs #21 | hours | |
 | 24 | Install never removes an asset deleted from the repo | open-bugs #22 | hours | matters once themes move (18) |
-| 25 | `Cmd` held highlights the word under the pointer | usability §14 | half a day | note, not scheduled |
+| 25 | `Cmd` held underlines a name a click would jump from | usability §14 | half a day | decided: only names the index resolves, an underline; needs the hover plumbing (as 26, 27) |
 | 26 | Button widget in the UI toolkit | usability §16 | a day | needed by 27 |
 | 27 | Close button per file in the header (`*` / `x`, CLion style) | usability §15 | half a day | after 26 |
 | 8 | Key binding groups: `FunctionModifier`, `CodeNavigationModifier`, `docs/keybindings.md` | usability §11 | days | decide the `CodeNavigationModifier` key first |
@@ -97,4 +99,5 @@ Smaller bugs not ranked yet: open-bugs #1 (`AttributeAt`, read before touching i
 | - | Minimap contrast: marks gap, damped text, `overlay_strength` (usability §7 follow-up) | 2026-11-13 |
 | - | A theme that can't load falls back to the default (open-bugs #29) | 2026-11-13 |
 | - | Theme import writes author / license / copyright / source (`theme-collection.md` §3) | 2026-11-13 |
+| 35 | PageDown / Cmd+End in a short file kept a short scroll window, the view scrolled early (open-bugs #30) | 2026-11-15 |
 | - | Workspace tree read up front within a budget (`max_scan_entries`); quitting doesn't wait for the index's root walk | 2026-11-15 |

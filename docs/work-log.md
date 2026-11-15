@@ -8,6 +8,18 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## Short-file scroll window (2026-11-15) ✅
+
+- open-bugs #30: PageDown / Cmd+End in a file shorter than the view set the scroll window from the line count, so the
+  editor drew a short view and scrolled it early (lines added after it pushed the top out, half the view empty, a
+  resize put it right). One rule now: `LineCursor::ScrollToEnd(viewHeight, nLines)` - the window always spans the
+  view, top clamped to `[0, nLines - height]` - used by every jump-to-the-end path (CLion page-down, the line-down
+  clip, `OnActionGotoLastLine`). Cmd+PageDown (`OnActionGotoBottomLine`) no longer lands past the last line.
+  Tests: `vnav pagedown_window`, `document shortfile_window`; `vnav pagedown` case 1 asserted the bug and was fixed.
+  Found and checked headless (`--backend ansi` in a pty, rendered with pyte).
+
+---
+
 ## Minimap contrast, theme fallback, theme licence keys (2026-11-13) ✅
 
 - Minimap: the change marks 4 logical px from the text (`minimap.marks_gap`), the text damped to 0.4

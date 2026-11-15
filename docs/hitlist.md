@@ -49,7 +49,6 @@ Built and unit-tested, not yet tried by hand on that platform. Linux = SDL2 (Ctr
 | # | Item | Where | Size | Notes |
 |---|---|---|---|---|
 | 16 | Data loss: a Latin-1 file is truncated on open and save | open-bugs #15 | half a day | the only data-loss bug - first |
-| 35 | PageDown / Cmd+End in a short file shrinks the line window, the view scrolls early | open-bugs #30 | hours | daily annoyance, small - test in `vnav` first |
 | 17 | A config list overwrites the default list by position | open-bugs #28 | half a day | idea: an immutable merge that returns a new tree; `LanguageFileSet::Merge` is the model |
 | 11 | Languages phase 2: CMake and Python (case-insensitive lists, generic numbers, the prefix rule) | `support-languages.md` | 1-2 days | used daily |
 | 12 | Languages phase 3: the user directory, `.lang_reload`, `override: yes` | `support-languages.md` | a day | user language dirs aren't read yet |

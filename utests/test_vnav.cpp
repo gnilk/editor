@@ -20,6 +20,7 @@ DLL_EXPORT int test_vnav_exit(ITesting *t);
 // tests the clion vertical navigation model
 DLL_EXPORT int test_vnav_linedown(ITesting *t);
 DLL_EXPORT int test_vnav_pagedown(ITesting *t);
+DLL_EXPORT int test_vnav_pagedown_window(ITesting *t);
 DLL_EXPORT int test_vnav_lineup(ITesting *t);
 DLL_EXPORT int test_vnav_pageup(ITesting *t);
 }
@@ -110,7 +111,8 @@ DLL_EXPORT int test_vnav_pagedown(ITesting *t) {
     TR_ASSERT(t, lineCursor.idxActiveLine == 9);
     TR_ASSERT(t, lineCursor.cursor.position.y == 9);
     TR_ASSERT(t, lineCursor.viewTopLine == 0);
-    TR_ASSERT(t, lineCursor.viewBottomLine == 10);
+    // The window keeps the view's height - a window of 10 would draw 10 rows and scroll early (open-bugs #30)
+    TR_ASSERT(t, lineCursor.viewBottomLine == viewRect.Height());
 
     // case 2) Move beyond the last line of the view...
     // Navigate from the top one page down - with 100 items in the buffer
@@ -149,6 +151,34 @@ DLL_EXPORT int test_vnav_pagedown(ITesting *t) {
     TR_ASSERT(t, lineCursor.viewTopLine == topLineBefore + szPageSize);
     TR_ASSERT(t, lineCursor.viewBottomLine == bottomLineBefore + szPageSize);
 
+    return kTR_Pass;
+}
+
+// PageDown never leaves a scroll window shorter than the view (open-bugs #30), and the active line stays inside it
+DLL_EXPORT int test_vnav_pagedown_window(ITesting *t) {
+    LineCursor lineCursor;
+    VerticalNavigationCLion vnav;
+    vnav.lineCursor = &lineCursor;
+    size_t szPageSize = viewRect.Height()-1;
+
+    // Fewer lines than the view, from the middle: past the end
+    DefaultLineCursor(lineCursor);
+    PositionAbsolute(lineCursor, 6, 6);
+    vnav.OnNavigateDown(szPageSize, viewRect, 13);
+    TR_ASSERT(t, lineCursor.idxActiveLine == 12);
+    TR_ASSERT(t, lineCursor.viewTopLine == 0);
+    TR_ASSERT(t, lineCursor.Height() == viewRect.Height());
+    TR_ASSERT(t, lineCursor.cursor.position.y == 12);
+
+    // Within the buffer, but the page reaches the end: the last line is in the window and the caret on it
+    DefaultLineCursor(lineCursor);
+    PositionAbsolute(lineCursor, 60, 30);
+    vnav.OnNavigateDown(szPageSize, viewRect, 100);
+    TR_ASSERT(t, lineCursor.idxActiveLine == 99);
+    TR_ASSERT(t, lineCursor.Height() == viewRect.Height());
+    TR_ASSERT(t, lineCursor.viewBottomLine == 100);
+    TR_ASSERT(t, lineCursor.IsInside(lineCursor.idxActiveLine));
+    TR_ASSERT(t, lineCursor.cursor.position.y == (int)lineCursor.idxActiveLine - lineCursor.viewTopLine);
     return kTR_Pass;
 }
 

@@ -80,8 +80,7 @@ void VerticalNavigationViewModel::OnNavigateDown(size_t rows, const Rect& rect, 
                 lineCursor->viewTopLine += rows;
                 lineCursor->viewBottomLine += rows;
             } else {
-                lineCursor->viewBottomLine = nItems;
-                lineCursor->viewTopLine = lineCursor->viewBottomLine - rect.Height();
+                lineCursor->ScrollToEnd(rect.Height(), nItems);
             }
         }
     }
@@ -167,26 +166,14 @@ void VerticalNavigationCLion::OnNavigateDown(size_t rows, const Rect &rect, size
     // Are we moving outside?
     if ((lineCursor->idxActiveLine + nRowsToMove) > lastLineIdx) {
         lineCursor->idxActiveLine = lastLineIdx;
-        lineCursor->viewBottomLine = (int32_t)nItems;
-        lineCursor->viewTopLine = lineCursor->viewBottomLine - rect.Height();
-        if (lineCursor->viewTopLine < 0) {
-            lineCursor->viewTopLine = 0;
-        }
-        lineCursor->cursor.position.y = rect.Height()-1;
-        if (lineCursor->cursor.position.y > lastLineIdx) {
-            lineCursor->cursor.position.y = (int32_t)lastLineIdx;
-        }
+        lineCursor->ScrollToEnd(rect.Height(), nItems);
+        lineCursor->cursor.position.y = (int32_t)lastLineIdx - lineCursor->viewTopLine;
     } else {
         // Default - we are moving within the available items..
         lineCursor->idxActiveLine += nRowsToMove;
 
         if ((lineCursor->viewBottomLine + nRowsToMove) > lastLineIdx) {
-            lineCursor->viewBottomLine = (int32_t)lastLineIdx;
-            if (rect.Height() > lineCursor->viewBottomLine) {
-                lineCursor->viewTopLine = 0;
-            } else {
-                lineCursor->viewTopLine = lineCursor->viewBottomLine - rect.Height();
-            }
+            lineCursor->ScrollToEnd(rect.Height(), nItems);
         } else {
             lineCursor->viewTopLine += nRowsToMove;
             lineCursor->viewBottomLine = lineCursor->viewTopLine + rect.Height();

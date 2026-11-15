@@ -94,7 +94,8 @@ DLL_EXPORT int test_document_gotoclick_double(ITesting *t);
 DLL_EXPORT int test_document_gotoclick_othermodifier(ITesting *t);
 DLL_EXPORT int test_document_gotoimpl_noselection(ITesting *t);
 DLL_EXPORT int test_document_wrap_caret_stays_visible(ITesting *t);
-
+// a file shorter than the view keeps a full-height scroll window after jumping to its end (open-bugs #30)
+DLL_EXPORT int test_document_shortfile_window(ITesting *t);
 }
 
 // Define some common actions, this will trigger side-effects in the document
@@ -1679,5 +1680,56 @@ DLL_EXPORT int test_document_gotoimpl_noselection(ITesting *t) {
 
     TR_ASSERT(t, !isSelectingAfterGoto);
     TR_ASSERT(t, isSelectingAfterShiftDown);
+    return kTR_Pass;
+}
+
+// open-bugs #30: PageDown / BufferEnd / GotoBottomLine in a file shorter than the view used to shrink the scroll
+// window to the line count, so lines added afterwards scrolled a view that still had empty rows.
+DLL_EXPORT int test_document_shortfile_window(ITesting *t) {
+    static EditorAction actionCommitLine = {.uiAction = gedit::kUIAction::kUIActionCommitLine};
+    static EditorAction actionBufferEnd = {.uiAction = gedit::kUIAction::kUIActionBufferEnd};
+    static EditorAction actionGotoBottomLine = {.uiAction = gedit::kUIAction::kUIActionGotoBottomLine};
+    gedit::Rect rect(20, 20);
+
+    // The user's case: PageDown from the middle, then lines added in the middle
+    auto document = CreateEmptyDocument(t);
+    document->OnViewInit(rect);
+    FillEmptyDocument(document, 13, 10);
+    auto lineCursor = document->GetLineCursorRef();
+    for (int i = 0; i < 6; i++) {
+        document->OnAction(actionLineDown);
+    }
+    document->OnAction(actionPageDown);
+    TR_ASSERT(t, lineCursor->idxActiveLine == 12);
+    TR_ASSERT(t, lineCursor->Height() == rect.Height());
+    for (int i = 0; i < 5; i++) {
+        document->OnAction(actionLineUp);
+    }
+    while (document->Lines().size() < (size_t)rect.Height()) {
+        document->OnAction(actionCommitLine);
+        TR_ASSERT(t, lineCursor->viewTopLine == 0);
+        TR_ASSERT(t, lineCursor->Height() == rect.Height());
+    }
+
+    // BufferEnd (Cmd+End)
+    document = CreateEmptyDocument(t);
+    document->OnViewInit(rect);
+    FillEmptyDocument(document, 10, 10);
+    lineCursor = document->GetLineCursorRef();
+    document->OnAction(actionBufferEnd);
+    TR_ASSERT(t, lineCursor->idxActiveLine == 9);
+    TR_ASSERT(t, lineCursor->viewTopLine == 0);
+    TR_ASSERT(t, lineCursor->Height() == rect.Height());
+    TR_ASSERT(t, lineCursor->cursor.position.y == 9);
+
+    // GotoBottomLine (Cmd+PageDown): the last line in view, not a row past the buffer's end
+    document = CreateEmptyDocument(t);
+    document->OnViewInit(rect);
+    FillEmptyDocument(document, 10, 10);
+    lineCursor = document->GetLineCursorRef();
+    document->OnAction(actionGotoBottomLine);
+    TR_ASSERT(t, lineCursor->idxActiveLine == 9);
+    TR_ASSERT(t, lineCursor->cursor.position.y == 9);
+    TR_ASSERT(t, document->ActiveLine() != nullptr);
     return kTR_Pass;
 }

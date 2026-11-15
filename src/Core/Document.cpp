@@ -815,14 +815,11 @@ bool Document::OnActionGotoFirstLine() {
 }
 bool Document::OnActionGotoLastLine() {
     logger->Debug("GotoLastLine (def: CMD+End), set cursor to last line!");
-    documentViewState->lineCursor.cursor.position.x = 0;
-    documentViewState->lineCursor.cursor.position.y = viewRect.Height()-1;
-    documentViewState->lineCursor.idxActiveLine = Lines().size()-1;
-    documentViewState->lineCursor.viewBottomLine = Lines().size();
-    documentViewState->lineCursor.viewTopLine = documentViewState->lineCursor.viewBottomLine - viewRect.Height();
-    if (documentViewState->lineCursor.viewTopLine < 0) {
-        documentViewState->lineCursor.viewTopLine = 0;
-    }
+    auto &lineCursor = documentViewState->lineCursor;
+    lineCursor.cursor.position.x = 0;
+    lineCursor.idxActiveLine = Lines().empty() ? 0 : Lines().size()-1;
+    lineCursor.ScrollToEnd(viewRect.Height(), Lines().size());
+    lineCursor.cursor.position.y = (int32_t)lineCursor.idxActiveLine - lineCursor.viewTopLine;
 
     logger->Debug("Cursor: %d:%d, idxActiveLine: %d",documentViewState->lineCursor.cursor.position.x, documentViewState->lineCursor.cursor.position.y, documentViewState->lineCursor.idxActiveLine);
 
@@ -972,8 +969,11 @@ bool Document::OnActionGotoTopLine() {
 bool Document::OnActionGotoBottomLine() {
     //logger->Debug("GotoBottomLine (def: PageDown+CMDKey), cursor=(%d:%d)", document->cursor.position.x, document->cursor.position.y);
 
-    documentViewState->lineCursor.cursor.position.y = viewRect.Height()-1;
-    documentViewState->lineCursor.idxActiveLine = documentViewState->lineCursor.viewBottomLine-1;
+    // The last line in view - in a file shorter than the view that is the file's last line, not a row past it
+    auto &lineCursor = documentViewState->lineCursor;
+    auto idxLastInView = std::min((int32_t)Lines().size(), lineCursor.viewBottomLine) - 1;
+    lineCursor.idxActiveLine = (size_t)std::max((int32_t)0, idxLastInView);
+    lineCursor.cursor.position.y = (int32_t)lineCursor.idxActiveLine - lineCursor.viewTopLine;
 
     //logger->Debug("GotoBottomLine, new  cursor=(%d:%d)", document->cursor.position.x, document->cursor.position.y);
     return true;

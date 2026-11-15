@@ -3,34 +3,34 @@
 Made 2026-11-11. Planned work from the design docs, ordered from easy to hard. Each item links to where it's described.
 When one is done, strike it through here and add a line in `work-log.md`.
 
-## To try in the app (Mac done 2026-11-12, Linux open)
+## To try in the app (Mac done 2026-11-12, Linux done 2026-11-15)
 
 Built and unit-tested today, not yet tried by hand. Linux = SDL2 (Ctrl), Mac = SDL3 (Cmd) - the Mac needs `git pull` and
-a build first. **Mac (SDL3, build 07f682b): all checked and working, 2026-11-12** (728/728 green on macOS).
+a build first. **Mac (SDL3, build 07f682b): all checked and working, 2026-11-12** (728/728 green on macOS). **Linux (SDL2): all checked and working 2026-11-15.**
 Tick per platform; strike the hitlist item's "not yet tried" note when both are done.
 
 - **#1 / #15 - workspace tree clicks** (now through `CommitLine: DoubleClick` in `workspace_keymap.yml`)
-  - [ ] Linux [x] Mac - double-click a closed folder: opens; again: closes
-  - [ ] Linux [x] Mac - Enter on a folder: toggles
-  - [ ] Linux [x] Mac - triple-click a folder: toggles once
-  - [ ] Linux [x] Mac - double-click a git-ignored folder (`cmake-build-debug`): its contents show
-  - [ ] Linux [x] Mac - double-click a file: opens
-  - [ ] Linux [x] Mac - Ctrl/Cmd+click a tree row: nothing happens in the editor (`mouse:` is not inherited)
+  - [x] Linux [x] Mac - double-click a closed folder: opens; again: closes
+  - [x] Linux [x] Mac - Enter on a folder: toggles
+  - [x] Linux [x] Mac - triple-click a folder: toggles once
+  - [x] Linux [x] Mac - double-click a git-ignored folder (`cmake-build-debug`): its contents show
+  - [x] Linux [x] Mac - double-click a file: opens
+  - [x] Linux [x] Mac - Ctrl/Cmd+click a tree row: nothing happens in the editor (`mouse:` is not inherited)
 - **#2 / #15 - go-to click** (now `GotoToggle: "CopyPasteModifier + Click"` in `default_keymap.yml`)
-  - [ ] Linux [x] Mac - Ctrl/Cmd+click a function used in another file: jumps to its definition
-  - [ ] Linux [x] Mac - Ctrl/Cmd+`[`: back
-  - [ ] Linux [x] Mac - Ctrl/Cmd+click a declaration in a header: toggles to the definition
-  - [ ] Linux [x] Mac - plain click: only moves the caret; Ctrl/Cmd+click on whitespace: nothing
-  - [ ] Linux [x] Mac - Ctrl/Cmd+double-click a name: no second jump
-  - [ ] Linux [x] Mac - Ctrl/Cmd+Shift+click: no jump (modifiers match exactly now)
+  - [x] Linux [x] Mac - Ctrl/Cmd+click a function used in another file: jumps to its definition
+  - [x] Linux [x] Mac - Ctrl/Cmd+`[`: back
+  - [x] Linux [x] Mac - Ctrl/Cmd+click a declaration in a header: toggles to the definition
+  - [x] Linux [x] Mac - plain click: only moves the caret; Ctrl/Cmd+click on whitespace: nothing
+  - [x] Linux [x] Mac - Ctrl/Cmd+double-click a name: no second jump
+  - [x] Linux [x] Mac - Ctrl/Cmd+Shift+click: no jump (modifiers match exactly now)
 - **#4 - YAML Enter**, in a `.yml`, Enter at the end of:
-  - [ ] Linux [x] Mac - `run: |-` -> next line indented 2; `  - run: >+` -> 6; `run: |  # x` -> 2
-  - [ ] Linux [x] Mac - `---` and `version: 1.0-` -> no indent
+  - [x] Linux [x] Mac - `run: |-` -> next line indented 2; `  - run: >+` -> 6; `run: |  # x` -> 2
+  - [x] Linux [x] Mac - `---` and `version: 1.0-` -> no indent
 - **#5 - git branch in the status line**
   - [x] Linux [x] Mac - `goatedit .` in this repo: `⎇ main` at the right of the status line (Linux seen 2026-11-12)
-  - [ ] Linux [x] Mac - `git switch -c tmp` in the terminal panel: `⎇ tmp` within ~1 s, no keypress
-  - [ ] Linux [x] Mac - `git switch --detach`: `⎇ (<sha>)`; `git switch main`: back
-  - [ ] Linux [x] Mac - opened on a folder outside any repo: nothing shown
+  - [x] Linux [x] Mac - `git switch -c tmp` in the terminal panel: `⎇ tmp` within ~1 s, no keypress
+  - [x] Linux [x] Mac - `git switch --detach`: `⎇ (<sha>)`; `git switch main`: back
+  - [x] Linux [x] Mac - opened on a folder outside any repo: nothing shown
 
 **In progress (2026-11-13):** #10 (languages as data, phase 1). §9 question 1 decided: `Languages/default.yml` +
 `inherit:`; `config.yml` overrides.
@@ -50,19 +50,19 @@ All of section 0 checked on 2026-11-11 (SDL2). The YAML, select all and `.fmf`/`
 
 | # | Item | Where | Notes |
 |---|---|---|---|
-| 1 | ~~Double-click (and Enter) on a folder expands or collapses it~~ | usability §10 | done 2026-11-12; not yet tried in the app |
-| 2 | ~~`Cmd+click` (`Ctrl+click`) jumps as `Cmd+B` does~~ | code-index §5.6 | done 2026-11-12; not yet tried in the app |
+| 1 | ~~Double-click (and Enter) on a folder expands or collapses it~~ | usability §10 | done 2026-11-12; tried in the app (Mac + Linux) |
+| 2 | ~~`Cmd+click` (`Ctrl+click`) jumps as `Cmd+B` does~~ | code-index §5.6 | done 2026-11-12; tried in the app (Mac + Linux) |
 | 3 | ~~Check: does `GotoImplementation` (tagged `Selection` by its binding) start a stray selection?~~ | usability §11 | checked 2026-11-12: no - letter bindings and required modifiers are never tagged; two guard tests |
-| 4 | ~~YAML: `\|-` / `>+` headers don't auto-indent the next line~~ | `support-yaml.md` | done 2026-11-12 (and a header followed by a comment); not yet tried in the app |
+| 4 | ~~YAML: `\|-` / `>+` headers don't auto-indent the next line~~ | `support-yaml.md` | done 2026-11-12 (and a header followed by a comment); tried in the app (Mac + Linux) |
 
 ## 2. Half a day to a day
 
 | # | Item | Where | Notes |
 |---|---|---|---|
-| 5 | ~~The git branch in the status line: `⎇ main`~~ | usability §9 | done 2026-11-12; seen in the SDL2 app (`⎇ main`); switch and detached not yet tried in the app |
+| 5 | ~~The git branch in the status line: `⎇ main`~~ | usability §9 | done 2026-11-12; seen in the SDL2 app (`⎇ main`); switch, detached and outside-a-repo tried (Mac + Linux) |
 | 6 | Gansi copy fallback: `pbcopy` / `xclip` / `wl-copy` when local (Apple Terminal has no OSC 52) | open-bugs #20 notes | small on its own; fits with #20 |
 | 7 | Image view phase 0: `BufferBase`, `TextBuffer` / `ImageBuffer`, Document holds one buffer | `image-view.md` §2.4 | no behaviour change for text; the green set + a test per guarded site |
-| 15 | ~~Mouse bindings: a `mouse:` section in the keymaps (`GotoToggle: CopyPasteModifier + Click`, the tree's `DoubleClick`)~~ | usability §13 | done 2026-11-12; not inherited; not yet tried in the app |
+| 15 | ~~Mouse bindings: a `mouse:` section in the keymaps (`GotoToggle: CopyPasteModifier + Click`, the tree's `DoubleClick`)~~ | usability §13 | done 2026-11-12; not inherited; tried in the app (Mac + Linux) |
 
 ## 3. A few days, decisions needed first
 

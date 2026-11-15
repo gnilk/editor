@@ -871,7 +871,7 @@ the folder: expand it when it's collapsed, collapse it when it's expanded.
     `workspaceview_dblclick_file` (passed before and after).
   - `treeview`: `toggleexpanded`.
 - **Mutation check:** `clicks >= 2` fails `workspaceview_tripleclick`.
-- **Not yet tried in the app** (SDL2 / SDL3).
+- **Tried in the app:** SDL3 (Mac) 2026-11-12, SDL2 (Linux) 2026-11-15 - all working.
 
 ## 11. Revisit the key bindings - modifiers by purpose
 

@@ -4,7 +4,7 @@ Durable list of known defects we've chosen NOT to fix in-place yet, with enough 
 up cold. Referenced from CLAUDE.md ("Documentation") so it surfaces each session.
 
 Numbers are stable (commits, docs and notes refer to them) - a fixed bug is removed, never renumbered.
-**Next bug is #30.**
+**Next bug is #31.**
 
 ---
 
@@ -307,3 +307,38 @@ does (CLion finds it through the system's own fallback). Fix: [`system-font-fall
 `/usage` itself is still unexplained.
 2026-11-11: system font fallback merged; `/context` draws in the app. Open: whether `/usage` still fails.
 
+
+---
+
+## 30. PageDown (or Cmd+End) in a file shorter than the view shrinks the line window - the editor scrolls early
+
+In a file with fewer lines than the view is high, PageDown sets the scroll window to the line count. The editor then
+draws only that many rows and scrolls as if the view were that small: lines added afterwards (Enter in the middle,
+or at the end) push the top lines out of sight with half the view empty. A window resize puts it right
+(`HandleResize` grows the window back to the view's height). Not tied to new files, but a new file is where it shows -
+a file that already fills the view never takes this branch.
+
+**Repro (headless, 29-row view):** type 12 lines + Enter (13 lines), Up 6, PageDown, Up 5, Enter 6 times: line 0
+scrolls out at 19 lines, and the view shows 13 rows (`6..18`) above 16 empty ones. Resize: `0..18` again. The user
+saw it as "16 lines, showing 4..16" (13 rows).
+
+**Why:** the drawn rows come from the window, not the view: `ProjectVisibleRows` (`DocumentViewState.cpp`) draws
+`viewBottomLine - viewTopLine` rows, and `LineCursor::Height()` is the same difference. Paths that set
+`viewBottomLine` from the line count and clamp `viewTopLine` to 0 leave a window smaller than the view:
+- `VerticalNavigationCLion::OnNavigateDown` (`VerticalNavigationViewModel.cpp`), page branch: past the end,
+  `viewBottomLine = nItems`; inside, `viewBottomLine = lastLineIdx` (one line short as well).
+- `Document::OnActionGotoLastLine` (`Document.cpp`): `viewBottomLine = Lines().size()`, top clamped to 0 - from reading the code, not driven yet. (It also
+  puts `position.y` at `viewRect.Height()-1` whatever the line count.)
+
+`VerticalNavigationViewModel::OnNavigateDown`'s single-line clip (`viewTopLine = nItems - height`, unclamped) can't
+be reached with fewer lines than the view (it needs `idxActiveLine > height-1`), so it isn't the cause, but it has the
+same shape.
+
+**Fix direction:** one rule in one place - the window is always `viewTopLine + view height`, with `viewTopLine`
+clamped to `[0, max(0, nLines - height)]`. A helper on `LineCursor` (or the nav model) that every "jump to the end"
+path calls, instead of each setting `viewBottomLine` from the line count. Test first (`vnav` module): a buffer
+shorter than the rect, PageDown, assert `Height() == rect.Height()` and `viewTopLine == 0` (fails today); the same
+for GotoLastLine. Then add lines and assert the top stays 0 until the lines outnumber the view.
+
+**Found:** 2026-11-15 by the user (new file, editing in the middle, "the editor started scrolling"); reproduced
+headless with `--backend ansi` under a pty + pyte.

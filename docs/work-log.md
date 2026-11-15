@@ -8,6 +8,24 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## The workspace tree read up front within a budget: `max_scan_entries` (2026-11-15) ✅
+
+Opening `~/src/apus` (182k files, a Zephyr workspace, no repo at the top) left the editor stuck ~7 s at startup:
+`max_scan_depth: 6` read ~46k entries on the main thread (`FolderScanner::Scan`, the `.gitignore` check per entry),
+then `WorkspaceView::CreateTree` built a row per node. The code index was not it - it runs on its own threads.
+**Load-bearing decision:** a budget of entries, not a lower depth and not a background scan (the node tree is the main
+thread's; the view, monitor, session and git status all touch it). `FolderScanner::Options::maxEntries` is turned into a
+depth: whole levels from the top while they fit (the top one always), counted level by level, then the same
+depth-first walk - so the callbacks nest as before and the Workspace adapter is unchanged. A git-ignored folder is one
+entry, not looked into. `workspace.max_scan_entries: 5000`: this repo (746 entries) is read as before; apus stops at
+four levels (1,592). Measured (debug, under gdb): main thread 612 -> 165 ticks before idle. Tests:
+`folderscanner_budget_levels` / `_firstlevel` (failed before), `_fits`, `_ignored`.
+**Also: quitting while the index starts.** `.q!` right after opening apus took 7.3 s to exit (an `-O0` build):
+`Indexer::Stop` joined a worker that was inside `ScanRoot`'s walk of the whole tree - one work item, and `isStopping`
+is only read between items. `FolderScanner::Options::cancel` (an atomic the walk reads at every entry) is set first
+thing in `Stop`; now ~0.5 s. Test: `folderscanner_cancel` (failed before). Not done: freeing a full index at exit
+still costs ~2.6 s in release on apus (20M symbols).
+
 ## Languages as data, phase 1: language files, `inherit:`, `json.yml` (2026-11-13) ✅
 
 A language can be a YAML file in `Assets/Resources/Languages/`; `json.yml` now drives `.json`/`.js` in place of

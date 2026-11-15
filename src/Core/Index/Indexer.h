@@ -130,6 +130,7 @@ namespace gedit {
         size_t numDone = 0;
         size_t numTotal = 0;
         bool isStopping = false;
+        std::atomic<bool> isCancelRequested = false;     // read without the lock, inside a walk: Stop doesn't wait for a whole root
     };
 }
 

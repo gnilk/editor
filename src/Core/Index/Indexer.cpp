@@ -128,6 +128,8 @@ void Indexer::WaitIdle() {
 }
 
 void Indexer::Stop() {
+    // First: a worker inside a root's walk sees this at its next entry, not after the whole tree
+    isCancelRequested = true;
     {
         std::lock_guard guard(lock);
         isStopping = true;
@@ -232,6 +234,7 @@ void Indexer::ScanRoot(const WorkItem &item) {
     scanOptions.rules = RulesForRoot(item.path);
     scanOptions.skipIgnored = true;
     scanOptions.maxDepth = options.maxDepth;
+    scanOptions.cancel = &isCancelRequested;
     scanner.Scan(item.path, scanOptions);
 
     if (!item.priorityPath.empty()) {

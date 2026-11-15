@@ -89,11 +89,12 @@ workspace:
   # only when expanded (workspaceview.show_ignored); the code index and the folder monitor skip them. 'exclude'
   # below is the hard list: nothing shows or touches those.
   use_git_ignore: yes
-  # Backstop against pathological recursion depth only (symlink cycles are handled separately by the
-  # scanner's no-follow default). Set to 1 so only the top level of each folder is scanned
-  # eagerly; deeper directories are frontier nodes (isScanned=false) expanded on demand via
-  # the lazy-expansion hook (FolderScanner FS-6 — docs/folder-scanner.md §12). The lazy UX
-  # is fully wired (W1–W5 done), so lowering this defers rather than truncates.
+  # The tree is read up front, at startup, while it is small: whole levels from the top while they fit in
+  # 'max_scan_entries' (the top level always), at most 'max_scan_depth' deep. Deeper folders are read when
+  # expanded, so both defer rather than truncate. A git-ignored folder counts as one entry. 0 = no budget.
+  max_scan_entries: 5000
+  # Also the backstop against pathological recursion depth (symlink cycles are handled by the scanner's
+  # no-follow default).
   max_scan_depth: 6
   # Nothing shows or touches these. Build folders don't belong here: '.gitignore' covers them, which keeps them
   # browsable in the workspace view.

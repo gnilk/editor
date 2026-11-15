@@ -28,6 +28,7 @@ DLL_EXPORT int test_themeimport_include(ITesting *t);
 DLL_EXPORT int test_themeimport_sublime(ITesting *t);
 DLL_EXPORT int test_themeimport_complete(ITesting *t);
 DLL_EXPORT int test_themeimport_rejects(ITesting *t);
+DLL_EXPORT int test_themeimport_provenance(ITesting *t);
 }
 
 using ThemeColors = std::map<std::string, std::map<std::string, ColorRGBA>>;
@@ -348,5 +349,46 @@ DLL_EXPORT int test_themeimport_rejects(ITesting *t) {
     TR_ASSERT(t, !ThemeImporter::Import("<?xml version=\"1.0\"?><plist></plist>").isOk);
     TR_ASSERT(t, !ThemeImporter::Import("{ not json").isOk);
     TR_ASSERT(t, !ThemeImporter::Import(R"json({ "something": "else" })json").isOk);
+    return kTR_Pass;
+}
+
+// Where a theme comes from and its licence: the theme's own keys win, the package fills the rest, and both reach
+// colors.json; a theme with no licence anywhere is reported
+DLL_EXPORT int test_themeimport_provenance(ITesting *t) {
+    auto package = ThemeImporter::FromPackageJson(R"json({
+        "name": "theme-defaults", "publisher": "vscode", "license": "MIT",
+        "repository": { "type": "git", "url": "https://github.com/microsoft/vscode.git" }
+    })json");
+    TR_ASSERT(t, package.license == "MIT");
+    TR_ASSERT(t, package.author == "vscode");
+    TR_ASSERT(t, package.source == "https://github.com/microsoft/vscode.git");
+    TR_ASSERT(t, ThemeImporter::FromPackageJson(R"json({ "author": { "name": "Sarah" } })json").author == "Sarah");
+
+    TR_ASSERT(t, ThemeImporter::CopyrightLine("MIT License\n\n  Copyright (c) 2015 - present Microsoft Corporation  \n\nAll rights") ==
+                 "Copyright (c) 2015 - present Microsoft Corporation");
+    TR_ASSERT(t, ThemeImporter::CopyrightLine("no such line\n").empty());
+
+    package.copyright = "Copyright (c) Microsoft Corporation";
+    auto result = ThemeImporter::Import(R"json({
+        "name": "Mine", "author": "Theme Author",
+        "colors": { "editor.background": "#101010", "editor.foreground": "#e0e0e0" }
+    })json", {}, package);
+    TR_ASSERT(t, result.isOk);
+    TR_ASSERT(t, result.provenance.author == "Theme Author");
+    TR_ASSERT(t, result.provenance.license == "MIT");
+    TR_ASSERT(t, result.provenance.copyright == "Copyright (c) Microsoft Corporation");
+    auto colors = json::parse(result.colorsJson);
+    TR_ASSERT(t, colors["author"] == "Theme Author");
+    TR_ASSERT(t, colors["license"] == "MIT");
+    TR_ASSERT(t, colors["source"] == "https://github.com/microsoft/vscode.git");
+
+    auto unlicensed = ThemeImporter::Import(R"json({ "name": "Bare", "colors": { "editor.background": "#101010" } })json");
+    TR_ASSERT(t, unlicensed.isOk);
+    TR_ASSERT(t, !json::parse(unlicensed.colorsJson).contains("license"));
+    bool isReported = false;
+    for (auto &line : unlicensed.report) {
+        isReported = isReported || (line.find("no licence") != std::string::npos);
+    }
+    TR_ASSERT(t, isReported);
     return kTR_Pass;
 }

@@ -4,7 +4,7 @@ Durable list of known defects we've chosen NOT to fix in-place yet, with enough 
 up cold. Referenced from CLAUDE.md ("Documentation") so it surfaces each session.
 
 Numbers are stable (commits, docs and notes refer to them) - a fixed bug is removed, never renumbered.
-**Next bug is #30.**
+**Next bug is #31.**
 
 ---
 
@@ -306,4 +306,3 @@ terminal should reproduce it without Claude Code.
 does (CLion finds it through the system's own fallback). Fix: [`system-font-fallback.md`](system-font-fallback.md).
 `/usage` itself is still unexplained.
 2026-11-11: system font fallback merged; `/context` draws in the app. Open: whether `/usage` still fails.
-

@@ -69,7 +69,7 @@ cd cmake-build-debug && trun -l ./libutests.so                     # list
 
 Test source files live in `utests/`. Each `test_<module>.cpp` corresponds to one module; `test_main.cpp` initializes the editor singleton for all tests. Test functions are `extern "C"` (or `DLL_EXPORT`) and discovered by exported symbol name — adding a new case is just a new function (+ a forward declaration where the file uses one).
 
-**Verified-green set** (779 tests, run from `cmake-build-debug/`):
+**Verified-green set** (782 tests, run from `cmake-build-debug/`):
 `trun -m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,keymapping,hexprojection,bytestream,hexview,indent,session,markdown,folderscanner,foldermonitor,treeview,textbuffer,mouseclicktracker,wrapprojection,config,modal,find,codeindex,themeimport,exclusion,process,gitstatus,reload,openfiles,glyphfont,yamllang,datalanguage,theme,minimap,overviewmap --sequential ./libutests.so`
 
 **Terminal library tests** are a separate trun lib, `gvttests` (`src/ext/gvt`, built on demand):
@@ -223,12 +223,13 @@ keymap (`workspace_keymap.yml`), not `default_keymap.yml`; a child keymap wins o
 
 ## Documentation
 
-Docs live under `docs/`. Two are *active references* — check them before touching related code:
+Docs live under `docs/`. Three are *active references* — check them before touching related code:
 - **`open-bugs.md`** — known-wrong code intentionally left unfixed, with cold-start context (read it
   before touching `AttributeAt`, word-nav, caret/goto-line code, or the tokenizer).
-- **`work-log.md`** — short index of completed + planned efforts (UI refactor, markdown, session cache;
-  planned: CMake cleanup) with the load-bearing decisions; each entry links to its deep-dive doc
-  (`ui-refactor.md`, `support-markdown.md`, `session-cache.md`, `cmake-cleanup.md`) for full detail.
+- **`hitlist.md`** — the ONE index of planned work, open bugs worth fixing included. New planned work (a design
+  note, a "later", a bug to fix) gets a row there when it is written down, wherever the detail lives.
+- **`work-log.md`** — short index of completed efforts with the load-bearing decisions; each entry links to its
+  deep-dive doc (`ui-refactor.md`, `support-markdown.md`, `session-cache.md`, `cmake-cleanup.md`) for full detail.
 
 ---
 

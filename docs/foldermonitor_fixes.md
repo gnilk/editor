@@ -1,5 +1,9 @@
 # Folder monitor — fixes & proposed architecture
 
+> **Status (2026-11-13): built and ON** (`foldermonitor.enabled: yes` in the shipped config). Implemented on both
+> backends by 2026-11-09 (`5af6b61`, `b3c073d`, `b4be6b6`). The "still disabled" lines below are from when this was
+> written. Open: open-bugs #21 (a file argument before the folder leaves that folder unmonitored).
+
 > Written 2026-10-22 from a cold read of `src/Core/FolderMonitor.{h,cpp}`,
 > `src/Core/macOS/MacOSFolderMonitor.{h,cpp}`, `src/Core/Linux/LinuxFolderMonitor.{h,cpp}` and the consumer
 > seam in `src/Core/Workspace.{h,cpp}` / `WorkspaceView.cpp`.

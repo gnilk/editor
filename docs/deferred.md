@@ -3,8 +3,8 @@
 Work that was **explicitly deferred or left out of scope** from otherwise-shipped features. Each entry
 points back to the source doc (now under [`done/`](done/) or [`partially_done/`](partially_done/)) and
 the section that has the full context. This is *deferred* work — distinct from active bugs
-([`open-bugs.md`](open-bugs.md)) and the planned-but-unstarted efforts indexed in
-[`work-log.md`](work-log.md).
+([`open-bugs.md`](open-bugs.md)) and the planned work indexed in
+[`hitlist.md`](hitlist.md).
 
 ---
 

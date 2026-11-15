@@ -1,6 +1,6 @@
 # Languages as data - a generic syntax engine, then CMake and Python
 
-Status: **plan** (2026-11-11), for review. Nothing built.
+Status: phase 1 built and merged (2026-11-13: `DataLanguage`, `LanguageFileSet`, `json.yml`); phases 2-4 planned (hitlist #11, #12, #14).
 
 More languages - CMake and Python first - and a way to add one **without recompiling**. A language is one file
 (`python.yml`): its name, the extensions it claims, who wrote it and when, and the definitions the tokenizer needs. The

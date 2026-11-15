@@ -1,6 +1,8 @@
 //
 // Created by gnilk on 17.06.26.
 //
+#include <algorithm>
+
 #include "FolderScanner.h"
 
 using namespace gedit;
@@ -12,7 +14,57 @@ namespace fs = std::filesystem;
 void FolderScanner::Scan(const fs::path &root, const Options &opts) {
     // Build the exclude matcher once and thread it through the recursion (not rebuilt per directory).
     FsFilter filter(opts.exclude);
-    ScanDir(root, 0, opts, filter);
+    if (opts.maxEntries == 0) {
+        ScanDir(root, 0, opts, filter);
+        return;
+    }
+    // A budget is a depth: counted first, then the same depth-first walk, so the callbacks nest as always
+    auto bounded = opts;
+    bounded.maxDepth = LevelsWithinBudget(root, opts, filter);
+    ScanDir(root, 0, bounded, filter);
+}
+
+// How many levels below root fit in opts.maxEntries, counting what the walk would hand out. A level is taken
+// whole or not at all, and the top one always. The count stops at the first entry past the budget, so it costs
+// no more than the walk itself. A folder the rules ignore is one entry - its consumer leaves it closed.
+int FolderScanner::LevelsWithinBudget(const fs::path &root, const Options &opts, const FsFilter &filter) {
+    std::vector<fs::path> level = {root};
+    size_t numTaken = 0;
+    int numLevels = 0;
+    while (!level.empty() && (numLevels < opts.maxDepth)) {
+        std::vector<fs::path> nextLevel;
+        for (const auto &dir : level) {
+            std::error_code ec;
+            for (const auto &entry : fs::directory_iterator(dir, ec)) {
+                const auto &path = entry.path();
+                if (IsPruned(path, opts, filter)) {
+                    continue;
+                }
+                numTaken++;
+                if ((numTaken > opts.maxEntries) && (numLevels > 0)) {
+                    return numLevels;
+                }
+                if (IsLookedInto(path, opts)) {
+                    nextLevel.push_back(path);
+                }
+            }
+        }
+        numLevels++;
+        level = std::move(nextLevel);
+    }
+    return std::max(numLevels, 1);
+}
+
+// A folder the budget's count goes into: not a symlink (unless followed), not ignored
+bool FolderScanner::IsLookedInto(const fs::path &path, const Options &opts) {
+    std::error_code ec;
+    if (!fs::is_directory(path, ec)) {
+        return false;
+    }
+    if (!opts.followSymlinks && fs::is_symlink(path, ec)) {
+        return false;
+    }
+    return (opts.rules == nullptr) || opts.rules->IsIncluded(path, true);
 }
 
 // True if `dir` is an ancestor of (or equal to) `refPath` — the reference lies within dir's subtree, so

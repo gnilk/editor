@@ -38,6 +38,7 @@ namespace gedit {
             std::vector<std::string> exclude;    // FS-2: static prune (build dirs / dotfiles)
             ExclusionRules::Ref rules = nullptr; // a project root's rules: what they exclude is pruned...
             bool skipIgnored = false;            // ...and what '.gitignore' ignores too, when set
+            size_t maxEntries = 0;               // Scan only: whole levels while they fit, the top one always; 0 = no budget
         };
 
     public:
@@ -68,6 +69,8 @@ namespace gedit {
     private:
         void ScanDir(const std::filesystem::path &dir, int depth, const Options &opts, const FsFilter &filter);
         void ScanDirToReference(const std::filesystem::path &dir, const std::filesystem::path &refPath, int depth, const Options &opts, const FsFilter &filter);
+        static int LevelsWithinBudget(const std::filesystem::path &root, const Options &opts, const FsFilter &filter);
+        static bool IsLookedInto(const std::filesystem::path &path, const Options &opts);
         static bool IsPruned(const std::filesystem::path &path, const Options &opts, const FsFilter &filter);
     };
 }

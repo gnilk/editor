@@ -11,6 +11,7 @@
 //
 #include <testinterface.h>
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -36,6 +37,10 @@ DLL_EXPORT int test_folderscanner_exclude_glob(ITesting *t);
 DLL_EXPORT int test_folderscanner_exclude_relative(ITesting *t);
 DLL_EXPORT int test_folderscanner_fully_scanned(ITesting *t);
 DLL_EXPORT int test_folderscanner_reference(ITesting *t);
+DLL_EXPORT int test_folderscanner_budget_levels(ITesting *t);
+DLL_EXPORT int test_folderscanner_budget_firstlevel(ITesting *t);
+DLL_EXPORT int test_folderscanner_budget_fits(ITesting *t);
+DLL_EXPORT int test_folderscanner_budget_ignored(ITesting *t);
 }
 
 namespace {
@@ -460,5 +465,105 @@ DLL_EXPORT int test_folderscanner_reference(ITesting *t) {
     TR_ASSERT(t, LeftFullyScanned(events, "sibB", false));
     // 'buried.txt' lives only inside the un-descended siblings, so it must never be emitted.
     TR_ASSERT(t, IndexOf(events, FsEvent::Kind::File, "buried.txt") == -1);
+    return kTR_Pass;
+}
+
+namespace {
+    // Entries the walk handed out: every folder and file, wherever it sits
+    int NumEmitted(const std::vector<FsEvent> &events) {
+        return Count(events, FsEvent::Kind::EnterDir) + Count(events, FsEvent::Kind::File);
+    }
+
+    int MaxDepth(const std::vector<FsEvent> &events) {
+        int deepest = -1;
+        for (const auto &e : events) {
+            deepest = std::max(deepest, e.depth);
+        }
+        return deepest;
+    }
+}
+
+// The budget takes whole levels: levels 0 and 1 (3 + 10 entries) fit in 20, level 2 (50 more) doesn't, so the
+// walk stops above it and the folders on level 1 stay frontiers - read when expanded
+DLL_EXPORT int test_folderscanner_budget_levels(ITesting *t) {
+    TempTree tree("budget_levels");
+    tree.File("c.txt");
+    for (int i = 0; i < 5; i++) {
+        tree.File("a/f" + std::to_string(i) + ".txt");
+    }
+    for (int i = 0; i < 4; i++) {
+        tree.File("b/f" + std::to_string(i) + ".txt");
+    }
+    for (int i = 0; i < 50; i++) {
+        tree.File("a/deep/f" + std::to_string(i) + ".txt");
+    }
+
+    FolderScanner::Options opts;
+    opts.maxEntries = 20;
+    auto events = Walk(tree.root, opts);
+
+    TR_ASSERT(t, NumEmitted(events) <= 20);
+    TR_ASSERT(t, NumEmitted(events) == 13);
+    TR_ASSERT(t, MaxDepth(events) == 1);
+    TR_ASSERT(t, LeftFullyScanned(events, "a", true));
+    TR_ASSERT(t, LeftFullyScanned(events, "deep", false));
+    return kTR_Pass;
+}
+
+// The top level is always read, however big - an empty tree for a folder with many files would be worse
+DLL_EXPORT int test_folderscanner_budget_firstlevel(ITesting *t) {
+    TempTree tree("budget_first");
+    for (int i = 0; i < 30; i++) {
+        tree.File("f" + std::to_string(i) + ".txt");
+    }
+    tree.File("sub/x.txt");
+
+    FolderScanner::Options opts;
+    opts.maxEntries = 5;
+    auto events = Walk(tree.root, opts);
+
+    TR_ASSERT(t, NumEmitted(events) == 31);
+    TR_ASSERT(t, MaxDepth(events) == 0);
+    TR_ASSERT(t, LeftFullyScanned(events, "sub", false));
+    return kTR_Pass;
+}
+
+// A tree inside the budget is walked as it is without one
+DLL_EXPORT int test_folderscanner_budget_fits(ITesting *t) {
+    TempTree tree("budget_fits");
+    tree.File("a/b/c/deep.txt");
+    tree.File("a/x.txt");
+    tree.File("y.txt");
+
+    auto unbounded = Walk(tree.root);
+    FolderScanner::Options opts;
+    opts.maxEntries = 1000;
+    auto bounded = Walk(tree.root, opts);
+
+    TR_ASSERT(t, NumEmitted(bounded) == NumEmitted(unbounded));
+    TR_ASSERT(t, MaxDepth(bounded) == 3);
+    TR_ASSERT(t, LeftFullyScanned(bounded, "c", true));
+    return kTR_Pass;
+}
+
+// A git-ignored folder is one entry: what's inside isn't read up front, so it doesn't use up the budget. Without
+// that, 'build' (100 files) would keep 'src' from being read
+DLL_EXPORT int test_folderscanner_budget_ignored(ITesting *t) {
+    TempTree tree("budget_ignored");
+    std::ofstream(tree.root / ".gitignore") << "build/\n";
+    for (int i = 0; i < 100; i++) {
+        tree.File("build/o" + std::to_string(i) + ".o");
+    }
+    for (int i = 0; i < 3; i++) {
+        tree.File("src/f" + std::to_string(i) + ".cpp");
+    }
+
+    FolderScanner::Options opts;
+    opts.rules = ExclusionRules::Create(tree.root, {}, true);
+    opts.maxEntries = 10;
+    auto events = Walk(tree.root, opts);
+
+    TR_ASSERT(t, LeftFullyScanned(events, "src", true));
+    TR_ASSERT(t, IndexOf(events, FsEvent::Kind::File, "f0.cpp") >= 0);
     return kTR_Pass;
 }

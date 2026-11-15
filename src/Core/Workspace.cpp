@@ -1,6 +1,7 @@
 //
 // Created by gnilk on 09.05.23.
 //
+#include <algorithm>
 #include <filesystem>
 #include <unordered_map>
 #include <unordered_set>
@@ -860,7 +861,7 @@ GitStatus::kChange Workspace::ChangeOf(const Node::Ref &node) {
 
 // Drive the pure FolderScanner over `folder`, building the Node subtree under rootNode. The adapter
 // only supplies the parent for each discovered entry; ApplyFsEntry stays THE single fs->tree mutator and
-// the exclude/depth bounds now live in the scanner (not this recursion). This is the eager scan, so
+// the exclude/depth/entry bounds now live in the scanner (not this recursion). This is the eager scan, so
 // onEnterDir always descends. It runs SYNCHRONOUSLY on the calling (main) thread — the background-
 // producer model in docs/folder-scanner.md §7 is gated on open-bugs #6 (Runloop::SwapQueues) and is
 // deliberately NOT used here.
@@ -872,6 +873,8 @@ bool Workspace::ReadFolderToNode(Node::Ref rootNode, const std::filesystem::path
     // Operational depth backstop only (symlink cycles are handled by the scanner's no-follow default);
     // generous so a legitimate deep tree is never truncated. NOT the build-dir filter (that's exclude).
     opts.maxDepth = Config::Instance()["workspace"].GetInt("max_scan_depth", 6);
+    // What's read up front, on this thread: whole levels while they fit, the rest is read when expanded
+    opts.maxEntries = (size_t)std::max(0, Config::Instance()["workspace"].GetInt("max_scan_entries", 5000));
 
     // The adapter's parent stack, kept in lock-step with onEnterDir/onLeaveDir (the scanner pairs them
     // for every directory, even a vetoed one), so push/pop balance regardless of descent.

@@ -63,7 +63,8 @@ Built and unit-tested, not yet tried by hand on that platform. Linux = SDL2 (Ctr
 |---|---|---|---|---|
 | 16 | Data loss: a Latin-1 file is truncated on open and save | open-bugs #15 | half a day | the only data-loss bug - first |
 | 38 | A git process thread outlives exit and posts into the destroyed Runloop queue | open-bugs #32 | hours | ASan only, at exit (test teardown; the app on quit with git running); main too |
-| 40 | User documentation: the keyboard layout per platform (the shipped keymaps, modifier groups), the shipped dot/quick commands, the mouse bindings | `docs/keybindings.md` (to write) | a day | discussed, never written down; generate from the keymap YAML where possible so it can't drift; ties in with #8 |
+| 40 | User documentation: the keyboard layout per platform (the shipped keymaps, modifier groups), the shipped dot/quick commands, the mouse bindings | `docs/usage.md` (a short first version, 2026-11-16) | a day | discussed, never written down; generate from the keymap YAML where possible so it can't drift; ties in with #8 |
+| 41 | Gaps found writing `usage.md`: quick mode `g` (GotoLine) is bound but nothing handles it; no word left/right on macOS; no drag-to-select in the editor; `.openfolder` is registered in `jsplugs.yml` but `Scripts/openfolder.js` doesn't exist (see #36) | `docs/usage.md` | hours | small, each on its own |
 | 17 | A config list overwrites the default list by position | open-bugs #28 | half a day | idea: an immutable merge that returns a new tree; `LanguageFileSet::Merge` is the model |
 | 11 | Languages phase 2: CMake and Python (case-insensitive lists, generic numbers, the prefix rule) | `support-languages.md` | 1-2 days | used daily |
 | 12 | Languages phase 3: the user directory, `.lang_reload`, `override: yes` | `support-languages.md` | a day | user language dirs aren't read yet |

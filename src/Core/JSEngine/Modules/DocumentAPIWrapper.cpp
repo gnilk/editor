@@ -20,6 +20,8 @@ void DocumentAPIWrapper::RegisterModule(duk_context *ctx) {
     dukglue_register_method(ctx, &DocumentAPIWrapper::IsModified, "IsModified");
     dukglue_register_method(ctx, &DocumentAPIWrapper::IsChangedOnDisk, "IsChangedOnDisk");
     dukglue_register_method(ctx, &DocumentAPIWrapper::Reload, "Reload");
+    dukglue_register_method(ctx, &DocumentAPIWrapper::GetEncoding, "GetEncoding");
+    dukglue_register_method(ctx, &DocumentAPIWrapper::SetEncoding, "SetEncoding");
     dukglue_register_method(ctx, &DocumentAPIWrapper::ReformatFile, "ReformatFile");
     dukglue_register_method(ctx, &DocumentAPIWrapper::ReformatBlock, "ReformatBlock");
     dukglue_register_method(ctx, &DocumentAPIWrapper::IsReformatEnabled, "IsReformatEnabled");
@@ -67,6 +69,20 @@ bool DocumentAPIWrapper::IsChangedOnDisk() {
         return false;
     }
     return document->IsChangedOnDisk();
+}
+
+const std::string DocumentAPIWrapper::GetEncoding() {
+    if (document == nullptr) {
+        return {};
+    }
+    return document->GetEncoding();
+}
+
+bool DocumentAPIWrapper::SetEncoding(const char *name) {
+    if ((document == nullptr) || (name == nullptr)) {
+        return false;
+    }
+    return document->SetEncoding(name);
 }
 
 bool DocumentAPIWrapper::Reload() {

@@ -150,6 +150,8 @@ static void Recolour(const fs::path &file, const fs::path &root) {
         }
     });
     printf("  %zu lines\n", buffer->NumLines());
+    // A real load: the whole file read, its encoding detected (a UTF-8 check over every byte), decoded, split
+    timed("load the file (detect + decode + split)", [&]() { TextBuffer::CreateBufferFromFile(file); });
     timed("first full parse, no workspace names", [&]() { buffer->SetLanguage(language); });
     // Proof that a recolour did something - a fast one that changed nothing proves nothing
     auto colouredTokens = [&buffer]() {
@@ -191,7 +193,7 @@ static void Recolour(const fs::path &file, const fs::path &root) {
     });
     // Back to clean after an undo: what a load/save adds on the UI thread (every line hashed - the baseline), and the
     // check after a pause in typing (on the parse thread in the app; only the edited line is hashed again)
-    timed("clean baseline: hash every line (load/save)", [&]() { buffer->MarkInSyncWithDisk(); });
+    timed("clean baseline: hash every line (load/save)", [&]() { buffer->MarkInSyncWithDisk(buffer->GetEncoding()); });
     buffer->LineAt(idxMiddle)->Insert(0, U'x');
     timed("clean check after a pause (one line edited)", [&]() { buffer->RequestLineHashes(); });
     // What a parse job holds the buffer's structural lock for (open-bugs #31) - an Enter waits at most this long

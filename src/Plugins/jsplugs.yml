@@ -106,6 +106,13 @@ commands:
     description: Reload active buffer from disk (asks when it has changes not yet saved; '!' reloads anyway)
     script: Scripts/reload.js
   -
+    name: encoding
+    short: enc
+    description: Show the active buffer's encoding; '.encoding utf-8' (cp1252, latin1, utf-16le, ...) sets what the next save writes
+    script: Scripts/encoding.js
+    arguments:
+      - string, encoding name (optional)
+  -
     name: fm_file
     short: fmf
     description: Reformat (reindent) the whole active buffer - not for languages where indentation is syntax (YAML)

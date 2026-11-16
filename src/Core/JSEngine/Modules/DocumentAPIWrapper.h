@@ -37,6 +37,8 @@ namespace gedit {
         bool ReformatBlock();
         bool IsReformatEnabled();
         const std::string GetLanguage();
+        const std::string GetEncoding();
+        bool SetEncoding(const char *name);
 
         const std::string GetName();
         const std::string GetFileName();

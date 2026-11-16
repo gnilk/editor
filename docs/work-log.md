@@ -8,6 +8,25 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## Text encodings: a Latin-1 file is no longer cut on open and save (2026-11-16) ✅
+
+Data loss (open-bugs #15): the load decoded each line as strict UTF-8, stopped at the first other byte, and nobody
+checked - `/* Kolla om oj\xe4mn bredd */` loaded as `/* Kolla om oj`, and the save wrote it back that way.
+**Load-bearing decisions:** `TextEncoding` (`src/Core/TextEncoding.{h,cpp}`) detects - a BOM is exact (UTF-8,
+UTF-16 LE/BE), valid UTF-8 is UTF-8, anything else is the single-byte `main.encoding_fallback` (default `cp1252`;
+single-byte encodings can't be told apart, so it's a setting, not a guess). cp1252's five undefined bytes keep their C1
+code point, so every byte decodes and encodes back to itself. The buffer (UTF-32) remembers the encoding; the status
+line shows it when it isn't plain UTF-8. **Save policy `main.convert_encoding: keep`** (the user's call, not the
+`prompt` planned in October: the autosave fires a second after typing, so a prompt would pop up mid-edit) - a save
+writes the file's own encoding, byte for byte; `auto` always writes UTF-8. The save encodes everything before it
+opens the file, so a character the encoding can't hold (an emoji in a cp1252 file) stops the save with a message and
+leaves the file as it was. `.encoding [name]` shows it / converts on purpose (a change to save, also for the
+undo-clean check). Git's version (`SplitLines`, the gutter) and a reload decode the same way; the code index already
+reads leniently (`ReplaceInvalidUtf8`). Not changed: CRLF still becomes LF. Tests: the `encoding` module (12 cases;
+the round trip of the pcx.c line failed before).
+
+---
+
 ## Undo clears the `*`: a buffer edited back to what was loaded/saved is clean again (2026-11-16) ✅
 
 A mistyped `Cmd+<key>` and an undo left the file marked modified. **Load-bearing decisions:** no undo-position

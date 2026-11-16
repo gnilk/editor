@@ -91,7 +91,6 @@ std::string glbDefaultConfig=""\
 "  backend: ncurses"\
 "  keymap: default"\
 "macos:"\
-"  allow_kbd_hook: yes"\
 "ncurses:"\
 "editor:"\
 "commandmode:"\

@@ -7,6 +7,10 @@
 #
 # The plugins land in <asset dir>/Plugins.
 #
+# A -P script sets no policies of its own: without this, CMake 3.x runs it with CMP0057 OLD and `IN_LIST` is an error
+# (CMake 4 has no OLD for it, so the Mac never saw it).
+cmake_minimum_required(VERSION 3.28)
+
 foreach(var RESOURCES_DIR PLUGINS_DIR DEST_DIR)
     if (NOT DEFINED ${var})
         message(FATAL_ERROR "MirrorAssets: ${var} not set")

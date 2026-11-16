@@ -1032,7 +1032,7 @@ extern "C" char ** environ;
 
 bool Editor::TakeStartedFromUI() {
     static const char *kStartedFromUI = "GEDIT_MACOS_STARTED_FROM_UI";
-    bool isSet = (std::getenv(kStartedFromUI) != nullptr);
+    [[maybe_unused]] bool isSet = (std::getenv(kStartedFromUI) != nullptr);
     unsetenv(kStartedFromUI);
 #ifdef GEDIT_MACOS
     return isSet;

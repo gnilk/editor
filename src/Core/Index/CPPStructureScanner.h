@@ -56,7 +56,7 @@ namespace gedit {
         struct Scope {
             kScope kind = kScope::kFile;
             int idxSymbol = -1;
-            std::u32string name;            // namespace / class name - for qualified names and constructors
+            std::u32string name = {};       // namespace / class name - for qualified names and constructors
             bool isEnumClass = false;
             bool isTypedef = false;         // 'typedef struct {...} Name;' - named at the ';'
             uint32_t openLine = 0;          // the line of its '{'

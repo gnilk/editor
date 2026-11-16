@@ -29,6 +29,7 @@ DLL_EXPORT int test_themeimport_sublime(ITesting *t);
 DLL_EXPORT int test_themeimport_complete(ITesting *t);
 DLL_EXPORT int test_themeimport_rejects(ITesting *t);
 DLL_EXPORT int test_themeimport_provenance(ITesting *t);
+DLL_EXPORT int test_themeimport_webcolor(ITesting *t);
 }
 
 using ThemeColors = std::map<std::string, std::map<std::string, ColorRGBA>>;
@@ -390,5 +391,30 @@ DLL_EXPORT int test_themeimport_provenance(ITesting *t) {
         isReported = isReported || (line.find("no licence") != std::string::npos);
     }
     TR_ASSERT(t, isReported);
+    return kTR_Pass;
+}
+
+// open-bugs #16: '#rgb' doubles each digit ('#fff' is white, not near black); 4 and 8 digits carry alpha
+DLL_EXPORT int test_themeimport_webcolor(ITesting *t) {
+    SublimeConfigColorScript scriptEngine;
+    scriptEngine.RegisterBuiltIn();
+    auto color = [&](const std::string &script, ColorRGBA &out) {
+        auto [isValid, value] = scriptEngine.ExecuteScript(script);
+        if (!isValid || !value.IsColor()) {
+            return false;
+        }
+        out = value.Color();
+        return true;
+    };
+    auto isAlpha = [](const ColorRGBA &c, int alpha) { return std::abs(c.A() * 255.0f - (float)alpha) < 0.5f; };
+
+    ColorRGBA c;
+    TR_ASSERT(t, color("#1e2a3b", c) && IsColor(c, 0x1e, 0x2a, 0x3b) && isAlpha(c, 255));
+    TR_ASSERT(t, color("#fff", c) && IsColor(c, 255, 255, 255) && isAlpha(c, 255));
+    TR_ASSERT(t, color("#a1c", c) && IsColor(c, 0xaa, 0x11, 0xcc));
+    TR_ASSERT(t, color("#a1c8", c) && IsColor(c, 0xaa, 0x11, 0xcc) && isAlpha(c, 0x88));
+    TR_ASSERT(t, color("#1e2a3b80", c) && IsColor(c, 0x1e, 0x2a, 0x3b) && isAlpha(c, 0x80));
+    TR_ASSERT(t, !color("#12345", c));
+    TR_ASSERT(t, !color("#zzzzzz", c));
     return kTR_Pass;
 }

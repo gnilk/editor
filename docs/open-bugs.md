@@ -4,7 +4,7 @@ Durable list of known defects we've chosen NOT to fix in-place yet, with enough 
 up cold. Referenced from CLAUDE.md ("Documentation") so it surfaces each session.
 
 Numbers are stable (commits, docs and notes refer to them) - a fixed bug is removed, never renumbered.
-**Next bug is #32.**
+**Next bug is #33.**
 
 ---
 
@@ -293,4 +293,33 @@ vector holding the `Line::Ref`s.
 `addr2line -f -C -i -e libutests.so`. Forked (non-`--sequential`) mode reports no results under that preload.
 
 **Repro:** Linux, `cd cmake-build-debug && trun -m workspace -t reopen --sequential ./libutests.so` in a loop.
+
+**Status (2026-11-16): fixed on branch `fix/parse-thread-lines-race` (ad46d9e), not merged.** Only the UI thread
+changes `lines`, under `linesLock`; every parse-thread walk copies the Refs under it (`SnapshotLines`) and walks the
+copy. `test_textbuffer_thstructural` crashed 9/10 on the Mac before, 0/10 after. Linux: ASan clean (reopen x90,
+thstructural x20; main gave 11 reports in 60), green set 6/6. sqlite3.c: the copy (the lock hold) is ~2 ms; every
+region job pays it on the parse thread - a copy kept until lines are added/removed would remove that. Delete this
+entry when the branch is merged.
+
+## 32. A git `Process` thread outlives `exit()` and posts into Runloop's destroyed message queue (use-after-free)
+
+**Where:** `Process::Finish` (`src/Core/Process.cpp:89`) calls `onExit` on the process's own thread, which is
+detached (`src/Core/unix/ProcessUnix.cpp:76`). `onExit` posts to the Runloop; its queues are statics
+(`Runloop::msgQueueA/B`, `src/Core/Runloop.cpp:24-25`).
+
+**What's wrong (ASan, Linux, 2026-11-16, on `main` and the #31 fix branch):** WRITE of size 8 on the process thread
+(`Process::Finish` <- `ProcessUnix::RunLoop` <- the `DoStart` lambda), into a `SafeQueue<unique_ptr<Runloop::Message>>`
+freed by the main thread in `__run_exit_handlers` (the statics' destructors). Nothing joins or cancels a running
+`Process` before exit, so a `git status` still running when the process exits reports into freed memory.
+
+**Test or app:** seen as test teardown (`test_workspace_reopen` starts a git process; trun exits while it runs), ~4/60
+runs under ASan; the report is usually cut to 3 lines because the process is exiting. The app can do the same on quit
+with a git status/diff in flight. Delaying the end of exit by 4 s (an `atexit` sleep in a preload shim) gave 0/160.
+
+**Fix direction (not decided):** keep running processes in a registry and stop/join them before exit (Editor
+teardown), or give `Process` a "detached from the app" flag that `onExit` checks - a detached thread can't be joined,
+so the first needs the thread kept.
+
+**Repro:** Linux ASan build of utests (see #31 for the setup), `trun -m workspace -t reopen --sequential` in a loop,
+with an `atexit(sleep(4))` preload so the report gets written in full.
 

@@ -62,7 +62,8 @@ Built and unit-tested, not yet tried by hand on that platform. Linux = SDL2 (Ctr
 | # | Item | Where | Size | Notes |
 |---|---|---|---|---|
 | 16 | Data loss: a Latin-1 file is truncated on open and save | open-bugs #15 | half a day | the only data-loss bug - first |
-| 37 | Intermittent segfault in the test run: a parse thread recolours freed lines | open-bugs #31 | hours? | Linux, ~half the runs, main too; a crash in the app if a buffer can die mid-job |
+| 37 | Intermittent segfault in the test run: a parse thread walks `lines` while the UI thread changes them | open-bugs #31 | - | FIXED on `fix/parse-thread-lines-race`, verified Mac + Linux ASan; waiting for the merge |
+| 38 | A git process thread outlives exit and posts into the destroyed Runloop queue | open-bugs #32 | hours | ASan only, at exit (test teardown; the app on quit with git running); main too |
 | 17 | A config list overwrites the default list by position | open-bugs #28 | half a day | idea: an immutable merge that returns a new tree; `LanguageFileSet::Merge` is the model |
 | 11 | Languages phase 2: CMake and Python (case-insensitive lists, generic numbers, the prefix rule) | `support-languages.md` | 1-2 days | used daily |
 | 12 | Languages phase 3: the user directory, `.lang_reload`, `override: yes` | `support-languages.md` | a day | user language dirs aren't read yet |

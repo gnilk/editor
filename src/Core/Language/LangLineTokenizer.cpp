@@ -15,7 +15,7 @@
 #include "Core/Language/SyntaxRegion.h"
 using namespace gedit;
 
-size_t LangLineTokenizer::ParseRegion(std::vector<Line::Ref> &lines, size_t idxLineStart, size_t idxLineEnd) {
+size_t LangLineTokenizer::ParseRegion(const std::vector<Line::Ref> &lines, size_t idxLineStart, size_t idxLineEnd) {
     auto [idxStart, idxEnd] = ComputeParseRegion(lines, idxLineStart, idxLineEnd);
     auto logger = gnilk::Logger::GetLogger("LangLineRegion");
 
@@ -92,7 +92,7 @@ size_t LangLineTokenizer::FindParseRegionEnd(const std::vector<Line::Ref> &lines
 //
 // Parse a set of lines
 //
-void LangLineTokenizer::ParseLines(std::vector<Line::Ref> &lines) {
+void LangLineTokenizer::ParseLines(const std::vector<Line::Ref> &lines) {
     if (!ResetStateStack()) {
         return;
     }

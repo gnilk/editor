@@ -174,6 +174,21 @@ static void Recolour(const fs::path &file, const fs::path &root) {
     }
     timed("full parse with workspace names", [&]() { buffer->Reparse(); });
     timed("collect structure (each pause in typing)", [&]() { buffer->CollectStructure(); });
+    // What typing costs the parse thread (threads off: the region parse runs inline) - one character into a line in
+    // the middle, then an Enter there; each followed by the region parse the edit queues. Times are for 100 edits.
+    auto idxMiddle = buffer->NumLines() / 2;
+    timed("region parse after a keystroke (x100)", [&]() {
+        for (int i = 0; i < 100; i++) {
+            buffer->LineAt(idxMiddle)->Insert(0, U'x');
+            buffer->ReparseRegion(idxMiddle, idxMiddle);
+        }
+    });
+    timed("region parse after an Enter (x100)", [&]() {
+        for (int i = 0; i < 100; i++) {
+            buffer->Insert(idxMiddle, U"");
+            buffer->ReparseRegion(idxMiddle, idxMiddle + 1);
+        }
+    });
     // What a parse job holds the buffer's structural lock for (open-bugs #31) - an Enter waits at most this long
     timed("copy the line refs (parse thread's lock hold)", [&]() {
         std::vector<Line::Ref> snapshot = buffer->Lines();

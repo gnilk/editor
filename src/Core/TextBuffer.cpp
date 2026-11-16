@@ -133,6 +133,10 @@ void TextBuffer::Close() {
         reparseThread->join();
         reparseThread = nullptr;
     }
+    {
+        std::lock_guard<std::mutex> guard(linesLock);
+        linesSnapshot = nullptr;
+    }
     // Independent of the parse thread - without one (single-threaded parser, an empty file, no language)
     // the state used to stay 'loaded' and the reopen refused to load.
     if ((bufferState == kBuffer_Changed) || (bufferState == kBuffer_Loaded)) {
@@ -263,7 +267,8 @@ void TextBuffer::ExecuteParseJob(const ParseJob::Ref &job) {
 void TextBuffer::ExecuteFullParse() {
     // Every line is about to be coloured - nothing to recolour for a new answer
     RefreshWorkspaceNames();
-    auto snapshot = SnapshotLines();
+    auto snapshotRef = SnapshotLines();
+    auto &snapshot = *snapshotRef;
     auto tokenizer = ParserTokenizer();
     tokenizer.ParseLines(snapshot);
     // The names were applied while parsing - new names only need the colours redone, no lexing
@@ -278,7 +283,8 @@ void TextBuffer::ExecuteFullParse() {
 
 size_t TextBuffer::ExecuteRegionParse(size_t idxLineStart, size_t idxLineEnd) {
     // The job's line numbers were taken when it was queued - lines may have gone since
-    auto snapshot = SnapshotLines();
+    auto snapshotRef = SnapshotLines();
+    auto &snapshot = *snapshotRef;
     if (snapshot.empty()) {
         return 0;
     }
@@ -307,14 +313,26 @@ size_t TextBuffer::ExecuteRegionParse(size_t idxLineStart, size_t idxLineEnd) {
 }
 
 // The parse thread's view of the lines: the Refs keep each line alive, so a line deleted meanwhile is only
-// coloured for nothing; a line inserted meanwhile comes with its own region parse.
-std::vector<Line::Ref> TextBuffer::SnapshotLines() {
-    std::lock_guard<std::mutex> guard(linesLock);
-    return lines;
+// coloured for nothing; a line inserted meanwhile comes with its own region parse. Copied again only when lines
+// were added or removed since the last copy - the old copy is let go outside the lock, on the caller's thread.
+TextBuffer::LinesSnapshot TextBuffer::SnapshotLines() {
+    LinesSnapshot previous = nullptr;
+    LinesSnapshot current = nullptr;
+    {
+        std::lock_guard<std::mutex> guard(linesLock);
+        if ((linesSnapshot == nullptr) || (snapshotGeneration != linesGeneration)) {
+            previous = std::move(linesSnapshot);
+            linesSnapshot = std::make_shared<const std::vector<Line::Ref>>(lines);
+            snapshotGeneration = linesGeneration;
+        }
+        current = linesSnapshot;
+    }
+    return current;
 }
 
 void TextBuffer::ClearLines() {
     std::lock_guard<std::mutex> guard(linesLock);
+    linesGeneration++;
     lines.clear();
 }
 
@@ -367,7 +385,8 @@ void TextBuffer::PublishLineHashes() {
         return;
     }
     isLineHashesPending = false;
-    auto snapshot = SnapshotLines();
+    auto snapshotRef = SnapshotLines();
+    auto &snapshot = *snapshotRef;
     std::vector<uint64_t> hashes;
     hashes.reserve(snapshot.size());
     for (auto &line : snapshot) {
@@ -406,7 +425,8 @@ void TextBuffer::PublishStructure() {
 }
 
 FileStructure TextBuffer::CollectStructure() {
-    auto snapshot = SnapshotLines();
+    auto snapshotRef = SnapshotLines();
+    auto &snapshot = *snapshotRef;
     FileStructure fileStructure;
     fileStructure.numLines = snapshot.size();
     for (size_t idxLine = 0; idxLine < snapshot.size(); idxLine++) {
@@ -603,7 +623,7 @@ bool TextBuffer::PrepareStructureScanner() {
 
 // The token lists get the current names - no lexing
 void TextBuffer::RecolourSemanticNames() {
-    RecolourSemanticNames(SnapshotLines());
+    RecolourSemanticNames(*SnapshotLines());
 }
 
 void TextBuffer::RecolourSemanticNames(const std::vector<Line::Ref> &snapshot) {

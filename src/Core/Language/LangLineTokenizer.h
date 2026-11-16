@@ -240,7 +240,7 @@ namespace gedit {
         LangLineTokenizer() = default;
         virtual ~LangLineTokenizer() = default;
 
-        void ParseLines(std::vector<Line::Ref> &lines);
+        void ParseLines(const std::vector<Line::Ref> &lines);
 
         // Index fast path (docs/code-index.md §4.1): the same states as ParseLines over a whole text, without
         // Line objects, locks or attributes. Lines split on '\n' ('\r' before it dropped); every token is
@@ -249,7 +249,7 @@ namespace gedit {
         // Returns the number of lines.
         using TokenSink = std::function<void(size_t idxLine, const LangToken &token)>;
         size_t TokenizeText(const std::u32string &text, const TokenSink &onToken);
-        size_t ParseRegion(std::vector<Line::Ref> &lines, size_t idxLineStart, size_t idxLineEnd);
+        size_t ParseRegion(const std::vector<Line::Ref> &lines, size_t idxLineStart, size_t idxLineEnd);
         void ParseLine(const Line::Ref l, int &indentCounter);
         void ParseLineFromState(const std::string &newStartState, Line::Ref line);
 

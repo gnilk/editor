@@ -117,6 +117,7 @@ namespace gedit {
             });
             {
                 std::lock_guard<std::mutex> guard(linesLock);
+                linesGeneration++;
                 lines.push_back(newLine);
             }
             ChangeBufferState(kBuffer_Changed);
@@ -138,6 +139,7 @@ namespace gedit {
             });
             {
                 std::lock_guard<std::mutex> guard(linesLock);
+                linesGeneration++;
                 lines.insert(lines.begin() + idxPos, newLine);
             }
             ChangeBufferState(kBuffer_Changed);
@@ -149,6 +151,7 @@ namespace gedit {
             });
             {
                 std::lock_guard<std::mutex> guard(linesLock);
+                linesGeneration++;
                 lines.insert(it, newLine);
             }
             ChangeBufferState(kBuffer_Changed);
@@ -177,6 +180,7 @@ namespace gedit {
             line->Lock();
             {
                 std::lock_guard<std::mutex> guard(linesLock);
+                linesGeneration++;
                 lines.erase(lines.begin() + idxLine);
             }
             OnLineRemoved(*line);
@@ -278,7 +282,8 @@ namespace gedit {
         void ExecuteFullParse();
         size_t ExecuteRegionParse(size_t idxLineStart, size_t idxLineEnd);
         LangLineTokenizer ParserTokenizer();
-        std::vector<Line::Ref> SnapshotLines();
+        using LinesSnapshot = std::shared_ptr<const std::vector<Line::Ref>>;
+        LinesSnapshot SnapshotLines();
         void ClearLines();
         bool ScanStructure(const std::vector<Line::Ref> &snapshot, size_t idxLineStart, size_t idxLineEnd, bool isFullScan);
         bool PrepareStructureScanner();
@@ -301,10 +306,14 @@ namespace gedit {
         std::atomic<uint64_t> revision = 0;
 
         // Only the UI thread changes 'lines', and it does so under 'linesLock' - an insert/erase/growth moves every
-        // Line::Ref. The parse thread never walks 'lines': it copies the Refs under the lock (SnapshotLines) and
-        // walks the copy, each line under its own lock. The UI thread reads 'lines' without the lock.
+        // Line::Ref. The parse thread never walks 'lines': it walks a copy of the Refs (SnapshotLines), each line
+        // under its own lock. The copy is made again only after lines were added/removed ('linesGeneration'), so
+        // typing within a line copies nothing. The UI thread reads 'lines' without the lock.
         std::vector<Line::Ref> lines;
         std::mutex linesLock;
+        uint64_t linesGeneration = 0;           // bumped under 'linesLock' by every add/insert/erase/clear
+        LinesSnapshot linesSnapshot = nullptr;  // the copy, guarded by 'linesLock'
+        uint64_t snapshotGeneration = 0;        // the 'linesGeneration' the copy was made at
 
         // Language parsing variables
         LanguageBase::Ref language = nullptr;

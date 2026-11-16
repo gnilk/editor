@@ -8,6 +8,22 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## Undo clears the `*`: a buffer edited back to what was loaded/saved is clean again (2026-11-16) ✅
+
+A mistyped `Cmd+<key>` and an undo left the file marked modified. **Load-bearing decisions:** no undo-position
+bookkeeping (it misses typing a character and deleting it) and no disk read - the parse thread's existing hash sweep
+after a pause in typing (the gutter's change marks; a line's hash is kept until it changes) is compared with a
+baseline taken at load, save and reload (`TextBuffer::TakeCleanBaseline`). The sweep runs without a gutter handler
+too, and skips hashing when it can't be clean (no baseline, another line count). The buffer state is the UI thread's:
+a match posts "clean as of edit N" to it, and it is taken only if no edit came since the sweep started
+(`editCounter`: a line's text, lines added/removed); the pending autosave is stopped and the UI redrawn - every `*`
+(status line, header tabs) is read at draw time. Measured (sqlite3.c, release): baseline 3.9 ms at load/save (UI
+thread), the check after a pause 1.4 ms (parse thread), a keystroke unchanged. Tests: `reload_undoclean`,
+`reload_retypeclean` (both failed before), `reload_savedbaseline`. Hand-tested by the user (undo, retype, undo past a
+save).
+
+---
+
 ## Parse thread vs. the line vector: a cached copy, structural changes under a lock (2026-11-16) ✅
 
 An intermittent test-run segfault (Linux, ~half the runs, `main` too; open-bugs #31) was a race on `TextBuffer::lines`:

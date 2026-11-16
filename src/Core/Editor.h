@@ -222,11 +222,17 @@ namespace gedit {
 
         void TriggerUIRedraw();
 
+        // A launch is a project only when its arguments are exactly one folder (hitlist #23).
+        static bool IsProjectLaunch(const std::vector<std::string> &args, const std::filesystem::path &cwd);
         // '<root>/.goatedit' for a launch with these (absolute) file/folder args, or nullopt. Pure - no
         // cwd change, nothing created; startup uses it to register kProject before the config load.
         static std::optional<std::filesystem::path> ResolveProjectDir(const std::vector<std::string> &args,
                                                                       const std::filesystem::path &cwd,
                                                                       const std::filesystem::path &pathHome);
+        // The '.goatedit' dirs of folder args that a launch which isn't a project leaves unused - startup warns.
+        static std::vector<std::filesystem::path> UnusedProjectDirs(const std::vector<std::string> &args,
+                                                                    const std::filesystem::path &cwd,
+                                                                    const std::filesystem::path &pathHome);
         // Where a user config is created when none exists yet ('.cfg --user set/edit'): ~/.config/goatedit on
         // macOS, <XDG user data>/goatedit on Linux - the first-choice kUser search paths of each platform.
         static std::filesystem::path GetDefaultUserConfigDir();
@@ -302,6 +308,7 @@ namespace gedit {
         bool keepConsoleLogger = false;
         bool loadUserConfig = true;
         std::string argBackend;
+        bool isProjectLaunch = false;       // exactly one folder argument (IsProjectLaunch, at Initialize)
         bool isStartedFromUI = false;       // launched from the desktop (TakeStartedFromUI, at Initialize)
         std::filesystem::path argAssetDir;  // '--asset-dir', replaces the system asset lookup when set
         std::vector<std::string> pendingFiles;

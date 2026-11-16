@@ -46,6 +46,7 @@ DLL_EXPORT int test_workspace_reconcile(ITesting *t);
 DLL_EXPORT int test_workspace_monitorflush(ITesting *t);
 DLL_EXPORT int test_workspace_monitorlifetime(ITesting *t);
 DLL_EXPORT int test_workspace_tabnumber(ITesting *t);
+DLL_EXPORT int test_workspace_folderafterfile(ITesting *t);
 }
 
 DLL_EXPORT int test_workspace(ITesting *t) {
@@ -1008,5 +1009,39 @@ DLL_EXPORT int test_workspace_tabnumber(ITesting *t) {
     TR_ASSERT(t, workspace.DocumentIndexForTabNumber(9) == 2);           // the last
     TR_ASSERT(t, !workspace.DocumentIndexForTabNumber(0).has_value());
     TR_ASSERT(t, !workspace.DocumentIndexForTabNumber(10).has_value());
+    return kTR_Pass;
+}
+
+// open-bugs #21: a file opened first creates the default root at the cwd; the folder opened at the cwd afterwards
+// (`goatedit a.txt .`) used to get that root back - no reconcile, so its monitor never updated the tree
+DLL_EXPORT int test_workspace_folderafterfile(ITesting *t) {
+    namespace fs = std::filesystem;
+    auto root = pathutil::CanonicalPath(fs::temp_directory_path() / "goat_ws_folderafterfile");
+    std::error_code ec;
+    fs::remove_all(root, ec);
+    fs::create_directories(root / "src");
+    { std::ofstream(root / "src" / "a.txt") << "x\n"; }
+    auto cwdBefore = fs::current_path();
+    fs::current_path(root);
+
+    Workspace workspace;
+    FakeMonitorGlue glue;
+    glue.Wire(workspace);
+    auto defaultRoot = workspace.GetDefaultWorkspace();     // what loading the file does first
+    TR_ASSERT(t, workspace.OpenFolder(root.string()));
+
+    auto &roots = workspace.GetProjectRoots();
+    TR_ASSERT(t, roots.size() == 2);
+    TR_ASSERT(t, roots[1]->GetRootNode() != defaultRoot);
+    TR_ASSERT(t, roots[1]->HasFolderMonitor());
+    TR_ASSERT(t, glue.monitor != nullptr);
+
+    // A file written by someone else shows up in the folder's tree
+    { std::ofstream(root / "src" / "b.txt") << "y\n"; }
+    roots[1]->FlushDirty({root / "src"}, false);
+    TR_ASSERT(t, roots[1]->GetRootNode()->FindNodeWithPath(root / "src" / "b.txt") != nullptr);
+
+    fs::current_path(cwdBefore);
+    fs::remove_all(root, ec);
     return kTR_Pass;
 }

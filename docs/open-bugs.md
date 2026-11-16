@@ -311,6 +311,9 @@ detached (`src/Core/unix/ProcessUnix.cpp:76`). `onExit` posts to the Runloop; it
 (`Process::Finish` <- `ProcessUnix::RunLoop` <- the `DoStart` lambda), into a `SafeQueue<unique_ptr<Runloop::Message>>`
 freed by the main thread in `__run_exit_handlers` (the statics' destructors). Nothing joins or cancels a running
 `Process` before exit, so a `git status` still running when the process exits reports into freed memory.
+One complete report (2026-11-16) names the caller: `SafeQueue<Runloop::Message>::push` <- `Runloop::PostMessage` <-
+the `Editor::RefreshChangeBase` lambda (`GitBase::Result`) <- the `GitBase::Query` callback - the gutter's change-base
+git query.
 
 **Test or app:** seen as test teardown (`test_workspace_reopen` starts a git process; trun exits while it runs), ~4/60
 runs under ASan; the report is usually cut to 3 lines because the process is exiting. The app can do the same on quit

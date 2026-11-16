@@ -8,6 +8,18 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## Go to line, and line numbers that count from 1 (2026-11-16) ✅
+
+For a new tester coming from vim. `.goto <line>` / `.g <line>` (`ActionHelper::GotoLine`): counts from 1, past the end
+is the last line, the caret on the first non-blank (vim's `:N`); a file on disk goes through `JumpTo`, so `Cmd+[` comes
+back. Quick mode's `g` was bound but never handled - it now types `.g ` (one path: the command). A `Line` drops
+trailing whitespace on create, not on append, so the space is appended. The gutter and the status line printed the
+0-based index while Find, Go to symbol and now `.goto` count from 1 - they count from 1 too. Checked by driving the
+app in a pty (`--backend ansi`, pyte for the screen). Test: `reload_gotoline`. Also written: `docs/usage.md`, the short
+user guide (config layers, keys per platform, mouse, quick mode, commands, terminal).
+
+---
+
 ## Text encodings: a Latin-1 file is no longer cut on open and save (2026-11-16) ✅
 
 Data loss (open-bugs #15): the load decoded each line as strict UTF-8, stopped at the first other byte, and nobody

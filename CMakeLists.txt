@@ -109,7 +109,6 @@ if (APPLE)
         message(WARNING "brew not found — set CMAKE_PREFIX_PATH to your package manager prefix if deps are missing")
     endif()
 
-    list(APPEND platformsrc src/Core/macOS/MacOSKBEmulator.cpp src/Core/macOS/MacOSKBEmulator.h)
     list(APPEND platformsrc src/Core/macOS/MacOSFolderMonitor.cpp src/Core/macOS/MacOSFolderMonitor.h)
     list(APPEND platformsrc src/Core/macOS/MacOSSystemFonts.cpp)
     # list(APPEND platformsrc src/Core/macOS/MacOSKeyboardMonitor.cpp src/Core/macOS/MacOSKeyboardMonitor.h)

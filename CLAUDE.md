@@ -168,7 +168,7 @@ The emulation is the standalone **gvt** library (`gnilk::vt`): `Parser` (William
 
 ### Platform-Specific
 - Linux: `src/Core/Linux/LinuxFolderMonitor.cpp`
-- macOS: `src/Core/macOS/MacOSKBEmulator.cpp`, `MacOSFolderMonitor.cpp`
+- macOS: `src/Core/macOS/MacOSFolderMonitor.cpp`, `MacOSSystemFonts.cpp`
 - Unix shared: `src/Core/unix/Shell.cpp` (pty/shell spawning; reads via `amaster` only, pty slave IS the child stdio so `isatty()` is true and auto-colors work)
 
 ## Key Conventions

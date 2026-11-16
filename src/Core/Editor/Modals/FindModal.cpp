@@ -9,8 +9,8 @@
 
 using namespace gedit;
 
-FindModal::FindModal(Document::Ref document) : QueryListModal("Find", U"Find: "), document(document) {
-    auto &lineCursor = document->GetLineCursor();
+FindModal::FindModal(Document::Ref newDocument) : QueryListModal("Find", U"Find: "), document(newDocument) {
+    auto &lineCursor = newDocument->GetLineCursor();
     idxStartLine = lineCursor.idxActiveLine;
     idxStartChar = lineCursor.cursor.position.x;
     startViewTopLine = lineCursor.viewTopLine;
@@ -59,9 +59,9 @@ std::vector<std::u32string> FindModal::OnQuery(const std::u32string &query) {
 
     // '  12: text' - the numbers right-aligned, the text without its indent and with tabs as spaces
     auto &hits = document->GetSearchResults();
-    std::vector<std::u32string> rows;
+    std::vector<std::u32string> listRows;
     if (hits.empty()) {
-        return rows;
+        return listRows;
     }
     auto numberWidth = std::to_string(hits.back().idxLine + 1).size();
     for (auto &hit : hits) {
@@ -76,9 +76,9 @@ std::vector<std::u32string> FindModal::OnQuery(const std::u32string &query) {
                 row += (ch == U'\t') ? U' ' : ch;
             }
         }
-        rows.push_back(row);
+        listRows.push_back(row);
     }
-    return rows;
+    return listRows;
 }
 
 void FindModal::OnPreview(int idxRow) {

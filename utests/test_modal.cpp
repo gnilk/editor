@@ -69,7 +69,7 @@ namespace {
     // CommitLine closes; LineDown runs 'onLineDown' (e.g. show another modal from inside the dispatch)
     class TestModal : public ModalView {
     public:
-        explicit TestModal(ModalLog &log) : log(log) {
+        explicit TestModal(ModalLog &newLog) : log(newLog) {
         }
         bool OnAction(const EditorAction &action) override {
             log.nActions++;

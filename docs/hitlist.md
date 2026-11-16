@@ -47,6 +47,13 @@ Built and unit-tested, not yet tried by hand on that platform. Linux = SDL2 (Ctr
   - [ ] Linux [ ] Mac - `goatedit .` in a big tree (`~/src/apus`, an npm project with `node_modules` not ignored): the window answers at once
   - [ ] Linux [ ] Mac - folders below the fourth level open when expanded; a session file deep in the tree reopens
   - [ ] Linux [ ] Mac - `.q!` right after start-up: exits at once
+- **Single-folder project** (#23) - Mac checked in a pty (`--backend ansi`), not in the SDL app
+  - [ ] Linux [ ] Mac - `goatedit a.txt .` in a repo with a `.goatedit`: stderr says "not a single-folder launch - project settings in '<dir>/.goatedit' not used"; no session restored; a file created in the terminal shows in the tree
+  - [ ] Linux [ ] Mac - `goatedit .`: the session restores as before, no warning
+- **Quick mode without `]` / `[`** (#29)
+  - [ ] Linux [ ] Mac - Esc, then `]`: no view switch; `Alt/Option+]` still cycles
+- **Stale assets** (#24) - Mac build + scratch install checked
+  - [ ] Linux - `scripts/install.sh --user` after a file is removed from `Assets/Resources`: gone from `~/.local/share/goatedit`
 - **Short-file scroll window** (#35, open-bugs #30)
   - [ ] Linux [x] Mac - a new file, a dozen lines, PageDown, then Enter in the middle: the top line stays until the view is full
 
@@ -55,24 +62,21 @@ Built and unit-tested, not yet tried by hand on that platform. Linux = SDL2 (Ctr
 | # | Item | Where | Size | Notes |
 |---|---|---|---|---|
 | 16 | Data loss: a Latin-1 file is truncated on open and save | open-bugs #15 | half a day | the only data-loss bug - first |
+| 38 | A git process thread outlives exit and posts into the destroyed Runloop queue | open-bugs #32 | hours | ASan only, at exit (test teardown; the app on quit with git running); main too |
+| 40 | User documentation: the keyboard layout per platform (the shipped keymaps, modifier groups), the shipped dot/quick commands, the mouse bindings | `docs/keybindings.md` (to write) | a day | discussed, never written down; generate from the keymap YAML where possible so it can't drift; ties in with #8 |
 | 17 | A config list overwrites the default list by position | open-bugs #28 | half a day | idea: an immutable merge that returns a new tree; `LanguageFileSet::Merge` is the model |
 | 11 | Languages phase 2: CMake and Python (case-insensitive lists, generic numbers, the prefix rule) | `support-languages.md` | 1-2 days | used daily |
 | 12 | Languages phase 3: the user directory, `.lang_reload`, `override: yes` | `support-languages.md` | a day | user language dirs aren't read yet |
 | 18 | Theme collection step 2: `Themes/` folder, lookup order, install rule, default theme moved | `theme-collection.md` §2 | half a day | the same themes on Mac and Linux from git |
 | 19 | `.theme list` / `.theme use <name>` | `theme-collection.md` §5 | half a day | after 18 |
 | 20 | Ship Dark 2026 (from VS Code) + `Themes/LICENSES.md`, its own terminal palette | `theme-collection.md` §4 | half a day | copyright line from the `microsoft/vscode` repo first |
-| 21 | The colour script misreads `#rgb`, can't read `#rrggbbaa` | open-bugs #16 | an hour | before importing more themes |
-| 22 | Build warnings, mostly `-Wshadow` | open-bugs #19 | half a day | Linux reported more in `Theme.cpp`, `Editor.cpp` (2026-11-13) |
 | 6 | Gansi copy fallback: `pbcopy` / `xclip` / `wl-copy` when local | open-bugs #20 notes | half a day | fits with #20 |
-| 23 | A file argument before the folder leaves the folder unmonitored | open-bugs #21 | hours | |
-| 24 | Install never removes an asset deleted from the repo | open-bugs #22 | hours | matters once themes move (18) |
 | 25 | `Cmd` held underlines a name a click would jump from | usability §14 | half a day | decided: only names the index resolves, an underline; needs the hover plumbing (as 26, 27) |
 | 26 | Button widget in the UI toolkit | usability §16 | a day | needed by 27 |
 | 27 | Close button per file in the header (`*` / `x`, CLion style) | usability §15 | half a day | after 26 |
 | 8 | Key binding groups: `FunctionModifier`, `CodeNavigationModifier`, `docs/keybindings.md` | usability §11 | days | decide the `CodeNavigationModifier` key first |
 | 9 | The terminal version on macOS uses the Linux keymaps | open-bugs #20 | days | after 8 |
 | 28 | Key bindings for script commands (`ReformatLine` as a quick command) | usability §4 | ? | note, not scheduled |
-| 29 | Remove the legacy quick-mode view switch (Esc then `]` / `[`) | - | hours | Option+T/P/E and mouse focus replaced it |
 | 30 | Workspace text search on `Cmd+Shift+F` | usability §3 c | days | design first |
 | 7 | Image view phase 0: `BufferBase`, `TextBuffer` / `ImageBuffer` | `image-view.md` §2.4 | a day | parked 2026-11-11 |
 | 13 | Image view phases 1-3 | `image-view.md` | days | after 7 |
@@ -81,6 +85,7 @@ Built and unit-tested, not yet tried by hand on that platform. Linux = SDL2 (Ctr
 | 32 | Terminal: run `claude` inside goatedit (the gvt exit criterion); copying older command output | `terminal-vt.md` "Next" | ? | the copy modal is an idea, not decided |
 | 33 | Code index step 4: modules | `code-index.md` | days | paused 2026-11-08 until the design is thought through |
 | 34 | Per-block syntax highlighting in the terminal | `syntax-blocks.md` | days | deferred |
+| 36 | An "open folder" command (a dot-command and/or a key) - open a folder as the project after start-up | - | ? | no command for it yet; since #23 only `goatedit <one folder>` is a project, so this is the other way in. Design: what happens to the open files and the session |
 
 Smaller bugs not ranked yet: open-bugs #1 (`AttributeAt`, read before touching it), #24 (readline history extras),
 #26 (`/usage` glyphs).
@@ -99,5 +104,12 @@ Smaller bugs not ranked yet: open-bugs #1 (`AttributeAt`, read before touching i
 | - | Minimap contrast: marks gap, damped text, `overlay_strength` (usability §7 follow-up) | 2026-11-13 |
 | - | A theme that can't load falls back to the default (open-bugs #29) | 2026-11-13 |
 | - | Theme import writes author / license / copyright / source (`theme-collection.md` §3) | 2026-11-13 |
+| 22 | Build warnings: `-Wshadow` ours, gnklog PRIVATE; Mac + Linux clean in our code (open-bugs #19) | 2026-11-16 |
+| 39 | Undo back to the loaded/saved text clears the `*` (a hash sweep after a pause, compared with a baseline) | 2026-11-16 |
+| 37 | Intermittent test-run segfault: the parse thread walked `lines` while the UI thread changed them (open-bugs #31) | 2026-11-16 |
 | 35 | PageDown / Cmd+End in a short file kept a short scroll window, the view scrolled early (open-bugs #30) | 2026-11-15 |
 | - | Workspace tree read up front within a budget (`max_scan_entries`); quitting doesn't wait for the index's root walk | 2026-11-15 |
+| 21 | The colour script reads `#rgb` / `#rgba` / `#rrggbbaa` (open-bugs #16) | 2026-11-16 |
+| 23 | Only `goatedit <one folder>` is a project, other launches warn; a folder opened after a file gets a monitored root (open-bugs #21) | 2026-11-16 |
+| 24 | Build and install remove an asset deleted from the repo (open-bugs #22) | 2026-11-16 |
+| 29 | The legacy quick-mode view switch (Esc then `]` / `[`) removed | 2026-11-16 |

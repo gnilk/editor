@@ -178,9 +178,9 @@ void EditorView::DrawSelectionOverlay(DrawContext &dc, const std::vector<WrapRow
     dc.AddOverlay(overlay);
 }
 
-void EditorView::OnActivate(bool isActive) {
-    logger->Debug("OnActive, isActive: %s", isActive?"yes":"no");
-    if (isActive) {
+void EditorView::OnActivate(bool isActivated) {
+    logger->Debug("OnActive, isActivated: %s", isActivated?"yes":"no");
+    if (isActivated) {
         Editor::Instance().SetActiveKeyMapping(Config::Instance()[cfgSectionName].GetStr("keymap", "default_keymap"));
         // Maximize editor content view...
         //MaximizeContentHeight();
@@ -250,11 +250,11 @@ bool EditorView::OnMousePressedEvent(const MouseEvent &mouseEvent) {
     return true;
 }
 
-void EditorView::SetWindowCursor(const Cursor &cursor) {
+void EditorView::SetWindowCursor(const Cursor &windowCursor) {
     if ((Editor::Instance().GetState() == Editor::ViewState) && (document != nullptr)) {
-        // The document cursor's position.x is a character index. Tabs render wider than one cell, so
+        // The document windowCursor's position.x is a character index. Tabs render wider than one cell, so
         // translate it to a visual column before drawing the caret - otherwise the caret sits left
-        // of where the character actually renders and inserts appear misplaced. The document cursor is
+        // of where the character actually renders and inserts appear misplaced. The document windowCursor is
         // left untouched (char index stays the source of truth for editing); only the draw copy moves.
         // With soft-wrap the screen row is derived the same way: the caret's (line, char) is mapped through the
         // visible rows, so it lands on the wrapped row actually holding that char.
@@ -272,7 +272,7 @@ void EditorView::SetWindowCursor(const Cursor &cursor) {
         window->SetCursor(screenCursor);
     } else {
         // The editor view is NOT in 'command' but rather the 'owner' of the quick-cmd input view..
-        ViewBase::SetWindowCursor(cursor);
+        ViewBase::SetWindowCursor(windowCursor);
     }
 }
 
@@ -280,22 +280,21 @@ void EditorView::SetWindowCursor(const Cursor &cursor) {
 std::pair<std::u32string, std::u32string> EditorView::GetStatusBarInfo() {
     std::u32string statusCenter = U"";
     std::u32string statusRight = U"";
-    // If we have a document - draw details...
+    // If we have a activeDocument - draw details...
     auto node = Editor::Instance().GetWorkspaceNodeForActiveDocument();
     if (node == nullptr) {
         return {statusCenter, statusRight};
     }
-    // Hmm - why can't I use the document-> here????
-    auto document = node->GetDocument();
-    if (document == nullptr) {
+    auto activeDocument = node->GetDocument();
+    if (activeDocument == nullptr) {
         return {statusCenter, statusRight};
     }
 
     // Resolve center information
-    if (document->GetTextBuffer()->GetBufferState() == TextBuffer::kBuffer_Changed) {
+    if (activeDocument->GetTextBuffer()->GetBufferState() == TextBuffer::kBuffer_Changed) {
         statusCenter += U"* ";
     }
-    if (document->GetTextBuffer()->IsReadOnly()) {
+    if (activeDocument->GetTextBuffer()->IsReadOnly()) {
         statusCenter += U"R/O ";
     }
     if (node->IsMissingOnDisk()) {
@@ -305,16 +304,16 @@ std::pair<std::u32string, std::u32string> EditorView::GetStatusBarInfo() {
 
     statusCenter += node->GetDisplayNameU32();
     statusCenter += U" | ";
-    if (!document->GetTextBuffer()->CanEdit()) {
+    if (!activeDocument->GetTextBuffer()->CanEdit()) {
         statusCenter += U"[locked] | ";
     }
-    statusCenter += document->GetTextBuffer()->HaveLanguage() ? document->GetTextBuffer()->GetLanguage().Identifier() : U"none";
+    statusCenter += activeDocument->GetTextBuffer()->HaveLanguage() ? activeDocument->GetTextBuffer()->GetLanguage().Identifier() : U"none";
 
     // resolve right status
-    auto &lineCursor = document->GetLineCursor();
+    auto &lineCursor = activeDocument->GetLineCursor();
 
     int indent = -1;
-    auto line = document->LineAt(lineCursor.idxActiveLine);
+    auto line = activeDocument->LineAt(lineCursor.idxActiveLine);
     if (line != nullptr) {
         indent = line->GetIndent();
     }
@@ -322,7 +321,7 @@ std::pair<std::u32string, std::u32string> EditorView::GetStatusBarInfo() {
     // Show Line:Row or more 'x/y' -> Configureation!
     // Column is the visual (tab-expanded) column, matching what the caret shows.
     int visualCol = (line != nullptr)
-        ? line->CharToVisualColumn(lineCursor.cursor.position.x, document->GetTabSize())
+        ? line->CharToVisualColumn(lineCursor.cursor.position.x, activeDocument->GetTabSize())
         : lineCursor.cursor.position.x;
     auto strtmp = fmt::format(U"id: {} l: {}, c({}:{})",
                               indent,

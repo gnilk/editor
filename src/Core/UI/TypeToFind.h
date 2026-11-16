@@ -25,7 +25,7 @@ namespace gedit {
 
     public:
         TypeToFind() = default;
-        explicit TypeToFind(Clock::duration pause) : pause(pause) {
+        explicit TypeToFind(Clock::duration newPause) : pause(newPause) {
         }
         virtual ~TypeToFind() = default;
 

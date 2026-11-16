@@ -51,9 +51,9 @@ DLL_EXPORT int test_cpplang_include(ITesting *t) {
     buffer->AddLineUTF8("void main() {}");
     buffer->Reparse();
 
-    for(int i=0;i<buffer->NumLines();i++) {
+    for(size_t i=0;i<buffer->NumLines();i++) {
         auto line = buffer->LineAt(i);
-        printf("%d: '%s'\n", i, line->BufferAsUTF8().c_str());
+        printf("%zu: '%s'\n", i, line->BufferAsUTF8().c_str());
         for (auto &a : line->Attributes()) {
             printf("  idx=%d class=%d\n", a.idxOrigString, (int)a.tokenClass);
         }
@@ -106,9 +106,9 @@ DLL_EXPORT int test_cpplang_ppmacro(ITesting *t) {
     buffer->AddLineUTF8("int x = 0;");
     buffer->Reparse();
 
-    for(int i=0;i<buffer->NumLines();i++) {
+    for(size_t i=0;i<buffer->NumLines();i++) {
         auto line = buffer->LineAt(i);
-        printf("%d: '%s'\n", i, line->BufferAsUTF8().c_str());
+        printf("%zu: '%s'\n", i, line->BufferAsUTF8().c_str());
         for (auto &a : line->Attributes()) {
             printf("  idx=%d class=%d\n", a.idxOrigString, (int)a.tokenClass);
         }
@@ -149,9 +149,9 @@ DLL_EXPORT int test_cpplang_ppnoleak(ITesting *t) {
     buffer->AddLineUTF8("int x = 0;");
     buffer->Reparse();
 
-    for(int i=0;i<buffer->NumLines();i++) {
+    for(size_t i=0;i<buffer->NumLines();i++) {
         auto line = buffer->LineAt(i);
-        printf("%d: '%s'\n", i, line->BufferAsUTF8().c_str());
+        printf("%zu: '%s'\n", i, line->BufferAsUTF8().c_str());
         for (auto &a : line->Attributes()) {
             printf("  idx=%d class=%d\n", a.idxOrigString, (int)a.tokenClass);
         }
@@ -193,9 +193,9 @@ DLL_EXPORT int test_cpplang_indent(ITesting *t) {
     buffer->Reparse();
 
     static const int expectedIndent[] = {0, 0, 1, 1, 1, 2, 1, 0};
-    for(int i=0;i<buffer->NumLines();i++) {
+    for(size_t i=0;i<buffer->NumLines();i++) {
         auto line = buffer->LineAt(i);
-        printf("%d: indent: %d - data: %s\n", i, line->GetIndent(), line->BufferAsUTF8().c_str());
+        printf("%zu: indent: %d - data: %s\n", i, line->GetIndent(), line->BufferAsUTF8().c_str());
         TR_ASSERT(t, line->GetIndent() == expectedIndent[i]);
     }
 
@@ -227,9 +227,9 @@ DLL_EXPORT int test_cpplang_elseindent(ITesting *t) {
     buffer->Reparse();
 
     static int correntIndent[]={0,0,1,2,1,2,1,0};
-    for(int i=0;i<buffer->NumLines();i++) {
+    for(size_t i=0;i<buffer->NumLines();i++) {
         auto line = buffer->LineAt(i);
-        printf("%d: indent: %d - data: %s\n", i, line->GetIndent(), line->BufferAsUTF8().c_str());
+        printf("%zu: indent: %d - data: %s\n", i, line->GetIndent(), line->BufferAsUTF8().c_str());
         TR_ASSERT(t, line->GetIndent() == correntIndent[i]);
     }
 
@@ -245,7 +245,7 @@ static void DumpLineData(const Line::Ref line) {
     auto ascii = UnicodeHelper::utf32toascii(line->Buffer());
     printf("Line: %s\n", ascii.c_str());
     for(auto &a : line->Attributes()) {
-        printf("  %d, %d (%s)\n",a.idxOrigString, a.tokenClass, LanguageTokenClassToString(a.tokenClass).c_str());
+        printf("  %d, %d (%s)\n",a.idxOrigString, static_cast<int>(a.tokenClass), LanguageTokenClassToString(a.tokenClass).c_str());
         printf("  %s\n", ascii.c_str());
         for(int i=0;i<a.idxOrigString;i++) {
             printf(" ");

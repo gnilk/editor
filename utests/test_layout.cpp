@@ -27,8 +27,6 @@ extern "C" int test_layout_simple(ITesting *t) {
     //TestKeyBoardDriver();
 
 
-    auto screen = RuntimeConfig::Instance().GetScreen();
-    auto dimensions = screen->Dimensions();
 
 
     RootView rootView;
@@ -42,11 +40,9 @@ extern "C" int test_layout_simple(ITesting *t) {
     hSplitView.SetUpper(&upperView);
     hSplitView.SetLower(&lowerView);
 
-    auto logger = gnilk::Logger::GetLogger("Layout");
 
 
     rootView.Initialize();
-    auto h = upperView.GetHeight();
     TR_ASSERT(t, upperView.GetHeight() == 50);
 
     rootView.DumpLayout(0);

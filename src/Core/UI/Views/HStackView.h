@@ -98,16 +98,16 @@ namespace gedit {
 
             for(auto &view : viewStack) {
                 if (!view.view->IsVisible()) continue;
-                auto viewRect = view.view->GetViewRect();
-                viewRect.MoveTo(xPos,yPos);
+                auto childRect = view.view->GetViewRect();
+                childRect.MoveTo(xPos,yPos);
                 // Set the flex-width, otherwise keep the width (assuming the user has set its width properly)
                 if (view.layout != kFixed) {
-                    viewRect.SetWidth(flexWidth);
+                    childRect.SetWidth(flexWidth);
                 }
                 // Enforce height of stacked views..
-                viewRect.SetHeight(GetContentRect().Height());
-                view.view->SetViewRect(viewRect);
-                xPos += viewRect.Width();
+                childRect.SetHeight(GetContentRect().Height());
+                view.view->SetViewRect(childRect);
+                xPos += childRect.Width();
             }
         }
     protected:

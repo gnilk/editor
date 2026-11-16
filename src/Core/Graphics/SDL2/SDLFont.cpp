@@ -20,8 +20,8 @@ SDLFont::Ptr SDLFont::Create(SDL_Renderer *renderer, const uint8_t *data, size_t
     return std::make_unique<SDLFont>(renderer, glyphFont, density);
 }
 
-SDLFont::SDLFont(SDL_Renderer *renderer, GlyphFont::Ref glyphFont, float density) :
-    renderer(renderer), glyphFont(std::move(glyphFont)), density(density) {
+SDLFont::SDLFont(SDL_Renderer *newRenderer, GlyphFont::Ref newGlyphFont, float newDensity) :
+    renderer(newRenderer), glyphFont(std::move(newGlyphFont)), density(newDensity) {
     textures.reserve(GlyphFont::kNumPages);
     for (int i = 0; i < GlyphFont::kNumPages; i++) {
         textures.emplace_back(nullptr, &SDL_DestroyTexture);

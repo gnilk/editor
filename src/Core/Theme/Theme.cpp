@@ -135,32 +135,32 @@ void Theme::InheritGlobalColors() {
             colorConfig[clrClass] = NamedColors::Create();
         }
         auto colors = colorConfig[clrClass];
-        for (auto name : {"background", "foreground"}) {
-            if (!colors->HasColor(name) && globals->HasColor(name)) {
-                colors->SetColor(name, globals->GetColor(name));
+        for (auto colorName : {"background", "foreground"}) {
+            if (!colors->HasColor(colorName) && globals->HasColor(colorName)) {
+                colors->SetColor(colorName, globals->GetColor(colorName));
             }
         }
     }
 }
 
-bool Theme::IsValidColorClass(const std::string &name) {
-    if (name == clrClassContent) return true;
-    if (name == clrClassGlobals) return true;
-    if (name == clrClassUI) return true;
-    if (name == clrClassTerminal) return true;
+bool Theme::IsValidColorClass(const std::string &className) {
+    if (className == clrClassContent) return true;
+    if (className == clrClassGlobals) return true;
+    if (className == clrClassUI) return true;
+    if (className == clrClassTerminal) return true;
     return false;
 }
 
-bool Theme::LoadSublimeColorFile(std::string filename) {
+bool Theme::LoadSublimeColorFile(std::string colorFile) {
     // Only enough here - or do we need this one out side???
     SublimeConfigColorScript scriptEngine;
     scriptEngine.RegisterBuiltIn();
 
-    logger->Debug("Loading Sublime Color file: %s", filename);
+    logger->Debug("Loading Sublime Color file: %s", colorFile.c_str());
 
 
     auto &assetLoader = RuntimeConfig::Instance().GetAssetLoader();
-    auto colorFileAsset = assetLoader.LoadTextAsset(filename);
+    auto colorFileAsset = assetLoader.LoadTextAsset(colorFile);
     if (colorFileAsset == nullptr) {
         logger->Error("Failed to load color file!");
         return false;

@@ -462,8 +462,8 @@ void WorkspaceView::SwitchToEditorView() {
     rootView->SetActiveTopViewByName(glbEditorView);
 }
 
-void WorkspaceView::OnActivate(bool isActive) {
-    if (isActive) {
+void WorkspaceView::OnActivate(bool isActivated) {
+    if (isActivated) {
         Editor::Instance().SetActiveKeyMapping(Config::Instance()[cfgSectionName].GetStr("keymap", "default_keymap"));
     }
 }
@@ -474,7 +474,7 @@ std::pair<std::u32string, std::u32string> WorkspaceView::GetStatusBarInfo() {
 
     auto node = treeView->GetCurrentSelectedItem();
     if (node == nullptr) {
-        int breakme = 1;
+        return {strCenter, strRight};
     }
     auto &dispName = node->GetDisplayName();
     auto document = node->GetDocument();

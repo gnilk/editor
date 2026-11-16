@@ -15,8 +15,8 @@ using namespace gedit;
 static constexpr int kMarginX = 2;
 static constexpr int kChoiceGap = 3;
 
-ConfirmModal::ConfirmModal(const std::string &caption, const std::u32string &message, const std::vector<std::u32string> &choices) : choices(choices) {
-    SetCaption(caption);
+ConfirmModal::ConfirmModal(const std::string &newCaption, const std::u32string &message, const std::vector<std::u32string> &newChoices) : choices(newChoices) {
+    SetCaption(newCaption);
     size_t start = 0;
     for (;;) {
         auto end = message.find(U'\n', start);

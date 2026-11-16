@@ -3,8 +3,6 @@
 #
 keymap: {
   actions: {
-    CycleActiveViewNext: "']'",
-    CycleActiveViewPrev: "'['",
     CycleBufferNext : "'\\'",
     CycleBufferPrev : "'\''",
     LeaveCommandMode : KeyCode_Escape,

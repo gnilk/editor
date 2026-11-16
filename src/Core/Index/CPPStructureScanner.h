@@ -56,7 +56,7 @@ namespace gedit {
         struct Scope {
             kScope kind = kScope::kFile;
             int idxSymbol = -1;
-            std::u32string name;            // namespace / class name - for qualified names and constructors
+            std::u32string name = {};       // namespace / class name - for qualified names and constructors
             bool isEnumClass = false;
             bool isTypedef = false;         // 'typedef struct {...} Name;' - named at the ';'
             uint32_t openLine = 0;          // the line of its '{'
@@ -119,7 +119,7 @@ namespace gedit {
         Scope &CurrentScope() { return scopes.back(); }
         bool InClassScope() const;
 
-        const Token &At(const Statement &statement, size_t idx) const { return tokens[statement[idx]]; }
+        const Token &At(const Statement &stmt, size_t idx) const { return tokens[stmt[idx]]; }
         bool IsText(const Statement &statement, size_t idx, const char32_t *text) const;
         bool IsIdentifier(const Statement &statement, size_t idx) const;
     protected:

@@ -3900,7 +3900,6 @@ DLL_EXPORT int test_codeindex_related_key(ITesting *t) {
 
 // The right thing of that name: not a member, not a forward declaration, not a namesake in another namespace
 DLL_EXPORT int test_codeindex_related_narrow(ITesting *t) {
-    using Names = std::vector<std::u32string>;
     CPPStructureScanner scanner(CPPTokenizer());
     auto index = CodeIndex::Create();
     index->ReplaceFile("/p/a.h", scanner.Scan(U"namespace app {\n"

@@ -25,12 +25,12 @@ namespace gedit {
     public:
         using Ref = std::shared_ptr<MacOSFolderMonitorPoint>;
     public:
-        explicit MacOSFolderMonitorPoint(const std::filesystem::path &pathToMonitor) : FolderMonitor::MonitorPoint(pathToMonitor) {
+        explicit MacOSFolderMonitorPoint(const std::filesystem::path &newPathToMonitor) : FolderMonitor::MonitorPoint(newPathToMonitor) {
 
         }
         virtual ~MacOSFolderMonitorPoint();
-        static Ref Create(const std::filesystem::path &pathToMonitor) {
-            return std::make_shared<MacOSFolderMonitorPoint>(pathToMonitor);
+        static Ref Create(const std::filesystem::path &newPathToMonitor) {
+            return std::make_shared<MacOSFolderMonitorPoint>(newPathToMonitor);
         }
 
         bool Start() override;

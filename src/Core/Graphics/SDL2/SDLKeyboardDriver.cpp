@@ -104,7 +104,7 @@ void SDLKeyboardDriver::CheckRemoveTextInputEventForKeyPress(const KeyPress &kp)
 
     for (int i = 0; i < nEvents; i++) {
         if (peekEvents[i].type == SDL_EventType::SDL_TEXTINPUT) {
-            if (peekEvents[i].text.text[0] == kp.key) {
+            if (static_cast<char32_t>(peekEvents[i].text.text[0]) == kp.key) {
                 SDL_Event dummy;
                 int nGet = SDL_PeepEvents(&dummy, 1, SDL_GETEVENT, SDL_EventType::SDL_TEXTINPUT, SDL_EventType::SDL_TEXTINPUT);
                 if (nGet < 0) {

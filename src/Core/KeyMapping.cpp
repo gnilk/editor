@@ -428,7 +428,6 @@ bool KeyMapping::RebuildActionMapping(const ConfigNode &keymap) {
 
         } else if (value.IsSequence()) {
             // Action is a sequence of different possible key-mappings...
-            auto actionName = key.Scalar();
             auto sequence = value.as<std::vector<std::string>>();
             for(auto &keyPressCombo : sequence) {
                 logger->Debug("Parsing: '%s' = '%s'", actionName.c_str(), keyPressCombo.c_str());

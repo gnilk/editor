@@ -10,8 +10,8 @@
 
 using namespace gedit;
 
-SymbolSearchModal::SymbolSearchModal(CodeIndex::Ref index, Document::Ref activeDocument, std::string activePath, std::vector<std::filesystem::path> roots) :
-    QueryListModal("Go to symbol", U"Symbol: "), index(std::move(index)), activeDocument(std::move(activeDocument)), activePath(std::move(activePath)), roots(std::move(roots)) {
+SymbolSearchModal::SymbolSearchModal(CodeIndex::Ref newIndex, Document::Ref newActiveDocument, std::string newActivePath, std::vector<std::filesystem::path> newRoots) :
+    QueryListModal("Go to symbol", U"Symbol: "), index(std::move(newIndex)), activeDocument(std::move(newActiveDocument)), activePath(std::move(newActivePath)), roots(std::move(newRoots)) {
     if (this->activeDocument != nullptr) {
         auto &lineCursor = this->activeDocument->GetLineCursor();
         idxStartLine = lineCursor.idxActiveLine;
@@ -39,15 +39,15 @@ std::vector<std::u32string> SymbolSearchModal::OnQuery(const std::u32string &que
         });
     }
 
-    std::vector<std::u32string> rows;
-    rows.reserve(hits.size());
+    std::vector<std::u32string> listRows;
+    listRows.reserve(hits.size());
     for (auto &hit : hits) {
         std::u32string row(1, KindMarker(hit));
         row += U' ';
         row += hit.qualifiedName;
-        rows.push_back(std::move(row));
+        listRows.push_back(std::move(row));
     }
-    return rows;
+    return listRows;
 }
 
 char32_t SymbolSearchModal::KindMarker(const CodeIndex::Hit &hit) {

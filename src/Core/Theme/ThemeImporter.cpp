@@ -62,8 +62,8 @@ namespace {
 
     class Importer {
     public:
-        Importer(const ThemeImporter::IncludeLoader &includeLoader, const ThemeImporter::Provenance &around)
-            : includeLoader(includeLoader), around(around) {
+        Importer(const ThemeImporter::IncludeLoader &newIncludeLoader, const ThemeImporter::Provenance &newAround)
+            : includeLoader(newIncludeLoader), around(newAround) {
             scriptEngine.RegisterBuiltIn();
         }
         ThemeImporter::Result Run(const std::string &text);

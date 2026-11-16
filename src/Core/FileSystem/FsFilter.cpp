@@ -7,7 +7,7 @@
 using namespace gedit;
 namespace fs = std::filesystem;
 
-FsFilter::FsFilter(std::vector<std::string> patterns) : patterns(std::move(patterns)) {
+FsFilter::FsFilter(std::vector<std::string> newPatterns) : patterns(std::move(newPatterns)) {
 }
 
 bool FsFilter::IsEmpty() const {

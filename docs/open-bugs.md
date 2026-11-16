@@ -4,7 +4,7 @@ Durable list of known defects we've chosen NOT to fix in-place yet, with enough 
 up cold. Referenced from CLAUDE.md ("Documentation") so it surfaces each session.
 
 Numbers are stable (commits, docs and notes refer to them) - a fixed bug is removed, never renumbered.
-**Next bug is #31.**
+**Next bug is #33.**
 
 ---
 
@@ -84,53 +84,6 @@ decodes whole files, so there the rest of the FILE vanishes). See `docs/code-ind
 
 Either way the decode result must be checked, and the code index needs a lenient decode too.
 Test: load a fixture with `\xe4`/`\xf6` bytes, save, compare bytes (round-trip must be lossless).
-
----
-
-## 16. The colour script misreads `#rgb` and can't read `#rrggbbaa`
-
-**Where:** `SublimeConfigScriptEngine::ParseWebColor` (colors.json values).
-
-**What's wrong:** the short form takes each hex digit as the whole channel - `#fff` becomes
-`(15, 15, 15)` (near black), not `#ffffff`. An 8-digit `#rrggbbaa` (VS Code, Sublime both allow it) is
-rejected ("Hex color description to short"). The stock colors.json uses neither, so nothing shows today.
-
-**Workaround in place:** the theme importer (code index step 1c) parses hex itself and writes `#rrggbb` /
-`rgba()` only. **Fix:** expand `#rgb` / `#rgba` to two digits per channel; accept 4 and 8 digits with alpha.
-
-**Discovered:** 2026-10-25, writing the theme importer.
-
----
-
-## 19. Build warnings - a cleanup session (mostly `-Wshadow`)
-
-**Where (a clean debug build, macOS/SDL3, 2026-11-09 - 28 distinct warnings):**
-
-- `-Wshadow`, a local or parameter named as a member (12): `Document.cpp` lines 168, 190, 325, 1579;
-  `EditorView.cpp:284`; `HexView.cpp:249`; `SDL3/SDLScreen.cpp` `CreateWindow` (its `window` parameter);
-  `SDL3/SDLWindow.cpp:212`; `Index/CPPStructureScanner.h:119` (a header - repeats in every file including it);
-  `Theme/Theme.cpp:67`, `:75`.
-- `-Wshadow`, a local hiding a local (1): `KeyMapping.cpp:372`.
-- `-Wmissing-field-initializers` (6): `Index/CPPStructureScanner.cpp` 488, 533, 539, 582, 594, 601 (`name`) -
-  aggregate initialisers leaving the last field out.
-- One each: `-Winconsistent-missing-override` `macOS/MacOSKBEmulator.h:17` (`Initialize`); `-Wformat-pedantic`
-  `Language/LangToken.cpp:103` (an enum through `%d`). (`unix/Shell.cpp`'s unused `signal_handler` is gone - the
-  gvt terminal work removed it.)
-- Not ours, leave: `stb_image.h` (two unused functions), gnklog's `LogManager.cpp:318` (`-Wunused-result`).
-
-**What's wrong:** nothing breaks today, but the noise hides a warning that matters - a new one in a header repeats in
-every file including it (`DrawContext::DrawImage`'s `rect` parameter, from the minimap, was 69 of 98 lines until it
-was renamed `cellRect`). A shadowing parameter is also the kind that reads the wrong value silently on the next edit.
-
-**Fix direction:** one session, file by file: rename the shadowing names (the member keeps its name; the local or
-parameter says what it is - `newWindow`, `cellRect`), complete the initialisers (or name the fields), add the
-`override`, cast the enum. Check the SDL2 build too (Linux/`cmake-build-sdl2`) - its
-sources are only compiled there. Then consider making new warnings visible - `-Werror=shadow` on our sources (not
-`_deps`/`ext`) so a header one can't slip in again.
-
-**Recount:** `cmake --build --preset debug --clean-first 2>&1 | grep warning: | sort -u`
-
-**Discovered:** 2026-11-09, after the minimap (§7) - "a lot of build warnings now".
 
 ---
 
@@ -217,44 +170,6 @@ does its own inheritance with these rules and doesn't use `YAMLMerge`.
 
 ---
 
-## 21. A file argument before the folder leaves that folder without a folder monitor
-
-`goatedit src/a.txt .` (from the project root) shows the tree but never updates it: no files written by others,
-no reload. `goatedit .` works. Both platforms - the consumer side, not a backend.
-
-**Why:** `LoadDocument` for the file runs first and creates the **default root** at the cwd
-(`Workspace::GetDefaultRoot`: `ProjectRoot::Create(nullptr, nullptr, ...)` - no reconcile callback, "no
-file-monitor" by design). `OpenFolder(".")` then calls `GetOrAddProjectRoot`, which matches by path and returns
-that default root, so `StartFolderMonitor` works on a root that can't reconcile. The loose file also shows at the
-root's level instead of under `src/`.
-
-**Fix direction:** decide whether a folder open at the default root's path *promotes* it (give it the reconcile /
-changed callbacks, re-scan, re-home its loose documents into the tree), or whether `GetOrAddProjectRoot` must
-skip the default root and the default root be dropped once empty. Repro in a unit test: open a document, then
-`OpenFolder` of the cwd, and assert the root has a reconcile callback / a started monitor (fake factory).
-
----
-
-## 22. Installing (and building) never removes an asset that was deleted from the repo
-
-After `blocktobuffer.js` / `blocktoclipboard.js` were removed (command blocks gone, `860dee3`), a fresh macOS
-`cmake --install bld` still left both in `/Applications/goatedit.app/Contents/SharedSupport/Plugins/Scripts/`.
-Removed by hand on 2026-11-10. Harmless this time - `jsplugs.yml` no longer names them, so nothing loads them - but
-a stale *loaded* file (a keymap, a theme, a plugin still listed by an older user/project config) would keep its old
-behaviour with no sign of where it came from.
-
-**Why:** every copy step only adds or overwrites: the macOS `install(DIRECTORY ${EDITOR_ASSET_DIR}/ ...)` into the
-bundle, the `POST_BUILD` `copy_directory` into the build tree's `goatedit.app/Contents/SharedSupport`, and the
-`resources` / `plugins` targets (`copy_directory_if_different`) into `EDITOR_ASSET_DIR`. Linux is covered for installs:
-`scripts/install.sh` uninstalls by its manifest before installing.
-
-**Fix direction:** on macOS, clear `<bundle>/Contents/SharedSupport` before the asset install (an `install(CODE ...)`
-`file(REMOVE_RECURSE ...)` ahead of `install(DIRECTORY ...)`), and do the same for the build tree's bundle copy, or
-copy with a mirror step that deletes what the source no longer has. Check it with a file removed from
-`Assets/Resources`: after build + install it must be gone from both bundles.
-
----
-
 ## 24. A command finished in readline after Tab can go into the history with the shell's extras
 
 **Where:** `TerminalController::ForwardActionToShell` (shell-owned commit) records the mirror from
@@ -306,3 +221,31 @@ terminal should reproduce it without Claude Code.
 does (CLion finds it through the system's own fallback). Fix: [`system-font-fallback.md`](system-font-fallback.md).
 `/usage` itself is still unexplained.
 2026-11-11: system font fallback merged; `/context` draws in the app. Open: whether `/usage` still fails.
+
+---
+
+## 32. A git `Process` thread outlives `exit()` and posts into Runloop's destroyed message queue (use-after-free)
+
+**Where:** `Process::Finish` (`src/Core/Process.cpp:89`) calls `onExit` on the process's own thread, which is
+detached (`src/Core/unix/ProcessUnix.cpp:76`). `onExit` posts to the Runloop; its queues are statics
+(`Runloop::msgQueueA/B`, `src/Core/Runloop.cpp:24-25`).
+
+**What's wrong (ASan, Linux, 2026-11-16, on `main` and the #31 fix branch):** WRITE of size 8 on the process thread
+(`Process::Finish` <- `ProcessUnix::RunLoop` <- the `DoStart` lambda), into a `SafeQueue<unique_ptr<Runloop::Message>>`
+freed by the main thread in `__run_exit_handlers` (the statics' destructors). Nothing joins or cancels a running
+`Process` before exit, so a `git status` still running when the process exits reports into freed memory.
+One complete report (2026-11-16) names the caller: `SafeQueue<Runloop::Message>::push` <- `Runloop::PostMessage` <-
+the `Editor::RefreshChangeBase` lambda (`GitBase::Result`) <- the `GitBase::Query` callback - the gutter's change-base
+git query.
+
+**Test or app:** seen as test teardown (`test_workspace_reopen` starts a git process; trun exits while it runs), ~4/60
+runs under ASan; the report is usually cut to 3 lines because the process is exiting. The app can do the same on quit
+with a git status/diff in flight. Delaying the end of exit by 4 s (an `atexit` sleep in a preload shim) gave 0/160.
+
+**Fix direction (not decided):** keep running processes in a registry and stop/join them before exit (Editor
+teardown), or give `Process` a "detached from the app" flag that `onExit` checks - a detached thread can't be joined,
+so the first needs the thread kept.
+
+**Repro:** Linux ASan build of utests (see #31 for the setup), `trun -m workspace -t reopen --sequential` in a loop,
+with an `atexit(sleep(4))` preload so the report gets written in full.
+

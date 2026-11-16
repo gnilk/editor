@@ -87,7 +87,7 @@ const char *gedit::OwnershipName(kOwnership ownership) {
     return "?";
 }
 
-CPPStructureScanner::CPPStructureScanner(const LangLineTokenizer &tokenizer) : tokenizer(tokenizer) {
+CPPStructureScanner::CPPStructureScanner(const LangLineTokenizer &newTokenizer) : tokenizer(newTokenizer) {
 }
 
 // A whole file: lex it and feed it a line at a time
@@ -360,7 +360,7 @@ void CPPStructureScanner::ScanTokenInScope(size_t i) {
     // Inside a body we only count braces
     if ((scopeKind == kScope::kOpaque) || (scopeKind == kScope::kInitializer)) {
         if (isOpen) {
-            scopes.push_back({kScope::kOpaque});
+            scopes.push_back({.kind = kScope::kOpaque});
         } else if (isClose) {
             OnCloseBrace(i);
         }
@@ -405,13 +405,13 @@ void CPPStructureScanner::ScanTokenInScope(size_t i) {
 void CPPStructureScanner::OnOpenBrace(size_t idxToken) {
     // Braces in parentheses: a default argument, a lambda - part of the statement
     if (parenDepth > 0) {
-        scopes.push_back({kScope::kInitializer});
+        scopes.push_back({.kind = kScope::kInitializer});
         return;
     }
     auto stmt = StripPrefixes(statement);
 
     if ((stmt.size() == 1) && IsText(stmt, 0, U"extern")) {
-        scopes.push_back({kScope::kExtern});
+        scopes.push_back({.kind = kScope::kExtern});
         statement.clear();
         return;
     }
@@ -454,7 +454,7 @@ void CPPStructureScanner::OnOpenBrace(size_t idxToken) {
         }
     }
     if (hasAssign) {
-        scopes.push_back({kScope::kInitializer});
+        scopes.push_back({.kind = kScope::kInitializer});
         return;
     }
     if (TryClassDefinition(stmt, idxToken) || TryEnumDefinition(stmt)) {
@@ -466,14 +466,14 @@ void CPPStructureScanner::OnOpenBrace(size_t idxToken) {
     if (!stmt.empty() && (!hasParen || hasInitList)) {
         auto &last = At(stmt, stmt.size() - 1);
         if (IsIdentifier(stmt, stmt.size() - 1) || (last.text == U">")) {
-            scopes.push_back({kScope::kInitializer});
+            scopes.push_back({.kind = kScope::kInitializer});
             return;
         }
     }
 
     int idxSymbol = -1;
     TryFunction(stmt, true, idxSymbol);
-    scopes.push_back({kScope::kOpaque, idxSymbol});
+    scopes.push_back({.kind = kScope::kOpaque, .idxSymbol = idxSymbol});
     statement.clear();
     parenDepth = 0;
 }

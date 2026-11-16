@@ -407,10 +407,10 @@ WindowBase *SDLScreen::CreateWindow(const gedit::Rect &rect, WindowBase::kWinFla
     return win;
 }
 
-WindowBase *SDLScreen::UpdateWindow(WindowBase *window, const gedit::Rect &rect, WindowBase::kWinFlags flags, WindowBase::kWinDecoration decoFlags) {
-    auto sdlWin = static_cast<SDLWindow *>(window);
+WindowBase *SDLScreen::UpdateWindow(WindowBase *targetWindow, const gedit::Rect &rect, WindowBase::kWinFlags flags, WindowBase::kWinDecoration decoFlags) {
+    auto sdlWin = static_cast<SDLWindow *>(targetWindow);
     sdlWin->Update(rect, flags, decoFlags);
-    return window;
+    return targetWindow;
 }
 
 gedit::Rect SDLScreen::Dimensions() {

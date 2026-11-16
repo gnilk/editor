@@ -124,26 +124,51 @@ static bool IsStrictSubdir(const std::filesystem::path &path, const std::filesys
     return first != "." && first != "..";
 }
 
-// The project dir ('<root>/.goatedit') for this launch, or nullopt. The root is the LAST folder argument
-// (OpenDocumentOrFolder cds into each absolute folder in turn, so that's where EstablishProjectDir ends
-// up), else the cwd. Same guard as EstablishProjectDir - only a real sub-directory of home, so '/',
-// '$HOME' itself and anything outside home (e.g. /var/log) can never become a project. Resolving never
-// creates anything: the dir must already exist (a folder open may still auto-create it later).
+static std::filesystem::path AbsoluteArg(const std::string &arg, const std::filesystem::path &cwd) {
+    std::filesystem::path argPath(arg);
+    return (argPath.is_absolute() ? argPath : (cwd / argPath)).lexically_normal();
+}
+
+// Only a clean single-folder launch ('goatedit <folder>') is a project (hitlist #23). A file, a second folder or no
+// argument at all is not: with two folders their project settings could disagree, and a file next to a folder is a
+// one-off. Keeps the config, the session and the project dir to one unambiguous root.
+bool Editor::IsProjectLaunch(const std::vector<std::string> &args, const std::filesystem::path &cwd) {
+    return (args.size() == 1) && std::filesystem::is_directory(AbsoluteArg(args.front(), cwd));
+}
+
+// The project dir ('<root>/.goatedit') for this launch, or nullopt. The root is the one folder argument of a project
+// launch (IsProjectLaunch). Only a real sub-directory of home, so '/', '$HOME' itself and anything outside home (e.g.
+// /var/log) can never become a project - the same guard as EstablishProjectDir. Resolving never creates anything: the
+// dir must already exist (the folder open may still auto-create it later).
 std::optional<std::filesystem::path> Editor::ResolveProjectDir(const std::vector<std::string> &args,
                                                                const std::filesystem::path &cwd,
                                                                const std::filesystem::path &pathHome) {
-    auto root = cwd;
-    for (auto &arg : args) {
-        std::filesystem::path argPath(arg);
-        if (argPath.is_absolute() && std::filesystem::is_directory(argPath)) {
-            root = argPath;
-        }
+    if (!IsProjectLaunch(args, cwd)) {
+        return {};
     }
+    auto root = AbsoluteArg(args.front(), cwd);
     auto projectDir = root / ".goatedit";
     if (!IsStrictSubdir(root, pathHome) || !std::filesystem::is_directory(projectDir)) {
         return {};
     }
     return projectDir;
+}
+
+std::vector<std::filesystem::path> Editor::UnusedProjectDirs(const std::vector<std::string> &args,
+                                                             const std::filesystem::path &cwd,
+                                                             const std::filesystem::path &pathHome) {
+    std::vector<std::filesystem::path> unused;
+    if (IsProjectLaunch(args, cwd)) {
+        return unused;
+    }
+    for (auto &arg : args) {
+        auto root = AbsoluteArg(arg, cwd);
+        auto projectDir = root / ".goatedit";
+        if (std::filesystem::is_directory(root) && IsStrictSubdir(root, pathHome) && std::filesystem::is_directory(projectDir)) {
+            unused.push_back(projectDir);
+        }
+    }
+    return unused;
 }
 
 // Where new user files (config, imported themes) are written - see docs/install-layout.md
@@ -186,6 +211,7 @@ bool Editor::Initialize(int argc, const char **argv) {
     // A '.goatedit' directory in the project (mirroring '~/.goatedit') is the opt-in
     // marker for project-local assets/config/history. Resolved from the arguments BEFORE anything is
     // opened, so the project config can be merged together with the system + user config below.
+    isProjectLaunch = IsProjectLaunch(pendingFiles, cwd);
     auto projectDir = ResolveProjectDir(pendingFiles, cwd, pathHome);
     if (projectDir.has_value()) {
         assetLoader.AddSearchPath(projectDir.value(), AssetLoaderBase::kLocationType::kProject);
@@ -210,6 +236,10 @@ bool Editor::Initialize(int argc, const char **argv) {
     logger->Debug("CWD is: %s", cwd.c_str());
     if (projectDir.has_value()) {
         logger->Debug("Project dir: %s", projectDir->c_str());
+    }
+    for (auto &unusedDir : UnusedProjectDirs(pendingFiles, cwd, pathHome)) {
+        logger->Warning("Not a single-folder launch - project settings in '%s' not used", unusedDir.c_str());
+        fprintf(stderr, "goatedit: not a single-folder launch - project settings in '%s' not used\n", unusedDir.c_str());
     }
 
     // Load and configure theme related details..
@@ -260,8 +290,8 @@ bool Editor::Initialize(int argc, const char **argv) {
     });
 
     // Glue for the modal host: RootView only says a modal is up or gone, the keymap swap is ours
-    UIHost::Instance().SetOnModalActive([](bool isModalActive) {
-        Editor::Instance().SetModalActive(isModalActive);
+    UIHost::Instance().SetOnModalActive([](bool hasModal) {
+        Editor::Instance().SetModalActive(hasModal);
     });
 
     // Wire the debounced autosave: meaningful events call SessionManager::NotifyChanged(), which (once
@@ -1002,7 +1032,7 @@ extern "C" char ** environ;
 
 bool Editor::TakeStartedFromUI() {
     static const char *kStartedFromUI = "GEDIT_MACOS_STARTED_FROM_UI";
-    bool isSet = (std::getenv(kStartedFromUI) != nullptr);
+    [[maybe_unused]] bool isSet = (std::getenv(kStartedFromUI) != nullptr);
     unsetenv(kStartedFromUI);
 #ifdef GEDIT_MACOS
     return isSet;
@@ -1195,16 +1225,16 @@ void Editor::RefreshChangeBase(const Document::Ref &document) {
         auto kind = result.kind;
         auto hashes = (kind == GitBase::kKind::kBase) ? Document::HashLines(result.text) : nullptr;
         Runloop::PostMessage(0x00, [weakDocument, kind, hashes](uint32_t) {
-            auto document = weakDocument.lock();
-            if ((document == nullptr) || !Editor::Instance().GetWorkspace()->IsDocumentOpen(document)) {
+            auto liveDocument = weakDocument.lock();
+            if ((liveDocument == nullptr) || !Editor::Instance().GetWorkspace()->IsDocumentOpen(liveDocument)) {
                 return;
             }
             if (kind == GitBase::kKind::kBase) {
-                document->SetChangeBase(hashes);
+                liveDocument->SetChangeBase(hashes);
             } else if (kind == GitBase::kKind::kAllAdded) {
-                document->SetChangeBaseAllAdded();
+                liveDocument->SetChangeBaseAllAdded();
             } else {
-                document->ClearChangeBase();
+                liveDocument->ClearChangeBase();
             }
             Editor::Instance().TriggerUIRedraw();
         });
@@ -1644,9 +1674,12 @@ bool Editor::OpenDocumentOrFolder(const std::string &fileOrFolder) {
             std::filesystem::current_path(pathName);
         }
 
-        // Opening a FOLDER establishes the project root: create <cwd>/.goatedit (in-home) and point
-        // kProject at it, so the per-root session can be loaded/saved. Single-file opens never reach here.
-        EstablishProjectDir();
+        // Opening the one folder of a project launch establishes the project root: create <cwd>/.goatedit
+        // (in-home) and point kProject at it, so the per-root session can be loaded/saved. Any other launch has
+        // no project (IsProjectLaunch) - its folders open as plain tree roots.
+        if (isProjectLaunch) {
+            EstablishProjectDir();
+        }
         // During startup Initialize does this, once the session is restored
         if (isInitialized) {
             IndexProjectRoots();

@@ -87,45 +87,53 @@ static std::filesystem::path MakeFakeHome() {
     return home;
 }
 
+// Only a clean single-folder launch is a project (hitlist #23) - no arguments: no project, even in a project's folder
 DLL_EXPORT int test_config_projectdir_cwd(ITesting *t) {
     auto home = MakeFakeHome();
-    auto dir = Editor::ResolveProjectDir({}, home / "proj", home);
-    TR_ASSERT(t, dir.has_value());
-    TR_ASSERT(t, dir.value() == home / "proj" / ".goatedit");
+    TR_ASSERT(t, !Editor::ResolveProjectDir({}, home / "proj", home).has_value());
+    TR_ASSERT(t, Editor::UnusedProjectDirs({}, home / "proj", home).empty());
     return kTR_Pass;
 }
 
 DLL_EXPORT int test_config_projectdir_folderarg(ITesting *t) {
     auto home = MakeFakeHome();
-    // A folder argument beats the cwd; file arguments don't count; the LAST folder wins (it's where
-    // OpenDocumentOrFolder leaves the cwd).
     auto file = (home / "proj" / "file.txt").string();
     { std::ofstream f(file); f << "x"; }
-    auto dir = Editor::ResolveProjectDir({file, (home / "other").string()}, home / "proj", home);
+
+    // One folder: the project
+    auto dir = Editor::ResolveProjectDir({(home / "other").string()}, home / "proj", home);
     TR_ASSERT(t, dir.has_value());
     TR_ASSERT(t, dir.value() == home / "other" / ".goatedit");
+    TR_ASSERT(t, Editor::UnusedProjectDirs({(home / "other").string()}, home / "proj", home).empty());
+    // A relative folder resolves against the cwd
+    dir = Editor::ResolveProjectDir({"other"}, home, home);
+    TR_ASSERT(t, dir.has_value() && (dir.value() == home / "other" / ".goatedit"));
 
-    dir = Editor::ResolveProjectDir({(home / "other").string(), (home / "proj").string()}, home / "bare", home);
-    TR_ASSERT(t, dir.has_value());
-    TR_ASSERT(t, dir.value() == home / "proj" / ".goatedit");
+    // A file and a folder: no project, the folder's settings reported unused
+    TR_ASSERT(t, !Editor::ResolveProjectDir({file, (home / "other").string()}, home / "proj", home).has_value());
+    auto unused = Editor::UnusedProjectDirs({file, (home / "other").string()}, home / "proj", home);
+    TR_ASSERT(t, (unused.size() == 1) && (unused[0] == home / "other" / ".goatedit"));
 
-    // Only a file argument -> the cwd decides
-    dir = Editor::ResolveProjectDir({file}, home / "other", home);
-    TR_ASSERT(t, dir.has_value());
-    TR_ASSERT(t, dir.value() == home / "other" / ".goatedit");
+    // Two folders: no project, both unused; a folder without one isn't reported
+    TR_ASSERT(t, !Editor::ResolveProjectDir({(home / "other").string(), (home / "proj").string()}, home / "bare", home).has_value());
+    unused = Editor::UnusedProjectDirs({(home / "other").string(), (home / "proj").string(), (home / "bare").string()}, home / "bare", home);
+    TR_ASSERT(t, unused.size() == 2);
+
+    // Only a file: no project, even in a project's folder - and nothing to warn about
+    TR_ASSERT(t, !Editor::ResolveProjectDir({file}, home / "proj", home).has_value());
+    TR_ASSERT(t, Editor::UnusedProjectDirs({file}, home / "proj", home).empty());
     return kTR_Pass;
 }
 
 DLL_EXPORT int test_config_projectdir_guards(ITesting *t) {
     auto home = MakeFakeHome();
     // $HOME itself is never a project ('~/.goatedit' is the user dir)
-    TR_ASSERT(t, !Editor::ResolveProjectDir({}, home, home).has_value());
+    TR_ASSERT(t, !Editor::ResolveProjectDir({home.string()}, home, home).has_value());
     // No .goatedit -> nothing (resolving never creates it)
-    TR_ASSERT(t, !Editor::ResolveProjectDir({}, home / "bare", home).has_value());
+    TR_ASSERT(t, !Editor::ResolveProjectDir({(home / "bare").string()}, home, home).has_value());
     TR_ASSERT(t, !std::filesystem::exists(home / "bare" / ".goatedit"));
     // Outside home - even with a .goatedit
     auto outside = home.parent_path() / "outside";
-    TR_ASSERT(t, !Editor::ResolveProjectDir({}, outside, home).has_value());
     // An outside folder arg is the root (not a fallback to the cwd's project)
     TR_ASSERT(t, !Editor::ResolveProjectDir({outside.string()}, home / "proj", home).has_value());
     // A bare folder arg doesn't fall back to the cwd's project either

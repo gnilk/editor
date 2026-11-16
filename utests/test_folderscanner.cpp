@@ -450,7 +450,7 @@ DLL_EXPORT int test_folderscanner_reference(ITesting *t) {
     auto events = WalkToReference(tree.root, refPath);   // default opts (maxDepth 8) — ignored here
 
     // The whole chain is entered and FULLY scanned (descended) right down to the deep file.
-    for (const std::string &dir : {"a", "b", "c", "d", "e", "f", "g", "h", "i"}) {
+    for (const char *dir : {"a", "b", "c", "d", "e", "f", "g", "h", "i"}) {
         TR_ASSERT(t, IndexOf(events, FsEvent::Kind::EnterDir, dir) >= 0);
         TR_ASSERT(t, LeftFullyScanned(events, dir, true));
     }

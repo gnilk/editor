@@ -69,7 +69,7 @@ void SDLWindow::CreateSDLBackBuffer() {
         SDL_DestroyTexture(windowBackBuffer);
     }
 
-    auto winPixRect = SDLTranslate::RowColToPixel(windowRect);
+    // auto winPixRect = SDLTranslate::RowColToPixel(windowRect);
 
 //    windowBackBuffer = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_TARGET, winPixRect.Width(), winPixRect.Height());
 //    SDL_SetTextureScaleMode(windowBackBuffer, SDL_ScaleMode::SDL_SCALEMODE_BEST);
@@ -91,7 +91,7 @@ void SDLWindow::CreateSDLBackBuffer() {
         clientRect.Move(0,1);
     }
 
-    auto clientPixRect = SDLTranslate::RowColToPixel(clientRect);
+    // auto clientPixRect = SDLTranslate::RowColToPixel(clientRect);
 
     //clientBackBuffer = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_TARGET, clientPixRect.Width(), clientPixRect.Height());
     //SDL_SetTextureScaleMode(clientBackBuffer, SDL_ScaleMode::SDL_SCALEMODE_BEST);

@@ -81,8 +81,8 @@ namespace gedit {
     private:
         const NamedColors &ColorsOrEmpty(const std::string &clrClass) const;
         bool LoadThemeFile(const std::string &pathname);
-        bool IsValidColorClass(const std::string &name);
-        bool LoadSublimeColorFile(std::string filename);
+        bool IsValidColorClass(const std::string &className);
+        bool LoadSublimeColorFile(std::string colorFile);
         void InheritGlobalColors();
 
         template<typename T, typename E>

@@ -101,7 +101,7 @@ namespace gedit {
     const std::string &LanguageTokenClassToString(kLanguageTokenClass tokenClass) {
         auto it = tokenNames.find(tokenClass);
         if (it == tokenNames.end()) {
-            printf("%s - UNSUPPORTED TOKEN CLASS (%d), UPDATE THE ARRAY!!!!\n", __FILE__, tokenClass);
+            printf("%s - UNSUPPORTED TOKEN CLASS (%d), UPDATE THE ARRAY!!!!\n", __FILE__, static_cast<int>(tokenClass));
             exit(1);
         }
         return it->second;

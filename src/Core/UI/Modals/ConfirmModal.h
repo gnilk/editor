@@ -21,7 +21,7 @@ namespace gedit {
         using CancelDelegate = std::function<void()>;
     public:
         // 'message' may have several lines ('\n')
-        ConfirmModal(const std::string &caption, const std::u32string &message, const std::vector<std::u32string> &choices);
+        ConfirmModal(const std::string &newCaption, const std::u32string &message, const std::vector<std::u32string> &choices);
         virtual ~ConfirmModal() = default;
 
         static Ptr Create(const std::string &caption, const std::u32string &message, const std::vector<std::u32string> &choices) {

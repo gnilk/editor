@@ -449,8 +449,10 @@ Workspace::Node::Ref Workspace::EnsureFolderNode(const std::filesystem::path &di
     for (auto &projectRoot : projectRoots) {
         auto rootPath = fs::absolute(projectRoot->GetRootPath()).lexically_normal();
         bool isOwner = (projectRoot == defaultRoot) ? (rootPath == dirPath) : IsAncestorPath(rootPath, dirPath);
-        // Nested roots: the deepest one wins
-        if (isOwner && ((owningRoot == nullptr) || (rootPath.native().size() > owningRootPath.native().size()))) {
+        // Nested roots: the deepest one wins; a folder root at the default root's path wins over the default root
+        auto isDeeper = (owningRoot == nullptr) || (rootPath.native().size() > owningRootPath.native().size());
+        auto isSameOverDefault = (owningRoot == defaultRoot) && (rootPath == owningRootPath);
+        if (isOwner && (isDeeper || isSameOverDefault)) {
             owningRoot = projectRoot;
             owningRootPath = rootPath;
         }
@@ -1049,9 +1051,11 @@ Workspace::Node::Ref Workspace::NewFolderNode(Node::Ref parent, const std::files
 
 
 // Return the existing ProjectRoot for rootPath, or create and register a new one.
+// The default root is never returned: it is a bucket for loose files with no monitor and no reconcile, so a folder
+// opened at the cwd after a file (`goatedit a.txt .`) gets a root of its own (open-bugs #21).
 Workspace::ProjectRoot::Ref Workspace::GetOrAddProjectRoot(const std::filesystem::path &rootPath, const std::string &rootName) {
     for (auto &projectRoot : projectRoots) {
-        if (projectRoot->GetRootPath() == rootPath) {
+        if ((projectRoot != defaultRoot) && (projectRoot->GetRootPath() == rootPath)) {
             return projectRoot;
         }
     }

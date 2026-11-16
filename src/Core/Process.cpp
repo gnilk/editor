@@ -6,9 +6,9 @@
 
 using namespace gedit;
 
-Process::Process(std::string command, std::vector<std::string> arguments) :
-    command(std::move(command)),
-    arguments(std::move(arguments)) {
+Process::Process(std::string newCommand, std::vector<std::string> newArguments) :
+    command(std::move(newCommand)),
+    arguments(std::move(newArguments)) {
 }
 
 void Process::SetWorkingDirectory(const std::filesystem::path &newWorkingDirectory) {

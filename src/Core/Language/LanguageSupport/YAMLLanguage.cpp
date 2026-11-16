@@ -269,7 +269,7 @@ void YAMLLanguage::OnPostProcessParsedLine(Line::Ref line) {
     pass.Run();
 }
 
-YAMLLinePass::YAMLLinePass(const Line::Ref &line) : line(line), buffer(line->Buffer()), tokenSpans(line->Attributes()) {
+YAMLLinePass::YAMLLinePass(const Line::Ref &newLine) : line(newLine), buffer(newLine->Buffer()), tokenSpans(newLine->Attributes()) {
     commentStart = static_cast<int>(buffer.size());
     for (auto &span : tokenSpans) {
         if ((span.tokenClass == kLanguageTokenClass::kLineComment) || (span.tokenClass == kLanguageTokenClass::kCommentedText)) {

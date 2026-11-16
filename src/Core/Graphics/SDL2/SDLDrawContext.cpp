@@ -21,11 +21,11 @@ SDLDrawContext::~SDLDrawContext() {
 }
 
 void SDLDrawContext::Clear() const {
-    auto &rect = GetRect();
+    auto &contextRect = GetRect();
     SDL_SetRenderTarget(renderer, renderTarget);
     SDLColor bgCol(bgColor);
     bgCol.Use(renderer);
-    FillRect(0,0, rect.Width(), rect.Height(), true);
+    FillRect(0,0, contextRect.Width(), contextRect.Height(), true);
 }
 
 void SDLDrawContext::ClearLine(int y) const {
@@ -93,8 +93,8 @@ void SDLDrawContext::FillRect(float x, float y, float w, float h, bool isColorSe
         SetRenderColor();
     }
 
-    SDL_FRect rect = {pixXStart, pixYStart, pixWidth, pixHeight};
-    SDL_RenderFillRectF(renderer, &rect);
+    SDL_FRect fillRect = {pixXStart, pixYStart, pixWidth, pixHeight};
+    SDL_RenderFillRectF(renderer, &fillRect);
 }
 
 void SDLDrawContext::DrawLine(float x1, float y1, float x2, float y2) const {

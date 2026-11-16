@@ -201,7 +201,7 @@ int Line::Unindent(size_t tabSize) {
 int Line::Indent(size_t tabSize) {
 
     auto nChars = tabSize * indent;
-    for (int i = 0; i < tabSize * indent; i++) {
+    for (size_t i = 0; i < nChars; i++) {
         buffer.insert(0, U" ");
     }
 

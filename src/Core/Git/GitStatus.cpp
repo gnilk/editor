@@ -62,16 +62,16 @@ void GitStatus::Query(const std::filesystem::path &root, DoneDelegate onDone) {
         status->SetOnStdErr([statusErr](const std::string &data) {
             *statusErr += data;
         });
-        status->SetOnExit([root, snapshot, statusOut, statusErr, onDone](const Process::Result &result) mutable {
-            if (result.IsSuccess()) {
+        status->SetOnExit([root, snapshot, statusOut, statusErr, onDone](const Process::Result &statusResult) mutable {
+            if (statusResult.IsSuccess()) {
                 snapshot.changes = Parse(*statusOut);
                 snapshot.branch = ParseBranch(*statusOut);
                 if (snapshot.branch.isDetached) {
                     QueryDetachedSha(root, snapshot, onDone);
                     return;
                 }
-            } else if (result.state == Process::kState::kFailedToStart) {
-                snapshot.error = result.error;
+            } else if (statusResult.state == Process::kState::kFailedToStart) {
+                snapshot.error = statusResult.error;
             } else {
                 snapshot.error = statusErr->empty() ? "git status failed" : TrimEnd(*statusErr);
             }

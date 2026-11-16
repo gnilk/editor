@@ -14,8 +14,8 @@
 using namespace gedit;
 namespace fs = std::filesystem;
 
-OpenFilesModal::OpenFilesModal(std::vector<Entry> entries, Document::Ref activeDocument) :
-    QueryListModal("Open files", U"File: "), entries(std::move(entries)), activeDocument(std::move(activeDocument)) {
+OpenFilesModal::OpenFilesModal(std::vector<Entry> newEntries, Document::Ref newActiveDocument) :
+    QueryListModal("Open files", U"File: "), entries(std::move(newEntries)), activeDocument(std::move(newActiveDocument)) {
 }
 
 OpenFilesModal::Ptr OpenFilesModal::Create() {
@@ -75,11 +75,11 @@ std::u32string OpenFilesModal::FolderOf(const fs::path &path, const std::vector<
 
 std::vector<std::u32string> OpenFilesModal::OnQuery(const std::u32string &query) {
     rowEntries = Filter(entries, query);
-    std::vector<std::u32string> rows;
+    std::vector<std::u32string> listRows;
     for (auto idxEntry : rowEntries) {
-        rows.push_back(entries[idxEntry].markers + entries[idxEntry].name);
+        listRows.push_back(entries[idxEntry].markers + entries[idxEntry].name);
     }
-    return rows;
+    return listRows;
 }
 
 std::u32string OpenFilesModal::OnRowDetail(int idxRow) {

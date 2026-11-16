@@ -180,7 +180,6 @@ void QuickCommandController::SearchInActiveDocument(const std::u32string &search
         return;
     }
     auto numHits = document->SearchFor(searchItem);
-    char tmp[32];
     document->JumpToSearchHit(document->GetSearchHitIndex());
 
     std::string strascii;

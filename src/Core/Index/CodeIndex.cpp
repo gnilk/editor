@@ -506,11 +506,11 @@ std::vector<CodeIndex::Hit> CodeIndex::FindExact(const std::u32string &name) con
 
 std::vector<std::u32string> CodeIndex::TypesNamed(const std::u32string &name) const {
     std::shared_lock guard(lock);
-    auto types = TypesWithLastName(LastComponent(name));
-    std::erase_if(types, [&name](const std::u32string &type) {
+    auto typeNames = TypesWithLastName(LastComponent(name));
+    std::erase_if(typeNames, [&name](const std::u32string &type) {
         return !IsNameOf(type, name);
     });
-    return types;
+    return typeNames;
 }
 
 std::vector<std::u32string> CodeIndex::ResolveType(const std::u32string &written, const std::u32string &fromScope) const {
@@ -605,10 +605,10 @@ CodeIndex::Relation CodeIndex::MakeRelation(const EdgeHandle &handle) const {
 }
 
 std::vector<std::u32string> CodeIndex::TypesWithLastName(const std::u32string &lastName) const {
-    std::vector<std::u32string> types;
+    std::vector<std::u32string> typeNames;
     auto itName = nameIds.find(lastName);
     if (itName == nameIds.end()) {
-        return types;
+        return typeNames;
     }
     for (auto &handle : names[itName->second].symbols) {
         auto &symbol = files[handle.idFile].symbols[handle.idxSymbol];
@@ -616,21 +616,21 @@ std::vector<std::u32string> CodeIndex::TypesWithLastName(const std::u32string &l
             continue;
         }
         auto &scope = scopes[symbol.idScope].text;
-        types.push_back(scope.empty() ? lastName : (scope + U"::" + lastName));
+        typeNames.push_back(scope.empty() ? lastName : (scope + U"::" + lastName));
     }
-    std::sort(types.begin(), types.end());
-    types.erase(std::unique(types.begin(), types.end()), types.end());
-    return types;
+    std::sort(typeNames.begin(), typeNames.end());
+    typeNames.erase(std::unique(typeNames.begin(), typeNames.end()), typeNames.end());
+    return typeNames;
 }
 
 // §5.2, at query time, so a target that appears or vanishes costs nothing. The scopes around the edge from the inside out,
 // as the compiler reads them, also takes the qualified match; then the name anywhere in the index.
 std::vector<std::u32string> CodeIndex::ResolveTarget(const std::u32string &toName, const std::u32string &fromName, bool &outIsMacro) const {
-    auto types = TypesWithLastName(LastComponent(toName));
+    auto typeNames = TypesWithLastName(LastComponent(toName));
     auto scope = fromName;
     while (true) {
         auto candidate = scope.empty() ? toName : (scope + U"::" + toName);
-        if (std::binary_search(types.begin(), types.end(), candidate)) {
+        if (std::binary_search(typeNames.begin(), typeNames.end(), candidate)) {
             return {candidate};
         }
         if (scope.empty()) {
@@ -639,14 +639,14 @@ std::vector<std::u32string> CodeIndex::ResolveTarget(const std::u32string &toNam
         auto idxScopeEnd = scope.rfind(U"::");
         scope.resize((idxScopeEnd == std::u32string::npos) ? 0 : idxScopeEnd);
     }
-    std::erase_if(types, [&toName](const std::u32string &type) {
+    std::erase_if(typeNames, [&toName](const std::u32string &type) {
         return !IsNameOf(type, toName);
     });
-    if (types.empty() && IsMacro(toName)) {
+    if (typeNames.empty() && IsMacro(toName)) {
         outIsMacro = true;
         return {toName};
     }
-    return types;
+    return typeNames;
 }
 
 // '#define _u8 unsigned char': vendored C drivers name whole families of types this way

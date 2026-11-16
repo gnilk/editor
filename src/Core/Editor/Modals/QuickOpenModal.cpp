@@ -14,9 +14,9 @@
 using namespace gedit;
 namespace fs = std::filesystem;
 
-QuickOpenModal::QuickOpenModal(FileFinder::Ref finder, std::string activePath, std::unordered_set<std::string> openPaths) :
-    QueryListModal("Open file", U"File: "), finder(std::move(finder)), activePath(std::move(activePath)),
-    openPaths(std::move(openPaths)) {
+QuickOpenModal::QuickOpenModal(FileFinder::Ref newFinder, std::string newActivePath, std::unordered_set<std::string> newOpenPaths) :
+    QueryListModal("Open file", U"File: "), finder(std::move(newFinder)), activePath(std::move(newActivePath)),
+    openPaths(std::move(newOpenPaths)) {
     TakeSnapshot();
 }
 
@@ -100,12 +100,12 @@ std::vector<size_t> QuickOpenModal::Filter(const std::vector<Entry> &entries, co
 
 std::vector<std::u32string> QuickOpenModal::OnQuery(const std::u32string &query) {
     rowEntries = Filter(entries, query, kMaxRows);
-    std::vector<std::u32string> rows;
-    rows.reserve(rowEntries.size());
+    std::vector<std::u32string> listRows;
+    listRows.reserve(rowEntries.size());
     for (auto idxEntry : rowEntries) {
-        rows.push_back(entries[idxEntry].name);
+        listRows.push_back(entries[idxEntry].name);
     }
-    return rows;
+    return listRows;
 }
 
 std::u32string QuickOpenModal::OnRowDetail(int idxRow) {

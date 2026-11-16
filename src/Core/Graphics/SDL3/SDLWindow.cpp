@@ -43,10 +43,10 @@ SDLWindow::~SDLWindow() noexcept {
     }
 }
 
-void SDLWindow::Initialize(WindowBase::kWinFlags flags, WindowBase::kWinDecoration newDecoFlags) {
-    WindowBase::Initialize(flags, newDecoFlags);
+void SDLWindow::Initialize(WindowBase::kWinFlags newFlags, WindowBase::kWinDecoration newDecoFlags) {
+    WindowBase::Initialize(newFlags, newDecoFlags);
 
-    if (flags & WindowBase::kWin_Visible) {
+    if (newFlags & WindowBase::kWin_Visible) {
         CreateSDLBackBuffer();
     }
 }
@@ -72,7 +72,7 @@ void SDLWindow::CreateSDLBackBuffer() {
         SDL_DestroyTexture(windowBackBuffer);
     }
 
-    auto winPixRect = SDLTranslate::RowColToPixel(windowRect);
+    // auto winPixRect = SDLTranslate::RowColToPixel(windowRect);
 
 //    windowBackBuffer = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_TARGET, winPixRect.Width(), winPixRect.Height());
 //    SDL_SetTextureScaleMode(windowBackBuffer, SDL_ScaleMode::SDL_SCALEMODE_BEST);
@@ -93,7 +93,7 @@ void SDLWindow::CreateSDLBackBuffer() {
         clientRect.SetHeight(clientRect.Height()-1);
         clientRect.Move(0,1);
     }
-    auto clientPixRect = SDLTranslate::RowColToPixel(clientRect);
+    // auto clientPixRect = SDLTranslate::RowColToPixel(clientRect);
 
     //clientBackBuffer = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_TARGET, clientPixRect.Width(), clientPixRect.Height());
     //SDL_SetTextureScaleMode(clientBackBuffer, SDL_ScaleMode::SDL_SCALEMODE_BEST);
@@ -209,12 +209,12 @@ void SDLWindow::SetCursor(const Cursor &newCursor) {
     cursor = newCursor;
 }
 
-void SDLWindow::OnDrawCursor(const Cursor &cursor) {
+void SDLWindow::OnDrawCursor(const Cursor &caret) {
     //clientContext.
     if (clientContext == nullptr) {
         return;
     }
-    if (!cursor.isVisible) {
+    if (!caret.isVisible) {
         return;
     }
     auto dc = static_cast<SDLDrawContext *>(clientContext);
@@ -224,9 +224,9 @@ void SDLWindow::OnDrawCursor(const Cursor &cursor) {
     SDL_SetRenderTarget(renderer, dc->renderTarget);
     auto caretColor = theme->GetGlobalColors().GetColor("caret");
     dc->SetFGColor(caretColor);
-    int x = cursor.position.x;
-    int y = cursor.position.y;
-    switch (cursor.shape) {
+    int x = caret.position.x;
+    int y = caret.position.y;
+    switch (caret.shape) {
         case Cursor::Shape::kBlock: {
             // Over the character, translucent so it stays readable
             auto blockColor = caretColor;

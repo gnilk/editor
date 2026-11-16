@@ -59,7 +59,6 @@ static const ColorRGBA GREEN = ColorRGBA::FromRGB(0.0f, 1.0f, 0.0f);
 static const char *SGR_RED        = "\x1b[38;2;255;0;0m";
 static const char *SGR_GREEN      = "\x1b[38;2;0;255;0m";
 static const char *SGR_BG_GREEN   = "\x1b[48;2;0;255;0m";
-static const char *SGR_DEFAULT_FG = "\x1b[39m";
 static const char *SGR_BOLD       = "\x1b[1m";
 static const char *SGR_RESET      = "\x1b[m";
 static const char *ENTER_ALT      = "\x1b[?1049h";
@@ -950,8 +949,8 @@ namespace {
         void OnSemanticPrompt(char kind, std::string_view params) override {
             prompts += kind;
         }
-        void OnTitle(std::string_view title) override {
-            this->title = title;
+        void OnTitle(std::string_view newTitle) override {
+            title = newTitle;
         }
 
     public:

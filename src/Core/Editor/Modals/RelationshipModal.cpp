@@ -14,8 +14,8 @@
 
 using namespace gedit;
 
-RelationshipModal::RelationshipModal(CodeIndex::Ref index, const std::vector<std::u32string> &types, std::vector<std::filesystem::path> roots, LineSource lineSource) :
-    index(std::move(index)), roots(std::move(roots)), lineSource(std::move(lineSource)) {
+RelationshipModal::RelationshipModal(CodeIndex::Ref newIndex, const std::vector<std::u32string> &types, std::vector<std::filesystem::path> newRoots, LineSource newLineSource) :
+    index(std::move(newIndex)), roots(std::move(newRoots)), lineSource(std::move(newLineSource)) {
     SetCaption("Relationships");
     auto tree = GetTree();
     tree->SetToStringDelegate([this](const RelationshipTree::Row &row) {

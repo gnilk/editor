@@ -7,6 +7,8 @@
 // Note: Just one big global scope...
 //
 
+#include <algorithm>
+#include <cctype>
 #include <string>
 #include <functional>
 
@@ -141,35 +143,35 @@ std::pair<bool, SublimeConfigScriptEngine::ScriptValue> SublimeConfigScriptEngin
 }
 
 //
-// Parse web color definintion
-//  Color is either #<RR><GG><BB> or #<R><G><B>
-//  support with alpha! #<RR><GG><BB><AA>
+// Parse a web color: #RGB, #RGBA, #RRGGBB or #RRGGBBAA (CSS - a short form doubles each digit, '#fff' is white)
 //
 std::pair<bool, SublimeConfigScriptEngine::ScriptValue> SublimeConfigScriptEngine::ParseWebColor(gnilk::Tokenizer &tokenizer) {
     tokenizer.Next();   // eat '#'
     std::string token(tokenizer.Next());
 
-    if ((token.length() != 6) && (token.length() != 3)) {
-        printf("ERR: Hex color description to short, format is: #RRGGBB (at least 6 values!!)\n");
+    auto isHex = std::all_of(token.begin(), token.end(), [](unsigned char ch) { return std::isxdigit(ch) != 0; });
+    auto len = token.length();
+    if (!isHex || ((len != 3) && (len != 4) && (len != 6) && (len != 8))) {
+        printf("ERR: Bad hex color '#%s', format is: #RGB, #RGBA, #RRGGBB or #RRGGBBAA\n", token.c_str());
         return {false, {}};
     }
 
-    std::string strRed, strGreen, strBlue;
-    if (token.length() == 6) {
-        strRed = std::string(token,0,2);
-        strGreen = std::string(token,2,2);
-        strBlue = std::string(token,4,2);
+    // The short forms widen to two digits per channel
+    std::string digits;
+    if (len <= 4) {
+        for (auto ch : token) {
+            digits += ch;
+            digits += ch;
+        }
     } else {
-        // Short form
-        strRed = token[0];
-        strGreen = token[1];
-        strBlue = token[2];
+        digits = token;
     }
 
-
-    auto col = ColorRGBA::FromRGB(strutil::hex2dec(strRed.c_str()),
-                                  strutil::hex2dec(strGreen.c_str()),
-                                  strutil::hex2dec(strBlue.c_str()));
+    auto channel = [&digits](size_t index) {
+        return (int)strutil::hex2dec(digits.substr(index * 2, 2).c_str());
+    };
+    auto alpha = (digits.length() == 8) ? channel(3) : 255;
+    auto col = ColorRGBA::FromRGBA(channel(0), channel(1), channel(2), alpha);
 
     return {true, {.vType = SublimeConfigScriptEngine::kColor, .data = col}};
 }

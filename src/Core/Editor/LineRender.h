@@ -13,7 +13,7 @@
 namespace gedit {
     class LineRender {
     public:
-        LineRender(DrawContext &drawContext, int tabSize = 4) : dc(drawContext), tabSize(tabSize) {
+        LineRender(DrawContext &drawContext, int newTabSize = 4) : dc(drawContext), tabSize(newTabSize) {
 
         }
         // Draw the projected screen rows (DocumentViewState::ProjectVisibleRows) - row N at screen row N.

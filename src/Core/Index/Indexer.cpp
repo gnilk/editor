@@ -18,7 +18,7 @@ static bool IsBelow(const std::string &folder, const std::string &root) {
     return (folder.compare(0, root.size(), root) == 0) && ((folder.size() == root.size()) || (folder[root.size()] == '/'));
 }
 
-Indexer::Indexer(CodeIndex::Ref index, Languages languages, Options options) : index(std::move(index)), languages(std::move(languages)), options(std::move(options)) {
+Indexer::Indexer(CodeIndex::Ref newIndex, Languages newLanguages, Options newOptions) : index(std::move(newIndex)), languages(std::move(newLanguages)), options(std::move(newOptions)) {
 }
 
 Indexer::~Indexer() {

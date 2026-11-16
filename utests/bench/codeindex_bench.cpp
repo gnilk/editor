@@ -174,6 +174,13 @@ static void Recolour(const fs::path &file, const fs::path &root) {
     }
     timed("full parse with workspace names", [&]() { buffer->Reparse(); });
     timed("collect structure (each pause in typing)", [&]() { buffer->CollectStructure(); });
+    // What a parse job holds the buffer's structural lock for (open-bugs #31) - an Enter waits at most this long
+    timed("copy the line refs (parse thread's lock hold)", [&]() {
+        std::vector<Line::Ref> snapshot = buffer->Lines();
+        if (snapshot.size() != buffer->NumLines()) {
+            printf("  snapshot size mismatch\n");
+        }
+    });
     buffer->SetWorkspaceNamesSource(nullptr);
 }
 

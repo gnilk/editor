@@ -115,7 +115,10 @@ namespace gedit {
             newLine->SetOnChangeDelegate([this](const Line &line) {
                 OnLineChanged(line);
             });
-            lines.push_back(newLine);
+            {
+                std::lock_guard<std::mutex> guard(linesLock);
+                lines.push_back(newLine);
+            }
             ChangeBufferState(kBuffer_Changed);
         }
 
@@ -133,8 +136,10 @@ namespace gedit {
             newLine->SetOnChangeDelegate([this](const Line &line) {
                 OnLineChanged(line);
             });
-            auto it = lines.begin() + idxPos;
-            lines.insert(it, newLine);
+            {
+                std::lock_guard<std::mutex> guard(linesLock);
+                lines.insert(lines.begin() + idxPos, newLine);
+            }
             ChangeBufferState(kBuffer_Changed);
         }
 
@@ -142,7 +147,10 @@ namespace gedit {
             newLine->SetOnChangeDelegate([this](const Line &line) {
                 OnLineChanged(line);
             });
-            lines.insert(it, newLine);
+            {
+                std::lock_guard<std::mutex> guard(linesLock);
+                lines.insert(it, newLine);
+            }
             ChangeBufferState(kBuffer_Changed);
         }
 
@@ -167,7 +175,10 @@ namespace gedit {
         void DeleteLineAt(size_t idxLine) {
             auto line = LineAt(idxLine);
             line->Lock();
-            lines.erase(lines.begin() + idxLine);
+            {
+                std::lock_guard<std::mutex> guard(linesLock);
+                lines.erase(lines.begin() + idxLine);
+            }
             OnLineRemoved(*line);
             line->Release();
             ChangeBufferState(kBuffer_Changed);
@@ -267,9 +278,12 @@ namespace gedit {
         void ExecuteFullParse();
         size_t ExecuteRegionParse(size_t idxLineStart, size_t idxLineEnd);
         LangLineTokenizer ParserTokenizer();
-        bool ScanStructure(size_t idxLineStart, size_t idxLineEnd, bool isFullScan);
+        std::vector<Line::Ref> SnapshotLines();
+        void ClearLines();
+        bool ScanStructure(const std::vector<Line::Ref> &snapshot, size_t idxLineStart, size_t idxLineEnd, bool isFullScan);
         bool PrepareStructureScanner();
         void RecolourSemanticNames();
+        void RecolourSemanticNames(const std::vector<Line::Ref> &snapshot);
         void TakeWorkspaceNames();
         bool RefreshWorkspaceNames();
         void NotifyStructureChanged();
@@ -286,7 +300,11 @@ namespace gedit {
         BufferState bufferState = kBuffer_Empty;
         std::atomic<uint64_t> revision = 0;
 
+        // Only the UI thread changes 'lines', and it does so under 'linesLock' - an insert/erase/growth moves every
+        // Line::Ref. The parse thread never walks 'lines': it copies the Refs under the lock (SnapshotLines) and
+        // walks the copy, each line under its own lock. The UI thread reads 'lines' without the lock.
         std::vector<Line::Ref> lines;
+        std::mutex linesLock;
 
         // Language parsing variables
         LanguageBase::Ref language = nullptr;

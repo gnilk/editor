@@ -263,11 +263,12 @@ void TextBuffer::ExecuteParseJob(const ParseJob::Ref &job) {
 void TextBuffer::ExecuteFullParse() {
     // Every line is about to be coloured - nothing to recolour for a new answer
     RefreshWorkspaceNames();
+    auto snapshot = SnapshotLines();
     auto tokenizer = ParserTokenizer();
-    tokenizer.ParseLines(lines);
+    tokenizer.ParseLines(snapshot);
     // The names were applied while parsing - new names only need the colours redone, no lexing
-    if (ScanStructure(0, lines.size(), true)) {
-        RecolourSemanticNames();
+    if (ScanStructure(snapshot, 0, snapshot.size(), true)) {
+        RecolourSemanticNames(snapshot);
     }
     NotifyStructureChanged();
     NotifyLinesChanged();
@@ -276,19 +277,26 @@ void TextBuffer::ExecuteFullParse() {
 }
 
 size_t TextBuffer::ExecuteRegionParse(size_t idxLineStart, size_t idxLineEnd) {
+    // The job's line numbers were taken when it was queued - lines may have gone since
+    auto snapshot = SnapshotLines();
+    if (snapshot.empty()) {
+        return 0;
+    }
+    idxLineStart = std::min(idxLineStart, snapshot.size() - 1);
+    idxLineEnd = std::min(idxLineEnd, snapshot.size());
     auto tokenizer = ParserTokenizer();
-    auto result = tokenizer.ParseRegion(lines, idxLineStart, idxLineEnd);
+    auto result = tokenizer.ParseRegion(snapshot, idxLineStart, idxLineEnd);
     if (result != 0) {
         logger->Error("ParseRegion, tokenizer didn't reach complete, result=%zu", result);
         // perhaps issue a full/complete Reparse here??
     }
     // The edited lines got the names while parsing; a declared/removed name changes lines elsewhere too
-    if (ScanStructure(idxLineStart, idxLineEnd, false)) {
+    if (ScanStructure(snapshot, idxLineStart, idxLineEnd, false)) {
         if (reparseThread != nullptr) {
             isRecolourPending = true;
             timeNamesChanged = std::chrono::steady_clock::now();
         } else {
-            RecolourSemanticNames();
+            RecolourSemanticNames(snapshot);
         }
     }
     NotifyStructureChanged();
@@ -296,6 +304,18 @@ size_t TextBuffer::ExecuteRegionParse(size_t idxLineStart, size_t idxLineEnd) {
     parseMetrics.total += 1;
     parseMetrics.region += 1;
     return result;
+}
+
+// The parse thread's view of the lines: the Refs keep each line alive, so a line deleted meanwhile is only
+// coloured for nothing; a line inserted meanwhile comes with its own region parse.
+std::vector<Line::Ref> TextBuffer::SnapshotLines() {
+    std::lock_guard<std::mutex> guard(linesLock);
+    return lines;
+}
+
+void TextBuffer::ClearLines() {
+    std::lock_guard<std::mutex> guard(linesLock);
+    lines.clear();
 }
 
 // Any edit moves the lines below it, so any parse counts as a change. Waits for a pause - one walk over the
@@ -347,9 +367,10 @@ void TextBuffer::PublishLineHashes() {
         return;
     }
     isLineHashesPending = false;
+    auto snapshot = SnapshotLines();
     std::vector<uint64_t> hashes;
-    hashes.reserve(lines.size());
-    for (auto &line : lines) {
+    hashes.reserve(snapshot.size());
+    for (auto &line : snapshot) {
         line->Lock();
         hashes.push_back(line->ContentHashLocked());
         line->Release();
@@ -385,10 +406,11 @@ void TextBuffer::PublishStructure() {
 }
 
 FileStructure TextBuffer::CollectStructure() {
+    auto snapshot = SnapshotLines();
     FileStructure fileStructure;
-    fileStructure.numLines = lines.size();
-    for (size_t idxLine = 0; idxLine < lines.size(); idxLine++) {
-        auto line = lines[idxLine];
+    fileStructure.numLines = snapshot.size();
+    for (size_t idxLine = 0; idxLine < snapshot.size(); idxLine++) {
+        auto &line = snapshot[idxLine];
         line->Lock();
         auto structure = line->GetStructure();
         if (structure != nullptr) {
@@ -429,8 +451,8 @@ LangLineTokenizer TextBuffer::ParserTokenizer() {
 // before - the rest of the file is unchanged. Each scanned line's declarations replace the ones it had in the
 // counted name table. Returns true when a name's meaning changed.
 //
-bool TextBuffer::ScanStructure(size_t idxLineStart, size_t idxLineEnd, bool isFullScan) {
-    if (!PrepareStructureScanner() || lines.empty()) {
+bool TextBuffer::ScanStructure(const std::vector<Line::Ref> &snapshot, size_t idxLineStart, size_t idxLineEnd, bool isFullScan) {
+    if (!PrepareStructureScanner() || snapshot.empty()) {
         bool isChanged = !semanticNames.IsEmpty();
         semanticNames.Clear();
         return isChanged;
@@ -444,9 +466,9 @@ bool TextBuffer::ScanStructure(size_t idxLineStart, size_t idxLineEnd, bool isFu
     size_t idxStart = 0;
     StructureScanState::Ref resumeState = nullptr;
     if (!isFullScan) {
-        idxStart = std::min(idxLineStart, lines.size() - 1);
+        idxStart = std::min(idxLineStart, snapshot.size() - 1);
         for (; idxStart > 0; idxStart--) {
-            auto &structure = lines[idxStart]->GetStructure();
+            auto &structure = snapshot[idxStart]->GetStructure();
             if ((structure != nullptr) && (structure->stateAtStart != nullptr)) {
                 resumeState = structure->stateAtStart;
                 break;
@@ -458,8 +480,8 @@ bool TextBuffer::ScanStructure(size_t idxLineStart, size_t idxLineEnd, bool isFu
     std::vector<Line::Ref> scannedLines;
     std::vector<LineStructure::Ref> scannedStructures;
     structureScanner->Begin(resumeState);
-    for (auto idxLine = idxStart; idxLine < lines.size(); idxLine++) {
-        auto line = lines[idxLine];
+    for (auto idxLine = idxStart; idxLine < snapshot.size(); idxLine++) {
+        auto &line = snapshot[idxLine];
         auto stateAtStart = structureScanner->StateAtLineStart();
         auto structure = line->GetStructure();
         bool isPastEdit = !isFullScan && (idxLine >= idxLineEnd) && (idxLine > idxStart);
@@ -581,9 +603,13 @@ bool TextBuffer::PrepareStructureScanner() {
 
 // The token lists get the current names - no lexing
 void TextBuffer::RecolourSemanticNames() {
+    RecolourSemanticNames(SnapshotLines());
+}
+
+void TextBuffer::RecolourSemanticNames(const std::vector<Line::Ref> &snapshot) {
     revision++;
     isRecolourPending = false;
-    for (auto &line : lines) {
+    for (auto &line : snapshot) {
         line->Lock();
         ApplySemanticNames(*line);
         line->Release();
@@ -706,7 +732,7 @@ bool TextBuffer::Load(const std::filesystem::path &pathName) {
         return false;
     }
     // Clear out any lines before loading - the CTOR add's an empty line (so we can edit directly)
-    lines.clear();
+    ClearLines();
     for (auto &text : fileLines) {
         AddLine(text);
     }
@@ -949,7 +975,7 @@ bool TextBuffer::LoadWithAttributes(const std::filesystem::path &pathName) {
         loaded.push_back(line);
     }
 
-    lines.clear();
+    ClearLines();
     for (auto &line : loaded) {
         AddLine(line);
     }

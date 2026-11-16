@@ -8,6 +8,23 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## Small items: colours, stale assets, single-folder project, quick-mode switch, warnings (2026-11-16) ✅
+
+Hitlist #21, #23, #24, #29, #22 (Mac half). **#23, load-bearing decision (the user's):** only a clean `goatedit <one folder>` is a
+project - config, session, `.goatedit`. No argument, a file, two folders or a file and a folder: no project; each
+folder argument whose `.goatedit` goes unused gets a stderr + log warning (two folders could disagree, so neither
+wins). `Editor::IsProjectLaunch` decides; `ResolveProjectDir` / `UnusedProjectDirs` follow it; `EstablishProjectDir`
+only runs for a project launch. Apart from that, `GetOrAddProjectRoot` never returns the default root, so
+`goatedit a.txt .` gets a monitored folder root (open-bugs #21; `workspace_folderafterfile` failed before).
+**#24:** the asset dir is a mirror (`cmake/MirrorAssets.cmake` - copy what changed, delete what the sources lack); the
+bundle's `SharedSupport` is cleared before the copy, at build and at install. It found `blocktobuffer.js` /
+`blocktoclipboard.js` still in the build tree. **#21:** CSS rules, `#rgb` doubles each digit (`themeimport_webcolor`
+failed before). **#29:** `]` / `[` dropped from the quickmode keymaps. **#22:** 70 warnings on a clean Mac build, all fixed; sign-compare
+by casting the signed side to the unsigned type (what the compiler already did - no behaviour change); one null deref
+in `WorkspaceView`'s status line fixed on the way. SDL2 twins edited, not compiled - Linux recount open (open-bugs #19). Next idea from this: an "open folder" command (#36).
+
+---
+
 ## The workspace tree read up front within a budget: `max_scan_entries` (2026-11-15) ✅
 
 Opening `~/src/apus` (182k files, a Zephyr workspace, no repo at the top) left the editor stuck ~7 s at startup:

@@ -87,50 +87,23 @@ Test: load a fixture with `\xe4`/`\xf6` bytes, save, compare bytes (round-trip m
 
 ---
 
-## 16. The colour script misreads `#rgb` and can't read `#rrggbbaa`
+## 19. Build warnings - Linux / SDL2 still to check
 
-**Where:** `SublimeConfigScriptEngine::ParseWebColor` (colors.json values).
+**macOS / SDL3: clean (2026-11-16).** A clean debug build of `goatedit` + `utests` had 70 distinct warnings in our
+code (shadowing, sign-compare, unused variables, missing initialisers, formats); all fixed, none left outside
+`_deps` / `ext`. Sign-compare fixes cast the signed side to the unsigned type - the conversion the compiler already
+made - so no comparison changed meaning. One real fix on the way: `WorkspaceView`'s status line dereferenced a null
+node (a `breakme` placeholder in the `if`); it returns early now.
 
-**What's wrong:** the short form takes each hex digit as the whole channel - `#fff` becomes
-`(15, 15, 15)` (near black), not `#ffffff`. An 8-digit `#rrggbbaa` (VS Code, Sublime both allow it) is
-rejected ("Hex color description to short"). The stock colors.json uses neither, so nothing shows today.
+**Open:** the SDL2 sources only compile on Linux. The SDL2 twins of the SDL3 fixes were made by hand (`UpdateWindow`'s
+`targetWindow`, the unused pixel rects, the keyboard driver's cast) but never compiled. Recount on Linux:
+`cmake --build --preset debug --clean-first 2>&1 | grep warning: | grep -v "_deps/\|src/ext/" | sort -u`.
+Linux's gcc warns about things clang doesn't (it reported more in `Theme.cpp`, `Editor.cpp` on 2026-11-13).
 
-**Workaround in place:** the theme importer (code index step 1c) parses hex itself and writes `#rrggbb` /
-`rgba()` only. **Fix:** expand `#rgb` / `#rgba` to two digits per channel; accept 4 and 8 digits with alpha.
+**Then:** consider making new ones visible - `-Werror=shadow` on our sources (not `_deps`/`ext`), so one in a header
+can't slip in again.
 
-**Discovered:** 2026-10-25, writing the theme importer.
-
----
-
-## 19. Build warnings - a cleanup session (mostly `-Wshadow`)
-
-**Where (a clean debug build, macOS/SDL3, 2026-11-09 - 28 distinct warnings):**
-
-- `-Wshadow`, a local or parameter named as a member (12): `Document.cpp` lines 168, 190, 325, 1579;
-  `EditorView.cpp:284`; `HexView.cpp:249`; `SDL3/SDLScreen.cpp` `CreateWindow` (its `window` parameter);
-  `SDL3/SDLWindow.cpp:212`; `Index/CPPStructureScanner.h:119` (a header - repeats in every file including it);
-  `Theme/Theme.cpp:67`, `:75`.
-- `-Wshadow`, a local hiding a local (1): `KeyMapping.cpp:372`.
-- `-Wmissing-field-initializers` (6): `Index/CPPStructureScanner.cpp` 488, 533, 539, 582, 594, 601 (`name`) -
-  aggregate initialisers leaving the last field out.
-- One each: `-Winconsistent-missing-override` `macOS/MacOSKBEmulator.h:17` (`Initialize`); `-Wformat-pedantic`
-  `Language/LangToken.cpp:103` (an enum through `%d`). (`unix/Shell.cpp`'s unused `signal_handler` is gone - the
-  gvt terminal work removed it.)
-- Not ours, leave: `stb_image.h` (two unused functions), gnklog's `LogManager.cpp:318` (`-Wunused-result`).
-
-**What's wrong:** nothing breaks today, but the noise hides a warning that matters - a new one in a header repeats in
-every file including it (`DrawContext::DrawImage`'s `rect` parameter, from the minimap, was 69 of 98 lines until it
-was renamed `cellRect`). A shadowing parameter is also the kind that reads the wrong value silently on the next edit.
-
-**Fix direction:** one session, file by file: rename the shadowing names (the member keeps its name; the local or
-parameter says what it is - `newWindow`, `cellRect`), complete the initialisers (or name the fields), add the
-`override`, cast the enum. Check the SDL2 build too (Linux/`cmake-build-sdl2`) - its
-sources are only compiled there. Then consider making new warnings visible - `-Werror=shadow` on our sources (not
-`_deps`/`ext`) so a header one can't slip in again.
-
-**Recount:** `cmake --build --preset debug --clean-first 2>&1 | grep warning: | sort -u`
-
-**Discovered:** 2026-11-09, after the minimap (§7) - "a lot of build warnings now".
+**Not ours, leave:** `stb_image.h` (two unused functions), gnklog's `LogManager.cpp:318` (`-Wunused-result`).
 
 ---
 
@@ -214,44 +187,6 @@ Filed rather than fixed straight away: changing it changes what existing user co
 and the shipped project configs for lists first. Test: merge a short list over a longer default and assert the
 result equals the short list (fails today), plus the append form. Languages as data (`support-languages.md` §9)
 does its own inheritance with these rules and doesn't use `YAMLMerge`.
-
----
-
-## 21. A file argument before the folder leaves that folder without a folder monitor
-
-`goatedit src/a.txt .` (from the project root) shows the tree but never updates it: no files written by others,
-no reload. `goatedit .` works. Both platforms - the consumer side, not a backend.
-
-**Why:** `LoadDocument` for the file runs first and creates the **default root** at the cwd
-(`Workspace::GetDefaultRoot`: `ProjectRoot::Create(nullptr, nullptr, ...)` - no reconcile callback, "no
-file-monitor" by design). `OpenFolder(".")` then calls `GetOrAddProjectRoot`, which matches by path and returns
-that default root, so `StartFolderMonitor` works on a root that can't reconcile. The loose file also shows at the
-root's level instead of under `src/`.
-
-**Fix direction:** decide whether a folder open at the default root's path *promotes* it (give it the reconcile /
-changed callbacks, re-scan, re-home its loose documents into the tree), or whether `GetOrAddProjectRoot` must
-skip the default root and the default root be dropped once empty. Repro in a unit test: open a document, then
-`OpenFolder` of the cwd, and assert the root has a reconcile callback / a started monitor (fake factory).
-
----
-
-## 22. Installing (and building) never removes an asset that was deleted from the repo
-
-After `blocktobuffer.js` / `blocktoclipboard.js` were removed (command blocks gone, `860dee3`), a fresh macOS
-`cmake --install bld` still left both in `/Applications/goatedit.app/Contents/SharedSupport/Plugins/Scripts/`.
-Removed by hand on 2026-11-10. Harmless this time - `jsplugs.yml` no longer names them, so nothing loads them - but
-a stale *loaded* file (a keymap, a theme, a plugin still listed by an older user/project config) would keep its old
-behaviour with no sign of where it came from.
-
-**Why:** every copy step only adds or overwrites: the macOS `install(DIRECTORY ${EDITOR_ASSET_DIR}/ ...)` into the
-bundle, the `POST_BUILD` `copy_directory` into the build tree's `goatedit.app/Contents/SharedSupport`, and the
-`resources` / `plugins` targets (`copy_directory_if_different`) into `EDITOR_ASSET_DIR`. Linux is covered for installs:
-`scripts/install.sh` uninstalls by its manifest before installing.
-
-**Fix direction:** on macOS, clear `<bundle>/Contents/SharedSupport` before the asset install (an `install(CODE ...)`
-`file(REMOVE_RECURSE ...)` ahead of `install(DIRECTORY ...)`), and do the same for the build tree's bundle copy, or
-copy with a mirror step that deletes what the source no longer has. Check it with a file removed from
-`Assets/Resources`: after build + install it must be gone from both bundles.
 
 ---
 

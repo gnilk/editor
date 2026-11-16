@@ -40,6 +40,9 @@ namespace gedit {
         static void GoToHits(std::vector<CodeIndex::Hit> hits, Document::Ref document, const std::string &path);
         // Opens the place and puts the jump on the navigation stack
         static bool JumpTo(const std::string &path, uint32_t line, uint32_t column);
+        // '.goto <line>' / quick mode 'g': 'lineNumber' counts from 1 as compilers, grep and git do; past the end is the last line;
+        // the caret lands on the first non-blank (vim's ':N'). A jump - Cmd+[ comes back. False for line 0 / no document.
+        static bool GotoLine(const Document::Ref &document, size_t lineNumber);
         // A line as the editor has it, in its colours: a copy from the open document, with its unsaved edits, else from the
         // file. nullptr if there is none.
         static Line::Ref SourceLine(const std::string &path, uint32_t line);

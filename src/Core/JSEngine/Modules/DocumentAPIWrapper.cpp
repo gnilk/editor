@@ -22,6 +22,7 @@ void DocumentAPIWrapper::RegisterModule(duk_context *ctx) {
     dukglue_register_method(ctx, &DocumentAPIWrapper::Reload, "Reload");
     dukglue_register_method(ctx, &DocumentAPIWrapper::GetEncoding, "GetEncoding");
     dukglue_register_method(ctx, &DocumentAPIWrapper::SetEncoding, "SetEncoding");
+    dukglue_register_method(ctx, &DocumentAPIWrapper::GotoLine, "GotoLine");
     dukglue_register_method(ctx, &DocumentAPIWrapper::ReformatFile, "ReformatFile");
     dukglue_register_method(ctx, &DocumentAPIWrapper::ReformatBlock, "ReformatBlock");
     dukglue_register_method(ctx, &DocumentAPIWrapper::IsReformatEnabled, "IsReformatEnabled");
@@ -83,6 +84,13 @@ bool DocumentAPIWrapper::SetEncoding(const char *name) {
         return false;
     }
     return document->SetEncoding(name);
+}
+
+bool DocumentAPIWrapper::GotoLine(int lineNumber) {
+    if (document == nullptr) {
+        return false;
+    }
+    return document->GotoLine(lineNumber);
 }
 
 bool DocumentAPIWrapper::Reload() {

@@ -77,6 +77,7 @@ Three layers, merged in this order (later wins, key by key):
 | `/text` | search as you type |
 | `?` | repeat the last search |
 | `n` / `p` | next / previous hit |
+| `g` | types `.g ` for you: add a line number, `Enter` |
 | `\` / `'` | next / previous buffer |
 | `.command` + `Enter` | run a command (below) |
 
@@ -87,6 +88,7 @@ in the editor; anything else (`./build.sh`) goes to the shell. The prefix is `ma
 
 | Command | Short | Does |
 |---|---|---|
+| `.goto <line>` | `.g` | go to a line (counts from 1, lands on its first non-blank; `Cmd+[`/`Ctrl+[` comes back) |
 | `.save` / `.saveas <file>` | `.s` / `.sa` | save (asks if the file changed on disk; `.s!` saves anyway) |
 | `.openfile <file>` | `.o` | open a file |
 | `.newbuffer` | `.nb` | new buffer |

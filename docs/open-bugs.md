@@ -252,55 +252,6 @@ does (CLion finds it through the system's own fallback). Fix: [`system-font-fall
 
 ---
 
-## 31. Parse thread walks `lines` while the main thread inserts/erases lines (heap use-after-free)
-
-**Where:** `TextBuffer::RecolourSemanticNames` (`src/Core/TextBuffer.cpp`), reached from the parse thread
-(`ParseThread` -> `ExecuteParseJob(kWorkspaceNames)` or the idle tick -> `TakeWorkspaceNames`). Seen as a segfault in
-`Line::Release` on an unmapped address.
-
-**What's wrong (ASan, Linux, 2026-11-16, `origin/main` 0404c48):** a race on the `lines` VECTOR, not a stale thread or
-a destroyed buffer. The buffer is alive; its parse thread iterates `lines` (`for (auto &line : lines)`) while the main
-thread `push_back`s into the same vector, and the reallocation frees the storage the loop is reading:
-- **use** (parse thread, T98): `RecolourSemanticNames` :587 <- `TakeWorkspaceNames` :595 <- `ExecuteParseJob` :258
-  (the `kWorkspaceNames` job) <- `ParseThread` :240. Thread created by `StartParseThread` <- `Reparse` <- `SetLanguage`
-  <- `Document::LoadData` <- `Editor::OpenDocumentFromWorkspace`.
-- **free** (test thread): `std::vector<Line::Ref>::_M_realloc_insert` <- `TextBuffer::AddLine` (`TextBuffer.h:118`) <-
-  `AddLineUTF8` <- `CloseAndReopen` (`utests/test_workspace.cpp:429`) <- `test_workspace_reopen`.
-- **allocated** by the same test thread: the vector's previous growth in `AddLine` via `CreateEmptyBuffer` /
-  `Workspace::EnsureDocumentForNode`.
-
-Opening the document queues a `kWorkspaceNames` job (`SetWorkspaceNamesSource`) and does not wait for it; the test
-then appends a line straight away. Trigger confirmed: `trun -m workspace -t reopen` alone crashes 2/30 (plain debug);
-`textbuffer,treeview,workspace` minus `reopen` 0/30. The test names in earlier reports (`treeview_*`, `workspace_*`)
-lagged because stdout to a file is buffered and lost at the crash.
-
-**Not test-only.** There is no buffer-level lock on `lines`: `AddLine`, `Insert`, `DeleteLineAt` mutate the vector
-bare (only `DeleteLineAt` locks the one `Line`), and every parse-thread walk (`RecolourSemanticNames`,
-`PublishLineHashes`, `CollectStructure`, the region/full parse) reads it bare. The app takes the same path when a
-names job or idle recolour (`isRecolourPending`, or a new answer from the index via `TakeWorkspaceNames` on every idle
-tick) overlaps an Enter / paste / undo / delete-line on the main thread - a narrow window, wider on big files.
-
-**Why the guards don't cover it:** the destructor and `Close()` stop and join the thread, which is right, but the
-buffer is not being destroyed here. `CanEdit()` is the edit-side guard and is effectively always true
-(`bIsReadOnly == false` short-circuits it), and even its `kState_Idle` test would not help: the idle-tick recolour and
-`TakeWorkspaceNames` run while the state is `Idle`. Per-`Line` `Lock()`/`Release()` protects a line's contents, not the
-vector holding the `Line::Ref`s.
-
-**How it was caught:** utests built with `-fsanitize=address` (CMAKE_CXX/C/linker flags on the configure line; the
-`asan` preset only instruments `goatedit`). trun opens the lib with `RTLD_DEEPBIND`, which ASan refuses - preload a
-5-line `dlopen` shim that clears that flag, ahead of libasan (`LD_PRELOAD="shim.so $(gcc -print-file-name=libasan.so)"`,
-`ASAN_OPTIONS=verify_asan_link_order=0:...`). The report has no symbols then; resolve offsets with
-`addr2line -f -C -i -e libutests.so`. Forked (non-`--sequential`) mode reports no results under that preload.
-
-**Repro:** Linux, `cd cmake-build-debug && trun -m workspace -t reopen --sequential ./libutests.so` in a loop.
-
-**Status (2026-11-16): fixed on branch `fix/parse-thread-lines-race` (ad46d9e), not merged.** Only the UI thread
-changes `lines`, under `linesLock`; every parse-thread walk copies the Refs under it (`SnapshotLines`) and walks the
-copy. `test_textbuffer_thstructural` crashed 9/10 on the Mac before, 0/10 after. Linux: ASan clean (reopen x90,
-thstructural x20; main gave 11 reports in 60), green set 6/6. sqlite3.c: the copy (the lock hold) is ~2 ms; every
-region job pays it on the parse thread - a copy kept until lines are added/removed would remove that. Delete this
-entry when the branch is merged.
-
 ## 32. A git `Process` thread outlives `exit()` and posts into Runloop's destroyed message queue (use-after-free)
 
 **Where:** `Process::Finish` (`src/Core/Process.cpp:89`) calls `onExit` on the process's own thread, which is

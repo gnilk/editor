@@ -62,7 +62,6 @@ Built and unit-tested, not yet tried by hand on that platform. Linux = SDL2 (Ctr
 | # | Item | Where | Size | Notes |
 |---|---|---|---|---|
 | 16 | Data loss: a Latin-1 file is truncated on open and save | open-bugs #15 | half a day | the only data-loss bug - first |
-| 37 | Intermittent segfault in the test run: a parse thread walks `lines` while the UI thread changes them | open-bugs #31 | - | FIXED on `fix/parse-thread-lines-race`, verified Mac + Linux ASan; waiting for the merge |
 | 38 | A git process thread outlives exit and posts into the destroyed Runloop queue | open-bugs #32 | hours | ASan only, at exit (test teardown; the app on quit with git running); main too |
 | 17 | A config list overwrites the default list by position | open-bugs #28 | half a day | idea: an immutable merge that returns a new tree; `LanguageFileSet::Merge` is the model |
 | 11 | Languages phase 2: CMake and Python (case-insensitive lists, generic numbers, the prefix rule) | `support-languages.md` | 1-2 days | used daily |
@@ -105,6 +104,7 @@ Smaller bugs not ranked yet: open-bugs #1 (`AttributeAt`, read before touching i
 | - | Minimap contrast: marks gap, damped text, `overlay_strength` (usability §7 follow-up) | 2026-11-13 |
 | - | A theme that can't load falls back to the default (open-bugs #29) | 2026-11-13 |
 | - | Theme import writes author / license / copyright / source (`theme-collection.md` §3) | 2026-11-13 |
+| 37 | Intermittent test-run segfault: the parse thread walked `lines` while the UI thread changed them (open-bugs #31) | 2026-11-16 |
 | 35 | PageDown / Cmd+End in a short file kept a short scroll window, the view scrolled early (open-bugs #30) | 2026-11-15 |
 | - | Workspace tree read up front within a budget (`max_scan_entries`); quitting doesn't wait for the index's root walk | 2026-11-15 |
 | 21 | The colour script reads `#rgb` / `#rgba` / `#rrggbbaa` (open-bugs #16) | 2026-11-16 |

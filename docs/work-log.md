@@ -8,6 +8,25 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## Parse thread vs. the line vector: a cached copy, structural changes under a lock (2026-11-16) ✅
+
+An intermittent test-run segfault (Linux, ~half the runs, `main` too; open-bugs #31) was a race on `TextBuffer::lines`:
+the parse thread walked the vector (recolour, region/full parse, structure scan, line hashes) while the UI thread
+inserted/appended, and an insert or a growth moves every `Line::Ref`. ASan (Linux) named it: a `kWorkspaceNames` job
+queued on open, the test appending a line at once. The per-`Line` locks guard a line's text, not the vector; `CanEdit()`
+is effectively always true. **Load-bearing decisions:** keep the `std::vector` (a `list` still races on its links and
+makes every line-number lookup O(n); a `deque` moves elements on a middle insert) and keep locking fine-grained - only
+the UI thread changes `lines`, under `linesLock`; the parse thread walks a copy of the Refs (`SnapshotLines`), each
+line under its own lock. The copy is a shared const vector **made again only when `linesGeneration` moved** (bumped
+by every add/insert/erase/clear) - copying per job made a keystroke's region parse O(file): 11 us -> 1.6 ms on
+sqlite3.c. Measured (release, sqlite3.c 238k lines; `gedit-bench --recolour` now times 100 keystrokes and 100 Enters):
+keystroke 11 us (as main), Enter 1.7 ms Mac / 3 ms Linux (the copy; main 60 us), full parse unchanged. The user
+hand-tested typing (fine). Tests: `textbuffer_thstructural` (inserts/deletes during a region parse; 9/10 crashed
+before, 0/10 after); Linux ASan clean (reopen x90). Found on the way: open-bugs #32, a git `Process` thread that
+posts into Runloop's static queues after `exit()`.
+
+---
+
 ## The workspace tree read up front within a budget: `max_scan_entries` (2026-11-15) ✅
 
 Opening `~/src/apus` (182k files, a Zephyr workspace, no repo at the top) left the editor stuck ~7 s at startup:

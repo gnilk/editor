@@ -4,6 +4,7 @@
 
 #include "logger.h"
 #include "TextBuffer.h"
+#include "Runloop.h"
 #include "Core/Config/Config.h"
 #include "Core/Editor.h"
 #include <thread>
@@ -333,6 +334,7 @@ TextBuffer::LinesSnapshot TextBuffer::SnapshotLines() {
 void TextBuffer::ClearLines() {
     std::lock_guard<std::mutex> guard(linesLock);
     linesGeneration++;
+    editCounter++;
     lines.clear();
 }
 
@@ -377,16 +379,19 @@ void TextBuffer::RequestLineHashes() {
     }
 }
 
-// A line's hash is kept until it changes, so this hashes only what was edited. With no handler the hashes stay
-// pending, as the structure does.
+// A line's hash is kept until it changes, so this hashes only what was edited. The same sweep tells whether the
+// lines are back to what was loaded/saved (an undo); the handler (the gutter's change marks) is optional.
 void TextBuffer::PublishLineHashes() {
     std::lock_guard<std::mutex> guard(lineHashesLock);
-    if (lineHashesHandler == nullptr) {
-        return;
-    }
     isLineHashesPending = false;
+    // Read before the lines: an edit after this point makes the answer stale, and the UI thread drops it
+    uint64_t editsAtSweep = editCounter;
     auto snapshotRef = SnapshotLines();
     auto &snapshot = *snapshotRef;
+    bool canBeClean = CanMatchCleanBaseline(snapshot.size());
+    if ((lineHashesHandler == nullptr) && !canBeClean) {
+        return;
+    }
     std::vector<uint64_t> hashes;
     hashes.reserve(snapshot.size());
     for (auto &line : snapshot) {
@@ -394,7 +399,61 @@ void TextBuffer::PublishLineHashes() {
         hashes.push_back(line->ContentHashLocked());
         line->Release();
     }
-    lineHashesHandler(hashes);
+    if (canBeClean && MatchesCleanBaseline(hashes)) {
+        if (reparseThread == nullptr) {
+            MarkCleanIfUnedited(editsAtSweep);
+        } else {
+            // The buffer state belongs to the UI thread
+            std::weak_ptr<TextBuffer> weakBuffer = weak_from_this();
+            Runloop::PostMessage(0x00, [weakBuffer, editsAtSweep](uint32_t) {
+                if (auto buffer = weakBuffer.lock()) {
+                    buffer->MarkCleanIfUnedited(editsAtSweep);
+                }
+            });
+        }
+    }
+    if (lineHashesHandler != nullptr) {
+        lineHashesHandler(hashes);
+    }
+}
+
+// What the file holds now - loaded, saved, or put there by a reload (UI thread)
+void TextBuffer::TakeCleanBaseline() {
+    std::vector<uint64_t> hashes;
+    hashes.reserve(lines.size());
+    for (auto &line : lines) {
+        line->Lock();
+        hashes.push_back(line->ContentHashLocked());
+        line->Release();
+    }
+    std::lock_guard<std::mutex> guard(cleanBaselineLock);
+    cleanBaseline = std::move(hashes);
+    hasCleanBaseline = true;
+}
+
+// Cheap: no baseline (never loaded from a file) or another line count can't be clean - no need to hash
+bool TextBuffer::CanMatchCleanBaseline(size_t numLines) {
+    std::lock_guard<std::mutex> guard(cleanBaselineLock);
+    return hasCleanBaseline && (cleanBaseline.size() == numLines);
+}
+
+bool TextBuffer::MatchesCleanBaseline(const std::vector<uint64_t> &hashes) {
+    std::lock_guard<std::mutex> guard(cleanBaselineLock);
+    return hasCleanBaseline && (hashes == cleanBaseline);
+}
+
+// UI thread: the sweep found the lines as last loaded/saved. Taken only when nothing was edited since it started.
+void TextBuffer::MarkCleanIfUnedited(uint64_t editsAtSweep) {
+    if ((bufferState != kBuffer_Changed) || (editCounter != editsAtSweep)) {
+        return;
+    }
+    // Nothing to save - a pending autosave would write the same text
+    if (autoSaveTimer != nullptr) {
+        autoSaveTimer->Stop();
+        autoSaveTimer = nullptr;
+    }
+    ChangeBufferState(kBuffer_Loaded);
+    Editor::Instance().TriggerUIRedraw();
 }
 
 // A buffer is parsed before it is opened, so the job is what keeps it from showing plain until the next tick
@@ -758,6 +817,7 @@ bool TextBuffer::Load(const std::filesystem::path &pathName) {
     }
     // Change state, do this before UpdateLang - since lang checks if loaded before allowing parse to happen
     ChangeBufferState(kBuffer_Loaded);
+    TakeCleanBaseline();
 //    UpdateLanguageParserFromFilename();
     return true;
 }
@@ -817,6 +877,7 @@ bool TextBuffer::ReadLines(const std::filesystem::path &pathName, std::vector<st
 
 void TextBuffer::MarkInSyncWithDisk() {
     ChangeBufferState(kBuffer_Loaded);
+    TakeCleanBaseline();
 }
 
 bool TextBuffer::Save(const std::filesystem::path &pathName) {
@@ -858,6 +919,7 @@ bool TextBuffer::DoSave(const std::filesystem::path &pathName, bool skipChangeCh
 
     // Go back to 'clean' - i.e. data is loaded...
     ChangeBufferState(kBuffer_Loaded);
+    TakeCleanBaseline();
     // Note: we don't trigger UI redraws from change-state, because that would lead to all hell on earth...
     // unless we have somethine like 'DisableRedraw' / 'EnableRedraw'
     Editor::Instance().TriggerUIRedraw();
@@ -1009,6 +1071,7 @@ void TextBuffer::ChangeBufferState(BufferState newState) {
 }
 
 void TextBuffer::OnLineChanged(const Line &line) {
+    editCounter++;
     ChangeBufferState(kBuffer_Changed);
 
     auto autoSaveTimeout = Config::Instance()["main"].GetInt("autosave_timeout_ms", 2000);

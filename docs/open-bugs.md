@@ -4,7 +4,7 @@ Durable list of known defects we've chosen NOT to fix in-place yet, with enough 
 up cold. Referenced from CLAUDE.md ("Documentation") so it surfaces each session.
 
 Numbers are stable (commits, docs and notes refer to them) - a fixed bug is removed, never renumbered.
-**Next bug is #31.**
+**Next bug is #32.**
 
 ---
 
@@ -99,6 +99,14 @@ node (a `breakme` placeholder in the `if`); it returns early now.
 `targetWindow`, the unused pixel rects, the keyboard driver's cast) but never compiled. Recount on Linux:
 `cmake --build --preset debug --clean-first 2>&1 | grep warning: | grep -v "_deps/\|src/ext/" | sort -u`.
 Linux's gcc warns about things clang doesn't (it reported more in `Theme.cpp`, `Editor.cpp` on 2026-11-13).
+
+**Linux result (2026-11-16, Linux-Editor session):** builds; gcc-only fixes pushed (57e08d1). Left: ~70 `-Wshadow` from
+gcc, almost all constructor/setter parameters named as a member (FindModal, QuickOpenModal, SymbolSearchModal,
+RepoMonitor, Process, ExclusionRules, SDL2 SDLFont/SDLDrawContext, HLScreen, ConfirmModal, ...) - clang doesn't flag
+those, gcc does. They are not asked for by our CMake: `src/ext/gnklog/CMakeLists.txt:94`
+`target_compile_options(gnklog PUBLIC -Wall -Wextra -Wshadow -Wpedantic)` (under `if(UNIX)`) spills into every target
+linking gnklog. **Decide first (the user's repo):** make those options PRIVATE in gnklog, or keep `-Wshadow` and rename
+the ~70 parameters.
 
 **Then:** consider making new ones visible - `-Werror=shadow` on our sources (not `_deps`/`ext`), so one in a header
 can't slip in again.
@@ -241,3 +249,23 @@ terminal should reproduce it without Claude Code.
 does (CLion finds it through the system's own fallback). Fix: [`system-font-fallback.md`](system-font-fallback.md).
 `/usage` itself is still unexplained.
 2026-11-11: system font fallback merged; `/context` draws in the app. Open: whether `/usage` still fails.
+
+---
+
+## 31. Intermittent segfault in the test run: a buffer's parse thread recolours lines that are going away
+
+**Where:** `TextBuffer::ParseThread` -> `ExecuteParseJob` -> `TakeWorkspaceNames` -> `RecolourSemanticNames`
+(`src/Core/TextBuffer.cpp`) -> `Line::Release` -> mutex unlock on an unmapped address.
+
+**What's wrong:** found by the Linux session on 2026-11-16: the verified-green run segfaults in about 3 of 6 runs, on
+`feature/small-items` and on `origin/main` alike (so not that branch). It is a background parse thread of a buffer from
+an earlier module; it surfaces during `test_treeview_fetch_reentrant_additem` or `test_workspace_*`. When the run gets
+to the end, all 784 pass. Not seen on the Mac so far.
+
+**Guess (unconfirmed):** `RecolourSemanticNames` walks `lines` taking each line's own lock but not the buffer's, so a
+buffer being edited or destroyed under it (the test frees the document while its parse job still runs) leaves it
+unlocking a freed `Line`. Check: how `TextBuffer`'s destructor stops the parse thread before `lines` goes, and whether
+a `kWorkspaceNames` job can outlive it; ASan on Linux (`cmake-build-asan`) should name the free.
+
+**Repro:** Linux, `trun ... --sequential ./libutests.so` (the verified-green set) a few times in a row.
+

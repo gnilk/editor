@@ -113,6 +113,13 @@ commands:
     arguments:
       - string, encoding name (optional)
   -
+    name: goto
+    short: g
+    description: Go to a line of the active buffer (counts from 1; the caret lands on its first non-blank; Cmd+[ comes back) - quick mode 'g' types '.g ' for you
+    script: Scripts/goto.js
+    arguments:
+      - number, line
+  -
     name: fm_file
     short: fmf
     description: Reformat (reindent) the whole active buffer - not for languages where indentation is syntax (YAML)

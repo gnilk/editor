@@ -443,6 +443,31 @@ bool ActionHelper::JumpTo(const std::string &path, uint32_t line, uint32_t colum
     return true;
 }
 
+bool ActionHelper::GotoLine(const Document::Ref &document, size_t lineNumber) {
+    if ((document == nullptr) || (lineNumber == 0) || (document->GetTextBuffer()->NumLines() == 0)) {
+        return false;
+    }
+    auto idxLine = std::min(lineNumber, document->GetTextBuffer()->NumLines()) - 1;
+    auto &text = document->LineAt(idxLine)->Buffer();
+    auto idxFirst = text.find_first_not_of(U" \t");
+    auto column = (idxFirst == std::u32string::npos) ? 0 : idxFirst;
+
+    // A file on disk goes the way every jump does, onto the navigation stack
+    auto &editor = Editor::Instance();
+    auto node = editor.GetWorkspace()->GetNodeFromDocument(document);
+    if ((node != nullptr) && !node->GetNodePath().empty()) {
+        return JumpTo(pathutil::CanonicalPath(node->GetNodePath()).string(), (uint32_t)idxLine, (uint32_t)column);
+    }
+    // A buffer that was never saved: there is no place to come back to, only the caret moves
+    document->CancelSelection();
+    document->SetCursorPosition(idxLine, column);
+    document->ScrollActiveLineIntoLowerPart();
+    if (RuntimeConfig::Instance().HasRootView()) {
+        SwitchToNamedView(glbEditorView);
+    }
+    return true;
+}
+
 void ActionHelper::JumpBack() {
     TakeStep([](NavigationStack &stack, const NavigationStack::Entry &current) {
         return stack.Back(current);

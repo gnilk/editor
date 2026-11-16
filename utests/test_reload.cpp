@@ -13,6 +13,7 @@
 
 #include "Core/Config/Config.h"
 #include "Core/Workspace.h"
+#include "Core/ActionHelper.h"
 
 using namespace gedit;
 namespace fs = std::filesystem;
@@ -32,6 +33,7 @@ extern "C" {
     DLL_EXPORT int test_reload_undoclean(ITesting *t);
     DLL_EXPORT int test_reload_retypeclean(ITesting *t);
     DLL_EXPORT int test_reload_savedbaseline(ITesting *t);
+    DLL_EXPORT int test_reload_gotoline(ITesting *t);
 }
 
 namespace {
@@ -311,5 +313,27 @@ DLL_EXPORT int test_reload_savedbaseline(ITesting *t) {
     undo.action = kAction::kActionUndo;
     TR_ASSERT(t, fixture.document->OnAction(undo));
     TR_ASSERT(t, fixture.document->IsModified());
+    return kTR_Pass;
+}
+
+// '.goto <line>' (ActionHelper::GotoLine): counts from 1, lands on the first non-blank, past the end is the last line
+DLL_EXPORT int test_reload_gotoline(ITesting *t) {
+    Fixture fixture(t, "gotoline", {"one", "    two", "\tthree", "", "last"});
+    auto &lineCursor = fixture.document->GetLineCursor();
+    TR_ASSERT(t, ActionHelper::GotoLine(fixture.document, 2));
+    TR_ASSERT(t, lineCursor.idxActiveLine == 1);
+    TR_ASSERT(t, fixture.document->GetCursor().position.x == 4);
+    TR_ASSERT(t, ActionHelper::GotoLine(fixture.document, 3));
+    TR_ASSERT(t, lineCursor.idxActiveLine == 2);
+    TR_ASSERT(t, fixture.document->GetCursor().position.x == 1);
+    // An empty line: column 0
+    TR_ASSERT(t, ActionHelper::GotoLine(fixture.document, 4));
+    TR_ASSERT(t, fixture.document->GetCursor().position.x == 0);
+    TR_ASSERT(t, ActionHelper::GotoLine(fixture.document, 999));
+    TR_ASSERT(t, lineCursor.idxActiveLine == 4);
+    TR_ASSERT(t, ActionHelper::GotoLine(fixture.document, 1));
+    TR_ASSERT(t, lineCursor.idxActiveLine == 0);
+    TR_ASSERT(t, !ActionHelper::GotoLine(fixture.document, 0));
+    TR_ASSERT(t, !ActionHelper::GotoLine(nullptr, 1));
     return kTR_Pass;
 }

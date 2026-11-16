@@ -42,6 +42,8 @@ namespace gedit {
         const std::string GetEncoding();
         // False for a name TextEncoding doesn't know
         bool SetEncoding(const std::string &name);
+        // '.goto <line>': counts from 1; past the end is the last line (ActionHelper::GotoLine)
+        bool GotoLine(int lineNumber);
 
         const std::string GetName();
         const std::string GetFileName();

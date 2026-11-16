@@ -4,6 +4,7 @@
 
 #include "Core/Editor.h"
 #include "DocumentAPI.h"
+#include "Core/ActionHelper.h"
 
 using namespace gedit;
 
@@ -85,6 +86,17 @@ bool DocumentAPI::SetEncoding(const std::string &name) {
         return false;
     }
     document->GetDocument()->GetTextBuffer()->SetEncoding(*newEncoding);
+    Editor::Instance().TriggerUIRedraw();
+    return true;
+}
+
+bool DocumentAPI::GotoLine(int lineNumber) {
+    if ((document == nullptr) || (document->GetDocument() == nullptr) || (lineNumber <= 0)) {
+        return false;
+    }
+    if (!ActionHelper::GotoLine(document->GetDocument(), (size_t)lineNumber)) {
+        return false;
+    }
     Editor::Instance().TriggerUIRedraw();
     return true;
 }

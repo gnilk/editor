@@ -99,6 +99,16 @@ bool QuickCommandController::HandleActionInQuickCmdState(const EditorAction &kpA
         case kAction::kActionNextSearchResult :
             NextSearchResult();
             break;
+        case kAction::kActionGotoLine : {
+            // A shorthand for typing '.g ': the line number goes after it, Enter runs the '.goto' command
+            auto prefix = UnicodeHelper::utf8to32(Config::Instance()["main"].GetStr("cmdlet_prefix"));
+            ChangeState(State::CmdLetState);
+            // A Line drops trailing whitespace when it is created, not when one is appended
+            cmdInput = Line::Create(prefix + U"g");
+            cmdInput->Append(U' ');
+            cursor.position.x = (int)cmdInput->Length();
+            return true;
+        }
         case kAction::kActionPrevSearchResult :
             PrevSearchResult();
             break;

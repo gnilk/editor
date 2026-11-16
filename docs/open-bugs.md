@@ -4,7 +4,7 @@ Durable list of known defects we've chosen NOT to fix in-place yet, with enough 
 up cold. Referenced from CLAUDE.md ("Documentation") so it surfaces each session.
 
 Numbers are stable (commits, docs and notes refer to them) - a fixed bug is removed, never renumbered.
-**Next bug is #33.**
+**Next bug is #34.**
 
 ---
 
@@ -47,6 +47,16 @@ the cursor sits exactly at the last token's start. So the method cannot be fixed
 **Other callers to re-check when fixing:** `Document::OnActionWordLeft` (uses `AttributeAt` too),
 `EditController.cpp` `TokenClassAt` (already guards `== attribs.end()`, which `AttributeAt` never returns
 today — revisit once it can).
+
+---
+
+## 33. Test order: after the `document` module, three `jsengine` reformat tests fail
+
+**Repro (2026-11-16, on `main` too):** `trun -m document,jsengine --sequential ./libutests.dylib` - `jsengine_fmfilecmd`
+(`test_jsengine.cpp:800`, `LineOf(doc, 1) == "    a();"`), `jsengine_fmblockcmd` (:827) and `jsengine_fmyaml` (:846,
+`!doc->IsReindentable()`) fail. `jsengine` alone and the full green set (which runs `jsengine` before `document`) pass.
+A `document` case leaves global state behind (a language's indent/reformat setting, or the Config) that the reformat
+commands read. Not looked into further; the fix is probably a post-case reset in `test_document` or `test_jsengine`.
 
 ---
 

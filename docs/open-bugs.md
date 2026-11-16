@@ -112,7 +112,7 @@ fixed: constructor parameters take the `new` prefix (`index(std::move(newIndex))
 `FETCHCONTENT_SOURCE_DIR_GNKLOG`): goatedit + utests + gedit-bench build with no warnings. **Open:** a Linux recount
 (SDL2 `SDLFont` renamed by hand, uncompiled). gnklog pinned at fbdb625 (PRIVATE).
 
-**Then:** consider `-Werror=shadow` on our sources, so one can't slip in again.
+No `-Werror` (the user's call): warnings are allowed during active development and swept clean afterwards.
 
 **Not ours, leave:** gnklog's `LogManager.cpp:318` (`-Wunused-result`, gnklog's own flags). `stb_impl.cpp` gets
 `-Wno-unused-function -Wno-shadow` (vendored, like duktape).

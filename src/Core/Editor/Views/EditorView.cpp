@@ -329,11 +329,12 @@ std::pair<std::u32string, std::u32string> EditorView::GetStatusBarInfo() {
     int visualCol = (line != nullptr)
         ? line->CharToVisualColumn(lineCursor.cursor.position.x, activeDocument->GetTabSize())
         : lineCursor.cursor.position.x;
+    // Line and column count from 1, as the gutter and '.goto' do; the middle number is the caret's screen row
     auto strtmp = fmt::format(U"id: {} l: {}, c({}:{})",
                               indent,
-                              strutil::itou32(lineCursor.idxActiveLine),
+                              strutil::itou32(lineCursor.idxActiveLine + 1),
                               strutil::itou32(lineCursor.cursor.position.y),
-                              strutil::itou32(visualCol));
+                              strutil::itou32(visualCol + 1));
 
     statusRight += strtmp;
 

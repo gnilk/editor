@@ -81,9 +81,10 @@ void GutterView::DrawViewContents() {
         if (row.idxSegment != 0) {
             continue;
         }
-        snprintf(str, 64, "%6zu", row.idxLine);
+        // Line numbers count from 1, as compilers, grep, git and '.goto' do - the index counts from 0
+        snprintf(str, 64, "%6zu", row.idxLine + 1);
         if (row.idxLine == lineCursor.idxActiveLine) {
-            snprintf(str, 64, "%6zu  *", row.idxLine);
+            snprintf(str, 64, "%6zu  *", row.idxLine + 1);
         }
         dc.DrawStringAt(0, static_cast<int>(idxRow), str);
         if (changes != nullptr) {

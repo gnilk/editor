@@ -105,6 +105,7 @@ Smaller bugs not ranked yet: open-bugs #1 (`AttributeAt`, read before touching i
 | - | A theme that can't load falls back to the default (open-bugs #29) | 2026-11-13 |
 | - | Theme import writes author / license / copyright / source (`theme-collection.md` §3) | 2026-11-13 |
 | 42 | Go to line: `.goto <line>` / `.g <line>`, quick mode `g` types `.g ` (a jump - `Cmd+[` comes back) | 2026-11-16 |
+| 43 | Line numbers count from 1 in the gutter and the status line (they showed the 0-based index; `.goto`, Find and Go to symbol already counted from 1) | 2026-11-16 |
 | 16 | Data loss: a Latin-1 file was cut on open and save - now detected, decoded, saved back as it was (open-bugs #15) | 2026-11-16 |
 | 22 | Build warnings: `-Wshadow` ours, gnklog PRIVATE; Mac + Linux clean in our code (open-bugs #19) | 2026-11-16 |
 | 39 | Undo back to the loaded/saved text clears the `*` (a hash sweep after a pause, compared with a baseline) | 2026-11-16 |

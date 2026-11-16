@@ -22,6 +22,7 @@ DLL_EXPORT int test_textbuffer_parsefull(ITesting *t);
 DLL_EXPORT int test_textbuffer_parseregion(ITesting *t);
 DLL_EXPORT int test_textbuffer_thparsefull(ITesting *t);
 DLL_EXPORT int test_textbuffer_thparseregion(ITesting *t);
+DLL_EXPORT int test_textbuffer_thstructural(ITesting *t);
 #ifdef NDEBUG
 DLL_EXPORT int test_textbuffer_parselarge(ITesting *t);
 #endif
@@ -125,6 +126,39 @@ DLL_EXPORT int test_textbuffer_thparseregion(ITesting *t) {
     TR_ASSERT(t, buffer->GetParseMetrics().total > totalBefore);
     TR_ASSERT(t, buffer->GetParseMetrics().region > regionBefore);
 
+    return kTR_Pass;
+}
+
+// open-bugs #31: the parse thread walks the lines while the UI thread inserts and deletes lines. An insert at
+// the top moves every Line::Ref in the vector (and a growing vector moves them to new storage) - a walk without
+// the structural lock reads moved-from (null) or freed slots.
+DLL_EXPORT int test_textbuffer_thstructural(ITesting *t) {
+    Config::Instance()["main"].SetBool("threaded_syntaxparser", true);
+
+    Workspace workspace;
+    auto workspaceNode = workspace.NewDocumentWithFileRef("testfiles/ConvertUTF.cpp");
+    auto buffer = workspaceNode->GetTextBuffer();
+    TR_ASSERT(t, workspaceNode->LoadData());
+    TR_ASSERT(t, !buffer->IsEmpty());
+    while (buffer->GetParseState() != TextBuffer::ParseState::kState_Idle) {
+        std::this_thread::yield();
+    }
+
+    auto numLines = buffer->NumLines();
+    for (int round = 0; round < 50; round++) {
+        auto job = buffer->ReparseRegion(0, buffer->NumLines() - 1);
+        TR_ASSERT(t, job != nullptr);
+        for (int i = 0; i < 200; i++) {
+            buffer->Insert(0, U"int structuralRace = 0;");
+            buffer->AddLine(U"// appended");
+        }
+        for (int i = 0; i < 200; i++) {
+            buffer->DeleteLineAt(0);
+            buffer->DeleteLineAt(buffer->NumLines() - 1);
+        }
+        job->WaitComplete();
+    }
+    TR_ASSERT(t, buffer->NumLines() == numLines);
     return kTR_Pass;
 }
 

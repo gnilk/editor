@@ -110,7 +110,7 @@ one `gedit_warning_flags(target)` for `goatedit`, `utests` and `gedit-bench`, wi
 fixed: constructor parameters take the `new` prefix (`index(std::move(newIndex))`), overrides' `isActive` ->
 `isActivated`, `cursor` -> `windowCursor`, lambdas' parameters renamed. Mac (with gnklog PRIVATE, via
 `FETCHCONTENT_SOURCE_DIR_GNKLOG`): goatedit + utests + gedit-bench build with no warnings. **Open:** a Linux recount
-(SDL2 `SDLFont` renamed by hand, uncompiled), then the gnklog pin bump once its PRIVATE commit is pushed.
+(SDL2 `SDLFont` renamed by hand, uncompiled). gnklog pinned at fbdb625 (PRIVATE).
 
 **Then:** consider `-Werror=shadow` on our sources, so one can't slip in again.
 

@@ -280,22 +280,21 @@ void EditorView::SetWindowCursor(const Cursor &cursor) {
 std::pair<std::u32string, std::u32string> EditorView::GetStatusBarInfo() {
     std::u32string statusCenter = U"";
     std::u32string statusRight = U"";
-    // If we have a document - draw details...
+    // If we have a activeDocument - draw details...
     auto node = Editor::Instance().GetWorkspaceNodeForActiveDocument();
     if (node == nullptr) {
         return {statusCenter, statusRight};
     }
-    // Hmm - why can't I use the document-> here????
-    auto document = node->GetDocument();
-    if (document == nullptr) {
+    auto activeDocument = node->GetDocument();
+    if (activeDocument == nullptr) {
         return {statusCenter, statusRight};
     }
 
     // Resolve center information
-    if (document->GetTextBuffer()->GetBufferState() == TextBuffer::kBuffer_Changed) {
+    if (activeDocument->GetTextBuffer()->GetBufferState() == TextBuffer::kBuffer_Changed) {
         statusCenter += U"* ";
     }
-    if (document->GetTextBuffer()->IsReadOnly()) {
+    if (activeDocument->GetTextBuffer()->IsReadOnly()) {
         statusCenter += U"R/O ";
     }
     if (node->IsMissingOnDisk()) {
@@ -305,16 +304,16 @@ std::pair<std::u32string, std::u32string> EditorView::GetStatusBarInfo() {
 
     statusCenter += node->GetDisplayNameU32();
     statusCenter += U" | ";
-    if (!document->GetTextBuffer()->CanEdit()) {
+    if (!activeDocument->GetTextBuffer()->CanEdit()) {
         statusCenter += U"[locked] | ";
     }
-    statusCenter += document->GetTextBuffer()->HaveLanguage() ? document->GetTextBuffer()->GetLanguage().Identifier() : U"none";
+    statusCenter += activeDocument->GetTextBuffer()->HaveLanguage() ? activeDocument->GetTextBuffer()->GetLanguage().Identifier() : U"none";
 
     // resolve right status
-    auto &lineCursor = document->GetLineCursor();
+    auto &lineCursor = activeDocument->GetLineCursor();
 
     int indent = -1;
-    auto line = document->LineAt(lineCursor.idxActiveLine);
+    auto line = activeDocument->LineAt(lineCursor.idxActiveLine);
     if (line != nullptr) {
         indent = line->GetIndent();
     }
@@ -322,7 +321,7 @@ std::pair<std::u32string, std::u32string> EditorView::GetStatusBarInfo() {
     // Show Line:Row or more 'x/y' -> Configureation!
     // Column is the visual (tab-expanded) column, matching what the caret shows.
     int visualCol = (line != nullptr)
-        ? line->CharToVisualColumn(lineCursor.cursor.position.x, document->GetTabSize())
+        ? line->CharToVisualColumn(lineCursor.cursor.position.x, activeDocument->GetTabSize())
         : lineCursor.cursor.position.x;
     auto strtmp = fmt::format(U"id: {} l: {}, c({}:{})",
                               indent,

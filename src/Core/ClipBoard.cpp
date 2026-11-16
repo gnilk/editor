@@ -86,7 +86,7 @@ void ClipBoard::ClipBoardItem::CopyFromBuffer(TextBuffer::Ref srcBuffer) {
     }
 
     // We simply copy the full lines and when we restore it we read with x-offset handling...
-    for(int i=start.y;i<yEnd;i++) {
+    for(size_t i=start.y;i<yEnd;i++) {
         auto line = srcBuffer->LineAt(i);
         data.push_back(std::u32string(line->Buffer()));
     }

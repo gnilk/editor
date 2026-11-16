@@ -38,7 +38,7 @@ namespace gedit::SDL3 {
     protected:
         void Update(const gedit::Rect &newRect, WindowBase::kWinFlags newFlags, WindowBase::kWinDecoration newDecoFlags);
         void CreateSDLBackBuffer();
-        void OnDrawCursor(const Cursor &cursor);
+        void OnDrawCursor(const Cursor &caret);
     protected:
         // Assigned by SDLScreen when window is created...
         SDL_Renderer *renderer = nullptr;

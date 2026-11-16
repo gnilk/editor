@@ -38,7 +38,7 @@ void VerticalNavigationViewModel::HandleResize(const Rect &viewRect) {
             lineCursor->viewBottomLine -= delta;
         }
         // did the active line go outside the visible spectrum?
-        if (lineCursor->idxActiveLine > lineCursor->viewBottomLine) {
+        if (lineCursor->idxActiveLine > (size_t)lineCursor->viewBottomLine) {
             logger->Debug("Active Line outside visible scope, readjusting visible scope");
 
             int activeDelta = lineCursor->Height() / 2;
@@ -52,7 +52,7 @@ void VerticalNavigationViewModel::HandleResize(const Rect &viewRect) {
     }
 
     // Now do cursor..
-    if (lineCursor->idxActiveLine < lineCursor->viewTopLine) {
+    if (lineCursor->idxActiveLine < (size_t)lineCursor->viewTopLine) {
         logger->Error("idxActiveLine < viewTopLine!!!!!");
     }
     lineCursor->cursor.position.y = lineCursor->idxActiveLine - lineCursor->viewTopLine;

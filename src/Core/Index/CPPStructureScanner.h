@@ -119,7 +119,7 @@ namespace gedit {
         Scope &CurrentScope() { return scopes.back(); }
         bool InClassScope() const;
 
-        const Token &At(const Statement &statement, size_t idx) const { return tokens[statement[idx]]; }
+        const Token &At(const Statement &stmt, size_t idx) const { return tokens[stmt[idx]]; }
         bool IsText(const Statement &statement, size_t idx, const char32_t *text) const;
         bool IsIdentifier(const Statement &statement, size_t idx) const;
     protected:

@@ -64,7 +64,7 @@ DLL_EXPORT int test_strutil_trim32(ITesting *t) {
     std::u8string utf8str;
     TR_ASSERT(t, UnicodeHelper::ConvertUTF32ToUTF8String(utf8str, str));
 
-    printf("trimmed: '%s'\n", utf8str.c_str());
+    printf("trimmed: '%s'\n", reinterpret_cast<const char *>(utf8str.c_str()));
 
     TR_ASSERT(t, utf8str == u8"it should only be this");
 
@@ -108,7 +108,7 @@ DLL_EXPORT int test_strutil_splitu32(ITesting *t) {
     it++;
     it++;
     auto pos = it - u32somestr.begin();
-    printf("Pos: %d\n", pos);
+    printf("Pos: %d\n", static_cast<int>(pos));
 
 
 

@@ -123,7 +123,6 @@ static EditorAction actionShiftLineRight =
                 .modifierMask = Keyboard::ShiftMask()
         };
 static EditorAction actionCut = {gedit::kAction::kActionCutToClipboard};
-static EditorAction actionPaste = {gedit::kAction::kActionPasteFromClipboard};
 static EditorAction actionShiftLineEnd =
         {
                 .uiAction = gedit::kUIAction::kUIActionLineEnd,
@@ -368,7 +367,6 @@ DLL_EXPORT int test_document_delete_text(ITesting *t) {
     document->OnAction(actionShiftLineDown);
     document->OnAction(actionShiftLineDown);
 
-    auto lc = document->GetLineCursor();
     //controller->HandleKeyPress(lc.cursor, lc.idxActiveLine, keyPressDelete);
     controller->OnKeyPress(keyPressDelete);
 

@@ -14,7 +14,7 @@ namespace gedit {
     public:
         MacOSKBEmulator() = default;
         virtual ~MacOSKBEmulator() = default;
-        bool Initialize();
+        bool Initialize() override;
 
         KeyPress GetKeyPress() override;
     private:

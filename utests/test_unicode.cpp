@@ -27,7 +27,7 @@ DLL_EXPORT int test_unicode_convchar(ITesting *t) {
         TR_ASSERT(t, numConsumed >= 0);
         printf("Consumed: %d\n", numConsumed);
         pos += numConsumed;
-        if (pos >= sizeof(utf8chars)) {
+        if ((size_t)pos >= sizeof(utf8chars)) {
             break;
         }
     }

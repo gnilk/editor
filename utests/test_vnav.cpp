@@ -136,7 +136,7 @@ DLL_EXPORT int test_vnav_pagedown(ITesting *t) {
     vnav.OnNavigateDown(szPageSize, viewRect, 100);
     TR_ASSERT(t, lineCursor.idxActiveLine == szPageSize);
     TR_ASSERT(t, lineCursor.cursor.position.y == 0);
-    TR_ASSERT(t, lineCursor.viewTopLine == szPageSize);
+    TR_ASSERT(t, (size_t)lineCursor.viewTopLine == szPageSize);
     TR_ASSERT(t, lineCursor.viewBottomLine == lineCursor.viewTopLine + viewRect.Height());
 
     // case 4) Move one page from within the buffer and stay within the buffer
@@ -148,8 +148,8 @@ DLL_EXPORT int test_vnav_pagedown(ITesting *t) {
     vnav.OnNavigateDown(szPageSize, viewRect, 100);
     TR_ASSERT(t, lineCursor.idxActiveLine == 40 + szPageSize);
     TR_ASSERT(t, lineCursor.cursor.position.y == 20);
-    TR_ASSERT(t, lineCursor.viewTopLine == topLineBefore + szPageSize);
-    TR_ASSERT(t, lineCursor.viewBottomLine == bottomLineBefore + szPageSize);
+    TR_ASSERT(t, (size_t)lineCursor.viewTopLine == topLineBefore + szPageSize);
+    TR_ASSERT(t, (size_t)lineCursor.viewBottomLine == bottomLineBefore + szPageSize);
 
     return kTR_Pass;
 }

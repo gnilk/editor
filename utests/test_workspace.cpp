@@ -65,9 +65,9 @@ DLL_EXPORT int test_workspace_new(ITesting *t) {
     TR_ASSERT(t, workspace.GetDefaultWorkspace()->GetDocuments().size() != 0);
     TR_ASSERT(t, workspace.GetDefaultWorkspace()->GetDocuments().size() == 1);
     for(auto &m : workspace.GetDefaultWorkspace()->GetDocuments()) {
-        auto node = workspace.GetNodeFromDocument(m);
+        auto docNode = workspace.GetNodeFromDocument(m);
 
-        TR_ASSERT(t, node->GetDisplayName() == "dummy");
+        TR_ASSERT(t, docNode->GetDisplayName() == "dummy");
     }
 
     return kTR_Pass;

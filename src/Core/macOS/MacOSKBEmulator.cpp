@@ -46,7 +46,7 @@ void MacOSKBEmulator::ReadAndConvert(const std::string &filename) {
     inputStream.read(static_cast<char *>(ptrData), szFile);
     inputStream.close();
 
-    for (auto i=0;i<szFile;i++) {
+    for (uintmax_t i=0;i<szFile;i++) {
         KeyPress kp = {};
         auto v = ptrData[i];
         if (v < 31) {

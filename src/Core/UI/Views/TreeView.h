@@ -443,11 +443,11 @@ namespace gedit {
                 int widthMax = viewRect.Width() - (node->markers.empty() ? 0 : (int)node->markers.length() + 1 + MARKERS_RIGHT_GAP);
                 auto strWidth = node->drawString.length() + node->indent;
 
-                if (strWidth < widthMax) continue;
+                if (strWidth < (size_t)widthMax) continue;
 
                 // erase last three chars and replace with '...'                        
                 // sanity check for short strings
-                if (strWidth > (node->indent + 6)) {
+                if (strWidth > (size_t)(node->indent + 6)) {
                     // A deeply-indented node in a narrow view (small terminal workspace panel) drives
                     // this negative; erase() takes size_t, so a negative value wraps to a huge index
                     // and throws std::out_of_range. Guard it — if there's no room, leave the string
@@ -479,7 +479,7 @@ namespace gedit {
                                                                                 (foreground.BlueAsInt() + background.BlueAsInt()) / 2);
 
             for(auto i=treeLineCursor.viewTopLine;i<treeLineCursor.viewBottomLine;i++) {
-                if (i >= flattenNodeList.size()) {
+                if ((size_t)i >= flattenNodeList.size()) {
                     break;
                 }
                 int yPos = i - treeLineCursor.viewTopLine;
@@ -500,7 +500,7 @@ namespace gedit {
                 };
 
                 dc.FillLine(yPos, kTextAttributes::kNormal, ' ');
-                if (i == treeLineCursor.idxActiveLine) {
+                if ((size_t)i == treeLineCursor.idxActiveLine) {
                     dc.FillLine(yPos, kTextAttributes::kNormal | kTextAttributes::kInverted, ' ');
                     dc.DrawStringWithAttributesAt(node->indent, yPos, itemAttributes | kTextAttributes::kInverted, str.c_str());
                     drawMarkers(kTextAttributes::kNormal | kTextAttributes::kInverted);
@@ -562,9 +562,6 @@ namespace gedit {
                 str = " " + str;
             }
 
-            if (str == " file_with_very_long_name_should_be_ui_issue.txt") {
-                int breakme = 1;
-            }
 
             node->drawString = str;
 

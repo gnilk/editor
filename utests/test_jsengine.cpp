@@ -239,7 +239,7 @@ DLL_EXPORT int test_jsengine_loadbuffer(ITesting *t) {
     // test_jsengine_listbuffers) may have already opened this fixture in the shared Editor singleton,
     // in which case re-opening it correctly reuses the existing Document (open-bugs.md #4) and the
     // count doesn't change. Assert the real invariant instead: the file ends up open.
-    auto res = cmd->Execute({"testfiles/ConvertUTF.cpp"});
+    cmd->Execute({"testfiles/ConvertUTF.cpp"});
     auto isOpen = false;
     for (auto &document : Editor::Instance().GetDocuments()) {
         if (document->GetPath().filename() == "ConvertUTF.cpp") {

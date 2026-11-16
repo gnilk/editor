@@ -81,13 +81,13 @@ void ListView::DrawViewContents() {
     auto &dc = window->GetContentDC();
     dc.ResetDrawColors();
     for (auto i = listLineCursor.viewTopLine; i < listLineCursor.viewBottomLine; i++) {
-        if (i >= listItems.size()) {
+        if ((size_t)i >= listItems.size()) {
             break;
         }
         int yPos = i - listLineCursor.viewTopLine;
         auto &str = listItems[i];
         dc.FillLine(yPos, kTextAttributes::kNormal, ' ');
-        if (i == listLineCursor.idxActiveLine) {
+        if ((size_t)i == listLineCursor.idxActiveLine) {
             dc.FillLine(yPos, kTextAttributes::kNormal | kTextAttributes::kInverted, ' ');
             dc.DrawStringWithAttributesAt(0,yPos,kTextAttributes::kNormal  | kTextAttributes::kInverted, str.c_str());
         } else {

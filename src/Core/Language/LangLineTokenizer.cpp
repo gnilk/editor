@@ -99,7 +99,6 @@ void LangLineTokenizer::ParseLines(std::vector<Line::Ref> &lines) {
 
     PushState(startState.c_str());
 
-    size_t lineCounter = 0;
     int nextIndent = 0;
     for(auto &l : lines) {
         if (l == nullptr) {
@@ -109,8 +108,6 @@ void LangLineTokenizer::ParseLines(std::vector<Line::Ref> &lines) {
         }
         l->SetIndent(nextIndent);
         ParseLine(l, nextIndent);
-
-        lineCounter++;
     }
 
     // Let's pop the  'start'
@@ -251,8 +248,6 @@ void LangLineTokenizer::ParseLineFromState(const std::string &lineStartState, Li
 // Internal, assumes the current state has been properly set-up
 //
 void LangLineTokenizer::ParseLineWithCurrentState(std::vector<LangToken> &tokens, const std::u32string &input) {
-    // Max token length...
-    char rawToken[GEDIT_MAX_LANG_TOKEN_LENGTH];
     std::u32string nextToken;
     //char *parsepoint = (char *) input;
     auto it = input.begin();

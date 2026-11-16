@@ -1018,7 +1018,6 @@ size_t TextBuffer::Flatten(std::u32string &out, size_t idxFromLine, size_t nLine
     if (nLines == 0) {
         nLines = NumLines();
     }
-    size_t idxBuffer = 0;
     out.clear();
 
     for(size_t i=0;i<nLines;i++) {

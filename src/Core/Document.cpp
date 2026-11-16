@@ -165,7 +165,6 @@ size_t Document::SearchFor(const std::u32string &searchItem, bool isCaseSensitiv
         auto tDuration = std::chrono::steady_clock::now() - tStart;
         auto msDuration = std::chrono::duration_cast<std::chrono::milliseconds>(tDuration).count();
         if (msDuration > 1000) {
-            auto logger = gnilk::Logger::GetLogger("Document");
             logger->Debug("Search aborted at line: %zu, exceeding run-time!", idxLine);
             break;
         }
@@ -187,7 +186,6 @@ size_t Document::SearchFor(const std::u32string &searchItem, bool isCaseSensitiv
 
     auto tDuration = std::chrono::steady_clock::now() - tStart;
     auto msDuration = std::chrono::duration_cast<std::chrono::milliseconds>(tDuration).count();
-    auto logger = gnilk::Logger::GetLogger("Document");
     logger->Debug("Search took %zu milliseconds", msDuration);
 
     // Number of hits..
@@ -322,7 +320,6 @@ size_t Document::GetSearchHitIndex() {
 }
 
 bool Document::LoadData(const std::filesystem::path &pathName) {
-    auto logger = gnilk::Logger::GetLogger("Document");
     logger->Debug("LoadData, start: %s", pathName.c_str());
     if (!textBuffer->Load(pathName)) {
         return false;
@@ -767,10 +764,10 @@ bool Document::OnActionWordRight() {
     auto &cursor = GetCursor();
     auto attrib = currentLine->AttributeAt(cursor.position.x);
     // End of line? - just navigate down one line and start over
-    if (cursor.position.x == currentLine->Length()) {
+    if ((size_t)cursor.position.x == currentLine->Length()) {
         verticalNavigationViewModel->OnNavigateDown(1, viewRect, Lines().size());
         cursor.position.x = 0;
-    } else if ((attrib->idxOrigString < cursor.position.x) && (cursor.position.x < currentLine->Length())) {
+    } else if ((attrib->idxOrigString < cursor.position.x) && ((size_t)cursor.position.x < currentLine->Length())) {
         // Last token - position ourselves at the end
         auto endpos = currentLine->Length();
         documentViewState->lineCursor.cursor.position.x = endpos;
@@ -995,7 +992,7 @@ void Document::Undo(Cursor &cursor, size_t &idxActiveLine) {
     logger->Debug("Undo, lines after: %zu - restored: %d", textBuffer->NumLines(), nLinesRestored);
 
     // Subtraction would lead to UB...
-    if (nLinesRestored > regionStartLine) {
+    if ((size_t)nLinesRestored > regionStartLine) {
         regionStartLine = 0;
     }
     regionEndLine += nLinesRestored;
@@ -1654,7 +1651,6 @@ void Document::PasteFromClipboard() {
         logger->Debug("Clipboard empty!");
         return;
     }
-    auto textBuffer = GetTextBuffer();
 
     // The paste occupies 'lineCount' lines on the target; 'linesAdded' is how many NEW lines it
     // introduces (0 for a splice contained within a single line). The exact number depends on the

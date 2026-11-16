@@ -240,35 +240,35 @@ std::pair<std::u32string, std::u32string> HexView::GetStatusBarInfo() {
     std::u32string statusCenter = U"";
     std::u32string statusRight = U"";
 
-    // If we have a document - draw details...
+    // If we have a activeDocument - draw details...
     auto node = Editor::Instance().GetWorkspaceNodeForActiveDocument();
     if (node == nullptr) {
         return {statusCenter, statusRight};
     }
 
-    auto document = node->GetDocument();
-    if (document == nullptr) {
+    auto activeDocument = node->GetDocument();
+    if (activeDocument == nullptr) {
         return {statusCenter, statusRight};
     }
 
     // Resolve center information
     // NOTE: Removed this - as we are using the bin-buffer in the HEX viewer (not an editor yet)
-    // if (document->GetTextBuffer()->GetBufferState() == TextBuffer::kBuffer_Changed) {
+    // if (activeDocument->GetTextBuffer()->GetBufferState() == TextBuffer::kBuffer_Changed) {
     //     statusCenter += U"* ";
     // }
-    // if (document->GetTextBuffer()->IsReadOnly()) {
+    // if (activeDocument->GetTextBuffer()->IsReadOnly()) {
     //     statusCenter += U"R/O ";
     // }
 
     statusCenter += node->GetDisplayNameU32();
     statusCenter += U" | ";
-    if (!document->GetTextBuffer()->CanEdit()) {
+    if (!activeDocument->GetTextBuffer()->CanEdit()) {
         statusCenter += U"[locked] | ";
     }
-    statusCenter += document->GetTextBuffer()->HaveLanguage() ? document->GetTextBuffer()->GetLanguage().Identifier() : U"none";
+    statusCenter += activeDocument->GetTextBuffer()->HaveLanguage() ? activeDocument->GetTextBuffer()->GetLanguage().Identifier() : U"none";
 
 
-    if ((document != nullptr) && (reader != nullptr)) {
+    if ((activeDocument != nullptr) && (reader != nullptr)) {
         char buf[64];
         snprintf(buf, sizeof(buf), "0x%08zX / %zu bytes", CaretByteOffset(), reader->Size());
         statusRight = UnicodeHelper::utf8to32(buf);

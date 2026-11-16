@@ -474,7 +474,7 @@ std::pair<std::u32string, std::u32string> WorkspaceView::GetStatusBarInfo() {
 
     auto node = treeView->GetCurrentSelectedItem();
     if (node == nullptr) {
-        int breakme = 1;
+        return {strCenter, strRight};
     }
     auto &dispName = node->GetDisplayName();
     auto document = node->GetDocument();

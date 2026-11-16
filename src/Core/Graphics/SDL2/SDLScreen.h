@@ -41,7 +41,7 @@ namespace gedit::SDL2 {
         void BeginRefreshCycle() override;
         void EndRefreshCycle() override;
         WindowBase *CreateWindow(const gedit::Rect &rect, WindowBase::kWinFlags flags, WindowBase::kWinDecoration decoFlags) override;
-        WindowBase *UpdateWindow(WindowBase *window, const gedit::Rect &rect, WindowBase::kWinFlags flags, WindowBase::kWinDecoration decoFlags) override;
+        WindowBase *UpdateWindow(WindowBase *targetWindow, const gedit::Rect &rect, WindowBase::kWinFlags flags, WindowBase::kWinDecoration decoFlags) override;
         Rect Dimensions() override;
         bool CellSizeInPixels(float &width, float &height) override;
         float PixelDensity() override {

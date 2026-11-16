@@ -831,25 +831,50 @@ bool TextBuffer::Load(const std::filesystem::path &pathName) {
 // The lines as Load gives them - so a reload compares like with like. Trailing whitespace goes, as Line does it; a line
 // longer than GEDIT_MAX_LINE_LENGTH is split. An empty file is one empty line.
 // As ReadLines: a line per '\n', converted, trailing white space off; no line after a last '\n'; at least one line
-// Lines as the editor holds them: split at '\n', trailing whitespace (and a '\r') dropped, a line longer than
-// GEDIT_MAX_LINE_LENGTH split. An empty text is one empty line; a final '\n' ends the last line, it doesn't start one.
-static void SplitDecoded(const std::u32string &text, std::vector<std::u32string> &outLines) {
+// A line as the editor holds it: trailing whitespace (and a '\r') dropped, longer than GEDIT_MAX_LINE_LENGTH split
+static void AppendLine(std::u32string_view text, std::vector<std::u32string> &outLines) {
     const size_t maxLength = GEDIT_MAX_LINE_LENGTH - 1;
-    size_t idxStart = 0;
-    while (idxStart < text.size()) {
-        auto idxEnd = text.find(U'\n', idxStart);
-        auto idxLineEnd = (idxEnd == std::u32string::npos) ? text.size() : idxEnd;
-        do {
-            auto length = std::min(maxLength, idxLineEnd - idxStart);
-            auto line = text.substr(idxStart, length);
-            strutil::rtrim(line);
-            outLines.push_back(std::move(line));
-            idxStart += length;
-        } while (idxStart < idxLineEnd);
-        if (idxEnd == std::u32string::npos) {
-            break;
+    do {
+        auto length = std::min(maxLength, text.size());
+        std::u32string line(text.substr(0, length));
+        strutil::rtrim(line);
+        outLines.push_back(std::move(line));
+        text.remove_prefix(length);
+    } while (!text.empty());
+}
+
+// Split at '\n' - a final '\n' ends the last line, it doesn't start one; an empty text is one empty line. Except in
+// UTF-16 a '\n' byte is always a line break, so the bytes are split first and each line decoded on its own - no copy
+// of the whole text in UTF-32.
+static void DecodeLines(std::string_view bytes, gedit::TextEncoding::kEncoding encoding, std::vector<std::u32string> &outLines) {
+    using kEncoding = gedit::TextEncoding::kEncoding;
+    outLines.clear();
+    if ((encoding == kEncoding::kUTF16LE) || (encoding == kEncoding::kUTF16BE)) {
+        auto text = gedit::TextEncoding::Decode(bytes, encoding);
+        std::u32string_view rest = text;
+        while (!rest.empty()) {
+            auto idxEnd = rest.find(U'\n');
+            AppendLine(rest.substr(0, idxEnd), outLines);
+            if (idxEnd == std::u32string_view::npos) {
+                break;
+            }
+            rest.remove_prefix(idxEnd + 1);
         }
-        idxStart = idxEnd + 1;
+    } else {
+        // The mark only at the start - a later EF BB BF is text (a zero-width no-break space)
+        auto mark = gedit::TextEncoding::ByteOrderMark(encoding);
+        if (!mark.empty() && bytes.starts_with(mark)) {
+            bytes.remove_prefix(mark.size());
+        }
+        auto lineEncoding = (encoding == kEncoding::kUTF8BOM) ? kEncoding::kUTF8 : encoding;
+        while (!bytes.empty()) {
+            auto idxEnd = bytes.find('\n');
+            AppendLine(gedit::TextEncoding::Decode(bytes.substr(0, idxEnd), lineEncoding), outLines);
+            if (idxEnd == std::string_view::npos) {
+                break;
+            }
+            bytes.remove_prefix(idxEnd + 1);
+        }
     }
     if (outLines.empty()) {
         outLines.emplace_back();
@@ -862,24 +887,25 @@ static gedit::TextEncoding::kEncoding EncodingFallback() {
 }
 
 void TextBuffer::SplitLines(std::string_view text, std::vector<std::u32string> &outLines) {
-    outLines.clear();
     auto textEncoding = TextEncoding::Detect(text, EncodingFallback());
-    SplitDecoded(TextEncoding::Decode(text, textEncoding), outLines);
+    DecodeLines(text, textEncoding, outLines);
 }
 
 bool TextBuffer::ReadLines(const std::filesystem::path &pathName, std::vector<std::u32string> &outLines,
                            TextEncoding::kEncoding *outEncoding) {
     outLines.clear();
-    std::ifstream file(pathName, std::ios::binary);
+    // One read of the whole file - the encoding is a property of all of it, not of a line
+    std::ifstream file(pathName, std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
         return false;
     }
-    std::string bytes((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-    if (file.bad()) {
+    std::string bytes((size_t)file.tellg(), '\0');
+    file.seekg(0);
+    if (!file.read(bytes.data(), (std::streamsize)bytes.size())) {
         return false;
     }
     auto fileEncoding = TextEncoding::Detect(bytes, EncodingFallback());
-    SplitDecoded(TextEncoding::Decode(bytes, fileEncoding), outLines);
+    DecodeLines(bytes, fileEncoding, outLines);
     if (outEncoding != nullptr) {
         *outEncoding = fileEncoding;
     }

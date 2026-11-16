@@ -150,6 +150,8 @@ static void Recolour(const fs::path &file, const fs::path &root) {
         }
     });
     printf("  %zu lines\n", buffer->NumLines());
+    // A real load: the whole file read, its encoding detected (a UTF-8 check over every byte), decoded, split
+    timed("load the file (detect + decode + split)", [&]() { TextBuffer::CreateBufferFromFile(file); });
     timed("first full parse, no workspace names", [&]() { buffer->SetLanguage(language); });
     // Proof that a recolour did something - a fast one that changed nothing proves nothing
     auto colouredTokens = [&buffer]() {

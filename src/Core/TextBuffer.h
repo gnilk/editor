@@ -118,6 +118,7 @@ namespace gedit {
             {
                 std::lock_guard<std::mutex> guard(linesLock);
                 linesGeneration++;
+                editCounter++;
                 lines.push_back(newLine);
             }
             ChangeBufferState(kBuffer_Changed);
@@ -140,6 +141,7 @@ namespace gedit {
             {
                 std::lock_guard<std::mutex> guard(linesLock);
                 linesGeneration++;
+                editCounter++;
                 lines.insert(lines.begin() + idxPos, newLine);
             }
             ChangeBufferState(kBuffer_Changed);
@@ -152,6 +154,7 @@ namespace gedit {
             {
                 std::lock_guard<std::mutex> guard(linesLock);
                 linesGeneration++;
+                editCounter++;
                 lines.insert(it, newLine);
             }
             ChangeBufferState(kBuffer_Changed);
@@ -181,6 +184,7 @@ namespace gedit {
             {
                 std::lock_guard<std::mutex> guard(linesLock);
                 linesGeneration++;
+                editCounter++;
                 lines.erase(lines.begin() + idxLine);
             }
             OnLineRemoved(*line);
@@ -298,6 +302,10 @@ namespace gedit {
         void ApplySemanticNames(Line &line);
         kLanguageTokenClass TokenClassOfName(const std::u32string &text, size_t idxName, const std::u32string &name);
         void OnLineRemoved(Line &line);
+        void TakeCleanBaseline();
+        bool CanMatchCleanBaseline(size_t numLines);
+        bool MatchesCleanBaseline(const std::vector<uint64_t> &hashes);
+        void MarkCleanIfUnedited(uint64_t editsAtSweep);
     private:
         volatile ParseState parseState = kState_None;
 
@@ -336,6 +344,13 @@ namespace gedit {
         std::chrono::steady_clock::time_point timeLinesChanged = {};
         std::mutex lineHashesLock;
         LineHashesHandler lineHashesHandler = nullptr;
+        // Back to clean after an undo (or retyping what was there): the line hashes as last loaded/saved, compared
+        // by the hash sweep after a pause in editing. 'editCounter' counts edits (a line's text, lines added or
+        // removed) - the UI thread only takes a "clean" answer when no edit came after the sweep started.
+        std::atomic<uint64_t> editCounter = 0;
+        std::mutex cleanBaselineLock;
+        std::vector<uint64_t> cleanBaseline;
+        bool hasCleanBaseline = false;
         WorkspaceNamesSource workspaceNamesSource = nullptr;
         std::chrono::steady_clock::time_point timeNamesChanged = {};
         // What deleted lines declared - deleted on the UI thread, taken out of 'semanticNames' by the next scan

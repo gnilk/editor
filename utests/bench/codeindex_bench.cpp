@@ -189,6 +189,11 @@ static void Recolour(const fs::path &file, const fs::path &root) {
             buffer->ReparseRegion(idxMiddle, idxMiddle + 1);
         }
     });
+    // Back to clean after an undo: what a load/save adds on the UI thread (every line hashed - the baseline), and the
+    // check after a pause in typing (on the parse thread in the app; only the edited line is hashed again)
+    timed("clean baseline: hash every line (load/save)", [&]() { buffer->MarkInSyncWithDisk(); });
+    buffer->LineAt(idxMiddle)->Insert(0, U'x');
+    timed("clean check after a pause (one line edited)", [&]() { buffer->RequestLineHashes(); });
     // What a parse job holds the buffer's structural lock for (open-bugs #31) - an Enter waits at most this long
     timed("copy the line refs (parse thread's lock hold)", [&]() {
         std::vector<Line::Ref> snapshot = buffer->Lines();

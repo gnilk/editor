@@ -29,6 +29,9 @@ extern "C" {
     DLL_EXPORT int test_reload_cleansave(ITesting *t);
     DLL_EXPORT int test_reload_autosave(ITesting *t);
     DLL_EXPORT int test_reload_otherfolder(ITesting *t);
+    DLL_EXPORT int test_reload_undoclean(ITesting *t);
+    DLL_EXPORT int test_reload_retypeclean(ITesting *t);
+    DLL_EXPORT int test_reload_savedbaseline(ITesting *t);
 }
 
 namespace {
@@ -260,5 +263,53 @@ DLL_EXPORT int test_reload_otherfolder(ITesting *t) {
     TR_ASSERT(t, (BufferLines(fixture.document) == std::vector<std::string>{"one"}));
     fixture.workspace.CheckOpenDocumentsOnDisk({}, true);
     TR_ASSERT(t, (BufferLines(fixture.document) == std::vector<std::string>{"theirs"}));
+    return kTR_Pass;
+}
+
+// An edit undone is no edit: the hash sweep after the edit finds the lines as loaded and the buffer is clean again
+DLL_EXPORT int test_reload_undoclean(ITesting *t) {
+    Fixture fixture(t, "undoclean", {"one", "two", "three"});
+    TR_ASSERT(t, !fixture.document->IsModified());
+    EditorAction indent;
+    indent.action = kAction::kActionIndent;
+    TR_ASSERT(t, fixture.document->OnAction(indent));
+    TR_ASSERT(t, fixture.document->IsModified());
+    EditorAction undo;
+    undo.action = kAction::kActionUndo;
+    TR_ASSERT(t, fixture.document->OnAction(undo));
+    TR_ASSERT(t, (BufferLines(fixture.document) == std::vector<std::string>{"one", "two", "three"}));
+    TR_ASSERT(t, !fixture.document->IsModified());
+    return kTR_Pass;
+}
+
+// Not only undo: typing a character and deleting it again
+DLL_EXPORT int test_reload_retypeclean(ITesting *t) {
+    Fixture fixture(t, "retypeclean", {"one", "two", "three"});
+    auto line = fixture.document->LineAt(1);
+    line->Append(U'x');
+    fixture.document->UpdateSyntaxForRegion(1, 1);
+    TR_ASSERT(t, fixture.document->IsModified());
+    line->Delete((int)line->Length() - 1);
+    fixture.document->UpdateSyntaxForRegion(1, 1);
+    TR_ASSERT(t, !fixture.document->IsModified());
+    // A different text stays modified
+    line->Append(U'y');
+    fixture.document->UpdateSyntaxForRegion(1, 1);
+    TR_ASSERT(t, fixture.document->IsModified());
+    return kTR_Pass;
+}
+
+// A save moves the baseline: undoing past it is a change again
+DLL_EXPORT int test_reload_savedbaseline(ITesting *t) {
+    Fixture fixture(t, "savedbaseline", {"one", "two", "three"});
+    EditorAction indent;
+    indent.action = kAction::kActionIndent;
+    TR_ASSERT(t, fixture.document->OnAction(indent));
+    TR_ASSERT(t, fixture.node->SaveData());
+    TR_ASSERT(t, !fixture.document->IsModified());
+    EditorAction undo;
+    undo.action = kAction::kActionUndo;
+    TR_ASSERT(t, fixture.document->OnAction(undo));
+    TR_ASSERT(t, fixture.document->IsModified());
     return kTR_Pass;
 }

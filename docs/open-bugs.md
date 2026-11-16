@@ -112,6 +112,10 @@ fixed: constructor parameters take the `new` prefix (`index(std::move(newIndex))
 `FETCHCONTENT_SOURCE_DIR_GNKLOG`): goatedit + utests + gedit-bench build with no warnings. **Open:** a Linux recount
 (SDL2 `SDLFont` renamed by hand, uncompiled). gnklog pinned at fbdb625 (PRIVATE).
 
+**Linux (2026-11-16):** 10 more gcc-only shadows (base-class members: `rows`, `caption`, `rect`, `viewRect`,
+`terminal`) fixed in 2d8f8bf; 0 warnings on Linux and Mac. Trap: a local `ext/gnklog` clone overrides the pin
+(`cmake/CMakeDeps.cmake`'s transition helper) - it must be at fbdb625 or the PUBLIC flags come back.
+
 No `-Werror` (the user's call): warnings are allowed during active development and swept clean afterwards.
 
 **Not ours, leave:** gnklog's `LogManager.cpp:318` (`-Wunused-result`, gnklog's own flags). `stb_impl.cpp` gets

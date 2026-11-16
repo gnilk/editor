@@ -5,12 +5,15 @@
 #include "logger.h"
 #include "TextBuffer.h"
 #include "Runloop.h"
+#include "fmt/format.h"
 #include "Core/Config/Config.h"
 #include "Core/Editor.h"
 #include <thread>
 #include <pthread.h>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
+#include <algorithm>
 #include <sstream>
 #include <cstring>
 #include <cstdint>
@@ -428,18 +431,19 @@ void TextBuffer::TakeCleanBaseline() {
     }
     std::lock_guard<std::mutex> guard(cleanBaselineLock);
     cleanBaseline = std::move(hashes);
+    cleanBaselineEncoding = encoding;
     hasCleanBaseline = true;
 }
 
 // Cheap: no baseline (never loaded from a file) or another line count can't be clean - no need to hash
 bool TextBuffer::CanMatchCleanBaseline(size_t numLines) {
     std::lock_guard<std::mutex> guard(cleanBaselineLock);
-    return hasCleanBaseline && (cleanBaseline.size() == numLines);
+    return hasCleanBaseline && (cleanBaseline.size() == numLines) && (cleanBaselineEncoding == encoding);
 }
 
 bool TextBuffer::MatchesCleanBaseline(const std::vector<uint64_t> &hashes) {
     std::lock_guard<std::mutex> guard(cleanBaselineLock);
-    return hasCleanBaseline && (hashes == cleanBaseline);
+    return hasCleanBaseline && (cleanBaselineEncoding == encoding) && (hashes == cleanBaseline);
 }
 
 // UI thread: the sweep found the lines as last loaded/saved. Taken only when nothing was edited since it started.
@@ -807,9 +811,11 @@ bool TextBuffer::Load(const std::filesystem::path &pathName) {
     }
 
     std::vector<std::u32string> fileLines;
-    if (!ReadLines(pathName, fileLines)) {
+    TextEncoding::kEncoding fileEncoding = TextEncoding::kEncoding::kUTF8;
+    if (!ReadLines(pathName, fileLines, &fileEncoding)) {
         return false;
     }
+    encoding = fileEncoding;
     // Clear out any lines before loading - the CTOR add's an empty line (so we can edit directly)
     ClearLines();
     for (auto &text : fileLines) {
@@ -825,57 +831,72 @@ bool TextBuffer::Load(const std::filesystem::path &pathName) {
 // The lines as Load gives them - so a reload compares like with like. Trailing whitespace goes, as Line does it; a line
 // longer than GEDIT_MAX_LINE_LENGTH is split. An empty file is one empty line.
 // As ReadLines: a line per '\n', converted, trailing white space off; no line after a last '\n'; at least one line
-void TextBuffer::SplitLines(std::string_view text, std::vector<std::u32string> &outLines) {
-    outLines.clear();
-    if ((text.size() >= 2) && ((uint8_t)text[0] == 0xfe) && ((uint8_t)text[1] == 0xff)) {
-        text.remove_prefix(2);
-    }
-    while (!text.empty()) {
-        auto idxEnd = text.find('\n');
-        auto lineText = std::string(text.substr(0, idxEnd));
-        auto line = UnicodeHelper::utf8to32(lineText.c_str());
-        strutil::rtrim(line);
-        outLines.push_back(std::move(line));
-        if (idxEnd == std::string_view::npos) {
+// Lines as the editor holds them: split at '\n', trailing whitespace (and a '\r') dropped, a line longer than
+// GEDIT_MAX_LINE_LENGTH split. An empty text is one empty line; a final '\n' ends the last line, it doesn't start one.
+static void SplitDecoded(const std::u32string &text, std::vector<std::u32string> &outLines) {
+    const size_t maxLength = GEDIT_MAX_LINE_LENGTH - 1;
+    size_t idxStart = 0;
+    while (idxStart < text.size()) {
+        auto idxEnd = text.find(U'\n', idxStart);
+        auto idxLineEnd = (idxEnd == std::u32string::npos) ? text.size() : idxEnd;
+        do {
+            auto length = std::min(maxLength, idxLineEnd - idxStart);
+            auto line = text.substr(idxStart, length);
+            strutil::rtrim(line);
+            outLines.push_back(std::move(line));
+            idxStart += length;
+        } while (idxStart < idxLineEnd);
+        if (idxEnd == std::u32string::npos) {
             break;
         }
-        text.remove_prefix(idxEnd + 1);
+        idxStart = idxEnd + 1;
     }
     if (outLines.empty()) {
         outLines.emplace_back();
     }
 }
 
-bool TextBuffer::ReadLines(const std::filesystem::path &pathName, std::vector<std::u32string> &outLines) {
+static gedit::TextEncoding::kEncoding EncodingFallback() {
+    auto name = Config::Instance()["main"].GetStr("encoding_fallback", "cp1252");
+    return gedit::TextEncoding::FromName(name).value_or(gedit::TextEncoding::kEncoding::kCP1252);
+}
+
+void TextBuffer::SplitLines(std::string_view text, std::vector<std::u32string> &outLines) {
     outLines.clear();
-    FILE *f = fopen(pathName.string().c_str(), "r");
-    if (f == nullptr) {
+    auto textEncoding = TextEncoding::Detect(text, EncodingFallback());
+    SplitDecoded(TextEncoding::Decode(text, textEncoding), outLines);
+}
+
+bool TextBuffer::ReadLines(const std::filesystem::path &pathName, std::vector<std::u32string> &outLines,
+                           TextEncoding::kEncoding *outEncoding) {
+    outLines.clear();
+    std::ifstream file(pathName, std::ios::binary);
+    if (!file.is_open()) {
         return false;
     }
-    std::vector<char> tmp(GEDIT_MAX_LINE_LENGTH);
-    bool isFirst = true;
-    while (fgets(tmp.data(), GEDIT_MAX_LINE_LENGTH, f)) {
-        const char *text = tmp.data();
-        // Check BOM on first line
-        if (isFirst && ((uint8_t)tmp[0] == 0xfe) && ((uint8_t)tmp[1] == 0xff)) {
-            text += 2;
-        }
-        isFirst = false;
-        auto line = UnicodeHelper::utf8to32(text);
-        strutil::rtrim(line);
-        outLines.push_back(std::move(line));
+    std::string bytes((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    if (file.bad()) {
+        return false;
     }
-    fclose(f);
-
-    // Ok, I admit - it never quite occured to me that we should open EMPTY files..  but of course we do (so do I)
-    // We opened an empty file - let's add a dummy here
-    if (outLines.empty()) {
-        outLines.emplace_back();
+    auto fileEncoding = TextEncoding::Detect(bytes, EncodingFallback());
+    SplitDecoded(TextEncoding::Decode(bytes, fileEncoding), outLines);
+    if (outEncoding != nullptr) {
+        *outEncoding = fileEncoding;
     }
     return true;
 }
 
-void TextBuffer::MarkInSyncWithDisk() {
+void TextBuffer::SetEncoding(TextEncoding::kEncoding newEncoding) {
+    if (newEncoding == encoding) {
+        return;
+    }
+    encoding = newEncoding;
+    editCounter++;
+    ChangeBufferState(kBuffer_Changed);
+}
+
+void TextBuffer::MarkInSyncWithDisk(TextEncoding::kEncoding diskEncoding) {
+    encoding = diskEncoding;
     ChangeBufferState(kBuffer_Loaded);
     TakeCleanBaseline();
 }
@@ -898,8 +919,27 @@ bool TextBuffer::DoSave(const std::filesystem::path &pathName, bool skipChangeCh
         return true;
     }
 
-    logger->Debug("Saving file: %s", pathName.c_str());
-    auto f = fopen(pathName.c_str(), "w");
+    // Encoded in full before the file is opened: a line the encoding can't hold leaves the file as it was
+    auto saveEncoding = encoding.load();
+    auto policy = Config::Instance()["main"].GetStr("convert_encoding", "keep");
+    if ((policy == "auto") && !TextEncoding::IsUnicode(saveEncoding)) {
+        saveEncoding = TextEncoding::kEncoding::kUTF8;
+    }
+    std::string data(TextEncoding::ByteOrderMark(saveEncoding));
+    for (size_t idxLine = 0; idxLine < lines.size(); idxLine++) {
+        size_t idxFailed = 0;
+        auto &text = lines[idxLine]->Buffer();
+        if (!TextEncoding::Encode(text, saveEncoding, data, idxFailed) || !TextEncoding::Encode(U"\n", saveEncoding, data, idxFailed)) {
+            auto message = fmt::format("Not saved: line {} has U+{:04X}, which {} can't hold - '.encoding utf-8' converts the file",
+                                       idxLine + 1, (uint32_t)text[idxFailed], TextEncoding::Name(saveEncoding));
+            logger->Error("%s (%s)", message.c_str(), pathName.c_str());
+            RuntimeConfig::Instance().OutputConsole()->WriteLine(UnicodeHelper::utf8to32(message));
+            return false;
+        }
+    }
+
+    logger->Debug("Saving file: %s (%s)", pathName.c_str(), TextEncoding::Name(saveEncoding));
+    auto f = fopen(pathName.c_str(), "wb");
     if (f == nullptr) {
         logger->Error("Failed to save buffer, err: %d:%s", errno, strerror(errno));
 
@@ -909,13 +949,14 @@ bool TextBuffer::DoSave(const std::filesystem::path &pathName, bool skipChangeCh
         RuntimeConfig::Instance().OutputConsole()->WriteLine(strError);
         return false;
     }
-
-    // Actual writing of data...
-    for (auto &l: lines) {
-        auto utf8 = UnicodeHelper::utf32to8(l->Buffer());
-        fprintf(f,"%s\n", utf8.data());
+    bool isWritten = fwrite(data.data(), 1, data.size(), f) == data.size();
+    isWritten = (fclose(f) == 0) && isWritten;
+    if (!isWritten) {
+        logger->Error("Failed to write '%s', err: %d:%s", pathName.c_str(), errno, strerror(errno));
+        RuntimeConfig::Instance().OutputConsole()->WriteLine(U"Unable to save file - the write failed");
+        return false;
     }
-    fclose(f);
+    encoding = saveEncoding;
 
     // Go back to 'clean' - i.e. data is loaded...
     ChangeBufferState(kBuffer_Loaded);

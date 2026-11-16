@@ -50,43 +50,6 @@ today — revisit once it can).
 
 ---
 
-## 15. Opening and saving a Latin-1 (non-UTF-8) file silently truncates lines - DATA LOSS
-
-**Where:** `UnicodeHelper::ConvertUTF8ToUTF32String` (strict decode), used per line by
-`TextBuffer::Load` → `AddLineUTF8`. Save writes the buffer back as UTF-8.
-
-**What's wrong:** on the first invalid UTF-8 byte the conversion returns `false` with the output already
-sized to the input - everything from the bad byte on is NUL characters. Nobody checks the result, so the
-line loads as "the part before the first non-ASCII char", and **saving writes the truncated line back**.
-
-**Repro (real file):** noc_goa `src/extras/pcx.c` (ISO-8859-1, Swedish comments), line 296:
-```c
-				if (pcx->width&1) /* Kolla om oj\xe4mn bredd */
-```
-Open + save → the line becomes `if (pcx->width&1) /* Kolla om oj` - the comment's `*/` is gone, so the
-file no longer compiles. Verified with a throwaway test (`/* g\xf6r om s\xe5 */` saved as `/* g`). Other
-Latin-1 files in noc_goa: `src/extras/gms.c`, `quater.c`, `g3d/g3d.c`, `src/windows/*.c` (10+ files).
-
-**Discovered:** 2026-10-24, by the code index brace-balance check (`gedit-bench --check`; the index
-decodes whole files, so there the rest of the FILE vanishes). See `docs/code-index.md` §11.2.
-
-**Fix (agreed direction 2026-10-24): detect -> decode -> convert, the save policy configurable.**
-1. Load: check the decode result (never NUL-pad). BOM → exact (UTF-8 / UTF-16 LE/BE). Valid UTF-8 → done.
-   Otherwise decode with a configured single-byte fallback (default `cp1252`, a superset of Latin-1's
-   printable range). Single-byte encodings can't be told apart reliably (noc_goa `src/text.c` looks like
-   DOS CP437/850), so the fallback is a setting, not a guess. The buffer is UTF-32 - loading is lossless.
-2. Remember the source encoding on the buffer; show it in the status line.
-3. Save policy, config `convert_encoding: auto | prompt | keep` (default `prompt`):
-   `auto` writes UTF-8; `prompt` asks once on the first save (ConfirmModal: convert to UTF-8 / keep);
-   `keep` writes the original encoding back (a live legacy repo: no diff noise, old toolchains). With
-   `keep`, a character the encoding can't hold (`€` in Latin-1, any emoji) → prompt again / convert.
-4. The code index only needs step 1 (read-only, no policy).
-
-Either way the decode result must be checked, and the code index needs a lenient decode too.
-Test: load a fixture with `\xe4`/`\xf6` bytes, save, compare bytes (round-trip must be lossless).
-
----
-
 ## 20. The terminal version on macOS gets the Cmd keymaps - and the terminal takes the keys first
 
 **Where:** `KeyMapping::LoadKeymapConfig` (`src/Core/KeyMapping.cpp`) picks the keymap files by operating system: the

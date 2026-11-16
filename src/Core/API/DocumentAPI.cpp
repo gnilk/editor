@@ -72,6 +72,23 @@ bool DocumentAPI::IsChangedOnDisk() {
     return doc->HasConflictOnDisk() || doc->IsChangedOnDisk();
 }
 
+const std::string DocumentAPI::GetEncoding() {
+    if ((document == nullptr) || (document->GetDocument() == nullptr)) {
+        return {};
+    }
+    return TextEncoding::Name(document->GetDocument()->GetTextBuffer()->GetEncoding());
+}
+
+bool DocumentAPI::SetEncoding(const std::string &name) {
+    auto newEncoding = TextEncoding::FromName(name);
+    if (!newEncoding.has_value() || (document == nullptr) || (document->GetDocument() == nullptr)) {
+        return false;
+    }
+    document->GetDocument()->GetTextBuffer()->SetEncoding(*newEncoding);
+    Editor::Instance().TriggerUIRedraw();
+    return true;
+}
+
 bool DocumentAPI::Reload() {
     if ((document == nullptr) || (document->GetDocument() == nullptr)) {
         return false;

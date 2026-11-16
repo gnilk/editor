@@ -16,6 +16,7 @@
 #include <chrono>
 
 #include "logger.h"
+#include "Core/TextEncoding.h"
 
 #include "Core/Language/LanguageBase.h"
 #include "Core/Index/StructureScanner.h"
@@ -74,11 +75,19 @@ namespace gedit {
         bool SaveForce(const std::filesystem::path &pathName);
         bool Load(const std::filesystem::path &pathName);
         // A file's lines as Load reads them, without a buffer - what a reload compares against
-        static bool ReadLines(const std::filesystem::path &pathName, std::vector<std::u32string> &outLines);
+        // The file's encoding is detected (TextEncoding::Detect, main.encoding_fallback for what isn't UTF-8)
+        static bool ReadLines(const std::filesystem::path &pathName, std::vector<std::u32string> &outLines,
+                              TextEncoding::kEncoding *outEncoding = nullptr);
         // Text split into lines as ReadLines splits a file - the file as git has it
         static void SplitLines(std::string_view text, std::vector<std::u32string> &outLines);
         // The lines are what the file holds (a reload put them there): not changed, nothing to save
-        void MarkInSyncWithDisk();
+        void MarkInSyncWithDisk(TextEncoding::kEncoding diskEncoding);
+        // What the file was loaded in, and what a save writes (main.convert_encoding: 'keep' - or 'auto': UTF-8)
+        TextEncoding::kEncoding GetEncoding() const {
+            return encoding;
+        }
+        // Converting on purpose ('.encoding utf-8'): a change to save, even with no line touched
+        void SetEncoding(TextEncoding::kEncoding newEncoding);
 
         // Called with the buffer's structure after a pause in editing (docs/code-index.md §4.4), on the parse
         // thread: no text copy, no lexing, just what the lines carry. Line numbers are the current ones.
@@ -351,6 +360,8 @@ namespace gedit {
         std::mutex cleanBaselineLock;
         std::vector<uint64_t> cleanBaseline;
         bool hasCleanBaseline = false;
+        TextEncoding::kEncoding cleanBaselineEncoding = TextEncoding::kEncoding::kUTF8;
+        std::atomic<TextEncoding::kEncoding> encoding = TextEncoding::kEncoding::kUTF8;
         WorkspaceNamesSource workspaceNamesSource = nullptr;
         std::chrono::steady_clock::time_point timeNamesChanged = {};
         // What deleted lines declared - deleted on the UI thread, taken out of 'semanticNames' by the next scan

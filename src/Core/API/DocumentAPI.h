@@ -38,6 +38,10 @@ namespace gedit {
         bool IsReformatEnabled();
         // The language's identifier ("cpp", "yaml") - for the scripts' messages
         const std::string GetLanguage();
+        // The file's encoding ("utf-8", "cp1252", ...) and the one the next save writes (open-bugs #15)
+        const std::string GetEncoding();
+        // False for a name TextEncoding doesn't know
+        bool SetEncoding(const std::string &name);
 
         const std::string GetName();
         const std::string GetFileName();

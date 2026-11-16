@@ -297,6 +297,12 @@ std::pair<std::u32string, std::u32string> EditorView::GetStatusBarInfo() {
     if (activeDocument->GetTextBuffer()->IsReadOnly()) {
         statusCenter += U"R/O ";
     }
+    // Only what isn't plain UTF-8 is worth a word (open-bugs #15: a Latin-1 file is saved back as Latin-1)
+    auto encoding = activeDocument->GetTextBuffer()->GetEncoding();
+    if (encoding != TextEncoding::kEncoding::kUTF8) {
+        statusCenter += UnicodeHelper::utf8to32(TextEncoding::Name(encoding));
+        statusCenter += U" ";
+    }
     if (node->IsMissingOnDisk()) {
         // Gone from disk (kept open) - cleared by the save that re-creates it
         statusCenter += U"[DELETED] ";

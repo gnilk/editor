@@ -21,6 +21,13 @@ main:
   # time in milliseconds before automatically saving a file after changes...
   # 0 disables autosave
   autosave_timeout_ms: 1000
+  # A file that isn't UTF-8 (no BOM, not valid UTF-8) is read as this single-byte encoding - which one can't be told
+  # from the bytes: cp1252 (Windows-1252, Latin-1 plus the euro/quotes at 0x80-0x9f) or latin1 (ISO-8859-1)
+  encoding_fallback: cp1252
+  # keep: a save writes the encoding the file was read in (old code stays byte for byte; a character it can't hold
+  #       stops the save - '.encoding utf-8' converts on purpose)
+  # auto: a save always writes UTF-8
+  convert_encoding: keep
   plugin_directory: Plugins
   bootstrap_script_comment: "//"
   cmdlet_prefix: "."

@@ -104,6 +104,7 @@ Smaller bugs not ranked yet: open-bugs #1 (`AttributeAt`, read before touching i
 | - | Minimap contrast: marks gap, damped text, `overlay_strength` (usability §7 follow-up) | 2026-11-13 |
 | - | A theme that can't load falls back to the default (open-bugs #29) | 2026-11-13 |
 | - | Theme import writes author / license / copyright / source (`theme-collection.md` §3) | 2026-11-13 |
+| 39 | Undo back to the loaded/saved text clears the `*` (a hash sweep after a pause, compared with a baseline) | 2026-11-16 |
 | 37 | Intermittent test-run segfault: the parse thread walked `lines` while the UI thread changed them (open-bugs #31) | 2026-11-16 |
 | 35 | PageDown / Cmd+End in a short file kept a short scroll window, the view scrolled early (open-bugs #30) | 2026-11-15 |
 | - | Workspace tree read up front within a budget (`max_scan_entries`); quitting doesn't wait for the index's root walk | 2026-11-15 |

@@ -55,53 +55,68 @@ Results are written straight to the terminal pane — here, a search across the 
 
 ---
 
-## Building
+## Building and installing
 
-The build is driven by **CMake 3.28+**. Source dependencies (json, gnklog, dukglue, fmt) are fetched
-by CMake itself via FetchContent on first configure — no manual step; *system* dependencies you
-install yourself.
+CMake **3.28+** and a C++20 compiler. Source dependencies (json, gnklog, dukglue, fmt) are fetched by CMake on the
+first configure; stb and duktape 2.7.0 are bundled in `src/ext/`. The SDL backend follows the platform: **SDL2 on
+Linux, SDL3 on macOS** (`-DGEDIT_BUILD_SDL2/SDL3=ON|OFF` to force one).
 
 ### Linux
 
 ```sh
-sudo apt-get update
-sudo apt-get install -y libyaml-cpp-dev libsdl2-dev
+sudo apt-get install -y build-essential cmake libyaml-cpp-dev libsdl2-dev libfontconfig-dev
 
-# Configure (SDL3 is on by default)
-cmake -B ./cmake-build-debug -DCMAKE_BUILD_TYPE=Debug
-
-# ...or build the SDL2 backend instead (handy on CI / older boxes)
-cmake -B ./cmake-build-debug -DCMAKE_BUILD_TYPE=Debug -DGEDIT_BUILD_SDL3=OFF -DGEDIT_BUILD_SDL2=ON
-
-# Build the editor
-cmake --build ./cmake-build-debug --config Debug --target goatedit -j
+cmake --preset release                                   # -> cmake-build-release/
+cmake --build --preset release --target goatedit
+cmake --install cmake-build-release                      # -> ~/.local (no sudo)
 ```
+
+The default install is **per user, under `~/.local`**: `~/.local/bin/goatedit` (plus a short `goat` link next to
+it), the assets in `~/.local/share/goatedit/`, a desktop entry and icons in `~/.local/share/`. `~/.local/bin` must
+be on your `PATH`. Other places:
+
+```sh
+scripts/install.sh --system                  # /usr/local, for all users (sudo)
+scripts/install.sh --prefix <dir>            # anywhere else
+scripts/install.sh --uninstall --user        # removes exactly what the install wrote, never your config
+```
+
+(`scripts/install.sh` takes `--build-dir <dir>`; default `bld/`, else `cmake-build-release/`.) A build dir
+configured before the `~/.local` default keeps the prefix it cached - `grep CMAKE_INSTALL_PREFIX <dir>/CMakeCache.txt`.
 
 ### macOS
-Same flow, swap `apt-get` for `brew`.
 
-### Dependencies
-The following must be installed on the system
-* libsdl2-dev or libsdl3-dev
-* libyaml-dev
-* testrunner (from https://github.com/gnilk/testrunner) - for unit testing
+```sh
+brew install cmake sdl3 yaml-cpp
 
-```shell
-sudo apt install libsdl2-dev libsdl3-dev libyaml-dev
+cmake --preset release
+cmake --build --preset release --target goatedit
+cmake --install cmake-build-release                      # -> /Applications/goatedit.app (no sudo)
+cmake --build cmake-build-release --target install-cli   # optional: 'goat' in ~/.local/bin for the shell
 ```
 
-The following are installed during build
-* nlohmann/json
-* fmtlib
-* dukglue
-* gnklog
+### Running from the build tree
 
-The following are bundled directly with the source
-* stb (various parts)
-* duktape 2.7.0
+No install needed while hacking: `cmake-build-release/goatedit` (Linux) or
+`cmake-build-release/goatedit.app/Contents/MacOS/goatedit` (macOS) finds its assets next to itself. `--preset debug`
+builds into `cmake-build-debug/`.
 
-> Duktape ships pre-configured in the repo (`src/ext/duktape-2.7.0`) so you don't have to fight its
-> build — a scar from an old GitHub Actions battle.
+### Where things live
+
+| | Linux | macOS |
+|---|---|---|
+| Shipped assets (config, keymaps, themes, plugins) | `<prefix>/share/goatedit/` | `goatedit.app/Contents/SharedSupport/` |
+| Your config (overrides the shipped one, key by key) | `~/.config/goatedit/config.yml` | `~/.config/goatedit/config.yml` |
+| A project's config and session | `<project>/.goatedit/` | `<project>/.goatedit/` |
+| Log | `~/.local/state/goatedit/goatedit.log` | `~/Library/Logs/GoatEdit/` |
+
+How to use it once it runs - keys, commands, the terminal: [`docs/usage.md`](docs/usage.md). The full story of the
+install layout: [`docs/install-layout.md`](docs/install-layout.md).
+
+### Unit tests
+
+Need [testrunner](https://github.com/gnilk/testrunner) (`trun`) installed: `cmake --build --preset utests`, then from
+`cmake-build-debug/` see "Want to hack on it?" below.
 
 ---
 

@@ -20,7 +20,7 @@
 namespace gedit {
     class QueryListModal : public ModalView {
     public:
-        QueryListModal(const std::string &caption, const std::u32string &prompt);
+        QueryListModal(const std::string &newCaption, const std::u32string &prompt);
         virtual ~QueryListModal() = default;
 
         // Set the text (e.g. from a selection) and run the query

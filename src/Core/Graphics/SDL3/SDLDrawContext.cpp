@@ -25,12 +25,12 @@ SDLDrawContext::~SDLDrawContext() {
 //
 void SDLDrawContext::Clear() const {
     // TEST
-    auto &rect = GetRect();
+    auto &contextRect = GetRect();
     SDL_SetRenderTarget(renderer, renderTarget);
     //SDLColorRepository::Instance().UseBackgroundColor(renderer, 196);
     SDLColor bgCol(bgColor);
     bgCol.Use(renderer, 196);
-    FillRect(0,0, rect.Width(), rect.Height(), true);
+    FillRect(0,0, contextRect.Width(), contextRect.Height(), true);
     // END TEST
 }
 
@@ -89,8 +89,8 @@ void SDLDrawContext::FillRect(float x, float y, float w, float h, bool isColorSe
         SetRenderColor();
     }
 
-    SDL_FRect rect = {pixXStart, pixYStart, pixWidth, pixHeight};
-    SDL_RenderFillRect(renderer, &rect);
+    SDL_FRect fillRect = {pixXStart, pixYStart, pixWidth, pixHeight};
+    SDL_RenderFillRect(renderer, &fillRect);
 }
 
 void SDLDrawContext::DrawLine(float x1, float y1, float x2, float y2) const {

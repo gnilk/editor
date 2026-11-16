@@ -39,15 +39,15 @@ std::vector<std::u32string> SymbolSearchModal::OnQuery(const std::u32string &que
         });
     }
 
-    std::vector<std::u32string> rows;
-    rows.reserve(hits.size());
+    std::vector<std::u32string> listRows;
+    listRows.reserve(hits.size());
     for (auto &hit : hits) {
         std::u32string row(1, KindMarker(hit));
         row += U' ';
         row += hit.qualifiedName;
-        rows.push_back(std::move(row));
+        listRows.push_back(std::move(row));
     }
-    return rows;
+    return listRows;
 }
 
 char32_t SymbolSearchModal::KindMarker(const CodeIndex::Hit &hit) {

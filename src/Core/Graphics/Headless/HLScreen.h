@@ -86,11 +86,11 @@ namespace gedit {
 
         // The characters within `rect` (screen cells), one line per row (UTF-8)
         std::string Dump(const Rect &rect) {
-            auto *terminal = GetTerminal();
+            auto *grid = GetTerminal();
             std::u32string out;
             for (int y = rect.TopLeft().y; y < rect.BottomRight().y; y++) {
                 for (int x = rect.TopLeft().x; x < rect.BottomRight().x; x++) {
-                    out += terminal->At(x, y).ch;
+                    out += grid->At(x, y).ch;
                 }
                 out += U'\n';
             }

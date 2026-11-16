@@ -153,6 +153,8 @@ if (APPLE)
     add_custom_command(
             TARGET ${CUR_TARGET}
             POST_BUILD
+            # Cleared first - a copy only adds, so a deleted asset would live on in the bundle (open-bugs #22)
+            COMMAND ${CMAKE_COMMAND} -E rm -rf $<TARGET_FILE_DIR:${CUR_TARGET}>/../SharedSupport
             COMMAND ${CMAKE_COMMAND} -E copy_directory ${EDITOR_ASSET_DIR} $<TARGET_FILE_DIR:${CUR_TARGET}>/../SharedSupport
     )
 
@@ -169,6 +171,13 @@ if (APPLE)
     endif()
 
     install(TARGETS ${CUR_TARGET} BUNDLE DESTINATION .)
+    # The installed bundle's assets are replaced whole, not added to - an asset deleted from the repo must go from
+    # /Applications too (open-bugs #22). Runs after the bundle install above, before the asset install below.
+    install(CODE "
+        set(sharedSupport \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CUR_TARGET}.app/Contents/SharedSupport\")
+        message(STATUS \"Clearing: \${sharedSupport}\")
+        file(REMOVE_RECURSE \"\${sharedSupport}\")
+    ")
     install(DIRECTORY ${EDITOR_ASSET_DIR}/
             DESTINATION ${CUR_TARGET}.app/Contents/SharedSupport)
 
@@ -689,11 +698,15 @@ add_dependencies(gedit-bench plugins resources)
 set_target_properties(gedit-bench PROPERTIES EXCLUDE_FROM_ALL true)
 
 
-add_custom_target(resources ${CMAKE_COMMAND} -E copy_directory_if_different
-        ${CMAKE_CURRENT_SOURCE_DIR}/Assets/Resources ${EDITOR_ASSET_DIR})
+# One mirror for both asset sources: copies what changed and deletes what the sources no longer have (open-bugs #22).
+# 'plugins' stays as a name for the targets that depend on it.
+add_custom_target(resources ${CMAKE_COMMAND}
+        -DRESOURCES_DIR=${CMAKE_CURRENT_SOURCE_DIR}/Assets/Resources
+        -DPLUGINS_DIR=${CMAKE_CURRENT_SOURCE_DIR}/src/Plugins
+        -DDEST_DIR=${EDITOR_ASSET_DIR}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/MirrorAssets.cmake)
 
-add_custom_target(plugins ${CMAKE_COMMAND} -E copy_directory_if_different
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/Plugins ${EDITOR_ASSET_DIR}/Plugins)
+add_custom_target(plugins DEPENDS resources)
 
 add_custom_target(testfiles ${CMAKE_COMMAND} -E copy_directory_if_different
         ${CMAKE_CURRENT_SOURCE_DIR}/Assets/testfiles ${CMAKE_CURRENT_BINARY_DIR}/testfiles)

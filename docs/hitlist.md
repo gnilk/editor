@@ -14,6 +14,12 @@ Made 2026-11-11, cleaned up 2026-11-13. Sizes are estimates.
 
 Built and unit-tested, not yet tried by hand on that platform. Linux = SDL2 (Ctrl), Mac = SDL3 (Cmd).
 
+- **Undo clears the `*`** (#39)
+  - [ ] Linux [x] Mac - mistype, undo: the `*` goes after a pause; type a char + backspace: same; edit, save, undo: `*` stays
+- **Text encodings** (#16, open-bugs #15)
+  - [ ] Linux [x] Mac - open a Latin-1 file: å/ä/ö right, status line `cp1252`; edit + save: `git diff` shows only the edit
+- **Go to line, line numbers from 1** (#42, #43)
+  - [ ] Linux [x] Mac - `Esc g 42 Enter` and `.g 42`: on the line the gutter shows as 42; `Ctrl+[` comes back; status `l: 42`
 - **Workspace tree clicks** (#1 / #15, `CommitLine: DoubleClick` in `workspace_keymap.yml`)
   - [x] Linux [x] Mac - double-click a closed folder: opens; again: closes
   - [x] Linux [x] Mac - Enter on a folder: toggles

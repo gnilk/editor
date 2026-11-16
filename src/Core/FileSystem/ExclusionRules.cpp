@@ -109,13 +109,13 @@ fs::path ExclusionRules::DefaultGlobalIgnoreFile() {
     return (home != nullptr) ? (fs::path(home) / ".config" / "git" / "ignore") : fs::path{};
 }
 
-ExclusionRules::ExclusionRules(const fs::path &root, std::vector<std::string> excludePatterns, bool useGitIgnore, const fs::path &globalIgnoreFile) :
-    root(root.lexically_normal()), excludeFilter(std::move(excludePatterns)), useGitIgnore(useGitIgnore) {
-    if (useGitIgnore && !globalIgnoreFile.empty()) {
+ExclusionRules::ExclusionRules(const fs::path &newRoot, std::vector<std::string> excludePatterns, bool newUseGitIgnore, const fs::path &globalIgnoreFile) :
+    root(newRoot.lexically_normal()), excludeFilter(std::move(excludePatterns)), useGitIgnore(newUseGitIgnore) {
+    if (newUseGitIgnore && !globalIgnoreFile.empty()) {
         globalPatterns = LoadPatterns(globalIgnoreFile);
     }
     std::error_code error;
-    canonicalRoot = fs::canonical(root, error);
+    canonicalRoot = fs::canonical(newRoot, error);
     if (error) {
         canonicalRoot = this->root;
     }

@@ -100,18 +100,22 @@ node (a `breakme` placeholder in the `if`); it returns early now.
 `cmake --build --preset debug --clean-first 2>&1 | grep warning: | grep -v "_deps/\|src/ext/" | sort -u`.
 Linux's gcc warns about things clang doesn't (it reported more in `Theme.cpp`, `Editor.cpp` on 2026-11-13).
 
-**Linux result (2026-11-16, Linux-Editor session):** builds; gcc-only fixes pushed (57e08d1). Left: ~70 `-Wshadow` from
-gcc, almost all constructor/setter parameters named as a member (FindModal, QuickOpenModal, SymbolSearchModal,
-RepoMonitor, Process, ExclusionRules, SDL2 SDLFont/SDLDrawContext, HLScreen, ConfirmModal, ...) - clang doesn't flag
-those, gcc does. They are not asked for by our CMake: `src/ext/gnklog/CMakeLists.txt:94`
-`target_compile_options(gnklog PUBLIC -Wall -Wextra -Wshadow -Wpedantic)` (under `if(UNIX)`) spills into every target
-linking gnklog. **Decide first (the user's repo):** make those options PRIVATE in gnklog, or keep `-Wshadow` and rename
-the ~70 parameters.
+**Linux result (2026-11-16, Linux-Editor session):** builds; gcc-only fixes pushed (57e08d1). It showed ~70 `-Wshadow`
+from gcc - constructor/setter parameters named as a member - that came from gnklog's PUBLIC `-Wall -Wextra -Wshadow
+-Wpedantic` spilling into every target linking it (`utests` and `gedit-bench` got *only* those).
 
-**Then:** consider making new ones visible - `-Werror=shadow` on our sources (not `_deps`/`ext`), so one in a header
-can't slip in again.
+**Decided (the user, 2026-11-16): `-Wshadow` is ours, gnklog's options go PRIVATE.** `cmake/CMakeBuildFlags.cmake` has
+one `gedit_warning_flags(target)` for `goatedit`, `utests` and `gedit-bench`, with `-Wshadow`, and on clang
+`-Wshadow-all` (clang's `-Wshadow` misses a parameter named as a member; gcc's catches it). The 62 clang found are
+fixed: constructor parameters take the `new` prefix (`index(std::move(newIndex))`), overrides' `isActive` ->
+`isActivated`, `cursor` -> `windowCursor`, lambdas' parameters renamed. Mac (with gnklog PRIVATE, via
+`FETCHCONTENT_SOURCE_DIR_GNKLOG`): goatedit + utests + gedit-bench build with no warnings. **Open:** a Linux recount
+(SDL2 `SDLFont` renamed by hand, uncompiled), then the gnklog pin bump once its PRIVATE commit is pushed.
 
-**Not ours, leave:** `stb_image.h` (two unused functions), gnklog's `LogManager.cpp:318` (`-Wunused-result`).
+**Then:** consider `-Werror=shadow` on our sources, so one can't slip in again.
+
+**Not ours, leave:** gnklog's `LogManager.cpp:318` (`-Wunused-result`, gnklog's own flags). `stb_impl.cpp` gets
+`-Wno-unused-function -Wno-shadow` (vendored, like duktape).
 
 ---
 

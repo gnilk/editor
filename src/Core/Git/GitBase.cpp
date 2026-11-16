@@ -60,14 +60,14 @@ void GitBase::Query(const fs::path &file, DoneDelegate onDone) {
         }
         // Not in the commit under this name: why
         RunGit({"--no-optional-locks", "-C", dir, "status", "--porcelain=v1", "-z", "--untracked-files=all", "--", name},
-               [dir, onDone](bool isSuccess, const std::string &out) {
+               [dir, onDone](bool isStatusSuccess, const std::string &statusOut) {
             Result result;
-            if (!isSuccess) {
+            if (!isStatusSuccess) {
                 result.error = "not in a git repository";
                 onDone(result);
                 return;
             }
-            auto changes = GitStatus::Parse(out);
+            auto changes = GitStatus::Parse(statusOut);
             if (changes.empty()) {
                 result.error = "ignored";
                 onDone(result);

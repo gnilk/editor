@@ -43,10 +43,10 @@ SDLWindow::~SDLWindow() noexcept {
     }
 }
 
-void SDLWindow::Initialize(WindowBase::kWinFlags flags, WindowBase::kWinDecoration newDecoFlags) {
-    WindowBase::Initialize(flags, newDecoFlags);
+void SDLWindow::Initialize(WindowBase::kWinFlags newFlags, WindowBase::kWinDecoration newDecoFlags) {
+    WindowBase::Initialize(newFlags, newDecoFlags);
 
-    if (flags & WindowBase::kWin_Visible) {
+    if (newFlags & WindowBase::kWin_Visible) {
         CreateSDLBackBuffer();
     }
 }

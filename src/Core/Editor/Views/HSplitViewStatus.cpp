@@ -10,10 +10,10 @@
 
 using namespace gedit;
 
-void HSplitViewStatus::SetWindowCursor(const Cursor &cursor) {
+void HSplitViewStatus::SetWindowCursor(const Cursor &windowCursor) {
     auto &quickController = Editor::Instance().GetQuickCommandController();
     auto &newCursor = quickController.GetCursor();
-    // Need to reposition the cursor properly...
+    // Need to reposition the windowCursor properly...
     auto logger = gnilk::Logger::GetLogger("HSplitViewStatus");
     logger->Debug("SetWindowCursor, xpos=%d", newCursor.position.x);
 

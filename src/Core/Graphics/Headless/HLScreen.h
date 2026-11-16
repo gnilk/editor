@@ -37,7 +37,7 @@ namespace gedit {
     // A terminal of a fixed size with no input; what is written to it is dropped, so no ANSI piles up over a test run
     class HeadlessTerminalIO : public gnilk::ansi::ITerminalIO {
     public:
-        HeadlessTerminalIO(int cols, int rows) : cols(cols), rows(rows) {
+        HeadlessTerminalIO(int newCols, int newRows) : cols(newCols), rows(newRows) {
         }
         ~HeadlessTerminalIO() override = default;
 

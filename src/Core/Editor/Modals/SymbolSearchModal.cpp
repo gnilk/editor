@@ -10,8 +10,8 @@
 
 using namespace gedit;
 
-SymbolSearchModal::SymbolSearchModal(CodeIndex::Ref index, Document::Ref activeDocument, std::string activePath, std::vector<std::filesystem::path> roots) :
-    QueryListModal("Go to symbol", U"Symbol: "), index(std::move(index)), activeDocument(std::move(activeDocument)), activePath(std::move(activePath)), roots(std::move(roots)) {
+SymbolSearchModal::SymbolSearchModal(CodeIndex::Ref newIndex, Document::Ref newActiveDocument, std::string newActivePath, std::vector<std::filesystem::path> newRoots) :
+    QueryListModal("Go to symbol", U"Symbol: "), index(std::move(newIndex)), activeDocument(std::move(newActiveDocument)), activePath(std::move(newActivePath)), roots(std::move(newRoots)) {
     if (this->activeDocument != nullptr) {
         auto &lineCursor = this->activeDocument->GetLineCursor();
         idxStartLine = lineCursor.idxActiveLine;

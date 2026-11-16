@@ -8,36 +8,40 @@
 #   duktape  — set_source_files_properties on its vendored C translation units
 
 # ---------------------------------------------------------------------------
-# Base flags shared across all supported compilers
+# Warnings - one set for every target that compiles our sources (goatedit, utests, gedit-bench), so a
+# warning means the same everywhere. -Wshadow is ours: a dependency's flags never reach our targets.
+# clang's -Wshadow misses a parameter named like a member (gcc's catches it); -Wshadow-all adds that.
 # ---------------------------------------------------------------------------
-target_compile_options(${CUR_TARGET} PRIVATE
-    -Wall -Wextra
-    -Wno-unused-parameter
-    -Wno-unused-variable
-    -Wno-sign-compare
-    -Wno-unused-but-set-variable
-)
+function(gedit_warning_flags target)
+    target_compile_options(${target} PRIVATE
+        -Wall -Wextra
+        -Wshadow
+        -Wno-unused-parameter
+        -Wno-unused-variable
+        -Wno-sign-compare
+        -Wno-unused-but-set-variable
+    )
+    if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        target_compile_options(${target} PRIVATE
+            -Wshadow-all
+            -Wpedantic
+            -Wno-unused-local-typedef
+            -Wno-unneeded-internal-declaration
+        )
+    elseif (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+        target_compile_options(${target} PRIVATE
+            -Wno-unused-local-typedefs
+            -Wno-unused-but-set-parameter
+            -Wno-unused-value
+            -Wno-implicit-fallthrough
+        )
+    endif()
+endfunction()
+
+gedit_warning_flags(${CUR_TARGET})
 
 if (UNIX AND NOT APPLE)
     target_compile_options(${CUR_TARGET} PRIVATE -fPIC)
-endif()
-
-# ---------------------------------------------------------------------------
-# Compiler-specific flags
-# ---------------------------------------------------------------------------
-if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    target_compile_options(${CUR_TARGET} PRIVATE
-        -Wpedantic
-        -Wno-unused-local-typedef
-        -Wno-unneeded-internal-declaration
-    )
-elseif (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-    target_compile_options(${CUR_TARGET} PRIVATE
-        -Wno-unused-local-typedefs
-        -Wno-unused-but-set-parameter
-        -Wno-unused-value
-        -Wno-implicit-fallthrough
-    )
 endif()
 
 # ---------------------------------------------------------------------------
@@ -80,4 +84,10 @@ set_source_files_properties(
     ${DUKTAPE_EXTRAS}/module-node/duk_module_node.c
     PROPERTIES COMPILE_FLAGS
     "-Wno-shadow -Wno-unused-variable -Wno-unused-but-set-variable -Wno-sign-compare -Wno-implicit-fallthrough -Wno-unused-parameter -Wno-unused-but-set-parameter"
+)
+
+# stb: vendored single-header implementations (one TU) - static helpers the PNG-only build doesn't call.
+set_source_files_properties(
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ext/stb/stb_impl.cpp
+    PROPERTIES COMPILE_FLAGS "-Wno-unused-function -Wno-shadow"
 )

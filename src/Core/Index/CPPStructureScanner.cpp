@@ -87,7 +87,7 @@ const char *gedit::OwnershipName(kOwnership ownership) {
     return "?";
 }
 
-CPPStructureScanner::CPPStructureScanner(const LangLineTokenizer &tokenizer) : tokenizer(tokenizer) {
+CPPStructureScanner::CPPStructureScanner(const LangLineTokenizer &newTokenizer) : tokenizer(newTokenizer) {
 }
 
 // A whole file: lex it and feed it a line at a time

@@ -462,8 +462,8 @@ void WorkspaceView::SwitchToEditorView() {
     rootView->SetActiveTopViewByName(glbEditorView);
 }
 
-void WorkspaceView::OnActivate(bool isActive) {
-    if (isActive) {
+void WorkspaceView::OnActivate(bool isActivated) {
+    if (isActivated) {
         Editor::Instance().SetActiveKeyMapping(Config::Instance()[cfgSectionName].GetStr("keymap", "default_keymap"));
     }
 }

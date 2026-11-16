@@ -686,6 +686,7 @@ if (TRUN_INCLUDE_DIR)
     target_compile_options(utests PUBLIC -I${TRUN_INCLUDE_DIR})
 endif()
 target_link_libraries(utests ${extlibs})
+gedit_warning_flags(utests)
 
 # Code index lexer benchmark (docs/code-index.md step 0) - a plain executable, not a trun case (trun links
 # the ASan runtime, which skews allocation-heavy numbers). Build in release: cmake --build --preset release
@@ -694,6 +695,7 @@ add_executable(gedit-bench utests/bench/codeindex_bench.cpp ${coresrc} ${uisrc} 
 target_include_directories(gedit-bench PUBLIC ${includedirs} ${CMAKE_BINARY_DIR}/generated)
 target_include_directories(gedit-bench SYSTEM PUBLIC ${DUKGLUE_HOME}/include)
 target_link_libraries(gedit-bench ${extlibs})
+gedit_warning_flags(gedit-bench)
 add_dependencies(gedit-bench plugins resources)
 set_target_properties(gedit-bench PROPERTIES EXCLUDE_FROM_ALL true)
 

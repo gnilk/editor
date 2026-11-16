@@ -156,7 +156,7 @@ namespace {
 
     class FunctionScan {
     public:
-        explicit FunctionScan(const Tokens &tokens) : tokens(tokens) {
+        explicit FunctionScan(const Tokens &newTokens) : tokens(newTokens) {
         }
 
         std::vector<LocalVariable> Run() {

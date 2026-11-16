@@ -290,8 +290,8 @@ bool Editor::Initialize(int argc, const char **argv) {
     });
 
     // Glue for the modal host: RootView only says a modal is up or gone, the keymap swap is ours
-    UIHost::Instance().SetOnModalActive([](bool isModalActive) {
-        Editor::Instance().SetModalActive(isModalActive);
+    UIHost::Instance().SetOnModalActive([](bool hasModal) {
+        Editor::Instance().SetModalActive(hasModal);
     });
 
     // Wire the debounced autosave: meaningful events call SessionManager::NotifyChanged(), which (once
@@ -1225,16 +1225,16 @@ void Editor::RefreshChangeBase(const Document::Ref &document) {
         auto kind = result.kind;
         auto hashes = (kind == GitBase::kKind::kBase) ? Document::HashLines(result.text) : nullptr;
         Runloop::PostMessage(0x00, [weakDocument, kind, hashes](uint32_t) {
-            auto document = weakDocument.lock();
-            if ((document == nullptr) || !Editor::Instance().GetWorkspace()->IsDocumentOpen(document)) {
+            auto liveDocument = weakDocument.lock();
+            if ((liveDocument == nullptr) || !Editor::Instance().GetWorkspace()->IsDocumentOpen(liveDocument)) {
                 return;
             }
             if (kind == GitBase::kKind::kBase) {
-                document->SetChangeBase(hashes);
+                liveDocument->SetChangeBase(hashes);
             } else if (kind == GitBase::kKind::kAllAdded) {
-                document->SetChangeBaseAllAdded();
+                liveDocument->SetChangeBaseAllAdded();
             } else {
-                document->ClearChangeBase();
+                liveDocument->ClearChangeBase();
             }
             Editor::Instance().TriggerUIRedraw();
         });

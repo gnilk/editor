@@ -65,8 +65,8 @@ Process::Ref Process::Create(std::string command, std::vector<std::string> argum
     return std::make_shared<ProcessUnix>(std::move(command), std::move(arguments));
 }
 
-ProcessUnix::ProcessUnix(std::string command, std::vector<std::string> arguments) :
-    Process(std::move(command), std::move(arguments)) {
+ProcessUnix::ProcessUnix(std::string newCommand, std::vector<std::string> newArguments) :
+    Process(std::move(newCommand), std::move(newArguments)) {
 }
 
 ProcessUnix::~ProcessUnix() {

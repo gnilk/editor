@@ -14,9 +14,9 @@
 using namespace gedit;
 namespace fs = std::filesystem;
 
-QuickOpenModal::QuickOpenModal(FileFinder::Ref finder, std::string activePath, std::unordered_set<std::string> openPaths) :
-    QueryListModal("Open file", U"File: "), finder(std::move(finder)), activePath(std::move(activePath)),
-    openPaths(std::move(openPaths)) {
+QuickOpenModal::QuickOpenModal(FileFinder::Ref newFinder, std::string newActivePath, std::unordered_set<std::string> newOpenPaths) :
+    QueryListModal("Open file", U"File: "), finder(std::move(newFinder)), activePath(std::move(newActivePath)),
+    openPaths(std::move(newOpenPaths)) {
     TakeSnapshot();
 }
 

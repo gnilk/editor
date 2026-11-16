@@ -50,10 +50,10 @@ void TerminalView::ReInitView() {
     controller.Resize(dc.GetRect().Width(), dc.GetRect().Height());
 }
 
-void TerminalView::OnActivate(bool isActive) {
-    logger->Debug("OnActive, isActive: %s", isActive ? "yes" : "no");
-    controller.SetFocus(isActive);
-    if (!isActive) {
+void TerminalView::OnActivate(bool isActivated) {
+    logger->Debug("OnActive, isActivated: %s", isActivated ? "yes" : "no");
+    controller.SetFocus(isActivated);
+    if (!isActivated) {
         parentView->RestoreContentHeight();
     } else {
         parentView->RestoreContentHeight();

@@ -10,7 +10,7 @@ namespace fs = std::filesystem;
 
 FileFinder::FileFinder() = default;
 
-FileFinder::FileFinder(Options options) : options(options) {
+FileFinder::FileFinder(Options newOptions) : options(newOptions) {
 }
 
 FileFinder::Ref FileFinder::Create() {

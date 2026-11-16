@@ -48,8 +48,8 @@ void HexView::SetDocument(Document::Ref newDocument) {
     viewTopRow = 0;
 }
 
-void HexView::OnActivate(bool isActive) {
-    if (isActive) {
+void HexView::OnActivate(bool isActivated) {
+    if (isActivated) {
         Editor::Instance().SetActiveKeyMapping(Config::Instance()[cfgSectionName].GetStr("keymap", "hexview_keymap"));
     }
 }

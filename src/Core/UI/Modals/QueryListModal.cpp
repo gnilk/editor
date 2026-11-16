@@ -19,7 +19,7 @@ static std::u32string UnicodeOf(int value) {
     return std::u32string(str.begin(), str.end());
 }
 
-QueryListModal::QueryListModal(const std::string &caption, const std::u32string &prompt) : prompt(prompt) {
+QueryListModal::QueryListModal(const std::string &caption, const std::u32string &newPrompt) : prompt(newPrompt) {
     SetCaption(caption);
     input = Line::Create(U"");
 }

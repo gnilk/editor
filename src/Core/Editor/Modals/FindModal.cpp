@@ -9,8 +9,8 @@
 
 using namespace gedit;
 
-FindModal::FindModal(Document::Ref document) : QueryListModal("Find", U"Find: "), document(document) {
-    auto &lineCursor = document->GetLineCursor();
+FindModal::FindModal(Document::Ref newDocument) : QueryListModal("Find", U"Find: "), document(newDocument) {
+    auto &lineCursor = newDocument->GetLineCursor();
     idxStartLine = lineCursor.idxActiveLine;
     idxStartChar = lineCursor.cursor.position.x;
     startViewTopLine = lineCursor.viewTopLine;

@@ -9,10 +9,10 @@
 using namespace gedit;
 namespace fs = std::filesystem;
 
-RepoMonitor::RepoMonitor(fs::path rootPath, PostDelegate postToMain, std::chrono::milliseconds checkInterval) :
-    rootPath(std::move(rootPath)),
-    postToMain(std::move(postToMain)),
-    checkInterval(checkInterval) {
+RepoMonitor::RepoMonitor(fs::path newRootPath, PostDelegate newPostToMain, std::chrono::milliseconds newCheckInterval) :
+    rootPath(std::move(newRootPath)),
+    postToMain(std::move(newPostToMain)),
+    checkInterval(newCheckInterval) {
 }
 
 RepoMonitor::~RepoMonitor() {

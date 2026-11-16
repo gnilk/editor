@@ -14,8 +14,8 @@
 using namespace gedit;
 namespace fs = std::filesystem;
 
-OpenFilesModal::OpenFilesModal(std::vector<Entry> entries, Document::Ref activeDocument) :
-    QueryListModal("Open files", U"File: "), entries(std::move(entries)), activeDocument(std::move(activeDocument)) {
+OpenFilesModal::OpenFilesModal(std::vector<Entry> newEntries, Document::Ref newActiveDocument) :
+    QueryListModal("Open files", U"File: "), entries(std::move(newEntries)), activeDocument(std::move(newActiveDocument)) {
 }
 
 OpenFilesModal::Ptr OpenFilesModal::Create() {

@@ -10,12 +10,12 @@
 
 using namespace gedit;
 
-OverviewMap::OverviewMap(size_t numLines, int numRows, double maxRowsPerLine) : numLines(numLines), numRows(numRows) {
-    if ((numLines == 0) || (numRows <= 0)) {
-        this->numRows = std::max(numRows, 0);
+OverviewMap::OverviewMap(size_t newNumLines, int newNumRows, double maxRowsPerLine) : numLines(newNumLines), numRows(newNumRows) {
+    if ((newNumLines == 0) || (newNumRows <= 0)) {
+        this->numRows = std::max(newNumRows, 0);
         return;
     }
-    rowsPerLine = std::min(maxRowsPerLine, (double)numRows / (double)numLines);
+    rowsPerLine = std::min(maxRowsPerLine, (double)newNumRows / (double)newNumLines);
 }
 
 int OverviewMap::RowOfLine(size_t idxLine) const {

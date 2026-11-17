@@ -51,6 +51,8 @@ TerminalController::TerminalController() {
 }
 
 TerminalController::~TerminalController() {
+    // First: the pty reader calls into the screen and this controller - it must be gone before they are
+    shell.Close();
     {
         std::lock_guard<std::mutex> guard(syncTimerLock);
         isSyncTimerStopping = true;

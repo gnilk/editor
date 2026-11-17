@@ -42,10 +42,16 @@ static const std::unordered_map<std::string, kLanguageTokenClass> tokenClassName
         {"link", kLanguageTokenClass::kLink},
         {"rule", kLanguageTokenClass::kRule},
         {"config_key", kLanguageTokenClass::kConfigKey},
+        // Semantic classes the code index gives C++ - a data language may name them where its syntax says as much
+        // (CMake's commands are functions)
+        {"function", kLanguageTokenClass::kFunction},
+        {"macro", kLanguageTokenClass::kMacro},
+        {"enum_value", kLanguageTokenClass::kEnumValue},
 };
 
-static const std::set<std::string> tokenRuleKeys = {"class", "words", "whole_word", "push", "pop", "push_at_eol"};
-static const std::set<std::string> stateKeys = {"regular", "postfix", "tokens", "eol", "indent_scoped"};
+static const std::set<std::string> tokenRuleKeys = {"class", "words", "whole_word", "case_sensitive", "push", "pop",
+                                                    "push_at_eol"};
+static const std::set<std::string> stateKeys = {"regular", "postfix", "tokens", "eol", "indent_scoped", "numbers"};
 
 namespace {
     // Collects problems and keeps the line lookups in one place
@@ -186,6 +192,9 @@ static void ReadTokenRule(Reader &reader, const YAML::Node &node, LanguageDefini
         rule.tokenClass = *tokenClass;
     }
     rule.isWholeWord = reader.Bool(node["whole_word"], false);
+    if (node["case_sensitive"].IsDefined()) {
+        rule.isCaseSensitive = reader.Bool(node["case_sensitive"], true);
+    }
     rule.words = reader.Words(node["words"]);
 
     int nActions = 0;
@@ -222,10 +231,25 @@ static void ReadState(Reader &reader, const std::string &name, const YAML::Node 
     }
     for (auto it : node) {
         auto key = it.first.Scalar();
-        if (key == "numbers") {
-            reader.AddProblem(it.first, "'numbers' isn't supported yet (phase 2)");
-        } else if (stateKeys.find(key) == stateKeys.end()) {
+        if (stateKeys.find(key) == stateKeys.end()) {
             reader.AddProblem(it.first, "'" + key + "' is not a state key");
+        }
+    }
+
+    // 'numbers: generic', or '{ matcher: generic, suffixes: "j J" }'
+    auto numbers = node["numbers"];
+    if (numbers.IsDefined()) {
+        auto matcher = numbers.IsMap() ? reader.Str(numbers["matcher"]) : reader.Str(numbers);
+        if (matcher != "generic") {
+            reader.AddProblem(numbers, "'numbers' is 'generic' or { matcher: generic, suffixes: ... }");
+        } else {
+            LanguageDefinition::Numbers numberRule;
+            if (numbers.IsMap()) {
+                for (auto &suffix : reader.Words(numbers["suffixes"])) {
+                    numberRule.suffixes += suffix;
+                }
+            }
+            state.numbers = numberRule;
         }
     }
 
@@ -262,6 +286,7 @@ static void ReadState(Reader &reader, const std::string &name, const YAML::Node 
 
     // The tokenizer keeps one list per class in a state: the entries of a class merge, so they must agree
     std::map<kLanguageTokenClass, bool> wholeWordByClass;
+    std::map<kLanguageTokenClass, std::optional<bool>> caseSensitiveByClass;
     for (auto &rule : state.tokens) {
         auto it = wholeWordByClass.find(rule.tokenClass);
         if ((it != wholeWordByClass.end()) && (it->second != rule.isWholeWord)) {
@@ -269,6 +294,12 @@ static void ReadState(Reader &reader, const std::string &name, const YAML::Node 
             break;
         }
         wholeWordByClass[rule.tokenClass] = rule.isWholeWord;
+        auto itCase = caseSensitiveByClass.find(rule.tokenClass);
+        if ((itCase != caseSensitiveByClass.end()) && (itCase->second != rule.isCaseSensitive)) {
+            reader.AddProblem(node, "state '" + name + "': the entries of one class must agree on case_sensitive");
+            break;
+        }
+        caseSensitiveByClass[rule.tokenClass] = rule.isCaseSensitive;
     }
 
     definition.states.push_back(std::move(state));
@@ -321,6 +352,7 @@ std::optional<LanguageDefinition> LanguageDefinition::Parse(const YAML::Node &ro
     definition.version = reader.Str(language["version"]);
     definition.lineComment = UnicodeHelper::utf8to32(reader.Str(language["line_comment"]));
     definition.isOverride = reader.Bool(language["override"], false);
+    definition.isCaseSensitive = reader.Bool(language["case_sensitive"], true);
 
     auto engine = reader.Str(language["engine"], "data");
     if (engine == "builtin") {

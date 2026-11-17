@@ -158,6 +158,8 @@ namespace gedit {
         }
         void RegisterLanguage(const std::string &extension, LanguageBase::Ref languageBase);
         LanguageBase::Ref GetLanguageForExtension(const std::string &extension);
+        // By the exact file name first (a language file's 'filenames:', CMake's 'CMakeLists.txt'), then the extension
+        LanguageBase::Ref GetLanguageForFile(const std::filesystem::path &path);
         std::vector<std::string> GetRegisteredLanguages();
         // One line per language for '.ll': name, extensions, and for a language file its version, author and file
         std::vector<std::string> GetLanguageDescriptions();
@@ -330,6 +332,7 @@ namespace gedit {
         std::unordered_map<kLanguageTokenClass, std::pair<ColorRGBA, ColorRGBA>> languageColorConfig;
         LanguageBase::Ref defaultLanguage = {};
         std::unordered_map<std::string, LanguageBase::Ref> extToLanguages;
+        std::unordered_map<std::string, LanguageBase::Ref> fileNameToLanguages;
         CodeIndex::Ref codeIndex = nullptr;
         LibraryNames::Ref libraryNames = std::make_shared<const LibraryNames>();
         NavigationStack navigationStack;

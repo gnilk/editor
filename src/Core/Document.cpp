@@ -326,7 +326,7 @@ bool Document::LoadData(const std::filesystem::path &pathName) {
     }
     TakeDiskStamp();
     logger->Debug("LoadData, ok, file loaded");
-    auto lang = Editor::Instance().GetLanguageForExtension(pathName.extension());
+    auto lang = Editor::Instance().GetLanguageForFile(pathName);
     if (lang != nullptr) {
         logger->Debug("LoadData, setting language: %s", UnicodeHelper::utf32toascii(lang->Identifier()).c_str());
         textBuffer->SetLanguage(lang);

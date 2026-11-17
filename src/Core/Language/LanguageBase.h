@@ -8,6 +8,7 @@
 #include "LangLineTokenizer.h"
 #include "Core/Graphics/Cursor.h"
 #include "Core/Line.h"
+#include <bitset>
 #include <memory>
 #include "Core/Config/ConfigNode.h"
 
@@ -55,12 +56,26 @@ namespace gedit {
 
         // Common Language Settings
         int GetTabSize();
+
+        // A class the code index gives C++ (function, enum_value, ...) that this language's own tokenizer produces -
+        // CMake's commands are functions by syntax. The semantic names leave those alone (TextBuffer::ApplySemanticNames).
+        bool IsSyntaxSemanticClass(kLanguageTokenClass tokenClass) const {
+            auto idx = static_cast<size_t>(tokenClass);
+            return (idx < syntaxSemanticClasses.size()) && syntaxSemanticClasses.test(idx);
+        }
     protected:
         void ConfigFromNodeName(const std::string nodeName);
+        void MarkSyntaxSemanticClass(kLanguageTokenClass tokenClass) {
+            auto idx = static_cast<size_t>(tokenClass);
+            if (idx < syntaxSemanticClasses.size()) {
+                syntaxSemanticClasses.set(idx);
+            }
+        }
 
     protected:
         LangLineTokenizer tokenizer;
         std::string configNodeName;
+        std::bitset<static_cast<size_t>(kLanguageTokenClass::kLastTokenClass)> syntaxSemanticClasses;
     };
 }
 

@@ -182,6 +182,7 @@ extern "C" {
     DLL_EXPORT int test_codeindex_workspace_buffer(ITesting *t);
     DLL_EXPORT int test_codeindex_workspace_fileownfirst(ITesting *t);
     DLL_EXPORT int test_codeindex_workspace_otherlanguage(ITesting *t);
+    DLL_EXPORT int test_codeindex_syntax_semanticclass(ITesting *t);
     DLL_EXPORT int test_codeindex_workspace_recolour(ITesting *t);
     DLL_EXPORT int test_codeindex_workspace_fromdisk(ITesting *t);
     DLL_EXPORT int test_codeindex_workspace_syntax(ITesting *t);
@@ -1889,6 +1890,29 @@ DLL_EXPORT int test_codeindex_workspace_otherlanguage(ITesting *t) {
 
     buffer->SetWorkspaceNamesSource(nullptr);
     cppBuffer->SetWorkspaceNamesSource(nullptr);
+    return kTR_Pass;
+}
+
+// A language that gives a semantic class by its own syntax keeps it: CMake's commands are functions, whatever the
+// names say (the names pass made them 'regular' again - no colour in the app)
+DLL_EXPORT int test_codeindex_syntax_semanticclass(ITesting *t) {
+    auto mainConfig = Config::Instance()["main"];
+    auto wasThreaded = mainConfig.GetBool("threaded_syntaxparser", false);
+    mainConfig.SetBool("threaded_syntaxparser", false);
+    auto buffer = TextBuffer::CreateEmptyBuffer();
+    buffer->DeleteLineAt(0);
+    buffer->AddLine(U"add_executable(app main.cpp)");
+    buffer->AddLine(U"option(X ON)");
+    buffer->SetLanguage(Editor::Instance().GetLanguageForFile("CMakeLists.txt"));
+    mainConfig.SetBool("threaded_syntaxparser", wasThreaded);
+    auto names = MakeWorkspaceNames({{U"app", kLanguageTokenClass::kUserType}});
+    buffer->SetWorkspaceNamesSource([&names]() -> WorkspaceNames::Ref {
+        return names;
+    });
+    buffer->Reparse();
+    TR_ASSERT(t, ClassOf(buffer, 0, U"add_executable") == kLanguageTokenClass::kFunction);
+    TR_ASSERT(t, ClassOf(buffer, 1, U"ON") == kLanguageTokenClass::kEnumValue);
+    buffer->SetWorkspaceNamesSource(nullptr);
     return kTR_Pass;
 }
 

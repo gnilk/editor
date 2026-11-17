@@ -78,6 +78,9 @@ namespace gedit {
                 return false;
             }
             __inline bool IsFullMatch(const std::u32string_view &input, int &outSzToken) {
+                if (isCaseInsensitive) {
+                    return IsFoldedFullMatch(input, outSzToken);
+                }
                 for (auto &s: tokens) {
                     if (input  == s) {
                         outSzToken = static_cast<int>(s.size());
@@ -87,7 +90,40 @@ namespace gedit {
                 return false;
             }
 
+            // A whole-word list that ignores ASCII case (CMake's commands: 'add_executable' = 'ADD_EXECUTABLE').
+            // The tokens are kept folded; a word is folded as it is compared, without a copy.
+            void SetCaseInsensitive() {
+                isCaseInsensitive = true;
+                for (auto &token : tokens) {
+                    for (auto &ch : token) {
+                        ch = FoldAscii(ch);
+                    }
+                }
+            }
+
+            static char32_t FoldAscii(char32_t ch) {
+                return ((ch >= U'A') && (ch <= U'Z')) ? (ch - U'A' + U'a') : ch;
+            }
+
+            bool IsFoldedFullMatch(const std::u32string_view &input, int &outSzToken) const {
+                for (auto &s: tokens) {
+                    if (input.size() != s.size()) {
+                        continue;
+                    }
+                    size_t idx = 0;
+                    while ((idx < s.size()) && (FoldAscii(input[idx]) == s[idx])) {
+                        idx++;
+                    }
+                    if (idx == s.size()) {
+                        outSzToken = static_cast<int>(s.size());
+                        return true;
+                    }
+                }
+                return false;
+            }
+
             bool isWholeWord = false;
+            bool isCaseInsensitive = false;
             kLanguageTokenClass classification;
             std::vector<std::u32string> tokens;
 

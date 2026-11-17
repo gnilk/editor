@@ -37,13 +37,21 @@ namespace gedit {
         struct TokenRule {
             kLanguageTokenClass tokenClass = kLanguageTokenClass::kRegular;
             bool isWholeWord = false;
+            // 'case_sensitive:' on the entry - unset: the language's (whole-word lists only)
+            std::optional<bool> isCaseSensitive;
             std::vector<std::u32string> words;
             kStateAction action = kStateAction::kNone;
             std::string stateName;      // for kPush / kPushAtEOL
         };
 
+        // 'numbers:' in a state - the generic matcher (GenericNumberMatcher), with the file's suffix characters
+        struct Numbers {
+            std::u32string suffixes;
+        };
+
         struct State {
             std::string name;
+            std::optional<Numbers> numbers;
             std::optional<kLanguageTokenClass> regularClass;
             std::vector<std::u32string> postfix;
             std::vector<TokenRule> tokens;
@@ -75,6 +83,8 @@ namespace gedit {
         std::u32string lineComment;
         kEngine engine = kEngine::kData;
         bool isOverride = false;
+        // 'case_sensitive: no' - every whole-word list compares ASCII case folded (CMake, SQL)
+        bool isCaseSensitive = true;
 
         // Tokenizer
         std::string startState;

@@ -732,6 +732,9 @@ void TextBuffer::ApplySemanticNames(Line &line) {
     auto &text = line.Buffer();
     for (auto &attrib : line.Attributes()) {
         bool isSemantic = SemanticNames::IsSemanticClass(attrib.tokenClass);
+        if (isSemantic && (language != nullptr) && language->IsSyntaxSemanticClass(attrib.tokenClass)) {
+            continue;   // the language's own syntax says so (CMake's commands), not a name lookup
+        }
         if (!isSemantic && ((attrib.tokenClass != kLanguageTokenClass::kRegular) || (semanticNames.IsEmpty() && (workspaceNames == nullptr) && !isSyntaxColoured))) {
             continue;
         }

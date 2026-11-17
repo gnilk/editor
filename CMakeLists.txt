@@ -433,6 +433,7 @@ list(APPEND coresrc src/Core/Language/IndentCache.cpp src/Core/Language/IndentCa
 list(APPEND coresrc src/Core/Language/Data/LanguageFileSet.cpp src/Core/Language/Data/LanguageFileSet.h)
 list(APPEND coresrc src/Core/Language/Data/LanguageDefinition.cpp src/Core/Language/Data/LanguageDefinition.h)
 list(APPEND coresrc src/Core/Language/Data/DataLanguage.cpp src/Core/Language/Data/DataLanguage.h)
+list(APPEND coresrc src/Core/Language/Data/GenericNumberMatcher.cpp src/Core/Language/Data/GenericNumberMatcher.h)
 list(APPEND coresrc src/Core/Language/LanguageSupport/DefaultLanguage.cpp src/Core/Language/LanguageSupport/DefaultLanguage.h)
 list(APPEND coresrc src/Core/Language/LanguageSupport/CPPLanguage.cpp src/Core/Language/LanguageSupport/CPPLanguage.h)
 list(APPEND coresrc src/Core/Language/LanguageSupport/CPPNumberMatcher.cpp src/Core/Language/LanguageSupport/CPPNumberMatcher.h)

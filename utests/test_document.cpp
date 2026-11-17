@@ -75,6 +75,8 @@ DLL_EXPORT int test_document_reformat_block_enclosing(ITesting *t);
 DLL_EXPORT int test_document_selectall(ITesting *t);
 DLL_EXPORT int test_document_selectall_empty(ITesting *t);
 DLL_EXPORT int test_document_selectall_reformat(ITesting *t);
+// 'comment' - Cmd/Ctrl+/ toggles the language's line comment; uncommenting removes exactly the prefix
+DLL_EXPORT int test_document_comment_toggle(ITesting *t);
 DLL_EXPORT int test_document_promote_text(ITesting *t);
 DLL_EXPORT int test_document_selectdown_lastline(ITesting *t);
 DLL_EXPORT int test_document_selectup_firstline(ITesting *t);
@@ -1497,6 +1499,22 @@ DLL_EXPORT int test_document_selectall(ITesting *t) {
     document->OnAction(actionCopy);
     auto text = Editor::Instance().GetClipBoard().Top()->AsText();
     TR_ASSERT(t, text == U"one\ntwo\nthree");
+    IndentCache::Instance().Clear();
+    return kTR_Pass;
+}
+
+// Ctrl+/ twice gives the line back - for a one-char prefix ('#': CMake, YAML) as for '//'. Uncommenting removed two
+// chars whatever the prefix was, so '#set(X 1)' became 'et(X 1)'.
+DLL_EXPORT int test_document_comment_toggle(ITesting *t) {
+    auto document = CreateReformatDoc(t, {"set(X 1)", "int x;"});
+    for (const std::u32string prefix : {U"#", U"//", U"-- "}) {
+        document->AddLineComment(0, 2, prefix);
+        TR_ASSERT(t, document->LineAt(0)->Buffer() == prefix + U"set(X 1)");
+        TR_ASSERT(t, document->LineAt(1)->Buffer() == prefix + U"int x;");
+        document->AddLineComment(0, 2, prefix);
+        TR_ASSERT(t, document->LineAt(0)->Buffer() == U"set(X 1)");
+        TR_ASSERT(t, document->LineAt(1)->Buffer() == U"int x;");
+    }
     IndentCache::Instance().Clear();
     return kTR_Pass;
 }

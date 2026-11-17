@@ -8,6 +8,20 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## Scripted app checks (2026-11-17) ✅
+
+**`scripts/handtests/`** - the hitlist's 'To try in the app' items as scripts (`checks.py`, 16 checks; `--list`).
+**Load-bearing decisions:** the editor runs on its ANSI backend in a pty and `goatpty.py` keeps a small VT screen
+(chars + fg/bg per cell), so a check reads text, the status line (`| EDT | * cp1252 a.txt |`, `l: 42`), colours
+(CMake token classes) and selection (bg) instead of looking at screenshots. Each check gets a sandbox HOME + XDG dirs
+under `<tmp>/goatedit-handtests/` with its work folder *inside* that HOME (a project root must be below `$HOME`; a cwd
+outside it is moved to `$HOME`) - never the user's config, session or shell history. Keys are kitty CSI u, which gansi
+asks for. What it does not cover: the SDL backend's own keys and drawing. Found on the first run: Ctrl+/ uncommented
+by removing 2 chars whatever the prefix (`#set` -> `et`; fixed, `test_document_comment_toggle`), and #49's stack
+(SDL picks KMSDRM with no display; `SDL_QUIT` -> `exit(0)` -> `~SDLFontManager` after `SDL_Quit` segfaults).
+
+---
+
 ## CMake highlighting (2026-11-17) ✅
 
 **`cmake.yml`** (hitlist #11, step 1 of languages phase 2; detail in `support-languages.md` §7). **Load-bearing

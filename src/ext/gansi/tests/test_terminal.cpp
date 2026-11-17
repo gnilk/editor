@@ -33,6 +33,7 @@ DLL_EXPORT int test_terminal_clipboard_gated(ITesting *t);
 DLL_EXPORT int test_terminal_push_keeps_pending_esc(ITesting *t);
 DLL_EXPORT int test_terminal_push_order(ITesting *t);
 DLL_EXPORT int test_terminal_push_from_thread(ITesting *t);
+DLL_EXPORT int test_terminal_esc_short_wait(ITesting *t);
 }
 
 static bool Contains(const std::string &hay, const std::string &needle) {
@@ -370,5 +371,44 @@ DLL_EXPORT int test_terminal_push_from_thread(ITesting *t) {
 
     close(fds[0]);
     close(fds[1]);
+    return kTR_Pass;
+}
+
+// A lone ESC (the Escape key, or the start of Alt+key / an arrow) is decided by the next read: the rest of a
+// sequence comes in the same write, so it waits only a short while - not the caller's whole timeout. The
+// screen loop polls with 250 ms, and every Esc (quick mode) cost that (Linux, uxterm, 2026-11-17).
+DLL_EXPORT int test_terminal_esc_short_wait(ITesting *t) {
+    auto mock = std::make_unique<MockTerminalIO>();
+    MockTerminalIO *raw = mock.get();
+    Terminal term(std::move(mock));
+    term.Open();
+    raw->QueueInput("\x1b");
+
+    auto ev = term.PollEvent(250);
+    TR_ASSERT(t, !ev.has_value());      // held: it may begin a sequence
+    ev = term.PollEvent(250);
+    TR_ASSERT(t, ev.has_value());
+    TR_ASSERT(t, std::holds_alternative<KeyEvent>(*ev));
+    TR_ASSERT(t, std::get<KeyEvent>(*ev).key == Key::Escape);
+    TR_ASSERT(t, raw->ReadTimeouts().size() == 2);
+    TR_ASSERT(t, raw->ReadTimeouts()[0] == 250);
+    TR_ASSERT(t, raw->ReadTimeouts()[1] <= Terminal::kEscapeWaitMs);
+    TR_ASSERT(t, Terminal::kEscapeWaitMs <= 50);
+
+    // A blocking wait (-1) is shortened the same way; a shorter one (0) is kept
+    raw->QueueInput("\x1b");
+    term.PollEvent(-1);
+    term.PollEvent(-1);
+    TR_ASSERT(t, raw->ReadTimeouts().back() == Terminal::kEscapeWaitMs);
+    raw->QueueInput("\x1b");
+    term.PollEvent(0);
+    term.PollEvent(0);
+    TR_ASSERT(t, raw->ReadTimeouts().back() == 0);
+
+    // Alt+e still arrives whole when its bytes come together
+    raw->QueueInput("\x1b" "e");
+    ev = term.PollEvent(250);
+    TR_ASSERT(t, ev.has_value() && std::holds_alternative<KeyEvent>(*ev));
+    TR_ASSERT(t, std::get<KeyEvent>(*ev).ch == U'e' && HasMod(std::get<KeyEvent>(*ev).mods, Mod::Alt));
     return kTR_Pass;
 }

@@ -33,7 +33,8 @@ namespace gnilk::ansi {
             outRows = rows;
             return true;
         }
-        long Read(uint8_t *buf, size_t n, int /*timeoutMs*/) override {
+        long Read(uint8_t *buf, size_t n, int timeoutMs) override {
+            readTimeouts.push_back(timeoutMs);
             if (inputChunks.empty()) {
                 return 0;       // timeout / no data
             }
@@ -83,6 +84,8 @@ namespace gnilk::ansi {
         bool IsRawMode() const { return rawMode; }
         int RestoreCalls() const { return restoreCalls; }
         int WakeCalls() const { return wakeCalls; }
+        // The timeout each Read() was called with, in order
+        const std::vector<int> &ReadTimeouts() const { return readTimeouts; }
 
     private:
         int cols = 80;
@@ -92,6 +95,7 @@ namespace gnilk::ansi {
         int restoreCalls = 0;
         int wakeCalls = 0;
         std::deque<std::string> inputChunks;
+        std::vector<int> readTimeouts;
         std::string written;
     };
 

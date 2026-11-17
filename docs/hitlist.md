@@ -61,8 +61,8 @@ Built and unit-tested, not yet tried by hand on that platform. Linux = SDL2 (Ctr
 - **Stale assets** (#24) - Mac build + scratch install checked
   - [ ] Linux - `scripts/install.sh --user` after a file is removed from `Assets/Resources`: gone from `~/.local/share/goatedit`
 - **Terminal Ctrl+C / xterm Alt** (#45)
-  - [ ] Linux [ ] Mac - terminal: type `echo abc`, `Ctrl+C`: the text stays, a fresh prompt below, nothing runs
-  - [ ] Linux - `goatedit --backend ansi` in `uxterm`: `Alt+T` / `Alt+E` switch views (no `ô` typed); Alt works in uxterm after quitting as before
+  - [x] Linux [ ] Mac - terminal: type `echo abc`, `Ctrl+C`: the text stays, a fresh prompt below, nothing runs
+  - [x] Linux - `goatedit --backend ansi` in `uxterm`: `Alt+T` / `Alt+E` switch views (no `ô` typed); Alt works in uxterm after quitting as before
 - **Short-file scroll window** (#35, open-bugs #30)
   - [ ] Linux [x] Mac - a new file, a dozen lines, PageDown, then Enter in the middle: the top line stays until the view is full
 
@@ -73,6 +73,7 @@ Built and unit-tested, not yet tried by hand on that platform. Linux = SDL2 (Ctr
 | 38 | A git process thread outlives exit and posts into the destroyed Runloop queue | open-bugs #32 | hours | ASan only, at exit (test teardown; the app on quit with git running); main too |
 | 40 | User documentation: the keyboard layout per platform (the shipped keymaps, modifier groups), the shipped dot/quick commands, the mouse bindings | `docs/usage.md` (a short first version, 2026-11-16) | a day | discussed, never written down; generate from the keymap YAML where possible so it can't drift; ties in with #8 |
 | 44 | ANSI backend in a plain xterm (no Kitty keyboard): chords the legacy encoding can't carry - `Ctrl+/` (comment), `Ctrl+I` (is Tab: reformat block), `Ctrl+]` (jump forward), every `Ctrl+Shift+<letter>` | `src/ext/gansi` (`InputParser`, `Terminal::Open`) | hours | xterm's modifyOtherKeys (`Caps::EnableModifyOtherKeys` exists, unused) + parse `CSI 27;mod;cp ~`; only where Kitty isn't spoken. Reported by the beta tester (uxterm over ssh) |
+| 46 | The ANSI backend is picked automatically only when `XDG_SESSION_TYPE` is `tty` (logind sets it for ssh). Without it (containers, ssh without pam_systemd) the default is SDL, which fails with no display; macOS over ssh always picks SDL | `Editor::ConfigureSubSystems`, `XDGEnvironment::IsTerminalSession` | an hour | fall back to ANSI when neither `DISPLAY` nor `WAYLAND_DISPLAY` is set (macOS: when `SSH_TTY` is set); `--backend` / `main.backend` keep overriding |
 | 41 | Gaps found writing `usage.md`: no word left/right on macOS; no drag-to-select in the editor; `.openfolder` is registered in `jsplugs.yml` but `Scripts/openfolder.js` doesn't exist (see #36) | `docs/usage.md` | hours | small, each on its own |
 | 17 | A config list overwrites the default list by position | open-bugs #28 | half a day | idea: an immutable merge that returns a new tree; `LanguageFileSet::Merge` is the model |
 | 11 | Languages phase 2: CMake and Python (case-insensitive lists, generic numbers, the prefix rule) | `support-languages.md` | 1-2 days | used daily |

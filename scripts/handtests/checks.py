@@ -762,15 +762,24 @@ def sdl_no_display(n):
         maps = open(f'/proc/{p.pid}/maps').read()
         driver = 'kmsdrm (gbm + /dev/dri render node)' if 'libgbm' in maps else 'unknown'
         n(False, f'still running after 6 s with no display - SDL picked {driver}, nothing visible')
-        p.terminate()
-        try:
-            out, _ = p.communicate(timeout=5)
-        except subprocess.TimeoutExpired:
-            p.kill()
-            out, _ = p.communicate()
-        rc = p.returncode
-        n(rc == 0, f'SIGTERM: quits cleanly (exit {rc}, {"SIGSEGV" if rc == -11 else ""}) - SDL_QUIT -> SDL_Quit(); exit(0) '
-                   f'-> ~SDLFontManager destroys textures after SDL is gone (GL_DestroyTexture)')
+        p.kill()
+        p.communicate()
+    # The way out: SIGTERM arrives as SDL_QUIT. A driver asked for by name is let through, so 'offscreen' runs the
+    # editor with no display - it used to exit() past the screen's Close and crash in ~SDLFontManager (SIGSEGV).
+    p = subprocess.Popen([Goat.EXE, '--backend', 'sdl', '--skip-user-config', '.'], cwd=work,
+                         env=dict(env, SDL_VIDEODRIVER='offscreen'),
+                         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    time.sleep(3)
+    if p.poll() is not None:
+        n(False, f'SDL_VIDEODRIVER=offscreen: still running after 3 s (exit {p.returncode})')
+        return
+    p.terminate()
+    try:
+        rc = p.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        p.kill()
+        rc = p.wait()
+    n(rc == 0, f'SIGTERM (SDL_QUIT): quits cleanly (exit {rc}{", SIGSEGV" if rc == -11 else ""})')
 
 
 @check('#46 In the desktop session: a window')
@@ -799,8 +808,16 @@ def desktop_window(n):
                 mine.append((w, name))
         n(bool(mine), f'plain goatedit in the desktop session ({display}) opens a window: {mine}')
         n(p.poll() is None, 'and keeps running (no ANSI fallback, no exit)')
+        # SIGTERM arrives as SDL_QUIT - the same way out as closing the window (#49: it crash-dumped)
+        p.terminate()
+        try:
+            rc = p.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            rc = None
+        n(rc == 0, f'SIGTERM / window close: quits cleanly (exit {rc}{", SIGSEGV" if rc == -11 else ""})')
     finally:
-        p.kill()
+        if p.poll() is None:
+            p.kill()
         p.wait()
 
 

@@ -78,10 +78,11 @@ keys and drawing. Linux run 2026-11-17: all pass but `sdl_no_display` (#49).
   - [x] Mac - `ssh localhost`, plain `goatedit`: the ANSI backend; from Terminal.app: a window
   - Mac 2026-11-17: `goat` over ssh opened a window - `open` starts the app with launchd's environment, no `SSH_CONNECTION`. Fixed on `fix/shell-exit-crash` (5658fc0): over ssh `goat` runs the binary in the terminal; needs `install-cli` to regenerate `~/.local/bin/goat`
 - **xterm Ctrl chords in the ANSI backend** (#44)
-  - [ ] Linux - `goatedit` in `uxterm` (TERM=xterm) over ssh: `Ctrl+/` comments the line, `Ctrl+I` reformats the block (not a Tab), `Ctrl+]` jumps forward, `Ctrl+[` comes back; Tab, Enter, Backspace, `Ctrl+C` in the terminal as before; after quitting, the shell's `Ctrl+R` / `Ctrl+A` still work
+  - [x] Linux - `goatedit` in `uxterm` (TERM=xterm) over ssh: `Ctrl+/` comments the line, `Ctrl+I` reformats the block (not a Tab), `Ctrl+]` jumps forward, `Ctrl+[` comes back; Tab, Enter, Backspace, `Ctrl+C` in the terminal as before; after quitting, the shell's `Ctrl+R` / `Ctrl+A` still work
     - Linux 2026-11-17: after `--backend ansi`, `Ctrl+R` in uxterm drew its search fg == bg. The editor left its last
       colours (the status line's) set on exit and xterm's `?1049l` doesn't restore colours. Fixed: `Terminal::Close` resets
-      SGR before leaving the alt screen (`test_terminal_close`); checked by replaying the exit in uxterm - re-check by hand
+      SGR before leaving the alt screen (`test_terminal_close`); checked by replaying the exit in uxterm. The rest of the
+      item checked by hand in uxterm (2026-11-17)
 - **Promote to terminal** (#47) - `Cmd/Ctrl+Enter` in the editor
   - [x] Linux [x] Mac - a line, no selection: it runs in the terminal, focus stays in the editor; a selection of several lines: all run, the selection stays (send again) (scripted: `promote`)
   - [x] Linux [x] Mac - `claude` in the terminal: a selected prompt arrives as one paste and is sent; `promote_sends_enter: no` in the user config: it waits in the chat unsent (scripted: `promote_paste` - a raw-mode program with bracketed paste on stands in for claude: `\e[200~...\e[201~` then `\r`, no `\r` with the setting)

@@ -44,7 +44,8 @@ std::string Caps::EnableModifyOtherKeys() {
 }
 
 std::string Caps::DisableModifyOtherKeys() {
-    return "\x1b[>4;0m";
+    // No value: back to the terminal's own setting (xterm's modifyOtherKeys resource), not off
+    return "\x1b[>4m";
 }
 
 std::string Caps::EnableMetaSendsEscape() {

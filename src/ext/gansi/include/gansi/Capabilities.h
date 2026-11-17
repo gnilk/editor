@@ -25,6 +25,10 @@ namespace gnilk::ansi {
         bool focusReporting = true;   // focus in/out (1004).
         bool bracketedPaste = true;   // bracketed paste (2004).
         bool kittyKeyboard = true;    // Kitty keyboard progressive enhancement (CSI > flags u).
+        bool modifyOtherKeys = true;  // xterm modifyOtherKeys level 2 (CSI > 4 ; 2 m): Ctrl+/, Ctrl+I vs Tab,
+                                      // Ctrl+Shift+<letter> arrive as CSI 27 ; mods ; cp ~ where the legacy
+                                      // encoding can't carry them. Asked for alongside Kitty: a terminal that
+                                      // speaks Kitty lets it win, one that doesn't (xterm) uses this.
         bool osc52Clipboard = true;   // OSC 52 set-clipboard.
         bool metaSendsEscape = true;  // ask xterm to send Alt+key as ESC key (1036): its default sets the 8th
                                       // bit instead, which a UTF-8 xterm (uxterm) sends as a Latin-1 letter.

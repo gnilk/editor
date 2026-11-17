@@ -51,7 +51,7 @@ DLL_EXPORT int test_caps_kitty(ITesting *t) {
 
 DLL_EXPORT int test_caps_modifyotherkeys(ITesting *t) {
     TR_ASSERT(t, Caps::EnableModifyOtherKeys() == "\x1b[>4;2m");
-    TR_ASSERT(t, Caps::DisableModifyOtherKeys() == "\x1b[>4;0m");
+    TR_ASSERT(t, Caps::DisableModifyOtherKeys() == "\x1b[>4m");
     return kTR_Pass;
 }
 

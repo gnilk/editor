@@ -63,6 +63,8 @@ DLL_EXPORT int test_terminal_open(ITesting *t) {
     TR_ASSERT(t, Contains(w, "\x1b[?2004h"));   // bracketed paste
     // Alt as ESC prefix in xterm (uxterm sets the 8th bit by default), its own setting saved first
     TR_ASSERT(t, Contains(w, "\x1b[?1036s\x1b[?1036h"));
+    // modifyOtherKeys for xterm (no Kitty there): Ctrl+/, Ctrl+I, Ctrl+Shift+<letter>
+    TR_ASSERT(t, Contains(w, "\x1b[>4;2m"));
     return kTR_Pass;
 }
 
@@ -81,6 +83,7 @@ DLL_EXPORT int test_terminal_close(ITesting *t) {
     TR_ASSERT(t, Contains(w, "\x1b[?1006l"));   // disable mouse
     TR_ASSERT(t, Contains(w, "\x1b[<u"));        // pop kitty keyboard
     TR_ASSERT(t, Contains(w, "\x1b[?1036r"));   // xterm's own metaSendsEscape back
+    TR_ASSERT(t, Contains(w, "\x1b[>4m"));      // xterm's own modifyOtherKeys back
 
     // Idempotent: a second Close is a no-op (no extra RestoreMode).
     term.Close();

@@ -70,6 +70,9 @@ bool Terminal::Open() {
     if (caps.kittyKeyboard) {
         seq += Caps::EnableKittyKeyboard();
     }
+    if (caps.modifyOtherKeys) {
+        seq += Caps::EnableModifyOtherKeys();
+    }
     if (caps.metaSendsEscape) {
         seq += Caps::EnableMetaSendsEscape();
     }
@@ -88,6 +91,9 @@ void Terminal::Close() {
     std::string seq;
     if (caps.metaSendsEscape) {
         seq += Caps::RestoreMetaSendsEscape();
+    }
+    if (caps.modifyOtherKeys) {
+        seq += Caps::DisableModifyOtherKeys();
     }
     if (caps.kittyKeyboard) {
         seq += Caps::DisableKittyKeyboard();

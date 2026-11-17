@@ -3,7 +3,7 @@
 //
 // Handles: UTF-8 text, C0 controls (Enter/Tab/Backspace/Escape/Ctrl-letter), CSI/SS3 special keys
 // (arrows, Home/End, PageUp/Down, Insert/Delete, F1-F12) with xterm modifier params, the Kitty
-// keyboard protocol (CSI u), SGR mouse (1006), bracketed paste, and focus in/out.
+// keyboard protocol (CSI u), xterm's modifyOtherKeys (CSI 27 ; mods ; cp ~), SGR mouse (1006), bracketed paste, and focus in/out.
 //
 // Split-read tolerant: Feed() buffers any incomplete trailing sequence and completes it on the next
 // call. A lone trailing ESC is held pending (it may begin a sequence); Flush() resolves it as Escape

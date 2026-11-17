@@ -27,6 +27,7 @@ DLL_EXPORT int test_inputparser_tilde_keys(ITesting *t);
 DLL_EXPORT int test_inputparser_fkeys(ITesting *t);
 DLL_EXPORT int test_inputparser_ss3(ITesting *t);
 DLL_EXPORT int test_inputparser_kitty(ITesting *t);
+DLL_EXPORT int test_inputparser_modifyotherkeys(ITesting *t);
 DLL_EXPORT int test_inputparser_split_csi(ITesting *t);
 DLL_EXPORT int test_inputparser_lone_esc(ITesting *t);
 DLL_EXPORT int test_inputparser_alt_char(ITesting *t);
@@ -196,6 +197,47 @@ DLL_EXPORT int test_inputparser_kitty(ITesting *t) {
     {   // Escape via CSI u
         auto ev = Parse("\x1b[27u");
         TR_ASSERT(t, ArrowIs(ev, Key::Escape, Mod::None));
+    }
+    return kTR_Pass;
+}
+
+// xterm modifyOtherKeys level 2: CSI 27 ; mods ; codepoint ~ - the chords the legacy encoding can't carry
+DLL_EXPORT int test_inputparser_modifyotherkeys(ITesting *t) {
+    auto isChar = [](const std::vector<Event> &ev, char32_t ch, Mod mods) {
+        if (ev.size() != 1) {
+            return false;
+        }
+        auto k = AsKey(ev[0]);
+        return k && k->isChar && (k->ch == ch) && (k->mods == mods);
+    };
+    // Ctrl+/ (legacy: 0x1f, dropped)
+    TR_ASSERT(t, isChar(Parse("\x1b[27;5;47~"), U'/', Mod::Ctrl));
+    // Ctrl+I is not Tab, Ctrl+] is not Escape's neighbour 0x1d
+    TR_ASSERT(t, isChar(Parse("\x1b[27;5;105~"), U'i', Mod::Ctrl));
+    TR_ASSERT(t, isChar(Parse("\x1b[27;5;93~"), U']', Mod::Ctrl));
+    // Ctrl+C, as legacy 0x03 gives it
+    TR_ASSERT(t, isChar(Parse("\x1b[27;5;99~"), U'c', Mod::Ctrl));
+    // Ctrl+Shift+A: xterm reports 'A' - the letter + Shift, as Kitty and SDL give it
+    TR_ASSERT(t, isChar(Parse("\x1b[27;6;65~"), U'a', Mod::Ctrl | Mod::Shift));
+    // Alt+x, as ESC x gives it
+    TR_ASSERT(t, isChar(Parse("\x1b[27;3;120~"), U'x', Mod::Alt));
+    // Shift alone on a printable: just the character it made
+    TR_ASSERT(t, isChar(Parse("\x1b[27;2;33~"), U'!', Mod::None));
+    TR_ASSERT(t, isChar(Parse("\x1b[27;2;65~"), U'A', Mod::None));
+    // Named keys keep their name and modifiers
+    TR_ASSERT(t, ArrowIs(Parse("\x1b[27;2;13~"), Key::Enter, Mod::Shift));
+    TR_ASSERT(t, ArrowIs(Parse("\x1b[27;5;9~"), Key::Tab, Mod::Ctrl));
+    TR_ASSERT(t, ArrowIs(Parse("\x1b[27;2;9~"), Key::Tab, Mod::Shift));
+    TR_ASSERT(t, ArrowIs(Parse("\x1b[27;5;127~"), Key::Backspace, Mod::Ctrl));
+    TR_ASSERT(t, ArrowIs(Parse("\x1b[27;3;27~"), Key::Escape, Mod::Alt));
+    // Split across reads
+    {
+        InputParser p;
+        std::vector<Event> out;
+        p.Feed(std::string("\x1b[27;5"), out);
+        TR_ASSERT(t, out.empty());
+        p.Feed(std::string(";47~"), out);
+        TR_ASSERT(t, isChar(out, U'/', Mod::Ctrl));
     }
     return kTR_Pass;
 }

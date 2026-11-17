@@ -1401,7 +1401,7 @@ void Document::AddLineComment(size_t idxLineStart, size_t idxLineEnd, const std:
         if (!line->StartsWith(lineCommentPrefix)) {
             line->Insert(0, lineCommentPrefix);
         } else {
-            line->Delete(0, 2);
+            line->Delete(0, (int)lineCommentPrefix.size());
         }
     }
 

@@ -8,7 +8,7 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
-## ANSI backend without a display (2026-11-17) ✅
+## ANSI backend without a display; xterm Ctrl chords (2026-11-17) ✅
 
 **No display, no window** (hitlist #46): the ANSI backend was the default only for `XDG_SESSION_TYPE=tty`, so a
 container or an ssh login without pam_systemd tried SDL and failed, and macOS over ssh always did. **Load-bearing
@@ -17,6 +17,14 @@ is set, and on macOS when `SSH_CONNECTION` / `SSH_TTY` is (the window server ign
 user's screen). ssh with X forwarding keeps the ANSI backend, as before (`tty` wins). The decision is a static taking
 the environment, tested in `test_launch_no_display`; `ResolveBackend`'s order is unchanged (`--backend`, a desktop
 launch, a terminal session, the config).
+
+**xterm Ctrl chords** (hitlist #44, the uxterm tester): the legacy encoding has no `Ctrl+/`, folds `Ctrl+I` into Tab
+and drops Shift from Ctrl+letters. **Load-bearing decisions:** gansi asks for xterm's modifyOtherKeys level 2 next to
+the Kitty push, not instead of it - a terminal that speaks Kitty lets Kitty win, xterm uses this - and gates it off
+only for Terminal.app and a dumb TERM (`CSI > 4;2 m` could read as SGR underline+dim there). Close sends `CSI > 4 m`,
+the terminal's own setting, not `;0`. The parser shares the codepoint handling with Kitty's `CSI u`; for
+`CSI 27;mod;cp ~` a Shift-only printable is plain text (xterm sends the shifted character) and Ctrl/Alt+Shift+`A`
+becomes `a` + Shift, as Kitty and SDL give it. `Ctrl+[` now arrives as itself (it was Escape), as on SDL.
 
 ---
 

@@ -4,7 +4,7 @@
 // Strategy (env heuristics — cheap, no terminal round-trip):
 //   * truecolor: COLORTERM is the canonical advertisement; a few terminals are known-good by identity
 //     even without it. Anything else degrades to xterm-256, which renders correctly everywhere.
-//   * Apple_Terminal (macOS built-in): no Kitty keyboard, no focus reporting, no SGR mouse, no OSC 52
+//   * Apple_Terminal (macOS built-in): no Kitty keyboard, no modifyOtherKeys, no focus reporting, no SGR mouse, no OSC 52
 //     — emitting those leaves a stray glyph or mis-parses input. Bracketed paste IS supported.
 //   * no TERM / "dumb": strip everything advanced.
 //
@@ -38,6 +38,7 @@ Capabilities Capabilities::Detect(const EnvLookup &getEnv) {
     // --- Apple_Terminal: only bracketed paste from the advanced set. ---
     if (termProgram == "Apple_Terminal") {
         caps.kittyKeyboard = false;
+        caps.modifyOtherKeys = false;
         caps.focusReporting = false;
         caps.sgrMouse = false;
         caps.osc52Clipboard = false;
@@ -50,6 +51,7 @@ Capabilities Capabilities::Detect(const EnvLookup &getEnv) {
         caps.focusReporting = false;
         caps.bracketedPaste = false;
         caps.kittyKeyboard = false;
+        caps.modifyOtherKeys = false;
         caps.osc52Clipboard = false;
         caps.metaSendsEscape = false;
     }

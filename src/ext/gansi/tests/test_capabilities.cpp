@@ -58,6 +58,7 @@ DLL_EXPORT int test_capabilities_appleterminal(ITesting *t) {
         // Apple_Terminal does NOT set COLORTERM.
     }));
     TR_ASSERT(t, !caps.kittyKeyboard);
+    TR_ASSERT(t, !caps.modifyOtherKeys); // CSI > 4;2 m could read as SGR 4;2 (underline, dim)
     TR_ASSERT(t, !caps.focusReporting);
     TR_ASSERT(t, !caps.sgrMouse);
     TR_ASSERT(t, !caps.osc52Clipboard);
@@ -80,6 +81,7 @@ DLL_EXPORT int test_capabilities_dumb(ITesting *t) {
     auto caps = Capabilities::Detect(Env({{"TERM", "dumb"}}));
     TR_ASSERT(t, !caps.truecolor);
     TR_ASSERT(t, !caps.kittyKeyboard);
+    TR_ASSERT(t, !caps.modifyOtherKeys);
     TR_ASSERT(t, !caps.sgrMouse);
     TR_ASSERT(t, !caps.focusReporting);
     TR_ASSERT(t, !caps.bracketedPaste);

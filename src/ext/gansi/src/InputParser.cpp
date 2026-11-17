@@ -47,6 +47,44 @@ namespace {
         return cp;
     }
 
+    // A key reported by its codepoint - the Kitty protocol (CSI cp ; mods u) and xterm's modifyOtherKeys
+    // (CSI 27 ; mods ; cp ~): the named keys by name, other controls dropped, the rest as a character.
+    void PushCodepoint(int cp, Mod mods, std::vector<Event> &out) {
+        KeyEvent k;
+        k.mods = mods;
+        switch (cp) {
+            case 13: k.key = Key::Enter; out.push_back(k); return;
+            case 9:  k.key = Key::Tab; out.push_back(k); return;
+            case 27: k.key = Key::Escape; out.push_back(k); return;
+            case 8:
+            case 127: k.key = Key::Backspace; out.push_back(k); return;
+            default: break;
+        }
+        if (cp < 0x20) {
+            return;
+        }
+        k.isChar = true;
+        k.ch = static_cast<char32_t>(cp);
+        out.push_back(k);
+    }
+
+    // xterm reports the character the key makes, Kitty the key: Shift on a printable is already in the
+    // character (plain text, as without modifyOtherKeys), and Ctrl/Alt+Shift+A comes as 'A' - made 'a' + Shift,
+    // as Kitty and the SDL backends give it.
+    void PushModifyOtherKey(int cp, Mod mods, std::vector<Event> &out) {
+        if ((cp > 0x20) && (cp != 0x7f) && (mods == Mod::Shift)) {
+            KeyEvent k;
+            k.isChar = true;
+            k.ch = static_cast<char32_t>(cp);
+            out.push_back(k);
+            return;
+        }
+        if (HasMod(mods, Mod::Shift) && (cp >= 'A') && (cp <= 'Z')) {
+            cp = cp - 'A' + 'a';
+        }
+        PushCodepoint(cp, mods, out);
+    }
+
     std::u32string Utf8ToU32(const std::string &s) {
         std::u32string out;
         size_t i = 0;
@@ -304,28 +342,17 @@ size_t InputParser::ParseCSI(size_t pos, std::vector<Event> &out) {
         case 'S': pushKey(Key::F4); return consumed;
         case 'I': out.push_back(FocusEvent{true}); return consumed;
         case 'O': out.push_back(FocusEvent{false}); return consumed;
-        case 'u': {
+        case 'u':
             // Kitty keyboard: CSI codepoint ; mods u
-            int cp = paramOr(0, 0);
-            switch (cp) {
-                case 13: pushKey(Key::Enter); return consumed;
-                case 9:  pushKey(Key::Tab); return consumed;
-                case 27: pushKey(Key::Escape); return consumed;
-                case 8:
-                case 127: pushKey(Key::Backspace); return consumed;
-                default:
-                    if (cp >= 0x20) {
-                        KeyEvent k;
-                        k.isChar = true;
-                        k.ch = static_cast<char32_t>(cp);
-                        k.mods = mods;
-                        out.push_back(k);
-                    }
-                    return consumed;
-            }
-        }
+            PushCodepoint(paramOr(0, 0), mods, out);
+            return consumed;
         case '~': {
             int keyNum = paramOr(0, 0);
+            if (keyNum == 27) {
+                // xterm modifyOtherKeys: CSI 27 ; mods ; codepoint ~
+                PushModifyOtherKey(paramOr(2, 0), mods, out);
+                return consumed;
+            }
             switch (keyNum) {
                 case 1: case 7: pushKey(Key::Home); break;
                 case 2: pushKey(Key::Insert); break;

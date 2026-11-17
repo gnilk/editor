@@ -66,6 +66,8 @@ Built and unit-tested, not yet tried by hand on that platform. Linux = SDL2 (Ctr
 - **ANSI backend when there is no display** (#46)
   - [ ] Linux - over ssh (no `-X`), plain `goatedit`: the ANSI backend; in the desktop session: a window; `--backend sdl` over ssh: tries a window as asked
   - [ ] Mac - `ssh localhost`, plain `goatedit`: the ANSI backend; from Terminal.app: a window
+- **xterm Ctrl chords in the ANSI backend** (#44)
+  - [ ] Linux - `goatedit` in `uxterm` (TERM=xterm) over ssh: `Ctrl+/` comments the line, `Ctrl+I` reformats the block (not a Tab), `Ctrl+]` jumps forward, `Ctrl+[` comes back; Tab, Enter, Backspace, `Ctrl+C` in the terminal as before; after quitting, the shell's `Ctrl+R` / `Ctrl+A` still work
 - **Short-file scroll window** (#35, open-bugs #30)
   - [ ] Linux [x] Mac - a new file, a dozen lines, PageDown, then Enter in the middle: the top line stays until the view is full
 
@@ -75,7 +77,6 @@ Built and unit-tested, not yet tried by hand on that platform. Linux = SDL2 (Ctr
 |---|---|---|---|---|
 | 47 | Promote the selection to the terminal: one key sends the editor's selection to the terminal - not via the clipboard - and presses Enter after it (`terminal.promote_sends_enter`, default yes). For AI chats run in the terminal (`claude`): a prompt written in a scratch document goes to the chat in one key | - | half a day | key not decided (`Cmd/Ctrl+<x>`, functionality group; `Cmd+X` is cut). Ride `TerminalController::Paste`: bracketed for an app that asked (the chat gets it as one paste, then `\r`), the local prompt as today. Decide: no selection = the current line? focus stays in the editor? |
 | 40 | User documentation: the keyboard layout per platform (the shipped keymaps, modifier groups), the shipped dot/quick commands, the mouse bindings | `docs/usage.md` (a short first version, 2026-11-16) | a day | discussed, never written down; generate from the keymap YAML where possible so it can't drift; ties in with #8 |
-| 44 | ANSI backend in a plain xterm (no Kitty keyboard): chords the legacy encoding can't carry - `Ctrl+/` (comment), `Ctrl+I` (is Tab: reformat block), `Ctrl+]` (jump forward), every `Ctrl+Shift+<letter>` | `src/ext/gansi` (`InputParser`, `Terminal::Open`) | hours | xterm's modifyOtherKeys (`Caps::EnableModifyOtherKeys` exists, unused) + parse `CSI 27;mod;cp ~`; only where Kitty isn't spoken. Reported by the beta tester (uxterm over ssh) |
 | 41 | Gaps found writing `usage.md`: no word left/right on macOS; no drag-to-select in the editor; `.openfolder` is registered in `jsplugs.yml` but `Scripts/openfolder.js` doesn't exist (see #36) | `docs/usage.md` | hours | small, each on its own |
 | 17 | A config list overwrites the default list by position | open-bugs #28 | half a day | idea: an immutable merge that returns a new tree; `LanguageFileSet::Merge` is the model |
 | 11 | Languages phase 2: CMake and Python (case-insensitive lists, generic numbers, the prefix rule) | `support-languages.md` | 1-2 days | used daily |
@@ -121,6 +122,7 @@ Smaller bugs not ranked yet: open-bugs #1 (`AttributeAt`, read before touching i
 | 43 | Line numbers count from 1 in the gutter and the status line (they showed the 0-based index; `.goto`, Find and Go to symbol already counted from 1) | 2026-11-16 |
 | 16 | Data loss: a Latin-1 file was cut on open and save - now detected, decoded, saved back as it was (open-bugs #15) | 2026-11-16 |
 | 45 | Terminal `Ctrl+C` at the prompt abandons the line (a fresh prompt below, as a shell does; was ignored on Linux, typed `c` in the ANSI backend); gansi asks xterm for `metaSendsEscape` so Alt works in uxterm (it set the 8th bit) | 2026-11-17 |
+| 44 | xterm Ctrl chords in the ANSI backend: gansi asks for modifyOtherKeys level 2 alongside Kitty (`CSI > 4;2 m`, back to the terminal's own on close with `CSI > 4 m`) and parses `CSI 27;mod;cp ~` - `Ctrl+/`, `Ctrl+I` apart from Tab, `Ctrl+]`, `Ctrl+Shift+<letter>`. Not for Terminal.app or a dumb TERM | 2026-11-17 |
 | 46 | No display, no window: a launch without `--backend` picks the ANSI backend when neither `DISPLAY` nor `WAYLAND_DISPLAY` is set (as before, also for a `tty` session); on macOS when logged in over ssh (`SSH_CONNECTION` / `SSH_TTY`). `--backend` and a desktop launch still win | 2026-11-17 |
 | 38 | A git process still running at exit no longer posts into the destroyed Runloop queue: `Process::StopAll` at exit kills and waits (open-bugs #32) | 2026-11-17 |
 | 22 | Build warnings: `-Wshadow` ours, gnklog PRIVATE; Mac + Linux clean in our code (open-bugs #19) | 2026-11-16 |

@@ -51,6 +51,7 @@ Capabilities Capabilities::Detect(const EnvLookup &getEnv) {
         caps.bracketedPaste = false;
         caps.kittyKeyboard = false;
         caps.osc52Clipboard = false;
+        caps.metaSendsEscape = false;
     }
 
     return caps;

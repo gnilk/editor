@@ -389,6 +389,15 @@ bool TerminalController::HandleKeyPress(Cursor &cursor, size_t &idxActiveLine, c
 
     // (3) Default (local editing): we own the line. Edit inputLine locally; nothing reaches the shell
     //     until the line is committed.
+    if (IsInterruptKey(keyPress)) {
+        InterruptLocalLine();
+        cursor.position.x = GetCursorXPos();
+        return true;
+    }
+    // A Ctrl chord nothing is bound to is not text (the ANSI backend delivers Ctrl+letter as the letter)
+    if (keyPress.IsCtrlPressed() && !keyPress.isSpecialKey) {
+        return false;
+    }
     if (DefaultEditLine(inputCursor, inputLine, keyPress)) {
         cursor.position.x = GetCursorXPos();
         ScrollToBottom();   // §5.3: any local text input snaps the viewport back to the bottom
@@ -605,7 +614,41 @@ bool TerminalController::ForwardMouse(gnilk::vt::MouseButton button, gnilk::vt::
     return true;
 }
 
+bool TerminalController::IsInterruptKey(const KeyPress &keyPress) {
+    return keyPress.IsCtrlPressed() && !keyPress.IsShiftPressed() && !keyPress.IsAltPressed() &&
+           !keyPress.isSpecialKey && ((keyPress.key == 'c') || (keyPress.key == 'C'));
+}
+
+// The line was only ours (local edits never reach the pty), so the shell gets just the interrupt: ^C and a fresh
+// prompt on the next row, as in any terminal. Not run, not in history. Sending the text first would not show it - the
+// tty's SIGINT flushes it unread - so we echo it into the grid ourselves (the grid cursor is parked at the prompt
+// end); bash prints the ^C after it, zsh prints none.
+void TerminalController::InterruptLocalLine() {
+    std::u32string echo;
+    for (auto ch : inputLine->Buffer()) {
+        if (ch >= U' ') {
+            echo += ch;
+        }
+    }
+    if (!echo.empty()) {
+        auto bytes = UnicodeHelper::utf32to8(echo);
+        std::lock_guard<std::mutex> guard(screenLock);
+        screen.Feed(reinterpret_cast<const uint8_t *>(bytes.data()), bytes.size());
+    }
+    WriteToPty("\x03");
+    inputLine->Clear();
+    inputCursor.position.x = 0;
+    cmdHistory.ResetNavigation();
+    ScrollToBottom();
+}
+
 bool TerminalController::OnAction(const EditorAction &kpAction) {
+    // Ctrl+C is CopyToClipboard on Linux - at the prompt it is the interrupt key, as in any terminal
+    if (IsInterruptKey(kpAction.keyPress)) {
+        InterruptLocalLine();
+        Editor::Instance().TriggerUIRedraw();
+        return true;
+    }
     if (kpAction.action == kAction::kActionShellCompletion) {
         // First Tab in local-edit mode: hand the line over to readline so it can
         // complete. The real grid cursor has stayed parked at the prompt end the

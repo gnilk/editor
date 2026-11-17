@@ -47,6 +47,14 @@ std::string Caps::DisableModifyOtherKeys() {
     return "\x1b[>4;0m";
 }
 
+std::string Caps::EnableMetaSendsEscape() {
+    return "\x1b[?1036s\x1b[?1036h";
+}
+
+std::string Caps::RestoreMetaSendsEscape() {
+    return "\x1b[?1036r";
+}
+
 std::string Caps::Base64(const std::string &data) {
     static const char *kAlphabet =
         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";

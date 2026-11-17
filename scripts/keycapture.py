@@ -2,7 +2,7 @@
 # Prints the bytes the terminal sends per key, with the keyboard modes goatedit's ANSI backend turns on.
 #   python3 scripts/keycapture.py            # the modes as goatedit picks them for this terminal
 #   python3 scripts/keycapture.py --plain    # no modes (what the terminal sends by default)
-# Press keys (Opt+E, Esc, ...); Ctrl+D twice in a row ends it.
+# Press keys (Opt+E, Esc, ...); Ctrl+D twice in a row ends it (or 30 s without a key).
 import os, sys, termios, tty, select
 
 plain = '--plain' in sys.argv
@@ -34,7 +34,8 @@ try:
             break
         data = os.read(fd, 1024)
         os.write(1, (repr(data) + '\r\n').encode())
-        if data == b'\x04':
+        # Ctrl+D as a plain byte, as Kitty reports it (CSI 100;5u) or as modifyOtherKeys does (CSI 27;5;100~)
+        if data in (b'\x04', b'\x1b[100;5u', b'\x1b[27;5;100~'):
             if lastEot:
                 break
             lastEot = True

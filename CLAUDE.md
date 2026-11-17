@@ -69,7 +69,7 @@ cd cmake-build-debug && trun -l ./libutests.so                     # list
 
 Test source files live in `utests/`. Each `test_<module>.cpp` corresponds to one module; `test_main.cpp` initializes the editor singleton for all tests. Test functions are `extern "C"` (or `DLL_EXPORT`) and discovered by exported symbol name — adding a new case is just a new function (+ a forward declaration where the file uses one).
 
-**Verified-green set** (851 tests, run from `cmake-build-debug/`):
+**Verified-green set** (854 tests, run from `cmake-build-debug/`):
 `trun -m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,keymapping,hexprojection,bytestream,hexview,indent,session,markdown,folderscanner,foldermonitor,treeview,textbuffer,mouseclicktracker,wrapprojection,config,modal,find,codeindex,themeimport,exclusion,process,gitstatus,reload,openfiles,glyphfont,yamllang,datalanguage,theme,minimap,overviewmap,encoding,terminalcontroller,launch --sequential ./libutests.so`
 
 **Terminal library tests** are a separate trun lib, `gvttests` (`src/ext/gvt`, built on demand):
@@ -308,6 +308,10 @@ Docs live under `docs/`. Three are *active references* — check them before tou
 
 ## Debugging / verification recipes
 
+- **Scripted app checks (`scripts/handtests/checks.py`):** the hitlist's 'To try in the app' items, driven in a pty on
+  the ANSI backend (`goatpty.py`: keys in, screen + colours out) in a sandbox HOME - never the user's config or session.
+  `python3 scripts/handtests/checks.py --exe cmake-build-debug/goatedit [check ...]`, `--list` for names. Prefer adding a
+  check there over a hand step; the SDL backend's own keys and drawing still need the GUI.
 - **GUI verification (SDL2 build, real `:0` display):** launch `goatedit` from `cmake-build-debug` with
   `DISPLAY=:0`, record the PID, find the window with `xdotool search --pid <PID>`. **VERIFY THE WINDOW
   IS YOURS BEFORE SENDING ANY INPUT** — `xdotool search --pid` is unreliable and can return another

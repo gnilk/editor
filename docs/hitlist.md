@@ -14,12 +14,18 @@ Made 2026-11-11, cleaned up 2026-11-13. Sizes are estimates.
 
 Built and unit-tested, not yet tried by hand on that platform. Linux = SDL2 (Ctrl), Mac = SDL3 (Cmd).
 
+**Scripted:** `python3 scripts/handtests/checks.py --exe cmake-build-debug/goatedit [check ...]` runs these in a pty on the ANSI
+backend, in a sandbox HOME, and reads the screen back with its colours (`--list` names the checks, ~2.5 min for all). A box
+ticked with `(scripted: <check>)` was ticked from that run, not by hand - it covers the editor, not the SDL backend's own
+keys and drawing. Linux run 2026-11-17: all pass but `sdl_no_display` (#49).
+
 - **Undo clears the `*`** (#39)
-  - [ ] Linux [x] Mac - mistype, undo: the `*` goes after a pause; type a char + backspace: same; edit, save, undo: `*` stays
+  - [x] Linux [x] Mac - mistype, undo: the `*` goes after a pause; type a char + backspace: same; edit, save, undo: `*` stays (scripted: `undo_star`)
+    - with autosave on (default 1 s) edit, save, undo is autosaved and the `*` then goes - right; the last part holds with `autosave_timeout_ms: 0`
 - **Text encodings** (#16, open-bugs #15)
-  - [ ] Linux [x] Mac - open a Latin-1 file: å/ä/ö right, status line `cp1252`; edit + save: `git diff` shows only the edit
+  - [x] Linux [x] Mac - open a Latin-1 file: å/ä/ö right, status line `cp1252`; edit + save: `git diff` shows only the edit (scripted: `latin1`)
 - **Go to line, line numbers from 1** (#42, #43)
-  - [ ] Linux [x] Mac - `Esc g 42 Enter` and `.g 42`: on the line the gutter shows as 42; `Ctrl+[` comes back; status `l: 42`
+  - [x] Linux [x] Mac - `Esc g 42 Enter` and `.g 42`: on the line the gutter shows as 42; `Ctrl+[` comes back; status `l: 42` (scripted: `goto_line`)
 - **Workspace tree clicks** (#1 / #15, `CommitLine: DoubleClick` in `workspace_keymap.yml`)
   - [x] Linux [x] Mac - double-click a closed folder: opens; again: closes
   - [x] Linux [x] Mac - Enter on a folder: toggles
@@ -43,49 +49,51 @@ Built and unit-tested, not yet tried by hand on that platform. Linux = SDL2 (Ctr
   - [x] Linux [x] Mac - `git switch --detach`: `⎇ (<sha>)`; `git switch main`: back
   - [x] Linux [x] Mac - opened on a folder outside any repo: nothing shown
 - **Languages as data** (#10) - Linux built + tests green (743), not tried in the app
-  - [ ] Linux [x] Mac - a `.json` file highlights as before; `.ll` lists the language files with their paths
-  - [ ] Linux [x] Mac - `languages: { default: { tabsize: 8 } }` in the user config reaches json and cpp
+  - [x] Linux [x] Mac - a `.json` file highlights as before; `.ll` lists the language files with their paths (scripted: `json_ll`)
+  - [x] Linux [x] Mac - `languages: { default: { tabsize: 8 } }` in the user config reaches json and cpp (scripted: `tabsize`)
 - **Theme that can't load** (open-bugs #29 fix) - Linux built + tests green (774)
-  - [ ] Linux [x] Mac - `main.theme: nosuch.theme.yml`: starts, stderr says "no such theme file - using default.theme.yml"
+  - [x] Linux [x] Mac - `main.theme: nosuch.theme.yml`: starts, stderr says "no such theme file - using default.theme.yml" (scripted: `missing_theme`)
 - **Minimap contrast** (usability §7 follow-up) - Linux built + tests green (774)
   - [ ] Linux [x] Mac - a changed line's mark stands clear of the text; the viewport box is subtle
 - **Big folder** (`max_scan_entries`, indexer cancel) - Linux built + tests green, measured by script, not by hand
-  - [ ] Linux [x] Mac - `goatedit .` in a big tree (`~/src/apus`, an npm project with `node_modules` not ignored): the window answers at once
-  - [ ] Linux [x] Mac - folders below the fourth level open when expanded; a session file deep in the tree reopens
-  - [ ] Linux [x] Mac - `.q!` right after start-up: exits at once
+  - [x] Linux [x] Mac - `goatedit .` in a big tree (`~/src/apus`, an npm project with `node_modules` not ignored): the window answers at once (scripted: `big_folder` - 60000 files, view switches ~120 ms while scanning)
+  - [x] Linux [x] Mac - folders below the fourth level open when expanded; a session file deep in the tree reopens (scripted: `big_folder`)
+  - [x] Linux [x] Mac - `.q!` right after start-up: exits at once (scripted: `big_folder`)
   - Mac 2026-11-17: responsive in `~/src`, but every quit crashed - the terminal's pty reader outlived its Shell. Fixed on `fix/shell-exit-crash` (808d5fb); re-check the three above, and that quitting is still instant
 - **Single-folder project** (#23) - Mac checked in a pty (`--backend ansi`), not in the SDL app
-  - [ ] Linux [x] Mac - `goatedit a.txt .` in a repo with a `.goatedit`: stderr says "not a single-folder launch - project settings in '<dir>/.goatedit' not used"; no session restored; a file created in the terminal shows in the tree
-  - [ ] Linux [x] Mac - `goatedit .`: the session restores as before, no warning
+  - [x] Linux [x] Mac - `goatedit a.txt .` in a repo with a `.goatedit`: stderr says "not a single-folder launch - project settings in '<dir>/.goatedit' not used"; no session restored; a file created in the terminal shows in the tree (scripted: `single_folder`)
+  - [x] Linux [x] Mac - `goatedit .`: the session restores as before, no warning (scripted: `single_folder`)
   - Mac: not seen through `goat` - it launches via `open`, stderr goes nowhere. See #50
 - **Quick mode without `]` / `[`** (#29)
-  - [ ] Linux [x] Mac - Esc, then `]`: no view switch; `Alt/Option+]` still cycles
+  - [x] Linux [x] Mac - Esc, then `]`: no view switch; `Alt/Option+]` still cycles (scripted: `quick_bracket`)
 - **Stale assets** (#24) - Mac build + scratch install checked
-  - [ ] Linux - `scripts/install.sh --user` after a file is removed from `Assets/Resources`: gone from `~/.local/share/goatedit`
+  - [x] Linux - `scripts/install.sh --user` after a file is removed from `Assets/Resources`: gone from `~/.local/share/goatedit` (scripted: `install_stale`, sandbox HOME)
 - **Terminal Ctrl+C / xterm Alt** (#45)
   - [x] Linux [x] Mac - terminal: type `echo abc`, `Ctrl+C`: the text stays, a fresh prompt below, nothing runs
   - [x] Linux - `goatedit --backend ansi` in `uxterm`: `Alt+T` / `Alt+E` switch views (no `ô` typed); Alt works in uxterm after quitting as before
 - **ANSI backend when there is no display** (#46)
   - [x] Linux - over ssh (no `-X`), plain `goatedit`: the ANSI backend
-  - [ ] Linux - in the desktop session: a window
-  - [ ] Linux - `--backend sdl` over ssh: crash-dumps (2026-11-17, desktop locked) - should fail with a message. See #49
+  - [x] Linux - in the desktop session: a window (scripted: `desktop_window`)
+  - [ ] Linux - `--backend sdl` over ssh: crash-dumps (2026-11-17, desktop locked) - should fail with a message. See #49 (scripted: `sdl_no_display` - fails, see #49)
   - [x] Mac - `ssh localhost`, plain `goatedit`: the ANSI backend; from Terminal.app: a window
   - Mac 2026-11-17: `goat` over ssh opened a window - `open` starts the app with launchd's environment, no `SSH_CONNECTION`. Fixed on `fix/shell-exit-crash` (5658fc0): over ssh `goat` runs the binary in the terminal; needs `install-cli` to regenerate `~/.local/bin/goat`
 - **xterm Ctrl chords in the ANSI backend** (#44)
   - [ ] Linux - `goatedit` in `uxterm` (TERM=xterm) over ssh: `Ctrl+/` comments the line, `Ctrl+I` reformats the block (not a Tab), `Ctrl+]` jumps forward, `Ctrl+[` comes back; Tab, Enter, Backspace, `Ctrl+C` in the terminal as before; after quitting, the shell's `Ctrl+R` / `Ctrl+A` still work
 - **Promote to terminal** (#47) - `Cmd/Ctrl+Enter` in the editor
-  - [ ] Linux [x] Mac - a line, no selection: it runs in the terminal, focus stays in the editor; a selection of several lines: all run, the selection stays (send again)
-  - [ ] Linux [x] Mac - `claude` in the terminal: a selected prompt arrives as one paste and is sent; `promote_sends_enter: no` in the user config: it waits in the chat unsent
+  - [x] Linux [x] Mac - a line, no selection: it runs in the terminal, focus stays in the editor; a selection of several lines: all run, the selection stays (send again) (scripted: `promote`)
+  - [x] Linux [x] Mac - `claude` in the terminal: a selected prompt arrives as one paste and is sent; `promote_sends_enter: no` in the user config: it waits in the chat unsent (scripted: `promote_paste` - a raw-mode program with bracketed paste on stands in for claude: `\e[200~...\e[201~` then `\r`, no `\r` with the setting)
 - **CMake highlighting** (#11 step 1)
-  - [ ] Linux [x] Mac - open `CMakeLists.txt` and a `*.cmake`: commands blue (any case), `if`/`foreach`/`function` as keywords, `PUBLIC` / `REQUIRED` / `VERSION` red (not `public`), `${VAR}` (nested too, in strings too), `$<...>`, `#[[ ]]` comments over lines, `ON`/`OFF`; `.ll` lists `cmake` with `CMakeLists.txt`; `Cmd/Ctrl+/` comments with `#`
+  - [x] Linux [x] Mac - open `CMakeLists.txt` and a `*.cmake`: commands blue (any case), `if`/`foreach`/`function` as keywords, `PUBLIC` / `REQUIRED` / `VERSION` red (not `public`), `${VAR}` (nested too, in strings too), `$<...>`, `#[[ ]]` comments over lines, `ON`/`OFF`; `.ll` lists `cmake` with `CMakeLists.txt`; `Cmd/Ctrl+/` comments with `#` (scripted: `cmake`)
+    - Linux 2026-11-17: Ctrl+/ twice turned `#set(X 1)` into `et(X 1)` - uncommenting always removed 2 chars (any one-char
+      prefix: CMake, YAML). Fixed in `Document::AddLineComment` (`test_document_comment_toggle`)
 - **Short-file scroll window** (#35, open-bugs #30)
-  - [ ] Linux [x] Mac - a new file, a dozen lines, PageDown, then Enter in the middle: the top line stays until the view is full
+  - [x] Linux [x] Mac - a new file, a dozen lines, PageDown, then Enter in the middle: the top line stays until the view is full (scripted: `short_scroll`)
 
 ## Next - suggested order
 
 | # | Item | Where | Size | Notes |
 |---|---|---|---|---|
-| 49 | Linux: `--backend sdl` with no usable display (over ssh, desktop locked) crash-dumps instead of failing with a message | `main.cpp` backend setup, `SDL2/SDLScreen` init | hours | found in the #46 hand-test 2026-11-17; needs the Linux box - get the stack first |
+| 49 | Linux: `--backend sdl` with no usable display (over ssh, desktop locked) crash-dumps instead of failing with a message | `main.cpp` backend setup, `SDL2/SDLScreen` init | hours | found in the #46 hand-test 2026-11-17. Stack (2026-11-17, `sdl_no_display`): with no X/Wayland SDL2 does not fail - it picks KMSDRM (gbm on `/dev/dri/renderD128`) and runs, invisible. The dump comes at the end: SIGTERM -> `SDL_QUIT` -> `SDL_Quit(); exit(0)` (`SDL2/SDLScreen.cpp:483`, same in SDL3) -> static `~SDLFontManager` destroys textures after SDL is gone -> SIGSEGV in `GL_DestroyTexture`. Two fixes: refuse a non-windowing video driver with a message; on `SDL_QUIT` go through the editor's own quit (no `exit()` with live SDL statics) - likely also hits closing the window |
 | 50 | Start-up warnings ("not a single-folder launch", a missing theme, ...) only go to stderr - lost when started through `goat` (`open`) or from a launcher. Show them in the terminal panel too, or in a status message | `Editor` start-up, `TerminalController` | half a day | found in the #23 hand-test 2026-11-17 |
 | 48 | ANSI backend on macOS: the keymap's `Cmd` shortcuts (`CopyPasteModifier: KeyCode_Cmd` - copy/paste, undo, find, comment, save...) can't be pressed - a terminal never sends Cmd (Terminal.app, iTerm2 legacy), only Kitty's `super` bit where the terminal forwards it (Ghostty/kitty, usually not) | `Assets/Resources/macOS/*_keymap.yml`, `KeyMapping` (modifier names), `GansiKeyboardDriver` | hours | options: a per-backend modifier map (in ANSI, `CopyPasteModifier` = Ctrl on macOS too, as on Linux), or an ANSI keymap that inherits the Linux one. Check what Ctrl chords Terminal.app eats; `Ctrl+Space` etc. Found writing #44 |
 | 40 | User documentation: the keyboard layout per platform (the shipped keymaps, modifier groups), the shipped dot/quick commands, the mouse bindings | `docs/usage.md` (a short first version, 2026-11-16) | a day | discussed, never written down; generate from the keymap YAML where possible so it can't drift; ties in with #8 |

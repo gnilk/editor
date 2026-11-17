@@ -24,6 +24,11 @@ namespace gnilk::ansi {
 
     class Terminal {
     public:
+        // How long a lone ESC waits for the rest of a sequence (Alt+key, an arrow) before it is the Escape key.
+        // A terminal writes a sequence in one go, so the rest is there at once; the wait only covers a split
+        // read (ssh). 25 ms is below what a keypress feels like - neovim uses 50, tmux users set 10-20.
+        static constexpr int kEscapeWaitMs = 25;
+
         // Full-capability terminal (modern defaults). The single-arg form keeps existing callers/tests
         // emitting the complete enable set.
         explicit Terminal(std::unique_ptr<ITerminalIO> io);

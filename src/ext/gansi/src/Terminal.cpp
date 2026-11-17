@@ -201,6 +201,11 @@ std::optional<Event> Terminal::PollEvent(int timeoutMs) {
         }
     }
 
+    // Bytes held from the last read (a lone ESC, a cut sequence): the rest is on its way now or never - don't
+    // make the Escape key wait the caller's whole timeout for it
+    if (parser.HasPending() && ((timeoutMs < 0) || (timeoutMs > kEscapeWaitMs))) {
+        timeoutMs = kEscapeWaitMs;
+    }
     uint8_t buf[4096];
     long n = io->Read(buf, sizeof(buf), timeoutMs);
     std::vector<Event> parsed;

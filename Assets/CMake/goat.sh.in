@@ -14,6 +14,16 @@
 # -w / --wait: block until the editor exits. Use this for $EDITOR/$VISUAL (git commit, etc.):
 #   export EDITOR="goat -w"
 #
+# Over ssh: run the binary in this terminal instead. 'open' would start it with launchd's environment - no
+# SSH_CONNECTION, so it would open a window on the Mac's screen rather than pick the ANSI backend - and
+# detached from this tty. -w is implied (it runs in the foreground).
+if [[ -n "$SSH_CONNECTION" || -n "$SSH_TTY" ]]; then
+    if [[ "$1" == "-w" || "$1" == "--wait" ]]; then
+        shift
+    fi
+    exec "@GEDIT_CLI_APP_PATH@/Contents/MacOS/goatedit" "$@"
+fi
+
 openArgs=(-n -a "@GEDIT_CLI_APP_PATH@" --env "PATH=$PATH")
 if [[ "$1" == "-w" || "$1" == "--wait" ]]; then
     shift

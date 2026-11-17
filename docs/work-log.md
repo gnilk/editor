@@ -8,6 +8,19 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## CMake highlighting (2026-11-17) ✅
+
+**`cmake.yml`** (hitlist #11, step 1 of languages phase 2; detail in `support-languages.md` §7). **Load-bearing
+decisions:** case folding is per language with a per-entry override - CMake's commands ignore case, its argument
+keywords don't (`PUBLIC` vs a variable `public`); folding compares in place, no copy per token. Numbers are a generic
+matcher a state asks for (`numbers: generic`); a number glued to a word isn't one. `CMakeLists.txt` comes in by a
+language file's `filenames:` (`Editor::GetLanguageForFile`, name before extension). Commands are `function` - a
+semantic class, which the code index's names pass reset to `regular` (no colour in the app, though every tokenizer
+test passed): a language now records the classes its own syntax gives and the pass keeps them
+(`test_codeindex_syntax_semanticclass` fails without it). Python is step 2.
+
+---
+
 ## Promote to terminal (2026-11-17) ✅
 
 **The selection to the terminal** (hitlist #47): for prompts written in a scratch document and sent to a chat

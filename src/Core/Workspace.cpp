@@ -573,8 +573,7 @@ Document::Ref Workspace::EnsureDocumentForNode(Node::Ref node) {
     }
 
     auto textBuffer = TextBuffer::CreateFileReferenceBuffer();
-    auto ext = node->GetNodePath().extension();
-    textBuffer->SetLanguage(Editor::Instance().GetLanguageForExtension(ext.string()));
+    textBuffer->SetLanguage(Editor::Instance().GetLanguageForFile(node->GetNodePath()));
 
     Document::Ref document = Document::Create(textBuffer);
     node->SetDocument(document);        // also syncs the document's path from the node

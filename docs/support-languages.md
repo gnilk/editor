@@ -1,6 +1,7 @@
 # Languages as data - a generic syntax engine, then CMake and Python
 
-Status: phase 1 built and merged (2026-11-13: `DataLanguage`, `LanguageFileSet`, `json.yml`); phases 2-4 planned (hitlist #11, #12, #14).
+Status: phase 1 built and merged (2026-11-13: `DataLanguage`, `LanguageFileSet`, `json.yml`); phase 2 step 1 - CMake - built
+2026-11-17 (`cmake.yml`, case folding, generic numbers, `filenames:`); Python (step 2), phases 3-4 planned (hitlist #11, #12, #14).
 
 More languages - CMake and Python first - and a way to add one **without recompiling**. A language is one file
 (`python.yml`): its name, the extensions it claims, who wrote it and when, and the definitions the tokenizer needs. The
@@ -258,6 +259,20 @@ once `json.yml` had been tried in the app.
 - The tokenizer additions they need: case-insensitive lists, the generic number matcher, the prefix rule.
 - `cmake.yml` and `python.yml`.
 - Their `indent:` / `autopairs:` sections.
+
+Step 1, CMake, done 2026-11-17:
+- `case_sensitive: no` on `language:` folds every whole-word list (ASCII, compared without a copy); an entry may say
+  `case_sensitive: yes|no` itself - CMake's commands fold, its argument keywords (`PUBLIC`) don't. The entries of one
+  class in a state must agree, as with `whole_word`.
+- `numbers: generic` or `{ matcher: generic, suffixes: "j J" }` on a state (`GenericNumberMatcher`): `_` separators,
+  `0x`/`0o`/`0b`, fraction, exponent, one suffix; a number glued to a word (`64bit`) is no number.
+- `filenames:` register (`Editor::GetLanguageForFile`: the exact name first, then the extension) - `CMakeLists.txt`.
+- A data file may use `function`, `macro` and `enum_value`. Those are the code index's semantic classes, so the
+  names pass (`TextBuffer::ApplySemanticNames`) used to turn them back into `regular`: a language now records the
+  classes its own tokenizer gives (`LanguageBase::IsSyntaxSemanticClass`), and the pass leaves those alone.
+- `cmake.yml`: control flow `keyword`, commands `function`, argument keywords / `if()` operators / sub-commands
+  `known_type`, `ON`/`OFF`/... `enum_value`, `${...}` (nested, in strings) `macro_identifier`, `$<...>`
+  `preprocessor`, `#[[ ]]` and `[[ ]]` across lines. Not yet: unquoted `CMAKE_*` variables (a prefix rule could).
 
 **Phase 3 - extensible without recompiling.**
 - The user directory (the project directory later).

@@ -9,6 +9,7 @@
 #include "Core/Language/Data/LanguageFileSet.h"
 #include "Core/Language/Data/LanguageDefinition.h"
 #include "Core/Language/Data/DataLanguage.h"
+#include "Core/Language/Data/GenericNumberMatcher.h"
 #include "Core/UnicodeHelper.h"
 
 using namespace gedit;
@@ -28,6 +29,10 @@ DLL_EXPORT int test_datalanguage_parse_mixedwholeword(ITesting *t);
 DLL_EXPORT int test_datalanguage_longestfirst(ITesting *t);
 DLL_EXPORT int test_datalanguage_usersettings(ITesting *t);
 DLL_EXPORT int test_datalanguage_json_registered(ITesting *t);
+DLL_EXPORT int test_datalanguage_numbers(ITesting *t);
+DLL_EXPORT int test_datalanguage_caseinsensitive(ITesting *t);
+DLL_EXPORT int test_datalanguage_cmake_registered(ITesting *t);
+DLL_EXPORT int test_datalanguage_cmake_tokens(ITesting *t);
 }
 
 DLL_EXPORT int test_datalanguage(ITesting *t) {
@@ -192,7 +197,7 @@ tokenizer:
         - { class: keywrd, words: "if" }
         - { class: string, words: "\"", push: in_strng }
         - { class: string, words: "'", colour: red }
-      numbers: generic
+      numbers: regex
 )yml");
     TR_ASSERT(t, HasProblemAt(problems, 9, "keywrd"));
     TR_ASSERT(t, HasProblemAt(problems, 8, "in_strng"));
@@ -319,5 +324,147 @@ DLL_EXPORT int test_datalanguage_json_registered(ITesting *t) {
         }
     }
     TR_ASSERT(t, isListed);
+    return kTR_Pass;
+}
+
+// 'numbers: generic' (GenericNumberMatcher): what is a number, and what only starts like one
+DLL_EXPORT int test_datalanguage_numbers(ITesting *t) {
+    auto matcher = GenericNumberMatcher::Create(U"jJ");
+    auto match = [&matcher](const char32_t *text) {
+        return matcher->Match(std::u32string_view(text));
+    };
+    TR_ASSERT(t, match(U"42") == 2);
+    TR_ASSERT(t, match(U"42)") == 2);
+    TR_ASSERT(t, match(U"1_000.5e-3 ") == 10);
+    TR_ASSERT(t, match(U"0x_FF") == 5);
+    TR_ASSERT(t, match(U"0b1010") == 6);
+    TR_ASSERT(t, match(U"0o17") == 4);
+    TR_ASSERT(t, match(U".5") == 2);
+    TR_ASSERT(t, match(U"3j") == 2);
+    TR_ASSERT(t, match(U"3.28.1") == 4);       // CMake versions: '3.28' then '.1'
+    TR_ASSERT(t, match(U"1e") == 0);           // 'e' without digits makes a word of it
+    TR_ASSERT(t, match(U"1.") == 1);           // a dot without a digit after it isn't the number's
+    // Glued to a word: no number
+    TR_ASSERT(t, match(U"64bit") == 0);
+    TR_ASSERT(t, match(U"2nd") == 0);
+    TR_ASSERT(t, match(U"0x") == 0);
+    TR_ASSERT(t, match(U"abc") == 0);
+    TR_ASSERT(t, match(U".x") == 0);
+    TR_ASSERT(t, match(U"") == 0);
+    // Without suffixes, '3j' is a word
+    TR_ASSERT(t, GenericNumberMatcher::Create()->Match(std::u32string_view(U"3j")) == 0);
+    return kTR_Pass;
+}
+
+static kLanguageTokenClass ClassAt(const std::vector<std::pair<int, kLanguageTokenClass>> &tokens, int pos) {
+    for (auto &[tokenPos, tokenClass] : tokens) {
+        if (tokenPos == pos) {
+            return tokenClass;
+        }
+    }
+    return kLanguageTokenClass::kUnknown;
+}
+
+// 'case_sensitive: no' folds every whole-word list; an entry's own 'case_sensitive: yes' keeps its list exact
+DLL_EXPORT int test_datalanguage_caseinsensitive(ITesting *t) {
+    auto language = MakeLanguage(t, R"yml(
+language: { name: ci, extensions: [".ci"], case_sensitive: no }
+tokenizer:
+  states:
+    main:
+      postfix: "( )"
+      tokens:
+        - { class: operator, words: "( )" }
+        - { class: function, whole_word: yes, words: "add_executable" }
+        - { class: known_type, whole_word: yes, case_sensitive: yes, words: "PUBLIC" }
+)yml");
+    TR_ASSERT(t, language != nullptr);
+    auto tokens = Tokenize(*language, "ADD_EXECUTABLE(Add_Executable add_executable PUBLIC public)");
+    TR_ASSERT(t, ClassAt(tokens, 0) == kLanguageTokenClass::kFunction);
+    TR_ASSERT(t, ClassAt(tokens, 15) == kLanguageTokenClass::kFunction);
+    TR_ASSERT(t, ClassAt(tokens, 30) == kLanguageTokenClass::kFunction);
+    TR_ASSERT(t, ClassAt(tokens, 45) == kLanguageTokenClass::kKnownType);
+    TR_ASSERT(t, ClassAt(tokens, 52) == kLanguageTokenClass::kRegular);
+    // Entries of one class must agree
+    auto problems = ParseProblems(R"yml(
+language: { name: m, extensions: [".m"] }
+tokenizer:
+  states:
+    main:
+      tokens:
+        - { class: keyword, whole_word: yes, words: "if" }
+        - { class: keyword, whole_word: yes, case_sensitive: no, words: "else" }
+)yml");
+    TR_ASSERT(t, !problems.empty());
+    return kTR_Pass;
+}
+
+// cmake.yml is registered for '*.cmake' and by name for 'CMakeLists.txt' - not for every '.txt'
+DLL_EXPORT int test_datalanguage_cmake_registered(ITesting *t) {
+    auto &editor = Editor::Instance();
+    auto language = editor.GetLanguageForFile("project/CMakeLists.txt");
+    TR_ASSERT(t, language != nullptr);
+    TR_ASSERT(t, language->Identifier() == U"cmake");
+    TR_ASSERT(t, editor.GetLanguageForFile("cmake/Toolchain.cmake") == language);
+    TR_ASSERT(t, editor.GetLanguageForFile("notes.txt") != language);
+    TR_ASSERT(t, editor.GetLanguageForFile("src/main.cpp")->Identifier() != U"cmake");
+    TR_ASSERT(t, language->GetLineComment() == U"#");
+    return kTR_Pass;
+}
+
+// The shipped cmake.yml, line by line (docs/support-languages.md §8)
+DLL_EXPORT int test_datalanguage_cmake_tokens(ITesting *t) {
+    auto language = Editor::Instance().GetLanguageForFile("CMakeLists.txt");
+    TR_ASSERT(t, language != nullptr);
+    //                                   0         1         2         3         4
+    //                                   0123456789012345678901234567890123456789012345
+    auto tokens = Tokenize(*language, "ADD_EXECUTABLE(app main.cpp)");
+    TR_ASSERT(t, ClassAt(tokens, 0) == kLanguageTokenClass::kFunction);
+    TR_ASSERT(t, ClassAt(tokens, 14) == kLanguageTokenClass::kOperator);
+    TR_ASSERT(t, ClassAt(tokens, 15) == kLanguageTokenClass::kRegular);
+
+    tokens = Tokenize(*language, "target_link_libraries(app PUBLIC fmt)");
+    TR_ASSERT(t, ClassAt(tokens, 0) == kLanguageTokenClass::kFunction);
+    TR_ASSERT(t, ClassAt(tokens, 26) == kLanguageTokenClass::kKnownType);
+
+    tokens = Tokenize(*language, "if(NOT DEFINED X) # why");
+    TR_ASSERT(t, ClassAt(tokens, 0) == kLanguageTokenClass::kKeyword);
+    TR_ASSERT(t, ClassAt(tokens, 3) == kLanguageTokenClass::kKnownType);
+    TR_ASSERT(t, ClassAt(tokens, 18) == kLanguageTokenClass::kLineComment);
+    TR_ASSERT(t, ClassAt(tokens, 20) == kLanguageTokenClass::kCommentedText);
+
+    // A reference in a string is its own class; the string goes on after it
+    tokens = Tokenize(*language, "message(\"dir ${CMAKE_SOURCE_DIR} ok\")");
+    TR_ASSERT(t, ClassAt(tokens, 8) == kLanguageTokenClass::kString);
+    TR_ASSERT(t, ClassAt(tokens, 13) == kLanguageTokenClass::kMacroIdentifier);
+    TR_ASSERT(t, ClassAt(tokens, 15) == kLanguageTokenClass::kMacroIdentifier);
+    TR_ASSERT(t, ClassAt(tokens, 33) == kLanguageTokenClass::kString);
+
+    // Nested references, a generator expression, numbers and constants
+    tokens = Tokenize(*language, "set(V ${${P}_DIR} $<CONFIG:Debug> 3.28 ON)");
+    TR_ASSERT(t, ClassAt(tokens, 6) == kLanguageTokenClass::kMacroIdentifier);
+    TR_ASSERT(t, ClassAt(tokens, 8) == kLanguageTokenClass::kMacroIdentifier);
+    TR_ASSERT(t, ClassAt(tokens, 18) == kLanguageTokenClass::kPreProcessor);
+    TR_ASSERT(t, ClassAt(tokens, 20) == kLanguageTokenClass::kPreProcessor);
+    TR_ASSERT(t, ClassAt(tokens, 34) == kLanguageTokenClass::kNumber);
+    TR_ASSERT(t, ClassAt(tokens, 39) == kLanguageTokenClass::kEnumValue);
+
+    // #[[ ... ]] spans lines; code after it is code again
+    std::vector<std::pair<size_t, kLanguageTokenClass>> lineTokens;
+    language->Tokenizer().TokenizeText(U"#[[ a\nstill ]]\nset(X 1)", [&lineTokens](size_t idxLine, const LangToken &token) {
+        lineTokens.emplace_back(idxLine, token.classification);
+    });
+    bool isLine1Comment = false;
+    bool isLine2Code = false;
+    for (auto &[idxLine, tokenClass] : lineTokens) {
+        if ((idxLine == 1) && (tokenClass == kLanguageTokenClass::kCommentedText)) {
+            isLine1Comment = true;
+        }
+        if ((idxLine == 2) && (tokenClass == kLanguageTokenClass::kFunction)) {
+            isLine2Code = true;
+        }
+    }
+    TR_ASSERT(t, isLine1Comment);
+    TR_ASSERT(t, isLine2Code);
     return kTR_Pass;
 }

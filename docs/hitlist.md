@@ -71,6 +71,8 @@ Built and unit-tested, not yet tried by hand on that platform. Linux = SDL2 (Ctr
 - **Promote to terminal** (#47) - `Cmd/Ctrl+Enter` in the editor
   - [ ] Linux [ ] Mac - a line, no selection: it runs in the terminal, focus stays in the editor; a selection of several lines: all run, the selection stays (send again)
   - [ ] Linux [ ] Mac - `claude` in the terminal: a selected prompt arrives as one paste and is sent; `promote_sends_enter: no` in the user config: it waits in the chat unsent
+- **CMake highlighting** (#11 step 1)
+  - [ ] Linux [ ] Mac - open `CMakeLists.txt` and a `*.cmake`: commands blue (any case), `if`/`foreach`/`function` as keywords, `PUBLIC` / `REQUIRED` / `VERSION` red (not `public`), `${VAR}` (nested too, in strings too), `$<...>`, `#[[ ]]` comments over lines, `ON`/`OFF`; `.ll` lists `cmake` with `CMakeLists.txt`; `Cmd/Ctrl+/` comments with `#`
 - **Short-file scroll window** (#35, open-bugs #30)
   - [ ] Linux [x] Mac - a new file, a dozen lines, PageDown, then Enter in the middle: the top line stays until the view is full
 
@@ -82,7 +84,7 @@ Built and unit-tested, not yet tried by hand on that platform. Linux = SDL2 (Ctr
 | 40 | User documentation: the keyboard layout per platform (the shipped keymaps, modifier groups), the shipped dot/quick commands, the mouse bindings | `docs/usage.md` (a short first version, 2026-11-16) | a day | discussed, never written down; generate from the keymap YAML where possible so it can't drift; ties in with #8 |
 | 41 | Gaps found writing `usage.md`: no word left/right on macOS; no drag-to-select in the editor; `.openfolder` is registered in `jsplugs.yml` but `Scripts/openfolder.js` doesn't exist (see #36) | `docs/usage.md` | hours | small, each on its own |
 | 17 | A config list overwrites the default list by position | open-bugs #28 | half a day | idea: an immutable merge that returns a new tree; `LanguageFileSet::Merge` is the model |
-| 11 | Languages phase 2: CMake and Python (case-insensitive lists, generic numbers, the prefix rule) | `support-languages.md` | 1-2 days | used daily |
+| 11 | Languages phase 2, step 2: Python (the prefix rule for decorators, triple-quoted strings; numbers and case folding are in since step 1) | `support-languages.md` §6 | a day | CMake (step 1) is done |
 | 12 | Languages phase 3: the user directory, `.lang_reload`, `override: yes` | `support-languages.md` | a day | user language dirs aren't read yet |
 | 18 | Theme collection step 2: `Themes/` folder, lookup order, install rule, default theme moved | `theme-collection.md` §2 | half a day | the same themes on Mac and Linux from git |
 | 19 | `.theme list` / `.theme use <name>` | `theme-collection.md` §5 | half a day | after 18 |
@@ -125,6 +127,7 @@ Smaller bugs not ranked yet: open-bugs #1 (`AttributeAt`, read before touching i
 | 43 | Line numbers count from 1 in the gutter and the status line (they showed the 0-based index; `.goto`, Find and Go to symbol already counted from 1) | 2026-11-16 |
 | 16 | Data loss: a Latin-1 file was cut on open and save - now detected, decoded, saved back as it was (open-bugs #15) | 2026-11-16 |
 | 45 | Terminal `Ctrl+C` at the prompt abandons the line (a fresh prompt below, as a shell does; was ignored on Linux, typed `c` in the ANSI backend); gansi asks xterm for `metaSendsEscape` so Alt works in uxterm (it set the 8th bit) | 2026-11-17 |
+| 11 | CMake highlighting (languages phase 2, step 1): `cmake.yml` for `CMakeLists.txt` (a language file's `filenames:` now register) and `*.cmake`. The engine gained `case_sensitive` (language and entry), `numbers: generic` (`GenericNumberMatcher`), and the `function` / `macro` / `enum_value` classes for a data file - kept by the semantic-names pass when the language's syntax gives them | 2026-11-17 |
 | 47 | Promote to terminal: `Cmd/Ctrl+Enter` (`PromoteToTerminal`) sends the editor's selection - or the line, with none - to the terminal, not via the clipboard, and Enter after it (`terminal.promote_sends_enter`, default yes). An app gets a paste (bracketed when it asked) + `\r`; one line at the local prompt runs as typed; several go to readline and run. Focus stays in the editor, the selection stays | 2026-11-17 |
 | 44 | xterm Ctrl chords in the ANSI backend: gansi asks for modifyOtherKeys level 2 alongside Kitty (`CSI > 4;2 m`, back to the terminal's own on close with `CSI > 4 m`) and parses `CSI 27;mod;cp ~` - `Ctrl+/`, `Ctrl+I` apart from Tab, `Ctrl+]`, `Ctrl+Shift+<letter>`. Not for Terminal.app or a dumb TERM | 2026-11-17 |
 | 46 | No display, no window: a launch without `--backend` picks the ANSI backend when neither `DISPLAY` nor `WAYLAND_DISPLAY` is set (as before, also for a `tty` session); on macOS when logged in over ssh (`SSH_CONNECTION` / `SSH_TTY`). `--backend` and a desktop launch still win | 2026-11-17 |

@@ -915,7 +915,8 @@ void Editor::RegisterDataLanguages() {
             continue;
         }
         // A base ('default', a family's middle file) or a built-in's file (phase 4) - nothing to register
-        if (definition->extensions.empty() || (definition->engine != LanguageDefinition::kEngine::kData)) {
+        if ((definition->extensions.empty() && definition->fileNames.empty()) ||
+            (definition->engine != LanguageDefinition::kEngine::kData)) {
             continue;
         }
 
@@ -938,10 +939,16 @@ void Editor::RegisterDataLanguages() {
         if (definition->autoPairs.IsDefined()) {
             AutoPairCache::Instance().SetLanguageFileSection(name, ConfigNode(definition->autoPairs));
         }
+        auto fileNames = definition->fileNames;
         auto language = DataLanguage::Create(std::move(*definition));
         language->SetOrigin(origin);
         language->Initialize();
-        RegisterLanguage(extensions, language);
+        if (!extensions.empty()) {
+            RegisterLanguage(extensions, language);
+        }
+        for (auto &fileName : fileNames) {
+            fileNameToLanguages[fileName] = language;
+        }
         logger->Debug("Language '%s' from %s", name.c_str(), origin.c_str());
     }
     for (auto &problem : fileSet->Problems()) {
@@ -1456,6 +1463,14 @@ LanguageBase::Ref Editor::GetLanguageForExtension(const std::string &extension) 
     return extToLanguages[extension];
 }
 
+LanguageBase::Ref Editor::GetLanguageForFile(const std::filesystem::path &path) {
+    auto it = fileNameToLanguages.find(path.filename().string());
+    if (it != fileNameToLanguages.end()) {
+        return it->second;
+    }
+    return GetLanguageForExtension(path.extension().string());
+}
+
 std::vector<std::string> Editor::GetRegisteredLanguages() {
     std::vector<std::string> keys;
     for(auto &[key,value] : extToLanguages) {
@@ -1474,6 +1489,13 @@ std::vector<std::string> Editor::GetLanguageDescriptions() {
             order.push_back(language);
         }
         extensions += extensions.empty() ? extension : " " + extension;
+    }
+    for (auto &[fileName, language] : fileNameToLanguages) {
+        auto &extensions = extensionsByLanguage[language.get()];
+        if (extensions.empty()) {
+            order.push_back(language);
+        }
+        extensions += extensions.empty() ? fileName : " " + fileName;
     }
 
     std::vector<std::string> lines;

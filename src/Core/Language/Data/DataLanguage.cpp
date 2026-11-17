@@ -8,6 +8,7 @@
 #include "DataLanguage.h"
 #include "Core/Config/Config.h"
 #include "Core/Language/Data/LanguageFileSet.h"
+#include "Core/Language/Data/GenericNumberMatcher.h"
 #include "Core/UnicodeHelper.h"
 
 using namespace gedit;
@@ -70,13 +71,26 @@ void DataLanguage::BuildState(const LanguageDefinition::State &stateDefinition) 
     // whole_word)
     std::map<kLanguageTokenClass, std::vector<std::u32string>> wordsByClass;
     std::map<kLanguageTokenClass, bool> wholeWordByClass;
+    std::map<kLanguageTokenClass, bool> caseSensitiveByClass;
+    if (stateDefinition.regularClass.has_value()) {
+        MarkSyntaxSemanticClass(*stateDefinition.regularClass);
+    }
     for (auto &rule : stateDefinition.tokens) {
+        MarkSyntaxSemanticClass(rule.tokenClass);
         auto &words = wordsByClass[rule.tokenClass];
         words.insert(words.end(), rule.words.begin(), rule.words.end());
         wholeWordByClass[rule.tokenClass] = rule.isWholeWord;
+        caseSensitiveByClass[rule.tokenClass] = rule.isCaseSensitive.value_or(definition.isCaseSensitive);
     }
     for (auto &[tokenClass, words] : wordsByClass) {
-        state->SetIdentifiers(tokenClass, wholeWordByClass[tokenClass], JoinLongestFirst(words));
+        auto isWholeWord = wholeWordByClass[tokenClass];
+        state->SetIdentifiers(tokenClass, isWholeWord, JoinLongestFirst(words));
+        if (isWholeWord && !caseSensitiveByClass[tokenClass]) {
+            state->identifiers[tokenClass]->SetCaseInsensitive();
+        }
+    }
+    if (stateDefinition.numbers.has_value()) {
+        state->SetNumberMatcher(GenericNumberMatcher::Create(stateDefinition.numbers->suffixes));
     }
 
     for (auto &rule : stateDefinition.tokens) {

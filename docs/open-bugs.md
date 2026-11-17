@@ -196,29 +196,3 @@ does (CLion finds it through the system's own fallback). Fix: [`system-font-fall
 2026-11-11: system font fallback merged; `/context` draws in the app. Open: whether `/usage` still fails.
 
 ---
-
-## 32. A git `Process` thread outlives `exit()` and posts into Runloop's destroyed message queue (use-after-free)
-
-**Where:** `Process::Finish` (`src/Core/Process.cpp:89`) calls `onExit` on the process's own thread, which is
-detached (`src/Core/unix/ProcessUnix.cpp:76`). `onExit` posts to the Runloop; its queues are statics
-(`Runloop::msgQueueA/B`, `src/Core/Runloop.cpp:24-25`).
-
-**What's wrong (ASan, Linux, 2026-11-16, on `main` and the #31 fix branch):** WRITE of size 8 on the process thread
-(`Process::Finish` <- `ProcessUnix::RunLoop` <- the `DoStart` lambda), into a `SafeQueue<unique_ptr<Runloop::Message>>`
-freed by the main thread in `__run_exit_handlers` (the statics' destructors). Nothing joins or cancels a running
-`Process` before exit, so a `git status` still running when the process exits reports into freed memory.
-One complete report (2026-11-16) names the caller: `SafeQueue<Runloop::Message>::push` <- `Runloop::PostMessage` <-
-the `Editor::RefreshChangeBase` lambda (`GitBase::Result`) <- the `GitBase::Query` callback - the gutter's change-base
-git query.
-
-**Test or app:** seen as test teardown (`test_workspace_reopen` starts a git process; trun exits while it runs), ~4/60
-runs under ASan; the report is usually cut to 3 lines because the process is exiting. The app can do the same on quit
-with a git status/diff in flight. Delaying the end of exit by 4 s (an `atexit` sleep in a preload shim) gave 0/160.
-
-**Fix direction (not decided):** keep running processes in a registry and stop/join them before exit (Editor
-teardown), or give `Process` a "detached from the app" flag that `onExit` checks - a detached thread can't be joined,
-so the first needs the thread kept.
-
-**Repro:** Linux ASan build of utests (see #31 for the setup), `trun -m workspace -t reopen --sequential` in a loop,
-with an `atexit(sleep(4))` preload so the report gets written in full.
-

@@ -8,6 +8,25 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## Processes are stopped at exit; terminal Ctrl+C and xterm Alt (2026-11-17) ✅
+
+**Exit use-after-free** (open-bugs #32, hitlist #38): a `Process` thread still running at `exit()` - the gutter's git
+query on quit, or `test_workspace_reopen` at trun's teardown - ran its exit callback after the statics went and posted
+into Runloop's freed queue. **Load-bearing decisions:** `Process` keeps a registry of the running ones (raw pointer +
+`weak_ptr`, never destroyed); `Process::StopAll` kills them and waits for their last callback (2 s in all, skipping a
+callback that is itself exiting). It is registered with `std::atexit` on the first `Start()`, so it runs before every
+static built earlier - Runloop's queues, the Editor - in the app and at trun's exit alike, without Editor wiring. Test:
+`process_stopall_atexit` runs `process-exit-helper` (a program of its own - a forked trun runs trun's exit, whose logger
+joins threads the child doesn't have) and fails with the registration switched off.
+
+**Terminal, for a tester in uxterm over ssh** (hitlist #45): `Ctrl+C` at the local prompt never reached the shell
+(Linux binds it to Copy, the ANSI backend typed `c`). Now the shell gets `^C` and prints a fresh prompt; the typed
+text is echoed into the grid by us, as the tty's SIGINT flushes it unread. gansi asks xterm for `metaSendsEscape`
+(XTSAVE / `?1036h`, XTRESTORE on close): xterm sets the 8th bit for Alt by default, which uxterm sent as `ô`. Left:
+the Ctrl chords legacy xterm can't carry (#44).
+
+---
+
 ## Go to line, and line numbers that count from 1 (2026-11-16) ✅
 
 For a new tester coming from vim. `.goto <line>` / `.g <line>` (`ActionHelper::GotoLine`): counts from 1, past the end

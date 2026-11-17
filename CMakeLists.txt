@@ -689,6 +689,12 @@ endif()
 target_link_libraries(utests ${extlibs})
 gedit_warning_flags(utests)
 
+# test_process_stopall_atexit runs it: a program of its own that exits with a process running (open-bugs #32)
+add_executable(process-exit-helper utests/helpers/process_exit_helper.cpp src/Core/Process.cpp src/Core/unix/ProcessUnix.cpp)
+target_include_directories(process-exit-helper PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+gedit_warning_flags(process-exit-helper)
+add_dependencies(utests process-exit-helper)
+
 # Code index lexer benchmark (docs/code-index.md step 0) - a plain executable, not a trun case (trun links
 # the ASan runtime, which skews allocation-heavy numbers). Build in release: cmake --build --preset release
 # --target gedit-bench; run from the build dir.

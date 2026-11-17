@@ -11,6 +11,7 @@
 #include <string>
 #include <thread>
 
+
 #include "Core/Process.h"
 #include "Core/unix/Shell.h"
 
@@ -33,6 +34,8 @@ extern "C" {
     DLL_EXPORT int test_process_inheritedpipe(ITesting *t);
     DLL_EXPORT int test_process_startonce(ITesting *t);
     DLL_EXPORT int test_process_shellsurvives(ITesting *t);
+    DLL_EXPORT int test_process_stopall(ITesting *t);
+    DLL_EXPORT int test_process_stopall_atexit(ITesting *t);
 }
 
 namespace {
@@ -261,3 +264,42 @@ DLL_EXPORT int test_process_shellsurvives(ITesting *t) {
     return kTR_Pass;
 }
 
+
+DLL_EXPORT int test_process_stopall(ITesting *t) {
+    // Two running, their Refs dropped: StopAll kills both and returns after both exit callbacks have run
+    std::atomic<int> numExited = 0;
+    for (int i = 0; i < 2; i++) {
+        auto process = Process::Create("sleep", {"30"});
+        process->SetOnExit([&numExited](const Process::Result &result) {
+            numExited++;
+        });
+        TR_ASSERT(t, process->Start());
+    }
+    auto timeStart = std::chrono::steady_clock::now();
+    TR_ASSERT(t, Process::StopAll() == 2);
+    TR_ASSERT(t, numExited == 2);
+    TR_ASSERT(t, std::chrono::steady_clock::now() - timeStart < std::chrono::seconds(2));
+    // Nothing left
+    TR_ASSERT(t, Process::StopAll() == 0);
+    return kTR_Pass;
+}
+
+// open-bugs #32: a process still running at exit() must finish (killed, its exit callback run) before the statics its
+// callback reaches are destroyed. process-exit-helper (built next to libutests, run from the build dir) returns from
+// main with a 'sleep 30' running and reports from the callback: 'K' = the statics were still there.
+DLL_EXPORT int test_process_stopall_atexit(ITesting *t) {
+    auto helper = std::filesystem::current_path() / "process-exit-helper";
+    TR_ASSERT(t, std::filesystem::exists(helper));
+    std::string out;
+    auto process = Process::Create(helper.string());
+    process->SetOnStdOut([&out](const std::string &data) {
+        out += data;
+    });
+    auto timeStart = std::chrono::steady_clock::now();
+    auto result = process->Run();
+    TR_ASSERT(t, result.IsSuccess());
+    // Before the fix nothing ran the callback before the helper was gone: no report at all
+    TR_ASSERT(t, out == "K");
+    TR_ASSERT(t, std::chrono::steady_clock::now() - timeStart < std::chrono::seconds(5));
+    return kTR_Pass;
+}

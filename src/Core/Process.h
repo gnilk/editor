@@ -8,6 +8,8 @@
 // thread itself (Runloop::PostMessage); Process knows nothing of the run loop. WaitFor() blocks until the end.
 //
 // A started process keeps itself alive until it has exited, so dropping the last Ref doesn't stop it: Kill() does.
+// At exit StopAll() kills what still runs and waits for its callbacks (registered with atexit on the first Start, so it
+// runs before the statics a callback reaches - Runloop's queues - are destroyed; open-bugs #32).
 //
 // This is the platform-independent part: state, callbacks, waiting. The spawning and reading is per platform, as
 // FolderMonitor's is: 'ProcessUnix' (src/Core/unix/) for macOS and Linux. Create() is defined by the platform's
@@ -17,6 +19,7 @@
 #ifndef GOATEDIT_PROCESS_H
 #define GOATEDIT_PROCESS_H
 
+#include <chrono>
 #include <condition_variable>
 #include <cstdint>
 #include <filesystem>
@@ -24,6 +27,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace gedit {
@@ -76,6 +80,10 @@ namespace gedit {
 
         bool IsRunning();
         Result GetResult();
+
+        // Kill every running process and wait for its last callback, up to 'timeout' in all. Not from a process's own
+        // callback (that one is skipped). Runs at exit by itself; returns how many were still running.
+        static size_t StopAll(std::chrono::milliseconds timeout = std::chrono::milliseconds(2000));
     protected:
         Process(std::string command, std::vector<std::string> arguments);
 
@@ -102,6 +110,8 @@ namespace gedit {
         std::condition_variable finished;
         Result result;
         bool isFinished = false;
+        // The thread running the exit callback, so StopAll doesn't wait for itself
+        std::thread::id callbackThread;
     };
 }
 

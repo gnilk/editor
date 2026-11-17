@@ -312,7 +312,11 @@ Docs live under `docs/`. Three are *active references* — check them before tou
   `DISPLAY=:0`, record the PID, find the window with `xdotool search --pid <PID>`. **VERIFY THE WINDOW
   IS YOURS BEFORE SENDING ANY INPUT** — `xdotool search --pid` is unreliable and can return another
   app's window. Confirm with `xprop -id <WID> _NET_WM_PID` (must equal your launched PID) and
-  `xdotool getwindowname <WID>` (should be `gedit`) before any `key`/`type`. Drive with
+  `xdotool getwindowname <WID>` (should be `gedit`) before any `key`/`type`. **Check the screen isn't locked
+  first** - a locked desktop still reports your window as active (`getactivewindow`), but the keys go to the lock
+  screen's password box: `loginctl show-session $(loginctl | awk '/seat0/{print $1; exit}') -p LockedHint` must say
+  `no` (KDE also: `qdbus org.freedesktop.ScreenSaver /ScreenSaver GetActive` = `false`), and a capture must show the
+  editor, not the lock screen. If locked, stop and tell the user - don't type. Drive with
   `xdotool windowsize <WID> W H` (resize) or `xdotool key --clearmodifiers <keys>`. Capture with
   `xwd -id <WID> -out f.xwd` then `ffmpeg -i f.xwd f.png`. **Kill ONLY your launched PID** — the user
   often has other goatedit/CLion windows open. Key actions: `Alt+s`/`Alt+w` height, `Alt+d`/`Alt+a`

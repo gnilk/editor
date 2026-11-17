@@ -44,11 +44,17 @@ class Screen:
         self.y = self.x = 0
         self.fg = self.bg = None
         self.inverse = False
+        self.pending = ''   # an escape sequence cut by the end of a read - completed by the next feed
 
     def clear(self):
         self.cells = [[(' ', None, None) for _ in range(self.cols)] for _ in range(self.rows)]
 
+    # The start of a sequence that the end of the input may have cut: CSI, OSC, DCS/APC/PM, or a lone ESC
+    INCOMPLETE = re.compile(r'\x1b(\[[?>=<]?[0-9;:]*[ -/]*|\][^\x07\x1b]*\x1b?|[P_^].*|[()#])?\Z', re.S)
+
     def feed(self, s):
+        s = self.pending + s
+        self.pending = ''
         i, n = 0, len(s)
         while i < n:
             c = s[i]
@@ -62,6 +68,10 @@ class Screen:
                 if m:
                     i += m.end()
                     continue
+                if self.INCOMPLETE.match(s, i):
+                    # A read ended inside it (the pty splits writes where it likes - more often on macOS)
+                    self.pending = s[i:]
+                    return
                 i += 3 if i + 1 < n and s[i + 1] in '()#' else 2
                 continue
             if c == '\r':

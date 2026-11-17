@@ -495,25 +495,7 @@ bool TerminalController::ForwardActionToShell(const EditorAction &kpAction) {
         return false;
     }
     if ((kpAction.uiAction == kUIAction::kUIActionCommitLine) && doesShellOwnLineEditing) {
-        // Bug #17: a dot-command finished in readline is the editor's, not the shell's
-        if (CommitShellOwnedDotCommand()) {
-            return true;
-        }
-        // §4.1 tab-completion edge case: this commit never goes through CommitLine(). readline's edits have been
-        // mirrored into inputLine on the pty thread; mirror once more from the grid as it stands now and read it
-        // under the lock, before ExitShellOwned() clears it. Best effort: an echo still in flight is not seen.
-        std::u32string cmdLine;
-        {
-            std::lock_guard<std::mutex> guard(screenLock);
-            SyncInputLineFromGrid();
-            cmdLine = inputLine->Buffer();
-        }
-        RecordCommand(cmdLine);
-        if (!cmdLine.empty()) {
-            MarkCommandOutput();
-        }
-        WriteToPty("\r");
-        ExitShellOwned();
+        CommitShellOwnedLine();
         return true;
     }
     bool isHandled = ForwardKeyPressToShell(kpAction.keyPress);
@@ -523,6 +505,29 @@ bool TerminalController::ForwardActionToShell(const EditorAction &kpAction) {
         ExitShellOwned();
     }
     return isHandled;
+}
+
+// Enter while readline owns the line
+void TerminalController::CommitShellOwnedLine() {
+    // Bug #17: a dot-command finished in readline is the editor's, not the shell's
+    if (CommitShellOwnedDotCommand()) {
+        return;
+    }
+    // §4.1 tab-completion edge case: this commit never goes through CommitLine(). readline's edits have been
+    // mirrored into inputLine on the pty thread; mirror once more from the grid as it stands now and read it
+    // under the lock, before ExitShellOwned() clears it. Best effort: an echo still in flight is not seen.
+    std::u32string cmdLine;
+    {
+        std::lock_guard<std::mutex> guard(screenLock);
+        SyncInputLineFromGrid();
+        cmdLine = inputLine->Buffer();
+    }
+    RecordCommand(cmdLine);
+    if (!cmdLine.empty()) {
+        MarkCommandOutput();
+    }
+    WriteToPty("\r");
+    ExitShellOwned();
 }
 
 bool TerminalController::IsTerminalEscapeHatch(const EditorAction &kpAction) {
@@ -583,6 +588,7 @@ void TerminalController::Paste(const std::u32string &text) {
         return;
     }
     if (text.find_first_of(U"\r\n") == std::u32string::npos) {
+        inputCursor.position.x = std::clamp(inputCursor.position.x, 0, (int)inputLine->Length());
         inputLine->Insert(inputCursor.position.x, text);
         inputCursor.position.x += (int)text.length();
         ScrollToBottom();
@@ -595,6 +601,27 @@ void TerminalController::Paste(const std::u32string &text) {
     bracketed.isBracketedPaste = true;
     WriteToPty(UnicodeHelper::utf32to8(inputLine->Buffer()) + gnilk::vt::EncodePaste(bytes, bracketed));
     ScrollToBottom();
+}
+
+void TerminalController::Promote(std::u32string text, bool isSubmit) {
+    while (!text.empty() && ((text.back() == U'\n') || (text.back() == U'\r'))) {
+        text.pop_back();
+    }
+    if (text.empty()) {
+        return;
+    }
+    // Paste may hand the line to readline (several lines at the local prompt) - so ask where Enter goes after it
+    Paste(text);
+    if (!isSubmit) {
+        return;
+    }
+    if (IsAppActive()) {
+        WriteToPty("\r");
+    } else if (doesShellOwnLineEditing) {
+        CommitShellOwnedLine();
+    } else {
+        CommitLine();
+    }
 }
 
 void TerminalController::SetFocus(bool isFocused) {

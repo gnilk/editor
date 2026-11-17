@@ -65,6 +65,9 @@ keymap: {
     ReformatLine: "CopyPasteModifier + 'l'",
     ReformatBlock: "CopyPasteModifier + 'i'",
     SelectAll: "CopyPasteModifier + 'a'",
+    # The selection - or the line, with none - to the terminal, not via the clipboard; Enter after it by default
+    # (terminal.promote_sends_enter). A prompt written in a document, sent to a chat running in the terminal.
+    PromoteToTerminal: CopyPasteModifier + KeyCode_Return,
 
     # Find in the active document (a dialog listing the hits) - Cmd+F / Ctrl+F
     Find: "CopyPasteModifier + 'f'",

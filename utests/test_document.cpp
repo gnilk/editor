@@ -75,6 +75,7 @@ DLL_EXPORT int test_document_reformat_block_enclosing(ITesting *t);
 DLL_EXPORT int test_document_selectall(ITesting *t);
 DLL_EXPORT int test_document_selectall_empty(ITesting *t);
 DLL_EXPORT int test_document_selectall_reformat(ITesting *t);
+DLL_EXPORT int test_document_promote_text(ITesting *t);
 DLL_EXPORT int test_document_selectdown_lastline(ITesting *t);
 DLL_EXPORT int test_document_selectup_firstline(ITesting *t);
 
@@ -1729,5 +1730,28 @@ DLL_EXPORT int test_document_shortfile_window(ITesting *t) {
     TR_ASSERT(t, lineCursor->idxActiveLine == 9);
     TR_ASSERT(t, lineCursor->cursor.position.y == 9);
     TR_ASSERT(t, document->ActiveLine() != nullptr);
+    return kTR_Pass;
+}
+
+// What PromoteToTerminal sends (hitlist #47): the selection as copy gives it, or the active line with none; never a
+// trailing line break (the terminal presses Enter itself). The clipboard is left alone.
+DLL_EXPORT int test_document_promote_text(ITesting *t) {
+    auto document = CreateReformatDoc(t, {"one", "two", "three"});
+    document->GetLineCursor().idxActiveLine = 1;
+    TR_ASSERT(t, document->SelectionOrLineText() == U"two");
+
+    auto numClipItems = Editor::Instance().GetClipBoard().NumItems();
+    document->OnAction(actionSelectAll);
+    TR_ASSERT(t, document->SelectionOrLineText() == U"one\ntwo\nthree");
+    TR_ASSERT(t, Editor::Instance().GetClipBoard().NumItems() == numClipItems);
+
+    // Whole lines (the end at column 0 of the next line): no trailing '\n'
+    document->CancelSelection();
+    document->SetCursorPosition(0, 0);
+    document->OnAction(actionShiftLineDown);
+    document->OnAction(actionShiftLineDown);
+    TR_ASSERT(t, document->GetSelection().GetEnd() == gedit::Point(0, 2));
+    TR_ASSERT(t, document->SelectionOrLineText() == U"one\ntwo");
+    IndentCache::Instance().Clear();
     return kTR_Pass;
 }

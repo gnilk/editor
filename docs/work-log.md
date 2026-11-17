@@ -8,6 +8,19 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## Promote to terminal (2026-11-17) ✅
+
+**The selection to the terminal** (hitlist #47): for prompts written in a scratch document and sent to a chat
+(`claude`) running in the terminal. **Load-bearing decisions:** `Cmd/Ctrl+Enter` (CopyPasteModifier - functionality;
+"send" in chat apps; Cmd+X is cut). No selection sends the active line; the text never touches the clipboard
+(`ClipBoardItem::AsText` on a throwaway item) and loses a trailing line break. `Editor::PromoteToTerminal` reads
+`terminal.promote_sends_enter` (default yes) and calls `TerminalController::Promote`, which rides `Paste` and then
+presses Enter where the text landed: `\r` to an app, `CommitLine` at the local prompt (history, output marking, a
+dot-command runs as typed), the readline commit (extracted as `CommitShellOwnedLine`) for several lines. Focus and the
+selection stay, so a prompt can be changed and sent again. In the terminal itself the key reaches an app as before.
+
+---
+
 ## ANSI backend without a display; xterm Ctrl chords (2026-11-17) ✅
 
 **No display, no window** (hitlist #46): the ANSI backend was the default only for `XDG_SESSION_TYPE=tty`, so a

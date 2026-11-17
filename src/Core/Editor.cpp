@@ -527,6 +527,17 @@ static TerminalView *GetTerminalView() {
     return dynamic_cast<TerminalView *>(ref.get());
 }
 
+bool Editor::PromoteToTerminal(const std::u32string &text) {
+    auto *terminalView = GetTerminalView();
+    if ((terminalView == nullptr) || text.empty()) {
+        return false;
+    }
+    auto isSubmit = Config::Instance()["terminal"].GetBool("promote_sends_enter", true);
+    terminalView->GetController().Promote(text, isSubmit);
+    TriggerUIRedraw();
+    return true;
+}
+
 // Load the session once (data model only — documents). Layout is applied later by RestoreLayout, once
 // the view tree exists. The loaded session lingers in SessionManager::CurrentSession for that second pass.
 void Editor::RestoreSession() {

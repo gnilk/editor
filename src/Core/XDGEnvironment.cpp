@@ -5,6 +5,7 @@
 // see: https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
 //
 
+#include <cstdlib>
 #include "Core/StrUtil.h"
 #include "XDGEnvironment.h"
 
@@ -36,17 +37,31 @@ const std::string &XDGEnvironment::GetSessionType() const {
 }
 
 bool XDGEnvironment::IsTerminalSession() const {
-#ifdef GEDIT_MACOS
-    return false;   // Don't support headless on macos
-#elif defined(GEDIT_LINUX)
-    // Should this have a list???
-    if(sessionType == "tty") {
-        return true;
+    auto env = [](const char *var) {
+        const char *value = getenv(var);
+        return std::string((value != nullptr) ? value : "");
+    };
+    auto sshConnection = env("SSH_CONNECTION");
+    if (sshConnection.empty()) {
+        sshConnection = env("SSH_TTY");
     }
-    return false;
-#endif
+    return IsTerminalSession(sessionType, env("DISPLAY"), env("WAYLAND_DISPLAY"), sshConnection);
 }
 
+bool XDGEnvironment::IsTerminalSession([[maybe_unused]] const std::string &sessionType,
+                                       [[maybe_unused]] const std::string &display,
+                                       [[maybe_unused]] const std::string &waylandDisplay,
+                                       [[maybe_unused]] const std::string &sshConnection) {
+#ifdef GEDIT_MACOS
+    // The window server doesn't care about DISPLAY; over ssh there is no screen of the user's to draw on
+    return !sshConnection.empty();
+#else
+    if (sessionType == "tty") {
+        return true;
+    }
+    return display.empty() && waylandDisplay.empty();
+#endif
+}
 
 const std::filesystem::path &XDGEnvironment::GetUserHomePath() const {
     return pathHome;

@@ -69,8 +69,8 @@ cd cmake-build-debug && trun -l ./libutests.so                     # list
 
 Test source files live in `utests/`. Each `test_<module>.cpp` corresponds to one module; `test_main.cpp` initializes the editor singleton for all tests. Test functions are `extern "C"` (or `DLL_EXPORT`) and discovered by exported symbol name — adding a new case is just a new function (+ a forward declaration where the file uses one).
 
-**Verified-green set** (801 tests, run from `cmake-build-debug/`):
-`trun -m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,keymapping,hexprojection,bytestream,hexview,indent,session,markdown,folderscanner,foldermonitor,treeview,textbuffer,mouseclicktracker,wrapprojection,config,modal,find,codeindex,themeimport,exclusion,process,gitstatus,reload,openfiles,glyphfont,yamllang,datalanguage,theme,minimap,overviewmap,encoding --sequential ./libutests.so`
+**Verified-green set** (838 tests, run from `cmake-build-debug/`):
+`trun -m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,keymapping,hexprojection,bytestream,hexview,indent,session,markdown,folderscanner,foldermonitor,treeview,textbuffer,mouseclicktracker,wrapprojection,config,modal,find,codeindex,themeimport,exclusion,process,gitstatus,reload,openfiles,glyphfont,yamllang,datalanguage,theme,minimap,overviewmap,encoding,terminalcontroller --sequential ./libutests.so`
 
 **Terminal library tests** are a separate trun lib, `gvttests` (`src/ext/gvt`, built on demand):
 `cmake --build cmake-build-debug --target gvttests && cd cmake-build-debug && trun --sequential ./libgvttests.so`.
@@ -332,6 +332,10 @@ Docs live under `docs/`. Three are *active references* — check them before tou
   `ASAN_OPTIONS="abort_on_error=0:halt_on_error=1:detect_leaks=0:log_path=/tmp/goat_asan"`, reproduce,
   then read `/tmp/goat_asan.<pid>`. ASan reports the exact free + write stacks; far better than chasing
   a malloc-time abort.
+- **ASan for the unit tests (Linux):** the `asan` preset instruments only `goatedit` (`GEDIT_SANITIZE` is on that
+  target), not `libutests`. Configure a separate build dir with a global `CMAKE_CXX_FLAGS=-fsanitize=address`, run
+  `trun -D` (no `RTLD_DEEPBIND`) with `LD_PRELOAD=libasan.so.8`, and `ASAN_OPTIONS=symbolize=0` - the in-process
+  symbolizer stalls past the exit, which cut reports short; symbolize afterwards with `addr2line`.
 - **Instrument-to-confirm:** before fixing a non-obvious bug, add a temporary `fprintf(stderr, ...)`
   diagnostic, do an incremental build, reproduce, read the trajectory, then REMOVE it.
 - **macOS keyboard / dead-key shortcuts (SDL3):** on macOS+SDL3 with text input active, *composing*

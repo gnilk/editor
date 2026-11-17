@@ -11,6 +11,7 @@
 #include <string>
 #include <thread>
 
+
 #include "Core/Process.h"
 #include "Core/unix/Shell.h"
 
@@ -33,6 +34,9 @@ extern "C" {
     DLL_EXPORT int test_process_inheritedpipe(ITesting *t);
     DLL_EXPORT int test_process_startonce(ITesting *t);
     DLL_EXPORT int test_process_shellsurvives(ITesting *t);
+    DLL_EXPORT int test_process_stopall(ITesting *t);
+    DLL_EXPORT int test_process_stopall_atexit(ITesting *t);
+    DLL_EXPORT int test_process_stopall_chained(ITesting *t);
 }
 
 namespace {
@@ -261,3 +265,77 @@ DLL_EXPORT int test_process_shellsurvives(ITesting *t) {
     return kTR_Pass;
 }
 
+
+DLL_EXPORT int test_process_stopall(ITesting *t) {
+    // Two running, their Refs dropped: StopAll kills both and returns after both exit callbacks have run
+    std::atomic<int> numExited = 0;
+    for (int i = 0; i < 2; i++) {
+        auto process = Process::Create("sleep", {"30"});
+        process->SetOnExit([&numExited](const Process::Result &result) {
+            numExited++;
+        });
+        TR_ASSERT(t, process->Start());
+    }
+    auto timeStart = std::chrono::steady_clock::now();
+    TR_ASSERT(t, Process::StopAll() == 2);
+    TR_ASSERT(t, numExited == 2);
+    TR_ASSERT(t, std::chrono::steady_clock::now() - timeStart < std::chrono::seconds(2));
+    // Nothing left
+    TR_ASSERT(t, Process::StopAll() == 0);
+    return kTR_Pass;
+}
+
+// open-bugs #32: a process still running at exit() must finish (killed, its exit callback run) before the statics its
+// callback reaches are destroyed. process-exit-helper (built next to libutests, run from the build dir) returns from
+// main with a 'sleep 30' running and reports from the callback: 'K' = the statics were still there.
+DLL_EXPORT int test_process_stopall_atexit(ITesting *t) {
+    auto helper = std::filesystem::current_path() / "process-exit-helper";
+    TR_ASSERT(t, std::filesystem::exists(helper));
+    std::string out;
+    auto process = Process::Create(helper.string());
+    process->SetOnStdOut([&out](const std::string &data) {
+        out += data;
+    });
+    auto timeStart = std::chrono::steady_clock::now();
+    auto result = process->Run();
+    TR_ASSERT(t, result.IsSuccess());
+    // Before the fix nothing ran the callback before the helper was gone: no report at all
+    TR_ASSERT(t, out == "K");
+    TR_ASSERT(t, std::chrono::steady_clock::now() - timeStart < std::chrono::seconds(5));
+    return kTR_Pass;
+}
+
+// The Linux ASan run of #32 after the first fix: StopAll killed 'git show', whose exit callback started 'git status' -
+// not in StopAll's list, still running when the statics went. A process started from a callback during the stop must
+// end inside it too: here and in the helper's real exit.
+DLL_EXPORT int test_process_stopall_chained(ITesting *t) {
+    std::atomic<bool> isNextDone = false;
+    Process::Ref next;
+    auto first = Process::Create("sleep", {"30"});
+    first->SetOnExit([&](const Process::Result &result) {
+        next = Process::Create("sleep", {"30"});
+        next->SetOnExit([&isNextDone](const Process::Result &nextResult) {
+            isNextDone = true;
+        });
+        next->Start();
+    });
+    TR_ASSERT(t, first->Start());
+    auto timeStart = std::chrono::steady_clock::now();
+    Process::StopAll();
+    TR_ASSERT(t, isNextDone);
+    TR_ASSERT(t, (next != nullptr) && !next->IsRunning());
+    TR_ASSERT(t, std::chrono::steady_clock::now() - timeStart < std::chrono::seconds(2));
+    // A plain StopAll doesn't keep refusing: a process starts afterwards
+    auto after = Process::Create("sh", {"-c", "exit 0"});
+    TR_ASSERT(t, after->Run().IsSuccess());
+
+    auto helper = std::filesystem::current_path() / "process-exit-helper";
+    std::string out;
+    auto process = Process::Create(helper.string(), {"chain"});
+    process->SetOnStdOut([&out](const std::string &data) {
+        out += data;
+    });
+    TR_ASSERT(t, process->Run().IsSuccess());
+    TR_ASSERT(t, out == "KK");
+    return kTR_Pass;
+}

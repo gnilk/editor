@@ -20,6 +20,7 @@
 #include "Core/RuntimeConfig.h"
 #include "Core/Config/Config.h"
 #include "Core/Graphics/SystemFonts.h"
+#include "Core/Graphics/WindowingVideoDriver.h"
 #include "Core/Runloop.h"
 #include "Core/Editor.h"
 #include "Core/MouseEvent.h"
@@ -79,6 +80,13 @@ bool SDLScreen::Open() {
     }
 
     logger->Debug("SDL initialized ok, video driver = %s", SDL_GetCurrentVideoDriver());
+    if (!IsWindowingVideoDriver(SDL_GetCurrentVideoDriver())) {
+        logger->Error("No desktop to open a window on (SDL video driver '%s')", SDL_GetCurrentVideoDriver());
+        fprintf(stderr, "No desktop to open a window on (SDL video driver '%s' - no X11/Wayland display?)\n",
+                SDL_GetCurrentVideoDriver());
+        SDL_Quit();
+        return false;
+    }
     wakeEventType = SDL_RegisterEvents(1);
     if (wakeEventType == 0) {
         wakeEventType = SDL_EVENT_USER;
@@ -447,8 +455,10 @@ void SDLScreen::PollEvents() {
         }
         switch (event.type) {
             case SDL_EVENT_QUIT:
-                SDL_Quit();
-                exit(0);
+                // The editor's own quit: main leaves the loop and closes the screen (fonts, then SDL). An exit() here
+                // ran the statics after SDL_Quit - ~SDLFontManager freed its textures on a dead renderer (#49).
+                Runloop::StopRunLoop();
+                break;
 
             case SDL_EVENT_KEY_DOWN:
             case SDL_EVENT_TEXT_INPUT: {

@@ -17,7 +17,7 @@ Built and unit-tested, not yet tried by hand on that platform. Linux = SDL2 (Ctr
 **Scripted:** `python3 scripts/handtests/checks.py --exe cmake-build-debug/goatedit [check ...]` runs these in a pty on the ANSI
 backend, in a sandbox HOME, and reads the screen back with its colours (`--list` names the checks, ~2.5 min for all). A box
 ticked with `(scripted: <check>)` was ticked from that run, not by hand - it covers the editor, not the SDL backend's own
-keys and drawing. Linux run 2026-11-17: all pass but `sdl_no_display` (#49).
+keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49 fix).
 
 - **Undo clears the `*`** (#39)
   - [x] Linux [x] Mac - mistype, undo: the `*` goes after a pause; type a char + backspace: same; edit, save, undo: `*` stays (scripted: `undo_star`)
@@ -74,7 +74,8 @@ keys and drawing. Linux run 2026-11-17: all pass but `sdl_no_display` (#49).
 - **ANSI backend when there is no display** (#46)
   - [x] Linux - over ssh (no `-X`), plain `goatedit`: the ANSI backend
   - [x] Linux - in the desktop session: a window (scripted: `desktop_window`)
-  - [ ] Linux - `--backend sdl` over ssh: crash-dumps (2026-11-17, desktop locked) - should fail with a message. See #49 (scripted: `sdl_no_display` - fails, see #49)
+  - [x] Linux - `--backend sdl` with no display: fails with a message, no crash dump (#49; scripted: `sdl_no_display`)
+  - [ ] Mac - `--backend sdl` over ssh: fails with a message (SDL3 has the same #49 fix)
   - [x] Mac - `ssh localhost`, plain `goatedit`: the ANSI backend; from Terminal.app: a window
   - Mac 2026-11-17: `goat` over ssh opened a window - `open` starts the app with launchd's environment, no `SSH_CONNECTION`. Fixed on `fix/shell-exit-crash` (5658fc0): over ssh `goat` runs the binary in the terminal; needs `install-cli` to regenerate `~/.local/bin/goat`
 - **xterm Ctrl chords in the ANSI backend** (#44)
@@ -99,7 +100,6 @@ keys and drawing. Linux run 2026-11-17: all pass but `sdl_no_display` (#49).
 
 | # | Item | Where | Size | Notes |
 |---|---|---|---|---|
-| 49 | Linux: `--backend sdl` with no usable display (over ssh, desktop locked) crash-dumps instead of failing with a message | `main.cpp` backend setup, `SDL2/SDLScreen` init | hours | found in the #46 hand-test 2026-11-17. Stack (2026-11-17, `sdl_no_display`): with no X/Wayland SDL2 does not fail - it picks KMSDRM (gbm on `/dev/dri/renderD128`) and runs, invisible. The dump comes at the end: SIGTERM -> `SDL_QUIT` -> `SDL_Quit(); exit(0)` (`SDL2/SDLScreen.cpp:483`, same in SDL3) -> static `~SDLFontManager` destroys textures after SDL is gone -> SIGSEGV in `GL_DestroyTexture`. Two fixes: refuse a non-windowing video driver with a message; on `SDL_QUIT` go through the editor's own quit (no `exit()` with live SDL statics) - likely also hits closing the window |
 | 50 | Start-up warnings ("not a single-folder launch", a missing theme, ...) only go to stderr - lost when started through `goat` (`open`) or from a launcher. Show them in the terminal panel too, or in a status message | `Editor` start-up, `TerminalController` | half a day | found in the #23 hand-test 2026-11-17 |
 | 48 | ANSI backend on macOS: the keymap's `Cmd` shortcuts (`CopyPasteModifier: KeyCode_Cmd` - copy/paste, undo, find, comment, save...) can't be pressed - a terminal never sends Cmd (Terminal.app, iTerm2 legacy), only Kitty's `super` bit where the terminal forwards it (Ghostty/kitty, usually not) | `Assets/Resources/macOS/*_keymap.yml`, `KeyMapping` (modifier names), `GansiKeyboardDriver` | hours | options: a per-backend modifier map (in ANSI, `CopyPasteModifier` = Ctrl on macOS too, as on Linux), or an ANSI keymap that inherits the Linux one. Check what Ctrl chords Terminal.app eats; `Ctrl+Space` etc. Found writing #44 |
 | 40 | User documentation: the keyboard layout per platform (the shipped keymaps, modifier groups), the shipped dot/quick commands, the mouse bindings | `docs/usage.md` (a short first version, 2026-11-16) | a day | discussed, never written down; generate from the keymap YAML where possible so it can't drift; ties in with #8 |
@@ -151,6 +151,7 @@ Smaller bugs not ranked yet: open-bugs #1 (`AttributeAt`, read before touching i
 | 11 | CMake highlighting (languages phase 2, step 1): `cmake.yml` for `CMakeLists.txt` (a language file's `filenames:` now register) and `*.cmake`. The engine gained `case_sensitive` (language and entry), `numbers: generic` (`GenericNumberMatcher`), and the `function` / `macro` / `enum_value` classes for a data file - kept by the semantic-names pass when the language's syntax gives them | 2026-11-17 |
 | 47 | Promote to terminal: `Cmd/Ctrl+Enter` (`PromoteToTerminal`) sends the editor's selection - or the line, with none - to the terminal, not via the clipboard, and Enter after it (`terminal.promote_sends_enter`, default yes). An app gets a paste (bracketed when it asked) + `\r`; one line at the local prompt runs as typed; several go to readline and run. Focus stays in the editor, the selection stays | 2026-11-17 |
 | 44 | xterm Ctrl chords in the ANSI backend: gansi asks for modifyOtherKeys level 2 alongside Kitty (`CSI > 4;2 m`, back to the terminal's own on close with `CSI > 4 m`) and parses `CSI 27;mod;cp ~` - `Ctrl+/`, `Ctrl+I` apart from Tab, `Ctrl+]`, `Ctrl+Shift+<letter>`. Not for Terminal.app or a dumb TERM | 2026-11-17 |
+| 49 | SDL with no display fails with a message: a video driver that puts no window on a desktop (kmsdrm, offscreen, dummy - what SDL falls through to with no X/Wayland) is refused unless `SDL_VIDEODRIVER` asks for it (`Core/Graphics/WindowingVideoDriver.h`); `SDL_QUIT` (SIGTERM, window close) goes through `Runloop::StopRunLoop` and main's close instead of `SDL_Quit(); exit(0)`, which ran `~SDLFontManager` on a dead renderer (SIGSEGV). SDL2 + SDL3 | 2026-11-17 |
 | 46 | No display, no window: a launch without `--backend` picks the ANSI backend when neither `DISPLAY` nor `WAYLAND_DISPLAY` is set (as before, also for a `tty` session); on macOS when logged in over ssh (`SSH_CONNECTION` / `SSH_TTY`). `--backend` and a desktop launch still win | 2026-11-17 |
 | 38 | A git process still running at exit no longer posts into the destroyed Runloop queue: `Process::StopAll` at exit kills and waits (open-bugs #32) | 2026-11-17 |
 | 22 | Build warnings: `-Wshadow` ours, gnklog PRIVATE; Mac + Linux clean in our code (open-bugs #19) | 2026-11-16 |

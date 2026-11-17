@@ -75,7 +75,7 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
   - [x] Linux - over ssh (no `-X`), plain `goatedit`: the ANSI backend
   - [x] Linux - in the desktop session: a window (scripted: `desktop_window`)
   - [x] Linux - `--backend sdl` with no display: fails with a message, no crash dump (#49; scripted: `sdl_no_display`)
-  - [ ] Mac - `--backend sdl` over ssh: fails with a message (SDL3 has the same #49 fix)
+  - [x] Mac - `--backend sdl` over ssh localhost: a window, as asked - the user is logged in at the desktop, so `cocoa` is there. It opens behind everything (in the Dock, works when picked): macOS' cooperative activation refuses focus to an app not started by the frontmost one - the reason `goat` launches through `open`. Not ours to fix
   - [x] Mac - the window quits cleanly through `SDL_QUIT` (no `exit()` any more): SIGTERM, Cmd+Q and the close button - exit 0, no crash report (scripted by hand, 2026-11-17)
   - [x] Mac - `ssh localhost`, plain `goatedit`: the ANSI backend; from Terminal.app: a window
   - Mac 2026-11-17: `goat` over ssh opened a window - `open` starts the app with launchd's environment, no `SSH_CONNECTION`. Fixed on `fix/shell-exit-crash` (5658fc0): over ssh `goat` runs the binary in the terminal; needs `install-cli` to regenerate `~/.local/bin/goat`

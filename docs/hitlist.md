@@ -59,7 +59,7 @@ keys and drawing. Linux run 2026-11-17: all pass but `sdl_no_display` (#49).
   - [x] Linux [x] Mac - `goatedit .` in a big tree (`~/src/apus`, an npm project with `node_modules` not ignored): the window answers at once (scripted: `big_folder` - 60000 files, view switches ~120 ms while scanning)
   - [x] Linux [x] Mac - folders below the fourth level open when expanded; a session file deep in the tree reopens (scripted: `big_folder`)
   - [x] Linux [x] Mac - `.q!` right after start-up: exits at once (scripted: `big_folder`)
-  - Mac 2026-11-17: responsive in `~/src`, but every quit crashed - the terminal's pty reader outlived its Shell. Fixed on `fix/shell-exit-crash` (808d5fb); re-check the three above, and that quitting is still instant
+  - Mac 2026-11-17: responsive in `~/src`, but every quit crashed - the terminal's pty reader outlived its Shell. Fixed on `fix/shell-exit-crash` (808d5fb); re-checked 2026-11-17: the three above hold, quitting is instant, no crash
 - **Single-folder project** (#23) - Mac checked in a pty (`--backend ansi`), not in the SDL app
   - [x] Linux [x] Mac - `goatedit a.txt .` in a repo with a `.goatedit`: stderr says "not a single-folder launch - project settings in '<dir>/.goatedit' not used"; no session restored; a file created in the terminal shows in the tree (scripted: `single_folder`)
   - [x] Linux [x] Mac - `goatedit .`: the session restores as before, no warning (scripted: `single_folder`)

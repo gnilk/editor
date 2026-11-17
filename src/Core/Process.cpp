@@ -20,6 +20,10 @@ namespace {
     struct Running {
         std::mutex lock;
         std::vector<Entry> processes;
+        // While StopAll runs - for good once the exit's has begun - Start() refuses: an exit callback that starts the
+        // next process (GitBase: a failed 'git show' asks 'git status') would start one nothing waits for
+        bool isRefusing = false;
+        bool isExiting = false;
     };
 
     Running &GetRunning() {
@@ -29,20 +33,30 @@ namespace {
 
     // Once, on the first Start: after Runloop's statics (and the Editor) were built, so it runs before they go
     void StopAllAtExit() {
+        {
+            auto &running = GetRunning();
+            std::lock_guard<std::mutex> guard(running.lock);
+            running.isExiting = true;
+        }
         Process::StopAll();
     }
 
-    void Register(const Process::Ref &process) {
+    // False while stopping: the process must not start
+    bool Register(const Process::Ref &process) {
         static std::once_flag atExitOnce;
         auto &running = GetRunning();
         std::call_once(atExitOnce, []() {
             std::atexit(StopAllAtExit);
         });
         std::lock_guard<std::mutex> guard(running.lock);
+        if (running.isRefusing || running.isExiting) {
+            return false;
+        }
         std::erase_if(running.processes, [](const Entry &entry) {
             return entry.weak.expired();
         });
         running.processes.push_back({process.get(), process});
+        return true;
     }
 
     void Unregister(const Process *process) {
@@ -90,42 +104,57 @@ bool Process::Start() {
         }
         result.state = kState::kRunning;
     }
-    Register(shared_from_this());
+    if (!Register(shared_from_this())) {
+        // As any failed start: the exit callback runs here, at once
+        Finish(FailedToStart(command, "processes are being stopped (exit)"));
+        return false;
+    }
     return DoStart();
 }
 
 size_t Process::StopAll(std::chrono::milliseconds timeout) {
-    std::vector<Ref> processes;
+    auto &running = GetRunning();
     {
-        auto &running = GetRunning();
         std::lock_guard<std::mutex> guard(running.lock);
-        for (auto &entry : running.processes) {
-            if (auto process = entry.weak.lock()) {
-                processes.push_back(process);
-            }
-        }
+        running.isRefusing = true;
     }
     auto deadline = std::chrono::steady_clock::now() + timeout;
     size_t numStopped = 0;
-    for (auto &process : processes) {
-        if (!process->IsRunning()) {
-            continue;
+    // A process can register between our snapshot and the refusal - so round again until none is left to wait for
+    while (std::chrono::steady_clock::now() < deadline) {
+        std::vector<Ref> processes;
+        {
+            std::lock_guard<std::mutex> guard(running.lock);
+            for (auto &entry : running.processes) {
+                auto process = entry.weak.lock();
+                if (process == nullptr) {
+                    continue;
+                }
+                // A callback that calls exit() runs on that process's thread - waiting for it would wait for ourselves
+                std::lock_guard<std::mutex> processGuard(process->lock);
+                if (process->callbackThread != std::this_thread::get_id()) {
+                    processes.push_back(process);
+                }
+            }
         }
-        numStopped++;
-        process->Kill();
+        if (processes.empty()) {
+            break;
+        }
+        for (auto &process : processes) {
+            if (process->Kill()) {
+                numStopped++;
+            }
+        }
+        for (auto &process : processes) {
+            std::unique_lock<std::mutex> guard(process->lock);
+            process->finished.wait_until(guard, deadline, [&process]() {
+                return process->isFinished;
+            });
+        }
     }
-    for (auto &process : processes) {
-        std::unique_lock<std::mutex> guard(process->lock);
-        if (process->result.state == kState::kNotStarted) {
-            continue;
-        }
-        // A callback that calls exit() runs on that process's thread - waiting for it would wait for ourselves
-        if (process->callbackThread == std::this_thread::get_id()) {
-            continue;
-        }
-        process->finished.wait_until(guard, deadline, [&process]() {
-            return process->isFinished;
-        });
+    {
+        std::lock_guard<std::mutex> guard(running.lock);
+        running.isRefusing = false;
     }
     return numStopped;
 }

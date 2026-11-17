@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #include <atomic>
+#include <string>
 
 #include "Core/Process.h"
 
@@ -25,11 +26,28 @@ namespace {
     ExitSentinel glbSentinel;
 }
 
-int main() {
-    auto process = Process::Create("sleep", {"30"});
-    process->SetOnExit([](const Process::Result &result) {
+namespace {
+    void Report() {
         char report = glbSentinel.isAlive ? 'K' : 'X';
         (void)!write(STDOUT_FILENO, &report, 1);
+    }
+}
+
+// 'chain': the exit callback starts another process, as GitBase does (a failed 'git show' asks 'git status') - that one
+// must not outlive the exit either: one report per process, "KK".
+int main(int argc, char **argv) {
+    bool isChained = (argc > 1) && (std::string(argv[1]) == "chain");
+    auto process = Process::Create("sleep", {"30"});
+    process->SetOnExit([isChained](const Process::Result &result) {
+        Report();
+        if (!isChained) {
+            return;
+        }
+        auto next = Process::Create("sleep", {"30"});
+        next->SetOnExit([](const Process::Result &nextResult) {
+            Report();
+        });
+        next->Start();
     });
     if (!process->Start()) {
         return 1;

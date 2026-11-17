@@ -36,6 +36,7 @@ extern "C" {
     DLL_EXPORT int test_process_shellsurvives(ITesting *t);
     DLL_EXPORT int test_process_stopall(ITesting *t);
     DLL_EXPORT int test_process_stopall_atexit(ITesting *t);
+    DLL_EXPORT int test_process_stopall_chained(ITesting *t);
 }
 
 namespace {
@@ -301,5 +302,40 @@ DLL_EXPORT int test_process_stopall_atexit(ITesting *t) {
     // Before the fix nothing ran the callback before the helper was gone: no report at all
     TR_ASSERT(t, out == "K");
     TR_ASSERT(t, std::chrono::steady_clock::now() - timeStart < std::chrono::seconds(5));
+    return kTR_Pass;
+}
+
+// The Linux ASan run of #32 after the first fix: StopAll killed 'git show', whose exit callback started 'git status' -
+// not in StopAll's list, still running when the statics went. A process started from a callback during the stop must
+// end inside it too: here and in the helper's real exit.
+DLL_EXPORT int test_process_stopall_chained(ITesting *t) {
+    std::atomic<bool> isNextDone = false;
+    Process::Ref next;
+    auto first = Process::Create("sleep", {"30"});
+    first->SetOnExit([&](const Process::Result &result) {
+        next = Process::Create("sleep", {"30"});
+        next->SetOnExit([&isNextDone](const Process::Result &nextResult) {
+            isNextDone = true;
+        });
+        next->Start();
+    });
+    TR_ASSERT(t, first->Start());
+    auto timeStart = std::chrono::steady_clock::now();
+    Process::StopAll();
+    TR_ASSERT(t, isNextDone);
+    TR_ASSERT(t, (next != nullptr) && !next->IsRunning());
+    TR_ASSERT(t, std::chrono::steady_clock::now() - timeStart < std::chrono::seconds(2));
+    // A plain StopAll doesn't keep refusing: a process starts afterwards
+    auto after = Process::Create("sh", {"-c", "exit 0"});
+    TR_ASSERT(t, after->Run().IsSuccess());
+
+    auto helper = std::filesystem::current_path() / "process-exit-helper";
+    std::string out;
+    auto process = Process::Create(helper.string(), {"chain"});
+    process->SetOnStdOut([&out](const std::string &data) {
+        out += data;
+    });
+    TR_ASSERT(t, process->Run().IsSuccess());
+    TR_ASSERT(t, out == "KK");
     return kTR_Pass;
 }

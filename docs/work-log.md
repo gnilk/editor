@@ -15,9 +15,11 @@ query on quit, or `test_workspace_reopen` at trun's teardown - ran its exit call
 into Runloop's freed queue. **Load-bearing decisions:** `Process` keeps a registry of the running ones (raw pointer +
 `weak_ptr`, never destroyed); `Process::StopAll` kills them and waits for their last callback (2 s in all, skipping a
 callback that is itself exiting). It is registered with `std::atexit` on the first `Start()`, so it runs before every
-static built earlier - Runloop's queues, the Editor - in the app and at trun's exit alike, without Editor wiring. Test:
-`process_stopall_atexit` runs `process-exit-helper` (a program of its own - a forked trun runs trun's exit, whose logger
-joins threads the child doesn't have) and fails with the registration switched off.
+static built earlier - Runloop's queues, the Editor - in the app and at trun's exit alike, without Editor wiring. While
+it runs (for good once the exit's has begun) `Start()` refuses, and it rounds until none is left: the first version
+missed a chained process - killing `git show` made GitBase's callback start `git status`, which nothing waited for
+(Linux ASan caught it, 4/4). Tests: `process_stopall_atexit` / `_chained` run `process-exit-helper` (a program of its
+own - a forked trun runs trun's exit, whose logger joins threads the child doesn't have); each fails without its part.
 
 **Terminal, for a tester in uxterm over ssh** (hitlist #45): `Ctrl+C` at the local prompt never reached the shell
 (Linux binds it to Copy, the ANSI backend typed `c`). Now the shell gets `^C` and prints a fresh prompt; the typed

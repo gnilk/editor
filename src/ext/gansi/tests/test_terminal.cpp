@@ -84,6 +84,11 @@ DLL_EXPORT int test_terminal_close(ITesting *t) {
     TR_ASSERT(t, Contains(w, "\x1b[<u"));        // pop kitty keyboard
     TR_ASSERT(t, Contains(w, "\x1b[?1036r"));   // xterm's own metaSendsEscape back
     TR_ASSERT(t, Contains(w, "\x1b[>4m"));      // xterm's own modifyOtherKeys back
+    // The last colours drawn are reset before the alt screen goes: xterm keeps them on the normal screen (its
+    // DECRC on ?1049l doesn't bring the colours back), and the shell's reverse video (Ctrl+R) came out unreadable
+    auto idxReset = w.rfind("\x1b[0m");
+    TR_ASSERT(t, idxReset != std::string::npos);
+    TR_ASSERT(t, idxReset < w.find("\x1b[?1049l"));
 
     // Idempotent: a second Close is a no-op (no extra RestoreMode).
     term.Close();

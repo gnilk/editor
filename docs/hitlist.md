@@ -52,7 +52,7 @@ Built and unit-tested, not yet tried by hand on that platform. Linux = SDL2 (Ctr
 - **Big folder** (`max_scan_entries`, indexer cancel) - Linux built + tests green, measured by script, not by hand
   - [ ] Linux [x] Mac - `goatedit .` in a big tree (`~/src/apus`, an npm project with `node_modules` not ignored): the window answers at once
   - [ ] Linux [x] Mac - folders below the fourth level open when expanded; a session file deep in the tree reopens
-  - [ ] Linux [ ] Mac - `.q!` right after start-up: exits at once
+  - [ ] Linux [x] Mac - `.q!` right after start-up: exits at once
   - Mac 2026-11-17: responsive in `~/src`, but every quit crashed - the terminal's pty reader outlived its Shell. Fixed on `fix/shell-exit-crash` (808d5fb); re-check the three above, and that quitting is still instant
 - **Single-folder project** (#23) - Mac checked in a pty (`--backend ansi`), not in the SDL app
   - [ ] Linux [x] Mac - `goatedit a.txt .` in a repo with a `.goatedit`: stderr says "not a single-folder launch - project settings in '<dir>/.goatedit' not used"; no session restored; a file created in the terminal shows in the tree

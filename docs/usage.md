@@ -9,6 +9,24 @@ Rule of thumb: **`Cmd`/`Ctrl` = editing functions, `Opt`/`Alt` = moving around t
 - `goatedit <file>...` / `goatedit <file> <folder>` - opens them, but **not** as a project (a warning says so if a folder has a `.goatedit/`).
 - `--skip-user-config` - start without the user and project config.
 
+## In a terminal (ANSI backend)
+
+GoatEdit runs inside a terminal when there is no display (Linux without `DISPLAY` / `WAYLAND_DISPLAY`, macOS over
+ssh) or with `--backend ansi`. The keys are the same, but the terminal decides what a key sends:
+
+- **`Opt`/`Alt` must reach GoatEdit as Alt (Meta).** On macOS, Option types characters by default (`Opt+E` is `´`,
+  `Opt+T` is `†`) and no view switching works until the terminal is told otherwise:
+  - **Ghostty:** `macos-option-as-alt = left` in `~/.config/ghostty/config` (left Option is Alt, right Option still
+    types `é`, `[`, `{` - as in the window version); `true` for both.
+  - **Terminal.app:** Settings -> Profiles -> Keyboard -> "Use Option as Meta key".
+  - **iTerm2:** Settings -> Profiles -> Keys -> Left Option key: `Esc+`.
+  - **xterm / uxterm:** nothing to do - GoatEdit turns on `metaSendsEscape` while it runs.
+  - **Any other terminal:** look for "Option as Alt", "Option as Meta" or "Meta sends Escape" in its settings.
+- **`Cmd` doesn't reach a terminal app** on macOS, so the `Cmd` shortcuts (copy/paste, undo, save, ...) can't be
+  pressed in the ANSI backend yet (hitlist #48). Use the `.` commands meanwhile.
+- **To see what your terminal sends:** `python3 scripts/keycapture.py` (from the source tree) prints the bytes per
+  key with the keyboard modes GoatEdit turns on. `Opt+E` should show as `\x1be` or `\x1b[101;3u`, not `é`.
+
 ## Configuration
 
 Three layers, merged in this order (later wins, key by key):

@@ -4,6 +4,7 @@
 #include <testinterface.h>
 #include <cstdlib>
 #include "Core/Editor.h"
+#include "Core/XDGEnvironment.h"
 
 using namespace gedit;
 
@@ -13,6 +14,7 @@ DLL_EXPORT int test_launch_explicit_backend_wins(ITesting *t);
 DLL_EXPORT int test_launch_started_from_ui(ITesting *t);
 DLL_EXPORT int test_launch_defaults(ITesting *t);
 DLL_EXPORT int test_launch_take_started_from_ui(ITesting *t);
+DLL_EXPORT int test_launch_no_display(ITesting *t);
 }
 
 DLL_EXPORT int test_launch(ITesting *t) {
@@ -53,5 +55,31 @@ DLL_EXPORT int test_launch_take_started_from_ui(ITesting *t) {
 #endif
     TR_ASSERT(t, getenv("GEDIT_MACOS_STARTED_FROM_UI") == nullptr);
     TR_ASSERT(t, !Editor::TakeStartedFromUI());
+    return kTR_Pass;
+}
+
+// No display to open a window on is a terminal session - the ANSI backend, unless --backend says otherwise (#46)
+DLL_EXPORT int test_launch_no_display(ITesting *t) {
+#ifdef GEDIT_MACOS
+    // The window server is there whatever DISPLAY says; over ssh it isn't the user's
+    TR_ASSERT(t, !XDGEnvironment::IsTerminalSession("macos", "", "", ""));
+    TR_ASSERT(t, !XDGEnvironment::IsTerminalSession("macos", ":0", "", ""));
+    TR_ASSERT(t, XDGEnvironment::IsTerminalSession("macos", "", "", "10.0.0.2 52044 10.0.0.1 22"));
+    TR_ASSERT(t, XDGEnvironment::IsTerminalSession("macos", "localhost:10.0", "", "/dev/ttys004"));
+#else
+    // logind's ssh session - also with X forwarding
+    TR_ASSERT(t, XDGEnvironment::IsTerminalSession("tty", "", "", "10.0.0.2 52044 10.0.0.1 22"));
+    TR_ASSERT(t, XDGEnvironment::IsTerminalSession("tty", "localhost:10.0", "", ""));
+    // A desktop session
+    TR_ASSERT(t, !XDGEnvironment::IsTerminalSession("x11", ":0", "", ""));
+    TR_ASSERT(t, !XDGEnvironment::IsTerminalSession("wayland", "", "wayland-0", ""));
+    TR_ASSERT(t, !XDGEnvironment::IsTerminalSession("wayland", ":0", "wayland-0", ""));
+    // The session type says a desktop, but there is no display (a container, ssh without pam_systemd, an inherited env)
+    TR_ASSERT(t, XDGEnvironment::IsTerminalSession("x11", "", "", ""));
+    TR_ASSERT(t, XDGEnvironment::IsTerminalSession("wayland", "", "", "10.0.0.2 52044 10.0.0.1 22"));
+#endif
+    // and the backend that follows: --backend still wins, a desktop launch still gets a window
+    TR_ASSERT(t, Editor::ResolveBackend("", false, true, "sdl") == "ansi");
+    TR_ASSERT(t, Editor::ResolveBackend("sdl", false, true, "sdl") == "sdl");
     return kTR_Pass;
 }

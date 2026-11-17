@@ -8,6 +8,18 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## ANSI backend without a display (2026-11-17) ✅
+
+**No display, no window** (hitlist #46): the ANSI backend was the default only for `XDG_SESSION_TYPE=tty`, so a
+container or an ssh login without pam_systemd tried SDL and failed, and macOS over ssh always did. **Load-bearing
+decisions:** `XDGEnvironment::IsTerminalSession` also says yes on Linux when neither `DISPLAY` nor `WAYLAND_DISPLAY`
+is set, and on macOS when `SSH_CONNECTION` / `SSH_TTY` is (the window server ignores `DISPLAY`; over ssh it isn't the
+user's screen). ssh with X forwarding keeps the ANSI backend, as before (`tty` wins). The decision is a static taking
+the environment, tested in `test_launch_no_display`; `ResolveBackend`'s order is unchanged (`--backend`, a desktop
+launch, a terminal session, the config).
+
+---
+
 ## Processes are stopped at exit; terminal Ctrl+C and xterm Alt (2026-11-17) ✅
 
 **Exit use-after-free** (open-bugs #32, hitlist #38): a `Process` thread still running at `exit()` - the gutter's git

@@ -198,6 +198,9 @@ namespace gedit {
         ClipBoard &GetClipBoard() {
             return clipboard;
         }
+        // Text into the terminal as a paste - not via the clipboard - and Enter after it unless
+        // terminal.promote_sends_enter is off (hitlist #47). Focus stays where it is. False with no terminal or no text.
+        bool PromoteToTerminal(const std::u32string &text);
 
         const Theme::Ref GetTheme() {
             return theme;

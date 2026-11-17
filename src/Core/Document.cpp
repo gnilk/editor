@@ -539,6 +539,9 @@ bool Document::OnAction(const EditorAction &kpAction) {
     } else if (kpAction.action == kAction::kActionInsertLineComment) {
         // Handle this here since we want to keep the selection...
         CommentSelectionOrLine();
+    } else if (kpAction.action == kAction::kActionPromoteToTerminal) {
+        // Here, as the comment: the selection stays, to send it again or change it
+        Editor::Instance().PromoteToTerminal(SelectionOrLineText());
     } else if (kpAction.action == kAction::kActionSelectAll) {
         // Here, not in DispatchAction: a handled action there cancels the selection it just made
         SelectAll();
@@ -1320,6 +1323,20 @@ gedit::Point Document::SelectionEndForCopy(const Selection &selection) {
         return gedit::Point(0, endPos.y + 1);
     }
     return endPos;          // stops mid-line, or at the buffer's last line (no trailing newline)
+}
+
+std::u32string Document::SelectionOrLineText() {
+    std::u32string text;
+    if (IsSelectionActive()) {
+        auto selection = GetSelection();
+        text = ClipBoard::ClipBoardItem::Create(GetTextBuffer(), selection.GetStart(), SelectionEndForCopy(selection))->AsText();
+    } else {
+        text = ActiveLine()->Buffer();
+    }
+    while (!text.empty() && ((text.back() == U'\n') || (text.back() == U'\r'))) {
+        text.pop_back();
+    }
+    return text;
 }
 
 void Document::CommentSelectionOrLine() {

@@ -294,6 +294,9 @@ terminal:
   # What Alt(Option)+Left/Right sends to an app in the terminal: 'words' = ESC b / ESC f (readline word motion,
   # what Terminal.app/iTerm2 send), 'xterm' = CSI 1;3D / 1;3C. Unset: words on macOS, xterm on Linux.
   # alt_arrows: words
+  # Cmd/Ctrl+Enter in the editor (PromoteToTerminal) sends the selection - or the line - to the terminal; this presses
+  # Enter after it. Off: the text waits in the terminal for you to edit or send.
+  promote_sends_enter: yes
   # --- Terminal view (these were the separate 'commandview' section; consolidated here so the
   #     terminal has ONE config section from the user's point of view) ---
   # Keymap used while the terminal/command input view is active.

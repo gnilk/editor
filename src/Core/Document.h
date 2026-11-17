@@ -268,6 +268,8 @@ namespace gedit {
         }
         // Select the whole buffer, caret at the end of the last line. Nothing to select in an empty buffer.
         void SelectAll();
+        // The selection as text, or the active line with no selection - no trailing line break (PromoteToTerminal)
+        std::u32string SelectionOrLineText();
         __inline void CancelSelection() {
             documentViewState->currentSelection.SetActive(false);
         }

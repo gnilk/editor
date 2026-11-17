@@ -73,6 +73,10 @@ namespace gedit {
         // (bracketed when it asked, ?2004). At the local prompt one line is inserted at the caret; several lines go
         // to readline as one bracketed paste with the typed line - shown there for review, not run.
         void Paste(const std::u32string &text);
+        // Text from the editor (hitlist #47): pasted as Paste does, then - with 'isSubmit' - Enter: the app gets
+        // '\r' after the paste, a line at the local prompt runs as typed (CommitLine), several lines run in readline.
+        // A trailing line break is dropped, so Enter isn't pressed twice.
+        void Promote(std::u32string text, bool isSubmit);
         // Focus in/out for apps that asked for focus events (?1004)
         void SetFocus(bool isFocused);
         // A mouse event at a grid cell, for an app that turned on mouse reporting. False when nothing was sent
@@ -153,6 +157,8 @@ namespace gedit {
         bool IsPromptRow(const TerminalScreen::Row &row) const;
         void ExitShellOwned();
         void InterruptLocalLine();
+        // Enter while readline owns the line: run what it holds (or a dot-command), back to local editing
+        void CommitShellOwnedLine();
         bool CommitShellOwnedDotCommand();
         void RecordCommand(const std::u32string &cmdLine);
         void MarkCommandOutput();

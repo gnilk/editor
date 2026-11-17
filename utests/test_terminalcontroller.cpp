@@ -32,6 +32,7 @@ DLL_EXPORT int test_terminalcontroller_passthrough_actions(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_local_mode_keeps_keys(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_ctrlc_local(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_paste(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_promote(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_mouse_focus(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_replies_to_pty(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_tab_commit_history(ITesting *t);
@@ -567,6 +568,52 @@ DLL_EXPORT int test_terminalcontroller_paste(ITesting *t) {
         c.Paste(U"one\ntwo\n");
         TR_ASSERT(t, sent == "xyz\x1b[200~one\rtwo\r\x1b[201~");
         TR_ASSERT(t, c.DoesShellOwnLineEditing());
+    }
+    return kTR_Pass;
+}
+
+// Editor text into the terminal (hitlist #47): a paste, then Enter where it lands - the app, the local prompt, readline
+DLL_EXPORT int test_terminalcontroller_promote(ITesting *t) {
+    {   // An app (a chat in the terminal) that asked for bracketed paste: one paste, then Enter
+        TerminalController c;
+        c.Resize(40, 10);
+        std::string sent;
+        CaptureInput(c, sent, true);
+        FeedPty(c, "\x1b[?2004h");
+        c.Promote(U"explain this\nplease\n", true);
+        TR_ASSERT(t, sent == "\x1b[200~explain this\rplease\x1b[201~\r");
+        sent.clear();
+        c.Promote(U"wait", false);
+        TR_ASSERT(t, sent == "\x1b[200~wait\x1b[201~");
+        sent.clear();
+        c.Promote(U"\n", true);
+        TR_ASSERT(t, sent.empty());
+    }
+    {   // One line at the local prompt: run as typed, after what was already typed there
+        TerminalController c;
+        c.Resize(40, 10);
+        std::string sent;
+        CaptureInput(c, sent, false);
+        FeedPty(c, "$ ");
+        c.Promote(U"echo hi", false);
+        TR_ASSERT(t, c.GetInputLine()->Buffer() == std::u32string(U"echo hi"));
+        c.GetInputLine()->Clear();
+        c.Promote(U"echo hi", true);
+        TR_ASSERT(t, c.GetInputLine()->Buffer().empty());
+        EditorAction up;
+        up.uiAction = kUIAction::kUIActionLineUp;
+        c.OnAction(up);
+        TR_ASSERT(t, c.GetInputLine()->Buffer() == std::u32string(U"echo hi"));    // it ran: in the history
+    }
+    {   // Several lines at the local prompt: readline gets them, Enter runs them, back to local editing
+        TerminalController c;
+        c.Resize(40, 10);
+        std::string sent;
+        CaptureInput(c, sent, false);
+        FeedPty(c, "$ ");
+        c.Promote(U"cd /tmp\nls", true);
+        TR_ASSERT(t, sent == "\x1b[200~cd /tmp\rls\x1b[201~\r");
+        TR_ASSERT(t, !c.DoesShellOwnLineEditing());
     }
     return kTR_Pass;
 }

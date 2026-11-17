@@ -87,7 +87,7 @@ void Terminal::Close() {
     if (!isOpen) {
         return;
     }
-    // Disable exactly what Open enabled (mirror the gating), then restore cursor + leave alt-screen.
+    // Disable exactly what Open enabled (mirror the gating), then restore cursor + colours, leave alt-screen.
     std::string seq;
     if (caps.metaSendsEscape) {
         seq += Caps::RestoreMetaSendsEscape();
@@ -109,6 +109,9 @@ void Terminal::Close() {
     }
     seq += AnsiEncoder::SetCursorShape(CursorShape::Default);
     seq += AnsiEncoder::ShowCursor();
+    // The last colours drawn would follow us out: xterm's ?1049l doesn't restore them, and the shell's reverse
+    // video (Ctrl+R's search) then came out as fg == bg
+    seq += AnsiEncoder::ResetSgr();
     seq += AnsiEncoder::LeaveAltScreen();
     WriteStr(*io, seq);
 

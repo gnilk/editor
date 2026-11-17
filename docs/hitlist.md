@@ -69,7 +69,7 @@ Built and unit-tested, not yet tried by hand on that platform. Linux = SDL2 (Ctr
   - [x] Linux - over ssh (no `-X`), plain `goatedit`: the ANSI backend
   - [ ] Linux - in the desktop session: a window
   - [ ] Linux - `--backend sdl` over ssh: crash-dumps (2026-11-17, desktop locked) - should fail with a message. See #49
-  - [ ] Mac - `ssh localhost`, plain `goatedit`: the ANSI backend; from Terminal.app: a window
+  - [x] Mac - `ssh localhost`, plain `goatedit`: the ANSI backend; from Terminal.app: a window
   - Mac 2026-11-17: `goat` over ssh opened a window - `open` starts the app with launchd's environment, no `SSH_CONNECTION`. Fixed on `fix/shell-exit-crash` (5658fc0): over ssh `goat` runs the binary in the terminal; needs `install-cli` to regenerate `~/.local/bin/goat`
 - **xterm Ctrl chords in the ANSI backend** (#44)
   - [ ] Linux - `goatedit` in `uxterm` (TERM=xterm) over ssh: `Ctrl+/` comments the line, `Ctrl+I` reformats the block (not a Tab), `Ctrl+]` jumps forward, `Ctrl+[` comes back; Tab, Enter, Backspace, `Ctrl+C` in the terminal as before; after quitting, the shell's `Ctrl+R` / `Ctrl+A` still work

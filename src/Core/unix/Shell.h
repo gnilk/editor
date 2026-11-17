@@ -9,6 +9,7 @@
 #include <string>
 #include <functional>
 #include <atomic>
+#include <thread>
 #include <cstdint>
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,6 +33,10 @@ namespace gedit {
         using OutputDelegate = std::function<void(const uint8_t *buffer, size_t length)>;
 
     public:
+        Shell() = default;
+        // Closes: the reader thread is joined, so it can't outlive the object
+        ~Shell();
+
         bool Begin(const std::string &shell, const std::string &args,
                    const std::vector<std::string> &initScript);
 
@@ -46,6 +51,9 @@ namespace gedit {
         // an interactive shell gives each command its own group, so this is "a program is running"
         bool IsForegroundJobRunning() const;
 
+        // Ends the shell and returns once the pty reader thread is gone (state kTerminated) - after it, the
+        // delegate is never called again and the Shell can be destroyed. A shell that ignores the hangup is
+        // killed after a grace period, so this is bounded.
         void Close();
         void CleanUp();
 
@@ -61,6 +69,8 @@ namespace gedit {
 
     private:
         void ConsumePty();
+        void ReapChild();
+        void WakeReader();
         bool StartShellProc(const std::string &shell, const std::string &shellInitStr);
         void SendInitScript(const std::vector<std::string> &initScript);
         std::string ResolveShellBinary(const std::string &configured);
@@ -88,6 +98,8 @@ namespace gedit {
         pid_t    pid       = -1;
         int      exitStatus = 0;
         std::atomic<State> state { State::kIdle };
+        std::thread reader;
+        int      wakeFds[2] = { -1, -1 };   // Close() writes to [1] so the reader's poll() returns at once
 
         OutputDelegate onOutput = nullptr;
     };

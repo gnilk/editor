@@ -7,6 +7,7 @@
 #include <atomic>
 #include <chrono>
 #include <filesystem>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -34,6 +35,8 @@ extern "C" {
     DLL_EXPORT int test_process_inheritedpipe(ITesting *t);
     DLL_EXPORT int test_process_startonce(ITesting *t);
     DLL_EXPORT int test_process_shellsurvives(ITesting *t);
+    DLL_EXPORT int test_process_shellclose(ITesting *t);
+    DLL_EXPORT int test_process_shellclose_ignoreshup(ITesting *t);
     DLL_EXPORT int test_process_stopall(ITesting *t);
     DLL_EXPORT int test_process_stopall_atexit(ITesting *t);
     DLL_EXPORT int test_process_stopall_chained(ITesting *t);
@@ -222,7 +225,7 @@ DLL_EXPORT int test_process_startonce(ITesting *t) {
 // (Linux only) set the shell to kTerminate on any child's exit - the first 'git rev-parse' after opening a folder
 // stopped the pty reader, and the terminal showed nothing from then on while the shell still ran the commands.
 DLL_EXPORT int test_process_shellsurvives(ITesting *t) {
-    // Never destroyed: the pty reader is a detached thread holding 'this'
+    // Static, so the delegate's locals are gone before it is - the shell has exited by then (see the end)
     static Shell shell;
     std::mutex lock;
     std::string output;
@@ -265,6 +268,77 @@ DLL_EXPORT int test_process_shellsurvives(ITesting *t) {
     return kTR_Pass;
 }
 
+
+namespace {
+    bool WaitForShellState(const Shell &shell, Shell::State state, int timeoutMs) {
+        auto tEnd = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeoutMs);
+        while ((shell.GetState() != state) && (std::chrono::steady_clock::now() < tEnd)) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+        return shell.GetState() == state;
+    }
+}
+
+// The crash on quit (2026-11-17, Mac): the pty reader was a detached thread holding the Shell's 'this', and
+// nothing waited for it - the TerminalController (and its Shell) went away while the reader was still in poll().
+// Close() must return only when the reader is gone, so the Shell can be destroyed right after.
+DLL_EXPORT int test_process_shellclose(ITesting *t) {
+    auto shell = std::make_unique<Shell>();
+    std::atomic<size_t> nBytes { 0 };
+    shell->SetOutputDelegate([&nBytes](const uint8_t *, size_t length) {
+        nBytes += length;
+    });
+    TR_ASSERT(t, shell->Begin("/bin/sh", "-i", {}));
+    TR_ASSERT(t, WaitForShellState(*shell, Shell::State::kRunning, 3000));
+
+    auto tStart = std::chrono::steady_clock::now();
+    shell->Close();
+    auto msClose = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - tStart).count();
+    bool isStopped = (shell->GetState() == Shell::State::kTerminated);
+    if (!isStopped) {
+        // The reader is still running and holds 'this' - destroying the Shell now would be the crash itself
+        shell.release();
+    }
+    TR_ASSERT(t, isStopped);
+    TR_ASSERT(t, msClose < 1000);
+    shell.reset();
+    return kTR_Pass;
+}
+
+// A shell (or a job) that ignores the hangup must not hang the quit: Close() ends it anyway, in bounded time
+DLL_EXPORT int test_process_shellclose_ignoreshup(ITesting *t) {
+    auto shell = std::make_unique<Shell>();
+    std::mutex lock;
+    std::string output;
+    shell->SetOutputDelegate([&lock, &output](const uint8_t *buffer, size_t length) {
+        std::lock_guard<std::mutex> guard(lock);
+        output.append(reinterpret_cast<const char *>(buffer), length);
+    });
+    TR_ASSERT(t, shell->Begin("/bin/sh", "-i", {}));
+    TR_ASSERT(t, WaitForShellState(*shell, Shell::State::kRunning, 3000));
+    std::u32string cmd = U"trap '' HUP; echo trap_$((1+1))\n";
+    shell->SendCmd(cmd);
+    bool isTrapped = false;
+    auto tEnd = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+    while (!isTrapped && (std::chrono::steady_clock::now() < tEnd)) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        std::lock_guard<std::mutex> guard(lock);
+        isTrapped = (output.find("trap_2") != std::string::npos);
+    }
+    TR_ASSERT(t, isTrapped);
+
+    auto tStart = std::chrono::steady_clock::now();
+    shell->Close();
+    auto msClose = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - tStart).count();
+    bool isStopped = (shell->GetState() == Shell::State::kTerminated);
+    if (!isStopped) {
+        shell.release();
+    }
+    TR_ASSERT(t, isStopped);
+    TR_ASSERT(t, msClose < 2000);
+    shell.reset();
+    return kTR_Pass;
+}
 
 DLL_EXPORT int test_process_stopall(ITesting *t) {
     // Two running, their Refs dropped: StopAll kills both and returns after both exit callbacks have run

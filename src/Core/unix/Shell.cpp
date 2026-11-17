@@ -14,6 +14,7 @@
 #include <termios.h>
 #include <sys/ioctl.h>
 #include <thread>
+#include <chrono>
 #include <sys/stat.h>
 #include <string.h>
 #include <fcntl.h>
@@ -32,9 +33,23 @@
 
 using namespace gedit;
 
+Shell::~Shell() {
+    Close();
+    for (auto &fd : wakeFds) {
+        if (fd >= 0) {
+            ::close(fd);
+            fd = -1;
+        }
+    }
+}
+
 bool Shell::Begin(const std::string &shell, const std::string &args,
                   const std::vector<std::string> &initScript) {
     logger = gnilk::Logger::GetLogger("Shell");
+    if (reader.joinable()) {
+        logger->Error("Begin: the shell is already started");
+        return false;
+    }
     if (!StartShellProc(shell, args)) {
         return false;
     }
@@ -59,7 +74,13 @@ bool Shell::StartShellProc(const std::string &configuredShell, const std::string
     if (pid > 0) {
         // Parent — amaster is the only fd we need
         logger->Debug("Started child with pid=%d", pid);
-        std::thread(&Shell::ConsumePty, this).detach();
+        if ((wakeFds[0] < 0) && (::pipe(wakeFds) == 0)) {
+            ::fcntl(wakeFds[0], F_SETFD, FD_CLOEXEC);
+            ::fcntl(wakeFds[1], F_SETFD, FD_CLOEXEC);
+            ::fcntl(wakeFds[1], F_SETFL, O_NONBLOCK);
+        }
+        // Joined by Close() - never detached: it holds 'this' and calls the output delegate
+        reader = std::thread(&Shell::ConsumePty, this);
     } else if (pid == 0) {
         // Child — pty slave is already stdin/stdout/stderr; just exec.
         // Set TERM so ncurses-based programs (less, vi, ...) find their
@@ -146,13 +167,56 @@ bool Shell::IsForegroundJobRunning() const {
 }
 
 void Shell::Close() {
-    ChangeState(State::kTerminate);
+    if (!reader.joinable()) {
+        return;
+    }
+    if (reader.get_id() == std::this_thread::get_id()) {
+        // From the delegate - the reader ends after it returns; whoever owns us joins it
+        ChangeState(State::kTerminate);
+        return;
+    }
+    if (GetState() != State::kTerminated) {
+        ChangeState(State::kTerminate);
+        WakeReader();
+    }
+    reader.join();
+}
+
+void Shell::WakeReader() {
+    if (wakeFds[1] >= 0) {
+        uint8_t byte = 1;
+        [[maybe_unused]] auto n = ::write(wakeFds[1], &byte, 1);
+    }
 }
 
 void Shell::CleanUp() {
     if (amaster >= 0) {
         ::close(amaster);
         amaster = -1;
+    }
+}
+
+// Closed by us (Close) rather than by the shell exiting: hang up, as a terminal closing does. A shell that ignores
+// it (trap '' HUP) gets a grace period and then SIGKILL - the quit must not hang on it.
+void Shell::ReapChild() {
+    static constexpr int kGraceMs = 500;
+    if (GetState() == State::kTerminate) {
+        kill(pid, SIGHUP);
+    }
+    int status = 0;
+    pid_t reaped = 0;
+    auto tEnd = std::chrono::steady_clock::now() + std::chrono::milliseconds(kGraceMs);
+    while ((reaped = waitpid(pid, &status, WNOHANG)) == 0) {
+        if (std::chrono::steady_clock::now() >= tEnd) {
+            logger->Warning("Shell pid=%d didn't exit on hangup - killing it", pid);
+            kill(pid, SIGKILL);
+            reaped = waitpid(pid, &status, 0);
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    if ((reaped == pid) && WIFEXITED(status)) {
+        exitStatus = WEXITSTATUS(status);
     }
 }
 
@@ -173,13 +237,17 @@ void Shell::ConsumePty() {
     uint8_t buffer[4096];
 
     while (GetState() != State::kTerminate) {
-        struct pollfd pfd = { amaster, POLLIN, 0 };
-        int ret = poll(&pfd, 1, GEDIT_DEFAULT_POLL_TMO_MS);
+        struct pollfd pfds[2] = { { amaster, POLLIN, 0 }, { wakeFds[0], POLLIN, 0 } };
+        int ret = poll(pfds, (wakeFds[0] >= 0) ? 2 : 1, GEDIT_DEFAULT_POLL_TMO_MS);
         if (ret < 0) {
             if (errno == EINTR) { continue; }
             break;
         }
         if (ret == 0) { continue; }
+        if ((wakeFds[0] >= 0) && (pfds[1].revents & POLLIN)) {
+            // Close() - the loop condition sees kTerminate
+            continue;
+        }
 
         ssize_t n = read(amaster, buffer, sizeof(buffer));
         if (n > 0) {
@@ -210,16 +278,7 @@ void Shell::ConsumePty() {
         }
     }
 
-    // Closed by us (Close) rather than by the shell exiting: hang up, as a terminal closing does, so the
-    // wait below returns instead of waiting on a shell that is still running
-    if (GetState() == State::kTerminate) {
-        kill(pid, SIGHUP);
-    }
-    int status = 0;
-    waitpid(pid, &status, 0);
-    if (WIFEXITED(status)) {
-        exitStatus = WEXITSTATUS(status);
-    }
+    ReapChild();
 
     logger->Debug("Leaving ConsumePty for pid=%d", pid);
     CleanUp();

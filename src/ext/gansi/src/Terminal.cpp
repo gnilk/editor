@@ -70,6 +70,9 @@ bool Terminal::Open() {
     if (caps.kittyKeyboard) {
         seq += Caps::EnableKittyKeyboard();
     }
+    if (caps.metaSendsEscape) {
+        seq += Caps::EnableMetaSendsEscape();
+    }
     WriteStr(*io, seq);
     lastCursorVisible = false;
 
@@ -83,6 +86,9 @@ void Terminal::Close() {
     }
     // Disable exactly what Open enabled (mirror the gating), then restore cursor + leave alt-screen.
     std::string seq;
+    if (caps.metaSendsEscape) {
+        seq += Caps::RestoreMetaSendsEscape();
+    }
     if (caps.kittyKeyboard) {
         seq += Caps::DisableKittyKeyboard();
     }

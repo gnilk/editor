@@ -26,6 +26,9 @@ namespace gnilk::ansi {
         bool bracketedPaste = true;   // bracketed paste (2004).
         bool kittyKeyboard = true;    // Kitty keyboard progressive enhancement (CSI > flags u).
         bool osc52Clipboard = true;   // OSC 52 set-clipboard.
+        bool metaSendsEscape = true;  // ask xterm to send Alt+key as ESC key (1036): its default sets the 8th
+                                      // bit instead, which a UTF-8 xterm (uxterm) sends as a Latin-1 letter.
+                                      // Saved and restored (XTSAVE / XTRESTORE); other terminals ignore it.
 
         // Environment lookup: returns the variable's value, or "" when unset. Injected so detection is
         // unit-testable without touching the real process environment.

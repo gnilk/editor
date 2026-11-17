@@ -30,6 +30,7 @@ DLL_EXPORT int test_terminalcontroller_config_consolidated(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_passthrough_keys(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_passthrough_actions(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_local_mode_keeps_keys(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_ctrlc_local(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_paste(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_mouse_focus(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_replies_to_pty(ITesting *t);
@@ -501,6 +502,38 @@ DLL_EXPORT int test_terminalcontroller_local_mode_keeps_keys(ITesting *t) {
     TR_ASSERT(t, c.IsAppActive());
     c.HandleKeyPress(cursor, line, TextKey(U'q'));
     TR_ASSERT(t, sent == "q");
+    return kTR_Pass;
+}
+
+// Ctrl+C at the local prompt: the shell gets the interrupt, the line stays visible in the grid - not run, nothing inserted. It comes as
+// a key (macOS: unbound) or as CopyToClipboard (Linux binds Ctrl+C to it)
+DLL_EXPORT int test_terminalcontroller_ctrlc_local(ITesting *t) {
+    TerminalController c;
+    c.Resize(40, 10);
+    std::string sent;
+    CaptureInput(c, sent, false);
+    Cursor cursor;
+    size_t line = 0;
+    c.HandleKeyPress(cursor, line, TextKey(U'l'));
+    c.HandleKeyPress(cursor, line, TextKey(U's'));
+    TR_ASSERT(t, c.HandleKeyPress(cursor, line, TextKey(U'c', Keyboard::kMod_LeftCtrl)));
+    TR_ASSERT(t, sent == "\x03");
+    TR_ASSERT(t, c.GetInputLine()->Length() == 0);
+    TR_ASSERT(t, c.GetScreen().GetRow(0)[0].ch == U'l');
+    TR_ASSERT(t, c.GetScreen().GetRow(0)[1].ch == U's');
+
+    sent.clear();
+    c.HandleKeyPress(cursor, line, TextKey(U'x'));
+    EditorAction copy;
+    copy.action = kAction::kActionCopyToClipboard;
+    copy.keyPress = TextKey(U'c', Keyboard::kMod_LeftCtrl);
+    TR_ASSERT(t, c.OnAction(copy));
+    TR_ASSERT(t, sent == "\x03");
+    TR_ASSERT(t, c.GetInputLine()->Length() == 0);
+
+    // Another Ctrl chord nothing is bound to is not text
+    TR_ASSERT(t, !c.HandleKeyPress(cursor, line, TextKey(U'y', Keyboard::kMod_LeftCtrl)));
+    TR_ASSERT(t, c.GetInputLine()->Length() == 0);
     return kTR_Pass;
 }
 

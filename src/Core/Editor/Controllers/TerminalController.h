@@ -111,6 +111,8 @@ namespace gedit {
         void ScrollToTop();
 
         bool OnAction(const EditorAction &kpAction);
+        // Ctrl+C at the local prompt: the line is abandoned as the shell does it (see InterruptLocalLine)
+        static bool IsInterruptKey(const KeyPress &keyPress);
         bool ForwardActionToShell(const EditorAction &kpAction);
         void WriteLine(const std::u32string &str) override;
 
@@ -150,6 +152,7 @@ namespace gedit {
         std::u32string PromptTextOf(const TerminalScreen::Row &row) const;
         bool IsPromptRow(const TerminalScreen::Row &row) const;
         void ExitShellOwned();
+        void InterruptLocalLine();
         bool CommitShellOwnedDotCommand();
         void RecordCommand(const std::u32string &cmdLine);
         void MarkCommandOutput();

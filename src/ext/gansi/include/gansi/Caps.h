@@ -33,6 +33,11 @@ namespace gnilk::ansi {
         static std::string EnableModifyOtherKeys();
         static std::string DisableModifyOtherKeys();
 
+        // xterm metaSendsEscape (DECSET 1036): Alt+key arrives as ESC key, not with the 8th bit set. Enable saves
+        // the terminal's own setting first (XTSAVE), Restore puts it back (XTRESTORE).
+        static std::string EnableMetaSendsEscape();
+        static std::string RestoreMetaSendsEscape();
+
         // OSC 52 set-clipboard (selection 'c'). `utf8` is base64-encoded into the sequence. Works over
         // SSH where the terminal forwards OSC 52.
         static std::string SetClipboardOSC52(const std::string &utf8);

@@ -90,6 +90,8 @@ keys and drawing. Linux run 2026-11-17: all pass but `sdl_no_display` (#49).
   - [x] Linux [x] Mac - open `CMakeLists.txt` and a `*.cmake`: commands blue (any case), `if`/`foreach`/`function` as keywords, `PUBLIC` / `REQUIRED` / `VERSION` red (not `public`), `${VAR}` (nested too, in strings too), `$<...>`, `#[[ ]]` comments over lines, `ON`/`OFF`; `.ll` lists `cmake` with `CMakeLists.txt`; `Cmd/Ctrl+/` comments with `#` (scripted: `cmake`)
     - Linux 2026-11-17: Ctrl+/ twice turned `#set(X 1)` into `et(X 1)` - uncommenting always removed 2 chars (any one-char
       prefix: CMake, YAML). Fixed in `Document::AddLineComment` (`test_document_comment_toggle`)
+- **Esc in the ANSI backend** (a lone ESC waited out the 250 ms poll; now 25 ms - 253 -> 27 ms measured in a pty)
+  - [ ] Linux - `goatedit` in uxterm / over ssh: Esc into quick mode and a command feel immediate; Alt+T / Alt+E still switch views
 - **Short-file scroll window** (#35, open-bugs #30)
   - [x] Linux [x] Mac - a new file, a dozen lines, PageDown, then Enter in the middle: the top line stays until the view is full (scripted: `short_scroll`)
 

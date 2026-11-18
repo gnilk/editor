@@ -8,6 +8,23 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## Dark 2026 (from VS Code) shipped, generated from its source (2026-11-18) ✅
+
+**Hitlist #20** (`theme-collection.md` §4.1). **Load-bearing decisions:**
+- **The source is in git, untouched:** `Assets/ThemeSources/vscode/` keeps VS Code's upstream layout (`package.json`,
+  `LICENSE.txt`, `themes/2026-dark.json` and its include chain), pinned to a commit in `SOURCE.md` - so the importer's
+  provenance lookup fills `author` / `license` / `copyright` / `source` by itself, and an improved importer can
+  convert them again.
+- **Generated, then committed:** `scripts/gen-themes.py --exe <goatedit>` runs the editor's own `--import-theme` in a
+  sandbox HOME and applies `Assets/ThemeSources/overlays/<file>.json` (our name, extra variables/colours - here VS
+  Code's default dark ANSI palette, which the themes don't set). Not at build or install: the asset mirror drops what
+  isn't in the source tree, and the dev build would have no themes. `--check` is the `themes_gen` check, so the
+  committed theme can't fall behind the importer or the overlay.
+- Named "Dark 2026 (from VS Code)", file `vscode-dark-2026`; `Themes/LICENSES.md` has the MIT text, the copyright line
+  and the commit.
+
+---
+
 ## Switch themes: `.theme list` / `.theme use` (2026-11-18) ✅
 
 **Hitlist #19** (`theme-collection.md` §5 step 3). `.theme list` shows the themes `use` can switch to (the user's

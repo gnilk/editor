@@ -118,6 +118,8 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
     - Linux 2026-11-18: `install.sh --user` (sandbox HOME) installs `Themes/`, a reinstall over a pre-#18 install removes the old root `default.theme.yml` / `colors.json`; the installed binary starts with the default theme, no warning. The import part not tried by hand yet
 - **Switch themes** (#19) - the terminal version scripted (`theme_use`)
   - [ ] Linux [ ] Mac - the window: `.theme list`, `.theme use <one>` - editor, gutter, status line, tree, terminal and minimap all change at once; `.theme use default theme` back; restart keeps the choice
+- **Dark 2026 (from VS Code)** (#20) - the terminal version scripted (`vscode_theme`: editor background, terminal red)
+  - [ ] Linux [ ] Mac - the window: `.theme use vscode-dark-2026` - looks like VS Code's Dark 2026 side by side (a C++ file: keywords, strings, comments, types); the terminal's `ls --color` / `git diff` colours read well
 - **Short-file scroll window** (#35, open-bugs #30)
   - [x] Linux [x] Mac - a new file, a dozen lines, PageDown, then Enter in the middle: the top line stays until the view is full (scripted: `short_scroll`)
 
@@ -130,7 +132,6 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
 | 17 | A config list overwrites the default list by position | open-bugs #28 | half a day | idea: an immutable merge that returns a new tree; `LanguageFileSet::Merge` is the model |
 | 11 | Languages phase 2, step 2: Python (the prefix rule for decorators, triple-quoted strings; numbers and case folding are in since step 1) | `support-languages.md` §6 | a day | CMake (step 1) is done |
 | 12 | Languages phase 3: the user directory, `.lang_reload`, `override: yes` | `support-languages.md` | a day | user language dirs aren't read yet |
-| 20 | Ship Dark 2026 (from VS Code) + `Themes/LICENSES.md`, its own terminal palette | `theme-collection.md` §4 | half a day | copyright line from the `microsoft/vscode` repo first |
 | 6 | Gansi copy fallback: `pbcopy` / `xclip` / `wl-copy` when local | open-bugs #20 notes | half a day | fits with #20 |
 | 25 | `Cmd` held underlines a name a click would jump from | usability §14 | half a day | decided: only names the index resolves, an underline; needs the hover plumbing (as 26, 27) |
 | 26 | Button widget in the UI toolkit | usability §16 | a day | needed by 27 |
@@ -154,6 +155,7 @@ Smaller bugs not ranked yet: open-bugs #24 (readline history extras),
 
 | # | Item | When |
 |---|---|---|
+| 20 | Dark 2026 (from VS Code) shipped: VS Code's theme files kept as source (`Assets/ThemeSources/vscode/`, MIT, commit pinned), converted by the editor's own importer + an overlay (our name, VS Code's terminal colours) with `scripts/gen-themes.py`, the result committed; `Themes/LICENSES.md`. `--check` is the `themes_gen` check | 2026-11-18 |
 | 19 | `.theme list` (yours and the shipped ones, the current one marked) and `.theme use <name>` - switches live (the open documents are highlighted again, the terminal's palette follows) and saves `main.theme` in the user config. `.theme_reload` now updates the syntax colours too | 2026-11-18 |
 | 18 | Themes in a folder of their own: shipped ones in `Themes/` (the default moved there, `default.colors.json`), the user's in `~/.config/goatedit/themes/` (the importer writes there); themes imported before still load (`Theme::Locate`) | 2026-11-18 |
 | 41 | Gaps from `usage.md`: word left/right on macOS (`Opt+Left`/`Right`, CLion's; `Shift` extends, both platforms); drag to select in the editor (and `Shift+click`; the terminal version too); `Tab` out of the Linux project tree; `.openfolder` unregistered (comes with #36). Found with it: Alt wasn't matched on special keys (`Opt+Left` took `NavigateLeft`) | 2026-11-18 |

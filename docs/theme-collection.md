@@ -101,4 +101,5 @@ Dark+/Light+, Visual Studio Dark/Light, High Contrast dark/light. They include e
    2026-11-18** (`feature/theme-list`): live, no restart - `Theme::Switch` + `Editor::ApplyTheme` (the open documents are
    highlighted again).
 4. Vendor the first themes: Dark 2026 (from VS Code), with `LICENSES.md`; then a light one. Each with its own terminal
-   palette.
+   palette. **Dark 2026 built 2026-11-18** (`feature/vscode-themes`, §4.1): `scripts/gen-themes.py`, overlay
+   `Assets/ThemeSources/overlays/vscode-dark-2026.json`. A light one: add its source chain and an overlay, run the script.

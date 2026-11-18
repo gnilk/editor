@@ -6,6 +6,7 @@
 #define EDITOR_THEME_H
 
 #include <memory>
+#include <optional>
 #include <string>
 #include "logger.h"
 
@@ -23,6 +24,16 @@ namespace gedit {
         inline static const std::string clrClassTerminal = "terminal";
         // Shipped with the editor - what a theme that can't be loaded falls back to
         static constexpr const char *DEFAULT_THEME = "default.theme.yml";
+        // Where theme files live (docs/theme-collection.md §2): the user's in 'themes/' next to the user config, the
+        // shipped ones in 'Themes/' of the system assets
+        static constexpr const char *USER_THEME_DIR = "themes";
+        static constexpr const char *SYSTEM_THEME_DIR = "Themes";
+
+        // A theme file (or a theme's colour file) as the asset loader finds it: the name to load, and where
+        struct Location {
+            std::string name;
+            AssetLoaderBase::kLocationType locationType = AssetLoaderBase::kLocationType::kAny;
+        };
     public:
         Theme() = default;
         virtual ~Theme() = default;
@@ -31,6 +42,10 @@ namespace gedit {
         // 'themeFile', or the shipped default when it can't be loaded - 'outProblem' then says why (empty when the
         // theme loaded). nullptr only when the default can't be loaded either.
         static Ref LoadOrDefault(const std::string &themeFile, std::string &outProblem);
+        // Where 'fileName' is: the user's 'themes/', the user dir (themes imported before 'themes/'), the system
+        // 'Themes/', the system root (where the default was); an absolute path as it is. 'nextTo' (a theme's colour
+        // file) is looked at first. None: empty.
+        static std::optional<Location> Locate(const std::string &fileName, const std::optional<Location> &nextTo = {});
 
         const std::string &GetName() {
             return name;
@@ -82,7 +97,7 @@ namespace gedit {
         const NamedColors &ColorsOrEmpty(const std::string &clrClass) const;
         bool LoadThemeFile(const std::string &pathname);
         bool IsValidColorClass(const std::string &className);
-        bool LoadSublimeColorFile(std::string colorFile);
+        bool LoadSublimeColorFile(const Location &colorFile);
         void InheritGlobalColors();
 
         template<typename T, typename E>

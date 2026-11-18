@@ -2,4 +2,4 @@ name: default theme
 font: "Andale Mono.ttf"
 # font: "VictorMono-Regular.ttf"
 # font: "iosevka-regular.ttf"
-colorfile: "colors.json"
+colorfile: "default.colors.json"

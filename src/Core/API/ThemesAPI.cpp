@@ -9,6 +9,7 @@
 
 #include "Core/Config/Config.h"
 #include "Core/Config/ConfigNode.h"
+#include "Core/Theme/Theme.h"
 #include "Core/Theme/ThemeImporter.h"
 #include "Core/XDGEnvironment.h"
 #include "ConfigAPI.h"
@@ -49,10 +50,10 @@ ThemesAPI::Result ThemesAPI::Import(const std::string &file, const std::string &
         return result;
     }
 
-    // Next to the user config the editor reads, else where one would be created
+    // In 'themes/' next to the user config the editor reads, else where one would be created
     ConfigAPI configApi;
     auto userConfig = configApi.ConfigFilePath(ConfigAPI::kLevel::kUser);
-    auto userDir = userConfig.parent_path();
+    auto userDir = userConfig.parent_path() / Theme::USER_THEME_DIR;
     auto themePath = userDir / (*fileName + ".theme.yml");
     auto colorsPath = userDir / (*fileName + ".colors.json");
     std::error_code ec;
@@ -65,7 +66,8 @@ ThemesAPI::Result ThemesAPI::Import(const std::string &file, const std::string &
 
     // The font isn't part of a colour theme - keep the one the current theme uses
     ConfigNode currentTheme;
-    auto font = currentTheme.LoadConfig(Config::Instance()["main"].GetStr("theme", "default.theme.yml"))
+    auto currentLocation = Theme::Locate(Config::Instance()["main"].GetStr("theme", Theme::DEFAULT_THEME));
+    auto font = (currentLocation.has_value() && currentTheme.LoadConfig(currentLocation->name, currentLocation->locationType))
                     ? currentTheme.GetStr("font", "Andale Mono.ttf")
                     : std::string("Andale Mono.ttf");
 

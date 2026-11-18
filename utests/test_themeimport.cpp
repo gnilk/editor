@@ -332,7 +332,7 @@ DLL_EXPORT int test_themeimport_complete(ITesting *t) {
         TR_ASSERT(t, colors["content"].contains(key));
     }
     auto &assetLoader = RuntimeConfig::Instance().GetAssetLoader();
-    auto stockAsset = assetLoader.LoadTextAsset("colors.json");
+    auto stockAsset = assetLoader.LoadTextAsset("Themes/default.colors.json");
     TR_ASSERT(t, stockAsset != nullptr);
     auto stock = json::parse(stockAsset->GetPtrAs<char *>());
     for (auto &section : stock["colors"].items()) {

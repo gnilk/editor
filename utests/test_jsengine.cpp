@@ -2,6 +2,7 @@
 // Created by gnilk on 02.05.23.
 //
 #include <testinterface.h>
+#include "Core/Theme/Theme.h"
 #include "Core/Editor.h"
 #include "Core/JSEngine/JSPluginEngine.h"
 #include "Core/RuntimeConfig.h"
@@ -360,8 +361,10 @@ DLL_EXPORT int test_jsengine_themecmd(ITesting *t) {
     auto pathStart = (root / "My").string();
     TR_ASSERT(t, cmd->Execute({"--import", pathStart, "Theme.json"}));
     TR_ASSERT(t, console.Contains("Imported 'My Theme'"));
-    TR_ASSERT(t, std::filesystem::exists(userDir / "my-theme.theme.yml"));
-    TR_ASSERT(t, std::filesystem::exists(userDir / "my-theme.colors.json"));
+    TR_ASSERT(t, std::filesystem::exists(userDir / "themes" / "my-theme.theme.yml"));
+    TR_ASSERT(t, std::filesystem::exists(userDir / "themes" / "my-theme.colors.json"));
+    // Loaded by its name - found in the user's themes/ (docs/theme-collection.md §2)
+    TR_ASSERT(t, Theme::Create()->Load("my-theme.theme.yml"));
 
     // Again: refused unless forced
     console.lines.clear();
@@ -374,7 +377,7 @@ DLL_EXPORT int test_jsengine_themecmd(ITesting *t) {
     // Quoted, with a name of its own (kept as given)
     console.lines.clear();
     TR_ASSERT(t, cmd->Execute({"--import", "\"" + pathStart, "Theme.json\"", "--name", "my_theme"}));
-    TR_ASSERT(t, std::filesystem::exists(userDir / "my_theme.theme.yml"));
+    TR_ASSERT(t, std::filesystem::exists(userDir / "themes" / "my_theme.theme.yml"));
 
     console.lines.clear();
     TR_ASSERT(t, cmd->Execute({"bogus"}));

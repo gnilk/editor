@@ -1,6 +1,6 @@
 // .theme --import <file> [--name <name>] [--force]
 //   Convert a VS Code theme (.json) or Sublime color scheme (.sublime-color-scheme) into a GoatEdit theme
-//   (<name>.theme.yml + <name>.colors.json in the user config dir) - same as 'goatedit --import-theme'.
+//   (<name>.theme.yml + <name>.colors.json in themes/ next to the user config) - same as 'goatedit --import-theme'.
 //   The command line is split on spaces: a file name with spaces may be typed as is or in quotes.
 function main(args) {
     var usage = [

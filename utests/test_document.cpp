@@ -101,6 +101,7 @@ DLL_EXPORT int test_document_wrap_caret_stays_visible(ITesting *t);
 DLL_EXPORT int test_document_shortfile_window(ITesting *t);
 DLL_EXPORT int test_document_attributeat(ITesting *t);
 DLL_EXPORT int test_document_wordnav(ITesting *t);
+DLL_EXPORT int test_document_dragselect(ITesting *t);
 }
 
 // Define some common actions, this will trigger side-effects in the document
@@ -1841,5 +1842,75 @@ DLL_EXPORT int test_document_wordnav(ITesting *t) {
     document->OnAction(wordLeft);
     TR_ASSERT(t, lc.cursor.position.x == starts[1]);
     IndentCache::Instance().Clear();
+    return kTR_Pass;
+}
+
+// Hitlist #41: drag to select in the editor. Press - a click: caret, the old selection gone; the moves select from the
+// press to the pointer (backwards too); a release where it was pressed is a click; Shift+click extends; past the
+// bottom edge the selection takes the line below the view. Cmd/Ctrl+click and double-click don't start a drag.
+DLL_EXPORT int test_document_dragselect(ITesting *t) {
+    auto document = LoadConvertUTFDocument(t, 80);
+    EditorView view;
+    view.SetDocument(document);
+    auto origin = view.GetContentRect().TopLeft();
+    auto mouse = [&](MouseEvent::kMouseEventKind kind, int col, int row, uint8_t modifiers = 0) {
+        MouseEvent ev;
+        ev.kind = kind;
+        ev.x = origin.x + col;
+        ev.y = origin.y + row;
+        ev.button = MouseEvent::kButtonLeft;
+        ev.modifiers = modifiers;
+        return ev;
+    };
+    auto press = mouse(MouseEvent::kMouseEventKind_Press, 2, 3);
+
+    // A selection from before is dropped by the click
+    document->SelectTo(5, 0);
+    TR_ASSERT(t, document->IsSelectionActive());
+    TR_ASSERT(t, view.OnMouseEvent(press));
+    TR_ASSERT(t, view.KeepsDragAfterPress(press));
+    TR_ASSERT(t, !document->IsSelectionActive());
+    TR_ASSERT(t, document->GetLineCursor().idxActiveLine == 3);
+
+    view.OnMouseDrag(mouse(MouseEvent::kMouseEventKind_Move, 4, 5));
+    TR_ASSERT(t, document->IsSelectionActive());
+    TR_ASSERT(t, document->GetSelection().GetStart() == gedit::Point(2, 3));
+    TR_ASSERT(t, document->GetSelection().GetEnd() == gedit::Point(4, 5));
+    TR_ASSERT(t, document->GetLineCursor().idxActiveLine == 5);
+    // Back above the press: the selection runs the other way
+    view.OnMouseDrag(mouse(MouseEvent::kMouseEventKind_Move, 0, 1));
+    TR_ASSERT(t, document->GetLineCursor().idxActiveLine == 1);
+    TR_ASSERT(t, document->IsSelectionActive());
+    view.OnMouseDrag(mouse(MouseEvent::kMouseEventKind_Release, 0, 1));
+    TR_ASSERT(t, document->IsSelectionActive());
+
+    // A press and a release in the same place: a click, no selection
+    view.OnMouseEvent(press);
+    view.OnMouseDrag(mouse(MouseEvent::kMouseEventKind_Move, 2, 3));
+    view.OnMouseDrag(mouse(MouseEvent::kMouseEventKind_Release, 2, 3));
+    TR_ASSERT(t, !document->IsSelectionActive());
+
+    // Shift+click: from the caret to the click
+    auto shiftClick = mouse(MouseEvent::kMouseEventKind_Press, 0, 6, Keyboard::kMod_LeftShift);
+    view.OnMouseEvent(shiftClick);
+    TR_ASSERT(t, document->IsSelectionActive());
+    TR_ASSERT(t, document->GetSelection().GetStart() == gedit::Point(2, 3));
+    TR_ASSERT(t, document->GetLineCursor().idxActiveLine == 6);
+
+    // Past the bottom of the view: the line below the last visible one - the view scrolls to it
+    view.OnMouseEvent(press);
+    int numRows = (int)document->GetVisibleRows().size();
+    auto lastVisible = document->GetLineCursor().viewTopLine + numRows - 1;
+    view.OnMouseDrag(mouse(MouseEvent::kMouseEventKind_Move, 0, numRows + 3));
+    TR_ASSERT(t, (int)document->GetLineCursor().idxActiveLine == lastVisible + 1);
+    TR_ASSERT(t, document->GetLineCursor().viewTopLine > 0);
+    view.OnMouseDrag(mouse(MouseEvent::kMouseEventKind_Release, 0, numRows + 3));
+
+    // Cmd/Ctrl+click jumps, a double-click is a double-click - neither is followed
+    auto modifierClick = mouse(MouseEvent::kMouseEventKind_Press, 2, 3, PlatformCopyPasteModifier());
+    TR_ASSERT(t, !view.KeepsDragAfterPress(modifierClick));
+    auto doubleClick = press;
+    doubleClick.clicks = 2;
+    TR_ASSERT(t, !view.KeepsDragAfterPress(doubleClick));
     return kTR_Pass;
 }

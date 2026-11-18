@@ -8,6 +8,25 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## Usability gaps: word keys on macOS, drag to select (2026-11-18) ✅
+
+**Hitlist #41.** Word left/right on macOS are `Opt+Left`/`Right` (CLion's default), `Shift` extends on both platforms;
+drag to select in the editor and `Shift+click`; `Tab` leaves the project tree on Linux too (it was macOS-only);
+`.openfolder` unregistered until #36. **Load-bearing decisions:**
+- **Drag after a click, not instead of it.** `OnMouseDragStart` takes the whole gesture before focus and the view
+  (splitters, minimap) - wrong for text, where the press must stay a click (focus, caret, `Cmd+click`). New toolkit
+  hook `ViewBase::KeepsDragAfterPress`: the view that handled the press keeps the moves and the release through the
+  same `OnMouseDrag` capture. `EditorView` follows a plain or Shift left click; each move is `Document::SelectTo`
+  (past the edge: the line beyond, so `SetCursorPosition` scrolls). A click now drops the selection (it didn't).
+- **Alt must match on special keys.** `ActionItem::MatchKeyPress` never checked Alt: a binding without it took
+  `Alt+<key>` when it came first (`Opt+Left` -> `NavigateLeft`). Strict for arrows/Home/End/... only - AltGr arrives as
+  Alt on Linux and types the characters quick mode's plain bindings use.
+- Word left/right needed open-bugs #1 fixed first (`fix/attribute-at`, its own entry in `fixed-bugs.md`).
+
+Tests: `test_document_dragselect`, `test_layout_drag_after_press`, `test_keymapping_usability_gaps`; check `drag_select`.
+
+---
+
 ## Key reference generated from the keymaps (2026-11-18) ✅
 
 **Hitlist #40.** `docs/keys.md` - every binding per keymap (editor, project tree, terminal, quick mode, dialogs, hex

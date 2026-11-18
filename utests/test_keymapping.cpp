@@ -30,6 +30,7 @@ DLL_EXPORT int test_keymapping_mouse(ITesting *t);
 DLL_EXPORT int test_keymapping_mouse_errors(ITesting *t);
 DLL_EXPORT int test_keymapping_mouse_notinherited(ITesting *t);
 DLL_EXPORT int test_keymapping_section(ITesting *t);
+DLL_EXPORT int test_keymapping_usability_gaps(ITesting *t);
 }
 
 //
@@ -644,5 +645,39 @@ DLL_EXPORT int test_keymapping_section(ITesting *t) {
     KeyMapping::SetConfigSection("nosuch");
     TR_ASSERT(t, !KeyMapping::LoadKeymapConfig("default_keymap").has_value());
     KeyMapping::SetConfigSection(osSection);
+    return kTR_Pass;
+}
+
+// Hitlist #41: word left/right on macOS are Opt+arrows (CLion's default), Shift extends on both platforms; Tab leaves
+// the project tree on Linux too. Each section's keymaps, loaded as the backend glue would pick them.
+DLL_EXPORT int test_keymapping_usability_gaps(ITesting *t) {
+    auto osSection = KeyMapping::ConfigSection();
+    auto arrow = [](Keyboard::kKeyCode key, uint8_t modifiers) {
+        KeyPress kp = {};
+        kp.isSpecialKey = true;
+        kp.specialKey = key;
+        kp.modifiers = modifiers;
+        return kp;
+    };
+    struct Section { const char *name; uint8_t wordModifier; };
+    const Section sections[] = {{"macos", Keyboard::kMod_LeftAlt}, {"linux", Keyboard::kMod_LeftCtrl}};
+    for (auto &section : sections) {
+        KeyMapping::SetConfigSection(section.name);
+        KeyMappingCache::Instance().Clear();
+        auto keymap = KeyMappingCache::Instance().GetOrLoad("default_keymap");
+        TR_ASSERT(t, keymap != nullptr);
+        auto left = keymap->ActionFromKeyPress(arrow(Keyboard::kKeyCode_LeftArrow, section.wordModifier));
+        TR_ASSERT(t, left.has_value() && left->uiAction == kUIAction::kUIActionLineWordLeft);
+        auto right = keymap->ActionFromKeyPress(arrow(Keyboard::kKeyCode_RightArrow, section.wordModifier | Keyboard::kMod_LeftShift));
+        TR_ASSERT(t, right.has_value() && right->uiAction == kUIAction::kUIActionLineWordRight);
+        TR_ASSERT(t, right->actionModifier.has_value());       // Shift: extends the selection
+
+        auto tree = KeyMappingCache::Instance().GetOrLoad("workspace_keymap");
+        TR_ASSERT(t, tree != nullptr);
+        auto tab = tree->ActionFromKeyPress(arrow(Keyboard::kKeyCode_Tab, 0));
+        TR_ASSERT(t, tab.has_value() && tab->uiAction == kUIAction::kUIActionCycleActiveViewNext);
+    }
+    KeyMapping::SetConfigSection(osSection);
+    KeyMappingCache::Instance().Clear();
     return kTR_Pass;
 }

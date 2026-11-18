@@ -49,8 +49,9 @@ keymap: {
       "UINavigationModifier + '4'", "UINavigationModifier + '5'", "UINavigationModifier + '6'",
       "UINavigationModifier + '7'", "UINavigationModifier + '8'", "UINavigationModifier + '9'",
     ],
-    NavigateWordRight : KeyCode_RightArrow + KeyCode_Ctrl,
-    NavigateWordLeft : KeyCode_LeftArrow + KeyCode_Ctrl,
+    # Word left / right; Shift extends the selection
+    NavigateWordRight : KeyCode_RightArrow + KeyCode_Ctrl + @SelectionModifier,
+    NavigateWordLeft : KeyCode_LeftArrow + KeyCode_Ctrl + @SelectionModifier,
 
     NavigateLineUp: KeyCode_UpArrow + @SelectionModifier,
     NavigateLineDown: KeyCode_DownArrow + @SelectionModifier,

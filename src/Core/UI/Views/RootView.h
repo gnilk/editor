@@ -341,6 +341,9 @@ namespace gedit {
 
             for (auto view = hit; view != nullptr; view = view->GetParentView()) {
                 if (view->OnMouseEvent(mouseEvent)) {
+                    if ((mouseEvent.kind == MouseEvent::kMouseEventKind_Press) && view->KeepsDragAfterPress(mouseEvent)) {
+                        dragView = view;
+                    }
                     return true;
                 }
             }

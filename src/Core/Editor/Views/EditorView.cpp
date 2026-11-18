@@ -241,13 +241,77 @@ bool EditorView::OnMousePressedEvent(const MouseEvent &mouseEvent) {
         return true;    // below the last line - nothing there
     }
     auto textPos = WrapProjection::ScreenToText(rows, document->Lines(), Point(col, row), document->GetTabSize());
-    document->SetCursorPosition(textPos.y, textPos.x);
+    bool isShift = (mouseEvent.modifiers & Keyboard::ShiftMask()) != 0;
+    if (isShift && (mouseEvent.button == MouseEvent::kButtonLeft)) {
+        // Shift+click: the selection runs from the caret to here
+        document->SelectTo(textPos.y, textPos.x);
+    } else {
+        // A click puts the caret here and drops the selection (a drag after it starts a new one)
+        document->CancelSelection();
+        document->SetCursorPosition(textPos.y, textPos.x);
+    }
     InvalidateView();
 
     // What the click stands for comes after the caret moved: Cmd+click (Ctrl+click on Linux) is 'GotoToggle' in the
     // keymap's 'mouse:' section, so it does what Cmd+B does at the caret (docs/code-index.md §5.6, usability §13)
     Editor::Instance().DispatchMouseBinding(Config::Instance()[cfgSectionName].GetStr("keymap", "default_keymap"), mouseEvent);
     return true;
+}
+
+// A plain (or Shift) left click on the text - not Cmd/Ctrl+click, which jumps to another place, nor a double-click
+bool EditorView::KeepsDragAfterPress(const MouseEvent &press) {
+    if ((document == nullptr) || (press.button != MouseEvent::kButtonLeft) || (press.clicks != 1)) {
+        return false;
+    }
+    if ((press.modifiers & (Keyboard::CtrlMask() | Keyboard::CmdMask() | Keyboard::AltMask())) != 0) {
+        return false;
+    }
+    int row = press.y - GetContentRect().TopLeft().y;
+    return (row >= 0) && (row < static_cast<int>(document->GetVisibleRows().size()));
+}
+
+// Each move extends the selection from the press to the pointer; a release where it was pressed leaves a click
+void EditorView::OnMouseDrag(const MouseEvent &mouseEvent) {
+    if (document == nullptr) {
+        return;
+    }
+    if (mouseEvent.kind == MouseEvent::kMouseEventKind_Move) {
+        auto textPos = TextPositionAt(mouseEvent);
+        document->SelectTo(textPos.y, textPos.x);
+        InvalidateView();
+        return;
+    }
+    if (mouseEvent.kind == MouseEvent::kMouseEventKind_Release) {
+        if (document->IsSelectionActive() && (document->GetSelection().GetStart() == document->GetSelection().GetEnd())) {
+            document->CancelSelection();
+            InvalidateView();
+        }
+    }
+}
+
+gedit::Point EditorView::TextPositionAt(const MouseEvent &mouseEvent) {
+    auto contentOrigin = GetContentRect().TopLeft();
+    int row = mouseEvent.y - contentOrigin.y;
+    int col = std::max(mouseEvent.x - contentOrigin.x, 0);
+    auto rows = document->GetVisibleRows();
+    if (rows.empty()) {
+        return {};
+    }
+    int lastRow = static_cast<int>(rows.size()) - 1;
+    auto textPos = WrapProjection::ScreenToText(rows, document->Lines(), Point(col, std::clamp(row, 0, lastRow)),
+                                                document->GetTabSize());
+    // Past the edge: one line further, so the view scrolls to it
+    int numLines = static_cast<int>(document->Lines().size());
+    if ((row < 0) && (textPos.y > 0)) {
+        textPos.y -= 1;
+    } else if ((row > lastRow) && (textPos.y + 1 < numLines)) {
+        textPos.y += 1;
+    }
+    if ((row < 0) || (row > lastRow)) {
+        auto line = document->LineAt(textPos.y);
+        textPos.x = std::min(textPos.x, (line != nullptr) ? static_cast<int>(line->Length()) : 0);
+    }
+    return textPos;
 }
 
 void EditorView::SetWindowCursor(const Cursor &windowCursor) {

@@ -53,7 +53,7 @@ Three layers, merged in this order (later wins, key by key):
 | Undo | `Cmd+Z` | `Ctrl+Z` |
 | Select | `Shift` + any movement | same |
 | Line start / end | `Home`/`End`, `Cmd+Left`/`Right` | `Home`/`End` |
-| Word left / right | (not bound yet) | `Ctrl+Left`/`Right` |
+| Word left / right | `Opt+Left`/`Right` | `Ctrl+Left`/`Right` |
 | Page up / down | `PgUp`/`PgDn`, `Cmd+Up`/`Down` | `PgUp`/`PgDn` |
 | First / last line | `Cmd+Home` / `Cmd+End` | `Alt+Home` / `Alt+End` |
 | Indent / unindent | `Tab` / `Shift+Tab` | same |
@@ -81,12 +81,12 @@ Three layers, merged in this order (later wins, key by key):
 | View wider / narrower | `Opt+D` / `Opt+A` | `Alt+D` / `Alt+A` |
 | View taller / shorter / maximise height | `Opt+S` / `Opt+W` / `Opt+M` | `Alt+S` / `Alt+W` / `Alt+M` |
 | Text / hex view of the file | `Opt+R` / `Opt+H` | `Alt+R` / `Alt+H` |
-| Project tree: next view, show ignored files | `Tab` or `Opt+]`, `Opt+H` | `Alt+]`, `Alt+H` |
+| Project tree: next view, show ignored files | `Tab` or `Opt+]`, `Opt+H` | `Tab` or `Alt+]`, `Alt+H` |
 | Dialogs (find, open, ...): close / pick | `Esc` / `Enter` | same |
 
 ## Mouse
 
-- Click places the caret and focuses the view; the wheel scrolls; drag a divider to resize views. (No drag-to-select yet - use `Shift`+keys.)
+- Click places the caret and focuses the view; drag to select (past the top/bottom edge the view scrolls), `Shift+click` extends the selection; the wheel scrolls; drag a divider to resize views.
 - `Cmd+click` (`Ctrl+click`) on a name - go to its definition (as `Cmd+B`).
 - Double-click a row in the project tree - open it.
 - Mouse bindings live in the `mouse:` section of each keymap file.

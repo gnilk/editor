@@ -4,7 +4,20 @@ Durable list of known defects we've chosen NOT to fix in-place yet, with enough 
 up cold. Referenced from CLAUDE.md ("Documentation") so it surfaces each session.
 
 Numbers are stable (commits, docs and notes refer to them) - a fixed bug is removed, never renumbered.
-**Next bug is #34.**
+**Next bug is #35.**
+
+---
+
+## 34. Intermittent: a full trun run hangs (0% CPU), once at `modal_confirmhotkey`
+
+**Seen:** 2026-11-18, macOS, twice in ~10 runs of the verified-green set - both times the first run right after a
+`goatedit` rebuild. Once the output was lost (piped); once the last line was `=== RUN _test_modal_confirmhotkey`. The
+process sat idle (0% CPU) - a wait or a lock, not a loop. `-m modal` alone x5 and the whole set x8 since: no hang. Linux:
+not seen (it runs under a timeout now).
+
+**Next time:** don't kill it first - `sample <trun pid> 3` (macOS) / `gdb -p <pid> -batch -ex "thread apply all bt"`
+(Linux) for the waiting stack, and note the last `=== RUN` line. Not tied to a change: it happened on `fix/attribute-at`
+before the Alt-matching change on `feature/usability-gaps`.
 
 ---
 

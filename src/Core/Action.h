@@ -132,6 +132,9 @@ namespace gedit {
         bool IsCommand() {
             return (modiferMask & (Keyboard::kMod_LeftCommand | Keyboard::kMod_RightCommand));
         }
+        bool IsAlt() {
+            return (modiferMask & (Keyboard::kMod_LeftAlt | Keyboard::kMod_RightAlt));
+        }
 
         // Not sure about this one..
         bool MatchKeyPress(const KeyPress &keyPress) {
@@ -180,6 +183,12 @@ namespace gedit {
 //                return false;
 //            }
 
+            // Alt on a special key (arrows, Home/End, PgUp/PgDn, Tab, ...) is always meant: it must match both ways, or
+            // a plain binding earlier in the keymap takes Alt+Left (hitlist #41, word left on macOS). Not for text -
+            // AltGr arrives as Alt on Linux and types '\', '[', ... that plain bindings (quick mode) are made of.
+            if (IsAlt() != keyPress.IsAltPressed()) {
+                return false;
+            }
             if (keyCode != keyPress.specialKey) return false;
 
             return true;

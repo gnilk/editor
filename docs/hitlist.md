@@ -108,6 +108,11 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
     - Mac 2026-11-18, Ghostty: `Ctrl+<letter>` and `Alt+1..9` work; `Cmd+V` pastes (Ghostty's own paste, arrives as a bracketed paste); `Cmd+Z` does nothing - right, `Cmd` is not bound in the Linux keymaps. `Ctrl+Enter` promotes to the terminal (`Cmd+Enter` is Ghostty's full-screen); several selected lines ran in bash. Start with `goat --backend ansi .` (runs in the terminal since `fix/goat-ansi`; needs `install-cli`)
   - [ ] Mac - the SDL app is unchanged: `Cmd+S`, `Cmd+Z`, `Cmd+1..9`
   - [x] Mac - several lines `Ctrl+Enter`-promoted to bash 3.2 in the terminal version: both run, no `00~` (scripted: `promote`); by hand in Ghostty with `Ctrl+Enter` too; the SDL app with `Cmd+Enter` and `SHELL=/bin/bash`: [ ]
+- **Usability gaps** (#41) - the terminal version scripted (`drag_select`); the window versions need a hand
+  - [ ] Linux [ ] Mac - drag over text selects it, from where it was pressed (backwards too); dragging below the view scrolls it; a click drops the selection; `Shift+click` extends it
+  - [ ] Linux [ ] Mac - `Cmd/Ctrl+click` still jumps (no selection), double-click in the tree still opens
+  - [ ] Mac - `Opt+Left`/`Right` move by word, `Opt+Shift+Left`/`Right` select; `Opt+[`/`]` still cycle views
+  - [ ] Linux - `Tab` in the project tree goes to the next view; `Ctrl+Shift+Left`/`Right` select by word; `Alt+Left`/`Right` still cycle buffers
 - **Short-file scroll window** (#35, open-bugs #30)
   - [x] Linux [x] Mac - a new file, a dozen lines, PageDown, then Enter in the middle: the top line stays until the view is full (scripted: `short_scroll`)
 
@@ -115,7 +120,6 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
 
 | # | Item | Where | Size | Notes |
 |---|---|---|---|---|
-| 41 | Gaps found writing `usage.md`: no word left/right on macOS; no drag-to-select in the editor; `Tab` out of the project tree is bound on macOS only (Linux: `Alt+]`; found by `gen-keys.py`); `.openfolder` is registered in `jsplugs.yml` but `Scripts/openfolder.js` doesn't exist (see #36) | `docs/usage.md` | hours | small, each on its own |
 | 52 | Build messages: errors / warnings (file, line) read from a build's output in the terminal - a modal of them with the source line, next / previous keys, `Cmd/Ctrl+[` back. Revives an old prototype (a hidden jump list) | `build-messages.md` | days | idea, 2026-11-18; matchers as data (gcc/clang, CMake, make dirs first); open questions in §8 - after the run or live, which commands, lines moving after edits |
 | 53 | Tabs in the lower panel (CLion style): a generic `TabbedView` in the UI toolkit first, then several terminals (one for an AI agent - the `PromoteToTerminal` target), a Messages tab (#52), a CMake / build tab | `panel-tabs.md` | days | idea, 2026-11-18; decisions in §6 (one container replaces "the terminal", the `SwitchToBuffer` keys (Mac `Cmd/Opt+1..9`, Linux `Alt+1..9`) per focused container, default tabs from config, tab row hidden with one tab); close buttons need #26 |
 | 17 | A config list overwrites the default list by position | open-bugs #28 | half a day | idea: an immutable merge that returns a new tree; `LanguageFileSet::Merge` is the model |
@@ -147,6 +151,7 @@ Smaller bugs not ranked yet: open-bugs #24 (readline history extras),
 
 | # | Item | When |
 |---|---|---|
+| 41 | Gaps from `usage.md`: word left/right on macOS (`Opt+Left`/`Right`, CLion's; `Shift` extends, both platforms); drag to select in the editor (and `Shift+click`; the terminal version too); `Tab` out of the Linux project tree; `.openfolder` unregistered (comes with #36). Found with it: Alt wasn't matched on special keys (`Opt+Left` took `NavigateLeft`) | 2026-11-18 |
 | - | `Line::AttributeAt` gave the first span for any position in the last one (open-bugs #1); word left from a line's last token went to column 0. Word left/right step between span starts now | 2026-11-18 |
 | 40 | User documentation: `docs/keys.md`, every binding (per keymap, both platforms), mouse binding and command, generated from the shipped keymaps and `jsplugs.yml` by `scripts/gen-keys.py` (`--check`; the `keys_doc` check) - it can't drift. `usage.md` stays the short guide, links to it. `hexview_keymap` named in `config.yml` (it fell back to the default keymap by accident) | 2026-11-18 |
 | 48 | ANSI backend on macOS takes the Linux keymaps (`Ctrl` for functionality, `Alt` for the UI): a terminal never sends `Cmd`. `KeyMapping::SetConfigSection`, set by `Editor` with the backend. Also #9 (the same change). Found with it: several lines promoted to a shell that never asked for bracketed paste (macOS bash 3.2) got the brackets as text (`00~`) - now the modes the shell asked for | 2026-11-18 |

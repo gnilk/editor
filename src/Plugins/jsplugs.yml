@@ -137,13 +137,6 @@ commands:
     arguments:
       - string, filename
   -
-    name: openfolder
-    short: of
-    description: Open a folder in to the project viewer
-    script: Scripts/openfolder.js
-    arguments:
-      - string, folder name
-  -
     name: theme_reload
     short: thr
     description: Reload current theme

@@ -12,6 +12,13 @@ keymap: {
     UINavigationModifier : KeyCode_Alt,
   },
   actions: {
+    # Workspace-only override: Tab also cycles to the next view (in addition to
+    # the Alt+] it would inherit). Child is parsed first and first-match wins, so
+    # this replaces the parent's CycleActiveViewNext.
+    CycleActiveViewNext : [
+      "UINavigationModifier + ']'",
+      KeyCode_Tab
+    ],
     # Hide/show what '.gitignore' leaves out. Replaces the inherited hex view, which means nothing here.
     ToggleIgnored : "UINavigationModifier + 'h'",
   },

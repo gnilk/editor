@@ -51,6 +51,9 @@ keymap: {
       "UINavigationModifier + '4'", "UINavigationModifier + '5'", "UINavigationModifier + '6'",
       "UINavigationModifier + '7'", "UINavigationModifier + '8'", "UINavigationModifier + '9'",
     ],
+    # Word left / right - Option+arrow, the macOS standard (CLion, Xcode, TextEdit); Shift extends the selection
+    NavigateWordRight : KeyCode_RightArrow + KeyCode_Alt + @SelectionModifier,
+    NavigateWordLeft : KeyCode_LeftArrow + KeyCode_Alt + @SelectionModifier,
     CycleActiveEditor: KeyCode_F3,
     CommitLine: KeyCode_Return,
     CommentLine: CopyPasteModifier + '/',

@@ -1,3 +1,13 @@
+## 35. FIXED — flaky on Linux: `foldermonitor_repeat`, a late event ended a step's wait early
+
+> **FIXED (2026-11-18, branch `fix/foldermonitor-flake`).** Seen once in the verified-green set on Linux
+> (`test_foldermonitor.cpp:210`, the delete step, after the `src/sub/b.txt` write). Each step did `WaitAndRun(3000ms)` -
+> "any batch" - then checked for its folder; a write's inotify events can come in more than one batch, and a late one
+> from the step before (`src/sub`) ended the wait before `src` was marked. The test now waits until the folder each
+> step expects is dirty (100 ms slices, up to 3 s); the monitor is unchanged. Linux: 30/30 runs of `-t repeat` green.
+
+---
+
 ## 1. FIXED — `Line::AttributeAt(pos)` returned the FIRST span for any position in the last token span
 
 **Where:** `src/Core/Line.cpp` (`Line::AttributeAt`), `src/Core/Document.cpp` (`OnActionWordRight` / `OnActionWordLeft`).

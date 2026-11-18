@@ -105,7 +105,7 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
 - **Terminal version on macOS with the Linux keymaps** (#48) - the scripted checks pass in a pty (all 14 that run on the Mac); the terminals themselves need a hand
   - [ ] Mac - Terminal.app, `goatedit --backend ansi`: `Ctrl+S` saves, `Ctrl+Z` undoes, `Ctrl+F` finds (`Ctrl+[` is `Esc` there - a legacy collision); with "Use Option as Meta key" on: `Option+T` / `Option+E` switch views
   - [ ] Mac - Ghostty (kitty protocol): the same, plus `Ctrl+/` comments, `Ctrl+Enter` promotes to the terminal, `Ctrl+[` comes back after a jump
-    - Mac 2026-11-18, Ghostty: `Ctrl+<letter>` and `Alt+1..9` work; `Cmd+V` pastes (Ghostty's own paste, arrives as a bracketed paste); `Cmd+Z` does nothing - right, `Cmd` is not bound in the Linux keymaps. Promote (`Ctrl+Enter`) not tried yet. Start with `goat --backend ansi .` (runs in the terminal since `fix/goat-ansi`; needs `install-cli`)
+    - Mac 2026-11-18, Ghostty: `Ctrl+<letter>` and `Alt+1..9` work; `Cmd+V` pastes (Ghostty's own paste, arrives as a bracketed paste); `Cmd+Z` does nothing - right, `Cmd` is not bound in the Linux keymaps. `Ctrl+Enter` promotes to the terminal (`Cmd+Enter` is Ghostty's full-screen). Start with `goat --backend ansi .` (runs in the terminal since `fix/goat-ansi`; needs `install-cli`)
   - [ ] Mac - the SDL app is unchanged: `Cmd+S`, `Cmd+Z`, `Cmd+1..9`
   - [x] Mac - several lines `Ctrl+Enter`-promoted to bash 3.2 in the terminal version: both run, no `00~` (scripted: `promote`); the SDL app with `Cmd+Enter` and `SHELL=/bin/bash` by hand: [ ]
 - **Short-file scroll window** (#35, open-bugs #30)

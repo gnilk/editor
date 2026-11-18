@@ -2,6 +2,8 @@
 
 Keys are written for macOS / Linux: `Cmd` on macOS is `Ctrl` on Linux; `Opt` (Option) on macOS is `Alt` on Linux.
 Rule of thumb: **`Cmd`/`Ctrl` = editing functions, `Opt`/`Alt` = moving around the UI** (views, sizes, panels).
+Every binding and command, per platform: [`keys.md`](keys.md) (generated from the keymaps - this page is the short
+version).
 
 ## Starting
 
@@ -12,7 +14,8 @@ Rule of thumb: **`Cmd`/`Ctrl` = editing functions, `Opt`/`Alt` = moving around t
 ## In a terminal (ANSI backend)
 
 GoatEdit runs inside a terminal when there is no display (Linux without `DISPLAY` / `WAYLAND_DISPLAY`, macOS over
-ssh) or with `--backend ansi`. The keys are the same, but the terminal decides what a key sends:
+ssh) or with `--backend ansi`. It takes the **Linux keys there, on a Mac too** - `Ctrl` for functions, `Alt` for the
+UI - since a terminal never sends `Cmd`. The terminal still decides what a key sends:
 
 - **`Opt`/`Alt` must reach GoatEdit as Alt (Meta).** On macOS, Option types characters by default (`Opt+E` is `´`,
   `Opt+T` is `†`) and no view switching works until the terminal is told otherwise:
@@ -22,8 +25,9 @@ ssh) or with `--backend ansi`. The keys are the same, but the terminal decides w
   - **iTerm2:** Settings -> Profiles -> Keys -> Left Option key: `Esc+`.
   - **xterm / uxterm:** nothing to do - GoatEdit turns on `metaSendsEscape` while it runs.
   - **Any other terminal:** look for "Option as Alt", "Option as Meta" or "Meta sends Escape" in its settings.
-- **`Cmd` doesn't reach a terminal app** on macOS, so the `Cmd` shortcuts (copy/paste, undo, save, ...) can't be
-  pressed in the ANSI backend yet (hitlist #48). Use the `.` commands meanwhile.
+- **Some `Ctrl` keys collide with old terminal codes** unless the terminal speaks the kitty keyboard protocol
+  (Ghostty, kitty, WezTerm) or xterm's modifyOtherKeys (xterm, uxterm - GoatEdit turns it on): elsewhere (Terminal.app,
+  tmux) `Ctrl+[` is `Esc`, `Ctrl+I` is `Tab`, `Ctrl+M` is `Enter`.
 - **To see what your terminal sends:** `python3 scripts/keycapture.py` (from the source tree) prints the bytes per
   key with the keyboard modes GoatEdit turns on. `Opt+E` should show as `\x1be` or `\x1b[101;3u`, not `é`.
 
@@ -76,7 +80,7 @@ Three layers, merged in this order (later wins, key by key):
 | View wider / narrower | `Opt+D` / `Opt+A` | `Alt+D` / `Alt+A` |
 | View taller / shorter / maximise height | `Opt+S` / `Opt+W` / `Opt+M` | `Alt+S` / `Alt+W` / `Alt+M` |
 | Text / hex view of the file | `Opt+R` / `Opt+H` | `Alt+R` / `Alt+H` |
-| Project tree: next view, show ignored files | `Tab`, `Opt+H` | `Tab`, `Alt+H` |
+| Project tree: next view, show ignored files | `Tab` or `Opt+]`, `Opt+H` | `Alt+]`, `Alt+H` |
 | Dialogs (find, open, ...): close / pick | `Esc` / `Enter` | same |
 
 ## Mouse

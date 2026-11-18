@@ -8,6 +8,19 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## Key reference generated from the keymaps (2026-11-18) ✅
+
+**Hitlist #40.** `docs/keys.md` - every binding per keymap (editor, project tree, terminal, quick mode, dialogs, hex
+view), macOS and Linux side by side, the `mouse:` bindings and every command (`src/Plugins/jsplugs.yml`, a missing
+script flagged). **Load-bearing decisions:** generated, not written - `scripts/gen-keys.py` reads the files the editor
+reads (the keymaps named in `config.yml`'s `macos:` / `linux:` sections), so the reference can't drift; `--check` is the
+`keys_doc` check. No PyYAML: the keymaps' flow-style subset is parsed by the script, and anything outside it is an error,
+not a guess. The Linux column is the terminal version on both platforms (#48). `usage.md` stays the hand-written short
+guide. Found by it: `Tab` out of the project tree is macOS-only (usage.md said both - now #41), and `hexview_keymap` was
+not in `config.yml` - the hex view got the default keymap through the not-found fallback.
+
+---
+
 ## Terminal version on macOS takes the Linux keymaps (2026-11-18) ✅
 
 **Hitlist #48 (and #9), open-bugs #20's keymap half.** The ANSI backend on macOS ran the `macOS/*_keymap.yml` files,

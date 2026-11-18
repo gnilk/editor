@@ -127,6 +127,7 @@ macos:
   workspace_keymap: macOS/workspace_keymap.yml
   terminal_keymap: macOS/terminal_keymap.yml
   modal_keymap: macOS/modal_keymap.yml
+  hexview_keymap: macOS/hexview_keymap.yml
 
 linux:
   default_keymap: Linux/default_keymap.yml
@@ -134,6 +135,7 @@ linux:
   workspace_keymap: Linux/workspace_keymap.yml
   terminal_keymap: Linux/terminal_keymap.yml
   modal_keymap: Linux/modal_keymap.yml
+  hexview_keymap: Linux/hexview_keymap.yml
 
 sdl:
   # Defines the SDL window rendering backend 'opengl', 'vulkan', 'metal' - empty or unknown means default...

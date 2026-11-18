@@ -565,8 +565,18 @@ DLL_EXPORT int test_terminalcontroller_paste(ITesting *t) {
         TR_ASSERT(t, c.GetInputLine()->Buffer() == std::u32string(U"xyz"));
         TR_ASSERT(t, c.GetCursorXPos() >= 3);
 
+        FeedPty(c, "\x1b[?2004h");      // readline asked for bracketed paste (bash 5.1+, zsh)
         c.Paste(U"one\ntwo\n");
         TR_ASSERT(t, sent == "xyz\x1b[200~one\rtwo\r\x1b[201~");
+        TR_ASSERT(t, c.DoesShellOwnLineEditing());
+    }
+    {   // A shell that never asked (macOS' bash 3.2): the lines as typed - brackets showed as '00~' in its line
+        TerminalController c;
+        c.Resize(40, 10);
+        std::string sent;
+        CaptureInput(c, sent, false);
+        c.Paste(U"one\ntwo");
+        TR_ASSERT(t, sent == "one\rtwo");
         TR_ASSERT(t, c.DoesShellOwnLineEditing());
     }
     return kTR_Pass;
@@ -610,9 +620,19 @@ DLL_EXPORT int test_terminalcontroller_promote(ITesting *t) {
         c.Resize(40, 10);
         std::string sent;
         CaptureInput(c, sent, false);
-        FeedPty(c, "$ ");
+        FeedPty(c, "\x1b[?2004h$ ");
         c.Promote(U"cd /tmp\nls", true);
         TR_ASSERT(t, sent == "\x1b[200~cd /tmp\rls\x1b[201~\r");
+        TR_ASSERT(t, !c.DoesShellOwnLineEditing());
+    }
+    {   // The same in a shell without bracketed paste: each line runs as typed
+        TerminalController c;
+        c.Resize(40, 10);
+        std::string sent;
+        CaptureInput(c, sent, false);
+        FeedPty(c, "$ ");
+        c.Promote(U"cd /tmp\nls", true);
+        TR_ASSERT(t, sent == "cd /tmp\rls\r");
         TR_ASSERT(t, !c.DoesShellOwnLineEditing());
     }
     return kTR_Pass;

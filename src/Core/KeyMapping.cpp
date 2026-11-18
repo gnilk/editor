@@ -143,22 +143,38 @@ KeyMapping::Ref KeyMapping::Create(const ConfigNode &cfgNode, const ParentResolv
     return instance;
 }
 
+static std::string &ConfigSectionStorage() {
+#if defined(GEDIT_LINUX)
+    static std::string section = "linux";
+#elif defined(GEDIT_MACOS)
+    static std::string section = "macos";
+#else
+    static std::string section;
+#endif
+    return section;
+}
+
+void KeyMapping::SetConfigSection(const std::string &section) {
+    ConfigSectionStorage() = section;
+}
+
+const std::string &KeyMapping::ConfigSection() {
+    return ConfigSectionStorage();
+}
+
 //
 // Load the 'keymap' config node for a named keymap from the assets.
-// The actual file is resolved through the OS-specific config section (linux/macos), falling
+// The actual file is resolved through the config section (linux/macos - ConfigSection, the OS's by default), falling
 // back to the default keymap. This is the single place keymap assets are loaded from - used
 // both for top-level keymaps and for resolving 'inherit' parents.
 //
 std::optional<ConfigNode> KeyMapping::LoadKeymapConfig(const std::string &name) {
     auto logger = gnilk::Logger::GetLogger("KeyMapping");
-#if defined(GEDIT_LINUX)
-    auto osCfgRootNode = Config::Instance().GetNode("linux");
-#elif defined(GEDIT_MACOS)
-    auto osCfgRootNode = Config::Instance().GetNode("macos");
-#else
-    logger->Error("No OS config section - can't resolve keymap '%s'", name.c_str());
-    return {};
-#endif
+    if (ConfigSection().empty() || !Config::Instance().HasKey(ConfigSection())) {
+        logger->Error("No keymap config section '%s' - can't resolve keymap '%s'", ConfigSection().c_str(), name.c_str());
+        return {};
+    }
+    auto osCfgRootNode = Config::Instance().GetNode(ConfigSection());
     auto strKeymapFile = osCfgRootNode.GetStr(name, "Default/default_keymap.yml");
     auto assetLoader = RuntimeConfig::Instance().GetAssetLoader();
     auto keymapAsset = assetLoader.LoadTextAsset(strKeymapFile);

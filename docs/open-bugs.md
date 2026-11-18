@@ -80,6 +80,12 @@ The `Option` alternatives (`Option+1..9`, every `UINavigationModifier` key) don'
 
 **Found:** 2026-11-09, running the terminal version in a Ghostty tab: `Cmd+1..9` never reached the editor.
 
+**Status 2026-11-18 - the keymap half is fixed (hitlist #48 / #9):** `Editor` sets `KeyMapping::SetConfigSection("linux")`
+when it starts the ANSI backend on macOS (the first bullet of the fix direction below - plain data, `KeyMapping` knows no
+backend). All keymaps, no config override yet. Still open: `Option` as `Alt` (the terminal's setting - Terminal.app "Use
+Option as Meta key", Ghostty `macos-option-as-alt`), the open questions below, and the legacy Ctrl collisions without
+the kitty protocol / modifyOtherKeys (Terminal.app).
+
 **Fix direction (to design):**
 - **The terminal version takes the Linux keymaps on macOS too:** `Ctrl` for functionality, `Alt` for the UI - what
   terminals are built around. The section becomes a choice made at startup: `Editor` (the glue that picks the backend)

@@ -29,6 +29,7 @@ DLL_EXPORT int test_keymapping_shiftedletter_untagged(ITesting *t);
 DLL_EXPORT int test_keymapping_mouse(ITesting *t);
 DLL_EXPORT int test_keymapping_mouse_errors(ITesting *t);
 DLL_EXPORT int test_keymapping_mouse_notinherited(ITesting *t);
+DLL_EXPORT int test_keymapping_section(ITesting *t);
 }
 
 //
@@ -615,5 +616,33 @@ DLL_EXPORT int test_keymapping_mouse_notinherited(ITesting *t) {
     TR_ASSERT(t, action.has_value() && (action->uiAction == kUIAction::kUIActionCommitLine));
     // ...while its keys still come from default_keymap
     TR_ASSERT(t, workspaceKeymap->ModifierMask(kActionModifier::kActionModifierCopyPaste).has_value());
+    return kTR_Pass;
+}
+
+// Hitlist #48: the terminal version on macOS takes the Linux keymaps (a terminal never sends Cmd) - the config section
+// is plain data the backend glue sets; the cache is cleared after it
+DLL_EXPORT int test_keymapping_section(ITesting *t) {
+    auto osSection = KeyMapping::ConfigSection();
+#ifdef GEDIT_MACOS
+    TR_ASSERT(t, osSection == "macos");
+#else
+    TR_ASSERT(t, osSection == "linux");
+#endif
+    KeyMapping::SetConfigSection("linux");
+    KeyMappingCache::Instance().Clear();
+    auto keymap = KeyMappingCache::Instance().GetOrLoad("default_keymap");
+    KeyMapping::SetConfigSection(osSection);
+    KeyMappingCache::Instance().Clear();
+    TR_ASSERT(t, keymap != nullptr);
+    // Ctrl is functionality in the Linux keymaps: Ctrl+Z undoes, Ctrl+/ comments - on every OS
+    auto undo = keymap->ActionFromKeyPress(LetterPress(U'z', Keyboard::kMod_LeftCtrl));
+    TR_ASSERT(t, undo.has_value() && undo->action == kAction::kActionUndo);
+    auto comment = keymap->ActionFromKeyPress(LetterPress(U'/', Keyboard::kMod_LeftCtrl));
+    TR_ASSERT(t, comment.has_value() && comment->action == kAction::kActionInsertLineComment);
+
+    // An unknown section: no keymap, not a crash
+    KeyMapping::SetConfigSection("nosuch");
+    TR_ASSERT(t, !KeyMapping::LoadKeymapConfig("default_keymap").has_value());
+    KeyMapping::SetConfigSection(osSection);
     return kTR_Pass;
 }

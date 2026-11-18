@@ -1103,6 +1103,12 @@ void Editor::ConfigureSubSystems() {
 
     if (backend == "ansi") {
         logger->Debug("Starting ANSI (gansi) backend");
+#ifdef GEDIT_MACOS
+        // A terminal never sends Cmd (Terminal.app, iTerm2) or takes it for itself (Ghostty's tabs): the terminal
+        // version takes the Linux keymaps - Ctrl for functionality, Alt for the UI (hitlist #48, open-bugs #20)
+        KeyMapping::SetConfigSection("linux");
+        KeyMappingCache::Instance().Clear();
+#endif
         SetupAnsi();
         return;
     }

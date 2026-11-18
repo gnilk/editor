@@ -8,6 +8,22 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## Switch themes: `.theme list` / `.theme use` (2026-11-18) ✅
+
+**Hitlist #19** (`theme-collection.md` §5 step 3). `.theme list` shows the themes `use` can switch to (the user's
+`themes/`, the user dir, the shipped `Themes/` - a file name once, as `Theme::Locate` finds it), with author, licence
+and the one in use marked; `.theme use <name>` takes the file name, it without `.theme.yml`, or the theme's own name.
+**Load-bearing decisions:** live, not "restart to apply" - `Theme::Switch` loads into a fresh theme and swaps it in
+(as `Reload` did), so every holder of the `Theme::Ref` sees the new colours and a broken file keeps the old ones;
+`Editor::ApplyTheme` then pushes the UI and syntax colours, **highlights the open documents again** (the highlighter
+writes colours into each line's attributes - only the terminal and the UI read the theme while drawing), refreshes
+the terminal's palette and redraws. The choice is saved through `ConfigAPI::Set` (comments kept). The current one is
+the theme in use, not `main.theme` (a start without the user config doesn't follow that). `.theme_reload` now goes
+through `ApplyTheme` too - it only re-pushed the UI colours. Tests: `test_jsengine_themecmd` (list, use, colours,
+saved config), check `theme_use` (background on screen, editor and terminal, after a restart).
+
+---
+
 ## Themes in a folder of their own (2026-11-18) ✅
 
 **Hitlist #18** (`theme-collection.md` §2). Shipped themes live in `Assets/Resources/Themes/` (the default moved there,

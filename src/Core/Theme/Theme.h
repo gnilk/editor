@@ -57,6 +57,12 @@ namespace gedit {
         bool Load(const std::string &pathname);
         // Load the same file again. On failure the theme keeps the colours it had.
         bool Reload();
+        // Another theme file in this one's place - everything holding this theme sees the new colours. On failure the
+        // theme keeps the colours it had (GetLoadError() says why).
+        bool Switch(const std::string &pathname);
+        const std::string &GetFilename() const {
+            return filename;
+        }
         const std::string &GetLoadError() const {
             return loadError;
         }

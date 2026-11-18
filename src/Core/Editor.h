@@ -69,6 +69,10 @@ namespace gedit {
 
         // Runs the bootstrap scripts (the banner), then shows the start-up notices held so far in the terminal panel
         void RunPostInitalizationScript();
+        // '.theme use': switch to the theme in 'themeFile', live; false (current theme kept) + 'outProblem' on failure
+        bool UseTheme(const std::string &themeFile, std::string &outProblem);
+        // The theme's colours changed: pushed to the UI and syntax colours, the terminal's palette, a full redraw
+        void ApplyTheme();
         // Something the user should know about how the editor started: stderr at once, the terminal panel once it is
         // up (hitlist #50 - a launch through 'goat' / a launcher has no stderr anyone reads). One line, no prefix.
         void Notice(const std::string &text) {
@@ -279,6 +283,7 @@ namespace gedit {
         void ConfigureLanguages();
         void RegisterDataLanguages();
         bool ConfigureTheme();
+        void PushThemeColors();
         void ConfigureSubSystems();
         void ConfigureGlobalAPIObjects();
         void ConfigureLogFilter();

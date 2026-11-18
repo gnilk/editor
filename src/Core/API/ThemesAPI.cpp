@@ -2,6 +2,7 @@
 // See ThemesAPI.h
 //
 
+#include <algorithm>
 #include <cctype>
 #include <filesystem>
 #include <fstream>
@@ -9,6 +10,8 @@
 
 #include "Core/Config/Config.h"
 #include "Core/Config/ConfigNode.h"
+#include "Core/Editor.h"
+#include "Core/RuntimeConfig.h"
 #include "Core/Theme/Theme.h"
 #include "Core/Theme/ThemeImporter.h"
 #include "Core/XDGEnvironment.h"
@@ -22,6 +25,131 @@ static std::filesystem::path ResolveSourcePath(const std::string &file);
 static std::optional<std::string> ThemeFileName(const std::string &name, const std::string &themeName, std::string &error);
 static std::string Quoted(const std::string &str);
 static ThemeImporter::Provenance ProvenanceAround(const std::filesystem::path &themePath);
+
+ThemesAPI::Result ThemesAPI::List() {
+    Result result;
+    auto themes = Available();
+    // The theme in use - not main.theme, which a start without the user config doesn't follow
+    std::string current;
+    if (auto theme = Editor::Instance().GetTheme()) {
+        current = std::filesystem::path(theme->GetFilename()).filename().string();
+    }
+    size_t width = 0;
+    for (auto &theme : themes) {
+        width = std::max(width, theme.name.size());
+    }
+    for (auto &theme : themes) {
+        auto line = std::string((theme.fileName == current) ? "* " : "  ");
+        line += theme.name + std::string(width - theme.name.size() + 2, ' ');
+        line += (theme.isUser ? "user    " : "shipped ");
+        line += theme.fileName;
+        if (!theme.author.empty() || !theme.license.empty()) {
+            line += "  (" + (theme.author.empty() ? std::string("?") : theme.author) + ", " +
+                    (theme.license.empty() ? std::string("no licence found") : theme.license) + ")";
+        }
+        result.lines.push_back(line);
+    }
+    if (themes.empty()) {
+        result.lines.push_back("No themes found");
+    }
+    result.lines.push_back("'.theme use <name>' switches (the file name without .theme.yml, or the theme's name)");
+    result.isOk = !themes.empty();
+    return result;
+}
+
+ThemesAPI::Result ThemesAPI::Use(const std::string &name) {
+    Result result;
+    auto lower = [](std::string text) {
+        for (auto &ch : text) {
+            ch = (char)std::tolower((unsigned char)ch);
+        }
+        return text;
+    };
+    std::string wanted = lower(name);
+    std::optional<ThemeInfo> found;
+    for (auto &theme : Available()) {
+        auto stem = theme.fileName.substr(0, theme.fileName.size() - std::string(".theme.yml").size());
+        if ((lower(theme.fileName) == wanted) || (lower(stem) == wanted) || (lower(theme.name) == wanted)) {
+            found = theme;
+            break;
+        }
+    }
+    if (!found.has_value()) {
+        result.lines.push_back("No theme '" + name + "' - '.theme list' shows them");
+        return result;
+    }
+    std::string problem;
+    if (!Editor::Instance().UseTheme(found->fileName, problem)) {
+        result.lines.push_back("Theme '" + found->name + "' can't be loaded: " + problem + " - keeping the current one");
+        return result;
+    }
+    result.lines.push_back("Using '" + found->name + "'");
+    auto saved = ConfigAPI().Set(ConfigAPI::kLevel::kUser, "main.theme", found->fileName);
+    for (auto &line : saved.lines) {
+        result.lines.push_back("  " + line);
+    }
+    result.isOk = true;
+    return result;
+}
+
+// In lookup order (Theme::Locate): the user's themes/, the user dir, the shipped Themes/ - a file name once, where
+// Locate would find it
+std::vector<ThemesAPI::ThemeInfo> ThemesAPI::Available() {
+    struct Folder {
+        std::filesystem::path path;
+        bool isUser;
+    };
+    std::vector<Folder> folders;
+    auto userDir = ConfigAPI().ConfigFilePath(ConfigAPI::kLevel::kUser).parent_path();
+    folders.push_back({userDir / Theme::USER_THEME_DIR, true});
+    folders.push_back({userDir, true});
+    auto &assetLoader = RuntimeConfig::Instance().GetAssetLoader();
+    for (auto &dir : assetLoader.ResolveExistingDirectories(Theme::SYSTEM_THEME_DIR, AssetLoaderBase::kLocationType::kSystem)) {
+        folders.push_back({dir, false});
+    }
+
+    std::vector<ThemeInfo> themes;
+    for (auto &folder : folders) {
+        std::error_code ec;
+        if (!std::filesystem::is_directory(folder.path, ec)) {
+            continue;
+        }
+        std::vector<std::filesystem::path> files;
+        for (auto &entry : std::filesystem::directory_iterator(folder.path, ec)) {
+            auto fileName = entry.path().filename().string();
+            if (entry.is_regular_file(ec) && (fileName.size() > 10) && fileName.ends_with(".theme.yml")) {
+                files.push_back(entry.path());
+            }
+        }
+        std::sort(files.begin(), files.end());
+        for (auto &path : files) {
+            auto fileName = path.filename().string();
+            bool isShadowed = std::any_of(themes.begin(), themes.end(), [&fileName](const ThemeInfo &theme) {
+                return theme.fileName == fileName;
+            });
+            auto text = ReadText(path);
+            if (isShadowed || !text.has_value()) {
+                continue;
+            }
+            ThemeInfo info;
+            info.fileName = fileName;
+            info.isUser = folder.isUser;
+            try {
+                auto node = ConfigNode::FromString(*text);
+                if (!node.has_value() || !node->HasKey("colorfile")) {
+                    continue;       // not a theme (a stray .theme.yml)
+                }
+                info.name = node->GetStr("name", fileName);
+                info.author = node->GetStr("author", "");
+                info.license = node->GetStr("license", "");
+            } catch (const std::exception &) {
+                continue;
+            }
+            themes.push_back(info);
+        }
+    }
+    return themes;
+}
 
 ThemesAPI::Result ThemesAPI::Import(const std::string &file, const std::string &name, bool isForced) {
     Result result;

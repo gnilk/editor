@@ -1,14 +1,39 @@
-// .theme --import <file> [--name <name>] [--force]
-//   Convert a VS Code theme (.json) or Sublime color scheme (.sublime-color-scheme) into a GoatEdit theme
+// .theme list | .theme use <name> | .theme --import <file> [--name <name>] [--force]
+//   list   - the themes 'use' can switch to: the user's (themes/ next to the user config) and the shipped ones
+//   use    - switch to one now, and save it as main.theme in the user config (<name>: the file name without
+//            .theme.yml, or the theme's own name - words with spaces are glued back together)
+//   --import - convert a VS Code theme (.json) or Sublime color scheme (.sublime-color-scheme) into a GoatEdit theme
 //   (<name>.theme.yml + <name>.colors.json in themes/ next to the user config) - same as 'goatedit --import-theme'.
 //   The command line is split on spaces: a file name with spaces may be typed as is or in quotes.
 function main(args) {
     var usage = [
-        "use: .theme --import <file> [--name <name>] [--force]",
+        "use: .theme list | .theme use <name> | .theme --import <file> [--name <name>] [--force]",
+        "  list             - the themes there are (yours and the shipped ones), the current one marked *",
+        "  use <name>       - switch to one now and keep it (main.theme in your user config)",
         "  --import <file>  - convert a VS Code theme (.json) or Sublime color scheme (.sublime-color-scheme)",
         "  --name <name>    - file name for the result (default: from the theme's name)",
         "  --force          - overwrite an earlier import of the same name"
     ];
+    // .theme list / .theme use <name>
+    var words = [];
+    for (var w = 0; w < args.length; w++) {
+        if (args[w] != "") {
+            words.push(args[w]);
+        }
+    }
+    if ((words.length == 1) && (words[0] == "list")) {
+        writeLines(Themes.List());
+        return;
+    }
+    if ((words.length >= 2) && (words[0] == "use")) {
+        writeLines(Themes.Use(words.slice(1).join(" ").replace(/^["']|["']$/g, "")));
+        return;
+    }
+    if (words.length == 0) {
+        writeLines(Themes.List());
+        return;
+    }
+
     var file = "";
     var name = "";
     var isForced = false;
@@ -37,6 +62,10 @@ function main(args) {
     if (isValid && (file != "")) {
         lines = Themes.Import(file, name, isForced);
     }
+    writeLines(lines);
+}
+
+function writeLines(lines) {
     for (var l = 0; l < lines.length; l++) {
         Console.WriteLine(lines[l]);
     }

@@ -3,6 +3,7 @@
 //
 
 #include "Core/Config/Config.h"
+#include "Core/Editor.h"
 #include "Core/NamedColors.h"
 #include "Core/Theme/Theme.h"
 #include "Core/UI/UIHost.h"
@@ -19,11 +20,9 @@ bool ThemeAPI::Reload() {
         return false;
     }
 
-    // AI-6 (docs/ui-refactor.md §8): the UI toolkit reads colors through UIHost, never Theme
-    // directly, so a runtime reload (this is JS-triggerable) must re-push fresh copies - mirrors the
-    // initial push in Editor::ConfigureTheme.
-    UIHost::Instance().SetUIColors(theme->GetUIColors());
-    UIHost::Instance().SetGlobalColors(theme->GetGlobalColors());
+    // The colours everywhere follow - the UI and syntax colours, the terminal's palette (it re-pushed only the UI's,
+    // so the syntax colours kept the old ones)
+    Editor::Instance().ApplyTheme();
     return true;
 }
 

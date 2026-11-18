@@ -123,7 +123,8 @@ in the editor; anything else (`./build.sh`) goes to the shell. The prefix is `ma
 | `.setlanguage <id>` / `.listlanguages` | `.sl` / `.ll` | language of the buffer |
 | `.fm_file` / `.fm_block` | `.fmf` / `.fmb` | reindent file / block |
 | `.copyoutput` / `.outputtobuffer` | `.co` / `.ob` | last terminal command's output: to clipboard / to a new buffer |
-| `.theme --import <file>` | | convert a VS Code / Sublime theme |
+| `.theme list` / `.theme use <name>` | | the themes there are / switch to one now (kept in your user config) |
+| `.theme --import <file>` | | convert a VS Code / Sublime theme (into `~/.config/goatedit/themes/`) |
 | `.theme_reload` / `.theme_list_colors` | `.thr` / `.thc` | theme |
 | `.cfg ...` | | configuration (above) |
 | `.listviews` / `.showview` / `.hideview <name>` | `.lv` / `.sv` / `.hv` | views |

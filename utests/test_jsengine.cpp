@@ -379,6 +379,36 @@ DLL_EXPORT int test_jsengine_themecmd(ITesting *t) {
     TR_ASSERT(t, cmd->Execute({"--import", "\"" + pathStart, "Theme.json\"", "--name", "my_theme"}));
     TR_ASSERT(t, std::filesystem::exists(userDir / "themes" / "my_theme.theme.yml"));
 
+    // Hitlist #19: list shows it and the shipped default; use switches live and saves main.theme in the user config
+    console.lines.clear();
+    TR_ASSERT(t, cmd->Execute({"list"}));
+    TR_ASSERT(t, console.Contains("My Theme"));
+    TR_ASSERT(t, console.Contains("default theme"));
+    TR_ASSERT(t, console.Contains("* default theme"));
+    console.lines.clear();
+    TR_ASSERT(t, cmd->Execute({"use", "my-theme"}));
+    TR_ASSERT(t, console.Contains("Using 'My Theme'"));
+    TR_ASSERT(t, Editor::Instance().GetTheme()->GetName() == "My Theme");
+    TR_ASSERT(t, Editor::Instance().GetTheme()->GetContentColors().GetColor("background") == ColorRGBA::FromRGB(0x10, 0x20, 0x30));
+    console.lines.clear();
+    TR_ASSERT(t, cmd->Execute({"list"}));
+    TR_ASSERT(t, console.Contains("* My Theme"));
+    {
+        std::ifstream f(userDir / "config.yml");
+        std::string text((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+        TR_ASSERT(t, text.find("theme: my-theme.theme.yml") != std::string::npos);
+        TR_ASSERT(t, text.find("# user") != std::string::npos);       // comments kept
+    }
+    // By its own name, case and spaces as typed
+    console.lines.clear();
+    TR_ASSERT(t, cmd->Execute({"use", "DEFAULT", "THEME"}));
+    TR_ASSERT(t, console.Contains("Using 'default theme'"));
+    TR_ASSERT(t, Editor::Instance().GetTheme()->GetName() == "default theme");
+    console.lines.clear();
+    TR_ASSERT(t, cmd->Execute({"use", "nosuch"}));
+    TR_ASSERT(t, console.Contains("No theme 'nosuch'"));
+    TR_ASSERT(t, Editor::Instance().GetTheme()->GetName() == "default theme");
+
     console.lines.clear();
     TR_ASSERT(t, cmd->Execute({"bogus"}));
     TR_ASSERT(t, console.Contains("use: .theme"));

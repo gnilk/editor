@@ -97,6 +97,8 @@ Dark+/Light+, Visual Studio Dark/Light, High Contrast dark/light. They include e
    dir, system `Themes/`, system root. The shipped default is `Themes/default.theme.yml` + `Themes/default.colors.json`
    (was `colors.json`). The importer writes to `themes/`. No install rule needed - the asset folder is mirrored and
    installed whole; the stale-asset cleanup (#24) removes the old root files from an install.
-3. `.theme list` (name, author, licence, user/system) and `.theme use <name>` (a `.cfg --user set main.theme`).
+3. `.theme list` (name, author, licence, user/system) and `.theme use <name>` (a `.cfg --user set main.theme`). **Built
+   2026-11-18** (`feature/theme-list`): live, no restart - `Theme::Switch` + `Editor::ApplyTheme` (the open documents are
+   highlighted again).
 4. Vendor the first themes: Dark 2026 (from VS Code), with `LICENSES.md`; then a light one. Each with its own terminal
    palette.

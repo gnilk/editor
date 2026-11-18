@@ -115,6 +115,7 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
   - [x] Linux - `Tab` in the project tree goes to the next view; `Ctrl+Shift+Left`/`Right` select by word; `Alt+Left`/`Right` still cycle buffers (2026-11-18, the terminal version in a pty; also `Alt+Home`/`End`, `Alt+T`/`E` unchanged)
 - **Themes folder** (#18)
   - [ ] Linux [ ] Mac - after installing: starts with the default theme as before; `.theme --import <a VS Code theme>` lands in `~/.config/goatedit/themes/`, `main.theme: <it>.theme.yml` uses it; a theme imported before (in `~/.config/goatedit/` itself) still loads
+    - Linux 2026-11-18: `install.sh --user` (sandbox HOME) installs `Themes/`, a reinstall over a pre-#18 install removes the old root `default.theme.yml` / `colors.json`; the installed binary starts with the default theme, no warning. The import part not tried by hand yet
 - **Short-file scroll window** (#35, open-bugs #30)
   - [x] Linux [x] Mac - a new file, a dozen lines, PageDown, then Enter in the middle: the top line stays until the view is full (scripted: `short_scroll`)
 

@@ -260,6 +260,53 @@ def prompt_above(n):
         g.kill()
 
 
+def bg_at(g, needle):
+    """The background behind the first cell of 'needle' on screen, or None"""
+    pos = g.screen.find(needle)
+    if pos is None:
+        return None
+    r, c = pos
+    return g.screen.cells[r][c][2]
+
+
+@check('#19 Theme list and use, live')
+def theme_use(n):
+    sb, work = sandbox('theme_use')
+    themes = os.path.join(sb, 'home', '.config', 'goatedit', 'themes')
+    write(os.path.join(themes, 'test-red.theme.yml'), 'name: "Test Red"\nauthor: "checks"\nlicense: "MIT"\ncolorfile: "test-red.colors.json"\n')
+    write(os.path.join(themes, 'test-red.colors.json'),
+          '{ "colors": { "globals": { "background": "rgb(80,0,0)", "foreground": "rgb(220,220,220)" },'
+          ' "content": { "regular": "rgb(220,220,220)" } } }')
+    user_config(sb, '# my settings\nmain:\n  tabsize: 4\n')
+    write(os.path.join(work, 'a.txt'), 'hello theme\n')
+    g = Goat(sb, ['a.txt'], cwd=work, skip_user_config=False)
+    try:
+        g.ready()
+        before = bg_at(g, 'hello theme')
+        g.quick('.theme list', 1.0)
+        n(g.screen.find('Test Red') is not None and g.screen.find('* default theme') is not None,
+          '.theme list: the user theme and the shipped default, the current one marked')
+        g.quick('.theme use test red', 1.0)
+        n(g.wait_text("Using 'Test Red'", 3), '.theme use test red: switched')
+        after = bg_at(g, 'hello theme')
+        n(after == '500000', f'the editor\'s background follows at once ({before} -> {after}, want 500000)')
+        prompt = [l for l in g.screen.lines() if l.rstrip().endswith('$')]
+        n(prompt and bg_at(g, prompt[-1].strip()) == '500000', 'and the terminal\'s')
+        with open(os.path.join(sb, 'home', '.config', 'goatedit', 'config.yml')) as f:
+            text = f.read()
+        n('theme: test-red.theme.yml' in text and '# my settings' in text, f'saved in the user config, comments kept: {text!r}')
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+    g = Goat(sb, ['a.txt'], cwd=work, skip_user_config=False)
+    try:
+        g.ready()
+        n(bg_at(g, 'hello theme') == '500000', 'started again: still the chosen theme')
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+
+
 @check('#29 Quick mode without ] / [')
 def quick_bracket(n):
     sb, work = sandbox('quick_bracket')

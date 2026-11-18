@@ -185,5 +185,5 @@ Typed in quick mode (`Esc`, then `.name` or `.short`, `Enter`) or at the termina
 | `.saveas` | `.sa` | filename | Save active buffer with a specific filename |
 | `.theme_reload` | `.thr` |  | Reload current theme |
 | `.theme_list_colors` | `.thc` | theme color class | List colors for current theme |
-| `.theme` | `.theme` | action and its arguments | Theme: --import <file> [--name <name>] [--force] - convert a VS Code / Sublime theme |
+| `.theme` | `.theme` | action and its arguments | Theme: list \| use <name> - switch theme (kept in the user config) \| --import <file> [--name <name>] [--force] - convert a VS Code / Sublime theme |
 | `.config` | `.cfg` | action and its arguments | Config: [--user \| --project] list [prefix] \| get <key> \| set <key> <value> \| edit |

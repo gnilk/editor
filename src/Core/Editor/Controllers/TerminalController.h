@@ -79,6 +79,8 @@ namespace gedit {
         void Promote(std::u32string text, bool isSubmit);
         // Focus in/out for apps that asked for focus events (?1004)
         void SetFocus(bool isFocused);
+        // The theme changed (Editor::ApplyTheme): the default colours and the palette again
+        void RefreshThemeColors();
         // A mouse event at a grid cell, for an app that turned on mouse reporting. False when nothing was sent
         // (reporting off, or not an event the mode reports) - the view then handles it itself.
         bool ForwardMouse(gnilk::vt::MouseButton button, gnilk::vt::MouseAction action, int x, int y,

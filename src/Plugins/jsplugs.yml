@@ -151,7 +151,7 @@ commands:
   -
     name: theme
     short: theme
-    description: "Theme: --import <file> [--name <name>] [--force] - convert a VS Code / Sublime theme"
+    description: "Theme: list | use <name> - switch theme (kept in the user config) | --import <file> [--name <name>] [--force] - convert a VS Code / Sublime theme"
     script: Scripts/theme.js
     arguments:
       - string, action and its arguments

@@ -984,10 +984,52 @@ bool Editor::ConfigureTheme() {
         return false;
     }
     theme = loaded;
+    PushThemeColors();
+    return true;
+}
 
+// '.theme use': the theme in 'themeFile' replaces the current one, live - the colours everywhere follow. On failure the
+// current theme stays and 'outProblem' says why.
+bool Editor::UseTheme(const std::string &themeFile, std::string &outProblem) {
+    outProblem.clear();
+    if (theme == nullptr) {
+        outProblem = "no theme is loaded";
+        return false;
+    }
+    if (!theme->Switch(themeFile)) {
+        outProblem = theme->GetLoadError();
+        return false;
+    }
+    ApplyTheme();
+    return true;
+}
+
+// After the theme's colours changed (a switch, '.theme_reload'): pushed to the UI and the syntax colours, the open
+// documents highlighted again, the terminal takes its palette again, everything is drawn again
+void Editor::ApplyTheme() {
+    PushThemeColors();
+    // The highlighter writes the colours into each line's attributes - parse the open documents again so their text
+    // takes the new ones (only the terminal and the UI read the theme as they draw)
+    if (workspace != nullptr) {
+        for (auto &document : workspace->GetOpenDocuments()) {
+            if (auto textBuffer = document->GetTextBuffer()) {
+                textBuffer->Reparse();
+            }
+        }
+    }
+    if (auto *terminalView = GetTerminalView()) {
+        terminalView->GetController().RefreshThemeColors();
+    }
+    if (auto *rootView = RuntimeConfig::Instance().GetRootViewAs<ViewBase>()) {
+        rootView->InvalidateAll();
+    }
+    TriggerUIRedraw();
+}
+
+void Editor::PushThemeColors() {
     // AI-6 (docs/ui-refactor.md §8): push copies of the theme's color tables into the UI toolkit's
     // UIHost - the toolkit reads colors through UIHost, never Editor/Theme directly. Re-pushed after
-    // a runtime reload too (see ThemeAPI::Reload).
+    // a runtime reload or switch too (ApplyTheme).
     UIHost::Instance().SetUIColors(theme->GetUIColors());
     UIHost::Instance().SetGlobalColors(theme->GetGlobalColors());
 
@@ -1014,7 +1056,6 @@ bool Editor::ConfigureTheme() {
                       fg.RedAsInt(255),fg.GreenAsInt(255),fg.BlueAsInt(255),
                       bg.RedAsInt(255),bg.GreenAsInt(255),bg.BlueAsInt(255));
     }
-    return true;
 }
 
 // '--import-theme': the same import as '.theme --import' (ThemesAPI), printed to the console

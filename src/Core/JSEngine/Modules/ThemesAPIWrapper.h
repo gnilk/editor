@@ -15,6 +15,8 @@ namespace gedit {
         static void RegisterModule(duk_context *ctx);
 
         std::vector<std::string> Import(const char *file, const char *name, bool isForced);
+        std::vector<std::string> List();
+        std::vector<std::string> Use(const char *name);
     };
 }
 

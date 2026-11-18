@@ -49,21 +49,26 @@ bool Theme::Initialize() {
     return true;
 }
 
-// Into a fresh theme first, so a file broken since the last load leaves this one as it was
 bool Theme::Reload() {
     if  (filename.empty()) {
         logger->Error("Theme must first be loaded");
         return false;
     }
+    return Switch(filename);
+}
+
+// Into a fresh theme first, so a file that can't be loaded leaves this one as it was
+bool Theme::Switch(const std::string &pathname) {
     auto fresh = Theme::Create();
-    if (!fresh->Load(filename)) {
+    if (!fresh->Load(pathname)) {
         loadError = fresh->loadError;
-        logger->Error("Reload of theme '%s' failed: %s - keeping the colours it had", filename.c_str(), loadError.c_str());
+        logger->Error("Theme '%s' can't be loaded: %s - keeping the colours it had", pathname.c_str(), loadError.c_str());
         return false;
     }
     dataNode.reset(fresh->dataNode);
     name = fresh->name;
     colorConfig = fresh->colorConfig;
+    filename = pathname;
     loadError.clear();
     return true;
 }

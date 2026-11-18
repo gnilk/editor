@@ -222,6 +222,11 @@ void TerminalController::Resize(int cols, int rows) {
     shell.SetWindowSize(cols, rows);
 }
 
+void TerminalController::RefreshThemeColors() {
+    std::lock_guard<std::mutex> guard(screenLock);
+    ApplyThemeColors();
+}
+
 void TerminalController::ApplyThemeColors() {
     auto &termColors = Editor::Instance().GetTheme()->GetTerminalColor();
     screen.SetDefaultColors(termColors.GetColor("foreground"), termColors.GetColor("background"));

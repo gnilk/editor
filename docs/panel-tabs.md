@@ -75,4 +75,8 @@ and the architecture-workbench idea (index data handed to agents).
 - **`PromoteToTerminal` sends to the last used terminal** - for a start; an "AI terminal" target can come later.
 - **The tab row is hidden when there is only one tab** - the panel looks as it does today until a second tab exists.
 
-Still open: the keys for new / close tab and next / previous; whether a closed configured tab comes back on restart.
+- **Next / previous tab follow the focused container too:** `CycleBufferNext` / `CycleBufferPrev` (`Opt/Alt+\` /
+  `Opt/Alt+'`) - renamed for what they then do, e.g. `CycleTabNext` / `CycleTabPrev` (and `SwitchToBuffer` ->
+  `SwitchToTab`), the old names kept as aliases in `KeyMapping` so a user keymap still loads.
+
+Still open (decided when we get there): the keys for new / close tab; whether a closed configured tab comes back on restart.

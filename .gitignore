@@ -16,3 +16,4 @@ bld/
 AppDir/
 dist/
 cmake-build-sdl2/
+__pycache__/

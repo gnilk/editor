@@ -10,6 +10,7 @@ version).
 - `goatedit <folder>` - opens the folder as a **project** (its `.goatedit/` config + session are used).
 - `goatedit <file>...` / `goatedit <file> <folder>` - opens them, but **not** as a project (a warning says so if a folder has a `.goatedit/`).
 - `--skip-user-config` - start without the user and project config.
+- `--backend ansi` - run inside the terminal you start it from (`goat --backend ansi .` on macOS runs it there, not through `open`).
 
 ## In a terminal (ANSI backend)
 

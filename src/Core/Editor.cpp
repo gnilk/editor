@@ -450,7 +450,7 @@ void Editor::PrintHelpToConsole() {
     printf("  --asset-dir <dir>, use <dir> for the system assets (config.yml, themes, keymaps) instead of looking next to the executable\n");
     printf("  --cwd <dir>, set the working directory (project root) before resolving file arguments\n");
     printf("  --import-theme <file> [--name <name>] [--force], convert a VS Code theme (.json) or Sublime color scheme\n");
-    printf("      (.sublime-color-scheme) into <name>.theme.yml + <name>.colors.json in the user config dir, then quit\n");
+    printf("      (.sublime-color-scheme) into <name>.theme.yml + <name>.colors.json in themes/ next to the user config, then quit\n");
 }
 
 

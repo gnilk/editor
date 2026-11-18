@@ -1,6 +1,6 @@
 # Theme collection - shipped themes, their licences, switching
 
-Status: planned (2026-11-13); §3 (the importer's licence keys) built.
+Status: planned (2026-11-13); §3 (the importer's licence keys) built; §2 (`Themes/`, lookup) built 2026-11-18.
 
 Today one theme ships (`Assets/Resources/default.theme.yml` + `colors.json`, Mariana-like). Themes the user imports
 (`.theme --import`, `--import-theme`, `docs/code-index.md` §10.1) land next to the user config and exist on that machine
@@ -71,7 +71,11 @@ product's `LICENSE.rtf` above it is correctly not read). Checked by `themeimport
 ## 5. Steps
 
 1. Importer writes the licence keys (§3) - branch `feature/theme-licence-keys`.
-2. `Themes/` folder, lookup order, install rule, `default.theme.yml` moved (§2).
+2. `Themes/` folder, lookup order, install rule, `default.theme.yml` moved (§2). **Built 2026-11-18** (`feature/themes-folder`):
+   `Theme::Locate` - an absolute path as is; else the theme's own folder first (for its `colorfile:`), user `themes/`, user
+   dir, system `Themes/`, system root. The shipped default is `Themes/default.theme.yml` + `Themes/default.colors.json`
+   (was `colors.json`). The importer writes to `themes/`. No install rule needed - the asset folder is mirrored and
+   installed whole; the stale-asset cleanup (#24) removes the old root files from an install.
 3. `.theme list` (name, author, licence, user/system) and `.theme use <name>` (a `.cfg --user set main.theme`).
 4. Vendor the first themes: Dark 2026 (from VS Code), with `LICENSES.md`; then a light one. Each with its own terminal
    palette.

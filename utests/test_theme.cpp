@@ -6,6 +6,8 @@
 #include <filesystem>
 #include <fstream>
 #include "Core/Theme/Theme.h"
+#include "Core/Editor.h"
+#include "Core/RuntimeConfig.h"
 #include "Core/Sublime/SublimeConfigColorScript.h"
 
 using namespace gedit;
@@ -18,6 +20,7 @@ DLL_EXPORT int test_theme_alpha(ITesting *t);
 DLL_EXPORT int test_theme_sharedbackground(ITesting *t);
 DLL_EXPORT int test_theme_loadmissing(ITesting *t);
 DLL_EXPORT int test_theme_loadbroken(ITesting *t);
+DLL_EXPORT int test_theme_locate(ITesting *t);
 DLL_EXPORT int test_theme_loadordefault(ITesting *t);
 DLL_EXPORT int test_theme_reloadkeeps(ITesting *t);
 }
@@ -175,5 +178,49 @@ DLL_EXPORT int test_theme_reloadkeeps(ITesting *t) {
     TR_ASSERT(t, theme->GetGlobalColors().HasColor("background"));
     TR_ASSERT(t, theme->GetGlobalColors().GetColor("background") == background);
     std::filesystem::remove_all(themePath.parent_path());
+    return kTR_Pass;
+}
+
+// Hitlist #18: shipped themes in the system 'Themes/', the user's in 'themes/' next to the user config; a theme imported
+// before (in the user dir itself) still loads; a theme's colour file is looked for next to it first
+DLL_EXPORT int test_theme_locate(ITesting *t) {
+    using kLocationType = AssetLoaderBase::kLocationType;
+    // The shipped default, from the system Themes/ - its colour file next to it
+    auto location = Theme::Locate(Theme::DEFAULT_THEME);
+    TR_ASSERT(t, location.has_value());
+    TR_ASSERT(t, location->name == "Themes/default.theme.yml");
+    TR_ASSERT(t, location->locationType == kLocationType::kSystem);
+    auto colors = Theme::Locate("default.colors.json", location);
+    TR_ASSERT(t, colors.has_value() && colors->name == "Themes/default.colors.json");
+    TR_ASSERT(t, Theme::Create()->Load(Theme::DEFAULT_THEME));
+    TR_ASSERT(t, !Theme::Locate("nosuch.theme.yml").has_value());
+
+    // A user dir of its own: themes/ wins over the user dir, the user dir (an old import) still loads
+    auto &assetLoader = RuntimeConfig::Instance().GetAssetLoader();
+    auto userDir = std::filesystem::temp_directory_path() / "goatedit_test_theme_locate";
+    std::error_code ec;
+    std::filesystem::remove_all(userDir, ec);
+    std::filesystem::create_directories(userDir / "themes");
+    auto writeTheme = [](const std::filesystem::path &dir, const std::string &name, const std::string &bg) {
+        std::ofstream(dir / (name + ".theme.yml")) << "name: " << name << "\ncolorfile: \"" << name << ".colors.json\"\n";
+        std::ofstream(dir / (name + ".colors.json")) << "{ \"colors\": { \"globals\": { \"background\": \"" << bg
+            << "\" }, \"content\": { \"regular\": \"rgb(200,200,200)\" } } }";
+    };
+    writeTheme(userDir / "themes", "mine", "rgb(10,0,0)");
+    writeTheme(userDir, "mine", "rgb(20,0,0)");
+    writeTheme(userDir, "old", "rgb(30,0,0)");
+    assetLoader.ReplaceSearchPath(userDir, kLocationType::kUser);
+
+    auto mine = Theme::Locate("mine.theme.yml");
+    TR_ASSERT(t, mine.has_value() && mine->name == "themes/mine.theme.yml" && mine->locationType == kLocationType::kUser);
+    auto theme = Theme::Create();
+    TR_ASSERT(t, theme->Load("mine.theme.yml"));
+    TR_ASSERT(t, theme->GetGlobalColors().GetColor("background") == ColorRGBA::FromRGB(10, 0, 0));
+    auto old = Theme::Create();
+    TR_ASSERT(t, old->Load("old.theme.yml"));
+    TR_ASSERT(t, old->GetGlobalColors().GetColor("background") == ColorRGBA::FromRGB(30, 0, 0));
+
+    assetLoader.ReplaceSearchPath(Editor::GetDefaultUserConfigDir(), kLocationType::kUser);
+    std::filesystem::remove_all(userDir, ec);
     return kTR_Pass;
 }

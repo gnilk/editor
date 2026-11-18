@@ -8,6 +8,18 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## Themes in a folder of their own (2026-11-18) ✅
+
+**Hitlist #18** (`theme-collection.md` §2). Shipped themes live in `Assets/Resources/Themes/` (the default moved there,
+its colour file renamed `default.colors.json`), the user's in `themes/` next to the user config (the importer writes
+there). **Load-bearing decisions:** one lookup, `Theme::Locate`, for the theme file and its `colorfile:` - an absolute
+path as is; else next to the theme first (a colour file), user `themes/`, the user dir itself (themes imported before
+still load), system `Themes/`, the system root (the old place) - so no config needs changing. No install rule: the
+asset folder is mirrored and installed whole, and #24's stale-asset cleanup takes the old root files out of an install.
+Tests: `test_theme_locate`; the import test checks the new folder and loads the theme by name.
+
+---
+
 ## Usability gaps: word keys on macOS, drag to select (2026-11-18) ✅
 
 **Hitlist #41.** Word left/right on macOS are `Opt+Left`/`Right` (CLion's default), `Shift` extends on both platforms;

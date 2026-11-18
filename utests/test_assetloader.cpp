@@ -21,7 +21,7 @@ DLL_EXPORT int test_assetloader(ITesting *t) {
 // which it is, through 'test_main'
 DLL_EXPORT int test_assetloader_load(ITesting *t) {
     auto assetLoader = RuntimeConfig::Instance().GetAssetLoader();
-    auto asset = assetLoader.LoadAsset("colors.json");
+    auto asset = assetLoader.LoadAsset("Themes/default.colors.json");
     TR_ASSERT(t, asset != nullptr);
     TR_ASSERT(t, asset->GetSize() != 0);
     return kTR_Pass;

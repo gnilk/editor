@@ -4,6 +4,7 @@
 
 // TO-DO: Consider supporting Helix TOML files..
 
+#include <filesystem>
 #include <nlohmann/json.hpp>
 
 #include "Core/Sublime/SublimeConfigColorScript.h"
@@ -98,8 +99,43 @@ bool Theme::Load(const std::string &pathname) {
     return true;
 }
 
+std::optional<Theme::Location> Theme::Locate(const std::string &fileName, const std::optional<Location> &nextTo) {
+    using kLocationType = AssetLoaderBase::kLocationType;
+    auto &assetLoader = RuntimeConfig::Instance().GetAssetLoader();
+    if (std::filesystem::path(fileName).is_absolute()) {
+        std::error_code ec;
+        if (!std::filesystem::exists(fileName, ec)) {
+            return {};
+        }
+        return Location{fileName, kLocationType::kAny};
+    }
+    std::vector<Location> candidates;
+    if (nextTo.has_value()) {
+        auto dir = std::filesystem::path(nextTo->name).parent_path();
+        candidates.push_back({(dir / fileName).string(), nextTo->locationType});
+    }
+    candidates.push_back({std::string(USER_THEME_DIR) + "/" + fileName, kLocationType::kUser});
+    candidates.push_back({fileName, kLocationType::kUser});
+    candidates.push_back({std::string(SYSTEM_THEME_DIR) + "/" + fileName, kLocationType::kSystem});
+    candidates.push_back({fileName, kLocationType::kSystem});
+    for (auto &candidate : candidates) {
+        if (candidate.locationType == kLocationType::kAny) {
+            std::error_code ec;
+            if (std::filesystem::exists(candidate.name, ec)) {
+                return candidate;
+            }
+            continue;
+        }
+        if (!assetLoader.ResolveExistingPath(candidate.name, candidate.locationType).empty()) {
+            return candidate;
+        }
+    }
+    return {};
+}
+
 bool Theme::LoadThemeFile(const std::string &pathname) {
-    if (!ConfigNode::LoadConfig(pathname)) {
+    auto location = Locate(pathname);
+    if (!location.has_value() || !ConfigNode::LoadConfig(location->name, location->locationType)) {
         loadError = "no such theme file";
         return false;
     }
@@ -112,7 +148,8 @@ bool Theme::LoadThemeFile(const std::string &pathname) {
     }
 
     auto colorFile = GetStr("colorfile", "colors.json");
-    if (!LoadSublimeColorFile(colorFile)) {
+    auto colorLocation = Locate(colorFile, location);
+    if (!colorLocation.has_value() || !LoadSublimeColorFile(*colorLocation)) {
         loadError = "its colour file '" + colorFile + "' is missing";
         return false;
     }
@@ -151,16 +188,15 @@ bool Theme::IsValidColorClass(const std::string &className) {
     return false;
 }
 
-bool Theme::LoadSublimeColorFile(std::string colorFile) {
+bool Theme::LoadSublimeColorFile(const Location &colorFile) {
     // Only enough here - or do we need this one out side???
     SublimeConfigColorScript scriptEngine;
     scriptEngine.RegisterBuiltIn();
 
-    logger->Debug("Loading Sublime Color file: %s", colorFile.c_str());
-
+    logger->Debug("Loading Sublime Color file: %s", colorFile.name.c_str());
 
     auto &assetLoader = RuntimeConfig::Instance().GetAssetLoader();
-    auto colorFileAsset = assetLoader.LoadTextAsset(colorFile);
+    auto colorFileAsset = assetLoader.LoadTextAsset(colorFile.name, colorFile.locationType);
     if (colorFileAsset == nullptr) {
         logger->Error("Failed to load color file!");
         return false;

@@ -1,0 +1,13 @@
+{
+  "_about": "Our changes to VS Code's Dark 2026 - applied by scripts/gen-themes.py after converting the source (docs/theme-collection.md 4.1)",
+  "source": "vscode/themes/2026-dark.json",
+  "name": "Dark 2026 (from VS Code)",
+  "_variables": "VS Code's default dark terminal ANSI colours (src/vs/workbench/contrib/terminal/common/terminalColorRegistry.ts, the commit in vscode/SOURCE.md) - the themes don't set them",
+  "variables": {
+    "ansi0": "#000000", "ansi1": "#cd3131", "ansi2": "#0DBC79", "ansi3": "#e5e510",
+    "ansi4": "#2472c8", "ansi5": "#bc3fbc", "ansi6": "#11a8cd", "ansi7": "#e5e5e5",
+    "ansi8": "#666666", "ansi9": "#f14c4c", "ansi10": "#23d18b", "ansi11": "#f5f543",
+    "ansi12": "#3b8eea", "ansi13": "#d670d6", "ansi14": "#29b8db", "ansi15": "#e5e5e5"
+  },
+  "colors": {}
+}

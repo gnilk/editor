@@ -307,6 +307,40 @@ def theme_use(n):
         g.kill()
 
 
+@check('#20 The generated themes match their sources')
+def themes_gen(n):
+    script = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'gen-themes.py')
+    r = subprocess.run([sys.executable, script, '--exe', Goat.EXE, '--check'], capture_output=True, text=True)
+    n(r.returncode == 0, f'Assets/Resources/Themes is what scripts/gen-themes.py writes: {(r.stdout + r.stderr).strip()}')
+
+
+@check('#20 Dark 2026 (from VS Code)')
+def vscode_theme(n):
+    sb, work = sandbox('vscode_theme')
+    write(os.path.join(work, 'a.txt'), 'hello vscode\n')
+    g = Goat(sb, ['a.txt'], cwd=work, skip_user_config=False)
+    try:
+        g.ready()
+        g.quick('.theme list', 1.0)
+        n(g.screen.find('Dark 2026 (from VS Code)') is not None, '.theme list shows it (shipped)')
+        g.quick('.theme use vscode-dark-2026', 1.0)
+        n(g.wait_text("Using 'Dark 2026 (from VS Code)'", 3), 'switched to it')
+        n(bg_at(g, 'hello vscode') == '121314', f"the editor's background is the theme's ({bg_at(g, 'hello vscode')}, want 121314)")
+        g.send(alt('t'), 0.4)
+        g.type("printf '\\033[31mREDTEXT\\033[0m\\n'", wait=0.2)
+        g.send(ENTER, 1.0)
+        pos = None
+        for r in range(g.rows):
+            line = g.screen.text(r)
+            if line.strip() == 'REDTEXT':
+                pos = (r, line.find('REDTEXT'))
+        fg = g.screen.cells[pos[0]][pos[1]][1] if pos else None
+        n(fg == 'cd3131', f"the terminal's red is VS Code's ({fg}, want cd3131)")
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+
+
 @check('#29 Quick mode without ] / [')
 def quick_bracket(n):
     sb, work = sandbox('quick_bracket')

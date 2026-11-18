@@ -54,7 +54,7 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
 - **Theme that can't load** (open-bugs #29 fix) - Linux built + tests green (774)
   - [x] Linux [x] Mac - `main.theme: nosuch.theme.yml`: starts, stderr says "no such theme file - using default.theme.yml" (scripted: `missing_theme`)
 - **Minimap contrast** (usability §7 follow-up) - Linux built + tests green (774)
-  - [ ] Linux [x] Mac - a changed line's mark stands clear of the text; the viewport box is subtle
+  - [x] Linux [x] Mac - a changed line's mark stands clear of the text; the viewport box is subtle
 - **Big folder** (`max_scan_entries`, indexer cancel) - Linux built + tests green, measured by script, not by hand
   - [x] Linux [x] Mac - `goatedit .` in a big tree (`~/src/apus`, an npm project with `node_modules` not ignored): the window answers at once (scripted: `big_folder` - 60000 files, view switches ~120 ms while scanning)
   - [x] Linux [x] Mac - folders below the fourth level open when expanded; a session file deep in the tree reopens (scripted: `big_folder`)

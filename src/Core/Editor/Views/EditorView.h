@@ -45,6 +45,9 @@ namespace gedit {
 
         bool OnAction(const EditorAction &kpAction) override;
         bool OnMouseEvent(const MouseEvent &mouseEvent) override;
+        // A plain left click is followed: dragging selects (hitlist #41)
+        bool KeepsDragAfterPress(const MouseEvent &press) override;
+        void OnMouseDrag(const MouseEvent &mouseEvent) override;
         // The I-beam: what is under the pointer is text
         std::optional<kPointerShape> PointerShapeAt(int x, int y) override {
             return viewRect.PointInRect(x, y) ? std::optional(kPointerShape::kText) : std::nullopt;
@@ -63,6 +66,9 @@ namespace gedit {
         void OnActivate(bool isActive) override;
         void DrawViewContents() override;
         bool OnMousePressedEvent(const MouseEvent &mouseEvent);
+        // The text position under the pointer; above or below the text: the line before / after the visible ones
+        // (a drag past the edge scrolls). Columns past the line end clamp to it.
+        Point TextPositionAt(const MouseEvent &mouseEvent);
     private:
         void DrawSearchResultOverlays(DrawContext &dc, const std::vector<WrapRow> &rows, int tabSize);
         void DrawSelectionOverlay(DrawContext &dc, const std::vector<WrapRow> &rows, int tabSize);

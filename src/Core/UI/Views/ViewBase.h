@@ -283,6 +283,12 @@ namespace gedit {
             return false;
         }
         virtual void OnMouseDrag(const MouseEvent &mouseEvent) {}
+        // A press this view has handled (OnMouseEvent returned true) whose drag it follows - text selection: the click
+        // is a click (focus, caret), the moves after it select. True: the moves and the release go to OnMouseDrag, as
+        // for OnMouseDragStart.
+        virtual bool KeepsDragAfterPress(const MouseEvent &press) {
+            return false;
+        }
         // A drag that draws finer than a cell (the minimap) gets every move; the others only one per cell reached
         virtual bool IsSubCellDrag() const {
             return false;

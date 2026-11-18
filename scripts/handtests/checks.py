@@ -375,6 +375,40 @@ def selected_rows(g):
     return [r for r in range(g.rows) if any(bg == SELECTED_BG for _, _, bg in g.screen.runs(r, 0))]
 
 
+def sgr_mouse(kind, col, row):
+    """An SGR mouse report (gansi asks for ?1000/?1002/?1006) - col/row 0-based screen cells"""
+    code = {'press': 0, 'move': 32, 'release': 0}[kind]
+    return f'\x1b[<{code};{col + 1};{row + 1}{"m" if kind == "release" else "M"}'.encode()
+
+
+@check('#41 Drag to select in the editor')
+def drag_select(n):
+    sb, work = sandbox('drag_select')
+    write(os.path.join(work, 'd.txt'), 'first line here\nsecond line here\nthird line here\nfourth line here\n')
+    g = Goat(sb, ['d.txt'], cwd=work)
+    try:
+        g.ready()
+        g.send(alt('e'), 0.5)
+        start = g.screen.find('second line')
+        end = g.screen.find('third line')
+        n(start is not None and end is not None, f'the text is on screen ({start}, {end})')
+        if start is None or end is None:
+            return
+        (r0, c0), (r1, c1) = start, end
+        g.send(sgr_mouse('press', c0 + 7, r0), 0.3)
+        g.send(sgr_mouse('move', c0 + 9, r0), 0.2)
+        g.send(sgr_mouse('move', c1 + 5, r1), 0.2)
+        g.send(sgr_mouse('release', c1 + 5, r1), 0.4)
+        rows = selected_rows(g)
+        n(rows == [r0, r1], f'press on "second", drag to "third": both rows selected ({rows}, want {[r0, r1]})')
+        g.send(sgr_mouse('press', c0 + 2, r0), 0.2)
+        g.send(sgr_mouse('release', c0 + 2, r0), 0.4)
+        n(selected_rows(g) == [], f'a click drops it ({selected_rows(g)})')
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+
+
 @check('#47 Promote to terminal: line, selection')
 def promote(n):
     sb, work = sandbox('promote')

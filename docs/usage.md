@@ -86,7 +86,7 @@ Three layers, merged in this order (later wins, key by key):
 
 ## Mouse
 
-- Click places the caret and focuses the view; the wheel scrolls; drag a divider to resize views. (No drag-to-select yet - use `Shift`+keys.)
+- Click places the caret and focuses the view; drag to select (past the top/bottom edge the view scrolls), `Shift+click` extends the selection; the wheel scrolls; drag a divider to resize views.
 - `Cmd+click` (`Ctrl+click`) on a name - go to its definition (as `Cmd+B`).
 - Double-click a row in the project tree - open it.
 - Mouse bindings live in the `mouse:` section of each keymap file.

@@ -270,6 +270,15 @@ namespace gedit {
         void SelectAll();
         // The selection as text, or the active line with no selection - no trailing line break (PromoteToTerminal)
         std::u32string SelectionOrLineText();
+        // The caret to (idxLine, idxChar) with the selection following it - begun at the caret if none is active (a
+        // mouse drag, Shift+click)
+        void SelectTo(size_t idxLine, size_t idxChar) {
+            if (!IsSelectionActive()) {
+                BeginSelection();
+            }
+            SetCursorPosition(idxLine, idxChar);
+            UpdateSelection();
+        }
         __inline void CancelSelection() {
             documentViewState->currentSelection.SetActive(false);
         }

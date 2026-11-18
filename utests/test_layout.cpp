@@ -452,6 +452,53 @@ namespace {
     }
 }
 
+namespace {
+    // A view that handles a press and keeps the drag after it - as the editor does to select
+    struct SelectingView : public ViewBase {
+        int numPresses = 0;
+        std::vector<MouseEvent::kMouseEventKind> drags;
+        bool OnMouseEvent(const MouseEvent &mouseEvent) override {
+            numPresses += (mouseEvent.kind == MouseEvent::kMouseEventKind_Press) ? 1 : 0;
+            return true;
+        }
+        bool KeepsDragAfterPress(const MouseEvent &press) override {
+            return true;
+        }
+        void OnMouseDrag(const MouseEvent &mouseEvent) override {
+            drags.push_back(mouseEvent.kind);
+        }
+    };
+}
+
+// Hitlist #41: the view that handled a press keeps the moves and the release, wherever the pointer goes - over the
+// other panel too; the next press is an ordinary one again
+extern "C" int test_layout_drag_after_press(ITesting *t) {
+    RootView rootView;
+    HSplitView hSplitView;
+    rootView.AddView(&hSplitView);
+    SelectingView upperView;
+    PressCountingView lowerView;
+    hSplitView.SetUpper(&upperView);
+    hSplitView.SetLower(&lowerView);
+    rootView.Initialize();
+    int x = hSplitView.GetContentRect().Width() / 2;
+    int split = hSplitView.GetSplitterPos();
+
+    TR_ASSERT(t, rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Press, x, 1)));
+    TR_ASSERT(t, upperView.numPresses == 1);
+    rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Move, x, 2));
+    rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Move, x, split + 3));    // over the lower panel
+    rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Release, x, split + 3));
+    TR_ASSERT(t, upperView.drags.size() == 3);
+    TR_ASSERT(t, upperView.drags.back() == MouseEvent::kMouseEventKind_Release);
+    TR_ASSERT(t, lowerView.numPresses == 0);
+
+    rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Press, x, split + 3));
+    TR_ASSERT(t, lowerView.numPresses == 1);
+    TR_ASSERT(t, upperView.drags.size() == 3);
+    return kTR_Pass;
+}
+
 extern "C" int test_layout_drag_hsplit(ITesting *t) {
     RootView rootView;
     HSplitView hSplitView;

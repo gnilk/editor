@@ -108,10 +108,10 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
     - Mac 2026-11-18, Ghostty: `Ctrl+<letter>` and `Alt+1..9` work; `Cmd+V` pastes (Ghostty's own paste, arrives as a bracketed paste); `Cmd+Z` does nothing - right, `Cmd` is not bound in the Linux keymaps. `Ctrl+Enter` promotes to the terminal (`Cmd+Enter` is Ghostty's full-screen); several selected lines ran in bash. Start with `goat --backend ansi .` (runs in the terminal since `fix/goat-ansi`; needs `install-cli`)
   - [ ] Mac - the SDL app is unchanged: `Cmd+S`, `Cmd+Z`, `Cmd+1..9`
   - [x] Mac - several lines `Ctrl+Enter`-promoted to bash 3.2 in the terminal version: both run, no `00~` (scripted: `promote`); by hand in Ghostty with `Ctrl+Enter` too; the SDL app with `Cmd+Enter` and `SHELL=/bin/bash`: [ ]
-- **Usability gaps** (#41) - the terminal version scripted (`drag_select`); the window versions need a hand
-  - [ ] Linux [ ] Mac - drag over text selects it, from where it was pressed (backwards too); dragging below the view scrolls it; a click drops the selection; `Shift+click` extends it
-  - [ ] Linux [ ] Mac - `Cmd/Ctrl+click` still jumps (no selection), double-click in the tree still opens
-  - [ ] Mac - `Opt+Left`/`Right` move by word, `Opt+Shift+Left`/`Right` select; `Opt+[`/`]` still cycle views
+- **Usability gaps** (#41) - the terminal version scripted (`drag_select`); Mac window checked by hand 2026-11-18
+  - [ ] Linux [x] Mac - drag over text selects it, from where it was pressed (backwards too); dragging below the view scrolls it; a click drops the selection; `Shift+click` extends it
+  - [ ] Linux [x] Mac - `Cmd/Ctrl+click` still jumps (no selection), double-click in the tree still opens
+  - [x] Mac - `Opt+Left`/`Right` move by word, `Opt+Shift+Left`/`Right` select; `Opt+[`/`]` still cycle views
   - [x] Linux - `Tab` in the project tree goes to the next view; `Ctrl+Shift+Left`/`Right` select by word; `Alt+Left`/`Right` still cycle buffers (2026-11-18, the terminal version in a pty; also `Alt+Home`/`End`, `Alt+T`/`E` unchanged)
 - **Short-file scroll window** (#35, open-bugs #30)
   - [x] Linux [x] Mac - a new file, a dozen lines, PageDown, then Enter in the middle: the top line stays until the view is full (scripted: `short_scroll`)

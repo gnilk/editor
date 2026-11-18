@@ -96,12 +96,17 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
   - [x] Linux - `goatedit` in uxterm / over ssh: Esc into quick mode and a command feel immediate; Alt+T / Alt+E still switch views
 - **Shell prompt at start-up** (#51) - checked in a pty on the ANSI backend, not in the SDL app
   - [x] Linux [x] Mac - start the app: the goat banner, then the shell's prompt below it at once, no key needed (scripted: `prompt_above`, `missing_theme`; Linux SDL2 checked too)
-  - [ ] Linux [x] Mac - type half a command in the terminal, then `.ll` in the editor: the list lands above the line, the half-typed command stays and runs when finished (scripted: `prompt_above`)
+  - [x] Linux [x] Mac - type half a command in the terminal, then `.ll` in the editor: the list lands above the line, the half-typed command stays and runs when finished (scripted: `prompt_above`)
   - [x] Linux [ ] Mac - the SDL app: same start-up, a coloured `PS1` keeps its colours after the banner
 - **Start-up notices in the terminal panel** (#50)
-  - [ ] Linux [x] Mac - `goatedit a.txt .` in a repo with a `.goatedit`: "goatedit: not a single-folder launch ..." in the terminal panel, the prompt below it (scripted: `single_folder`)
-  - [ ] Linux [x] Mac - `main.theme: nosuch.theme.yml`: "goatedit: theme nosuch.theme.yml: no such theme file ..." in the panel (scripted: `missing_theme`)
+  - [x] Linux [x] Mac - `goatedit a.txt .` in a repo with a `.goatedit`: "goatedit: not a single-folder launch ..." in the terminal panel, the prompt below it (scripted: `single_folder`)
+  - [x] Linux [x] Mac - `main.theme: nosuch.theme.yml`: "goatedit: theme nosuch.theme.yml: no such theme file ..." in the panel (scripted: `missing_theme`)
   - [ ] Mac - through `goat` (started with `open`, no stderr): the same notice in the panel - the case #50 was for
+- **Terminal version on macOS with the Linux keymaps** (#48) - the scripted checks pass in a pty (all 14 that run on the Mac); the terminals themselves need a hand
+  - [ ] Mac - Terminal.app, `goatedit --backend ansi`: `Ctrl+S` saves, `Ctrl+Z` undoes, `Ctrl+F` finds (`Ctrl+[` is `Esc` there - a legacy collision); with "Use Option as Meta key" on: `Option+T` / `Option+E` switch views
+  - [ ] Mac - Ghostty (kitty protocol): the same, plus `Ctrl+/` comments, `Ctrl+Enter` promotes to the terminal, `Ctrl+[` comes back after a jump
+  - [ ] Mac - the SDL app is unchanged: `Cmd+S`, `Cmd+Z`, `Cmd+1..9`
+  - [x] Mac - several lines `Ctrl+Enter`-promoted to bash 3.2 in the terminal version: both run, no `00~` (scripted: `promote`); the SDL app with `Cmd+Enter` and `SHELL=/bin/bash` by hand: [ ]
 - **Short-file scroll window** (#35, open-bugs #30)
   - [x] Linux [x] Mac - a new file, a dozen lines, PageDown, then Enter in the middle: the top line stays until the view is full (scripted: `short_scroll`)
 
@@ -109,7 +114,6 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
 
 | # | Item | Where | Size | Notes |
 |---|---|---|---|---|
-| 48 | ANSI backend on macOS: the keymap's `Cmd` shortcuts (`CopyPasteModifier: KeyCode_Cmd` - copy/paste, undo, find, comment, save...) can't be pressed - a terminal never sends Cmd (Terminal.app, iTerm2 legacy), only Kitty's `super` bit where the terminal forwards it (Ghostty/kitty, usually not) | `Assets/Resources/macOS/*_keymap.yml`, `KeyMapping` (modifier names), `GansiKeyboardDriver` | hours | options: a per-backend modifier map (in ANSI, `CopyPasteModifier` = Ctrl on macOS too, as on Linux), or an ANSI keymap that inherits the Linux one. Check what Ctrl chords Terminal.app eats; `Ctrl+Space` etc. Found writing #44 |
 | 40 | User documentation: the keyboard layout per platform (the shipped keymaps, modifier groups), the shipped dot/quick commands, the mouse bindings | `docs/usage.md` (a short first version, 2026-11-16) | a day | discussed, never written down; generate from the keymap YAML where possible so it can't drift; ties in with #8 |
 | 41 | Gaps found writing `usage.md`: no word left/right on macOS; no drag-to-select in the editor; `.openfolder` is registered in `jsplugs.yml` but `Scripts/openfolder.js` doesn't exist (see #36) | `docs/usage.md` | hours | small, each on its own |
 | 52 | Build messages: errors / warnings (file, line) read from a build's output in the terminal - a modal of them with the source line, next / previous keys, `Cmd/Ctrl+[` back. Revives an old prototype (a hidden jump list) | `build-messages.md` | days | idea, 2026-11-18; matchers as data (gcc/clang, CMake, make dirs first); open questions in §8 - after the run or live, which commands, lines moving after edits |
@@ -125,7 +129,6 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
 | 26 | Button widget in the UI toolkit | usability §16 | a day | needed by 27 |
 | 27 | Close button per file in the header (`*` / `x`, CLion style) | usability §15 | half a day | after 26 |
 | 8 | Key binding groups: `FunctionModifier`, `CodeNavigationModifier`, `docs/keybindings.md` | usability §11 | days | decide the `CodeNavigationModifier` key first |
-| 9 | The terminal version on macOS uses the Linux keymaps | open-bugs #20 | days | after 8 |
 | 28 | Key bindings for script commands (`ReformatLine` as a quick command) | usability §4 | ? | note, not scheduled |
 | 30 | Workspace text search on `Cmd+Shift+F` | usability §3 c | days | design first |
 | 7 | Image view phase 0: `BufferBase`, `TextBuffer` / `ImageBuffer` | `image-view.md` §2.4 | a day | parked 2026-11-11 |
@@ -144,6 +147,7 @@ Smaller bugs not ranked yet: open-bugs #1 (`AttributeAt`, read before touching i
 
 | # | Item | When |
 |---|---|---|
+| 48 | ANSI backend on macOS takes the Linux keymaps (`Ctrl` for functionality, `Alt` for the UI): a terminal never sends `Cmd`. `KeyMapping::SetConfigSection`, set by `Editor` with the backend. Also #9 (the same change). Found with it: several lines promoted to a shell that never asked for bracketed paste (macOS bash 3.2) got the brackets as text (`00~`) - now the modes the shell asked for | 2026-11-18 |
 | 50 | Start-up notices (a project's settings not used, a theme or language file that can't load, a missing file argument, the old user dir, a cwd outside home) go to the terminal panel too, after the banner - stderr is lost through `goat` / a launcher (`StartupNotices`, `Editor::Notice`) | 2026-11-18 |
 | 51 | Console output (the start-up banner, plugins) goes above the shell's prompt, which is drawn again below it - on the Mac bash's prompt arrived before the banner and was pushed off the panel until a key (`TerminalScreen::WriteAboveCursorLine`, gvt `EncodeRow`) | 2026-11-18 |
 | 1 | Double-click (and Enter) on a folder expands or collapses it (usability §10) | 2026-11-12 |

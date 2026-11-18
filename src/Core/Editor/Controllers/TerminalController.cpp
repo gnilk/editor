@@ -596,12 +596,12 @@ void TerminalController::Paste(const std::u32string &text) {
         ScrollToBottom();
         return;
     }
-    // Several lines: readline takes the line (as on Tab completion), the paste lands in it bracketed - visible
-    // and editable, run on Enter
+    // Several lines: readline takes the line (as on Tab completion). Bracketed when the shell asked for it (bash 5.1+,
+    // zsh): the paste lands in the line, visible and editable, run on Enter. A shell that didn't (macOS' bash 3.2)
+    // gets the lines as typed - each runs at its newline, as any terminal pastes them; brackets it doesn't know
+    // showed up as '00~' / '01~' in its line
     EnterShellOwned();
-    gnilk::vt::Modes bracketed;
-    bracketed.isBracketedPaste = true;
-    WriteToPty(UnicodeHelper::utf32to8(inputLine->Buffer()) + gnilk::vt::EncodePaste(bytes, bracketed));
+    WriteToPty(UnicodeHelper::utf32to8(inputLine->Buffer()) + gnilk::vt::EncodePaste(bytes, GetModes()));
     ScrollToBottom();
 }
 

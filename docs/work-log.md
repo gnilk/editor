@@ -8,6 +8,19 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## Terminal version on macOS takes the Linux keymaps (2026-11-18) ✅
+
+**Hitlist #48 (and #9), open-bugs #20's keymap half.** The ANSI backend on macOS ran the `macOS/*_keymap.yml` files,
+`Cmd` for every function - a terminal never sends `Cmd` (or keeps it, Ghostty's tabs). **Load-bearing decisions:** the
+section that names the keymap files is plain data on `KeyMapping` (`SetConfigSection` / `ConfigSection`, the OS's by
+default); `Editor` sets `linux` when it starts the ANSI backend on macOS and clears the `KeyMappingCache` - `KeyMapping`
+knows no backend (the layering rule). All keymaps, no config override yet. Found with it, on the first all-green Mac
+run of `checks.py`: several lines promoted to readline were always sent bracketed - macOS' bash 3.2 never asks for
+bracketed paste and showed `00~` / `01~`; now `EncodePaste` with the modes the shell asked for. Tests:
+`test_keymapping_section`, `test_terminalcontroller_paste` / `_promote` (a shell without ?2004).
+
+---
+
 ## Start-up notices in the terminal panel (2026-11-18) ✅
 
 **Hitlist #50.** What the user should know about a start - project settings not used (not a single-folder launch), a

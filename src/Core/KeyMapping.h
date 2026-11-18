@@ -47,6 +47,11 @@ namespace gedit {
 
         // Loads the 'keymap' config node for a named keymap from the assets (OS-specific lookup).
         static std::optional<ConfigNode> LoadKeymapConfig(const std::string &name);
+        // The config section that names the keymap files: 'linux' or 'macos', the OS's by default. Plain data - the
+        // code that picks the backend sets it (the terminal version on macOS takes 'linux', hitlist #48); clear the
+        // KeyMappingCache after a change.
+        static void SetConfigSection(const std::string &section);
+        static const std::string &ConfigSection();
 
         bool Initialize(const std::string &cfgNodeName);
         bool Initialize(const ConfigNode &cfgNode);

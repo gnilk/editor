@@ -99,6 +99,8 @@ DLL_EXPORT int test_document_gotoimpl_noselection(ITesting *t);
 DLL_EXPORT int test_document_wrap_caret_stays_visible(ITesting *t);
 // a file shorter than the view keeps a full-height scroll window after jumping to its end (open-bugs #30)
 DLL_EXPORT int test_document_shortfile_window(ITesting *t);
+DLL_EXPORT int test_document_attributeat(ITesting *t);
+DLL_EXPORT int test_document_wordnav(ITesting *t);
 }
 
 // Define some common actions, this will trigger side-effects in the document
@@ -1770,6 +1772,74 @@ DLL_EXPORT int test_document_promote_text(ITesting *t) {
     document->OnAction(actionShiftLineDown);
     TR_ASSERT(t, document->GetSelection().GetEnd() == gedit::Point(0, 2));
     TR_ASSERT(t, document->SelectionOrLineText() == U"one\ntwo");
+    IndentCache::Instance().Clear();
+    return kTR_Pass;
+}
+
+// open-bugs #1: AttributeAt returned the FIRST span for any position in the last one. The span covering a column -
+// the last one up to the end of the line; past the end, or on a line without spans, end()
+DLL_EXPORT int test_document_attributeat(ITesting *t) {
+    auto document = CreateReformatDoc(t, {"int x = 1; // note"});
+    auto line = document->LineAt(0);
+    auto &attribs = line->Attributes();
+    TR_ASSERT(t, attribs.size() >= 3);
+    for (size_t i = 0; i < attribs.size(); i++) {
+        int start = attribs[i].idxOrigString;
+        int end = (i + 1 < attribs.size()) ? attribs[i + 1].idxOrigString : (int)line->Length();
+        for (int x = start; x < end; x++) {
+            TR_ASSERT(t, line->AttributeAt(x) == attribs.begin() + (long)i);
+        }
+    }
+    // The last span - the trailing comment - runs to the end of the line
+    TR_ASSERT(t, line->AttributeAt((int)line->Length() - 1) == attribs.end() - 1);
+    TR_ASSERT(t, line->AttributeAt((int)line->Length()) == attribs.end());
+    TR_ASSERT(t, line->AttributeAt(-1) == attribs.end());
+
+    auto empty = CreateReformatDoc(t, {""});
+    TR_ASSERT(t, empty->LineAt(0)->AttributeAt(0) == empty->LineAt(0)->Attributes().end());
+    IndentCache::Instance().Clear();
+    return kTR_Pass;
+}
+
+// Word left / right (hitlist #41: Opt+arrows on macOS) step between the starts of the line's spans; past the last
+// one to the end of the line, and over line ends. Word left from the start of the last span went to column 0 (open-bugs #1).
+DLL_EXPORT int test_document_wordnav(ITesting *t) {
+    EditorAction wordRight = {.uiAction = gedit::kUIAction::kUIActionLineWordRight};
+    EditorAction wordLeft = {.uiAction = gedit::kUIAction::kUIActionLineWordLeft};
+    auto document = CreateReformatDoc(t, {"alpha beta gamma", "next"});
+    gedit::Rect rect(40, 10);
+    document->OnViewInit(rect);
+    auto line = document->LineAt(0);
+    std::vector<int> starts;
+    for (auto &a : line->Attributes()) {
+        starts.push_back(a.idxOrigString);
+    }
+    TR_ASSERT(t, starts.size() >= 3);
+    auto &lc = document->GetLineCursor();
+    lc.idxActiveLine = 0;
+    lc.cursor.position.x = 0;
+
+    // Right: every span start after 0, then the end of the line, then the next line's start
+    for (size_t i = 1; i < starts.size(); i++) {
+        document->OnAction(wordRight);
+        TR_ASSERT(t, lc.cursor.position.x == starts[i]);
+    }
+    document->OnAction(wordRight);
+    TR_ASSERT(t, lc.cursor.position.x == (int)line->Length());
+    document->OnAction(wordRight);
+    TR_ASSERT(t, lc.idxActiveLine == 1 && lc.cursor.position.x == 0);
+
+    // Left: back over the line end, then the span starts in reverse - from the last span's start too
+    document->OnAction(wordLeft);
+    TR_ASSERT(t, lc.idxActiveLine == 0 && lc.cursor.position.x == (int)line->Length());
+    for (size_t i = starts.size(); i-- > 0;) {
+        document->OnAction(wordLeft);
+        TR_ASSERT(t, lc.cursor.position.x == starts[i]);
+    }
+    // From inside a span: its own start
+    lc.cursor.position.x = starts[1] + 1;
+    document->OnAction(wordLeft);
+    TR_ASSERT(t, lc.cursor.position.x == starts[1]);
     IndentCache::Instance().Clear();
     return kTR_Pass;
 }

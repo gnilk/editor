@@ -140,13 +140,14 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
 | 34 | Per-block syntax highlighting in the terminal | `syntax-blocks.md` | days | deferred |
 | 36 | An "open folder" command (a dot-command and/or a key) - open a folder as the project after start-up | - | ? | no command for it yet; since #23 only `goatedit <one folder>` is a project, so this is the other way in. Design: what happens to the open files and the session |
 
-Smaller bugs not ranked yet: open-bugs #1 (`AttributeAt`, read before touching it), #24 (readline history extras),
+Smaller bugs not ranked yet: open-bugs #24 (readline history extras),
 #26 (`/usage` glyphs).
 
 ## Done
 
 | # | Item | When |
 |---|---|---|
+| - | `Line::AttributeAt` gave the first span for any position in the last one (open-bugs #1); word left from a line's last token went to column 0. Word left/right step between span starts now | 2026-11-18 |
 | 40 | User documentation: `docs/keys.md`, every binding (per keymap, both platforms), mouse binding and command, generated from the shipped keymaps and `jsplugs.yml` by `scripts/gen-keys.py` (`--check`; the `keys_doc` check) - it can't drift. `usage.md` stays the short guide, links to it. `hexview_keymap` named in `config.yml` (it fell back to the default keymap by accident) | 2026-11-18 |
 | 48 | ANSI backend on macOS takes the Linux keymaps (`Ctrl` for functionality, `Alt` for the UI): a terminal never sends `Cmd`. `KeyMapping::SetConfigSection`, set by `Editor` with the backend. Also #9 (the same change). Found with it: several lines promoted to a shell that never asked for bracketed paste (macOS bash 3.2) got the brackets as text (`00~`) - now the modes the shell asked for | 2026-11-18 |
 | 50 | Start-up notices (a project's settings not used, a theme or language file that can't load, a missing file argument, the old user dir, a cwd outside home) go to the terminal panel too, after the banner - stderr is lost through `goat` / a launcher (`StartupNotices`, `Editor::Notice`) | 2026-11-18 |

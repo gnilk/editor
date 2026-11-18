@@ -184,7 +184,8 @@ The emulation is the standalone **gvt** library (`gnilk::vt`): `Parser` (William
 **`Cmd`/`Ctrl` is functionality, `Option`/`Alt` is UI control** (views, sizing, panels, toggles): `CopyPasteModifier`
 and `UINavigationModifier` in the keymaps. Decide which one an action is, then pick the modifier from that. macOS owns
 many `Cmd+<letter>` combos (`Cmd+H` hides the app), so check before binding. A view's own action goes in that view's
-keymap (`workspace_keymap.yml`), not `default_keymap.yml`; a child keymap wins on first match.
+keymap (`workspace_keymap.yml`), not `default_keymap.yml`; a child keymap wins on first match. After changing a binding
+or a command, `python3 scripts/gen-keys.py` regenerates `docs/keys.md` (the `keys_doc` check fails until it is).
 
 ## Coding Standards
 

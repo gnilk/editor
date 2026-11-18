@@ -753,6 +753,13 @@ def repo_root():
     return os.path.abspath(os.path.join(os.path.dirname(Goat.EXE), '..'))
 
 
+@check('#40 The key reference matches the keymaps')
+def keys_doc(n):
+    script = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'gen-keys.py')
+    r = subprocess.run([sys.executable, script, '--check'], capture_output=True, text=True)
+    n(r.returncode == 0, f'docs/keys.md is what scripts/gen-keys.py writes: {(r.stdout + r.stderr).strip()}')
+
+
 @check('#24 Stale assets: install.sh --user')
 def install_stale(n):
     if platform.system() != 'Linux':

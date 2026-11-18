@@ -59,11 +59,18 @@ and the architecture-workbench idea (index data handed to agents).
 5. Messages as a tab (with #52); a CMake / build tab.
 6. Mouse: click a tab, close buttons (after #26).
 
-## 6. Open questions
+## 6. Decisions (2026-11-18)
 
-1. Keys: tab next / previous / N are UI control - `Option/Alt` (`UINavigationModifier`); which letters / digits are free
-   on both platforms?
-2. Does `Option/Alt+T` go to the last used terminal, or cycle through them?
-3. Tabs configured in the config (fixed set), made at run-time (new / close), or both?
-4. Which terminal does `PromoteToTerminal` send to - the AI one when configured, the last used, or ask?
-5. An ANSI-backend limit: the tab row costs one row of a small terminal - hide it when there is only one tab?
+- **"The one terminal" becomes "the one container".** Everything in §3 that names the terminal view names the lower
+  panel's container instead; `Option/Alt+T` goes to the container, which shows the tab that was active last time
+  (also across a restart - the active tab is saved with the session).
+- **`Cmd/Ctrl+1..9` select a tab in the container that has focus** - the lower panel's tabs there, and the same keys
+  would follow any other container (the editor's files, if they become one). Free in every keymap today. A deliberate
+  exception to "`Option/Alt` is UI control" - the user's call, as in CLion / browsers. Mac: `Cmd+digit` is not taken
+  by the system; check the terminal never needs `Ctrl+digit` on Linux (a terminal tab forwards keys to the shell).
+- **Default tabs come from the config** (e.g. `terminal.tabs: [ { name: Shell }, { name: Claude, command: claude } ]`);
+  new / close at run-time on top of that.
+- **`PromoteToTerminal` sends to the last used terminal** - for a start; an "AI terminal" target can come later.
+- **The tab row is hidden when there is only one tab** - the panel looks as it does today until a second tab exists.
+
+Still open: the keys for new / close tab and next / previous; whether a closed configured tab comes back on restart.

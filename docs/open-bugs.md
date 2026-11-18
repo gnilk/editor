@@ -4,7 +4,23 @@ Durable list of known defects we've chosen NOT to fix in-place yet, with enough 
 up cold. Referenced from CLAUDE.md ("Documentation") so it surfaces each session.
 
 Numbers are stable (commits, docs and notes refer to them) - a fixed bug is removed, never renumbered.
-**Next bug is #35.**
+**Next bug is #36.**
+
+---
+
+## 35. Flaky on Linux: `foldermonitor_repeat` - a late event ended a step's wait early
+
+**Seen:** 2026-11-18, Linux, once in the verified-green set: `test_foldermonitor.cpp:210`, the "A delete" step
+(`dirty.contains(root / "src")`), right after the `src/sub/b.txt` step. 5 runs of `-m foldermonitor` and 5 of
+`-t repeat` after it: green. Not touched by that day's changes.
+
+**Likely (not proven):** each step did `WaitAndRun(3000ms)` - "any batch of events" - then checked for its folder. A
+write's inotify events can come in more than one batch; a late one from the `b.txt` step (`src/sub`) ended the delete
+step's wait before the `src` event arrived.
+
+**Fix, pending Linux runs (`fix/foldermonitor-flake`):** the test only - each step waits until the folder it expects is
+dirty (up to the same 3 s), so a stray late batch can't end the wait. The monitor itself is unchanged. Remove this entry
+once Linux has run `-m foldermonitor -t repeat` many times green.
 
 ---
 

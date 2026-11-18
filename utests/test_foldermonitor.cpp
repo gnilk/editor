@@ -176,38 +176,42 @@ DLL_EXPORT int test_foldermonitor_repeat(ITesting *t) {
     TR_ASSERT(t, monitor->Start());
     // The backend may still be setting up its watches (Linux walks the tree on its own thread)
     std::this_thread::sleep_for(300ms);
+    // Each step waits for the folder it expects, not just any event: a step's events may come in more than one batch,
+    // and a late one from the step before used to end the wait early (open-bugs #35, seen once on Linux)
+    auto waitForDirty = [&](const fs::path &folder) {
+        auto deadline = std::chrono::steady_clock::now() + 3000ms;
+        while (!dirty.contains(folder) && (std::chrono::steady_clock::now() < deadline)) {
+            collector.WaitAndRun(100ms);
+        }
+        return dirty.contains(folder);
+    };
 
     for (int i = 0; i < 3; i++) {
         dirty.clear();
         { std::ofstream(root / "src" / ("new" + std::to_string(i) + ".txt")) << "x\n"; }
-        TR_ASSERT(t, collector.WaitAndRun(3000ms));
-        TR_ASSERT(t, dirty.contains(root / "src"));
+        TR_ASSERT(t, waitForDirty(root / "src"));
     }
 
     // A write to a file that exists - what reload and the change set listen for
     dirty.clear();
     { std::ofstream(root / "src" / "existing.txt", std::ios::app) << "more\n"; }
-    TR_ASSERT(t, collector.WaitAndRun(3000ms));
-    TR_ASSERT(t, dirty.contains(root / "src"));
+    TR_ASSERT(t, waitForDirty(root / "src"));
 
     // A new folder, then a file in it, then a file in that folder later on
     dirty.clear();
     fs::create_directories(root / "src" / "sub");
     { std::ofstream(root / "src" / "sub" / "a.txt") << "x\n"; }
-    TR_ASSERT(t, collector.WaitAndRun(3000ms));
-    TR_ASSERT(t, dirty.contains(root / "src"));
+    TR_ASSERT(t, waitForDirty(root / "src"));
     std::this_thread::sleep_for(300ms);
     collector.WaitAndRun(100ms);
     dirty.clear();
     { std::ofstream(root / "src" / "sub" / "b.txt") << "x\n"; }
-    TR_ASSERT(t, collector.WaitAndRun(3000ms));
-    TR_ASSERT(t, dirty.contains(root / "src" / "sub"));
+    TR_ASSERT(t, waitForDirty(root / "src" / "sub"));
 
     // A delete
     dirty.clear();
     fs::remove(root / "src" / "existing.txt");
-    TR_ASSERT(t, collector.WaitAndRun(3000ms));
-    TR_ASSERT(t, dirty.contains(root / "src"));
+    TR_ASSERT(t, waitForDirty(root / "src"));
     TR_ASSERT(t, !isLost);
 
     monitor->Stop();

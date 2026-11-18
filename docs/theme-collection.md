@@ -68,6 +68,27 @@ product's `LICENSE.rtf` above it is correctly not read). Checked by `themeimport
 - **Sublime's bundled schemes** - no licence text in the packages; prefer the open upstreams.
 - **Night Owl** etc. - check each upstream (most popular VS Code themes are MIT).
 
+### 4.1 How the VS Code themes are vendored (decided 2026-11-18)
+
+Checked 2026-11-18 against the repo (not the installed app, whose product licence is Microsoft's own):
+`microsoft/vscode` `LICENSE.txt` is MIT, "Copyright (c) 2015 - present Microsoft Corporation";
+`extensions/theme-defaults/package.json` says `"license": "MIT"`. Ten themes: Dark/Light 2026, Dark/Light Modern,
+Dark+/Light+, Visual Studio Dark/Light, High Contrast dark/light. They include each other: `2026-dark.json` ->
+`dark_modern.json` -> `dark_plus.json` -> `dark_vs.json`.
+
+- **Source material in git:** `Assets/ThemeSources/vscode/` - the untouched files, the whole include chain, the repo's
+  `LICENSE.txt`, and `SOURCE.md` with the vscode commit they were taken from (pinned, so we know what we ship). Kept
+  so an improved importer can convert them again.
+- **Converted on demand, the result committed:** a generator (script / `gen-themes` target) builds the importer and
+  writes `Assets/Resources/Themes/<name>.theme.yml` + `<name>.colors.json`. Run when the importer changes or a theme
+  is added; the diff shows what changed per theme. Not at build or install time: the build mirrors
+  `Assets/Resources` and drops what isn't in the source tree, and the dev build would have no themes.
+- **Our changes in an overlay per theme** (the terminal palette, fixes), applied by the generator after converting -
+  regenerating never loses them.
+- **A `--check`** (a `checks.py` check, as `keys_doc`): the committed themes are what the generator writes.
+- Named so they aren't passed off as Microsoft's: "Dark 2026 (from VS Code)"; `Themes/LICENSES.md` carries the MIT
+  text and the copyright line.
+
 ## 5. Steps
 
 1. Importer writes the licence keys (§3) - branch `feature/theme-licence-keys`.

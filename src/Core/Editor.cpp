@@ -232,6 +232,7 @@ bool Editor::Initialize(int argc, const char **argv) {
 
     if (cwd != cwdBeforeRelocation) {
         logger->Warning("Working Directory (%s) outside of home directory, changed to home-root (%s)", cwdBeforeRelocation.c_str(), pathHome.c_str());
+        Notice(fmt::format("started outside your home directory ('{}') - working in '{}'", cwdBeforeRelocation.string(), pathHome.string()));
     }
     logger->Debug("CWD is: %s", cwd.c_str());
     if (projectDir.has_value()) {
@@ -239,7 +240,7 @@ bool Editor::Initialize(int argc, const char **argv) {
     }
     for (auto &unusedDir : UnusedProjectDirs(pendingFiles, cwd, pathHome)) {
         logger->Warning("Not a single-folder launch - project settings in '%s' not used", unusedDir.c_str());
-        fprintf(stderr, "goatedit: not a single-folder launch - project settings in '%s' not used\n", unusedDir.c_str());
+        Notice(fmt::format("not a single-folder launch - project settings in '{}' not used", unusedDir.string()));
     }
 
     // Load and configure theme related details..
@@ -263,6 +264,7 @@ bool Editor::Initialize(int argc, const char **argv) {
             createDefaultWorkspace = false;
         } else {
             logger->Error("Error: No such file '%s'", file.c_str());
+            Notice(fmt::format("can't open '{}'", file));
         }
     }
 
@@ -368,6 +370,7 @@ void Editor::ConfigureAssetSearchPaths() {
         if (i > 0) {
             logger->Warning("Legacy user dir '%s' is still read - move its files to '%s'",
                             userDirs[i].c_str(), userDirs.front().c_str());
+            Notice(fmt::format("the old user dir '{}' is still read - move its files to '{}'", userDirs[i].string(), userDirs.front().string()));
         }
     }
 }
@@ -643,6 +646,8 @@ void Editor::RunPostInitalizationScript() {
 
         }
     }
+    // After the banner: what the user should know about this start (hitlist #50)
+    startupNotices.Attach(RuntimeConfig::Instance().OutputConsole());
 }
 
 void Editor::ExecutePostScript(std::istream &stream) {
@@ -897,7 +902,7 @@ void Editor::RegisterDataLanguages() {
     auto reportProblem = [this](const std::string &origin, int line, const std::string &reason) {
         auto where = (line > 0) ? fmt::format("{}:{}", origin, line) : origin;
         logger->Error("Language file %s: %s", where.c_str(), reason.c_str());
-        fprintf(stderr, "goatedit: language file %s: %s\n", where.c_str(), reason.c_str());
+        Notice(fmt::format("language file {}: {}", where, reason));
     };
 
     for (auto &name : fileSet->Names()) {
@@ -930,6 +935,7 @@ void Editor::RegisterDataLanguages() {
         }
         if (isClaimed && !definition->isOverride) {
             logger->Warning("Language file %s: a built-in language has one of its extensions - skipped (override: yes takes them)", origin.c_str());
+            Notice(fmt::format("language file {}: a built-in language has one of its extensions - skipped (override: yes takes them)", origin));
             continue;
         }
 
@@ -971,7 +977,7 @@ bool Editor::ConfigureTheme() {
     auto loaded = Theme::LoadOrDefault(themeFile, problem);
     if (!problem.empty()) {
         logger->Error("%s", problem.c_str());
-        fprintf(stderr, "goatedit: %s\n", problem.c_str());
+        Notice(problem);
     }
     if (loaded == nullptr) {
         fprintf(stderr, "goatedit: no theme can be loaded - is the installation complete?\n");

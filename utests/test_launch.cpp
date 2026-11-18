@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include "Core/Editor.h"
 #include "Core/XDGEnvironment.h"
+#include "Core/StartupNotices.h"
 
 using namespace gedit;
 
@@ -15,6 +16,7 @@ DLL_EXPORT int test_launch_started_from_ui(ITesting *t);
 DLL_EXPORT int test_launch_defaults(ITesting *t);
 DLL_EXPORT int test_launch_take_started_from_ui(ITesting *t);
 DLL_EXPORT int test_launch_no_display(ITesting *t);
+DLL_EXPORT int test_launch_notices(ITesting *t);
 }
 
 DLL_EXPORT int test_launch(ITesting *t) {
@@ -81,5 +83,42 @@ DLL_EXPORT int test_launch_no_display(ITesting *t) {
     // and the backend that follows: --backend still wins, a desktop launch still gets a window
     TR_ASSERT(t, Editor::ResolveBackend("", false, true, "sdl") == "ansi");
     TR_ASSERT(t, Editor::ResolveBackend("sdl", false, true, "sdl") == "sdl");
+    return kTR_Pass;
+}
+
+namespace {
+    struct RecordingConsole : public IOutputConsole {
+        void WriteLine(const std::u32string &str) override {
+            lines.push_back(str);
+        }
+        std::vector<std::u32string> lines;
+    };
+}
+
+// Hitlist #50: start-up notices went to stderr only - lost when started through 'goat' or a launcher. Held until the
+// terminal panel is up, then written there in order, after it straight through.
+DLL_EXPORT int test_launch_notices(ITesting *t) {
+    StartupNotices notices;
+    notices.SetEchoToStderr(false);
+    notices.Add("one");
+    notices.Add("two");
+    TR_ASSERT(t, notices.Held().size() == 2);
+    TR_ASSERT(t, notices.Held()[0] == "goatedit: one");
+
+    // No console (headless): still held
+    notices.Attach(nullptr);
+    TR_ASSERT(t, notices.Held().size() == 2);
+
+    RecordingConsole console;
+    notices.Attach(&console);
+    TR_ASSERT(t, notices.Held().empty());
+    TR_ASSERT(t, console.lines.size() == 2);
+    TR_ASSERT(t, console.lines[0] == U"goatedit: one");
+    TR_ASSERT(t, console.lines[1] == U"goatedit: two");
+
+    notices.Add("three");
+    TR_ASSERT(t, console.lines.size() == 3);
+    TR_ASSERT(t, console.lines[2] == U"goatedit: three");
+    TR_ASSERT(t, notices.Held().empty());
     return kTR_Pass;
 }

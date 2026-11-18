@@ -333,6 +333,7 @@ list(APPEND coresrc src/Core/Minimap.cpp src/Core/Minimap.h src/Core/UI/Graphics
 list(APPEND coresrc src/Core/AssetLoaderBase.cpp src/Core/AssetLoaderBase.h)
 list(APPEND coresrc src/Core/ClipBoard.cpp src/Core/ClipBoard.h)
 list(APPEND coresrc src/Core/Editor.cpp src/Core/Editor.h)
+list(APPEND coresrc src/Core/StartupNotices.cpp src/Core/StartupNotices.h)
 list(APPEND coresrc src/Core/Document.cpp src/Core/Document.h)
 list(APPEND coresrc src/Core/DocumentViewMode.h)
 list(APPEND coresrc src/Core/DocumentViewState.cpp src/Core/DocumentViewState.h)

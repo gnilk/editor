@@ -763,43 +763,48 @@ bool Document::OnActionCommitLine() {
     return true;
 }
 
+// Word right / left step between the starts of the line's token spans (a word, a run of punctuation): right to the
+// next start after the caret, else the end of the line, else the next line; left to the last start before the caret,
+// else column 0, else the end of the line above. No AttributeAt - the span starts are all it needs.
 bool Document::OnActionWordRight() {
     auto currentLine = ActiveLine();
     auto &cursor = GetCursor();
-    auto attrib = currentLine->AttributeAt(cursor.position.x);
-    // End of line? - just navigate down one line and start over
-    if ((size_t)cursor.position.x == currentLine->Length()) {
-        verticalNavigationViewModel->OnNavigateDown(1, viewRect, Lines().size());
-        cursor.position.x = 0;
-    } else if ((attrib->idxOrigString < cursor.position.x) && ((size_t)cursor.position.x < currentLine->Length())) {
-        // Last token - position ourselves at the end
-        auto endpos = currentLine->Length();
-        documentViewState->lineCursor.cursor.position.x = endpos;
-    } else {
-        // Skip to beginning of next token...
-        attrib++;
-        cursor.position.x = attrib->idxOrigString;
+    if ((size_t)cursor.position.x >= currentLine->Length()) {
+        if (documentViewState->lineCursor.idxActiveLine + 1 < Lines().size()) {
+            verticalNavigationViewModel->OnNavigateDown(1, viewRect, Lines().size());
+            cursor.position.x = 0;
+        }
+        return true;
     }
+    int next = (int)currentLine->Length();
+    for (auto &attrib : currentLine->Attributes()) {
+        if (attrib.idxOrigString > cursor.position.x) {
+            next = std::min(next, attrib.idxOrigString);
+            break;
+        }
+    }
+    cursor.position.x = next;
     return true;
 }
 
 bool Document::OnActionWordLeft() {
-    auto currentLine = ActiveLine(); //document->GetEditController()->LineAt(document->idxActiveLine);
+    auto currentLine = ActiveLine();
     auto &cursor = GetCursor();
-    if (cursor.position.x == 0) {
-        verticalNavigationViewModel->OnNavigateUp(1, viewRect, Lines().size());
-        currentLine = ActiveLine();
-        cursor.position.x = currentLine->Length();
-    } else {
-        // Main case, trying to be smart here - but I am not sure I am...
-        // a basic 'search backwards' is probably smarter..
-        // also - this does not work for any view - we should probably not fiddle around in the cursor structure directly..
-        auto attrib = currentLine->AttributeAt(cursor.position.x);
-        if (cursor.position.x == attrib->idxOrigString) {
-            attrib--;
+    if (cursor.position.x <= 0) {
+        if (documentViewState->lineCursor.idxActiveLine > 0) {
+            verticalNavigationViewModel->OnNavigateUp(1, viewRect, Lines().size());
+            cursor.position.x = (int)ActiveLine()->Length();
         }
-        cursor.position.x = attrib->idxOrigString;
+        return true;
     }
+    int previous = 0;
+    for (auto &attrib : currentLine->Attributes()) {
+        if (attrib.idxOrigString >= cursor.position.x) {
+            break;
+        }
+        previous = attrib.idxOrigString;
+    }
+    cursor.position.x = previous;
     return true;
 }
 

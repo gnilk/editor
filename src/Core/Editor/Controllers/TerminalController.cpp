@@ -925,7 +925,7 @@ void TerminalController::MarkCommandOutput() {
     }
 }
 
-// Console output from the editor (JS Console, plugins) - printed as text on a fresh line. '\n' breaks the line;
+// Console output from the editor (JS Console, plugins) - printed as text above the shell's line. '\n' breaks the line;
 // other control characters except TAB show as U+FFFD, so the text can't drive the terminal.
 void TerminalController::WriteLine(const std::u32string &str) {
     std::u32string text;
@@ -940,12 +940,9 @@ void TerminalController::WriteLine(const std::u32string &str) {
     }
     {
         std::lock_guard<std::mutex> guard(screenLock);
-        // If mid-line (the shell prompt may have arrived already), start a fresh line first
-        if (screen.GetCursorPos().x > 0) {
-            screen.Feed("\r\n");
-        }
-        screen.Feed(UnicodeHelper::utf32to8(text));
-        screen.Feed("\r\n");
+        // Above the shell's prompt, which may have arrived already (hitlist #51: the start-up banner pushed bash's
+        // prompt off the panel)
+        screen.WriteAboveCursorLine(UnicodeHelper::utf32to8(text));
     }
     Editor::Instance().TriggerUIRedraw();
 }

@@ -46,6 +46,7 @@ DLL_EXPORT int test_terminal_charwidth(ITesting *t);
 DLL_EXPORT int test_terminal_wide(ITesting *t);
 DLL_EXPORT int test_terminal_widehalves(ITesting *t);
 DLL_EXPORT int test_terminal_combining(ITesting *t);
+DLL_EXPORT int test_terminal_encoderow(ITesting *t);
 }
 
 DLL_EXPORT int test_terminal(ITesting *t) {
@@ -853,5 +854,37 @@ DLL_EXPORT int test_terminal_combining(ITesting *t) {
         term.Feed("\x1b[1;1Há");
     }
     TR_ASSERT(t, term.Grapheme(term.At(0, 0)) == U"á");
+    return kTR_Pass;
+}
+
+// EncodeRow / EncodePen: a row fed back at column 0 of an empty row gives the same cells (a host moving the shell's
+// prompt below its own output); the pen's SGR gives the same pen
+DLL_EXPORT int test_terminal_encoderow(ITesting *t) {
+    RecordingHost host;
+    Terminal term(host, 12, 3);
+    term.Feed("\x1b[1;31m$\x1b[0m \x1b[4:3;58;2;1;2;3;48;5;200mx\x1b[0;7;53m中\x1b[0mé\xcc\x81");
+    term.Feed("\x1b[2;1Habcdefghijklmn");    // wraps onto row 2
+    term.Feed("\x1b[38;2;10;20;30;9;2m");      // a pen left set, as a shell may
+
+    Terminal copy(host, 12, 3);
+    // A wrapped row runs on into the next one as printed text does - no positioning between them
+    copy.Feed(term.EncodeRow(0));
+    copy.Feed("\x1b[2;1H" + term.EncodeRow(1) + term.EncodeRow(2));
+    for (int y = 0; y < 3; y++) {
+        for (int x = 0; x < 12; x++) {
+            TR_ASSERT(t, copy.At(x, y) == term.At(x, y) || term.At(x, y).graphemeId != 0);
+            TR_ASSERT(t, copy.Grapheme(copy.At(x, y)) == term.Grapheme(term.At(x, y)));
+        }
+    }
+    TR_ASSERT(t, copy.IsRowWrapped(1));
+    // Trailing default blanks are left out, the encoded row ends on the default pen
+    TR_ASSERT(t, term.EncodeRow(2) == "mn");
+    TR_ASSERT(t, term.EncodeRow(5).empty());
+
+    copy.Feed(Terminal::EncodePen(term.GetPen()));
+    const auto &a = copy.GetPen();
+    const auto &b = term.GetPen();
+    TR_ASSERT(t, (a.fg == b.fg) && (a.bg == b.bg) && (a.attrs == b.attrs) && (a.underlineStyle == b.underlineStyle));
+    TR_ASSERT(t, Terminal::EncodePen(Pen{}) == "\x1b[0m");
     return kTR_Pass;
 }

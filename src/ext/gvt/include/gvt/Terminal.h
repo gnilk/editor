@@ -238,6 +238,14 @@ namespace gnilk::vt {
             return modes.isSynchronizedOutput;
         }
 
+        // Re-encoding - the bytes that draw it again, for a host that moves what is on screen (output written above
+        // the shell's prompt). An SGR sequence that sets exactly this pen, starting from a reset ("\x1b[0;...m").
+        static std::string EncodePen(const Pen &pen);
+        // Row 'y' as text with SGR changes, from column 0: fed at column 0 of an empty row it puts back the same
+        // cells. Trailing blank default cells are left out, unless the row wrapped (then the wrap needs every
+        // column). Ends with the pen reset. Out of range: empty.
+        std::string EncodeRow(int y) const;
+
         // IParserSink
         void Print(char32_t codepoint) override;
         void Execute(uint8_t control) override;

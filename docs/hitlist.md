@@ -94,6 +94,10 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
       prefix: CMake, YAML). Fixed in `Document::AddLineComment` (`test_document_comment_toggle`)
 - **Esc in the ANSI backend** (a lone ESC waited out the 250 ms poll; now 25 ms - 253 -> 27 ms measured in a pty)
   - [x] Linux - `goatedit` in uxterm / over ssh: Esc into quick mode and a command feel immediate; Alt+T / Alt+E still switch views
+- **Shell prompt at start-up** (#51) - checked in a pty on the ANSI backend, not in the SDL app
+  - [ ] Linux [x] Mac - start the app: the goat banner, then the shell's prompt below it at once, no key needed (scripted: `prompt_above`, `missing_theme`)
+  - [ ] Linux [x] Mac - type half a command in the terminal, then `.ll` in the editor: the list lands above the line, the half-typed command stays and runs when finished (scripted: `prompt_above`)
+  - [ ] Linux [ ] Mac - the SDL app: same start-up, a coloured `PS1` keeps its colours after the banner
 - **Short-file scroll window** (#35, open-bugs #30)
   - [x] Linux [x] Mac - a new file, a dozen lines, PageDown, then Enter in the middle: the top line stays until the view is full (scripted: `short_scroll`)
 
@@ -101,7 +105,6 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
 
 | # | Item | Where | Size | Notes |
 |---|---|---|---|---|
-| 51 | macOS, ANSI backend in a pty (`scripts/handtests`): the terminal panel shows no shell prompt until the first key - bash 3.2 (`SHELL=/bin/bash`, sandbox HOME) prints nothing that reaches the screen before input; after a command the prompt is there. Not from the shell-exit fix (same without it). Makes `missing_theme` fail on the Mac (`ready()` waits for a `$`) | `TerminalController` start-up, `Shell`, `checks.py` `ready()` | hours | found 2026-11-17; check first whether bash writes the prompt at all (raw pty bytes) or the view doesn't redraw; Linux doesn't show it |
 | 50 | Start-up warnings ("not a single-folder launch", a missing theme, ...) only go to stderr - lost when started through `goat` (`open`) or from a launcher. Show them in the terminal panel too, or in a status message | `Editor` start-up, `TerminalController` | half a day | found in the #23 hand-test 2026-11-17 |
 | 48 | ANSI backend on macOS: the keymap's `Cmd` shortcuts (`CopyPasteModifier: KeyCode_Cmd` - copy/paste, undo, find, comment, save...) can't be pressed - a terminal never sends Cmd (Terminal.app, iTerm2 legacy), only Kitty's `super` bit where the terminal forwards it (Ghostty/kitty, usually not) | `Assets/Resources/macOS/*_keymap.yml`, `KeyMapping` (modifier names), `GansiKeyboardDriver` | hours | options: a per-backend modifier map (in ANSI, `CopyPasteModifier` = Ctrl on macOS too, as on Linux), or an ANSI keymap that inherits the Linux one. Check what Ctrl chords Terminal.app eats; `Ctrl+Space` etc. Found writing #44 |
 | 40 | User documentation: the keyboard layout per platform (the shipped keymaps, modifier groups), the shipped dot/quick commands, the mouse bindings | `docs/usage.md` (a short first version, 2026-11-16) | a day | discussed, never written down; generate from the keymap YAML where possible so it can't drift; ties in with #8 |
@@ -138,6 +141,7 @@ Smaller bugs not ranked yet: open-bugs #1 (`AttributeAt`, read before touching i
 
 | # | Item | When |
 |---|---|---|
+| 51 | Console output (the start-up banner, plugins) goes above the shell's prompt, which is drawn again below it - on the Mac bash's prompt arrived before the banner and was pushed off the panel until a key (`TerminalScreen::WriteAboveCursorLine`, gvt `EncodeRow`) | 2026-11-18 |
 | 1 | Double-click (and Enter) on a folder expands or collapses it (usability §10) | 2026-11-12 |
 | 2 | `Cmd+click` / `Ctrl+click` jumps as `Cmd+B` does (code-index §5.6) | 2026-11-12 |
 | 3 | Checked: `GotoImplementation` starts no stray selection (usability §11) | 2026-11-12 |

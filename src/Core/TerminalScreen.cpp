@@ -38,6 +38,49 @@ void TerminalScreen::MarkOutputStart(bool isOnCursorRow) {
     lastOutputStart = AbsRowCount() + (isOnCursorRow ? 0 : 1);
 }
 
+// The cursor's line - its row and the rows it wrapped from - is encoded, erased, the text written where it began
+// (scrolling into scrollback as any output does) and the line put back below it. Only the screen changes: the shell's
+// line editor works relative to the cursor, which is where it left it.
+void TerminalScreen::WriteAboveCursorLine(std::string_view text) {
+    if (IsAltScreen()) {
+        if (GetCursorPos().x > 0) {
+            Feed("\r\n");
+        }
+        Feed(text);
+        Feed("\r\n");
+        return;
+    }
+    auto cursor = terminal->GetCursor();
+    auto pen = terminal->GetPen();
+    int top = cursor.y;
+    while ((top > 0) && terminal->IsRowWrapped(top - 1)) {
+        top--;
+    }
+    std::string line;
+    for (int y = top; y <= cursor.y; y++) {
+        line += terminal->EncodeRow(y);
+    }
+
+    std::string out = "\x1b[0m\r";
+    if (cursor.y > top) {
+        out += "\x1b[" + std::to_string(cursor.y - top) + "A";
+    }
+    out += "\x1b[J";
+    out += text;
+    out += "\r\n";
+    out += line;
+    // A line that ended on the last column left a wrap pending - feeding it again leaves the same; otherwise back
+    // to the cursor's column on the line's last row
+    if (!cursor.isPendingWrap) {
+        out += "\r";
+        if (cursor.x > 0) {
+            out += "\x1b[" + std::to_string(cursor.x) + "C";
+        }
+    }
+    out += gnilk::vt::Terminal::EncodePen(pen);
+    Feed(out);
+}
+
 std::vector<std::u32string> TerminalScreen::GetLastOutputText() const {
     std::vector<std::u32string> out;
     if (!lastOutputStart.has_value()) {

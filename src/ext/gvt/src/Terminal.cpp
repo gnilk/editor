@@ -172,6 +172,121 @@ CursorState Terminal::GetCursor() const {
 }
 
 //
+// Re-encoding
+//
+namespace {
+    void AppendUtf8(std::string &out, char32_t cp) {
+        if (cp < 0x80) {
+            out += static_cast<char>(cp);
+        } else if (cp < 0x800) {
+            out += static_cast<char>(0xC0 | (cp >> 6));
+            out += static_cast<char>(0x80 | (cp & 0x3F));
+        } else if (cp < 0x10000) {
+            out += static_cast<char>(0xE0 | (cp >> 12));
+            out += static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
+            out += static_cast<char>(0x80 | (cp & 0x3F));
+        } else {
+            out += static_cast<char>(0xF0 | (cp >> 18));
+            out += static_cast<char>(0x80 | ((cp >> 12) & 0x3F));
+            out += static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
+            out += static_cast<char>(0x80 | (cp & 0x3F));
+        }
+    }
+
+    // ";38;5;n" style: 'base' is 38 (fg), 48 (bg) or 58 (underline); default colours are left out (the reset has them)
+    void AppendColor(std::string &out, int base, const Color &color) {
+        if (color.kind == Color::Kind::kIndexed) {
+            out += ";" + std::to_string(base) + ";5;" + std::to_string(color.index);
+        } else if (color.kind == Color::Kind::kRgb) {
+            out += ";" + std::to_string(base) + ";2;" + std::to_string(color.r) + ";" + std::to_string(color.g) + ";" +
+                   std::to_string(color.b);
+        }
+    }
+
+    Pen PenOf(const Cell &cell) {
+        return {cell.fg, cell.bg, cell.underlineColor, cell.attrs, cell.underlineStyle};
+    }
+
+    bool IsSamePen(const Pen &a, const Pen &b) {
+        return (a.fg == b.fg) && (a.bg == b.bg) && (a.underlineColor == b.underlineColor) && (a.attrs == b.attrs) &&
+               (a.underlineStyle == b.underlineStyle);
+    }
+
+    bool IsBlankDefault(const Cell &cell) {
+        return (cell == Cell{});
+    }
+}
+
+std::string Terminal::EncodePen(const Pen &pen) {
+    std::string sgr = "\x1b[0";
+    static const std::pair<uint16_t, const char *> attrCodes[] = {
+        {kAttrBold, ";1"}, {kAttrDim, ";2"}, {kAttrItalic, ";3"}, {kAttrBlink, ";5"}, {kAttrInverse, ";7"},
+        {kAttrHidden, ";8"}, {kAttrStrike, ";9"}, {kAttrOverline, ";53"},
+    };
+    for (const auto &[attr, code] : attrCodes) {
+        if ((pen.attrs & attr) != 0) {
+            sgr += code;
+        }
+    }
+    switch (pen.underlineStyle) {
+        case UnderlineStyle::kNone:
+            break;
+        case UnderlineStyle::kSingle:
+            sgr += ";4";
+            break;
+        case UnderlineStyle::kDouble:
+            sgr += ";4:2";
+            break;
+        case UnderlineStyle::kCurly:
+            sgr += ";4:3";
+            break;
+        case UnderlineStyle::kDotted:
+            sgr += ";4:4";
+            break;
+        case UnderlineStyle::kDashed:
+            sgr += ";4:5";
+            break;
+    }
+    AppendColor(sgr, 38, pen.fg);
+    AppendColor(sgr, 48, pen.bg);
+    AppendColor(sgr, 58, pen.underlineColor);
+    sgr += "m";
+    return sgr;
+}
+
+std::string Terminal::EncodeRow(int y) const {
+    if ((y < 0) || (y >= rows)) {
+        return {};
+    }
+    int end = cols;
+    if (!IsRowWrapped(y)) {
+        while ((end > 0) && IsBlankDefault(At(end - 1, y))) {
+            end--;
+        }
+    }
+    std::string out;
+    Pen current = {};
+    for (int x = 0; x < end; x++) {
+        const auto &cell = At(x, y);
+        if (cell.width == 0) {
+            continue;       // the right half of a wide character: drawn by its lead
+        }
+        auto cellPen = PenOf(cell);
+        if (!IsSamePen(cellPen, current)) {
+            out += EncodePen(cellPen);
+            current = cellPen;
+        }
+        for (auto cp : Grapheme(cell)) {
+            AppendUtf8(out, cp);
+        }
+    }
+    if (!IsSamePen(current, Pen{})) {
+        out += "\x1b[0m";
+    }
+    return out;
+}
+
+//
 // IParserSink
 //
 void Terminal::Print(char32_t codepoint) {

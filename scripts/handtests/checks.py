@@ -223,6 +223,10 @@ def missing_theme(n):
         hit = [l for l in err.splitlines() if 'theme' in l.lower()]
         n(any('no such theme file' in l and 'default.theme.yml' in l for l in hit),
           f'stderr says "no such theme file - using default.theme.yml": {hit[:2]}')
+        n(g.screen.find('goatedit: theme nosuch.theme.yml: no such theme file') is not None,
+          'the terminal panel says it too (#50)')
+        lines = [l.rstrip() for l in g.screen.lines() if l.strip()]
+        n(lines[-1].endswith('$'), f'the prompt is below it, the last line: {lines[-1:]}')
         n(g.quit(), 'quits')
     finally:
         g.kill()
@@ -232,21 +236,25 @@ def missing_theme(n):
 def prompt_above(n):
     sb, work = sandbox('prompt_above')
     write(os.path.join(work, 'a.txt'), 'x\n')
+    # A coloured PS1 where the system's bashrc leaves it (Ubuntu's sets its own) - the prompt is read off the screen
     g = Goat(sb, ['a.txt'], cwd=work, env={'PS1': r'\[\e[32m\]bash\$\[\e[0m\] '})
     try:
         n(g.ready(), 'start-up: the banner, then the prompt below it - no key pressed')
+        lines = [l.rstrip() for l in g.screen.lines() if l.strip()]
+        prompt = lines[-1] if lines else ''
+        n.info(f'the prompt: {prompt!r}')
         g.send(alt('t'), 0.5)
         g.type('echo hal', wait=0.5)
         g.send(alt('e'), 0.5)
         g.quick('.ll', 1.0)
         lines = [l.rstrip() for l in g.screen.lines() if l.strip()]
         n(any('built-in' in l for l in lines), 'the .ll output is in the terminal')
-        n(lines and lines[-1] == 'bash$ echo hal', f'the half-typed line stays below it: {lines[-1:]}')
+        n(lines and lines[-1] == prompt + ' echo hal', f'the half-typed line stays below it: {lines[-1:]}')
         g.send(alt('t'), 0.5)
         g.type('f', wait=0.3)
         g.send(ENTER, 1.0)
         lines = [l.rstrip() for l in g.screen.lines() if l.strip()]
-        n(lines[-2:] == ['half', 'bash$'], f'finished and run: {lines[-3:]}')
+        n(lines[-2:] == ['half', prompt], f'finished and run: {lines[-3:]}')
         n(g.quit(), 'quits')
     finally:
         g.kill()
@@ -559,6 +567,8 @@ def single_folder(n):
         hit = [l for l in err.splitlines() if 'single-folder' in l]
         n(any(want in l for l in hit) or any("not a single-folder launch" in l and ".goatedit" in l for l in hit),
           f'goatedit a.txt . : stderr says "not a single-folder launch ..." : {hit[:1]}')
+        n(g.screen.find('goatedit: not a single-folder launch') is not None,
+          'the terminal panel says it too (#50 - stderr is lost through goat / a launcher)')
         g.send(alt('e'), 0.4)
         n(g.screen.find('file b') is None, 'no session restored (b.txt not open)')
         g.send(alt('t'), 0.4)

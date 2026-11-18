@@ -31,6 +31,7 @@
 #include "Core/KeyMapping.h"
 #include "Core/Theme/Theme.h"
 #include "ClipBoard.h"
+#include "Core/StartupNotices.h"
 namespace gedit {
     //
     // Global class names for top-views in the view hierarchy...
@@ -66,7 +67,13 @@ namespace gedit {
         void RestoreLayout();
         void Close();
 
+        // Runs the bootstrap scripts (the banner), then shows the start-up notices held so far in the terminal panel
         void RunPostInitalizationScript();
+        // Something the user should know about how the editor started: stderr at once, the terminal panel once it is
+        // up (hitlist #50 - a launch through 'goat' / a launcher has no stderr anyone reads). One line, no prefix.
+        void Notice(const std::string &text) {
+            startupNotices.Add(text);
+        }
 
         void HandleGlobalAction(const EditorAction &kpAction);
 
@@ -322,6 +329,7 @@ namespace gedit {
         bool isImportThemeForced = false;   // '--force' - overwrite an earlier import
 
         Theme::Ref theme = nullptr;
+        StartupNotices startupNotices;
 
         ClipBoard clipboard;
         Workspace::Ref workspace = nullptr;

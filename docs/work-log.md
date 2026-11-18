@@ -8,6 +8,19 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## Start-up notices in the terminal panel (2026-11-18) ✅
+
+**Hitlist #50.** What the user should know about a start - project settings not used (not a single-folder launch), a
+theme or language file that can't load, a file argument that can't be opened, the legacy user dir still read, a cwd
+outside home - went to stderr (and the log) only: nobody sees it when the app is started through `goat` (`open`) or a
+launcher. **Load-bearing decisions:** one path, `Editor::Notice(text)` -> `StartupNotices` (`src/Core/StartupNotices.h`,
+no Editor dependency): stderr at once (`goatedit: ...`, as before), held until `RunPostInitalizationScript` has run the
+banner, then written to the terminal panel through `IOutputConsole::WriteLine` - so above the prompt (#51); later
+notices go straight there. Fatal start-up errors (no theme at all, no config) stay stderr-only - there is no window.
+Tests: `test_launch_notices`; `single_folder` / `missing_theme` check the panel.
+
+---
+
 ## Console output above the shell's prompt (2026-11-18) ✅
 
 **Hitlist #51.** On the Mac the terminal panel showed no shell prompt until the first key: bash 3.2 is quick, its

@@ -64,10 +64,12 @@ and the architecture-workbench idea (index data handed to agents).
 - **"The one terminal" becomes "the one container".** Everything in §3 that names the terminal view names the lower
   panel's container instead; `Option/Alt+T` goes to the container, which shows the tab that was active last time
   (also across a restart - the active tab is saved with the session).
-- **`Cmd/Ctrl+1..9` select a tab in the container that has focus** - the lower panel's tabs there, and the same keys
-  would follow any other container (the editor's files, if they become one). Free in every keymap today. A deliberate
-  exception to "`Option/Alt` is UI control" - the user's call, as in CLion / browsers. Mac: `Cmd+digit` is not taken
-  by the system; check the terminal never needs `Ctrl+digit` on Linux (a terminal tab forwards keys to the shell).
+- **The existing `SwitchToBuffer` keys select tab N in the container that has focus.** Today they are bound to the
+  editor's files only and handled globally (`Editor.cpp`, `kActionSwitchToBuffer` -> `ActionHelper::SwitchToBufferNumber`):
+  Mac `Cmd+1..9` (the macOS standard) and `Opt+1..9`, Linux `Alt+1..9` (the Linux standard). They become the focused
+  container's: the lower panel's tabs when it has focus, the editor's files otherwise (9 = the last, as now). On Linux
+  `Alt+digit` must stay the editor's in a terminal tab, not go to the shell (readline uses `Alt+digit` as a count - it
+  loses that, as it does for `Alt+T` today).
 - **Default tabs come from the config** (e.g. `terminal.tabs: [ { name: Shell }, { name: Claude, command: claude } ]`);
   new / close at run-time on top of that.
 - **`PromoteToTerminal` sends to the last used terminal** - for a start; an "AI terminal" target can come later.

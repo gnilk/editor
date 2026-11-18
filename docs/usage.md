@@ -53,7 +53,7 @@ Three layers, merged in this order (later wins, key by key):
 | Undo | `Cmd+Z` | `Ctrl+Z` |
 | Select | `Shift` + any movement | same |
 | Line start / end | `Home`/`End`, `Cmd+Left`/`Right` | `Home`/`End` |
-| Word left / right | (not bound yet) | `Ctrl+Left`/`Right` |
+| Word left / right | `Opt+Left`/`Right` | `Ctrl+Left`/`Right` |
 | Page up / down | `PgUp`/`PgDn`, `Cmd+Up`/`Down` | `PgUp`/`PgDn` |
 | First / last line | `Cmd+Home` / `Cmd+End` | `Alt+Home` / `Alt+End` |
 | Indent / unindent | `Tab` / `Shift+Tab` | same |
@@ -81,7 +81,7 @@ Three layers, merged in this order (later wins, key by key):
 | View wider / narrower | `Opt+D` / `Opt+A` | `Alt+D` / `Alt+A` |
 | View taller / shorter / maximise height | `Opt+S` / `Opt+W` / `Opt+M` | `Alt+S` / `Alt+W` / `Alt+M` |
 | Text / hex view of the file | `Opt+R` / `Opt+H` | `Alt+R` / `Alt+H` |
-| Project tree: next view, show ignored files | `Tab` or `Opt+]`, `Opt+H` | `Alt+]`, `Alt+H` |
+| Project tree: next view, show ignored files | `Tab` or `Opt+]`, `Opt+H` | `Tab` or `Alt+]`, `Alt+H` |
 | Dialogs (find, open, ...): close / pick | `Esc` / `Enter` | same |
 
 ## Mouse

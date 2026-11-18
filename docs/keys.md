@@ -33,6 +33,8 @@ Every binding the shipped keymaps make, per platform. The short guide is [`usage
 | Cycle buffer next (`CycleBufferNext`) | `Opt+\` | `Alt+\`, `Alt+Right` |
 | Cycle buffer prev (`CycleBufferPrev`) | `Opt+'` | `Alt+'`, `Alt+Left` |
 | Switch to buffer (`SwitchToBuffer`) | `Cmd+1..9`, `Opt+1..9` | `Alt+1..9` |
+| Navigate word right (`NavigateWordRight`) | `Opt+[Shift]+Right` | `Ctrl+[Shift]+Right` |
+| Navigate word left (`NavigateWordLeft`) | `Opt+[Shift]+Left` | `Ctrl+[Shift]+Left` |
 | Cycle active editor (`CycleActiveEditor`) | `F3` | `F3` |
 | Commit line (`CommitLine`) | `Enter` | `Enter` |
 | Comment line (`CommentLine`) | `Cmd+/` | `Ctrl+/` |
@@ -70,8 +72,6 @@ Every binding the shipped keymaps make, per platform. The short guide is [`usage
 | Switch to project (`UISwitchToProject`) | `Opt+P` | `Alt+P` |
 | View mode text (`UIViewModeText`) | `Opt+R` | `Alt+R` |
 | View mode hex (`UIViewModeHex`) | `Opt+H` | `Alt+H` |
-| Navigate word right (`NavigateWordRight`) | - | `Ctrl+Right` |
-| Navigate word left (`NavigateWordLeft`) | - | `Ctrl+Left` |
 
 Mouse:
 
@@ -85,7 +85,7 @@ Files: `Assets/Resources/macOS/default_keymap.yml`, `Assets/Resources/Linux/defa
 
 | Action | macOS | Linux / terminal |
 |---|---|---|
-| Cycle active view next (`CycleActiveViewNext`) | `Opt+]`, `Tab` | *inherited* |
+| Cycle active view next (`CycleActiveViewNext`) | `Opt+]`, `Tab` | `Alt+]`, `Tab` |
 | Toggle ignored (`ToggleIgnored`) | `Opt+H` | `Alt+H` |
 
 Mouse:
@@ -183,7 +183,6 @@ Typed in quick mode (`Esc`, then `.name` or `.short`, `Enter`) or at the termina
 | `.fm_file` | `.fmf` |  | Reformat (reindent) the whole active buffer - not for languages where indentation is syntax (YAML) |
 | `.fm_block` | `.fmb` |  | Reformat (reindent) the selection, else the enclosing block, else the line - as Cmd+I |
 | `.saveas` | `.sa` | filename | Save active buffer with a specific filename |
-| `.openfolder` | `.of` | folder name | Open a folder in to the project viewer - **not available: `Scripts/openfolder.js` is missing** |
 | `.theme_reload` | `.thr` |  | Reload current theme |
 | `.theme_list_colors` | `.thc` | theme color class | List colors for current theme |
 | `.theme` | `.theme` | action and its arguments | Theme: --import <file> [--name <name>] [--force] - convert a VS Code / Sublime theme |

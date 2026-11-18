@@ -2,6 +2,7 @@
 // Created by gnilk on 14.01.23.
 //
 
+#include <algorithm>
 #include <string_view>
 #include <string>
 
@@ -244,17 +245,20 @@ int Line::VisualToCharIndex(int visualCol, int tabSize) const {
     return (int)buffer.size();
 }
 
+// The span covering 'pos': the last one whose start is at or before it - the last span runs to the end of the line.
+// Past the end of the line (or before the first span, or on a line without spans): end(). It returned the FIRST span
+// for any position in the last one (open-bugs #1).
 Line::LineAttribIterator Line::AttributeAt(int pos) {
-    if (attribs.size() == 0) {
-        return {};
+    if (attribs.empty() || (pos < 0) || ((size_t)pos >= Length())) {
+        return attribs.end();
     }
-    for(size_t i=0;i<attribs.size()-1;i++) {
-        if ((pos >= attribs[i].idxOrigString) && (pos < attribs[i+1].idxOrigString)) {
-            return attribs.begin()+i;
-        }
+    auto it = std::upper_bound(attribs.begin(), attribs.end(), pos, [](int x, const LineAttrib &attrib) {
+        return x < attrib.idxOrigString;
+    });
+    if (it == attribs.begin()) {
+        return attribs.end();
     }
-    // Not sure...
-    return attribs.begin();
+    return it - 1;
 }
 
 bool Line::StartsWith(const std::u32string &prefix) {

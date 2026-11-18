@@ -1,3 +1,25 @@
+## 1. FIXED — `Line::AttributeAt(pos)` returned the FIRST span for any position in the last token span
+
+**Where:** `src/Core/Line.cpp` (`Line::AttributeAt`), `src/Core/Document.cpp` (`OnActionWordRight` / `OnActionWordLeft`).
+
+> **FIXED (2026-11-18, branch `fix/attribute-at`).** Found again with hitlist #41 (word left/right on `Opt+arrows`):
+> word left from the start of a line's last token jumped to column 0.
+> - `AttributeAt` returns the span whose start is the greatest `<= pos` (the last span runs to the end of the line),
+>   and `end()` past the end of the line, before the first span or on a line without spans (it returned a default
+>   iterator there). Past the end stays "no span" so `EditController::TokenClassAt` keeps reading a caret after a
+>   closing quote at the end of a line as code.
+> - Word right / left no longer use `AttributeAt`: they step between the span starts (right: the next start, else
+>   the end of the line, else the next line; left: the last start before the caret, else column 0, else the line
+>   above's end). The `attrib++` past `end()` the old note warned about is gone with it.
+> - Behaviour change: a caret inside a trailing comment now reads as a comment for auto-pairing (it read as code).
+> - Not done: the two `TokenClassAtChar` helpers (`Document.cpp`, `IndentEngine.cpp`) still do their own scan; they
+>   can be folded onto `AttributeAt` now - a cleanup, not a bug.
+>
+> Regression: `test_document_attributeat` (every column of every span, past the end, an empty line) and
+> `test_document_wordnav` (span starts both ways, over line ends; failed on the old code).
+
+---
+
 ## 4. FIXED — `Workspace::ReadFolderToNode` recursively scanned ALL subdirectories — hung / crashed on build dirs
 
 **Where:** `src/Core/Workspace.cpp`, `Workspace::ReadFolderToNode` and `Workspace::Node` (header

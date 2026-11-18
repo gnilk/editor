@@ -129,6 +129,13 @@ namespace gedit {
         // 133;C, where it starts on the cursor row. GetLastOutputText is that output, one string per row, up to the
         // cursor row (the next prompt); empty when there is none, or it has been trimmed or cleared away.
         void MarkOutputStart(bool isOnCursorRow);
+
+        // The editor's own output (JS Console, plugins) while a shell may sit at its prompt: 'text' (UTF-8, lines
+        // apart by "\r\n", no control sequences) goes on the lines ABOVE the cursor's line - the prompt and what is
+        // typed after it - which is drawn again below it, in its colours, with the cursor, pen and pending wrap as
+        // they were. The shell never knows; its line is where it left it, lower down. On the alternate screen (an
+        // app owns the grid) the text is written at the cursor, as before.
+        void WriteAboveCursorLine(std::string_view text);
         std::vector<std::u32string> GetLastOutputText() const;
 
         // --- Persistence (terminal-scrollback.md §8) --------------------------------------------------

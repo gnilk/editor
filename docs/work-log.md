@@ -8,6 +8,22 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## Console output above the shell's prompt (2026-11-18) ✅
+
+**Hitlist #51.** On the Mac the terminal panel showed no shell prompt until the first key: bash 3.2 is quick, its
+prompt arrived before the start-up banner (`hello.js` via `Console.WriteLine`), and `WriteLine` wrote the banner's ~30
+lines below it - the prompt scrolled off the panel and nothing redrew it (zsh redraws on the resize, Linux bash is
+slower than the banner). Not a shell bug: bash wrote the prompt into the pty every time (raw bytes checked).
+**Load-bearing decisions:** the editor's output goes ABOVE the shell's line, as a shell prints async output -
+`TerminalScreen::WriteAboveCursorLine` encodes the cursor's line (and the rows it wrapped from), erases it, writes the
+text there (into scrollback as any output) and feeds the line back below with the cursor, pen and pending wrap as they
+were; the shell is never told. The re-encoding is gvt's (`Terminal::EncodeRow` / `EncodePen`, gvttests
+`encoderow`), not the editor's. On the alternate screen the text goes at the cursor, as before. The controller's
+prompt anchor follows on its own (`IsPromptRow` re-anchors to a redrawn prompt). Tests: `test_terminalscreen_write_above_prompt`
+(failed on the old behaviour), `missing_theme` passes on the Mac.
+
+---
+
 ## Scripted app checks (2026-11-17) ✅
 
 **`scripts/handtests/`** - the hitlist's 'To try in the app' items as scripts (`checks.py`, 16 checks; `--list`).

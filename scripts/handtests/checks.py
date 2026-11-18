@@ -228,6 +228,30 @@ def missing_theme(n):
         g.kill()
 
 
+@check('#51 Console output above the shell prompt')
+def prompt_above(n):
+    sb, work = sandbox('prompt_above')
+    write(os.path.join(work, 'a.txt'), 'x\n')
+    g = Goat(sb, ['a.txt'], cwd=work, env={'PS1': r'\[\e[32m\]bash\$\[\e[0m\] '})
+    try:
+        n(g.ready(), 'start-up: the banner, then the prompt below it - no key pressed')
+        g.send(alt('t'), 0.5)
+        g.type('echo hal', wait=0.5)
+        g.send(alt('e'), 0.5)
+        g.quick('.ll', 1.0)
+        lines = [l.rstrip() for l in g.screen.lines() if l.strip()]
+        n(any('built-in' in l for l in lines), 'the .ll output is in the terminal')
+        n(lines and lines[-1] == 'bash$ echo hal', f'the half-typed line stays below it: {lines[-1:]}')
+        g.send(alt('t'), 0.5)
+        g.type('f', wait=0.3)
+        g.send(ENTER, 1.0)
+        lines = [l.rstrip() for l in g.screen.lines() if l.strip()]
+        n(lines[-2:] == ['half', 'bash$'], f'finished and run: {lines[-3:]}')
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+
+
 @check('#29 Quick mode without ] / [')
 def quick_bracket(n):
     sb, work = sandbox('quick_bracket')

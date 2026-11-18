@@ -49,6 +49,7 @@ DLL_EXPORT int test_terminalscreen_wide(ITesting *t);
 DLL_EXPORT int test_terminalscreen_host(ITesting *t);
 DLL_EXPORT int test_terminalscreen_before_resize(ITesting *t);
 DLL_EXPORT int test_terminalscreen_clear_scrollback(ITesting *t);
+DLL_EXPORT int test_terminalscreen_write_above_prompt(ITesting *t);
 }
 
 static const ColorRGBA WHITE = ColorRGBA::FromRGB(1.0f, 1.0f, 1.0f);
@@ -1011,5 +1012,62 @@ DLL_EXPORT int test_terminalscreen_clear_scrollback(ITesting *t) {
     s.Feed("1\r\n2\r\n3\r\n");
     TR_ASSERT(t, s.GetScrollback()->NumLines() == 1);
     TR_ASSERT(t, s.GetScrollback()->LineAt(0)->Buffer() == std::u32string(U"$ 1"));
+    return kTR_Pass;
+}
+
+// Hitlist #51: the editor's banner (Console output) arrived after bash's prompt and pushed it off the panel - no
+// prompt until a key made the shell redraw. Console output goes above the shell's line; the prompt stays the last
+// thing on screen, in its colours, with the cursor and pen where the shell left them.
+DLL_EXPORT int test_terminalscreen_write_above_prompt(ITesting *t) {
+    TerminalScreen s;
+    Setup(s, 10, 4);
+    s.Feed("old\r\n");
+    s.Feed(std::string(SGR_RED) + "$" + SGR_RESET + " ls" + SGR_GREEN);   // a prompt, a typed word, a pen left set
+    s.Feed("\x1b[2D");                                                   // the caret back on 'l'
+
+    s.WriteAboveCursorLine("one\r\ntwo\r\nthree");
+
+    // Four rows: 'old' went to scrollback, then one, two, three and the prompt line - the last thing on screen
+    TR_ASSERT(t, s.GetScrollback()->NumLines() == 1);
+    TR_ASSERT(t, s.GetScrollback()->LineAt(0)->Buffer() == U"old");
+    TR_ASSERT(t, s.GetRow(0)[0].ch == U'o' && s.GetRow(0)[1].ch == U'n');
+    TR_ASSERT(t, s.GetRow(1)[0].ch == U't' && s.GetRow(1)[1].ch == U'w');
+    TR_ASSERT(t, s.GetRow(2)[0].ch == U't' && s.GetRow(2)[1].ch == U'h');
+    const auto &prompt = s.GetRow(3);
+    TR_ASSERT(t, prompt[0].ch == U'$' && prompt[2].ch == U'l' && prompt[3].ch == U's');
+    TR_ASSERT(t, prompt[0].fg == RED);
+    TR_ASSERT(t, prompt[2].fg == WHITE);
+    TR_ASSERT(t, s.GetCursorPos().x == 2);
+    TR_ASSERT(t, s.GetCursorPos().y == 3);
+    // The console text is written in the default colours, not the shell's pen; the shell's pen is still set after
+    TR_ASSERT(t, s.GetRow(0)[0].fg == WHITE);
+    s.Feed("X");
+    TR_ASSERT(t, s.GetRow(3)[2].ch == U'X' && s.GetRow(3)[2].fg == GREEN);
+
+    // A line that wrapped: both rows come back, still one line
+    TerminalScreen w;
+    Setup(w, 10, 4);
+    w.Feed("$ abcdefghijkl");
+    w.WriteAboveCursorLine("hi");
+    TR_ASSERT(t, w.GetRow(0)[0].ch == U'h');
+    TR_ASSERT(t, w.GetRow(1)[0].ch == U'$' && w.GetRow(1)[9].ch == U'h');
+    TR_ASSERT(t, w.GetRow(2)[0].ch == U'i' && w.GetRow(2)[3].ch == U'l');
+    TR_ASSERT(t, w.GetCursorPos().x == 4 && w.GetCursorPos().y == 2);
+
+    // A pending wrap (the line ends on the last column) survives: the next character starts the next row
+    TerminalScreen p;
+    Setup(p, 10, 4);
+    p.Feed("$ 12345678");
+    p.WriteAboveCursorLine("hi");
+    p.Feed("9");
+    TR_ASSERT(t, p.GetRow(1)[9].ch == U'8');
+    TR_ASSERT(t, p.GetRow(2)[0].ch == U'9');
+
+    // Nothing on the cursor's line: the text, then the cursor on the empty line below it, as before
+    TerminalScreen e;
+    Setup(e, 10, 4);
+    e.WriteAboveCursorLine("hi");
+    TR_ASSERT(t, e.GetRow(0)[0].ch == U'h');
+    TR_ASSERT(t, e.GetCursorPos().x == 0 && e.GetCursorPos().y == 1);
     return kTR_Pass;
 }

@@ -1,0 +1,46 @@
+//
+// The last build's errors and warnings as a list (docs/build-messages.md §2, hitlist #52) - Cmd/Ctrl+F8. Errors
+// first, then warnings, each in the order the build printed them; typing filters (file name or message). Enter goes
+// to the place - a jump, Cmd/Ctrl+[ comes back - and F8 goes on from there. Until the lower panel has tabs (#53).
+//
+
+#ifndef GOATEDIT_BUILDMESSAGESMODAL_H
+#define GOATEDIT_BUILDMESSAGESMODAL_H
+
+#include <memory>
+#include <string>
+#include <vector>
+
+#include "Core/Build/BuildMessage.h"
+#include "Core/UI/Modals/QueryListModal.h"
+
+namespace gedit {
+    class BuildMessagesModal : public QueryListModal {
+    public:
+        using Ptr = std::unique_ptr<BuildMessagesModal>;
+
+    public:
+        BuildMessagesModal(const std::string &caption, std::vector<BuildMessage> messages);
+        virtual ~BuildMessagesModal() = default;
+
+        // The last run's messages, as they are now; nullptr when there was no run
+        static Ptr Create();
+
+        // The messages to list, as indices, in BuildMessages::Order (errors first - as F8 steps). A query keeps those
+        // whose row text holds it (any case).
+        static std::vector<size_t> Filter(const std::vector<BuildMessage> &messages, const std::u32string &query);
+        // 'error    a.cpp:3:16  use of undeclared identifier'
+        static std::u32string RowText(const BuildMessage &message);
+
+    protected:
+        std::vector<std::u32string> OnQuery(const std::u32string &query) override;
+        std::u32string OnRowDetail(int idxRow) override;
+        void OnCommit(int idxRow) override;
+
+    private:
+        std::vector<BuildMessage> messages;
+        std::vector<size_t> rowMessages;    // the message behind each row of the last query
+    };
+}
+
+#endif //GOATEDIT_BUILDMESSAGESMODAL_H

@@ -4,6 +4,7 @@
 
 #if defined(GEDIT_MACOS)
 #include <util.h>
+#include <libproc.h>
 #elif defined(GEDIT_LINUX)
 #include <pty.h>
 #include <sys/types.h>
@@ -164,6 +165,27 @@ bool Shell::IsForegroundJobRunning() const {
     }
     pid_t foreground = tcgetpgrp(amaster);
     return (foreground > 0) && (foreground != pid);
+}
+
+std::string Shell::GetWorkingDirectory() const {
+    if (pid <= 0) {
+        return {};
+    }
+#if defined(GEDIT_MACOS)
+    struct proc_vnodepathinfo info = {};
+    if (proc_pidinfo(pid, PROC_PIDVNODEPATHINFO, 0, &info, sizeof(info)) != sizeof(info)) {
+        return {};
+    }
+    return std::string(info.pvi_cdir.vip_path);
+#else
+    char buffer[4096];
+    auto link = "/proc/" + std::to_string(pid) + "/cwd";
+    auto len = readlink(link.c_str(), buffer, sizeof(buffer) - 1);
+    if (len <= 0) {
+        return {};
+    }
+    return std::string(buffer, (size_t)len);
+#endif
 }
 
 void Shell::Close() {

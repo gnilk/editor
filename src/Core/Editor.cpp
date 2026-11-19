@@ -720,6 +720,12 @@ void Editor::HandleGlobalAction(const EditorAction &kpAction) {
             ActionHelper::JumpBack();
         } else if (kpAction.action == kAction::kActionJumpForward) {
             ActionHelper::JumpForward();
+        } else if (kpAction.action == kAction::kActionNextBuildMessage) {
+            ActionHelper::StepBuildMessage(1);
+        } else if (kpAction.action == kAction::kActionPreviousBuildMessage) {
+            ActionHelper::StepBuildMessage(-1);
+        } else if (kpAction.action == kAction::kActionShowBuildMessages) {
+            ActionHelper::ShowBuildMessages();
         }
     } else if (state == QuickCommandState) {
         if (kpAction.action == kAction::kActionLeaveCommandMode) {

@@ -12,6 +12,7 @@
 #include <string>
 
 #include "Core/Index/GoToResolver.h"
+#include "Core/Build/BuildMessages.h"
 
 namespace gedit {
     class ActionHelper {
@@ -49,6 +50,11 @@ namespace gedit {
         // One line coloured on its own: by the language of 'extension', then by what the workspace names mean. It has no
         // lines around it, so the middle of a block comment reads as code.
         static Line::Ref ColouredLine(const std::u32string &text, const std::string &extension, const WorkspaceNames::Ref &workspaceNames);
+        // The last build's next (1) / previous (-1) message: a jump to its place, "error 2/7: ..." on the status line (#52)
+        static void StepBuildMessage(int direction);
+        // Go to a build message (from the list or a step) - says so when its file isn't found
+        static void GoToBuildMessage(const BuildMessages::Position &position);
+        static void ShowBuildMessages();
         static void JumpBack();
         static void JumpForward();
     };

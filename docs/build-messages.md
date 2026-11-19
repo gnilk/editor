@@ -1,6 +1,6 @@
 # Build messages - errors and warnings from the terminal, as places to jump to
 
-Written down 2026-11-18. **Idea, not built.** Hitlist #52.
+Written down 2026-11-18. **Steps 1-3 built** (2026-11-19, `feature/build-messages`). Hitlist #52. Decisions: §9.
 
 ## 1. The idea
 
@@ -120,3 +120,31 @@ symbols. Ignoring it is fine for a first version.
 4. Keys for next / previous message and for the modal - functionality, so `Cmd/Ctrl` (`F8` / `Shift+F8` is the common
    convention elsewhere)?
 5. Does the list survive a restart (session), or is it only the last run's?
+
+## 9. Decisions (2026-11-19)
+
+1. **A streaming parser.** Bytes in, as they come off the pty (escapes, `\r`, a line split across reads), messages out
+   as each line completes. The same parser reads the last output after the fact, so a later Build tab (#53) or a build
+   button fills its list while the command still runs. v1 feeds it when the command ends.
+2. **The commands we support.** Matchers are built in (code, as `.cpp` is a built-in language) for the tools we know -
+   gcc / clang (also through make, cmake --build, ninja), CMake, make's directories. Matchers described as data
+   (`build_messages.yml`, §4) come later, if they can be.
+3. **Lines moving after an edit:** not in v1 - the next build gives the right lines.
+4. **Keys:** `F8` / `Shift+F8` next / previous; the list as a modal (until the panel has tabs, #53), showing the last
+   run's messages if there is one.
+5. **Not kept across a restart** - the last run only.
+
+Found while building it:
+- **Fed from the pty's bytes, not the screen's rows.** Scrollback rows don't keep the soft-wrap flag, so a long
+  gcc line that wrapped in the panel came back from `GetLastOutputText` as two broken rows. The pty thread hands each
+  read to `BuildMessages::Feed` (its own lock, nothing while no run is running) - so v1 is live already (§3 b).
+- **A run** starts when a build command is committed (`BuildMessages::IsBuildCommand`: `make`, `cmake`, `ninja`,
+  `cc`, `gcc`, `clang++`, `g++-13`, ... after `VAR=x` / `time` / `env`), ends when its foreground job does (once
+  seen - the bytes can come before the job is in the foreground) or at the next command. Another command (`ls`)
+  ends it but keeps its list. The summary ("build: 2 errors, 1 warning") goes to the status line.
+- **F8 goes errors first, then warnings** - the list's order, so the two agree ("error 1/2"). In output order clang's
+  warning on line 2 came before the errors.
+- **The shell's directory** is read from the shell process when the command is committed (`Shell::GetWorkingDirectory`:
+  `proc_pidinfo` on macOS, `/proc/<pid>/cwd` on Linux) - no OSC 7 needed.
+- **Not yet:** the coloured source line in the list (rows are `error  a.cpp:3:16  message`, the folder on the right);
+  ld's `file.o:(.text+0x..)` lines; rust / python / trun matchers; gutter marks; Cmd+click in the terminal (§7 step 4).

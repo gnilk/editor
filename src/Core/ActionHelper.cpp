@@ -12,6 +12,7 @@
 #include "Core/Editor/Modals/OpenFilesModal.h"
 #include "Core/Editor/Modals/SymbolSearchModal.h"
 #include "Core/Editor/Modals/QuickOpenModal.h"
+#include "Core/Editor/Modals/BuildMessagesModal.h"
 #include "Core/PathUtil.h"
 #include "Core/Session/SessionManager.h"
 
@@ -466,6 +467,54 @@ bool ActionHelper::GotoLine(const Document::Ref &document, size_t lineNumber) {
         SwitchToNamedView(glbEditorView);
     }
     return true;
+}
+
+void ActionHelper::StepBuildMessage(int direction) {
+    auto &editor = Editor::Instance();
+    auto &buildMessages = editor.GetBuildMessages();
+    if (!buildMessages.HasRun()) {
+        editor.ShowStatusMessage(U"No build yet - run make / cmake / ninja in the terminal");
+        return;
+    }
+    auto position = (direction < 0) ? buildMessages.Previous() : buildMessages.Next();
+    if (!position.has_value()) {
+        editor.ShowStatusMessage(UnicodeHelper::utf8to32("build: " + buildMessages.Summary()));
+        return;
+    }
+    GoToBuildMessage(position.value());
+}
+
+void ActionHelper::GoToBuildMessage(const BuildMessages::Position &position) {
+    auto &editor = Editor::Instance();
+    auto &message = position.message;
+    auto status = std::string(message.IsError() ? "error " : "warning ") + std::to_string(position.index + 1) + "/" +
+                  std::to_string(position.count) + ": " + message.message;
+    if (position.resolvedPath.empty()) {
+        editor.ShowStatusMessage(UnicodeHelper::utf8to32(status + " (" + message.path + " not found)"));
+        return;
+    }
+    // The tool counts from 1, the editor from 0
+    auto line = (message.line > 0) ? message.line - 1 : 0;
+    auto column = (message.column > 0) ? message.column - 1 : 0;
+    if (JumpTo(position.resolvedPath, line, column)) {
+        editor.ShowStatusMessage(UnicodeHelper::utf8to32(status));
+    }
+}
+
+void ActionHelper::ShowBuildMessages() {
+    auto &editor = Editor::Instance();
+    if (!RuntimeConfig::Instance().HasRootView()) {
+        return;
+    }
+    auto modal = BuildMessagesModal::Create();
+    if (modal == nullptr) {
+        editor.ShowStatusMessage(U"No build yet - run make / cmake / ninja in the terminal");
+        return;
+    }
+    auto buildModal = modal.get();
+    RuntimeConfig::Instance().GetRootViewAs<RootView>()->ShowModal(std::move(modal));
+    // After ShowModal - the list height comes from the laid out modal
+    buildModal->SetQuery(U"");
 }
 
 void ActionHelper::JumpBack() {

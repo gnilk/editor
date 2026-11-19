@@ -50,6 +50,9 @@ namespace gedit {
         // A job other than the shell is in the foreground of the pty (tcgetpgrp != the shell's process group):
         // an interactive shell gives each command its own group, so this is "a program is running"
         bool IsForegroundJobRunning() const;
+        // The shell process's current directory (what a relative path in a command's output is relative to);
+        // empty when it can't be read
+        std::string GetWorkingDirectory() const;
 
         // Ends the shell and returns once the pty reader thread is gone (state kTerminated) - after it, the
         // delegate is never called again and the Shell can be destroyed. A shell that ignores the hangup is

@@ -90,6 +90,10 @@ keymap: {
     GotoType: "CopyPasteModifier + SelectionModifier + 'i'",
     JumpBack: "CopyPasteModifier + '['",
     JumpForward: "CopyPasteModifier + ']'",
+    # The last build's errors / warnings, read from the terminal (hitlist #52) - F8 / Shift+F8 as elsewhere
+    ShowBuildMessages: CopyPasteModifier + KeyCode_F8,
+    PreviousBuildMessage: KeyCode_Shift + KeyCode_F8,
+    NextBuildMessage: KeyCode_F8,
     # Next/previous search hit - Cmd+G / Cmd+Shift+G is the macOS standard (Ctrl on Linux)
     NextSearchResult: "KeyCode_Command + 'g'",
     PrevSearchResult: "KeyCode_Command + SelectionModifier + 'g'",

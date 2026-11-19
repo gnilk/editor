@@ -166,6 +166,11 @@ namespace gedit {
         static std::string ConsoleText(const std::u32string &str);
         void RecordCommand(const std::u32string &cmdLine);
         void MarkCommandOutput();
+        // A command went to the shell: its output is marked, and a build command starts a build-messages run (#52)
+        void OnShellCommand(const std::u32string &cmdLine);
+        // The pty's bytes to the build-messages run, if one is running; its job's end shows the summary
+        void FeedBuildMessages(const uint8_t *buffer, size_t length);
+        bool IsForegroundJobRunning();
         // Default fg/bg and the 16 system colours from the theme's terminal colours (the rest of the
         // 256-colour palette is xterm's). Caller holds screenLock.
         void ApplyThemeColors();

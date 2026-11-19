@@ -1,0 +1,37 @@
+make: Entering directory `/work/proj'
+make -k -C sub
+make[1]: Entering directory `/work/proj/sub'
+clang++ -Wall -Wextra -fdiagnostics-color=always -c a.cpp -o a.o
+In file included from a.cpp:1:
+[1m./util.h:2:39: [0m[0;1;35mwarning: [0m[1munused variable 'y' [-Wunused-variable][0m
+    2 | [0;34mstatic[0m [0;34mint[0m unused_helper([0;34mint[0m x) { [0;34mint[0m y; [0;34mreturn[0m x; }[0m
+      | [0;1;32m                                      ^
+[0m[1ma.cpp:3:16: [0m[0;1;31merror: [0m[1muse of undeclared identifier 'undefined_name'[0m
+    3 |     [0;34mreturn[0m a + undefined_name;[0m
+      | [0;1;32m               ^~~~~~~~~~~~~~
+[0m1 warning and 1 error generated.
+make[1]: *** [a.o] Error 1
+clang++ -Wall -Wextra -fdiagnostics-color=always -c b.cpp -o b.o
+In file included from b.cpp:1:
+[1m./util.h:2:39: [0m[0;1;35mwarning: [0m[1munused variable 'y' [-Wunused-variable][0m
+    2 | [0;34mstatic[0m [0;34mint[0m unused_helper([0;34mint[0m x) { [0;34mint[0m y; [0;34mreturn[0m x; }[0m
+      | [0;1;32m                                      ^
+[0m[1mb.cpp:4:14: [0m[0;1;31merror: [0m[1mcall to 'g' is ambiguous[0m
+    4 | [0;34mint[0m main() { g([0;32m1u[0m); [0;34mreturn[0m [0;32m0[0m }[0m
+      | [0;1;32m             ^
+[0m[1mb.cpp:2:6: [0m[0;1;36mnote: [0mcandidate function[0m
+    2 | [0;34mvoid[0m g([0;34mint[0m);[0m
+      | [0;1;32m     ^
+[0m[1mb.cpp:3:6: [0m[0;1;36mnote: [0mcandidate function[0m
+    3 | [0;34mvoid[0m g([0;34mlong[0m);[0m
+      | [0;1;32m     ^
+[0m[1mb.cpp:4:29: [0m[0;1;31merror: [0m[1mexpected ';' after return statement[0m
+    4 | [0;34mint[0m main() { g([0;32m1u[0m); [0;34mreturn[0m [0;32m0[0m }[0m
+      | [0;1;32m                            ^
+[0m      | [0;32m                            ;
+[0m1 warning and 2 errors generated.
+make[1]: *** [b.o] Error 1
+make[1]: Target `all' not remade because of errors.
+make[1]: Leaving directory `/work/proj/sub'
+make: *** [all] Error 2
+make: Leaving directory `/work/proj'

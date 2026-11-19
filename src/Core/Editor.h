@@ -32,6 +32,7 @@
 #include "Core/Theme/Theme.h"
 #include "ClipBoard.h"
 #include "Core/StartupNotices.h"
+#include "Core/Build/BuildMessages.h"
 namespace gedit {
     //
     // Global class names for top-views in the view hierarchy...
@@ -211,6 +212,10 @@ namespace gedit {
         ClipBoard &GetClipBoard() {
             return clipboard;
         }
+        // The last build's errors and warnings, read from the terminal (hitlist #52)
+        BuildMessages &GetBuildMessages() {
+            return buildMessages;
+        }
         // Text into the terminal as a paste - not via the clipboard - and Enter after it unless
         // terminal.promote_sends_enter is off (hitlist #47). Focus stays where it is. False with no terminal or no text.
         bool PromoteToTerminal(const std::u32string &text);
@@ -337,6 +342,7 @@ namespace gedit {
         StartupNotices startupNotices;
 
         ClipBoard clipboard;
+        BuildMessages buildMessages;
         Workspace::Ref workspace = nullptr;
         // Javascript API wrapper
         JSPluginEngine jsEngine;

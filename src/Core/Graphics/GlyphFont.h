@@ -119,6 +119,15 @@ namespace gedit {
             return baseline;
         }
 
+        // Text weight (hitlist #54): stb_truetype's coverage is linear, and light text on a dark background blended with
+        // it reads thinner and dimmer than a renderer that darkens stems. 'gamma' lifts the partly covered edge pixels -
+        // alpha = coverage^(1/gamma) - and leaves empty and fully covered ones as they are. 1 is the coverage as packed,
+        // higher is heavier; clamped to [MIN_TEXT_GAMMA, MAX_TEXT_GAMMA]. The backend maps a page's bitmap through it
+        // when it uploads the page.
+        static std::array<uint8_t, 256> CoverageCurve(float gamma);
+        static constexpr float MIN_TEXT_GAMMA = 0.5f;
+        static constexpr float MAX_TEXT_GAMMA = 3.0f;
+
         // How many pages have been built - for the tests: a page is built once
         int NumPagesBuilt() const {
             return numPagesBuilt;

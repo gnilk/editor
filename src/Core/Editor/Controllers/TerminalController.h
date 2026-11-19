@@ -197,7 +197,12 @@ namespace gedit {
         void RequestRedraw();
         // One redraw at 'deadline' - the end of a synchronized update the app never ended - on the timer thread
         void ArmSyncTimer(std::chrono::steady_clock::time_point deadline);
+        // The build run's quiet check (FeedBuildMessages) on the same timer thread
+        void ArmBuildQuietTimer(std::chrono::steady_clock::time_point deadline);
+        void StartTimerThread();
         void SyncTimerLoop();
+        void OnBuildQuiet();
+        void PostBuildSummary();
 
         void LoadCmdHistory();
         // Resolve the project-local path of the scrollback .bin (the kProject `.goatedit` write path for
@@ -256,7 +261,10 @@ namespace gedit {
         std::mutex syncTimerLock;
         std::condition_variable syncTimerWake;
         std::optional<std::chrono::steady_clock::time_point> syncTimerDeadline;
+        std::optional<std::chrono::steady_clock::time_point> buildQuietDeadline;
         bool isSyncTimerStopping = false;
+        // How long the terminal stays quiet before a build run with no job running is taken as ended
+        static constexpr std::chrono::milliseconds kBuildQuiet{250};
 #ifdef GEDIT_MACOS
         bool isAltArrowsAsWords = true;
 #else

@@ -25,7 +25,7 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
   - [ ] Linux [x] Mac - a long build (this repo, `-j`): `Cmd/Ctrl+F8` while it still runs lists what has come so far ("(running)"); an `ls` after the build keeps the list; the next build replaces it
     - Mac 2026-11-19: `make -j` on testrunner in the panel listed 1 of its warnings - clang wraps messages to the panel's width; fixed (dev 3293995a), every warning listed now, each once though several targets compile the file
 - **A save key** (#58)
-  - [ ] Linux [ ] Mac - the window: `Cmd+S` (Mac) / `Ctrl+S` (Linux) saves the active file, the `*` goes; with the terminal or tree focused it still saves the active file; another program rewrote the file: it asks (Overwrite / Reload / Cancel) as `.s` does (scripted: `save_key`, the Linux keymaps in a pty - Mac 2026-11-19 pass)
+  - [ ] Linux [x] Mac - the window: `Cmd+S` (Mac) / `Ctrl+S` (Linux) saves the active file, the `*` goes; with the terminal or tree focused it still saves the active file; another program rewrote the file: it asks (Overwrite / Reload / Cancel) as `.s` does (scripted: `save_key`, the Linux keymaps in a pty - Mac 2026-11-19 pass)
   - [ ] Linux - `nano` in the terminal panel: `Ctrl+S` is nano's save, not the editor's (an app owns the terminal - the key goes to it)
 - **Undo clears the `*`** (#39)
   - [x] Linux [x] Mac - mistype, undo: the `*` goes after a pause; type a char + backspace: same; edit, save, undo: `*` stays (scripted: `undo_star`)

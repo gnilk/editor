@@ -279,6 +279,8 @@ namespace gedit {
         // OSC 133 shell integration (§4.2). Set once the first OSC 133 marker arrives: from then on the shell
         // marks where output starts (;C), so the CommitLine guess stands down. Under screenLock.
         bool useOsc133Boundaries = false;
+        // OSC 133;D in the bytes being read (pty thread) - FeedBuildMessages takes it
+        bool isCommandDoneSeen = false;
 
         // Viewport state (§5.1) - read/written on the UI thread only (key/mouse handlers); reads of
         // screen.AbsRowCount()/ScrollbackBase() go through screenLock since the pty thread mutates them.

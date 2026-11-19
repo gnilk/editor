@@ -36,6 +36,7 @@ extern "C" {
     DLL_EXPORT int test_buildmessages_run(ITesting *t);
     DLL_EXPORT int test_buildmessages_terminals(ITesting *t);
     DLL_EXPORT int test_buildmessages_jobend(ITesting *t);
+    DLL_EXPORT int test_buildmessages_commanddone(ITesting *t);
     DLL_EXPORT int test_buildmessages_resolve(ITesting *t);
     DLL_EXPORT int test_buildmessages_step(ITesting *t);
     DLL_EXPORT int test_buildmessages_modalfilter(ITesting *t);
@@ -437,6 +438,25 @@ DLL_EXPORT int test_buildmessages_jobend(ITesting *t) {
     // The last line was read at the end
     TR_ASSERT(t, build.Messages().size() == 1);
     TR_ASSERT(t, !build.UpdateJobState(false));
+    return kTR_Pass;
+}
+
+// The shell's 'command finished' (OSC 133;D) ends the run even when the job was never seen running - a fast cc
+DLL_EXPORT int test_buildmessages_commanddone(ITesting *t) {
+    int buildShell = 0;
+    int otherShell = 0;
+    BuildMessages build;
+    build.OnCommand("cc -c bad.c", "", "", &buildShell);
+    build.Feed("bad.c:1:1: error: one\n", &buildShell);
+    TR_ASSERT(t, !build.UpdateJobState(false, &buildShell));
+    TR_ASSERT(t, build.IsRunning());
+    // Another terminal's command ending is not this run's
+    TR_ASSERT(t, !build.OnCommandDone(&otherShell));
+    TR_ASSERT(t, build.IsRunning());
+    TR_ASSERT(t, build.OnCommandDone(&buildShell));
+    TR_ASSERT(t, !build.IsRunning());
+    TR_ASSERT(t, build.NumErrors() == 1);
+    TR_ASSERT(t, !build.OnCommandDone(&buildShell));
     return kTR_Pass;
 }
 

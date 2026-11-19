@@ -5,7 +5,6 @@
 #   - no rule in the theme for: separator (as operator)
 #   - terminal: the 16 ANSI colours are from the overlay
 #   - 8 selectors need a context GoatEdit doesn't track ('meta.class entity.name...') - used only where nothing else matched
-#   - 20 rules set a font style (bold/italic) - GoatEdit themes have colours only, dropped
 name: "Dark 2026 (from VS Code)"
 author: "vscode"
 license: "MIT"

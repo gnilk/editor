@@ -427,6 +427,7 @@ Line::Ref ActionHelper::ColouredLine(const std::u32string &text, const std::stri
             attrib.tokenClass = tokenClass;
             attrib.foregroundColor = fgColor;
             attrib.backgroundColor = bgColor;
+            attrib.textAttributes = Editor::Instance().FontStyleFromLanguageToken(tokenClass);
         }
     }
     return line;

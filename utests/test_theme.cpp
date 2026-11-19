@@ -23,6 +23,7 @@ DLL_EXPORT int test_theme_loadbroken(ITesting *t);
 DLL_EXPORT int test_theme_locate(ITesting *t);
 DLL_EXPORT int test_theme_loadordefault(ITesting *t);
 DLL_EXPORT int test_theme_reloadkeeps(ITesting *t);
+DLL_EXPORT int test_theme_fontstyles(ITesting *t);
 }
 
 DLL_EXPORT int test_theme(ITesting *t) {
@@ -222,5 +223,41 @@ DLL_EXPORT int test_theme_locate(ITesting *t) {
 
     assetLoader.ReplaceSearchPath(Editor::GetDefaultUserConfigDir(), kLocationType::kUser);
     std::filesystem::remove_all(userDir, ec);
+    return kTR_Pass;
+}
+
+// Hitlist #55: 'font_styles' in the colour file - by content key, words the editor draws; a token takes its class's
+// style next to its colour
+DLL_EXPORT int test_theme_fontstyles(ITesting *t) {
+    TR_ASSERT(t, Theme::ParseFontStyle("") == kTextAttributes::kNormal);
+    TR_ASSERT(t, Theme::ParseFontStyle(" bold  italic ") == (kTextAttributes::kNormal | kTextAttributes::kBold | kTextAttributes::kItalic));
+    TR_ASSERT(t, Theme::ParseFontStyle("underline strikethrough") == (kTextAttributes::kNormal | kTextAttributes::kUnderline | kTextAttributes::kStrikethrough));
+    TR_ASSERT(t, !Theme::ParseFontStyle("bold glow").has_value());
+
+    auto themePath = WriteTheme(R"json({
+  "colors": {
+    "globals": { "background": "rgb(1,2,3)", "foreground": "rgb(200,200,200)" },
+    "content": { "background": "rgb(1,2,3)", "regular": "rgb(200,200,200)", "keyword": "rgb(200,100,0)" }
+  },
+  "font_styles": { "keyword": "bold", "heading": "bold italic", "emphasis": "glow" }
+})json");
+    auto theme = Theme::Create();
+    TR_ASSERT(t, theme->Load(themePath.string()));
+    TR_ASSERT(t, theme->GetContentFontStyle("keyword") == (kTextAttributes::kNormal | kTextAttributes::kBold));
+    TR_ASSERT(t, theme->GetContentFontStyle("heading") == (kTextAttributes::kNormal | kTextAttributes::kBold | kTextAttributes::kItalic));
+    // A word it can't draw: no style, the theme still loads
+    TR_ASSERT(t, theme->GetContentFontStyle("emphasis") == kTextAttributes::kNormal);
+    TR_ASSERT(t, theme->GetContentFontStyle("string") == kTextAttributes::kNormal);
+
+    // Through the editor: the token class takes it, and leaves it with the next theme
+    auto &editor = Editor::Instance();
+    auto previous = editor.GetTheme()->GetFilename();
+    std::string problem;
+    TR_ASSERT(t, editor.UseTheme(themePath.string(), problem));
+    TR_ASSERT(t, editor.FontStyleFromLanguageToken(kLanguageTokenClass::kKeyword) == (kTextAttributes::kNormal | kTextAttributes::kBold));
+    TR_ASSERT(t, editor.FontStyleFromLanguageToken(kLanguageTokenClass::kString) == kTextAttributes::kNormal);
+    TR_ASSERT(t, editor.UseTheme(previous, problem));
+    TR_ASSERT(t, editor.FontStyleFromLanguageToken(kLanguageTokenClass::kKeyword) == kTextAttributes::kNormal);
+    std::filesystem::remove_all(themePath.parent_path());
     return kTR_Pass;
 }

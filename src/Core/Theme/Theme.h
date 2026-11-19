@@ -11,6 +11,7 @@
 #include "logger.h"
 
 #include "Core/NamedColors.h"
+#include "Core/TextAttributes.h"
 #include "Core/Config/ConfigNode.h"
 
 namespace gedit {
@@ -28,6 +29,8 @@ namespace gedit {
         // shipped ones in 'Themes/' of the system assets
         static constexpr const char *USER_THEME_DIR = "themes";
         static constexpr const char *SYSTEM_THEME_DIR = "Themes";
+        // The colour file's table of font styles, by content key: "heading": "bold", "emphasis": "italic"
+        static constexpr const char *FONT_STYLES = "font_styles";
 
         // A theme file (or a theme's colour file) as the asset loader finds it: the name to load, and where
         struct Location {
@@ -46,6 +49,9 @@ namespace gedit {
         // 'Themes/', the system root (where the default was); an absolute path as it is. 'nextTo' (a theme's colour
         // file) is looked at first. None: empty.
         static std::optional<Location> Locate(const std::string &fileName, const std::optional<Location> &nextTo = {});
+        // A font style as a theme writes it - words of 'bold', 'italic', 'underline', 'strikethrough' - as text
+        // attributes; "" is kNormal, a word it doesn't know nullopt
+        static std::optional<kTextAttributes> ParseFontStyle(const std::string &words);
 
         const std::string &GetName() {
             return name;
@@ -96,6 +102,8 @@ namespace gedit {
         const NamedColors &GetTerminalColor() {
             return ColorsOrEmpty(clrClassTerminal);
         }
+        // How a content key's text is drawn besides its colour - kNormal when the theme gives it no style
+        kTextAttributes GetContentFontStyle(const std::string &key) const;
 
     public:
         bool Initialize();
@@ -104,6 +112,8 @@ namespace gedit {
         bool LoadThemeFile(const std::string &pathname);
         bool IsValidColorClass(const std::string &className);
         bool LoadSublimeColorFile(const Location &colorFile);
+        template<typename T>
+        void LoadFontStyles(const T &fontStyles);
         void InheritGlobalColors();
 
         template<typename T, typename E>
@@ -118,6 +128,7 @@ namespace gedit {
         std::string name = "noname";
         std::string loadError;
         std::unordered_map<std::string, NamedColors::Ref> colorConfig;
+        std::unordered_map<std::string, kTextAttributes> contentFontStyles;
     };
 }
 

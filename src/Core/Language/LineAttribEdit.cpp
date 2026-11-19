@@ -58,5 +58,6 @@ Line::LineAttrib LineAttribEdit::MakeAttrib(int idx, kLanguageTokenClass cls) {
     auto [fg, bg] = Editor::Instance().ColorFromLanguageToken(cls);
     attrib.foregroundColor = fg;
     attrib.backgroundColor = bg;
+    attrib.textAttributes = Editor::Instance().FontStyleFromLanguageToken(cls);
     return attrib;
 }

@@ -146,6 +146,11 @@ namespace gedit {
             }
             return languageColorConfig[tokenClass];
         }
+        // Bold / italic / ... a token class is drawn with besides its colour (the theme's 'font_styles')
+        kTextAttributes FontStyleFromLanguageToken(kLanguageTokenClass tokenClass) const {
+            auto it = languageFontStyles.find(tokenClass);
+            return (it == languageFontStyles.end()) ? kTextAttributes::kNormal : it->second;
+        }
 
         // API Object Handling for static/global objects
         // Specific instances (like TextBufferAPI) should be aquired through one of the global API objects
@@ -349,6 +354,7 @@ namespace gedit {
 
         // This is probably not the correct place for this - consider moving
         std::unordered_map<kLanguageTokenClass, std::pair<ColorRGBA, ColorRGBA>> languageColorConfig;
+        std::unordered_map<kLanguageTokenClass, kTextAttributes> languageFontStyles;
         LanguageBase::Ref defaultLanguage = {};
         std::unordered_map<std::string, LanguageBase::Ref> extToLanguages;
         std::unordered_map<std::string, LanguageBase::Ref> fileNameToLanguages;

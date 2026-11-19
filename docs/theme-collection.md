@@ -104,3 +104,28 @@ Dark+/Light+, Visual Studio Dark/Light, High Contrast dark/light. They include e
 4. Vendor the first themes: Dark 2026 (from VS Code), with `LICENSES.md`; then a light one. Each with its own terminal
    palette. **Dark 2026 built 2026-11-18** (`feature/vscode-themes`, §4.1): `scripts/gen-themes.py`, overlay
    `Assets/ThemeSources/overlays/vscode-dark-2026.json`. A light one: add its source chain and an overlay, run the script.
+
+## 6. Font styles (hitlist #55, built 2026-11-19)
+
+`colors.json` has a top-level `font_styles` table next to `colors`, by **content key** (the same keys as
+`colors.content`), each a list of words - `bold`, `italic`, `underline`, `strikethrough`:
+
+```json
+"font_styles": { "heading": "bold", "strong": "bold", "emphasis": "italic", "link": "underline" }
+```
+
+- **Editor:** `Theme::GetContentFontStyle(key)`; `Editor::PushThemeColors` gives each token class its key's style next to
+  its colour (a class the theme has no key for takes the style of the key it borrows the colour from), and the
+  highlighter writes it into `LineAttrib::textAttributes` with the colours. A word the editor doesn't know skips that
+  key (a log warning); the theme still loads. No table: everything plain, as before.
+- **Drawing:** SDL draws bold as the glyphs again a pixel to the right and italic as a slant (no bold / italic faces
+  are loaded); the terminal version sends SGR 1 / 3 / 4 / 9.
+- **Importer:** a style is resolved on its own, as VS Code does - the rule that decides it need not be the colour's
+  (`markup.bold` with only `fontStyle: bold` keeps the text's colour), a more specific `""` takes it away, a key with no
+  rule at all is drawn as its fallback key. Context rules don't give a style (`markup.heading entity.name` would make
+  every function bold). Sublime's `*_underline` kinds become `underline`; `glow` is dropped and reported.
+- **Overlays** (`gen-themes.py`) may carry a `font_styles` table, merged key by key.
+
+Dark 2026 now has VS Code's: headings, `**strong**` and `---` bold, `*emphasis*` italic, links underlined. Comments
+aren't italic there. The default theme has no styles.
+

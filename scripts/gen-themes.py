@@ -10,7 +10,7 @@ Assets/Resources/Themes/<file>.theme.yml + <file>.colors.json, which are committ
 
 Run it after the importer changes or a source/overlay is added. The importer runs in a sandbox HOME - never the user's.
 Overlay keys: "source" (under Assets/ThemeSources/), "name" (the theme's name), "variables" (merged into the colour
-file's variables), "colors" (merged into its sections, key by key). Keys starting with '_' are comments.
+file's variables), "colors" (merged into its sections, key by key), "font_styles" (merged, key by key). Keys starting with '_' are comments.
 """
 import argparse
 import json
@@ -75,6 +75,8 @@ def apply_overlay(themeText, colors, overlay, overlayName, source):
     colors.setdefault('variables', {}).update(overlay.get('variables', {}))
     for section, entries in overlay.get('colors', {}).items():
         colors.setdefault('colors', {}).setdefault(section, {}).update(entries)
+    if 'font_styles' in overlay:
+        colors.setdefault('font_styles', {}).update(overlay['font_styles'])
     return '\n'.join(lines) + '\n', json.dumps(colors, indent=2, ensure_ascii=False) + '\n'
 
 

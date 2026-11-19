@@ -50,6 +50,10 @@ module entry fn (e.g. `test_keymapping`) — used to reset global singletons bet
 **Run the whole library, in parallel** (trun v4 - the installed one): `trun ./libutests.so` runs all ~1000 cases in
 about 6 s, each case forked, so one that crashes is isolated and the rest still report. `--sequential` (one process,
 in order) is for reading a case's log output in order, or for a case that only fails in parallel - not the default.
+**In parallel each module runs in its own fork of trun, at the same time as the others** - so a test must not depend
+on another module (its state, or files it left behind), and must not share a fixed name with another module: a temp
+folder (name it after the module, e.g. `goatedit_<module>_<case>`), a named event / semaphore / socket, a port. Within a
+module the cases still run in order. (2026-11-19: no two modules share a temp folder name.)
 
 The `-m` (module) and `-t` (test) options both take lists and wildcards; prefix `!` discards a
 test/module, and the special token `-` means "everything else". This controls execution order:

@@ -106,6 +106,20 @@ bool BuildMessages::OnCommandDone(const void *terminal) {
     return EndRun();
 }
 
+bool BuildMessages::OnQuiet(bool isJobRunning, const void *terminal) {
+    {
+        std::lock_guard<std::mutex> guard(lock);
+        if (!isRunning || (terminal != runTerminal)) {
+            return false;
+        }
+        if (isJobRunning) {
+            wasJobSeen = true;
+            return false;
+        }
+    }
+    return EndRun();
+}
+
 bool BuildMessages::EndRun() {
     std::lock_guard<std::mutex> guard(lock);
     if (!isRunning) {

@@ -51,6 +51,7 @@ DLL_EXPORT int test_terminalcontroller_sync_output_frame(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_panel_names(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_title(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_build_fastend(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_build_quietend(ITesting *t);
 }
 
 #include <cstdint>   // UINT64_MAX
@@ -1091,5 +1092,36 @@ DLL_EXPORT int test_terminalcontroller_build_fastend(ITesting *t) {
                "\x1b]133;D;1\x07" "\x1b]133;A\x07" "$ ");
     TR_ASSERT(t, !build.IsRunning());
     TR_ASSERT(t, build.NumErrors() == 1);
+    return kTR_Pass;
+}
+
+// The same fast build with shell integration off (the default): no ;D, no read sees the job - the quiet check ends it.
+// A job still running when the terminal goes quiet keeps the run going.
+DLL_EXPORT int test_terminalcontroller_build_quietend(ITesting *t) {
+    TerminalController c;
+    c.Resize(60, 10);
+    bool isJobRunning = false;
+    c.SetForegroundJobProbe([&isJobRunning]() { return isJobRunning; });
+    FeedPty(c, "$ ");
+    c.GetInputLine()->Append(std::u32string(U"cc -c bad.c"));
+    c.CommitLine();
+    auto &build = Editor::Instance().GetBuildMessages();
+    TR_ASSERT(t, build.IsRunning());
+    FeedPty(c, "cc -c bad.c\r\nbad.c:2:16: error: use of undeclared identifier 'nope'\r\n$ ");
+    TR_ASSERT(t, build.IsRunning());
+    std::this_thread::sleep_for(std::chrono::milliseconds(600));
+    TR_ASSERT(t, !build.IsRunning());
+    TR_ASSERT(t, build.NumErrors() == 1);
+
+    // A slow link: quiet, but the job runs - the run goes on until the job is gone
+    c.GetInputLine()->Append(std::u32string(U"make"));
+    c.CommitLine();
+    isJobRunning = true;
+    FeedPty(c, "make\r\ncc -o app main.o\r\n");
+    std::this_thread::sleep_for(std::chrono::milliseconds(600));
+    TR_ASSERT(t, build.IsRunning());
+    isJobRunning = false;
+    FeedPty(c, "$ ");
+    TR_ASSERT(t, !build.IsRunning());
     return kTR_Pass;
 }

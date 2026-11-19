@@ -37,6 +37,7 @@ extern "C" {
     DLL_EXPORT int test_buildmessages_terminals(ITesting *t);
     DLL_EXPORT int test_buildmessages_jobend(ITesting *t);
     DLL_EXPORT int test_buildmessages_commanddone(ITesting *t);
+    DLL_EXPORT int test_buildmessages_quiet(ITesting *t);
     DLL_EXPORT int test_buildmessages_resolve(ITesting *t);
     DLL_EXPORT int test_buildmessages_step(ITesting *t);
     DLL_EXPORT int test_buildmessages_modalfilter(ITesting *t);
@@ -457,6 +458,29 @@ DLL_EXPORT int test_buildmessages_commanddone(ITesting *t) {
     TR_ASSERT(t, !build.IsRunning());
     TR_ASSERT(t, build.NumErrors() == 1);
     TR_ASSERT(t, !build.OnCommandDone(&buildShell));
+    return kTR_Pass;
+}
+
+// The terminal went quiet: a job running is seen (the run goes on), none ends the run - also one never seen running
+DLL_EXPORT int test_buildmessages_quiet(ITesting *t) {
+    int buildShell = 0;
+    int otherShell = 0;
+    BuildMessages build;
+    build.OnCommand("make", "", "", &buildShell);
+    build.Feed("a.c:1:1: error: one\n", &buildShell);
+    TR_ASSERT(t, !build.OnQuiet(true, &buildShell));
+    TR_ASSERT(t, build.IsRunning());
+    TR_ASSERT(t, !build.OnQuiet(false, &otherShell));
+    TR_ASSERT(t, build.IsRunning());
+    TR_ASSERT(t, build.OnQuiet(false, &buildShell));
+    TR_ASSERT(t, !build.IsRunning());
+
+    // Never seen running (UpdateJobState can't end it) - quiet does
+    build.OnCommand("cc -c bad.c", "", "", &buildShell);
+    build.Feed("bad.c:1:1: error: one\n", &buildShell);
+    TR_ASSERT(t, !build.UpdateJobState(false, &buildShell));
+    TR_ASSERT(t, build.OnQuiet(false, &buildShell));
+    TR_ASSERT(t, build.NumErrors() == 1);
     return kTR_Pass;
 }
 

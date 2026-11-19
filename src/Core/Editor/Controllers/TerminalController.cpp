@@ -303,8 +303,9 @@ void TerminalController::HandleTerminalData(const uint8_t *buffer, size_t length
 }
 
 // On the pty thread. The summary goes to the status line on the UI thread.
-// The command's end (OSC 133;D) was parsed with these bytes, before they get here - the run ends after them. A fast
-// build (cc on one file) can start, print and end between two reads: the sampled job state then never saw it run.
+// The command's end (OSC 133;D) was parsed with these bytes, before they get here - the run ends after them. Without
+// the marks (shell integration is off by default) a fast build (cc on one file) can start, print and end between two
+// reads, so no read sees it run: a moment after the last read the job is looked at once more (OnBuildQuiet).
 void TerminalController::FeedBuildMessages(const uint8_t *buffer, size_t length) {
     bool isCommandDone = std::exchange(isCommandDoneSeen, false);
     auto &buildMessages = Editor::Instance().GetBuildMessages();
@@ -314,11 +315,24 @@ void TerminalController::FeedBuildMessages(const uint8_t *buffer, size_t length)
     buildMessages.Feed(std::string_view(reinterpret_cast<const char *>(buffer), length), this);
     bool isEnded = isCommandDone ? buildMessages.OnCommandDone(this) : buildMessages.UpdateJobState(IsForegroundJobRunning(), this);
     if (isEnded) {
-        Runloop::PostMessage(0x00, [](uint32_t) {
-            auto &messages = Editor::Instance().GetBuildMessages();
-            Editor::Instance().ShowStatusMessage(UnicodeHelper::utf8to32("build: " + messages.Summary()));
-        });
+        PostBuildSummary();
+        return;
     }
+    ArmBuildQuietTimer(std::chrono::steady_clock::now() + kBuildQuiet);
+}
+
+// On the timer thread, the terminal quiet since the deadline was set
+void TerminalController::OnBuildQuiet() {
+    if (Editor::Instance().GetBuildMessages().OnQuiet(IsForegroundJobRunning(), this)) {
+        PostBuildSummary();
+    }
+}
+
+void TerminalController::PostBuildSummary() {
+    Runloop::PostMessage(0x00, [](uint32_t) {
+        auto &messages = Editor::Instance().GetBuildMessages();
+        Editor::Instance().ShowStatusMessage(UnicodeHelper::utf8to32("build: " + messages.Summary()));
+    });
 }
 
 bool TerminalController::IsHoldingRedraw() const {
@@ -339,25 +353,57 @@ void TerminalController::RequestRedraw() {
 void TerminalController::ArmSyncTimer(std::chrono::steady_clock::time_point deadline) {
     std::lock_guard<std::mutex> guard(syncTimerLock);
     syncTimerDeadline = deadline;
-    if (!syncTimer.joinable()) {
-        syncTimer = std::thread([this]() { SyncTimerLoop(); });
-    }
+    StartTimerThread();
     syncTimerWake.notify_one();
 }
 
+// Each read moves it on: it expires once the terminal has been quiet that long
+void TerminalController::ArmBuildQuietTimer(std::chrono::steady_clock::time_point deadline) {
+    std::lock_guard<std::mutex> guard(syncTimerLock);
+    buildQuietDeadline = deadline;
+    StartTimerThread();
+    syncTimerWake.notify_one();
+}
+
+// Under syncTimerLock
+void TerminalController::StartTimerThread() {
+    if (!syncTimer.joinable() && !isSyncTimerStopping) {
+        syncTimer = std::thread([this]() { SyncTimerLoop(); });
+    }
+}
+
+// Two deadlines on one thread: the synchronized-output hold (a redraw) and the build run's quiet check
 void TerminalController::SyncTimerLoop() {
     std::unique_lock<std::mutex> lock(syncTimerLock);
     while (!isSyncTimerStopping) {
-        if (!syncTimerDeadline.has_value()) {
+        if (!syncTimerDeadline.has_value() && !buildQuietDeadline.has_value()) {
             syncTimerWake.wait(lock);
             continue;
         }
-        auto deadline = syncTimerDeadline.value();
-        bool isExpired = syncTimerWake.wait_until(lock, deadline) == std::cv_status::timeout;
-        if (isExpired && (syncTimerDeadline == deadline) && !isSyncTimerStopping) {
+        auto deadline = !syncTimerDeadline.has_value() ? buildQuietDeadline.value()
+                      : !buildQuietDeadline.has_value() ? syncTimerDeadline.value()
+                      : std::min(syncTimerDeadline.value(), buildQuietDeadline.value());
+        syncTimerWake.wait_until(lock, deadline);
+        if (isSyncTimerStopping) {
+            break;
+        }
+        auto now = std::chrono::steady_clock::now();
+        bool isSyncDue = syncTimerDeadline.has_value() && (syncTimerDeadline.value() <= now);
+        bool isBuildDue = buildQuietDeadline.has_value() && (buildQuietDeadline.value() <= now);
+        if (isSyncDue) {
             syncTimerDeadline.reset();
+        }
+        if (isBuildDue) {
+            buildQuietDeadline.reset();
+        }
+        if (isSyncDue || isBuildDue) {
             lock.unlock();
-            RequestRedraw();
+            if (isSyncDue) {
+                RequestRedraw();
+            }
+            if (isBuildDue) {
+                OnBuildQuiet();
+            }
             lock.lock();
         }
     }

@@ -30,7 +30,7 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
 - **`.theme use` at a level** (#59) - scripted (`theme_project`: a project config with its own theme, Keep / Remove, `--project`)
   - [ ] Linux [x] Mac - the window: in a project whose `.goatedit/config.yml` sets `main.theme`, `.theme use <other>` asks; Keep leaves this project's theme and says so, Remove takes it out of the project config and switches; `.theme list` names where the theme comes from
 - **Text weight** (#54) - `sdl.text_gamma` (default 1.2, the user's pick - VS Code's 1.5 match was too dark; 1.0 = as before)
-  - [ ] Linux [x] Mac - the window, Dark 2026 or Mariana: text heavier than before, edges not blurred or blocky; `.cfg --user set sdl.text_gamma 1.0` + restart = the old look; side by side with VS Code (Mac 2026-11-19: 1.5 matches VS Code, 1.2 kept as the default)
+  - [x] Linux [x] Mac - the window, Dark 2026 or Mariana: text heavier than before, edges not blurred or blocky; `.cfg --user set sdl.text_gamma 1.0` + restart = the old look; side by side with VS Code (Mac 2026-11-19: 1.5 matches VS Code, 1.2 kept as the default)
 - **Unbound Ctrl keys go to the shell** (decided 2026-11-19) - scripted: `terminalcontroller ctrl_to_shell`
   - [ ] Linux [ ] Mac - the window, at the local prompt: type `echo one two`, `Left` x4, `Ctrl+W` - the shell deletes `one`; `Ctrl+U` / `Ctrl+K` / `Ctrl+Y` work; `Ctrl+D` on an empty line does nothing (the shell stays); `Ctrl+T` (Linux) still opens Go to symbol
 - **Font styles in themes** (#55)

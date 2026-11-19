@@ -72,7 +72,16 @@ and the architecture-workbench idea (index data handed to agents).
    focused terminal is the output console (dot-commands, JS). Build runs belong to their terminal
    (`BuildMessages::OnCommand(..., terminal)`). Check `terminal_tabs`. Not done: renaming the actions to
    `SwitchToTab` / `CycleTab*` (they work as they are named today).
-4. Configured tabs (§4 - the AI terminal, the `PromoteToTerminal` target).
+4. Configured tabs (§4 - the AI terminal, the `PromoteToTerminal` target) - **designed 2026-11-19, §7**. In order:
+   a. `inherit:` for config sections (generic, in `Config`; resolved once, leaf wins, multi-level, cycle-guarded - as
+      `KeyMappingCache`).
+   b. The terminal is handed its resolved settings at creation (`TerminalView` / `TerminalController` / `Shell` /
+      `TerminalScreen` / session code read that node, never `Config::Instance()["terminal"]`).
+   c. `ProjectConfigPolicy` strips the command keys (`shell`, `init`, `bootstrap`) from every section of a project
+      config, not only `terminal`.
+   d. `TerminalPanelView` -> `PanelView`; ownership of the tab views moves into `TabbedView` (generic, UI toolkit); the
+      panel builds its tabs from `panel.tabs` when there is no session; the session keeps each tab's `view` / `config`.
+   e. `promote_target` - `PromoteToTerminal` sends to that tab when one exists.
 5. Messages as a tab (with #52); a CMake / build tab.
 6. Mouse: click a tab, close buttons (after #26).
 
@@ -105,3 +114,47 @@ Decided 2026-11-19 (step 3):
   closed.
 - **A build run belongs to the terminal that started it** (#52): only its bytes feed the run, and only its next
   command ends it - another terminal's output (an agent's) or its `ls` leaves the run alone.
+
+## 7. Configured tabs - decided 2026-11-19
+
+```yaml
+panel:
+  tabs:
+    - name: Shell
+      view: terminal          # what draws it: terminal (step 4) | messages (step 5) | ...
+                              # config: defaults to the view's name - the 'terminal' section
+    - name: Claude
+      view: terminal
+      config: ai_agent        # the section the tab is handed (resolved)
+
+ai_agent:
+  inherit: terminal           # what it doesn't set comes from 'terminal'
+  bootstrap: [ "claude" ]     # run in the shell when it starts
+  promote_target: yes         # Cmd/Ctrl+Enter sends here
+```
+
+- **One terminal view for any long-lived console application** (a shell, an agent in a shell). What differs is
+  configuration, not view types - no `TerminalShell` / `TerminalAgent` classes.
+- **`view` and `config` are separate:** what draws a tab, and the settings it is handed. Two agents (Claude, Codex) are
+  the same view with two sections; a Messages / CMake view can get sections of its own later.
+- **Explicit `inherit:`** in config sections, as keymaps and language files have it: the leaf's keys win, the parent
+  fills the rest, several levels deep (`codex: { inherit: ai_agent }`). A section without `inherit:` stands alone (the
+  code's defaults fill the gaps).
+- **Settings are handed over at creation**, resolved - the view never looks up a global section by name.
+- **An agent is a shell with `bootstrap`**, not the tab's process: the terminal's key routing asks "is a job running in
+  the shell's foreground?" (an agent as the process would be edited as a prompt line), the shell's rc files give the
+  agent its `PATH` (npm / nvm / brew installs), and when the agent quits the tab is a prompt again, not dead. Not
+  `exec claude` either, for the same reason.
+- **Split later:** a terminal base (screen, pty, drawing) and a shell part (local line edit, prompt, build messages)
+  when the first tab whose process is not a shell comes (a REPL, `ssh` as the process).
+- **Security:** a project's `.goatedit/config.yml` can be committed to a repo - it never sets a command, in any section
+  (`shell`, `init`, `bootstrap` stripped everywhere). Keys and secrets live in the user config (never touched by build
+  or install) or the environment; agents keep their own credentials. A separate secrets file, if one is ever needed:
+  installed once as a skeleton, never overwritten, never merged.
+- **`PanelView`:** the generic part is `TabbedView` (UI toolkit) - the container with the tab row; it takes ownership of
+  its tab views. `PanelView` (editor, today's `TerminalPanelView` renamed) is the editor's part: which tab kinds exist,
+  building them from `panel.tabs` and the session, asking before closing a tab with a running job.
+- **Restart:** the session wins (as decided for step 3); `panel.tabs` is used when there is no session yet. The session
+  keeps each tab's `view` and `config`, so a Claude tab comes back as an agent tab (its `bootstrap` starts the agent
+  again - deliberate).
+

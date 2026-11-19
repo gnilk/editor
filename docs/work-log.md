@@ -8,6 +8,18 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## Font styles in themes (2026-11-19) ✅
+
+**Hitlist #55.** VS Code themes set bold / italic per scope; the importer dropped them. **Load-bearing decisions:**
+`font_styles` is its own table in `colors.json`, keyed by content key - not a colour value - so the colour script and
+the sections stay as they were and a theme without it is unchanged. The style rides with the colour into
+`LineAttrib::textAttributes` (`Editor::FontStyleFromLanguageToken`, set at the four places that colour a token), so
+the existing draw path draws it. The importer resolves the style as a property of its own (VS Code's model), but never
+from a context rule - Dark 2026's `markup.heading entity.name` made every function bold on the first try. SDL italic is a
+synthetic slant (`SDL_RenderGeometry`), bold the existing 1px double draw. Detail: `theme-collection.md` §6.
+
+---
+
 ## `.theme use` at a level (2026-11-19) ✅
 
 **Hitlist #59.** A project's `.goatedit/config.yml` with its own `main.theme` won over `.theme use` after a restart,

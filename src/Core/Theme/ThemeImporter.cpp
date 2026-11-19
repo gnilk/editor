@@ -29,7 +29,8 @@ namespace {
     struct ScopeRule {
         std::string scope;          // the last element of the selector
         std::string selector;       // as written, for the report
-        std::string color;          // foreground expression
+        std::string color;          // foreground expression - empty when the rule sets only a font style
+        std::optional<std::string> fontStyle;   // GoatEdit's words ('bold italic'); "" resets, none = not set here
         bool isContext = false;     // the selector needs ancestors GoatEdit can't see ('meta.class entity.name')
         size_t order = 0;           // later rules win a tie
     };
@@ -71,13 +72,16 @@ namespace {
         bool ReadTheme(const std::string &text, int depth);
         void ReadVSCodeTheme(const json &data, int depth);
         void ReadSublimeScheme(const json &data);
-        void AddScopeRules(const std::string &selectors, const std::string &color);
+        void AddScopeRules(const std::string &selectors, const std::string &color, const std::optional<std::string> &fontStyle);
+        std::optional<std::string> FontStyleOf(const std::string &words);
 
         std::optional<ColorValue> Evaluate(const std::string &expr);
         void ResolveMappedKeys(const std::string &section, const std::vector<MappedKey> &keys);
         void ResolveContentKeys();
         std::optional<ColorValue> MatchScopes(const ContentKey &contentKey);
-        const ScopeRule *BestRule(const std::string &scope, bool allowContext) const;
+        std::optional<std::string> MatchFontStyle(const ContentKey &contentKey);
+        // The rule that decides 'scope' among those setting a colour - or a font style
+        const ScopeRule *BestRule(const std::string &scope, bool allowContext, bool isFontStyle = false) const;
         void ResolveTerminalPalette();
         ColorValue OverlayFor(const ColorValue &value, const ColorRGBA &background) const;
         ordered_json BuildColorsJson();
@@ -90,10 +94,12 @@ namespace {
         SourceTheme source;
         // Resolved GoatEdit colours per section, in output order
         std::map<std::string, std::vector<std::pair<std::string, ColorValue>>> sections;
+        // Content keys with a font style, in output order
+        std::vector<std::pair<std::string, std::string>> fontStyles;
         size_t numContextSelectors = 0;
         size_t numExclusions = 0;
         size_t numUnsupportedSelectors = 0;
-        size_t numFontStyles = 0;
+        size_t numDroppedFontStyles = 0;
         ThemeImporter::Result result;
     };
 
@@ -422,8 +428,8 @@ ThemeImporter::Result Importer::Run(const std::string &text) {
     if (numUnsupportedSelectors > 0) {
         Report(fmt::format("{} selectors use groups or alternatives ('(a | b)') - dropped", numUnsupportedSelectors));
     }
-    if (numFontStyles > 0) {
-        Report(fmt::format("{} rules set a font style (bold/italic) - GoatEdit themes have colours only, dropped", numFontStyles));
+    if (numDroppedFontStyles > 0) {
+        Report(fmt::format("{} rules set only font styles GoatEdit doesn't draw (glow, ...) - dropped", numDroppedFontStyles));
     }
 
     result.colorsJson = BuildColorsJson().dump(2);
@@ -496,8 +502,9 @@ void Importer::ReadVSCodeTheme(const json &data, int depth) {
                 continue;
             }
             auto &settings = rule["settings"];
-            if (settings.contains("fontStyle") && settings["fontStyle"].is_string() && !Trim(settings["fontStyle"].get<std::string>()).empty()) {
-                numFontStyles++;
+            std::optional<std::string> fontStyle;
+            if (settings.contains("fontStyle") && settings["fontStyle"].is_string()) {
+                fontStyle = FontStyleOf(settings["fontStyle"].get<std::string>());
             }
             auto foreground = settings.contains("foreground") && settings["foreground"].is_string() ? settings["foreground"].get<std::string>() : "";
             // Old-style global settings: a rule without a scope
@@ -510,17 +517,17 @@ void Importer::ReadVSCodeTheme(const json &data, int depth) {
                 }
                 continue;
             }
-            // A rule that only sets a font style must not take a colour away
-            if (foreground.empty()) {
+            // A rule that only sets a font style takes no colour away (its colour stays empty)
+            if (foreground.empty() && !fontStyle.has_value()) {
                 continue;
             }
             auto &scope = rule["scope"];
             if (scope.is_string()) {
-                AddScopeRules(scope.get<std::string>(), foreground);
+                AddScopeRules(scope.get<std::string>(), foreground, fontStyle);
             } else if (scope.is_array()) {
                 for (auto &selector : scope) {
                     if (selector.is_string()) {
-                        AddScopeRules(selector.get<std::string>(), foreground);
+                        AddScopeRules(selector.get<std::string>(), foreground, fontStyle);
                     }
                 }
             }
@@ -573,20 +580,49 @@ void Importer::ReadSublimeScheme(const json &data) {
             if (!rule.is_object() || !rule.contains("scope") || !rule["scope"].is_string()) {
                 continue;
             }
-            if (rule.contains("font_style") && rule["font_style"].is_string() && !Trim(rule["font_style"].get<std::string>()).empty()) {
-                numFontStyles++;
+            std::optional<std::string> fontStyle;
+            if (rule.contains("font_style") && rule["font_style"].is_string()) {
+                fontStyle = FontStyleOf(rule["font_style"].get<std::string>());
             }
             // A gradient foreground (an array) has no single colour
-            if (!rule.contains("foreground") || !rule["foreground"].is_string()) {
+            auto foreground = (rule.contains("foreground") && rule["foreground"].is_string()) ? rule["foreground"].get<std::string>() : "";
+            if (foreground.empty() && !fontStyle.has_value()) {
                 continue;
             }
-            AddScopeRules(rule["scope"].get<std::string>(), rule["foreground"].get<std::string>());
+            AddScopeRules(rule["scope"].get<std::string>(), foreground, fontStyle);
         }
     }
 }
 
 // 'selectors' is a comma separated list; each is a space separated path, optionally with ' - exclusion'
-void Importer::AddScopeRules(const std::string &selectors, const std::string &color) {
+// VS Code's / Sublime's words as GoatEdit's: the underline kinds are an underline, what GoatEdit doesn't draw (glow)
+// goes. A style of only such words: nullopt - the rule sets no font style.
+std::optional<std::string> Importer::FontStyleOf(const std::string &words) {
+    std::set<std::string> found;
+    bool isDropped = false;
+    for (auto &word : SplitWhitespace(words)) {
+        if ((word == "bold") || (word == "italic") || (word == "underline") || (word == "strikethrough")) {
+            found.insert(word);
+        } else if (word.ends_with("_underline")) {
+            found.insert("underline");
+        } else {
+            isDropped = true;
+        }
+    }
+    if (found.empty() && isDropped) {
+        numDroppedFontStyles++;
+        return std::nullopt;
+    }
+    std::string style;
+    for (auto word : {"bold", "italic", "underline", "strikethrough"}) {
+        if (found.contains(word)) {
+            style += (style.empty() ? "" : " ") + std::string(word);
+        }
+    }
+    return style;
+}
+
+void Importer::AddScopeRules(const std::string &selectors, const std::string &color, const std::optional<std::string> &fontStyle) {
     for (auto &part : Split(selectors, ',')) {
         auto selector = Trim(part);
         if (selector.empty()) {
@@ -609,6 +645,7 @@ void Importer::AddScopeRules(const std::string &selectors, const std::string &co
         rule.scope = path.back();
         rule.selector = selector;
         rule.color = color;
+        rule.fontStyle = fontStyle;
         rule.order = source.rules.size();
         bool isOtherLanguage = false;
         for (size_t i = 0; i + 1 < path.size(); i++) {
@@ -723,13 +760,28 @@ void Importer::ResolveContentKeys() {
         if (!value.has_value()) {
             value = MatchScopes(contentKey);
         }
-        if (!value.has_value()) {
+        bool isFallback = !value.has_value();
+        if (isFallback) {
             value = find(contentKey.fallback);
             if (!contentKey.scopes.empty()) {
                 fallbacks.push_back(fmt::format("{} (as {})", contentKey.key, contentKey.fallback));
             }
         }
         content.emplace_back(contentKey.key, *value);
+
+        // The style is a property of its own, as in VS Code: the rule that decides it may not be the colour's. A key
+        // shown as another (no rule at all) is drawn as that one.
+        auto fontStyle = MatchFontStyle(contentKey);
+        if (!fontStyle.has_value() && isFallback) {
+            for (auto &[key, style] : fontStyles) {
+                if (key == contentKey.fallback) {
+                    fontStyle = style;
+                }
+            }
+        }
+        if (fontStyle.has_value() && !fontStyle->empty()) {
+            fontStyles.emplace_back(contentKey.key, *fontStyle);
+        }
     }
     if (!fallbacks.empty()) {
         std::string list;
@@ -760,10 +812,24 @@ std::optional<ColorValue> Importer::MatchScopes(const ContentKey &contentKey) {
     return {};
 }
 
-const ScopeRule *Importer::BestRule(const std::string &scope, bool allowContext) const {
+// Unlike a colour, never from a rule that needs a context: 'markup.heading entity.name' is bold in a heading only, and
+// taken anywhere it made every function and type bold
+std::optional<std::string> Importer::MatchFontStyle(const ContentKey &contentKey) {
+    for (auto scope : contentKey.scopes) {
+        if (auto rule = BestRule(scope, false, true)) {
+            return rule->fontStyle;
+        }
+    }
+    return {};
+}
+
+const ScopeRule *Importer::BestRule(const std::string &scope, bool allowContext, bool isFontStyle) const {
     const ScopeRule *best = nullptr;
     for (auto &rule : source.rules) {
         if ((rule.isContext && !allowContext) || !ElementMatches(rule.scope, scope)) {
+            continue;
+        }
+        if (isFontStyle ? !rule.fontStyle.has_value() : rule.color.empty()) {
             continue;
         }
         // '>=' - the later of two equally specific rules wins
@@ -878,6 +944,13 @@ ordered_json Importer::BuildColorsJson() {
     }
     root["variables"] = variables;
     root["colors"] = colors;
+    if (!fontStyles.empty()) {
+        ordered_json styles = ordered_json::object();
+        for (auto &[key, style] : fontStyles) {
+            styles[key] = style;
+        }
+        root["font_styles"] = styles;
+    }
     return root;
 }
 

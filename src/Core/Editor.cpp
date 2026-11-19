@@ -1072,6 +1072,7 @@ void Editor::PushThemeColors() {
 
         // Store this..
         languageColorConfig[static_cast<kLanguageTokenClass>(i)] = std::make_pair(fg, bg);
+        languageFontStyles[static_cast<kLanguageTokenClass>(i)] = theme->GetContentFontStyle(langClass);
 
         logger->Debug("  %d:%s - fg=(%d,%d,%d) bg=(%d,%d,%d)",i,langClass.c_str(),
                       fg.RedAsInt(255),fg.GreenAsInt(255),fg.BlueAsInt(255),

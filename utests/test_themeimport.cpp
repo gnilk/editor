@@ -30,6 +30,7 @@ DLL_EXPORT int test_themeimport_complete(ITesting *t);
 DLL_EXPORT int test_themeimport_rejects(ITesting *t);
 DLL_EXPORT int test_themeimport_provenance(ITesting *t);
 DLL_EXPORT int test_themeimport_webcolor(ITesting *t);
+DLL_EXPORT int test_themeimport_fontstyle(ITesting *t);
 }
 
 using ThemeColors = std::map<std::string, std::map<std::string, ColorRGBA>>;
@@ -416,5 +417,76 @@ DLL_EXPORT int test_themeimport_webcolor(ITesting *t) {
     TR_ASSERT(t, color("#1e2a3b80", c) && IsColor(c, 0x1e, 0x2a, 0x3b) && isAlpha(c, 0x80));
     TR_ASSERT(t, !color("#12345", c));
     TR_ASSERT(t, !color("#zzzzzz", c));
+    return kTR_Pass;
+}
+
+// Hitlist #55: a font style is decided on its own, as in VS Code - a rule may set only the style, a more specific rule's
+// "" takes it away, a key with no rule is drawn as its fallback; only what GoatEdit draws is kept
+DLL_EXPORT int test_themeimport_fontstyle(ITesting *t) {
+    auto result = ThemeImporter::Import(R"json({
+        "name": "Styles",
+        "colors": { "editor.background": "#101010", "editor.foreground": "#c0c0c0" },
+        "tokenColors": [
+            { "scope": "comment", "settings": { "foreground": "#608060", "fontStyle": "italic" } },
+            { "scope": "comment.line.double-slash", "settings": { "fontStyle": "" } },
+            { "scope": ["markup.heading", "markup.heading entity.name"], "settings": { "foreground": "#79c0ff", "fontStyle": "bold" } },
+            { "scope": "markup.bold", "settings": { "fontStyle": "bold" } },
+            { "scope": "markup.italic", "settings": { "foreground": "#c9d1d9", "fontStyle": "italic" } },
+            { "scope": "keyword", "settings": { "foreground": "#c080ff", "fontStyle": "underline bold" } },
+            { "scope": "string", "settings": { "foreground": "#e0a000", "fontStyle": "glow" } },
+            { "scope": "entity.name.function", "settings": { "foreground": "#80a0ff" } },
+        ],
+    })json");
+    for (auto &line : result.report) {
+        printf("  report: %s\n", line.c_str());
+    }
+    TR_ASSERT(t, result.isOk);
+    auto data = json::parse(result.colorsJson);
+    TR_ASSERT(t, data.contains("font_styles"));
+    auto &styles = data["font_styles"];
+    TR_ASSERT(t, styles["heading"] == "bold");
+    TR_ASSERT(t, styles["emphasis"] == "italic");
+    // Only a style: bold, and the colour is not taken away (the text's own)
+    TR_ASSERT(t, styles["strong"] == "bold");
+    ThemeColors colors;
+    TR_ASSERT(t, LoadColors(result.colorsJson, colors));
+    TR_ASSERT(t, IsColor(colors["content"]["strong"], 0xc0, 0xc0, 0xc0));
+    TR_ASSERT(t, IsColor(colors["content"]["line_comment"], 0x60, 0x80, 0x60));
+    // The more specific "" resets 'comment's italic for line comments; block comments keep it
+    TR_ASSERT(t, !styles.contains("line_comment"));
+    TR_ASSERT(t, styles["block_comment"] == "italic");
+    // 'markup.heading entity.name' is bold in a heading - a context GoatEdit can't see: not every name is bold
+    TR_ASSERT(t, !styles.contains("function"));
+    TR_ASSERT(t, !styles.contains("user_type"));
+    // Our words, in our order
+    TR_ASSERT(t, styles["keyword"] == "bold underline");
+    // No rule for built-in types: shown as keywords, so drawn as them too
+    TR_ASSERT(t, styles["known_type"] == "bold underline");
+    // 'glow' isn't drawn - dropped, said so, the colour stays
+    TR_ASSERT(t, !styles.contains("string"));
+    TR_ASSERT(t, IsColor(colors["content"]["string"], 0xe0, 0xa0, 0x00));
+    bool isDropReported = false;
+    for (auto &line : result.report) {
+        isDropReported |= (line.find("glow") != std::string::npos);
+    }
+    TR_ASSERT(t, isDropReported);
+
+    // Sublime's 'font_style', its underline kinds an underline
+    result = ThemeImporter::Import(R"json({
+        "globals": { "background": "#101010", "foreground": "#c0c0c0" },
+        "rules": [
+            { "scope": "markup.heading", "foreground": "#79c0ff", "font_style": "bold italic" },
+            { "scope": "comment", "font_style": "squiggly_underline" },
+        ]
+    })json");
+    TR_ASSERT(t, result.isOk);
+    data = json::parse(result.colorsJson);
+    TR_ASSERT(t, data["font_styles"]["heading"] == "bold italic");
+    TR_ASSERT(t, data["font_styles"]["line_comment"] == "underline");
+
+    // No styles: no table
+    result = ThemeImporter::Import(R"json({ "colors": { "editor.background": "#101010" }, "tokenColors": [] })json");
+    TR_ASSERT(t, result.isOk);
+    TR_ASSERT(t, !json::parse(result.colorsJson).contains("font_styles"));
     return kTR_Pass;
 }

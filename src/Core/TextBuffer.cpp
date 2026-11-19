@@ -754,6 +754,7 @@ void TextBuffer::ApplySemanticNames(Line &line) {
         attrib.tokenClass = tokenClass;
         attrib.foregroundColor = fgColor;
         attrib.backgroundColor = bgColor;
+        attrib.textAttributes = Editor::Instance().FontStyleFromLanguageToken(tokenClass);
     }
 }
 

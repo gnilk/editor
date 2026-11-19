@@ -178,5 +178,12 @@
       "14": "var(ansi14)",
       "15": "var(ansi15)"
     }
+  },
+  "font_styles": {
+    "heading": "bold",
+    "strong": "bold",
+    "emphasis": "italic",
+    "link": "underline",
+    "rule": "bold"
   }
 }

@@ -5,8 +5,9 @@
 //
 // Both sources name code colours by TextMate scope. Each GoatEdit colour key has a short list of the scopes
 // its tokens would carry in a C/C++ grammar; the best (most specific, then latest) rule matching one of them
-// gives the colour. Context selectors ('meta.class entity.name.type'), exclusions and font styles don't map -
-// they are approximated or dropped, and the report says so.
+// gives the colour. A font style (bold, italic, underline, strikethrough) is decided the same way, on its own - the
+// rule that sets it need not be the one that sets the colour - and goes to colors.json's 'font_styles'. Context
+// selectors ('meta.class entity.name.type') and exclusions don't map - they are approximated, and the report says so.
 //
 // Plain data in, plain data out: the caller reads the files (an included parent theme comes through
 // 'IncludeLoader') and writes the result.

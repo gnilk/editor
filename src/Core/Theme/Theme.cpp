@@ -68,6 +68,7 @@ bool Theme::Switch(const std::string &pathname) {
     dataNode.reset(fresh->dataNode);
     name = fresh->name;
     colorConfig = fresh->colorConfig;
+    contentFontStyles = fresh->contentFontStyles;
     filename = pathname;
     loadError.clear();
     return true;
@@ -82,6 +83,38 @@ const NamedColors &Theme::ColorsOrEmpty(const std::string &clrClass) const {
     return *it->second;
 }
 
+
+kTextAttributes Theme::GetContentFontStyle(const std::string &key) const {
+    auto it = contentFontStyles.find(key);
+    return (it == contentFontStyles.end()) ? kTextAttributes::kNormal : it->second;
+}
+
+std::optional<kTextAttributes> Theme::ParseFontStyle(const std::string &words) {
+    auto attributes = kTextAttributes::kNormal;
+    size_t pos = 0;
+    while (pos < words.size()) {
+        auto start = words.find_first_not_of(" \t", pos);
+        if (start == std::string::npos) {
+            break;
+        }
+        auto end = words.find_first_of(" \t", start);
+        end = (end == std::string::npos) ? words.size() : end;
+        auto word = words.substr(start, end - start);
+        if (word == "bold") {
+            attributes = attributes | kTextAttributes::kBold;
+        } else if (word == "italic") {
+            attributes = attributes | kTextAttributes::kItalic;
+        } else if (word == "underline") {
+            attributes = attributes | kTextAttributes::kUnderline;
+        } else if (word == "strikethrough") {
+            attributes = attributes | kTextAttributes::kStrikethrough;
+        } else {
+            return std::nullopt;
+        }
+        pos = end;
+    }
+    return attributes;
+}
 
 bool Theme::Load(const std::string &pathname) {
     loadError.clear();
@@ -230,8 +263,28 @@ bool Theme::LoadSublimeColorFile(const Location &colorFile) {
 
         SetNamedColorsFromScript<json, SublimeConfigColorScript>(colors, colorSection.value(), scriptEngine);
     }
+    if (data.contains(FONT_STYLES)) {
+        LoadFontStyles(data[FONT_STYLES]);
+    }
     return true;
 
+}
+
+// A style the editor can't draw is left out (the text keeps its colour) - a theme from a newer editor still loads
+template<typename T>
+void Theme::LoadFontStyles(const T &fontStyles) {
+    if (!fontStyles.is_object()) {
+        logger->Warning("'%s' is not a table - no font styles", FONT_STYLES);
+        return;
+    }
+    for (auto &item : fontStyles.items()) {
+        auto style = item.value().is_string() ? ParseFontStyle(item.value().template get<std::string>()) : std::nullopt;
+        if (!style.has_value()) {
+            logger->Warning("%s.%s: not a font style (bold, italic, underline, strikethrough) - skipped", FONT_STYLES, item.key().c_str());
+            continue;
+        }
+        contentFontStyles[item.key()] = *style;
+    }
 }
 
 template<typename T, typename E>

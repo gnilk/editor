@@ -72,6 +72,7 @@ namespace gedit {
         bool ParseIncludeContext(const std::string &line);
 
         void Add(BuildMessage message, kContinuation nextContinuation, bool isRepeatChecked);
+        void AppendWrapped(const std::string &text);
         static std::string RepeatKey(const BuildMessage &message);
         const std::string &CurrentDirectory() const;
 
@@ -94,6 +95,8 @@ namespace gedit {
         bool isSkippingRepeat = false;
         // CMake: the message text is on the indented line after the header
         bool isCMakeAwaitingText = false;
+        // Clang wrapped the message: its indented lines right after it are its text, not detail
+        bool isMessageWrapOpen = false;
     };
 }
 

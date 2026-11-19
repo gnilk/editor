@@ -26,6 +26,7 @@ extern "C" {
     DLL_EXPORT int test_buildmessages_gccninja(ITesting *t);
     DLL_EXPORT int test_buildmessages_cmake(ITesting *t);
     DLL_EXPORT int test_buildmessages_streaming(ITesting *t);
+    DLL_EXPORT int test_buildmessages_wrapped(ITesting *t);
     DLL_EXPORT int test_buildmessages_carriagereturn(ITesting *t);
     DLL_EXPORT int test_buildmessages_noplace(ITesting *t);
     DLL_EXPORT int test_buildmessages_makedirs(ITesting *t);
@@ -204,6 +205,62 @@ DLL_EXPORT int test_buildmessages_streaming(ITesting *t) {
 }
 
 // ninja in a terminal redraws its progress line with '\r' (+ erase); what's left is what the terminal shows
+// clang wraps a message to the terminal's width (clang-wrapped.log: -fmessage-length 60 / 50, real captures): a long
+// path leaves 'warning:' at the end of the line and all of the text below; a short one breaks the text over lines
+// indented by 6. Missed: only the one warning whose text wasn't wrapped was found in a narrow terminal panel.
+DLL_EXPORT int test_buildmessages_wrapped(ITesting *t) {
+    auto log = ReadLog("clang-wrapped.log");
+    auto parser = ParseAll(log);
+    auto &messages = parser.Messages();
+    TR_ASSERT(t, messages.size() == 4);
+    TR_ASSERT(t, parser.NumErrors() == 2);
+    TR_ASSERT(t, parser.NumWarnings() == 2);
+    for (size_t i : {0, 2}) {
+        TR_ASSERT(t, messages[i].IsWarning());
+        TR_ASSERT(t, messages[i].line == 2);
+        TR_ASSERT(t, messages[i].column == 9);
+        TR_ASSERT(t, messages[i].message == "unused variable 'unused_variable_with_a_long_name' [-Wunused-variable]");
+        // The source and caret are still detail, not text
+        TR_ASSERT(t, messages[i].detail.size() == 2);
+        TR_ASSERT(t, HasDetail(messages[i], "2 |"));
+    }
+    for (size_t i : {1, 3}) {
+        TR_ASSERT(t, messages[i].IsError());
+        TR_ASSERT(t, messages[i].message == "use of undeclared identifier 'nope_this_identifier_is_not_declared'");
+        TR_ASSERT(t, messages[i].detail.size() == 2);
+    }
+    TR_ASSERT(t, messages[0].path == "/work/proj/src/a/rather/long/directory/name/for/wrapping/bad.c");
+    TR_ASSERT(t, messages[2].path == "bad.c");
+
+    for (size_t chunk : {1, 5, 64}) {
+        auto split = ParseAll(log, chunk);
+        TR_ASSERT(t, split.Messages().size() == messages.size());
+        for (size_t i = 0; i < messages.size(); i++) {
+            TR_ASSERT(t, split.Messages()[i].message == messages[i].message);
+            TR_ASSERT(t, split.Messages()[i].detail == messages[i].detail);
+        }
+    }
+
+    // A repeat is told by its whole text: the same wrapped warning twice is one, two that differ only below the
+    // break are two
+    auto repeats = ParseAll("a.h:1:1: warning:\n      same text\n"
+                            "a.h:1:1: warning:\n      same text\n"
+                            "a.h:1:1: warning:\n      other text\n");
+    TR_ASSERT(t, repeats.Messages().size() == 2);
+    TR_ASSERT(t, repeats.Messages()[0].message == "same text");
+    TR_ASSERT(t, repeats.Messages()[1].message == "other text");
+
+    // Not wrapped: a source line with clang's / gcc's gutter, an indent other than 6
+    auto plain = ParseAll("a.c:1:1: warning: done\n    1 | int x;\n      |     ^\n"
+                          "b.c:2:1: error: done too\n    int y;\n");
+    TR_ASSERT(t, plain.Messages().size() == 2);
+    TR_ASSERT(t, plain.Messages()[0].message == "done");
+    TR_ASSERT(t, plain.Messages()[0].detail.size() == 2);
+    TR_ASSERT(t, plain.Messages()[1].message == "done too");
+    TR_ASSERT(t, plain.Messages()[1].detail.size() == 1);
+    return kTR_Pass;
+}
+
 DLL_EXPORT int test_buildmessages_carriagereturn(ITesting *t) {
     auto parser = ParseAll("[1/3] Building a.o\r[2/3] Building b.o\x1b[K\r\x1b[K../src/b.cpp:4:29: error: expected ';'\r\n"
                            "\x1b]0;title\x07[3/3] Linking\n");

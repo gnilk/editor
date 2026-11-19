@@ -146,5 +146,12 @@ Found while building it:
   warning on line 2 came before the errors.
 - **The shell's directory** is read from the shell process when the command is committed (`Shell::GetWorkingDirectory`:
   `proc_pidinfo` on macOS, `/proc/<pid>/cwd` on Linux) - no OSC 7 needed.
+- **clang wraps its messages to the terminal's width** (`-fmessage-length` follows the pty's columns). A long path
+  leaves `x.cpp:3:4: warning:` at the end of the line and all of the text on the lines below; a short one breaks the
+  text over lines indented by 6. In a narrow panel `make -j` on testrunner listed 1 of its ~6 warnings (the line's
+  trailing blank is trimmed, so `: warning: ` wasn't found; the wrapped text went to detail). Now: the marker counts
+  at the end of a line, and indented-by-6 lines right after a message (not a `  12 |` source line) are its text; the
+  repeat check is redone on the whole text (`clang-wrapped.log`, real captures at 60 / 50 columns). The cost: an old
+  clang without the line-number gutter whose source line starts with exactly 6 spaces would have it read as text.
 - **Not yet:** the coloured source line in the list (rows are `error  a.cpp:3:16  message`, the folder on the right);
   ld's `file.o:(.text+0x..)` lines; rust / python / trun matchers; gutter marks; Cmd+click in the terminal (§7 step 4).

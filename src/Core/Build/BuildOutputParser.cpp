@@ -64,6 +64,30 @@ static bool IsNote(std::string_view line) {
     return true;
 }
 
+// A source line with clang's / gcc's line-number gutter ('  318 |   foo();') or its caret line ('      |   ^~~')
+static bool IsSourceGutter(std::string_view line) {
+    auto text = Trim(line);
+    size_t digits = 0;
+    while ((digits < text.size()) && std::isdigit((unsigned char)text[digits])) {
+        digits++;
+    }
+    auto rest = Trim(std::string_view(text).substr(digits));
+    return StartsWith(rest, "|");
+}
+
+// Clang wraps a message to the terminal's width (-fmessage-length follows the pty's columns): the rest comes on
+// lines indented by 6 - all of it when the place alone filled the line ('a/long/path.cpp:3:4: warning:'). An empty
+// message takes any indented line that isn't source.
+static bool IsWrappedMessage(std::string_view line, bool isMessageEmpty) {
+    if (!IsIndented(line) || IsSourceGutter(line)) {
+        return false;
+    }
+    if (isMessageEmpty) {
+        return true;
+    }
+    return StartsWith(line, "      ") && (line.size() > 6) && !std::isspace((unsigned char)line[6]);
+}
+
 // Take off the quotes make / ninja put around a directory: `x', 'x', and the UTF-8 ‘x’ of a localised make
 static std::string Unquote(std::string_view text) {
     static const std::string_view openQuotes[] = {"`", "'", "\"", "\xE2\x80\x98"};
@@ -111,6 +135,7 @@ void BuildOutputParser::Reset() {
     continuation = kContinuation::kNone;
     isSkippingRepeat = false;
     isCMakeAwaitingText = false;
+    isMessageWrapOpen = false;
 }
 
 size_t BuildOutputParser::NumErrors() const {
@@ -241,6 +266,11 @@ bool BuildOutputParser::ParseContinuation(const std::string &line) {
     };
 
     if (continuation == kContinuation::kCompiler) {
+        if (isMessageWrapOpen && IsWrappedMessage(line, isSkippingRepeat || messages.empty() || messages.back().message.empty())) {
+            AppendWrapped(Trim(line));
+            return true;
+        }
+        isMessageWrapOpen = false;
         // The source line and its caret ('   12 |   foo();' / '      |   ^~~'), clang's quoted source
         if (IsIndented(line)) {
             addDetail(line);
@@ -336,8 +366,10 @@ bool BuildOutputParser::ParseCompiler(const std::string &line) {
     auto pos = std::string::npos;
     size_t markerSize = 0;
     BuildMessage message;
+    // The line's trailing blanks are gone: 'x.cpp:3:4: warning:' when clang wrapped all of the message
+    auto text = line + " ";
     for (auto &[marker, severity] : markers) {
-        auto found = line.find(marker);
+        auto found = text.find(marker);
         if ((found != std::string::npos) && (found < pos)) {
             pos = found;
             markerSize = marker.size();
@@ -348,7 +380,7 @@ bool BuildOutputParser::ParseCompiler(const std::string &line) {
         return false;
     }
     auto location = std::string_view(line).substr(0, pos);
-    message.message = Trim(std::string_view(line).substr(pos + markerSize));
+    message.message = Trim(std::string_view(text).substr(pos + markerSize));
     SplitLocation(location, message.path, message.line, message.column);
     if (message.line == 0) {
         // No place: only a tool's own line counts ('clang: error: linker command failed', 'ld: warning: ...'), so
@@ -360,6 +392,7 @@ bool BuildOutputParser::ParseCompiler(const std::string &line) {
         message.path.clear();
     }
     Add(std::move(message), kContinuation::kCompiler, true);
+    isMessageWrapOpen = true;
     return true;
 }
 
@@ -400,6 +433,20 @@ void BuildOutputParser::Add(BuildMessage message, kContinuation nextContinuation
     message.detail.insert(message.detail.begin(), pendingContext.begin(), pendingContext.end());
     pendingContext.clear();
     messages.push_back(std::move(message));
+}
+
+// The rest of a wrapped message: its repeat check is redone with the whole text
+void BuildOutputParser::AppendWrapped(const std::string &text) {
+    if (isSkippingRepeat || messages.empty()) {
+        return;
+    }
+    auto &message = messages.back();
+    seen.erase(RepeatKey(message));
+    message.message += message.message.empty() ? text : " " + text;
+    if (!seen.insert(RepeatKey(message)).second) {
+        messages.pop_back();
+        isSkippingRepeat = true;
+    }
 }
 
 std::string BuildOutputParser::RepeatKey(const BuildMessage &message) {

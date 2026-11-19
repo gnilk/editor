@@ -6,7 +6,7 @@
 // command's output after the fact (Feed it all, then Finish()). No terminal, no editor: text in, messages out.
 //
 // The tools it knows are built in (§9.2): gcc / clang (also through make, ninja, cmake --build), CMake's own
-// messages, and make's / ninja's 'Entering directory' (what relative paths are relative to).
+// messages, trun's test failures, and make's / ninja's 'Entering directory' (what relative paths are relative to).
 //
 
 #ifndef GEDIT_BUILDOUTPUTPARSER_H
@@ -66,6 +66,7 @@ namespace gedit {
         void EndLine();
 
         bool ParseDirectory(const std::string &line);
+        bool ParseTrun(const std::string &line);
         bool ParseCompiler(const std::string &line);
         bool ParseCMake(const std::string &line);
         bool ParseContinuation(const std::string &line);
@@ -97,6 +98,8 @@ namespace gedit {
         bool isCMakeAwaitingText = false;
         // Clang wrapped the message: its indented lines right after it are its text, not detail
         bool isMessageWrapOpen = false;
+        // trun: the case running ('=== RUN'), named in its failure's message
+        std::string trunCase;
     };
 }
 

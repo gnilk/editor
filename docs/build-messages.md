@@ -63,7 +63,7 @@ The formats that matter, with their quirks:
 | ninja | `FAILED: obj.o` then the compiler's lines | paths relative to the build dir |
 | rustc / cargo | `error[E0308]: msg` then `--> path:line:col` | the place is on the next line |
 | Python | `File "path", line N, in f` | a traceback - the last frame is usually the one |
-| trun / unit tests | the project's own test failure lines | worth a matcher of its own, to jump to a failed assert |
+| trun / unit tests | `=== RUN  \t_test_x` then `*** ASSERT ERROR: path:line\t'exp'` (also `GENERAL` / `FATAL ERROR`); the summary `  [Tma]: _test_x, path:line, msg` | **built 2026-11-19**: the case named in the message; the summary repeats each failure (one row); a case that only returned fail has no place - counted, not stepped to |
 
 **As data, not code** - the same choice as languages-as-data (`support-languages.md`): matchers in
 `Assets/Resources/build_messages.yml` (a regex, which group is the path / line / column / severity / message, whether it
@@ -154,4 +154,4 @@ Found while building it:
   repeat check is redone on the whole text (`clang-wrapped.log`, real captures at 60 / 50 columns). The cost: an old
   clang without the line-number gutter whose source line starts with exactly 6 spaces would have it read as text.
 - **Not yet:** the coloured source line in the list (rows are `error  a.cpp:3:16  message`, the folder on the right);
-  ld's `file.o:(.text+0x..)` lines; rust / python / trun matchers; gutter marks; Cmd+click in the terminal (§7 step 4).
+  ld's `file.o:(.text+0x..)` lines; rust / python matchers (trun's is in, 2026-11-19); gutter marks; Cmd+click in the terminal (§7 step 4).

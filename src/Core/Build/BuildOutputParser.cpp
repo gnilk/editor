@@ -136,6 +136,7 @@ void BuildOutputParser::Reset() {
     isSkippingRepeat = false;
     isCMakeAwaitingText = false;
     isMessageWrapOpen = false;
+    trunCase.clear();
 }
 
 size_t BuildOutputParser::NumErrors() const {
@@ -220,7 +221,7 @@ void BuildOutputParser::ParseLine(const std::string &line) {
     }
     continuation = kContinuation::kNone;
     isSkippingRepeat = false;
-    if (ParseCMake(line) || ParseCompiler(line) || ParseIncludeContext(line)) {
+    if (ParseTrun(line) || ParseCMake(line) || ParseCompiler(line) || ParseIncludeContext(line)) {
         return;
     }
     pendingContext.clear();
@@ -303,6 +304,67 @@ bool BuildOutputParser::ParseContinuation(const std::string &line) {
         return true;
     }
     isCMakeAwaitingText = false;
+    return false;
+}
+
+// trun (gnilk/testrunner), sequential or forked - the case, then its failure; the summary at the end names them again:
+//   === RUN  \t_test_demo_assert
+//   *** ASSERT ERROR: src/test_demo.cpp:5\t'a == 2'          (also GENERAL ERROR, FATAL ERROR)
+//   [Tma]: _test_demo_assert, src/test_demo.cpp:5, a == 2    (the summary - the same message, so a repeat)
+//   [Tma]: _test_other_returnfail,                           (failed with no assert: no place)
+bool BuildOutputParser::ParseTrun(const std::string &line) {
+    // macOS' symbols have a leading '_'
+    auto caseName = [](std::string_view text) {
+        auto name = Trim(text);
+        return StartsWith(name, "_test_") ? name.substr(1) : name;
+    };
+    auto unquote = [](std::string text) {
+        if ((text.size() >= 2) && (text.front() == '\'') && (text.back() == '\'')) {
+            return text.substr(1, text.size() - 2);
+        }
+        return text;
+    };
+    auto add = [this](const std::string &name, std::string_view location, const std::string &text) {
+        BuildMessage message;
+        SplitLocation(Trim(location), message.path, message.line, message.column);
+        if (message.line == 0) {
+            message.path.clear();
+        }
+        message.message = name.empty() ? text : name + ": " + (text.empty() ? std::string("failed") : text);
+        Add(std::move(message), kContinuation::kNone, true);
+    };
+
+    if (StartsWith(line, "=== RUN")) {
+        trunCase = caseName(std::string_view(line).substr(7));
+        return true;
+    }
+    for (auto marker : {"*** ASSERT ERROR: ", "*** GENERAL ERROR: ", "*** FATAL ERROR: "}) {
+        if (!StartsWith(line, marker)) {
+            continue;
+        }
+        auto rest = std::string_view(line).substr(std::string_view(marker).size());
+        auto tab = rest.find('\t');
+        auto location = rest.substr(0, tab);
+        auto text = (tab == std::string_view::npos) ? std::string() : unquote(Trim(rest.substr(tab + 1)));
+        add(trunCase, location, text);
+        return true;
+    }
+    // '  [Tma]: name, place, message'
+    if ((line.size() > 9) && StartsWith(line, "  [") && (line.compare(6, 3, "]: ") == 0)) {
+        // The line's trailing blank is gone: '_test_x,' when there is no place
+        auto text = line.substr(9) + " ";
+        auto rest = std::string_view(text);
+        auto comma = rest.find(", ");
+        auto name = caseName(rest.substr(0, comma));
+        if ((comma == std::string_view::npos) || !StartsWith(name, "test_")) {
+            return false;
+        }
+        rest = rest.substr(comma + 2);
+        comma = rest.find(", ");
+        auto location = rest.substr(0, comma);
+        add(name, location, (comma == std::string_view::npos) ? std::string() : Trim(rest.substr(comma + 2)));
+        return true;
+    }
     return false;
 }
 

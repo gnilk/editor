@@ -1,0 +1,42 @@
+--> Start Global
+---> Start Module 	./libdemo.dylib
+---> Mod.Test.Ver 	2.0.0
+Starting module tests 'demo' (1 / 2)
+Starting module tests 'other' (2 / 2)
+=== RUN  	_test_demo
+=== PASS:	_test_demo, 0.000 sec, 0
+
+=== RUN  	_test_demo_assert
+*** ASSERT ERROR: src/deep/test_demo.cpp:5	'a == 2'
+=== FAIL:	_test_demo_assert, 0.000 sec, 1, 0, 1
+
+=== RUN  	_test_demo_error
+*** GENERAL ERROR: src/deep/test_demo.cpp:6	'the value was 42'
+=== FAIL:	_test_demo_error, 0.000 sec, 1, 1, 1
+
+2026-11-19 13:59:14.746 [0x00008958:0xa6a1707c] ERROR    TestResponseProxy               src/deep/test_demo.cpp:6	'the value was 42'
+=== RUN  	_test_demo_fatal
+*** FATAL ERROR: src/deep/test_demo.cpp:7	'fatal thing'
+=== FAIL:	_test_demo_fatal, 0.000 sec, 2, 1, 1
+
+=== RUN  	_test_other
+=== PASS:	_test_other, 0.000 sec, 0
+
+=== RUN  	_test_other_returnfail
+=== FAIL:	_test_other_returnfail, 0.000 sec, 1, 0, 0
+
+=== RUN  	_test_other_warn
+=== PASS:	_test_other_warn, 0.000 sec, 0
+
+<--- End Module  	./libdemo.dylib
+<-- End Global
+
+-------------------
+Duration......: 0.048 sec
+Tests Executed: 7
+Tests Failed..: 4
+Failed:
+  [Tma]: _test_other_returnfail, 
+  [Tma]: _test_demo_assert, src/deep/test_demo.cpp:5, a == 2
+  [Tma]: _test_demo_error, src/deep/test_demo.cpp:6, the value was 42
+  [tMa]: _test_demo_fatal, src/deep/test_demo.cpp:7, fatal thing

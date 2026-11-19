@@ -221,6 +221,51 @@ def build_messages(n):
         g.kill()
 
 
+@check('#52 Build messages: trun\'s test failures - F8 to a failed assert')
+def build_messages_trun(n):
+    header = next((d for d in ('/usr/local/include', '/usr/include', '/opt/homebrew/include')
+                   if os.path.exists(os.path.join(d, 'testinterface.h'))), None)
+    if shutil.which('trun') is None or header is None or shutil.which('c++') is None:
+        n.skip('no trun (or its testinterface.h, or c++)')
+    sb, work = sandbox('build_messages_trun')
+    write(os.path.join(work, 'notes.txt'), 'notes\n')
+    write(os.path.join(work, 'src', 'test_demo.cpp'),
+          '#include <testinterface.h>\nextern "C" {\n'
+          'int test_demo(ITesting *t) { return kTR_Pass; }\n'
+          'int test_demo_ok(ITesting *t) { TR_ASSERT(t, 1 == 1); return kTR_Pass; }\n'
+          'int test_demo_assert(ITesting *t) {\n    int a = 1;\n    TR_ASSERT(t, a == 2);\n    return kTR_Pass;\n}\n'
+          'int test_demo_error(ITesting *t) {\n    t->Error(__LINE__, __FILE__, "bad %d", 42);\n    return kTR_Fail;\n}\n'
+          '}\n')
+    lib = 'libdemo.dylib' if platform.system() == 'Darwin' else 'libdemo.so'
+    built = subprocess.run(['c++', '-std=c++17', '-shared', '-fPIC', '-I', header, '-o', lib, 'src/test_demo.cpp'],
+                           cwd=work, capture_output=True, text=True)
+    if built.returncode != 0:
+        n.skip(f'the test library didn\'t build: {built.stderr[:200]}')
+    g = Goat(sb, ['notes.txt'], cwd=work)
+    try:
+        g.ready()
+        g.send(alt('t'), 0.5)
+        g.type(f'trun --sequential ./{lib}', wait=0.2)
+        g.send(ENTER, 0.3)
+        n(g.wait_text('Tests Failed', 8), 'trun ran in the terminal')
+        n(g.wait_text('build: 2 errors, 0 warnings', 4), 'when it ends: "build: 2 errors, 0 warnings" (each failure once, the summary is a repeat)')
+        g.send(F8, 0.6)
+        said = g.status_line().strip()
+        g.wait_for(lambda g: 'l: ' in g.status_line(), 6)
+        n('error 1/2: test_demo_assert: a == 2' in said and g.cursor_line() == 7,
+          f'F8: the failed assert, at its line (status "{said[:80]}", line {g.cursor_line()})')
+        g.send(F8, 0.6)
+        said = g.status_line().strip()
+        g.wait_for(lambda g: 'l: ' in g.status_line(), 6)
+        n('error 2/2: test_demo_error: bad 42' in said and g.cursor_line() == 11, f'F8: the Error() (status "{said[:80]}")')
+        g.send(CTRL_F8, 0.8)
+        n(g.wait_text('test_demo.cpp:7', 3), 'Ctrl+F8: the list')
+        g.send(ESC, 0.4)
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+
+
 @check('#16 Text encodings')
 def latin1(n):
     sb, work = sandbox('latin1')

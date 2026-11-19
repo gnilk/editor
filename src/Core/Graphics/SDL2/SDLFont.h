@@ -33,10 +33,11 @@ namespace gedit::SDL2 {
         static Ptr Create(SDL_Renderer *renderer, const uint8_t *data, size_t size, float pixelHeight, float density);
 
         // Draw with the renderer's draw colour, the pen's baseline at y. Every character takes one cell; one the font
-        // has no glyph for leaves it empty.
-        void RenderText(float x, float y, const std::u32string &text);
+        // has no glyph for leaves it empty. 'slant' leans the glyphs right by that much of their height above the
+        // baseline - SLANT_ITALIC is the italic there is no italic face for.
+        void RenderText(float x, float y, const std::u32string &text, float slant = 0.0f);
         // ASCII, at most 'maxChars' bytes - one cell per byte
-        void RenderText(float x, float y, const char *text, size_t maxChars = SIZE_MAX);
+        void RenderText(float x, float y, const char *text, size_t maxChars = SIZE_MAX, float slant = 0.0f);
 
         float MeasureText(const char *text) const;
 
@@ -59,10 +60,15 @@ namespace gedit::SDL2 {
             return density;
         }
 
+    public:
+        // About 11 degrees, as synthetic obliques usually are
+        static constexpr float SLANT_ITALIC = 0.2f;
+
     private:
         using TexturePtr = std::unique_ptr<SDL_Texture, decltype(&SDL_DestroyTexture)>;
 
-        void RenderGlyph(float &x, float y, char32_t codePoint);
+        void RenderGlyph(float &x, float y, char32_t codePoint, float slant);
+        void RenderSlanted(SDL_Texture *texture, const GlyphFont::Page *page, float baseline, const SDL_FRect &src, const SDL_FRect &dst, float slant);
         SDL_FRect GlyphDestination(float x, float y, const GlyphFont::Glyph &glyph, float w, float h) const;
         SDL_Texture *TextureFor(const GlyphFont::Page *page);
 

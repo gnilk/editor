@@ -100,7 +100,7 @@ C/C++ structure pass (`src/Core/Index/CPPStructureScanner`, code index step 1) f
 `./gedit-bench --check <file-or-dir>` lists files whose braces don't balance at the end (usually a lexer
 misread); `./gedit-bench --braces <file>` prints the lexer's brace depth per line to find the line.
 
-The sqlite3-parse case is the slow one (13-15 s in a debug build) - in parallel it no longer holds the run up. `test_timer`/`test_timer_exit` are pre/post module hooks (intentionally empty); logger tests are obsolete (external lib has its own suite).
+The sqlite3-parse case is the slow one (13-15 s in a debug build) - in parallel it no longer holds the run up. `test_timer`/`test_timer_exit` are pre/post module hooks (intentionally empty). The logger (gnklog) is tested in its own repo - the editor has no logger tests.
 
 ## Architecture
 

@@ -13,8 +13,8 @@
 
 using namespace gedit;
 
-BuildMessagesModal::BuildMessagesModal(const std::string &caption, std::vector<BuildMessage> newMessages) :
-    QueryListModal(caption, U"Filter: "), messages(std::move(newMessages)) {
+BuildMessagesModal::BuildMessagesModal(const std::string &newCaption, std::vector<BuildMessage> newMessages) :
+    QueryListModal(newCaption, U"Filter: "), messages(std::move(newMessages)) {
 }
 
 BuildMessagesModal::Ptr BuildMessagesModal::Create() {

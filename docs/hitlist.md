@@ -26,13 +26,13 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
     - Mac 2026-11-19: `make -j` on testrunner in the panel listed 1 of its warnings - clang wraps messages to the panel's width; fixed (dev 3293995a), every warning listed now, each once though several targets compile the file
   - [ ] Linux [x] Mac - trun: a failing test run in the panel (`trun --sequential ./libutests.so`) - "build: N errors" counts each failure once; `F8` goes to the failed `TR_ASSERT` line, "error 1/N: test_x_y: <exp>" (scripted: `build_messages_trun`)
 - **Terminal tabs** (#53) - scripted (`terminal_tabs`: Ctrl+Shift+T / W, Alt+1/2, the job question, a restart)
-  - [ ] Linux [x] Mac - the window: `Cmd+T` / `Ctrl+Shift+T` in the terminal opens a second tab (the row shows), `Cmd+W` / `Ctrl+Shift+W` closes it; `Cmd/Opt+1`, `2` / `Alt+1`, `2` and a click on a tab switch; a restart brings the tabs back, the same one shown; `make` in one tab, `ls` in the other: `F8` still has the build's errors
+  - [x] Linux [x] Mac - the window: `Cmd+T` / `Ctrl+Shift+T` in the terminal opens a second tab (the row shows), `Cmd+W` / `Ctrl+Shift+W` closes it; `Cmd/Opt+1`, `2` / `Alt+1`, `2` and a click on a tab switch; a restart brings the tabs back, the same one shown; `make` in one tab, `ls` in the other: `F8` still has the build's errors
 - **`.theme use` at a level** (#59) - scripted (`theme_project`: a project config with its own theme, Keep / Remove, `--project`)
   - [ ] Linux [x] Mac - the window: in a project whose `.goatedit/config.yml` sets `main.theme`, `.theme use <other>` asks; Keep leaves this project's theme and says so, Remove takes it out of the project config and switches; `.theme list` names where the theme comes from
 - **Font styles in themes** (#55)
   - [ ] Linux [ ] Mac - the window: `.theme use vscode-dark-2026`, open a `.md` file - `# headings`, `**strong**` and `---` bold, `*emphasis*` italic, links underlined; C++ looks as before (no bold names); `.theme use default theme` - all plain again
 - **Italic in the SDL window** - a synthetic slant (no italic face; theme font styles are #55)
-  - [ ] Linux [x] Mac - in the terminal: `printf '\e[3mitalic\e[0m \e[1;3mbold italic\e[0m plain\n'` - the first two lean right, descenders lean left, the last letter of a run isn't cut by the next cell
+  - [x] Linux [x] Mac - in the terminal: `printf '\e[3mitalic\e[0m \e[1;3mbold italic\e[0m plain\n'` - the first two lean right, descenders lean left, the last letter of a run isn't cut by the next cell
 - **A save key** (#58)
   - [ ] Linux [x] Mac - the window: `Cmd+S` (Mac) / `Ctrl+S` (Linux) saves the active file, the `*` goes; with the terminal or tree focused it still saves the active file; another program rewrote the file: it asks (Overwrite / Reload / Cancel) as `.s` does (scripted: `save_key`, the Linux keymaps in a pty - Mac 2026-11-19 pass)
   - [ ] Linux - `nano` in the terminal panel: `Ctrl+S` is nano's save, not the editor's (an app owns the terminal - the key goes to it)

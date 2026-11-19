@@ -20,7 +20,7 @@ namespace gedit {
         using Ptr = std::unique_ptr<BuildMessagesModal>;
 
     public:
-        BuildMessagesModal(const std::string &caption, std::vector<BuildMessage> messages);
+        BuildMessagesModal(const std::string &newCaption, std::vector<BuildMessage> newMessages);
         virtual ~BuildMessagesModal() = default;
 
         // The last run's messages, as they are now; nullptr when there was no run

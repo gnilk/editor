@@ -193,9 +193,11 @@ def build_messages(n):
     try:
         g.ready()
         g.send(alt('t'), 0.5)
-        g.type('cc -Wall -c bad.c', wait=0.2)
+        # GCC also warns that f() (its return an error) ends without one - not this check's warning
+        g.type('cc -Wall -Wno-return-type -c bad.c', wait=0.2)
         g.send(ENTER, 0.3)
-        n(g.wait_text("'nope'", 8), 'the compiler ran in the terminal')
+        # GCC quotes it 'nope' in typographic quotes, clang in plain ones
+        n(g.wait_text('nope', 8), 'the compiler ran in the terminal')
         n(g.wait_text('build: 2 errors, 1 warning', 4), 'when it ends: "build: 2 errors, 1 warning" on the status line')
 
         def step(key, line, what):

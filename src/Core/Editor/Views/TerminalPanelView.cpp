@@ -158,9 +158,9 @@ TerminalView *TerminalPanelView::AddTerminal(const std::string &id, const std::s
     controller.SetTitleChangedHandler([this, view]() {
         Runloop::PostMessage(0x00, [this, view](uint32_t) {
             auto idxTab = IndexOf(view);
-            auto terminal = idxTab.has_value() ? TerminalAt(idxTab.value()) : nullptr;
-            if (terminal != nullptr) {
-                SetTabLabel(idxTab.value(), LabelFor(terminal->name, view->GetController().GetTitle()));
+            auto shown = idxTab.has_value() ? TerminalAt(idxTab.value()) : nullptr;
+            if (shown != nullptr) {
+                SetTabLabel(idxTab.value(), LabelFor(shown->name, view->GetController().GetTitle()));
             }
         });
     });

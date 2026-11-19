@@ -483,6 +483,8 @@ DLL_EXPORT int test_themeimport_fontstyle(ITesting *t) {
     data = json::parse(result.colorsJson);
     TR_ASSERT(t, data["font_styles"]["heading"] == "bold italic");
     TR_ASSERT(t, data["font_styles"]["line_comment"] == "underline");
+    // The hex view only borrows the comments' colour (it has no scopes) - not their style
+    TR_ASSERT(t, !data["font_styles"].contains("hexview"));
 
     // No styles: no table
     result = ThemeImporter::Import(R"json({ "colors": { "editor.background": "#101010" }, "tokenColors": [] })json");

@@ -34,6 +34,7 @@ extern "C" {
     DLL_EXPORT int test_buildmessages_reset(ITesting *t);
     DLL_EXPORT int test_buildmessages_commands(ITesting *t);
     DLL_EXPORT int test_buildmessages_run(ITesting *t);
+    DLL_EXPORT int test_buildmessages_terminals(ITesting *t);
     DLL_EXPORT int test_buildmessages_jobend(ITesting *t);
     DLL_EXPORT int test_buildmessages_resolve(ITesting *t);
     DLL_EXPORT int test_buildmessages_step(ITesting *t);
@@ -365,6 +366,32 @@ DLL_EXPORT int test_buildmessages_commands(ITesting *t) {
     for (auto cmd : {"", "ls", "ls make", "git commit -m make", "./build.sh", "makeself", "cat Makefile", "time"}) {
         TR_ASSERT(t, !BuildMessages::IsBuildCommand(cmd));
     }
+    return kTR_Pass;
+}
+
+// Several terminals (hitlist #53): a run belongs to the one it was typed in - another one's output (an agent's) and its
+// 'ls' leave it alone; another one's build replaces it
+DLL_EXPORT int test_buildmessages_terminals(ITesting *t) {
+    int buildShell = 0;
+    int agentShell = 0;
+    BuildMessages build;
+    TR_ASSERT(t, build.OnCommand("make", "/w", "/w", &buildShell));
+    build.Feed("a.c:1:1: error: one\n", &buildShell);
+    build.Feed("b.c:2:1: error: printed by the agent\n", &agentShell);
+    TR_ASSERT(t, !build.OnCommand("ls", "/w", "/w", &agentShell));
+    TR_ASSERT(t, build.IsRunning());
+    TR_ASSERT(t, !build.UpdateJobState(false, &agentShell));
+    build.Feed("c.c:3:1: error: two\n", &buildShell);
+    TR_ASSERT(t, build.NumErrors() == 2);
+    TR_ASSERT(t, build.UpdateJobState(true, &buildShell) == false);
+    TR_ASSERT(t, build.UpdateJobState(false, &buildShell));
+    TR_ASSERT(t, !build.IsRunning());
+
+    // The agent's terminal builds: its run now
+    TR_ASSERT(t, build.OnCommand("ninja", "/w", "/w", &agentShell));
+    build.Feed("d.c:4:1: warning: x\n", &agentShell);
+    build.Feed("e.c:5:1: error: from the other one\n", &buildShell);
+    TR_ASSERT(t, (build.NumErrors() == 0) && (build.NumWarnings() == 1));
     return kTR_Pass;
 }
 

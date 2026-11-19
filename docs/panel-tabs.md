@@ -1,6 +1,6 @@
 # Tabs in the lower panel - several terminals, Messages, and more
 
-Written down 2026-11-18. Hitlist #53. **Steps 1-2 built 2026-11-19** (`feature/panel-tabs`): `TabbedView` in the toolkit, the lower panel is one with the terminal in it.
+Written down 2026-11-18. Hitlist #53. **Steps 1-3 built 2026-11-19** (`feature/panel-tabs`, `feature/terminal-tabs`): `TabbedView` in the toolkit, the lower panel is one, several terminals in it.
 
 ## 1. The idea
 
@@ -61,7 +61,17 @@ and the architecture-workbench idea (index data handed to agents).
    view (`Option/Alt+T`, focus saved in the session by that name); `GetTerminalView()` (`Editor.cpp` - promote,
    scrollback save) asks it for its shown tab when that is a terminal, else its first terminal. The rest of §3 holds
    with one terminal and changes in step 3.
-3. More terminals: new / close, per-terminal session files, tab titles from OSC 0/2.
+3. More terminals: new / close, per-terminal session files, tab titles from OSC 0/2. **Built:**
+   `src/Core/Editor/Views/TerminalPanelView` (a `TabbedView` that owns its `TerminalView`s) - `NewTerminal` /
+   `CloseTerminal` actions in `terminal_keymap.yml` (asks when `HasRunningJob`, the last one stays, a closed tab's
+   scrollback and history files go); `SwitchToBuffer` / `CycleActiveBuffer*` pick tabs while the panel has focus and
+   two or more tabs (taken before the terminal, so an app in it doesn't get them). Session `terminal.tabs` (id, name,
+   scrollbackFile) + `activeTab`, additive - a session without it is one tab with `scrollbackFile`; the controller's
+   files by tab id (`SetSessionTab`: `terminal_scrollback[.id].bin`, `terminal_history[.id]`, id "" the old names).
+   Labels: OSC 0/2 title (`TerminalController::OnTitle`, posted to the UI thread) cut to 24, else 'Shell N'. The
+   focused terminal is the output console (dot-commands, JS). Build runs belong to their terminal
+   (`BuildMessages::OnCommand(..., terminal)`). Check `terminal_tabs`. Not done: renaming the actions to
+   `SwitchToTab` / `CycleTab*` (they work as they are named today).
 4. Configured tabs (§4 - the AI terminal, the `PromoteToTerminal` target).
 5. Messages as a tab (with #52); a CMake / build tab.
 6. Mouse: click a tab, close buttons (after #26).
@@ -86,4 +96,12 @@ and the architecture-workbench idea (index data handed to agents).
   `Opt/Alt+'`) - renamed for what they then do, e.g. `CycleTabNext` / `CycleTabPrev` (and `SwitchToBuffer` ->
   `SwitchToTab`), the old names kept as aliases in `KeyMapping` so a user keymap still loads.
 
-Still open (decided when we get there): the keys for new / close tab; whether a closed configured tab comes back on restart.
+Decided 2026-11-19 (step 3):
+- **New / close tab keys - the terminal standard**, in `terminal_keymap.yml` (only while a terminal has focus): Mac
+  `Cmd+T` / `Cmd+W` (`Cmd+T` stays Go to symbol elsewhere), Linux `Ctrl+Shift+T` / `Ctrl+Shift+W` (GNOME Terminal,
+  Konsole - `Ctrl+T` / `Ctrl+W` are readline's).
+- **A restart brings back what was open** - the tabs, their names, the shown one; each tab its own scrollback and
+  history. The config's tabs (step 4) only when there is no session yet, so a configured tab that was closed stays
+  closed.
+- **A build run belongs to the terminal that started it** (#52): only its bytes feed the run, and only its next
+  command ends it - another terminal's output (an agent's) or its `ls` leaves the run alone.

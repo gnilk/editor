@@ -109,6 +109,8 @@ Files: `Assets/Resources/macOS/workspace_keymap.yml`, `Assets/Resources/Linux/wo
 | Shell completion (`ShellCompletion`) | `Tab` | `Tab` |
 | Navigate home (`NavigateHome`) | `Ctrl+Home` | `Ctrl+Home` |
 | Navigate end (`NavigateEnd`) | `Ctrl+End` | `Ctrl+End` |
+| New terminal (`NewTerminal`) | `Cmd+T` | `Ctrl+Shift+T` |
+| Close terminal (`CloseTerminal`) | `Cmd+W` | `Ctrl+Shift+W` |
 
 Inherits `default_keymap`.
 

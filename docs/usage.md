@@ -136,3 +136,9 @@ in the editor; anything else (`./build.sh`) goes to the shell. The prefix is `ma
 - `Opt+T` / `Alt+T` focuses it; it's a real shell (a pty), and full-screen programs (`vim`, `less`, ...) run in it.
 - `Tab` hands line editing to the shell (completion); `Ctrl+C` takes it back.
 - `.co` / `.ob` grab the output of the last command.
+- **Several terminals, in tabs:** `Cmd+T` / `Ctrl+Shift+T` (in a terminal) opens another, `Cmd+W` / `Ctrl+Shift+W`
+  closes the shown one (asks when a job runs in it; the last one stays). With two or more, a row of tabs shows; the
+  keys that pick files pick tabs while the terminal has focus (`Cmd/Opt+1..9` / `Alt+1..9`, `Opt/Alt+\` / `'`), or
+  click a tab. A tab shows the title the shell or a program sets, else its name. The tabs, and which one was shown,
+  come back after a restart; each has its own scrollback and history. A build's errors (`F8`) come from the terminal
+  the build ran in - another terminal's output leaves them alone.

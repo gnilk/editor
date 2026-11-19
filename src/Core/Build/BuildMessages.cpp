@@ -49,10 +49,11 @@ bool BuildMessages::IsBuildCommand(std::string_view cmdLine) {
     return false;
 }
 
-bool BuildMessages::OnCommand(const std::string &cmdLine, const std::string &shellDirectory, const std::string &root) {
+bool BuildMessages::OnCommand(const std::string &cmdLine, const std::string &shellDirectory, const std::string &root,
+                              const void *terminal) {
     std::lock_guard<std::mutex> guard(lock);
     if (!IsBuildCommand(cmdLine)) {
-        if (isRunning) {
+        if (isRunning && (terminal == runTerminal)) {
             parser.Finish();
             isRunning = false;
         }
@@ -66,21 +67,22 @@ bool BuildMessages::OnCommand(const std::string &cmdLine, const std::string &she
     directory = shellDirectory;
     buildDirectory = BuildDirectoryOf(cmdLine);
     projectRoot = root;
+    runTerminal = terminal;
     current.reset();
     return true;
 }
 
-void BuildMessages::Feed(std::string_view bytes) {
+void BuildMessages::Feed(std::string_view bytes, const void *terminal) {
     std::lock_guard<std::mutex> guard(lock);
-    if (isRunning) {
+    if (isRunning && (terminal == runTerminal)) {
         parser.Feed(bytes);
     }
 }
 
-bool BuildMessages::UpdateJobState(bool isJobRunning) {
+bool BuildMessages::UpdateJobState(bool isJobRunning, const void *terminal) {
     {
         std::lock_guard<std::mutex> guard(lock);
-        if (!isRunning) {
+        if (!isRunning || (terminal != runTerminal)) {
             return false;
         }
         if (isJobRunning) {

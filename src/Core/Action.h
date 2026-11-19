@@ -76,6 +76,8 @@ namespace gedit {
         kActionSelectAll,               // default: Cmd/Ctrl+A - select the whole buffer
         kActionPromoteToTerminal,       // default: Cmd/Ctrl+Enter - the selection (or line) to the terminal, not via the clipboard
         kActionSave,                    // default: Cmd/Ctrl+S - save the active buffer, as '.s' (asks when changed on disk)
+        kActionNewTerminal,             // terminal: Cmd+T (Mac) / Ctrl+Shift+T (Linux) - a new terminal tab in the lower panel
+        kActionCloseTerminal,           // terminal: Cmd+W (Mac) / Ctrl+Shift+W (Linux) - close the shown terminal tab
 
         // Terminal actions
         kActionShellCompletion,

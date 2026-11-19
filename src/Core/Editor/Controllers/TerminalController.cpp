@@ -94,7 +94,7 @@ void TerminalController::Begin() {
     // Restore persisted scrollback (terminal-scrollback.md §8.2) BEFORE the shell starts - the pty
     // thread mutates the grid the instant shell.Begin() returns, so the seeded history must already be in
     // place. A no-op when nothing was saved, the feature is off, or the .bin is missing/corrupt.
-    FromSession(SessionManager::Instance().CurrentSession().terminal);
+    FromSession(restoreScrollbackFile);
 
     if (!shell.Begin(shellBinary, shellInitStr, shellInitScript)) {
         // No pty thread was started, so the state never leaves kIdle - waiting for kRunning would spin
@@ -118,7 +118,7 @@ void TerminalController::Begin() {
 // project into project-local history. Otherwise history is per-user, in the user state dir
 // (docs/install-layout.md), read once from a legacy user asset dir when the state file isn't there yet.
 void TerminalController::LoadCmdHistory() {
-    static const char *historyFileName = "terminal_history";
+    auto historyFileName = sessionTabId.empty() ? std::string("terminal_history") : "terminal_history." + sessionTabId;
     auto &assetLoader = RuntimeConfig::Instance().GetAssetLoader();
 
     auto projectPath = assetLoader.ResolveWritePath(historyFileName, AssetLoaderBase::kLocationType::kProject);
@@ -143,13 +143,45 @@ std::filesystem::path TerminalController::ResolveScrollbackBinPath(const std::st
     return assetLoader.ResolveWritePath(filename, AssetLoaderBase::kLocationType::kProject);
 }
 
-bool TerminalController::ToSession(TerminalSession &out) {
-    out = TerminalSession{};   // fresh - overwrite any state lingering from the restore-time load
+void TerminalController::SetSessionTab(const std::string &id, const std::string &scrollbackFile) {
+    sessionTabId = id;
+    restoreScrollbackFile = scrollbackFile;
+}
+
+void TerminalController::ForgetSession() {
+    std::error_code ec;
+    auto binPath = ResolveScrollbackBinPath(sessionTabId.empty() ? "terminal_scrollback.bin" : "terminal_scrollback." + sessionTabId + ".bin");
+    if (!binPath.empty()) {
+        std::filesystem::remove(binPath, ec);
+    }
+    if (!sessionTabId.empty() && !cmdHistoryPath.empty()) {
+        std::filesystem::remove(cmdHistoryPath, ec);
+    }
+}
+
+std::string TerminalController::GetTitle() {
+    std::lock_guard<std::mutex> guard(screenLock);
+    return title;
+}
+
+// On the pty thread, screenLock held
+void TerminalController::OnTitle(std::string_view newTitle) {
+    if (title == newTitle) {
+        return;
+    }
+    title = std::string(newTitle);
+    if (titleChangedHandler) {
+        titleChangedHandler();
+    }
+}
+
+bool TerminalController::ToSession(std::string &outScrollbackFile) {
+    outScrollbackFile.clear();
 
     if (!Config::Instance()["terminal"].GetBool("persist_scrollback", true)) {
         return false;
     }
-    auto binPath = ResolveScrollbackBinPath("terminal_scrollback.bin");
+    auto binPath = ResolveScrollbackBinPath(sessionTabId.empty() ? "terminal_scrollback.bin" : "terminal_scrollback." + sessionTabId + ".bin");
     if (binPath.empty()) {
         return false;   // no project .goatedit dir - persistence is project-scoped
     }
@@ -180,18 +212,18 @@ bool TerminalController::ToSession(TerminalSession &out) {
         return false;
     }
 
-    out.scrollbackFile = binPath.filename().string();
+    outScrollbackFile = binPath.filename().string();
     return true;
 }
 
-void TerminalController::FromSession(const TerminalSession &in) {
-    if (in.scrollbackFile.empty()) {
+void TerminalController::FromSession(const std::string &scrollbackFile) {
+    if (scrollbackFile.empty()) {
         return;   // nothing persisted (fresh project, or the feature was off when last saved)
     }
     if (!Config::Instance()["terminal"].GetBool("persist_scrollback", true)) {
         return;
     }
-    auto binPath = ResolveScrollbackBinPath(in.scrollbackFile);
+    auto binPath = ResolveScrollbackBinPath(scrollbackFile);
     if (binPath.empty()) {
         return;   // no project dir - persistence is project-scoped
     }
@@ -276,8 +308,8 @@ void TerminalController::FeedBuildMessages(const uint8_t *buffer, size_t length)
     if (!buildMessages.IsRunning()) {
         return;
     }
-    buildMessages.Feed(std::string_view(reinterpret_cast<const char *>(buffer), length));
-    if (buildMessages.UpdateJobState(IsForegroundJobRunning())) {
+    buildMessages.Feed(std::string_view(reinterpret_cast<const char *>(buffer), length), this);
+    if (buildMessages.UpdateJobState(IsForegroundJobRunning(), this)) {
         Runloop::PostMessage(0x00, [](uint32_t) {
             auto &messages = Editor::Instance().GetBuildMessages();
             Editor::Instance().ShowStatusMessage(UnicodeHelper::utf8to32("build: " + messages.Summary()));
@@ -972,7 +1004,7 @@ void TerminalController::OnShellCommand(const std::u32string &cmdLine) {
     auto &editor = Editor::Instance();
     auto &roots = editor.GetIndexedRoots();
     auto projectRoot = roots.empty() ? std::string{} : roots.front().string();
-    editor.GetBuildMessages().OnCommand(UnicodeHelper::utf32to8(cmdLine), shell.GetWorkingDirectory(), projectRoot);
+    editor.GetBuildMessages().OnCommand(UnicodeHelper::utf32to8(cmdLine), shell.GetWorkingDirectory(), projectRoot, this);
 }
 
 void TerminalController::MarkCommandOutput() {

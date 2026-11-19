@@ -16,5 +16,8 @@ keymap: {
     ShellCompletion: KeyCode_Tab,
     NavigateHome: KeyCode_Ctrl + KeyCode_Home,
     NavigateEnd: KeyCode_Ctrl + KeyCode_End,
+    # Terminal tabs in the lower panel (docs/panel-tabs.md §6) - the terminal standard
+    NewTerminal: KeyCode_Cmd + 't',
+    CloseTerminal: KeyCode_Cmd + 'w',
   }
 }

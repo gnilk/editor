@@ -768,6 +768,19 @@ DLL_EXPORT int test_session_terminal_roundtrip(ITesting *t) {
     RootSession r;
     TR_ASSERT(t, SessionSerializer::FromYaml(yaml, r));
     TR_ASSERT(t, r.terminal.scrollbackFile == "terminal_scrollback.bin");
+    TR_ASSERT(t, r.terminal.tabs.empty());
+
+    // The lower panel's tabs (hitlist #53): every one, in order, and the shown one
+    s.terminal.tabs = {{"", "Shell", "terminal_scrollback.bin"}, {"2", "build", ""}, {"3", "Shell 3", "terminal_scrollback.3.bin"}};
+    s.terminal.activeTab = 2;
+    RootSession withTabs;
+    TR_ASSERT(t, SessionSerializer::FromYaml(SessionSerializer::ToYaml(s), withTabs));
+    TR_ASSERT(t, withTabs.terminal.tabs.size() == 3);
+    TR_ASSERT(t, withTabs.terminal.tabs[0].id.empty() && (withTabs.terminal.tabs[0].name == "Shell"));
+    TR_ASSERT(t, (withTabs.terminal.tabs[1].id == "2") && (withTabs.terminal.tabs[1].name == "build"));
+    TR_ASSERT(t, withTabs.terminal.tabs[1].scrollbackFile.empty());
+    TR_ASSERT(t, withTabs.terminal.tabs[2].scrollbackFile == "terminal_scrollback.3.bin");
+    TR_ASSERT(t, withTabs.terminal.activeTab == 2);
     return kTR_Pass;
 }
 

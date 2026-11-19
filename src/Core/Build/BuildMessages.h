@@ -41,11 +41,14 @@ namespace gedit {
 
         // A command was committed: a supported one starts a new run (the old list goes), any other ends the
         // running one. 'directory' is the shell's directory when it ran (empty: unknown). True when a run started.
-        bool OnCommand(const std::string &cmdLine, const std::string &directory, const std::string &projectRoot);
-        // The pty's bytes; nothing while no run is running
-        void Feed(std::string_view bytes);
+        // 'terminal' is the one it was typed in (docs/panel-tabs.md §6): a run belongs to it - another terminal's
+        // bytes and commands leave it alone, only its next build replaces it.
+        bool OnCommand(const std::string &cmdLine, const std::string &directory, const std::string &projectRoot,
+                       const void *terminal = nullptr);
+        // The pty's bytes; nothing while no run is running, or from another terminal than the run's
+        void Feed(std::string_view bytes, const void *terminal = nullptr);
         // The terminal's foreground job, after a read: once a job was seen, its end ends the run. True when it did.
-        bool UpdateJobState(bool isJobRunning);
+        bool UpdateJobState(bool isJobRunning, const void *terminal = nullptr);
         // True when a running run ended
         bool EndRun();
 
@@ -88,6 +91,7 @@ namespace gedit {
         std::string directory;
         std::string buildDirectory;
         std::string projectRoot;
+        const void *runTerminal = nullptr;
         // Index into the parser's messages; none before the first step
         std::optional<size_t> current;
     };

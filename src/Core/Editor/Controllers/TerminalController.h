@@ -142,15 +142,29 @@ namespace gedit {
         // screenLock, writes them (with ANSI colours) to the .bin OUTSIDE the lock via
         // TextBuffer::SaveWithAttributes, and names the file in `out`. Returns false
         // (leaving `out` empty) while alt-screen, when scrollback is empty, or on a write failure.
-        bool ToSession(TerminalSession &out);
+        bool ToSession(std::string &outScrollbackFile);
 
         // FromSession loads the .bin (LoadWithAttributes - missing/corrupt -> no-op) and seeds
         // the scrollback via TerminalScreen::SeedScrollback. MUST be called before shell.Begin().
-        void FromSession(const TerminalSession &in);
+        void FromSession(const std::string &scrollbackFile);
+
+        // The tab this terminal is (docs/panel-tabs.md, hitlist #53). 'id' names its files - scrollback
+        // 'terminal_scrollback[.id].bin', history 'terminal_history[.id]' ("" keeps the names from before tabs) -
+        // and 'scrollbackFile' is what Begin restores. Set before Begin.
+        void SetSessionTab(const std::string &id, const std::string &scrollbackFile);
+        const std::string &GetSessionTabId() const { return sessionTabId; }
+        // Its tab was closed: its scrollback goes, and its history (the first terminal's, shared, stays)
+        void ForgetSession();
+        // The title the shell or an app set (OSC 0 / 2), empty when none. The handler is called on the pty thread.
+        std::string GetTitle();
+        void SetTitleChangedHandler(std::function<void()> handler) { titleChangedHandler = std::move(handler); }
+        // A job runs in the foreground (not the shell at its prompt)
+        bool HasRunningJob() { return IsForegroundJobRunning(); }
 
         // gnilk::vt::ITerminalHost - called by the terminal inside HandleTerminalData, screenLock held
         void WriteToPty(std::string_view bytes) override;
         void OnSemanticPrompt(char kind, std::string_view params) override;
+        void OnTitle(std::string_view newTitle) override;
 
     protected:
         void SyncInputLineFromGrid();
@@ -200,6 +214,12 @@ namespace gedit {
         Shell shell;
         TerminalCmdHistory cmdHistory;
         std::filesystem::path cmdHistoryPath;
+        // The tab's files (SetSessionTab)
+        std::string sessionTabId;
+        std::string restoreScrollbackFile;
+        // OSC 0 / 2, under screenLock
+        std::string title;
+        std::function<void()> titleChangedHandler;
         gnilk::ILogger *logger = nullptr;
 
         // Default-constructed (not nullptr) so the controller is usable in unit tests that never call

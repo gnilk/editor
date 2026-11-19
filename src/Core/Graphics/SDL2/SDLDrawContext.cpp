@@ -208,10 +208,12 @@ void SDLDrawContext::DrawStringWithAttributesAt(int x, int y, kTextAttributes at
 
     // Translate coordinates and draw text...
     auto [px, py] = CoordsToScreen(x, y);
-    font->RenderText(px, py + font->Baseline(), str, w);
+    // Italic: the glyphs leaned (there is no italic face)
+    float slant = (attrib & kTextAttributes::kItalic) ? SDLFont::SLANT_ITALIC : 0.0f;
+    font->RenderText(px, py + font->Baseline(), str, w, slant);
     // Bold: the glyphs again, one screen pixel to the right (there is no bold face)
     if (attrib & kTextAttributes::kBold) {
-        font->RenderText(px + 1.0f / font->Density(), py + font->Baseline(), str, w);
+        font->RenderText(px + 1.0f / font->Density(), py + font->Baseline(), str, w, slant);
     }
 
     // underlined???  draw a line under the text
@@ -268,10 +270,12 @@ void SDLDrawContext::DrawStringWithAttributesAt(int x, int y, kTextAttributes at
 
     // Translate coordinates and draw text...
     auto [px, py] = CoordsToScreen(x, y);
-    font->RenderText(px, py + font->Baseline(), str);
+    // Italic: the glyphs leaned (there is no italic face)
+    float slant = (attrib & kTextAttributes::kItalic) ? SDLFont::SLANT_ITALIC : 0.0f;
+    font->RenderText(px, py + font->Baseline(), str, slant);
     // Bold: the glyphs again, one screen pixel to the right (there is no bold face)
     if (attrib & kTextAttributes::kBold) {
-        font->RenderText(px + 1.0f / font->Density(), py + font->Baseline(), str);
+        font->RenderText(px + 1.0f / font->Density(), py + font->Baseline(), str, slant);
     }
 
     // underlined???  draw a line under the text

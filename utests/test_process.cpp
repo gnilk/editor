@@ -37,6 +37,7 @@ extern "C" {
     DLL_EXPORT int test_process_shellsurvives(ITesting *t);
     DLL_EXPORT int test_process_shellclose(ITesting *t);
     DLL_EXPORT int test_process_shellclose_ignoreshup(ITesting *t);
+    DLL_EXPORT int test_process_shellclose_output_on_hup(ITesting *t);
     DLL_EXPORT int test_process_stopall(ITesting *t);
     DLL_EXPORT int test_process_stopall_atexit(ITesting *t);
     DLL_EXPORT int test_process_stopall_chained(ITesting *t);
@@ -336,6 +337,52 @@ DLL_EXPORT int test_process_shellclose_ignoreshup(ITesting *t) {
     }
     TR_ASSERT(t, isStopped);
     TR_ASSERT(t, msClose < 2000);
+    shell.reset();
+    return kTR_Pass;
+}
+
+// The hang on quit with bash 5 (2026-11-19, Mac): a shell that writes on the hangup and exits, its output still
+// queued for us. The reader has stopped reading by then (it waits for the shell) - and on macOS the exiting shell
+// waits in the kernel for that output to drain, SIGKILL or not. Our end of the pty closes before the wait.
+DLL_EXPORT int test_process_shellclose_output_on_hup(ITesting *t) {
+    auto shell = std::make_unique<Shell>();
+    std::mutex lock;
+    std::string output;
+    shell->SetOutputDelegate([&lock, &output](const uint8_t *buffer, size_t length) {
+        std::lock_guard<std::mutex> guard(lock);
+        output.append(reinterpret_cast<const char *>(buffer), length);
+    });
+    TR_ASSERT(t, shell->Begin("/bin/sh", "-i", {}));
+    TR_ASSERT(t, WaitForShellState(*shell, Shell::State::kRunning, 3000));
+    std::u32string cmd = U"trap 'head -c 4000 /dev/zero | tr \"\\0\" x; exit' HUP; echo trap_$((1+1))\n";
+    shell->SendCmd(cmd);
+    bool isTrapped = false;
+    auto tEnd = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+    while (!isTrapped && (std::chrono::steady_clock::now() < tEnd)) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        std::lock_guard<std::mutex> guard(lock);
+        isTrapped = (output.find("trap_2") != std::string::npos);
+    }
+    TR_ASSERT(t, isTrapped);
+
+    // On a thread: before the fix Close() never returned
+    std::atomic<bool> isClosed = false;
+    std::thread closer([&shell, &isClosed]() {
+        shell->Close();
+        isClosed = true;
+    });
+    tEnd = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+    while (!isClosed && (std::chrono::steady_clock::now() < tEnd)) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+    if (!isClosed) {
+        // Stuck for good: leave the thread and the Shell behind rather than hang the run
+        closer.detach();
+        shell.release();
+    }
+    TR_ASSERT(t, isClosed);
+    closer.join();
+    TR_ASSERT(t, shell->GetState() == Shell::State::kTerminated);
     shell.reset();
     return kTR_Pass;
 }

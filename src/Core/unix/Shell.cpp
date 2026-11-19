@@ -197,11 +197,14 @@ void Shell::CleanUp() {
 }
 
 // Closed by us (Close) rather than by the shell exiting: hang up, as a terminal closing does. A shell that ignores
-// it (trap '' HUP) gets a grace period and then SIGKILL - the quit must not hang on it.
+// it (trap '' HUP) gets a grace period and then SIGKILL - the quit must not hang on it. Our end of the pty closes
+// first: nobody reads it any more, and on macOS a shell that exits with output still queued for us (bash 5 on the
+// hangup) waits in the kernel for it to drain - SIGKILL doesn't end that wait, and waitpid never returned.
 void Shell::ReapChild() {
     static constexpr int kGraceMs = 500;
     if (GetState() == State::kTerminate) {
         kill(pid, SIGHUP);
+        CleanUp();
     }
     int status = 0;
     pid_t reaped = 0;

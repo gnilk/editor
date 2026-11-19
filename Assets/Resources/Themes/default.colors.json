@@ -141,5 +141,11 @@
       "14" : "var(blue7)",
       "15" : "var(white)"
     }
+  },
+  "font_styles":
+  {
+    "heading": "bold",
+    "strong": "bold",
+    "emphasis": "italic"
   }
 }

@@ -127,5 +127,6 @@ Dark+/Light+, Visual Studio Dark/Light, High Contrast dark/light. They include e
 - **Overlays** (`gen-themes.py`) may carry a `font_styles` table, merged key by key.
 
 Dark 2026 now has VS Code's: headings, `**strong**` and `---` bold, `*emphasis*` italic, links underlined. Comments
-aren't italic there. The default theme has no styles.
+aren't italic there. The default theme (Mariana) has the Markdown ones by hand: headings and `**strong**` bold,
+`*emphasis*` italic.
 

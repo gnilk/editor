@@ -30,7 +30,7 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
 - **`.theme use` at a level** (#59) - scripted (`theme_project`: a project config with its own theme, Keep / Remove, `--project`)
   - [ ] Linux [x] Mac - the window: in a project whose `.goatedit/config.yml` sets `main.theme`, `.theme use <other>` asks; Keep leaves this project's theme and says so, Remove takes it out of the project config and switches; `.theme list` names where the theme comes from
 - **Font styles in themes** (#55)
-  - [x] Linux [ ] Mac - the window: `.theme use vscode-dark-2026`, open a `.md` file - `# headings`, `**strong**` and `---` bold, `*emphasis*` italic, links underlined; C++ looks as before (no bold names); `.theme use default theme` - all plain again
+  - [x] Linux [ ] Mac - the window: `.theme use vscode-dark-2026`, open a `.md` file - `# headings`, `**strong**` and `---` bold, `*emphasis*` italic, links underlined; C++ looks as before (no bold names); `.theme use default theme` - code plain, Markdown headings / `**strong**` bold and `*emphasis*` italic (added by hand 2026-11-19)
 - **Italic in the SDL window** - a synthetic slant (no italic face; theme font styles are #55)
   - [x] Linux [x] Mac - in the terminal: `printf '\e[3mitalic\e[0m \e[1;3mbold italic\e[0m plain\n'` - the first two lean right, descenders lean left, the last letter of a run isn't cut by the next cell
 - **A save key** (#58)

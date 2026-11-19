@@ -329,11 +329,15 @@ namespace gedit {
         void ExecutePostScript(std::istream &stream);
     private:
         Editor() = default;
+        ~Editor();
     private:
         bool isInitialized = false;
         gnilk::ILogger *logger = nullptr;
         bool keepConsoleLogger = false;
         bool loadUserConfig = true;
+        // '--unit-test' (test_main): the environment the tests need, where it differs from a launch - the working
+        // directory stays (the fixtures are relative to it), also outside $HOME
+        bool isUnitTest = false;
         std::string argBackend;
         bool isProjectLaunch = false;       // exactly one folder argument (IsProjectLaunch, at Initialize)
         bool isStartedFromUI = false;       // launched from the desktop (TakeStartedFromUI, at Initialize)

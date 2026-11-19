@@ -113,7 +113,7 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
   - [x] Mac - Ghostty (kitty protocol): the same, plus `Ctrl+/` comments, `Ctrl+Enter` promotes to the terminal, `Ctrl+[` comes back after a jump
     - Mac 2026-11-18, Ghostty: `Ctrl+<letter>` and `Alt+1..9` work; `Cmd+V` pastes (Ghostty's own paste, arrives as a bracketed paste); `Cmd+Z` does nothing - right, `Cmd` is not bound in the Linux keymaps. `Ctrl+Enter` promotes to the terminal (`Cmd+Enter` is Ghostty's full-screen); several selected lines ran in bash. Start with `goat --backend ansi .` (runs in the terminal since `fix/goat-ansi`; needs `install-cli`)
   - [x] Mac - the SDL app is unchanged: `Cmd+S`, `Cmd+Z`, `Cmd+1..9`
-  - [x] Mac - several lines `Ctrl+Enter`-promoted to bash 3.2 in the terminal version: both run, no `00~` (scripted: `promote`); by hand in Ghostty with `Ctrl+Enter` too; the SDL app with `Cmd+Enter` and `SHELL=/bin/bash`: [ ]
+  - [x] Mac - several lines `Ctrl+Enter`-promoted to bash 3.2 in the terminal version: both run, no `00~` (scripted: `promote`); by hand in Ghostty with `Ctrl+Enter` too; the SDL app with `Cmd+Enter` and `SHELL=/bin/bash`: [x] (2026-11-19)
 - **Usability gaps** (#41) - the terminal version scripted (`drag_select`); Mac window checked by hand 2026-11-18
   - [ ] Linux [x] Mac - drag over text selects it, from where it was pressed (backwards too); dragging below the view scrolls it; a click drops the selection; `Shift+click` extends it
   - [ ] Linux [x] Mac - `Cmd/Ctrl+click` still jumps (no selection), double-click in the tree still opens

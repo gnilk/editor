@@ -23,6 +23,7 @@ DLL_EXPORT int test_terminalcontroller_commitline_marks_output(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_viewport_scroll_stops_at_newest_page(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_commitline_empty_marks_nothing(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_dotcommand_keeps_output(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_dotcommand_output_below(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_osc133_output(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_osc133_commit_stands_down(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_raw_tab(ITesting *t);
@@ -253,6 +254,44 @@ DLL_EXPORT int test_terminalcontroller_dotcommand_keeps_output(ITesting *t) {
     auto top = Editor::Instance().GetClipBoard().Top();
     TR_ASSERT(t, top != nullptr);
     TR_ASSERT(t, top->AsText() == std::u32string(U"error: x"));
+    return kTR_Pass;
+}
+
+static std::u32string RowText(const TerminalScreen &screen, int y) {
+    std::u32string text;
+    for (const auto &cell : screen.GetRow(y)) {
+        text.push_back(cell.ch == 0 ? U' ' : cell.ch);
+    }
+    while (!text.empty() && (text.back() == U' ')) {
+        text.pop_back();
+    }
+    return text;
+}
+
+// A dot-command typed at the prompt reads like a shell command: the command on its prompt line, the output right
+// below, the shell's next prompt right below that (it was: output above the prompt it was typed at, the command gone)
+DLL_EXPORT int test_terminalcontroller_dotcommand_output_below(ITesting *t) {
+    TerminalController c;
+    c.Resize(100, 20);
+    auto *prevConsole = RuntimeConfig::Instance().OutputConsole();
+    c.RegisterAsOutputConsole();
+    FeedPty(c, "\x1b[32m$\x1b[0m ");
+    c.GetInputLine()->Append(std::u32string(U".theme bogus"));
+    c.CommitLine();
+    FeedPty(c, "\r\n\x1b[32m$\x1b[0m ");      // the shell's answer to the empty line: down, the next prompt
+    RuntimeConfig::Instance().SetOutputConsole(prevConsole);
+
+    const auto &screen = c.GetScreen();
+    TR_ASSERT(t, RowText(screen, 0) == U"$ .theme bogus");
+    TR_ASSERT(t, RowText(screen, 1).find(U"use: .theme list") == 0);
+    int cursorRow = screen.GetCursorPos().y;
+    TR_ASSERT(t, cursorRow > 2);
+    TR_ASSERT(t, RowText(screen, cursorRow) == U"$");
+    // No blank row between the output and the prompt, nothing below
+    TR_ASSERT(t, !RowText(screen, cursorRow - 1).empty());
+    TR_ASSERT(t, RowText(screen, cursorRow + 1).empty());
+    TR_ASSERT(t, screen.GetCursorPos().x == 2);
+    TR_ASSERT(t, c.GetInputLine()->Buffer().empty());
     return kTR_Pass;
 }
 

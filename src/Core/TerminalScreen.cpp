@@ -36,6 +36,13 @@ void TerminalScreen::MarkOutputStart(bool isOnCursorRow) {
         return;
     }
     lastOutputStart = AbsRowCount() + (isOnCursorRow ? 0 : 1);
+    lastOutputEnd.reset();
+}
+
+void TerminalScreen::MarkOutputEnd() {
+    if (lastOutputStart.has_value() && !lastOutputEnd.has_value()) {
+        lastOutputEnd = std::max(AbsRowCount(), lastOutputStart.value());
+    }
 }
 
 // The cursor's line - its row and the rows it wrapped from - is encoded, erased, the text written where it began
@@ -86,7 +93,8 @@ std::vector<std::u32string> TerminalScreen::GetLastOutputText() const {
     if (!lastOutputStart.has_value()) {
         return out;
     }
-    for (uint64_t abs = lastOutputStart.value(); abs < AbsRowCount(); abs++) {
+    uint64_t end = std::min(lastOutputEnd.value_or(AbsRowCount()), AbsRowCount());
+    for (uint64_t abs = lastOutputStart.value(); abs < end; abs++) {
         AbsRow located = RowAtAbs(abs);
         if (auto *line = std::get_if<Line::Ref>(&located)) {
             out.push_back((*line)->Buffer());
@@ -160,6 +168,7 @@ void TerminalScreen::SeedScrollback(const std::vector<Line::Ref> &lines) {
     }
     scrollbackBase = 0;
     lastOutputStart.reset();
+    lastOutputEnd.reset();
 }
 
 void TerminalScreen::TrimScrollbackIfNeeded() {
@@ -173,6 +182,7 @@ void TerminalScreen::TrimScrollbackIfNeeded() {
     }
     if (lastOutputStart.has_value() && (lastOutputStart.value() < scrollbackBase)) {
         lastOutputStart.reset();    // its start is gone - a partial output is not the output
+        lastOutputEnd.reset();
     }
 }
 
@@ -368,6 +378,7 @@ void TerminalScreen::OnClearScrollback() {
     scrollback = MakeScrollbackBuffer();
     if (lastOutputStart.has_value() && (lastOutputStart.value() < scrollbackBase)) {
         lastOutputStart.reset();
+        lastOutputEnd.reset();
     }
 }
 

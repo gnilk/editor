@@ -162,6 +162,8 @@ namespace gedit {
         // Enter while readline owns the line: run what it holds (or a dot-command), back to local editing
         void CommitShellOwnedLine();
         bool CommitShellOwnedDotCommand();
+        void RunDotCommand(const std::u32string &cmdLine);
+        static std::string ConsoleText(const std::u32string &str);
         void RecordCommand(const std::u32string &cmdLine);
         void MarkCommandOutput();
         // Default fg/bg and the 16 system colours from the theme's terminal colours (the rest of the

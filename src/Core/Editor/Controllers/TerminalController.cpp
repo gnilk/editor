@@ -871,6 +871,10 @@ bool TerminalController::CommitShellOwnedDotCommand() {
     if (!PluginExecutor::IsPluginCommandLine(cmdLine)) {
         return false;
     }
+    {
+        std::lock_guard<std::mutex> guard(screenLock);
+        screen.MarkOutputEnd();
+    }
     WriteToPty("\x05\x15\r");
     ExitShellOwned();
     RecordCommand(cmdLine);
@@ -893,10 +897,10 @@ void TerminalController::CommitLine() {
     inputCursor.position.x = 0;
 
     // A dot-command runs in the editor - it is no shell command, and leaves the last output alone (`.co` copies
-    // the output of the command before it)
-    if (PluginExecutor::ParseAndExecuteWithCmdPrefix(cmdLine)) {
-        static auto newline = std::u32string(U"\n");
-        shell.SendCmd(newline);
+    // the output of the command before it). It reads like one: the command on its prompt line, the output below,
+    // then the shell's next prompt.
+    if (PluginExecutor::IsPluginCommandLine(cmdLine)) {
+        RunDotCommand(cmdLine);
     } else {
         if (!cmdLine.empty()) {
             MarkCommandOutput();
@@ -907,6 +911,25 @@ void TerminalController::CommitLine() {
 
     ScrollToBottom();   // §5.3: committing a line snaps the viewport back to the bottom
     Editor::Instance().TriggerUIRedraw();
+}
+
+// The command goes on the prompt line, where the shell would have echoed it, and the cursor to the row below - so
+// the output (WriteLine) lands under it, not above the prompt. The shell still thinks its cursor is at the end of
+// that prompt: after the output the cursor goes up onto the last row written, and the empty line sent to the shell
+// moves down off it and draws the next prompt right below. The shell is idle at its prompt - nothing else writes.
+void TerminalController::RunDotCommand(const std::u32string &cmdLine) {
+    {
+        std::lock_guard<std::mutex> guard(screenLock);
+        screen.MarkOutputEnd();
+        screen.Feed(ConsoleText(cmdLine) + "\r\n");
+    }
+    PluginExecutor::ParseAndExecuteWithCmdPrefix(cmdLine);
+    {
+        std::lock_guard<std::mutex> guard(screenLock);
+        screen.Feed("\x1b[A");
+    }
+    static auto newline = std::u32string(U"\n");
+    shell.SendCmd(newline);
 }
 
 // A committed command line - typed locally (CommitLine) or finished in readline after Tab (ForwardActionToShell):
@@ -933,6 +956,18 @@ void TerminalController::MarkCommandOutput() {
 // Console output from the editor (JS Console, plugins) - printed as text above the shell's line. '\n' breaks the line;
 // other control characters except TAB show as U+FFFD, so the text can't drive the terminal.
 void TerminalController::WriteLine(const std::u32string &str) {
+    {
+        std::lock_guard<std::mutex> guard(screenLock);
+        // Above the shell's prompt, which may have arrived already (hitlist #51: the start-up banner pushed bash's
+        // prompt off the panel). Under a dot-command typed at the prompt the cursor is on an empty row below it
+        // (RunDotCommand) - the same call then just prints the line there.
+        screen.WriteAboveCursorLine(ConsoleText(str));
+    }
+    Editor::Instance().TriggerUIRedraw();
+}
+
+// Text from the editor as terminal bytes: '\n' breaks the line, other control characters except TAB show as U+FFFD
+std::string TerminalController::ConsoleText(const std::u32string &str) {
     std::u32string text;
     text.reserve(str.size());
     for (auto ch : str) {
@@ -943,11 +978,5 @@ void TerminalController::WriteLine(const std::u32string &str) {
         bool isControl = (ch < 0x20) || (ch == 0x7F) || ((ch >= 0x80) && (ch < 0xA0));
         text.push_back((isControl && (ch != U'\t')) ? U'\uFFFD' : ch);
     }
-    {
-        std::lock_guard<std::mutex> guard(screenLock);
-        // Above the shell's prompt, which may have arrived already (hitlist #51: the start-up banner pushed bash's
-        // prompt off the panel)
-        screen.WriteAboveCursorLine(UnicodeHelper::utf32to8(text));
-    }
-    Editor::Instance().TriggerUIRedraw();
+    return UnicodeHelper::utf32to8(text);
 }

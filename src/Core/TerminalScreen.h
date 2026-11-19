@@ -129,6 +129,9 @@ namespace gedit {
         // 133;C, where it starts on the cursor row. GetLastOutputText is that output, one string per row, up to the
         // cursor row (the next prompt); empty when there is none, or it has been trimmed or cleared away.
         void MarkOutputStart(bool isOnCursorRow);
+        // The output stops at the cursor row - the prompt a dot-command was typed at (the editor writes there, the
+        // shell's output is over). Only the first: a second dot-command leaves the end where it is.
+        void MarkOutputEnd();
 
         // The editor's own output (JS Console, plugins) while a shell may sit at its prompt: 'text' (UTF-8, lines
         // apart by "\r\n", no control sequences) goes on the lines ABOVE the cursor's line - the prompt and what is
@@ -205,6 +208,8 @@ namespace gedit {
         uint64_t scrollbackBase = 0;   // abs id of scrollback line 0 (bumped on eviction, §7)
         // Abs id of the first row of the last command's output (MarkOutputStart)
         std::optional<uint64_t> lastOutputStart;
+        // Abs id of the row after it, once known (MarkOutputEnd); none: up to the cursor row
+        std::optional<uint64_t> lastOutputEnd;
 
     };
 }

@@ -260,6 +260,43 @@ def prompt_above(n):
         g.kill()
 
 
+@check('#57 A dot-command typed at the prompt: the command, its output below, the next prompt')
+def dot_at_prompt(n):
+    for shell in ('bash', 'zsh'):
+        exe = shutil.which(shell)
+        if exe is None:
+            n.info(f'{shell}: not installed - skipped')
+            continue
+        sb, work = sandbox(f'dot_at_prompt_{shell}')
+        write(os.path.join(work, 'a.txt'), 'x\n')
+        write(os.path.join(sb, 'home', '.zshrc'), "PROMPT='zsh%% '\n")
+        g = Goat(sb, ['a.txt'], cwd=work, env={'SHELL': exe, 'PS1': r'\[\e[32m\]bash\$\[\e[0m\] '})
+        try:
+            g.ready()
+            lines = [l.rstrip() for l in g.screen.lines() if l.strip()]
+            prompt = lines[-1] if lines else ''
+            n.info(f'{shell}: the prompt {prompt!r}')
+            g.send(alt('t'), 0.5)
+            for _ in range(2):
+                g.type('.theme bogus', wait=0.3)
+                g.send(ENTER, 1.0)
+            # The panel shows the bottom: the end of the first output, the second command, its output, the prompt
+            lines = [l.rstrip() for l in g.screen.lines()]
+            at = [i for i, l in enumerate(lines) if l == prompt + ' .theme bogus']
+            n(len(at) >= 1, f'{shell}: the command stays on its prompt line')
+            if at:
+                i = at[-1]
+                n(lines[i - 1].strip().startswith('--force'), f'{shell}: right below the last output: {lines[i - 1:i + 1]}')
+                rest = lines[i + 1:]
+                while rest and not rest[-1].strip():
+                    rest.pop()
+                n(rest and rest[0].startswith('use: .theme list') and all(l.strip() for l in rest)
+                  and rest[-1] == prompt, f'{shell}: the output below it, then the prompt - no blank rows: {rest}')
+            n(g.quit(), f'{shell}: quits')
+        finally:
+            g.kill()
+
+
 def bg_at(g, needle):
     """The background behind the first cell of 'needle' on screen, or None"""
     pos = g.screen.find(needle)

@@ -47,10 +47,9 @@ test interface (`TRUN_USE_V1` → `testinterface_v1.h`); that interface exposes 
 module entry fn (e.g. `test_keymapping`) — used to reset global singletons between cases (see
 `test_keymapping` clearing `KeyMappingCache`).
 
-Always use the `--sequential` parameter when running tests during development cycles. This removes
-forking from unit-tests, which may otherwise cause log output to be unsynchronized. (Without
-`--sequential`, trun forks per-test — useful when a case may crash/segfault, so one bad case is
-isolated and the rest still report instead of aborting the run.)
+**Run the whole library, in parallel** (trun v4 - the installed one): `trun ./libutests.so` runs all ~1000 cases in
+about 6 s, each case forked, so one that crashes is isolated and the rest still report. `--sequential` (one process,
+in order) is for reading a case's log output in order, or for a case that only fails in parallel - not the default.
 
 The `-m` (module) and `-t` (test) options both take lists and wildcards; prefix `!` discards a
 test/module, and the special token `-` means "everything else". This controls execution order:
@@ -61,19 +60,19 @@ cases starting with `parse`. **Test-case names drop the `test_<module>_` prefix*
 **Always run trun from the build directory (`cmake-build-debug/`)** — test fixtures (`testfiles/`, `sqlite3.c`) are resolved relative to the working directory. Assets are not: `test_main` locates `libutests` with `dladdr` and passes `--asset-dir <libdir>/resources`, so tests never pick up an installed copy.
 
 ```sh
-cd cmake-build-debug && trun --sequential ./libutests.so            # all
-cd cmake-build-debug && trun -m textbuffer --sequential ./libutests.so   # one module
-cd cmake-build-debug && trun -m textbuffer -t insert --sequential ./libutests.so  # one case
+cd cmake-build-debug && trun ./libutests.so                         # all
+cd cmake-build-debug && trun -m textbuffer ./libutests.so           # one module
+cd cmake-build-debug && trun -m textbuffer -t insert ./libutests.so # one case
 cd cmake-build-debug && trun -l ./libutests.so                     # list
 ```
 
 Test source files live in `utests/`. Each `test_<module>.cpp` corresponds to one module; `test_main.cpp` initializes the editor singleton for all tests. Test functions are `extern "C"` (or `DLL_EXPORT`) and discovered by exported symbol name — adding a new case is just a new function (+ a forward declaration where the file uses one).
 
-**Verified-green set** (901 tests, run from `cmake-build-debug/`):
-`trun -m clipboard,document,vnav,cpplang,jsonlang,cppnumbers,linelayout,dcoverlay,layout,jsengine,workspace,terminalscreen,keymapping,hexprojection,bytestream,hexview,indent,session,markdown,folderscanner,foldermonitor,treeview,textbuffer,mouseclicktracker,wrapprojection,config,modal,find,codeindex,themeimport,exclusion,process,gitstatus,reload,openfiles,glyphfont,yamllang,datalanguage,theme,minimap,overviewmap,encoding,terminalcontroller,launch,buildmessages --sequential ./libutests.so`
+The whole library is expected green (1005 cases on 2026-11-19); the old "verified-green set" module list is gone - a
+module left off it (`changemarks`) had gone stale unnoticed.
 
 **Terminal library tests** are a separate trun lib, `gvttests` (`src/ext/gvt`, built on demand):
-`cmake --build cmake-build-debug --target gvttests && cd cmake-build-debug && trun --sequential ./libgvttests.so`.
+`cmake --build cmake-build-debug --target gvttests && cd cmake-build-debug && trun ./libgvttests.so`.
 Its `oracle` module compares against libvterm and is only built when libvterm is installed (`libvterm-dev` /
 `brew install libvterm pkg-config`). Plan: `docs/terminal-vt.md`.
 
@@ -92,7 +91,7 @@ C/C++ structure pass (`src/Core/Index/CPPStructureScanner`, code index step 1) f
 `./gedit-bench --check <file-or-dir>` lists files whose braces don't balance at the end (usually a lexer
 misread); `./gedit-bench --braces <file>` prints the lexer's brace depth per line to find the line.
 
-**Do NOT run the full debug suite** — the sqlite3-parse test is intentionally excluded (~1s release, 13–15s debug: syntax highlighter over a large file, no optimizations). `test_timer`/`test_timer_exit` are pre/post module hooks (intentionally empty); logger tests are obsolete (external lib has its own suite).
+The sqlite3-parse case is the slow one (13-15 s in a debug build) - in parallel it no longer holds the run up. `test_timer`/`test_timer_exit` are pre/post module hooks (intentionally empty); logger tests are obsolete (external lib has its own suite).
 
 ## Architecture
 

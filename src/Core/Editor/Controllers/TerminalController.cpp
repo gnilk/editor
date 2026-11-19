@@ -503,9 +503,10 @@ bool TerminalController::HandleKeyPress(Cursor &cursor, size_t &idxActiveLine, c
         cursor.position.x = GetCursorXPos();
         return true;
     }
-    // A Ctrl chord nothing is bound to is not text (the ANSI backend delivers Ctrl+letter as the letter)
+    // A Ctrl chord nothing is bound to is not text (the ANSI backend delivers Ctrl+letter as the letter) - it is the
+    // shell's (Ctrl+W, Ctrl+T, Ctrl+K, ...)
     if (keyPress.IsCtrlPressed() && !keyPress.isSpecialKey) {
-        return false;
+        return HandCtrlKeyToShell(keyPress);
     }
     if (DefaultEditLine(inputCursor, inputLine, keyPress)) {
         cursor.position.x = GetCursorXPos();
@@ -915,6 +916,24 @@ std::optional<std::u32string> TerminalController::GetLastOutputText() {
         text += rows[i];
     }
     return text;
+}
+
+// An unbound Ctrl chord at the local prompt acts on the line in the shell, as in any terminal: readline takes the line
+// (as on Tab), its cursor goes where the caret is, then the key. Not Ctrl+D - on an empty line it ends the shell.
+bool TerminalController::HandCtrlKeyToShell(const KeyPress &keyPress) {
+    if (keyPress.IsCommandPressed() || (keyPress.key == 'd') || (keyPress.key == 'D')) {
+        return false;
+    }
+    EnterShellOwned();
+    auto cmdLine = std::u32string(inputLine->Buffer());
+    std::string bytes = UnicodeHelper::utf32to8(cmdLine);
+    auto caret = std::clamp(inputCursor.position.x, 0, (int)cmdLine.size());
+    for (size_t i = (size_t)caret; i < cmdLine.size(); i++) {
+        bytes += gnilk::vt::EncodeKey(gnilk::vt::Key::kLeft, gnilk::vt::kModNone, GetModes());
+    }
+    WriteToPty(bytes);
+    ForwardKeyPressToShell(keyPress);
+    return true;
 }
 
 // readline takes the line. Until its echo arrives, inputLine (what was typed) is the line.

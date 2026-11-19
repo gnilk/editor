@@ -27,6 +27,7 @@ extern "C" {
     DLL_EXPORT int test_buildmessages_cmake(ITesting *t);
     DLL_EXPORT int test_buildmessages_streaming(ITesting *t);
     DLL_EXPORT int test_buildmessages_wrapped(ITesting *t);
+    DLL_EXPORT int test_buildmessages_trun(ITesting *t);
     DLL_EXPORT int test_buildmessages_carriagereturn(ITesting *t);
     DLL_EXPORT int test_buildmessages_noplace(ITesting *t);
     DLL_EXPORT int test_buildmessages_makedirs(ITesting *t);
@@ -261,6 +262,42 @@ DLL_EXPORT int test_buildmessages_wrapped(ITesting *t) {
     return kTR_Pass;
 }
 
+// trun's failures (trun-sequential.log / trun-forked.log: real captures, a test library with a failed assert, an Error,
+// a Fatal, a case that just returned kTR_Fail). Each failure once though the summary at the end names it again; the
+// case's name in the message ('_test_' on macOS, as its symbol)
+DLL_EXPORT int test_buildmessages_trun(ITesting *t) {
+    for (auto name : {"trun-sequential.log", "trun-forked.log"}) {
+        auto log = ReadLog(name);
+        for (size_t chunk : {0, 3}) {
+            auto parser = ParseAll(log, chunk);
+            auto &messages = parser.Messages();
+            TR_ASSERT(t, messages.size() == 4);
+            TR_ASSERT(t, parser.NumErrors() == 4);
+            TR_ASSERT(t, messages[0].path == "src/deep/test_demo.cpp");
+            TR_ASSERT(t, messages[0].line == 5);
+            TR_ASSERT(t, messages[0].message == "test_demo_assert: a == 2");
+            TR_ASSERT(t, messages[1].line == 6);
+            TR_ASSERT(t, messages[1].message == "test_demo_error: the value was 42");
+            TR_ASSERT(t, messages[2].line == 7);
+            TR_ASSERT(t, messages[2].message == "test_demo_fatal: fatal thing");
+            // Failed with no assert - counted, but no place to go to
+            TR_ASSERT(t, messages[3].path.empty());
+            TR_ASSERT(t, messages[3].message == "test_other_returnfail: failed");
+            TR_ASSERT(t, BuildMessages::Order(messages).size() == 3);
+        }
+    }
+    // Linux: no '_' in front; a failure before any '=== RUN' has no case to name
+    auto parser = ParseAll("=== RUN  \ttest_x_y\n*** ASSERT ERROR: /src/a.cpp:12\t'b'\n*** ASSERT ERROR: /src/a.cpp:13\t'c'\n");
+    TR_ASSERT(t, parser.Messages().size() == 2);
+    TR_ASSERT(t, parser.Messages()[0].message == "test_x_y: b");
+    auto bare = ParseAll("*** GENERAL ERROR: /src/a.cpp:3\t'no case'\n");
+    TR_ASSERT(t, bare.Messages().size() == 1);
+    TR_ASSERT(t, bare.Messages()[0].message == "no case");
+    // Not trun's: a list item that only looks like its summary
+    TR_ASSERT(t, ParseAll("  [abc]: something, else\n").Messages().empty());
+    return kTR_Pass;
+}
+
 DLL_EXPORT int test_buildmessages_carriagereturn(ITesting *t) {
     auto parser = ParseAll("[1/3] Building a.o\r[2/3] Building b.o\x1b[K\r\x1b[K../src/b.cpp:4:29: error: expected ';'\r\n"
                            "\x1b]0;title\x07[3/3] Linking\n");
@@ -321,7 +358,8 @@ DLL_EXPORT int test_buildmessages_reset(ITesting *t) {
 // The commands we read (§9.2): the tool's name, wherever it is, after assignments and 'time'
 DLL_EXPORT int test_buildmessages_commands(ITesting *t) {
     for (auto cmd : {"make", "make -j8", "cmake --build cmake-build-debug", "ninja -C build", "/usr/bin/make all",
-                     "CC=clang make", "time make", "env CXX=g++ ninja", "clang++ -c a.cpp", "g++-13 a.cpp", "  gcc x.c"}) {
+                     "CC=clang make", "time make", "env CXX=g++ ninja", "clang++ -c a.cpp", "g++-13 a.cpp", "  gcc x.c",
+                     "trun --sequential ./libutests.dylib", "/usr/local/bin/trun -m x lib.so"}) {
         TR_ASSERT(t, BuildMessages::IsBuildCommand(cmd));
     }
     for (auto cmd : {"", "ls", "ls make", "git commit -m make", "./build.sh", "makeself", "cat Makefile", "time"}) {

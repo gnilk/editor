@@ -26,7 +26,7 @@ static bool HasPlace(const BuildMessage &message) {
 }
 
 bool BuildMessages::IsBuildCommand(std::string_view cmdLine) {
-    static const std::string_view tools[] = {"make", "gmake", "ninja", "cmake", "cc", "c++", "gcc", "g++", "clang", "clang++"};
+    static const std::string_view tools[] = {"make", "gmake", "ninja", "cmake", "cc", "c++", "gcc", "g++", "clang", "clang++", "trun"};
     static const std::string_view versioned[] = {"gcc-", "g++-", "clang-", "clang++-"};
     static const std::string_view prefixes[] = {"time", "env", "nice", "command"};
 

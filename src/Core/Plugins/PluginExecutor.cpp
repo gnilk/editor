@@ -41,6 +41,16 @@ bool PluginExecutor::ParseAndExecuteWithCmdPrefix(const std::u32string &cmdline3
     return true;
 }
 
+bool PluginExecutor::Execute(const std::string &name, const std::vector<std::string> &args) {
+    if (!RuntimeConfig::Instance().HasPluginCommand(name)) {
+        auto logger = gnilk::Logger::GetLogger("PluginExecutor");
+        logger->Error("No plugin command '%s'", name.c_str());
+        return false;
+    }
+    RuntimeConfig::Instance().GetPluginCommand(name)->Execute(args);
+    return true;
+}
+
 bool PluginExecutor::IsPluginCommandLine(const std::u32string &cmdline32) {
     auto prefix = Config::Instance()["main"].GetStr("cmdlet_prefix");
     auto cmdline = UnicodeHelper::utf32to8(cmdline32);

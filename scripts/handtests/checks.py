@@ -140,6 +140,45 @@ def undo_star(n):
         g.kill()
 
 
+@check('#58 Ctrl+S saves (the Linux keymaps)')
+def save_key(n):
+    sb, work = sandbox('save_key')
+    path = os.path.join(work, 'a.txt')
+    write(path, 'hello\n')
+    user_config(sb, 'main:\n  autosave_timeout_ms: 0\n')
+    g = Goat(sb, ['a.txt'], cwd=work, skip_user_config=False)
+    try:
+        g.ready()
+        g.send(alt('e'), 0.5)
+        g.send(END, 0.2)
+        g.type('x', wait=0.3)
+        n(modified(g), 'after typing: *')
+        g.send(ctrl('s'), 0.8)
+        n(not modified(g), f'Ctrl+S in the editor: no * ({g.status_line().strip()[:60]})')
+        with open(path) as f:
+            n(f.read().startswith('hellox'), 'saved to disk')
+        # From the terminal panel: still the active buffer
+        g.send(alt('e'), 0.3)
+        g.type('y', wait=0.3)
+        g.send(alt('t'), 0.5)
+        g.send(ctrl('s'), 0.8)
+        with open(path) as f:
+            n(f.read().startswith('helloxy'), 'Ctrl+S with the terminal focused saves the active buffer')
+        # Changed on disk: asks, as '.s' does
+        time.sleep(1.1)
+        write(path, 'other\n')
+        g.send(alt('e'), 1.5)
+        g.type('z', wait=0.3)
+        g.send(ctrl('s'), 0.8)
+        n(g.wait_text('changed on disk', 2.0), 'changed on disk: asks first')
+        g.send(ESC, 0.5)
+        with open(path) as f:
+            n(f.read() == 'other\n', 'Cancel leaves the file as the other program wrote it')
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+
+
 @check('#16 Text encodings')
 def latin1(n):
     sb, work = sandbox('latin1')

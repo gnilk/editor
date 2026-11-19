@@ -72,6 +72,7 @@ namespace gedit {
         kActionReformatBlock,           // default: Cmd/Ctrl+I - re-derive indentation of the selection/block
         kActionSelectAll,               // default: Cmd/Ctrl+A - select the whole buffer
         kActionPromoteToTerminal,       // default: Cmd/Ctrl+Enter - the selection (or line) to the terminal, not via the clipboard
+        kActionSave,                    // default: Cmd/Ctrl+S - save the active buffer, as '.s' (asks when changed on disk)
 
         // Terminal actions
         kActionShellCompletion,

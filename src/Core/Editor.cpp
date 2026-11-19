@@ -691,6 +691,9 @@ void Editor::HandleGlobalAction(const EditorAction &kpAction) {
             if ((key >= '1') && (key <= '9')) {
                 ActionHelper::SwitchToBufferNumber(key - '0');
             }
+        } else if (kpAction.action == kAction::kActionSave) {
+            // The '.s' path, so a file changed on disk still asks first (hitlist #58)
+            PluginExecutor::Execute("save");
         } else if (kpAction.action == kAction::kActionFind) {
             ActionHelper::ShowFind();
         } else if (kpAction.action == kAction::kActionGotoSymbol) {

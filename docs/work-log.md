@@ -8,6 +8,23 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## Dot-commands at the terminal prompt; the bash 5 quit hang (2026-11-19) ✅
+
+**Hitlist #57.** Since #51 every line the editor prints goes above the shell's prompt - right for output nobody typed
+a command for (the banner, plugins), wrong for a dot-command typed at that prompt: its output went above it and the
+command itself was never on screen. **Load-bearing decisions:** `TerminalController::RunDotCommand` writes the command
+onto the prompt line and moves to the row below, so `WriteLine` (still `WriteAboveCursorLine`) prints there; after
+the command the cursor goes up onto the last row written, and the empty line the shell is sent moves it down and
+draws the next prompt right below - no blank row, and the shell's relative cursor bookkeeping stays right (it is idle
+at its prompt). A dot-command typed after Tab (readline owns the line) is unchanged. `TerminalScreen::MarkOutputEnd`:
+the first dot-command after a shell command ends that command's output at its prompt row, so `.co` still copies it.
+Found with it: quitting with Homebrew bash 5 hung - bash writes on SIGHUP and exits, `ConsumePty` has stopped reading
+and waits in `ReapChild`, macOS keeps the exiting process (state `E`) until its tty output drains; `SIGKILL` can't end
+that. `ReapChild` closes the master before waiting (`test_process_shellclose_output_on_hup` reproduces it with
+`/bin/sh` and a HUP trap). Check `dot_at_prompt` (bash and zsh).
+
+---
+
 ## Dark 2026 (from VS Code) shipped, generated from its source (2026-11-18) ✅
 
 **Hitlist #20** (`theme-collection.md` §4.1). **Load-bearing decisions:**

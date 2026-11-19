@@ -72,6 +72,19 @@ struct PostCollector {
         }
         return false;
     }
+    // Run posts as they come until 'isDone' holds - the stream may deliver one change's paths in more than one batch
+    // (a rename's two folders, under load). False on timeout.
+    bool RunUntil(const std::function<bool()> &isDone, std::chrono::milliseconds timeout) {
+        auto tEnd = std::chrono::steady_clock::now() + timeout;
+        while (std::chrono::steady_clock::now() < tEnd) {
+            auto left = std::chrono::duration_cast<std::chrono::milliseconds>(tEnd - std::chrono::steady_clock::now());
+            WaitAndRun(std::max(left, std::chrono::milliseconds(1)));
+            if (isDone()) {
+                return true;
+            }
+        }
+        return isDone();
+    }
 };
 
 DLL_EXPORT int test_foldermonitor_fsevents(ITesting *t) {
@@ -98,16 +111,13 @@ DLL_EXPORT int test_foldermonitor_fsevents(ITesting *t) {
     TR_ASSERT(t, monitor->IsRunning());
 
     { std::ofstream(root / "src" / "a.txt") << "x\n"; }
-    TR_ASSERT(t, collector.WaitAndRun(3000ms));
-    TR_ASSERT(t, dirty.contains(root / "src"));
+    TR_ASSERT(t, collector.RunUntil([&dirty, &root]() { return dirty.contains(root / "src"); }, 3000ms));
     TR_ASSERT(t, !isLost);
 
     // A rename: both names' folder is dirty, no matter what the flags claim
     dirty.clear();
     fs::rename(root / "src" / "a.txt", root / "b.txt");
-    TR_ASSERT(t, collector.WaitAndRun(3000ms));
-    TR_ASSERT(t, dirty.contains(root / "src"));
-    TR_ASSERT(t, dirty.contains(root));
+    TR_ASSERT(t, collector.RunUntil([&dirty, &root]() { return dirty.contains(root / "src") && dirty.contains(root); }, 3000ms));
 
     // A build: nothing reaches the main thread (latency 0.3 s - a second is plenty)
     dirty.clear();

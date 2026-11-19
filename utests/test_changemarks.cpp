@@ -274,8 +274,8 @@ DLL_EXPORT int test_changemarks_drawn(ITesting *t) {
     // Changed and added apart, and neither in the numbers' colour
     TR_ASSERT(t, screen->CellAt(col, 1).fg != screen->CellAt(col, 3).fg);
     TR_ASSERT(t, screen->CellAt(col, 1).fg != screen->CellAt(5, 1).fg);
-    // The number is still there
-    TR_ASSERT(t, screen->CellAt(5, 1).ch == U'1');
+    // The number is still there - line 2 (they count from 1 since hitlist #43)
+    TR_ASSERT(t, screen->CellAt(5, 1).ch == U'2');
 
     workspace->RemoveOpenDocument(document);
     Editor::Instance().SetActiveDocument(prevActive);

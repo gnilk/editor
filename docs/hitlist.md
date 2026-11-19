@@ -23,6 +23,7 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
   - [ ] Linux [ ] Mac - the window: `make` / `cmake --build cmake-build-debug` with an error in a file - "build: N errors, M warnings" on the status line when it ends; `F8` opens the first error at its line and column ("error 1/N"), again goes on (errors, then warnings), `Shift+F8` back; `Cmd/Ctrl+[` comes back from each
   - [ ] Linux [ ] Mac - `Cmd/Ctrl+F8`: the list (the command and the counts in the caption), type to filter, Enter goes there, `F8` goes on from that one
   - [ ] Linux [ ] Mac - a long build (this repo, `-j`): `Cmd/Ctrl+F8` while it still runs lists what has come so far ("(running)"); an `ls` after the build keeps the list; the next build replaces it
+    - Mac 2026-11-19: `make -j` on testrunner in the panel listed 1 of its warnings - clang wraps messages to the panel's width; fixed (dev 3293995a), every warning listed now, each once though several targets compile the file
 - **A save key** (#58)
   - [ ] Linux [ ] Mac - the window: `Cmd+S` (Mac) / `Ctrl+S` (Linux) saves the active file, the `*` goes; with the terminal or tree focused it still saves the active file; another program rewrote the file: it asks (Overwrite / Reload / Cancel) as `.s` does (scripted: `save_key`, the Linux keymaps in a pty - Mac 2026-11-19 pass)
   - [ ] Linux - `nano` in the terminal panel: `Ctrl+S` is nano's save, not the editor's (an app owns the terminal - the key goes to it)

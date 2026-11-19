@@ -50,6 +50,7 @@ DLL_EXPORT int test_terminalcontroller_sync_output(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_sync_output_frame(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_panel_names(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_title(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_build_fastend(ITesting *t);
 }
 
 #include <cstdint>   // UINT64_MAX
@@ -1072,5 +1073,23 @@ DLL_EXPORT int test_terminalcontroller_title(ITesting *t) {
     controller.HandleTerminalData((const uint8_t *)osc2.data(), osc2.size());
     TR_ASSERT(t, controller.GetTitle() == "other");
     TR_ASSERT(t, numChanges == 2);
+    return kTR_Pass;
+}
+
+// Hitlist #52 (Linux report 2026-11-19): a build that starts, prints and ends between two reads was never seen running,
+// so the run never ended and "build: ..." never showed. The shell's ;D in the bytes ends it - after those bytes are read.
+DLL_EXPORT int test_terminalcontroller_build_fastend(ITesting *t) {
+    TerminalController c;
+    c.Resize(60, 10);
+    FeedPty(c, "\x1b]133;A\x07" "$ " "\x1b]133;B\x07");
+    c.GetInputLine()->Append(std::u32string(U"cc -c bad.c"));
+    c.CommitLine();
+    auto &build = Editor::Instance().GetBuildMessages();
+    TR_ASSERT(t, build.IsRunning());
+    // One read: the echo, the error, the end, the next prompt
+    FeedPty(c, "cc -c bad.c\r\n" "\x1b]133;C\x07" "bad.c:2:16: error: use of undeclared identifier 'nope'\r\n"
+               "\x1b]133;D;1\x07" "\x1b]133;A\x07" "$ ");
+    TR_ASSERT(t, !build.IsRunning());
+    TR_ASSERT(t, build.NumErrors() == 1);
     return kTR_Pass;
 }

@@ -303,13 +303,17 @@ void TerminalController::HandleTerminalData(const uint8_t *buffer, size_t length
 }
 
 // On the pty thread. The summary goes to the status line on the UI thread.
+// The command's end (OSC 133;D) was parsed with these bytes, before they get here - the run ends after them. A fast
+// build (cc on one file) can start, print and end between two reads: the sampled job state then never saw it run.
 void TerminalController::FeedBuildMessages(const uint8_t *buffer, size_t length) {
+    bool isCommandDone = std::exchange(isCommandDoneSeen, false);
     auto &buildMessages = Editor::Instance().GetBuildMessages();
     if (!buildMessages.IsRunning()) {
         return;
     }
     buildMessages.Feed(std::string_view(reinterpret_cast<const char *>(buffer), length), this);
-    if (buildMessages.UpdateJobState(IsForegroundJobRunning(), this)) {
+    bool isEnded = isCommandDone ? buildMessages.OnCommandDone(this) : buildMessages.UpdateJobState(IsForegroundJobRunning(), this);
+    if (isEnded) {
         Runloop::PostMessage(0x00, [](uint32_t) {
             auto &messages = Editor::Instance().GetBuildMessages();
             Editor::Instance().ShowStatusMessage(UnicodeHelper::utf8to32("build: " + messages.Summary()));
@@ -417,6 +421,9 @@ void TerminalController::OnSemanticPrompt(char kind, std::string_view params) {
     useOsc133Boundaries = true;
     if (kind == 'C') {
         screen.MarkOutputStart(true);
+    } else if (kind == 'D') {
+        // The build messages hear it once the bytes it came with are fed to them (FeedBuildMessages)
+        isCommandDoneSeen = true;
     }
 }
 

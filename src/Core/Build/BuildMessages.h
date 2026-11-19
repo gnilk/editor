@@ -3,7 +3,8 @@
 //
 // A run starts when a command we support is committed in the terminal (BeginRun) and gets the pty's bytes as they
 // come (Feed - on the pty thread, so everything here is under one lock), so the list fills while the build still
-// runs. It ends when its job does (UpdateJobState), or at the next command. Only a supported command starts a new
+// runs. It ends when the shell says the command finished (OnCommandDone), when its job is seen to end (UpdateJobState -
+// a shell without the OSC 133 marks), or at the next command. Only a supported command starts a new
 // run: an 'ls' after the build leaves its list alone.
 //
 // Paths are resolved when asked (ResolvePath) against what the run knew: make's / ninja's directory, the shell's
@@ -49,6 +50,9 @@ namespace gedit {
         void Feed(std::string_view bytes, const void *terminal = nullptr);
         // The terminal's foreground job, after a read: once a job was seen, its end ends the run. True when it did.
         bool UpdateJobState(bool isJobRunning, const void *terminal = nullptr);
+        // The shell says the command finished (OSC 133;D): the end of this terminal's run, also when the job was too fast
+        // for UpdateJobState to ever see it running. True when it ended a run.
+        bool OnCommandDone(const void *terminal = nullptr);
         // True when a running run ended
         bool EndRun();
 

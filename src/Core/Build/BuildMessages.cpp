@@ -96,6 +96,16 @@ bool BuildMessages::UpdateJobState(bool isJobRunning, const void *terminal) {
     return EndRun();
 }
 
+bool BuildMessages::OnCommandDone(const void *terminal) {
+    {
+        std::lock_guard<std::mutex> guard(lock);
+        if (!isRunning || (terminal != runTerminal)) {
+            return false;
+        }
+    }
+    return EndRun();
+}
+
 bool BuildMessages::EndRun() {
     std::lock_guard<std::mutex> guard(lock);
     if (!isRunning) {

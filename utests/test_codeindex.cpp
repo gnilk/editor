@@ -180,6 +180,7 @@ extern "C" {
     DLL_EXPORT int test_codeindex_workspace_context(ITesting *t);
     DLL_EXPORT int test_codeindex_workspace_snapshot(ITesting *t);
     DLL_EXPORT int test_codeindex_workspace_buffer(ITesting *t);
+DLL_EXPORT int test_codeindex_reparse_backtoback(ITesting *t);
     DLL_EXPORT int test_codeindex_workspace_fileownfirst(ITesting *t);
     DLL_EXPORT int test_codeindex_workspace_otherlanguage(ITesting *t);
     DLL_EXPORT int test_codeindex_syntax_semanticclass(ITesting *t);
@@ -1797,6 +1798,38 @@ static WorkspaceNames::Ref MakeWorkspaceNames(const std::vector<std::pair<std::u
         names->Add(name, tokenClass);
     }
     return names;
+}
+
+// Threaded parsing: a full parse right after another one is done, not dropped. The parse thread reported the job
+// complete before it was idle again, and Reparse only queues when idle - the second request was lost now and then
+// (Linux, a loaded parallel run: workspace_buffer saw the old colours).
+DLL_EXPORT int test_codeindex_reparse_backtoback(ITesting *t) {
+    auto buffer = CPPBuffer({U"ViewBase view;"});
+    auto mainConfig = Config::Instance()["main"];
+    auto wasThreaded = mainConfig.GetBool("threaded_syntaxparser", false);
+    mainConfig.SetBool("threaded_syntaxparser", true);
+    auto withViewBase = MakeWorkspaceNames({{U"ViewBase", kLanguageTokenClass::kUserType}});
+    auto none = MakeWorkspaceNames({});
+    WorkspaceNames::Ref names = none;
+    buffer->SetWorkspaceNamesSource([&names]() -> WorkspaceNames::Ref {
+        return names;
+    });
+    buffer->Reparse();
+    int numLost = 0;
+    for (int i = 0; i < 2000; i++) {
+        bool isNamed = (i % 2) == 0;
+        names = isNamed ? withViewBase : none;
+        buffer->Reparse();
+        auto expected = isNamed ? kLanguageTokenClass::kUserType : kLanguageTokenClass::kRegular;
+        if (ClassOf(buffer, 0, U"ViewBase") != expected) {
+            numLost++;
+        }
+    }
+    buffer->SetWorkspaceNamesSource(nullptr);
+    buffer->Close();
+    mainConfig.SetBool("threaded_syntaxparser", wasThreaded);
+    TR_ASSERT(t, numLost == 0);
+    return kTR_Pass;
 }
 
 DLL_EXPORT int test_codeindex_workspace_buffer(ITesting *t) {

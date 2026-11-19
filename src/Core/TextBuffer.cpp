@@ -251,8 +251,11 @@ void TextBuffer::ParseThread() {
         logger->Debug("ParseThread, job completed. Duration=%ld ms, Type=%s", duration.count(),
                       (job->jobType == ParseJobType::kParseFull) ? "Full" : "Region");
 
-        Editor::Instance().TriggerUIRedraw();
+        // Idle before the waiter hears it's done: Reparse queues only when idle, so the next request from a waiter
+        // that returned while this still said 'parsing' was dropped
         ChangeParseState(kState_Idle);
+        job->NotifyComplete();
+        Editor::Instance().TriggerUIRedraw();
     }
     ChangeParseState(kState_None);
 }
@@ -265,7 +268,6 @@ void TextBuffer::ExecuteParseJob(const ParseJob::Ref &job) {
     } else if (job->jobType == ParseJobType::kWorkspaceNames) {
         TakeWorkspaceNames();
     }
-    job->NotifyComplete();
 }
 
 void TextBuffer::ExecuteFullParse() {

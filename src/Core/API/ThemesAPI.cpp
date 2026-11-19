@@ -25,6 +25,7 @@ static std::filesystem::path ResolveSourcePath(const std::string &file);
 static std::optional<std::string> ThemeFileName(const std::string &name, const std::string &themeName, std::string &error);
 static std::string Quoted(const std::string &str);
 static ThemeImporter::Provenance ProvenanceAround(const std::filesystem::path &themePath);
+static std::string ThemeOrigin();
 
 ThemesAPI::Result ThemesAPI::List() {
     Result result;
@@ -52,13 +53,57 @@ ThemesAPI::Result ThemesAPI::List() {
     if (themes.empty()) {
         result.lines.push_back("No themes found");
     }
-    result.lines.push_back("'.theme use <name>' switches (the file name without .theme.yml, or the theme's name)");
+    result.lines.push_back(ThemeOrigin());
+    result.lines.push_back("'.theme use [--user | --project] <name>' switches (the file name without .theme.yml, or the theme's name)");
     result.isOk = !themes.empty();
     return result;
 }
 
-ThemesAPI::Result ThemesAPI::Use(const std::string &name) {
+ThemesAPI::Result ThemesAPI::Use(const std::string &name, ConfigAPI::kLevel level) {
     Result result;
+    if (level == ConfigAPI::kLevel::kRunning) {
+        result.lines.push_back("Use needs a level: user or project");
+        return result;
+    }
+    auto fileName = Find(name);
+    std::optional<ThemeInfo> found;
+    for (auto &theme : Available()) {
+        if (theme.fileName == fileName) {
+            found = theme;
+        }
+    }
+    if (!found.has_value()) {
+        result.lines.push_back("No theme '" + name + "' - '.theme list' shows them");
+        return result;
+    }
+    // The project's own main.theme wins in this project - a user choice applies elsewhere
+    auto projectTheme = ProjectTheme();
+    bool isOverridden = (level == ConfigAPI::kLevel::kUser) && !projectTheme.empty() && (projectTheme != found->fileName);
+    if (!isOverridden) {
+        std::string problem;
+        if (!Editor::Instance().UseTheme(found->fileName, problem)) {
+            result.lines.push_back("Theme '" + found->name + "' can't be loaded: " + problem + " - keeping the current one");
+            return result;
+        }
+        result.lines.push_back("Using '" + found->name + "'");
+    }
+    auto saved = ConfigAPI().Set(level, "main.theme", found->fileName);
+    for (auto &line : saved.lines) {
+        // The project overriding it is said below, in words about themes
+        if (!isOverridden || (line.find("overrides it") == std::string::npos)) {
+            result.lines.push_back("  " + line);
+        }
+    }
+    if (isOverridden) {
+        result.lines.push_back("'" + found->name + "' is your theme now, but this project's config sets main.theme: " +
+                               projectTheme + " - that one stays here ('.theme use --project' or");
+        result.lines.push_back("  '.cfg --project unset main.theme' to change it)");
+    }
+    result.isOk = saved.isOk;
+    return result;
+}
+
+std::string ThemesAPI::Find(const std::string &name) {
     auto lower = [](std::string text) {
         for (auto &ch : text) {
             ch = (char)std::tolower((unsigned char)ch);
@@ -66,30 +111,20 @@ ThemesAPI::Result ThemesAPI::Use(const std::string &name) {
         return text;
     };
     std::string wanted = lower(name);
-    std::optional<ThemeInfo> found;
     for (auto &theme : Available()) {
         auto stem = theme.fileName.substr(0, theme.fileName.size() - std::string(".theme.yml").size());
         if ((lower(theme.fileName) == wanted) || (lower(stem) == wanted) || (lower(theme.name) == wanted)) {
-            found = theme;
-            break;
+            return theme.fileName;
         }
     }
-    if (!found.has_value()) {
-        result.lines.push_back("No theme '" + name + "' - '.theme list' shows them");
-        return result;
+    return {};
+}
+
+std::string ThemesAPI::ProjectTheme() {
+    if (ConfigAPI().Origin("main.theme") != "project") {
+        return {};
     }
-    std::string problem;
-    if (!Editor::Instance().UseTheme(found->fileName, problem)) {
-        result.lines.push_back("Theme '" + found->name + "' can't be loaded: " + problem + " - keeping the current one");
-        return result;
-    }
-    result.lines.push_back("Using '" + found->name + "'");
-    auto saved = ConfigAPI().Set(ConfigAPI::kLevel::kUser, "main.theme", found->fileName);
-    for (auto &line : saved.lines) {
-        result.lines.push_back("  " + line);
-    }
-    result.isOk = true;
-    return result;
+    return Config::Instance()["main"].GetStr("theme", "");
 }
 
 // In lookup order (Theme::Locate): the user's themes/, the user dir, the shipped Themes/ - a file name once, where
@@ -237,6 +272,21 @@ ThemesAPI::Result ThemesAPI::Import(const std::string &file, const std::string &
     result.lines.push_back("  (in the editor: .cfg --user set main.theme " + themePath.filename().string() + ") and restart");
     result.isOk = true;
     return result;
+}
+
+// Where main.theme comes from - a project's config wins over the user's, and says so nowhere else
+static std::string ThemeOrigin() {
+    ConfigAPI configApi;
+    auto theme = Config::Instance()["main"].GetStr("theme", "");
+    auto origin = configApi.Origin("main.theme");
+    if (origin == "project") {
+        return "main.theme: " + theme + " - from this project's config (" +
+               configApi.ConfigFilePath(ConfigAPI::kLevel::kProject).string() + ")";
+    }
+    if (origin == "user") {
+        return "main.theme: " + theme + " - from your user config (" + configApi.ConfigFilePath(ConfigAPI::kLevel::kUser).string() + ")";
+    }
+    return "main.theme: " + theme + " - the default";
 }
 
 static std::optional<std::string> ReadText(const std::filesystem::path &path) {

@@ -99,7 +99,8 @@ Dark+/Light+, Visual Studio Dark/Light, High Contrast dark/light. They include e
    installed whole; the stale-asset cleanup (#24) removes the old root files from an install.
 3. `.theme list` (name, author, licence, user/system) and `.theme use <name>` (a `.cfg --user set main.theme`). **Built
    2026-11-18** (`feature/theme-list`): live, no restart - `Theme::Switch` + `Editor::ApplyTheme` (the open documents are
-   highlighted again).
+   highlighted again). **Levels 2026-11-19** (hitlist #59): `.theme use --project`; `--user` in a project that sets its
+   own `main.theme` asks (remove it from the project / keep it / cancel); `.theme list` says where it comes from.
 4. Vendor the first themes: Dark 2026 (from VS Code), with `LICENSES.md`; then a light one. Each with its own terminal
    palette. **Dark 2026 built 2026-11-18** (`feature/vscode-themes`, §4.1): `scripts/gen-themes.py`, overlay
    `Assets/ThemeSources/overlays/vscode-dark-2026.json`. A light one: add its source chain and an overlay, run the script.

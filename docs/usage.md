@@ -40,7 +40,7 @@ Three layers, merged in this order (later wins, key by key):
 2. **User** - `~/.config/goatedit/config.yml` (both platforms; the old `~/.goatedit/` is still read).
 3. **Project** - `<project>/.goatedit/config.yml` - keys that run code (shell, bootstrap scripts, plugin dir, log file) are ignored here.
 
-- `.cfg list [prefix]` / `.cfg get <key>` / `.cfg --user set <key> <value>` / `.cfg --user edit` - read/change it from inside (comments are kept).
+- `.cfg list [prefix]` / `.cfg get <key>` / `.cfg --user set <key> <value>` / `.cfg --user unset <key>` / `.cfg --user edit` - read/change it from inside (comments are kept; `--project` for the project's).
 - Note: a **list** in your config currently overrides the default list entry by entry, not as a whole (open-bugs #28).
 - Keymaps are files named in the `macos:` / `linux:` sections of `config.yml` (e.g. `default_keymap: macOS/default_keymap.yml`); to change bindings, copy one into `~/.config/goatedit/`, give it a new name and point that key at it.
 - Text encoding: files that aren't UTF-8 are read as `main.encoding_fallback` (cp1252) and saved back the same way (`main.convert_encoding: keep`); `.encoding` shows/changes it.
@@ -125,7 +125,7 @@ in the editor; anything else (`./build.sh`) goes to the shell. The prefix is `ma
 | `.setlanguage <id>` / `.listlanguages` | `.sl` / `.ll` | language of the buffer |
 | `.fm_file` / `.fm_block` | `.fmf` / `.fmb` | reindent file / block |
 | `.copyoutput` / `.outputtobuffer` | `.co` / `.ob` | last terminal command's output: to clipboard / to a new buffer |
-| `.theme list` / `.theme use <name>` | | the themes there are / switch to one now (kept in your user config) |
+| `.theme list` / `.theme use [--project] <name>` | | the themes there are, and where yours comes from / switch to one now (kept in your user config; `--project`: this project's). A project that sets its own theme keeps it - `.theme use` asks whether to take it out |
 | `.theme --import <file>` | | convert a VS Code / Sublime theme (into `~/.config/goatedit/themes/`) |
 | `.theme_reload` / `.theme_list_colors` | `.thr` / `.thc` | theme |
 | `.cfg ...` | | configuration (above) |

@@ -8,6 +8,19 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## `.theme use` at a level (2026-11-19) ✅
+
+**Hitlist #59.** A project's `.goatedit/config.yml` with its own `main.theme` won over `.theme use` after a restart,
+with no word why. **Load-bearing decisions:** the live theme follows the config that wins - `.theme use` (user, the
+default) in a project that sets another theme doesn't switch unless the project's value goes; the script asks
+(`Editor.Confirm`: Remove it from the project / Keep the project's / Cancel), the C++ side only answers questions
+(`Themes.Find`, `Themes.ProjectTheme`) and writes. `ConfigFilePatcher::RemoveScalar` takes one value's line out and a
+section it leaves empty (`main:` alone would read as null), verified like `SetScalar` (re-parsed, must equal the
+original minus the key) - shared checks `CheckKeyPath` / `AnalyzeLines`; `ConfigAPI::Unset` (+ `.cfg unset`) and
+`ApplyEffective` (the tail `Set` had). `.theme list` ends with where `main.theme` comes from. Check `theme_project`.
+
+---
+
 ## Dot-commands at the terminal prompt; the bash 5 quit hang (2026-11-19) ✅
 
 **Hitlist #57.** Since #51 every line the editor prints goes above the shell's prompt - right for output nobody typed

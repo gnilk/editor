@@ -19,6 +19,7 @@ void ConfigAPIWrapper::RegisterModule(duk_context *ctx) {
     dukglue_register_method(ctx, &ConfigAPIWrapper::List, "List");
     dukglue_register_method(ctx, &ConfigAPIWrapper::Get, "Get");
     dukglue_register_method(ctx, &ConfigAPIWrapper::Set, "Set");
+    dukglue_register_method(ctx, &ConfigAPIWrapper::Unset, "Unset");
     dukglue_register_method(ctx, &ConfigAPIWrapper::Edit, "Edit");
 }
 
@@ -47,6 +48,15 @@ std::vector<std::string> ConfigAPIWrapper::Set(const char *level, const char *ke
     }
     auto configApi = Editor::Instance().GetGlobalAPIObject<ConfigAPI>();
     return configApi->Set(configLevel.value(), key, value).lines;
+}
+
+std::vector<std::string> ConfigAPIWrapper::Unset(const char *level, const char *key) {
+    auto configLevel = ConfigAPI::LevelFromString(level);
+    if (!configLevel.has_value()) {
+        return { std::string("Unknown level '") + level + "'" };
+    }
+    auto configApi = Editor::Instance().GetGlobalAPIObject<ConfigAPI>();
+    return configApi->Unset(configLevel.value(), key).lines;
 }
 
 std::vector<std::string> ConfigAPIWrapper::Edit(const char *level) {

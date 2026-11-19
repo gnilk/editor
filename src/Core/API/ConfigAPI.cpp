@@ -194,13 +194,63 @@ ConfigAPI::Result ConfigAPI::Set(kLevel level, const std::string &key, const std
     if (!running.IsDefined()) {
         result.lines.push_back("Note: " + key + " is not in the running config - check the spelling");
     }
+    ApplyEffective(level, keyPath, result);
+    return result;
+}
 
-    // Update the running instance with the EFFECTIVE value - which may not be the one just written
+ConfigAPI::Result ConfigAPI::Unset(kLevel level, const std::string &key) {
+    Result result;
+    if (level == kLevel::kRunning) {
+        result.lines.push_back("unset needs a level: --user or --project");
+        return result;
+    }
+    auto keyPath = SplitKey(key);
+    if (keyPath.size() < 2) {
+        result.lines.push_back("Invalid key '" + key + "' (use section.key)");
+        return result;
+    }
+    auto path = ConfigFilePath(level);
+    if (path.empty()) {
+        result.lines.push_back("No project is open");
+        return result;
+    }
+    if (!ConfigNode::NodeAtPath(LoadFile(path), keyPath).IsDefined()) {
+        result.lines.push_back(key + " is not set in the " + LevelName(level) + " config");
+        result.isOk = true;
+        return result;
+    }
+    std::string text;
+    if (!ReadFile(path, text)) {
+        result.lines.push_back("Unable to read " + path.string());
+        return result;
+    }
+    auto patched = ConfigFilePatcher::RemoveScalar(text, keyPath);
+    if (!patched.isOk) {
+        result.lines.push_back("Can't edit " + path.string() + " safely: " + patched.error);
+        result.lines.push_back("Nothing was written - use '.cfg --" + LevelName(level) + " edit' to change it by hand");
+        return result;
+    }
+    std::string error;
+    if (!WriteFileAtomic(path, patched.text, error)) {
+        result.lines.push_back("Unable to write " + path.string() + ": " + error);
+        return result;
+    }
+    result.isOk = true;
+    result.lines.push_back(key + " removed from " + path.string());
+    ApplyEffective(level, keyPath, result);
+    return result;
+}
+
+std::string ConfigAPI::Origin(const std::string &key) {
+    return OriginOf(LoadLevelFiles(*this), SplitKey(key));
+}
+
+void ConfigAPI::ApplyEffective(kLevel level, const std::vector<std::string> &keyPath, Result &result) {
     auto files = LoadLevelFiles(*this);
     bool isLevelApplied = (level == kLevel::kUser) ? files.isUserApplied : files.isProjectApplied;
     if (!isLevelApplied) {
         result.lines.push_back("Note: the running editor doesn't use the " + LevelName(level) + " config (--skip-user-config or no project at startup) - unchanged");
-        return result;
+        return;
     }
     if ((level == kLevel::kUser) && files.isProjectApplied && !ProjectConfigPolicy::IsDenied(keyPath)) {
         auto projectNode = ConfigNode::NodeAtPath(files.project, keyPath);
@@ -210,6 +260,7 @@ ConfigAPI::Result ConfigAPI::Set(kLevel level, const std::string &key, const std
     }
     auto effective = EffectiveValue(files, keyPath);
     if (effective.has_value()) {
+        auto running = ConfigNode::NodeAtPath(Config::Instance().GetDataNode(), keyPath);
         // 'running' points into the live tree - take the old value before it's overwritten
         auto oldValue = running.IsDefined() ? std::optional<std::string>(ValueToString(running)) : std::nullopt;
         try {
@@ -222,7 +273,6 @@ ConfigAPI::Result ConfigAPI::Set(kLevel level, const std::string &key, const std
         }
     }
     result.lines.push_back("Applied to the views - settings only read at startup need a restart");
-    return result;
 }
 
 // Views re-read their config in ReInitView - re-initialize the whole tree, the same pair the view resize

@@ -38,35 +38,23 @@ static bool IsPlainKey(const std::string &key);
 static bool IsPlainScalarChar(char ch);
 static std::optional<std::string> Verify(const std::string &original, const std::string &patched,
                                          const std::vector<std::string> &keyPath, const std::string &value);
+static std::optional<std::string> VerifyRemoved(const std::string &original, const std::string &patched,
+                                                const std::vector<std::string> &keyPath);
+static std::optional<std::string> CheckKeyPath(const std::string &text, const std::vector<std::string> &keyPath);
+static std::optional<std::string> AnalyzeLines(const std::vector<std::string> &lines, std::vector<LineInfo> &outInfos);
 
 ConfigFilePatcher::Result ConfigFilePatcher::SetScalar(const std::string &text, const std::vector<std::string> &keyPath, const std::string &value) {
     Result result;
-    if (keyPath.empty()) {
-        result.error = "empty key";
+    if (auto error = CheckKeyPath(text, keyPath)) {
+        result.error = error.value();
         return result;
     }
-    for (auto &segment : keyPath) {
-        if (!IsPlainKey(segment)) {
-            result.error = "unsupported key '" + segment + "' (letters, digits, '_' and '-' only)";
-            return result;
-        }
-    }
-    if (text.find('\r') != std::string::npos) {
-        result.error = "the file has CRLF line endings";
-        return result;
-    }
-
     bool endsWithNewline = true;
     auto lines = SplitLines(text, endsWithNewline);
     std::vector<LineInfo> infos;
-    infos.reserve(lines.size());
-    for (auto &line : lines) {
-        auto info = AnalyzeLine(line);
-        if (info.isContent && (line.find_first_not_of(' ') < line.size()) && (line[line.find_first_not_of(' ')] == '\t')) {
-            result.error = "the file uses tab indentation";
-            return result;
-        }
-        infos.push_back(info);
+    if (auto error = AnalyzeLines(lines, infos)) {
+        result.error = error.value();
+        return result;
     }
 
     auto formatted = FormatScalar(value);
@@ -195,6 +183,101 @@ ConfigFilePatcher::Result ConfigFilePatcher::SetScalar(const std::string &text, 
     return result;
 }
 
+ConfigFilePatcher::Result ConfigFilePatcher::RemoveScalar(const std::string &text, const std::vector<std::string> &keyPath) {
+    Result result;
+    if (auto error = CheckKeyPath(text, keyPath)) {
+        result.error = error.value();
+        return result;
+    }
+    bool endsWithNewline = true;
+    auto lines = SplitLines(text, endsWithNewline);
+    std::vector<LineInfo> infos;
+    if (auto error = AnalyzeLines(lines, infos)) {
+        result.error = error.value();
+        return result;
+    }
+
+    // Walk down the key path as SetScalar does; each step's line and the end of the block below it
+    struct Step {
+        size_t line;
+        size_t blockEnd;
+    };
+    std::vector<Step> steps;
+    size_t scopeBegin = 0;
+    size_t scopeEnd = lines.size();
+    for (auto &segment : keyPath) {
+        int childIndent = -1;
+        for (size_t i = scopeBegin; i < scopeEnd; i++) {
+            if (infos[i].isContent && ((childIndent < 0) || (infos[i].indent < childIndent))) {
+                childIndent = infos[i].indent;
+            }
+        }
+        std::optional<size_t> found;
+        for (size_t i = scopeBegin; i < scopeEnd; i++) {
+            if (infos[i].isContent && (infos[i].indent == childIndent) && (infos[i].key == segment)) {
+                found = i;
+                break;
+            }
+        }
+        if (!found.has_value()) {
+            result.error = "'" + segment + "' is not in the file";
+            return result;
+        }
+        auto blockEnd = found.value() + 1;
+        while (blockEnd < scopeEnd) {
+            auto &info = infos[blockEnd];
+            if (info.isContent && !((info.indent > infos[found.value()].indent) ||
+                                    ((info.indent == infos[found.value()].indent) && info.isSeqItem))) {
+                break;
+            }
+            blockEnd++;
+        }
+        steps.push_back({found.value(), blockEnd});
+        scopeBegin = found.value() + 1;
+        scopeEnd = blockEnd;
+    }
+
+    std::vector<bool> isRemoved(lines.size(), false);
+    auto &last = steps.back();
+    for (size_t i = last.line + 1; i < last.blockEnd; i++) {
+        if (infos[i].isContent) {
+            result.error = "'" + keyPath.back() + "' is a section or a list, or a value over several lines";
+            return result;
+        }
+    }
+    isRemoved[last.line] = true;
+    // A section left with nothing in it goes too - 'main:' alone would read as null
+    for (size_t idxStep = steps.size() - 1; idxStep > 0; idxStep--) {
+        auto &parent = steps[idxStep - 1];
+        bool isEmpty = true;
+        for (size_t i = parent.line + 1; i < parent.blockEnd; i++) {
+            if (infos[i].isContent && !isRemoved[i]) {
+                isEmpty = false;
+                break;
+            }
+        }
+        if (!isEmpty) {
+            break;
+        }
+        isRemoved[parent.line] = true;
+    }
+
+    std::vector<std::string> kept;
+    for (size_t i = 0; i < lines.size(); i++) {
+        if (!isRemoved[i]) {
+            kept.push_back(lines[i]);
+        }
+    }
+    auto patched = JoinLines(kept, endsWithNewline, kept.size(), {});
+    if (auto error = VerifyRemoved(text, patched, keyPath)) {
+        result.error = error.value();
+        return result;
+    }
+    result.isOk = true;
+    result.text = patched;
+    return result;
+}
+
 std::string ConfigFilePatcher::FormatScalar(const std::string &value) {
     bool isPlain = !value.empty() && std::all_of(value.begin(), value.end(), IsPlainScalarChar);
     if (isPlain) {
@@ -245,6 +328,76 @@ static std::optional<std::string> Verify(const std::string &original, const std:
     }
     if (YAML::Dump(expected) != YAML::Dump(actual)) {
         return std::string("the edit can't be placed safely in this file");
+    }
+    return {};
+}
+
+// The patched text must parse to "the original without this key, and without a section that left empty"
+static std::optional<std::string> VerifyRemoved(const std::string &original, const std::string &patched,
+                                                const std::vector<std::string> &keyPath) {
+    YAML::Node expected;
+    YAML::Node actual;
+    try {
+        expected = YAML::Load(original);
+    } catch (const YAML::Exception &e) {
+        return std::string("the file doesn't parse: ") + e.what();
+    }
+    if (!expected.IsMap()) {
+        return std::string("the file is not a map");
+    }
+    // The maps down the path, then take the key out and drop the maps it empties, deepest first
+    std::vector<YAML::Node> maps = {expected};
+    for (size_t i = 0; i + 1 < keyPath.size(); i++) {
+        YAML::Node next;
+        next.reset(maps.back()[keyPath[i]]);
+        maps.push_back(next);
+    }
+    maps.back().remove(keyPath.back());
+    for (size_t i = maps.size() - 1; i > 0; i--) {
+        if (maps[i].size() != 0) {
+            break;
+        }
+        maps[i - 1].remove(keyPath[i - 1]);
+    }
+
+    try {
+        actual = YAML::Load(patched);
+    } catch (const YAML::Exception &e) {
+        return std::string("the edit doesn't parse: ") + e.what();
+    }
+    if (actual.IsNull() || !actual.IsDefined()) {
+        actual = YAML::Node(YAML::NodeType::Map);
+    }
+    if (YAML::Dump(expected) != YAML::Dump(actual)) {
+        return std::string("the edit can't be placed safely in this file");
+    }
+    return {};
+}
+
+static std::optional<std::string> CheckKeyPath(const std::string &text, const std::vector<std::string> &keyPath) {
+    if (keyPath.empty()) {
+        return std::string("empty key");
+    }
+    for (auto &segment : keyPath) {
+        if (!IsPlainKey(segment)) {
+            return "unsupported key '" + segment + "' (letters, digits, '_' and '-' only)";
+        }
+    }
+    if (text.find('\r') != std::string::npos) {
+        return std::string("the file has CRLF line endings");
+    }
+    return {};
+}
+
+static std::optional<std::string> AnalyzeLines(const std::vector<std::string> &lines, std::vector<LineInfo> &outInfos) {
+    outInfos.clear();
+    outInfos.reserve(lines.size());
+    for (auto &line : lines) {
+        auto info = AnalyzeLine(line);
+        if (info.isContent && (line.find_first_not_of(' ') < line.size()) && (line[line.find_first_not_of(' ')] == '\t')) {
+            return std::string("the file uses tab indentation");
+        }
+        outInfos.push_back(info);
     }
     return {};
 }

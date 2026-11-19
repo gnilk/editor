@@ -36,6 +36,9 @@ DLL_EXPORT int test_config_patch_quoting(ITesting *t);
 DLL_EXPORT int test_config_patch_refuse(ITesting *t);
 DLL_EXPORT int test_config_patch_realconfig(ITesting *t);
 DLL_EXPORT int test_config_api_project_set(ITesting *t);
+DLL_EXPORT int test_config_patch_remove(ITesting *t);
+DLL_EXPORT int test_config_patch_remove_refuse(ITesting *t);
+DLL_EXPORT int test_config_api_project_unset(ITesting *t);
 }
 
 DLL_EXPORT int test_config(ITesting *t) {
@@ -472,6 +475,93 @@ DLL_EXPORT int test_config_api_project_set(ITesting *t) {
     // set needs a level; sections/lists can't be set
     TR_ASSERT(t, !configApi.Set(ConfigAPI::kLevel::kRunning, "cfgtest.value", "c").isOk);
     TR_ASSERT(t, !configApi.Set(ConfigAPI::kLevel::kProject, "languages.default", "x").isOk);
+
+    Config::Instance().RemoveKey("cfgtest");
+    std::filesystem::remove_all(root, ec);
+    return kTR_Pass;
+}
+
+// Taking a value out (hitlist #59: '.theme use' takes a project's main.theme out) - only its line goes; every other
+// line, comments included, stays byte for byte
+DLL_EXPORT int test_config_patch_remove(ITesting *t) {
+    auto result = ConfigFilePatcher::RemoveScalar(patchFixture, {"main", "theme"});
+    TR_ASSERT(t, result.isOk);
+    auto before = Lines(patchFixture);
+    auto after = Lines(result.text);
+    TR_ASSERT(t, after.size() == before.size() - 1);
+    for (size_t i = 0, j = 0; i < before.size(); i++) {
+        if (before[i] == "  theme: default.theme.yml   # the theme") {
+            continue;
+        }
+        TR_ASSERT(t, after[j++] == before[i]);
+    }
+
+    // The last value of a section takes the section along - 'editorview:' alone would read as null. Its comment stays.
+    result = ConfigFilePatcher::RemoveScalar(patchFixture, {"editorview", "wrap"});
+    TR_ASSERT(t, result.isOk);
+    TR_ASSERT(t, result.text.find("editorview:") == std::string::npos);
+    TR_ASSERT(t, result.text.find("  # soft wrap\n") != std::string::npos);
+    TR_ASSERT(t, result.text.find("languages:\n  cpp:\n") != std::string::npos);
+
+    // Nested: both empty sections go
+    result = ConfigFilePatcher::RemoveScalar(patchFixture, {"languages", "cpp", "auto_indent"});
+    TR_ASSERT(t, result.isOk);
+    TR_ASSERT(t, result.text.find("languages:") == std::string::npos);
+    TR_ASSERT(t, result.text.find("cpp:") == std::string::npos);
+    TR_ASSERT(t, result.text.find("# trailing comment\n") != std::string::npos);
+
+    // The only value in the file: nothing left
+    result = ConfigFilePatcher::RemoveScalar("main:\n  theme: x\n", {"main", "theme"});
+    TR_ASSERT(t, result.isOk);
+    TR_ASSERT(t, result.text.empty());
+
+    // Set then remove gives the file back
+    auto set = ConfigFilePatcher::SetScalar(patchFixture, {"main", "tabsize"}, "8");
+    TR_ASSERT(t, set.isOk);
+    result = ConfigFilePatcher::RemoveScalar(set.text, {"main", "tabsize"});
+    TR_ASSERT(t, result.isOk);
+    TR_ASSERT(t, result.text == patchFixture);
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_config_patch_remove_refuse(ITesting *t) {
+    // Not there
+    TR_ASSERT(t, !ConfigFilePatcher::RemoveScalar(patchFixture, {"main", "nope"}).isOk);
+    TR_ASSERT(t, !ConfigFilePatcher::RemoveScalar(patchFixture, {"nope", "theme"}).isOk);
+    // A section or a list isn't a value
+    TR_ASSERT(t, !ConfigFilePatcher::RemoveScalar(patchFixture, {"main"}).isOk);
+    TR_ASSERT(t, !ConfigFilePatcher::RemoveScalar(patchFixture, {"logging", "enable_modules"}).isOk);
+    // Flow style, CRLF
+    TR_ASSERT(t, !ConfigFilePatcher::RemoveScalar("main: { theme: x }\n", {"main", "theme"}).isOk);
+    TR_ASSERT(t, !ConfigFilePatcher::RemoveScalar("main:\r\n  theme: x\r\n", {"main", "theme"}).isOk);
+    // A value over several lines
+    TR_ASSERT(t, !ConfigFilePatcher::RemoveScalar("main:\n  text: |\n    one\n    two\n", {"main", "text"}).isOk);
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_config_api_project_unset(ITesting *t) {
+    auto root = std::filesystem::temp_directory_path() / "goatedit_cfgapi_unset_test";
+    auto projectDir = root / ".goatedit";
+    std::error_code ec;
+    std::filesystem::remove_all(root, ec);
+    std::filesystem::create_directories(projectDir);
+    {
+        std::ofstream f(projectDir / "config.yml");
+        f << "# my project settings\ncfgtest:\n  value: a   # drop me\n  other: b\n";
+    }
+    RuntimeConfig::Instance().GetAssetLoader().ReplaceSearchPath(projectDir, AssetLoaderBase::kLocationType::kProject);
+
+    ConfigAPI configApi;
+    auto result = configApi.Unset(ConfigAPI::kLevel::kProject, "cfgtest.value");
+    TR_ASSERT(t, result.isOk);
+    std::ifstream f(projectDir / "config.yml");
+    std::stringstream buffer;
+    buffer << f.rdbuf();
+    TR_ASSERT(t, buffer.str() == "# my project settings\ncfgtest:\n  other: b\n");
+
+    // Not set: fine, nothing written; no level: refused
+    TR_ASSERT(t, configApi.Unset(ConfigAPI::kLevel::kProject, "cfgtest.value").isOk);
+    TR_ASSERT(t, !configApi.Unset(ConfigAPI::kLevel::kRunning, "cfgtest.other").isOk);
 
     Config::Instance().RemoveKey("cfgtest");
     std::filesystem::remove_all(root, ec);

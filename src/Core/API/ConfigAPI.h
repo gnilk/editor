@@ -45,13 +45,22 @@ namespace gedit {
         Result Get(kLevel level, const std::string &key);
         // level must be user or project
         Result Set(kLevel level, const std::string &key, const std::string &value);
+        // Take a value out of the level's file (user or project) - a section it leaves empty goes too; the running
+        // config then has the value of the level below
+        Result Unset(kLevel level, const std::string &key);
         // Open the level's config file in a buffer (created, with a header comment, if missing)
         Result Edit(kLevel level);
+
+        // The level a running value comes from: "project", "user", "system" or "runtime" (none of the files)
+        std::string Origin(const std::string &key);
 
         // The file for a level - the one that was loaded if it exists, else where it would be created.
         // Empty for the running level, and for project when no project is open.
         std::filesystem::path ConfigFilePath(kLevel level);
     private:
+        // After a file was written: put the effective value into the running config, with the notes on why it may not
+        // be the one just written
+        void ApplyEffective(kLevel level, const std::vector<std::string> &keyPath, Result &result);
         // Re-run ReInitView over the view tree (posted to the runloop) so views pick up a changed value
         static void ReInitializeViews();
     };

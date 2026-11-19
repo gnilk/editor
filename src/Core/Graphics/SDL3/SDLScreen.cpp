@@ -236,7 +236,7 @@ void SDLScreen::LoadFontFromTheme(float density) {
         font->SetSystemFallback(SystemFonts::FindFaceFor);
     }
     // How heavy the text is drawn (hitlist #54) - 1 is the coverage as rasterised
-    font->SetTextGamma((float)Config::Instance()["sdl"].GetValue<double>("text_gamma", 1.5));
+    font->SetTextGamma((float)Config::Instance()["sdl"].GetValue<double>("text_gamma", 1.2));
 
     SDLFontManager::Instance().SetActiveFont(std::move(font));
 }

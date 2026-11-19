@@ -29,8 +29,8 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
   - [x] Linux [x] Mac - the window: `Cmd+T` / `Ctrl+Shift+T` in the terminal opens a second tab (the row shows), `Cmd+W` / `Ctrl+Shift+W` closes it; `Cmd/Opt+1`, `2` / `Alt+1`, `2` and a click on a tab switch; a restart brings the tabs back, the same one shown; `make` in one tab, `ls` in the other: `F8` still has the build's errors
 - **`.theme use` at a level** (#59) - scripted (`theme_project`: a project config with its own theme, Keep / Remove, `--project`)
   - [ ] Linux [x] Mac - the window: in a project whose `.goatedit/config.yml` sets `main.theme`, `.theme use <other>` asks; Keep leaves this project's theme and says so, Remove takes it out of the project config and switches; `.theme list` names where the theme comes from
-- **Text weight** (#54) - `sdl.text_gamma` (default 1.5, picked by eye against VS Code; 1.0 = as before)
-  - [ ] Linux [x] Mac - the window, Dark 2026 or Mariana: text heavier than before, edges not blurred or blocky; `.cfg --user set sdl.text_gamma 1.0` + restart = the old look; side by side with VS Code (Mac 2026-11-19: 1.5 "more or less spot on")
+- **Text weight** (#54) - `sdl.text_gamma` (default 1.2, the user's pick - VS Code's 1.5 match was too dark; 1.0 = as before)
+  - [ ] Linux [x] Mac - the window, Dark 2026 or Mariana: text heavier than before, edges not blurred or blocky; `.cfg --user set sdl.text_gamma 1.0` + restart = the old look; side by side with VS Code (Mac 2026-11-19: 1.5 matches VS Code, 1.2 kept as the default)
 - **Unbound Ctrl keys go to the shell** (decided 2026-11-19) - scripted: `terminalcontroller ctrl_to_shell`
   - [ ] Linux [ ] Mac - the window, at the local prompt: type `echo one two`, `Left` x4, `Ctrl+W` - the shell deletes `one`; `Ctrl+U` / `Ctrl+K` / `Ctrl+Y` work; `Ctrl+D` on an empty line does nothing (the shell stays); `Ctrl+T` (Linux) still opens Go to symbol
 - **Font styles in themes** (#55)
@@ -184,7 +184,7 @@ Smaller bugs not ranked yet: open-bugs #24 (readline history extras),
 
 | # | Item | When |
 |---|---|---|
-| 54 | Text weight: `GlyphFont::CoverageCurve` (alpha = coverage^(1/gamma)) applied when a glyph page is uploaded (both SDL backends, nothing per frame); `sdl.text_gamma`, default 1.5 - judged against VS Code side by side | 2026-11-19 |
+| 54 | Text weight: `GlyphFont::CoverageCurve` (alpha = coverage^(1/gamma)) applied when a glyph page is uploaded (both SDL backends, nothing per frame); `sdl.text_gamma`, default 1.2 (1.5 matches VS Code - the user prefers lighter) | 2026-11-19 |
 | 55 | Font styles in themes: `font_styles` in colors.json (bold / italic / underline / strikethrough by content key), a token takes its class's style with its colour; the importer resolves VS Code's `fontStyle` / Sublime's `font_style` on its own (never from a context rule); Dark 2026 regenerated - bold headings, italic emphasis (`theme-collection.md` §6). The SDL window draws italic as a slant (same day) | 2026-11-19 |
 | 59 | `.theme use [--user \| --project] <name>` (`--user` the default): the theme follows the config that wins. `--user` in a project whose config sets its own `main.theme` asks - remove it from the project (`ConfigFilePatcher::RemoveScalar`, comments kept), keep the project's (the choice is saved for other projects, this one stays and says so), or cancel. `.theme list` says where `main.theme` comes from. With it: `.cfg --user\|--project unset <key>` | 2026-11-19 |
 | 58 | A save key: `Cmd+S` (Mac window) / `Ctrl+S` (Linux, the terminal version) - a `Save` action in `default_keymap.yml`, handled globally (any view) by running the `.s` command (`PluginExecutor::Execute`), so a file changed on disk still asks. In the terminal an app (nano) still gets the key | 2026-11-19 |

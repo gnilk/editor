@@ -770,9 +770,10 @@ void Importer::ResolveContentKeys() {
         content.emplace_back(contentKey.key, *value);
 
         // The style is a property of its own, as in VS Code: the rule that decides it may not be the colour's. A key
-        // shown as another (no rule at all) is drawn as that one.
+        // shown as another (no rule at all) is drawn as that one - when it is code too: a key with no scopes only
+        // borrows a colour (the hex view's is the comments', not their italic).
         auto fontStyle = MatchFontStyle(contentKey);
-        if (!fontStyle.has_value() && isFallback) {
+        if (!fontStyle.has_value() && isFallback && !contentKey.scopes.empty()) {
             for (auto &[key, style] : fontStyles) {
                 if (key == contentKey.fallback) {
                     fontStyle = style;

@@ -23,6 +23,7 @@ DLL_EXPORT int test_keymapping_workspace_inherit(ITesting *t);
 DLL_EXPORT int test_keymapping_cache(ITesting *t);
 DLL_EXPORT int test_keymapping_switchbuffer(ITesting *t);
 DLL_EXPORT int test_keymapping_find(ITesting *t);
+DLL_EXPORT int test_keymapping_save(ITesting *t);
 DLL_EXPORT int test_keymapping_modifiermask(ITesting *t);
 DLL_EXPORT int test_keymapping_modifiermask_inherit(ITesting *t);
 DLL_EXPORT int test_keymapping_shiftedletter_untagged(ITesting *t);
@@ -384,6 +385,26 @@ DLL_EXPORT int test_keymapping_find(ITesting *t) {
     auto pasteAction = modalKeymap->ActionFromKeyPress(keyPress);
     TR_ASSERT(t, pasteAction.has_value());
     TR_ASSERT(t, pasteAction->action == kAction::kActionPasteFromClipboard);
+    return kTR_Pass;
+}
+
+// Cmd+S (Mac) / Ctrl+S (Linux) saves from every view - the editor, the tree, the terminal (hitlist #58)
+DLL_EXPORT int test_keymapping_save(ITesting *t) {
+    KeyPress keyPress = {};
+    keyPress.key = 's';
+    keyPress.isKeyValid = true;
+#ifdef GEDIT_MACOS
+    keyPress.modifiers = Keyboard::kMod_LeftCommand;
+#else
+    keyPress.modifiers = Keyboard::kMod_LeftCtrl;
+#endif
+    for (auto &keymapName : { "default_keymap", "workspace_keymap", "terminal_keymap" }) {
+        auto keymap = Editor::Instance().GetKeyMapping(keymapName);
+        TR_ASSERT(t, keymap != nullptr);
+        auto action = keymap->ActionFromKeyPress(keyPress);
+        TR_ASSERT(t, action.has_value());
+        TR_ASSERT(t, action->action == kAction::kActionSave);
+    }
     return kTR_Pass;
 }
 

@@ -112,7 +112,7 @@ in the editor; anything else (`./build.sh`) goes to the shell. The prefix is `ma
 | Command | Short | Does |
 |---|---|---|
 | `.goto <line>` | `.g` | go to a line (counts from 1, lands on its first non-blank; `Cmd+[`/`Ctrl+[` comes back) |
-| `.save` / `.saveas <file>` | `.s` / `.sa` | save (asks if the file changed on disk; `.s!` saves anyway) |
+| `.save` / `.saveas <file>` | `.s` / `.sa` | save (asks if the file changed on disk; `.s!` saves anyway) - also `Cmd+S` / `Ctrl+S` from any view |
 | `.openfile <file>` | `.o` | open a file |
 | `.newbuffer` | `.nb` | new buffer |
 | `.reload` | `.rl` | reload from disk (`!` drops unsaved changes) |

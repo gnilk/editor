@@ -49,6 +49,7 @@ Every binding the shipped keymaps make, per platform. The short guide is [`usage
 | Reformat block (`ReformatBlock`) | `Cmd+I` | `Ctrl+I` |
 | Select all (`SelectAll`) | `Cmd+A` | `Ctrl+A` |
 | Promote to terminal (`PromoteToTerminal`) | `Cmd+Enter` | `Ctrl+Enter` |
+| Save (`Save`) | `Cmd+S` | `Ctrl+S` |
 | Find (`Find`) | `Cmd+F` | `Ctrl+F` |
 | Goto symbol (`GotoSymbol`) | `Cmd+T` | `Ctrl+T` |
 | Quick open (`QuickOpen`) | `Cmd+P` | `Ctrl+P` |

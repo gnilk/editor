@@ -100,7 +100,7 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
   - [x] Linux [x] Mac - the SDL app: same start-up, a coloured `PS1` keeps its colours after the banner
 - **A dot-command typed at the terminal prompt** (#57)
   - [x] Linux [x] Mac - `.theme list` at the prompt: the command stays on its prompt line, the list right below it, then the next prompt - no blank rows; `.co` after `make` + a dot-command still copies make's output (scripted: `dot_at_prompt`, bash and zsh; unit `dotcommand_output_below`, `dotcommand_keeps_output`)
-  - [ ] Linux [ ] Mac - the SDL app: the same, with your own prompt
+  - [ ] Linux [ ] Mac - the window version, your own shell and prompt (the scripted run used a test prompt in a pty): type `.theme list` + Enter in the terminal panel - `you@host dir % .theme list` stays on its line, the list right below it, then ONE new prompt; no blank line, no empty prompt line (before: the command was gone and the list sat above the prompt, `screenshots/prompt_and_theme_problem.png`)
   - [x] Linux [x] Mac - quit with bash 5 as the shell (`SHELL=/opt/homebrew/bin/bash` on the Mac): the editor exits at once (scripted: `dot_at_prompt` quits; unit `process_shellclose_output_on_hup`)
     - Linux 2026-11-19: 865/865, checks 23/23 (bash 5.2; zsh not installed there, skipped) - every check quit clean
 - **Start-up notices in the terminal panel** (#50)

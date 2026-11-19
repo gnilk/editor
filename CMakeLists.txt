@@ -111,6 +111,9 @@ if (APPLE)
 
     list(APPEND platformsrc src/Core/macOS/MacOSFolderMonitor.cpp src/Core/macOS/MacOSFolderMonitor.h)
     list(APPEND platformsrc src/Core/macOS/MacOSSystemFonts.cpp)
+    # Objective-C++ - the app menu SDL makes (MacOSAppMenu)
+    enable_language(OBJCXX)
+    list(APPEND platformsrc src/Core/macOS/MacOSAppMenu.mm src/Core/macOS/MacOSAppMenu.h)
     # list(APPEND platformsrc src/Core/macOS/MacOSKeyboardMonitor.cpp src/Core/macOS/MacOSKeyboardMonitor.h)
     list(APPEND platformsrc src/Core/unix/Shell.cpp src/Core/unix/Shell.h)
     list(APPEND platformsrc src/Core/unix/ProcessUnix.cpp src/Core/unix/ProcessUnix.h)
@@ -122,8 +125,10 @@ if (APPLE)
     find_library(CORE_FOUNDATION CoreFoundation REQUIRED)
     # CoreText — MacOSSystemFonts asks the font cascade for a glyph the configured fonts lack
     find_library(CORE_TEXT CoreText REQUIRED)
+    # AppKit - MacOSAppMenu takes Cmd+W off the menu SDL makes
+    find_library(APP_KIT AppKit REQUIRED)
 
-    list(APPEND extlibs yaml-cpp::yaml-cpp ${CORE_SERVICES} ${CORE_FOUNDATION} ${CORE_TEXT})
+    list(APPEND extlibs yaml-cpp::yaml-cpp ${CORE_SERVICES} ${CORE_FOUNDATION} ${CORE_TEXT} ${APP_KIT})
 
 
     set(ICON_FILE ${CMAKE_SOURCE_DIR}/Assets/CMake/GoatEdit.icns)

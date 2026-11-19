@@ -27,6 +27,10 @@
 
 #include <SDL3/SDL.h>
 
+#ifdef GEDIT_MACOS
+#include "Core/macOS/MacOSAppMenu.h"
+#endif
+
 
 // Implementation lives in src/ext/stb/stb_impl.cpp — header only here.
 #include "stb_image.h"
@@ -123,6 +127,10 @@ bool SDLScreen::Open() {
     }
     SDL_SetWindowPosition(window, geoX, geoY);
     SetWindowIcon();
+#ifdef GEDIT_MACOS
+    // SDL's Window > Close is Cmd+W, which closes a terminal tab here - and the menu closed the window too (a quit)
+    MacOSAppMenu::DropCloseKey();
+#endif
 
     // Enable the screensaver - SDL blocks it by default - but in this case it makes sense..
     if (!SDL_ScreenSaverEnabled()) {

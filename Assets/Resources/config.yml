@@ -162,7 +162,7 @@ sdl:
   system_font_fallback: yes
   # Text weight: lifts the anti-aliased edges of the glyphs so light text on a dark background doesn't read thin.
   # 1.0 = the glyphs as rasterised (lightest), higher = heavier (0.5 .. 3.0). Read when the font is loaded (restart).
-  text_gamma: 1.5
+  text_gamma: 1.2
 
 ncurses:
   timeoutKeyEvent: 500

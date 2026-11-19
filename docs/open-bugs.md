@@ -19,6 +19,10 @@ not seen (it runs under a timeout now).
 (Linux) for the waiting stack, and note the last `=== RUN` line. Not tied to a change: it happened on `fix/attribute-at`
 before the Alt-matching change on `feature/usability-gaps`.
 
+**Maybe (2026-11-19):** a hang of the same look (0% CPU) was found and fixed in `Shell::ReapChild` - a shell that
+exits with output queued on the pty waited for it to drain while the only reader was waiting for the shell. If a
+sample shows `ShlConsume` in `ReapChild` / `wait4` (and a `TerminalController` or `Shell` test), that was it.
+
 ---
 
 ## 33. Test order: after the `document` module, three `jsengine` reformat tests fail

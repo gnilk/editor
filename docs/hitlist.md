@@ -97,16 +97,21 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
 - **Shell prompt at start-up** (#51) - checked in a pty on the ANSI backend, not in the SDL app
   - [x] Linux [x] Mac - start the app: the goat banner, then the shell's prompt below it at once, no key needed (scripted: `prompt_above`, `missing_theme`; Linux SDL2 checked too)
   - [x] Linux [x] Mac - type half a command in the terminal, then `.ll` in the editor: the list lands above the line, the half-typed command stays and runs when finished (scripted: `prompt_above`)
-  - [x] Linux [ ] Mac - the SDL app: same start-up, a coloured `PS1` keeps its colours after the banner
+  - [x] Linux [x] Mac - the SDL app: same start-up, a coloured `PS1` keeps its colours after the banner
+- **A dot-command typed at the terminal prompt** (#57)
+  - [ ] Linux [x] Mac - `.theme list` at the prompt: the command stays on its prompt line, the list right below it, then the next prompt - no blank rows; `.co` after `make` + a dot-command still copies make's output (scripted: `dot_at_prompt`, bash and zsh; unit `dotcommand_output_below`, `dotcommand_keeps_output`)
+  - [ ] Linux [ ] Mac - the SDL app: the same, with your own prompt
+  - [ ] Linux [x] Mac - quit with bash 5 as the shell (`SHELL=/opt/homebrew/bin/bash` on the Mac): the editor exits at once (scripted: `dot_at_prompt` quits; unit `process_shellclose_output_on_hup`)
 - **Start-up notices in the terminal panel** (#50)
   - [x] Linux [x] Mac - `goatedit a.txt .` in a repo with a `.goatedit`: "goatedit: not a single-folder launch ..." in the terminal panel, the prompt below it (scripted: `single_folder`)
   - [x] Linux [x] Mac - `main.theme: nosuch.theme.yml`: "goatedit: theme nosuch.theme.yml: no such theme file ..." in the panel (scripted: `missing_theme`)
-  - [ ] Mac - through `goat` (started with `open`, no stderr): the same notice in the panel - the case #50 was for
+  - [x] Mac - through `goat` (started with `open`, no stderr): the same notice in the panel - the case #50 was for
 - **Terminal version on macOS with the Linux keymaps** (#48) - the scripted checks pass in a pty (all 14 that run on the Mac); the terminals themselves need a hand
-  - [ ] Mac - Terminal.app, `goatedit --backend ansi`: `Ctrl+S` saves, `Ctrl+Z` undoes, `Ctrl+F` finds (`Ctrl+[` is `Esc` there - a legacy collision); with "Use Option as Meta key" on: `Option+T` / `Option+E` switch views
+  - [x] Mac - Terminal.app, `goatedit --backend ansi`: `Ctrl+S` saves, `Ctrl+Z` undoes, `Ctrl+F` finds (`Ctrl+[` is `Esc` there - a legacy collision); with "Use Option as Meta key" on: `Option+T` / `Option+E` switch views
+    Mac [Gnilk 2026-11-19]: CTRL+S was never bound to save - right, no keymap binds a save (only `.s` and autosave): row #58
   - [x] Mac - Ghostty (kitty protocol): the same, plus `Ctrl+/` comments, `Ctrl+Enter` promotes to the terminal, `Ctrl+[` comes back after a jump
     - Mac 2026-11-18, Ghostty: `Ctrl+<letter>` and `Alt+1..9` work; `Cmd+V` pastes (Ghostty's own paste, arrives as a bracketed paste); `Cmd+Z` does nothing - right, `Cmd` is not bound in the Linux keymaps. `Ctrl+Enter` promotes to the terminal (`Cmd+Enter` is Ghostty's full-screen); several selected lines ran in bash. Start with `goat --backend ansi .` (runs in the terminal since `fix/goat-ansi`; needs `install-cli`)
-  - [ ] Mac - the SDL app is unchanged: `Cmd+S`, `Cmd+Z`, `Cmd+1..9`
+  - [x] Mac - the SDL app is unchanged: `Cmd+S`, `Cmd+Z`, `Cmd+1..9`
   - [x] Mac - several lines `Ctrl+Enter`-promoted to bash 3.2 in the terminal version: both run, no `00~` (scripted: `promote`); by hand in Ghostty with `Ctrl+Enter` too; the SDL app with `Cmd+Enter` and `SHELL=/bin/bash`: [ ]
 - **Usability gaps** (#41) - the terminal version scripted (`drag_select`); Mac window checked by hand 2026-11-18
   - [ ] Linux [x] Mac - drag over text selects it, from where it was pressed (backwards too); dragging below the view scrolls it; a click drops the selection; `Shift+click` extends it
@@ -131,6 +136,7 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
 | 53 | Tabs in the lower panel (CLion style): a generic `TabbedView` in the UI toolkit first, then several terminals (one for an AI agent - the `PromoteToTerminal` target), a Messages tab (#52), a CMake / build tab | `panel-tabs.md` | days | idea, 2026-11-18; decisions in §6 (one container replaces "the terminal", the `SwitchToBuffer` keys (Mac `Cmd/Opt+1..9`, Linux `Alt+1..9`) per focused container, default tabs from config, tab row hidden with one tab); close buttons need #26 |
 | 54 | Text weight: a gamma / stem-darkening curve on the glyph coverage (`GlyphFont`, stb_truetype packs plain coverage) - light text on a dark background reads thinner and dimmer than macOS' renderer (VS Code side by side, same `#bbbebf`). A setting (e.g. `editor.text_gamma`), mellow by default - for late-night eyes the thin look can be the right one | `src/Core/Graphics/GlyphFont.cpp` | hours | found 2026-11-18 comparing Dark 2026 with VS Code. Tried Menlo (`font: "/System/Library/Fonts/Menlo.ttc"` works as is): VS Code's letterforms, a little heavier than Andale Mono and wider, but still thinner than VS Code - the gap is the rasteriser (this row) and bold (#55) |
 | 55 | Font styles in themes: bold / italic per token class, as VS Code themes have (`fontStyle`; Dark 2026: headings and `**bold**` are bold). Importer keeps them (today: "font style dropped"), a style per token in the theme format, the renderer draws a bold face (or synthetic bold) | `ThemeImporter`, theme format, `LineAttrib`, the SDL / ANSI renderers | a day | the VS Code sources are in `Assets/ThemeSources/` - convert again once it's supported (`gen-themes.py`) |
+| 58 | A save key: `Cmd+S` (Mac window) / `Ctrl+S` (Linux, the terminal version) - no keymap binds a save today, only `.s` and autosave. `Save` as a keymap action (the `.s` path: asks when the file changed on disk) | keymaps, `kAction` | hours | found 2026-11-19 trying #48 in Terminal.app; the #48 tick-list wrongly said `Ctrl+S` saves |
 | 56 | `--geometry WxH[+X+Y]` (X11 style) for the window version: size, and position if given - wins over the session's saved geometry. For test windows and screenshots (they open at the display's default size), and anyone who wants a fixed start | `Editor` args -> `ScreenBase::SetRequestedWindowGeometry` (the session already feeds it, `Editor.cpp` ~1226) | hours | asked 2026-11-18; not saved back into the session? (decide) |
 | 17 | A config list overwrites the default list by position | open-bugs #28 | half a day | idea: an immutable merge that returns a new tree; `LanguageFileSet::Merge` is the model |
 | 11 | Languages phase 2, step 2: Python (the prefix rule for decorators, triple-quoted strings; numbers and case folding are in since step 1) | `support-languages.md` §6 | a day | CMake (step 1) is done |
@@ -146,7 +152,7 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
 | 13 | Image view phases 1-3 | `image-view.md` | days | after 7 |
 | 14 | Languages phase 4: every language from a file; `indent.yml` / `autopairs.yml` move in | `support-languages.md` §2.2 | days | |
 | 31 | The minimap in the terminal (Gansi graphics: kitty / sixel) | usability §7 step 3 | days | |
-| 32 | Terminal: run `claude` inside goatedit (the gvt exit criterion); copying older command output | `terminal-vt.md` "Next" | ? | the copy modal is an idea, not decided |
+| 32 | Terminal: run `claude` inside goatedit (the gvt exit criterion); copying older command output | `terminal-vt.md` "Next" | ? | the copy modal is an idea, not decided. 2026-11-19: missed again - a `.theme list` result could only be shared as a screenshot; `.co` copies the last *shell* command's output, never a dot-command's |
 | 33 | Code index step 4: modules | `code-index.md` | days | paused 2026-11-08 until the design is thought through |
 | 34 | Per-block syntax highlighting in the terminal | `syntax-blocks.md` | days | deferred |
 | 36 | An "open folder" command (a dot-command and/or a key) - open a folder as the project after start-up | - | ? | no command for it yet; since #23 only `goatedit <one folder>` is a project, so this is the other way in. Design: what happens to the open files and the session |
@@ -158,6 +164,8 @@ Smaller bugs not ranked yet: open-bugs #24 (readline history extras),
 
 | # | Item | When |
 |---|---|---|
+| 57 | A dot-command typed at the terminal prompt reads like a shell command: the command stays on its prompt line, the output below it, then the next prompt (since #51 the output went above the prompt it was typed at, and the command was gone). `.co` still copies the shell command's output before it (`TerminalScreen::MarkOutputEnd`) | 2026-11-19 |
+| - | Quit hung with bash 5 as the shell (Mac): bash writes on the hangup and exits, the reader no longer reads the pty, and macOS keeps the exiting shell until its output drains - `SIGKILL` doesn't help. `Shell::ReapChild` closes our end of the pty first | 2026-11-19 |
 | 20 | Dark 2026 (from VS Code) shipped: VS Code's theme files kept as source (`Assets/ThemeSources/vscode/`, MIT, commit pinned), converted by the editor's own importer + an overlay (our name, VS Code's terminal colours) with `scripts/gen-themes.py`, the result committed; `Themes/LICENSES.md`. `--check` is the `themes_gen` check | 2026-11-18 |
 | 19 | `.theme list` (yours and the shipped ones, the current one marked) and `.theme use <name>` - switches live (the open documents are highlighted again, the terminal's palette follows) and saves `main.theme` in the user config. `.theme_reload` now updates the syntax colours too | 2026-11-18 |
 | 18 | Themes in a folder of their own: shipped ones in `Themes/` (the default moved there, `default.colors.json`), the user's in `~/.config/goatedit/themes/` (the importer writes there); themes imported before still load (`Theme::Locate`) | 2026-11-18 |

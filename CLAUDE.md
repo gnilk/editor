@@ -55,6 +55,11 @@ on another module (its state, or files it left behind), and must not share a fix
 folder (name it after the module, e.g. `goatedit_<module>_<case>`), a named event / semaphore / socket, a port. Within a
 module the cases still run in order. (2026-11-19: no two modules share a temp folder name.)
 
+**The test environment is `--unit-test`** (passed by `test_main`, `Editor::isUnitTest`): where the tests need the editor
+to start differently from a launch, it goes behind that flag - today the working directory stays where trun runs (a
+launch outside `$HOME` moves to `$HOME`, which broke every relative fixture in a build dir under `/tmp`). Add to it
+rather than working around the editor in a test.
+
 The `-m` (module) and `-t` (test) options both take lists and wildcards; prefix `!` discards a
 test/module, and the special token `-` means "everything else". This controls execution order:
 `-t case1,case2,-,!case5` runs case1+case2 first, then all others except case5; `-t parse*` runs all

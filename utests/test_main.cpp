@@ -44,9 +44,10 @@ static std::string TestAssetDir() {
 
 DLL_EXPORT int test_main(ITesting *t) {
     static const std::string assetDir = TestAssetDir();
-    static const char *argv[]={"goatedit.app", "--console-logging", "--skip-user-config", "--backend", "headless",
-                               "--asset-dir", assetDir.c_str()};
-    Editor::Instance().Initialize(7, argv);
+    // '--unit-test': the working directory stays where trun runs (the fixtures are relative to it), also outside $HOME
+    static const char *argv[]={"goatedit.app", "--console-logging", "--skip-user-config", "--unit-test", "--backend",
+                               "headless", "--asset-dir", assetDir.c_str()};
+    Editor::Instance().Initialize(8, argv);
     // Disable auto-save in unit-testing
     Config::Instance()["main"].SetInt("autosave_timeout_ms", 0);
 

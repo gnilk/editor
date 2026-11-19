@@ -42,7 +42,8 @@ DLL_EXPORT int test_logger_debug(ITesting *t) {
     // This test doesn't make sense, the logger keeps a cache and will write it to any new sink coming in
     // TR_ASSERT(t, sink->GetCounter() == 0);
     logger->Debug("wefwef");
-    TR_ASSERT(t, sink->GetCounter() > 1);
+    // At least this line - what the cache replays to a new sink before it varies
+    TR_ASSERT(t, sink->GetCounter() >= 1);
     auto current = sink->GetCounter();
     logger->SetEnabled(false);
     logger->Debug("wefwef");

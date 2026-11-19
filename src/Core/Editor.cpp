@@ -100,6 +100,21 @@ Editor &Editor::Instance() {
     return glbSystem;
 }
 
+// A document's parse thread asks the code index (its names source, its structure handler) - it has to end before the
+// index does, and members go in reverse order: the index and indexer before the workspace and its documents. A clean
+// quit closed the documents already (Close); a process that ends without it - the unit tests, all modules in one
+// process - had a parse thread read the freed indexer at exit.
+Editor::~Editor() {
+    if (workspace == nullptr) {
+        return;
+    }
+    for (auto &document : workspace->GetOpenDocuments()) {
+        if (auto textBuffer = document->GetTextBuffer()) {
+            textBuffer->Close();
+        }
+    }
+}
+
 // True if 'path' lies within the 'base' subtree (base itself counts as within).
 // Uses relative() so it can't be fooled by a shared string prefix (/home/gnilkfoo
 // is NOT under /home/gnilk).
@@ -203,7 +218,7 @@ bool Editor::Initialize(int argc, const char **argv) {
     // Done BEFORE the config load: the project root (and so the project config) depends on it.
     auto cwd = std::filesystem::current_path();
     auto cwdBeforeRelocation = cwd;
-    if (!IsWithinTree(cwd, pathHome)) {
+    if (!IsWithinTree(cwd, pathHome) && !isUnitTest) {
         std::filesystem::current_path(pathHome);
         cwd = std::filesystem::current_path();
     }
@@ -386,6 +401,8 @@ void Editor::ParseArguments(int argc, const char **argv) {
                 keepConsoleLogger = true;
             } else if (cmdSwitch == "skip-user-config") {
                 loadUserConfig = false;
+            } else if (cmdSwitch == "unit-test") {
+                isUnitTest = true;
             } else if (cmdSwitch == "backend") {
                 if (i + 1 < argc) {
                     argBackend = argv[++i];

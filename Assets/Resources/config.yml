@@ -160,6 +160,9 @@ sdl:
   # After the theme's font and the list above, ask the system (CoreText / fontconfig) for a font that has the glyph.
   # Off: a glyph none of them has is an empty cell.
   system_font_fallback: yes
+  # Text weight: lifts the anti-aliased edges of the glyphs so light text on a dark background doesn't read thin.
+  # 1.0 = the glyphs as rasterised (lightest), higher = heavier (0.5 .. 3.0). Read when the font is loaded (restart).
+  text_gamma: 1.5
 
 ncurses:
   timeoutKeyEvent: 500

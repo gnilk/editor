@@ -50,6 +50,11 @@ namespace gedit::SDL2 {
             glyphFont->SetSystemFallback(std::move(lookup));
         }
 
+        // Text weight (GlyphFont::CoverageCurve) - before anything is drawn: pages uploaded before keep the old curve
+        void SetTextGamma(float gamma) {
+            coverageCurve = GlyphFont::CoverageCurve(gamma);
+        }
+
         // Logical pixels from the top of a line to the baseline
         float Baseline() const {
             return (float)glyphFont->Baseline() / density;
@@ -77,6 +82,7 @@ namespace gedit::SDL2 {
         GlyphFont::Ref glyphFont;
         float density = 1.0f;
         std::vector<TexturePtr> textures;           // by page, made the first time the page is drawn from
+        std::array<uint8_t, 256> coverageCurve = GlyphFont::CoverageCurve(1.0f);
         Uint8 colorR = 0xff;
         Uint8 colorG = 0xff;
         Uint8 colorB = 0xff;

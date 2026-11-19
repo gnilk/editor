@@ -5,6 +5,7 @@
 
 #include <fstream>
 #include <algorithm>
+#include <cmath>
 
 #include "stb_rect_pack.h"
 
@@ -404,4 +405,14 @@ void GlyphFont::StoreGlyphs(Page &page, const std::vector<int> &codePoints, cons
         glyph.yoff = from.yoff;
         glyph.xadvance = from.xadvance;
     }
+}
+
+std::array<uint8_t, 256> GlyphFont::CoverageCurve(float gamma) {
+    gamma = std::clamp(gamma, MIN_TEXT_GAMMA, MAX_TEXT_GAMMA);
+    std::array<uint8_t, 256> curve = {};
+    for (int coverage = 0; coverage < 256; coverage++) {
+        auto alpha = std::pow((float)coverage / 255.0f, 1.0f / gamma);
+        curve[coverage] = (uint8_t)std::lround(alpha * 255.0f);
+    }
+    return curve;
 }

@@ -27,6 +27,7 @@ extern "C" {
     DLL_EXPORT int test_glyphfont_systemfallback_order(ITesting *t);
     DLL_EXPORT int test_glyphfont_systemfallback_colouremoji(ITesting *t);
     DLL_EXPORT int test_glyphfont_systemlookup(ITesting *t);
+    DLL_EXPORT int test_glyphfont_coveragecurve(ITesting *t);
 }
 
 namespace {
@@ -312,5 +313,27 @@ DLL_EXPORT int test_glyphfont_systemlookup(ITesting *t) {
         TR_ASSERT(t, glyph != nullptr);
         TR_ASSERT(t, HasInk(page, glyph));
     }
+    return kTR_Pass;
+}
+
+// Hitlist #54: the text weight curve - 1 leaves the coverage as it is; heavier lifts only the partly covered pixels, in
+// order; empty stays empty, full stays full; out of range is clamped
+DLL_EXPORT int test_glyphfont_coveragecurve(ITesting *t) {
+    auto plain = GlyphFont::CoverageCurve(1.0f);
+    for (int i = 0; i < 256; i++) {
+        TR_ASSERT(t, plain[i] == i);
+    }
+    auto heavy = GlyphFont::CoverageCurve(1.4f);
+    TR_ASSERT(t, heavy[0] == 0);
+    TR_ASSERT(t, heavy[255] == 255);
+    for (int i = 1; i < 255; i++) {
+        TR_ASSERT(t, heavy[i] >= i);
+        TR_ASSERT(t, heavy[i] >= heavy[i - 1]);
+    }
+    TR_ASSERT(t, heavy[128] > 128 + 20);
+    auto light = GlyphFont::CoverageCurve(0.8f);
+    TR_ASSERT(t, light[128] < 128);
+    TR_ASSERT(t, GlyphFont::CoverageCurve(100.0f) == GlyphFont::CoverageCurve(GlyphFont::MAX_TEXT_GAMMA));
+    TR_ASSERT(t, GlyphFont::CoverageCurve(0.0f) == GlyphFont::CoverageCurve(GlyphFont::MIN_TEXT_GAMMA));
     return kTR_Pass;
 }

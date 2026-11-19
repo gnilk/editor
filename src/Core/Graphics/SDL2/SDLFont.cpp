@@ -103,7 +103,8 @@ SDL_FRect SDLFont::GlyphDestination(float x, float y, const GlyphFont::Glyph &gl
     return {screenX / density, screenY / density, w / density, h / density};
 }
 
-// The page's alpha bitmap as white with that alpha, coloured at draw by the texture's colour mod
+// The page's alpha bitmap as white with that alpha (through the text weight curve), coloured at draw by the texture's
+// colour mod
 SDL_Texture *SDLFont::TextureFor(const GlyphFont::Page *page) {
     auto &texture = textures[page->index];
     if (texture != nullptr) {
@@ -121,7 +122,7 @@ SDL_Texture *SDLFont::TextureFor(const GlyphFont::Page *page) {
     auto format = SDL_AllocFormat(SDL_PIXELFORMAT_RGBA32);
     std::vector<Uint32> pixels((size_t)size * size);
     for (size_t i = 0; i < pixels.size(); i++) {
-        pixels[i] = SDL_MapRGBA(format, 0xff, 0xff, 0xff, page->bitmap[i]);
+        pixels[i] = SDL_MapRGBA(format, 0xff, 0xff, 0xff, coverageCurve[page->bitmap[i]]);
     }
     SDL_FreeFormat(format);
     SDL_UpdateTexture(texture.get(), nullptr, pixels.data(), size * (int)sizeof(Uint32));

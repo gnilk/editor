@@ -16,7 +16,10 @@ namespace gedit {
 
         std::vector<std::string> Import(const char *file, const char *name, bool isForced);
         std::vector<std::string> List();
-        std::vector<std::string> Use(const char *name);
+        // 'level': "user" or "project"
+        std::vector<std::string> Use(const char *name, const char *level);
+        std::string Find(const char *name);
+        std::string ProjectTheme();
     };
 }
 

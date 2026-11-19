@@ -1,15 +1,18 @@
-// .theme list | .theme use <name> | .theme --import <file> [--name <name>] [--force]
-//   list   - the themes 'use' can switch to: the user's (themes/ next to the user config) and the shipped ones
-//   use    - switch to one now, and save it as main.theme in the user config (<name>: the file name without
-//            .theme.yml, or the theme's own name - words with spaces are glued back together)
+// .theme list | .theme use [--user | --project] <name> | .theme --import <file> [--name <name>] [--force]
+//   list   - the themes 'use' can switch to: the user's (themes/ next to the user config) and the shipped ones, and
+//            where main.theme comes from
+//   use    - switch to one now, and save it as main.theme in the user config (--project: the project's) - <name>: the
+//            file name without .theme.yml, or the theme's own name (words with spaces are glued back together). A
+//            project whose config sets another theme keeps it there: --user asks whether to take it out (hitlist #59)
 //   --import - convert a VS Code theme (.json) or Sublime color scheme (.sublime-color-scheme) into a GoatEdit theme
 //   (<name>.theme.yml + <name>.colors.json in themes/ next to the user config) - same as 'goatedit --import-theme'.
 //   The command line is split on spaces: a file name with spaces may be typed as is or in quotes.
 function main(args) {
     var usage = [
-        "use: .theme list | .theme use <name> | .theme --import <file> [--name <name>] [--force]",
+        "use: .theme list | .theme use [--user | --project] <name> | .theme --import <file> [--name <name>] [--force]",
         "  list             - the themes there are (yours and the shipped ones), the current one marked *",
         "  use <name>       - switch to one now and keep it (main.theme in your user config)",
+        "    --project      - keep it in this project's config instead",
         "  --import <file>  - convert a VS Code theme (.json) or Sublime color scheme (.sublime-color-scheme)",
         "  --name <name>    - file name for the result (default: from the theme's name)",
         "  --force          - overwrite an earlier import of the same name"
@@ -26,7 +29,7 @@ function main(args) {
         return;
     }
     if ((words.length >= 2) && (words[0] == "use")) {
-        writeLines(Themes.Use(words.slice(1).join(" ").replace(/^["']|["']$/g, "")));
+        use(words.slice(1));
         return;
     }
     if (words.length == 0) {
@@ -63,6 +66,38 @@ function main(args) {
         lines = Themes.Import(file, name, isForced);
     }
     writeLines(lines);
+}
+
+// .theme use [--user | --project] <name>
+function use(words) {
+    var level = "user";
+    var nameWords = [];
+    for (var i = 0; i < words.length; i++) {
+        if (words[i] == "--user") {
+            level = "user";
+        } else if (words[i] == "--project") {
+            level = "project";
+        } else {
+            nameWords.push(words[i]);
+        }
+    }
+    var name = nameWords.join(" ").replace(/^["']|["']$/g, "");
+    var fileName = Themes.Find(name);
+    var projectTheme = Themes.ProjectTheme();
+    // The project's own theme wins here: take it out, or keep it and let the choice apply in other projects
+    if ((level == "user") && (fileName != "") && (projectTheme != "") && (projectTheme != fileName)) {
+        Editor.Confirm("This project's config sets its own theme (" + projectTheme + ") - it wins here",
+                       ["Remove it from the project", "Keep the project's", "Cancel"], function(choice) {
+            if (choice == 0) {
+                writeLines(Config.Unset("project", "main.theme"));
+                writeLines(Themes.Use(name, level));
+            } else if (choice == 1) {
+                writeLines(Themes.Use(name, level));
+            }
+        });
+        return;
+    }
+    writeLines(Themes.Use(name, level));
 }
 
 function writeLines(lines) {

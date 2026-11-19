@@ -151,14 +151,14 @@ commands:
   -
     name: theme
     short: theme
-    description: "Theme: list | use <name> - switch theme (kept in the user config) | --import <file> [--name <name>] [--force] - convert a VS Code / Sublime theme"
+    description: "Theme: list | use [--user | --project] <name> - switch theme (kept in the user or project config) | --import <file> [--name <name>] [--force] - convert a VS Code / Sublime theme"
     script: Scripts/theme.js
     arguments:
       - string, action and its arguments
   -
     name: config
     short: cfg
-    description: "Config: [--user | --project] list [prefix] | get <key> | set <key> <value> | edit"
+    description: "Config: [--user | --project] list [prefix] | get <key> | set <key> <value> | unset <key> | edit"
     script: Scripts/config.js
     arguments:
       - string, action and its arguments

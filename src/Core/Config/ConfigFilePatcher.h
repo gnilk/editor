@@ -30,6 +30,9 @@ namespace gedit {
     public:
         // Set the scalar at 'keyPath' (e.g. {"editorview", "wrap"}) to 'value' in the YAML 'text'.
         static Result SetScalar(const std::string &text, const std::vector<std::string> &keyPath, const std::string &value);
+        // Take the scalar at 'keyPath' out of the YAML 'text' - its one line, and a section it leaves empty (a
+        // comment inside stays). Refused like SetScalar when it isn't a plain value on one line, or isn't there.
+        static Result RemoveScalar(const std::string &text, const std::vector<std::string> &keyPath);
         // 'value' as YAML: plain when that reads back unchanged, otherwise double-quoted.
         static std::string FormatScalar(const std::string &value);
     };

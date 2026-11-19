@@ -18,6 +18,7 @@ namespace gedit {
         std::vector<std::string> List(const char *level, const char *prefix);
         std::vector<std::string> Get(const char *level, const char *key);
         std::vector<std::string> Set(const char *level, const char *key, const char *value);
+        std::vector<std::string> Unset(const char *level, const char *key);
         std::vector<std::string> Edit(const char *level);
     };
 }

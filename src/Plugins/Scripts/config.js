@@ -3,6 +3,7 @@
 //   .cfg --user list [prefix]                 - the user config file as-is (--project: the project's)
 //   .cfg [--user | --project] get <key>
 //   .cfg --user set <section.key> <value>     - edits the file in place (comments are kept)
+//   .cfg --project unset <section.key>        - takes it out of the file (--user: the user's)
 //   .cfg --project edit                       - open the config file in a buffer (--user: the user's)
 function main(args) {
     var usage = [
@@ -10,6 +11,7 @@ function main(args) {
         "  list [prefix]         - list the running config (or the --user/--project file)",
         "  get <key>             - show a value, e.g. editorview.wrap",
         "  set <key> <value>     - write a value (--user or --project)",
+        "  unset <key>           - take a value out (--user or --project)",
         "  edit                  - open the config file in a buffer (--user or --project)"
     ];
     var level = "";
@@ -36,6 +38,8 @@ function main(args) {
     } else if (action == "set" && rest.length >= 3) {
         // the command line is split on spaces - glue the value back together
         lines = Config.Set(level, rest[1], rest.slice(2).join(" "));
+    } else if (action == "unset" && rest.length == 2) {
+        lines = Config.Unset(level, rest[1]);
     } else if (action == "edit" && rest.length == 1) {
         lines = Config.Edit(level);
     }

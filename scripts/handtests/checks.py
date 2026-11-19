@@ -367,7 +367,9 @@ def dot_at_prompt(n):
             n(len(at) >= 1, f'{shell}: the command stays on its prompt line')
             if at:
                 i = at[-1]
-                n(lines[i - 1].strip().startswith('--force'), f'{shell}: right below the last output: {lines[i - 1:i + 1]}')
+                # Or the panel's top row (the status line above it) when the second output fills the panel
+                n(lines[i - 1].strip().startswith('--force') or 'GoatEdit v' in lines[i - 1],
+                  f'{shell}: right below the last output (or at the panel\'s top): {lines[i - 1:i + 1]}')
                 rest = lines[i + 1:]
                 while rest and not rest[-1].strip():
                     rest.pop()
@@ -420,6 +422,58 @@ def theme_use(n):
     try:
         g.ready()
         n(bg_at(g, 'hello theme') == '500000', 'started again: still the chosen theme')
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+
+
+@check('#59 .theme use at a level: a project\'s own theme wins there, --user asks')
+def theme_project(n):
+    sb, work = sandbox('theme_project')
+    themes = os.path.join(sb, 'home', '.config', 'goatedit', 'themes')
+    write(os.path.join(themes, 'test-red.theme.yml'), 'name: "Test Red"\nauthor: "checks"\nlicense: "MIT"\ncolorfile: "test-red.colors.json"\n')
+    write(os.path.join(themes, 'test-red.colors.json'),
+          '{ "colors": { "globals": { "background": "rgb(80,0,0)", "foreground": "rgb(220,220,220)" },'
+          ' "content": { "regular": "rgb(220,220,220)" } } }')
+    user_config(sb, '# my settings\nmain:\n  tabsize: 4\n')
+    project = os.path.join(work, '.goatedit', 'config.yml')
+    write(project, '# project settings\nmain:\n  theme: test-red.theme.yml\n')
+    user = os.path.join(sb, 'home', '.config', 'goatedit', 'config.yml')
+
+    def read(path):
+        with open(path) as f:
+            return f.read()
+
+    def prompt_bg(g):
+        prompt = [l for l in g.screen.lines() if l.rstrip().endswith('$')]
+        return bg_at(g, prompt[-1].strip()) if prompt else None
+
+    g = Goat(sb, ['.'], cwd=work, skip_user_config=False)
+    try:
+        g.ready()
+        n(prompt_bg(g) == '500000', f'the project\'s theme at start ({prompt_bg(g)})')
+        g.quick('.theme list', 1.0)
+        n(g.wait_text("from this project's config", 2), '.theme list: main.theme comes from the project config')
+        g.quick('.theme use default', 1.0)
+        n(g.wait_text('sets its own theme', 2), '.theme use (user): asks - the project sets its own')
+        g.send(b'k', 1.0)
+        n(g.wait_text('that one stays here', 2), 'Keep: says the project keeps its theme here')
+        n('theme: default.theme.yml' in read(user) and '# my settings' in read(user), f'saved in the user config: {read(user)!r}')
+        n('theme: test-red.theme.yml' in read(project), 'the project config untouched')
+        n(prompt_bg(g) == '500000', 'still the project\'s theme here')
+        g.quick('.theme use default', 1.0)
+        n(g.wait_text('sets its own theme', 2), 'asks again')
+        g.send(b'r', 1.0)
+        n(g.wait_text("Using 'default", 2), 'Remove: switched')
+        n('theme:' not in read(project) and '# project settings' in read(project),
+          f'main.theme taken out of the project config, its comment kept: {read(project)!r}')
+        n(prompt_bg(g) not in (None, '500000'), f'the theme follows at once ({prompt_bg(g)})')
+        g.quick('.theme list', 1.0)
+        n(g.wait_text('from your user config', 2), '.theme list: now from the user config')
+        g.quick('.theme use --project test red', 1.0)
+        n(g.wait_text("Using 'Test Red'", 2) and not g.screen.find('sets its own theme'), '--project: no question, switched')
+        n('theme: test-red.theme.yml' in read(project), 'written to the project config')
+        n(prompt_bg(g) == '500000', 'red again')
         n(g.quit(), 'quits')
     finally:
         g.kill()

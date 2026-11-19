@@ -100,7 +100,7 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
   - [x] Linux [x] Mac - the SDL app: same start-up, a coloured `PS1` keeps its colours after the banner
 - **A dot-command typed at the terminal prompt** (#57)
   - [x] Linux [x] Mac - `.theme list` at the prompt: the command stays on its prompt line, the list right below it, then the next prompt - no blank rows; `.co` after `make` + a dot-command still copies make's output (scripted: `dot_at_prompt`, bash and zsh; unit `dotcommand_output_below`, `dotcommand_keeps_output`)
-  - [ ] Linux [ ] Mac - the window version, your own shell and prompt (the scripted run used a test prompt in a pty): type `.theme list` + Enter in the terminal panel - `you@host dir % .theme list` stays on its line, the list right below it, then ONE new prompt; no blank line, no empty prompt line (before: the command was gone and the list sat above the prompt, `screenshots/prompt_and_theme_problem.png`)
+  - [ ] Linux [x] Mac - the window version, your own shell and prompt (the scripted run used a test prompt in a pty): type `.theme list` + Enter in the terminal panel - `you@host dir % .theme list` stays on its line, the list right below it, then ONE new prompt; no blank line, no empty prompt line (before: the command was gone and the list sat above the prompt, `screenshots/prompt_and_theme_problem.png`)
   - [x] Linux [x] Mac - quit with bash 5 as the shell (`SHELL=/opt/homebrew/bin/bash` on the Mac): the editor exits at once (scripted: `dot_at_prompt` quits; unit `process_shellclose_output_on_hup`)
     - Linux 2026-11-19: 865/865, checks 23/23 (bash 5.2; zsh not installed there, skipped) - every check quit clean
 - **Start-up notices in the terminal panel** (#50)
@@ -120,12 +120,12 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
   - [x] Mac - `Opt+Left`/`Right` move by word, `Opt+Shift+Left`/`Right` select; `Opt+[`/`]` still cycle views
   - [x] Linux - `Tab` in the project tree goes to the next view; `Ctrl+Shift+Left`/`Right` select by word; `Alt+Left`/`Right` still cycle buffers (2026-11-18, the terminal version in a pty; also `Alt+Home`/`End`, `Alt+T`/`E` unchanged)
 - **Themes folder** (#18)
-  - [ ] Linux [ ] Mac - after installing: starts with the default theme as before; `.theme --import <a VS Code theme>` lands in `~/.config/goatedit/themes/`, `main.theme: <it>.theme.yml` uses it; a theme imported before (in `~/.config/goatedit/` itself) still loads
+  - [ ] Linux [x] Mac - after installing: starts with the default theme as before; `.theme --import <a VS Code theme>` lands in `~/.config/goatedit/themes/`, `main.theme: <it>.theme.yml` uses it; a theme imported before (in `~/.config/goatedit/` itself) still loads
     - Linux 2026-11-18: `install.sh --user` (sandbox HOME) installs `Themes/`, a reinstall over a pre-#18 install removes the old root `default.theme.yml` / `colors.json`; the installed binary starts with the default theme, no warning. The import part not tried by hand yet
 - **Switch themes** (#19) - the terminal version scripted (`theme_use`)
-  - [ ] Linux [ ] Mac - the window: `.theme list`, `.theme use <one>` - editor, gutter, status line, tree, terminal and minimap all change at once; `.theme use default theme` back; restart keeps the choice
+  - [ ] Linux [x] Mac - the window: `.theme list`, `.theme use <one>` - editor, gutter, status line, tree, terminal and minimap all change at once; `.theme use default theme` back; restart keeps the choice
 - **Dark 2026 (from VS Code)** (#20) - the terminal version scripted (`vscode_theme`: editor background, terminal red)
-  - [ ] Linux [ ] Mac - the window: `.theme use vscode-dark-2026` - looks like VS Code's Dark 2026 side by side (a C++ file: keywords, strings, comments, types); the terminal's `ls --color` / `git diff` colours read well
+  - [ ] Linux [x] Mac - the window: `.theme use vscode-dark-2026` - looks like VS Code's Dark 2026 side by side (a C++ file: keywords, strings, comments, types); the terminal's `ls --color` / `git diff` colours read well
 - **Short-file scroll window** (#35, open-bugs #30)
   - [x] Linux [x] Mac - a new file, a dozen lines, PageDown, then Enter in the middle: the top line stays until the view is full (scripted: `short_scroll`)
 

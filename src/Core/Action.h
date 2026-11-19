@@ -50,6 +50,9 @@ namespace gedit {
         kActionShowOpenFiles,           // default: Cmd+E (macOS) / Ctrl+E (Linux) - the open files, to switch to one
         kActionJumpBack,                // default: Cmd+[ (macOS) / Ctrl+[ (Linux) - the navigation stack
         kActionJumpForward,             // default: Cmd+] (macOS) / Ctrl+] (Linux)
+        kActionNextBuildMessage,        // default: F8 - the last build's next error / warning (hitlist #52)
+        kActionPreviousBuildMessage,    // default: Shift+F8
+        kActionShowBuildMessages,       // default: Cmd/Ctrl+F8 - the last build's messages as a list
         kActionEnterCommandMode,
         kActionLeaveCommandMode,
         kActionStartSearch,

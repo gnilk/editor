@@ -67,6 +67,8 @@ Three layers, merged in this order (later wins, key by key):
 | Go to implementation / base / type | `Cmd+Shift+B` / `U` / `I` | `Ctrl+Shift+B` / `U` / `I` |
 | Relationships (bases, derived, ...) | `Cmd+Shift+T` | `Ctrl+Shift+T` |
 | Jump back / forward | `Cmd+[` / `Cmd+]` | `Ctrl+[` / `Ctrl+]` |
+| Next / previous build error (after `make`, `cmake --build`, `ninja`, `cc`... in the terminal; errors first, then warnings) | `F8` / `Shift+F8` | `F8` / `Shift+F8` |
+| The last build's errors and warnings, as a list | `Cmd+F8` | `Ctrl+F8` |
 | Buffer 1-9 (9 = last) | `Cmd+1..9` or `Opt+1..9` | `Alt+1..9` |
 | Next / previous buffer | `Opt+\` / `Opt+'` | `Alt+\` / `Alt+'`, `Alt+Right`/`Left` |
 | Quick mode (see below) | `Esc` | `Esc` |

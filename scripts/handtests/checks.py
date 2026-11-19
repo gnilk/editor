@@ -28,6 +28,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from goatpty import (Goat, fresh_dir, ESC, ENTER, BACKSPACE, DOWN, UP, END, HOME, PGDN, SHIFT_DOWN, SHIFT_END,
                      ctrl, alt)
 
+F8, SHIFT_F8, CTRL_F8 = b'\x1b[19~', b'\x1b[19;2~', b'\x1b[19;5~'
 SANDBOX_ROOT = os.path.join(tempfile.gettempdir(), 'goatedit-handtests')
 CHECKS = []
 
@@ -174,6 +175,47 @@ def save_key(n):
         g.send(ESC, 0.5)
         with open(path) as f:
             n(f.read() == 'other\n', 'Cancel leaves the file as the other program wrote it')
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+
+
+@check('#52 Build messages: F8 / Shift+F8 / the list after a build in the terminal')
+def build_messages(n):
+    if shutil.which('cc') is None:
+        n.skip('no cc')
+    sb, work = sandbox('build_messages')
+    write(os.path.join(work, 'notes.txt'), 'notes\n')
+    # The warning in a function of its own: clang leaves out 'unused variable' in a function with errors
+    write(os.path.join(work, 'bad.c'), 'int h(void) {\n    int unused;\n    return 0;\n}\n'
+                                       'int f(int a) {\n    return a + nope;\n}\nint g(void) { return 1 }\n')
+    g = Goat(sb, ['notes.txt'], cwd=work)
+    try:
+        g.ready()
+        g.send(alt('t'), 0.5)
+        g.type('cc -Wall -c bad.c', wait=0.2)
+        g.send(ENTER, 0.3)
+        n(g.wait_text("'nope'", 8), 'the compiler ran in the terminal')
+        n(g.wait_text('build: 2 errors, 1 warning', 4), 'when it ends: "build: 2 errors, 1 warning" on the status line')
+
+        def step(key, line, what):
+            g.send(key, 0.6)
+            said = g.status_line().strip()
+            # The place: the status message hides the line number while it shows - wait it out
+            g.wait_for(lambda g: 'l: ' in g.status_line(), 6)
+            n(what in said and g.cursor_line() == line,
+              f'{what!r} at line {line} (status "{said[:80]}", then {g.status_line().strip()[-40:]})')
+
+        step(F8, 6, 'error 1/3')         # the first error, not the warning printed before it
+        step(F8, 8, 'error 2/3')
+        step(F8, 2, 'warning 3/3')       # the warning after the errors
+        step(SHIFT_F8, 8, 'error 2/3')
+        g.send(CTRL_F8, 0.8)
+        listed = g.wait_text('error    bad.c:6:', 3)
+        rows = [r for r, t in enumerate(g.screen.lines()) if 'bad.c:' in t and ('error  ' in t or 'warning  ' in t)]
+        texts = [g.screen.text(r) for r in rows]
+        n(listed and len(rows) == 3 and 'warning' in texts[-1], f'Ctrl+F8: the list - errors, then the warning ({len(rows)} rows)')
+        g.send(ESC, 0.4)
         n(g.quit(), 'quits')
     finally:
         g.kill()

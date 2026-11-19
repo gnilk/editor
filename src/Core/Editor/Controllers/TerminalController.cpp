@@ -13,6 +13,7 @@
 #include "Core/Session/SessionState.h"
 #include "Core/InstallPaths.h"
 #include "Core/XDGEnvironment.h"
+#include "Core/Runloop.h"
 
 using namespace gedit;
 
@@ -265,6 +266,22 @@ void TerminalController::HandleTerminalData(const uint8_t *buffer, size_t length
     }
     if (!isHolding) {
         RequestRedraw();
+    }
+    FeedBuildMessages(buffer, length);
+}
+
+// On the pty thread. The summary goes to the status line on the UI thread.
+void TerminalController::FeedBuildMessages(const uint8_t *buffer, size_t length) {
+    auto &buildMessages = Editor::Instance().GetBuildMessages();
+    if (!buildMessages.IsRunning()) {
+        return;
+    }
+    buildMessages.Feed(std::string_view(reinterpret_cast<const char *>(buffer), length));
+    if (buildMessages.UpdateJobState(IsForegroundJobRunning())) {
+        Runloop::PostMessage(0x00, [](uint32_t) {
+            auto &messages = Editor::Instance().GetBuildMessages();
+            Editor::Instance().ShowStatusMessage(UnicodeHelper::utf8to32("build: " + messages.Summary()));
+        });
     }
 }
 
@@ -531,7 +548,7 @@ void TerminalController::CommitShellOwnedLine() {
     }
     RecordCommand(cmdLine);
     if (!cmdLine.empty()) {
-        MarkCommandOutput();
+        OnShellCommand(cmdLine);
     }
     WriteToPty("\r");
     ExitShellOwned();
@@ -577,6 +594,10 @@ bool TerminalController::IsAppActive() {
             return true;
         }
     }
+    return IsForegroundJobRunning();
+}
+
+bool TerminalController::IsForegroundJobRunning() {
     return foregroundJobProbe ? foregroundJobProbe() : shell.IsForegroundJobRunning();
 }
 
@@ -903,7 +924,7 @@ void TerminalController::CommitLine() {
         RunDotCommand(cmdLine);
     } else {
         if (!cmdLine.empty()) {
-            MarkCommandOutput();
+            OnShellCommand(cmdLine);
         }
         cmdLine += U"\n";
         shell.SendCmd(cmdLine);
@@ -946,6 +967,14 @@ void TerminalController::RecordCommand(const std::u32string &cmdLine) {
 
 // A command went to the shell: its output starts below the line it was typed on - unless the shell says where
 // (OSC 133;C). Call without screenLock held.
+void TerminalController::OnShellCommand(const std::u32string &cmdLine) {
+    MarkCommandOutput();
+    auto &editor = Editor::Instance();
+    auto &roots = editor.GetIndexedRoots();
+    auto projectRoot = roots.empty() ? std::string{} : roots.front().string();
+    editor.GetBuildMessages().OnCommand(UnicodeHelper::utf32to8(cmdLine), shell.GetWorkingDirectory(), projectRoot);
+}
+
 void TerminalController::MarkCommandOutput() {
     std::lock_guard<std::mutex> guard(screenLock);
     if (!useOsc133Boundaries) {

@@ -61,6 +61,9 @@ Every binding the shipped keymaps make, per platform. The short guide is [`usage
 | Goto type (`GotoType`) | `Cmd+Shift+I` | `Ctrl+Shift+I` |
 | Jump back (`JumpBack`) | `Cmd+[` | `Ctrl+[` |
 | Jump forward (`JumpForward`) | `Cmd+]` | `Ctrl+]` |
+| Show build messages (`ShowBuildMessages`) | `Cmd+F8` | `Ctrl+F8` |
+| Previous build message (`PreviousBuildMessage`) | `Shift+F8` | `Shift+F8` |
+| Next build message (`NextBuildMessage`) | `F8` | `F8` |
 | Next search result (`NextSearchResult`) | `Cmd+G` | `Ctrl+G` |
 | Prev search result (`PrevSearchResult`) | `Cmd+Shift+G` | `Ctrl+Shift+G` |
 | Increase view width (`UIIncreaseViewWidth`) | `Opt+D` | `Alt+D` |

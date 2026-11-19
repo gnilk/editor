@@ -1,0 +1,27 @@
+[1/3] Building CXX object CMakeFiles/t.dir/src/a.cpp.o
+[2/3] Building CXX object CMakeFiles/t.dir/src/b.cpp.o
+FAILED: CMakeFiles/t.dir/src/b.cpp.o
+/usr/bin/c++    -Wall -o CMakeFiles/t.dir/src/b.cpp.o -c ../src/b.cpp
+In file included from ../src/b.cpp:1:
+../src/util.h: In function 'int helper(int)':
+../src/util.h:2:30: warning: unused variable 'y' [-Wunused-variable]
+    2 | static int helper(int x) { int y; return x; }
+      |                              ^
+../src/b.cpp: In function 'int main()':
+../src/b.cpp:4:14: error: call of overloaded 'g(unsigned int)' is ambiguous
+    4 | int main() { g(1u); return 0 }
+      |              ~^~~~
+../src/b.cpp:2:6: note: candidate: 'void g(int)'
+    2 | void g(int);
+      |      ^
+../src/b.cpp:3:6: note: candidate: 'void g(long int)'
+    3 | void g(long);
+      |      ^
+../src/b.cpp:4:29: error: expected ';' before '}' token
+    4 | int main() { g(1u); return 0 }
+      |                             ^~
+      |                             ;
+ninja: build stopped: subcommand failed.
+/usr/bin/ld: CMakeFiles/t.dir/src/a.cpp.o: in function `f(int)':
+a.cpp:(.text+0x11): undefined reference to `undefined_name'
+collect2: error: ld returned 1 exit status

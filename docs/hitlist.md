@@ -99,9 +99,10 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
   - [x] Linux [x] Mac - type half a command in the terminal, then `.ll` in the editor: the list lands above the line, the half-typed command stays and runs when finished (scripted: `prompt_above`)
   - [x] Linux [x] Mac - the SDL app: same start-up, a coloured `PS1` keeps its colours after the banner
 - **A dot-command typed at the terminal prompt** (#57)
-  - [ ] Linux [x] Mac - `.theme list` at the prompt: the command stays on its prompt line, the list right below it, then the next prompt - no blank rows; `.co` after `make` + a dot-command still copies make's output (scripted: `dot_at_prompt`, bash and zsh; unit `dotcommand_output_below`, `dotcommand_keeps_output`)
+  - [x] Linux [x] Mac - `.theme list` at the prompt: the command stays on its prompt line, the list right below it, then the next prompt - no blank rows; `.co` after `make` + a dot-command still copies make's output (scripted: `dot_at_prompt`, bash and zsh; unit `dotcommand_output_below`, `dotcommand_keeps_output`)
   - [ ] Linux [ ] Mac - the SDL app: the same, with your own prompt
-  - [ ] Linux [x] Mac - quit with bash 5 as the shell (`SHELL=/opt/homebrew/bin/bash` on the Mac): the editor exits at once (scripted: `dot_at_prompt` quits; unit `process_shellclose_output_on_hup`)
+  - [x] Linux [x] Mac - quit with bash 5 as the shell (`SHELL=/opt/homebrew/bin/bash` on the Mac): the editor exits at once (scripted: `dot_at_prompt` quits; unit `process_shellclose_output_on_hup`)
+    - Linux 2026-11-19: 865/865, checks 23/23 (bash 5.2; zsh not installed there, skipped) - every check quit clean
 - **Start-up notices in the terminal panel** (#50)
   - [x] Linux [x] Mac - `goatedit a.txt .` in a repo with a `.goatedit`: "goatedit: not a single-folder launch ..." in the terminal panel, the prompt below it (scripted: `single_folder`)
   - [x] Linux [x] Mac - `main.theme: nosuch.theme.yml`: "goatedit: theme nosuch.theme.yml: no such theme file ..." in the panel (scripted: `missing_theme`)

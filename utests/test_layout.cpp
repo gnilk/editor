@@ -7,6 +7,7 @@
 #include "Core/UI/Views/RootView.h"
 #include "Core/UI/Views/HSplitView.h"
 #include "Core/UI/Views/VSplitView.h"
+#include "Core/UI/Views/TabbedView.h"
 #include "Core/UI/UIHost.h"
 #include "Core/MouseEvent.h"
 #include "Core/Graphics/Headless/HLScreen.h"
@@ -771,5 +772,186 @@ extern "C" int test_layout_pointer_hover(ITesting *t) {
     // No view saw a hover, and nothing moved
     TR_ASSERT(t, (treeView.numPresses == 0) && (textView.numPresses == 0));
     TR_ASSERT(t, vSplitView.GetSplitterPos() == start);
+    return kTR_Pass;
+}
+
+// ---------------------------------------------------------------------------------------------------
+// TabbedView (docs/panel-tabs.md, hitlist #53): one view shown at a time, the tab row only with two or more, focus and
+// keys go to the shown tab and move with a switch.
+// ---------------------------------------------------------------------------------------------------
+
+namespace {
+    struct TabTestView : public ViewBase {
+        explicit TabTestView(char32_t newFill) : fill(newFill) {
+        }
+        void InitView() override {
+            window = UIHost::Instance().GetScreen()->CreateWindow(viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
+        }
+        void ReInitView() override {
+            window = UIHost::Instance().GetScreen()->UpdateWindow(window, viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
+        }
+        void DrawViewContents() override {
+            auto &dc = window->GetContentDC();
+            std::u32string row(viewRect.Width(), fill);
+            for (int y = 0; y < viewRect.Height(); y++) {
+                dc.DrawStringAt(0, y, row);
+            }
+        }
+        void HandleKeyPress(const KeyPress &keyPress) override {
+            numKeys++;
+        }
+        void OnActivate(bool isNowActive) override {
+            hasFocus = isNowActive;
+        }
+        char32_t fill;
+        int numKeys = 0;
+        bool hasFocus = false;
+    };
+}
+
+extern "C" int test_layout_tabs_single(ITesting *t) {
+    RootView rootView;
+    TabbedView tabbed;
+    rootView.AddView(&tabbed);
+    TabTestView only(U'a');
+    tabbed.AddTab(&only, U"Shell");
+    rootView.Initialize();
+
+    // One tab: no row - the view has the whole place, as it would on its own
+    TR_ASSERT(t, !tabbed.IsTabRowVisible());
+    TR_ASSERT(t, tabbed.ActiveTab() == 0);
+    TR_ASSERT(t, only.GetViewRect().TopLeft().y == tabbed.GetContentRect().TopLeft().y);
+    TR_ASSERT(t, only.GetViewRect().Height() == tabbed.GetContentRect().Height());
+    TR_ASSERT(t, only.IsVisible());
+    return kTR_Pass;
+}
+
+extern "C" int test_layout_tabs_switch(ITesting *t) {
+    RootView rootView;
+    TabbedView tabbed;
+    rootView.AddView(&tabbed);
+    TabTestView a(U'a'), b(U'b'), c(U'c');
+    tabbed.AddTab(&a, U"a");
+    rootView.AddTopView(&tabbed, "tabs");
+    rootView.Initialize();
+    TR_ASSERT(t, a.hasFocus);
+
+    std::vector<size_t> changes;
+    tabbed.SetTabChangedHandler([&changes](size_t idxTab) { changes.push_back(idxTab); });
+    tabbed.AddTab(&b, U"bb");
+    tabbed.AddTab(&c, U"c");
+    // A tab added later doesn't take the place of the shown one
+    TR_ASSERT(t, tabbed.ActiveTab() == 0);
+    TR_ASSERT(t, changes.empty());
+    TR_ASSERT(t, a.hasFocus && !b.hasFocus);
+    // The row is there: every tab starts below it
+    auto content = tabbed.GetContentRect();
+    TR_ASSERT(t, tabbed.IsTabRowVisible());
+    for (auto view : {&a, &b, &c}) {
+        TR_ASSERT(t, view->GetViewRect().TopLeft().y == content.TopLeft().y + 1);
+        TR_ASSERT(t, view->GetViewRect().Height() == content.Height() - 1);
+    }
+    TR_ASSERT(t, a.IsVisible() && !b.IsVisible() && !c.IsVisible());
+
+    // Focus and keys move with the switch
+    tabbed.SetActiveTab(2);
+    TR_ASSERT(t, !a.IsVisible() && c.IsVisible());
+    TR_ASSERT(t, !a.hasFocus && c.hasFocus);
+    rootView.HandleKeyPress(KeyPress());
+    TR_ASSERT(t, (c.numKeys == 1) && (a.numKeys == 0));
+    TR_ASSERT(t, (changes.size() == 1) && (changes[0] == 2));
+    // Next / previous wrap around
+    tabbed.NextTab();
+    TR_ASSERT(t, tabbed.ActiveTab() == 0);
+    tabbed.PreviousTab();
+    TR_ASSERT(t, tabbed.ActiveTab() == 2);
+    // The shown one again: nothing happens
+    tabbed.SetActiveTab(2);
+    TR_ASSERT(t, changes.size() == 3);
+
+    // Without focus a switch doesn't take it
+    rootView.AddTopView(&b, "other");
+    rootView.SetActiveTopViewByName("other");
+    TR_ASSERT(t, !c.hasFocus);
+    tabbed.SetActiveTab(0);
+    TR_ASSERT(t, !a.hasFocus);
+    return kTR_Pass;
+}
+
+extern "C" int test_layout_tabs_remove(ITesting *t) {
+    RootView rootView;
+    TabbedView tabbed;
+    rootView.AddView(&tabbed);
+    TabTestView a(U'a'), b(U'b'), c(U'c');
+    tabbed.AddTab(&a, U"a");
+    tabbed.AddTab(&b, U"b");
+    tabbed.AddTab(&c, U"c");
+    rootView.AddTopView(&tabbed, "tabs");
+    rootView.Initialize();
+    tabbed.SetActiveTab(1);
+    TR_ASSERT(t, b.hasFocus);
+
+    // The shown one goes: the one after it shows, with the focus
+    tabbed.RemoveTab(1);
+    TR_ASSERT(t, tabbed.NumTabs() == 2);
+    TR_ASSERT(t, tabbed.ActiveView() == &c);
+    TR_ASSERT(t, c.IsVisible() && c.hasFocus && !b.hasFocus);
+    // The last one goes: the one before
+    tabbed.RemoveTab(1);
+    TR_ASSERT(t, tabbed.ActiveView() == &a);
+    TR_ASSERT(t, a.hasFocus);
+    // One left: no row, the whole place again
+    TR_ASSERT(t, !tabbed.IsTabRowVisible());
+    TR_ASSERT(t, a.GetViewRect().TopLeft().y == tabbed.GetContentRect().TopLeft().y);
+    TR_ASSERT(t, a.GetViewRect().Height() == tabbed.GetContentRect().Height());
+    // One that isn't shown goes: the shown one keeps its place
+    tabbed.AddTab(&b, U"b");
+    tabbed.AddTab(&c, U"c");
+    tabbed.SetActiveTab(2);
+    tabbed.RemoveTab(0);
+    TR_ASSERT(t, tabbed.ActiveTab() == 1);
+    TR_ASSERT(t, tabbed.ActiveView() == &c);
+    tabbed.RemoveTab(5);
+    TR_ASSERT(t, tabbed.NumTabs() == 2);
+    return kTR_Pass;
+}
+
+extern "C" int test_layout_tabs_draw(ITesting *t) {
+    auto screen = HLScreen::FromRuntime();
+    TR_ASSERT(t, screen != nullptr);
+    RootView rootView;
+    TabbedView tabbed;
+    rootView.AddView(&tabbed);
+    TabTestView a(U'a'), b(U'b'), c(U'c');
+    tabbed.AddTab(&a, U"one");
+    tabbed.AddTab(&b, U"two");
+    tabbed.AddTab(&c, U"three");
+    rootView.Initialize();
+    screen->ClearGrid();
+    rootView.Draw();
+
+    auto content = tabbed.GetContentRect();
+    auto rowRect = gedit::Rect(content.TopLeft(), 18, 1);
+    TR_ASSERT(t, screen->Dump(rowRect) == " one | two | three\n");
+    // Below the row: the shown tab
+    TR_ASSERT(t, screen->CellAt(content.TopLeft().x, content.TopLeft().y + 1).ch == U'a');
+
+    // A click on a label shows it; on a separator nothing changes
+    int y = content.TopLeft().y;
+    rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Press, content.TopLeft().x + 7, y));
+    rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Release, content.TopLeft().x + 7, y));
+    TR_ASSERT(t, tabbed.ActiveTab() == 1);
+    rootView.DispatchMouse(Mouse(MouseEvent::kMouseEventKind_Press, content.TopLeft().x + 10, y));
+    TR_ASSERT(t, tabbed.ActiveTab() == 1);
+    screen->ClearGrid();
+    rootView.Draw();
+    TR_ASSERT(t, screen->CellAt(content.TopLeft().x, content.TopLeft().y + 1).ch == U'b');
+
+    // The spans: ' one | two | three'
+    auto spans = TabbedView::LayoutTabRow({U"one", U"two", U"three"});
+    TR_ASSERT(t, spans.size() == 3);
+    TR_ASSERT(t, (spans[0].xStart == 1) && (spans[0].xEnd == 4));
+    TR_ASSERT(t, (spans[1].xStart == 7) && (spans[1].xEnd == 10));
+    TR_ASSERT(t, (spans[2].xStart == 13) && (spans[2].xEnd == 18));
     return kTR_Pass;
 }

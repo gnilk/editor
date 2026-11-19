@@ -35,6 +35,7 @@
 #include "Core/Language/LanguageSupport/DefaultLanguage.h"
 #include "Core/Plugins/PluginExecutor.h"
 #include "Core/UI/Views/RootView.h"
+#include "Core/UI/Views/TabbedView.h"
 #include "Core/Editor/Views/WorkspaceView.h"
 #include "Core/Editor/Views/TerminalView.h"
 
@@ -516,8 +517,9 @@ static WorkspaceView *GetWorkspaceView() {
     return dynamic_cast<WorkspaceView *>(ref.get());
 }
 
-// Helper: the TerminalView top-view, or nullptr (not yet built / no root view / headless). Scrollback
-// persistence (terminal-scrollback.md §8) is driven through its controller from SaveSession.
+// Helper: the terminal, or nullptr (not yet built / no root view / headless). Scrollback persistence
+// (terminal-scrollback.md §8) is driven through its controller from SaveSession. The lower panel's top view is a tab
+// container (docs/panel-tabs.md): its shown tab when that is a terminal, else its first terminal.
 static TerminalView *GetTerminalView() {
     if (!RuntimeConfig::Instance().HasRootView()) {
         return nullptr;
@@ -527,7 +529,19 @@ static TerminalView *GetTerminalView() {
         return nullptr;
     }
     auto ref = rootView->GetTopViewByName(glbTerminalView);
-    return dynamic_cast<TerminalView *>(ref.get());
+    auto *tabbed = dynamic_cast<TabbedView *>(ref.get());
+    if (tabbed == nullptr) {
+        return dynamic_cast<TerminalView *>(ref.get());
+    }
+    if (auto *shown = dynamic_cast<TerminalView *>(tabbed->ActiveView())) {
+        return shown;
+    }
+    for (size_t i = 0; i < tabbed->NumTabs(); i++) {
+        if (auto *terminal = dynamic_cast<TerminalView *>(tabbed->TabView(i))) {
+            return terminal;
+        }
+    }
+    return nullptr;
 }
 
 bool Editor::PromoteToTerminal(const std::u32string &text) {

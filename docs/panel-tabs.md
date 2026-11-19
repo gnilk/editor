@@ -1,6 +1,6 @@
 # Tabs in the lower panel - several terminals, Messages, and more
 
-Written down 2026-11-18. **Idea, not built.** Hitlist #53.
+Written down 2026-11-18. Hitlist #53. **Steps 1-2 built 2026-11-19** (`feature/panel-tabs`): `TabbedView` in the toolkit, the lower panel is one with the terminal in it.
 
 ## 1. The idea
 
@@ -52,8 +52,15 @@ and the architecture-workbench idea (index data handed to agents).
 ## 5. Steps
 
 1. `TabbedView` in the toolkit with plain test views; tab row, switching, keys; unit tests for layout and switching.
+   **Built:** `src/Core/UI/Views/TabbedView` - add / remove / next / previous / select, a click on a label, a
+   tab-changed handler; the top view for its place (focus, keys, actions, status go to the shown tab, focus moves with
+   a switch so the tab's keymap installs, as `EditorViewContainer` does). Label row as the editor's header (active
+   underlined, ` | `). Keys come with step 3 (they select tabs only once there are several). Tests `layout -t tabs*`.
 2. The lower panel becomes a `TabbedView` with the one terminal in it - nothing else changes; the "one terminal"
-   places (§3) go through "the active terminal".
+   places (§3) go through "the active terminal". **Built:** `main.cpp`; the container is the `glbTerminalView` top
+   view (`Option/Alt+T`, focus saved in the session by that name); `GetTerminalView()` (`Editor.cpp` - promote,
+   scrollback save) asks it for its shown tab when that is a terminal, else its first terminal. The rest of §3 holds
+   with one terminal and changes in step 3.
 3. More terminals: new / close, per-terminal session files, tab titles from OSC 0/2.
 4. Configured tabs (§4 - the AI terminal, the `PromoteToTerminal` target).
 5. Messages as a tab (with #52); a CMake / build tab.

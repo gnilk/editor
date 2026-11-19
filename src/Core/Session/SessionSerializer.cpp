@@ -112,6 +112,18 @@ static LayoutSession NodeToLayout(const YAML::Node &node) {
 static YAML::Node TerminalToNode(const TerminalSession &terminal) {
     YAML::Node node;
     node["scrollbackFile"] = terminal.scrollbackFile;
+    if (!terminal.tabs.empty()) {
+        YAML::Node tabs(YAML::NodeType::Sequence);
+        for (auto &tab : terminal.tabs) {
+            YAML::Node tabNode;
+            tabNode["id"] = tab.id;
+            tabNode["name"] = tab.name;
+            tabNode["scrollbackFile"] = tab.scrollbackFile;
+            tabs.push_back(tabNode);
+        }
+        node["tabs"] = tabs;
+        node["activeTab"] = terminal.activeTab;
+    }
     return node;
 }
 
@@ -122,6 +134,16 @@ static TerminalSession NodeToTerminal(const YAML::Node &node) {
     }
     // A session from before blocks were dropped also lists them - ignored
     terminal.scrollbackFile = node["scrollbackFile"].as<std::string>("");
+    if (node["tabs"] && node["tabs"].IsSequence()) {
+        for (auto tabNode : node["tabs"]) {
+            TerminalTabSession tab;
+            tab.id = tabNode["id"].as<std::string>("");
+            tab.name = tabNode["name"].as<std::string>("");
+            tab.scrollbackFile = tabNode["scrollbackFile"].as<std::string>("");
+            terminal.tabs.push_back(tab);
+        }
+        terminal.activeTab = node["activeTab"].as<int32_t>(0);
+    }
     return terminal;
 }
 

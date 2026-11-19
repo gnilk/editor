@@ -7,6 +7,7 @@
 #include "Core/Editor.h"
 #include "Core/ClipBoard.h"
 #include "Core/Plugins/PluginExecutor.h"
+#include "Core/Editor/Views/TerminalPanelView.h"
 
 using namespace gedit;
 
@@ -47,6 +48,8 @@ DLL_EXPORT int test_terminalcontroller_tab_dotcommand_listed(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_tab_dotcommand_listed_newprompt(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_sync_output(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_sync_output_frame(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_panel_names(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_title(ITesting *t);
 }
 
 #include <cstdint>   // UINT64_MAX
@@ -1030,5 +1033,44 @@ DLL_EXPORT int test_terminalcontroller_tab_dotcommand_listed_newprompt(ITesting 
     TR_ASSERT(t, f.Commit());
     TR_ASSERT(t, f.sent == "\r");
     TR_ASSERT(t, f.ClipboardText() == U"before");
+    return kTR_Pass;
+}
+
+// Terminal tabs (hitlist #53): ids name a tab's files - the first terminal "" (its files as before tabs), then the
+// first free number; the label is the title the shell / an app set, cut, else the name
+DLL_EXPORT int test_terminalcontroller_panel_names(ITesting *t) {
+    TR_ASSERT(t, TerminalPanelView::NextId({""}) == "2");
+    TR_ASSERT(t, TerminalPanelView::NextId({"", "2"}) == "3");
+    TR_ASSERT(t, TerminalPanelView::NextId({"", "3"}) == "2");
+    TR_ASSERT(t, TerminalPanelView::NextId({}) == "2");
+    TR_ASSERT(t, TerminalPanelView::NameFor("") == "Shell");
+    TR_ASSERT(t, TerminalPanelView::NameFor("3") == "Shell 3");
+    TR_ASSERT(t, TerminalPanelView::LabelFor("Shell 2", "") == U"Shell 2");
+    TR_ASSERT(t, TerminalPanelView::LabelFor("Shell", "vim a.cpp") == U"vim a.cpp");
+    auto cut = TerminalPanelView::LabelFor("Shell", "user@host: ~/src/github.com/editor/src");
+    TR_ASSERT(t, cut.size() == TerminalPanelView::MAX_LABEL);
+    TR_ASSERT(t, cut.back() == U'…');
+    return kTR_Pass;
+}
+
+// OSC 0 / 2 set the title; the handler is told once per change
+DLL_EXPORT int test_terminalcontroller_title(ITesting *t) {
+    TerminalController controller;
+    controller.SetPtyWriter([](std::string_view) {});
+    controller.SetRedrawTrigger([]() {});
+    controller.Resize(40, 10);
+    int numChanges = 0;
+    controller.SetTitleChangedHandler([&numChanges]() { numChanges++; });
+    TR_ASSERT(t, controller.GetTitle().empty());
+    std::string osc = "\x1b]0;vim a.cpp\x07";
+    controller.HandleTerminalData((const uint8_t *)osc.data(), osc.size());
+    TR_ASSERT(t, controller.GetTitle() == "vim a.cpp");
+    TR_ASSERT(t, numChanges == 1);
+    controller.HandleTerminalData((const uint8_t *)osc.data(), osc.size());
+    TR_ASSERT(t, numChanges == 1);
+    std::string osc2 = "\x1b]2;other\x1b\\";
+    controller.HandleTerminalData((const uint8_t *)osc2.data(), osc2.size());
+    TR_ASSERT(t, controller.GetTitle() == "other");
+    TR_ASSERT(t, numChanges == 2);
     return kTR_Pass;
 }

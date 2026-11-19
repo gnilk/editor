@@ -266,6 +266,63 @@ def build_messages_trun(n):
         g.kill()
 
 
+@check('#53 Terminal tabs: new / switch / close in the lower panel, kept across a restart')
+def terminal_tabs(n):
+    sb, work = sandbox('terminal_tabs')
+    write(os.path.join(work, 'a.txt'), 'x\n')
+    new_tab, close_tab = b'\x1b[116;6u', b'\x1b[119;6u'     # Ctrl+Shift+T / W (kitty CSI u)
+
+    def tab_row(g):
+        return [l for l in g.screen.lines() if 'Shell | Shell 2' in l]
+
+    g = Goat(sb, ['.'], cwd=work, skip_user_config=False)
+    try:
+        g.ready()
+        g.send(alt('t'), 0.5)
+        n(not tab_row(g), 'one terminal: no tab row')
+        g.type('echo first-tab', wait=0.2)
+        g.send(ENTER, 0.8)
+        g.send(new_tab, 1.5)
+        n(g.wait_for(lambda g: tab_row(g), 3), f'Ctrl+Shift+T: a second tab, the row shows: {tab_row(g)}')
+        g.type('echo second-tab', wait=0.2)
+        g.send(ENTER, 0.8)
+        n(g.wait_text('second-tab', 2) and g.screen.find('first-tab') is None, 'the new one is shown, and focused (typing went there)')
+        g.send(alt('1'), 0.8)
+        n(g.wait_text('first-tab', 2) and g.screen.find('second-tab') is None, 'Alt+1: the first tab again')
+        g.send(alt('2'), 0.8)
+        n(g.wait_text('second-tab', 2), 'Alt+2: the second')
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+    sessions = [os.path.join(dp, f) for dp, _, fs in os.walk(os.path.join(work, '.goatedit')) for f in fs if f.endswith('.yml')]
+    text = ''.join(open(f).read() for f in sessions)
+    n('Shell 2' in text and 'activeTab: 1' in text, f'the session has both tabs, the second shown ({sessions})')
+
+    g = Goat(sb, ['.'], cwd=work, skip_user_config=False)
+    try:
+        g.ready()
+        n(g.wait_for(lambda g: tab_row(g), 3), 'restarted: both tabs are back')
+        g.send(alt('t'), 0.5)
+        g.type('sleep 30', wait=0.2)
+        g.send(ENTER, 1.0)
+        g.send(close_tab, 1.0)
+        n(g.wait_text('A job is running', 2), 'Ctrl+Shift+W with a job running: asks')
+        g.send(b'k', 0.8)
+        n(tab_row(g), 'Keep it: still two tabs')
+        g.send(close_tab, 1.0)
+        g.wait_text('A job is running', 2)
+        g.send(b'c', 1.5)
+        n(g.wait_for(lambda g: not tab_row(g), 3), 'Close: one tab left, no row')
+        g.send(close_tab, 0.8)
+        n(g.wait_text('The last terminal stays', 2), 'the last one stays')
+        g.type('echo still-here', wait=0.2)
+        g.send(ENTER, 0.8)
+        n(g.wait_text('still-here', 2), 'and still works')
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+
+
 @check('#16 Text encodings')
 def latin1(n):
     sb, work = sandbox('latin1')

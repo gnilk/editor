@@ -79,10 +79,21 @@ namespace gedit {
         DocumentViewMode viewMode = DocumentViewMode::kText;
     };
 
+    // One terminal tab (docs/panel-tabs.md §6): its id names its files (scrollback, history) - "" for the first
+    // terminal, whose files keep the names from before there were tabs
+    struct TerminalTabSession {
+        std::string id = {};
+        std::string name = {};
+        std::string scrollbackFile = {};   // relative to .goatedit/; empty when nothing was saved
+    };
+
     // Terminal scrollback persistence (terminal-scrollback.md §8.1): a pointer to the .bin holding the history's
-    // text + colours - no row text in session.yml. Empty when nothing was saved.
+    // text + colours - no row text in session.yml. Empty when nothing was saved. Since the lower panel has tabs
+    // (hitlist #53): every tab, in order, and the shown one; a session from before has only scrollbackFile - one tab.
     struct TerminalSession {
-        std::string scrollbackFile = {};   // relative to .goatedit/
+        std::string scrollbackFile = {};   // relative to .goatedit/ - the first terminal's
+        std::vector<TerminalTabSession> tabs = {};
+        int32_t activeTab = 0;
     };
 
     // One place on the navigation stack (docs/code-index.md §5.6): enough to find it again in a changed file.

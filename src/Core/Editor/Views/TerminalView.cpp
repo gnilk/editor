@@ -58,6 +58,8 @@ void TerminalView::OnActivate(bool isActivated) {
     } else {
         parentView->RestoreContentHeight();
         Editor::Instance().SetActiveKeyMapping(Config::Instance()[cfgSectionName].GetStr("keymap", "default_keymap"));
+        // With several terminals (hitlist #53) the one in use gets dot-command output and the JS console
+        controller.RegisterAsOutputConsole();
     }
 }
 

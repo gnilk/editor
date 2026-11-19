@@ -52,6 +52,7 @@ DLL_EXPORT int test_terminalcontroller_panel_names(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_title(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_build_fastend(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_build_quietend(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_ctrl_to_shell(ITesting *t);
 }
 
 #include <cstdint>   // UINT64_MAX
@@ -576,8 +577,10 @@ DLL_EXPORT int test_terminalcontroller_ctrlc_local(ITesting *t) {
     TR_ASSERT(t, sent == "\x03");
     TR_ASSERT(t, c.GetInputLine()->Length() == 0);
 
-    // Another Ctrl chord nothing is bound to is not text
-    TR_ASSERT(t, !c.HandleKeyPress(cursor, line, TextKey(U'y', Keyboard::kMod_LeftCtrl)));
+    // Another Ctrl chord nothing is bound to is not text - it goes to the shell (Ctrl+Y, readline's yank)
+    sent.clear();
+    TR_ASSERT(t, c.HandleKeyPress(cursor, line, TextKey(U'y', Keyboard::kMod_LeftCtrl)));
+    TR_ASSERT(t, sent == "\x19");
     TR_ASSERT(t, c.GetInputLine()->Length() == 0);
     return kTR_Pass;
 }
@@ -1123,5 +1126,44 @@ DLL_EXPORT int test_terminalcontroller_build_quietend(ITesting *t) {
     isJobRunning = false;
     FeedPty(c, "$ ");
     TR_ASSERT(t, !build.IsRunning());
+    return kTR_Pass;
+}
+
+// An unbound Ctrl chord at the local prompt is the shell's: readline takes the line with its cursor at the caret, then
+// the key (Ctrl+W deletes the word before the caret). Ctrl+D stays out - on an empty line it would end the shell.
+DLL_EXPORT int test_terminalcontroller_ctrl_to_shell(ITesting *t) {
+    TerminalController c;
+    c.Resize(40, 10);
+    std::string sent;
+    CaptureInput(c, sent, false);
+    FeedPty(c, "$ ");
+
+    Cursor cursor;
+    size_t line = 0;
+    for (auto ch : std::u32string(U"echo one two")) {
+        c.HandleKeyPress(cursor, line, TextKey(ch));
+    }
+    TR_ASSERT(t, sent.empty());
+    // Ctrl+D: not handed over
+    TR_ASSERT(t, !c.HandleKeyPress(cursor, line, TextKey(U'd', Keyboard::kMod_LeftCtrl)));
+    TR_ASSERT(t, !c.DoesShellOwnLineEditing());
+    TR_ASSERT(t, sent.empty());
+
+    // The caret after 'one' (four left): the line, readline's cursor four back, then Ctrl+W
+    EditorAction lineLeft;
+    lineLeft.uiAction = kUIAction::kUIActionLineLeft;
+    for (int i = 0; i < 4; i++) {
+        c.OnAction(lineLeft);
+    }
+    TR_ASSERT(t, sent.empty());
+    TR_ASSERT(t, c.HandleKeyPress(cursor, line, TextKey(U'w', Keyboard::kMod_LeftCtrl)));
+    TR_ASSERT(t, c.DoesShellOwnLineEditing());
+    std::string left = "\x1b[D";
+    TR_ASSERT(t, sent == "echo one two" + left + left + left + left + "\x17");
+
+    // From here readline has it: the next one goes straight through
+    sent.clear();
+    TR_ASSERT(t, c.HandleKeyPress(cursor, line, TextKey(U't', Keyboard::kMod_LeftCtrl)));
+    TR_ASSERT(t, sent == "\x14");
     return kTR_Pass;
 }

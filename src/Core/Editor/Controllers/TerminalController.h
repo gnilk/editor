@@ -169,6 +169,7 @@ namespace gedit {
     protected:
         void SyncInputLineFromGrid();
         void EnterShellOwned();
+        bool HandCtrlKeyToShell(const KeyPress &keyPress);
         std::u32string PromptTextOf(const TerminalScreen::Row &row) const;
         bool IsPromptRow(const TerminalScreen::Row &row) const;
         void ExitShellOwned();

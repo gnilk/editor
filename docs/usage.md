@@ -134,7 +134,10 @@ in the editor; anything else (`./build.sh`) goes to the shell. The prefix is `ma
 ## Terminal
 
 - `Opt+T` / `Alt+T` focuses it; it's a real shell (a pty), and full-screen programs (`vim`, `less`, ...) run in it.
-- `Tab` hands line editing to the shell (completion); `Ctrl+C` takes it back.
+- `Tab` hands line editing to the shell (completion); `Ctrl+C` takes it back. A `Ctrl` key the editor doesn't use
+  (`Ctrl+W`, `Ctrl+K`, `Ctrl+U`, `Ctrl+Y`, ...) does the same and then goes to the shell, with its cursor where yours
+  was - so readline's keys work at the prompt. Not `Ctrl+D` (on an empty line it would end the shell). On Linux the
+  editor's own `Ctrl` keys (`Ctrl+T` go to symbol, ...) stay the editor's.
 - `.co` / `.ob` grab the output of the last command.
 - **Several terminals, in tabs:** `Cmd+T` / `Ctrl+Shift+T` (in a terminal) opens another, `Cmd+W` / `Ctrl+Shift+W`
   closes the shown one (asks when a job runs in it; the last one stays). With two or more, a row of tabs shows; the

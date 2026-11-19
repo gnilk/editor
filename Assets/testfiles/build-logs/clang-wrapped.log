@@ -1,0 +1,22 @@
+[1m/work/proj/src/a/rather/long/directory/name/for/wrapping/bad.c:2:9: [0m[0;1;35mwarning: [0m[1m
+      unused variable 'unused_variable_with_a_long_name'
+      [-Wunused-variable][0m
+    2 |     [0;34mint[0m unused_variable_with_a_long_name;[0m
+      | [0;1;32m        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[0m[1m/work/proj/src/a/rather/long/directory/name/for/wrapping/bad.c:6:16: [0m[0;1;31merror: [0m[1m
+      use of undeclared identifier
+      'nope_this_identifier_is_not_declared'[0m
+    6 |     [0;34mreturn[0m a + nope_this_identifier_is_not_declared;[0m
+      | [0;1;32m               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[0m1 warning and 1 error generated.
+[1mbad.c:2:9: [0m[0;1;35mwarning: [0m[1munused
+      variable 'unused_variable_with_a_long_name'
+      [-Wunused-variable][0m
+    2 |     [0;34mint[0m unused_variable_with_a_long_name;[0m
+      | [0;1;32m        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[0m[1mbad.c:6:16: [0m[0;1;31merror: [0m[1muse of
+      undeclared identifier
+      'nope_this_identifier_is_not_declared'[0m
+    6 |   ..[0;34m.a + n[0mope_this_identifier_is_not_declared;[0m
+      | [0;1;32m         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[0m1 warning and 1 error generated.

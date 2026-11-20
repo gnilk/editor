@@ -1081,3 +1081,33 @@ Open:
   modal's existing keys.
 - **Tests:** headless, as `layout` and `openfiles` are - a press/release inside fires once, outside not at all, the
   state follows hover, the label drawn is the state's.
+
+## 17. Note - panel templates and `.panel add` (not scheduled)
+
+Filed 2026-11-20 (the user's idea, after #53 step 4-5). Configured tabs (`panel.tabs`, `panel-tabs.md` §7) need the
+user to know the format: a tab entry, a section, `inherit:`, `bootstrap`, `promote_target`. A user treat instead:
+ready-made **panel templates** and a dot-command that copies one into the config - install the editor, type
+`.panel add claude`, done.
+
+- **Templates** ship with the system assets, `PanelTemplates/<name>.yml`: the tab entry and its section, e.g.
+  `claude.yml` = `{ name: Claude, config: claude }` + `claude: { inherit: terminal, bootstrap: ["claude"],
+  promote_target: yes }`. A few to start with: `claude`, `codex`, `messages`, `shell`.
+- **`.panel add <template>`** copies it into the user config: the section (as written in the template - from then on
+  the user's, to change), and the tab appended to `panel.tabs`. **`.panel del <template>`** takes the tab out (the
+  section stays - it may hold the user's changes; or ask). **`.panel list`** - the templates, and which are in the
+  config. `--user` (default) / `--project` as `.cfg` has them.
+- **Never overwrite** (the install rule, 2026-11-19): a section that is already there is left alone and said so - no
+  merging into the user's file.
+- **Now, not only next time:** `panel.tabs` is read only when the project has no session, so `add` also opens the tab
+  in the running panel (and `del` closes it) - the session then keeps it.
+
+Open (found writing it down):
+- **`--project` and commands.** A project config never sets `shell` / `init` / `bootstrap` (`ProjectConfigPolicy`), so
+  `claude`'s section can't live there. Leaning: `--project` puts the *tab* in the project's `panel.tabs` and the
+  *section* in the user config (a project only names a section; the commands stay the user's). A teammate without the
+  section gets a plain terminal (today's fallback, with a warning) - or the template's name could resolve to the
+  shipped template when the user has no such section.
+- **`.cfg` writes scalars only.** `ConfigFilePatcher` edits one value in place (comments kept); a section or a list item
+  is "`.cfg edit`" today. Appending to / removing from a list and adding a section need a patcher step first.
+- **A project's `panel.tabs` merges with the user's by position** (open-bugs #28, hitlist #17) - project tab 1 lands on
+  user tab 1. Fix #17 first, or decide that a project's `panel.tabs` replaces the user's whole.

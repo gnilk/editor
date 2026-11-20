@@ -1,0 +1,12 @@
+[100%] Linking CXX executable app
+/usr/bin/ld: CMakeFiles/app.dir/main.cpp.o: in function `main':
+/work/app/main.cpp:5: undefined reference to `helper()'
+/usr/bin/ld: CMakeFiles/app.dir/util.cpp.o: in function `other()':
+util.cpp:(.text+0x15): undefined reference to `missing'
+/usr/bin/ld: CMakeFiles/app.dir/b.cpp.o:/work/app/b.cpp:1: multiple definition of `counter'; CMakeFiles/app.dir/a.cpp.o:/work/app/a.cpp:1: first defined here
+/usr/bin/ld: libfoo.a(foo.o):(.text+0x4): undefined reference to `bar'
+collect2: error: ld returned 1 exit status
+ld.lld: error: undefined symbol: foo()
+>>> referenced by main.cpp:7 (/work/app/main.cpp:7)
+>>>               main.o:(main)
+clang++: error: linker command failed with exit code 1 (use -v to see invocation)

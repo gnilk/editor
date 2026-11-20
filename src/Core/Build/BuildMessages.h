@@ -38,7 +38,7 @@ namespace gedit {
         BuildMessages() = default;
         virtual ~BuildMessages() = default;
 
-        // The build tools we read (§9.2): 'make', 'cmake', 'ninja', 'clang++', 'trun', ... - by the command's first word,
+        // The build tools we read (§9.2): 'make', 'cmake', 'ninja', 'clang++', 'trun', 'cargo', 'python3', ... - by the command's first word,
         // after 'VAR=x' assignments and 'time' / 'env' / 'nice'; a path to the tool counts ('/usr/bin/make')
         static bool IsBuildCommand(std::string_view cmdLine);
 

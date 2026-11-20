@@ -6,7 +6,8 @@
 // command's output after the fact (Feed it all, then Finish()). No terminal, no editor: text in, messages out.
 //
 // The tools it knows are built in (§9.2): gcc / clang (also through make, ninja, cmake --build), CMake's own
-// messages, trun's test failures, and make's / ninja's 'Entering directory' (what relative paths are relative to).
+// messages, trun's test failures, rustc / cargo, GNU ld / lld, Python's tracebacks and warnings, and make's / ninja's
+// 'Entering directory' (what relative paths are relative to).
 //
 
 #ifndef GEDIT_BUILDOUTPUTPARSER_H
@@ -59,6 +60,13 @@ namespace gedit {
             kNone,
             kCompiler,  // gcc / clang: indented lines (source, caret), 'note:' lines
             kCMake,     // CMake: the indented message lines, blank lines inside
+            kRust,      // rustc: ' --> path:line:col' (the place), the '  |' source lines, '  = note:', up to a blank line
+        };
+        // One 'File "path", line N, in f' of a Python traceback, with the source lines under it
+        struct PythonFrame {
+            std::string path;
+            uint32_t line = 0;
+            std::vector<std::string> lines;
         };
 
     private:
@@ -67,6 +75,11 @@ namespace gedit {
 
         bool ParseDirectory(const std::string &line);
         bool ParseTrun(const std::string &line);
+        bool ParsePython(const std::string &line);
+        bool ParsePythonWarning(const std::string &line);
+        bool ParseRust(const std::string &line);
+        bool ParseLinker(const std::string &line);
+        void ParseLinkerReference(const std::string &line);
         bool ParseCompiler(const std::string &line);
         bool ParseCMake(const std::string &line);
         bool ParseContinuation(const std::string &line);
@@ -100,6 +113,9 @@ namespace gedit {
         bool isMessageWrapOpen = false;
         // trun: the case running ('=== RUN'), named in its failure's message
         std::string trunCase;
+        // Python: inside a traceback ('Traceback (most recent call last):' or a SyntaxError's 'File' line), its frames
+        bool isInPythonTraceback = false;
+        std::vector<PythonFrame> pythonFrames;
     };
 }
 

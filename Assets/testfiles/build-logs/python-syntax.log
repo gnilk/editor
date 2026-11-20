@@ -1,0 +1,4 @@
+  File "/work/py/bad.py", line 2
+    print("hi"
+         ^
+SyntaxError: '(' was never closed

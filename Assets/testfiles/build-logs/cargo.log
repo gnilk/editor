@@ -1,0 +1,42 @@
+   Compiling demo v0.1.0 (/work/rs)
+error[E0425]: cannot find value `z` in this scope
+ --> src/main.rs:4:20
+  |
+4 |     println!("{}", z);
+  |                    ^ help: a local variable with a similar name exists: `x`
+
+error[E0308]: mismatched types
+ --> src/main.rs:3:21
+  |
+3 |     let y: String = 3;
+  |            ------   ^- help: try using a conversion method: `.to_string()`
+  |            |        |
+  |            |        expected struct `String`, found integer
+  |            expected due to this
+
+Some errors have detailed explanations: E0308, E0425.
+For more information about an error, try `rustc --explain E0308`.
+error: could not compile `demo` due to 2 previous errors
+[0m[0m[1m[32m   Compiling[0m demo v0.1.0 (/work/rs)
+[0m[1m[38;5;9merror[E0308][0m[0m[1m: mismatched types[0m
+[0m [0m[0m[1m[38;5;12m--> [0m[0msrc/main.rs:3:21[0m
+[0m  [0m[0m[1m[38;5;12m|[0m
+[0m[1m[38;5;12m3[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0m    let y: String = 3;[0m
+[0m  [0m[0m[1m[38;5;12m| [0m[0m           [0m[0m[1m[38;5;12m------[0m[0m   [0m[0m[1m[38;5;9m^[0m[0m[1m[38;5;12m-[0m[0m [0m[0m[1m[38;5;12mhelp: try using a conversion method: `.to_string()`[0m
+[0m  [0m[0m[1m[38;5;12m| [0m[0m           [0m[0m[1m[38;5;12m|[0m[0m        [0m[0m[1m[38;5;9m|[0m
+[0m  [0m[0m[1m[38;5;12m| [0m[0m           [0m[0m[1m[38;5;12m|[0m[0m        [0m[0m[1m[38;5;9mexpected struct `String`, found integer[0m
+[0m  [0m[0m[1m[38;5;12m| [0m[0m           [0m[0m[1m[38;5;12mexpected due to this[0m
+
+[0m[1mFor more information about this error, try `rustc --explain E0308`.[0m
+[0m[0m[1m[31merror[0m[1m:[0m could not compile `demo` due to previous error
+   Compiling demo v0.1.0 (/work/rs)
+warning: unused variable: `x`
+ --> src/main.rs:2:9
+  |
+2 |     let x = 5;
+  |         ^ help: if this is intentional, prefix it with an underscore: `_x`
+  |
+  = note: `#[warn(unused_variables)]` on by default
+
+warning: `demo` (bin "demo") generated 1 warning
+    Finished dev [unoptimized + debuginfo] target(s) in 0.11s

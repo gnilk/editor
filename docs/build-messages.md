@@ -1,7 +1,8 @@
 # Build messages - errors and warnings from the terminal, as places to jump to
 
 Written down 2026-11-18. **Steps 1-3 built** (2026-11-19, `feature/build-messages`); step 4's matchers (python, rust, ld) built
-2026-11-20 (`feature/build-messages-step4`). Hitlist #52. Decisions: §9.
+2026-11-20 (`feature/build-messages-step4`), the rest of step 4 the same day (`feature/build-messages-step4-ui`): every step
+of §7 is built. Hitlist #52 (done). Decisions: §9.
 
 ## 1. The idea
 
@@ -167,5 +168,22 @@ Found while building it:
     `multiple definition of`, the place from `file:line:` (with `-g`) or the file alone (`main.cpp:(.text+0x9)`); an
     object or archive (`libfoo.a(foo.o)`) is no place. `in function `main':` is context. lld's place is on its
     `>>> referenced by` line (the absolute path in the parentheses when given).
-- **Not yet:** the coloured source line in the list (rows are `error  a.cpp:3:16  message`, the folder on the right);
-  gutter marks; Cmd+click in the terminal; JS access (§7 step 4).
+- **The rest of step 4 (2026-11-20)** - the layout picked by the user:
+  - **The source line under each message**, in both lists (the modal, the Messages tab): two lines a message, the code
+    from below the place (`BuildMessages::CODE_INDENT`), leading blanks gone, in the list's background. Read once per
+    run, the first time it is drawn (`ActionHelper::ListedSourceLine` - the open document's line with its edits, else
+    the file's), so it doesn't follow an edit. `QueryListModal` got `LinesPerRow` / `DrawRowLine` for it - generic, the
+    UI layer doesn't draw code itself.
+  - **Gutter marks:** a line with an error / a warning has its number in `gutter_error` / `gutter_warning` (the theme
+    importer maps VS Code's `editorError.foreground` / `editorWarning.foreground`; a theme without them uses the change
+    marks' colours). `BuildMessages::LineMarks(path)` is asked on every draw, so it resolves each message's path once
+    per run - except, while the build runs, the last message: a line below it can still give its place (rustc's
+    ` --> `). The minimap has no mark.
+  - **Cmd/Ctrl+click in the terminal** (`OpenPlaceAtClick`, the terminal keymap's `mouse:` - the literal modifier, the
+    keymap has no `modifiers:` table): the view keeps the text it drew per row; `TextPlace::At` reads the place at the
+    click - `a.cpp:3:16`, ` --> src/main.rs:4:20`, `File "x.py", line 5` (anywhere from `File` to the number, a path
+    with blanks in it too), `(/abs/a.cpp:3)`, a path alone. Resolved against the shell's directory now, then where the
+    last build ran (§5). A word that is no file does nothing; a `file:line` not found says so. The ANSI backend can't
+    send Cmd with a click (SGR mouse has no Super), so on the Mac it is a hand test.
+  - **JS:** `Terminal.GetMessages()` - `[{severity, file, path, line, column, message}]` in the list's order, `path`
+    resolved (`''` when not found); `null` before the first build.

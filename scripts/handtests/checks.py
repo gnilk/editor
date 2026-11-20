@@ -404,6 +404,7 @@ def messages_tab(n):
         n(listed and len(rows) == 3 and 'warning' in rows[-1],
           f'Ctrl+F8: the Messages tab - errors, then the warning ({len(rows)} rows)')
         n(g.screen.find('Filter:') is None, 'not the modal')
+        n(code_under(g, 'error    bad.c:6:', 'return a + nope;'), 'the code it points at on the line under it')
         g.send(DOWN, 0.3)
         g.send(ENTER, 0.6)
         said = g.status_line().strip()
@@ -421,10 +422,26 @@ def messages_tab(n):
         g.send(alt('e'), 0.5)
         g.send(CTRL_F8, 0.8)
         n(g.wait_text('Filter:', 2), 'no Messages tab: Ctrl+F8 shows the list as a modal')
+        n(code_under(g, 'error    bad.c:6:', 'return a + nope;'), 'the modal has the code under each message too')
         g.send(ESC, 0.4)
         n(g.quit(), 'quits')
     finally:
         g.kill()
+
+
+def code_under(g, row_text, code):
+    """True when the row after the one holding 'row_text' holds 'code' - a build message's source line"""
+    r = g.screen.find(row_text)
+    return (r is not None) and (r[0] + 1 < g.rows) and (code in g.screen.text(r[0] + 1))
+
+
+def gutter_colour(g, line):
+    """fg of line 'line''s number in the editor's gutter, None when it isn't shown"""
+    for r, num, _ in g.editor_rows():
+        if num == line:
+            t = g.screen.text(r)
+            return g.screen.colour_of(r, str(line), t.find('│'))
+    return None
 
 
 @check('#16 Text encodings')
@@ -1249,6 +1266,8 @@ def python(n):
         g.wait_for(lambda g: 'l: ' in g.status_line(), 6)
         n('crash.py' in g.status_line() or 'crash.py' in ''.join(g.screen.lines()), 'F8 opened crash.py')
         n(g.cursor_line() == 2, f'F8: at line 2, "return a / b" (cursor line {g.cursor_line()})')
+        plain, marked = gutter_colour(g, 1), gutter_colour(g, 2)
+        n(None not in (plain, marked) and plain != marked, f'the line with the error has its number coloured ({marked} vs {plain})')
         g.send(ESC, 0.3)
         g.quick('.q!', 0.5)
     finally:

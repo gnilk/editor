@@ -18,5 +18,10 @@ keymap: {
     # Terminal tabs in the lower panel (docs/panel-tabs.md §6) - the terminal standard
     NewTerminal: KeyCode_Ctrl + KeyCode_Shift + 't',
     CloseTerminal: KeyCode_Ctrl + KeyCode_Shift + 'w',
+  },
+  mouse: {
+    # Ctrl+click a 'file:line' - a build message, a traceback's 'File "x.py", line 5', a path
+    # alone - goes there (docs/build-messages.md §2). The literal modifier: this keymap has no 'modifiers:' table.
+    OpenPlaceAtClick: "KeyCode_Ctrl + Click",
   }
 }

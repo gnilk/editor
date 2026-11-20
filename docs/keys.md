@@ -112,6 +112,12 @@ Files: `Assets/Resources/macOS/workspace_keymap.yml`, `Assets/Resources/Linux/wo
 | New terminal (`NewTerminal`) | `Cmd+T` | `Ctrl+Shift+T` |
 | Close terminal (`CloseTerminal`) | `Cmd+W` | `Ctrl+Shift+W` |
 
+Mouse:
+
+| Action | macOS | Linux / terminal |
+|---|---|---|
+| Open place at click (`OpenPlaceAtClick`) | `Cmd+click` | `Ctrl+click` |
+
 Inherits `default_keymap`.
 
 Files: `Assets/Resources/macOS/terminal_keymap.yml`, `Assets/Resources/Linux/terminal_keymap.yml`

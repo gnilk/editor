@@ -290,6 +290,9 @@ namespace {
         {"tree_untracked",           {"gitDecoration.untrackedResourceForeground", "gitDecoration.addedResourceForeground"}, "foreground"},
         {"tree_deleted",             {"gitDecoration.deletedResourceForeground"}, "foreground"},
         {"tree_conflicted",          {"gitDecoration.conflictingResourceForeground"}, "foreground"},
+        // A line's number with a build error / warning (docs/build-messages.md §2)
+        {"gutter_error",             {"editorError.foreground", "editorOverviewRuler.errorForeground", "list.errorForeground", "errorForeground"}, "gutter_deleted"},
+        {"gutter_warning",           {"editorWarning.foreground", "editorOverviewRuler.warningForeground", "list.warningForeground"}, "tree_modified"},
     };
     const std::vector<MappedKey> sublimeUIKeys = {
         {"background",               {"background"}, nullptr},

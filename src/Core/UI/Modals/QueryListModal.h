@@ -46,6 +46,12 @@ namespace gedit {
         virtual std::u32string OnRowDetail(int idxRow) {
             return {};
         }
+        // Screen lines per row - more when a subclass draws something under each row (the code a message points at)
+        virtual int LinesPerRow() const {
+            return 1;
+        }
+        // Line 'idxLine' (1 .. LinesPerRow() - 1) of row 'idxRow', at (x, y) within 'width' columns
+        virtual void DrawRowLine(DrawContext &dc, int x, int y, int width, int idxRow, int idxLine) {}
         // The row selected when a query has run - the first unless a subclass knows better (the active file)
         virtual int OnInitialRow(const std::u32string &query) {
             return 0;

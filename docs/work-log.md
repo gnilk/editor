@@ -8,6 +8,18 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## Build messages, the rest of step 4 (2026-11-20) ✅
+
+**Hitlist #52 done.** The build list shows each message's code on the line under it (the modal and the Messages tab);
+a line with an error / a warning has its number coloured in the gutter; `Cmd/Ctrl+click` on a `file:line` in the
+terminal goes there (also a Python traceback's `File "x.py", line 5`); `Terminal.GetMessages()` for scripts.
+**Load-bearing decisions:** two lines a message rather than a preview strip (the user's pick); the number coloured
+rather than a new gutter column. The terminal view keeps the text it drew per row, so a click reads exactly what is on
+screen whatever path drew it. The gutter's marks resolve each path once per run, but never a message still being read.
+Detail: `build-messages.md` §9.
+
+---
+
 ## Python (2026-11-20) ✅
 
 **Hitlist #11 (languages phase 2 step 2) and #52 step 4's matchers.** `python.yml` as a data language, and a Python

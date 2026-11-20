@@ -8,6 +8,7 @@
 #include "MessagesView.h"
 #include "Core/ActionHelper.h"
 #include "Core/Editor.h"
+#include "Core/Editor/LineRender.h"
 #include "Core/RuntimeConfig.h"
 #include "Core/UI/UIHost.h"
 #include "Core/UnicodeHelper.h"
@@ -83,7 +84,7 @@ void MessagesView::DrawViewContents() {
             break;
         }
         auto &message = messages[rows[idxRow]];
-        auto y = LIST_TOP_ROW + i;
+        auto y = LIST_TOP_ROW + i * LINES_PER_ROW;
         // The folder on the right, as printed - which of two 'util.h' it is; a long one shows its end
         auto folder = UnicodeHelper::utf8to32(std::filesystem::path(message.path).parent_path().string());
         auto maxFolder = (size_t)std::max(0, width / 3);
@@ -104,7 +105,22 @@ void MessagesView::DrawViewContents() {
             dc.DrawStringWithAttributesAt(xFolder, y, kTextAttributes::kNormal, folder);
             dc.SetColor(fg, bg);
         }
+        auto code = CodeLine(rows[idxRow], bg);
+        auto xCode = 1 + BuildMessages::CODE_INDENT;
+        if ((code != nullptr) && (xCode < width)) {
+            LineRender(dc).DrawLine(xCode, y + 1, code->CopyOfRange(0, (size_t)(width - xCode)));
+            dc.SetColor(fg, bg);
+        }
     }
+}
+
+Line::Ref MessagesView::CodeLine(size_t idxMessage, const ColorRGBA &background) {
+    auto it = codeLines.find(idxMessage);
+    if (it == codeLines.end()) {
+        it = codeLines.emplace(idxMessage, ActionHelper::ListedSourceLine(buildMessages.ResolvePath(messages[idxMessage]),
+                                                                            messages[idxMessage].line, background)).first;
+    }
+    return it->second;
 }
 
 bool MessagesView::OnAction(const EditorAction &action) {
@@ -148,10 +164,15 @@ bool MessagesView::OnMouseEvent(const MouseEvent &mouseEvent) {
         return false;
     }
     auto y = mouseEvent.y - GetContentRect().TopLeft().y - LIST_TOP_ROW;
-    if ((y < 0) || ((size_t)(idxTopRow + y) >= rows.size())) {
+    if (y < 0) {
         return false;
     }
-    SelectRow((size_t)(idxTopRow + y));
+    // The message's line or its code
+    auto idxRow = (size_t)(idxTopRow + y / LINES_PER_ROW);
+    if (idxRow >= rows.size()) {
+        return false;
+    }
+    SelectRow(idxRow);
     if (mouseEvent.clicks >= 2) {
         GoToSelected();
     }
@@ -174,6 +195,7 @@ void MessagesView::Refresh() {
     if (runNumber != seenRun) {
         seenRun = runNumber;
         seenCurrent.reset();
+        codeLines.clear();
         idxSelected = 0;
         idxTopRow = 0;
     }
@@ -226,7 +248,7 @@ void MessagesView::GoToSelected() {
 
 int MessagesView::ListHeight() const {
     if (window == nullptr) {
-        return std::max(0, viewRect.Height() - LIST_TOP_ROW);
+        return std::max(0, viewRect.Height() - LIST_TOP_ROW) / LINES_PER_ROW;
     }
-    return std::max(0, window->GetContentDC().GetRect().Height() - LIST_TOP_ROW);
+    return std::max(0, window->GetContentDC().GetRect().Height() - LIST_TOP_ROW) / LINES_PER_ROW;
 }

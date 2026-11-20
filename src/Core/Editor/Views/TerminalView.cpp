@@ -3,11 +3,15 @@
 //
 
 #include <algorithm>
+#include <filesystem>
 #include <mutex>
 
 #include "TerminalView.h"
+#include "Core/ActionHelper.h"
+#include "Core/Build/TextPlace.h"
 #include "Core/Editor.h"
 #include "Core/Editor/LineRender.h"
+#include "Core/PathUtil.h"
 #include "Core/TextBuffer.h"
 #include "Core/UnicodeHelper.h"
 
@@ -77,6 +81,11 @@ bool TerminalView::OnAction(const EditorAction &kpAction) {
         PasteFromClipboard();
         return true;
     }
+    // A click's - never the app's, whatever runs
+    if (kpAction.action == kAction::kActionOpenPlaceAtClick) {
+        OpenPlaceAtClick();
+        return true;
+    }
     // An app owns the terminal (alt screen, foreground job) or readline owns the line: the action's key goes to
     // the pty. Escape-hatch actions (view/buffer switching, resizing, Cmd) come back unhandled - the view takes
     // its own (resize) and the rest falls through to the editor.
@@ -122,6 +131,12 @@ bool TerminalView::OnMouseEvent(const MouseEvent &mouseEvent) {
         if (controller.GetScreen().IsAltScreen() && (mouseEvent.kind == MouseEvent::kMouseEventKind_Wheel)) {
             return false;
         }
+    }
+    if (mouseEvent.kind == MouseEvent::kMouseEventKind_Press) {
+        auto origin = GetContentRect().TopLeft();
+        pressedCell = Point(mouseEvent.x - origin.x, mouseEvent.y - origin.y);
+        // What the click stands for (Cmd/Ctrl+click: OpenPlaceAtClick) - from the keymap's 'mouse:' section
+        return Editor::Instance().DispatchMouseBinding(controller.Settings().GetStr("keymap", "terminal_keymap"), mouseEvent);
     }
     if (mouseEvent.kind != MouseEvent::kMouseEventKind_Wheel) {
         return ViewBase::OnMouseEvent(mouseEvent);
@@ -190,6 +205,7 @@ void TerminalView::DrawViewContents() {
     std::lock_guard<std::mutex> guard(controller.GetScreenLock());
     auto &screen = controller.GetScreen();
     int viewHeight = dc.GetRect().Height();
+    drawnRows.assign((size_t)std::max(0, viewHeight), std::u32string());
     // The editor's bar at the local prompt; an app's own caret (DECSCUSR, DECTCEM) while it owns the terminal
     cursor.shape = Cursor::Shape::kBar;
     cursor.isVisible = true;
@@ -216,7 +232,9 @@ void TerminalView::DrawViewContents() {
     auto drawAbsRow = [&](uint64_t abs, int viewY) {
         auto resolved = screen.RowAtAbs(abs);
         if (std::holds_alternative<Line::Ref>(resolved)) {
-            lineRender.DrawLine(0, viewY, screen.ResolveHistoryLine(std::get<Line::Ref>(resolved)));
+            auto historyLine = screen.ResolveHistoryLine(std::get<Line::Ref>(resolved));
+                lineRender.DrawLine(0, viewY, historyLine);
+                RecordDrawnRow(viewY, historyLine->Buffer());
         } else if (std::holds_alternative<const TerminalScreen::Row *>(resolved)) {
             DrawScreenRow(dc, *std::get<const TerminalScreen::Row *>(resolved), viewY);
         }
@@ -295,6 +313,7 @@ void TerminalView::DrawViewContents() {
     auto inputLine = controller.GetInputLine();
     if (inputLine->Length() > 0) {
         dc.DrawStringAt(promptLen, inputViewRow, inputLine->Buffer());
+        RecordDrawnRow(inputViewRow, inputLine->Buffer(), promptLen);
     }
 
     cursor.position.y = inputViewRow;
@@ -361,7 +380,9 @@ void TerminalView::DrawAppScreen(DrawContext &dc, const TerminalScreen &screen, 
         if (abs < gridTop) {
             auto resolved = screen.RowAtAbs(abs);
             if (std::holds_alternative<Line::Ref>(resolved)) {
-                lineRender.DrawLine(0, viewY, screen.ResolveHistoryLine(std::get<Line::Ref>(resolved)));
+                auto historyLine = screen.ResolveHistoryLine(std::get<Line::Ref>(resolved));
+                lineRender.DrawLine(0, viewY, historyLine);
+                RecordDrawnRow(viewY, historyLine->Buffer());
             }
         } else {
             DrawScreenRow(dc, frame.GetRow((int)(abs - gridTop)), viewY);
@@ -378,6 +399,13 @@ void TerminalView::DrawScreenRow(DrawContext &dc, const TerminalScreen::Row &row
     if (row.empty()) {
         return;
     }
+    std::u32string text;
+    text.reserve(row.size());
+    for (auto &cell : row) {
+        // A wide character's right half (ch 0) keeps the columns lined up with the cells
+        text.push_back((cell.ch == 0) ? U' ' : cell.ch);
+    }
+    RecordDrawnRow(y, text);
     auto toTextAttributes = [](uint8_t attrs) {
         auto result = kTextAttributes::kNormal;
         if (attrs & TerminalScreen::kAttrBold)      { result = result | kTextAttributes::kBold; }
@@ -422,4 +450,57 @@ Cursor::Shape TerminalView::ToCursorShape(gnilk::vt::CursorShape shape) {
         default:
             return Cursor::Shape::kBlock;
     }
+}
+
+// What a view row shows from column 'x' on - over what was there
+void TerminalView::RecordDrawnRow(int y, const std::u32string &text, int x) {
+    if ((y < 0) || ((size_t)y >= drawnRows.size()) || (x < 0)) {
+        return;
+    }
+    auto &row = drawnRows[(size_t)y];
+    if (row.size() < (size_t)x + text.size()) {
+        row.resize((size_t)x + text.size(), U' ');
+    }
+    row.replace((size_t)x, text.size(), text);
+}
+
+void TerminalView::OpenPlaceAtClick() {
+    if (!pressedCell.has_value() || (pressedCell->y < 0) || ((size_t)pressedCell->y >= drawnRows.size()) || (pressedCell->x < 0)) {
+        return;
+    }
+    auto place = TextPlace::At(drawnRows[(size_t)pressedCell->y], (size_t)pressedCell->x);
+    if (!place.has_value()) {
+        return;
+    }
+    auto path = ResolveClickedPath(place->path);
+    if (path.empty()) {
+        // A word alone that is no file is just a word
+        if (place->line > 0) {
+            Editor::Instance().ShowStatusMessage(UnicodeHelper::utf8to32(place->path + " not found"));
+        }
+        return;
+    }
+    // The tools count from 1, the editor from 0
+    auto line = (place->line > 0) ? place->line - 1 : 0;
+    auto column = (place->column > 0) ? place->column - 1 : 0;
+    ActionHelper::JumpTo(path, line, column);
+}
+
+std::string TerminalView::ResolveClickedPath(const std::string &path) {
+    auto isFile = [](const std::filesystem::path &candidate) {
+        std::error_code ec;
+        return std::filesystem::is_regular_file(candidate, ec);
+    };
+    std::filesystem::path clicked(path);
+    if (clicked.is_absolute()) {
+        return isFile(clicked) ? pathutil::CanonicalPath(clicked).string() : std::string{};
+    }
+    auto directory = controller.WorkingDirectory();
+    if (!directory.empty() && isFile(std::filesystem::path(directory) / clicked)) {
+        return pathutil::CanonicalPath(std::filesystem::path(directory) / clicked).string();
+    }
+    // Where the last build ran - make's directories, the build directory, the project root
+    BuildMessage message;
+    message.path = path;
+    return Editor::Instance().GetBuildMessages().ResolvePath(message);
 }

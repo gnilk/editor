@@ -41,6 +41,8 @@ namespace gedit {
         // section up by name. Without them the code's defaults hold. Set before Begin.
         void SetSettings(const ConfigNode &newSettings);
         const ConfigNode &Settings() const { return settings; }
+        // The shell's directory now (read from its process); empty when it isn't known
+        std::string WorkingDirectory() { return shell.GetWorkingDirectory(); }
 
         void Begin() override;
         void Resize(int cols, int rows);

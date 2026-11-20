@@ -502,6 +502,22 @@ void ActionHelper::GoToBuildMessage(const BuildMessages::Position &position) {
     }
 }
 
+Line::Ref ActionHelper::ListedSourceLine(const std::string &path, uint32_t lineNumber, const ColorRGBA &background) {
+    if (path.empty() || (lineNumber == 0)) {
+        return nullptr;
+    }
+    auto line = SourceLine(path, lineNumber - 1);
+    if (line == nullptr) {
+        return nullptr;
+    }
+    auto idxText = line->Buffer().find_first_not_of(U" \t");
+    auto trimmed = line->CopyOfRange((idxText == std::u32string::npos) ? line->Length() : idxText, line->Length());
+    for (auto &attrib : trimmed->Attributes()) {
+        attrib.backgroundColor = background;
+    }
+    return trimmed;
+}
+
 void ActionHelper::ShowBuildMessages() {
     auto &editor = Editor::Instance();
     if (!RuntimeConfig::Instance().HasRootView()) {

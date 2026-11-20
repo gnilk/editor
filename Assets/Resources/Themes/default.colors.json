@@ -108,6 +108,8 @@
       "gutter_added": "var(green)",
       "gutter_modified": "var(orange3)",
       "gutter_deleted": "var(red)",
+      "gutter_error": "var(red)",
+      "gutter_warning": "var(orange3)",
       "minimap_viewport": "hsla(0, 0%, 75%, 0.3)",
       "header_background": "var(blue4)",
       "header_foreground": "var(grey2)",

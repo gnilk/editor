@@ -502,7 +502,12 @@ std::pair<bool, kLanguageTokenClass> LangLineTokenizer::GetNextToken(std::u32str
             continue;
         }
         int sz = 0;
-        if (!kvp.second->IsPartialMatch(strInput, sz)) {
+        if (kvp.second->isPrefix) {
+            sz = static_cast<int>(kvp.second->PrefixMatchSize(strInput));
+            if (sz == 0) {
+                continue;
+            }
+        } else if (!kvp.second->IsPartialMatch(strInput, sz)) {
             continue;
         }
         if (sz > bestSz) {

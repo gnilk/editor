@@ -37,6 +37,8 @@ namespace gedit {
         struct TokenRule {
             kLanguageTokenClass tokenClass = kLanguageTokenClass::kRegular;
             bool isWholeWord = false;
+            // 'prefix:' instead of 'words:' - each takes the name glued to it ('@' -> '@app.route')
+            bool isPrefix = false;
             // 'case_sensitive:' on the entry - unset: the language's (whole-word lists only)
             std::optional<bool> isCaseSensitive;
             std::vector<std::u32string> words;

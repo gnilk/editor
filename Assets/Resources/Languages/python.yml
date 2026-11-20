@@ -1,0 +1,125 @@
+# Python (docs/support-languages.md §6, hitlist #11): .py, .pyw, .pyi.
+#
+#   keyword          the statements and the operators that are words: def, if, return, and, not, lambda, ...
+#   known_type       the built-in types (int, str, list, dict, ...), self, cls
+#   enum_value       None, True, False, ...
+#   function         the built-in functions (print, len, range, input, ...) and the name after 'def'
+#   user_type        the name after 'class'
+#   macro_identifier a decorator: @property, @app.route (a prefix: '@' takes the name glued to it)
+#   string           "...", '...', the triple-quoted ones across lines, with their prefixes: f"...", r'...', b"""
+#                    (an f-string's {...} parts colour as string - accepted for v1)
+language:
+  name: python
+  display: Python
+  inherit: default
+  extensions: [".py", ".pyw", ".pyi"]
+  author: gnilk
+  date: 2026-11-20
+  version: 1
+  line_comment: "#"
+  tabsize: 4
+
+tokenizer:
+  start: main
+  states:
+    main:
+      postfix: "( ) [ ] { } : ; , . = + - * / % < > ! ~ & | ^ @ # \" ' \\"
+      numbers: { matcher: generic, suffixes: "j J" }
+      tokens:
+        - class: operator
+          words: "** // == != <= >= -> := += -= *= /= //= %= **= &= |= ^= >>= <<= @= << >> ... ( ) [ ] { } : ; , .
+                  = + - * / % < > ~ & | ^ @ ! \\"
+        - { class: macro_identifier, prefix: "@" }
+        - { class: line_comment, words: "#", push: in_comment }
+        # Each quote style is its own state, which only its own closer pops. A string prefix (f, r, b, rb, ...) is
+        # part of the opening token.
+        - class: string
+          push: in_tq_dq_string
+          words: '""" B""" b""" F""" f""" R""" r""" T""" t""" U""" u""" BR""" Br""" bR""" br""" FR""" Fr""" fR"""
+            fr""" RB""" Rb""" rB""" rb""" RF""" Rf""" rF""" rf""" RT""" Rt""" rT""" rt""" TR""" Tr""" tR""" tr"""'
+        - class: string
+          push: in_tq_sq_string
+          words: "''' B''' b''' F''' f''' R''' r''' T''' t''' U''' u''' BR''' Br''' bR''' br''' FR''' Fr''' fR'''
+            fr''' RB''' Rb''' rB''' rb''' RF''' Rf''' rF''' rf''' RT''' Rt''' rT''' rt''' TR''' Tr''' tR''' tr'''"
+        - class: string
+          push: in_dq_string
+          words: '" B" b" F" f" R" r" T" t" U" u" BR" Br" bR" br" FR" Fr" fR" fr" RB" Rb" rB" rb" RF" Rf" rF" rf"
+            RT" Rt" rT" rt" TR" Tr" tR" tr"'
+        - class: string
+          push: in_sq_string
+          words: "' B' b' F' f' R' r' T' t' U' u' BR' Br' bR' br' FR' Fr' fR' fr' RB' Rb' rB' rb' RF' Rf' rF' rf'
+            RT' Rt' rT' rt' TR' Tr' tR' tr'"
+        - { class: keyword, whole_word: yes, words: "def", push: in_def }
+        - { class: keyword, whole_word: yes, words: "class", push: in_class }
+        - class: keyword
+          whole_word: yes
+          words: "and as assert async await break continue del elif else except finally for from global if import in
+                  is lambda nonlocal not or pass raise return try while with yield"
+        - class: known_type
+          whole_word: yes
+          words: "int float complex str bytes bytearray bool list dict set frozenset tuple object type range memoryview
+                  self cls"
+        - class: enum_value
+          whole_word: yes
+          words: "None True False Ellipsis NotImplemented __name__ __file__"
+        - class: function
+          whole_word: yes
+          words: "print input len abs all any ascii bin callable chr classmethod compile delattr dir divmod enumerate
+                  eval exec filter format getattr globals hasattr hash help hex id isinstance issubclass iter locals
+                  map max min next oct open ord pow property repr reversed round setattr slice sorted staticmethod sum
+                  super vars zip breakpoint aiter anext __import__"
+    # 'def name' - the name is a function; '(' or ':' ends it
+    in_def:
+      regular: function
+      postfix: "( : #"
+      eol: pop
+      tokens:
+        - { class: operator, words: "( :", pop: yes }
+    # 'class Name' - the name is a type; '(' or ':' ends it
+    in_class:
+      regular: user_type
+      postfix: "( : #"
+      eol: pop
+      tokens:
+        - { class: operator, words: "( :", pop: yes }
+    in_comment:
+      regular: commented_text
+      eol: pop
+    # An escape is a token of its own, so a closing quote after it doesn't close; a '\' before anything else (r'\d')
+    # is one too - '\' ends a word, and a word-ender that is no token would stop the line
+    # "..." and '...' end with the line, closed or not - a missing quote doesn't colour the rest of the file
+    in_dq_string:
+      regular: string
+      postfix: "\" \\"
+      eol: pop
+      tokens:
+        - { class: string, words: "\\\\ \\\" \\" }
+        - { class: string, words: "\"", pop: yes }
+    in_sq_string:
+      regular: string
+      postfix: "' \\"
+      eol: pop
+      tokens:
+        - { class: string, words: "\\\\ \\' \\" }
+        - { class: string, words: "'", pop: yes }
+    # """...""" and '''...''' - across lines; the other quote, or a single one of its own, inside is just text
+    in_tq_dq_string:
+      regular: string
+      postfix: "\"\"\" \\"
+      tokens:
+        - { class: string, words: "\\\\ \\\" \\" }
+        - { class: string, words: "\"\"\"", pop: yes }
+    in_tq_sq_string:
+      regular: string
+      postfix: "''' \\"
+      tokens:
+        - { class: string, words: "\\\\ \\' \\" }
+        - { class: string, words: "'''", pop: yes }
+
+# Indentation is the syntax: a line ending in ':' indents the next one; only a bracket's closer dedents on type.
+# 'reindent: no' - reformatting can't know where a block ends.
+indent:
+  suppress_in:  [string, comment]
+  indent_after: [":", "(", "[", "{"]
+  dedent_on:    [")", "]", "}"]
+  reindent: no

@@ -1,7 +1,8 @@
 # Languages as data - a generic syntax engine, then CMake and Python
 
 Status: phase 1 built and merged (2026-11-13: `DataLanguage`, `LanguageFileSet`, `json.yml`); phase 2 step 1 - CMake - built
-2026-11-17 (`cmake.yml`, case folding, generic numbers, `filenames:`); Python (step 2), phases 3-4 planned (hitlist #11, #12, #14).
+2026-11-17 (`cmake.yml`, case folding, generic numbers, `filenames:`); step 2 - Python - built 2026-11-20 (`python.yml`, the
+prefix rule); phases 3-4 planned (hitlist #12, #14).
 
 More languages - CMake and Python first - and a way to add one **without recompiling**. A language is one file
 (`python.yml`): its name, the extensions it claims, who wrote it and when, and the definitions the tokenizer needs. The
@@ -273,6 +274,25 @@ Step 1, CMake, done 2026-11-17:
 - `cmake.yml`: control flow `keyword`, commands `function`, argument keywords / `if()` operators / sub-commands
   `known_type`, `ON`/`OFF`/... `enum_value`, `${...}` (nested, in strings) `macro_identifier`, `$<...>`
   `preprocessor`, `#[[ ]]` and `[[ ]]` across lines. Not yet: unquoted `CMAKE_*` variables (a prefix rule could).
+
+Step 2, Python, done 2026-11-20 (`feature/python-language`):
+- **The prefix rule:** `{ class: macro_identifier, prefix: "@" }` - `prefix:` in place of `words:`; the token takes the
+  name glued to it: letters, digits, `_`, any non-ASCII character, and a `.` between two of them (`@app.route`, not the
+  `.` after `@c.`). With no name after it the prefix doesn't match, so `a @ b` is the operator. A prefix can't push or
+  pop (its token is never the same string) and isn't `whole_word`; the entries of one class in a state are all prefixes
+  or none, as with `whole_word`. In the tokenizer it is `IdentifierList::isPrefix`, matched in the longest-first pass.
+- `user_type` is a class a data file may use (as `function` - the code index's class, given by the syntax here).
+- `python.yml`: `.py .pyw .pyi`. Keywords; `def` / `class` push a one-word state that colours the name `function` /
+  `user_type` and pops at `(` or `:`; built-in types and `self` / `cls` `known_type`; `None` / `True` / `False`
+  `enum_value`; built-in functions (`print`, `len`, `range`, `input`, ...) `function`; numbers with `j`; the four quote
+  styles with every string prefix (`f`, `r`, `b`, `u`, `t` and pairs, any case) as part of the opening token. `"..."`
+  and `'...'` end with their line, closed or not - a missing quote doesn't colour the rest of the file. `indent:`
+  `[":", "(", "[", "{"]`, `reindent: no`. Not coloured: an f-string's `{...}`; the soft keywords `match` / `case` /
+  `type` (they are names too often - `re.match`).
+- **Found:** a word-ender that is no token stops the rest of the line (`GetNextToken` returns an empty token: "stuck").
+  In a string state `\` ends a word for the escapes, so `r'\d'` or CMake's `"a\nb"` left the line unparsed after the
+  `\`. The fix is in the data - a lone `\` is a token too (`python.yml`, `cmake.yml`); the rule for a file: every
+  `postfix` character a state can meet alone needs a token.
 
 **Phase 3 - extensible without recompiling.**
 - The user directory (the project directory later).

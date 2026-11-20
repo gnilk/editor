@@ -25,6 +25,11 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
   - [ ] Linux [x] Mac - a long build (this repo, `-j`): `Cmd/Ctrl+F8` while it still runs lists what has come so far ("(running)"); an `ls` after the build keeps the list; the next build replaces it
     - Mac 2026-11-19: `make -j` on testrunner in the panel listed 1 of its warnings - clang wraps messages to the panel's width; fixed (dev 3293995a), every warning listed now, each once though several targets compile the file
   - [ ] Linux [x] Mac - trun: a failing test run in the panel (`trun --sequential ./libutests.so`) - "build: N errors" counts each failure once; `F8` goes to the failed `TR_ASSERT` line, "error 1/N: test_x_y: <exp>" (scripted: `build_messages_trun`)
+- **Python** (#11, #52 step 4) - scripted (`python`: colours, `if x:` + Enter indents, `python3 crash.py` -> `F8` to line 2)
+  - [ ] Linux [ ] Mac - the window: a `.py` file - keywords, `def` / `class` names, strings (also `f"..."`, `"""` over
+    lines), numbers, comments, `@decorator` coloured; Enter after a line ending in `:` indents 4
+  - [ ] Linux [ ] Mac - the window: `python3 x.py` that raises in the panel - "build: 1 error"; `F8` goes to the program's own
+    line (not a line in Python's library); a SyntaxError too
 - **Terminal tabs** (#53) - scripted (`terminal_tabs`: Ctrl+Shift+T / W, Alt+1/2, the job question, a restart)
   - [x] Linux [x] Mac - the window: `Cmd+T` / `Ctrl+Shift+T` in the terminal opens a second tab (the row shows), `Cmd+W` / `Ctrl+Shift+W` closes it; `Cmd/Opt+1`, `2` / `Alt+1`, `2` and a click on a tab switch; a restart brings the tabs back, the same one shown; `make` in one tab, `ls` in the other: `F8` still has the build's errors
 - **Configured tabs, an agent's tab** (#53 step 4) - scripted (`agent_tab`: `panel.tabs`, a section inheriting `terminal`, its bootstrap, a project's not run, Cmd/Ctrl+Enter to `promote_target`, kept in the session)
@@ -165,7 +170,6 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
 | 17 | A config list overwrites the default list by position | open-bugs #28 | half a day | idea: an immutable merge that returns a new tree; `LanguageFileSet::Merge` is the model. **Blocks #61** (a project's `panel.tabs`, a user's `bootstrap:` over a shipped one) |
 | 62 | `ConfigFilePatcher` (`.cfg`) appends to / removes from a list in place, comments kept - today it writes one scalar | `ConfigFilePatcher` | half a day | **blocks #61** (`.panel add` appends to `panel.tabs`) |
 | 61 | Ready-made panel tabs: sections (`claude:`, `codex:`, ... with a `label`) ship in the default config; `.panel add / del / list [--project] <section>` adds / removes `{ name, config }` in `panel.tabs` and opens / closes the tab now | usability §17 | a day | idea 2026-11-20; **after #17 and #62** |
-| 11 | Languages phase 2, step 2: Python (the prefix rule for decorators, triple-quoted strings; numbers and case folding are in since step 1) | `support-languages.md` §6 | a day | CMake (step 1) is done |
 | 12 | Languages phase 3: the user directory, `.lang_reload`, `override: yes` | `support-languages.md` | a day | user language dirs aren't read yet |
 | 6 | Gansi copy fallback: `pbcopy` / `xclip` / `wl-copy` when local | open-bugs #20 notes | half a day | fits with #20 |
 | 25 | `Cmd` held underlines a name a click would jump from | usability §14 | half a day | decided: only names the index resolves, an underline; needs the hover plumbing (as 26, 27) |
@@ -190,6 +194,7 @@ Smaller bugs not ranked yet: open-bugs #24 (readline history extras),
 
 | # | Item | When |
 |---|---|---|
+| 11 | ~~Languages phase 2, step 2: Python~~ - `python.yml` (`.py .pyw .pyi`), the tokenizer's prefix rule (`@decorator`), `def` / `class` names, every string prefix, `:` indents; a lone `\` in a string no longer stops the line (also `cmake.yml`). With #52's Python matcher: `python3 x.py` in the panel, `F8` to the line that raised | 2026-11-20 |
 | 54 | Text weight: `GlyphFont::CoverageCurve` (alpha = coverage^(1/gamma)) applied when a glyph page is uploaded (both SDL backends, nothing per frame); `sdl.text_gamma`, default 1.2 (1.5 matches VS Code - the user prefers lighter) | 2026-11-19 |
 | 55 | Font styles in themes: `font_styles` in colors.json (bold / italic / underline / strikethrough by content key), a token takes its class's style with its colour; the importer resolves VS Code's `fontStyle` / Sublime's `font_style` on its own (never from a context rule); Dark 2026 regenerated - bold headings, italic emphasis (`theme-collection.md` §6). The SDL window draws italic as a slant (same day) | 2026-11-19 |
 | 59 | `.theme use [--user \| --project] <name>` (`--user` the default): the theme follows the config that wins. `--user` in a project whose config sets its own `main.theme` asks - remove it from the project (`ConfigFilePatcher::RemoveScalar`, comments kept), keep the project's (the choice is saved for other projects, this one stays and says so), or cancel. `.theme list` says where `main.theme` comes from. With it: `.cfg --user\|--project unset <key>` | 2026-11-19 |

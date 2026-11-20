@@ -1,0 +1,30 @@
+/work/py/main.py:5: DeprecationWarning: old api
+  warnings.warn("old api", DeprecationWarning, stacklevel=1)
+Traceback (most recent call last):
+  File "/work/py/main.py", line 11, in <module>
+    divide(1, 0)
+    ~~~~~~^^^^^^
+  File "/work/py/lib.py", line 2, in divide
+    return a / b
+           ~~^~~
+ZeroDivisionError: division by zero
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/work/py/main.py", line 13, in <module>
+    run()
+    ~~~^^
+  File "/work/py/main.py", line 8, in run
+    json.loads("{bad")
+    ~~~~~~~~~~^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.15/3.15.2/Frameworks/Python.framework/Versions/3.15/lib/python3.15/json/__init__.py", line 371, in loads
+    return _default_decoder.decode(s)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^
+  File "/opt/homebrew/Cellar/python@3.15/3.15.2/Frameworks/Python.framework/Versions/3.15/lib/python3.15/json/decoder.py", line 358, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.15/3.15.2/Frameworks/Python.framework/Versions/3.15/lib/python3.15/json/decoder.py", line 374, in raw_decode
+    obj, end = self.scan_once(s, idx)
+               ~~~~~~~~~~~~~~^^^^^^^^
+json.decoder.JSONDecodeError: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)

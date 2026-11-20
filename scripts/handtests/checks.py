@@ -1113,7 +1113,7 @@ def cmake(n):
     sb, work = sandbox('cmake')
     write(os.path.join(work, 'CMakeLists.txt'), CMAKE_SAMPLE)
     write(os.path.join(work, 'extra.cmake'), 'add_subdirectory(sub)\nIF(UNIX)\nENDIF()\n')
-    g = Goat(sb, ['CMakeLists.txt', 'extra.cmake'], cwd=work, rows=40, cols=140)
+    g = Goat(sb, ['CMakeLists.txt', 'extra.cmake'], cwd=work, rows=60, cols=140)   # .ll lists every language - room for all of them in the panel
     try:
         g.ready()
         g.send(alt('e'), 0.6)
@@ -1203,6 +1203,54 @@ def cmake(n):
         first = [t for r, num, t in g.editor_rows() if num == 1]
         n(bool(first) and first[0].startswith('cmake_minimum_required'), f'Ctrl+/ again uncomments: {first[:1]}')
         n(g.quit(), 'quits')
+    finally:
+        g.kill()
+
+
+@check('#11 Python: highlighted, ":" indents, a crash in python3 -> F8 to its line')
+def python(n):
+    sb, work = sandbox('python')
+    write(os.path.join(work, 'game.py'), '@dataclass\nclass Player(Sprite):\n    pass\n\n'
+                                        'def greet(name):\n    print(f"hi {name}", 42)  # says hi\n')
+    write(os.path.join(work, 'crash.py'), 'def divide(a, b):\n    return a / b\n\nprint(divide(1, 0))\n')
+    g = Goat(sb, ['game.py'], cwd=work)
+    try:
+        g.ready()
+        g.send(alt('e'), 0.5)
+        r = g.screen.find('def greet')
+        if n(r is not None, 'game.py shown'):
+            row = r[0]
+            colours = {w: g.screen.colour_of(row, w) for w in ('def', 'greet')}
+            row = g.screen.find('print(')[0]
+            colours.update({w: g.screen.colour_of(row, w) for w in ('print', 'f"hi', '42', '#')})
+            deco = g.screen.colour_of(g.screen.find('@dataclass')[0], '@dataclass')
+            klass = g.screen.colour_of(g.screen.find('Player')[0], 'Player')
+            n.info(f'colours: {colours}, decorator {deco}, class name {klass}')
+            n(None not in colours.values() and len(set(colours.values())) >= 5,
+              'keyword / def name / built-in / string / number / comment - at least 5 colours')
+            n(deco is not None and deco != colours['def'], 'the decorator has a colour of its own')
+        # A new line after 'if x:' is indented one level more
+        g.send(PGDN, 0.2)
+        g.send(END, 0.2)
+        g.send(ENTER, 0.2)
+        g.type('if x:', wait=0.2)
+        g.send(ENTER, 0.2)
+        g.type('y', wait=0.4)
+        rows = [g.screen.text(r) for r in range(g.screen.rows)]
+        line = next((t for t in rows if t.rstrip().endswith('y') and '        y' in t), None)
+        n(line is not None, 'after "if x:" + Enter the next line is indented 4 more')
+        # Run a script that crashes: the traceback is a build message, F8 goes to the line that failed
+        g.send(alt('t'), 0.5)
+        g.type('python3 crash.py', wait=0.2)
+        g.send(ENTER, 0.3)
+        n(g.wait_text('ZeroDivisionError', 8), 'python3 ran in the terminal')
+        n(g.wait_text('build: 1 error', 4), 'when it ends: "build: 1 error" on the status line')
+        g.send(F8, 0.8)
+        g.wait_for(lambda g: 'l: ' in g.status_line(), 6)
+        n('crash.py' in g.status_line() or 'crash.py' in ''.join(g.screen.lines()), 'F8 opened crash.py')
+        n(g.cursor_line() == 2, f'F8: at line 2, "return a / b" (cursor line {g.cursor_line()})')
+        g.send(ESC, 0.3)
+        g.quick('.q!', 0.5)
     finally:
         g.kill()
 

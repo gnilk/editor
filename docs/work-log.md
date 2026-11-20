@@ -8,6 +8,19 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## Python (2026-11-20) ✅
+
+**Hitlist #11 (languages phase 2 step 2) and #52 step 4's matchers.** `python.yml` as a data language, and a Python
+run in the terminal as a build: a traceback is an error at the program's own line, `F8` goes there.
+**Load-bearing decisions:** decorators through a new tokenizer rule (`prefix:` - a token that takes the name glued to
+it), not a state to the end of the line; `def` / `class` names through a one-word pushed state, no look-behind. A
+traceback is one message at the last frame outside Python's library (`/lib/python`, `site-packages`, `<frozen>`), the
+frames its detail. rustc / cargo and GNU ld / lld matchers came along. Found: a `postfix` character with no token
+stops the line - fixed in the data (`python.yml`, `cmake.yml`). Detail: `support-languages.md` §7 step 2,
+`build-messages.md` §9.
+
+---
+
 ## Messages tab (2026-11-20) ✅
 
 **Hitlist #53 step 5 / #52.** `view: messages` in `panel.tabs`: the last build's errors and warnings kept open in the

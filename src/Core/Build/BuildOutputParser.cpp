@@ -4,10 +4,12 @@
 
 #include <algorithm>
 #include <cctype>
+#include <filesystem>
 
 #include "BuildOutputParser.h"
 
 using namespace gedit;
+namespace fs = std::filesystem;
 
 static bool StartsWith(std::string_view text, std::string_view prefix) {
     return text.substr(0, prefix.size()) == prefix;
@@ -121,6 +123,8 @@ void BuildOutputParser::Finish() {
     isPendingCR = false;
     continuation = kContinuation::kNone;
     pendingContext.clear();
+    isInPythonTraceback = false;
+    pythonFrames.clear();
 }
 
 void BuildOutputParser::Reset() {
@@ -137,6 +141,8 @@ void BuildOutputParser::Reset() {
     isCMakeAwaitingText = false;
     isMessageWrapOpen = false;
     trunCase.clear();
+    isInPythonTraceback = false;
+    pythonFrames.clear();
 }
 
 size_t BuildOutputParser::NumErrors() const {
@@ -216,12 +222,18 @@ void BuildOutputParser::ParseLine(const std::string &line) {
         continuation = kContinuation::kNone;
         return;
     }
+    // A traceback's lines are its own - also right after a message whose continuation would take indented lines
+    if (ParsePython(line)) {
+        continuation = kContinuation::kNone;
+        return;
+    }
     if ((continuation != kContinuation::kNone) && ParseContinuation(line)) {
         return;
     }
     continuation = kContinuation::kNone;
     isSkippingRepeat = false;
-    if (ParseTrun(line) || ParseCMake(line) || ParseCompiler(line) || ParseIncludeContext(line)) {
+    if (ParseTrun(line) || ParseCMake(line) || ParseRust(line) || ParsePythonWarning(line) || ParseLinker(line) ||
+        ParseCompiler(line) || ParseIncludeContext(line)) {
         return;
     }
     pendingContext.clear();
@@ -279,6 +291,32 @@ bool BuildOutputParser::ParseContinuation(const std::string &line) {
         }
         // 'note:' with a place of its own belongs to the message above
         if (IsNote(line)) {
+            addDetail(line);
+            return true;
+        }
+        // lld: '>>> referenced by main.cpp:7 (/work/main.cpp:7)' - the place of an 'undefined symbol'
+        if (StartsWith(line, ">>> ")) {
+            ParseLinkerReference(line);
+            addDetail(line);
+            return true;
+        }
+        return false;
+    }
+
+    if (continuation == kContinuation::kRust) {
+        auto text = Trim(line);
+        // ' --> src/main.rs:4:20' - the message's place; a later one (a note's) is only detail
+        if (StartsWith(text, "--> ")) {
+            if (!isSkippingRepeat && !messages.empty() && messages.back().path.empty()) {
+                auto &message = messages.back();
+                SplitLocation(Trim(std::string_view(text).substr(4)), message.path, message.line, message.column);
+            }
+            addDetail(line);
+            return true;
+        }
+        // The source with its gutter ('4 |     println!', '  |  ^'), '  = note:', a note / help of its own, '...'
+        if (IsIndented(line) || IsSourceGutter(line) || StartsWith(text, "|") || StartsWith(line, "note: ") ||
+            StartsWith(line, "help: ") || (text == "...")) {
             addDetail(line);
             return true;
         }
@@ -366,6 +404,211 @@ bool BuildOutputParser::ParseTrun(const std::string &line) {
         return true;
     }
     return false;
+}
+
+// Python's traceback - the frames, then the exception; one message at the frame that is the program's own (the last
+// one not in Python's library or an installed package), the frames as its detail:
+//   Traceback (most recent call last):
+//     File "/work/main.py", line 11, in <module>
+//       divide(1, 0)
+//     File "/work/lib.py", line 2, in divide
+//   ZeroDivisionError: division by zero
+// A SyntaxError has no 'Traceback' line, only the 'File' line, the source and the caret.
+bool BuildOutputParser::ParsePython(const std::string &line) {
+    static const std::string_view fileMarker = "  File \"";
+    static const std::string_view lineMarker = "\", line ";
+    if (line == "Traceback (most recent call last):") {
+        isInPythonTraceback = true;
+        pythonFrames.clear();
+        return true;
+    }
+    if (StartsWith(line, fileMarker)) {
+        auto rest = std::string_view(line).substr(fileMarker.size());
+        auto quote = rest.find(lineMarker);
+        if (quote != std::string_view::npos) {
+            auto number = rest.substr(quote + lineMarker.size());
+            number = number.substr(0, number.find(','));
+            if (IsAllDigits(number)) {
+                PythonFrame frame;
+                frame.path = std::string(rest.substr(0, quote));
+                frame.line = (uint32_t)std::stoul(std::string(number));
+                frame.lines.push_back(line);
+                pythonFrames.push_back(std::move(frame));
+                isInPythonTraceback = true;
+                return true;
+            }
+        }
+    }
+    if (!isInPythonTraceback) {
+        return false;
+    }
+    // The source under a frame, its carets, '[Previous line repeated 996 more times]'
+    if (IsIndented(line)) {
+        if (!pythonFrames.empty()) {
+            pythonFrames.back().lines.push_back(line);
+        }
+        return true;
+    }
+    isInPythonTraceback = false;
+    if (line.empty() || pythonFrames.empty()) {
+        pythonFrames.clear();
+        return false;
+    }
+    // The exception: 'ZeroDivisionError: division by zero', 'KeyboardInterrupt'
+    auto isLibrary = [](const std::string &path) {
+        return path.empty() || (path[0] == '<') || (path.find("/lib/python") != std::string::npos) ||
+               (path.find("site-packages") != std::string::npos) || (path.find("\\Lib\\") != std::string::npos);
+    };
+    auto it = std::find_if(pythonFrames.rbegin(), pythonFrames.rend(), [&isLibrary](const PythonFrame &frame) {
+        return !isLibrary(frame.path);
+    });
+    auto &frame = (it != pythonFrames.rend()) ? *it : pythonFrames.back();
+    BuildMessage message;
+    message.path = frame.path;
+    message.line = frame.line;
+    message.message = line;
+    for (auto &each : pythonFrames) {
+        message.detail.insert(message.detail.end(), each.lines.begin(), each.lines.end());
+    }
+    pythonFrames.clear();
+    pendingContext.clear();
+    Add(std::move(message), kContinuation::kNone, true);
+    return true;
+}
+
+// Python's warnings module: '/work/main.py:5: DeprecationWarning: old api', the source line indented under it
+bool BuildOutputParser::ParsePythonWarning(const std::string &line) {
+    if (IsIndented(line)) {
+        return false;
+    }
+    for (auto pos = line.find("Warning: "); pos != std::string::npos; pos = line.find("Warning: ", pos + 1)) {
+        // ': <Category>Warning: ' - the category is one word
+        auto start = line.rfind(": ", pos);
+        if (start == std::string::npos) {
+            continue;
+        }
+        auto category = std::string_view(line).substr(start + 2, pos - start - 2);
+        if (!std::all_of(category.begin(), category.end(), [](char ch) { return std::isalnum((unsigned char)ch) || (ch == '_'); })) {
+            continue;
+        }
+        BuildMessage message;
+        SplitLocation(std::string_view(line).substr(0, start), message.path, message.line, message.column);
+        if ((message.line == 0) || (message.column != 0) || message.path.empty()) {
+            return false;
+        }
+        message.severity = BuildMessage::kSeverity::kWarning;
+        message.message = line.substr(start + 2);
+        Add(std::move(message), kContinuation::kCompiler, true);
+        return true;
+    }
+    return false;
+}
+
+// rustc / cargo: 'error[E0308]: mismatched types' / 'warning: unused variable: `x`', the place on the ' --> ' line
+// under it. Cargo's own summaries ('could not compile', 'generated 1 warning') are not messages.
+bool BuildOutputParser::ParseRust(const std::string &line) {
+    BuildMessage message;
+    std::string_view rest;
+    if (StartsWith(line, "error")) {
+        rest = std::string_view(line).substr(5);
+        message.severity = BuildMessage::kSeverity::kError;
+    } else if (StartsWith(line, "warning")) {
+        rest = std::string_view(line).substr(7);
+        message.severity = BuildMessage::kSeverity::kWarning;
+    } else {
+        return false;
+    }
+    std::string code;
+    if (StartsWith(rest, "[")) {
+        auto close = rest.find(']');
+        if (close == std::string_view::npos) {
+            return false;
+        }
+        code = std::string(rest.substr(1, close - 1));
+        rest = rest.substr(close + 1);
+    }
+    if (!StartsWith(rest, ": ")) {
+        return false;
+    }
+    auto text = Trim(rest.substr(2));
+    static const std::string_view summaries[] = {"could not compile ", "aborting due to ", "build failed"};
+    for (auto summary : summaries) {
+        if (StartsWith(text, summary)) {
+            return true;
+        }
+    }
+    if ((text.find(") generated ") != std::string::npos) && (text.find(" warning") != std::string::npos)) {
+        return true;
+    }
+    message.message = code.empty() ? text : text + " [" + code + "]";
+    Add(std::move(message), kContinuation::kRust, false);
+    return true;
+}
+
+// GNU ld / gold: '/usr/bin/ld: main.cpp:(.text+0x9): undefined reference to `foo()'', with -g the line instead of
+// the section ('/work/main.cpp:5:'), an object before the source ('b.o:/work/b.cpp:1: multiple definition of ...').
+// An object file is no place to go to: the message is listed without one.
+bool BuildOutputParser::ParseLinker(const std::string &line) {
+    static const std::string_view markers[] = {": undefined reference to ", ": multiple definition of "};
+    if (IsIndented(line)) {
+        return false;
+    }
+    auto pos = std::string::npos;
+    for (auto marker : markers) {
+        pos = std::min(pos, line.find(marker));
+    }
+    if (pos == std::string::npos) {
+        return false;
+    }
+    auto location = std::string_view(line).substr(0, pos);
+    // '/usr/bin/ld: ' - the tool
+    auto toolEnd = location.rfind(": ");
+    if (toolEnd != std::string_view::npos) {
+        location = location.substr(toolEnd + 2);
+    }
+    for (std::string_view object : {".o:", ".obj:"}) {
+        auto objectEnd = location.find(object);
+        if (objectEnd != std::string_view::npos) {
+            location = location.substr(objectEnd + object.size());
+            break;
+        }
+    }
+    // ':(.text+0x9)' - the section
+    auto section = location.find(":(");
+    if (section != std::string_view::npos) {
+        location = location.substr(0, section);
+    }
+    BuildMessage message;
+    SplitLocation(location, message.path, message.line, message.column);
+    auto extension = fs::path(message.path).extension().string();
+    if ((extension == ".o") || (extension == ".obj") || (extension == ".a") || (extension == ".so") ||
+        (message.path.find('(') != std::string::npos)) {
+        message.path.clear();
+        message.line = 0;
+        message.column = 0;
+    }
+    message.message = line.substr(pos + 2);
+    Add(std::move(message), kContinuation::kNone, true);
+    return true;
+}
+
+// lld's '>>> referenced by main.cpp:7 (/work/main.cpp:7)' - the place of the 'undefined symbol' above, the absolute
+// one in the parentheses when there is one
+void BuildOutputParser::ParseLinkerReference(const std::string &line) {
+    static const std::string_view referenced = ">>> referenced by ";
+    if (isSkippingRepeat || messages.empty() || !messages.back().path.empty() || !StartsWith(line, referenced)) {
+        return;
+    }
+    auto rest = std::string_view(line).substr(referenced.size());
+    auto open = rest.find(" (");
+    if ((open != std::string_view::npos) && (rest.back() == ')')) {
+        rest = rest.substr(open + 2, rest.size() - open - 3);
+    }
+    auto &message = messages.back();
+    SplitLocation(Trim(rest), message.path, message.line, message.column);
+    if (message.line == 0) {
+        message.path.clear();
+    }
 }
 
 // 'CMake Error at CMakeLists.txt:12 (add_executable):', 'CMake Warning (dev) in x.cmake:', 'CMake Error: msg'
@@ -470,8 +713,10 @@ bool BuildOutputParser::ParseIncludeContext(const std::string &line) {
         pendingContext.push_back(line);
         return true;
     }
+    // gcc's 'x.cpp: In function', ld's '/usr/bin/ld: main.o: in function `main':'
     if (!line.empty() && (line.back() == ':') && !IsIndented(line) &&
-        ((line.find(": In ") != std::string::npos) || (line.find(": At global scope") != std::string::npos))) {
+        ((line.find(": In ") != std::string::npos) || (line.find(": At global scope") != std::string::npos) ||
+         (line.find(": in function `") != std::string::npos))) {
         pendingContext.push_back(line);
         return true;
     }

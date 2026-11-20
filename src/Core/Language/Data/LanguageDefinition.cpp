@@ -47,10 +47,11 @@ static const std::unordered_map<std::string, kLanguageTokenClass> tokenClassName
         {"function", kLanguageTokenClass::kFunction},
         {"macro", kLanguageTokenClass::kMacro},
         {"enum_value", kLanguageTokenClass::kEnumValue},
+        {"user_type", kLanguageTokenClass::kUserType},
 };
 
-static const std::set<std::string> tokenRuleKeys = {"class", "words", "whole_word", "case_sensitive", "push", "pop",
-                                                    "push_at_eol"};
+static const std::set<std::string> tokenRuleKeys = {"class", "words", "prefix", "whole_word", "case_sensitive", "push",
+                                                    "pop", "push_at_eol"};
 static const std::set<std::string> stateKeys = {"regular", "postfix", "tokens", "eol", "indent_scoped", "numbers"};
 
 namespace {
@@ -181,8 +182,10 @@ static void ReadTokenRule(Reader &reader, const YAML::Node &node, LanguageDefini
             reader.AddProblem(it.first, "'" + it.first.Scalar() + "' is not a token key");
         }
     }
-    if (!node["class"].IsDefined() || !node["words"].IsDefined()) {
-        reader.AddProblem(node, "a token needs 'class' and 'words'");
+    // 'prefix:' is 'words:' that take the name glued to them - one or the other
+    auto isPrefix = node["prefix"].IsDefined();
+    if (!node["class"].IsDefined() || (node["words"].IsDefined() == isPrefix)) {
+        reader.AddProblem(node, "a token needs 'class' and 'words' (or 'prefix')");
         return;
     }
 
@@ -195,7 +198,11 @@ static void ReadTokenRule(Reader &reader, const YAML::Node &node, LanguageDefini
     if (node["case_sensitive"].IsDefined()) {
         rule.isCaseSensitive = reader.Bool(node["case_sensitive"], true);
     }
-    rule.words = reader.Words(node["words"]);
+    rule.isPrefix = isPrefix;
+    rule.words = reader.Words(isPrefix ? node["prefix"] : node["words"]);
+    if (isPrefix && rule.isWholeWord) {
+        reader.AddProblem(node, "a prefix is not whole_word");
+    }
 
     int nActions = 0;
     if (node["push"].IsDefined()) {
@@ -214,6 +221,9 @@ static void ReadTokenRule(Reader &reader, const YAML::Node &node, LanguageDefini
     }
     if (nActions > 1) {
         reader.AddProblem(node, "a token can push or pop, not both");
+    }
+    if (isPrefix && (nActions > 0)) {
+        reader.AddProblem(node, "a prefix can't push or pop - the token it makes is never the same");
     }
     state.tokens.push_back(std::move(rule));
 }
@@ -286,6 +296,7 @@ static void ReadState(Reader &reader, const std::string &name, const YAML::Node 
 
     // The tokenizer keeps one list per class in a state: the entries of a class merge, so they must agree
     std::map<kLanguageTokenClass, bool> wholeWordByClass;
+    std::map<kLanguageTokenClass, bool> prefixByClass;
     std::map<kLanguageTokenClass, std::optional<bool>> caseSensitiveByClass;
     for (auto &rule : state.tokens) {
         auto it = wholeWordByClass.find(rule.tokenClass);
@@ -294,6 +305,12 @@ static void ReadState(Reader &reader, const std::string &name, const YAML::Node 
             break;
         }
         wholeWordByClass[rule.tokenClass] = rule.isWholeWord;
+        auto itPrefix = prefixByClass.find(rule.tokenClass);
+        if ((itPrefix != prefixByClass.end()) && (itPrefix->second != rule.isPrefix)) {
+            reader.AddProblem(node, "state '" + name + "': the entries of one class must all be prefixes, or none");
+            break;
+        }
+        prefixByClass[rule.tokenClass] = rule.isPrefix;
         auto itCase = caseSensitiveByClass.find(rule.tokenClass);
         if ((itCase != caseSensitiveByClass.end()) && (itCase->second != rule.isCaseSensitive)) {
             reader.AddProblem(node, "state '" + name + "': the entries of one class must agree on case_sensitive");

@@ -11,6 +11,7 @@
 #include "Core/Language/Data/DataLanguage.h"
 #include "Core/Language/Data/GenericNumberMatcher.h"
 #include "Core/UnicodeHelper.h"
+#include "Core/Language/IndentCache.h"
 
 using namespace gedit;
 
@@ -33,6 +34,10 @@ DLL_EXPORT int test_datalanguage_numbers(ITesting *t);
 DLL_EXPORT int test_datalanguage_caseinsensitive(ITesting *t);
 DLL_EXPORT int test_datalanguage_cmake_registered(ITesting *t);
 DLL_EXPORT int test_datalanguage_cmake_tokens(ITesting *t);
+DLL_EXPORT int test_datalanguage_prefix(ITesting *t);
+DLL_EXPORT int test_datalanguage_python_registered(ITesting *t);
+DLL_EXPORT int test_datalanguage_python_tokens(ITesting *t);
+DLL_EXPORT int test_datalanguage_python_strings(ITesting *t);
 }
 
 DLL_EXPORT int test_datalanguage(ITesting *t) {
@@ -440,6 +445,14 @@ DLL_EXPORT int test_datalanguage_cmake_tokens(ITesting *t) {
     TR_ASSERT(t, ClassAt(tokens, 15) == kLanguageTokenClass::kMacroIdentifier);
     TR_ASSERT(t, ClassAt(tokens, 33) == kLanguageTokenClass::kString);
 
+    // A '\' before a character that is no escape doesn't stop the line: the string goes on, and closes
+    //                            0          1          2
+    //                            0123456789 012 345678 9012345
+    tokens = Tokenize(*language, "message(\"a\\nb\") # c");
+    TR_ASSERT(t, ClassAt(tokens, 11) == kLanguageTokenClass::kString);
+    TR_ASSERT(t, ClassAt(tokens, 14) == kLanguageTokenClass::kOperator);
+    TR_ASSERT(t, ClassAt(tokens, 16) == kLanguageTokenClass::kLineComment);
+
     // Nested references, a generator expression, numbers and constants
     tokens = Tokenize(*language, "set(V ${${P}_DIR} $<CONFIG:Debug> 3.28 ON)");
     TR_ASSERT(t, ClassAt(tokens, 6) == kLanguageTokenClass::kMacroIdentifier);
@@ -466,5 +479,167 @@ DLL_EXPORT int test_datalanguage_cmake_tokens(ITesting *t) {
     }
     TR_ASSERT(t, isLine1Comment);
     TR_ASSERT(t, isLine2Code);
+    return kTR_Pass;
+}
+
+// The prefix rule: '@' takes the name glued to it, dots between names included; '@' with no name is left to the other
+// lists. A prefix that pushes, or has 'words' too, is a problem.
+DLL_EXPORT int test_datalanguage_prefix(ITesting *t) {
+    auto language = MakeLanguage(t, R"yml(
+language: { name: pre, extensions: [".pre"] }
+tokenizer:
+  states:
+    main:
+      postfix: "( ) @ ."
+      tokens:
+        - { class: operator, words: "( ) @ ." }
+        - { class: macro_identifier, prefix: "@" }
+)yml");
+    TR_ASSERT(t, language != nullptr);
+    //                                   0         1         2
+    //                                   0123456789012345678901234
+    auto tokens = Tokenize(*language, "@app.route(x) a @ b @c.");
+    TR_ASSERT(t, tokens.size() == 9);
+    TR_ASSERT(t, ClassAt(tokens, 0) == kLanguageTokenClass::kMacroIdentifier);
+    TR_ASSERT(t, ClassAt(tokens, 10) == kLanguageTokenClass::kOperator);
+    TR_ASSERT(t, ClassAt(tokens, 16) == kLanguageTokenClass::kOperator);
+    TR_ASSERT(t, ClassAt(tokens, 20) == kLanguageTokenClass::kMacroIdentifier);
+    // The trailing '.' is not part of the name
+    TR_ASSERT(t, ClassAt(tokens, 22) == kLanguageTokenClass::kOperator);
+
+    TR_ASSERT(t, !ParseProblems(R"yml(
+language: { name: m, extensions: [".m"] }
+tokenizer:
+  states:
+    main:
+      tokens:
+        - { class: macro_identifier, prefix: "@", push: main }
+)yml").empty());
+    TR_ASSERT(t, !ParseProblems(R"yml(
+language: { name: m, extensions: [".m"] }
+tokenizer:
+  states:
+    main:
+      tokens:
+        - { class: macro_identifier, prefix: "@", words: "x" }
+)yml").empty());
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_datalanguage_python_registered(ITesting *t) {
+    auto &editor = Editor::Instance();
+    auto language = editor.GetLanguageForFile("game/main.py");
+    TR_ASSERT(t, language != nullptr);
+    TR_ASSERT(t, language->Identifier() == U"python");
+    TR_ASSERT(t, editor.GetLanguageForFile("stubs/x.pyi") == language);
+    TR_ASSERT(t, language->GetLineComment() == U"#");
+    // Its indent section: ':' at the end indents, a closer dedents, reformat leaves it alone
+    auto table = IndentCache::Instance().GetTableForLanguage("python");
+    TR_ASSERT(t, table->IsIndentAfter(U':'));
+    TR_ASSERT(t, table->IsDedentOn(U')'));
+    TR_ASSERT(t, !table->isReindentable);
+    return kTR_Pass;
+}
+
+// The shipped python.yml, line by line (docs/support-languages.md §8)
+DLL_EXPORT int test_datalanguage_python_tokens(ITesting *t) {
+    auto language = Editor::Instance().GetLanguageForFile("main.py");
+    TR_ASSERT(t, language != nullptr);
+    //                                   0         1         2         3         4
+    //                                   0123456789012345678901234567890123456789012345
+    auto tokens = Tokenize(*language, "def greet(name: str) -> None:  # hi");
+    TR_ASSERT(t, ClassAt(tokens, 0) == kLanguageTokenClass::kKeyword);
+    TR_ASSERT(t, ClassAt(tokens, 4) == kLanguageTokenClass::kFunction);
+    TR_ASSERT(t, ClassAt(tokens, 9) == kLanguageTokenClass::kOperator);
+    TR_ASSERT(t, ClassAt(tokens, 10) == kLanguageTokenClass::kRegular);
+    TR_ASSERT(t, ClassAt(tokens, 16) == kLanguageTokenClass::kKnownType);
+    TR_ASSERT(t, ClassAt(tokens, 21) == kLanguageTokenClass::kOperator);
+    TR_ASSERT(t, ClassAt(tokens, 24) == kLanguageTokenClass::kEnumValue);
+    TR_ASSERT(t, ClassAt(tokens, 31) == kLanguageTokenClass::kLineComment);
+    TR_ASSERT(t, ClassAt(tokens, 33) == kLanguageTokenClass::kCommentedText);
+
+    tokens = Tokenize(*language, "class Player(Sprite):");
+    TR_ASSERT(t, ClassAt(tokens, 0) == kLanguageTokenClass::kKeyword);
+    TR_ASSERT(t, ClassAt(tokens, 6) == kLanguageTokenClass::kUserType);
+    TR_ASSERT(t, ClassAt(tokens, 12) == kLanguageTokenClass::kOperator);
+    TR_ASSERT(t, ClassAt(tokens, 13) == kLanguageTokenClass::kRegular);
+
+    tokens = Tokenize(*language, "@dataclass(frozen=True)");
+    TR_ASSERT(t, ClassAt(tokens, 0) == kLanguageTokenClass::kMacroIdentifier);
+    TR_ASSERT(t, ClassAt(tokens, 10) == kLanguageTokenClass::kOperator);
+    TR_ASSERT(t, ClassAt(tokens, 18) == kLanguageTokenClass::kEnumValue);
+
+    //                            0         1         2         3
+    //                            0123456789012345678901234567890123456
+    tokens = Tokenize(*language, "x = [0x_FF, 1_000.5e-3, 3j, len(a)]");
+    TR_ASSERT(t, ClassAt(tokens, 5) == kLanguageTokenClass::kNumber);
+    TR_ASSERT(t, ClassAt(tokens, 12) == kLanguageTokenClass::kNumber);
+    TR_ASSERT(t, ClassAt(tokens, 24) == kLanguageTokenClass::kNumber);
+    TR_ASSERT(t, ClassAt(tokens, 28) == kLanguageTokenClass::kFunction);
+
+    // 'elif' and 'and' are keywords, a name that starts with one is not; 'a @ b' is the operator
+    tokens = Tokenize(*language, "elif iffy and a @ b:");
+    TR_ASSERT(t, ClassAt(tokens, 0) == kLanguageTokenClass::kKeyword);
+    TR_ASSERT(t, ClassAt(tokens, 5) == kLanguageTokenClass::kRegular);
+    TR_ASSERT(t, ClassAt(tokens, 10) == kLanguageTokenClass::kKeyword);
+    TR_ASSERT(t, ClassAt(tokens, 16) == kLanguageTokenClass::kOperator);
+    return kTR_Pass;
+}
+
+namespace {
+    std::vector<std::pair<size_t, kLanguageTokenClass>> TokenizeLines(LanguageBase &language, const std::u32string &text) {
+        std::vector<std::pair<size_t, kLanguageTokenClass>> lineTokens;
+        language.Tokenizer().TokenizeText(text, [&lineTokens](size_t idxLine, const LangToken &token) {
+            lineTokens.emplace_back(idxLine, token.classification);
+        });
+        return lineTokens;
+    }
+
+    // Every token on the line has the class (and there is one)
+    bool IsAllOnLine(const std::vector<std::pair<size_t, kLanguageTokenClass>> &lineTokens, size_t idxLine, kLanguageTokenClass tokenClass) {
+        bool isAny = false;
+        for (auto &[idx, each] : lineTokens) {
+            if (idx == idxLine) {
+                isAny = true;
+                if (each != tokenClass) {
+                    return false;
+                }
+            }
+        }
+        return isAny;
+    }
+}
+
+// Strings: the prefixes, escapes, a missing closer ends with the line, triple quotes span lines and only their own
+// closer ends them
+DLL_EXPORT int test_datalanguage_python_strings(ITesting *t) {
+    auto language = Editor::Instance().GetLanguageForFile("main.py");
+    TR_ASSERT(t, language != nullptr);
+    //                                   0           1          2            3
+    //                                   012345 67890123456 78 9012 345 678901 234
+    auto tokens = Tokenize(*language, "print(f\"hi {name}\", r'\\d', 'it\\'s') + x");
+    TR_ASSERT(t, ClassAt(tokens, 0) == kLanguageTokenClass::kFunction);
+    TR_ASSERT(t, ClassAt(tokens, 6) == kLanguageTokenClass::kString);
+    TR_ASSERT(t, ClassAt(tokens, 11) == kLanguageTokenClass::kString);
+    TR_ASSERT(t, ClassAt(tokens, 18) == kLanguageTokenClass::kOperator);
+    TR_ASSERT(t, ClassAt(tokens, 20) == kLanguageTokenClass::kString);
+    TR_ASSERT(t, ClassAt(tokens, 27) == kLanguageTokenClass::kString);
+    TR_ASSERT(t, ClassAt(tokens, 34) == kLanguageTokenClass::kOperator);
+    TR_ASSERT(t, ClassAt(tokens, 36) == kLanguageTokenClass::kOperator);
+
+    // A '"' inside """ ... """ doesn't end it; after the closer it is code again
+    auto lineTokens = TokenizeLines(*language, U"s = \"\"\"one\nsay \"hi\" if\n\"\"\" if\nif x:");
+    TR_ASSERT(t, IsAllOnLine(lineTokens, 1, kLanguageTokenClass::kString));
+    TR_ASSERT(t, lineTokens.back().first == 3);
+    TR_ASSERT(t, lineTokens[lineTokens.size() - 3].second == kLanguageTokenClass::kKeyword);
+
+    // An unclosed "..." ends with its line
+    lineTokens = TokenizeLines(*language, U"x = \"open\nif");
+    TR_ASSERT(t, IsAllOnLine(lineTokens, 1, kLanguageTokenClass::kKeyword));
+
+    // ''' with a prefix, across lines
+    lineTokens = TokenizeLines(*language, U"q = rb'''a\nif\n'''\nif");
+    TR_ASSERT(t, IsAllOnLine(lineTokens, 1, kLanguageTokenClass::kString));
+    TR_ASSERT(t, IsAllOnLine(lineTokens, 3, kLanguageTokenClass::kKeyword));
     return kTR_Pass;
 }

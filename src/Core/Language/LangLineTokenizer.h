@@ -122,8 +122,41 @@ namespace gedit {
                 return false;
             }
 
+            // A prefix list: a token takes the name glued to it ('@' + 'app.route' - a Python decorator). A name is
+            // letters, digits, '_' (any non-ASCII character too) and a '.' between two of them. Without a name the
+            // prefix doesn't match - '@' alone is left to the other lists ('a @ b').
+            size_t PrefixMatchSize(const std::u32string_view &input) const {
+                int szPrefix = 0;
+                for (auto &s: tokens) {
+                    if (!input.compare(0, s.size(), s)) {
+                        szPrefix = static_cast<int>(s.size());
+                        break;
+                    }
+                }
+                if (szPrefix == 0) {
+                    return 0;
+                }
+                size_t end = (size_t)szPrefix;
+                while (end < input.size()) {
+                    if (IsNameChar(input[end])) {
+                        end++;
+                    } else if ((input[end] == U'.') && (end > (size_t)szPrefix) && ((end + 1) < input.size()) && IsNameChar(input[end + 1])) {
+                        end++;
+                    } else {
+                        break;
+                    }
+                }
+                return (end > (size_t)szPrefix) ? end : 0;
+            }
+
+            static bool IsNameChar(char32_t ch) {
+                return ((ch >= U'a') && (ch <= U'z')) || ((ch >= U'A') && (ch <= U'Z')) || ((ch >= U'0') && (ch <= U'9')) ||
+                       (ch == U'_') || (ch >= 0x80);
+            }
+
             bool isWholeWord = false;
             bool isCaseInsensitive = false;
+            bool isPrefix = false;
             kLanguageTokenClass classification;
             std::vector<std::u32string> tokens;
 

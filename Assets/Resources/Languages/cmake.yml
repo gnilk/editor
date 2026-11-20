@@ -106,7 +106,7 @@ tokenizer:
       regular: string
       postfix: "\" \\ ${ $<"
       tokens:
-        - { class: string, words: "\\\\ \\\"" }
+        - { class: string, words: "\\\\ \\\" \\" }
         - { class: string, words: "\"", pop: yes }
         - { class: macro_identifier, words: "${", push: in_var }
         - { class: preprocessor, words: "$<", push: in_genex }

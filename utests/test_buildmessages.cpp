@@ -28,6 +28,10 @@ extern "C" {
     DLL_EXPORT int test_buildmessages_streaming(ITesting *t);
     DLL_EXPORT int test_buildmessages_wrapped(ITesting *t);
     DLL_EXPORT int test_buildmessages_trun(ITesting *t);
+    DLL_EXPORT int test_buildmessages_python(ITesting *t);
+    DLL_EXPORT int test_buildmessages_pythonsyntax(ITesting *t);
+    DLL_EXPORT int test_buildmessages_cargo(ITesting *t);
+    DLL_EXPORT int test_buildmessages_linker(ITesting *t);
     DLL_EXPORT int test_buildmessages_carriagereturn(ITesting *t);
     DLL_EXPORT int test_buildmessages_noplace(ITesting *t);
     DLL_EXPORT int test_buildmessages_makedirs(ITesting *t);
@@ -123,12 +127,12 @@ DLL_EXPORT int test_buildmessages_clangmake(ITesting *t) {
     return kTR_Pass;
 }
 
-// gcc's 'In function' context lines, ninja's FAILED noise, the linker's own error with no place
+// gcc's 'In function' context lines, ninja's FAILED noise, ld's undefined reference, the linker's own error with no place
 DLL_EXPORT int test_buildmessages_gccninja(ITesting *t) {
     auto parser = ParseAll(ReadLog("gcc-ninja.log"));
     auto &messages = parser.Messages();
-    TR_ASSERT(t, messages.size() == 4);
-    TR_ASSERT(t, parser.NumErrors() == 3);
+    TR_ASSERT(t, messages.size() == 5);
+    TR_ASSERT(t, parser.NumErrors() == 4);
 
     TR_ASSERT(t, messages[0].path == "../src/util.h");
     TR_ASSERT(t, messages[0].severity == kSeverity::kWarning);
@@ -144,9 +148,14 @@ DLL_EXPORT int test_buildmessages_gccninja(ITesting *t) {
     TR_ASSERT(t, messages[2].column == 29);
     TR_ASSERT(t, HasDetail(messages[2], ";"));
 
-    TR_ASSERT(t, messages[3].path.empty());
-    TR_ASSERT(t, messages[3].line == 0);
-    TR_ASSERT(t, messages[3].message == "collect2: ld returned 1 exit status");
+    // The linker's 'undefined reference' (#52 step 4): no -g, so the file without a line
+    TR_ASSERT(t, messages[3].path == "a.cpp");
+    TR_ASSERT(t, messages[3].message == "undefined reference to `undefined_name'");
+    TR_ASSERT(t, HasDetail(messages[3], "in function `f(int)'"));
+
+    TR_ASSERT(t, messages[4].path.empty());
+    TR_ASSERT(t, messages[4].line == 0);
+    TR_ASSERT(t, messages[4].message == "collect2: ld returned 1 exit status");
     return kTR_Pass;
 }
 
@@ -311,6 +320,117 @@ DLL_EXPORT int test_buildmessages_carriagereturn(ITesting *t) {
     return kTR_Pass;
 }
 
+// A Python run (a real capture, python3 -W always): a warning, then an exception raised while handling another. Each
+// traceback is one error at the program's own last frame - not the json module's - with the frames as its detail
+DLL_EXPORT int test_buildmessages_python(ITesting *t) {
+    auto text = ReadLog("python-traceback.log");
+    TR_ASSERT(t, !text.empty());
+    for (size_t chunk : {(size_t)0, (size_t)7}) {
+        auto parser = ParseAll(text, chunk);
+        auto &messages = parser.Messages();
+        TR_ASSERT(t, messages.size() == 3);
+        TR_ASSERT(t, messages[0].IsWarning());
+        TR_ASSERT(t, messages[0].path == "/work/py/main.py");
+        TR_ASSERT(t, messages[0].line == 5);
+        TR_ASSERT(t, messages[0].message == "DeprecationWarning: old api");
+        TR_ASSERT(t, HasDetail(messages[0], "warnings.warn("));
+
+        TR_ASSERT(t, messages[1].IsError());
+        TR_ASSERT(t, messages[1].path == "/work/py/lib.py");
+        TR_ASSERT(t, messages[1].line == 2);
+        TR_ASSERT(t, messages[1].message == "ZeroDivisionError: division by zero");
+        TR_ASSERT(t, HasDetail(messages[1], "divide(1, 0)"));
+
+        // The last frames are in the json module: the place is main.py's call into it
+        TR_ASSERT(t, messages[2].IsError());
+        TR_ASSERT(t, messages[2].path == "/work/py/main.py");
+        TR_ASSERT(t, messages[2].line == 8);
+        TR_ASSERT(t, messages[2].message.find("json.decoder.JSONDecodeError: ") == 0);
+        TR_ASSERT(t, HasDetail(messages[2], "json/decoder.py"));
+        TR_ASSERT(t, parser.NumErrors() == 2);
+        TR_ASSERT(t, parser.NumWarnings() == 1);
+    }
+    // Only library frames: the last one, not nothing
+    auto parser = ParseAll("Traceback (most recent call last):\n"
+                           "  File \"<frozen runpy>\", line 198, in _run_module_as_main\n"
+                           "  File \"/usr/lib/python3.12/runpy.py\", line 88, in _run_code\n"
+                           "KeyboardInterrupt\n");
+    TR_ASSERT(t, parser.Messages().size() == 1);
+    TR_ASSERT(t, parser.Messages()[0].path == "/usr/lib/python3.12/runpy.py");
+    TR_ASSERT(t, parser.Messages()[0].message == "KeyboardInterrupt");
+    return kTR_Pass;
+}
+
+// A SyntaxError has no 'Traceback' line - the File line, the source, the caret, the error
+DLL_EXPORT int test_buildmessages_pythonsyntax(ITesting *t) {
+    auto parser = ParseAll(ReadLog("python-syntax.log"));
+    auto &messages = parser.Messages();
+    TR_ASSERT(t, messages.size() == 1);
+    TR_ASSERT(t, messages[0].IsError());
+    TR_ASSERT(t, messages[0].path == "/work/py/bad.py");
+    TR_ASSERT(t, messages[0].line == 2);
+    TR_ASSERT(t, messages[0].message == "SyntaxError: '(' was never closed");
+    // A File line that isn't followed by an exception (a blank line, the prompt) lists nothing
+    TR_ASSERT(t, ParseAll("  File \"x.py\", line 3\n\n$ ls\n").Messages().empty());
+    return kTR_Pass;
+}
+
+// cargo build (real captures, older rustc): the place is on the ' --> ' line under the message; cargo's own summaries
+// ('could not compile', 'generated 1 warning') are not messages
+DLL_EXPORT int test_buildmessages_cargo(ITesting *t) {
+    auto text = ReadLog("cargo.log");
+    TR_ASSERT(t, !text.empty());
+    for (size_t chunk : {(size_t)0, (size_t)5}) {
+        auto parser = ParseAll(text, chunk);
+        auto &messages = parser.Messages();
+        TR_ASSERT(t, parser.NumErrors() == 3);
+        TR_ASSERT(t, parser.NumWarnings() == 1);
+        TR_ASSERT(t, messages.size() == 4);
+        TR_ASSERT(t, messages[0].path == "src/main.rs");
+        TR_ASSERT(t, messages[0].line == 4);
+        TR_ASSERT(t, messages[0].column == 20);
+        TR_ASSERT(t, messages[0].message == "cannot find value `z` in this scope [E0425]");
+        TR_ASSERT(t, HasDetail(messages[0], "println!"));
+        TR_ASSERT(t, messages[1].line == 3);
+        TR_ASSERT(t, messages[1].message == "mismatched types [E0308]");
+        // The coloured one: escapes stripped
+        TR_ASSERT(t, messages[2].path == "src/main.rs");
+        TR_ASSERT(t, messages[2].line == 3);
+        TR_ASSERT(t, messages[3].IsWarning());
+        TR_ASSERT(t, messages[3].message == "unused variable: `x`");
+        TR_ASSERT(t, messages[3].line == 2);
+        TR_ASSERT(t, messages[3].column == 9);
+        TR_ASSERT(t, HasDetail(messages[3], "= note:"));
+    }
+    return kTR_Pass;
+}
+
+// GNU ld (written from its format - no GNU ld on the Mac) and lld: the source line when -g gave one, the object's
+// messages without a place, lld's place on its '>>> referenced by' line
+DLL_EXPORT int test_buildmessages_linker(ITesting *t) {
+    auto parser = ParseAll(ReadLog("ld.log"));
+    auto &messages = parser.Messages();
+    TR_ASSERT(t, messages.size() == 7);
+    TR_ASSERT(t, messages[0].path == "/work/app/main.cpp");
+    TR_ASSERT(t, messages[0].line == 5);
+    TR_ASSERT(t, messages[0].message == "undefined reference to `helper()'");
+    TR_ASSERT(t, HasDetail(messages[0], "in function `main'"));
+    TR_ASSERT(t, messages[1].path == "util.cpp");
+    TR_ASSERT(t, messages[1].line == 0);
+    TR_ASSERT(t, messages[2].path == "/work/app/b.cpp");
+    TR_ASSERT(t, messages[2].line == 1);
+    TR_ASSERT(t, messages[2].message.find("multiple definition of `counter'") == 0);
+    // In an archive's object: no place
+    TR_ASSERT(t, messages[3].path.empty());
+    TR_ASSERT(t, messages[4].path.empty());     // collect2
+    TR_ASSERT(t, messages[5].path == "/work/app/main.cpp");
+    TR_ASSERT(t, messages[5].line == 7);
+    TR_ASSERT(t, messages[5].message == "ld.lld: undefined symbol: foo()");
+    TR_ASSERT(t, messages[6].path.empty());     // clang++: linker command failed
+    TR_ASSERT(t, parser.NumErrors() == 7);
+    return kTR_Pass;
+}
+
 // A sentence that holds ': error: ' is not a message; a tool's own line is; 'file:line:' without a column is
 DLL_EXPORT int test_buildmessages_noplace(ITesting *t) {
     auto parser = ParseAll("this is a sentence: error: not a message\n"
@@ -362,10 +482,11 @@ DLL_EXPORT int test_buildmessages_reset(ITesting *t) {
 DLL_EXPORT int test_buildmessages_commands(ITesting *t) {
     for (auto cmd : {"make", "make -j8", "cmake --build cmake-build-debug", "ninja -C build", "/usr/bin/make all",
                      "CC=clang make", "time make", "env CXX=g++ ninja", "clang++ -c a.cpp", "g++-13 a.cpp", "  gcc x.c",
-                     "trun --sequential ./libutests.dylib", "/usr/local/bin/trun -m x lib.so"}) {
+                     "trun --sequential ./libutests.dylib", "/usr/local/bin/trun -m x lib.so", "cargo build",
+                     "python3 main.py", "python3.12 -m pytest", "python game.py", "pytest -x", "rustc a.rs"}) {
         TR_ASSERT(t, BuildMessages::IsBuildCommand(cmd));
     }
-    for (auto cmd : {"", "ls", "ls make", "git commit -m make", "./build.sh", "makeself", "cat Makefile", "time"}) {
+    for (auto cmd : {"", "ls", "ls make", "git commit -m make", "./build.sh", "makeself", "cat Makefile", "time", "python3-config", "pythonista"}) {
         TR_ASSERT(t, !BuildMessages::IsBuildCommand(cmd));
     }
     return kTR_Pass;

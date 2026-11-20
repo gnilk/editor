@@ -1,6 +1,7 @@
 # Build messages - errors and warnings from the terminal, as places to jump to
 
-Written down 2026-11-18. **Steps 1-3 built** (2026-11-19, `feature/build-messages`). Hitlist #52. Decisions: §9.
+Written down 2026-11-18. **Steps 1-3 built** (2026-11-19, `feature/build-messages`); step 4's matchers (python, rust, ld) built
+2026-11-20 (`feature/build-messages-step4`). Hitlist #52. Decisions: §9.
 
 ## 1. The idea
 
@@ -153,5 +154,18 @@ Found while building it:
   at the end of a line, and indented-by-6 lines right after a message (not a `  12 |` source line) are its text; the
   repeat check is redone on the whole text (`clang-wrapped.log`, real captures at 60 / 50 columns). The cost: an old
   clang without the line-number gutter whose source line starts with exactly 6 spaces would have it read as text.
+- **Step 4's matchers (2026-11-20)**, each on a fixture in `Assets/testfiles/build-logs/`:
+  - **Python** (`python-traceback.log`, `python-syntax.log` - real captures): a traceback is one error, at the last
+    frame that isn't Python's library (`/lib/python`, `site-packages`, `<frozen ...>`) - the program's own line that led
+    there - else the last frame; the message is the exception line, the frames are its detail. A SyntaxError has no
+    `Traceback` line, its `File` line starts it. A warning (`main.py:5: DeprecationWarning: x`) is a warning.
+    `python`, `python3`, `python3.N`, `py`, `pytest` are build commands - running a script fills the list.
+  - **rustc / cargo** (`cargo.log` - real captures): `error[E0308]: msg` takes its place from the ` --> ` line under
+    it; the code goes to the end (`msg [E0308]`, as gcc's `[-Wfoo]`). Cargo's summaries (`could not compile`,
+    `generated 1 warning`, `aborting due to`) are not messages.
+  - **GNU ld / lld** (`ld.log` - written from the format, no GNU ld on the Mac): `undefined reference to` /
+    `multiple definition of`, the place from `file:line:` (with `-g`) or the file alone (`main.cpp:(.text+0x9)`); an
+    object or archive (`libfoo.a(foo.o)`) is no place. `in function `main':` is context. lld's place is on its
+    `>>> referenced by` line (the absolute path in the parentheses when given).
 - **Not yet:** the coloured source line in the list (rows are `error  a.cpp:3:16  message`, the folder on the right);
-  ld's `file.o:(.text+0x..)` lines; rust / python matchers (trun's is in, 2026-11-19); gutter marks; Cmd+click in the terminal (§7 step 4).
+  gutter marks; Cmd+click in the terminal; JS access (§7 step 4).

@@ -71,6 +71,7 @@ void DataLanguage::BuildState(const LanguageDefinition::State &stateDefinition) 
     // whole_word)
     std::map<kLanguageTokenClass, std::vector<std::u32string>> wordsByClass;
     std::map<kLanguageTokenClass, bool> wholeWordByClass;
+    std::map<kLanguageTokenClass, bool> prefixByClass;
     std::map<kLanguageTokenClass, bool> caseSensitiveByClass;
     if (stateDefinition.regularClass.has_value()) {
         MarkSyntaxSemanticClass(*stateDefinition.regularClass);
@@ -80,6 +81,7 @@ void DataLanguage::BuildState(const LanguageDefinition::State &stateDefinition) 
         auto &words = wordsByClass[rule.tokenClass];
         words.insert(words.end(), rule.words.begin(), rule.words.end());
         wholeWordByClass[rule.tokenClass] = rule.isWholeWord;
+        prefixByClass[rule.tokenClass] = rule.isPrefix;
         caseSensitiveByClass[rule.tokenClass] = rule.isCaseSensitive.value_or(definition.isCaseSensitive);
     }
     for (auto &[tokenClass, words] : wordsByClass) {
@@ -88,6 +90,7 @@ void DataLanguage::BuildState(const LanguageDefinition::State &stateDefinition) 
         if (isWholeWord && !caseSensitiveByClass[tokenClass]) {
             state->identifiers[tokenClass]->SetCaseInsensitive();
         }
+        state->identifiers[tokenClass]->isPrefix = prefixByClass[tokenClass];
     }
     if (stateDefinition.numbers.has_value()) {
         state->SetNumberMatcher(GenericNumberMatcher::Create(stateDefinition.numbers->suffixes));

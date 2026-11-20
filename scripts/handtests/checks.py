@@ -374,6 +374,59 @@ def agent_tab(n):
     n('config: agent_test' in text, f"the session keeps the tab's section ({sessions})")
 
 
+@check('#53 step 5 Messages tab: the build list kept open in the lower panel')
+def messages_tab(n):
+    if shutil.which('cc') is None:
+        n.skip('no cc')
+    sb, work = sandbox('messages_tab')
+    write(os.path.join(work, 'notes.txt'), 'notes\n')
+    write(os.path.join(work, 'bad.c'), 'int h(void) {\n    int unused;\n    return 0;\n}\n'
+                                       'int f(int a) {\n    return a + nope;\n}\nint g(void) { return 1 }\n')
+    user_config(sb, 'panel:\n  tabs:\n    - name: Shell\n    - view: messages\n')
+    close_tab = b'\x1b[119;6u'     # Ctrl+Shift+W
+
+    def tab_row(g):
+        return next((l.strip() for l in g.screen.lines() if l.strip().startswith('Shell | Messages')), None)
+
+    g = Goat(sb, ['notes.txt'], cwd=work, skip_user_config=False)
+    try:
+        g.ready()
+        n(g.wait_for(lambda g: tab_row(g) == 'Shell | Messages', 3), f'a Shell and a Messages tab: {tab_row(g)!r}')
+        g.send(alt('t'), 0.5)
+        g.type('cc -Wall -Wno-return-type -c bad.c', wait=0.2)
+        g.send(ENTER, 0.3)
+        n(g.wait_text('build: 2 errors, 1 warning', 8), 'the build ran and ended')
+        n(g.wait_for(lambda g: tab_row(g) == 'Shell | Messages (3)', 2), f'the label counts: {tab_row(g)!r}')
+        g.send(alt('e'), 0.5)
+        g.send(CTRL_F8, 0.8)
+        listed = g.wait_text('error    bad.c:6:', 3)
+        rows = [t for t in g.screen.lines() if 'bad.c:' in t and ('error  ' in t or 'warning  ' in t)]
+        n(listed and len(rows) == 3 and 'warning' in rows[-1],
+          f'Ctrl+F8: the Messages tab - errors, then the warning ({len(rows)} rows)')
+        n(g.screen.find('Filter:') is None, 'not the modal')
+        g.send(DOWN, 0.3)
+        g.send(ENTER, 0.6)
+        said = g.status_line().strip()
+        g.wait_for(lambda g: 'l: ' in g.status_line(), 6)
+        # The keys went to the tab - it has the focus
+        n('error 2/3' in said and g.cursor_line() == 8,
+          f'Down, Enter: the second error, in the editor ("{said[:60]}", line {g.cursor_line()})')
+        g.send(F8, 0.6)
+        g.wait_for(lambda g: 'l: ' in g.status_line(), 6)
+        n(g.cursor_line() == 2, f'F8 goes on from there: the warning (line {g.cursor_line()})')
+        g.send(CTRL_F8, 0.8)
+        g.send(close_tab, 0.8)
+        n(g.wait_for(lambda g: tab_row(g) is None, 2), 'Ctrl+Shift+W in the Messages tab closes it')
+        n(g.screen.find('notes') is not None, "and not the editor's file")
+        g.send(alt('e'), 0.5)
+        g.send(CTRL_F8, 0.8)
+        n(g.wait_text('Filter:', 2), 'no Messages tab: Ctrl+F8 shows the list as a modal')
+        g.send(ESC, 0.4)
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+
+
 @check('#16 Text encodings')
 def latin1(n):
     sb, work = sandbox('latin1')

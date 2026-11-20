@@ -546,6 +546,16 @@ static PanelView *GetPanelView() {
     return dynamic_cast<PanelView *>(rootView->GetTopViewByName(glbTerminalView).get());
 }
 
+bool Editor::ShowMessagesTab() {
+    auto *panelView = GetPanelView();
+    if ((panelView == nullptr) || !panelView->ShowMessages()) {
+        return false;
+    }
+    ActionHelper::SwitchToNamedView(glbTerminalView);
+    TriggerUIRedraw();
+    return true;
+}
+
 bool Editor::PromoteToTerminal(const std::u32string &text) {
     // An agent's tab when one is the promote target (panel-tabs.md §7), else the shown terminal
     auto *panelView = GetPanelView();

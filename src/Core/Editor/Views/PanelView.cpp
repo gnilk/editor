@@ -23,20 +23,25 @@ void PanelView::RestoreTabs(const TerminalSession &session) {
             spec.name = tab.name.empty() ? NameFor(tab.id) : tab.name;
             spec.view = tab.view.empty() ? VIEW_TERMINAL : tab.view;
             spec.config = tab.config.empty() ? spec.view : tab.config;
-            AddTerminal(spec, tab.scrollbackFile);
+            AddPanelTab(spec, tab.scrollbackFile);
         }
         if ((session.activeTab > 0) && ((size_t)session.activeTab < NumTabs())) {
             SetActiveTab((size_t)session.activeTab);
         }
-        return;
+    } else {
+        // No tabs in the session (none yet, or one from before tabs - its one terminal's files go to the first tab)
+        for (auto &spec : ConfiguredTabs(Config::Instance())) {
+            AddPanelTab(spec, spec.id.empty() ? session.scrollbackFile : "");
+        }
     }
-    // No tabs in the session (none yet, or one from before tabs - its one terminal's files go to the first tab)
-    auto specs = ConfiguredTabs(Config::Instance());
-    if (specs.empty()) {
-        specs.push_back({"", NameFor("")});
-    }
-    for (auto &spec : specs) {
-        AddTerminal(spec, spec.id.empty() ? session.scrollbackFile : "");
+    // A terminal there always is - the build shell, the output console
+    if (NumTerminals() == 0) {
+        std::vector<std::string> ids;
+        for (auto &panelTab : panelTabs) {
+            ids.push_back(panelTab.spec.id);
+        }
+        auto id = ids.empty() ? std::string() : NextId(ids);
+        AddTerminal({id, NameFor(id)}, id.empty() ? session.scrollbackFile : "");
     }
 }
 
@@ -52,7 +57,9 @@ void PanelView::SaveTabs(TerminalSession &out) {
         tab.name = panelTab->spec.name;
         tab.view = panelTab->spec.view;
         tab.config = panelTab->spec.config;
-        panelTab->view->GetController().ToSession(tab.scrollbackFile);
+        if (auto terminal = panelTab->Terminal()) {
+            terminal->GetController().ToSession(tab.scrollbackFile);
+        }
         if (tab.id.empty()) {
             out.scrollbackFile = tab.scrollbackFile;
         }
@@ -65,16 +72,17 @@ TerminalView *PanelView::ActiveTerminal() {
     if (auto shown = dynamic_cast<TerminalView *>(ActiveView())) {
         return shown;
     }
-    return panelTabs.empty() ? nullptr : panelTabs.front().view;
+    auto terminals = Terminals();
+    return terminals.empty() ? nullptr : terminals.front();
 }
 
 TerminalView *PanelView::PromoteTarget() {
-    for (auto &panelTab : panelTabs) {
-        if (panelTab.view->GetController().Settings().GetBool("promote_target", false)) {
-            if (auto idxTab = IndexOf(panelTab.view)) {
+    for (auto terminal : Terminals()) {
+        if (terminal->GetController().Settings().GetBool("promote_target", false)) {
+            if (auto idxTab = IndexOf(terminal)) {
                 SetActiveTab(idxTab.value());
             }
-            return panelTab.view;
+            return terminal;
         }
     }
     return ActiveTerminal();
@@ -102,17 +110,22 @@ void PanelView::NewTerminal() {
     }
 }
 
-void PanelView::CloseTerminal(size_t idxTab) {
+void PanelView::CloseTab(size_t idxTab) {
     auto panelTab = PanelTabAt(idxTab);
     if (panelTab == nullptr) {
         return;
     }
-    if (panelTabs.size() == 1) {
+    auto terminal = panelTab->Terminal();
+    if (terminal == nullptr) {
+        RemovePanelTab(idxTab);
+        return;
+    }
+    if (NumTerminals() == 1) {
         Editor::Instance().ShowStatusMessage(U"The last terminal stays");
         return;
     }
-    if (!panelTab->view->GetController().HasRunningJob() || !RuntimeConfig::Instance().HasRootView()) {
-        RemoveTerminal(idxTab);
+    if (!terminal->GetController().HasRunningJob() || !RuntimeConfig::Instance().HasRootView()) {
+        RemovePanelTab(idxTab);
         return;
     }
     auto view = panelTab->view;
@@ -122,10 +135,30 @@ void PanelView::CloseTerminal(size_t idxTab) {
         // The tab may have moved while the question was up
         auto idxNow = IndexOf(view);
         if ((idxChoice == 0) && idxNow.has_value()) {
-            RemoveTerminal(idxNow.value());
+            RemovePanelTab(idxNow.value());
         }
     });
     RuntimeConfig::Instance().GetRootViewAs<RootView>()->ShowModal(std::move(modal));
+}
+
+bool PanelView::ShowMessages() {
+    for (size_t i = 0; i < NumTabs(); i++) {
+        if (dynamic_cast<MessagesView *>(TabView(i)) != nullptr) {
+            SetActiveTab(i);
+            return true;
+        }
+    }
+    return false;
+}
+
+void PanelView::DrawViewContents() {
+    for (size_t i = 0; i < NumTabs(); i++) {
+        auto panelTab = PanelTabAt(i);
+        if (auto messages = (panelTab != nullptr) ? dynamic_cast<MessagesView *>(panelTab->view) : nullptr) {
+            SetTabLabel(i, messages->Label(panelTab->spec.name));
+        }
+    }
+    TabbedView::DrawViewContents();
 }
 
 bool PanelView::OnAction(const EditorAction &action) {
@@ -136,7 +169,7 @@ bool PanelView::OnAction(const EditorAction &action) {
     }
     if (action.action == kAction::kActionCloseTerminal) {
         if (auto idxTab = ActiveTab()) {
-            CloseTerminal(idxTab.value());
+            CloseTab(idxTab.value());
         }
         return true;
     }
@@ -175,13 +208,13 @@ std::vector<PanelView::TabSpec> PanelView::ConfiguredTabs(const ConfigNode &conf
         ConfigNode tab(tabNode);
         TabSpec spec;
         spec.view = tab.GetStr("view", VIEW_TERMINAL);
-        if (spec.view != VIEW_TERMINAL) {
+        if ((spec.view != VIEW_TERMINAL) && (spec.view != VIEW_MESSAGES)) {
             gnilk::Logger::GetLogger("PanelView")->Warn("panel.tabs: no view '%s' - tab left out", spec.view.c_str());
             continue;
         }
         spec.config = tab.GetStr("config", spec.view);
         spec.id = ids.empty() ? "" : NextId(ids);
-        spec.name = tab.GetStr("name", NameFor(spec.id));
+        spec.name = tab.GetStr("name", (spec.view == VIEW_MESSAGES) ? std::string("Messages") : NameFor(spec.id));
         ids.push_back(spec.id);
         specs.push_back(spec);
     }
@@ -207,6 +240,17 @@ std::u32string PanelView::LabelFor(const std::string &name, const std::string &t
         label = label.substr(0, MAX_LABEL - 1) + U"…";
     }
     return label;
+}
+
+ViewBase *PanelView::AddPanelTab(const TabSpec &spec, const std::string &scrollbackFile) {
+    if (spec.view == VIEW_TERMINAL) {
+        return AddTerminal(spec, scrollbackFile);
+    }
+    if (spec.view == VIEW_MESSAGES) {
+        return AddMessages(spec);
+    }
+    gnilk::Logger::GetLogger("PanelView")->Warn("Tab '%s': no view '%s' - left out", spec.name.c_str(), spec.view.c_str());
+    return nullptr;
 }
 
 TerminalView *PanelView::AddTerminal(const TabSpec &spec, const std::string &scrollbackFile) {
@@ -237,7 +281,20 @@ TerminalView *PanelView::AddTerminal(const TabSpec &spec, const std::string &scr
     return view;
 }
 
-void PanelView::RemoveTerminal(size_t idxTab) {
+// The last build's messages - the editor's one list - and its section ('keymap'); a section isn't needed
+MessagesView *PanelView::AddMessages(const TabSpec &spec) {
+    auto newView = std::make_unique<MessagesView>(Editor::Instance().GetBuildMessages());
+    auto view = newView.get();
+    auto settings = Config::Instance().ResolveSection(spec.config);
+    if (settings.GetDataNode().IsDefined()) {
+        view->SetSettings(settings);
+    }
+    panelTabs.push_back({view, spec});
+    AddTab(std::move(newView), LabelFor(spec.name, ""));
+    return view;
+}
+
+void PanelView::RemovePanelTab(size_t idxTab) {
     auto view = TabView(idxTab);
     auto it = std::find_if(panelTabs.begin(), panelTabs.end(), [view](const PanelTab &panelTab) {
         return panelTab.view == view;
@@ -245,15 +302,21 @@ void PanelView::RemoveTerminal(size_t idxTab) {
     if (it == panelTabs.end()) {
         return;
     }
-    it->view->GetController().ForgetSession();
+    if (auto terminal = it->Terminal()) {
+        terminal->GetController().ForgetSession();
+    }
     panelTabs.erase(it);
-    // Deletes the view - its shell ends with the controller
+    // Deletes the view - a terminal's shell ends with its controller
     RemoveTab(idxTab);
     // Dot-command output and the JS console go to a terminal that is still there
     if (auto shown = ActiveTerminal()) {
         shown->GetController().RegisterAsOutputConsole();
     }
     Editor::Instance().TriggerUIRedraw();
+}
+
+size_t PanelView::NumTerminals() const {
+    return Terminals().size();
 }
 
 PanelView::PanelTab *PanelView::PanelTabAt(size_t idxTab) {

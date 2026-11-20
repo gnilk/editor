@@ -128,6 +128,7 @@ macos:
   terminal_keymap: macOS/terminal_keymap.yml
   modal_keymap: macOS/modal_keymap.yml
   hexview_keymap: macOS/hexview_keymap.yml
+  messages_keymap: macOS/messages_keymap.yml
 
 linux:
   default_keymap: Linux/default_keymap.yml
@@ -136,6 +137,7 @@ linux:
   terminal_keymap: Linux/terminal_keymap.yml
   modal_keymap: Linux/modal_keymap.yml
   hexview_keymap: Linux/hexview_keymap.yml
+  messages_keymap: Linux/messages_keymap.yml
 
 sdl:
   # Defines the SDL window rendering backend 'opengl', 'vulkan', 'metal' - empty or unknown means default...
@@ -310,7 +312,8 @@ terminal:
   lines_per_scroll_wheel_notch: 3
 
 # The lower panel's tabs on a first start (docs/panel-tabs.md §7) - a session that has tabs brings back its own. Each
-# tab: a name, a view (what draws it: 'terminal') and a config section (default: the view's name) - the section is
+# tab: a name, a view (what draws it: 'terminal', or 'messages' - the last build's errors and warnings, kept open; Cmd/Ctrl+F8
+# shows it) and a config section (default: the view's name) - the section is
 # handed to the tab, resolved. A section can 'inherit:' another: its own keys win, the parent's fill the rest. A
 # project config never sets shell / init / bootstrap, in any section. Unset: one 'Shell'.
 #panel:
@@ -318,6 +321,7 @@ terminal:
 #    - name: Shell
 #    - name: Claude
 #      config: ai_agent
+#    - view: messages
 #ai_agent:
 #  inherit: terminal
 #  bootstrap: [ "claude" ]     # run in the tab's shell when it starts - the shell's PATH, and a prompt when it quits

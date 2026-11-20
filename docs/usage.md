@@ -150,3 +150,6 @@ in the editor; anything else (`./build.sh`) goes to the shell. The prefix is `ma
   own: `ai_agent: { inherit: terminal, bootstrap: ["claude"], promote_target: yes }` - it is a shell that starts
   `claude`, and `Cmd/Ctrl+Enter` in the editor sends there (the tab is shown). The commented example is in
   `config.yml`. A project's `.goatedit/config.yml` can't set a command (`shell`, `init`, `bootstrap`) in any section.
+- **A Messages tab:** `- view: messages` in `panel.tabs` keeps the last build's errors and warnings open in the panel
+  (the `Cmd/Ctrl+F8` list, which then shows that tab). It fills while the build runs, the selection follows `F8`; Enter
+  or a double-click goes there. The tab shows the count, 'Messages (3)'.

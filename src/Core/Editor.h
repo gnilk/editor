@@ -223,6 +223,8 @@ namespace gedit {
         }
         // Text into the terminal as a paste - not via the clipboard - and Enter after it unless
         // terminal.promote_sends_enter is off (hitlist #47). Focus stays where it is. False with no terminal or no text.
+        // Cmd/Ctrl+F8 with a Messages tab in the lower panel (panel-tabs.md step 5): shows it, focused; false when there is none
+        bool ShowMessagesTab();
         bool PromoteToTerminal(const std::u32string &text);
 
         const Theme::Ref GetTheme() {

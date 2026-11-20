@@ -1,9 +1,9 @@
 //
 // The lower panel (docs/panel-tabs.md, hitlist #53): the editor's part on top of the toolkit's TabbedView, which owns
-// the tab views and draws the row. This part knows which kinds of tab there are (a terminal today; Messages next),
-// builds them, makes a new terminal (Cmd+T / Ctrl+Shift+T in a terminal), closes the shown one (Cmd+W /
-// Ctrl+Shift+W - asks when a job runs, keeps the last), and selects tabs with the keys that select files in the
-// editor (SwitchToBuffer, CycleActiveBuffer*) while it has focus and more than one tab.
+// the tab views and draws the row. This part knows which kinds of tab there are - 'terminal' and 'messages' (the last
+// build's errors and warnings, step 5) - builds them, makes a new terminal (Cmd+T / Ctrl+Shift+T in a tab), closes
+// the shown tab (Cmd+W / Ctrl+Shift+W - asks when a job runs, keeps the last terminal), and selects tabs with the keys
+// that select files in the editor (SwitchToBuffer, CycleActiveBuffer*) while it has focus and more than one tab.
 //
 // A tab is a view kind and a config section (§7): 'panel.tabs: [ { name, view, config } ]' - the section, resolved
 // (its 'inherit:' folded in), is handed to the tab when it is made. An agent's tab is a terminal with its own section
@@ -24,6 +24,7 @@
 #include "Core/Config/ConfigNode.h"
 #include "Core/Session/SessionState.h"
 #include "Core/UI/Views/TabbedView.h"
+#include "MessagesView.h"
 #include "TerminalView.h"
 
 namespace gedit {
@@ -55,13 +56,16 @@ namespace gedit {
         std::vector<TerminalView *> Terminals() const;
         // A new shell in a tab of its own, shown (and focused, when the panel has focus)
         void NewTerminal();
-        // Asks first when a job runs in it; the last terminal stays
-        void CloseTerminal(size_t idxTab);
+        // A terminal asks first when a job runs in it; the last terminal stays
+        void CloseTab(size_t idxTab);
+        // Shows the first Messages tab; false when there is none (Cmd/Ctrl+F8 shows the list as a modal then)
+        bool ShowMessages();
 
         bool OnAction(const EditorAction &action) override;
 
         // 'panel.tabs' of a config: each tab's name, view (default 'terminal') and config (default the view's name).
         // A view kind this panel doesn't have is left out (and logged). Ids: "" for the first, then '2', '3'...
+        // A Messages tab's name defaults to 'Messages'.
         static std::vector<TabSpec> ConfiguredTabs(const ConfigNode &config);
         // 'Shell', 'Shell 2', ... - the first number no tab has
         static std::string NextId(const std::vector<std::string> &ids);
@@ -72,14 +76,26 @@ namespace gedit {
     public:
         static constexpr size_t MAX_LABEL = 24;
         inline static const std::string VIEW_TERMINAL = "terminal";
+        inline static const std::string VIEW_MESSAGES = "messages";
+
+    protected:
+        // The labels that count first (a Messages tab's 'Messages (3)'), then the row
+        void DrawViewContents() override;
 
     private:
         struct PanelTab {
-            TerminalView *view = nullptr;   // owned by the TabbedView
+            ViewBase *view = nullptr;   // owned by the TabbedView
             TabSpec spec;
+            TerminalView *Terminal() const {
+                return dynamic_cast<TerminalView *>(view);
+            }
         };
+        // By the spec's view kind; nullptr for a kind there isn't
+        ViewBase *AddPanelTab(const TabSpec &spec, const std::string &scrollbackFile);
         TerminalView *AddTerminal(const TabSpec &spec, const std::string &scrollbackFile);
-        void RemoveTerminal(size_t idxTab);
+        MessagesView *AddMessages(const TabSpec &spec);
+        void RemovePanelTab(size_t idxTab);
+        size_t NumTerminals() const;
         PanelTab *PanelTabAt(size_t idxTab);
         // A tab number as the editor's files have it: 1..8, 9 the last
         void SelectTabNumber(int tabNumber);

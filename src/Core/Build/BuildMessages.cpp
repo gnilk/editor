@@ -61,6 +61,7 @@ bool BuildMessages::OnCommand(const std::string &cmdLine, const std::string &she
     }
     parser.Reset();
     hasRun = true;
+    runNumber++;
     isRunning = true;
     wasJobSeen = false;
     command = cmdLine;
@@ -194,6 +195,28 @@ std::optional<BuildMessages::Position> BuildMessages::Select(size_t index) {
 std::string BuildMessages::ResolvePath(const BuildMessage &message) const {
     std::lock_guard<std::mutex> guard(lock);
     return ResolvePathLocked(message);
+}
+
+uint64_t BuildMessages::RunNumber() const {
+    std::lock_guard<std::mutex> guard(lock);
+    return runNumber;
+}
+
+std::optional<size_t> BuildMessages::Current() const {
+    std::lock_guard<std::mutex> guard(lock);
+    return current;
+}
+
+std::string BuildMessages::RowText(const BuildMessage &message) {
+    std::string place = std::filesystem::path(message.path).filename().string();
+    if (message.line > 0) {
+        place += ":" + std::to_string(message.line);
+    }
+    if (message.column > 0) {
+        place += ":" + std::to_string(message.column);
+    }
+    auto severity = message.IsError() ? "error    " : "warning  ";
+    return severity + place + "  " + message.message;
 }
 
 std::vector<size_t> BuildMessages::Order(const std::vector<BuildMessage> &messages) {

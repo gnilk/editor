@@ -11,6 +11,7 @@
 #include "Core/UI/UIHost.h"
 #include "Core/MouseEvent.h"
 #include "Core/Graphics/Headless/HLScreen.h"
+#include "Core/Editor/Views/MessagesView.h"
 #include "logger.h"
 
 using namespace gedit;
@@ -967,5 +968,70 @@ extern "C" int test_layout_tabs_draw(ITesting *t) {
     TR_ASSERT(t, (spans[0].xStart == 1) && (spans[0].xEnd == 4));
     TR_ASSERT(t, (spans[1].xStart == 7) && (spans[1].xEnd == 10));
     TR_ASSERT(t, (spans[2].xStart == 13) && (spans[2].xEnd == 18));
+    return kTR_Pass;
+}
+
+// #53 step 5: the Messages tab - the last build's errors then warnings, read when drawn (it fills while the build
+// runs), the selection follows F8, a new run starts at the top; the label counts
+extern "C" int test_layout_messages_view(ITesting *t) {
+    auto screen = HLScreen::FromRuntime();
+    TR_ASSERT(t, screen != nullptr);
+    BuildMessages build;
+    RootView rootView;
+    TabbedView tabbed;
+    rootView.AddView(&tabbed);
+    auto messages = static_cast<MessagesView *>(tabbed.AddTab(std::make_unique<MessagesView>(build), U"Messages"));
+    rootView.Initialize();
+
+    // No build yet
+    TR_ASSERT(t, messages->NumRows() == 0);
+    TR_ASSERT(t, messages->Label("Messages") == U"Messages");
+    TR_ASSERT(t, messages->Caption().find("No build yet") == 0);
+
+    // A run, while it runs: the warning printed first is listed after the errors
+    int buildShell = 0;
+    build.OnCommand("make", "/tmp", "/tmp", &buildShell);
+    build.Feed("w.c:2:5: warning: unused variable 'x'\na.c:6:12: error: use of undeclared identifier 'nope'\n", &buildShell);
+    TR_ASSERT(t, messages->NumRows() == 2);
+    TR_ASSERT(t, messages->Caption().find("(running)") != std::string::npos);
+    build.Feed("b.c:8:20: error: expected ';'\n", &buildShell);
+    build.EndRun();
+    TR_ASSERT(t, messages->NumRows() == 3);
+    TR_ASSERT(t, messages->Label("Messages") == U"Messages (3)");
+    TR_ASSERT(t, messages->Caption() == "make - 2 errors, 1 warning");
+
+    screen->ClearGrid();
+    rootView.Draw();
+    auto content = messages->GetContentRect();
+    auto rowText = [&](int row) {
+        return screen->Dump(gedit::Rect(gedit::Point(content.TopLeft().x, content.TopLeft().y + row), content.Width(), 1));
+    };
+    TR_ASSERT(t, rowText(0).find("make - 2 errors, 1 warning") != std::string::npos);
+    TR_ASSERT(t, rowText(1).find("error    a.c:6:12  use of undeclared") != std::string::npos);
+    TR_ASSERT(t, rowText(2).find("error    b.c:8:20") != std::string::npos);
+    TR_ASSERT(t, rowText(3).find("warning  w.c:2:5") != std::string::npos);
+    // The selected row (the first) stands out from the others
+    TR_ASSERT(t, messages->SelectedRow() == 0);
+    auto &selected = screen->CellAt(content.TopLeft().x + 1, content.TopLeft().y + 1);
+    auto &other = screen->CellAt(content.TopLeft().x + 1, content.TopLeft().y + 2);
+    TR_ASSERT(t, (selected.bg != other.bg) || gnilk::ansi::HasAttr(selected.attr, gnilk::ansi::Attr::Inverse));
+
+    // The arrows move it; F8 (BuildMessages::Next) moves it to where it went
+    EditorAction down;
+    down.uiAction = kUIAction::kUIActionLineDown;
+    messages->OnAction(down);
+    messages->OnAction(down);
+    messages->OnAction(down);
+    TR_ASSERT(t, messages->SelectedRow() == 2);     // stops at the last
+    build.Next();
+    TR_ASSERT(t, messages->SelectedRow() == 0);
+    build.Next();
+    TR_ASSERT(t, messages->SelectedRow() == 1);
+
+    // A new run: from the top, the list as it fills
+    build.OnCommand("make", "/tmp", "/tmp", &buildShell);
+    TR_ASSERT(t, messages->NumRows() == 0);
+    build.Feed("c.c:1:1: error: again\n", &buildShell);
+    TR_ASSERT(t, (messages->NumRows() == 1) && (messages->SelectedRow() == 0));
     return kTR_Pass;
 }

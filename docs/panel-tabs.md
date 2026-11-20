@@ -95,6 +95,16 @@ and the architecture-workbench idea (index data handed to agents).
    Also: a theme switch refreshes every tab's terminal, not only the shown one. Check `agent_tab`. A bootstrap's
    output is not shown (it runs before the prompt) - the check sees what it ran by the files it touches.
 5. Messages as a tab (with #52); a CMake / build tab.
+   **Built 2026-11-20 (Messages):** `src/Core/Editor/Views/MessagesView` - `view: messages` in `panel.tabs` (name
+   'Messages', section 'messages'). The last build's errors then warnings (`BuildMessages::Order`, rows as the modal's -
+   `BuildMessages::RowText`), a caption line with the command and its counts ('(running)' while it runs). Read when
+   drawn - it fills while the build runs; the selection follows F8 / Shift+F8 (`BuildMessages::Current`), a new run
+   (`RunNumber`) starts at the top. Up / Down / Page / Home / End, Enter or a double-click goes there, F8 goes on from
+   it. The label counts: 'Messages (3)'. `Cmd/Ctrl+F8` shows the tab, focused, when there is one, else the modal. Its
+   keymap `messages_keymap` (default_keymap + the panel's new / close tab keys - default_keymap's close would have
+   closed the editor's file). A Messages tab closes like any tab; the last terminal stays, and a panel always has one
+   (a `panel.tabs` with only Messages gets a Shell too). Check `messages_tab`. Not done: the CMake / build tab, the
+   filter the modal has (typing in the tab).
 6. Mouse: click a tab, close buttons (after #26).
 
 ## 6. Decisions (2026-11-18)

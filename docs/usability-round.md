@@ -1107,3 +1107,13 @@ Open:
 - **Lists merge by position** (open-bugs #28, hitlist #17) - twice here: a project's `panel.tabs` lands on the user's
   tab by tab, and a user's own `bootstrap:` in `claude:` would merge into the shipped list item by item. Fix #17 first
   (a list replaces the list below it whole - as `inherit:` already does).
+
+## 18. Note - build errors in the minimap (not scheduled)
+
+Filed 2026-11-20 (the user, after #52 step 4). After a long session the minimap is sometimes used to look over where
+the errors are. Today it shows only the change marks; an error line got a red mark there by chance - a deleted line
+near it (`gutter_deleted`, the same red as `gutter_error`). A real mark: `OverviewMap` gets an error / warning kind,
+fed from `BuildMessages::LineMarks` as the gutter is, in `gutter_error` / `gutter_warning`.
+
+Low priority - the Messages tab is what gets used for this; the minimap is small.
+

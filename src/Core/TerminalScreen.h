@@ -40,6 +40,8 @@ namespace gedit {
         static constexpr uint8_t kAttrUnderline = 0x04;
         static constexpr uint8_t kAttrStrike    = 0x08;
 
+        static constexpr int DEFAULT_SCROLLBACK_LINES = 10000;
+
         // A grid cell with its colours resolved. Inverse and hidden are already applied to fg/bg. A wide
         // character's right half is a width-0 cell with ch == 0 (draw it as nothing; skip it when reading text).
         struct Cell {
@@ -110,6 +112,10 @@ namespace gedit {
         uint64_t ScrollbackBase() const { return scrollbackBase; }
         uint64_t AbsRowCount() const;             // == absBottom (the live/cursor row's abs id)
         AbsRow RowAtAbs(uint64_t abs) const;
+
+        // At most this many scrollback lines are kept, the oldest go; 0 = unlimited. The terminal's
+        // 'scrollback_lines', handed over by its controller (the pty thread trims - never reads the config)
+        void SetScrollbackCap(int maxLines) { scrollbackCap = maxLines; }
 
         // Alternate screen (a full-screen app owns the grid; nothing reaches scrollback meanwhile)
         bool IsAltScreen() const { return terminal->IsAltScreen(); }
@@ -206,6 +212,7 @@ namespace gedit {
         // grid. Read-only, no language attached (plain ANSI-colored lines, no async tokenizer).
         TextBuffer::Ref scrollback;
         uint64_t scrollbackBase = 0;   // abs id of scrollback line 0 (bumped on eviction, §7)
+        int scrollbackCap = DEFAULT_SCROLLBACK_LINES;
         // Abs id of the first row of the last command's output (MarkOutputStart)
         std::optional<uint64_t> lastOutputStart;
         // Abs id of the row after it, once known (MarkOutputEnd); none: up to the cursor row

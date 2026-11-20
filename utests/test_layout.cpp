@@ -782,7 +782,12 @@ extern "C" int test_layout_pointer_hover(ITesting *t) {
 
 namespace {
     struct TabTestView : public ViewBase {
-        explicit TabTestView(char32_t newFill) : fill(newFill) {
+        explicit TabTestView(char32_t newFill, int *newNumDeleted = nullptr) : fill(newFill), numDeleted(newNumDeleted) {
+        }
+        ~TabTestView() override {
+            if (numDeleted != nullptr) {
+                (*numDeleted)++;
+            }
         }
         void InitView() override {
             window = UIHost::Instance().GetScreen()->CreateWindow(viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
@@ -802,19 +807,28 @@ namespace {
         }
         void OnActivate(bool isNowActive) override {
             hasFocus = isNowActive;
+            // As TerminalView does (RestoreContentHeight up the chain): losing the focus lays the container out again
+            if (!isNowActive && (parentView != nullptr)) {
+                parentView->Initialize();
+            }
         }
         char32_t fill;
+        int *numDeleted = nullptr;
         int numKeys = 0;
         bool hasFocus = false;
     };
+
+    // The container owns its tabs - the test keeps a reference
+    TabTestView &AddTestTab(TabbedView &tabbed, char32_t fill, const std::u32string &label, int *numDeleted = nullptr) {
+        return *static_cast<TabTestView *>(tabbed.AddTab(std::make_unique<TabTestView>(fill, numDeleted), label));
+    }
 }
 
 extern "C" int test_layout_tabs_single(ITesting *t) {
     RootView rootView;
     TabbedView tabbed;
     rootView.AddView(&tabbed);
-    TabTestView only(U'a');
-    tabbed.AddTab(&only, U"Shell");
+    auto &only = AddTestTab(tabbed, U'a', U"Shell");
     rootView.Initialize();
 
     // One tab: no row - the view has the whole place, as it would on its own
@@ -830,16 +844,15 @@ extern "C" int test_layout_tabs_switch(ITesting *t) {
     RootView rootView;
     TabbedView tabbed;
     rootView.AddView(&tabbed);
-    TabTestView a(U'a'), b(U'b'), c(U'c');
-    tabbed.AddTab(&a, U"a");
+    auto &a = AddTestTab(tabbed, U'a', U"a");
     rootView.AddTopView(&tabbed, "tabs");
     rootView.Initialize();
     TR_ASSERT(t, a.hasFocus);
 
     std::vector<size_t> changes;
     tabbed.SetTabChangedHandler([&changes](size_t idxTab) { changes.push_back(idxTab); });
-    tabbed.AddTab(&b, U"bb");
-    tabbed.AddTab(&c, U"c");
+    auto &b = AddTestTab(tabbed, U'b', U"bb");
+    auto &c = AddTestTab(tabbed, U'c', U"c");
     // A tab added later doesn't take the place of the shown one
     TR_ASSERT(t, tabbed.ActiveTab() == 0);
     TR_ASSERT(t, changes.empty());
@@ -882,22 +895,24 @@ extern "C" int test_layout_tabs_remove(ITesting *t) {
     RootView rootView;
     TabbedView tabbed;
     rootView.AddView(&tabbed);
-    TabTestView a(U'a'), b(U'b'), c(U'c');
-    tabbed.AddTab(&a, U"a");
-    tabbed.AddTab(&b, U"b");
-    tabbed.AddTab(&c, U"c");
+    int numDeleted = 0;
+    auto &a = AddTestTab(tabbed, U'a', U"a", &numDeleted);
+    auto *b = &AddTestTab(tabbed, U'b', U"b", &numDeleted);
+    auto *c = &AddTestTab(tabbed, U'c', U"c", &numDeleted);
     rootView.AddTopView(&tabbed, "tabs");
     rootView.Initialize();
     tabbed.SetActiveTab(1);
-    TR_ASSERT(t, b.hasFocus);
+    TR_ASSERT(t, b->hasFocus);
 
-    // The shown one goes: the one after it shows, with the focus
+    // The shown one goes: the one after it shows, with the focus; the removed view is deleted
     tabbed.RemoveTab(1);
+    TR_ASSERT(t, numDeleted == 1);
     TR_ASSERT(t, tabbed.NumTabs() == 2);
-    TR_ASSERT(t, tabbed.ActiveView() == &c);
-    TR_ASSERT(t, c.IsVisible() && c.hasFocus && !b.hasFocus);
+    TR_ASSERT(t, tabbed.ActiveView() == c);
+    TR_ASSERT(t, c->IsVisible() && c->hasFocus);
     // The last one goes: the one before
     tabbed.RemoveTab(1);
+    TR_ASSERT(t, numDeleted == 2);
     TR_ASSERT(t, tabbed.ActiveView() == &a);
     TR_ASSERT(t, a.hasFocus);
     // One left: no row, the whole place again
@@ -905,12 +920,12 @@ extern "C" int test_layout_tabs_remove(ITesting *t) {
     TR_ASSERT(t, a.GetViewRect().TopLeft().y == tabbed.GetContentRect().TopLeft().y);
     TR_ASSERT(t, a.GetViewRect().Height() == tabbed.GetContentRect().Height());
     // One that isn't shown goes: the shown one keeps its place
-    tabbed.AddTab(&b, U"b");
-    tabbed.AddTab(&c, U"c");
+    b = &AddTestTab(tabbed, U'b', U"b", &numDeleted);
+    c = &AddTestTab(tabbed, U'c', U"c", &numDeleted);
     tabbed.SetActiveTab(2);
     tabbed.RemoveTab(0);
     TR_ASSERT(t, tabbed.ActiveTab() == 1);
-    TR_ASSERT(t, tabbed.ActiveView() == &c);
+    TR_ASSERT(t, tabbed.ActiveView() == c);
     tabbed.RemoveTab(5);
     TR_ASSERT(t, tabbed.NumTabs() == 2);
     return kTR_Pass;
@@ -922,10 +937,9 @@ extern "C" int test_layout_tabs_draw(ITesting *t) {
     RootView rootView;
     TabbedView tabbed;
     rootView.AddView(&tabbed);
-    TabTestView a(U'a'), b(U'b'), c(U'c');
-    tabbed.AddTab(&a, U"one");
-    tabbed.AddTab(&b, U"two");
-    tabbed.AddTab(&c, U"three");
+    AddTestTab(tabbed, U'a', U"one");
+    AddTestTab(tabbed, U'b', U"two");
+    AddTestTab(tabbed, U'c', U"three");
     rootView.Initialize();
     screen->ClearGrid();
     rootView.Draw();

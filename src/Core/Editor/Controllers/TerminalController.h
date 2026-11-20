@@ -18,6 +18,7 @@
 #include "logger.h"
 #include "Core/UI/Controllers/BaseController.h"
 #include "Core/RuntimeConfig.h"
+#include "Core/Config/ConfigNode.h"
 #include "Core/unix/Shell.h"
 #include "Core/TerminalScreen.h"
 #include "Core/TerminalCmdHistory.h"
@@ -34,6 +35,12 @@ namespace gedit {
     public:
         TerminalController();
         virtual ~TerminalController();
+
+        // The terminal's settings - a config section, resolved (its 'inherit:' folded in, panel-tabs.md §7): which
+        // shell, its bootstrap, scrollback... Handed over by whoever makes the terminal; this class never looks a
+        // section up by name. Without them the code's defaults hold. Set before Begin.
+        void SetSettings(const ConfigNode &newSettings);
+        const ConfigNode &Settings() const { return settings; }
 
         void Begin() override;
         void Resize(int cols, int rows);
@@ -52,7 +59,7 @@ namespace gedit {
         bool IsHoldingRedraw() const;
         std::mutex &GetScreenLock() { return screenLock; }
         // Alt+Left/Right to an app: ESC b / ESC f (readline's word motion, as Terminal.app/iTerm2 send) instead of
-        // xterm's CSI 1;3D / 1;3C. Config 'terminal.alt_arrows: words | xterm'; macOS defaults to words.
+        // xterm's CSI 1;3D / 1;3C. Setting 'alt_arrows: words | xterm'; macOS defaults to words.
         void SetAltArrowsAsWords(bool isWords) { isAltArrowsAsWords = isWords; }
 
         Line::Ref GetInputLine() const { return inputLine; }
@@ -217,6 +224,7 @@ namespace gedit {
         uint64_t CurrentTopVisibleAbsRow() const;
 
     private:
+        ConfigNode settings = ConfigNode(YAML::Node(YAML::NodeType::Map));
         Shell shell;
         TerminalCmdHistory cmdHistory;
         std::filesystem::path cmdHistoryPath;

@@ -85,6 +85,8 @@ namespace gedit {
         std::string id = {};
         std::string name = {};
         std::string scrollbackFile = {};   // relative to .goatedit/; empty when nothing was saved
+        std::string view = {};             // what draws it ('terminal'); empty in a session from before: terminal
+        std::string config = {};           // the config section it is handed; empty: the view's name
     };
 
     // Terminal scrollback persistence (terminal-scrollback.md §8.1): a pointer to the .bin holding the history's

@@ -1,7 +1,8 @@
 //
 // What a project config ('<root>/.goatedit/config.yml') may NOT set. A project config travels with the
 // repository, so opening a folder must never be enough to run someone else's commands - keys that start
-// processes, load code or choose where files get written stay system/user-only. Used both when the
+// processes, load code or choose where files get written stay system/user-only. The command keys ('shell', 'init',
+// 'bootstrap') are denied in every section, at any depth - any section can be handed to a terminal (panel.tabs). Used both when the
 // project config is merged at startup and when '.cfg --project set' writes one.
 //
 
@@ -19,8 +20,8 @@ namespace gedit {
         // True if a project config may not set the value at 'keyPath' (e.g. {"terminal", "shell"}).
         static bool IsDenied(const std::vector<std::string> &keyPath);
         // Removes the denied keys from a loaded project config; returns them as "section.key" (for
-        // logging/tests). A denied section given as a non-map is dropped whole - it would replace the
-        // entire section (denied keys included) on merge.
+        // logging/tests). A section given as a non-map is dropped whole - it would replace the entire
+        // section (its command keys included) on merge.
         static std::vector<std::string> StripDeniedKeys(ConfigNode &projectConfig);
     };
 }

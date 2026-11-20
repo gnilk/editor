@@ -771,7 +771,7 @@ DLL_EXPORT int test_session_terminal_roundtrip(ITesting *t) {
     TR_ASSERT(t, r.terminal.tabs.empty());
 
     // The lower panel's tabs (hitlist #53): every one, in order, and the shown one
-    s.terminal.tabs = {{"", "Shell", "terminal_scrollback.bin"}, {"2", "build", ""}, {"3", "Shell 3", "terminal_scrollback.3.bin"}};
+    s.terminal.tabs = {{"", "Shell", "terminal_scrollback.bin"}, {"2", "build", ""}, {"3", "Claude", "terminal_scrollback.3.bin", "terminal", "ai_agent"}};
     s.terminal.activeTab = 2;
     RootSession withTabs;
     TR_ASSERT(t, SessionSerializer::FromYaml(SessionSerializer::ToYaml(s), withTabs));
@@ -780,6 +780,9 @@ DLL_EXPORT int test_session_terminal_roundtrip(ITesting *t) {
     TR_ASSERT(t, (withTabs.terminal.tabs[1].id == "2") && (withTabs.terminal.tabs[1].name == "build"));
     TR_ASSERT(t, withTabs.terminal.tabs[1].scrollbackFile.empty());
     TR_ASSERT(t, withTabs.terminal.tabs[2].scrollbackFile == "terminal_scrollback.3.bin");
+    // Each tab's kind and section (#53 step 4) - empty in a session from before
+    TR_ASSERT(t, (withTabs.terminal.tabs[2].view == "terminal") && (withTabs.terminal.tabs[2].config == "ai_agent"));
+    TR_ASSERT(t, withTabs.terminal.tabs[1].view.empty() && withTabs.terminal.tabs[1].config.empty());
     TR_ASSERT(t, withTabs.terminal.activeTab == 2);
     return kTR_Pass;
 }

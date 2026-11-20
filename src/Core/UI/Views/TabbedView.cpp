@@ -9,9 +9,10 @@
 
 using namespace gedit;
 
-size_t TabbedView::AddTab(ViewBase *view, const std::u32string &label) {
+ViewBase *TabbedView::AddTab(std::unique_ptr<ViewBase> newView, const std::u32string &label) {
     bool wasRowVisible = IsTabRowVisible();
-    tabs.push_back({view, label});
+    auto view = newView.get();
+    tabs.push_back({std::move(newView), label});
     view->SetLayoutHandler(this);
     AddView(view);
     if (!activeTab.has_value()) {
@@ -31,20 +32,23 @@ size_t TabbedView::AddTab(ViewBase *view, const std::u32string &label) {
         }
     }
     InvalidateAll();
-    return tabs.size() - 1;
+    return view;
 }
 
 void TabbedView::RemoveTab(size_t idxTab) {
     if (idxTab >= tabs.size()) {
         return;
     }
-    auto view = tabs[idxTab].view;
+    auto view = tabs[idxTab].view.get();
     bool wasShown = (activeTab == idxTab);
     bool hadFocus = wasShown && isActive;
+    // Still a tab here: losing the focus may lay the tabs out
     if (hadFocus) {
         view->SetActive(false);
     }
     view->SetVisible(false);
+    // Deleted when this returns - after the handler, which may still ask about the tabs
+    auto removed = std::move(tabs[idxTab].view);
     tabs.erase(tabs.begin() + (long)idxTab);
     std::erase(subviews, view);
 
@@ -72,16 +76,16 @@ void TabbedView::RemoveTab(size_t idxTab) {
 }
 
 ViewBase *TabbedView::TabView(size_t idxTab) const {
-    return (idxTab < tabs.size()) ? tabs[idxTab].view : nullptr;
+    return (idxTab < tabs.size()) ? tabs[idxTab].view.get() : nullptr;
 }
 
 ViewBase *TabbedView::ActiveView() const {
-    return activeTab.has_value() ? tabs[activeTab.value()].view : nullptr;
+    return activeTab.has_value() ? tabs[activeTab.value()].view.get() : nullptr;
 }
 
 std::optional<size_t> TabbedView::IndexOf(const ViewBase *view) const {
     for (size_t i = 0; i < tabs.size(); i++) {
-        if (tabs[i].view == view) {
+        if (tabs[i].view.get() == view) {
             return i;
         }
     }
@@ -100,7 +104,7 @@ void TabbedView::SetActiveTab(size_t idxTab) {
         previous->SetVisible(false);
     }
     activeTab = idxTab;
-    auto next = tabs[idxTab].view;
+    auto next = tabs[idxTab].view.get();
     next->SetVisible(true);
     LayoutTabs();
     next->Initialize();

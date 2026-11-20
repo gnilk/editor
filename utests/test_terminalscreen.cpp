@@ -607,10 +607,9 @@ DLL_EXPORT int test_terminalscreen_absrow_spine(ITesting *t) {
 
 // Cap + eviction: "terminal.scrollback_lines" bounds in-memory scrollback; the oldest lines go
 DLL_EXPORT int test_terminalscreen_scrollback_cap(ITesting *t) {
-    auto oldCap = Config::Instance()["terminal"].GetInt("scrollback_lines", 10000);
-    Config::Instance()["terminal"].SetInt("scrollback_lines", 3);
 
     TerminalScreen s;
+    s.SetScrollbackCap(3);
     Setup(s, 10, 2);
     for (char32_t ch = U'A'; ch <= U'H'; ch++) {
         SimulateWriteLine(s, std::u32string(1, ch));
@@ -639,16 +638,14 @@ DLL_EXPORT int test_terminalscreen_scrollback_cap(ITesting *t) {
     TR_ASSERT(t, std::holds_alternative<const TerminalScreen::Row *>(r7));
     TR_ASSERT(t, (*std::get<const TerminalScreen::Row *>(r7))[0].ch == U'H');
 
-    Config::Instance()["terminal"].SetInt("scrollback_lines", oldCap);
     return kTR_Pass;
 }
 
 // scrollback_lines == 0 means unlimited - no eviction, scrollbackBase stays put.
 DLL_EXPORT int test_terminalscreen_scrollback_cap_unlimited(ITesting *t) {
-    auto oldCap = Config::Instance()["terminal"].GetInt("scrollback_lines", 10000);
-    Config::Instance()["terminal"].SetInt("scrollback_lines", 0);
 
     TerminalScreen s;
+    s.SetScrollbackCap(0);
     Setup(s, 10, 2);
     for (char32_t ch = U'A'; ch <= U'J'; ch++) {   // 10 lines
         SimulateWriteLine(s, std::u32string(1, ch));
@@ -658,17 +655,15 @@ DLL_EXPORT int test_terminalscreen_scrollback_cap_unlimited(ITesting *t) {
     TR_ASSERT(t, s.ScrollbackBase() == 0);
     TR_ASSERT(t, s.GetScrollback()->LineAt(0)->Buffer()[0] == U'A');
 
-    Config::Instance()["terminal"].SetInt("scrollback_lines", oldCap);
     return kTR_Pass;
 }
 
 // The last command's output: from the row below the command line (or the cursor row, OSC 133;C) up to the
 // next prompt, across scrollback and the grid; gone once its start is trimmed away; nothing on the alt screen
 DLL_EXPORT int test_terminalscreen_last_output(ITesting *t) {
-    auto oldCap = Config::Instance()["terminal"].GetInt("scrollback_lines", 10000);
-    Config::Instance()["terminal"].SetInt("scrollback_lines", 0);
 
     TerminalScreen s;
+    s.SetScrollbackCap(0);
     Setup(s, 20, 3);
     TR_ASSERT(t, s.GetLastOutputText().empty());
 
@@ -695,20 +690,18 @@ DLL_EXPORT int test_terminalscreen_last_output(ITesting *t) {
     TR_ASSERT(t, s.GetLastOutputText().size() == 1);
 
     // Trimmed away from under it: no partial output
-    Config::Instance()["terminal"].SetInt("scrollback_lines", 1);
+    s.SetScrollbackCap(1);
     s.Feed("\r\n\r\n\r\n\r\n");
     TR_ASSERT(t, s.GetLastOutputText().empty());
 
-    Config::Instance()["terminal"].SetInt("scrollback_lines", oldCap);
     return kTR_Pass;
 }
 
 // SnapshotScrollbackTail + SeedScrollback round-trip: the history lines come back at abs 0, with no last output
 DLL_EXPORT int test_terminalscreen_snapshot_roundtrip(ITesting *t) {
-    auto oldCap = Config::Instance()["terminal"].GetInt("scrollback_lines", 10000);
-    Config::Instance()["terminal"].SetInt("scrollback_lines", 0);   // unlimited - no eviction, base stays 0
 
     TerminalScreen s;
+    s.SetScrollbackCap(0);   // unlimited - no eviction, base stays 0
     Setup(s, 20, 2);   // 2-row grid forces early scroll-off into scrollback
     s.Feed(SGR_RED);
     SimulateWriteLine(s, U"alpha");
@@ -730,6 +723,7 @@ DLL_EXPORT int test_terminalscreen_snapshot_roundtrip(ITesting *t) {
     TR_ASSERT(t, lines.back()->Buffer() == std::u32string(U"delta"));
 
     TerminalScreen seeded;
+    seeded.SetScrollbackCap(0);   // unlimited - no eviction, base stays 0
     seeded.SeedScrollback(lines);
     TR_ASSERT(t, seeded.GetScrollback()->NumLines() == lines.size());
     for (size_t i = 0; i < lines.size(); i++) {
@@ -738,7 +732,6 @@ DLL_EXPORT int test_terminalscreen_snapshot_roundtrip(ITesting *t) {
     TR_ASSERT(t, seeded.ScrollbackBase() == 0);
     TR_ASSERT(t, seeded.GetLastOutputText().empty());
 
-    Config::Instance()["terminal"].SetInt("scrollback_lines", oldCap);
     return kTR_Pass;
 }
 
@@ -765,10 +758,9 @@ DLL_EXPORT int test_terminalscreen_snapshot_altscreen_empty(ITesting *t) {
 
 // §8.1: the on-disk cap keeps only the last N lines of history
 DLL_EXPORT int test_terminalscreen_snapshot_caps_tail(ITesting *t) {
-    auto oldCap = Config::Instance()["terminal"].GetInt("scrollback_lines", 10000);
-    Config::Instance()["terminal"].SetInt("scrollback_lines", 0);   // unlimited in-memory; the cap is on save
 
     TerminalScreen s;
+    s.SetScrollbackCap(0);   // unlimited in-memory; the cap is on save
     Setup(s, 20, 2);
     for (int i = 0; i < 10; i++) {
         std::u32string line = U"line";
@@ -785,7 +777,6 @@ DLL_EXPORT int test_terminalscreen_snapshot_caps_tail(ITesting *t) {
     }
     TR_ASSERT(t, lines[2]->Buffer() == std::u32string(U"line9"));
 
-    Config::Instance()["terminal"].SetInt("scrollback_lines", oldCap);
     return kTR_Pass;
 }
 
@@ -793,10 +784,9 @@ DLL_EXPORT int test_terminalscreen_snapshot_caps_tail(ITesting *t) {
 // blank rows dropped), and the cap counts them. On the alternate screen only the scrollback is saved - the grid is
 // the app's. (The Mac repro: `ls -laF`, quit, start again - the listing was gone.)
 DLL_EXPORT int test_terminalscreen_snapshot_includes_screen(ITesting *t) {
-    auto oldCap = Config::Instance()["terminal"].GetInt("scrollback_lines", 10000);
-    Config::Instance()["terminal"].SetInt("scrollback_lines", 0);
 
     TerminalScreen s;
+    s.SetScrollbackCap(0);
     Setup(s, 20, 5);
     s.Feed("$ ls\r\na.txt\r\nb.txt\r\n$ ");      // fits on screen: nothing has scrolled out
     TR_ASSERT(t, s.GetScrollback()->NumLines() == 0);
@@ -818,6 +808,7 @@ DLL_EXPORT int test_terminalscreen_snapshot_includes_screen(ITesting *t) {
 
     // An empty screen adds nothing
     TerminalScreen empty;
+    empty.SetScrollbackCap(0);
     Setup(empty, 20, 5);
     TR_ASSERT(t, empty.SnapshotScrollbackTail(0).empty());
 
@@ -827,7 +818,6 @@ DLL_EXPORT int test_terminalscreen_snapshot_includes_screen(ITesting *t) {
     lines = s.SnapshotScrollbackTail(0);
     TR_ASSERT(t, lines.size() == s.GetScrollback()->NumLines());
 
-    Config::Instance()["terminal"].SetInt("scrollback_lines", oldCap);
     return kTR_Pass;
 }
 
@@ -835,14 +825,13 @@ DLL_EXPORT int test_terminalscreen_snapshot_includes_screen(ITesting *t) {
 // in the default colours takes the new theme's; a colour an app set stays. (The Mac: history saved with a black
 // background showed as black boxes once the terminal took the editor's blue.)
 DLL_EXPORT int test_terminalscreen_history_follows_theme(ITesting *t) {
-    auto oldCap = Config::Instance()["terminal"].GetInt("scrollback_lines", 10000);
-    Config::Instance()["terminal"].SetInt("scrollback_lines", 0);
     auto black = ColorRGBA::FromRGB(0, 0, 0);
     auto grey = ColorRGBA::FromRGB(127, 127, 127);
     auto blue = ColorRGBA::FromRGB(20, 30, 60);
     auto white = ColorRGBA::FromRGB(230, 230, 230);
 
     TerminalScreen s;
+    s.SetScrollbackCap(0);
     Setup(s, 20, 2);
     s.SetDefaultColors(grey, black);
     s.Feed(std::string("plain\r\n") + SGR_RED + "red\x1b[0m\r\n\x1b[7minverse\x1b[0m\r\nlast");
@@ -850,6 +839,7 @@ DLL_EXPORT int test_terminalscreen_history_follows_theme(ITesting *t) {
     TR_ASSERT(t, lines.size() == 4);          // three scrolled out, "last" still on screen
 
     TerminalScreen restored;
+    restored.SetScrollbackCap(0);
     Setup(restored, 20, 2);
     restored.SetDefaultColors(white, blue);   // another theme
     restored.SeedScrollback(lines);
@@ -870,7 +860,6 @@ DLL_EXPORT int test_terminalscreen_history_follows_theme(ITesting *t) {
     auto live = s.ResolveHistoryLine(s.GetScrollback()->LineAt(0));
     TR_ASSERT(t, live->Attributes()[0].backgroundColor == blue);
 
-    Config::Instance()["terminal"].SetInt("scrollback_lines", oldCap);
     return kTR_Pass;
 }
 

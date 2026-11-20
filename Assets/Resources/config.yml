@@ -309,6 +309,20 @@ terminal:
   # Number of backlog rows to scroll per mouse-wheel notch (§5.3 docs/terminal-scrollback.md)
   lines_per_scroll_wheel_notch: 3
 
+# The lower panel's tabs on a first start (docs/panel-tabs.md §7) - a session that has tabs brings back its own. Each
+# tab: a name, a view (what draws it: 'terminal') and a config section (default: the view's name) - the section is
+# handed to the tab, resolved. A section can 'inherit:' another: its own keys win, the parent's fill the rest. A
+# project config never sets shell / init / bootstrap, in any section. Unset: one 'Shell'.
+#panel:
+#  tabs:
+#    - name: Shell
+#    - name: Claude
+#      config: ai_agent
+#ai_agent:
+#  inherit: terminal
+#  bootstrap: [ "claude" ]     # run in the tab's shell when it starts - the shell's PATH, and a prompt when it quits
+#  promote_target: yes         # Cmd/Ctrl+Enter in the editor sends here (the tab is shown)
+
 languages:
   # Defines the maximum number of lines we extend a region for the syntax parser
   regionMaxLines: 1000

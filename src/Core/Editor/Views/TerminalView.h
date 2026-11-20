@@ -22,6 +22,9 @@ namespace gedit {
         }
         virtual ~TerminalView() = default;
 
+        // Its config section, resolved (TerminalController::SetSettings) - before the view is initialized
+        void SetSettings(const ConfigNode &settings) { controller.SetSettings(settings); }
+
         void InitView() override;
         void ReInitView() override;
         void OnKeyPress(const KeyPress &keyPress) override;
@@ -60,7 +63,7 @@ namespace gedit {
     private:
         TerminalController controller;
         gnilk::ILogger *logger = nullptr;
-        // Cached from config ("terminal.lines_per_scroll_wheel_notch") in InitView/ReInitView.
+        // Cached from its settings ("lines_per_scroll_wheel_notch") in InitView/ReInitView.
         int linesPerScrollWheelNotch = 3;
         // Grid row drawn on view row 0 while an app owns the terminal (set by the draw, read by mouse reporting):
         // grid y = view y + this. 0 on the alternate screen; a foreground job is drawn bottom-anchored.

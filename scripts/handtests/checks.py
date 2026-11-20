@@ -325,6 +325,55 @@ def terminal_tabs(n):
         g.kill()
 
 
+@check('#53 step 4 Configured tabs: panel.tabs, a section that inherits terminal, the promote target')
+def agent_tab(n):
+    sb, work = sandbox('agent_tab')
+    write(os.path.join(work, 'p.sh'), 'echo promoted-$((40+2))\n')
+    # A bootstrap's output isn't shown (the prompt comes after it) - what it ran is seen by the files it touches
+    user_config(sb, 'panel:\n'
+                    '  tabs:\n'
+                    '    - name: Shell\n'
+                    '    - name: Agent\n'
+                    '      config: agent_test\n'
+                    'agent_test:\n'
+                    '  inherit: terminal\n'
+                    '  bootstrap: [ "touch agent-ran" ]\n'
+                    '  promote_target: yes\n')
+    # A project config never runs a command - in any section
+    write(os.path.join(work, '.goatedit', 'config.yml'), 'agent_test:\n  bootstrap: [ "touch project-ran" ]\n')
+
+    def tab_row(g):
+        return [l for l in g.screen.lines() if 'Shell | Agent' in l]
+
+    # The folder alone - a project (#23): its config is read, its session written
+    g = Goat(sb, ['.'], cwd=work, skip_user_config=False)
+    try:
+        g.ready()
+        n(g.wait_for(lambda g: tab_row(g), 3), f'two configured tabs: {tab_row(g)}')
+        n(g.wait_for(lambda g: os.path.exists(os.path.join(work, 'agent-ran')), 3), "the Agent tab's own bootstrap ran")
+        n(not os.path.exists(os.path.join(work, 'project-ran')), "the project config's bootstrap did not")
+        g.send(alt('t'), 0.5)
+        g.type('.o p.sh', wait=0.2)
+        g.send(ENTER, 1.0)
+        g.send(alt('t'), 0.5)
+        g.send(alt('2'), 0.8)
+        g.type('echo in-$((3*3))-agent', wait=0.2)
+        g.send(ENTER, 0.8)
+        n(g.wait_text('in-9-agent', 2), 'Alt+2: the Agent tab')
+        g.send(alt('1'), 0.8)
+        n(g.wait_for(lambda g: g.screen.find('in-9-agent') is None, 2), 'Alt+1: the Shell tab')
+        g.send(alt('e'), 0.5)
+        g.send(ctrl('enter'), 0.3)
+        n(g.wait_text('promoted-42', 4) and g.screen.find('in-9-agent') is not None,
+          'Cmd/Ctrl+Enter from the editor: runs in the Agent tab (promote_target), which is shown')
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+    sessions = [os.path.join(dp, f) for dp, _, fs in os.walk(os.path.join(work, '.goatedit')) for f in fs if f.startswith('session')]
+    text = ''.join(open(f).read() for f in sessions)
+    n('config: agent_test' in text, f"the session keeps the tab's section ({sessions})")
+
+
 @check('#16 Text encodings')
 def latin1(n):
     sb, work = sandbox('latin1')

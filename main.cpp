@@ -289,7 +289,7 @@
 #include "Core/Editor/Views/HexView.h"
 #include "Core/Editor/Views/EditorViewContainer.h"
 #include "Core/UI/Views/RootView.h"
-#include "Core/Editor/Views/TerminalPanelView.h"
+#include "Core/Editor/Views/PanelView.h"
 #include "Core/Session/SessionManager.h"
 #include "Core/UI/Views/HSplitView.h"
 #include "Core/UI/Views/VSplitView.h"
@@ -447,9 +447,9 @@ int main(int argc, const char **argv) {
 
     // The lower panel: terminals in tabs (docs/panel-tabs.md, hitlist #53) - the ones the session had, or one; the tab
     // row shows from two
-    auto terminalPanel = TerminalPanelView();
-    terminalPanel.RestoreTabs(SessionManager::Instance().CurrentSession().terminal);
-    hSplitViewStatus.SetLower(&terminalPanel);
+    auto panelView = PanelView();
+    panelView.RestoreTabs(SessionManager::Instance().CurrentSession().terminal);
+    hSplitViewStatus.SetLower(&panelView);
 
     auto vStackViewEditor = VStackView();   // This is where the editor and the 'FileHeader' lives, they are stacked vertically
     auto editorHeaderView = EditorHeaderView();
@@ -529,7 +529,7 @@ int main(int argc, const char **argv) {
     // item (text or hex) is active, so the rest of the app talks to one stable top view across a swap.
     rootView.AddTopView(&editorViewContainer, glbEditorView);
     // The container is the top view for the lower panel: Option/Alt+T goes to it, it shows its last tab
-    rootView.AddTopView(&terminalPanel, glbTerminalView);
+    rootView.AddTopView(&panelView, glbTerminalView);
     rootView.AddTopView(&workspaceExplorer, glbWorkSpaceView);
 
 //    WorkspaceView workspaceView;

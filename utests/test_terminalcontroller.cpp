@@ -7,7 +7,7 @@
 #include "Core/Editor.h"
 #include "Core/ClipBoard.h"
 #include "Core/Plugins/PluginExecutor.h"
-#include "Core/Editor/Views/TerminalPanelView.h"
+#include "Core/Editor/Views/PanelView.h"
 
 using namespace gedit;
 
@@ -53,6 +53,8 @@ DLL_EXPORT int test_terminalcontroller_title(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_build_fastend(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_build_quietend(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_ctrl_to_shell(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_settings(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_panel_configured(ITesting *t);
 }
 
 #include <cstdint>   // UINT64_MAX
@@ -1044,16 +1046,16 @@ DLL_EXPORT int test_terminalcontroller_tab_dotcommand_listed_newprompt(ITesting 
 // Terminal tabs (hitlist #53): ids name a tab's files - the first terminal "" (its files as before tabs), then the
 // first free number; the label is the title the shell / an app set, cut, else the name
 DLL_EXPORT int test_terminalcontroller_panel_names(ITesting *t) {
-    TR_ASSERT(t, TerminalPanelView::NextId({""}) == "2");
-    TR_ASSERT(t, TerminalPanelView::NextId({"", "2"}) == "3");
-    TR_ASSERT(t, TerminalPanelView::NextId({"", "3"}) == "2");
-    TR_ASSERT(t, TerminalPanelView::NextId({}) == "2");
-    TR_ASSERT(t, TerminalPanelView::NameFor("") == "Shell");
-    TR_ASSERT(t, TerminalPanelView::NameFor("3") == "Shell 3");
-    TR_ASSERT(t, TerminalPanelView::LabelFor("Shell 2", "") == U"Shell 2");
-    TR_ASSERT(t, TerminalPanelView::LabelFor("Shell", "vim a.cpp") == U"vim a.cpp");
-    auto cut = TerminalPanelView::LabelFor("Shell", "user@host: ~/src/github.com/editor/src");
-    TR_ASSERT(t, cut.size() == TerminalPanelView::MAX_LABEL);
+    TR_ASSERT(t, PanelView::NextId({""}) == "2");
+    TR_ASSERT(t, PanelView::NextId({"", "2"}) == "3");
+    TR_ASSERT(t, PanelView::NextId({"", "3"}) == "2");
+    TR_ASSERT(t, PanelView::NextId({}) == "2");
+    TR_ASSERT(t, PanelView::NameFor("") == "Shell");
+    TR_ASSERT(t, PanelView::NameFor("3") == "Shell 3");
+    TR_ASSERT(t, PanelView::LabelFor("Shell 2", "") == U"Shell 2");
+    TR_ASSERT(t, PanelView::LabelFor("Shell", "vim a.cpp") == U"vim a.cpp");
+    auto cut = PanelView::LabelFor("Shell", "user@host: ~/src/github.com/editor/src");
+    TR_ASSERT(t, cut.size() == PanelView::MAX_LABEL);
     TR_ASSERT(t, cut.back() == U'…');
     return kTR_Pass;
 }
@@ -1167,3 +1169,57 @@ DLL_EXPORT int test_terminalcontroller_ctrl_to_shell(ITesting *t) {
     TR_ASSERT(t, sent == "\x14");
     return kTR_Pass;
 }
+
+// #53 step 4 b: the terminal uses the settings it is handed (a resolved section), not the global 'terminal' section -
+// an agent's tab can keep less scrollback than the shell's
+DLL_EXPORT int test_terminalcontroller_settings(ITesting *t) {
+    auto cfg = ConfigNode::FromString(
+        "terminal:\n"
+        "  scrollback_lines: 1000\n"
+        "  promote_sends_enter: yes\n"
+        "small:\n"
+        "  inherit: terminal\n"
+        "  scrollback_lines: 2\n");
+    TR_ASSERT(t, cfg.has_value());
+    TerminalController c;
+    c.SetSettings(cfg->ResolveSection("small"));
+    c.Resize(20, 2);
+    for (int i = 0; i < 8; i++) {
+        FeedPty(c, "line\r\n");
+    }
+    TR_ASSERT(t, c.GetScreen().GetScrollback()->NumLines() == 2);
+    TR_ASSERT(t, c.Settings().GetBool("promote_sends_enter", false));
+
+    // Without settings, the code's defaults
+    TerminalController plain;
+    TR_ASSERT(t, plain.Settings().GetInt("scrollback_lines", -1) == -1);
+    return kTR_Pass;
+}
+
+// #53 step 4 d: 'panel.tabs' - a tab is a view kind and a config section (default: the view's name); a kind the panel
+// doesn't have is left out; the first tab keeps the files from before tabs ("")
+DLL_EXPORT int test_terminalcontroller_panel_configured(ITesting *t) {
+    auto cfg = ConfigNode::FromString(
+        "panel:\n"
+        "  tabs:\n"
+        "    - name: Build\n"
+        "    - name: Later\n"
+        "      view: messages\n"
+        "    - name: Claude\n"
+        "      view: terminal\n"
+        "      config: ai_agent\n"
+        "    - {}\n");
+    TR_ASSERT(t, cfg.has_value());
+    auto specs = PanelView::ConfiguredTabs(cfg.value());
+    TR_ASSERT(t, specs.size() == 3);
+    TR_ASSERT(t, specs[0].id.empty() && (specs[0].name == "Build"));
+    TR_ASSERT(t, (specs[0].view == "terminal") && (specs[0].config == "terminal"));
+    TR_ASSERT(t, (specs[1].id == "2") && (specs[1].name == "Claude") && (specs[1].config == "ai_agent"));
+    TR_ASSERT(t, (specs[2].id == "3") && (specs[2].name == "Shell 3"));
+
+    // None configured: none (the panel makes one 'Shell')
+    auto empty = ConfigNode::FromString("panel:\n  other: 1\n");
+    TR_ASSERT(t, PanelView::ConfiguredTabs(empty.value()).empty());
+    return kTR_Pass;
+}
+

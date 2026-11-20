@@ -4,13 +4,15 @@
 // new tab is. The tab row is hidden while there is only one tab, so a single view looks as it would on its own.
 //
 // Like EditorViewContainer it is the *top view* for its place: focus, keys, actions and the status line go to the
-// active tab, so the rest of the app talks to one stable view whichever tab shows. The views are not owned.
+// active tab, so the rest of the app talks to one stable view whichever tab shows. It owns its tab views: a removed
+// tab's view is deleted.
 //
 
 #ifndef GEDIT_TABBEDVIEW_H
 #define GEDIT_TABBEDVIEW_H
 
 #include <functional>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -33,9 +35,9 @@ namespace gedit {
         }
         virtual ~TabbedView() = default;
 
-        // The first tab added is the active one; a later one is added behind the active one
-        size_t AddTab(ViewBase *view, const std::u32string &label);
-        // The view is let go (not deleted); the tab after it becomes active when it was, else the one before
+        // The first tab added is the active one; a later one is added behind the active one. Returns the view.
+        ViewBase *AddTab(std::unique_ptr<ViewBase> view, const std::u32string &label);
+        // The view is deleted; the tab after it becomes active when it was, else the one before
         void RemoveTab(size_t idxTab);
 
         size_t NumTabs() const {
@@ -104,7 +106,7 @@ namespace gedit {
 
     private:
         struct Tab {
-            ViewBase *view = nullptr;
+            std::unique_ptr<ViewBase> view;
             std::u32string label;
         };
         std::vector<Tab> tabs;

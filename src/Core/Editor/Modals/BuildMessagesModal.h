@@ -1,7 +1,8 @@
 //
 // The last build's errors and warnings as a list (docs/build-messages.md §2, hitlist #52) - Cmd/Ctrl+F8. Errors
 // first, then warnings, each in the order the build printed them; typing filters (file name or message). Enter goes
-// to the place - a jump, Cmd/Ctrl+[ comes back - and F8 goes on from there. Until the lower panel has tabs (#53).
+// to the place - a jump, Cmd/Ctrl+[ comes back - and F8 goes on from there. With a Messages tab in the lower panel
+// (MessagesView) Cmd/Ctrl+F8 shows that instead.
 //
 
 #ifndef GOATEDIT_BUILDMESSAGESMODAL_H

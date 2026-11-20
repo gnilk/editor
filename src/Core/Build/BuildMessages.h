@@ -15,6 +15,7 @@
 #ifndef GEDIT_BUILDMESSAGES_H
 #define GEDIT_BUILDMESSAGES_H
 
+#include <cstdint>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -68,6 +69,12 @@ namespace gedit {
         size_t NumWarnings() const;
         // "3 errors, 12 warnings" / "no errors or warnings"
         std::string Summary() const;
+        // Counts the runs started - a view sees a new run by it changing
+        uint64_t RunNumber() const;
+        // The message F8 / a pick is on (an index into Messages()); none before the first step of a run
+        std::optional<size_t> Current() const;
+        // 'error    a.cpp:3:16  use of undeclared identifier' - a row of the list (the modal, the Messages tab)
+        static std::string RowText(const BuildMessage &message);
 
         // The order the messages are stepped through and listed in: errors first, then warnings, each as the build
         // printed them; notes and messages with no file left out. Indices into 'messages'.
@@ -93,6 +100,7 @@ namespace gedit {
         mutable std::mutex lock;
         BuildOutputParser parser;
         bool hasRun = false;
+        uint64_t runNumber = 0;
         bool isRunning = false;
         bool wasJobSeen = false;
         std::string command;

@@ -41,15 +41,7 @@ std::vector<size_t> BuildMessagesModal::Filter(const std::vector<BuildMessage> &
 }
 
 std::u32string BuildMessagesModal::RowText(const BuildMessage &message) {
-    std::string place = std::filesystem::path(message.path).filename().string();
-    if (message.line > 0) {
-        place += ":" + std::to_string(message.line);
-    }
-    if (message.column > 0) {
-        place += ":" + std::to_string(message.column);
-    }
-    auto severity = message.IsError() ? "error    " : "warning  ";
-    return UnicodeHelper::utf8to32(severity + place + "  " + message.message);
+    return UnicodeHelper::utf8to32(BuildMessages::RowText(message));
 }
 
 std::vector<std::u32string> BuildMessagesModal::OnQuery(const std::u32string &query) {

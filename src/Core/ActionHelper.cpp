@@ -507,6 +507,10 @@ void ActionHelper::ShowBuildMessages() {
     if (!RuntimeConfig::Instance().HasRootView()) {
         return;
     }
+    // A Messages tab is the list kept open - the modal is for when there is none
+    if (editor.ShowMessagesTab()) {
+        return;
+    }
     auto modal = BuildMessagesModal::Create();
     if (modal == nullptr) {
         editor.ShowStatusMessage(U"No build yet - run make / cmake / ninja in the terminal");

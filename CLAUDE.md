@@ -130,6 +130,7 @@ keypresses via `KeypressAndActionHandler`. Editor-specific concrete views (`src/
 - `TerminalView` — embedded shell terminal (uses `forkpty`)
 - `WorkspaceView` — file browser panel
 - `HexView` — read-only hex projection of a document
+- `MessagesView` — the last build's errors / warnings as a lower-panel tab (`view: messages`)
 
 Modals live apart from the views, in their own `Modals/` directories, so a new view is not modelled on
 one: `ModalView` (overlay base - own window, deferred close, parented via `SetOverlayParent`, not a

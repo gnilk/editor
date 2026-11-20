@@ -8,6 +8,17 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## Messages tab (2026-11-20) ✅
+
+**Hitlist #53 step 5 / #52.** `view: messages` in `panel.tabs`: the last build's errors and warnings kept open in the
+lower panel - the second kind of tab. **Load-bearing decisions:** the view reads `BuildMessages` when it draws (a
+terminal's output already asks for frames), so it needs no feed of its own; its selection follows F8 through
+`BuildMessages::Current`, a new run through `RunNumber`. `Cmd/Ctrl+F8` shows the tab when there is one - the modal
+stays for a panel without it. The tab has its own keymap so the panel's close key never reaches the editor's
+close-file. A panel always keeps a terminal. Detail: `panel-tabs.md` §5 step 5.
+
+---
+
 ## Configured tabs - an agent's terminal (2026-11-20) ✅
 
 **Hitlist #53 step 4.** The lower panel's tabs come from `panel.tabs` (name, view, config section); an agent's tab is

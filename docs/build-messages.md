@@ -130,7 +130,7 @@ symbols. Ignoring it is fine for a first version.
    gcc / clang (also through make, cmake --build, ninja), CMake, make's directories. Matchers described as data
    (`build_messages.yml`, §4) come later, if they can be.
 3. **Lines moving after an edit:** not in v1 - the next build gives the right lines.
-4. **Keys:** `F8` / `Shift+F8` next / previous; the list as a modal (until the panel has tabs, #53), showing the last
+4. **Keys:** `F8` / `Shift+F8` next / previous; the list as a modal - or the Messages tab when the panel has one (#53 step 5, 2026-11-20) - showing the last
    run's messages if there is one.
 5. **Not kept across a restart** - the last run only.
 

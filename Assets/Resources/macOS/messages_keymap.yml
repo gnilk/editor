@@ -1,0 +1,12 @@
+#
+# The Messages tab of the lower panel (docs/panel-tabs.md step 5): the arrows, Page Up / Down and Enter come from
+# default_keymap. The panel's tab keys are a terminal's - so default_keymap's close-file key doesn't close a file in
+# the editor from here.
+#
+keymap: {
+  inherit: default_keymap,
+  actions: {
+    NewTerminal: KeyCode_Cmd + 't',
+    CloseTerminal: KeyCode_Cmd + 'w',
+  }
+}

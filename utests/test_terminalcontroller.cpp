@@ -1197,25 +1197,28 @@ DLL_EXPORT int test_terminalcontroller_settings(ITesting *t) {
 }
 
 // #53 step 4 d: 'panel.tabs' - a tab is a view kind and a config section (default: the view's name); a kind the panel
-// doesn't have is left out; the first tab keeps the files from before tabs ("")
+// doesn't have ('cmake', not yet) is left out; the first tab keeps the files from before tabs ("")
 DLL_EXPORT int test_terminalcontroller_panel_configured(ITesting *t) {
     auto cfg = ConfigNode::FromString(
         "panel:\n"
         "  tabs:\n"
         "    - name: Build\n"
         "    - name: Later\n"
-        "      view: messages\n"
+        "      view: cmake\n"
+        "    - view: messages\n"
         "    - name: Claude\n"
         "      view: terminal\n"
         "      config: ai_agent\n"
         "    - {}\n");
     TR_ASSERT(t, cfg.has_value());
     auto specs = PanelView::ConfiguredTabs(cfg.value());
-    TR_ASSERT(t, specs.size() == 3);
+    TR_ASSERT(t, specs.size() == 4);
     TR_ASSERT(t, specs[0].id.empty() && (specs[0].name == "Build"));
     TR_ASSERT(t, (specs[0].view == "terminal") && (specs[0].config == "terminal"));
-    TR_ASSERT(t, (specs[1].id == "2") && (specs[1].name == "Claude") && (specs[1].config == "ai_agent"));
-    TR_ASSERT(t, (specs[2].id == "3") && (specs[2].name == "Shell 3"));
+    // Step 5: a Messages tab - its name and section default to 'Messages' / 'messages'
+    TR_ASSERT(t, (specs[1].view == "messages") && (specs[1].name == "Messages") && (specs[1].config == "messages"));
+    TR_ASSERT(t, (specs[2].id == "3") && (specs[2].name == "Claude") && (specs[2].config == "ai_agent"));
+    TR_ASSERT(t, (specs[3].id == "4") && (specs[3].name == "Shell 4"));
 
     // None configured: none (the panel makes one 'Shell')
     auto empty = ConfigNode::FromString("panel:\n  other: 1\n");

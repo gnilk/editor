@@ -1081,3 +1081,29 @@ Open:
   modal's existing keys.
 - **Tests:** headless, as `layout` and `openfiles` are - a press/release inside fires once, outside not at all, the
   state follows hover, the label drawn is the state's.
+
+## 17. Note - ready-made panel tabs and `.panel add` (not scheduled)
+
+Filed 2026-11-20 (the user's idea, after #53 step 4-5). Configured tabs (`panel.tabs`, `panel-tabs.md` §7) need the
+user to know the format: a tab entry, a section, `inherit:`, `bootstrap`, `promote_target`. A user treat instead:
+ready-made tabs and a dot-command - install the editor, type `.panel add claude`, done.
+
+- **The sections ship in the default config** (the user's simplification): `claude:`, `codex:`, ... next to
+  `terminal:` and `messages:` in `Assets/Resources/config.yml` - a section nothing names costs a few YAML nodes. Each
+  says its tab's name: `claude: { label: Claude, inherit: terminal, bootstrap: ["claude"], promote_target: yes }`.
+  No template files, nothing copied.
+- **`.panel add <section>`** appends `{ name: <label>, config: <section> }` to `panel.tabs` in the user config;
+  **`.panel del <section>`** takes it out; **`.panel list`** - the sections a tab can be made from (those with a
+  `label`), and which are in `panel.tabs`. `--user` (default) / `--project` as `.cfg` has them.
+- **`--project` just works:** a project only names a section - the commands come from the shipped / user config, never
+  the project's (`ProjectConfigPolicy` strips them there). A teammate has the same shipped section.
+- **Changing one:** set only that key in your own `claude:` (as with `terminal:` today) - merged over the shipped one.
+- **Now, not only next time:** `panel.tabs` is read only when the project has no session, so `add` also opens the tab
+  in the running panel (and `del` closes it) - the session then keeps it.
+
+Open:
+- **`.cfg` writes scalars only.** `ConfigFilePatcher` edits one value in place (comments kept); appending to / removing
+  from a list (`panel.tabs`) needs a patcher step first.
+- **Lists merge by position** (open-bugs #28, hitlist #17) - twice here: a project's `panel.tabs` lands on the user's
+  tab by tab, and a user's own `bootstrap:` in `claude:` would merge into the shipped list item by item. Fix #17 first
+  (a list replaces the list below it whole - as `inherit:` already does).

@@ -8,6 +8,18 @@ left out of scope from shipped features, see [`deferred.md`](deferred.md).
 
 ---
 
+## Configured tabs - an agent's terminal (2026-11-20) ✅
+
+**Hitlist #53 step 4.** The lower panel's tabs come from `panel.tabs` (name, view, config section); an agent's tab is
+a terminal handed its own section (`ai_agent: { inherit: terminal, bootstrap: ["claude"], promote_target: yes }`).
+**Load-bearing decisions:** one terminal view for any long-lived console app - configuration differs, not classes.
+`inherit:` is generic (`ConfigNode::ResolveSection`), and a view is handed its section resolved instead of looking
+up a global one by name (no `Config::Instance()["terminal"]` left). An agent is a shell with a bootstrap, not the
+tab's process. A project config never sets a command in any section. `TerminalPanelView` became `PanelView`; the
+generic `TabbedView` owns the tab views. Detail: `panel-tabs.md` §5 step 4, §7.
+
+---
+
 ## Font styles in themes (2026-11-19) ✅
 
 **Hitlist #55.** VS Code themes set bold / italic per scope; the importer dropped them. **Load-bearing decisions:**

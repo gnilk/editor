@@ -36,7 +36,7 @@
 #include "Core/Plugins/PluginExecutor.h"
 #include "Core/UI/Views/RootView.h"
 #include "Core/Editor/Views/WorkspaceView.h"
-#include "Core/Editor/Views/TerminalPanelView.h"
+#include "Core/Editor/Views/PanelView.h"
 
 
 // SDL3 backend
@@ -535,7 +535,7 @@ static WorkspaceView *GetWorkspaceView() {
 
 // Helper: the lower panel - terminals in tabs (docs/panel-tabs.md) - or nullptr (not yet built / no root view /
 // headless). Scrollback persistence (terminal-scrollback.md §8) is driven through it from SaveSession.
-static TerminalPanelView *GetTerminalPanel() {
+static PanelView *GetPanelView() {
     if (!RuntimeConfig::Instance().HasRootView()) {
         return nullptr;
     }
@@ -543,24 +543,13 @@ static TerminalPanelView *GetTerminalPanel() {
     if (rootView == nullptr) {
         return nullptr;
     }
-    return dynamic_cast<TerminalPanelView *>(rootView->GetTopViewByName(glbTerminalView).get());
-}
-
-// The terminal text goes to (promote): the panel's shown one
-static TerminalView *GetTerminalView() {
-    if (!RuntimeConfig::Instance().HasRootView()) {
-        return nullptr;
-    }
-    auto *rootView = RuntimeConfig::Instance().GetRootViewAs<RootView>();
-    if (rootView == nullptr) {
-        return nullptr;
-    }
-    auto *panel = GetTerminalPanel();
-    return (panel != nullptr) ? panel->ActiveTerminal() : nullptr;
+    return dynamic_cast<PanelView *>(rootView->GetTopViewByName(glbTerminalView).get());
 }
 
 bool Editor::PromoteToTerminal(const std::u32string &text) {
-    auto *terminalView = GetTerminalView();
+    // An agent's tab when one is the promote target (panel-tabs.md §7), else the shown terminal
+    auto *panelView = GetPanelView();
+    auto *terminalView = (panelView != nullptr) ? panelView->PromoteTarget() : nullptr;
     if ((terminalView == nullptr) || text.empty()) {
         return false;
     }
@@ -634,9 +623,9 @@ void Editor::SaveSession() {
         // Terminal scrollback (terminal-scrollback.md §8) - clean-exit only (SaveSession runs from
         // Close()). ToSession resets session.terminal and refills it (or leaves it empty when there's
         // nothing to persist / the feature is off), so a repeated save stays idempotent.
-        auto *terminalPanel = GetTerminalPanel();
-        if (terminalPanel != nullptr) {
-            terminalPanel->SaveTabs(session.terminal);
+        auto *panelView = GetPanelView();
+        if (panelView != nullptr) {
+            panelView->SaveTabs(session.terminal);
         }
     }
     SessionManager::Instance().Save();
@@ -1056,8 +1045,11 @@ void Editor::ApplyTheme() {
             }
         }
     }
-    if (auto *terminalView = GetTerminalView()) {
-        terminalView->GetController().RefreshThemeColors();
+    // Every tab's terminal, not only the shown one
+    if (auto *panelView = GetPanelView()) {
+        for (auto *terminalView : panelView->Terminals()) {
+            terminalView->GetController().RefreshThemeColors();
+        }
     }
     if (auto *rootView = RuntimeConfig::Instance().GetRootViewAs<ViewBase>()) {
         rootView->InvalidateAll();

@@ -62,7 +62,7 @@ and the architecture-workbench idea (index data handed to agents).
    scrollback save) asks it for its shown tab when that is a terminal, else its first terminal. The rest of §3 holds
    with one terminal and changes in step 3.
 3. More terminals: new / close, per-terminal session files, tab titles from OSC 0/2. **Built:**
-   `src/Core/Editor/Views/TerminalPanelView` (a `TabbedView` that owns its `TerminalView`s) - `NewTerminal` /
+   `src/Core/Editor/Views/TerminalPanelView` (a `TabbedView` that owns its `TerminalView`s; `PanelView` since step 4) - `NewTerminal` /
    `CloseTerminal` actions in `terminal_keymap.yml` (asks when `HasRunningJob`, the last one stays, a closed tab's
    scrollback and history files go); `SwitchToBuffer` / `CycleActiveBuffer*` pick tabs while the panel has focus and
    two or more tabs (taken before the terminal, so an app in it doesn't get them). Session `terminal.tabs` (id, name,
@@ -82,6 +82,18 @@ and the architecture-workbench idea (index data handed to agents).
    d. `TerminalPanelView` -> `PanelView`; ownership of the tab views moves into `TabbedView` (generic, UI toolkit); the
       panel builds its tabs from `panel.tabs` when there is no session; the session keeps each tab's `view` / `config`.
    e. `promote_target` - `PromoteToTerminal` sends to that tab when one exists.
+   **Built 2026-11-20:** a. `ConfigNode::ResolveSection` (a copy; maps merge key by key, a list or scalar is the
+   leaf's, a loop or missing parent logged and ends the chain). b. `TerminalController::SetSettings` (shell, init,
+   bootstrap, alt_arrows, shell_integration, persistence, promote_sends_enter), `TerminalView` (keymap, wheel),
+   `TerminalScreen::SetScrollbackCap` (the pty thread used to read the config tree to trim); without settings the
+   code's defaults. c. `ProjectConfigPolicy`: shell / init / bootstrap stripped at any depth in any section, lists of
+   maps included (`panel.tabs`); a non-map section dropped. d. `TabbedView::AddTab(unique_ptr)` owns, `RemoveTab`
+   deletes (after the tab is out of the layout - losing the focus lays the tabs out); `PanelView` keeps a `TabSpec`
+   per tab (id, name, view, config); tabs from the session, else `panel.tabs` (`PanelView::ConfiguredTabs`; a view
+   kind it doesn't have is left out), else one Shell; the session's `tabs` carry `view` / `config`. e.
+   `PanelView::PromoteTarget` - the first tab whose settings say `promote_target: yes`, shown; else the shown terminal.
+   Also: a theme switch refreshes every tab's terminal, not only the shown one. Check `agent_tab`. A bootstrap's
+   output is not shown (it runs before the prompt) - the check sees what it ran by the files it touches.
 5. Messages as a tab (with #52); a CMake / build tab.
 6. Mouse: click a tab, close buttons (after #26).
 

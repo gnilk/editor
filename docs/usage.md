@@ -145,3 +145,8 @@ in the editor; anything else (`./build.sh`) goes to the shell. The prefix is `ma
   click a tab. A tab shows the title the shell or a program sets, else its name. The tabs, and which one was shown,
   come back after a restart; each has its own scrollback and history. A build's errors (`F8`) come from the terminal
   the build ran in - another terminal's output leaves them alone.
+- **Configured tabs, an agent's terminal:** `panel.tabs` in the user config lists the tabs a project starts with (a
+  project that has a session brings back its own). A tab can have its own config section, e.g. Claude in a tab of its
+  own: `ai_agent: { inherit: terminal, bootstrap: ["claude"], promote_target: yes }` - it is a shell that starts
+  `claude`, and `Cmd/Ctrl+Enter` in the editor sends there (the tab is shown). The commented example is in
+  `config.yml`. A project's `.goatedit/config.yml` can't set a command (`shell`, `init`, `bootstrap`) in any section.

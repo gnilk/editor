@@ -118,6 +118,8 @@ static YAML::Node TerminalToNode(const TerminalSession &terminal) {
             YAML::Node tabNode;
             tabNode["id"] = tab.id;
             tabNode["name"] = tab.name;
+            tabNode["view"] = tab.view;
+            tabNode["config"] = tab.config;
             tabNode["scrollbackFile"] = tab.scrollbackFile;
             tabs.push_back(tabNode);
         }
@@ -139,6 +141,8 @@ static TerminalSession NodeToTerminal(const YAML::Node &node) {
             TerminalTabSession tab;
             tab.id = tabNode["id"].as<std::string>("");
             tab.name = tabNode["name"].as<std::string>("");
+            tab.view = tabNode["view"].as<std::string>("");
+            tab.config = tabNode["config"].as<std::string>("");
             tab.scrollbackFile = tabNode["scrollbackFile"].as<std::string>("");
             terminal.tabs.push_back(tab);
         }

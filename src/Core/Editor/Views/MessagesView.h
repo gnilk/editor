@@ -53,7 +53,7 @@ namespace gedit {
         static constexpr int LIST_TOP_ROW = 1;
 
     protected:
-        void OnActivate(bool isActive) override;
+        void OnActivate(bool isActivated) override;
 
     private:
         // Takes what BuildMessages has now; a new run starts at the top, a step (F8) moves the selection to it

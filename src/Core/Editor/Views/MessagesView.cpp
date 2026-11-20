@@ -52,8 +52,8 @@ void MessagesView::ReInitView() {
     window = screen->UpdateWindow(window, viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
 }
 
-void MessagesView::OnActivate(bool isActive) {
-    if (isActive) {
+void MessagesView::OnActivate(bool isActivated) {
+    if (isActivated) {
         Editor::Instance().SetActiveKeyMapping(settings.GetStr("keymap", "messages_keymap"));
     }
 }

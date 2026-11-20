@@ -564,7 +564,8 @@ bool Editor::PromoteToTerminal(const std::u32string &text) {
     if ((terminalView == nullptr) || text.empty()) {
         return false;
     }
-    auto isSubmit = Config::Instance()["terminal"].GetBool("promote_sends_enter", true);
+    // The terminal's own setting - an agent's tab can differ from the shell's
+    auto isSubmit = terminalView->GetController().Settings().GetBool("promote_sends_enter", true);
     terminalView->GetController().Promote(text, isSubmit);
     TriggerUIRedraw();
     return true;

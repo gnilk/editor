@@ -64,6 +64,12 @@ TerminalController::~TerminalController() {
     }
 }
 
+void TerminalController::SetSettings(const ConfigNode &newSettings) {
+    settings = newSettings;
+    std::lock_guard<std::mutex> lock(screenLock);
+    screen.SetScrollbackCap(settings.GetInt("scrollback_lines", TerminalScreen::DEFAULT_SCROLLBACK_LINES));
+}
+
 void TerminalController::Begin() {
     logger = gnilk::Logger::GetLogger("TerminalController");
     logger->Debug("Begin");
@@ -77,16 +83,16 @@ void TerminalController::Begin() {
         HandleTerminalData(buffer, length);
     });
 
-    auto shellBinary    = Config::Instance()["terminal"].GetStr("shell", "");
-    auto shellInitStr   = Config::Instance()["terminal"].GetStr("init", "-ils");
-    auto shellInitScript = Config::Instance()["terminal"].GetSequenceOfStr("bootstrap");
-    auto altArrows = Config::Instance()["terminal"].GetStr("alt_arrows", "");
+    auto shellBinary    = settings.GetStr("shell", "");
+    auto shellInitStr   = settings.GetStr("init", "-ils");
+    auto shellInitScript = settings.GetSequenceOfStr("bootstrap");
+    auto altArrows = settings.GetStr("alt_arrows", "");
     if (!altArrows.empty()) {
         isAltArrowsAsWords = (altArrows == "words");
     }
     // §4.2 (TS-3c): opt-in OSC 133 shell integration - appends prompt hooks that emit semantic-prompt
     // markers, giving exact command boundaries + exit codes. Off by default (it rewrites PS1).
-    if (Config::Instance()["terminal"].GetBool("shell_integration", false)) {
+    if (settings.GetBool("shell_integration", false)) {
         auto osc133 = BuildShellIntegrationBootstrap(shellBinary);
         shellInitScript.insert(shellInitScript.end(), osc133.begin(), osc133.end());
     }
@@ -178,7 +184,7 @@ void TerminalController::OnTitle(std::string_view newTitle) {
 bool TerminalController::ToSession(std::string &outScrollbackFile) {
     outScrollbackFile.clear();
 
-    if (!Config::Instance()["terminal"].GetBool("persist_scrollback", true)) {
+    if (!settings.GetBool("persist_scrollback", true)) {
         return false;
     }
     auto binPath = ResolveScrollbackBinPath(sessionTabId.empty() ? "terminal_scrollback.bin" : "terminal_scrollback." + sessionTabId + ".bin");
@@ -186,7 +192,7 @@ bool TerminalController::ToSession(std::string &outScrollbackFile) {
         return false;   // no project .goatedit dir - persistence is project-scoped
     }
 
-    int maxLines = Config::Instance()["terminal"].GetInt("persist_scrollback_lines", 2000);
+    int maxLines = settings.GetInt("persist_scrollback_lines", 2000);
     size_t cap   = (maxLines < 0) ? 0 : (size_t)maxLines;
 
     // Snapshot under the lock (the pty thread mutates the grid/scrollback); write the file outside it.
@@ -220,7 +226,7 @@ void TerminalController::FromSession(const std::string &scrollbackFile) {
     if (scrollbackFile.empty()) {
         return;   // nothing persisted (fresh project, or the feature was off when last saved)
     }
-    if (!Config::Instance()["terminal"].GetBool("persist_scrollback", true)) {
+    if (!settings.GetBool("persist_scrollback", true)) {
         return;
     }
     auto binPath = ResolveScrollbackBinPath(scrollbackFile);

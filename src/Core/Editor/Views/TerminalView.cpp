@@ -13,8 +13,6 @@
 
 using namespace gedit;
 
-static const std::string cfgSectionName = "terminal";
-
 void TerminalView::InitView() {
     logger = gnilk::Logger::GetLogger("TerminalView");
     auto screen = RuntimeConfig::Instance().GetScreen();
@@ -27,7 +25,7 @@ void TerminalView::InitView() {
 
     controller.Begin();
 
-    linesPerScrollWheelNotch = Config::Instance()[cfgSectionName].GetInt("lines_per_scroll_wheel_notch", 3);
+    linesPerScrollWheelNotch = controller.Settings().GetInt("lines_per_scroll_wheel_notch", 3);
 
     // Size the terminal screen to the full content area.
     // The grid's last row is the cursor row (prompt); it is rendered as the input
@@ -44,7 +42,7 @@ void TerminalView::ReInitView() {
     }
     window = screen->UpdateWindow(window, viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
 
-    linesPerScrollWheelNotch = Config::Instance()[cfgSectionName].GetInt("lines_per_scroll_wheel_notch", 3);
+    linesPerScrollWheelNotch = controller.Settings().GetInt("lines_per_scroll_wheel_notch", 3);
 
     auto &dc = window->GetContentDC();
     controller.Resize(dc.GetRect().Width(), dc.GetRect().Height());
@@ -57,7 +55,7 @@ void TerminalView::OnActivate(bool isActivated) {
         parentView->RestoreContentHeight();
     } else {
         parentView->RestoreContentHeight();
-        Editor::Instance().SetActiveKeyMapping(Config::Instance()[cfgSectionName].GetStr("keymap", "default_keymap"));
+        Editor::Instance().SetActiveKeyMapping(controller.Settings().GetStr("keymap", "terminal_keymap"));
         // With several terminals (hitlist #53) the one in use gets dot-command output and the JS console
         controller.RegisterAsOutputConsole();
     }

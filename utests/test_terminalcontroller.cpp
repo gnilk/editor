@@ -53,6 +53,7 @@ DLL_EXPORT int test_terminalcontroller_title(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_build_fastend(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_build_quietend(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_ctrl_to_shell(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_settings(ITesting *t);
 }
 
 #include <cstdint>   // UINT64_MAX
@@ -1165,5 +1166,31 @@ DLL_EXPORT int test_terminalcontroller_ctrl_to_shell(ITesting *t) {
     sent.clear();
     TR_ASSERT(t, c.HandleKeyPress(cursor, line, TextKey(U't', Keyboard::kMod_LeftCtrl)));
     TR_ASSERT(t, sent == "\x14");
+    return kTR_Pass;
+}
+
+// #53 step 4 b: the terminal uses the settings it is handed (a resolved section), not the global 'terminal' section -
+// an agent's tab can keep less scrollback than the shell's
+DLL_EXPORT int test_terminalcontroller_settings(ITesting *t) {
+    auto cfg = ConfigNode::FromString(
+        "terminal:\n"
+        "  scrollback_lines: 1000\n"
+        "  promote_sends_enter: yes\n"
+        "small:\n"
+        "  inherit: terminal\n"
+        "  scrollback_lines: 2\n");
+    TR_ASSERT(t, cfg.has_value());
+    TerminalController c;
+    c.SetSettings(cfg->ResolveSection("small"));
+    c.Resize(20, 2);
+    for (int i = 0; i < 8; i++) {
+        FeedPty(c, "line\r\n");
+    }
+    TR_ASSERT(t, c.GetScreen().GetScrollback()->NumLines() == 2);
+    TR_ASSERT(t, c.Settings().GetBool("promote_sends_enter", false));
+
+    // Without settings, the code's defaults
+    TerminalController plain;
+    TR_ASSERT(t, plain.Settings().GetInt("scrollback_lines", -1) == -1);
     return kTR_Pass;
 }

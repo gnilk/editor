@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <cmath>
 #include "TerminalScreen.h"
-#include "Core/Config/Config.h"
 
 using namespace gedit;
 
@@ -172,7 +171,7 @@ void TerminalScreen::SeedScrollback(const std::vector<Line::Ref> &lines) {
 }
 
 void TerminalScreen::TrimScrollbackIfNeeded() {
-    int cap = Config::Instance()["terminal"].GetInt("scrollback_lines", 10000);
+    auto cap = scrollbackCap;
     if (cap <= 0) {
         return;   // 0 = unlimited
     }

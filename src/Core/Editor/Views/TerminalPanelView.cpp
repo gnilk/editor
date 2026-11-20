@@ -152,6 +152,8 @@ TerminalView *TerminalPanelView::AddTerminal(const std::string &id, const std::s
     terminal.id = id;
     terminal.name = name;
     auto view = terminal.view.get();
+    // Its settings, resolved once here - the terminal never looks a section up (panel-tabs.md §7)
+    view->SetSettings(Config::Instance().ResolveSection("terminal"));
     auto &controller = view->GetController();
     controller.SetSessionTab(id, scrollbackFile);
     // The pty thread: the label changes on the UI thread, if the tab is still there

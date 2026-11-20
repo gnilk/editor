@@ -186,7 +186,6 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
 | 13 | Image view phases 1-3 | `image-view.md` | days | after 7 |
 | 14 | Languages phase 4: every language from a file; `indent.yml` / `autopairs.yml` move in | `support-languages.md` §2.2 | days | |
 | 31 | The minimap in the terminal (Gansi graphics: kitty / sixel) | usability §7 step 3 | days | |
-| 32 | Terminal: run `claude` inside goatedit (the gvt exit criterion); copying older command output | `terminal-vt.md` "Next" | ? | the copy modal is an idea, not decided. 2026-11-19: missed again - a `.theme list` result could only be shared as a screenshot; `.co` copies the last *shell* command's output, never a dot-command's |
 | 33 | Code index step 4: modules | `code-index.md` | days | paused 2026-11-08 until the design is thought through |
 | 34 | Per-block syntax highlighting in the terminal | `syntax-blocks.md` | days | deferred |
 | 36 | An "open folder" command (a dot-command and/or a key) - open a folder as the project after start-up | - | ? | no command for it yet; since #23 only `goatedit <one folder>` is a project, so this is the other way in. Design: what happens to the open files and the session |
@@ -198,6 +197,7 @@ Smaller bugs not ranked yet: open-bugs #24 (readline history extras),
 
 | # | Item | When |
 |---|---|---|
+| 32 | ~~Terminal: run `claude` inside goatedit (the gvt exit criterion)~~ - works; closed by the user | 2026-11-20 |
 | 52 | ~~Build messages~~ - errors / warnings read from a build in the terminal as it runs (gcc / clang, CMake, make, trun, python, rustc / cargo, ld / lld): `F8` / `Shift+F8`, the `Cmd/Ctrl+F8` list or the Messages tab with the source line under each message, the line's number coloured in the gutter, `Cmd/Ctrl+click` a `file:line` in the terminal, `Terminal.GetMessages()` | 2026-11-20 |
 | 11 | ~~Languages phase 2, step 2: Python~~ - `python.yml` (`.py .pyw .pyi`), the tokenizer's prefix rule (`@decorator`), `def` / `class` names, every string prefix, `:` indents; a lone `\` in a string no longer stops the line (also `cmake.yml`). With #52's Python matcher: `python3 x.py` in the panel, `F8` to the line that raised | 2026-11-20 |
 | 54 | Text weight: `GlyphFont::CoverageCurve` (alpha = coverage^(1/gamma)) applied when a glyph page is uploaded (both SDL backends, nothing per frame); `sdl.text_gamma`, default 1.2 (1.5 matches VS Code - the user prefers lighter) | 2026-11-19 |

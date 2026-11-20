@@ -358,6 +358,7 @@ list(APPEND coresrc src/Core/FileSystem/FsFilter.cpp src/Core/FileSystem/FsFilte
 list(APPEND coresrc src/Core/FileSystem/ExclusionRules.cpp src/Core/FileSystem/ExclusionRules.h)
 list(APPEND coresrc src/Core/Build/BuildOutputParser.cpp src/Core/Build/BuildOutputParser.h src/Core/Build/BuildMessage.h)
 list(APPEND coresrc src/Core/Build/BuildMessages.cpp src/Core/Build/BuildMessages.h)
+list(APPEND coresrc src/Core/Build/TextPlace.cpp src/Core/Build/TextPlace.h)
 list(APPEND coresrc src/Core/Runloop.cpp src/Core/Runloop.h)
 list(APPEND coresrc src/Core/MouseClickTracker.cpp src/Core/MouseClickTracker.h)
 list(APPEND coresrc src/Core/VerticalNavigationViewModel.cpp src/Core/VerticalNavigationViewModel.h)

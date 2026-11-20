@@ -8,7 +8,9 @@
 #include "BuildMessagesModal.h"
 #include "Core/ActionHelper.h"
 #include "Core/Editor.h"
+#include "Core/Editor/LineRender.h"
 #include "Core/Index/CodeIndex.h"
+#include "Core/UI/UIHost.h"
 #include "Core/UnicodeHelper.h"
 
 using namespace gedit;
@@ -57,6 +59,22 @@ std::vector<std::u32string> BuildMessagesModal::OnQuery(const std::u32string &qu
 std::u32string BuildMessagesModal::OnRowDetail(int idxRow) {
     auto folder = std::filesystem::path(messages[rowMessages[(size_t)idxRow]].path).parent_path().string();
     return UnicodeHelper::utf8to32(folder);
+}
+
+void BuildMessagesModal::DrawRowLine(DrawContext &dc, int x, int y, int width, int idxRow, int idxLine) {
+    auto idxMessage = rowMessages[(size_t)idxRow];
+    auto it = codeLines.find(idxMessage);
+    if (it == codeLines.end()) {
+        auto &uiColors = UIHost::Instance().GetUIColors();
+        auto background = uiColors.HasColor("modal_background") ? uiColors["modal_background"] : uiColors["background"];
+        it = codeLines.emplace(idxMessage, ActionHelper::ListedSourceLine(Editor::Instance().GetBuildMessages().ResolvePath(messages[idxMessage]),
+                                                                            messages[idxMessage].line, background)).first;
+    }
+    auto xCode = x + BuildMessages::CODE_INDENT;
+    if ((it->second == nullptr) || (xCode >= x + width)) {
+        return;
+    }
+    LineRender(dc).DrawLine(xCode, y, it->second->CopyOfRange(0, (size_t)(x + width - xCode)));
 }
 
 void BuildMessagesModal::OnCommit(int idxRow) {

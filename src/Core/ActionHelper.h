@@ -54,6 +54,9 @@ namespace gedit {
         static void StepBuildMessage(int direction);
         // Go to a build message (from the list or a step) - says so when its file isn't found
         static void GoToBuildMessage(const BuildMessages::Position &position);
+        // The code at 'lineNumber' (from 1, as tools count) in its colours, leading blanks gone, on 'background' (the
+        // list's) - the line under a build message in the list. nullptr for no path, line 0 or a line that isn't there.
+        static Line::Ref ListedSourceLine(const std::string &path, uint32_t lineNumber, const ColorRGBA &background);
         static void ShowBuildMessages();
         static void JumpBack();
         static void JumpForward();

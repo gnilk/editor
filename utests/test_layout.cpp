@@ -1,6 +1,8 @@
 //
 // Created by gnilk on 28.05.2026.
 //
+#include <filesystem>
+#include <fstream>
 #include <testinterface.h>
 #include "Core/Editor.h"
 #include "Core/UI/Views/ViewBase.h"
@@ -988,9 +990,18 @@ extern "C" int test_layout_messages_view(ITesting *t) {
     TR_ASSERT(t, messages->Label("Messages") == U"Messages");
     TR_ASSERT(t, messages->Caption().find("No build yet") == 0);
 
+    // a.c is there - its line shows under the message; b.c and w.c are not - no code line
+    auto dir = std::filesystem::temp_directory_path() / "goatedit_layout_messages_view";
+    std::filesystem::remove_all(dir);
+    std::filesystem::create_directories(dir);
+    {
+        std::ofstream file(dir / "a.c");
+        file << "int main() {\n\n\n\n\n    int y = nope + 1;\n}\n";
+    }
+
     // A run, while it runs: the warning printed first is listed after the errors
     int buildShell = 0;
-    build.OnCommand("make", "/tmp", "/tmp", &buildShell);
+    build.OnCommand("make", dir.string(), dir.string(), &buildShell);
     build.Feed("w.c:2:5: warning: unused variable 'x'\na.c:6:12: error: use of undeclared identifier 'nope'\n", &buildShell);
     TR_ASSERT(t, messages->NumRows() == 2);
     TR_ASSERT(t, messages->Caption().find("(running)") != std::string::npos);
@@ -1007,13 +1018,16 @@ extern "C" int test_layout_messages_view(ITesting *t) {
         return screen->Dump(gedit::Rect(gedit::Point(content.TopLeft().x, content.TopLeft().y + row), content.Width(), 1));
     };
     TR_ASSERT(t, rowText(0).find("make - 2 errors, 1 warning") != std::string::npos);
+    // Each message, then the code it points at - from the line under the place, leading blanks gone
     TR_ASSERT(t, rowText(1).find("error    a.c:6:12  use of undeclared") != std::string::npos);
-    TR_ASSERT(t, rowText(2).find("error    b.c:8:20") != std::string::npos);
-    TR_ASSERT(t, rowText(3).find("warning  w.c:2:5") != std::string::npos);
+    TR_ASSERT(t, rowText(2).find("int y = nope + 1;") == (size_t)(1 + BuildMessages::CODE_INDENT));
+    TR_ASSERT(t, rowText(3).find("error    b.c:8:20") != std::string::npos);
+    TR_ASSERT(t, rowText(4).find_first_not_of(" \n") == std::string::npos);
+    TR_ASSERT(t, rowText(5).find("warning  w.c:2:5") != std::string::npos);
     // The selected row (the first) stands out from the others
     TR_ASSERT(t, messages->SelectedRow() == 0);
     auto &selected = screen->CellAt(content.TopLeft().x + 1, content.TopLeft().y + 1);
-    auto &other = screen->CellAt(content.TopLeft().x + 1, content.TopLeft().y + 2);
+    auto &other = screen->CellAt(content.TopLeft().x + 1, content.TopLeft().y + 3);
     TR_ASSERT(t, (selected.bg != other.bg) || gnilk::ansi::HasAttr(selected.attr, gnilk::ansi::Attr::Inverse));
 
     // The arrows move it; F8 (BuildMessages::Next) moves it to where it went
@@ -1033,5 +1047,6 @@ extern "C" int test_layout_messages_view(ITesting *t) {
     TR_ASSERT(t, messages->NumRows() == 0);
     build.Feed("c.c:1:1: error: again\n", &buildShell);
     TR_ASSERT(t, (messages->NumRows() == 1) && (messages->SelectedRow() == 0));
+    std::filesystem::remove_all(dir);
     return kTR_Pass;
 }

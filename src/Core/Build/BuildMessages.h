@@ -16,6 +16,7 @@
 #define GEDIT_BUILDMESSAGES_H
 
 #include <cstdint>
+#include <map>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -75,6 +76,8 @@ namespace gedit {
         std::optional<size_t> Current() const;
         // 'error    a.cpp:3:16  use of undeclared identifier' - a row of the list (the modal, the Messages tab)
         static std::string RowText(const BuildMessage &message);
+        // The code a row points at goes on the line under it, from here - below the place, past 'error    '
+        static constexpr int CODE_INDENT = 11;
 
         // The order the messages are stepped through and listed in: errors first, then warnings, each as the build
         // printed them; notes and messages with no file left out. Indices into 'messages'.
@@ -88,6 +91,9 @@ namespace gedit {
 
         // The file a message points at, or empty when none of the candidates has it
         std::string ResolvePath(const BuildMessage &message) const;
+        // The lines (from 1) of the file at 'canonicalPath' that have an error or a warning - the gutter's marks; an
+        // error wins on a line. Each message's path is resolved once per run.
+        std::map<uint32_t, BuildMessage::kSeverity> LineMarks(const std::string &canonicalPath);
 
     private:
         std::optional<Position> Step(int direction);
@@ -110,6 +116,8 @@ namespace gedit {
         const void *runTerminal = nullptr;
         // Index into the parser's messages; none before the first step
         std::optional<size_t> current;
+        // ResolvePath of the messages so far, by index - for LineMarks, which is asked on every draw of the gutter
+        std::vector<std::string> resolvedPaths;
     };
 }
 

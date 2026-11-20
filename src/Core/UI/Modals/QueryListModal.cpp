@@ -131,9 +131,9 @@ void QueryListModal::Select(int idxRow) {
     InvalidateView();
 }
 
-// The rect minus the caption row and the rows above the list
+// Rows that fit: the rect minus the caption row and the rows above the list
 int QueryListModal::ListHeight() {
-    return viewRect.Height() - 1 - kListTopRow;
+    return (viewRect.Height() - 1 - kListTopRow) / std::max(1, LinesPerRow());
 }
 
 void QueryListModal::OnClosed(bool wasCancelled) {
@@ -186,7 +186,11 @@ void QueryListModal::DrawViewContents() {
         if (idxRow >= (int)rows.size()) {
             break;
         }
-        auto y = kListTopRow + i;
+        auto y = kListTopRow + i * LinesPerRow();
+        for (int idxLine = 1; idxLine < LinesPerRow(); idxLine++) {
+            DrawRowLine(dc, kMarginX, y + idxLine, width, idxRow, idxLine);
+            dc.SetColor(fg, bg);
+        }
         // A long detail shows its end - the part that tells two paths apart
         auto detail = OnRowDetail(idxRow);
         auto maxDetail = (size_t)std::max(0, width / 2);

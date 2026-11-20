@@ -59,6 +59,7 @@ static std::unordered_map<std::string, kAction> strToActionMap = {
         {"NextBuildMessage",     kAction::kActionNextBuildMessage},
         {"PreviousBuildMessage", kAction::kActionPreviousBuildMessage},
         {"ShowBuildMessages",    kAction::kActionShowBuildMessages},
+        {"OpenPlaceAtClick",     kAction::kActionOpenPlaceAtClick},
         {"ToggleIgnored",        kAction::kActionToggleIgnored},
         {"EditBackspace",         kAction::kActionEditBackspace},
         {"CopyToClipboard",       kAction::kActionCopyToClipboard},

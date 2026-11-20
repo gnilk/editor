@@ -53,6 +53,7 @@ namespace gedit {
         kActionNextBuildMessage,        // default: F8 - the last build's next error / warning (hitlist #52)
         kActionPreviousBuildMessage,    // default: Shift+F8
         kActionShowBuildMessages,       // default: Cmd/Ctrl+F8 - the last build's messages as a list
+        kActionOpenPlaceAtClick,        // terminal mouse: Cmd/Ctrl+click - the 'file:line' under the pointer
         kActionEnterCommandMode,
         kActionLeaveCommandMode,
         kActionStartSearch,

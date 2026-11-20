@@ -32,6 +32,7 @@ extern "C" {
     DLL_EXPORT int test_jsengine_newdocumentfromtext(ITesting *t);
     DLL_EXPORT int test_jsengine_terminalapi(ITesting *t);
     DLL_EXPORT int test_jsengine_copytoclipboard(ITesting *t);
+    DLL_EXPORT int test_jsengine_buildmessages(ITesting *t);
     DLL_EXPORT int test_jsengine_loadbuffer(ITesting *t);
     DLL_EXPORT int test_jsengine_listbuffers(ITesting *t);
     DLL_EXPORT int test_jsengine_configcmd(ITesting *t);
@@ -184,6 +185,39 @@ DLL_EXPORT int test_jsengine_terminalapi(ITesting *t) {
     TR_ASSERT(t, buffer->LineAt(0)->Buffer() == std::u32string(U"alpha"));
     TR_ASSERT(t, buffer->LineAt(1)->Buffer() == std::u32string(U"beta"));
 
+    return kTR_Pass;
+}
+
+// Terminal.GetMessages(): the last build's errors then warnings as objects - null before the first build (#52 step 4).
+// Read back through the clipboard as JSON.
+DLL_EXPORT int test_jsengine_buildmessages(ITesting *t) {
+    auto runScript = [](const std::string &body) {
+        JSPluginEngine jsEngine;
+        jsEngine.Initialize();
+        jsEngine.RunScriptOnce("function main(args) { Editor.CopyToClipboard(" + body + "); }", {});
+        auto top = Editor::Instance().GetClipBoard().Top();
+        return (top == nullptr) ? std::string{} : UnicodeHelper::utf32to8(top->AsText());
+    };
+    auto &build = Editor::Instance().GetBuildMessages();
+    if (!build.HasRun()) {
+        TR_ASSERT(t, runScript("String(Terminal.GetMessages())") == "null");
+    }
+
+    auto dir = std::filesystem::temp_directory_path() / "goatedit_jsengine_buildmessages";
+    std::filesystem::remove_all(dir);
+    std::filesystem::create_directories(dir);
+    std::ofstream(dir / "a.c") << "x\n";
+    auto canonicalDir = std::filesystem::canonical(dir);
+    build.OnCommand("make", canonicalDir.string(), canonicalDir.string());
+    build.Feed("w.c:2:5: warning: unused variable 'x'\na.c:6:12: error: use of undeclared identifier\n");
+    build.EndRun();
+
+    auto json = runScript("JSON.stringify(Terminal.GetMessages())");
+    auto expected = std::string("[{\"severity\":\"error\",\"file\":\"a.c\",\"path\":\"") + (canonicalDir / "a.c").string() +
+                    "\",\"line\":6,\"column\":12,\"message\":\"use of undeclared identifier\"},"
+                    "{\"severity\":\"warning\",\"file\":\"w.c\",\"path\":\"\",\"line\":2,\"column\":5,\"message\":\"unused variable 'x'\"}]";
+    TR_ASSERT(t, json == expected);
+    std::filesystem::remove_all(dir);
     return kTR_Pass;
 }
 

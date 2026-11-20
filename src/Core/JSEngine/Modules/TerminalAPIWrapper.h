@@ -22,6 +22,10 @@ namespace gedit {
         duk_ret_t OpenLastOutputAsDocument(duk_context *ctx);
         // Terminal.CopyLastOutputToClipboard() -> bool (true when it was copied)
         duk_ret_t CopyLastOutputToClipboard(duk_context *ctx);
+        // Terminal.GetMessages() -> [{severity: 'error' | 'warning', file, path, line, column, message}] | null (no build
+        // yet). 'file' is as the tool printed it, 'path' the file it resolved to ('' when not found); line / column from 1,
+        // 0 when the tool gave none.
+        duk_ret_t GetMessages(duk_context *ctx);
     };
 }
 

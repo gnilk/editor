@@ -5,7 +5,9 @@
 #ifndef GOATEDIT_TERMINALVIEW_H
 #define GOATEDIT_TERMINALVIEW_H
 
+#include <optional>
 #include <string>
+#include <vector>
 
 #include "Core/Editor/Controllers/TerminalController.h"
 #include "Core/RuntimeConfig.h"
@@ -52,12 +54,17 @@ namespace gedit {
 
     private:
         void PasteFromClipboard();
+        // Cmd/Ctrl+click (the keymap's 'mouse:' OpenPlaceAtClick): the 'file:line' written where the press was
+        void OpenPlaceAtClick();
+        // The file 'path' names, as the shell in this terminal sees it, else as the last build does; empty when none has it
+        std::string ResolveClickedPath(const std::string &path);
         bool ForwardMouseToApp(const MouseEvent &mouseEvent);
         void DrawAppFrame(DrawContext &dc, const TerminalScreen &screen, const TerminalScreen::Frame &frame,
                           int viewHeight);
         void DrawAppScreen(DrawContext &dc, const TerminalScreen &screen, const TerminalScreen::Frame &frame,
                            int viewHeight);
         void DrawScreenRow(DrawContext &dc, const TerminalScreen::Row &row, int y);
+        void RecordDrawnRow(int y, const std::u32string &text, int x = 0);
         static Cursor::Shape ToCursorShape(gnilk::vt::CursorShape shape);
 
     private:
@@ -68,6 +75,10 @@ namespace gedit {
         // Grid row drawn on view row 0 while an app owns the terminal (set by the draw, read by mouse reporting):
         // grid y = view y + this. 0 on the alternate screen; a foreground job is drawn bottom-anchored.
         int gridRowAtViewTop = 0;
+        // The text of each view row as last drawn, one character per cell - what a click is on
+        std::vector<std::u32string> drawnRows;
+        // The cell of the last press, view relative - read by OpenPlaceAtClick
+        std::optional<Point> pressedCell;
     };
 }
 

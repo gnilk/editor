@@ -9,6 +9,7 @@
 #include "logger.h"
 #include "Core/Editor.h"
 #include "Core/LineDiff.h"
+#include "Core/PathUtil.h"
 using namespace gedit;
 
 GutterView::GutterView() : ViewBase() {
@@ -76,6 +77,7 @@ void GutterView::DrawViewContents() {
     auto &lineCursor = document->GetLineCursor();
     auto rows = document->GetVisibleRows();
     auto changes = document->GetLineChanges();
+    auto buildMarks = BuildMarks(document);
     for (size_t idxRow = 0; idxRow < rows.size(); idxRow++) {
         auto &row = rows[idxRow];
         if (row.idxSegment != 0) {
@@ -87,6 +89,10 @@ void GutterView::DrawViewContents() {
             snprintf(str, 64, "%6zu  *", row.idxLine + 1);
         }
         dc.DrawStringAt(0, static_cast<int>(idxRow), str);
+        auto itMark = buildMarks.find((uint32_t)row.idxLine + 1);
+        if (itMark != buildMarks.end()) {
+            DrawBuildMark(dc, static_cast<int>(idxRow), itMark->second, std::string(str, 6));
+        }
         if (changes != nullptr) {
             DrawChangeMark(dc, static_cast<int>(idxRow), changes->MarkOf(row.idxLine));
         }
@@ -124,5 +130,40 @@ void GutterView::DrawChangeMark(DrawContext &dc, int row, uint8_t mark) {
         dc.SetColor(uiColors[key], uiColors["gutter_background"]);
     }
     dc.DrawStringAt(CHANGE_MARK_COLUMN, row, std::u32string(glyph));
+    dc.SetColor(uiColors["gutter_foreground"], uiColors["gutter_background"]);
+}
+
+// The last build's errors and warnings in this document's file, by line (from 1) - none when it has no file
+std::map<uint32_t, BuildMessage::kSeverity> GutterView::BuildMarks(const Document::Ref &document) {
+    auto &editor = Editor::Instance();
+    auto &buildMessages = editor.GetBuildMessages();
+    if (!buildMessages.HasRun()) {
+        return {};
+    }
+    auto node = editor.GetWorkspace()->GetNodeFromDocument(document);
+    if (node == nullptr) {
+        return {};
+    }
+    return buildMessages.LineMarks(pathutil::CanonicalPath(node->GetNodePath()).string());
+}
+
+// A line with a build error / warning has its number in that colour (docs/build-messages.md §2). A theme without the
+// gutter's keys uses the change marks' (deleted / modified); without those, the number stays as it is.
+void GutterView::DrawBuildMark(DrawContext &dc, int row, BuildMessage::kSeverity severity, const std::string &number) {
+    auto &uiColors = Editor::Instance().GetTheme()->GetUIColors();
+    auto isError = (severity == BuildMessage::kSeverity::kError);
+    std::string key;
+    for (auto candidate : isError ? std::vector<std::string>{"gutter_error", "gutter_deleted", "tree_deleted"}
+                                  : std::vector<std::string>{"gutter_warning", "tree_modified", "gutter_modified"}) {
+        if (uiColors.HasColor(candidate)) {
+            key = candidate;
+            break;
+        }
+    }
+    if (key.empty()) {
+        return;
+    }
+    dc.SetColor(uiColors[key], uiColors["gutter_background"]);
+    dc.DrawStringAt(0, row, number.c_str());
     dc.SetColor(uiColors["gutter_foreground"], uiColors["gutter_background"]);
 }

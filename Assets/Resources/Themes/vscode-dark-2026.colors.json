@@ -155,7 +155,9 @@
       "tree_added": "var(ui_tree_added)",
       "tree_untracked": "var(ui_tree_added)",
       "tree_deleted": "var(ui_tree_deleted)",
-      "tree_conflicted": "var(ui_tree_deleted)"
+      "tree_conflicted": "var(ui_tree_deleted)",
+      "gutter_error": "var(ui_tree_deleted)",
+      "gutter_warning": "var(ui_tree_modified)"
     },
     "terminal": {
       "background": "var(ui_background)",

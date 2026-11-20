@@ -12,6 +12,7 @@
 
 #include "Core/Build/BuildOutputParser.h"
 #include "Core/Build/BuildMessages.h"
+#include "Core/Build/TextPlace.h"
 #include "Core/Editor/Modals/BuildMessagesModal.h"
 #include "Core/Editor.h"
 #include "Core/KeyMappingCache.h"
@@ -43,6 +44,8 @@ extern "C" {
     DLL_EXPORT int test_buildmessages_commanddone(ITesting *t);
     DLL_EXPORT int test_buildmessages_quiet(ITesting *t);
     DLL_EXPORT int test_buildmessages_resolve(ITesting *t);
+    DLL_EXPORT int test_buildmessages_linemarks(ITesting *t);
+    DLL_EXPORT int test_buildmessages_textplace(ITesting *t);
     DLL_EXPORT int test_buildmessages_step(ITesting *t);
     DLL_EXPORT int test_buildmessages_modalfilter(ITesting *t);
     DLL_EXPORT int test_buildmessages_keys(ITesting *t);
@@ -638,6 +641,44 @@ DLL_EXPORT int test_buildmessages_resolve(ITesting *t) {
     return kTR_Pass;
 }
 
+// The gutter's marks: the lines of one file with an error or a warning, an error winning on its line; a message still
+// being read (rustc's place comes on the line below it) is marked once its place has come
+DLL_EXPORT int test_buildmessages_linemarks(ITesting *t) {
+    auto root = fs::canonical(fs::temp_directory_path()) / "goatedit_buildmessages_linemarks";
+    fs::remove_all(root);
+    fs::create_directories(root / "src");
+    std::ofstream(root / "a.c") << "x\n";
+    std::ofstream(root / "b.c") << "x\n";
+    std::ofstream(root / "src" / "main.rs") << "x\n";
+    auto aPath = (root / "a.c").string();
+
+    int buildShell = 0;
+    BuildMessages build;
+    TR_ASSERT(t, build.LineMarks(aPath).empty());
+    build.OnCommand("make", root.string(), root.string(), &buildShell);
+    build.Feed("a.c:3:1: warning: unused\na.c:3:5: error: bad\na.c:7:1: warning: also\nb.c:3:1: error: other file\n", &buildShell);
+    build.EndRun();
+    auto marks = build.LineMarks(aPath);
+    TR_ASSERT(t, marks.size() == 2);
+    TR_ASSERT(t, marks[3] == kSeverity::kError);
+    TR_ASSERT(t, marks[7] == kSeverity::kWarning);
+    TR_ASSERT(t, build.LineMarks((root / "b.c").string()).size() == 1);
+
+    // A new run forgets the old marks
+    build.OnCommand("cargo build", root.string(), root.string(), &buildShell);
+    TR_ASSERT(t, build.LineMarks(aPath).empty());
+    build.Feed("error[E0308]: mismatched types\n", &buildShell);
+    auto rsPath = (root / "src" / "main.rs").string();
+    TR_ASSERT(t, build.LineMarks(rsPath).empty());
+    build.Feed(" --> src/main.rs:3:21\n", &buildShell);
+    marks = build.LineMarks(rsPath);
+    TR_ASSERT(t, (marks.size() == 1) && (marks[3] == kSeverity::kError));
+    build.EndRun();
+    TR_ASSERT(t, build.LineMarks(rsPath).size() == 1);
+    fs::remove_all(root);
+    return kTR_Pass;
+}
+
 // Next / previous step over messages with a place - errors first, then warnings (as the list) - and wrap around
 DLL_EXPORT int test_buildmessages_step(ITesting *t) {
     BuildMessages build;
@@ -722,5 +763,33 @@ DLL_EXPORT int test_buildmessages_keys(ITesting *t) {
         action = keymap->ActionFromKeyPress(keyPress);
         TR_ASSERT(t, action.has_value() && (action->action == kAction::kActionShowBuildMessages));
     }
+    return kTR_Pass;
+}
+
+// Cmd/Ctrl+click in the terminal: the place written where the click is - gcc / clang, rustc's ' --> ', Python's frames
+// and warnings, an include chain, lld's parentheses, a path alone
+DLL_EXPORT int test_buildmessages_textplace(ITesting *t) {
+    auto is = [](const std::optional<TextPlace> &place, const std::string &path, uint32_t line, uint32_t column) {
+        return place.has_value() && (place->path == path) && (place->line == line) && (place->column == column);
+    };
+    std::u32string gcc = U"src/a.cpp:3:16: error: use of undeclared identifier";
+    TR_ASSERT(t, is(TextPlace::At(gcc, 0), "src/a.cpp", 3, 16));
+    TR_ASSERT(t, is(TextPlace::At(gcc, 12), "src/a.cpp", 3, 16));        // on the numbers
+    TR_ASSERT(t, is(TextPlace::At(gcc, 17), "error", 0, 0));             // a word - the caller finds no such file
+    TR_ASSERT(t, !TextPlace::At(gcc, 15).has_value());                   // the blank
+    TR_ASSERT(t, !TextPlace::At(gcc, 500).has_value());
+
+    TR_ASSERT(t, is(TextPlace::At(U"  --> src/main.rs:4:20", 8), "src/main.rs", 4, 20));
+    TR_ASSERT(t, is(TextPlace::At(U"main.py:5: DeprecationWarning: x", 2), "main.py", 5, 0));
+    TR_ASSERT(t, is(TextPlace::At(U"In file included from a.h:3,", 23), "a.h", 3, 0));
+    TR_ASSERT(t, is(TextPlace::At(U">>> referenced by a.cpp:3 (/abs/a.cpp:3)", 30), "/abs/a.cpp", 3, 0));
+    TR_ASSERT(t, is(TextPlace::At(U"CMakeLists.txt", 3), "CMakeLists.txt", 0, 0));
+
+    // Python's frame: anywhere from 'File' to the number - a path with a blank in it too
+    std::u32string frame = U"  File \"/work/my game/main.py\", line 12, in <module>";
+    TR_ASSERT(t, is(TextPlace::At(frame, 2), "/work/my game/main.py", 12, 0));
+    TR_ASSERT(t, is(TextPlace::At(frame, 15), "/work/my game/main.py", 12, 0));
+    TR_ASSERT(t, is(TextPlace::At(frame, 38), "/work/my game/main.py", 12, 0));
+    TR_ASSERT(t, !is(TextPlace::At(frame, 44), "/work/my game/main.py", 12, 0));   // 'in <module>'
     return kTR_Pass;
 }

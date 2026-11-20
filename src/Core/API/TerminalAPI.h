@@ -11,8 +11,10 @@
 
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "Core/RuntimeConfig.h"
+#include "Core/Build/BuildMessages.h"
 #include "DocumentAPI.h"
 
 namespace gedit {
@@ -27,6 +29,15 @@ namespace gedit {
         DocumentAPI::Ref OpenLastOutputAsDocument();
         // It on the system clipboard; false when there is no output
         bool CopyLastOutputToClipboard();
+
+        // A build message as a script sees it (docs/build-messages.md §7 step 4)
+        struct Message {
+            BuildMessage message;
+            std::string resolvedPath;       // the file it points at; empty when it isn't found
+        };
+        // The last build's errors and warnings, as the list and F8 have them (errors first); nullopt before the first
+        // build. Read from the editor's BuildMessages - any terminal's last build, while it runs too.
+        std::optional<std::vector<Message>> GetBuildMessages();
 
     private:
         // The terminal seam, or nullptr when no output console is registered (headless / non-terminal).

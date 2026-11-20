@@ -45,3 +45,16 @@ bool TerminalAPI::CopyLastOutputToClipboard() {
 IOutputConsole *TerminalAPI::Console() {
     return RuntimeConfig::Instance().OutputConsole();
 }
+
+std::optional<std::vector<TerminalAPI::Message>> TerminalAPI::GetBuildMessages() {
+    auto &buildMessages = Editor::Instance().GetBuildMessages();
+    if (!buildMessages.HasRun()) {
+        return std::nullopt;
+    }
+    auto messages = buildMessages.Messages();
+    std::vector<Message> listed;
+    for (auto idxMessage : BuildMessages::Order(messages)) {
+        listed.push_back({messages[idxMessage], buildMessages.ResolvePath(messages[idxMessage])});
+    }
+    return listed;
+}

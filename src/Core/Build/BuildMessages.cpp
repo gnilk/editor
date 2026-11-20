@@ -71,6 +71,7 @@ bool BuildMessages::OnCommand(const std::string &cmdLine, const std::string &she
     projectRoot = root;
     runTerminal = terminal;
     current.reset();
+    resolvedPaths.clear();
     return true;
 }
 
@@ -196,6 +197,34 @@ std::optional<BuildMessages::Position> BuildMessages::Select(size_t index) {
 std::string BuildMessages::ResolvePath(const BuildMessage &message) const {
     std::lock_guard<std::mutex> guard(lock);
     return ResolvePathLocked(message);
+}
+
+std::map<uint32_t, BuildMessage::kSeverity> BuildMessages::LineMarks(const std::string &canonicalPath) {
+    std::lock_guard<std::mutex> guard(lock);
+    auto &messages = parser.Messages();
+    // The messages that came since the last ask - while the build runs, not the last one: a line below it can still
+    // give its place (rustc's ' --> ')
+    auto numSettled = (isRunning && !messages.empty()) ? messages.size() - 1 : messages.size();
+    for (auto idx = resolvedPaths.size(); idx < numSettled; idx++) {
+        resolvedPaths.push_back(ResolvePathLocked(messages[idx]));
+    }
+    std::map<uint32_t, BuildMessage::kSeverity> marks;
+    for (size_t idx = 0; idx < messages.size(); idx++) {
+        auto &message = messages[idx];
+        if (message.line == 0) {
+            continue;
+        }
+        auto path = (idx < resolvedPaths.size()) ? resolvedPaths[idx] : ResolvePathLocked(message);
+        if (path != canonicalPath) {
+            continue;
+        }
+        if (message.severity == BuildMessage::kSeverity::kError) {
+            marks[message.line] = message.severity;
+        } else if ((message.severity == BuildMessage::kSeverity::kWarning) && (marks.count(message.line) == 0)) {
+            marks[message.line] = message.severity;
+        }
+    }
+    return marks;
 }
 
 uint64_t BuildMessages::RunNumber() const {

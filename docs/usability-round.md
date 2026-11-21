@@ -1129,24 +1129,39 @@ bottom.
 status line - and the quick-command line, `SetQuickCmdView(&hSplitViewStatus)` - are drawn **on the splitter row**
 (`HSplitViewStatus::DrawSplitter`). So the status line exists only because there is a horizontal split.
 
-**The shape:** `panel.position: bottom | right` in `config.yml` (default `bottom`, as today).
-- `right`: `VSplitView[ VSplitView[ workspace | editor ] | PanelView ]` - three columns on a wide screen.
-- **The status line needs a home of its own** when there is no horizontal splitter. Choice:
-  - a) a status-line view, one fixed row at the bottom of the window, used in both positions - one path, but in `bottom`
-    the status moves from between editor and terminal to the window's foot;
-  - b) `bottom` keeps the splitter row as today, `right` gets the fixed row - the look of today kept, two paths.
-  Leaning a): the quick-command line and the status line become a view of their own instead of a splitter that draws, which
-  is the cleaner split anyway.
-- **The splitter's size is kept per position** (`split.terminal` for bottom, a new `split.panel_right`), so switching back
-  and forth doesn't lose either.
-- **Keys:** the resize actions already go to the nearest splitter of their axis (CLAUDE.md, split-view routing), so
-  `Alt+a` / `Alt+d` in the panel move its divide in `right`, `Alt+s` / `Alt+w` in `bottom`. To check, not to build.
-- **The terminal:** a narrower, taller pty - the resize path exists. Scrollback is `terminal.scrollback_lines` (10 000);
-  a long agent session may want more, a config value already.
+**The shape - two panels, the splitter kept** (the user's, 2026-11-21):
 
-**Later:** a live switch (`.panel right` / `.panel bottom`, or a key) - the views are built once in `main.cpp`, so it means
-re-parenting the panel and the status line; config at start-up first. Also `left` and hiding the workspace tree for
-`editor | panel` only are the same mechanism.
+```
+upper:  VSplitView[ VSplitView[ workspace | editor ] | right PanelView ]
+mid:    HSplitViewStatus - the status / quick-command line on the splitter row, as today
+lower:  bottom PanelView
+```
 
-**Tests:** the layout tests (`test_layout`) for `right`: three columns fill the width, the panel full height, the status row
-at the bottom, the splitter clamped; the session keeps both splits.
+- **Two `PanelView`s, each a `TabbedView`, each handed its own section:** `panel` (the bottom, as today) and `panel_right`,
+  the same shape (`tabs:`, `inherit:`). A view is handed its section resolved and never looks one up (CLAUDE.md).
+- **The right panel exists only when `panel_right.tabs` has tabs**; without it the layout is today's. So nothing changes for
+  a config that doesn't ask.
+- **The status line stays on the splitter** - no new status view, no second path.
+- **The default config:** the bottom panel for the build (Shell + Messages), the right one for the agent (`ai_agent`). Whether
+  the shipped default starts `claude` is #61's question (ready-made tabs; not everyone has it installed - a missing command
+  should leave a plain shell with a notice).
+- **Scrollback is per tab already:** `TerminalController` reads `scrollback_lines` from the tab's resolved section, so
+  `ai_agent: { inherit: terminal, scrollback_lines: 100000 }` (0 = unlimited) works today, `persist_scrollback_lines` too.
+
+**What assumes one panel today** (each needs a decision, none is big):
+- `Editor.cpp` `GetPanelView()` - one panel, the `glbTerminalView` top view. Becomes a list of panels.
+- **Promote to terminal:** the first tab with `promote_target` - searched in the right panel first, then the bottom.
+- **Messages:** `Cmd/Ctrl+F8` shows the Messages tab in whichever panel has one.
+- **"The terminal"** (`PanelView::ActiveTerminal()`: dot-command output, `.co`, start-up notices) - the bottom panel's.
+- **Focus:** `Option/Alt+T` goes to the bottom panel today; the right one needs a key of its own (UI control -> `Option/Alt`,
+  a free one to find; check macOS), or `Option/Alt+T` toggles between the two.
+- **The session:** `terminal.tabs` + `activeTab` per panel (`terminal_right`, additive - an older session is all bottom).
+- **Splitters:** `split.terminal` (bottom) as today, a new `split.panel_right` for the right column; the resize keys go to
+  the nearest splitter of their axis already (CLAUDE.md), so `Alt+a` / `Alt+d` in the right panel move its divide - to check.
+
+**Later:** move a tab between the panels (a key, or dragging the tab); a live switch with no restart; the bottom panel
+hidden when it has no tabs (the status row then at the window's foot).
+
+**Tests:** `test_layout` with a right panel: the three columns fill the width, the right panel spans the upper part, both
+splitters clamped; with no `panel_right` tabs the tree is today's. `test_session`: both panels' tabs round-trip, an older
+session restores all to the bottom. Promote finds the right panel's target first.

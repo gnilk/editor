@@ -109,6 +109,9 @@ More will come; add them here, with an asker and a source.
 
 ## 2. Agent aware
 
+> **2026-11-21:** how the editor and an agent work together - modes, setup, channels, consent, where the truth lives - is
+> [`agent-integration.md`](agent-integration.md). This section is the first look.
+
 The editor is language aware; should it be agent aware? A first answer from the probes (§3):
 
 - **The record is written at change time, and it does not need an agent to read.** In this repo it is already rich: 665

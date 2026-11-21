@@ -165,28 +165,37 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
 
 ## Next - suggested order
 
-### The agentic baseline (reprioritised 2026-11-21)
+### The agentic baseline (reprioritised 2026-11-21, again after the tool pattern)
 
 What the agentic features (`agentic-features.md`: graphs, type-diff, regular diff) stand on - the analysis is its "Baseline"
-section. Two tracks that can interleave: the **architecture** (#7, #65, #66, #13 phases 1-2 - mode -> view, pixels, proven on
-images) and the **data** (#69, #71 - no rendering, an agent can use the type-diff from the command line at once). Then the
-views on top: diff (#67, #68), type-diff (#33, #70), graph (#72, #73). Code index steps 5 and 7 are not on the path; step 6
-(calls / refs) only for call graphs, later.
+section. **Exploring, through separate tools** (its "Status" section): the editor writes a readable X, a tool (Python first)
+makes Z, the editor shows Z. So the order is:
+1. **The export** (#74) - the X.
+2. **Tools over it** - type-diff (#69), extension points (#71), a module roll-up to try modules (#33) - Python, outside the
+   editor; each moves into C++ once its shape has settled.
+3. **The image view as the first graph view** (#7, #65, #66, #13) - a tool's Graphviz PNG, shown and refreshed; then running a
+   tool from the editor (#75).
+4. **The live diff** (#67, #68) - native: a tool can't see unsaved edits.
+5. **Native views** (#70, #72, #73) once the explorations show what they should be.
+
+Code index steps 5 and 7 are not on the path; step 6 (calls / refs) only for call graphs, later.
 
 | # | Item | Where | Size | Notes |
 |---|---|---|---|---|
+| 74 | A readable export of the index - the "X" every tool reads: symbols and edges per file / tree, one fact per line (JSON lines or similar), sorted so two runs diff cleanly, `--at <rev>` scans a revision's text (`git show`). `gedit-bench --dump` is the start (aligned columns for a person today). The bench should also fail with a message, not a segfault, when its assets are missing (seen with a stale build) | `agentic-features.md` Status, `utests/bench/codeindex_bench.cpp` | half a day | first - nothing else on the tool path starts without it |
+| 69 | Structure diff as data (type-diff): the changed files scanned at the base (`Scan(text)` on `git show`) and now, symbols and edges (`inherits`, `holds` + ownership, `includes`) compared by qualified name; touched types from the hunks by extents. A dot-command + `gedit-bench --typediff <rev>` so an agent can ask | `agentic-features.md` Type-diff, `code-index.md` §10.3 | a day or two | **A Python tool over #74 first**, C++ once its shape has settled. Base: the branch point (`merge-base`) - reviewing a change in progress (2026-11-21) |
+| 71 | Extension points: a type with two or more derived types that someone holds (directly or in a container); the scanner records pure virtuals (`= 0`). Marked in the relationship trees and in a type-diff (added / removed) | `agentic-features.md` Graphs | half a day | a Python tool over #74 first; the `= 0` flag goes into the scanner (and the export) |
+| 33 | Code index step 4: modules | `code-index.md` | days | paused 2026-11-08 until the design is thought through. On the agentic path (2026-11-21): a type-diff's "new dependency between modules" needs it. Prototype the roll-up as a Python tool over #74 first - try modules before designing step 4 in C++ |
 | 7 | Image view phase 0: `BufferBase`, `TextBuffer` / `ImageBuffer` | `image-view.md` §2.4 | a day | parked 2026-11-11 |
 | 65 | The view container maps mode -> view (`std::map<DocumentViewMode, ViewBase *>` replaces primary / alternate); Text and Hex move onto it. Split out of #13 - every new mode (Image, Diff, maybe Graph) needs it | `image-view.md` §2.5, `agentic-features.md` Baseline | hours | |
 | 66 | Pixel drawing in `DrawContext`: `DrawImagePixels` (source crop, pixel destination, scale mode) + a texture per image (image-view §3), and filled rect / line / polygon and text at a pixel position. SDL2 + SDL3; ANSI no-ops, each view has a character fallback | `image-view.md` §3, `agentic-features.md` Baseline | a day+ | |
-| 13 | Image view phases 1-3 | `image-view.md` | days | after 7, #65, #66. Phases 1-2 are on the agentic path (they prove the pixel pipeline and the zoom / pan viewport the graph view reuses); phase 3 is not |
-| 69 | Structure diff as data (type-diff): the changed files scanned at the base (`Scan(text)` on `git show`) and now, symbols and edges (`inherits`, `holds` + ownership, `includes`) compared by qualified name; touched types from the hunks by extents. A dot-command + `gedit-bench --typediff <rev>` so an agent can ask | `agentic-features.md` Type-diff, `code-index.md` §10.3 | a day or two | base: the branch point (`merge-base`) - reviewing a change in progress (2026-11-21) |
-| 71 | Extension points: a type with two or more derived types that someone holds (directly or in a container); the scanner records pure virtuals (`= 0`). Marked in the relationship trees and in a type-diff (added / removed) | `agentic-features.md` Graphs | half a day | |
+| 13 | Image view phases 1-3 | `image-view.md` | days | after 7, #65, #66. Phases 1-2 and phase 3's re-decode on change on disk are on the agentic path: the image view is the **first graph view** - a tool's Graphviz PNG, refreshed when the tool rewrites it. The rest of phase 3 is not |
+| 75 | Run a tool from the editor: a dot-command runs a configured tool on the export and opens what it writes (a PNG in the image view, a text report as a document); the view refreshes when the tool rewrites it. `Process` exists. Until then: run it in the terminal, open the result by hand | `agentic-features.md` Status | half a day | after 74, #13 |
 | 67 | Revisions and a line diff: a file's text at any revision (`GitBase`, today HEAD only), the files changed between two revisions / the work tree, a read-only TextBuffer from a text, and an aligning line diff (Myers / histogram) over the line hashes - the right side is the buffer, unsaved edits included | `agentic-features.md` Baseline | a day | decided 2026-11-21: both - own diff for the live buffer, `git diff` parsed for history; one hunks / aligned-rows model the Diff view reads |
 | 68 | Diff view mode: side by side, gap rows where the other side added (`DiffProjection`), scrolled together, both sides coloured, changes within a line, the joining shapes between the panes (#66; ANSI: coloured bands), a hunk with a few lines around, next / previous hunk | `agentic-features.md` Regular diff | days | after 65, 66, 67. Any two revisions: HEAD vs a point X, X stepped towards HEAD to watch a section evolve; the default base deferred |
-| 33 | Code index step 4: modules | `code-index.md` | days | paused 2026-11-08 until the design is thought through. On the agentic path (2026-11-21): a type-diff's "new dependency between modules" needs it |
-| 70 | Type-diff view: #69 as a tree - added / removed / changed, a changed type expands to its holders and derived types (step 3 queries), rows jump | `agentic-features.md` Type-diff | days | after 69 (#33 for module lines) |
-| 72 | Graph view: a layered layout (pure, headless tests) of a type's or module's neighbourhood (inherits, holds, module deps), drawn with #66, zoom / pan from the image viewport (#13 phase 2), nodes jump, `\|+\|` folds out an interface's members. D11 revised: drawn first | `agentic-features.md` Graphs, Decisions | days | decided 2026-11-21: a generated document in the editor area; the layout a library + wrapper binary (own layered layout, grid-snapped; Graphviz `dot -Tplain` optional - look at OSS first). ANSI boxes / lines second |
-| 73 | Graph diff: #72 over #69's before / after, what was added / removed coloured | `agentic-features.md` Type-diff | days | after 69, 72 |
+| 70 | Type-diff view: #69 as a tree - added / removed / changed, a changed type expands to its holders and derived types (step 3 queries), rows jump | `agentic-features.md` Type-diff | days | after 69 (#33 for module lines). Waits for the tool's text report, opened as a document, to show what the view should be |
+| 72 | Graph view: a layered layout (pure, headless tests) of a type's or module's neighbourhood (inherits, holds, module deps), drawn with #66, zoom / pan from the image viewport (#13 phase 2), nodes jump, `\|+\|` folds out an interface's members. D11 revised: drawn first | `agentic-features.md` Graphs, Decisions | days | **Waits for the PNG version** (#13 + #75 + Graphviz) to show what we want. | decided 2026-11-21: a generated document in the editor area; the layout a library + wrapper binary (own layered layout, grid-snapped; Graphviz `dot -Tplain` optional - look at OSS first). ANSI boxes / lines second |
+| 73 | Graph diff: #72 over #69's before / after, what was added / removed coloured | `agentic-features.md` Type-diff | days | after 69, 72; a Graphviz PNG with colours first |
 
 ### Other - not on that path
 

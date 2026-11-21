@@ -90,6 +90,8 @@ small - export the data, read the result, draw it.
 - **Human readable first; AI readable counts too** where it gives an edge - a format an agent can read, write and diff is
   one it can help build and check. Plain text, JSON or YAML, one fact per line where possible, stable ordering so two runs
   diff cleanly.
+- **What it does to the order** (hitlist, 2026-11-21): a readable export of the index first (#74), the tools in Python over
+  it, the image view as the first graph view (Graphviz PNG), native views last.
 - Candidates: the graph generator (model in, layout out - Decisions 1), the type-diff (structure of two revisions in, the
   diff out). Graphviz as an external `dot -Tplain` fits the same pattern.
 

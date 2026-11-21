@@ -147,12 +147,38 @@ coarse (§2).
 
 | Question | Probe |
 |---|---|
-| How does this get invoked (async too)? | lldb on the editor (the ANSI backend in a pty, no window), a breakpoint that logs the stack and continues; use it a while; fold the stacks into a caller tree. For posted work, the posting stack: a debug-only record in `Runloop`. Try on `EditorView::ReInitView` |
+| How does this get invoked (async too)? | **tcov with a stack mode** (§4.1), on `trun` or on the editor itself. Try on `EditorView::ReInitView` |
 | Keystroke -> line, line -> screen | the same, with breakpoints along the path; output as one path with the layers named |
-| Covered by a test? How much? | clang source-based coverage (`-fprofile-instr-generate -fcoverage-mapping`) on a `libutests` run in its own build dir; `llvm-cov report` per function, folded per class. Against 3.2's list |
+| Covered by a test? How much? | **tcov as it is** (§4.1) on `libutests`, per function; against 3.2's list. clang's source-based coverage (`llvm-cov`) as a cross-check |
 | Almost identical - why? | near-duplicate runs of line hashes across the tree, then `why.py` on both |
 | In the wrong folder? | per file: share of its includes / holds that point into its own folder; the outliers |
 | The conversation behind a commit | find the commit hash in the local transcripts, print the turns before it |
+
+### 4.1 tcov - the runtime probe already exists
+
+`tcov` (testrunner repo, `src/coverage` + `src/app/tcov`) runs a target under lldb through the SB API - `trun` (it adds
+`--sequential`) or another executable - resolves the symbols asked for (`--symbols gedit::PanelView::*`, globs), puts a
+breakpoint on every line of them, and reports which lines were hit (console, LCOV, a diff report). Each breakpoint is
+disabled at its first hit (`CheckBreakPointHit`), which keeps it fast. So:
+
+- **"Is this covered, how much?"** is tcov as it stands, on `libutests`, per function - no new tool.
+- **"How does this get invoked?"** is one step from it, so it belongs next to coverage: on a hit at a function's *first*
+  line, walk the thread's frames (`SBThread::GetFrameAtIndex`: function, file, line) and record the stack, with the thread's
+  name, before going on. Keep that breakpoint enabled until N distinct stacks (or N hits) are seen, then disable it, so the
+  cost stays bounded. Output: per function, its distinct call stacks with counts, folded into a caller tree - plain text,
+  as every intermediate here.
+- **One run answers three questions.** Under `trun` the test case's function is in every stack (`test_panelview_...`),
+  so the stacks also say **which tests reach this function** - "which tests should I run after changing this" - and the
+  thread answers "which thread runs this".
+- **Async:** the stack of a posted call ends in the `Runloop`'s dispatch. The poster is a second breakpoint, on the post,
+  whose stack is recorded with the message's address; the dispatch's stack is matched to it by that address. That makes
+  the editor's `Runloop` (and the timer / pty / parse threads) the place to look first - a known, small set of seams.
+- **On the editor itself** (not trun): the target is `goatedit --backend ansi` in a pty, driven by a script as the
+  handtests do (`scripts/handtests/goatpty.py`), so "keystroke -> line" is: send a key, collect the stacks at
+  `Document`'s insert.
+
+The extension lives in tcov (testrunner repo), not in the editor; the editor reads its text output. To decide with the
+testrunner work: a `--stacks` mode with an N, and the stack format.
 
 When a probe has earned it, it gets a hitlist row - and `agentic-features.md`'s views get revisited against what the probes
 showed.

@@ -1157,6 +1157,13 @@ side, or turn a monitor upright - so both stay:
   `auto` has been lived with.
 - So `panel_right` says where a tab goes **when there is room**, not that a second panel always exists. A config with no
   `panel_right` tabs is today's layout in both.
+- **One config, both layouts - a tab keeps its home** (the user, 2026-11-21). Each tab carries where it belongs (`bottom` /
+  `right`), not where it is shown: portrait shows every tab in the bottom panel, landscape shows each in its home. Switching
+  never changes a config or the tabs - only where they are drawn - so a landscape config works in portrait as it is, and the
+  right-hand tabs pop back up there when the window is wide again.
+  - The session stores the home, not the panel a tab sits in today: a restart in the other layout puts each one right.
+  - A tab opened while running (`Cmd+T`) gets the home of the panel it was opened from; opened from a right-homed tab shown
+    in portrait, it is right-homed too.
 - `auto` and a live switch are the same work: moving the right panel's tab views into the bottom one and back.
   `TabbedView` owns its tabs (`RemoveTab` deletes), so it needs a "take" that hands the view over without deleting it - a
   running `claude` must survive the move. Start-up choice first (portrait / landscape), `auto` after.

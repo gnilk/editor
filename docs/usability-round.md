@@ -1148,6 +1148,19 @@ lower:  bottom PanelView
 - **Scrollback is per tab already:** `TerminalController` reads `scrollback_lines` from the tab's resolved section, so
   `ai_agent: { inherit: terminal, scrollback_lines: 100000 }` (0 = unlimited) works today, `persist_scrollback_lines` too.
 
+**Two layouts: portrait and landscape** (the user, 2026-11-21). Not everyone maximises - some keep two windows side by
+side, or turn a monitor upright - so both stay:
+- **portrait** - today's: editor on top, one panel below holding **all** tabs (`panel`'s, then `panel_right`'s).
+- **landscape** - the right panel for `panel_right`'s tabs, the bottom one for `panel`'s.
+- `main.layout: portrait | landscape | auto` - `auto` picks by the window's shape (wider than some ratio -> landscape), with
+  a margin so a window near the ratio doesn't flip back and forth while it is resized. Default: `portrait` (today) until
+  `auto` has been lived with.
+- So `panel_right` says where a tab goes **when there is room**, not that a second panel always exists. A config with no
+  `panel_right` tabs is today's layout in both.
+- `auto` and a live switch are the same work: moving the right panel's tab views into the bottom one and back.
+  `TabbedView` owns its tabs (`RemoveTab` deletes), so it needs a "take" that hands the view over without deleting it - a
+  running `claude` must survive the move. Start-up choice first (portrait / landscape), `auto` after.
+
 **What assumes one panel today** (each needs a decision, none is big):
 - `Editor.cpp` `GetPanelView()` - one panel, the `glbTerminalView` top view. Becomes a list of panels.
 - **Promote to terminal:** the first tab with `promote_target` - searched in the right panel first, then the bottom.
@@ -1159,7 +1172,7 @@ lower:  bottom PanelView
 - **Splitters:** `split.terminal` (bottom) as today, a new `split.panel_right` for the right column; the resize keys go to
   the nearest splitter of their axis already (CLAUDE.md), so `Alt+a` / `Alt+d` in the right panel move its divide - to check.
 
-**Later:** move a tab between the panels (a key, or dragging the tab); a live switch with no restart; the bottom panel
+**Later:** `auto` / a live switch (above); move a tab between the panels (a key, or dragging the tab); the bottom panel
 hidden when it has no tabs (the status row then at the window's foot).
 
 **Tests:** `test_layout` with a right panel: the three columns fill the width, the right panel spans the upper part, both

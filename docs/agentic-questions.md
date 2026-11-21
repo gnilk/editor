@@ -21,11 +21,23 @@ Grouped by **when you ask** - that decides what an answer has to show - not by k
 list grouped Why / How / What / Confidence / Review; nothing is prioritised or dropped yet, that comes once the list has
 settled.
 
+**Two scenarios underneath:** *active development* (like now - before a change, after it, debugging) and *picking up an
+old project* (reading cold). Picking up is a transition: once you know your way around again it is active development, so
+reading cold is the only group that belongs to it alone. One caveat: with an agent writing the code, parts of an active
+project are cold from the day they land - you didn't write them - so reading-cold questions get asked during active work
+too.
+
 Columns:
 - **Asker**: *me* (the person, reading or reviewing), *agent* (before or while it writes), *both*. An answer for an agent is
   plain text it can act on; only the person's questions may need a view.
 - **Source**: **code** (the index: symbols, edges), **runtime** (what actually ran), **history** (git), **record** (commit
-  messages, `#N`, docs, `open-bugs.md`, the hitlist, the agent's conversation), **tests**.
+  messages, `#N`, docs, the known-problems list, the hitlist, the agent's conversation), **tests**.
+- **The known-problems list** is whatever a project keeps of what it knows is wrong and left that way. Here it is
+  `docs/open-bugs.md`: numbered entries (stable numbers, fixed ones removed), each with a repro and enough context to pick
+  it up cold, written by the agent when it finds something it doesn't fix (it owns the file). An entry names files,
+  functions and tests in prose - it is keyed by the bug, not by the line - so the lookup is: the names around a line,
+  grepped in the list. Elsewhere the same source is an issue tracker, `TODO` / `FIXME` comments, a "known issues" note; a
+  tool can't assume our file, only that there is such a list and where it is.
 - **Probe**: what has been tried (§3), what is planned (§4), or blank.
 
 ### Reading cold - "three months later"
@@ -35,7 +47,7 @@ Columns:
 | Why is this line here? | me | history + record | `why.py` (3.3) - yes | blame -> commit -> `#N` -> design doc section -> the conversation. The audit's question |
 | Was this decided, or did it just happen? | me | record | | the sharp form of the one above: is there a `#N` / doc section behind the commit, or only the code? |
 | What was tried and rejected? | me | record | | often only in the conversation - the strongest case for transcripts as a source (§2) |
-| Is this known to be wrong? | both | record | | `open-bugs.md`, the hitlist. "Why is this line here" should end there when the line is listed |
+| Is this known to be wrong? | both | record | | the known-problems list (here `open-bugs.md`) and the hitlist, searched by the function / file names around the line. Matters most when the code *looks* wrong: it may be wrong on purpose, for now. "Why is this line here" should end there when a match is found |
 | Why was this class hierarchy extended this way? When did this type get its base? | me | history + code | | the commit that added the `inherits` edge, then as above |
 | What did this used to do? | me | history | | a function's own history across renames and moves, not the file's |
 | How does a keystroke end up in the line? / a character get from the line to the screen? | me | runtime | tcov stacks (4.1) | a path through layers: SDL / gansi -> `KeyPress` -> `Runloop` -> keymap -> action -> controller -> `Document` -> `Line`; and `Line` -> attributes -> `EditorView` -> `DrawContext` -> backend. Output as one path with the layers named |

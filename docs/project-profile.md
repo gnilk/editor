@@ -16,7 +16,7 @@ They differ in who may write them, and in what they are allowed to do.
 
 | Kind | What | Example | File |
 |---|---|---|---|
-| **Trust** | what the editor may do in this project | Agent Aware or not, channels, what runs on auto, git allowed, shadow repo on / off, where the meta lives | `profile.yml` |
+| **Trust** | what the editor may do in this project | Integrated or not, channels, what runs on auto, git allowed, shadow repo on / off, where the meta lives | `profile.yml` |
 | **Description** | where things are in this project | the manifest: known problems, plan, design docs, how `#N` resolves; rules for md files (in / out of the repo); folders an agent may / may not see | `manifest.yml` |
 | **Editor settings** | how the editor behaves | fonts, keymaps, terminal, `workspace.exclude` | `config.yml` (as today) |
 
@@ -63,7 +63,7 @@ Collected as they come up; names are placeholders.
 
 | Option | Kind | Notes |
 |---|---|---|
-| mode: unaware / agent aware | trust | `agent-integration.md` §2 |
+| mode: unaware / integrated | trust | `agent-integration.md` §2 |
 | channels: ide, mcp, pty, headless | trust | §4 there |
 | what runs without asking (per kind of question), `full_auto` | trust | §3.3 there |
 | git: allowed or not | trust | today the editor runs `git status` etc. unasked - this would gate it |

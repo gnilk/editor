@@ -27,17 +27,20 @@ A hard question - "was this decided?", "should these two be one?" - goes to the 
 Per project, like VS Code's "Trust this folder" - but more is behind it.
 
 - **Unaware** - the editor as it is today: files and git. No transcripts, no shadow repo, no channel to an agent.
-- **Agent Aware** - the user has gone through setup (§3): the project has a manifest (where its truth lives), a set of
-  allowed channels (§4), and settings for what may run without asking.
+- **Integrated** - the user has gone through setup (§3): the project has a manifest (where its truth lives), settings
+  for what may run without asking, and **the editor runs its own agent in its own tab** - the question agent (§6) - over
+  the PTY channel, with the IDE channel connecting by itself (§4).
 
-Inside vs outside the editor is not a mode - it decides which channels exist (§4).
+**Focus (2026-11-21): these two.** The variants in between - an agent outside the editor reached over `/ide`, headless
+calls, an MCP server registered by hand - are noted in §4 but not designed for now. Where the user runs their *own*
+working agent (an editor tab, Ghostty) is their business either way.
 
 ## 3. Setup - a guided process
 
 A few modals, once per project. Every agent call in it is prepared by the editor, shown, accepted, then sent (the editor
 presses Enter).
 
-1. **Turn on Agent Aware** for this project - what it means, what it may cost.
+1. **Turn on Integrated** for this project - what it means, what it may cost.
 2. **Where the meta lives** - a few questions pick it (§5.3): working alone or with others? on several machines? is the
    repo public?
 3. **The survey.** The agent is asked where the project keeps its known problems, plan, design docs, conventions, how `#N`
@@ -133,6 +136,21 @@ Not everyone wants their todo list and known bugs in a public repo.
   Under `full_auto` it runs in the background, still a tab (for inspection); otherwise the tab is where a prompt is
   confirmed and the answer inspected.
 
+### 6.1 The question agent is its own instance
+
+The editor starts it, in its tab, as **a separate agent process and conversation** from the one the user works with -
+whether that one runs in another editor tab or in a terminal outside.
+
+- **Separate:** the conversation and its context; the questions never show up in the user's conversation, nor the user's
+  work in the question agent's.
+- **Shared:** the account (its usage is the user's - consent, §1), the working tree, `AGENTS.md` / `CLAUDE.md`, the agent's
+  config. With Claude Code also its per-project auto-memory directory and transcript folder (different session files) -
+  two instances can write the same memory; to watch.
+- **It reads, it doesn't edit.** Two agents changing one working tree is a race; the question agent is started read-only
+  (permission mode / allowed tools), writing only its answer file and - in setup, accepted - the manifest and `AGENTS.md`.
+- Being two processes is also what lets the editor tell the turns apart: the shadow repo's snapshots (§5.2) are the
+  user's agent's changes; the question agent makes none.
+
 ## 7. Code-care and output-care
 
 Some projects are about their code (the editor, testrunner, an Amiga intro), some about their output (a golf app) - the
@@ -149,4 +167,6 @@ structure and access, the more questions can be answered.
 - Idle detection for the PTY channel, per agent.
 - Is the lock-file format documented anywhere stable; can a project-scoped MCP server be one the editor runs (not one the
   agent launches).
+- How the question agent is started read-only, per agent (Claude Code: permission mode / allowed tools), and whether its
+  answer file can be the only write it's allowed.
 - An "answered by" column (tool / agent / both) in `agentic-questions.md` §1.

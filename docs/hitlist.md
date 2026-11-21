@@ -167,6 +167,12 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
 
 ### The agentic baseline (reprioritised 2026-11-21, again after the tool pattern)
 
+**The next couple of weeks (decided 2026-11-21): 1) the UI change - #77 (layouts: a right panel for the agent tab;
+on `dev`, usability §19), 2) the integrated agent - #78 (`agent-integration.md`, `project-profile.md`), 3) the tools -
+#76 and the rows below.** Unaware tools and the integrated agent both. #77 later: the Mac moves between a laptop screen and
+a large monitor - the same layout in both places may not be wanted (`auto` by window shape may cover it; cross that bridge
+then).
+
 What the agentic features (`agentic-features.md`: graphs, type-diff, regular diff) stand on - the analysis is its "Baseline"
 section. **Exploring, through separate tools** (its "Status" section): the editor writes a readable X, a tool (Python first)
 makes Z, the editor shows Z. So the order is:

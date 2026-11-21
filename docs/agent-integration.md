@@ -113,6 +113,17 @@ agent's turns, the user's `.git` untouched. Type-diff and "what did it change th
 before anything is committed. Turn boundaries from the channel (or the transcript); without an agent, when the files
 settle.
 
+**Each snapshot says whose turn it was** (review feedback, 2026-11-21). More than one thing changes the tree: the user's
+agent (maybe two), the user in the editor, and - in setup - the question agent. So every shadow commit carries trailers:
+`Session: <id>` + `Agent: claude-code`, or `Source: editor-save` for the user's own edits. "What did the agent I work
+with change" is then a filter on the shadow log.
+
+- **The session id without requiring hooks:** for the user's agent, the transcript just written (its file is named by the
+  session); for the question agent, the editor started it and knows it (passed in where the agent accepts one, else read
+  from the transcript it creates). Hooks (the Stop hook's `session_id`) are the precise source once the user opts in.
+- **The editor's own output never shows up as a change:** answer files go under `.goatedit/`, and the shadow repo's own
+  exclude (`shadow.git/info/exclude`) leaves `.goatedit/` out. Trailers tell agents apart; the exclude keeps the editor out.
+
 ### 5.3 Where the meta lives - open (the user is thinking about it)
 
 Not everyone wants their todo list and known bugs in a public repo.
@@ -148,8 +159,9 @@ whether that one runs in another editor tab or in a terminal outside.
   two instances can write the same memory; to watch.
 - **It reads, it doesn't edit.** Two agents changing one working tree is a race; the question agent is started read-only
   (permission mode / allowed tools), writing only its answer file and - in setup, accepted - the manifest and `AGENTS.md`.
-- Being two processes is also what lets the editor tell the turns apart: the shadow repo's snapshots (§5.2) are the
-  user's agent's changes; the question agent makes none.
+- Being two processes, with their own session ids, is what lets the editor tell the turns apart - each shadow snapshot is
+  tagged with the session that ended the turn (§5.2), and the question agent's output sits in `.goatedit/`, outside the
+  snapshots.
 
 ## 7. Code-care and output-care
 

@@ -1117,3 +1117,36 @@ fed from `BuildMessages::LineMarks` as the gutter is, in `gutter_error` / `gutte
 
 Low priority - the Messages tab is what gets used for this; the minimap is small.
 
+
+## 19. The panel on the right (not scheduled)
+
+Filed 2026-11-21 (the user). Monitors are wide; the lower panel takes height from the editor and gives the terminal few
+rows. Running an agent in the panel (`agentic-questions.md`) is mostly reading a long scrollback - the reason Claude Code is
+run in a terminal at all - so the panel wants **height**: a column on the right, full height, instead of a strip at the
+bottom.
+
+**Today** (`main.cpp`): `RootView > HSplitViewStatus[ upper = VSplitView[ workspace | editor ], lower = PanelView ]`. The
+status line - and the quick-command line, `SetQuickCmdView(&hSplitViewStatus)` - are drawn **on the splitter row**
+(`HSplitViewStatus::DrawSplitter`). So the status line exists only because there is a horizontal split.
+
+**The shape:** `panel.position: bottom | right` in `config.yml` (default `bottom`, as today).
+- `right`: `VSplitView[ VSplitView[ workspace | editor ] | PanelView ]` - three columns on a wide screen.
+- **The status line needs a home of its own** when there is no horizontal splitter. Choice:
+  - a) a status-line view, one fixed row at the bottom of the window, used in both positions - one path, but in `bottom`
+    the status moves from between editor and terminal to the window's foot;
+  - b) `bottom` keeps the splitter row as today, `right` gets the fixed row - the look of today kept, two paths.
+  Leaning a): the quick-command line and the status line become a view of their own instead of a splitter that draws, which
+  is the cleaner split anyway.
+- **The splitter's size is kept per position** (`split.terminal` for bottom, a new `split.panel_right`), so switching back
+  and forth doesn't lose either.
+- **Keys:** the resize actions already go to the nearest splitter of their axis (CLAUDE.md, split-view routing), so
+  `Alt+a` / `Alt+d` in the panel move its divide in `right`, `Alt+s` / `Alt+w` in `bottom`. To check, not to build.
+- **The terminal:** a narrower, taller pty - the resize path exists. Scrollback is `terminal.scrollback_lines` (10 000);
+  a long agent session may want more, a config value already.
+
+**Later:** a live switch (`.panel right` / `.panel bottom`, or a key) - the views are built once in `main.cpp`, so it means
+re-parenting the panel and the status line; config at start-up first. Also `left` and hiding the workspace tree for
+`editor | panel` only are the same mechanism.
+
+**Tests:** the layout tests (`test_layout`) for `right`: three columns fill the width, the panel full height, the status row
+at the bottom, the splitter clamped; the session keeps both splits.

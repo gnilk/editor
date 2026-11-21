@@ -1,5 +1,8 @@
 # Agentic features
 
+> **2026-11-21:** turned around in [`agentic-questions.md`](agentic-questions.md) - the questions first, probes, then
+> features. This doc stays as the first ideas.
+
 This aims to ouline some features which I believe would help when working with AI Agents.
 Features here are brief and should be treated as ideas for further discussion before planning and later implementation.
 
@@ -19,9 +22,9 @@ Call through an interface may look like:
                          consumer A
                        /
 publisher -> iconsumer - consumer B
-                       \ 
+                       \
                          consumer C
-                        
+
 This will tell us that iconsumer is an extension point.
 Ability to show the extension interface of iconsumer should be possible (like a |+| next to it) and a fold-out below when clicked..
 
@@ -48,6 +51,8 @@ The main purpose is to find architectural changes and to sign them off (or not).
 Thus, there need to a before and after.
 For the editor project - the newly added 'Panel' (#52/#53) which was a refactor of the terminal view handling to a more generic version
 
+
+
 It is important to recognize a graph-diff. Like when an extension point is added or removed..
 
 
@@ -55,18 +60,18 @@ With a type-diff several views are possible
 - New/Removed types (X replaced Y)
 - Which classes have been touched (affected by the diff)
     Ex: TextBuffer ->  'Line::Ref -> ListOfChars::Ref' -> expand to all see all points this changed applies to
-- etc..    
-    
+- etc..
+
 
 ## 'Regular'-Diff
 Ability to see smaller diff's with better clarity.
 
 The left/right paradigm is probably ok.
-But I'd like a specific block singled out, +/- a couple of lines. Clearly, marked.. 
+But I'd like a specific block singled out, +/- a couple of lines. Clearly, marked..
 For small changes this would would to include a couple of lines before and a couple of lines after..
 
 Or, as some have it - side by side - with a clear indication where lines have been inserted and not...
-If original is left and changed right - the left would have gaps where right added code..  
+If original is left and changed right - the left would have gaps where right added code..
 Sometime with graphical elements showcasing it.
 
 Examples: assets/example_diff_bubble.png

@@ -17,57 +17,83 @@ be checked on its own.
 
 ## 1. The questions
 
-Each with where the answer has to come from. Sources: **code** (the index: symbols, edges), **runtime** (what actually ran),
-**history** (git), **record** (commit messages, `#N`, docs, the agent's conversation), **tests**.
+Grouped by **when you ask** - that decides what an answer has to show - not by kind. Rewritten 2026-11-21 from a first
+list grouped Why / How / What / Confidence / Review; nothing is prioritised or dropped yet, that comes once the list has
+settled.
 
-### Why - intent
+Columns:
+- **Asker**: *me* (the person, reading or reviewing), *agent* (before or while it writes), *both*. An answer for an agent is
+  plain text it can act on; only the person's questions may need a view.
+- **Source**: **code** (the index: symbols, edges), **runtime** (what actually ran), **history** (git), **record** (commit
+  messages, `#N`, docs, `open-bugs.md`, the hitlist, the agent's conversation), **tests**.
+- **Probe**: what has been tried (§3), what is planned (§4), or blank.
 
-| Question | Source | Notes |
-|---|---|---|
-| Why is this line here? | history + record | blame -> commit -> `#N` -> design doc section -> the conversation. The audit's question. |
-| Why was this class hierarchy extended this way? When did this type get its base? | history + code | the commit that added the `inherits` edge, then as above |
-| This block is almost identical to that one - copied, or grown alike? Should they be one? | code + history | near-duplicate lines (the line hashes exist), then blame both: same commit, or one copied from the other |
-| Why is this file in this folder, when it clearly belongs somewhere else? | code + history | where its includes / holds point, per folder; when it moved, or why it never did |
-| Was this decided, or did it just happen? | record | is there a `#N` / doc section behind the commit, or only the code? |
+### Reading cold - "three months later"
 
-### How - flow
+| Question | Asker | Source | Probe | Notes |
+|---|---|---|---|---|
+| Why is this line here? | me | history + record | `why.py` (3.3) - yes | blame -> commit -> `#N` -> design doc section -> the conversation. The audit's question |
+| Was this decided, or did it just happen? | me | record | | the sharp form of the one above: is there a `#N` / doc section behind the commit, or only the code? |
+| What was tried and rejected? | me | record | | often only in the conversation - the strongest case for transcripts as a source (§2) |
+| Is this known to be wrong? | both | record | | `open-bugs.md`, the hitlist. "Why is this line here" should end there when the line is listed |
+| Why was this class hierarchy extended this way? When did this type get its base? | me | history + code | | the commit that added the `inherits` edge, then as above |
+| What did this used to do? | me | history | | a function's own history across renames and moves, not the file's |
+| How does a keystroke end up in the line? / a character get from the line to the screen? | me | runtime | tcov stacks (4.1) | a path through layers: SDL / gansi -> `KeyPress` -> `Runloop` -> keymap -> action -> controller -> `Document` -> `Line`; and `Line` -> attributes -> `EditorView` -> `DrawContext` -> backend. Output as one path with the layers named |
 
-| Question | Source | Notes |
-|---|---|---|
-| How does this function get invoked? (`EditorView::ReInitView`) | runtime, code | **async, timer and event paths matter most** - static calls stop at a callback, a virtual call or a posted message (code-index §8.1) |
-| How does a keystroke end up in the line? | runtime | a path through layers: SDL / gansi -> `KeyPress` -> `Runloop` -> keymap -> action -> controller -> `Document` -> `Line` |
-| How does a character get from the line to the screen? | runtime | `Line` -> attributes -> `EditorView` -> `DrawContext` -> backend |
-| Which thread runs this, and what guards it? | runtime + code | the pty reader / parse thread / git thread / main; `screenLock`, `linesLock` |
-| Who posts this, and when does it run? | runtime | for an async call the stack ends at the runloop - the poster is the answer |
+### Before a change
 
-### What - structure
+| Question | Asker | Source | Probe | Notes |
+|---|---|---|---|---|
+| Where does X happen? (the tab row is drawn, the bell sounds) | both | runtime + code | tcov stacks (4.1) | feature location - the most common first question of a task. Trigger the feature, see what ran |
+| Does this already exist? | agent | code | | code-index §10.3 |
+| Is there a pattern for this? | agent | record + code | | precedent: CLAUDE.md's established patterns, "`NewDocument` is the template". The companion to "does this exist" |
+| What depends on this - what breaks if I change it? | both | code (+ tests) | | `holds` / `inherits` reversed now; references with code-index step 6 |
+| Which tests should I run after changing this? | both | tests + code | tcov stacks (4.1) | the reverse of coverage - under `trun` the test case is in every stack |
+| Where are the extension points? | both | code | | an interface with several implementations that something holds |
+| Is this function covered by a test? Which one? How much of this class? | both | tests (runtime) | `tests_mention.py` (3.2) - a pointer; tcov (4.1) | "no test names it" as the cheap first cut, per function / per class from coverage |
+| Is this in the wrong folder? | both | code | (4) | share of its includes / holds that point into its own folder; the outliers |
+| This block is almost identical to that one - is it a duplicate? | both | code | (4) | near-duplicate runs of line hashes (the hashes exist) |
 
-| Question | Source | Notes |
-|---|---|---|
-| Does this already exist? (before writing) | code | code-index §10.3: the agent's question |
-| What depends on this - what breaks if I change it? | code (+ tests) | `holds` / `inherits` reversed now; references with code-index step 6 |
-| Where are the extension points? | code | an interface with several implementations that something holds |
-| Does the code still follow the rules we wrote down? | code | CLAUDE.md's layering rules as checks |
+### After a change - review
 
-### Confidence - tests
+| Question | Asker | Source | Probe | Notes |
+|---|---|---|---|---|
+| What did this change do to the structure? | me | code at two revisions | `typediff.py` (3.1) - yes | types, edges, folder includes; the edges and includes are the signal, the function list is noise |
+| What did the agent change that I didn't ask for? | me | record + history | | the prompt (transcript) against the diff |
+| Does its explanation match the code? | me | record + code | | the commit message against the type-diff |
+| What did it read before deciding? | me | record | | the tool calls in the transcript - what it looked at, and what it didn't |
+| Did it add something that already existed? | me | code | | the new names against the index before the change |
+| Did it leave something dead behind? | both | code + tests | | removed callers, unreferenced functions |
+| What did this change add that no test touches? | both | tests + history | `tests_mention.py` (3.2) | the change's new functions against coverage |
+| Does the code still follow the rules we wrote down? | both | code | `typediff.py` caught one (3.1) | CLAUDE.md's layering rules as checks (`Views/` may not include `Modals/`; SDL2 and SDL3 kept in sync) |
+| Is the why written down? | both | record | | the commit, the `#N`, the doc |
+| Was this verified, and where? | me | record | | Linux / Mac, SDL2 / SDL3, hand-tested or only unit-tested - today only the agent's notes answer it |
 
-| Question | Source | Notes |
-|---|---|---|
-| Is this function covered by a unit test? Which one? | tests (runtime) | coverage of a `libutests` run; "no test names it" as the cheap first cut |
-| How much of this class is covered? | tests (runtime) | per function, per class |
-| Which tests should I run after changing this? | tests + code | the reverse of coverage |
-| What did this change add that no test touches? | tests + history | the change's new functions against coverage |
+### When it's wrong - debugging
 
-### A change - review
+| Question | Asker | Source | Probe | Notes |
+|---|---|---|---|---|
+| How does this function get invoked? (`EditorView::ReInitView`) | both | runtime, code | tcov stacks (4.1) | **async, timer and event paths matter most** - static calls stop at a callback, a virtual call or a posted message (code-index §8.1) |
+| Who posts this, and when does it run? | both | runtime | tcov stacks + post breakpoint (4.1) | for an async call the stack ends at the runloop - the poster is the answer |
+| Which thread runs this, and what guards it? | both | runtime + code | tcov stacks (4.1) | the pty reader / parse thread / git thread / main; `screenLock`, `linesLock` |
+| Who owns this, and when does it die? | both | code + runtime | | `holds(owns / borrows)` edges exist - the type-diff found `PanelTab` borrowing what `TabbedView::Tab` owns. The terminal-resize UAF was this shape |
+| Where does this value come from? | both | code + runtime | | data flow, not control flow: a config value from default / user / project / `inherit:`; a colour from the theme or a language token |
+| What does this cost? | both | runtime | `gedit-bench` (partly) | keystroke latency on `sqlite3.c`, a recolour, a parse |
 
-| Question | Source | Notes |
-|---|---|---|
-| What did this change do to the structure? | code at two revisions | the type-diff - types, edges, folder includes |
-| Did it add something that already existed? | code | the new names against the index before it |
-| Did it leave something dead behind? | code + tests | removed callers, unreferenced functions |
-| Is the why written down? | record | the commit, the `#N`, the doc |
+### Split from the first list
 
-More will come; add them here, with a source.
+- "Why is this file in this folder, when it clearly belongs somewhere else?" -> *Is this in the wrong folder?* (before a
+  change, code) + *why is this line here* on its include / move (history).
+- "Almost identical - copied or grown alike? Should they be one?" -> *is it a duplicate?* (code) + *why* on both blocks
+  (history); "should they be one" is the judgement, the person's.
+
+### Where the probes are
+
+The three probes that earned a "yes" (§3) all answer questions the **record** already holds - the commits were written to
+carry the why. The questions with no probe yet are the hard ones: **feature location, data flow, ownership**, and the
+agent-review questions whose source is the transcript. That is where the next probes go.
+
+More will come; add them here, with an asker and a source.
 
 ## 2. Agent aware
 

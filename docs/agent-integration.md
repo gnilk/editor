@@ -94,15 +94,18 @@ No public spec; read from the 2.1.329 binary - internal, may change. A neovim pl
 
 1. **Truth** - the user's and the agent's: the working tree, git, the docs, the known-problems list, the tracker, commit
    messages, the agent's transcripts. The editor reads it; writes only through setup or the user's settings.
-2. **Derived** - the editor's: index, coverage, stacks, type-diffs, snapshots. In `~/.cache/goatedit/<project>/`, keyed by
-   commit or content hash. Delete it and nothing is lost.
+2. **Derived** - the editor's: index, coverage, stacks, type-diffs, snapshots. In `<root>/.goatedit/cache/`, keyed by
+   commit or content hash, kept out of git by `.git/info/exclude`. Delete it and nothing is lost.
 3. **Meta** - the manifest: where this project keeps what. Proposed by the agent, approved by the user (§3). Where it is
    stored is chosen at setup (§5.3).
+
+A project is contained: all of it lives in the project folder - the layout, and how trust is approved, are in
+[`project-profile.md`](project-profile.md).
 
 ### 5.2 The shadow repo - history between commits
 
 An agent works in turns; git sees commits. At each turn boundary the editor snapshots the work tree into its own repo:
-`git --git-dir=~/.cache/goatedit/<project>/shadow.git --work-tree=<root> add -A && commit`. A real git history of the
+`git --git-dir=<root>/.goatedit/shadow.git --work-tree=<root> add -A && commit`. A real git history of the
 agent's turns, the user's `.git` untouched. Type-diff and "what did it change that I didn't ask for" then work per turn,
 before anything is committed. Turn boundaries from the channel (or the transcript); without an agent, when the files
 settle.
@@ -113,7 +116,7 @@ Not everyone wants their todo list and known bugs in a public repo.
 
 | Answers at setup | Meta |
 |---|---|
-| Alone, one machine | private, outside the repo (`~/.config/goatedit/projects/<id>/`) |
+| Alone, one machine | in `.goatedit/`, not committed |
 | Alone, several machines, public repo | a **sidecar repo** - a separate private git repo for the meta |
 | With others | in the repo, committed |
 

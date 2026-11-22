@@ -165,17 +165,61 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
 
 ## Next - suggested order
 
+### The agentic baseline (reprioritised 2026-11-21, again after the tool pattern)
+
+**The next couple of weeks (decided 2026-11-21): 1) the UI change - #77 (layouts: a right panel for the agent tab;
+`usability-round.md` §19), 2) the integrated agent - #78 (`agent-integration.md`, `project-profile.md`), 3) the tools -
+#76 and the rows below.** Unaware tools and the integrated agent both. #77 later: the Mac moves between a laptop screen and
+a large monitor - the same layout in both places may not be wanted (`auto` by window shape may cover it; cross that bridge
+then).
+
+What the agentic features (`agentic-features.md`: graphs, type-diff, regular diff) stand on - the analysis is its "Baseline"
+section. **Exploring, through separate tools** (its "Status" section): the editor writes a readable X, a tool (Python first)
+makes Z, the editor shows Z. So the order is:
+1. **The export** (#74) - the X.
+2. **Tools over it** - type-diff (#69), extension points (#71), a module roll-up to try modules (#33) - Python, outside the
+   editor; each moves into C++ once its shape has settled.
+3. **The image view as the first graph view** (#7, #65, #66, #13) - a tool's Graphviz PNG, shown and refreshed; then running a
+   tool from the editor (#75).
+4. **The live diff** (#67, #68) - native: a tool can't see unsaved edits.
+5. **Native views** (#70, #72, #73) once the explorations show what they should be.
+
+Code index steps 5 and 7 are not on the path; step 6 (calls / refs) only for call graphs, later.
+
+| # | Item | Where | Size | Notes |
+|---|---|---|---|---|
+| 77 | Portrait and landscape layouts: `main.layout: portrait \| landscape \| auto`. Portrait = today (one bottom panel, all tabs). Landscape = a full-height right panel for `panel_right`'s tabs (the agent - long scrollback, `scrollback_lines` per tab works already) next to the bottom one (the build). The status line stays on the splitter. `auto` by the window's shape, later (tab views moved between panels live - `TabbedView` needs a take-without-delete). Promote / Messages / focus / session learn of two panels | usability §19 | a day or two (+ `auto`) | idea 2026-11-21 (the shapes are the user's); a focus key for the right panel to pick |
+| 78 | Agent integration: Unaware / Integrated (the editor's own question agent in its own tab) per project, a guided setup in modals (the agent surveys, proposes a manifest of where the truth lives, the user approves), channels (IDE lock file, an MCP server, the PTY, headless), consent - setup always asks, after it the user's settings - a question agent in its own tab, a shadow repo per agent turn | `agent-integration.md`, `project-profile.md` | ? | design, exploring - open: where the meta lives (sidecar repo?), AGENTS.md vs MCP instructions. Its settings: a project profile in `.goatedit/` (trust / description / editor settings), trust approved by hash outside the folder |
+| 76 | Questions about code, probes first: one rough script per kind of question (why, how invoked, tested, changed), run on a real change, judged by "did it tell me something new?" - only then a feature. 3 done on the Panel refactor (type-diff, no test names it, why) | `agentic-questions.md` | ongoing | **before the rows below** - they wait for what the probes show |
+| 74 | A readable export of the index - the "X" every tool reads: symbols and edges per file / tree, one fact per line (JSON lines or similar), sorted so two runs diff cleanly, `--at <rev>` scans a revision's text (`git show`). `gedit-bench --dump` is the start (aligned columns for a person today). The bench should also fail with a message, not a segfault, when its assets are missing (seen with a stale build) | `agentic-features.md` Status, `utests/bench/codeindex_bench.cpp` | half a day | first - nothing else on the tool path starts without it |
+| 69 | Structure diff as data (type-diff): the changed files scanned at the base (`Scan(text)` on `git show`) and now, symbols and edges (`inherits`, `holds` + ownership, `includes`) compared by qualified name; touched types from the hunks by extents. A dot-command + `gedit-bench --typediff <rev>` so an agent can ask | `agentic-features.md` Type-diff, `code-index.md` §10.3 | a day or two | **A Python tool over #74 first**, C++ once its shape has settled. Base: the branch point (`merge-base`) - reviewing a change in progress (2026-11-21) |
+| 71 | Extension points: a type with two or more derived types that someone holds (directly or in a container); the scanner records pure virtuals (`= 0`). Marked in the relationship trees and in a type-diff (added / removed) | `agentic-features.md` Graphs | half a day | a Python tool over #74 first; the `= 0` flag goes into the scanner (and the export) |
+| 33 | Code index step 4: modules | `code-index.md` | days | paused 2026-11-08 until the design is thought through. On the agentic path (2026-11-21): a type-diff's "new dependency between modules" needs it. Prototype the roll-up as a Python tool over #74 first - try modules before designing step 4 in C++ |
+| 7 | Image view phase 0: `BufferBase`, `TextBuffer` / `ImageBuffer` | `image-view.md` §2.4 | a day | parked 2026-11-11 |
+| 65 | The view container maps mode -> view (`std::map<DocumentViewMode, ViewBase *>` replaces primary / alternate); Text and Hex move onto it. Split out of #13 - every new mode (Image, Diff, maybe Graph) needs it | `image-view.md` §2.5, `agentic-features.md` Baseline | hours | |
+| 66 | Pixel drawing in `DrawContext`: `DrawImagePixels` (source crop, pixel destination, scale mode) + a texture per image (image-view §3), and filled rect / line / polygon and text at a pixel position. SDL2 + SDL3; ANSI no-ops, each view has a character fallback | `image-view.md` §3, `agentic-features.md` Baseline | a day+ | |
+| 13 | Image view phases 1-3 | `image-view.md` | days | after 7, #65, #66. Phases 1-2 and phase 3's re-decode on change on disk are on the agentic path: the image view is the **first graph view** - a tool's Graphviz PNG, refreshed when the tool rewrites it. The rest of phase 3 is not |
+| 75 | Run a tool from the editor: a dot-command runs a configured tool on the export and opens what it writes (a PNG in the image view, a text report as a document); the view refreshes when the tool rewrites it. `Process` exists. Until then: run it in the terminal, open the result by hand | `agentic-features.md` Status | half a day | after 74, #13 |
+| 67 | Revisions and a line diff: a file's text at any revision (`GitBase`, today HEAD only), the files changed between two revisions / the work tree, a read-only TextBuffer from a text, and an aligning line diff (Myers / histogram) over the line hashes - the right side is the buffer, unsaved edits included | `agentic-features.md` Baseline | a day | decided 2026-11-21: both - own diff for the live buffer, `git diff` parsed for history; one hunks / aligned-rows model the Diff view reads |
+| 68 | Diff view mode: side by side, gap rows where the other side added (`DiffProjection`), scrolled together, both sides coloured, changes within a line, the joining shapes between the panes (#66; ANSI: coloured bands), a hunk with a few lines around, next / previous hunk | `agentic-features.md` Regular diff | days | after 65, 66, 67. Any two revisions: HEAD vs a point X, X stepped towards HEAD to watch a section evolve; the default base deferred |
+| 70 | Type-diff view: #69 as a tree - added / removed / changed, a changed type expands to its holders and derived types (step 3 queries), rows jump | `agentic-features.md` Type-diff | days | after 69 (#33 for module lines). Waits for the tool's text report, opened as a document, to show what the view should be |
+| 72 | Graph view: a layered layout (pure, headless tests) of a type's or module's neighbourhood (inherits, holds, module deps), drawn with #66, zoom / pan from the image viewport (#13 phase 2), nodes jump, `\|+\|` folds out an interface's members. D11 revised: drawn first | `agentic-features.md` Graphs, Decisions | days | **Waits for the PNG version** (#13 + #75 + Graphviz) to show what we want. | decided 2026-11-21: a generated document in the editor area; the layout a library + wrapper binary (own layered layout, grid-snapped; Graphviz `dot -Tplain` optional - look at OSS first). ANSI boxes / lines second |
+| 73 | Graph diff: #72 over #69's before / after, what was added / removed coloured | `agentic-features.md` Type-diff | days | after 69, 72; a Graphviz PNG with colours first |
+
+### Other - not on that path
+
+Still wanted; done between the baseline steps as they come up. #53's remaining steps, #17 / #62 (bugs and a blocker) first.
+
 | # | Item | Where | Size | Notes |
 |---|---|---|---|---|
 | 53 | Tabs in the lower panel (CLion style): a generic `TabbedView` in the UI toolkit first, then several terminals (one for an AI agent - the `PromoteToTerminal` target), a Messages tab (#52), a CMake / build tab | `panel-tabs.md` | days | steps 1-3 built 2026-11-19: `TabbedView`, the lower panel is one, several terminals (`Cmd+T`/`Cmd+W`, Linux `Ctrl+Shift+T`/`W`; tabs kept across a restart). step 4 built 2026-11-20 (configured tabs, the AI terminal - `panel.tabs`, `inherit:` for config sections, settings handed over, `PanelView`, `promote_target`). step 5 Messages tab built 2026-11-20 (`view: messages`). Next: a CMake / build tab, 6 close buttons (#26). Idea 2026-11-18; decisions in §6 (one container replaces "the terminal", the `SwitchToBuffer` keys (Mac `Cmd/Opt+1..9`, Linux `Alt+1..9`) per focused container, default tabs from config, tab row hidden with one tab); close buttons need #26 |
-| 77 | Portrait and landscape layouts: `main.layout: portrait \| landscape \| auto`. Portrait = today (one bottom panel, all tabs). Landscape = a full-height right panel for `panel_right`'s tabs (the agent - long scrollback, `scrollback_lines` per tab works already) next to the bottom one (the build). The status line stays on the splitter. `auto` by the window's shape, later (tab views moved between panels live - `TabbedView` needs a take-without-delete). Promote / Messages / focus / session learn of two panels | usability §19 | a day or two (+ `auto`) | idea 2026-11-21 (the shapes are the user's); a focus key for the right panel to pick |
+| 17 | A config list overwrites the default list by position | open-bugs #28 | half a day | idea: an immutable merge that returns a new tree; `LanguageFileSet::Merge` is the model. **Blocks #61** (a project's `panel.tabs`, a user's `bootstrap:` over a shipped one) |
+| 62 | `ConfigFilePatcher` (`.cfg`) appends to / removes from a list in place, comments kept - today it writes one scalar | `ConfigFilePatcher` | half a day | **blocks #61** (`.panel add` appends to `panel.tabs`) |
+| 61 | Ready-made panel tabs: sections (`claude:`, `codex:`, ... with a `label`) ship in the default config; `.panel add / del / list [--project] <section>` adds / removes `{ name, config }` in `panel.tabs` and opens / closes the tab now | usability §17 | a day | idea 2026-11-20; **after #17 and #62** |
 | 56 | `--geometry WxH[+X+Y]` (X11 style) for the window version: size, and position if given - wins over the session's saved geometry. For test windows and screenshots (they open at the display's default size), and anyone who wants a fixed start | `Editor` args -> `ScreenBase::SetRequestedWindowGeometry` (the session already feeds it, `Editor.cpp` ~1226) | hours | asked 2026-11-18; not saved back into the session? (decide) |
 | 60 | The minimap follows soft wrap: one minimap line per wrapped row, as VS Code draws it (today a wrapped paragraph is one long dense line - VS Code's map of a Markdown file is ~25% longer and airier, `screenshots/Minimap_Editor_vs_VSCode.png`). `OverviewMap` / `Minimap::Render` over the `WrapProjection` rows; the viewport box and clicks in rows | `Minimap`, `OverviewView`, `WrapProjection` | half a day | found 2026-11-19 |
 | 63 | Build errors / warnings as marks in the minimap (`OverviewMap` gets the kinds, from `BuildMessages::LineMarks` as the gutter). Low - the Messages tab is what is used | `usability-round.md` §18 | hours | note only 2026-11-20 |
 | 64 | Terminal: copy an older command's output (split from #32) - `.co` copies only the last *shell* command's, never a dot-command's (2026-11-19: a `.theme list` result could only be shared as a screenshot) | `terminal-vt.md` "Next" | ? | idea, not decided - a copy modal? |
-| 17 | A config list overwrites the default list by position | open-bugs #28 | half a day | idea: an immutable merge that returns a new tree; `LanguageFileSet::Merge` is the model. **Blocks #61** (a project's `panel.tabs`, a user's `bootstrap:` over a shipped one) |
-| 62 | `ConfigFilePatcher` (`.cfg`) appends to / removes from a list in place, comments kept - today it writes one scalar | `ConfigFilePatcher` | half a day | **blocks #61** (`.panel add` appends to `panel.tabs`) |
-| 61 | Ready-made panel tabs: sections (`claude:`, `codex:`, ... with a `label`) ship in the default config; `.panel add / del / list [--project] <section>` adds / removes `{ name, config }` in `panel.tabs` and opens / closes the tab now | usability §17 | a day | idea 2026-11-20; **after #17 and #62** |
 | 12 | Languages phase 3: the user directory, `.lang_reload`, `override: yes` | `support-languages.md` | a day | user language dirs aren't read yet |
 | 6 | Gansi copy fallback: `pbcopy` / `xclip` / `wl-copy` when local | open-bugs #20 notes | half a day | fits with #20 |
 | 25 | `Cmd` held underlines a name a click would jump from | usability §14 | half a day | decided: only names the index resolves, an underline; needs the hover plumbing (as 26, 27) |
@@ -184,11 +228,8 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
 | 8 | Key binding groups: `FunctionModifier`, `CodeNavigationModifier`, `docs/keybindings.md` | usability §11 | days | decide the `CodeNavigationModifier` key first |
 | 28 | Key bindings for script commands (`ReformatLine` as a quick command) | usability §4 | ? | note, not scheduled |
 | 30 | Workspace text search on `Cmd+Shift+F` | usability §3 c | days | design first |
-| 7 | Image view phase 0: `BufferBase`, `TextBuffer` / `ImageBuffer` | `image-view.md` §2.4 | a day | parked 2026-11-11 |
-| 13 | Image view phases 1-3 | `image-view.md` | days | after 7 |
 | 14 | Languages phase 4: every language from a file; `indent.yml` / `autopairs.yml` move in | `support-languages.md` §2.2 | days | |
 | 31 | The minimap in the terminal (Gansi graphics: kitty / sixel) | usability §7 step 3 | days | |
-| 33 | Code index step 4: modules | `code-index.md` | days | paused 2026-11-08 until the design is thought through |
 | 34 | Per-block syntax highlighting in the terminal | `syntax-blocks.md` | days | deferred |
 | 36 | An "open folder" command (a dot-command and/or a key) - open a folder as the project after start-up | - | ? | no command for it yet; since #23 only `goatedit <one folder>` is a project, so this is the other way in. Design: what happens to the open files and the session |
 

@@ -29,6 +29,10 @@ std::vector<std::string> EditorAPI::GetLanguageDescriptions() {
     return Editor::Instance().GetLanguageDescriptions();
 }
 
+std::vector<std::string> EditorAPI::GetAgentInfo() {
+    return Editor::Instance().DescribeAgent();
+}
+
 std::vector<PluginCommand::Ref> EditorAPI::GetRegisteredCommands() {
     return RuntimeConfig::Instance().GetPluginCommands();
 }

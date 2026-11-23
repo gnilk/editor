@@ -28,6 +28,8 @@ namespace gedit {
         ThemeAPI::Ref GetCurrentTheme();
         std::vector<std::string> GetRegisteredLanguages();
         std::vector<std::string> GetLanguageDescriptions();
+        // '.agent' (hitlist #78): the agent main.ai_integration picks, whether it is found, what the editor would start
+        std::vector<std::string> GetAgentInfo();
         std::vector<PluginCommand::Ref> GetRegisteredCommands();
 
         DocumentAPI::Ref GetActiveDocument();

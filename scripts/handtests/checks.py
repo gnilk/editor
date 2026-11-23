@@ -539,6 +539,54 @@ def right_panel_auto(n):
         g.kill()
 
 
+@check('#78 Agent integration: main.ai_integration none (default) / claude, never from a project config; .agent')
+def agent_integration(n):
+    sb, work = sandbox('agent_integration')
+
+    def agent_lines(g):
+        g.send(alt('t'), 0.4)
+        g.type('.agent', wait=0.2)
+        g.send(ENTER, 1.0)
+        g.wait_text('Agent: ', 2)
+        return '\n'.join(g.screen.lines())
+
+    # Default: none - and a project config naming one is not used
+    write(os.path.join(work, '.goatedit', 'config.yml'), 'main:\n  ai_integration: claude\n')
+    g = Goat(sb, ['.'], cwd=work, skip_user_config=False)
+    try:
+        g.ready()
+        text = agent_lines(g)
+        n('Agent: none' in text, 'default (and a project config saying claude): none')
+        n('Question agent' not in text, 'none: nothing that would be started')
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+
+    # The user config picks claude: the commands for this project, nothing started
+    user_config(sb, 'main:\n  ai_integration: claude\n')
+    g = Goat(sb, ['.'], cwd=work, skip_user_config=False)
+    try:
+        g.ready()
+        text = agent_lines(g)
+        n('Agent: claude' in text, 'user config: claude')
+        n('claude --permission-mode plan' in text, 'the question agent is read-only (plan mode)')
+        n('-work' in text and 'projects' in text, "its transcript folder, named after the project's path")
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+
+    # A name there is none of: a start-up notice, none
+    user_config(sb, 'main:\n  ai_integration: hal9000\n')
+    g = Goat(sb, ['.'], cwd=work, skip_user_config=False)
+    try:
+        g.ready()
+        n(g.wait_text("no agent 'hal9000'", 3), 'an unknown name: a notice in the terminal')
+        n('Agent: none' in agent_lines(g), 'and none')
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+
+
 @check('#53 step 5 Messages tab: the build list kept open in the lower panel')
 def messages_tab(n):
     if shutil.which('cc') is None:

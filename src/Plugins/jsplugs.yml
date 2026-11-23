@@ -78,6 +78,11 @@ commands:
     arguments:
       - string, portrait | landscape | auto
   -
+    name: agent
+    short: agent
+    description: "Agent: the AI agent main.ai_integration picks (none | claude), whether it is found, what would be started - nothing is"
+    script: Scripts/agent.js
+  -
     name: panel
     short: panel
     description: "Panel: move - the focused panel's shown tab to the other panel (its home: kept across a restart)"

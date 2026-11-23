@@ -37,6 +37,8 @@
 #include "Core/UI/Views/RootView.h"
 #include "Core/Editor/Views/WorkspaceView.h"
 #include "Core/Editor/Views/PanelView.h"
+#include "Core/Agent/AgentIntegrations.h"
+#include "Core/Agent/NoAgent.h"
 
 
 // SDL3 backend
@@ -318,6 +320,7 @@ bool Editor::Initialize(int argc, const char **argv) {
         Editor::Instance().SaveSession();
     });
 
+    ConfigureAgent();
     ConfigureGlobalAPIObjects();
 
     // create a document if cmd-line didn't specify any
@@ -638,6 +641,59 @@ std::string Editor::MovePanelTab() {
     auto message = panelHost->MoveShownTab(focused);
     TriggerUIRedraw();
     return message;
+}
+
+void Editor::ConfigureAgent() {
+    auto name = Config::Instance()["main"].GetStr("ai_integration", NoAgent::NAME);
+    agent = AgentIntegrations::Create(name);
+    if (agent == nullptr) {
+        std::string names;
+        for (auto &known : AgentIntegrations::Names()) {
+            names += (names.empty() ? "" : ", ") + known;
+        }
+        Notice(fmt::format("main.ai_integration: no agent '{}' - using none (there are: {})", name, names));
+        agent = NoAgent::Create();
+    }
+    logger->Debug("Agent integration: %s", agent->Status().c_str());
+}
+
+std::vector<std::string> Editor::DescribeAgent() {
+    auto join = [](const std::vector<std::string> &words) {
+        std::string line;
+        for (auto &word : words) {
+            line += (line.empty() ? "" : " ") + word;
+        }
+        return line;
+    };
+    std::vector<std::string> lines;
+    lines.push_back("Agent: " + agent->Status());
+    if (agent->Name() == NoAgent::NAME) {
+        lines.push_back("Set 'main.ai_integration' in your user config to use one (none | claude): '.cfg set main.ai_integration claude'");
+        return lines;
+    }
+    auto root = GetProjectRootPath();
+    lines.push_back("Project:        " + root.string());
+    lines.push_back("Working agent:  " + join(agent->WorkingAgentCommand(root)));
+    lines.push_back("Question agent: " + join(agent->QuestionAgentCommand(root)) + " (reads, never edits)");
+    auto transcripts = agent->TranscriptDir(root);
+    if (transcripts.has_value()) {
+        std::error_code ec;
+        auto isThere = std::filesystem::is_directory(transcripts.value(), ec);
+        lines.push_back("Transcripts:    " + transcripts->string() + (isThere ? "" : " (none yet)"));
+    }
+    return lines;
+}
+
+std::filesystem::path Editor::GetProjectRootPath() {
+    if (workspace != nullptr) {
+        for (auto &root : workspace->GetProjectRoots()) {
+            if (IsProjectRoot(root)) {
+                return pathutil::CanonicalPath(root->GetRootPath());
+            }
+        }
+    }
+    std::error_code ec;
+    return std::filesystem::current_path(ec);
 }
 
 void Editor::RegisterPanelOutputConsole() {

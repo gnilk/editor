@@ -175,6 +175,13 @@ soft (dimmed in the tree, a frontier until expanded, skipped by index and monito
 ### Terminal Emulation (`src/ext/gvt` + `src/Core/TerminalScreen.{h,cpp}`; plan and status `docs/terminal-vt.md`)
 The emulation is the standalone **gvt** library (`gnilk::vt`): `Parser` (Williams state machine, streaming - split reads are fine) -> `Terminal` (grid, cursor, pending wrap, scroll region, SGR, alt screen, wide chars, replies) -> `ITerminalHost` callbacks. Tested on its own (`gvttests`, against libvterm). `TerminalScreen` owns a `gvt::Terminal` and keeps the EDITOR's parts: scrollback (fed by `OnRowScrolledOut`), where the last command's output starts, abs-row spine, persistence, and a resolved-colour row cache (`GetRow`; inverse/hidden applied, a wide char's right half is `width 0`, `ch 0`). `TerminalController` is the host: `WriteToPty` (DA/DSR/... replies), `OnSemanticPrompt` (OSC 133;C marks where output starts). The pty is read on a **separate thread** (`Shell::ConsumePty`) that feeds `TerminalScreen` under `TerminalController::screenLock` — **every path that touches the screen (including `Resize`) must hold that lock.** `Shell` installs **no signal handlers**: the shell's end is the pty read failing (`EIO`). A `SIGCHLD` handler fires for *any* child of the editor (`git status` via `Process`) and once stopped the reader on Linux - commands still ran, nothing was shown (`test_process_shellsurvives`).
 
+### Agent integration (`src/Core/Agent/`, hitlist #78, `docs/agent-integration.md`)
+`AgentIntegration` is what the editor needs from an AI agent (command lines, transcript folder, a prompt naming its answer
+file) - plain data, it runs nothing. `NoAgent` (`none`, the default) answers "nothing"; `ClaudeAgent` (`claude`).
+`main.ai_integration` picks one, from the user config only (`ProjectConfigPolicy` strips it: a folder never switches on an
+agent - calls cost money). `Editor::GetAgent()` is never null. A new agent: an implementation + a line in
+`AgentIntegrations::Create` / `Names`.
+
 ### Platform-Specific
 - Linux: `src/Core/Linux/LinuxFolderMonitor.cpp`
 - macOS: `src/Core/macOS/MacOSFolderMonitor.cpp`, `MacOSSystemFonts.cpp`

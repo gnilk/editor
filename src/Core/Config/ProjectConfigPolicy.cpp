@@ -12,6 +12,7 @@ using namespace gedit;
 static const std::vector<std::pair<std::string, std::string>> deniedKeys = {
     { "main",     "bootstrap_scripts" },
     { "main",     "plugin_directory" },
+    { "main",     "ai_integration" },       // an agent runs on the user's account - a folder never switches one on
     { "logging",  "logfile" },
 };
 

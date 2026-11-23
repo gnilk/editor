@@ -17,6 +17,8 @@ namespace gedit {
         std::vector<std::string> GetRegisteredLanguages();
         std::vector<std::string> GetLanguageDescriptions();
         std::vector<std::string> GetHelp();
+        // Editor.GetAgentInfo() -> [lines] - the agent main.ai_integration picks (hitlist #78)
+        std::vector<std::string> GetAgentInfo();
 
         DocumentAPIWrapper::Ref GetActiveDocument();
         DocumentAPIWrapper::Ref NewDocument(const char *name);

@@ -29,6 +29,7 @@
 #include "Core/TypeUtil.h"
 #include "Core/Editor/Controllers/QuickCommandController.h"
 #include "Core/Editor/Views/PanelHost.h"
+#include "Core/Agent/AgentIntegration.h"
 #include "Core/KeyMapping.h"
 #include "Core/Theme/Theme.h"
 #include "ClipBoard.h"
@@ -245,6 +246,15 @@ namespace gedit {
         // '.panel move': the focused panel's shown tab to the other panel - a line for the user
         std::string MovePanelTab();
 
+        // The user's agent (hitlist #78, main.ai_integration) - 'none' unless the user config names one; never null
+        AgentIntegration::Ref GetAgent() {
+            return agent;
+        }
+        // For '.agent': which one, found or not, and what would be started where - for the project root
+        std::vector<std::string> DescribeAgent();
+        // The project's root: the folder given at launch (a project), else the working directory
+        std::filesystem::path GetProjectRootPath();
+
         const Theme::Ref GetTheme() {
             return theme;
         }
@@ -352,6 +362,8 @@ namespace gedit {
         ~Editor();
         // Option/Alt+T: from outside the panels the one focused last; in one, the other (when there are two)
         std::string PanelToFocus();
+        // main.ai_integration -> the agent; an unknown name is 'none' and a start-up notice
+        void ConfigureAgent();
     private:
         bool isInitialized = false;
         gnilk::ILogger *logger = nullptr;
@@ -365,6 +377,7 @@ namespace gedit {
         bool isStartedFromUI = false;       // launched from the desktop (TakeStartedFromUI, at Initialize)
         std::string lastFocusedPanel = glbTerminalView;
         PanelHost *panelHost = nullptr;
+        AgentIntegration::Ref agent = {};
         std::filesystem::path argAssetDir;  // '--asset-dir', replaces the system asset lookup when set
         std::vector<std::string> pendingFiles;
         std::string importThemeFile;

@@ -185,6 +185,7 @@ Typed in quick mode (`Esc`, then `.name` or `.short`, `Enter`) or at the termina
 | `.listbuffers` | `.lb` |  | List Buffers |
 | `.copyoutput` | `.co` |  | Copy the last terminal command's output to the clipboard |
 | `.layout` | `.layout` | portrait \| landscape \| auto | Layout: [portrait \| landscape \| auto] - where the panels go, for this run (main.layout is the start); none: the layout now |
+| `.agent` | `.agent` |  | Agent: the AI agent main.ai_integration picks (none \| claude), whether it is found, what would be started - nothing is |
 | `.panel` | `.panel` | action | Panel: move - the focused panel's shown tab to the other panel (its home: kept across a restart) |
 | `.outputtobuffer` | `.ob` |  | Open the last terminal command's output in a new buffer |
 | `.closeactive` | `.cb` |  | Close Active Buffer (asks when it has changes not yet saved; '!' closes anyway) |

@@ -2,7 +2,28 @@
 
 Status: **design, exploring** (2026-11-21), on `explore/agentic-questions`. Grew out of
 [`agentic-questions.md`](agentic-questions.md): once the questions were listed, the next question was where their answers'
-sources live, and how the editor and an agent agree on that. Nothing here is built.
+sources live, and how the editor and an agent agree on that.
+
+**Built so far (2026-11-24, branch `feature/agent-integration`, on top of #77 - for review):** the seam only - nothing is
+started or sent yet.
+- `AgentIntegration` (`src/Core/Agent/`): what the editor needs from an agent - its name and status, whether its command
+  is found, the working agent's and the question agent's command lines (§6.1, read-only), where it keeps this project's
+  transcripts (§5.2: session ids), a question put as a prompt that names its answer file (§4, PTY channel). Plain data -
+  nothing in it runs a process.
+- `NoAgent` - **`none`, the default**: every answer is "nothing". The editor as it was (Unaware).
+- `ClaudeAgent` - `claude`: `claude` / `claude --permission-mode plan` (plan mode reads, never edits - whether the answer
+  file can be its one write is still §8), transcripts in `$CLAUDE_CONFIG_DIR` or `~/.claude` + `projects/<the root, every
+  non-alphanumeric as '-'>`.
+- **`main.ai_integration: none | claude`** picks it, user config only - `ProjectConfigPolicy` strips it from a project's
+  config (a folder never switches an agent on; this is *which* agent - *whether* a project is Integrated stays the
+  profile's, `project-profile.md`). An unknown name: a start-up notice, `none`. `Editor::GetAgent()` is never null.
+- `.agent` prints it: which, found or not, what would be started for this project, the transcript folder.
+- Tests: `test_agent`; app check `agent_integration`.
+
+**Next, needs the user:** an agent tab that follows `ai_integration` (a `view: agent` tab starting the integration's
+command, so switching agents is one key) - but a project's `panel.tabs` could then start a paid agent unasked; it should
+start only from the user's own config / session, or ask (§1). Then the question agent's tab and the prompt / answer-file
+round trip (§6). Codex: a second implementation once its read-only flags are checked.
 
 The short version: **tools gather, the agent judges.** The editor runs cheap, repeatable tools for the facts (blame chain,
 type-diff, coverage, call stacks), puts them in a prompt, sends it to an agent with the user's consent, and shows the answer.

@@ -39,6 +39,12 @@ namespace gedit {
         // build. Read from the editor's BuildMessages - any terminal's last build, while it runs too.
         std::optional<std::vector<Message>> GetBuildMessages();
 
+        // The panels' layout (hitlist #77): the setting and what it is now; set it ('portrait' | 'landscape' | 'auto')
+        std::string GetLayout();
+        bool SetLayout(const std::string &setting);
+        // The focused panel's shown tab to the other panel - what happened, for the user
+        std::string MoveTab();
+
     private:
         // The terminal seam, or nullptr when no output console is registered (headless / non-terminal).
         IOutputConsole *Console();

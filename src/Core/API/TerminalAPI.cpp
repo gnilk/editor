@@ -58,3 +58,15 @@ std::optional<std::vector<TerminalAPI::Message>> TerminalAPI::GetBuildMessages()
     }
     return listed;
 }
+
+std::string TerminalAPI::GetLayout() {
+    return Editor::Instance().GetPanelLayout();
+}
+
+bool TerminalAPI::SetLayout(const std::string &setting) {
+    return Editor::Instance().SetPanelLayout(setting);
+}
+
+std::string TerminalAPI::MoveTab() {
+    return Editor::Instance().MovePanelTab();
+}

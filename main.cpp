@@ -289,7 +289,7 @@
 #include "Core/Editor/Views/HexView.h"
 #include "Core/Editor/Views/EditorViewContainer.h"
 #include "Core/UI/Views/RootView.h"
-#include "Core/Editor/Views/PanelLayout.h"
+#include "Core/Editor/Views/PanelHost.h"
 #include "Core/Editor/Views/PanelView.h"
 #include "Core/Session/SessionManager.h"
 #include "Core/UI/Views/HSplitView.h"
@@ -450,27 +450,9 @@ int main(int argc, const char **argv) {
 
     // The panels: terminals in tabs (docs/panel-tabs.md, hitlist #53) - the ones the session had, else the configured
     // ones, else one; the tab row shows from two. Landscape (hitlist #77, main.layout) puts the tabs whose home is the
-    // right on a full-height panel there; portrait - or no such tab - is one panel at the bottom.
-    auto layout = PanelLayout::Choose(Config::Instance()["main"].GetStr("layout", "portrait"), dimensions.Width(), dimensions.Height());
-    auto panelPlan = PanelLayout::PlanTabs(SessionManager::Instance().CurrentSession().terminal, Config::Instance(), layout);
-    auto isRightPanel = !panelPlan.right.empty();
-    auto panelView = PanelView();
-    auto rightPanelView = PanelView();
-    // Ids name a tab's files - unique over both panels
-    auto allPanelIds = [&panelView, &rightPanelView]() {
-        return PanelView::IdsOf({&panelView, &rightPanelView});
-    };
-    panelView.SetIdSource(allPanelIds);
-    panelView.SetTopViewName(glbTerminalView);
-    panelView.AddTabs(panelPlan.bottom, panelPlan.activeBottom);
-    rightPanelView.SetIdSource(allPanelIds);
-    rightPanelView.SetTopViewName(glbTerminalRightView);
-    rightPanelView.SetDefaultHome(PanelView::HOME_RIGHT);
-    rightPanelView.SetKeepsLastTerminal(false);
-    if (isRightPanel) {
-        rightPanelView.AddTabs(panelPlan.right, panelPlan.activeRight);
-    }
-    hSplitViewStatus.SetLower(&panelView);
+    // right on a full-height panel there; portrait - or no such tab - is one panel at the bottom. Built below, once the
+    // workspace and editor part exists.
+    PanelHost panelHost;
 
     auto vStackViewEditor = VStackView();   // This is where the editor and the 'FileHeader' lives, they are stacked vertically
     auto editorHeaderView = EditorHeaderView();
@@ -540,17 +522,14 @@ int main(int argc, const char **argv) {
     vStackViewEditor.AddSubView(&hStackViewEditor, kFill);
 
 
-    // Landscape: the right panel next to the workspace and editor, the full height above the status line
-    auto vSplitViewPanels = VSplitView();
-    if (isRightPanel) {
-        vSplitViewPanels.SetInitialSplitterRatio(0.6f);     // the editor gets 3/5 of the width, the right panel 2/5
-        vSplitViewPanels.SetSessionId("split.panel_right");
-        vSplitViewPanels.SetLeft(&vSplitViewUpper);
-        vSplitViewPanels.SetRight(&rightPanelView);
-        hSplitViewStatus.SetUpper(&vSplitViewPanels);
-    } else {
-        hSplitViewStatus.SetUpper(&vSplitViewUpper);
-    }
+    // The bottom panel under the status line; in landscape the right one beside the workspace and editor, full height
+    PanelHost::Parts panelParts;
+    panelParts.rootView = &rootView;
+    panelParts.statusSplit = &hSplitViewStatus;
+    panelParts.editorArea = &vSplitViewUpper;
+    panelHost.Build(panelParts, SessionManager::Instance().CurrentSession().terminal, Config::Instance(),
+                    Config::Instance()["main"].GetStr("layout", "portrait"), dimensions);
+    Editor::Instance().SetPanelHost(&panelHost);
     hSplitViewStatus.SetInitialSplitterRatio(0.75f);    // editor gets 3/4, terminal 1/4
     // Stable session id so the editor|terminal divide round-trips through the session cache (§4.1).
     hSplitViewStatus.SetSessionId("split.terminal");
@@ -560,10 +539,7 @@ int main(int argc, const char **argv) {
     // item (text or hex) is active, so the rest of the app talks to one stable top view across a swap.
     rootView.AddTopView(&editorViewContainer, glbEditorView);
     // The container is the top view for the lower panel: Option/Alt+T goes to it, it shows its last tab
-    rootView.AddTopView(&panelView, glbTerminalView);
-    if (isRightPanel) {
-        rootView.AddTopView(&rightPanelView, glbTerminalRightView);
-    }
+    panelHost.RegisterTopViews();
     rootView.AddTopView(&workspaceExplorer, glbWorkSpaceView);
 
 //    WorkspaceView workspaceView;

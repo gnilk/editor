@@ -509,6 +509,7 @@ list(APPEND editorsrc src/Core/Editor/Views/HSplitViewStatus.cpp src/Core/Editor
 list(APPEND editorsrc src/Core/Editor/Views/TerminalView.cpp src/Core/Editor/Views/TerminalView.h)
 list(APPEND editorsrc src/Core/Editor/Views/PanelView.cpp src/Core/Editor/Views/PanelView.h)
 list(APPEND editorsrc src/Core/Editor/Views/PanelLayout.cpp src/Core/Editor/Views/PanelLayout.h)
+list(APPEND editorsrc src/Core/Editor/Views/PanelHost.cpp src/Core/Editor/Views/PanelHost.h)
 list(APPEND editorsrc src/Core/Editor/Views/MessagesView.cpp src/Core/Editor/Views/MessagesView.h)
 list(APPEND editorsrc src/Core/Editor/Views/WorkspaceView.cpp src/Core/Editor/Views/WorkspaceView.h)
 list(APPEND editorsrc src/Core/Editor/Views/EditorViewContainer.h)

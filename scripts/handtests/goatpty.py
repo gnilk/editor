@@ -332,6 +332,14 @@ class Goat:
             pass
 
     # --- editor helpers
+    def resize(self, rows, cols, wait=1.0):
+        """The terminal window changes size: the pty's size, SIGWINCH, and a fresh screen to read the redraw into"""
+        self.rows, self.cols = rows, cols
+        fcntl.ioctl(self.fd, termios.TIOCSWINSZ, struct.pack('HHHH', rows, cols, 0, 0))
+        os.kill(self.pid, signal.SIGWINCH)
+        self.screen = Screen(rows, cols)
+        self.pump(wait)
+
     def status_line(self):
         for r in range(self.rows):
             t = self.screen.text(r)

@@ -19,16 +19,20 @@ void PanelView::AddTabs(const std::vector<RestoredTab> &tabs, const std::optiona
     for (auto &tab : tabs) {
         AddPanelTab(tab.spec, tab.scrollbackFile);
     }
-    if (!activeId.has_value()) {
-        return;
+    if (activeId.has_value()) {
+        ShowTabId(activeId.value());
     }
+}
+
+bool PanelView::ShowTabId(const std::string &id) {
     for (size_t i = 0; i < NumTabs(); i++) {
         auto panelTab = PanelTabAt(i);
-        if ((panelTab != nullptr) && (panelTab->spec.id == activeId.value())) {
+        if ((panelTab != nullptr) && (panelTab->spec.id == id)) {
             SetActiveTab(i);
-            return;
+            return true;
         }
     }
+    return false;
 }
 
 void PanelView::CollectTabs(std::vector<TerminalTabSession> &out) {
@@ -121,11 +125,15 @@ std::vector<TerminalView *> PanelView::Terminals() const {
 }
 
 void PanelView::NewTerminal() {
+    NewTerminal(HomeForNewTab());
+}
+
+void PanelView::NewTerminal(const std::string &home) {
     auto id = NextId(IdsInUse());
     TabSpec spec;
     spec.id = id;
     spec.name = NameFor(id);
-    spec.home = HomeForNewTab();
+    spec.home = home;
     auto view = AddTerminal(spec, "");
     if (auto idxTab = IndexOf(view)) {
         SetActiveTab(idxTab.value());
@@ -307,8 +315,16 @@ TerminalView *PanelView::AddTerminal(const TabSpec &spec, const std::string &scr
     view->SetSettings(settings);
     auto &controller = view->GetController();
     controller.SetSessionTab(spec.id, scrollbackFile);
-    // The pty thread: the label changes on the UI thread, if the tab is still there
-    controller.SetTitleChangedHandler([this, view]() {
+    WatchTitle(view);
+    panelTabs.push_back({view, spec});
+    // Starts its shell (TerminalView::InitView)
+    AddTab(std::move(newView), LabelFor(spec.name, ""));
+    return view;
+}
+
+void PanelView::WatchTitle(TerminalView *view) {
+    // The pty thread: the label changes on the UI thread, if the tab is still here
+    view->GetController().SetTitleChangedHandler([this, view]() {
         Runloop::PostMessage(0x00, [this, view](uint32_t) {
             auto idxTab = IndexOf(view);
             auto shown = idxTab.has_value() ? PanelTabAt(idxTab.value()) : nullptr;
@@ -317,10 +333,74 @@ TerminalView *PanelView::AddTerminal(const TabSpec &spec, const std::string &scr
             }
         });
     });
-    panelTabs.push_back({view, spec});
-    // Starts its shell (TerminalView::InitView)
-    AddTab(std::move(newView), LabelFor(spec.name, ""));
-    return view;
+}
+
+std::optional<PanelView::MovedTab> PanelView::TakeTab(size_t idxTab) {
+    auto view = TabView(idxTab);
+    auto it = std::find_if(panelTabs.begin(), panelTabs.end(), [view](const PanelTab &panelTab) {
+        return panelTab.view == view;
+    });
+    if ((view == nullptr) || (it == panelTabs.end())) {
+        return {};
+    }
+    MovedTab moved;
+    moved.spec = it->spec;
+    moved.wasShown = (ActiveTab() == idxTab);
+    panelTabs.erase(it);
+    moved.view = TabbedView::TakeTab(idxTab);
+    return moved;
+}
+
+void PanelView::PutTab(MovedTab tab) {
+    auto view = tab.view.get();
+    if (view == nullptr) {
+        return;
+    }
+    auto terminal = dynamic_cast<TerminalView *>(view);
+    auto label = LabelFor(tab.spec.name, (terminal != nullptr) ? terminal->GetController().GetTitle() : std::string());
+    panelTabs.push_back({view, tab.spec});
+    if (terminal != nullptr) {
+        WatchTitle(terminal);
+    }
+    AddTab(std::move(tab.view), label);
+    if (tab.wasShown) {
+        if (auto idxTab = IndexOf(view)) {
+            SetActiveTab(idxTab.value());
+        }
+    }
+}
+
+std::vector<size_t> PanelView::TabsWithHome(const std::string &home) {
+    std::vector<size_t> indices;
+    for (size_t i = 0; i < NumTabs(); i++) {
+        auto panelTab = PanelTabAt(i);
+        if ((panelTab != nullptr) && (panelTab->spec.home == home)) {
+            indices.push_back(i);
+        }
+    }
+    return indices;
+}
+
+std::string PanelView::TabHome(size_t idxTab) {
+    auto panelTab = PanelTabAt(idxTab);
+    return (panelTab != nullptr) ? panelTab->spec.home : std::string();
+}
+
+void PanelView::SetTabHome(size_t idxTab, const std::string &home) {
+    if (auto panelTab = PanelTabAt(idxTab)) {
+        panelTab->spec.home = home;
+    }
+}
+
+size_t PanelView::NumTerminalsWithHome(const std::string &home) {
+    size_t num = 0;
+    for (size_t i = 0; i < NumTabs(); i++) {
+        auto panelTab = PanelTabAt(i);
+        if ((panelTab != nullptr) && (panelTab->spec.home == home) && (panelTab->Terminal() != nullptr)) {
+            num++;
+        }
+    }
+    return num;
 }
 
 // The last build's messages - the editor's one list - and its section ('keymap'); a section isn't needed

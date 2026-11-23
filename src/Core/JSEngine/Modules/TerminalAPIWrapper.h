@@ -26,6 +26,12 @@ namespace gedit {
         // yet). 'file' is as the tool printed it, 'path' the file it resolved to ('' when not found); line / column from 1,
         // 0 when the tool gave none.
         duk_ret_t GetMessages(duk_context *ctx);
+        // The panels' layout (hitlist #77). Terminal.GetLayout() -> 'portrait' | 'landscape' | 'auto (landscape)' ...
+        duk_ret_t GetLayout(duk_context *ctx);
+        // Terminal.SetLayout('portrait' | 'landscape' | 'auto') -> bool (false: not one of those, or no panels)
+        duk_ret_t SetLayout(duk_context *ctx);
+        // Terminal.MoveTab() -> string: the focused panel's shown tab to the other panel; what happened, for the user
+        duk_ret_t MoveTab(duk_context *ctx);
     };
 }
 

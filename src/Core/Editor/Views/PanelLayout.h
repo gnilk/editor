@@ -38,6 +38,10 @@ namespace gedit {
     public:
         // 'portrait', 'landscape' or 'auto' (by the window's size in cells); anything else is portrait
         static kLayout Choose(const std::string &setting, int cols, int rows);
+        // While running (auto follows the window): within AUTO_MARGIN of the threshold the layout stays as it is, so a
+        // window dragged across it doesn't flip back and forth
+        static kLayout Choose(const std::string &setting, int cols, int rows, kLayout current);
+        static bool IsValidSetting(const std::string &setting);
         // The session's tabs - else the configured ones (panel.tabs, then panel_right.tabs) - each in its home's panel
         // (landscape) or all in the bottom one (portrait). The bottom panel always has a terminal: one 'Shell' is added
         // when it would have none.
@@ -51,6 +55,7 @@ namespace gedit {
         // a 16:10 or 16:9 screen is, a window on half of one is not
         static constexpr float LANDSCAPE_ASPECT = 1.5f;
         static constexpr float CELL_ASPECT = 2.0f;
+        static constexpr float AUTO_MARGIN = 0.1f;
     };
 }
 

@@ -28,6 +28,7 @@
 #include "Core/Workspace.h"
 #include "Core/TypeUtil.h"
 #include "Core/Editor/Controllers/QuickCommandController.h"
+#include "Core/Editor/Views/PanelHost.h"
 #include "Core/KeyMapping.h"
 #include "Core/Theme/Theme.h"
 #include "ClipBoard.h"
@@ -233,6 +234,16 @@ namespace gedit {
         }
         // Dot-command output and the JS console to the bottom panel's terminal ("the terminal")
         void RegisterPanelOutputConsole();
+        // The panels and their layout (hitlist #77) - set by main.cpp; nullptr headless
+        void SetPanelHost(PanelHost *newPanelHost) {
+            panelHost = newPanelHost;
+        }
+        // '.layout': 'portrait' | 'landscape' | 'auto' - laid out now (not saved: main.layout is); false for anything else
+        bool SetPanelLayout(const std::string &setting);
+        // The setting, and what it is now ('auto (landscape)')
+        std::string GetPanelLayout();
+        // '.panel move': the focused panel's shown tab to the other panel - a line for the user
+        std::string MovePanelTab();
 
         const Theme::Ref GetTheme() {
             return theme;
@@ -353,6 +364,7 @@ namespace gedit {
         bool isProjectLaunch = false;       // exactly one folder argument (IsProjectLaunch, at Initialize)
         bool isStartedFromUI = false;       // launched from the desktop (TakeStartedFromUI, at Initialize)
         std::string lastFocusedPanel = glbTerminalView;
+        PanelHost *panelHost = nullptr;
         std::filesystem::path argAssetDir;  // '--asset-dir', replaces the system asset lookup when set
         std::vector<std::string> pendingFiles;
         std::string importThemeFile;

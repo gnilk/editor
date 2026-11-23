@@ -19,6 +19,24 @@ PanelLayout::kLayout PanelLayout::Choose(const std::string &setting, int cols, i
     return kLayout::kPortrait;
 }
 
+PanelLayout::kLayout PanelLayout::Choose(const std::string &setting, int cols, int rows, kLayout current) {
+    if ((setting != "auto") || (cols <= 0) || (rows <= 0)) {
+        return Choose(setting, cols, rows);
+    }
+    auto aspect = (float)cols / ((float)rows * CELL_ASPECT);
+    if (aspect >= LANDSCAPE_ASPECT + AUTO_MARGIN) {
+        return kLayout::kLandscape;
+    }
+    if (aspect <= LANDSCAPE_ASPECT - AUTO_MARGIN) {
+        return kLayout::kPortrait;
+    }
+    return current;
+}
+
+bool PanelLayout::IsValidSetting(const std::string &setting) {
+    return (setting == "portrait") || (setting == "landscape") || (setting == "auto");
+}
+
 PanelLayout::Plan PanelLayout::PlanTabs(const TerminalSession &session, const ConfigNode &config, kLayout layout) {
     std::vector<PanelView::RestoredTab> tabs;
     Plan plan;
@@ -43,7 +61,16 @@ PanelLayout::Plan PanelLayout::PlanTabs(const TerminalSession &session, const Co
         // No tabs in the session (none yet, or one from before tabs - its one terminal's files go to the first tab)
         std::vector<std::string> ids;
         for (auto &[section, home] : {std::pair{"panel", PanelView::HOME_BOTTOM}, std::pair{"panel_right", PanelView::HOME_RIGHT}}) {
-            for (auto &spec : PanelView::ConfiguredTabs(config, section, home, ids)) {
+            auto specs = PanelView::ConfiguredTabs(config, section, home, ids);
+            // No bottom tabs configured: its one 'Shell' is the first tab (the files from before tabs) - before the
+            // right panel's, which would take that id and leave 'Shell 2'
+            if ((home == PanelView::HOME_BOTTOM) && specs.empty()) {
+                PanelView::TabSpec shell;
+                shell.name = PanelView::NameFor("");
+                ids.push_back(shell.id);
+                specs.push_back(shell);
+            }
+            for (auto &spec : specs) {
                 tabs.push_back({spec, spec.id.empty() ? session.scrollbackFile : ""});
             }
         }

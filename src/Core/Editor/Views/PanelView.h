@@ -51,6 +51,12 @@ namespace gedit {
         };
         // The ids in use in every panel - a new tab's id is the first free one
         using IdSource = std::function<std::vector<std::string>()>;
+        // A tab on its way to the other panel (a layout switch, '.panel move') - the view lives on, a shell keeps running
+        struct MovedTab {
+            std::unique_ptr<ViewBase> view = {};
+            TabSpec spec = {};
+            bool wasShown = false;
+        };
     public:
         PanelView() = default;
         virtual ~PanelView() = default;
@@ -60,6 +66,8 @@ namespace gedit {
         // Each tab's name, kind, section, home, files and scrollback - appended
         void CollectTabs(std::vector<TerminalTabSession> &out);
         std::optional<std::string> ActiveTabId();
+        // Shows the tab with this id; false when there is none
+        bool ShowTabId(const std::string &id);
         std::vector<std::string> Ids() const;
         // Every panel's ids, in one list - an id source over several panels
         static std::vector<std::string> IdsOf(const std::vector<const PanelView *> &panels);
@@ -93,8 +101,20 @@ namespace gedit {
         TerminalView *FindPromoteTarget();
         // Every terminal, in tab order
         std::vector<TerminalView *> Terminals() const;
-        // A new shell in a tab of its own, shown (and focused, when the panel has focus)
+        // A new shell in a tab of its own, shown (and focused, when the panel has focus) - homed as the shown tab is
         void NewTerminal();
+        // ... homed here
+        void NewTerminal(const std::string &home);
+
+        // Out of this panel, view and spec - nothing is deleted; nullopt for no such tab
+        std::optional<MovedTab> TakeTab(size_t idxTab);
+        // Into this panel, last; shown when it was shown where it came from
+        void PutTab(MovedTab tab);
+        // The tabs whose home is 'home', in order
+        std::vector<size_t> TabsWithHome(const std::string &home);
+        std::string TabHome(size_t idxTab);
+        void SetTabHome(size_t idxTab, const std::string &home);
+        size_t NumTerminalsWithHome(const std::string &home);
         // A terminal asks first when a job runs in it; the last terminal stays
         void CloseTab(size_t idxTab);
         // Shows the first Messages tab; false when there is none (Cmd/Ctrl+F8 shows the list as a modal then)
@@ -138,6 +158,8 @@ namespace gedit {
         // By the spec's view kind; nullptr for a kind there isn't
         ViewBase *AddPanelTab(const TabSpec &spec, const std::string &scrollbackFile);
         TerminalView *AddTerminal(const TabSpec &spec, const std::string &scrollbackFile);
+        // The label follows the terminal's title - in whichever panel it is
+        void WatchTitle(TerminalView *view);
         MessagesView *AddMessages(const TabSpec &spec);
         void RemovePanelTab(size_t idxTab);
         size_t NumTerminals() const;

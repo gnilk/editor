@@ -36,8 +36,13 @@ ViewBase *TabbedView::AddTab(std::unique_ptr<ViewBase> newView, const std::u32st
 }
 
 void TabbedView::RemoveTab(size_t idxTab) {
+    // Deleted here
+    TakeTab(idxTab);
+}
+
+std::unique_ptr<ViewBase> TabbedView::TakeTab(size_t idxTab) {
     if (idxTab >= tabs.size()) {
-        return;
+        return nullptr;
     }
     auto view = tabs[idxTab].view.get();
     bool wasShown = (activeTab == idxTab);
@@ -47,10 +52,10 @@ void TabbedView::RemoveTab(size_t idxTab) {
         view->SetActive(false);
     }
     view->SetVisible(false);
-    // Deleted when this returns - after the handler, which may still ask about the tabs
+    // Handed back after the handler, which may still ask about the tabs
     auto removed = std::move(tabs[idxTab].view);
     tabs.erase(tabs.begin() + (long)idxTab);
-    std::erase(subviews, view);
+    RemoveView(view);
 
     if (tabs.empty()) {
         activeTab.reset();
@@ -73,6 +78,7 @@ void TabbedView::RemoveTab(size_t idxTab) {
     if (wasShown && activeTab.has_value() && tabChangedHandler) {
         tabChangedHandler(activeTab.value());
     }
+    return removed;
 }
 
 ViewBase *TabbedView::TabView(size_t idxTab) const {

@@ -36,7 +36,6 @@
 #include "Core/Plugins/PluginExecutor.h"
 #include "Core/UI/Views/RootView.h"
 #include "Core/Editor/Views/WorkspaceView.h"
-#include "Core/Editor/Views/PanelLayout.h"
 #include "Core/Editor/Views/PanelView.h"
 
 
@@ -610,6 +609,37 @@ std::string Editor::PanelToFocus() {
     return lastFocusedPanel;
 }
 
+bool Editor::SetPanelLayout(const std::string &setting) {
+    if ((panelHost == nullptr) || !panelHost->SetLayoutSetting(setting)) {
+        return false;
+    }
+    TriggerUIRedraw();
+    return true;
+}
+
+std::string Editor::GetPanelLayout() {
+    if (panelHost == nullptr) {
+        return {};
+    }
+    auto now = (panelHost->Layout() == PanelLayout::kLayout::kLandscape) ? std::string("landscape") : std::string("portrait");
+    return (panelHost->LayoutSetting() == now) ? now : panelHost->LayoutSetting() + " (" + now + ")";
+}
+
+std::string Editor::MovePanelTab() {
+    if (panelHost == nullptr) {
+        return "No panels";
+    }
+    auto *rootView = RuntimeConfig::Instance().GetRootViewAs<RootView>();
+    auto focused = (rootView != nullptr) ? rootView->GetTopViewName().value_or("") : std::string();
+    // A dot-command typed in a panel's terminal runs with that panel focused; from quick mode, the panel used last
+    if ((focused != glbTerminalView) && (focused != glbTerminalRightView)) {
+        focused = lastFocusedPanel;
+    }
+    auto message = panelHost->MoveShownTab(focused);
+    TriggerUIRedraw();
+    return message;
+}
+
 void Editor::RegisterPanelOutputConsole() {
     auto *panelView = GetPanelView();
     auto *terminalView = (panelView != nullptr) ? panelView->ActiveTerminal() : nullptr;
@@ -681,9 +711,8 @@ void Editor::SaveSession() {
         // Terminal scrollback (terminal-scrollback.md §8) - clean-exit only (SaveSession runs from
         // Close()). ToSession resets session.terminal and refills it (or leaves it empty when there's
         // nothing to persist / the feature is off), so a repeated save stays idempotent.
-        auto *panelView = GetPanelView();
-        if (panelView != nullptr) {
-            PanelLayout::SaveTabs(*panelView, GetPanelView(glbTerminalRightView), session.terminal);
+        if (panelHost != nullptr) {
+            panelHost->SaveTabs(session.terminal);
         }
     }
     SessionManager::Instance().Save();

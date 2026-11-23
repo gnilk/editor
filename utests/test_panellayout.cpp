@@ -6,7 +6,10 @@
 
 #include "Core/Config/ConfigNode.h"
 #include "Core/Editor.h"
+#include "Core/Editor/Views/PanelHost.h"
 #include "Core/Editor/Views/PanelLayout.h"
+#include "Core/UI/Views/HSplitView.h"
+#include "Core/UI/Views/RootView.h"
 #include "Core/Editor/Views/PanelView.h"
 #include "Core/Session/SessionState.h"
 
@@ -22,6 +25,11 @@ DLL_EXPORT int test_panellayout_session_before(ITesting *t);
 DLL_EXPORT int test_panellayout_bottom_terminal(ITesting *t);
 DLL_EXPORT int test_panellayout_save(ITesting *t);
 DLL_EXPORT int test_panellayout_newtab(ITesting *t);
+DLL_EXPORT int test_panellayout_choose_margin(ITesting *t);
+DLL_EXPORT int test_panellayout_switch(ITesting *t);
+DLL_EXPORT int test_panellayout_move(ITesting *t);
+DLL_EXPORT int test_panellayout_auto(ITesting *t);
+DLL_EXPORT int test_panellayout_reparent(ITesting *t);
 }
 
 static const char *CONFIG_BOTH =
@@ -156,6 +164,12 @@ DLL_EXPORT int test_panellayout_bottom_terminal(ITesting *t) {
     TR_ASSERT(t, plan.bottom[0].spec.id == "3");
     TR_ASSERT(t, (plan.right.size() == 1) && (plan.right[0].spec.id == "2"));
 
+    // Only panel_right configured: the bottom's Shell takes the first id, the right panel's tab the next
+    auto rightOnly = ConfigNode::FromString("panel_right:\n  tabs:\n    - name: Agent\n");
+    auto planRight = PanelLayout::PlanTabs({}, rightOnly.value(), PanelLayout::kLayout::kLandscape);
+    TR_ASSERT(t, (planRight.bottom.size() == 1) && planRight.bottom[0].spec.id.empty() && (planRight.bottom[0].spec.name == "Shell"));
+    TR_ASSERT(t, (planRight.right.size() == 1) && (planRight.right[0].spec.id == "2"));
+
     // Nothing configured at all: one Shell with the first id
     auto none = ConfigNode::FromString("panel:\n  other: 1\n");
     auto bare = PanelLayout::PlanTabs({}, none.value(), PanelLayout::kLayout::kLandscape);
@@ -220,5 +234,168 @@ DLL_EXPORT int test_panellayout_newtab(ITesting *t) {
     tabs.clear();
     bottom.CollectTabs(tabs);
     TR_ASSERT(t, (tabs.size() == 4) && (tabs[3].id == "5") && (tabs[3].home == PanelView::HOME_BOTTOM));
+    return kTR_Pass;
+}
+
+// auto while running: near the threshold the layout stays as it is - a window dragged across it doesn't flicker
+DLL_EXPORT int test_panellayout_choose_margin(ITesting *t) {
+    using kLayout = PanelLayout::kLayout;
+    // 150x50 cells: 1.5 exactly - the start says landscape, a running one keeps what it has
+    TR_ASSERT(t, PanelLayout::Choose("auto", 150, 50) == kLayout::kLandscape);
+    TR_ASSERT(t, PanelLayout::Choose("auto", 150, 50, kLayout::kPortrait) == kLayout::kPortrait);
+    TR_ASSERT(t, PanelLayout::Choose("auto", 145, 50, kLayout::kLandscape) == kLayout::kLandscape);
+    // Well past it either way: it changes
+    TR_ASSERT(t, PanelLayout::Choose("auto", 170, 50, kLayout::kPortrait) == kLayout::kLandscape);
+    TR_ASSERT(t, PanelLayout::Choose("auto", 130, 50, kLayout::kLandscape) == kLayout::kPortrait);
+    // Not auto: the setting
+    TR_ASSERT(t, PanelLayout::Choose("portrait", 400, 50, kLayout::kLandscape) == kLayout::kPortrait);
+    TR_ASSERT(t, PanelLayout::IsValidSetting("auto") && !PanelLayout::IsValidSetting("wide"));
+    return kTR_Pass;
+}
+
+// A tree as main.cpp has it, with tabs that start no shell: the status split, the editor part above it
+namespace {
+    struct HostTree {
+        RootView rootView;
+        HSplitView statusSplit;
+        ViewBase editorArea;
+        PanelHost host;
+
+        HostTree(const std::string &setting, PanelLayout::kLayout startLayout) {
+            rootView.AddView(&statusSplit);
+            PanelLayout::Plan plan;
+            plan.bottom = {{{"", "Build", PanelView::VIEW_MESSAGES, "messages", PanelView::HOME_BOTTOM}, ""},
+                           {{"2", "Agent", PanelView::VIEW_MESSAGES, "messages", PanelView::HOME_RIGHT}, ""}};
+            if (startLayout == PanelLayout::kLayout::kLandscape) {
+                plan.right = {plan.bottom[1]};
+                plan.bottom.pop_back();
+            }
+            host.BuildFromPlan({&rootView, &statusSplit, &editorArea}, plan, startLayout, setting);
+            rootView.AddTopView(&editorArea, glbEditorView);
+            host.RegisterTopViews();
+            rootView.Initialize();
+        }
+    };
+}
+
+// Portrait to landscape and back while running: the right-homed tab goes to a right panel beside the editor part (the
+// whole upper height) and back - the same view, not a new one; the top view comes and goes with it
+DLL_EXPORT int test_panellayout_switch(ITesting *t) {
+    HostTree tree("portrait", PanelLayout::kLayout::kPortrait);
+    auto &host = tree.host;
+    TR_ASSERT(t, host.Right() == nullptr);
+    TR_ASSERT(t, host.Bottom().NumTabs() == 2);
+    auto agentView = host.Bottom().TabView(1);
+    int width = tree.statusSplit.GetViewRect().Width();
+    TR_ASSERT(t, tree.editorArea.GetViewRect().Width() == width);
+
+    TR_ASSERT(t, host.SetLayoutSetting("landscape"));
+    TR_ASSERT(t, host.Right() != nullptr);
+    TR_ASSERT(t, (host.Bottom().NumTabs() == 1) && (host.Right()->NumTabs() == 1));
+    TR_ASSERT(t, host.Right()->TabView(0) == agentView);
+    TR_ASSERT(t, tree.rootView.GetTopViewByName(glbTerminalRightView) != nullptr);
+    auto rightRect = host.Right()->GetViewRect();
+    auto editorRect = tree.editorArea.GetViewRect();
+    TR_ASSERT(t, editorRect.Width() + rightRect.Width() == width);
+    TR_ASSERT(t, (rightRect.TopLeft().y == editorRect.TopLeft().y) && (rightRect.Height() == editorRect.Height()));
+    TR_ASSERT(t, editorRect.Width() > 0 && rightRect.Width() > 0);
+
+    // Focus in the right panel, then portrait: focus goes to the bottom panel, the tab with it
+    TR_ASSERT(t, tree.rootView.SetActiveTopViewByName(glbTerminalRightView));
+    TR_ASSERT(t, host.SetLayoutSetting("portrait"));
+    TR_ASSERT(t, host.Right() == nullptr);
+    TR_ASSERT(t, host.Bottom().NumTabs() == 2);
+    TR_ASSERT(t, host.Bottom().TabView(1) == agentView);
+    TR_ASSERT(t, tree.rootView.GetTopViewByName(glbTerminalRightView) == nullptr);
+    TR_ASSERT(t, tree.rootView.GetTopViewName() == std::optional<std::string>(glbTerminalView));
+    TR_ASSERT(t, tree.editorArea.GetViewRect().Width() == width);
+
+    // A setting that isn't one: nothing changes
+    TR_ASSERT(t, !host.SetLayoutSetting("sideways"));
+    TR_ASSERT(t, host.LayoutSetting() == "portrait");
+    return kTR_Pass;
+}
+
+// '.panel move': in landscape the tab moves (its home with it) and focus follows; the right panel goes when its last
+// tab leaves and comes back when one is moved there; in portrait only the home changes
+DLL_EXPORT int test_panellayout_move(ITesting *t) {
+    HostTree tree("landscape", PanelLayout::kLayout::kLandscape);
+    auto &host = tree.host;
+    TR_ASSERT(t, host.Right() != nullptr);
+    auto agentView = host.Right()->TabView(0);
+
+    host.MoveShownTab(glbTerminalRightView);
+    TR_ASSERT(t, host.Right() == nullptr);
+    TR_ASSERT(t, (host.Bottom().NumTabs() == 2) && (host.Bottom().TabView(1) == agentView));
+    TR_ASSERT(t, host.Bottom().TabHome(1) == PanelView::HOME_BOTTOM);
+    TR_ASSERT(t, host.Bottom().ActiveTab() == std::optional<size_t>(1));
+    TR_ASSERT(t, tree.rootView.GetTopViewName() == std::optional<std::string>(glbTerminalView));
+
+    host.MoveShownTab(glbTerminalView);
+    TR_ASSERT(t, (host.Right() != nullptr) && (host.Right()->TabView(0) == agentView));
+    TR_ASSERT(t, host.Bottom().NumTabs() == 1);
+    TR_ASSERT(t, tree.rootView.GetTopViewName() == std::optional<std::string>(glbTerminalRightView));
+
+    // Not from a panel: nothing moves
+    host.MoveShownTab(glbEditorView);
+    TR_ASSERT(t, host.Right()->NumTabs() == 1);
+
+    // Portrait: only the home - the tab stays where it is shown
+    TR_ASSERT(t, host.SetLayoutSetting("portrait"));
+    host.Bottom().SetActiveTab(1);
+    host.MoveShownTab(glbTerminalView);
+    TR_ASSERT(t, (host.Bottom().NumTabs() == 2) && (host.Bottom().TabHome(1) == PanelView::HOME_BOTTOM));
+    // ... so landscape has no right panel now
+    TR_ASSERT(t, host.SetLayoutSetting("landscape"));
+    TR_ASSERT(t, host.Right() == nullptr);
+    return kTR_Pass;
+}
+
+// auto follows the window: wide -> landscape, narrow -> portrait, near the threshold it stays; the session keeps the
+// right panel's shown tab through a portrait spell. Called as the root's resize calls it - the switch only, the resize
+// lays it out (the headless screen keeps its own size)
+DLL_EXPORT int test_panellayout_auto(ITesting *t) {
+    HostTree tree("auto", PanelLayout::kLayout::kPortrait);
+    auto &host = tree.host;
+    host.OnScreenResized(gedit::Rect(240, 67), true);
+    TR_ASSERT(t, host.Right() != nullptr);
+    host.OnScreenResized(gedit::Rect(150, 50), true);
+    TR_ASSERT(t, host.Right() != nullptr);
+    host.OnScreenResized(gedit::Rect(120, 67), true);
+    TR_ASSERT(t, host.Right() == nullptr);
+    TerminalSession out;
+    host.SaveTabs(out);
+    TR_ASSERT(t, out.tabs.size() == 2);
+    TR_ASSERT(t, out.tabs[1].home == PanelView::HOME_RIGHT);
+    TR_ASSERT(t, out.activeTabIdRight == std::optional<std::string>("2"));
+    // Not auto: a resize changes nothing
+    TR_ASSERT(t, host.SetLayoutSetting("portrait"));
+    host.OnScreenResized(gedit::Rect(400, 50), true);
+    TR_ASSERT(t, host.Right() == nullptr);
+    return kTR_Pass;
+}
+
+// The toolkit side: a view added to another parent leaves the one it had; a split given a new child lets the old go
+DLL_EXPORT int test_panellayout_reparent(ITesting *t) {
+    RootView rootView;
+    HSplitView split;
+    rootView.AddView(&split);
+    ViewBase a;
+    ViewBase b;
+    ViewBase lower;
+    split.SetUpper(&a);
+    split.SetLower(&lower);
+    rootView.Initialize();
+    TR_ASSERT(t, a.GetParentView() == &split);
+    split.SetUpper(&b);
+    TR_ASSERT(t, a.GetParentView() == nullptr);
+    TR_ASSERT(t, b.GetParentView() == &split);
+    VSplitView other;
+    rootView.AddView(&other);
+    other.SetLeft(&b);
+    TR_ASSERT(t, b.GetParentView() == &other);
+    // Twice to the same parent: once
+    other.SetLeft(&b);
+    TR_ASSERT(t, b.GetParentView() == &other);
     return kTR_Pass;
 }

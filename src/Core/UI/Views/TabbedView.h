@@ -39,6 +39,8 @@ namespace gedit {
         ViewBase *AddTab(std::unique_ptr<ViewBase> view, const std::u32string &label);
         // The view is deleted; the tab after it becomes active when it was, else the one before
         void RemoveTab(size_t idxTab);
+        // As RemoveTab, but the view is handed over, not deleted - to another TabbedView (a running shell survives)
+        std::unique_ptr<ViewBase> TakeTab(size_t idxTab);
 
         size_t NumTabs() const {
             return tabs.size();

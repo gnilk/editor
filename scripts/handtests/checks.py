@@ -455,6 +455,90 @@ def right_panel(n):
         g.kill()
 
 
+@check('#77 Layout while running: .layout portrait / landscape keeps the shells, .panel move')
+def right_panel_live(n):
+    sb, work = sandbox('right_panel_live')
+    user_config(sb, 'main:\n'
+                    '  layout: landscape\n'
+                    'panel:\n'
+                    '  tabs:\n'
+                    '    - name: Shell\n'
+                    'panel_right:\n'
+                    '  tabs:\n'
+                    '    - name: Agent\n')
+
+    def tab_row(g):
+        return [l for l in g.screen.lines() if 'Shell | Agent' in l]
+
+    g = Goat(sb, ['.'], cwd=work, skip_user_config=False)
+    try:
+        g.ready()
+        g.send(alt('t'), 0.4)
+        g.send(alt('t'), 0.4)
+        g.type('echo kept-$((7*6))', wait=0.2)
+        g.send(ENTER, 0.8)
+        kept = g.screen.find('kept-42') if g.wait_text('kept-42', 2) else None
+        n(kept is not None and kept[1] >= g.cols // 2, f'typed in the right panel ({kept})')
+        g.type('.layout portrait', wait=0.2)
+        g.send(ENTER, 1.0)
+        n(g.wait_for(lambda g: tab_row(g), 3), f'.layout portrait: the Agent tab joins the bottom panel ({tab_row(g)})')
+        g.send(alt('t'), 0.4)
+        g.send(alt('2'), 0.8)
+        n(g.wait_text('kept-42', 2), 'its shell lived on - the output is still there')
+        g.type('.layout landscape', wait=0.2)
+        g.send(ENTER, 1.0)
+        n(g.wait_for(lambda g: not tab_row(g), 3), '.layout landscape: back on the right')
+        kept = g.screen.find('kept-42')
+        n(kept is not None and kept[1] >= g.cols // 2, f'with its output ({kept})')
+        # The bottom panel was used last (.layout was typed there): Alt+T goes there, again to the right
+        g.send(alt('e'), 0.3)
+        g.send(alt('t'), 0.4)
+        g.send(alt('t'), 0.4)
+        g.type('.panel move', wait=0.2)
+        g.send(ENTER, 1.0)
+        n(g.wait_for(lambda g: tab_row(g), 3), '.panel move from the right panel: the tab moves to the bottom, the right panel goes')
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+    sessions = [os.path.join(dp, f) for dp, _, fs in os.walk(os.path.join(work, '.goatedit')) for f in fs if f.startswith('session')]
+    text = ''.join(open(f).read() for f in sessions)
+    n('home: right' not in text and 'Agent' in text, 'the move is kept: the Agent tab is homed at the bottom now')
+
+
+@check('#77 main.layout: auto - the window\'s shape decides, while it is resized')
+def right_panel_auto(n):
+    sb, work = sandbox('right_panel_auto')
+    user_config(sb, 'main:\n'
+                    '  layout: auto\n'
+                    'panel_right:\n'
+                    '  tabs:\n'
+                    '    - name: Agent\n')
+
+    def tab_row(g):
+        return [l for l in g.screen.lines() if 'Shell | Agent' in l]
+
+    # 160x40 cells is 2:1 - landscape
+    g = Goat(sb, ['.'], cwd=work, skip_user_config=False, rows=40, cols=160)
+    try:
+        g.ready()
+        g.send(alt('t'), 0.4)
+        g.send(alt('t'), 0.4)
+        g.type('echo auto-$((6*7))', wait=0.2)
+        g.send(ENTER, 0.8)
+        found = g.screen.find('auto-42') if g.wait_text('auto-42', 2) else None
+        n(found is not None and found[1] >= g.cols // 2, f'a wide window starts landscape ({found})')
+        # 90x45 is 1:1 - portrait
+        g.resize(45, 90, 1.5)
+        n(g.wait_for(lambda g: tab_row(g), 3), f'made narrow: portrait, the Agent tab in the bottom panel ({tab_row(g)})')
+        g.resize(40, 160, 1.5)
+        n(g.wait_for(lambda g: not tab_row(g) and 'GoatEdit v' in g.status_line(), 3), 'wide again: landscape')
+        found = g.screen.find('auto-42')
+        n(found is not None and found[1] >= g.cols // 2, f'the agent\'s shell lived through it ({found})')
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+
+
 @check('#53 step 5 Messages tab: the build list kept open in the lower panel')
 def messages_tab(n):
     if shutil.which('cc') is None:

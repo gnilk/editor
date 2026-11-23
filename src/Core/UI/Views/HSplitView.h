@@ -219,7 +219,11 @@ namespace gedit {
             splitterPosBeforeReset = GetSplitterPos();
         }
 
+        // A view already there is taken out of the tree (not deleted) - the layout can change while running
         void SetUpper(ViewBase *newUpper) {
+            if ((upperView != nullptr) && (upperView != newUpper)) {
+                RemoveView(upperView);
+            }
             upperView = newUpper;
             upperView->SetLayoutHandler(this);
             AddView(upperView);
@@ -227,6 +231,9 @@ namespace gedit {
         }
 
         void SetLower(ViewBase *newLower) {
+            if ((lowerView != nullptr) && (lowerView != newLower)) {
+                RemoveView(lowerView);
+            }
             lowerView = newLower;
             lowerView->SetLayoutHandler(this);
             AddView(lowerView);

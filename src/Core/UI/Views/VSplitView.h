@@ -149,7 +149,11 @@ namespace gedit {
             DrawDivider();
         }
 
+        // A view already there is taken out of the tree (not deleted) - the layout can change while running
         void SetLeft(ViewBase *newLeft) {
+            if ((leftView != nullptr) && (leftView != newLeft)) {
+                RemoveView(leftView);
+            }
             leftView = newLeft;
             leftView->SetLayoutHandler(this);
             AddView(newLeft);
@@ -157,6 +161,9 @@ namespace gedit {
         }
 
         void SetRight(ViewBase *newRight) {
+            if ((rightView != nullptr) && (rightView != newRight)) {
+                RemoveView(rightView);
+            }
             rightView = newRight;
             rightView->SetLayoutHandler(this);
             AddView(newRight);

@@ -13,11 +13,17 @@
 // session, each tab's scrollback and history in files named by its id ("" - the first tab - keeps the names from
 // before tabs). 'panel.tabs' is used when the session has no tabs.
 //
+// There can be two (hitlist #77, usability-round.md §19): the bottom one and, in the landscape layout, one on the right.
+// Each tab has a home - the panel it belongs in - which PanelLayout uses to put it in one or the other; ids are unique
+// over both (they name the tab's files), so a panel asks for the ids in use through its id source.
+//
 
 #ifndef GEDIT_PANELVIEW_H
 #define GEDIT_PANELVIEW_H
 
+#include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -36,22 +42,55 @@ namespace gedit {
             std::string name = {};
             std::string view = VIEW_TERMINAL;
             std::string config = VIEW_TERMINAL;
+            std::string home = HOME_BOTTOM;
         };
+        // A tab to make, and its terminal's saved scrollback (if any)
+        struct RestoredTab {
+            TabSpec spec;
+            std::string scrollbackFile = {};
+        };
+        // The ids in use in every panel - a new tab's id is the first free one
+        using IdSource = std::function<std::vector<std::string>()>;
     public:
         PanelView() = default;
         virtual ~PanelView() = default;
 
-        // The tabs a session had - else the configured ones (panel.tabs), else one 'Shell'. Before the view tree is
-        // initialized.
-        void RestoreTabs(const TerminalSession &session);
-        // Each tab's name, kind, section, files and scrollback, and the shown one
-        void SaveTabs(TerminalSession &out);
+        // The tabs to make (PanelLayout::PlanTabs) and the one shown. Before the view tree is initialized.
+        void AddTabs(const std::vector<RestoredTab> &tabs, const std::optional<std::string> &activeId);
+        // Each tab's name, kind, section, home, files and scrollback - appended
+        void CollectTabs(std::vector<TerminalTabSession> &out);
+        std::optional<std::string> ActiveTabId();
+        std::vector<std::string> Ids() const;
+        // Every panel's ids, in one list - an id source over several panels
+        static std::vector<std::string> IdsOf(const std::vector<const PanelView *> &panels);
+
+        // Unset: this panel's own ids
+        void SetIdSource(IdSource source) {
+            idSource = std::move(source);
+        }
+        // The home a new tab gets when no tab is shown to take it from
+        void SetDefaultHome(const std::string &home) {
+            defaultHome = home;
+        }
+        // The name it is registered under as a top view - focus remembers it (Option/Alt+T)
+        void SetTopViewName(const std::string &name) {
+            topViewName = name;
+        }
+        const std::string &TopViewName() const {
+            return topViewName;
+        }
+        // The bottom panel keeps its last terminal (the output console); the right one its last tab
+        void SetKeepsLastTerminal(bool keeps) {
+            keepsLastTerminal = keeps;
+        }
 
         // The shown tab when it is a terminal, else the first terminal
         TerminalView *ActiveTerminal();
         // Where Cmd/Ctrl+Enter in the editor sends: the first terminal whose settings say 'promote_target: yes' (an
         // agent's tab, §7) - shown, so the text is seen arriving - else the active terminal
         TerminalView *PromoteTarget();
+        // The first terminal whose settings say 'promote_target: yes', shown - nullptr when none says so
+        TerminalView *FindPromoteTarget();
         // Every terminal, in tab order
         std::vector<TerminalView *> Terminals() const;
         // A new shell in a tab of its own, shown (and focused, when the panel has focus)
@@ -67,6 +106,8 @@ namespace gedit {
         // A view kind this panel doesn't have is left out (and logged). Ids: "" for the first, then '2', '3'...
         // A Messages tab's name defaults to 'Messages'.
         static std::vector<TabSpec> ConfiguredTabs(const ConfigNode &config);
+        // '<section>.tabs' (panel, panel_right), each with that home; ids follow the ones in 'ids', which is added to
+        static std::vector<TabSpec> ConfiguredTabs(const ConfigNode &config, const std::string &section, const std::string &home, std::vector<std::string> &ids);
         // 'Shell', 'Shell 2', ... - the first number no tab has
         static std::string NextId(const std::vector<std::string> &ids);
         static std::string NameFor(const std::string &id);
@@ -77,10 +118,14 @@ namespace gedit {
         static constexpr size_t MAX_LABEL = 24;
         inline static const std::string VIEW_TERMINAL = "terminal";
         inline static const std::string VIEW_MESSAGES = "messages";
+        inline static const std::string HOME_BOTTOM = "bottom";
+        inline static const std::string HOME_RIGHT = "right";
 
     protected:
         // The labels that count first (a Messages tab's 'Messages (3)'), then the row
         void DrawViewContents() override;
+        // Focus remembers the panel (Option/Alt+T goes back to it)
+        void OnActivate(bool isNowActive) override;
 
     private:
         struct PanelTab {
@@ -99,9 +144,16 @@ namespace gedit {
         PanelTab *PanelTabAt(size_t idxTab);
         // A tab number as the editor's files have it: 1..8, 9 the last
         void SelectTabNumber(int tabNumber);
+        std::vector<std::string> IdsInUse() const;
+        // The shown tab's home - a new tab opened from it belongs where it does
+        std::string HomeForNewTab();
 
     private:
         std::vector<PanelTab> panelTabs;
+        IdSource idSource = {};
+        std::string defaultHome = HOME_BOTTOM;
+        std::string topViewName = {};
+        bool keepsLastTerminal = true;
     };
 }
 

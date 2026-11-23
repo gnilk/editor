@@ -374,6 +374,87 @@ def agent_tab(n):
     n('config: agent_test' in text, f"the session keeps the tab's section ({sessions})")
 
 
+@check('#77 Landscape: the right panel (panel_right) beside the editor, Alt+T between the panels, homes kept in portrait')
+def right_panel(n):
+    sb, work = sandbox('right_panel')
+    write(os.path.join(work, 'p.sh'), 'echo promoted-$((40+2))\n')
+    config = ('main:\n'
+              '  layout: {layout}\n'
+              'panel:\n'
+              '  tabs:\n'
+              '    - name: Shell\n'
+              'panel_right:\n'
+              '  tabs:\n'
+              '    - name: Agent\n'
+              '      config: agent_test\n'
+              'agent_test:\n'
+              '  inherit: terminal\n'
+              '  promote_target: yes\n')
+    user_config(sb, config.format(layout='landscape'))
+
+    def status_row(g):
+        return next((r for r in range(g.rows) if 'GoatEdit v' in g.screen.text(r)), -1)
+
+    g = Goat(sb, ['.'], cwd=work, skip_user_config=False)
+    try:
+        g.ready()
+        # From the tree: the bottom panel (the one focused last - none yet)
+        g.send(alt('t'), 0.5)
+        g.type('echo bottom-$((2*3))', wait=0.2)
+        g.send(ENTER, 0.8)
+        g.send(alt('t'), 0.5)
+        g.type('echo right-$((4*4))', wait=0.2)
+        g.send(ENTER, 0.8)
+        n(g.wait_text('bottom-6', 2) and g.wait_text('right-16', 2), 'both panels shown at once, Alt+T went from one to the other')
+        bottom, right, row = g.screen.find('bottom-6'), g.screen.find('right-16'), status_row(g)
+        n(right is not None and right[1] >= g.cols // 2 and right[0] < row,
+          f'the right panel is on the right, above the status line (at {right}, status row {row})')
+        n(bottom is not None and bottom[0] > row and bottom[1] < 10, f'the bottom panel below it (at {bottom})')
+        # Out to the editor and back: Alt+T goes to the panel focused last (the right one)
+        g.send(alt('e'), 0.4)
+        g.send(alt('t'), 0.5)
+        g.type('echo again-$((5*5))', wait=0.2)
+        g.send(ENTER, 0.8)
+        again = g.screen.find('again-25')
+        n(again is not None and again[1] >= g.cols // 2, f'Alt+T from the editor: the panel focused last ({again})')
+        # Promote: the right panel's target
+        g.send(alt('t'), 0.5)
+        g.type('.o p.sh', wait=0.2)
+        g.send(ENTER, 1.0)
+        g.send(alt('e'), 0.4)
+        g.send(ctrl('enter'), 0.3)
+        n(g.wait_text('promoted-42', 4) and g.screen.find('promoted-42')[1] >= g.cols // 2,
+          'Cmd/Ctrl+Enter from the editor: runs in the right panel (promote_target)')
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+    sessions = [os.path.join(dp, f) for dp, _, fs in os.walk(os.path.join(work, '.goatedit')) for f in fs if f.startswith('session')]
+    text = ''.join(open(f).read() for f in sessions)
+    n('home: right' in text and 'split.panel_right' in text, f'the session keeps the tab\'s home and the right divide ({sessions})')
+
+    # Portrait: the same session - the Agent tab joins the bottom panel, still homed right
+    user_config(sb, config.format(layout='portrait'))
+    g = Goat(sb, ['.'], cwd=work, skip_user_config=False)
+    try:
+        g.ready()
+        n(g.wait_for(lambda g: any('Shell | Agent' in l for l in g.screen.lines()), 3), 'portrait: both tabs in the bottom panel')
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+    text = ''.join(open(f).read() for f in sessions)
+    n('home: right' in text, 'still homed right after a portrait run')
+
+    # Landscape again: back on the right
+    user_config(sb, config.format(layout='landscape'))
+    g = Goat(sb, ['.'], cwd=work, skip_user_config=False)
+    try:
+        g.ready()
+        n(g.wait_for(lambda g: not any('Shell | Agent' in l for l in g.screen.lines()), 3), 'landscape again: the Agent tab is back on the right')
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+
+
 @check('#53 step 5 Messages tab: the build list kept open in the lower panel')
 def messages_tab(n):
     if shutil.which('cc') is None:

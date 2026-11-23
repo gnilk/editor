@@ -22,7 +22,7 @@ namespace gedit {
                 viewRect = screen->Dimensions();
             }
             if (splitterPos == 0) {
-                splitterPos = viewRect.Width() / 2;
+                splitterPos = DefaultSplitterPos(viewRect.Width());
             }
             // Visible, as HSplitView is: an invisible window's context draws nowhere, and the divider is drawn (DoDraw)
             window = screen->CreateWindow(viewRect, WindowBase::kWin_Visible, WindowBase::kWinDeco_None);
@@ -45,7 +45,7 @@ namespace gedit {
             // width; skip while the rect is momentarily unestablished (width 0) during the traversal.
             if (contentWidth > 0) {
                 if (splitterPos == 0) {
-                    splitterPos = contentWidth / 2;
+                    splitterPos = DefaultSplitterPos(contentWidth);
                 } else {
                     splitterPos = ClampSplitterPos(splitterPos);
                 }
@@ -97,7 +97,7 @@ namespace gedit {
         void SetViewRect(const Rect &rect) override {
             viewRect = rect;
             if (splitterPos == 0) {
-                splitterPos = viewRect.Width() / 2;
+                splitterPos = DefaultSplitterPos(viewRect.Width());
             }
             UpdateLeftViewRect();
             UpdateRightViewRect();
@@ -105,6 +105,11 @@ namespace gedit {
 
         void SetInitialSplitterPos(int pos) {
             splitterPos = pos;
+        }
+        // The first layout's split as a share of the width (the left panel's) - for a split whose window size isn't
+        // known yet; SetInitialSplitterPos wins
+        void SetInitialSplitterRatio(float ratio) {
+            initialSplitterRatio = ratio;
         }
 
         // No column of its own: the divide is the left panel's last column, drawn as a line over it (DoDraw). A press on
@@ -229,6 +234,10 @@ namespace gedit {
         static constexpr int kMinViewExtent = 5;
         static constexpr int kLeftButton = 1;      // as the backends number them (SDL; gansi maps onto it)
 
+        int DefaultSplitterPos(int width) {
+            return static_cast<int>((float)width * initialSplitterRatio);
+        }
+
         // Clamp a candidate divider column into the visible width, leaving room for both panels.
         // Falls back to a strict on-screen clamp when the view is too narrow for the normal margin.
         int ClampSplitterPos(int pos) {
@@ -247,6 +256,7 @@ namespace gedit {
     protected:
         int splitterPos = 0;
         int splitterPosBeforeReset = -1;
+        float initialSplitterRatio = 0.5f;
         int dragOffset = 0;         // where on the divider the drag took hold
         ViewBase *leftView = nullptr;
         ViewBase *rightView = nullptr;

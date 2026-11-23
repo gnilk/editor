@@ -38,7 +38,8 @@ namespace gedit {
     // Global class names for top-views in the view hierarchy...
     //
     static inline const std::string glbWorkSpaceView = "WorkspaceView";
-    static inline const std::string glbTerminalView = "TerminalView";
+    static inline const std::string glbTerminalView = "TerminalView";          // the bottom panel
+    static inline const std::string glbTerminalRightView = "TerminalViewRight"; // the right panel (landscape, hitlist #77)
     static inline const std::string glbEditorView = "EditorView";
 
     //
@@ -226,6 +227,12 @@ namespace gedit {
         // Cmd/Ctrl+F8 with a Messages tab in the lower panel (panel-tabs.md step 5): shows it, focused; false when there is none
         bool ShowMessagesTab();
         bool PromoteToTerminal(const std::u32string &text);
+        // The panel that had focus last (a top view name) - Option/Alt+T goes back to it from outside the panels
+        void NotePanelFocused(const std::string &topViewName) {
+            lastFocusedPanel = topViewName;
+        }
+        // Dot-command output and the JS console to the bottom panel's terminal ("the terminal")
+        void RegisterPanelOutputConsole();
 
         const Theme::Ref GetTheme() {
             return theme;
@@ -332,6 +339,8 @@ namespace gedit {
     private:
         Editor() = default;
         ~Editor();
+        // Option/Alt+T: from outside the panels the one focused last; in one, the other (when there are two)
+        std::string PanelToFocus();
     private:
         bool isInitialized = false;
         gnilk::ILogger *logger = nullptr;
@@ -343,6 +352,7 @@ namespace gedit {
         std::string argBackend;
         bool isProjectLaunch = false;       // exactly one folder argument (IsProjectLaunch, at Initialize)
         bool isStartedFromUI = false;       // launched from the desktop (TakeStartedFromUI, at Initialize)
+        std::string lastFocusedPanel = glbTerminalView;
         std::filesystem::path argAssetDir;  // '--asset-dir', replaces the system asset lookup when set
         std::vector<std::string> pendingFiles;
         std::string importThemeFile;

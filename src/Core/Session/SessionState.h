@@ -16,6 +16,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <optional>
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -87,6 +88,8 @@ namespace gedit {
         std::string scrollbackFile = {};   // relative to .goatedit/; empty when nothing was saved
         std::string view = {};             // what draws it ('terminal'); empty in a session from before: terminal
         std::string config = {};           // the config section it is handed; empty: the view's name
+        std::string home = {};             // the panel it belongs in (hitlist #77): 'right', else the bottom one - not
+                                           // where it is shown: in portrait every tab is shown in the bottom panel
     };
 
     // Terminal scrollback persistence (terminal-scrollback.md §8.1): a pointer to the .bin holding the history's
@@ -95,7 +98,10 @@ namespace gedit {
     struct TerminalSession {
         std::string scrollbackFile = {};   // relative to .goatedit/ - the first terminal's
         std::vector<TerminalTabSession> tabs = {};
-        int32_t activeTab = 0;
+        int32_t activeTab = 0;              // the bottom panel's shown tab, by index (a session from before #77)
+        // By id ("" is the first tab's id, so unset is nullopt) - wins over activeTab when set
+        std::optional<std::string> activeTabId = {};        // the bottom panel's shown tab
+        std::optional<std::string> activeTabIdRight = {};   // the right panel's - kept through a portrait start
     };
 
     // One place on the navigation stack (docs/code-index.md §5.6): enough to find it again in a changed file.

@@ -36,6 +36,7 @@
 #include "Core/Plugins/PluginExecutor.h"
 #include "Core/UI/Views/RootView.h"
 #include "Core/Editor/Views/WorkspaceView.h"
+#include "Core/Editor/Views/PanelLayout.h"
 #include "Core/Editor/Views/PanelView.h"
 
 
@@ -533,9 +534,10 @@ static WorkspaceView *GetWorkspaceView() {
     return dynamic_cast<WorkspaceView *>(ref.get());
 }
 
-// Helper: the lower panel - terminals in tabs (docs/panel-tabs.md) - or nullptr (not yet built / no root view /
-// headless). Scrollback persistence (terminal-scrollback.md §8) is driven through it from SaveSession.
-static PanelView *GetPanelView() {
+// Helper: a panel - terminals in tabs (docs/panel-tabs.md) - by its top view name, or nullptr (not built / no root view
+// / headless / no right panel in this layout). Scrollback persistence (terminal-scrollback.md §8) is driven through it
+// from SaveSession.
+static PanelView *GetPanelView(const std::string &topViewName = glbTerminalView) {
     if (!RuntimeConfig::Instance().HasRootView()) {
         return nullptr;
     }
@@ -543,23 +545,46 @@ static PanelView *GetPanelView() {
     if (rootView == nullptr) {
         return nullptr;
     }
-    return dynamic_cast<PanelView *>(rootView->GetTopViewByName(glbTerminalView).get());
+    return dynamic_cast<PanelView *>(rootView->GetTopViewByName(topViewName).get());
+}
+
+// The panels there are: the right one first (an agent's tab lives there - promote looks there first), then the bottom
+static std::vector<PanelView *> GetPanelViews() {
+    std::vector<PanelView *> panels;
+    for (auto &name : {glbTerminalRightView, glbTerminalView}) {
+        if (auto *panelView = GetPanelView(name)) {
+            panels.push_back(panelView);
+        }
+    }
+    return panels;
 }
 
 bool Editor::ShowMessagesTab() {
-    auto *panelView = GetPanelView();
-    if ((panelView == nullptr) || !panelView->ShowMessages()) {
-        return false;
+    // The bottom panel's first - the build lives there
+    for (auto &name : {glbTerminalView, glbTerminalRightView}) {
+        auto *panelView = GetPanelView(name);
+        if ((panelView != nullptr) && panelView->ShowMessages()) {
+            ActionHelper::SwitchToNamedView(name);
+            TriggerUIRedraw();
+            return true;
+        }
     }
-    ActionHelper::SwitchToNamedView(glbTerminalView);
-    TriggerUIRedraw();
-    return true;
+    return false;
 }
 
 bool Editor::PromoteToTerminal(const std::u32string &text) {
-    // An agent's tab when one is the promote target (panel-tabs.md §7), else the shown terminal
-    auto *panelView = GetPanelView();
-    auto *terminalView = (panelView != nullptr) ? panelView->PromoteTarget() : nullptr;
+    // An agent's tab when one is the promote target (panel-tabs.md §7) - the right panel's first - else the bottom
+    // panel's shown terminal
+    TerminalView *terminalView = nullptr;
+    for (auto *panelView : GetPanelViews()) {
+        if ((terminalView = panelView->FindPromoteTarget()) != nullptr) {
+            break;
+        }
+    }
+    if (terminalView == nullptr) {
+        auto *panelView = GetPanelView();
+        terminalView = (panelView != nullptr) ? panelView->ActiveTerminal() : nullptr;
+    }
     if ((terminalView == nullptr) || text.empty()) {
         return false;
     }
@@ -568,6 +593,29 @@ bool Editor::PromoteToTerminal(const std::u32string &text) {
     terminalView->GetController().Promote(text, isSubmit);
     TriggerUIRedraw();
     return true;
+}
+
+std::string Editor::PanelToFocus() {
+    if (GetPanelView(glbTerminalRightView) == nullptr) {
+        return glbTerminalView;
+    }
+    auto *rootView = RuntimeConfig::Instance().GetRootViewAs<RootView>();
+    auto current = (rootView != nullptr) ? rootView->GetTopViewName() : std::nullopt;
+    if (current == glbTerminalView) {
+        return glbTerminalRightView;
+    }
+    if (current == glbTerminalRightView) {
+        return glbTerminalView;
+    }
+    return lastFocusedPanel;
+}
+
+void Editor::RegisterPanelOutputConsole() {
+    auto *panelView = GetPanelView();
+    auto *terminalView = (panelView != nullptr) ? panelView->ActiveTerminal() : nullptr;
+    if (terminalView != nullptr) {
+        terminalView->GetController().RegisterAsOutputConsole();
+    }
 }
 
 // Load the session once (data model only — documents). Layout is applied later by RestoreLayout, once
@@ -635,7 +683,7 @@ void Editor::SaveSession() {
         // nothing to persist / the feature is off), so a repeated save stays idempotent.
         auto *panelView = GetPanelView();
         if (panelView != nullptr) {
-            panelView->SaveTabs(session.terminal);
+            PanelLayout::SaveTabs(*panelView, GetPanelView(glbTerminalRightView), session.terminal);
         }
     }
     SessionManager::Instance().Save();
@@ -706,7 +754,7 @@ void Editor::HandleGlobalAction(const EditorAction &kpAction) {
             quickCommandController.Enter();
        } else if (kpAction.action == kAction::kActionSwitchToTerminal) {
             logger->Debug("Should switch to terminal view");
-            ActionHelper::SwitchToNamedView(glbTerminalView);
+            ActionHelper::SwitchToNamedView(PanelToFocus());
         } else if (kpAction.action == kAction::kActionSwitchToEditor) {
             logger->Debug("Should switch to editor view");
             ActionHelper::SwitchToNamedView(glbEditorView);
@@ -1056,7 +1104,7 @@ void Editor::ApplyTheme() {
         }
     }
     // Every tab's terminal, not only the shown one
-    if (auto *panelView = GetPanelView()) {
+    for (auto *panelView : GetPanelViews()) {
         for (auto *terminalView : panelView->Terminals()) {
             terminalView->GetController().RefreshThemeColors();
         }

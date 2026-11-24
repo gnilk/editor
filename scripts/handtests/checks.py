@@ -750,7 +750,10 @@ def real_agent_ask(n):
         n.skip(f'the hour\'s budget is spent: {left} of {REAL_AGENT_PER_HOUR} left ({REAL_AGENT_LEDGER})')
     real = shutil.which('claude') or shutil.which('claude', path=os.path.expanduser('~/.local/bin'))
     if real is None:
-        n.skip('no claude installed')
+        n.skip('no claude installed (or its link dangles - see below)')
+    if os.path.realpath(real).startswith(os.path.realpath(tempfile.gettempdir())):
+        n.skip(f'{real} points into a temp folder ({os.path.realpath(real)}) - an earlier check re-linked it; '
+               f'point it back at ~/.local/share/claude/versions/<version>')
     # The same path every run (the sandbox is wiped, not moved), so the user trusts it once
     sb, work = sandbox('real_agent_ask')
     if not real_trusted(work):
@@ -758,8 +761,14 @@ def real_agent_ask(n):
     write(os.path.join(work, 'hello.c'), '#include <stdio.h>\nint main(void) {\n    printf("hello, goat\\n");\n    return 0;\n}\n')
     # The real claude with the user's HOME (their login and its trust record); the editor's HOME stays the sandbox's,
     # with the user's transcripts linked in so the editor can read what each question cost
+    # The sandbox's XDG_* must not reach it: with XDG_DATA_HOME in the sandbox, its self-installer put a copy there and
+    # re-linked the user's ~/.local/bin/claude to it - dangling once the sandbox was wiped. The user's own XDG settings
+    # (or none), and no auto-update from a check.
     fake_bin = os.path.join(sb, 'bin')
-    write(os.path.join(fake_bin, 'claude'), f'#!/bin/sh\nHOME=\'{os.path.expanduser("~")}\' exec \'{real}\' "$@"\n')
+    xdg = ''.join(f"{k}='{os.environ[k]}' " if k in os.environ else f'-u {k} '
+                  for k in ('XDG_CONFIG_HOME', 'XDG_STATE_HOME', 'XDG_DATA_HOME', 'XDG_CACHE_HOME'))
+    write(os.path.join(fake_bin, 'claude'),
+          f'#!/bin/sh\nexec env {xdg}HOME=\'{os.path.expanduser("~")}\' DISABLE_AUTOUPDATER=1 \'{real}\' "$@"\n')
     os.chmod(os.path.join(fake_bin, 'claude'), 0o755)
     os.symlink(os.path.expanduser('~/.claude'), os.path.join(sb, 'home', '.claude'))
     trust_claude(sb, work)
@@ -780,8 +789,19 @@ def real_agent_ask(n):
             real_agent_spend()
             g.send(b's', 0.5)
             # Stop on anything unexpected: no answer within two minutes is reported, not retried
-            if not n(g.wait_for(lambda g: len([f for f in os.listdir(qa) if f.startswith('a_')]) > i if os.path.isdir(qa) else False, 120),
-                     f'question {i + 1}: answered within 2 minutes'):
+            seen = []
+
+            def answered(g):
+                ea = g.status_line().strip()
+                ea = ea[ea.rfind('EA:'):] if 'EA:' in ea else '(no EA)'
+                if not seen or seen[-1] != ea:
+                    seen.append(ea)
+                return len([f for f in os.listdir(qa) if f.startswith('a_')]) > i if os.path.isdir(qa) else False
+            if not n(g.wait_for(answered, 120), f'question {i + 1}: answered within 2 minutes (status: {" -> ".join(seen)})'):
+                # What the agent's tab shows - its own tab, brought to the front
+                g.type('.agent start', wait=0.2)
+                g.send(ENTER, 1.5)
+                print('--- the screen, the agent tab in front:\n' + '\n'.join(l.rstrip() for l in g.screen.lines()))
                 break
             n(g.wait_text('Answered - a_', 30), f'question {i + 1}: opened')
             status = next((l for l in g.screen.lines() if 'Answered - ' in l), '').strip()

@@ -50,7 +50,9 @@ namespace gedit {
         // The tab with the agent's command for a new conversation - nullptr when there is no panel or command
         TerminalView *OpenAgentTab();
         void Send(TerminalView &agentView, const AgentQuestion &question);
-        void OnAnswered(const AgentQuestion &question);
+        void OnAnswered(const AgentQuestion &question, const std::string &usage);
+        uintmax_t TranscriptSize() const;
+        std::string RecordUsage(const AgentQuestion &question);
         // The tab's line under the tab row: the banner, or that a question waits for the user to leave the tab
         void UpdateInfoLine(TerminalView *agentView, bool isWaitingForFocus);
         void ArmTimer();

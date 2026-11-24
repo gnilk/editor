@@ -187,7 +187,8 @@ editor knows nothing about. **`.ask`** (§6.3): `AgentAsk` (`src/Core/Editor/`, 
 a time - consent modal, starts the agent if needed, pastes the prompt once the tab has settled (`TerminalController::IsSettled`:
 `?2004` on + quiet for `main.ai_settle_ms`, and never while the tab has focus), opens the answer; the question itself is plain
 data (`AgentQuestion`, a state machine fed `Signals` - tested without a pty). Files: `.goatedit/agent_qa/q_<id>.md` /
-`a_<id>.md`. Its checks use a fake `claude` - never the real one (each call costs money).
+`a_<id>.md` (+ what it cost, from the transcript). Its checks use a fake `claude`; the real one only through
+`checks.py --real-agent real_agent_ask` - automated questions are capped at 25/hour (a ledger), never in the unit tests.
 
 ### Platform-Specific
 - Linux: `src/Core/Linux/LinuxFolderMonitor.cpp`

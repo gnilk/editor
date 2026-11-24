@@ -14,6 +14,7 @@ static const std::vector<std::pair<std::string, std::string>> deniedKeys = {
     { "main",     "plugin_directory" },
     { "main",     "ai_integration" },       // an agent runs on the user's account - a folder never switches one on
     { "main",     "ai_settle_ms" },         // when the editor types into the agent - the user's, with the agent
+    { "main",     "ai_model" },             // which model the Editor Agent runs - it is the user's usage
     { "logging",  "logfile" },
 };
 

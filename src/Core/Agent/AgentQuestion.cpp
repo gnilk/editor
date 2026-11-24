@@ -45,6 +45,28 @@ std::string AgentQuestion::QuestionFileText(const std::string &agentName, const 
     return text;
 }
 
+std::string AgentQuestion::UsageText(const AgentIntegration::Usage &usage) {
+    std::string text = "\n## Usage\n\n";
+    if (!usage.model.empty()) {
+        text += "- model: " + usage.model + "\n";
+    }
+    text += fmt::format("- model calls: {}\n", usage.numCalls);
+    text += fmt::format("- input tokens: {} (+ {} written to the cache, {} read from it)\n", usage.inputTokens,
+                        usage.cacheWriteTokens, usage.cacheReadTokens);
+    text += fmt::format("- output tokens: {}\n", usage.outputTokens);
+    return text;
+}
+
+// 31234 -> '31k', 950 -> '950'
+static std::string Kilo(uint64_t count) {
+    return (count >= 10000) ? fmt::format("{}k", (count + 500) / 1000) : fmt::format("{}", count);
+}
+
+std::string AgentQuestion::UsageSummary(const AgentIntegration::Usage &usage) {
+    return fmt::format("in {} + {} cached, out {}", Kilo(usage.inputTokens + usage.cacheWriteTokens),
+                       Kilo(usage.cacheReadTokens), Kilo(usage.outputTokens));
+}
+
 bool AgentQuestion::IsDone() const {
     return (state == kState::Answered) || (state == kState::NoAnswer) || (state == kState::Cancelled);
 }

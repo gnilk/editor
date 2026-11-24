@@ -674,7 +674,7 @@ std::vector<std::string> Editor::DescribeAgent() {
     auto root = GetProjectRootPath();
     lines.push_back("Project:        " + root.string());
     lines.push_back("Working agent:  " + join(agent->WorkingAgentCommand(root)));
-    lines.push_back("Question agent: " + join(agent->QuestionAgentCommand(root, "<session id>")) + " (reads, writes only its answers)");
+    lines.push_back("Question agent: " + join(agent->QuestionAgentCommand(root, "<session id>", Config::Instance()["main"].GetStr("ai_model", ""))) + " (reads, writes only its answers)");
     auto transcripts = agent->TranscriptDir(root);
     if (transcripts.has_value()) {
         std::error_code ec;

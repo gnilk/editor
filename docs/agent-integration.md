@@ -324,6 +324,24 @@ Editor Agent's mark colour. A click jumps to its tab - with the mouse bindings (
   `claude` that turns on `?2004`, reads a line, writes the file it names, and the check sees the answer opened and the
   status line go `answering` → `answered`.
 
+**Added after the review (2026-11-24):**
+- **Trust guard.** In a folder Claude Code hasn't been trusted in, it opens with a trust dialog - and the editor's paste +
+  Enter would accept it for the user. So the Editor Agent isn't started there (`AgentIntegration::StartBlocker`; Claude:
+  `projects.<dir or a parent>.hasTrustDialogAccepted` in `~/.claude.json`): "run `claude` there once and accept".
+- **What a question cost.** At send the editor notes where the conversation's transcript ends; when the question is done
+  it sums the usage of the assistant messages after that (`UsageSince`, each message id once) and appends a `## Usage`
+  section to `q_<id>.md` - model, model calls, input / cache write / cache read / output tokens. The status line says
+  `Answered - a_<id>.md (in 31k + 0 cached, out 240)`.
+- **`main.ai_model`** (user config only): the Editor Agent's model (`--model`); empty is the agent's default.
+- **Budget for automated questions (the user's rule):** at most **25 per hour**, counted over every automated run. Real
+  round trips are never in the unit tests or the default checks - only `checks.py --real-agent real_agent_ask`, whose
+  ledger (`~/.cache/goatedit-handtests/real-agent-ledger`) refuses beyond the hour's 25. Interactive `.ask` is the
+  user's own, no cap. The check's folder must be trusted by the user's Claude Code once (it says where).
+- **CLAUDE.md is read by the Editor Agent too** - it starts in the project, and Claude Code auto-loads `CLAUDE.md` up the
+  tree. The only switch off is `--bare`, which needs an API key (not a subscription login). To be judged once the usage
+  is measured: a lean `CLAUDE.md` with the build / test / debugging recipes moved to a file it names (not `@`-imported,
+  so not loaded up front).
+
 **Not in step 2:** templates and the tools' output in the prompt (step 3); "always" consent and `full_auto` (§3.3); the
 headless channel; answers shown anywhere but an editor tab; `.git/info/exclude`.
 

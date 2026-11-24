@@ -38,6 +38,8 @@ DLL_EXPORT int test_agent_question_round(ITesting *t);
 DLL_EXPORT int test_agent_question_waits(ITesting *t);
 DLL_EXPORT int test_agent_question_ends(ITesting *t);
 DLL_EXPORT int test_agent_ask_none(ITesting *t);
+DLL_EXPORT int test_agent_claude_usage(ITesting *t);
+DLL_EXPORT int test_agent_claude_trusted(ITesting *t);
 }
 
 DLL_EXPORT int test_agent(ITesting *t) {
@@ -50,7 +52,7 @@ DLL_EXPORT int test_agent_none(ITesting *t) {
     TR_ASSERT(t, none->Name() == "none");
     TR_ASSERT(t, !none->IsAvailable());
     TR_ASSERT(t, none->WorkingAgentCommand("/p").empty());
-    TR_ASSERT(t, none->QuestionAgentCommand("/p", "id").empty());
+    TR_ASSERT(t, none->QuestionAgentCommand("/p", "id", "").empty());
     TR_ASSERT(t, !none->TranscriptDir("/p").has_value());
     TR_ASSERT(t, none->PromptWithAnswerFile("why?", "/p/.goatedit/answer.md").empty());
     TR_ASSERT(t, !none->Status().empty());
@@ -77,12 +79,15 @@ DLL_EXPORT int test_agent_claude(ITesting *t) {
     auto claude = ClaudeAgent::Create();
     TR_ASSERT(t, claude->DisplayName() == "Claude Code");
     TR_ASSERT(t, (claude->WorkingAgentCommand("/p") == std::vector<std::string>{"claude"}));
-    TR_ASSERT(t, (claude->QuestionAgentCommand("/p", "1234") ==
+    TR_ASSERT(t, (claude->QuestionAgentCommand("/p", "1234", "") ==
                   std::vector<std::string>{"claude", "--permission-mode", "dontAsk",
                                            "--allowedTools", "Read Grep Glob Edit(//p/.goatedit/agent_qa/a_*)",
                                            "--session-id", "1234"}));
     // No id: the agent picks one
-    TR_ASSERT(t, claude->QuestionAgentCommand("/p", "").size() == 5);
+    TR_ASSERT(t, claude->QuestionAgentCommand("/p", "", "").size() == 5);
+    // A model asked for
+    auto withModel = claude->QuestionAgentCommand("/p", "", "sonnet");
+    TR_ASSERT(t, (withModel.size() == 7) && (withModel[5] == "--model") && (withModel[6] == "sonnet"));
     TR_ASSERT(t, claude->SettleTime() == std::chrono::milliseconds(3000));
     auto prompt = claude->PromptWithAnswerFile("Why is X here?", "/p/.goatedit/answers/1.md");
     TR_ASSERT(t, prompt.find("Why is X here?") == 0);
@@ -197,7 +202,7 @@ DLL_EXPORT int test_agent_editor_agent_settings(ITesting *t) {
 // The banner says whose it is and what it runs
 DLL_EXPORT int test_agent_editor_agent_banner(ITesting *t) {
     auto claude = ClaudeAgent::Create();
-    auto banner = AgentIntegrations::EditorAgentBanner(*claude, claude->QuestionAgentCommand("/p", "1234"));
+    auto banner = AgentIntegrations::EditorAgentBanner(*claude, claude->QuestionAgentCommand("/p", "1234", ""));
     TR_ASSERT(t, banner.find("GoatEdit's own agent") == 0);
     TR_ASSERT(t, banner.find("Claude Code") != std::string::npos);
     TR_ASSERT(t, banner.find("claude --permission-mode dontAsk") != std::string::npos);
@@ -355,5 +360,60 @@ DLL_EXPORT int test_agent_ask_none(ITesting *t) {
     if (Editor::Instance().GetAgent()->Name() == NoAgent::NAME) {
         TR_ASSERT(t, message.find("none") != std::string::npos);
     }
+    return kTR_Pass;
+}
+
+// What a question cost, from Claude Code's transcript: assistant lines after the offset, each message counted once (it is
+// written as one line per content block, every line with the same usage); other lines and broken ones are skipped
+DLL_EXPORT int test_agent_claude_usage(ITesting *t) {
+    auto folder = std::filesystem::temp_directory_path() / "goatedit_agent_usage";
+    std::filesystem::remove_all(folder);
+    std::filesystem::create_directories(folder);
+    auto transcript = folder / "session.jsonl";
+    std::string before = R"({"type":"assistant","message":{"id":"m0","model":"x","usage":{"input_tokens":1000,"output_tokens":1000}}})" "\n";
+    {
+        std::ofstream out(transcript, std::ios::binary);
+        out << before;
+        out << R"({"type":"user","message":{"role":"user","content":"why?"}})" "\n";
+        out << R"({"type":"assistant","message":{"id":"m1","model":"claude-sonnet-5-5","usage":{"input_tokens":3,"cache_creation_input_tokens":30000,"cache_read_input_tokens":0,"output_tokens":40}}})" "\n";
+        out << R"({"type":"assistant","message":{"id":"m1","model":"claude-sonnet-5-5","usage":{"input_tokens":3,"cache_creation_input_tokens":30000,"cache_read_input_tokens":0,"output_tokens":40}}})" "\n";
+        out << "not json\n";
+        out << R"({"type":"assistant","message":{"id":"m2","model":"claude-sonnet-5-5","usage":{"input_tokens":2,"cache_creation_input_tokens":500,"cache_read_input_tokens":30000,"output_tokens":200}}})" "\n";
+    }
+    auto claude = ClaudeAgent::Create();
+    auto usage = claude->UsageSince(transcript, before.size());
+    TR_ASSERT(t, usage.has_value());
+    TR_ASSERT(t, usage->numCalls == 2);
+    TR_ASSERT(t, usage->inputTokens == 5);
+    TR_ASSERT(t, usage->cacheWriteTokens == 30500);
+    TR_ASSERT(t, usage->cacheReadTokens == 30000);
+    TR_ASSERT(t, usage->outputTokens == 240);
+    TR_ASSERT(t, usage->model == "claude-sonnet-5-5");
+    TR_ASSERT(t, AgentQuestion::UsageSummary(usage.value()) == "in 31k + 30k cached, out 240");
+    TR_ASSERT(t, AgentQuestion::UsageText(usage.value()).find("- output tokens: 240") != std::string::npos);
+    TR_ASSERT(t, claude->UsageSince(transcript, 0)->numCalls == 3);
+    TR_ASSERT(t, !claude->UsageSince(folder / "none.jsonl", 0).has_value());
+    TR_ASSERT(t, (claude->TranscriptFile("/p", "abc").value().filename() == "abc.jsonl"));
+    std::filesystem::remove_all(folder);
+    return kTR_Pass;
+}
+
+// Trusted in the folder or one above it, by Claude Code's own config - else the Editor Agent isn't started
+DLL_EXPORT int test_agent_claude_trusted(ITesting *t) {
+    auto folder = std::filesystem::temp_directory_path() / "goatedit_agent_trusted";
+    std::filesystem::remove_all(folder);
+    std::filesystem::create_directories(folder);
+    auto config = folder / ".claude.json";
+    {
+        std::ofstream out(config, std::ios::binary);
+        out << R"({"projects": {"/a/trusted": {"hasTrustDialogAccepted": true}, "/a/asked": {"hasTrustDialogAccepted": false}}})";
+    }
+    TR_ASSERT(t, ClaudeAgent::IsTrusted("/a/trusted", config));
+    TR_ASSERT(t, ClaudeAgent::IsTrusted("/a/trusted/", config));
+    TR_ASSERT(t, ClaudeAgent::IsTrusted("/a/trusted/sub/dir", config));
+    TR_ASSERT(t, !ClaudeAgent::IsTrusted("/a/asked", config));
+    TR_ASSERT(t, !ClaudeAgent::IsTrusted("/a", config));
+    TR_ASSERT(t, !ClaudeAgent::IsTrusted("/a/trusted", folder / "missing.json"));
+    std::filesystem::remove_all(folder);
     return kTR_Pass;
 }

@@ -34,6 +34,11 @@ std::string AgentAsk::Ask(const std::string &question) {
     if (question.empty()) {
         return "Usage: .ask <question> - put to the Editor Agent, after you OK it";
     }
+    if (Editor::Instance().GetEditorAgentView() == nullptr) {
+        if (auto blocker = agent->StartBlocker(Editor::Instance().GetProjectRootPath()); !blocker.empty()) {
+            return "Not asked - " + blocker;
+        }
+    }
     if (!RuntimeConfig::Instance().HasRootView()) {
         return "Not asked - no window";
     }
@@ -148,6 +153,9 @@ std::string AgentAsk::StartAgent() {
         Editor::Instance().ShowEditorAgentTab();
         return "The Editor Agent runs already - shown";
     }
+    if (auto blocker = agent->StartBlocker(Editor::Instance().GetProjectRootPath()); !blocker.empty()) {
+        return "Not started - " + blocker;
+    }
     if (OpenAgentTab() == nullptr) {
         return "No panel to start it in, or " + agent->DisplayName() + " has no Editor Agent command";
     }
@@ -158,7 +166,8 @@ std::string AgentAsk::StartAgent() {
 TerminalView *AgentAsk::OpenAgentTab() {
     auto agent = Editor::Instance().GetAgent();
     auto newSessionId = AgentIntegrations::NewSessionId();
-    auto command = agent->QuestionAgentCommand(Editor::Instance().GetProjectRootPath(), newSessionId);
+    auto command = agent->QuestionAgentCommand(Editor::Instance().GetProjectRootPath(), newSessionId,
+                                               Config::Instance()["main"].GetStr("ai_model", ""));
     if (command.empty()) {
         return nullptr;
     }
@@ -202,12 +211,14 @@ void AgentAsk::Tick() {
         signals.hasAnswerFile = std::filesystem::exists(question->AnswerFile());
         auto step = question->Update(signals, SettleTime());
         if (step == AgentQuestion::kStep::Send) {
+            question->SetTranscriptOffset(TranscriptSize());
             Send(*agentView, *question);
         } else if (step == AgentQuestion::kStep::Answered) {
-            OnAnswered(*question);
+            OnAnswered(*question, RecordUsage(*question));
         } else if (step == AgentQuestion::kStep::NoAnswer) {
+            auto usage = RecordUsage(*question);
             Editor::Instance().ShowStatusMessage(UnicodeHelper::utf8to32("No answer file for " + question->Id() +
-                                                                         " - see the Editor Agent tab"));
+                                                                         " - see the Editor Agent tab" + usage));
         } else if (step == AgentQuestion::kStep::Cancelled) {
             Editor::Instance().ShowStatusMessage(UnicodeHelper::utf8to32("Not sent - the Editor Agent didn't run (" +
                                                                          question->Id() + ")"));
@@ -239,14 +250,40 @@ void AgentAsk::Send(TerminalView &agentView, const AgentQuestion &question) {
     Editor::Instance().TriggerUIRedraw();
 }
 
-void AgentAsk::OnAnswered(const AgentQuestion &question) {
+void AgentAsk::OnAnswered(const AgentQuestion &question, const std::string &usage) {
     auto workspace = Editor::Instance().GetWorkspace();
     auto node = (workspace != nullptr) ? workspace->NewDocumentWithFileRef(question.AnswerFile()) : nullptr;
     if ((node == nullptr) || (Editor::Instance().OpenDocumentFromWorkspace(node) == nullptr)) {
         Editor::Instance().ShowStatusMessage(UnicodeHelper::utf8to32("Answered - can't open " + question.AnswerFile().string()));
         return;
     }
-    Editor::Instance().ShowStatusMessage(UnicodeHelper::utf8to32("Answered - " + question.AnswerFile().filename().string()));
+    Editor::Instance().ShowStatusMessage(UnicodeHelper::utf8to32("Answered - " + question.AnswerFile().filename().string() + usage));
+}
+
+// The size of this conversation's transcript now - 0 before the agent wrote one
+uintmax_t AgentAsk::TranscriptSize() const {
+    auto agent = Editor::Instance().GetAgent();
+    auto transcript = agent->TranscriptFile(Editor::Instance().GetProjectRootPath(), sessionId);
+    std::error_code ec;
+    auto size = transcript.has_value() ? std::filesystem::file_size(transcript.value(), ec) : 0;
+    return ec ? 0 : size;
+}
+
+// What the question cost, from the transcript: appended to its q_ file; ' (in ..., out ...)' for the status line, or
+// empty when the agent keeps no usage
+std::string AgentAsk::RecordUsage(const AgentQuestion &question) {
+    auto agent = Editor::Instance().GetAgent();
+    auto transcript = agent->TranscriptFile(Editor::Instance().GetProjectRootPath(), sessionId);
+    if (!transcript.has_value()) {
+        return {};
+    }
+    auto usage = agent->UsageSince(transcript.value(), question.TranscriptOffset());
+    if (!usage.has_value() || (usage->numCalls == 0)) {
+        return {};
+    }
+    std::ofstream out(question.QuestionFile(), std::ios::binary | std::ios::app);
+    out << AgentQuestion::UsageText(usage.value());
+    return " (" + AgentQuestion::UsageSummary(usage.value()) + ")";
 }
 
 void AgentAsk::UpdateInfoLine(TerminalView *agentView, bool isWaitingForFocus) {

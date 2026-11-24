@@ -15,6 +15,8 @@
 #include <memory>
 #include <string>
 
+#include "AgentIntegration.h"
+
 namespace gedit {
     class AgentQuestion {
     public:
@@ -70,6 +72,14 @@ namespace gedit {
 
         // q_<id>.md: a header (when, which agent, its session, the answer file), the question, the prompt as sent
         std::string QuestionFileText(const std::string &agentName, const std::string &sessionId, const std::string &askedAt) const;
+        // What answering cost - appended to q_<id>.md once it is done, so the budget can be judged
+        static std::string UsageText(const AgentIntegration::Usage &usage);
+        // One line for the status line: 'in 3 + 31k cached, out 250'
+        static std::string UsageSummary(const AgentIntegration::Usage &usage);
+
+        // Where the agent's transcript ended when the prompt went in - what came after is this question's cost
+        void SetTranscriptOffset(uintmax_t offset) { transcriptOffset = offset; }
+        uintmax_t TranscriptOffset() const { return transcriptOffset; }
 
         kState State() const { return state; }
         bool IsDone() const;
@@ -94,6 +104,7 @@ namespace gedit {
         kState state = kState::Consent;
         Clock::time_point acceptedAt = {};
         Clock::time_point sentAt = {};
+        uintmax_t transcriptOffset = 0;
     };
 }
 

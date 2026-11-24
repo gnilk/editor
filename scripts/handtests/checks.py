@@ -13,6 +13,7 @@ session and shell history are never read or written) with the work folder inside
 below $HOME). Every check prints what it saw, so a failure can be read without re-running it.
 """
 import argparse
+import json
 import platform
 import re
 import shutil
@@ -72,6 +73,13 @@ def sandbox(name):
     work = os.path.join(sb, 'home', 'work')
     os.makedirs(work)
     return sb, work
+
+
+def trust_claude(sb, folder):
+    """Claude Code's own record that it was trusted in 'folder' (the sandbox HOME's ~/.claude.json) - the editor won't
+    start the Editor Agent anywhere else: its trust dialog would be answered by the editor's Enter"""
+    write(os.path.join(sb, 'home', '.claude.json'),
+          '{"projects": {"%s": {"hasTrustDialogAccepted": true}}}\n' % os.path.realpath(folder))
 
 
 def write(path, data, mode='w', encoding='utf-8'):
@@ -598,6 +606,7 @@ def editor_agent(n):
     os.chmod(os.path.join(fake_bin, 'claude'), 0o755)
     env = {'PATH': fake_bin + ':/usr/bin:/bin'}
     user_config(sb, "main:\n  ai_integration: claude\nterminal:\n  shell: /bin/sh\n")
+    trust_claude(sb, work)
 
     def tab_row(g):
         return next((l for l in g.screen.lines() if 'Editor Agent' in l and '|' in l), '')
@@ -660,6 +669,12 @@ def editor_agent_ask(n):
     try:
         g.ready()
         g.send(alt('t'), 0.4)
+        # A folder Claude hasn't been trusted in: refused - its trust dialog would get the editor's Enter
+        g.type('.ask what is this', wait=0.2)
+        g.send(ENTER, 1.0)
+        n(g.wait_text("isn't trusted", 3), "an untrusted folder: refused, no modal")
+        n(not os.path.exists(args_file), '... and nothing started')
+        trust_claude(sb, work)
         # Declined: nothing written, nothing started
         g.type('.ask what is this', wait=0.2)
         g.send(ENTER, 1.0)
@@ -688,6 +703,95 @@ def editor_agent_ask(n):
         n(g.quit(), 'quits')
     finally:
         g.kill()
+
+
+# --- The real agent: opt-in only (--real-agent), never in the default run - each question costs the user's tokens ---
+REAL_AGENT = {'enabled': False, 'model': ''}
+# Automated questions to the real agent: at most this many per hour, over all runs (the user's rule, 2026-11-24)
+REAL_AGENT_PER_HOUR = 25
+REAL_AGENT_LEDGER = os.path.expanduser('~/.cache/goatedit-handtests/real-agent-ledger')
+
+
+def real_agent_budget():
+    """Questions left this hour - the ledger holds one time per question sent, over all runs"""
+    now = time.time()
+    try:
+        with open(REAL_AGENT_LEDGER) as f:
+            times = [float(l) for l in f if l.strip()]
+    except OSError:
+        times = []
+    return REAL_AGENT_PER_HOUR - sum(1 for t in times if now - t < 3600)
+
+
+def real_agent_spend():
+    os.makedirs(os.path.dirname(REAL_AGENT_LEDGER), exist_ok=True)
+    with open(REAL_AGENT_LEDGER, 'a') as f:
+        f.write(f'{time.time()}\n')
+
+
+def real_trusted(folder):
+    """The user's own Claude Code has been trusted in 'folder' (either spelling of the path)"""
+    try:
+        with open(os.path.expanduser('~/.claude.json')) as f:
+            projects = json.load(f).get('projects', {})
+    except (OSError, ValueError):
+        return False
+    return any(projects.get(p, {}).get('hasTrustDialogAccepted') for p in {folder, os.path.realpath(folder)})
+
+
+@check('#78 step 2 .ask with the REAL agent (--real-agent): two questions, what each cost - opt-in, 25/hour')
+def real_agent_ask(n):
+    if not REAL_AGENT['enabled']:
+        n.skip('the real agent only with --real-agent (each question costs tokens)')
+    questions = ['What does hello.c print? Answer in one line.',
+                 'Which function in hello.c runs first? Answer in one line.']
+    left = real_agent_budget()
+    if left < len(questions):
+        n.skip(f'the hour\'s budget is spent: {left} of {REAL_AGENT_PER_HOUR} left ({REAL_AGENT_LEDGER})')
+    real = shutil.which('claude') or shutil.which('claude', path=os.path.expanduser('~/.local/bin'))
+    if real is None:
+        n.skip('no claude installed')
+    # The same path every run (the sandbox is wiped, not moved), so the user trusts it once
+    sb, work = sandbox('real_agent_ask')
+    if not real_trusted(work):
+        n.skip(f"Claude Code isn't trusted in {work} - run 'claude' there once, accept, quit; then again")
+    write(os.path.join(work, 'hello.c'), '#include <stdio.h>\nint main(void) {\n    printf("hello, goat\\n");\n    return 0;\n}\n')
+    # The real claude with the user's HOME (their login and its trust record); the editor's HOME stays the sandbox's,
+    # with the user's transcripts linked in so the editor can read what each question cost
+    fake_bin = os.path.join(sb, 'bin')
+    write(os.path.join(fake_bin, 'claude'), f'#!/bin/sh\nHOME=\'{os.path.expanduser("~")}\' exec \'{real}\' "$@"\n')
+    os.chmod(os.path.join(fake_bin, 'claude'), 0o755)
+    os.symlink(os.path.expanduser('~/.claude'), os.path.join(sb, 'home', '.claude'))
+    trust_claude(sb, work)
+    model = f"\n  ai_model: {REAL_AGENT['model']}" if REAL_AGENT['model'] else ''
+    user_config(sb, f"main:\n  ai_integration: claude{model}\nterminal:\n  shell: /bin/sh\n")
+    qa = os.path.join(work, '.goatedit', 'agent_qa')
+    env = {'PATH': fake_bin + ':/usr/bin:/bin'}
+
+    g = Goat(sb, ['.'], cwd=work, skip_user_config=False, env=env)
+    try:
+        g.ready()
+        g.send(alt('t'), 0.4)
+        for i, question in enumerate(questions):
+            g.type('.ask ' + question, wait=0.2)
+            g.send(ENTER, 1.0)
+            if not n(g.wait_text('To the Editor Agent', 3), f'question {i + 1}: the consent modal'):
+                break
+            real_agent_spend()
+            g.send(b's', 0.5)
+            # Stop on anything unexpected: no answer within two minutes is reported, not retried
+            if not n(g.wait_for(lambda g: len([f for f in os.listdir(qa) if f.startswith('a_')]) > i if os.path.isdir(qa) else False, 120),
+                     f'question {i + 1}: answered within 2 minutes'):
+                break
+            n(g.wait_text('Answered - a_', 30), f'question {i + 1}: opened')
+            status = next((l for l in g.screen.lines() if 'Answered - ' in l), '').strip()
+            n('cached' in status, f'question {i + 1}: what it cost: {status}')
+            g.send(alt('t'), 0.4)
+        n(g.quit(10), 'quits')
+    finally:
+        g.kill()
+    for name in sorted(os.listdir(qa)) if os.path.isdir(qa) else []:
+        print(f'--- {name}\n' + open(os.path.join(qa, name)).read())
 
 
 @check('#53 step 5 Messages tab: the build list kept open in the lower panel')
@@ -1743,6 +1847,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--exe', help='the goatedit binary (e.g. cmake-build-debug/goatedit)')
     ap.add_argument('--list', action='store_true', help='list the checks and the hitlist items they cover')
+    ap.add_argument('--real-agent', action='store_true',
+                    help=f'run real_agent_ask with the installed claude - costs tokens; at most {REAL_AGENT_PER_HOUR}/hour')
+    ap.add_argument('--real-agent-model', default='', help="the Editor Agent's model for --real-agent (main.ai_model)")
     ap.add_argument('names', nargs='*')
     args = ap.parse_args()
     if args.list:
@@ -1755,6 +1862,8 @@ def main():
     if unknown:
         ap.error(f'no such check: {", ".join(unknown)} (see --list)')
     Goat.EXE = os.path.abspath(args.exe)
+    REAL_AGENT['enabled'] = args.real_agent
+    REAL_AGENT['model'] = args.real_agent_model
     selected = [c for c in CHECKS if not args.names or c.__name__ in args.names]
     summary = []
     for fn in selected:

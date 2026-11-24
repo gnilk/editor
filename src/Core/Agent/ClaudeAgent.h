@@ -32,9 +32,23 @@ namespace gedit {
         bool IsAvailable() const override;
         std::string Status() const override;
         std::vector<std::string> WorkingAgentCommand(const std::filesystem::path &root) const override;
-        std::vector<std::string> QuestionAgentCommand(const std::filesystem::path &root, const std::string &sessionId) const override;
+        std::vector<std::string> QuestionAgentCommand(const std::filesystem::path &root, const std::string &sessionId,
+                                                      const std::string &model) const override;
         std::optional<std::filesystem::path> TranscriptDir(const std::filesystem::path &root) const override;
+        // '<TranscriptDir>/<session id>.jsonl' - or, when that isn't there, the one in another project folder (another
+        // spelling of the same path)
+        std::optional<std::filesystem::path> TranscriptFile(const std::filesystem::path &root, const std::string &sessionId) const override;
+        // Each assistant line's 'message.usage', once per message id (a message is written as several lines, one per
+        // content block, each with the same usage)
+        std::optional<Usage> UsageSince(const std::filesystem::path &transcript, uintmax_t fromByte) const override;
         std::string PromptWithAnswerFile(const std::string &question, const std::filesystem::path &answerFile) const override;
+
+        // Not trusted in 'root' (nor a folder above it) - its config's 'projects.<dir>.hasTrustDialogAccepted'
+        std::string StartBlocker(const std::filesystem::path &root) const override;
+        // Trusted in 'root' or a folder above it, by the config JSON in 'configFile' (~/.claude.json)
+        static bool IsTrusted(const std::filesystem::path &root, const std::filesystem::path &configFile);
+        // '$CLAUDE_CONFIG_DIR/.claude.json', else '~/.claude.json'
+        static std::filesystem::path ConfigFile();
 
         // '/Users/a/src/my.proj' -> '-Users-a-src-my-proj' - the folder name Claude Code gives a project
         static std::string ProjectFolderName(const std::filesystem::path &root);

@@ -8,34 +8,6 @@ Numbers are stable (commits, docs and notes refer to them) - a fixed bug is remo
 
 ---
 
-## 36. Quit hangs for good (Mac, seen with Cmd+Q): a tab's shell can't exit - later shells hold its pty master
-
-**Seen (2026-11-24, Mac, SDL3, `/Applications` build of `feature/editor-agent-tab`):** three terminal tabs - Shell, the
-User Agent (`claude`, right panel) and the Editor Agent (`claude --permission-mode plan`). Cmd+Q: the window went, the
-process stayed (0% CPU) until killed.
-
-**Where it hangs (`sample`):** the main thread is in `main` -> `~PanelHost` -> `~PanelView` -> `~TerminalController` ->
-`Shell::Close` -> `reader.join()`. That reader is in `Shell::ReapChild`, in the blocking `waitpid(pid, 0)` after the
-SIGKILL. The shell it waits for (the User Agent's zsh) is in state `E` - exiting, never finishing - while its `claude`
-(own process group) still runs.
-
-**Why (`lsof`):** the pty master from `forkpty` is not close-on-exec (`Shell::Begin` sets `FD_CLOEXEC` on the wake pipe
-only), so every shell started later inherits the earlier tabs' masters: the Editor Agent's zsh and its `claude` held two
-`/dev/ptmx` fds (the Shell's and the User Agent's), the User Agent's `claude` the Shell's. Closing the editor's copy
-doesn't close the pty; nobody reads it; the dying session leader waits on its tty (drain) for ever, so `waitpid` never
-returns.
-
-**Not Cmd+Q as such:** `.q` takes the same path (`~PanelHost`), and closing a tab (Cmd/Ctrl+W, the Editor Agent's tab
-too) runs `Shell::Close` on the UI thread - the same hang, with the window still up. More likely with agents (a child in
-its own process group that keeps the slave open and writes), and with more tabs.
-
-**Fix:** `FD_CLOEXEC` on `amaster` right after `forkpty`, in the parent (and close every fd above 2 in the child before
-`exec`, for fds opened elsewhere - the editor's files, sockets, `Process` pipes). Then bound the last `waitpid` too: after
-SIGKILL, give it a grace period and leave the zombie rather than block the UI thread. Test: two `Shell`s, the second's
-child must not hold the first's master (`/dev/fd` of the child, or `fcntl(F_GETFD)` on the master); and a reap that
-returns when the child can't be reaped. Check SIGHUP to the shell's process group (`-pid`) as well, so a job like
-`claude` goes with its tab (Linux: same code path; verify there).
-
 ## 34. Intermittent: a full trun run hangs (0% CPU), once at `modal_confirmhotkey`
 
 **Seen:** 2026-11-18, macOS, twice in ~10 runs of the verified-green set - both times the first run right after a

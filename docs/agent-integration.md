@@ -51,7 +51,8 @@ about it. The **Editor Agent** - the question agent of §6.1 - is the editor's o
 user consents to and never from `panel.tabs`, so a project can't start it. First build: its fixed name, its marker, its
 banner, its lifecycle (§6.2 items 2-5); then the prompt / answer-file round trip (§6). **Step 2** (the `.ask` round trip) is designed in §6.3, for review. Codex: a second implementation once
 its read-only flags are checked. Whether the code and config names follow the new terms (the key, `WorkingAgentCommand`)
-is the user's to decide after reading the code - not yet.
+is the user's to decide after reading the code - not yet. **Step 3** (questions from templates, the tools' output in the
+prompt) is designed in §6.4, for review.
 
 The short version: **tools gather, the agent judges.** The editor runs cheap, repeatable tools for the facts (blame chain,
 type-diff, coverage, call stacks), puts them in a prompt, sends it to an agent with the user's consent, and shows the answer.
@@ -344,6 +345,81 @@ Editor Agent's mark colour. A click jumps to its tab - with the mouse bindings (
 
 **Not in step 2:** templates and the tools' output in the prompt (step 3); "always" consent and `full_auto` (§3.3); the
 headless channel; answers shown anywhere but an editor tab; `.git/info/exclude`.
+
+### 6.4 Step 3 - questions from templates
+
+Status: **design, for review** (2026-11-24). Step 2's round trip with the prompt filled by a template: the tools gather,
+the agent judges (§6). Decisions taken by the user on 2026-11-24: the tools ship with the editor; templates live in the
+system and user folders only; the first two are *why is this line here?* and *the structure of this change*; consent is
+still asked every time.
+
+**A template** is a Markdown file, front matter + the prompt:
+
+    ---
+    name: why
+    title: Why is this line here?
+    needs: [file, line]                 # what the editor fills from where the caret is
+    tools:
+      chain: why.py {file}:{line}       # run in the project root; its output is {tool:chain}
+    ---
+    This is what the repository records about line {line} of `{file}` - the commit that last changed it,
+    its message, the merge, the #N it names and the docs that mention them:
+
+    {tool:chain}
+
+    Why is this line here? Answer from the record above first; read the commit, the docs or the code
+    when it isn't enough, and say which. If the record doesn't say, say that - don't guess.
+
+- **Where:** `Assets/Resources/Questions/*.md` (system, through `InstallPaths`), then `~/.config/goatedit/questions/`
+  (user; a user template with the same `name` replaces the system one). **Not the project** - a template runs commands,
+  and a folder never runs code (`ProjectConfigPolicy`'s rule).
+- **Placeholders:** `{file}` (relative to the project root), `{line}` (1-based), `{symbol}` (the word under the caret),
+  `{root}`, `{base}` (below), `{tool:<key>}`. Nothing else is expanded; an unknown one is an error shown before consent.
+- **Tools** are found in the system `Tools/` folder (`Assets/Resources/Tools/`, shipped), then the user's
+  `~/.config/goatedit/tools/`. A `.py` runs with `python3` - an installed `python3` is needed (Linux and macOS have it;
+  `.ask` says so when it's missing). Run with `Process` in the project root, the arguments split by the template - no
+  shell. Each tool's output is capped (`max_lines`, default 300): a long one is cut with a line saying so - the prompt's
+  cost stays bounded.
+
+**Asking:** `.ask <name> [args]` runs a template; `.ask list` lists them (name, title, what they need); anything else is
+step 2's free text, as now. A template's `needs` come from the editor's active document and caret - `.ask why` with no
+file open says so.
+
+**The flow** is step 2's with one step in front: `EA: gathering` while the tools run (async, `Process::Start`; the UI
+doesn't wait), then the prompt is filled and the **consent modal shows it all - the tools' output included**, exactly
+what will be typed. A tool that fails: its stderr and exit code go in a notice, nothing is asked. `q_<id>.md` gets the
+template's name and its arguments in the front matter (`template: why`, `args: src/Core/Line.cpp:120`), so a question
+can be asked again - and, later, a kind can be "always" (§3.3).
+
+**The first two:**
+1. **`why`** - *Why is this line here?* (`agentic-questions.md` reading cold; the probe that earned a clear yes, §3.3).
+   Tool: `why.py` moved from `scripts/explore/` to `Assets/Resources/Tools/` (the explore copy goes - one copy). Its
+   noise fix with it: only rare names are looked up in the docs.
+2. **`structure`** - *What did this change do to the structure?* (review; `typediff.py`, §3.1). Base `{base}`: the branch
+   point - `git merge-base HEAD <main>`, `<main>` the first of `main` / `master` that exists; `.ask structure <rev>`
+   picks another base. Head: the work tree (saved files - a notice when there are unsaved buffers). Files: the C/C++
+   files changed since the base (`git diff --name-only <base>`), not `feature_files.py`'s merges - that was for an old
+   feature, this is the change in progress.
+   - **It needs the structure scan from the shipped editor.** `typediff.py` runs `gedit-bench --dump`, which isn't
+     installed. So `goatedit --dump <dir>` - the same output, headless (no window, no session, exits) - the first piece
+     of #74 (the index export). `{goatedit}` is the running editor's own path, so the tool always matches the binary.
+   - The prompt asks the agent to judge what the diff shows: new dependencies between folders, ownership changes, a rule
+     from `CLAUDE.md` broken (the `Views/` -> `Modals/` include `typediff.py` caught) - and to say what it's unsure of.
+
+**What gets built (sketch):**
+- `AgentQuestionTemplate` (`src/Core/Agent/`) - parse a template (front matter + body), list / find by name across the
+  two folders, fill the placeholders from plain data (the args, the tools' outputs). Plain data, unit-tested.
+- `AgentAsk`: `.ask <name>` -> resolve the args -> run the tools (a `Gathering` state before `Consent` in
+  `AgentQuestion`) -> fill -> step 2's path unchanged.
+- `goatedit --dump <dir>` (a `--unit-test`-like start-up flag that skips the screen); `Tools/why.py`, `Tools/typediff.py`
+  (+ what it uses of `feature_files.py`), `Questions/why.md`, `Questions/structure.md`, installed like the other assets.
+- Tests: template parsing / filling / unknown placeholder / user overrides system (`test_agent`); the tool runner with a
+  fake tool (output capped, failure reported). App check `editor_agent_template` with the fake `claude`: `.ask why` on a
+  line of a scratch repo, the consent shows the chain, the answer opens. One real `.ask why` and `.ask structure` on the
+  user's go (within the 25/hour).
+
+**Not in step 3:** project templates; "always for this kind" (§3.3); the other questions of `agentic-questions.md` (each
+waits for its probe); templates picked from a menu or a key (the command line only); `.ask` on a selection.
 
 ## 7. Code-care and output-care
 

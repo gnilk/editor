@@ -40,7 +40,7 @@ start` (typing it is the consent) opens it in the bottom panel - §6.2 items 2-5
 plain terminal tab the user configures (`config: ai_agent`, its bootstrap runs `claude`), and the editor knows nothing
 about it. The **Editor Agent** - the question agent of §6.1 - is the editor's own tab, started on the first question the
 user consents to and never from `panel.tabs`, so a project can't start it. First build: its fixed name, its marker, its
-banner, its lifecycle (§6.2 items 2-5); then the prompt / answer-file round trip (§6). Codex: a second implementation once
+banner, its lifecycle (§6.2 items 2-5); then the prompt / answer-file round trip (§6). **Step 2** (the `.ask` round trip) is designed in §6.3, for review. Codex: a second implementation once
 its read-only flags are checked. Whether the code and config names follow the new terms (the key, `WorkingAgentCommand`)
 is the user's to decide after reading the code - not yet.
 
@@ -233,6 +233,82 @@ Both are visible - full transparency is the default (§1) - so they must never b
 
 Build order: 2, 3, 4 and 5 with the first Editor Agent tab; then 1, 6 and 7.
 
+### 6.3 Step 2 - one question, all the way round (`.ask`)
+
+Status: **design, for the user's review** (2026-11-24, branch `feature/editor-agent-ask`, on step 1). One free-text
+question, from the command line to an answer on screen, through the Editor Agent's tab. No templates, no tools' output in
+the prompt yet (step 3) - this is the round trip they will ride on. Decisions marked **[user]** are open.
+
+**The flow:**
+
+1. **`.ask <question>`** - free text. (Later the templates call the same path with a filled prompt.)
+2. **The prompt is built** - `AgentIntegration::PromptWithAnswerFile(question, answerFile)` (exists): the question, then
+   "write your answer as Markdown to <file>, change no other file".
+3. **Consent** - a modal shows *exactly* what will be typed, which agent gets it, and whether the agent must be started
+   first: **Send** / **Cancel**. Every question asks, in step 2. "Always for this kind" needs kinds - step 3 with the
+   templates, and the settings of §3.3. **[user]**: agree to leave "always" out of step 2?
+4. **Start if needed** - no Editor Agent running: the consent covered starting it; it starts as in step 1 (`.agent start`),
+   and the question waits for it to be idle (below).
+5. **Send** - when the agent is idle and the user isn't typing in its tab: the prompt goes in as one bracketed paste
+   (`ESC[200~ ... ESC[201~`, the agent asked for it with `?2004`), then Enter (CR) a moment later. As a paste, the prompt's
+   line breaks stay in the prompt instead of sending it early. The user sees it arrive in the tab like typed text (§1:
+   nothing hidden).
+6. **Wait** - the status line says so (below). The tab is not brought to front unless the user clicks there.
+7. **The answer** - the answer file appears and the agent is idle again: the editor opens the file in an editor tab
+   (Markdown is highlighted already) - an ordinary file from then on. A notice if the agent went idle without writing it ("no answer file - see the Editor Agent tab").
+
+**Where it goes:** `<root>/.goatedit/answers/<yyyymmdd-hhmmss>-<n>.md`, next to it `<same>.json` written by the editor
+before sending: the question, the prompt as sent, the agent, its session id, the time. The pair is the record; the agent's
+transcript is the other half. Nothing in `.goatedit/` is the project's truth (§5.1), and the shadow repo leaves it out
+(§5.2). **[user]**: is `answers/` the right name and place - or under `cache/`? (It isn't derivable, so not `cache/` in my
+view.) Keeping it out of the user's `git status` (a line in `.git/info/exclude`) is a write into their setup - not in step
+2; noted for setup (§3).
+
+**The agent starts read-only, writing only answers** (§6.1, closes the §8 item for Claude): plan mode can't write the
+answer file, so the question agent becomes, for Claude Code (2.1.331, from `claude --help`, not yet tried for real):
+
+    claude --permission-mode dontAsk --allowedTools "Read Grep Glob Edit(.goatedit/answers/**)" --session-id <uuid>
+
+`dontAsk` denies anything not allowed up front - no permission prompts the user must answer in the tab, no Bash, no edits
+outside `answers/`. (`Edit(...)` rules cover Write in Claude Code's rule syntax - to confirm.) `--session-id` is the editor
+choosing the id, so the answer's `.json` and the shadow trailers (§5.2) know it without reading transcripts.
+`AgentIntegration::QuestionAgentCommand` gains the answers folder and the session id. **This needs one real start to
+confirm** - a paid call, so only when the user says so; the checks run on the fake `claude`.
+
+**Idle - when may the editor type?** Per agent (`AgentIntegration`), from what the terminal shows, never from the screen
+text:
+- **Generic (any agent):** the agent has asked for bracketed paste (`?2004` - its input line is reading) **and** no output
+  for a quiet time (1.5 s, setting). Cheap, works for the fake.
+- **Claude Code:** its terminal title changes while it works (a spinner glyph first) and settles when done - a sharper
+  signal, *if* it holds; to read off a real run before relying on it. Until then the generic rule.
+- **The user is typing in it:** a key in the Editor Agent's tab within the last 3 s, or the input line not empty as far as
+  the editor can tell (it can't, for a full-screen agent) - so: the last-key rule, and a waiting question shows a notice
+  in the tab's info line ("a question is waiting - it's sent when you stop typing") - §6.2 item 7, first version.
+- **[user]**: the quiet time and the typing window - 1.5 s and 3 s as a start?
+
+**One question at a time.** A second `.ask` while one is out: queued, the status line counts them. No parallel questions
+in one agent - its conversation is sequential anyway.
+
+**Status line (§6.2 item 6), first version:** a short field on the right while the Editor Agent exists - `EA: starting`,
+`EA: idle`, `EA: waiting to send`, `EA: answering`, `EA: answered` (until the answer is opened), `EA: stopped`. In the
+Editor Agent's mark colour. A click jumps to its tab - with the mouse bindings (`mouse:`), a binding like any other.
+
+**What gets built (sketch, names open):**
+- `AgentQuestion` - one question: prompt, answer path, record path, state (`Consent` → `Starting` → `WaitingToSend` →
+  `Sent` → `Answered` / `NoAnswer` / `Cancelled`). Plain data, unit-tested as a state machine fed by events (idle,
+  file seen, tab closed) - no pty in the tests.
+- The question queue + driver in the editor: owns the queue, polls the answer file and the idle signal on the runloop's
+  timer, writes into the Editor Agent's pty through `TerminalController` (a `SendAsPaste` that wraps by `?2004`).
+- `TerminalController`: when the last output came, whether `?2004` is on, when the user last typed - read under
+  `screenLock`.
+- `.ask` in `agent.js`; `docs/keys.md` regenerated.
+- Tests: the state machine; the paste wrapping; `ClaudeAgent`'s new command line. App check `editor_agent_ask`: a fake
+  `claude` that turns on `?2004`, reads a line, writes the file it names, and the check sees the answer opened and the
+  status line go `answering` → `answered`.
+
+**Not in step 2:** templates and the tools' output in the prompt (step 3); "always" consent and `full_auto` (§3.3); the
+headless channel; answers shown anywhere but an editor tab; `.git/info/exclude`.
+
 ## 7. Code-care and output-care
 
 Some projects are about their code (the editor, testrunner, an Amiga intro), some about their output (a golf app) - the
@@ -246,9 +322,9 @@ structure and access, the more questions can be answered.
 - Where the meta lives (§5.3).
 - `AGENTS.md` vs the MCP server's instructions for telling the agent where the truth lives (§3 step 5).
 - The settings' names and granularity (`agent_mode`, per kind of question).
-- Idle detection for the PTY channel, per agent.
+- Idle detection for the PTY channel, per agent - generic rule and Claude's title in §6.3, the title to be confirmed.
 - Is the lock-file format documented anywhere stable; can a project-scoped MCP server be one the editor runs (not one the
   agent launches).
-- How the question agent is started read-only, per agent (Claude Code: permission mode / allowed tools), and whether its
-  answer file can be the only write it's allowed.
+- How the question agent is started read-only, per agent - Claude Code: `dontAsk` + allowed tools (§6.3), to confirm in
+  one real start.
 - An "answered by" column (tool / agent / both) in `agentic-questions.md` §1.

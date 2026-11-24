@@ -133,9 +133,9 @@ std::string EditorAPIWrapper::StartEditorAgent() {
     return editorApi->StartEditorAgent();
 }
 
-std::string EditorAPIWrapper::AskEditorAgent(std::string question) {
+std::vector<std::string> EditorAPIWrapper::AskEditorAgent(std::string text) {
     auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
-    return editorApi->AskEditorAgent(question);
+    return editorApi->AskEditorAgent(text);
 }
 
 std::vector<std::string> EditorAPIWrapper::GetHelp() {

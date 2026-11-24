@@ -10,12 +10,14 @@
 
 #include "Core/Agent/AgentIntegrations.h"
 #include "Core/Agent/AgentQuestion.h"
+#include "Core/Agent/AgentQuestionTemplate.h"
 #include "Core/Agent/ClaudeAgent.h"
 #include "Core/Agent/NoAgent.h"
 #include "Core/Config/Config.h"
 #include "Core/Config/ConfigNode.h"
 #include "Core/Config/ProjectConfigPolicy.h"
 #include "Core/Editor.h"
+#include "Core/RuntimeConfig.h"
 
 using namespace gedit;
 
@@ -40,6 +42,14 @@ DLL_EXPORT int test_agent_question_ends(ITesting *t);
 DLL_EXPORT int test_agent_ask_none(ITesting *t);
 DLL_EXPORT int test_agent_claude_usage(ITesting *t);
 DLL_EXPORT int test_agent_claude_trusted(ITesting *t);
+DLL_EXPORT int test_agent_template_parse(ITesting *t);
+DLL_EXPORT int test_agent_template_errors(ITesting *t);
+DLL_EXPORT int test_agent_template_fill(ITesting *t);
+DLL_EXPORT int test_agent_template_tool(ITesting *t);
+DLL_EXPORT int test_agent_template_cap(ITesting *t);
+DLL_EXPORT int test_agent_template_folders(ITesting *t);
+DLL_EXPORT int test_agent_template_shipped(ITesting *t);
+DLL_EXPORT int test_agent_question_template_file(ITesting *t);
 }
 
 DLL_EXPORT int test_agent(ITesting *t) {
@@ -355,7 +365,9 @@ DLL_EXPORT int test_agent_question_ends(ITesting *t) {
 
 // '.ask' with 'none' says so; with an agent the tests have no window - nothing is asked either way
 DLL_EXPORT int test_agent_ask_none(ITesting *t) {
-    auto message = Editor::Instance().AskEditorAgent("why?");
+    auto lines = Editor::Instance().AskEditorAgent("why?");
+    TR_ASSERT(t, lines.size() == 1);
+    auto &message = lines.front();
     TR_ASSERT(t, message.find("Asking") == std::string::npos);
     if (Editor::Instance().GetAgent()->Name() == NoAgent::NAME) {
         TR_ASSERT(t, message.find("none") != std::string::npos);
@@ -415,5 +427,203 @@ DLL_EXPORT int test_agent_claude_trusted(ITesting *t) {
     TR_ASSERT(t, !ClaudeAgent::IsTrusted("/a", config));
     TR_ASSERT(t, !ClaudeAgent::IsTrusted("/a/trusted", folder / "missing.json"));
     std::filesystem::remove_all(folder);
+    return kTR_Pass;
+}
+
+//
+// Questions from templates (agent-integration.md §6.4)
+//
+static const char *WHY_TEMPLATE = "---\n"
+                                  "name: why\n"
+                                  "title: Why is this line here?\n"
+                                  "needs: [file, line]\n"
+                                  "tools:\n"
+                                  "  chain: why.py {file}:{line}\n"
+                                  "max_lines: 50\n"
+                                  "---\n"
+                                  "\n"
+                                  "Line {line} of {file}:\n"
+                                  "{tool:chain}\n"
+                                  "Code stays: if (x) { return; } - and {{line} is literal\n";
+
+// The front matter and the prompt after it - leading blank lines are not the prompt
+DLL_EXPORT int test_agent_template_parse(ITesting *t) {
+    std::string error;
+    auto why = AgentQuestionTemplate::FromText(WHY_TEMPLATE, error);
+    TR_ASSERT(t, why != nullptr);
+    TR_ASSERT(t, why->Name() == "why");
+    TR_ASSERT(t, why->Title() == "Why is this line here?");
+    TR_ASSERT(t, why->Needs("file") && why->Needs("line") && !why->Needs("symbol"));
+    TR_ASSERT(t, why->Args().empty());
+    TR_ASSERT(t, why->MaxLines() == 50);
+    TR_ASSERT(t, why->Tools().size() == 1);
+    TR_ASSERT(t, why->Tools()[0].key == "chain");
+    TR_ASSERT(t, (why->Tools()[0].command == std::vector<std::string>{"why.py", "{file}:{line}"}));
+    TR_ASSERT(t, why->FillPrompt({}).rfind("Line ", 0) == 0);
+
+    // No tools, no needs - a plain prompt with an optional arg; max_lines defaults
+    auto plain = AgentQuestionTemplate::FromText("---\nname: plain\nargs: [base]\n---\nAgainst {base}.\n", error);
+    TR_ASSERT(t, plain != nullptr);
+    TR_ASSERT(t, plain->Tools().empty());
+    TR_ASSERT(t, plain->MaxLines() == AgentQuestionTemplate::DEFAULT_MAX_LINES);
+    return kTR_Pass;
+}
+
+// A typo never reaches the agent: what isn't a template says why
+DLL_EXPORT int test_agent_template_errors(ITesting *t) {
+    std::string error;
+    TR_ASSERT(t, AgentQuestionTemplate::FromText("name: x\n---\nhi\n", error) == nullptr);
+    TR_ASSERT(t, error.find("front matter") != std::string::npos);
+    TR_ASSERT(t, AgentQuestionTemplate::FromText("---\nname: x\nhi\n", error) == nullptr);
+    TR_ASSERT(t, AgentQuestionTemplate::FromText("---\ntitle: no name\n---\nhi\n", error) == nullptr);
+    TR_ASSERT(t, error.find("name") != std::string::npos);
+    TR_ASSERT(t, AgentQuestionTemplate::FromText("---\nname: Why Not\n---\nhi\n", error) == nullptr);
+    TR_ASSERT(t, AgentQuestionTemplate::FromText("---\nname: x\n---\n\n\n", error) == nullptr);
+    TR_ASSERT(t, error.find("prompt") != std::string::npos);
+    // Placeholders: in the prompt, in a tool's arguments, a tool key that isn't there, a need that doesn't exist
+    TR_ASSERT(t, AgentQuestionTemplate::FromText("---\nname: x\nneeds: [file]\n---\n{flie}\n", error) == nullptr);
+    TR_ASSERT(t, error.find("{flie}") != std::string::npos);
+    TR_ASSERT(t, AgentQuestionTemplate::FromText("---\nname: x\ntools:\n  a: t.py {line}\n---\n{tool:a}\n", error) == nullptr);
+    TR_ASSERT(t, error.find("'a'") != std::string::npos);
+    TR_ASSERT(t, AgentQuestionTemplate::FromText("---\nname: x\ntools:\n  a: t.py\n---\n{tool:b}\n", error) == nullptr);
+    TR_ASSERT(t, AgentQuestionTemplate::FromText("---\nname: x\nneeds: [selection]\n---\nhi\n", error) == nullptr);
+    TR_ASSERT(t, AgentQuestionTemplate::FromText("---\nname: x\ntools: [a]\n---\nhi\n", error) == nullptr);
+    TR_ASSERT(t, AgentQuestionTemplate::FromText("---\nname: x\ntools:\n  a: \"\"\n---\nhi\n", error) == nullptr);
+    TR_ASSERT(t, AgentQuestionTemplate::FromText("---\nname: [x\n---\nhi\n", error) == nullptr);
+    // Always there: root, goatedit
+    TR_ASSERT(t, AgentQuestionTemplate::FromText("---\nname: x\n---\n{root} {goatedit}\n", error) != nullptr);
+    return kTR_Pass;
+}
+
+// Placeholders filled; braces that aren't one stay; '{{' is '{'; a missing value fills to empty
+DLL_EXPORT int test_agent_template_fill(ITesting *t) {
+    std::string error;
+    auto why = AgentQuestionTemplate::FromText(WHY_TEMPLATE, error);
+    AgentQuestionTemplate::Values values = {{"file", "src/a.cpp"}, {"line", "12"}, {"tool:chain", "== the chain\n"}};
+    auto prompt = why->FillPrompt(values);
+    TR_ASSERT(t, prompt == "Line 12 of src/a.cpp:\n== the chain\n\nCode stays: if (x) { return; } - and {line} is literal\n");
+    TR_ASSERT(t, why->Describe(values) == "Why is this line here? (src/a.cpp:12)");
+
+    // Args: in order, the missing ones empty; more words than args is not this template
+    auto structure = AgentQuestionTemplate::FromText("---\nname: structure\ntitle: Structure\nargs: [base]\n---\nvs {base}.\n", error);
+    AgentQuestionTemplate::Values args;
+    TR_ASSERT(t, structure->ArgValues({}, args));
+    TR_ASSERT(t, args["base"].empty());
+    TR_ASSERT(t, structure->FillPrompt(args) == "vs .\n");
+    TR_ASSERT(t, structure->Describe(args) == "Structure");
+    TR_ASSERT(t, structure->ArgValues({"main"}, args));
+    TR_ASSERT(t, args["base"] == "main");
+    TR_ASSERT(t, structure->Describe(args) == "Structure (base main)");
+    TR_ASSERT(t, !structure->ArgValues({"is", "slow"}, args));
+    return kTR_Pass;
+}
+
+// A tool's command: split on spaces first, filled after - a value with a space stays one argument, an empty one goes;
+// a '.py' runs with python3; only a name, found in the tool folders (the later folder wins)
+DLL_EXPORT int test_agent_template_tool(ITesting *t) {
+    std::string error;
+    auto structure = AgentQuestionTemplate::FromText("---\nname: s\nargs: [base]\nneeds: [file]\ntools:\n"
+                                                     "  diff: typediff.py --goatedit {goatedit} {base} --file={file}\n---\n{tool:diff}\n", error);
+    TR_ASSERT(t, structure != nullptr);
+    AgentQuestionTemplate::Values values = {{"goatedit", "/Apps/My Editor/goatedit"}, {"base", ""}, {"file", "a b.cpp"}};
+    auto arguments = structure->ToolArguments(structure->Tools()[0], values);
+    TR_ASSERT(t, (arguments == std::vector<std::string>{"--goatedit", "/Apps/My Editor/goatedit", "--file=a b.cpp"}));
+
+    auto command = AgentQuestionTemplate::ToolCommand("/sys/Tools/typediff.py", arguments);
+    TR_ASSERT(t, command.program == "python3");
+    TR_ASSERT(t, command.arguments.size() == 4);
+    TR_ASSERT(t, command.arguments[0] == "/sys/Tools/typediff.py");
+    auto binary = AgentQuestionTemplate::ToolCommand("/sys/Tools/scan", {"-x"});
+    TR_ASSERT(t, binary.program == "/sys/Tools/scan");
+    TR_ASSERT(t, (binary.arguments == std::vector<std::string>{"-x"}));
+
+    auto folder = std::filesystem::temp_directory_path() / "goatedit_agent_template_tool";
+    std::filesystem::remove_all(folder);
+    std::filesystem::create_directories(folder / "system");
+    std::filesystem::create_directories(folder / "user");
+    std::ofstream(folder / "system" / "why.py") << "print('system')\n";
+    std::ofstream(folder / "system" / "only.py") << "print('system')\n";
+    std::ofstream(folder / "user" / "why.py") << "print('user')\n";
+    std::vector<std::filesystem::path> folders = {folder / "system", folder / "user"};
+    TR_ASSERT(t, AgentQuestionTemplate::FindTool(folders, "why.py") == folder / "user" / "why.py");
+    TR_ASSERT(t, AgentQuestionTemplate::FindTool(folders, "only.py") == folder / "system" / "only.py");
+    TR_ASSERT(t, AgentQuestionTemplate::FindTool(folders, "none.py").empty());
+    TR_ASSERT(t, AgentQuestionTemplate::FindTool(folders, "../system/why.py").empty());
+    TR_ASSERT(t, AgentQuestionTemplate::FindTool(folders, "..").empty());
+    std::filesystem::remove_all(folder);
+    return kTR_Pass;
+}
+
+// A tool's output is cut at max_lines, with a line saying how much went - the prompt's cost stays bounded
+DLL_EXPORT int test_agent_template_cap(ITesting *t) {
+    TR_ASSERT(t, AgentQuestionTemplate::CapOutput("a\nb\n", 2) == "a\nb\n");
+    TR_ASSERT(t, AgentQuestionTemplate::CapOutput("a\nb", 2) == "a\nb");
+    TR_ASSERT(t, AgentQuestionTemplate::CapOutput("", 2).empty());
+    auto cut = AgentQuestionTemplate::CapOutput("a\nb\nc\nd\n", 2);
+    TR_ASSERT(t, cut.rfind("a\nb\n[... 2 more lines cut", 0) == 0);
+    auto cutNoEnd = AgentQuestionTemplate::CapOutput("a\nb\nc\nd", 3);
+    TR_ASSERT(t, cutNoEnd.rfind("a\nb\nc\n[... 1 more lines cut", 0) == 0);
+    return kTR_Pass;
+}
+
+// System, then user: the user's template of the same name replaces the system's; a file that isn't one is reported
+DLL_EXPORT int test_agent_template_folders(ITesting *t) {
+    auto folder = std::filesystem::temp_directory_path() / "goatedit_agent_template_folders";
+    std::filesystem::remove_all(folder);
+    std::filesystem::create_directories(folder / "system");
+    std::filesystem::create_directories(folder / "user");
+    std::ofstream(folder / "system" / "why.md") << "---\nname: why\ntitle: System\n---\nhi\n";
+    std::ofstream(folder / "system" / "other.md") << "---\nname: other\n---\nhi\n";
+    std::ofstream(folder / "system" / "notes.txt") << "not a template, not read\n";
+    std::ofstream(folder / "user" / "why.md") << "---\nname: why\ntitle: Mine\n---\nhi\n";
+    std::ofstream(folder / "user" / "broken.md") << "no front matter\n";
+
+    std::vector<std::string> errors;
+    auto templates = AgentQuestionTemplate::LoadAll({folder / "system", folder / "user", folder / "missing"}, errors);
+    TR_ASSERT(t, templates.size() == 2);
+    auto why = AgentQuestionTemplate::Find(templates, "why");
+    TR_ASSERT(t, why != nullptr);
+    TR_ASSERT(t, why->Title() == "Mine");
+    TR_ASSERT(t, why->Origin() == folder / "user" / "why.md");
+    TR_ASSERT(t, AgentQuestionTemplate::Find(templates, "other") != nullptr);
+    TR_ASSERT(t, AgentQuestionTemplate::Find(templates, "broken") == nullptr);
+    TR_ASSERT(t, errors.size() == 1);
+    TR_ASSERT(t, errors[0].find("broken.md") != std::string::npos);
+    std::filesystem::remove_all(folder);
+    return kTR_Pass;
+}
+
+// The shipped templates read, and the tools they name are shipped too
+DLL_EXPORT int test_agent_template_shipped(ITesting *t) {
+    auto &assetLoader = RuntimeConfig::Instance().GetAssetLoader();
+    auto questionFolders = assetLoader.ResolveExistingDirectories("Questions", AssetLoaderBase::kLocationType::kSystem);
+    auto toolFolders = assetLoader.ResolveExistingDirectories("Tools", AssetLoaderBase::kLocationType::kSystem);
+    TR_ASSERT(t, !questionFolders.empty());
+    TR_ASSERT(t, !toolFolders.empty());
+    std::vector<std::string> errors;
+    auto templates = AgentQuestionTemplate::LoadAll(questionFolders, errors);
+    TR_ASSERT(t, errors.empty());
+    TR_ASSERT(t, AgentQuestionTemplate::Find(templates, "why") != nullptr);
+    TR_ASSERT(t, AgentQuestionTemplate::Find(templates, "structure") != nullptr);
+    for (auto &questionTemplate : templates) {
+        for (auto &tool : questionTemplate->Tools()) {
+            TR_ASSERT(t, !AgentQuestionTemplate::FindTool(toolFolders, tool.command.front()).empty());
+        }
+    }
+    return kTR_Pass;
+}
+
+// A question from a template says which, and about what - so it can be asked again
+DLL_EXPORT int test_agent_question_template_file(ITesting *t) {
+    auto question = AgentQuestion::Create("1", "Why is this line here? (src/a.cpp:12)", "/p/.goatedit/agent_qa");
+    question->SetPrompt("the prompt");
+    auto plain = question->QuestionFileText("Claude Code", "", "now");
+    TR_ASSERT(t, plain.find("template:") == std::string::npos);
+    question->SetTemplate("why", "src/a.cpp:12");
+    auto text = question->QuestionFileText("Claude Code", "", "now");
+    TR_ASSERT(t, text.find("template: why\nargs: src/a.cpp:12\n") != std::string::npos);
+    TR_ASSERT(t, text.find("# Question\n\nWhy is this line here? (src/a.cpp:12)") != std::string::npos);
+    question->SetTemplate("structure", "");
+    TR_ASSERT(t, question->QuestionFileText("Claude Code", "", "now").find("args:") == std::string::npos);
     return kTR_Pass;
 }

@@ -390,6 +390,9 @@ int main(int argc, const char **argv) {
     if (Editor::Instance().IsThemeImportRequested()) {
         return Editor::Instance().ImportTheme() ? 0 : 1;
     }
+    if (Editor::Instance().IsStructureDumpRequested()) {
+        return Editor::Instance().DumpStructure() ? 0 : 1;
+    }
     Editor::Instance().OpenScreen();
 
 

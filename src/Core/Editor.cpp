@@ -39,6 +39,7 @@
 #include "Core/Editor/Views/PanelView.h"
 #include "Core/Agent/AgentIntegrations.h"
 #include "Core/Agent/NoAgent.h"
+#include "Core/Index/StructureDump.h"
 
 
 // SDL3 backend
@@ -439,6 +440,12 @@ void Editor::ParseArguments(int argc, const char **argv) {
                 if (i + 1 < argc) {
                     importThemeName = argv[++i];
                 }
+            } else if (cmdSwitch == "dump") {
+                // Absolute now, like the file args - Initialize may move cwd to $HOME
+                if (i + 1 < argc) {
+                    std::error_code ec;
+                    dumpPath = std::filesystem::absolute(std::filesystem::path(argv[++i]), ec).lexically_normal();
+                }
             } else if (cmdSwitch == "force") {
                 isImportThemeForced = true;
             } else if (cmdSwitch == "help") {
@@ -471,6 +478,7 @@ void Editor::PrintHelpToConsole() {
     printf("  --cwd <dir>, set the working directory (project root) before resolving file arguments\n");
     printf("  --import-theme <file> [--name <name>] [--force], convert a VS Code theme (.json) or Sublime color scheme\n");
     printf("      (.sublime-color-scheme) into <name>.theme.yml + <name>.colors.json in themes/ next to the user config, then quit\n");
+    printf("  --dump <file-or-folder>, print the C/C++ structure (symbols + edges) of the files, then quit\n");
 }
 
 
@@ -688,8 +696,8 @@ std::string Editor::StartEditorAgent() {
     return agentAsk.StartAgent();
 }
 
-std::string Editor::AskEditorAgent(const std::string &question) {
-    return agentAsk.Ask(question);
+std::vector<std::string> Editor::AskEditorAgent(const std::string &text) {
+    return agentAsk.Ask(text);
 }
 
 TerminalView *Editor::GetEditorAgentView() {
@@ -1296,6 +1304,17 @@ bool Editor::ImportTheme() {
         fprintf(result.isOk ? stdout : stderr, "%s\n", line.c_str());
     }
     return result.isOk;
+}
+
+// '--dump': the structure of C/C++ files as text (StructureDump), to stdout
+bool Editor::DumpStructure() {
+    auto language = GetLanguageForExtension(".cpp");
+    if ((language == nullptr) || !std::filesystem::exists(dumpPath)) {
+        fprintf(stderr, "--dump: no such file or folder '%s'\n", dumpPath.c_str());
+        return false;
+    }
+    StructureDump::Print(stdout, dumpPath, language->Tokenizer());
+    return true;
 }
 
 // Configure global/static API objects..

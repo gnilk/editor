@@ -2,6 +2,7 @@
 // '.ask' - questions to the Editor Agent, all the way round (docs/agent-integration.md §6.3): consent, start the agent
 // if it doesn't run, wait for it to settle, paste the prompt and press Enter, wait for the answer file, open it. One
 // question at a time; the rest wait in line. Also what the status line says about the Editor Agent (§6.2 item 6).
+// '.ask <template> [args]' (§6.4): the template's tools are run first ('gathering'), their output fills its prompt.
 //
 // Runs on the UI thread: a timer posts a look at the agent's tab (Tick) while a question is out or the agent runs.
 // The question itself is plain data (Core/Agent/AgentQuestion) - this is the part that touches tabs, files and modals.
@@ -15,6 +16,8 @@
 #include <string>
 
 #include "Core/Agent/AgentQuestion.h"
+#include "Core/Agent/AgentQuestionTemplate.h"
+#include "Core/Process.h"
 #include "Core/Editor/Views/TerminalView.h"
 #include "Core/Timer.h"
 
@@ -24,8 +27,9 @@ namespace gedit {
         AgentAsk() = default;
         virtual ~AgentAsk();
 
-        // '.ask <question>': the consent modal; the rest follows when the user accepts. A line for the user.
-        std::string Ask(const std::string &question);
+        // '.ask <question>': the consent modal; the rest follows when the user accepts. '.ask <template> [args]': the
+        // template's tools first. '.ask list': the templates. Lines for the user.
+        std::vector<std::string> Ask(const std::string &text);
         // '.agent start': the Editor Agent's tab - shown when it runs already. A line for the user.
         std::string StartAgent();
 
@@ -45,6 +49,27 @@ namespace gedit {
         static constexpr size_t CONSENT_WIDTH = 76;
 
     private:
+        // A template's tools, run one after the other before the consent modal
+        struct Gathering {
+            using Ref = std::shared_ptr<Gathering>;
+            AgentQuestionTemplate::Ref questionTemplate;
+            AgentQuestionTemplate::Values values;
+            size_t idxTool = 0;
+            Process::Ref process;
+            std::string stdOut;
+            std::string stdErr;
+        };
+    private:
+        // Why a question can't be asked now - empty when it can
+        std::string AskBlocker() const;
+        std::vector<std::string> ListTemplates() const;
+        std::vector<AgentQuestionTemplate::Ref> LoadTemplates(std::vector<std::string> &outErrors) const;
+        std::string AskFromTemplate(const AgentQuestionTemplate::Ref &questionTemplate, const std::vector<std::string> &words);
+        void RunNextTool(const Gathering::Ref &newGathering);
+        void OnToolExit(const Gathering::Ref &toolGathering, const Process::Result &result);
+        void OnGathered(const Gathering::Ref &doneGathering);
+        AgentQuestion::Ref NewQuestion(const std::string &question);
+        void ShowConsent(const AgentQuestion::Ref &question);
         void OnConsent(const AgentQuestion::Ref &question, bool isAccepted);
         bool WriteQuestionFile(const AgentQuestion &question, std::string &outError);
         // The tab with the agent's command for a new conversation - nullptr when there is no panel or command
@@ -61,6 +86,8 @@ namespace gedit {
 
     private:
         std::deque<AgentQuestion::Ref> questions;
+        // The template whose tools run now - one at a time
+        Gathering::Ref gathering;
         // The Editor Agent this session started, and its conversation's id
         TerminalView *startedView = nullptr;
         std::string sessionId;

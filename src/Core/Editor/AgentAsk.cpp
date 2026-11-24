@@ -4,6 +4,7 @@
 
 #include <ctime>
 #include <fstream>
+#include <sstream>
 
 #include <fmt/format.h>
 
@@ -12,6 +13,7 @@
 #include "Core/Agent/NoAgent.h"
 #include "Core/Config/Config.h"
 #include "Core/Editor.h"
+#include "Core/InstallPaths.h"
 #include "Core/RuntimeConfig.h"
 #include "Core/UI/Modals/ConfirmModal.h"
 #include "Core/UI/Views/RootView.h"
@@ -23,16 +25,76 @@ AgentAsk::~AgentAsk() {
     timer = nullptr;
 }
 
-std::string AgentAsk::Ask(const std::string &question) {
+static std::vector<std::string> Words(const std::string &text) {
+    std::vector<std::string> words;
+    std::istringstream in(text);
+    std::string word;
+    while (in >> word) {
+        words.push_back(word);
+    }
+    return words;
+}
+
+static bool IsWordChar(char32_t ch) {
+    return ((ch >= U'a') && (ch <= U'z')) || ((ch >= U'A') && (ch <= U'Z')) || ((ch >= U'0') && (ch <= U'9')) || (ch == U'_');
+}
+
+// The identifier under (or just before) the caret - empty when there is none
+static std::string WordAt(const std::u32string &text, size_t idxChar) {
+    if (idxChar > text.size()) {
+        idxChar = text.size();
+    }
+    if (((idxChar == text.size()) || !IsWordChar(text[idxChar])) && (idxChar > 0) && IsWordChar(text[idxChar - 1])) {
+        idxChar--;
+    }
+    if ((idxChar >= text.size()) || !IsWordChar(text[idxChar])) {
+        return {};
+    }
+    size_t start = idxChar;
+    while ((start > 0) && IsWordChar(text[start - 1])) {
+        start--;
+    }
+    size_t end = idxChar;
+    while ((end < text.size()) && IsWordChar(text[end])) {
+        end++;
+    }
+    return UnicodeHelper::utf32to8(text.substr(start, end - start));
+}
+
+std::vector<std::string> AgentAsk::Ask(const std::string &text) {
+    auto words = Words(text);
+    if (words.empty()) {
+        return {"Usage: .ask <question> | .ask <template> [args] | .ask list - put to the Editor Agent, after you OK it"};
+    }
+    if ((words.size() == 1) && (words.front() == "list")) {
+        return ListTemplates();
+    }
+    if (auto blocker = AskBlocker(); !blocker.empty()) {
+        return {blocker};
+    }
+    // A template when the first word names one and the rest fit its args - '.ask why is this slow' is a question
+    std::vector<std::string> errors;
+    auto templates = LoadTemplates(errors);
+    if (auto questionTemplate = AgentQuestionTemplate::Find(templates, words.front()); questionTemplate != nullptr) {
+        std::vector<std::string> templateWords(words.begin() + 1, words.end());
+        if (templateWords.size() <= questionTemplate->Args().size()) {
+            return {AskFromTemplate(questionTemplate, templateWords)};
+        }
+    }
+    auto agent = Editor::Instance().GetAgent();
+    auto agentQuestion = NewQuestion(text);
+    agentQuestion->SetPrompt(agent->PromptWithAnswerFile(text, agentQuestion->AnswerFile()));
+    ShowConsent(agentQuestion);
+    return {"Asking the Editor Agent - send it, or cancel"};
+}
+
+std::string AgentAsk::AskBlocker() const {
     auto agent = Editor::Instance().GetAgent();
     if (agent->Name() == NoAgent::NAME) {
         return "No agent set (main.ai_integration: none) - '.cfg set main.ai_integration claude' in your user config";
     }
     if (!agent->IsAvailable()) {
         return "Not asked - " + agent->Status();
-    }
-    if (question.empty()) {
-        return "Usage: .ask <question> - put to the Editor Agent, after you OK it";
     }
     if (Editor::Instance().GetEditorAgentView() == nullptr) {
         if (auto blocker = agent->StartBlocker(Editor::Instance().GetProjectRootPath()); !blocker.empty()) {
@@ -42,16 +104,188 @@ std::string AgentAsk::Ask(const std::string &question) {
     if (!RuntimeConfig::Instance().HasRootView()) {
         return "Not asked - no window";
     }
+    return {};
+}
 
+// System 'Questions/', then the user's 'questions/' - never the project's: a template runs commands
+std::vector<AgentQuestionTemplate::Ref> AgentAsk::LoadTemplates(std::vector<std::string> &outErrors) const {
+    auto &assetLoader = RuntimeConfig::Instance().GetAssetLoader();
+    auto folders = assetLoader.ResolveExistingDirectories("Questions", AssetLoaderBase::kLocationType::kSystem);
+    auto userFolders = assetLoader.ResolveExistingDirectories("questions", AssetLoaderBase::kLocationType::kUser);
+    // The user's replace the system's: the later folder wins, so the user's go last - and of those, the preferred
+    // (first) user dir last of all
+    folders.insert(folders.end(), userFolders.rbegin(), userFolders.rend());
+    return AgentQuestionTemplate::LoadAll(folders, outErrors);
+}
+
+std::vector<std::string> AgentAsk::ListTemplates() const {
+    std::vector<std::string> errors;
+    auto templates = LoadTemplates(errors);
+    std::vector<std::string> lines;
+    if (templates.empty()) {
+        lines.emplace_back("No question templates (Questions/ in the system assets, questions/ in your user config)");
+    }
+    for (auto &questionTemplate : templates) {
+        std::string usage = questionTemplate->Name();
+        for (auto &arg : questionTemplate->Args()) {
+            usage += " [" + arg + "]";
+        }
+        std::string about;
+        for (auto &need : questionTemplate->Needs()) {
+            about += (about.empty() ? "" : ", ") + need;
+        }
+        lines.push_back(fmt::format("  {:<20} {}{}", usage, questionTemplate->Title(), about.empty() ? "" : "  (at the caret: " + about + ")"));
+    }
+    for (auto &error : errors) {
+        lines.push_back("  not a template - " + error);
+    }
+    return lines;
+}
+
+std::string AgentAsk::AskFromTemplate(const AgentQuestionTemplate::Ref &questionTemplate, const std::vector<std::string> &words) {
+    if (gathering != nullptr) {
+        return "Not asked - still gathering for '" + gathering->questionTemplate->Name() + "'";
+    }
+    auto root = Editor::Instance().GetProjectRootPath();
+    AgentQuestionTemplate::Values values;
+    values["root"] = root.string();
+    values["goatedit"] = InstallPaths::ExecutablePath().string();
+    questionTemplate->ArgValues(words, values);
+
+    bool needsCaret = questionTemplate->Needs("file") || questionTemplate->Needs("line") || questionTemplate->Needs("symbol");
+    if (needsCaret) {
+        auto document = Editor::Instance().GetActiveDocument();
+        if ((document == nullptr) || document->GetPath().empty()) {
+            return "Not asked - '" + questionTemplate->Name() + "' is about the caret's place in a file; no file is open";
+        }
+        auto path = document->GetPath();
+        auto relative = path.lexically_relative(root);
+        bool isInRoot = !relative.empty() && (relative.begin()->string() != "..");
+        values["file"] = isInRoot ? relative.string() : path.string();
+        auto &lineCursor = document->GetLineCursor();
+        values["line"] = std::to_string(lineCursor.idxActiveLine + 1);
+        auto line = document->ActiveLine();
+        values["symbol"] = (line != nullptr) ? WordAt(line->Buffer(), lineCursor.cursor.position.x) : "";
+        if (questionTemplate->Needs("symbol") && values["symbol"].empty()) {
+            return "Not asked - '" + questionTemplate->Name() + "' is about the name under the caret; there is none";
+        }
+    }
+
+    auto newGathering = std::make_shared<Gathering>();
+    newGathering->questionTemplate = questionTemplate;
+    newGathering->values = values;
+    gathering = newGathering;
+    ArmTimer();
+    Tick();
+    RunNextTool(newGathering);
+    return "Gathering for '" + questionTemplate->Name() + "' - " + questionTemplate->Describe(values);
+}
+
+// One tool at a time, in the order the template lists them; the last one's exit fills the prompt
+void AgentAsk::RunNextTool(const Gathering::Ref &toolGathering) {
+    auto &tools = toolGathering->questionTemplate->Tools();
+    if (toolGathering->idxTool >= tools.size()) {
+        OnGathered(toolGathering);
+        return;
+    }
+    auto &tool = tools[toolGathering->idxTool];
+    auto &assetLoader = RuntimeConfig::Instance().GetAssetLoader();
+    auto folders = assetLoader.ResolveExistingDirectories("Tools", AssetLoaderBase::kLocationType::kSystem);
+    auto userFolders = assetLoader.ResolveExistingDirectories("tools", AssetLoaderBase::kLocationType::kUser);
+    folders.insert(folders.end(), userFolders.rbegin(), userFolders.rend());
+    auto toolFile = AgentQuestionTemplate::FindTool(folders, tool.command.front());
+    if (toolFile.empty()) {
+        gathering = nullptr;
+        Editor::Instance().ShowStatusMessage(UnicodeHelper::utf8to32("Not asked - no tool '" + tool.command.front() +
+                                                                     "' in Tools/ (system) or tools/ (user config)"));
+        Tick();
+        return;
+    }
+    auto command = AgentQuestionTemplate::ToolCommand(toolFile, toolGathering->questionTemplate->ToolArguments(tool, toolGathering->values));
+    toolGathering->stdOut.clear();
+    toolGathering->stdErr.clear();
+    toolGathering->process = Process::Create(command.program, command.arguments);
+    toolGathering->process->SetWorkingDirectory(Editor::Instance().GetProjectRootPath());
+    // On the process's reader - each stream only appends to its own string, read after the exit
+    toolGathering->process->SetOnStdOut([toolGathering](const std::string &data) {
+        toolGathering->stdOut += data;
+    });
+    toolGathering->process->SetOnStdErr([toolGathering](const std::string &data) {
+        toolGathering->stdErr += data;
+    });
+    toolGathering->process->SetOnExit([toolGathering](const Process::Result &result) {
+        if (!RuntimeConfig::Instance().HasRootView()) {
+            return;
+        }
+        RuntimeConfig::Instance().GetRootView().PostMessage([toolGathering, result]() {
+            Editor::Instance().GetAgentAsk().OnToolExit(toolGathering, result);
+        });
+    });
+    toolGathering->process->Start();
+}
+
+void AgentAsk::OnToolExit(const Gathering::Ref &toolGathering, const Process::Result &result) {
+    if (toolGathering != gathering) {
+        return;
+    }
+    auto &tool = toolGathering->questionTemplate->Tools()[toolGathering->idxTool];
+    toolGathering->process = nullptr;
+    if (!result.IsSuccess()) {
+        gathering = nullptr;
+        auto firstLine = toolGathering->stdErr.substr(0, toolGathering->stdErr.find('\n'));
+        std::string why = (result.state == Process::kState::kFailedToStart) ? "didn't start: " + result.error :
+                          fmt::format("failed (exit {})", result.exitCode) + (firstLine.empty() ? "" : ": " + firstLine);
+        Editor::Instance().ShowStatusMessage(UnicodeHelper::utf8to32("Not asked - " + tool.command.front() + " " + why));
+        Tick();
+        return;
+    }
+    toolGathering->values["tool:" + tool.key] = AgentQuestionTemplate::CapOutput(toolGathering->stdOut, toolGathering->questionTemplate->MaxLines());
+    toolGathering->idxTool++;
+    RunNextTool(toolGathering);
+}
+
+void AgentAsk::OnGathered(const Gathering::Ref &doneGathering) {
+    gathering = nullptr;
+    auto &questionTemplate = doneGathering->questionTemplate;
+    // The agent may have gone, or the window, while the tools ran
+    if (auto blocker = AskBlocker(); !blocker.empty()) {
+        Editor::Instance().ShowStatusMessage(UnicodeHelper::utf8to32(blocker));
+        Tick();
+        return;
+    }
+    auto agent = Editor::Instance().GetAgent();
+    auto agentQuestion = NewQuestion(questionTemplate->Describe(doneGathering->values));
+    auto filled = questionTemplate->FillPrompt(doneGathering->values);
+    agentQuestion->SetPrompt(agent->PromptWithAnswerFile(filled, agentQuestion->AnswerFile()));
+    // What it was asked about, for asking again: the caret's place, then the args
+    std::string about;
+    if (questionTemplate->Needs("file")) {
+        about = doneGathering->values["file"] + (questionTemplate->Needs("line") ? ":" + doneGathering->values["line"] : "");
+    }
+    if (questionTemplate->Needs("symbol")) {
+        about += (about.empty() ? "" : " ") + doneGathering->values["symbol"];
+    }
+    for (auto &arg : questionTemplate->Args()) {
+        if (!doneGathering->values[arg].empty()) {
+            about += (about.empty() ? "" : " ") + doneGathering->values[arg];
+        }
+    }
+    agentQuestion->SetTemplate(questionTemplate->Name(), about);
+    ShowConsent(agentQuestion);
+    Tick();
+}
+
+AgentQuestion::Ref AgentAsk::NewQuestion(const std::string &question) {
     // The id: the second it was asked, and a number for two in the same second
     auto now = std::chrono::system_clock::now();
     auto stamp = AgentQuestion::MakeId(now, 0);
     numberThisSecond = (stamp == lastIdStamp) ? numberThisSecond + 1 : 1;
     lastIdStamp = stamp;
     auto root = Editor::Instance().GetProjectRootPath();
-    auto agentQuestion = AgentQuestion::Create(AgentQuestion::MakeId(now, numberThisSecond), question, AgentQuestion::QAFolder(root));
-    agentQuestion->SetPrompt(agent->PromptWithAnswerFile(question, agentQuestion->AnswerFile()));
+    return AgentQuestion::Create(AgentQuestion::MakeId(now, numberThisSecond), question, AgentQuestion::QAFolder(root));
+}
 
+void AgentAsk::ShowConsent(const AgentQuestion::Ref &agentQuestion) {
     bool willStart = (Editor::Instance().GetEditorAgentView() == nullptr);
     auto modal = ConfirmModal::Create("Ask the Editor Agent", UnicodeHelper::utf8to32(ConsentMessage(*agentQuestion, willStart)),
                                       {U"Send", U"Cancel"});
@@ -62,7 +296,6 @@ std::string AgentAsk::Ask(const std::string &question) {
         OnConsent(agentQuestion, false);
     });
     RuntimeConfig::Instance().GetRootViewAs<RootView>()->ShowModal(std::move(modal));
-    return "Asking the Editor Agent - send it, or cancel";
 }
 
 // What will be typed, word for word, and to whom - wrapped to fit the modal
@@ -239,7 +472,7 @@ void AgentAsk::Tick() {
         lastStatus = status;
         Editor::Instance().TriggerUIRedraw();
     }
-    if (!questions.empty() || (agentView != nullptr)) {
+    if (!questions.empty() || (agentView != nullptr) || (gathering != nullptr)) {
         ArmTimer();
     }
 }
@@ -301,6 +534,13 @@ void AgentAsk::UpdateInfoLine(TerminalView *agentView, bool isWaitingForFocus) {
 // Worked out on each tick - the status line only reads it
 std::u32string AgentAsk::ComputeStatus(const AgentQuestion::Signals &signals, bool isWaitingForFocus) const {
     std::u32string text;
+    if (gathering != nullptr) {
+        text = U"EA: gathering";
+        if (!questions.empty()) {
+            text += UnicodeHelper::utf8to32(fmt::format(" (+{})", questions.size()));
+        }
+        return text;
+    }
     if (!questions.empty()) {
         auto &question = questions.front();
         switch (question->State()) {

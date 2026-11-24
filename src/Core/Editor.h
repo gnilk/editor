@@ -257,8 +257,9 @@ namespace gedit {
         // read-only command - the user asked, so it may start. Shown and focused; when it runs already it is only shown.
         // A line for the user.
         std::string StartEditorAgent();
-        // '.ask <question>' (§6.3): asks for consent, then puts it to the Editor Agent - a line for the user
-        std::string AskEditorAgent(const std::string &question);
+        // '.ask <question>' (§6.3), '.ask <template> [args]' (§6.4), '.ask list': asks for consent, then puts it to the
+        // Editor Agent - lines for the user
+        std::vector<std::string> AskEditorAgent(const std::string &text);
         AgentAsk &GetAgentAsk() {
             return agentAsk;
         }
@@ -321,6 +322,12 @@ namespace gedit {
             return !importThemeFile.empty();
         }
         bool ImportTheme();
+        // '--dump <file-or-folder>': print the C/C++ structure (symbols + edges) and quit - what the shipped typediff
+        // tool reads (agent-integration.md §6.4, the start of hitlist #74); no screen is opened
+        bool IsStructureDumpRequested() const {
+            return !dumpPath.empty();
+        }
+        bool DumpStructure();
     protected:
         bool OpenDocumentOrFolder(const std::string &fileOrFolder);
 
@@ -403,6 +410,7 @@ namespace gedit {
         std::string importThemeFile;
         std::string importThemeName;        // '--name', default: from the theme's own name
         bool isImportThemeForced = false;   // '--force' - overwrite an earlier import
+        std::filesystem::path dumpPath;      // '--dump <file-or-folder>'
 
         Theme::Ref theme = nullptr;
         StartupNotices startupNotices;

@@ -37,8 +37,8 @@ std::string EditorAPI::StartEditorAgent() {
     return Editor::Instance().StartEditorAgent();
 }
 
-std::string EditorAPI::AskEditorAgent(const std::string &question) {
-    return Editor::Instance().AskEditorAgent(question);
+std::vector<std::string> EditorAPI::AskEditorAgent(const std::string &text) {
+    return Editor::Instance().AskEditorAgent(text);
 }
 
 std::vector<PluginCommand::Ref> EditorAPI::GetRegisteredCommands() {

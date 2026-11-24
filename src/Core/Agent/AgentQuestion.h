@@ -66,6 +66,14 @@ namespace gedit {
         const std::filesystem::path &QuestionFile() const { return questionFile; }
         const std::filesystem::path &AnswerFile() const { return answerFile; }
 
+        // Asked from a template (agent-integration.md §6.4): its name and what it was asked about ('src/Core/Line.cpp:120') -
+        // in the question file, so it can be asked again
+        void SetTemplate(const std::string &newTemplateName, const std::string &newTemplateArgs) {
+            templateName = newTemplateName;
+            templateArgs = newTemplateArgs;
+        }
+        const std::string &TemplateName() const { return templateName; }
+
         // What is typed into the agent - the agent's PromptWithAnswerFile
         void SetPrompt(const std::string &newPrompt) { prompt = newPrompt; }
         const std::string &Prompt() const { return prompt; }
@@ -101,6 +109,8 @@ namespace gedit {
         std::filesystem::path questionFile;
         std::filesystem::path answerFile;
         std::string prompt;
+        std::string templateName;
+        std::string templateArgs;
         kState state = kState::Consent;
         Clock::time_point acceptedAt = {};
         Clock::time_point sentAt = {};

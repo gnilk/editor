@@ -52,7 +52,7 @@ user consents to and never from `panel.tabs`, so a project can't start it. First
 banner, its lifecycle (§6.2 items 2-5); then the prompt / answer-file round trip (§6). **Step 2** (the `.ask` round trip) is designed in §6.3, for review. Codex: a second implementation once
 its read-only flags are checked. Whether the code and config names follow the new terms (the key, `WorkingAgentCommand`)
 is the user's to decide after reading the code - not yet. **Step 3** (questions from templates, the tools' output in the
-prompt) is designed in §6.4, for review.
+prompt) is in §6.4 - built, for review.
 
 The short version: **tools gather, the agent judges.** The editor runs cheap, repeatable tools for the facts (blame chain,
 type-diff, coverage, call stacks), puts them in a prompt, sends it to an agent with the user's consent, and shows the answer.
@@ -348,8 +348,8 @@ headless channel; answers shown anywhere but an editor tab; `.git/info/exclude`.
 
 ### 6.4 Step 3 - questions from templates
 
-Status: **design, for review** (2026-11-24). Step 2's round trip with the prompt filled by a template: the tools gather,
-the agent judges (§6). Decisions taken by the user on 2026-11-24: the tools ship with the editor; templates live in the
+Status: **built** (2026-11-24, branch `feature/editor-agent-ask`, on step 2 - for review). Step 2's round trip with the
+prompt filled by a template: the tools gather, the agent judges (§6). Decisions taken by the user on 2026-11-24: the tools ship with the editor; templates live in the
 system and user folders only; the first two are *why is this line here?* and *the structure of this change*; consent is
 still asked every time.
 
@@ -396,17 +396,30 @@ can be asked again - and, later, a kind can be "always" (§3.3).
    Tool: `why.py` moved from `scripts/explore/` to `Assets/Resources/Tools/` (the explore copy goes - one copy). Its
    noise fix with it: only rare names are looked up in the docs.
 2. **`structure`** - *What did this change do to the structure?* (review; `typediff.py`, §3.1). Base `{base}`: the branch
-   point - `git merge-base HEAD <main>`, `<main>` the first of `main` / `master` that exists; `.ask structure <rev>`
-   picks another base. Head: the work tree (saved files - a notice when there are unsaved buffers). Files: the C/C++
+   point - `git merge-base HEAD <trunk>`, the closest of `main` / `master` / `dev` / `develop` (fewest commits from it to
+   HEAD: here `main` lags far behind `dev`, and its branch point dragged in 141 files of dev's work - changed while
+   building); `.ask structure <rev>` picks another base. The tool works the default out itself - an empty `{base}`
+   is dropped from its command line. Head: the work tree (saved files - a notice when there are unsaved buffers). Files: the C/C++
    files changed since the base (`git diff --name-only <base>`), not `feature_files.py`'s merges - that was for an old
    feature, this is the change in progress.
-   - **It needs the structure scan from the shipped editor.** `typediff.py` runs `gedit-bench --dump`, which isn't
-     installed. So `goatedit --dump <dir>` - the same output, headless (no window, no session, exits) - the first piece
-     of #74 (the index export). `{goatedit}` is the running editor's own path, so the tool always matches the binary.
+   - **It needs the structure scan from the shipped editor.** `typediff.py` ran `gedit-bench --dump`, which isn't
+     installed. So `goatedit --dump <file-or-folder>` - the same output (`StructureDump`, shared with the bench), no
+     screen, exits like `--import-theme` - the first piece of #74 (the index export). `{goatedit}` is the running
+     editor's own path (`InstallPaths::ExecutablePath`), so the tool always matches the binary.
    - The prompt asks the agent to judge what the diff shows: new dependencies between folders, ownership changes, a rule
      from `CLAUDE.md` broken (the `Views/` -> `Modals/` include `typediff.py` caught) - and to say what it's unsure of.
 
-**What gets built (sketch):**
+**As built:** `AgentQuestionTemplate` (`src/Core/Agent/`) reads, lists and fills; `AgentAsk` runs the tools
+(`Process`, one after the other, `EA: gathering`) and shares the consent with free text. A template is used when the first
+word names one **and** the rest fit its `args` - `.ask why is the sky blue` stays a free question. Braces that aren't a
+placeholder (`{ return; }` in a code sample) stay as they are; `{{` is a literal `{`. A tool is a name only - no path, so
+a template can't reach outside the tool folders. `.ask list` also names the user files that aren't templates, and why.
+Tests: `test_agent` (`template_*`, `question_template_file`); app check `editor_agent_template` (a scratch repository:
+`.ask list`, a failing user tool, free text, `why` sent and answered, `structure` seeing a new struct). The real agent:
+not yet - one `.ask why` and one `.ask structure` on the user's go. **Not built from the design:** the notice when
+`structure` runs with unsaved buffers (it reads the files as saved).
+
+**What gets built (sketch, kept from the design):**
 - `AgentQuestionTemplate` (`src/Core/Agent/`) - parse a template (front matter + body), list / find by name across the
   two folders, fill the placeholders from plain data (the args, the tools' outputs). Plain data, unit-tested.
 - `AgentAsk`: `.ask <name>` -> resolve the args -> run the tools (a `Gathering` state before `Consent` in

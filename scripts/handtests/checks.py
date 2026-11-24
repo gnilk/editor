@@ -705,6 +705,97 @@ def editor_agent_ask(n):
         g.kill()
 
 
+def fake_answering_claude(sb):
+    """A fake 'claude' (agent calls cost money): reads pastes (?2004), and for a line naming its answer file writes it"""
+    fake_bin = os.path.join(sb, 'bin')
+    write(os.path.join(fake_bin, 'claude'), '#!/bin/sh\n'
+          'echo "fake-claude: $*"\n'
+          'printf \'\\033[?2004h> \'\n'
+          'while IFS= read -r line; do\n'
+          '  case "$line" in\n'
+          '    *"to the file "*)\n'
+          '      f=$(printf "%s" "$line" | sed -e "s/.*to the file //" -e "s/ - create or replace.*//")\n'
+          '      printf "# Fake answer\\n\\nforty-two\\n" > "$f"\n'
+          '      echo "fake-claude wrote it"\n'
+          '      printf "> ";;\n'
+          '  esac\n'
+          'done\n')
+    os.chmod(os.path.join(fake_bin, 'claude'), 0o755)
+    return {'PATH': fake_bin + ':/usr/bin:/bin'}
+
+
+@check('#78 step 3 .ask <template>: the tools run first, their output in the prompt you OK; list, a failing tool')
+def editor_agent_template(n):
+    sb, work = sandbox('editor_agent_template')
+    env = fake_answering_claude(sb)
+    user_config(sb, "main:\n  ai_integration: claude\n  ai_settle_ms: 500\nterminal:\n  shell: /bin/sh\n")
+    trust_claude(sb, work)
+    # A repository with a reason on record: the commit names #42
+    write(os.path.join(work, 'hello.c'), 'int main() {\n    return 0;\n}\n')
+    git(work, 'init', '-q', '-b', 'main')
+    git(work, 'add', 'hello.c')
+    git(work, 'commit', '-q', '-m', '#42 hello: the smallest program that builds\n\nKept as the build smoke test.')
+    # A user template whose tool fails, and a user tool that shadows nothing
+    user_dir = os.path.join(sb, 'home', '.config', 'goatedit')
+    write(os.path.join(user_dir, 'tools', 'broken.py'), 'import sys\nprint("it broke", file=sys.stderr)\nsys.exit(3)\n')
+    write(os.path.join(user_dir, 'questions', 'broken.md'), '---\nname: broken\ntools:\n  out: broken.py\n---\n{tool:out}\n')
+    qa = os.path.join(work, '.goatedit', 'agent_qa')
+
+    def qa_files(prefix):
+        return sorted(f for f in os.listdir(qa) if f.startswith(prefix)) if os.path.isdir(qa) else []
+
+    g = Goat(sb, ['hello.c'], cwd=work, skip_user_config=False, env=env)
+    try:
+        g.ready()
+        g.send(alt('t'), 0.4)
+        g.type('.ask list', wait=0.2)
+        g.send(ENTER, 1.0)
+        n(g.wait_text('Why is this line here?', 3), '.ask list: why')
+        n(g.wait_text('structure [base]', 1), '... structure, with its optional base')
+        n(g.wait_text('broken', 1), "... and the user's own")
+
+        # The failing tool: a notice, no modal, nothing written
+        g.type('.ask broken', wait=0.2)
+        g.send(ENTER, 1.0)
+        n(g.wait_text('broken.py failed (exit 3): it broke', 4), 'a failing tool: what it said, nothing asked')
+        n(qa_files('q_') == [], '... nothing written')
+
+        # More words than the template takes: a free question, no tools
+        g.type('.ask why is the sky blue', wait=0.2)
+        g.send(ENTER, 1.0)
+        n(g.wait_text('To the Editor Agent', 3), "'.ask why is the sky blue': the free-text modal")
+        n('why is the sky blue' in '\n'.join(g.screen.lines()), '... with the question as typed')
+        g.send(b'c', 0.8)
+
+        # 'why' on line 1 of hello.c: the chain gathered, shown in the modal, sent, answered
+        g.type('.ask why', wait=0.2)
+        g.send(ENTER, 0.5)
+        n(g.wait_text('To the Editor Agent', 6), "'.ask why': the modal, once the tool has run")
+        text = '\n'.join(g.screen.lines())
+        n('Why is line 1 of `hello.c` here?' in text, 'the prompt names the caret\'s file and line')
+        n('#42 hello: the smallest program' in text, "the tool's output is in it - the commit and its #N")
+        g.send(b's', 0.5)
+        n(g.wait_text('forty-two', 12), 'the answer is opened')
+        qs = qa_files('q_')
+        qtext = open(os.path.join(qa, qs[0])).read() if qs else ''
+        n('template: why\nargs: hello.c:1\n' in qtext, f'the question file says which template, about what ({qs})')
+        n('Kept as the build smoke test.' in qtext, '... and holds the prompt as sent, the chain included')
+
+        # 'structure': the change in the work tree against the branch point - the scan is the editor's own --dump
+        write(os.path.join(work, 'hello.c'), 'struct Greeter { int times; };\nint main() {\n    return 0;\n}\n')
+        g.send(alt('t'), 0.4)
+        g.type('.ask structure', wait=0.2)
+        g.send(ENTER, 0.5)
+        n(g.wait_text('To the Editor Agent', 8), "'.ask structure': the modal")
+        text = '\n'.join(g.screen.lines())
+        n('type-diff' in text and 'the work tree' in text, 'the type-diff against the branch point is in the prompt')
+        n('types +1 -0' in text, f"... and it saw the new struct ({[l for l in g.screen.lines() if 'types' in l]})")
+        g.send(b'c', 0.8)
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+
+
 # --- The real agent: opt-in only (--real-agent), never in the default run - each question costs the user's tokens ---
 REAL_AGENT = {'enabled': False, 'model': ''}
 # Automated questions to the real agent: at most this many per hour, over all runs (the user's rule, 2026-11-24)

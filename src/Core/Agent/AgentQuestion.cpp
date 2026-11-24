@@ -38,6 +38,12 @@ std::string AgentQuestion::QuestionFileText(const std::string &agentName, const 
     if (!sessionId.empty()) {
         text += "session: " + sessionId + "\n";
     }
+    if (!templateName.empty()) {
+        text += "template: " + templateName + "\n";
+        if (!templateArgs.empty()) {
+            text += "args: " + templateArgs + "\n";
+        }
+    }
     text += "answer: " + answerFile.filename().string() + "\n";
     text += "---\n\n";
     text += "# Question\n\n" + question + "\n\n";

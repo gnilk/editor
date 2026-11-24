@@ -804,6 +804,8 @@ def real_agent_ask(n):
                 print('--- the screen, the agent tab in front:\n' + '\n'.join(l.rstrip() for l in g.screen.lines()))
                 break
             n(g.wait_text('Answered - a_', 30), f'question {i + 1}: opened')
+            # The cost follows in the same message - read it once the screen has it all, not mid-redraw
+            g.wait_text('cached, out', 3)
             status = next((l for l in g.screen.lines() if 'Answered - ' in l), '').strip()
             n('cached' in status, f'question {i + 1}: what it cost: {status}')
             g.send(alt('t'), 0.4)

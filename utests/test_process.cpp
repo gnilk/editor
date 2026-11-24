@@ -12,6 +12,8 @@
 #include <string>
 #include <thread>
 
+#include <signal.h>
+
 
 #include "Core/Process.h"
 #include "Core/unix/Shell.h"
@@ -38,6 +40,7 @@ extern "C" {
     DLL_EXPORT int test_process_shellclose(ITesting *t);
     DLL_EXPORT int test_process_shellclose_ignoreshup(ITesting *t);
     DLL_EXPORT int test_process_shellclose_output_on_hup(ITesting *t);
+    DLL_EXPORT int test_process_shellclose_second_shell(ITesting *t);
     DLL_EXPORT int test_process_stopall(ITesting *t);
     DLL_EXPORT int test_process_stopall_atexit(ITesting *t);
     DLL_EXPORT int test_process_stopall_chained(ITesting *t);
@@ -384,6 +387,77 @@ DLL_EXPORT int test_process_shellclose_output_on_hup(ITesting *t) {
     closer.join();
     TR_ASSERT(t, shell->GetState() == Shell::State::kTerminated);
     shell.reset();
+    return kTR_Pass;
+}
+
+// The hang on quit with agent tabs (2026-11-24, Mac, open-bugs #36): the pty master wasn't close-on-exec, so a shell
+// started later held an earlier one's master open. Closing our end then didn't close the pty: a job in the first shell
+// that outlives the hangup (an agent) kept writing into a pty nobody reads, the dying shell waited in the kernel, and
+// Close() never returned. With a second shell running, closing the first must end in bounded time - and its job with it.
+DLL_EXPORT int test_process_shellclose_second_shell(ITesting *t) {
+    auto first = std::make_unique<Shell>();
+    std::mutex lock;
+    std::string output;
+    first->SetOutputDelegate([&lock, &output](const uint8_t *buffer, size_t length) {
+        std::lock_guard<std::mutex> guard(lock);
+        if (output.size() < 4096) {
+            output.append(reinterpret_cast<const char *>(buffer), length);
+        }
+    });
+    TR_ASSERT(t, first->Begin("/bin/sh", "-i", {}));
+    TR_ASSERT(t, WaitForShellState(*first, Shell::State::kRunning, 3000));
+    // The job ignores SIGHUP (kept across exec) and writes for ever
+    std::u32string cmd = U"sh -c 'echo job_pid=$$; trap \"\" HUP; exec yes'\n";
+    first->SendCmd(cmd);
+    pid_t jobPid = 0;
+    auto tEnd = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+    while ((jobPid == 0) && (std::chrono::steady_clock::now() < tEnd)) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        std::lock_guard<std::mutex> guard(lock);
+        // The output, not the echo of the command ('job_pid=$$')
+        for (auto at = output.find("job_pid="); at != std::string::npos; at = output.find("job_pid=", at + 1)) {
+            if (std::isdigit((unsigned char)output[at + 8]) && (output.find_first_of("\r\n", at) != std::string::npos)) {
+                jobPid = (pid_t)std::atoi(output.c_str() + at + 8);
+                break;
+            }
+        }
+    }
+    TR_ASSERT(t, jobPid > 0);
+
+    // The second shell - forked while the first's master is open in this process
+    auto second = std::make_unique<Shell>();
+    second->SetOutputDelegate([](const uint8_t *, size_t) {});
+    TR_ASSERT(t, second->Begin("/bin/sh", "-i", {}));
+    TR_ASSERT(t, WaitForShellState(*second, Shell::State::kRunning, 3000));
+
+    std::atomic<bool> isClosed = false;
+    std::thread closer([&first, &isClosed]() {
+        first->Close();
+        isClosed = true;
+    });
+    tEnd = std::chrono::steady_clock::now() + std::chrono::seconds(4);
+    while (!isClosed && (std::chrono::steady_clock::now() < tEnd)) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+    // The pty really closed: the job's writes fail, it ends - given a moment
+    bool isJobGone = false;
+    tEnd = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+    while (isClosed && !isJobGone && (std::chrono::steady_clock::now() < tEnd)) {
+        isJobGone = (kill(jobPid, 0) != 0);
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+    // Whatever happened: no job left behind, then the second shell
+    kill(jobPid, SIGKILL);
+    second->Close();
+    if (!isClosed) {
+        // Stuck for good: leave the thread and the Shell behind rather than hang the run
+        closer.detach();
+        first.release();
+        TR_ASSERT(t, isClosed);
+    }
+    closer.join();
+    TR_ASSERT(t, first->GetState() == Shell::State::kTerminated);
+    TR_ASSERT(t, isJobGone);
     return kTR_Pass;
 }
 

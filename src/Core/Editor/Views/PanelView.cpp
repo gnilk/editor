@@ -131,7 +131,7 @@ std::vector<TerminalView *> PanelView::Terminals() const {
     return terminals;
 }
 
-TerminalView *PanelView::AddEditorAgent(const ConfigNode &settings, const std::string &banner) {
+TerminalView *PanelView::AddEditorAgent(const ConfigNode &settings, const std::string &banner, bool isShown) {
     TabSpec spec;
     spec.id = EDITOR_AGENT_ID;
     spec.name = EDITOR_AGENT_NAME;
@@ -150,7 +150,7 @@ TerminalView *PanelView::AddEditorAgent(const ConfigNode &settings, const std::s
     if (auto idxTab = IndexOf(view)) {
         SetTabInfoLine(idxTab.value(), UnicodeHelper::utf8to32(banner));
     }
-    if (auto idxTab = IndexOf(view)) {
+    if (auto idxTab = IndexOf(view); idxTab.has_value() && isShown) {
         SetActiveTab(idxTab.value());
     }
     return view;

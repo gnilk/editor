@@ -569,7 +569,7 @@ def agent_integration(n):
         g.ready()
         text = agent_lines(g)
         n('Agent: claude' in text, 'user config: claude')
-        n('claude --permission-mode plan' in text, 'the question agent is read-only (plan mode)')
+        n('claude --permission-mode dontAsk' in text, 'the question agent is read-only (dontAsk, answers only)')
         n('-work' in text and 'projects' in text, "its transcript folder, named after the project's path")
         n(g.quit(), 'quits')
     finally:
@@ -608,7 +608,7 @@ def editor_agent(n):
         g.send(alt('t'), 0.4)
         g.type('.agent start', wait=0.2)
         g.send(ENTER, 1.5)
-        n(g.wait_text('fake-claude: --permission-mode plan', 4), 'the agent runs read-only (plan mode), in its own tab')
+        n(g.wait_text('fake-claude: --permission-mode dontAsk', 4), 'the agent runs read-only (dontAsk), in its own tab')
         n(g.wait_text("GoatEdit's own agent", 2), 'the banner says whose it is - above the agent, which cleared its screen')
         n('Shell | Editor Agent' in tab_row(g), f'a tab named Editor Agent next to the shell ({tab_row(g)!r})')
         # Back to the shell tab: the editor's answer landed there, not in the agent's input
@@ -626,6 +626,68 @@ def editor_agent(n):
     sessions = [os.path.join(dp, f) for dp, _, fs in os.walk(os.path.join(work, '.goatedit')) for f in fs if f.startswith('session')]
     text = ''.join(open(f).read() for f in sessions)
     n('Editor Agent' not in text and 'view: editor_agent' not in text, f'the Editor Agent is not in the session ({sessions})')
+
+
+@check('#78 step 2 .ask: consent, the agent started, the prompt typed in once it settles, the answer opened')
+def editor_agent_ask(n):
+    sb, work = sandbox('editor_agent_ask')
+    # A fake 'claude' (agent calls cost money): reads pastes (?2004), and for a line naming its answer file writes it -
+    # as the real one is asked to. It notes its arguments where the check can read them.
+    fake_bin = os.path.join(sb, 'bin')
+    args_file = os.path.join(sb, 'fake-claude-args')
+    write(os.path.join(fake_bin, 'claude'), '#!/bin/sh\n'
+          f'echo "$*" > \'{args_file}\'\n'
+          'echo "fake-claude: $*"\n'
+          'printf \'\\033[?2004h> \'\n'
+          'while IFS= read -r line; do\n'
+          '  case "$line" in\n'
+          '    *"to the file "*)\n'
+          '      f=$(printf "%s" "$line" | sed -e "s/.*to the file //" -e "s/ - create or replace.*//")\n'
+          '      printf "# Fake answer\\n\\nforty-two\\n" > "$f"\n'
+          '      echo "fake-claude wrote it"\n'
+          '      printf "> ";;\n'
+          '  esac\n'
+          'done\n')
+    os.chmod(os.path.join(fake_bin, 'claude'), 0o755)
+    env = {'PATH': fake_bin + ':/usr/bin:/bin'}
+    user_config(sb, "main:\n  ai_integration: claude\n  ai_settle_ms: 500\nterminal:\n  shell: /bin/sh\n")
+    qa = os.path.join(work, '.goatedit', 'agent_qa')
+
+    def qa_files(prefix):
+        return sorted(f for f in os.listdir(qa) if f.startswith(prefix)) if os.path.isdir(qa) else []
+
+    g = Goat(sb, ['.'], cwd=work, skip_user_config=False, env=env)
+    try:
+        g.ready()
+        g.send(alt('t'), 0.4)
+        # Declined: nothing written, nothing started
+        g.type('.ask what is this', wait=0.2)
+        g.send(ENTER, 1.0)
+        n(g.wait_text('To the Editor Agent', 3), 'a consent modal')
+        n(g.wait_text('it is started first', 1), '... saying the agent is started first')
+        g.send(b'c', 0.8)
+        n(g.wait_text('Not asked', 2), 'Cancel: not asked')
+        n(qa_files('q_') == [] and not os.path.exists(args_file), 'nothing written, no agent started')
+
+        g.type('.ask why is the sky blue', wait=0.2)
+        g.send(ENTER, 1.0)
+        n(g.wait_text('To the Editor Agent', 3), 'the modal again')
+        text = '\n'.join(g.screen.lines())
+        n('why is the sky blue' in text and 'no other file' in text, 'it shows the prompt, word for word')
+        g.send(b's', 0.5)
+        n(g.wait_text('forty-two', 12), 'the answer is opened')
+        n(g.wait_text('EA: idle', 4), f"the status line: EA: idle ({[l for l in g.screen.lines() if 'EA:' in l]})")
+        qs, ans = qa_files('q_'), qa_files('a_')
+        n(len(qs) == 1 and len(ans) == 1 and qs[0][2:] == ans[0][2:], f'one q_/a_ pair with one id ({qs}, {ans})')
+        qtext = open(os.path.join(qa, qs[0])).read() if qs else ''
+        args = open(args_file).read() if os.path.exists(args_file) else ''
+        n('# Question\n\nwhy is the sky blue' in qtext, 'the question file holds the question')
+        session = next((l.split(': ', 1)[1] for l in qtext.splitlines() if l.startswith('session: ')), '?')
+        n(f'--session-id {session}' in args, f'the agent runs in the conversation the question names ({session})')
+        n('--permission-mode dontAsk' in args and '/.goatedit/agent_qa/a_*' in args, f'read-only, answers only ({args.strip()})')
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
 
 
 @check('#53 step 5 Messages tab: the build list kept open in the lower panel')

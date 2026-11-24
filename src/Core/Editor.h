@@ -30,6 +30,7 @@
 #include "Core/Editor/Controllers/QuickCommandController.h"
 #include "Core/Editor/Views/PanelHost.h"
 #include "Core/Agent/AgentIntegration.h"
+#include "Core/Editor/AgentAsk.h"
 #include "Core/KeyMapping.h"
 #include "Core/Theme/Theme.h"
 #include "ClipBoard.h"
@@ -256,6 +257,20 @@ namespace gedit {
         // read-only command - the user asked, so it may start. Shown and focused; when it runs already it is only shown.
         // A line for the user.
         std::string StartEditorAgent();
+        // '.ask <question>' (§6.3): asks for consent, then puts it to the Editor Agent - a line for the user
+        std::string AskEditorAgent(const std::string &question);
+        AgentAsk &GetAgentAsk() {
+            return agentAsk;
+        }
+        // The Editor Agent's tab, in whichever panel; nullptr when there is none
+        TerminalView *GetEditorAgentView();
+        // A new Editor Agent tab in the bottom panel; shown and focused only when 'isShown' (a question doesn't pull
+        // the user there). nullptr without a bottom panel.
+        TerminalView *AddEditorAgentTab(const ConfigNode &settings, const std::string &banner, bool isShown);
+        // Its tab to front, its panel focused
+        void ShowEditorAgentTab();
+        // The line under its tab row (TabbedView's info line)
+        void SetEditorAgentInfoLine(const std::u32string &line);
         // The project's root: the folder given at launch (a project), else the working directory
         std::filesystem::path GetProjectRootPath();
 
@@ -382,6 +397,7 @@ namespace gedit {
         std::string lastFocusedPanel = glbTerminalView;
         PanelHost *panelHost = nullptr;
         AgentIntegration::Ref agent = {};
+        AgentAsk agentAsk;
         std::filesystem::path argAssetDir;  // '--asset-dir', replaces the system asset lookup when set
         std::vector<std::string> pendingFiles;
         std::string importThemeFile;

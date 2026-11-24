@@ -110,7 +110,7 @@ namespace gedit {
         // The Editor Agent's tab, made by the editor: a terminal with these settings (its bootstrap starts the agent),
         // the banner on a line of its own above it (the agent goes full screen - it would clear anything in the
         // terminal), shown - and focused when the panel has focus
-        TerminalView *AddEditorAgent(const ConfigNode &settings, const std::string &banner);
+        TerminalView *AddEditorAgent(const ConfigNode &settings, const std::string &banner, bool isShown = true);
         // nullptr when it isn't in this panel
         TerminalView *EditorAgent();
         bool IsEditorAgentTab(size_t idxTab);

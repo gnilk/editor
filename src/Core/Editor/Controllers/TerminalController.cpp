@@ -284,6 +284,7 @@ void TerminalController::HandleTerminalData(const uint8_t *buffer, size_t length
     {
         std::lock_guard<std::mutex> guard(screenLock);
         screen.Feed(buffer, length);
+        lastOutputAt = std::chrono::steady_clock::now();
 
         // While the shell owns the line (completion in progress), mirror what readline
         // has echoed back into our local inputLine so the model stays truthful.
@@ -745,10 +746,24 @@ void TerminalController::Promote(std::u32string text, bool isSubmit) {
 }
 
 void TerminalController::SetFocus(bool isFocused) {
+    hasFocus = isFocused;
     auto bytes = gnilk::vt::EncodeFocus(isFocused, GetModes());
     if (!bytes.empty()) {
         WriteToPty(bytes);
     }
+}
+
+bool TerminalController::IsSettled(std::chrono::milliseconds quietTime) {
+    std::lock_guard<std::mutex> guard(screenLock);
+    if (!screen.GetModes().isBracketedPaste) {
+        return false;
+    }
+    return (std::chrono::steady_clock::now() - lastOutputAt) >= quietTime;
+}
+
+std::chrono::steady_clock::time_point TerminalController::LastOutputAt() {
+    std::lock_guard<std::mutex> guard(screenLock);
+    return lastOutputAt;
 }
 
 bool TerminalController::ForwardMouse(gnilk::vt::MouseButton button, gnilk::vt::MouseAction action, int x, int y,

@@ -4,6 +4,7 @@
 
 #include <cctype>
 #include <cstdlib>
+#include <random>
 #include <unistd.h>
 
 #include "AgentIntegrations.h"
@@ -102,4 +103,25 @@ ConfigNode AgentIntegrations::EditorAgentSettings(const ConfigNode &terminalSett
 std::string AgentIntegrations::EditorAgentBanner(const AgentIntegration &agent, const std::vector<std::string> &command) {
     return "GoatEdit's own agent, for its questions - not yours | " + agent.DisplayName() + ", read-only: " +
            ShellCommandLine(command) + " | closing this tab stops it";
+}
+
+std::string AgentIntegrations::NewSessionId() {
+    std::random_device device;
+    std::mt19937_64 generator(((uint64_t)device() << 32) ^ device());
+    std::uniform_int_distribution<int> nibble(0, 15);
+    static const char *HEX = "0123456789abcdef";
+    std::string id;
+    for (int i = 0; i < 32; i++) {
+        auto value = nibble(generator);
+        if (i == 12) {
+            value = 4;                      // version 4
+        } else if (i == 16) {
+            value = 8 | (value & 3);        // variant 10xx
+        }
+        if ((i == 8) || (i == 12) || (i == 16) || (i == 20)) {
+            id += '-';
+        }
+        id += HEX[value];
+    }
+    return id;
 }

@@ -32,6 +32,8 @@ namespace gedit {
         std::vector<std::string> GetAgentInfo();
         // '.agent start' - the Editor Agent's tab (Editor::StartEditorAgent); a line for the user
         std::string StartEditorAgent();
+        // '.ask <question>' - the Editor Agent, after the user's OK (Editor::AskEditorAgent); a line for the user
+        std::string AskEditorAgent(const std::string &question);
         std::vector<PluginCommand::Ref> GetRegisteredCommands();
 
         DocumentAPI::Ref GetActiveDocument();

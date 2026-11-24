@@ -674,7 +674,7 @@ std::vector<std::string> Editor::DescribeAgent() {
     auto root = GetProjectRootPath();
     lines.push_back("Project:        " + root.string());
     lines.push_back("Working agent:  " + join(agent->WorkingAgentCommand(root)));
-    lines.push_back("Question agent: " + join(agent->QuestionAgentCommand(root)) + " (reads, never edits)");
+    lines.push_back("Question agent: " + join(agent->QuestionAgentCommand(root, "<session id>")) + " (reads, writes only its answers)");
     auto transcripts = agent->TranscriptDir(root);
     if (transcripts.has_value()) {
         std::error_code ec;
@@ -685,12 +685,36 @@ std::vector<std::string> Editor::DescribeAgent() {
 }
 
 std::string Editor::StartEditorAgent() {
-    if (agent->Name() == NoAgent::NAME) {
-        return "No agent set (main.ai_integration: none) - '.cfg set main.ai_integration claude' in your user config";
+    return agentAsk.StartAgent();
+}
+
+std::string Editor::AskEditorAgent(const std::string &question) {
+    return agentAsk.Ask(question);
+}
+
+TerminalView *Editor::GetEditorAgentView() {
+    for (auto *panelView : GetPanelViews()) {
+        if (auto *running = panelView->EditorAgent()) {
+            return running;
+        }
     }
-    if (!agent->IsAvailable()) {
-        return "Not started - " + agent->Status();
+    return nullptr;
+}
+
+TerminalView *Editor::AddEditorAgentTab(const ConfigNode &settings, const std::string &banner, bool isShown) {
+    auto *bottom = GetPanelView(glbTerminalView);
+    if (bottom == nullptr) {
+        return nullptr;
     }
+    auto *view = bottom->AddEditorAgent(settings, banner, isShown);
+    if (isShown) {
+        ActionHelper::SwitchToNamedView(glbTerminalView);
+    }
+    TriggerUIRedraw();
+    return view;
+}
+
+void Editor::ShowEditorAgentTab() {
     for (auto *panelView : GetPanelViews()) {
         if (auto *running = panelView->EditorAgent()) {
             if (auto idxTab = panelView->IndexOf(running)) {
@@ -698,22 +722,21 @@ std::string Editor::StartEditorAgent() {
             }
             ActionHelper::SwitchToNamedView(panelView->TopViewName());
             TriggerUIRedraw();
-            return "The Editor Agent runs already - shown";
+            return;
         }
     }
-    auto *bottom = GetPanelView(glbTerminalView);
-    if (bottom == nullptr) {
-        return "No panel to start it in";
+}
+
+void Editor::SetEditorAgentInfoLine(const std::u32string &line) {
+    for (auto *panelView : GetPanelViews()) {
+        if (auto *running = panelView->EditorAgent()) {
+            if (auto idxTab = panelView->IndexOf(running)) {
+                panelView->SetTabInfoLine(idxTab.value(), line);
+            }
+            TriggerUIRedraw();
+            return;
+        }
     }
-    auto command = agent->QuestionAgentCommand(GetProjectRootPath());
-    if (command.empty()) {
-        return agent->DisplayName() + " has no Editor Agent command";
-    }
-    auto settings = AgentIntegrations::EditorAgentSettings(Config::Instance().ResolveSection("terminal"), command);
-    bottom->AddEditorAgent(settings, AgentIntegrations::EditorAgentBanner(*agent, command));
-    ActionHelper::SwitchToNamedView(glbTerminalView);
-    TriggerUIRedraw();
-    return "Editor Agent started (" + agent->DisplayName() + ", read-only)";
 }
 
 std::filesystem::path Editor::GetProjectRootPath() {

@@ -183,7 +183,11 @@ agent - calls cost money). `Editor::GetAgent()` is never null. A new agent: an i
 `AgentIntegrations::Create` / `Names`. The **Editor Agent** (the question agent, `.agent start`) is a bottom-panel tab the
 editor makes itself (`PanelView::AddEditorAgent`, view kind `editor_agent`): fixed name, a marked label (`tab_editor_agent`),
 a banner line above it (`TabbedView::SetTabInfoLine` - outside the terminal, which the agent clears), never saved / moved / the output console. The **User Agent** is a plain terminal tab (`config: ai_agent`) the
-editor knows nothing about.
+editor knows nothing about. **`.ask`** (§6.3): `AgentAsk` (`src/Core/Editor/`, owned by `Editor`) drives one question at
+a time - consent modal, starts the agent if needed, pastes the prompt once the tab has settled (`TerminalController::IsSettled`:
+`?2004` on + quiet for `main.ai_settle_ms`, and never while the tab has focus), opens the answer; the question itself is plain
+data (`AgentQuestion`, a state machine fed `Signals` - tested without a pty). Files: `.goatedit/agent_qa/q_<id>.md` /
+`a_<id>.md`. Its checks use a fake `claude` - never the real one (each call costs money).
 
 ### Platform-Specific
 - Linux: `src/Core/Linux/LinuxFolderMonitor.cpp`

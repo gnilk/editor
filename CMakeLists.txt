@@ -513,12 +513,14 @@ list(APPEND editorsrc src/Core/Editor/Views/PanelHost.cpp src/Core/Editor/Views/
 list(APPEND editorsrc src/Core/Agent/AgentIntegration.h src/Core/Agent/NoAgent.h)
 list(APPEND editorsrc src/Core/Agent/ClaudeAgent.cpp src/Core/Agent/ClaudeAgent.h)
 list(APPEND editorsrc src/Core/Agent/AgentIntegrations.cpp src/Core/Agent/AgentIntegrations.h)
+list(APPEND editorsrc src/Core/Agent/AgentQuestion.cpp src/Core/Agent/AgentQuestion.h)
 list(APPEND editorsrc src/Core/Editor/Views/MessagesView.cpp src/Core/Editor/Views/MessagesView.h)
 list(APPEND editorsrc src/Core/Editor/Views/WorkspaceView.cpp src/Core/Editor/Views/WorkspaceView.h)
 list(APPEND editorsrc src/Core/Editor/Views/EditorViewContainer.h)
 
 # Rendering + controllers
 list(APPEND editorsrc src/Core/Editor/LineRender.cpp src/Core/Editor/LineRender.h)
+list(APPEND editorsrc src/Core/Editor/AgentAsk.cpp src/Core/Editor/AgentAsk.h)
 list(APPEND editorsrc src/Core/Editor/Controllers/EditController.cpp src/Core/Editor/Controllers/EditController.h)
 list(APPEND editorsrc src/Core/Editor/Controllers/TerminalController.cpp src/Core/Editor/Controllers/TerminalController.h)
 list(APPEND editorsrc src/Core/Editor/Controllers/QuickCommandController.cpp src/Core/Editor/Controllers/QuickCommandController.h)

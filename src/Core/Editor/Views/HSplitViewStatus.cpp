@@ -63,6 +63,11 @@ void HSplitViewStatus::DrawSplitter(int row) {
     if (!branchLabel.empty()) {
         viewStatusRight = viewStatusRight.empty() ? branchLabel : branchLabel + U" | " + viewStatusRight;
     }
+    // What the Editor Agent does (agent-integration.md §6.2 item 6), first
+    auto &agentStatus = Editor::Instance().GetAgentAsk().StatusText();
+    if (!agentStatus.empty()) {
+        viewStatusRight = viewStatusRight.empty() ? agentStatus : agentStatus + U" | " + viewStatusRight;
+    }
 
     if (!viewStatusRight.empty()) {
         dc.DrawStringWithAttributesAt(dc.GetRect().Width() - viewStatusRight.size() - 4, row,

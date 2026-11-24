@@ -33,7 +33,7 @@ namespace gedit {
         std::vector<std::string> WorkingAgentCommand(const std::filesystem::path &) const override {
             return {};
         }
-        std::vector<std::string> QuestionAgentCommand(const std::filesystem::path &) const override {
+        std::vector<std::string> QuestionAgentCommand(const std::filesystem::path &, const std::string &) const override {
             return {};
         }
         std::optional<std::filesystem::path> TranscriptDir(const std::filesystem::path &) const override {

@@ -36,6 +36,15 @@ start` (typing it is the consent) opens it in the bottom panel - §6.2 items 2-5
 - Its settings: the user's `terminal` section copied, the bootstrap replaced by the agent's command
   (`AgentIntegrations::EditorAgentSettings` - plan mode for Claude). Nothing is sent to it yet.
 
+**Step 2 - `.ask` (2026-11-24, branch `feature/editor-agent-ask`, on step 1 - for review):** one question all the way
+round, as §6.3 says: `AgentAsk` (the driver, `src/Core/Editor/`) and `AgentQuestion` (the question as a state machine,
+`src/Core/Agent/`); the Editor Agent starts with `dontAsk` + `Edit(//<root>/.goatedit/agent_qa/a_*)` and the editor's
+session id; `TerminalController::IsSettled` / `HasFocus`; `main.ai_settle_ms` (user config only); `EA:` on the status
+line. A question starts the agent *behind* the shown tab (`.agent start` still shows it). Tests: `test_agent`
+(`question_*`, `session_id`), `test_terminalcontroller_settled`; app check `editor_agent_ask` (a fake `claude` that reads
+the paste and writes the answer). **Not yet tried with the real `claude`** - the flags, the title, whether its Enter
+after a paste lands: one real question, on the user's go.
+
 **Next (decided 2026-11-24, §6.2):** no `view: agent` tab that follows `ai_integration` - the **User Agent** stays a
 plain terminal tab the user configures (`config: ai_agent`, its bootstrap runs `claude`), and the editor knows nothing
 about it. The **Editor Agent** - the question agent of §6.1 - is the editor's own tab, started on the first question the
@@ -235,7 +244,7 @@ Build order: 2, 3, 4 and 5 with the first Editor Agent tab; then 1, 6 and 7.
 
 ### 6.3 Step 2 - one question, all the way round (`.ask`)
 
-Status: **design, for the user's review** (2026-11-24, branch `feature/editor-agent-ask`, on step 1). One free-text
+Status: **built** (2026-11-24, branch `feature/editor-agent-ask`, on step 1) - see the top of this doc. One free-text
 question, from the command line to an answer on screen, through the Editor Agent's tab. No templates, no tools' output in
 the prompt yet (step 3) - this is the round trip they will ride on. The user agreed to the design on 2026-11-24 and took
 decisions 1-3.

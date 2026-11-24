@@ -26,8 +26,16 @@ std::vector<std::string> ClaudeAgent::WorkingAgentCommand(const std::filesystem:
     return {COMMAND};
 }
 
-std::vector<std::string> ClaudeAgent::QuestionAgentCommand(const std::filesystem::path &) const {
-    return {COMMAND, "--permission-mode", "plan"};
+std::vector<std::string> ClaudeAgent::QuestionAgentCommand(const std::filesystem::path &root, const std::string &sessionId) const {
+    // '//' starts an absolute path in Claude Code's permission rules - the rule holds whatever the tab's directory is
+    auto answers = (root.lexically_normal() / ".goatedit" / "agent_qa" / "a_*").string();
+    std::vector<std::string> command = {COMMAND, "--permission-mode", "dontAsk",
+                                        "--allowedTools", "Read Grep Glob Edit(/" + answers + ")"};
+    if (!sessionId.empty()) {
+        command.push_back("--session-id");
+        command.push_back(sessionId);
+    }
+    return command;
 }
 
 std::optional<std::filesystem::path> ClaudeAgent::TranscriptDir(const std::filesystem::path &root) const {

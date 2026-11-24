@@ -25,6 +25,7 @@ DLL_EXPORT int test_terminalcontroller_viewport_scroll_stops_at_newest_page(ITes
 DLL_EXPORT int test_terminalcontroller_commitline_empty_marks_nothing(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_dotcommand_keeps_output(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_not_output_console(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_settled(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_dotcommand_output_below(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_osc133_output(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_osc133_commit_stands_down(ITesting *t);
@@ -1242,5 +1243,33 @@ DLL_EXPORT int test_terminalcontroller_not_output_console(ITesting *t) {
     shell.RegisterAsOutputConsole();
     TR_ASSERT(t, RuntimeConfig::Instance().OutputConsole() != prevConsole);
     RuntimeConfig::Instance().SetOutputConsole(prevConsole);
+    return kTR_Pass;
+}
+
+// An app has settled (agent-integration.md §6.3) when it reads a paste (?2004) and the pty has been quiet for the time
+// asked - never before it turned bracketed paste on; new output starts the quiet time over. Focus is remembered.
+DLL_EXPORT int test_terminalcontroller_settled(ITesting *t) {
+    using namespace std::chrono_literals;
+    TerminalController c;
+    c.Resize(40, 10);
+    std::string sent;
+    CaptureInput(c, sent, true);
+    FeedPty(c, "starting...");
+    TR_ASSERT(t, !c.IsSettled(0ms));
+    FeedPty(c, "\x1b[?2004h> ");
+    TR_ASSERT(t, c.IsSettled(0ms));
+    TR_ASSERT(t, !c.IsSettled(10s));
+    std::this_thread::sleep_for(60ms);
+    TR_ASSERT(t, c.IsSettled(50ms));
+    FeedPty(c, "x");
+    TR_ASSERT(t, !c.IsSettled(50ms));
+    FeedPty(c, "\x1b[?2004l");
+    TR_ASSERT(t, !c.IsSettled(0ms));
+
+    TR_ASSERT(t, !c.HasFocus());
+    c.SetFocus(true);
+    TR_ASSERT(t, c.HasFocus());
+    c.SetFocus(false);
+    TR_ASSERT(t, !c.HasFocus());
     return kTR_Pass;
 }

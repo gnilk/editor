@@ -85,6 +85,13 @@ commands:
     arguments:
       - string, start (optional)
   -
+    name: ask
+    short: ask
+    description: "Ask: a question to the Editor Agent - shown for your OK first; kept with its answer in .goatedit/agent_qa/, the answer opened"
+    script: Scripts/ask.js
+    arguments:
+      - string, question
+  -
     name: panel
     short: panel
     description: "Panel: move - the focused panel's shown tab to the other panel (its home: kept across a restart)"

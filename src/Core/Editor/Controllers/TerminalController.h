@@ -11,6 +11,7 @@
 #include <mutex>
 #include <filesystem>
 #include <optional>
+#include <atomic>
 #include <chrono>
 #include <thread>
 #include <condition_variable>
@@ -96,6 +97,13 @@ namespace gedit {
                           uint8_t modifiers);
         // The terminal's modes (DECCKM, bracketed paste, mouse, ...) - a copy taken under screenLock
         gnilk::vt::Modes GetModes();
+        // The app has settled down (agent-integration.md §6.3): it reads a paste (?2004 on) and nothing has come from
+        // the pty for 'quietTime'. Whether an app runs at all is HasRunningJob's - a shell's prompt reads pastes too.
+        bool IsSettled(std::chrono::milliseconds quietTime);
+        // When the pty last gave output (steady clock); the epoch before any
+        std::chrono::steady_clock::time_point LastOutputAt();
+        // The view has the keyboard (SetFocus)
+        bool HasFocus() const { return hasFocus; }
 
         // Test seams: where pty bytes go (default: the shell), and the foreground-job probe (default:
         // Shell::IsForegroundJobRunning)
@@ -251,6 +259,9 @@ namespace gedit {
 
         TerminalScreen screen;
         std::mutex screenLock;
+        // Under screenLock
+        std::chrono::steady_clock::time_point lastOutputAt = {};
+        std::atomic<bool> hasFocus = false;
 
         std::function<void(std::string_view)> ptyWriter;
         std::function<bool()> foregroundJobProbe;

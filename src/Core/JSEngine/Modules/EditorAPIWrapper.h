@@ -21,6 +21,8 @@ namespace gedit {
         std::vector<std::string> GetAgentInfo();
         // Editor.StartEditorAgent() -> line - the Editor Agent's tab ('.agent start')
         std::string StartEditorAgent();
+        // Editor.AskEditorAgent(question) -> line - '.ask'
+        std::string AskEditorAgent(std::string question);
 
         DocumentAPIWrapper::Ref GetActiveDocument();
         DocumentAPIWrapper::Ref NewDocument(const char *name);

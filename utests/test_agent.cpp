@@ -2,11 +2,14 @@
 // The agent integration (hitlist #78, docs/agent-integration.md): 'none' says there is nothing, 'claude' gives Claude
 // Code's command lines and transcript folder, a name that isn't one makes nothing, and a project config can't pick one.
 //
+#include <chrono>
+#include <ctime>
 #include <filesystem>
 #include <fstream>
 #include <testinterface.h>
 
 #include "Core/Agent/AgentIntegrations.h"
+#include "Core/Agent/AgentQuestion.h"
 #include "Core/Agent/ClaudeAgent.h"
 #include "Core/Agent/NoAgent.h"
 #include "Core/Config/Config.h"
@@ -29,6 +32,12 @@ DLL_EXPORT int test_agent_shell_line(ITesting *t);
 DLL_EXPORT int test_agent_editor_agent_settings(ITesting *t);
 DLL_EXPORT int test_agent_editor_agent_banner(ITesting *t);
 DLL_EXPORT int test_agent_start_none(ITesting *t);
+DLL_EXPORT int test_agent_session_id(ITesting *t);
+DLL_EXPORT int test_agent_question_files(ITesting *t);
+DLL_EXPORT int test_agent_question_round(ITesting *t);
+DLL_EXPORT int test_agent_question_waits(ITesting *t);
+DLL_EXPORT int test_agent_question_ends(ITesting *t);
+DLL_EXPORT int test_agent_ask_none(ITesting *t);
 }
 
 DLL_EXPORT int test_agent(ITesting *t) {
@@ -41,7 +50,7 @@ DLL_EXPORT int test_agent_none(ITesting *t) {
     TR_ASSERT(t, none->Name() == "none");
     TR_ASSERT(t, !none->IsAvailable());
     TR_ASSERT(t, none->WorkingAgentCommand("/p").empty());
-    TR_ASSERT(t, none->QuestionAgentCommand("/p").empty());
+    TR_ASSERT(t, none->QuestionAgentCommand("/p", "id").empty());
     TR_ASSERT(t, !none->TranscriptDir("/p").has_value());
     TR_ASSERT(t, none->PromptWithAnswerFile("why?", "/p/.goatedit/answer.md").empty());
     TR_ASSERT(t, !none->Status().empty());
@@ -61,13 +70,20 @@ DLL_EXPORT int test_agent_create(ITesting *t) {
     return kTR_Pass;
 }
 
-// Claude Code: 'claude' for the working agent, plan mode (reads, never edits) for the question agent; the prompt names
-// the answer file and says it is the only file to change
+// Claude Code: 'claude' for the working agent; the question agent denies anything not allowed up front and may write
+// only answer files - by an absolute rule ('//'), whatever the tab's directory - in the conversation the editor names.
+// The prompt names the answer file and says it is the only file to change.
 DLL_EXPORT int test_agent_claude(ITesting *t) {
     auto claude = ClaudeAgent::Create();
     TR_ASSERT(t, claude->DisplayName() == "Claude Code");
     TR_ASSERT(t, (claude->WorkingAgentCommand("/p") == std::vector<std::string>{"claude"}));
-    TR_ASSERT(t, (claude->QuestionAgentCommand("/p") == std::vector<std::string>{"claude", "--permission-mode", "plan"}));
+    TR_ASSERT(t, (claude->QuestionAgentCommand("/p", "1234") ==
+                  std::vector<std::string>{"claude", "--permission-mode", "dontAsk",
+                                           "--allowedTools", "Read Grep Glob Edit(//p/.goatedit/agent_qa/a_*)",
+                                           "--session-id", "1234"}));
+    // No id: the agent picks one
+    TR_ASSERT(t, claude->QuestionAgentCommand("/p", "").size() == 5);
+    TR_ASSERT(t, claude->SettleTime() == std::chrono::milliseconds(3000));
     auto prompt = claude->PromptWithAnswerFile("Why is X here?", "/p/.goatedit/answers/1.md");
     TR_ASSERT(t, prompt.find("Why is X here?") == 0);
     TR_ASSERT(t, prompt.find("/p/.goatedit/answers/1.md") != std::string::npos);
@@ -181,10 +197,11 @@ DLL_EXPORT int test_agent_editor_agent_settings(ITesting *t) {
 // The banner says whose it is and what it runs
 DLL_EXPORT int test_agent_editor_agent_banner(ITesting *t) {
     auto claude = ClaudeAgent::Create();
-    auto banner = AgentIntegrations::EditorAgentBanner(*claude, claude->QuestionAgentCommand("/p"));
+    auto banner = AgentIntegrations::EditorAgentBanner(*claude, claude->QuestionAgentCommand("/p", "1234"));
     TR_ASSERT(t, banner.find("GoatEdit's own agent") == 0);
     TR_ASSERT(t, banner.find("Claude Code") != std::string::npos);
-    TR_ASSERT(t, banner.find("claude --permission-mode plan") != std::string::npos);
+    TR_ASSERT(t, banner.find("claude --permission-mode dontAsk") != std::string::npos);
+    TR_ASSERT(t, banner.find("'Read Grep Glob Edit(//p/.goatedit/agent_qa/a_*)'") != std::string::npos);
     TR_ASSERT(t, banner.find('\n') == std::string::npos);
     TR_ASSERT(t, banner.find("stops it") != std::string::npos);
     return kTR_Pass;
@@ -197,6 +214,146 @@ DLL_EXPORT int test_agent_start_none(ITesting *t) {
         TR_ASSERT(t, message.find("none") != std::string::npos);
     } else {
         TR_ASSERT(t, message.find("Editor Agent started") == std::string::npos);
+    }
+    return kTR_Pass;
+}
+
+// A version 4 UUID, a new one each time
+DLL_EXPORT int test_agent_session_id(ITesting *t) {
+    auto first = AgentIntegrations::NewSessionId();
+    auto second = AgentIntegrations::NewSessionId();
+    TR_ASSERT(t, first != second);
+    TR_ASSERT(t, first.size() == 36);
+    TR_ASSERT(t, (first[8] == '-') && (first[13] == '-') && (first[18] == '-') && (first[23] == '-'));
+    TR_ASSERT(t, first[14] == '4');
+    TR_ASSERT(t, std::string("89ab").find(first[19]) != std::string::npos);
+    return kTR_Pass;
+}
+
+// The question is kept with its answer: q_<id>.md / a_<id>.md in .goatedit/agent_qa, the q file holds the question,
+// who was asked and the prompt as sent
+DLL_EXPORT int test_agent_question_files(ITesting *t) {
+    std::tm when = {};
+    when.tm_year = 2026 - 1900;
+    when.tm_mon = 10;
+    when.tm_mday = 24;
+    when.tm_hour = 14;
+    when.tm_min = 3;
+    when.tm_sec = 12;
+    when.tm_isdst = -1;
+    auto at = std::chrono::system_clock::from_time_t(std::mktime(&when));
+    TR_ASSERT(t, AgentQuestion::MakeId(at, 2) == "20261124-140312-2");
+
+    auto folder = AgentQuestion::QAFolder("/p");
+    TR_ASSERT(t, folder == std::filesystem::path("/p/.goatedit/agent_qa"));
+    auto question = AgentQuestion::Create("20261124-140312-2", "Why is X here?", folder);
+    TR_ASSERT(t, question->QuestionFile() == folder / "q_20261124-140312-2.md");
+    TR_ASSERT(t, question->AnswerFile() == folder / "a_20261124-140312-2.md");
+    question->SetPrompt("Why is X here?\n\nWrite your answer to a_20261124-140312-2.md");
+    auto text = question->QuestionFileText("Claude Code", "uuid-1", "2026-11-24 14:03:12");
+    TR_ASSERT(t, text.find("---\n") == 0);
+    TR_ASSERT(t, text.find("agent: Claude Code\n") != std::string::npos);
+    TR_ASSERT(t, text.find("session: uuid-1\n") != std::string::npos);
+    TR_ASSERT(t, text.find("answer: a_20261124-140312-2.md\n") != std::string::npos);
+    TR_ASSERT(t, text.find("# Question\n\nWhy is X here?\n") != std::string::npos);
+    TR_ASSERT(t, text.find("```text\nWhy is X here?\n\nWrite your answer") != std::string::npos);
+    return kTR_Pass;
+}
+
+static AgentQuestion::Signals AgentSignals(AgentQuestion::Clock::time_point now, bool isUp, bool isSettled, bool isFocused, bool hasAnswer) {
+    AgentQuestion::Signals signals;
+    signals.now = now;
+    signals.isTabOpen = true;
+    signals.isAgentUp = isUp;
+    signals.isSettled = isSettled;
+    signals.isTabFocused = isFocused;
+    signals.hasAnswerFile = hasAnswer;
+    return signals;
+}
+
+// All the way round: nothing before consent; sent once the agent is up and settled; answered once the file is there and
+// the agent has settled again - not in the quiet moment right after Enter
+DLL_EXPORT int test_agent_question_round(ITesting *t) {
+    using namespace std::chrono_literals;
+    auto settle = std::chrono::milliseconds(3000);
+    auto t0 = AgentQuestion::Clock::now();
+    auto question = AgentQuestion::Create("1", "q", "/p/.goatedit/agent_qa");
+    TR_ASSERT(t, question->State() == AgentQuestion::kState::Consent);
+    TR_ASSERT(t, question->Update(AgentSignals(t0, true, true, false, false), settle) == AgentQuestion::kStep::None);
+
+    question->Accept(t0);
+    TR_ASSERT(t, question->State() == AgentQuestion::kState::WaitingToSend);
+    // Starting: not up yet, then up but still printing
+    TR_ASSERT(t, question->Update(AgentSignals(t0 + 1s, false, false, false, false), settle) == AgentQuestion::kStep::None);
+    TR_ASSERT(t, question->Update(AgentSignals(t0 + 2s, true, false, false, false), settle) == AgentQuestion::kStep::None);
+    TR_ASSERT(t, question->Update(AgentSignals(t0 + 5s, true, true, false, false), settle) == AgentQuestion::kStep::Send);
+    TR_ASSERT(t, question->State() == AgentQuestion::kState::Sent);
+
+    // Right after Enter: quiet (the settle window hasn't passed), even with a file there - not yet
+    TR_ASSERT(t, question->Update(AgentSignals(t0 + 6s, true, true, false, true), settle) == AgentQuestion::kStep::None);
+    // Working
+    TR_ASSERT(t, question->Update(AgentSignals(t0 + 20s, true, false, false, true), settle) == AgentQuestion::kStep::None);
+    // Settled with the file
+    TR_ASSERT(t, question->Update(AgentSignals(t0 + 30s, true, true, false, true), settle) == AgentQuestion::kStep::Answered);
+    TR_ASSERT(t, question->IsDone());
+    TR_ASSERT(t, question->Update(AgentSignals(t0 + 31s, true, true, false, true), settle) == AgentQuestion::kStep::None);
+    return kTR_Pass;
+}
+
+// Nothing is typed in while the user is in the agent's tab; it goes when they leave
+DLL_EXPORT int test_agent_question_waits(ITesting *t) {
+    using namespace std::chrono_literals;
+    auto settle = std::chrono::milliseconds(3000);
+    auto t0 = AgentQuestion::Clock::now();
+    auto question = AgentQuestion::Create("1", "q", "/p/.goatedit/agent_qa");
+    question->Accept(t0);
+    TR_ASSERT(t, question->Update(AgentSignals(t0 + 5s, true, true, true, false), settle) == AgentQuestion::kStep::None);
+    TR_ASSERT(t, question->Update(AgentSignals(t0 + 50s, true, true, true, false), settle) == AgentQuestion::kStep::None);
+    TR_ASSERT(t, question->State() == AgentQuestion::kState::WaitingToSend);
+    TR_ASSERT(t, question->Update(AgentSignals(t0 + 51s, true, true, false, false), settle) == AgentQuestion::kStep::Send);
+    return kTR_Pass;
+}
+
+// The ways it ends without an answer: declined; the tab closed before sending; the agent never came up; settled without
+// writing the file; the agent stopped after it was sent (a file it wrote still counts)
+DLL_EXPORT int test_agent_question_ends(ITesting *t) {
+    using namespace std::chrono_literals;
+    auto settle = std::chrono::milliseconds(3000);
+    auto t0 = AgentQuestion::Clock::now();
+
+    auto declined = AgentQuestion::Create("1", "q", "/p");
+    declined->Decline();
+    TR_ASSERT(t, declined->State() == AgentQuestion::kState::Cancelled);
+
+    auto closed = AgentQuestion::Create("2", "q", "/p");
+    closed->Accept(t0);
+    auto noTab = AgentSignals(t0 + 1s, false, false, false, false);
+    noTab.isTabOpen = false;
+    TR_ASSERT(t, closed->Update(noTab, settle) == AgentQuestion::kStep::Cancelled);
+
+    auto neverUp = AgentQuestion::Create("3", "q", "/p");
+    neverUp->Accept(t0);
+    TR_ASSERT(t, neverUp->Update(AgentSignals(t0 + 59s, false, true, false, false), settle) == AgentQuestion::kStep::None);
+    TR_ASSERT(t, neverUp->Update(AgentSignals(t0 + 61s, false, true, false, false), settle) == AgentQuestion::kStep::Cancelled);
+
+    auto silent = AgentQuestion::Create("4", "q", "/p");
+    silent->Accept(t0);
+    TR_ASSERT(t, silent->Update(AgentSignals(t0 + 4s, true, true, false, false), settle) == AgentQuestion::kStep::Send);
+    TR_ASSERT(t, silent->Update(AgentSignals(t0 + 10s, true, true, false, false), settle) == AgentQuestion::kStep::NoAnswer);
+
+    auto stopped = AgentQuestion::Create("5", "q", "/p");
+    stopped->Accept(t0);
+    TR_ASSERT(t, stopped->Update(AgentSignals(t0 + 4s, true, true, false, false), settle) == AgentQuestion::kStep::Send);
+    TR_ASSERT(t, stopped->Update(AgentSignals(t0 + 5s, false, false, false, true), settle) == AgentQuestion::kStep::Answered);
+    return kTR_Pass;
+}
+
+// '.ask' with 'none' says so; with an agent the tests have no window - nothing is asked either way
+DLL_EXPORT int test_agent_ask_none(ITesting *t) {
+    auto message = Editor::Instance().AskEditorAgent("why?");
+    TR_ASSERT(t, message.find("Asking") == std::string::npos);
+    if (Editor::Instance().GetAgent()->Name() == NoAgent::NAME) {
+        TR_ASSERT(t, message.find("none") != std::string::npos);
     }
     return kTR_Pass;
 }

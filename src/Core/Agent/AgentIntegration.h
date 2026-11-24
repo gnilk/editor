@@ -14,6 +14,7 @@
 #ifndef GEDIT_AGENTINTEGRATION_H
 #define GEDIT_AGENTINTEGRATION_H
 
+#include <chrono>
 #include <filesystem>
 #include <memory>
 #include <optional>
@@ -39,13 +40,20 @@ namespace gedit {
 
         // The command line for the user's own agent in a panel tab, in 'root'. Empty: there is none.
         virtual std::vector<std::string> WorkingAgentCommand(const std::filesystem::path &root) const = 0;
-        // The question agent (§6.1): its own process and conversation, started read-only. Empty: there is none.
-        virtual std::vector<std::string> QuestionAgentCommand(const std::filesystem::path &root) const = 0;
+        // The question agent (§6.1, the Editor Agent): its own process and conversation, started read-only - it may
+        // write only answer files (a_*) in 'root'/.goatedit/agent_qa (§6.3). 'sessionId' (a UUID) is the conversation's
+        // id when the agent takes one; empty leaves it to the agent. Empty: there is none.
+        virtual std::vector<std::string> QuestionAgentCommand(const std::filesystem::path &root, const std::string &sessionId) const = 0;
         // Where the agent keeps this project's transcripts - a session's id is its file's name (§5.2). nullopt: unknown.
         virtual std::optional<std::filesystem::path> TranscriptDir(const std::filesystem::path &root) const = 0;
         // A question as it is typed into the agent (the PTY channel, §4): the answer comes back as a file, not as
         // screen text. Empty: no agent to ask.
         virtual std::string PromptWithAnswerFile(const std::string &question, const std::filesystem::path &answerFile) const = 0;
+        // How long the agent's output must have been quiet before the editor may type into it - it has settled down
+        // after its start or its last answer (§6.3). 'main.ai_settle_ms' overrides it.
+        virtual std::chrono::milliseconds SettleTime() const {
+            return std::chrono::milliseconds(3000);
+        }
     };
 }
 

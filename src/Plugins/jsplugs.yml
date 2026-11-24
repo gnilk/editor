@@ -80,8 +80,10 @@ commands:
   -
     name: agent
     short: agent
-    description: "Agent: the AI agent main.ai_integration picks (none | claude), whether it is found, what would be started - nothing is"
+    description: "Agent: the AI agent main.ai_integration picks (none | claude), whether it is found, what it would run; start - the Editor Agent's tab"
     script: Scripts/agent.js
+    arguments:
+      - string, start (optional)
   -
     name: panel
     short: panel

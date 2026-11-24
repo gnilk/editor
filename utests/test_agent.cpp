@@ -24,6 +24,10 @@ DLL_EXPORT int test_agent_claude_transcripts(ITesting *t);
 DLL_EXPORT int test_agent_find_executable(ITesting *t);
 DLL_EXPORT int test_agent_project_config(ITesting *t);
 DLL_EXPORT int test_agent_editor_default(ITesting *t);
+DLL_EXPORT int test_agent_shell_line(ITesting *t);
+DLL_EXPORT int test_agent_editor_agent_settings(ITesting *t);
+DLL_EXPORT int test_agent_editor_agent_banner(ITesting *t);
+DLL_EXPORT int test_agent_start_none(ITesting *t);
 }
 
 DLL_EXPORT int test_agent(ITesting *t) {
@@ -137,5 +141,55 @@ DLL_EXPORT int test_agent_editor_default(ITesting *t) {
     auto agent = Editor::Instance().GetAgent();
     TR_ASSERT(t, agent != nullptr);
     TR_ASSERT(t, agent->Name() == "none");
+    return kTR_Pass;
+}
+
+// The Editor Agent's command typed into its shell: plain words as they are, anything else single-quoted
+DLL_EXPORT int test_agent_shell_line(ITesting *t) {
+    TR_ASSERT(t, AgentIntegrations::ShellCommandLine({"claude", "--permission-mode", "plan"}) == "claude --permission-mode plan");
+    TR_ASSERT(t, AgentIntegrations::ShellCommandLine({"/usr/bin/x", "a=b:c+d"}) == "/usr/bin/x a=b:c+d");
+    TR_ASSERT(t, AgentIntegrations::ShellCommandLine({"a b", "$HOME", ""}) == "'a b' '$HOME' ''");
+    TR_ASSERT(t, AgentIntegrations::ShellCommandLine({"it's"}) == "'it'\\''s'");
+    TR_ASSERT(t, AgentIntegrations::ShellCommandLine({}).empty());
+    return kTR_Pass;
+}
+
+// Its settings: the terminal section's (the shell), the bootstrap is the agent; not saved, not the promote target, not
+// the output console - and the section it was made from is left as it was
+DLL_EXPORT int test_agent_editor_agent_settings(ITesting *t) {
+    auto terminal = ConfigNode::FromString("shell: /bin/zsh\nbootstrap: [ 'echo hi' ]\npromote_target: yes\n");
+    TR_ASSERT(t, terminal.has_value());
+    auto settings = AgentIntegrations::EditorAgentSettings(terminal.value(), {"claude", "--permission-mode", "plan"});
+    TR_ASSERT(t, settings.GetStr("shell", "") == "/bin/zsh");
+    TR_ASSERT(t, (settings.GetSequenceOfStr("bootstrap") == std::vector<std::string>{"claude --permission-mode plan"}));
+    TR_ASSERT(t, !settings.GetBool("persist_scrollback", true));
+    TR_ASSERT(t, !settings.GetBool("promote_target", true));
+    TR_ASSERT(t, !settings.GetBool("output_console", true));
+    TR_ASSERT(t, (terminal->GetSequenceOfStr("bootstrap") == std::vector<std::string>{"echo hi"}));
+    TR_ASSERT(t, terminal->GetBool("promote_target", false));
+    TR_ASSERT(t, !terminal->HasKey("output_console"));
+
+    // No section at all: still a map with the agent in it
+    auto bare = AgentIntegrations::EditorAgentSettings(ConfigNode(), {"claude"});
+    TR_ASSERT(t, (bare.GetSequenceOfStr("bootstrap") == std::vector<std::string>{"claude"}));
+    return kTR_Pass;
+}
+
+// The banner says whose it is and what it runs
+DLL_EXPORT int test_agent_editor_agent_banner(ITesting *t) {
+    auto claude = ClaudeAgent::Create();
+    auto banner = AgentIntegrations::EditorAgentBanner(*claude, claude->QuestionAgentCommand("/p"));
+    TR_ASSERT(t, banner.find("Editor Agent") != std::string::npos);
+    TR_ASSERT(t, banner.find("GoatEdit") != std::string::npos);
+    TR_ASSERT(t, banner.find("Claude Code") != std::string::npos);
+    TR_ASSERT(t, banner.find("claude --permission-mode plan") != std::string::npos);
+    TR_ASSERT(t, banner.find("\r\n") != std::string::npos);
+    return kTR_Pass;
+}
+
+// With 'none' there is nothing to start - and nothing is
+DLL_EXPORT int test_agent_start_none(ITesting *t) {
+    auto message = Editor::Instance().StartEditorAgent();
+    TR_ASSERT(t, message.find("none") != std::string::npos);
     return kTR_Pass;
 }

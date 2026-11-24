@@ -20,6 +20,21 @@ started or sent yet.
 - `.agent` prints it: which, found or not, what would be started for this project, the transcript folder.
 - Tests: `test_agent`; app check `agent_integration`.
 
+**Step 1 - the Editor Agent's tab (2026-11-24, branch `feature/editor-agent-tab`, on the seam - for review):** `.agent
+start` (typing it is the consent) opens it in the bottom panel - §6.2 items 2-5:
+- **Locked name** "Editor Agent" - the agent's terminal title doesn't replace it (`PanelView::AddEditorAgent`, a tab kind
+  `editor_agent` that neither `panel.tabs` nor a session can name).
+- **Marker:** its label is bold in the theme's `tab_editor_agent` (default theme: pink; the VS Code import: its magenta;
+  a theme without it: a violet of the panel's own) - `TabbedView::SetTabMark`, generic.
+- **Banner:** two lines fed into its screen before the shell starts (`TerminalController::SetBanner`) - who started it,
+  what it runs, that closing the tab stops it.
+- **Lifecycle:** not saved in the session (so not brought back); `.panel move` and the layout switch leave it at the
+  bottom; Cmd/Ctrl+W asks ("closing its tab stops it"); a second `.agent start` shows the running one. It is never the
+  output console (`output_console: no` in its settings) nor the promote target, and the bottom panel doesn't count it
+  as its terminal.
+- Its settings: the user's `terminal` section copied, the bootstrap replaced by the agent's command
+  (`AgentIntegrations::EditorAgentSettings` - plan mode for Claude). Nothing is sent to it yet.
+
 **Next (decided 2026-11-24, §6.2):** no `view: agent` tab that follows `ai_integration` - the **User Agent** stays a
 plain terminal tab the user configures (`config: ai_agent`, its bootstrap runs `claude`), and the editor knows nothing
 about it. The **Editor Agent** - the question agent of §6.1 - is the editor's own tab, started on the first question the

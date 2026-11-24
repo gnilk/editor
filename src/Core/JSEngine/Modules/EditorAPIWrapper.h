@@ -19,6 +19,8 @@ namespace gedit {
         std::vector<std::string> GetHelp();
         // Editor.GetAgentInfo() -> [lines] - the agent main.ai_integration picks (hitlist #78)
         std::vector<std::string> GetAgentInfo();
+        // Editor.StartEditorAgent() -> line - the Editor Agent's tab ('.agent start')
+        std::string StartEditorAgent();
 
         DocumentAPIWrapper::Ref GetActiveDocument();
         DocumentAPIWrapper::Ref NewDocument(const char *name);

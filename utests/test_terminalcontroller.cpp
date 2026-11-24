@@ -24,6 +24,7 @@ DLL_EXPORT int test_terminalcontroller_commitline_marks_output(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_viewport_scroll_stops_at_newest_page(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_commitline_empty_marks_nothing(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_dotcommand_keeps_output(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_not_output_console(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_dotcommand_output_below(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_osc133_output(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_osc133_commit_stands_down(ITesting *t);
@@ -1226,3 +1227,20 @@ DLL_EXPORT int test_terminalcontroller_panel_configured(ITesting *t) {
     return kTR_Pass;
 }
 
+
+// 'output_console: no' (the Editor Agent's tab): registering does nothing - dot-command output never goes into an agent
+DLL_EXPORT int test_terminalcontroller_not_output_console(ITesting *t) {
+    auto *prevConsole = RuntimeConfig::Instance().OutputConsole();
+    TerminalController agent;
+    auto settings = ConfigNode::FromString("output_console: no\n");
+    TR_ASSERT(t, settings.has_value());
+    agent.SetSettings(settings.value());
+    agent.RegisterAsOutputConsole();
+    TR_ASSERT(t, RuntimeConfig::Instance().OutputConsole() == prevConsole);
+
+    TerminalController shell;
+    shell.RegisterAsOutputConsole();
+    TR_ASSERT(t, RuntimeConfig::Instance().OutputConsole() != prevConsole);
+    RuntimeConfig::Instance().SetOutputConsole(prevConsole);
+    return kTR_Pass;
+}

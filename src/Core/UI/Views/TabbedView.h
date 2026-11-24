@@ -17,6 +17,7 @@
 #include <string>
 #include <vector>
 
+#include "Core/ColorRGBA.h"
 #include "ViewBase.h"
 
 namespace gedit {
@@ -60,6 +61,10 @@ namespace gedit {
 
         void SetTabLabel(size_t idxTab, const std::u32string &label);
         const std::u32string &TabLabel(size_t idxTab) const;
+        // A tab whose label stands out in the row (bold, in a colour of its own): the UI colour 'colorKey', or
+        // 'fallback' when the theme has no such colour. An empty key clears it.
+        void SetTabMark(size_t idxTab, const std::string &colorKey, ColorRGBA fallback);
+        bool IsTabMarked(size_t idxTab) const;
 
         bool IsTabRowVisible() const {
             return tabs.size() > 1;
@@ -110,6 +115,8 @@ namespace gedit {
         struct Tab {
             std::unique_ptr<ViewBase> view;
             std::u32string label;
+            std::string markColorKey = {};
+            ColorRGBA markFallback = {};
         };
         std::vector<Tab> tabs;
         std::optional<size_t> activeTab;

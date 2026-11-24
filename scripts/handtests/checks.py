@@ -587,6 +587,46 @@ def agent_integration(n):
         g.kill()
 
 
+@check('#78 Editor Agent: .agent start - its own tab at the bottom, fixed name, banner, not saved')
+def editor_agent(n):
+    sb, work = sandbox('editor_agent')
+    # A fake 'claude' - first on a PATH that can't reach the real one (agent calls cost money); sh, so no login
+    # profile reorders the PATH
+    fake_bin = os.path.join(sb, 'bin')
+    write(os.path.join(fake_bin, 'claude'), '#!/bin/sh\necho "fake-claude: $*"\nexec cat\n')
+    os.chmod(os.path.join(fake_bin, 'claude'), 0o755)
+    env = {'PATH': fake_bin + ':/usr/bin:/bin'}
+    user_config(sb, "main:\n  ai_integration: claude\nterminal:\n  shell: /bin/sh\n")
+
+    def tab_row(g):
+        return next((l for l in g.screen.lines() if 'Editor Agent' in l and '|' in l), '')
+
+    g = Goat(sb, ['.'], cwd=work, skip_user_config=False, env=env)
+    try:
+        g.ready()
+        g.send(alt('t'), 0.4)
+        g.type('.agent start', wait=0.2)
+        g.send(ENTER, 1.5)
+        n(g.wait_text('fake-claude: --permission-mode plan', 4), 'the agent runs read-only (plan mode), in its own tab')
+        n(g.wait_text('started by GoatEdit', 2), 'the banner says who started it')
+        n('Shell | Editor Agent' in tab_row(g), f'a tab named Editor Agent next to the shell ({tab_row(g)!r})')
+        # Back to the shell tab: the editor's answer landed there, not in the agent's input
+        g.send(alt('1'), 0.5)
+        n(g.wait_text('Editor Agent started', 2), "'.agent start' answered in the shell, not in the agent's tab")
+        g.type('.agent start', wait=0.2)
+        g.send(ENTER, 1.0)
+        n(g.wait_text('fake-claude', 2), 'a second .agent start shows the running one')
+        n(tab_row(g).count('Editor Agent') == 1, 'still one Editor Agent tab')
+        g.send(alt('1'), 0.5)
+        n(g.wait_text('runs already', 2), '... and says so')
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+    sessions = [os.path.join(dp, f) for dp, _, fs in os.walk(os.path.join(work, '.goatedit')) for f in fs if f.startswith('session')]
+    text = ''.join(open(f).read() for f in sessions)
+    n('Editor Agent' not in text and 'view: editor_agent' not in text, f'the Editor Agent is not in the session ({sessions})')
+
+
 @check('#53 step 5 Messages tab: the build list kept open in the lower panel')
 def messages_tab(n):
     if shutil.which('cc') is None:

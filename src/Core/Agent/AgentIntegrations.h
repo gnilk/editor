@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "AgentIntegration.h"
+#include "Core/Config/ConfigNode.h"
 
 namespace gedit {
     class AgentIntegrations {
@@ -25,6 +26,16 @@ namespace gedit {
         // The same, with the search spelled out (tests)
         static std::optional<std::filesystem::path> FindExecutable(const std::string &name, const std::string &pathVariable,
                                                                    const std::vector<std::filesystem::path> &moreDirs);
+
+        // --- The Editor Agent's tab (agent-integration.md §6.2) ---
+        // A command as one shell line - words with anything but [A-Za-z0-9_./=:+-] in single quotes
+        static std::string ShellCommandLine(const std::vector<std::string> &command);
+        // The terminal settings it runs with: the user's 'terminal' section (shell, colours), its bootstrap replaced by
+        // the agent's command; never saved, never the promote target, never the output console. A copy - the
+        // section itself is left alone.
+        static ConfigNode EditorAgentSettings(const ConfigNode &terminalSettings, const std::vector<std::string> &command);
+        // The line at the top of the tab: whose agent this is, what it runs, how it ends (VT text, '\r\n' ends)
+        static std::string EditorAgentBanner(const AgentIntegration &agent, const std::vector<std::string> &command);
     };
 }
 

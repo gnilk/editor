@@ -29,6 +29,7 @@ void EditorAPIWrapper::RegisterModule(duk_context *ctx) {
 
     dukglue_register_method(ctx, &EditorAPIWrapper::GetHelp, "GetCommandDescriptions");
     dukglue_register_method(ctx, &EditorAPIWrapper::GetAgentInfo, "GetAgentInfo");
+    dukglue_register_method(ctx, &EditorAPIWrapper::StartEditorAgent, "StartEditorAgent");
     dukglue_register_method(ctx, &EditorAPIWrapper::GetRootViewNames, "GetViewNames");
     dukglue_register_method(ctx, &EditorAPIWrapper::GetViewByName, "GetViewByName");
 
@@ -124,6 +125,11 @@ std::vector<std::string> EditorAPIWrapper::GetLanguageDescriptions() {
 std::vector<std::string> EditorAPIWrapper::GetAgentInfo() {
     auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
     return editorApi->GetAgentInfo();
+}
+
+std::string EditorAPIWrapper::StartEditorAgent() {
+    auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
+    return editorApi->StartEditorAgent();
 }
 
 std::vector<std::string> EditorAPIWrapper::GetHelp() {

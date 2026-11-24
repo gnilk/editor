@@ -30,6 +30,8 @@ namespace gedit {
         std::vector<std::string> GetLanguageDescriptions();
         // '.agent' (hitlist #78): the agent main.ai_integration picks, whether it is found, what the editor would start
         std::vector<std::string> GetAgentInfo();
+        // '.agent start' - the Editor Agent's tab (Editor::StartEditorAgent); a line for the user
+        std::string StartEditorAgent();
         std::vector<PluginCommand::Ref> GetRegisteredCommands();
 
         DocumentAPI::Ref GetActiveDocument();

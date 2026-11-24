@@ -252,6 +252,10 @@ namespace gedit {
         }
         // For '.agent': which one, found or not, and what would be started where - for the project root
         std::vector<std::string> DescribeAgent();
+        // '.agent start' (agent-integration.md §6.2): the Editor Agent's tab in the bottom panel, running the agent's
+        // read-only command - the user asked, so it may start. Shown and focused; when it runs already it is only shown.
+        // A line for the user.
+        std::string StartEditorAgent();
         // The project's root: the folder given at launch (a project), else the working directory
         std::filesystem::path GetProjectRootPath();
 

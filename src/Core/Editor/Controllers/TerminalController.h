@@ -135,8 +135,13 @@ namespace gedit {
         // the IOutputConsole the JS Console/Terminal surfaces route to. IOutputConsole is a PRIVATE base
         // (external code reaches it only through RuntimeConfig, never via TerminalController*), so the
         // upcast must happen in here. Called from Begin(); exposed so a test can wire a controller up
-        // without starting a real shell.
-        void RegisterAsOutputConsole() { RuntimeConfig::Instance().SetOutputConsole(this); }
+        // without starting a real shell. A terminal whose settings say 'output_console: no' never is one (the Editor
+        // Agent's tab - dot-command output must not land in an agent's input).
+        void RegisterAsOutputConsole() {
+            if (settings.GetBool("output_console", true)) {
+                RuntimeConfig::Instance().SetOutputConsole(this);
+            }
+        }
 
         // IOutputConsole: the last command's output joined with '\n', or nullopt when there is none. Takes
         // screenLock - safe from the JS/main thread while the pty thread writes.
@@ -161,6 +166,9 @@ namespace gedit {
         // 'terminal_scrollback[.id].bin', history 'terminal_history[.id]' ("" keeps the names from before tabs) -
         // and 'scrollbackFile' is what Begin restores. Set before Begin.
         void SetSessionTab(const std::string &id, const std::string &scrollbackFile);
+        // Text shown at the top before the shell starts (VT bytes - '\r\n' line ends, SGR allowed): who started this
+        // terminal and why (the Editor Agent's banner, agent-integration.md §6.2). Set before Begin.
+        void SetBanner(const std::string &text) { banner = text; }
         const std::string &GetSessionTabId() const { return sessionTabId; }
         // Its tab was closed: its scrollback goes, and its history (the first terminal's, shared, stays)
         void ForgetSession();
@@ -233,6 +241,7 @@ namespace gedit {
         // The tab's files (SetSessionTab)
         std::string sessionTabId;
         std::string restoreScrollbackFile;
+        std::string banner;
         // OSC 0 / 2, under screenLock
         std::string title;
         std::function<void()> titleChangedHandler;

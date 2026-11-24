@@ -684,6 +684,38 @@ std::vector<std::string> Editor::DescribeAgent() {
     return lines;
 }
 
+std::string Editor::StartEditorAgent() {
+    if (agent->Name() == NoAgent::NAME) {
+        return "No agent set (main.ai_integration: none) - '.cfg set main.ai_integration claude' in your user config";
+    }
+    if (!agent->IsAvailable()) {
+        return "Not started - " + agent->Status();
+    }
+    for (auto *panelView : GetPanelViews()) {
+        if (auto *running = panelView->EditorAgent()) {
+            if (auto idxTab = panelView->IndexOf(running)) {
+                panelView->SetActiveTab(idxTab.value());
+            }
+            ActionHelper::SwitchToNamedView(panelView->TopViewName());
+            TriggerUIRedraw();
+            return "The Editor Agent runs already - shown";
+        }
+    }
+    auto *bottom = GetPanelView(glbTerminalView);
+    if (bottom == nullptr) {
+        return "No panel to start it in";
+    }
+    auto command = agent->QuestionAgentCommand(GetProjectRootPath());
+    if (command.empty()) {
+        return agent->DisplayName() + " has no Editor Agent command";
+    }
+    auto settings = AgentIntegrations::EditorAgentSettings(Config::Instance().ResolveSection("terminal"), command);
+    bottom->AddEditorAgent(settings, AgentIntegrations::EditorAgentBanner(*agent, command));
+    ActionHelper::SwitchToNamedView(glbTerminalView);
+    TriggerUIRedraw();
+    return "Editor Agent started (" + agent->DisplayName() + ", read-only)";
+}
+
 std::filesystem::path Editor::GetProjectRootPath() {
     if (workspace != nullptr) {
         for (auto &root : workspace->GetProjectRoots()) {

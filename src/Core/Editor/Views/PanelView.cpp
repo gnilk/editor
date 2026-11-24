@@ -38,7 +38,8 @@ bool PanelView::ShowTabId(const std::string &id) {
 void PanelView::CollectTabs(std::vector<TerminalTabSession> &out) {
     for (size_t i = 0; i < NumTabs(); i++) {
         auto panelTab = PanelTabAt(i);
-        if (panelTab == nullptr) {
+        // The Editor Agent isn't brought back - the editor starts it again when it is asked to
+        if ((panelTab == nullptr) || panelTab->IsEditorAgent()) {
             continue;
         }
         TerminalTabSession tab;
@@ -88,11 +89,17 @@ std::vector<std::string> PanelView::Ids() const {
 }
 
 TerminalView *PanelView::ActiveTerminal() {
-    if (auto shown = dynamic_cast<TerminalView *>(ActiveView())) {
+    auto idxShown = ActiveTab();
+    if (auto shown = dynamic_cast<TerminalView *>(ActiveView()); (shown != nullptr) && !IsEditorAgentTab(idxShown.value())) {
         return shown;
     }
-    auto terminals = Terminals();
-    return terminals.empty() ? nullptr : terminals.front();
+    for (size_t i = 0; i < NumTabs(); i++) {
+        auto terminal = dynamic_cast<TerminalView *>(TabView(i));
+        if ((terminal != nullptr) && !IsEditorAgentTab(i)) {
+            return terminal;
+        }
+    }
+    return nullptr;
 }
 
 TerminalView *PanelView::PromoteTarget() {
@@ -124,6 +131,43 @@ std::vector<TerminalView *> PanelView::Terminals() const {
     return terminals;
 }
 
+TerminalView *PanelView::AddEditorAgent(const ConfigNode &settings, const std::string &banner) {
+    TabSpec spec;
+    spec.id = EDITOR_AGENT_ID;
+    spec.name = EDITOR_AGENT_NAME;
+    spec.view = VIEW_EDITOR_AGENT;
+    spec.config = VIEW_TERMINAL;
+    spec.home = HOME_BOTTOM;
+    auto newView = std::make_unique<TerminalView>();
+    auto view = newView.get();
+    view->SetSettings(settings);
+    auto &controller = view->GetController();
+    controller.SetSessionTab(spec.id, "");
+    controller.SetBanner(banner);
+    panelTabs.push_back({view, spec});
+    // Starts its shell, which runs the bootstrap - the agent (TerminalView::InitView)
+    AddTab(std::move(newView), LabelFor(spec.name, ""));
+    MarkEditorAgent(view);
+    if (auto idxTab = IndexOf(view)) {
+        SetActiveTab(idxTab.value());
+    }
+    return view;
+}
+
+TerminalView *PanelView::EditorAgent() {
+    for (auto &panelTab : panelTabs) {
+        if (panelTab.IsEditorAgent()) {
+            return panelTab.Terminal();
+        }
+    }
+    return nullptr;
+}
+
+bool PanelView::IsEditorAgentTab(size_t idxTab) {
+    auto panelTab = PanelTabAt(idxTab);
+    return (panelTab != nullptr) && panelTab->IsEditorAgent();
+}
+
 void PanelView::NewTerminal() {
     NewTerminal(HomeForNewTab());
 }
@@ -146,6 +190,23 @@ void PanelView::CloseTab(size_t idxTab) {
         return;
     }
     auto terminal = panelTab->Terminal();
+    // The Editor Agent's tab goes whatever else is left; closing it stops the agent - said before it happens
+    if (panelTab->IsEditorAgent() && (terminal != nullptr)) {
+        if (!terminal->GetController().HasRunningJob() || !RuntimeConfig::Instance().HasRootView()) {
+            RemovePanelTab(idxTab);
+            return;
+        }
+        auto view = panelTab->view;
+        auto modal = ConfirmModal::Create("Close the Editor Agent", U"The Editor Agent is running - closing its tab stops it.", {U"Stop it", U"Keep it"});
+        modal->SetOnChoice([this, view](int idxChoice) {
+            auto idxNow = IndexOf(view);
+            if ((idxChoice == 0) && idxNow.has_value()) {
+                RemovePanelTab(idxNow.value());
+            }
+        });
+        RuntimeConfig::Instance().GetRootViewAs<RootView>()->ShowModal(std::move(modal));
+        return;
+    }
     if ((terminal == nullptr) && (keepsLastTerminal || (NumTabs() > 1))) {
         RemovePanelTab(idxTab);
         return;
@@ -357,12 +418,16 @@ void PanelView::PutTab(MovedTab tab) {
         return;
     }
     auto terminal = dynamic_cast<TerminalView *>(view);
-    auto label = LabelFor(tab.spec.name, (terminal != nullptr) ? terminal->GetController().GetTitle() : std::string());
+    bool isEditorAgent = (tab.spec.view == VIEW_EDITOR_AGENT);
+    auto title = ((terminal != nullptr) && !isEditorAgent) ? terminal->GetController().GetTitle() : std::string();
     panelTabs.push_back({view, tab.spec});
-    if (terminal != nullptr) {
+    if ((terminal != nullptr) && !isEditorAgent) {
         WatchTitle(terminal);
     }
-    AddTab(std::move(tab.view), label);
+    AddTab(std::move(tab.view), LabelFor(tab.spec.name, title));
+    if (isEditorAgent && (terminal != nullptr)) {
+        MarkEditorAgent(terminal);
+    }
     if (tab.wasShown) {
         if (auto idxTab = IndexOf(view)) {
             SetActiveTab(idxTab.value());
@@ -396,7 +461,7 @@ size_t PanelView::NumTerminalsWithHome(const std::string &home) {
     size_t num = 0;
     for (size_t i = 0; i < NumTabs(); i++) {
         auto panelTab = PanelTabAt(i);
-        if ((panelTab != nullptr) && (panelTab->spec.home == home) && (panelTab->Terminal() != nullptr)) {
+        if ((panelTab != nullptr) && (panelTab->spec.home == home) && (panelTab->Terminal() != nullptr) && !panelTab->IsEditorAgent()) {
             num++;
         }
     }
@@ -440,8 +505,23 @@ void PanelView::RemovePanelTab(size_t idxTab) {
     Editor::Instance().TriggerUIRedraw();
 }
 
-size_t PanelView::NumTerminals() const {
-    return Terminals().size();
+void PanelView::MarkEditorAgent(TerminalView *view) {
+    // A violet of its own when the theme has no 'tab_editor_agent'
+    static const auto fallback = ColorRGBA::FromRGB(0xc5, 0x86, 0xc0);
+    if (auto idxTab = IndexOf(view)) {
+        SetTabLabel(idxTab.value(), LabelFor(EDITOR_AGENT_NAME, ""));
+        SetTabMark(idxTab.value(), EDITOR_AGENT_COLOR, fallback);
+    }
+}
+
+size_t PanelView::NumTerminals() {
+    size_t num = 0;
+    for (size_t i = 0; i < NumTabs(); i++) {
+        if ((dynamic_cast<TerminalView *>(TabView(i)) != nullptr) && !IsEditorAgentTab(i)) {
+            num++;
+        }
+    }
+    return num;
 }
 
 PanelView::PanelTab *PanelView::PanelTabAt(size_t idxTab) {

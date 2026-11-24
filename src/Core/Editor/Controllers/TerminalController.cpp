@@ -101,6 +101,10 @@ void TerminalController::Begin() {
     // thread mutates the grid the instant shell.Begin() returns, so the seeded history must already be in
     // place. A no-op when nothing was saved, the feature is off, or the .bin is missing/corrupt.
     FromSession(restoreScrollbackFile);
+    if (!banner.empty()) {
+        std::lock_guard<std::mutex> lock(screenLock);
+        screen.Feed(banner);
+    }
 
     if (!shell.Begin(shellBinary, shellInitStr, shellInitScript)) {
         // No pty thread was started, so the state never leaves kIdle - waiting for kRunning would spin

@@ -148,6 +148,19 @@ void TabbedView::SetTabLabel(size_t idxTab, const std::u32string &label) {
     }
 }
 
+void TabbedView::SetTabMark(size_t idxTab, const std::string &colorKey, ColorRGBA fallback) {
+    if (idxTab >= tabs.size()) {
+        return;
+    }
+    tabs[idxTab].markColorKey = colorKey;
+    tabs[idxTab].markFallback = fallback;
+    InvalidateView();
+}
+
+bool TabbedView::IsTabMarked(size_t idxTab) const {
+    return (idxTab < tabs.size()) && !tabs[idxTab].markColorKey.empty();
+}
+
 const std::u32string &TabbedView::TabLabel(size_t idxTab) const {
     static const std::u32string none;
     return (idxTab < tabs.size()) ? tabs[idxTab].label : none;
@@ -272,19 +285,26 @@ void TabbedView::DrawViewContents() {
     auto &dc = window->GetContentDC();
     dc.ResetDrawColors();
     auto &uiColors = UIHost::Instance().GetUIColors();
-    if (IsActive()) {
-        dc.SetColor(uiColors["header_active_foreground"], uiColors["header_active_background"]);
-    } else {
-        dc.SetColor(uiColors["header_foreground"], uiColors["header_background"]);
-    }
+    auto foreground = IsActive() ? uiColors["header_active_foreground"] : uiColors["header_foreground"];
+    auto background = IsActive() ? uiColors["header_active_background"] : uiColors["header_background"];
+    dc.SetColor(foreground, background);
     dc.FillLine(0, kTextAttributes::kNormal, ' ');
     auto spans = LayoutTabRow(Labels());
     for (auto &span : spans) {
+        auto &tab = tabs[span.idxTab];
         if (span.idxTab > 0) {
+            dc.SetColor(foreground, background);
             dc.DrawStringWithAttributesAt(span.xStart - (int)SEPARATOR.size(), 0, kTextAttributes::kNormal, SEPARATOR.c_str());
         }
         auto attributes = (activeTab == span.idxTab) ? kTextAttributes::kUnderline : kTextAttributes::kNormal;
-        dc.DrawStringWithAttributesAt(span.xStart, 0, attributes, tabs[span.idxTab].label.c_str());
+        if (!tab.markColorKey.empty()) {
+            auto markColor = uiColors.HasColor(tab.markColorKey) ? uiColors[tab.markColorKey] : tab.markFallback;
+            dc.SetColor(markColor, background);
+            attributes = attributes | kTextAttributes::kBold;
+        } else {
+            dc.SetColor(foreground, background);
+        }
+        dc.DrawStringWithAttributesAt(span.xStart, 0, attributes, tab.label.c_str());
     }
 }
 

@@ -33,6 +33,10 @@ std::vector<std::string> EditorAPI::GetAgentInfo() {
     return Editor::Instance().DescribeAgent();
 }
 
+std::string EditorAPI::StartEditorAgent() {
+    return Editor::Instance().StartEditorAgent();
+}
+
 std::vector<PluginCommand::Ref> EditorAPI::GetRegisteredCommands() {
     return RuntimeConfig::Instance().GetPluginCommands();
 }

@@ -4,6 +4,7 @@
 //
 #include <testinterface.h>
 
+#include "Core/Agent/AgentIntegrations.h"
 #include "Core/Config/ConfigNode.h"
 #include "Core/Editor.h"
 #include "Core/Editor/Views/PanelHost.h"
@@ -30,6 +31,8 @@ DLL_EXPORT int test_panellayout_switch(ITesting *t);
 DLL_EXPORT int test_panellayout_move(ITesting *t);
 DLL_EXPORT int test_panellayout_auto(ITesting *t);
 DLL_EXPORT int test_panellayout_reparent(ITesting *t);
+DLL_EXPORT int test_panellayout_editor_agent(ITesting *t);
+DLL_EXPORT int test_panellayout_editor_agent_move(ITesting *t);
 }
 
 static const char *CONFIG_BOTH =
@@ -397,5 +400,66 @@ DLL_EXPORT int test_panellayout_reparent(ITesting *t) {
     // Twice to the same parent: once
     other.SetLeft(&b);
     TR_ASSERT(t, b.GetParentView() == &other);
+    return kTR_Pass;
+}
+
+// The Editor Agent's tab (agent-integration.md §6.2): its name and mark, shown; not saved; never the panel's terminal
+// (where output goes) and not one the bottom panel keeps; handed over, it keeps its name and mark
+DLL_EXPORT int test_panellayout_editor_agent(ITesting *t) {
+    PanelView bottom;
+    bottom.AddTabs({{{"", "Shell", PanelView::VIEW_TERMINAL, "terminal", PanelView::HOME_BOTTOM}, ""}}, {});
+    auto shell = bottom.ActiveTerminal();
+    TR_ASSERT(t, shell != nullptr);
+    TR_ASSERT(t, bottom.EditorAgent() == nullptr);
+
+    auto settings = AgentIntegrations::EditorAgentSettings(ConfigNode(), {"true"});
+    auto agentView = bottom.AddEditorAgent(settings, "banner\r\n");
+    TR_ASSERT(t, agentView != nullptr);
+    TR_ASSERT(t, bottom.EditorAgent() == agentView);
+    TR_ASSERT(t, bottom.ActiveTab() == std::optional<size_t>(1));
+    TR_ASSERT(t, bottom.IsEditorAgentTab(1) && !bottom.IsEditorAgentTab(0));
+    TR_ASSERT(t, bottom.TabLabel(1) == U"Editor Agent");
+    TR_ASSERT(t, bottom.IsTabMarked(1) && !bottom.IsTabMarked(0));
+    TR_ASSERT(t, !agentView->GetController().Settings().GetBool("output_console", true));
+
+    // Shown, it still isn't the panel's terminal
+    TR_ASSERT(t, bottom.ActiveTerminal() == shell);
+    TR_ASSERT(t, bottom.NumTerminalsWithHome(PanelView::HOME_BOTTOM) == 1);
+    TR_ASSERT(t, bottom.Terminals().size() == 2);
+
+    std::vector<TerminalTabSession> tabs;
+    bottom.CollectTabs(tabs);
+    TR_ASSERT(t, (tabs.size() == 1) && (tabs[0].id.empty()));
+
+    // Handed over (a layout switch could): the same name and mark
+    PanelView other;
+    auto moved = bottom.TakeTab(1);
+    TR_ASSERT(t, moved.has_value());
+    other.PutTab(std::move(moved.value()));
+    TR_ASSERT(t, other.EditorAgent() == agentView);
+    TR_ASSERT(t, (other.TabLabel(0) == U"Editor Agent") && other.IsTabMarked(0));
+    TR_ASSERT(t, bottom.EditorAgent() == nullptr);
+    return kTR_Pass;
+}
+
+// '.panel move' leaves the Editor Agent where it is - in landscape too (a plain sh runs 'true': the tree starts shells)
+DLL_EXPORT int test_panellayout_editor_agent_move(ITesting *t) {
+    HostTree tree("landscape", PanelLayout::kLayout::kLandscape);
+    auto &host = tree.host;
+    auto terminal = ConfigNode::FromString("shell: /bin/sh\ninit: ''\n");
+    TR_ASSERT(t, terminal.has_value());
+    auto agentView = host.Bottom().AddEditorAgent(AgentIntegrations::EditorAgentSettings(terminal.value(), {"true"}), "");
+    auto numRight = host.Right()->NumTabs();
+
+    auto message = host.MoveShownTab(glbTerminalView);
+    TR_ASSERT(t, message.find("Editor Agent") != std::string::npos);
+    TR_ASSERT(t, host.Bottom().EditorAgent() == agentView);
+    TR_ASSERT(t, host.Right()->NumTabs() == numRight);
+
+    // Portrait and back: it stays at the bottom
+    TR_ASSERT(t, host.SetLayoutSetting("portrait"));
+    TR_ASSERT(t, host.SetLayoutSetting("landscape"));
+    TR_ASSERT(t, host.Bottom().EditorAgent() == agentView);
+    TR_ASSERT(t, host.Right()->EditorAgent() == nullptr);
     return kTR_Pass;
 }

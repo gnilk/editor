@@ -17,6 +17,10 @@
 // Each tab has a home - the panel it belongs in - which PanelLayout uses to put it in one or the other; ids are unique
 // over both (they name the tab's files), so a panel asks for the ids in use through its id source.
 //
+// The Editor Agent (hitlist #78, agent-integration.md §6.2) is a terminal tab the editor makes itself - never from
+// 'panel.tabs' or the session: its name is fixed (the agent's title doesn't replace it), its label is marked, it is not
+// saved, it doesn't move to the other panel, and it is never where dot-command output goes. Closing it stops the agent.
+//
 
 #ifndef GEDIT_PANELVIEW_H
 #define GEDIT_PANELVIEW_H
@@ -92,15 +96,22 @@ namespace gedit {
             keepsLastTerminal = keeps;
         }
 
-        // The shown tab when it is a terminal, else the first terminal
+        // The shown tab when it is a terminal, else the first terminal - never the Editor Agent's
         TerminalView *ActiveTerminal();
         // Where Cmd/Ctrl+Enter in the editor sends: the first terminal whose settings say 'promote_target: yes' (an
         // agent's tab, §7) - shown, so the text is seen arriving - else the active terminal
         TerminalView *PromoteTarget();
         // The first terminal whose settings say 'promote_target: yes', shown - nullptr when none says so
         TerminalView *FindPromoteTarget();
-        // Every terminal, in tab order
+        // Every terminal, in tab order - the Editor Agent's too
         std::vector<TerminalView *> Terminals() const;
+
+        // The Editor Agent's tab, made by the editor: a terminal with these settings (its bootstrap starts the agent),
+        // the banner shown above it, shown - and focused when the panel has focus
+        TerminalView *AddEditorAgent(const ConfigNode &settings, const std::string &banner);
+        // nullptr when it isn't in this panel
+        TerminalView *EditorAgent();
+        bool IsEditorAgentTab(size_t idxTab);
         // A new shell in a tab of its own, shown (and focused, when the panel has focus) - homed as the shown tab is
         void NewTerminal();
         // ... homed here
@@ -140,6 +151,11 @@ namespace gedit {
         inline static const std::string VIEW_MESSAGES = "messages";
         inline static const std::string HOME_BOTTOM = "bottom";
         inline static const std::string HOME_RIGHT = "right";
+        // The Editor Agent's tab: its kind (never one 'panel.tabs' or a session can name), id, name and label mark
+        inline static const std::string VIEW_EDITOR_AGENT = "editor_agent";
+        inline static const std::string EDITOR_AGENT_ID = "editor_agent";
+        inline static const std::string EDITOR_AGENT_NAME = "Editor Agent";
+        inline static const std::string EDITOR_AGENT_COLOR = "tab_editor_agent";
 
     protected:
         // The labels that count first (a Messages tab's 'Messages (3)'), then the row
@@ -154,6 +170,9 @@ namespace gedit {
             TerminalView *Terminal() const {
                 return dynamic_cast<TerminalView *>(view);
             }
+            bool IsEditorAgent() const {
+                return spec.view == VIEW_EDITOR_AGENT;
+            }
         };
         // By the spec's view kind; nullptr for a kind there isn't
         ViewBase *AddPanelTab(const TabSpec &spec, const std::string &scrollbackFile);
@@ -162,7 +181,10 @@ namespace gedit {
         void WatchTitle(TerminalView *view);
         MessagesView *AddMessages(const TabSpec &spec);
         void RemovePanelTab(size_t idxTab);
-        size_t NumTerminals() const;
+        // Its label: the name (not the agent's title), marked
+        void MarkEditorAgent(TerminalView *view);
+        // The Editor Agent's left out - it is no shell of the user's
+        size_t NumTerminals();
         PanelTab *PanelTabAt(size_t idxTab);
         // A tab number as the editor's files have it: 1..8, 9 the last
         void SelectTabNumber(int tabNumber);

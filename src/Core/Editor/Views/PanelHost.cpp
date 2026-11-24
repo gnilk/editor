@@ -92,6 +92,10 @@ std::string PanelHost::MoveShownTab(const std::string &focusedTopView) {
     if (!idxTab.has_value()) {
         return "No tab to move";
     }
+    // The editor's own tab stays with the editor's things (agent-integration.md §6.2)
+    if (from.IsEditorAgentTab(idxTab.value())) {
+        return "The Editor Agent stays in the bottom panel";
+    }
     auto home = from.TabHome(idxTab.value());
     auto newHome = (home == PanelView::HOME_RIGHT) ? PanelView::HOME_BOTTOM : PanelView::HOME_RIGHT;
     auto isTerminal = dynamic_cast<TerminalView *>(from.TabView(idxTab.value())) != nullptr;

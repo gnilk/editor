@@ -42,6 +42,11 @@ namespace gedit {
         void Tick();
         // How long the agent's output must be quiet: main.ai_settle_ms, else the agent's own
         std::chrono::milliseconds SettleTime() const;
+        // While something takes a while: a dot sweeping back and forth, '··•●•' - glyphs the default font has (no
+        // braille), one step per tick
+        static std::u32string BusyIndicator(std::chrono::milliseconds elapsed);
+        // 'answering 12s', '2m 05s'
+        static std::u32string Elapsed(std::chrono::milliseconds elapsed);
 
     public:
         static constexpr std::chrono::milliseconds TICK = std::chrono::milliseconds(250);
@@ -53,6 +58,7 @@ namespace gedit {
         struct Gathering {
             using Ref = std::shared_ptr<Gathering>;
             AgentQuestionTemplate::Ref questionTemplate;
+            AgentQuestion::Clock::time_point startedAt = {};
             AgentQuestionTemplate::Values values;
             size_t idxTool = 0;
             Process::Ref process;
@@ -82,7 +88,9 @@ namespace gedit {
         void UpdateInfoLine(TerminalView *agentView, bool isWaitingForFocus);
         void ArmTimer();
         std::u32string ComputeStatus(const AgentQuestion::Signals &signals, bool isWaitingForFocus) const;
-        std::string ConsentMessage(const AgentQuestion &question, bool willStart) const;
+        // The consent modal: who gets it and where it is kept (above the choices), and the prompt (below them)
+        std::string ConsentHeader(const AgentQuestion &question, bool willStart) const;
+        static std::string ConsentPrompt(const AgentQuestion &question);
 
     private:
         std::deque<AgentQuestion::Ref> questions;

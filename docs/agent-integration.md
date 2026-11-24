@@ -416,7 +416,15 @@ placeholder (`{ return; }` in a code sample) stay as they are; `{{` is a literal
 a template can't reach outside the tool folders. `.ask list` also names the user files that aren't templates, and why; a template's `usage:` says what its args are (`[git revision - ...]`).
 Tests: `test_agent` (`template_*`, `question_template_file`); app check `editor_agent_template` (a scratch repository:
 `.ask list`, a failing user tool, free text, `why` sent and answered, `structure` seeing a new struct). The real agent:
-not yet - one `.ask why` and one `.ask structure` on the user's go. **Not built from the design:** the notice when
+not yet - one `.ask why` and one `.ask structure` on the user's go.
+
+**After the first use (user, 2026-11-24):**
+- **The consent puts Send / Cancel above the prompt:** the header (to whom, where it is kept), a gap, the choices, a rule,
+  then the prompt - a prompt taller than the screen is cut at the bottom, the choices never are. `ConfirmModal`'s
+  `kChoicePlacement::kAbove` + `SetHeader` (`kBelow` stays the default). A workaround until modals scroll (hitlist #80).
+- **The status line moves while it takes a while:** `EA: ··•●• answering 12s` - a dot sweeping back and forth (glyphs
+  Andale Mono has; it has no braille) and the time, for gathering, starting, waiting to send and answering.
+- **The templates' prose is wrapped at 76**, the consent's width - wrapped at ~115 it broke raggedly there. **Not built from the design:** the notice when
 `structure` runs with unsaved buffers (it reads the files as saved).
 
 **What gets built (sketch, kept from the design):**

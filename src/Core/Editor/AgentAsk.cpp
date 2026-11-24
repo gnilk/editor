@@ -172,6 +172,7 @@ std::string AgentAsk::AskFromTemplate(const AgentQuestionTemplate::Ref &question
 
     auto newGathering = std::make_shared<Gathering>();
     newGathering->questionTemplate = questionTemplate;
+    newGathering->startedAt = AgentQuestion::Clock::now();
     newGathering->values = values;
     gathering = newGathering;
     ArmTimer();
@@ -286,8 +287,10 @@ AgentQuestion::Ref AgentAsk::NewQuestion(const std::string &question) {
 
 void AgentAsk::ShowConsent(const AgentQuestion::Ref &agentQuestion) {
     bool willStart = (Editor::Instance().GetEditorAgentView() == nullptr);
-    auto modal = ConfirmModal::Create("Ask the Editor Agent", UnicodeHelper::utf8to32(ConsentMessage(*agentQuestion, willStart)),
+    auto modal = ConfirmModal::Create("Ask the Editor Agent", UnicodeHelper::utf8to32(ConsentPrompt(*agentQuestion)),
                                       {U"Send", U"Cancel"});
+    modal->SetHeader(UnicodeHelper::utf8to32(ConsentHeader(*agentQuestion, willStart)));
+    modal->SetChoicePlacement(ConfirmModal::kChoicePlacement::kAbove);
     modal->SetOnChoice([this, agentQuestion](int idxChoice) {
         OnConsent(agentQuestion, idxChoice == 0);
     });
@@ -297,12 +300,19 @@ void AgentAsk::ShowConsent(const AgentQuestion::Ref &agentQuestion) {
     RuntimeConfig::Instance().GetRootViewAs<RootView>()->ShowModal(std::move(modal));
 }
 
-// What will be typed, word for word, and to whom - wrapped to fit the modal
-std::string AgentAsk::ConsentMessage(const AgentQuestion &question, bool willStart) const {
+// To whom, and where it is kept - above Send / Cancel, so a prompt taller than the screen never hides them
+std::string AgentAsk::ConsentHeader(const AgentQuestion &question, bool willStart) const {
     auto agent = Editor::Instance().GetAgent();
-    std::string message = "To the Editor Agent (" + agent->DisplayName() + ", read-only)";
-    message += willStart ? " - it is started first.\n" : ".\n";
-    message += "This is typed into it, as is:\n\n";
+    std::string header = "To the Editor Agent (" + agent->DisplayName() + ", read-only)";
+    header += willStart ? " - it is started first.\n" : ".\n";
+    header += "Kept with its answer: .goatedit/agent_qa/" + question.QuestionFile().filename().string() + "\n";
+    header += "What is typed into it, as is, is below the line.";
+    return header;
+}
+
+// What will be typed, word for word - wrapped to fit the modal
+std::string AgentAsk::ConsentPrompt(const AgentQuestion &question) {
+    std::string message;
     std::string text = question.Prompt();
     size_t start = 0;
     while (start <= text.size()) {
@@ -323,7 +333,9 @@ std::string AgentAsk::ConsentMessage(const AgentQuestion &question, bool willSta
         }
         start = end + 1;
     }
-    message += "\nKept with its answer: .goatedit/agent_qa/" + question.QuestionFile().filename().string();
+    if (!message.empty() && (message.back() == '\n')) {
+        message.pop_back();
+    }
     return message;
 }
 
@@ -530,11 +542,16 @@ void AgentAsk::UpdateInfoLine(TerminalView *agentView, bool isWaitingForFocus) {
     }
 }
 
-// Worked out on each tick - the status line only reads it
+// Worked out on each tick - the status line only reads it. While something takes a while (the tools, the agent
+// starting, the answer) it moves: the indicator, and how long it has been
 std::u32string AgentAsk::ComputeStatus(const AgentQuestion::Signals &signals, bool isWaitingForFocus) const {
+    auto busy = [&signals](const std::u32string &what, AgentQuestion::Clock::time_point since) {
+        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(signals.now - since);
+        return U"EA: " + BusyIndicator(elapsed) + U" " + what + U" " + Elapsed(elapsed);
+    };
     std::u32string text;
     if (gathering != nullptr) {
-        text = U"EA: gathering";
+        text = busy(U"gathering", gathering->startedAt);
         if (!questions.empty()) {
             text += UnicodeHelper::utf8to32(fmt::format(" (+{})", questions.size()));
         }
@@ -547,11 +564,11 @@ std::u32string AgentAsk::ComputeStatus(const AgentQuestion::Signals &signals, bo
                 if (isWaitingForFocus) {
                     text = U"EA: waiting - leave its tab";
                 } else {
-                    text = signals.isAgentUp ? U"EA: waiting to send" : U"EA: starting";
+                    text = busy(signals.isAgentUp ? U"waiting to send" : U"starting", question->AcceptedAt());
                 }
                 break;
             case AgentQuestion::kState::Sent :
-                text = U"EA: answering";
+                text = busy(U"answering", question->SentAt());
                 break;
             default:
                 text = U"EA: asking";
@@ -569,6 +586,27 @@ std::u32string AgentAsk::ComputeStatus(const AgentQuestion::Signals &signals, bo
         return U"EA: stopped";
     }
     return signals.isSettled ? U"EA: idle" : U"EA: working";
+}
+
+std::u32string AgentAsk::BusyIndicator(std::chrono::milliseconds elapsed) {
+    // The bright dot's place, there and back: 0 1 2 3 4 3 2 1
+    static constexpr int WIDTH = 5;
+    auto step = (int)((elapsed.count() / TICK.count()) % (2 * (WIDTH - 1)));
+    auto at = (step < WIDTH) ? step : 2 * (WIDTH - 1) - step;
+    std::u32string text;
+    for (int i = 0; i < WIDTH; i++) {
+        auto distance = std::abs(i - at);
+        text += (distance == 0) ? U'●' : ((distance == 1) ? U'•' : U'·');
+    }
+    return text;
+}
+
+std::u32string AgentAsk::Elapsed(std::chrono::milliseconds elapsed) {
+    auto seconds = (long long)std::max<long long>(0, elapsed.count() / 1000);
+    if (seconds < 60) {
+        return UnicodeHelper::utf8to32(fmt::format("{}s", seconds));
+    }
+    return UnicodeHelper::utf8to32(fmt::format("{}m {:02}s", seconds / 60, seconds % 60));
 }
 
 std::chrono::milliseconds AgentAsk::SettleTime() const {

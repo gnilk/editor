@@ -774,7 +774,19 @@ def editor_agent_template(n):
         text = '\n'.join(g.screen.lines())
         n('Why is line 1 of `hello.c` here?' in text, 'the prompt names the caret\'s file and line')
         n('#42 hello: the smallest program' in text, "the tool's output is in it - the commit and its #N")
-        g.send(b's', 0.5)
+        # Send / Cancel above the prompt, under the header - a prompt taller than the screen can't hide them
+        lines = g.screen.lines()
+        row = lambda needle: next((i for i, l in enumerate(lines) if needle in l), -1)
+        n(0 <= row('Kept with its answer') < row('[S]end') < row('Why is line 1'),
+          f"header, then Send / Cancel, then the prompt (rows {row('Kept with its answer')}, {row('[S]end')}, {row('Why is line 1')})")
+        n('─' in lines[row('[S]end') + 1], 'a rule between the choices and the prompt')
+        g.send(b's', 0.1)
+        # While it answers the status line moves: the dot sweeping, the seconds
+        deadline, seen = time.time() + 4, ''
+        while time.time() < deadline and not seen:
+            seen = next((l for l in g.screen.lines() if 'EA:' in l and '●' in l and 'answering' in l), '')
+            g.pump(0.1)
+        n(seen != '', f'EA: answering, with the indicator ({seen.strip()[-40:]!r})')
         n(g.wait_text('forty-two', 12), 'the answer is opened')
         qs = qa_files('q_')
         qtext = open(os.path.join(qa, qs[0])).read() if qs else ''

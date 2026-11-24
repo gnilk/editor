@@ -90,6 +90,9 @@ namespace gedit {
         uintmax_t TranscriptOffset() const { return transcriptOffset; }
 
         kState State() const { return state; }
+        // When the user sent it off (WaitingToSend from then), and when it went into the agent (Sent from then)
+        Clock::time_point AcceptedAt() const { return acceptedAt; }
+        Clock::time_point SentAt() const { return sentAt; }
         bool IsDone() const;
 
         // The user's answer in the consent modal

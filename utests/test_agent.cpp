@@ -17,6 +17,7 @@
 #include "Core/Config/ConfigNode.h"
 #include "Core/Config/ProjectConfigPolicy.h"
 #include "Core/Editor.h"
+#include "Core/Editor/AgentAsk.h"
 #include "Core/RuntimeConfig.h"
 
 using namespace gedit;
@@ -50,6 +51,7 @@ DLL_EXPORT int test_agent_template_cap(ITesting *t);
 DLL_EXPORT int test_agent_template_folders(ITesting *t);
 DLL_EXPORT int test_agent_template_shipped(ITesting *t);
 DLL_EXPORT int test_agent_question_template_file(ITesting *t);
+DLL_EXPORT int test_agent_busy_indicator(ITesting *t);
 }
 
 DLL_EXPORT int test_agent(ITesting *t) {
@@ -629,5 +631,24 @@ DLL_EXPORT int test_agent_question_template_file(ITesting *t) {
     TR_ASSERT(t, text.find("# Question\n\nWhy is this line here? (src/a.cpp:12)") != std::string::npos);
     question->SetTemplate("structure", "");
     TR_ASSERT(t, question->QuestionFileText("Claude Code", "", "now").find("args:") == std::string::npos);
+    return kTR_Pass;
+}
+
+// While it takes a while: the bright dot sweeps there and back, one step per tick, always five wide; the time beside it
+DLL_EXPORT int test_agent_busy_indicator(ITesting *t) {
+    using namespace std::chrono_literals;
+    auto tick = AgentAsk::TICK;
+    TR_ASSERT(t, AgentAsk::BusyIndicator(0ms) == U"●•···");
+    TR_ASSERT(t, AgentAsk::BusyIndicator(tick) == U"•●•··");
+    TR_ASSERT(t, AgentAsk::BusyIndicator(4 * tick) == U"···•●");
+    TR_ASSERT(t, AgentAsk::BusyIndicator(5 * tick) == U"··•●•");
+    TR_ASSERT(t, AgentAsk::BusyIndicator(8 * tick) == AgentAsk::BusyIndicator(0ms));
+    for (int i = 0; i < 20; i++) {
+        TR_ASSERT(t, AgentAsk::BusyIndicator(i * tick).size() == 5);
+    }
+    TR_ASSERT(t, AgentAsk::Elapsed(999ms) == U"0s");
+    TR_ASSERT(t, AgentAsk::Elapsed(12s) == U"12s");
+    TR_ASSERT(t, AgentAsk::Elapsed(125s) == U"2m 05s");
+    TR_ASSERT(t, AgentAsk::Elapsed(-5s) == U"0s");
     return kTR_Pass;
 }

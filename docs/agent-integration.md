@@ -238,7 +238,7 @@ Build order: 2, 3, 4 and 5 with the first Editor Agent tab; then 1, 6 and 7.
 Status: **design, for the user's review** (2026-11-24, branch `feature/editor-agent-ask`, on step 1). One free-text
 question, from the command line to an answer on screen, through the Editor Agent's tab. No templates, no tools' output in
 the prompt yet (step 3) - this is the round trip they will ride on. The user agreed to the design on 2026-11-24 and took
-decisions 1 and 2; one point (**[user]**) is still open.
+decisions 1-3.
 
 **The flow:**
 
@@ -252,7 +252,7 @@ decisions 1 and 2; one point (**[user]**) is still open.
    happens, and to stop and reflect.
 4. **Start if needed** - no Editor Agent running: the consent covered starting it; it starts as in step 1 (`.agent start`),
    and the question waits for it to be idle (below).
-5. **Send** - when the agent is idle and the user isn't typing in its tab: the prompt goes in as one bracketed paste
+5. **Send** - when the agent is idle and its tab doesn't have the keyboard: the prompt goes in as one bracketed paste
    (`ESC[200~ ... ESC[201~`, the agent asked for it with `?2004`), then Enter (CR) a moment later. As a paste, the prompt's
    line breaks stay in the prompt instead of sending it early. The user sees it arrive in the tab like typed text (§1:
    nothing hidden).
@@ -285,18 +285,15 @@ confirm** - a paid call, so only when the user says so; the checks run on the fa
 **Idle - when may the editor type?** Per agent (`AgentIntegration`), from what the terminal shows, never from the screen
 text:
 - **Generic (any agent):** the agent has asked for bracketed paste (`?2004` - its input line is reading) **and** no output
-  for a quiet time (1.5 s, setting). Cheap, works for the fake.
+  for the **settle time** - the agent has settled down. Cheap, works for the fake. **Decided (user): 3 s, configurable**
+  - it differs between agents and platforms: each `AgentIntegration` gives its default (`SettleTime()`), the user config
+  overrides it (`main.ai_settle_ms` - provisional name, with the renames after the code review). User config only, like
+  `ai_integration`.
 - **Claude Code:** its terminal title changes while it works (a spinner glyph first) and settles when done - a sharper
   signal, *if* it holds; to read off a real run before relying on it. Until then the generic rule.
-- **The user is typing in it:** a key in the Editor Agent's tab within the last 3 s, or the input line not empty as far as
-  the editor can tell (it can't, for a full-screen agent) - so: the last-key rule, and a waiting question shows a notice
-  in the tab's info line ("a question is waiting - it's sent when you stop typing") - §6.2 item 7, first version.
-- **[user], open:** the user asked why there is a timeout - `.ask` is typed at the normal terminal's prompt and goes
-  when Enter is pressed. Neither time is about that: the quiet time is the *agent* finishing (its start-up, the previous
-  question) before the editor may type into its tab; the typing window only matters if the user types in the Editor
-  Agent's own tab. Proposed instead of the typing window: don't send while the Editor Agent's tab has the keyboard - the
-  info line says a question waits, it goes when focus leaves (no timer). The quiet time stays until the agent gives a
-  clear "done" signal.
+- **The user is in the tab:** not a timer - nothing is sent while the Editor Agent's tab has the keyboard; the info
+  line says a question waits, and it goes when focus leaves. (`.ask` itself is typed at the normal terminal's prompt -
+  no timer is about that.)
 
 **One question at a time.** A second `.ask` while one is out: queued, the status line counts them. No parallel questions
 in one agent - its conversation is sequential anyway.

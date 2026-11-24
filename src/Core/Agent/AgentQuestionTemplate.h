@@ -5,7 +5,8 @@
 //     name: why
 //     title: Why is this line here?
 //     needs: [file, line]              # filled from the active document and its caret
-//     args: [base]                     # optional words after '.ask <name>', in order
+//     args: [revision]                 # optional words after '.ask <name>', in order
+//     usage: "[git revision - ...]"    # what '.ask list' says after the name, instead of '[revision]' 
 //     tools:
 //       chain: why.py {file}:{line}    # run in the project root; its output is {tool:chain}
 //     max_lines: 300                   # each tool's output is cut there
@@ -69,6 +70,8 @@ namespace gedit {
         const std::string &Title() const { return title; }
         const std::vector<std::string> &Needs() const { return needs; }
         const std::vector<std::string> &Args() const { return args; }
+        // What '.ask list' shows after the name: 'usage', else the args in brackets ('[revision]')
+        std::string Usage() const;
         const std::vector<Tool> &Tools() const { return tools; }
         size_t MaxLines() const { return maxLines; }
         const std::filesystem::path &Origin() const { return origin; }
@@ -95,6 +98,7 @@ namespace gedit {
         std::string title;
         std::vector<std::string> needs;
         std::vector<std::string> args;
+        std::string usage;
         std::vector<Tool> tools;
         size_t maxLines = DEFAULT_MAX_LINES;
         std::string prompt;

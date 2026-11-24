@@ -3,8 +3,8 @@
 # now, compared by qualified name - so a move between files is not an add + remove. Plain text out, architecture first
 # (agent-integration.md §6.4, the 'structure' question; the probe is agentic-questions.md §3.1).
 # Shipped with GoatEdit (Tools/); run in the project root.
-# Usage: typediff.py (--goatedit <exe> | --bench <gedit-bench>) [<base>]
-#   base: a revision; default the branch point - 'git merge-base HEAD <trunk>', the closest of main / master / dev /
+# Usage: typediff.py (--goatedit <exe> | --bench <gedit-bench>) [<revision>]
+#   revision: a git revision to compare from (a branch, a tag, a hash); default the branch point - 'git merge-base HEAD <trunk>', the closest of main / master / dev /
 #   develop.
 #   now: the work tree as saved (untracked files included).
 #   --merges <m> [<m> ...]: the files of these merges (each M^1..M) instead, at --base and --head (the old probe's mode)
@@ -22,6 +22,10 @@ def git(*args):
 # The trunks a change may branch from; the closest branch point (fewest commits from it to HEAD) wins - a branch off
 # 'dev' whose 'main' lags behind would otherwise drag in all of dev's work
 TRUNKS = ("main", "master", "dev", "develop")
+
+def is_revision(rev):
+    run = subprocess.run(["git", "rev-parse", "--verify", "--quiet", f"{rev}^{{commit}}"], capture_output=True)
+    return run.returncode == 0
 
 def default_base():
     best = None
@@ -119,6 +123,10 @@ def main():
     a = ap.parse_args()
     if not (a.goatedit or a.bench):
         ap.error("--goatedit or --bench")
+    for rev in (a.base, a.head):
+        if rev and not is_revision(rev):
+            raise SystemExit(f"'{rev}' is not a git revision (a branch, a tag, a hash, HEAD~3) - the type-diff compares "
+                             f"the code since that revision; without one, since the branch point")
     if a.merges:
         if not (a.base and a.head):
             ap.error("--merges needs a base and --head")
@@ -167,4 +175,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except subprocess.CalledProcessError as error:
+        # git's own words, not a traceback - the editor shows the first line of stderr
+        raise SystemExit(f"git {' '.join(error.cmd[1:])}: {(error.stderr or '').strip() or f'exit {error.returncode}'}")

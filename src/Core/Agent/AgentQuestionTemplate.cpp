@@ -86,6 +86,7 @@ AgentQuestionTemplate::Ref AgentQuestionTemplate::FromText(const std::string &te
         result->title = node["title"] ? node["title"].as<std::string>() : "";
         result->needs = StringList(node["needs"]);
         result->args = StringList(node["args"]);
+        result->usage = node["usage"] ? node["usage"].as<std::string>() : "";
         if (node["max_lines"]) {
             auto lines = node["max_lines"].as<int>();
             result->maxLines = (lines > 0) ? (size_t)lines : DEFAULT_MAX_LINES;
@@ -237,6 +238,17 @@ std::string AgentQuestionTemplate::CapOutput(const std::string &output, size_t m
     auto rest = output.substr(pos);
     auto numCut = std::count(rest.begin(), rest.end(), '\n') + ((rest.back() != '\n') ? 1 : 0);
     return output.substr(0, pos) + fmt::format("[... {} more lines cut - the output is kept to {} lines]\n", numCut, maxLines);
+}
+
+std::string AgentQuestionTemplate::Usage() const {
+    if (!usage.empty()) {
+        return usage;
+    }
+    std::string text;
+    for (auto &arg : args) {
+        text += (text.empty() ? "" : " ") + ("[" + arg + "]");
+    }
+    return text;
 }
 
 bool AgentQuestionTemplate::Needs(const std::string &what) const {

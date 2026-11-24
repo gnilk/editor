@@ -464,6 +464,10 @@ DLL_EXPORT int test_agent_template_parse(ITesting *t) {
     // No tools, no needs - a plain prompt with an optional arg; max_lines defaults
     auto plain = AgentQuestionTemplate::FromText("---\nname: plain\nargs: [base]\n---\nAgainst {base}.\n", error);
     TR_ASSERT(t, plain != nullptr);
+    TR_ASSERT(t, plain->Usage() == "[base]");
+    TR_ASSERT(t, why->Usage().empty());
+    auto described = AgentQuestionTemplate::FromText("---\nname: d\nargs: [revision]\nusage: \"[git revision]\"\n---\nhi\n", error);
+    TR_ASSERT(t, described->Usage() == "[git revision]");
     TR_ASSERT(t, plain->Tools().empty());
     TR_ASSERT(t, plain->MaxLines() == AgentQuestionTemplate::DEFAULT_MAX_LINES);
     return kTR_Pass;

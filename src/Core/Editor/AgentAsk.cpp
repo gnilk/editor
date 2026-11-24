@@ -126,15 +126,14 @@ std::vector<std::string> AgentAsk::ListTemplates() const {
         lines.emplace_back("No question templates (Questions/ in the system assets, questions/ in your user config)");
     }
     for (auto &questionTemplate : templates) {
-        std::string usage = questionTemplate->Name();
-        for (auto &arg : questionTemplate->Args()) {
-            usage += " [" + arg + "]";
-        }
         std::string about;
         for (auto &need : questionTemplate->Needs()) {
             about += (about.empty() ? "" : ", ") + need;
         }
-        lines.push_back(fmt::format("  {:<20} {}{}", usage, questionTemplate->Title(), about.empty() ? "" : "  (at the caret: " + about + ")"));
+        lines.push_back(fmt::format("  {:<12} {}{}", questionTemplate->Name(), questionTemplate->Title(), about.empty() ? "" : "  (at the caret: " + about + ")"));
+        if (auto usage = questionTemplate->Usage(); !usage.empty()) {
+            lines.push_back(fmt::format("  {:<12}   .ask {} {}", "", questionTemplate->Name(), usage));
+        }
     }
     for (auto &error : errors) {
         lines.push_back("  not a template - " + error);

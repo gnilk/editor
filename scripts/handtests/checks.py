@@ -751,7 +751,7 @@ def editor_agent_template(n):
         g.type('.ask list', wait=0.2)
         g.send(ENTER, 1.0)
         n(g.wait_text('Why is this line here?', 3), '.ask list: why')
-        n(g.wait_text('structure [base]', 1), '... structure, with its optional base')
+        n(g.wait_text('.ask structure [git revision', 1), '... structure, with what its argument is')
         n(g.wait_text('broken', 1), "... and the user's own")
 
         # The failing tool: a notice, no modal, nothing written
@@ -791,6 +791,10 @@ def editor_agent_template(n):
         n('type-diff' in text and 'the work tree' in text, 'the type-diff against the branch point is in the prompt')
         n('types +1 -0' in text, f"... and it saw the new struct ({[l for l in g.screen.lines() if 'types' in l]})")
         g.send(b'c', 0.8)
+        # A type name where a revision goes: said plainly, not a traceback
+        g.type('.ask structure Greeter', wait=0.2)
+        g.send(ENTER, 0.5)
+        n(g.wait_text("'Greeter' is not a git revision", 6), "'.ask structure Greeter': not a git revision, said plainly")
         n(g.quit(), 'quits')
     finally:
         g.kill()

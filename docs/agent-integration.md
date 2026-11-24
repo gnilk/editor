@@ -374,7 +374,7 @@ still asked every time.
   (user; a user template with the same `name` replaces the system one). **Not the project** - a template runs commands,
   and a folder never runs code (`ProjectConfigPolicy`'s rule).
 - **Placeholders:** `{file}` (relative to the project root), `{line}` (1-based), `{symbol}` (the word under the caret),
-  `{root}`, `{base}` (below), `{tool:<key>}`. Nothing else is expanded; an unknown one is an error shown before consent.
+  `{root}`, `{revision}` (below), `{tool:<key>}`. Nothing else is expanded; an unknown one is an error shown before consent.
 - **Tools** are found in the system `Tools/` folder (`Assets/Resources/Tools/`, shipped), then the user's
   `~/.config/goatedit/tools/`. A `.py` runs with `python3` - an installed `python3` is needed (Linux and macOS have it;
   `.ask` says so when it's missing). Run with `Process` in the project root, the arguments split by the template - no
@@ -395,10 +395,10 @@ can be asked again - and, later, a kind can be "always" (§3.3).
 1. **`why`** - *Why is this line here?* (`agentic-questions.md` reading cold; the probe that earned a clear yes, §3.3).
    Tool: `why.py` moved from `scripts/explore/` to `Assets/Resources/Tools/` (the explore copy goes - one copy). Its
    noise fix with it: only rare names are looked up in the docs.
-2. **`structure`** - *What did this change do to the structure?* (review; `typediff.py`, §3.1). Base `{base}`: the branch
+2. **`structure`** - *What did this change do to the structure?* (review; `typediff.py`, §3.1). From `{revision}` - a **git revision**, named so after the user read `[base]` as a base class (11-24): the branch
    point - `git merge-base HEAD <trunk>`, the closest of `main` / `master` / `dev` / `develop` (fewest commits from it to
    HEAD: here `main` lags far behind `dev`, and its branch point dragged in 141 files of dev's work - changed while
-   building); `.ask structure <rev>` picks another base. The tool works the default out itself - an empty `{base}`
+   building); `.ask structure <revision>` picks another; a word that isn't one (a type name) is said so plainly. The tool works the default out itself - an empty `{revision}`
    is dropped from its command line. Head: the work tree (saved files - a notice when there are unsaved buffers). Files: the C/C++
    files changed since the base (`git diff --name-only <base>`), not `feature_files.py`'s merges - that was for an old
    feature, this is the change in progress.
@@ -413,7 +413,7 @@ can be asked again - and, later, a kind can be "always" (§3.3).
 (`Process`, one after the other, `EA: gathering`) and shares the consent with free text. A template is used when the first
 word names one **and** the rest fit its `args` - `.ask why is the sky blue` stays a free question. Braces that aren't a
 placeholder (`{ return; }` in a code sample) stay as they are; `{{` is a literal `{`. A tool is a name only - no path, so
-a template can't reach outside the tool folders. `.ask list` also names the user files that aren't templates, and why.
+a template can't reach outside the tool folders. `.ask list` also names the user files that aren't templates, and why; a template's `usage:` says what its args are (`[git revision - ...]`).
 Tests: `test_agent` (`template_*`, `question_template_file`); app check `editor_agent_template` (a scratch repository:
 `.ask list`, a failing user tool, free text, `why` sent and answered, `structure` seeing a new struct). The real agent:
 not yet - one `.ask why` and one `.ask structure` on the user's go. **Not built from the design:** the notice when

@@ -1,9 +1,10 @@
 ---
 name: structure
 title: What did this change do to the structure?
-args: [base]
+args: [revision]
+usage: "[git revision - compare from it; default: where this branch left its trunk]"
 tools:
-  typediff: typediff.py --goatedit {goatedit} {base}
+  typediff: typediff.py --goatedit {goatedit} {revision}
 max_lines: 300
 ---
 What did the change in progress do to the structure of the code?

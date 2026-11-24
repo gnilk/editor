@@ -20,10 +20,13 @@ started or sent yet.
 - `.agent` prints it: which, found or not, what would be started for this project, the transcript folder.
 - Tests: `test_agent`; app check `agent_integration`.
 
-**Next, needs the user:** an agent tab that follows `ai_integration` (a `view: agent` tab starting the integration's
-command, so switching agents is one key) - but a project's `panel.tabs` could then start a paid agent unasked; it should
-start only from the user's own config / session, or ask (§1). Then the question agent's tab and the prompt / answer-file
-round trip (§6). Codex: a second implementation once its read-only flags are checked.
+**Next (decided 2026-11-24, §6.2):** no `view: agent` tab that follows `ai_integration` - the **User Agent** stays a
+plain terminal tab the user configures (`config: ai_agent`, its bootstrap runs `claude`), and the editor knows nothing
+about it. The **Editor Agent** - the question agent of §6.1 - is the editor's own tab, started on the first question the
+user consents to and never from `panel.tabs`, so a project can't start it. First build: its fixed name, its marker, its
+banner, its lifecycle (§6.2 items 2-5); then the prompt / answer-file round trip (§6). Codex: a second implementation once
+its read-only flags are checked. Whether the code and config names follow the new terms (the key, `WorkingAgentCommand`)
+is the user's to decide after reading the code - not yet.
 
 The short version: **tools gather, the agent judges.** The editor runs cheap, repeatable tools for the facts (blame chain,
 type-diff, coverage, call stacks), puts them in a prompt, sends it to an agent with the user's consent, and shows the answer.
@@ -183,6 +186,36 @@ whether that one runs in another editor tab or in a terminal outside.
 - Being two processes, with their own session ids, is what lets the editor tell the turns apart - each shadow snapshot is
   tagged with the session that ended the turn (§5.2), and the question agent's output sits in `.goatedit/`, outside the
   snapshots.
+
+### 6.2 Editor Agent and User Agent - telling them apart
+
+Terms (2026-11-24, for the design - the code and config names are not changed yet):
+- **User Agent** - the one the user works with. A plain terminal tab with a custom command: `panel_right.tabs` with
+  `config: ai_agent`, whose bootstrap runs `claude`. The editor is unaware of it - it is a shell tab like any other.
+- **Editor Agent** - the question agent (§6.1): started and driven by the editor, through the `AgentIntegration` adapter
+  picked in the user config. Templated prompts (the questions in `agentic-questions.md`, filled with the tools' output),
+  answers into files under `.goatedit/`.
+
+Both are visible - full transparency is the default (§1) - so they must never be mistaken for each other:
+
+1. **Placement by owner.** The bottom panel holds the editor's things (Messages, build output) and the right panel the
+   user's work: by default the Editor Agent's tab goes to the bottom, the User Agent to the right. In portrait both are at
+   the bottom, so placement alone is not enough - hence 2 and 3.
+2. **A locked name.** The tab is always "Editor Agent" - not the agent's own (changing) terminal title, not renamable.
+3. **A visual marker.** Its tab is drawn with its own theme key (a colour / mark), so the tab row tells the two apart at
+   a glance. 2 and 3 both - one alone is too easy to miss.
+4. **A banner in the tab.** Before the agent starts, the editor writes one line into it: who started it and why - the
+   Editor Agent, started by GoatEdit to answer questions, read-only, answers in `.goatedit/...`. Read once, nod, get to
+   work.
+5. **Its own lifecycle.** Never in `panel.tabs`, never restored from the session like a configured tab: the editor creates
+   it on the first question the user consents to. Closing it stops it. It doesn't move to the right panel (`.panel move`
+   leaves it), so it never turns into "another Claude tab".
+6. **A status-line indicator** - `EA: answering...` / `EA: idle` - what it is doing without opening it, and one place to
+   click to jump there.
+7. **Typing in it is allowed**, but visibly: typing while the editor has a prompt waiting gives a short notice (the PTY
+   channel needs the input line - §4). Not settled; start like this and see where it ends up.
+
+Build order: 2, 3, 4 and 5 with the first Editor Agent tab; then 1, 6 and 7.
 
 ## 7. Code-care and output-care
 

@@ -591,9 +591,10 @@ def agent_integration(n):
 def editor_agent(n):
     sb, work = sandbox('editor_agent')
     # A fake 'claude' - first on a PATH that can't reach the real one (agent calls cost money); sh, so no login
-    # profile reorders the PATH
+    # profile reorders the PATH. It goes full screen and clears it, as the real one does
     fake_bin = os.path.join(sb, 'bin')
-    write(os.path.join(fake_bin, 'claude'), '#!/bin/sh\necho "fake-claude: $*"\nexec cat\n')
+    write(os.path.join(fake_bin, 'claude'), '#!/bin/sh\nprintf \'\\033[?1049h\\033[2J\\033[H\'\n'
+                                            'echo "fake-claude: $*"\nexec cat\n')
     os.chmod(os.path.join(fake_bin, 'claude'), 0o755)
     env = {'PATH': fake_bin + ':/usr/bin:/bin'}
     user_config(sb, "main:\n  ai_integration: claude\nterminal:\n  shell: /bin/sh\n")
@@ -608,7 +609,7 @@ def editor_agent(n):
         g.type('.agent start', wait=0.2)
         g.send(ENTER, 1.5)
         n(g.wait_text('fake-claude: --permission-mode plan', 4), 'the agent runs read-only (plan mode), in its own tab')
-        n(g.wait_text('started by GoatEdit', 2), 'the banner says who started it')
+        n(g.wait_text("GoatEdit's own agent", 2), 'the banner says whose it is - above the agent, which cleared its screen')
         n('Shell | Editor Agent' in tab_row(g), f'a tab named Editor Agent next to the shell ({tab_row(g)!r})')
         # Back to the shell tab: the editor's answer landed there, not in the agent's input
         g.send(alt('1'), 0.5)

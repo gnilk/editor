@@ -182,7 +182,7 @@ file) - plain data, it runs nothing. `NoAgent` (`none`, the default) answers "no
 agent - calls cost money). `Editor::GetAgent()` is never null. A new agent: an implementation + a line in
 `AgentIntegrations::Create` / `Names`. The **Editor Agent** (the question agent, `.agent start`) is a bottom-panel tab the
 editor makes itself (`PanelView::AddEditorAgent`, view kind `editor_agent`): fixed name, a marked label (`tab_editor_agent`),
-a banner, never saved / moved / the output console. The **User Agent** is a plain terminal tab (`config: ai_agent`) the
+a banner line above it (`TabbedView::SetTabInfoLine` - outside the terminal, which the agent clears), never saved / moved / the output console. The **User Agent** is a plain terminal tab (`config: ai_agent`) the
 editor knows nothing about.
 
 ### Platform-Specific

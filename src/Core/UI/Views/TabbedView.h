@@ -65,6 +65,10 @@ namespace gedit {
         // 'fallback' when the theme has no such colour. An empty key clears it.
         void SetTabMark(size_t idxTab, const std::string &colorKey, ColorRGBA fallback);
         bool IsTabMarked(size_t idxTab) const;
+        // A line of its own above the tab's view while it is shown - outside the view, so nothing in it (an app going
+        // full screen in a terminal) can clear it. In the mark's colour when the tab is marked. Empty: none.
+        void SetTabInfoLine(size_t idxTab, const std::u32string &text);
+        const std::u32string &TabInfoLine(size_t idxTab) const;
 
         bool IsTabRowVisible() const {
             return tabs.size() > 1;
@@ -110,11 +114,13 @@ namespace gedit {
         void LayoutTabs();
         Rect TabContentRect();
         std::vector<std::u32string> Labels() const;
+        bool HasInfoLine() const;
 
     private:
         struct Tab {
             std::unique_ptr<ViewBase> view;
             std::u32string label;
+            std::u32string infoLine = {};
             std::string markColorKey = {};
             ColorRGBA markFallback = {};
         };

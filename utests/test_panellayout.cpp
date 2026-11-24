@@ -413,13 +413,14 @@ DLL_EXPORT int test_panellayout_editor_agent(ITesting *t) {
     TR_ASSERT(t, bottom.EditorAgent() == nullptr);
 
     auto settings = AgentIntegrations::EditorAgentSettings(ConfigNode(), {"true"});
-    auto agentView = bottom.AddEditorAgent(settings, "banner\r\n");
+    auto agentView = bottom.AddEditorAgent(settings, "who and why");
     TR_ASSERT(t, agentView != nullptr);
     TR_ASSERT(t, bottom.EditorAgent() == agentView);
     TR_ASSERT(t, bottom.ActiveTab() == std::optional<size_t>(1));
     TR_ASSERT(t, bottom.IsEditorAgentTab(1) && !bottom.IsEditorAgentTab(0));
     TR_ASSERT(t, bottom.TabLabel(1) == U"Editor Agent");
     TR_ASSERT(t, bottom.IsTabMarked(1) && !bottom.IsTabMarked(0));
+    TR_ASSERT(t, (bottom.TabInfoLine(1) == U"who and why") && bottom.TabInfoLine(0).empty());
     TR_ASSERT(t, !agentView->GetController().Settings().GetBool("output_console", true));
 
     // Shown, it still isn't the panel's terminal
@@ -438,6 +439,7 @@ DLL_EXPORT int test_panellayout_editor_agent(ITesting *t) {
     other.PutTab(std::move(moved.value()));
     TR_ASSERT(t, other.EditorAgent() == agentView);
     TR_ASSERT(t, (other.TabLabel(0) == U"Editor Agent") && other.IsTabMarked(0));
+    TR_ASSERT(t, other.TabInfoLine(0) == U"who and why");
     TR_ASSERT(t, bottom.EditorAgent() == nullptr);
     return kTR_Pass;
 }

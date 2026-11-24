@@ -62,7 +62,7 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
   (`editor_agent`: `.agent start` with a fake `claude`: its own bottom tab named Editor Agent, the banner, plan mode, the
   answer in the shell, a second start shows it, not in the session)
   - [ ] Linux [ ] Mac - the window: with `main.ai_integration: claude`, `.agent start` - the tab label stands out (bold,
-    violet - `tab_editor_agent` in the theme), the banner reads right, Claude starts in plan mode (this starts a real
+    violet - `tab_editor_agent` in the theme), the banner line under the tab row stays while Claude runs full screen, Claude starts in plan mode (this starts a real
     agent: your account); its title doesn't rename the tab; Cmd/Ctrl+W on it asks, then stops it; `.panel move` on it
     says it stays; restart - it isn't brought back
 - **Messages tab** (#53 step 5) - scripted (`messages_tab`: the count in the label, Ctrl+F8 to the tab, Down + Enter, F8 on from there, Ctrl+Shift+W closes it - not the editor's file - then Ctrl+F8 is the modal)

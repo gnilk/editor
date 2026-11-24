@@ -9,6 +9,7 @@
 #include "Core/Agent/AgentIntegrations.h"
 #include "Core/Agent/ClaudeAgent.h"
 #include "Core/Agent/NoAgent.h"
+#include "Core/Config/Config.h"
 #include "Core/Config/ConfigNode.h"
 #include "Core/Config/ProjectConfigPolicy.h"
 #include "Core/Editor.h"
@@ -136,11 +137,13 @@ DLL_EXPORT int test_agent_project_config(ITesting *t) {
     return kTR_Pass;
 }
 
-// The editor has an agent always - 'none' by default (the shipped config)
+// The editor has an agent always - the one the config names ('none' when it names none; a local config may say claude)
 DLL_EXPORT int test_agent_editor_default(ITesting *t) {
     auto agent = Editor::Instance().GetAgent();
     TR_ASSERT(t, agent != nullptr);
-    TR_ASSERT(t, agent->Name() == "none");
+    auto configured = Config::Instance()["main"].GetStr("ai_integration", NoAgent::NAME);
+    auto expected = (AgentIntegrations::Create(configured) != nullptr) ? configured : std::string(NoAgent::NAME);
+    TR_ASSERT(t, agent->Name() == expected);
     return kTR_Pass;
 }
 
@@ -179,17 +182,21 @@ DLL_EXPORT int test_agent_editor_agent_settings(ITesting *t) {
 DLL_EXPORT int test_agent_editor_agent_banner(ITesting *t) {
     auto claude = ClaudeAgent::Create();
     auto banner = AgentIntegrations::EditorAgentBanner(*claude, claude->QuestionAgentCommand("/p"));
-    TR_ASSERT(t, banner.find("Editor Agent") != std::string::npos);
-    TR_ASSERT(t, banner.find("GoatEdit") != std::string::npos);
+    TR_ASSERT(t, banner.find("GoatEdit's own agent") == 0);
     TR_ASSERT(t, banner.find("Claude Code") != std::string::npos);
     TR_ASSERT(t, banner.find("claude --permission-mode plan") != std::string::npos);
-    TR_ASSERT(t, banner.find("\r\n") != std::string::npos);
+    TR_ASSERT(t, banner.find('\n') == std::string::npos);
+    TR_ASSERT(t, banner.find("stops it") != std::string::npos);
     return kTR_Pass;
 }
 
-// With 'none' there is nothing to start - and nothing is
+// With 'none' there is nothing to start - and nothing is; with an agent, the tests have no panel - nothing starts either
 DLL_EXPORT int test_agent_start_none(ITesting *t) {
     auto message = Editor::Instance().StartEditorAgent();
-    TR_ASSERT(t, message.find("none") != std::string::npos);
+    if (Editor::Instance().GetAgent()->Name() == NoAgent::NAME) {
+        TR_ASSERT(t, message.find("none") != std::string::npos);
+    } else {
+        TR_ASSERT(t, message.find("Editor Agent started") == std::string::npos);
+    }
     return kTR_Pass;
 }

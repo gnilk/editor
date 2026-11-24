@@ -100,9 +100,6 @@ ConfigNode AgentIntegrations::EditorAgentSettings(const ConfigNode &terminalSett
 }
 
 std::string AgentIntegrations::EditorAgentBanner(const AgentIntegration &agent, const std::vector<std::string> &command) {
-    // Two short lines - the panel is low, and they must still be there when the agent has started
-    std::string banner;
-    banner += "\x1b[1;35mEditor Agent\x1b[0m: started by GoatEdit for its own questions - not your agent.\r\n";
-    banner += agent.DisplayName() + ", read-only: " + ShellCommandLine(command) + " - closing this tab stops it.\r\n";
-    return banner;
+    return "GoatEdit's own agent, for its questions - not yours | " + agent.DisplayName() + ", read-only: " +
+           ShellCommandLine(command) + " | closing this tab stops it";
 }

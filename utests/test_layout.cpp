@@ -1107,3 +1107,32 @@ extern "C" int test_layout_right_panel(ITesting *t) {
     TR_ASSERT(t, right.GetViewRect().Height() == upper.GetViewRect().Height());
     return kTR_Pass;
 }
+
+// A tab's info line (the Editor Agent's banner): a row of its own below the tab row while that tab is shown - its view
+// starts below it; another tab shown gets the row back; one tab alone: the line, no tab row
+extern "C" int test_layout_tabs_infoline(ITesting *t) {
+    RootView rootView;
+    TabbedView tabbed;
+    rootView.AddView(&tabbed);
+    auto &a = AddTestTab(tabbed, U'a', U"a");
+    rootView.Initialize();
+    auto content = tabbed.GetContentRect();
+
+    tabbed.SetTabInfoLine(0, U"who and why");
+    TR_ASSERT(t, tabbed.TabInfoLine(0) == U"who and why");
+    TR_ASSERT(t, a.GetViewRect().TopLeft().y == content.TopLeft().y + 1);
+    TR_ASSERT(t, a.GetViewRect().Height() == content.Height() - 1);
+
+    auto &b = AddTestTab(tabbed, U'b', U"b");
+    TR_ASSERT(t, a.GetViewRect().TopLeft().y == content.TopLeft().y + 2);
+    TR_ASSERT(t, a.GetViewRect().Height() == content.Height() - 2);
+    tabbed.SetActiveTab(1);
+    TR_ASSERT(t, b.GetViewRect().TopLeft().y == content.TopLeft().y + 1);
+    TR_ASSERT(t, b.GetViewRect().Height() == content.Height() - 1);
+
+    // Cleared: the row goes
+    tabbed.SetActiveTab(0);
+    tabbed.SetTabInfoLine(0, U"");
+    TR_ASSERT(t, a.GetViewRect().TopLeft().y == content.TopLeft().y + 1);
+    return kTR_Pass;
+}

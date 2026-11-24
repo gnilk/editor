@@ -166,9 +166,6 @@ namespace gedit {
         // 'terminal_scrollback[.id].bin', history 'terminal_history[.id]' ("" keeps the names from before tabs) -
         // and 'scrollbackFile' is what Begin restores. Set before Begin.
         void SetSessionTab(const std::string &id, const std::string &scrollbackFile);
-        // Text shown at the top before the shell starts (VT bytes - '\r\n' line ends, SGR allowed): who started this
-        // terminal and why (the Editor Agent's banner, agent-integration.md §6.2). Set before Begin.
-        void SetBanner(const std::string &text) { banner = text; }
         const std::string &GetSessionTabId() const { return sessionTabId; }
         // Its tab was closed: its scrollback goes, and its history (the first terminal's, shared, stays)
         void ForgetSession();
@@ -241,7 +238,6 @@ namespace gedit {
         // The tab's files (SetSessionTab)
         std::string sessionTabId;
         std::string restoreScrollbackFile;
-        std::string banner;
         // OSC 0 / 2, under screenLock
         std::string title;
         std::function<void()> titleChangedHandler;

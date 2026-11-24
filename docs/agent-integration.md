@@ -26,8 +26,9 @@ start` (typing it is the consent) opens it in the bottom panel - §6.2 items 2-5
   `editor_agent` that neither `panel.tabs` nor a session can name).
 - **Marker:** its label is bold in the theme's `tab_editor_agent` (default theme: pink; the VS Code import: its magenta;
   a theme without it: a violet of the panel's own) - `TabbedView::SetTabMark`, generic.
-- **Banner:** two lines fed into its screen before the shell starts (`TerminalController::SetBanner`) - who started it,
-  what it runs, that closing the tab stops it.
+- **Banner:** a line of its own under the tab row, outside the terminal (`TabbedView::SetTabInfoLine`, in the mark's
+  colour) - whose agent it is, what it runs, that closing the tab stops it. First written into the terminal, but the
+  agent goes full screen and cleared it (user, 11-24).
 - **Lifecycle:** not saved in the session (so not brought back); `.panel move` and the layout switch leave it at the
   bottom; Cmd/Ctrl+W asks ("closing its tab stops it"); a second `.agent start` shows the running one. It is never the
   output console (`output_console: no` in its settings) nor the promote target, and the bottom panel doesn't count it

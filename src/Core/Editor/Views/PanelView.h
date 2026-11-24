@@ -59,6 +59,7 @@ namespace gedit {
         struct MovedTab {
             std::unique_ptr<ViewBase> view = {};
             TabSpec spec = {};
+            std::u32string infoLine = {};
             bool wasShown = false;
         };
     public:
@@ -107,7 +108,8 @@ namespace gedit {
         std::vector<TerminalView *> Terminals() const;
 
         // The Editor Agent's tab, made by the editor: a terminal with these settings (its bootstrap starts the agent),
-        // the banner shown above it, shown - and focused when the panel has focus
+        // the banner on a line of its own above it (the agent goes full screen - it would clear anything in the
+        // terminal), shown - and focused when the panel has focus
         TerminalView *AddEditorAgent(const ConfigNode &settings, const std::string &banner);
         // nullptr when it isn't in this panel
         TerminalView *EditorAgent();

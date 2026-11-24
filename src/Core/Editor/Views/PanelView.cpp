@@ -143,11 +143,13 @@ TerminalView *PanelView::AddEditorAgent(const ConfigNode &settings, const std::s
     view->SetSettings(settings);
     auto &controller = view->GetController();
     controller.SetSessionTab(spec.id, "");
-    controller.SetBanner(banner);
     panelTabs.push_back({view, spec});
     // Starts its shell, which runs the bootstrap - the agent (TerminalView::InitView)
     AddTab(std::move(newView), LabelFor(spec.name, ""));
     MarkEditorAgent(view);
+    if (auto idxTab = IndexOf(view)) {
+        SetTabInfoLine(idxTab.value(), UnicodeHelper::utf8to32(banner));
+    }
     if (auto idxTab = IndexOf(view)) {
         SetActiveTab(idxTab.value());
     }
@@ -407,6 +409,7 @@ std::optional<PanelView::MovedTab> PanelView::TakeTab(size_t idxTab) {
     MovedTab moved;
     moved.spec = it->spec;
     moved.wasShown = (ActiveTab() == idxTab);
+    moved.infoLine = TabInfoLine(idxTab);
     panelTabs.erase(it);
     moved.view = TabbedView::TakeTab(idxTab);
     return moved;
@@ -427,6 +430,9 @@ void PanelView::PutTab(MovedTab tab) {
     AddTab(std::move(tab.view), LabelFor(tab.spec.name, title));
     if (isEditorAgent && (terminal != nullptr)) {
         MarkEditorAgent(terminal);
+    }
+    if (auto idxTab = IndexOf(view); idxTab.has_value() && !tab.infoLine.empty()) {
+        SetTabInfoLine(idxTab.value(), tab.infoLine);
     }
     if (tab.wasShown) {
         if (auto idxTab = IndexOf(view)) {

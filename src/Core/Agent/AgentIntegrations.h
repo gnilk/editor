@@ -34,7 +34,8 @@ namespace gedit {
         // the agent's command; never saved, never the promote target, never the output console. A copy - the
         // section itself is left alone.
         static ConfigNode EditorAgentSettings(const ConfigNode &terminalSettings, const std::vector<std::string> &command);
-        // The line at the top of the tab: whose agent this is, what it runs, how it ends (VT text, '\r\n' ends)
+        // The line at the top of the tab: whose agent this is, what it runs, how it ends - most important first (a
+        // narrow panel cuts the end)
         static std::string EditorAgentBanner(const AgentIntegration &agent, const std::vector<std::string> &command);
     };
 }

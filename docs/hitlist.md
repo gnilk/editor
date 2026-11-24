@@ -268,6 +268,7 @@ Smaller bugs not ranked yet: open-bugs #24 (readline history extras),
 
 | # | Item | When |
 |---|---|---|
+| 79 | Quit or a closed terminal tab no longer hangs for good: the pty master is close-on-exec (later shells held earlier tabs' masters), the child closes inherited fds, the foreground job gets the hangup, the reap is bounded (open-bugs #36, `fixed-bugs.md`) | 2026-11-24 |
 | 32 | ~~Terminal: run `claude` inside goatedit (the gvt exit criterion)~~ - works; closed by the user | 2026-11-20 |
 | 52 | ~~Build messages~~ - errors / warnings read from a build in the terminal as it runs (gcc / clang, CMake, make, trun, python, rustc / cargo, ld / lld): `F8` / `Shift+F8`, the `Cmd/Ctrl+F8` list or the Messages tab with the source line under each message, the line's number coloured in the gutter, `Cmd/Ctrl+click` a `file:line` in the terminal, `Terminal.GetMessages()` | 2026-11-20 |
 | 11 | ~~Languages phase 2, step 2: Python~~ - `python.yml` (`.py .pyw .pyi`), the tokenizer's prefix rule (`@decorator`), `def` / `class` names, every string prefix, `:` indents; a lone `\` in a string no longer stops the line (also `cmake.yml`). With #52's Python matcher: `python3 x.py` in the panel, `F8` to the line that raised | 2026-11-20 |

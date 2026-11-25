@@ -4,7 +4,7 @@
 // and a build's output with its lines whole. Nothing of the editor is needed to find out.
 //
 //   conpty_probe                    every test; writes conpty_out/report.txt and the raw bytes of each test
-//   conpty_probe --only <name>      one of: marks, modes, burst, longline, resize, exit, ctrlc, bash, pwsh, powershell, cmd
+//   conpty_probe --only <name>      one of: marks, modes, burst, blank, longline, resize, exit, ctrlc, bash, pwsh, powershell, cmd
 //   conpty_probe --conpty <dll>     a conpty.dll (Microsoft's NuGet package, with its OpenConsole.exe next to it)
 //                                   instead of the one built into Windows
 //   conpty_probe --selftest         the analysis only, on made-up bytes - runs on any OS
@@ -124,6 +124,33 @@ namespace analysis {
         return seen.size();
     }
 
+    // Cursor moves to a fixed row (CUP 'ESC[r;cH', VPA 'ESC[rd'): a console that redraws its own screen. They land on the
+    // wrong row once a terminal has text of its own in the grid that the console doesn't know about.
+    size_t CountAbsoluteMoves(const std::string &bytes) {
+        size_t count = 0;
+        for (size_t i = bytes.find("\x1b["); i != std::string::npos; i = bytes.find("\x1b[", i + 1)) {
+            size_t end = i + 2;
+            while ((end < bytes.size()) && (((bytes[end] >= '0') && (bytes[end] <= '9')) || (bytes[end] == ';'))) {
+                end++;
+            }
+            if ((end < bytes.size()) && (end > i + 2) && ((bytes[end] == 'H') || (bytes[end] == 'f') || (bytes[end] == 'd'))) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    // Line breaks between 'from' and 'to' in the text with the escapes taken out; -1 when either isn't there
+    int LineBreaksBetween(const std::string &bytes, const std::string &from, const std::string &to) {
+        auto text = StripEscapes(bytes);
+        auto start = text.find(from);
+        auto end = (start == std::string::npos) ? std::string::npos : text.find(to, start);
+        if (end == std::string::npos) {
+            return -1;
+        }
+        return (int)std::count(text.begin() + (long)start, text.begin() + (long)end, '\n');
+    }
+
     std::string Printable(const std::string &bytes, size_t maxLength = 400) {
         std::string out;
         for (size_t i = 0; (i < bytes.size()) && (out.size() < maxLength); i++) {
@@ -239,6 +266,10 @@ static int SelfTest() {
     expect(StripEscapes("\x1b[1;31mred\x1b[0m\x1b]0;t\x07x\x1b]7;u\x1b\\y\x1b(Bz") == "redxyz", "escapes taken out");
     expect(CountNumbered("L00001 L00002\x1b[K L00002 LXXXXX L00009", 5) == 2, "numbered lines counted once, in range");
     expect(Printable("\x1b]7;a\x07\r\n") == "\\e]7;a\\x07\\r\\n", "printable");
+    expect(CountAbsoluteMoves("a\x1b[4;1Hb\x1b[Hc\x1b[12dd\x1b[2Ke\x1b[?25h") == 2, "absolute moves: CUP with a row, VPA - not ESC[H, EL, modes");
+    expect(LineBreaksBetween("BLANK-A\r\n\r\n\x1b[1;31m\r\nBLANK-B", "BLANK-A", "BLANK-B") == 3, "line breaks counted through escapes");
+    expect(LineBreaksBetween("BLANK-A\x1b[7;1HBLANK-B", "BLANK-A", "BLANK-B") == 0, "a cursor move is no line break");
+    expect(LineBreaksBetween("x", "BLANK-A", "BLANK-B") == -1, "missing words");
     printf("-- the judge, on the bytes as sent (every line must be yes):\n");
     Report report;
     JudgeMarks(report, script);
@@ -374,6 +405,9 @@ public:
             error = "the process attribute list failed";
             return false;
         }
+        // Ctrl+C may be switched off in us (a process started over SSH, or with CREATE_NEW_PROCESS_GROUP) - a child inherits
+        // that, and then 0x03 interrupts nothing. Switched on again for the child; we don't get the signal (no console).
+        SetConsoleCtrlHandler(nullptr, FALSE);
         // The child inherits our environment, changed for as long as CreateProcess takes
         for (auto &[name, value] : env) {
             SetEnvironmentVariableW(Widen(name).c_str(), Widen(value).c_str());
@@ -594,6 +628,9 @@ static int Emit(const std::string &what) {
         WriteConsoleBytes(all);
         WriteConsoleBytes("\x1b]133;D;1\x07" "BURST-DONE\r\n");
         Sleep(800);
+    } else if (what == "blank") {
+        WriteConsoleBytes("BLANK-A\r\n\r\n\r\nBLANK-B\r\n");
+        Sleep(400);
     } else if (what == "longline") {
         // A compiler's line, wider than the console: one line in the bytes, or cut where the console wrapped it?
         WriteConsoleBytes("START" + std::string(300, 'x') + "END\r\nAFTER\r\n");
@@ -691,6 +728,17 @@ struct Probe {
         report.Info(std::to_string(bytes.size()) + " bytes");
     }
 
+    void TestBlank() {
+        report.Head("blank: blank lines from a program");
+        std::string bytes;
+        if (!Run("blank", bytes)) {
+            return;
+        }
+        auto breaks = analysis::LineBreaksBetween(bytes, "BLANK-A", "BLANK-B");
+        report.Check(breaks == 3, "they arrive as line breaks (" + std::to_string(breaks) + " of 3)");
+        report.Check(analysis::CountAbsoluteMoves(bytes) == 0, "no moves to a fixed row (" + std::to_string(analysis::CountAbsoluteMoves(bytes)) + ")");
+    }
+
     void TestLongLine() {
         report.Head("longline: a line wider than the console");
         std::string bytes;
@@ -770,7 +818,8 @@ struct Probe {
 
     // A real shell, its prompt set up to send the marks, two commands run in it
     void TestShell(const std::string &name, const std::string &commandLine, const std::vector<std::string> &bootstrap,
-                   const std::vector<std::pair<std::string, std::string>> &env, const std::string &failingCommand, bool hasDone) {
+                   const std::vector<std::pair<std::string, std::string>> &env, const std::string &failingCommand, bool hasDone,
+                   const std::string &blankCommand) {
         report.Info("starts: " + commandLine);
         Session session;
         if (!session.Start(commandLine, 120, 30, env)) {
@@ -788,7 +837,11 @@ struct Probe {
         session.WaitQuiet(800, 6000);
         session.Write(failingCommand + "\r");
         session.WaitQuiet(800, 6000);
+        auto beforeBlank = session.Bytes().size();
+        session.Write(blankCommand + "\r");
+        session.WaitQuiet(800, 6000);
         auto bytes = session.Bytes();
+        auto blank = bytes.substr(std::min(beforeBlank, bytes.size()));
         auto tail = bytes.substr(std::min(start, bytes.size()));
         // The cwd mark may come once, before our commands
         report.Check(tail.find("HELLO-FROM-SHELL") != std::string::npos, "a command runs and its output comes through");
@@ -799,6 +852,11 @@ struct Probe {
             report.Check(analysis::CountOsc(tail, "133;D;0") >= 1, "done, exit code 0 (133;D;0)");
             report.Check(analysis::CountOsc(tail, "133;D;1") >= 1, "done, exit code 1 (133;D;1)");
         }
+        // Each shell's command is written so its echo never holds 'BLANK-A' - the first one is the output's
+        auto breaks = analysis::LineBreaksBetween(blank, "BLANK-A", "BLANK-B");
+        report.Check(breaks == 3, "blank lines in output arrive as line breaks (" + std::to_string(breaks) + " of 3)");
+        auto moves = analysis::CountAbsoluteMoves(tail);
+        report.Check(moves == 0, "no moves to a fixed row while commands run (" + std::to_string(moves) + ")");
         Save(name, bytes);
         session.Write("exit\r");
         report.Check(session.WaitForExit(5000), "'exit' ends it");
@@ -820,7 +878,7 @@ struct Probe {
             "PROMPT_COMMAND=\"__goat_osc133_precmd\"",
             "trap '__goat_osc133_preexec' DEBUG",
             "PS1='\\[\\033]133;A\\007\\]$ \\[\\033]133;B\\007\\]'",
-        }, {}, "false", true);
+        }, {}, "false", true, "printf 'BLANK-%s\\n\\n\\nBLANK-%s\\n' A B");
     }
 
     void TestPowerShell(const std::string &name, const std::string &exe) {
@@ -835,26 +893,40 @@ struct Probe {
             "$e=[char]27; $b=[char]7",
             "function prompt { $c = if ($?) {0} else {1}; \"$e]133;D;$c$b$e]7;file://$env:COMPUTERNAME/$($PWD.Path -replace '\\\\','/')$b$e]133;A${b}PS> $e]133;B$b\" }",
             "Set-PSReadLineKeyHandler -Key Enter -ScriptBlock { [Microsoft.PowerShell.PSConsoleReadLine]::AcceptLine(); [Console]::Write(\"$([char]27)]133;C$([char]7)\") }",
-        }, {}, "Get-Item nosuch-file-here", true);
+        }, {}, "Get-Item nosuch-file-here", true, "\"BLANK-$('A')`n`n`nBLANK-B\"");
     }
 
     void TestCmd() {
         report.Head("cmd: PROMPT sends the marks (no 'done' - cmd has no hook for it)");
         TestShell("cmd", "cmd.exe /D", {}, {
             {"PROMPT", "$e]133;A$e\\$e]7;file://localhost/$P$e\\$P$G$e]133;B$e\\"},
-        }, "dir nosuch-file-here", false);
+            {"BLANKA", "A"},
+        }, "dir nosuch-file-here", false, "echo BLANK-%BLANKA% & echo. & echo. & echo BLANK-B");
     }
 
-    static std::string FindGitBash() {
+    // Git for Windows' registry entry, else where it installs by default - never 'bash' on PATH (System32's is WSL)
+    std::string FindGitBash() {
+        std::vector<fs::path> candidates;
         for (auto root : {HKEY_LOCAL_MACHINE, HKEY_CURRENT_USER}) {
             wchar_t buffer[MAX_PATH] = {};
             DWORD size = sizeof(buffer);
-            if (RegGetValueW(root, L"SOFTWARE\\GitForWindows", L"InstallPath", RRF_RT_REG_SZ, nullptr, buffer, &size) == ERROR_SUCCESS) {
-                auto path = fs::path(buffer) / "bin" / "bash.exe";
-                if (fs::exists(path)) {
-                    return Narrow(path.wstring());
-                }
+            auto status = RegGetValueW(root, L"SOFTWARE\\GitForWindows", L"InstallPath", RRF_RT_REG_SZ, nullptr, buffer, &size);
+            if (status == ERROR_SUCCESS) {
+                candidates.push_back(fs::path(buffer) / "bin" / "bash.exe");
+            } else if (root == HKEY_LOCAL_MACHINE) {
+                report.Info("Git for Windows' registry entry: not read (" + std::to_string(status) + ")");
             }
+        }
+        wchar_t programFiles[MAX_PATH] = {};
+        if (GetEnvironmentVariableW(L"ProgramFiles", programFiles, MAX_PATH) > 0) {
+            candidates.push_back(fs::path(programFiles) / "Git" / "bin" / "bash.exe");
+        }
+        for (auto &candidate : candidates) {
+            std::error_code ec;
+            if (fs::exists(candidate, ec)) {
+                return Narrow(candidate.wstring());
+            }
+            report.Info("not there: " + Narrow(candidate.wstring()) + (ec ? " (" + ec.message() + ")" : ""));
         }
         return {};
     }
@@ -917,6 +989,7 @@ int main(int argc, char **argv) {
         {"marks", [&]() { probe.TestMarks(); }},
         {"modes", [&]() { probe.TestModes(); }},
         {"burst", [&]() { probe.TestBurst(); }},
+        {"blank", [&]() { probe.TestBlank(); }},
         {"longline", [&]() { probe.TestLongLine(); }},
         {"resize", [&]() { probe.TestResize(); }},
         {"exit", [&]() { probe.TestExit(); }},

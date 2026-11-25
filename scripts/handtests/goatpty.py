@@ -317,19 +317,22 @@ class Goat:
         return False
 
     def kill(self):
-        if not self.reap():
+        is_reaped = self.reap()
+        if not is_reaped:
             try:
                 os.kill(self.pid, signal.SIGKILL)
             except ProcessLookupError:
                 pass
-            try:
-                os.waitpid(self.pid, 0)
-            except ChildProcessError:
-                pass
+        # Closed before the wait: on macOS a killed process doesn't finish exiting while its pty has output nobody read
         try:
             os.close(self.fd)
         except OSError:
             pass
+        if not is_reaped:
+            try:
+                os.waitpid(self.pid, 0)
+            except ChildProcessError:
+                pass
 
     # --- editor helpers
     def resize(self, rows, cols, wait=1.0):

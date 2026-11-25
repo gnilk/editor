@@ -369,8 +369,9 @@ class Goat:
         self.send(ENTER, wait)
 
     def quit(self, timeout=5.0):
+        """True: gone, and not by a crash - that used to pass unnoticed (open-bugs #37)"""
         self.quick('.q!', 0.2)
-        return self.wait_exit(timeout)
+        return self.wait_exit(timeout) and self.status == 0
 
     def stderr(self):
         try:

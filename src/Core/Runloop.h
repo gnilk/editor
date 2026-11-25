@@ -97,7 +97,7 @@ namespace gedit {
         static void SwapQueues();
     private:
         static bool bQuit;
-        static bool isRunning;
+        static std::atomic<bool> isRunning;     // read by the threads that post
 
         static std::stack<KeypressAndActionHandler *> kpaHandlers;
 

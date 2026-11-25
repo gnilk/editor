@@ -16,7 +16,7 @@
 using namespace gedit;
 
 bool Runloop::bQuit = false;
-bool Runloop::isRunning = false;
+std::atomic<bool> Runloop::isRunning = false;
 std::stack<KeypressAndActionHandler *> Runloop::kpaHandlers;
 KeyMapping::Ref  Runloop::activeKeyMap = nullptr;
 //SafeQueue<std::unique_ptr<Runloop::Message> > Runloop::msgQueue = {};
@@ -93,6 +93,7 @@ void Runloop::DefaultLoop() {
         // using namespace std::chrono_literals;
         // std::this_thread::sleep_for(100ms);
     }
+    isRunning = false;
 }
 
 void Runloop::WakeUp() {
@@ -264,4 +265,5 @@ void Runloop::TestLoop() {
         rootView.Draw();
         screen->Update();
     }
+    isRunning = false;
 }

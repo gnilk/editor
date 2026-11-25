@@ -492,6 +492,8 @@ void Editor::Close() {
     if (indexer != nullptr) {
         indexer->Stop();
     }
+    // Their threads post to the runloop and wake the screen - not left to the statics' destruction, after both are gone
+    workspace->StopMonitors();
     // Capture + persist the session while the documents are still open (clean-exit save).
     SaveSession();
     for(auto &document : workspace->GetOpenDocuments()) {
